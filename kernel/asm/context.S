@@ -8,7 +8,7 @@ __saveContext1:
 
 	/* load address of context array for current process into r0 */
 	push {r1-r12, r14}
-	bl _getCurrentContext
+	bl getCurrentContext
 	pop {r1-r12, r14}
 
 	/* if no process is active, return */
@@ -40,7 +40,7 @@ __saveContext2:
 
 	/* load address of context array for current process into r0 */
 	push {r1-r12, r14}
-	bl _getCurrentContext
+	bl getCurrentContext
 	pop {r1-r12, r14}
 
 	/* if no process is active, return */

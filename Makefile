@@ -25,19 +25,25 @@ QEMU_FLAGS = $(ARCH_QEMU_FLAGS) -nographic
 
 all: $(OS).bin
 
+LIB_OBJS = lib/string.o
+
 OBJS = kernel/asm/boot.o kernel/asm/system.o kernel/asm/context.o \
+	$(LIB_OBJS) \
 	kernel/startup.o \
+	kernel/hardware.o \
 	kernel/kernel.o \
 	kernel/irq.o \
 	kernel/syscall.o \
-	kernel/proc.o
+	kernel/kalloc.o \
+	kernel/mmu.o \
+	kernel/proc.o 
+
 
 $(OS).bin: $(OBJS) $(OS).ld 
 	mkdir -p build
 	$(LD) -T $(OS).ld $(OBJS) -o build/$(OS).elf
 	$(OBJCOPY) -O binary build/$(OS).elf build/$(OS).bin
 	$(OBJDUMP) -D build/$(OS).elf > build/$(OS).asm
-	rm -f $(OBJS)
 
 qemu: $(OS).bin
 	qemu-system-arm $(QEMU_FLAGS) -kernel build/$(OS).bin

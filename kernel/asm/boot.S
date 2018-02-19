@@ -12,7 +12,7 @@ __entry:
 	bl __enableInterrupts
 	bl __jump2HighMem
 
-	bl _kernelEntry
+	bl kernelEntry
 
 enablePaging:
 	mov r2, lr
@@ -20,7 +20,7 @@ enablePaging:
 	mov r0, #1
 	bl __setDomainAccessControl
 
-	ldr r0, =_startupSectionTable
+	ldr r0, =_startupPageDir
 	sub r0, #KERNEL_BASE
 	bl __setTranslationTableBase
 
@@ -64,7 +64,7 @@ syscallEntry:
 
 	stmfd r13!, {r1-r12, r14}
 
-	bl _handleSyscall
+	bl handleSyscall
 
 	ldmfd r13!, {r1-r12, pc}^
 
@@ -76,6 +76,6 @@ irqEntry:
 
 	stmfd r13!, {r0-r12, r14}
 
-	bl _handleIRQ
+	bl handleIRQ
 
 	ldmfd r13!, {r0-r12, pc}^

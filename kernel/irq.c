@@ -1,3 +1,3 @@
-void _handleIRQ() 
+void handleIRQ() 
 {
 }

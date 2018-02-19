@@ -5,6 +5,7 @@ start_address = 0x10000;
 SECTIONS
 {
 	. = 0x80000000 + start_address;
+	PROVIDE(_kernelStart = .);
 
 	.text : AT(start_address) 
 	{
