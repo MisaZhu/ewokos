@@ -1,6 +1,7 @@
 #include <mmu.h>
 
 __attribute__((aligned (PAGE_SIZE))) char _initStack[PAGE_SIZE];
+__attribute__((aligned (PAGE_SIZE))) char _irqStack[PAGE_SIZE];
 
 __attribute__((__aligned__(SECTION_TABLE_ALIGNMENT)))
 unsigned _startupSectionTable[SECTION_TABLE_SIZE] = {

@@ -1,4 +1,4 @@
-#include "mmu.h"
+extern char _kernelEnd[];
 
 void _kernelEntry() 
 {

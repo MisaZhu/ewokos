@@ -24,3 +24,22 @@ __setTranslationTableBase:
 __jump2HighMem:
 	add lr, #KERNEL_BASE
 	mov pc, lr
+
+.global __enableInterrupts
+__enableInterrupts:
+	mrs r1, cpsr
+	bic r1, r1, #0x80
+	msr cpsr_c, r1
+
+	mov pc, lr
+
+.global __useHighInterrupts
+__useHighInterrupts:
+	push {lr}
+	bl __readControlRegister
+	orr r0, #0x2000
+	bl __setControlRegister
+	pop {lr}
+
+	mov pc, lr
+

@@ -20,6 +20,7 @@ SECTIONS
 	{ 
 		*(.bss COMMON)
 	}
-
 	. = ALIGN(8);
+
+	PROVIDE(_kernelEnd = .);
 }

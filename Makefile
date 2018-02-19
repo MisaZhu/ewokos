@@ -15,24 +15,29 @@ OBJCOPY = arm-none-eabi-objcopy
 OBJDUMP = arm-none-eabi-objdump
 
 # flags
-CFLAGS = -mcpu=$(CPU) -gstabs -I. \
+CFLAGS = -mcpu=$(CPU) -gstabs -I include \
 				 -marm \
 				 -std=c99 -pedantic -Wall -Wextra -msoft-float -fPIC -mapcs-frame \
          -fno-builtin-printf -fno-builtin-strcpy -Wno-overlength-strings \
          -fno-builtin-exit
-ASFLAGS = -mcpu=$(CPU) -g -I.
+ASFLAGS = -mcpu=$(CPU) -g -I include
 QEMU_FLAGS = $(ARCH_QEMU_FLAGS) -nographic
 
 all: $(OS).bin
 
-OBJS = boot.o system.o startup.o kernel.o
+OBJS = kernel/asm/boot.o kernel/asm/system.o kernel/asm/context.o \
+	kernel/startup.o \
+	kernel/kernel.o \
+	kernel/irq.o \
+	kernel/syscall.o \
+	kernel/proc.o
 
 $(OS).bin: $(OBJS) $(OS).ld 
 	mkdir -p build
 	$(LD) -T $(OS).ld $(OBJS) -o build/$(OS).elf
 	$(OBJCOPY) -O binary build/$(OS).elf build/$(OS).bin
 	$(OBJDUMP) -D build/$(OS).elf > build/$(OS).asm
-	rm -fr *.o
+	rm -f $(OBJS)
 
 qemu: $(OS).bin
 	qemu-system-arm $(QEMU_FLAGS) -kernel build/$(OS).bin
