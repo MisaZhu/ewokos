@@ -59,6 +59,7 @@ interruptTableEnd:
 
 syscallEntry:
 	ldr sp, =_initStack
+	add sp, #4096
 
 	SAVE_CONTEXT
 
@@ -71,6 +72,7 @@ syscallEntry:
 irqEntry:
 	sub r14, r14, #4
 	ldr sp, =_irqStack
+	add sp, #4096
 
 	SAVE_CONTEXT
 

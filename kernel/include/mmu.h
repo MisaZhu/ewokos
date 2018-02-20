@@ -28,6 +28,7 @@
 
 #define V2P(V) ((uint32_t)V - KERNEL_BASE)
 #define P2V(P) ((uint32_t)P + KERNEL_BASE)
+#define MMIO_P2V(x) ((volatile unsigned int*) (MMIO_BASE + (x - MMIO_BASE_PHY)))
 
 /* descriptor types */
 #define PAGE_TYPE 2
@@ -77,6 +78,8 @@ void mapPages(PageDirEntryT *vm, MemoryMapT mapping);
 void mapPage(PageDirEntryT *vm, uint32_t physical,
 		     uint32_t virtual_addr, int access_permissions);
 void unmapPage(PageDirEntryT *vm, uint32_t virtual_addr);
+void freePageTables(PageDirEntryT *vm);
+uint32_t resolvePhyAddress(PageDirEntryT *vm, uint32_t virtual);
 
 #endif
 

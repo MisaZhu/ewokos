@@ -43,3 +43,11 @@ __useHighInterrupts:
 
 	mov pc, lr
 
+.global __switchToContext
+__switchToContext:
+	LDMIA R0!, {R12, R14}
+	MSR SPSR_fsxc, R12
+	LDMIA R0, {R0-R14}^
+	NOP
+	MOVS PC, R14
+

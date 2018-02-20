@@ -3,7 +3,7 @@ OS = EwokOS
 ifndef arch
 	arch = versatilepb
 endif
-include arch/$(arch)/config.mk
+include kernel/arch/$(arch)/config.mk
 
 # tools
 AR = arm-none-eabi-ar
@@ -15,29 +15,21 @@ OBJCOPY = arm-none-eabi-objcopy
 OBJDUMP = arm-none-eabi-objdump
 
 # flags
-CFLAGS = -mcpu=$(CPU) -gstabs -I include \
+CFLAGS = -mcpu=$(CPU) -gstabs -I kernel/include \
+				 -I lib/include \
+				 -I kernel/arch/$(arch)/include \
 				 -marm \
 				 -std=c99 -pedantic -Wall -Wextra -msoft-float -fPIC -mapcs-frame \
          -fno-builtin-printf -fno-builtin-strcpy -Wno-overlength-strings \
          -fno-builtin-exit
-ASFLAGS = -mcpu=$(CPU) -g -I include
+ASFLAGS = -mcpu=$(CPU) -g -I kernel/include
 QEMU_FLAGS = $(ARCH_QEMU_FLAGS) -nographic
 
 all: $(OS).bin
 
-LIB_OBJS = lib/string.o
-
-OBJS = kernel/asm/boot.o kernel/asm/system.o kernel/asm/context.o \
-	$(LIB_OBJS) \
-	kernel/startup.o \
-	kernel/hardware.o \
-	kernel/kernel.o \
-	kernel/irq.o \
-	kernel/syscall.o \
-	kernel/kalloc.o \
-	kernel/mmu.o \
-	kernel/proc.o 
-
+include kernel/build.mk
+include lib/build.mk
+include init/build.mk
 
 $(OS).bin: $(OBJS) $(OS).ld 
 	mkdir -p build
@@ -45,7 +37,7 @@ $(OS).bin: $(OBJS) $(OS).ld
 	$(OBJCOPY) -O binary build/$(OS).elf build/$(OS).bin
 	$(OBJDUMP) -D build/$(OS).elf > build/$(OS).asm
 
-qemu: $(OS).bin
+run: $(OS).bin
 	qemu-system-arm $(QEMU_FLAGS) -kernel build/$(OS).bin
 
 debug: $(OS).bin

@@ -72,3 +72,34 @@ void unmapPage(PageDirEntryT *vm, uint32_t virtualAddr)
 	pageTable[pageIndex].type = 0;
 }
 
+/*
+ * resolve_physical_address simulates the virtual memory hardware and maps the
+ * given virtual address to physical address. This function can be used for
+ * debugging if given virtual memory is constructed correctly.
+ */
+uint32_t resolvePhyAddress(PageDirEntryT *vm, uint32_t virtual)
+{
+	PageDirEntryT *pdir = NULL;
+	PageTableEntryT *page = NULL;
+	uint32_t result = 0;
+	void *baseAddress = 0;
+
+	pdir = (void *) ((uint32_t) vm | ((virtual >> 20) << 2));
+	baseAddress = (void *) (pdir->base << 10);
+	page = (void *) ((uint32_t) baseAddress | ((virtual >> 10) & 0x3fc));
+	page = (void *) P2V(page);
+	result = (page->base << 12) | (virtual & 0xfff);
+
+	return result;
+}
+
+void freePageTables(PageDirEntryT *vm)
+{
+	for (int i = 0; i < PAGE_DIR_NUM; i++) {
+		if (vm[i].type != 0) {
+			void *pageTable = (void *) P2V(BASE_TO_PAGE_TABLE(vm[i].base));
+			kfree1k(pageTable);
+		}
+	}
+}
+

@@ -2,9 +2,11 @@
 #include <kernel.h>
 #include <hardware.h>
 #include <kalloc.h>
-#include <lib/string.h>
 #include <system.h>
+#include <console.h>
 #include <proc.h>
+
+#include <lib/string.h>
 
 
 /* kernel virtual to physical memory mappings */
@@ -42,6 +44,10 @@ void setKernelVM(PageDirEntryT* vm)
 	}
 }
 
+void schedulerInit();
+void schedule();
+bool loadInit(ProcessT *proc);
+
 void kernelEntry() 
 {
 	kallocInit(ALLOCATABLE_MEMORY_START,
@@ -53,4 +59,13 @@ void kernelEntry()
 			KERNEL_BASE + getPhyRamSize());
 
 	procInit();
+	consoleInit();
+
+	kputs("Hello EwokOS.\n");
+
+	ProcessT *proc = procCreate();
+	loadInit(proc);
+
+	schedulerInit();
+	schedule();
 }

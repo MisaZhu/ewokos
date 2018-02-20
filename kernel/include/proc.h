@@ -15,6 +15,7 @@
 #else
 
 #include <types.h>
+#include <mmu.h>
 
 typedef void (*EntryFunctionT)(void);
 
@@ -55,6 +56,8 @@ extern ProcessT _processTable[PROCESS_COUNT_MAX];
 
 extern void procInit();
 extern ProcessT *procCreate(void);
+bool procLoad(ProcessT *proc, char **procImage, int pageCount);
+void procStart(ProcessT *proc);
 
 #endif
 
