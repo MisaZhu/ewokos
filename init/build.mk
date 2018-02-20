@@ -1,20 +1,13 @@
-INIT_CC = arm-none-eabi-gcc
-INIT_CFLAGS = -mcpu=arm1176jz-s -marm -g0 \
-         -std=c99 -pedantic -Wall -Wextra -msoft-float -fPIC -mapcs-frame \
-         -fno-builtin-printf -fno-builtin-strcpy -nostdinc -nostdlib \
-         -I lib/include
-
 OBJS += init/init_img.o
 INIT_PROGRAM = init/init
 
 EXTRA_CLEAN += $(INIT_PROGRAM) init/base16 init/init_img.c
 
-init/%: init/%.c
-	$(INIT_CC) $(INIT_CFLAGS) -c -o $@.o $<
-	$(LD) -Ttext=100 $@.o \
-	lib/src/*.o \
- 	-o $@
-	rm -f $@.o
+INIT_OBJS = init/init.o
+
+init/init: $(INIT_OBJS) lib/libewok.a
+	$(LD) -Ttext=100 $(INIT_OBJS) lib/libewok.a -o $@
+	rm -f $(INIT_OBJS)
 
 init/base16: init/base16.c
 	gcc $< -o $@

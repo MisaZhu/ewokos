@@ -55,16 +55,19 @@ void kernelEntry()
 
 	initKernelVM();
 
+	consoleInit();
+	kputs("\n\n=================\nEwokOS (by Misa.Z)\n=================\n");
+
 	kallocInit(KERNEL_BASE + INIT_MEMORY_SIZE,
 			KERNEL_BASE + getPhyRamSize());
 
-	consoleInit();
-	kputs("\n\n=================\nEwokOS booted.\n=================\n");
+	kputs("MMU got ready.\n");
 
 	procInit();
+	kputs("Process manager got ready.\nLoading the first process...\n");
+
 	ProcessT *proc = procCreate();
 	loadInit(proc);
-
 	schedulerInit();
 	schedule();
 }

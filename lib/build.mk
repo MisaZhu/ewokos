@@ -1,3 +1,9 @@
-OBJS += lib/src/string.o \
+LIB_OBJS = lib/src/string.o \
 	lib/src/syscall.o \
 	lib/src/stdio.o
+
+lib/libewok.a: $(LIB_OBJS)
+	mkdir -p build
+	$(AR) rT $@ $(LIB_OBJS)	
+
+EXTRA_CLEAN += $(LIB_OBJS) lib/libewok.a
