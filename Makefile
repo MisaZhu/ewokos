@@ -15,7 +15,7 @@ OBJCOPY = arm-none-eabi-objcopy
 OBJDUMP = arm-none-eabi-objdump
 
 # flags
-CFLAGS = -mcpu=$(CPU) -gstabs -I kernel/include \
+CFLAGS = -mcpu=$(CPU) -gstabs -I. -I kernel/include \
 				 -I lib/include \
 				 -I kernel/arch/$(arch)/include \
 				 -marm \

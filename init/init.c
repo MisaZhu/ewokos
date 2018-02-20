@@ -2,7 +2,7 @@
 
 void _start()
 {
+	putstr("\nLet there be light!\n  (here comes the first process).\n");
 	while (1) {
-		putstr("hello.\n");
 	}
 }

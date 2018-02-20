@@ -58,11 +58,10 @@ void kernelEntry()
 	kallocInit(KERNEL_BASE + INIT_MEMORY_SIZE,
 			KERNEL_BASE + getPhyRamSize());
 
-	procInit();
 	consoleInit();
+	kputs("\n\n=================\nEwokOS booted.\n=================\n");
 
-	kputs("Hello EwokOS.\n");
-
+	procInit();
 	ProcessT *proc = procCreate();
 	loadInit(proc);
 
