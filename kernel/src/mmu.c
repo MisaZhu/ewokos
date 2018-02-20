@@ -18,10 +18,10 @@ void mapPages(PageDirEntryT *vm, MemoryMapT mapping)
 
 	/* iterate over pages and map each page */
 	virtualCurrent = virtualStart;
-	for (physicalCurrent = physicalStart; physicalCurrent != physicalEnd;
-	     physicalCurrent += PAGE_SIZE) {
-		mapPage(vm, physicalCurrent, virtualCurrent,
-			 mapping.permissions);
+	for (physicalCurrent = physicalStart; 
+			physicalCurrent != physicalEnd;
+			physicalCurrent += PAGE_SIZE) {
+		mapPage(vm, physicalCurrent, virtualCurrent, mapping.permissions);
 		virtualCurrent += PAGE_SIZE;
 	}
 }
@@ -38,7 +38,7 @@ void mapPage(PageDirEntryT *vm, uint32_t physical,
 	uint32_t pageDirIndex = PAGE_DIR_INDEX(virtualAddr);
 	uint32_t pageIndex = PAGE_INDEX(virtualAddr);
 
-	/* if this pageDir is not mapped before, map it to a new page table */
+	/* if this pageDirEntry is not mapped before, map it to a new page table */
 	if (vm[pageDirIndex].type == 0) {
 		pageTable = kalloc1k();
 		memset(pageTable, 0, PAGE_TABLE_SIZE);

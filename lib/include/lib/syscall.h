@@ -6,7 +6,9 @@ int syscall1(int code, int arg1);
 int syscall2(int code, int arg1, int arg2);
 
 typedef enum {
-	SYSCALL_PUTCH
+	SYSCALL_PUTCH,
+	SYSCALL_FORK,
+	SYSCALL_EXIT
 } SyscallCodeT;
 
 

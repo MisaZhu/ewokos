@@ -1,5 +1,6 @@
 LIB_OBJS = lib/src/string.o \
 	lib/src/syscall.o \
+	lib/src/fork.o \
 	lib/src/stdio.o
 
 lib/libewok.a: $(LIB_OBJS)

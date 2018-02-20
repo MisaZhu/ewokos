@@ -18,6 +18,7 @@ static MemoryMapT _kernelMaps[] = {
 		0, AP_RW_D}
 };
 
+PageDirEntryT* _kernelVM = NULL;
 
 void initKernelVM() 
 {
@@ -26,12 +27,12 @@ void initKernelVM()
 	//get the end of bootup part kernel.
 	unsigned kend = (unsigned)_kernelEnd; 
 	//align up to PAGE_DIR_SIZE (like 16KB in this case).
-	PageDirEntryT* vm = (PageDirEntryT*)ALIGN_UP(kend, PAGE_DIR_SIZE);
+	_kernelVM = (PageDirEntryT*)ALIGN_UP(kend, PAGE_DIR_SIZE);
 
-	setKernelVM(vm);
+	setKernelVM(_kernelVM);
 	
 	//Use physical address of kernel virtual memory as the new virtual memory page dir table base.
-	__setTranslationTableBase(V2P((uint32_t)vm));
+	__setTranslationTableBase(V2P((uint32_t)_kernelVM));
 }
 
 void setKernelVM(PageDirEntryT* vm) 
