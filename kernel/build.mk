@@ -15,6 +15,5 @@ OBJS += $(ARCH_OBJS) \
 	$(KERNEL_DIR)/src/mmu.o \
 	$(KERNEL_DIR)/src/proc.o \
 	$(KERNEL_DIR)/src/scheduler.o \
-	$(KERNEL_DIR)/src/console.o \
-	$(KERNEL_DIR)/src/loadinit.o
+	$(KERNEL_DIR)/src/console.o
 

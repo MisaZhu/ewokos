@@ -4,7 +4,8 @@
 
 extern const char *init_img[];
 
-
+/* We don't have file system yet, so the first elf-format process "init" will be encoded to a base64 in memory. 
+after booted, the kernel will decode the elf and run it*/
 static void b16decode(const char *input, int inputLen, char *output, int *outputLen)
 {
 	int i;

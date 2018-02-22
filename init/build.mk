@@ -1,4 +1,4 @@
-OBJS += init/init_img.o
+OBJS += init/init_img.o init/loadinit.o
 INIT_PROGRAM = init/init
 
 EXTRA_CLEAN += $(INIT_PROGRAM) init/base16 init/init_img.c

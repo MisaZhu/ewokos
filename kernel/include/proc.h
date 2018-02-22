@@ -58,6 +58,8 @@ extern void procInit();
 extern ProcessT *procCreate(void);
 bool procLoad(ProcessT *proc, char **procImage, int pageCount);
 void procStart(ProcessT *proc);
+void procFree(ProcessT *proc);
+void procExpandMemory(ProcessT *proc, int pageCount);
 
 #endif
 

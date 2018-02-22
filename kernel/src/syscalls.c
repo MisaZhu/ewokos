@@ -5,6 +5,9 @@
 #include <console.h>
 #include <proc.h>
 #include <kernel.h>
+#include <lib/string.h>
+
+void schedule();
 
 static int syscall_putch(int c)
 {
