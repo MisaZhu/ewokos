@@ -50,11 +50,11 @@ static int syscall_fork(void)
 	return child->pid;
 }
 
-static int syscall_exit(int arg1)
+static int syscall_exit(int arg0)
 {
 	int pid;
 
-	(void) arg1;
+	(void) arg0;
 	if (_currentProcess == NULL)
 		return -1;
 
@@ -86,8 +86,8 @@ static int (*const _syscallHandler[])() = {
 };
 
 /* kernel side of system calls. */
-int handleSyscall(int code, int arg1, int arg2, int arg3)
+int handleSyscall(int code, int arg0, int arg1, int arg2)
 {
-	return _syscallHandler[code](arg1, arg2, arg3);
+	return _syscallHandler[code](arg0, arg1, arg2);
 }
 

@@ -21,7 +21,7 @@
 #define KERNEL_STACK_BOTTOM (KERNEL_BASE - 2 * PAGE_SIZE)
 #define USER_STACK_BOTTOM (KERNEL_BASE - 3 * PAGE_SIZE)
 
-#define INIT_MEMORY_SIZE (32*MB)
+#define INIT_MEMORY_SIZE (4*MB)
 
 #define ALIGN_DOWN(x, alignment) ((x) & ~(alignment - 1))
 #define ALIGN_UP(x, alignment) (((x) + alignment - 1) & ~(alignment - 1))

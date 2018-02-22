@@ -166,7 +166,7 @@ bool procLoad(ProcessT *proc, char **procImage, int pageCount)
 	proc->state = READY;
 
 	memset(proc->context, 0, sizeof(proc->context));
-	proc->context[CPSR] = 0x10;
+	proc->context[CPSR] = 0x10; //CPSR 0x10 for user mode
 	proc->context[RESTART_ADDR] = (int) proc->entry;
 	proc->context[SP] = USER_STACK_BOTTOM + PAGE_SIZE;
 

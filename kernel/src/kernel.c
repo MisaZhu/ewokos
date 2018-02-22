@@ -51,16 +51,37 @@ bool loadInit(ProcessT *proc);
 
 void kernelEntry() 
 {
+	/*
+	build free mems list only for kernel init.
+
+	We can only use init memory part
+	(from ALLOCATABLE_MEMORY_START to 'KERNEL_BASE + INIT_MEMORY_SIZE'),
+	cause the boot program only mapped part of mem by _startupPageDir(startup.c).
+	Notice: This part of physical mem (0 to INIT_MEMORY_SIZE) 
+		only works for init kernel page mapping,
+		means, after that, it can not be used any more!
+	*/
 	kallocInit(ALLOCATABLE_MEMORY_START,
 			KERNEL_BASE + INIT_MEMORY_SIZE);
 
+	/*
+	Done mapping all mem
+	*/
 	initKernelVM();
 
-	consoleInit();
-	kputs("\n\n=================\nEwokOS (by Misa.Z)\n=================\n");
-
+	/*
+	Since kernel mem mapping finished, 
+	we can build free mems list for all the rest mem
+	Notice:	From now, you can only use physical mem from 
+		INIT_MEMORY_SIZE to getPhyRamSize.
+	*/
 	kallocInit(KERNEL_BASE + INIT_MEMORY_SIZE,
 			KERNEL_BASE + getPhyRamSize());
+
+	consoleInit();
+	kputs("\n\n=================\n"
+				"EwokOS (by Misa.Z)\n"
+				"=================\n");
 
 	kputs("MMU got ready.\n");
 
