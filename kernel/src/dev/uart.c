@@ -1,9 +1,8 @@
-#include <console.h>
 #include <hardware.h>
 #include <irq.h>
 #include <lib/string.h>
 #include <mmu.h>
-#include <uart.h>
+#include <dev/uart.h>
 
 /* receive buffer */
 #define RECEIVE_BUFFER_SIZE 16
@@ -16,15 +15,15 @@ static void uartInterruptHandler(void);
 static int circularInc(int operand, int circleSize);
 
 /*
- * console_init intializes the receive_buffer, then setups up the interrupt
+ * uart_init intializes the receive_buffer, then setups up the interrupt
  * handler for the serial port.
  */
-void consoleInit(void)
+void uartInit(void)
 {
 	receiveBufferHead = 0;
 	receiveBufferTail = 0;
 
-	uartInit();
+	uartDevInit();
 	registerInterruptHandler(UART_IRQ, uartInterruptHandler);
 }
 

@@ -1,6 +1,6 @@
 #include <mmu.h>
 #include <hardware.h>
-#include <uart.h>
+#include <dev/uart.h>
 
 /* memory mapping for the serial port */
 #define UART0 MMIO_P2V(0x101f1000)
@@ -16,7 +16,7 @@
 #define UART_RECEIVE  0x10
 #define UART_TRANSMIT 0x20
 
-void uartInit(void) {
+void uartDevInit(void) {
 	UART0[UART_INT_ENABLE] = UART_RECEIVE;
 }
 

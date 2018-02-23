@@ -19,7 +19,7 @@
 
 typedef void (*EntryFunctionT)(void);
 
-#define PROCESS_COUNT_MAX 10
+#define PROCESS_COUNT_MAX 128
 
 enum ProcessState {
 	UNUSED,

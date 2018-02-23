@@ -2,7 +2,7 @@
 #include <system.h>
 #include <syscalls.h>
 #include <types.h>
-#include <console.h>
+#include <dev/uart.h>
 #include <proc.h>
 #include <kernel.h>
 #include <lib/string.h>

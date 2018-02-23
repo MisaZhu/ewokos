@@ -3,9 +3,8 @@
 #include <hardware.h>
 #include <kalloc.h>
 #include <system.h>
-#include <console.h>
+#include <dev/uart.h>
 #include <proc.h>
-
 #include <lib/string.h>
 
 
@@ -78,15 +77,14 @@ void kernelEntry()
 	kallocInit(KERNEL_BASE + INIT_MEMORY_SIZE,
 			KERNEL_BASE + getPhyRamSize());
 
-	consoleInit();
+	procInit();
+
+	uartInit();
 	kputs("\n\n=================\n"
 				"EwokOS (by Misa.Z)\n"
-				"=================\n");
-
-	kputs("MMU got ready.\n");
-
-	procInit();
-	kputs("Process manager got ready.\nLoading the first process...\n");
+				"=================\n"
+				"Kernel got ready(MMU and ProcMan).\n"
+				"Loading the first process...\n");
 
 	ProcessT *proc = procCreate();
 	loadInit(proc);
