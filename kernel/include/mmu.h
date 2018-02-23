@@ -66,17 +66,16 @@ typedef struct {
 	unsigned int base : 20;
 } PageTableEntryT; 
 
-/* to hold information about a mapping */
-typedef struct {
-	uint32_t vAddr;
-	uint32_t pStart;
-	uint32_t pEnd;
-	int permissions;
-} MemoryMapT ;
+void mapPages(PageDirEntryT *vm, uint32_t vaddr, 
+	uint32_t pstart, 
+	uint32_t pend,  
+	int access_permissions);
 
-void mapPages(PageDirEntryT *vm, MemoryMapT mapping);
-void mapPage(PageDirEntryT *vm, uint32_t physical,
-		     uint32_t virtual_addr, int access_permissions);
+void mapPage(PageDirEntryT *vm, 
+  uint32_t virtual_addr, 
+	uint32_t physical,
+	int access_permissions);
+
 void unmapPage(PageDirEntryT *vm, uint32_t virtual_addr);
 void freePageTables(PageDirEntryT *vm);
 uint32_t resolvePhyAddress(PageDirEntryT *vm, uint32_t virtual);

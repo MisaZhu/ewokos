@@ -7,20 +7,10 @@
 #include <proc.h>
 #include <lib/string.h>
 
-/* kernel virtual to physical memory mappings */
-static MemoryMapT _kernelMaps[] = {
-	{KERNEL_BASE, 0, V2P(_kernelEnd), AP_RW_D},
-	{MMIO_BASE, MMIO_BASE_PHY, MMIO_BASE_PHY + MMIO_MEM_SIZE, AP_RW_D},
-	{INTERRUPT_VECTOR_BASE, 0, PAGE_SIZE, AP_RW_D},
-	{ALLOCATABLE_MEMORY_START, V2P(ALLOCATABLE_MEMORY_START),
-		0, AP_RW_D}
-};
-
 PageDirEntryT* _kernelVM = NULL;
 
 void initKernelVM() 
 {
-	_kernelMaps[3].pEnd = getPhyRamSize();
 
 	//get the end of bootup part kernel.
 	unsigned kend = (unsigned)_kernelEnd; 
@@ -37,10 +27,10 @@ void setKernelVM(PageDirEntryT* vm)
 {
 	memset(vm, 0, PAGE_DIR_SIZE);
 
-	// add each of the mappings
-	for (int i = 0; i < 4; i++) {
-		mapPages(vm, _kernelMaps[i]);
-	}
+	mapPages(vm, KERNEL_BASE, 0, V2P(_kernelEnd), AP_RW_D);
+	mapPages(vm, MMIO_BASE, MMIO_BASE_PHY, MMIO_BASE_PHY + MMIO_MEM_SIZE, AP_RW_D);
+	mapPages(vm, INTERRUPT_VECTOR_BASE, 0, PAGE_SIZE, AP_RW_D);
+	mapPages(vm, ALLOCATABLE_MEMORY_START, V2P(ALLOCATABLE_MEMORY_START), getPhyRamSize(), AP_RW_D);
 }
 
 void schedulerInit();

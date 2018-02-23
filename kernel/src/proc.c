@@ -47,19 +47,15 @@ ProcessT *procCreate(void)
 	vm = _processVM[pid - 1];
 	setKernelVM(vm);
 
-	mapPages(vm, (MemoryMapT){
+	mapPage(vm, 
 		KERNEL_STACK_BOTTOM,
 		V2P(kernelStack),
-		V2P(kernelStack) + PAGE_SIZE,
-		AP_RW_R
-	});
+		AP_RW_R);
 
-	mapPages(vm, (MemoryMapT){
+	mapPage(vm,
 		USER_STACK_BOTTOM,
 		V2P(userStack),
-		V2P(userStack) + PAGE_SIZE,
-		AP_RW_RW
-	});
+		AP_RW_RW);
 
 
 	proc = &_processTable[pid - 1];
@@ -93,12 +89,10 @@ bool procExpandMemory(ProcessT *proc, int pageCount)
 		}
 		memset(page, 0, PAGE_SIZE);
 
-		mapPages(proc->vm, (MemoryMapT){
+		mapPage(proc->vm, 
 				proc->heapSize,
 				V2P(page),
-				V2P(page) + PAGE_SIZE,
-				AP_RW_RW
-				});
+				AP_RW_RW);
 		proc->heapSize += PAGE_SIZE;
 	}
 	return true;

@@ -18,7 +18,7 @@ static MemBlockT* genBlock(char* p, uint32_t size) {
 /*if block size much bigger than the size required, break to two blocks*/
 static void tryBreak(ProcessT* proc, MemBlockT* block, uint32_t size) {
 	uint32_t blockSize = sizeof(MemBlockT);
-	//require more than half size of block. no break.
+	//required more than half size of block. no break.
 	if((blockSize + size) > (uint32_t)(block->size/2)) 
 		return;
 	
@@ -41,8 +41,6 @@ static void tryBreak(ProcessT* proc, MemBlockT* block, uint32_t size) {
 }
 
 char* pmalloc(ProcessT* proc, uint32_t size) {
-	uint32_t pages;
-
 	MemBlockT* block = proc->mHead;
 	while(block != NULL) {
 		if(block->used || block->size < size) {
@@ -59,7 +57,7 @@ char* pmalloc(ProcessT* proc, uint32_t size) {
 	uint32_t blockSize = sizeof(MemBlockT);
 	uint32_t expandSize = size + blockSize;
 
-	pages = expandSize / PAGE_SIZE;	
+	uint32_t pages = expandSize / PAGE_SIZE;	
 	if((expandSize % PAGE_SIZE) > 0)
 		pages++;
 

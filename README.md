@@ -13,6 +13,6 @@
 	
 .Source code read-guide
 
-	boot.S => kalloc.c => mmu.c => proc.c => sheduler.c => syscalls.c
+	boot.S => kalloc.c => mmu.c => proc.c => sheduler.c => syscalls.c => pmalloc.c
 
 	Tips: Don't fall in love with assembly too much;).

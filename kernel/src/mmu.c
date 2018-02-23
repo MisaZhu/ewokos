@@ -7,21 +7,21 @@
  * map_pages adds the given virtual to physical memory mapping to the given
  * virtual memory. A mapping can map multiple pages.
  */
-void mapPages(PageDirEntryT *vm, MemoryMapT mapping)
+void mapPages(PageDirEntryT *vm, uint32_t vaddr, uint32_t pstart, uint32_t pend, int permissions)
 {
 	uint32_t physicalCurrent = 0;
 	uint32_t virtualCurrent = 0;
 
-	uint32_t virtualStart = ALIGN_DOWN(mapping.vAddr, PAGE_SIZE);
-	uint32_t physicalStart = ALIGN_DOWN(mapping.pStart, PAGE_SIZE);
-	uint32_t physicalEnd = ALIGN_UP(mapping.pEnd, PAGE_SIZE);
+	uint32_t virtualStart = ALIGN_DOWN(vaddr, PAGE_SIZE);
+	uint32_t physicalStart = ALIGN_DOWN(pstart, PAGE_SIZE);
+	uint32_t physicalEnd = ALIGN_UP(pend, PAGE_SIZE);
 
 	/* iterate over pages and map each page */
 	virtualCurrent = virtualStart;
 	for (physicalCurrent = physicalStart; 
 			physicalCurrent != physicalEnd;
 			physicalCurrent += PAGE_SIZE) {
-		mapPage(vm, physicalCurrent, virtualCurrent, mapping.permissions);
+		mapPage(vm,  virtualCurrent, physicalCurrent, permissions);
 		virtualCurrent += PAGE_SIZE;
 	}
 }
@@ -29,9 +29,10 @@ void mapPages(PageDirEntryT *vm, MemoryMapT mapping)
 /*
  * map_page adds to the given virtual memory the mapping of a single virtual page
  * to a physical page.
+ * Notice: virtual and physical address inputed must be all aliend by PAGE_SIZE !
  */
-void mapPage(PageDirEntryT *vm, uint32_t physical,
-		     uint32_t virtualAddr, int permissions)
+void mapPage(PageDirEntryT *vm, uint32_t virtualAddr,
+		     uint32_t physical, int permissions)
 {
 	PageTableEntryT *pageTable = NULL;
 
