@@ -14,4 +14,5 @@
 .Source code read-guide
 
 	boot.S => kalloc.c => mmu.c => proc.c => sheduler.c => syscalls.c
-	(Tips: Don't stick with assembly).
+
+	Tips: Don't fall in love with assembly too much;).
