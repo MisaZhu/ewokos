@@ -71,6 +71,9 @@ ProcessT *procCreate(void)
 	proc->userStack = userStack;
 	proc->waitPid = -1;
 
+	proc->mHead = 0;
+	proc->mTail = 0;
+
 	return proc;
 }
 
@@ -80,10 +83,14 @@ int *getCurrentContext(void)
 }
 
 /* proc_exapnad_memory expands the heap size of the given process. */
-void procExpandMemory(ProcessT *proc, int pageCount)
+bool procExpandMemory(ProcessT *proc, int pageCount)
 {
 	for (int i = 0; i < pageCount; i++) {
 		char *page = kalloc();
+		if(page == NULL) {
+			procShrinkMemory(proc, i);
+			return false;
+		}
 		memset(page, 0, PAGE_SIZE);
 
 		mapPages(proc->vm, (MemoryMapT){
@@ -94,6 +101,7 @@ void procExpandMemory(ProcessT *proc, int pageCount)
 				});
 		proc->heapSize += PAGE_SIZE;
 	}
+	return true;
 }
 
 /* proc_shrink_memory shrinks the heap size of the given process. */

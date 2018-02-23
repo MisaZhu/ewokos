@@ -8,7 +8,7 @@ __saveContext1:
 
 	/* load address of context array for current process into r0 */
 	push {r1-r12, r14}
-	bl getCurrentContext
+	bl getCurrentContext /*kernel/src/proc.c */
 	pop {r1-r12, r14}
 
 	/* if no process is active, return */

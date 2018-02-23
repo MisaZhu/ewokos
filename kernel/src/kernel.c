@@ -7,7 +7,6 @@
 #include <proc.h>
 #include <lib/string.h>
 
-
 /* kernel virtual to physical memory mappings */
 static MemoryMapT _kernelMaps[] = {
 	{KERNEL_BASE, 0, V2P(_kernelEnd), AP_RW_D},
@@ -71,7 +70,7 @@ void kernelEntry()
 	/*
 	Since kernel mem mapping finished, 
 	we can build free mems list for all the rest mem
-	Notice:	From now, you can only use physical mem from 
+	Notice:	From now, you can only kalloc physical mem from 
 		INIT_MEMORY_SIZE to getPhyRamSize.
 	*/
 	kallocInit(KERNEL_BASE + INIT_MEMORY_SIZE,
@@ -88,6 +87,7 @@ void kernelEntry()
 
 	ProcessT *proc = procCreate();
 	loadInit(proc);
+
 	schedulerInit();
 	schedule();
 }

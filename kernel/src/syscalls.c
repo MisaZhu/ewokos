@@ -6,6 +6,7 @@
 #include <proc.h>
 #include <kernel.h>
 #include <lib/string.h>
+#include <pmalloc.h>
 
 void schedule();
 
@@ -79,10 +80,23 @@ static int syscall_exit(int arg0)
 	return 0;
 }
 
+static int syscall_pmalloc(int arg0) {
+	char* p = pmalloc(_currentProcess, (uint32_t)arg0);
+	return (int)p;
+}
+
+static int syscall_pfree(int arg0) {
+	char* p = (char*)arg0;
+	pfree(_currentProcess, p);
+	return 0;
+}
+
 static int (*const _syscallHandler[])() = {
 	[SYSCALL_PUTCH] = syscall_putch,
 	[SYSCALL_FORK] = syscall_fork,
-	[SYSCALL_EXIT] = syscall_exit
+	[SYSCALL_EXIT] = syscall_exit,
+	[SYSCALL_PMALLOC] = syscall_pmalloc,
+	[SYSCALL_PFREE] = syscall_pfree,
 };
 
 /* kernel side of system calls. */

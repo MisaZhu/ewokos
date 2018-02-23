@@ -2,6 +2,7 @@ OS = EwokOS
 
 ifndef arch
 	arch = versatilepb
+#	arch = raspberrypi
 endif
 include kernel/arch/$(arch)/config.mk
 

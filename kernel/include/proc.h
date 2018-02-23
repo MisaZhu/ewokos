@@ -30,6 +30,8 @@ enum ProcessState {
 	TERMINATED
 };
 
+struct MemBlock;
+
 enum ContextItem {
 	CPSR, RESTART_ADDR,
 	R0, R1, R2, R3, R4, R5, R6, R7, R8, R9, R10, R11, R12,
@@ -48,6 +50,10 @@ typedef struct {
 
 	int waitPid;
 	int childReturnValue;
+
+	/*for malloc*/
+	struct MemBlock* mHead;
+	struct MemBlock* mTail;
 } ProcessT;
 
 /* public symbols */
@@ -59,7 +65,8 @@ extern ProcessT *procCreate(void);
 bool procLoad(ProcessT *proc, char **procImage, int pageCount);
 void procStart(ProcessT *proc);
 void procFree(ProcessT *proc);
-void procExpandMemory(ProcessT *proc, int pageCount);
+bool procExpandMemory(ProcessT *proc, int pageCount);
+void procShrinkMemory(ProcessT *proc, int pageCount);
 
 #endif
 

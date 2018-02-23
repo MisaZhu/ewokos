@@ -17,5 +17,6 @@ OBJS += $(ARCH_OBJS) \
 	$(KERNEL_DIR)/src/kalloc.o \
 	$(KERNEL_DIR)/src/mmu.o \
 	$(KERNEL_DIR)/src/proc.o \
+	$(KERNEL_DIR)/src/pmalloc.o \
 	$(KERNEL_DIR)/src/scheduler.o 
 

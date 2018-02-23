@@ -3,30 +3,30 @@
 
 .global __entry
 __entry:
-	ldr sp, =_initStack
+	ldr sp, =_initStack /*(kernel/src/startup.c*/
 	add sp, #4096
 
 	bl enablePaging
 	bl copyInterruptTable
-	bl __useHighInterrupts
-	bl __enableInterrupts
-	bl __jump2HighMem
+	bl __useHighInterrupts  /* (system.S*/
+	bl __enableInterrupts /*system.S*/
+	bl __jump2HighMem /*system.S*/
 
-	bl kernelEntry
+	bl kernelEntry /*C entry at kernel/src/kernel.c*/
 
 enablePaging:
 	mov r2, lr
 
 	mov r0, #1
-	bl __setDomainAccessControl
+	bl __setDomainAccessControl /*system.S*/
 
-	ldr r0, =_startupPageDir
+	ldr r0, =_startupPageDir /*startup.c*/
 	sub r0, #KERNEL_BASE
-	bl __setTranslationTableBase
+	bl __setTranslationTableBase /*system.S*/
 
-	bl __readControlRegister
+	bl __readControlRegister /*system.S*/
 	orr r0, #1
-	bl __setControlRegister
+	bl __setControlRegister /*system.S*/
 
 	mov pc, r2
 
@@ -58,14 +58,14 @@ interruptTableStart:
 interruptTableEnd:
 
 syscallEntry:
-	ldr sp, =_initStack
+	ldr sp, =_initStack /*kernel/src/startup.c*/
 	add sp, #4096
 
-	SAVE_CONTEXT
+	SAVE_CONTEXT /*proc.h*/
 
 	stmfd r13!, {r1-r12, r14}
 
-	bl handleSyscall
+	bl handleSyscall /*kernel/src/syscalls.c*/
 
 	ldmfd r13!, {r1-r12, pc}^
 
@@ -78,6 +78,6 @@ irqEntry:
 
 	stmfd r13!, {r0-r12, r14}
 
-	bl handleIRQ
+	bl handleIRQ /*kernel/src/irq.c*/
 
 	ldmfd r13!, {r0-r12, pc}^

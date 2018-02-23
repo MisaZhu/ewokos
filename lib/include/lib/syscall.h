@@ -10,6 +10,8 @@ typedef enum {
 	SYSCALL_PUTCH,
 	SYSCALL_FORK,
 	SYSCALL_EXIT,
+	SYSCALL_PMALLOC,
+	SYSCALL_PFREE,
 } SyscallCodeT;
 
 
