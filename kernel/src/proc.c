@@ -6,6 +6,7 @@
 #include <system.h>
 #include <types.h>
 #include <elf.h>
+#include <kserv.h>
 
 ProcessT _processTable[PROCESS_COUNT_MAX];
 
@@ -121,6 +122,7 @@ void procShrinkMemory(ProcessT *proc, int pageCount)
 /* proc_free frees all resources allocated by proc. */
 void procFree(ProcessT *proc)
 {
+	kservUnreg(proc);
 	kfree(proc->kernelStack);
 	kfree(proc->userStack);
 	procShrinkMemory(proc, proc->heapSize / PAGE_SIZE);

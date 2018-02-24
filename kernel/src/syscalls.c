@@ -7,6 +7,7 @@
 #include <kernel.h>
 #include <lib/string.h>
 #include <pmalloc.h>
+#include <kserv.h>
 
 void schedule();
 
@@ -40,6 +41,10 @@ static int syscall_fork(void)
 
 	/* copy parent's context to child's context */
 	memcpy(child->context, parent->context, sizeof(child->context));
+
+	/*pmalloc list*/
+	child->mHead = parent->mHead;
+	child->mTail = parent->mTail;
 
 	/* set return value of fork in child to 0 */
 	child->context[R0] = 0;
@@ -91,12 +96,30 @@ static int syscall_pfree(int arg0) {
 	return 0;
 }
 
+static int syscall_kservReg(int arg0) {
+	if(kservReg(arg0))
+		return 0;
+	return -1;
+}
+
+static int syscall_kservWrite(int arg0, int arg1, int arg2) {
+	return kservWrite(arg0, (char*)arg1, arg2);
+}
+
+static int syscall_kservRead(int arg0, int arg1, int arg2) {
+	return kservRead(arg0, (char*)arg1, arg2);
+}
+
 static int (*const _syscallHandler[])() = {
 	[SYSCALL_PUTCH] = syscall_putch,
 	[SYSCALL_FORK] = syscall_fork,
 	[SYSCALL_EXIT] = syscall_exit,
 	[SYSCALL_PMALLOC] = syscall_pmalloc,
 	[SYSCALL_PFREE] = syscall_pfree,
+
+	[SYSCALL_KSERV_REG] = syscall_kservReg,
+	[SYSCALL_KSERV_WRITE] = syscall_kservWrite,
+	[SYSCALL_KSERV_READ] = syscall_kservRead,
 };
 
 /* kernel side of system calls. */
