@@ -190,3 +190,11 @@ void procStart(ProcessT *proc)
 
 	__switchToContext(proc->context);
 }
+
+ProcessT* procGet(int pid) 
+{
+	if (pid > 0 && pid <= PROCESS_COUNT_MAX)
+		return &_processTable[pid - 1];
+	else
+		return NULL;
+}

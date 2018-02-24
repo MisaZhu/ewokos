@@ -67,6 +67,7 @@ void procStart(ProcessT *proc);
 void procFree(ProcessT *proc);
 bool procExpandMemory(ProcessT *proc, int pageCount);
 void procShrinkMemory(ProcessT *proc, int pageCount);
+ProcessT* procGet(int pid);
 
 #endif
 

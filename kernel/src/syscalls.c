@@ -85,6 +85,23 @@ static int syscall_exit(int arg0)
 	return 0;
 }
 
+int syscall_wait(int arg0)
+{
+	ProcessT *proc = procGet(arg0);
+	if (proc && proc->state != UNUSED) {
+		_currentProcess->waitPid = arg0;
+		_currentProcess->state = SLEEPING;
+		schedule();
+	}
+	return 0;
+}
+
+
+static int syscall_yield() {
+	schedule();
+	return 0;
+}
+
 static int syscall_pmalloc(int arg0) {
 	char* p = pmalloc(_currentProcess, (uint32_t)arg0);
 	return (int)p;
@@ -113,6 +130,8 @@ static int syscall_kservRead(int arg0, int arg1, int arg2) {
 static int (*const _syscallHandler[])() = {
 	[SYSCALL_PUTCH] = syscall_putch,
 	[SYSCALL_FORK] = syscall_fork,
+	[SYSCALL_WAIT] = syscall_wait,
+	[SYSCALL_YIELD] = syscall_yield,
 	[SYSCALL_EXIT] = syscall_exit,
 	[SYSCALL_PMALLOC] = syscall_pmalloc,
 	[SYSCALL_PFREE] = syscall_pfree,

@@ -3,5 +3,7 @@
 
 int fork();
 void exit(int code);
+void wait(int pid);
+void yield();
 
 #endif
