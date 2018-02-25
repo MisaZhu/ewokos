@@ -3,7 +3,6 @@
 
 typedef enum {
 	KS_FS,
-	KS_CONSOLE,
 	KS_END,
 } KSNameT;
 

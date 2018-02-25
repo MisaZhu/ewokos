@@ -10,7 +10,9 @@ void uartTransmit(char c);
 bool uartReadyToRecv(void);
 int uartReceive(void);
 
-void kputch(int c);
-void kputs(const char* str);
+void uartPuts(const char* str);
+
+void uartPutch(int c);
+int uartGetch();
 
 #endif

@@ -13,15 +13,23 @@
 #define PAGE_DIR_NUM 4096
 #define PAGE_DIR_SIZE (16*KB)
 
+
 #define KERNEL_BASE 0x80000000 //=2G
 #define MMIO_BASE (KERNEL_BASE + 1*GB)
-#define ALLOCATABLE_MEMORY_START ((uint32_t)_kernelEnd +  2*MB)
 #define INTERRUPT_VECTOR_BASE 0xffff0000
+
 
 #define KERNEL_STACK_BOTTOM (KERNEL_BASE - 2 * PAGE_SIZE)
 #define USER_STACK_BOTTOM (KERNEL_BASE - 3 * PAGE_SIZE)
 
-#define INIT_MEMORY_SIZE (8*MB)
+//init ramdisk
+#define INITRD_BASE 0x08000000 //=64M
+#define INITRD_NEW_BASE ((uint32_t)_kernelEnd +  1*MB)
+#define INITRD_SIZE 1*MB
+
+#define ALLOCATABLE_MEMORY_START ((uint32_t)_kernelEnd +  2*MB)
+
+#define INIT_MEMORY_SIZE (8*MB) //must same as startup.c startuptable
 
 #define ALIGN_DOWN(x, alignment) ((x) & ~(alignment - 1))
 #define ALIGN_UP(x, alignment) (((x) + alignment - 1) & ~(alignment - 1))

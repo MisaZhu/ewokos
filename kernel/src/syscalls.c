@@ -11,10 +11,15 @@
 
 void schedule();
 
-static int syscall_putch(int c)
+static int syscall_uartPutch(int c)
 {
-	kputch(c);
+	uartPutch(c);
 	return 0;
+}
+
+static int syscall_uartGetch()
+{
+	return uartGetch();
 }
 
 static int syscall_fork(void)
@@ -119,16 +124,25 @@ static int syscall_kservReg(int arg0) {
 	return -1;
 }
 
-static int syscall_kservWrite(int arg0, int arg1, int arg2) {
-	return kservWrite(arg0, (char*)arg1, arg2);
+static int syscall_kservRequest(int arg0, int arg1, int arg2) {
+	return kservRequest(arg0, (char*)arg1, arg2);
 }
 
-static int syscall_kservRead(int arg0, int arg1, int arg2) {
-	return kservRead(arg0, (char*)arg1, arg2);
+static int syscall_kservGetResponse(int arg0, int arg1, int arg2) {
+	return kservGetResponse(arg0, (char*)arg1, arg2);
+}
+
+static int syscall_kservGetRequest(int arg0, int arg1, int arg2, int arg3) {
+	return kservGetRequest(arg0, (int*)arg1, (char*)arg2, arg3);
+}
+
+static int syscall_kservResponse(int arg0, int arg1, int arg2) {
+	return kservResponse(arg0, (char*)arg1, arg2);
 }
 
 static int (*const _syscallHandler[])() = {
-	[SYSCALL_PUTCH] = syscall_putch,
+	[SYSCALL_UART_PUTCH] = syscall_uartPutch,
+	[SYSCALL_UART_GETCH] = syscall_uartGetch,
 	[SYSCALL_FORK] = syscall_fork,
 	[SYSCALL_WAIT] = syscall_wait,
 	[SYSCALL_YIELD] = syscall_yield,
@@ -137,8 +151,10 @@ static int (*const _syscallHandler[])() = {
 	[SYSCALL_PFREE] = syscall_pfree,
 
 	[SYSCALL_KSERV_REG] = syscall_kservReg,
-	[SYSCALL_KSERV_WRITE] = syscall_kservWrite,
-	[SYSCALL_KSERV_READ] = syscall_kservRead,
+	[SYSCALL_KSERV_REQUEST] = syscall_kservRequest,
+	[SYSCALL_KSERV_GET_REQUEST] = syscall_kservGetRequest,
+	[SYSCALL_KSERV_RESP] = syscall_kservResponse,
+	[SYSCALL_KSERV_GET_RESP] = syscall_kservGetResponse,
 };
 
 /* kernel side of system calls. */

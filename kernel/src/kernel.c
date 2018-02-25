@@ -28,6 +28,10 @@ void setKernelVM(PageDirEntryT* vm)
 	memset(vm, 0, PAGE_DIR_SIZE);
 
 	mapPages(vm, KERNEL_BASE, 0, V2P(_kernelEnd), AP_RW_D);
+	/*for ramdisk*/
+	mapPages(vm, INITRD_BASE, INITRD_BASE, INITRD_BASE+INITRD_SIZE, AP_RW_D);
+	mapPages(vm, INITRD_NEW_BASE, V2P(INITRD_NEW_BASE), V2P(INITRD_NEW_BASE+INITRD_SIZE), AP_RW_D);
+
 	mapPages(vm, MMIO_BASE, MMIO_BASE_PHY, MMIO_BASE_PHY + MMIO_MEM_SIZE, AP_RW_D);
 	mapPages(vm, INTERRUPT_VECTOR_BASE, 0, PAGE_SIZE, AP_RW_D);
 	mapPages(vm, ALLOCATABLE_MEMORY_START, V2P(ALLOCATABLE_MEMORY_START), getPhyRamSize(), AP_RW_D);
@@ -36,6 +40,8 @@ void setKernelVM(PageDirEntryT* vm)
 void schedulerInit();
 void schedule();
 bool loadInit(ProcessT *proc);
+
+char* _initRamDiskBase = 0;
 
 void kernelEntry() 
 {
@@ -58,6 +64,12 @@ void kernelEntry()
 	initKernelVM();
 
 	/*
+	move ramdisk to high memory.
+	*/
+	_initRamDiskBase = (void*)(INITRD_NEW_BASE);
+	memcpy(_initRamDiskBase, (void*)(INITRD_BASE), INITRD_SIZE);
+
+	/*
 	Since kernel mem mapping finished, 
 	we can build free mems list for all the rest mem
 	Notice:	From now, you can only kalloc physical mem from 
@@ -69,7 +81,7 @@ void kernelEntry()
 	procInit();
 
 	uartInit();
-	kputs("\n\n=================\n"
+	uartPuts("\n\n=================\n"
 				"EwokOS (by Misa.Z)\n"
 				"=================\n"
 				"Kernel got ready(MMU and ProcMan).\n"

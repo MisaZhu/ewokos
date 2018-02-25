@@ -27,23 +27,36 @@ void uartInit(void)
 	registerInterruptHandler(UART_IRQ, uartInterruptHandler);
 }
 
-/* kputch writes a character to the uart0 serial port. */
-void kputch(int c)
-{
-	if (c == '\n')
-		kputch('\r');
-
-	uartTransmit(c);
-}
-
-void kputs(const char* str) {
+void uartPuts(const char* str) {
 	int i = 0;
 	while(true) {
 		int c = (int)str[i++];
 		if(c == 0)
 			break;
-		kputch(c);
+		uartPutch(c);
 	}
+}
+
+void uartPutch(int c) {
+	if(c == '\r')
+		c = '\n';
+	uartTransmit(c);
+}
+
+/*
+ * uartgetch reads the next available character from receive_buffer. If the buffer
+ * is empty, this function returns 0.
+ */
+int uartGetch(void)
+{
+	int keycode = 0;
+
+	if(receiveBufferHead != receiveBufferTail) {
+		keycode = receiveBuffer[receiveBufferTail];
+		receiveBufferTail = circularInc(receiveBufferTail, RECEIVE_BUFFER_SIZE);
+	}
+
+	return keycode;
 }
 
 /* circular_inc increments operand modula circle_size. */

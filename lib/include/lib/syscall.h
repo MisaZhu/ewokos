@@ -5,9 +5,11 @@ int syscall0(int code);
 int syscall1(int code, int arg0);
 int syscall2(int code, int arg0, int arg1);
 int syscall3(int code, int arg0, int arg1, int arg2);
+int syscall4(int code, int arg0, int arg1, int arg2, int arg3);
 
 typedef enum {
-	SYSCALL_PUTCH,
+	SYSCALL_UART_PUTCH,
+	SYSCALL_UART_GETCH,
 	SYSCALL_FORK,
 	SYSCALL_WAIT,
 	SYSCALL_YIELD,
@@ -16,8 +18,10 @@ typedef enum {
 	SYSCALL_PFREE,
 
 	SYSCALL_KSERV_REG,
-	SYSCALL_KSERV_WRITE,
-	SYSCALL_KSERV_READ,
+	SYSCALL_KSERV_REQUEST,
+	SYSCALL_KSERV_GET_REQUEST,
+	SYSCALL_KSERV_RESP,
+	SYSCALL_KSERV_GET_RESP,
 } SyscallCodeT;
 
 

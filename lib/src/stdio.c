@@ -2,7 +2,11 @@
 #include <lib/syscall.h>
 
 void putch(int c) {
-	syscall1(SYSCALL_PUTCH, c);
+	syscall1(SYSCALL_UART_PUTCH, c);
+}
+
+int getch() {
+	return syscall0(SYSCALL_UART_GETCH);
 }
 
 void putstr(const char* s) {
