@@ -48,6 +48,8 @@ bool loadInit(ProcessT *proc);
 char* _initRamDiskBase = 0;
 RamDiskT _initRamDisk;
 
+#define FIRST_PROCESS "shell"
+
 void kernelEntry() 
 {
 	/*
@@ -100,15 +102,18 @@ void kernelEntry()
 				"EwokOS (by Misa.Z)\n"
 				"=================\n"
 				"Kernel got ready(MMU and ProcMan).\n"
-				"Loading the first process...\n");
+				"Loading the first process...\n\n");
 
-	/*create first process "init"*/
+	/*create first process*/
 	ProcessT *proc = procCreate();
+	
+	/*load process from ramdisk by name.*/
 	int size = 0;
-	const char*p = ramdiskRead(&_initRamDisk, "shell", &size);
+	const char*p = ramdiskRead(&_initRamDisk, FIRST_PROCESS, &size);
 	if(p != NULL)
 		procLoad(proc, p);
-
+	
+	/*schedule processes*/
 	schedulerInit();
 	schedule();
 

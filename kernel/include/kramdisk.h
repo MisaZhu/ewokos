@@ -4,7 +4,7 @@
 /*
 very simple read only RAM file system for kernel.
 	disk: [file0][file1][file...]
-	file: [name_len: 4][name: name_len][content_len][content]
+	file: [name_len: 4][name: name_len][content_len][content: content_len]
 */
 
 #include <types.h>
