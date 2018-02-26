@@ -16,6 +16,7 @@
 
 #include <types.h>
 #include <mmu.h>
+#include <pmalloc.h>
 
 typedef void (*EntryFunctionT)(void);
 
@@ -29,8 +30,6 @@ enum ProcessState {
 	RUNNING,
 	TERMINATED
 };
-
-struct MemBlock;
 
 enum ContextItem {
 	CPSR, RESTART_ADDR,
@@ -52,8 +51,7 @@ typedef struct {
 	int childReturnValue;
 
 	/*for malloc*/
-	struct MemBlock* mHead;
-	struct MemBlock* mTail;
+	MallocT mallocMan;
 } ProcessT;
 
 /* public symbols */
@@ -62,11 +60,11 @@ extern ProcessT _processTable[PROCESS_COUNT_MAX];
 
 extern void procInit();
 extern ProcessT *procCreate(void);
-bool procLoad(ProcessT *proc, char **procImage, int pageCount);
+bool procLoad(ProcessT *proc, const char *procImage);
 void procStart(ProcessT *proc);
 void procFree(ProcessT *proc);
-bool procExpandMemory(ProcessT *proc, int pageCount);
-void procShrinkMemory(ProcessT *proc, int pageCount);
+bool procExpandMemory(void *proc, int pageCount);
+void procShrinkMemory(void *proc, int pageCount);
 ProcessT* procGet(int pid);
 
 #endif

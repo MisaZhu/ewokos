@@ -23,6 +23,53 @@ void procInit(void)
 	_currentProcess = NULL;
 }
 
+/* proc_exapnad_memory expands the heap size of the given process. */
+bool procExpandMemory(void *p, int pageCount)
+{
+	ProcessT* proc = (ProcessT*)p;	
+	for (int i = 0; i < pageCount; i++) {
+		char *page = kalloc();
+		if(page == NULL) {
+			procShrinkMemory(proc, i);
+			return false;
+		}
+		memset(page, 0, PAGE_SIZE);
+
+		mapPage(proc->vm, 
+				proc->heapSize,
+				V2P(page),
+				AP_RW_RW);
+		proc->heapSize += PAGE_SIZE;
+	}
+	return true;
+}
+
+/* proc_shrink_memory shrinks the heap size of the given process. */
+void procShrinkMemory(void* p, int pageCount)
+{
+	ProcessT* proc = (ProcessT*)p;	
+	for (int i = 0; i < pageCount; i++) {
+		uint32_t virtualAddr = proc->heapSize - PAGE_SIZE;
+		uint32_t physicalAddr = resolvePhyAddress(proc->vm, virtualAddr);
+
+		//get the kernel address for kalloc/kfree
+		uint32_t kernelAddr = P2V(physicalAddr);
+		kfree((void *) kernelAddr);
+
+		unmapPage(proc->vm, virtualAddr);
+
+		proc->heapSize -= PAGE_SIZE;
+		if (proc->heapSize == 0) {
+			break;
+		}
+	}
+}
+
+static void* procGetMemTail(void* p) {
+	ProcessT* proc = (ProcessT*)p;	
+	return (void*)proc->heapSize;
+}
+
 /* proc_creates allocates a new process and returns it. */
 ProcessT *procCreate(void)
 {
@@ -68,8 +115,12 @@ ProcessT *procCreate(void)
 	proc->userStack = userStack;
 	proc->waitPid = -1;
 
-	proc->mHead = 0;
-	proc->mTail = 0;
+	proc->mallocMan.arg = (void*)proc;
+	proc->mallocMan.mHead = 0;
+	proc->mallocMan.mTail = 0;
+	proc->mallocMan.expand = procExpandMemory;
+	proc->mallocMan.shrink = procShrinkMemory;
+	proc->mallocMan.getMemTail = procGetMemTail;
 
 	return proc;
 }
@@ -77,46 +128,6 @@ ProcessT *procCreate(void)
 int *getCurrentContext(void)
 {
 	return _currentProcess->context;
-}
-
-/* proc_exapnad_memory expands the heap size of the given process. */
-bool procExpandMemory(ProcessT *proc, int pageCount)
-{
-	for (int i = 0; i < pageCount; i++) {
-		char *page = kalloc();
-		if(page == NULL) {
-			procShrinkMemory(proc, i);
-			return false;
-		}
-		memset(page, 0, PAGE_SIZE);
-
-		mapPage(proc->vm, 
-				proc->heapSize,
-				V2P(page),
-				AP_RW_RW);
-		proc->heapSize += PAGE_SIZE;
-	}
-	return true;
-}
-
-/* proc_shrink_memory shrinks the heap size of the given process. */
-void procShrinkMemory(ProcessT *proc, int pageCount)
-{
-	for (int i = 0; i < pageCount; i++) {
-		uint32_t virtualAddr = proc->heapSize - PAGE_SIZE;
-		uint32_t physicalAddr = resolvePhyAddress(proc->vm, virtualAddr);
-
-		//get the kernel address for kalloc/kfree
-		uint32_t kernelAddr = P2V(physicalAddr);
-		kfree((void *) kernelAddr);
-
-		unmapPage(proc->vm, virtualAddr);
-
-		proc->heapSize -= PAGE_SIZE;
-		if (proc->heapSize == 0) {
-			break;
-		}
-	}
 }
 
 /* proc_free frees all resources allocated by proc. */
@@ -131,24 +142,22 @@ void procFree(ProcessT *proc)
 }
 
 /* proc_load loads the given ELF process image into the given process. */
-bool procLoad(ProcessT *proc, char **procImage, int pageCount)
+bool procLoad(ProcessT *proc, const char *procImage)
 {
 	int progHeaderOffset = 0;
 	int progHeaderCount = 0;
 	int i = 0;
 
-	struct ElfHeader *header = (struct ElfHeader *) procImage[0];
+	struct ElfHeader *header = (struct ElfHeader *) procImage;
 	if (header->type != ELFTYPE_EXECUTABLE)
 		return false;
-
-	(void) pageCount;
 
 	progHeaderOffset = header->phoff;
 	progHeaderCount = header->phnum;
 
 	for (i = 0; i < progHeaderCount; i++) {
 		uint32_t j = 0;
-		struct ElfProgramHeader *header = (void *) (procImage[0] + progHeaderOffset);
+		struct ElfProgramHeader *header = (void *) (procImage + progHeaderOffset);
 
 		/* make enough room for this section */
 		while (proc->heapSize < header->vaddr + header->memsz)
@@ -160,7 +169,7 @@ bool procLoad(ProcessT *proc, char **procImage, int pageCount)
 			int paddr = resolvePhyAddress(proc->vm, vaddr);
 			char *ptr = (char *) P2V(paddr);
 			int imageOff = header->off + j;
-			*ptr = procImage[imageOff / PAGE_SIZE][imageOff % PAGE_SIZE];
+			*ptr = procImage[imageOff]; 
 		}
 
 		progHeaderOffset += sizeof(struct ElfProgramHeader);

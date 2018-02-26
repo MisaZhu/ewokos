@@ -23,9 +23,8 @@ CFLAGS = -mcpu=$(CPU) -gstabs -I. -I kernel/include \
 				 -std=c99 -pedantic -Wall -Wextra -msoft-float -fPIC -mapcs-frame \
          -fno-builtin-printf -fno-builtin-strcpy -Wno-overlength-strings \
          -fno-builtin-exit
-ASFLAGS = -mcpu=$(CPU) -g -I kernel/include
+ASFLAGS = -mcpu=$(CPU) -g -I kernel/include -I lib/include
 QEMU_FLAGS = $(ARCH_QEMU_FLAGS) -nographic
-
 
 all: lib/libewok.a $(OS).bin 
 
@@ -35,19 +34,22 @@ OBJS = kernel/asm/boot.o \
 
 include lib/build.mk
 include kernel/build.mk
-include init/build.mk
+include mkramfs/build.mk
+include sbin/build.mk
 
-$(OS).bin: $(OBJS) $(OS).ld 
+
+$(OS).bin: $(MKRAMFS) $(PROGRAM) $(OBJS) $(OS).ld
 	mkdir -p build
 	$(LD) -T $(OS).ld $(OBJS) lib/libewok.a -o build/$(OS).elf
 	$(OBJCOPY) -O binary build/$(OS).elf build/$(OS).bin
 	$(OBJDUMP) -D build/$(OS).elf > build/$(OS).asm
+	$(MKRAMFS) build/initfs sbin/sbin
 
 run: $(OS).bin
-	qemu-system-arm $(QEMU_FLAGS) -kernel build/$(OS).bin -initrd init/init
+	qemu-system-arm $(QEMU_FLAGS) -kernel build/$(OS).bin -initrd build/initfs
 
 debug: $(OS).bin
-	qemu-system-arm $(QEMU_FLAGS) -gdb tcp::26000 -S -kernel build/$(OS).bin -initrd init/init
+	qemu-system-arm $(QEMU_FLAGS) -gdb tcp::26000 -S -kernel build/$(OS).bin -initrd build/initfs
 
 gdb: 
 	echo "target remote :26000" > /tmp/gdbinit

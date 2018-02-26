@@ -2,7 +2,6 @@
 #define PMALLOC_H
 
 #include <types.h>
-#include <proc.h>
 
 typedef struct MemBlock {
 	struct MemBlock* next;
@@ -13,7 +12,18 @@ typedef struct MemBlock {
 	char* mem;
 } MemBlockT;
 
-char* pmalloc(ProcessT* proc, uint32_t size);
-void pfree(ProcessT* proc, char* p);
+typedef struct {
+	void* arg;
+
+	bool (*expand)(void* arg, int pages);
+	void (*shrink)(void* arg, int pages);
+	void* (*getMemTail)(void*);
+
+	MemBlockT* mHead;
+	MemBlockT* mTail;
+} MallocT;
+
+char* pmalloc(MallocT* m, uint32_t size);
+void pfree(MallocT* m, char* p);
 
 #endif

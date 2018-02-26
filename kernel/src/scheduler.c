@@ -37,7 +37,7 @@ void handleTimer(void)
 void schedulerInit(void)
 {
 	roundRobinIndex = 0;
-	timerSetInterval(2000000);
+	timerSetInterval(200000);
 	registerInterruptHandler(TIMER_IRQ, handleTimer);
 }
 

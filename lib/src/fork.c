@@ -5,6 +5,10 @@ int fork() {
 	return syscall0(SYSCALL_FORK);
 }
 
+int exec(const char* cmd) {
+	return syscall1(SYSCALL_EXEC, (int)cmd);
+}
+
 void exit(int code) {
 	syscall1(SYSCALL_EXIT, code);
 }

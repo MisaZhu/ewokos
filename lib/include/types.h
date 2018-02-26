@@ -30,6 +30,9 @@ typedef unsigned int size_t;
 #define false 0
 #endif
 
+#define KB 1024
+#define MB (1024*KB)
+#define GB (1024*MB)
 
 #endif
 

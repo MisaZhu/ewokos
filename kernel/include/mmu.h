@@ -3,10 +3,6 @@
 
 #include <types.h>
 
-#define KB 1024
-#define MB (1024*KB)
-#define GB (1024*MB)
-
 #define PAGE_SIZE (4*KB)
 #define PAGE_TABLE_SIZE (1*KB)
 
@@ -24,10 +20,11 @@
 
 //init ramdisk
 #define INITRD_BASE 0x08000000 //=64M
-#define INITRD_NEW_BASE ((uint32_t)_kernelEnd +  1*MB)
 #define INITRD_SIZE 1*MB
 
-#define ALLOCATABLE_MEMORY_START ((uint32_t)_kernelEnd +  2*MB)
+#define KMALLOC_BASE ((uint32_t)_kernelEnd +  1*MB)
+#define KMALLOC_SIZE 2*MB
+#define ALLOCATABLE_MEMORY_START (KMALLOC_BASE + KMALLOC_SIZE)
 
 #define INIT_MEMORY_SIZE (8*MB) //must same as startup.c startuptable
 

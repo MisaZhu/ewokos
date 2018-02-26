@@ -5,6 +5,7 @@
 #include <dev/uart.h>
 #include <proc.h>
 #include <kernel.h>
+#include <kramdisk.h>
 #include <lib/string.h>
 #include <pmalloc.h>
 #include <kserv.h>
@@ -19,7 +20,20 @@ static int syscall_uartPutch(int c)
 
 static int syscall_uartGetch()
 {
-	return uartGetch();
+	int r = uartGetch();
+	return r;
+}
+
+static int syscall_exec(int arg0) {
+	int size = 0;
+	const char*p = ramdiskRead(&_initRamDisk, (const char*)arg0, &size);
+	if(p == NULL)
+		return -1;
+		
+	if(!procLoad(_currentProcess, p))
+		return -1;
+	procStart(_currentProcess);
+	return 0;
 }
 
 static int syscall_fork(void)
@@ -48,8 +62,8 @@ static int syscall_fork(void)
 	memcpy(child->context, parent->context, sizeof(child->context));
 
 	/*pmalloc list*/
-	child->mHead = parent->mHead;
-	child->mTail = parent->mTail;
+	child->mallocMan = parent->mallocMan;
+	child->mallocMan.arg = child;
 
 	/* set return value of fork in child to 0 */
 	child->context[R0] = 0;
@@ -108,13 +122,13 @@ static int syscall_yield() {
 }
 
 static int syscall_pmalloc(int arg0) {
-	char* p = pmalloc(_currentProcess, (uint32_t)arg0);
+	char* p = pmalloc(&_currentProcess->mallocMan, (uint32_t)arg0);
 	return (int)p;
 }
 
 static int syscall_pfree(int arg0) {
 	char* p = (char*)arg0;
-	pfree(_currentProcess, p);
+	pfree(&_currentProcess->mallocMan, p);
 	return 0;
 }
 
@@ -144,6 +158,7 @@ static int (*const _syscallHandler[])() = {
 	[SYSCALL_UART_PUTCH] = syscall_uartPutch,
 	[SYSCALL_UART_GETCH] = syscall_uartGetch,
 	[SYSCALL_FORK] = syscall_fork,
+	[SYSCALL_EXEC] = syscall_exec,
 	[SYSCALL_WAIT] = syscall_wait,
 	[SYSCALL_YIELD] = syscall_yield,
 	[SYSCALL_EXIT] = syscall_exit,

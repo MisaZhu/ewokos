@@ -2,10 +2,12 @@
 #include <kernel.h>
 #include <hardware.h>
 #include <kalloc.h>
+#include <kmalloc.h>
 #include <system.h>
 #include <dev/uart.h>
 #include <proc.h>
 #include <lib/string.h>
+#include <kramdisk.h>
 
 PageDirEntryT* _kernelVM = NULL;
 
@@ -28,12 +30,14 @@ void setKernelVM(PageDirEntryT* vm)
 	memset(vm, 0, PAGE_DIR_SIZE);
 
 	mapPages(vm, KERNEL_BASE, 0, V2P(_kernelEnd), AP_RW_D);
-	/*for ramdisk*/
+
+	/*mapping ramdisk part*/
 	mapPages(vm, INITRD_BASE, INITRD_BASE, INITRD_BASE+INITRD_SIZE, AP_RW_D);
-	mapPages(vm, INITRD_NEW_BASE, V2P(INITRD_NEW_BASE), V2P(INITRD_NEW_BASE+INITRD_SIZE), AP_RW_D);
 
 	mapPages(vm, MMIO_BASE, MMIO_BASE_PHY, MMIO_BASE_PHY + MMIO_MEM_SIZE, AP_RW_D);
 	mapPages(vm, INTERRUPT_VECTOR_BASE, 0, PAGE_SIZE, AP_RW_D);
+
+	mapPages(vm, KMALLOC_BASE, V2P(KMALLOC_BASE), V2P(KMALLOC_BASE+KMALLOC_SIZE), AP_RW_D);
 	mapPages(vm, ALLOCATABLE_MEMORY_START, V2P(ALLOCATABLE_MEMORY_START), getPhyRamSize(), AP_RW_D);
 }
 
@@ -42,6 +46,7 @@ void schedule();
 bool loadInit(ProcessT *proc);
 
 char* _initRamDiskBase = 0;
+RamDiskT _initRamDisk;
 
 void kernelEntry() 
 {
@@ -64,10 +69,20 @@ void kernelEntry()
 	initKernelVM();
 
 	/*
+	init kernel malloc.
+	*/
+	kmInit();
+
+	/*
 	move ramdisk to high memory.
 	*/
-	_initRamDiskBase = (void*)(INITRD_NEW_BASE);
+	_initRamDiskBase = kmalloc(INITRD_SIZE);
 	memcpy(_initRamDiskBase, (void*)(INITRD_BASE), INITRD_SIZE);
+
+	/*
+	init ram disk
+	*/
+	ramdiskOpen((const char*)_initRamDiskBase, &_initRamDisk);
 
 	/*
 	Since kernel mem mapping finished, 
@@ -87,9 +102,17 @@ void kernelEntry()
 				"Kernel got ready(MMU and ProcMan).\n"
 				"Loading the first process...\n");
 
+	/*create first process "init"*/
 	ProcessT *proc = procCreate();
-	loadInit(proc);
+	int size = 0;
+	const char*p = ramdiskRead(&_initRamDisk, "shell", &size);
+	if(p != NULL)
+		procLoad(proc, p);
 
 	schedulerInit();
 	schedule();
+
+	//kramdiskClose(_initRamDisk);
+	//kmfree(_initRamDiskBase);
+	while(1);
 }

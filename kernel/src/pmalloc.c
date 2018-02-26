@@ -1,9 +1,8 @@
 #include <pmalloc.h>
-#include <proc.h>
 #include <mmu.h>
 
 /*
-malloc for user process memory management
+malloc for use memory management
 */
 
 static MemBlockT* genBlock(char* p, uint32_t size) {
@@ -16,7 +15,7 @@ static MemBlockT* genBlock(char* p, uint32_t size) {
 }
 
 /*if block size much bigger than the size required, break to two blocks*/
-static void tryBreak(ProcessT* proc, MemBlockT* block, uint32_t size) {
+static void tryBreak(MallocT* m, MemBlockT* block, uint32_t size) {
 	uint32_t blockSize = sizeof(MemBlockT);
 	//required more than half size of block. no break.
 	if((blockSize + size) > (uint32_t)(block->size/2)) 
@@ -36,19 +35,19 @@ static void tryBreak(ProcessT* proc, MemBlockT* block, uint32_t size) {
 	newBlock->prev = block;
 	block->next = newBlock;
 
-	if(proc->mTail == block) 
-		proc->mTail = newBlock;
+	if(m->mTail == block) 
+		m->mTail = newBlock;
 }
 
-char* pmalloc(ProcessT* proc, uint32_t size) {
-	MemBlockT* block = proc->mHead;
+char* pmalloc(MallocT* m, uint32_t size) {
+	MemBlockT* block = m->mHead;
 	while(block != NULL) {
 		if(block->used || block->size < size) {
 			block = block->next;
 		}
 		else {
 			block->used = 1;
-			tryBreak(proc, block, size);
+			tryBreak(m, block, size);
 			return block->mem;
 		}
 	}
@@ -61,34 +60,34 @@ char* pmalloc(ProcessT* proc, uint32_t size) {
 	if((expandSize % PAGE_SIZE) > 0)
 		pages++;
 
-	char* p = (char*)proc->heapSize; 
-	if(!procExpandMemory(proc, pages))
+	char* p = (char*)m->getMemTail(m->arg);
+	if(!m->expand(m->arg, pages))
 		return NULL;
 
 	block = genBlock(p, pages*PAGE_SIZE);
 	block->used = 1;
 
-	if(proc->mHead == 0) {
-		proc->mHead = block;
+	if(m->mHead == 0) {
+		m->mHead = block;
 	}
 
-	if(proc->mTail == 0) {
-		proc->mTail = block;
+	if(m->mTail == 0) {
+		m->mTail = block;
 	}
 	else {
-		proc->mTail->next = block;
-		block->prev = proc->mTail;
-		proc->mTail = block;
+		m->mTail->next = block;
+		block->prev = m->mTail;
+		m->mTail = block;
 	}
 
-	tryBreak(proc, block, size);
+	tryBreak(m, block, size);
 	return block->mem;
 }
 
 /*
 try to merge around free blocks.
 */
-static void tryMerge(ProcessT* proc, MemBlockT* block) {
+static void tryMerge(MallocT* m, MemBlockT* block) {
 	uint32_t blockSize = sizeof(MemBlockT);
 	//try next block	
 	MemBlockT* b = block->next;
@@ -98,8 +97,8 @@ static void tryMerge(ProcessT* proc, MemBlockT* block) {
 		if(block->next != 0) 
 			block->next->prev = block;
 
-		if(proc->mTail == b)
-			proc->mTail = block;
+		if(m->mTail == b)
+			m->mTail = block;
 	}
 
 	//try left block	
@@ -109,37 +108,37 @@ static void tryMerge(ProcessT* proc, MemBlockT* block) {
 		b->next = block->next;
 		if(b->next != 0) 
 			b->next->prev = b;
-		if(proc->mTail == block)
-			proc->mTail = b;
+		if(m->mTail == block)
+			m->mTail = b;
 	}
 }
 
 /*
-try to shrink the process pages.
+try to shrink the pages.
 */
-static void tryShrink(ProcessT* proc) {
+static void tryShrink(MallocT* m) {
 	uint32_t blockSize = sizeof(MemBlockT);
-	uint32_t addr = (uint32_t)proc->mTail;
+	uint32_t addr = (uint32_t)m->mTail;
 	//check if page aligned.	
-	if(proc->mTail->used == 1 || (addr % PAGE_SIZE) != 0)
+	if(m->mTail->used == 1 || (addr % PAGE_SIZE) != 0)
 		return;
 
-	int pages = (proc->mTail->size+blockSize) / PAGE_SIZE;
-	proc->mTail = proc->mTail->prev;
-	proc->mTail->next = 0;
-	if(proc->mTail == 0)
-		proc->mHead = 0;
+	int pages = (m->mTail->size+blockSize) / PAGE_SIZE;
+	m->mTail = m->mTail->prev;
+	m->mTail->next = 0;
+	if(m->mTail == 0)
+		m->mHead = 0;
 
-	procShrinkMemory(proc, pages);
+	m->shrink(m->arg, pages);
 }
 
-void pfree(ProcessT* proc, char* p) {
+void pfree(MallocT* m, char* p) {
 	uint32_t blockSize = sizeof(MemBlockT);
 	if(((uint32_t)p) < blockSize) //wrong address.
 		return;
 	MemBlockT* block = (MemBlockT*)(p-blockSize);
 	block->used = 0; //mark as free.
 
-	tryMerge(proc, block);
-	tryShrink(proc);
+	tryMerge(m, block);
+	tryShrink(m);
 }
