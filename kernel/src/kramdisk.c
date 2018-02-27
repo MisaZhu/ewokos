@@ -1,6 +1,6 @@
 #include <kramdisk.h>
 #include <kmalloc.h>
-#include <lib/string.h>
+#include <string.h>
 
 void ramdiskClose(RamDiskT* rd) {
 	RamFileT* rf = rd->head;

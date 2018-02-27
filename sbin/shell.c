@@ -1,8 +1,9 @@
-#include <lib/stdio.h>
-#include <lib/string.h>
-#include <lib/fork.h>
+#include <stdio.h>
+#include <string.h>
+#include <fork.h>
 
 #define KEY_BACKSPACE 127
+#define KEY_LEFT 0x8
 
 void gets(char* buf, int len) {
 	int i = 0;
@@ -16,9 +17,10 @@ void gets(char* buf, int len) {
 
 		if (c == KEY_BACKSPACE) {
 			if (i > 0) {
-				putch(27); putch(91); putch(68); //3 codes to be : arrow left 
+				//delete last char
+				putch(KEY_LEFT); 
 				putch(' ');
-				putch(27); putch(91); putch(68); //3 codes to be : arrow left 
+				putch(KEY_LEFT); 
 				i--;
 			}
 		}
@@ -34,14 +36,36 @@ void gets(char* buf, int len) {
 }
 
 void _start() {
+	printf(
+			": Hey! wake up!\n"
+			": Matrix had you.\n"
+			": Follow the rabbit...\n\n");
+
+	printf(
+			"    ,-.,-.\n"
+			"    ( ( (\n"
+			"    \\ ) ) _..-.._\n"
+			"   __)/,’,’       `.\n"
+			" ,'     `.     ,--.  `.\n"
+			",'   @        .’    `  \\\n"
+			"(Y            (         ;’’.\n" 
+			" `--.____,     \\        ,  ;\n"
+			" ((_ ,----’ ,---’    _,’_,’\n"
+			"  (((_,- (((______,-’\n\n"); 
+
 	char cmd[32];
 	while(1) {
-		putstr("ewok:> ");
+		printf("$ ");
 		gets(cmd, 31);
+		if(cmd[0] == 0)
+			continue;
 
 		int child_pid = fork();
 		if (child_pid == 0) {
-			exec(cmd);
+			if(exec(cmd) != 0) {
+				printf("unknown command: '%s'.\n", cmd);
+				exit(0);
+			}
 		}
 		else {
 			wait(child_pid);

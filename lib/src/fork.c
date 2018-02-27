@@ -1,5 +1,5 @@
-#include <lib/fork.h>
-#include <lib/syscall.h>
+#include <fork.h>
+#include <syscall.h>
 
 int fork() {
 	return syscall0(SYSCALL_FORK);

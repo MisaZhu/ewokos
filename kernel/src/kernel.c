@@ -6,7 +6,7 @@
 #include <system.h>
 #include <dev/uart.h>
 #include <proc.h>
-#include <lib/string.h>
+#include <string.h>
 #include <kramdisk.h>
 
 PageDirEntryT* _kernelVM = NULL;

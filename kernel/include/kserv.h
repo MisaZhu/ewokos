@@ -3,7 +3,7 @@
 
 #include <types.h>
 #include <proc.h>
-#include <lib/kservtypes.h>
+#include <servtypes.h>
 
 bool kservReg(KSNameT name);
 void kservUnreg(ProcessT* proc);

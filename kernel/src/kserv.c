@@ -1,7 +1,7 @@
 #include <kserv.h>
 #include <kalloc.h>
-#include <lib/string.h>
-#include <lib/error.h>
+#include <string.h>
+#include <error.h>
 
 #define KS_BUFFER_IDLE 	0
 #define KS_BUFFER_REQ 	1	

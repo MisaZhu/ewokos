@@ -1,5 +1,5 @@
 #include <malloc.h>
-#include <lib/syscall.h>
+#include <syscall.h>
 
 void* malloc(size_t size) {
 	char* p = (char*)syscall1(SYSCALL_PMALLOC, size);

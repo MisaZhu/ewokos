@@ -1,6 +1,7 @@
 SBIN_DIR=sbin
 PROGRAM = $(SBIN_DIR)/sbin/shell  \
-	$(SBIN_DIR)/sbin/help
+
+#	$(SBIN_DIR)/sbin/help
 
 EXTRA_CLEAN += $(PROGRAM)
 

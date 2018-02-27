@@ -2,7 +2,7 @@
 #include <proc.h>
 #include <kernel.h>
 #include <kalloc.h>
-#include <lib/string.h>
+#include <string.h>
 #include <system.h>
 #include <types.h>
 #include <elf.h>

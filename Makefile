@@ -16,13 +16,15 @@ OBJCOPY = arm-none-eabi-objcopy
 OBJDUMP = arm-none-eabi-objdump
 
 # flags
-CFLAGS = -mcpu=$(CPU) -gstabs -I. -I kernel/include \
+CFLAGS = -mcpu=$(CPU) -gstabs -I. -I kernel/include -Ilib/include \
 				 -I lib/include \
 				 -I kernel/arch/$(arch)/include \
 				 -marm \
-				 -std=c99 -pedantic -Wall -Wextra -msoft-float -fPIC -mapcs-frame \
+				 -pedantic -Wall -Wextra -msoft-float -fPIC -mapcs-frame \
          -fno-builtin-printf -fno-builtin-strcpy -Wno-overlength-strings \
-         -fno-builtin-exit
+         -fno-builtin-exit -fno-builtin-stdio \
+				 -std=c99 
+
 ASFLAGS = -mcpu=$(CPU) -g -I kernel/include -I lib/include
 QEMU_FLAGS = $(ARCH_QEMU_FLAGS) -nographic
 

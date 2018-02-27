@@ -1,5 +1,5 @@
-#ifndef KSERV_TYPES_H
-#define KSERV_TYPES_H
+#ifndef SERV_TYPES_H
+#define SERV_TYPES_H
 
 typedef enum {
 	KS_FS,

@@ -1,4 +1,4 @@
-#include <lib/syscall.h>
+#include <syscall.h>
 #include <system.h>
 #include <syscalls.h>
 #include <types.h>
@@ -6,7 +6,7 @@
 #include <proc.h>
 #include <kernel.h>
 #include <kramdisk.h>
-#include <lib/string.h>
+#include <string.h>
 #include <pmalloc.h>
 #include <kserv.h>
 

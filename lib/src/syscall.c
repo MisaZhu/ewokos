@@ -1,4 +1,4 @@
-#include <lib/syscall.h>
+#include <syscall.h>
 
 int syscall0(int code)
 {

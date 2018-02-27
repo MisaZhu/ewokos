@@ -8,7 +8,9 @@
 #endif
 
 /* boolean */
+#ifndef bool
 typedef int bool;
+#endif
 
 /* integer types */
 typedef __signed char int8_t;

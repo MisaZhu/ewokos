@@ -1,8 +1,9 @@
-#include <lib/stdio.h>
+#include <stdio.h>
+#include <fork.h>
 
 void _start()
 {
-	putstr("==========================\n"
+	printf("==========================\n"
 			"Hello, This is EwokOS.\n"
 			"--------------------------\n"
 			"May the Force be with you!\n"

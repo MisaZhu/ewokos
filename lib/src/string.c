@@ -1,4 +1,4 @@
-#include <lib/string.h>
+#include <string.h>
 
 /*
  * memcmp copies n bytes from the source buffer to the target buffer. It returns
