@@ -19,7 +19,7 @@
 #define USER_STACK_BOTTOM (KERNEL_BASE - 3 * PAGE_SIZE)
 
 //init ramdisk
-#define INITRD_BASE 0x08000000 //=64M
+#define INITRD_BASE 0x08000000 //=64M, qemu-system-arm -initrd <FILE> will load FILE to Physical memory address 64M when bootup. 
 #define INITRD_SIZE 1*MB
 
 #define KMALLOC_BASE ((uint32_t)_kernelEnd +  1*MB)
