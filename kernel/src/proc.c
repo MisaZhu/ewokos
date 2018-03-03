@@ -6,7 +6,6 @@
 #include <system.h>
 #include <types.h>
 #include <elf.h>
-#include <kserv.h>
 
 ProcessT _processTable[PROCESS_COUNT_MAX];
 
@@ -70,29 +69,31 @@ static void* procGetMemTail(void* p) {
 	return (void*)proc->heapSize;
 }
 
+static int32_t _pidCount = 1000;
+
 /* proc_creates allocates a new process and returns it. */
 ProcessT *procCreate(void)
 {
 	ProcessT *proc = NULL;
-	int pid = -1;
+	int index = -1;
 	PageDirEntryT *vm = NULL;
 	char *kernelStack = NULL;
 	char *userStack = NULL;
 
 	for (int i = 0; i < PROCESS_COUNT_MAX; i++) {
 		if (_processTable[i].state == UNUSED) {
-			pid = i + 1;
+			index = i + 1;
 			break;
 		}
 	}
 
-	if (pid == -1)
+	if (index == -1)
 		return NULL;
 
 	kernelStack = kalloc();
 	userStack = kalloc();
 
-	vm = _processVM[pid - 1];
+	vm = _processVM[index - 1];
 	setKernelVM(vm);
 
 	mapPage(vm, 
@@ -106,8 +107,8 @@ ProcessT *procCreate(void)
 		AP_RW_RW);
 
 
-	proc = &_processTable[pid - 1];
-	proc->pid = pid;
+	proc = &_processTable[index - 1];
+	proc->pid = _pidCount++;
 	proc->state = CREATED;
 	proc->vm = vm;
 	proc->heapSize = 0;
@@ -122,6 +123,8 @@ ProcessT *procCreate(void)
 	proc->mallocMan.shrink = procShrinkMemory;
 	proc->mallocMan.getMemTail = procGetMemTail;
 
+	proc->messageQueue.head = 0;
+	proc->messageQueue.tail = 0;
 	return proc;
 }
 
@@ -133,7 +136,7 @@ int *getCurrentContext(void)
 /* proc_free frees all resources allocated by proc. */
 void procFree(ProcessT *proc)
 {
-	kservUnreg(proc);
+	clearMessageQueue(&proc->messageQueue);
 	kfree(proc->kernelStack);
 	kfree(proc->userStack);
 	procShrinkMemory(proc, proc->heapSize / PAGE_SIZE);
@@ -202,8 +205,9 @@ void procStart(ProcessT *proc)
 
 ProcessT* procGet(int pid) 
 {
-	if (pid > 0 && pid <= PROCESS_COUNT_MAX)
-		return &_processTable[pid - 1];
-	else
-		return NULL;
+	for(int i=0; i< PROCESS_COUNT_MAX; i++) {
+		if(_processTable[i].state != UNUSED && _processTable[i].pid == pid)
+			return &_processTable[i];
+	}
+	return NULL;
 }

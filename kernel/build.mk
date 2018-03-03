@@ -19,7 +19,7 @@ OBJS += $(ARCH_OBJS) \
 	$(KERNEL_DIR)/src/proc.o \
 	$(KERNEL_DIR)/src/pmalloc.o \
 	$(KERNEL_DIR)/src/kmalloc.o \
-	$(KERNEL_DIR)/src/kserv.o \
 	$(KERNEL_DIR)/src/kramdisk.o \
+	$(KERNEL_DIR)/src/kmessage.o \
 	$(KERNEL_DIR)/src/scheduler.o 
 

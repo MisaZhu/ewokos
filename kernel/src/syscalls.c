@@ -8,7 +8,7 @@
 #include <kramdisk.h>
 #include <string.h>
 #include <pmalloc.h>
-#include <kserv.h>
+#include <kmessage.h>
 
 void schedule();
 
@@ -75,9 +75,14 @@ static int syscall_fork(void)
 	return child->pid;
 }
 
+static int syscall_getpid(void)
+{
+	return _currentProcess->pid;
+}
+
 static int syscall_exit(int arg0)
 {
-	int pid;
+	int i;
 
 	(void) arg0;
 	if (_currentProcess == NULL)
@@ -87,8 +92,8 @@ static int syscall_exit(int arg0)
 	__asm__ volatile("ldr sp, = _initStack");
 	__asm__ volatile("add sp, #4096");
 
-	for (pid = 0; pid < PROCESS_COUNT_MAX; pid++) {
-		ProcessT *proc = &_processTable[pid];
+	for (i = 0; i < PROCESS_COUNT_MAX; i++) {
+		ProcessT *proc = &_processTable[i];
 
 		if (proc->state == SLEEPING &&
 				proc->waitPid == _currentProcess->pid) {
@@ -107,7 +112,7 @@ static int syscall_exit(int arg0)
 int syscall_wait(int arg0)
 {
 	ProcessT *proc = procGet(arg0);
-	if (proc && proc->state != UNUSED) {
+	if (proc) {
 		_currentProcess->waitPid = arg0;
 		_currentProcess->state = SLEEPING;
 		schedule();
@@ -132,44 +137,36 @@ static int syscall_pfree(int arg0) {
 	return 0;
 }
 
-static int syscall_kservReg(int arg0) {
-	if(kservReg(arg0))
+static int syscall_sendMessage(int arg0, int arg1, int arg2) {
+	int toPid = arg0;
+	void* p = (char*)arg1;
+	if(ksendMessage(toPid, p, arg2))
 		return 0;
 	return -1;
 }
 
-static int syscall_kservRequest(int arg0, int arg1, int arg2) {
-	return kservRequest(arg0, (char*)arg1, arg2);
-}
-
-static int syscall_kservGetResponse(int arg0, int arg1, int arg2) {
-	return kservGetResponse(arg0, (char*)arg1, arg2);
-}
-
-static int syscall_kservGetRequest(int arg0, int arg1, int arg2, int arg3) {
-	return kservGetRequest(arg0, (int*)arg1, (char*)arg2, arg3);
-}
-
-static int syscall_kservResponse(int arg0, int arg1, int arg2) {
-	return kservResponse(arg0, (char*)arg1, arg2);
+static int syscall_readMessage(int arg0) {
+	int fromPidAsk = arg0;
+	ProcMessageT* msg = kreadMessage(fromPidAsk);
+	if(msg == NULL)
+		return 0;
+	
+	return (int)msg;
 }
 
 static int (*const _syscallHandler[])() = {
 	[SYSCALL_UART_PUTCH] = syscall_uartPutch,
 	[SYSCALL_UART_GETCH] = syscall_uartGetch,
 	[SYSCALL_FORK] = syscall_fork,
+	[SYSCALL_GETPID] = syscall_getpid,
 	[SYSCALL_EXEC] = syscall_exec,
 	[SYSCALL_WAIT] = syscall_wait,
 	[SYSCALL_YIELD] = syscall_yield,
 	[SYSCALL_EXIT] = syscall_exit,
 	[SYSCALL_PMALLOC] = syscall_pmalloc,
 	[SYSCALL_PFREE] = syscall_pfree,
-
-	[SYSCALL_KSERV_REG] = syscall_kservReg,
-	[SYSCALL_KSERV_REQUEST] = syscall_kservRequest,
-	[SYSCALL_KSERV_GET_REQUEST] = syscall_kservGetRequest,
-	[SYSCALL_KSERV_RESP] = syscall_kservResponse,
-	[SYSCALL_KSERV_GET_RESP] = syscall_kservGetResponse,
+	[SYSCALL_SEND_MSG] = syscall_sendMessage,
+	[SYSCALL_READ_MSG] = syscall_readMessage,
 };
 
 /* kernel side of system calls. */

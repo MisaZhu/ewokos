@@ -17,6 +17,7 @@
 #include <types.h>
 #include <mmu.h>
 #include <pmalloc.h>
+#include <kmessage.h>
 
 typedef void (*EntryFunctionT)(void);
 
@@ -39,7 +40,7 @@ enum ContextItem {
 
 typedef struct {
 	enum ProcessState state;
-	int pid;
+	int32_t pid; /*auto-increased id*/
 	EntryFunctionT entry;
 	PageDirEntryT *vm;
 	uint32_t heapSize;
@@ -52,6 +53,9 @@ typedef struct {
 
 	/*for malloc*/
 	MallocT mallocMan;
+
+	/*for process communication*/
+	MessageQueueT messageQueue;
 } ProcessT;
 
 /* public symbols */
