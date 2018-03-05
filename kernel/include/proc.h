@@ -41,8 +41,11 @@ enum ContextItem {
 typedef struct {
 	enum ProcessState state;
 	int32_t pid; /*auto-increased id*/
+	int32_t owner; /*owner for muti-user system*/
+
 	EntryFunctionT entry;
 	PageDirEntryT *vm;
+
 	uint32_t heapSize;
 	char *userStack;
 	char *kernelStack;
@@ -53,7 +56,6 @@ typedef struct {
 
 	/*for malloc*/
 	MallocT mallocMan;
-
 	/*for process communication*/
 	MessageQueueT messageQueue;
 } ProcessT;
@@ -70,6 +72,7 @@ void procFree(ProcessT *proc);
 bool procExpandMemory(void *proc, int pageCount);
 void procShrinkMemory(void *proc, int pageCount);
 ProcessT* procGet(int pid);
+int kfork();
 
 #endif
 

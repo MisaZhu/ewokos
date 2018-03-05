@@ -37,7 +37,7 @@ void gets(char* buf, int len) {
 
 void _start() {
 	printf(
-			": Hey! wake up!\n"
+			"\n: Hey! wake up!\n"
 			": Matrix had you.\n"
 			": Follow the rabbit...\n\n");
 

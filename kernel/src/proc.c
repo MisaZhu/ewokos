@@ -69,7 +69,7 @@ static void* procGetMemTail(void* p) {
 	return (void*)proc->heapSize;
 }
 
-static int32_t _pidCount = 1000;
+static int32_t _pidCount = 0;
 
 /* proc_creates allocates a new process and returns it. */
 ProcessT *procCreate(void)
@@ -109,6 +109,8 @@ ProcessT *procCreate(void)
 
 	proc = &_processTable[index - 1];
 	proc->pid = _pidCount++;
+	proc->owner = 0;
+
 	proc->state = CREATED;
 	proc->vm = vm;
 	proc->heapSize = 0;
@@ -211,3 +213,46 @@ ProcessT* procGet(int pid)
 	}
 	return NULL;
 }
+
+int kfork(void)
+{
+	ProcessT *child = NULL;
+	ProcessT *parent = _currentProcess;
+	uint32_t i = 0;
+
+	child = procCreate();
+	procExpandMemory(child, parent->heapSize / PAGE_SIZE);
+
+	/* copy parent's memory to child's memory */
+	for (i = 0; i < parent->heapSize; i++) {
+		int childPAddr = resolvePhyAddress(child->vm, i);
+		char *childPtr = (char *) P2V(childPAddr);
+		char *parentPtr = (char *) i;
+
+		*childPtr = *parentPtr;
+	}
+
+	/* copy parent's stack to child's stack */
+	memcpy(child->kernelStack, parent->kernelStack, PAGE_SIZE);
+	memcpy(child->userStack, parent->userStack, PAGE_SIZE);
+
+	/* copy parent's context to child's context */
+	memcpy(child->context, parent->context, sizeof(child->context));
+
+	/*pmalloc list*/
+	child->mallocMan = parent->mallocMan;
+	child->mallocMan.arg = child;
+
+	/* set return value of fork in child to 0 */
+	child->context[R0] = 0;
+
+	/* child is ready to run */
+	child->state = READY;
+	
+	/*same owner*/
+	child->owner = parent->owner;
+
+	/* return pid of child to the parent. */
+	return child->pid;
+}
+

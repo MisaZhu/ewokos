@@ -3,28 +3,39 @@
 #include <string.h>
 #include <proc.h>
 
-bool ksendMessage(int toPid, void* data, int32_t size) {
-	if(size == 0 || data == NULL) {
-		return false;
+static int _pkgIDCount = 0;
+
+int ksend(int id, int pid, PackageT* pkg) {
+	if(pkg == NULL) {
+		return -1;
 	}
 
-	ProcessT* toProc = procGet(toPid);
+	ProcessT* toProc = procGet(pid);
 	if(toProc == NULL) { 
-		return false;
+		return -1;
 	}
 
-	MessageT* msg = kmalloc(size + sizeof(MessageT));
+	KMessageT* msg = kmalloc(sizeof(KMessageT));
 	if(msg == NULL) {
-		return false;
+		return -1;
 	}
 
-	msg->fromPid = _currentProcess->pid;
-	msg->size = size;
+	uint32_t pkgSize = getPackageSize(pkg);
+	msg->pkg = (PackageT*)kmalloc(pkgSize);
+	if(msg->pkg == NULL) {
+		kmfree(msg);
+		return -1;
+	}	
+
+	if(id < 0)
+		pkg->id = _pkgIDCount++;
+	else
+		pkg->id = id;
+	pkg->pid = _currentProcess->pid;
+	memcpy(msg->pkg, pkg, pkgSize);	
+
 	msg->next = NULL;
 	msg->prev = NULL;
-	msg->data = ((char*)msg) + sizeof(MessageT);
-
-	memcpy(msg->data, data, size);	
 
 	if(toProc->messageQueue.head == NULL) {
 		toProc->messageQueue.head =	toProc->messageQueue.tail = msg;	
@@ -35,31 +46,29 @@ bool ksendMessage(int toPid, void* data, int32_t size) {
 		toProc->messageQueue.tail = msg;	
 	}
 
-	return true;
+	return pkg->id;
 }
 
-ProcMessageT* kreadMessage(int fromPid) {
+PackageT* krecv(int id) {
 	MessageQueueT* queue = &(_currentProcess->messageQueue);
-	MessageT* msg = queue->head;
+	KMessageT* msg = queue->head;
 
 	while(msg != NULL) {
-		if(fromPid < 0 || fromPid == msg->fromPid)
+		if(id < 0 || id == msg->pkg->id)
 			break;
 		msg = msg->next;
 	}
 
 	if(msg == NULL)
 		return NULL;
+
+	uint32_t pkgSize = getPackageSize(msg->pkg);
 	
-	ProcMessageT* ret = (ProcMessageT*)pmalloc(&_currentProcess->mallocMan,
-			sizeof(ProcMessageT) + msg->size);
+	PackageT* ret = (PackageT*)pmalloc(&_currentProcess->mallocMan, pkgSize);
 	if(ret == NULL)
 		return NULL;
 
-	ret->data = ((char*)ret) + sizeof(ProcMessageT);
-	memcpy(ret->data, msg->data, msg->size);
-	ret->fromPid = msg->fromPid;
-	ret->size = msg->size;
+	memcpy(ret, msg->pkg, pkgSize);	
 
 	/*free message in queue*/
 	if(msg->prev != NULL)
@@ -72,15 +81,18 @@ ProcMessageT* kreadMessage(int fromPid) {
 	else
 		queue->tail = msg->prev;
 
+	
+	kmfree(msg->pkg);
 	kmfree(msg);
 	return ret;
 }
 
 void clearMessageQueue(MessageQueueT* queue) {
-	MessageT* msg = queue->head;
+	KMessageT* msg = queue->head;
 	while(msg != NULL) {
-		MessageT* fr = msg;
+		KMessageT* fr = msg;
 		msg = msg->next;
+		kmfree(fr->pkg);
 		kmfree(fr);
 	}
 	queue->head = 0;

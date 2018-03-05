@@ -5,7 +5,7 @@
 #include <dev/uart.h>
 #include <proc.h>
 #include <kernel.h>
-#include <kramdisk.h>
+#include <sramdisk.h>
 #include <string.h>
 #include <pmalloc.h>
 #include <kmessage.h>
@@ -36,43 +36,20 @@ static int syscall_exec(int arg0) {
 	return 0;
 }
 
+static int syscall_execElf(int arg0) {
+	const char*p = (const char*)arg0;
+	if(p == NULL)
+		return -1;
+		
+	if(!procLoad(_currentProcess, p))
+		return -1;
+	procStart(_currentProcess);
+	return 0;
+}
+
 static int syscall_fork(void)
 {
-	ProcessT *child = NULL;
-	ProcessT *parent = _currentProcess;
-	uint32_t i = 0;
-
-	child = procCreate();
-	procExpandMemory(child, parent->heapSize / PAGE_SIZE);
-
-	/* copy parent's memory to child's memory */
-	for (i = 0; i < parent->heapSize; i++) {
-		int childPAddr = resolvePhyAddress(child->vm, i);
-		char *childPtr = (char *) P2V(childPAddr);
-		char *parentPtr = (char *) i;
-
-		*childPtr = *parentPtr;
-	}
-
-	/* copy parent's stack to child's stack */
-	memcpy(child->kernelStack, parent->kernelStack, PAGE_SIZE);
-	memcpy(child->userStack, parent->userStack, PAGE_SIZE);
-
-	/* copy parent's context to child's context */
-	memcpy(child->context, parent->context, sizeof(child->context));
-
-	/*pmalloc list*/
-	child->mallocMan = parent->mallocMan;
-	child->mallocMan.arg = child;
-
-	/* set return value of fork in child to 0 */
-	child->context[R0] = 0;
-
-	/* child is ready to run */
-	child->state = READY;
-
-	/* return pid of child to the parent. */
-	return child->pid;
+	return kfork();
 }
 
 static int syscall_getpid(void)
@@ -138,35 +115,52 @@ static int syscall_pfree(int arg0) {
 }
 
 static int syscall_sendMessage(int arg0, int arg1, int arg2) {
-	int toPid = arg0;
-	void* p = (char*)arg1;
-	if(ksendMessage(toPid, p, arg2))
-		return 0;
-	return -1;
+	PackageT* p = (PackageT*)arg2;
+	return ksend(arg0, arg1, p);
 }
 
 static int syscall_readMessage(int arg0) {
-	int fromPidAsk = arg0;
-	ProcMessageT* msg = kreadMessage(fromPidAsk);
-	if(msg == NULL)
+	PackageT* pkg = krecv(arg0);
+	if(pkg == NULL)
 		return 0;
 	
-	return (int)msg;
+	return (int)pkg;
+}
+
+static int syscall_readInitRD(int arg0, int arg1) {
+	const char* fname = (const char*)arg0;
+	int size = 0;
+	const char*p = ramdiskRead(&_initRamDisk, fname, &size);
+	if(p == NULL || size == 0)
+		return 0;
+
+	char* ret = pmalloc(&_currentProcess->mallocMan, size);
+	if(ret == NULL)
+		return 0;
+	memcpy(ret, p, size);
+	*((int*)arg1) = size;
+	return (int)ret;
 }
 
 static int (*const _syscallHandler[])() = {
 	[SYSCALL_UART_PUTCH] = syscall_uartPutch,
 	[SYSCALL_UART_GETCH] = syscall_uartGetch,
+
 	[SYSCALL_FORK] = syscall_fork,
 	[SYSCALL_GETPID] = syscall_getpid,
 	[SYSCALL_EXEC] = syscall_exec,
+	[SYSCALL_EXEC_ELF] = syscall_execElf,
 	[SYSCALL_WAIT] = syscall_wait,
 	[SYSCALL_YIELD] = syscall_yield,
 	[SYSCALL_EXIT] = syscall_exit,
+
 	[SYSCALL_PMALLOC] = syscall_pmalloc,
 	[SYSCALL_PFREE] = syscall_pfree,
+
 	[SYSCALL_SEND_MSG] = syscall_sendMessage,
 	[SYSCALL_READ_MSG] = syscall_readMessage,
+
+	[SYSCALL_READ_INITRD] = syscall_readInitRD,
 };
 
 /* kernel side of system calls. */

@@ -60,3 +60,4 @@ gdb:
 clean:
 	rm -f $(OBJS) $(EXTRA_CLEAN)
 	rm -fr build
+	rm -fr sbin/sbin

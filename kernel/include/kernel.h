@@ -2,7 +2,7 @@
 #define KERNEL_H
 
 #include <mmu.h>
-#include <kramdisk.h>
+#include <sramdisk.h>
 
 extern char _kernelStart[];
 extern char _kernelEnd[];

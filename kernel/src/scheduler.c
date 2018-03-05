@@ -34,10 +34,12 @@ void handleTimer(void)
 	schedule();
 }
 
+#define SCHEDULE_TIME 100000 /*0.1 sec*/
+
 void schedulerInit(void)
 {
 	roundRobinIndex = 0;
-	timerSetInterval(200000);
+	timerSetInterval(SCHEDULE_TIME);
 	registerInterruptHandler(TIMER_IRQ, handleTimer);
 }
 

@@ -1,5 +1,5 @@
-#ifndef KRAMDISK_H
-#define KRAMDISK_H 
+#ifndef SIMPLE_RAMDISK_H
+#define SIMPLE_RAMDISK_H
 
 /*
 very simple read only RAM file system for kernel.
@@ -23,8 +23,8 @@ typedef struct {
 	const char* ram;
 } RamDiskT;
 
-void ramdiskOpen(const char*ram, RamDiskT* rd);
-void ramdiskClose(RamDiskT* rd);
+void ramdiskOpen(const char*ram, RamDiskT* rd, void*(*alloc)(size_t));
+void ramdiskClose(RamDiskT* rd, void (*fr)(void*));
 /*
 read file content of fname, return content address and size.
 */

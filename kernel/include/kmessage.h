@@ -2,26 +2,24 @@
 #define KMESSAGE_H
 
 #include <types.h>
-#include <pmessage.h>
+#include <package.h>
 
-typedef struct Message {
-	struct Message* next;
-	struct Message* prev;
+typedef struct KMessage {
+	struct KMessage* next;
+	struct KMessage* prev;
 
-	int fromPid; /*source pid*/
-	int32_t size;
-	void* data;
-} MessageT;
+	PackageT *pkg;	
+} KMessageT;
 
 typedef struct {
-	MessageT* head;
-	MessageT* tail;
+	KMessageT* head;
+	KMessageT* tail;
 } MessageQueueT;
 
-bool ksendMessage(int toPid, void* data, int32_t size);
+int ksend(int id, int pid, PackageT* pkg);
 
-/*read message from fromPid process, if fromPid < 0 means from any process*/
-ProcMessageT* kreadMessage(int fromPid);
+/*read message , if id < 0 means read the first one*/
+PackageT* krecv(int id);
 
 void clearMessageQueue(MessageQueueT* queue);
 

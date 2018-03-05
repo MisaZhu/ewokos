@@ -50,18 +50,3 @@ int syscall3(int code, int arg0, int arg1, int arg2)
 	return result;
 }
 
-int syscall4(int code, int arg0, int arg1, int arg2, int arg3)
-{
-	int result;
-
-	__asm__ volatile("ldr r0, %0" : : "m" (code));
-	__asm__ volatile("ldr r1, %0" : : "m" (arg0));
-	__asm__ volatile("ldr r2, %0" : : "m" (arg1));
-	__asm__ volatile("ldr r3, %0" : : "m" (arg2));
-	__asm__ volatile("ldr r4, %0" : : "m" (arg3));
-	__asm__ volatile("swi #0");
-	__asm__ volatile("str r0, %0" : "=m" (result));
-	
-	return result;
-}
-

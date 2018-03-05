@@ -1,14 +1,16 @@
 #ifndef PMESSAGE_H
 #define PMESSAGE_H
 
-typedef struct {
-	int fromPid;
-	void* data;	
-	int size;
-} ProcMessageT;
+#include <package.h>
 
-int psendMessage(int toPid, void* data, int size);
+int psend(int id, int pid, uint32_t type, void* data, uint32_t size);
 
-ProcMessageT* preadMessage(int fromPid);
+int psendSync(int id, int pid, uint32_t type, void* data, uint32_t size);
+
+PackageT* precv(int id);
+
+PackageT* precvSync(int id);
+
+PackageT* preq(int pid, uint32_t type, void* data, uint32_t size);
 
 #endif

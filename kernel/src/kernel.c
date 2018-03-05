@@ -7,7 +7,7 @@
 #include <dev/uart.h>
 #include <proc.h>
 #include <string.h>
-#include <kramdisk.h>
+#include <sramdisk.h>
 
 PageDirEntryT* _kernelVM = NULL;
 
@@ -48,7 +48,7 @@ bool loadInit(ProcessT *proc);
 char* _initRamDiskBase = 0;
 RamDiskT _initRamDisk;
 
-#define FIRST_PROCESS "shell"
+#define FIRST_PROCESS "kserv"
 
 void kernelEntry() 
 {
@@ -84,7 +84,7 @@ void kernelEntry()
 	/*
 	init ram disk
 	*/
-	ramdiskOpen((const char*)_initRamDiskBase, &_initRamDisk);
+	ramdiskOpen((const char*)_initRamDiskBase, &_initRamDisk, kmalloc);
 
 	/*
 	Since kernel mem mapping finished, 
@@ -117,7 +117,7 @@ void kernelEntry()
 	schedulerInit();
 	schedule();
 
-	//kramdiskClose(_initRamDisk);
+	//kramdiskClose(_initRamDisk, kmfree);
 	//kmfree(_initRamDiskBase);
 	while(1);
 }

@@ -1,18 +1,17 @@
-#include <kramdisk.h>
-#include <kmalloc.h>
+#include <sramdisk.h>
 #include <string.h>
 
-void ramdiskClose(RamDiskT* rd) {
+void ramdiskClose(RamDiskT* rd, void (*fr)(void*)) {
 	RamFileT* rf = rd->head;
 	while(rf != NULL) {
 		rd->head = rf->next;
-		kmfree(rf);
+		fr(rf);
 		rf = rd->head;
 	}
 	rd->head = NULL;
 }
 
-void ramdiskOpen(const char*ram, RamDiskT* rd) {
+void ramdiskOpen(const char*ram, RamDiskT* rd, void*(*alloc)(size_t)) {
 	rd->ram = ram;
 	rd->head = NULL;
 
@@ -25,7 +24,7 @@ void ramdiskOpen(const char*ram, RamDiskT* rd) {
 		ram += 4;
 	
 		//read name
-		RamFileT* rf = (RamFileT*)kmalloc(sizeof(RamFileT));
+		RamFileT* rf = (RamFileT*)alloc(sizeof(RamFileT));
 		memcpy(rf->name, ram, nameLen);
 		rf->name[nameLen] = 0;
 		ram += nameLen;

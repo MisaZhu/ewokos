@@ -13,6 +13,10 @@ int exec(const char* cmd) {
 	return syscall1(SYSCALL_EXEC, (int)cmd);
 }
 
+int execElf(const char* img) {
+	return syscall1(SYSCALL_EXEC_ELF, (int)img);
+}
+
 void exit(int code) {
 	syscall1(SYSCALL_EXIT, code);
 }
