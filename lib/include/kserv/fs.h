@@ -17,4 +17,7 @@ int fsOpen(const char* name);
 
 void fsInit(int ksPid);
 
+/*return fs service process pid, -1 means not inited*/
+int fsInited();
+
 #endif

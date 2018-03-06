@@ -20,3 +20,7 @@ int fsOpen(const char* name) {
 void fsInit(int ksPid) {
 	_fsPid = ksPid;
 }
+
+int fsInited() {
+	return _fsPid;
+}

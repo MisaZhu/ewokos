@@ -1,4 +1,5 @@
 LIB_OBJS = lib/src/string.o \
+	lib/src/kdb.o \
 	lib/src/syscall.o \
 	lib/src/fork.o \
 	lib/src/malloc.o \

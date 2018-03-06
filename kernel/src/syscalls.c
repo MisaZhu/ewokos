@@ -142,7 +142,12 @@ static int syscall_readInitRD(int arg0, int arg1) {
 	return (int)ret;
 }
 
+static int syscall_kdb(int arg0) {
+	return arg0;
+}
+
 static int (*const _syscallHandler[])() = {
+	[SYSCALL_KDB] = syscall_kdb,
 	[SYSCALL_UART_PUTCH] = syscall_uartPutch,
 	[SYSCALL_UART_GETCH] = syscall_uartGetch,
 
