@@ -3,15 +3,31 @@
 #include <stdio.h>
 #include <string.h>
 #include <mount.h>
+#include <dev/dev_sramdisk.h>
 
 #define MOUNT_MAX 16
 
 static MountT _mounts[MOUNT_MAX];
 
-static void mountDevice(TreeNodeT* node, int mountIndex) {
+static DevTypeT _devices[] = {
+	[DEV_NONE] = { 0 },
+	[DEV_SRAMDISK] = { mountSRamDisk, 0, 0, 0, 0 },
+};
+	
+void mountInit() {
+	for(int i=0; i<MOUNT_MAX; i++) {
+		memset(&_mounts[i], 0, sizeof(MountT));
+	}
+}
+
+static void mountDevice(TreeNodeT* node) {
 	printf("mnt: type=%d, device=%s\n",
-		_mounts[mountIndex].type,
-		_mounts[mountIndex].device);
+		_mounts[node->mount].type,
+		_mounts[node->mount].device);
+	
+	DevTypeT* dev = getDevInfo(node);
+	if(dev != NULL && dev->mount != NULL)
+		dev->mount(node);
 }
 
 static TreeNodeT* preMount(uint32_t type, const char* device) {
@@ -29,12 +45,11 @@ static TreeNodeT* preMount(uint32_t type, const char* device) {
 			strncpy(_mounts[i].device, device, NAME_MAX);
 			_mounts[i].type = type;
 			_mounts[i].to = NULL;
-			mountDevice(node, i);
+			mountDevice(node);
 			node->flags |= FS_FLAG_MNT_ROOT;
 			return node;
 		}
 	}
-
 	return NULL;
 }
 
@@ -48,6 +63,7 @@ TreeNodeT* mount(TreeNodeT* to, uint32_t type, const char* device) {
 	TreeNodeT* node = preMount(type, device);
 	if(node == NULL)
 		return NULL;
+	strcpy(node->name, to->name);
 
 	_mounts[node->mount].to = to; //save the old node.
 
@@ -94,4 +110,16 @@ void unmount(TreeNodeT* node) {
 	treeDel(node);	
 }
 
+MountT* getMountInfo(struct TreeNode* node) {
+	if(node == NULL || node->mount < 0)
+		return NULL;
 
+	return &_mounts[node->mount];
+}
+
+DevTypeT* getDevInfo(struct TreeNode* node) {
+	if(node == NULL || node->mount < 0)
+		return NULL;
+
+	return &_devices[_mounts[node->mount].type];
+}

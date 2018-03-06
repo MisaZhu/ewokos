@@ -19,6 +19,7 @@ void treeInitNode(TreeNodeT* node) {
 TreeNodeT* treeSimpleGet(TreeNodeT* father, const char* name) {
 	if(father == NULL || strchr(name, '/') != NULL)
 		return NULL;
+
 	TreeNodeT* node = father->fChild;
 	while(node != NULL) {
 		if(strcmp(node->name, name) == 0) {
@@ -61,7 +62,9 @@ TreeNodeT* treeGet(TreeNodeT* father, const char* name) {
 	
 TreeNodeT* treeSimpleAdd(TreeNodeT* father, const char* name) {
 	TreeNodeT* node = (TreeNodeT*)malloc(sizeof(TreeNodeT));
-	if(node == NULL || strchr(name, '/') != NULL)
+	if(node == NULL ||
+			node->type != FS_TYPE_DIR ||
+			strchr(name, '/') != NULL)
 		return NULL;
 
 	treeInitNode(node);

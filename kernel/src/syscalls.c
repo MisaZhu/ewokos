@@ -142,6 +142,35 @@ static int syscall_readInitRD(int arg0, int arg1) {
 	return (int)ret;
 }
 
+static int syscall_filesInitRD() {
+	RamFileT* f = _initRamDisk.head;
+	char* ret = pmalloc(&_currentProcess->mallocMan, 1024+1);
+	if(ret == NULL)
+		return 0;
+
+	int i=0;
+	while(f != NULL) {
+		int j=0;
+		char c = f->name[j];
+		while(c != 0) {
+			ret[i] = c;
+			i++;
+			j++;
+
+			if(i >= 1024) {
+				ret[i] = 0;
+				return (int)ret;
+			}
+			c = f->name[j];
+		}
+		f = f->next;
+		ret[i++] = '\n';
+		j = 0;
+	}
+	ret[i] = 0;
+	return (int)ret;
+}
+
 static int syscall_kdb(int arg0) {
 	return arg0;
 }
@@ -165,7 +194,8 @@ static int (*const _syscallHandler[])() = {
 	[SYSCALL_SEND_MSG] = syscall_sendMessage,
 	[SYSCALL_READ_MSG] = syscall_readMessage,
 
-	[SYSCALL_READ_INITRD] = syscall_readInitRD,
+	[SYSCALL_INITRD_READ] = syscall_readInitRD,
+	[SYSCALL_INITRD_FILES] = syscall_filesInitRD,
 };
 
 /* kernel side of system calls. */

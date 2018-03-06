@@ -10,20 +10,22 @@
 #include <kserv/fs.h>
 #include <string.h>
 #include <vfs.h>
-#include <tree.h>
+#include <mount.h>
 
-
-/*need to be freed later*/
-/*
-static char* readKernelInitRD(const char* fname, int *size) {
-	return (char*)syscall2(SYSCALL_READ_INITRD, (int)fname, (int)size);
-}
-*/
+static TreeNodeT _root;
 
 void doOpen(PackageT* pkg) { 
 	const char* name = (const char*)getPackageData(pkg);
-	printf("fs_open: name=[%s]\n", name);
-	int fd = 100;
+	TreeNodeT* node = treeGet(&_root, name);
+	int fd = -1;
+
+	if(node != NULL) {
+		printf("nodeName: %s\n", node->name);
+		DevTypeT* dev = getDevInfo(node);
+		if(dev != NULL && dev->open != NULL) 
+			fd = dev->open(name);
+	}
+	
 	psend(pkg->id, pkg->pid, pkg->type, &fd, 4);
 }
 
@@ -56,14 +58,12 @@ void handle(PackageT* pkg) {
 	}
 }
 
-static TreeNodeT _root;
-
 static void doInit() {
 	treeInitNode(&_root);
 	strcpy(_root.name, "/");
 
 	TreeNodeT* node = treeSimpleAdd(&_root, "initrd");
-	mount(node, DEV_RAMDISK, "initrd");
+	node = mount(node, DEV_SRAMDISK, "initrd");
 }
 
 void _start() {

@@ -87,8 +87,14 @@ void _start()
 
 	printf("start shell...\n");
 	pid = fork();
-	if(pid == 0) { //shell process
-		exec("shell");
+	if(pid == 0) {
+		while(1) {
+			pid = fork();
+			if(pid == 0) { //shell process
+				exec("shell");
+			}
+			wait(pid);
+		}
 	}
 
 	while(1) {

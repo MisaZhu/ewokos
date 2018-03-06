@@ -9,7 +9,7 @@
 
 void _start()
 {
-	int fd = fsOpen("help");
+	int fd = fsOpen("/initrd/test");
 	printf("fd: %d\n", fd);
 	exit(0);
 }

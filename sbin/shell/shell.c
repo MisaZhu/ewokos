@@ -59,6 +59,8 @@ void _start() {
 		gets(cmd, 31);
 		if(cmd[0] == 0)
 			continue;
+		if(strcmp(cmd, "exit") == 0)
+			break;
 
 		int child_pid = fork();
 		if (child_pid == 0) {
@@ -71,4 +73,5 @@ void _start() {
 			wait(child_pid);
 		}
 	}
+	exit(0);
 }
