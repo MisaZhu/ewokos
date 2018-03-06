@@ -14,7 +14,18 @@
 	
 .Source code read-guide
 
-	boot.S => kalloc.c => mmu.c => proc.c => sheduler.c => syscalls.c => pmalloc.c
+	kernel/arm/boot.S
+	kernel/src/kalloc.c
+	kernel/src/mmu.c
+	kernel/src/proc.c 
+	kernel/src/sheduler.c
+	kernel/src/syscalls.c
+	kernel/src/kmessage.c
+	lib/src/pmalloc.c
+	lib/src/pmessage.c
+	sbin/kserv/kserv.c
+	sbin/vfs/vfs.c
+
 	Tips: Don't fall in love with assembly too much;).
 
 .make and run
