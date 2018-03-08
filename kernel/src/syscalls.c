@@ -10,6 +10,7 @@
 #include <pmalloc.h>
 #include <kmessage.h>
 #include <kfile.h>
+#include <types.h>
 
 void schedule();
 
@@ -128,18 +129,30 @@ static int syscall_readMessage(int arg0) {
 	return (int)pkg;
 }
 
-static int syscall_readInitRD(int arg0, int arg1) {
+static int syscall_readInitRD(int arg0, int arg1, int arg2) {
 	const char* fname = (const char*)arg0;
-	int size = 0;
-	const char*p = ramdiskRead(&_initRamDisk, fname, &size);
-	if(p == NULL || size == 0)
+	int fsize = 0;
+	int rdSize = *(int*)arg2;
+	*(int*)arg2 = 0;
+
+	const char*p = ramdiskRead(&_initRamDisk, fname, &fsize);
+	if(p == NULL || fsize == 0 || rdSize <= 0)
 		return 0;
 
-	char* ret = pmalloc(&_currentProcess->mallocMan, size);
+	int resetSize = fsize - arg1; /*arg1: seek*/
+	if(resetSize <= 0) {
+		return 0;
+	}
+
+	if(rdSize > resetSize)
+		rdSize = resetSize;
+
+
+	char* ret = pmalloc(&_currentProcess->mallocMan, rdSize);
 	if(ret == NULL)
 		return 0;
-	memcpy(ret, p, size);
-	*((int*)arg1) = size;
+	memcpy(ret, p+arg1, rdSize);
+	*((int*)arg2) = rdSize;
 	return (int)ret;
 }
 
@@ -176,72 +189,90 @@ static int syscall_kdb(int arg0) {
 	return arg0;
 }
 
-static int syscall_pfOpen(int arg0, int arg1) {
-	KFileT* kf = kfOpen((uint32_t)arg0);
+static int syscall_pfOpen(int arg0, int arg1, int arg2) {
+	ProcessT* proc = procGet(arg0);
+	if(proc == NULL)
+		return -1;
+
+	KFileT* kf = kfOpen((uint32_t)arg1);
 	if(kf == NULL)
 		return -1;
 
-	kfRef(kf, arg1);
+	kfRef(kf, arg2);
 
-	ProcessT* proc = _currentProcess;
 	int i;
 	for(i=0; i<FILE_MAX; i++) {
 		if(proc->files[i].kf == NULL) {
 			proc->files[i].kf = kf;
-			proc->files[i].flags = arg1;
+			proc->files[i].flags = arg2;
 			proc->files[i].seek = 0;
 			return i;
 		}
 	}
 
-	kfUnref(kf, arg1);
+	kfUnref(kf, arg2);
 	return -1;
 }
 
-static int syscall_pfClose(int arg0) {
-	if(arg0 < 0 || arg0 >= FILE_MAX)
+static int syscall_pfClose(int arg0, int arg1) {
+	ProcessT* proc = procGet(arg0);
+	if(proc == NULL)
 		return -1;
 
-	ProcessT* proc = _currentProcess;
-	kfUnref(proc->files[arg0].kf, proc->files[arg0].flags);
+	int fd = arg1;
+	if(fd < 0 || fd >= FILE_MAX)
+		return -1;
 
-	proc->files[arg0].kf = NULL;
-	proc->files[arg0].flags = 0;
-	proc->files[arg0].seek = 0;
+	kfUnref(proc->files[fd].kf, proc->files[fd].flags);
+
+	proc->files[fd].kf = NULL;
+	proc->files[fd].flags = 0;
+	proc->files[fd].seek = 0;
 	return  0;
 }
 
-static int syscall_pfNode(int arg0) {
-	ProcessT* proc = _currentProcess;
-	if(arg0 < 0 || arg0 >= FILE_MAX)
+static int syscall_pfNode(int arg0, int arg1) {
+	ProcessT* proc = procGet(arg0);
+	if(proc == NULL)
+		return -1;
+	int fd = arg1;
+	if(fd < 0 || fd >= FILE_MAX)
 		return 0;
-	KFileT* kf = proc->files[arg0].kf;
+	KFileT* kf = proc->files[fd].kf;
 	if(kf == NULL)
 		return 0;
 	return kf->fsNodeAddr;
 }
 
-static int syscall_pfSeek(int arg0, int arg1) {
-	ProcessT* proc = _currentProcess;
-	if(arg0 < 0 || arg0 >= FILE_MAX)
+static int syscall_pfSeek(int arg0, int arg1, int arg2) {
+	ProcessT* proc = procGet(arg0);
+	if(proc == NULL)
 		return -1;
 
-	KFileT* kf = proc->files[arg0].kf;
+	int fd = arg1;
+	if(fd < 0 || fd >= FILE_MAX)
+		return -1;
+
+	KFileT* kf = proc->files[fd].kf;
 	if(kf == NULL || kf->fsNodeAddr == 0)
 		return -1;
-	proc->files[arg0].seek = arg1;
-	return arg1;
+	proc->files[fd].seek = arg2;
+	return arg2;
 }
 
-static int syscall_pfGetSeek(int arg0) {
-	ProcessT* proc = _currentProcess;
-	if(arg0 < 0 || arg0 >= FILE_MAX)
+static int syscall_pfGetSeek(int arg0, int arg1) {
+	ProcessT* proc = procGet(arg0);
+	if(proc == NULL)
 		return -1;
 
-	KFileT* kf = proc->files[arg0].kf;
+	int fd = arg1;
+	if(fd < 0 || fd >= FILE_MAX)
+		return -1;
+
+	KFileT* kf = proc->files[fd].kf;
 	if(kf == NULL || kf->fsNodeAddr == 0)
 		return -1;
-	return proc->files[arg0].seek;
+	return proc->files[fd].seek;
 }
 
 static int (*const _syscallHandler[])() = {

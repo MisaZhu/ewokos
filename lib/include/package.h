@@ -3,6 +3,8 @@
 
 #include <types.h>
 
+static const int PKG_TYPE_ERR = 0x0FFFFFFF;
+
 typedef struct {
 	int id;
 	int pid;

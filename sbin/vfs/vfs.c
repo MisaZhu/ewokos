@@ -1,11 +1,8 @@
-#include <types.h>
 #include <fork.h>
 #include <pmessage.h>
 #include <syscall.h>
 #include <malloc.h>
 #include <string.h>
-#include <sramdisk.h>
-#include <stdio.h>
 #include <kserv/kserv.h>
 #include <kserv/fs.h>
 #include <string.h>
@@ -21,7 +18,6 @@ void doOpen(PackageT* pkg) {
 	int openMode = 0;//read.
 
 	if(node != NULL) {
-		printf("nodeName: %s\n", node->name);
 		DevTypeT* dev = getDevInfo(node);
 		if(dev != NULL && dev->open != NULL) {
 			if(!dev->open(node)) {//open failed;
@@ -29,7 +25,7 @@ void doOpen(PackageT* pkg) {
 				node = NULL;
 			}
 		}
-		fd = syscall2(SYSCALL_PFILE_OPEN, (int32_t)node, openMode);
+		fd = syscall3(SYSCALL_PFILE_OPEN, pkg->pid, (int32_t)node, openMode);
 	}
 	
 	psend(pkg->id, pkg->pid, pkg->type, &fd, 4);
@@ -40,7 +36,7 @@ void doClose(PackageT* pkg) {
 	if(fd < 0)
 		return;
 	
-	TreeNodeT* node = (TreeNodeT*)syscall1(SYSCALL_PFILE_NODE, fd);
+	TreeNodeT* node = (TreeNodeT*)syscall2(SYSCALL_PFILE_NODE, pkg->pid, fd);
 	if(node == NULL)
 		return;
 
@@ -57,7 +53,45 @@ void doWrite(PackageT* pkg) {
 }
 
 void doRead(PackageT* pkg) { 
-	(void)pkg;
+	const char* p  = (const char*)getPackageData(pkg);
+	int fd = *(int32_t*)p;
+	int size = *(int32_t*)(p+4);
+
+	TreeNodeT* node = (TreeNodeT*)syscall2(SYSCALL_PFILE_NODE, pkg->pid, fd);
+	if(node == NULL) {
+		psend(pkg->id, pkg->pid, PKG_TYPE_ERR, NULL, 0);
+		return;
+	}
+
+	int seek = syscall2(SYSCALL_PFILE_GET_SEEK, pkg->pid, fd);
+	if(seek < 0 || size < 0) {
+		psend(pkg->id, pkg->pid, PKG_TYPE_ERR, NULL, 0);
+		return;
+	}
+
+	if(size == 0) {
+		psend(pkg->id, pkg->pid, pkg->type, NULL, 0);
+		return;
+	}
+
+	DevTypeT* dev = getDevInfo(node);
+	if(dev != NULL && dev->read != NULL) {
+		char* buf = (char*)malloc(size);
+		size = dev->read(node, seek, buf, size);
+		if(size < 0) {
+			psend(pkg->id, pkg->pid, PKG_TYPE_ERR, NULL, 0);
+			free(buf);
+			return;
+		}
+
+		psend(pkg->id, pkg->pid, pkg->type, buf, size);
+		free(buf);
+		seek += size;
+		syscall3(SYSCALL_PFILE_SEEK, pkg->pid, fd, seek);
+	}
+	else {
+		psend(pkg->id, pkg->pid, pkg->type, NULL, 0);
+	}
 }
 
 void handle(PackageT* pkg) {
@@ -72,7 +106,7 @@ void handle(PackageT* pkg) {
 			doWrite(pkg);
 			break;
 		case FS_READ:
-			doClose(pkg);
+			doRead(pkg);
 			break;
 	}
 }

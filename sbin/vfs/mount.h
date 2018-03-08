@@ -21,9 +21,9 @@ typedef struct {
 typedef struct {
 	void (*mount)(TreeNodeT*);
 	bool (*open)(TreeNodeT*);
+	int (*read)(TreeNodeT*, int, char*, uint32_t);
+	int (*write)(TreeNodeT*, int, const char*, uint32_t);
 	void (*close)(TreeNodeT*);
-	int (*write)(TreeNodeT*, const char*, uint32_t);
-	int (*read)(TreeNodeT*, char*, uint32_t);
 } DevTypeT;
 
 void mountInit();

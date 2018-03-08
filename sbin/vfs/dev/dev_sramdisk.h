@@ -6,6 +6,6 @@
 
 void mountSRamDisk(TreeNodeT* node);
 
-int readSRamDisk(TreeNodeT* node, char* buf, uint32_t size);
+int readSRamDisk(TreeNodeT* node, int seek, char* buf, uint32_t size);
 
 #endif

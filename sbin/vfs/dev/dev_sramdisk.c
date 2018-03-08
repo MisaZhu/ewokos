@@ -6,11 +6,14 @@
 #include <stdio.h>
 
 /*need to be freed later*/
-char* readKernelInitRD(const char* fname, int *size) {
-	return (char*)syscall2(SYSCALL_INITRD_READ, (int)fname, (int)size);
+static char* readKernelInitRD(const char* fname, int seek, int *size) {
+	return (char*)syscall3(SYSCALL_INITRD_READ, (int)fname, seek, (int)size);
 }
 
-/*need to be freed later*/
+/*need to be freed later,
+one filename each line.
+*/
+
 static char* getKernelInitRDFiles() {
 	return (char*)syscall0(SYSCALL_INITRD_FILES);
 }
@@ -50,5 +53,13 @@ void mountSRamDisk(TreeNodeT* node) {
 	free(s);
 }
 
-int readSRamDisk(TreeNodeT* node, char* buf, uint32_t size) {
+int readSRamDisk(TreeNodeT* node, int seek, char* buf, uint32_t size) {
+	int sz = size;
+	char* p = readKernelInitRD(node->name, seek, &sz);
+	if(p == NULL)
+		return -1;
+
+	memcpy(buf, p, sz);
+	free(p);
+	return sz;
 }

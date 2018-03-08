@@ -1,6 +1,8 @@
 #ifndef FS_H
 #define FS_H
 
+#include <types.h>
+
 #define KSERV_FS_NAME  "FS"
 
 extern int _fsPid;
@@ -16,6 +18,8 @@ typedef enum {
 int fsOpen(const char* name);
 
 int fsClose(int fd);
+
+int fsRead(int fd, char* buf, uint32_t size);
 
 void fsInit(int ksPid);
 
