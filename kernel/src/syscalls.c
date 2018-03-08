@@ -139,13 +139,13 @@ static int syscall_readInitRD(int arg0, int arg1, int arg2) {
 	if(p == NULL || fsize == 0 || rdSize <= 0)
 		return 0;
 
-	int resetSize = fsize - arg1; /*arg1: seek*/
-	if(resetSize <= 0) {
+	int restSize = fsize - arg1; /*arg1: seek*/
+	if(restSize <= 0) {
 		return 0;
 	}
 
-	if(rdSize > resetSize)
-		rdSize = resetSize;
+	if(rdSize > restSize)
+		rdSize = restSize;
 
 
 	char* ret = pmalloc(&_currentProcess->mallocMan, rdSize);
