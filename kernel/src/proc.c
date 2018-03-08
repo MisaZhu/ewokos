@@ -127,6 +127,8 @@ ProcessT *procCreate(void)
 
 	proc->messageQueue.head = 0;
 	proc->messageQueue.tail = 0;
+
+	memset(&proc->files, 0, sizeof(ProcFileT)*FILE_MAX);
 	return proc;
 }
 
@@ -252,6 +254,16 @@ int kfork(void)
 	/*same owner*/
 	child->owner = parent->owner;
 
+	/*file info*/
+	for(i=0; i<FILE_MAX; i++) {
+		KFileT* kf = parent->files[i].kf;
+		if(kf != NULL) {
+			child->files[i].kf = kf;
+			child->files[i].flags = parent->files[i].flags;
+			child->files[i].seek = parent->files[i].seek;
+			kfRef(kf, child->files[i].flags); //ref the kernel file table.
+		}
+	}
 	/* return pid of child to the parent. */
 	return child->pid;
 }

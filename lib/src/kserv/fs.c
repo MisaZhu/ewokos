@@ -17,6 +17,15 @@ int fsOpen(const char* name) {
 	return fd;
 }
 
+int fsClose(int fd) {
+	if(fd < 0)
+		return -1;
+
+	if(psend(-1, _fsPid, FS_CLOSE, (void*)&fd, 4) < 0)
+		return -1;
+	return 0;
+}
+
 void fsInit(int ksPid) {
 	_fsPid = ksPid;
 }

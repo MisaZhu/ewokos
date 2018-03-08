@@ -9,6 +9,7 @@
 #include <string.h>
 #include <pmalloc.h>
 #include <kmessage.h>
+#include <kfile.h>
 
 void schedule();
 
@@ -175,6 +176,74 @@ static int syscall_kdb(int arg0) {
 	return arg0;
 }
 
+static int syscall_pfOpen(int arg0, int arg1) {
+	KFileT* kf = kfOpen((uint32_t)arg0);
+	if(kf == NULL)
+		return -1;
+
+	kfRef(kf, arg1);
+
+	ProcessT* proc = _currentProcess;
+	int i;
+	for(i=0; i<FILE_MAX; i++) {
+		if(proc->files[i].kf == NULL) {
+			proc->files[i].kf = kf;
+			proc->files[i].flags = arg1;
+			proc->files[i].seek = 0;
+			return i;
+		}
+	}
+
+	kfUnref(kf, arg1);
+	return -1;
+}
+
+static int syscall_pfClose(int arg0) {
+	if(arg0 < 0 || arg0 >= FILE_MAX)
+		return -1;
+
+	ProcessT* proc = _currentProcess;
+	kfUnref(proc->files[arg0].kf, proc->files[arg0].flags);
+
+	proc->files[arg0].kf = NULL;
+	proc->files[arg0].flags = 0;
+	proc->files[arg0].seek = 0;
+	return  0;
+}
+
+static int syscall_pfNode(int arg0) {
+	ProcessT* proc = _currentProcess;
+	if(arg0 < 0 || arg0 >= FILE_MAX)
+		return 0;
+	KFileT* kf = proc->files[arg0].kf;
+	if(kf == NULL)
+		return 0;
+	return kf->fsNodeAddr;
+}
+
+static int syscall_pfSeek(int arg0, int arg1) {
+	ProcessT* proc = _currentProcess;
+	if(arg0 < 0 || arg0 >= FILE_MAX)
+		return -1;
+
+	KFileT* kf = proc->files[arg0].kf;
+	if(kf == NULL || kf->fsNodeAddr == 0)
+		return -1;
+	proc->files[arg0].seek = arg1;
+	return arg1;
+}
+
+static int syscall_pfGetSeek(int arg0) {
+	ProcessT* proc = _currentProcess;
+	if(arg0 < 0 || arg0 >= FILE_MAX)
+		return -1;
+
+	KFileT* kf = proc->files[arg0].kf;
+	if(kf == NULL || kf->fsNodeAddr == 0)
+		return -1;
+	return proc->files[arg0].seek;
+}
+
 static int (*const _syscallHandler[])() = {
 	[SYSCALL_KDB] = syscall_kdb,
 	[SYSCALL_UART_PUTCH] = syscall_uartPutch,
@@ -196,6 +265,12 @@ static int (*const _syscallHandler[])() = {
 
 	[SYSCALL_INITRD_READ] = syscall_readInitRD,
 	[SYSCALL_INITRD_FILES] = syscall_filesInitRD,
+
+	[SYSCALL_PFILE_NODE] = syscall_pfNode,
+	[SYSCALL_PFILE_GET_SEEK] = syscall_pfGetSeek,
+	[SYSCALL_PFILE_SEEK] = syscall_pfSeek,
+	[SYSCALL_PFILE_OPEN] = syscall_pfOpen,
+	[SYSCALL_PFILE_CLOSE] = syscall_pfClose,
 };
 
 /* kernel side of system calls. */

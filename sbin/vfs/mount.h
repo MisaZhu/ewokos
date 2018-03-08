@@ -20,10 +20,10 @@ typedef struct {
 
 typedef struct {
 	void (*mount)(TreeNodeT*);
-	int (*open)(const char*);
-	void (*close)(int);
-	int (*write)(int, const char*, int);
-	int (*read)(int, char*, int);
+	bool (*open)(TreeNodeT*);
+	void (*close)(TreeNodeT*);
+	int (*write)(TreeNodeT*, const char*, uint32_t);
+	int (*read)(TreeNodeT*, char*, uint32_t);
 } DevTypeT;
 
 void mountInit();

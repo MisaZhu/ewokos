@@ -49,3 +49,6 @@ void mountSRamDisk(TreeNodeT* node) {
 	}
 	free(s);
 }
+
+int readSRamDisk(TreeNodeT* node, char* buf, uint32_t size) {
+}

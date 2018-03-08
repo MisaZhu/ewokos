@@ -18,6 +18,7 @@
 #include <mmu.h>
 #include <pmalloc.h>
 #include <kmessage.h>
+#include <kfile.h>
 
 typedef void (*EntryFunctionT)(void);
 
@@ -37,6 +38,14 @@ enum ContextItem {
 	R0, R1, R2, R3, R4, R5, R6, R7, R8, R9, R10, R11, R12,
 	SP, LR
 };
+
+#define FILE_MAX 32
+
+typedef struct {
+	KFileT* kf;	
+	uint32_t flags;
+	uint32_t seek;
+} ProcFileT;
 
 typedef struct {
 	enum ProcessState state;
@@ -58,6 +67,8 @@ typedef struct {
 	MallocT mallocMan;
 	/*for process communication*/
 	MessageQueueT messageQueue;
+	/*for file*/
+	ProcFileT files[FILE_MAX];
 } ProcessT;
 
 /* public symbols */

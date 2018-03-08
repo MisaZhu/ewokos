@@ -15,6 +15,8 @@ typedef enum {
 
 int fsOpen(const char* name);
 
+int fsClose(int fd);
+
 void fsInit(int ksPid);
 
 /*return fs service process pid, -1 means not inited*/

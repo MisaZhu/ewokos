@@ -17,20 +17,39 @@ static TreeNodeT _root;
 void doOpen(PackageT* pkg) { 
 	const char* name = (const char*)getPackageData(pkg);
 	TreeNodeT* node = treeGet(&_root, name);
-	int fd = -1;
+	int32_t fd = -1;
+	int openMode = 0;//read.
 
 	if(node != NULL) {
 		printf("nodeName: %s\n", node->name);
 		DevTypeT* dev = getDevInfo(node);
-		if(dev != NULL && dev->open != NULL) 
-			fd = dev->open(name);
+		if(dev != NULL && dev->open != NULL) {
+			if(!dev->open(node)) {//open failed;
+				free(node);
+				node = NULL;
+			}
+		}
+		fd = syscall2(SYSCALL_PFILE_OPEN, (int32_t)node, openMode);
 	}
 	
 	psend(pkg->id, pkg->pid, pkg->type, &fd, 4);
 }
 
 void doClose(PackageT* pkg) { 
-	(void)pkg;
+	int fd = *(int32_t*)getPackageData(pkg);
+	if(fd < 0)
+		return;
+	
+	TreeNodeT* node = (TreeNodeT*)syscall1(SYSCALL_PFILE_NODE, fd);
+	if(node == NULL)
+		return;
+
+	DevTypeT* dev = getDevInfo(node);
+	if(dev != NULL && dev->close != NULL) {
+		dev->close(node);
+	}
+
+	syscall1(SYSCALL_PFILE_CLOSE, fd);
 }
 
 void doWrite(PackageT* pkg) { 

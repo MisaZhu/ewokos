@@ -11,5 +11,6 @@ void _start()
 {
 	int fd = fsOpen("/initrd/test");
 	printf("fd: %d\n", fd);
+	fsClose(fd);
 	exit(0);
 }

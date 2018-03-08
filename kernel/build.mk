@@ -20,5 +20,6 @@ OBJS += $(ARCH_OBJS) \
 	$(KERNEL_DIR)/src/pmalloc.o \
 	$(KERNEL_DIR)/src/kmalloc.o \
 	$(KERNEL_DIR)/src/kmessage.o \
+	$(KERNEL_DIR)/src/kfile.o \
 	$(KERNEL_DIR)/src/scheduler.o 
 
