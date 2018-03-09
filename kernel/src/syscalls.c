@@ -11,6 +11,8 @@
 #include <kmessage.h>
 #include <kfile.h>
 #include <types.h>
+#include <kserv.h>
+#include <kserv/fs.h>
 
 void schedule();
 
@@ -136,7 +138,7 @@ static int syscall_readInitRD(int arg0, int arg1, int arg2) {
 	*(int*)arg2 = 0;
 
 	const char*p = ramdiskRead(&_initRamDisk, fname, &fsize);
-	if(p == NULL || fsize == 0 || rdSize <= 0)
+	if(p == NULL || fsize == 0)
 		return 0;
 
 	int restSize = fsize - arg1; /*arg1: seek*/
@@ -144,7 +146,7 @@ static int syscall_readInitRD(int arg0, int arg1, int arg2) {
 		return 0;
 	}
 
-	if(rdSize > restSize)
+	if(rdSize <= 0 || rdSize > restSize)
 		rdSize = restSize;
 
 
@@ -183,6 +185,21 @@ static int syscall_filesInitRD() {
 	}
 	ret[i] = 0;
 	return (int)ret;
+}
+
+static int syscall_infoInitRD(int arg0, int arg1) {
+	const char* fname = (const char*)arg0;
+	FSInfoT* info = (FSInfoT*)arg1;
+	int fsize = 0;
+
+	const char*p = ramdiskRead(&_initRamDisk, fname, &fsize);
+	if(p == NULL)
+		return -1;
+	
+	info->type = FS_TYPE_FILE;
+	info->size = fsize;
+
+	return 0;
 }
 
 static int syscall_kdb(int arg0) {
@@ -275,6 +292,14 @@ static int syscall_pfGetSeek(int arg0, int arg1) {
 	return proc->files[fd].seek;
 }
 
+static int syscall_kservReg(int arg0) {
+	return kservReg((const char*)arg0);
+}
+
+static int syscall_kservGet(int arg0) {
+	return kservGet((const char*)arg0);
+}
+
 static int (*const _syscallHandler[])() = {
 	[SYSCALL_KDB] = syscall_kdb,
 	[SYSCALL_UART_PUTCH] = syscall_uartPutch,
@@ -296,12 +321,16 @@ static int (*const _syscallHandler[])() = {
 
 	[SYSCALL_INITRD_READ] = syscall_readInitRD,
 	[SYSCALL_INITRD_FILES] = syscall_filesInitRD,
+	[SYSCALL_INITRD_INFO] = syscall_infoInitRD,
 
 	[SYSCALL_PFILE_NODE] = syscall_pfNode,
 	[SYSCALL_PFILE_GET_SEEK] = syscall_pfGetSeek,
 	[SYSCALL_PFILE_SEEK] = syscall_pfSeek,
 	[SYSCALL_PFILE_OPEN] = syscall_pfOpen,
 	[SYSCALL_PFILE_CLOSE] = syscall_pfClose,
+
+	[SYSCALL_KSERV_REG] = syscall_kservReg,
+	[SYSCALL_KSERV_GET] = syscall_kservGet,
 };
 
 /* kernel side of system calls. */

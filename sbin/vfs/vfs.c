@@ -48,6 +48,31 @@ void doClose(PackageT* pkg) {
 	syscall1(SYSCALL_PFILE_CLOSE, fd);
 }
 
+void doInfo(PackageT* pkg) { 
+	int fd = *(int32_t*)getPackageData(pkg);
+	if(fd < 0) {
+		psend(pkg->id, pkg->pid, PKG_TYPE_ERR, NULL, 0);
+		return;
+	}
+	
+	TreeNodeT* node = (TreeNodeT*)syscall2(SYSCALL_PFILE_NODE, pkg->pid, fd);
+	if(node == NULL) {
+		psend(pkg->id, pkg->pid, PKG_TYPE_ERR, NULL, 0);
+		return;
+	}
+
+	DevTypeT* dev = getDevInfo(node);
+	if(dev == NULL || dev->info == NULL) {
+		psend(pkg->id, pkg->pid, PKG_TYPE_ERR, NULL, 0);
+		return;
+	}
+
+	FSInfoT info;
+	dev->info(node, &info);
+	psend(pkg->id, pkg->pid, pkg->type, &info, sizeof(FSInfoT));
+}
+
+
 void doWrite(PackageT* pkg) { 
 	(void)pkg;
 }
@@ -108,6 +133,9 @@ void handle(PackageT* pkg) {
 		case FS_READ:
 			doRead(pkg);
 			break;
+		case FS_INFO:
+			doInfo(pkg);
+			break;
 	}
 }
 
@@ -120,9 +148,8 @@ static void doInit() {
 }
 
 void _start() {
-	psend(-1, 0, KS_REG, (void*)KSERV_FS_NAME, strlen(KSERV_FS_NAME)+1);
 	doInit();
-	fsInit(getpid());
+	syscall1(SYSCALL_KSERV_REG, (int)KSERV_FS_NAME);
 
 	while(true) {
 		PackageT* pkg = precv(-1);	

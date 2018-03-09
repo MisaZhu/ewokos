@@ -7,9 +7,6 @@
 
 #define FS_FLAG_MNT_ROOT 0x01
 
-#define FS_TYPE_DIR 0x0
-#define FS_TYPE_FILE 0x01
-
 typedef struct TreeNode {
 	struct TreeNode* father; 
 	struct TreeNode* fChild; /*first child*/

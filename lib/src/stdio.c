@@ -1,7 +1,6 @@
 #include <stdio.h>
 #include <syscall.h>
 
-#define BUFFER_MAX_LENGTH 256
 
 void putch(int c) {
 	syscall1(SYSCALL_UART_PUTCH, c);
@@ -46,7 +45,7 @@ int
 printf_base(void (*putch)(int), const char *format, ...)
 {
 	int length = 0;
-	char buffer[BUFFER_MAX_LENGTH];
+	char buffer[BUFFER_MAX_LENGTH+1];
 	int i = 0;
 	va_list ap;
 

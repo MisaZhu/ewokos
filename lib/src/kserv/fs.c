@@ -2,10 +2,19 @@
 #include <pmessage.h>
 #include <malloc.h>
 #include <string.h>
+#include <syscall.h>
 
-int _fsPid = 1;
+static int _fsPid = -1;
+
+#define CHECK_KSERV_FS \
+	if(_fsPid < 0) \
+		_fsPid = syscall1(SYSCALL_KSERV_GET, (int)KSERV_FS_NAME); \
+	if(_fsPid < 0) \
+		return -1; 
+
 
 int fsOpen(const char* name) {
+	CHECK_KSERV_FS
 	int fd = -1;
 
 	PackageT* pkg = preq(_fsPid, FS_OPEN, (void*)name, strlen(name)+1);
@@ -18,6 +27,8 @@ int fsOpen(const char* name) {
 }
 
 int fsClose(int fd) {
+	CHECK_KSERV_FS
+
 	if(fd < 0)
 		return -1;
 
@@ -27,6 +38,8 @@ int fsClose(int fd) {
 }
 
 int fsRead(int fd, char* buf, uint32_t size) {
+	CHECK_KSERV_FS
+
 	if(fd < 0)
 		return -1;
 	
@@ -35,7 +48,7 @@ int fsRead(int fd, char* buf, uint32_t size) {
 	memcpy(req+4, &size, 4);
 
 	PackageT* pkg = preq(_fsPid, FS_READ, req, 8);
-	if(pkg == NULL)
+	if(pkg == NULL || pkg->type == PKG_TYPE_ERR)
 		return -1;
 
 	int sz = pkg->size;
@@ -49,10 +62,20 @@ int fsRead(int fd, char* buf, uint32_t size) {
 	return sz;
 }
 
-void fsInit(int ksPid) {
-	_fsPid = ksPid;
+int fsInfo(int fd, FSInfoT* info) {
+	CHECK_KSERV_FS
+
+	if(fd < 0)
+		return -1;
+	
+	PackageT* pkg = preq(_fsPid, FS_INFO, &fd, 4);
+	if(pkg == NULL || pkg->type == PKG_TYPE_ERR)
+		return -1;
+	
+	memcpy(info, getPackageData(pkg), sizeof(FSInfoT));
+	return 0;
 }
 
 int fsInited() {
-	return _fsPid;
+	return syscall1(SYSCALL_KSERV_GET, (int)KSERV_FS_NAME);
 }

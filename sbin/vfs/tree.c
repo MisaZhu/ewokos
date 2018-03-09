@@ -2,6 +2,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <malloc.h>
+#include <kserv/fs.h>
 
 
 void treeInitNode(TreeNodeT* node) {

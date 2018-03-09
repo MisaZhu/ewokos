@@ -3,6 +3,8 @@
 
 #include <stdarg.h>
 
+#define BUFFER_MAX_LENGTH 256
+
 void putch(int c);
 int getch();
 void putstr(const char* s);

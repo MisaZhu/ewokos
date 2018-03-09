@@ -11,7 +11,7 @@ static MountT _mounts[MOUNT_MAX];
 
 static DevTypeT _devices[] = {
 	[DEV_NONE] = { 0 },
-	[DEV_SRAMDISK] = { mountSRamDisk, 0, readSRamDisk, 0, 0},
+	[DEV_SRAMDISK] = { mountSRamDisk, 0, readSRamDisk, 0, infoSRamDisk, 0},
 };
 	
 void mountInit() {

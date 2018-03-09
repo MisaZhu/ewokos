@@ -11,14 +11,17 @@ void _start()
 {
 	int fd = fsOpen("/initrd/test.c");
 	if(fd >= 0) {
-		char buf[128];
-		while(1) {
-			int res = fsRead(fd, buf, 128);
-			if(res <= 0)
-				break;
+		FSInfoT info;
+		fsInfo(fd, &info);
+		printf("size: %d\n", info.size);
 
-			buf[res] = 0;
-			printf("%s", buf);
+		if(info.size > 0) {
+			char* buf = (char*)malloc(info.size);
+			int res = fsRead(fd, buf, info.size);
+			if(res >= 0)
+				buf[res] = 0;
+			//printf("%s\n", buf);
+			free(buf);
 		}
 		fsClose(fd);
 	}

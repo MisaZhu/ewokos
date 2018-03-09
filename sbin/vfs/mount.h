@@ -2,6 +2,7 @@
 #define MOUNT_H
 
 #include <types.h>
+#include <kserv/fs.h>
 
 typedef enum {
 	DEV_NONE = 0,
@@ -23,6 +24,7 @@ typedef struct {
 	bool (*open)(TreeNodeT*);
 	int (*read)(TreeNodeT*, int, char*, uint32_t);
 	int (*write)(TreeNodeT*, int, const char*, uint32_t);
+	int (*info)(TreeNodeT*, FSInfoT* info);
 	void (*close)(TreeNodeT*);
 } DevTypeT;
 

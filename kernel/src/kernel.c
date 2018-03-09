@@ -48,7 +48,7 @@ bool loadInit(ProcessT *proc);
 char* _initRamDiskBase = 0;
 RamDiskT _initRamDisk;
 
-#define FIRST_PROCESS "kserv"
+#define FIRST_PROCESS "init"
 
 void kernelEntry() 
 {

@@ -4,10 +4,15 @@
 #include <syscall.h>
 #include <malloc.h>
 #include <stdio.h>
+#include <kserv/fs.h>
 
 /*need to be freed later*/
 static char* readKernelInitRD(const char* fname, int seek, int *size) {
 	return (char*)syscall3(SYSCALL_INITRD_READ, (int)fname, seek, (int)size);
+}
+
+static int infoKernelInitRD(const char* fname, FSInfoT* info) {
+	return syscall2(SYSCALL_INITRD_INFO, (int)fname, (int)info);
 }
 
 /*need to be freed later,
@@ -62,4 +67,8 @@ int readSRamDisk(TreeNodeT* node, int seek, char* buf, uint32_t size) {
 	memcpy(buf, p, sz);
 	free(p);
 	return sz;
+}
+
+int infoSRamDisk(TreeNodeT* node, FSInfoT* info) {
+	return infoKernelInitRD(node->name, info);
 }
