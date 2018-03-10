@@ -21,6 +21,11 @@
 	"make debug": run EwokOS at debug server-mode;
 	"make gdb": debug EwokOS (debug client-mode);
 
+.commands 
+	
+	Most of commands are in 'sbin' directory, like:
+	ls, ps, pwd, test ......
+
 .Source code read-guide
 
 	kernel/arm/boot.S
