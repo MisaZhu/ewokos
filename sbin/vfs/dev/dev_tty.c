@@ -5,6 +5,13 @@
 #include <kserv/fs.h>
 #include <stdio.h>
 
+void mountTTY(TreeNodeT* node) {
+	node->type = FS_TYPE_FILE;
+}
+
+int infoTTY(TreeNodeT* node, FSInfoT* info) {
+	return 0;
+}
 
 int readTTY(TreeNodeT* node, int seek, char* buf, uint32_t size) {
 	(void)node;

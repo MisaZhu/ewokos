@@ -11,6 +11,8 @@ typedef enum {
 	FS_WRITE,
 	FS_READ,
 	FS_INFO,
+	FS_CHILD,
+	FS_NEXT,
 } FSCmdT;
 
 #define FS_TYPE_DIR 0x0
@@ -19,6 +21,7 @@ typedef enum {
 typedef struct FSInfo {
 	uint32_t size;
 	uint32_t type;
+	char name[FNAME_MAX];
 } FSInfoT;
 
 int fsOpen(const char* name);
@@ -26,6 +29,8 @@ int fsOpen(const char* name);
 int fsClose(int fd);
 
 int fsInfo(int fd, FSInfoT* info);
+
+int fsChild(int fd, FSInfoT* childInfo); /*dir first child*/
 
 int fsRead(int fd, char* buf, uint32_t size);
 

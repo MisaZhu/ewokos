@@ -43,7 +43,25 @@ static int handle(const char* cmd) {
 		return 0;
 	}
 	if(strncmp(cmd, "cd ", 3) == 0) {
-		chdir(cmd + 3);
+		char* p = cmd + 3;
+		if(p[0] == '/') {
+			chdir(p);
+			return 0;
+		}
+
+		char cwd[FNAME_MAX];
+		if(getcwd(cwd, FNAME_MAX) == NULL)
+			return -1;
+
+		int len = strlen(cwd);
+		if(cwd[len-1] != '/') {
+			cwd[len] = '/';
+			len++;
+		}
+
+		strcpy(cwd+len, p);
+		printf("cd: [%s]\n", cwd);
+		chdir(cwd);
 		return 0;
 	}
 

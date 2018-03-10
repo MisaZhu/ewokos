@@ -111,6 +111,19 @@ int fsInfo(int fd, FSInfoT* info) {
 	return 0;
 }
 
+int fsChild(int fd, FSInfoT* child) {
+	CHECK_KSERV_FS
+	if(fd < 0 || child == NULL)
+		return -1;
+	
+	PackageT* pkg = preq(_fsPid, FS_CHILD, &fd, 4);
+	if(pkg == NULL || pkg->type == PKG_TYPE_ERR)
+		return -1;
+	
+	memcpy(child, getPackageData(pkg), sizeof(FSInfoT));
+	return 0;
+}
+
 int fsInited() {
 	return syscall1(SYSCALL_KSERV_GET, (int)KSERV_FS_NAME);
 }

@@ -4,7 +4,6 @@
 #include <malloc.h>
 #include <kserv/fs.h>
 
-
 void treeInitNode(TreeNodeT* node) {
 	node->father = NULL;
 	node->fChild = NULL;
@@ -39,8 +38,12 @@ TreeNodeT* treeGet(TreeNodeT* father, const char* name) {
 		/*go to root*/
 		while(father->father != NULL)
 			father = father->father;
+
 		name = name+1;
+		if(name[0] == 0)
+			return father;
 	}
+
 
 	TreeNodeT* node = father;	
 	char n[NAME_MAX+1];

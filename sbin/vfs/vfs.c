@@ -7,6 +7,7 @@
 #include <string.h>
 #include <vfs.h>
 #include <mount.h>
+#include <stdio.h>
 
 static TreeNodeT _root;
 
@@ -60,17 +61,75 @@ void doInfo(PackageT* pkg) {
 		return;
 	}
 
+	FSInfoT info;
 	DevTypeT* dev = getDevInfo(node);
 	if(dev == NULL || dev->info == NULL) {
+		if(node->type == FS_TYPE_FILE) {
+			psend(pkg->id, pkg->pid, PKG_TYPE_ERR, NULL, 0);
+			return;
+		}
+		else {
+			info.size = sizeof(FSInfoT);
+		}
+	}
+	else {
+		dev->info(node, &info);
+	}
+	info.type = node->type;
+	strncpy(info.name, node->name, FNAME_MAX);
+	psend(pkg->id, pkg->pid, pkg->type, &info, sizeof(FSInfoT));
+}
+
+
+void doChild(PackageT* pkg) { 
+	int fd = *(int32_t*)getPackageData(pkg);
+	if(fd < 0) {
+		psend(pkg->id, pkg->pid, PKG_TYPE_ERR, NULL, 0);
+		return;
+	}
+
+	TreeNodeT* node = (TreeNodeT*)syscall2(SYSCALL_PFILE_NODE, pkg->pid, fd);
+	if(node == NULL || node->type != FS_TYPE_DIR) {
+		psend(pkg->id, pkg->pid, PKG_TYPE_ERR, NULL, 0);
+		return;
+	}
+
+	int seek = syscall2(SYSCALL_PFILE_GET_SEEK, pkg->pid, fd);
+	if(seek == 0) 
+		node = node->fChild;
+	else 
+		node = (TreeNodeT*)seek;
+
+	if(node == NULL || seek == (int)0xFFFFFFFF) {
 		psend(pkg->id, pkg->pid, PKG_TYPE_ERR, NULL, 0);
 		return;
 	}
 
 	FSInfoT info;
-	dev->info(node, &info);
-	psend(pkg->id, pkg->pid, pkg->type, &info, sizeof(FSInfoT));
-}
+	DevTypeT* dev = getDevInfo(node);
+	if(dev == NULL || dev->info == NULL) {
+		if(node->type == FS_TYPE_FILE) {
+			psend(pkg->id, pkg->pid, PKG_TYPE_ERR, NULL, 0);
+			return;
+		}
+	}
+	else {
+		dev->info(node, &info);
+	}
 
+	info.type = node->type;
+	if(info.type == FS_TYPE_DIR)
+		info.size = sizeof(FSInfoT);
+
+	strncpy(info.name, node->name, FNAME_MAX);
+	psend(pkg->id, pkg->pid, pkg->type, &info, sizeof(FSInfoT));
+
+	if(node->next == NULL) 
+		seek = 0xFFFFFFFF;
+	else
+		seek = (int)node->next;
+	syscall3(SYSCALL_PFILE_SEEK, pkg->pid, fd, seek);
+}
 
 void doWrite(PackageT* pkg) { 
 	const char* p  = (const char*)getPackageData(pkg);
@@ -170,6 +229,9 @@ void handle(PackageT* pkg) {
 			break;
 		case FS_INFO:
 			doInfo(pkg);
+			break;
+		case FS_CHILD:
+			doChild(pkg);
 			break;
 	}
 }

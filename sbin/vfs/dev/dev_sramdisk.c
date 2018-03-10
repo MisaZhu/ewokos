@@ -56,6 +56,7 @@ void mountSRamDisk(TreeNodeT* node) {
 		i++;
 	}
 	free(s);
+	node->type = FS_TYPE_DIR;
 }
 
 int readSRamDisk(TreeNodeT* node, int seek, char* buf, uint32_t size) {
