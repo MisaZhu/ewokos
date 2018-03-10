@@ -74,7 +74,43 @@ void doInfo(PackageT* pkg) {
 
 
 void doWrite(PackageT* pkg) { 
-	(void)pkg;
+	const char* p  = (const char*)getPackageData(pkg);
+	int fd = *(int32_t*)p;
+	int size = *(int32_t*)(p+4);
+	p = p + 8;
+
+	TreeNodeT* node = (TreeNodeT*)syscall2(SYSCALL_PFILE_NODE, pkg->pid, fd);
+	if(node == NULL) {
+		psend(pkg->id, pkg->pid, PKG_TYPE_ERR, NULL, 0);
+		return;
+	}
+
+	int seek = syscall2(SYSCALL_PFILE_GET_SEEK, pkg->pid, fd);
+	if(seek < 0 || size < 0) {
+		psend(pkg->id, pkg->pid, PKG_TYPE_ERR, NULL, 0);
+		return;
+	}
+
+	if(size == 0) {
+		psend(pkg->id, pkg->pid, pkg->type, NULL, 0);
+		return;
+	}
+
+	DevTypeT* dev = getDevInfo(node);
+	if(dev != NULL && dev->write != NULL) {
+		size = dev->write(node, seek, p, size);
+		if(size < 0) {
+			psend(pkg->id, pkg->pid, PKG_TYPE_ERR, NULL, 0);
+			return;
+		}
+
+		psend(pkg->id, pkg->pid, pkg->type, &size, 4);
+		seek += size;
+		syscall3(SYSCALL_PFILE_SEEK, pkg->pid, fd, seek);
+	}
+	else {
+		psend(pkg->id, pkg->pid, PKG_TYPE_ERR, NULL, 0);
+	}
 }
 
 void doRead(PackageT* pkg) { 
@@ -145,6 +181,10 @@ static void doInit() {
 
 	TreeNodeT* node = treeSimpleAdd(&_root, "initrd");
 	node = mount(node, DEV_SRAMDISK, "initrd");
+
+	node = treeSimpleAdd(&_root, "dev");
+	node = treeSimpleAdd(node, "tty0");
+	node = mount(node, DEV_TTY, "tty0");
 }
 
 void _start() {

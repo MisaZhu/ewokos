@@ -4,6 +4,7 @@
 #include <string.h>
 #include <mount.h>
 #include <dev/dev_sramdisk.h>
+#include <dev/dev_tty.h>
 
 #define MOUNT_MAX 16
 
@@ -11,7 +12,8 @@ static MountT _mounts[MOUNT_MAX];
 
 static DevTypeT _devices[] = {
 	[DEV_NONE] = { 0 },
-	[DEV_SRAMDISK] = { mountSRamDisk, 0, readSRamDisk, 0, infoSRamDisk, 0},
+	[DEV_SRAMDISK] = { mountSRamDisk, 0, readSRamDisk, 0, infoSRamDisk, 0, 0},
+	[DEV_TTY] = { 0, 0, readTTY, writeTTY, 0, 0, 0},
 };
 	
 void mountInit() {

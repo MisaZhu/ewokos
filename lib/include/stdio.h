@@ -10,8 +10,8 @@ int getch();
 void putstr(const char* s);
 
 int printf_base(void (*putch)(int), const char *format, ...);
-int sprintf(char *target, const char *format, ...);
-int vsprintf(char *target, const char *format, va_list ap);
+int snprintf(char *target, int size, const char *format, ...);
+int vsnprintf(char *target, int size, const char *format, va_list ap);
 
 #define printf(...) printf_base(putch, ##__VA_ARGS__)
 

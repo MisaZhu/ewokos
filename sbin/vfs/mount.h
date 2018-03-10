@@ -25,6 +25,7 @@ typedef struct {
 	int (*read)(TreeNodeT*, int, char*, uint32_t);
 	int (*write)(TreeNodeT*, int, const char*, uint32_t);
 	int (*info)(TreeNodeT*, FSInfoT* info);
+	int (*setOpt)(TreeNodeT*, int cmd, int value);
 	void (*close)(TreeNodeT*);
 } DevTypeT;
 

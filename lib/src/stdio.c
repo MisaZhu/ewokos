@@ -25,13 +25,13 @@ void putstr(const char* s) {
  * pointer. See vsprintf for the format flags currently supported.
  */
 int
-sprintf(char *target, const char *format, ...)
+snprintf(char *target, int size, const char *format, ...)
 {
 	int length = 0;
 	va_list ap;
 
 	va_start(ap, format);
-	length = vsprintf(target, format, ap);
+	length = vsnprintf(target, size, format, ap);
 	va_end(ap);
 
 	return length;
@@ -45,18 +45,17 @@ int
 printf_base(void (*putch)(int), const char *format, ...)
 {
 	int length = 0;
-	char buffer[BUFFER_MAX_LENGTH+1];
+	char buffer[BUFFER_MAX_LENGTH+1] = {0};
 	int i = 0;
 	va_list ap;
 
 	va_start(ap, format);
-	length = vsprintf(buffer, format, ap);
+	length = vsnprintf(buffer, BUFFER_MAX_LENGTH, format, ap);
 	va_end(ap);
 
-	while (buffer[i] != '\0') {
+	while (i < length && buffer[i] != '\0') {
 		putch(buffer[i]);
 		i++;
 	}
-
 	return length;
 }

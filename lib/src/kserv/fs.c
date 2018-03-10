@@ -62,6 +62,41 @@ int fsRead(int fd, char* buf, uint32_t size) {
 	return sz;
 }
 
+int fsWrite(int fd, const char* buf, uint32_t size) {
+	CHECK_KSERV_FS
+
+	if(fd < 0)
+		return -1;
+	
+	char *req = (char*)malloc(size + 8);
+	memcpy(req, &fd, 4);
+	memcpy(req+4, &size, 4);
+	memcpy(req+8, buf, size);
+
+	PackageT* pkg = preq(_fsPid, FS_WRITE, req, size+8);
+	free(req);
+
+	if(pkg == NULL || pkg->type == PKG_TYPE_ERR) {
+		return -1;
+	}
+
+	int sz = *(int*)getPackageData(pkg);
+	return sz;
+}
+
+int fsGetch(int fd) {
+	char buf[1];
+	if(fsRead(fd, buf, 1) != 1)
+		return 0;
+	return buf[0];
+}
+
+int fsPutch(int fd, int c) {
+	char buf[1];
+	buf[0] = (char)c;
+	return fsWrite(fd, buf, 1);
+}
+
 int fsInfo(int fd, FSInfoT* info) {
 	CHECK_KSERV_FS
 

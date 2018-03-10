@@ -29,6 +29,12 @@ int fsInfo(int fd, FSInfoT* info);
 
 int fsRead(int fd, char* buf, uint32_t size);
 
+int fsGetch(int fd);
+
+int fsPutch(int fd, int c);
+
+int fsWrite(int fd, const char* buf, uint32_t size);
+
 /*return fs service process pid, -1 means not inited*/
 int fsInited();
 

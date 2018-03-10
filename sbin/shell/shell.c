@@ -12,8 +12,10 @@ void gets(char* buf, int len) {
 			break;
 
 		int c = getch();
-		if(c == 0)
+		if(c == 0) {
+			yield();
 			continue;
+		}
 
 		if (c == KEY_BACKSPACE) {
 			if (i > 0) {
