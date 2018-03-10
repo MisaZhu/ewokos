@@ -91,7 +91,7 @@ void _start() {
 	char cwd[FNAME_MAX];
 
 	while(1) {
-		printf("%s $ ", getcwd(cwd, FNAME_MAX));
+		printf("ewok:%s.# ", getcwd(cwd, FNAME_MAX));
 		gets(cmd, CMD_MAX);
 		if(cmd[0] == 0)
 			continue;
