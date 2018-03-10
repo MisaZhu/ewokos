@@ -30,8 +30,11 @@
 	kernel/src/sheduler.c
 	kernel/src/syscalls.c
 	kernel/src/kmessage.c
-	lib/src/pmalloc.c
+
+	lib/src/stdlib.c
+	lib/src/unistd.c
 	lib/src/pmessage.c
+
 	sbin/init/init.c
 	sbin/vfs/vfs.c
 	sbin/shell/shell.c
