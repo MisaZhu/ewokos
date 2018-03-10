@@ -1,4 +1,4 @@
-#include <fork.h>
+#include <unistd.h>
 #include <kserv/fs.h>
 #include <syscall.h>
 #include <string.h>
@@ -73,4 +73,12 @@ void wait(int pid) {
 
 void yield() {
 	syscall0(SYSCALL_YIELD);
+}
+
+char* getcwd(char* buf, size_t size) {
+	return (char*)syscall2(SYSCALL_GET_CWD, (int)buf, (int)size);
+}
+
+int chdir(const char* dir) {
+	return syscall1(SYSCALL_SET_CWD, (int)dir);
 }

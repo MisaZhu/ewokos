@@ -1,6 +1,6 @@
 #include <types.h>
 #include <stdio.h>
-#include <fork.h>
+#include <unistd.h>
 
 void _start() 
 {
@@ -13,13 +13,7 @@ void _start()
 	printf("start shell...\n");
 	pid = fork();
 	if(pid == 0) {
-		while(1) {
-			pid = fork();
-			if(pid == 0) { //shell process
-				exec("shell");
-			}
-			wait(pid);
-		}
+		exec("shell");
 	}
 
 	while(1) {

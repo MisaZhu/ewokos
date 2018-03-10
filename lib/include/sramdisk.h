@@ -9,8 +9,6 @@ very simple read only RAM file system for kernel.
 
 #include <types.h>
 
-#define FNAME_MAX 32
-
 typedef struct RamFile {
 	struct RamFile* next;
 	char name[FNAME_MAX];

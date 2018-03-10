@@ -29,13 +29,17 @@ static int syscall_uartGetch()
 }
 
 static int syscall_execElf(int arg0, int arg1) {
+	const char*cmd = (const char*)arg0;
 	const char*p = (const char*)arg1;
-	if(p == NULL)
+
+	if(p == NULL || cmd == NULL)
 		return -1;
 		
+	strncpy(_currentProcess->cmd, cmd, CMD_MAX);
+
 	if(!procLoad(_currentProcess, p))
 		return -1;
-	strncpy(_currentProcess->cmd, (const char*)arg0, CMD_MAX);
+
 	procStart(_currentProcess);
 	return 0;
 }
@@ -52,30 +56,8 @@ static int syscall_getpid(void)
 
 static int syscall_exit(int arg0)
 {
-	int i;
-
-	(void) arg0;
-	if (_currentProcess == NULL)
-		return -1;
-
-	__setTranslationTableBase((uint32_t) V2P(_kernelVM));
-	__asm__ volatile("ldr sp, = _initStack");
-	__asm__ volatile("add sp, #4096");
-
-	for (i = 0; i < PROCESS_COUNT_MAX; i++) {
-		ProcessT *proc = &_processTable[i];
-
-		if (proc->state == SLEEPING &&
-				proc->waitPid == _currentProcess->pid) {
-			proc->waitPid = -1;
-			proc->state = READY;
-		}
-	}
-
-	procFree(_currentProcess);
-	_currentProcess = NULL;
-
-	schedule();
+	(void)arg0;
+	procExit();
 	return 0;
 }
 
@@ -289,8 +271,56 @@ static int syscall_kservGet(int arg0) {
 	return kservGet((const char*)arg0);
 }
 
-static int syscall_getProcs() {
-//TODO
+static int getProcs() {
+	int res = 0;
+	for(int i=0; i<PROCESS_COUNT_MAX; i++) {
+		if(_processTable[i].state != UNUSED && 
+				(_currentProcess->owner == 0 ||
+				_processTable[i].owner == _currentProcess->owner)) {
+			res++;
+		}
+	}
+	return res;
+}
+
+static int syscall_getProcs(int arg0) {
+	int num = getProcs();
+	if(num == 0)
+		return 0;
+
+	/*need to be freed later used!*/
+	ProcInfoT* procs = (ProcInfoT*)pmalloc(&_currentProcess->mallocMan, sizeof(ProcInfoT)*num);
+	if(procs == NULL)
+		return 0;
+
+	int j = 0;
+	for(int i=0; i<PROCESS_COUNT_MAX && j<num; i++) {
+		if(_processTable[i].state != UNUSED && 
+				(_currentProcess->owner == 0 ||
+				 _processTable[i].owner == _currentProcess->owner)) {
+			procs[j].pid = _processTable[i].pid;	
+			procs[j].fatherPid = _processTable[i].fatherPid;	
+			procs[j].owner = _processTable[i].owner;	
+			procs[j].heapSize = _processTable[i].heapSize;	
+			strcpy(procs[j].cmd, _processTable[i].cmd);
+			j++;
+		}
+	}
+
+	*(int*)arg0 = j;
+	return (int)procs;
+}
+
+static int syscall_getCWD(int arg0, int arg1) {
+	char* pwd = (char*)arg0;
+	strncpy(pwd, _currentProcess->pwd,
+		arg1 < FNAME_MAX ? arg1: FNAME_MAX);
+	return (int)pwd;
+}
+
+static int syscall_setCWD(int arg0) {
+	const char* pwd = (const char*)arg0;
+	strncpy(_currentProcess->pwd, pwd, FNAME_MAX);
 	return 0;
 }
 
@@ -326,6 +356,8 @@ static int (*const _syscallHandler[])() = {
 	[SYSCALL_KSERV_GET] = syscall_kservGet,
 
 	[SYSCALL_GET_PROCS] = syscall_getProcs,
+	[SYSCALL_GET_CWD] = syscall_getCWD,
+	[SYSCALL_SET_CWD] = syscall_setCWD,
 };
 
 /* kernel side of system calls. */

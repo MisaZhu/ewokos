@@ -38,6 +38,8 @@ typedef enum {
 	SYSCALL_KSERV_GET,
 
 	SYSCALL_GET_PROCS,
+	SYSCALL_GET_CWD,
+	SYSCALL_SET_CWD,
 } SyscallCodeT;
 
 

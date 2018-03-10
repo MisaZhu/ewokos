@@ -22,7 +22,7 @@ typedef unsigned int uint32_t;
 typedef uint32_t uintptr_t;
 
 /* size type */
-typedef unsigned int size_t;
+typedef uint32_t size_t;
 
 /* boolean constants */
 #ifndef true
@@ -35,6 +35,8 @@ typedef unsigned int size_t;
 #define KB 1024
 #define MB (1024*KB)
 #define GB (1024*MB)
+
+#define FNAME_MAX 256
 
 #endif
 

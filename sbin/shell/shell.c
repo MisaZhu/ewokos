@@ -1,11 +1,11 @@
 #include <stdio.h>
 #include <string.h>
-#include <fork.h>
+#include <unistd.h>
 
 #define KEY_BACKSPACE 127
 #define KEY_LEFT 0x8
 
-void gets(char* buf, int len) {
+static void gets(char* buf, int len) {
 	int i = 0;
 	while(true) {
 		if(i >= len)
@@ -37,6 +37,21 @@ void gets(char* buf, int len) {
 	buf[i] = 0;
 }
 
+static int handle(const char* cmd) {
+	if(strcmp(cmd, "cd") == 0) {
+		chdir("/");
+		return 0;
+	}
+	if(strncmp(cmd, "cd ", 3) == 0) {
+		chdir(cmd + 3);
+		return 0;
+	}
+
+	return -1; /*not shell internal command*/
+}
+
+#define CMD_MAX 128
+
 void _start() {
 	printf(
 			"\n: Hey! wake up!\n"
@@ -55,14 +70,20 @@ void _start() {
 			" ((_ ,----’ ,---’    _,’_,’\n"
 			"  (((_,- (((______,-’\n\n"); 
 
-	char cmd[32];
+	char cmd[CMD_MAX];
+	char cwd[FNAME_MAX];
+
 	while(1) {
-		printf("$ ");
-		gets(cmd, 31);
+		printf("%s $ ", getcwd(cwd, FNAME_MAX));
+		gets(cmd, CMD_MAX);
 		if(cmd[0] == 0)
 			continue;
+
 		if(strcmp(cmd, "exit") == 0)
 			break;
+
+		if(handle(cmd) == 0)
+			continue;
 
 		int child_pid = fork();
 		if (child_pid == 0) {

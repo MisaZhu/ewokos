@@ -26,7 +26,7 @@ typedef void (*EntryFunctionT)(void);
 #define PROCESS_COUNT_MAX 128
 
 enum ProcessState {
-	UNUSED,
+	UNUSED = 0,
 	CREATED,
 	SLEEPING,
 	READY,
@@ -53,7 +53,8 @@ typedef struct {
 	int32_t pid; /*auto-increased id*/
 	int32_t fatherPid; /*father pid*/
 	int32_t owner; /*owner for muti-user system*/
-	char cmd[CMD_MAX];
+	char cmd[CMD_MAX]; /*run command*/
+	char pwd[FNAME_MAX]; /*working dir*/
 
 	EntryFunctionT entry;
 	PageDirEntryT *vm;
@@ -87,6 +88,7 @@ bool procExpandMemory(void *proc, int pageCount);
 void procShrinkMemory(void *proc, int pageCount);
 ProcessT* procGet(int pid);
 int kfork();
+void procExit();
 
 #endif
 

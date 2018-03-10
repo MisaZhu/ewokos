@@ -1,14 +1,13 @@
 LIB_OBJS = lib/src/string.o \
 	lib/src/kdb.o \
 	lib/src/syscall.o \
-	lib/src/fork.o \
-	lib/src/malloc.o \
+	lib/src/stdlib.o \
 	lib/src/vsprintf.o \
 	lib/src/pmessage.o \
 	lib/src/sramdisk.o \
 	lib/src/stdio.o \
 	lib/src/package.o \
-	lib/src/kserv/kserv.o \
+	lib/src/unistd.o \
 	lib/src/kserv/fs.o 
 
 lib/libewok.a: $(LIB_OBJS)

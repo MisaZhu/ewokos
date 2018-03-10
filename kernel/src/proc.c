@@ -7,6 +7,8 @@
 #include <types.h>
 #include <elf.h>
 
+void schedule();
+
 ProcessT _processTable[PROCESS_COUNT_MAX];
 
 __attribute__((__aligned__(PAGE_DIR_SIZE)))
@@ -111,6 +113,8 @@ ProcessT *procCreate(void)
 	proc->pid = _pidCount++;
 	proc->fatherPid = 0;
 	proc->owner = 0;
+	proc->cmd[0] = 0;
+	strcpy(proc->pwd, "/");
 
 	proc->state = CREATED;
 	proc->vm = vm;
@@ -269,6 +273,9 @@ int kfork(void)
 	/*cmd*/
 	strcpy(child->cmd, parent->cmd);
 
+	/*pwd*/
+	strcpy(child->pwd, parent->pwd);
+
 	/*file info*/
 	for(i=0; i<FILE_MAX; i++) {
 		KFileT* kf = parent->files[i].kf;
@@ -283,3 +290,29 @@ int kfork(void)
 	return child->pid;
 }
 
+void procExit() {
+	int i;
+
+	if (_currentProcess == NULL)
+		return;
+
+	__setTranslationTableBase((uint32_t) V2P(_kernelVM));
+	__asm__ volatile("ldr sp, = _initStack");
+	__asm__ volatile("add sp, #4096");
+
+	for (i = 0; i < PROCESS_COUNT_MAX; i++) {
+		ProcessT *proc = &_processTable[i];
+
+		if (proc->state == SLEEPING &&
+				proc->waitPid == _currentProcess->pid) {
+			proc->waitPid = -1;
+			proc->state = READY;
+		}
+	}
+
+	procFree(_currentProcess);
+	_currentProcess = NULL;
+
+	schedule();
+	return;
+}
