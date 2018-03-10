@@ -28,25 +28,14 @@ static int syscall_uartGetch()
 	return r;
 }
 
-static int syscall_exec(int arg0) {
-	int size = 0;
-	const char*p = ramdiskRead(&_initRamDisk, (const char*)arg0, &size);
+static int syscall_execElf(int arg0, int arg1) {
+	const char*p = (const char*)arg1;
 	if(p == NULL)
 		return -1;
 		
 	if(!procLoad(_currentProcess, p))
 		return -1;
-	procStart(_currentProcess);
-	return 0;
-}
-
-static int syscall_execElf(int arg0) {
-	const char*p = (const char*)arg0;
-	if(p == NULL)
-		return -1;
-		
-	if(!procLoad(_currentProcess, p))
-		return -1;
+	strncpy(_currentProcess->cmd, (const char*)arg0, CMD_MAX);
 	procStart(_currentProcess);
 	return 0;
 }
@@ -300,6 +289,11 @@ static int syscall_kservGet(int arg0) {
 	return kservGet((const char*)arg0);
 }
 
+static int syscall_getProcs() {
+//TODO
+	return 0;
+}
+
 static int (*const _syscallHandler[])() = {
 	[SYSCALL_KDB] = syscall_kdb,
 	[SYSCALL_UART_PUTCH] = syscall_uartPutch,
@@ -307,7 +301,6 @@ static int (*const _syscallHandler[])() = {
 
 	[SYSCALL_FORK] = syscall_fork,
 	[SYSCALL_GETPID] = syscall_getpid,
-	[SYSCALL_EXEC] = syscall_exec,
 	[SYSCALL_EXEC_ELF] = syscall_execElf,
 	[SYSCALL_WAIT] = syscall_wait,
 	[SYSCALL_YIELD] = syscall_yield,
@@ -331,6 +324,8 @@ static int (*const _syscallHandler[])() = {
 
 	[SYSCALL_KSERV_REG] = syscall_kservReg,
 	[SYSCALL_KSERV_GET] = syscall_kservGet,
+
+	[SYSCALL_GET_PROCS] = syscall_getProcs,
 };
 
 /* kernel side of system calls. */

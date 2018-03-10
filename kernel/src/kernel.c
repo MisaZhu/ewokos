@@ -110,8 +110,10 @@ void kernelEntry()
 	/*load process from ramdisk by name.*/
 	int size = 0;
 	const char*p = ramdiskRead(&_initRamDisk, FIRST_PROCESS, &size);
-	if(p != NULL)
+	if(p != NULL) {
 		procLoad(proc, p);
+		strncpy(proc->cmd, FIRST_PROCESS, CMD_MAX);
+	}
 	
 	/*schedule processes*/
 	schedulerInit();

@@ -109,6 +109,7 @@ ProcessT *procCreate(void)
 
 	proc = &_processTable[index - 1];
 	proc->pid = _pidCount++;
+	proc->fatherPid = 0;
 	proc->owner = 0;
 
 	proc->state = CREATED;
@@ -140,6 +141,14 @@ int *getCurrentContext(void)
 /* proc_free frees all resources allocated by proc. */
 void procFree(ProcessT *proc)
 {
+	/*free file info*/
+	for(int i=0; i<FILE_MAX; i++) {
+		KFileT* kf = proc->files[i].kf;
+		if(kf != NULL) {
+			kfUnref(kf, proc->files[i].flags); //unref the kernel file table.
+		}
+	}
+
 	clearMessageQueue(&proc->messageQueue);
 	kfree(proc->kernelStack);
 	kfree(proc->userStack);
@@ -251,8 +260,14 @@ int kfork(void)
 	/* child is ready to run */
 	child->state = READY;
 	
+	/*set father*/
+	child->fatherPid = parent->pid;
+
 	/*same owner*/
 	child->owner = parent->owner;
+
+	/*cmd*/
+	strcpy(child->cmd, parent->cmd);
 
 	/*file info*/
 	for(i=0; i<FILE_MAX; i++) {

@@ -20,8 +20,6 @@ typedef struct TreeNode {
 	uint32_t flags;
 } TreeNodeT;
 
-
-
 void treeInitNode(TreeNodeT* node); 
 
 void treeAdd(TreeNodeT* father, TreeNodeT* node);

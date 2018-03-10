@@ -19,6 +19,7 @@
 #include <pmalloc.h>
 #include <kmessage.h>
 #include <kfile.h>
+#include <procinfo.h>
 
 typedef void (*EntryFunctionT)(void);
 
@@ -50,7 +51,9 @@ typedef struct {
 typedef struct {
 	enum ProcessState state;
 	int32_t pid; /*auto-increased id*/
+	int32_t fatherPid; /*father pid*/
 	int32_t owner; /*owner for muti-user system*/
+	char cmd[CMD_MAX];
 
 	EntryFunctionT entry;
 	PageDirEntryT *vm;

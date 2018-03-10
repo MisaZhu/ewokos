@@ -13,38 +13,54 @@ int getpid() {
 	return syscall0(SYSCALL_GETPID);
 }
 
-static int execFile(const char* fname) {
+static char* readKernelInitRD(const char* fname, int *size) {
+	return (char*)syscall3(SYSCALL_INITRD_READ, (int)fname, 0, (int)size);
+}
+
+static char* readFromFS(const char* fname, int *size) {
 	int fd = fsOpen(fname);
 	if(fd < 0) 
-		return -1;
+		return NULL;
 
 	FSInfoT info;
 	fsInfo(fd, &info);
 
 	if(info.size <= 0)
-		return -1;
+		return NULL;
 
 	char* buf = (char*)malloc(info.size);
 	int res = fsRead(fd, buf, info.size);
 	fsClose(fd);
-	if(res > 0)
-		res = syscall1(SYSCALL_EXEC_ELF, (int)buf);
-	else 
-		res = -1;
-	free(buf);
-	return res;
+
+	if(res <= 0) {
+		free(buf);
+		*size = 0;
+	}
+
+	*size = info.size;
+	return buf;
 }
 
 int exec(const char* cmd) {
-	if(fsInited() < 0) {
-		return syscall1(SYSCALL_EXEC, (int)cmd);
-	}
+	char* img = NULL;
+	int size;
 
-	/*load img from exec path*/
-	char fname[128+1];
-	strcpy(fname, "/initrd/");
-	strncpy(fname+ strlen("/initrd/"), cmd, 128 - strlen("/initrd/"));
-	execFile(fname);
+	if(fsInited() < 0) {
+		img = readKernelInitRD(cmd, &size);
+	}
+	else {
+		/*load img from exec path*/
+		char fname[128+1];
+		strcpy(fname, "/initrd/");
+		strncpy(fname+ strlen("/initrd/"), cmd, 128 - strlen("/initrd/"));
+		img = readFromFS(fname, &size);
+	}
+	if(img == NULL)
+		return -1;
+
+	int res = syscall2(SYSCALL_EXEC_ELF, (int)cmd, (int)img);
+	free(img);
+	return res;
 }
 
 void exit(int code) {
