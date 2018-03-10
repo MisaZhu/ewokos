@@ -249,6 +249,11 @@ static void doInit() {
 }
 
 void _start() {
+	if(fsInited() >= 0) { /*VFS process has been runing .*/
+		printf("Panic: 'vfs' process has been running already!\n");
+		exit(0);
+	}
+
 	doInit();
 	syscall1(SYSCALL_KSERV_REG, (int)KSERV_FS_NAME);
 

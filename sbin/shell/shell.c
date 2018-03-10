@@ -60,7 +60,6 @@ static int handle(const char* cmd) {
 		}
 
 		strcpy(cwd+len, p);
-		printf("cd: [%s]\n", cwd);
 		chdir(cwd);
 		return 0;
 	}
