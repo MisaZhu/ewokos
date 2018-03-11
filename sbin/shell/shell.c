@@ -43,7 +43,7 @@ static int handle(const char* cmd) {
 		return 0;
 	}
 	if(strncmp(cmd, "cd ", 3) == 0) {
-		char* p = cmd + 3;
+		const char* p = cmd + 3;
 		if(p[0] == '/') {
 			chdir(p);
 			return 0;

@@ -17,6 +17,11 @@ void _start()
 		exec("vfs");
 	}
 
+	while(fsInited() < 0) {
+		yield();
+	}
+	printf("file system got ready.\n");
+
 	/*shell process*/
 	printf("start shell...\n");
 	pid = fork();

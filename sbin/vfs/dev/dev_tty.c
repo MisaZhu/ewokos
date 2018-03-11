@@ -10,6 +10,8 @@ void mountTTY(TreeNodeT* node) {
 }
 
 int infoTTY(TreeNodeT* node, FSInfoT* info) {
+	(void)node;
+	(void)info;
 	return 0;
 }
 

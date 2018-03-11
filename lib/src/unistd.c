@@ -4,6 +4,7 @@
 #include <string.h>
 #include <malloc.h>
 #include <stdio.h>
+#include <procinfo.h>
 
 int fork() {
 	return syscall0(SYSCALL_FORK);
@@ -41,15 +42,22 @@ static char* readFromFS(const char* fname, int *size) {
 	return buf;
 }
 
-int exec(const char* cmd) {
+int exec(const char* cmdLine) {
 	char* img = NULL;
 	int size;
+	char cmd[CMD_MAX+1];
+	int i;
+	for(i=0; i<CMD_MAX; i++) {
+		cmd[i] = cmdLine[i];
+		if(cmd[i] == 0 || cmd[i] == ' ')
+			break;
+	}
+	cmd[i] = 0;
 
 	if(fsInited() < 0) {
 		img = readKernelInitRD(cmd, &size);
 	}
 	else {
-		/*load img from exec path*/
 		char fname[128+1];
 		strcpy(fname, "/initrd/");
 		strncpy(fname+ strlen("/initrd/"), cmd, 128 - strlen("/initrd/"));
@@ -58,7 +66,7 @@ int exec(const char* cmd) {
 	if(img == NULL)
 		return -1;
 
-	int res = syscall2(SYSCALL_EXEC_ELF, (int)cmd, (int)img);
+	int res = syscall2(SYSCALL_EXEC_ELF, (int)cmdLine, (int)img);
 	free(img);
 	return res;
 }

@@ -5,6 +5,7 @@
 #include <string.h>
 #include <system.h>
 #include <types.h>
+#include <dev/uart.h>
 #include <elf.h>
 
 void schedule();
@@ -180,8 +181,12 @@ bool procLoad(ProcessT *proc, const char *procImage)
 		struct ElfProgramHeader *header = (void *) (procImage + progHeaderOffset);
 
 		/* make enough room for this section */
-		while (proc->heapSize < header->vaddr + header->memsz)
-			procExpandMemory(proc, 1);
+		while (proc->heapSize < header->vaddr + header->memsz) {
+			if(!procExpandMemory(proc, 1)) {
+				uartPuts("Panic: proc expand memory failed!!\n");
+				return false;
+			}
+		}
 
 		/* copy the section */
 		for (j = 0; j < header->memsz; j++) {
@@ -236,7 +241,10 @@ int kfork(void)
 	uint32_t i = 0;
 
 	child = procCreate();
-	procExpandMemory(child, parent->heapSize / PAGE_SIZE);
+	if(!procExpandMemory(child, parent->heapSize / PAGE_SIZE)) {
+		uartPuts("Panic: proc expand memory failed!!\n");
+		return -1;
+	}
 
 	/* copy parent's memory to child's memory */
 	for (i = 0; i < parent->heapSize; i++) {
