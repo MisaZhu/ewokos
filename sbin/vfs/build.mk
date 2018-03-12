@@ -1,5 +1,5 @@
 VFS_DIR = sbin/vfs
-VFS_PROGRAM = $(VFS_DIR)/vfs 
+VFS_PROGRAM = sbin/sbin/vfs 
 PROGRAM += $(VFS_PROGRAM)
 
 EXTRA_CLEAN += $(VFS_PROGRAM) $(VFS_DIR)/*.o $(VFS_DIR)/dev/*.o
