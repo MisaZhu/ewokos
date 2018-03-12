@@ -171,6 +171,32 @@ void doWrite(PackageT* pkg) {
 	}
 }
 
+void doAdd(PackageT* pkg) { 
+	const char* p  = (const char*)getPackageData(pkg);
+	int fd = *(int32_t*)p;
+	int size = *(int32_t*)(p+4);
+	p = p + 8;
+
+	TreeNodeT* node = (TreeNodeT*)syscall2(SYSCALL_PFILE_NODE, pkg->pid, fd);
+	if(node == NULL || size <= 0) {
+		psend(pkg->id, pkg->pid, PKG_TYPE_ERR, NULL, 0);
+		return;
+	}
+
+	if(treeSimpleGet(node, p) != NULL) { /*already exist.*/
+		psend(pkg->id, pkg->pid, PKG_TYPE_ERR, NULL, 0);
+		return;
+	}
+
+	node = treeSimpleAdd(node, p);
+	if(node == NULL) {
+		psend(pkg->id, pkg->pid, PKG_TYPE_ERR, NULL, 0);
+		return;
+	}
+
+	psend(pkg->id, pkg->pid, pkg->type, NULL, 0);
+}
+
 void doRead(PackageT* pkg) { 
 	const char* p  = (const char*)getPackageData(pkg);
 	int fd = *(int32_t*)p;
@@ -232,6 +258,9 @@ void handle(PackageT* pkg) {
 			break;
 		case FS_CHILD:
 			doChild(pkg);
+			break;
+		case FS_ADD:
+			doAdd(pkg);
 			break;
 	}
 }

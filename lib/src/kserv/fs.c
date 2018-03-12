@@ -84,6 +84,30 @@ int fsWrite(int fd, const char* buf, uint32_t size) {
 	return sz;
 }
 
+int fsAdd(int dirFD, const char* name) {
+	CHECK_KSERV_FS
+
+	int size = strlen(name);
+	if(dirFD < 0 || size == 0)
+		return -1;
+	
+	char *req = (char*)malloc(size + 8);
+	memcpy(req, &dirFD, 4);
+	memcpy(req+4, &size, 4);
+	memcpy(req+8, name, size);
+
+	PackageT* pkg = preq(_fsPid, FS_ADD, req, size+8);
+	free(req);
+
+	if(pkg == NULL || pkg->type == PKG_TYPE_ERR) {
+		return -1;
+	}
+
+	int sz = *(int*)getPackageData(pkg);
+	return sz;
+}
+
+
 int fsGetch(int fd) {
 	char buf[1];
 	if(fsRead(fd, buf, 1) != 1)

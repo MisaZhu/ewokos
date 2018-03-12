@@ -13,8 +13,10 @@ void _start()
 				break;
 			if(info.type == FS_TYPE_FILE)
 				printf("-f-\t%d\t%s\n", info.size, info.name);
-			else
+			else if(info.type == FS_TYPE_DIR)
 				printf("-d-\t%d\t[%s]\n", info.size, info.name);
+			else if(info.type == FS_TYPE_DEV_FILE)
+				printf("-v-\t%d\t%s\n", info.size, info.name);
 		}
 		fsClose(fd);
 	}

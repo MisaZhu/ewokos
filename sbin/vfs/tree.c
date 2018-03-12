@@ -67,7 +67,7 @@ TreeNodeT* treeGet(TreeNodeT* father, const char* name) {
 TreeNodeT* treeSimpleAdd(TreeNodeT* father, const char* name) {
 	TreeNodeT* node = (TreeNodeT*)malloc(sizeof(TreeNodeT));
 	if(node == NULL ||
-			node->type != FS_TYPE_DIR ||
+			father->type != FS_TYPE_DIR ||
 			strchr(name, '/') != NULL)
 		return NULL;
 

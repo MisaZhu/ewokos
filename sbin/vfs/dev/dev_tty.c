@@ -6,7 +6,7 @@
 #include <stdio.h>
 
 void mountTTY(TreeNodeT* node) {
-	node->type = FS_TYPE_FILE;
+	node->type = FS_TYPE_DEV_FILE;
 }
 
 int infoTTY(TreeNodeT* node, FSInfoT* info) {

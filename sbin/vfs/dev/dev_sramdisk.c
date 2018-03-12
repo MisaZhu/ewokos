@@ -24,6 +24,7 @@ static char* getKernelInitRDFiles() {
 }
 
 void mountSRamDisk(TreeNodeT* node) {
+	node->type = FS_TYPE_DIR;
 	char* s = getKernelInitRDFiles();
 	if(s == NULL)
 		return;

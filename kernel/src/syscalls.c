@@ -324,6 +324,12 @@ static int syscall_setCWD(int arg0) {
 	return 0;
 }
 
+static int syscall_getCmd(int arg0, int arg1) {
+	char* cmd = (char*)arg0;
+	strncpy(cmd, _currentProcess->cmd, arg1);
+	return arg0;
+}
+
 static int (*const _syscallHandler[])() = {
 	[SYSCALL_KDB] = syscall_kdb,
 	[SYSCALL_UART_PUTCH] = syscall_uartPutch,
@@ -338,6 +344,8 @@ static int (*const _syscallHandler[])() = {
 
 	[SYSCALL_PMALLOC] = syscall_pmalloc,
 	[SYSCALL_PFREE] = syscall_pfree,
+
+	[SYSCALL_GET_CMD] = syscall_getCmd,
 
 	[SYSCALL_SEND_MSG] = syscall_sendMessage,
 	[SYSCALL_READ_MSG] = syscall_readMessage,
