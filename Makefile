@@ -46,9 +46,8 @@ $(OS).bin: $(MKRAMFS) $(PROGRAM) $(OBJS) $(OS).ld
 	$(OBJCOPY) -O binary build/$(OS).elf build/$(OS).bin
 	$(OBJDUMP) -D build/$(OS).elf > build/$(OS).asm
 	$(MKRAMFS) build/initfs sbin/sbin
-	rm -fr sbin/sbin
 
-run: $(OS).bin
+run:
 	qemu-system-arm $(QEMU_FLAGS) -kernel build/$(OS).bin -initrd build/initfs
 
 debug: $(OS).bin
