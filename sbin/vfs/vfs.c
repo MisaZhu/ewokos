@@ -48,6 +48,34 @@ void doClose(PackageT* pkg) {
 	syscall1(SYSCALL_PFILE_CLOSE, fd);
 }
 
+void doFInfo(PackageT* pkg) { 
+	const char* name = (const char*)getPackageData(pkg);
+	TreeNodeT* node = treeGet(&_root, name);
+	
+	if(node == NULL) {
+		psend(pkg->id, pkg->pid, PKG_TYPE_ERR, NULL, 0);
+		return;
+	}
+
+	FSInfoT info;
+	DevTypeT* dev = getDevInfo(node);
+	if(dev == NULL || dev->info == NULL) {
+		if(node->type == FS_TYPE_FILE) {
+			psend(pkg->id, pkg->pid, PKG_TYPE_ERR, NULL, 0);
+			return;
+		}
+		else {
+			info.size = sizeof(FSInfoT);
+		}
+	}
+	else {
+		dev->info(node, &info);
+	}
+	info.type = node->type;
+	strncpy(info.name, node->name, FNAME_MAX);
+	psend(pkg->id, pkg->pid, pkg->type, &info, sizeof(FSInfoT));
+}
+
 void doInfo(PackageT* pkg) { 
 	int fd = *(int32_t*)getPackageData(pkg);
 	if(fd < 0) {
@@ -255,6 +283,9 @@ void handle(PackageT* pkg) {
 			break;
 		case FS_INFO:
 			doInfo(pkg);
+			break;
+		case FS_FINFO:
+			doFInfo(pkg);
 			break;
 		case FS_CHILD:
 			doChild(pkg);

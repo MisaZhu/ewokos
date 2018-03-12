@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
+#include <kserv/fs.h>
 
 #define KEY_BACKSPACE 127
 #define KEY_LEFT 0x8
@@ -43,24 +44,29 @@ static int handle(const char* cmd) {
 		return 0;
 	}
 	if(strncmp(cmd, "cd ", 3) == 0) {
+		char cwd[FNAME_MAX];
 		const char* p = cmd + 3;
 		if(p[0] == '/') {
-			chdir(p);
-			return 0;
+			strncpy(cwd, p, FNAME_MAX);
+		}
+		else {
+			if(getcwd(cwd, FNAME_MAX) == NULL)
+				return -1;
+			int len = strlen(cwd);
+			if(cwd[len-1] != '/') {
+				cwd[len] = '/';
+				len++;
+			}
+			strcpy(cwd+len, p);
 		}
 
-		char cwd[FNAME_MAX];
-		if(getcwd(cwd, FNAME_MAX) == NULL)
-			return -1;
-
-		int len = strlen(cwd);
-		if(cwd[len-1] != '/') {
-			cwd[len] = '/';
-			len++;
-		}
-
-		strcpy(cwd+len, p);
-		chdir(cwd);
+		FSInfoT info;
+		if(fsFInfo(cwd, &info) != 0)
+			printf("[%s] not exist!\n", p);	
+		else if(info.type != FS_TYPE_DIR)
+			printf("[%s] is not a directory!\n", p);	
+		else 
+			chdir(cwd);
 		return 0;
 	}
 

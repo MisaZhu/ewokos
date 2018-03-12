@@ -11,6 +11,7 @@ typedef enum {
 	FS_WRITE,
 	FS_READ,
 	FS_INFO,
+	FS_FINFO,
 	FS_ADD,
 	FS_CHILD,
 	FS_NEXT,
@@ -31,6 +32,8 @@ int fsOpen(const char* name);
 int fsClose(int fd);
 
 int fsInfo(int fd, FSInfoT* info);
+
+int fsFInfo(const char* name, FSInfoT* info);
 
 int fsChild(int fd, FSInfoT* childInfo); /*dir first child*/
 

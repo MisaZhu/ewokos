@@ -26,6 +26,21 @@ int fsOpen(const char* name) {
 	return fd;
 }
 
+int fsFInfo(const char* name, FSInfoT* info) {
+	CHECK_KSERV_FS
+
+	if(name == NULL || name[0] == 0)
+		return -1;
+	
+	PackageT* pkg = preq(_fsPid, FS_FINFO, (void*)name, strlen(name)+1);
+	if(pkg == NULL || pkg->type == PKG_TYPE_ERR)
+		return -1;
+	
+	memcpy(info, getPackageData(pkg), sizeof(FSInfoT));
+	return 0;
+}
+
+
 int fsClose(int fd) {
 	CHECK_KSERV_FS
 
