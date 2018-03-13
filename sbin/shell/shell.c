@@ -38,36 +38,66 @@ static void gets(char* buf, int len) {
 	buf[i] = 0;
 }
 
-static int handle(const char* cmd) {
-	if(strcmp(cmd, "cd") == 0) {
+static int cd(const char* dir) {
+	char cwd[FNAME_MAX];
+	if(getcwd(cwd, FNAME_MAX) == NULL)
+		return -1;
+
+	if(strcmp(dir, ".") == 0)
+		return 0;
+
+	while(*dir == ' ') /*skip all space*/
+		dir++;
+
+	if(dir[0] == 0) {
 		chdir("/");
 		return 0;
 	}
-	if(strncmp(cmd, "cd ", 3) == 0) {
-		char cwd[FNAME_MAX];
-		const char* p = cmd + 3;
-		if(p[0] == '/') {
-			strncpy(cwd, p, FNAME_MAX);
-		}
-		else {
-			if(getcwd(cwd, FNAME_MAX) == NULL)
-				return -1;
-			int len = strlen(cwd);
-			if(cwd[len-1] != '/') {
-				cwd[len] = '/';
-				len++;
-			}
-			strcpy(cwd+len, p);
-		}
 
-		FSInfoT info;
-		if(fsFInfo(cwd, &info) != 0)
-			printf("[%s] not exist!\n", p);	
-		else if(info.type != FS_TYPE_DIR)
-			printf("[%s] is not a directory!\n", p);	
-		else 
-			chdir(cwd);
-		return 0;
+	if(strcmp(dir, "..") == 0) {
+		if(strcmp(cwd, "/") == 0)
+			return 0;
+
+		int len = strlen(cwd)  - 1;
+		for(int i=len; i>=0; i--) {
+			if(cwd[i] == '/') {
+				cwd[i] = 0;
+				break;
+			}
+		}
+		if(cwd[0] == 0) {
+			chdir("/");
+			return 0;
+		}
+	}
+	else if(dir[0] == '/') {
+		strncpy(cwd, dir, FNAME_MAX);
+	}
+	else {
+		int len = strlen(cwd);
+		if(cwd[len-1] != '/') {
+			cwd[len] = '/';
+			len++;
+		}
+		strcpy(cwd+len, dir);
+	}
+
+	FSInfoT info;
+	if(fsFInfo(cwd, &info) != 0)
+		printf("[%s] not exist!\n", dir);	
+	else if(info.type != FS_TYPE_DIR)
+		printf("[%s] is not a directory!\n", dir);	
+	else 
+		chdir(cwd);
+	return 0;
+}
+
+static int handle(const char* cmd) {
+	if(strcmp(cmd, "cd") == 0) {
+		return cd("/");
+	}
+	else if(strncmp(cmd, "cd ", 3) == 0) {
+		return cd(cmd + 3);
 	}
 
 	return -1; /*not shell internal command*/
