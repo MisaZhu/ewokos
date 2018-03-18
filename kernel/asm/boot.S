@@ -32,7 +32,7 @@ enablePaging:
 	mov pc, r2
 
 /*Copy interrupt talbe to phymen address 0x00000000.
-Since page enabled, virtual address #KENREL_BASE mapped to same address(phymen 0x00000000).
+Virtual address #INTERRUPT_VECTOR_BASE(0xFFFF0000 for ARM) must mapped to phymen 0x00000000.
 ref: setKernelVM(PageDirEntryT* vm) kernel/src/kernel.c 
 */
 copyInterruptTable: 

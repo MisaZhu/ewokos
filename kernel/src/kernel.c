@@ -30,13 +30,12 @@ void setKernelVM(PageDirEntryT* vm)
 	memset(vm, 0, PAGE_DIR_SIZE);
 
 	mapPages(vm, KERNEL_BASE, 0, V2P(_kernelEnd), AP_RW_D);
+	mapPages(vm, INTERRUPT_VECTOR_BASE, 0, PAGE_SIZE, AP_RW_D);
 
-	/*mapping ramdisk part*/
+	/*mapping ramdisk part, can be reused after move ramdisk to high address*/
 	mapPages(vm, INITRD_BASE, INITRD_BASE, INITRD_BASE+INITRD_SIZE, AP_RW_D);
 
 	mapPages(vm, MMIO_BASE, MMIO_BASE_PHY, MMIO_BASE_PHY + MMIO_MEM_SIZE, AP_RW_D);
-	mapPages(vm, INTERRUPT_VECTOR_BASE, 0, PAGE_SIZE, AP_RW_D);
-
 	mapPages(vm, KMALLOC_BASE, V2P(KMALLOC_BASE), V2P(KMALLOC_BASE+KMALLOC_SIZE), AP_RW_D);
 	mapPages(vm, ALLOCATABLE_MEMORY_START, V2P(ALLOCATABLE_MEMORY_START), getPhyRamSize(), AP_RW_D);
 }
@@ -76,7 +75,7 @@ void kernelEntry()
 	kmInit();
 
 	/*
-	move ramdisk to high memory.
+	copy ramdisk to high memory.
 	*/
 	_initRamDiskBase = kmalloc(INITRD_SIZE);
 	memcpy(_initRamDiskBase, (void*)(INITRD_BASE), INITRD_SIZE);

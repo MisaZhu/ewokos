@@ -46,4 +46,24 @@
 
 	Tips: Don't fall in love with assembly too much;).
 
+. Kernel init memory map
+
+	PhyMem                         VMem
+	0x00000000-0x00080000  map to  0x80000000-0x80080000  (8M)
+
+	PhyMem        VMem         Desc
+	----------------------------------------------------
+	0x00000000    0xFFFF0000   interrupt table
+	0x00010000    0x80010000   Kernel start (load to)
+	***           ***          (_initStack, _irqStack, _startupPageDir)
+	***           ***          Kernel end
+	+1M           +1M          kernel malloc base
+	+2M           +2M          kernel malloc end (size=2M).
+
+	0x08000000    0x08000000   init ramdisk base (load initrd to)
+	0x08010000    0x08010000   init ramdisk end (size=1M).
+
+	MMIO_BASE_PHY MMIO_BASE    MMIO base (arch)
+
+
 
