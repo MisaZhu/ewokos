@@ -14,6 +14,7 @@ __entry:
 
 	bl kernelEntry /*C entry at kernel/src/kernel.c*/
 
+/*set up the init page table for kernel boot and init*/
 enablePaging:
 	mov r2, lr
 
@@ -30,7 +31,11 @@ enablePaging:
 
 	mov pc, r2
 
-copyInterruptTable:
+/*Copy interrupt talbe to phymen address 0x00000000.
+Since page enabled, virtual address #KENREL_BASE mapped to same address(phymen 0x00000000).
+ref: setKernelVM(PageDirEntryT* vm) kernel/src/kernel.c 
+*/
+copyInterruptTable: 
 	mov r0, #0x0
 	ldr r1, =interruptTableStart
 	ldr r3, =interruptTableEnd
@@ -45,7 +50,7 @@ copyInterruptTable:
 
 	mov pc, lr
 
-interruptTableStart:
+interruptTableStart: /*interrupt table, with syscall and irq items*/
 	nop
 	subs pc, lr, #4
 	ldr pc, syscallEntryAddress
