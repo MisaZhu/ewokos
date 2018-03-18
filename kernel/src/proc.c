@@ -324,3 +324,7 @@ void procExit() {
 	schedule();
 	return;
 }
+
+void _abortEntry() {
+	procExit();
+}

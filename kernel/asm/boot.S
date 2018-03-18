@@ -54,12 +54,13 @@ interruptTableStart: /*interrupt table, with syscall and irq items*/
 	nop
 	subs pc, lr, #4
 	ldr pc, syscallEntryAddress
-	subs pc, lr, #4
-	subs pc, lr, #4
+	ldr pc, abortEntryAddress
+	ldr pc, abortEntryAddress
 	subs pc, lr, #4
 	ldr pc, irqEntryAddress
 	syscallEntryAddress: .word syscallEntry
 	irqEntryAddress: .word irqEntry
+	abortEntryAddress: .word abortEntry
 interruptTableEnd:
 
 syscallEntry:
@@ -86,3 +87,12 @@ irqEntry:
 	bl handleIRQ /*kernel/src/irq.c*/
 
 	ldmfd r13!, {r0-r12, pc}^
+
+abortEntry:
+	# Abort entry.  Switch back to Supervisor mode, and transfer
+	# to C abort handler
+	mrs r2, cpsr
+	bic r2, #0xf
+	orr r2, #0x3
+	msr cpsr, r2
+	bl _abortEntry
