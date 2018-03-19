@@ -23,7 +23,10 @@ void _start()
 	printf("file system got ready.\n");
 
 	/*shell process*/
-	printf("start shell...\n");
+	printf("\nstart shell...\n\n"
+			": Hey! wake up!\n"
+			": Matrix had you.\n"
+			": Follow the rabbit...\n\n");
 
 	while(1) {
 		pid = fork();

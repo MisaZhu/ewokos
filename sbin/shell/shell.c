@@ -107,11 +107,6 @@ static int handle(const char* cmd) {
 
 void _start() {
 	printf(
-			"\n: Hey! wake up!\n"
-			": Matrix had you.\n"
-			": Follow the rabbit...\n\n");
-
-	printf(
 			"    ,-.,-.\n"
 			"    ( ( (\n"
 			"    \\ ) ) _..-.._\n"
