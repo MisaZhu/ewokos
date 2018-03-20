@@ -22,6 +22,13 @@ void _start()
 	}
 	printf("file system got ready.\n");
 
+	/*userman kernel process*/
+	printf("start user manager ...\n");
+	pid = fork();
+	if(pid == 0) { 
+		exec("userman");
+	}
+
 	/*shell process*/
 	printf("\nstart shell...\n\n"
 			": Hey! wake up!\n"

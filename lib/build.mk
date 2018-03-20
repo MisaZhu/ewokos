@@ -9,7 +9,8 @@ LIB_OBJS = lib/src/string.o \
 	lib/src/package.o \
 	lib/src/unistd.o \
 	lib/src/cmain.o \
-	lib/src/kserv/fs.o 
+	lib/src/kserv/fs.o \
+	lib/src/kserv/userman.o 
 
 lib/libewok.a: $(LIB_OBJS)
 	mkdir -p build
