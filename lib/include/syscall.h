@@ -42,6 +42,9 @@ typedef enum {
 	SYSCALL_GET_PROCS,
 	SYSCALL_GET_CWD,
 	SYSCALL_SET_CWD,
+
+	SYSCALL_SET_UID,
+	SYSCALL_GET_UID
 } SyscallCodeT;
 
 

@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <kserv/fs.h>
+#include <syscall.h>
 
 void _start() 
 {
@@ -29,12 +30,12 @@ void _start()
 		exec("userman");
 	}
 
-	/*shell process*/
 	printf("\nstart shell...\n\n"
 			": Hey! wake up!\n"
 			": Matrix had you.\n"
 			": Follow the rabbit...\n\n");
 
+	/*start shell process*/
 	while(1) {
 		pid = fork();
 		if(pid == 0) {

@@ -113,7 +113,7 @@ ProcessT *procCreate(void)
 	proc = &_processTable[index - 1];
 	proc->pid = _pidCount++;
 	proc->fatherPid = 0;
-	proc->owner = 0;
+	proc->owner = -1;
 	proc->cmd[0] = 0;
 	strcpy(proc->pwd, "/");
 

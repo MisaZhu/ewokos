@@ -330,6 +330,24 @@ static int syscall_getCmd(int arg0, int arg1) {
 	return arg0;
 }
 
+static int syscall_setUID(int arg0, int arg1) {
+	if(arg1 < 0 || _currentProcess->owner > 0) {/*current process not kernel or root proc*/
+		return -1;
+	}
+	
+	ProcessT* proc = procGet(arg0);
+	if(proc == NULL) {
+		return -1;
+	}
+
+	proc->owner = arg1;
+	return 0;
+}
+
+static int syscall_getUID() {
+	return _currentProcess->owner;
+}
+
 static int (*const _syscallHandler[])() = {
 	[SYSCALL_KDB] = syscall_kdb,
 	[SYSCALL_UART_PUTCH] = syscall_uartPutch,
@@ -366,6 +384,9 @@ static int (*const _syscallHandler[])() = {
 	[SYSCALL_GET_PROCS] = syscall_getProcs,
 	[SYSCALL_GET_CWD] = syscall_getCWD,
 	[SYSCALL_SET_CWD] = syscall_setCWD,
+
+	[SYSCALL_SET_UID] = syscall_setUID,
+	[SYSCALL_GET_UID] = syscall_getUID,
 };
 
 /* kernel side of system calls. */
