@@ -35,11 +35,25 @@ void _start()
 			": Matrix had you.\n"
 			": Follow the rabbit...\n\n");
 
-	/*start shell process*/
+	printf(
+			"    ,-.,-.\n"
+			"    ( ( (\n"
+			"    \\ ) ) _..-.._\n"
+			"   __)/,’,’       `.\n"
+			" ,'     `.     ,--.  `.\n"
+			",'   @        .’    `  \\\n"
+			"(Y            (         ;’’.\n" 
+			" `--.____,     \\        ,  ;\n"
+			" ((_ ,----’ ,---’    _,’_,’\n"
+			"  (((_,- (((______,-’\n\n"); 
+
+	/*set uid to root*/
+	syscall2(SYSCALL_SET_UID, getpid(), 0);
+	/*start login process*/
 	while(1) {
 		pid = fork();
 		if(pid == 0) {
-			exec("shell");
+			exec("login");
 		}
 		else {
 			wait(pid);

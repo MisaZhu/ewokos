@@ -106,18 +106,6 @@ static int handle(const char* cmd) {
 #define CMD_MAX 128
 
 void _start() {
-	printf(
-			"    ,-.,-.\n"
-			"    ( ( (\n"
-			"    \\ ) ) _..-.._\n"
-			"   __)/,’,’       `.\n"
-			" ,'     `.     ,--.  `.\n"
-			",'   @        .’    `  \\\n"
-			"(Y            (         ;’’.\n" 
-			" `--.____,     \\        ,  ;\n"
-			" ((_ ,----’ ,---’    _,’_,’\n"
-			"  (((_,- (((______,-’\n\n"); 
-
 	char cmd[CMD_MAX];
 	char cwd[FNAME_MAX];
 

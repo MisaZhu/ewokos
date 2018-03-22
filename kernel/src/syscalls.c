@@ -331,7 +331,7 @@ static int syscall_getCmd(int arg0, int arg1) {
 }
 
 static int syscall_setUID(int arg0, int arg1) {
-	if(arg1 < 0 || _currentProcess->owner > 0) {/*current process not kernel or root proc*/
+	if(arg1 < 0 || _currentProcess->owner >= 0) {/*current process not kernel proc*/
 		return -1;
 	}
 	
