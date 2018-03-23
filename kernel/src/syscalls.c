@@ -271,11 +271,12 @@ static int syscall_kservGet(int arg0) {
 	return kservGet((const char*)arg0);
 }
 
-static int getProcs() {
+static int getProcs(bool owner) {
 	int res = 0;
 	for(int i=0; i<PROCESS_COUNT_MAX; i++) {
 		if(_processTable[i].state != UNUSED && 
-				(_currentProcess->owner == 0 ||
+				(_currentProcess->owner == 0 || 
+				owner != true || 
 				_processTable[i].owner == _currentProcess->owner)) {
 			res++;
 		}
@@ -283,8 +284,9 @@ static int getProcs() {
 	return res;
 }
 
-static int syscall_getProcs(int arg0) {
-	int num = getProcs();
+static int syscall_getProcs(int arg0, int arg1) {
+	bool owner = (bool)arg1;
+	int num = getProcs(owner);
 	if(num == 0)
 		return 0;
 
@@ -297,6 +299,7 @@ static int syscall_getProcs(int arg0) {
 	for(int i=0; i<PROCESS_COUNT_MAX && j<num; i++) {
 		if(_processTable[i].state != UNUSED && 
 				(_currentProcess->owner == 0 ||
+				owner != true ||
 				 _processTable[i].owner == _currentProcess->owner)) {
 			procs[j].pid = _processTable[i].pid;	
 			procs[j].fatherPid = _processTable[i].fatherPid;	

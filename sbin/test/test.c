@@ -12,10 +12,5 @@ void _start()
 		fsClose(fd);
 	}
 
-	int uid = usermanAuth("user", "passwd");
-	printf("uid: %d\n", uid);
-	uid  = syscall0(SYSCALL_GET_UID);
-	printf("uid: %d\n", uid);
-
 	exit(0);
 }

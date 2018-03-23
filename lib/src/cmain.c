@@ -7,7 +7,7 @@ static int _offCmd = 0;
 
 void initCMainArg() {
 	_offCmd = 0;
-	syscall2(SYSCALL_GET_CMD, _cmd, 256);
+	syscall2(SYSCALL_GET_CMD, (int)_cmd, 256);
 }
 
 const char* readCMainArg() {

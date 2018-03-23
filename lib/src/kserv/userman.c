@@ -2,6 +2,7 @@
 #include <pmessage.h>
 #include <string.h>
 #include <syscall.h>
+#include <stdlib.h>
 
 static int _usermanPid = -1;
 
