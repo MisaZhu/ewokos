@@ -109,8 +109,14 @@ void _start() {
 	char cmd[CMD_MAX];
 	char cwd[FNAME_MAX];
 
+	int uid = getuid();
+
 	while(1) {
-		printf("ewok:%s.# ", getcwd(cwd, FNAME_MAX));
+		if(uid == 0)
+			printf("ewok:%s.# ", getcwd(cwd, FNAME_MAX));
+		else
+			printf("ewok:%s.$ ", getcwd(cwd, FNAME_MAX));
+
 		gets(cmd, CMD_MAX);
 		if(cmd[0] == 0)
 			continue;

@@ -19,4 +19,6 @@ void wait(int pid);
 
 void yield();
 
+int getuid();
+
 #endif

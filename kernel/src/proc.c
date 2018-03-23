@@ -72,8 +72,6 @@ static void* procGetMemTail(void* p) {
 	return (void*)proc->heapSize;
 }
 
-static int32_t _pidCount = 0;
-
 /* proc_creates allocates a new process and returns it. */
 ProcessT *procCreate(void)
 {
@@ -85,7 +83,7 @@ ProcessT *procCreate(void)
 
 	for (int i = 0; i < PROCESS_COUNT_MAX; i++) {
 		if (_processTable[i].state == UNUSED) {
-			index = i + 1;
+			index = i;
 			break;
 		}
 	}
@@ -96,7 +94,7 @@ ProcessT *procCreate(void)
 	kernelStack = kalloc();
 	userStack = kalloc();
 
-	vm = _processVM[index - 1];
+	vm = _processVM[index];
 	setKernelVM(vm);
 
 	mapPage(vm, 
@@ -110,8 +108,8 @@ ProcessT *procCreate(void)
 		AP_RW_RW);
 
 
-	proc = &_processTable[index - 1];
-	proc->pid = _pidCount++;
+	proc = &_processTable[index];
+	proc->pid = index;
 	proc->fatherPid = 0;
 	proc->owner = -1;
 	proc->cmd[0] = 0;
@@ -227,11 +225,10 @@ void procStart(ProcessT *proc)
 
 ProcessT* procGet(int pid) 
 {
-	for(int i=0; i< PROCESS_COUNT_MAX; i++) {
-		if(_processTable[i].state != UNUSED && _processTable[i].pid == pid)
-			return &_processTable[i];
-	}
-	return NULL;
+	if(pid < 0 || pid >= PROCESS_COUNT_MAX)
+		return NULL;
+
+	return &_processTable[pid];
 }
 
 int kfork(void)

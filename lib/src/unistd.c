@@ -90,3 +90,8 @@ char* getcwd(char* buf, size_t size) {
 int chdir(const char* dir) {
 	return syscall1(SYSCALL_SET_CWD, (int)dir);
 }
+
+int getuid() {
+	return syscall0(SYSCALL_GET_UID);
+}
+

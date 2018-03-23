@@ -63,6 +63,7 @@ void _start()
 		if(uid >= 0) 
 			break;
 	}
+	printf("\n");
 	exec("shell");
 	exit(0);
 }

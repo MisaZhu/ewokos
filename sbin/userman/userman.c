@@ -8,9 +8,12 @@
 
 static int login(const char* user, const char* passwd) {
 	//TODO: login by username and password
-	if(strcmp(user, passwd) == 0)
+	if(strcmp(user, passwd) != 0)
+		return -1;
+
+	if(strcmp(user, "root") == 0)
 		return 0;
-	return -1;
+	return 1;
 }
 
 static void doAuth(PackageT* pkg) {
