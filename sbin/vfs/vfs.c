@@ -150,6 +150,7 @@ void doChild(PackageT* pkg) {
 	info.type = node->type;
 	if(info.type == FS_TYPE_DIR)
 		info.size = sizeof(FSInfoT);
+	info.owner = node->owner;
 
 	strncpy(info.name, node->name, FNAME_MAX);
 	psend(pkg->id, pkg->pid, pkg->type, &info, sizeof(FSInfoT));
