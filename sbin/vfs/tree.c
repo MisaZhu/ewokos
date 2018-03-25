@@ -14,6 +14,7 @@ void treeInitNode(TreeNodeT* node) {
 	node->mount = -1;
 	node->type = 0;
 	node->flags = 0;
+	node->owner = 0;
 }
 
 TreeNodeT* treeSimpleGet(TreeNodeT* father, const char* name) {

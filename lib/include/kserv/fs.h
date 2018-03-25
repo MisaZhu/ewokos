@@ -24,6 +24,7 @@ typedef enum {
 typedef struct FSInfo {
 	uint32_t size;
 	uint32_t type;
+	uint32_t owner;
 	char name[FNAME_MAX];
 } FSInfoT;
 

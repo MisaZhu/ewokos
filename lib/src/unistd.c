@@ -92,6 +92,6 @@ int chdir(const char* dir) {
 }
 
 int getuid() {
-	return syscall0(SYSCALL_GET_UID);
+	return syscall1(SYSCALL_GET_UID, getpid());
 }
 

@@ -18,6 +18,7 @@ typedef struct TreeNode {
 	int32_t mount;
 	uint32_t type;
 	uint32_t flags;
+	uint32_t owner;
 } TreeNodeT;
 
 void treeInitNode(TreeNodeT* node); 

@@ -72,6 +72,7 @@ void doFInfo(PackageT* pkg) {
 		dev->info(node, &info);
 	}
 	info.type = node->type;
+	info.owner = node->owner;
 	strncpy(info.name, node->name, FNAME_MAX);
 	psend(pkg->id, pkg->pid, pkg->type, &info, sizeof(FSInfoT));
 }
@@ -104,6 +105,7 @@ void doInfo(PackageT* pkg) {
 		dev->info(node, &info);
 	}
 	info.type = node->type;
+	info.owner = node->owner;
 	strncpy(info.name, node->name, FNAME_MAX);
 	psend(pkg->id, pkg->pid, pkg->type, &info, sizeof(FSInfoT));
 }
@@ -222,6 +224,7 @@ void doAdd(PackageT* pkg) {
 		return;
 	}
 
+	node->owner = syscall1(SYSCALL_GET_UID, pkg->pid);
 	psend(pkg->id, pkg->pid, pkg->type, NULL, 0);
 }
 

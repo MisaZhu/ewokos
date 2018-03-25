@@ -347,8 +347,11 @@ static int syscall_setUID(int arg0, int arg1) {
 	return 0;
 }
 
-static int syscall_getUID() {
-	return _currentProcess->owner;
+static int syscall_getUID(int arg0) {
+	ProcessT* proc = procGet(arg0);
+	if(proc == NULL)
+		return -1;
+	return proc->owner;
 }
 
 static int (*const _syscallHandler[])() = {
