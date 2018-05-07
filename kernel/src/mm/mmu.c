@@ -1,5 +1,5 @@
-#include <mmu.h>
-#include <kalloc.h>
+#include <mm/mmu.h>
+#include <mm/kalloc.h>
 #include <types.h>
 #include <string.h>
 

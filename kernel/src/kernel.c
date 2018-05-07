@@ -1,8 +1,8 @@
-#include <mmu.h>
-#include <kernel.h>
+#include <mm/mmu.h>
+#include <mm/kalloc.h>
+#include <mm/kmalloc.h>
 #include <hardware.h>
-#include <kalloc.h>
-#include <kmalloc.h>
+#include <kernel.h>
 #include <system.h>
 #include <dev/uart.h>
 #include <proc.h>

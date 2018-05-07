@@ -1,7 +1,7 @@
-#include <kmalloc.h>
+#include <mm/kmalloc.h>
+#include <mm/pmalloc.h>
+#include <mm/mmu.h>
 #include <kernel.h>
-#include <pmalloc.h>
-#include <mmu.h>
 
 static MallocT _kMalloc;
 static uint32_t _kMallocMemTail = KMALLOC_BASE;

@@ -1,4 +1,4 @@
-#include <mmu.h>
+#include <mm/mmu.h>
 
 __attribute__((aligned (PAGE_SIZE))) char _initStack[PAGE_SIZE];
 __attribute__((aligned (PAGE_SIZE))) char _irqStack[PAGE_SIZE];

@@ -7,7 +7,7 @@
 #include <kernel.h>
 #include <sramdisk.h>
 #include <string.h>
-#include <pmalloc.h>
+#include <mm/pmalloc.h>
 #include <kmessage.h>
 #include <kfile.h>
 #include <types.h>

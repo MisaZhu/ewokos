@@ -1,6 +1,6 @@
 #include <kfile.h>
-#include <kmalloc.h>
 #include <string.h>
+#include <mm/kmalloc.h>
 
 static KFileT* _kernelFiles = NULL;
 

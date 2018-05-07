@@ -1,5 +1,5 @@
 #include <hardware.h>
-#include <mmu.h>
+#include <mm/mmu.h>
 
 unsigned int getPhyRamSize() {
 	return 255*MB;

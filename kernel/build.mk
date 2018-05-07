@@ -11,14 +11,14 @@ DEV_OBJS = $(KERNEL_DIR)/src/dev/uart.o
 OBJS += $(ARCH_OBJS) \
 	$(DEV_OBJS) \
 	$(KERNEL_DIR)/src/kernel.o \
-	$(KERNEL_DIR)/src/startup.o \
 	$(KERNEL_DIR)/src/irq.o \
 	$(KERNEL_DIR)/src/syscalls.o \
-	$(KERNEL_DIR)/src/kalloc.o \
-	$(KERNEL_DIR)/src/mmu.o \
+	$(KERNEL_DIR)/src/mm/startup.o \
+	$(KERNEL_DIR)/src/mm/mmu.o \
+	$(KERNEL_DIR)/src/mm/kalloc.o \
+	$(KERNEL_DIR)/src/mm/pmalloc.o \
+	$(KERNEL_DIR)/src/mm/kmalloc.o \
 	$(KERNEL_DIR)/src/proc.o \
-	$(KERNEL_DIR)/src/pmalloc.o \
-	$(KERNEL_DIR)/src/kmalloc.o \
 	$(KERNEL_DIR)/src/kmessage.o \
 	$(KERNEL_DIR)/src/kfile.o \
 	$(KERNEL_DIR)/src/kserv.o \

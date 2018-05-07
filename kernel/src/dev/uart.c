@@ -1,7 +1,7 @@
 #include <hardware.h>
 #include <irq.h>
 #include <string.h>
-#include <mmu.h>
+#include <mm/mmu.h>
 #include <dev/uart.h>
 
 /* receive buffer */

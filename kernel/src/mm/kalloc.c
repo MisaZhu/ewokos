@@ -1,5 +1,5 @@
-#include <kalloc.h>
-#include <mmu.h>
+#include <mm/kalloc.h>
+#include <mm/mmu.h>
 #include <types.h>
 
 static PageListT *pageListPrepend(PageListT *pageList,

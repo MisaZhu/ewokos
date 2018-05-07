@@ -1,7 +1,7 @@
-#include <mmu.h>
+#include <mm/mmu.h>
+#include <mm/kalloc.h>
 #include <proc.h>
 #include <kernel.h>
-#include <kalloc.h>
 #include <string.h>
 #include <system.h>
 #include <types.h>

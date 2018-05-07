@@ -1,5 +1,5 @@
-#include <pmalloc.h>
-#include <mmu.h>
+#include <mm/pmalloc.h>
+#include <mm/mmu.h>
 
 /*
 malloc for use memory management

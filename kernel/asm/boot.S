@@ -1,4 +1,4 @@
-#include <mmu.h>
+#include <mm/mmu.h>
 #include <proc.h>
 
 .global __entry

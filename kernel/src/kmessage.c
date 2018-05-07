@@ -1,7 +1,7 @@
 #include <kmessage.h>
-#include <kmalloc.h>
 #include <string.h>
 #include <proc.h>
+#include <mm/kmalloc.h>
 
 static int _pkgIDCount = 0;
 

@@ -1,7 +1,7 @@
 #ifndef KERNEL_H
 #define KERNEL_H
 
-#include <mmu.h>
+#include <mm/mmu.h>
 #include <sramdisk.h>
 
 extern char _kernelStart[];

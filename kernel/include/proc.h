@@ -15,8 +15,8 @@
 #else
 
 #include <types.h>
-#include <mmu.h>
-#include <pmalloc.h>
+#include <mm/mmu.h>
+#include <mm/pmalloc.h>
 #include <kmessage.h>
 #include <kfile.h>
 #include <procinfo.h>
