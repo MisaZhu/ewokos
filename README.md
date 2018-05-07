@@ -36,8 +36,8 @@
 .Source code read-guide
 
 	kernel/arm/boot.S
-	kernel/src/kalloc.c
-	kernel/src/mmu.c
+	kernel/src/mm/kalloc.c
+	kernel/src/mm/mmu.c
 	kernel/src/proc.c 
 	kernel/src/sheduler.c
 	kernel/src/syscalls.c

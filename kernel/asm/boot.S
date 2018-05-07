@@ -3,7 +3,7 @@
 
 .global __entry
 __entry:
-	ldr sp, =_initStack /*(kernel/src/startup.c*/
+	ldr sp, =_initStack /*(kernel/src/mm/startup.c*/
 	add sp, #4096
 
 	bl enablePaging
@@ -21,7 +21,7 @@ enablePaging:
 	mov r0, #1
 	bl __setDomainAccessControl /*system.S*/
 
-	ldr r0, =_startupPageDir /*startup.c*/
+	ldr r0, =_startupPageDir /*kernel/src/mm/startup.c*/
 	sub r0, #KERNEL_BASE
 	bl __setTranslationTableBase /*system.S*/
 
@@ -64,7 +64,7 @@ interruptTableStart: /*interrupt table, with syscall and irq items*/
 interruptTableEnd:
 
 syscallEntry:
-	ldr sp, =_initStack /*kernel/src/startup.c*/
+	ldr sp, =_initStack /*kernel/src/mm/startup.c*/
 	add sp, #4096
 
 	SAVE_CONTEXT /*proc.h*/
