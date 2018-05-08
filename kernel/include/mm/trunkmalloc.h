@@ -1,5 +1,5 @@
-#ifndef PMALLOC_H
-#define PMALLOC_H
+#ifndef TRKMALLOC_H
+#define TRKMALLOC_H
 
 #include <types.h>
 
@@ -23,7 +23,7 @@ typedef struct {
 	MemBlockT* mTail;
 } MallocT;
 
-char* pmalloc(MallocT* m, uint32_t size);
-void pfree(MallocT* m, char* p);
+char* trunkMalloc(MallocT* m, uint32_t size);
+void trunkFree(MallocT* m, char* p);
 
 #endif

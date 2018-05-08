@@ -64,7 +64,7 @@ PackageT* krecv(int id) {
 
 	uint32_t pkgSize = getPackageSize(msg->pkg);
 	
-	PackageT* ret = (PackageT*)pmalloc(&_currentProcess->mallocMan, pkgSize);
+	PackageT* ret = (PackageT*)trunkMalloc(&_currentProcess->mallocMan, pkgSize);
 	if(ret == NULL)
 		return NULL;
 

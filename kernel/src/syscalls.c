@@ -7,7 +7,7 @@
 #include <kernel.h>
 #include <sramdisk.h>
 #include <string.h>
-#include <mm/pmalloc.h>
+#include <mm/trunkmalloc.h>
 #include <kmessage.h>
 #include <kfile.h>
 #include <types.h>
@@ -79,13 +79,13 @@ static int syscall_yield() {
 }
 
 static int syscall_pmalloc(int arg0) {
-	char* p = pmalloc(&_currentProcess->mallocMan, (uint32_t)arg0);
+	char* p = trunkMalloc(&_currentProcess->mallocMan, (uint32_t)arg0);
 	return (int)p;
 }
 
 static int syscall_pfree(int arg0) {
 	char* p = (char*)arg0;
-	pfree(&_currentProcess->mallocMan, p);
+	trunkFree(&_currentProcess->mallocMan, p);
 	return 0;
 }
 
@@ -121,7 +121,7 @@ static int syscall_readInitRD(int arg0, int arg1, int arg2) {
 		rdSize = restSize;
 
 
-	char* ret = pmalloc(&_currentProcess->mallocMan, rdSize);
+	char* ret = trunkMalloc(&_currentProcess->mallocMan, rdSize);
 	if(ret == NULL)
 		return 0;
 	memcpy(ret, p+arg1, rdSize);
@@ -131,7 +131,7 @@ static int syscall_readInitRD(int arg0, int arg1, int arg2) {
 
 static int syscall_filesInitRD() {
 	RamFileT* f = _initRamDisk.head;
-	char* ret = pmalloc(&_currentProcess->mallocMan, 1024+1);
+	char* ret = trunkMalloc(&_currentProcess->mallocMan, 1024+1);
 	if(ret == NULL)
 		return 0;
 
@@ -291,7 +291,7 @@ static int syscall_getProcs(int arg0, int arg1) {
 		return 0;
 
 	/*need to be freed later used!*/
-	ProcInfoT* procs = (ProcInfoT*)pmalloc(&_currentProcess->mallocMan, sizeof(ProcInfoT)*num);
+	ProcInfoT* procs = (ProcInfoT*)trunkMalloc(&_currentProcess->mallocMan, sizeof(ProcInfoT)*num);
 	if(procs == NULL)
 		return 0;
 

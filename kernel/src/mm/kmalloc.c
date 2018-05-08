@@ -1,5 +1,5 @@
 #include <mm/kmalloc.h>
-#include <mm/pmalloc.h>
+#include <mm/trunkmalloc.h>
 #include <mm/mmu.h>
 #include <kernel.h>
 
@@ -33,9 +33,9 @@ void kmInit() {
 }
 
 void *kmalloc(uint32_t size) {
-	return pmalloc(&_kMalloc, size);
+	return trunkMalloc(&_kMalloc, size);
 }
 
 void kmfree(void* p) {
-	pfree(&_kMalloc, p);
+	trunkFree(&_kMalloc, p);
 }

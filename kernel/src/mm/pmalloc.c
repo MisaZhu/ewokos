@@ -1,8 +1,8 @@
-#include <mm/pmalloc.h>
+#include <mm/trunkmalloc.h>
 #include <mm/mmu.h>
 
 /*
-malloc for use memory management
+malloc for memory trunk management
 */
 
 static MemBlockT* genBlock(char* p, uint32_t size) {
@@ -39,7 +39,7 @@ static void tryBreak(MallocT* m, MemBlockT* block, uint32_t size) {
 		m->mTail = newBlock;
 }
 
-char* pmalloc(MallocT* m, uint32_t size) {
+char* trunkMalloc(MallocT* m, uint32_t size) {
 	MemBlockT* block = m->mHead;
 	while(block != NULL) {
 		if(block->used || block->size < size) {
@@ -132,7 +132,7 @@ static void tryShrink(MallocT* m) {
 	m->shrink(m->arg, pages);
 }
 
-void pfree(MallocT* m, char* p) {
+void trunkFree(MallocT* m, char* p) {
 	uint32_t blockSize = sizeof(MemBlockT);
 	if(((uint32_t)p) < blockSize) //wrong address.
 		return;
