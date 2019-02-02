@@ -95,4 +95,4 @@ abortEntry:
 	bic r2, #0xf
 	orr r2, #0x3
 	msr cpsr, r2
-	bl _abortEntry
+	bl _abortEntry /*kernel/src/proc.c*/
