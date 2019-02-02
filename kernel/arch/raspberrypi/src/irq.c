@@ -1,6 +1,6 @@
 #include <irq.h>
 #include <hardware.h>
-#include <mmu.h>
+#include <mmu/mmu.h>
 #include <types.h>
 #include <lib/string.h>
 
