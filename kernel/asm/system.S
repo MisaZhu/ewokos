@@ -2,7 +2,7 @@
 
 .global __readControlRegister
 __readControlRegister:
-	mrc p15, 0, r0, cr1, cr0, 0 /*operate-0 from co-processor-p15 to R0*/
+	mrc p15, 0, r0, cr1, cr0, 0 /*operate-0 from co-processor-p15 to R0, cr1 cr0 are registers on co-proc*/
 	mov pc, lr /*return*/
 
 .global __setControlRegister
