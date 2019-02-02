@@ -22,7 +22,7 @@ enablePaging:
 	bl __setDomainAccessControl /*system.S*/
 
 	ldr r0, =_startupPageDir /*kernel/src/mm/startup.c*/
-	sub r0, #KERNEL_BASE
+	sub r0, #KERNEL_BASE /*get physical address from virtual address*/
 	bl __setTranslationTableBase /*system.S*/
 
 	bl __readControlRegister /*system.S*/
