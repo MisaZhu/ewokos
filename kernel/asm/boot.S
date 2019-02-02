@@ -56,7 +56,7 @@ interruptTableStart: /*interrupt table, with syscall and irq items*/
 	ldr pc, syscallEntryAddress /*item 2: syscall*/
 	ldr pc, abortEntryAddress /*item 3: prefetchAbort*/
 	ldr pc, abortEntryAddress /*item 4: dataAbort*/
-	subs pc, lr, #4 /*item 5: */
+	subs pc, lr, #4 /*item 5: return*/
 	ldr pc, irqEntryAddress /*item 6: irq*/
 	
 	syscallEntryAddress: .word syscallEntry
