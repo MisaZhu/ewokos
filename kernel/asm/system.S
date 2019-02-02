@@ -3,7 +3,7 @@
 .global __readControlRegister
 __readControlRegister:
 	mrc p15, 0, r0, cr1, cr0, 0
-	mov pc, lr
+	mov pc, lr /*return*/
 
 .global __setControlRegister
 __setControlRegister:
