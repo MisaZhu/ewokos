@@ -69,11 +69,11 @@ syscallEntry:
 
 	SAVE_CONTEXT /*proc.h*/
 
-	stmfd r13!, {r1-r12, r14}
+	stmfd sp!, {r1-r12, r14}
 
 	bl handleSyscall /*kernel/src/syscalls.c*/
 
-	ldmfd r13!, {r1-r12, pc}^
+	ldmfd sp!, {r1-r12, pc}^
 
 irqEntry:
 	sub r14, r14, #4
