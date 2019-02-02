@@ -3,7 +3,7 @@
 
 .global __entry
 __entry:
-	ldr sp, =_initStack /*(kernel/src/mm/startup.c*/
+	ldr sp, =_initStack /*sp(R15), _initStack defined in kernel/src/mm/startup.c*/
 	add sp, #4096
 
 	bl enablePaging
