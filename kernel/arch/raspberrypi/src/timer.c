@@ -1,6 +1,6 @@
 #include <timer.h>
 #include <types.h>
-#include <mmu.h>
+#include <mm/mmu.h>
 #include <hardware.h>
 
 /* memory mapping for timer */
