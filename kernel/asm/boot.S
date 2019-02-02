@@ -82,11 +82,11 @@ irqEntry:
 
 	SAVE_CONTEXT
 
-	stmfd r13!, {r0-r12, r14}
+	stmfd r13!, {r0-r12, r14} /*push r0-r12, r14(return pc) to stack*/
 
 	bl handleIRQ /*kernel/src/irq.c*/
 
-	ldmfd r13!, {r0-r12, pc}^
+	ldmfd r13!, {r0-r12, pc}^ /*pop stack to r0-r12, pc(means return)*/
 
 abortEntry:
 	# Abort entry.  Switch back to Supervisor mode, and transfer
