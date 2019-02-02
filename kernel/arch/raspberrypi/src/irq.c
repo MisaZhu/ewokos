@@ -2,7 +2,6 @@
 #include <hardware.h>
 #include <mm/mmu.h>
 #include <types.h>
-#include <lib/string.h>
 
 /* memory mapping for the interrupt controller */
 #define PIC MMIO_P2V(0x2000B000)
