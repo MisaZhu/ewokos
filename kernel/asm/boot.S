@@ -26,7 +26,7 @@ enablePaging:
 	bl __setTranslationTableBase /*system.S*/
 
 	bl __readControlRegister /*system.S*/
-	orr r0, #1
+	orr r0, #1 /*enable paging*/
 	bl __setControlRegister /*system.S*/
 
 	mov pc, r2 /*return*/
