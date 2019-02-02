@@ -16,7 +16,7 @@ __entry:
 
 /*set up the init page table for kernel boot and init*/
 enablePaging:
-	mov r2, lr
+	mov r2, lr /*lr(R14) return PC stored*/
 
 	mov r0, #1
 	bl __setDomainAccessControl /*system.S*/
@@ -29,7 +29,7 @@ enablePaging:
 	orr r0, #1
 	bl __setControlRegister /*system.S*/
 
-	mov pc, r2
+	mov pc, r2 /*return*/
 
 /*Copy interrupt talbe to phymen address 0x00000000.
 Virtual address #INTERRUPT_VECTOR_BASE(0xFFFF0000 for ARM) must mapped to phymen 0x00000000.
