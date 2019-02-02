@@ -2,12 +2,12 @@
 
 .global __readControlRegister
 __readControlRegister:
-	mrc p15, 0, r0, cr1, cr0, 0 /*opreate read from co-processor to R0*/
+	mrc p15, 0, r0, cr1, cr0, 0 /*operate-0 from co-processor-p15 to R0*/
 	mov pc, lr /*return*/
 
 .global __setControlRegister
 __setControlRegister:
-	mcr p15, 0, r0, cr1, cr0, 0 /*operate write from R0 to co-processor*/
+	mcr p15, 0, r0, cr1, cr0, 0 /*operate-0 from R0 to co-processor-p15*/
 	mov pc, lr /*return*/
 
 .global __setDomainAccessControl
