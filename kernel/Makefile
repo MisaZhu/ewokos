@@ -66,10 +66,10 @@ $(OS).bin: $(OBJS) $(OS).ld
 	$(OBJDUMP) -D build/$(OS).elf > build/$(OS).asm
 
 run:
-	qemu-system-arm $(QEMU_FLAGS) -kernel build/$(OS).bin -initrd system/build/initfs
+	qemu-system-arm $(QEMU_FLAGS) -kernel build/$(OS).bin -initrd ../system/build/initfs
 
 debug: $(OS).bin
-	qemu-system-arm $(QEMU_FLAGS) -gdb tcp::26000 -S -kernel build/$(OS).bin -initrd system/build/initfs
+	qemu-system-arm $(QEMU_FLAGS) -gdb tcp::26000 -S -kernel build/$(OS).bin -initrd ../system/build/initfs
 
 gdb: 
 	echo "target remote :26000" > /tmp/gdbinit

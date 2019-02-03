@@ -1,8 +1,7 @@
 ENTRY(__entry) /*kernel entry (kernel/asm/boot.S)*/
 
 /*kernel will be loaded at this address after boot*/
-/*start_address = 0x10000;*/
-start_address = 0x8000;
+start_address = 0x10000;
 
 SECTIONS
 {
