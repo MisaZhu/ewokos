@@ -84,6 +84,7 @@ void kernelEntry()
 	/*
 	copy ramdisk to high memory(kernel trunk memory).
 	qemu-system-arm -initrd <FILE> will load initrd-FILE to physical memory address(INITRD_BASE=64M) when bootup, temporarily!
+	This part of memory should be reused after initrd moved to kernel trunk memory.
 	*/
 	_initRamDiskBase = kmalloc(INITRD_SIZE);
 	memcpy(_initRamDiskBase, (void*)(INITRD_BASE), INITRD_SIZE);
