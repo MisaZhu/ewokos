@@ -25,7 +25,7 @@ __saveContext1: /*store registers to process content array, except R0*/
 	str r14, [r0]
 
 	/* store the rest, except r0  to rest items(3~16, skip item 2!) of process content array*/
-	add r0, #8
+	add r0, #8 /*skip item 2*/
 	stmia r0, {r1-r14}^
 
 	b saveContextReturn
