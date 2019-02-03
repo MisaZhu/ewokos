@@ -9,6 +9,7 @@ OBJDUMP = arm-none-eabi-objdump
 
 # flags
 CFLAGS = -gstabs -I. \
+				 -I lib/include \
 				 -I ../lib/include \
 				 -marm \
 				 -pedantic -Wall -Wextra -msoft-float -fPIC -mapcs-frame \
@@ -21,6 +22,7 @@ QEMU_FLAGS = $(ARCH_QEMU_FLAGS) -nographic
 
 all: ../lib/libewok.a system
 
+include lib/build.mk
 include mkramfs/build.mk
 include sbin/build.mk
 

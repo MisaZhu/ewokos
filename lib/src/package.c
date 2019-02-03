@@ -1,8 +1,7 @@
 #include <package.h>
-#include <malloc.h>
 #include <string.h>
 
-PackageT* newPackage(uint32_t type, void* data, uint32_t size) {
+/*PackageT* newPackage(uint32_t type, void* data, uint32_t size) {
 	PackageT* pkg = (PackageT*)malloc(sizeof(PackageT) + size);
 	if(pkg == NULL)
 		return NULL;
@@ -24,6 +23,7 @@ void freePackage(PackageT* pkg) {
 	if(pkg != NULL)
 		free(pkg);
 }
+*/
 
 uint32_t getPackageSize(PackageT* pkg) {
 	if(pkg == NULL)

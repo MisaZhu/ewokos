@@ -1,4 +1,4 @@
-#include <malloc.h>
+#include <stdlib.h>
 #include <syscall.h>
 
 void* malloc(size_t size) {

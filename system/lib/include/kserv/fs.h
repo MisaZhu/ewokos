@@ -1,7 +1,7 @@
 #ifndef FS_H
 #define FS_H
 
-#include <types.h>
+#include <fsinfo.h>
 
 #define KSERV_FS_NAME  "FS"
 
@@ -16,17 +16,6 @@ typedef enum {
 	FS_CHILD,
 	FS_NEXT,
 } FSCmdT;
-
-#define FS_TYPE_DIR 0x0
-#define FS_TYPE_FILE 0x01
-#define FS_TYPE_DEV_FILE 0x02
-
-typedef struct FSInfo {
-	uint32_t size;
-	uint32_t type;
-	uint32_t owner;
-	char name[FNAME_MAX];
-} FSInfoT;
 
 int fsOpen(const char* name);
 

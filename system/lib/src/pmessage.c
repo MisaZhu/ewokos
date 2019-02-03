@@ -1,8 +1,33 @@
 #include <pmessage.h>
 #include <syscall.h>
+#include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
 
 #define MSG_RETRY 128
+
+PackageT* newPackage(uint32_t type, void* data, uint32_t size) {
+	PackageT* pkg = (PackageT*)malloc(sizeof(PackageT) + size);
+	if(pkg == NULL)
+		return NULL;
+
+	pkg->id = -1;
+	pkg->pid = -1;
+	pkg->size = 0;
+	pkg->type = type;
+
+	void* p = getPackageData(pkg);
+	if(size > 0 && data != NULL)
+		memcpy(p, data, size);
+
+	pkg->size = size;
+	return pkg;
+}
+
+void freePackage(PackageT* pkg) {
+	if(pkg != NULL)
+		free(pkg);
+}
 
 static int psendPkg(int id, int pid, PackageT* pkg) {
 	return syscall3(SYSCALL_SEND_MSG, id, pid, (int)pkg);

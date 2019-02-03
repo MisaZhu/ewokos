@@ -4,7 +4,7 @@ PROGRAM += $(TEST_PROGRAM)
 
 EXTRA_CLEAN += $(TEST_PROGRAM) $(TEST_DIR)/*.o
 
-$(TEST_PROGRAM): $(TEST_DIR)/*.c ../lib/libewok.a
+$(TEST_PROGRAM): $(TEST_DIR)/*.c ../lib/libewok.a lib/libewoklibc.a
 	mkdir -p sbin/sbin
 	$(CC) $(CFLAGS) -c -o $(TEST_DIR)/test.o $(TEST_DIR)/test.c
-	$(LD) -Ttext=100 $(TEST_DIR)/*.o ../lib/libewok.a -o $(TEST_PROGRAM)
+	$(LD) -Ttext=100 $(TEST_DIR)/*.o lib/libewoklibc.a ../lib/libewok.a -o $(TEST_PROGRAM)

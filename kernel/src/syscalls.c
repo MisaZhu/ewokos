@@ -12,7 +12,7 @@
 #include <kfile.h>
 #include <types.h>
 #include <kserv.h>
-#include <kserv/fs.h>
+#include <fsinfo.h>
 
 void schedule();
 

@@ -1,6 +1,6 @@
 #include <stdio.h>
 #include <syscall.h>
-
+#include <string.h>
 
 void putch(int c) {
 	syscall1(SYSCALL_UART_PUTCH, c);

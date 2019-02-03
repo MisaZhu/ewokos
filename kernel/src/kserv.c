@@ -1,7 +1,7 @@
 #include <kserv.h>
 #include <string.h>
 #include <proc.h>
-#include <stdio.h>
+//#include <stdio.h>
 
 #define KSERV_MAX 32
 

@@ -1,5 +1,10 @@
-#ifndef SYSCALLS_H
-#define SYSCALLS_H
+#ifndef SYSCALL_H
+#define SYSCALL_H
+
+int syscall0(int code);
+int syscall1(int code, int arg0);
+int syscall2(int code, int arg0, int arg1);
+int syscall3(int code, int arg0, int arg1, int arg2);
 
 typedef enum {
 	SYSCALL_KDB,
@@ -41,5 +46,6 @@ typedef enum {
 	SYSCALL_SET_UID,
 	SYSCALL_GET_UID
 } SyscallCodeT;
+
 
 #endif

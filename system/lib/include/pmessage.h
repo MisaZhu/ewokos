@@ -3,6 +3,10 @@
 
 #include <package.h>
 
+PackageT* newPackage(uint32_t type, void* data, uint32_t size);
+
+void freePackage(PackageT* pkg);
+
 int psend(int id, int pid, uint32_t type, void* data, uint32_t size);
 
 int psendSync(int id, int pid, uint32_t type, void* data, uint32_t size);

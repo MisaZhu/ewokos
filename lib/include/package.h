@@ -12,8 +12,8 @@ typedef struct {
 	uint32_t size;
 } PackageT;
 
-PackageT* newPackage(uint32_t type, void* data, uint32_t size);
-void freePackage(PackageT* pkg);
+//PackageT* newPackage(uint32_t type, void* data, uint32_t size);
+//void freePackage(PackageT* pkg);
 uint32_t getPackageSize(PackageT* pkg);
 void* getPackageData(PackageT* pkg);
 
