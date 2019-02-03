@@ -64,9 +64,7 @@ void kernelEntry()
 	We can only use init memory part
 	(from ALLOCATABLE_MEMORY_START to 'KERNEL_BASE + INIT_MEMORY_SIZE'),
 	cause the boot program only mapped part of mem by _startupPageDir(startup.c).
-	Notice: This part of physical mem (0 to INIT_MEMORY_SIZE) 
-		only works for init kernel page mapping,
-		means, after that, it can not be used any more!
+	Notice: This part of physical mem (0 to INIT_MEMORY_SIZE) works for init kernel page mapping
 	*/
 	kallocInit(ALLOCATABLE_MEMORY_START,
 			KERNEL_BASE + INIT_MEMORY_SIZE);
@@ -91,9 +89,8 @@ void kernelEntry()
 
 	/*
 	Since kernel mem mapping finished, and init ram disk copied to kernel trunk memory.
-	we can build free mems list for all the rest mem, the init ram disk part can be reused as well.
-	Notice:	From now, you can only kalloc physical mem from 
-		INIT_MEMORY_SIZE to getPhyRamSize.
+	we can build free mem page list for all the rest mem(the init ram disk part can be reused as well).
+	Notice:	From now, you can kalloc all the rest of physical mem.
 	*/
 	kallocInit(KERNEL_BASE + INIT_MEMORY_SIZE,
 			KERNEL_BASE + getPhyRamSize());
