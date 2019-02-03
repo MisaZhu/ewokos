@@ -1,5 +1,5 @@
-#ifndef SYSCALLS_H
-#define SYSCALLS_H
+#ifndef SYSCALL_CODE_H
+#define SYSCALL_CODE_H
 
 typedef enum {
 	SYSCALL_KDB,
