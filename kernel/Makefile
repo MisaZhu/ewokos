@@ -61,7 +61,7 @@ OBJS += $(ARCH_OBJS) \
 
 $(OS).bin: $(OBJS) $(OS).ld
 	mkdir -p build
-	$(LD) -T $(OS).ld $(OBJS) lib/libewok.a -o build/$(OS).elf
+	$(LD) -L arch/$(arch) -T $(OS).ld $(OBJS) lib/libewok.a -o build/$(OS).elf
 	$(OBJCOPY) -O binary build/$(OS).elf build/$(OS).bin
 	$(OBJDUMP) -D build/$(OS).elf > build/$(OS).asm
 
