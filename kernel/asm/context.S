@@ -5,27 +5,26 @@ __saveContext1:
 
 	/* return address of process is passed in r0 */
 	mov r14, r0
-
-	/* load address of context array for current process into r0 */
+	
 	push {r1-r12, r14}
-	bl getCurrentContext /*kernel/src/proc.c */
+	bl getCurrentContext /*kernel/src/proc.c, return the address of context array to R0 */
 	pop {r1-r12, r14}
 
-	/* if no process is active, return */
+	/* if the process content is NULL, return */
 	cmpeq r0, #0
 	beq saveContextReturn
 
-	/* store cpsr */
+	/* store cpsr to item 0 of process content array*/
 	push {r1}
 	mrs r1, SPSR
 	str r1, [r0]
 	pop {r1}
 
-	/* store return address */
+	/* store return address  to item 1 of process content array*/
 	add r0, #4
 	str r14, [r0]
 
-	/* store the rest, except r0 */
+	/* store the rest, except r0  to rest items(2~16) of process content array*/
 	add r0, #8
 	stmia r0, {r1-r14}^
 
