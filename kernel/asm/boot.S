@@ -68,7 +68,7 @@ syscallEntry:
 	ldr sp, =_initStack /*kernel/src/mm/startup.c*/
 	add sp, #4096
 
-	SAVE_CONTEXT /*kernel/include/proc.h*/
+	SAVE_CONTEXT /*save current process content, kernel/include/proc.h*/
 
 	stmfd sp!, {r1-r12, r14} /*push r0-r12, r14(return pc) to stack*/
 
