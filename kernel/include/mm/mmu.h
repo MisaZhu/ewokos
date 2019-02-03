@@ -7,7 +7,7 @@
 #define PAGE_TABLE_SIZE (1*KB)
 
 #define PAGE_DIR_NUM 4096
-#define PAGE_DIR_SIZE (PAGE_DIR_NUM*PAGE_SIZE)
+#define PAGE_DIR_SIZE (PAGE_DIR_NUM*4)
 
 #define KERNEL_BASE 0x80000000 //=2G virtual address start base.
 #define MMIO_BASE (KERNEL_BASE + 1*GB)
