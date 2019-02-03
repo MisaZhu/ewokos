@@ -24,7 +24,7 @@
 	make kernel first(at root path), and then make system(at 'system' path).
 	
 	"make run": run EwokOS; 
-	  "qemu-system-arm -kernel build/EwokOS.bin -initrd build/initfs"
+	  "qemu-system-arm -kernel build/EwokOS.bin -initrd system/build/initfs"
 	  boot kernel file and load init ramdisk.
 
 	"make debug": run EwokOS at debug server-mode;
