@@ -65,14 +65,15 @@
 	0x00000000    0xFFFF0000   interrupt table
 	0x00010000    0x80010000   Kernel start (load to)
 	***           ***          (_initStack, _irqStack, _startupPageDir)
-	***           ***          Kernel end
-	+1M           +1M          kernel malloc base
+	***           ***          Kernel end, Kernel PageDir Table start
+	+16KB         +16KB        Kernel PageDir Table end.
+	+32KB         +32KB        kernel malloc base
 	+2M           +2M          kernel malloc end (size=2M).
-
+        ......
 	0x08000000    0x08000000   init ramdisk base (load initrd to)
 	0x08010000    0x08010000   init ramdisk end (size=1M).
-
+        ......
 	MMIO_BASE_PHY MMIO_BASE    MMIO base (arch)
-
+        ......
 
 
