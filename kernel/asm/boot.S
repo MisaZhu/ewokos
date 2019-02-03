@@ -93,7 +93,7 @@ abortEntry:
 	# Abort entry.  Switch back to Supervisor mode, and transfer
 	# to C abort handler
 	mrs r2, cpsr
-	bic r2, #0xf
-	orr r2, #0x3
+	bic r2, #0xf /*clear lower 4 bits(CPSR-MODE) to 0*/
+	orr r2, #0x3 /*set lower 4 bits(CPSR-MODE) to 0x3, means svc mode*/
 	msr cpsr, r2
 	bl _abortEntry /*kernel/src/proc.c*/
