@@ -32,7 +32,7 @@
 
 .commands 
 	
-	Most of commands are in 'sbin' directory, like:
+	Most of commands are in 'system/sbin' directory, like:
 	ls, ps, pwd, test ......
 
 .Source code read-guide
@@ -49,9 +49,9 @@
 	lib/src/unistd.c
 	lib/src/pmessage.c
 
-	sbin/init/init.c
-	sbin/vfs/vfs.c
-	sbin/shell/shell.c
+	system/sbin/init/init.c
+	system/sbin/vfs/vfs.c
+	system/sbin/shell/shell.c
 
 	Tips: Don't fall in love with assembly too much;).
 
