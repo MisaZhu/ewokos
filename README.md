@@ -20,6 +20,7 @@
 		(set the right PATH environment after installed)
 	
 .make and run
+	
 	make kernel first(at root path), and then make system(at 'system' path).
 	
 	"make run": run EwokOS; 
