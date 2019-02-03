@@ -93,8 +93,8 @@ void kernelEntry()
 	ramdiskOpen((const char*)_initRamDiskBase, &_initRamDisk, kmalloc);
 
 	/*
-	Since kernel mem mapping finished, 
-	we can build free mems list for all the rest mem
+	Since kernel mem mapping finished, and init ram disk copied to kernel trunk memory.
+	we can build free mems list for all the rest mem, the init ram disk part can be reused as well.
 	Notice:	From now, you can only kalloc physical mem from 
 		INIT_MEMORY_SIZE to getPhyRamSize.
 	*/
