@@ -45,9 +45,9 @@
 	kernel/src/syscalls.c
 	kernel/src/kmessage.c
 
-	lib/src/stdlib.c
-	lib/src/unistd.c
-	lib/src/pmessage.c
+	system/lib/src/stdlib.c
+	system/lib/src/unistd.c
+	system/lib/src/pmessage.c
 
 	system/sbin/init/init.c
 	system/sbin/vfs/vfs.c
