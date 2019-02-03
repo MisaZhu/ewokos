@@ -16,8 +16,8 @@ OBJCOPY = arm-none-eabi-objcopy
 OBJDUMP = arm-none-eabi-objdump
 
 # flags
-CFLAGS = -mcpu=$(CPU) -gstabs -I. -I kernel/include -Ilib/include \
-				 -I lib/include \
+CFLAGS = -mcpu=$(CPU) -gstabs -I. -I kernel/src -I kernel/lib/include \
+				 -I kernel/lib/include \
 				 -I kernel/arch/$(arch)/include \
 				 -marm \
 				 -pedantic -Wall -Wextra -msoft-float -fPIC -mapcs-frame \
@@ -25,22 +25,22 @@ CFLAGS = -mcpu=$(CPU) -gstabs -I. -I kernel/include -Ilib/include \
          -fno-builtin-exit -fno-builtin-stdio \
 				 -std=c99 
 
-ASFLAGS = -mcpu=$(CPU) -g -I kernel/include -I lib/include
+ASFLAGS = -mcpu=$(CPU) -g -I kernel/src -I kernel/lib/include
 QEMU_FLAGS = $(ARCH_QEMU_FLAGS) -nographic
 
-all: lib/libewok.a $(OS).bin 
+all: kernel/lib/libewok.a $(OS).bin 
 
 OBJS = kernel/asm/boot.o \
 	kernel/asm/system.o \
 	kernel/asm/context.o
 
-include lib/build.mk
+include kernel/lib/build.mk
 include kernel/build.mk
 
 
 $(OS).bin: $(OBJS) $(OS).ld
 	mkdir -p build
-	$(LD) -T $(OS).ld $(OBJS) lib/libewok.a -o build/$(OS).elf
+	$(LD) -T $(OS).ld $(OBJS) kernel/lib/libewok.a -o build/$(OS).elf
 	$(OBJCOPY) -O binary build/$(OS).elf build/$(OS).bin
 	$(OBJDUMP) -D build/$(OS).elf > build/$(OS).asm
 

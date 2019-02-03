@@ -7,20 +7,22 @@ LD = arm-none-eabi-ld
 OBJCOPY = arm-none-eabi-objcopy
 OBJDUMP = arm-none-eabi-objdump
 
+KERNEL_LIB=../kernel/lib
+
 # flags
 CFLAGS = -gstabs -I. \
 				 -I lib/include \
-				 -I ../lib/include \
+				 -I $(KERNEL_LIB)/include \
 				 -marm \
 				 -pedantic -Wall -Wextra -msoft-float -fPIC -mapcs-frame \
          -fno-builtin-printf -fno-builtin-strcpy -Wno-overlength-strings \
          -fno-builtin-exit -fno-builtin-stdio \
 				 -std=c99 
 
-ASFLAGS = -g -I ../lib/include
+ASFLAGS = -g -I $(KERNEL_LIB)/include
 QEMU_FLAGS = $(ARCH_QEMU_FLAGS) -nographic
 
-all: ../lib/libewok.a system
+all: $(KERNEL_LIB)/libewok.a system
 
 include lib/build.mk
 include mkramfs/build.mk
