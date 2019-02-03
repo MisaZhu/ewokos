@@ -17,7 +17,7 @@
 #define USER_STACK_BOTTOM (KERNEL_BASE - 3 * PAGE_SIZE)
 
 #define KMALLOC_BASE ((uint32_t)_kernelEnd +  32*KB) //32KB reserved for kernel pageDirTable(at least 16KB).
-#define KMALLOC_SIZE 2*MB //2MB keep for kernel trunk memory, can only used by kernel.
+#define KMALLOC_SIZE 2*MB //2MB keep for kernel trunk memory, can only used by kernel(kmalloc/kmfree).
 
 #define ALLOCATABLE_MEMORY_START (KMALLOC_BASE + KMALLOC_SIZE)
 
