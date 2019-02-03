@@ -7,26 +7,24 @@
 #define PAGE_TABLE_SIZE (1*KB)
 
 #define PAGE_DIR_NUM 4096
-#define PAGE_DIR_SIZE (16*KB)
+#define PAGE_DIR_SIZE (PAGE_DIR_NUM*PAGE_SIZE)
 
-
-#define KERNEL_BASE 0x80000000 //=2G
+#define KERNEL_BASE 0x80000000 //=2G virtual address start base.
 #define MMIO_BASE (KERNEL_BASE + 1*GB)
 #define INTERRUPT_VECTOR_BASE 0xffff0000
-
 
 #define KERNEL_STACK_BOTTOM (KERNEL_BASE - 2 * PAGE_SIZE)
 #define USER_STACK_BOTTOM (KERNEL_BASE - 3 * PAGE_SIZE)
 
-//init ramdisk
-#define INITRD_BASE 0x08000000 //=64M, qemu-system-arm -initrd <FILE> will load FILE to Physical memory address 64M when bootup. 
-#define INITRD_SIZE 1*MB
-
-#define KMALLOC_BASE ((uint32_t)_kernelEnd +  1*MB)
+#define KMALLOC_BASE ((uint32_t)_kernelEnd +  32*KB) //32KB reserved for kernel pageDirTable(at least 16KB).
 #define KMALLOC_SIZE 2*MB
 #define ALLOCATABLE_MEMORY_START (KMALLOC_BASE + KMALLOC_SIZE)
 
 #define INIT_MEMORY_SIZE (8*MB) //must same as startup.c startuptable
+
+//init ramdisk
+#define INITRD_BASE 0x08000000 //=64M, qemu-system-arm -initrd <FILE> will load FILE to Physical memory address 64M when bootup. 
+#define INITRD_SIZE 1*MB
 
 #define ALIGN_DOWN(x, alignment) ((x) & ~(alignment - 1))
 #define ALIGN_UP(x, alignment) (((x) + alignment - 1) & ~(alignment - 1))
