@@ -88,11 +88,6 @@ void kernelEntry()
 	memcpy(_initRamDiskBase, (void*)(INITRD_BASE), INITRD_SIZE);
 
 	/*
-	init ram disk
-	*/
-	ramdiskOpen((const char*)_initRamDiskBase, &_initRamDisk, kmalloc);
-
-	/*
 	Since kernel mem mapping finished, and init ram disk copied to kernel trunk memory.
 	we can build free mems list for all the rest mem, the init ram disk part can be reused as well.
 	Notice:	From now, you can only kalloc physical mem from 
@@ -100,6 +95,9 @@ void kernelEntry()
 	*/
 	kallocInit(KERNEL_BASE + INIT_MEMORY_SIZE,
 			KERNEL_BASE + getPhyRamSize());
+	
+	/*init ram disk*/
+	ramdiskOpen((const char*)_initRamDiskBase, &_initRamDisk, kmalloc);
 
 	procInit();
 
