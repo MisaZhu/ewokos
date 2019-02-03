@@ -41,11 +41,11 @@ copyInterruptTable:
 	ldr r3, =interruptTableEnd
 	
 	copyLoopStart:
-		ldr r2, [r1, #0x0]
-		str r2, [r0, #0x0]
-		add r0, r0, #0x4
-		add r1, r1, #0x4
-		cmp r1, r3
+		ldr r2, [r1, #0x0] /*read from interruptTable to R2*/
+		str r2, [r0, #0x0] /*write R2 to phy address(r0)*/
+		add r0, r0, #0x4 /*move to next phy address(32bits)*/
+		add r1, r1, #0x4 /*move to next table item*/
+		cmp r1, r3 /*if endof table*/
 		bne copyLoopStart
 
 	mov pc, lr
