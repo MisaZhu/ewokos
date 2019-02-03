@@ -1,6 +1,6 @@
 
 .global __saveContext1
-__saveContext1:
+__saveContext1: /*store registers to process content array, except R0*/
 	push {r0-r12, r14}
 
 	/* return address of process is passed in r0 */
@@ -20,11 +20,11 @@ __saveContext1:
 	str r1, [r0]
 	pop {r1}
 
-	/* store return address  to item 1 of process content array*/
+	/* store return address to item 1 of process content array*/
 	add r0, #4
 	str r14, [r0]
 
-	/* store the rest, except r0  to rest items(2~16) of process content array*/
+	/* store the rest, except r0  to rest items(3~16, skip item 2!) of process content array*/
 	add r0, #8
 	stmia r0, {r1-r14}^
 
@@ -32,7 +32,7 @@ __saveContext1:
 
 
 .global __saveContext2
-__saveContext2:
+__saveContext2: /*store R0 to item 2 of process content array*/
 	push {r0-r12, r14}
 	
 	mov r1, r0
@@ -42,11 +42,11 @@ __saveContext2:
 	bl getCurrentContext
 	pop {r1-r12, r14}
 
-	/* if no process is active, return */
+	/* if the process content is NULL, return */
 	cmpeq r0, #0
 	beq saveContextReturn
 
-	/* store r0 */
+	/* store r0 to the item 2*/
 	add r0, #8
 	str r1, [r0]
 
