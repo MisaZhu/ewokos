@@ -16,7 +16,7 @@ OBJS += $(ARCH_OBJS) \
 	$(KERNEL_DIR)/src/mm/startup.o \
 	$(KERNEL_DIR)/src/mm/mmu.o \
 	$(KERNEL_DIR)/src/mm/kalloc.o \
-	$(KERNEL_DIR)/src/mm/pmalloc.o \
+	$(KERNEL_DIR)/src/mm/trunkmalloc.o \
 	$(KERNEL_DIR)/src/mm/kmalloc.o \
 	$(KERNEL_DIR)/src/proc.o \
 	$(KERNEL_DIR)/src/kmessage.o \
