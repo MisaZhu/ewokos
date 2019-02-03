@@ -1,11 +1,9 @@
 # tools
 AR = arm-none-eabi-ar
-AS = arm-none-eabi-as
+#AS = arm-none-eabi-as
 CC = arm-none-eabi-gcc
 CXX = arm-none-eabi-c++
 LD = arm-none-eabi-ld
-OBJCOPY = arm-none-eabi-objcopy
-OBJDUMP = arm-none-eabi-objdump
 
 KERNEL_LIB=../kernel/lib
 
@@ -19,8 +17,7 @@ CFLAGS = -gstabs -I. \
          -fno-builtin-exit -fno-builtin-stdio \
 				 -std=c99 
 
-ASFLAGS = -g -I $(KERNEL_LIB)/include
-QEMU_FLAGS = $(ARCH_QEMU_FLAGS) -nographic
+#ASFLAGS = -g -I $(KERNEL_LIB)/include
 
 all: $(KERNEL_LIB)/libewok.a system
 

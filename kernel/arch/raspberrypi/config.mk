@@ -1,2 +1,2 @@
 CPU = arm1176jz-s
-ARCH_QEMU_FLAGS = -M raspi -cpu arm926 -m 256M
+ARCH_QEMU_FLAGS = -M raspi2 -cpu arm1176jz-s -m 256M

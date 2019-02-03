@@ -1,9 +1,9 @@
-LIB_OBJS = kernel/lib/src/string.o \
-	kernel/lib/src/sramdisk.o \
-	kernel/lib/src/package.o 
+LIB_OBJS = lib/src/string.o \
+	lib/src/sramdisk.o \
+	lib/src/package.o 
 
-kernel/lib/libewok.a: $(LIB_OBJS)
+lib/libewok.a: $(LIB_OBJS)
 	mkdir -p build
 	$(AR) rT $@ $(LIB_OBJS)	
 
-EXTRA_CLEAN += $(LIB_OBJS) kernel/lib/libewok.a
+EXTRA_CLEAN += $(LIB_OBJS) lib/libewok.a

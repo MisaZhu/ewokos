@@ -4,7 +4,7 @@ ifndef arch
 	arch = versatilepb
 #	arch = raspberrypi
 endif
-include kernel/arch/$(arch)/config.mk
+include arch/$(arch)/config.mk
 
 # tools
 AR = arm-none-eabi-ar
@@ -16,31 +16,52 @@ OBJCOPY = arm-none-eabi-objcopy
 OBJDUMP = arm-none-eabi-objdump
 
 # flags
-CFLAGS = -mcpu=$(CPU) -gstabs -I. -I kernel/src -I kernel/lib/include \
-				 -I kernel/lib/include \
-				 -I kernel/arch/$(arch)/include \
+CFLAGS = -mcpu=$(CPU) -gstabs -I. -I src -I lib/include \
+				 -I lib/include \
+				 -I arch/$(arch)/include \
 				 -marm \
 				 -pedantic -Wall -Wextra -msoft-float -fPIC -mapcs-frame \
          -fno-builtin-printf -fno-builtin-strcpy -Wno-overlength-strings \
          -fno-builtin-exit -fno-builtin-stdio \
 				 -std=c99 
 
-ASFLAGS = -mcpu=$(CPU) -g -I kernel/src -I kernel/lib/include
+ASFLAGS = -mcpu=$(CPU) -g -I src -I lib/include
 QEMU_FLAGS = $(ARCH_QEMU_FLAGS) -nographic
 
-all: kernel/lib/libewok.a $(OS).bin 
+all: lib/libewok.a $(OS).bin 
 
-OBJS = kernel/asm/boot.o \
-	kernel/asm/system.o \
-	kernel/asm/context.o
+OBJS = asm/boot.o \
+	asm/system.o \
+	asm/context.o
 
-include kernel/lib/build.mk
-include kernel/build.mk
+include lib/build.mk
 
+ARCH_OBJS = arch/$(arch)/src/irq.o \
+	arch/$(arch)/src/uart.o \
+	arch/$(arch)/src/timer.o \
+	arch/$(arch)/src/hardware.o
+
+DEV_OBJS = src/dev/uart.o
+
+OBJS += $(ARCH_OBJS) \
+	$(DEV_OBJS) \
+	src/kernel.o \
+	src/irq.o \
+	src/syscalls.o \
+	src/mm/startup.o \
+	src/mm/mmu.o \
+	src/mm/kalloc.o \
+	src/mm/trunkmalloc.o \
+	src/mm/kmalloc.o \
+	src/proc.o \
+	src/kmessage.o \
+	src/kfile.o \
+	src/kserv.o \
+	src/scheduler.o 
 
 $(OS).bin: $(OBJS) $(OS).ld
 	mkdir -p build
-	$(LD) -T $(OS).ld $(OBJS) kernel/lib/libewok.a -o build/$(OS).elf
+	$(LD) -T $(OS).ld $(OBJS) lib/libewok.a -o build/$(OS).elf
 	$(OBJCOPY) -O binary build/$(OS).elf build/$(OS).bin
 	$(OBJDUMP) -D build/$(OS).elf > build/$(OS).asm
 
@@ -55,5 +76,5 @@ gdb:
 	arm-none-eabi-gdb build/$(OS).elf -x /tmp/gdbinit
 
 clean:
-	rm -f $(OBJS) $(EXTRA_CLEAN)
+	rm -f $(OBJS) $(EXTRA_CLEAN) lib/libewok.a
 	rm -fr build

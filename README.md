@@ -21,7 +21,7 @@
 	
 .make and run
 	
-	make kernel first(at root path), and then make system(at 'system' path).
+	make kernel first, and then make system.
 	
 	"make run": run EwokOS; 
 	  "qemu-system-arm -kernel build/EwokOS.bin -initrd system/build/initfs"
