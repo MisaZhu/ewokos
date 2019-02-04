@@ -40,6 +40,6 @@ void schedulerInit(void)
 {
 	roundRobinIndex = 0;
 	timerSetInterval(SCHEDULE_TIME);
-	registerInterruptHandler(TIMER_IRQ, handleTimer);
+	registerInterruptHandler(getTimerIrq(), handleTimer);
 }
 

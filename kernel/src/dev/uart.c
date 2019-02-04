@@ -24,7 +24,7 @@ void uartInit(void)
 	receiveBufferTail = 0;
 
 	uartDevInit();
-	registerInterruptHandler(UART_IRQ, uartInterruptHandler);
+	registerInterruptHandler(getUartIrq(), uartInterruptHandler);
 }
 
 void uartPuts(const char* str) {

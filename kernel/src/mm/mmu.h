@@ -32,7 +32,7 @@
 
 #define V2P(V) ((uint32_t)V - KERNEL_BASE)
 #define P2V(P) ((uint32_t)P + KERNEL_BASE)
-#define MMIO_P2V(x) ((volatile unsigned int*) (MMIO_BASE + (x - MMIO_BASE_PHY)))
+#define MMIO_P2V(x) ((volatile unsigned int*) (MMIO_BASE + (x - getMMIOBasePhy())))
 
 /* descriptor types */
 #define PAGE_TYPE 2
