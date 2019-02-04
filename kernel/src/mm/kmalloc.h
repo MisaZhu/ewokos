@@ -1,7 +1,7 @@
 #ifndef KMALLOC_H
 #define KMALLOC_H
 
-/*kmalloc/kmfree manage the kernel-reserved memory trunk, the memory trunk is from KMALLOC_BASE, with size KMALLOC_SIZE.*/
+/*kmalloc/kmfree manage the kernel-reserved memory trunk(from KMALLOC_BASE, with size KMALLOC_SIZE), the memory trunk only reserved for kernel, not managed by MMU! */
 
 #include <types.h>
 
