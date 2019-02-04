@@ -188,9 +188,10 @@ bool procLoad(ProcessT *proc, const char *procImage)
 
 		/* copy the section */
 		for (j = 0; j < header->memsz; j++) {
-			int vaddr = header->vaddr + j;
-			int paddr = resolvePhyAddress(proc->vm, vaddr);
-			char *ptr = (char *) P2V(paddr);
+			int vaddr = header->vaddr + j; /*vaddr in elf*/
+			int paddr = resolvePhyAddress(proc->vm, vaddr); /*trans to phyaddr by proc's page dir*/
+			char *ptr = (char *) P2V(paddr); /*trans the phyaddr to vaddr now in kernel page dir*/
+			/*copy from elf to vaddrKernel(=phyaddr=vaddrProc=vaddrElf)*/
 			int imageOff = header->off + j;
 			*ptr = procImage[imageOff]; 
 		}
