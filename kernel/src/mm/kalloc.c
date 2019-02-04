@@ -80,9 +80,9 @@ void *kalloc1k()
 }
 
 /* kfree1k adds the given chunk to the 1k free list. */
-void kfree1k(void *page)
+void kfree1k(void *mem)
 {
-	freeList1k = pageListPrepend(freeList1k, page);
+	freeList1k = pageListPrepend(freeList1k, mem);
 }
 
 /*
