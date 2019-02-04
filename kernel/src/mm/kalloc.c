@@ -2,6 +2,8 @@
 #include <mm/mmu.h>
 #include <types.h>
 
+/*physical memory split to pages for paging mmu, managed by kalloc/kfree, phymem page state must be occupied or free*/
+
 static PageListT *pageListPrepend(PageListT *pageList,
 					  char *pageAddress);
 
@@ -31,7 +33,7 @@ void kallocInit(uint32_t start, uint32_t end)
 	}
 }
 
-/* kalloc allocates and returns a single page. */
+/* kalloc allocates and returns a single available page. and removed from free list*/
 void *kalloc()
 {
 	void *result = NULL;
