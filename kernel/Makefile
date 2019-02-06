@@ -1,8 +1,8 @@
 OS = EwokOS
 
 ifndef arch
-	arch = versatilepb
-#	arch = raspi2
+#	arch = versatilepb
+	arch = raspi2
 endif
 include arch/$(arch)/config.mk
 
@@ -26,7 +26,7 @@ CFLAGS = -gstabs -I. -I src -I lib/include \
 				 -std=c99 \
 				 -mcpu=$(CPU) 
 
-ASFLAGS = -g -I src -I lib/include #-mcpu=$(CPU) 
+ASFLAGS = -g -I src -I lib/include -mcpu=$(CPU) $(ARCH_QEMU_CFLAGS)
 QEMU_FLAGS = $(ARCH_QEMU_FLAGS) -nographic
 
 all: lib/libewok.a $(OS).bin 

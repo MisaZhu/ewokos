@@ -3,6 +3,13 @@
 
 .global __entry
 __entry:
+#ifdef MULTI_CPU
+	mrc p15, #0, r1, c0, c0, #5
+	and r1, r1, #3
+	cmp r1, #0
+	bne halt
+#endif
+
 	ldr sp, =_initStack /*sp(R13), _initStack defined in kernel/src/mm/startup.c*/
 	add sp, #4096
 
@@ -97,3 +104,6 @@ abortEntry:
 	orr r2, #0x3 /*set lower 4 bits(CPSR-MODE) to 0x3, means svc mode*/
 	msr cpsr, r2
 	bl _abortEntry /*kernel/src/proc.c*/
+
+halt:
+	b halt
