@@ -2,42 +2,12 @@
 #include <types.h>
 #include <mm/mmu.h>
 #include <hardware.h>
+#include <irq.h>
 
-/* memory mapping for timer */
-#define TIMER_OFF 0x3000
-
-#define CS  TIMER_OFF
-
-#define CLO 0x3004
-#define C0  0x300C
-#define C1  0x3010
-#define C2  0x3014
-#define C3  0x3018
-
-static uint32_t savedIntervalMicrosecond;
-
-void timerSetInterval(uint32_t intervalMicrosecond) {
-	savedIntervalMicrosecond = intervalMicrosecond;
-	timerClearInterrupt();
-}
-
-void timerClearInterrupt(void) {
-	unsigned int ra;
-
-	mmio_write(MMIO_BASE+CS, 2);
-
-	ra = mmio_read(MMIO_BASE+CLO);
-	ra += savedIntervalMicrosecond;
-	mmio_write(MMIO_BASE+C1, ra);
-}
-
-
-#define PIC_BASE 0xB200
+#define PIC_BASE 0x3F00B200
 #define PIC_ENABLE_BASIC_IRQ PIC_BASE+(4*6)
 
-#define ARM_TIMER_BASE 0xB400
-#define ARM_TIMER_LOAD ARM_TIMER_BASE
-#define ARM_TIMER_CTRL ARM_TIMER_BASE+(4*2)
+#define ARM_TIMER_BASE 0x3F00B400
 #define ARM_TIMER_CTRL_32BIT (1<<1)
 #define ARM_TIMER_CTRL_ENABLE (1<<7)
 #define ARM_TIMER_CTRL_IRQ_ENABLE (1<<5)
@@ -46,11 +16,33 @@ void timerClearInterrupt(void) {
 #define IRQ_ARM_TIMER_BIT 0
 #define IRQ_SYS_TIMER_BIT 1
 
+#define TIMER_LOAD    0x00
+#define TIMER_CONTROL 0x02
+#define TIMER_INTCTL  0x03
+#define TIMER_BGLOAD  0x06
+
+void timerSetInterval(uint32_t intervalMicrosecond) {
+	volatile uint32_t* timer = (volatile uint32_t*)P2V(ARM_TIMER_BASE);
+	timer[TIMER_CONTROL] = 0;
+	timer[TIMER_BGLOAD] = 0;
+	timer[TIMER_LOAD] = intervalMicrosecond;
+	timer[TIMER_CONTROL] = 0x003E00A2;
+}
+
+void timerClearInterrupt(void) {
+	volatile uint32_t* timer = (volatile uint32_t*)P2V(ARM_TIMER_BASE);
+	timer[TIMER_INTCTL] = 0;
+}
+
+
 void timerInit() {
-	mmio_write(MMIO_BASE + PIC_ENABLE_BASIC_IRQ, 1 << IRQ_ARM_TIMER_BIT);
-	mmio_write(MMIO_BASE + PIC_ENABLE_BASIC_IRQ, 1 << IRQ_SYS_TIMER_BIT);
-/*	mmio_write(ARM_TIMER_LOAD, 0x400);
-	mmio_write(ARM_TIMER_CTRL, ARM_TIMER_CTRL_32BIT | ARM_TIMER_CTRL_ENABLE |
+	volatile uint32_t* timer = (volatile uint32_t*)P2V(ARM_TIMER_BASE);
+	timer[TIMER_LOAD] = 0x1000;
+	timer[TIMER_CONTROL] = 0x003E0000;
+	/*timer[TIMER_CONTROL] = (ARM_TIMER_CTRL_32BIT | ARM_TIMER_CTRL_ENABLE |
 			ARM_TIMER_CTRL_IRQ_ENABLE | ARM_TIMER_CTRL_PRESCALE_256);
 			*/
+	timer[TIMER_INTCTL] = 0;
+	enableIRQ(IRQ_ARM_TIMER_BIT);
+	enableIRQ(IRQ_SYS_TIMER_BIT);
 }

@@ -18,6 +18,6 @@ uint32_t getUartIrq() {
 }
 
 uint32_t getTimerIrq() {
-	return 1;
+	return 0;
 }
 
