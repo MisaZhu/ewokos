@@ -1,0 +1,26 @@
+#include <irq.h>
+#include <hardware.h>
+#include <mm/mmu.h>
+#include <string.h>
+#include <types.h>
+
+/* interrupt controller register offsets */
+//#define PIC_STATUS     0x81
+//#define PIC_INT_ENABLE 0x84
+#define PIC_STATUS     0
+#define PIC_INT_ENABLE 6
+
+#define vpic ((volatile uint32_t*)(MMIO_BASE+0xB200))
+
+void enableIRQ(uint32_t line) {
+  vpic[PIC_INT_ENABLE] = (1<<line);
+}
+
+void getPendingIRQs(bool *result) {
+	volatile uint32_t irqStatus = vpic[PIC_STATUS];
+
+	memset(result, 0, IRQ_COUNT * sizeof(bool));
+	for (uint32_t i = 0; i < 32; i++)
+		if (irqStatus & (1u << i))
+			result[i] = true;
+}

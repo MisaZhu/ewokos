@@ -2,7 +2,7 @@ OS = EwokOS
 
 ifndef arch
 	arch = versatilepb
-#	arch = raspberrypi
+#	arch = raspi2
 endif
 include arch/$(arch)/config.mk
 
@@ -16,16 +16,17 @@ OBJCOPY = arm-none-eabi-objcopy
 OBJDUMP = arm-none-eabi-objdump
 
 # flags
-CFLAGS = -mcpu=$(CPU) -gstabs -I. -I src -I lib/include \
+CFLAGS = -gstabs -I. -I src -I lib/include \
 				 -I lib/include \
 				 -I arch/$(arch)/include \
 				 -marm \
 				 -pedantic -Wall -Wextra -msoft-float -fPIC -mapcs-frame \
          -fno-builtin-printf -fno-builtin-strcpy -Wno-overlength-strings \
          -fno-builtin-exit -fno-builtin-stdio \
-				 -std=c99 
+				 -std=c99 \
+				 -mcpu=$(CPU) 
 
-ASFLAGS = -mcpu=$(CPU) -g -I src -I lib/include
+ASFLAGS = -g -I src -I lib/include #-mcpu=$(CPU) 
 QEMU_FLAGS = $(ARCH_QEMU_FLAGS) -nographic
 
 all: lib/libewok.a $(OS).bin 
@@ -69,7 +70,7 @@ run:
 	qemu-system-arm $(QEMU_FLAGS) -kernel build/$(OS).bin -initrd ../system/build/initfs
 
 debug: $(OS).bin
-	qemu-system-arm $(QEMU_FLAGS) -gdb tcp::26000 -S -kernel build/$(OS).bin -initrd ../system/build/initfs
+	qemu-system-arm $(QEMU_FLAGS) -gdb tcp::26000 -S -kernel build/$(OS).bin -initrd ../system/build/initfs -S
 
 gdb: 
 	echo "target remote :26000" > /tmp/gdbinit

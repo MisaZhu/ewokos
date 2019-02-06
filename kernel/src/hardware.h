@@ -1,12 +1,14 @@
 #ifndef HARDWARE_H
 #define HARDWARE_H
 
-extern unsigned int getMMIOBasePhy();
-extern unsigned int getMMIOMemSize();
+#include <types.h>
 
-extern unsigned int getUartIrq();
-extern unsigned int getTimerIrq();
+extern uint32_t getUartIrq();
+extern uint32_t getTimerIrq();
 
-extern unsigned int getPhyRamSize();
+extern uint32_t getMMIOBasePhy();
+extern uint32_t getMMIOMemSize();
+
+extern uint32_t getPhyRamSize();
 
 #endif

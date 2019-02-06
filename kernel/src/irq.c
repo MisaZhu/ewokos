@@ -7,7 +7,7 @@ static InterruptHandlerT _interruptHandlers[IRQ_COUNT] = {0};
  * register_interrupt_handler enables the given interrupt line, and assigns the
  * given handler function to that line.
  */
-void registerInterruptHandler(int line, InterruptHandlerT handler)
+void registerInterruptHandler(uint32_t line, InterruptHandlerT handler)
 {
 	enableIRQ(line);
 	_interruptHandlers[line] = handler;
@@ -25,7 +25,7 @@ void handleIRQ(void)
 	bool pendingIRQs[IRQ_COUNT];
 	getPendingIRQs(pendingIRQs);
 
-	for (int i = 0; i < IRQ_COUNT; i++) {
+	for (uint32_t i = 0; i < IRQ_COUNT; i++) {
 		if (pendingIRQs[i]) {
 			handler = _interruptHandlers[i];
 			if (handler != 0)

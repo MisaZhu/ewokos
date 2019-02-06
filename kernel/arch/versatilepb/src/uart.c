@@ -3,8 +3,7 @@
 #include <dev/uart.h>
 
 /* memory mapping for the serial port */
-#define UART0 MMIO_P2V(0x101f1000)
-
+#define UART0 ((volatile uint32_t*)(MMIO_BASE+0x001f1000))
 /* serial port register offsets */
 #define UART_DATA        0x00 
 #define UART_FLAGS       0x06

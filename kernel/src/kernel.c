@@ -6,8 +6,10 @@
 #include <system.h>
 #include <dev/uart.h>
 #include <proc.h>
+#include <irq.h>
 #include <string.h>
 #include <sramdisk.h>
+#include <timer.h>
 
 PageDirEntryT* _kernelVM = NULL;
 
@@ -117,7 +119,9 @@ void kernelEntry()
 		procLoad(proc, p);
 		strncpy(proc->cmd, FIRST_PROCESS, CMD_MAX);
 	}
-	
+
+	timerInit();
+
 	/*schedule processes*/
 	schedulerInit();
 	schedule();

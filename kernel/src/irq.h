@@ -8,11 +8,11 @@
 
 typedef void (*InterruptHandlerT)(void);
 
-void registerInterruptHandler(int line, InterruptHandlerT handler);
-void handleIRQ(void);
+extern void registerInterruptHandler(uint32_t line, InterruptHandlerT handler);
+extern void handleIRQ(void);
 
 /* architecture specific functions */
-void enableIRQ(int line);
-void getPendingIRQs(bool *result);
+extern void enableIRQ(uint32_t line);
+extern void getPendingIRQs(bool *result);
 
 #endif

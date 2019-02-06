@@ -5,5 +5,6 @@
 
 void timerSetInterval(uint32_t intervalMicrosecond);
 void timerClearInterrupt(void);
+void timerInit();
 
 #endif

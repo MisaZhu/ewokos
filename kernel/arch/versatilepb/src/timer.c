@@ -4,8 +4,7 @@
 #include <hardware.h>
 
 /* memory mapping for timer */
-#define TIMER MMIO_P2V(0x101e3000)
-
+#define TIMER ((volatile uint32_t*)(MMIO_BASE+0x001e3000))
 #define TIMER_LOAD    0x00
 #define TIMER_VALUE   0x01
 #define TIMER_CONTROL 0x02
@@ -25,3 +24,5 @@ void timerClearInterrupt(void)
 	TIMER[TIMER_INTCTL] = 0;
 }
 
+void timerInit() {
+}

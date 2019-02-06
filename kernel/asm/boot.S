@@ -51,12 +51,12 @@ copyInterruptTable:
 	mov pc, lr
 
 interruptTableStart: /*interrupt table, with syscall and irq items*/
-	nop /*item 0: reset*/
+	nop /*item 0: reserved for reset*/
 	ldr pc, abortEntryAddress /*item 1: undef instruct*/
 	ldr pc, syscallEntryAddress /*item 2: syscall*/
 	ldr pc, abortEntryAddress /*item 3: prefetchAbort*/
 	ldr pc, abortEntryAddress /*item 4: dataAbort*/
-	subs pc, lr, #4 /*item 5: return*/
+	nop /*item 5: reserved*/
 	ldr pc, irqEntryAddress /*item 6: irq*/
 	
 	syscallEntryAddress: .word syscallEntry
