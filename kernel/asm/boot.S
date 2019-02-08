@@ -20,6 +20,7 @@ __entry:
 	bl __jump2HighMem /*system.S*/
 
 	bl kernelEntry /*C entry at kernel/src/kernel.c*/
+	b __halt
 
 /*set up the init page table for kernel boot and init*/
 enablePaging:
