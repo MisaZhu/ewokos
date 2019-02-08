@@ -1,8 +1,8 @@
 OS = EwokOS
 
 ifndef arch
-#	arch = versatilepb
-	arch = raspi2
+	arch = versatilepb
+#	arch = raspi2
 endif
 include arch/$(arch)/config.mk
 
@@ -65,7 +65,7 @@ $(OS).bin: $(OBJS) $(OS).ld
 	$(OBJCOPY) -O binary build/$(OS).elf build/$(OS).bin
 	$(OBJDUMP) -D build/$(OS).elf > build/$(OS).asm
 
-INITRAMFS = ../initramfs/build/initfs
+INITRAMFS = ../system/build/initfs
 
 run_nogra:
 	qemu-system-arm $(QEMU_FLAGS) -kernel build/$(OS).bin -initrd $(INITRAMFS) -nographic
