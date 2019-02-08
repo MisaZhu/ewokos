@@ -13,7 +13,7 @@ void schedule();
 ProcessT _processTable[PROCESS_COUNT_MAX];
 
 __attribute__((__aligned__(PAGE_DIR_SIZE)))
-PageDirEntryT _processVM[PROCESS_COUNT_MAX][PAGE_DIR_NUM];
+static PageDirEntryT _processVM[PROCESS_COUNT_MAX][PAGE_DIR_NUM];
 
 ProcessT* _currentProcess = NULL;
 
@@ -75,8 +75,8 @@ static void* procGetMemTail(void* p) {
 /* proc_creates allocates a new process and returns it. */
 ProcessT *procCreate(void)
 {
-	ProcessT *proc = NULL;
-	int index = -1;
+	static ProcessT *proc = NULL;
+	static int index = -1;
 	PageDirEntryT *vm = NULL;
 	char *kernelStack = NULL;
 	char *userStack = NULL;
@@ -88,8 +88,9 @@ ProcessT *procCreate(void)
 		}
 	}
 
-	if (index == -1)
+	if (index < 0)
 		return NULL;
+	proc = &_processTable[index];
 
 	kernelStack = kalloc();
 	userStack = kalloc();
@@ -107,8 +108,6 @@ ProcessT *procCreate(void)
 		V2P(userStack),
 		AP_RW_RW);
 
-
-	proc = &_processTable[index];
 	proc->pid = index;
 	proc->fatherPid = 0;
 	proc->owner = -1;
@@ -118,10 +117,11 @@ ProcessT *procCreate(void)
 	proc->state = CREATED;
 	proc->vm = vm;
 	proc->heapSize = 0;
+
 	proc->kernelStack = kernelStack;
 	proc->userStack = userStack;
-	proc->waitPid = -1;
 
+	proc->waitPid = -1;
 	proc->mallocMan.arg = (void*)proc;
 	proc->mallocMan.mHead = 0;
 	proc->mallocMan.mTail = 0;

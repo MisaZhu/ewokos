@@ -5,12 +5,14 @@ CC = arm-none-eabi-gcc
 CXX = arm-none-eabi-c++
 LD = arm-none-eabi-ld
 
-KERNEL_LIB=../kernel/lib
+COMMON_LIB=../lib
+COMMON_OBJ=$(COMMON_LIB)/src/string.o
 
 # flags
 CFLAGS = -gstabs -I. \
+				 -I ../kernel/include \
 				 -I lib/include \
-				 -I $(KERNEL_LIB)/include \
+				 -I $(COMMON_LIB)/include \
 				 -marm \
 				 -pedantic -Wall -Wextra -msoft-float -fPIC -mapcs-frame \
          -fno-builtin-printf -fno-builtin-strcpy -Wno-overlength-strings \
@@ -19,14 +21,14 @@ CFLAGS = -gstabs -I. \
 
 #ASFLAGS = -g -I $(KERNEL_LIB)/include
 
-all: $(KERNEL_LIB)/libewok.a system
+all: system
 
 include lib/build.mk
 include mkramfs/build.mk
 include sbin/build.mk
 
 
-system: $(MKRAMFS) $(PROGRAM)
+system: $(MKRAMFS) $(PROGRAM) $(COMMON_OBJ)
 	mkdir -p build
 	$(MKRAMFS) build/initfs sbin/sbin
 

@@ -31,6 +31,7 @@ void setKernelVM(PageDirEntryT* vm)
 {
 	memset(vm, 0, PAGE_DIR_SIZE);
 
+	//mapPages(vm, 0, 0, PAGE_SIZE, AP_RW_D);
 	//map interrupt vector to high(virtual) mem
 	mapPages(vm, INTERRUPT_VECTOR_BASE, 0, PAGE_SIZE, AP_RW_D);
 	//map kernel image to high(virtual) mem
@@ -83,7 +84,7 @@ void kernelEntry()
 
 	/*
 	copy ramdisk to high memory(kernel trunk memory).
-	qemu-system-arm -initrd <FILE> will load initrd-FILE to physical memory address(INITRD_BASE=64M) when bootup, temporarily!
+	qemu-system-arm -initrd <FILE> will load initrd-FILE to physical memory address(INITRD_BASE=128M) when bootup, temporarily!
 	This part of memory should be reused after initrd moved to kernel trunk memory.
 	*/
 	_initRamDiskBase = kmalloc(INITRD_SIZE);
@@ -96,9 +97,6 @@ void kernelEntry()
 	*/
 	kallocInit(KERNEL_BASE + INIT_MEMORY_SIZE,
 			KERNEL_BASE + getPhyRamSize());
-	
-	/*init ram disk*/
-	ramdiskOpen((const char*)_initRamDiskBase, &_initRamDisk, kmalloc);
 
 	procInit();
 
@@ -110,16 +108,24 @@ void kernelEntry()
 				"Loading the first process...\n\n");
 
 	/*create first process*/
-	ProcessT *proc = procCreate();
+	static ProcessT *proc;
+	proc = procCreate();
 	
+	/*init ram disk*/
+	ramdiskOpen((const char*)_initRamDiskBase, &_initRamDisk, kmalloc);
 	/*load process from ramdisk by name.*/
 	int size = 0;
 	const char*p = ramdiskRead(&_initRamDisk, FIRST_PROCESS, &size);
-	if(p != NULL) {
+	if(p == NULL) {
+		uartPuts("init process load failed!\n");
+		return;
+	}
+	else {
 		procLoad(proc, p);
 		strncpy(proc->cmd, FIRST_PROCESS, CMD_MAX);
 	}
 
+	irqInit();
 	timerInit();
 
 	/*schedule processes*/

@@ -4,10 +4,7 @@
 #include <hardware.h>
 #include <irq.h>
 
-#define PIC_BASE 0x3F00B200
-#define PIC_ENABLE_BASIC_IRQ PIC_BASE+(4*6)
-
-#define ARM_TIMER_BASE 0x3F00B400
+#define ARM_TIMER_OFF 0xB400
 #define ARM_TIMER_CTRL_32BIT (1<<1)
 #define ARM_TIMER_CTRL_ENABLE (1<<7)
 #define ARM_TIMER_CTRL_IRQ_ENABLE (1<<5)
@@ -22,7 +19,7 @@
 #define TIMER_BGLOAD  0x06
 
 void timerSetInterval(uint32_t intervalMicrosecond) {
-	volatile uint32_t* timer = (volatile uint32_t*)P2V(ARM_TIMER_BASE);
+	volatile uint32_t* timer = (volatile uint32_t*)(MMIO_BASE+ARM_TIMER_OFF);
 	timer[TIMER_CONTROL] = 0;
 	timer[TIMER_BGLOAD] = 0;
 	timer[TIMER_LOAD] = intervalMicrosecond;
@@ -30,13 +27,13 @@ void timerSetInterval(uint32_t intervalMicrosecond) {
 }
 
 void timerClearInterrupt(void) {
-	volatile uint32_t* timer = (volatile uint32_t*)P2V(ARM_TIMER_BASE);
+	volatile uint32_t* timer = (volatile uint32_t*)(MMIO_BASE+ARM_TIMER_OFF);
 	timer[TIMER_INTCTL] = 0;
 }
 
 
 void timerInit() {
-	volatile uint32_t* timer = (volatile uint32_t*)P2V(ARM_TIMER_BASE);
+	volatile uint32_t* timer = (volatile uint32_t*)(MMIO_BASE+ARM_TIMER_OFF);
 	timer[TIMER_LOAD] = 0x1000;
 	timer[TIMER_CONTROL] = 0x003E0000;
 	/*timer[TIMER_CONTROL] = (ARM_TIMER_CTRL_32BIT | ARM_TIMER_CTRL_ENABLE |

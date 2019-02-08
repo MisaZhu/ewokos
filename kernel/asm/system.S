@@ -30,6 +30,14 @@ __enableInterrupts:
 	mrs r1, cpsr
 	bic r1, r1, #0x80
 	msr cpsr_c, r1
+	mov pc, lr
+	bx lr
+
+.global __disableInterrupts
+__disableInterrupts:
+	mrs r1, cpsr
+	bic r1, r1, #0x00
+	msr cpsr_c, r1
 
 	mov pc, lr
 

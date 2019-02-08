@@ -24,6 +24,8 @@ void mapPages(PageDirEntryT *vm, uint32_t vaddr, uint32_t pstart, uint32_t pend,
 		mapPage(vm,  virtualCurrent, physicalCurrent, permissions);
 		virtualCurrent += PAGE_SIZE;
 	}
+
+	virtualStart = 0;
 }
 
 /*

@@ -7,7 +7,7 @@ __entry:
 	mrc p15, #0, r1, c0, c0, #5
 	and r1, r1, #3
 	cmp r1, #0
-	bne halt
+	bne __halt
 #endif
 
 	ldr sp, =_initStack /*sp(R13), _initStack defined in kernel/src/mm/startup.c*/
@@ -105,5 +105,6 @@ abortEntry:
 	msr cpsr, r2
 	bl _abortEntry /*kernel/src/proc.c*/
 
-halt:
-	b halt
+.global __halt
+__halt:
+	b __halt

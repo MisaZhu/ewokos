@@ -2,7 +2,7 @@
 #include <mm/mmu.h>
 
 uint32_t getPhyRamSize() {
-	return 1*GB;
+	return 256*MB;
 }
 
 uint32_t getMMIOBasePhy() {
@@ -10,7 +10,7 @@ uint32_t getMMIOBasePhy() {
 }
 
 uint32_t getMMIOMemSize() {
-	return 16*MB;
+	return 32*MB;
 }
 
 uint32_t getUartIrq() {

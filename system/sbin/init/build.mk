@@ -4,7 +4,7 @@ PROGRAM += $(INIT_PROGRAM)
 
 EXTRA_CLEAN += $(INIT_PROGRAM) $(INIT_DIR)/*.o
 
-$(INIT_PROGRAM): $(INIT_DIR)/*.c $(KERNEL_LIB)/libewok.a lib/libewoklibc.a
+$(INIT_PROGRAM): $(INIT_DIR)/*.c $(COMMON_OBJ) lib/libewoklibc.a
 	mkdir -p sbin/sbin
 	$(CC) $(CFLAGS) -c -o $(INIT_DIR)/init.o $(INIT_DIR)/init.c
-	$(LD) -Ttext=100 $(INIT_DIR)/*.o lib/libewoklibc.a  $(KERNEL_LIB)/libewok.a -o $(INIT_PROGRAM)
+	$(LD) -Ttext=100 $(INIT_DIR)/*.o lib/libewoklibc.a  $(COMMON_OBJ) -o $(INIT_PROGRAM)

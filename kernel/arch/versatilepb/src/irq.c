@@ -25,3 +25,5 @@ void getPendingIRQs(bool *result)
 			result[i] = true;
 }
 
+void irqInit() {
+}

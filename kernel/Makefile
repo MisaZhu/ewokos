@@ -16,26 +16,23 @@ OBJCOPY = arm-none-eabi-objcopy
 OBJDUMP = arm-none-eabi-objdump
 
 # flags
-CFLAGS = -gstabs -I. -I src -I lib/include \
-				 -I lib/include \
-				 -I arch/$(arch)/include \
+CFLAGS = -gstabs -I. -Iinclude -I../lib/include \
 				 -marm \
 				 -pedantic -Wall -Wextra -msoft-float -fPIC -mapcs-frame \
          -fno-builtin-printf -fno-builtin-strcpy -Wno-overlength-strings \
          -fno-builtin-exit -fno-builtin-stdio \
 				 -std=c99 \
+				 -g \
 				 -mcpu=$(CPU) 
 
-ASFLAGS = -g -I src -I lib/include -mcpu=$(CPU) $(ARCH_QEMU_CFLAGS)
-QEMU_FLAGS = $(ARCH_QEMU_FLAGS) -nographic
+ASFLAGS = -g -I. -I include -mcpu=$(CPU) $(ARCH_QEMU_CFLAGS)
+QEMU_FLAGS = $(ARCH_QEMU_FLAGS)
 
-all: lib/libewok.a $(OS).bin 
+all: $(OS).bin 
 
 OBJS = asm/boot.o \
 	asm/system.o \
 	asm/context.o
-
-include lib/build.mk
 
 ARCH_OBJS = arch/$(arch)/src/irq.o \
 	arch/$(arch)/src/uart.o \
@@ -43,6 +40,7 @@ ARCH_OBJS = arch/$(arch)/src/irq.o \
 	arch/$(arch)/src/hardware.o
 
 DEV_OBJS = src/dev/uart.o
+LIB_OBJS = ../lib/src/string.o
 
 OBJS += $(ARCH_OBJS) \
 	$(DEV_OBJS) \
@@ -57,25 +55,32 @@ OBJS += $(ARCH_OBJS) \
 	src/proc.o \
 	src/kmessage.o \
 	src/kfile.o \
+	src/sramdisk.o \
 	src/kserv.o \
 	src/scheduler.o 
 
 $(OS).bin: $(OBJS) $(OS).ld
 	mkdir -p build
-	$(LD) -L arch/$(arch) -T $(OS).ld $(OBJS) lib/libewok.a -o build/$(OS).elf
+	$(LD) -L arch/$(arch) -T $(OS).ld $(OBJS) $(LIB_OBJS) -o build/$(OS).elf
 	$(OBJCOPY) -O binary build/$(OS).elf build/$(OS).bin
 	$(OBJDUMP) -D build/$(OS).elf > build/$(OS).asm
 
+run_nogra:
+	qemu-system-arm $(QEMU_FLAGS) -kernel build/$(OS).bin -initrd ../system/build/initfs -nographic
+
 run:
-	qemu-system-arm $(QEMU_FLAGS) -kernel build/$(OS).bin -initrd ../system/build/initfs
+	qemu-system-arm $(QEMU_FLAGS) -kernel build/$(OS).bin -initrd ../system/build/initfs  -serial mon:stdio
+
+runasm:
+	qemu-system-arm $(QEMU_FLAGS) -kernel build/$(OS).bin -initrd ../system/build/initfs -d in_asm   -serial mon:stdio
 
 debug: $(OS).bin
-	qemu-system-arm $(QEMU_FLAGS) -gdb tcp::26000 -S -kernel build/$(OS).bin -initrd ../system/build/initfs -S
+	qemu-system-arm $(QEMU_FLAGS) -gdb tcp::26000 -S -kernel build/$(OS).bin -initrd ../system/build/initfs   -serial mon:stdio
 
 gdb: 
 	echo "target remote :26000" > /tmp/gdbinit
 	arm-none-eabi-gdb build/$(OS).elf -x /tmp/gdbinit
 
 clean:
-	rm -f $(OBJS) $(EXTRA_CLEAN) lib/libewok.a
+	rm -f $(OBJS) $(EXTRA_CLEAN) 
 	rm -fr build

@@ -24,7 +24,7 @@
 #define INIT_MEMORY_SIZE (8*MB) //must same as startup.c startuptable
 
 //init ramdisk
-#define INITRD_BASE 0x08000000 //=64M, qemu-system-arm -initrd <FILE> will load FILE to Physical memory address 64M when bootup. 
+#define INITRD_BASE 0x08000000 //=128M, qemu-system-arm -initrd <FILE> will load FILE to Physical memory address 128M when bootup. 
 #define INITRD_SIZE 1*MB
 
 #define ALIGN_DOWN(x, alignment) ((x) & ~(alignment - 1))
