@@ -30,10 +30,9 @@ include sbin/build.mk
 
 system: $(MKRAMFS) $(PROGRAM) $(COMMON_OBJ)
 	mkdir -p build
-	$(MKRAMFS) build/initfs sbin/sbin
+	$(MKRAMFS) build/initfs build/sbin
 
 clean:
 	rm -f $(EXTRA_CLEAN)
 	rm -fr mkramfs/mkramfs.dSYM
 	rm -fr build
-	rm -fr sbin/sbin
