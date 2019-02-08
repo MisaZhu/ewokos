@@ -21,10 +21,10 @@
 	
 .make and run
 	
-	make kernel first, and then make system.
+	make initramfs first, and then make kernel.
 	
 	"make run": run EwokOS; 
-	  "qemu-system-arm -kernel build/EwokOS.bin -initrd ../system/build/initfs"
+	  "qemu-system-arm -kernel build/EwokOS.bin -initrd ../initramfs/build/initfs"
 	  boot kernel file and load init ramdisk.
 
 	"make debug": run EwokOS at debug server-mode;
@@ -49,9 +49,9 @@
 	system/lib/src/unistd.c
 	system/lib/src/pmessage.c
 
-	system/sbin/init/init.c
-	system/sbin/vfs/vfs.c
-	system/sbin/shell/shell.c
+	initramfs/sbin/init/init.c
+	initramfs/sbin/vfs/vfs.c
+	initramfs/sbin/shell/shell.c
 
 	Tips: Don't fall in love with assembly too much;).
 
