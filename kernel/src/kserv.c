@@ -1,5 +1,5 @@
 #include <kserv.h>
-#include <string.h>
+#include <kstring.h>
 #include <proc.h>
 //#include <stdio.h>
 

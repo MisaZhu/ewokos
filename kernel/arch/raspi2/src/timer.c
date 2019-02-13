@@ -4,7 +4,8 @@
 #include <hardware.h>
 #include <irq.h>
 
-#define ARM_TIMER_OFF 0xB400
+//#define ARM_TIMER_OFF 0xB400
+#define ARM_TIMER_OFF 0x3000
 #define ARM_TIMER_CTRL_32BIT (1<<1)
 #define ARM_TIMER_CTRL_ENABLE (1<<7)
 #define ARM_TIMER_CTRL_IRQ_ENABLE (1<<5)

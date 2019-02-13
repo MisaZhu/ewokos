@@ -1,7 +1,7 @@
 #include <mm/mmu.h>
 #include <mm/kalloc.h>
 #include <types.h>
-#include <string.h>
+#include <kstring.h>
 
 /*
  * map_pages adds the given virtual to physical memory mapping to the given

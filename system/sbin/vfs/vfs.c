@@ -2,9 +2,8 @@
 #include <pmessage.h>
 #include <syscall.h>
 #include <stdlib.h>
-#include <string.h>
+#include <kstring.h>
 #include <kserv/fs.h>
-#include <string.h>
 #include <vfs.h>
 #include <mount.h>
 #include <stdio.h>

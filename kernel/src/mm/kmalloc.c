@@ -4,7 +4,7 @@
 #include <kernel.h>
 
 static MallocT _kMalloc;
-static uint32_t _kMallocMemTail = KMALLOC_BASE;
+static uint32_t _kMallocMemTail;
 
 static void kmShrink(void* arg, int pages) {
 	(void)arg;
@@ -27,6 +27,7 @@ static void* kmGetMemTail(void* arg) {
 }
 
 void kmInit() {
+	_kMallocMemTail = KMALLOC_BASE;
 	_kMalloc.expand = kmExpand;
 	_kMalloc.shrink = kmShrink;
 	_kMalloc.getMemTail = kmGetMemTail;

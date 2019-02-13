@@ -6,7 +6,7 @@
 #include <proc.h>
 #include <kernel.h>
 #include <sramdisk.h>
-#include <string.h>
+#include <kstring.h>
 #include <mm/trunkmalloc.h>
 #include <kmessage.h>
 #include <kfile.h>

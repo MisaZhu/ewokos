@@ -1,8 +1,8 @@
 #include <irq.h>
 #include <hardware.h>
 #include <mm/mmu.h>
+#include <kstring.h>
 #include <types.h>
-#include <string.h>
 
 /* memory mapping for the interrupt controller */
 #define PIC ((volatile uint32_t*)(MMIO_BASE+0x00140000))

@@ -7,16 +7,15 @@ static int roundRobinIndex;
 
 void schedule(void)
 {
+	ProcessT *proc;
+	proc = NULL;
 	for (int i = 0; i < PROCESS_COUNT_MAX; i++) {
-		ProcessT *proc = NULL;
+		proc = &_processTable[roundRobinIndex];
 
 		roundRobinIndex++;
-		if (roundRobinIndex == PROCESS_COUNT_MAX)
-		{
+		if (roundRobinIndex == PROCESS_COUNT_MAX) {
 			roundRobinIndex = 0;
 		}
-
-		proc = &_processTable[roundRobinIndex];
 
 		if (proc->state == READY) {
 			_currentProcess = proc;

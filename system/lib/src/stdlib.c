@@ -1,7 +1,7 @@
 #include <stdlib.h>
 #include <syscall.h>
 
-void* malloc(size_t size) {
+void* malloc(uint32_t size) {
 	char* p = (char*)syscall1(SYSCALL_PMALLOC, size);
 	return (void*)p;
 }

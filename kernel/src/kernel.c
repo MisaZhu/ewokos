@@ -7,19 +7,16 @@
 #include <dev/uart.h>
 #include <proc.h>
 #include <irq.h>
-#include <string.h>
+#include <kstring.h>
 #include <sramdisk.h>
 #include <timer.h>
 
-PageDirEntryT* _kernelVM = NULL;
+PageDirEntryT* _kernelVM;
 
 void initKernelVM() 
 {
-
-	//get the end of bootup part kernel.
-	unsigned kend = (unsigned)_kernelEnd; 
 	//align up to PAGE_DIR_SIZE (like 16KB in this case). 16KB memory after kernel be used for kernel page dir table 
-	_kernelVM = (PageDirEntryT*)ALIGN_UP(kend, PAGE_DIR_SIZE);
+	_kernelVM = (PageDirEntryT*)ALIGN_UP((uint32_t)_kernelEnd, PAGE_DIR_SIZE);
 
 	setKernelVM(_kernelVM);
 	
@@ -31,14 +28,11 @@ void setKernelVM(PageDirEntryT* vm)
 {
 	memset(vm, 0, PAGE_DIR_SIZE);
 
-	//mapPages(vm, 0, 0, PAGE_SIZE, AP_RW_D);
+	mapPages(vm, 0, 0, PAGE_SIZE, AP_RW_D);
 	//map interrupt vector to high(virtual) mem
 	mapPages(vm, INTERRUPT_VECTOR_BASE, 0, PAGE_SIZE, AP_RW_D);
 	//map kernel image to high(virtual) mem
 	mapPages(vm, KERNEL_BASE+PAGE_SIZE, PAGE_SIZE, V2P(_kernelEnd), AP_RW_D);
-
-	/*mapping ramdisk part, can be reused after move ramdisk to high address*/
-	mapPages(vm, INITRD_BASE, INITRD_BASE, INITRD_BASE+INITRD_SIZE, AP_RW_D);
 
 	//map MMIO to high(virtual) mem.
 	mapPages(vm, MMIO_BASE, getMMIOBasePhy(), getMMIOBasePhy() + getMMIOMemSize(), AP_RW_D);
@@ -87,8 +81,10 @@ void kernelEntry()
 	qemu-system-arm -initrd <FILE> will load initrd-FILE to physical memory address(INITRD_BASE=128M) when bootup, temporarily!
 	This part of memory should be reused after initrd moved to kernel trunk memory.
 	*/
-	_initRamDiskBase = kmalloc(INITRD_SIZE);
+	/*_initRamDiskBase = kmalloc(INITRD_SIZE);
 	memcpy(_initRamDiskBase, (void*)(INITRD_BASE), INITRD_SIZE);
+	*/
+	_initRamDiskBase = decodeInitFS();
 
 	/*
 	Since kernel mem mapping finished, and init ram disk copied to kernel trunk memory.
@@ -107,15 +103,19 @@ void kernelEntry()
 				"Kernel got ready(MMU and ProcMan).\n"
 				"Loading the first process...\n\n");
 
+	timerInit();
+	irqInit();
+
 	/*create first process*/
-	static ProcessT *proc;
+	ProcessT *proc;
 	proc = procCreate();
 	
 	/*init ram disk*/
 	ramdiskOpen((const char*)_initRamDiskBase, &_initRamDisk, kmalloc);
 	/*load process from ramdisk by name.*/
 	int size = 0;
-	const char*p = ramdiskRead(&_initRamDisk, FIRST_PROCESS, &size);
+	const char *p;
+	p = ramdiskRead(&_initRamDisk, FIRST_PROCESS, &size);
 	if(p == NULL) {
 		uartPuts("init process load failed!\n");
 		return;
@@ -124,9 +124,6 @@ void kernelEntry()
 		procLoad(proc, p);
 		strncpy(proc->cmd, FIRST_PROCESS, CMD_MAX);
 	}
-
-	irqInit();
-	timerInit();
 
 	/*schedule processes*/
 	schedulerInit();

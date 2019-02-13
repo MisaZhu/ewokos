@@ -19,10 +19,13 @@ typedef short int16_t;
 typedef unsigned short uint16_t;
 typedef int int32_t;
 typedef unsigned int uint32_t;
-typedef uint32_t uintptr_t;
 
-/* size type */
-typedef uint32_t size_t;
+typedef __signed char i8_t;
+typedef unsigned char u8_t;
+typedef short i16_t;
+typedef unsigned short u16_t;
+typedef int i32_t;
+typedef unsigned int u32_t;
 
 /* boolean constants */
 #ifndef true

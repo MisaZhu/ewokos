@@ -21,11 +21,12 @@ typedef struct {
 	const char* ram;
 } RamDiskT;
 
-void ramdiskOpen(const char*ram, RamDiskT* rd, void*(*alloc)(size_t));
+void ramdiskOpen(const char*ram, RamDiskT* rd, void*(*alloc)(uint32_t));
 void ramdiskClose(RamDiskT* rd, void (*fr)(void*));
 /*
 read file content of fname, return content address and size.
 */
 const char* ramdiskRead(RamDiskT* rd, const char* fname, int* size);
+char* decodeInitFS();
 
 #endif

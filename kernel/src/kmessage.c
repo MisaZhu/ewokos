@@ -1,5 +1,5 @@
 #include <kmessage.h>
-#include <string.h>
+#include <kstring.h>
 #include <proc.h>
 #include <mm/kmalloc.h>
 

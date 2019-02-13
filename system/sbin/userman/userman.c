@@ -2,7 +2,7 @@
 #include <pmessage.h>
 #include <syscall.h>
 #include <stdlib.h>
-#include <string.h>
+#include <kstring.h>
 #include <kserv/userman.h>
 #include <stdio.h>
 

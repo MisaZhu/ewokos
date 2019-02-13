@@ -16,7 +16,7 @@ OBJCOPY = arm-none-eabi-objcopy
 OBJDUMP = arm-none-eabi-objdump
 
 # flags
-CFLAGS = -gstabs -I. -Iinclude -I../lib/include \
+CFLAGS = -I. -Iinclude -I../lib/include \
 				 -marm \
 				 -pedantic -Wall -Wextra -msoft-float -fPIC -mapcs-frame \
          -fno-builtin-printf -fno-builtin-strcpy -Wno-overlength-strings \
@@ -25,7 +25,7 @@ CFLAGS = -gstabs -I. -Iinclude -I../lib/include \
 				 -g \
 				 -mcpu=$(CPU) 
 
-ASFLAGS = -g -I. -I include -mcpu=$(CPU) $(ARCH_QEMU_CFLAGS)
+ASFLAGS = -g -I. -I include -I../lib/include -mcpu=$(CPU) $(ARCH_QEMU_CFLAGS)
 QEMU_FLAGS = $(ARCH_QEMU_FLAGS)
 
 all: $(OS).bin 
@@ -40,7 +40,7 @@ ARCH_OBJS = arch/$(arch)/src/irq.o \
 	arch/$(arch)/src/hardware.o
 
 DEV_OBJS = src/dev/uart.o
-LIB_OBJS = ../lib/src/string.o
+LIB_OBJS = ../lib/src/kstring.o ../lib/src/base16.o
 
 OBJS += $(ARCH_OBJS) \
 	$(DEV_OBJS) \
@@ -59,30 +59,28 @@ OBJS += $(ARCH_OBJS) \
 	src/kserv.o \
 	src/scheduler.o 
 
-$(OS).bin: $(OBJS) $(OS).ld
+$(OS).bin: $(OBJS) $(LIB_OBJS) $(OS).ld
 	mkdir -p build
 	$(LD) -L arch/$(arch) -T $(OS).ld $(OBJS) $(LIB_OBJS) -o build/$(OS).elf
 	$(OBJCOPY) -O binary build/$(OS).elf build/$(OS).bin
 	$(OBJDUMP) -D build/$(OS).elf > build/$(OS).asm
 
-INITRAMFS = ../system/build/initfs
-
 run_nogra:
-	qemu-system-arm $(QEMU_FLAGS) -kernel build/$(OS).bin -initrd $(INITRAMFS) -nographic
+	qemu-system-arm $(QEMU_FLAGS) -kernel build/$(OS).bin -nographic
 
 run:
-	qemu-system-arm $(QEMU_FLAGS) -kernel build/$(OS).bin -initrd $(INITRAMFS) -serial mon:stdio
+	qemu-system-arm $(QEMU_FLAGS) -kernel build/$(OS).bin -serial mon:stdio
 
 runasm:
-	qemu-system-arm $(QEMU_FLAGS) -kernel build/$(OS).bin -initrd $(INITRAMFS) -d in_asm   -serial mon:stdio
+	qemu-system-arm $(QEMU_FLAGS) -kernel build/$(OS).bin -d in_asm   -serial mon:stdio
 
 debug: $(OS).bin
-	qemu-system-arm $(QEMU_FLAGS) -gdb tcp::26000 -S -kernel build/$(OS).bin -initrd $(INITRAMFS) -serial mon:stdio
+	qemu-system-arm $(QEMU_FLAGS) -gdb tcp::26000 -S -kernel build/$(OS).bin -serial mon:stdio
 
 gdb: 
 	echo "target remote :26000" > /tmp/gdbinit
 	arm-none-eabi-gdb build/$(OS).elf -x /tmp/gdbinit
 
 clean:
-	rm -f $(OBJS) $(EXTRA_CLEAN) 
+	rm -f $(OBJS) $(EXTRA_CLEAN) include/initfs.h $(LIB_OBJS)
 	rm -fr build

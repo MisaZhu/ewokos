@@ -5,7 +5,7 @@
 
 int chdir(const char* dir);
 
-char* getcwd(char* buf, size_t size);
+char* getcwd(char* buf, uint32_t size);
 
 int fork();
 

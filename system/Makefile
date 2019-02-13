@@ -6,11 +6,12 @@ CXX = arm-none-eabi-c++
 LD = arm-none-eabi-ld
 
 COMMON_LIB=../lib
-COMMON_OBJ=$(COMMON_LIB)/src/string.o
+COMMON_OBJ=$(COMMON_LIB)/src/kstring.o
 
 # flags
 CFLAGS = -gstabs -I. \
 				 -I ../kernel/include \
+				 -I ../lib/include \
 				 -I lib/include \
 				 -I $(COMMON_LIB)/include \
 				 -marm \
@@ -30,9 +31,9 @@ include sbin/build.mk
 
 system: $(MKRAMFS) $(PROGRAM) $(COMMON_OBJ)
 	mkdir -p build
-	$(MKRAMFS) build/initfs build/sbin
+	$(MKRAMFS) ../kernel/include/initfs.h build/sbin
 
 clean:
-	rm -f $(EXTRA_CLEAN)
+	rm -f $(EXTRA_CLEAN) $(COMMON_OBJ)
 	rm -fr mkramfs/mkramfs.dSYM
 	rm -fr build

@@ -6,12 +6,14 @@
 
 extern char _kernelStart[];
 extern char _kernelEnd[];
+extern char _initStackTop[];
+extern char _irqStackTop[];
 
 extern char* _initRamDiskBase;
 extern RamDiskT _initRamDisk;
 
 extern PageDirEntryT* _kernelVM;
-extern void setKernelVM(PageDirEntryT* vm);
+void setKernelVM(PageDirEntryT* vm);
 
 
 #endif

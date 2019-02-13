@@ -1,7 +1,7 @@
 #include <irq.h>
 #include <hardware.h>
 #include <mm/mmu.h>
-#include <string.h>
+#include <kstring.h>
 #include <types.h>
 
 /* interrupt controller register offsets */

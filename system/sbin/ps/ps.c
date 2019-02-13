@@ -3,7 +3,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <syscall.h>
-#include <string.h>
+#include <kstring.h>
 #include <cmain.h>
 
 void _start()

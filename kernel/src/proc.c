@@ -2,11 +2,12 @@
 #include <mm/kalloc.h>
 #include <proc.h>
 #include <kernel.h>
-#include <string.h>
+#include <kstring.h>
 #include <system.h>
 #include <types.h>
 #include <dev/uart.h>
 #include <elf.h>
+#include <kernel.h>
 
 void schedule();
 
@@ -75,8 +76,8 @@ static void* procGetMemTail(void* p) {
 /* proc_creates allocates a new process and returns it. */
 ProcessT *procCreate(void)
 {
-	static ProcessT *proc = NULL;
-	static int index = -1;
+	ProcessT *proc = NULL;
+	int index = -1;
 	PageDirEntryT *vm = NULL;
 	char *kernelStack = NULL;
 	char *userStack = NULL;

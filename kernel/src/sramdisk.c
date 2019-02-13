@@ -1,5 +1,8 @@
 #include <sramdisk.h>
-#include <string.h>
+#include <mm/kmalloc.h>
+#include <kstring.h>
+#include <base16.h>
+#include <initfs.h>
 
 void ramdiskClose(RamDiskT* rd, void (*fr)(void*)) {
 	RamFileT* rf = rd->head;
@@ -11,7 +14,7 @@ void ramdiskClose(RamDiskT* rd, void (*fr)(void*)) {
 	rd->head = NULL;
 }
 
-void ramdiskOpen(const char*ram, RamDiskT* rd, void*(*alloc)(size_t)) {
+void ramdiskOpen(const char*ram, RamDiskT* rd, void*(*alloc)(uint32_t)) {
 	rd->ram = ram;
 	rd->head = NULL;
 
@@ -60,3 +63,24 @@ const char* ramdiskRead(RamDiskT* rd, const char* fname, int* size) {
 	return NULL;
 }
 
+char* decodeInitFS() {
+	char* ret;
+	char* p;
+	ret = (char*)kmalloc(_initfsSize);
+	int32_t i;
+	int32_t sz;
+	const char* s;
+
+	p = ret;
+	i = 0;
+	while(1) {
+		s = _initfs[i];
+		if(s[0] == 0)
+			break;
+
+		base16Decode(s, strlen(s), p, &sz);
+		p += sz;	
+		i++;
+	}
+	return ret;
+}

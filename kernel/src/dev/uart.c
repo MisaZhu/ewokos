@@ -1,6 +1,6 @@
 #include <hardware.h>
 #include <irq.h>
-#include <string.h>
+#include <kstring.h>
 #include <mm/mmu.h>
 #include <dev/uart.h>
 
