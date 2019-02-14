@@ -77,6 +77,9 @@ runasm:
 debug: $(OS).bin
 	qemu-system-arm $(QEMU_FLAGS) -gdb tcp::26000 -S -kernel build/$(OS).bin -serial mon:stdio
 
+debug_nogra: $(OS).bin
+	qemu-system-arm $(QEMU_FLAGS) -gdb tcp::26000 -S -kernel build/$(OS).bin -initrd $(INITRAMFS) -nographic
+
 gdb: 
 	echo "target remote :26000" > /tmp/gdbinit
 	arm-none-eabi-gdb build/$(OS).elf -x /tmp/gdbinit
