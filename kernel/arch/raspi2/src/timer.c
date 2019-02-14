@@ -4,15 +4,13 @@
 #include <hardware.h>
 #include <irq.h>
 
-//#define ARM_TIMER_OFF 0xB400
-#define ARM_TIMER_OFF 0x3000
+#define ARM_TIMER_OFF 0xB400
 #define ARM_TIMER_CTRL_32BIT (1<<1)
 #define ARM_TIMER_CTRL_ENABLE (1<<7)
 #define ARM_TIMER_CTRL_IRQ_ENABLE (1<<5)
 #define ARM_TIMER_CTRL_PRESCALE_256 (2<<2)
 
 #define IRQ_ARM_TIMER_BIT 0
-#define IRQ_SYS_TIMER_BIT 1
 
 #define TIMER_LOAD    0x00
 #define TIMER_CONTROL 0x02
@@ -42,5 +40,4 @@ void timerInit() {
 			*/
 	timer[TIMER_INTCTL] = 0;
 	enableIRQ(IRQ_ARM_TIMER_BIT);
-	enableIRQ(IRQ_SYS_TIMER_BIT);
 }

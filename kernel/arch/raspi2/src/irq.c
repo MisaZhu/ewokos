@@ -5,14 +5,13 @@
 #include <types.h>
 
 /* interrupt controller register offsets */
-//#define PIC_STATUS     0x81
-//#define PIC_INT_ENABLE 0x84
 #define PIC_STATUS      0
 #define PIC_INT_ENABLE  6
 #define PIC_INT_DISABLE 9
 
 #define PIC_BASE_OFF 0xB200
 
+/*
 #define CORE0_TIMER_IRQCNTL 0x40000040
 
 void routing_core0cntv_to_core0irq(void)
@@ -30,7 +29,7 @@ uint32_t read_core0timer_pending(void)
 	return tmp;
 }
 
-static uint32_t cntfrq = 0x4000;
+static uint32_t cntfrq = 0x400;
 
 void enable_cntv(void)
 {
@@ -45,7 +44,7 @@ void disable_cntv(void)
 	cntv_ctl = 0;
 	__asm__ volatile ("mcr p15, 0, %0, c14, c3, 1" :: "r"(cntv_ctl) ); // write CNTV_CTL
 }
-/*
+
 uint32_t read_cntv_tval(void)
 {
 	uint32_t val;
@@ -59,7 +58,6 @@ uint32_t read_cntfrq(void)
 	__asm__ volatile ("mrc p15, 0, %0, c14, c0, 0" : "=r"(val) );
 	return val;
 }
-*/
 
 void write_cntv_tval(uint32_t val)
 {
@@ -72,6 +70,10 @@ void irqInit() {
 	write_cntv_tval(cntfrq);    // clear cntv interrupt and set next 1 sec timer.
 	routing_core0cntv_to_core0irq();
 	enable_cntv(); 
+}
+*/
+
+void irqInit() {
 }
 
 void enableIRQ(uint32_t line) {
@@ -89,11 +91,13 @@ void getPendingIRQs(bool *result) {
 	volatile uint32_t irqStatus = vpic[PIC_STATUS];
 	memset(result, 0, IRQ_COUNT * sizeof(bool));
 
-	if (read_core0timer_pending() & 0x08 ) {
+	/*if (read_core0timer_pending() & 0x08 ) {
+		//cntfrq = read_cntfrq();
 		write_cntv_tval(cntfrq);    // clear cntv interrupt and set next 1sec timer.
 		result[getTimerIrq()] = true;
 		return;
   }
+	*/
 
 	for (uint32_t i = 0; i < 32; i++)
 		if (irqStatus & (1u << i))

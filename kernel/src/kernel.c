@@ -29,6 +29,7 @@ void setKernelVM(PageDirEntryT* vm)
 	memset(vm, 0, PAGE_DIR_SIZE);
 
 	mapPages(vm, 0, 0, PAGE_SIZE, AP_RW_D);
+	mapPages(vm, 0x40000000, 0x40000000, 0x40000000+PAGE_SIZE, AP_RW_D);
 	//map interrupt vector to high(virtual) mem
 	mapPages(vm, INTERRUPT_VECTOR_BASE, 0, PAGE_SIZE, AP_RW_D);
 	//map kernel image to high(virtual) mem
@@ -103,9 +104,6 @@ void kernelEntry()
 				"Kernel got ready(MMU and ProcMan).\n"
 				"Loading the first process...\n\n");
 
-	timerInit();
-	irqInit();
-
 	/*create first process*/
 	ProcessT *proc;
 	proc = procCreate();
@@ -125,9 +123,12 @@ void kernelEntry()
 		strncpy(proc->cmd, FIRST_PROCESS, CMD_MAX);
 	}
 
+	timerInit();
 	/*schedule processes*/
 	schedulerInit();
-	schedule();
+	irqInit();
+
+	//schedule();
 
 	//kramdiskClose(_initRamDisk, kmfree);
 	//kmfree(_initRamDiskBase);

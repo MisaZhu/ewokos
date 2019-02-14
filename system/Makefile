@@ -34,6 +34,6 @@ system: $(MKRAMFS) $(PROGRAM) $(COMMON_OBJ)
 	$(MKRAMFS) ../kernel/include/initfs.h build/sbin
 
 clean:
-	rm -f $(EXTRA_CLEAN) $(COMMON_OBJ)
+	rm -f $(EXTRA_CLEAN) $(COMMON_OBJ) ../kernel/include/initfs.h 
 	rm -fr mkramfs/mkramfs.dSYM
 	rm -fr build

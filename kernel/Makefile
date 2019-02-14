@@ -19,8 +19,8 @@ OBJDUMP = arm-none-eabi-objdump
 CFLAGS = -I. -Iinclude -I../lib/include \
 				 -marm \
 				 -pedantic -Wall -Wextra -msoft-float -fPIC -mapcs-frame \
-         -fno-builtin-printf -fno-builtin-strcpy -Wno-overlength-strings \
-         -fno-builtin-exit -fno-builtin-stdio \
+				 -fno-builtin-printf -fno-builtin-strcpy -Wno-overlength-strings \
+				 -fno-builtin-exit -fno-builtin-stdio \
 				 -std=c99 \
 				 -g \
 				 -mcpu=$(CPU) 
@@ -31,8 +31,8 @@ QEMU_FLAGS = $(ARCH_QEMU_FLAGS)
 all: $(OS).bin 
 
 OBJS = asm/boot.o \
-	asm/system.o \
-	asm/context.o
+			 asm/system.o \
+			 asm/context.o
 
 ARCH_OBJS = arch/$(arch)/src/irq.o \
 	arch/$(arch)/src/uart.o \
@@ -82,5 +82,5 @@ gdb:
 	arm-none-eabi-gdb build/$(OS).elf -x /tmp/gdbinit
 
 clean:
-	rm -f $(OBJS) $(EXTRA_CLEAN) include/initfs.h $(LIB_OBJS)
+	rm -f $(OBJS) $(EXTRA_CLEAN) $(LIB_OBJS)
 	rm -fr build
