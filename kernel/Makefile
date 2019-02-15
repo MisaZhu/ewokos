@@ -1,8 +1,8 @@
 OS = EwokOS
 
 ifndef arch
-	arch = versatilepb
-#	arch = raspi2
+#	arch = versatilepb
+	arch = raspi2
 endif
 include arch/$(arch)/config.mk
 
@@ -17,13 +17,13 @@ OBJDUMP = arm-none-eabi-objdump
 
 # flags
 CFLAGS = -I. -Iinclude -I../lib/include \
-				 -marm \
+				 -marm   $(ARCH_QEMU_CFLAGS) \
 				 -pedantic -Wall -Wextra -msoft-float -fPIC -mapcs-frame \
 				 -fno-builtin-printf -fno-builtin-strcpy -Wno-overlength-strings \
 				 -fno-builtin-exit -fno-builtin-stdio \
 				 -std=c99 \
 				 -g \
-				 -mcpu=$(CPU) 
+				 -mcpu=$(CPU)
 
 ASFLAGS = -g -I. -I include -I../lib/include -mcpu=$(CPU) $(ARCH_QEMU_CFLAGS)
 QEMU_FLAGS = $(ARCH_QEMU_FLAGS)
@@ -66,10 +66,10 @@ $(OS).bin: $(OBJS) $(LIB_OBJS) $(OS).ld
 	$(OBJDUMP) -D build/$(OS).elf > build/$(OS).asm
 
 run_nogra:
-	qemu-system-arm $(QEMU_FLAGS) -kernel build/$(OS).bin -nographic
+	qemu-system-arm $(QEMU_FLAGS) -kernel build/$(OS).elf -nographic
 
 run:
-	qemu-system-arm $(QEMU_FLAGS) -kernel build/$(OS).bin -serial mon:stdio
+	qemu-system-arm $(QEMU_FLAGS) -kernel build/$(OS).elf -serial mon:stdio
 
 runasm:
 	qemu-system-arm $(QEMU_FLAGS) -kernel build/$(OS).elf -d in_asm   -serial mon:stdio

@@ -41,9 +41,15 @@
 #define PAGE_DIR_TYPE 1
 
 /* access permissions */
-#define AP_RW_D 0x55
-#define AP_RW_R 0xaa
-#define AP_RW_RW 0xff
+#ifdef A_CORE
+	#define AP_RW_D 0x5
+	#define AP_RW_R 0xa
+	#define AP_RW_RW 0xf
+#else
+	#define AP_RW_D 0x55
+	#define AP_RW_R 0xaa
+	#define AP_RW_RW 0xff
+#endif
 
 #define PAGE_DIR_INDEX(x) ((uint32_t)x >> 20)
 #define PAGE_INDEX(x) (((uint32_t)x >> 12) & 255)
