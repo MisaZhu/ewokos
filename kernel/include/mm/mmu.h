@@ -56,20 +56,20 @@
 
 /* a 32-bit entry in hardware's PageDir table */
 typedef struct {
-	unsigned int type : 2;
-	unsigned int : 3;
-	unsigned int domain : 4;
-	unsigned int : 1;
-	unsigned int base : 22;
+	uint32_t type : 2;
+	uint32_t : 3;
+	uint32_t domain : 4;
+	uint32_t : 1;
+	uint32_t base : 22;
 } PageDirEntryT;
 
 /* a 32-bit entry in hardware's page table */
 typedef struct {
-	unsigned int type : 2;
-	unsigned int bufferable : 1;
-	unsigned int cacheable : 1;
-	unsigned int permissions : 8;
-	unsigned int base : 20;
+	uint32_t type : 2;
+	uint32_t bufferable : 1;
+	uint32_t cacheable : 1;
+	uint32_t permissions : 8;
+	uint32_t base : 20;
 } PageTableEntryT; 
 
 void mapPages(PageDirEntryT *vm, uint32_t vaddr, 

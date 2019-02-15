@@ -164,12 +164,14 @@ void procFree(ProcessT *proc)
 
 #define MODE_MASK 0x1f
 #define MODE_USER 0x10
+#define DIS_INT (1<<7)
 
 uint32_t cpsrUser() {
     uint32_t val;
     __asm__ volatile("mrs %[v], cpsr": [v]"=r" (val)::);
     val &= ~MODE_MASK;
     val |= MODE_USER;
+    val &= ~DIS_INT;
     return val;
 }
 
