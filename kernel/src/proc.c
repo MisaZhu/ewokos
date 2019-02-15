@@ -162,6 +162,17 @@ void procFree(ProcessT *proc)
 	proc->state = UNUSED;
 }
 
+#define MODE_MASK 0x1f
+#define MODE_USER 0x10
+
+uint32_t cpsrUser() {
+    uint32_t val;
+    __asm__ volatile("mrs %[v], cpsr": [v]"=r" (val)::);
+    val &= ~MODE_MASK;
+    val |= MODE_USER;
+    return val;
+}
+
 /* proc_load loads the given ELF process image into the given process. */
 bool procLoad(ProcessT *proc, const char *procImage)
 {
@@ -205,7 +216,7 @@ bool procLoad(ProcessT *proc, const char *procImage)
 	proc->state = READY;
 
 	memset(proc->context, 0, sizeof(proc->context));
-	proc->context[CPSR] = 0x10; //CPSR 0x10 for user mode
+	proc->context[CPSR] = cpsrUser(); //CPSR 0x10 for user mode
 	proc->context[RESTART_ADDR] = (int) proc->entry;
 	proc->context[SP] = USER_STACK_BOTTOM + PAGE_SIZE;
 
