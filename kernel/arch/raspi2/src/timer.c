@@ -18,16 +18,17 @@
 #define TIMER_BGLOAD  0x06
 
 void timerSetInterval(uint32_t intervalMicrosecond) {
-	volatile uint32_t* timer = (volatile uint32_t*)(MMIO_BASE+ARM_TIMER_OFF);
+	/*volatile uint32_t* timer = (volatile uint32_t*)(MMIO_BASE+ARM_TIMER_OFF);
 	timer[TIMER_CONTROL] = 0;
 	timer[TIMER_BGLOAD] = 0;
 	timer[TIMER_LOAD] = intervalMicrosecond;
 	timer[TIMER_CONTROL] = 0x003E00A2;
+	*/
 }
 
 void timerClearInterrupt(void) {
-	volatile uint32_t* timer = (volatile uint32_t*)(MMIO_BASE+ARM_TIMER_OFF);
-	timer[TIMER_INTCTL] = 0;
+	//volatile uint32_t* timer = (volatile uint32_t*)(MMIO_BASE+ARM_TIMER_OFF);
+	//timer[TIMER_INTCTL] = 0;
 }
 
 

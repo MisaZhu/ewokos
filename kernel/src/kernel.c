@@ -29,7 +29,6 @@ void setKernelVM(PageDirEntryT* vm)
 	memset(vm, 0, PAGE_DIR_SIZE);
 
 	mapPages(vm, 0, 0, PAGE_SIZE, AP_RW_D);
-	mapPages(vm, 0x40000000, 0x40000000, 0x40000000+PAGE_SIZE, AP_RW_D);
 	//map interrupt vector to high(virtual) mem
 	mapPages(vm, INTERRUPT_VECTOR_BASE, 0, PAGE_SIZE, AP_RW_D);
 	//map kernel image to high(virtual) mem

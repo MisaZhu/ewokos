@@ -11,7 +11,6 @@
 
 #define PIC_BASE_OFF 0xB200
 
-/*
 #define CORE0_TIMER_IRQCNTL 0x40000040
 
 void routing_core0cntv_to_core0irq(void)
@@ -29,7 +28,7 @@ uint32_t read_core0timer_pending(void)
 	return tmp;
 }
 
-static uint32_t cntfrq = 0x400;
+uint32_t cntfrq = 0;
 
 void enable_cntv(void)
 {
@@ -66,14 +65,10 @@ void write_cntv_tval(uint32_t val)
 }
 
 void irqInit() {
-	//cntfrq = read_cntfrq();
+	cntfrq = read_cntfrq();
 	write_cntv_tval(cntfrq);    // clear cntv interrupt and set next 1 sec timer.
 	routing_core0cntv_to_core0irq();
 	enable_cntv(); 
-}
-*/
-
-void irqInit() {
 }
 
 void enableIRQ(uint32_t line) {
@@ -91,13 +86,11 @@ void getPendingIRQs(bool *result) {
 	volatile uint32_t irqStatus = vpic[PIC_STATUS];
 	memset(result, 0, IRQ_COUNT * sizeof(bool));
 
-	/*if (read_core0timer_pending() & 0x08 ) {
-		//cntfrq = read_cntfrq();
+	if (read_core0timer_pending() & 0x08 ) {
 		write_cntv_tval(cntfrq);    // clear cntv interrupt and set next 1sec timer.
 		result[getTimerIrq()] = true;
 		return;
   }
-	*/
 
 	for (uint32_t i = 0; i < 32; i++)
 		if (irqStatus & (1u << i))

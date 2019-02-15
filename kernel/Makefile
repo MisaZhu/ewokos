@@ -1,8 +1,8 @@
 OS = EwokOS
 
 ifndef arch
-	arch = versatilepb
-#	arch = raspi2
+#	arch = versatilepb
+	arch = raspi2
 endif
 include arch/$(arch)/config.mk
 
@@ -72,13 +72,13 @@ run:
 	qemu-system-arm $(QEMU_FLAGS) -kernel build/$(OS).bin -serial mon:stdio
 
 runasm:
-	qemu-system-arm $(QEMU_FLAGS) -kernel build/$(OS).bin -d in_asm   -serial mon:stdio
+	qemu-system-arm $(QEMU_FLAGS) -kernel build/$(OS).elf -d in_asm   -serial mon:stdio
 
 debug: $(OS).bin
-	qemu-system-arm $(QEMU_FLAGS) -gdb tcp::26000 -S -kernel build/$(OS).bin -serial mon:stdio
+	qemu-system-arm $(QEMU_FLAGS) -gdb tcp::26000 -S -kernel build/$(OS).elf -serial mon:stdio
 
 debug_nogra: $(OS).bin
-	qemu-system-arm $(QEMU_FLAGS) -gdb tcp::26000 -S -kernel build/$(OS).bin -initrd $(INITRAMFS) -nographic
+	qemu-system-arm $(QEMU_FLAGS) -gdb tcp::26000 -S -kernel build/$(OS).elf -initrd $(INITRAMFS) -nographic
 
 gdb: 
 	echo "target remote :26000" > /tmp/gdbinit

@@ -9,7 +9,7 @@ COMMON_LIB=../lib
 COMMON_OBJ=$(COMMON_LIB)/src/kstring.o
 
 # flags
-CFLAGS = -gstabs -I. \
+CFLAGS = -I. \
 				 -I ../kernel/include \
 				 -I ../lib/include \
 				 -I lib/include \
