@@ -30,8 +30,7 @@ void _start()
 		exec("userman");
 	}
 
-	printf("\nstart shell...\n\n"
-			": Hey! wake up!\n"
+	printf("\n: Hey! wake up!\n"
 			": Matrix had you.\n"
 			": Follow the rabbit...\n\n");
 

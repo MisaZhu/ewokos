@@ -66,10 +66,13 @@ const char* ramdiskRead(RamDiskT* rd, const char* fname, int* size) {
 char* decodeInitFS() {
 	char* ret;
 	char* p;
-	ret = (char*)kmalloc(_initfsSize);
 	int32_t i;
 	int32_t sz;
 	const char* s;
+
+	ret = (char*)kmalloc(_initfsSize);
+	if(ret == NULL)
+		return NULL;
 
 	p = ret;
 	i = 0;

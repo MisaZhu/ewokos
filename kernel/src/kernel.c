@@ -15,6 +15,17 @@ PageDirEntryT* _kernelVM;
 
 void initKernelVM() 
 {
+	/*
+	build free mems list only for kernel init.
+	We can only use init memory part
+	(from ALLOCATABLE_MEMORY_START to 'KERNEL_BASE + INIT_MEMORY_SIZE'),
+	cause the boot program only mapped part of mem by _startupPageDir(startup.c).
+	Notice: This part of physical mem (0 to INIT_MEMORY_SIZE) works for init kernel page mapping
+	*/
+	kallocInit(ALLOCATABLE_MEMORY_START,
+			KERNEL_BASE + INIT_MEMORY_SIZE);
+
+
 	//align up to PAGE_DIR_SIZE (like 16KB in this case). 16KB memory after kernel be used for kernel page dir table 
 	_kernelVM = (PageDirEntryT*)ALIGN_UP((uint32_t)_kernelEnd, PAGE_DIR_SIZE);
 
@@ -22,6 +33,19 @@ void initKernelVM()
 	
 	//Use physical address of kernel virtual memory as the new virtual memory page dir table base.
 	__setTranslationTableBase(V2P((uint32_t)_kernelVM));
+
+	/*
+	init kernel trunk memory malloc.
+	*/
+	kmInit();
+
+	/*
+	Since kernel mem mapping finished, and init ram disk copied to kernel trunk memory.
+	we can build free mem page list for all the rest mem(the init ram disk part can be reused as well).
+	Notice:	From now, you can kalloc all the rest of physical mem.
+	*/
+	kallocInit(KERNEL_BASE + INIT_MEMORY_SIZE,
+			KERNEL_BASE + getPhyRamSize());
 }
 
 void setKernelVM(PageDirEntryT* vm) 
@@ -55,66 +79,38 @@ RamDiskT _initRamDisk;
 
 void kernelEntry() 
 {
-	/*
-	build free mems list only for kernel init.
-
-	We can only use init memory part
-	(from ALLOCATABLE_MEMORY_START to 'KERNEL_BASE + INIT_MEMORY_SIZE'),
-	cause the boot program only mapped part of mem by _startupPageDir(startup.c).
-	Notice: This part of physical mem (0 to INIT_MEMORY_SIZE) works for init kernel page mapping
-	*/
-	kallocInit(ALLOCATABLE_MEMORY_START,
-			KERNEL_BASE + INIT_MEMORY_SIZE);
-
-	/*
-	Done mapping all mem
-	*/
+	/* Done mapping all mem */
 	initKernelVM();
 
-	/*
-	init kernel malloc.
-	*/
-	kmInit();
+	/*init uart for output.*/
+	uartInit(); 
 
-	/*
-	copy ramdisk to high memory(kernel trunk memory).
-	qemu-system-arm -initrd <FILE> will load initrd-FILE to physical memory address(INITRD_BASE=128M) when bootup, temporarily!
-	This part of memory should be reused after initrd moved to kernel trunk memory.
-	*/
-	/*_initRamDiskBase = kmalloc(INITRD_SIZE);
-	memcpy(_initRamDiskBase, (void*)(INITRD_BASE), INITRD_SIZE);
-	*/
+	/*decode initramdisk to high memory(kernel trunk memory).*/
 	_initRamDiskBase = decodeInitFS();
+	if(_initRamDiskBase == NULL) {
+		uartPuts("panic: initramdisk decode failed!\n");
+		return;
+	}
 
-	/*
-	Since kernel mem mapping finished, and init ram disk copied to kernel trunk memory.
-	we can build free mem page list for all the rest mem(the init ram disk part can be reused as well).
-	Notice:	From now, you can kalloc all the rest of physical mem.
-	*/
-	kallocInit(KERNEL_BASE + INIT_MEMORY_SIZE,
-			KERNEL_BASE + getPhyRamSize());
-
-	procInit();
-
-	uartInit();
 	uartPuts("\n\n=================\n"
 				"EwokOS (by Misa.Z)\n"
 				"=================\n"
 				"Kernel got ready(MMU and ProcMan).\n"
 				"Loading the first process...\n\n");
 
-	//create first process
-	ProcessT *proc;
-	proc = procCreate();
+	procInit();
+	ProcessT *proc = procCreate(); //create first process
+	if(proc == NULL) {
+		uartPuts("panic: init process create failed!\n");
+		return;
+	}
 	
-	//init ram disk
-	ramdiskOpen((const char*)_initRamDiskBase, &_initRamDisk, kmalloc);
 	//load process from ramdisk by name.
+	ramdiskOpen((const char*)_initRamDiskBase, &_initRamDisk, kmalloc);
 	int size = 0;
-	const char *p;
-	p = ramdiskRead(&_initRamDisk, FIRST_PROCESS, &size);
+	const char *p = ramdiskRead(&_initRamDisk, FIRST_PROCESS, &size);
 	if(p == NULL) {
-		uartPuts("init process load failed!\n");
+		uartPuts("panic: init process load failed!\n");
 		return;
 	}
 	else {
