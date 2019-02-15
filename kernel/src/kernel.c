@@ -122,9 +122,10 @@ void kernelEntry()
 		strncpy(proc->cmd, FIRST_PROCESS, CMD_MAX);
 	}
 
-	schedulerInit();
 	irqInit();
 	timerInit();
+
+	schedulerInit();
 
 	//kramdiskClose(_initRamDisk, kmfree);
 	//kmfree(_initRamDiskBase);

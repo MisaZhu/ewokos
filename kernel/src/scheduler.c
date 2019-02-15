@@ -33,7 +33,7 @@ void handleTimer(void)
 	schedule();
 }
 
-#define SCHEDULE_TIME 100000 /*0.1 sec*/
+#define SCHEDULE_TIME 10 /*0.01 sec*/
 
 void schedulerInit(void)
 {

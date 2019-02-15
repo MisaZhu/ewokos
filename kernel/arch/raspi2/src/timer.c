@@ -17,28 +17,24 @@
 #define TIMER_INTCTL  0x03
 #define TIMER_BGLOAD  0x06
 
-void timerSetInterval(uint32_t intervalMicrosecond) {
-	(void) intervalMicrosecond;
-	/*volatile uint32_t* timer = (volatile uint32_t*)(MMIO_BASE+ARM_TIMER_OFF);
-	timer[TIMER_CONTROL] = 0;
-	timer[TIMER_BGLOAD] = 0;
-	timer[TIMER_LOAD] = intervalMicrosecond;
-	timer[TIMER_CONTROL] = 0x003E00A2;
-	*/
-}
-
-void timerClearInterrupt(void) {
-	//volatile uint32_t* timer = (volatile uint32_t*)(MMIO_BASE+ARM_TIMER_OFF);
-	//timer[TIMER_INTCTL] = 0;
-}
-
-extern void write_cntv_tval(uint32_t val);
-
 uint32_t read_cntfrq(void) {
 	uint32_t val;
 	__asm__ volatile ("mrc p15, 0, %0, c14, c0, 0" : "=r"(val) );
 	return val;
 }
+
+uint32_t _timerFrq  = 0;
+
+void timerSetInterval(uint32_t intervalMicrosecond) {
+	if(intervalMicrosecond == 0)
+		intervalMicrosecond = 100;
+	_timerFrq = (read_cntfrq()/1000) * intervalMicrosecond;
+}
+
+void timerClearInterrupt(void) {
+}
+
+extern void write_cntv_tval(uint32_t val);
 
 void enable_cntv(void) {
 	uint32_t cntv_ctl;
@@ -52,16 +48,7 @@ void disable_cntv(void) {
 	__asm__ volatile ("mcr p15, 0, %0, c14, c3, 1" :: "r"(cntv_ctl) ); // write CNTV_CTL
 }
 
-uint32_t _timerFrq  = 0;
-
 void timerInit() {
-	/*volatile uint32_t* timer = (volatile uint32_t*)(MMIO_BASE+ARM_TIMER_OFF);
-	timer[TIMER_LOAD] = 0x1000;
-	timer[TIMER_CONTROL] = 0x003E0000;
-	timer[TIMER_CONTROL] = (ARM_TIMER_CTRL_32BIT | ARM_TIMER_CTRL_ENABLE |
-			ARM_TIMER_CTRL_IRQ_ENABLE | ARM_TIMER_CTRL_PRESCALE_256);
-	timer[TIMER_INTCTL] = 0;
-	*/
 	_timerFrq = read_cntfrq()/100;
 	write_cntv_tval(_timerFrq); 
 	enable_cntv(); 
