@@ -14,7 +14,7 @@ uint32_t getMMIOMemSize() {
 }
 
 uint32_t getUartIrq() {
-	return 29;
+	return 25;
 }
 
 uint32_t getTimerIrq() {

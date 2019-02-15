@@ -77,11 +77,12 @@ void uartDevInit(void) {
 	mmio_write(MMIO_BASE+UART0_LCRH, (1 << 4) | (1 << 5) | (1 << 6));
 
 	// Mask all interrupts.
-	mmio_write(MMIO_BASE+UART0_IMSC, (1 << 1) | (1 << 4) | (1 << 5) | (1 << 6) | (1 << 7) |
-			(1 << 8) | (1 << 9) | (1 << 10));
+	//mmio_write(MMIO_BASE+UART0_IMSC, (1 << 1) | (1 << 4) | (1 << 5) | (1 << 6) | (1 << 7) |
+	//		(1 << 8) | (1 << 9) | (1 << 10));
+	mmio_write(MMIO_BASE+UART0_IMSC, (1 << 4));
 
 	// Enable UART0, receive & transfer part of UART.
-	mmio_write(MMIO_BASE+UART0_CR, (1 << 0) | (1 << 8) | (1 << 9));
+	//mmio_write(MMIO_BASE+UART0_CR, (1 << 0) | (1 << 8) | (1 << 9));
 }
 
 void uartTransmit(char c) {

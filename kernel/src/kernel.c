@@ -103,13 +103,13 @@ void kernelEntry()
 				"Kernel got ready(MMU and ProcMan).\n"
 				"Loading the first process...\n\n");
 
-	/*create first process*/
+	//create first process
 	ProcessT *proc;
 	proc = procCreate();
 	
-	/*init ram disk*/
+	//init ram disk
 	ramdiskOpen((const char*)_initRamDiskBase, &_initRamDisk, kmalloc);
-	/*load process from ramdisk by name.*/
+	//load process from ramdisk by name.
 	int size = 0;
 	const char *p;
 	p = ramdiskRead(&_initRamDisk, FIRST_PROCESS, &size);
@@ -122,12 +122,9 @@ void kernelEntry()
 		strncpy(proc->cmd, FIRST_PROCESS, CMD_MAX);
 	}
 
-	timerInit();
-	/*schedule processes*/
 	schedulerInit();
 	irqInit();
-
-	//schedule();
+	timerInit();
 
 	//kramdiskClose(_initRamDisk, kmfree);
 	//kmfree(_initRamDiskBase);
