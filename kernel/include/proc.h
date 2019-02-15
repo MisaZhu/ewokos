@@ -61,7 +61,7 @@ typedef struct {
 
 	uint32_t heapSize;
 	char *userStack;
-	char *kernelStack;
+	//char *kernelStack;
 	int context[17];
 
 	int waitPid;

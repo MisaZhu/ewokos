@@ -79,7 +79,7 @@ ProcessT *procCreate(void)
 	ProcessT *proc = NULL;
 	int index = -1;
 	PageDirEntryT *vm = NULL;
-	char *kernelStack = NULL;
+	//char *kernelStack = NULL;
 	char *userStack = NULL;
 
 	for (int i = 0; i < PROCESS_COUNT_MAX; i++) {
@@ -93,16 +93,17 @@ ProcessT *procCreate(void)
 		return NULL;
 	proc = &_processTable[index];
 
-	kernelStack = kalloc();
+	//kernelStack = kalloc();
 	userStack = kalloc();
 
 	vm = _processVM[index];
 	setKernelVM(vm);
 
-	mapPage(vm, 
+	/*mapPage(vm, 
 		KERNEL_STACK_BOTTOM,
 		V2P(kernelStack),
 		AP_RW_R);
+		*/
 
 	mapPage(vm,
 		USER_STACK_BOTTOM,
@@ -119,7 +120,7 @@ ProcessT *procCreate(void)
 	proc->vm = vm;
 	proc->heapSize = 0;
 
-	proc->kernelStack = kernelStack;
+	//proc->kernelStack = kernelStack;
 	proc->userStack = userStack;
 
 	proc->waitPid = -1;
@@ -154,7 +155,7 @@ void procFree(ProcessT *proc)
 	}
 
 	clearMessageQueue(&proc->messageQueue);
-	kfree(proc->kernelStack);
+	//kfree(proc->kernelStack);
 	kfree(proc->userStack);
 	procShrinkMemory(proc, proc->heapSize / PAGE_SIZE);
 	freePageTables(proc->vm);
@@ -255,7 +256,7 @@ int kfork(void)
 	}
 
 	/* copy parent's stack to child's stack */
-	memcpy(child->kernelStack, parent->kernelStack, PAGE_SIZE);
+	//memcpy(child->kernelStack, parent->kernelStack, PAGE_SIZE);
 	memcpy(child->userStack, parent->userStack, PAGE_SIZE);
 
 	/* copy parent's context to child's context */
