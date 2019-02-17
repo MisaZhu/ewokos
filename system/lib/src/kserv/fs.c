@@ -37,6 +37,7 @@ int fsFInfo(const char* name, FSInfoT* info) {
 		return -1;
 	
 	memcpy(info, getPackageData(pkg), sizeof(FSInfoT));
+	free(pkg);
 	return 0;
 }
 
@@ -95,6 +96,7 @@ int fsWrite(int fd, const char* buf, uint32_t size) {
 	}
 
 	int sz = *(int*)getPackageData(pkg);
+	free(pkg);
 	return sz;
 }
 
@@ -118,6 +120,7 @@ int fsAdd(int dirFD, const char* name) {
 	}
 
 	int sz = *(int*)getPackageData(pkg);
+	free(pkg);
 	return sz;
 }
 
@@ -142,10 +145,13 @@ int fsInfo(int fd, FSInfoT* info) {
 		return -1;
 	
 	PackageT* pkg = preq(_fsPid, FS_INFO, &fd, 4, true);
-	if(pkg == NULL || pkg->type == PKG_TYPE_ERR)
+	if(pkg == NULL || pkg->type == PKG_TYPE_ERR) {
+		if(pkg != NULL)	free(pkg);
 		return -1;
+	}
 	
 	memcpy(info, getPackageData(pkg), sizeof(FSInfoT));
+	free(pkg);
 	return 0;
 }
 
@@ -155,10 +161,13 @@ int fsChild(int fd, FSInfoT* child) {
 		return -1;
 	
 	PackageT* pkg = preq(_fsPid, FS_CHILD, &fd, 4, true);
-	if(pkg == NULL || pkg->type == PKG_TYPE_ERR)
+	if(pkg == NULL || pkg->type == PKG_TYPE_ERR) {
+		if(pkg != NULL)	free(pkg);
 		return -1;
+	}
 	
 	memcpy(child, getPackageData(pkg), sizeof(FSInfoT));
+	free(pkg);
 	return 0;
 }
 

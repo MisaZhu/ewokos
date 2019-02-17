@@ -3,6 +3,7 @@
 #include <syscall.h>
 #include <stdlib.h>
 #include <kstring.h>
+#include <kserv/kserv.h>
 #include <kserv/userman.h>
 #include <stdio.h>
 
@@ -28,7 +29,9 @@ static void doAuth(PackageT* pkg) {
 	psend(pkg->id, pkg->type, &uid, 4);
 }
 
-static void handle(PackageT* pkg) {
+static void handle(PackageT* pkg, void* p) {
+	(void)p;
+
 	switch(pkg->type) {
 	case USERMAN_AUTH:
 		doAuth(pkg);
@@ -41,16 +44,6 @@ void _start() {
 		exit(0);
 	}
 
-	syscall1(SYSCALL_KSERV_REG, (int)KSERV_USERMAN_NAME);
-
-	while(true) {
-		PackageT* pkg = proll();	
-		if(pkg != NULL) {
-			handle(pkg);
-			free(pkg);
-		}
-		else
-			yield();
-	}
-	exit(0);
+	if(!kservRun(KSERV_USERMAN_NAME, handle, NULL))
+		exit(0);
 }

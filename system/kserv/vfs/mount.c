@@ -1,4 +1,4 @@
-#include <tree.h>
+#include <fstree.h>
 #include <malloc.h>
 #include <stdio.h>
 #include <string.h>
@@ -24,8 +24,8 @@ void mountInit() {
 
 static void mountDevice(TreeNodeT* node) {
 	printf("mnt: type=%d, device=%s\n",
-		_mounts[node->mount].type,
-		_mounts[node->mount].device);
+		_mounts[FSN(node)->mount].type,
+		_mounts[FSN(node)->mount].device);
 	
 	DevTypeT* dev = getDevInfo(node);
 	if(dev != NULL && dev->mount != NULL)
@@ -33,22 +33,21 @@ static void mountDevice(TreeNodeT* node) {
 }
 
 static TreeNodeT* preMount(uint32_t type, const char* device) {
-	TreeNodeT* node = (TreeNodeT*)malloc(sizeof(TreeNodeT));
+	TreeNodeT* node = fsNewNode();
 	if(node == NULL)
 		return NULL;
-	treeInitNode(node);
 
 	int i;
 	for(i=0; i<MOUNT_MAX; i++) {
 		if(_mounts[i].device[0] == 0) {
-			node->mount = i;
-			node->type = type;
+			FSN(node)->mount = i;
+			FSN(node)->type = type;
 
 			strncpy(_mounts[i].device, device, NAME_MAX);
 			_mounts[i].type = type;
 			_mounts[i].to = NULL;
 			mountDevice(node);
-			node->flags |= FS_FLAG_MNT_ROOT;
+			FSN(node)->flags |= FS_FLAG_MNT_ROOT;
 			return node;
 		}
 	}
@@ -59,15 +58,15 @@ TreeNodeT* mount(TreeNodeT* to, uint32_t type, const char* device) {
 	if(to == NULL || device == NULL)
 		return NULL;
 
-	if(to->mount >= 0) /*can not mount to another mount node */
+	if(FSN(to)->mount >= 0) /*can not mount to another mount node */
 		return NULL;
 
 	TreeNodeT* node = preMount(type, device);
 	if(node == NULL)
 		return NULL;
-	strcpy(node->name, to->name);
+	strcpy(FSN(node)->name, FSN(to)->name);
 
-	_mounts[node->mount].to = to; //save the old node.
+	_mounts[FSN(node)->mount].to = to; //save the old node.
 
 	/*replace the old node*/
 	node->father = to->father;
@@ -91,7 +90,7 @@ void unmount(TreeNodeT* node) {
 	if(node == NULL)
 		return;
 
-	TreeNodeT* to = _mounts[node->mount].to; //get the saved old node.
+	TreeNodeT* to = _mounts[FSN(node)->mount].to; //get the saved old node.
 	if(to == NULL)
 		return;
 
@@ -113,15 +112,15 @@ void unmount(TreeNodeT* node) {
 }
 
 MountT* getMountInfo(struct TreeNode* node) {
-	if(node == NULL || node->mount < 0)
+	if(node == NULL || FSN(node)->mount < 0)
 		return NULL;
 
-	return &_mounts[node->mount];
+	return &_mounts[FSN(node)->mount];
 }
 
 DevTypeT* getDevInfo(struct TreeNode* node) {
-	if(node == NULL || node->mount < 0)
+	if(node == NULL || FSN(node)->mount < 0)
 		return NULL;
 
-	return &_devices[_mounts[node->mount].type];
+	return &_devices[_mounts[FSN(node)->mount].type];
 }

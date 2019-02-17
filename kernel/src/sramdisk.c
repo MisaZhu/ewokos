@@ -4,6 +4,9 @@
 #include <base16.h>
 #include <initfs.h>
 
+char* _initRamDiskBase = 0;
+RamDiskT _initRamDisk;
+
 void ramdiskClose(RamDiskT* rd, void (*fr)(void*)) {
 	RamFileT* rf = rd->head;
 	while(rf != NULL) {

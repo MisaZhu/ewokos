@@ -1,12 +1,12 @@
 #include <string.h>
 #include <vfs.h>
-#include <tree.h>
+#include <fstree.h>
 #include <syscall.h>
 #include <kserv/fs.h>
 #include <stdio.h>
 
 void mountTTY(TreeNodeT* node) {
-	node->type = FS_TYPE_DEV_FILE;
+	FSN(node)->type = FS_TYPE_DEV_FILE;
 }
 
 int infoTTY(TreeNodeT* node, FSInfoT* info) {

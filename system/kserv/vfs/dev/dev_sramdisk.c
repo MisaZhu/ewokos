@@ -1,6 +1,6 @@
 #include <string.h>
 #include <vfs.h>
-#include <tree.h>
+#include <fstree.h>
 #include <syscall.h>
 #include <malloc.h>
 #include <stdio.h>
@@ -24,7 +24,7 @@ static char* getKernelInitRDFiles() {
 }
 
 void mountSRamDisk(TreeNodeT* node) {
-	node->type = FS_TYPE_DIR;
+	FSN(node)->type = FS_TYPE_DIR;
 	char* s = getKernelInitRDFiles();
 	if(s == NULL)
 		return;
@@ -35,10 +35,10 @@ void mountSRamDisk(TreeNodeT* node) {
 	while(1) {
 		if(s[i] == 0) {
 			if(name[0] != 0) {
-				n = treeSimpleAdd(node, name);
+				n = fsTreeSimpleAdd(node, name);
 				if(n != NULL) {
-					n->type = FS_TYPE_FILE;
-					n->mount = node->mount;
+					FSN(n)->type = FS_TYPE_FILE;
+					FSN(n)->mount = FSN(node)->mount;
 				}
 			}
 			break;
@@ -46,10 +46,10 @@ void mountSRamDisk(TreeNodeT* node) {
 		else if(s[i] == '\n') {
 			s[i] = 0;
 			if(name[0] != 0) {
-				n = treeSimpleAdd(node, name);
+				n = fsTreeSimpleAdd(node, name);
 				if(n != NULL) {
-					n->type = FS_TYPE_FILE;
-					n->mount = node->mount;
+					FSN(n)->type = FS_TYPE_FILE;
+					FSN(n)->mount = FSN(node)->mount;
 				}
 			}
 			name = s + i + 1;
@@ -57,12 +57,12 @@ void mountSRamDisk(TreeNodeT* node) {
 		i++;
 	}
 	free(s);
-	node->type = FS_TYPE_DIR;
+	FSN(node)->type = FS_TYPE_DIR;
 }
 
 int readSRamDisk(TreeNodeT* node, int seek, char* buf, uint32_t size) {
 	int sz = size;
-	char* p = readKernelInitRD(node->name, seek, &sz);
+	char* p = readKernelInitRD(FSN(node)->name, seek, &sz);
 	if(p == NULL)
 		return -1;
 
@@ -72,5 +72,5 @@ int readSRamDisk(TreeNodeT* node, int seek, char* buf, uint32_t size) {
 }
 
 int infoSRamDisk(TreeNodeT* node, FSInfoT* info) {
-	return infoKernelInitRD(node->name, info);
+	return infoKernelInitRD(FSN(node)->name, info);
 }

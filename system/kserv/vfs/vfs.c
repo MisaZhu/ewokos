@@ -3,6 +3,7 @@
 #include <syscall.h>
 #include <stdlib.h>
 #include <kstring.h>
+#include <kserv/kserv.h>
 #include <kserv/fs.h>
 #include <vfs.h>
 #include <mount.h>
@@ -12,7 +13,7 @@ static TreeNodeT _root;
 
 void doOpen(PackageT* pkg) { 
 	const char* name = (const char*)getPackageData(pkg);
-	TreeNodeT* node = treeGet(&_root, name);
+	TreeNodeT* node = fsTreeGet(&_root, name);
 	int32_t fd = -1;
 	int openMode = 0;//read.
 
@@ -49,7 +50,7 @@ void doClose(PackageT* pkg) {
 
 void doFInfo(PackageT* pkg) { 
 	const char* name = (const char*)getPackageData(pkg);
-	TreeNodeT* node = treeGet(&_root, name);
+	TreeNodeT* node = fsTreeGet(&_root, name);
 	
 	if(node == NULL) {
 		psend(pkg->id, PKG_TYPE_ERR, NULL, 0);
@@ -59,7 +60,7 @@ void doFInfo(PackageT* pkg) {
 	FSInfoT info;
 	DevTypeT* dev = getDevInfo(node);
 	if(dev == NULL || dev->info == NULL) {
-		if(node->type == FS_TYPE_FILE) {
+		if(FSN(node)->type == FS_TYPE_FILE) {
 			psend(pkg->id, PKG_TYPE_ERR, NULL, 0);
 			return;
 		}
@@ -70,9 +71,9 @@ void doFInfo(PackageT* pkg) {
 	else {
 		dev->info(node, &info);
 	}
-	info.type = node->type;
-	info.owner = node->owner;
-	strncpy(info.name, node->name, FNAME_MAX);
+	info.type = FSN(node)->type;
+	info.owner = FSN(node)->owner;
+	strncpy(info.name, FSN(node)->name, FNAME_MAX);
 	psend(pkg->id, pkg->type, &info, sizeof(FSInfoT));
 }
 
@@ -92,7 +93,7 @@ void doInfo(PackageT* pkg) {
 	FSInfoT info;
 	DevTypeT* dev = getDevInfo(node);
 	if(dev == NULL || dev->info == NULL) {
-		if(node->type == FS_TYPE_FILE) {
+		if(FSN(node)->type == FS_TYPE_FILE) {
 			psend(pkg->id, PKG_TYPE_ERR, NULL, 0);
 			return;
 		}
@@ -103,9 +104,9 @@ void doInfo(PackageT* pkg) {
 	else {
 		dev->info(node, &info);
 	}
-	info.type = node->type;
-	info.owner = node->owner;
-	strncpy(info.name, node->name, FNAME_MAX);
+	info.type = FSN(node)->type;
+	info.owner = FSN(node)->owner;
+	strncpy(info.name, FSN(node)->name, FNAME_MAX);
 	psend(pkg->id, pkg->type, &info, sizeof(FSInfoT));
 }
 
@@ -118,7 +119,7 @@ void doChild(PackageT* pkg) {
 	}
 
 	TreeNodeT* node = (TreeNodeT*)syscall2(SYSCALL_PFILE_NODE, pkg->pid, fd);
-	if(node == NULL || node->type != FS_TYPE_DIR) {
+	if(node == NULL || FSN(node)->type != FS_TYPE_DIR) {
 		psend(pkg->id, PKG_TYPE_ERR, NULL, 0);
 		return;
 	}
@@ -137,7 +138,7 @@ void doChild(PackageT* pkg) {
 	FSInfoT info;
 	DevTypeT* dev = getDevInfo(node);
 	if(dev == NULL || dev->info == NULL) {
-		if(node->type == FS_TYPE_FILE) {
+		if(FSN(node)->type == FS_TYPE_FILE) {
 			psend(pkg->id, PKG_TYPE_ERR, NULL, 0);
 			return;
 		}
@@ -146,12 +147,12 @@ void doChild(PackageT* pkg) {
 		dev->info(node, &info);
 	}
 
-	info.type = node->type;
+	info.type = FSN(node)->type;
 	if(info.type == FS_TYPE_DIR)
 		info.size = sizeof(FSInfoT);
-	info.owner = node->owner;
+	info.owner = FSN(node)->owner;
 
-	strncpy(info.name, node->name, FNAME_MAX);
+	strncpy(info.name, FSN(node)->name, FNAME_MAX);
 	psend(pkg->id, pkg->type, &info, sizeof(FSInfoT));
 
 	if(node->next == NULL) 
@@ -213,18 +214,18 @@ void doAdd(PackageT* pkg) {
 		return;
 	}
 
-	if(treeSimpleGet(node, p) != NULL) { /*already exist.*/
+	if(fsTreeSimpleGet(node, p) != NULL) { /*already exist.*/
 		psend(pkg->id, PKG_TYPE_ERR, NULL, 0);
 		return;
 	}
 
-	node = treeSimpleAdd(node, p);
+	node = fsTreeSimpleAdd(node, p);
 	if(node == NULL) {
 		psend(pkg->id, PKG_TYPE_ERR, NULL, 0);
 		return;
 	}
 
-	node->owner = syscall1(SYSCALL_GET_UID, pkg->pid);
+	FSN(node)->owner = syscall1(SYSCALL_GET_UID, pkg->pid);
 	psend(pkg->id, pkg->type, NULL, 0);
 }
 
@@ -270,7 +271,38 @@ void doRead(PackageT* pkg) {
 	}
 }
 
-void handle(PackageT* pkg) {
+void doMount(PackageT* pkg) {
+	char serv[NAME_MAX+1];
+	char path[NAME_MAX+1];
+	char name[NAME_MAX+1];
+
+	const char* p = (const char*)getPackageData(pkg);
+	uint32_t len = *(uint32_t*)p;
+	p += 4;
+	strncpy(serv, p, len);
+	p += len;
+
+	len = *(uint32_t*)p;
+	p += 4;
+	strncpy(path, p, len);
+	p += len;
+	
+	len = *(uint32_t*)p;
+	p += 4;
+	strncpy(name, p, len);
+
+	TreeNodeT* node = fsTreeGet(&_root, path);
+	if(node == NULL) { 
+		psend(pkg->id, PKG_TYPE_ERR, NULL, 0);
+		return;
+	}
+
+	node = mount(node, DEV_NONE, serv);
+	psend(pkg->id, pkg->type, NULL, 0);
+}
+
+void handle(PackageT* pkg, void* p) {
+	(void)p;
 	switch(pkg->type) {
 		case FS_OPEN:
 			doOpen(pkg);
@@ -296,18 +328,21 @@ void handle(PackageT* pkg) {
 		case FS_ADD:
 			doAdd(pkg);
 			break;
+		case FS_MOUNT:
+			doMount(pkg);
+			break;
 	}
 }
 
 static void doInit() {
-	treeInitNode(&_root);
-	strcpy(_root.name, "/");
+	fsTreeNodeInit(&_root);
+	strcpy(FSN(&_root)->name, "/");
 
-	TreeNodeT* node = treeSimpleAdd(&_root, "initrd");
+	TreeNodeT* node = fsTreeSimpleAdd(&_root, "initrd");
 	node = mount(node, DEV_SRAMDISK, "initrd");
 
-	node = treeSimpleAdd(&_root, "dev");
-	node = treeSimpleAdd(node, "tty0");
+	node = fsTreeSimpleAdd(&_root, "dev");
+	node = fsTreeSimpleAdd(node, "tty0");
 	node = mount(node, DEV_TTY, "tty0");
 }
 
@@ -318,16 +353,12 @@ void _start() {
 	}
 
 	doInit();
-	syscall1(SYSCALL_KSERV_REG, (int)KSERV_FS_NAME);
 
-	while(true) {
-		PackageT* pkg = proll();	
-		if(pkg != NULL) {
-			handle(pkg);
-			free(pkg);
-		}
-		else
-			yield();
+	int pid = fork();
+	if(pid == 0) { 
+		exec("ttyd");
 	}
-	exit(0);
+
+	if(!kservRun(KSERV_FS_NAME, handle, NULL))
+		exit(0);
 }

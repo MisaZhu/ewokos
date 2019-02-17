@@ -8,6 +8,10 @@
 static KServT _kernelServices[KSERV_MAX];
 
 int kservReg(const char* name) {
+	if(_currentProcess->owner > 0) {
+		return -1;
+	}	
+
 	int pid = _currentProcess->pid;
 	int i;
 	for(i=0; i<KSERV_MAX; i++) {

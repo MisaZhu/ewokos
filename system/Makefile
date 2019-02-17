@@ -28,11 +28,12 @@ all: system
 include lib/build.mk
 include mkramfs/build.mk
 include sbin/build.mk
+include kserv/build.mk
 
 
 system: $(MKRAMFS) $(PROGRAM) $(COMMON_OBJ)
 	mkdir -p build
-	$(MKRAMFS) ../kernel/include/initfs.h build/sbin
+	$(MKRAMFS) ../kernel/include/initfs.h build
 
 clean:
 	rm -f $(EXTRA_CLEAN) $(COMMON_OBJ) ../kernel/include/initfs.h 

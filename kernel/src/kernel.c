@@ -10,6 +10,7 @@
 #include <kstring.h>
 #include <sramdisk.h>
 #include <timer.h>
+#include <scheduler.h>
 
 PageDirEntryT* _kernelVM;
 
@@ -60,7 +61,7 @@ void setKernelVM(PageDirEntryT* vm)
 
 	//map MMIO to high(virtual) mem.
 	mapPages(vm, MMIO_BASE, getMMIOBasePhy(), getMMIOBasePhy() + getMMIOMemSize(), AP_RW_D);
-	
+
 	//map kernel memory trunk to high(virtual) mem.
 	mapPages(vm, KMALLOC_BASE, V2P(KMALLOC_BASE), V2P(KMALLOC_BASE+KMALLOC_SIZE), AP_RW_D);
 	
@@ -68,15 +69,7 @@ void setKernelVM(PageDirEntryT* vm)
 	mapPages(vm, ALLOCATABLE_MEMORY_START, V2P(ALLOCATABLE_MEMORY_START), getPhyRamSize(), AP_RW_D);
 }
 
-void schedulerInit();
-void schedule();
-bool loadInit(ProcessT *proc);
-
-char* _initRamDiskBase = 0;
-RamDiskT _initRamDisk;
-
 #define FIRST_PROCESS "init"
-//#define FIRST_PROCESS "test"
 
 void kernelEntry() 
 {

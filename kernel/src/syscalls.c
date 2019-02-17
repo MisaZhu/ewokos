@@ -13,8 +13,7 @@
 #include <types.h>
 #include <kserv.h>
 #include <fsinfo.h>
-
-void schedule();
+#include <scheduler.h>
 
 static int syscall_uartPutch(int c)
 {

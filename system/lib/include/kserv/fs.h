@@ -5,7 +5,7 @@
 
 #define KSERV_FS_NAME  "FS"
 
-typedef enum {
+enum {
 	FS_OPEN = 0,
 	FS_CLOSE,
 	FS_WRITE,
@@ -15,7 +15,9 @@ typedef enum {
 	FS_ADD,
 	FS_CHILD,
 	FS_NEXT,
-} FSCmdT;
+	FS_MOUNT,
+	FS_UNMOUNT
+};
 
 int fsOpen(const char* name);
 

@@ -5,6 +5,10 @@ LIB_OBJS = lib/src/syscall.o \
 	lib/src/stdio.o \
 	lib/src/cmain.o \
 	lib/src/unistd.o \
+	lib/src/tree.o \
+	lib/src/dev.o \
+	lib/src/kserv/kserv.o \
+	lib/src/kserv/devserv.o \
 	lib/src/kserv/fs.o \
 	lib/src/kserv/userman.o
 

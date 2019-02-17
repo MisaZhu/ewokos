@@ -1,12 +1,12 @@
-VFS_DIR = sbin/vfs
-VFS_PROGRAM = build/sbin/vfs 
+VFS_DIR = kserv/vfs
+VFS_PROGRAM = build/vfs 
 PROGRAM += $(VFS_PROGRAM)
 
 EXTRA_CLEAN += $(VFS_PROGRAM) $(VFS_DIR)/*.o $(VFS_DIR)/dev/*.o
 
 $(VFS_PROGRAM): $(VFS_DIR)/*.c $(COMMON_OBJ) lib/libewoklibc.a
-	mkdir -p build/sbin
-	$(CC) $(CFLAGS) -I $(VFS_DIR) -c -o $(VFS_DIR)/tree.o $(VFS_DIR)/tree.c
+	mkdir -p build
+	$(CC) $(CFLAGS) -I $(VFS_DIR) -c -o $(VFS_DIR)/fstree.o $(VFS_DIR)/fstree.c
 	$(CC) $(CFLAGS) -I $(VFS_DIR) -c -o $(VFS_DIR)/vfs.o $(VFS_DIR)/vfs.c
 	$(CC) $(CFLAGS) -I $(VFS_DIR) -c -o $(VFS_DIR)/mount.o $(VFS_DIR)/mount.c
 	$(CC) $(CFLAGS) -I $(VFS_DIR) -c -o $(VFS_DIR)/dev/dev_sramdisk.o $(VFS_DIR)/dev/dev_sramdisk.c

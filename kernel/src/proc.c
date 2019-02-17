@@ -8,8 +8,7 @@
 #include <dev/uart.h>
 #include <elf.h>
 #include <kernel.h>
-
-void schedule();
+#include <scheduler.h>
 
 ProcessT _processTable[PROCESS_COUNT_MAX];
 
