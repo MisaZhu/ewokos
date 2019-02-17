@@ -2,6 +2,7 @@
 #include <types.h>
 #include <syscall.h>
 #include <stdlib.h>
+#include <stdio.h>
 #include <string.h>
 #include <unistd.h>
 
@@ -86,25 +87,32 @@ int pread(int id, void* data, uint32_t size) {
 	return i;
 }
 
-void* precv(int id, uint32_t *type, uint32_t *size) {
-	int i = pread(id, size, 4);
+PackageT* precvPkg(int id) {
+	uint32_t type, size;
+	int i = pread(id, &size, 4);
 	if(i == 0)
 		return NULL;
 
-	i = pread(id, type, 4);
+	i = pread(id, &type, 4);
 	if(i == 0)
 		return NULL;
 
-	uint32_t sz = *size;
-	void* data = malloc(*size);
-	if(data == NULL)
+	int fromPID = pgetPidW(id);
+	PackageT* pkg = newPackage(id, type, NULL, size, fromPID);
+	if(pkg == NULL)
 		return NULL;
 
-	char* p = (char*)data;
+	uint32_t sz = size;
+	void* data = malloc(size);
+	if(data == NULL) {
+		free(pkg);
+		return NULL;
+	}
+
+	char* p = (char*)getPackageData(pkg);
 	while(true) {
 		i = pread(id, p, sz);
 		if(i == 0) {
-			free(data);
 			return NULL;
 		}
 
@@ -113,7 +121,7 @@ void* precv(int id, uint32_t *type, uint32_t *size) {
 			break;
 		p += i;
 	}
-	return data;
+	return pkg;
 }
 
 int pgetPidR(int32_t id) {
@@ -135,16 +143,8 @@ PackageT* preq(int pid, uint32_t type, void* data, uint32_t size, bool reply) {
 		return NULL;
 	}
 	
-	int32_t fromPID;
-	data = precv(id, &type, &size);
-	fromPID = pgetPidW(id);
+	PackageT* pkg = precvPkg(id);
 	pclose(id);
-	if(data == NULL) {
-		return NULL;
-	}
-
-	PackageT* pkg = newPackage(id, type, data, size, fromPID);
-	free(data);
 	return pkg;
 }
 
@@ -157,16 +157,6 @@ PackageT* proll() {
 		yield();
 	}
 	
-	int32_t fromPID;
-	uint32_t type, size;
-	void* data;
-	data = precv(id, &type, &size);
-	if(data == NULL) {
-		return NULL;
-	}
-	fromPID = pgetPidW(id);
-
-	PackageT* pkg = newPackage(id, type, data, size, fromPID);
-	free(data);
+	PackageT* pkg = precvPkg(id);
 	return pkg;
 }

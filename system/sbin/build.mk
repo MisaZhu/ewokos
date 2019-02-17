@@ -8,6 +8,5 @@ include sbin/pwd/build.mk
 include sbin/mkdir/build.mk
 include sbin/uid/build.mk
 include sbin/login/build.mk
-include sbin/test/build.mk
 
 EXTRA_CLEAN += $(PROGRAM)

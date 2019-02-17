@@ -22,7 +22,7 @@ int pgetPidR(int id);
 
 int pgetPidW(int id);
 
-void* precv(int id, uint32_t *type, uint32_t *size);
+PackageT* precvPkg(int id);
 
 PackageT* preq(int pid, uint32_t type, void* data, uint32_t size, bool reply);
 
