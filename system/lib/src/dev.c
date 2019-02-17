@@ -16,7 +16,6 @@ const char* devGetServName(DeviceT* dev) {
 	return ret;
 }
 
-/*
 static int _fsPid = -1;
 
 #define CHECK_KSERV_FS \
@@ -60,4 +59,3 @@ bool devMount(DeviceT* dev, const char* dstPath, const char* nodeName) {
 	}
 	return true;
 }
-*/
