@@ -25,7 +25,7 @@ static void doAuth(PackageT* pkg) {
 
 	uid = login(user, passwd);
 	syscall2(SYSCALL_SET_UID, pkg->pid, uid);
-	psend(pkg->id, pkg->pid, pkg->type, &uid, 4);
+	psend(pkg->id, pkg->type, &uid, 4);
 }
 
 static void handle(PackageT* pkg) {
@@ -44,7 +44,7 @@ void _start() {
 	syscall1(SYSCALL_KSERV_REG, (int)KSERV_USERMAN_NAME);
 
 	while(true) {
-		PackageT* pkg = precv(-1);	
+		PackageT* pkg = proll();	
 		if(pkg != NULL) {
 			handle(pkg);
 			free(pkg);

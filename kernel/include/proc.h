@@ -69,8 +69,6 @@ typedef struct {
 
 	/*for malloc*/
 	MallocT mallocMan;
-	/*for process communication*/
-	MessageQueueT messageQueue;
 	/*for file*/
 	ProcFileT files[FILE_MAX];
 } ProcessT;

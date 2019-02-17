@@ -131,9 +131,6 @@ ProcessT *procCreate(void)
 	proc->mallocMan.shrink = procShrinkMemory;
 	proc->mallocMan.getMemTail = procGetMemTail;
 
-	proc->messageQueue.head = 0;
-	proc->messageQueue.tail = 0;
-
 	memset(&proc->files, 0, sizeof(ProcFileT)*FILE_MAX);
 	return proc;
 }
@@ -154,7 +151,7 @@ void procFree(ProcessT *proc)
 		}
 	}
 
-	clearMessageQueue(&proc->messageQueue);
+	kcloseAll();
 	//kfree(proc->kernelStack);
 	kfree(proc->userStack);
 	procShrinkMemory(proc, proc->heapSize / PAGE_SIZE);

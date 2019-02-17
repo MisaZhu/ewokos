@@ -18,6 +18,7 @@ CFLAGS = -I. \
 				 -pedantic -Wall -Wextra -msoft-float -fPIC -mapcs-frame \
          -fno-builtin-printf -fno-builtin-strcpy -Wno-overlength-strings \
          -fno-builtin-exit -fno-builtin-stdio \
+				 -g \
 				 -std=c99 
 
 #ASFLAGS = -g -I $(KERNEL_LIB)/include

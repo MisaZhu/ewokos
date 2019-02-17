@@ -20,7 +20,7 @@ int usermanAuth(const char* name, const char* passwd) {
 	strncpy(loginData, name, LOGIN_DATA_LEN);
 	strncpy(loginData+LOGIN_DATA_LEN, passwd, LOGIN_DATA_LEN);
 
-	PackageT* pkg = preq(_usermanPid, USERMAN_AUTH, (void*)loginData, LOGIN_DATA_LEN*2);
+	PackageT* pkg = preq(_usermanPid, USERMAN_AUTH, (void*)loginData, LOGIN_DATA_LEN*2, true);
 	if(pkg == NULL)	
 		return -1;
 

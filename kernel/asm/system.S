@@ -27,18 +27,20 @@ __jump2HighMem:
 
 .global __enableInterrupts
 __enableInterrupts:
+	push {lr}
 	mrs r1, cpsr
 	bic r1, r1, #0x80
 	msr cpsr_c, r1
+	pop {lr}
 	mov pc, lr
-	bx lr
 
 .global __disableInterrupts
 __disableInterrupts:
+	push {lr}
 	mrs r1, cpsr
 	bic r1, r1, #0x00
 	msr cpsr_c, r1
-
+	pop {lr}
 	mov pc, lr
 
 .global __useHighInterrupts

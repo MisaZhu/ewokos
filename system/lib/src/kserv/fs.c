@@ -17,7 +17,7 @@ int fsOpen(const char* name) {
 	CHECK_KSERV_FS
 	int fd = -1;
 
-	PackageT* pkg = preq(_fsPid, FS_OPEN, (void*)name, strlen(name)+1);
+	PackageT* pkg = preq(_fsPid, FS_OPEN, (void*)name, strlen(name)+1, true);
 	if(pkg == NULL)	
 		return -1;
 
@@ -32,7 +32,7 @@ int fsFInfo(const char* name, FSInfoT* info) {
 	if(name == NULL || name[0] == 0)
 		return -1;
 	
-	PackageT* pkg = preq(_fsPid, FS_FINFO, (void*)name, strlen(name)+1);
+	PackageT* pkg = preq(_fsPid, FS_FINFO, (void*)name, strlen(name)+1, true);
 	if(pkg == NULL || pkg->type == PKG_TYPE_ERR)
 		return -1;
 	
@@ -47,8 +47,7 @@ int fsClose(int fd) {
 	if(fd < 0)
 		return -1;
 
-	if(psend(-1, _fsPid, FS_CLOSE, (void*)&fd, 4) < 0)
-		return -1;
+	preq(_fsPid, FS_CLOSE, (void*)&fd, 4, false);
 	return 0;
 }
 
@@ -62,7 +61,7 @@ int fsRead(int fd, char* buf, uint32_t size) {
 	memcpy(req, &fd, 4);
 	memcpy(req+4, &size, 4);
 
-	PackageT* pkg = preq(_fsPid, FS_READ, req, 8);
+	PackageT* pkg = preq(_fsPid, FS_READ, req, 8, true);
 	if(pkg == NULL || pkg->type == PKG_TYPE_ERR)
 		return -1;
 
@@ -88,7 +87,7 @@ int fsWrite(int fd, const char* buf, uint32_t size) {
 	memcpy(req+4, &size, 4);
 	memcpy(req+8, buf, size);
 
-	PackageT* pkg = preq(_fsPid, FS_WRITE, req, size+8);
+	PackageT* pkg = preq(_fsPid, FS_WRITE, req, size+8, true);
 	free(req);
 
 	if(pkg == NULL || pkg->type == PKG_TYPE_ERR) {
@@ -111,7 +110,7 @@ int fsAdd(int dirFD, const char* name) {
 	memcpy(req+4, &size, 4);
 	memcpy(req+8, name, size);
 
-	PackageT* pkg = preq(_fsPid, FS_ADD, req, size+8);
+	PackageT* pkg = preq(_fsPid, FS_ADD, req, size+8, true);
 	free(req);
 
 	if(pkg == NULL || pkg->type == PKG_TYPE_ERR) {
@@ -142,7 +141,7 @@ int fsInfo(int fd, FSInfoT* info) {
 	if(fd < 0)
 		return -1;
 	
-	PackageT* pkg = preq(_fsPid, FS_INFO, &fd, 4);
+	PackageT* pkg = preq(_fsPid, FS_INFO, &fd, 4, true);
 	if(pkg == NULL || pkg->type == PKG_TYPE_ERR)
 		return -1;
 	
@@ -155,7 +154,7 @@ int fsChild(int fd, FSInfoT* child) {
 	if(fd < 0 || child == NULL)
 		return -1;
 	
-	PackageT* pkg = preq(_fsPid, FS_CHILD, &fd, 4);
+	PackageT* pkg = preq(_fsPid, FS_CHILD, &fd, 4, true);
 	if(pkg == NULL || pkg->type == PKG_TYPE_ERR)
 		return -1;
 	

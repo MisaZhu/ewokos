@@ -6,8 +6,8 @@
 static const uint32_t PKG_TYPE_ERR = 0x0FFFFFFF;
 
 typedef struct {
-	int id;
-	int pid;
+	int32_t id;
+	int32_t pid;
 	uint32_t type;
 	uint32_t size;
 } PackageT;

@@ -5,6 +5,8 @@
 
 void __setTranslationTableBase(uint32_t v);
 void __switchToContext(int *context);
+void __enableInterrupts();
+void __disableInterrupts();
 
 #endif
 

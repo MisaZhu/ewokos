@@ -27,7 +27,7 @@ void doOpen(PackageT* pkg) {
 		fd = syscall3(SYSCALL_PFILE_OPEN, pkg->pid, (int32_t)node, openMode);
 	}
 	
-	psend(pkg->id, pkg->pid, pkg->type, &fd, 4);
+	psend(pkg->id, pkg->type, &fd, 4);
 }
 
 void doClose(PackageT* pkg) { 
@@ -52,7 +52,7 @@ void doFInfo(PackageT* pkg) {
 	TreeNodeT* node = treeGet(&_root, name);
 	
 	if(node == NULL) {
-		psend(pkg->id, pkg->pid, PKG_TYPE_ERR, NULL, 0);
+		psend(pkg->id, PKG_TYPE_ERR, NULL, 0);
 		return;
 	}
 
@@ -60,7 +60,7 @@ void doFInfo(PackageT* pkg) {
 	DevTypeT* dev = getDevInfo(node);
 	if(dev == NULL || dev->info == NULL) {
 		if(node->type == FS_TYPE_FILE) {
-			psend(pkg->id, pkg->pid, PKG_TYPE_ERR, NULL, 0);
+			psend(pkg->id, PKG_TYPE_ERR, NULL, 0);
 			return;
 		}
 		else {
@@ -73,19 +73,19 @@ void doFInfo(PackageT* pkg) {
 	info.type = node->type;
 	info.owner = node->owner;
 	strncpy(info.name, node->name, FNAME_MAX);
-	psend(pkg->id, pkg->pid, pkg->type, &info, sizeof(FSInfoT));
+	psend(pkg->id, pkg->type, &info, sizeof(FSInfoT));
 }
 
 void doInfo(PackageT* pkg) { 
 	int fd = *(int32_t*)getPackageData(pkg);
 	if(fd < 0) {
-		psend(pkg->id, pkg->pid, PKG_TYPE_ERR, NULL, 0);
+		psend(pkg->id, PKG_TYPE_ERR, NULL, 0);
 		return;
 	}
 	
 	TreeNodeT* node = (TreeNodeT*)syscall2(SYSCALL_PFILE_NODE, pkg->pid, fd);
 	if(node == NULL) {
-		psend(pkg->id, pkg->pid, PKG_TYPE_ERR, NULL, 0);
+		psend(pkg->id, PKG_TYPE_ERR, NULL, 0);
 		return;
 	}
 
@@ -93,7 +93,7 @@ void doInfo(PackageT* pkg) {
 	DevTypeT* dev = getDevInfo(node);
 	if(dev == NULL || dev->info == NULL) {
 		if(node->type == FS_TYPE_FILE) {
-			psend(pkg->id, pkg->pid, PKG_TYPE_ERR, NULL, 0);
+			psend(pkg->id, PKG_TYPE_ERR, NULL, 0);
 			return;
 		}
 		else {
@@ -106,20 +106,20 @@ void doInfo(PackageT* pkg) {
 	info.type = node->type;
 	info.owner = node->owner;
 	strncpy(info.name, node->name, FNAME_MAX);
-	psend(pkg->id, pkg->pid, pkg->type, &info, sizeof(FSInfoT));
+	psend(pkg->id, pkg->type, &info, sizeof(FSInfoT));
 }
 
 
 void doChild(PackageT* pkg) { 
 	int fd = *(int32_t*)getPackageData(pkg);
 	if(fd < 0) {
-		psend(pkg->id, pkg->pid, PKG_TYPE_ERR, NULL, 0);
+		psend(pkg->id, PKG_TYPE_ERR, NULL, 0);
 		return;
 	}
 
 	TreeNodeT* node = (TreeNodeT*)syscall2(SYSCALL_PFILE_NODE, pkg->pid, fd);
 	if(node == NULL || node->type != FS_TYPE_DIR) {
-		psend(pkg->id, pkg->pid, PKG_TYPE_ERR, NULL, 0);
+		psend(pkg->id, PKG_TYPE_ERR, NULL, 0);
 		return;
 	}
 
@@ -130,7 +130,7 @@ void doChild(PackageT* pkg) {
 		node = (TreeNodeT*)seek;
 
 	if(node == NULL || seek == (int)0xFFFFFFFF) {
-		psend(pkg->id, pkg->pid, PKG_TYPE_ERR, NULL, 0);
+		psend(pkg->id, PKG_TYPE_ERR, NULL, 0);
 		return;
 	}
 
@@ -138,7 +138,7 @@ void doChild(PackageT* pkg) {
 	DevTypeT* dev = getDevInfo(node);
 	if(dev == NULL || dev->info == NULL) {
 		if(node->type == FS_TYPE_FILE) {
-			psend(pkg->id, pkg->pid, PKG_TYPE_ERR, NULL, 0);
+			psend(pkg->id, PKG_TYPE_ERR, NULL, 0);
 			return;
 		}
 	}
@@ -152,7 +152,7 @@ void doChild(PackageT* pkg) {
 	info.owner = node->owner;
 
 	strncpy(info.name, node->name, FNAME_MAX);
-	psend(pkg->id, pkg->pid, pkg->type, &info, sizeof(FSInfoT));
+	psend(pkg->id, pkg->type, &info, sizeof(FSInfoT));
 
 	if(node->next == NULL) 
 		seek = 0xFFFFFFFF;
@@ -169,18 +169,18 @@ void doWrite(PackageT* pkg) {
 
 	TreeNodeT* node = (TreeNodeT*)syscall2(SYSCALL_PFILE_NODE, pkg->pid, fd);
 	if(node == NULL) {
-		psend(pkg->id, pkg->pid, PKG_TYPE_ERR, NULL, 0);
+		psend(pkg->id, PKG_TYPE_ERR, NULL, 0);
 		return;
 	}
 
 	int seek = syscall2(SYSCALL_PFILE_GET_SEEK, pkg->pid, fd);
 	if(seek < 0 || size < 0) {
-		psend(pkg->id, pkg->pid, PKG_TYPE_ERR, NULL, 0);
+		psend(pkg->id, PKG_TYPE_ERR, NULL, 0);
 		return;
 	}
 
 	if(size == 0) {
-		psend(pkg->id, pkg->pid, pkg->type, NULL, 0);
+		psend(pkg->id, pkg->type, NULL, 0);
 		return;
 	}
 
@@ -188,16 +188,16 @@ void doWrite(PackageT* pkg) {
 	if(dev != NULL && dev->write != NULL) {
 		size = dev->write(node, seek, p, size);
 		if(size < 0) {
-			psend(pkg->id, pkg->pid, PKG_TYPE_ERR, NULL, 0);
+			psend(pkg->id, PKG_TYPE_ERR, NULL, 0);
 			return;
 		}
 
-		psend(pkg->id, pkg->pid, pkg->type, &size, 4);
+		psend(pkg->id, pkg->type, &size, 4);
 		seek += size;
 		syscall3(SYSCALL_PFILE_SEEK, pkg->pid, fd, seek);
 	}
 	else {
-		psend(pkg->id, pkg->pid, PKG_TYPE_ERR, NULL, 0);
+		psend(pkg->id, PKG_TYPE_ERR, NULL, 0);
 	}
 }
 
@@ -209,23 +209,23 @@ void doAdd(PackageT* pkg) {
 
 	TreeNodeT* node = (TreeNodeT*)syscall2(SYSCALL_PFILE_NODE, pkg->pid, fd);
 	if(node == NULL || size <= 0) {
-		psend(pkg->id, pkg->pid, PKG_TYPE_ERR, NULL, 0);
+		psend(pkg->id, PKG_TYPE_ERR, NULL, 0);
 		return;
 	}
 
 	if(treeSimpleGet(node, p) != NULL) { /*already exist.*/
-		psend(pkg->id, pkg->pid, PKG_TYPE_ERR, NULL, 0);
+		psend(pkg->id, PKG_TYPE_ERR, NULL, 0);
 		return;
 	}
 
 	node = treeSimpleAdd(node, p);
 	if(node == NULL) {
-		psend(pkg->id, pkg->pid, PKG_TYPE_ERR, NULL, 0);
+		psend(pkg->id, PKG_TYPE_ERR, NULL, 0);
 		return;
 	}
 
 	node->owner = syscall1(SYSCALL_GET_UID, pkg->pid);
-	psend(pkg->id, pkg->pid, pkg->type, NULL, 0);
+	psend(pkg->id, pkg->type, NULL, 0);
 }
 
 void doRead(PackageT* pkg) { 
@@ -235,18 +235,18 @@ void doRead(PackageT* pkg) {
 
 	TreeNodeT* node = (TreeNodeT*)syscall2(SYSCALL_PFILE_NODE, pkg->pid, fd);
 	if(node == NULL) {
-		psend(pkg->id, pkg->pid, PKG_TYPE_ERR, NULL, 0);
+		psend(pkg->id, PKG_TYPE_ERR, NULL, 0);
 		return;
 	}
 
 	int seek = syscall2(SYSCALL_PFILE_GET_SEEK, pkg->pid, fd);
 	if(seek < 0 || size < 0) {
-		psend(pkg->id, pkg->pid, PKG_TYPE_ERR, NULL, 0);
+		psend(pkg->id, PKG_TYPE_ERR, NULL, 0);
 		return;
 	}
 
 	if(size == 0) {
-		psend(pkg->id, pkg->pid, pkg->type, NULL, 0);
+		psend(pkg->id, pkg->type, NULL, 0);
 		return;
 	}
 
@@ -255,18 +255,18 @@ void doRead(PackageT* pkg) {
 		char* buf = (char*)malloc(size);
 		size = dev->read(node, seek, buf, size);
 		if(size < 0) {
-			psend(pkg->id, pkg->pid, PKG_TYPE_ERR, NULL, 0);
+			psend(pkg->id, PKG_TYPE_ERR, NULL, 0);
 			free(buf);
 			return;
 		}
 
-		psend(pkg->id, pkg->pid, pkg->type, buf, size);
+		psend(pkg->id, pkg->type, buf, size);
 		free(buf);
 		seek += size;
 		syscall3(SYSCALL_PFILE_SEEK, pkg->pid, fd, seek);
 	}
 	else {
-		psend(pkg->id, pkg->pid, pkg->type, NULL, 0);
+		psend(pkg->id, pkg->type, NULL, 0);
 	}
 }
 
@@ -321,7 +321,7 @@ void _start() {
 	syscall1(SYSCALL_KSERV_REG, (int)KSERV_FS_NAME);
 
 	while(true) {
-		PackageT* pkg = precv(-1);	
+		PackageT* pkg = proll();	
 		if(pkg != NULL) {
 			handle(pkg);
 			free(pkg);

@@ -89,17 +89,33 @@ static int syscall_pfree(int arg0) {
 	return 0;
 }
 
-static int syscall_sendMessage(int arg0, int arg1, int arg2) {
-	PackageT* p = (PackageT*)arg2;
-	return ksend(arg0, arg1, p);
+static int syscall_kopen(int arg0) {
+	return kopen(arg0);
 }
 
-static int syscall_readMessage(int arg0) {
-	PackageT* pkg = krecv(arg0);
-	if(pkg == NULL)
-		return 0;
-	
-	return (int)pkg;
+static int syscall_kready() {
+	return kready();
+}
+
+static int syscall_kclose(int arg0) {
+	kclose(arg0);
+	return 0;
+}
+
+static int syscall_kwrite(int arg0, int arg1, int arg2) {
+	return kwrite(arg0, (void*)arg1, arg2);
+}
+
+static int syscall_kread(int arg0, int arg1, int arg2) {
+	return kread(arg0, (void*)arg1, arg2);
+}
+
+static int syscall_kgetpid_read(int arg0) {
+	return kgetPidR(arg0);
+}
+
+static int syscall_kgetpid_write(int arg0) {
+	return kgetPidW(arg0);
 }
 
 static int syscall_readInitRD(int arg0, int arg1, int arg2) {
@@ -371,8 +387,13 @@ static int (*const _syscallHandler[])() = {
 
 	[SYSCALL_GET_CMD] = syscall_getCmd,
 
-	[SYSCALL_SEND_MSG] = syscall_sendMessage,
-	[SYSCALL_READ_MSG] = syscall_readMessage,
+	[SYSCALL_KOPEN] = syscall_kopen,
+	[SYSCALL_KCLOSE] = syscall_kclose,
+	[SYSCALL_KWRITE] = syscall_kwrite,
+	[SYSCALL_KREADY] = syscall_kready,
+	[SYSCALL_KREAD] = syscall_kread,
+	[SYSCALL_KGETPID_R] = syscall_kgetpid_read,
+	[SYSCALL_KGETPID_W] = syscall_kgetpid_write,
 
 	[SYSCALL_INITRD_READ] = syscall_readInitRD,
 	[SYSCALL_INITRD_FILES] = syscall_filesInitRD,
@@ -396,8 +417,7 @@ static int (*const _syscallHandler[])() = {
 };
 
 /* kernel side of system calls. */
-int handleSyscall(int code, int arg0, int arg1, int arg2)
-{
+int handleSyscall(int code, int arg0, int arg1, int arg2) {
 	return _syscallHandler[code](arg0, arg1, arg2);
 }
 

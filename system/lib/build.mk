@@ -3,8 +3,8 @@ LIB_OBJS = lib/src/syscall.o \
 	lib/src/vsprintf.o \
 	lib/src/pmessage.o \
 	lib/src/stdio.o \
-	lib/src/unistd.o \
 	lib/src/cmain.o \
+	lib/src/unistd.o \
 	lib/src/kserv/fs.o \
 	lib/src/kserv/userman.o
 

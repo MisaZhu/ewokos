@@ -76,6 +76,7 @@ char* _initRamDiskBase = 0;
 RamDiskT _initRamDisk;
 
 #define FIRST_PROCESS "init"
+//#define FIRST_PROCESS "test"
 
 void kernelEntry() 
 {
@@ -97,8 +98,12 @@ void kernelEntry()
 				"=================\n"
 				"Kernel got ready(MMU and ProcMan).\n"
 				"Loading the first process...\n\n");
+	
+	kinit();
 
 	procInit();
+
+
 	ProcessT *proc = procCreate(); //create first process
 	if(proc == NULL) {
 		uartPuts("panic: init process create failed!\n");

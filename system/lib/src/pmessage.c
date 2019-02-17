@@ -1,18 +1,17 @@
 #include <pmessage.h>
+#include <types.h>
 #include <syscall.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 
-#define MSG_RETRY 128
-
-PackageT* newPackage(uint32_t type, void* data, uint32_t size) {
+PackageT* newPackage(int32_t id, uint32_t type, void* data, uint32_t size, int32_t pid) {
 	PackageT* pkg = (PackageT*)malloc(sizeof(PackageT) + size);
 	if(pkg == NULL)
 		return NULL;
 
-	pkg->id = -1;
-	pkg->pid = -1;
+	pkg->id = id;
+	pkg->pid = pid;
 	pkg->size = 0;
 	pkg->type = type;
 
@@ -29,44 +28,145 @@ void freePackage(PackageT* pkg) {
 		free(pkg);
 }
 
-static int psendPkg(int id, int pid, PackageT* pkg) {
-	return syscall3(SYSCALL_SEND_MSG, id, pid, (int)pkg);
+int popen(int pid) {
+	return syscall1(SYSCALL_KOPEN, pid);
 }
 
-int psend(int id, int pid, uint32_t type, void* data, uint32_t size) {
-	PackageT* pkg = newPackage(type, data, size);
-	int ret = psendPkg(id, pid, pkg);
-	freePackage(pkg);
+void pclose(int id) {
+	syscall1(SYSCALL_KCLOSE, id);
+}
+
+int pwrite(int id, void* data, uint32_t size) {
+	int i;
+	while(true) {
+		i = syscall3(SYSCALL_KWRITE, id, (int)data, size);
+		if(i >= 0)
+			break;
+		yield();
+	}
+	return i;
+}
+
+int psend(int id, uint32_t type, void* data, uint32_t size) {
+	int i = pwrite(id, &size, 4);
+	if(i == 0)
+		return 0;
+
+	i = pwrite(id, &type, 4);
+	if(i == 0)
+		return 0;
+
+	const char* p = (const char*)data;
+	int32_t ret = size;
+	while(true) {
+		i = pwrite(id, (void*)p, size);
+		if(i == 0)
+			break;
+		yield();
+
+		size -= i;
+		if(size == 0)
+			break;
+		p += i;
+	}
 	return ret;
 }
 
-PackageT* precv(int id) {
-	return (PackageT*)syscall1(SYSCALL_READ_MSG, id);
-}
+int pread(int id, void* data, uint32_t size) {
+	if(data == NULL || size == 0)
+		return 0;
 
-int psendSync(int id, int pid, uint32_t type, void* data, uint32_t size) {
-	for(int i=0; i<MSG_RETRY; i++)  {
-		int ret = psend(id, pid, type, data, size);
-		if(ret >= 0)
-			return ret;
-		else
-			yield();
+	int i;
+	while(true) {
+		i = syscall3(SYSCALL_KREAD, id, (int)data, size);
+		if(i >= 0)
+			break;
+		yield();
 	}
-	return -1;
+	return i;
 }
 
-PackageT* precvSync(int id) {
-	for(int i=0; i<MSG_RETRY; i++)  {
-		PackageT* ret = precv(id);
-		if(ret != 0)
-			return ret;
-		else
-			yield();
+void* precv(int id, uint32_t *type, uint32_t *size) {
+	int i = pread(id, size, 4);
+	if(i == 0)
+		return NULL;
+
+	i = pread(id, type, 4);
+	if(i == 0)
+		return NULL;
+
+	uint32_t sz = *size;
+	void* data = malloc(*size);
+	if(data == NULL)
+		return NULL;
+
+	char* p = (char*)data;
+	while(true) {
+		i = pread(id, p, sz);
+		if(i == 0) {
+			free(data);
+			return NULL;
+		}
+
+		sz -= i;
+		if(sz == 0)
+			break;
+		p += i;
 	}
-	return 0;
+	return data;
 }
 
-PackageT* preq(int pid, uint32_t type, void* data, uint32_t size) {
-	int id = psendSync(-1, pid, type, data, size);
-	return precvSync(id);
+int pgetPidR(int32_t id) {
+	return syscall1(SYSCALL_KGETPID_R, id);
+}
+
+int pgetPidW(int32_t id) {
+	return syscall1(SYSCALL_KGETPID_W, id);
+}
+
+PackageT* preq(int pid, uint32_t type, void* data, uint32_t size, bool reply) {
+	int id = popen(pid);
+	if(id < 0)
+		return NULL;
+
+	int i = psend(id, type, data, size);
+	if(i == 0 || !reply) {
+		pclose(id);
+		return NULL;
+	}
+	
+	int32_t fromPID;
+	data = precv(id, &type, &size);
+	fromPID = pgetPidW(id);
+	pclose(id);
+	if(data == NULL) {
+		return NULL;
+	}
+
+	PackageT* pkg = newPackage(id, type, data, size, fromPID);
+	free(data);
+	return pkg;
+}
+
+PackageT* proll() {
+	int id = -1;
+	while(true) {
+		id = syscall0(SYSCALL_KREADY);
+		if(id >= 0)
+			break;
+		yield();
+	}
+	
+	int32_t fromPID;
+	uint32_t type, size;
+	void* data;
+	data = precv(id, &type, &size);
+	if(data == NULL) {
+		return NULL;
+	}
+	fromPID = pgetPidW(id);
+
+	PackageT* pkg = newPackage(id, type, data, size, fromPID);
+	free(data);
+	return pkg;
 }
