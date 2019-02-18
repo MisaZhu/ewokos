@@ -92,7 +92,7 @@ void kernelEntry()
 				"Kernel got ready(MMU and ProcMan).\n"
 				"Loading the first process...\n\n");
 	
-	kinit();
+	ipcInit();
 
 	procInit();
 

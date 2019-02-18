@@ -150,7 +150,7 @@ void procFree(ProcessT *proc)
 		}
 	}
 
-	kcloseAll();
+	ipcCloseAll();
 	//kfree(proc->kernelStack);
 	kfree(proc->userStack);
 	procShrinkMemory(proc, proc->heapSize / PAGE_SIZE);

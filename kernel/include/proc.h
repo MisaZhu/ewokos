@@ -17,7 +17,7 @@
 #include <types.h>
 #include <mm/mmu.h>
 #include <mm/trunkmalloc.h>
-#include <kmessage.h>
+#include <kipc.h>
 #include <kfile.h>
 #include <procinfo.h>
 

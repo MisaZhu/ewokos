@@ -8,7 +8,7 @@
 #include <sramdisk.h>
 #include <kstring.h>
 #include <mm/trunkmalloc.h>
-#include <kmessage.h>
+#include <kipc.h>
 #include <kfile.h>
 #include <types.h>
 #include <kserv.h>
@@ -88,33 +88,33 @@ static int syscall_pfree(int arg0) {
 	return 0;
 }
 
-static int syscall_kopen(int arg0) {
-	return kopen(arg0);
+static int syscall_ipcOpen(int arg0) {
+	return ipcOpen(arg0);
 }
 
-static int syscall_kready() {
-	return kready();
+static int syscall_ipcReady() {
+	return ipcReady();
 }
 
-static int syscall_kclose(int arg0) {
-	kclose(arg0);
+static int syscall_ipcClose(int arg0) {
+	ipcClose(arg0);
 	return 0;
 }
 
-static int syscall_kwrite(int arg0, int arg1, int arg2) {
-	return kwrite(arg0, (void*)arg1, arg2);
+static int syscall_ipcWrite(int arg0, int arg1, int arg2) {
+	return ipcWrite(arg0, (void*)arg1, arg2);
 }
 
-static int syscall_kread(int arg0, int arg1, int arg2) {
-	return kread(arg0, (void*)arg1, arg2);
+static int syscall_ipcRead(int arg0, int arg1, int arg2) {
+	return ipcRead(arg0, (void*)arg1, arg2);
 }
 
-static int syscall_kgetpid_read(int arg0) {
-	return kgetPidR(arg0);
+static int syscall_ipc_getpid_read(int arg0) {
+	return ipcGetPidR(arg0);
 }
 
-static int syscall_kgetpid_write(int arg0) {
-	return kgetPidW(arg0);
+static int syscall_ipc_getpid_write(int arg0) {
+	return ipcGetPidW(arg0);
 }
 
 static int syscall_readInitRD(int arg0, int arg1, int arg2) {
@@ -386,13 +386,13 @@ static int (*const _syscallHandler[])() = {
 
 	[SYSCALL_GET_CMD] = syscall_getCmd,
 
-	[SYSCALL_KOPEN] = syscall_kopen,
-	[SYSCALL_KCLOSE] = syscall_kclose,
-	[SYSCALL_KWRITE] = syscall_kwrite,
-	[SYSCALL_KREADY] = syscall_kready,
-	[SYSCALL_KREAD] = syscall_kread,
-	[SYSCALL_KGETPID_R] = syscall_kgetpid_read,
-	[SYSCALL_KGETPID_W] = syscall_kgetpid_write,
+	[SYSCALL_KOPEN] = syscall_ipcOpen,
+	[SYSCALL_KCLOSE] = syscall_ipcClose,
+	[SYSCALL_KWRITE] = syscall_ipcWrite,
+	[SYSCALL_KREADY] = syscall_ipcReady,
+	[SYSCALL_KREAD] = syscall_ipcRead,
+	[SYSCALL_KGETPID_R] = syscall_ipc_getpid_read,
+	[SYSCALL_KGETPID_W] = syscall_ipc_getpid_write,
 
 	[SYSCALL_INITRD_READ] = syscall_readInitRD,
 	[SYSCALL_INITRD_FILES] = syscall_filesInitRD,

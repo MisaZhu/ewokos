@@ -10,7 +10,6 @@ COMMON_OBJ=$(COMMON_LIB)/src/kstring.o
 
 # flags
 CFLAGS = -I. \
-				 -I ../kernel/include \
 				 -I ../lib/include \
 				 -I lib/include \
 				 -I $(COMMON_LIB)/include \

@@ -1,4 +1,4 @@
-#include <kmessage.h>
+#include <kipc.h>
 #include <kstring.h>
 #include <proc.h>
 #include <mm/kalloc.h>
@@ -26,15 +26,15 @@ enum {
 
 static ChannelT _channels[CHANNEL_MAX];
 
-void kinit() {
+void ipcInit() {
 	int32_t i;
 	for(i=0; i<CHANNEL_MAX; i++) {
 		memset(&_channels[i], 0, sizeof(ChannelT));
 	}
 }
 
-/*open kernel ipc channel*/
-int32_t kopen(int32_t pid) {
+/*open ipcernel ipc channel*/
+int32_t ipcOpen(int32_t pid) {
 	int32_t ret = -1;
 
 	int32_t i;
@@ -43,7 +43,7 @@ int32_t kopen(int32_t pid) {
 			if(_channels[i].buffer == NULL) {
 				void* buffer = kalloc(); 
 				if(buffer == NULL) {
-					uartPuts("panic: kalloc error when open kchannel!\n");
+					uartPuts("panic: ipcalloc error when open ipcchannel!\n");
 					break;
 				}
 				_channels[i].buffer = buffer;
@@ -58,11 +58,11 @@ int32_t kopen(int32_t pid) {
 	}
 
 	if(ret < 0)
-		uartPuts("panic: kchannels are all busy!\n");
+		uartPuts("panic: ipcchannels are all busy!\n");
 	return ret;
 }
 
-static inline ChannelT* kgetChannel(int32_t id) {
+static inline ChannelT* ipcGetChannel(int32_t id) {
 	if(id < 0 || id >= CHANNEL_MAX || _channels[id].status == CHANNEL_FREE) 
 		return NULL;
 	return &_channels[id];
@@ -77,8 +77,8 @@ static inline bool checkChannel(ChannelT* channel) {
 }
 
 /*close kernel ipc channel*/
-void kclose(int32_t id) {
-	ChannelT* channel = kgetChannel(id);
+void ipcClose(int32_t id) {
+	ChannelT* channel = ipcGetChannel(id);
 	if(!checkChannel(channel)) {
 		return;
 	}
@@ -88,8 +88,8 @@ void kclose(int32_t id) {
 	channel->buffer = p;
 }
 
-int kwrite(int32_t id, void* data, uint32_t size) {
-	ChannelT* channel = kgetChannel(id);
+int ipcWrite(int32_t id, void* data, uint32_t size) {
+	ChannelT* channel = ipcGetChannel(id);
 	//if(!checkChannel(channel) || data == NULL) 
 	//	return 0;
 	if(size == 0 || channel->status == CHANNEL_FREE) //if closed.
@@ -116,8 +116,8 @@ int kwrite(int32_t id, void* data, uint32_t size) {
 	return size;
 }
 
-int32_t kread(int32_t id, void* data, uint32_t size) {
-	ChannelT* channel = kgetChannel(id);
+int32_t ipcRead(int32_t id, void* data, uint32_t size) {
+	ChannelT* channel = ipcGetChannel(id);
 	if(channel == NULL || data == NULL)
 		return 0;
 	if(size == 0 || channel->status == CHANNEL_FREE) //if closed.
@@ -145,21 +145,21 @@ int32_t kread(int32_t id, void* data, uint32_t size) {
 	return size;
 }
 
-int32_t kgetPidW(int32_t id) {
-	ChannelT* channel = kgetChannel(id);
+int32_t ipcGetPidW(int32_t id) {
+	ChannelT* channel = ipcGetChannel(id);
 	if(channel == NULL)
 		return -1;
 	return channel->writePid;
 }
 	
-int32_t kgetPidR(int32_t id) {
-	ChannelT* channel = kgetChannel(id);
+int32_t ipcGetPidR(int32_t id) {
+	ChannelT* channel = ipcGetChannel(id);
 	if(channel == NULL)
 		return -1;
 	return channel->readPid;
 }
 
-int32_t kready() {
+int32_t ipcReady() {
 	int32_t pid = _currentProcess->pid;
 	
 	int32_t i;
@@ -176,7 +176,7 @@ int32_t kready() {
 	return i;
 }
 
-void kcloseAll() {
+void ipcCloseAll() {
 	int32_t pid = _currentProcess->pid;
 	int32_t i;
 	for(i=0; i<CHANNEL_MAX; i++) {
@@ -184,6 +184,6 @@ void kcloseAll() {
 		if(channel->status == CHANNEL_FREE)
 			continue;
 		if(channel->readPid == pid || channel->writePid == pid) 
-			kclose(i);
+			ipcClose(i);
 	}
 }

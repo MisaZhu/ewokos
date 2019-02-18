@@ -53,11 +53,12 @@ OBJS += $(ARCH_OBJS) \
 	src/mm/trunkmalloc.o \
 	src/mm/kmalloc.o \
 	src/proc.o \
-	src/kmessage.o \
+	src/kipc.o \
 	src/kfile.o \
 	src/sramdisk.o \
 	src/kserv.o \
-	src/scheduler.o 
+	src/scheduler.o \
+	src/proto.o
 
 $(OS).bin: $(OBJS) $(LIB_OBJS) $(OS).ld
 	mkdir -p build
