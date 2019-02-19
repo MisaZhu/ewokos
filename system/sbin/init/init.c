@@ -23,6 +23,11 @@ void _start()
 	}
 	printf("file system got ready.\n");
 
+	pid = fork();
+	if(pid == 0) { 
+		exec("ttyd");
+	}
+
 	/*userman kernel process*/
 	printf("start user manager ...\n");
 	pid = fork();

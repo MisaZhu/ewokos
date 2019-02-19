@@ -2,14 +2,18 @@
 #include <kstring.h>
 #include <stdlib.h>
 
-void protoInit(ProtoT* proto, void* data, uint32_t size, uint32_t totalSize) {
+void protoInit(ProtoT* proto, void* data, uint32_t size) {
 	proto->data = data;
 	proto->size = size;
-	proto->totalSize = totalSize;
+	proto->totalSize = size;
 	proto->offset = 0;
+	proto->readOnly = (data == NULL) ? false:true;
 }
 
 void protoAdd(ProtoT* proto, void* item, uint32_t size) {
+	if(proto->readOnly)
+		return;
+
 	uint32_t newSize = proto->size + size + 4;
 	char* p = (char*)proto->data;
 	if(proto->totalSize <= newSize) { 
@@ -59,9 +63,13 @@ inline const char* protoReadStr(ProtoT* proto) {
 	uint32_t sz;
 	return (const char*)protoRead(proto, &sz);
 }
+
 void protoFree(ProtoT* proto) {
+	if(proto->readOnly)
+		return;
+
 	if(proto->data != NULL)
 		free(proto->data);
-	protoInit(proto, NULL, 0, 0);
+	protoInit(proto, NULL, 0);
 }
 

@@ -10,12 +10,12 @@ typedef struct KFile {
 	struct KFile* next;
 	struct KFile* prev;
 
-	uint32_t fsNodeAddr;
+	uint32_t nodeAddr;
 	uint16_t refR;
 	uint16_t refW;
 } KFileT;
 
-KFileT* kfOpen(uint32_t fsNodeAddr);
+KFileT* kfOpen(uint32_t nodeAddr);
 
 void kfRef(KFileT* kf,  uint32_t flags);
 

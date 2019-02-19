@@ -7,4 +7,6 @@ typedef void (*KServFuncT) (PackageT* pkg, void *p);
 
 bool kservRun(const char* regName, KServFuncT servFunc, void* p);
 
+int kservGetPid(const char* regName);
+
 #endif

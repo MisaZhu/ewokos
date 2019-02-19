@@ -3,7 +3,7 @@
 
 void _start()
 {
-	char pwd[FNAME_MAX];
-	printf("%s\n", getcwd(pwd, FNAME_MAX));
+	char pwd[NAME_MAX];
+	printf("%s\n", getcwd(pwd, NAME_MAX));
 	exit(0);
 }

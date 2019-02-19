@@ -20,3 +20,7 @@ bool kservRun(const char* regName, KServFuncT servFunc, void* p) {
   }
 	return true;
 }
+
+int kservGetPid(const char* regName) {
+	return syscall1(SYSCALL_KSERV_GET, (int)regName);
+}

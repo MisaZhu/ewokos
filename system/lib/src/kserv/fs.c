@@ -1,23 +1,63 @@
+#include <kserv/kserv.h>
 #include <kserv/fs.h>
+#include <proto.h>
 #include <pmessage.h>
-#include <malloc.h>
-#include <string.h>
+#include <stdlib.h>
+#include <kstring.h>
 #include <syscall.h>
 
-static int _fsPid = -1;
+static int fsDev(const char* name, char* dev) {
+	if(name == NULL || name[0] == 0)
+		return -1;
+	int pid = kservGetPid(KSERV_VFS_NAME);
 
-#define CHECK_KSERV_FS \
-	if(_fsPid < 0) \
-		_fsPid = syscall1(SYSCALL_KSERV_GET, (int)KSERV_FS_NAME); \
-	if(_fsPid < 0) \
-		return -1; 
+	PackageT* pkg = preq(pid, FS_FDEV, (void*)name, strlen(name)+1, true);
+	if(pkg == NULL)	
+		return -1;
 
+	strncpy(dev, (const char*)getPackageData(pkg), DEV_NAME_MAX);
+	free(pkg);
+	return 0;
+}
+
+static int fsDevFD(int fd, char* dev) {
+	if(fd < 0)
+		return -1;
+	int pid = kservGetPid(KSERV_VFS_NAME);
+
+	PackageT* pkg = preq(pid, FS_DEV, (void*)&fd, 4, true);
+	if(pkg == NULL)	
+		return -1;
+
+	strncpy(dev, (const char*)getPackageData(pkg), DEV_NAME_MAX);
+	free(pkg);
+	return 0;
+}
+
+static int fsDevServPidFD(int fd) {
+	if(fd < 0)
+		return -1;
+
+	char dev[DEV_NAME_MAX];
+	if(fsDevFD(fd, dev) < 0)
+		strncpy(dev, DEV_VFS, DEV_NAME_MAX);
+	return kservGetPid(devGetServName(dev));
+}
+
+static int fsDevServPid(const char* name) {
+	char dev[DEV_NAME_MAX];
+	if(fsDev(name, dev) < 0)
+		strncpy(dev, DEV_VFS, DEV_NAME_MAX);
+	return kservGetPid(devGetServName(dev));
+}
 
 int fsOpen(const char* name) {
-	CHECK_KSERV_FS
-	int fd = -1;
+	int pid = fsDevServPid(name);
+	if(pid < 0)
+		return -1;
 
-	PackageT* pkg = preq(_fsPid, FS_OPEN, (void*)name, strlen(name)+1, true);
+	int fd = -1;
+	PackageT* pkg = preq(pid, FS_OPEN, (void*)name, strlen(name)+1, true);
 	if(pkg == NULL)	
 		return -1;
 
@@ -27,14 +67,15 @@ int fsOpen(const char* name) {
 }
 
 int fsFInfo(const char* name, FSInfoT* info) {
-	CHECK_KSERV_FS
+	int pid = fsDevServPid(name);
+	if(pid < 0)
+		return -1;
 
-	if(name == NULL || name[0] == 0)
+	PackageT* pkg = preq(pid, FS_FINFO, (void*)name, strlen(name)+1, true);
+	if(pkg == NULL || pkg->type == PKG_TYPE_ERR) {
+		if(pkg != NULL) free(pkg);
 		return -1;
-	
-	PackageT* pkg = preq(_fsPid, FS_FINFO, (void*)name, strlen(name)+1, true);
-	if(pkg == NULL || pkg->type == PKG_TYPE_ERR)
-		return -1;
+	}
 	
 	memcpy(info, getPackageData(pkg), sizeof(FSInfoT));
 	free(pkg);
@@ -43,44 +84,42 @@ int fsFInfo(const char* name, FSInfoT* info) {
 
 
 int fsClose(int fd) {
-	CHECK_KSERV_FS
-
-	if(fd < 0)
+	int pid = fsDevServPidFD(fd);
+	if(pid < 0)
 		return -1;
 
-	preq(_fsPid, FS_CLOSE, (void*)&fd, 4, false);
+	preq(pid, FS_CLOSE, (void*)&fd, 4, false);
 	return 0;
 }
 
 int fsRead(int fd, char* buf, uint32_t size) {
-	CHECK_KSERV_FS
-
-	if(fd < 0)
+	int pid = fsDevServPidFD(fd);
+	if(pid < 0)
 		return -1;
-	
-	char req[8];
-	memcpy(req, &fd, 4);
-	memcpy(req+4, &size, 4);
 
-	PackageT* pkg = preq(_fsPid, FS_READ, req, 8, true);
-	if(pkg == NULL || pkg->type == PKG_TYPE_ERR)
+	ProtoT proto;	
+	protoInit(&proto, NULL, 0);
+	protoAddInt(&proto, fd);
+	protoAddInt(&proto, size);
+
+	PackageT* pkg = preq(pid, FS_READ, proto.data, proto.size, true);
+	protoFree(&proto);
+	if(pkg == NULL || pkg->type == PKG_TYPE_ERR) {
+		if(pkg != NULL) free(pkg);
 		return -1;
+	}
 
 	int sz = pkg->size;
-	if(sz == 0) {
-		free(pkg);
-		return 0;
-	}
-	
-	memcpy(buf, getPackageData(pkg), sz);
+	if(sz > 0)	
+		memcpy(buf, getPackageData(pkg), sz);
+
 	free(pkg);
 	return sz;
 }
 
 int fsWrite(int fd, const char* buf, uint32_t size) {
-	CHECK_KSERV_FS
-
-	if(fd < 0)
+	int pid = fsDevServPidFD(fd);
+	if(pid < 0)
 		return -1;
 	
 	char *req = (char*)malloc(size + 8);
@@ -88,10 +127,11 @@ int fsWrite(int fd, const char* buf, uint32_t size) {
 	memcpy(req+4, &size, 4);
 	memcpy(req+8, buf, size);
 
-	PackageT* pkg = preq(_fsPid, FS_WRITE, req, size+8, true);
+	PackageT* pkg = preq(pid, FS_WRITE, req, size+8, true);
 	free(req);
 
 	if(pkg == NULL || pkg->type == PKG_TYPE_ERR) {
+		if(pkg != NULL) free(pkg);
 		return -1;
 	}
 
@@ -101,7 +141,9 @@ int fsWrite(int fd, const char* buf, uint32_t size) {
 }
 
 int fsAdd(int dirFD, const char* name) {
-	CHECK_KSERV_FS
+	int pid = fsDevServPidFD(dirFD);
+	if(pid < 0)
+		return -1;
 
 	int size = strlen(name);
 	if(dirFD < 0 || size == 0)
@@ -112,10 +154,11 @@ int fsAdd(int dirFD, const char* name) {
 	memcpy(req+4, &size, 4);
 	memcpy(req+8, name, size);
 
-	PackageT* pkg = preq(_fsPid, FS_ADD, req, size+8, true);
+	PackageT* pkg = preq(pid, FS_ADD, req, size+8, true);
 	free(req);
 
 	if(pkg == NULL || pkg->type == PKG_TYPE_ERR) {
+		if(pkg != NULL) free(pkg);
 		return -1;
 	}
 
@@ -139,12 +182,11 @@ int fsPutch(int fd, int c) {
 }
 
 int fsInfo(int fd, FSInfoT* info) {
-	CHECK_KSERV_FS
-
-	if(fd < 0)
+	int pid = fsDevServPidFD(fd);
+	if(pid < 0)
 		return -1;
 	
-	PackageT* pkg = preq(_fsPid, FS_INFO, &fd, 4, true);
+	PackageT* pkg = preq(pid, FS_INFO, &fd, 4, true);
 	if(pkg == NULL || pkg->type == PKG_TYPE_ERR) {
 		if(pkg != NULL)	free(pkg);
 		return -1;
@@ -156,11 +198,11 @@ int fsInfo(int fd, FSInfoT* info) {
 }
 
 int fsChild(int fd, FSInfoT* child) {
-	CHECK_KSERV_FS
-	if(fd < 0 || child == NULL)
+	int pid = fsDevServPidFD(fd);
+	if(pid < 0 || child == NULL)
 		return -1;
 	
-	PackageT* pkg = preq(_fsPid, FS_CHILD, &fd, 4, true);
+	PackageT* pkg = preq(pid, FS_CHILD, &fd, 4, true);
 	if(pkg == NULL || pkg->type == PKG_TYPE_ERR) {
 		if(pkg != NULL)	free(pkg);
 		return -1;
@@ -172,5 +214,5 @@ int fsChild(int fd, FSInfoT* child) {
 }
 
 int fsInited() {
-	return syscall1(SYSCALL_KSERV_GET, (int)KSERV_FS_NAME);
+	return kservGetPid(KSERV_VFS_NAME);
 }

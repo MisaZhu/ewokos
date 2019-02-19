@@ -1,16 +1,12 @@
-#include <fstree.h>
-#include <string.h>
-#include <stdio.h>
-#include <malloc.h>
-#include <kserv/fs.h>
-
-uint32_t _fsNodeIndex = 0;
+#include <vfs/fstree.h>
+#include <kstring.h>
+#include <fsinfo.h>
+#include <mm/kmalloc.h>
 
 void fsTreeNodeInit(TreeNodeT* node) {
 	treeInitNode(node);
-	node->data = malloc(sizeof(FSNodeT));
+	node->data = kmalloc(sizeof(FSNodeT));
 	FSNodeT* fn = (FSNodeT*)node->data;
-	fn->id = _fsNodeIndex++;
 	fn->name[0] = 0;
 	fn->mount = -1;
 	fn->type = 0;
@@ -19,7 +15,7 @@ void fsTreeNodeInit(TreeNodeT* node) {
 }
 
 TreeNodeT* fsNewNode() {
-	TreeNodeT* ret = (TreeNodeT*)malloc(sizeof(TreeNodeT));
+	TreeNodeT* ret = (TreeNodeT*)kmalloc(sizeof(TreeNodeT));
 	fsTreeNodeInit(ret);
 	return ret;
 }

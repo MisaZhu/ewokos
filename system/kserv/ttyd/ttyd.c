@@ -8,7 +8,8 @@
 
 void _start() {
 	DeviceT dev;
-	devInit(&dev);
+	devInit(&dev, "tty");
+	devMount(&dev, 1, "/dev", "tty1");
 
 	if(!devServRun(&dev))
 		exit(0);

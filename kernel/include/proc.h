@@ -54,7 +54,7 @@ typedef struct {
 	int32_t fatherPid; /*father pid*/
 	int32_t owner; /*owner for muti-user system*/
 	char cmd[CMD_MAX]; /*run command*/
-	char pwd[FNAME_MAX]; /*working dir*/
+	char pwd[NAME_MAX]; /*working dir*/
 
 	EntryFunctionT entry;
 	PageDirEntryT *vm;

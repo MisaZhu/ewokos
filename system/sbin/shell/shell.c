@@ -39,8 +39,8 @@ static void gets(char* buf, int len) {
 }
 
 static int cd(const char* dir) {
-	char cwd[FNAME_MAX];
-	if(getcwd(cwd, FNAME_MAX) == NULL)
+	char cwd[NAME_MAX];
+	if(getcwd(cwd, NAME_MAX) == NULL)
 		return -1;
 
 	if(strcmp(dir, ".") == 0)
@@ -71,7 +71,7 @@ static int cd(const char* dir) {
 		}
 	}
 	else if(dir[0] == '/') {
-		strncpy(cwd, dir, FNAME_MAX);
+		strncpy(cwd, dir, NAME_MAX);
 	}
 	else {
 		int len = strlen(cwd);
@@ -107,15 +107,15 @@ static int handle(const char* cmd) {
 
 void _start() {
 	char cmd[CMD_MAX];
-	char cwd[FNAME_MAX];
+	char cwd[NAME_MAX];
 
 	int uid = getuid();
 
 	while(1) {
 		if(uid == 0)
-			printf("ewok:%s.# ", getcwd(cwd, FNAME_MAX));
+			printf("ewok:%s.# ", getcwd(cwd, NAME_MAX));
 		else
-			printf("ewok:%s.$ ", getcwd(cwd, FNAME_MAX));
+			printf("ewok:%s.$ ", getcwd(cwd, NAME_MAX));
 
 		gets(cmd, CMD_MAX);
 		if(cmd[0] == 0)

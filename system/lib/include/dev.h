@@ -1,8 +1,6 @@
 #ifndef DEV_H
 #define DEV_H
 
-#define DEV_NAME_MAX 127
-
 #include "fsinfo.h"
 #include "tree.h"
 
@@ -18,22 +16,22 @@ enum {
 };
 
 typedef struct {
-	void (*mount)(TreeNodeT*);
-	void (*unmount)(TreeNodeT*);
-  bool (*open)(TreeNodeT*);
-  int (*read)(TreeNodeT*, int, char*, uint32_t);
-  int (*write)(TreeNodeT*, int, const char*, uint32_t);
-  int (*info)(TreeNodeT*, FSInfoT* info);
-  int (*setOpt)(TreeNodeT*, int cmd, int value);
-  void (*close)(TreeNodeT*);
+  bool (*mount)(uint32_t index);
+  bool (*unmount)(uint32_t index);
+  bool (*open)(uint32_t index);
+  int (*read)(uint32_t index, int, char*, uint32_t);
+  int (*write)(uint32_t index, int, const char*, uint32_t);
+  int (*info)(uint32_t index, FSInfoT* info);
+  int (*setOpt)(uint32_t index, int cmd, int value);
+  void (*close)(uint32_t index);
 
-	char name[DEV_NAME_MAX+1];
+	char type[DEV_NAME_MAX];
 } DeviceT;
 
-void devInit(DeviceT* dev);
+void devInit(DeviceT* dev, const char* type);
 
-const char* devGetServName(DeviceT* dev);
+const char* devGetServName(const char* devName);
 
-bool devMount(DeviceT* dev, const char* dstPath, const char* nodeName);
+bool devMount(DeviceT* dev, uint32_t index, const char* dstPath, const char* nodeName);
 
 #endif

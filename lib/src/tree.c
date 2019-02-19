@@ -1,8 +1,5 @@
 #include <tree.h>
-#include <string.h>
-#include <stdio.h>
-#include <malloc.h>
-#include <kserv/fs.h>
+#include <kstring.h>
 
 void treeInitNode(TreeNodeT* node) {
 	node->father = NULL;
@@ -11,7 +8,6 @@ void treeInitNode(TreeNodeT* node) {
 	node->next = NULL;
 	node->prev = NULL;
 	
-	node->freeFunc = NULL;
 	node->data = NULL;
 }
 
@@ -30,19 +26,32 @@ void treeAdd(TreeNodeT* father, TreeNodeT* node) {
 	father->eChild = node;
 }
 
-void treeDel(TreeNodeT* node) {
+void treeDel(TreeNodeT* node, FreeFuncT fr) {
 	if(node == NULL)
 		return;
 	/*free children*/
 	TreeNodeT* c = node->fChild;
 	while(c != NULL) {
 		TreeNodeT* next = c->next;
-		treeDel(c);
+		treeDel(c, fr);
 		c = next;
 	}
 
+	TreeNodeT* father = node->father;
+	if(father != NULL) {
+		if(father->fChild == node)
+			father->fChild = node->next;
+		if(father->eChild == node)
+			father->eChild = node->prev;
+	}
+
+	if(node->next != NULL)
+		node->next->prev = node->prev;
+	if(node->prev != NULL)
+		node->prev->next = node->next;
+
 	/*free node content*/
-	if(node->data != NULL && node->freeFunc != NULL)
-		node->freeFunc(node->data);
-	free(node);
+	if(node->data != NULL)
+		fr(node->data);
+	fr(node);
 }

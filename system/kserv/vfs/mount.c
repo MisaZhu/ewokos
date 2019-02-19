@@ -32,7 +32,7 @@ static void mountDevice(TreeNodeT* node) {
 		dev->mount(node);
 }
 
-static TreeNodeT* preMount(uint32_t type, const char* device) {
+static TreeNodeT* preMount(uint32_t type, const char* device, uint32_t index) {
 	TreeNodeT* node = fsNewNode();
 	if(node == NULL)
 		return NULL;
@@ -45,6 +45,7 @@ static TreeNodeT* preMount(uint32_t type, const char* device) {
 
 			strncpy(_mounts[i].device, device, NAME_MAX);
 			_mounts[i].type = type;
+			_mounts[i].index = index;
 			_mounts[i].to = NULL;
 			mountDevice(node);
 			FSN(node)->flags |= FS_FLAG_MNT_ROOT;
@@ -54,14 +55,14 @@ static TreeNodeT* preMount(uint32_t type, const char* device) {
 	return NULL;
 }
 
-TreeNodeT* mount(TreeNodeT* to, uint32_t type, const char* device) {
+TreeNodeT* mount1(TreeNodeT* to, uint32_t type, const char* device, uint32_t index) {
 	if(to == NULL || device == NULL)
 		return NULL;
 
 	if(FSN(to)->mount >= 0) /*can not mount to another mount node */
 		return NULL;
 
-	TreeNodeT* node = preMount(type, device);
+	TreeNodeT* node = preMount(type, device, index);
 	if(node == NULL)
 		return NULL;
 	strcpy(FSN(node)->name, FSN(to)->name);
@@ -108,7 +109,7 @@ void unmount(TreeNodeT* node) {
 	if(to->father->eChild == node)
 		to->father->eChild = to;
 	
-	treeDel(node);	
+	treeDel(node, free);	
 }
 
 MountT* getMountInfo(struct TreeNode* node) {

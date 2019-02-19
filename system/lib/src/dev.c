@@ -3,59 +3,42 @@
 #include <stdio.h>
 #include <syscall.h>
 #include <stdlib.h>
+#include <kserv/kserv.h>
 #include <kserv/fs.h>
-#include <package.h>
+#include <pmessage.h>
+#include <proto.h>
 
-void devInit(DeviceT* dev) {
+void devInit(DeviceT* dev, const char* type) {
 	memset(dev, 0, sizeof(DeviceT));
+	if(type != NULL)
+		strncpy(dev->type, type, DEV_NAME_MAX);
 }
 
-const char* devGetServName(DeviceT* dev) {
+const char* devGetServName(const char* deviceName) {
 	static char ret[128];
-	snprintf(ret, 127, "DEV_%s", dev->name);
+	snprintf(ret, 127, "dev_%s", deviceName);
 	return ret;
 }
 
-static int _fsPid = -1;
-
-#define CHECK_KSERV_FS \
-	if(_fsPid < 0) \
-		_fsPid = syscall1(SYSCALL_KSERV_GET, (int)KSERV_FS_NAME); \
-	if(_fsPid < 0) \
-		return false; 
-
-bool devMount(DeviceT* dev, const char* dstPath, const char* nodeName) {
-	CHECK_KSERV_FS
-	const char* serv = devGetServName(dev);
-	uint32_t servLen = strlen(serv);
-	uint32_t pathLen = strlen(dstPath);
-	uint32_t nameLen = strlen(nodeName);
-
-	uint32_t sz = servLen+pathLen+nameLen+12;
-	char *req = (char*)malloc(sz);
-	const char* p = req;
-
-	memcpy(req, &servLen, 4);
-	req += 4;
-	memcpy(req, serv, servLen);
-	req += servLen;
-	memcpy(req, &pathLen, 4);
-	req += 4;
-	memcpy(req, dstPath, pathLen);
-	req += pathLen;
-	memcpy(req, &nameLen, 4);
-	req += 4;
-	memcpy(req, nodeName, nameLen);
-
-	PackageT* pkg = preq(_fsPid, FS_MOUNT, p, sz, true);
-	free(req);
-
-	if(pkg == NULL)
+bool devMount(DeviceT* dev, uint32_t index, const char* dstPath, const char* nodeName) {
+	int pid = kservGetPid(KSERV_VFS_NAME);
+	if(pid < 0)
 		return false;
 
-	if(pkg->type == PKG_TYPE_ERR) {
-		free(pkg);
+	ProtoT proto;
+	protoInit(&proto, NULL, 0);
+	protoAddStr(&proto, dev->type);
+	protoAddInt(&proto, index);
+	protoAddStr(&proto, dstPath);
+	protoAddStr(&proto, nodeName);
+
+	PackageT* pkg = preq(pid, FS_MOUNT, proto.data, proto.size, true);
+	protoFree(&proto);
+
+	if(pkg == NULL || pkg->type == PKG_TYPE_ERR) {
+		if(pkg != NULL) free(pkg);
 		return false; 
-	}
+	}	
+	free(pkg);
 	return true;
 }

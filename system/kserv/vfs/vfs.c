@@ -8,6 +8,7 @@
 #include <vfs.h>
 #include <mount.h>
 #include <stdio.h>
+#include <proto.h>
 
 static TreeNodeT _root;
 
@@ -48,7 +49,7 @@ void doClose(PackageT* pkg) {
 	syscall1(SYSCALL_PFILE_CLOSE, fd);
 }
 
-void doFInfo(PackageT* pkg) { 
+void doFDev(PackageT* pkg) { 
 	const char* name = (const char*)getPackageData(pkg);
 	TreeNodeT* node = fsTreeGet(&_root, name);
 	
@@ -57,27 +58,15 @@ void doFInfo(PackageT* pkg) {
 		return;
 	}
 
-	FSInfoT info;
-	DevTypeT* dev = getDevInfo(node);
-	if(dev == NULL || dev->info == NULL) {
-		if(FSN(node)->type == FS_TYPE_FILE) {
-			psend(pkg->id, PKG_TYPE_ERR, NULL, 0);
-			return;
-		}
-		else {
-			info.size = sizeof(FSInfoT);
-		}
+	MountT* mnt = getMountInfo(node);
+	if(mnt == NULL) {
+		psend(pkg->id, PKG_TYPE_ERR, NULL, 0);
+		return;
 	}
-	else {
-		dev->info(node, &info);
-	}
-	info.type = FSN(node)->type;
-	info.owner = FSN(node)->owner;
-	strncpy(info.name, FSN(node)->name, FNAME_MAX);
-	psend(pkg->id, pkg->type, &info, sizeof(FSInfoT));
+	psend(pkg->id, pkg->type, mnt->device, strlen(mnt->device)+1);
 }
 
-void doInfo(PackageT* pkg) { 
+void doDev(PackageT* pkg) { 
 	int fd = *(int32_t*)getPackageData(pkg);
 	if(fd < 0) {
 		psend(pkg->id, PKG_TYPE_ERR, NULL, 0);
@@ -90,26 +79,75 @@ void doInfo(PackageT* pkg) {
 		return;
 	}
 
-	FSInfoT info;
+	MountT* mnt = getMountInfo(node);
+	if(mnt == NULL) {
+		psend(pkg->id, PKG_TYPE_ERR, NULL, 0);
+		return;
+	}
+	psend(pkg->id, pkg->type, mnt->device, strlen(mnt->device)+1);
+}
+
+static bool getNodeInfo(TreeNodeT* node, FSInfoT* info) {
 	DevTypeT* dev = getDevInfo(node);
 	if(dev == NULL || dev->info == NULL) {
 		if(FSN(node)->type == FS_TYPE_FILE) {
-			psend(pkg->id, PKG_TYPE_ERR, NULL, 0);
-			return;
+			return false;
 		}
 		else {
-			info.size = sizeof(FSInfoT);
+			info->size = sizeof(FSInfoT);
 		}
 	}
 	else {
-		dev->info(node, &info);
+		dev->info(node, info);
 	}
-	info.type = FSN(node)->type;
-	info.owner = FSN(node)->owner;
-	strncpy(info.name, FSN(node)->name, FNAME_MAX);
+
+	info->id = FSN(node)->id;
+	info->type = FSN(node)->type;
+	if(info->type == FS_TYPE_DIR)
+		info->size = sizeof(FSInfoT);
+	info->owner = FSN(node)->owner;
+	strncpy(info->name, FSN(node)->name, NAME_MAX);
+
+	MountT* mnt = getMountInfo(node);
+	if(mnt != NULL) {
+		strncpy(info->device, mnt->device, DEV_NAME_MAX);
+		info->index = mnt->index;
+	}
+	else {
+		info->device[0] = 0;
+		info->index = 0;
+	}
+	return true;
+}
+
+void doFInfo(PackageT* pkg) { 
+	const char* name = (const char*)getPackageData(pkg);
+	TreeNodeT* node = fsTreeGet(&_root, name);
+	
+	FSInfoT info;
+	if(node == NULL || !getNodeInfo(node, &info)) {
+		psend(pkg->id, PKG_TYPE_ERR, NULL, 0);
+		return;
+	}
+
 	psend(pkg->id, pkg->type, &info, sizeof(FSInfoT));
 }
 
+void doInfo(PackageT* pkg) { 
+	int fd = *(int32_t*)getPackageData(pkg);
+	if(fd < 0) {
+		psend(pkg->id, PKG_TYPE_ERR, NULL, 0);
+		return;
+	}
+	
+	FSInfoT info;
+	TreeNodeT* node = (TreeNodeT*)syscall2(SYSCALL_PFILE_NODE, pkg->pid, fd);
+	if(node == NULL || !getNodeInfo(node, &info)) {
+		psend(pkg->id, PKG_TYPE_ERR, NULL, 0);
+		return;
+	}
+	psend(pkg->id, pkg->type, &info, sizeof(FSInfoT));
+}
 
 void doChild(PackageT* pkg) { 
 	int fd = *(int32_t*)getPackageData(pkg);
@@ -136,23 +174,11 @@ void doChild(PackageT* pkg) {
 	}
 
 	FSInfoT info;
-	DevTypeT* dev = getDevInfo(node);
-	if(dev == NULL || dev->info == NULL) {
-		if(FSN(node)->type == FS_TYPE_FILE) {
-			psend(pkg->id, PKG_TYPE_ERR, NULL, 0);
-			return;
-		}
-	}
-	else {
-		dev->info(node, &info);
+	if(!getNodeInfo(node, &info)) {
+		psend(pkg->id, PKG_TYPE_ERR, NULL, 0);
+		return;
 	}
 
-	info.type = FSN(node)->type;
-	if(info.type == FS_TYPE_DIR)
-		info.size = sizeof(FSInfoT);
-	info.owner = FSN(node)->owner;
-
-	strncpy(info.name, FSN(node)->name, FNAME_MAX);
 	psend(pkg->id, pkg->type, &info, sizeof(FSInfoT));
 
 	if(node->next == NULL) 
@@ -230,9 +256,10 @@ void doAdd(PackageT* pkg) {
 }
 
 void doRead(PackageT* pkg) { 
-	const char* p  = (const char*)getPackageData(pkg);
-	int fd = *(int32_t*)p;
-	int size = *(int32_t*)(p+4);
+	ProtoT proto;
+	protoInit(&proto, getPackageData(pkg), pkg->size);
+	int fd = protoReadInt(&proto);
+	int size = protoReadInt(&proto);
 
 	TreeNodeT* node = (TreeNodeT*)syscall2(SYSCALL_PFILE_NODE, pkg->pid, fd);
 	if(node == NULL) {
@@ -272,24 +299,12 @@ void doRead(PackageT* pkg) {
 }
 
 void doMount(PackageT* pkg) {
-	char serv[NAME_MAX+1];
-	char path[NAME_MAX+1];
-	char name[NAME_MAX+1];
-
-	const char* p = (const char*)getPackageData(pkg);
-	uint32_t len = *(uint32_t*)p;
-	p += 4;
-	strncpy(serv, p, len);
-	p += len;
-
-	len = *(uint32_t*)p;
-	p += 4;
-	strncpy(path, p, len);
-	p += len;
-	
-	len = *(uint32_t*)p;
-	p += 4;
-	strncpy(name, p, len);
+	ProtoT proto;
+	protoInit(&proto, getPackageData(pkg), pkg->size);
+	const char* device = protoReadStr(&proto);
+	uint32_t index = protoReadInt(&proto);
+	const char* path = protoReadStr(&proto);
+	const char* name = protoReadStr(&proto);
 
 	TreeNodeT* node = fsTreeGet(&_root, path);
 	if(node == NULL) { 
@@ -297,13 +312,20 @@ void doMount(PackageT* pkg) {
 		return;
 	}
 
-	node = mount(node, DEV_NONE, serv);
+	node = fsTreeSimpleAdd(node, name);
+	node = mount1(node, DEV_TTY, device, index);
 	psend(pkg->id, pkg->type, NULL, 0);
 }
 
 void handle(PackageT* pkg, void* p) {
 	(void)p;
 	switch(pkg->type) {
+		case FS_FDEV:
+			doFDev(pkg);
+			break;
+		case FS_DEV:
+			doDev(pkg);
+			break;
 		case FS_OPEN:
 			doOpen(pkg);
 			break;
@@ -335,15 +357,16 @@ void handle(PackageT* pkg, void* p) {
 }
 
 static void doInit() {
+	_fsNodeIndex = 0;
 	fsTreeNodeInit(&_root);
 	strcpy(FSN(&_root)->name, "/");
 
 	TreeNodeT* node = fsTreeSimpleAdd(&_root, "initrd");
-	node = mount(node, DEV_SRAMDISK, "initrd");
+	node = mount1(node, DEV_SRAMDISK, DEV_VFS, 0);
 
 	node = fsTreeSimpleAdd(&_root, "dev");
 	node = fsTreeSimpleAdd(node, "tty0");
-	node = mount(node, DEV_TTY, "tty0");
+	node = mount1(node, DEV_TTY, "tty", 0);
 }
 
 void _start() {
@@ -354,11 +377,6 @@ void _start() {
 
 	doInit();
 
-	int pid = fork();
-	if(pid == 0) { 
-		exec("ttyd");
-	}
-
-	if(!kservRun(KSERV_FS_NAME, handle, NULL))
+	if(!kservRun(KSERV_VFS_NAME, handle, NULL))
 		exit(0);
 }

@@ -39,12 +39,16 @@ ARCH_OBJS = arch/$(arch)/src/irq.o \
 	arch/$(arch)/src/timer.o \
 	arch/$(arch)/src/hardware.o
 
-DEV_OBJS = src/dev/uart.o
-LIB_OBJS = ../lib/src/kstring.o ../lib/src/base16.o
+DEV_OBJS = src/dev/dev.o \
+	src/dev/initrd.o \
+	src/dev/uart.o
+
+LIB_OBJS = ../lib/src/kstring.o ../lib/src/base16.o ../lib/src/tree.o
 
 OBJS += $(ARCH_OBJS) \
 	$(DEV_OBJS) \
 	src/kernel.o \
+	src/sramdisk.o \
 	src/irq.o \
 	src/syscalls.o \
 	src/mm/startup.o \
@@ -52,13 +56,13 @@ OBJS += $(ARCH_OBJS) \
 	src/mm/kalloc.o \
 	src/mm/trunkmalloc.o \
 	src/mm/kmalloc.o \
+	src/vfs/fstree.o \
+	src/vfs/vfs.o \
 	src/proc.o \
 	src/kipc.o \
 	src/kfile.o \
-	src/sramdisk.o \
 	src/kserv.o \
-	src/scheduler.o \
-	src/proto.o
+	src/scheduler.o
 
 $(OS).bin: $(OBJS) $(LIB_OBJS) $(OS).ld
 	mkdir -p build

@@ -4,11 +4,11 @@
 #include <hardware.h>
 #include <kernel.h>
 #include <system.h>
+#include <vfs/vfs.h>
 #include <dev/uart.h>
 #include <proc.h>
 #include <irq.h>
 #include <kstring.h>
-#include <sramdisk.h>
 #include <timer.h>
 #include <scheduler.h>
 
@@ -75,6 +75,9 @@ void kernelEntry()
 {
 	/* Done mapping all mem */
 	initKernelVM();
+
+	/* int virtual file system */
+	vfsInit();
 
 	/*init uart for output.*/
 	uartInit(); 

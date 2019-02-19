@@ -2,6 +2,7 @@
 #include "dev.h"
 #include <stdio.h>
 
+/*
 void doMount(PackageT* pkg, DeviceT* dev) {
 }
 
@@ -25,37 +26,39 @@ void doInfo(PackageT* pkg, DeviceT* dev) {
 
 void doSetopt(PackageT* pkg, DeviceT* dev) {
 }
+*/
 
 void handle(PackageT* pkg, void* p) {
 	DeviceT* dev = (DeviceT*)p;
+
   switch(pkg->type) {
 	case DEV_MOUNT:
-		doMount(pkg, dev);
+		//doMount(pkg, dev);
 		break;
 	case DEV_UNMOUNT:
-		doUnmount(pkg, dev);
+		//doUnmount(pkg, dev);
 		break;
 	case DEV_OPEN:
-		doOpen(pkg, dev);
+		//doOpen(pkg, dev);
 		break;
 	case DEV_CLOSE:
-		doClose(pkg, dev);
+		//doClose(pkg, dev);
 		break;
 	case DEV_WRITE:
-		doWrite(pkg, dev);
+		//doWrite(pkg, dev);
 		break;
 	case DEV_READ:
-		doRead(pkg, dev);
+		//doRead(pkg, dev);
 		break;
 	case DEV_INFO:
-		doInfo(pkg, dev);
+		//doInfo(pkg, dev);
 		break;
 	case DEV_SETOPT:
-		doSetopt(pkg, dev);
+		//doSetopt(pkg, dev);
 		break;
 	}
 }
 
 bool devServRun(DeviceT *dev) {
-	return kservRun(devGetServName(dev), handle, dev);
+	return kservRun(devGetServName(dev->type), handle, dev);
 }

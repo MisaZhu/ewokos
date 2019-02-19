@@ -5,29 +5,28 @@
 #include <dev/uart.h>
 #include <proc.h>
 #include <kernel.h>
-#include <sramdisk.h>
 #include <kstring.h>
 #include <mm/trunkmalloc.h>
 #include <kipc.h>
-#include <kfile.h>
+#include <vfs/vfs.h>
 #include <types.h>
 #include <kserv.h>
 #include <fsinfo.h>
 #include <scheduler.h>
 
-static int syscall_uartPutch(int c)
+static int32_t syscall_uartPutch(int32_t c)
 {
 	uartPutch(c);
 	return 0;
 }
 
-static int syscall_uartGetch()
+static int32_t syscall_uartGetch()
 {
-	int r = uartGetch();
+	int32_t r = uartGetch();
 	return r;
 }
 
-static int syscall_execElf(int arg0, int arg1) {
+static int32_t syscall_execElf(int32_t arg0, int32_t arg1) {
 	const char*cmd = (const char*)arg0;
 	const char*p = (const char*)arg1;
 
@@ -43,24 +42,24 @@ static int syscall_execElf(int arg0, int arg1) {
 	return 0;
 }
 
-static int syscall_fork(void)
+static int32_t syscall_fork(void)
 {
 	return kfork();
 }
 
-static int syscall_getpid(void)
+static int32_t syscall_getpid(void)
 {
 	return _currentProcess->pid;
 }
 
-static int syscall_exit(int arg0)
+static int32_t syscall_exit(int32_t arg0)
 {
 	(void)arg0;
 	procExit();
 	return 0;
 }
 
-int syscall_wait(int arg0)
+int32_t syscall_wait(int32_t arg0)
 {
 	ProcessT *proc = procGet(arg0);
 	if (proc) {
@@ -72,62 +71,62 @@ int syscall_wait(int arg0)
 }
 
 
-static int syscall_yield() {
+static int32_t syscall_yield() {
 	schedule();
 	return 0;
 }
 
-static int syscall_pmalloc(int arg0) {
+static int32_t syscall_pmalloc(int32_t arg0) {
 	char* p = trunkMalloc(&_currentProcess->mallocMan, (uint32_t)arg0);
 	return (int)p;
 }
 
-static int syscall_pfree(int arg0) {
+static int32_t syscall_pfree(int32_t arg0) {
 	char* p = (char*)arg0;
 	trunkFree(&_currentProcess->mallocMan, p);
 	return 0;
 }
 
-static int syscall_ipcOpen(int arg0) {
+static int32_t syscall_ipcOpen(int32_t arg0) {
 	return ipcOpen(arg0);
 }
 
-static int syscall_ipcReady() {
+static int32_t syscall_ipcReady() {
 	return ipcReady();
 }
 
-static int syscall_ipcClose(int arg0) {
+static int32_t syscall_ipcClose(int32_t arg0) {
 	ipcClose(arg0);
 	return 0;
 }
 
-static int syscall_ipcWrite(int arg0, int arg1, int arg2) {
+static int32_t syscall_ipcWrite(int32_t arg0, int32_t arg1, int32_t arg2) {
 	return ipcWrite(arg0, (void*)arg1, arg2);
 }
 
-static int syscall_ipcRead(int arg0, int arg1, int arg2) {
+static int32_t syscall_ipcRead(int32_t arg0, int32_t arg1, int32_t arg2) {
 	return ipcRead(arg0, (void*)arg1, arg2);
 }
 
-static int syscall_ipc_getpid_read(int arg0) {
+static int32_t syscall_ipc_getpid_read(int32_t arg0) {
 	return ipcGetPidR(arg0);
 }
 
-static int syscall_ipc_getpid_write(int arg0) {
+static int32_t syscall_ipc_getpid_write(int32_t arg0) {
 	return ipcGetPidW(arg0);
 }
 
-static int syscall_readInitRD(int arg0, int arg1, int arg2) {
+static int32_t syscall_readInitRD(int32_t arg0, int32_t arg1, int32_t arg2) {
 	const char* fname = (const char*)arg0;
-	int fsize = 0;
-	int rdSize = *(int*)arg2;
+	int32_t fsize = 0;
+	int32_t rdSize = *(int*)arg2;
 	*(int*)arg2 = 0;
 
 	const char*p = ramdiskRead(&_initRamDisk, fname, &fsize);
 	if(p == NULL || fsize == 0)
 		return 0;
 
-	int restSize = fsize - arg1; /*arg1: seek*/
+	int32_t restSize = fsize - arg1; /*arg1: seek*/
 	if(restSize <= 0) {
 		return 0;
 	}
@@ -144,15 +143,15 @@ static int syscall_readInitRD(int arg0, int arg1, int arg2) {
 	return (int)ret;
 }
 
-static int syscall_filesInitRD() {
+static int32_t syscall_filesInitRD() {
 	RamFileT* f = _initRamDisk.head;
 	char* ret = trunkMalloc(&_currentProcess->mallocMan, 1024+1);
 	if(ret == NULL)
 		return 0;
 
-	int i=0;
+	int32_t i=0;
 	while(f != NULL) {
-		int j=0;
+		int32_t j=0;
 		char c = f->name[j];
 		while(c != 0) {
 			ret[i] = c;
@@ -173,10 +172,10 @@ static int syscall_filesInitRD() {
 	return (int)ret;
 }
 
-static int syscall_infoInitRD(int arg0, int arg1) {
+static int32_t syscall_infoInitRD(int32_t arg0, int32_t arg1) {
 	const char* fname = (const char*)arg0;
 	FSInfoT* info = (FSInfoT*)arg1;
-	int fsize = 0;
+	int32_t fsize = 0;
 
 	const char*p = ramdiskRead(&_initRamDisk, fname, &fsize);
 	if(p == NULL)
@@ -188,11 +187,11 @@ static int syscall_infoInitRD(int arg0, int arg1) {
 	return 0;
 }
 
-static int syscall_kdb(int arg0) {
+static int32_t syscall_kdb(int32_t arg0) {
 	return arg0;
 }
 
-static int syscall_pfOpen(int arg0, int arg1, int arg2) {
+static int32_t syscall_pfOpen(int32_t arg0, int32_t arg1, int32_t arg2) {
 	ProcessT* proc = procGet(arg0);
 	if(proc == NULL)
 		return -1;
@@ -203,7 +202,7 @@ static int syscall_pfOpen(int arg0, int arg1, int arg2) {
 
 	kfRef(kf, arg2);
 
-	int i;
+	int32_t i;
 	for(i=0; i<FILE_MAX; i++) {
 		if(proc->files[i].kf == NULL) {
 			proc->files[i].kf = kf;
@@ -217,12 +216,12 @@ static int syscall_pfOpen(int arg0, int arg1, int arg2) {
 	return -1;
 }
 
-static int syscall_pfClose(int arg0, int arg1) {
+static int32_t syscall_pfClose(int32_t arg0, int32_t arg1) {
 	ProcessT* proc = procGet(arg0);
 	if(proc == NULL)
 		return -1;
 
-	int fd = arg1;
+	int32_t fd = arg1;
 	if(fd < 0 || fd >= FILE_MAX)
 		return -1;
 
@@ -234,61 +233,61 @@ static int syscall_pfClose(int arg0, int arg1) {
 	return  0;
 }
 
-static int syscall_pfNode(int arg0, int arg1) {
+static int32_t syscall_pfNode(int32_t arg0, int32_t arg1) {
 	ProcessT* proc = procGet(arg0);
 	if(proc == NULL)
 		return -1;
-	int fd = arg1;
+	int32_t fd = arg1;
 	if(fd < 0 || fd >= FILE_MAX)
 		return 0;
 	KFileT* kf = proc->files[fd].kf;
 	if(kf == NULL)
 		return 0;
-	return kf->fsNodeAddr;
+	return kf->nodeAddr;
 }
 
-static int syscall_pfSeek(int arg0, int arg1, int arg2) {
+static int32_t syscall_pfSeek(int32_t arg0, int32_t arg1, int32_t arg2) {
 	ProcessT* proc = procGet(arg0);
 	if(proc == NULL)
 		return -1;
 
-	int fd = arg1;
+	int32_t fd = arg1;
 	if(fd < 0 || fd >= FILE_MAX)
 		return -1;
 
 	KFileT* kf = proc->files[fd].kf;
-	if(kf == NULL || kf->fsNodeAddr == 0)
+	if(kf == NULL || kf->nodeAddr == 0)
 		return -1;
 	proc->files[fd].seek = arg2;
 	return arg2;
 }
 
-static int syscall_pfGetSeek(int arg0, int arg1) {
+static int32_t syscall_pfGetSeek(int32_t arg0, int32_t arg1) {
 	ProcessT* proc = procGet(arg0);
 	if(proc == NULL)
 		return -1;
 
-	int fd = arg1;
+	int32_t fd = arg1;
 	if(fd < 0 || fd >= FILE_MAX)
 		return -1;
 
 	KFileT* kf = proc->files[fd].kf;
-	if(kf == NULL || kf->fsNodeAddr == 0)
+	if(kf == NULL || kf->nodeAddr == 0)
 		return -1;
 	return proc->files[fd].seek;
 }
 
-static int syscall_kservReg(int arg0) {
+static int32_t syscall_kservReg(int32_t arg0) {
 	return kservReg((const char*)arg0);
 }
 
-static int syscall_kservGet(int arg0) {
+static int32_t syscall_kservGet(int32_t arg0) {
 	return kservGet((const char*)arg0);
 }
 
-static int getProcs(bool owner) {
-	int res = 0;
-	for(int i=0; i<PROCESS_COUNT_MAX; i++) {
+static int32_t getProcs(bool owner) {
+	int32_t res = 0;
+	for(int32_t i=0; i<PROCESS_COUNT_MAX; i++) {
 		if(_processTable[i].state != UNUSED && 
 				(_currentProcess->owner == 0 || 
 				owner != true || 
@@ -299,9 +298,9 @@ static int getProcs(bool owner) {
 	return res;
 }
 
-static int syscall_getProcs(int arg0, int arg1) {
+static int32_t syscall_getProcs(int32_t arg0, int32_t arg1) {
 	bool owner = (bool)arg1;
-	int num = getProcs(owner);
+	int32_t num = getProcs(owner);
 	if(num == 0)
 		return 0;
 
@@ -310,8 +309,8 @@ static int syscall_getProcs(int arg0, int arg1) {
 	if(procs == NULL)
 		return 0;
 
-	int j = 0;
-	for(int i=0; i<PROCESS_COUNT_MAX && j<num; i++) {
+	int32_t j = 0;
+	for(int32_t i=0; i<PROCESS_COUNT_MAX && j<num; i++) {
 		if(_processTable[i].state != UNUSED && 
 				(_currentProcess->owner == 0 ||
 				owner != true ||
@@ -329,26 +328,26 @@ static int syscall_getProcs(int arg0, int arg1) {
 	return (int)procs;
 }
 
-static int syscall_getCWD(int arg0, int arg1) {
+static int32_t syscall_getCWD(int32_t arg0, int32_t arg1) {
 	char* pwd = (char*)arg0;
 	strncpy(pwd, _currentProcess->pwd,
-		arg1 < FNAME_MAX ? arg1: FNAME_MAX);
+		arg1 < NAME_MAX ? arg1: NAME_MAX);
 	return (int)pwd;
 }
 
-static int syscall_setCWD(int arg0) {
+static int32_t syscall_setCWD(int32_t arg0) {
 	const char* pwd = (const char*)arg0;
-	strncpy(_currentProcess->pwd, pwd, FNAME_MAX);
+	strncpy(_currentProcess->pwd, pwd, NAME_MAX);
 	return 0;
 }
 
-static int syscall_getCmd(int arg0, int arg1) {
+static int32_t syscall_getCmd(int32_t arg0, int32_t arg1) {
 	char* cmd = (char*)arg0;
 	strncpy(cmd, _currentProcess->cmd, arg1);
 	return arg0;
 }
 
-static int syscall_setUID(int arg0, int arg1) {
+static int32_t syscall_setUID(int32_t arg0, int32_t arg1) {
 	if(arg1 < 0 || _currentProcess->owner >= 0) {/*current process not kernel proc*/
 		return -1;
 	}
@@ -362,14 +361,46 @@ static int syscall_setUID(int arg0, int arg1) {
 	return 0;
 }
 
-static int syscall_getUID(int arg0) {
+static int32_t syscall_getUID(int32_t arg0) {
 	ProcessT* proc = procGet(arg0);
 	if(proc == NULL)
 		return -1;
 	return proc->owner;
 }
 
-static int (*const _syscallHandler[])() = {
+static int32_t syscall_vfsMount(int32_t arg0, int32_t arg1, int32_t arg2) {
+	return vfsMount((const char*)arg0, (const char*)arg1, arg2);
+}
+
+static int32_t syscall_vfsOpen(int32_t arg0, int32_t arg1) {
+	return vfsOpen((const char*)arg0, arg1);
+}
+
+static int32_t syscall_vfsClose(int32_t arg0) {
+	return vfsClose(arg0);
+}
+
+static int32_t syscall_vfsFInfo(int32_t arg0, int32_t arg1) {
+	return vfsFInfo((const char*)arg0, (FSInfoT*)arg1);
+}
+
+static int32_t syscall_vfsInfo(int32_t arg0, int32_t arg1) {
+	return vfsInfo(arg0, (FSInfoT*)arg1);
+}
+
+static int32_t syscall_vfsSetopt(int32_t arg0, int32_t arg1, int32_t arg2) {
+	return vfsSetopt(arg0, arg1, arg2);
+}
+
+static int32_t syscall_vfsAdd(int32_t arg0, int32_t arg1) {
+	return vfsAdd(arg0, (const char*)arg1);
+}
+
+static int32_t syscall_vfsDel(int32_t arg0, int32_t arg1) {
+	return vfsDel(arg0, (const char*)arg1);
+}
+
+static int32_t (*const _syscallHandler[])() = {
 	[SYSCALL_KDB] = syscall_kdb,
 	[SYSCALL_UART_PUTCH] = syscall_uartPutch,
 	[SYSCALL_UART_GETCH] = syscall_uartGetch,
@@ -413,10 +444,20 @@ static int (*const _syscallHandler[])() = {
 
 	[SYSCALL_SET_UID] = syscall_setUID,
 	[SYSCALL_GET_UID] = syscall_getUID,
+
+	[SYSCALL_VFS_MOUNT] = syscall_vfsMount,
+
+	[SYSCALL_VFS_OPEN] = syscall_vfsOpen,
+	[SYSCALL_VFS_CLOSE] = syscall_vfsClose,
+	[SYSCALL_VFS_FINFO] = syscall_vfsFInfo,
+	[SYSCALL_VFS_INFO] = syscall_vfsInfo,
+	[SYSCALL_VFS_SETOPT] = syscall_vfsSetopt,
+	[SYSCALL_VFS_ADD] = syscall_vfsAdd,
+	[SYSCALL_VFS_DEL] = syscall_vfsDel
 };
 
 /* kernel side of system calls. */
-int handleSyscall(int code, int arg0, int arg1, int arg2) {
+int32_t handleSyscall(int32_t code, int32_t arg0, int32_t arg1, int32_t arg2) {
 	return _syscallHandler[code](arg0, arg1, arg2);
 }
 

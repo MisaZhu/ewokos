@@ -1,6 +1,8 @@
 #ifndef SYSCALLS_H
 #define SYSCALLS_H
 
-int handleSyscall(int code, int arg0, int arg1, int arg2);
+#include "types.h"
+
+int32_t handleSyscall(int32_t code, int32_t arg0, int32_t arg1, int32_t arg2);
 
 #endif

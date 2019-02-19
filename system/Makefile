@@ -6,7 +6,7 @@ CXX = arm-none-eabi-c++
 LD = arm-none-eabi-ld
 
 COMMON_LIB=../lib
-COMMON_OBJ=$(COMMON_LIB)/src/kstring.o
+COMMON_OBJ=$(COMMON_LIB)/src/kstring.o $(COMMON_LIB)/src/tree.o
 
 # flags
 CFLAGS = -I. \

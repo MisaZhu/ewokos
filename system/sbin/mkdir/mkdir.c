@@ -10,8 +10,8 @@ void _start()
 	arg = readCMainArg();
 
 	if(arg != NULL) {
-		char cwd[FNAME_MAX];
-		int fd = fsOpen(getcwd(cwd, FNAME_MAX));
+		char cwd[NAME_MAX];
+		int fd = fsOpen(getcwd(cwd, NAME_MAX));
 		if(fd >= 0) {
 			fsAdd(fd, arg);
 			fsClose(fd);

@@ -4,7 +4,7 @@
 
 static KFileT* _kernelFiles = NULL;
 
-KFileT* kfOpen(uint32_t fsNodeAddr) {
+KFileT* kfOpen(uint32_t nodeAddr) {
 	KFileT* kf = (KFileT*)kmalloc(sizeof(KFileT));	
 	if(kf == NULL)
 		return NULL;
@@ -19,7 +19,7 @@ KFileT* kfOpen(uint32_t fsNodeAddr) {
 		_kernelFiles = kf;
 	}
 
-	kf->fsNodeAddr = fsNodeAddr;
+	kf->nodeAddr = nodeAddr;
 	return kf;
 }
 

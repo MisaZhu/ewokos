@@ -1,12 +1,10 @@
 #ifndef FS_TREE_H
 #define FS_TREE_H
 
-#include "tree.h"
 #include "types.h"
+#include "tree.h"
 
 #define FS_FLAG_MNT_ROOT 0x01
-
-extern uint32_t _fsNodeIndex;
 
 typedef struct FSNode {
 	uint32_t id;

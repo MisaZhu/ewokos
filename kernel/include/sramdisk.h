@@ -11,7 +11,7 @@ very simple read only RAM file system for kernel.
 
 typedef struct RamFile {
 	struct RamFile* next;
-	char name[FNAME_MAX];
+	char name[NAME_MAX];
 	const char* content;
 	int32_t size; 
 } RamFileT;

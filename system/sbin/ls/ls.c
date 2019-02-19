@@ -4,19 +4,19 @@
 
 void _start()
 {
-	char pwd[FNAME_MAX];
-	int fd = fsOpen(getcwd(pwd, FNAME_MAX));
+	char pwd[NAME_MAX];
+	int fd = fsOpen(getcwd(pwd, NAME_MAX));
 	if(fd >= 0) {
 		FSInfoT info;
 		while(1) {
 			if(fsChild(fd, &info) < 0)
 				break;
 			if(info.type == FS_TYPE_FILE)
-				printf("-f-\t%d\t%d\t%s\n", info.owner, info.size, info.name);
+				printf("-f- %d\t%d\t%s\n", info.owner, info.size, info.name);
 			else if(info.type == FS_TYPE_DIR)
-				printf("-d-\t%d\t%d\t[%s]\n", info.owner, info.size, info.name);
+				printf("-d- %d\t%d\t[%s]\n", info.owner, info.size, info.name);
 			else if(info.type == FS_TYPE_DEV_FILE)
-				printf("-v-\t%d\t%d\t%s\n", info.owner, info.size, info.name);
+				printf("-v- %d\t%d\t%s : %s(%d)\n", info.owner, info.size, info.name, info.device, info.index);
 		}
 		fsClose(fd);
 	}

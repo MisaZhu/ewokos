@@ -210,6 +210,9 @@ bool procLoad(ProcessT *proc, const char *procImage)
 		progHeaderOffset += sizeof(struct ElfProgramHeader);
 	}
 
+	proc->mallocMan.mHead = 0;
+	proc->mallocMan.mTail = 0;
+	
 	proc->entry = (EntryFunctionT) header->entry;
 	proc->state = READY;
 
