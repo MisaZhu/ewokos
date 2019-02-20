@@ -1,4 +1,4 @@
-PS_DIR = sbin/ps
+PS_DIR = bin/ps
 PS_PROGRAM = build/ps 
 PROGRAM += $(PS_PROGRAM)
 

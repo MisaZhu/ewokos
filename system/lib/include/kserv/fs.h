@@ -23,7 +23,7 @@ enum {
 	FS_DEV
 };
 
-int fsOpen(const char* name);
+int fsOpen(const char* name, int32_t flags);
 
 int fsClose(int fd);
 
@@ -31,7 +31,7 @@ int fsInfo(int fd, FSInfoT* info);
 
 int fsFInfo(const char* name, FSInfoT* info);
 
-int fsChild(int fd, FSInfoT* childInfo); /*dir first child*/
+FSInfoT* fsKids(int fd, int32_t *num);
 
 int fsRead(int fd, char* buf, uint32_t size);
 

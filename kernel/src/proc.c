@@ -340,3 +340,9 @@ void procExit() {
 void _abortEntry() {
 	procExit();
 }
+
+void* pmalloc(uint32_t size) {
+	if(_currentProcess == NULL || size == 0)
+		return NULL;
+	return trunkMalloc(&_currentProcess->mallocMan, size);
+}

@@ -26,8 +26,9 @@ all: system
 
 include lib/build.mk
 include mkramfs/build.mk
-include sbin/build.mk
 include kserv/build.mk
+include sbin/build.mk
+include bin/build.mk
 
 
 system: $(MKRAMFS) $(PROGRAM) $(COMMON_OBJ)

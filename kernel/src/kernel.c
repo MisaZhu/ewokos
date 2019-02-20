@@ -76,9 +76,6 @@ void kernelEntry()
 	/* Done mapping all mem */
 	initKernelVM();
 
-	/* int virtual file system */
-	vfsInit();
-
 	/*init uart for output.*/
 	uartInit(); 
 
@@ -99,7 +96,6 @@ void kernelEntry()
 
 	procInit();
 
-
 	ProcessT *proc = procCreate(); //create first process
 	if(proc == NULL) {
 		uartPuts("panic: init process create failed!\n");
@@ -108,6 +104,10 @@ void kernelEntry()
 	
 	//load process from ramdisk by name.
 	ramdiskOpen((const char*)_initRamDiskBase, &_initRamDisk, kmalloc);
+
+	/* int virtual file system */
+	vfsInit();
+	
 	int size = 0;
 	const char *p = ramdiskRead(&_initRamDisk, FIRST_PROCESS, &size);
 	if(p == NULL) {

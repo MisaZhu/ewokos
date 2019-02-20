@@ -1,4 +1,4 @@
-UID_DIR = sbin/uid
+UID_DIR = bin/uid
 UID_PROGRAM = build/uid 
 PROGRAM += $(UID_PROGRAM)
 

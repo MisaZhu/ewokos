@@ -1,4 +1,4 @@
-LS_DIR = sbin/ls
+LS_DIR = bin/ls
 LS_PROGRAM = build/ls 
 PROGRAM += $(LS_PROGRAM)
 

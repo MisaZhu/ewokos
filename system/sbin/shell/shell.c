@@ -130,7 +130,6 @@ void _start() {
 		int child_pid = fork();
 		if (child_pid == 0) {
 			if(exec(cmd) != 0) {
-				printf("unknown command: '%s'.\n", cmd);
 				exit(0);
 			}
 		}

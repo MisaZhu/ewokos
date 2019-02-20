@@ -19,7 +19,7 @@ static char* readKernelInitRD(const char* fname, int *size) {
 }
 
 static char* readFromFS(const char* fname, int *size) {
-	int fd = fsOpen(fname);
+	int fd = fsOpen(fname, 0);
 	if(fd < 0) 
 		return NULL;
 

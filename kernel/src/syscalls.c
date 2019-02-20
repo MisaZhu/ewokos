@@ -62,7 +62,7 @@ static int32_t syscall_exit(int32_t arg0)
 int32_t syscall_wait(int32_t arg0)
 {
 	ProcessT *proc = procGet(arg0);
-	if (proc) {
+	if (proc->state != UNUSED) {
 		_currentProcess->waitPid = arg0;
 		_currentProcess->state = SLEEPING;
 		schedule();
@@ -77,7 +77,7 @@ static int32_t syscall_yield() {
 }
 
 static int32_t syscall_pmalloc(int32_t arg0) {
-	char* p = trunkMalloc(&_currentProcess->mallocMan, (uint32_t)arg0);
+	char* p = (char*)pmalloc((uint32_t)arg0);
 	return (int)p;
 }
 
@@ -135,7 +135,7 @@ static int32_t syscall_readInitRD(int32_t arg0, int32_t arg1, int32_t arg2) {
 		rdSize = restSize;
 
 
-	char* ret = trunkMalloc(&_currentProcess->mallocMan, rdSize);
+	char* ret = (char*)pmalloc(rdSize);
 	if(ret == NULL)
 		return 0;
 	memcpy(ret, p+arg1, rdSize);
@@ -145,7 +145,7 @@ static int32_t syscall_readInitRD(int32_t arg0, int32_t arg1, int32_t arg2) {
 
 static int32_t syscall_filesInitRD() {
 	RamFileT* f = _initRamDisk.head;
-	char* ret = trunkMalloc(&_currentProcess->mallocMan, 1024+1);
+	char* ret = (char*)pmalloc(1024+1);
 	if(ret == NULL)
 		return 0;
 
@@ -305,7 +305,7 @@ static int32_t syscall_getProcs(int32_t arg0, int32_t arg1) {
 		return 0;
 
 	/*need to be freed later used!*/
-	ProcInfoT* procs = (ProcInfoT*)trunkMalloc(&_currentProcess->mallocMan, sizeof(ProcInfoT)*num);
+	ProcInfoT* procs = (ProcInfoT*)pmalloc(sizeof(ProcInfoT)*num);
 	if(procs == NULL)
 		return 0;
 
@@ -380,6 +380,32 @@ static int32_t syscall_vfsClose(int32_t arg0) {
 	return vfsClose(arg0);
 }
 
+static int32_t syscall_vfsRead(int32_t arg0, int32_t arg1, int32_t arg2) {
+	int32_t fd = arg0;
+	if(fd < 0 || fd >= FILE_MAX)
+		return -1;
+
+	int32_t seek = 0;
+	KFileT* kf = _currentProcess->files[fd].kf;
+	if(kf == NULL || kf->nodeAddr == 0)
+		return -1;
+	seek = _currentProcess->files[fd].seek;
+	return vfsRead(fd, (void*)arg1, arg2, seek);
+}
+
+static int32_t syscall_vfsWrite(int32_t arg0, int32_t arg1, int32_t arg2) {
+	int32_t fd = arg0;
+	if(fd < 0 || fd >= FILE_MAX)
+		return -1;
+
+	int32_t seek = 0;
+	KFileT* kf = _currentProcess->files[fd].kf;
+	if(kf == NULL || kf->nodeAddr == 0)
+		return -1;
+	seek = _currentProcess->files[fd].seek;
+	return vfsWrite(fd, (void*)arg1, arg2, seek);
+}
+
 static int32_t syscall_vfsFInfo(int32_t arg0, int32_t arg1) {
 	return vfsFInfo((const char*)arg0, (FSInfoT*)arg1);
 }
@@ -388,8 +414,8 @@ static int32_t syscall_vfsInfo(int32_t arg0, int32_t arg1) {
 	return vfsInfo(arg0, (FSInfoT*)arg1);
 }
 
-static int32_t syscall_vfsSetopt(int32_t arg0, int32_t arg1, int32_t arg2) {
-	return vfsSetopt(arg0, arg1, arg2);
+static int32_t syscall_vfsIoctl(int32_t arg0, int32_t arg1, int32_t arg2) {
+	return vfsIoctl(arg0, arg1, arg2);
 }
 
 static int32_t syscall_vfsAdd(int32_t arg0, int32_t arg1) {
@@ -398,6 +424,16 @@ static int32_t syscall_vfsAdd(int32_t arg0, int32_t arg1) {
 
 static int32_t syscall_vfsDel(int32_t arg0, int32_t arg1) {
 	return vfsDel(arg0, (const char*)arg1);
+}
+
+static int32_t syscall_vfsFKids(int32_t arg0, int32_t arg1) {
+	FSInfoT* ret = vfsFKids((const  char*)arg0, (int32_t*)arg1);
+	return (int32_t)ret;
+}
+
+static int32_t syscall_vfsKids(int32_t arg0, int32_t arg1) {
+	FSInfoT* ret = vfsKids(arg0, (int32_t*)arg1);
+	return (int32_t)ret;
 }
 
 static int32_t (*const _syscallHandler[])() = {
@@ -449,11 +485,15 @@ static int32_t (*const _syscallHandler[])() = {
 
 	[SYSCALL_VFS_OPEN] = syscall_vfsOpen,
 	[SYSCALL_VFS_CLOSE] = syscall_vfsClose,
+	[SYSCALL_VFS_READ] = syscall_vfsRead,
+	[SYSCALL_VFS_WRITE] = syscall_vfsWrite,
 	[SYSCALL_VFS_FINFO] = syscall_vfsFInfo,
 	[SYSCALL_VFS_INFO] = syscall_vfsInfo,
-	[SYSCALL_VFS_SETOPT] = syscall_vfsSetopt,
+	[SYSCALL_VFS_IOCTL] = syscall_vfsIoctl,
 	[SYSCALL_VFS_ADD] = syscall_vfsAdd,
-	[SYSCALL_VFS_DEL] = syscall_vfsDel
+	[SYSCALL_VFS_DEL] = syscall_vfsDel,
+	[SYSCALL_VFS_FKIDS] = syscall_vfsFKids,
+	[SYSCALL_VFS_KIDS] = syscall_vfsKids,
 };
 
 /* kernel side of system calls. */

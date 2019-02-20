@@ -1,4 +1,4 @@
-MKDIR_DIR = sbin/mkdir
+MKDIR_DIR = bin/mkdir
 MKDIR_PROGRAM = build/mkdir 
 PROGRAM += $(MKDIR_PROGRAM)
 

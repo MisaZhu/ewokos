@@ -21,6 +21,7 @@ typedef struct {
 	const char* ram;
 } RamDiskT;
 
+bool ramdiskHas(RamDiskT* rd, const char* fname);
 void ramdiskOpen(const char*ram, RamDiskT* rd, void*(*alloc)(uint32_t));
 void ramdiskClose(RamDiskT* rd, void (*fr)(void*));
 /*

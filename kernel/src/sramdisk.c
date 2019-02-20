@@ -48,6 +48,12 @@ void ramdiskOpen(const char*ram, RamDiskT* rd, void*(*alloc)(uint32_t)) {
 	}
 }
 
+bool ramdiskHas(RamDiskT* rd, const char* fname) {
+	int sz;
+	const char* p = ramdiskRead(rd, fname, &sz);
+	return p == NULL ? false : true;
+}
+
 /*
 read file content of fname, return content address and size.
 */

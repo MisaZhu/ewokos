@@ -8,6 +8,7 @@ void treeInitNode(TreeNodeT* node) {
 	node->next = NULL;
 	node->prev = NULL;
 	
+	node->size = 0;
 	node->data = NULL;
 }
 
@@ -23,6 +24,7 @@ void treeAdd(TreeNodeT* father, TreeNodeT* node) {
 		father->eChild->next = node;
 		node->prev = father->eChild;
 	}
+	father->size++;
 	father->eChild = node;
 }
 
@@ -43,6 +45,7 @@ void treeDel(TreeNodeT* node, FreeFuncT fr) {
 			father->fChild = node->next;
 		if(father->eChild == node)
 			father->eChild = node->prev;
+		father->size--;
 	}
 
 	if(node->next != NULL)

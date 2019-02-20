@@ -11,7 +11,7 @@ void _start()
 
 	if(arg != NULL) {
 		char cwd[NAME_MAX];
-		int fd = fsOpen(getcwd(cwd, NAME_MAX));
+		int fd = fsOpen(getcwd(cwd, NAME_MAX), 0);
 		if(fd >= 0) {
 			fsAdd(fd, arg);
 			fsClose(fd);

@@ -1,4 +1,4 @@
-PWD_DIR = sbin/pwd
+PWD_DIR = bin/pwd
 PWD_PROGRAM = build/pwd 
 PROGRAM += $(PWD_PROGRAM)
 

@@ -32,6 +32,6 @@ void devInit(DeviceT* dev, const char* type);
 
 const char* devGetServName(const char* devName);
 
-bool devMount(DeviceT* dev, uint32_t index, const char* dstPath, const char* nodeName);
+bool devMount(DeviceT* dev, uint32_t index, const char* nodeName);
 
 #endif

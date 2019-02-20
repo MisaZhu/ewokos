@@ -10,6 +10,7 @@ typedef struct TreeNode {
 	struct TreeNode* next; /*next brother*/
 	struct TreeNode* prev; /*prev brother*/
 	
+	uint32_t size;
 	void* data;
 } TreeNodeT;
 

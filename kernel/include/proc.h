@@ -87,6 +87,7 @@ void procShrinkMemory(void *proc, int pageCount);
 ProcessT* procGet(int pid);
 int kfork();
 void procExit();
+void* pmalloc(uint32_t size);
 
 #endif
 
