@@ -14,14 +14,12 @@
 #include <fsinfo.h>
 #include <scheduler.h>
 
-static int32_t syscall_uartPutch(int32_t c)
-{
+static int32_t syscall_uartPutch(int32_t c) {
 	uartPutch(c);
 	return 0;
 }
 
-static int32_t syscall_uartGetch()
-{
+static int32_t syscall_uartGetch() {
 	int32_t r = uartGetch();
 	return r;
 }
@@ -42,25 +40,21 @@ static int32_t syscall_execElf(int32_t arg0, int32_t arg1) {
 	return 0;
 }
 
-static int32_t syscall_fork(void)
-{
+static int32_t syscall_fork(void) {
 	return kfork();
 }
 
-static int32_t syscall_getpid(void)
-{
+static int32_t syscall_getpid(void) {
 	return _currentProcess->pid;
 }
 
-static int32_t syscall_exit(int32_t arg0)
-{
+static int32_t syscall_exit(int32_t arg0) {
 	(void)arg0;
 	procExit();
 	return 0;
 }
 
-int32_t syscall_wait(int32_t arg0)
-{
+static int32_t syscall_wait(int32_t arg0) {
 	ProcessT *proc = procGet(arg0);
 	if (proc->state != UNUSED) {
 		_currentProcess->waitPid = arg0;
