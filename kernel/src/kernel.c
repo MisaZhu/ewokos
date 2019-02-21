@@ -93,7 +93,15 @@ void kernelEntry()
 				"Loading the first process...\n\n");
 	
 	ipcInit();
+	
+	ramdiskOpen((const char*)_initRamDiskBase, &_initRamDisk, kmalloc);
 
+	devInit();
+
+	/* int virtual file system */
+	vfsInit();
+
+	
 	procInit();
 
 	ProcessT *proc = procCreate(); //create first process
@@ -101,13 +109,7 @@ void kernelEntry()
 		uartPuts("panic: init process create failed!\n");
 		return;
 	}
-	
-	//load process from ramdisk by name.
-	ramdiskOpen((const char*)_initRamDiskBase, &_initRamDisk, kmalloc);
 
-	/* int virtual file system */
-	vfsInit();
-	
 	int size = 0;
 	const char *p = ramdiskRead(&_initRamDisk, FIRST_PROCESS, &size);
 	if(p == NULL) {

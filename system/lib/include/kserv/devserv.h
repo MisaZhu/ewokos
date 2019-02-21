@@ -4,6 +4,6 @@
 #include "dev.h"
 #include "kserv/kserv.h"
 
-bool devServRun(DeviceT *dev);
+bool devServRun(const char* servName, DeviceT *dev);
 
 #endif

@@ -12,12 +12,12 @@ static TreeNodeT _root;
 static MountT _mounts[MOUNT_MAX];
 
 static inline TreeNodeT* getNodeByFD(int32_t fd) {
-  if(fd < 0 || fd >= FILE_MAX)
+	if(fd < 0 || fd >= FILE_MAX)
 		return NULL;
 
-  KFileT* kf = _currentProcess->files[fd].kf;
-  if(kf == NULL)
-    return NULL;
+	KFileT* kf = _currentProcess->files[fd].kf;
+	if(kf == NULL)
+		return NULL;
 	return (TreeNodeT*)kf->nodeAddr;
 }
 
@@ -31,78 +31,79 @@ static inline DeviceT* getNodeDevice(TreeNodeT* node, int32_t *index) {
 }
 
 static TreeNodeT* preMount(DeviceT* device, uint32_t index) {
-  TreeNodeT* node = fsNewNode();
-  if(node == NULL || device->mount == NULL)
-    return NULL;
+	TreeNodeT* node = fsNewNode();
+	if(node == NULL || device->mount == NULL)
+		return NULL;
 
-  int i;
-  for(i=0; i<MOUNT_MAX; i++) {
-    if(_mounts[i].device == NULL) {
-      FSN(node)->mount = i;
-      _mounts[i].device = device;
-      _mounts[i].index = index;
-      _mounts[i].to = NULL;
+	int i;
+	for(i=0; i<MOUNT_MAX; i++) {
+		if(_mounts[i].device == NULL) {
+			FSN(node)->mount = i;
+			_mounts[i].device = device;
+			_mounts[i].servPID = _currentProcess->pid;
+			_mounts[i].index = index;
+			_mounts[i].to = NULL;
 			device->mount(index, node);
-      FSN(node)->flags |= FS_FLAG_MNT_ROOT;
-      return node;
-    }
-  }
-  return NULL;
+			FSN(node)->flags |= FS_FLAG_MNT_ROOT;
+			return node;
+		}
+	}
+	return NULL;
 }
 
 static TreeNodeT* mountDevice(TreeNodeT* to, DeviceT* device, uint32_t index) {
 	if(to == NULL)
-    return NULL;
+		return NULL;
 
-  if(FSN(to)->mount >= 0) /*can not mount to another mount node */
-    return NULL;
+	if(FSN(to)->mount >= 0) /*can not mount to another mount node */
+		return NULL;
 
-  TreeNodeT* node = preMount(device, index);
-  if(node == NULL)
-    return NULL;
-  strcpy(FSN(node)->name, FSN(to)->name);
+	TreeNodeT* node = preMount(device, index);
+	if(node == NULL)
+		return NULL;
+	strcpy(FSN(node)->name, FSN(to)->name);
 
-  _mounts[FSN(node)->mount].to = to; //save the old node.
+	_mounts[FSN(node)->mount].to = to; //save the old node.
 
-  /*replace the old node*/
-  node->father = to->father;
-  node->prev = to->prev;
-  if(node->prev != NULL)
-    node->prev->next = node;
+	/*replace the old node*/
+	node->father = to->father;
+	node->prev = to->prev;
+	if(node->prev != NULL)
+		node->prev->next = node;
 
-  node->next = to->next;
-  if(node->next != NULL)
-    node->next->prev = node;
+	node->next = to->next;
+	if(node->next != NULL)
+		node->next->prev = node;
 
-  if(node->father->fChild == to)
-    node->father->fChild = node;
-  if(node->father->eChild == to)
-    node->father->eChild = node;
+	if(node->father->fChild == to)
+		node->father->fChild = node;
+	if(node->father->eChild == to)
+		node->father->eChild = node;
 
-  return node;
+	return node;
 }
 
 void vfsInit() {
-  for(int i=0; i<MOUNT_MAX; i++) {
-    memset(&_mounts[i], 0, sizeof(MountT));
-  }
+	for(int i=0; i<MOUNT_MAX; i++) {
+		memset(&_mounts[i], 0, sizeof(MountT));
+	}
 
 	fsTreeNodeInit(&_root);
-  strcpy(FSN(&_root)->name, "/");
+	strcpy(FSN(&_root)->name, "/");
 
 	TreeNodeT* node = fsTreeSimpleAdd(&_root, "initrd");
-  //node = mountDevice(node, devByName(KDEV_INITRD), 0);	
-  node = mountDevice(node, devByName(KDEV_INITRD), 0);	
+	//node = mountDevice(node, devByName(KDEV_INITRD), 0);	
+	node = mountDevice(node, devByName(KDEV_INITRD), 0);	
 	if(node != NULL) {
 		uartPuts("initramdisk mounted.\n");
 	}
 	fsTreeSimpleAdd(&_root, "dev");
 }
 
-int32_t vfsMount(const char* name, const char* deviceName, uint32_t index) {
+int32_t vfsMount(const char* name, const char* deviceName,  uint32_t index) {
 	TreeNodeT* node = fsTreeGet(&_root, name);
 	DeviceT* device = devByName(deviceName);	
-  if(node == NULL || device == NULL)
+	if(node == NULL || device == NULL)
 		return -1;
 
 	if(mountDevice(node, device, index) == NULL)
@@ -111,52 +112,52 @@ int32_t vfsMount(const char* name, const char* deviceName, uint32_t index) {
 }
 
 int32_t vfsOpen(const char* name, int32_t flags) {
-  TreeNodeT* node = fsTreeGet(&_root, name);
-  if(node == NULL)
+	TreeNodeT* node = fsTreeGet(&_root, name);
+	if(node == NULL)
 		return -1;
-	
+
 	if(strcmp(name, "/") != 0) {
 		int32_t index;
 		DeviceT* device = getNodeDevice(node, &index);
 		if(device == NULL || device->open == NULL || !device->open(index, node, flags)) {
-		if(FSN(node)->type != FS_TYPE_DIR)
-			return -1;
+			if(FSN(node)->type != FS_TYPE_DIR)
+				return -1;
 		}
 	}
 
-  KFileT* kf = kfOpen((uint32_t)node);
-  if(kf == NULL)
-    return -1;
+	KFileT* kf = kfOpen((uint32_t)node);
+	if(kf == NULL)
+		return -1;
 
-  kfRef(kf, flags);
-  int32_t i;
-  for(i=0; i<FILE_MAX; i++) {
-    if(_currentProcess->files[i].kf == NULL) {
-      _currentProcess->files[i].kf = kf;
-      _currentProcess->files[i].flags = flags;
-      _currentProcess->files[i].seek = 0;
+	kfRef(kf, flags);
+	int32_t i;
+	for(i=0; i<FILE_MAX; i++) {
+		if(_currentProcess->files[i].kf == NULL) {
+			_currentProcess->files[i].kf = kf;
+			_currentProcess->files[i].flags = flags;
+			_currentProcess->files[i].seek = 0;
 			return i;
-    }
-  }
+		}
+	}
 	kfUnref(kf, flags);
-  return -1;
+	return -1;
 }
 
 int32_t vfsClose(int32_t fd) {
-  TreeNodeT* node = getNodeByFD(fd);
-  if(node == NULL)
+	TreeNodeT* node = getNodeByFD(fd);
+	if(node == NULL)
 		return -1;
 	int32_t index;
 	DeviceT* device = getNodeDevice(node, &index);
 	if(device == NULL || device->close == NULL || !device->close(index, node))
 		return -1;
 
-  kfUnref(_currentProcess->files[fd].kf, _currentProcess->files[fd].flags);
+	kfUnref(_currentProcess->files[fd].kf, _currentProcess->files[fd].flags);
 
-  _currentProcess->files[fd].kf = NULL;
-  _currentProcess->files[fd].flags = 0;
-  _currentProcess->files[fd].seek = 0;
-  return 0;
+	_currentProcess->files[fd].kf = NULL;
+	_currentProcess->files[fd].flags = 0;
+	_currentProcess->files[fd].seek = 0;
+	return 0;
 }
 
 int32_t vfsRead(int fd, void* buf, uint32_t size, int32_t seek) {
@@ -210,7 +211,7 @@ int vfsNodeInfo(TreeNodeT* node, FSInfoT* info) {
 }
 
 int32_t vfsFInfo(const char* name, FSInfoT* info) {
- 	TreeNodeT* node = fsTreeGet(&_root, name);
+	TreeNodeT* node = fsTreeGet(&_root, name);
 	if(node == NULL)
 		return -1;
 
@@ -218,14 +219,14 @@ int32_t vfsFInfo(const char* name, FSInfoT* info) {
 }
 
 int32_t vfsInfo(int32_t fd, FSInfoT* info) {
- 	TreeNodeT* node = getNodeByFD(fd); 
+	TreeNodeT* node = getNodeByFD(fd); 
 	if(node == NULL)
 		return -1;
 	return vfsNodeInfo(node, info);
 }
 
 int32_t vfsIoctl(int32_t fd, int32_t cmd, int32_t value) {
- 	TreeNodeT* node = getNodeByFD(fd); 
+	TreeNodeT* node = getNodeByFD(fd); 
 	if(node == NULL)
 		return -1;
 	int32_t index;
@@ -236,11 +237,11 @@ int32_t vfsIoctl(int32_t fd, int32_t cmd, int32_t value) {
 }
 
 int32_t vfsAdd(int32_t fd, const char* name) {
- 	TreeNodeT* node = getNodeByFD(fd); 
+	TreeNodeT* node = getNodeByFD(fd); 
 	if(node == NULL || fsTreeSimpleGet(node, name) != NULL) /*already exist.*/
-    return -1;
- 
-  node = fsTreeSimpleAdd(node, name);
+		return -1;
+
+	node = fsTreeSimpleAdd(node, name);
 	if(node == NULL)
 		return -1;
 	FSN(node)->owner = _currentProcess->owner;
@@ -253,10 +254,10 @@ int32_t vfsAdd(int32_t fd, const char* name) {
 }
 
 int32_t vfsDel(int32_t fd, const char* name) {
- 	TreeNodeT* node = getNodeByFD(fd); 
+	TreeNodeT* node = getNodeByFD(fd); 
 	if(node == NULL)
 		return -1;
-	
+
 	node = fsTreeGet(node, name);
 	if(node == NULL)
 		return -1;

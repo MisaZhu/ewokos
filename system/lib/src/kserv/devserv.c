@@ -30,6 +30,7 @@ void doSetopt(PackageT* pkg, DeviceT* dev) {
 
 void handle(PackageT* pkg, void* p) {
 	DeviceT* dev = (DeviceT*)p;
+	(void)dev;
 
   switch(pkg->type) {
 	case DEV_MOUNT:
@@ -59,6 +60,6 @@ void handle(PackageT* pkg, void* p) {
 	}
 }
 
-bool devServRun(DeviceT *dev) {
-	return kservRun(devGetServName(dev->type), handle, dev);
+bool devServRun(const char* servName, DeviceT *dev) {
+	return kservRun(servName, handle, dev);
 }

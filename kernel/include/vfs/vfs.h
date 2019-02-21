@@ -7,6 +7,7 @@
 
 typedef struct {
 	DeviceT* device;	
+	int32_t servPID;
   uint32_t index;
   struct TreeNode* to;
 } MountT;

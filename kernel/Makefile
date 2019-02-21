@@ -43,7 +43,10 @@ DEV_OBJS = src/dev/dev.o \
 	src/dev/initrd.o \
 	src/dev/uart.o
 
-LIB_OBJS = ../lib/src/kstring.o ../lib/src/base16.o ../lib/src/tree.o
+LIB_OBJS = ../lib/src/kstring.o \
+	../lib/src/base16.o \
+	../lib/src/tree.o \
+	../lib/src/proto.o
 
 OBJS += $(ARCH_OBJS) \
 	$(DEV_OBJS) \

@@ -7,7 +7,6 @@
 
 typedef struct {
 	char name[DEV_NAME_MAX];
-	
 	bool (*mount)(int32_t index, TreeNodeT* node);
 	bool (*open)(int32_t index, TreeNodeT* node, int32_t flag);
 	bool (*close)(int32_t index, TreeNodeT* node);
@@ -19,7 +18,13 @@ typedef struct {
 	bool (*del)(int32_t index, TreeNodeT* node);
 } DeviceT;
 
+void devInit();
+
 DeviceT* devByName(const char* name);
+
+DeviceT* devByID(int32_t id);
+
+int32_t regDev(DeviceT* dev);
 
 #define KDEV_INITRD "kdev.initrd"
 

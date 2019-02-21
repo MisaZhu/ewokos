@@ -63,7 +63,7 @@ static bool rdInfo(int32_t index, TreeNodeT* node, FSInfoT* info) {
 }
 
 static DeviceT _initrdDev = {
-	"",
+	KDEV_INITRD,
 	rdMount, //bool (*mount)(int32_t index, TreeNodeT* node);
 	rdOpen, //bool (*open)(int32_t index, TreeNodeT* node, int32_t flag);
 	rdClose, //bool (*close)(int32_t index, TreeNodeT* node);

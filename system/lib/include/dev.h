@@ -24,14 +24,10 @@ typedef struct {
   int (*info)(uint32_t index, FSInfoT* info);
   int (*setOpt)(uint32_t index, int cmd, int value);
   void (*close)(uint32_t index);
-
-	char type[DEV_NAME_MAX];
 } DeviceT;
 
-void devInit(DeviceT* dev, const char* type);
+void devInit(DeviceT* dev);
 
-const char* devGetServName(const char* devName);
-
-bool devMount(DeviceT* dev, uint32_t index, const char* nodeName);
+bool devMount(uint32_t index, const char* nodeName);
 
 #endif

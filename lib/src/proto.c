@@ -1,13 +1,14 @@
 #include "proto.h"
 #include <kstring.h>
-#include <stdlib.h>
 
-void protoInit(ProtoT* proto, void* data, uint32_t size) {
+void protoInit(ProtoT* proto, MallocFuncT mlc, FreeFuncT fr, void* data, uint32_t size) {
 	proto->data = data;
 	proto->size = size;
 	proto->totalSize = size;
 	proto->offset = 0;
 	proto->readOnly = (data == NULL) ? false:true;
+	proto->malloc = mlc;
+	proto->free = fr;
 }
 
 void protoAdd(ProtoT* proto, void* item, uint32_t size) {
@@ -19,10 +20,10 @@ void protoAdd(ProtoT* proto, void* item, uint32_t size) {
 	if(proto->totalSize <= newSize) { 
 		newSize +=  PROTO_BUFFER;
 		proto->totalSize = newSize;
-		p = (char*)malloc(newSize);
+		p = (char*)proto->malloc(newSize);
 		if(proto->data != NULL) {
 			memcpy(p, proto->data, proto->size);
-			free(proto->data);
+			proto->free(proto->data);
 		}
 		proto->data = p;
 	} 
@@ -40,28 +41,28 @@ inline void protoAddStr(ProtoT* proto, const char* v) {
 }
 
 void* protoRead(ProtoT* proto, uint32_t *size) {
-	*size = 0;
 	if(proto->data == NULL || proto->size == 0 ||
 			proto->offset >= proto->size)
 		return NULL;
 	char* p = ((char*)proto->data) + proto->offset;
-	memcpy(size, p, 4);
-	p += 4;
-	proto->offset += (4 + *size);
-	return p;
+
+	uint32_t sz;
+	memcpy(&sz, p, 4);
+	proto->offset += (4 + sz);
+	if(size != NULL)
+		*size = sz;
+	return p+4;;
 }
 
 inline int32_t protoReadInt(ProtoT* proto) {
-	uint32_t sz;
-	void *p = protoRead(proto, &sz);
+	void *p = protoRead(proto, NULL);
 	if(p == NULL)
 		return 0;
 	return *(int*)p;
 }
 
 inline const char* protoReadStr(ProtoT* proto) {
-	uint32_t sz;
-	return (const char*)protoRead(proto, &sz);
+	return (const char*)protoRead(proto, NULL);
 }
 
 void protoFree(ProtoT* proto) {
@@ -69,7 +70,12 @@ void protoFree(ProtoT* proto) {
 		return;
 
 	if(proto->data != NULL)
-		free(proto->data);
-	protoInit(proto, NULL, 0);
+		proto->free(proto->data);
+
+	proto->data = NULL;
+	proto->size = 0;
+	proto->totalSize = 0;
+	proto->offset = 0;
+	proto->readOnly = false;
 }
 
