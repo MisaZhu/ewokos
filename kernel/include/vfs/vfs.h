@@ -14,7 +14,9 @@ typedef struct {
 
 void vfsInit();
 
-int32_t vfsMount(const char* to, const char* deviceName, uint32_t index);
+int32_t vfsMountFile(const char* to, const char* deviceName, uint32_t index);
+
+int32_t vfsMountDir(const char* to, const char* deviceName, uint32_t index);
 
 int32_t vfsOpen(const char* name, int32_t flags);
 

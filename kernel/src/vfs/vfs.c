@@ -30,7 +30,7 @@ static inline DeviceT* getNodeDevice(TreeNodeT* node, int32_t *index) {
 	return _mounts[mnt].device;
 }
 
-static TreeNodeT* preMount(DeviceT* device, uint32_t index) {
+static TreeNodeT* preMount(DeviceT* device, uint32_t index, bool isFile) {
 	TreeNodeT* node = fsNewNode();
 	if(node == NULL || device->mount == NULL)
 		return NULL;
@@ -43,22 +43,24 @@ static TreeNodeT* preMount(DeviceT* device, uint32_t index) {
 			_mounts[i].servPID = _currentProcess->pid;
 			_mounts[i].index = index;
 			_mounts[i].to = NULL;
-			device->mount(index, node);
+			if(isFile)
+				FSN(node)->type = FS_TYPE_FILE;
 			FSN(node)->flags |= FS_FLAG_MNT_ROOT;
+			device->mount(index, node);
 			return node;
 		}
 	}
 	return NULL;
 }
 
-static TreeNodeT* mountDevice(TreeNodeT* to, DeviceT* device, uint32_t index) {
+static TreeNodeT* mountDevice(TreeNodeT* to, DeviceT* device, uint32_t index, bool isFile) {
 	if(to == NULL)
 		return NULL;
 
 	if(FSN(to)->mount >= 0) /*can not mount to another mount node */
 		return NULL;
 
-	TreeNodeT* node = preMount(device, index);
+	TreeNodeT* node = preMount(device, index, isFile);
 	if(node == NULL)
 		return NULL;
 	strcpy(FSN(node)->name, FSN(to)->name);
@@ -83,6 +85,48 @@ static TreeNodeT* mountDevice(TreeNodeT* to, DeviceT* device, uint32_t index) {
 	return node;
 }
 
+static TreeNodeT* nodeAdd(TreeNodeT* node, const char* name) {
+  if(node == NULL)
+    return NULL;
+  TreeNodeT* n = fsTreeSimpleGet(node, name);
+  if(n != NULL) /*already exist.*/
+    return n;
+
+  node = fsTreeSimpleAdd(node, name);
+  if(node == NULL)
+    return NULL;
+  FSN(node)->owner = _currentProcess->owner;
+
+  int32_t index;
+  DeviceT* device = getNodeDevice(node, &index);
+  if(device != NULL && device->add != NULL) {
+    if(!device->add(index, node))
+      return NULL;
+  }
+  return node;
+}
+
+static TreeNodeT* nodeAddFull(const char* name) {
+  TreeNodeT* node = &_root;
+
+  char n[NAME_MAX+1];
+  int j = 0;
+  for(int i=0; i<NAME_MAX; i++) {
+    n[i] = name[i];
+    if(n[i] == 0) {
+      return nodeAdd(node, n+j);
+    }
+    if(n[i] == '/') {
+      n[i] = 0;
+      node = nodeAdd(node, n+j);
+      if(node == NULL)
+        return NULL;
+      j= i+1;
+    }
+  }
+  return NULL;
+}
+
 void vfsInit() {
 	for(int i=0; i<MOUNT_MAX; i++) {
 		memset(&_mounts[i], 0, sizeof(MountT));
@@ -93,22 +137,36 @@ void vfsInit() {
 
 	TreeNodeT* node = fsTreeSimpleAdd(&_root, "initrd");
 	//node = mountDevice(node, devByName(KDEV_INITRD), 0);	
-	node = mountDevice(node, devByName(KDEV_INITRD), 0);	
+	node = mountDevice(node, devByName(KDEV_INITRD), 0, false);	
 	if(node != NULL) {
 		uartPuts("initramdisk mounted.\n");
 	}
 	fsTreeSimpleAdd(&_root, "dev");
 }
 
-int32_t vfsMount(const char* name, const char* deviceName,  uint32_t index) {
-	TreeNodeT* node = fsTreeGet(&_root, name);
-	DeviceT* device = devByName(deviceName);	
-	if(node == NULL || device == NULL)
-		return -1;
+static int32_t mountRaw(const char* name, const char* deviceName,  uint32_t index, bool isFile) {
+	DeviceT* device = devByName(deviceName);
+  TreeNodeT* node = fsTreeGet(&_root, name);
+  if(node == NULL) {
+    if(name[0] == '/')
+      name = name + 1;
+    node = nodeAddFull(name);
+  }
 
-	if(mountDevice(node, device, index) == NULL)
-		return -1;
-	return 0;
+  if(node == NULL || device == NULL)
+    return -1;
+
+  if(mountDevice(node, device, index, isFile) == NULL)
+    return -1;
+  return 0;
+}
+
+int32_t vfsMountFile(const char* name, const char* deviceName,  uint32_t index) {
+  return mountRaw(name, deviceName, index, true);
+}
+
+int32_t vfsMountDir(const char* name, const char* deviceName,  uint32_t index) {
+  return mountRaw(name, deviceName, index, false);
 }
 
 int32_t vfsOpen(const char* name, int32_t flags) {

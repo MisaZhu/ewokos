@@ -9,7 +9,7 @@
 void _start() {
 	DeviceT dev;
 	devInit(&dev);
-	devMount(1, "/dev/tty1");
+	devMount(1, "/dev/tty1", true);
 
 	if(!devServRun("kserv.tty", &dev))
 		exit(0);

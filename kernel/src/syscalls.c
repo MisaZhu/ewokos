@@ -362,8 +362,12 @@ static int32_t syscall_getUID(int32_t arg0) {
 	return proc->owner;
 }
 
-static int32_t syscall_vfsMount(int32_t arg0, int32_t arg1, int32_t arg2) {
-	return vfsMount((const char*)arg0, (const char*)arg1, arg2);
+static int32_t syscall_vfsMountFile(int32_t arg0, int32_t arg1, int32_t arg2) {
+	return vfsMountFile((const char*)arg0, (const char*)arg1, arg2);
+}
+
+static int32_t syscall_vfsMountDir(int32_t arg0, int32_t arg1, int32_t arg2) {
+	return vfsMountDir((const char*)arg0, (const char*)arg1, arg2);
 }
 
 static int32_t syscall_vfsOpen(int32_t arg0, int32_t arg1) {
@@ -475,7 +479,8 @@ static int32_t (*const _syscallHandler[])() = {
 	[SYSCALL_SET_UID] = syscall_setUID,
 	[SYSCALL_GET_UID] = syscall_getUID,
 
-	[SYSCALL_VFS_MOUNT] = syscall_vfsMount,
+	[SYSCALL_VFS_MOUNT_DIR] = syscall_vfsMountDir,
+	[SYSCALL_VFS_MOUNT_FILE] = syscall_vfsMountFile,
 
 	[SYSCALL_VFS_OPEN] = syscall_vfsOpen,
 	[SYSCALL_VFS_CLOSE] = syscall_vfsClose,
