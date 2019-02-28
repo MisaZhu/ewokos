@@ -6,23 +6,16 @@
 #include <dev/uart.h>
 
 typedef struct Channel {
-	uint32_t status;
-	uint32_t size;
 	uint32_t offset;
+	uint32_t size;
 	void* buffer;
 
-	int32_t readPid;
-	int32_t writePid;
+	int32_t pid1;
+	int32_t pid2;
+	int32_t ring; //ready for pid1 or pid2, or 0 if closed. 
 } ChannelT;
 
 #define CHANNEL_MAX 128
-
-enum {
-	CHANNEL_FREE = 0,
-	CHANNEL_IDLE = 1,
-	CHANNEL_READ = 2,
-	CHANNEL_WRITE = 3
-};
 
 static ChannelT _channels[CHANNEL_MAX];
 
@@ -39,7 +32,7 @@ int32_t ipcOpen(int32_t pid) {
 
 	int32_t i;
 	for(i=0; i<CHANNEL_MAX; i++) {
-		if(_channels[i].status == CHANNEL_FREE) {
+		if(_channels[i].ring == 0) {
 			if(_channels[i].buffer == NULL) {
 				void* buffer = kalloc(); 
 				if(buffer == NULL) {
@@ -48,10 +41,8 @@ int32_t ipcOpen(int32_t pid) {
 				}
 				_channels[i].buffer = buffer;
 			}
-			_channels[i].writePid = _currentProcess->pid;
-			_channels[i].readPid = pid;
-			_channels[i].status = CHANNEL_IDLE;
-			_channels[i].offset = 0;
+			_channels[i].ring = _channels[i].pid1 = _currentProcess->pid;
+			_channels[i].pid2 = pid;
 			ret = i;
 			break;
 		}
@@ -63,7 +54,7 @@ int32_t ipcOpen(int32_t pid) {
 }
 
 static inline ChannelT* ipcGetChannel(int32_t id) {
-	if(id < 0 || id >= CHANNEL_MAX || _channels[id].status == CHANNEL_FREE) 
+	if(id < 0 || id >= CHANNEL_MAX || _channels[id].ring == 0)
 		return NULL;
 	return &_channels[id];
 }
@@ -73,7 +64,7 @@ static inline bool checkChannel(ChannelT* channel) {
 		return false;
 
 	int32_t pid = _currentProcess->pid;
-	return (channel->writePid == pid || channel->readPid == pid);
+	return (channel->pid2 == pid || channel->pid1 == pid);
 }
 
 /*close kernel ipc channel*/
@@ -88,75 +79,75 @@ void ipcClose(int32_t id) {
 	channel->buffer = p;
 }
 
-int ipcWrite(int32_t id, void* data, uint32_t size) {
+int ipcRing(int32_t id) {
 	ChannelT* channel = ipcGetChannel(id);
-	//if(!checkChannel(channel) || data == NULL) 
-	//	return 0;
-	if(size == 0 || channel->status == CHANNEL_FREE) //if closed.
-		return 0; 
-
-	if(channel->status != CHANNEL_IDLE) //not read for writing.
+	if(channel == NULL)
 		return -1;
 
-	channel->status = CHANNEL_WRITE; //set channel busy in writing.
-	if(size > PAGE_SIZE)
-		size = PAGE_SIZE;
-	memcpy(channel->buffer, data, size);
-	channel->size = size;
+	if(channel->pid1 == _currentProcess->pid)
+		channel->ring = channel->pid2;
+	else 
+		channel->ring = channel->pid1;
 	channel->offset = 0;
-	channel->status = CHANNEL_READ; //set channel waiting to be read.
-	
-	int32_t pid = _currentProcess->pid;
-	if(channel->readPid == pid) { //swap to/from pid
-		int32_t tmp = channel->writePid;	
-		channel->writePid = pid;
-		channel->readPid = tmp;
-	}
+	return 0;
+}
 
+int ipcPeer(int32_t id) {
+	ChannelT* channel = ipcGetChannel(id);
+	if(channel == NULL)
+		return -1;
+
+	if(channel->pid1 == _currentProcess->pid)
+		return channel->pid2;
+	return  channel->pid1;
+}
+
+int ipcWrite(int32_t id, void* data, uint32_t size) {
+	ChannelT* channel = ipcGetChannel(id);
+	if(size == 0 || channel->ring == 0) //if closed.
+		return 0; 
+
+	int32_t pid = _currentProcess->pid;
+	if(channel->ring != pid) //not read for current proc.
+		return -1;
+
+	if((size + channel->offset) > PAGE_SIZE)
+		size = PAGE_SIZE - channel->offset;
+
+	if(size == 0) //if channel full.
+		return 0;
+
+	char* p = ((char*)(channel->buffer)) + channel->offset;
+	memcpy(p, data, size);
+	channel->offset += size;
+	channel->size = channel->offset;
 	return size;
 }
 
 int32_t ipcRead(int32_t id, void* data, uint32_t size) {
 	ChannelT* channel = ipcGetChannel(id);
-	if(channel == NULL || data == NULL)
-		return 0;
-	if(size == 0 || channel->status == CHANNEL_FREE) //if closed.
+	if(channel == NULL || data == NULL || channel->ring == 0 || size == 0)
 		return 0;
 	
 	int32_t pid = _currentProcess->pid;
-
-	if(channel->status != CHANNEL_READ || channel->readPid != pid) //waiting if not ready to read.
+	if(channel->ring != pid) //not read for current proc.
 		return -1;
 
+	bool end = false;
+	if((size + channel->offset) >= channel->size) {
+		size = channel->size - channel->offset;
+		end = true;
+	}
+
 	const char* p = ((const char*)(channel->buffer)) + channel->offset;
-	if(size >= channel->size) {
-		memcpy(data, p, channel->size);
-		size = channel->size;
-		channel->status = CHANNEL_IDLE; //set channel idle.
+	memcpy(data, p, size);
+	if(end) {
 		channel->offset = 0;
 		channel->size = 0;
 	}
-	else { //keep read status for rest.
-		memcpy(data, p, size);
+	else
 		channel->offset += size;
-		channel->size -= size;
-	}
-
 	return size;
-}
-
-int32_t ipcGetPidW(int32_t id) {
-	ChannelT* channel = ipcGetChannel(id);
-	if(channel == NULL)
-		return -1;
-	return channel->writePid;
-}
-	
-int32_t ipcGetPidR(int32_t id) {
-	ChannelT* channel = ipcGetChannel(id);
-	if(channel == NULL)
-		return -1;
-	return channel->readPid;
 }
 
 int32_t ipcReady() {
@@ -165,9 +156,7 @@ int32_t ipcReady() {
 	int32_t i;
 	for(i=0; i<CHANNEL_MAX; i++) {
 		ChannelT* channel = &_channels[i];
-		if(channel->status != CHANNEL_READ)
-			continue;
-		if(channel->readPid == pid)
+		if(channel->ring == pid)
 			break;
 	}
 
@@ -181,9 +170,10 @@ void ipcCloseAll() {
 	int32_t i;
 	for(i=0; i<CHANNEL_MAX; i++) {
 		ChannelT* channel = &_channels[i];
-		if(channel->status == CHANNEL_FREE)
+		if(channel->ring == 0)
 			continue;
-		if(channel->readPid == pid || channel->writePid == pid) 
+		if(channel->pid1 == pid || channel->pid2 == pid) 
 			ipcClose(i);
 	}
 }
+

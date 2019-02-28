@@ -28,6 +28,6 @@ typedef struct {
 
 void devInit(DeviceT* dev);
 
-bool devMount(uint32_t index, const char* nodeName);
+bool devMount(DeviceT* dev, uint32_t index, const char* nodeName, bool isFile);
 
 #endif

@@ -8,7 +8,6 @@
 #include <kstring.h>
 #include <mm/trunkmalloc.h>
 #include <kipc.h>
-#include <vfs/vfs.h>
 #include <types.h>
 #include <kserv.h>
 #include <fsinfo.h>
@@ -102,12 +101,12 @@ static int32_t syscall_ipcRead(int32_t arg0, int32_t arg1, int32_t arg2) {
 	return ipcRead(arg0, (void*)arg1, arg2);
 }
 
-static int32_t syscall_ipc_getpid_read(int32_t arg0) {
-	return ipcGetPidR(arg0);
+static int32_t syscall_ipcRing(int32_t arg0) {
+	return ipcRing(arg0);
 }
 
-static int32_t syscall_ipc_getpid_write(int32_t arg0) {
-	return ipcGetPidW(arg0);
+static int32_t syscall_ipcPeer(int32_t arg0) {
+	return ipcPeer(arg0);
 }
 
 static int32_t syscall_readInitRD(int32_t arg0, int32_t arg1, int32_t arg2) {
@@ -362,74 +361,6 @@ static int32_t syscall_getUID(int32_t arg0) {
 	return proc->owner;
 }
 
-static int32_t syscall_vfsMount(int32_t arg0, int32_t arg1, int32_t arg2) {
-	return vfsMount((const char*)arg0, (const char*)arg1, arg2);
-}
-
-static int32_t syscall_vfsOpen(int32_t arg0, int32_t arg1) {
-	return vfsOpen((const char*)arg0, arg1);
-}
-
-static int32_t syscall_vfsClose(int32_t arg0) {
-	return vfsClose(arg0);
-}
-
-static int32_t syscall_vfsRead(int32_t arg0, int32_t arg1, int32_t arg2) {
-	int32_t fd = arg0;
-	if(fd < 0 || fd >= FILE_MAX)
-		return -1;
-
-	int32_t seek = 0;
-	KFileT* kf = _currentProcess->files[fd].kf;
-	if(kf == NULL || kf->nodeAddr == 0)
-		return -1;
-	seek = _currentProcess->files[fd].seek;
-	return vfsRead(fd, (void*)arg1, arg2, seek);
-}
-
-static int32_t syscall_vfsWrite(int32_t arg0, int32_t arg1, int32_t arg2) {
-	int32_t fd = arg0;
-	if(fd < 0 || fd >= FILE_MAX)
-		return -1;
-
-	int32_t seek = 0;
-	KFileT* kf = _currentProcess->files[fd].kf;
-	if(kf == NULL || kf->nodeAddr == 0)
-		return -1;
-	seek = _currentProcess->files[fd].seek;
-	return vfsWrite(fd, (void*)arg1, arg2, seek);
-}
-
-static int32_t syscall_vfsFInfo(int32_t arg0, int32_t arg1) {
-	return vfsFInfo((const char*)arg0, (FSInfoT*)arg1);
-}
-
-static int32_t syscall_vfsInfo(int32_t arg0, int32_t arg1) {
-	return vfsInfo(arg0, (FSInfoT*)arg1);
-}
-
-static int32_t syscall_vfsIoctl(int32_t arg0, int32_t arg1, int32_t arg2) {
-	return vfsIoctl(arg0, arg1, arg2);
-}
-
-static int32_t syscall_vfsAdd(int32_t arg0, int32_t arg1) {
-	return vfsAdd(arg0, (const char*)arg1);
-}
-
-static int32_t syscall_vfsDel(int32_t arg0, int32_t arg1) {
-	return vfsDel(arg0, (const char*)arg1);
-}
-
-static int32_t syscall_vfsFKids(int32_t arg0, int32_t arg1) {
-	FSInfoT* ret = vfsFKids((const  char*)arg0, (int32_t*)arg1);
-	return (int32_t)ret;
-}
-
-static int32_t syscall_vfsKids(int32_t arg0, int32_t arg1) {
-	FSInfoT* ret = vfsKids(arg0, (int32_t*)arg1);
-	return (int32_t)ret;
-}
-
 static int32_t (*const _syscallHandler[])() = {
 	[SYSCALL_KDB] = syscall_kdb,
 	[SYSCALL_UART_PUTCH] = syscall_uartPutch,
@@ -452,8 +383,8 @@ static int32_t (*const _syscallHandler[])() = {
 	[SYSCALL_KWRITE] = syscall_ipcWrite,
 	[SYSCALL_KREADY] = syscall_ipcReady,
 	[SYSCALL_KREAD] = syscall_ipcRead,
-	[SYSCALL_KGETPID_R] = syscall_ipc_getpid_read,
-	[SYSCALL_KGETPID_W] = syscall_ipc_getpid_write,
+	[SYSCALL_KRING] = syscall_ipcRing,
+	[SYSCALL_KPEER] = syscall_ipcPeer,
 
 	[SYSCALL_INITRD_READ] = syscall_readInitRD,
 	[SYSCALL_INITRD_FILES] = syscall_filesInitRD,
@@ -474,20 +405,6 @@ static int32_t (*const _syscallHandler[])() = {
 
 	[SYSCALL_SET_UID] = syscall_setUID,
 	[SYSCALL_GET_UID] = syscall_getUID,
-
-	[SYSCALL_VFS_MOUNT] = syscall_vfsMount,
-
-	[SYSCALL_VFS_OPEN] = syscall_vfsOpen,
-	[SYSCALL_VFS_CLOSE] = syscall_vfsClose,
-	[SYSCALL_VFS_READ] = syscall_vfsRead,
-	[SYSCALL_VFS_WRITE] = syscall_vfsWrite,
-	[SYSCALL_VFS_FINFO] = syscall_vfsFInfo,
-	[SYSCALL_VFS_INFO] = syscall_vfsInfo,
-	[SYSCALL_VFS_IOCTL] = syscall_vfsIoctl,
-	[SYSCALL_VFS_ADD] = syscall_vfsAdd,
-	[SYSCALL_VFS_DEL] = syscall_vfsDel,
-	[SYSCALL_VFS_FKIDS] = syscall_vfsFKids,
-	[SYSCALL_VFS_KIDS] = syscall_vfsKids,
 };
 
 /* kernel side of system calls. */

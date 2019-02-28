@@ -24,4 +24,8 @@ static inline void* getPackageData(PackageT* pkg) {
 	return (void*)(((char*)pkg) + sizeof(PackageT));
 }
 
+PackageT* newPackage(int32_t id, uint32_t type, void* data, uint32_t size, int32_t pid, MallocFuncT mlc);
+
+void freePackage(PackageT* pkg, FreeFuncT fr);
+
 #endif

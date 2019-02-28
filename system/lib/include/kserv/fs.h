@@ -2,10 +2,8 @@
 #define FS_H
 
 #include <fsinfo.h>
-#include <dev.h>
 
-#define DEV_VFS  "vfs"
-#define KSERV_VFS_NAME  devGetServName(DEV_VFS)
+#define KSERV_FS_NAME  "vfs"
 
 enum {
 	FS_OPEN = 0,
@@ -18,9 +16,7 @@ enum {
 	FS_CHILD,
 	FS_NEXT,
 	FS_MOUNT,
-	FS_UNMOUNT,
-	FS_FDEV,
-	FS_DEV
+	FS_UNMOUNT
 };
 
 int fsOpen(const char* name, int32_t flags);
@@ -31,7 +27,7 @@ int fsInfo(int fd, FSInfoT* info);
 
 int fsFInfo(const char* name, FSInfoT* info);
 
-FSInfoT* fsKids(int fd, int32_t *num);
+FSInfoT* fsKids(int fd, uint32_t *num);
 
 int fsRead(int fd, char* buf, uint32_t size);
 

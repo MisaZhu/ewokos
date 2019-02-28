@@ -6,29 +6,6 @@
 #include <string.h>
 #include <unistd.h>
 
-PackageT* newPackage(int32_t id, uint32_t type, void* data, uint32_t size, int32_t pid) {
-	PackageT* pkg = (PackageT*)malloc(sizeof(PackageT) + size);
-	if(pkg == NULL)
-		return NULL;
-
-	pkg->id = id;
-	pkg->pid = pid;
-	pkg->size = 0;
-	pkg->type = type;
-
-	void* p = getPackageData(pkg);
-	if(size > 0 && data != NULL)
-		memcpy(p, data, size);
-
-	pkg->size = size;
-	return pkg;
-}
-
-void freePackage(PackageT* pkg) {
-	if(pkg != NULL)
-		free(pkg);
-}
-
 int popen(int pid) {
 	return syscall1(SYSCALL_KOPEN, pid);
 }
@@ -37,10 +14,32 @@ void pclose(int id) {
 	syscall1(SYSCALL_KCLOSE, id);
 }
 
-int pwrite(int id, void* data, uint32_t size) {
+static void pring(int id) {
+	syscall1(SYSCALL_KRING, id);
+}
+
+static int ppeer(int id) {
+	return syscall1(SYSCALL_KPEER, id);
+}
+
+static int pwrite(int id, void* data, uint32_t size) {
 	int i;
 	while(true) {
 		i = syscall3(SYSCALL_KWRITE, id, (int)data, size);
+		if(i >= 0)
+			break;
+		yield();
+	}
+	return i;
+}
+
+static int pread(int id, void* data, uint32_t size) {
+	if(data == NULL || size == 0)
+		return 0;
+
+	int i;
+	while(true) {
+		i = syscall3(SYSCALL_KREAD, id, (int)data, size);
 		if(i >= 0)
 			break;
 		yield();
@@ -63,7 +62,8 @@ int psend(int id, uint32_t type, void* data, uint32_t size) {
 		i = pwrite(id, (void*)p, size);
 		if(i == 0)
 			break;
-		yield();
+
+		pring(id); //give ring to reader for reading and clear buffer.
 
 		size -= i;
 		if(size == 0)
@@ -71,20 +71,6 @@ int psend(int id, uint32_t type, void* data, uint32_t size) {
 		p += i;
 	}
 	return ret;
-}
-
-int pread(int id, void* data, uint32_t size) {
-	if(data == NULL || size == 0)
-		return 0;
-
-	int i;
-	while(true) {
-		i = syscall3(SYSCALL_KREAD, id, (int)data, size);
-		if(i >= 0)
-			break;
-		yield();
-	}
-	return i;
 }
 
 PackageT* precvPkg(int id) {
@@ -97,8 +83,8 @@ PackageT* precvPkg(int id) {
 	if(i == 0)
 		return NULL;
 
-	int fromPID = pgetPidW(id);
-	PackageT* pkg = newPackage(id, type, NULL, size, fromPID);
+	int fromPID = ppeer(id);
+	PackageT* pkg = newPackage(id, type, NULL, size, fromPID, malloc);
 	if(pkg == NULL)
 		return NULL;
 
@@ -119,17 +105,11 @@ PackageT* precvPkg(int id) {
 		sz -= i;
 		if(sz == 0)
 			break;
+
+		pring(id);  //wait for more data, give ring to write proc
 		p += i;
 	}
 	return pkg;
-}
-
-int pgetPidR(int32_t id) {
-	return syscall1(SYSCALL_KGETPID_R, id);
-}
-
-int pgetPidW(int32_t id) {
-	return syscall1(SYSCALL_KGETPID_W, id);
 }
 
 PackageT* preq(int pid, uint32_t type, void* data, uint32_t size, bool reply) {

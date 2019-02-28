@@ -11,6 +11,7 @@
 
 #define KERNEL_BASE 0x80000000 //=2G virtual address start base.
 #define MMIO_BASE (KERNEL_BASE + 1*GB)
+#define IPC_TASK_BASE (MMIO_BASE + 512*MB)
 #define INTERRUPT_VECTOR_BASE 0xffff0000
 
 #define USER_STACK_BOTTOM (KERNEL_BASE - 2 * PAGE_SIZE)

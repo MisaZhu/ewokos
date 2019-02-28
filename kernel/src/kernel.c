@@ -4,7 +4,6 @@
 #include <hardware.h>
 #include <kernel.h>
 #include <system.h>
-#include <vfs/vfs.h>
 #include <dev/uart.h>
 #include <proc.h>
 #include <irq.h>
@@ -96,12 +95,6 @@ void kernelEntry()
 	
 	ramdiskOpen((const char*)_initRamDiskBase, &_initRamDisk, kmalloc);
 
-	devInit();
-
-	/* int virtual file system */
-	vfsInit();
-
-	
 	procInit();
 
 	ProcessT *proc = procCreate(); //create first process

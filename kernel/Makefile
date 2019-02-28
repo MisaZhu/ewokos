@@ -39,9 +39,7 @@ ARCH_OBJS = arch/$(arch)/src/irq.o \
 	arch/$(arch)/src/timer.o \
 	arch/$(arch)/src/hardware.o
 
-DEV_OBJS = src/dev/dev.o \
-	src/dev/initrd.o \
-	src/dev/uart.o
+DEV_OBJS = src/dev/uart.o
 
 LIB_OBJS = ../lib/src/kstring.o \
 	../lib/src/base16.o \
@@ -59,8 +57,6 @@ OBJS += $(ARCH_OBJS) \
 	src/mm/kalloc.o \
 	src/mm/trunkmalloc.o \
 	src/mm/kmalloc.o \
-	src/vfs/fstree.o \
-	src/vfs/vfs.o \
 	src/proc.o \
 	src/kipc.o \
 	src/kfile.o \

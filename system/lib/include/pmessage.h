@@ -4,23 +4,11 @@
 #include <types.h>
 #include <package.h>
 
-PackageT* newPackage(int32_t id, uint32_t type, void* data, uint32_t size, int32_t pid);
-
-void freePackage(PackageT* pkg);
-
 int popen(int pid);
 
 void pclose(int id);
 
-int pwrite(int id, void* data, uint32_t size);
-
-int pread(int id, void* data, uint32_t size);
-
 int psend(int id, uint32_t type, void* data, uint32_t size);
-
-int pgetPidR(int id);
-
-int pgetPidW(int id);
 
 PackageT* precvPkg(int id);
 
