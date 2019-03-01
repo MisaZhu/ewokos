@@ -1,8 +1,9 @@
 #include "package.h"
 #include "kstring.h"
+#include "stdlib.h"
 
-PackageT* newPackage(int32_t id, uint32_t type, void* data, uint32_t size, int32_t pid, MallocFuncT mlc) {
-	PackageT* pkg = (PackageT*)mlc(sizeof(PackageT) + size);
+PackageT* newPackage(int32_t id, uint32_t type, void* data, uint32_t size, int32_t pid) {
+	PackageT* pkg = (PackageT*)malloc(sizeof(PackageT) + size);
 	if(pkg == NULL)
 		return NULL;
 
@@ -19,8 +20,8 @@ PackageT* newPackage(int32_t id, uint32_t type, void* data, uint32_t size, int32
 	return pkg;
 }
 
-void freePackage(PackageT* pkg, FreeFuncT fr) {
+void freePackage(PackageT* pkg) {
 	if(pkg != NULL)
-		fr(pkg);
+		free(pkg);
 }
 

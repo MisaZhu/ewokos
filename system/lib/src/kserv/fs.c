@@ -173,7 +173,7 @@ FSInfoT* fsKids(int fd, uint32_t *num) {
 	}
 
 	ProtoT proto;
-	protoInit(&proto, malloc, free, getPackageData(pkg), pkg->size);
+	protoInit(&proto, getPackageData(pkg), pkg->size);
 	*num = protoReadInt(&proto);
 	void* p = protoRead(&proto, NULL);
 

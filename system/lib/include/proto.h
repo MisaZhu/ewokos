@@ -12,11 +12,9 @@ typedef struct {
 	uint32_t totalSize;
 	uint32_t offset;
 	bool readOnly;
-	MallocFuncT malloc;
-	FreeFuncT free;
 }ProtoT;
 
-void protoInit(ProtoT* proto, MallocFuncT mlc, FreeFuncT fr, void* data, uint32_t size);
+void protoInit(ProtoT* proto, void* data, uint32_t size);
 
 void protoAdd(ProtoT* proto, void* item, uint32_t size);
 

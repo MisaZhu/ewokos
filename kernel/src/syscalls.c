@@ -361,81 +361,6 @@ static int32_t syscall_getUID(int32_t arg0) {
 	return proc->owner;
 }
 
-<<<<<<< HEAD
-=======
-static int32_t syscall_vfsMountFile(int32_t arg0, int32_t arg1, int32_t arg2) {
-	return vfsMountFile((const char*)arg0, (const char*)arg1, arg2);
-}
-
-static int32_t syscall_vfsMountDir(int32_t arg0, int32_t arg1, int32_t arg2) {
-	return vfsMountDir((const char*)arg0, (const char*)arg1, arg2);
-}
-
-static int32_t syscall_vfsOpen(int32_t arg0, int32_t arg1) {
-	return vfsOpen((const char*)arg0, arg1);
-}
-
-static int32_t syscall_vfsClose(int32_t arg0) {
-	return vfsClose(arg0);
-}
-
-static int32_t syscall_vfsRead(int32_t arg0, int32_t arg1, int32_t arg2) {
-	int32_t fd = arg0;
-	if(fd < 0 || fd >= FILE_MAX)
-		return -1;
-
-	int32_t seek = 0;
-	KFileT* kf = _currentProcess->files[fd].kf;
-	if(kf == NULL || kf->nodeAddr == 0)
-		return -1;
-	seek = _currentProcess->files[fd].seek;
-	return vfsRead(fd, (void*)arg1, arg2, seek);
-}
-
-static int32_t syscall_vfsWrite(int32_t arg0, int32_t arg1, int32_t arg2) {
-	int32_t fd = arg0;
-	if(fd < 0 || fd >= FILE_MAX)
-		return -1;
-
-	int32_t seek = 0;
-	KFileT* kf = _currentProcess->files[fd].kf;
-	if(kf == NULL || kf->nodeAddr == 0)
-		return -1;
-	seek = _currentProcess->files[fd].seek;
-	return vfsWrite(fd, (void*)arg1, arg2, seek);
-}
-
-static int32_t syscall_vfsFInfo(int32_t arg0, int32_t arg1) {
-	return vfsFInfo((const char*)arg0, (FSInfoT*)arg1);
-}
-
-static int32_t syscall_vfsInfo(int32_t arg0, int32_t arg1) {
-	return vfsInfo(arg0, (FSInfoT*)arg1);
-}
-
-static int32_t syscall_vfsIoctl(int32_t arg0, int32_t arg1, int32_t arg2) {
-	return vfsIoctl(arg0, arg1, arg2);
-}
-
-static int32_t syscall_vfsAdd(int32_t arg0, int32_t arg1) {
-	return vfsAdd(arg0, (const char*)arg1);
-}
-
-static int32_t syscall_vfsDel(int32_t arg0, int32_t arg1) {
-	return vfsDel(arg0, (const char*)arg1);
-}
-
-static int32_t syscall_vfsFKids(int32_t arg0, int32_t arg1) {
-	FSInfoT* ret = vfsFKids((const  char*)arg0, (int32_t*)arg1);
-	return (int32_t)ret;
-}
-
-static int32_t syscall_vfsKids(int32_t arg0, int32_t arg1) {
-	FSInfoT* ret = vfsKids(arg0, (int32_t*)arg1);
-	return (int32_t)ret;
-}
-
->>>>>>> 91c114703b5ce9d3ff7972f6c78437a9d82a3447
 static int32_t (*const _syscallHandler[])() = {
 	[SYSCALL_KDB] = syscall_kdb,
 	[SYSCALL_UART_PUTCH] = syscall_uartPutch,
@@ -479,25 +404,7 @@ static int32_t (*const _syscallHandler[])() = {
 	[SYSCALL_SET_CWD] = syscall_setCWD,
 
 	[SYSCALL_SET_UID] = syscall_setUID,
-	[SYSCALL_GET_UID] = syscall_getUID,
-<<<<<<< HEAD
-=======
-
-	[SYSCALL_VFS_MOUNT_DIR] = syscall_vfsMountDir,
-	[SYSCALL_VFS_MOUNT_FILE] = syscall_vfsMountFile,
-
-	[SYSCALL_VFS_OPEN] = syscall_vfsOpen,
-	[SYSCALL_VFS_CLOSE] = syscall_vfsClose,
-	[SYSCALL_VFS_READ] = syscall_vfsRead,
-	[SYSCALL_VFS_WRITE] = syscall_vfsWrite,
-	[SYSCALL_VFS_FINFO] = syscall_vfsFInfo,
-	[SYSCALL_VFS_INFO] = syscall_vfsInfo,
-	[SYSCALL_VFS_IOCTL] = syscall_vfsIoctl,
-	[SYSCALL_VFS_ADD] = syscall_vfsAdd,
-	[SYSCALL_VFS_DEL] = syscall_vfsDel,
-	[SYSCALL_VFS_FKIDS] = syscall_vfsFKids,
-	[SYSCALL_VFS_KIDS] = syscall_vfsKids,
->>>>>>> 91c114703b5ce9d3ff7972f6c78437a9d82a3447
+	[SYSCALL_GET_UID] = syscall_getUID
 };
 
 /* kernel side of system calls. */

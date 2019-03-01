@@ -1,14 +1,13 @@
 #include "proto.h"
 #include <kstring.h>
+#include <stdlib.h>
 
-void protoInit(ProtoT* proto, MallocFuncT mlc, FreeFuncT fr, void* data, uint32_t size) {
+void protoInit(ProtoT* proto, void* data, uint32_t size) {
 	proto->data = data;
 	proto->size = size;
 	proto->totalSize = size;
 	proto->offset = 0;
 	proto->readOnly = (data == NULL) ? false:true;
-	proto->malloc = mlc;
-	proto->free = fr;
 }
 
 void protoAdd(ProtoT* proto, void* item, uint32_t size) {
@@ -20,10 +19,10 @@ void protoAdd(ProtoT* proto, void* item, uint32_t size) {
 	if(proto->totalSize <= newSize) { 
 		newSize +=  PROTO_BUFFER;
 		proto->totalSize = newSize;
-		p = (char*)proto->malloc(newSize);
+		p = (char*)malloc(newSize);
 		if(proto->data != NULL) {
 			memcpy(p, proto->data, proto->size);
-			proto->free(proto->data);
+			free(proto->data);
 		}
 		proto->data = p;
 	} 
@@ -70,7 +69,7 @@ void protoFree(ProtoT* proto) {
 		return;
 
 	if(proto->data != NULL)
-		proto->free(proto->data);
+		free(proto->data);
 
 	proto->data = NULL;
 	proto->size = 0;

@@ -7,9 +7,7 @@ LD = arm-none-eabi-ld
 
 COMMON_LIB=../lib
 COMMON_OBJ=$(COMMON_LIB)/src/kstring.o \
-	$(COMMON_LIB)/src/tree.o \
-	$(COMMON_LIB)/src/package.o \
-	$(COMMON_LIB)/src/proto.o
+	$(COMMON_LIB)/src/tree.o
 
 # flags
 CFLAGS = -I. \

@@ -84,7 +84,7 @@ PackageT* precvPkg(int id) {
 		return NULL;
 
 	int fromPID = ppeer(id);
-	PackageT* pkg = newPackage(id, type, NULL, size, fromPID, malloc);
+	PackageT* pkg = newPackage(id, type, NULL, size, fromPID);
 	if(pkg == NULL)
 		return NULL;
 

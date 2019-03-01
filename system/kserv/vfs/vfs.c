@@ -145,7 +145,7 @@ void doChild(PackageT* pkg) {
 	uint32_t num;
 	FSInfoT* infos = getNodeKids(node, &num);
 	ProtoT proto;
-	protoInit(&proto, malloc, free, NULL, 0);
+	protoInit(&proto, NULL, 0);
 	protoAddInt(&proto, num);
 	if(num > 0 && infos != NULL) {
 		protoAdd(&proto, infos, sizeof(FSInfoT)*num);
