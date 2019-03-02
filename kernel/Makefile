@@ -59,6 +59,8 @@ OBJS += $(ARCH_OBJS) \
 	src/proc.o \
 	src/kipc.o \
 	src/kfile.o \
+	src/vfs.o \
+	src/fstree.o \
 	src/kserv.o \
 	src/scheduler.o
 

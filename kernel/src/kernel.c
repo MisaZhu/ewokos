@@ -10,6 +10,7 @@
 #include <kstring.h>
 #include <timer.h>
 #include <scheduler.h>
+#include <vfs.h>
 
 PageDirEntryT* _kernelVM;
 
@@ -92,6 +93,8 @@ void kernelEntry()
 				"Loading the first process...\n\n");
 	
 	ipcInit();
+
+	vfsInit();
 	
 	ramdiskOpen((const char*)_initRamDiskBase, &_initRamDisk, kmalloc);
 

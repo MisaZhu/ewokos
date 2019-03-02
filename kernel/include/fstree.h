@@ -5,7 +5,7 @@
 #include "tree.h"
 #include "fsinfo.h"
 
-#define FSN(n) ((FSNodeT*)((n)->data))
+void fsTreeInit();
 
 void fsTreeNodeInit(TreeNodeT* node);
 
@@ -16,6 +16,5 @@ TreeNodeT* fsTreeSimpleGet(TreeNodeT* father, const char* name);
 TreeNodeT* fsTreeGet(TreeNodeT* father, const char* name);
 
 TreeNodeT* fsTreeSimpleAdd(TreeNodeT* father, const char* name);
-
 
 #endif

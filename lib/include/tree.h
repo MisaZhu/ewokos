@@ -4,6 +4,7 @@
 #include <types.h>
 
 typedef struct TreeNode {
+	uint32_t id;
 	struct TreeNode* father; 
 	struct TreeNode* fChild; /*first child*/
 	struct TreeNode* eChild; /*last child*/

@@ -2,14 +2,7 @@
 #include <kstring.h>
 
 void treeInitNode(TreeNodeT* node) {
-	node->father = NULL;
-	node->fChild = NULL;
-	node->eChild = NULL;
-	node->next = NULL;
-	node->prev = NULL;
-	
-	node->size = 0;
-	node->data = NULL;
+	memset(node, 0, sizeof(TreeNodeT));
 }
 
 void treeAdd(TreeNodeT* father, TreeNodeT* node) {

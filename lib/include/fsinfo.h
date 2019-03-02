@@ -16,4 +16,15 @@ typedef struct FSInfo {
 	uint32_t index; //index for same type device
 } FSInfoT;
 
+#define FS_FLAG_MNT_ROOT 0x01
+typedef struct FSNode {
+	char name[NAME_MAX];
+	int32_t mount;
+	uint32_t type;
+	uint32_t flags;
+	uint32_t owner;
+} FSNodeT;
+
+#define FSN(n) ((FSNodeT*)((n)->data))
+
 #endif

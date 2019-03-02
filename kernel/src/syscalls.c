@@ -11,6 +11,7 @@
 #include <types.h>
 #include <kserv.h>
 #include <fsinfo.h>
+#include <vfs.h>
 #include <scheduler.h>
 
 static int32_t syscall_uartPutch(int32_t c) {
@@ -361,6 +362,42 @@ static int32_t syscall_getUID(int32_t arg0) {
 	return proc->owner;
 }
 
+static int32_t syscall_vfsAdd(int32_t arg0, int32_t arg1) {
+	TreeNodeT* nodeTo = (TreeNodeT*)arg0;
+	FSNodeT* info = (FSNodeT*)arg1;
+	return (int32_t)vfsAdd(nodeTo, info);
+}
+
+static int32_t syscall_vfsDel(int32_t arg0) {
+	TreeNodeT* node = (TreeNodeT*)arg0;
+	return vfsDel(node);
+}
+
+static int32_t syscall_vfsInfo(int32_t arg0, int32_t arg1) {
+	TreeNodeT* node = (TreeNodeT*)arg0;
+	FSInfoT* info = (FSInfoT*)arg1;
+	return vfsInfo(node, info);
+}
+
+static int32_t syscall_vfsNodeByFD(int32_t arg0) {
+	return (int32_t)getNodeByFD(arg0);	
+}
+
+static int32_t syscall_vfsNodeByName(int32_t arg0) {
+	return (int32_t)getNodeByName((const char*)arg0);	
+}
+
+static int32_t syscall_vfsMount(int32_t arg0, int32_t arg1) {
+	const char* fname = (const char*)arg0;
+	FSNodeT* nodeInfo = (FSNodeT*)arg1;
+	return (int32_t)vfsMount(fname, nodeInfo);
+}
+
+static int32_t syscall_vfsUnmount(int32_t arg0) {
+	TreeNodeT* node = (TreeNodeT*)arg0;
+	return vfsUnmount(node);
+}
+
 static int32_t (*const _syscallHandler[])() = {
 	[SYSCALL_KDB] = syscall_kdb,
 	[SYSCALL_UART_PUTCH] = syscall_uartPutch,
@@ -404,7 +441,15 @@ static int32_t (*const _syscallHandler[])() = {
 	[SYSCALL_SET_CWD] = syscall_setCWD,
 
 	[SYSCALL_SET_UID] = syscall_setUID,
-	[SYSCALL_GET_UID] = syscall_getUID
+	[SYSCALL_GET_UID] = syscall_getUID,
+
+	[SYSCALL_VFS_ADD] = syscall_vfsAdd,
+	[SYSCALL_VFS_DEL] = syscall_vfsDel,
+	[SYSCALL_VFS_INFO] = syscall_vfsInfo,
+	[SYSCALL_VFS_NODE_FD] = syscall_vfsNodeByFD,
+	[SYSCALL_VFS_NODE_NAME] = syscall_vfsNodeByName,
+	[SYSCALL_VFS_MOUNT] = syscall_vfsMount,
+	[SYSCALL_VFS_UNMOUNT] = syscall_vfsUnmount
 };
 
 /* kernel side of system calls. */
