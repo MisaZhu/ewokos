@@ -5,19 +5,19 @@
 
 void vfsInit();
 
-TreeNodeT* getNodeByFD(int32_t fd);
+TreeNodeT* getNodeByFD(int32_t pid, int32_t fd);
 
-TreeNodeT* vfsAdd(TreeNodeT* nodeTo, FSNodeT* info);
+TreeNodeT* vfsAdd(TreeNodeT* nodeTo, const char* name, uint32_t size);
 
 int32_t vfsDel(TreeNodeT* node);
 
-int32_t vfsInfo(TreeNodeT* node, FSNodeT* info);
+int32_t vfsNodeInfo(TreeNodeT* node, FSInfoT* info);
 
-TreeNodeT* getNodeByFD(int32_t fd);
+FSInfoT* vfsNodeKids(TreeNodeT* node, int32_t* num);
 
 TreeNodeT* getNodeByName(const char* fname);
 
-TreeNodeT* vfsMount(const char* fname, FSNodeT* info);
+TreeNodeT* vfsMount(const char* fname, const char* devName, int32_t devIndex);
 
 int32_t vfsUnmount(TreeNodeT* node);
 

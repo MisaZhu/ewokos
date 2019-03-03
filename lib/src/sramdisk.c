@@ -1,11 +1,5 @@
 #include <sramdisk.h>
-#include <mm/kmalloc.h>
 #include <kstring.h>
-#include <base16.h>
-#include <initfs.h>
-
-char* _initRamDiskBase = 0;
-RamDiskT _initRamDisk;
 
 void ramdiskClose(RamDiskT* rd, void (*fr)(void*)) {
 	RamFileT* rf = rd->head;
@@ -72,27 +66,3 @@ const char* ramdiskRead(RamDiskT* rd, const char* fname, int* size) {
 	return NULL;
 }
 
-char* decodeInitFS() {
-	char* ret;
-	char* p;
-	int32_t i;
-	int32_t sz;
-	const char* s;
-
-	ret = (char*)kmalloc(_initfsSize);
-	if(ret == NULL)
-		return NULL;
-
-	p = ret;
-	i = 0;
-	while(1) {
-		s = _initfs[i];
-		if(s[0] == 0)
-			break;
-
-		base16Decode(s, strlen(s), p, &sz);
-		p += sz;	
-		i++;
-	}
-	return ret;
-}

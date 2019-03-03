@@ -10,7 +10,9 @@
 #include <kstring.h>
 #include <timer.h>
 #include <scheduler.h>
+#include <initfs.h>
 #include <vfs.h>
+#include <base16.h>
 
 PageDirEntryT* _kernelVM;
 
@@ -67,6 +69,36 @@ void setKernelVM(PageDirEntryT* vm)
 	
 	//map whole rest allocatable memory to high(virtual) mem.
 	mapPages(vm, ALLOCATABLE_MEMORY_START, V2P(ALLOCATABLE_MEMORY_START), getPhyRamSize(), AP_RW_D);
+}
+
+char* _initRamDiskBase = 0;
+uint32_t _initRamDiskSize = 0;
+RamDiskT _initRamDisk;
+
+char* decodeInitFS() {
+	char* ret;
+	char* p;
+	int32_t i;
+	int32_t sz;
+	const char* s;
+
+	ret = (char*)kmalloc(_initfsSize);
+	if(ret == NULL)
+		return NULL;
+
+	p = ret;
+	i = 0;
+	while(1) {
+		s = _initfs[i];
+		if(s[0] == 0)
+			break;
+
+		base16Decode(s, strlen(s), p, &sz);
+		p += sz;	
+		i++;
+	}
+	_initRamDiskSize = _initfsSize;
+	return ret;
 }
 
 #define FIRST_PROCESS "init"

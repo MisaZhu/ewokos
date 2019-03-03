@@ -110,13 +110,13 @@ static int32_t syscall_ipcPeer(int32_t arg0) {
 	return ipcPeer(arg0);
 }
 
-static int32_t syscall_readInitRD(int32_t arg0, int32_t arg1, int32_t arg2) {
-	const char* fname = (const char*)arg0;
+static int32_t syscall_readFileInitRD(int32_t arg0, int32_t arg1, int32_t arg2) {
+	const char* name = (const char*)arg0;
 	int32_t fsize = 0;
 	int32_t rdSize = *(int*)arg2;
 	*(int*)arg2 = 0;
 
-	const char*p = ramdiskRead(&_initRamDisk, fname, &fsize);
+	const char*p = ramdiskRead(&_initRamDisk, name, &fsize);
 	if(p == NULL || fsize == 0)
 		return 0;
 
@@ -137,48 +137,10 @@ static int32_t syscall_readInitRD(int32_t arg0, int32_t arg1, int32_t arg2) {
 	return (int)ret;
 }
 
-static int32_t syscall_filesInitRD() {
-	RamFileT* f = _initRamDisk.head;
-	char* ret = (char*)pmalloc(1024+1);
-	if(ret == NULL)
-		return 0;
-
-	int32_t i=0;
-	while(f != NULL) {
-		int32_t j=0;
-		char c = f->name[j];
-		while(c != 0) {
-			ret[i] = c;
-			i++;
-			j++;
-
-			if(i >= 1024) {
-				ret[i] = 0;
-				return (int)ret;
-			}
-			c = f->name[j];
-		}
-		f = f->next;
-		ret[i++] = '\n';
-		j = 0;
-	}
-	ret[i] = 0;
-	return (int)ret;
-}
-
-static int32_t syscall_infoInitRD(int32_t arg0, int32_t arg1) {
-	const char* fname = (const char*)arg0;
-	FSInfoT* info = (FSInfoT*)arg1;
-	int32_t fsize = 0;
-
-	const char*p = ramdiskRead(&_initRamDisk, fname, &fsize);
-	if(p == NULL)
-		return -1;
-	
-	info->type = FS_TYPE_FILE;
-	info->size = fsize;
-
-	return 0;
+static int32_t syscall_cloneInitRD() {
+	void * ret = (void*)pmalloc(_initRamDiskSize);
+	memcpy(ret, _initRamDiskBase, _initRamDiskSize);
+	return (int32_t)ret;
 }
 
 static int32_t syscall_kdb(int32_t arg0) {
@@ -362,10 +324,10 @@ static int32_t syscall_getUID(int32_t arg0) {
 	return proc->owner;
 }
 
-static int32_t syscall_vfsAdd(int32_t arg0, int32_t arg1) {
+static int32_t syscall_vfsAdd(int32_t arg0, int32_t arg1, int32_t arg2) {
 	TreeNodeT* nodeTo = (TreeNodeT*)arg0;
-	FSNodeT* info = (FSNodeT*)arg1;
-	return (int32_t)vfsAdd(nodeTo, info);
+	const char* name = (const char*)arg1;
+	return (int32_t)vfsAdd(nodeTo, name, (uint32_t)arg2);
 }
 
 static int32_t syscall_vfsDel(int32_t arg0) {
@@ -376,21 +338,35 @@ static int32_t syscall_vfsDel(int32_t arg0) {
 static int32_t syscall_vfsInfo(int32_t arg0, int32_t arg1) {
 	TreeNodeT* node = (TreeNodeT*)arg0;
 	FSInfoT* info = (FSInfoT*)arg1;
-	return vfsInfo(node, info);
+	return vfsNodeInfo(node, info);
 }
 
-static int32_t syscall_vfsNodeByFD(int32_t arg0) {
-	return (int32_t)getNodeByFD(arg0);	
+static int32_t syscall_vfsKids(int32_t arg0, int32_t arg1) {
+	TreeNodeT* node = (TreeNodeT*)arg0;
+	int32_t* num = (int32_t*)arg1;
+	return (int32_t)vfsNodeKids(node, num);
+}
+
+static int32_t syscall_vfsNodeByFD(int32_t arg0, int32_t arg1) {
+	return (int32_t)getNodeByFD(arg0, arg1);	
 }
 
 static int32_t syscall_vfsNodeByName(int32_t arg0) {
 	return (int32_t)getNodeByName((const char*)arg0);	
 }
 
-static int32_t syscall_vfsMount(int32_t arg0, int32_t arg1) {
+static int32_t syscall_vfsMount(int32_t arg0, int32_t arg1, int32_t arg2) {
 	const char* fname = (const char*)arg0;
-	FSNodeT* nodeInfo = (FSNodeT*)arg1;
-	return (int32_t)vfsMount(fname, nodeInfo);
+	const char* devName = (const char*)arg1;
+	return (int32_t)vfsMount(fname, devName, arg2);
+}
+
+static int32_t syscall_vfsMountFile(int32_t arg0, int32_t arg1, int32_t arg2) {
+	const char* fname = (const char*)arg0;
+	const char* devName = (const char*)arg1;
+	TreeNodeT* node = vfsMount(fname, devName, arg2);
+	FSN(node)->type = FS_TYPE_FILE;
+	return (int32_t)node;
 }
 
 static int32_t syscall_vfsUnmount(int32_t arg0) {
@@ -423,9 +399,8 @@ static int32_t (*const _syscallHandler[])() = {
 	[SYSCALL_KRING] = syscall_ipcRing,
 	[SYSCALL_KPEER] = syscall_ipcPeer,
 
-	[SYSCALL_INITRD_READ] = syscall_readInitRD,
-	[SYSCALL_INITRD_FILES] = syscall_filesInitRD,
-	[SYSCALL_INITRD_INFO] = syscall_infoInitRD,
+	[SYSCALL_INITRD_READ_FILE] = syscall_readFileInitRD,
+	[SYSCALL_INITRD_CLONE] = syscall_cloneInitRD,
 
 	[SYSCALL_PFILE_NODE] = syscall_pfNode,
 	[SYSCALL_PFILE_GET_SEEK] = syscall_pfGetSeek,
@@ -446,9 +421,11 @@ static int32_t (*const _syscallHandler[])() = {
 	[SYSCALL_VFS_ADD] = syscall_vfsAdd,
 	[SYSCALL_VFS_DEL] = syscall_vfsDel,
 	[SYSCALL_VFS_INFO] = syscall_vfsInfo,
+	[SYSCALL_VFS_KIDS] = syscall_vfsKids,
 	[SYSCALL_VFS_NODE_FD] = syscall_vfsNodeByFD,
 	[SYSCALL_VFS_NODE_NAME] = syscall_vfsNodeByName,
 	[SYSCALL_VFS_MOUNT] = syscall_vfsMount,
+	[SYSCALL_VFS_MOUNT_FILE] = syscall_vfsMountFile,
 	[SYSCALL_VFS_UNMOUNT] = syscall_vfsUnmount
 };
 

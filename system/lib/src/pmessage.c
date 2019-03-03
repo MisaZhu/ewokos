@@ -60,10 +60,10 @@ int psend(int id, uint32_t type, void* data, uint32_t size) {
 	int32_t ret = size;
 	while(true) {
 		i = pwrite(id, (void*)p, size);
+		pring(id); //give ring to reader for reading and clear buffer.
+
 		if(i == 0)
 			break;
-
-		pring(id); //give ring to reader for reading and clear buffer.
 
 		size -= i;
 		if(size == 0)
@@ -89,17 +89,11 @@ PackageT* precvPkg(int id) {
 		return NULL;
 
 	uint32_t sz = size;
-	void* data = malloc(size);
-	if(data == NULL) {
-		free(pkg);
-		return NULL;
-	}
-
 	char* p = (char*)getPackageData(pkg);
 	while(true) {
 		i = pread(id, p, sz);
 		if(i == 0) {
-			return NULL;
+			return pkg;
 		}
 
 		sz -= i;

@@ -7,6 +7,7 @@ LD = arm-none-eabi-ld
 
 COMMON_LIB=../lib
 COMMON_OBJ=$(COMMON_LIB)/src/kstring.o \
+	$(COMMON_LIB)/src/sramdisk.o \
 	$(COMMON_LIB)/src/tree.o
 
 # flags
@@ -27,6 +28,7 @@ all: system
 
 include lib/build.mk
 include mkramfs/build.mk
+include kdev/build.mk
 include kserv/build.mk
 include sbin/build.mk
 include bin/build.mk

@@ -83,6 +83,9 @@ int ipcRing(int32_t id) {
 	ChannelT* channel = ipcGetChannel(id);
 	if(channel == NULL)
 		return -1;
+	
+	if(channel->ring != _currentProcess->pid) //current proc dosen't hold the ring.
+		return 0;
 
 	if(channel->pid1 == _currentProcess->pid)
 		channel->ring = channel->pid2;

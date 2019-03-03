@@ -1,4 +1,4 @@
-TTYD_DIR = kserv/ttyd
+TTYD_DIR = kdev/ttyd
 TTYD_PROGRAM = build/ttyd
 PROGRAM += $(TTYD_PROGRAM)
 

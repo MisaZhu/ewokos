@@ -10,6 +10,7 @@ extern char _initStackTop[];
 extern char _irqStackTop[];
 
 extern char* _initRamDiskBase;
+extern uint32_t _initRamDiskSize;
 extern RamDiskT _initRamDisk;
 
 extern PageDirEntryT* _kernelVM;

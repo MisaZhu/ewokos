@@ -15,7 +15,7 @@ int getpid() {
 }
 
 static char* readKernelInitRD(const char* fname, int *size) {
-	return (char*)syscall3(SYSCALL_INITRD_READ, (int)fname, 0, (int)size);
+	return (char*)syscall3(SYSCALL_INITRD_READ_FILE, (int)fname, 0, (int)size);
 }
 
 static char* readFromFS(const char* fname, int *size) {
@@ -59,8 +59,8 @@ int exec(const char* cmdLine) {
 	}
 	else {
 		char fname[128+1];
-		strcpy(fname, "/initrd/");
-		strncpy(fname+ strlen("/initrd/"), cmd, 128 - strlen("/initrd/"));
+		strcpy(fname, "/initfs/");
+		strncpy(fname+ strlen("/initfs/"), cmd, 128 - strlen("/initfs/"));
 		img = readFromFS(fname, &size);
 	}
 	if(img == NULL)

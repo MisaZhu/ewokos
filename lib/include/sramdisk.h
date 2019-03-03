@@ -28,6 +28,5 @@ void ramdiskClose(RamDiskT* rd, void (*fr)(void*));
 read file content of fname, return content address and size.
 */
 const char* ramdiskRead(RamDiskT* rd, const char* fname, int* size);
-char* decodeInitFS();
 
 #endif

@@ -1,22 +1,140 @@
-#include "dev.h"
-#include <kstring.h>
+#include <dev.h>
 #include <syscall.h>
+#include <unistd.h>
+#include <pmessage.h>
+#include <stdlib.h>
+#include <kstring.h>
+#include <kserv/kserv.h>
+#include <kserv/fs.h>
+#include <vfs.h>
+#include <dev.h>
+#include <proto.h>
 
-void devInit(DeviceT* dev) {
-	memset(dev, 0, sizeof(DeviceT));
+static void doOpen(DeviceT* dev, PackageT* pkg) { 
+	ProtoT* proto = protoNew(getPackageData(pkg), pkg->size);
+	uint32_t node = (uint32_t)protoReadInt(proto);
+	int32_t flags = protoReadInt(proto);
+	protoFree(proto);
+
+	if(node == 0) {
+		psend(pkg->id, PKG_TYPE_ERR, NULL, 0);
+		return;
+	}
+
+	int32_t ret = 0;
+	if(dev->open != NULL)
+		ret = dev->open(node, flags);	
+	psend(pkg->id, pkg->type, &ret, 4);
 }
 
-bool devMount(DeviceT* dev, uint32_t index, const char* nodeName, bool isFile) {
-	(void)dev;
-	int32_t ret = 0;
-	/*
-	if(isFile)
-		ret = syscall3(SYSCALL_VFS_MOUNT_FILE, (int32_t)nodeName, (int32_t)NULL, index);
-	else
-		ret = syscall3(SYSCALL_VFS_MOUNT_DIR, (int32_t)nodeName, (int32_t)NULL, index);
-		*/
+static void doClose(DeviceT* dev, PackageT* pkg) { 
+	uint32_t node = *(uint32_t*)getPackageData(pkg);
+	if(node == 0)
+		return;
 
-	if(ret == 0)
-		return true;
-	return false;
+	if(dev->close != NULL)
+		dev->close(node);
+}
+
+static void doAdd(DeviceT* dev, PackageT* pkg) { 
+	ProtoT* proto = protoNew(getPackageData(pkg), pkg->size);
+	uint32_t node = (uint32_t)protoReadInt(proto);
+	const char* name = protoReadStr(proto);
+	protoFree(proto);
+
+	if(node == 0 || name[0] == 0) {
+		psend(pkg->id, PKG_TYPE_ERR, NULL, 0);
+		return;
+	}
+
+	int32_t ret = 0;
+	if(dev->add != NULL)
+		ret = dev->add(node, name);	
+	psend(pkg->id, pkg->type, &ret, 4);
+}
+
+static void doWrite(DeviceT* dev, PackageT* pkg) { 
+	ProtoT* proto = protoNew(getPackageData(pkg), pkg->size);
+	uint32_t node = (uint32_t)protoReadInt(proto);
+	uint32_t size;
+	void* p = protoRead(proto, &size);
+	protoFree(proto);
+
+	if(node == 0) {
+		psend(pkg->id, PKG_TYPE_ERR, NULL, 0);
+		return;
+	}
+
+	int32_t ret = 0;
+	if(dev->write != NULL)
+		ret = dev->write(node, p, size);	
+
+	psend(pkg->id, pkg->type, &ret, 4);
+}
+
+static void doRead(DeviceT* dev, PackageT* pkg) { 
+	ProtoT* proto = protoNew(getPackageData(pkg), pkg->size);
+	uint32_t node = (uint32_t)protoReadInt(proto);
+	uint32_t size = (uint32_t)protoReadInt(proto);
+	uint32_t seek = (uint32_t)protoReadInt(proto);
+	
+	if(node == 0) {
+		psend(pkg->id, PKG_TYPE_ERR, NULL, 0);
+		return;
+	}
+
+	if(size == 0) {
+		psend(pkg->id, pkg->type, NULL, 0);
+		return;
+	}
+
+	char* buf = (char*)malloc(size);
+	int32_t ret = 0;
+	if(dev->read != NULL)
+		ret = dev->read(node, buf, size, seek);	
+
+	if(ret < 0)
+		psend(pkg->id, PKG_TYPE_ERR, NULL, 0);
+	else
+		psend(pkg->id, pkg->type, buf, size);
+	free(buf);
+}
+
+static void handle(PackageT* pkg, void* p) {
+	DeviceT* dev = (DeviceT*)p;
+	switch(pkg->type) {
+		case FS_OPEN:
+			doOpen(dev, pkg);
+			break;
+		case FS_CLOSE:
+			doClose(dev, pkg);
+			break;
+		case FS_WRITE:
+			doWrite(dev, pkg);
+			break;
+		case FS_READ:
+			doRead(dev, pkg);
+			break;
+		case FS_ADD:
+			doAdd(dev, pkg);
+			break;
+	}
+}
+
+static uint32_t devMount(const char* devName, uint32_t index, const char* nodeName, bool file) {
+	if(file)
+		return (uint32_t)syscall3(SYSCALL_VFS_MOUNT_FILE, (int32_t)nodeName, (int32_t)devName, index);
+	return (uint32_t)syscall3(SYSCALL_VFS_MOUNT, (int32_t)nodeName, (int32_t)devName, index);
+}
+
+void devRun(DeviceT* dev, const char* devName, uint32_t index, const char* nodeName, bool file) {
+	uint32_t node = devMount(devName, index, nodeName, file);
+	if(node == 0)
+		return;
+	
+	if(dev->mount != NULL) {
+		if(dev->mount(node, index) != 0)
+			return;
+	}
+	kservRun(devName, handle, dev);
 }

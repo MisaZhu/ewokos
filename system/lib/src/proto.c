@@ -10,6 +10,12 @@ void protoInit(ProtoT* proto, void* data, uint32_t size) {
 	proto->readOnly = (data == NULL) ? false:true;
 }
 
+ProtoT* protoNew(void* data, uint32_t size) {
+	ProtoT* ret = (ProtoT*)malloc(sizeof(ProtoT));
+	protoInit(ret, data, size);
+	return ret;
+}
+
 void protoAdd(ProtoT* proto, void* item, uint32_t size) {
 	if(proto->readOnly)
 		return;
@@ -64,7 +70,7 @@ inline const char* protoReadStr(ProtoT* proto) {
 	return (const char*)protoRead(proto, NULL);
 }
 
-void protoFree(ProtoT* proto) {
+void protoClear(ProtoT* proto) {
 	if(proto->readOnly)
 		return;
 
@@ -78,3 +84,7 @@ void protoFree(ProtoT* proto) {
 	proto->readOnly = false;
 }
 
+void protoFree(ProtoT* proto) {
+	protoClear(proto);
+	free(proto);
+}

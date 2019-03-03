@@ -5,70 +5,78 @@
 #include <syscall.h>
 #include <stdlib.h>
 #include <proto.h>
-
-static int _fsPid = -1;
-
-#define CHECK_KSERV_FS \
-	if(_fsPid < 0) { \
-		_fsPid = syscall1(SYSCALL_KSERV_GET, (int)KSERV_FS_NAME); \
-		if(_fsPid < 0) \
-			return -1; \
-	}
-
+#include <vfs.h>
+#include <unistd.h>
 
 int fsOpen(const char* name, int32_t flags) {
-	(void) flags;
-	CHECK_KSERV_FS
-	int fd = -1;
-
-	PackageT* pkg = preq(_fsPid, FS_OPEN, (void*)name, strlen(name)+1, true);
-	if(pkg == NULL)	
+	uint32_t node = vfsNodeByName(name);
+	if(node == 0) 
 		return -1;
 
-	fd = *(int*)getPackageData(pkg);
+	FSInfoT info;
+	if(vfsNodeInfo(node, &info) != 0)
+		return -1;
+	
+	int32_t fd = syscall3(SYSCALL_PFILE_OPEN, getpid(), (int32_t)node, flags);
+	if(fd < 0)
+		return -1;
+
+	if(info.devServPid == 0) 
+		return fd;
+
+	ProtoT* proto = protoNew(NULL, 0);
+	protoAddInt(proto, (int32_t)node);
+	protoAddInt(proto, flags);
+
+	PackageT* pkg = preq(info.devServPid, FS_OPEN, proto->data, proto->size, true);
+	protoFree(proto);
+	if(pkg == NULL || pkg->type == PKG_TYPE_ERR) {
+		if(pkg != NULL) free(pkg);
+		return -1;
+	}
 	free(pkg);
 	return fd;
 }
 
-int fsFInfo(const char* name, FSInfoT* info) {
-	CHECK_KSERV_FS
-
-	if(name == NULL || name[0] == 0)
-		return -1;
-	
-	PackageT* pkg = preq(_fsPid, FS_FINFO, (void*)name, strlen(name)+1, true);
-	if(pkg == NULL || pkg->type == PKG_TYPE_ERR)
-		return -1;
-	
-	memcpy(info, getPackageData(pkg), sizeof(FSInfoT));
-	free(pkg);
-	return 0;
-}
-
-
 int fsClose(int fd) {
-	CHECK_KSERV_FS
-
-	if(fd < 0)
+	uint32_t node = vfsNodeByFD(getpid(), fd);
+	if(node == 0) 
 		return -1;
 
-	preq(_fsPid, FS_CLOSE, (void*)&fd, 4, false);
-	return 0;
+	FSInfoT info;
+	if(vfsNodeInfo(node, &info) != 0)
+		return -1;
+	
+	if(info.devServPid > 0) 
+		preq(info.devServPid, FS_CLOSE, (void*)&fd, 4, false);
+	return syscall1(SYSCALL_PFILE_CLOSE, fd);
 }
 
 int fsRead(int fd, char* buf, uint32_t size) {
-	CHECK_KSERV_FS
-
-	if(fd < 0)
+	int32_t pid = getpid();
+	uint32_t node = vfsNodeByFD(pid, fd);
+	if(node == 0) 
 		return -1;
-	
-	char req[8];
-	memcpy(req, &fd, 4);
-	memcpy(req+4, &size, 4);
 
-	PackageT* pkg = preq(_fsPid, FS_READ, req, 8, true);
-	if(pkg == NULL || pkg->type == PKG_TYPE_ERR)
+	FSInfoT info;
+	if(vfsNodeInfo(node, &info) != 0)
 		return -1;
+
+	int seek = syscall2(SYSCALL_PFILE_GET_SEEK, pid, fd);
+	if(seek < 0)
+		return -1;
+
+	ProtoT* proto = protoNew(NULL, 0);
+	protoAddInt(proto, node);
+	protoAddInt(proto, size);
+	protoAddInt(proto, seek);
+	PackageT* pkg = preq(info.devServPid, FS_READ, proto->data, proto->size, true);
+	protoFree(proto);
+
+	if(pkg == NULL || pkg->type == PKG_TYPE_ERR) {
+		if(pkg != NULL) free(pkg);
+		return -1;
+	}
 
 	int sz = pkg->size;
 	if(sz == 0) {
@@ -78,24 +86,30 @@ int fsRead(int fd, char* buf, uint32_t size) {
 	
 	memcpy(buf, getPackageData(pkg), sz);
 	free(pkg);
+
+	seek += sz;
+	syscall3(SYSCALL_PFILE_SEEK, pid, fd, seek);
 	return sz;
 }
 
 int fsWrite(int fd, const char* buf, uint32_t size) {
-	CHECK_KSERV_FS
-
-	if(fd < 0)
+	uint32_t node = vfsNodeByFD(getpid(), fd);
+	if(node == 0) 
 		return -1;
-	
-	char *req = (char*)malloc(size + 8);
-	memcpy(req, &fd, 4);
-	memcpy(req+4, &size, 4);
-	memcpy(req+8, buf, size);
 
-	PackageT* pkg = preq(_fsPid, FS_WRITE, req, size+8, true);
-	free(req);
+	FSInfoT info;
+	if(vfsNodeInfo(node, &info) != 0)
+		return -1;
+
+	ProtoT* proto = protoNew(NULL, 0);
+	protoAddInt(proto, node);
+	protoAddInt(proto, size);
+	protoAdd(proto, (void*)buf, size);
+	PackageT* pkg = preq(info.devServPid, FS_WRITE, proto->data, proto->size, true);
+	protoFree(proto);
 
 	if(pkg == NULL || pkg->type == PKG_TYPE_ERR) {
+		if(pkg != NULL) free(pkg);
 		return -1;
 	}
 
@@ -104,22 +118,31 @@ int fsWrite(int fd, const char* buf, uint32_t size) {
 	return sz;
 }
 
-int fsAdd(int dirFD, const char* name) {
-	CHECK_KSERV_FS
+int fsAdd(int fd, const char* name) {
+	uint32_t node = vfsNodeByFD(getpid(), fd);
+	if(node == 0) 
+		return -1;
 
-	int size = strlen(name);
-	if(dirFD < 0 || size == 0)
+	FSInfoT info;
+	if(vfsNodeInfo(node, &info) != 0)
 		return -1;
 	
-	char *req = (char*)malloc(size + 8);
-	memcpy(req, &dirFD, 4);
-	memcpy(req+4, &size, 4);
-	memcpy(req+8, name, size);
+	int size = strlen(name);
+	if(size == 0)
+		return -1;
 
-	PackageT* pkg = preq(_fsPid, FS_ADD, req, size+8, true);
-	free(req);
+	if(info.devServPid == 0) {
+		return vfsAdd(vfsNodeByFD(getpid(), fd), name, 0);
+	}
+
+	ProtoT* proto = protoNew(NULL, 0);
+	protoAddInt(proto, node);
+	protoAddStr(proto, name);
+	PackageT* pkg = preq(info.devServPid, FS_ADD, proto->data, proto->size, true);
+	protoFree(proto);
 
 	if(pkg == NULL || pkg->type == PKG_TYPE_ERR) {
+		if(pkg != NULL) free(pkg);
 		return -1;
 	}
 
@@ -142,50 +165,23 @@ int fsPutch(int fd, int c) {
 	return fsWrite(fd, buf, 1);
 }
 
-int fsInfo(int fd, FSInfoT* info) {
-	CHECK_KSERV_FS
+int fsFInfo(const char* name, FSInfoT* info) {
+	uint32_t node = vfsNodeByName(name);
+	return vfsNodeInfo(node, info);
+}
 
-	if(fd < 0)
-		return -1;
-	
-	PackageT* pkg = preq(_fsPid, FS_INFO, &fd, 4, true);
-	if(pkg == NULL || pkg->type == PKG_TYPE_ERR) {
-		if(pkg != NULL)	free(pkg);
-		return -1;
-	}
-	
-	memcpy(info, getPackageData(pkg), sizeof(FSInfoT));
-	free(pkg);
-	return 0;
+int fsInfo(int fd, FSInfoT* info) {
+	uint32_t node = vfsNodeByFD(getpid(), fd);
+	return vfsNodeInfo(node, info);
 }
 
 FSInfoT* fsKids(int fd, uint32_t *num) {
-	if(_fsPid < 0) {
-		_fsPid = syscall1(SYSCALL_KSERV_GET, (int)KSERV_FS_NAME);
-		if(_fsPid < 0)
-			return NULL; 
-	}
-	
-	PackageT* pkg = preq(_fsPid, FS_CHILD, &fd, 4, true);
-	if(pkg == NULL || pkg->type == PKG_TYPE_ERR) {
-		if(pkg != NULL)	free(pkg);
+	uint32_t node = vfsNodeByFD(getpid(), fd);
+	if(node == 0)
 		return NULL;
-	}
-
-	ProtoT proto;
-	protoInit(&proto, getPackageData(pkg), pkg->size);
-	*num = protoReadInt(&proto);
-	void* p = protoRead(&proto, NULL);
-
-	uint32_t sz = (*num) * sizeof(FSInfoT);
-	FSInfoT* ret = (FSInfoT*)malloc(sz);
-	if(ret != NULL) {
-		memcpy(ret, p, sz);
-	}
-	free(pkg);
-	return ret;
+	return (FSInfoT*)syscall2(SYSCALL_VFS_KIDS, (int32_t)node, (int32_t)num);
 }
 
 int fsInited() {
-	return syscall1(SYSCALL_KSERV_GET, (int)KSERV_FS_NAME);
+	return syscall1(SYSCALL_KSERV_GET, (int)"dev.initfs");
 }

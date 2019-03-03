@@ -1,8 +1,8 @@
 OS = EwokOS
 
 ifndef arch
-#	arch = versatilepb
-	arch = raspi2
+	arch = versatilepb
+#	arch = raspi2
 endif
 include arch/$(arch)/config.mk
 
@@ -43,12 +43,12 @@ DEV_OBJS = src/dev/uart.o
 
 LIB_OBJS = ../lib/src/kstring.o \
 	../lib/src/base16.o \
+	../lib/src/sramdisk.o \
 	../lib/src/tree.o
 
 OBJS += $(ARCH_OBJS) \
 	$(DEV_OBJS) \
 	src/kernel.o \
-	src/sramdisk.o \
 	src/irq.o \
 	src/syscalls.o \
 	src/mm/startup.o \

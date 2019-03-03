@@ -16,6 +16,8 @@ typedef struct {
 
 void protoInit(ProtoT* proto, void* data, uint32_t size);
 
+ProtoT* protoNew(void* data, uint32_t size);
+
 void protoAdd(ProtoT* proto, void* item, uint32_t size);
 
 void protoAddInt(ProtoT* proto, int32_t v);
@@ -27,6 +29,8 @@ void* protoRead(ProtoT* proto, uint32_t *size);
 int32_t protoReadInt(ProtoT* proto);
 
 const char* protoReadStr(ProtoT* proto);
+
+void protoClear(ProtoT* proto);
 
 void protoFree(ProtoT* proto);
 

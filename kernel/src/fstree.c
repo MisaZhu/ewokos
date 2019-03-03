@@ -11,9 +11,8 @@ void fsTreeNodeInit(TreeNodeT* node) {
 	node->data = kmalloc(sizeof(FSNodeT));
 	FSNodeT* fn = (FSNodeT*)node->data;
 	fn->name[0] = 0;
-	fn->mount = -1;
+	fn->mount = 0;
 	fn->type = 0;
-	fn->flags = 0;
 	fn->owner = 0;
 }
 

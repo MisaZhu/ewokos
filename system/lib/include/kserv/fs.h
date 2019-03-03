@@ -3,20 +3,12 @@
 
 #include <fsinfo.h>
 
-#define KSERV_FS_NAME  "vfs"
-
 enum {
 	FS_OPEN = 0,
 	FS_CLOSE,
 	FS_WRITE,
 	FS_READ,
-	FS_INFO,
-	FS_FINFO,
-	FS_ADD,
-	FS_CHILD,
-	FS_NEXT,
-	FS_MOUNT,
-	FS_UNMOUNT
+	FS_ADD
 };
 
 int fsOpen(const char* name, int32_t flags);

@@ -11,17 +11,24 @@ void _start()
 		exit(0);
 	}
 
-	/*file system kernel process*/
-	printf("start file system ...\n");
+	/*initfs process*/
+	printf("start initfs service ...\n");
 	int pid = fork();
 	if(pid == 0) { 
-		exec("vfs");
+		exec("initfs");
 	}
 
 	while(fsInited() < 0) {
 		yield();
 	}
-	printf("file system got ready.\n");
+	printf("initfs got ready.\n");
+
+	pid = fork();
+	if(pid == 0) { 
+		/*ttyd process*/
+		printf("start ttyd ...\n");
+		exec("ttyd");
+	}
 
 	pid = fork();
 	if(pid == 0) { 
