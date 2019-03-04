@@ -342,8 +342,8 @@ void procSleep(int pid) {
 	if(proc == NULL)
 		return;
 	proc->state = SLEEPING;
-	if(pid == _currentProcess->pid)
-		schedule();
+	//if(pid == _currentProcess->pid)
+	//	schedule();
 }
 
 void procWake(int pid) {
