@@ -337,6 +337,22 @@ void procExit() {
 	return;
 }
 
+void procSleep(int pid) {
+	ProcessT* proc = procGet(pid);
+	if(proc == NULL)
+		return;
+	proc->state = SLEEPING;
+	if(pid == _currentProcess->pid)
+		schedule();
+}
+
+void procWake(int pid) {
+	ProcessT* proc = procGet(pid);
+	if(proc == NULL)
+		return;
+	proc->state = READY;
+}
+
 void _abortEntry() {
 	procExit();
 }

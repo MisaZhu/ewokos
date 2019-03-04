@@ -23,6 +23,7 @@ static int ppeer(int id) {
 }
 
 static int pwrite(int id, void* data, uint32_t size) {
+	//return syscall3(SYSCALL_KWRITE, id, (int)data, size);
 	int i;
 	while(true) {
 		i = syscall3(SYSCALL_KWRITE, id, (int)data, size);
@@ -37,6 +38,7 @@ static int pread(int id, void* data, uint32_t size) {
 	if(data == NULL || size == 0)
 		return 0;
 
+	//return syscall3(SYSCALL_KREAD, id, (int)data, size);
 	int i;
 	while(true) {
 		i = syscall3(SYSCALL_KREAD, id, (int)data, size);

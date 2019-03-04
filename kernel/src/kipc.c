@@ -74,6 +74,9 @@ void ipcClose(int32_t id) {
 		return;
 	}
 
+	procWake(channel->pid1);
+	procWake(channel->pid2);
+
 	void* p = channel->buffer;
 	memset(channel, 0, sizeof(ChannelT));
 	channel->buffer = p;
@@ -91,28 +94,39 @@ int ipcRing(int32_t id) {
 		channel->ring = channel->pid2;
 	else 
 		channel->ring = channel->pid1;
+
+	procWake(channel->ring);
 	channel->offset = 0;
 	return 0;
+}
+
+static int peerChannel(ChannelT* channel, int pid) {
+	if(channel->pid1 == pid)
+		return channel->pid2;
+	return  channel->pid1;
 }
 
 int ipcPeer(int32_t id) {
 	ChannelT* channel = ipcGetChannel(id);
 	if(channel == NULL)
 		return -1;
-
-	if(channel->pid1 == _currentProcess->pid)
-		return channel->pid2;
-	return  channel->pid1;
+	return peerChannel(channel, _currentProcess->pid);
 }
 
 int ipcWrite(int32_t id, void* data, uint32_t size) {
 	ChannelT* channel = ipcGetChannel(id);
-	if(size == 0 || channel->ring == 0) //if closed.
+	if(size == 0)
 		return 0; 
-
+	
 	int32_t pid = _currentProcess->pid;
-	if(channel->ring != pid) //not read for current proc.
+	if(channel->ring != pid) {//not read for current proc.
+		if(channel->ring == 0)  //closed.
+			return 0;
+		procSleep(pid);
 		return -1;
+	}
+
+	procWake(peerChannel(channel, pid));
 
 	if((size + channel->offset) > PAGE_SIZE)
 		size = PAGE_SIZE - channel->offset;
@@ -129,12 +143,16 @@ int ipcWrite(int32_t id, void* data, uint32_t size) {
 
 int32_t ipcRead(int32_t id, void* data, uint32_t size) {
 	ChannelT* channel = ipcGetChannel(id);
-	if(channel == NULL || data == NULL || channel->ring == 0 || size == 0)
+	if(channel == NULL || data == NULL || size == 0)
 		return 0;
 	
 	int32_t pid = _currentProcess->pid;
-	if(channel->ring != pid) //not read for current proc.
+	if(channel->ring != pid) {//not read for current proc.
+		if(channel->ring == 0)  //closed.
+			return 0;
+		procSleep(pid);
 		return -1;
+	}
 
 	bool end = false;
 	if((size + channel->offset) >= channel->size) {

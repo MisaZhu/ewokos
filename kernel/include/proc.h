@@ -85,9 +85,13 @@ void procFree(ProcessT *proc);
 bool procExpandMemory(void *proc, int pageCount);
 void procShrinkMemory(void *proc, int pageCount);
 ProcessT* procGet(int pid);
+void procSleep(int pid);
+void procWake(int pid);
+
 int kfork();
 void procExit();
 void* pmalloc(uint32_t size);
+
 
 #endif
 
