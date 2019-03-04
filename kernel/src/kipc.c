@@ -181,8 +181,10 @@ int32_t ipcReady() {
 			break;
 	}
 
-	if(i >= CHANNEL_MAX)
+	if(i >= CHANNEL_MAX) {
+		procSleep(pid);
 		return -1;
+	}
 	return i;
 }
 
