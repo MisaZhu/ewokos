@@ -13,6 +13,8 @@
 #include <initfs.h>
 #include <vfs.h>
 #include <base16.h>
+#include <mailbox.h>
+#include <fb.h>
 
 PageDirEntryT* _kernelVM;
 
@@ -62,6 +64,7 @@ void setKernelVM(PageDirEntryT* vm)
 	mapPages(vm, KERNEL_BASE+PAGE_SIZE, PAGE_SIZE, V2P(_kernelEnd), AP_RW_D);
 
 	//map MMIO to high(virtual) mem.
+	mapPages(vm, getMMIOBasePhy(), getMMIOBasePhy(), getMMIOBasePhy() + getMMIOMemSize(), AP_RW_D);
 	mapPages(vm, MMIO_BASE, getMMIOBasePhy(), getMMIOBasePhy() + getMMIOMemSize(), AP_RW_D);
 
 	//map kernel memory trunk to high(virtual) mem.
@@ -101,12 +104,31 @@ char* decodeInitFS() {
 	return ret;
 }
 
-#define FIRST_PROCESS "init"
+void fbtest() {
+	FBInfoT* fbInfo = fbGetInfo();
+	uint32_t *fb, color = 0x00ff0000;
+	uint32_t loopy,loopx,index,check;
+	
+	/** do the thing... */
+	fb = (uint32_t*) (fbInfo->pointer);
+	check = fbInfo->pitch/sizeof(uint32_t);
+	index = 0;
+	for (loopy=0;loopy<fbInfo->height;loopy++) {
+		for (loopx=0;loopx<fbInfo->width||loopx<check;loopx++) {
+			fb[index++] = color;
+		}
+	}
+}
 
-void kernelEntry() 
-{
+#define FIRST_PROCESS "init"
+void kernelEntry() {
 	/* Done mapping all mem */
 	initKernelVM();
+
+	mailboxInit();
+
+	fbInit();
+	fbtest();
 
 	/*init uart for output.*/
 	uartInit(); 

@@ -61,3 +61,8 @@ __switchToContext:
 	NOP
 	MOVS PC, R14
 
+.global __memBarrier
+__memBarrier:
+	mov r0, #0 @ <Rd> should be zero (SBZ) for this
+	mcr p15, 0, r0, c7, c10, 5 @ data memory barrier
+	mov pc, lr
