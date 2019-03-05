@@ -1,41 +1,54 @@
 #include <types.h>
 #include <stdio.h>
 #include <unistd.h>
+#include <stdlib.h>
 #include <kserv/fs.h>
+#include <kserv/kserv.h>
 #include <syscall.h>
 
-void _start() 
-{
+void _start() {
 	if(fsInited() >= 0) { /*init process can only run at boot time.*/
 		printf("Panic: 'init' process can only run at boot time!\n");
 		exit(0);
 	}
 
-	/*initfs process*/
+	//initfs process
 	printf("start initfs service ...\n");
 	int pid = fork();
 	if(pid == 0) { 
 		exec("initfs");
 	}
 
-	while(fsInited() < 0) {
+	while(fsInited() < 0)
 		yield();
-	}
 	printf("initfs got ready.\n");
 
 	pid = fork();
 	if(pid == 0) { 
-		/*ttyd process*/
+		//ttyd process
 		printf("start ttyd ...\n");
 		exec("ttyd");
 	}
+	kservWait("dev.tty");
+	printf("ttyd got ready.\n");
 
 	pid = fork();
 	if(pid == 0) { 
-		/*userman kernel process*/
+		//fbd process
+		printf("start framebuffer ...\n");
+		exec("fbd");
+	}
+	kservWait("dev.fb");
+	printf("framebuffer got ready.\n");
+
+	pid = fork();
+	if(pid == 0) { 
+		//userman kernel process
 		printf("start user manager ...\n");
 		exec("userman");
 	}
+	kservWait("USER_MAN");
+	printf("user manager got ready.\n");
 
 	printf("\n: Hey! wake up!\n"
 			": Matrix had you.\n"

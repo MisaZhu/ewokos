@@ -9,4 +9,6 @@ bool kservRun(const char* regName, KServFuncT servFunc, void* p);
 
 int kservGetPid(const char* regName);
 
+void kservWait(const char* regName);
+
 #endif

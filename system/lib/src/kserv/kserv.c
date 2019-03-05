@@ -24,3 +24,8 @@ bool kservRun(const char* regName, KServFuncT servFunc, void* p) {
 int kservGetPid(const char* regName) {
 	return syscall1(SYSCALL_KSERV_GET, (int)regName);
 }
+
+void kservWait(const char* regName) {
+	while(kservGetPid(regName) < 0)
+		yield();
+}

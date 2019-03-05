@@ -3,7 +3,7 @@
 #include "hardware.h"
 
 #define MAILBOX_OFFSET 0x0000B880
-#define MAILBOX_BASE (getMMIOBasePhy()| MAILBOX_OFFSET)
+#define MAILBOX_BASE (MMIO_BASE | MAILBOX_OFFSET)
 
 #define MAIL0_BASE    (MAILBOX_BASE+0x00)
 #define MAIL0_READ    (MAILBOX_BASE+0x00)

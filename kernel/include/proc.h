@@ -56,6 +56,7 @@ typedef struct {
 	char cmd[CMD_MAX]; /*run command*/
 	char pwd[NAME_MAX]; /*working dir*/
 
+
 	EntryFunctionT entry;
 	PageDirEntryT *vm;
 

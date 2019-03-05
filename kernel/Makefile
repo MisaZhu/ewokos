@@ -1,8 +1,8 @@
 OS = EwokOS
 
 ifndef arch
-	arch = versatilepb
-#	arch = raspi2
+#	arch = versatilepb
+	arch = raspi2
 endif
 include arch/$(arch)/config.mk
 
@@ -50,6 +50,7 @@ LIB_OBJS = ../lib/src/kstring.o \
 
 OBJS += $(ARCH_OBJS) \
 	$(DEV_OBJS) \
+	src/klog.o \
 	src/kernel.o \
 	src/irq.o \
 	src/syscalls.o \

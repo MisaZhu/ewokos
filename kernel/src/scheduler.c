@@ -2,6 +2,7 @@
 #include <timer.h>
 #include <irq.h>
 #include <hardware.h>
+#include <klog.h>
 
 static int roundRobinIndex;
 
@@ -18,8 +19,13 @@ void schedule(void)
 		}
 
 		if (proc->state == READY) {
-			_currentProcess = proc;
-			procStart(proc);
+			if(_currentProcess != proc) {
+				_currentProcess = proc;
+				procStart(proc);
+			}
+			else {
+				return;
+			}
 		}
 	}
 

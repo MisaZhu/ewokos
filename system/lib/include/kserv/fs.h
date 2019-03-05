@@ -8,6 +8,7 @@ enum {
 	FS_CLOSE,
 	FS_WRITE,
 	FS_READ,
+	FS_CTRL,
 	FS_ADD
 };
 
@@ -22,6 +23,8 @@ int fsFInfo(const char* name, FSInfoT* info);
 FSInfoT* fsKids(int fd, uint32_t *num);
 
 int fsRead(int fd, char* buf, uint32_t size);
+
+int fsCtrl(int fd, int32_t cmd, void* input, uint32_t isize, void* output, uint32_t osize);
 
 int fsGetch(int fd);
 

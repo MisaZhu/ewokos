@@ -100,6 +100,33 @@ static void doRead(DeviceT* dev, PackageT* pkg) {
 	free(buf);
 }
 
+static void doCtrl(DeviceT* dev, PackageT* pkg) { 
+	ProtoT* proto = protoNew(getPackageData(pkg), pkg->size);
+	uint32_t node = (uint32_t)protoReadInt(proto);
+	uint32_t cmd = (uint32_t)protoReadInt(proto);
+	uint32_t size;
+	void* p = protoRead(proto, &size);
+	protoFree(proto);
+
+	if(node == 0) {
+		psend(pkg->id, PKG_TYPE_ERR, NULL, 0);
+		return;
+	}
+
+	p = NULL;
+	int32_t ret = 0;
+	if(dev->ctrl != NULL)
+		p = dev->ctrl(node, cmd, p, size, &ret);	
+
+	if(ret < 0)
+		psend(pkg->id, PKG_TYPE_ERR, NULL, 0);
+	else
+		psend(pkg->id, pkg->type, p, ret);
+
+	if(p != NULL)
+		free(p);
+}
+
 static void handle(PackageT* pkg, void* p) {
 	DeviceT* dev = (DeviceT*)p;
 	switch(pkg->type) {
@@ -114,6 +141,9 @@ static void handle(PackageT* pkg, void* p) {
 			break;
 		case FS_READ:
 			doRead(dev, pkg);
+			break;
+		case FS_CTRL:
+			doCtrl(dev, pkg);
 			break;
 		case FS_ADD:
 			doAdd(dev, pkg);

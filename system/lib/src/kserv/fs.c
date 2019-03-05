@@ -92,6 +92,40 @@ int fsRead(int fd, char* buf, uint32_t size) {
 	return sz;
 }
 
+int fsCtrl(int fd, int32_t cmd, void* input, uint32_t isize, void* output, uint32_t osize) {
+	uint32_t node = vfsNodeByFD(getpid(), fd);
+	if(node == 0) 
+		return -1;
+
+	FSInfoT info;
+	if(vfsNodeInfo(node, &info) != 0)
+		return -1;
+
+	ProtoT* proto = protoNew(NULL, 0);
+	protoAddInt(proto, node);
+	protoAddInt(proto, cmd);
+	protoAdd(proto, input, isize);
+	PackageT* pkg = preq(info.devServPid, FS_CTRL, proto->data, proto->size, true);
+	protoFree(proto);
+
+	if(pkg == NULL || pkg->type == PKG_TYPE_ERR) {
+		if(pkg != NULL) free(pkg);
+		return -1;
+	}
+
+	if(output == NULL || osize == 0) {
+		free(pkg);
+		return 0;
+	}
+	uint32_t sz = pkg->size;
+
+	if(sz > osize)
+		sz = osize;
+	memcpy(output, getPackageData(pkg), sz);
+	free(pkg);
+	return 0;
+}
+
 int fsWrite(int fd, const char* buf, uint32_t size) {
 	uint32_t node = vfsNodeByFD(getpid(), fd);
 	if(node == 0) 
@@ -103,7 +137,6 @@ int fsWrite(int fd, const char* buf, uint32_t size) {
 
 	ProtoT* proto = protoNew(NULL, 0);
 	protoAddInt(proto, node);
-	protoAddInt(proto, size);
 	protoAdd(proto, (void*)buf, size);
 	PackageT* pkg = preq(info.devServPid, FS_WRITE, proto->data, proto->size, true);
 	protoFree(proto);

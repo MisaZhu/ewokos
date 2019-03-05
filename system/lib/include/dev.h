@@ -10,6 +10,7 @@ typedef struct {
 	int (*add)(uint32_t node, const char* name);
 	int (*write)(uint32_t node, void* buf, uint32_t size);
 	int (*read)(uint32_t node, void* buf, uint32_t size, uint32_t seek);
+	void* (*ctrl)(uint32_t node, int32_t cmd, void* data, uint32_t size, int32_t* ret);
 } DeviceT;
 
 void devRun(DeviceT* dev, const char* devName, uint32_t index, const char* nodeName, bool file);

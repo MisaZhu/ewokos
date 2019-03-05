@@ -13,6 +13,8 @@
 #include <fsinfo.h>
 #include <vfs.h>
 #include <scheduler.h>
+#include <hardware.h>
+#include <fb.h>
 
 static int32_t syscall_uartPutch(int32_t c) {
 	uartPutch(c);
@@ -22,6 +24,42 @@ static int32_t syscall_uartPutch(int32_t c) {
 static int32_t syscall_uartGetch() {
 	int32_t r = uartGetch();
 	return r;
+}
+
+static int32_t syscall_mmioInfo(int arg0, int arg1) {
+	if(_currentProcess->owner >= 0)
+		return -1;
+
+	const char* type = (const char*)arg0;
+
+	if(strcmp(type, "framebuffer") == 0) {
+		FBInfoT* info = fbGetInfo();
+		if(info == NULL)
+			return -1;
+		memcpy((FBInfoT*)arg1, info, sizeof(FBInfoT));
+		return 0;
+	}
+	return -1;
+}
+
+static int32_t syscall_mmioRead(int arg0, int arg1, int arg2) {
+	if(_currentProcess->owner >= 0)
+		return -1;
+
+	void* addr = (void*)arg0;
+	void* buf = (void*)arg1;
+	memcpy(buf, addr, arg2);
+	return arg2;
+}
+
+static int32_t syscall_mmioWrite(int arg0, int arg1, int arg2) {
+	if(_currentProcess->owner >= 0)
+		return -1;
+
+	void* addr = (void*)arg0;
+	void* buf = (void*)arg1;
+	memcpy(addr, buf, arg2);
+	return arg2;
 }
 
 static int32_t syscall_execElf(int32_t arg0, int32_t arg1) {
@@ -187,19 +225,6 @@ static int32_t syscall_pfClose(int32_t arg0, int32_t arg1) {
 	proc->files[fd].flags = 0;
 	proc->files[fd].seek = 0;
 	return  0;
-}
-
-static int32_t syscall_pfNode(int32_t arg0, int32_t arg1) {
-	ProcessT* proc = procGet(arg0);
-	if(proc == NULL)
-		return -1;
-	int32_t fd = arg1;
-	if(fd < 0 || fd >= FILE_MAX)
-		return 0;
-	KFileT* kf = proc->files[fd].kf;
-	if(kf == NULL)
-		return 0;
-	return kf->nodeAddr;
 }
 
 static int32_t syscall_pfSeek(int32_t arg0, int32_t arg1, int32_t arg2) {
@@ -379,6 +404,10 @@ static int32_t (*const _syscallHandler[])() = {
 	[SYSCALL_UART_PUTCH] = syscall_uartPutch,
 	[SYSCALL_UART_GETCH] = syscall_uartGetch,
 
+	[SYSCALL_MMIO_INFO] = syscall_mmioInfo,
+	[SYSCALL_MMIO_READ] = syscall_mmioRead,
+	[SYSCALL_MMIO_WRITE] = syscall_mmioWrite,
+
 	[SYSCALL_FORK] = syscall_fork,
 	[SYSCALL_GETPID] = syscall_getpid,
 	[SYSCALL_EXEC_ELF] = syscall_execElf,
@@ -402,7 +431,6 @@ static int32_t (*const _syscallHandler[])() = {
 	[SYSCALL_INITRD_READ_FILE] = syscall_readFileInitRD,
 	[SYSCALL_INITRD_CLONE] = syscall_cloneInitRD,
 
-	[SYSCALL_PFILE_NODE] = syscall_pfNode,
 	[SYSCALL_PFILE_GET_SEEK] = syscall_pfGetSeek,
 	[SYSCALL_PFILE_SEEK] = syscall_pfSeek,
 	[SYSCALL_PFILE_OPEN] = syscall_pfOpen,

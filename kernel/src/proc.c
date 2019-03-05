@@ -9,6 +9,7 @@
 #include <elf.h>
 #include <kernel.h>
 #include <scheduler.h>
+#include <klog.h>
 
 ProcessT _processTable[PROCESS_COUNT_MAX];
 
@@ -192,7 +193,7 @@ bool procLoad(ProcessT *proc, const char *procImage)
 		/* make enough room for this section */
 		while (proc->heapSize < header->vaddr + header->memsz) {
 			if(!procExpandMemory(proc, 1)) {
-				uartPuts("Panic: proc expand memory failed!!\n");
+				klog("Panic: proc expand memory failed!!\n");
 				return false;
 			}
 		}
@@ -254,7 +255,7 @@ int kfork(void)
 
 	child = procCreate();
 	if(!procExpandMemory(child, parent->heapSize / PAGE_SIZE)) {
-		uartPuts("Panic: proc expand memory failed!!\n");
+		klog("Panic: proc expand memory failed!!\n");
 		return -1;
 	}
 

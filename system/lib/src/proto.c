@@ -33,7 +33,8 @@ void protoAdd(ProtoT* proto, void* item, uint32_t size) {
 		proto->data = p;
 	} 
 	memcpy(p+proto->size, &size, 4);
-	memcpy(p+proto->size+4, item, size);
+	if(size > 0 && item != NULL)
+		memcpy(p+proto->size+4, item, size);
 	proto->size += (size + 4);
 }
 
@@ -56,7 +57,10 @@ void* protoRead(ProtoT* proto, uint32_t *size) {
 	proto->offset += (4 + sz);
 	if(size != NULL)
 		*size = sz;
-	return p+4;;
+
+	if(sz == 0)
+		return NULL;
+	return p+4;
 }
 
 inline int32_t protoReadInt(ProtoT* proto) {

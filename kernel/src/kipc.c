@@ -4,6 +4,7 @@
 #include <mm/kalloc.h>
 #include <system.h>
 #include <dev/uart.h>
+#include <klog.h>
 
 typedef struct Channel {
 	uint32_t offset;
@@ -23,6 +24,7 @@ void ipcInit() {
 	int32_t i;
 	for(i=0; i<CHANNEL_MAX; i++) {
 		memset(&_channels[i], 0, sizeof(ChannelT));
+		_channels[i].ring = -1;
 	}
 }
 
@@ -32,29 +34,31 @@ int32_t ipcOpen(int32_t pid) {
 
 	int32_t i;
 	for(i=0; i<CHANNEL_MAX; i++) {
-		if(_channels[i].ring == 0) {
+		if(_channels[i].ring < 0) {
 			if(_channels[i].buffer == NULL) {
 				void* buffer = kalloc(); 
 				if(buffer == NULL) {
-					uartPuts("panic: ipcalloc error when open ipcchannel!\n");
+					klog("panic: ipcalloc error when open ipcchannel!\n");
 					break;
 				}
 				_channels[i].buffer = buffer;
 			}
 			_channels[i].ring = _channels[i].pid1 = _currentProcess->pid;
 			_channels[i].pid2 = pid;
+			procWake(_channels[i].pid1);
+			procWake(_channels[i].pid2);
 			ret = i;
 			break;
 		}
 	}
 
 	if(ret < 0)
-		uartPuts("panic: ipcchannels are all busy!\n");
+		klog("panic: ipcchannels are all busy!\n");
 	return ret;
 }
 
 static inline ChannelT* ipcGetChannel(int32_t id) {
-	if(id < 0 || id >= CHANNEL_MAX || _channels[id].ring == 0)
+	if(id < 0 || id >= CHANNEL_MAX || _channels[id].ring < 0)
 		return NULL;
 	return &_channels[id];
 }
@@ -80,6 +84,7 @@ void ipcClose(int32_t id) {
 	void* p = channel->buffer;
 	memset(channel, 0, sizeof(ChannelT));
 	channel->buffer = p;
+	channel->ring = -1;
 }
 
 int ipcRing(int32_t id) {
@@ -120,7 +125,7 @@ int ipcWrite(int32_t id, void* data, uint32_t size) {
 	
 	int32_t pid = _currentProcess->pid;
 	if(channel->ring != pid) {//not read for current proc.
-		if(channel->ring == 0)  //closed.
+		if(channel->ring < 0)  //closed.
 			return 0;
 		procSleep(pid);
 		return -1;
@@ -148,7 +153,7 @@ int32_t ipcRead(int32_t id, void* data, uint32_t size) {
 	
 	int32_t pid = _currentProcess->pid;
 	if(channel->ring != pid) {//not read for current proc.
-		if(channel->ring == 0)  //closed.
+		if(channel->ring < 0)  //closed.
 			return 0;
 		procSleep(pid);
 		return -1;
@@ -193,7 +198,7 @@ void ipcCloseAll() {
 	int32_t i;
 	for(i=0; i<CHANNEL_MAX; i++) {
 		ChannelT* channel = &_channels[i];
-		if(channel->ring == 0)
+		if(channel->ring < 0)
 			continue;
 		if(channel->pid1 == pid || channel->pid2 == pid) 
 			ipcClose(i);
