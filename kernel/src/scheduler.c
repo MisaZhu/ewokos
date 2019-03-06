@@ -2,7 +2,6 @@
 #include <timer.h>
 #include <irq.h>
 #include <hardware.h>
-#include <klog.h>
 
 static int roundRobinIndex;
 

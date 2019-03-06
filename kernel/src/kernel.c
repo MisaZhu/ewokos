@@ -1,4 +1,4 @@
-#include <klog.h>
+#include <printk.h>
 #include <mm/mmu.h>
 #include <mm/kalloc.h>
 #include <mm/kmalloc.h>
@@ -16,6 +16,7 @@
 #include <base16.h>
 #include <mailbox.h>
 #include <fb.h>
+#include <printk.h>
 
 PageDirEntryT* _kernelVM;
 
@@ -119,11 +120,11 @@ void kernelEntry() {
 	/*decode initramdisk to high memory(kernel trunk memory).*/
 	_initRamDiskBase = decodeInitFS();
 	if(_initRamDiskBase == NULL) {
-		klog("panic: initramdisk decode failed!\n");
+		printk("panic: initramdisk decode failed!\n");
 		return;
 	}
 
-	klog("\n\n=================\n"
+	printk("\n\n=================\n"
 				"EwokOS (by Misa.Z)\n"
 				"=================\n"
 				"Kernel got ready(MMU and ProcMan).\n"
@@ -139,14 +140,14 @@ void kernelEntry() {
 
 	ProcessT *proc = procCreate(); //create first process
 	if(proc == NULL) {
-		klog("panic: init process create failed!\n");
+		printk("panic: init process create failed!\n");
 		return;
 	}
 
 	int size = 0;
 	const char *p = ramdiskRead(&_initRamDisk, FIRST_PROCESS, &size);
 	if(p == NULL) {
-		klog("panic: init process load failed!\n");
+		printk("panic: init process load failed!\n");
 		return;
 	}
 	else {

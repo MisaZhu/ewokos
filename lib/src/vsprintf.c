@@ -1,4 +1,4 @@
-#include <stdio.h>
+#include <vsprintf.h>
 #include <types.h>
 #include <stdarg.h>
 
@@ -38,6 +38,23 @@ uint32_t unsigned_divmod(uint32_t numerator, uint32_t denominator,
 		(*remainder_pointer) = remainder;
 
 	return quotient;
+}
+
+/*
+ * sprintf formats the given data and outputs the result into the given character
+ * pointer. See vsprintf for the format flags currently supported.
+ */
+int
+snprintf(char *target, int size, const char *format, ...)
+{
+	int length = 0;
+	va_list ap;
+
+	va_start(ap, format);
+	length = vsnprintf(target, size, format, ap);
+	va_end(ap);
+
+	return length;
 }
 
 /*

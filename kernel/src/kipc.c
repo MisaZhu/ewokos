@@ -4,7 +4,7 @@
 #include <mm/kalloc.h>
 #include <system.h>
 #include <dev/uart.h>
-#include <klog.h>
+#include <printk.h>
 
 typedef struct Channel {
 	uint32_t offset;
@@ -38,7 +38,7 @@ int32_t ipcOpen(int32_t pid) {
 			if(_channels[i].buffer == NULL) {
 				void* buffer = kalloc(); 
 				if(buffer == NULL) {
-					klog("panic: ipcalloc error when open ipcchannel!\n");
+					printk("panic: ipcalloc error when open ipcchannel!\n");
 					break;
 				}
 				_channels[i].buffer = buffer;
@@ -53,7 +53,7 @@ int32_t ipcOpen(int32_t pid) {
 	}
 
 	if(ret < 0)
-		klog("panic: ipcchannels are all busy!\n");
+		printk("panic: ipcchannels are all busy!\n");
 	return ret;
 }
 

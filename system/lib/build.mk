@@ -1,6 +1,5 @@
 LIB_OBJS = lib/src/syscall.o \
 	lib/src/stdlib.o \
-	lib/src/vsprintf.o \
 	lib/src/pmessage.o \
 	lib/src/stdio.o \
 	lib/src/cmain.o \

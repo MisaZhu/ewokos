@@ -46,11 +46,12 @@ DEV_OBJS = src/dev/uart.o
 LIB_OBJS = ../lib/src/kstring.o \
 	../lib/src/base16.o \
 	../lib/src/sramdisk.o \
+	../lib/src/vsprintf.o \
 	../lib/src/tree.o
 
 OBJS += $(ARCH_OBJS) \
 	$(DEV_OBJS) \
-	src/klog.o \
+	src/printk.o \
 	src/kernel.o \
 	src/irq.o \
 	src/syscalls.o \
