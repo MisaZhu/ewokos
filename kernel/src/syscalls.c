@@ -26,40 +26,46 @@ static int32_t syscall_uartGetch() {
 	return r;
 }
 
-static int32_t syscall_mmioInfo(int arg0, int arg1) {
-	if(_currentProcess->owner >= 0)
+static int32_t _fbPid = -1;
+
+static int32_t syscall_fbOpen() {
+	if(_fbPid >= 0)
 		return -1;
 
-	const char* type = (const char*)arg0;
-
-	if(strcmp(type, "framebuffer") == 0) {
-		FBInfoT* info = fbGetInfo();
-		if(info == NULL)
-			return -1;
-		memcpy((FBInfoT*)arg1, info, sizeof(FBInfoT));
-		return 0;
-	}
-	return -1;
+	_fbPid = _currentProcess->pid;
+	return 0;
 }
 
-static int32_t syscall_mmioRead(int arg0, int arg1, int arg2) {
-	if(_currentProcess->owner >= 0)
+static int32_t syscall_fbClose() {
+	if(_currentProcess->pid != _fbPid)
 		return -1;
 
-	void* addr = (void*)arg0;
-	void* buf = (void*)arg1;
-	memcpy(buf, addr, arg2);
-	return arg2;
+	_fbPid = -1;
+	return 0;
 }
 
-static int32_t syscall_mmioWrite(int arg0, int arg1, int arg2) {
-	if(_currentProcess->owner >= 0)
+static int32_t syscall_fbInfo(int arg0) {
+	FBInfoT* info = fbGetInfo();
+	if(info == NULL)
+		return -1;
+	memcpy((FBInfoT*)arg0, info, sizeof(FBInfoT));
+	return 0;
+}
+
+static int32_t syscall_fbWrite(int arg0, int arg1) {
+	if(_currentProcess->pid != _fbPid)
 		return -1;
 
-	void* addr = (void*)arg0;
-	void* buf = (void*)arg1;
-	memcpy(addr, buf, arg2);
-	return arg2;
+	FBInfoT* info = fbGetInfo();
+	if(info == NULL)
+		return -1;
+
+	void* buf = (void*)arg0;
+	int32_t sz = (info->depth/8) * info->width * info->height;
+	if(arg1 > sz)
+		arg1 = sz;
+	memcpy((void*)info->pointer, buf, (uint32_t)arg1);
+	return arg1;
 }
 
 static int32_t syscall_execElf(int32_t arg0, int32_t arg1) {
@@ -404,9 +410,10 @@ static int32_t (*const _syscallHandler[])() = {
 	[SYSCALL_UART_PUTCH] = syscall_uartPutch,
 	[SYSCALL_UART_GETCH] = syscall_uartGetch,
 
-	[SYSCALL_MMIO_INFO] = syscall_mmioInfo,
-	[SYSCALL_MMIO_READ] = syscall_mmioRead,
-	[SYSCALL_MMIO_WRITE] = syscall_mmioWrite,
+	[SYSCALL_FB_OPEN] = syscall_fbOpen,
+	[SYSCALL_FB_CLOSE] = syscall_fbClose,
+	[SYSCALL_FB_INFO] = syscall_fbInfo,
+	[SYSCALL_FB_WRITE] = syscall_fbWrite,
 
 	[SYSCALL_FORK] = syscall_fork,
 	[SYSCALL_GETPID] = syscall_getpid,

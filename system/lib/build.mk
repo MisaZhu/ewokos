@@ -6,6 +6,7 @@ LIB_OBJS = lib/src/syscall.o \
 	lib/src/unistd.o \
 	lib/src/dev.o \
 	lib/src/vfs.o \
+	lib/src/fb.o \
 	lib/src/proto.o \
 	lib/src/package.o \
 	lib/src/kserv/kserv.o \

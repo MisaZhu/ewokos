@@ -4,16 +4,13 @@
 #include <stdlib.h>
 #include <kserv/fs.h>
 #include <kserv/kserv.h>
-#include <syscall.h>
-#include <fbinfo.h>
+#include <fb.h>
 
 void fbtest() {
 	FBInfoT fbInfo;
-	int fd = fsOpen("/dev/fb0", 0);
-	if(fd < 0)
-		return;
 
-	fsCtrl(fd, 0, NULL, 0, &fbInfo, sizeof(FBInfoT));
+	fbGetInfo(&fbInfo);
+	fbOpen();
 
 	uint32_t sz = 4*fbInfo.height*fbInfo.width;
 	uint32_t *fb = (uint32_t*)malloc(sz);
@@ -30,8 +27,8 @@ void fbtest() {
 		}
 	}
 
-	fsWrite(fd, (void*)fb, sz);
-	fsClose(fd);
+	fbWrite((void*)fb, sz);
+	fbClose();
 	free(fb);
 }
 
