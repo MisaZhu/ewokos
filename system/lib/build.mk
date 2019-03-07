@@ -7,6 +7,8 @@ LIB_OBJS = lib/src/syscall.o \
 	lib/src/dev.o \
 	lib/src/vfs.o \
 	lib/src/fb.o \
+	lib/src/graph/font.o \
+	lib/src/graph/graph.o \
 	lib/src/shm.o \
 	lib/src/proto.o \
 	lib/src/package.o \
