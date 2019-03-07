@@ -13,9 +13,15 @@ void fbtest() {
 
 	GraphT* g = graphNew(fbInfo.width, fbInfo.height);
 
-	clear(g, 0x444444);
-	drawText(g, 10, 100, "Hello, MicroKernel OS!", &fontBig, 0xFFFFFF);
-	fbWrite((void*)g->buffer, 4 * g->w * g->h);
+	int i = 0;
+	char s[32];
+
+	while(true) {
+		clear(g, 0x444444);
+		snprintf(s, 31, "Hello, MicroKernel OS! (%d)", i++);
+		drawText(g, 10, 100, s, &fontBig, 0xFFFFFF);
+		fbWrite((void*)g->buffer, 4 * g->w * g->h);
+	}
 
 	graphFree(g);
 	fbClose();

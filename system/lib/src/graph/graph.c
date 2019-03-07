@@ -22,7 +22,7 @@ void graphFree(GraphT* g) {
 }
 
 inline void pixel(GraphT* g, int32_t x, int32_t y, uint32_t color) {
-	if(x < 0 || x >= g->w || y < 0 || y >= g->h)
+	if(x < 0 ||  (uint32_t)x >= g->w || y < 0 || (uint32_t)y >= g->h)
 		return;
 	g->buffer[y * g->w + x] = color;
 }

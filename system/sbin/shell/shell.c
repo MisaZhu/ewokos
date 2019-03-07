@@ -127,13 +127,21 @@ void _start() {
 		if(handle(cmd) == 0)
 			continue;
 
+		int len = strlen(cmd);
+		len -= 1;
+		bool fg = true;
+		if(cmd[len] == '&') {
+			cmd[len] = 0;
+			fg = false;
+		}	
+
 		int child_pid = fork();
 		if (child_pid == 0) {
 			if(exec(cmd) != 0) {
 				exit(0);
 			}
 		}
-		else {
+		else if(fg) {
 			wait(child_pid);
 		}
 	}
