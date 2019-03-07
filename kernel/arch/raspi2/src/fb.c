@@ -1,5 +1,5 @@
 #include "mailbox.h"
-#include "fb.h"
+#include "dev/fb.h"
 
 void __memBarrier();
 

@@ -15,7 +15,7 @@
 #include <vfs.h>
 #include <scheduler.h>
 #include <hardware.h>
-#include <fb.h>
+#include <dev/fb.h>
 
 static int32_t syscall_uartPutch(int32_t c) {
 	uartPutch(c);

@@ -37,9 +37,9 @@ include bin/build.mk
 
 system: $(MKRAMFS) $(PROGRAM) $(COMMON_OBJ)
 	mkdir -p build
-	$(MKRAMFS) ../kernel/include/initfs.h build
+	$(MKRAMFS) ../kernel/include/dev/initfs.h build
 
 clean:
-	rm -f $(EXTRA_CLEAN) $(COMMON_OBJ) ../kernel/include/initfs.h 
+	rm -f $(EXTRA_CLEAN) $(COMMON_OBJ) ../kernel/include/dev/initfs.h 
 	rm -fr mkramfs/mkramfs.dSYM
 	rm -fr build

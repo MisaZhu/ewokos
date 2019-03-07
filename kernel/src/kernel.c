@@ -12,11 +12,11 @@
 #include <kstring.h>
 #include <timer.h>
 #include <scheduler.h>
-#include <initfs.h>
+#include <dev/initfs.h>
 #include <vfs.h>
 #include <base16.h>
 #include <mailbox.h>
-#include <fb.h>
+#include <dev/fb.h>
 #include <printk.h>
 
 PageDirEntryT* _kernelVM;
