@@ -43,7 +43,8 @@
 	kernel/src/proc.c 
 	kernel/src/sheduler.c
 	kernel/src/syscalls.c
-	kernel/src/kmessage.c
+	kernel/src/kipc.c
+	kernel/src/mm/shm.c
 
 	system/lib/src/stdlib.c
 	system/lib/src/unistd.c
