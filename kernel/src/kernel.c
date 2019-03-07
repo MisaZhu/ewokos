@@ -20,7 +20,6 @@
 #include <printk.h>
 
 PageDirEntryT* _kernelVM;
-uint32_t _kernelShareMemBase = 0;
 
 void initKernelVM() 
 {
@@ -76,8 +75,6 @@ void setKernelVM(PageDirEntryT* vm)
 	
 	//map whole rest allocatable memory to high(virtual) mem.
 	mapPages(vm, ALLOCATABLE_MEMORY_START, V2P(ALLOCATABLE_MEMORY_START), getPhyRamSize(), AP_RW_D);
-
-	_kernelShareMemBase = ALIGN_UP((uint32_t)getPhyRamSize(), PAGE_SIZE);
 }
 
 char* _initRamDiskBase = 0;

@@ -5,12 +5,14 @@
 
 void shmInit();
 
-void* shmalloc(uint32_t size);
+int32_t shmalloc(uint32_t size);
 
-void shmfree(void* p);
+void shmfree(int32_t id);
 
-int32_t shmProcMap(void* p);
+void* shmProcMap(int32_t id);
 
-int32_t shmProcUnmap(void* p);
+int32_t shmProcUnmap(int32_t id);
+
+void shmProcFree(int32_t pid);
 
 #endif

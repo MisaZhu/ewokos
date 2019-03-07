@@ -28,23 +28,20 @@ static int32_t syscall_uartGetch() {
 }
 
 static int32_t syscall_shmAlloc(int arg0) {
-	void *p = shmalloc((uint32_t)arg0);
-	if(p == NULL) 
-		return 0;
-
-	if(shmProcMap(p) != 0) {
-		shmfree(p);
-		return 0;
-	}
-	return (int32_t)p;
+	return shmalloc((uint32_t)arg0);
 }
 
 static int32_t syscall_shmMap(int arg0) {
-	return shmProcMap((void*)arg0);
+	return (int32_t)shmProcMap(arg0);
+}
+
+static int32_t syscall_shmFree(int arg0) {
+	shmfree(arg0);
+	return 0;
 }
 
 static int32_t syscall_shmUnmap(int arg0) {
-	return shmProcUnmap((void*)arg0);
+	return shmProcUnmap(arg0);
 }
 
 static int32_t _fbPid = -1;
@@ -432,6 +429,7 @@ static int32_t (*const _syscallHandler[])() = {
 	[SYSCALL_UART_GETCH] = syscall_uartGetch,
 
 	[SYSCALL_SHM_ALLOC] = syscall_shmAlloc,
+	[SYSCALL_SHM_FREE] = syscall_shmFree,
 	[SYSCALL_SHM_MAP] = syscall_shmMap,
 	[SYSCALL_SHM_UNMAP] = syscall_shmUnmap,
 

@@ -1,14 +1,18 @@
 #include <shm.h>
 #include <syscall.h>
 
-void* shmalloc(uint32_t size) {
-	return (void*)syscall1(SYSCALL_SHM_ALLOC, (int32_t)size);	
+int32_t shmalloc(uint32_t size) {
+	return syscall1(SYSCALL_SHM_ALLOC, (int32_t)size);	
 }
 
-int32_t shmMap(void* p) {
-	return syscall1(SYSCALL_SHM_MAP, (int32_t)p);
+void shmfree(int32_t id) {
+	syscall1(SYSCALL_SHM_FREE, id);	
 }
 
-int32_t shmUnmap(void* p) {
-	return syscall1(SYSCALL_SHM_UNMAP, (int32_t)p);
+void* shmMap(int32_t id) {
+	return (void*)syscall1(SYSCALL_SHM_MAP, id);
+}
+
+int32_t shmUnmap(int32_t id) {
+	return syscall1(SYSCALL_SHM_UNMAP, id);
 }

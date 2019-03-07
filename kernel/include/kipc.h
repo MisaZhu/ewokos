@@ -36,7 +36,7 @@ int32_t ipcPeer(int32_t id);
 int32_t ipcReady();
 
 /*close all channel of current proc*/
-void ipcCloseAll();
+void ipcCloseAll(int32_t pid);
 
 IPCTaskT* ipcTaskOpen(int32_t toPID);
 

@@ -193,8 +193,7 @@ int32_t ipcReady() {
 	return i;
 }
 
-void ipcCloseAll() {
-	int32_t pid = _currentProcess->pid;
+void ipcCloseAll(int32_t pid) {
 	int32_t i;
 	for(i=0; i<CHANNEL_MAX; i++) {
 		ChannelT* channel = &_channels[i];

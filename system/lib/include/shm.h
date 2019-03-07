@@ -3,10 +3,12 @@
 
 #include <types.h>
 
-void* shmalloc(uint32_t size);
+int32_t shmalloc(uint32_t size);
 
-int32_t shmMap(void* p);
+void shmfree(int32_t id);
 
-int32_t shmUnmap(void* p);
+void* shmMap(int32_t id);
+
+int32_t shmUnmap(int32_t id);
 
 #endif

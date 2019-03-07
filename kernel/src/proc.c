@@ -10,6 +10,7 @@
 #include <kernel.h>
 #include <scheduler.h>
 #include <printk.h>
+#include <mm/shm.h>
 
 ProcessT _processTable[PROCESS_COUNT_MAX];
 
@@ -151,7 +152,8 @@ void procFree(ProcessT *proc)
 		}
 	}
 
-	ipcCloseAll();
+	ipcCloseAll(proc->pid);
+	shmProcFree(proc->pid);
 	//kfree(proc->kernelStack);
 	kfree(proc->userStack);
 	procShrinkMemory(proc, proc->heapSize / PAGE_SIZE);
@@ -343,8 +345,6 @@ void procSleep(int pid) {
 	if(proc == NULL)
 		return;
 	proc->state = SLEEPING;
-	//if(pid == _currentProcess->pid)
-	//	schedule();
 }
 
 void procWake(int pid) {

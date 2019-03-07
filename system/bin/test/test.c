@@ -1,9 +1,8 @@
 #include <types.h>
 #include <stdio.h>
+#include <kstring.h>
 #include <unistd.h>
 #include <stdlib.h>
-#include <kserv/fs.h>
-#include <kserv/kserv.h>
 #include <fb.h>
 #include <shm.h>
 
@@ -34,8 +33,27 @@ void fbtest() {
 }
 
 void _start() {
-	void *p = shmalloc(10000);
-	//shmUnmap(p);
+	int id1 = shmalloc(100);
+	int id2 = shmalloc(10000);
+
+	int pid = fork();
+	if(pid == 0) { //child
+		char* p1 = (char*)shmMap(id1);
+		char* p2 = (char*)shmMap(id2);
+		strcpy(p1, "hello");	
+		strcpy(p2, "world");	
+		shmUnmap(id1);
+		shmUnmap(id2);
+		exit(0);
+	}
+
+	wait(pid);
+	char* p1 = (char*)shmMap(id1);
+	char* p2 = (char*)shmMap(id2);
+	printf("%s\n", p1);
+	printf("%s\n", p2);
+//	shmfree(id1);
+//	shmfree(id2);
 
 	fbtest();
 	exit(0);
