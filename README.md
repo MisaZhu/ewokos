@@ -44,14 +44,16 @@
 	kernel/src/sheduler.c
 	kernel/src/syscalls.c
 	kernel/src/kipc.c
+	kernel/src/vfs.c
 	kernel/src/mm/shm.c
 
 	system/lib/src/stdlib.c
 	system/lib/src/unistd.c
 	system/lib/src/pmessage.c
+	system/lib/src/shm.c
 
 	system/sbin/init/init.c
-	system/sbin/vfs/vfs.c
+	system/kdev/initfs/initfs.c
 	system/sbin/shell/shell.c
 
 	Tips: Don't fall in love with assembly too much;).
@@ -73,6 +75,8 @@
 	......
 	0x08000000    0x08000000   init ramdisk base (load initrd to)
 	0x08010000    0x08010000   init ramdisk end (size=1M).
+	......
+	physical ram top           Share memory start base               
 	......
 	MMIO_BASE_PHY MMIO_BASE    MMIO base (arch)
 	......
