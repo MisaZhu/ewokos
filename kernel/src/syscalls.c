@@ -7,6 +7,7 @@
 #include <kernel.h>
 #include <kstring.h>
 #include <mm/trunkmalloc.h>
+#include <mm/shm.h>
 #include <kipc.h>
 #include <types.h>
 #include <kserv.h>
@@ -24,6 +25,26 @@ static int32_t syscall_uartPutch(int32_t c) {
 static int32_t syscall_uartGetch() {
 	int32_t r = uartGetch();
 	return r;
+}
+
+static int32_t syscall_shmAlloc(int arg0) {
+	void *p = shmalloc((uint32_t)arg0);
+	if(p == NULL) 
+		return 0;
+
+	if(shmProcMap(p) != 0) {
+		shmfree(p);
+		return 0;
+	}
+	return (int32_t)p;
+}
+
+static int32_t syscall_shmMap(int arg0) {
+	return shmProcMap((void*)arg0);
+}
+
+static int32_t syscall_shmUnmap(int arg0) {
+	return shmProcUnmap((void*)arg0);
 }
 
 static int32_t _fbPid = -1;
@@ -409,6 +430,10 @@ static int32_t (*const _syscallHandler[])() = {
 	[SYSCALL_KDB] = syscall_kdb,
 	[SYSCALL_UART_PUTCH] = syscall_uartPutch,
 	[SYSCALL_UART_GETCH] = syscall_uartGetch,
+
+	[SYSCALL_SHM_ALLOC] = syscall_shmAlloc,
+	[SYSCALL_SHM_MAP] = syscall_shmMap,
+	[SYSCALL_SHM_UNMAP] = syscall_shmUnmap,
 
 	[SYSCALL_FB_OPEN] = syscall_fbOpen,
 	[SYSCALL_FB_CLOSE] = syscall_fbClose,

@@ -2,6 +2,7 @@
 #include <mm/mmu.h>
 #include <mm/kalloc.h>
 #include <mm/kmalloc.h>
+#include <mm/shm.h>
 #include <hardware.h>
 #include <kernel.h>
 #include <system.h>
@@ -19,6 +20,7 @@
 #include <printk.h>
 
 PageDirEntryT* _kernelVM;
+uint32_t _kernelShareMemBase = 0;
 
 void initKernelVM() 
 {
@@ -65,6 +67,7 @@ void setKernelVM(PageDirEntryT* vm)
 	//map kernel image to high(virtual) mem
 	mapPages(vm, KERNEL_BASE+PAGE_SIZE, PAGE_SIZE, V2P(_kernelEnd), AP_RW_D);
 
+	mapPages(vm, (uint32_t)_kernelVM, V2P(_kernelVM), V2P(_kernelVM)+PAGE_DIR_SIZE, AP_RW_D);
 	//map MMIO to high(virtual) mem.
 	mapPages(vm, MMIO_BASE, getMMIOBasePhy(), getMMIOBasePhy() + getMMIOMemSize(), AP_RW_D);
 
@@ -73,6 +76,8 @@ void setKernelVM(PageDirEntryT* vm)
 	
 	//map whole rest allocatable memory to high(virtual) mem.
 	mapPages(vm, ALLOCATABLE_MEMORY_START, V2P(ALLOCATABLE_MEMORY_START), getPhyRamSize(), AP_RW_D);
+
+	_kernelShareMemBase = ALIGN_UP((uint32_t)getPhyRamSize(), PAGE_SIZE);
 }
 
 char* _initRamDiskBase = 0;
@@ -109,6 +114,9 @@ char* decodeInitFS() {
 void kernelEntry() {
 	/* Done mapping all mem */
 	initKernelVM();
+
+	/*init share memory*/
+	shmInit();
 
 	mailboxInit();
 

@@ -14,6 +14,7 @@ extern uint32_t _initRamDiskSize;
 extern RamDiskT _initRamDisk;
 
 extern PageDirEntryT* _kernelVM;
+extern uint32_t _kernelShareMemBase;
 void setKernelVM(PageDirEntryT* vm);
 
 

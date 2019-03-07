@@ -5,6 +5,7 @@
 #include <kserv/fs.h>
 #include <kserv/kserv.h>
 #include <fb.h>
+#include <shm.h>
 
 void fbtest() {
 	FBInfoT fbInfo;
@@ -33,6 +34,9 @@ void fbtest() {
 }
 
 void _start() {
+	void *p = shmalloc(10000);
+	//shmUnmap(p);
+
 	fbtest();
 	exit(0);
 }
