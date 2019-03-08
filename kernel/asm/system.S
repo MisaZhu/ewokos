@@ -34,15 +34,6 @@ __enableInterrupts:
 	pop {lr}
 	mov pc, lr
 
-.global __disableInterrupts
-__disableInterrupts:
-	push {lr}
-	mrs r1, cpsr
-	bic r1, r1, #0x00
-	msr cpsr_c, r1
-	pop {lr}
-	mov pc, lr
-
 .global __useHighInterrupts
 __useHighInterrupts:
 	push {lr}

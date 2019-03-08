@@ -21,10 +21,10 @@
 	
 .make and run
 	
-	make system first, and then make kernel.
+	make rootfs first, and then make kernel.
 	
 	"make run": run EwokOS; 
-	  "qemu-system-arm -kernel build/EwokOS.bin -initrd ../system/build/initfs"
+	  "qemu-system-arm -kernel build/EwokOS.bin -initrd ../rootfs/build/initfs"
 	  boot kernel file and load init ramdisk.
 
 	"make debug": run EwokOS at debug server-mode;
@@ -32,7 +32,7 @@
 
 .commands 
 	
-	Most of commands are in 'system/sbin' directory, like:
+	Most of commands are in 'rootfs/sbin' directory, like:
 	ls, ps, pwd, test ......
 
 .Source code read-guide
@@ -47,14 +47,14 @@
 	kernel/src/vfs.c
 	kernel/src/mm/shm.c
 
-	system/lib/src/stdlib.c
-	system/lib/src/unistd.c
-	system/lib/src/pmessage.c
-	system/lib/src/shm.c
+	rootfs/lib/src/stdlib.c
+	rootfs/lib/src/unistd.c
+	rootfs/lib/src/pmessage.c
+	rootfs/lib/src/shm.c
 
-	system/sbin/init/init.c
-	system/kdev/initfs/initfs.c
-	system/sbin/shell/shell.c
+	rootfs/sbin/init/init.c
+	rootfs/kdev/initfs/initfs.c
+	rootfs/sbin/shell/shell.c
 
 	Tips: Don't fall in love with assembly too much;).
 

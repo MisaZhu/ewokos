@@ -27,12 +27,29 @@ static int32_t syscall_uartGetch() {
 	return r;
 }
 
+static int32_t syscall_mmioGet(int32_t arg0) {
+	uint32_t addr = (uint32_t)arg0;
+	if(_currentProcess->owner > 0 ||
+			addr < MMIO_BASE || addr >= (MMIO_BASE+getMMIOMemSize()))
+		return -1;
+	return *((int32_t*)(MMIO_BASE+addr));
+}
+
+static int32_t syscall_mmioPut(int32_t arg0, int32_t arg1) {
+	uint32_t addr = (uint32_t)arg0;
+	if(_currentProcess->owner > 0 ||
+			addr < MMIO_BASE || addr >= (MMIO_BASE+getMMIOMemSize()))
+		return -1;
+	*((int32_t*)(MMIO_BASE+addr)) = arg1;
+	return 0;
+}
+
 static int32_t syscall_shmAlloc(int arg0) {
 	return shmalloc((uint32_t)arg0);
 }
 
 static int32_t syscall_shmMap(int arg0) {
-	return (int32_t)shmProcMap(arg0);
+	return (int32_t)shmProcMap(_currentProcess->pid, arg0);
 }
 
 static int32_t syscall_shmFree(int arg0) {
@@ -41,7 +58,7 @@ static int32_t syscall_shmFree(int arg0) {
 }
 
 static int32_t syscall_shmUnmap(int arg0) {
-	return shmProcUnmap(arg0);
+	return shmProcUnmap(_currentProcess->pid, arg0);
 }
 
 static int32_t _fbPid = -1;
@@ -143,8 +160,8 @@ static int32_t syscall_pfree(int32_t arg0) {
 	return 0;
 }
 
-static int32_t syscall_ipcOpen(int32_t arg0) {
-	return ipcOpen(arg0);
+static int32_t syscall_ipcOpen(int32_t arg0, int32_t arg1) {
+	return ipcOpen(arg0, arg1);
 }
 
 static int32_t syscall_ipcReady() {
@@ -427,6 +444,9 @@ static int32_t (*const _syscallHandler[])() = {
 	[SYSCALL_KDB] = syscall_kdb,
 	[SYSCALL_UART_PUTCH] = syscall_uartPutch,
 	[SYSCALL_UART_GETCH] = syscall_uartGetch,
+
+	[SYSCALL_MMIO_GET] = syscall_mmioGet,
+	[SYSCALL_MMIO_PUT] = syscall_mmioPut,
 
 	[SYSCALL_SHM_ALLOC] = syscall_shmAlloc,
 	[SYSCALL_SHM_FREE] = syscall_shmFree,

@@ -51,6 +51,7 @@ LIB_OBJS = ../lib/src/kstring.o \
 
 OBJS += $(ARCH_OBJS) \
 	$(DEV_OBJS) \
+	src/system.o \
 	src/printk.o \
 	src/kernel.o \
 	src/irq.o \

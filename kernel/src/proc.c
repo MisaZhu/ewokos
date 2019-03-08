@@ -195,7 +195,7 @@ bool procLoad(ProcessT *proc, const char *procImage)
 		/* make enough room for this section */
 		while (proc->heapSize < header->vaddr + header->memsz) {
 			if(!procExpandMemory(proc, 1)) {
-				printk("Panic: proc expand memory failed!!\n");
+				printk("Panic: proc expand memory failed!!(%s: %d)\n", proc->cmd, proc->pid);
 				return false;
 			}
 		}
@@ -257,7 +257,7 @@ int kfork(void)
 
 	child = procCreate();
 	if(!procExpandMemory(child, parent->heapSize / PAGE_SIZE)) {
-		printk("Panic: proc expand memory failed!!\n");
+		printk("Panic: kfork expand memory failed!!(%s: %d)\n", parent->cmd, parent->pid);
 		return -1;
 	}
 

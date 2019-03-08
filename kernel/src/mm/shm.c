@@ -6,6 +6,8 @@
 #include <kernel.h>
 #include <hardware.h>
 #include <proc.h>
+#include <system.h>
+#include <printk.h>
 
 static uint32_t _shMemTail = 0;
 static uint32_t _shmCount = 0;
@@ -18,13 +20,16 @@ typedef struct ShareMem {
 	uint32_t flags;
 	int32_t owner;
 	struct ShareMem* next;
+	struct ShareMem* prev;
 } ShareMemT;
 
 static ShareMemT* _shmHead = NULL;
+static ShareMemT* _shmTail = NULL;
 
 void shmInit() {
-	_shMemTail = (uint32_t)ALIGN_UP(getPhyRamSize(), PAGE_SIZE);
+	_shMemTail = (uint32_t)ALIGN_UP(getPhyRamSize()+256*MB, PAGE_SIZE);
 	_shmHead = NULL;
+	_shmTail = NULL;
 	_shmCount = 0;
 }
 
@@ -52,10 +57,12 @@ static void shmUnmapPages(uint32_t addr, uint32_t pages) {
 }
 
 static bool shmMapPages(uint32_t addr, uint32_t pages) {
+	uint32_t oldAddr = addr;
 	for (uint32_t i = 0; i < pages; i++) {
 		char *page = kalloc();
 		if(page == NULL) {
-			shmUnmapPages(addr, i);
+			printk("shmMap: kalloc failed!\n", (uint32_t)page);
+			shmUnmapPages(oldAddr, i);
 			return false;
 		}
 		memset(page, 0, PAGE_SIZE);
@@ -85,36 +92,43 @@ int32_t shmalloc(uint32_t size) {
 	ShareMemT* tmp = NULL;
 	if(i != NULL) { //avaible item found.
 		addr =  i->addr;
-		if(i->pages > pages) { //try break one item to two;
+		if(i->pages > pages) { //try split one item to two;
 			tmp = shmNew();
 			if(tmp != NULL) {
 				tmp->pages = i->pages -  pages;
 				tmp->addr = i->addr + (pages * PAGE_SIZE);
+
 				i->pages = pages;
+				tmp->next = i->next;
+				tmp->prev = i;
+				if(i->next != NULL)
+					i->next->prev = tmp;
+				i->next = tmp;
+				if(i == _shmTail)
+					_shmTail = tmp;
 			}
 		}
 	}
 	else { //need to expand.
-		tmp = shmNew();
-		if(tmp == NULL)
+		i = shmNew();
+		if(i == NULL)
 			return -1;
-		tmp->pages = pages;
-		tmp->addr = addr;
-		i = tmp;
-	}
 
-	if(tmp != NULL) {
+		i->addr = addr;
 		if(_shmHead == NULL) {
-			_shmHead = tmp;
+			_shmHead = _shmTail = i;
 		}
 		else  {
-			tmp->next = _shmHead;
-			_shmHead = tmp;
+			_shmTail->next = i;
+			i->prev = _shmTail;
 		}
-	}
+	}		
 
-	if(!shmMapPages(addr, pages))
-		return -1;
+	if(i->pages == 0) {
+		if(!shmMapPages(addr, pages))
+			return -1;
+		i->pages = pages;
+	}	
 
 	if(addr == _shMemTail)
 		_shMemTail += pages * PAGE_SIZE;
@@ -134,23 +148,41 @@ static ShareMemT* shmItem(int32_t id) {
 	return NULL;
 }
 
-void shmfree(int32_t id) {
-	ShareMemT* i = shmItem(id);
-	if(i == NULL || i->owner != _currentProcess->pid)
-		return;
-	shmUnmapPages(i->addr, i->pages);
-	i->used = false;
+static ShareMemT* freeItem(ShareMemT* it) {
+	//shmUnmapPages(it->addr, it->pages);
+	it->used = false;
+	if(it->next != NULL && !it->used) { //merge free items
+		ShareMemT* p = it->next;
+		it->next = p->next;
+		if(p->next != NULL)
+			p->next->prev = it;
+		else //tail
+			_shmTail = it;
+		it->pages += p->pages;
+		kmfree(p);
+	}
+	return it->next;
 }
 
-void* shmProcMap(int32_t id) {
+void shmfree(int32_t id) {
+	ShareMemT* i = shmItem(id);
+	if(i == NULL || i->owner != _currentProcess->pid) {
+		printk("shmfree failed: %d\n", id);
+		return;
+	}
+	freeItem(i);
+}
+
+void* shmProcMap(int32_t pid, int32_t id) {
 	ShareMemT* it = shmItem(id);
-	if(it == NULL)
+	ProcessT* proc = procGet(pid);
+	if(it == NULL || proc == NULL)
 		return NULL;
 
 	uint32_t addr = it->addr;
 	for (uint32_t i = 0; i < it->pages; i++) {
 		uint32_t physicalAddr = resolvePhyAddress(_kernelVM, addr);
-		mapPage(_currentProcess->vm,
+		mapPage(proc->vm,
 				addr,
 				physicalAddr,
 				AP_RW_RW);
@@ -159,14 +191,15 @@ void* shmProcMap(int32_t id) {
 	return (void*)it->addr;
 }
 
-int32_t shmProcUnmap(int32_t id) {
+int32_t shmProcUnmap(int32_t pid, int32_t id) {
+	ProcessT* proc = procGet(pid);
 	ShareMemT* it = shmItem(id);
-	if(it == NULL)
+	if(it == NULL || proc == NULL)
 		return -1;
 
 	uint32_t addr = it->addr;
 	for (uint32_t i = 0; i < it->pages; i++) {
-		unmapPage(_currentProcess->vm, addr);
+		unmapPage(proc->vm, addr);
 		addr += PAGE_SIZE;
 	}
 	return 0;
@@ -176,10 +209,10 @@ void shmProcFree(int32_t pid) {
 	ShareMemT* i = _shmHead;
 	while(i != NULL) {
 		if(i->used && i->owner == pid) {
-			shmUnmapPages(i->addr, i->pages);
-			i->used = false;
+			i = freeItem(i);
 		}
-		i = i->next;
+		else 
+			i = i->next;
 	}
 }
 

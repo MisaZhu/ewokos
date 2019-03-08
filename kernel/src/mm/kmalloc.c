@@ -2,6 +2,7 @@
 #include <mm/trunkmalloc.h>
 #include <mm/mmu.h>
 #include <kernel.h>
+#include <printk.h>
 
 static MallocT _kMalloc;
 static uint32_t _kMallocMemTail;
@@ -34,9 +35,15 @@ void kmInit() {
 }
 
 void *kmalloc(uint32_t size) {
-	return trunkMalloc(&_kMalloc, size);
+	void *ret = trunkMalloc(&_kMalloc, size);
+	if(ret == NULL) {
+		printk("Panic: kmalloc failed!\n");
+	}
+	return ret;
 }
 
 void kmfree(void* p) {
+	if(p == NULL)
+		return;
 	trunkFree(&_kMalloc, p);
 }
