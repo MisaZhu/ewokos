@@ -2,6 +2,7 @@
 #include <syscall.h>
 #include <unistd.h>
 #include <pmessage.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <kstring.h>
 #include <kserv.h>
@@ -157,6 +158,11 @@ static uint32_t devMount(const char* devName, uint32_t index, const char* nodeNa
 }
 
 void devRun(DeviceT* dev, const char* devName, uint32_t index, const char* nodeName, bool file) {
+	if(kservGetPid(devName) >= 0) {
+    printf("Panic: '%s' process has been running already!\n", devName);
+		exit(0);
+	}
+
 	uint32_t node = devMount(devName, index, nodeName, file);
 	if(node == 0)
 		return;

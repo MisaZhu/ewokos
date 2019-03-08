@@ -39,8 +39,8 @@ static void handle(PackageT* pkg, void* p) {
 }
 
 void _start() {
-	if(syscall1(SYSCALL_KSERV_GET, (int)"kserv.userman") >= 0) {
-    printf("Panic: 'userman' process has been running already!\n");
+	if(kservGetPid("kserv.userman") >= 0) {
+    printf("Panic: 'kserv.userman' process has been running already!\n");
 		exit(0);
 	}
 

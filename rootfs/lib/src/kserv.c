@@ -3,6 +3,7 @@
 #include <syscall.h>
 #include <unistd.h>
 #include <stdlib.h>
+#include <stdio.h>
 
 bool kservRun(const char* regName, KServFuncT servFunc, void* p) {
 	if(syscall1(SYSCALL_KSERV_REG, (int)regName) != 0) {
