@@ -1,8 +1,13 @@
 #include <hardware.h>
 #include <mm/mmu.h>
+#include <mailbox.h>
+
 
 uint32_t getPhyRamSize() {
-	return 256*MB;
+	TagsInfoT info;
+	if(mailboxGetBoardInfo(&info) == NULL)
+		return 256*MB;
+	return info.memory_arm_size+info.memory_vc_size;
 }
 
 uint32_t getMMIOBasePhy() {

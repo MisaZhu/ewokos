@@ -19,7 +19,7 @@ void mapPages(PageDirEntryT *vm, uint32_t vaddr, uint32_t pstart, uint32_t pend,
 	/* iterate over pages and map each page */
 	virtualCurrent = virtualStart;
 	for (physicalCurrent = physicalStart; 
-			physicalCurrent != physicalEnd;
+			physicalCurrent < physicalEnd;
 			physicalCurrent += PAGE_SIZE) {
 		mapPage(vm,  virtualCurrent, physicalCurrent, permissions);
 		virtualCurrent += PAGE_SIZE;

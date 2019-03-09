@@ -20,6 +20,7 @@
 #include <printk.h>
 
 PageDirEntryT* _kernelVM;
+uint32_t _phyMemSize = 0;
 
 void initKernelVM() 
 {
@@ -46,14 +47,6 @@ void initKernelVM()
 	init kernel trunk memory malloc.
 	*/
 	kmInit();
-
-	/*
-	Since kernel mem mapping finished, and init ram disk copied to kernel trunk memory.
-	we can build free mem page list for all the rest mem(the init ram disk part can be reused as well).
-	Notice:	From now, you can kalloc all the rest of physical mem.
-	*/
-	kallocInit(KERNEL_BASE + INIT_MEMORY_SIZE,
-			KERNEL_BASE + getPhyRamSize());
 }
 
 void setKernelVM(PageDirEntryT* vm) 
@@ -72,9 +65,23 @@ void setKernelVM(PageDirEntryT* vm)
 
 	//map kernel memory trunk to high(virtual) mem.
 	mapPages(vm, KMALLOC_BASE, V2P(KMALLOC_BASE), V2P(KMALLOC_BASE+KMALLOC_SIZE), AP_RW_D);
-	
-	//map whole rest allocatable memory to high(virtual) mem.
-	mapPages(vm, ALLOCATABLE_MEMORY_START, V2P(ALLOCATABLE_MEMORY_START), getPhyRamSize(), AP_RW_D);
+
+	if(_phyMemSize == 0) //map some allocable memory for the pagetable alloc for rest momory mapping(coz we don't know the whole phymem size yet.
+		mapPages(vm, ALLOCATABLE_MEMORY_START, V2P(ALLOCATABLE_MEMORY_START), V2P(ALLOCATABLE_MEMORY_START) + 4*MB, AP_RW_D);
+	else
+		mapPages(vm, ALLOCATABLE_MEMORY_START, V2P(ALLOCATABLE_MEMORY_START), _phyMemSize, AP_RW_D);
+}
+
+static void initAllocableMem() {
+	_phyMemSize = getPhyRamSize();
+	mapPages(_kernelVM, ALLOCATABLE_MEMORY_START, V2P(ALLOCATABLE_MEMORY_START), _phyMemSize, AP_RW_D);
+	/*
+	Since kernel mem mapping finished, and init ram disk copied to kernel trunk memory.
+	we can build free mem page list for all the rest mem(the init ram disk part can be reused as well).
+	Notice:	From now, you can kalloc all the rest of physical mem.
+	*/
+	kallocInit(KERNEL_BASE + INIT_MEMORY_SIZE,
+			KERNEL_BASE + _phyMemSize);
 }
 
 char* _initRamDiskBase = 0;
@@ -112,11 +119,17 @@ void kernelEntry() {
 	/* Done mapping all mem */
 	initKernelVM();
 
+	/*init mailbox for board support*/
+	mailboxInit();
+
+	/*init the rest allocable memory VM*/
+	initAllocableMem();
+
+
 	/*init share memory*/
 	shmInit();
 
-	mailboxInit();
-
+	/*framebuffer init*/
 	fbInit();
 
 	/*init uart for output.*/
