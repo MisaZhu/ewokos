@@ -35,13 +35,15 @@ int32_t videoInit(FBInfoT *p_fbinfo) {
 static FBInfoT _fbInfo __attribute__((aligned(16)));
 
 inline FBInfoT* fbGetInfo() {
-	return &_fbInfo;
+	return NULL;
+	//return &_fbInfo;
 }
 
 bool fbInit() {
-	TagsInfoT info;
+	return false;
+	/*TagsInfoT info;
 	mailboxGetVideoInfo(&info);
-	/** initialize fbinfo */
+	// initialize fbinfo
 	_fbInfo.height = info.fb_height;
 	_fbInfo.width = info.fb_width;
 	_fbInfo.vheight = info.fb_height;
@@ -56,5 +58,6 @@ bool fbInit() {
 	if(videoInit(&_fbInfo) == 0)
 		return true;
 	return false;
+	*/
 }
 
