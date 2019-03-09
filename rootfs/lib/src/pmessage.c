@@ -3,7 +3,7 @@
 #include <syscall.h>
 #include <stdlib.h>
 #include <stdio.h>
-#include <string.h>
+#include <kstring.h>
 #include <unistd.h>
 
 int popen(int pid, uint32_t bufSize) {

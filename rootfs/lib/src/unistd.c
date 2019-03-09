@@ -1,7 +1,7 @@
 #include <unistd.h>
 #include <vfs/fs.h>
 #include <syscall.h>
-#include <string.h>
+#include <kstring.h>
 #include <malloc.h>
 #include <stdio.h>
 #include <procinfo.h>
