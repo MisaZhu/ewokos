@@ -2,8 +2,8 @@
 #include <vfs/fs.h>
 #include <syscall.h>
 #include <kstring.h>
-#include <malloc.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <procinfo.h>
 
 int fork() {
