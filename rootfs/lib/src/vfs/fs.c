@@ -1,6 +1,5 @@
 #include <vfs/fs.h>
 #include <pmessage.h>
-#include <malloc.h>
 #include <kstring.h>
 #include <syscall.h>
 #include <stdlib.h>
