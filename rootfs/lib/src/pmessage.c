@@ -108,13 +108,13 @@ PackageT* precvPkg(int id) {
 	return pkg;
 }
 
-PackageT* preq(int pid, uint32_t bufSize, uint32_t type, void* data, uint32_t size, bool reply) {
+PackageT* preq(int pid, uint32_t bufSize, uint32_t type, void* data, uint32_t size) {
 	int id = popen(pid, bufSize);
 	if(id < 0)
 		return NULL;
 
 	int i = psend(id, type, data, size);
-	if(i == 0 || !reply) {
+	if(i == 0) {
 		pclose(id);
 		return NULL;
 	}

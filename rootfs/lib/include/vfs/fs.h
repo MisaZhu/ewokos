@@ -9,6 +9,8 @@ enum {
 	FS_WRITE,
 	FS_READ,
 	FS_CTRL,
+	FS_FLUSH,
+	FS_DMA,
 	FS_ADD
 };
 
@@ -33,6 +35,10 @@ int fsPutch(int fd, int c);
 int fsWrite(int fd, const char* buf, uint32_t size);
 
 int fsAdd(int dirFD, const char* name);
+
+int32_t fsFlush(int fd);
+
+int32_t fsDMA(int fd, uint32_t* size);
 
 /*return fs service process pid, -1 means not inited*/
 int fsInited();

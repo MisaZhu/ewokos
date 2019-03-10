@@ -29,7 +29,7 @@ int fsOpen(const char* name, int32_t flags) {
 	protoAddInt(proto, (int32_t)node);
 	protoAddInt(proto, flags);
 
-	PackageT* pkg = preq(info.devServPid, 0, FS_OPEN, proto->data, proto->size, true);
+	PackageT* pkg = preq(info.devServPid, 0, FS_OPEN, proto->data, proto->size);
 	protoFree(proto);
 	if(pkg == NULL || pkg->type == PKG_TYPE_ERR) {
 		if(pkg != NULL) free(pkg);
@@ -48,9 +48,61 @@ int fsClose(int fd) {
 	if(vfsNodeInfo(node, &info) != 0)
 		return -1;
 	
-	if(info.devServPid > 0) 
-		preq(info.devServPid, 0, FS_CLOSE, (void*)&fd, 4, false);
+	if(info.devServPid > 0) {
+		PackageT* pkg = preq(info.devServPid, 0, FS_CLOSE, (void*)&node, 4);
+		if(pkg == NULL || pkg->type == PKG_TYPE_ERR) {
+			if(pkg != NULL) free(pkg);
+			return -1;
+		}
+		free(pkg);
+	}
 	return syscall1(SYSCALL_PFILE_CLOSE, fd);
+}
+
+int32_t fsDMA(int fd, uint32_t* size) {
+	*size = 0;
+	uint32_t node = vfsNodeByFD(getpid(), fd);
+	if(node == 0) 
+		return -1;
+
+	FSInfoT info;
+	if(vfsNodeInfo(node, &info) != 0)
+		return -1;
+	
+	if(info.devServPid == 0) 
+		return -1;
+	PackageT* pkg = preq(info.devServPid, 0, FS_DMA, (void*)&node, 4);
+	if(pkg == NULL || pkg->type == PKG_TYPE_ERR) {
+		if(pkg != NULL) free(pkg);
+		return -1;
+	}
+
+	ProtoT* proto = protoNew(getPackageData(pkg), pkg->size);
+	int32_t ret = protoReadInt(proto);
+	*size = protoReadInt(proto);
+	protoFree(proto);
+	free(pkg);
+	return ret;
+}
+
+int32_t fsFlush(int fd) {
+	uint32_t node = vfsNodeByFD(getpid(), fd);
+	if(node == 0) 
+		return -1;
+
+	FSInfoT info;
+	if(vfsNodeInfo(node, &info) != 0)
+		return -1;
+	
+	if(info.devServPid > 0) {
+		PackageT* pkg = preq(info.devServPid, 0, FS_FLUSH, (void*)&node, 4);
+		if(pkg == NULL || pkg->type == PKG_TYPE_ERR) {
+			if(pkg != NULL) free(pkg);
+			return -1;
+		}
+		free(pkg);
+	}
+	return 0;
 }
 
 int fsRead(int fd, char* buf, uint32_t size) {
@@ -72,7 +124,7 @@ int fsRead(int fd, char* buf, uint32_t size) {
 	protoAddInt(proto, node);
 	protoAddInt(proto, size);
 	protoAddInt(proto, seek);
-	PackageT* pkg = preq(info.devServPid, bufSize, FS_READ, proto->data, proto->size, true);
+	PackageT* pkg = preq(info.devServPid, bufSize, FS_READ, proto->data, proto->size);
 	protoFree(proto);
 
 	if(pkg == NULL || pkg->type == PKG_TYPE_ERR) {
@@ -107,7 +159,7 @@ int fsCtrl(int fd, int32_t cmd, void* input, uint32_t isize, void* output, uint3
 	protoAddInt(proto, node);
 	protoAddInt(proto, cmd);
 	protoAdd(proto, input, isize);
-	PackageT* pkg = preq(info.devServPid, 0, FS_CTRL, proto->data, proto->size, true);
+	PackageT* pkg = preq(info.devServPid, 0, FS_CTRL, proto->data, proto->size);
 	protoFree(proto);
 
 	if(pkg == NULL || pkg->type == PKG_TYPE_ERR) {
@@ -141,7 +193,7 @@ int fsWrite(int fd, const char* buf, uint32_t size) {
 	ProtoT* proto = protoNew(NULL, 0);
 	protoAddInt(proto, node);
 	protoAdd(proto, (void*)buf, size);
-	PackageT* pkg = preq(info.devServPid, bufSize, FS_WRITE, proto->data, proto->size, true);
+	PackageT* pkg = preq(info.devServPid, bufSize, FS_WRITE, proto->data, proto->size);
 	protoFree(proto);
 
 	if(pkg == NULL || pkg->type == PKG_TYPE_ERR) {
@@ -174,7 +226,7 @@ int fsAdd(int fd, const char* name) {
 	ProtoT* proto = protoNew(NULL, 0);
 	protoAddInt(proto, node);
 	protoAddStr(proto, name);
-	PackageT* pkg = preq(info.devServPid, 0, FS_ADD, proto->data, proto->size, true);
+	PackageT* pkg = preq(info.devServPid, 0, FS_ADD, proto->data, proto->size);
 	protoFree(proto);
 
 	if(pkg == NULL || pkg->type == PKG_TYPE_ERR) {

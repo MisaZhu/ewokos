@@ -9,7 +9,7 @@ typedef struct Graph {
 	uint32_t h;
 } GraphT;
 
-GraphT* graphNew(uint32_t w, uint32_t h);
+GraphT* graphNew(void* p, uint32_t w, uint32_t h);
 
 void graphFree(GraphT* g);
 

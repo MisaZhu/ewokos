@@ -29,11 +29,48 @@ static void doOpen(DeviceT* dev, PackageT* pkg) {
 
 static void doClose(DeviceT* dev, PackageT* pkg) { 
 	uint32_t node = *(uint32_t*)getPackageData(pkg);
-	if(node == 0)
+	if(node == 0) {
+		psend(pkg->id, PKG_TYPE_ERR, NULL, 0);
 		return;
+	}
 
 	if(dev->close != NULL)
 		dev->close(node);
+	psend(pkg->id, pkg->type, NULL, 0);
+}
+
+static void doDMA(DeviceT* dev, PackageT* pkg) { 
+	uint32_t node = *(uint32_t*)getPackageData(pkg);
+
+	if(node == 0) {
+		psend(pkg->id, PKG_TYPE_ERR, NULL, 0);
+		return;
+	}
+
+	int32_t dma = 0;
+	uint32_t size = 0;
+	if(dev->dma != NULL) {
+		dma = dev->dma(node, &size);
+	}
+		
+	ProtoT* proto = protoNew(NULL, 0);
+	protoAddInt(proto, dma);
+	protoAddInt(proto, (int32_t)size);
+
+	psend(pkg->id, pkg->type, proto->data, proto->size);
+	protoFree(proto);
+}
+
+static void doFlush(DeviceT* dev, PackageT* pkg) { 
+	uint32_t node = *(uint32_t*)getPackageData(pkg);
+	if(node == 0) {
+		psend(pkg->id, PKG_TYPE_ERR, NULL, 0);
+		return;
+	}
+
+	if(dev->flush != NULL)
+		dev->flush(node);
+	psend(pkg->id, pkg->type, NULL, 0);
 }
 
 static void doAdd(DeviceT* dev, PackageT* pkg) { 
@@ -114,7 +151,7 @@ static void doCtrl(DeviceT* dev, PackageT* pkg) {
 	}
 
 	p = NULL;
-	int32_t ret = 0;
+	int32_t ret = -1;
 	if(dev->ctrl != NULL)
 		p = dev->ctrl(node, cmd, p, size, &ret);	
 
@@ -122,9 +159,6 @@ static void doCtrl(DeviceT* dev, PackageT* pkg) {
 		psend(pkg->id, PKG_TYPE_ERR, NULL, 0);
 	else
 		psend(pkg->id, pkg->type, p, ret);
-
-	if(p != NULL)
-		free(p);
 }
 
 static void handle(PackageT* pkg, void* p) {
@@ -144,6 +178,12 @@ static void handle(PackageT* pkg, void* p) {
 			break;
 		case FS_CTRL:
 			doCtrl(dev, pkg);
+			break;
+		case FS_DMA:
+			doDMA(dev, pkg);
+			break;
+		case FS_FLUSH:
+			doFlush(dev, pkg);
 			break;
 		case FS_ADD:
 			doAdd(dev, pkg);

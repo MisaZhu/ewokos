@@ -2,12 +2,11 @@
 #include <stdlib.h>
 #include <kstring.h>
 
-GraphT* graphNew(uint32_t w, uint32_t h) {
+GraphT* graphNew(void* p, uint32_t w, uint32_t h) {
 	GraphT* ret = (GraphT*)malloc(sizeof(GraphT));
 	memset(ret, 0, sizeof(GraphT));
 
-	uint32_t sz = 4 * w * h;
-	ret->buffer = (uint32_t*)malloc(sz);
+	ret->buffer = (uint32_t*)p;
 	ret->w = w;
 	ret->h = h;
 	return ret;	
@@ -16,8 +15,6 @@ GraphT* graphNew(uint32_t w, uint32_t h) {
 void graphFree(GraphT* g) {
 	if(g == NULL)
 		return;
-	if(g->buffer)
-		free(g->buffer);
 	free(g);
 }
 

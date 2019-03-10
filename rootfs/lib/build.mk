@@ -1,7 +1,6 @@
 LIB_OBJS = lib/src/syscall.o \
 	lib/src/stdlib.o \
 	lib/src/dev/mmio.o \
-	lib/src/dev/fb.o \
 	lib/src/dev/devserv.o \
 	lib/src/pmessage.o \
 	lib/src/stdio.o \
