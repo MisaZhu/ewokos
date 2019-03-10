@@ -12,7 +12,7 @@ COMMON_OBJ=$(COMMON_LIB)/src/kstring.o \
 	$(COMMON_LIB)/src/tree.o
 
 # flags
-CFLAGS = -I. \
+CFLAGS = -I. -g \
 				 -I ../lib/include \
 				 -I lib/include \
 				 -I $(COMMON_LIB)/include \

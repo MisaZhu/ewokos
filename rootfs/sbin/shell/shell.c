@@ -144,6 +144,7 @@ void _start() {
 		else if(fg) {
 			wait(child_pid);
 		}
+		cmd[0] = 0;
 	}
 	exit(0);
 }

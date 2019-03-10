@@ -34,6 +34,15 @@ void _start() {
 
 	pid = fork();
 	if(pid == 0) { 
+		//fbd process
+		printf("start fbd ...\n");
+		exec("fbd");
+	}
+	kservWait("dev.fb");
+	printf("fbd got ready.\n");
+
+	pid = fork();
+	if(pid == 0) { 
 		//userman kernel process
 		printf("start user manager ...\n");
 		exec("userman");
