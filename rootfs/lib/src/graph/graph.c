@@ -3,6 +3,7 @@
 #include <kstring.h>
 #include <vfs/fs.h>
 #include <fbinfo.h>
+#include <unistd.h>
 #include <shm.h>
 
 GraphT* graphOpen(const char* fname) {
@@ -41,6 +42,7 @@ GraphT* graphOpen(const char* fname) {
 
 void graphFlush(GraphT* graph) {
 	fsFlush(graph->fd);
+	yield();
 }
 
 void graphClose(GraphT* graph) {
