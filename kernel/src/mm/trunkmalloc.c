@@ -116,13 +116,13 @@ static void tryMerge(MallocT* m, MemBlockT* block) {
 try to shrink the pages.
 */
 static void tryShrink(MallocT* m) {
-	uint32_t blockSize = sizeof(MemBlockT);
+	//uint32_t blockSize = sizeof(MemBlockT);
 	uint32_t addr = (uint32_t)m->mTail;
 	//check if page aligned.	
 	if(m->mTail->used == 1 || (addr % PAGE_SIZE) != 0)
 		return;
 
-	int pages = (m->mTail->size+blockSize) / PAGE_SIZE;
+	//int pages = (m->mTail->size+blockSize) / PAGE_SIZE;
 	m->mTail = m->mTail->prev;
 	if(m->mTail != NULL)
 		m->mTail->next = NULL;
