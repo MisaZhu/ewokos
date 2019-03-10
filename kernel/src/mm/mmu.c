@@ -2,13 +2,13 @@
 #include <mm/kalloc.h>
 #include <types.h>
 #include <kstring.h>
+#include <printk.h>
 
 /*
  * map_pages adds the given virtual to physical memory mapping to the given
  * virtual memory. A mapping can map multiple pages.
  */
-void mapPages(PageDirEntryT *vm, uint32_t vaddr, uint32_t pstart, uint32_t pend, int permissions)
-{
+void mapPages(PageDirEntryT *vm, uint32_t vaddr, uint32_t pstart, uint32_t pend, int permissions) {
 	uint32_t physicalCurrent = 0;
 	uint32_t virtualCurrent = 0;
 
@@ -24,8 +24,6 @@ void mapPages(PageDirEntryT *vm, uint32_t vaddr, uint32_t pstart, uint32_t pend,
 		mapPage(vm,  virtualCurrent, physicalCurrent, permissions);
 		virtualCurrent += PAGE_SIZE;
 	}
-
-	virtualStart = 0;
 }
 
 /*
@@ -34,8 +32,7 @@ void mapPages(PageDirEntryT *vm, uint32_t vaddr, uint32_t pstart, uint32_t pend,
  * Notice: virtual and physical address inputed must be all aliend by PAGE_SIZE !
  */
 void mapPage(PageDirEntryT *vm, uint32_t virtualAddr,
-		     uint32_t physical, int permissions)
-{
+		     uint32_t physical, int permissions) {
 	PageTableEntryT *pageTable = NULL;
 
 	uint32_t pageDirIndex = PAGE_DIR_INDEX(virtualAddr);
@@ -64,13 +61,10 @@ void mapPage(PageDirEntryT *vm, uint32_t virtualAddr,
 }
 
 /* unmap_page clears the mapping for the given virtual address */
-void unmapPage(PageDirEntryT *vm, uint32_t virtualAddr)
-{
+void unmapPage(PageDirEntryT *vm, uint32_t virtualAddr) {
 	PageTableEntryT *pageTable = NULL;
-
 	uint32_t pageDirIndex = PAGE_DIR_INDEX(virtualAddr);
 	uint32_t pageIndex = PAGE_INDEX(virtualAddr);
-
 	pageTable = (void *) P2V(BASE_TO_PAGE_TABLE(vm[pageDirIndex].base));
 	pageTable[pageIndex].type = 0;
 }
@@ -80,8 +74,7 @@ void unmapPage(PageDirEntryT *vm, uint32_t virtualAddr)
  * given virtual address to physical address. This function can be used for
  * debugging if given virtual memory is constructed correctly.
  */
-uint32_t resolvePhyAddress(PageDirEntryT *vm, uint32_t virtual)
-{
+uint32_t resolvePhyAddress(PageDirEntryT *vm, uint32_t virtual) {
 	PageDirEntryT *pdir = NULL;
 	PageTableEntryT *page = NULL;
 	uint32_t result = 0;
@@ -96,8 +89,7 @@ uint32_t resolvePhyAddress(PageDirEntryT *vm, uint32_t virtual)
 	return result;
 }
 
-void freePageTables(PageDirEntryT *vm)
-{
+void freePageTables(PageDirEntryT *vm) {
 	for (int i = 0; i < PAGE_DIR_NUM; i++) {
 		if (vm[i].type != 0) {
 			void *pageTable = (void *) P2V(BASE_TO_PAGE_TABLE(vm[i].base));

@@ -176,7 +176,7 @@ int32_t ipcRead(int32_t id, void* data, uint32_t size) {
 
 	const char* p = (const char*)shmProcMap(pid, channel->shmID);
 	if(p == NULL)
-		return -1;
+		return 0; //closed.
 
 	p = p + channel->offset;
 	memcpy(data, p, size);

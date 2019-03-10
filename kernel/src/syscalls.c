@@ -61,25 +61,10 @@ static int32_t syscall_shmUnmap(int arg0) {
 	return shmProcUnmap(_currentProcess->pid, arg0);
 }
 
-static int32_t _fbPid = -1;
-
-static int32_t syscall_fbOpen() {
-	if(_fbPid >= 0)
-		return -1;
-
-	_fbPid = _currentProcess->pid;
-	return 0;
-}
-
-static int32_t syscall_fbClose() {
-	if(_currentProcess->pid != _fbPid)
-		return -1;
-
-	_fbPid = -1;
-	return 0;
-}
-
 static int32_t syscall_fbInfo(int arg0) {
+	if(_currentProcess->owner >= 0)
+		return -1;
+
 	FBInfoT* info = fbGetInfo();
 	if(info == NULL)
 		return -1;
@@ -88,7 +73,7 @@ static int32_t syscall_fbInfo(int arg0) {
 }
 
 static int32_t syscall_fbWrite(int arg0, int arg1) {
-	if(_currentProcess->pid != _fbPid)
+	if(_currentProcess->owner >= 0)
 		return -1;
 
 	FBInfoT* info = fbGetInfo();
@@ -142,7 +127,6 @@ static int32_t syscall_wait(int32_t arg0) {
 	}
 	return 0;
 }
-
 
 static int32_t syscall_yield() {
 	schedule();
@@ -453,8 +437,6 @@ static int32_t (*const _syscallHandler[])() = {
 	[SYSCALL_SHM_MAP] = syscall_shmMap,
 	[SYSCALL_SHM_UNMAP] = syscall_shmUnmap,
 
-	[SYSCALL_FB_OPEN] = syscall_fbOpen,
-	[SYSCALL_FB_CLOSE] = syscall_fbClose,
 	[SYSCALL_FB_INFO] = syscall_fbInfo,
 	[SYSCALL_FB_WRITE] = syscall_fbWrite,
 

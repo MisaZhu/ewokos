@@ -151,7 +151,7 @@ static ShareMemT* shmItem(int32_t id) {
 static ShareMemT* freeItem(ShareMemT* it) {
 	//shmUnmapPages(it->addr, it->pages);
 	it->used = false;
-	if(it->next != NULL && !it->used) { //merge free items
+	if(it->next != NULL && !it->next->used) { //merge right free items
 		ShareMemT* p = it->next;
 		it->next = p->next;
 		if(p->next != NULL)
@@ -161,13 +161,24 @@ static ShareMemT* freeItem(ShareMemT* it) {
 		it->pages += p->pages;
 		kmfree(p);
 	}
+
+	if(it->prev != NULL && !it->prev->used) { //merge left free items
+		ShareMemT* p = it->prev;
+		p->next = it->next;
+		if(it->next != NULL)
+			it->next->prev = p;
+		else
+			_shmTail = p;
+		p->pages += it->pages;
+		kmfree(it);
+		it = p;
+	}
 	return it->next;
 }
 
 void shmfree(int32_t id) {
 	ShareMemT* i = shmItem(id);
 	if(i == NULL || i->owner != _currentProcess->pid) {
-		printk("shmfree failed: %d\n", id);
 		return;
 	}
 	freeItem(i);

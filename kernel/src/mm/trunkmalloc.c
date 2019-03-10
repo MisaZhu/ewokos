@@ -91,24 +91,23 @@ static void tryMerge(MallocT* m, MemBlockT* block) {
 	uint32_t blockSize = sizeof(MemBlockT);
 	//try next block	
 	MemBlockT* b = block->next;
-	if(b != 0 && b->used == 0) {
+	if(b != NULL && b->used == 0) {
 		block->size += (b->size + blockSize);
 		block->next = b->next;
-		if(block->next != 0) 
+		if(block->next != NULL) 
 			block->next->prev = block;
-
-		if(m->mTail == b)
+		else
 			m->mTail = block;
 	}
 
 	//try left block	
 	b = block->prev;
-	if(b != 0 && b->used == 0) {
+	if(b != NULL && b->used == 0) {
 		b->size += (block->size + blockSize);
 		b->next = block->next;
-		if(b->next != 0) 
+		if(b->next != NULL) 
 			b->next->prev = b;
-		if(m->mTail == block)
+		else
 			m->mTail = b;
 	}
 }
@@ -125,11 +124,11 @@ static void tryShrink(MallocT* m) {
 
 	int pages = (m->mTail->size+blockSize) / PAGE_SIZE;
 	m->mTail = m->mTail->prev;
-	m->mTail->next = 0;
-	if(m->mTail == 0)
-		m->mHead = 0;
-
-	m->shrink(m->arg, pages);
+	if(m->mTail != NULL)
+		m->mTail->next = NULL;
+	//else
+	//	m->mHead = NULL;
+	//m->shrink(m->arg, pages);
 }
 
 void trunkFree(MallocT* m, char* p) {
