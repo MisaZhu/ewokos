@@ -6,51 +6,23 @@
 #include <graph/graph.h>
 #include <vfs/fs.h>
 #include <shm.h>
-#include <fbinfo.h>
 
 void fbtest() {
-	FBInfoT fbInfo;
-	int fd = fsOpen("/dev/fb0", 0);
-	if(fd < 0) {
-		printf("open failed!\n");
+	GraphT* g = graphOpen("/dev/fb0");
+	if(g == NULL)
 		return;
-	}
-	if(fsCtrl(fd, 0, NULL, 0, &fbInfo, sizeof(FBInfoT)) != 0) {
-		printf("get fbinfo failed!\n");
-		fsClose(fd);
-		return;
-	}
-
-	uint32_t sz;
-	int shmID = fsDMA(fd, &sz);
-	if(shmID < 0 || sz == 0) {
-		printf("get dma failed!\n");
-		fsClose(fd);
-		return;
-	}
-	
-	void* p = shmMap(shmID);
-	if(p == NULL) {
-		printf("map dma failed!\n");
-		fsClose(fd);
-		return;
-	}
-
-	GraphT* g = graphNew(p, fbInfo.width, fbInfo.height);
 
 	int i = 0;
 	char s[32];
 
-	while(true) {
+	while(i<100) {
 		clear(g, 0xF*i);
 		snprintf(s, 31, "Hello, MicroKernel OS! (%d)", i++);
 		drawText(g, 10, 100, s, &fontBig, 0xFFFFFF);
-		fsFlush(fd);
+		graphFlush(g);
 	}
 
-	shmUnmap(shmID);
-	graphFree(g);
-	fsClose(fd);
+	graphClose(g);
 }
 
 void _start() {

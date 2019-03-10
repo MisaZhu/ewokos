@@ -7,11 +7,16 @@ typedef struct Graph {
 	uint32_t *buffer;
 	uint32_t w;
 	uint32_t h;
+
+	int32_t fd;
+	int32_t shmID;
 } GraphT;
 
-GraphT* graphNew(void* p, uint32_t w, uint32_t h);
+GraphT* graphOpen(const char* fname);
 
-void graphFree(GraphT* g);
+void graphFlush(GraphT* g);
+
+void graphClose(GraphT* g);
 
 void pixel(GraphT* g, int32_t x, int32_t y, uint32_t color);
 

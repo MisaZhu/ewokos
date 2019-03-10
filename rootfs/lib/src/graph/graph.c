@@ -1,21 +1,52 @@
 #include <graph/graph.h>
 #include <stdlib.h>
 #include <kstring.h>
+#include <vfs/fs.h>
+#include <fbinfo.h>
+#include <shm.h>
 
-GraphT* graphNew(void* p, uint32_t w, uint32_t h) {
+GraphT* graphOpen(const char* fname) {
+	FBInfoT fbInfo;
+	int fd = fsOpen(fname, 0);
+	if(fd < 0) {
+		return NULL;
+	}
+	if(fsCtrl(fd, 0, NULL, 0, &fbInfo, sizeof(FBInfoT)) != 0) {
+		fsClose(fd);
+		return NULL;
+	}
+
+	uint32_t sz;
+	int shmID = fsDMA(fd, &sz);
+	if(shmID < 0 || sz == 0) {
+		fsClose(fd);
+		return NULL;
+	}
+	
+	void* p = shmMap(shmID);
+	if(p == NULL) {
+		fsClose(fd);
+		return NULL;
+	}
+
 	GraphT* ret = (GraphT*)malloc(sizeof(GraphT));
-	memset(ret, 0, sizeof(GraphT));
+	ret->w = fbInfo.width;
+	ret->h = fbInfo.height;
+	ret->buffer = p;
+	ret->fd = fd;
+	ret->shmID = shmID;
 
-	ret->buffer = (uint32_t*)p;
-	ret->w = w;
-	ret->h = h;
-	return ret;	
+	return ret;
 }
 
-void graphFree(GraphT* g) {
-	if(g == NULL)
-		return;
-	free(g);
+void graphFlush(GraphT* graph) {
+	fsFlush(graph->fd);
+}
+
+void graphClose(GraphT* graph) {
+	shmUnmap(graph->shmID);
+	fsClose(graph->fd);
+	free(graph);
 }
 
 inline void pixel(GraphT* g, int32_t x, int32_t y, uint32_t color) {
