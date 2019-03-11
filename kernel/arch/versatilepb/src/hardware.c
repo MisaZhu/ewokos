@@ -10,7 +10,7 @@ unsigned int getMMIOBasePhy() {
 }
 
 unsigned int getMMIOMemSize() {
-	return 4*MB;
+	return 2*MB;
 }
 
 unsigned int getUartIrq() {
@@ -21,3 +21,6 @@ unsigned int getTimerIrq() {
 	return 5;
 }
 
+void archSetKernelVM(PageDirEntryT* vm) {
+	(void)vm;
+}

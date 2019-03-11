@@ -15,7 +15,7 @@ uint32_t getMMIOBasePhy() {
 }
 
 uint32_t getMMIOMemSize() {
-	return 32*MB;
+	return 4*MB;
 }
 
 uint32_t getUartIrq() {
@@ -26,3 +26,11 @@ uint32_t getTimerIrq() {
 	return 0;
 }
 
+#define CORE0_ROUTING 0x40000000
+
+void archSetKernelVM(PageDirEntryT* vm) {
+	uint32_t offset = CORE0_ROUTING - getMMIOBasePhy();
+	uint32_t vbase = MMIO_BASE + offset;
+	uint32_t pbase = getMMIOBasePhy() +offset;
+	mapPages(vm, vbase, pbase, pbase+16*KB, AP_RW_D);
+}

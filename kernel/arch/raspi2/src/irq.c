@@ -14,15 +14,17 @@
 #define CORE0_TIMER_IRQCNTL 0x40000040
 
 void routing_core0cntv_to_core0irq(void) {
-	uint32_t base = MMIO_BASE+CORE0_TIMER_IRQCNTL-getMMIOBasePhy();
-	mmio_write(base, 0x08);
+	uint32_t offset = CORE0_TIMER_IRQCNTL-getMMIOBasePhy();
+	uint32_t vbase = MMIO_BASE+offset;
+	mmio_write(vbase, 0x08);
 }
 
 #define CORE0_IRQ_SOURCE 0x40000060
 uint32_t read_core0timer_pending(void) {
 	uint32_t tmp;
-	uint32_t base = MMIO_BASE+CORE0_IRQ_SOURCE-getMMIOBasePhy();
-	tmp = mmio_read(base);
+	uint32_t offset = CORE0_IRQ_SOURCE - getMMIOBasePhy();
+	uint32_t vbase = MMIO_BASE+offset;
+	tmp = mmio_read(vbase);
 	return tmp;
 }
 

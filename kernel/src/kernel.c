@@ -60,11 +60,14 @@ void setKernelVM(PageDirEntryT* vm)
 	mapPages(vm, KERNEL_BASE+PAGE_SIZE, PAGE_SIZE, V2P(_kernelEnd), AP_RW_D);
 
 	mapPages(vm, (uint32_t)_kernelVM, V2P(_kernelVM), V2P(_kernelVM)+PAGE_DIR_SIZE, AP_RW_D);
+
 	//map MMIO to high(virtual) mem.
 	mapPages(vm, MMIO_BASE, getMMIOBasePhy(), getMMIOBasePhy() + getMMIOMemSize(), AP_RW_D);
-
+	
 	//map kernel memory trunk to high(virtual) mem.
 	mapPages(vm, KMALLOC_BASE, V2P(KMALLOC_BASE), V2P(KMALLOC_BASE+KMALLOC_SIZE), AP_RW_D);
+
+	archSetKernelVM(vm);
 
 	if(_phyMemSize == 0) //map some allocable memory for the pagetable alloc for rest momory mapping(coz we don't know the whole phymem size yet.
 		mapPages(vm, ALLOCATABLE_MEMORY_START, V2P(ALLOCATABLE_MEMORY_START), V2P(ALLOCATABLE_MEMORY_START) + 4*MB, AP_RW_D);

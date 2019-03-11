@@ -16,7 +16,7 @@ void fbtest() {
 	char s[32];
 
 	while(i<100) {
-		clear(g, 0xF*i);
+		clear(g, 0x222222);
 		snprintf(s, 31, "Hello, MicroKernel OS! (%d)", i++);
 		drawText(g, 10, 100, s, &fontBig, 0xFFFFFF);
 		graphFlush(g);
