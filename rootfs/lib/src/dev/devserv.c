@@ -191,19 +191,13 @@ static void handle(PackageT* pkg, void* p) {
 	}
 }
 
-static uint32_t devMount(const char* devName, uint32_t index, const char* nodeName, bool file) {
-	if(file)
-		return (uint32_t)syscall3(SYSCALL_VFS_MOUNT_FILE, (int32_t)nodeName, (int32_t)devName, index);
-	return (uint32_t)syscall3(SYSCALL_VFS_MOUNT, (int32_t)nodeName, (int32_t)devName, index);
-}
-
 void devRun(DeviceT* dev, const char* devName, uint32_t index, const char* nodeName, bool file) {
 	if(kservGetPid(devName) >= 0) {
     printf("Panic: '%s' process has been running already!\n", devName);
 		exit(0);
 	}
 
-	uint32_t node = devMount(devName, index, nodeName, file);
+	uint32_t node = vfsMount(nodeName, devName, index, file);
 	if(node == 0)
 		return;
 	

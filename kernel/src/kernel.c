@@ -13,7 +13,7 @@
 #include <timer.h>
 #include <scheduler.h>
 #include <dev/initfs.h>
-#include <vfs.h>
+//#include <vfs.h>
 #include <base16.h>
 #include <mailbox.h>
 #include <dev/fb.h>
@@ -152,8 +152,6 @@ void kernelEntry() {
 
 	ipcInit();
 
-	vfsInit();
-	
 	ramdiskOpen((const char*)_initRamDiskBase, &_initRamDisk, kmalloc);
 
 	procInit();

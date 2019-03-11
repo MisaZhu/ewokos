@@ -1,10 +1,11 @@
+#include <kserv.h>
 #include <vfs/fs.h>
+#include <vfs/vfs.h>
 #include <pmessage.h>
 #include <kstring.h>
 #include <syscall.h>
 #include <stdlib.h>
 #include <proto.h>
-#include <vfs/vfs.h>
 #include <unistd.h>
 
 #define FS_BUF_SIZE (16*KB)
@@ -40,7 +41,7 @@ int fsOpen(const char* name, int32_t flags) {
 }
 
 int fsClose(int fd) {
-	uint32_t node = vfsNodeByFD(getpid(), fd);
+	uint32_t node = vfsNodeByFD(fd);
 	if(node == 0) 
 		return -1;
 
@@ -61,7 +62,7 @@ int fsClose(int fd) {
 
 int32_t fsDMA(int fd, uint32_t* size) {
 	*size = 0;
-	uint32_t node = vfsNodeByFD(getpid(), fd);
+	uint32_t node = vfsNodeByFD(fd);
 	if(node == 0) 
 		return -1;
 
@@ -86,7 +87,7 @@ int32_t fsDMA(int fd, uint32_t* size) {
 }
 
 int32_t fsFlush(int fd) {
-	uint32_t node = vfsNodeByFD(getpid(), fd);
+	uint32_t node = vfsNodeByFD(fd);
 	if(node == 0) 
 		return -1;
 
@@ -107,7 +108,7 @@ int32_t fsFlush(int fd) {
 
 int fsRead(int fd, char* buf, uint32_t size) {
 	int32_t pid = getpid();
-	uint32_t node = vfsNodeByFD(pid, fd);
+	uint32_t node = vfsNodeByFD(fd);
 	if(node == 0) 
 		return -1;
 	uint32_t bufSize = size >= FS_BUF_SIZE ? FS_BUF_SIZE : 0;
@@ -147,7 +148,7 @@ int fsRead(int fd, char* buf, uint32_t size) {
 }
 
 int fsCtrl(int fd, int32_t cmd, void* input, uint32_t isize, void* output, uint32_t osize) {
-	uint32_t node = vfsNodeByFD(getpid(), fd);
+	uint32_t node = vfsNodeByFD(fd);
 	if(node == 0) 
 		return -1;
 
@@ -181,7 +182,7 @@ int fsCtrl(int fd, int32_t cmd, void* input, uint32_t isize, void* output, uint3
 }
 
 int fsWrite(int fd, const char* buf, uint32_t size) {
-	uint32_t node = vfsNodeByFD(getpid(), fd);
+	uint32_t node = vfsNodeByFD(fd);
 	if(node == 0) 
 		return -1;
 	uint32_t bufSize = size >= FS_BUF_SIZE ? FS_BUF_SIZE : 0;
@@ -207,7 +208,7 @@ int fsWrite(int fd, const char* buf, uint32_t size) {
 }
 
 int fsAdd(int fd, const char* name) {
-	uint32_t node = vfsNodeByFD(getpid(), fd);
+	uint32_t node = vfsNodeByFD(fd);
 	if(node == 0) 
 		return -1;
 
@@ -220,7 +221,7 @@ int fsAdd(int fd, const char* name) {
 		return -1;
 
 	if(info.devServPid == 0) {
-		return vfsAdd(vfsNodeByFD(getpid(), fd), name, 0);
+		return vfsAdd(vfsNodeByFD(fd), name, 0);
 	}
 
 	ProtoT* proto = protoNew(NULL, 0);
@@ -259,17 +260,17 @@ int fsFInfo(const char* name, FSInfoT* info) {
 }
 
 int fsInfo(int fd, FSInfoT* info) {
-	uint32_t node = vfsNodeByFD(getpid(), fd);
+	uint32_t node = vfsNodeByFD(fd);
 	return vfsNodeInfo(node, info);
 }
 
 FSInfoT* fsKids(int fd, uint32_t *num) {
-	uint32_t node = vfsNodeByFD(getpid(), fd);
+	uint32_t node = vfsNodeByFD(fd);
 	if(node == 0)
 		return NULL;
-	return (FSInfoT*)syscall2(SYSCALL_VFS_KIDS, (int32_t)node, (int32_t)num);
+	return vfsKids(node, num);
 }
 
-int fsInited() {
-	return syscall1(SYSCALL_KSERV_GET, (int)"dev.initfs");
+int32_t fsInited() {
+	return kservGetPid("dev.initfs");
 }

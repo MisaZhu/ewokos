@@ -3,6 +3,7 @@
 #include <kstring.h>
 #include <dev/devserv.h>
 #include <vfs/vfs.h>
+#include <vfs/fs.h>
 #include <syscall.h>
 #include <sramdisk.h>
 

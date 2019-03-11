@@ -12,7 +12,7 @@
 #include <types.h>
 #include <kserv.h>
 #include <fsinfo.h>
-#include <vfs.h>
+//#include <vfs.h>
 #include <scheduler.h>
 #include <hardware.h>
 #include <dev/fb.h>
@@ -283,6 +283,18 @@ static int32_t syscall_pfGetSeek(int32_t arg0, int32_t arg1) {
 	return proc->files[fd].seek;
 }
 
+static int32_t syscall_pfNodeAddr(int32_t arg0, int32_t arg1) {
+	ProcessT *proc = procGet(arg0);
+	if(proc == NULL || arg1 < 0 || arg1>= FILE_MAX)
+		return -1;
+
+	KFileT* kf = proc->files[arg1].kf;
+	if(kf == NULL)
+		return -1;
+
+	return (int32_t)kf->nodeAddr;
+}
+
 static int32_t syscall_kservReg(int32_t arg0) {
 	return kservReg((const char*)arg0);
 }
@@ -374,6 +386,7 @@ static int32_t syscall_getUID(int32_t arg0) {
 	return proc->owner;
 }
 
+/*
 static int32_t syscall_vfsAdd(int32_t arg0, int32_t arg1, int32_t arg2) {
 	TreeNodeT* nodeTo = (TreeNodeT*)arg0;
 	const char* name = (const char*)arg1;
@@ -395,10 +408,6 @@ static int32_t syscall_vfsKids(int32_t arg0, int32_t arg1) {
 	TreeNodeT* node = (TreeNodeT*)arg0;
 	int32_t* num = (int32_t*)arg1;
 	return (int32_t)vfsNodeKids(node, num);
-}
-
-static int32_t syscall_vfsNodeByFD(int32_t arg0, int32_t arg1) {
-	return (int32_t)getNodeByFD(arg0, arg1);	
 }
 
 static int32_t syscall_vfsNodeByName(int32_t arg0) {
@@ -423,6 +432,7 @@ static int32_t syscall_vfsUnmount(int32_t arg0) {
 	TreeNodeT* node = (TreeNodeT*)arg0;
 	return vfsUnmount(node);
 }
+*/
 
 static int32_t (*const _syscallHandler[])() = {
 	[SYSCALL_KDB] = syscall_kdb,
@@ -467,6 +477,7 @@ static int32_t (*const _syscallHandler[])() = {
 	[SYSCALL_PFILE_SEEK] = syscall_pfSeek,
 	[SYSCALL_PFILE_OPEN] = syscall_pfOpen,
 	[SYSCALL_PFILE_CLOSE] = syscall_pfClose,
+	[SYSCALL_PFILE_NODE] = syscall_pfNodeAddr,
 
 	[SYSCALL_KSERV_REG] = syscall_kservReg,
 	[SYSCALL_KSERV_GET] = syscall_kservGet,
@@ -478,6 +489,7 @@ static int32_t (*const _syscallHandler[])() = {
 	[SYSCALL_SET_UID] = syscall_setUID,
 	[SYSCALL_GET_UID] = syscall_getUID,
 
+/*
 	[SYSCALL_VFS_ADD] = syscall_vfsAdd,
 	[SYSCALL_VFS_DEL] = syscall_vfsDel,
 	[SYSCALL_VFS_INFO] = syscall_vfsInfo,
@@ -487,6 +499,7 @@ static int32_t (*const _syscallHandler[])() = {
 	[SYSCALL_VFS_MOUNT] = syscall_vfsMount,
 	[SYSCALL_VFS_MOUNT_FILE] = syscall_vfsMountFile,
 	[SYSCALL_VFS_UNMOUNT] = syscall_vfsUnmount
+*/
 };
 
 /* kernel side of system calls. */

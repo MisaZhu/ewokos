@@ -40,7 +40,6 @@ int32_t fsFlush(int fd);
 
 int32_t fsDMA(int fd, uint32_t* size);
 
-/*return fs service process pid, -1 means not inited*/
-int fsInited();
+int32_t fsInited();
 
 #endif

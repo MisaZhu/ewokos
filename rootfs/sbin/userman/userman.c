@@ -35,6 +35,7 @@ static void handle(PackageT* pkg, void* p) {
 	switch(pkg->type) {
 	case 0: //auth
 		doAuth(pkg);
+		break;
 	}
 }
 

@@ -40,7 +40,7 @@ typedef unsigned int u32_t;
 #define GB (1024*MB)
 
 #define NAME_MAX 256
-#define DEV_NAME_MAX 128
+#define DEV_NAME_MAX 64
 
 typedef void (*FreeFuncT) (void* p);
 typedef void* (*MallocFuncT) (uint32_t size);

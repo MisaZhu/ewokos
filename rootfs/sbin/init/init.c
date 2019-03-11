@@ -7,20 +7,29 @@
 #include <syscall.h>
 
 void _start() {
-	if(fsInited() >= 0) { /*init process can only run at boot time.*/
+	if(getpid() > 0) {
 		printf("Panic: 'init' process can only run at boot time!\n");
 		exit(0);
 	}
 
+	int pid = 0;
+
+	//vfsd process
+	printf("start vfs service ...\n");
+	pid = fork();
+	if(pid == 0) { 
+		exec("vfsd");
+	}
+	kservWait("kserv.vfsd");
+	printf("vfsd got ready.\n");
+
 	//initfs process
 	printf("start initfs service ...\n");
-	int pid = fork();
+	pid = fork();
 	if(pid == 0) { 
 		exec("initfs");
 	}
-
-	while(fsInited() < 0)
-		yield();
+	kservWait("dev.initfs");
 	printf("initfs got ready.\n");
 
 	pid = fork();
