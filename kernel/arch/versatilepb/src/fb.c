@@ -1,5 +1,6 @@
 #include "mm/mmu.h"
 #include "dev/fb.h"
+#include "hardware.h"
 
 int32_t videoInit(FBInfoT *fbInfo) {
 	*((uint32_t*)(MMIO_BASE | 0x1c)) = 0x2c77; //640x480
@@ -27,7 +28,7 @@ bool fbInit() {
 	_fbInfo.depth = 32;
 	_fbInfo.xoffset = 0;
 	_fbInfo.yoffset = 0;
-	_fbInfo.pointer = MMIO_BASE+0x00200000; //MMIO_BASE -> 2M-4M
+	_fbInfo.pointer = 128*MB;
 	_fbInfo.size = 0;
 
 	if(videoInit(&_fbInfo) == 0)

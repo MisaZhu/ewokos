@@ -45,9 +45,10 @@ static char* readFromFS(const char* fname, int *size) {
 int exec(const char* cmdLine) {
 	char* img = NULL;
 	int size;
-	char cmd[CMD_MAX+1];
+	char cmd[CMD_MAX];
+	char fname[NAME_MAX];
 	int i;
-	for(i=0; i<CMD_MAX; i++) {
+	for(i=0; i<CMD_MAX-1; i++) {
 		cmd[i] = cmdLine[i];
 		if(cmd[i] == 0 || cmd[i] == ' ')
 			break;
@@ -58,14 +59,15 @@ int exec(const char* cmdLine) {
 		img = readKernelInitRD(cmd, &size);
 	}
 	else {
-		char fname[128+1];
 		strcpy(fname, "/initfs/");
-		strncpy(fname+ strlen("/initfs/"), cmd, 128 - strlen("/initfs/"));
+		strncpy(fname+ strlen("/initfs/"), cmd, NAME_MAX-strlen("/initfs/")-1);
 		img = readFromFS(fname, &size);
 	}
-	if(img == NULL)
-		return -1;
 
+	if(img == NULL) {
+		printf("'%s' dosn't exist!\n", fname);
+		return -1;
+	}
 	int res = syscall2(SYSCALL_EXEC_ELF, (int)cmdLine, (int)img);
 	free(img);
 	return res;

@@ -128,10 +128,6 @@ void kernelEntry() {
 	/*init the rest allocable memory VM*/
 	initAllocableMem();
 
-
-	/*init share memory*/
-	shmInit();
-
 	/*framebuffer init*/
 	fbInit();
 
@@ -151,6 +147,9 @@ void kernelEntry() {
 				"Kernel got ready(MMU and ProcMan).\n"
 				"Loading the first process...\n\n");
 	
+	/*init share memory*/
+	shmInit();
+
 	ipcInit();
 
 	vfsInit();
