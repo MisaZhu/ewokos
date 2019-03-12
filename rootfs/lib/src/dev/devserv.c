@@ -1,13 +1,11 @@
 #include <dev/devserv.h>
-#include <syscall.h>
+#include <kserv.h>
 #include <unistd.h>
 #include <pmessage.h>
-#include <stdio.h>
 #include <stdlib.h>
 #include <kstring.h>
-#include <kserv.h>
-#include <vfs/fs.h>
 #include <vfs/vfs.h>
+#include <vfs/fs.h>
 #include <proto.h>
 
 static void doOpen(DeviceT* dev, PackageT* pkg) { 
@@ -193,7 +191,6 @@ static void handle(PackageT* pkg, void* p) {
 
 void devRun(DeviceT* dev, const char* devName, uint32_t index, const char* nodeName, bool file) {
 	if(kservGetPid(devName) >= 0) {
-    printf("Panic: '%s' process has been running already!\n", devName);
 		exit(0);
 	}
 

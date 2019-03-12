@@ -14,7 +14,6 @@ void _start() {
 
 	int pid = 0;
 
-	//vfsd process
 	printf("start vfs service ...\n");
 	pid = fork();
 	if(pid == 0) { 
@@ -23,7 +22,6 @@ void _start() {
 	kservWait("kserv.vfsd");
 	printf("vfsd got ready.\n");
 
-	//initfs process
 	printf("start initfs service ...\n");
 	pid = fork();
 	if(pid == 0) { 
@@ -34,7 +32,6 @@ void _start() {
 
 	pid = fork();
 	if(pid == 0) { 
-		//ttyd process
 		printf("start ttyd ...\n");
 		exec("ttyd");
 	}
@@ -43,7 +40,6 @@ void _start() {
 
 	pid = fork();
 	if(pid == 0) { 
-		//fbd process
 		printf("start fbd ...\n");
 		exec("fbd");
 	}
@@ -52,7 +48,6 @@ void _start() {
 
 	pid = fork();
 	if(pid == 0) { 
-		//userman kernel process
 		printf("start user manager ...\n");
 		exec("userman");
 	}

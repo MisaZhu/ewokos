@@ -17,9 +17,9 @@ typedef struct {
 } MountT;
 
 #define DEV_VFS "dev.vfs"
-#define MOUNT_MAX 6
+#define MOUNT_MAX 32
 
-static MountT *_mounts = NULL;
+static MountT _mounts[MOUNT_MAX];
 static TreeNodeT _root;
 
 static bool checkAccess(TreeNodeT* node, bool w) {
@@ -28,7 +28,7 @@ static bool checkAccess(TreeNodeT* node, bool w) {
 	return true;
 }
 
-void fsnodeInit() {
+static void fsnodeInit() {
 	for(int i=0; i<MOUNT_MAX; i++) {
 		memset(&_mounts[i], 0, sizeof(MountT));
 	}
@@ -38,7 +38,7 @@ void fsnodeInit() {
 	strcpy(FSN(&_root)->name, "/");
 }
 
-TreeNodeT* fsnodeAdd(TreeNodeT* nodeTo, const char* name, uint32_t size, int32_t pid) {
+static TreeNodeT* fsnodeAdd(TreeNodeT* nodeTo, const char* name, uint32_t size, int32_t pid) {
 	int32_t owner = syscall1(SYSCALL_GET_UID, pid);
 	if(!checkAccess(nodeTo, true))
 		return NULL;
@@ -58,14 +58,14 @@ TreeNodeT* fsnodeAdd(TreeNodeT* nodeTo, const char* name, uint32_t size, int32_t
 	return ret;
 }
 
-int32_t fsnodeDel(TreeNodeT* node) {
+static int32_t fsnodeDel(TreeNodeT* node) {
 	if(!checkAccess(node, true))
 		return -1;
 	treeDel(node, free);
 	return 0;
 }
 
-int32_t fsnodeNodeInfo(TreeNodeT* node, FSInfoT* info) {
+static int32_t fsnodeNodeInfo(TreeNodeT* node, FSInfoT* info) {
 	if(!checkAccess(node, false))
 		return -1;
 	
@@ -117,7 +117,7 @@ static TreeNodeT* buildNodes(const char* fname, int32_t owner) {
 	return NULL;
 }
 
-TreeNodeT* fsnodeMount(const char* fname, const char* devName, 
+static TreeNodeT* fsnodeMount(const char* fname, const char* devName, 
 		int32_t devIndex, bool isFile, int32_t pid) {
 	int32_t owner = syscall1(SYSCALL_GET_UID, pid);
 	TreeNodeT* to = buildNodes(fname, owner);
@@ -164,7 +164,7 @@ TreeNodeT* fsnodeMount(const char* fname, const char* devName,
 	return node;
 }
 
-int32_t fsnodeUnmount(TreeNodeT* node) {
+static int32_t fsnodeUnmount(TreeNodeT* node) {
 	if(!checkAccess(node, true))
 		return -1;
 	return 0;
@@ -251,6 +251,8 @@ static void doMount(PackageT* pkg) {
 }
 
 static void doUnmount(PackageT* pkg) {
+	TreeNodeT* node = (TreeNodeT*)(*(int32_t*)getPackageData(pkg));
+	fsnodeUnmount(node);
 	psend(pkg->id, pkg->type, NULL, 0);
 }
 
@@ -290,11 +292,8 @@ void _start() {
 		exit(0);
 	}
 
-	_mounts = (MountT*)malloc(sizeof(MountT)*MOUNT_MAX);
 	fsnodeInit();
 	if(!kservRun("kserv.vfsd", handle, NULL)) {
-		free(_mounts);
 		exit(0);
 	}
-	free(_mounts);
 }

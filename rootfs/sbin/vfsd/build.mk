@@ -8,4 +8,4 @@ $(VFSD_PROGRAM): $(VFSD_DIR)/*.c $(COMMON_OBJ) lib/libewoklibc.a
 	mkdir -p build
 	$(CC) $(CFLAGS) -I $(VFSD_DIR) -c -o $(VFSD_DIR)/fstree.o $(VFSD_DIR)/fstree.c
 	$(CC) $(CFLAGS) -I $(VFSD_DIR) -c -o $(VFSD_DIR)/vfsd.o $(VFSD_DIR)/vfsd.c
-	$(LD) -Ttext=100 $(VFSD_DIR)/*.o lib/libewoklibc.a $(COMMON_OBJ) -o $(VFSD_PROGRAM)
+	$(LD) -Ttext=100 $(VFSD_DIR)/vfsd.o $(VFSD_DIR)/fstree.o lib/libewoklibc.a $(COMMON_OBJ) -o $(VFSD_PROGRAM)
