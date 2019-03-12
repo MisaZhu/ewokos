@@ -7,6 +7,8 @@ void shmInit();
 
 int32_t shmalloc(uint32_t size);
 
+void* shmRaw(int32_t id);
+
 void shmfree(int32_t id);
 
 void* shmProcMap(int32_t pid, int32_t id);

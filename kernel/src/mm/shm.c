@@ -184,6 +184,13 @@ void shmfree(int32_t id) {
 	freeItem(i);
 }
 
+void* shmRaw(int32_t id) {
+	ShareMemT* it = shmItem(id);
+	if(it == NULL)
+		return NULL;
+	return (void*)it->addr;
+}
+	
 void* shmProcMap(int32_t pid, int32_t id) {
 	ShareMemT* it = shmItem(id);
 	ProcessT* proc = procGet(pid);

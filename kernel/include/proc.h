@@ -80,7 +80,7 @@ extern ProcessT _processTable[PROCESS_COUNT_MAX];
 
 extern void procInit();
 extern ProcessT *procCreate(void);
-bool procLoad(ProcessT *proc, const char *procImage);
+bool procLoad(ProcessT *proc, const char *procImage, uint32_t imgSize);
 void procStart(ProcessT *proc);
 void procFree(ProcessT *proc);
 bool procExpandMemory(void *proc, int pageCount);

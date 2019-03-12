@@ -1,4 +1,5 @@
 #include <mm/mmu.h>
+#include <mm/kmalloc.h>
 #include <mm/kalloc.h>
 #include <proc.h>
 #include <kernel.h>
@@ -175,15 +176,31 @@ uint32_t cpsrUser() {
 }
 
 /* proc_load loads the given ELF process image into the given process. */
-bool procLoad(ProcessT *proc, const char *procImage)
-{
-	int progHeaderOffset = 0;
-	int progHeaderCount = 0;
-	int i = 0;
+bool procLoad(ProcessT *proc, const char *pimg, uint32_t imgSize) {
+	uint32_t progHeaderOffset = 0;
+	uint32_t progHeaderCount = 0;
+	uint32_t i = 0;
+	
+	/*move to kernel memory to save procImg*/
+	int32_t shmid = shmalloc(imgSize);
+	char* procImage = NULL;
+	if(_currentProcess != NULL)
+		procImage = (char*)shmProcMap(_currentProcess->pid, shmid);
+	else
+		procImage = (char*)shmRaw(shmid);
+	if(procImage == NULL)
+		return false;
+	memcpy(procImage, pimg, imgSize);
+	/*
+	(void)imgSize;
+	const char* procImage = pimg;
+	*/
 
 	struct ElfHeader *header = (struct ElfHeader *) procImage;
-	if (header->type != ELFTYPE_EXECUTABLE)
+	if (header->type != ELFTYPE_EXECUTABLE) {
+		shmfree(shmid);
 		return false;
+	}
 
 	progHeaderOffset = header->phoff;
 	progHeaderCount = header->phnum;
@@ -196,22 +213,25 @@ bool procLoad(ProcessT *proc, const char *procImage)
 		while (proc->heapSize < header->vaddr + header->memsz) {
 			if(!procExpandMemory(proc, 1)) {
 				printk("Panic: proc expand memory failed!!(%s: %d)\n", proc->cmd, proc->pid);
+				shmfree(shmid);
 				return false;
 			}
 		}
-
 		/* copy the section */
+		uint32_t hvaddr = header->vaddr;
+		uint32_t hoff = header->off;
 		for (j = 0; j < header->memsz; j++) {
-			int vaddr = header->vaddr + j; /*vaddr in elf*/
-			int paddr = resolvePhyAddress(proc->vm, vaddr); /*trans to phyaddr by proc's page dir*/
-			char *ptr = (char *) P2V(paddr); /*trans the phyaddr to vaddr now in kernel page dir*/
+			uint32_t vaddr = hvaddr + j; /*vaddr in elf (proc vaddr)*/
+			uint32_t paddr = resolvePhyAddress(proc->vm, vaddr); /*trans to phyaddr by proc's page dir*/
+			uint32_t vkaddr = P2V(paddr); /*trans the phyaddr to vaddr now in kernel page dir*/
 			/*copy from elf to vaddrKernel(=phyaddr=vaddrProc=vaddrElf)*/
-			int imageOff = header->off + j;
-			*ptr = procImage[imageOff]; 
+			
+			uint32_t imageOff = hoff + j;
+			*(char*)vkaddr = procImage[imageOff];
 		}
-
 		progHeaderOffset += sizeof(struct ElfProgramHeader);
 	}
+	shmfree(shmid);
 
 	proc->mallocMan.mHead = 0;
 	proc->mallocMan.mTail = 0;
@@ -256,14 +276,18 @@ int kfork(void)
 	uint32_t i = 0;
 
 	child = procCreate();
-	if(!procExpandMemory(child, parent->heapSize / PAGE_SIZE)) {
+	uint32_t pages = parent->heapSize / PAGE_SIZE;
+	if((parent->heapSize % PAGE_SIZE) != 0)
+		pages++;
+
+	if(!procExpandMemory(child, pages)) {
 		printk("Panic: kfork expand memory failed!!(%s: %d)\n", parent->cmd, parent->pid);
 		return -1;
 	}
 
 	/* copy parent's memory to child's memory */
 	for (i = 0; i < parent->heapSize; i++) {
-		int childPAddr = resolvePhyAddress(child->vm, i);
+		uint32_t childPAddr = resolvePhyAddress(child->vm, i);
 		char *childPtr = (char *) P2V(childPAddr);
 		char *parentPtr = (char *) i;
 

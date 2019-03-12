@@ -18,15 +18,11 @@
 //#define KERNEL_STACK_BOTTOM (KERNEL_BASE - 3 * PAGE_SIZE)
 
 #define KMALLOC_BASE ((uint32_t)&_kernelEnd +  256*KB) //256KB reserved for kernel pageDirTable(at least 16KB).
-#define KMALLOC_SIZE 2*MB // keep for kernel trunk memory, can only used by kernel(kmalloc/kmfree).
+#define KMALLOC_SIZE 4*MB // keep for kernel trunk memory, can only used by kernel(kmalloc/kmfree).
 
 #define ALLOCATABLE_MEMORY_START (KMALLOC_BASE + KMALLOC_SIZE)
 
-#define INIT_MEMORY_SIZE (8*MB) //must same as startup.c startuptable
-
-//init ramdisk
-#define INITRD_BASE 0x08000000 //=128M, qemu-system-arm -initrd <FILE> will load FILE to Physical memory address 128M when bootup. 
-#define INITRD_SIZE 1*MB
+#define INIT_RESERV_MEMORY_SIZE (8*MB) 
 
 #define ALIGN_DOWN(x, alignment) ((x) & ~(alignment - 1))
 #define ALIGN_UP(x, alignment) (((x) + alignment - 1) & ~(alignment - 1))

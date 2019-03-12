@@ -32,7 +32,7 @@ void initKernelVM()
 	Notice: This part of physical mem (0 to INIT_MEMORY_SIZE) works for init kernel page mapping
 	*/
 	kallocInit(ALLOCATABLE_MEMORY_START,
-			KERNEL_BASE + INIT_MEMORY_SIZE);
+			ALLOCATABLE_MEMORY_START + INIT_RESERV_MEMORY_SIZE);
 
 
 	//align up to PAGE_DIR_SIZE (like 16KB in this case). 16KB memory after kernel be used for kernel page dir table 
@@ -67,24 +67,22 @@ void setKernelVM(PageDirEntryT* vm)
 	//map kernel memory trunk to high(virtual) mem.
 	mapPages(vm, KMALLOC_BASE, V2P(KMALLOC_BASE), V2P(KMALLOC_BASE+KMALLOC_SIZE), AP_RW_D);
 
-	archSetKernelVM(vm);
-
 	if(_phyMemSize == 0) //map some allocable memory for the pagetable alloc for rest momory mapping(coz we don't know the whole phymem size yet.
-		mapPages(vm, ALLOCATABLE_MEMORY_START, V2P(ALLOCATABLE_MEMORY_START), V2P(ALLOCATABLE_MEMORY_START) + 4*MB, AP_RW_D);
+		mapPages(vm, ALLOCATABLE_MEMORY_START, V2P(ALLOCATABLE_MEMORY_START), V2P(ALLOCATABLE_MEMORY_START) + INIT_RESERV_MEMORY_SIZE, AP_RW_D);
 	else
 		mapPages(vm, ALLOCATABLE_MEMORY_START, V2P(ALLOCATABLE_MEMORY_START), _phyMemSize, AP_RW_D);
+
+	archSetKernelVM(vm);
 }
 
 static void initAllocableMem() {
 	_phyMemSize = getPhyRamSize();
-	mapPages(_kernelVM, ALLOCATABLE_MEMORY_START, V2P(ALLOCATABLE_MEMORY_START), _phyMemSize, AP_RW_D);
 	/*
 	Since kernel mem mapping finished, and init ram disk copied to kernel trunk memory.
 	we can build free mem page list for all the rest mem(the init ram disk part can be reused as well).
 	Notice:	From now, you can kalloc all the rest of physical mem.
 	*/
-	kallocInit(KERNEL_BASE + INIT_MEMORY_SIZE,
-			KERNEL_BASE + _phyMemSize);
+	mapPages(_kernelVM, ALLOCATABLE_MEMORY_START, V2P(ALLOCATABLE_MEMORY_START), _phyMemSize, AP_RW_D);
 }
 
 char* _initRamDiskBase = 0;
@@ -122,11 +120,14 @@ void kernelEntry() {
 	/* Done mapping all mem */
 	initKernelVM();
 
-	/*init mailbox for board support*/
-	mailboxInit();
-
 	/*init the rest allocable memory VM*/
 	initAllocableMem();
+	
+	/*init share memory*/
+	shmInit();
+
+	/*init mailbox for board support*/
+	mailboxInit();
 
 	/*framebuffer init*/
 	fbInit();
@@ -146,9 +147,6 @@ void kernelEntry() {
 				"=================\n"
 				"Kernel got ready(MMU and ProcMan).\n"
 				"Loading the first process...\n\n");
-	
-	/*init share memory*/
-	shmInit();
 
 	ipcInit();
 
@@ -169,7 +167,7 @@ void kernelEntry() {
 		return;
 	}
 	else {
-		procLoad(proc, p);
+		procLoad(proc, p, size);
 		strncpy(proc->cmd, FIRST_PROCESS, CMD_MAX);
 	}
 

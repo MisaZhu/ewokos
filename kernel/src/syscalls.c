@@ -88,7 +88,7 @@ static int32_t syscall_fbWrite(int arg0, int arg1) {
 	return arg1;
 }
 
-static int32_t syscall_execElf(int32_t arg0, int32_t arg1) {
+static int32_t syscall_execElf(int32_t arg0, int32_t arg1, int32_t arg2) {
 	const char*cmd = (const char*)arg0;
 	const char*p = (const char*)arg1;
 
@@ -97,7 +97,7 @@ static int32_t syscall_execElf(int32_t arg0, int32_t arg1) {
 		
 	strncpy(_currentProcess->cmd, cmd, CMD_MAX);
 
-	if(!procLoad(_currentProcess, p))
+	if(!procLoad(_currentProcess, p, (uint32_t)arg2))
 		return -1;
 
 	procStart(_currentProcess);
