@@ -181,7 +181,7 @@ bool procLoad(ProcessT *proc, const char *pimg, uint32_t imgSize) {
 	uint32_t progHeaderCount = 0;
 	uint32_t i = 0;
 	
-	/*move to kernel memory to save procImg*/
+	/*move to kernel memory to save procImg, coz orignal address will be covered.*/
 	int32_t shmid = shmalloc(imgSize);
 	char* procImage = NULL;
 	if(_currentProcess != NULL)
@@ -191,10 +191,6 @@ bool procLoad(ProcessT *proc, const char *pimg, uint32_t imgSize) {
 	if(procImage == NULL)
 		return false;
 	memcpy(procImage, pimg, imgSize);
-	/*
-	(void)imgSize;
-	const char* procImage = pimg;
-	*/
 
 	struct ElfHeader *header = (struct ElfHeader *) procImage;
 	if (header->type != ELFTYPE_EXECUTABLE) {
