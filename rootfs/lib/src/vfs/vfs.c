@@ -134,7 +134,7 @@ FSInfoT* vfsKids(uint32_t node, uint32_t* num) {
 	if(servPid < 0)
 		return NULL;
 
-	PackageT* pkg = preq(servPid, 0, VFS_CMD_NODE_BY_FD, &node, 4);
+	PackageT* pkg = preq(servPid, 0, VFS_CMD_KIDS, &node, 4);
 	if(pkg == NULL || pkg->type == PKG_TYPE_ERR || pkg->size == 0) {
 		if(pkg != NULL) free(pkg);
 		return NULL;
@@ -142,6 +142,7 @@ FSInfoT* vfsKids(uint32_t node, uint32_t* num) {
 
 	FSInfoT* ret = (FSInfoT*)malloc(pkg->size);
 	memcpy(ret, getPackageData(pkg), pkg->size);
+	*num = pkg->size / sizeof(FSInfoT);
 	free(pkg);
 	return ret;
 }
