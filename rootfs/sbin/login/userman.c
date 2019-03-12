@@ -1,5 +1,5 @@
 #include <userman.h>
-#include <pmessage.h>
+#include <ipc.h>
 #include <kstring.h>
 #include <syscall.h>
 #include <stdlib.h>

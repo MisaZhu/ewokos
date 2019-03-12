@@ -1,5 +1,5 @@
 #include "kserv.h"
-#include <pmessage.h>
+#include <ipc.h>
 #include <syscall.h>
 #include <unistd.h>
 #include <stdlib.h>

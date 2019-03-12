@@ -1,5 +1,5 @@
 #include <unistd.h>
-#include <pmessage.h>
+#include <ipc.h>
 #include <syscall.h>
 #include <stdlib.h>
 #include <kstring.h>

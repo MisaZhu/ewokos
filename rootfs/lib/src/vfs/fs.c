@@ -1,7 +1,7 @@
 #include <kserv.h>
 #include <vfs/fs.h>
 #include <vfs/vfs.h>
-#include <pmessage.h>
+#include <ipc.h>
 #include <kstring.h>
 #include <syscall.h>
 #include <stdlib.h>

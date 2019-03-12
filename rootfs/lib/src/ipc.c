@@ -1,4 +1,4 @@
-#include <pmessage.h>
+#include <ipc.h>
 #include <types.h>
 #include <syscall.h>
 #include <stdlib.h>
@@ -7,26 +7,26 @@
 #include <unistd.h>
 
 int popen(int pid, uint32_t bufSize) {
-	return syscall2(SYSCALL_KOPEN, pid, (int32_t)bufSize);
+	return syscall2(SYSCALL_IPC_OPEN, pid, (int32_t)bufSize);
 }
 
 void pclose(int id) {
-	syscall1(SYSCALL_KCLOSE, id);
+	syscall1(SYSCALL_IPC_CLOSE, id);
 }
 
 static void pring(int id) {
-	syscall1(SYSCALL_KRING, id);
+	syscall1(SYSCALL_IPC_RING, id);
 }
 
 static int ppeer(int id) {
-	return syscall1(SYSCALL_KPEER, id);
+	return syscall1(SYSCALL_IPC_PEER, id);
 }
 
 static int pwrite(int id, void* data, uint32_t size) {
-	//return syscall3(SYSCALL_KWRITE, id, (int)data, size);
+	//return syscall3(SYSCALL_IPC_WRITE, id, (int)data, size);
 	int i;
 	while(true) {
-		i = syscall3(SYSCALL_KWRITE, id, (int)data, size);
+		i = syscall3(SYSCALL_IPC_WRITE, id, (int)data, size);
 		if(i >= 0)
 			break;
 		yield();
@@ -38,10 +38,10 @@ static int pread(int id, void* data, uint32_t size) {
 	if(data == NULL || size == 0)
 		return 0;
 
-	//return syscall3(SYSCALL_KREAD, id, (int)data, size);
+	//return syscall3(SYSCALL_IPC_READ, id, (int)data, size);
 	int i;
 	while(true) {
-		i = syscall3(SYSCALL_KREAD, id, (int)data, size);
+		i = syscall3(SYSCALL_IPC_READ, id, (int)data, size);
 		if(i >= 0)
 			break;
 		yield();
@@ -127,7 +127,7 @@ PackageT* preq(int pid, uint32_t bufSize, uint32_t type, void* data, uint32_t si
 PackageT* proll() {
 	int id = -1;
 	while(true) {
-		id = syscall0(SYSCALL_KREADY);
+		id = syscall0(SYSCALL_IPC_READY);
 		if(id >= 0)
 			break;
 		yield();

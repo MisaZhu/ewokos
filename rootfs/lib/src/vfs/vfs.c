@@ -3,7 +3,7 @@
 #include <kserv.h>
 #include <proto.h>
 #include <stdlib.h>
-#include <pmessage.h>
+#include <ipc.h>
 #include <package.h>
 
 #define VFS_NAME "kserv.vfsd"

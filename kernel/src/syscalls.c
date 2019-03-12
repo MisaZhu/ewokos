@@ -174,6 +174,9 @@ static int32_t syscall_ipcPeer(int32_t arg0) {
 }
 
 static int32_t syscall_readFileInitRD(int32_t arg0, int32_t arg1, int32_t arg2) {
+	if(_currentProcess->owner >= 0)
+		return 0;
+
 	const char* name = (const char*)arg0;
 	int32_t fsize = 0;
 	int32_t rdSize = *(int*)arg2;
@@ -462,13 +465,13 @@ static int32_t (*const _syscallHandler[])() = {
 
 	[SYSCALL_GET_CMD] = syscall_getCmd,
 
-	[SYSCALL_KOPEN] = syscall_ipcOpen,
-	[SYSCALL_KCLOSE] = syscall_ipcClose,
-	[SYSCALL_KWRITE] = syscall_ipcWrite,
-	[SYSCALL_KREADY] = syscall_ipcReady,
-	[SYSCALL_KREAD] = syscall_ipcRead,
-	[SYSCALL_KRING] = syscall_ipcRing,
-	[SYSCALL_KPEER] = syscall_ipcPeer,
+	[SYSCALL_IPC_OPEN] = syscall_ipcOpen,
+	[SYSCALL_IPC_CLOSE] = syscall_ipcClose,
+	[SYSCALL_IPC_WRITE] = syscall_ipcWrite,
+	[SYSCALL_IPC_READY] = syscall_ipcReady,
+	[SYSCALL_IPC_READ] = syscall_ipcRead,
+	[SYSCALL_IPC_RING] = syscall_ipcRing,
+	[SYSCALL_IPC_PEER] = syscall_ipcPeer,
 
 	[SYSCALL_INITRD_READ_FILE] = syscall_readFileInitRD,
 	[SYSCALL_INITRD_CLONE] = syscall_cloneInitRD,
@@ -488,18 +491,6 @@ static int32_t (*const _syscallHandler[])() = {
 
 	[SYSCALL_SET_UID] = syscall_setUID,
 	[SYSCALL_GET_UID] = syscall_getUID,
-
-/*
-	[SYSCALL_VFS_ADD] = syscall_vfsAdd,
-	[SYSCALL_VFS_DEL] = syscall_vfsDel,
-	[SYSCALL_VFS_INFO] = syscall_vfsInfo,
-	[SYSCALL_VFS_KIDS] = syscall_vfsKids,
-	[SYSCALL_VFS_NODE_FD] = syscall_vfsNodeByFD,
-	[SYSCALL_VFS_NODE_NAME] = syscall_vfsNodeByName,
-	[SYSCALL_VFS_MOUNT] = syscall_vfsMount,
-	[SYSCALL_VFS_MOUNT_FILE] = syscall_vfsMountFile,
-	[SYSCALL_VFS_UNMOUNT] = syscall_vfsUnmount
-*/
 };
 
 /* kernel side of system calls. */

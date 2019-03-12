@@ -1,7 +1,7 @@
 #include <kserv.h>
 #include <unistd.h>
 #include <stdio.h>
-#include <pmessage.h>
+#include <ipc.h>
 #include <proto.h>
 #include <vfs/vfscmd.h>
 #include <fstree.h>
