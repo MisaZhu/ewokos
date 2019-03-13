@@ -14,45 +14,42 @@ void _start() {
 
 	int pid = 0;
 
-	printf("start vfs service ...\n");
+	printf("start vfs service ... ");
 	pid = fork();
 	if(pid == 0) { 
 		exec("vfsd");
 	}
 	kservWait("kserv.vfsd");
-	printf("vfsd got ready.\n");
+	printf("ok.\n");
 
-	printf("start initfs service ...\n");
+	printf("start initfs service ... ");
 	pid = fork();
 	if(pid == 0) { 
 		exec("initfs");
 	}
 	kservWait("dev.initfs");
-	printf("initfs got ready.\n");
 
 	pid = fork();
 	if(pid == 0) { 
-		printf("start ttyd ...\n");
+		printf("start tty service ... ");
 		exec("ttyd");
 	}
 	kservWait("dev.tty");
-	printf("ttyd got ready.\n");
 
 	pid = fork();
 	if(pid == 0) { 
-		printf("start fbd ...\n");
+		printf("start framebuffer service ... ");
 		exec("fbd");
 	}
 	kservWait("dev.fb");
-	printf("fbd got ready.\n");
 
 	pid = fork();
 	if(pid == 0) { 
-		printf("start user manager ...\n");
+		printf("start user manager ... ");
 		exec("userman");
 	}
 	kservWait("kserv.userman");
-	printf("user manager got ready.\n");
+	printf("ok.\n");
 
 	printf("\n: Hey! wake up!\n"
 			": Matrix had you.\n"

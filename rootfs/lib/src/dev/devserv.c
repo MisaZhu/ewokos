@@ -7,6 +7,7 @@
 #include <vfs/vfs.h>
 #include <vfs/fs.h>
 #include <proto.h>
+#include <stdio.h>
 
 static void doOpen(DeviceT* dev, PackageT* pkg) { 
 	ProtoT* proto = protoNew(getPackageData(pkg), pkg->size);
@@ -191,6 +192,7 @@ static void handle(PackageT* pkg, void* p) {
 
 void devRun(DeviceT* dev, const char* devName, uint32_t index, const char* nodeName, bool file) {
 	if(kservGetPid(devName) >= 0) {
+		printf("%s device service has been running!\n", devName);
 		exit(0);
 	}
 
@@ -202,5 +204,6 @@ void devRun(DeviceT* dev, const char* devName, uint32_t index, const char* nodeN
 		if(dev->mount(node, index) != 0)
 			return;
 	}
+	printf("(%s mounted to vfs:%s)\n", devName, nodeName);
 	kservRun(devName, handle, dev);
 }
