@@ -26,7 +26,7 @@ static void doAuth(PackageT* pkg) {
 
 	uid = login(user, passwd);
 	syscall2(SYSCALL_SET_UID, pkg->pid, uid);
-	psend(pkg->id, pkg->type, &uid, 4);
+	ipcSend(pkg->id, pkg->type, &uid, 4);
 }
 
 static void handle(PackageT* pkg, void* p) {

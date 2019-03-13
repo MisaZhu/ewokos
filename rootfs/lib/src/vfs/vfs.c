@@ -18,7 +18,7 @@ inline uint32_t vfsAdd(uint32_t node, const char* name, uint32_t size) {
 	protoAddStr(proto, name);
 	protoAddInt(proto, (int32_t)size);
 
-	PackageT* pkg = preq(servPid, 0, VFS_CMD_ADD, proto->data, proto->size);
+	PackageT* pkg = ipcReq(servPid, 0, VFS_CMD_ADD, proto->data, proto->size);
 	protoFree(proto);
 	if(pkg == NULL || pkg->type == PKG_TYPE_ERR) {
 		if(pkg != NULL) free(pkg);
@@ -35,7 +35,7 @@ inline int32_t vfsDel(uint32_t node) {
 	if(servPid < 0)
 		return -1;
 
-	PackageT* pkg = preq(servPid, 0, VFS_CMD_DEL, &node, 4);
+	PackageT* pkg = ipcReq(servPid, 0, VFS_CMD_DEL, &node, 4);
 	if(pkg == NULL || pkg->type == PKG_TYPE_ERR) {
 		if(pkg != NULL) free(pkg);
 		return -1;
@@ -49,7 +49,7 @@ inline int32_t vfsNodeInfo(uint32_t node, FSInfoT* info) {
 	if(servPid < 0)
 		return -1;
 
-	PackageT* pkg = preq(servPid, 0, VFS_CMD_INFO, &node, 4);
+	PackageT* pkg = ipcReq(servPid, 0, VFS_CMD_INFO, &node, 4);
 	if(pkg == NULL || pkg->type == PKG_TYPE_ERR) {
 		if(pkg != NULL) free(pkg);
 		return -1;
@@ -64,7 +64,7 @@ inline uint32_t vfsNodeByFD(int32_t fd) {
 	if(servPid < 0)
 		return -1;
 
-	PackageT* pkg = preq(servPid, 0, VFS_CMD_NODE_BY_FD, &fd, 4);
+	PackageT* pkg = ipcReq(servPid, 0, VFS_CMD_NODE_BY_FD, &fd, 4);
 	if(pkg == NULL || pkg->type == PKG_TYPE_ERR) {
 		if(pkg != NULL) free(pkg);
 		return -1;
@@ -81,7 +81,7 @@ inline uint32_t vfsNodeByName(const char* fname) {
 
 	ProtoT* proto = protoNew(NULL, 0);
 	protoAddStr(proto, fname);
-	PackageT* pkg = preq(servPid, 0, VFS_CMD_NODE_BY_NAME, proto->data, proto->size);
+	PackageT* pkg = ipcReq(servPid, 0, VFS_CMD_NODE_BY_NAME, proto->data, proto->size);
 	protoFree(proto);
 	if(pkg == NULL || pkg->type == PKG_TYPE_ERR) {
 		if(pkg != NULL) free(pkg);
@@ -102,7 +102,7 @@ inline uint32_t vfsMount(const char* fname, const char* devName, int32_t devInde
 	protoAddStr(proto, devName);
 	protoAddInt(proto, devIndex);
 	protoAddInt(proto, (int32_t)isFile);
-	PackageT* pkg = preq(servPid, 0, VFS_CMD_MOUNT, proto->data, proto->size);
+	PackageT* pkg = ipcReq(servPid, 0, VFS_CMD_MOUNT, proto->data, proto->size);
 	protoFree(proto);
 	if(pkg == NULL || pkg->type == PKG_TYPE_ERR) {
 		if(pkg != NULL) free(pkg);
@@ -118,7 +118,7 @@ inline int32_t vfsUnmount(uint32_t node) {
 	if(servPid < 0)
 		return -1;
 
-	PackageT* pkg = preq(servPid, 0, VFS_CMD_UNMOUNT, &node, 4);
+	PackageT* pkg = ipcReq(servPid, 0, VFS_CMD_UNMOUNT, &node, 4);
 	if(pkg == NULL || pkg->type == PKG_TYPE_ERR) {
 		if(pkg != NULL) free(pkg);
 		return -1;
@@ -134,7 +134,7 @@ FSInfoT* vfsKids(uint32_t node, uint32_t* num) {
 	if(servPid < 0)
 		return NULL;
 
-	PackageT* pkg = preq(servPid, 0, VFS_CMD_KIDS, &node, 4);
+	PackageT* pkg = ipcReq(servPid, 0, VFS_CMD_KIDS, &node, 4);
 	if(pkg == NULL || pkg->type == PKG_TYPE_ERR || pkg->size == 0) {
 		if(pkg != NULL) free(pkg);
 		return NULL;

@@ -6,23 +6,23 @@
 #include <kstring.h>
 #include <unistd.h>
 
-int popen(int pid, uint32_t bufSize) {
+int ipcOpen(int pid, uint32_t bufSize) {
 	return syscall2(SYSCALL_IPC_OPEN, pid, (int32_t)bufSize);
 }
 
-void pclose(int id) {
+void ipcClose(int id) {
 	syscall1(SYSCALL_IPC_CLOSE, id);
 }
 
-static void pring(int id) {
+static void ipcRing(int id) {
 	syscall1(SYSCALL_IPC_RING, id);
 }
 
-static int ppeer(int id) {
+static int ipcPeer(int id) {
 	return syscall1(SYSCALL_IPC_PEER, id);
 }
 
-static int pwrite(int id, void* data, uint32_t size) {
+static int ipcWrite(int id, void* data, uint32_t size) {
 	//return syscall3(SYSCALL_IPC_WRITE, id, (int)data, size);
 	int i;
 	while(true) {
@@ -34,7 +34,7 @@ static int pwrite(int id, void* data, uint32_t size) {
 	return i;
 }
 
-static int pread(int id, void* data, uint32_t size) {
+static int ipcRead(int id, void* data, uint32_t size) {
 	if(data == NULL || size == 0)
 		return 0;
 
@@ -49,20 +49,20 @@ static int pread(int id, void* data, uint32_t size) {
 	return i;
 }
 
-int psend(int id, uint32_t type, void* data, uint32_t size) {
-	int i = pwrite(id, &size, 4);
+int ipcSend(int id, uint32_t type, void* data, uint32_t size) {
+	int i = ipcWrite(id, &size, 4);
 	if(i == 0)
 		return 0;
 
-	i = pwrite(id, &type, 4);
+	i = ipcWrite(id, &type, 4);
 	if(i == 0)
 		return 0;
 
 	const char* p = (const char*)data;
 	int32_t ret = size;
 	while(true) {
-		i = pwrite(id, (void*)p, size);
-		pring(id); //give ring to reader for reading and clear buffer.
+		i = ipcWrite(id, (void*)p, size);
+		ipcRing(id); //give ring to reader for reading and clear buffer.
 
 		if(i == 0)
 			break;
@@ -75,17 +75,17 @@ int psend(int id, uint32_t type, void* data, uint32_t size) {
 	return ret;
 }
 
-PackageT* precvPkg(int id) {
+PackageT* ipcRecv(int id) {
 	uint32_t type, size;
-	int i = pread(id, &size, 4);
+	int i = ipcRead(id, &size, 4);
 	if(i == 0)
 		return NULL;
 
-	i = pread(id, &type, 4);
+	i = ipcRead(id, &type, 4);
 	if(i == 0)
 		return NULL;
 
-	int fromPID = ppeer(id);
+	int fromPID = ipcPeer(id);
 	PackageT* pkg = newPackage(id, type, NULL, size, fromPID);
 	if(pkg == NULL)
 		return NULL;
@@ -93,7 +93,7 @@ PackageT* precvPkg(int id) {
 	uint32_t sz = size;
 	char* p = (char*)getPackageData(pkg);
 	while(true) {
-		i = pread(id, p, sz);
+		i = ipcRead(id, p, sz);
 		if(i == 0) {
 			return pkg;
 		}
@@ -102,29 +102,29 @@ PackageT* precvPkg(int id) {
 		if(sz == 0)
 			break;
 
-		pring(id);  //wait for more data, give ring to write proc
+		ipcRing(id);  //wait for more data, give ring to write proc
 		p += i;
 	}
 	return pkg;
 }
 
-PackageT* preq(int pid, uint32_t bufSize, uint32_t type, void* data, uint32_t size) {
-	int id = popen(pid, bufSize);
+PackageT* ipcReq(int pid, uint32_t bufSize, uint32_t type, void* data, uint32_t size) {
+	int id = ipcOpen(pid, bufSize);
 	if(id < 0)
 		return NULL;
 
-	int i = psend(id, type, data, size);
+	int i = ipcSend(id, type, data, size);
 	if(i == 0) {
-		pclose(id);
+		ipcClose(id);
 		return NULL;
 	}
 	
-	PackageT* pkg = precvPkg(id);
-	pclose(id);
+	PackageT* pkg = ipcRecv(id);
+	ipcClose(id);
 	return pkg;
 }
 
-PackageT* proll() {
+PackageT* ipcRoll() {
 	int id = -1;
 	while(true) {
 		id = syscall0(SYSCALL_IPC_READY);
@@ -133,6 +133,6 @@ PackageT* proll() {
 		yield();
 	}
 	
-	PackageT* pkg = precvPkg(id);
+	PackageT* pkg = ipcRecv(id);
 	return pkg;
 }

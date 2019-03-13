@@ -177,15 +177,15 @@ static void doAdd(PackageT* pkg) {
 	uint32_t size = (uint32_t)protoReadInt(proto);
 
 	TreeNodeT* ret = fsnodeAdd((TreeNodeT*)node, name, size, pkg->pid);
-	psend(pkg->id, pkg->type, &ret, 4);
+	ipcSend(pkg->id, pkg->type, &ret, 4);
 }
 
 static void doDel(PackageT* pkg) {
 	uint32_t node = *(uint32_t*)getPackageData(pkg);
 	if(fsnodeDel((TreeNodeT*)node) != 0)
-		psend(pkg->id, PKG_TYPE_ERR, NULL, 0);
+		ipcSend(pkg->id, PKG_TYPE_ERR, NULL, 0);
 	else
-		psend(pkg->id, pkg->type, NULL, 0);
+		ipcSend(pkg->id, pkg->type, NULL, 0);
 }
 
 static void doInfo(PackageT* pkg) {
@@ -193,16 +193,16 @@ static void doInfo(PackageT* pkg) {
 	FSInfoT info;
 
 	if(fsnodeNodeInfo((TreeNodeT*)node, &info) != 0)
-		psend(pkg->id, PKG_TYPE_ERR, NULL, 0);
+		ipcSend(pkg->id, PKG_TYPE_ERR, NULL, 0);
 	else
-		psend(pkg->id, pkg->type, &info, sizeof(FSInfoT));
+		ipcSend(pkg->id, pkg->type, &info, sizeof(FSInfoT));
 }
 
 static void doNodeByFD(PackageT* pkg) {
 	int32_t fd = *(int32_t*)getPackageData(pkg);
 
 	TreeNodeT* node = getNodeByFD(pkg->pid, fd);
-	psend(pkg->id, pkg->type, &node, 4);
+	ipcSend(pkg->id, pkg->type, &node, 4);
 }
 
 static void doNodeByName(PackageT* pkg) {
@@ -211,14 +211,14 @@ static void doNodeByName(PackageT* pkg) {
 	protoFree(proto);
 
 	TreeNodeT* node = getNodeByName(name);
-	psend(pkg->id, pkg->type, &node, 4);
+	ipcSend(pkg->id, pkg->type, &node, 4);
 }
 
 static void doKids(PackageT* pkg) {
 	TreeNodeT* node = (TreeNodeT*)(*(int32_t*)getPackageData(pkg));
 
 	if(node == NULL || node->size == 0) {
-		psend(pkg->id, pkg->type, NULL, 0);
+		ipcSend(pkg->id, pkg->type, NULL, 0);
 		return;
 	}
 
@@ -234,7 +234,7 @@ static void doKids(PackageT* pkg) {
 		fsnodeNodeInfo(n, &ret[i]);
 		n = n->next;
 	}
-	psend(pkg->id, pkg->type, ret, size);
+	ipcSend(pkg->id, pkg->type, ret, size);
 	free(ret);
 }
 
@@ -247,13 +247,13 @@ static void doMount(PackageT* pkg) {
 	protoFree(proto);
 
 	TreeNodeT* node = fsnodeMount(fname, devName, devIndex, isFile, pkg->pid);
-	psend(pkg->id, pkg->type, &node, 4);
+	ipcSend(pkg->id, pkg->type, &node, 4);
 }
 
 static void doUnmount(PackageT* pkg) {
 	TreeNodeT* node = (TreeNodeT*)(*(int32_t*)getPackageData(pkg));
 	fsnodeUnmount(node);
-	psend(pkg->id, pkg->type, NULL, 0);
+	ipcSend(pkg->id, pkg->type, NULL, 0);
 }
 
 static void handle(PackageT* pkg, void* p) {

@@ -15,33 +15,33 @@ static void doOpen(DeviceT* dev, PackageT* pkg) {
 	protoFree(proto);
 
 	if(node == 0) {
-		psend(pkg->id, PKG_TYPE_ERR, NULL, 0);
+		ipcSend(pkg->id, PKG_TYPE_ERR, NULL, 0);
 		return;
 	}
 
 	int32_t ret = 0;
 	if(dev->open != NULL)
 		ret = dev->open(node, flags);	
-	psend(pkg->id, pkg->type, &ret, 4);
+	ipcSend(pkg->id, pkg->type, &ret, 4);
 }
 
 static void doClose(DeviceT* dev, PackageT* pkg) { 
 	uint32_t node = *(uint32_t*)getPackageData(pkg);
 	if(node == 0) {
-		psend(pkg->id, PKG_TYPE_ERR, NULL, 0);
+		ipcSend(pkg->id, PKG_TYPE_ERR, NULL, 0);
 		return;
 	}
 
 	if(dev->close != NULL)
 		dev->close(node);
-	psend(pkg->id, pkg->type, NULL, 0);
+	ipcSend(pkg->id, pkg->type, NULL, 0);
 }
 
 static void doDMA(DeviceT* dev, PackageT* pkg) { 
 	uint32_t node = *(uint32_t*)getPackageData(pkg);
 
 	if(node == 0) {
-		psend(pkg->id, PKG_TYPE_ERR, NULL, 0);
+		ipcSend(pkg->id, PKG_TYPE_ERR, NULL, 0);
 		return;
 	}
 
@@ -55,20 +55,20 @@ static void doDMA(DeviceT* dev, PackageT* pkg) {
 	protoAddInt(proto, dma);
 	protoAddInt(proto, (int32_t)size);
 
-	psend(pkg->id, pkg->type, proto->data, proto->size);
+	ipcSend(pkg->id, pkg->type, proto->data, proto->size);
 	protoFree(proto);
 }
 
 static void doFlush(DeviceT* dev, PackageT* pkg) { 
 	uint32_t node = *(uint32_t*)getPackageData(pkg);
 	if(node == 0) {
-		psend(pkg->id, PKG_TYPE_ERR, NULL, 0);
+		ipcSend(pkg->id, PKG_TYPE_ERR, NULL, 0);
 		return;
 	}
 
 	if(dev->flush != NULL)
 		dev->flush(node);
-	psend(pkg->id, pkg->type, NULL, 0);
+	ipcSend(pkg->id, pkg->type, NULL, 0);
 }
 
 static void doAdd(DeviceT* dev, PackageT* pkg) { 
@@ -78,14 +78,14 @@ static void doAdd(DeviceT* dev, PackageT* pkg) {
 	protoFree(proto);
 
 	if(node == 0 || name[0] == 0) {
-		psend(pkg->id, PKG_TYPE_ERR, NULL, 0);
+		ipcSend(pkg->id, PKG_TYPE_ERR, NULL, 0);
 		return;
 	}
 
 	int32_t ret = 0;
 	if(dev->add != NULL)
 		ret = dev->add(node, name);	
-	psend(pkg->id, pkg->type, &ret, 4);
+	ipcSend(pkg->id, pkg->type, &ret, 4);
 }
 
 static void doWrite(DeviceT* dev, PackageT* pkg) { 
@@ -96,7 +96,7 @@ static void doWrite(DeviceT* dev, PackageT* pkg) {
 	protoFree(proto);
 
 	if(node == 0) {
-		psend(pkg->id, PKG_TYPE_ERR, NULL, 0);
+		ipcSend(pkg->id, PKG_TYPE_ERR, NULL, 0);
 		return;
 	}
 
@@ -104,7 +104,7 @@ static void doWrite(DeviceT* dev, PackageT* pkg) {
 	if(dev->write != NULL)
 		ret = dev->write(node, p, size);	
 
-	psend(pkg->id, pkg->type, &ret, 4);
+	ipcSend(pkg->id, pkg->type, &ret, 4);
 }
 
 static void doRead(DeviceT* dev, PackageT* pkg) { 
@@ -114,12 +114,12 @@ static void doRead(DeviceT* dev, PackageT* pkg) {
 	uint32_t seek = (uint32_t)protoReadInt(proto);
 	
 	if(node == 0) {
-		psend(pkg->id, PKG_TYPE_ERR, NULL, 0);
+		ipcSend(pkg->id, PKG_TYPE_ERR, NULL, 0);
 		return;
 	}
 
 	if(size == 0) {
-		psend(pkg->id, pkg->type, NULL, 0);
+		ipcSend(pkg->id, pkg->type, NULL, 0);
 		return;
 	}
 
@@ -129,9 +129,9 @@ static void doRead(DeviceT* dev, PackageT* pkg) {
 		ret = dev->read(node, buf, size, seek);	
 
 	if(ret < 0)
-		psend(pkg->id, PKG_TYPE_ERR, NULL, 0);
+		ipcSend(pkg->id, PKG_TYPE_ERR, NULL, 0);
 	else
-		psend(pkg->id, pkg->type, buf, size);
+		ipcSend(pkg->id, pkg->type, buf, size);
 	free(buf);
 }
 
@@ -144,7 +144,7 @@ static void doCtrl(DeviceT* dev, PackageT* pkg) {
 	protoFree(proto);
 
 	if(node == 0) {
-		psend(pkg->id, PKG_TYPE_ERR, NULL, 0);
+		ipcSend(pkg->id, PKG_TYPE_ERR, NULL, 0);
 		return;
 	}
 
@@ -154,9 +154,9 @@ static void doCtrl(DeviceT* dev, PackageT* pkg) {
 		p = dev->ctrl(node, cmd, p, size, &ret);	
 
 	if(ret < 0)
-		psend(pkg->id, PKG_TYPE_ERR, NULL, 0);
+		ipcSend(pkg->id, PKG_TYPE_ERR, NULL, 0);
 	else
-		psend(pkg->id, pkg->type, p, ret);
+		ipcSend(pkg->id, pkg->type, p, ret);
 }
 
 static void handle(PackageT* pkg, void* p) {

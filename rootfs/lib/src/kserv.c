@@ -11,7 +11,7 @@ bool kservRun(const char* regName, KServFuncT servFunc, void* p) {
 	}
 
   while(true) {
-    PackageT* pkg = proll();
+    PackageT* pkg = ipcRoll();
     if(pkg != NULL) {
       servFunc(pkg, p);
       free(pkg);
