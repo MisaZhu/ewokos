@@ -10,7 +10,7 @@ unsigned int getMMIOBasePhy() {
 }
 
 unsigned int getMMIOMemSize() {
-	return 2*MB;
+	return 4*MB;
 }
 
 unsigned int getUartIrq() {
