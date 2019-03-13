@@ -191,6 +191,7 @@ bool procLoad(ProcessT *proc, const char *pimg, uint32_t imgSize) {
 	if(procImage == NULL)
 		return false;
 	memcpy(procImage, pimg, imgSize);
+	procShrinkMemory(proc, proc->heapSize/PAGE_SIZE);
 
 	struct ElfHeader *header = (struct ElfHeader *) procImage;
 	if (header->type != ELFTYPE_EXECUTABLE) {

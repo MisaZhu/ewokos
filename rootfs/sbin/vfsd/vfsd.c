@@ -22,9 +22,9 @@ typedef struct {
 static MountT _mounts[MOUNT_MAX];
 static TreeNodeT _root;
 
-static bool checkAccess(TreeNodeT* node, bool w) {
+static bool checkAccess(TreeNodeT* node, bool wr) {
 	(void)node;
-	(void)w;
+	(void)wr;
 	return true;
 }
 

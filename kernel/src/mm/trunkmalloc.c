@@ -48,8 +48,11 @@ char* trunkMalloc(MallocT* m, uint32_t size) {
 		else {
 			block->used = 1;
 			tryBreak(m, block, size);
-			return block->mem;
+			break;
 		}
+	}
+	if(block != NULL) {
+		return block->mem;
 	}
 
 	/*Can't find any available block, expand pages*/
@@ -116,21 +119,21 @@ static void tryMerge(MallocT* m, MemBlockT* block) {
 try to shrink the pages.
 */
 static void tryShrink(MallocT* m) {
-	//uint32_t blockSize = sizeof(MemBlockT);
+	uint32_t blockSize = sizeof(MemBlockT);
 	uint32_t addr = (uint32_t)m->mTail;
 	//check if page aligned.	
 	if(m->mTail == NULL || m->mTail->used == 1 || (addr % PAGE_SIZE) != 0)
 		return;
 
-	//int pages = (m->mTail->size+blockSize) / PAGE_SIZE;
+	int pages = (m->mTail->size+blockSize) / PAGE_SIZE;
 	m->mTail = m->mTail->prev;
 	if(m->mTail != NULL)
 		m->mTail->next = NULL;
-	else
-		m->mTail = m->mHead;
 	//else
-	//	m->mHead = NULL;
-	//m->shrink(m->arg, pages);
+	//	m->mTail = m->mHead;
+	else
+		m->mHead = NULL;
+	m->shrink(m->arg, pages);
 }
 
 void trunkFree(MallocT* m, char* p) {

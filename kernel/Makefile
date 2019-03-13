@@ -41,7 +41,8 @@ ARCH_OBJS = arch/$(arch)/src/irq.o \
 	arch/$(arch)/src/fb.o \
 	arch/$(arch)/src/hardware.o
 
-DEV_OBJS = src/dev/uart.o
+DEV_OBJS = src/dev/uart.o \
+	src/dev/gpio.o
 
 LIB_OBJS = ../lib/src/kstring.o \
 	../lib/src/base16.o \

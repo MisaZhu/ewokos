@@ -13,7 +13,7 @@
 #include <timer.h>
 #include <scheduler.h>
 #include <dev/initfs.h>
-//#include <vfs.h>
+#include <dev/gpio.h>
 #include <base16.h>
 #include <mailbox.h>
 #include <dev/fb.h>
@@ -122,9 +122,17 @@ void kernelEntry() {
 
 	/*init the rest allocable memory VM*/
 	initAllocableMem();
-	
+
+	printk("\n=================\n"
+				"EwokOS (by Misa.Z)\n"
+				"=================\n"
+				"Kernel got ready(MMU and ProcMan).\n\n");
+
 	/*init share memory*/
 	shmInit();
+
+	/*init gpio*/
+	gpioInit();
 
 	/*init mailbox for board support*/
 	mailboxInit();
@@ -135,31 +143,28 @@ void kernelEntry() {
 	/*init uart for output.*/
 	uartInit(); 
 
+	/*init ipc*/
+	ipcInit();
+
 	/*decode initramdisk to high memory(kernel trunk memory).*/
+	printk("Load init ramdisk ... ");
 	_initRamDiskBase = decodeInitFS();
 	if(_initRamDiskBase == NULL) {
 		printk("panic: initramdisk decode failed!\n");
 		return;
 	}
-
-	printk("\n\n=================\n"
-				"EwokOS (by Misa.Z)\n"
-				"=================\n"
-				"Kernel got ready(MMU and ProcMan).\n"
-				"Loading the first process...\n\n");
-
-	ipcInit();
-
 	ramdiskOpen((const char*)_initRamDiskBase, &_initRamDisk, kmalloc);
+	printk("ok.\n");
 
+	/*init process mananer*/
 	procInit();
 
+	printk("Loading the first process ... ");
 	ProcessT *proc = procCreate(); //create first process
 	if(proc == NULL) {
 		printk("panic: init process create failed!\n");
 		return;
 	}
-
 	int size = 0;
 	const char *p = ramdiskRead(&_initRamDisk, FIRST_PROCESS, &size);
 	if(p == NULL) {
@@ -170,13 +175,21 @@ void kernelEntry() {
 		procLoad(proc, p, size);
 		strncpy(proc->cmd, FIRST_PROCESS, CMD_MAX);
 	}
+	printk("ok.\n");
 
+	/*init irq*/
 	irqInit();
+
+	/*timer irq*/
 	timerInit();
 
+	/*start scheduler*/
 	schedulerInit();
 
-	//kramdiskClose(_initRamDisk, kmfree);
-	//kmfree(_initRamDiskBase);
-	while(1);
+	while(1) {
+		schedule();
+	}
+
+	ramdiskClose(&_initRamDisk, kmfree);
+	kmfree(_initRamDiskBase);
 }
