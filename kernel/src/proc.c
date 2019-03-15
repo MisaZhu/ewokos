@@ -21,16 +21,14 @@ static PageDirEntryT _processVM[PROCESS_COUNT_MAX][PAGE_DIR_NUM];
 ProcessT* _currentProcess = NULL;
 
 /* proc_init initializes the process sub-system. */
-void procInit(void)
-{
+void procInit(void) {
 	for (int i = 0; i < PROCESS_COUNT_MAX; i++)
 		_processTable[i].state = UNUSED;
 	_currentProcess = NULL;
 }
 
 /* proc_exapnad_memory expands the heap size of the given process. */
-bool procExpandMemory(void *p, int pageCount)
-{
+bool procExpandMemory(void *p, int pageCount) {
 	ProcessT* proc = (ProcessT*)p;	
 	for (int i = 0; i < pageCount; i++) {
 		char *page = kalloc();
@@ -50,8 +48,7 @@ bool procExpandMemory(void *p, int pageCount)
 }
 
 /* proc_shrink_memory shrinks the heap size of the given process. */
-void procShrinkMemory(void* p, int pageCount)
-{
+void procShrinkMemory(void* p, int pageCount) {
 	ProcessT* proc = (ProcessT*)p;	
 	for (int i = 0; i < pageCount; i++) {
 		uint32_t virtualAddr = proc->heapSize - PAGE_SIZE;
@@ -75,9 +72,30 @@ static void* procGetMemTail(void* p) {
 	return (void*)proc->heapSize;
 }
 
+static void insert(ProcessT* proc) { /*insert to ready process loop*/
+	if(_currentProcess == NULL)
+		_currentProcess = proc;
+	proc->next = _currentProcess;
+	proc->prev = _currentProcess->prev;
+	_currentProcess->prev->next = proc;
+	_currentProcess->prev = proc;
+}
+
+static void remove(ProcessT* proc) { /*remove from ready process loop*/
+	proc->next->prev = proc->prev;
+	proc->prev->next = proc->next;
+
+	if(proc->next == proc) //only one left.
+		_currentProcess = NULL;
+	else
+		_currentProcess = proc->next;
+
+	proc->next = NULL;
+	proc->prev = NULL;
+}
+
 /* proc_creates allocates a new process and returns it. */
-ProcessT *procCreate(void)
-{
+ProcessT *procCreate(void) {
 	ProcessT *proc = NULL;
 	int index = -1;
 	PageDirEntryT *vm = NULL;
@@ -134,17 +152,17 @@ ProcessT *procCreate(void)
 	proc->mallocMan.getMemTail = procGetMemTail;
 
 	memset(&proc->files, 0, sizeof(ProcFileT)*FILE_MAX);
+
+	insert(proc);
 	return proc;
 }
 
-int *getCurrentContext(void)
-{
+int *getCurrentContext(void) {
 	return _currentProcess->context;
 }
 
 /* proc_free frees all resources allocated by proc. */
-void procFree(ProcessT *proc)
-{
+void procFree(ProcessT *proc) {
 	/*free file info*/
 	for(int i=0; i<FILE_MAX; i++) {
 		KFileT* kf = proc->files[i].kf;
@@ -240,13 +258,11 @@ bool procLoad(ProcessT *proc, const char *pimg, uint32_t imgSize) {
 	proc->context[CPSR] = cpsrUser(); //CPSR 0x10 for user mode
 	proc->context[RESTART_ADDR] = (int) proc->entry;
 	proc->context[SP] = USER_STACK_BOTTOM + PAGE_SIZE;
-
 	return true;
 }
 
 /* proc_start starts running the given process. */
-void procStart(ProcessT *proc)
-{
+void procStart(ProcessT *proc) {
 	_currentProcess = proc;
 
 	__setTranslationTableBase((uint32_t) V2P(proc->vm));
@@ -258,16 +274,14 @@ void procStart(ProcessT *proc)
 	__switchToContext(proc->context);
 }
 
-ProcessT* procGet(int pid) 
-{
+ProcessT* procGet(int pid) {
 	if(pid < 0 || pid >= PROCESS_COUNT_MAX)
 		return NULL;
 
 	return &_processTable[pid];
 }
 
-int kfork(void)
-{
+int kfork(void) {
 	ProcessT *child = NULL;
 	ProcessT *parent = _currentProcess;
 	uint32_t i = 0;
@@ -335,8 +349,6 @@ int kfork(void)
 }
 
 void procExit() {
-	int i;
-
 	if (_currentProcess == NULL)
 		return;
 
@@ -344,19 +356,18 @@ void procExit() {
 	__asm__ volatile("ldr sp, = _initStack");
 	__asm__ volatile("add sp, #4096");
 
-	for (i = 0; i < PROCESS_COUNT_MAX; i++) {
-		ProcessT *proc = &_processTable[i];
-
+	ProcessT *proc = _currentProcess->next;
+	while(proc != _currentProcess) {
 		if (proc->state == SLEEPING &&
 				proc->waitPid == _currentProcess->pid) {
 			proc->waitPid = -1;
 			proc->state = READY;
 		}
+		proc = proc->next;
 	}
-
 	procFree(_currentProcess);
-	_currentProcess = NULL;
 
+	remove(_currentProcess);
 	schedule();
 	return;
 }

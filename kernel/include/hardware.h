@@ -4,6 +4,8 @@
 #include <types.h>
 #include <mm/mmu.h>
 
+extern void hardwareInit();
+
 extern uint32_t getUartIrq();
 extern uint32_t getTimerIrq();
 

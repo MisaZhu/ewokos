@@ -48,7 +48,7 @@ typedef struct {
 	uint32_t seek;
 } ProcFileT;
 
-typedef struct {
+typedef struct Process {
 	enum ProcessState state;
 	int32_t pid; /*auto-increased id*/
 	int32_t fatherPid; /*father pid*/
@@ -72,6 +72,10 @@ typedef struct {
 	MallocT mallocMan;
 	/*for file*/
 	ProcFileT files[FILE_MAX];
+
+	/*proc link*/
+	struct Process* next;
+	struct Process* prev;
 } ProcessT;
 
 /* public symbols */

@@ -15,7 +15,6 @@
 #include <dev/initfs.h>
 #include <dev/gpio.h>
 #include <base16.h>
-#include <mailbox.h>
 #include <dev/fb.h>
 #include <printk.h>
 
@@ -123,6 +122,9 @@ void kernelEntry() {
 	/*init the rest allocable memory VM*/
 	initAllocableMem();
 
+	/*hardware init*/
+	hardwareInit();
+
 	printk("\n=================\n"
 				"EwokOS (by Misa.Z)\n"
 				"=================\n"
@@ -133,9 +135,6 @@ void kernelEntry() {
 
 	/*init gpio*/
 	gpioInit();
-
-	/*init mailbox for board support*/
-	mailboxInit();
 
 	/*framebuffer init*/
 	fbInit();

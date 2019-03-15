@@ -3,33 +3,27 @@
 #include <irq.h>
 #include <hardware.h>
 
-static int roundRobinIndex;
+void schedule(void) {
+	if(_currentProcess == NULL)
+		return;
 
-void schedule(void)
-{
-	ProcessT *proc;
-	proc = NULL;
-	for (int i = 0; i < PROCESS_COUNT_MAX; i++) {
-		proc = &_processTable[roundRobinIndex];
-
-		roundRobinIndex++;
-		if (roundRobinIndex == PROCESS_COUNT_MAX) {
-			roundRobinIndex = 0;
-		}
-
-		if (proc->state == READY) {
-			if(_currentProcess != proc) {
-				_currentProcess = proc;
-				procStart(proc);
-			}
-			else {
-				return;
-			}
-		}
+	if(_currentProcess->state == READY) {
+		_currentProcess->state = RUNNING;
+		procStart(_currentProcess);
+		return;
 	}
 
-	/* no process? DEAD!!! */
-	while(1);
+	ProcessT* proc = _currentProcess->next;
+	while(_currentProcess != proc) {
+		if(proc->state == READY)  {
+			if(_currentProcess->state == RUNNING)
+				_currentProcess->state = READY;
+			proc->state = RUNNING;
+			procStart(proc);
+			return;
+		}
+		proc = proc->next;
+	}
 }
 
 void handleTimer(void)
@@ -42,7 +36,6 @@ void handleTimer(void)
 
 void schedulerInit(void)
 {
-	roundRobinIndex = 0;
 	timerSetInterval(SCHEDULE_TIME);
 	registerInterruptHandler(getTimerIrq(), handleTimer);
 }
