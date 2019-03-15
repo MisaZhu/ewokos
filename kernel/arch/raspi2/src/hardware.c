@@ -2,6 +2,9 @@
 #include <mm/mmu.h>
 #include <mailbox.h>
 
+void hardwareInit() {
+	mailboxInit();
+}
 
 uint32_t getPhyRamSize() {
 	TagsInfoT info;

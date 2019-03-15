@@ -1,6 +1,9 @@
 #include <hardware.h>
 #include <mm/mmu.h>
 
+void hardwareInit() {
+}
+
 unsigned int getPhyRamSize() {
 	return 256*MB;
 }
