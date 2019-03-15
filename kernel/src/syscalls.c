@@ -153,8 +153,7 @@ static int32_t syscall_ipcReady() {
 }
 
 static int32_t syscall_ipcClose(int32_t arg0) {
-	ipcClose(arg0);
-	return 0;
+	return ipcClose(arg0);
 }
 
 static int32_t syscall_ipcWrite(int32_t arg0, int32_t arg1, int32_t arg2) {

@@ -18,7 +18,7 @@ void ipcInit();
 int32_t ipcOpen(int32_t pid, uint32_t bufSize);
 
 /*close ipcernel ipc channel*/
-void ipcClose(int32_t id);
+int32_t ipcClose(int32_t id);
 
 /*return size sent, 0 means closed, < 0 means retry. */
 int32_t ipcWrite(int32_t id, void* data, uint32_t size);

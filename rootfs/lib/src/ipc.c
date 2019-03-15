@@ -11,7 +11,8 @@ int ipcOpen(int pid, uint32_t bufSize) {
 }
 
 void ipcClose(int id) {
-	syscall1(SYSCALL_IPC_CLOSE, id);
+	while(syscall1(SYSCALL_IPC_CLOSE, id) != 0)
+		yield();
 }
 
 static void ipcRing(int id) {
@@ -108,13 +109,13 @@ PackageT* ipcRecv(int id) {
 	return pkg;
 }
 
-PackageT* ipcReq(int pid, uint32_t bufSize, uint32_t type, void* data, uint32_t size) {
+PackageT* ipcReq(int pid, uint32_t bufSize, uint32_t type, void* data, uint32_t size, bool reply) {
 	int id = ipcOpen(pid, bufSize);
 	if(id < 0)
 		return NULL;
 
 	int i = ipcSend(id, type, data, size);
-	if(i == 0) {
+	if(i == 0 || !reply) {
 		ipcClose(id);
 		return NULL;
 	}

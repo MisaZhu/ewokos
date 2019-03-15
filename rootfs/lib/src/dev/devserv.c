@@ -29,13 +29,11 @@ static void doOpen(DeviceT* dev, PackageT* pkg) {
 static void doClose(DeviceT* dev, PackageT* pkg) { 
 	uint32_t node = *(uint32_t*)getPackageData(pkg);
 	if(node == 0) {
-		ipcSend(pkg->id, PKG_TYPE_ERR, NULL, 0);
 		return;
 	}
 
 	if(dev->close != NULL)
 		dev->close(node);
-	ipcSend(pkg->id, pkg->type, NULL, 0);
 }
 
 static void doDMA(DeviceT* dev, PackageT* pkg) { 
@@ -63,13 +61,11 @@ static void doDMA(DeviceT* dev, PackageT* pkg) {
 static void doFlush(DeviceT* dev, PackageT* pkg) { 
 	uint32_t node = *(uint32_t*)getPackageData(pkg);
 	if(node == 0) {
-		ipcSend(pkg->id, PKG_TYPE_ERR, NULL, 0);
 		return;
 	}
 
 	if(dev->flush != NULL)
 		dev->flush(node);
-	ipcSend(pkg->id, pkg->type, NULL, 0);
 }
 
 static void doAdd(DeviceT* dev, PackageT* pkg) { 

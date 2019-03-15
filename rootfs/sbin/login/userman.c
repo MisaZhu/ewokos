@@ -21,7 +21,7 @@ int usermanAuth(const char* name, const char* passwd) {
 	ProtoT* proto = protoNew(NULL, 0);
 	protoAddStr(proto, name);
 	protoAddStr(proto, passwd);
-	PackageT* pkg = ipcReq(_usermanPid, 0, 0, proto->data, proto->size);
+	PackageT* pkg = ipcReq(_usermanPid, 0, 0, proto->data, proto->size, true);
 	protoFree(proto);
 	if(pkg == NULL)	
 		return -1;
