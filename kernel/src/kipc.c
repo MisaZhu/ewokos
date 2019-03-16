@@ -206,17 +206,18 @@ int32_t ipcReady() {
 	int32_t i;
 	for(i=0; i<CHANNEL_MAX; i++) {
 		ChannelT* channel = &_channels[i];
-		if(channel->procMap[channel->ring].pid == pid)
+		if(channel->procMap[channel->ring].pid == pid) // current process hold the ring 
 			break;
 	}
 
-	if(i >= CHANNEL_MAX) {
+	if(i >= CHANNEL_MAX) { // not channel ring for current proc
 		procSleep(pid);
 		return -1;
 	}
 	return i;
 }
 
+/*close all channels of specific process*/
 void ipcCloseAll(int32_t pid) {
 	int32_t i;
 	for(i=0; i<CHANNEL_MAX; i++) {
