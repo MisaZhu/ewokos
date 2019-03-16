@@ -13,12 +13,12 @@ static uint32_t _shMemTail = 0;
 static uint32_t _shmCount = 0;
 
 typedef struct ShareMem {
-	uint32_t id;
-	uint32_t addr;
-	uint32_t pages;
-	uint32_t used;
-	uint32_t flags;
-	int32_t owner;
+	uint32_t id; //uniqe accumulating counter
+	uint32_t addr; //memory block base address
+	uint32_t pages; //memory pages
+	uint32_t used; //used or free
+	uint32_t flags; 
+	int32_t owner; //process id which alloced this shm
 	struct ShareMem* next;
 	struct ShareMem* prev;
 } ShareMemT;
@@ -27,13 +27,14 @@ static ShareMemT* _shmHead = NULL;
 static ShareMemT* _shmTail = NULL;
 
 void shmInit() {
+	//share memory base address at virtual address phy_mem_size + 256MB
 	_shMemTail = (uint32_t)ALIGN_UP(getPhyRamSize()+256*MB, PAGE_SIZE);
 	_shmHead = NULL;
 	_shmTail = NULL;
 	_shmCount = 0;
 }
 
-ShareMemT* shmNew() {
+static ShareMemT* shmNew() {
 	ShareMemT* ret = (ShareMemT*)kmalloc(sizeof(ShareMemT));
 	if(ret == NULL)
 		return NULL;
@@ -83,7 +84,7 @@ int32_t shmalloc(uint32_t size) {
 		pages++;
 	
 	ShareMemT* i = _shmHead;
-	while(i != NULL) {
+	while(i != NULL) { //search for available memory block
 		if(!i->used && i->pages >= pages)
 			break;
 		i = i->next;
@@ -97,7 +98,6 @@ int32_t shmalloc(uint32_t size) {
 			if(tmp != NULL) {
 				tmp->pages = i->pages -  pages;
 				tmp->addr = i->addr + (pages * PAGE_SIZE);
-
 				i->pages = pages;
 				tmp->next = i->next;
 				tmp->prev = i;
@@ -109,11 +109,10 @@ int32_t shmalloc(uint32_t size) {
 			}
 		}
 	}
-	else { //need to expand.
+	else { // not found, need to expand pages for new block.
 		i = shmNew();
 		if(i == NULL)
 			return -1;
-
 		i->addr = addr;
 		if(_shmHead == NULL) {
 			_shmHead = _shmTail = i;
@@ -124,7 +123,7 @@ int32_t shmalloc(uint32_t size) {
 		}
 	}		
 
-	if(i->pages == 0) {
+	if(i->pages == 0) { // map pages expanded new block
 		if(!shmMapPages(addr, pages))
 			return -1;
 		i->pages = pages;
@@ -138,7 +137,7 @@ int32_t shmalloc(uint32_t size) {
 	return i->id;
 }
 
-static ShareMemT* shmItem(int32_t id) {
+static ShareMemT* shmItem(int32_t id) { //get shm item by id.
 	ShareMemT* i = _shmHead;
 	while(i != NULL) {
 		if(i->used && i->id == (uint32_t)id)
@@ -191,6 +190,7 @@ void* shmRaw(int32_t id) {
 	return (void*)it->addr;
 }
 	
+/*map share memory to process*/
 void* shmProcMap(int32_t pid, int32_t id) {
 	ShareMemT* it = shmItem(id);
 	ProcessT* proc = procGet(pid);
@@ -209,6 +209,7 @@ void* shmProcMap(int32_t pid, int32_t id) {
 	return (void*)it->addr;
 }
 
+/*unmap share memory of process*/
 int32_t shmProcUnmap(int32_t pid, int32_t id) {
 	ProcessT* proc = procGet(pid);
 	ShareMemT* it = shmItem(id);
@@ -223,6 +224,7 @@ int32_t shmProcUnmap(int32_t pid, int32_t id) {
 	return 0;
 }
 
+/*free all share memory used by the process*/
 void shmProcFree(int32_t pid) {
 	ShareMemT* i = _shmHead;
 	while(i != NULL) {

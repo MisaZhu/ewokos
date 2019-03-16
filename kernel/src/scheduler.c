@@ -7,18 +7,19 @@ void schedule(void) {
 	if(_currentProcess == NULL)
 		return;
 
-	if(_currentProcess->state == READY) {
+	if(_currentProcess->state == READY) { //current process ready to run
 		_currentProcess->state = RUNNING;
 		procStart(_currentProcess);
 		return;
 	}
 
+	//current process is runing, switch to next one.
 	ProcessT* proc = _currentProcess->next;
 	while(_currentProcess != proc) {
 		if(proc->state == READY)  {
-			if(_currentProcess->state == RUNNING)
+			if(_currentProcess->state == RUNNING) //set current process as ready to run.
 				_currentProcess->state = READY;
-			proc->state = RUNNING;
+			proc->state = RUNNING; //run next one.
 			procStart(proc);
 			return;
 		}
