@@ -40,20 +40,24 @@
 	kernel/arm/boot.S
 	kernel/src/mm/kalloc.c
 	kernel/src/mm/mmu.c
+	kernel/src/mm/trunkmalloc.c
+	kernel/src/mm/kmalloc.c
 	kernel/src/proc.c 
 	kernel/src/sheduler.c
 	kernel/src/syscalls.c
-	kernel/src/kipc.c
-	kernel/src/vfs.c
 	kernel/src/mm/shm.c
+	kernel/src/kipc.c
 
 	rootfs/lib/src/stdlib.c
 	rootfs/lib/src/unistd.c
-	rootfs/lib/src/pmessage.c
+	rootfs/lib/src/ipc.c
 	rootfs/lib/src/shm.c
 
 	rootfs/sbin/init/init.c
-	rootfs/kdev/initfs/initfs.c
+	rootfs/sbin/vfsd/vfsd.c
+	rootfs/dev/initfs/initfs.c
+	rootfs/dev/fbd/fbd.c
+	rootfs/dev/ttyd/ttyd.c
 	rootfs/sbin/shell/shell.c
 
 	Tips: Don't fall in love with assembly too much;).
