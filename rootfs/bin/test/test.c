@@ -2,13 +2,10 @@
 #include <stdio.h>
 #include <kstring.h>
 #include <unistd.h>
-#include <stdlib.h>
-#include <vfs/fs.h>
-#include <shm.h>
 
-void fbtest() {
-	int g = fsOpen("/dev/console0", 0);
-	if(g < 0)
+void test() {
+	int fd = open("/dev/console0", 0);
+	if(fd < 0)
 		return;
 
 	int i = 0;
@@ -16,14 +13,13 @@ void fbtest() {
 
 	while(i<100) {
 		snprintf(s, 31, "Hello, MicroKernel OS! (%d)\n", i++);
-		fsWrite(g, s, strlen(s));
+		write(fd, s, strlen(s));
 	}
-
-	fsClose(g);
+	close(fd);
 }
 
 void _start() {
-	fbtest();
+	test();
 	exit(0);
 }
 

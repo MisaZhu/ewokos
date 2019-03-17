@@ -12,6 +12,8 @@ typedef struct Graph {
 	int32_t shmID;
 } GraphT;
 
+uint32_t rgb(uint32_t r, uint32_t g, uint32_t b);
+
 GraphT* graphOpen(const char* fname);
 
 void graphFlush(GraphT* g);

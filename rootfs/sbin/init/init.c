@@ -51,13 +51,6 @@ void _start() {
 	kservWait("kserv.userman");
 	printf("ok.\n");
 
-	pid = fork();
-	if(pid == 0) { 
-		printf("start console service ... ");
-		exec("consoled");
-	}
-	kservWait("dev.console");
-
 	printf("\n: Hey! wake up!\n"
 			": Matrix had you.\n"
 			": Follow the rabbit...\n\n");

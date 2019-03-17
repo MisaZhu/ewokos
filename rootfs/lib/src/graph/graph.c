@@ -6,6 +6,10 @@
 #include <unistd.h>
 #include <shm.h>
 
+inline uint32_t rgb(uint32_t r, uint32_t g, uint32_t b) {
+	return b << 16 | g << 8 | r;
+}
+
 GraphT* graphOpen(const char* fname) {
 	FBInfoT fbInfo;
 	int fd = fsOpen(fname, 0);

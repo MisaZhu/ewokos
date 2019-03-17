@@ -97,3 +97,20 @@ int getuid() {
 	return syscall1(SYSCALL_GET_UID, getpid());
 }
 
+/*io functions*/
+
+int open(const char* fname, int mode) {
+	return fsOpen(fname, mode);
+}
+
+int write(int fd, const void* buf, uint32_t size) {
+	return fsWrite(fd, buf, size);
+}
+
+int read(int fd, void* buf, uint32_t size) {
+	return fsRead(fd, buf, size);
+}
+
+void close(int fd) {
+	fsClose(fd);
+}

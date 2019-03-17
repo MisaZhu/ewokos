@@ -21,4 +21,13 @@ void yield();
 
 int getuid();
 
+/*i/o functions*/
+int open(const char* fname, int mode);
+
+int write(int fd, const void* buf, uint32_t mode);
+
+int read(int fd, void* buf, uint32_t mode);
+
+void close(int fd);
+
 #endif
