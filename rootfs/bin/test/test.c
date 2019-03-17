@@ -3,26 +3,23 @@
 #include <kstring.h>
 #include <unistd.h>
 #include <stdlib.h>
-#include <graph/graph.h>
 #include <vfs/fs.h>
 #include <shm.h>
 
 void fbtest() {
-	GraphT* g = graphOpen("/dev/fb0");
-	if(g == NULL)
+	int g = fsOpen("/dev/console0", 0);
+	if(g < 0)
 		return;
 
 	int i = 0;
 	char s[32];
 
 	while(i<100) {
-		clear(g, 0x222222);
-		snprintf(s, 31, "Hello, MicroKernel OS! (%d)", i++);
-		drawText(g, 10, 100, s, &fontBig, 0xFFFFFF);
-		graphFlush(g);
+		snprintf(s, 31, "Hello, MicroKernel OS! (%d)\n", i++);
+		fsWrite(g, s, strlen(s));
 	}
 
-	graphClose(g);
+	fsClose(g);
 }
 
 void _start() {

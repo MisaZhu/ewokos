@@ -202,4 +202,11 @@ void devRun(DeviceT* dev, const char* devName, uint32_t index, const char* nodeN
 	}
 	printf("(%s mounted to vfs:%s)\n", devName, nodeName);
 	kservRun(devName, handle, dev);
+
+	if(vfsUnmount(node) != 0)
+		return;
+
+	if(dev->unmount != NULL) {
+		dev->unmount(node);
+	}
 }

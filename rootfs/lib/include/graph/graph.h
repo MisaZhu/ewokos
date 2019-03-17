@@ -28,6 +28,8 @@ void fill(GraphT* g, int32_t x, int32_t y, uint32_t w, uint32_t h, uint32_t colo
 
 void line(GraphT* g, int32_t x1, int32_t y1, int32_t x2, int32_t y2, uint32_t color);
 
+void drawChar(GraphT* g, int32_t x, int32_t y, char c, FontT* font, uint32_t color);
+
 void drawText(GraphT* g, int32_t x, int32_t y, const char* str, FontT* font, uint32_t color);
 
 #endif

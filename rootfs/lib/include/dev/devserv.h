@@ -5,6 +5,7 @@
 
 typedef struct {
 	int (*mount)(uint32_t node, int32_t index);
+	int (*unmount)(uint32_t node);
 	int (*open)(uint32_t node, int32_t flags);
 	int (*close)(uint32_t node);
 	int (*add)(uint32_t node, const char* name);

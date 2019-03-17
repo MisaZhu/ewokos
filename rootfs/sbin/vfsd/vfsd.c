@@ -167,6 +167,12 @@ static TreeNodeT* fsnodeMount(const char* fname, const char* devName,
 static int32_t fsnodeUnmount(TreeNodeT* node) {
 	if(!checkAccess(node, true))
 		return -1;
+	TreeNodeT* old = _mounts[FSN(node)->mount].old;
+	TreeNodeT* father = node->father;
+	treeDel(node, free);
+
+	if(old != NULL && father != NULL)
+		treeAdd(father, old);
 	return 0;
 }
 
