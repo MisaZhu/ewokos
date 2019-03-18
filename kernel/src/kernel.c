@@ -12,7 +12,6 @@
 #include <kstring.h>
 #include <timer.h>
 #include <scheduler.h>
-#include <dev/initfs.h>
 #include <dev/gpio.h>
 #include <base16.h>
 #include <dev/fb.h>
@@ -82,37 +81,14 @@ static void initAllocableMem() {
 	Notice:	From now, you can kalloc all the rest of physical mem.
 	*/
 	mapPages(_kernelVM, ALLOCATABLE_MEMORY_START, V2P(ALLOCATABLE_MEMORY_START), _phyMemSize, AP_RW_D);
+
+	/*map initfs memory, */
+	mapPages(_kernelVM, getInitRDBasePhy(), getInitRDBasePhy(), getInitRDBasePhy()+getInitRDSize(), AP_RW_D);
 }
 
 char* _initRamDiskBase = 0;
 uint32_t _initRamDiskSize = 0;
 RamDiskT _initRamDisk;
-
-char* decodeInitFS() {
-	char* ret;
-	char* p;
-	int32_t i;
-	int32_t sz;
-	const char* s;
-
-	ret = (char*)kmalloc(_initfsSize);
-	if(ret == NULL)
-		return NULL;
-
-	p = ret;
-	i = 0;
-	while(1) {
-		s = _initfs[i];
-		if(s[0] == 0)
-			break;
-
-		base16Decode(s, strlen(s), p, &sz);
-		p += sz;	
-		i++;
-	}
-	_initRamDiskSize = _initfsSize;
-	return ret;
-}
 
 #define FIRST_PROCESS "init"
 void kernelEntry() {
@@ -134,7 +110,7 @@ void kernelEntry() {
 	shmInit();
 
 	/*init gpio*/
-	gpioInit();
+	gpio_init();
 
 	/*framebuffer init*/
 	fbInit();
@@ -147,11 +123,13 @@ void kernelEntry() {
 
 	/*decode initramdisk to high memory(kernel trunk memory).*/
 	printk("Load init ramdisk ... ");
-	_initRamDiskBase = decodeInitFS();
+	_initRamDiskSize = getInitRDSize();
+	_initRamDiskBase = kmalloc(_initRamDiskSize);
 	if(_initRamDiskBase == NULL) {
 		printk("panic: initramdisk decode failed!\n");
 		return;
 	}
+	memcpy(_initRamDiskBase, (void*)getInitRDBasePhy(), getInitRDSize());
 	ramdiskOpen((const char*)_initRamDiskBase, &_initRamDisk, kmalloc);
 	printk("ok.\n");
 

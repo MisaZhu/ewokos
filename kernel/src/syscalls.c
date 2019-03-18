@@ -7,14 +7,15 @@
 #include <kernel.h>
 #include <kstring.h>
 #include <mm/trunkmalloc.h>
+#include <mm/kmalloc.h>
 #include <mm/shm.h>
 #include <kipc.h>
 #include <types.h>
 #include <kserv.h>
 #include <fsinfo.h>
-//#include <vfs.h>
 #include <scheduler.h>
 #include <hardware.h>
+#include <sramdisk.h>
 #include <dev/fb.h>
 
 static int32_t syscall_uartPutch(int32_t c) {
@@ -205,6 +206,12 @@ static int32_t syscall_readFileInitRD(int32_t arg0, int32_t arg1, int32_t arg2) 
 static int32_t syscall_cloneInitRD() {
 	void * ret = (void*)pmalloc(_initRamDiskSize);
 	memcpy(ret, _initRamDiskBase, _initRamDiskSize);
+
+	ramdiskClose(&_initRamDisk, kmfree);
+	kmfree(_initRamDiskBase);
+	_initRamDiskBase = NULL;
+	_initRamDiskSize = 0;
+
 	return (int32_t)ret;
 }
 

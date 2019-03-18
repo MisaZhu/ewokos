@@ -24,3 +24,8 @@ void sti(void) {
 	__asm__("msr cpsr_c, %[v]"::[v]"r"(val):);
 }
 
+inline void loopd(uint32_t times) {
+	while(times > 0)
+		times--;
+}
+

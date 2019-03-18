@@ -1,8 +1,8 @@
 OS = EwokOS
 
 ifndef arch
-#	arch = versatilepb
-	arch = raspi2
+	arch = versatilepb
+#	arch = raspi2
 endif
 include arch/$(arch)/config.mk
 
@@ -40,10 +40,12 @@ ARCH_OBJS = arch/$(arch)/src/irq.o \
 	arch/$(arch)/src/timer.o \
 	arch/$(arch)/src/mailbox.o \
 	arch/$(arch)/src/fb.o \
-	arch/$(arch)/src/hardware.o
+	arch/$(arch)/src/hardware.o \
+	arch/$(arch)/src/gpio.o \
+	arch/$(arch)/src/spi.o \
+	arch/$(arch)/src/uartbb.o 
 
-DEV_OBJS = src/dev/uart.o \
-	src/dev/gpio.o 
+DEV_OBJS = src/dev/uart.o
 
 LIB_OBJS = ../lib/src/kstring.o \
 	../lib/src/base16.o \
@@ -54,6 +56,7 @@ LIB_OBJS = ../lib/src/kstring.o \
 OBJS += $(ARCH_OBJS) \
 	$(DEV_OBJS) \
 	src/system.o \
+	src/timer.o \
 	src/printk.o \
 	src/kernel.o \
 	src/irq.o \
@@ -76,17 +79,14 @@ $(OS).bin: $(OBJS) $(LIB_OBJS) $(OS).ld
 	$(OBJCOPY) -O binary build/$(OS).elf build/$(OS).bin
 	$(OBJDUMP) -D build/$(OS).elf > build/$(OS).asm
 
-run_nogra:
-	qemu-system-arm $(QEMU_FLAGS) -kernel build/$(OS).bin -nographic
-
 run:
-	qemu-system-arm $(QEMU_FLAGS) -kernel build/$(OS).bin -serial mon:stdio
+	qemu-system-arm $(QEMU_FLAGS) -kernel build/$(OS).bin -initrd ../rootfs/rootfs.img -serial mon:stdio
 
 runasm:
-	qemu-system-arm $(QEMU_FLAGS) -kernel build/$(OS).bin -d in_asm -serial mon:stdio
+	qemu-system-arm $(QEMU_FLAGS) -kernel build/$(OS).bin -initrd ../rootfs/rootfs.img -d in_asm -serial mon:stdio
 
 debug: $(OS).bin
-	qemu-system-arm $(QEMU_FLAGS) -gdb tcp::26000 -S -kernel build/$(OS).bin -serial mon:stdio
+	qemu-system-arm $(QEMU_FLAGS) -gdb tcp::26000 -S -kernel build/$(OS).bin -initrd ../rootfs/rootfs.img -serial mon:stdio
 
 gdb: 
 	echo "target remote :26000" > /tmp/gdbinit
