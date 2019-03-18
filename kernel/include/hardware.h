@@ -12,6 +12,9 @@ extern uint32_t getTimerIrq();
 extern uint32_t getMMIOBasePhy();
 extern uint32_t getMMIOMemSize();
 
+extern uint32_t getInitRDBasePhy();
+extern uint32_t getInitRDSize();
+
 extern uint32_t getPhyRamSize();
 
 extern void archSetKernelVM(PageDirEntryT* vm);

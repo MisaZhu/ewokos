@@ -9,5 +9,7 @@ void __switchToContext(int *context);
 void cli(); //disable interrupts
 void sti(); //enable interrupts
 
+void loopd(uint32_t times);
+
 #endif
 
