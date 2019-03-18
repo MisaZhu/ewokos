@@ -43,7 +43,7 @@ ARCH_OBJS = arch/$(arch)/src/irq.o \
 	arch/$(arch)/src/hardware.o
 
 DEV_OBJS = src/dev/uart.o \
-	src/dev/gpio.o
+	src/dev/gpio.o 
 
 LIB_OBJS = ../lib/src/kstring.o \
 	../lib/src/base16.o \
@@ -77,19 +77,16 @@ $(OS).bin: $(OBJS) $(LIB_OBJS) $(OS).ld
 	$(OBJDUMP) -D build/$(OS).elf > build/$(OS).asm
 
 run_nogra:
-	qemu-system-arm $(QEMU_FLAGS) -kernel build/$(OS).elf -nographic
+	qemu-system-arm $(QEMU_FLAGS) -kernel build/$(OS).bin -nographic
 
 run:
-	qemu-system-arm $(QEMU_FLAGS) -kernel build/$(OS).elf -serial mon:stdio
+	qemu-system-arm $(QEMU_FLAGS) -kernel build/$(OS).bin -serial mon:stdio
 
 runasm:
-	qemu-system-arm $(QEMU_FLAGS) -kernel build/$(OS).elf -d in_asm   -serial mon:stdio
+	qemu-system-arm $(QEMU_FLAGS) -kernel build/$(OS).bin -d in_asm -serial mon:stdio
 
 debug: $(OS).bin
-	qemu-system-arm $(QEMU_FLAGS) -gdb tcp::26000 -S -kernel build/$(OS).elf -serial mon:stdio
-
-debug_nogra: $(OS).bin
-	qemu-system-arm $(QEMU_FLAGS) -gdb tcp::26000 -S -kernel build/$(OS).elf -initrd $(INITRAMFS) -nographic
+	qemu-system-arm $(QEMU_FLAGS) -gdb tcp::26000 -S -kernel build/$(OS).bin -serial mon:stdio
 
 gdb: 
 	echo "target remote :26000" > /tmp/gdbinit
