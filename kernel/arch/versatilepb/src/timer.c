@@ -25,3 +25,8 @@ void timerClearInterrupt(void)
 
 void timerInit() {
 }
+
+uint32_t timerRead() {
+	return TIMER[TIMER_VALUE];
+}
+

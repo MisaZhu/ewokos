@@ -54,3 +54,7 @@ void timerInit() {
 	enable_cntv(); 
 	enableIRQ(IRQ_ARM_TIMER_BIT);
 }
+
+uint32_t timerRead() {
+	return 0;
+}

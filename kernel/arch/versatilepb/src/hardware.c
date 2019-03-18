@@ -4,23 +4,31 @@
 void hardwareInit() {
 }
 
-unsigned int getPhyRamSize() {
+uint32_t getPhyRamSize() {
 	return 256*MB;
 }
 
-unsigned int getMMIOBasePhy() {
+uint32_t getMMIOBasePhy() {
 	return 0x10000000;
 }
 
-unsigned int getMMIOMemSize() {
+uint32_t getMMIOMemSize() {
 	return 4*MB;
 }
 
-unsigned int getUartIrq() {
+uint32_t getInitRDBasePhy() {
+	return 0x08000000;
+}
+
+uint32_t getInitRDSize() {
+	return 1*MB;
+}
+
+uint32_t getUartIrq() {
 	return 12;
 }
 
-unsigned int getTimerIrq() {
+uint32_t getTimerIrq() {
 	return 5;
 }
 

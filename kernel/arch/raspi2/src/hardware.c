@@ -17,6 +17,14 @@ uint32_t getMMIOBasePhy() {
 	return 0x3F000000;
 }
 
+uint32_t getInitRDBasePhy() {
+	return 0x08000000;
+}
+
+uint32_t getInitRDSize() {
+	return 1*MB;
+}
+
 uint32_t getMMIOMemSize() {
 	return 4*MB;
 }

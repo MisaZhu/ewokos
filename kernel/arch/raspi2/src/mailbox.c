@@ -162,14 +162,6 @@
 
 void __memBarrier();
 
-static inline unsigned int get32(unsigned int addr) {
-	return *(unsigned int*)addr;
-}
-
-static inline void put32(unsigned int addr, unsigned int value) {
-	*((unsigned int*)addr) = value;
-}
-
 /**
  * Mailbox (MB) 0: VC -> ARM, MB 1: ARM->VC
  * - write to MB1, read from MB0!
