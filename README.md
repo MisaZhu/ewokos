@@ -64,9 +64,6 @@
 
 . Kernel init memory map
 
-	PhyMem                         VMem
-	0x00000000-0x00080000  map to  0x80000000-0x80080000  (8M)
-
 	PhyMem        VMem         Desc
 	----------------------------------------------------
 	0x00000000    0xFFFF0000   interrupt table
