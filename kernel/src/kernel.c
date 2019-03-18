@@ -167,6 +167,8 @@ void kernelEntry() {
 		schedule();
 	}
 
-	ramdiskClose(&_initRamDisk, kmfree);
-	kmfree(_initRamDiskBase);
+	if(_initRamDiskBase != NULL) {
+		ramdiskClose(&_initRamDisk, kmfree);
+		kmfree(_initRamDiskBase);
+	}
 }
