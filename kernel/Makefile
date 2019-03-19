@@ -43,6 +43,7 @@ ARCH_OBJS = arch/$(arch)/src/irq.o \
 	arch/$(arch)/src/hardware.o \
 	arch/$(arch)/src/gpio.o \
 	arch/$(arch)/src/spi.o \
+	arch/$(arch)/src/initrd.o \
 	arch/$(arch)/src/uartbb.o 
 
 DEV_OBJS = src/dev/uart.o

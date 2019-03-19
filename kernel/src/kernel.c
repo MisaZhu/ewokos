@@ -15,6 +15,8 @@
 #include <dev/gpio.h>
 #include <base16.h>
 #include <dev/fb.h>
+#include <dev/initrd.h>
+#include <sramdisk.h>
 #include <printk.h>
 
 PageDirEntryT* _kernelVM;
@@ -81,14 +83,7 @@ static void initAllocableMem() {
 	Notice:	From now, you can kalloc all the rest of physical mem.
 	*/
 	mapPages(_kernelVM, ALLOCATABLE_MEMORY_START, V2P(ALLOCATABLE_MEMORY_START), _phyMemSize, AP_RW_D);
-
-	/*map initfs memory, */
-	mapPages(_kernelVM, getInitRDBasePhy(), getInitRDBasePhy(), getInitRDBasePhy()+getInitRDSize(), AP_RW_D);
 }
-
-char* _initRamDiskBase = 0;
-uint32_t _initRamDiskSize = 0;
-RamDiskT _initRamDisk;
 
 #define FIRST_PROCESS "init"
 void kernelEntry() {
@@ -123,16 +118,10 @@ void kernelEntry() {
 
 	/*decode initramdisk to high memory(kernel trunk memory).*/
 	printk("Load init ramdisk ... ");
-	_initRamDiskSize = getInitRDSize();
-	_initRamDiskBase = kmalloc(_initRamDiskSize);
-	if(_initRamDiskBase == NULL) {
-		printk("panic: initramdisk decode failed!\n");
+	if(loadInitRD() != 0)
 		return;
-	}
-	memcpy(_initRamDiskBase, (void*)getInitRDBasePhy(), getInitRDSize());
-	ramdiskOpen((const char*)_initRamDiskBase, &_initRamDisk, kmalloc);
 	printk("ok.\n");
-
+	
 	/*init process mananer*/
 	procInit();
 
@@ -142,8 +131,9 @@ void kernelEntry() {
 		printk("panic: init process create failed!\n");
 		return;
 	}
-	int size = 0;
-	const char *p = ramdiskRead(&_initRamDisk, FIRST_PROCESS, &size);
+	
+	int32_t size = 0;
+	const char *p = readInitRD(FIRST_PROCESS, &size);
 	if(p == NULL) {
 		printk("panic: init process load failed!\n");
 		return;
@@ -167,8 +157,5 @@ void kernelEntry() {
 		schedule();
 	}
 
-	if(_initRamDiskBase != NULL) {
-		ramdiskClose(&_initRamDisk, kmfree);
-		kmfree(_initRamDiskBase);
-	}
+	closeInitRD();
 }
