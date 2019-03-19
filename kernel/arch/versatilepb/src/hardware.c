@@ -34,6 +34,6 @@ uint32_t getTimerIrq() {
 
 void archSetKernelVM(PageDirEntryT* vm) {
 	(void)vm;
-	uint32_t fbBase = 128*MB; //framebuffer addr
+	uint32_t fbBase = 126*MB; //framebuffer addr
 	mapPages(vm, fbBase, fbBase, fbBase+2*MB, AP_RW_D);
 }

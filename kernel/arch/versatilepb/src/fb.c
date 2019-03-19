@@ -28,7 +28,7 @@ bool fbInit() {
 	_fbInfo.depth = 32;
 	_fbInfo.xoffset = 0;
 	_fbInfo.yoffset = 0;
-	_fbInfo.pointer = 128*MB;
+	_fbInfo.pointer = 126*MB;
 	_fbInfo.size = 0;
 
 	if(videoInit(&_fbInfo) == 0)
