@@ -7,9 +7,6 @@
 #define KF_WRITE 0x1
 
 typedef struct KFile {
-	struct KFile* next;
-	struct KFile* prev;
-
 	uint32_t nodeAddr;
 	uint16_t refR;
 	uint16_t refW;

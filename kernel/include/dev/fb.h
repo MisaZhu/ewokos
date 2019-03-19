@@ -3,6 +3,8 @@
 
 #include <fbinfo.h>
 
+extern char _fbStart[];
+
 bool fbInit();
 
 FBInfoT* fbGetInfo();

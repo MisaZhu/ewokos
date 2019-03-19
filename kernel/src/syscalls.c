@@ -219,37 +219,37 @@ static int32_t syscall_kdb(int32_t arg0) {
 	return arg0;
 }
 
-static int32_t syscall_pfOpen(int32_t arg0, int32_t arg1, int32_t arg2) {
-	ProcessT* proc = procGet(arg0);
+static int32_t syscall_pfOpen(int32_t arg0, int32_t arg1) {
+	ProcessT* proc = _currentProcess;
 	if(proc == NULL)
 		return -1;
 
-	KFileT* kf = kfOpen((uint32_t)arg1);
+	KFileT* kf = kfOpen((uint32_t)arg0);
 	if(kf == NULL)
 		return -1;
 
-	kfRef(kf, arg2);
+	kfRef(kf, arg1);
 
 	int32_t i;
 	for(i=0; i<FILE_MAX; i++) {
 		if(proc->files[i].kf == NULL) {
 			proc->files[i].kf = kf;
-			proc->files[i].flags = arg2;
+			proc->files[i].flags = arg1;
 			proc->files[i].seek = 0;
 			return i;
 		}
 	}
 
-	kfUnref(kf, arg2);
+	kfUnref(kf, arg1);
 	return -1;
 }
 
-static int32_t syscall_pfClose(int32_t arg0, int32_t arg1) {
-	ProcessT* proc = procGet(arg0);
+static int32_t syscall_pfClose(int32_t arg0) {
+	ProcessT* proc = _currentProcess;
 	if(proc == NULL)
 		return -1;
 
-	int32_t fd = arg1;
+	int32_t fd = arg0;
 	if(fd < 0 || fd >= FILE_MAX)
 		return -1;
 
@@ -261,28 +261,28 @@ static int32_t syscall_pfClose(int32_t arg0, int32_t arg1) {
 	return  0;
 }
 
-static int32_t syscall_pfSeek(int32_t arg0, int32_t arg1, int32_t arg2) {
-	ProcessT* proc = procGet(arg0);
+static int32_t syscall_pfSeek(int32_t arg0, int32_t arg1) {
+	ProcessT* proc = _currentProcess;
 	if(proc == NULL)
 		return -1;
 
-	int32_t fd = arg1;
+	int32_t fd = arg0;
 	if(fd < 0 || fd >= FILE_MAX)
 		return -1;
 
 	KFileT* kf = proc->files[fd].kf;
 	if(kf == NULL || kf->nodeAddr == 0)
 		return -1;
-	proc->files[fd].seek = arg2;
-	return arg2;
+	proc->files[fd].seek = arg1;
+	return arg1;
 }
 
-static int32_t syscall_pfGetSeek(int32_t arg0, int32_t arg1) {
-	ProcessT* proc = procGet(arg0);
+static int32_t syscall_pfGetSeek(int32_t arg0) {
+	ProcessT* proc = _currentProcess;
 	if(proc == NULL)
 		return -1;
 
-	int32_t fd = arg1;
+	int32_t fd = arg0;
 	if(fd < 0 || fd >= FILE_MAX)
 		return -1;
 
@@ -293,7 +293,7 @@ static int32_t syscall_pfGetSeek(int32_t arg0, int32_t arg1) {
 }
 
 static int32_t syscall_pfNodeAddr(int32_t arg0, int32_t arg1) {
-	ProcessT *proc = procGet(arg0);
+	ProcessT* proc = procGet(arg0);
 	if(proc == NULL || arg1 < 0 || arg1>= FILE_MAX)
 		return -1;
 
