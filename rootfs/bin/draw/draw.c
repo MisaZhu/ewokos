@@ -12,7 +12,7 @@ void fbtest() {
 
 	int32_t i = 0;
 	char s[32];
-	while(i<1000) {
+	while(i<100) {
 		clear(g, rgb(100, 100, 200));
 		snprintf(s, 31, "Hello, MicroKernel OS! (%d)", i++);
 		fill(g, 10, 10, fontBig.w* strlen(s) + 20, fontBig.h + 20, rgb(0, 0, 0));
