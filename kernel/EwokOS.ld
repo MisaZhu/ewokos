@@ -24,6 +24,8 @@ SECTIONS
 		*(.bss COMMON)
 	}
 	. = ALIGN(8);
+	PROVIDE(_fbStart = .); 
+	. += framebuffer_size;
 
 	PROVIDE(_kernelEnd = .); /*defined at kernel/include/kernel.h*/
 }

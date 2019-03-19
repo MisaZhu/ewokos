@@ -1,5 +1,6 @@
 #include <hardware.h>
 #include <mm/mmu.h>
+#include <dev/fb.h>
 
 void hardwareInit() {
 }
@@ -34,6 +35,6 @@ uint32_t getTimerIrq() {
 
 void archSetKernelVM(PageDirEntryT* vm) {
 	(void)vm;
-	uint32_t fbBase = 126*MB; //framebuffer addr
+	uint32_t fbBase = (uint32_t)V2P(_fbStart); //framebuffer addr
 	mapPages(vm, fbBase, fbBase, fbBase+2*MB, AP_RW_D);
 }
