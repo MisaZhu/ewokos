@@ -74,7 +74,8 @@ static void putChar(char c) {
 	}
 }
 
-int32_t consoleWrite(uint32_t node, void* buf, uint32_t size) {
+int32_t consoleWrite(uint32_t node, void* buf, uint32_t size, int32_t seek) {
+	(void)seek;
 	(void)node;
 
 	const char* p = (const char*)buf;

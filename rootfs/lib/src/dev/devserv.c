@@ -90,6 +90,7 @@ static void doWrite(DeviceT* dev, PackageT* pkg) {
 	uint32_t node = (uint32_t)protoReadInt(proto);
 	uint32_t size;
 	void* p = protoRead(proto, &size);
+	int32_t seek = protoReadInt(proto);
 	protoFree(proto);
 
 	if(node == 0) {
@@ -99,7 +100,7 @@ static void doWrite(DeviceT* dev, PackageT* pkg) {
 
 	int32_t ret = 0;
 	if(dev->write != NULL)
-		ret = dev->write(node, p, size);	
+		ret = dev->write(node, p, size, seek);	
 
 	ipcSend(pkg->id, pkg->type, &ret, 4);
 }

@@ -137,9 +137,8 @@ void _start() {
 
 		int child_pid = fork();
 		if (child_pid == 0) {
-			if(exec(cmd) != 0) {
-				exit(0);
-			}
+			exec(cmd);
+			exit(0);
 		}
 		else if(fg) {
 			wait(child_pid);

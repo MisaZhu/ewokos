@@ -85,11 +85,11 @@ static int32_t fsnodeNodeInfo(TreeNodeT* node, FSInfoT* info) {
 	return 0;
 }
 
-TreeNodeT* getNodeByFD(int32_t pid, int32_t fd) {
+static TreeNodeT* getNodeByFD(int32_t pid, int32_t fd) {
 	return (TreeNodeT*)syscall2(SYSCALL_PFILE_NODE, pid, fd);
 }
 
-TreeNodeT* getNodeByName(const char* fname) {
+static TreeNodeT* getNodeByName(const char* fname) {
 	return fsTreeGet(&_root, fname);
 }
 

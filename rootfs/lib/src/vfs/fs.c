@@ -19,7 +19,7 @@ int fsOpen(const char* name, int32_t flags) {
 	if(vfsNodeInfo(node, &info) != 0)
 		return -1;
 	
-	int32_t fd = syscall3(SYSCALL_PFILE_OPEN, getpid(), (int32_t)node, flags);
+	int32_t fd = syscall2(SYSCALL_PFILE_OPEN, (int32_t)node, flags);
 	if(fd < 0)
 		return -1;
 
@@ -113,7 +113,6 @@ int32_t fsFlush(int fd) {
 }
 
 int fsRead(int fd, char* buf, uint32_t size) {
-	int32_t pid = getpid();
 	uint32_t node = vfsNodeByFD(fd);
 	if(node == 0) 
 		return -1;
@@ -123,7 +122,7 @@ int fsRead(int fd, char* buf, uint32_t size) {
 	if(vfsNodeInfo(node, &info) != 0)
 		return -1;
 
-	int seek = syscall2(SYSCALL_PFILE_GET_SEEK, pid, fd);
+	int seek = syscall1(SYSCALL_PFILE_GET_SEEK, fd);
 	if(seek < 0)
 		return -1;
 
@@ -149,7 +148,7 @@ int fsRead(int fd, char* buf, uint32_t size) {
 	free(pkg);
 
 	seek += sz;
-	syscall3(SYSCALL_PFILE_SEEK, pid, fd, seek);
+	syscall2(SYSCALL_PFILE_SEEK, fd, seek);
 	return sz;
 }
 
@@ -197,9 +196,14 @@ int fsWrite(int fd, const char* buf, uint32_t size) {
 	if(vfsNodeInfo(node, &info) != 0)
 		return -1;
 
+	int seek = syscall1(SYSCALL_PFILE_GET_SEEK, fd);
+	if(seek < 0)
+		return -1;
+
 	ProtoT* proto = protoNew(NULL, 0);
 	protoAddInt(proto, node);
 	protoAdd(proto, (void*)buf, size);
+	protoAddInt(proto, seek);
 	PackageT* pkg = ipcReq(info.devServPid, bufSize, FS_WRITE, proto->data, proto->size, true);
 	protoFree(proto);
 
@@ -210,6 +214,9 @@ int fsWrite(int fd, const char* buf, uint32_t size) {
 
 	int sz = *(int*)getPackageData(pkg);
 	free(pkg);
+
+	seek += sz;
+	syscall2(SYSCALL_PFILE_SEEK, fd, seek);
 	return sz;
 }
 

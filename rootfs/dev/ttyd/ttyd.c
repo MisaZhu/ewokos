@@ -2,8 +2,9 @@
 #include <unistd.h>
 #include <syscall.h>
 
-int32_t ttyWrite(uint32_t node, void* buf, uint32_t size) {
+int32_t ttyWrite(uint32_t node, void* buf, uint32_t size, int32_t seek) {
 	(void)node;
+	(void)seek;
 
 	const char* p = (const char*)buf;
 	for(uint32_t i=0; i<size; i++) {

@@ -28,8 +28,9 @@ static int32_t fbMount(uint32_t node, int32_t index) {
 	return 0;
 }
 
-int32_t fbWrite(uint32_t node, void* buf, uint32_t size) {
+int32_t fbWrite(uint32_t node, void* buf, uint32_t size, int32_t seek) {
 	(void)node;
+	(void)seek;
 	return syscall2(SYSCALL_FB_WRITE, (int32_t)buf, (int32_t)size);
 }
 
