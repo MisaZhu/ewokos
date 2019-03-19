@@ -5,7 +5,7 @@
 
 .About
 
-	A microkernel os for learning operating system. 
+	A microkernel os for learning operating system. versatilepb ported well, raspi2 todo....
 
 .Environment & Tools
 
@@ -24,7 +24,7 @@
 	make rootfs first, and then make kernel.
 	
 	"make run": run EwokOS; 
-	  "qemu-system-arm -kernel build/EwokOS.bin -initrd ../rootfs/build/initfs"
+	  "qemu-system-arm -kernel build/EwokOS.bin -initrd ../rootfs/initfs.img"
 	  boot kernel file and load init ramdisk.
 
 	"make debug": run EwokOS at debug server-mode;
