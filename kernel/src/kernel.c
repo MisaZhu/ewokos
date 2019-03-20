@@ -85,7 +85,29 @@ static void initAllocableMem() {
 	mapPages(_kernelVM, ALLOCATABLE_MEMORY_START, V2P(ALLOCATABLE_MEMORY_START), _phyMemSize, AP_RW_D);
 }
 
-#define FIRST_PROCESS "init"
+void loadInitProc() {
+	const char* name = "init";
+
+	printk("Loading the first process ... ");
+	ProcessT *proc = procCreate(); //create first process
+	if(proc == NULL) {
+		printk("panic: init process create failed!\n");
+		return;
+	}
+	
+	int32_t size = 0;
+	const char *p = readInitRD(name, &size);
+	if(p == NULL) {
+		printk("panic: init process load failed!\n");
+		return;
+	}
+	else {
+		procLoad(proc, p, size);
+		strncpy(proc->cmd, name, CMD_MAX);
+	}
+	printk("ok.\n");
+}
+
 void kernelEntry() {
 	/* Done mapping all mem */
 	initKernelVM();
@@ -125,24 +147,8 @@ void kernelEntry() {
 	/*init process mananer*/
 	procInit();
 
-	printk("Loading the first process ... ");
-	ProcessT *proc = procCreate(); //create first process
-	if(proc == NULL) {
-		printk("panic: init process create failed!\n");
-		return;
-	}
-	
-	int32_t size = 0;
-	const char *p = readInitRD(FIRST_PROCESS, &size);
-	if(p == NULL) {
-		printk("panic: init process load failed!\n");
-		return;
-	}
-	else {
-		procLoad(proc, p, size);
-		strncpy(proc->cmd, FIRST_PROCESS, CMD_MAX);
-	}
-	printk("ok.\n");
+	/*load init process(first process)*/
+	loadInitProc();
 
 	/*init irq*/
 	irqInit();
