@@ -4,16 +4,16 @@
 #include <types.h>
 #include <package.h>
 
-int ipcOpen(int pid, uint32_t bufsize);
+int ipc_open(int pid, uint32_t buf_size);
 
-void ipcClose(int id);
+void ipc_close(int id);
 
-int ipcSend(int id, uint32_t type, void* data, uint32_t size);
+int ipc_send(int id, uint32_t type, void* data, uint32_t size);
 
-PackageT* ipcRecv(int id);
+package_t* ipc_recv(int id);
 
-PackageT* ipcReq(int pid, uint32_t bufSize, uint32_t type, void* data, uint32_t size, bool reply);
+package_t* ipc_req(int pid, uint32_t buf_size, uint32_t type, void* data, uint32_t size, bool reply);
 
-PackageT* ipcRoll();
+package_t* ipc_roll();
 
 #endif

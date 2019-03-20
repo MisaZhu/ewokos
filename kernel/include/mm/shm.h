@@ -3,18 +3,18 @@
 
 #include <types.h>
 
-void shmInit();
+void shm_init();
 
-int32_t shmalloc(uint32_t size);
+int32_t shm_alloc(uint32_t size);
 
-void* shmRaw(int32_t id);
+void* shm_raw(int32_t id);
 
-void shmfree(int32_t id);
+void shm_free(int32_t id);
 
-void* shmProcMap(int32_t pid, int32_t id);
+void* shm_proc_map(int32_t pid, int32_t id);
 
-int32_t shmProcUnmap(int32_t pid, int32_t id);
+int32_t shm_proc_unmap(int32_t pid, int32_t id);
 
-void shmProcFree(int32_t pid);
+void shm_proc_free(int32_t pid);
 
 #endif

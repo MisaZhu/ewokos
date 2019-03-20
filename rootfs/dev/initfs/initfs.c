@@ -7,28 +7,28 @@
 #include <syscall.h>
 #include <sramdisk.h>
 
-static RamDiskT _initRamDisk;
+static ram_disk_t _initRamDisk;
 
 static int32_t initfsMount(uint32_t node, int32_t index) {
 	(void)index;
 
-	RamFileT* f = _initRamDisk.head;	
+	ram_file_t* f = _initRamDisk.head;	
 	while(f != NULL) {
-		vfsAdd(node, f->name, f->size);
+		vfs_add(node, f->name, f->size);
 		f = f->next;
 	}
 	return 0;
 }
 
 static int32_t readSRamDisk(uint32_t node, int seek, char* buf, uint32_t size) {
-	FSInfoT info;
-	if(vfsNodeInfo(node, &info) != 0)
+	fs_info_t info;
+	if(vfs_node_info(node, &info) != 0)
 		return -1;
 	
 	const char* fname = info.name;
 	int32_t fsize = 0;
 
-	const char*p = ramdiskRead(&_initRamDisk, fname, &fsize);
+	const char*p = ram_disk_read(&_initRamDisk, fname, &fsize);
 	if(p == NULL || fsize == 0)
 		return 0;
 
@@ -56,15 +56,15 @@ void _start() {
 	if(ramdiskBase == NULL) {
 		exit(0);
 	}
-	ramdiskOpen((const char*)ramdiskBase, &_initRamDisk, malloc);
+	ram_disk_open((const char*)ramdiskBase, &_initRamDisk, malloc);
 
 
-	DeviceT dev = {0};
+	device_t dev = {0};
 	dev.mount = initfsMount;
 	dev.read = initfsRead;
-	devRun(&dev, "dev.initfs", 0, "/initfs", false);
+	dev_run(&dev, "dev.initfs", 0, "/initfs", false);
 
-	ramdiskClose(&_initRamDisk, free);
+	ram_disk_close(&_initRamDisk, free);
 	free(ramdiskBase);
 	exit(0);
 }

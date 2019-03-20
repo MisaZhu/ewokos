@@ -6,10 +6,10 @@
 typedef struct {
 	char name[KSERV_NAME_MAX+1];
 	int pid;
-} KServT;
+} kserv_t;
 
-int kservReg(const char* name); 
+int kserv_reg(const char* name); 
 
-int kservGet(const char* name);
+int kserv_get(const char* name);
 
 #endif

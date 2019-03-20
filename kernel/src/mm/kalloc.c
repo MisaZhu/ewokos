@@ -5,7 +5,7 @@
 
 /*physical memory split to pages for paging mmu, managed by kalloc/kfree, phymem page state must be occupied or free*/
 
-static PageListT *pageListPrepend(PageListT *pageList,
+static page_list_t *pageListPrepend(page_list_t *pageList,
 					  char *pageAddress);
 
 /*
@@ -13,11 +13,11 @@ static PageListT *pageListPrepend(PageListT *pageList,
  * list nodes are stored in the beginning of the actual page, because
  * the page is free and we can use it for our purposes.
  */
-static PageListT *freeList4k = NULL;
-static PageListT *freeList1k = NULL;
+static page_list_t *freeList4k = NULL;
+static page_list_t *freeList1k = NULL;
 
 /* kalloc_init adds the given address range to the free list. */
-void kallocInit(uint32_t start, uint32_t end)
+void kalloc_init(uint32_t start, uint32_t end)
 {
 	char *startAddress = (char *) ALIGN_UP(start, PAGE_SIZE);
 	char *endAddress = (char *) ALIGN_DOWN(end, PAGE_SIZE);
@@ -96,9 +96,9 @@ void kfree1k(void *mem)
  * get_free_memory_size returns total amount of free memory that can be allocated
  * by kalloc and kalloc1k.
  */
-uint32_t getFreeMemorySize(void) {
+uint32_t get_free_mem_size(void) {
 	uint32_t result = 0;
-	PageListT *currentPage = NULL;
+	page_list_t *currentPage = NULL;
 
 	/* iterate over free 1k pages */
 	currentPage = freeList1k;
@@ -121,10 +121,10 @@ uint32_t getFreeMemorySize(void) {
  * pageListPrepend adds the given page to the beginning of the page list
  * and returns the address of the new page list.
  */
-static PageListT *pageListPrepend(PageListT *pageList,
+static page_list_t *pageListPrepend(page_list_t *pageList,
 					  char *pageAddress)
 {
-	PageListT *page = (PageListT *) pageAddress;
+	page_list_t *page = (page_list_t *) pageAddress;
 	page->next = pageList;
 
 	return page;

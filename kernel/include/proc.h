@@ -21,11 +21,11 @@
 #include <kfile.h>
 #include <procinfo.h>
 
-typedef void (*EntryFunctionT)(void);
+typedef void (*entry_function_t)(void);
 
 #define PROCESS_COUNT_MAX 128
 
-enum ProcessState {
+enum {
 	UNUSED = 0,
 	CREATED,
 	SLEEPING,
@@ -34,7 +34,7 @@ enum ProcessState {
 	TERMINATED
 };
 
-enum ContextItem {
+enum {
 	CPSR, RESTART_ADDR,
 	R0, R1, R2, R3, R4, R5, R6, R7, R8, R9, R10, R11, R12,
 	SP, LR
@@ -43,58 +43,57 @@ enum ContextItem {
 #define FILE_MAX 32
 
 typedef struct {
-	KFileT* kf;	
+	k_file_t* kf;	
 	uint32_t flags;
 	uint32_t seek;
-} ProcFileT;
+} proc_file_t;
 
-typedef struct Process {
-	enum ProcessState state;
+typedef struct process {
+	uint32_t state;
 	int32_t pid; /*auto-increased id*/
-	int32_t fatherPid; /*father pid*/
+	int32_t father_pid; /*father pid*/
 	int32_t owner; /*owner for muti-user system*/
 	char cmd[CMD_MAX]; /*run command*/
 	char pwd[NAME_MAX]; /*working dir*/
 
 
-	EntryFunctionT entry;
-	PageDirEntryT *vm;
+	entry_function_t entry;
+	page_dir_entry_t *vm;
 
-	uint32_t heapSize;
-	char *userStack;
+	uint32_t heap_size;
+	char *user_stack;
 	//char *kernelStack;
-	int context[17];
+	int32_t context[17];
 
-	int waitPid;
-	int childReturnValue;
+	int wait_pid;
 
 	/*for malloc*/
-	MallocT mallocMan;
+	malloc_t malloc_man;
 	/*for file*/
-	ProcFileT files[FILE_MAX];
+	proc_file_t files[FILE_MAX];
 
 	/*proc link*/
-	struct Process* next;
-	struct Process* prev;
-} ProcessT;
+	struct process* next;
+	struct process* prev;
+} process_t;
 
 /* public symbols */
-extern ProcessT *_currentProcess;
-extern ProcessT _processTable[PROCESS_COUNT_MAX];
+extern process_t *_current_proc;
+extern process_t _process_table[PROCESS_COUNT_MAX];
 
-extern void procInit();
-extern ProcessT *procCreate(void);
-bool procLoad(ProcessT *proc, const char *procImage, uint32_t imgSize);
-void procStart(ProcessT *proc);
-void procFree(ProcessT *proc);
-bool procExpandMemory(void *proc, int pageCount);
-void procShrinkMemory(void *proc, int pageCount);
-ProcessT* procGet(int pid);
-void procSleep(int pid);
-void procWake(int pid);
+extern void proc_init();
+extern process_t *proc_create(void);
+bool proc_load(process_t *proc, const char *proc_image, uint32_t img_size);
+void proc_start(process_t *proc);
+void proc_free(process_t *proc);
+bool proc_expand_mem(void *proc, int page_num);
+void proc_shrink_mem(void *proc, int page_num);
+process_t* proc_get(int pid);
+void proc_sleep(int pid);
+void proc_wake(int pid);
 
 int kfork();
-void procExit();
+void proc_exit();
 void* pmalloc(uint32_t size);
 
 

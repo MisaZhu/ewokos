@@ -7,11 +7,11 @@
 
 typedef struct {
 	int32_t pid; 
-	int32_t fatherPid;
+	int32_t father_pid;
 	int32_t owner; 
-	uint32_t heapSize;
+	uint32_t heap_size;
 
 	char cmd[CMD_MAX];
-} ProcInfoT;
+} proc_info_t;
 	
 #endif

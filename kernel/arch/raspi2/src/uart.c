@@ -44,7 +44,7 @@ static void delay(int32_t count) {
 			: : [count]"r"(count) : "cc");
 }
 
-void uartDevInit(void) {
+void uart_dev_init(void) {
 	// Disable UART0.
 	mmio_write(MMIO_BASE+UART0_CR, 0x00000000);
 	// Setup the GPIO pin 14 && 15.
@@ -85,16 +85,16 @@ void uartDevInit(void) {
 	//mmio_write(MMIO_BASE+UART0_CR, (1 << 0) | (1 << 8) | (1 << 9));
 }
 
-void uartTransmit(char c) {
+void uart_trans(char c) {
 	// Wait for UART to become ready to transmit.
 	while (mmio_read(MMIO_BASE+UART0_FR) & (1 << 5)) {}
 	mmio_write(MMIO_BASE+UART0_DR, c);
 }
 
-int uartReceive(void) {
+int uart_recv(void) {
 	return mmio_read(MMIO_BASE+UART0_DR);
 }
 
-bool uartReadyToRecv(void) {
+bool uart_ready_to_recv(void) {
 	return !(mmio_read(MMIO_BASE+UART0_FR) & (1 << 4));
 }

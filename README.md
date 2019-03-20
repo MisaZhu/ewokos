@@ -68,7 +68,7 @@
 	----------------------------------------------------
 	0x00000000    0xFFFF0000   interrupt table
 	0x00010000    0x80010000   Kernel start (load to)
-	***           ***          (_initStack, _irqStack, _startupPageDir)
+	***           ***          (_init_stack, _irq_stack, _startup_page_dir)
 	***           ***          Kernel end, Kernel PageDir Table start
 	+16KB         +16KB        Kernel PageDir Table end.
 	+32KB         +32KB        kernel malloc base

@@ -4,7 +4,7 @@
 #include <fbinfo.h>
 #include <shm.h>
 
-static FBInfoT _fbInfo;
+static fb_info_t _fbInfo;
 static int32_t _fbBufID = -1;
 static int32_t _fbBufSize = 0;
 static void* _fbBuf = NULL;
@@ -20,11 +20,11 @@ static int32_t fbMount(uint32_t node, int32_t index) {
 	if(_fbBufSize == 0)
 		return -1;
 
-	_fbBufID = shmalloc(_fbBufSize);
+	_fbBufID = shm_alloc(_fbBufSize);
 	if(_fbBufID < 0)
 		return -1;
 
-	_fbBuf = shmMap(_fbBufID);
+	_fbBuf = shm_map(_fbBufID);
 	return 0;
 }
 
@@ -53,20 +53,20 @@ void* fbCtrl(uint32_t node, int32_t cmd, void* data, uint32_t size, int32_t* ret
 
 	if(cmd == 0) {//getfbinfo
 		p = &_fbInfo;
-		*ret = sizeof(FBInfoT);
+		*ret = sizeof(fb_info_t);
 	}
 	return p;
 }
 
 void _start() {
-	DeviceT dev = {0};
+	device_t dev = {0};
 	dev.write = fbWrite;
 	dev.mount = fbMount;
 	dev.dma = fbDMA;
 	dev.ctrl = fbCtrl;
 	dev.flush = fbFlush;
 
-	devRun(&dev, "dev.fb", 0, "/dev/fb0", true);
-	shmUnmap(_fbBufID);
+	dev_run(&dev, "dev.fb", 0, "/dev/fb0", true);
+	shm_unmap(_fbBufID);
 	exit(0);
 }

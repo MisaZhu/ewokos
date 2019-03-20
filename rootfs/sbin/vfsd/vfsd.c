@@ -13,16 +13,16 @@ typedef struct {
 	char devName[DEV_NAME_MAX];
 	int32_t devIndex;
 	int32_t devServPid;
-	TreeNodeT* old;
+	tree_node_t* old;
 } MountT;
 
 #define DEV_VFS "dev.vfs"
 #define MOUNT_MAX 32
 
 static MountT _mounts[MOUNT_MAX];
-static TreeNodeT _root;
+static tree_node_t _root;
 
-static bool checkAccess(TreeNodeT* node, bool wr) {
+static bool checkAccess(tree_node_t* node, bool wr) {
 	(void)node;
 	(void)wr;
 	return true;
@@ -38,12 +38,12 @@ static void fsnodeInit() {
 	strcpy(FSN(&_root)->name, "/");
 }
 
-static TreeNodeT* fsnodeAdd(TreeNodeT* nodeTo, const char* name, uint32_t size, int32_t pid) {
+static tree_node_t* fsnodeAdd(tree_node_t* nodeTo, const char* name, uint32_t size, int32_t pid) {
 	int32_t owner = syscall1(SYSCALL_GET_UID, pid);
 	if(!checkAccess(nodeTo, true))
 		return NULL;
 
-	TreeNodeT* ret = fsTreeSimpleGet(nodeTo, name);
+	tree_node_t* ret = fsTreeSimpleGet(nodeTo, name);
 	if(ret != NULL) 
 		return ret;
 	
@@ -58,14 +58,14 @@ static TreeNodeT* fsnodeAdd(TreeNodeT* nodeTo, const char* name, uint32_t size, 
 	return ret;
 }
 
-static int32_t fsnodeDel(TreeNodeT* node) {
+static int32_t fsnodeDel(tree_node_t* node) {
 	if(!checkAccess(node, true))
 		return -1;
-	treeDel(node, free);
+	tree_del(node, free);
 	return 0;
 }
 
-static int32_t fsnodeNodeInfo(TreeNodeT* node, FSInfoT* info) {
+static int32_t fsnodeNodeInfo(tree_node_t* node, fs_info_t* info) {
 	if(!checkAccess(node, false))
 		return -1;
 	
@@ -85,20 +85,20 @@ static int32_t fsnodeNodeInfo(TreeNodeT* node, FSInfoT* info) {
 	return 0;
 }
 
-static TreeNodeT* getNodeByFD(int32_t pid, int32_t fd) {
-	return (TreeNodeT*)syscall2(SYSCALL_PFILE_NODE, pid, fd);
+static tree_node_t* getNodeByFD(int32_t pid, int32_t fd) {
+	return (tree_node_t*)syscall2(SYSCALL_PFILE_NODE, pid, fd);
 }
 
-static TreeNodeT* getNodeByName(const char* fname) {
+static tree_node_t* getNodeByName(const char* fname) {
 	return fsTreeGet(&_root, fname);
 }
 
-static TreeNodeT* buildNodes(const char* fname, int32_t owner) {
-	TreeNodeT* father = &_root;
+static tree_node_t* buildNodes(const char* fname, int32_t owner) {
+	tree_node_t* father = &_root;
 	if(fname[0] == '/')
 		fname = fname+1;
 
-	TreeNodeT* node = father;	
+	tree_node_t* node = father;	
 	char n[NAME_MAX+1];
 	int j = 0;
 	for(int i=0; i<NAME_MAX; i++) {
@@ -117,10 +117,10 @@ static TreeNodeT* buildNodes(const char* fname, int32_t owner) {
 	return NULL;
 }
 
-static TreeNodeT* fsnodeMount(const char* fname, const char* devName, 
+static tree_node_t* fsnodeMount(const char* fname, const char* devName, 
 		int32_t devIndex, bool isFile, int32_t pid) {
 	int32_t owner = syscall1(SYSCALL_GET_UID, pid);
-	TreeNodeT* to = buildNodes(fname, owner);
+	tree_node_t* to = buildNodes(fname, owner);
 	if(to == NULL)
 		return NULL;
 
@@ -137,7 +137,7 @@ static TreeNodeT* fsnodeMount(const char* fname, const char* devName,
 	if(i >= MOUNT_MAX)
 		return NULL;
 
-	TreeNodeT* node = fsNewNode();
+	tree_node_t* node = fsNewNode();
 	if(node == NULL)
 		return NULL;
 
@@ -164,105 +164,105 @@ static TreeNodeT* fsnodeMount(const char* fname, const char* devName,
 	return node;
 }
 
-static int32_t fsnodeUnmount(TreeNodeT* node) {
+static int32_t fsnodeUnmount(tree_node_t* node) {
 	if(!checkAccess(node, true))
 		return -1;
-	TreeNodeT* old = _mounts[FSN(node)->mount].old;
-	TreeNodeT* father = node->father;
-	treeDel(node, free);
+	tree_node_t* old = _mounts[FSN(node)->mount].old;
+	tree_node_t* father = node->father;
+	tree_del(node, free);
 
 	if(old != NULL && father != NULL)
-		treeAdd(father, old);
+		tree_add(father, old);
 	return 0;
 }
 
-static void doAdd(PackageT* pkg) {
-	ProtoT* proto = protoNew(getPackageData(pkg), pkg->size);
-	uint32_t node = (uint32_t)protoReadInt(proto);
-	const char* name = protoReadStr(proto);
-	uint32_t size = (uint32_t)protoReadInt(proto);
+static void doAdd(package_t* pkg) {
+	proto_t* proto = proto_new(get_pkg_data(pkg), pkg->size);
+	uint32_t node = (uint32_t)proto_read_int(proto);
+	const char* name = proto_read_str(proto);
+	uint32_t size = (uint32_t)proto_read_int(proto);
 
-	TreeNodeT* ret = fsnodeAdd((TreeNodeT*)node, name, size, pkg->pid);
-	ipcSend(pkg->id, pkg->type, &ret, 4);
+	tree_node_t* ret = fsnodeAdd((tree_node_t*)node, name, size, pkg->pid);
+	ipc_send(pkg->id, pkg->type, &ret, 4);
 }
 
-static void doDel(PackageT* pkg) {
-	uint32_t node = *(uint32_t*)getPackageData(pkg);
-	if(fsnodeDel((TreeNodeT*)node) != 0)
-		ipcSend(pkg->id, PKG_TYPE_ERR, NULL, 0);
+static void doDel(package_t* pkg) {
+	uint32_t node = *(uint32_t*)get_pkg_data(pkg);
+	if(fsnodeDel((tree_node_t*)node) != 0)
+		ipc_send(pkg->id, PKG_TYPE_ERR, NULL, 0);
 	else
-		ipcSend(pkg->id, pkg->type, NULL, 0);
+		ipc_send(pkg->id, pkg->type, NULL, 0);
 }
 
-static void doInfo(PackageT* pkg) {
-	uint32_t node = *(uint32_t*)getPackageData(pkg);
-	FSInfoT info;
+static void doInfo(package_t* pkg) {
+	uint32_t node = *(uint32_t*)get_pkg_data(pkg);
+	fs_info_t info;
 
-	if(fsnodeNodeInfo((TreeNodeT*)node, &info) != 0)
-		ipcSend(pkg->id, PKG_TYPE_ERR, NULL, 0);
+	if(fsnodeNodeInfo((tree_node_t*)node, &info) != 0)
+		ipc_send(pkg->id, PKG_TYPE_ERR, NULL, 0);
 	else
-		ipcSend(pkg->id, pkg->type, &info, sizeof(FSInfoT));
+		ipc_send(pkg->id, pkg->type, &info, sizeof(fs_info_t));
 }
 
-static void doNodeByFD(PackageT* pkg) {
-	int32_t fd = *(int32_t*)getPackageData(pkg);
+static void doNodeByFD(package_t* pkg) {
+	int32_t fd = *(int32_t*)get_pkg_data(pkg);
 
-	TreeNodeT* node = getNodeByFD(pkg->pid, fd);
-	ipcSend(pkg->id, pkg->type, &node, 4);
+	tree_node_t* node = getNodeByFD(pkg->pid, fd);
+	ipc_send(pkg->id, pkg->type, &node, 4);
 }
 
-static void doNodeByName(PackageT* pkg) {
-	ProtoT* proto = protoNew(getPackageData(pkg), pkg->size);
-	const char* name = protoReadStr(proto);
-	protoFree(proto);
+static void doNodeByName(package_t* pkg) {
+	proto_t* proto = proto_new(get_pkg_data(pkg), pkg->size);
+	const char* name = proto_read_str(proto);
+	proto_free(proto);
 
-	TreeNodeT* node = getNodeByName(name);
-	ipcSend(pkg->id, pkg->type, &node, 4);
+	tree_node_t* node = getNodeByName(name);
+	ipc_send(pkg->id, pkg->type, &node, 4);
 }
 
-static void doKids(PackageT* pkg) {
-	TreeNodeT* node = (TreeNodeT*)(*(int32_t*)getPackageData(pkg));
+static void doKids(package_t* pkg) {
+	tree_node_t* node = (tree_node_t*)(*(int32_t*)get_pkg_data(pkg));
 
 	if(node == NULL || node->size == 0) {
-		ipcSend(pkg->id, pkg->type, NULL, 0);
+		ipc_send(pkg->id, pkg->type, NULL, 0);
 		return;
 	}
 
-	uint32_t size = sizeof(FSInfoT) * node->size;
-	FSInfoT* ret = (FSInfoT*)malloc(size);
+	uint32_t size = sizeof(fs_info_t) * node->size;
+	fs_info_t* ret = (fs_info_t*)malloc(size);
 	memset(ret, 0, size);
 
 	uint32_t i;
-	TreeNodeT* n = node->fChild;
+	tree_node_t* n = node->fChild;
 	for(i=0; i<node->size; i++) {
 		if(n == NULL)
 			break;
 		fsnodeNodeInfo(n, &ret[i]);
 		n = n->next;
 	}
-	ipcSend(pkg->id, pkg->type, ret, size);
+	ipc_send(pkg->id, pkg->type, ret, size);
 	free(ret);
 }
 
-static void doMount(PackageT* pkg) {
-	ProtoT* proto = protoNew(getPackageData(pkg), pkg->size);
-	const char* fname = protoReadStr(proto);
-	const char* devName = protoReadStr(proto);
-	int32_t devIndex = protoReadInt(proto);
-	int32_t isFile = protoReadInt(proto);
-	protoFree(proto);
+static void doMount(package_t* pkg) {
+	proto_t* proto = proto_new(get_pkg_data(pkg), pkg->size);
+	const char* fname = proto_read_str(proto);
+	const char* devName = proto_read_str(proto);
+	int32_t devIndex = proto_read_int(proto);
+	int32_t isFile = proto_read_int(proto);
+	proto_free(proto);
 
-	TreeNodeT* node = fsnodeMount(fname, devName, devIndex, isFile, pkg->pid);
-	ipcSend(pkg->id, pkg->type, &node, 4);
+	tree_node_t* node = fsnodeMount(fname, devName, devIndex, isFile, pkg->pid);
+	ipc_send(pkg->id, pkg->type, &node, 4);
 }
 
-static void doUnmount(PackageT* pkg) {
-	TreeNodeT* node = (TreeNodeT*)(*(int32_t*)getPackageData(pkg));
+static void doUnmount(package_t* pkg) {
+	tree_node_t* node = (tree_node_t*)(*(int32_t*)get_pkg_data(pkg));
 	fsnodeUnmount(node);
-	ipcSend(pkg->id, pkg->type, NULL, 0);
+	ipc_send(pkg->id, pkg->type, NULL, 0);
 }
 
-static void handle(PackageT* pkg, void* p) {
+static void handle(package_t* pkg, void* p) {
 	(void)p;
 	switch(pkg->type) {
 	case VFS_CMD_ADD:
@@ -293,13 +293,13 @@ static void handle(PackageT* pkg, void* p) {
 }
 
 void _start() {
-	if(kservGetPid("kserv.vfsd") >= 0) {
+	if(kserv_get_pid("kserv.vfsd") >= 0) {
     printf("Panic: 'kserv.vfsd' process has been running already!\n");
 		exit(0);
 	}
 
 	fsnodeInit();
-	if(!kservRun("kserv.vfsd", handle, NULL)) {
+	if(!kserv_run("kserv.vfsd", handle, NULL)) {
 		exit(0);
 	}
 }

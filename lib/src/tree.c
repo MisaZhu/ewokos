@@ -1,11 +1,11 @@
 #include <tree.h>
 #include <kstring.h>
 
-void treeInitNode(TreeNodeT* node) {
-	memset(node, 0, sizeof(TreeNodeT));
+void tree_node_init(tree_node_t* node) {
+	memset(node, 0, sizeof(tree_node_t));
 }
 
-void treeAdd(TreeNodeT* father, TreeNodeT* node) {
+void tree_add(tree_node_t* father, tree_node_t* node) {
 	if(father == NULL || node == NULL)
 		return;
 
@@ -21,18 +21,18 @@ void treeAdd(TreeNodeT* father, TreeNodeT* node) {
 	father->eChild = node;
 }
 
-void treeDel(TreeNodeT* node, FreeFuncT fr) {
+void tree_del(tree_node_t* node, free_func_t fr) {
 	if(node == NULL)
 		return;
 	/*free children*/
-	TreeNodeT* c = node->fChild;
+	tree_node_t* c = node->fChild;
 	while(c != NULL) {
-		TreeNodeT* next = c->next;
-		treeDel(c, fr);
+		tree_node_t* next = c->next;
+		tree_del(c, fr);
 		c = next;
 	}
 
-	TreeNodeT* father = node->father;
+	tree_node_t* father = node->father;
 	if(father != NULL) {
 		if(father->fChild == node)
 			father->fChild = node->next;

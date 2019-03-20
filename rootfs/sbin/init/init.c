@@ -19,7 +19,7 @@ void _start() {
 	if(pid == 0) { 
 		exec("vfsd");
 	}
-	kservWait("kserv.vfsd");
+	kserv_wait("kserv.vfsd");
 	printf("ok.\n");
 
 	printf("start initfs service ... ");
@@ -27,28 +27,28 @@ void _start() {
 	if(pid == 0) { 
 		exec("initfs");
 	}
-	kservWait("dev.initfs");
+	kserv_wait("dev.initfs");
 
 	pid = fork();
 	if(pid == 0) { 
 		printf("start tty service ... ");
 		exec("ttyd");
 	}
-	kservWait("dev.tty");
+	kserv_wait("dev.tty");
 
 	pid = fork();
 	if(pid == 0) { 
 		printf("start framebuffer service ... ");
 		exec("fbd");
 	}
-	kservWait("dev.fb");
+	kserv_wait("dev.fb");
 
 	pid = fork();
 	if(pid == 0) { 
 		printf("start user manager ... ");
 		exec("userman");
 	}
-	kservWait("kserv.userman");
+	kserv_wait("kserv.userman");
 	printf("ok.\n");
 
 	printf("\n: Hey! wake up!\n"

@@ -8,9 +8,9 @@ typedef struct  {
 	uint32_t w, h;
 	const void *data;
 	int32_t pref;
-} FontT;
+} font_t;
 
-extern FontT fontBig;
-extern FontT fontReg;
+extern font_t font_big;
+extern font_t font_reg;
 
 #endif

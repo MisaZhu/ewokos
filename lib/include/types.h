@@ -42,8 +42,8 @@ typedef unsigned int u32_t;
 #define NAME_MAX 256
 #define DEV_NAME_MAX 64
 
-typedef void (*FreeFuncT) (void* p);
-typedef void* (*MallocFuncT) (uint32_t size);
+typedef void (*free_func_t) (void* p);
+typedef void* (*malloc_func_t) (uint32_t size);
 
 #endif
 

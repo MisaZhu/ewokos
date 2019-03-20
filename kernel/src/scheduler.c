@@ -4,23 +4,23 @@
 #include <hardware.h>
 
 void schedule(void) {
-	if(_currentProcess == NULL)
+	if(_current_proc == NULL)
 		return;
 
-	if(_currentProcess->state == READY) { //current process ready to run
-		_currentProcess->state = RUNNING;
-		procStart(_currentProcess);
+	if(_current_proc->state == READY) { //current process ready to run
+		_current_proc->state = RUNNING;
+		proc_start(_current_proc);
 		return;
 	}
 
 	//current process is runing, switch to next one.
-	ProcessT* proc = _currentProcess->next;
-	while(_currentProcess != proc) {
+	process_t* proc = _current_proc->next;
+	while(_current_proc != proc) {
 		if(proc->state == READY)  {
-			if(_currentProcess->state == RUNNING) //set current process as ready to run.
-				_currentProcess->state = READY;
+			if(_current_proc->state == RUNNING) //set current process as ready to run.
+				_current_proc->state = READY;
 			proc->state = RUNNING; //run next one.
-			procStart(proc);
+			proc_start(proc);
 			return;
 		}
 		proc = proc->next;
@@ -29,15 +29,15 @@ void schedule(void) {
 
 void handleTimer(void)
 {
-	timerClearInterrupt();
+	timer_clear_interrupt();
 	schedule();
 }
 
 #define SCHEDULE_TIME 10 /*0.01 sec*/
 
-void schedulerInit(void)
+void scheduler_init(void)
 {
-	timerSetInterval(SCHEDULE_TIME);
-	registerInterruptHandler(getTimerIrq(), handleTimer);
+	timer_set_interval(SCHEDULE_TIME);
+	register_interrupt_handler(get_timer_irq(), handleTimer);
 }
 

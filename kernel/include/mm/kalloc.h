@@ -5,14 +5,14 @@
 
 typedef struct PageList {
 	struct PageList *next;
-} PageListT;
+} page_list_t;
 
 /* exported function declarations */
-void kallocInit(uint32_t start, uint32_t end);
+void kalloc_init(uint32_t start, uint32_t end);
 void *kalloc();
 void kfree(void *page);
 void *kalloc1k();
 void kfree1k(void *page);
-uint32_t getFreeMemorySize(void);
+uint32_t get_free_mem_size(void);
 
 #endif

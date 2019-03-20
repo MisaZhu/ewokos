@@ -5,14 +5,14 @@
 
 #define KSERV_MAX 32
 
-static KServT _kernelServices[KSERV_MAX];
+static kserv_t _kernelServices[KSERV_MAX];
 
-int kservReg(const char* name) {
-	if(_currentProcess->owner > 0) {
+int kserv_reg(const char* name) {
+	if(_current_proc->owner > 0) {
 		return -1;
 	}	
 
-	int pid = _currentProcess->pid;
+	int pid = _current_proc->pid;
 	int i;
 	for(i=0; i<KSERV_MAX; i++) {
 		if(_kernelServices[i].name[0] == 0) 
@@ -33,7 +33,7 @@ int kservReg(const char* name) {
 	return 0;
 }
 
-int kservGet(const char* name) {
+int kserv_get(const char* name) {
 	int i;
 	for(i=0; i<KSERV_MAX; i++) {
 		if(_kernelServices[i].name[0] == 0) 

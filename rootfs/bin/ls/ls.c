@@ -6,13 +6,13 @@
 void _start()
 {
 	char pwd[NAME_MAX];
-	int fd = fsOpen(getcwd(pwd, NAME_MAX), 0);
+	int fd = fs_open(getcwd(pwd, NAME_MAX), 0);
 	if(fd >= 0) {
 		uint32_t num;
-		FSInfoT* infos = fsKids(fd, &num);
+		fs_info_t* infos = fs_kids(fd, &num);
 		if(infos != NULL) {
 			for(uint32_t i=0; i<num; i++) {
-				FSInfoT* info = &infos[i];
+				fs_info_t* info = &infos[i];
 				if(info->type == FS_TYPE_FILE)
 					printf("-f- %d\t%d\t%s\n", info->owner, info->size, info->name);
 				else if(info->type == FS_TYPE_DIR)
@@ -20,7 +20,7 @@ void _start()
 			}
 			free(infos);
 		}
-		fsClose(fd);
+		fs_close(fd);
 	}
 
 	exit(0);

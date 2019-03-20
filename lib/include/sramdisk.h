@@ -14,19 +14,19 @@ typedef struct RamFile {
 	char name[NAME_MAX];
 	const char* content;
 	int32_t size; 
-} RamFileT;
+} ram_file_t;
 
 typedef struct {
-	RamFileT* head;
+	ram_file_t* head;
 	const char* ram;
-} RamDiskT;
+} ram_disk_t;
 
-bool ramdiskHas(RamDiskT* rd, const char* fname);
-void ramdiskOpen(const char*ram, RamDiskT* rd, void*(*alloc)(uint32_t));
-void ramdiskClose(RamDiskT* rd, void (*fr)(void*));
+bool ram_disk_has(ram_disk_t* rd, const char* fname);
+void ram_disk_open(const char*ram, ram_disk_t* rd, void*(*alloc)(uint32_t));
+void ram_disk_close(ram_disk_t* rd, void (*fr)(void*));
 /*
 read file content of fname, return content address and size.
 */
-const char* ramdiskRead(RamDiskT* rd, const char* fname, int* size);
+const char* ram_disk_read(ram_disk_t* rd, const char* fname, int* size);
 
 #endif

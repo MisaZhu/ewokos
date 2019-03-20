@@ -15,8 +15,8 @@ __setDomainAccessControl:
 	mcr p15, 0, r0, cr3, cr0, 0
 	mov pc, lr
 
-.global __setTranslationTableBase
-__setTranslationTableBase:
+.global __set_translation_table_base
+__set_translation_table_base:
 	mcr p15, 0, r0, cr2, cr0, 0
 	mov pc, lr
 
@@ -44,8 +44,8 @@ __useHighInterrupts:
 
 	mov pc, lr
 
-.global __switchToContext
-__switchToContext:
+.global __switch_to_context
+__switch_to_context:
 	LDMIA R0!, {R12, R14}
 	MSR SPSR_fsxc, R12
 	LDMIA R0, {R0-R14}^

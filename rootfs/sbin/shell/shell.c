@@ -82,8 +82,8 @@ static int cd(const char* dir) {
 		strcpy(cwd+len, dir);
 	}
 
-	FSInfoT info;
-	if(fsFInfo(cwd, &info) != 0)
+	fs_info_t info;
+	if(fs_finfo(cwd, &info) != 0)
 		printf("[%s] not exist!\n", dir);	
 	else if(info.type != FS_TYPE_DIR)
 		printf("[%s] is not a directory!\n", dir);	

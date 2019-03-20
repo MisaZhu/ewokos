@@ -3,9 +3,9 @@
 
 #include <types.h>
 
-int32_t loadInitRD();
-void closeInitRD();
-const char* readInitRD(const char* name, int32_t *size);
-void* cloneInitRD();
+int32_t load_initrd();
+void close_initrd();
+const char* read_initrd(const char* name, int32_t *size);
+void* clone_initrd();
 
 #endif

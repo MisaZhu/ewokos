@@ -14,32 +14,32 @@ enum {
 	FS_ADD
 };
 
-int fsOpen(const char* name, int32_t flags);
+int fs_open(const char* name, int32_t flags);
 
-int fsClose(int fd);
+int fs_close(int fd);
 
-int fsInfo(int fd, FSInfoT* info);
+int fsInfo(int fd, fs_info_t* info);
 
-int fsFInfo(const char* name, FSInfoT* info);
+int fs_finfo(const char* name, fs_info_t* info);
 
-FSInfoT* fsKids(int fd, uint32_t *num);
+fs_info_t* fs_kids(int fd, uint32_t *num);
 
-int fsRead(int fd, char* buf, uint32_t size);
+int fs_read(int fd, char* buf, uint32_t size);
 
-int fsCtrl(int fd, int32_t cmd, void* input, uint32_t isize, void* output, uint32_t osize);
+int fs_ctrl(int fd, int32_t cmd, void* input, uint32_t isize, void* output, uint32_t osize);
 
-int fsGetch(int fd);
+int fs_getch(int fd);
 
-int fsPutch(int fd, int c);
+int fs_putch(int fd, int c);
 
-int fsWrite(int fd, const char* buf, uint32_t size);
+int fs_write(int fd, const char* buf, uint32_t size);
 
-int fsAdd(int dirFD, const char* name);
+int fs_add(int dirFD, const char* name);
 
-int32_t fsFlush(int fd);
+int32_t fs_flush(int fd);
 
-int32_t fsDMA(int fd, uint32_t* size);
+int32_t fs_dma(int fd, uint32_t* size);
 
-int32_t fsInited();
+int32_t fs_inited();
 
 #endif

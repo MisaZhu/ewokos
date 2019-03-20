@@ -10,31 +10,31 @@ inline uint32_t rgb(uint32_t r, uint32_t g, uint32_t b) {
 	return b << 16 | g << 8 | r;
 }
 
-GraphT* graphOpen(const char* fname) {
-	FBInfoT fbInfo;
-	int fd = fsOpen(fname, 0);
+graph_t* graphOpen(const char* fname) {
+	fb_info_t fbInfo;
+	int fd = fs_open(fname, 0);
 	if(fd < 0) {
 		return NULL;
 	}
-	if(fsCtrl(fd, 0, NULL, 0, &fbInfo, sizeof(FBInfoT)) != 0) {
-		fsClose(fd);
+	if(fs_ctrl(fd, 0, NULL, 0, &fbInfo, sizeof(fb_info_t)) != 0) {
+		fs_close(fd);
 		return NULL;
 	}
 
 	uint32_t sz;
-	int shmID = fsDMA(fd, &sz);
+	int shmID = fs_dma(fd, &sz);
 	if(shmID < 0 || sz == 0) {
-		fsClose(fd);
+		fs_close(fd);
 		return NULL;
 	}
 	
-	void* p = shmMap(shmID);
+	void* p = shm_map(shmID);
 	if(p == NULL) {
-		fsClose(fd);
+		fs_close(fd);
 		return NULL;
 	}
 
-	GraphT* ret = (GraphT*)malloc(sizeof(GraphT));
+	graph_t* ret = (graph_t*)malloc(sizeof(graph_t));
 	ret->w = fbInfo.width;
 	ret->h = fbInfo.height;
 	ret->buffer = p;
@@ -44,24 +44,24 @@ GraphT* graphOpen(const char* fname) {
 	return ret;
 }
 
-void graphFlush(GraphT* graph) {
-	fsFlush(graph->fd);
+void graphFlush(graph_t* graph) {
+	fs_flush(graph->fd);
 	yield();
 }
 
-void graphClose(GraphT* graph) {
-	shmUnmap(graph->shmID);
-	fsClose(graph->fd);
+void graphClose(graph_t* graph) {
+	shm_unmap(graph->shmID);
+	fs_close(graph->fd);
 	free(graph);
 }
 
-inline void pixel(GraphT* g, int32_t x, int32_t y, uint32_t color) {
+inline void pixel(graph_t* g, int32_t x, int32_t y, uint32_t color) {
 	if(x < 0 ||  (uint32_t)x >= g->w || y < 0 || (uint32_t)y >= g->h)
 		return;
 	g->buffer[y * g->w + x] = color;
 }
 
-void clear(GraphT* g, uint32_t color) {
+void clear(graph_t* g, uint32_t color) {
 	uint32_t loopy,loopx,index;
 	index = 0;
 	for (loopy=0;loopy<g->h;loopy++) {
@@ -71,7 +71,7 @@ void clear(GraphT* g, uint32_t color) {
 	}
 }
 
-void line(GraphT* g, int32_t x1, int32_t y1, int32_t x2, int32_t y2, uint32_t color) {
+void line(graph_t* g, int32_t x1, int32_t y1, int32_t x2, int32_t y2, uint32_t color) {
 	int32_t dx, dy, x, y, s1, s2, e, temp, swap, i;
 
 	dy = y2 - y1;
@@ -105,14 +105,14 @@ void line(GraphT* g, int32_t x1, int32_t y1, int32_t x2, int32_t y2, uint32_t co
 	}
 }
 
-void box(GraphT* g, int32_t x, int32_t y, uint32_t w, uint32_t h, uint32_t color) {
+void box(graph_t* g, int32_t x, int32_t y, uint32_t w, uint32_t h, uint32_t color) {
 	line(g, x, y, x+w, y, color);
 	line(g, x, y+1, x, y+h, color);
 	line(g, x+1, y+h, x+w, y+h, color);
 	line(g, x+w, y+1, x+w, y+h, color);
 }
 
-void fill(GraphT* g, int32_t x, int32_t y, uint32_t w, uint32_t h, uint32_t color) {
+void fill(graph_t* g, int32_t x, int32_t y, uint32_t w, uint32_t h, uint32_t color) {
 	int32_t ex, ey;
 	ex = x + w;
 	ey = y + h;
@@ -125,7 +125,7 @@ void fill(GraphT* g, int32_t x, int32_t y, uint32_t w, uint32_t h, uint32_t colo
 	}
 }
 
-void drawChar(GraphT* g, int32_t x, int32_t y, char c, FontT* font, uint32_t color) {
+void drawChar(graph_t* g, int32_t x, int32_t y, char c, font_t* font, uint32_t color) {
 	int32_t xchar, ychar, xpart, ypart, index, pmask;
 	unsigned char *pdata = (unsigned char*) font->data, check;
 
@@ -148,7 +148,7 @@ void drawChar(GraphT* g, int32_t x, int32_t y, char c, FontT* font, uint32_t col
 	}
 }
 
-void drawText(GraphT* g, int32_t x, int32_t y, const char* str, FontT* font, uint32_t color) {
+void drawText(graph_t* g, int32_t x, int32_t y, const char* str, font_t* font, uint32_t color) {
 	while(*str) {
 		drawChar(g, x, y, *str, font, color);
 		x += font->w;

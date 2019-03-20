@@ -11,5 +11,5 @@ void printk(const char *format, ...) {
 	va_start(ap, format);
 	vsnprintf(buffer, BUFFER_MAX_LENGTH-1, format, ap);
 	va_end(ap);
-	uartPuts(buffer);
+	uart_puts(buffer);
 }

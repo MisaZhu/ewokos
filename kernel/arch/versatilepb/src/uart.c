@@ -15,12 +15,12 @@
 #define UART_RECEIVE  0x10
 #define UART_TRANSMIT 0x20
 
-void uartDevInit(void) {
+void uart_dev_init(void) {
 	UART0[UART_INT_ENABLE] = UART_RECEIVE;
 }
 
 
-void uartTransmit(char c) {
+void uart_trans(char c) {
 	/* wait until transmit buffer is full */
 	while (UART0[UART_FLAGS] & UART_TRANSMIT);
 
@@ -28,11 +28,11 @@ void uartTransmit(char c) {
 	UART0[UART_DATA] = c;
 }
 
-bool uartReadyToRecv(void) {
+bool uart_ready_to_recv(void) {
 	return UART0[UART_INT_TARGET] & UART_RECEIVE;
 }
 
-int uartReceive(void) {
+int uart_recv(void) {
 	return UART0[UART_DATA];
 }
 

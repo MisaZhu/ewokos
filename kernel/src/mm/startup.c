@@ -1,10 +1,10 @@
 #include <mm/mmu.h>
 
-__attribute__((aligned (PAGE_SIZE))) char _initStack[PAGE_SIZE];
-__attribute__((aligned (PAGE_SIZE))) char _irqStack[PAGE_SIZE];
+__attribute__((aligned (PAGE_SIZE))) char _init_stack[PAGE_SIZE];
+__attribute__((aligned (PAGE_SIZE))) char _irq_stack[PAGE_SIZE];
 
 __attribute__((__aligned__(PAGE_DIR_SIZE)))
-unsigned _startupPageDir[PAGE_DIR_NUM] = {
+unsigned _startup_page_dir[PAGE_DIR_NUM] = {
 	2 | (2 << 10) | (0 << 20), 
 	2 | (2 << 10) | (1 << 20),
 	2 | (2 << 10) | (2 << 20), 

@@ -6,14 +6,14 @@
 /* number of interrupt lines */
 #define IRQ_COUNT 32
 
-typedef void (*InterruptHandlerT)(void);
+typedef void (*interrupt_handler_t)(void);
 
-extern void registerInterruptHandler(uint32_t line, InterruptHandlerT handler);
-extern void handleIRQ(void);
+extern void register_interrupt_handler(uint32_t line, interrupt_handler_t handler);
+extern void handle_irq(void);
 
 /* architecture specific functions */
-extern void enableIRQ(uint32_t line);
-extern void getPendingIRQs(bool *result);
-extern void irqInit();
+extern void enable_irq(uint32_t line);
+extern void get_pending_irqs(bool *result);
+extern void irq_init();
 
 #endif

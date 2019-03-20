@@ -3,8 +3,8 @@
 
 #include <types.h>
 
-int32_t mmioGet(uint32_t offset);
+int32_t mmio_get(uint32_t offset);
 
-int32_t mmioPut(uint32_t offset, int32_t val);
+int32_t mmio_put(uint32_t offset, int32_t val);
 
 #endif

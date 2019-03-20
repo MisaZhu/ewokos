@@ -10,7 +10,7 @@ __entry:
 	bne __halt
 #endif
 
-	ldr sp, =_initStack /*sp(R13), _initStack defined in kernel/src/mm/startup.c*/
+	ldr sp, =_init_stack /*sp(R13), _init_stack defined in kernel/src/mm/startup.c*/
 	add sp, #4096
 
 	bl enablePaging
@@ -19,7 +19,7 @@ __entry:
 	bl __enableInterrupts /*system.S*/
 	bl __jump2HighMem /*system.S*/
 
-	bl kernelEntry /*C entry at kernel/src/kernel.c*/
+	bl kernel_entry /*C entry at kernel/src/kernel.c*/
 	b __halt
 
 /*set up the init page table for kernel boot and init*/
@@ -29,9 +29,9 @@ enablePaging:
 	mov r0, #1
 	bl __setDomainAccessControl /*system.S*/
 
-	ldr r0, =_startupPageDir /*kernel/src/mm/startup.c*/
+	ldr r0, =_startup_page_dir /*kernel/src/mm/startup.c*/
 	sub r0, #KERNEL_BASE /*get physical address from virtual address*/
-	bl __setTranslationTableBase /*system.S*/
+	bl __set_translation_table_base /*system.S*/
 
 	bl __readControlRegister /*system.S*/
 	orr r0, #1 /*enable paging*/
@@ -41,7 +41,7 @@ enablePaging:
 
 /*Copy interrupt talbe to phymen address 0x00000000.
 Virtual address #INTERRUPT_VECTOR_BASE(0xFFFF0000 for ARM) must mapped to phymen 0x00000000.
-ref: setKernelVM(PageDirEntryT* vm) kernel/src/kernel.c 
+ref: set_kernel_vm(page_dir_entry_t* vm) kernel/src/kernel.c 
 */
 copyInterruptTable: 
 	mov r0, #0x0
@@ -73,27 +73,27 @@ interruptTableStart: /*interrupt table, with syscall and irq items*/
 interruptTableEnd:
 
 syscallEntry:
-	ldr sp, =_initStack /*kernel/src/mm/startup.c*/
+	ldr sp, =_init_stack /*kernel/src/mm/startup.c*/
 	add sp, #4096
 
 	SAVE_CONTEXT /*save current process content, kernel/include/proc.h*/
 
 	stmfd sp!, {r1-r12, r14} /*push r0-r12, r14(return pc) to stack*/
 
-	bl handleSyscall /*kernel/src/syscalls.c*/
+	bl handle_syscall /*kernel/src/syscalls.c*/
 
 	ldmfd sp!, {r1-r12, pc}^ /*pop stack to r0-r12, pc(means return)*/
 
 irqEntry:
 	sub r14, r14, #4
-	ldr sp, =_irqStack
+	ldr sp, =_irq_stack
 	add sp, #4096
 
 	SAVE_CONTEXT
 
 	stmfd sp!, {r0-r12, r14} /*push r0-r12, r14(return pc) to stack*/
 
-	bl handleIRQ /*kernel/src/irq.c*/
+	bl handle_irq /*kernel/src/irq.c*/
 
 	ldmfd sp!, {r0-r12, pc}^ /*pop stack to r0-r12, pc(means return)*/
 

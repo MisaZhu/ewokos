@@ -3,16 +3,16 @@
 
 #include <types.h>
 
-void uartDevInit(void); //arch init
+void uart_dev_init(void); //arch init
 
-void uartInit(void);
-void uartTransmit(char c);
-bool uartReadyToRecv(void);
-int uartReceive(void);
+void uart_init(void);
+void uart_trans(char c);
+bool uart_ready_to_recv(void);
+int uart_recv(void);
 
-void uartPuts(const char* str);
+void uart_puts(const char* str);
 
-void uartPutch(int c);
-int uartGetch();
+void uart_putch(int c);
+int uart_getch();
 
 #endif

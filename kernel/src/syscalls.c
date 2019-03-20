@@ -19,65 +19,65 @@
 #include <dev/fb.h>
 
 static int32_t syscall_uartPutch(int32_t c) {
-	uartPutch(c);
+	uart_putch(c);
 	return 0;
 }
 
 static int32_t syscall_uartGetch() {
-	int32_t r = uartGetch();
+	int32_t r = uart_getch();
 	return r;
 }
 
 static int32_t syscall_mmioGet(int32_t arg0) {
 	uint32_t addr = (uint32_t)arg0;
-	if(_currentProcess->owner > 0 ||
-			addr < MMIO_BASE || addr >= (MMIO_BASE+getMMIOMemSize()))
+	if(_current_proc->owner > 0 ||
+			addr < MMIO_BASE || addr >= (MMIO_BASE+get_mmio_mem_size()))
 		return -1;
 	return *((int32_t*)(MMIO_BASE+addr));
 }
 
 static int32_t syscall_mmioPut(int32_t arg0, int32_t arg1) {
 	uint32_t addr = (uint32_t)arg0;
-	if(_currentProcess->owner > 0 ||
-			addr < MMIO_BASE || addr >= (MMIO_BASE+getMMIOMemSize()))
+	if(_current_proc->owner > 0 ||
+			addr < MMIO_BASE || addr >= (MMIO_BASE+get_mmio_mem_size()))
 		return -1;
 	*((int32_t*)(MMIO_BASE+addr)) = arg1;
 	return 0;
 }
 
 static int32_t syscall_shmAlloc(int arg0) {
-	return shmalloc((uint32_t)arg0);
+	return shm_alloc((uint32_t)arg0);
 }
 
 static int32_t syscall_shmMap(int arg0) {
-	return (int32_t)shmProcMap(_currentProcess->pid, arg0);
+	return (int32_t)shm_proc_map(_current_proc->pid, arg0);
 }
 
 static int32_t syscall_shmFree(int arg0) {
-	shmfree(arg0);
+	shm_free(arg0);
 	return 0;
 }
 
 static int32_t syscall_shmUnmap(int arg0) {
-	return shmProcUnmap(_currentProcess->pid, arg0);
+	return shm_proc_unmap(_current_proc->pid, arg0);
 }
 
 static int32_t syscall_fbInfo(int arg0) {
-	if(_currentProcess->owner >= 0)
+	if(_current_proc->owner >= 0)
 		return -1;
 
-	FBInfoT* info = fbGetInfo();
+	fb_info_t* info = _fb_get_info();
 	if(info == NULL)
 		return -1;
-	memcpy((FBInfoT*)arg0, info, sizeof(FBInfoT));
+	memcpy((fb_info_t*)arg0, info, sizeof(fb_info_t));
 	return 0;
 }
 
 static int32_t syscall_fbWrite(int arg0, int arg1) {
-	if(_currentProcess->owner >= 0)
+	if(_current_proc->owner >= 0)
 		return -1;
 
-	FBInfoT* info = fbGetInfo();
+	fb_info_t* info = _fb_get_info();
 	if(info == NULL)
 		return -1;
 
@@ -96,12 +96,12 @@ static int32_t syscall_execElf(int32_t arg0, int32_t arg1, int32_t arg2) {
 	if(p == NULL || cmd == NULL)
 		return -1;
 		
-	strncpy(_currentProcess->cmd, cmd, CMD_MAX);
+	strncpy(_current_proc->cmd, cmd, CMD_MAX);
 
-	if(!procLoad(_currentProcess, p, (uint32_t)arg2))
+	if(!proc_load(_current_proc, p, (uint32_t)arg2))
 		return -1;
 
-	procStart(_currentProcess);
+	proc_start(_current_proc);
 	return 0;
 }
 
@@ -110,20 +110,20 @@ static int32_t syscall_fork(void) {
 }
 
 static int32_t syscall_getpid(void) {
-	return _currentProcess->pid;
+	return _current_proc->pid;
 }
 
 static int32_t syscall_exit(int32_t arg0) {
 	(void)arg0;
-	procExit();
+	proc_exit();
 	return 0;
 }
 
 static int32_t syscall_wait(int32_t arg0) {
-	ProcessT *proc = procGet(arg0);
+	process_t *proc = proc_get(arg0);
 	if (proc->state != UNUSED) {
-		_currentProcess->waitPid = arg0;
-		_currentProcess->state = SLEEPING;
+		_current_proc->wait_pid = arg0;
+		_current_proc->state = SLEEPING;
 		schedule();
 	}
 	return 0;
@@ -141,40 +141,40 @@ static int32_t syscall_pmalloc(int32_t arg0) {
 
 static int32_t syscall_pfree(int32_t arg0) {
 	char* p = (char*)arg0;
-	trunkFree(&_currentProcess->mallocMan, p);
+	trunk_free(&_current_proc->malloc_man, p);
 	return 0;
 }
 
 static int32_t syscall_ipcOpen(int32_t arg0, int32_t arg1) {
-	return ipcOpen(arg0, arg1);
+	return ipc_open(arg0, arg1);
 }
 
 static int32_t syscall_ipcReady() {
-	return ipcReady();
+	return ipc_ready();
 }
 
 static int32_t syscall_ipcClose(int32_t arg0) {
-	return ipcClose(arg0);
+	return ipc_close(arg0);
 }
 
 static int32_t syscall_ipcWrite(int32_t arg0, int32_t arg1, int32_t arg2) {
-	return ipcWrite(arg0, (void*)arg1, arg2);
+	return ipc_write(arg0, (void*)arg1, arg2);
 }
 
 static int32_t syscall_ipcRead(int32_t arg0, int32_t arg1, int32_t arg2) {
-	return ipcRead(arg0, (void*)arg1, arg2);
+	return ipc_read(arg0, (void*)arg1, arg2);
 }
 
 static int32_t syscall_ipcRing(int32_t arg0) {
-	return ipcRing(arg0);
+	return ipc_ring(arg0);
 }
 
 static int32_t syscall_ipcPeer(int32_t arg0) {
-	return ipcPeer(arg0);
+	return ipc_peer(arg0);
 }
 
 static int32_t syscall_readFileInitRD(int32_t arg0, int32_t arg1, int32_t arg2) {
-	if(_currentProcess->owner >= 0)
+	if(_current_proc->owner >= 0)
 		return 0;
 
 	const char* name = (const char*)arg0;
@@ -182,7 +182,7 @@ static int32_t syscall_readFileInitRD(int32_t arg0, int32_t arg1, int32_t arg2) 
 	int32_t rdSize = *(int*)arg2;
 	*(int*)arg2 = 0;
 
-	const char*p = readInitRD(name, &fsize);
+	const char*p = read_initrd(name, &fsize);
 	if(p == NULL || fsize == 0)
 		return 0;
 
@@ -204,7 +204,7 @@ static int32_t syscall_readFileInitRD(int32_t arg0, int32_t arg1, int32_t arg2) 
 }
 
 static int32_t syscall_cloneInitRD() {
-	return (int32_t)cloneInitRD();
+	return (int32_t)clone_initrd();
 }
 
 static int32_t syscall_kdb(int32_t arg0) {
@@ -212,15 +212,15 @@ static int32_t syscall_kdb(int32_t arg0) {
 }
 
 static int32_t syscall_pfOpen(int32_t arg0, int32_t arg1) {
-	ProcessT* proc = _currentProcess;
+	process_t* proc = _current_proc;
 	if(proc == NULL)
 		return -1;
 
-	KFileT* kf = kfOpen((uint32_t)arg0);
+	k_file_t* kf = kf_open((uint32_t)arg0);
 	if(kf == NULL)
 		return -1;
 
-	kfRef(kf, arg1);
+	kf_ref(kf, arg1);
 
 	int32_t i;
 	for(i=0; i<FILE_MAX; i++) {
@@ -232,12 +232,12 @@ static int32_t syscall_pfOpen(int32_t arg0, int32_t arg1) {
 		}
 	}
 
-	kfUnref(kf, arg1);
+	kf_unref(kf, arg1);
 	return -1;
 }
 
 static int32_t syscall_pfClose(int32_t arg0) {
-	ProcessT* proc = _currentProcess;
+	process_t* proc = _current_proc;
 	if(proc == NULL)
 		return -1;
 
@@ -245,7 +245,7 @@ static int32_t syscall_pfClose(int32_t arg0) {
 	if(fd < 0 || fd >= FILE_MAX)
 		return -1;
 
-	kfUnref(proc->files[fd].kf, proc->files[fd].flags);
+	kf_unref(proc->files[fd].kf, proc->files[fd].flags);
 
 	proc->files[fd].kf = NULL;
 	proc->files[fd].flags = 0;
@@ -254,7 +254,7 @@ static int32_t syscall_pfClose(int32_t arg0) {
 }
 
 static int32_t syscall_pfSeek(int32_t arg0, int32_t arg1) {
-	ProcessT* proc = _currentProcess;
+	process_t* proc = _current_proc;
 	if(proc == NULL)
 		return -1;
 
@@ -262,15 +262,15 @@ static int32_t syscall_pfSeek(int32_t arg0, int32_t arg1) {
 	if(fd < 0 || fd >= FILE_MAX)
 		return -1;
 
-	KFileT* kf = proc->files[fd].kf;
-	if(kf == NULL || kf->nodeAddr == 0)
+	k_file_t* kf = proc->files[fd].kf;
+	if(kf == NULL || kf->node_addr == 0)
 		return -1;
 	proc->files[fd].seek = arg1;
 	return arg1;
 }
 
 static int32_t syscall_pfGetSeek(int32_t arg0) {
-	ProcessT* proc = _currentProcess;
+	process_t* proc = _current_proc;
 	if(proc == NULL)
 		return -1;
 
@@ -278,39 +278,39 @@ static int32_t syscall_pfGetSeek(int32_t arg0) {
 	if(fd < 0 || fd >= FILE_MAX)
 		return -1;
 
-	KFileT* kf = proc->files[fd].kf;
-	if(kf == NULL || kf->nodeAddr == 0)
+	k_file_t* kf = proc->files[fd].kf;
+	if(kf == NULL || kf->node_addr == 0)
 		return -1;
 	return proc->files[fd].seek;
 }
 
 static int32_t syscall_pfNodeAddr(int32_t arg0, int32_t arg1) {
-	ProcessT* proc = procGet(arg0);
+	process_t* proc = proc_get(arg0);
 	if(proc == NULL || arg1 < 0 || arg1>= FILE_MAX)
 		return -1;
 
-	KFileT* kf = proc->files[arg1].kf;
+	k_file_t* kf = proc->files[arg1].kf;
 	if(kf == NULL)
 		return -1;
 
-	return (int32_t)kf->nodeAddr;
+	return (int32_t)kf->node_addr;
 }
 
 static int32_t syscall_kservReg(int32_t arg0) {
-	return kservReg((const char*)arg0);
+	return kserv_reg((const char*)arg0);
 }
 
 static int32_t syscall_kservGet(int32_t arg0) {
-	return kservGet((const char*)arg0);
+	return kserv_get((const char*)arg0);
 }
 
 static int32_t getProcs(bool owner) {
 	int32_t res = 0;
 	for(int32_t i=0; i<PROCESS_COUNT_MAX; i++) {
-		if(_processTable[i].state != UNUSED && 
-				(_currentProcess->owner == 0 || 
+		if(_process_table[i].state != UNUSED && 
+				(_current_proc->owner == 0 || 
 				owner != true || 
-				_processTable[i].owner == _currentProcess->owner)) {
+				_process_table[i].owner == _current_proc->owner)) {
 			res++;
 		}
 	}
@@ -324,21 +324,21 @@ static int32_t syscall_getProcs(int32_t arg0, int32_t arg1) {
 		return 0;
 
 	/*need to be freed later used!*/
-	ProcInfoT* procs = (ProcInfoT*)pmalloc(sizeof(ProcInfoT)*num);
+	proc_info_t* procs = (proc_info_t*)pmalloc(sizeof(proc_info_t)*num);
 	if(procs == NULL)
 		return 0;
 
 	int32_t j = 0;
 	for(int32_t i=0; i<PROCESS_COUNT_MAX && j<num; i++) {
-		if(_processTable[i].state != UNUSED && 
-				(_currentProcess->owner == 0 ||
+		if(_process_table[i].state != UNUSED && 
+				(_current_proc->owner == 0 ||
 				owner != true ||
-				 _processTable[i].owner == _currentProcess->owner)) {
-			procs[j].pid = _processTable[i].pid;	
-			procs[j].fatherPid = _processTable[i].fatherPid;	
-			procs[j].owner = _processTable[i].owner;	
-			procs[j].heapSize = _processTable[i].heapSize;	
-			strcpy(procs[j].cmd, _processTable[i].cmd);
+				 _process_table[i].owner == _current_proc->owner)) {
+			procs[j].pid = _process_table[i].pid;	
+			procs[j].father_pid = _process_table[i].father_pid;	
+			procs[j].owner = _process_table[i].owner;	
+			procs[j].heap_size = _process_table[i].heap_size;	
+			strcpy(procs[j].cmd, _process_table[i].cmd);
 			j++;
 		}
 	}
@@ -349,29 +349,29 @@ static int32_t syscall_getProcs(int32_t arg0, int32_t arg1) {
 
 static int32_t syscall_getCWD(int32_t arg0, int32_t arg1) {
 	char* pwd = (char*)arg0;
-	strncpy(pwd, _currentProcess->pwd,
+	strncpy(pwd, _current_proc->pwd,
 		arg1 < NAME_MAX ? arg1: NAME_MAX);
 	return (int)pwd;
 }
 
 static int32_t syscall_setCWD(int32_t arg0) {
 	const char* pwd = (const char*)arg0;
-	strncpy(_currentProcess->pwd, pwd, NAME_MAX);
+	strncpy(_current_proc->pwd, pwd, NAME_MAX);
 	return 0;
 }
 
 static int32_t syscall_getCmd(int32_t arg0, int32_t arg1) {
 	char* cmd = (char*)arg0;
-	strncpy(cmd, _currentProcess->cmd, arg1);
+	strncpy(cmd, _current_proc->cmd, arg1);
 	return arg0;
 }
 
 static int32_t syscall_setUID(int32_t arg0, int32_t arg1) {
-	if(arg1 < 0 || _currentProcess->owner >= 0) {/*current process not kernel proc*/
+	if(arg1 < 0 || _current_proc->owner >= 0) {/*current process not kernel proc*/
 		return -1;
 	}
 	
-	ProcessT* proc = procGet(arg0);
+	process_t* proc = proc_get(arg0);
 	if(proc == NULL) {
 		return -1;
 	}
@@ -381,7 +381,7 @@ static int32_t syscall_setUID(int32_t arg0, int32_t arg1) {
 }
 
 static int32_t syscall_getUID(int32_t arg0) {
-	ProcessT* proc = procGet(arg0);
+	process_t* proc = proc_get(arg0);
 	if(proc == NULL)
 		return -1;
 	return proc->owner;
@@ -389,24 +389,24 @@ static int32_t syscall_getUID(int32_t arg0) {
 
 /*
 static int32_t syscall_vfsAdd(int32_t arg0, int32_t arg1, int32_t arg2) {
-	TreeNodeT* nodeTo = (TreeNodeT*)arg0;
+	tree_node_t* nodeTo = (tree_node_t*)arg0;
 	const char* name = (const char*)arg1;
-	return (int32_t)vfsAdd(nodeTo, name, (uint32_t)arg2);
+	return (int32_t)vfs_add(nodeTo, name, (uint32_t)arg2);
 }
 
 static int32_t syscall_vfsDel(int32_t arg0) {
-	TreeNodeT* node = (TreeNodeT*)arg0;
-	return vfsDel(node);
+	tree_node_t* node = (tree_node_t*)arg0;
+	return vfs_del(node);
 }
 
 static int32_t syscall_vfsInfo(int32_t arg0, int32_t arg1) {
-	TreeNodeT* node = (TreeNodeT*)arg0;
-	FSInfoT* info = (FSInfoT*)arg1;
-	return vfsNodeInfo(node, info);
+	tree_node_t* node = (tree_node_t*)arg0;
+	fs_info_t* info = (fs_info_t*)arg1;
+	return vfs_node_info(node, info);
 }
 
 static int32_t syscall_vfsKids(int32_t arg0, int32_t arg1) {
-	TreeNodeT* node = (TreeNodeT*)arg0;
+	tree_node_t* node = (tree_node_t*)arg0;
 	int32_t* num = (int32_t*)arg1;
 	return (int32_t)vfsNodeKids(node, num);
 }
@@ -418,20 +418,20 @@ static int32_t syscall_vfsNodeByName(int32_t arg0) {
 static int32_t syscall_vfsMount(int32_t arg0, int32_t arg1, int32_t arg2) {
 	const char* fname = (const char*)arg0;
 	const char* devName = (const char*)arg1;
-	return (int32_t)vfsMount(fname, devName, arg2);
+	return (int32_t)vfs_mount(fname, devName, arg2);
 }
 
 static int32_t syscall_vfsMountFile(int32_t arg0, int32_t arg1, int32_t arg2) {
 	const char* fname = (const char*)arg0;
 	const char* devName = (const char*)arg1;
-	TreeNodeT* node = vfsMount(fname, devName, arg2);
+	tree_node_t* node = vfs_mount(fname, devName, arg2);
 	FSN(node)->type = FS_TYPE_FILE;
 	return (int32_t)node;
 }
 
 static int32_t syscall_vfsUnmount(int32_t arg0) {
-	TreeNodeT* node = (TreeNodeT*)arg0;
-	return vfsUnmount(node);
+	tree_node_t* node = (tree_node_t*)arg0;
+	return vfs_unmount(node);
 }
 */
 
@@ -492,7 +492,7 @@ static int32_t (*const _syscallHandler[])() = {
 };
 
 /* kernel side of system calls. */
-int32_t handleSyscall(int32_t code, int32_t arg0, int32_t arg1, int32_t arg2) {
+int32_t handle_syscall(int32_t code, int32_t arg0, int32_t arg1, int32_t arg2) {
 	return _syscallHandler[code](arg0, arg1, arg2);
 }
 

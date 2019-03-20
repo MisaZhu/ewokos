@@ -4,16 +4,16 @@
 #include <mm/mmu.h>
 #include <sramdisk.h>
 
-extern char _kernelStart[];
-extern char _kernelEnd[];
-extern char _initStackTop[];
-extern char _irqStackTop[];
+extern char _kernel_start[];
+extern char _kernel_end[];
+extern char _init_stack_top[];
+extern char _irq_stack_top[];
 
-extern uint32_t _phyMemSize;
+extern uint32_t _phy_mem_size;
 
-extern PageDirEntryT* _kernelVM;
-void setKernelVM(PageDirEntryT* vm);
-void setAllocableVM(PageDirEntryT* vm);
+extern page_dir_entry_t* _kernel_vm;
+void set_kernel_vm(page_dir_entry_t* vm);
+void set_allocable_vm(page_dir_entry_t* vm);
 
 
 #endif

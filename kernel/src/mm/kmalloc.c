@@ -4,46 +4,46 @@
 #include <kernel.h>
 #include <printk.h>
 
-static MallocT _kMalloc;
-static uint32_t _kMallocMemTail;
+static malloc_t _kmalloc;
+static uint32_t _kmalloc_mem_tail;
 
-static void kmShrink(void* arg, int pages) {
+static void km_shrink(void* arg, int pages) {
 	(void)arg;
-	_kMallocMemTail -= pages * PAGE_SIZE;	
+	_kmalloc_mem_tail -= pages * PAGE_SIZE;	
 }
 
-static bool kmExpand(void* arg, int pages) {
+static bool km_expand(void* arg, int pages) {
 	(void)arg;
-	uint32_t to = _kMallocMemTail + (pages * PAGE_SIZE);
+	uint32_t to = _kmalloc_mem_tail + (pages * PAGE_SIZE);
 	if(to > (KMALLOC_BASE + KMALLOC_SIZE))
 		return false;
 
-	_kMallocMemTail = to;
+	_kmalloc_mem_tail = to;
 	return true;
 }
 
-static void* kmGetMemTail(void* arg) {
+static void* km_get_mem_tail(void* arg) {
 	(void)arg;
-	return (void*)_kMallocMemTail;
+	return (void*)_kmalloc_mem_tail;
 }
 
-void kmInit() {
-	_kMallocMemTail = KMALLOC_BASE;
-	_kMalloc.expand = kmExpand;
-	_kMalloc.shrink = kmShrink;
-	_kMalloc.getMemTail = kmGetMemTail;
+void km_init() {
+	_kmalloc_mem_tail = KMALLOC_BASE;
+	_kmalloc.expand = km_expand;
+	_kmalloc.shrink = km_shrink;
+	_kmalloc.getMemTail = km_get_mem_tail;
 }
 
-void *kmalloc(uint32_t size) {
-	void *ret = trunkMalloc(&_kMalloc, size);
+void *km_alloc(uint32_t size) {
+	void *ret = trunk_malloc(&_kmalloc, size);
 	if(ret == NULL) {
-		printk("Panic: kmalloc failed!\n");
+		printk("Panic: km_alloc failed!\n");
 	}
 	return ret;
 }
 
-void kmfree(void* p) {
+void km_free(void* p) {
 	if(p == NULL)
 		return;
-	trunkFree(&_kMalloc, p);
+	trunk_free(&_kmalloc, p);
 }

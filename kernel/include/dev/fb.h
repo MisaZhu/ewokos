@@ -3,10 +3,10 @@
 
 #include <fbinfo.h>
 
-extern char _fbStart[];
+extern char _fb_start[];
 
-bool fbInit();
+bool _fb_init();
 
-FBInfoT* fbGetInfo();
+fb_info_t* _fb_get_info();
 
 #endif

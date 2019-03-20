@@ -3,12 +3,12 @@
 
 #include "package.h"
 
-typedef void (*KServFuncT) (PackageT* pkg, void *p);
+typedef void (*kserv_func_t) (package_t* pkg, void *p);
 
-bool kservRun(const char* regName, KServFuncT servFunc, void* p);
+bool kserv_run(const char* reg_name, kserv_func_t servFunc, void* p);
 
-int kservGetPid(const char* regName);
+int kserv_get_pid(const char* reg_name);
 
-void kservWait(const char* regName);
+void kserv_wait(const char* reg_name);
 
 #endif

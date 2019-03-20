@@ -19,104 +19,104 @@
 #include <sramdisk.h>
 #include <printk.h>
 
-PageDirEntryT* _kernelVM;
+page_dir_entry_t* _kernel_vm;
 uint32_t _phyMemSize = 0;
 
-void initKernelVM() 
+void init_kernel_vm() 
 {
 	/*
 	build free mems list only for kernel init.
 	We can only use init memory part
 	(from ALLOCATABLE_MEMORY_START to 'KERNEL_BASE + INIT_MEMORY_SIZE'),
-	cause the boot program only mapped part of mem by _startupPageDir(startup.c).
+	cause the boot program only mapped part of mem by _startup_page_dir(startup.c).
 	Notice: This part of physical mem (0 to INIT_MEMORY_SIZE) works for init kernel page mapping
 	*/
-	kallocInit(ALLOCATABLE_MEMORY_START,
+	kalloc_init(ALLOCATABLE_MEMORY_START,
 			ALLOCATABLE_MEMORY_START + INIT_RESERV_MEMORY_SIZE);
 
 
 	//align up to PAGE_DIR_SIZE (like 16KB in this case). 16KB memory after kernel be used for kernel page dir table 
-	_kernelVM = (PageDirEntryT*)ALIGN_UP((uint32_t)_kernelEnd, PAGE_DIR_SIZE);
+	_kernel_vm = (page_dir_entry_t*)ALIGN_UP((uint32_t)_kernel_end, PAGE_DIR_SIZE);
 
-	setKernelVM(_kernelVM);
+	set_kernel_vm(_kernel_vm);
 	
 	//Use physical address of kernel virtual memory as the new virtual memory page dir table base.
-	__setTranslationTableBase(V2P((uint32_t)_kernelVM));
+	__set_translation_table_base(V2P((uint32_t)_kernel_vm));
 
 	/*
 	init kernel trunk memory malloc.
 	*/
-	kmInit();
+	km_init();
 }
 
-void setKernelVM(PageDirEntryT* vm) 
+void set_kernel_vm(page_dir_entry_t* vm) 
 {
 	memset(vm, 0, PAGE_DIR_SIZE);
 
-	mapPages(vm, 0, 0, PAGE_SIZE, AP_RW_D);
+	map_pages(vm, 0, 0, PAGE_SIZE, AP_RW_D);
 	//map interrupt vector to high(virtual) mem
-	mapPages(vm, INTERRUPT_VECTOR_BASE, 0, PAGE_SIZE, AP_RW_D);
+	map_pages(vm, INTERRUPT_VECTOR_BASE, 0, PAGE_SIZE, AP_RW_D);
 	//map kernel image to high(virtual) mem
-	mapPages(vm, KERNEL_BASE+PAGE_SIZE, PAGE_SIZE, V2P(_kernelEnd), AP_RW_D);
+	map_pages(vm, KERNEL_BASE+PAGE_SIZE, PAGE_SIZE, V2P(_kernel_end), AP_RW_D);
 
-	mapPages(vm, (uint32_t)_kernelVM, V2P(_kernelVM), V2P(_kernelVM)+PAGE_DIR_SIZE, AP_RW_D);
+	map_pages(vm, (uint32_t)_kernel_vm, V2P(_kernel_vm), V2P(_kernel_vm)+PAGE_DIR_SIZE, AP_RW_D);
 
 	//map MMIO to high(virtual) mem.
-	mapPages(vm, MMIO_BASE, getMMIOBasePhy(), getMMIOBasePhy() + getMMIOMemSize(), AP_RW_D);
+	map_pages(vm, MMIO_BASE, get_mmio_base_phy(), get_mmio_base_phy() + get_mmio_mem_size(), AP_RW_D);
 	
 	//map kernel memory trunk to high(virtual) mem.
-	mapPages(vm, KMALLOC_BASE, V2P(KMALLOC_BASE), V2P(KMALLOC_BASE+KMALLOC_SIZE), AP_RW_D);
+	map_pages(vm, KMALLOC_BASE, V2P(KMALLOC_BASE), V2P(KMALLOC_BASE+KMALLOC_SIZE), AP_RW_D);
 
 	if(_phyMemSize == 0) //map some allocable memory for the pagetable alloc for rest momory mapping(coz we don't know the whole phymem size yet.
-		mapPages(vm, ALLOCATABLE_MEMORY_START, V2P(ALLOCATABLE_MEMORY_START), V2P(ALLOCATABLE_MEMORY_START) + INIT_RESERV_MEMORY_SIZE, AP_RW_D);
+		map_pages(vm, ALLOCATABLE_MEMORY_START, V2P(ALLOCATABLE_MEMORY_START), V2P(ALLOCATABLE_MEMORY_START) + INIT_RESERV_MEMORY_SIZE, AP_RW_D);
 	else
-		mapPages(vm, ALLOCATABLE_MEMORY_START, V2P(ALLOCATABLE_MEMORY_START), _phyMemSize, AP_RW_D);
+		map_pages(vm, ALLOCATABLE_MEMORY_START, V2P(ALLOCATABLE_MEMORY_START), _phyMemSize, AP_RW_D);
 
-	archSetKernelVM(vm);
+	arch_set_kernel_vm(vm);
 }
 
-static void initAllocableMem() {
-	_phyMemSize = getPhyRamSize();
+static void init_allocable_mem() {
+	_phyMemSize = get_phy_ram_size();
 	/*
 	Since kernel mem mapping finished, and init ram disk copied to kernel trunk memory.
 	we can build free mem page list for all the rest mem(the init ram disk part can be reused as well).
 	Notice:	From now, you can kalloc all the rest of physical mem.
 	*/
-	mapPages(_kernelVM, ALLOCATABLE_MEMORY_START, V2P(ALLOCATABLE_MEMORY_START), _phyMemSize, AP_RW_D);
+	map_pages(_kernel_vm, ALLOCATABLE_MEMORY_START, V2P(ALLOCATABLE_MEMORY_START), _phyMemSize, AP_RW_D);
 }
 
-void loadInitProc() {
+void load_init_proc() {
 	const char* name = "init";
 
 	printk("Loading the first process ... ");
-	ProcessT *proc = procCreate(); //create first process
+	process_t *proc = proc_create(); //create first process
 	if(proc == NULL) {
 		printk("panic: init process create failed!\n");
 		return;
 	}
 	
 	int32_t size = 0;
-	const char *p = readInitRD(name, &size);
+	const char *p = read_initrd(name, &size);
 	if(p == NULL) {
 		printk("panic: init process load failed!\n");
 		return;
 	}
 	else {
-		procLoad(proc, p, size);
+		proc_load(proc, p, size);
 		strncpy(proc->cmd, name, CMD_MAX);
 	}
 	printk("ok.\n");
 }
 
-void kernelEntry() {
+void kernel_entry() {
 	/* Done mapping all mem */
-	initKernelVM();
+	init_kernel_vm();
 
 	/*init the rest allocable memory VM*/
-	initAllocableMem();
+	init_allocable_mem();
 
 	/*hardware init*/
-	hardwareInit();
+	hw_init();
 
 	printk("\n=================\n"
 				"EwokOS (by Misa.Z)\n"
@@ -124,44 +124,44 @@ void kernelEntry() {
 				"Kernel got ready(MMU and ProcMan).\n\n");
 
 	/*init share memory*/
-	shmInit();
+	shm_init();
 
 	/*init gpio*/
 	gpio_init();
 
 	/*framebuffer init*/
-	fbInit();
+	_fb_init();
 
 	/*init uart for output.*/
-	uartInit(); 
+	uart_init(); 
 
 	/*init ipc*/
-	ipcInit();
+	ipc_init();
 
 	/*decode initramdisk to high memory(kernel trunk memory).*/
 	printk("Load init ramdisk ... ");
-	if(loadInitRD() != 0)
+	if(load_initrd() != 0)
 		return;
 	printk("ok.\n");
 	
 	/*init process mananer*/
-	procInit();
+	proc_init();
 
 	/*load init process(first process)*/
-	loadInitProc();
+	load_init_proc();
 
 	/*init irq*/
-	irqInit();
+	irq_init();
 
 	/*timer irq*/
-	timerInit();
+	timer_init();
 
 	/*start scheduler*/
-	schedulerInit();
+	scheduler_init();
 
 	while(1) {
 		schedule();
 	}
 
-	closeInitRD();
+	close_initrd();
 }

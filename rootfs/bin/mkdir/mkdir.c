@@ -5,16 +5,16 @@
 
 void _start()
 {
-	initCMainArg();
-	const char* arg = readCMainArg();
-	arg = readCMainArg();
+	init_cmain_arg();
+	const char* arg = read_cmain_arg();
+	arg = read_cmain_arg();
 
 	if(arg != NULL) {
 		char cwd[NAME_MAX];
-		int fd = fsOpen(getcwd(cwd, NAME_MAX), 0);
+		int fd = fs_open(getcwd(cwd, NAME_MAX), 0);
 		if(fd >= 0) {
-			fsAdd(fd, arg);
-			fsClose(fd);
+			fs_add(fd, arg);
+			fs_close(fd);
 		}
 	}
 

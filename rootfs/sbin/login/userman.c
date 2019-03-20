@@ -18,15 +18,15 @@ int usermanAuth(const char* name, const char* passwd) {
 	int uid = -1;
 	CHECK_KSERV_USERMAN
 
-	ProtoT* proto = protoNew(NULL, 0);
-	protoAddStr(proto, name);
-	protoAddStr(proto, passwd);
-	PackageT* pkg = ipcReq(_usermanPid, 0, 0, proto->data, proto->size, true);
-	protoFree(proto);
+	proto_t* proto = proto_new(NULL, 0);
+	proto_add_str(proto, name);
+	proto_add_str(proto, passwd);
+	package_t* pkg = ipc_req(_usermanPid, 0, 0, proto->data, proto->size, true);
+	proto_free(proto);
 	if(pkg == NULL)	
 		return -1;
 
-	uid = *(int*)getPackageData(pkg);
+	uid = *(int*)get_pkg_data(pkg);
 	free(pkg);
 	return uid;
 }

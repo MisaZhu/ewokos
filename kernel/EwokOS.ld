@@ -7,7 +7,7 @@ SECTIONS
 {
 	/*kernel will be compiled with virtual address base at 2GB*/
 	. = 0x80000000 + start_address; /*2GB + start_address = (0x80010000)*/
-	PROVIDE(_kernelStart = .); /*defined at kernel/include/kernel.h, set to 0x80010000*/
+	PROVIDE(_kernel_start = .); /*defined at kernel/include/kernel.h, set to 0x80010000*/
 
  .text : AT(start_address) 
 	{
@@ -24,8 +24,8 @@ SECTIONS
 		*(.bss COMMON)
 	}
 	. = ALIGN(8);
-	PROVIDE(_fbStart = .); 
+	PROVIDE(_fb_start = .); 
 	. += framebuffer_size;
 
-	PROVIDE(_kernelEnd = .); /*defined at kernel/include/kernel.h*/
+	PROVIDE(_kernel_end = .); /*defined at kernel/include/kernel.h*/
 }

@@ -7,14 +7,14 @@
 
 void fsTreeInit();
 
-void fsTreeNodeInit(TreeNodeT* node);
+void fsTreeNodeInit(tree_node_t* node);
 
-TreeNodeT* fsNewNode();
+tree_node_t* fsNewNode();
 
-TreeNodeT* fsTreeSimpleGet(TreeNodeT* father, const char* name);
+tree_node_t* fsTreeSimpleGet(tree_node_t* father, const char* name);
 
-TreeNodeT* fsTreeGet(TreeNodeT* father, const char* name);
+tree_node_t* fsTreeGet(tree_node_t* father, const char* name);
 
-TreeNodeT* fsTreeSimpleAdd(TreeNodeT* father, const char* name);
+tree_node_t* fsTreeSimpleAdd(tree_node_t* father, const char* name);
 
 #endif

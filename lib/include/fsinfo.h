@@ -6,7 +6,7 @@
 #define FS_TYPE_DIR 0x0
 #define FS_TYPE_FILE 0x01
 
-typedef struct FSInfo {
+typedef struct {
 	uint32_t id; //vfs treeNode id
 	uint32_t node;  //node of vfstree
 	uint32_t size; //file size or children num of dir
@@ -16,7 +16,7 @@ typedef struct FSInfo {
 	char devName[DEV_NAME_MAX]; //device name
 	uint32_t devIndex; //index for same type device
 	int32_t devServPid; //device kernel service proc id
-} FSInfoT;
+} fs_info_t;
 
 typedef struct FSNode {
 	char name[NAME_MAX];
@@ -24,8 +24,8 @@ typedef struct FSNode {
 	uint32_t size;
 	uint32_t type;
 	int32_t owner;
-} FSNodeT;
+} fs_node_t;
 
-#define FSN(n) ((FSNodeT*)((n)->data))
+#define FSN(n) ((fs_node_t*)((n)->data))
 
 #endif

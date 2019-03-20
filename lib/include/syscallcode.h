@@ -55,6 +55,6 @@ typedef enum {
 
 	SYSCALL_SET_UID,
 	SYSCALL_GET_UID,
-} SyscallCodeT;
+} syscall_code_t;
 
 #endif

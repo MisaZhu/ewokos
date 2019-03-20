@@ -5,13 +5,13 @@
 
 #define ELF_MAGIC 0x464C457FU
 
-enum ElfType {
+enum elf_type {
 	ELFTYPE_NONE        = 0,
 	ELFTYPE_RELOCATABLE = 1,
 	ELFTYPE_EXECUTABLE  = 2
 };
 
-struct ElfHeader {
+struct elf_header {
 	uint32_t magic;
 	char elf[12];
 	uint16_t type;
@@ -29,7 +29,7 @@ struct ElfHeader {
 	uint16_t shstrndx;
 };
 
-struct ElfProgramHeader {
+struct elf_program_header {
   uint32_t type;
   uint32_t off;
   uint32_t vaddr;

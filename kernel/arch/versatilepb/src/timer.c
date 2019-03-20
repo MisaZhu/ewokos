@@ -11,22 +11,22 @@
 #define TIMER_INTCTL  0x03
 #define TIMER_BGLOAD  0x06
 
-void timerSetInterval(uint32_t intervalMicrosecond) {
+void timer_set_interval(uint32_t intervalMicrosecond) {
 	TIMER[TIMER_CONTROL] = 0;
 	TIMER[TIMER_BGLOAD] = 0;
 	TIMER[TIMER_LOAD] = intervalMicrosecond*1000;
 	TIMER[TIMER_CONTROL] = 0xe2;	
 }
 
-void timerClearInterrupt(void)
+void timer_clear_interrupt(void)
 {
 	TIMER[TIMER_INTCTL] = 0;
 }
 
-void timerInit() {
+void timer_init() {
 }
 
-uint32_t timerRead() {
+uint32_t timer_read() {
 	return TIMER[TIMER_VALUE];
 }
 

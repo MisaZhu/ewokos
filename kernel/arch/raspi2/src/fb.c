@@ -11,7 +11,7 @@ void __memBarrier();
 
 #define MAIL_CH_FBUFF 0x00000001
 
-int32_t videoInit(FBInfoT *p_fbinfo) {
+int32_t videoInit(fb_info_t *p_fbinfo) {
 	uint32_t init = VIDEO_INIT_RETRIES;
 	uint32_t test, addr = ((uint32_t)p_fbinfo);
 	while(init>0) {
@@ -32,13 +32,13 @@ int32_t videoInit(FBInfoT *p_fbinfo) {
 	return test;
 }
 
-static FBInfoT _fbInfo __attribute__((aligned(16)));
+static fb_info_t _fbInfo __attribute__((aligned(16)));
 
-inline FBInfoT* fbGetInfo() {
+inline fb_info_t* _fb_get_info() {
 	return &_fbInfo;
 }
 
-bool fbInit() {
+bool _fb_init() {
 	TagsInfoT info;
 	mailboxGetVideoInfo(&info);
 	/** initialize fbinfo */

@@ -5,28 +5,28 @@
 
 static uint32_t _nodeIDCounter = 0;
 
-void fsTreeNodeInit(TreeNodeT* node) {
-	treeInitNode(node);
+void fsTreeNodeInit(tree_node_t* node) {
+	tree_node_init(node);
 	node->id = _nodeIDCounter++;
-	node->data = malloc(sizeof(FSNodeT));
-	FSNodeT* fn = (FSNodeT*)node->data;
+	node->data = malloc(sizeof(fs_node_t));
+	fs_node_t* fn = (fs_node_t*)node->data;
 	fn->name[0] = 0;
 	fn->mount = 0;
 	fn->type = 0;
 	fn->owner = 0;
 }
 
-TreeNodeT* fsNewNode() {
-	TreeNodeT* ret = (TreeNodeT*)malloc(sizeof(TreeNodeT));
+tree_node_t* fsNewNode() {
+	tree_node_t* ret = (tree_node_t*)malloc(sizeof(tree_node_t));
 	fsTreeNodeInit(ret);
 	return ret;
 }
 
-TreeNodeT* fsTreeSimpleGet(TreeNodeT* father, const char* name) {
+tree_node_t* fsTreeSimpleGet(tree_node_t* father, const char* name) {
 	if(father == NULL || strchr(name, '/') != NULL)
 		return NULL;
 
-	TreeNodeT* node = father->fChild;
+	tree_node_t* node = father->fChild;
 	while(node != NULL) {
 		const char* n = FSN(node)->name;
 		if(strcmp(n, name) == 0) {
@@ -37,7 +37,7 @@ TreeNodeT* fsTreeSimpleGet(TreeNodeT* father, const char* name) {
 	return NULL;
 }
 
-TreeNodeT* fsTreeGet(TreeNodeT* father, const char* name) {
+tree_node_t* fsTreeGet(tree_node_t* father, const char* name) {
 	if(father == NULL)
 		return NULL;
 	
@@ -52,7 +52,7 @@ TreeNodeT* fsTreeGet(TreeNodeT* father, const char* name) {
 	}
 
 
-	TreeNodeT* node = father;	
+	tree_node_t* node = father;	
 	char n[NAME_MAX+1];
 	int j = 0;
 	for(int i=0; i<NAME_MAX; i++) {
@@ -71,16 +71,16 @@ TreeNodeT* fsTreeGet(TreeNodeT* father, const char* name) {
 	return NULL;
 }
 	
-TreeNodeT* fsTreeSimpleAdd(TreeNodeT* father, const char* name) {
-	TreeNodeT* node = fsNewNode();
-	FSNodeT* data = FSN(node);
+tree_node_t* fsTreeSimpleAdd(tree_node_t* father, const char* name) {
+	tree_node_t* node = fsNewNode();
+	fs_node_t* data = FSN(node);
 	if(node == NULL ||
 			data->type != FS_TYPE_DIR ||
 			strchr(name, '/') != NULL)
 		return NULL;
 
 	strncpy(data->name, name, NAME_MAX);
-	treeAdd(father, node);
+	tree_add(father, node);
 	return node;
 }
 

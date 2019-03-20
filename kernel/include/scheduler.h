@@ -1,7 +1,7 @@
 #ifndef SCHEDULER_H
 #define SCHEDULER_H
 
-extern void schedulerInit();
+extern void scheduler_init();
 extern void schedule();
 
 #endif

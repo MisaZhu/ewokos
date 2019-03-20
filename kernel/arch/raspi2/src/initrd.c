@@ -1,17 +1,17 @@
 #include <dev/initrd.h>
 
-int32_t loadInitRD() { //TODO
+int32_t load_init_rd() { //TODO
 	return -1;
 }
 
-void closeInitRD() { //TODO
+void close_initrd() { //TODO
 }
 
-void* cloneInitRD() { //TODO
+void* clone_initrd() { //TODO
 	return NULL;
 }
 
-const char* readInitRD(const char* name, int32_t *size) { //TODO
+const char* read_initrd(const char* name, int32_t *size) { //TODO
 	(void)name;
 	(void)size;
 

@@ -24,23 +24,23 @@ void uartbb_init(int32_t rx_gpio,int32_t tx_gpio) {
 	gpio_pull(uartbb_tx,GPIO_PULL_NONE);
 	/* mark - logic hi */
 	gpio_set(uartbb_tx);
-	timerWait(B9600_TX_DELAY);
+	timer_wait(B9600_TX_DELAY);
 }
 
 void uartbb_send(uint32_t data) {
 	int32_t loop;
 	/* start bit */
 	gpio_clr(uartbb_tx);
-	timerWait(B9600_TX_DELAY);
+	timer_wait(B9600_TX_DELAY);
 	for (loop=0;loop<8;loop++) {
 		if (data&0x01) gpio_set(uartbb_tx);
 		else gpio_clr(uartbb_tx);
-		timerWait(B9600_TX_DELAY);
+		timer_wait(B9600_TX_DELAY);
 		data >>= 1;
 	}
 	/* stop bit */
 	gpio_set(uartbb_tx);
-	timerWait(B9600_TX_DELAY);
+	timer_wait(B9600_TX_DELAY);
 }
 
 void uartbb_find_stop(void) {
@@ -50,9 +50,9 @@ void uartbb_find_stop(void) {
 		/* in case we're low, wait for stop bit (high) */
 		while(!gpio_read(uartbb_rx));
 		/* mark start-of-high time */
-		init = timerRead();
+		init = timer_read();
 		while(gpio_read(uartbb_rx)) {
-			if(timerRead()-init>B9600_RX_DELAY) {
+			if(timer_read()-init>B9600_RX_DELAY) {
 				not_done = 0; break;
 			}
 		}
@@ -64,18 +64,18 @@ uint32_t uartbb_read(void) {
 	uint32_t data = 0x00;
 	/* wait start bit */
 	while(gpio_read(uartbb_rx));
-	timerWait(B9600_RX_DELAY);
+	timer_wait(B9600_RX_DELAY);
 	/* we read at half period */
-	timerWait(B9600_RX_DELAY/2);
+	timer_wait(B9600_RX_DELAY/2);
 	for (loop=0;loop<8;loop++) {
 		data >>= 1;
 		if(gpio_read(uartbb_rx)) data |= 0x80;
-		timerWait(B9600_RX_DELAY);
+		timer_wait(B9600_RX_DELAY);
 	}
 	/* ignore stop bit? */
 	if(!gpio_read(uartbb_rx))
 		data = 0x00;
-	timerWait(B9600_RX_DELAY/2);
+	timer_wait(B9600_RX_DELAY/2);
 	return data;
 }
 

@@ -19,19 +19,19 @@ static char* readKernelInitRD(const char* fname, int *size) {
 }
 
 static char* readFromFS(const char* fname, int *size) {
-	int fd = fsOpen(fname, 0);
+	int fd = fs_open(fname, 0);
 	if(fd < 0) 
 		return NULL;
 
-	FSInfoT info;
+	fs_info_t info;
 	fsInfo(fd, &info);
 
 	if(info.size <= 0)
 		return NULL;
 
 	char* buf = (char*)malloc(info.size);
-	int res = fsRead(fd, buf, info.size);
-	fsClose(fd);
+	int res = fs_read(fd, buf, info.size);
+	fs_close(fd);
 
 	if(res <= 0) {
 		free(buf);
@@ -55,7 +55,7 @@ int exec(const char* cmdLine) {
 	}
 	cmd[i] = 0;
 
-	if(fsInited() < 0) {
+	if(fs_inited() < 0) {
 		img = readKernelInitRD(cmd, &size);
 	}
 	else {
@@ -100,17 +100,17 @@ int getuid() {
 /*io functions*/
 
 int open(const char* fname, int mode) {
-	return fsOpen(fname, mode);
+	return fs_open(fname, mode);
 }
 
 int write(int fd, const void* buf, uint32_t size) {
-	return fsWrite(fd, buf, size);
+	return fs_write(fd, buf, size);
 }
 
 int read(int fd, void* buf, uint32_t size) {
-	return fsRead(fd, buf, size);
+	return fs_read(fd, buf, size);
 }
 
 void close(int fd) {
-	fsClose(fd);
+	fs_close(fd);
 }

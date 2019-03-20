@@ -13,97 +13,97 @@
 #include <printk.h>
 #include <mm/shm.h>
 
-ProcessT _processTable[PROCESS_COUNT_MAX];
+process_t _process_table[PROCESS_COUNT_MAX];
 
 __attribute__((__aligned__(PAGE_DIR_SIZE)))
-static PageDirEntryT _processVM[PROCESS_COUNT_MAX][PAGE_DIR_NUM];
+static page_dir_entry_t _processVM[PROCESS_COUNT_MAX][PAGE_DIR_NUM];
 
-ProcessT* _currentProcess = NULL;
+process_t* _current_proc = NULL;
 
 /* proc_init initializes the process sub-system. */
-void procInit(void) {
+void proc_init(void) {
 	for (int i = 0; i < PROCESS_COUNT_MAX; i++)
-		_processTable[i].state = UNUSED;
-	_currentProcess = NULL;
+		_process_table[i].state = UNUSED;
+	_current_proc = NULL;
 }
 
 /* proc_exapnad_memory expands the heap size of the given process. */
-bool procExpandMemory(void *p, int pageCount) {
-	ProcessT* proc = (ProcessT*)p;	
-	for (int i = 0; i < pageCount; i++) {
+bool proc_expand_mem(void *p, int page_num) {
+	process_t* proc = (process_t*)p;	
+	for (int i = 0; i < page_num; i++) {
 		char *page = kalloc();
 		if(page == NULL) {
-			procShrinkMemory(proc, i);
+			proc_shrink_mem(proc, i);
 			return false;
 		}
 		memset(page, 0, PAGE_SIZE);
 
-		mapPage(proc->vm, 
-				proc->heapSize,
+		map_page(proc->vm, 
+				proc->heap_size,
 				V2P(page),
 				AP_RW_RW);
-		proc->heapSize += PAGE_SIZE;
+		proc->heap_size += PAGE_SIZE;
 	}
 	return true;
 }
 
 /* proc_shrink_memory shrinks the heap size of the given process. */
-void procShrinkMemory(void* p, int pageCount) {
-	ProcessT* proc = (ProcessT*)p;	
-	for (int i = 0; i < pageCount; i++) {
-		uint32_t virtualAddr = proc->heapSize - PAGE_SIZE;
-		uint32_t physicalAddr = resolvePhyAddress(proc->vm, virtualAddr);
+void proc_shrink_mem(void* p, int page_num) {
+	process_t* proc = (process_t*)p;	
+	for (int i = 0; i < page_num; i++) {
+		uint32_t virtualAddr = proc->heap_size - PAGE_SIZE;
+		uint32_t physicalAddr = resolve_phy_address(proc->vm, virtualAddr);
 
 		//get the kernel address for kalloc/kfree
 		uint32_t kernelAddr = P2V(physicalAddr);
 		kfree((void *) kernelAddr);
 
-		unmapPage(proc->vm, virtualAddr);
+		unmap_page(proc->vm, virtualAddr);
 
-		proc->heapSize -= PAGE_SIZE;
-		if (proc->heapSize == 0) {
+		proc->heap_size -= PAGE_SIZE;
+		if (proc->heap_size == 0) {
 			break;
 		}
 	}
 }
 
 static void* procGetMemTail(void* p) {
-	ProcessT* proc = (ProcessT*)p;	
-	return (void*)proc->heapSize;
+	process_t* proc = (process_t*)p;	
+	return (void*)proc->heap_size;
 }
 
-static void insert(ProcessT* proc) { /*insert to ready process loop*/
-	if(_currentProcess == NULL)
-		_currentProcess = proc;
-	proc->next = _currentProcess;
-	proc->prev = _currentProcess->prev;
-	_currentProcess->prev->next = proc;
-	_currentProcess->prev = proc;
+static void insert(process_t* proc) { /*insert to ready process loop*/
+	if(_current_proc == NULL)
+		_current_proc = proc;
+	proc->next = _current_proc;
+	proc->prev = _current_proc->prev;
+	_current_proc->prev->next = proc;
+	_current_proc->prev = proc;
 }
 
-static void remove(ProcessT* proc) { /*remove from ready process loop*/
+static void remove(process_t* proc) { /*remove from ready process loop*/
 	proc->next->prev = proc->prev;
 	proc->prev->next = proc->next;
 
 	if(proc->next == proc) //only one left.
-		_currentProcess = NULL;
+		_current_proc = NULL;
 	else
-		_currentProcess = proc->next;
+		_current_proc = proc->next;
 
 	proc->next = NULL;
 	proc->prev = NULL;
 }
 
 /* proc_creates allocates a new process and returns it. */
-ProcessT *procCreate(void) {
-	ProcessT *proc = NULL;
+process_t *proc_create(void) {
+	process_t *proc = NULL;
 	int index = -1;
-	PageDirEntryT *vm = NULL;
+	page_dir_entry_t *vm = NULL;
 	//char *kernelStack = NULL;
-	char *userStack = NULL;
+	char *user_stack = NULL;
 
 	for (int i = 0; i < PROCESS_COUNT_MAX; i++) {
-		if (_processTable[i].state == UNUSED) {
+		if (_process_table[i].state == UNUSED) {
 			index = i;
 			break;
 		}
@@ -111,72 +111,72 @@ ProcessT *procCreate(void) {
 
 	if (index < 0)
 		return NULL;
-	proc = &_processTable[index];
+	proc = &_process_table[index];
 
 	//kernelStack = kalloc();
-	userStack = kalloc();
+	user_stack = kalloc();
 
 	vm = _processVM[index];
-	setKernelVM(vm);
+	set_kernel_vm(vm);
 
-	/*mapPage(vm, 
+	/*map_page(vm, 
 		KERNEL_STACK_BOTTOM,
 		V2P(kernelStack),
 		AP_RW_R);
 		*/
 
-	mapPage(vm,
+	map_page(vm,
 		USER_STACK_BOTTOM,
-		V2P(userStack),
+		V2P(user_stack),
 		AP_RW_RW);
 
 	proc->pid = index;
-	proc->fatherPid = 0;
+	proc->father_pid = 0;
 	proc->owner = -1;
 	proc->cmd[0] = 0;
 	strcpy(proc->pwd, "/");
 
 	proc->state = CREATED;
 	proc->vm = vm;
-	proc->heapSize = 0;
+	proc->heap_size = 0;
 
 	//proc->kernelStack = kernelStack;
-	proc->userStack = userStack;
+	proc->user_stack = user_stack;
 
-	proc->waitPid = -1;
-	proc->mallocMan.arg = (void*)proc;
-	proc->mallocMan.mHead = 0;
-	proc->mallocMan.mTail = 0;
-	proc->mallocMan.expand = procExpandMemory;
-	proc->mallocMan.shrink = procShrinkMemory;
-	proc->mallocMan.getMemTail = procGetMemTail;
+	proc->wait_pid = -1;
+	proc->malloc_man.arg = (void*)proc;
+	proc->malloc_man.mHead = 0;
+	proc->malloc_man.mTail = 0;
+	proc->malloc_man.expand = proc_expand_mem;
+	proc->malloc_man.shrink = proc_shrink_mem;
+	proc->malloc_man.getMemTail = procGetMemTail;
 
-	memset(&proc->files, 0, sizeof(ProcFileT)*FILE_MAX);
+	memset(&proc->files, 0, sizeof(proc_file_t)*FILE_MAX);
 
 	insert(proc);
 	return proc;
 }
 
 int *getCurrentContext(void) {
-	return _currentProcess->context;
+	return _current_proc->context;
 }
 
 /* proc_free frees all resources allocated by proc. */
-void procFree(ProcessT *proc) {
+void proc_free(process_t *proc) {
 	/*free file info*/
 	for(int i=0; i<FILE_MAX; i++) {
-		KFileT* kf = proc->files[i].kf;
+		k_file_t* kf = proc->files[i].kf;
 		if(kf != NULL) {
-			kfUnref(kf, proc->files[i].flags); //unref the kernel file table.
+			kf_unref(kf, proc->files[i].flags); //unref the kernel file table.
 		}
 	}
 
-	ipcCloseAll(proc->pid);
-	shmProcFree(proc->pid);
+	ipc_close_all(proc->pid);
+	shm_proc_free(proc->pid);
 	//kfree(proc->kernelStack);
-	kfree(proc->userStack);
-	procShrinkMemory(proc, proc->heapSize / PAGE_SIZE);
-	freePageTables(proc->vm);
+	kfree(proc->user_stack);
+	proc_shrink_mem(proc, proc->heap_size / PAGE_SIZE);
+	free_page_tables(proc->vm);
 	proc->state = UNUSED;
 }
 
@@ -194,26 +194,26 @@ uint32_t cpsrUser() {
 }
 
 /* proc_load loads the given ELF process image into the given process. */
-bool procLoad(ProcessT *proc, const char *pimg, uint32_t imgSize) {
+bool proc_load(process_t *proc, const char *pimg, uint32_t img_size) {
 	uint32_t progHeaderOffset = 0;
 	uint32_t progHeaderCount = 0;
 	uint32_t i = 0;
 	
 	/*move to kernel memory to save procImg, coz orignal address will be covered.*/
-	int32_t shmid = shmalloc(imgSize);
-	char* procImage = NULL;
-	if(_currentProcess != NULL)
-		procImage = (char*)shmProcMap(_currentProcess->pid, shmid);
+	int32_t shmid = shm_alloc(img_size);
+	char* proc_image = NULL;
+	if(_current_proc != NULL)
+		proc_image = (char*)shm_proc_map(_current_proc->pid, shmid);
 	else
-		procImage = (char*)shmRaw(shmid);
-	if(procImage == NULL)
+		proc_image = (char*)shm_raw(shmid);
+	if(proc_image == NULL)
 		return false;
-	memcpy(procImage, pimg, imgSize);
-	procShrinkMemory(proc, proc->heapSize/PAGE_SIZE);
+	memcpy(proc_image, pimg, img_size);
+	proc_shrink_mem(proc, proc->heap_size/PAGE_SIZE);
 
-	struct ElfHeader *header = (struct ElfHeader *) procImage;
+	struct elf_header *header = (struct elf_header *) proc_image;
 	if (header->type != ELFTYPE_EXECUTABLE) {
-		shmfree(shmid);
+		shm_free(shmid);
 		return false;
 	}
 
@@ -222,13 +222,13 @@ bool procLoad(ProcessT *proc, const char *pimg, uint32_t imgSize) {
 
 	for (i = 0; i < progHeaderCount; i++) {
 		uint32_t j = 0;
-		struct ElfProgramHeader *header = (void *) (procImage + progHeaderOffset);
+		struct elf_program_header *header = (void *) (proc_image + progHeaderOffset);
 
 		/* make enough room for this section */
-		while (proc->heapSize < header->vaddr + header->memsz) {
-			if(!procExpandMemory(proc, 1)) {
+		while (proc->heap_size < header->vaddr + header->memsz) {
+			if(!proc_expand_mem(proc, 1)) {
 				printk("Panic: proc expand memory failed!!(%s: %d)\n", proc->cmd, proc->pid);
-				shmfree(shmid);
+				shm_free(shmid);
 				return false;
 			}
 		}
@@ -237,21 +237,21 @@ bool procLoad(ProcessT *proc, const char *pimg, uint32_t imgSize) {
 		uint32_t hoff = header->off;
 		for (j = 0; j < header->memsz; j++) {
 			uint32_t vaddr = hvaddr + j; /*vaddr in elf (proc vaddr)*/
-			uint32_t paddr = resolvePhyAddress(proc->vm, vaddr); /*trans to phyaddr by proc's page dir*/
+			uint32_t paddr = resolve_phy_address(proc->vm, vaddr); /*trans to phyaddr by proc's page dir*/
 			uint32_t vkaddr = P2V(paddr); /*trans the phyaddr to vaddr now in kernel page dir*/
 			/*copy from elf to vaddrKernel(=phyaddr=vaddrProc=vaddrElf)*/
 			
 			uint32_t imageOff = hoff + j;
-			*(char*)vkaddr = procImage[imageOff];
+			*(char*)vkaddr = proc_image[imageOff];
 		}
-		progHeaderOffset += sizeof(struct ElfProgramHeader);
+		progHeaderOffset += sizeof(struct elf_program_header);
 	}
-	shmfree(shmid);
+	shm_free(shmid);
 
-	proc->mallocMan.mHead = 0;
-	proc->mallocMan.mTail = 0;
+	proc->malloc_man.mHead = 0;
+	proc->malloc_man.mTail = 0;
 	
-	proc->entry = (EntryFunctionT) header->entry;
+	proc->entry = (entry_function_t) header->entry;
 	proc->state = READY;
 
 	memset(proc->context, 0, sizeof(proc->context));
@@ -262,43 +262,43 @@ bool procLoad(ProcessT *proc, const char *pimg, uint32_t imgSize) {
 }
 
 /* proc_start starts running the given process. */
-void procStart(ProcessT *proc) {
-	_currentProcess = proc;
+void proc_start(process_t *proc) {
+	_current_proc = proc;
 
-	__setTranslationTableBase((uint32_t) V2P(proc->vm));
+	__set_translation_table_base((uint32_t) V2P(proc->vm));
 
 	/* clear TLB */
 	__asm__ volatile("mov R4, #0");
 	__asm__ volatile("MCR p15, 0, R4, c8, c7, 0");
 
-	__switchToContext(proc->context);
+	__switch_to_context(proc->context);
 }
 
-ProcessT* procGet(int pid) {
+process_t* proc_get(int pid) {
 	if(pid < 0 || pid >= PROCESS_COUNT_MAX)
 		return NULL;
 
-	return &_processTable[pid];
+	return &_process_table[pid];
 }
 
 int kfork(void) {
-	ProcessT *child = NULL;
-	ProcessT *parent = _currentProcess;
+	process_t *child = NULL;
+	process_t *parent = _current_proc;
 	uint32_t i = 0;
 
-	child = procCreate();
-	uint32_t pages = parent->heapSize / PAGE_SIZE;
-	if((parent->heapSize % PAGE_SIZE) != 0)
+	child = proc_create();
+	uint32_t pages = parent->heap_size / PAGE_SIZE;
+	if((parent->heap_size % PAGE_SIZE) != 0)
 		pages++;
 
-	if(!procExpandMemory(child, pages)) {
+	if(!proc_expand_mem(child, pages)) {
 		printk("Panic: kfork expand memory failed!!(%s: %d)\n", parent->cmd, parent->pid);
 		return -1;
 	}
 
 	/* copy parent's memory to child's memory */
-	for (i = 0; i < parent->heapSize; i++) {
-		uint32_t childPAddr = resolvePhyAddress(child->vm, i);
+	for (i = 0; i < parent->heap_size; i++) {
+		uint32_t childPAddr = resolve_phy_address(child->vm, i);
 		char *childPtr = (char *) P2V(childPAddr);
 		char *parentPtr = (char *) i;
 
@@ -307,14 +307,14 @@ int kfork(void) {
 
 	/* copy parent's stack to child's stack */
 	//memcpy(child->kernelStack, parent->kernelStack, PAGE_SIZE);
-	memcpy(child->userStack, parent->userStack, PAGE_SIZE);
+	memcpy(child->user_stack, parent->user_stack, PAGE_SIZE);
 
 	/* copy parent's context to child's context */
 	memcpy(child->context, parent->context, sizeof(child->context));
 
 	/*pmalloc list*/
-	child->mallocMan = parent->mallocMan;
-	child->mallocMan.arg = child;
+	child->malloc_man = parent->malloc_man;
+	child->malloc_man.arg = child;
 
 	/* set return value of fork in child to 0 */
 	child->context[R0] = 0;
@@ -323,7 +323,7 @@ int kfork(void) {
 	child->state = READY;
 	
 	/*set father*/
-	child->fatherPid = parent->pid;
+	child->father_pid = parent->pid;
 
 	/*same owner*/
 	child->owner = parent->owner;
@@ -336,62 +336,62 @@ int kfork(void) {
 
 	/*file info*/
 	for(i=0; i<FILE_MAX; i++) {
-		KFileT* kf = parent->files[i].kf;
+		k_file_t* kf = parent->files[i].kf;
 		if(kf != NULL) {
 			child->files[i].kf = kf;
 			child->files[i].flags = parent->files[i].flags;
 			child->files[i].seek = parent->files[i].seek;
-			kfRef(kf, child->files[i].flags); //ref the kernel file table.
+			kf_ref(kf, child->files[i].flags); //ref the kernel file table.
 		}
 	}
 	/* return pid of child to the parent. */
 	return child->pid;
 }
 
-void procExit() {
-	if (_currentProcess == NULL)
+void proc_exit() {
+	if (_current_proc == NULL)
 		return;
 
-	__setTranslationTableBase((uint32_t) V2P(_kernelVM));
-	__asm__ volatile("ldr sp, = _initStack");
+	__set_translation_table_base((uint32_t) V2P(_kernel_vm));
+	__asm__ volatile("ldr sp, = _init_stack");
 	__asm__ volatile("add sp, #4096");
 
-	ProcessT *proc = _currentProcess->next;
-	while(proc != _currentProcess) {
+	process_t *proc = _current_proc->next;
+	while(proc != _current_proc) {
 		if (proc->state == SLEEPING &&
-				proc->waitPid == _currentProcess->pid) {
-			proc->waitPid = -1;
+				proc->wait_pid == _current_proc->pid) {
+			proc->wait_pid = -1;
 			proc->state = READY;
 		}
 		proc = proc->next;
 	}
-	procFree(_currentProcess);
+	proc_free(_current_proc);
 
-	remove(_currentProcess);
+	remove(_current_proc);
 	schedule();
 	return;
 }
 
-void procSleep(int pid) {
-	ProcessT* proc = procGet(pid);
+void proc_sleep(int pid) {
+	process_t* proc = proc_get(pid);
 	if(proc == NULL)
 		return;
 	proc->state = SLEEPING;
 }
 
-void procWake(int pid) {
-	ProcessT* proc = procGet(pid);
+void proc_wake(int pid) {
+	process_t* proc = proc_get(pid);
 	if(proc == NULL)
 		return;
 	proc->state = READY;
 }
 
 void _abortEntry() {
-	procExit();
+	proc_exit();
 }
 
 void* pmalloc(uint32_t size) {
-	if(_currentProcess == NULL || size == 0)
+	if(_current_proc == NULL || size == 0)
 		return NULL;
-	return trunkMalloc(&_currentProcess->mallocMan, size);
+	return trunk_malloc(&_current_proc->malloc_man, size);
 }

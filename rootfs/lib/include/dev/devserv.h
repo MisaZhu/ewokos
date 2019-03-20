@@ -14,8 +14,8 @@ typedef struct {
 	int (*dma)(uint32_t node, uint32_t *size);
 	int (*flush)(uint32_t node);
 	void* (*ctrl)(uint32_t node, int32_t cmd, void* data, uint32_t size, int32_t* ret);
-} DeviceT;
+} device_t;
 
-void devRun(DeviceT* dev, const char* devName, uint32_t index, const char* nodeName, bool file);
+void dev_run(device_t* dev, const char* devName, uint32_t index, const char* nodeName, bool file);
 
 #endif

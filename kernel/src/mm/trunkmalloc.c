@@ -5,9 +5,9 @@
 malloc for memory trunk management
 */
 
-static MemBlockT* genBlock(char* p, uint32_t size) {
-	uint32_t blockSize = sizeof(MemBlockT);
-	MemBlockT* block = (MemBlockT*)p;
+static mem_block_t* gen_block(char* p, uint32_t size) {
+	uint32_t blockSize = sizeof(mem_block_t);
+	mem_block_t* block = (mem_block_t*)p;
 	block->next = block->prev = 0;
 	block->mem = p + blockSize;
 	block->size = size - blockSize;
@@ -15,8 +15,8 @@ static MemBlockT* genBlock(char* p, uint32_t size) {
 }
 
 /*if block size much bigger than the size required, break to two blocks*/
-static void tryBreak(MallocT* m, MemBlockT* block, uint32_t size) {
-	uint32_t blockSize = sizeof(MemBlockT);
+static void try_break(malloc_t* m, mem_block_t* block, uint32_t size) {
+	uint32_t blockSize = sizeof(mem_block_t);
 	//required more than half size of block. no break.
 	if((blockSize + size) > (uint32_t)(block->size/2)) 
 		return;
@@ -24,7 +24,7 @@ static void tryBreak(MallocT* m, MemBlockT* block, uint32_t size) {
 	//do break;
 	size = ALIGN_UP(size, 4);
 	char* p = block->mem + size;
-	MemBlockT* newBlock = genBlock(p, block->size - size);
+	mem_block_t* newBlock = gen_block(p, block->size - size);
 	newBlock->used = 0; //break a new free block.
 
 	block->size = size;
@@ -39,15 +39,15 @@ static void tryBreak(MallocT* m, MemBlockT* block, uint32_t size) {
 		m->mTail = newBlock;
 }
 
-char* trunkMalloc(MallocT* m, uint32_t size) {
-	MemBlockT* block = m->mHead;
+char* trunk_malloc(malloc_t* m, uint32_t size) {
+	mem_block_t* block = m->mHead;
 	while(block != NULL) {
 		if(block->used || block->size < size) {
 			block = block->next;
 		}
 		else {
 			block->used = 1;
-			tryBreak(m, block, size);
+			try_break(m, block, size);
 			break;
 		}
 	}
@@ -56,7 +56,7 @@ char* trunkMalloc(MallocT* m, uint32_t size) {
 	}
 
 	/*Can't find any available block, expand pages*/
-	uint32_t blockSize = sizeof(MemBlockT);
+	uint32_t blockSize = sizeof(mem_block_t);
 	uint32_t expandSize = size + blockSize;
 
 	uint32_t pages = expandSize / PAGE_SIZE;	
@@ -67,7 +67,7 @@ char* trunkMalloc(MallocT* m, uint32_t size) {
 	if(!m->expand(m->arg, pages))
 		return NULL;
 
-	block = genBlock(p, pages*PAGE_SIZE);
+	block = gen_block(p, pages*PAGE_SIZE);
 	block->used = 1;
 
 	if(m->mHead == 0) {
@@ -83,17 +83,17 @@ char* trunkMalloc(MallocT* m, uint32_t size) {
 		m->mTail = block;
 	}
 
-	tryBreak(m, block, size);
+	try_break(m, block, size);
 	return block->mem;
 }
 
 /*
 try to merge around free blocks.
 */
-static void tryMerge(MallocT* m, MemBlockT* block) {
-	uint32_t blockSize = sizeof(MemBlockT);
+static void try_merge(malloc_t* m, mem_block_t* block) {
+	uint32_t blockSize = sizeof(mem_block_t);
 	//try next block	
-	MemBlockT* b = block->next;
+	mem_block_t* b = block->next;
 	if(b != NULL && b->used == 0) {
 		block->size += (b->size + blockSize);
 		block->next = b->next;
@@ -118,8 +118,8 @@ static void tryMerge(MallocT* m, MemBlockT* block) {
 /*
 try to shrink the pages.
 */
-static void tryShrink(MallocT* m) {
-	uint32_t blockSize = sizeof(MemBlockT);
+static void try_shrink(malloc_t* m) {
+	uint32_t blockSize = sizeof(mem_block_t);
 	uint32_t addr = (uint32_t)m->mTail;
 	//check if page aligned.	
 	if(m->mTail == NULL || m->mTail->used == 1 || (addr % PAGE_SIZE) != 0)
@@ -136,13 +136,13 @@ static void tryShrink(MallocT* m) {
 	m->shrink(m->arg, pages);
 }
 
-void trunkFree(MallocT* m, char* p) {
-	uint32_t blockSize = sizeof(MemBlockT);
+void trunk_free(malloc_t* m, char* p) {
+	uint32_t blockSize = sizeof(mem_block_t);
 	if(((uint32_t)p) < blockSize) //wrong address.
 		return;
-	MemBlockT* block = (MemBlockT*)(p-blockSize);
+	mem_block_t* block = (mem_block_t*)(p-blockSize);
 	block->used = 0; //mark as free.
 
-	tryMerge(m, block);
-	tryShrink(m);
+	try_merge(m, block);
+	try_shrink(m);
 }

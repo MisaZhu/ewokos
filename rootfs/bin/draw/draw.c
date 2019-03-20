@@ -5,7 +5,7 @@
 #include <graph/graph.h>
 
 void fbtest() {
-	GraphT* g = graphOpen("/dev/fb0");
+	graph_t* g = graphOpen("/dev/fb0");
 	if(g == NULL) {
 		return;
 	}
@@ -15,8 +15,8 @@ void fbtest() {
 	while(i<100) {
 		clear(g, rgb(100, 100, 200));
 		snprintf(s, 31, "Hello, MicroKernel OS! (%d)", i++);
-		fill(g, 10, 10, fontBig.w* strlen(s) + 20, fontBig.h + 20, rgb(0, 0, 0));
-		drawText(g, 20, 20, s, &fontBig, rgb(255, 255, 255));
+		fill(g, 10, 10, font_big.w* strlen(s) + 20, font_big.h + 20, rgb(0, 0, 0));
+		drawText(g, 20, 20, s, &font_big, rgb(255, 255, 255));
 		graphFlush(g);
 	}
 

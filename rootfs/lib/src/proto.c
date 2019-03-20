@@ -2,7 +2,7 @@
 #include <kstring.h>
 #include <stdlib.h>
 
-void protoInit(ProtoT* proto, void* data, uint32_t size) {
+void proto_init(proto_t* proto, void* data, uint32_t size) {
 	proto->data = data;
 	proto->size = size;
 	proto->totalSize = size;
@@ -10,13 +10,13 @@ void protoInit(ProtoT* proto, void* data, uint32_t size) {
 	proto->readOnly = (data == NULL) ? false:true;
 }
 
-ProtoT* protoNew(void* data, uint32_t size) {
-	ProtoT* ret = (ProtoT*)malloc(sizeof(ProtoT));
-	protoInit(ret, data, size);
+proto_t* proto_new(void* data, uint32_t size) {
+	proto_t* ret = (proto_t*)malloc(sizeof(proto_t));
+	proto_init(ret, data, size);
 	return ret;
 }
 
-void protoAdd(ProtoT* proto, void* item, uint32_t size) {
+void proto_add(proto_t* proto, void* item, uint32_t size) {
 	if(proto->readOnly)
 		return;
 
@@ -38,15 +38,15 @@ void protoAdd(ProtoT* proto, void* item, uint32_t size) {
 	proto->size += (size + 4);
 }
 
-inline void protoAddInt(ProtoT* proto, int32_t v) {
-	protoAdd(proto, (void*)&v, 4);
+inline void proto_add_int(proto_t* proto, int32_t v) {
+	proto_add(proto, (void*)&v, 4);
 }
 
-inline void protoAddStr(ProtoT* proto, const char* v) {
-	protoAdd(proto, (void*)v, strlen(v)+1);
+inline void proto_add_str(proto_t* proto, const char* v) {
+	proto_add(proto, (void*)v, strlen(v)+1);
 }
 
-void* protoRead(ProtoT* proto, uint32_t *size) {
+void* proto_read(proto_t* proto, uint32_t *size) {
 	if(proto->data == NULL || proto->size == 0 ||
 			proto->offset >= proto->size)
 		return NULL;
@@ -63,18 +63,18 @@ void* protoRead(ProtoT* proto, uint32_t *size) {
 	return p+4;
 }
 
-inline int32_t protoReadInt(ProtoT* proto) {
-	void *p = protoRead(proto, NULL);
+inline int32_t proto_read_int(proto_t* proto) {
+	void *p = proto_read(proto, NULL);
 	if(p == NULL)
 		return 0;
 	return *(int*)p;
 }
 
-inline const char* protoReadStr(ProtoT* proto) {
-	return (const char*)protoRead(proto, NULL);
+inline const char* proto_read_str(proto_t* proto) {
+	return (const char*)proto_read(proto, NULL);
 }
 
-void protoClear(ProtoT* proto) {
+void proto_clear(proto_t* proto) {
 	if(proto->readOnly)
 		return;
 
@@ -88,7 +88,7 @@ void protoClear(ProtoT* proto) {
 	proto->readOnly = false;
 }
 
-void protoFree(ProtoT* proto) {
-	protoClear(proto);
+void proto_free(proto_t* proto) {
+	proto_clear(proto);
 	free(proto);
 }

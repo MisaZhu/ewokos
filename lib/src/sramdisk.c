@@ -1,8 +1,8 @@
 #include <sramdisk.h>
 #include <kstring.h>
 
-void ramdiskClose(RamDiskT* rd, void (*fr)(void*)) {
-	RamFileT* rf = rd->head;
+void ram_disk_close(ram_disk_t* rd, void (*fr)(void*)) {
+	ram_file_t* rf = rd->head;
 	while(rf != NULL) {
 		rd->head = rf->next;
 		fr(rf);
@@ -11,7 +11,7 @@ void ramdiskClose(RamDiskT* rd, void (*fr)(void*)) {
 	rd->head = NULL;
 }
 
-void ramdiskOpen(const char*ram, RamDiskT* rd, void*(*alloc)(uint32_t)) {
+void ram_disk_open(const char*ram, ram_disk_t* rd, void*(*alloc)(uint32_t)) {
 	rd->ram = ram;
 	rd->head = NULL;
 
@@ -24,7 +24,7 @@ void ramdiskOpen(const char*ram, RamDiskT* rd, void*(*alloc)(uint32_t)) {
 		ram += 4;
 	
 		//read name
-		RamFileT* rf = (RamFileT*)alloc(sizeof(RamFileT));
+		ram_file_t* rf = (ram_file_t*)alloc(sizeof(ram_file_t));
 		memcpy(rf->name, ram, nameLen);
 		rf->name[nameLen] = 0;
 		ram += nameLen;
@@ -42,20 +42,20 @@ void ramdiskOpen(const char*ram, RamDiskT* rd, void*(*alloc)(uint32_t)) {
 	}
 }
 
-bool ramdiskHas(RamDiskT* rd, const char* fname) {
+bool ram_disk_has(ram_disk_t* rd, const char* fname) {
 	int sz;
-	const char* p = ramdiskRead(rd, fname, &sz);
+	const char* p = ram_disk_read(rd, fname, &sz);
 	return p == NULL ? false : true;
 }
 
 /*
 read file content of fname, return content address and size.
 */
-const char* ramdiskRead(RamDiskT* rd, const char* fname, int* size) {
+const char* ram_disk_read(ram_disk_t* rd, const char* fname, int* size) {
 	if(rd == NULL)
 		return NULL;
 
-	RamFileT* rf = rd->head;
+	ram_file_t* rf = rd->head;
 	while(rf != NULL) {
 		if(strcmp(fname, rf->name) == 0) {
 			*size = rf->size;

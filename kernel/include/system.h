@@ -3,8 +3,8 @@
 
 #include <types.h>
 
-void __setTranslationTableBase(uint32_t v);
-void __switchToContext(int *context);
+void __set_translation_table_base(uint32_t v);
+void __switch_to_context(int *context);
 
 void cli(); //disable interrupts
 void sti(); //enable interrupts

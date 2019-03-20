@@ -4,7 +4,7 @@
 #include <syscall.h>
 #include <graph/graph.h>
 
-static GraphT* _graph = NULL;
+static graph_t* _graph = NULL;
 static int32_t _cx = 0;
 static int32_t _cy = 0;
 
@@ -39,11 +39,11 @@ static inline void newLine() {
 }
 
 static inline int32_t getX() {
-	return _cx * fontBig.w;
+	return _cx * font_big.w;
 }
 
 static inline int32_t getY() {
-	return _cy * fontBig.h;
+	return _cy * font_big.h;
 }
 
 static void checkBoard() {
@@ -53,10 +53,10 @@ static void checkBoard() {
 	x = getX();
 	y = getY();
 
-	if(x > (int32_t)(_graph->w-fontBig.w))
+	if(x > (int32_t)(_graph->w-font_big.w))
 		newLine();
 
-	if(y > (int32_t)(_graph->h-fontBig.h)) {
+	if(y > (int32_t)(_graph->h-font_big.h)) {
 		clear(_graph, 0x222222);
 		_cy = 0;
 	}
@@ -69,7 +69,7 @@ static void putChar(char c) {
 		newLine();
 	}
 	else {
-		drawChar(_graph, getX(), getY(), c, &fontBig, 0xFFFFFF);
+		drawChar(_graph, getX(), getY(), c, &font_big, 0xFFFFFF);
 		_cx++;
 	}
 }
@@ -88,11 +88,11 @@ int32_t consoleWrite(uint32_t node, void* buf, uint32_t size, int32_t seek) {
 }
 
 void _start() {
-	DeviceT dev = {0};
+	device_t dev = {0};
 	dev.mount = consoleMount;
 	dev.unmount = consoleUnmount;
 	dev.write = consoleWrite;
 
-	devRun(&dev, "dev.console", 0, "/dev/console0", true);
+	dev_run(&dev, "dev.console", 0, "/dev/console0", true);
 	exit(0);
 }

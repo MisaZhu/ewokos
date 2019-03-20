@@ -30,10 +30,10 @@ int32_t ttyRead(uint32_t node, void* buf, uint32_t size, uint32_t seek) {
 }
 
 void _start() {
-	DeviceT dev = {0};
+	device_t dev = {0};
 	dev.write = ttyWrite;
 	dev.read = ttyRead;
 
-	devRun(&dev, "dev.tty", 0, "/dev/tty0", true);
+	dev_run(&dev, "dev.tty", 0, "/dev/tty0", true);
 	exit(0);
 }

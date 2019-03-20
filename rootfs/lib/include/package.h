@@ -10,22 +10,22 @@ typedef struct {
 	int32_t pid;
 	uint32_t type;
 	uint32_t size;
-} PackageT;
+} package_t;
 
-static inline uint32_t getPackageSize(PackageT* pkg) {
+static inline uint32_t get_pkg_size(package_t* pkg) {
 	if(pkg == NULL)
 		return 0;
-	return sizeof(PackageT) + pkg->size;	
+	return sizeof(package_t) + pkg->size;	
 }
 
-static inline void* getPackageData(PackageT* pkg) {
+static inline void* get_pkg_data(package_t* pkg) {
 	if(pkg == NULL) 
 		return NULL;
-	return (void*)(((char*)pkg) + sizeof(PackageT));
+	return (void*)(((char*)pkg) + sizeof(package_t));
 }
 
-PackageT* newPackage(int32_t id, uint32_t type, void* data, uint32_t size, int32_t pid);
+package_t* pkg_new(int32_t id, uint32_t type, void* data, uint32_t size, int32_t pid);
 
-void freePackage(PackageT* pkg);
+void pkg_free(package_t* pkg);
 
 #endif

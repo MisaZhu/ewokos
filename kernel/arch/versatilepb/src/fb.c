@@ -2,7 +2,7 @@
 #include "dev/fb.h"
 #include "hardware.h"
 
-int32_t videoInit(FBInfoT *fbInfo) {
+int32_t videoInit(fb_info_t *fbInfo) {
 	/*640x480*/
 	/*
 	*((uint32_t*)(MMIO_BASE | 0x1c)) = 0x2c77; //640x480
@@ -21,13 +21,13 @@ int32_t videoInit(FBInfoT *fbInfo) {
 	return 0;
 }
 
-static FBInfoT _fbInfo __attribute__((aligned(16)));
+static fb_info_t _fbInfo __attribute__((aligned(16)));
 
-inline FBInfoT* fbGetInfo() {
+inline fb_info_t* _fb_get_info() {
 	return &_fbInfo;
 }
 
-bool fbInit() {
+bool _fb_init() {
 	// initialize fbinfo 640x480
 	/*
 	_fbInfo.height = 480;
@@ -38,7 +38,7 @@ bool fbInit() {
 	_fbInfo.depth = 32;
 	_fbInfo.xoffset = 0;
 	_fbInfo.yoffset = 0;
-	_fbInfo.pointer = V2P(_fbStart);
+	_fbInfo.pointer = V2P(_fb_start);
 	_fbInfo.size = 0;
 	*/
 	// initialize fbinfo 800x600
@@ -50,7 +50,7 @@ bool fbInit() {
 	_fbInfo.depth = 32;
 	_fbInfo.xoffset = 0;
 	_fbInfo.yoffset = 0;
-	_fbInfo.pointer = V2P(_fbStart);
+	_fbInfo.pointer = V2P(_fb_start);
 	_fbInfo.size = 0;
 
 	if(videoInit(&_fbInfo) == 0)

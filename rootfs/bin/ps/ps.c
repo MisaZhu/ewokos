@@ -9,9 +9,9 @@
 void _start()
 {
 	bool owner = true; /*only show process with same owner of the current proc*/
-	initCMainArg();
-	const char* arg = readCMainArg();
-	arg = readCMainArg();
+	init_cmain_arg();
+	const char* arg = read_cmain_arg();
+	arg = read_cmain_arg();
 	if(arg != NULL && arg[0] == '-') {
 		if(strchr(arg, 'a') != NULL) {
 			owner = false;
@@ -19,16 +19,16 @@ void _start()
 	}
 	
 	int num = 0;
-	ProcInfoT* procs = (ProcInfoT*)syscall2(SYSCALL_GET_PROCS, (int)&num, owner);
+	proc_info_t* procs = (proc_info_t*)syscall2(SYSCALL_GET_PROCS, (int)&num, owner);
 	if(procs != NULL) {
 		printf("--------------------------------------------------------------\n");
 		for(int i=0; i<num; i++) {
-			printf("%s\tpid:%d, father:%d, owner:%d, heapSize: %d\n", 
+			printf("%s\tpid:%d, father:%d, owner:%d, heap_size: %d\n", 
 				procs[i].cmd,
 				procs[i].pid,
-				procs[i].fatherPid,
+				procs[i].father_pid,
 				procs[i].owner,
-				procs[i].heapSize);
+				procs[i].heap_size);
 		}
 		printf("\n");
 		free(procs);

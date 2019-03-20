@@ -1,6 +1,6 @@
 #include "base16.h"
 
-void base16Encode(const char *src, i32_t srcLen, char *dst, i32_t *dstLen) {
+void base16_encode(const char *src, i32_t srcLen, char *dst, i32_t *dstLen) {
 	i32_t i;
 	for (i = 0; i < srcLen; i++) {
 		dst[2 * i] = (src[i] & 0xF) + 'A';
@@ -10,7 +10,7 @@ void base16Encode(const char *src, i32_t srcLen, char *dst, i32_t *dstLen) {
 	*dstLen = 2 * srcLen;
 }
 
-void base16Decode(const char *src, i32_t srcLen, char *dst, i32_t *dstLen) {
+void base16_decode(const char *src, i32_t srcLen, char *dst, i32_t *dstLen) {
 	i32_t i;
 	for (i = 0; i < srcLen / 2; i++) {
 		i32_t low = src[2 * i] - 'A';

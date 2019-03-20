@@ -10,13 +10,13 @@
 
 #define FS_BUF_SIZE (16*KB)
 
-int fsOpen(const char* name, int32_t flags) {
-	uint32_t node = vfsNodeByName(name);
+int fs_open(const char* name, int32_t flags) {
+	uint32_t node = vfs_node_by_name(name);
 	if(node == 0) 
 		return -1;
 
-	FSInfoT info;
-	if(vfsNodeInfo(node, &info) != 0)
+	fs_info_t info;
+	if(vfs_node_info(node, &info) != 0)
 		return -1;
 	
 	int32_t fd = syscall2(SYSCALL_PFILE_OPEN, (int32_t)node, flags);
@@ -26,12 +26,12 @@ int fsOpen(const char* name, int32_t flags) {
 	if(info.devServPid == 0) 
 		return fd;
 
-	ProtoT* proto = protoNew(NULL, 0);
-	protoAddInt(proto, (int32_t)node);
-	protoAddInt(proto, flags);
+	proto_t* proto = proto_new(NULL, 0);
+	proto_add_int(proto, (int32_t)node);
+	proto_add_int(proto, flags);
 
-	PackageT* pkg = ipcReq(info.devServPid, 0, FS_OPEN, proto->data, proto->size, true);
-	protoFree(proto);
+	package_t* pkg = ipc_req(info.devServPid, 0, FS_OPEN, proto->data, proto->size, true);
+	proto_free(proto);
 	if(pkg == NULL || pkg->type == PKG_TYPE_ERR) {
 		if(pkg != NULL) free(pkg);
 		return -1;
@@ -40,19 +40,19 @@ int fsOpen(const char* name, int32_t flags) {
 	return fd;
 }
 
-int fsClose(int fd) {
-	uint32_t node = vfsNodeByFD(fd);
+int fs_close(int fd) {
+	uint32_t node = vfs_node_by_fd(fd);
 	if(node == 0) 
 		return -1;
 
-	FSInfoT info;
-	if(vfsNodeInfo(node, &info) != 0)
+	fs_info_t info;
+	if(vfs_node_info(node, &info) != 0)
 		return -1;
 	
 	if(info.devServPid > 0) {
-		ipcReq(info.devServPid, 0, FS_CLOSE, (void*)&node, 4, false);
+		ipc_req(info.devServPid, 0, FS_CLOSE, (void*)&node, 4, false);
 		/*
-		PackageT* pkg = ipcReq(info.devServPid, 0, FS_CLOSE, (void*)&node, 4, false;);
+		package_t* pkg = ipc_req(info.devServPid, 0, FS_CLOSE, (void*)&node, 4, false;);
 		if(pkg == NULL || pkg->type == PKG_TYPE_ERR) {
 			if(pkg != NULL) free(pkg);
 			return -1;
@@ -63,45 +63,45 @@ int fsClose(int fd) {
 	return syscall1(SYSCALL_PFILE_CLOSE, fd);
 }
 
-int32_t fsDMA(int fd, uint32_t* size) {
+int32_t fs_dma(int fd, uint32_t* size) {
 	*size = 0;
-	uint32_t node = vfsNodeByFD(fd);
+	uint32_t node = vfs_node_by_fd(fd);
 	if(node == 0) 
 		return -1;
 
-	FSInfoT info;
-	if(vfsNodeInfo(node, &info) != 0)
+	fs_info_t info;
+	if(vfs_node_info(node, &info) != 0)
 		return -1;
 	
 	if(info.devServPid == 0) 
 		return -1;
-	PackageT* pkg = ipcReq(info.devServPid, 0, FS_DMA, (void*)&node, 4, true);
+	package_t* pkg = ipc_req(info.devServPid, 0, FS_DMA, (void*)&node, 4, true);
 	if(pkg == NULL || pkg->type == PKG_TYPE_ERR) {
 		if(pkg != NULL) free(pkg);
 		return -1;
 	}
 
-	ProtoT* proto = protoNew(getPackageData(pkg), pkg->size);
-	int32_t ret = protoReadInt(proto);
-	*size = protoReadInt(proto);
-	protoFree(proto);
+	proto_t* proto = proto_new(get_pkg_data(pkg), pkg->size);
+	int32_t ret = proto_read_int(proto);
+	*size = proto_read_int(proto);
+	proto_free(proto);
 	free(pkg);
 	return ret;
 }
 
-int32_t fsFlush(int fd) {
-	uint32_t node = vfsNodeByFD(fd);
+int32_t fs_flush(int fd) {
+	uint32_t node = vfs_node_by_fd(fd);
 	if(node == 0) 
 		return -1;
 
-	FSInfoT info;
-	if(vfsNodeInfo(node, &info) != 0)
+	fs_info_t info;
+	if(vfs_node_info(node, &info) != 0)
 		return -1;
 	
 	if(info.devServPid > 0) {
-		ipcReq(info.devServPid, 0, FS_FLUSH, (void*)&node, 4, false);
+		ipc_req(info.devServPid, 0, FS_FLUSH, (void*)&node, 4, false);
 		/*
-		PackageT* pkg = ipcReq(info.devServPid, 0, FS_FLUSH, (void*)&node, 4, true);
+		package_t* pkg = ipc_req(info.devServPid, 0, FS_FLUSH, (void*)&node, 4, true);
 		if(pkg == NULL || pkg->type == PKG_TYPE_ERR) {
 			if(pkg != NULL) free(pkg);
 			return -1;
@@ -112,26 +112,26 @@ int32_t fsFlush(int fd) {
 	return 0;
 }
 
-int fsRead(int fd, char* buf, uint32_t size) {
-	uint32_t node = vfsNodeByFD(fd);
+int fs_read(int fd, char* buf, uint32_t size) {
+	uint32_t node = vfs_node_by_fd(fd);
 	if(node == 0) 
 		return -1;
-	uint32_t bufSize = size >= FS_BUF_SIZE ? FS_BUF_SIZE : 0;
+	uint32_t buf_size = size >= FS_BUF_SIZE ? FS_BUF_SIZE : 0;
 
-	FSInfoT info;
-	if(vfsNodeInfo(node, &info) != 0)
+	fs_info_t info;
+	if(vfs_node_info(node, &info) != 0)
 		return -1;
 
 	int seek = syscall1(SYSCALL_PFILE_GET_SEEK, fd);
 	if(seek < 0)
 		return -1;
 
-	ProtoT* proto = protoNew(NULL, 0);
-	protoAddInt(proto, node);
-	protoAddInt(proto, size);
-	protoAddInt(proto, seek);
-	PackageT* pkg = ipcReq(info.devServPid, bufSize, FS_READ, proto->data, proto->size, true);
-	protoFree(proto);
+	proto_t* proto = proto_new(NULL, 0);
+	proto_add_int(proto, node);
+	proto_add_int(proto, size);
+	proto_add_int(proto, seek);
+	package_t* pkg = ipc_req(info.devServPid, buf_size, FS_READ, proto->data, proto->size, true);
+	proto_free(proto);
 
 	if(pkg == NULL || pkg->type == PKG_TYPE_ERR) {
 		if(pkg != NULL) free(pkg);
@@ -144,7 +144,7 @@ int fsRead(int fd, char* buf, uint32_t size) {
 		return 0;
 	}
 	
-	memcpy(buf, getPackageData(pkg), sz);
+	memcpy(buf, get_pkg_data(pkg), sz);
 	free(pkg);
 
 	seek += sz;
@@ -152,21 +152,21 @@ int fsRead(int fd, char* buf, uint32_t size) {
 	return sz;
 }
 
-int fsCtrl(int fd, int32_t cmd, void* input, uint32_t isize, void* output, uint32_t osize) {
-	uint32_t node = vfsNodeByFD(fd);
+int fs_ctrl(int fd, int32_t cmd, void* input, uint32_t isize, void* output, uint32_t osize) {
+	uint32_t node = vfs_node_by_fd(fd);
 	if(node == 0) 
 		return -1;
 
-	FSInfoT info;
-	if(vfsNodeInfo(node, &info) != 0)
+	fs_info_t info;
+	if(vfs_node_info(node, &info) != 0)
 		return -1;
 
-	ProtoT* proto = protoNew(NULL, 0);
-	protoAddInt(proto, node);
-	protoAddInt(proto, cmd);
-	protoAdd(proto, input, isize);
-	PackageT* pkg = ipcReq(info.devServPid, 0, FS_CTRL, proto->data, proto->size, true);
-	protoFree(proto);
+	proto_t* proto = proto_new(NULL, 0);
+	proto_add_int(proto, node);
+	proto_add_int(proto, cmd);
+	proto_add(proto, input, isize);
+	package_t* pkg = ipc_req(info.devServPid, 0, FS_CTRL, proto->data, proto->size, true);
+	proto_free(proto);
 
 	if(pkg == NULL || pkg->type == PKG_TYPE_ERR) {
 		if(pkg != NULL) free(pkg);
@@ -181,38 +181,38 @@ int fsCtrl(int fd, int32_t cmd, void* input, uint32_t isize, void* output, uint3
 
 	if(sz > osize)
 		sz = osize;
-	memcpy(output, getPackageData(pkg), sz);
+	memcpy(output, get_pkg_data(pkg), sz);
 	free(pkg);
 	return 0;
 }
 
-int fsWrite(int fd, const char* buf, uint32_t size) {
-	uint32_t node = vfsNodeByFD(fd);
+int fs_write(int fd, const char* buf, uint32_t size) {
+	uint32_t node = vfs_node_by_fd(fd);
 	if(node == 0) 
 		return -1;
-	uint32_t bufSize = size >= FS_BUF_SIZE ? FS_BUF_SIZE : 0;
+	uint32_t buf_size = size >= FS_BUF_SIZE ? FS_BUF_SIZE : 0;
 
-	FSInfoT info;
-	if(vfsNodeInfo(node, &info) != 0)
+	fs_info_t info;
+	if(vfs_node_info(node, &info) != 0)
 		return -1;
 
 	int seek = syscall1(SYSCALL_PFILE_GET_SEEK, fd);
 	if(seek < 0)
 		return -1;
 
-	ProtoT* proto = protoNew(NULL, 0);
-	protoAddInt(proto, node);
-	protoAdd(proto, (void*)buf, size);
-	protoAddInt(proto, seek);
-	PackageT* pkg = ipcReq(info.devServPid, bufSize, FS_WRITE, proto->data, proto->size, true);
-	protoFree(proto);
+	proto_t* proto = proto_new(NULL, 0);
+	proto_add_int(proto, node);
+	proto_add(proto, (void*)buf, size);
+	proto_add_int(proto, seek);
+	package_t* pkg = ipc_req(info.devServPid, buf_size, FS_WRITE, proto->data, proto->size, true);
+	proto_free(proto);
 
 	if(pkg == NULL || pkg->type == PKG_TYPE_ERR) {
 		if(pkg != NULL) free(pkg);
 		return -1;
 	}
 
-	int sz = *(int*)getPackageData(pkg);
+	int sz = *(int*)get_pkg_data(pkg);
 	free(pkg);
 
 	seek += sz;
@@ -220,13 +220,13 @@ int fsWrite(int fd, const char* buf, uint32_t size) {
 	return sz;
 }
 
-int fsAdd(int fd, const char* name) {
-	uint32_t node = vfsNodeByFD(fd);
+int fs_add(int fd, const char* name) {
+	uint32_t node = vfs_node_by_fd(fd);
 	if(node == 0) 
 		return -1;
 
-	FSInfoT info;
-	if(vfsNodeInfo(node, &info) != 0)
+	fs_info_t info;
+	if(vfs_node_info(node, &info) != 0)
 		return -1;
 	
 	int size = strlen(name);
@@ -234,56 +234,56 @@ int fsAdd(int fd, const char* name) {
 		return -1;
 
 	if(info.devServPid == 0) {
-		return vfsAdd(vfsNodeByFD(fd), name, 0);
+		return vfs_add(vfs_node_by_fd(fd), name, 0);
 	}
 
-	ProtoT* proto = protoNew(NULL, 0);
-	protoAddInt(proto, node);
-	protoAddStr(proto, name);
-	PackageT* pkg = ipcReq(info.devServPid, 0, FS_ADD, proto->data, proto->size, true);
-	protoFree(proto);
+	proto_t* proto = proto_new(NULL, 0);
+	proto_add_int(proto, node);
+	proto_add_str(proto, name);
+	package_t* pkg = ipc_req(info.devServPid, 0, FS_ADD, proto->data, proto->size, true);
+	proto_free(proto);
 
 	if(pkg == NULL || pkg->type == PKG_TYPE_ERR) {
 		if(pkg != NULL) free(pkg);
 		return -1;
 	}
 
-	int sz = *(int*)getPackageData(pkg);
+	int sz = *(int*)get_pkg_data(pkg);
 	free(pkg);
 	return sz;
 }
 
 
-int fsGetch(int fd) {
+int fs_getch(int fd) {
 	char buf[1];
-	if(fsRead(fd, buf, 1) != 1)
+	if(fs_read(fd, buf, 1) != 1)
 		return 0;
 	return buf[0];
 }
 
-int fsPutch(int fd, int c) {
+int fs_putch(int fd, int c) {
 	char buf[1];
 	buf[0] = (char)c;
-	return fsWrite(fd, buf, 1);
+	return fs_write(fd, buf, 1);
 }
 
-int fsFInfo(const char* name, FSInfoT* info) {
-	uint32_t node = vfsNodeByName(name);
-	return vfsNodeInfo(node, info);
+int fs_finfo(const char* name, fs_info_t* info) {
+	uint32_t node = vfs_node_by_name(name);
+	return vfs_node_info(node, info);
 }
 
-int fsInfo(int fd, FSInfoT* info) {
-	uint32_t node = vfsNodeByFD(fd);
-	return vfsNodeInfo(node, info);
+int fsInfo(int fd, fs_info_t* info) {
+	uint32_t node = vfs_node_by_fd(fd);
+	return vfs_node_info(node, info);
 }
 
-FSInfoT* fsKids(int fd, uint32_t *num) {
-	uint32_t node = vfsNodeByFD(fd);
+fs_info_t* fs_kids(int fd, uint32_t *num) {
+	uint32_t node = vfs_node_by_fd(fd);
 	if(node == 0)
 		return NULL;
-	return vfsKids(node, num);
+	return vfs_kids(node, num);
 }
 
-int32_t fsInited() {
-	return kservGetPid("dev.initfs");
+int32_t fs_inited() {
+	return kserv_get_pid("dev.initfs");
 }

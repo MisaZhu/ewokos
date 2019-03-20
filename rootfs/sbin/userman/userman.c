@@ -17,19 +17,19 @@ static int login(const char* user, const char* passwd) {
 	return 1;
 }
 
-static void doAuth(PackageT* pkg) {
+static void doAuth(package_t* pkg) {
 	int uid = -1;
-	ProtoT* proto = protoNew(getPackageData(pkg), pkg->size);
-	const char* user = protoReadStr(proto);
-	const char* passwd = protoReadStr(proto);
-	protoFree(proto);
+	proto_t* proto = proto_new(get_pkg_data(pkg), pkg->size);
+	const char* user = proto_read_str(proto);
+	const char* passwd = proto_read_str(proto);
+	proto_free(proto);
 
 	uid = login(user, passwd);
 	syscall2(SYSCALL_SET_UID, pkg->pid, uid);
-	ipcSend(pkg->id, pkg->type, &uid, 4);
+	ipc_send(pkg->id, pkg->type, &uid, 4);
 }
 
-static void handle(PackageT* pkg, void* p) {
+static void handle(package_t* pkg, void* p) {
 	(void)p;
 
 	switch(pkg->type) {
@@ -40,11 +40,11 @@ static void handle(PackageT* pkg, void* p) {
 }
 
 void _start() {
-	if(kservGetPid("kserv.userman") >= 0) {
+	if(kserv_get_pid("kserv.userman") >= 0) {
     printf("Panic: 'kserv.userman' process has been running already!\n");
 		exit(0);
 	}
 
-	if(!kservRun("kserv.userman", handle, NULL))
+	if(!kserv_run("kserv.userman", handle, NULL))
 		exit(0);
 }

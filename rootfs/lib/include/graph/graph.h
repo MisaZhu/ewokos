@@ -10,28 +10,28 @@ typedef struct Graph {
 
 	int32_t fd;
 	int32_t shmID;
-} GraphT;
+} graph_t;
 
 uint32_t rgb(uint32_t r, uint32_t g, uint32_t b);
 
-GraphT* graphOpen(const char* fname);
+graph_t* graphOpen(const char* fname);
 
-void graphFlush(GraphT* g);
+void graphFlush(graph_t* g);
 
-void graphClose(GraphT* g);
+void graphClose(graph_t* g);
 
-void pixel(GraphT* g, int32_t x, int32_t y, uint32_t color);
+void pixel(graph_t* g, int32_t x, int32_t y, uint32_t color);
 
-void clear(GraphT* g, uint32_t color);
+void clear(graph_t* g, uint32_t color);
 
-void box(GraphT* g, int32_t x, int32_t y, uint32_t w, uint32_t h, uint32_t color);
+void box(graph_t* g, int32_t x, int32_t y, uint32_t w, uint32_t h, uint32_t color);
 
-void fill(GraphT* g, int32_t x, int32_t y, uint32_t w, uint32_t h, uint32_t color);
+void fill(graph_t* g, int32_t x, int32_t y, uint32_t w, uint32_t h, uint32_t color);
 
-void line(GraphT* g, int32_t x1, int32_t y1, int32_t x2, int32_t y2, uint32_t color);
+void line(graph_t* g, int32_t x1, int32_t y1, int32_t x2, int32_t y2, uint32_t color);
 
-void drawChar(GraphT* g, int32_t x, int32_t y, char c, FontT* font, uint32_t color);
+void drawChar(graph_t* g, int32_t x, int32_t y, char c, font_t* font, uint32_t color);
 
-void drawText(GraphT* g, int32_t x, int32_t y, const char* str, FontT* font, uint32_t color);
+void drawText(graph_t* g, int32_t x, int32_t y, const char* str, font_t* font, uint32_t color);
 
 #endif

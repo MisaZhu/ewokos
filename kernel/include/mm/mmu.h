@@ -17,8 +17,8 @@
 #define USER_STACK_BOTTOM (KERNEL_BASE - 2 * PAGE_SIZE)
 //#define KERNEL_STACK_BOTTOM (KERNEL_BASE - 3 * PAGE_SIZE)
 
-#define KMALLOC_BASE ((uint32_t)&_kernelEnd +  256*KB) //256KB reserved for kernel pageDirTable(at least 16KB).
-#define KMALLOC_SIZE 4*MB // keep for kernel trunk memory, can only used by kernel(kmalloc/kmfree).
+#define KMALLOC_BASE ((uint32_t)&_kernel_end +  256*KB) //256KB reserved for kernel pageDirTable(at least 16KB).
+#define KMALLOC_SIZE 4*MB // keep for kernel trunk memory, can only used by kernel(km_alloc/km_free).
 
 #define ALLOCATABLE_MEMORY_START (KMALLOC_BASE + KMALLOC_SIZE)
 
@@ -67,7 +67,7 @@ typedef struct {
 	uint32_t domain : 4;
 	uint32_t : 1;
 	uint32_t base : 22;
-} PageDirEntryT;
+} page_dir_entry_t;
 
 /* a 32-bit entry in hardware's page table */
 typedef struct {
@@ -76,21 +76,21 @@ typedef struct {
 	uint32_t cacheable : 1;
 	uint32_t permissions : 8;
 	uint32_t base : 20;
-} PageTableEntryT; 
+} page_table_entry_t; 
 
-void mapPages(PageDirEntryT *vm, uint32_t vaddr, 
+void map_pages(page_dir_entry_t *vm, uint32_t vaddr, 
 	uint32_t pstart, 
 	uint32_t pend,  
 	int access_permissions);
 
-void mapPage(PageDirEntryT *vm, 
+void map_page(page_dir_entry_t *vm, 
   uint32_t virtual_addr, 
 	uint32_t physical,
 	int access_permissions);
 
-void unmapPage(PageDirEntryT *vm, uint32_t virtual_addr);
-void freePageTables(PageDirEntryT *vm);
-uint32_t resolvePhyAddress(PageDirEntryT *vm, uint32_t virtual);
+void unmap_page(page_dir_entry_t *vm, uint32_t virtual_addr);
+void free_page_tables(page_dir_entry_t *vm);
+uint32_t resolve_phy_address(page_dir_entry_t *vm, uint32_t virtual);
 
 #endif
 

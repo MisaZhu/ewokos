@@ -9,25 +9,25 @@
 #include <proto.h>
 #include <stdio.h>
 
-static void doOpen(DeviceT* dev, PackageT* pkg) { 
-	ProtoT* proto = protoNew(getPackageData(pkg), pkg->size);
-	uint32_t node = (uint32_t)protoReadInt(proto);
-	int32_t flags = protoReadInt(proto);
-	protoFree(proto);
+static void doOpen(device_t* dev, package_t* pkg) { 
+	proto_t* proto = proto_new(get_pkg_data(pkg), pkg->size);
+	uint32_t node = (uint32_t)proto_read_int(proto);
+	int32_t flags = proto_read_int(proto);
+	proto_free(proto);
 
 	if(node == 0) {
-		ipcSend(pkg->id, PKG_TYPE_ERR, NULL, 0);
+		ipc_send(pkg->id, PKG_TYPE_ERR, NULL, 0);
 		return;
 	}
 
 	int32_t ret = 0;
 	if(dev->open != NULL)
 		ret = dev->open(node, flags);	
-	ipcSend(pkg->id, pkg->type, &ret, 4);
+	ipc_send(pkg->id, pkg->type, &ret, 4);
 }
 
-static void doClose(DeviceT* dev, PackageT* pkg) { 
-	uint32_t node = *(uint32_t*)getPackageData(pkg);
+static void doClose(device_t* dev, package_t* pkg) { 
+	uint32_t node = *(uint32_t*)get_pkg_data(pkg);
 	if(node == 0) {
 		return;
 	}
@@ -36,11 +36,11 @@ static void doClose(DeviceT* dev, PackageT* pkg) {
 		dev->close(node);
 }
 
-static void doDMA(DeviceT* dev, PackageT* pkg) { 
-	uint32_t node = *(uint32_t*)getPackageData(pkg);
+static void doDMA(device_t* dev, package_t* pkg) { 
+	uint32_t node = *(uint32_t*)get_pkg_data(pkg);
 
 	if(node == 0) {
-		ipcSend(pkg->id, PKG_TYPE_ERR, NULL, 0);
+		ipc_send(pkg->id, PKG_TYPE_ERR, NULL, 0);
 		return;
 	}
 
@@ -50,16 +50,16 @@ static void doDMA(DeviceT* dev, PackageT* pkg) {
 		dma = dev->dma(node, &size);
 	}
 		
-	ProtoT* proto = protoNew(NULL, 0);
-	protoAddInt(proto, dma);
-	protoAddInt(proto, (int32_t)size);
+	proto_t* proto = proto_new(NULL, 0);
+	proto_add_int(proto, dma);
+	proto_add_int(proto, (int32_t)size);
 
-	ipcSend(pkg->id, pkg->type, proto->data, proto->size);
-	protoFree(proto);
+	ipc_send(pkg->id, pkg->type, proto->data, proto->size);
+	proto_free(proto);
 }
 
-static void doFlush(DeviceT* dev, PackageT* pkg) { 
-	uint32_t node = *(uint32_t*)getPackageData(pkg);
+static void doFlush(device_t* dev, package_t* pkg) { 
+	uint32_t node = *(uint32_t*)get_pkg_data(pkg);
 	if(node == 0) {
 		return;
 	}
@@ -68,33 +68,33 @@ static void doFlush(DeviceT* dev, PackageT* pkg) {
 		dev->flush(node);
 }
 
-static void doAdd(DeviceT* dev, PackageT* pkg) { 
-	ProtoT* proto = protoNew(getPackageData(pkg), pkg->size);
-	uint32_t node = (uint32_t)protoReadInt(proto);
-	const char* name = protoReadStr(proto);
-	protoFree(proto);
+static void doAdd(device_t* dev, package_t* pkg) { 
+	proto_t* proto = proto_new(get_pkg_data(pkg), pkg->size);
+	uint32_t node = (uint32_t)proto_read_int(proto);
+	const char* name = proto_read_str(proto);
+	proto_free(proto);
 
 	if(node == 0 || name[0] == 0) {
-		ipcSend(pkg->id, PKG_TYPE_ERR, NULL, 0);
+		ipc_send(pkg->id, PKG_TYPE_ERR, NULL, 0);
 		return;
 	}
 
 	int32_t ret = 0;
 	if(dev->add != NULL)
 		ret = dev->add(node, name);	
-	ipcSend(pkg->id, pkg->type, &ret, 4);
+	ipc_send(pkg->id, pkg->type, &ret, 4);
 }
 
-static void doWrite(DeviceT* dev, PackageT* pkg) { 
-	ProtoT* proto = protoNew(getPackageData(pkg), pkg->size);
-	uint32_t node = (uint32_t)protoReadInt(proto);
+static void doWrite(device_t* dev, package_t* pkg) { 
+	proto_t* proto = proto_new(get_pkg_data(pkg), pkg->size);
+	uint32_t node = (uint32_t)proto_read_int(proto);
 	uint32_t size;
-	void* p = protoRead(proto, &size);
-	int32_t seek = protoReadInt(proto);
-	protoFree(proto);
+	void* p = proto_read(proto, &size);
+	int32_t seek = proto_read_int(proto);
+	proto_free(proto);
 
 	if(node == 0) {
-		ipcSend(pkg->id, PKG_TYPE_ERR, NULL, 0);
+		ipc_send(pkg->id, PKG_TYPE_ERR, NULL, 0);
 		return;
 	}
 
@@ -102,22 +102,22 @@ static void doWrite(DeviceT* dev, PackageT* pkg) {
 	if(dev->write != NULL)
 		ret = dev->write(node, p, size, seek);	
 
-	ipcSend(pkg->id, pkg->type, &ret, 4);
+	ipc_send(pkg->id, pkg->type, &ret, 4);
 }
 
-static void doRead(DeviceT* dev, PackageT* pkg) { 
-	ProtoT* proto = protoNew(getPackageData(pkg), pkg->size);
-	uint32_t node = (uint32_t)protoReadInt(proto);
-	uint32_t size = (uint32_t)protoReadInt(proto);
-	uint32_t seek = (uint32_t)protoReadInt(proto);
+static void doRead(device_t* dev, package_t* pkg) { 
+	proto_t* proto = proto_new(get_pkg_data(pkg), pkg->size);
+	uint32_t node = (uint32_t)proto_read_int(proto);
+	uint32_t size = (uint32_t)proto_read_int(proto);
+	uint32_t seek = (uint32_t)proto_read_int(proto);
 	
 	if(node == 0) {
-		ipcSend(pkg->id, PKG_TYPE_ERR, NULL, 0);
+		ipc_send(pkg->id, PKG_TYPE_ERR, NULL, 0);
 		return;
 	}
 
 	if(size == 0) {
-		ipcSend(pkg->id, pkg->type, NULL, 0);
+		ipc_send(pkg->id, pkg->type, NULL, 0);
 		return;
 	}
 
@@ -127,22 +127,22 @@ static void doRead(DeviceT* dev, PackageT* pkg) {
 		ret = dev->read(node, buf, size, seek);	
 
 	if(ret < 0)
-		ipcSend(pkg->id, PKG_TYPE_ERR, NULL, 0);
+		ipc_send(pkg->id, PKG_TYPE_ERR, NULL, 0);
 	else
-		ipcSend(pkg->id, pkg->type, buf, size);
+		ipc_send(pkg->id, pkg->type, buf, size);
 	free(buf);
 }
 
-static void doCtrl(DeviceT* dev, PackageT* pkg) { 
-	ProtoT* proto = protoNew(getPackageData(pkg), pkg->size);
-	uint32_t node = (uint32_t)protoReadInt(proto);
-	uint32_t cmd = (uint32_t)protoReadInt(proto);
+static void doCtrl(device_t* dev, package_t* pkg) { 
+	proto_t* proto = proto_new(get_pkg_data(pkg), pkg->size);
+	uint32_t node = (uint32_t)proto_read_int(proto);
+	uint32_t cmd = (uint32_t)proto_read_int(proto);
 	uint32_t size;
-	void* p = protoRead(proto, &size);
-	protoFree(proto);
+	void* p = proto_read(proto, &size);
+	proto_free(proto);
 
 	if(node == 0) {
-		ipcSend(pkg->id, PKG_TYPE_ERR, NULL, 0);
+		ipc_send(pkg->id, PKG_TYPE_ERR, NULL, 0);
 		return;
 	}
 
@@ -152,13 +152,13 @@ static void doCtrl(DeviceT* dev, PackageT* pkg) {
 		p = dev->ctrl(node, cmd, p, size, &ret);	
 
 	if(ret < 0)
-		ipcSend(pkg->id, PKG_TYPE_ERR, NULL, 0);
+		ipc_send(pkg->id, PKG_TYPE_ERR, NULL, 0);
 	else
-		ipcSend(pkg->id, pkg->type, p, ret);
+		ipc_send(pkg->id, pkg->type, p, ret);
 }
 
-static void handle(PackageT* pkg, void* p) {
-	DeviceT* dev = (DeviceT*)p;
+static void handle(package_t* pkg, void* p) {
+	device_t* dev = (device_t*)p;
 	switch(pkg->type) {
 		case FS_OPEN:
 			doOpen(dev, pkg);
@@ -187,13 +187,13 @@ static void handle(PackageT* pkg, void* p) {
 	}
 }
 
-void devRun(DeviceT* dev, const char* devName, uint32_t index, const char* nodeName, bool file) {
-	if(kservGetPid(devName) >= 0) {
+void dev_run(device_t* dev, const char* devName, uint32_t index, const char* nodeName, bool file) {
+	if(kserv_get_pid(devName) >= 0) {
 		printf("%s device service has been running!\n", devName);
 		exit(0);
 	}
 
-	uint32_t node = vfsMount(nodeName, devName, index, file);
+	uint32_t node = vfs_mount(nodeName, devName, index, file);
 	if(node == 0)
 		return;
 	
@@ -202,9 +202,9 @@ void devRun(DeviceT* dev, const char* devName, uint32_t index, const char* nodeN
 			return;
 	}
 	printf("(%s mounted to vfs:%s)\n", devName, nodeName);
-	kservRun(devName, handle, dev);
+	kserv_run(devName, handle, dev);
 
-	if(vfsUnmount(node) != 0)
+	if(vfs_unmount(node) != 0)
 		return;
 
 	if(dev->unmount != NULL) {

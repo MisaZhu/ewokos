@@ -10,6 +10,6 @@ typedef struct  {
 	uint32_t depth; /* bits per pixel */
 	uint32_t xoffset, yoffset;
 	uint32_t pointer, size;
-} FBInfoT;
+} fb_info_t;
 
 #endif

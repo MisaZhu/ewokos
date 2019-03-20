@@ -3,7 +3,7 @@
 
 #include <types.h>
 
-void initCMainArg();
-const char* readCMainArg();
+void init_cmain_arg();
+const char* read_cmain_arg();
 
 #endif

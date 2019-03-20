@@ -9,66 +9,66 @@
 #include <system.h>
 #include <printk.h>
 
-static uint32_t _shMemTail = 0;
-static uint32_t _shmCount = 0;
+static uint32_t shmem_tail = 0;
+static uint32_t shmem_count = 0;
 
-typedef struct ShareMem {
+typedef struct share_mem {
 	uint32_t id; //uniqe accumulating counter
 	uint32_t addr; //memory block base address
 	uint32_t pages; //memory pages
 	uint32_t used; //used or free
 	uint32_t flags; 
 	int32_t owner; //process id which alloced this shm
-	struct ShareMem* next;
-	struct ShareMem* prev;
-} ShareMemT;
+	struct share_mem* next;
+	struct share_mem* prev;
+} share_mem_t;
 
-static ShareMemT* _shmHead = NULL;
-static ShareMemT* _shmTail = NULL;
+static share_mem_t* _shmHead = NULL;
+static share_mem_t* _shmTail = NULL;
 
-void shmInit() {
+void shm_init() {
 	//share memory base address at virtual address phy_mem_size + 256MB
-	_shMemTail = (uint32_t)ALIGN_UP(getPhyRamSize()+256*MB, PAGE_SIZE);
+	shmem_tail = (uint32_t)ALIGN_UP(get_phy_ram_size()+256*MB, PAGE_SIZE);
 	_shmHead = NULL;
 	_shmTail = NULL;
-	_shmCount = 0;
+	shmem_count = 0;
 }
 
-static ShareMemT* shmNew() {
-	ShareMemT* ret = (ShareMemT*)kmalloc(sizeof(ShareMemT));
+static share_mem_t* shmNew() {
+	share_mem_t* ret = (share_mem_t*)km_alloc(sizeof(share_mem_t));
 	if(ret == NULL)
 		return NULL;
 
-	memset(ret, 0, sizeof(ShareMemT));
+	memset(ret, 0, sizeof(share_mem_t));
 	ret->owner = -1;
-	ret->id = _shmCount++;
+	ret->id = shmem_count++;
 	return ret;
 }
 
-static void shmUnmapPages(uint32_t addr, uint32_t pages) {
+static void shm_unmap_pages(uint32_t addr, uint32_t pages) {
 	for (uint32_t i = 0; i < pages; i++) {
-		uint32_t physicalAddr = resolvePhyAddress(_kernelVM, addr);
+		uint32_t physicalAddr = resolve_phy_address(_kernel_vm, addr);
 
 		//get the kernel address for kalloc/kfree
 		uint32_t kernelAddr = P2V(physicalAddr);
-		unmapPage(_kernelVM, addr);
+		unmap_page(_kernel_vm, addr);
 		kfree((void *) kernelAddr);
 		addr += PAGE_SIZE;
 	}
 }
 
-static bool shmMapPages(uint32_t addr, uint32_t pages) {
+static bool shm_map_pages(uint32_t addr, uint32_t pages) {
 	uint32_t oldAddr = addr;
 	for (uint32_t i = 0; i < pages; i++) {
 		char *page = kalloc();
 		if(page == NULL) {
-			printk("shmMap: kalloc failed!\n", (uint32_t)page);
-			shmUnmapPages(oldAddr, i);
+			printk("shm_map: kalloc failed!\n", (uint32_t)page);
+			shm_unmap_pages(oldAddr, i);
 			return false;
 		}
 		memset(page, 0, PAGE_SIZE);
 
-		mapPage(_kernelVM,
+		map_page(_kernel_vm,
 				addr,
 				V2P(page),
 				AP_RW_D);
@@ -77,20 +77,20 @@ static bool shmMapPages(uint32_t addr, uint32_t pages) {
 	return true;
 }
 
-int32_t shmalloc(uint32_t size) {
-	uint32_t addr = _shMemTail;
+int32_t shm_alloc(uint32_t size) {
+	uint32_t addr = shmem_tail;
 	uint32_t pages = (size / PAGE_SIZE);
 	if((size % PAGE_SIZE) != 0)
 		pages++;
 	
-	ShareMemT* i = _shmHead;
+	share_mem_t* i = _shmHead;
 	while(i != NULL) { //search for available memory block
 		if(!i->used && i->pages >= pages)
 			break;
 		i = i->next;
 	}
 
-	ShareMemT* tmp = NULL;
+	share_mem_t* tmp = NULL;
 	if(i != NULL) { //avaible item found.
 		addr =  i->addr;
 		if(i->pages > pages) { //try split one item to two;
@@ -124,21 +124,21 @@ int32_t shmalloc(uint32_t size) {
 	}		
 
 	if(i->pages == 0) { // map pages expanded new block
-		if(!shmMapPages(addr, pages))
+		if(!shm_map_pages(addr, pages))
 			return -1;
 		i->pages = pages;
 	}	
 
-	if(addr == _shMemTail)
-		_shMemTail += pages * PAGE_SIZE;
+	if(addr == shmem_tail)
+		shmem_tail += pages * PAGE_SIZE;
 
 	i->used = true;
-	i->owner = _currentProcess->pid;
+	i->owner = _current_proc->pid;
 	return i->id;
 }
 
-static ShareMemT* shmItem(int32_t id) { //get shm item by id.
-	ShareMemT* i = _shmHead;
+static share_mem_t* shm_item(int32_t id) { //get shm item by id.
+	share_mem_t* i = _shmHead;
 	while(i != NULL) {
 		if(i->used && i->id == (uint32_t)id)
 			return i;
@@ -147,60 +147,60 @@ static ShareMemT* shmItem(int32_t id) { //get shm item by id.
 	return NULL;
 }
 
-static ShareMemT* freeItem(ShareMemT* it) {
-	//shmUnmapPages(it->addr, it->pages);
+static share_mem_t* free_item(share_mem_t* it) {
+	//shm_unmap_pages(it->addr, it->pages);
 	it->used = false;
 	if(it->next != NULL && !it->next->used) { //merge right free items
-		ShareMemT* p = it->next;
+		share_mem_t* p = it->next;
 		it->next = p->next;
 		if(p->next != NULL)
 			p->next->prev = it;
 		else //tail
 			_shmTail = it;
 		it->pages += p->pages;
-		kmfree(p);
+		km_free(p);
 	}
 
 	if(it->prev != NULL && !it->prev->used) { //merge left free items
-		ShareMemT* p = it->prev;
+		share_mem_t* p = it->prev;
 		p->next = it->next;
 		if(it->next != NULL)
 			it->next->prev = p;
 		else
 			_shmTail = p;
 		p->pages += it->pages;
-		kmfree(it);
+		km_free(it);
 		it = p;
 	}
 	return it->next;
 }
 
-void shmfree(int32_t id) {
-	ShareMemT* i = shmItem(id);
-	if(i == NULL || i->owner != _currentProcess->pid) {
+void shm_free(int32_t id) {
+	share_mem_t* i = shm_item(id);
+	if(i == NULL || i->owner != _current_proc->pid) {
 		return;
 	}
-	freeItem(i);
+	free_item(i);
 }
 
-void* shmRaw(int32_t id) {
-	ShareMemT* it = shmItem(id);
+void* shm_raw(int32_t id) {
+	share_mem_t* it = shm_item(id);
 	if(it == NULL)
 		return NULL;
 	return (void*)it->addr;
 }
 	
 /*map share memory to process*/
-void* shmProcMap(int32_t pid, int32_t id) {
-	ShareMemT* it = shmItem(id);
-	ProcessT* proc = procGet(pid);
+void* shm_proc_map(int32_t pid, int32_t id) {
+	share_mem_t* it = shm_item(id);
+	process_t* proc = proc_get(pid);
 	if(it == NULL || proc == NULL)
 		return NULL;
 
 	uint32_t addr = it->addr;
 	for (uint32_t i = 0; i < it->pages; i++) {
-		uint32_t physicalAddr = resolvePhyAddress(_kernelVM, addr);
-		mapPage(proc->vm,
+		uint32_t physicalAddr = resolve_phy_address(_kernel_vm, addr);
+		map_page(proc->vm,
 				addr,
 				physicalAddr,
 				AP_RW_RW);
@@ -210,26 +210,26 @@ void* shmProcMap(int32_t pid, int32_t id) {
 }
 
 /*unmap share memory of process*/
-int32_t shmProcUnmap(int32_t pid, int32_t id) {
-	ProcessT* proc = procGet(pid);
-	ShareMemT* it = shmItem(id);
+int32_t shm_proc_unmap(int32_t pid, int32_t id) {
+	process_t* proc = proc_get(pid);
+	share_mem_t* it = shm_item(id);
 	if(it == NULL || proc == NULL)
 		return -1;
 
 	uint32_t addr = it->addr;
 	for (uint32_t i = 0; i < it->pages; i++) {
-		unmapPage(proc->vm, addr);
+		unmap_page(proc->vm, addr);
 		addr += PAGE_SIZE;
 	}
 	return 0;
 }
 
 /*free all share memory used by the process*/
-void shmProcFree(int32_t pid) {
-	ShareMemT* i = _shmHead;
+void shm_proc_free(int32_t pid) {
+	share_mem_t* i = _shmHead;
 	while(i != NULL) {
 		if(i->used && i->owner == pid) {
-			i = freeItem(i);
+			i = free_item(i);
 		}
 		else 
 			i = i->next;
