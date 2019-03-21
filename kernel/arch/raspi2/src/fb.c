@@ -1,7 +1,7 @@
 #include "mailbox.h"
 #include "dev/fb.h"
 
-void __memBarrier();
+void __mem_barrier();
 
 #define VIDEO_FB_CHANNEL MAIL_CH_FBUFF
 #define VIDEO_INIT_RETRIES 3
@@ -15,11 +15,11 @@ int32_t videoInit(fb_info_t *p_fbinfo) {
 	uint32_t init = VIDEO_INIT_RETRIES;
 	uint32_t test, addr = ((uint32_t)p_fbinfo);
 	while(init>0) {
-		__memBarrier();
+		__mem_barrier();
 		mailboxWrite(VIDEO_FB_CHANNEL,addr);
-		__memBarrier();
+		__mem_barrier();
 		test = mailboxRead(VIDEO_FB_CHANNEL);
-		__memBarrier();
+		__mem_barrier();
 		if (test) 
 			test = VIDEO_ERROR_RETURN;
 		else if(p_fbinfo->pointer == 0x0)

@@ -157,7 +157,7 @@ process_t *proc_create(void) {
 	return proc;
 }
 
-int *getCurrentContext(void) {
+int *get_current_context(void) {
 	return _current_proc->context;
 }
 
@@ -386,7 +386,7 @@ void proc_wake(int pid) {
 	proc->state = READY;
 }
 
-void _abortEntry() {
+void _abort_entry() {
 	proc_exit();
 }
 

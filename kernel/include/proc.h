@@ -6,10 +6,10 @@
 #define SAVE_CONTEXT \
 	push {r0, r14};\
 	mov r0, lr;\
-	bl __saveContext1;\
+	bl __save_context1;\
 	pop {r0, r14};\
 	push {r14};\
-	bl __saveContext2;\
+	bl __save_context2;\
 	pop {r14};
 
 #else

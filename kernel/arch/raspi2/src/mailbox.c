@@ -160,7 +160,7 @@
 #define INFO_STATUS_REQUEST_ERROR_ 4
 #define INFO_STATUS_READING_TAGS 5
 
-void __memBarrier();
+void __mem_barrier();
 
 /**
  * Mailbox (MB) 0: VC -> ARM, MB 1: ARM->VC
@@ -196,7 +196,7 @@ void mailboxWrite(unsigned int channel,unsigned int value) {
 	/* wait if mailbox is full */
 	while (get32(MAIL1_STATUS) & MAIL_STATUS_FULL);
 	/* read-write barrier */
-	__memBarrier();
+	__mem_barrier();
 	/* send it to MB1! */
 	put32(MAIL1_BASE, value);
 }
@@ -267,11 +267,11 @@ unsigned int* mailboxGetBoardInfo(TagsInfoT* info) {
 	/* prepare address */
 	temp = P2V(temp);
 	/* mail it! */
-	__memBarrier();
+	__mem_barrier();
 	mailboxWrite(MAIL_CH_TAGAV, temp);
-	__memBarrier();
+	__mem_barrier();
 	test = mailboxRead(MAIL_CH_TAGAV);
-	__memBarrier();
+	__mem_barrier();
 	/* validate response */
 	if (test!=temp) {
 		info->test = test;
@@ -358,11 +358,11 @@ unsigned int* mailboxGetVideoInfo(TagsInfoT* info) {
 	/* prepare address */
 	temp = P2V(temp);
 	/* mail it! */
-	__memBarrier();
+	__mem_barrier();
 	mailboxWrite(MAIL_CH_TAGAV, temp);
-	__memBarrier();
+	__mem_barrier();
 	test = mailboxRead(MAIL_CH_TAGAV);
-	__memBarrier();
+	__mem_barrier();
 	/* validate response */
 	if (test!=temp) {
 		info->test = test;
