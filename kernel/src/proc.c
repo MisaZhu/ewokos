@@ -51,14 +51,14 @@ bool proc_expand_mem(void *p, int page_num) {
 void proc_shrink_mem(void* p, int page_num) {
 	process_t* proc = (process_t*)p;	
 	for (int i = 0; i < page_num; i++) {
-		uint32_t virtualAddr = proc->heap_size - PAGE_SIZE;
-		uint32_t physicalAddr = resolve_phy_address(proc->vm, virtualAddr);
+		uint32_t virtual_addr = proc->heap_size - PAGE_SIZE;
+		uint32_t physical_addr = resolve_phy_address(proc->vm, virtual_addr);
 
 		//get the kernel address for kalloc/kfree
-		uint32_t kernelAddr = P2V(physicalAddr);
-		kfree((void *) kernelAddr);
+		uint32_t kernel_addr = P2V(physical_addr);
+		kfree((void *) kernel_addr);
 
-		unmap_page(proc->vm, virtualAddr);
+		unmap_page(proc->vm, virtual_addr);
 
 		proc->heap_size -= PAGE_SIZE;
 		if (proc->heap_size == 0) {
@@ -195,7 +195,7 @@ uint32_t cpsrUser() {
 
 /* proc_load loads the given ELF process image into the given process. */
 bool proc_load(process_t *proc, const char *pimg, uint32_t img_size) {
-	uint32_t progHeaderOffset = 0;
+	uint32_t prog_header_offset = 0;
 	uint32_t progHeaderCount = 0;
 	uint32_t i = 0;
 	
@@ -217,12 +217,12 @@ bool proc_load(process_t *proc, const char *pimg, uint32_t img_size) {
 		return false;
 	}
 
-	progHeaderOffset = header->phoff;
+	prog_header_offset = header->phoff;
 	progHeaderCount = header->phnum;
 
 	for (i = 0; i < progHeaderCount; i++) {
 		uint32_t j = 0;
-		struct elf_program_header *header = (void *) (proc_image + progHeaderOffset);
+		struct elf_program_header *header = (void *) (proc_image + prog_header_offset);
 
 		/* make enough room for this section */
 		while (proc->heap_size < header->vaddr + header->memsz) {
@@ -241,10 +241,10 @@ bool proc_load(process_t *proc, const char *pimg, uint32_t img_size) {
 			uint32_t vkaddr = P2V(paddr); /*trans the phyaddr to vaddr now in kernel page dir*/
 			/*copy from elf to vaddrKernel(=phyaddr=vaddrProc=vaddrElf)*/
 			
-			uint32_t imageOff = hoff + j;
-			*(char*)vkaddr = proc_image[imageOff];
+			uint32_t image_off = hoff + j;
+			*(char*)vkaddr = proc_image[image_off];
 		}
-		progHeaderOffset += sizeof(struct elf_program_header);
+		prog_header_offset += sizeof(struct elf_program_header);
 	}
 	shm_free(shmid);
 
@@ -298,11 +298,11 @@ int kfork(void) {
 
 	/* copy parent's memory to child's memory */
 	for (i = 0; i < parent->heap_size; i++) {
-		uint32_t childPAddr = resolve_phy_address(child->vm, i);
-		char *childPtr = (char *) P2V(childPAddr);
-		char *parentPtr = (char *) i;
+		uint32_t child_phy_addr = resolve_phy_address(child->vm, i);
+		char *child_ptr = (char *) P2V(child_phy_addr);
+		char *parent_ptr = (char *) i;
 
-		*childPtr = *parentPtr;
+		*child_ptr = *parent_ptr;
 	}
 
 	/* copy parent's stack to child's stack */
