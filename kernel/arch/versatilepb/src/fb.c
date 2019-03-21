@@ -22,11 +22,11 @@ int32_t videoInit(fb_info_t *fbInfo) {
 
 static fb_info_t _fbInfo __attribute__((aligned(16)));
 
-inline fb_info_t* _fb_get_info() {
+inline fb_info_t* fb_get_info() {
 	return &_fbInfo;
 }
 
-bool _fb_init() {
+bool fb_init() {
 	// initialize fbinfo 640x480
 	_fbInfo.height = 480;
 	_fbInfo.width = 640;

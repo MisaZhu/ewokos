@@ -66,7 +66,7 @@ static int32_t syscall_fb_info(int arg0) {
 	if(_current_proc->owner >= 0)
 		return -1;
 
-	fb_info_t* info = _fb_get_info();
+	fb_info_t* info = fb_get_info();
 	if(info == NULL)
 		return -1;
 	memcpy((fb_info_t*)arg0, info, sizeof(fb_info_t));
@@ -77,7 +77,7 @@ static int32_t syscall_fb_write(int arg0, int arg1) {
 	if(_current_proc->owner >= 0)
 		return -1;
 
-	fb_info_t* info = _fb_get_info();
+	fb_info_t* info = fb_get_info();
 	if(info == NULL)
 		return -1;
 

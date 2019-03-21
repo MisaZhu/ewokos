@@ -13,16 +13,19 @@ static ram_disk_t _initRamDisk;
 
 int32_t load_initrd() {
 	/*map initfs memory, */
+	printk("Load init ramdisk ... ");
 	map_pages(_kernel_vm, get_initrd_base_phy(), get_initrd_base_phy(), get_initrd_base_phy()+get_initrd_size(), AP_RW_D);
 
 	_initRamDiskSize = get_initrd_size();
 	_initRamDiskBase = km_alloc(_initRamDiskSize);
 	if(_initRamDiskBase == NULL) {
-		printk("panic: initramdisk decode failed!\n");
+		printk("failed!\n");
 		return -1;
 	}
 	memcpy(_initRamDiskBase, (void*)get_initrd_base_phy(), get_initrd_size());
 	ram_disk_open((const char*)_initRamDiskBase, &_initRamDisk, km_alloc);
+
+	printk("ok\n");
 	return 0;
 }
 

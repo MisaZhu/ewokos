@@ -34,11 +34,11 @@ int32_t videoInit(fb_info_t *p_fbinfo) {
 
 static fb_info_t _fbInfo __attribute__((aligned(16)));
 
-inline fb_info_t* _fb_get_info() {
+inline fb_info_t* fb_get_info() {
 	return &_fbInfo;
 }
 
-bool _fb_init() {
+bool fb_init() {
 	TagsInfoT info;
 	mailboxGetVideoInfo(&info);
 	/** initialize fbinfo */

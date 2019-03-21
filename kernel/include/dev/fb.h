@@ -5,8 +5,8 @@
 
 extern char _fb_start[];
 
-bool _fb_init();
+bool fb_init();
 
-fb_info_t* _fb_get_info();
+fb_info_t* fb_get_info();
 
 #endif
