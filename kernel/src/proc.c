@@ -67,7 +67,7 @@ void proc_shrink_mem(void* p, int page_num) {
 	}
 }
 
-static void* procGetMemTail(void* p) {
+static void* proc_get_mem_tail(void* p) {
 	process_t* proc = (process_t*)p;	
 	return (void*)proc->heap_size;
 }
@@ -149,7 +149,7 @@ process_t *proc_create(void) {
 	proc->malloc_man.mTail = 0;
 	proc->malloc_man.expand = proc_expand_mem;
 	proc->malloc_man.shrink = proc_shrink_mem;
-	proc->malloc_man.getMemTail = procGetMemTail;
+	proc->malloc_man.get_mem_tail = proc_get_mem_tail;
 
 	memset(&proc->files, 0, sizeof(proc_file_t)*FILE_MAX);
 

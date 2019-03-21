@@ -17,7 +17,7 @@ typedef struct {
 
 	bool (*expand)(void* arg, int pages);
 	void (*shrink)(void* arg, int pages);
-	void* (*getMemTail)(void*);
+	void* (*get_mem_tail)(void*);
 
 	mem_block_t* mHead;
 	mem_block_t* mTail;

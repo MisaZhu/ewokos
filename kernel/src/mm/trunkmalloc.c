@@ -63,7 +63,7 @@ char* trunk_malloc(malloc_t* m, uint32_t size) {
 	if((expandSize % PAGE_SIZE) > 0)
 		pages++;
 
-	char* p = (char*)m->getMemTail(m->arg);
+	char* p = (char*)m->get_mem_tail(m->arg);
 	if(!m->expand(m->arg, pages))
 		return NULL;
 
