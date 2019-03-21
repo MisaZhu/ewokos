@@ -27,17 +27,15 @@ void schedule(void) {
 	}
 }
 
-void handleTimer(void)
-{
+static void handle_timer(void) {
 	timer_clear_interrupt();
 	schedule();
 }
 
 #define SCHEDULE_TIME 10 /*0.01 sec*/
 
-void scheduler_init(void)
-{
+void scheduler_init(void) {
 	timer_set_interval(SCHEDULE_TIME);
-	register_interrupt_handler(get_timer_irq(), handleTimer);
+	register_interrupt_handler(get_timer_irq(), handle_timer);
 }
 

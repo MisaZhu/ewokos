@@ -20,10 +20,9 @@
 #include <printk.h>
 
 page_dir_entry_t* _kernel_vm;
-uint32_t _phyMemSize = 0;
+uint32_t _phy_mem_size = 0;
 
-void init_kernel_vm() 
-{
+void init_kernel_vm() {
 	/*
 	build free mems list only for kernel init.
 	We can only use init memory part
@@ -49,8 +48,7 @@ void init_kernel_vm()
 	km_init();
 }
 
-void set_kernel_vm(page_dir_entry_t* vm) 
-{
+void set_kernel_vm(page_dir_entry_t* vm) {
 	memset(vm, 0, PAGE_DIR_SIZE);
 
 	map_pages(vm, 0, 0, PAGE_SIZE, AP_RW_D);
@@ -67,22 +65,22 @@ void set_kernel_vm(page_dir_entry_t* vm)
 	//map kernel memory trunk to high(virtual) mem.
 	map_pages(vm, KMALLOC_BASE, V2P(KMALLOC_BASE), V2P(KMALLOC_BASE+KMALLOC_SIZE), AP_RW_D);
 
-	if(_phyMemSize == 0) //map some allocable memory for the pagetable alloc for rest momory mapping(coz we don't know the whole phymem size yet.
+	if(_phy_mem_size == 0) //map some allocable memory for the pagetable alloc for rest momory mapping(coz we don't know the whole phymem size yet.
 		map_pages(vm, ALLOCATABLE_MEMORY_START, V2P(ALLOCATABLE_MEMORY_START), V2P(ALLOCATABLE_MEMORY_START) + INIT_RESERV_MEMORY_SIZE, AP_RW_D);
 	else
-		map_pages(vm, ALLOCATABLE_MEMORY_START, V2P(ALLOCATABLE_MEMORY_START), _phyMemSize, AP_RW_D);
+		map_pages(vm, ALLOCATABLE_MEMORY_START, V2P(ALLOCATABLE_MEMORY_START), _phy_mem_size, AP_RW_D);
 
 	arch_set_kernel_vm(vm);
 }
 
 static void init_allocable_mem() {
-	_phyMemSize = get_phy_ram_size();
+	_phy_mem_size = get_phy_ram_size();
 	/*
 	Since kernel mem mapping finished, and init ram disk copied to kernel trunk memory.
 	we can build free mem page list for all the rest mem(the init ram disk part can be reused as well).
 	Notice:	From now, you can kalloc all the rest of physical mem.
 	*/
-	map_pages(_kernel_vm, ALLOCATABLE_MEMORY_START, V2P(ALLOCATABLE_MEMORY_START), _phyMemSize, AP_RW_D);
+	map_pages(_kernel_vm, ALLOCATABLE_MEMORY_START, V2P(ALLOCATABLE_MEMORY_START), _phy_mem_size, AP_RW_D);
 }
 
 void load_init_proc() {
@@ -162,6 +160,5 @@ void kernel_entry() {
 	while(1) {
 		schedule();
 	}
-
 	close_initrd();
 }

@@ -10,15 +10,15 @@
 typedef struct channel {
 	uint32_t offset;
 	uint32_t size;
-	int32_t shmID;
-	uint32_t shmSize;
+	int32_t shm_id;
+	uint32_t shm_size;
 
 	struct {
 		int32_t pid; //proc id
 		void* shm; //sharemem
-	} procMap[2]; // item 0 also means owner(creator).
+	} proc_map[2]; // item 0 also means owner(creator).
 
-	int32_t ring; //ready for procMap[0].pid or procMap[1].pid, or 0 if closed. 
+	int32_t ring; //ready for proc_map[0].pid or proc_map[1].pid, or 0 if closed. 
 } channel_t;
 
 #define CHANNEL_MAX 128
@@ -30,7 +30,7 @@ void ipc_init() {
 	for(i=0; i<CHANNEL_MAX; i++) {
 		memset(&_channels[i], 0, sizeof(channel_t));
 		_channels[i].ring = -1;
-		_channels[i].shmID = -1;
+		_channels[i].shm_id = -1;
 	}
 }
 
@@ -48,15 +48,15 @@ int32_t ipc_open(int32_t pid, uint32_t buf_size) {
 				printk("Panic: shm_alloc error when open ipcchannel!\n");
 				break;
 			}
-			_channels[i].shmID = id;
-			_channels[i].shmSize = buf_size;
+			_channels[i].shm_id = id;
+			_channels[i].shm_size = buf_size;
 			_channels[i].ring = 0;
-			_channels[i].procMap[0].pid = _current_proc->pid;
-			_channels[i].procMap[0].shm = shm_proc_map(_current_proc->pid, id);
-			_channels[i].procMap[1].pid = pid;
-			_channels[i].procMap[1].shm = shm_proc_map(pid, id);
-			proc_wake(_channels[i].procMap[0].pid);
-			proc_wake(_channels[i].procMap[1].pid);
+			_channels[i].proc_map[0].pid = _current_proc->pid;
+			_channels[i].proc_map[0].shm = shm_proc_map(_current_proc->pid, id);
+			_channels[i].proc_map[1].pid = pid;
+			_channels[i].proc_map[1].shm = shm_proc_map(pid, id);
+			proc_wake(_channels[i].proc_map[0].pid);
+			proc_wake(_channels[i].proc_map[1].pid);
 			ret = i;
 			break;
 		}
@@ -78,7 +78,7 @@ static inline bool check_channel(channel_t* channel) {
 		return false;
 
 	int32_t pid = _current_proc->pid;
-	return (channel->procMap[1].pid == pid || channel->procMap[0].pid == pid);
+	return (channel->proc_map[1].pid == pid || channel->proc_map[0].pid == pid);
 }
 
 /*close kernel ipc channel*/
@@ -91,16 +91,16 @@ int32_t ipc_close(int32_t id) {
 	if(channel->size > 0) //still got buffer data to read.
 		return -1;
 
-	shm_proc_unmap(channel->procMap[0].pid, channel->shmID);
-	shm_proc_unmap(channel->procMap[1].pid, channel->shmID);
-	shm_free(channel->shmID);
+	shm_proc_unmap(channel->proc_map[0].pid, channel->shm_id);
+	shm_proc_unmap(channel->proc_map[1].pid, channel->shm_id);
+	shm_free(channel->shm_id);
 
-	proc_wake(channel->procMap[0].pid);
-	proc_wake(channel->procMap[1].pid);
+	proc_wake(channel->proc_map[0].pid);
+	proc_wake(channel->proc_map[1].pid);
 
 	memset(channel, 0, sizeof(channel_t));
 	channel->ring = -1;
-	channel->shmID = -1;
+	channel->shm_id = -1;
 	return 0;
 }
 
@@ -109,7 +109,7 @@ int ipc_ring(int32_t id) {
 	if(channel == NULL)
 		return -1;
 	
-	if(channel->procMap[channel->ring].pid != _current_proc->pid) //current proc dosen't hold the ring.
+	if(channel->proc_map[channel->ring].pid != _current_proc->pid) //current proc dosen't hold the ring.
 		return 0;
 
 	if(channel->ring == 0)
@@ -117,15 +117,15 @@ int ipc_ring(int32_t id) {
 	else 
 		channel->ring = 0;
 
-	proc_wake(channel->procMap[channel->ring].pid);
+	proc_wake(channel->proc_map[channel->ring].pid);
 	channel->offset = 0;
 	return 0;
 }
 
 static int peerChannel(channel_t* channel, int pid) {
-	if(channel->procMap[0].pid == pid)
-		return channel->procMap[1].pid;
-	return  channel->procMap[0].pid;
+	if(channel->proc_map[0].pid == pid)
+		return channel->proc_map[1].pid;
+	return  channel->proc_map[0].pid;
 }
 
 int ipc_peer(int32_t id) {
@@ -139,19 +139,19 @@ int ipc_write(int32_t id, void* data, uint32_t size) {
 	channel_t* channel = ipc_get_channel(id);
 	if(size == 0)
 		return 0; 
-	if(channel->ring < 0 || channel->shmID < 0)  //closed.
+	if(channel->ring < 0 || channel->shm_id < 0)  //closed.
 		return 0;
 		
 	int32_t pid = _current_proc->pid;
-	if(channel->procMap[channel->ring].pid != pid) {//not read for current proc.
+	if(channel->proc_map[channel->ring].pid != pid) {//not read for current proc.
 		proc_sleep(pid);
 		return -1;
 	}
 
-	if((size + channel->offset) > channel->shmSize)
+	if((size + channel->offset) > channel->shm_size)
 		size = PAGE_SIZE - channel->offset;
 
-	char* p = (char*)channel->procMap[channel->ring].shm;
+	char* p = (char*)channel->proc_map[channel->ring].shm;
 	if(p == NULL || size == 0) {//if channel full.
 		//proc_wake(peerChannel(channel, pid));
 		return 0;
@@ -170,11 +170,11 @@ int32_t ipc_read(int32_t id, void* data, uint32_t size) {
 	if(channel == NULL || data == NULL || size == 0)
 		return 0;
 
-	if(channel->ring < 0 || channel->shmID < 0)  //closed.
+	if(channel->ring < 0 || channel->shm_id < 0)  //closed.
 		return 0;
 	
 	int32_t pid = _current_proc->pid;
-	if(channel->procMap[channel->ring].pid != pid) {//not read for current proc.
+	if(channel->proc_map[channel->ring].pid != pid) {//not read for current proc.
 		proc_sleep(pid);
 		return -1;
 	}
@@ -185,7 +185,7 @@ int32_t ipc_read(int32_t id, void* data, uint32_t size) {
 		end = true;
 	}
 
-	const char* p = (const char*)channel->procMap[channel->ring].shm;
+	const char* p = (const char*)channel->proc_map[channel->ring].shm;
 	if(p == NULL)
 		return 0; //closed.
 
@@ -206,7 +206,7 @@ int32_t ipc_ready() {
 	int32_t i;
 	for(i=0; i<CHANNEL_MAX; i++) {
 		channel_t* channel = &_channels[i];
-		if(channel->procMap[channel->ring].pid == pid) // current process hold the ring 
+		if(channel->proc_map[channel->ring].pid == pid) // current process hold the ring 
 			break;
 	}
 
@@ -224,7 +224,7 @@ void ipc_close_all(int32_t pid) {
 		channel_t* channel = &_channels[i];
 		if(channel->ring < 0)
 			continue;
-		if(channel->procMap[0].pid == pid || channel->procMap[1].pid == pid) 
+		if(channel->proc_map[0].pid == pid || channel->proc_map[1].pid == pid) 
 			ipc_close(i);
 	}
 }
