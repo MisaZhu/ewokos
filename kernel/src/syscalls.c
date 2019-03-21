@@ -387,54 +387,6 @@ static int32_t syscall_get_uid(int32_t arg0) {
 	return proc->owner;
 }
 
-/*
-static int32_t syscall_vfsAdd(int32_t arg0, int32_t arg1, int32_t arg2) {
-	tree_node_t* nodeTo = (tree_node_t*)arg0;
-	const char* name = (const char*)arg1;
-	return (int32_t)vfs_add(nodeTo, name, (uint32_t)arg2);
-}
-
-static int32_t syscall_vfsDel(int32_t arg0) {
-	tree_node_t* node = (tree_node_t*)arg0;
-	return vfs_del(node);
-}
-
-static int32_t syscall_vfs_info(int32_t arg0, int32_t arg1) {
-	tree_node_t* node = (tree_node_t*)arg0;
-	fs_info_t* info = (fs_info_t*)arg1;
-	return vfs_node_info(node, info);
-}
-
-static int32_t syscall_vfsKids(int32_t arg0, int32_t arg1) {
-	tree_node_t* node = (tree_node_t*)arg0;
-	int32_t* num = (int32_t*)arg1;
-	return (int32_t)vfsNodeKids(node, num);
-}
-
-static int32_t syscall_vfsNodeByName(int32_t arg0) {
-	return (int32_t)getNodeByName((const char*)arg0);	
-}
-
-static int32_t syscall_vfsMount(int32_t arg0, int32_t arg1, int32_t arg2) {
-	const char* fname = (const char*)arg0;
-	const char* devName = (const char*)arg1;
-	return (int32_t)vfs_mount(fname, devName, arg2);
-}
-
-static int32_t syscall_vfsMountFile(int32_t arg0, int32_t arg1, int32_t arg2) {
-	const char* fname = (const char*)arg0;
-	const char* devName = (const char*)arg1;
-	tree_node_t* node = vfs_mount(fname, devName, arg2);
-	FSN(node)->type = FS_TYPE_FILE;
-	return (int32_t)node;
-}
-
-static int32_t syscall_vfs_unmount(int32_t arg0) {
-	tree_node_t* node = (tree_node_t*)arg0;
-	return vfs_unmount(node);
-}
-*/
-
 static int32_t (*const _syscallHandler[])() = {
 	[SYSCALL_KDB] = syscall_kdb,
 	[SYSCALL_UART_PUTCH] = syscall_uart_putch,
