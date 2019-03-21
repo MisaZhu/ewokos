@@ -1,6 +1,6 @@
 #include <dev/initrd.h>
 
-int32_t load_init_rd() { //TODO
+int32_t load_initrd() { //TODO
 	return -1;
 }
 
