@@ -1,8 +1,8 @@
 OS = EwokOS
 
 ifndef arch
-	arch = versatilepb
-#	arch = raspi2
+#	arch = versatilepb
+	arch = raspi2
 endif
 include arch/$(arch)/config.mk
 
