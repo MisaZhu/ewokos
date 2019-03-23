@@ -100,7 +100,7 @@ process_t* proc_get(int pid);
 void proc_sleep(int pid);
 void proc_wake(int pid);
 
-int kfork(uint32_t type);
+process_t* kfork(uint32_t type);
 void proc_exit();
 void* pmalloc(uint32_t size);
 

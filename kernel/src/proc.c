@@ -111,8 +111,12 @@ static void proc_init_space(process_t* proc) {
 }
 
 static inline  uint32_t proc_get_user_stack(process_t* proc) {
-		uint32_t ret = USER_STACK_BOTTOM - proc->pid * PAGE_SIZE;
-		return ret;
+	uint32_t ret;
+	if(proc->type == TYPE_THREAD)
+		ret = USER_STACK_BOTTOM - proc->pid*PAGE_SIZE;
+	else 
+		ret = USER_STACK_BOTTOM;
+	return ret;
 }
 
 /* proc_creates allocates a new process and returns it. */
@@ -326,24 +330,24 @@ static int32_t proc_clone(process_t* child, process_t* parent) {
 			kf_ref(kf, child->space->files[i].flags); //ref the kernel file table.
 		}
 	}
+	/* copy parent's stack to child's stack */
+	//memcpy(child->kernelStack, parent->kernelStack, PAGE_SIZE);
+	memcpy(child->user_stack, parent->user_stack, PAGE_SIZE);
+	/* copy parent's context to child's context */
+	memcpy(child->context, parent->context, sizeof(child->context));
+
 	return 0;
 }
 
-int kfork(uint32_t type) {
+process_t* kfork(uint32_t type) {
 	process_t *child = NULL;
 	process_t *parent = _current_proc;
 
 	child = proc_create(type);
 	if(type != TYPE_THREAD) {
 		if(proc_clone(child, parent) != 0)
-			return -1;
+			return NULL;
 	}
-
-	/* copy parent's stack to child's stack */
-	//memcpy(child->kernelStack, parent->kernelStack, PAGE_SIZE);
-	memcpy(child->user_stack, parent->user_stack, PAGE_SIZE);
-	/* copy parent's context to child's context */
-	memcpy(child->context, parent->context, sizeof(child->context));
 	/* set return value of fork in child to 0 */
 	child->context[R0] = 0;
 	/* child is ready to run */
@@ -356,8 +360,7 @@ int kfork(uint32_t type) {
 	strcpy(child->cmd, parent->cmd);
 	/*pwd*/
 	strcpy(child->pwd, parent->pwd);
-	/* return pid of child to the parent. */
-	return child->pid;
+	return child;
 }
 
 void proc_exit() {

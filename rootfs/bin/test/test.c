@@ -4,21 +4,24 @@
 #include <unistd.h>
 #include <syscall.h>
 
-void test(bool father) {
+static int i;
+
+void test() {
 	while(true) {
-		if(father)
-			printf("father\n");
-		else
-			printf("child\n");
+		printf("child %x, %d\n", &i, i);
+		yield();
 	}
+	exit(0);
 }
 
 void _start() {
-	int32_t tid = syscall0(SYSCALL_THREAD);	
-	if(tid == 0)
-		test(false);
-	else
-		test(true);
+	i = 0;
+
+	int32_t tid = syscall1(SYSCALL_THREAD, (int32_t)test);	
+	while(true) {
+		printf("father %x, %d\n", &i, i++);
+		yield();
+	}
 	exit(0);
 }
 

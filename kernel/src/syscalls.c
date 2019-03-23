@@ -106,7 +106,10 @@ static int32_t syscall_exec_elf(int32_t arg0, int32_t arg1, int32_t arg2) {
 }
 
 static int32_t syscall_fork(void) {
-	return kfork(TYPE_PROC);
+	process_t* proc = kfork(TYPE_PROC);
+	if(proc == NULL)
+		return -1;
+	return proc->pid;
 }
 
 static int32_t syscall_getpid(void) {
@@ -119,8 +122,12 @@ static int32_t syscall_exit(int32_t arg0) {
 	return 0;
 }
 
-static int32_t syscall_thread() {
-	return kfork(TYPE_THREAD);
+static int32_t syscall_thread(int32_t arg0) {
+	process_t* proc = kfork(TYPE_THREAD);
+	if(proc == NULL)
+		return -1;
+	proc->context[RESTART_ADDR] = (uint32_t)arg0;
+	return proc->pid;
 }
 
 static int32_t syscall_wait(int32_t arg0) {
