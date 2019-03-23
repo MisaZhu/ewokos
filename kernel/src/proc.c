@@ -110,6 +110,11 @@ static void proc_init_space(process_t* proc) {
 	memset(&proc->space->files, 0, sizeof(proc_file_t)*FILE_MAX);
 }
 
+static inline  uint32_t proc_get_user_stack(process_t* proc) {
+		uint32_t ret = USER_STACK_BOTTOM - proc->pid * PAGE_SIZE;
+		return ret;
+}
+
 /* proc_creates allocates a new process and returns it. */
 process_t *proc_create(uint32_t type) {
 	int index = -1;
@@ -141,11 +146,12 @@ process_t *proc_create(uint32_t type) {
 
 	char *user_stack = kalloc();
 	map_page(proc->space->vm,
-		USER_STACK_BOTTOM- (proc->pid * PAGE_SIZE),
+		proc_get_user_stack(proc),
 		V2P(user_stack),
 		AP_RW_RW);
 
 	proc->user_stack = user_stack;
+	proc->context[SP] = proc_get_user_stack(proc) + PAGE_SIZE;
 	proc->wait_pid = -1;
 	proc->father_pid = 0;
 	proc->owner = -1;
@@ -266,7 +272,7 @@ bool proc_load(process_t *proc, const char *pimg, uint32_t img_size) {
 	memset(proc->context, 0, sizeof(proc->context));
 	proc->context[CPSR] = cpsrUser(); //CPSR 0x10 for user mode
 	proc->context[RESTART_ADDR] = (int) proc->entry;
-	proc->context[SP] = PAGE_SIZE + USER_STACK_BOTTOM- (proc->pid * PAGE_SIZE);
+	proc->context[SP] = proc_get_user_stack(proc) + PAGE_SIZE;
 	return true;
 }
 
