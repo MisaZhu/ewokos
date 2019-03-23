@@ -2,24 +2,23 @@
 #include <stdio.h>
 #include <kstring.h>
 #include <unistd.h>
+#include <syscall.h>
 
-void test() {
-	int fd = open("/dev/console0", 0);
-	if(fd < 0)
-		return;
-
-	int i = 0;
-	char s[32];
-
-	while(i<100) {
-		snprintf(s, 31, "Hello, MicroKernel OS! (%d)\n", i++);
-		write(fd, s, strlen(s));
+void test(bool father) {
+	while(true) {
+		if(father)
+			printf("father\n");
+		else
+			printf("child\n");
 	}
-	close(fd);
 }
 
 void _start() {
-	test();
+	int32_t tid = syscall0(SYSCALL_THREAD);	
+	if(tid == 0)
+		test(false);
+	else
+		test(true);
 	exit(0);
 }
 

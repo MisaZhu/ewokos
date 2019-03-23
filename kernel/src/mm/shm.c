@@ -200,7 +200,7 @@ void* shm_proc_map(int32_t pid, int32_t id) {
 	uint32_t addr = it->addr;
 	for (uint32_t i = 0; i < it->pages; i++) {
 		uint32_t physicalAddr = resolve_phy_address(_kernel_vm, addr);
-		map_page(proc->vm,
+		map_page(proc->space->vm,
 				addr,
 				physicalAddr,
 				AP_RW_RW);
@@ -218,7 +218,7 @@ int32_t shm_proc_unmap(int32_t pid, int32_t id) {
 
 	uint32_t addr = it->addr;
 	for (uint32_t i = 0; i < it->pages; i++) {
-		unmap_page(proc->vm, addr);
+		unmap_page(proc->space->vm, addr);
 		addr += PAGE_SIZE;
 	}
 	return 0;

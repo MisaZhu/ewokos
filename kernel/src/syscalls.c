@@ -106,7 +106,7 @@ static int32_t syscall_exec_elf(int32_t arg0, int32_t arg1, int32_t arg2) {
 }
 
 static int32_t syscall_fork(void) {
-	return kfork();
+	return kfork(TYPE_PROC);
 }
 
 static int32_t syscall_getpid(void) {
@@ -117,6 +117,10 @@ static int32_t syscall_exit(int32_t arg0) {
 	(void)arg0;
 	proc_exit();
 	return 0;
+}
+
+static int32_t syscall_thread() {
+	return kfork(TYPE_THREAD);
 }
 
 static int32_t syscall_wait(int32_t arg0) {
@@ -141,7 +145,7 @@ static int32_t syscall_pmalloc(int32_t arg0) {
 
 static int32_t syscall_pfree(int32_t arg0) {
 	char* p = (char*)arg0;
-	trunk_free(&_current_proc->malloc_man, p);
+	trunk_free(&_current_proc->space->malloc_man, p);
 	return 0;
 }
 
@@ -224,10 +228,10 @@ static int32_t syscall_pf_open(int32_t arg0, int32_t arg1) {
 
 	int32_t i;
 	for(i=0; i<FILE_MAX; i++) {
-		if(proc->files[i].kf == NULL) {
-			proc->files[i].kf = kf;
-			proc->files[i].flags = arg1;
-			proc->files[i].seek = 0;
+		if(proc->space->files[i].kf == NULL) {
+			proc->space->files[i].kf = kf;
+			proc->space->files[i].flags = arg1;
+			proc->space->files[i].seek = 0;
 			return i;
 		}
 	}
@@ -245,11 +249,11 @@ static int32_t syscall_pf_close(int32_t arg0) {
 	if(fd < 0 || fd >= FILE_MAX)
 		return -1;
 
-	kf_unref(proc->files[fd].kf, proc->files[fd].flags);
+	kf_unref(proc->space->files[fd].kf, proc->space->files[fd].flags);
 
-	proc->files[fd].kf = NULL;
-	proc->files[fd].flags = 0;
-	proc->files[fd].seek = 0;
+	proc->space->files[fd].kf = NULL;
+	proc->space->files[fd].flags = 0;
+	proc->space->files[fd].seek = 0;
 	return  0;
 }
 
@@ -262,10 +266,10 @@ static int32_t syscall_pf_seek(int32_t arg0, int32_t arg1) {
 	if(fd < 0 || fd >= FILE_MAX)
 		return -1;
 
-	k_file_t* kf = proc->files[fd].kf;
+	k_file_t* kf = proc->space->files[fd].kf;
 	if(kf == NULL || kf->node_addr == 0)
 		return -1;
-	proc->files[fd].seek = arg1;
+	proc->space->files[fd].seek = arg1;
 	return arg1;
 }
 
@@ -278,10 +282,10 @@ static int32_t syscall_pf_get_seek(int32_t arg0) {
 	if(fd < 0 || fd >= FILE_MAX)
 		return -1;
 
-	k_file_t* kf = proc->files[fd].kf;
+	k_file_t* kf = proc->space->files[fd].kf;
 	if(kf == NULL || kf->node_addr == 0)
 		return -1;
-	return proc->files[fd].seek;
+	return proc->space->files[fd].seek;
 }
 
 static int32_t syscall_pf_node_addr(int32_t arg0, int32_t arg1) {
@@ -289,7 +293,7 @@ static int32_t syscall_pf_node_addr(int32_t arg0, int32_t arg1) {
 	if(proc == NULL || arg1 < 0 || arg1>= FILE_MAX)
 		return -1;
 
-	k_file_t* kf = proc->files[arg1].kf;
+	k_file_t* kf = proc->space->files[arg1].kf;
 	if(kf == NULL)
 		return -1;
 
@@ -337,7 +341,7 @@ static int32_t syscall_get_procs(int32_t arg0, int32_t arg1) {
 			procs[j].pid = _process_table[i].pid;	
 			procs[j].father_pid = _process_table[i].father_pid;	
 			procs[j].owner = _process_table[i].owner;	
-			procs[j].heap_size = _process_table[i].heap_size;	
+			procs[j].heap_size = _process_table[i].space->heap_size;	
 			strcpy(procs[j].cmd, _process_table[i].cmd);
 			j++;
 		}
@@ -409,6 +413,8 @@ static int32_t (*const _syscallHandler[])() = {
 	[SYSCALL_WAIT] = syscall_wait,
 	[SYSCALL_YIELD] = syscall_yield,
 	[SYSCALL_EXIT] = syscall_exit,
+
+	[SYSCALL_THREAD] = syscall_thread,
 
 	[SYSCALL_PMALLOC] = syscall_pmalloc,
 	[SYSCALL_PFREE] = syscall_pfree,

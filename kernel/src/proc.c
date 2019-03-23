@@ -38,11 +38,11 @@ bool proc_expand_mem(void *p, int page_num) {
 		}
 		memset(page, 0, PAGE_SIZE);
 
-		map_page(proc->vm, 
-				proc->heap_size,
+		map_page(proc->space->vm, 
+				proc->space->heap_size,
 				V2P(page),
 				AP_RW_RW);
-		proc->heap_size += PAGE_SIZE;
+		proc->space->heap_size += PAGE_SIZE;
 	}
 	return true;
 }
@@ -51,17 +51,17 @@ bool proc_expand_mem(void *p, int page_num) {
 void proc_shrink_mem(void* p, int page_num) {
 	process_t* proc = (process_t*)p;	
 	for (int i = 0; i < page_num; i++) {
-		uint32_t virtual_addr = proc->heap_size - PAGE_SIZE;
-		uint32_t physical_addr = resolve_phy_address(proc->vm, virtual_addr);
+		uint32_t virtual_addr = proc->space->heap_size - PAGE_SIZE;
+		uint32_t physical_addr = resolve_phy_address(proc->space->vm, virtual_addr);
 
 		//get the kernel address for kalloc/kfree
 		uint32_t kernel_addr = P2V(physical_addr);
 		kfree((void *) kernel_addr);
 
-		unmap_page(proc->vm, virtual_addr);
+		unmap_page(proc->space->vm, virtual_addr);
 
-		proc->heap_size -= PAGE_SIZE;
-		if (proc->heap_size == 0) {
+		proc->space->heap_size -= PAGE_SIZE;
+		if (proc->space->heap_size == 0) {
 			break;
 		}
 	}
@@ -69,7 +69,7 @@ void proc_shrink_mem(void* p, int page_num) {
 
 static void* proc_get_mem_tail(void* p) {
 	process_t* proc = (process_t*)p;	
-	return (void*)proc->heap_size;
+	return (void*)proc->space->heap_size;
 }
 
 static void insert(process_t* proc) { /*insert to ready process loop*/
@@ -94,65 +94,65 @@ static void remove(process_t* proc) { /*remove from ready process loop*/
 	proc->prev = NULL;
 }
 
-/* proc_creates allocates a new process and returns it. */
-process_t *proc_create(void) {
-	process_t *proc = NULL;
-	int index = -1;
-	page_dir_entry_t *vm = NULL;
-	//char *kernelStack = NULL;
-	char *user_stack = NULL;
+static void proc_init_space(process_t* proc) {
+	page_dir_entry_t *vm = _processVM[proc->pid];
+	set_kernel_vm(vm);
 
+	proc->space = (process_space_t*)km_alloc(sizeof(process_space_t));
+	proc->space->vm = vm;
+	proc->space->heap_size = 0;
+	proc->space->malloc_man.arg = (void*)proc;
+	proc->space->malloc_man.mHead = 0;
+	proc->space->malloc_man.mTail = 0;
+	proc->space->malloc_man.expand = proc_expand_mem;
+	proc->space->malloc_man.shrink = proc_shrink_mem;
+	proc->space->malloc_man.get_mem_tail = proc_get_mem_tail;
+	memset(&proc->space->files, 0, sizeof(proc_file_t)*FILE_MAX);
+}
+
+/* proc_creates allocates a new process and returns it. */
+process_t *proc_create(uint32_t type) {
+	int index = -1;
 	for (int i = 0; i < PROCESS_COUNT_MAX; i++) {
 		if (_process_table[i].state == UNUSED) {
 			index = i;
 			break;
 		}
 	}
-
 	if (index < 0)
 		return NULL;
-	proc = &_process_table[index];
 
-	//kernelStack = kalloc();
-	user_stack = kalloc();
+	process_t *proc = &_process_table[index];
+	proc->pid = index;
+	proc->type = type;
+	if(type == TYPE_THREAD)
+		proc->space = _current_proc->space;
+	else
+		proc_init_space(proc);
 
-	vm = _processVM[index];
-	set_kernel_vm(vm);
-
-	/*map_page(vm, 
+	/*
+	char *kernelStack = kalloc();
+	map_page(vm, 
 		KERNEL_STACK_BOTTOM,
 		V2P(kernelStack),
 		AP_RW_R);
-		*/
+	proc->kernelStack = kernelStack;
+	*/
 
-	map_page(vm,
-		USER_STACK_BOTTOM,
+	char *user_stack = kalloc();
+	map_page(proc->space->vm,
+		USER_STACK_BOTTOM- (proc->pid * PAGE_SIZE),
 		V2P(user_stack),
 		AP_RW_RW);
 
-	proc->pid = index;
+	proc->user_stack = user_stack;
+	proc->wait_pid = -1;
 	proc->father_pid = 0;
 	proc->owner = -1;
 	proc->cmd[0] = 0;
 	strcpy(proc->pwd, "/");
-
 	proc->state = CREATED;
-	proc->vm = vm;
-	proc->heap_size = 0;
-
-	//proc->kernelStack = kernelStack;
-	proc->user_stack = user_stack;
-
-	proc->wait_pid = -1;
-	proc->malloc_man.arg = (void*)proc;
-	proc->malloc_man.mHead = 0;
-	proc->malloc_man.mTail = 0;
-	proc->malloc_man.expand = proc_expand_mem;
-	proc->malloc_man.shrink = proc_shrink_mem;
-	proc->malloc_man.get_mem_tail = proc_get_mem_tail;
-
-	memset(&proc->files, 0, sizeof(proc_file_t)*FILE_MAX);
-
+	
 	insert(proc);
 	return proc;
 }
@@ -161,23 +161,34 @@ int *get_current_context(void) {
 	return _current_proc->context;
 }
 
-/* proc_free frees all resources allocated by proc. */
-void proc_free(process_t *proc) {
+static void proc_free_space(process_t *proc) {
 	/*free file info*/
-	for(int i=0; i<FILE_MAX; i++) {
-		k_file_t* kf = proc->files[i].kf;
+	for(uint32_t i=0; i<FILE_MAX; i++) {
+		k_file_t* kf = proc->space->files[i].kf;
 		if(kf != NULL) {
-			kf_unref(kf, proc->files[i].flags); //unref the kernel file table.
+			kf_unref(kf, proc->space->files[i].flags); //unref the kernel file table.
 		}
 	}
 
 	ipc_close_all(proc->pid);
 	shm_proc_free(proc->pid);
+	proc_shrink_mem(proc, proc->space->heap_size / PAGE_SIZE);
+	free_page_tables(proc->space->vm);
+	km_free(proc->space);
+}
+
+/* proc_free frees all resources allocated by proc. */
+void proc_free(process_t *proc) {
+	proc->state = UNUSED;
 	//kfree(proc->kernelStack);
 	kfree(proc->user_stack);
-	proc_shrink_mem(proc, proc->heap_size / PAGE_SIZE);
-	free_page_tables(proc->vm);
-	proc->state = UNUSED;
+
+	if(proc->type == TYPE_THREAD) {
+		proc->space = NULL;
+		return;
+	}
+
+	proc_free_space(proc);
 }
 
 #define MODE_MASK 0x1f
@@ -209,14 +220,14 @@ bool proc_load(process_t *proc, const char *pimg, uint32_t img_size) {
 	if(proc_image == NULL)
 		return false;
 	memcpy(proc_image, pimg, img_size);
-	proc_shrink_mem(proc, proc->heap_size/PAGE_SIZE);
+	proc_shrink_mem(proc, proc->space->heap_size/PAGE_SIZE);
 
+	/*read elf format from saved proc image*/
 	struct elf_header *header = (struct elf_header *) proc_image;
 	if (header->type != ELFTYPE_EXECUTABLE) {
 		shm_free(shmid);
 		return false;
 	}
-
 	prog_header_offset = header->phoff;
 	progHeaderCount = header->phnum;
 
@@ -225,19 +236,19 @@ bool proc_load(process_t *proc, const char *pimg, uint32_t img_size) {
 		struct elf_program_header *header = (void *) (proc_image + prog_header_offset);
 
 		/* make enough room for this section */
-		while (proc->heap_size < header->vaddr + header->memsz) {
+		while (proc->space->heap_size < header->vaddr + header->memsz) {
 			if(!proc_expand_mem(proc, 1)) {
 				printk("Panic: proc expand memory failed!!(%s: %d)\n", proc->cmd, proc->pid);
 				shm_free(shmid);
 				return false;
 			}
 		}
-		/* copy the section */
+		/* copy the section from kernel to proc mem space*/
 		uint32_t hvaddr = header->vaddr;
 		uint32_t hoff = header->off;
 		for (j = 0; j < header->memsz; j++) {
 			uint32_t vaddr = hvaddr + j; /*vaddr in elf (proc vaddr)*/
-			uint32_t paddr = resolve_phy_address(proc->vm, vaddr); /*trans to phyaddr by proc's page dir*/
+			uint32_t paddr = resolve_phy_address(proc->space->vm, vaddr); /*trans to phyaddr by proc's page dir*/
 			uint32_t vkaddr = P2V(paddr); /*trans the phyaddr to vaddr now in kernel page dir*/
 			/*copy from elf to vaddrKernel(=phyaddr=vaddrProc=vaddrElf)*/
 			
@@ -248,16 +259,14 @@ bool proc_load(process_t *proc, const char *pimg, uint32_t img_size) {
 	}
 	shm_free(shmid);
 
-	proc->malloc_man.mHead = 0;
-	proc->malloc_man.mTail = 0;
-	
+	proc->space->malloc_man.mHead = 0;
+	proc->space->malloc_man.mTail = 0;
 	proc->entry = (entry_function_t) header->entry;
 	proc->state = READY;
-
 	memset(proc->context, 0, sizeof(proc->context));
 	proc->context[CPSR] = cpsrUser(); //CPSR 0x10 for user mode
 	proc->context[RESTART_ADDR] = (int) proc->entry;
-	proc->context[SP] = USER_STACK_BOTTOM + PAGE_SIZE;
+	proc->context[SP] = PAGE_SIZE + USER_STACK_BOTTOM- (proc->pid * PAGE_SIZE);
 	return true;
 }
 
@@ -265,7 +274,7 @@ bool proc_load(process_t *proc, const char *pimg, uint32_t img_size) {
 void proc_start(process_t *proc) {
 	_current_proc = proc;
 
-	__set_translation_table_base((uint32_t) V2P(proc->vm));
+	__set_translation_table_base((uint32_t) V2P(proc->space->vm));
 
 	/* clear TLB */
 	__asm__ volatile("mov R4, #0");
@@ -277,18 +286,12 @@ void proc_start(process_t *proc) {
 process_t* proc_get(int pid) {
 	if(pid < 0 || pid >= PROCESS_COUNT_MAX)
 		return NULL;
-
 	return &_process_table[pid];
 }
 
-int kfork(void) {
-	process_t *child = NULL;
-	process_t *parent = _current_proc;
-	uint32_t i = 0;
-
-	child = proc_create();
-	uint32_t pages = parent->heap_size / PAGE_SIZE;
-	if((parent->heap_size % PAGE_SIZE) != 0)
+static int32_t proc_clone(process_t* child, process_t* parent) {
+	uint32_t pages = parent->space->heap_size / PAGE_SIZE;
+	if((parent->space->heap_size % PAGE_SIZE) != 0)
 		pages++;
 
 	if(!proc_expand_mem(child, pages)) {
@@ -296,54 +299,57 @@ int kfork(void) {
 		return -1;
 	}
 
+	uint32_t i;
 	/* copy parent's memory to child's memory */
-	for (i = 0; i < parent->heap_size; i++) {
-		uint32_t child_phy_addr = resolve_phy_address(child->vm, i);
+	for (i = 0; i < parent->space->heap_size; i++) {
+		uint32_t child_phy_addr = resolve_phy_address(child->space->vm, i);
 		char *child_ptr = (char *) P2V(child_phy_addr);
 		char *parent_ptr = (char *) i;
-
 		*child_ptr = *parent_ptr;
+	}
+	/*pmalloc list*/
+	child->space->malloc_man = parent->space->malloc_man;
+	child->space->malloc_man.arg = child;
+	/*file info*/
+	for(i=0; i<FILE_MAX; i++) {
+		k_file_t* kf = parent->space->files[i].kf;
+		if(kf != NULL) {
+			child->space->files[i].kf = kf;
+			child->space->files[i].flags = parent->space->files[i].flags;
+			child->space->files[i].seek = parent->space->files[i].seek;
+			kf_ref(kf, child->space->files[i].flags); //ref the kernel file table.
+		}
+	}
+	return 0;
+}
+
+int kfork(uint32_t type) {
+	process_t *child = NULL;
+	process_t *parent = _current_proc;
+
+	child = proc_create(type);
+	if(type != TYPE_THREAD) {
+		if(proc_clone(child, parent) != 0)
+			return -1;
 	}
 
 	/* copy parent's stack to child's stack */
 	//memcpy(child->kernelStack, parent->kernelStack, PAGE_SIZE);
 	memcpy(child->user_stack, parent->user_stack, PAGE_SIZE);
-
 	/* copy parent's context to child's context */
 	memcpy(child->context, parent->context, sizeof(child->context));
-
-	/*pmalloc list*/
-	child->malloc_man = parent->malloc_man;
-	child->malloc_man.arg = child;
-
 	/* set return value of fork in child to 0 */
 	child->context[R0] = 0;
-
 	/* child is ready to run */
 	child->state = READY;
-	
 	/*set father*/
 	child->father_pid = parent->pid;
-
 	/*same owner*/
 	child->owner = parent->owner;
-
 	/*cmd*/
 	strcpy(child->cmd, parent->cmd);
-
 	/*pwd*/
 	strcpy(child->pwd, parent->pwd);
-
-	/*file info*/
-	for(i=0; i<FILE_MAX; i++) {
-		k_file_t* kf = parent->files[i].kf;
-		if(kf != NULL) {
-			child->files[i].kf = kf;
-			child->files[i].flags = parent->files[i].flags;
-			child->files[i].seek = parent->files[i].seek;
-			kf_ref(kf, child->files[i].flags); //ref the kernel file table.
-		}
-	}
 	/* return pid of child to the parent. */
 	return child->pid;
 }
@@ -393,5 +399,5 @@ void _abort_entry() {
 void* pmalloc(uint32_t size) {
 	if(_current_proc == NULL || size == 0)
 		return NULL;
-	return trunk_malloc(&_current_proc->malloc_man, size);
+	return trunk_malloc(&_current_proc->space->malloc_man, size);
 }

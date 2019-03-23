@@ -97,7 +97,7 @@ static void load_init_proc() {
 	const char* name = "init";
 
 	printk("Loading the first process ... ");
-	process_t *proc = proc_create(); //create first process
+	process_t *proc = proc_create(TYPE_PROC); //create first process
 	if(proc == NULL) {
 		printk("panic: init process create failed!\n");
 		return;
