@@ -156,7 +156,6 @@ process_t *proc_create(uint32_t type) {
 		AP_RW_RW);
 
 	proc->user_stack = user_stack;
-	//proc->context[SP] = proc_get_user_stack(proc) + PAGE_SIZE;
 	proc->wait_pid = -1;
 	proc->father_pid = 0;
 	proc->owner = -1;
@@ -344,6 +343,11 @@ process_t* kfork(uint32_t type) {
 	if(type != TYPE_THREAD) {
 		if(proc_clone(child, parent) != 0)
 			return NULL;
+	}
+	else {
+		memset(child->context, 0, sizeof(child->context));
+		child->context[SP] = proc_get_user_stack(child) + PAGE_SIZE;
+		child->context[CPSR] = parent->context[CPSR];
 	}
 	/* set return value of fork in child to 0 */
 	child->context[R0] = 0;
