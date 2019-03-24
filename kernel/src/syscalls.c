@@ -122,11 +122,12 @@ static int32_t syscall_exit(int32_t arg0) {
 	return 0;
 }
 
-static int32_t syscall_thread(int32_t arg0) {
+static int32_t syscall_thread(int32_t arg0, int32_t arg1) {
 	process_t* proc = kfork(TYPE_THREAD);
 	if(proc == NULL)
 		return -1;
 	proc->context[RESTART_ADDR] = (uint32_t)arg0;
+	proc->context[R0] = (uint32_t)arg1;
 	return proc->pid;
 }
 
