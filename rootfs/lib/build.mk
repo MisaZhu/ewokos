@@ -13,6 +13,7 @@ LIB_OBJS = lib/src/syscall.o \
 	lib/src/shm.o \
 	lib/src/proto.o \
 	lib/src/package.o \
+	lib/src/thread.o \
 	lib/src/kserv.o
 
 lib/libewoklibc.a: $(LIB_OBJS)
