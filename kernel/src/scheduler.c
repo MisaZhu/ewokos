@@ -23,6 +23,10 @@ void schedule(void) {
 			proc_start(proc);
 			return;
 		}
+		else if(proc->state == TERMINATED) {
+			proc_exit(proc);
+			return;
+		}
 		proc = proc->next;
 	}
 }

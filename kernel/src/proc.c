@@ -194,12 +194,11 @@ void proc_free(process_t *proc) {
 	//kfree(proc->kernelStack);
 	kfree(proc->user_stack);
 
-	if(proc->type == TYPE_THREAD) {
+	if(proc->type == TYPE_THREAD)
 		proc->space = NULL;
-		return;
-	}
-
-	proc_free_space(proc);
+	else
+		proc_free_space(proc);
+	remove(proc);
 }
 
 #define MODE_MASK 0x1f
@@ -284,13 +283,10 @@ bool proc_load(process_t *proc, const char *pimg, uint32_t img_size) {
 /* proc_start starts running the given process. */
 void proc_start(process_t *proc) {
 	_current_proc = proc;
-
 	__set_translation_table_base((uint32_t) V2P(proc->space->vm));
-
 	/* clear TLB */
 	__asm__ volatile("mov R4, #0");
 	__asm__ volatile("MCR p15, 0, R4, c8, c7, 0");
-
 	__switch_to_context(proc->context);
 }
 
@@ -364,26 +360,28 @@ process_t* kfork(uint32_t type) {
 	return child;
 }
 
-void proc_exit() {
-	if (_current_proc == NULL)
+void proc_exit(process_t* proc) {
+	if (proc == NULL)
 		return;
 
 	__set_translation_table_base((uint32_t) V2P(_kernel_vm));
 	__asm__ volatile("ldr sp, = _init_stack");
 	__asm__ volatile("add sp, #4096");
 
-	process_t *proc = _current_proc->next;
-	while(proc != _current_proc) {
-		if (proc->state == SLEEPING &&
-				proc->wait_pid == _current_proc->pid) {
-			proc->wait_pid = -1;
-			proc->state = READY;
+	process_t *p = proc->next;
+	while(p != proc) {
+		/*terminate thread forked from this proc*/
+		if(p->father_pid == proc->pid) {
+			p->state = TERMINATED;
 		}
-		proc = proc->next;
+		else if (p->state == SLEEPING &&
+				p->wait_pid == proc->pid) {
+			p->wait_pid = -1;
+			p->state = READY;
+		}
+		p = p->next;
 	}
-	proc_free(_current_proc);
-
-	remove(_current_proc);
+	proc_free(proc);
 	schedule();
 	return;
 }
@@ -403,7 +401,7 @@ void proc_wake(int pid) {
 }
 
 void _abort_entry() {
-	proc_exit();
+	proc_exit(_current_proc);
 }
 
 void* pmalloc(uint32_t size) {

@@ -101,7 +101,7 @@ void proc_sleep(int pid);
 void proc_wake(int pid);
 
 process_t* kfork(uint32_t type);
-void proc_exit();
+void proc_exit(process_t* proc);
 void* pmalloc(uint32_t size);
 
 #endif

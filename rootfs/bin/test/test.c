@@ -6,27 +6,20 @@
 
 static int i;
 
-static void f() {
-	i++;
-	if(i > 'z') 
-		i = '0';
-}
-
 void test() {
 	while(true) {
-		f();
-		printf("%c", i);
+		printf("child: %d\n", i);
 		yield();
 	}
-	exit(0);
 }
 
 void _start() {
-	i = '0';
+	i = 0;
 
 	int32_t tid = syscall1(SYSCALL_THREAD, (int32_t)test);	
+	printf("thread: %d\n", tid);
 	while(true) {
-		printf("father %x, %d\n", &i, i);
+		printf("father %d\n", i++);
 		yield();
 	}
 	exit(0);

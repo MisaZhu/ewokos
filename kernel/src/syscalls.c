@@ -118,7 +118,7 @@ static int32_t syscall_getpid(void) {
 
 static int32_t syscall_exit(int32_t arg0) {
 	(void)arg0;
-	proc_exit();
+	proc_exit(_current_proc);
 	return 0;
 }
 
