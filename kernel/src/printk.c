@@ -1,15 +1,15 @@
 #include "printk.h"
-#include "vsprintf.h"
+#include "vprintf.h"
 #include "dev/uart.h"
 
-#define BUFFER_MAX_LENGTH 256
+static void outc(char c, void* p) {
+	(void)p;
+	uart_putch(c);
+}
 
 void printk(const char *format, ...) {
-	char buffer[BUFFER_MAX_LENGTH] = {0};
 	va_list ap;
-
 	va_start(ap, format);
-	vsnprintf(buffer, BUFFER_MAX_LENGTH-1, format, ap);
+	v_printf(outc, NULL, format, ap);
 	va_end(ap);
-	uart_puts(buffer);
 }

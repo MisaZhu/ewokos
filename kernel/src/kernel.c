@@ -13,7 +13,6 @@
 #include <timer.h>
 #include <scheduler.h>
 #include <dev/gpio.h>
-#include <base16.h>
 #include <dev/fb.h>
 #include <dev/initrd.h>
 #include <sramdisk.h>

@@ -49,10 +49,8 @@ ARCH_OBJS = arch/$(arch)/src/irq.o \
 DEV_OBJS = src/dev/uart.o
 
 LIB_OBJS = ../lib/src/kstring.o \
-	../lib/src/base16.o \
 	../lib/src/sramdisk.o \
-	../lib/src/vsprintf.o \
-	../lib/src/tree.o
+	../lib/src/vprintf.o
 
 OBJS += $(ARCH_OBJS) \
 	$(DEV_OBJS) \

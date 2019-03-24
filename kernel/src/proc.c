@@ -132,6 +132,7 @@ process_t *proc_create(uint32_t type) {
 		return NULL;
 
 	process_t *proc = &_process_table[index];
+	memset(proc, 0, sizeof(process_t));
 	proc->pid = index;
 	proc->type = type;
 	if(type == TYPE_THREAD)
@@ -155,7 +156,7 @@ process_t *proc_create(uint32_t type) {
 		AP_RW_RW);
 
 	proc->user_stack = user_stack;
-	proc->context[SP] = proc_get_user_stack(proc) + PAGE_SIZE;
+	//proc->context[SP] = proc_get_user_stack(proc) + PAGE_SIZE;
 	proc->wait_pid = -1;
 	proc->father_pid = 0;
 	proc->owner = -1;
