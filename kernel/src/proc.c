@@ -364,19 +364,13 @@ process_t* kfork(uint32_t type) {
 	return child;
 }
 
-void proc_exit(process_t* proc) {
-	if (proc == NULL)
-		return;
-
-	__set_translation_table_base((uint32_t) V2P(_kernel_vm));
-	__asm__ volatile("ldr sp, = _init_stack");
-	__asm__ volatile("add sp, #4096");
-
+static void proc_terminate(process_t* proc) {
+	proc->state = TERMINATED;
 	process_t *p = proc->next;
 	while(p != proc) {
-		/*terminate thread forked from this proc*/
+		/*terminate forked from this proc*/
 		if(p->father_pid == proc->pid) {
-			p->state = TERMINATED;
+			proc_terminate(p);
 		}
 		else if (p->state == SLEEPING &&
 				p->wait_pid == proc->pid) {
@@ -385,7 +379,17 @@ void proc_exit(process_t* proc) {
 		}
 		p = p->next;
 	}
-	proc_free(proc);
+}
+
+void proc_exit(process_t* proc) {
+	if (proc == NULL)
+		return;
+
+	__set_translation_table_base((uint32_t) V2P(_kernel_vm));
+	__asm__ volatile("ldr sp, = _init_stack");
+	__asm__ volatile("add sp, #4096");
+
+	proc_terminate(proc);
 	schedule();
 	return;
 }

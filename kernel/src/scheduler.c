@@ -14,20 +14,24 @@ void schedule(void) {
 	}
 
 	//current process is runing, switch to next one.
+	process_t* head_proc = _current_proc;
 	process_t* proc = _current_proc->next;
-	while(_current_proc != proc) {
+
+	while(head_proc != proc) {
 		if(proc->state == READY)  {
-			if(_current_proc->state == RUNNING) //set current process as ready to run.
-				_current_proc->state = READY;
+			if(head_proc->state == RUNNING) //set current process as ready to run.
+				head_proc->state = READY;
 			proc->state = RUNNING; //run next one.
 			proc_start(proc);
 			return;
 		}
-		else if(proc->state == TERMINATED) {
-			proc_exit(proc);
-			return;
+		else if(proc->state == TERMINATED)  {
+			process_t* tmp = proc;
+			proc = proc->next;
+			proc_free(tmp);
 		}
-		proc = proc->next;
+		else 
+			proc = proc->next;
 	}
 }
 

@@ -17,7 +17,7 @@ void _start() {
 
 	int32_t tid = thread_raw(test, (void*)0x12345678);	
 	printf("thread: %d\n", tid);
-	while(true) {
+	while(i < 1000) {
 		printf("father %d\n", i++);
 		yield();
 	}
