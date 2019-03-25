@@ -71,7 +71,8 @@ typedef struct process {
 	int32_t owner; /*owner for muti-user system*/
 	char cmd[CMD_MAX]; /*run command*/
 	char pwd[NAME_MAX]; /*working dir*/
-	int wait_pid; /*waiting for specific process end*/
+	int32_t wait_pid; /*waiting for specific process end*/
+	uint32_t wait_semaphore_paddr; /*waiting for specific semaphore(phyaddr)*/
 
 	entry_function_t entry;
 	char *user_stack;
@@ -94,11 +95,11 @@ extern process_t *proc_create(uint32_t type);
 bool proc_load(process_t *proc, const char *proc_image, uint32_t img_size);
 void proc_start(process_t *proc);
 void proc_free(process_t *proc);
-bool proc_expand_mem(void *proc, int page_num);
-void proc_shrink_mem(void *proc, int page_num);
-process_t* proc_get(int pid);
-void proc_sleep(int pid);
-void proc_wake(int pid);
+bool proc_expand_mem(void *proc, int32_t page_num);
+void proc_shrink_mem(void *proc, int32_t page_num);
+process_t* proc_get(int32_t pid);
+void proc_sleep(int32_t pid);
+void proc_wake(int32_t pid);
 
 process_t* kfork(uint32_t type);
 void proc_exit(process_t* proc);

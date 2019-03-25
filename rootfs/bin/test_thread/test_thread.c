@@ -10,7 +10,7 @@ static semaphore_t s;
 void test(void* p) {
 	while(true) {
 		semaphore_lock(&s);
-		printf("child thread: %d, arg = '%s'\n", i, (const char*)p);
+		printf("child thread: %d, arg = '%s'\n", i++, (const char*)p);
 		semaphore_unlock(&s);
 		yield();
 	}
