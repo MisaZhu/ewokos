@@ -2,21 +2,21 @@
 #include <syscall.h>
 #include <unistd.h>
 
-semaphore_t semaphore_alloc() {
-	return syscall0(SYSCALL_SEMAPHORE_ALLOC);
+int32_t semaphore_init(semaphore_t* s) {
+	return syscall1(SYSCALL_SEMAPHORE_INIT, (int32_t)s);
 }
 
-void semaphore_free(semaphore_t s) {
-	syscall1(SYSCALL_SEMAPHORE_FREE, s);
+int32_t semaphore_close(semaphore_t* s) {
+	return syscall1(SYSCALL_SEMAPHORE_CLOSE, (int32_t)s);
 }
 
-int32_t semaphore_lock(semaphore_t s) {
+int32_t semaphore_lock(semaphore_t* s) {
 	while(syscall1(SYSCALL_SEMAPHORE_LOCK, s) < 0)
 		yield();
 	return 0;
 }
 
-int32_t semaphore_unlock(semaphore_t s) {
+int32_t semaphore_unlock(semaphore_t* s) {
 	return syscall1(SYSCALL_SEMAPHORE_UNLOCK, s);
 }
 
