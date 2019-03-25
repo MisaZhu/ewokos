@@ -3,8 +3,10 @@
 #include <irq.h>
 #include <hardware.h>
 
+static bool _schedule_enabled = true;
+
 void schedule(void) {
-	if(_current_proc == NULL)
+	if(!_schedule_enabled || _current_proc == NULL)
 		return;
 
 	if(_current_proc->state == READY) { //current process ready to run
@@ -47,3 +49,10 @@ void scheduler_init(void) {
 	register_interrupt_handler(get_timer_irq(), handle_timer);
 }
 
+void disable_schedule() {
+	_schedule_enabled = false;
+}
+
+void enable_schedule() {
+	_schedule_enabled = true;
+}

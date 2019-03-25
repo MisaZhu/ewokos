@@ -67,6 +67,7 @@ OBJS += $(ARCH_OBJS) \
 	src/mm/kmalloc.o \
 	src/mm/shm.o \
 	src/proc.o \
+	src/semaphore.o \
 	src/kipc.o \
 	src/kfile.o \
 	src/kserv.o \

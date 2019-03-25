@@ -16,6 +16,7 @@
 #include <dev/fb.h>
 #include <dev/initrd.h>
 #include <sramdisk.h>
+#include <semaphore.h>
 #include <printk.h>
 
 page_dir_entry_t* _kernel_vm;
@@ -141,7 +142,8 @@ void kernel_entry() {
 	load_init_proc(); /*load init process(first process)*/
 	irq_init(); /*init irq interrupts*/
 	timer_init(); /*init timer irq*/
-	scheduler_init(); /*start scheduler*/
+	semaphore_init(); /*init semaphores*/
+	scheduler_init(); /*init scheduler*/
 
 	while(1) {
 		schedule();

@@ -15,6 +15,7 @@
 #include <fsinfo.h>
 #include <scheduler.h>
 #include <hardware.h>
+#include <semaphore.h>
 #include <dev/initrd.h>
 #include <dev/fb.h>
 
@@ -399,6 +400,23 @@ static int32_t syscall_get_uid(int32_t arg0) {
 	return proc->owner;
 }
 
+static int32_t syscall_semaphore_alloc() {
+	return semaphore_alloc();
+}
+
+static int32_t syscall_semaphore_free(int32_t arg0) {
+	semaphore_free(arg0);
+	return 0;
+}
+
+static int32_t syscall_semaphore_lock(int32_t arg0) {
+	return semaphore_lock(arg0);
+}
+
+static int32_t syscall_semaphore_unlock(int32_t arg0) {
+	return semaphore_unlock(arg0);
+}
+
 static int32_t (*const _syscallHandler[])() = {
 	[SYSCALL_KDB] = syscall_kdb,
 	[SYSCALL_UART_PUTCH] = syscall_uart_putch,
@@ -455,6 +473,11 @@ static int32_t (*const _syscallHandler[])() = {
 
 	[SYSCALL_SET_UID] = syscall_set_uid,
 	[SYSCALL_GET_UID] = syscall_get_uid,
+
+	[SYSCALL_SEMAPHORE_LOCK] = syscall_semaphore_lock,
+	[SYSCALL_SEMAPHORE_UNLOCK] = syscall_semaphore_unlock,
+	[SYSCALL_SEMAPHORE_ALLOC] = syscall_semaphore_alloc,
+	[SYSCALL_SEMAPHORE_FREE] = syscall_semaphore_free
 };
 
 /* kernel side of system calls. */
