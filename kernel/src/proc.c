@@ -33,6 +33,7 @@ bool proc_expand_mem(void *p, int page_num) {
 	for (int i = 0; i < page_num; i++) {
 		char *page = kalloc();
 		if(page == NULL) {
+			printk("proc expand failed!! free mem size: (%x)\n", get_free_mem_size());
 			proc_shrink_mem(proc, i);
 			return false;
 		}
@@ -341,8 +342,10 @@ process_t* kfork(uint32_t type) {
 
 	child = proc_create(type);
 	if(type != TYPE_THREAD) {
-		if(proc_clone(child, parent) != 0)
+		if(proc_clone(child, parent) != 0) {
+			proc_exit(child);
 			return NULL;
+		}
 	}
 	else {
 		memset(child->context, 0, sizeof(child->context));

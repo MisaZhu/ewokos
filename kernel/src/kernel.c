@@ -90,6 +90,8 @@ static void init_allocable_mem() {
 		V2P(ALLOCATABLE_MEMORY_START),
 		_phy_mem_size,
 		AP_RW_D);
+
+	kalloc_init(ALLOCATABLE_MEMORY_START + INIT_RESERV_MEMORY_SIZE, P2V(_phy_mem_size));
 }
 
 static void load_init_proc() {
@@ -119,12 +121,17 @@ static void welcome() {
 	printk("\n=================\n"
 				"EwokOS (by Misa.Z)\n"
 				"=================\n"
-				"Kernel got ready(MMU and ProcMan).\n\n");
+				"Kernel got ready(MMU and ProcMan).\n"
+				"Free mem size: (%d MB)\n\n", get_free_mem_size()/(MB));
 }
 
 void kernel_entry() {
 	init_kernel_vm();  /* Done mapping all mem */
+	/*decode initramdisk to high memory(kernel trunk memory).*/
+	if(load_initrd() != 0)
+		return;
 	init_allocable_mem(); /*init the rest allocable memory VM*/
+
 	welcome(); /*show welcome words*/
 	hw_init(); /*hardware init*/
 	shm_init(); /*init share memory*/
@@ -132,10 +139,6 @@ void kernel_entry() {
 	fb_init(); /*framebuffer init*/
 	uart_init(); /*init uart for debug*/
 	ipc_init(); /*init internal process communiation*/
-
-	/*decode initramdisk to high memory(kernel trunk memory).*/
-	if(load_initrd() != 0)
-		return;
 	
 	proc_init(); /*init process mananer*/
 	load_init_proc(); /*load init process(first process)*/
