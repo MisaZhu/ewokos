@@ -7,6 +7,7 @@ static inline uint32_t semaphore_phy_addr(int32_t* s) {
 	return paddr;
 }
 
+/*wake up all blocked processes by specific semaphore*/
 static void wake_procs(int32_t* s) {
 	uint32_t paddr = semaphore_phy_addr(s);
 	process_t *p = _current_proc->next;
@@ -37,13 +38,13 @@ int32_t semaphore_lock(int32_t* s) {
 	if(s == NULL || (*s) < 0)
 		return 0;
 	
-	if(*s > 0) {
+	disable_schedule();
+	if(*s > 0) { /*still locked by other process, put current process to sleep*/
 		_current_proc->state = SLEEPING;
 		_current_proc->wait_semaphore_paddr = semaphore_phy_addr(s);
+		enable_schedule();
 		return -1;
 	}	
-
-	disable_schedule();
 	(*s)++;
 	enable_schedule();
 	return 0;
@@ -55,7 +56,7 @@ int32_t semaphore_unlock(int32_t* s) {
 
 	disable_schedule();
 	(*s)--;
-	if((*s) == 0) 
+	if((*s) == 0) /*if all locks cleared, wake up processed blocked by this semaphore*/
 		wake_procs(s);
 	enable_schedule();
 	return 0;
