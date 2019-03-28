@@ -25,11 +25,11 @@ static int32_t proc_read(uint32_t node, void* buf, uint32_t size, int32_t seek) 
 	const char* fname = info.name;
 
 	if(strcmp(fname, "total_mem") == 0) {
-		snprintf((char*)buf, size-1, "%d", syscall2(SYSCALL_SYSTEM_CMD, 0, 0));
+		snprintf((char*)buf, size-1, "%d\n", syscall2(SYSCALL_SYSTEM_CMD, 0, 0));
 		ret = strlen((char*)buf);
 	}
 	else if(strcmp(fname, "free_mem") == 0) {
-		snprintf((char*)buf, size-1, "%d", syscall2(SYSCALL_SYSTEM_CMD, 1, 0));
+		snprintf((char*)buf, size-1, "%d\n", syscall2(SYSCALL_SYSTEM_CMD, 1, 0));
 		ret = strlen((char*)buf);
 	}
 

@@ -20,7 +20,10 @@ void _start() {
 	else {
 		char pwd[NAME_MAX];
 		getcwd(pwd, NAME_MAX);
-		snprintf(fname, NAME_MAX-1, "%s/%s", pwd, arg);
+		if(pwd[1] == 0) /*root*/
+			snprintf(fname, NAME_MAX-1, "/%s", arg);
+		else
+			snprintf(fname, NAME_MAX-1, "%s/%s", pwd, arg);
 	}
 
 	int fd = open(fname, 0);
@@ -37,7 +40,5 @@ void _start() {
 		printf("%s", buf);
 	}
 	close(fd);
-
-	printf("\n");
 	exit(0);
 }
