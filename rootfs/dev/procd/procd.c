@@ -38,11 +38,11 @@ static int32_t proc_read(uint32_t node, void* buf, uint32_t size, int32_t seek) 
 	return ret;
 }
 
-void _start() {
+int main() {
 	device_t dev = {0};
 	dev.mount = proc_mount;
 	dev.read = proc_read;
 
 	dev_run(&dev, "dev.proc", 0, "/proc", false);
-	exit(0);
+	return 0;
 }

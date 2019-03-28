@@ -6,10 +6,10 @@
 #include <kserv.h>
 #include <syscall.h>
 
-void _start() {
+int main() {
 	if(getpid() > 0) {
 		printf("Panic: 'init' process can only run at boot time!\n");
-		exit(0);
+		return -1;
 	}
 
 	int pid = 0;
@@ -85,5 +85,5 @@ void _start() {
 			wait(pid);
 		}
 	}
-	exit(0);
+	return 0;
 }

@@ -16,13 +16,13 @@ void test(void* p) {
 	}
 }
 
-void _start() {
+int main() {
 	i = 0;
 	semaphore_init(&s);
 
 	int32_t tid = thread_raw(test, (void*)"thread arg data");
 	if(tid < 0)
-		exit(0);
+		return -1;
 
 	while(i < 1000) {
 		semaphore_lock(&s);
@@ -32,6 +32,6 @@ void _start() {
 	}
 
 	semaphore_close(&s);
-	exit(0);
+	return 0;
 }
 

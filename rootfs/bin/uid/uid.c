@@ -2,9 +2,8 @@
 #include <stdio.h>
 #include <syscall.h>
 
-void _start()
-{
+int main() {
 	int uid = syscall0(SYSCALL_GET_UID);
 	printf("%d\n", uid);
-	exit(0);
+	return 0;
 }

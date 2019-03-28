@@ -23,8 +23,8 @@ void fbtest() {
 	graphClose(g);
 }
 
-void _start() {
+int main() {
 	fbtest();
-	exit(0);
+	return 0;
 }
 

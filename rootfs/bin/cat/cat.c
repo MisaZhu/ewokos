@@ -5,12 +5,12 @@
 #include <kstring.h>
 #include <stdlib.h>
 
-void _start() {
+int main() {
 	init_cmain_arg();
 	const char* arg = read_cmain_arg();
 	arg = read_cmain_arg();
 	if(arg == NULL) {
-		exit(0);
+		return -1;
 	}
 
 	char fname[NAME_MAX];
@@ -28,7 +28,7 @@ void _start() {
 
 	int fd = open(fname, 0);
 	if(fd < 0) {
-		exit(0);
+		return -1;
 	}
 
 	while(true) {
@@ -40,5 +40,5 @@ void _start() {
 		printf("%s", buf);
 	}
 	close(fd);
-	exit(0);
+	return 0;
 }

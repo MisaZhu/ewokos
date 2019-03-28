@@ -292,14 +292,15 @@ static void handle(package_t* pkg, void* p) {
 	}
 }
 
-void _start() {
+int main() {
 	if(kserv_get_pid("kserv.vfsd") >= 0) {
-    printf("Panic: 'kserv.vfsd' process has been running already!\n");
-		exit(0);
+    printf("panic: 'kserv.vfsd' process has been running already!\n");
+		return -1;
 	}
 
 	fsnodeInit();
 	if(!kserv_run("kserv.vfsd", handle, NULL)) {
-		exit(0);
+		return -1;
 	}
+	return 0;
 }

@@ -3,8 +3,7 @@
 #include <cmain.h>
 #include <vfs/fs.h>
 
-void _start()
-{
+int main() {
 	init_cmain_arg();
 	const char* arg = read_cmain_arg();
 	arg = read_cmain_arg();
@@ -17,6 +16,5 @@ void _start()
 			fs_close(fd);
 		}
 	}
-
-	exit(0);
+	return 0;
 }

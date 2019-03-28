@@ -6,8 +6,7 @@
 #include <kstring.h>
 #include <cmain.h>
 
-void _start()
-{
+int main() {
 	bool owner = true; /*only show process with same owner of the current proc*/
 	init_cmain_arg();
 	const char* arg = read_cmain_arg();
@@ -41,5 +40,5 @@ void _start()
 		printf("\n");
 		free(procs);
 	}
-	exit(0);
+	return 0;
 }

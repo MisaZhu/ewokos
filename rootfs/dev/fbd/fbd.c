@@ -58,7 +58,7 @@ void* fbCtrl(uint32_t node, int32_t cmd, void* data, uint32_t size, int32_t* ret
 	return p;
 }
 
-void _start() {
+int main() {
 	device_t dev = {0};
 	dev.write = fbWrite;
 	dev.mount = fbMount;
@@ -68,5 +68,5 @@ void _start() {
 
 	dev_run(&dev, "dev.fb", 0, "/dev/fb0", true);
 	shm_unmap(_fbBufID);
-	exit(0);
+	return 0;
 }

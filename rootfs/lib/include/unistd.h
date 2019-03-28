@@ -2,6 +2,7 @@
 #define UNISTD_H
 
 #include <types.h>
+#include <cmain.h>
 
 int chdir(const char* dir);
 

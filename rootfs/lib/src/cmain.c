@@ -1,6 +1,7 @@
 #include <cmain.h>
 #include <syscall.h>
 #include <stdio.h>
+#include <unistd.h>
 
 static char _cmd[256] = { 0 };
 static int _offCmd = 0;
@@ -29,4 +30,9 @@ const char* read_cmain_arg() {
 		}
 	}
 	return p;
+}
+
+void _start() {
+	int ret = main();
+	exit(ret);
 }

@@ -87,12 +87,12 @@ int32_t consoleWrite(uint32_t node, void* buf, uint32_t size, int32_t seek) {
 	return size;
 }
 
-void _start() {
+int main() {
 	device_t dev = {0};
 	dev.mount = consoleMount;
 	dev.unmount = consoleUnmount;
 	dev.write = consoleWrite;
 
 	dev_run(&dev, "dev.console", 0, "/dev/console0", true);
-	exit(0);
+	return 0;
 }

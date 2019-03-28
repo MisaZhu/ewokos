@@ -2,8 +2,8 @@
 #include <stdio.h>
 #include <unistd.h>
 
-void _start() {
+int main() {
 	printf("Hello, world!\n");
-	exit(0);
+	return 0;
 }
 

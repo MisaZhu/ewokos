@@ -29,11 +29,11 @@ int32_t tty_read(uint32_t node, void* buf, uint32_t size, int32_t seek) {
 	return size;
 }
 
-void _start() {
+int main() {
 	device_t dev = {0};
 	dev.write = tty_write;
 	dev.read = tty_read;
 
 	dev_run(&dev, "dev.tty", 0, "/dev/tty0", true);
-	exit(0);
+	return 0;
 }

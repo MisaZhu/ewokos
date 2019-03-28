@@ -45,8 +45,7 @@ static void gets(char* buf, int len, bool disp) {
 }
 
 
-void _start()
-{
+int main() {
 	while(1) {
 		char user[128];
 		char passwd[128];
@@ -65,5 +64,5 @@ void _start()
 	}
 	printf("\n");
 	exec("shell");
-	exit(0);
+	return 0;
 }

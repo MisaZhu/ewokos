@@ -51,10 +51,10 @@ int32_t initfs_read(uint32_t node, void* buf, uint32_t size, int32_t seek) {
 	return readS_ram_disk(node, seek, buf, size);
 }
 
-void _start() {
+int main() {
 	void *ramdisk_base = (void*)syscall0(SYSCALL_INITRD_CLONE);	
 	if(ramdisk_base == NULL) {
-		exit(0);
+		return -1;
 	}
 	ram_disk_open((const char*)ramdisk_base, &_init_ram_disk, malloc);
 
@@ -66,5 +66,5 @@ void _start() {
 
 	ram_disk_close(&_init_ram_disk, free);
 	free(ramdisk_base);
-	exit(0);
+	return 0;
 }

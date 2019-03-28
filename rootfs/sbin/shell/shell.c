@@ -105,7 +105,7 @@ static int handle(const char* cmd) {
 
 #define CMD_MAX 128
 
-void _start() {
+int main() {
 	char cmd[CMD_MAX];
 	char cwd[NAME_MAX];
 
@@ -138,12 +138,11 @@ void _start() {
 		int child_pid = fork();
 		if (child_pid == 0) {
 			exec(cmd);
-			exit(0);
 		}
 		else if(fg) {
 			wait(child_pid);
 		}
 		cmd[0] = 0;
 	}
-	exit(0);
+	return 0;
 }

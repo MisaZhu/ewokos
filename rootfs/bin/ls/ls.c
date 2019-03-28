@@ -3,8 +3,7 @@
 #include <vfs/fs.h>
 #include <stdlib.h>
 
-void _start()
-{
+int main() {
 	char pwd[NAME_MAX];
 	int fd = fs_open(getcwd(pwd, NAME_MAX), 0);
 	if(fd >= 0) {
@@ -23,5 +22,5 @@ void _start()
 		fs_close(fd);
 	}
 
-	exit(0);
+	return 0;
 }

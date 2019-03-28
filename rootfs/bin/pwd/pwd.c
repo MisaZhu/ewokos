@@ -1,9 +1,8 @@
 #include <unistd.h>
 #include <stdio.h>
 
-void _start()
-{
+int main() {
 	char pwd[NAME_MAX];
 	printf("%s\n", getcwd(pwd, NAME_MAX));
-	exit(0);
+	return 0;
 }
