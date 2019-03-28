@@ -129,7 +129,7 @@ static void doRead(device_t* dev, package_t* pkg) {
 	if(ret < 0)
 		ipc_send(pkg->id, PKG_TYPE_ERR, NULL, 0);
 	else
-		ipc_send(pkg->id, pkg->type, buf, size);
+		ipc_send(pkg->id, pkg->type, buf, ret);
 	free(buf);
 }
 

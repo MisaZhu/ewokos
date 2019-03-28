@@ -1,0 +1,48 @@
+#include <dev/devserv.h>
+#include <unistd.h>
+#include <stdio.h>
+#include <kstring.h>
+#include <syscall.h>
+#include <vfs/vfs.h>
+
+static int32_t proc_mount(uint32_t node, int32_t index) {
+	(void)index;
+
+	vfs_add(node, "free_mem", 0);
+	vfs_add(node, "total_mem", 0);
+	return 0;
+}
+
+static int32_t proc_read(uint32_t node, void* buf, uint32_t size, int32_t seek) {
+	int32_t ret = -1;
+
+	if(size == 0)
+		return 0;
+
+	fs_info_t info;
+	if(vfs_node_info(node, &info) != 0)
+		return ret;
+	const char* fname = info.name;
+
+	if(strcmp(fname, "total_mem") == 0) {
+		snprintf((char*)buf, size-1, "%d", syscall2(SYSCALL_SYSTEM_CMD, 0, 0));
+		ret = strlen((char*)buf);
+	}
+	else if(strcmp(fname, "free_mem") == 0) {
+		snprintf((char*)buf, size-1, "%d", syscall2(SYSCALL_SYSTEM_CMD, 1, 0));
+		ret = strlen((char*)buf);
+	}
+
+	if(seek >= ret)
+		ret = 0;
+	return ret;
+}
+
+void _start() {
+	device_t dev = {0};
+	dev.mount = proc_mount;
+	dev.read = proc_read;
+
+	dev_run(&dev, "dev.proc", 0, "/proc", false);
+	exit(0);
+}

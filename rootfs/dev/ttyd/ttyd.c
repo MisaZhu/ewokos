@@ -2,7 +2,7 @@
 #include <unistd.h>
 #include <syscall.h>
 
-int32_t ttyWrite(uint32_t node, void* buf, uint32_t size, int32_t seek) {
+int32_t tty_write(uint32_t node, void* buf, uint32_t size, int32_t seek) {
 	(void)node;
 	(void)seek;
 
@@ -13,7 +13,7 @@ int32_t ttyWrite(uint32_t node, void* buf, uint32_t size, int32_t seek) {
 	return size;
 }
 
-int32_t ttyRead(uint32_t node, void* buf, uint32_t size, uint32_t seek) {
+int32_t tty_read(uint32_t node, void* buf, uint32_t size, int32_t seek) {
 	(void)node;
 	(void)seek;
 
@@ -31,8 +31,8 @@ int32_t ttyRead(uint32_t node, void* buf, uint32_t size, uint32_t seek) {
 
 void _start() {
 	device_t dev = {0};
-	dev.write = ttyWrite;
-	dev.read = ttyRead;
+	dev.write = tty_write;
+	dev.read = tty_read;
 
 	dev_run(&dev, "dev.tty", 0, "/dev/tty0", true);
 	exit(0);

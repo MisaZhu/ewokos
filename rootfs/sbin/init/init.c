@@ -22,7 +22,6 @@ void _start() {
 	kserv_wait("kserv.vfsd");
 	printf("ok.\n");
 
-	printf("start initfs service ... ");
 	pid = fork();
 	if(pid == 0) { 
 		exec("initfs");
@@ -31,17 +30,24 @@ void _start() {
 
 	pid = fork();
 	if(pid == 0) { 
-		printf("start tty service ... ");
+		//printf("start tty service ... ");
 		exec("ttyd");
 	}
 	kserv_wait("dev.tty");
 
 	pid = fork();
 	if(pid == 0) { 
-		printf("start framebuffer service ... ");
+		//printf("start framebuffer service ... ");
 		exec("fbd");
 	}
 	kserv_wait("dev.fb");
+
+	pid = fork();
+	if(pid == 0) { 
+		//printf("start proc service ... ");
+		exec("procd");
+	}
+	kserv_wait("dev.proc");
 
 	pid = fork();
 	if(pid == 0) { 

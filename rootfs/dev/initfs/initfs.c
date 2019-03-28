@@ -7,12 +7,12 @@
 #include <syscall.h>
 #include <sramdisk.h>
 
-static ram_disk_t _initRamDisk;
+static ram_disk_t _init_ram_disk;
 
 static int32_t initfsMount(uint32_t node, int32_t index) {
 	(void)index;
 
-	ram_file_t* f = _initRamDisk.head;	
+	ram_file_t* f = _init_ram_disk.head;	
 	while(f != NULL) {
 		vfs_add(node, f->name, f->size);
 		f = f->next;
@@ -20,7 +20,7 @@ static int32_t initfsMount(uint32_t node, int32_t index) {
 	return 0;
 }
 
-static int32_t readSRamDisk(uint32_t node, int seek, char* buf, uint32_t size) {
+static int32_t readS_ram_disk(uint32_t node, int seek, char* buf, uint32_t size) {
 	fs_info_t info;
 	if(vfs_node_info(node, &info) != 0)
 		return -1;
@@ -28,7 +28,7 @@ static int32_t readSRamDisk(uint32_t node, int seek, char* buf, uint32_t size) {
 	const char* fname = info.name;
 	int32_t fsize = 0;
 
-	const char*p = ram_disk_read(&_initRamDisk, fname, &fsize);
+	const char*p = ram_disk_read(&_init_ram_disk, fname, &fsize);
 	if(p == NULL || fsize == 0)
 		return 0;
 
@@ -44,27 +44,27 @@ static int32_t readSRamDisk(uint32_t node, int seek, char* buf, uint32_t size) {
 	return size;
 }
 
-int32_t initfsRead(uint32_t node, void* buf, uint32_t size, uint32_t seek) {
+int32_t initfs_read(uint32_t node, void* buf, uint32_t size, int32_t seek) {
 	if(size == 0) {
 		return 0;
 	}
-	return readSRamDisk(node, seek, buf, size);
+	return readS_ram_disk(node, seek, buf, size);
 }
 
 void _start() {
-	void *ramdiskBase = (void*)syscall0(SYSCALL_INITRD_CLONE);	
-	if(ramdiskBase == NULL) {
+	void *ramdisk_base = (void*)syscall0(SYSCALL_INITRD_CLONE);	
+	if(ramdisk_base == NULL) {
 		exit(0);
 	}
-	ram_disk_open((const char*)ramdiskBase, &_initRamDisk, malloc);
+	ram_disk_open((const char*)ramdisk_base, &_init_ram_disk, malloc);
 
 
 	device_t dev = {0};
 	dev.mount = initfsMount;
-	dev.read = initfsRead;
+	dev.read = initfs_read;
 	dev_run(&dev, "dev.initfs", 0, "/initfs", false);
 
-	ram_disk_close(&_initRamDisk, free);
-	free(ramdiskBase);
+	ram_disk_close(&_init_ram_disk, free);
+	free(ramdisk_base);
 	exit(0);
 }

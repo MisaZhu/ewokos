@@ -19,9 +19,17 @@ void _start()
 	}
 	
 	int num = 0;
+	uint32_t fr_mem = (uint32_t)syscall2(SYSCALL_SYSTEM_CMD, 1, 0) / KB;
+	uint32_t t_mem = (uint32_t)syscall2(SYSCALL_SYSTEM_CMD, 0, 0) / MB;
+	printf("--------------------------------------------------------------\n");
+	if(fr_mem > 1024)
+		printf("memory: total %d MB, free %d KB (%d MB)\n", t_mem, fr_mem, fr_mem/1024);
+	else
+		printf("memory: total %d MB, free %d KB\n", t_mem, fr_mem);
+	printf("--------------------------------------------------------------\n");
+
 	proc_info_t* procs = (proc_info_t*)syscall2(SYSCALL_GET_PROCS, (int)&num, owner);
 	if(procs != NULL) {
-		printf("--------------------------------------------------------------\n");
 		for(int i=0; i<num; i++) {
 			printf("%s\tpid:%d, father:%d, owner:%d, heap_size: %d\n", 
 				procs[i].cmd,
