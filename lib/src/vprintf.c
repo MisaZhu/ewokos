@@ -153,6 +153,7 @@ int snprintf(char *target, int size, const char *format, ...) {
 
 	va_start(ap, format);
 	v_printf(outc_sn, &arg, format, ap);
+	arg.p[arg.index] = 0;
 	va_end(ap);
 
 	return arg.index;

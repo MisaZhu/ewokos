@@ -416,6 +416,11 @@ static int32_t syscall_semaphore_unlock(int32_t arg0) {
 	return semaphore_unlock((int32_t*)arg0);
 }
 
+static int32_t syscall_system_cmd(int32_t arg0, int32_t arg1) { 
+	//arg0: command id; arg1: command arg
+	return system_cmd(arg0, arg1);
+}
+
 static int32_t (*const _syscallHandler[])() = {
 	[SYSCALL_KDB] = syscall_kdb,
 	[SYSCALL_UART_PUTCH] = syscall_uart_putch,
@@ -476,7 +481,9 @@ static int32_t (*const _syscallHandler[])() = {
 	[SYSCALL_SEMAPHORE_LOCK] = syscall_semaphore_lock,
 	[SYSCALL_SEMAPHORE_UNLOCK] = syscall_semaphore_unlock,
 	[SYSCALL_SEMAPHORE_INIT] = syscall_semaphore_init,
-	[SYSCALL_SEMAPHORE_CLOSE] = syscall_semaphore_close
+	[SYSCALL_SEMAPHORE_CLOSE] = syscall_semaphore_close,
+
+	[SYSCALL_SYSTEM_CMD] = syscall_system_cmd
 };
 
 /* kernel side of system calls. */

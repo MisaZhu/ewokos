@@ -1,5 +1,7 @@
 #include <system.h>
 #include <types.h>
+#include <mm/kalloc.h>
+#include <hardware.h>
 
 #define CPSR_IRQ_INHIBIT (1<<7)
 #define CPSR_FIQ_INHIBIT (1<<6)
@@ -29,3 +31,18 @@ inline void loopd(uint32_t times) {
 		times--;
 }
 
+int32_t system_cmd(int32_t cmd, int32_t arg) {
+	(void)arg;
+	int32_t ret = -1;
+	switch(cmd) {
+	case 0: //get total mem size
+		ret = (int32_t)get_phy_ram_size();
+		break;
+	case 1: //get free mem size
+		ret = (int32_t)get_free_mem_size();
+		break;
+	default:
+		break;
+	}
+	return ret;
+}

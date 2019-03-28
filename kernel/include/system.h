@@ -11,5 +11,7 @@ void sti(); //enable interrupts
 
 void loopd(uint32_t times);
 
+int32_t system_cmd(int32_t cmd, int32_t arg);
+
 #endif
 

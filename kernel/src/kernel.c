@@ -19,7 +19,7 @@
 #include <printk.h>
 
 page_dir_entry_t* _kernel_vm;
-uint32_t _phy_mem_size = 0;
+static uint32_t _phy_mem_size = 0;
 
 void set_kernel_vm(page_dir_entry_t* vm) {
 	memset(vm, 0, PAGE_DIR_SIZE);
