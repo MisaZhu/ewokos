@@ -198,7 +198,7 @@ static void do_info(package_t* pkg) {
 	uint32_t node = *(uint32_t*)get_pkg_data(pkg);
 	fs_info_t info;
 
-	if(fsnode_node_info((tree_node_t*)node, &info) != 0)
+	if(node == 0 || fsnode_node_info((tree_node_t*)node, &info) != 0)
 		ipc_send(pkg->id, PKG_TYPE_ERR, NULL, 0);
 	else
 		ipc_send(pkg->id, pkg->type, &info, sizeof(fs_info_t));
