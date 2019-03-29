@@ -5,7 +5,5 @@ include bin/pwd/build.mk
 include bin/mkdir/build.mk
 include bin/uid/build.mk
 include bin/draw/build.mk
-include bin/test/build.mk
-include bin/test_thread/build.mk
 
 EXTRA_CLEAN += $(PROGRAM)

@@ -1,4 +1,4 @@
-TEST_DIR = bin/test
+TEST_DIR = test/test
 TEST_PROGRAM = build/test 
 PROGRAM += $(TEST_PROGRAM)
 

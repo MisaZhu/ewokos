@@ -30,6 +30,7 @@ include mkramfs/build.mk
 include dev/build.mk
 include sbin/build.mk
 include bin/build.mk
+include test/build.mk
 
 
 system: $(MKRAMFS) $(PROGRAM) $(COMMON_OBJ)
