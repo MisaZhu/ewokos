@@ -343,6 +343,7 @@ process_t* kfork(uint32_t type) {
 	child = proc_create(type);
 	if(type != TYPE_THREAD) {
 		if(proc_clone(child, parent) != 0) {
+			printk("panic: kfork clone failed!!(%s: %d)\n", parent->cmd, parent->pid);
 			proc_exit(child);
 			return NULL;
 		}

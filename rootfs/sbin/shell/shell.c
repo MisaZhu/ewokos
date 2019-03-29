@@ -138,6 +138,7 @@ int main() {
 		int child_pid = fork();
 		if (child_pid == 0) {
 			exec(cmd);
+			exit(0);
 		}
 		else if(fg) {
 			wait(child_pid);

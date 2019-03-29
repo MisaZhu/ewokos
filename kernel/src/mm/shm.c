@@ -120,6 +120,7 @@ int32_t shm_alloc(uint32_t size) {
 		else  {
 			_shmTail->next = i;
 			i->prev = _shmTail;
+			_shmTail = i;
 		}
 	}		
 
