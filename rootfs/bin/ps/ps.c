@@ -7,16 +7,6 @@
 #include <cmain.h>
 
 int main() {
-	bool owner = true; /*only show process with same owner of the current proc*/
-	init_cmain_arg();
-	const char* arg = read_cmain_arg();
-	arg = read_cmain_arg();
-	if(arg != NULL && arg[0] == '-') {
-		if(strchr(arg, 'a') != NULL) {
-			owner = false;
-		}
-	}
-	
 	int num = 0;
 	uint32_t fr_mem = (uint32_t)syscall2(SYSCALL_SYSTEM_CMD, 1, 0) / KB;
 	uint32_t t_mem = (uint32_t)syscall2(SYSCALL_SYSTEM_CMD, 0, 0) / MB;
@@ -27,7 +17,7 @@ int main() {
 		printf("memory: total %d MB, free %d KB\n", t_mem, fr_mem);
 	printf("--------------------------------------------------------------\n");
 
-	proc_info_t* procs = (proc_info_t*)syscall2(SYSCALL_GET_PROCS, (int)&num, owner);
+	proc_info_t* procs = (proc_info_t*)syscall2(SYSCALL_SYSTEM_CMD, 2, (int)&num);
 	if(procs != NULL) {
 		for(int i=0; i<num; i++) {
 			printf("%s\tpid:%d, father:%d, owner:%d, heap_size: %d\n", 

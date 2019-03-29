@@ -317,49 +317,6 @@ static int32_t syscall_kserv_get(int32_t arg0) {
 	return kserv_get((const char*)arg0);
 }
 
-static int32_t get_procs(bool owner) {
-	int32_t res = 0;
-	for(int32_t i=0; i<PROCESS_COUNT_MAX; i++) {
-		if(_process_table[i].state != UNUSED && 
-				(_current_proc->owner == 0 || 
-				owner != true || 
-				_process_table[i].owner == _current_proc->owner)) {
-			res++;
-		}
-	}
-	return res;
-}
-
-static int32_t syscall_get_procs(int32_t arg0, int32_t arg1) {
-	bool owner = (bool)arg1;
-	int32_t num = get_procs(owner);
-	if(num == 0)
-		return 0;
-
-	/*need to be freed later used!*/
-	proc_info_t* procs = (proc_info_t*)pmalloc(sizeof(proc_info_t)*num);
-	if(procs == NULL)
-		return 0;
-
-	int32_t j = 0;
-	for(int32_t i=0; i<PROCESS_COUNT_MAX && j<num; i++) {
-		if(_process_table[i].state != UNUSED && 
-				(_current_proc->owner == 0 ||
-				owner != true ||
-				 _process_table[i].owner == _current_proc->owner)) {
-			procs[j].pid = _process_table[i].pid;	
-			procs[j].father_pid = _process_table[i].father_pid;	
-			procs[j].owner = _process_table[i].owner;	
-			procs[j].heap_size = _process_table[i].space->heap_size;	
-			strcpy(procs[j].cmd, _process_table[i].cmd);
-			j++;
-		}
-	}
-
-	*(int*)arg0 = j;
-	return (int)procs;
-}
-
 static int32_t syscall_get_cwd(int32_t arg0, int32_t arg1) {
 	char* pwd = (char*)arg0;
 	strncpy(pwd, _current_proc->pwd,
@@ -471,7 +428,6 @@ static int32_t (*const _syscallHandler[])() = {
 	[SYSCALL_KSERV_REG] = syscall_kserv_reg,
 	[SYSCALL_KSERV_GET] = syscall_kserv_get,
 
-	[SYSCALL_GET_PROCS] = syscall_get_procs,
 	[SYSCALL_GET_CWD] = syscall_get_cwd,
 	[SYSCALL_SET_CWD] = syscall_set_cwd,
 
