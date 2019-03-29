@@ -1,5 +1,5 @@
 #include <semaphore.h>
-#include <scheduler.h>
+#include <system.h>
 #include <proc.h>
 
 static inline uint32_t semaphore_phy_addr(int32_t* s) {
@@ -38,15 +38,15 @@ int32_t semaphore_lock(int32_t* s) {
 	if(s == NULL || (*s) < 0)
 		return 0;
 	
-	disable_schedule();
+	CRIT_IN
 	if(*s > 0) { /*still locked by other process, put current process to sleep*/
 		_current_proc->state = SLEEPING;
 		_current_proc->wait_semaphore_paddr = semaphore_phy_addr(s);
-		enable_schedule();
+		CRIT_OUT
 		return -1;
 	}	
 	(*s)++;
-	enable_schedule();
+	CRIT_OUT
 	return 0;
 }
 
@@ -54,10 +54,10 @@ int32_t semaphore_unlock(int32_t* s) {
 	if(s == NULL || (*s) <= 0)
 		return 0;
 
-	disable_schedule();
+	CRIT_IN
 	(*s)--;
 	if((*s) == 0) /*if all locks cleared, wake up processed blocked by this semaphore*/
 		wake_procs(s);
-	enable_schedule();
+	CRIT_OUT
 	return 0;
 }
