@@ -9,20 +9,20 @@
  * virtual memory. A mapping can map multiple pages.
  */
 void map_pages(page_dir_entry_t *vm, uint32_t vaddr, uint32_t pstart, uint32_t pend, int permissions) {
-	uint32_t physicalCurrent = 0;
-	uint32_t virtualCurrent = 0;
+	uint32_t physical_current = 0;
+	uint32_t virtual_current = 0;
 
-	uint32_t virtualStart = ALIGN_DOWN(vaddr, PAGE_SIZE);
-	uint32_t physicalStart = ALIGN_DOWN(pstart, PAGE_SIZE);
-	uint32_t physicalEnd = ALIGN_UP(pend, PAGE_SIZE);
+	uint32_t virtual_start = ALIGN_DOWN(vaddr, PAGE_SIZE);
+	uint32_t physical_start = ALIGN_DOWN(pstart, PAGE_SIZE);
+	uint32_t physical_end = ALIGN_UP(pend, PAGE_SIZE);
 
 	/* iterate over pages and map each page */
-	virtualCurrent = virtualStart;
-	for (physicalCurrent = physicalStart; 
-			physicalCurrent < physicalEnd;
-			physicalCurrent += PAGE_SIZE) {
-		map_page(vm,  virtualCurrent, physicalCurrent, permissions);
-		virtualCurrent += PAGE_SIZE;
+	virtual_current = virtual_start;
+	for (physical_current = physical_start; 
+			physical_current < physical_end;
+			physical_current += PAGE_SIZE) {
+		map_page(vm,  virtual_current, physical_current, permissions);
+		virtual_current += PAGE_SIZE;
 	}
 }
 
@@ -33,40 +33,40 @@ void map_pages(page_dir_entry_t *vm, uint32_t vaddr, uint32_t pstart, uint32_t p
  */
 void map_page(page_dir_entry_t *vm, uint32_t virtualAddr,
 		     uint32_t physical, int permissions) {
-	page_table_entry_t *pageTable = NULL;
+	page_table_entry_t *page_table = NULL;
 
 	uint32_t pageDirIndex = PAGE_DIR_INDEX(virtualAddr);
 	uint32_t pageIndex = PAGE_INDEX(virtualAddr);
 
 	/* if this pageDirEntry is not mapped before, map it to a new page table */
 	if (vm[pageDirIndex].type == 0) {
-		pageTable = kalloc1k();
-		memset(pageTable, 0, PAGE_TABLE_SIZE);
+		page_table = kalloc1k();
+		memset(page_table, 0, PAGE_TABLE_SIZE);
 		
-		vm[pageDirIndex].base = PAGE_TABLE_TO_BASE(V2P(pageTable));
+		vm[pageDirIndex].base = PAGE_TABLE_TO_BASE(V2P(page_table));
 		vm[pageDirIndex].type = PAGE_DIR_TYPE;
 		vm[pageDirIndex].domain = 0;
 	}
 	/* otherwise use the previously allocated page table */
 	else {
-		pageTable = (void *) P2V(BASE_TO_PAGE_TABLE(vm[pageDirIndex].base));
+		page_table = (void *) P2V(BASE_TO_PAGE_TABLE(vm[pageDirIndex].base));
 	}
 
 	/* map the virtual page to physical page in page table */
-	pageTable[pageIndex].type = PAGE_TYPE,
-	pageTable[pageIndex].bufferable = 0;
-	pageTable[pageIndex].cacheable = 0;
-	pageTable[pageIndex].permissions = permissions;
-	pageTable[pageIndex].base = PAGE_TO_BASE(physical);
+	page_table[pageIndex].type = PAGE_TYPE,
+	page_table[pageIndex].bufferable = 0;
+	page_table[pageIndex].cacheable = 0;
+	page_table[pageIndex].permissions = permissions;
+	page_table[pageIndex].base = PAGE_TO_BASE(physical);
 }
 
 /* unmap_page clears the mapping for the given virtual address */
 void unmap_page(page_dir_entry_t *vm, uint32_t virtualAddr) {
-	page_table_entry_t *pageTable = NULL;
+	page_table_entry_t *page_table = NULL;
 	uint32_t pageDirIndex = PAGE_DIR_INDEX(virtualAddr);
 	uint32_t pageIndex = PAGE_INDEX(virtualAddr);
-	pageTable = (void *) P2V(BASE_TO_PAGE_TABLE(vm[pageDirIndex].base));
-	pageTable[pageIndex].type = 0;
+	page_table = (void *) P2V(BASE_TO_PAGE_TABLE(vm[pageDirIndex].base));
+	page_table[pageIndex].type = 0;
 }
 
 /*
@@ -92,8 +92,8 @@ uint32_t resolve_phy_address(page_dir_entry_t *vm, uint32_t virtual) {
 void free_page_tables(page_dir_entry_t *vm) {
 	for (int i = 0; i < PAGE_DIR_NUM; i++) {
 		if (vm[i].type != 0) {
-			void *pageTable = (void *) P2V(BASE_TO_PAGE_TABLE(vm[i].base));
-			kfree1k(pageTable);
+			void *page_table = (void *) P2V(BASE_TO_PAGE_TABLE(vm[i].base));
+			kfree1k(page_table);
 		}
 	}
 }
