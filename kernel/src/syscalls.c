@@ -93,14 +93,16 @@ static int32_t syscall_fb_write(int arg0, int arg1) {
 static int32_t syscall_exec_elf(int32_t arg0, int32_t arg1, int32_t arg2) {
 	const char*cmd = (const char*)arg0;
 	const char*p = (const char*)arg1;
-
 	if(p == NULL || cmd == NULL)
 		return -1;
 		
+	CRIT_IN
 	strncpy(_current_proc->cmd, cmd, CMD_MAX);
-
-	if(!proc_load(_current_proc, p, (uint32_t)arg2))
+	if(!proc_load(_current_proc, p, (uint32_t)arg2)) {
+		CRIT_OUT
 		return -1;
+	}
+	CRIT_OUT
 
 	proc_start(_current_proc);
 	return 0;
