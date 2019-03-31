@@ -96,14 +96,10 @@ static int32_t syscall_exec_elf(int32_t arg0, int32_t arg1, int32_t arg2) {
 	if(p == NULL || cmd == NULL)
 		return -1;
 		
-	CRIT_IN
 	strncpy(_current_proc->cmd, cmd, CMD_MAX);
 	if(!proc_load(_current_proc, p, (uint32_t)arg2)) {
-		CRIT_OUT
 		return -1;
 	}
-	CRIT_OUT
-
 	proc_start(_current_proc);
 	return 0;
 }

@@ -2,17 +2,22 @@
 #include <timer.h>
 #include <irq.h>
 #include <hardware.h>
+#include <scheduler.h>
+#include <printk.h>
 
 static bool _schedule_enabled = true;
 
 void schedule(void) {
-	if(!_schedule_enabled || _current_proc == NULL)
+	if(!_schedule_enabled) {
+		printk("schedule_disabled.\n");
 		return;
+	}
+	disable_schedule();
 
 	if(_current_proc->state == READY) { //current process ready to run
 		_current_proc->state = RUNNING;
+		enable_schedule();
 		proc_start(_current_proc);
-		return;
 	}
 
 	//current process is runing, switch to next one.
@@ -24,8 +29,8 @@ void schedule(void) {
 			if(head_proc->state == RUNNING) //set current process as ready to run.
 				head_proc->state = READY;
 			proc->state = RUNNING; //run next one.
+			enable_schedule();
 			proc_start(proc);
-			return;
 		}
 		else if(proc->state == TERMINATED)  {
 			process_t* tmp = proc;
@@ -35,6 +40,7 @@ void schedule(void) {
 		else 
 			proc = proc->next;
 	}
+	enable_schedule();
 }
 
 static void handle_timer(void) {

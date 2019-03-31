@@ -18,6 +18,7 @@ void fbtest() {
 		fill(g, 10, 10, font_big.w* strlen(s) + 20, font_big.h + 20, rgb(0, 0, 0));
 		draw_text(g, 20, 20, s, &font_big, rgb(255, 255, 255));
 		graph_flush(g);
+		yield();
 	}
 
 	graph_close(g);

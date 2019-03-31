@@ -413,6 +413,7 @@ void proc_wake(int pid) {
 }
 
 void _abort_entry() {
+	printk("process %d: '%s' abort!!!\n", _current_proc->pid, _current_proc->cmd);
 	proc_exit(_current_proc);
 }
 
