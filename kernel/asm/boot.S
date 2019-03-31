@@ -78,11 +78,11 @@ syscall_entry:
 
 	SAVE_CONTEXT /*save current process content, kernel/include/proc.h*/
 
-	stmfd sp!, {r1-r12, r14} /*push r0-r12, r14(return pc) to stack*/
+	stmfd sp!, {r1-r12, r14} /*push r1-r12, r14(return pc) to stack*/
 
 	bl handle_syscall /*kernel/src/syscalls.c*/
 
-	ldmfd sp!, {r1-r12, pc}^ /*pop stack to r0-r12, pc(means return)*/
+	ldmfd sp!, {r1-r12, pc}^ /*pop stack to r1-r12, pc(means return)*/
 
 irq_entry:
 	sub r14, r14, #4

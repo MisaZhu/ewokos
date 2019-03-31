@@ -11,7 +11,7 @@ static int32_t _cy = 0;
 static int32_t consoleMount(uint32_t node, int32_t index) {
 	(void)node;
 	(void)index;
-	_graph = graphOpen("/dev/fb0");
+	_graph = graph_open("/dev/fb0");
 	if(_graph == NULL)
 		return -1;
 
@@ -26,7 +26,7 @@ static int32_t consoleUnmount(uint32_t node) {
 	if(_graph == NULL)
 		return -1;
 
-	graphClose(_graph);
+	graph_close(_graph);
 	_graph = NULL;
 	_cx = 0;
 	_cy = 0;	
@@ -69,7 +69,7 @@ static void putChar(char c) {
 		newLine();
 	}
 	else {
-		drawChar(_graph, getX(), getY(), c, &font_big, 0xFFFFFF);
+		draw_char(_graph, getX(), getY(), c, &font_big, 0xFFFFFF);
 		_cx++;
 	}
 }
@@ -83,7 +83,7 @@ int32_t consoleWrite(uint32_t node, void* buf, uint32_t size, int32_t seek) {
 		char c = p[i];
 		putChar(c);
 	}
-	graphFlush(_graph);
+	graph_flush(_graph);
 	return size;
 }
 

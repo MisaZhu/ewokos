@@ -10,7 +10,7 @@ inline uint32_t rgb(uint32_t r, uint32_t g, uint32_t b) {
 	return b << 16 | g << 8 | r;
 }
 
-graph_t* graphOpen(const char* fname) {
+graph_t* graph_open(const char* fname) {
 	fb_info_t fbInfo;
 	int fd = fs_open(fname, 0);
 	if(fd < 0) {
@@ -22,13 +22,13 @@ graph_t* graphOpen(const char* fname) {
 	}
 
 	uint32_t sz;
-	int shmID = fs_dma(fd, &sz);
-	if(shmID < 0 || sz == 0) {
+	int shm_id = fs_dma(fd, &sz);
+	if(shm_id < 0 || sz == 0) {
 		fs_close(fd);
 		return NULL;
 	}
 	
-	void* p = shm_map(shmID);
+	void* p = shm_map(shm_id);
 	if(p == NULL) {
 		fs_close(fd);
 		return NULL;
@@ -39,18 +39,17 @@ graph_t* graphOpen(const char* fname) {
 	ret->h = fbInfo.height;
 	ret->buffer = p;
 	ret->fd = fd;
-	ret->shmID = shmID;
+	ret->shm_id = shm_id;
 
 	return ret;
 }
 
-void graphFlush(graph_t* graph) {
+void graph_flush(graph_t* graph) {
 	fs_flush(graph->fd);
-	yield();
 }
 
-void graphClose(graph_t* graph) {
-	shm_unmap(graph->shmID);
+void graph_close(graph_t* graph) {
+	shm_unmap(graph->shm_id);
 	fs_close(graph->fd);
 	free(graph);
 }
@@ -125,7 +124,7 @@ void fill(graph_t* g, int32_t x, int32_t y, uint32_t w, uint32_t h, uint32_t col
 	}
 }
 
-void drawChar(graph_t* g, int32_t x, int32_t y, char c, font_t* font, uint32_t color) {
+void draw_char(graph_t* g, int32_t x, int32_t y, char c, font_t* font, uint32_t color) {
 	int32_t xchar, ychar, xpart, ypart, index, pmask;
 	unsigned char *pdata = (unsigned char*) font->data, check;
 
@@ -148,9 +147,9 @@ void drawChar(graph_t* g, int32_t x, int32_t y, char c, font_t* font, uint32_t c
 	}
 }
 
-void drawText(graph_t* g, int32_t x, int32_t y, const char* str, font_t* font, uint32_t color) {
+void draw_text(graph_t* g, int32_t x, int32_t y, const char* str, font_t* font, uint32_t color) {
 	while(*str) {
-		drawChar(g, x, y, *str, font, color);
+		draw_char(g, x, y, *str, font, color);
 		x += font->w;
 		str++;
 	}
