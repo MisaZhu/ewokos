@@ -144,5 +144,6 @@ void trunk_free(malloc_t* m, char* p) {
 	block->used = 0; //mark as free.
 
 	try_merge(m, block);
-	try_shrink(m);
+	if(m->shrink != NULL)
+		try_shrink(m);
 }

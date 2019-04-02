@@ -106,7 +106,8 @@ static void proc_init_space(process_t* proc) {
 	proc->space->malloc_man.mHead = 0;
 	proc->space->malloc_man.mTail = 0;
 	proc->space->malloc_man.expand = proc_expand_mem;
-	proc->space->malloc_man.shrink = proc_shrink_mem;
+	proc->space->malloc_man.shrink = NULL; //TODO
+	//proc->space->malloc_man.shrink = proc_shrink_mem;
 	proc->space->malloc_man.get_mem_tail = proc_get_mem_tail;
 	memset(&proc->space->files, 0, sizeof(proc_file_t)*FILE_MAX);
 }
