@@ -19,6 +19,9 @@ void schedule(void) {
 		enable_schedule();
 		proc_start(_current_proc);
 	}
+	else if(_current_proc->state == RUNNING) { //current process running.
+		_current_proc->state = READY;
+	}
 
 	//current process is runing, switch to next one.
 	process_t* head_proc = _current_proc;
@@ -26,8 +29,6 @@ void schedule(void) {
 
 	while(head_proc != proc) {
 		if(proc->state == READY)  {
-			if(head_proc->state == RUNNING) //set current process as ready to run.
-				head_proc->state = READY;
 			proc->state = RUNNING; //run next one.
 			enable_schedule();
 			proc_start(proc);
