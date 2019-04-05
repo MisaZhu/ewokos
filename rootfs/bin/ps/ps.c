@@ -20,11 +20,12 @@ int main() {
 	proc_info_t* procs = (proc_info_t*)syscall2(SYSCALL_SYSTEM_CMD, 2, (int)&num);
 	if(procs != NULL) {
 		for(int i=0; i<num; i++) {
-			printf("%s\tpid:%d, father:%d, owner:%d, heap_size: %d\n", 
+			printf("%s\tpid:%d, father:%d, owner:%d, state: %d heap_size: %d\n", 
 				procs[i].cmd,
 				procs[i].pid,
 				procs[i].father_pid,
 				procs[i].owner,
+				procs[i].state,
 				procs[i].heap_size);
 		}
 		printf("\n");

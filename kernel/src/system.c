@@ -63,6 +63,7 @@ static proc_info_t* get_procs(int32_t *num) {
 			procs[j].pid = _process_table[i].pid;	
 			procs[j].father_pid = _process_table[i].father_pid;	
 			procs[j].owner = _process_table[i].owner;	
+			procs[j].state = _process_table[i].state;
 			procs[j].heap_size = _process_table[i].space->heap_size;	
 			strcpy(procs[j].cmd, _process_table[i].cmd);
 			j++;

@@ -294,7 +294,10 @@ void proc_start(process_t *proc) {
 process_t* proc_get(int pid) {
 	if(pid < 0 || pid >= PROCESS_COUNT_MAX)
 		return NULL;
-	return &_process_table[pid];
+	process_t* proc = &_process_table[pid];
+	if(proc->state == UNUSED)
+		return NULL;
+	return proc;
 }
 
 static int32_t proc_clone(process_t* child, process_t* parent) {
@@ -401,14 +404,14 @@ void proc_exit(process_t* proc) {
 
 void proc_sleep(int pid) {
 	process_t* proc = proc_get(pid);
-	if(proc == NULL)
+	if(proc == NULL || proc->state == TERMINATED)
 		return;
 	proc->state = SLEEPING;
 }
 
 void proc_wake(int pid) {
 	process_t* proc = proc_get(pid);
-	if(proc == NULL)
+	if(proc == NULL || proc->state == TERMINATED)
 		return;
 	proc->state = READY;
 }

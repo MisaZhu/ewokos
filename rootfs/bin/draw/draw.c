@@ -26,7 +26,7 @@ void fbtest() {
 
 int main() {
 	int i = 0;
-	while(i++ < 80) {
+	while(i++ < 10) {
 		int pid = fork();
 		if(pid == 0) {
 			fbtest();
