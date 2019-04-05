@@ -73,6 +73,18 @@ static proc_info_t* get_procs(int32_t *num) {
 	return procs;
 }
 
+static int32_t kill_proc(int32_t pid) {
+	process_t* proc = proc_get(pid);
+	if(proc == NULL)
+		return -1;
+
+	if(_current_proc->owner != proc->owner && _current_proc->owner > 0)
+		return -1;
+
+	proc_exit(proc);
+	return 0;
+}
+
 int32_t system_cmd(int32_t cmd, int32_t arg) {
 	int32_t ret = -1;
 	switch(cmd) {
@@ -84,6 +96,9 @@ int32_t system_cmd(int32_t cmd, int32_t arg) {
 		break;
 	case 2: //get procs
 		ret = (int32_t)get_procs((int32_t*)arg);
+		break;
+	case 3: //kill proc
+		ret = (int32_t)kill_proc(arg);
 		break;
 	default:
 		break;

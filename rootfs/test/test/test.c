@@ -3,7 +3,8 @@
 #include <unistd.h>
 
 int main() {
-	printf("Hello, world!\n");
+	int i = 0;
+	printf("Hello, world! %d\n", i);
 	return 0;
 }
 

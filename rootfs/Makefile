@@ -11,7 +11,7 @@ COMMON_OBJ=$(COMMON_LIB)/src/kstring.o \
 	$(COMMON_LIB)/src/vprintf.o
 
 # flags
-CFLAGS = -I. -g \
+CFLAGS = -I. \
 				 -I ../lib/include \
 				 -I lib/include \
 				 -I $(COMMON_LIB)/include \
