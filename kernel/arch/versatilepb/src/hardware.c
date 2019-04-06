@@ -22,7 +22,7 @@ uint32_t get_initrd_base_phy() {
 }
 
 uint32_t get_initrd_size() {
-	return 1*MB;
+	return 2*MB;
 }
 
 uint32_t get_uart_irq() {
