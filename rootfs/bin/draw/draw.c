@@ -1,6 +1,7 @@
 #include <types.h>
 #include <stdio.h>
 #include <unistd.h>
+#include <stdlib.h>
 #include <kstring.h>
 #include <graph/graph.h>
 
@@ -25,15 +26,23 @@ void fbtest() {
 }
 
 int main() {
-	int i = 0;
-	while(i++ < 10) {
-		int pid = fork();
-		if(pid == 0) {
-			fbtest();
-			return 0;
-		}
+	init_cmain_arg();
+	const char* arg = read_cmain_arg();
+	arg = read_cmain_arg();
+	if(arg == NULL) {
+		fbtest();
 	}
-	while(true);
+	else {
+		int i = 0;
+		while(i++ < atoi(arg)) {
+			int pid = fork();
+			if(pid == 0) {
+				fbtest();
+				return 0;
+			}
+		}
+		while(true);
+	}	
 	return 0;
 }
 
