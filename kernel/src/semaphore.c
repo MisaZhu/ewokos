@@ -37,16 +37,21 @@ int32_t semaphore_close(int32_t* s) {
 int32_t semaphore_lock(int32_t* s) {
 	if(s == NULL || (*s) < 0)
 		return 0;
+	uint32_t paddr = semaphore_phy_addr(s);
 	
-	CRIT_IN
-	if(*s > 0) { /*still locked by other process, put current process to sleep*/
-		_current_proc->state = SLEEPING;
-		_current_proc->wait_semaphore_paddr = semaphore_phy_addr(s);
-		CRIT_OUT
-		return -1;
+	while(true) {
+		if(*s > 0) {/*still locked by other process, put current process to sleep*/
+			_current_proc->state = SLEEPING;
+			_current_proc->wait_semaphore_paddr = paddr;
+			schedule();
+		}	
+		else {
+			CRIT_IN
+			(*s)++;
+			CRIT_OUT
+			break;
+		}
 	}	
-	(*s)++;
-	CRIT_OUT
 	return 0;
 }
 

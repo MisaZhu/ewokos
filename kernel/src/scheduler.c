@@ -12,11 +12,9 @@ void schedule(void) {
 		printk("schedule_disabled.\n");
 		return;
 	}
-	disable_schedule();
 
 	if(_current_proc->state == READY) { //current process ready to run
 		_current_proc->state = RUNNING;
-		enable_schedule();
 		proc_start(_current_proc);
 	}
 	else if(_current_proc->state == RUNNING) { //current process running.
@@ -30,7 +28,6 @@ void schedule(void) {
 	while(head_proc != proc) {
 		if(proc->state == READY)  {
 			proc->state = RUNNING; //run next one.
-			enable_schedule();
 			proc_start(proc);
 		}
 		else if(proc->state == TERMINATED)  {
@@ -41,7 +38,6 @@ void schedule(void) {
 		else 
 			proc = proc->next;
 	}
-	enable_schedule();
 }
 
 static void handle_timer(void) {
