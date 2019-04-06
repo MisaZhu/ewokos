@@ -9,6 +9,7 @@
 #include <dev/uart.h>
 #include <elf.h>
 #include <kernel.h>
+#include <kserv.h>
 #include <scheduler.h>
 #include <printk.h>
 #include <mm/shm.h>
@@ -182,6 +183,7 @@ static void proc_free_space(process_t *proc) {
 		}
 	}
 
+	kserv_unreg(proc);
 	ipc_close_all(proc->pid);
 	shm_proc_free(proc->pid);
 	proc_shrink_mem(proc, proc->space->heap_size / PAGE_SIZE);

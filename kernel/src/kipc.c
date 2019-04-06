@@ -82,15 +82,7 @@ static inline bool check_channel(channel_t* channel) {
 }
 
 /*close kernel ipc channel*/
-int32_t ipc_close(int32_t id) {
-	channel_t* channel = ipc_get_channel(id);
-	if(!check_channel(channel)) {
-		return 0;
-	}
-
-	if(channel->size > 0) //still got buffer data to read.
-		return -1;
-
+static int32_t ipc_close_raw(channel_t* channel) {
 	shm_proc_unmap(channel->proc_map[0].pid, channel->shm_id);
 	shm_proc_unmap(channel->proc_map[1].pid, channel->shm_id);
 	shm_free(channel->shm_id);
@@ -102,6 +94,17 @@ int32_t ipc_close(int32_t id) {
 	channel->ring = -1;
 	channel->shm_id = -1;
 	return 0;
+}
+
+/*close kernel ipc channel*/
+int32_t ipc_close(int32_t id) {
+	channel_t* channel = ipc_get_channel(id);
+	if(!check_channel(channel)) {
+		return 0;
+	}
+	if(channel->size > 0) //still got buffer data to read.
+		return -1;
+	return ipc_close_raw(channel);
 }
 
 int ipc_ring(int32_t id) {
@@ -206,6 +209,8 @@ int32_t ipc_ready() {
 	int32_t i;
 	for(i=0; i<CHANNEL_MAX; i++) {
 		channel_t* channel = &_channels[i];
+		if(channel->ring < 0)
+			continue;
 		if(channel->proc_map[channel->ring].pid == pid) // current process hold the ring 
 			break;
 	}
@@ -225,6 +230,6 @@ void ipc_close_all(int32_t pid) {
 		if(channel->ring < 0)
 			continue;
 		if(channel->proc_map[0].pid == pid || channel->proc_map[1].pid == pid) 
-			ipc_close(i);
+			ipc_close_raw(channel);
 	}
 }

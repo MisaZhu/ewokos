@@ -36,9 +36,6 @@ int kserv_reg(const char* name) {
 int kserv_get(const char* name) {
 	int i;
 	for(i=0; i<KSERV_MAX; i++) {
-		if(_kernelServices[i].name[0] == 0) 
-			break;
-
 		if(strcmp(_kernelServices[i].name, name) == 0) {
 			return _kernelServices[i].pid;
 		}
@@ -46,4 +43,15 @@ int kserv_get(const char* name) {
 	return -1;
 }
 
+int kserv_unreg(process_t* proc) {
+	int i;
+	for(i=0; i<KSERV_MAX; i++) {
+		if(_kernelServices[i].pid == proc->pid) {
+			_kernelServices[i].name[0] = 0;
+			_kernelServices[i].pid = -1;
+			return 0;
+		}
+	}
+	return -1;
+}
 
