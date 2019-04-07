@@ -5,14 +5,7 @@
 #include <scheduler.h>
 #include <printk.h>
 
-static bool _schedule_enabled = true;
-
 void schedule(void) {
-	if(!_schedule_enabled) {
-		printk("schedule_disabled.\n");
-		return;
-	}
-
 	if(_current_proc->state == READY) { //current process ready to run
 		_current_proc->state = RUNNING;
 		proc_start(_current_proc);
@@ -52,10 +45,3 @@ void scheduler_init(void) {
 	register_interrupt_handler(get_timer_irq(), handle_timer);
 }
 
-void disable_schedule() {
-	_schedule_enabled = false;
-}
-
-void enable_schedule() {
-	_schedule_enabled = true;
-}

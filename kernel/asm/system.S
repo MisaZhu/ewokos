@@ -37,10 +37,10 @@ __enable_interrupts:
 .global __cli 
 __cli:
 	push {lr}
-	mrs r4, cpsr
-	mov r0, r4 /*return cpsr*/
-	orr r4, r4, #0x80
-	msr cpsr, r4
+	mrs r1, cpsr
+	mov r0, r1 /*return cpsr*/
+	orr r1, r1, #0x80
+	msr cpsr, r1
 	pop {lr}
 	mov pc, lr
 
