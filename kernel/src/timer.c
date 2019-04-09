@@ -4,10 +4,17 @@
 #include <irq.h>
 
 #define SCHEDULE_TIME 1000 /*0.001 sec*/
+//static uint32_t _cpu_tick = 0;
 static uint32_t _cpu_msec = 0;
 static uint32_t _cpu_sec = 0;
 
 static void timer_handle() {
+	/*
+	_cpu_tick++;
+	if(_cpu_tick >= 10) {
+		_cpu_msec++;
+	}
+	*/
 	_cpu_msec++;
 	if(_cpu_msec >= 1000) { 
 		_cpu_sec++;
