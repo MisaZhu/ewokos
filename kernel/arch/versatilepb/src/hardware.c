@@ -31,7 +31,7 @@ uint32_t get_uart_irq() {
 
 uint32_t get_timer_irq() {
 	//Timer0 and Timer1 interrupt at IRQ4. Timer2 and Timer3 interrupt at IRQ5
-	return 5;
+	return 4;
 }
 
 void arch_set_kernel_vm(page_dir_entry_t* vm) {
