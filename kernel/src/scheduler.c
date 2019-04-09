@@ -1,17 +1,10 @@
 #include <proc.h>
-#include <timer.h>
-#include <irq.h>
-#include <hardware.h>
 #include <scheduler.h>
-#include <printk.h>
 
 void schedule(void) {
 	if(_current_proc->state == READY) { //current process ready to run
 		_current_proc->state = RUNNING;
 		proc_start(_current_proc);
-	}
-	else if(_current_proc->state == RUNNING) { //current process running.
-		_current_proc->state = READY;
 	}
 
 	//current process is runing, switch to next one.
@@ -20,6 +13,8 @@ void schedule(void) {
 
 	while(head_proc != proc) {
 		if(proc->state == READY)  {
+			if(head_proc->state == RUNNING) //current process running.
+				head_proc->state = READY;
 			proc->state = RUNNING; //run next one.
 			proc_start(proc);
 		}
@@ -31,17 +26,5 @@ void schedule(void) {
 		else 
 			proc = proc->next;
 	}
-}
-
-static void handle_timer(void) {
-	timer_clear_interrupt();
-	schedule();
-}
-
-#define SCHEDULE_TIME 10 /*0.01 sec*/
-
-void scheduler_init(void) {
-	timer_set_interval(SCHEDULE_TIME);
-	register_interrupt_handler(get_timer_irq(), handle_timer);
 }
 

@@ -371,9 +371,9 @@ static int32_t syscall_semaphore_unlock(int32_t arg0) {
 	return semaphore_unlock((int32_t*)arg0);
 }
 
-static int32_t syscall_system_cmd(int32_t arg0, int32_t arg1) { 
-	//arg0: command id; arg1: command arg
-	return system_cmd(arg0, arg1);
+static int32_t syscall_system_cmd(int32_t arg0, int32_t arg1, int32_t arg2) { 
+	//arg0: command id; arg1,arg2: command args
+	return system_cmd(arg0, arg1, arg2);
 }
 
 static int32_t (*const _syscallHandler[])() = {

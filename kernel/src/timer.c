@@ -1,6 +1,31 @@
 #include <timer.h>
+#include <scheduler.h>
+#include <hardware.h>
+#include <irq.h>
 
-void timer_wait(uint32_t delay) {
-	uint32_t init = timer_read();
-	while((timer_read()-init) < delay);
+#define SCHEDULE_TIME 1000 /*0.001 sec*/
+static uint32_t _cpu_msec = 0;
+static uint32_t _cpu_sec = 0;
+
+static void timer_handle() {
+	_cpu_msec++;
+	if(_cpu_msec >= 1000) { 
+		_cpu_sec++;
+		_cpu_msec = 0;
+	}
+
+	timer_clear_interrupt();
+	schedule();
+}
+
+void timer_start(void) {
+	timer_set_interval(SCHEDULE_TIME);
+	register_interrupt_handler(get_timer_irq(), timer_handle);
+}
+
+void cpu_tick(uint32_t* sec, uint32_t* msec) {
+	if(sec != NULL)
+		*sec = _cpu_sec;
+	if(msec != NULL)
+		*msec = _cpu_msec;
 }

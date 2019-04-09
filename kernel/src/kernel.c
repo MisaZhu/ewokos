@@ -94,27 +94,28 @@ static void init_allocable_mem() {
 	kalloc_init(ALLOCATABLE_MEMORY_START + INIT_RESERV_MEMORY_SIZE, P2V(_phy_mem_size));
 }
 
-static void load_init_proc() {
+static process_t* load_init_proc() {
 	const char* name = "init";
 
 	printk("Loading the first process ... ");
 	process_t *proc = proc_create(TYPE_PROC); //create first process
 	if(proc == NULL) {
 		printk("panic: init process create failed!\n");
-		return;
+		return NULL;
 	}
 	
 	int32_t size = 0;
 	const char *p = read_initrd(name, &size);
 	if(p == NULL) {
 		printk("panic: init process load failed!\n");
-		return;
+		return NULL;
 	}
 	else {
 		proc_load(proc, p, size);
 		strncpy(proc->cmd, name, CMD_MAX);
 	}
 	printk("ok.\n");
+	return proc;
 }
 
 static void welcome() {
@@ -133,7 +134,9 @@ void kernel_entry() {
 	init_allocable_mem(); /*init the rest allocable memory VM*/
 
 	welcome(); /*show welcome words*/
+
 	hw_init(); /*hardware init*/
+	irq_init(); /*init irq interrupts*/
 	shm_init(); /*init share memory*/
 	gpio_init(); 
 	fb_init(); /*framebuffer init*/
@@ -141,13 +144,11 @@ void kernel_entry() {
 	ipc_init(); /*init internal process communiation*/
 	
 	proc_init(); /*init process mananer*/
-	load_init_proc(); /*load init process(first process)*/
-	irq_init(); /*init irq interrupts*/
-	timer_init(); /*init timer irq*/
-	scheduler_init(); /*init scheduler*/
+	process_t* first_proc = load_init_proc(); /*load init process(first process)*/
 
-	while(1) {
-		schedule();
-	}
+	timer_init(); /*init timer irq*/
+	timer_start(); /*start timer*/
+
+	proc_start(first_proc);
 	close_initrd();
 }

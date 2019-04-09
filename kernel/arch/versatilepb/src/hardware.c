@@ -30,6 +30,7 @@ uint32_t get_uart_irq() {
 }
 
 uint32_t get_timer_irq() {
+	//Timer0 and Timer1 interrupt at IRQ4. Timer2 and Timer3 interrupt at IRQ5
 	return 5;
 }
 

@@ -3,10 +3,12 @@
 
 #include <types.h>
 
+void timer_init();
+void timer_start();
+
 void timer_set_interval(uint32_t intervalMicrosecond);
 void timer_clear_interrupt(void);
-void timer_init();
-uint32_t timer_read();
-void timer_wait(uint32_t delay);
+
+void cpu_tick(uint32_t* sec, uint32_t* msec);
 
 #endif

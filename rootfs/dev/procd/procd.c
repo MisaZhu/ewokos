@@ -10,6 +10,8 @@ static int32_t proc_mount(uint32_t node, int32_t index) {
 
 	vfs_add(node, "free_mem", 0);
 	vfs_add(node, "total_mem", 0);
+	vfs_add(node, "cpu_sec", 0);
+	vfs_add(node, "cpu_msec", 0);
 	return 0;
 }
 
@@ -30,6 +32,18 @@ static int32_t proc_read(uint32_t node, void* buf, uint32_t size, int32_t seek) 
 	}
 	else if(strcmp(fname, "free_mem") == 0) {
 		snprintf((char*)buf, size-1, "%d\n", syscall2(SYSCALL_SYSTEM_CMD, 1, 0));
+		ret = strlen((char*)buf);
+	}
+	else if(strcmp(fname, "cpu_sec") == 0) {
+		uint32_t sec;
+		syscall3(SYSCALL_SYSTEM_CMD, 4, (int32_t)&sec, 0);
+		snprintf((char*)buf, size-1, "%d\n", sec);
+		ret = strlen((char*)buf);
+	}
+	else if(strcmp(fname, "cpu_msec") == 0) {
+		uint32_t msec;
+		syscall3(SYSCALL_SYSTEM_CMD, 4, 0, (int32_t)&msec);
+		snprintf((char*)buf, size-1, "%d\n", msec);
 		ret = strlen((char*)buf);
 	}
 

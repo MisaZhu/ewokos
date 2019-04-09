@@ -14,7 +14,7 @@
 void timer_set_interval(uint32_t intervalMicrosecond) {
 	TIMER[TIMER_CONTROL] = 0;
 	TIMER[TIMER_BGLOAD] = 0;
-	TIMER[TIMER_LOAD] = intervalMicrosecond*1000;
+	TIMER[TIMER_LOAD] = intervalMicrosecond;
 	TIMER[TIMER_CONTROL] = 0xe2;	
 }
 

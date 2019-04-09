@@ -10,8 +10,7 @@
 #define PIC_STATUS     0x0
 #define PIC_INT_ENABLE 0x4
 
-void enable_irq(uint32_t line)
-{
+void enable_irq(uint32_t line) {
 	PIC[PIC_INT_ENABLE] = (1 << line);
 }
 

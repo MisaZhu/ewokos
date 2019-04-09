@@ -12,7 +12,7 @@ extern void __sti(uint32_t cpsr); //enable interrupts
 
 void loopd(uint32_t times);
 
-int32_t system_cmd(int32_t cmd, int32_t arg);
+int32_t system_cmd(int32_t cmd, int32_t arg0, int32_t arg1);
 
 #define CRIT_IN uint32_t _cpsr_ = __cli();
 #define CRIT_OUT __sti(_cpsr_);
