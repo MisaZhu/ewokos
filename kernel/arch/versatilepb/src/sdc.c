@@ -77,9 +77,9 @@
 #define SDC_BASE (MMIO_BASE + 0x5000) // PL180 SDC_BASE address
 
 // shared variables between SDC driver and interrupt handler
-static char *rxbuf;
-static const char *txbuf;
-static uint32_t rxcount, txcount, rxdone, txdone;
+static char *_rxbuf;
+static const char *_txbuf;
+static uint32_t _rxcount, _txcount, _rxdone, _txdone;
 
 static inline void do_command(int32_t cmd, int32_t arg, int32_t resp) {
 	*(uint32_t *)(SDC_BASE + ARGUMENT) = (uint32_t)arg;
@@ -111,8 +111,8 @@ int32_t sdc_read_block(int32_t block, char* buf) {
 	uint32_t cmd, arg;
 
 	//printk("getblock %d ", block);
-	rxbuf = buf; rxcount = SDC_BLOCK_SIZE;
-	rxdone = 0;
+	_rxbuf = buf; _rxcount = SDC_BLOCK_SIZE;
+	_rxdone = 0;
 
 	*(uint32_t *)(SDC_BASE + DATATIMER) = 0xFFFF0000;
 	// write data_len to datalength reg
@@ -127,7 +127,7 @@ int32_t sdc_read_block(int32_t block, char* buf) {
 	*(uint32_t *)(SDC_BASE + DATACTRL) = 0x93;
 
 	// P0 must use polling during mount_root
-	while(rxdone==0);
+	while(_rxdone==0);
 	//printk("getblock return\n");
 	return 0;
 }
@@ -136,8 +136,8 @@ int32_t sdc_write_block(int32_t block, const char* buf) {
 	uint32_t cmd, arg;
 
 	//printk("putblock %d %x\n", block, buf);
-	txbuf = buf; txcount = SDC_BLOCK_SIZE;
-	txdone = 0;
+	_txbuf = buf; _txcount = SDC_BLOCK_SIZE;
+	_txdone = 0;
 
 	*(uint32_t *)(SDC_BASE + DATATIMER) = 0xFFFF0000;
 	*(uint32_t *)(SDC_BASE + DATALENGTH) = SDC_BLOCK_SIZE;
@@ -151,7 +151,7 @@ int32_t sdc_write_block(int32_t block, const char* buf) {
 	*(uint32_t *)(SDC_BASE + DATACTRL) = 0x91; // Host->card
 
 	// P0 must use polling but P0 never writes SDC
-	while(txdone==0);
+	while(_txdone==0);
 	return 0;
 }
 
@@ -165,40 +165,40 @@ void sdc_handle() {
 
 	if (status & (1<<17)){ // RxFull: read 16 uint32_t at a time;
 		//printk("SDC RX interrupt: ");
-		up = (uint32_t *)rxbuf;
+		up = (uint32_t *)_rxbuf;
 		status_err = status & (SDI_STA_DCRCFAIL|SDI_STA_DTIMEOUT|SDI_STA_RXOVERR);
-		if (!status_err && rxcount) {
-			//printk("R%d ", rxcount);
+		if (!status_err && _rxcount) {
+			//printk("R%d ", _rxcount);
 			for (i = 0; i < 16; i++)
 				*(up + i) = *(uint32_t *)(SDC_BASE + FIFO);
 			up += 16;
-			rxcount -= 64;
-			rxbuf += 64;
+			_rxcount -= 64;
+			_rxbuf += 64;
 			status = *(uint32_t *)(SDC_BASE + STATUS); // read status to clear Rx interrupt
 		}
-		if (rxcount == 0){
+		if (_rxcount == 0){
 			do_command(12, 0, MMC_RSP_R1); // stop transmission
-			rxdone = 1;
+			_rxdone = 1;
 			//printk("SDC handler done ");
 		}
 	}
 	else if (status & (1<<18)){ // TXempty: write 16 uint32_t at a time
 		//printk("TX interrupt: ");
-		up = (uint32_t *)txbuf;
+		up = (uint32_t *)_txbuf;
 		status_err = status & (SDI_STA_DCRCFAIL | SDI_STA_DTIMEOUT);
 
-		if (!status_err && txcount) {
-			// printk("W%d ", txcount);
+		if (!status_err && _txcount) {
+			// printk("W%d ", _txcount);
 			for (i = 0; i < 16; i++)
 				*(uint32_t *)(SDC_BASE + FIFO) = *(up + i);
 			up += 16;
-			txcount -= 64;
-			txbuf += 64;            // advance txbuf for next write  
+			_txcount -= 64;
+			_txbuf += 64;            // advance _txbuf for next write  
 			status = *(uint32_t *)(SDC_BASE + STATUS); // read status to clear Tx interrupt
 		}
-		if (txcount == 0){
+		if (_txcount == 0){
 			do_command(12, 0, MMC_RSP_R1); // stop transmission
-			txdone = 1;
+			_txdone = 1;
 		}
 	}
 	//printk("write to clear register\n");
