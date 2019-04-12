@@ -8,6 +8,7 @@ LD = arm-none-eabi-ld
 COMMON_LIB=../lib
 COMMON_OBJ=$(COMMON_LIB)/src/kstring.o \
 	$(COMMON_LIB)/src/sramdisk.o \
+	$(COMMON_LIB)/src/ext2.o \
 	$(COMMON_LIB)/src/vprintf.o
 
 # flags
@@ -35,9 +36,10 @@ include test/build.mk
 
 system: $(MKRAMFS) $(PROGRAM) $(COMMON_OBJ)
 	mkdir -p build
-	$(MKRAMFS) rootfs.img build
+	$(MKRAMFS) rootfs.rd build
+	./sdc.sh
 
 clean:
-	rm -f $(EXTRA_CLEAN) $(COMMON_OBJ) rootfs.img
+	rm -f $(EXTRA_CLEAN) $(COMMON_OBJ) rootfs.rd rootfs.ext2
 	rm -fr mkramfs/mkramfs.dSYM
 	rm -fr build

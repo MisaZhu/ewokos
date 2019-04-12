@@ -50,6 +50,7 @@ DEV_OBJS = src/dev/uart.o
 
 LIB_OBJS = ../lib/src/kstring.o \
 	../lib/src/sramdisk.o \
+	../lib/src/ext2.o \
 	../lib/src/vprintf.o
 
 OBJS += $(ARCH_OBJS) \
@@ -79,13 +80,13 @@ $(OS).bin: $(OBJS) $(LIB_OBJS) $(OS).ld
 	$(OBJDUMP) -D build/$(OS).elf > build/$(OS).asm
 
 run:
-	qemu-system-arm $(QEMU_FLAGS) -kernel build/$(OS).bin -initrd ../rootfs/rootfs.img -serial mon:stdio -sd ../rootfs/rootfs.img
+	qemu-system-arm $(QEMU_FLAGS) -kernel build/$(OS).bin -initrd ../rootfs/rootfs.rd -serial mon:stdio -sd ../rootfs/rootfs.ext2
 
 runasm:
-	qemu-system-arm $(QEMU_FLAGS) -kernel build/$(OS).bin -initrd ../rootfs/rootfs.img -d in_asm -serial mon:stdio -sd ../rootfs/rootfs.img
+	qemu-system-arm $(QEMU_FLAGS) -kernel build/$(OS).bin -initrd ../rootfs/rootfs.rd -d in_asm -serial mon:stdio -sd ../rootfs/rootfs.ext2
 
 debug: $(OS).bin
-	qemu-system-arm $(QEMU_FLAGS) -gdb tcp::26000 -S -kernel build/$(OS).bin -initrd ../rootfs/rootfs.img -serial mon:stdio -sd ../rootfs/rootfs.img
+	qemu-system-arm $(QEMU_FLAGS) -gdb tcp::26000 -S -kernel build/$(OS).bin -initrd ../rootfs/rootfs.rd -serial mon:stdio -sd ../rootfs/rootfs.ext2
 
 gdb: 
 	echo "target remote :26000" > /tmp/gdbinit
