@@ -11,4 +11,6 @@ void timer_clear_interrupt(void);
 
 void cpu_tick(uint32_t* sec, uint32_t* msec);
 
+void timer_handle();
+
 #endif

@@ -43,6 +43,7 @@ ARCH_OBJS = arch/$(arch)/src/irq.o \
 	arch/$(arch)/src/hardware.o \
 	arch/$(arch)/src/gpio.o \
 	arch/$(arch)/src/spi.o \
+	arch/$(arch)/src/sdc.o \
 	arch/$(arch)/src/initrd.o
 
 DEV_OBJS = src/dev/uart.o
@@ -57,7 +58,6 @@ OBJS += $(ARCH_OBJS) \
 	src/timer.o \
 	src/printk.o \
 	src/kernel.o \
-	src/irq.o \
 	src/syscalls.o \
 	src/mm/startup.o \
 	src/mm/mmu.o \
@@ -79,13 +79,13 @@ $(OS).bin: $(OBJS) $(LIB_OBJS) $(OS).ld
 	$(OBJDUMP) -D build/$(OS).elf > build/$(OS).asm
 
 run:
-	qemu-system-arm $(QEMU_FLAGS) -kernel build/$(OS).bin -initrd ../rootfs/rootfs.img -serial mon:stdio
+	qemu-system-arm $(QEMU_FLAGS) -kernel build/$(OS).bin -initrd ../rootfs/rootfs.img -serial mon:stdio -sd sdimage
 
 runasm:
 	qemu-system-arm $(QEMU_FLAGS) -kernel build/$(OS).bin -initrd ../rootfs/rootfs.img -d in_asm -serial mon:stdio
 
 debug: $(OS).bin
-	qemu-system-arm $(QEMU_FLAGS) -gdb tcp::26000 -S -kernel build/$(OS).bin -initrd ../rootfs/rootfs.img -serial mon:stdio
+	qemu-system-arm $(QEMU_FLAGS) -gdb tcp::26000 -S -kernel build/$(OS).bin -initrd ../rootfs/rootfs.img -serial mon:stdio -sd sdimage
 
 gdb: 
 	echo "target remote :26000" > /tmp/gdbinit

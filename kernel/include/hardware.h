@@ -6,9 +6,6 @@
 
 extern void hw_init();
 
-extern uint32_t get_uart_irq();
-extern uint32_t get_timer_irq();
-
 extern uint32_t get_mmio_base_phy();
 extern uint32_t get_mmio_mem_size();
 

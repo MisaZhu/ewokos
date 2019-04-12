@@ -15,6 +15,7 @@
 #include <dev/gpio.h>
 #include <dev/fb.h>
 #include <dev/initrd.h>
+#include <dev/sdc.h>
 #include <sramdisk.h>
 #include <printk.h>
 
@@ -141,8 +142,9 @@ void kernel_entry() {
 	gpio_init(); 
 	fb_init(); /*framebuffer init*/
 	uart_init(); /*init uart for debug*/
+	sdc_init(); /*init sd card*/
 	ipc_init(); /*init internal process communiation*/
-	
+
 	proc_init(); /*init process mananer*/
 	process_t* first_proc = load_init_proc(); /*load init process(first process)*/
 

@@ -93,7 +93,7 @@ irq_entry:
 
 	stmfd sp!, {r0-r12, r14} /*push r0-r12, r14(return pc) to stack*/
 
-	bl handle_irq /*kernel/src/irq.c*/
+	bl irq_handle /*arch/{ARCH}/src/irq.c*/
 
 	ldmfd sp!, {r0-r12, pc}^ /*pop stack to r0-r12, pc(means return)*/
 

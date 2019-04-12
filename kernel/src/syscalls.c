@@ -3,6 +3,7 @@
 #include <syscalls.h>
 #include <types.h>
 #include <dev/uart.h>
+#include <dev/sdc.h>
 #include <proc.h>
 #include <kernel.h>
 #include <kstring.h>
@@ -222,6 +223,18 @@ static int32_t syscall_kdb(int32_t arg0) {
 	return arg0;
 }
 
+static int32_t syscall_sdc_read(int32_t arg0, int32_t arg1) {
+	if(_current_proc->owner > 0)
+		return -1;
+	return sdc_read_block(arg0, (char*)arg1);
+}
+
+static int32_t syscall_sdc_write(int32_t arg0, int32_t arg1) {
+	if(_current_proc->owner > 0)
+		return -1;
+	return sdc_write_block(arg0, (const char*)arg1);
+}
+
 static int32_t syscall_pf_open(int32_t arg0, int32_t arg1) {
 	process_t* proc = _current_proc;
 	if(proc == NULL)
@@ -416,6 +429,9 @@ static int32_t (*const _syscallHandler[])() = {
 
 	[SYSCALL_INITRD_READ_FILE] = syscall_readfile_initrd,
 	[SYSCALL_INITRD_CLONE] = syscall_clone_initrd,
+
+	[SYSCALL_SDC_READ] = syscall_sdc_read,
+	[SYSCALL_SDC_WRITE] = syscall_sdc_write,
 
 	[SYSCALL_PFILE_GET_SEEK] = syscall_pf_get_seek,
 	[SYSCALL_PFILE_SEEK] = syscall_pf_seek,

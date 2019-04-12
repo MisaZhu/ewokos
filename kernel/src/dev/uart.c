@@ -11,7 +11,6 @@ static int recv_buf_head = 0;
 static int recv_buf_tail = 0;
 
 /* forward declarations for local functions */
-static void uart_interrupt_handler(void);
 static int circular_inc(int operand, int circle_size);
 
 /*
@@ -23,7 +22,6 @@ void uart_init(void) {
 	recv_buf_tail = 0;
 
 	uart_dev_init();
-	register_interrupt_handler(get_uart_irq(), uart_interrupt_handler);
 }
 
 void uart_puts(const char* str) {
@@ -68,7 +66,7 @@ static int circular_inc(int operand, int circle_size) {
  * uart_interrupt_handler reads a character from the uart0 serial port, and
  * puts it into receive_buffer. If the buffer is full, the character is ignored.
  */
-static void uart_interrupt_handler(void) {
+void uart_handle(void) {
 	while (uart_ready_to_recv()) {
 		int new_head = 0;
 		int data = uart_recv();

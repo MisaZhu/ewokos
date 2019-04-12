@@ -15,4 +15,6 @@ void uart_puts(const char* str);
 void uart_putch(int c);
 int uart_getch();
 
+void uart_handle(void);
+
 #endif

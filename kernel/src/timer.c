@@ -8,7 +8,7 @@
 static uint32_t _cpu_msec = 0;
 static uint32_t _cpu_sec = 0;
 
-static void timer_handle() {
+void timer_handle() {
 	/*
 	_cpu_tick++;
 	if(_cpu_tick >= 10) {
@@ -27,7 +27,6 @@ static void timer_handle() {
 
 void timer_start(void) {
 	timer_set_interval(SCHEDULE_TIME);
-	register_interrupt_handler(get_timer_irq(), timer_handle);
 }
 
 void cpu_tick(uint32_t* sec, uint32_t* msec) {
