@@ -97,7 +97,8 @@ static void init_allocable_mem() {
 }
 
 static process_t* load_init_proc() {
-	const char* name = "/sbin/init";
+	//const char* name = "/sbin/init";
+	const char* name = "init";
 
 	printk("Loading the first process ... ");
 	process_t *proc = proc_create(TYPE_PROC); //create first process
@@ -107,7 +108,8 @@ static process_t* load_init_proc() {
 	}
 	
 	int32_t size = 0;
-	char* p = ext2_load(name, sdc_read_block, km_alloc, &size);
+	//char* p = ext2_load(name, sdc_read_block, km_alloc, &size);
+	const char* p = read_initrd(name, &size);
 	if(p == NULL) {
 		printk("panic: init process load failed!\n");
 		return NULL;
@@ -117,7 +119,7 @@ static process_t* load_init_proc() {
 		strncpy(proc->cmd, name, CMD_MAX);
 	}
 
-	km_free(p);
+	//km_free(p);
 	printk("ok.\n");
 	return proc;
 }
