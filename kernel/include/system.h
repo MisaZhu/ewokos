@@ -14,8 +14,8 @@ void loopd(uint32_t times);
 
 int32_t system_cmd(int32_t cmd, int32_t arg0, int32_t arg1);
 
-#define CRIT_IN uint32_t _cpsr_ = __cli();
-#define CRIT_OUT __sti(_cpsr_);
+#define CRIT_IN(P) (P) = __cli();
+#define CRIT_OUT(P) __sti(P);
 
 #endif
 

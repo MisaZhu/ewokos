@@ -1,5 +1,5 @@
 #include <dev/sdc.h>
-#include <printk.h>
+#include <system.h>
 #include <mm/mmu.h>
 #include <scheduler.h>
 
@@ -78,6 +78,7 @@
 #define SDC_BASE (MMIO_BASE + 0x5000) // PL180 SDC_BASE address
 
 // shared variables between SDC driver and interrupt handler
+static int32_t _p_lock = 0;
 static char *_rxbuf;
 static const char *_txbuf;
 static uint32_t _rxcount, _txcount, _rxdone, _txdone;
@@ -88,7 +89,6 @@ static inline void do_command(int32_t cmd, int32_t arg, int32_t resp) {
 }
 
 int32_t sdc_init() {
-	printk("sdc_init ... ");
 	_rxdone = 1;
 	_txdone = 1;
 
@@ -106,14 +106,16 @@ int32_t sdc_init() {
 
 	// set interrupt MASK0 registers bits = RxFULL(17)|TxEmpty(18)
 	*(uint32_t *)(SDC_BASE + MASK0) = (1<<17)|(1<<18);
-	printk("done\n");
 	return 0;
 }
 
 int32_t sdc_read_block(int32_t block, char* buf) {
 	uint32_t cmd, arg;
-	if(_rxdone == 0)
+	CRIT_IN(_p_lock)
+	if(_rxdone == 0) {
+		CRIT_OUT(_p_lock)
 		return -1;
+	}
 
 	//printk("getblock %d ", block);
 	_rxbuf = buf; _rxcount = SDC_BLOCK_SIZE;
@@ -131,6 +133,7 @@ int32_t sdc_read_block(int32_t block, char* buf) {
 	// 0x93=|9|0011|=|9|DMA=0,0=BLOCK,1=Host<-Card,1=Enable
 	*(uint32_t *)(SDC_BASE + DATACTRL) = 0x93;
 	//printk("getblock return\n");
+	CRIT_OUT(_p_lock)
 	return 0;
 }
 
@@ -140,8 +143,12 @@ inline int32_t sdc_read_done() {
 
 int32_t sdc_write_block(int32_t block, const char* buf) {
 	uint32_t cmd, arg;
-	if(_txdone == 0)
-		return -1;
+	CRIT_IN(_p_lock)
+	if(_txdone == 0) {
+		CRIT_OUT(_p_lock)
+			return -1;
+	}
+
 	//printk("putblock %d %x\n", block, buf);
 	_txbuf = buf; _txcount = SDC_BLOCK_SIZE;
 	_txdone = 0;
@@ -157,7 +164,7 @@ int32_t sdc_write_block(int32_t block, const char* buf) {
 	// write 0x91=|9|0001|=|9|DMA=0,BLOCK=0,0=Host->Card, Enable
 	*(uint32_t *)(SDC_BASE + DATACTRL) = 0x91; // Host->card
 
-	// P0 must use polling but P0 never writes SDC
+	CRIT_OUT(_p_lock)
 	return 0;
 }
 

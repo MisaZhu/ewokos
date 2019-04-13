@@ -21,6 +21,8 @@ static void wake_procs(int32_t* s) {
 	}
 }
 
+static int32_t _p_lock = 0;
+
 int32_t semaphore_init(int32_t *s) {
 	if(s == NULL)
 		return -1;
@@ -29,10 +31,10 @@ int32_t semaphore_init(int32_t *s) {
 }
 
 int32_t semaphore_close(int32_t* s) {
-	CRIT_IN
+	CRIT_IN(_p_lock)
 	wake_procs(s);
 	*s = -1;
-	CRIT_OUT
+	CRIT_OUT(_p_lock)
 	return 0;
 }
 
@@ -42,16 +44,16 @@ int32_t semaphore_lock(int32_t* s) {
 	uint32_t paddr = semaphore_phy_addr(s);
 	
 	while(true) {
-		CRIT_IN
+		CRIT_IN(_p_lock)
 		if(*s > 0) {/*still locked by other process, put current process to sleep*/
 			_current_proc->state = SLEEPING;
 			_current_proc->wait_semaphore_paddr = paddr;
-			CRIT_OUT
+			CRIT_OUT(_p_lock)
 			schedule();
 		}	
 		else {
 			(*s)++;
-			CRIT_OUT
+			CRIT_OUT(_p_lock)
 			break;
 		}
 	}	
@@ -62,10 +64,10 @@ int32_t semaphore_unlock(int32_t* s) {
 	if(s == NULL || (*s) <= 0)
 		return 0;
 
-	CRIT_IN
+	CRIT_IN(_p_lock)
 	(*s)--;
 	if((*s) == 0) /*if all locks cleared, wake up processed blocked by this semaphore*/
 		wake_procs(s);
-	CRIT_OUT
+	CRIT_OUT(_p_lock)
 	return 0;
 }
