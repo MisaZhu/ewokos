@@ -80,12 +80,18 @@ $(OS).bin: $(OBJS) $(LIB_OBJS) $(OS).ld
 	$(OBJDUMP) -D build/$(OS).elf > build/$(OS).asm
 
 run:
+	qemu-system-arm $(QEMU_FLAGS) -kernel build/$(OS).bin -initrd ../rootfs/rootfs.rd -serial mon:stdio
+
+runsd:
 	qemu-system-arm $(QEMU_FLAGS) -kernel build/$(OS).bin -initrd ../rootfs/rootfs.rd -serial mon:stdio -sd ../rootfs/rootfs.ext2
 
 runasm:
-	qemu-system-arm $(QEMU_FLAGS) -kernel build/$(OS).bin -initrd ../rootfs/rootfs.rd -d in_asm -serial mon:stdio -sd ../rootfs/rootfs.ext2
+	qemu-system-arm $(QEMU_FLAGS) -kernel build/$(OS).bin -initrd ../rootfs/rootfs.rd -d in_asm -serial mon:stdio
 
-debug: $(OS).bin
+debug:
+	qemu-system-arm $(QEMU_FLAGS) -gdb tcp::26000 -S -kernel build/$(OS).bin -initrd ../rootfs/rootfs.rd -serial mon:stdio
+
+debugsd:
 	qemu-system-arm $(QEMU_FLAGS) -gdb tcp::26000 -S -kernel build/$(OS).bin -initrd ../rootfs/rootfs.rd -serial mon:stdio -sd ../rootfs/rootfs.ext2
 
 gdb: 
