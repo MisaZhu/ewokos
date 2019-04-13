@@ -37,7 +37,6 @@ include test/build.mk
 system: $(MKRAMFS) $(PROGRAM) $(COMMON_OBJ)
 	mkdir -p build
 	$(MKRAMFS) rootfs.rd build
-	./sdc.sh
 
 clean:
 	rm -f $(EXTRA_CLEAN) $(COMMON_OBJ) rootfs.rd rootfs.ext2
