@@ -7,7 +7,9 @@
 
 int32_t sdc_init();
 int32_t sdc_read_block(int32_t block, char* buf);
+int32_t sdc_read_done();
 int32_t sdc_write_block(int32_t block, const char* buf);
+int32_t sdc_write_done();
 void sdc_handle();
 
 #endif

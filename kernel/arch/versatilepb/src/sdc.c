@@ -1,6 +1,7 @@
 #include <dev/sdc.h>
 #include <printk.h>
 #include <mm/mmu.h>
+#include <scheduler.h>
 
 #define CONFIG_ARM_PL180_MMCI_CLOCK_FREQ 6250000
 #define MMC_RSP_PRESENT (1 << 0)
@@ -88,6 +89,8 @@ static inline void do_command(int32_t cmd, int32_t arg, int32_t resp) {
 
 int32_t sdc_init() {
 	printk("sdc_init ... ");
+	_rxdone = 1;
+	_txdone = 1;
 
 	*(uint32_t *)(SDC_BASE + POWER) = (uint32_t)0xBF; // power on
 	*(uint32_t *)(SDC_BASE + CLOCK) = (uint32_t)0xC6; // default CLK
@@ -109,6 +112,8 @@ int32_t sdc_init() {
 
 int32_t sdc_read_block(int32_t block, char* buf) {
 	uint32_t cmd, arg;
+	if(_rxdone == 0)
+		return -1;
 
 	//printk("getblock %d ", block);
 	_rxbuf = buf; _rxcount = SDC_BLOCK_SIZE;
@@ -125,16 +130,18 @@ int32_t sdc_read_block(int32_t block, char* buf) {
 	//printk("dataControl=%x\n", 0x93);
 	// 0x93=|9|0011|=|9|DMA=0,0=BLOCK,1=Host<-Card,1=Enable
 	*(uint32_t *)(SDC_BASE + DATACTRL) = 0x93;
-
-	// P0 must use polling during mount_root
-	while(_rxdone==0);
 	//printk("getblock return\n");
 	return 0;
 }
 
+inline int32_t sdc_read_done() {
+	return _rxdone;
+}
+
 int32_t sdc_write_block(int32_t block, const char* buf) {
 	uint32_t cmd, arg;
-
+	if(_txdone == 0)
+		return -1;
 	//printk("putblock %d %x\n", block, buf);
 	_txbuf = buf; _txcount = SDC_BLOCK_SIZE;
 	_txdone = 0;
@@ -151,8 +158,11 @@ int32_t sdc_write_block(int32_t block, const char* buf) {
 	*(uint32_t *)(SDC_BASE + DATACTRL) = 0x91; // Host->card
 
 	// P0 must use polling but P0 never writes SDC
-	while(_txdone==0);
 	return 0;
+}
+
+inline int32_t sdc_write_done() {
+	return _txdone;
 }
 
 void sdc_handle() {
@@ -205,3 +215,4 @@ void sdc_handle() {
 	*(uint32_t *)(SDC_BASE + STATUS_CLEAR) = 0xFFFFFFFF;
 	// printk("SDC interrupt handler done\n");
 }
+

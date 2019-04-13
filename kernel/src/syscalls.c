@@ -229,10 +229,22 @@ static int32_t syscall_sdc_read(int32_t arg0, int32_t arg1) {
 	return sdc_read_block(arg0, (char*)arg1);
 }
 
+static int32_t syscall_sdc_read_done() {
+	if(_current_proc->owner > 0)
+		return -1;
+	return sdc_read_done();
+}
+
 static int32_t syscall_sdc_write(int32_t arg0, int32_t arg1) {
 	if(_current_proc->owner > 0)
 		return -1;
 	return sdc_write_block(arg0, (const char*)arg1);
+}
+
+static int32_t syscall_sdc_write_done() {
+	if(_current_proc->owner > 0)
+		return -1;
+	return sdc_write_done();
 }
 
 static int32_t syscall_pf_open(int32_t arg0, int32_t arg1) {
@@ -431,7 +443,9 @@ static int32_t (*const _syscallHandler[])() = {
 	[SYSCALL_INITRD_CLONE] = syscall_clone_initrd,
 
 	[SYSCALL_SDC_READ] = syscall_sdc_read,
+	[SYSCALL_SDC_READ_DONE] = syscall_sdc_read_done,
 	[SYSCALL_SDC_WRITE] = syscall_sdc_write,
+	[SYSCALL_SDC_WRITE_DONE] = syscall_sdc_write_done,
 
 	[SYSCALL_PFILE_GET_SEEK] = syscall_pf_get_seek,
 	[SYSCALL_PFILE_SEEK] = syscall_pf_seek,
