@@ -104,6 +104,8 @@ char* ext2_load(const char *filename, read_block_func_t read_func, malloc_func_t
 			read_func(*up, addr); 
 			addr += SDC_BLOCK_SIZE;
 			up++; count += SDC_BLOCK_SIZE;
+			if(count > (*sz - SDC_BLOCK_SIZE))
+				break;
 		}
 	}
 	fr(buf1);
