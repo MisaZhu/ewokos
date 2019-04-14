@@ -14,6 +14,7 @@
 	-very simple ramdisk for initrd
 	-framebuffer device service for graphics
 	-uart device service
+	-SD card
 
 .Environment & Tools
 
