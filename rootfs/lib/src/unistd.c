@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <procinfo.h>
+#include <ext2.h>
 
 int fork() {
 	return syscall0(SYSCALL_FORK);
@@ -14,11 +15,34 @@ int getpid() {
 	return syscall0(SYSCALL_GETPID);
 }
 
-static char* readKernelInitRD(const char* fname, int *size) {
-	return (char*)syscall3(SYSCALL_INITRD_READ_FILE, (int)fname, 0, (int)size);
+/*
+static int32_t read_block(int32_t block, char* buf) {
+	if(syscall1(SYSCALL_SDC_READ, block) < 0)
+		return -1;
+
+	int32_t res = -1;
+	while(true) {
+		res = syscall1(SYSCALL_SDC_READ_DONE, (int32_t)buf);
+		if(res == 0)
+			break;
+		yield();
+	}
+	return 0;
 }
 
-static char* readFromFS(const char* fname, int *size) {
+static char* read_from_sd(const char* cmd, int *size) {
+	char fname[NAME_MAX];
+	snprintf(fname, NAME_MAX-1, "/sbin/%s", cmd);
+	char* p = ext2_load(fname, read_block, malloc, free, size);
+	return p;
+}
+*/
+
+static char* read_from_initrd(const char* cmd, int *size) {
+	return (char*)syscall3(SYSCALL_INITRD_READ_FILE, (int)cmd, 0, (int)size);
+}
+
+static char* read_from_fs(const char* fname, int *size) {
 	int fd = fs_open(fname, 0);
 	if(fd < 0) 
 		return NULL;
@@ -42,33 +66,32 @@ static char* readFromFS(const char* fname, int *size) {
 	return buf;
 }
 
-int exec(const char* cmdLine) {
+int exec(const char* cmd_line) {
 	char* img = NULL;
 	int size;
 	char cmd[CMD_MAX];
 	char fname[NAME_MAX];
 	int i;
 	for(i=0; i<CMD_MAX-1; i++) {
-		cmd[i] = cmdLine[i];
+		cmd[i] = cmd_line[i];
 		if(cmd[i] == 0 || cmd[i] == ' ')
 			break;
 	}
 	cmd[i] = 0;
 
 	if(fs_inited() < 0) {
-		img = readKernelInitRD(cmd, &size);
+		img = read_from_initrd(cmd, &size);
 	}
 	else {
-		strcpy(fname, "/initfs/");
-		strncpy(fname+ strlen("/initfs/"), cmd, NAME_MAX-strlen("/initfs/")-1);
-		img = readFromFS(fname, &size);
+		snprintf(fname, NAME_MAX-1, "/initfs/%s", cmd);
+		img = read_from_fs(fname, &size);
 	}
 
 	if(img == NULL) {
 		printf("'%s' dosn't exist!\n", fname);
 		return -1;
 	}
-	int res = syscall3(SYSCALL_EXEC_ELF, (int)cmdLine, (int)img, size);
+	int res = syscall3(SYSCALL_EXEC_ELF, (int)cmd_line, (int)img, size);
 	free(img);
 	return res;
 }

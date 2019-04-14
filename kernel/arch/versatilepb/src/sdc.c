@@ -1,6 +1,8 @@
 #include <dev/sdc.h>
 #include <system.h>
 #include <mm/mmu.h>
+#include <mm/kmalloc.h>
+#include <kstring.h>
 #include <scheduler.h>
 
 #define CONFIG_ARM_PL180_MMCI_CLOCK_FREQ 6250000
@@ -79,8 +81,9 @@
 
 // shared variables between SDC driver and interrupt handler
 static int32_t _p_lock = 0;
+static char *_rxbuf_index;
 static char *_rxbuf;
-static const char *_txbuf;
+static const char *_txbuf_index;
 static uint32_t _rxcount, _txcount, _rxdone, _txdone;
 
 static inline void do_command(int32_t cmd, int32_t arg, int32_t resp) {
@@ -91,6 +94,7 @@ static inline void do_command(int32_t cmd, int32_t arg, int32_t resp) {
 int32_t sdc_init() {
 	_rxdone = 1;
 	_txdone = 1;
+	_rxbuf = km_alloc(SDC_BLOCK_SIZE);
 
 	*(uint32_t *)(SDC_BASE + POWER) = (uint32_t)0xBF; // power on
 	*(uint32_t *)(SDC_BASE + CLOCK) = (uint32_t)0xC6; // default CLK
@@ -109,7 +113,7 @@ int32_t sdc_init() {
 	return 0;
 }
 
-int32_t sdc_read_block(int32_t block, char* buf) {
+int32_t sdc_read_block(int32_t block) {
 	uint32_t cmd, arg;
 	CRIT_IN(_p_lock)
 	if(_rxdone == 0) {
@@ -118,7 +122,7 @@ int32_t sdc_read_block(int32_t block, char* buf) {
 	}
 
 	//printk("getblock %d ", block);
-	_rxbuf = buf; _rxcount = SDC_BLOCK_SIZE;
+	_rxbuf_index = _rxbuf; _rxcount = SDC_BLOCK_SIZE;
 	_rxdone = 0;
 
 	*(uint32_t *)(SDC_BASE + DATATIMER) = 0xFFFF0000;
@@ -137,8 +141,16 @@ int32_t sdc_read_block(int32_t block, char* buf) {
 	return 0;
 }
 
-inline int32_t sdc_read_done() {
-	return _rxdone;
+inline int32_t sdc_read_done(char* buf) {
+	CRIT_IN(_p_lock)
+	if(_rxdone == 0) {
+		CRIT_OUT(_p_lock)
+		return -1;
+	}
+
+	memcpy(buf, _rxbuf, SDC_BLOCK_SIZE);
+	CRIT_OUT(_p_lock)
+	return 0;
 }
 
 int32_t sdc_write_block(int32_t block, const char* buf) {
@@ -150,7 +162,7 @@ int32_t sdc_write_block(int32_t block, const char* buf) {
 	}
 
 	//printk("putblock %d %x\n", block, buf);
-	_txbuf = buf; _txcount = SDC_BLOCK_SIZE;
+	_txbuf_index = buf; _txcount = SDC_BLOCK_SIZE;
 	_txdone = 0;
 
 	*(uint32_t *)(SDC_BASE + DATATIMER) = 0xFFFF0000;
@@ -182,7 +194,7 @@ void sdc_handle() {
 
 	if (status & (1<<17)){ // RxFull: read 16 uint32_t at a time;
 		//printk("SDC RX interrupt: ");
-		up = (uint32_t *)_rxbuf;
+		up = (uint32_t *)_rxbuf_index;
 		status_err = status & (SDI_STA_DCRCFAIL|SDI_STA_DTIMEOUT|SDI_STA_RXOVERR);
 		if (!status_err && _rxcount) {
 			//printk("R%d ", _rxcount);
@@ -190,7 +202,7 @@ void sdc_handle() {
 				*(up + i) = *(uint32_t *)(SDC_BASE + FIFO);
 			up += 16;
 			_rxcount -= 64;
-			_rxbuf += 64;
+			_rxbuf_index += 64;
 			status = *(uint32_t *)(SDC_BASE + STATUS); // read status to clear Rx interrupt
 		}
 		if (_rxcount == 0){
@@ -201,7 +213,7 @@ void sdc_handle() {
 	}
 	else if (status & (1<<18)){ // TXempty: write 16 uint32_t at a time
 		//printk("TX interrupt: ");
-		up = (uint32_t *)_txbuf;
+		up = (uint32_t *)_txbuf_index;
 		status_err = status & (SDI_STA_DCRCFAIL | SDI_STA_DTIMEOUT);
 
 		if (!status_err && _txcount) {
@@ -210,7 +222,7 @@ void sdc_handle() {
 				*(uint32_t *)(SDC_BASE + FIFO) = *(up + i);
 			up += 16;
 			_txcount -= 64;
-			_txbuf += 64;            // advance _txbuf for next write  
+			_txbuf_index += 64;            // advance _txbuf_index for next write  
 			status = *(uint32_t *)(SDC_BASE + STATUS); // read status to clear Tx interrupt
 		}
 		if (_txcount == 0){

@@ -1,4 +1,4 @@
-THREAD_DIR = test/test_thread
+THREAD_DIR = test/thread
 THREAD_PROGRAM = build/test_thread 
 PROGRAM += $(THREAD_PROGRAM)
 

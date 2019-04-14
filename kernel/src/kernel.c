@@ -96,9 +96,21 @@ static void init_allocable_mem() {
 	kalloc_init(ALLOCATABLE_MEMORY_START + INIT_RESERV_MEMORY_SIZE, P2V(_phy_mem_size));
 }
 
+/*static int32_t read_block(int32_t block, char* buf) {
+	if(sdc_read_block(block) < 0)
+		return -1;
+
+	int32_t res = -1;
+	while(true) {
+		res = sdc_read_done(buf);
+		if(res == 0)
+			break;
+	}
+	return 0;
+}
+
 static process_t* load_init_proc() {
-	//const char* name = "/sbin/init";
-	const char* name = "init";
+	const char* name = "/sbin/init";
 
 	printk("Loading the first process ... ");
 	process_t *proc = proc_create(TYPE_PROC); //create first process
@@ -108,8 +120,7 @@ static process_t* load_init_proc() {
 	}
 	
 	int32_t size = 0;
-	//char* p = ext2_load(name, sdc_read_block, km_alloc, &size);
-	const char* p = read_initrd(name, &size);
+	char* p = ext2_load(name, read_block, km_alloc, km_free, &size);
 	if(p == NULL) {
 		printk("panic: init process load failed!\n");
 		return NULL;
@@ -119,7 +130,31 @@ static process_t* load_init_proc() {
 		strncpy(proc->cmd, name, CMD_MAX);
 	}
 
-	//km_free(p);
+	km_free(p);
+	printk("ok.\n");
+	return proc;
+}
+*/
+
+static process_t* load_init_proc() {
+	const char* name = "init";
+	printk("Loading the first process ... ");
+	process_t *proc = proc_create(TYPE_PROC); //create first process
+	if(proc == NULL) {
+		printk("panic: init process create failed!\n");
+		return NULL;
+	}
+	
+	int32_t size = 0;
+	const char* p = read_initrd(name, &size);
+	if(p == NULL) {
+		printk("panic: init process load failed!\n");
+		return NULL;
+	}
+	else {
+		proc_load(proc, p, size);
+		strncpy(proc->cmd, name, CMD_MAX);
+	}
 	printk("ok.\n");
 	return proc;
 }
@@ -147,7 +182,7 @@ void kernel_entry() {
 	gpio_init(); 
 	fb_init(); /*framebuffer init*/
 	uart_init(); /*init uart for debug*/
-	sdc_init(); /*init sd card*/
+	sdc_init(SDC_BLOCK_SIZE); /*init sd card*/
 	ipc_init(); /*init internal process communiation*/
 
 	proc_init(); /*init process mananer*/

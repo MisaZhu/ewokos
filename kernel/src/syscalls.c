@@ -223,16 +223,16 @@ static int32_t syscall_kdb(int32_t arg0) {
 	return arg0;
 }
 
-static int32_t syscall_sdc_read(int32_t arg0, int32_t arg1) {
+static int32_t syscall_sdc_read(int32_t arg0) {
 	if(_current_proc->owner > 0)
 		return -1;
-	return sdc_read_block(arg0, (char*)arg1);
+	return sdc_read_block(arg0);
 }
 
-static int32_t syscall_sdc_read_done() {
+static int32_t syscall_sdc_read_done(int32_t arg0) {
 	if(_current_proc->owner > 0)
 		return -1;
-	return sdc_read_done();
+	return sdc_read_done((char*)arg0);
 }
 
 static int32_t syscall_sdc_write(int32_t arg0, int32_t arg1) {

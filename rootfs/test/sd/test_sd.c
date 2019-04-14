@@ -20,11 +20,23 @@ static int32_t read_block(int32_t block, char* buf) {
 }
 
 int main() {
+	const char* fname = "/sbin/init";
+
+	init_cmain_arg();
+	const char* arg = read_cmain_arg();
+	arg = read_cmain_arg();
+	if(arg != NULL)
+		fname = arg;
+
 	int32_t size;
-	char* p = ext2_load("/sbin/vfsd", read_block, malloc, free, &size);
-		
-	if(p != NULL)
+	char* p = ext2_load(fname, read_block, malloc, free, &size);
+	if(p != NULL) {
+		printf("read from sd card: %s, size:%d.\n", fname, size);
 		free(p);
+	}
+	else {
+		printf("read from sd card: %s failed!\n", fname);
+	}
 	return 0;
 }
 
