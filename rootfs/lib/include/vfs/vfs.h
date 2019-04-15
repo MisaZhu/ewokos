@@ -3,7 +3,9 @@
 
 #include <fsinfo.h>
 
-uint32_t vfs_add(uint32_t node, const char* name, uint32_t size);
+#define VFS_DIR_SIZE 0xffffffff
+
+uint32_t vfs_add(uint32_t node, const char* name, uint32_t size, void* data);
 
 int32_t vfs_del(uint32_t node);
 

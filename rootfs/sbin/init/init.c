@@ -30,6 +30,12 @@ int main() {
 
 	pid = fork();
 	if(pid == 0) { 
+		exec("sdcard");
+	}
+	kserv_wait("dev.sdcard");
+
+	pid = fork();
+	if(pid == 0) { 
 		//printf("start tty service ... ");
 		exec("ttyd");
 	}

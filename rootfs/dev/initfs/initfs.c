@@ -9,12 +9,12 @@
 
 static ram_disk_t _init_ram_disk;
 
-static int32_t initfsMount(uint32_t node, int32_t index) {
+static int32_t initfs_mount(uint32_t node, int32_t index) {
 	(void)index;
 
 	ram_file_t* f = _init_ram_disk.head;	
 	while(f != NULL) {
-		vfs_add(node, f->name, f->size);
+		vfs_add(node, f->name, f->size, NULL);
 		f = f->next;
 	}
 	return 0;
@@ -60,7 +60,7 @@ int main() {
 
 
 	device_t dev = {0};
-	dev.mount = initfsMount;
+	dev.mount = initfs_mount;
 	dev.read = initfs_read;
 	dev_run(&dev, "dev.initfs", 0, "/initfs", false);
 

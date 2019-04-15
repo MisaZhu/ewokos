@@ -94,7 +94,4 @@ typedef struct ext2_dir_entry_2 {
 
 #define SDC_BLOCK_SIZE 1024
 
-typedef int32_t (*read_block_func_t)(int32_t block, char* buf);
-char* ext2_load(const char *filename, read_block_func_t read_func, malloc_func_t mlc, free_func_t fr, int32_t* sz);
-
 #endif

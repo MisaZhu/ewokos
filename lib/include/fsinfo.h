@@ -16,6 +16,7 @@ typedef struct {
 	char devName[DEV_NAME_MAX]; //device name
 	uint32_t devIndex; //index for same type device
 	int32_t devServPid; //device kernel service proc id
+	void* data;
 } fs_info_t;
 
 typedef struct FSNode {
@@ -24,6 +25,7 @@ typedef struct FSNode {
 	uint32_t size;
 	uint32_t type;
 	int32_t owner;
+	void* data;
 } fs_node_t;
 
 #define FSN(n) ((fs_node_t*)((n)->data))

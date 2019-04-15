@@ -234,7 +234,7 @@ int fs_add(int fd, const char* name) {
 		return -1;
 
 	if(info.devServPid == 0) {
-		return vfs_add(vfs_node_by_fd(fd), name, 0);
+		return vfs_add(vfs_node_by_fd(fd), name, 0, NULL);
 	}
 
 	proto_t* proto = proto_new(NULL, 0);

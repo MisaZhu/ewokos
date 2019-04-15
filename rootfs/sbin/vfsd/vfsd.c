@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <ipc.h>
 #include <proto.h>
+#include <vfs/vfs.h>
 #include <vfs/vfscmd.h>
 #include <fstree.h>
 #include <kstring.h>
@@ -28,33 +29,34 @@ static bool check_access(tree_node_t* node, bool wr) {
 	return true;
 }
 
-static void fsnodeInit() {
+static void fsnode_init() {
 	for(int i=0; i<MOUNT_MAX; i++) {
 		memset(&_mounts[i], 0, sizeof(_mountT));
 	}
 	strcpy(_mounts[0].devName, DEV_VFS);
 
-	fsTreeNodeInit(&_root);
+	fs_tree_node_init(&_root);
 	strcpy(FSN(&_root)->name, "/");
 }
 
-static tree_node_t* fsnode_add(tree_node_t* nodeTo, const char* name, uint32_t size, int32_t pid) {
+static tree_node_t* fsnode_add(tree_node_t* nodeTo, const char* name, uint32_t size, int32_t pid, void* data) {
 	int32_t owner = syscall1(SYSCALL_GET_UID, pid);
 	if(!check_access(nodeTo, true))
 		return NULL;
 
-	tree_node_t* ret = fsTreeSimpleGet(nodeTo, name);
+	tree_node_t* ret = fs_tree_simple_get(nodeTo, name);
 	if(ret != NULL) 
 		return ret;
 	
-	ret = fsTreeSimpleAdd(nodeTo, name);
-	if(size != 0xffffff)
+	ret = fs_tree_simple_add(nodeTo, name);
+	if(size != VFS_DIR_SIZE)
 		FSN(ret)->type = FS_TYPE_FILE;
 	else
 		FSN(ret)->type = FS_TYPE_DIR;
 	FSN(ret)->size = size;
 	FSN(ret)->mount = FSN(nodeTo)->mount;
 	FSN(ret)->owner = owner;
+	FSN(ret)->data = data;
 	return ret;
 }
 
@@ -82,6 +84,7 @@ static int32_t fsnode_node_info(tree_node_t* node, fs_info_t* info) {
 	info->devIndex = _mounts[FSN(node)->mount].devIndex;
 	info->devServPid = _mounts[FSN(node)->mount].devServPid;
 	strcpy(info->name, FSN(node)->name);
+	info->data = FSN(node)->data;
 	return 0;
 }
 
@@ -90,7 +93,7 @@ static tree_node_t* get_node_by_fd(int32_t pid, int32_t fd) {
 }
 
 static tree_node_t* get_node_by_name(const char* fname) {
-	return fsTreeGet(&_root, fname);
+	return fs_tree_get(&_root, fname);
 }
 
 static tree_node_t* build_nodes(const char* fname, int32_t owner) {
@@ -104,11 +107,11 @@ static tree_node_t* build_nodes(const char* fname, int32_t owner) {
 	for(int i=0; i<NAME_MAX; i++) {
 		n[i] = fname[i];
 		if(n[i] == 0) {
-			return fsnode_add(node, n+j, 0xffffff, owner);
+			return fsnode_add(node, n+j, VFS_DIR_SIZE, owner, NULL);
 		}
 		if(n[i] == '/') {
 			n[i] = 0; 
-			node = fsnode_add(node, n+j, 0xffffff, owner);
+			node = fsnode_add(node, n+j, VFS_DIR_SIZE, owner, NULL);
 			if(node == NULL)
 				return NULL;
 			j= i+1;
@@ -137,7 +140,7 @@ static tree_node_t* fsnode_mount(const char* fname, const char* devName,
 	if(i >= MOUNT_MAX)
 		return NULL;
 
-	tree_node_t* node = fsNewNode();
+	tree_node_t* node = fs_new_node();
 	if(node == NULL)
 		return NULL;
 
@@ -181,8 +184,9 @@ static void do_add(package_t* pkg) {
 	uint32_t node = (uint32_t)proto_read_int(proto);
 	const char* name = proto_read_str(proto);
 	uint32_t size = (uint32_t)proto_read_int(proto);
+	void* data = (void*)proto_read_int(proto);
 
-	tree_node_t* ret = fsnode_add((tree_node_t*)node, name, size, pkg->pid);
+	tree_node_t* ret = fsnode_add((tree_node_t*)node, name, size, pkg->pid, data);
 	ipc_send(pkg->id, pkg->type, &ret, 4);
 }
 
@@ -298,7 +302,7 @@ int main() {
 		return -1;
 	}
 
-	fsnodeInit();
+	fsnode_init();
 	if(!kserv_run("kserv.vfsd", handle, NULL)) {
 		return -1;
 	}

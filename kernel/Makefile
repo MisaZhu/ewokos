@@ -50,7 +50,6 @@ DEV_OBJS = src/dev/uart.o
 
 LIB_OBJS = ../lib/src/kstring.o \
 	../lib/src/sramdisk.o \
-	../lib/src/ext2.o \
 	../lib/src/vprintf.o
 
 OBJS += $(ARCH_OBJS) \
@@ -58,6 +57,7 @@ OBJS += $(ARCH_OBJS) \
 	src/system.o \
 	src/timer.o \
 	src/printk.o \
+	src/ext2.o \
 	src/kernel.o \
 	src/syscalls.o \
 	src/mm/startup.o \

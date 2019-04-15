@@ -8,7 +8,6 @@ LD = arm-none-eabi-ld
 COMMON_LIB=../lib
 COMMON_OBJ=$(COMMON_LIB)/src/kstring.o \
 	$(COMMON_LIB)/src/sramdisk.o \
-	$(COMMON_LIB)/src/ext2.o \
 	$(COMMON_LIB)/src/vprintf.o
 
 # flags

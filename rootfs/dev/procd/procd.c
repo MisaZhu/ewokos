@@ -8,10 +8,10 @@
 static int32_t proc_mount(uint32_t node, int32_t index) {
 	(void)index;
 
-	vfs_add(node, "free_mem", 0);
-	vfs_add(node, "total_mem", 0);
-	vfs_add(node, "cpu_sec", 0);
-	vfs_add(node, "cpu_msec", 0);
+	vfs_add(node, "free_mem", 0, NULL);
+	vfs_add(node, "total_mem", 0, NULL);
+	vfs_add(node, "cpu_sec", 0, NULL);
+	vfs_add(node, "cpu_msec", 0, NULL);
 	return 0;
 }
 

@@ -1,6 +1,6 @@
 #!/bin/sh
 
-dd if=/dev/zero of=rootfs.ext2 bs=1M count=2
+dd if=/dev/zero of=rootfs.ext2 bs=1024 count=2048
 mkfs.ext2 rootfs.ext2
 
 mkdir tmp
