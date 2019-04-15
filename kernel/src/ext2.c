@@ -44,11 +44,11 @@ static int32_t search(INODE *ip, const char *name) {
 	return -1;
 }
 
-#define MAX_DIR_DEPTH 32
+#define MAX_DIR_DEPTH 4
 
 char* ext2_load(const char *filename, int32_t* sz) { 
 	int32_t depth, i, me, iblk, count, u, blk12;
-	char name[64][MAX_DIR_DEPTH];
+	char name[MAX_DIR_DEPTH][64];
 	char *ret, *addr;
 	uint32_t *up;
 	GD *gp;
