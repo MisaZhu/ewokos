@@ -65,7 +65,7 @@ int exec(const char* cmd_line) {
 		printf("'%s' dosn't exist!\n", cmd);
 		return -1;
 	}
-	int res = syscall3(SYSCALL_EXEC_ELF, (int)cmd, (int)img, size);
+	int res = syscall3(SYSCALL_EXEC_ELF, (int)cmd_line, (int)img, size);
 	free(img);
 	return res;
 }

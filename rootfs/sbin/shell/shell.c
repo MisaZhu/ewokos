@@ -104,26 +104,48 @@ static int handle(const char* cmd) {
 }
 
 
-static int32_t find_exec(char* fname, const char* cmd) {
+static int32_t find_exec(char* fname, char* cmd) {
 	fs_info_t info;
+	int32_t i = 0;	
+	char c = 0;
+	while(cmd[i] != 0) {
+		if(cmd[i] == ' ') {
+			c = ' ';
+			cmd[i] = 0;
+			break;
+		}
+		i++;
+	}
 
 	if(cmd[0] == '/') {
 		strcpy(fname, cmd);
-		if(fs_finfo(fname, &info) == 0)
+		if(fs_finfo(fname, &info) == 0) {
+			cmd[i] = c;
+			strcpy(fname, cmd);
 			return 0;
+		}
 	}
 
 	snprintf(fname, NAME_MAX-1, "/sbin/%s", cmd);
-	if(fs_finfo(fname, &info) == 0)
+	if(fs_finfo(fname, &info) == 0) {
+		cmd[i] = c;
+		snprintf(fname, NAME_MAX-1, "/sbin/%s", cmd);
 		return 0;
+	}
 
 	snprintf(fname, NAME_MAX-1, "/bin/%s", cmd);
-	if(fs_finfo(fname, &info) == 0)
+	if(fs_finfo(fname, &info) == 0) {
+		cmd[i] = c;
+		snprintf(fname, NAME_MAX-1, "/bin/%s", cmd);
 		return 0;
+	}
 
 	snprintf(fname, NAME_MAX-1, "/usr/bin/%s", cmd);
-	if(fs_finfo(fname, &info) == 0)
+	if(fs_finfo(fname, &info) == 0) {
+		cmd[i] = c;
+		snprintf(fname, NAME_MAX-1, "/usr/bin/%s", cmd);
 		return 0;
+	}
 	return -1;
 }
 
