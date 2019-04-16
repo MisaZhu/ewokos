@@ -3,8 +3,6 @@
 
 #include <types.h>
 
-#define CMD_MAX 128
-
 typedef struct {
 	int32_t pid; 
 	int32_t father_pid;

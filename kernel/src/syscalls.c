@@ -185,40 +185,6 @@ static int32_t syscall_ipc_peer(int32_t arg0) {
 	return ipc_peer(arg0);
 }
 
-static int32_t syscall_readfile_initrd(int32_t arg0, int32_t arg1, int32_t arg2) {
-	if(_current_proc->owner >= 0)
-		return 0;
-
-	const char* name = (const char*)arg0;
-	int32_t fsize = 0;
-	int32_t rdSize = *(int*)arg2;
-	*(int*)arg2 = 0;
-
-	const char*p = read_initrd(name, &fsize);
-	if(p == NULL || fsize == 0)
-		return 0;
-
-	int32_t restSize = fsize - arg1; /*arg1: seek*/
-	if(restSize <= 0) {
-		return 0;
-	}
-
-	if(rdSize <= 0 || rdSize > restSize)
-		rdSize = restSize;
-
-
-	char* ret = (char*)pmalloc(rdSize);
-	if(ret == NULL)
-		return 0;
-	memcpy(ret, p+arg1, rdSize);
-	*((int*)arg2) = rdSize;
-	return (int)ret;
-}
-
-static int32_t syscall_clone_initrd() {
-	return (int32_t)clone_initrd();
-}
-
 static int32_t syscall_kdb(int32_t arg0) {
 	return arg0;
 }
@@ -438,9 +404,6 @@ static int32_t (*const _syscallHandler[])() = {
 	[SYSCALL_IPC_READ] = syscall_ipc_read,
 	[SYSCALL_IPC_RING] = syscall_ipc_ring,
 	[SYSCALL_IPC_PEER] = syscall_ipc_peer,
-
-	[SYSCALL_INITRD_READ_FILE] = syscall_readfile_initrd,
-	[SYSCALL_INITRD_CLONE] = syscall_clone_initrd,
 
 	[SYSCALL_SDC_READ] = syscall_sdc_read,
 	[SYSCALL_SDC_READ_DONE] = syscall_sdc_read_done,

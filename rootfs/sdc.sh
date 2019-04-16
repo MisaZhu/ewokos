@@ -5,8 +5,6 @@ mkfs.ext2 rootfs.ext2
 
 mkdir tmp
 sudo mount rootfs.ext2 ./tmp
-sudo mkdir ./tmp/sbin
-sudo cp -av build/* ./tmp/sbin
-sudo ls -l ./tmp/sbin
+sudo cp -avr build/* ./tmp/
 sudo umount ./tmp
 rm -r tmp

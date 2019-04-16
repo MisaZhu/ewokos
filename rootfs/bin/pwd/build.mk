@@ -1,5 +1,5 @@
 PWD_DIR = bin/pwd
-PWD_PROGRAM = build/pwd 
+PWD_PROGRAM = build/bin/pwd 
 PROGRAM += $(PWD_PROGRAM)
 
 EXTRA_CLEAN += $(PWD_PROGRAM) $(PWD_DIR)/*.o

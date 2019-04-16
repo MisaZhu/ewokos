@@ -1,5 +1,5 @@
 PROCD_DIR = dev/procd
-PROCD_PROGRAM = build/procd
+PROCD_PROGRAM = build/sbin/dev/procd
 PROGRAM += $(PROCD_PROGRAM)
 
 EXTRA_CLEAN += $(PROCD_PROGRAM) $(PROCD_DIR)/*.o

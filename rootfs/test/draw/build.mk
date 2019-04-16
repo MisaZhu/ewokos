@@ -1,5 +1,5 @@
-DRAW_DIR = bin/draw
-DRAW_PROGRAM = build/draw 
+DRAW_DIR = test/draw
+DRAW_PROGRAM = build/usr/bin/draw 
 PROGRAM += $(DRAW_PROGRAM)
 
 EXTRA_CLEAN += $(DRAW_PROGRAM) $(DRAW_DIR)/*.o

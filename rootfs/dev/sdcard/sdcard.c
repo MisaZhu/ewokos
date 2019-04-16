@@ -206,6 +206,7 @@ int main() {
 	dev.read = sdcard_read;
 	dev.close = sdcard_close;
 
-	dev_run(&dev, "dev.sdcard", 0, "/sdcard", false);
+	//dev_run(&dev, "dev.sdcard", 0, "/sdcard", false);
+	dev_run(&dev, "dev.sdcard", 0, "/", false);
 	return 0;
 }

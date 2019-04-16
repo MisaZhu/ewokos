@@ -1,5 +1,5 @@
 FBD_DIR = dev/fbd
-FBD_PROGRAM = build/fbd
+FBD_PROGRAM = build/sbin/dev/fbd
 PROGRAM += $(FBD_PROGRAM)
 
 EXTRA_CLEAN += $(FBD_PROGRAM) $(FBD_DIR)/*.o

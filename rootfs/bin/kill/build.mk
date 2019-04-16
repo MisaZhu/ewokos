@@ -1,5 +1,5 @@
 KILL_DIR = bin/kill
-KILL_PROGRAM = build/kill 
+KILL_PROGRAM = build/bin/kill 
 PROGRAM += $(KILL_PROGRAM)
 
 EXTRA_CLEAN += $(KILL_PROGRAM) $(KILL_DIR)/*.o

@@ -63,6 +63,6 @@ int main() {
 			break;
 	}
 	printf("\n");
-	exec("shell");
+	exec("/sbin/shell");
 	return 0;
 }

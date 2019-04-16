@@ -1,5 +1,5 @@
 CONSOLED_DIR = dev/consoled
-CONSOLED_PROGRAM = build/consoled
+CONSOLED_PROGRAM = build/sbin/dev/consoled
 PROGRAM += $(CONSOLED_PROGRAM)
 
 EXTRA_CLEAN += $(CONSOLED_PROGRAM) $(CONSOLED_DIR)/*.o

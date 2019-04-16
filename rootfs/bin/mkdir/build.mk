@@ -1,5 +1,5 @@
 MKDIR_DIR = bin/mkdir
-MKDIR_PROGRAM = build/mkdir 
+MKDIR_PROGRAM = build/bin/mkdir 
 PROGRAM += $(MKDIR_PROGRAM)
 
 EXTRA_CLEAN += $(MKDIR_PROGRAM) $(MKDIR_DIR)/*.o

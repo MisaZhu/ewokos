@@ -1,5 +1,5 @@
 LOGIN_DIR = sbin/login
-LOGIN_PROGRAM = build/login 
+LOGIN_PROGRAM = build/sbin/login 
 PROGRAM += $(LOGIN_PROGRAM)
 
 EXTRA_CLEAN += $(LOGIN_PROGRAM) $(LOGIN_DIR)/*.o

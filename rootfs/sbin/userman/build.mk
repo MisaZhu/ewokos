@@ -1,5 +1,5 @@
 USERMAN_DIR = sbin/userman
-USERMAN_PROGRAM = build/userman 
+USERMAN_PROGRAM = build/sbin/userman 
 PROGRAM += $(USERMAN_PROGRAM)
 
 EXTRA_CLEAN += $(USERMAN_PROGRAM) $(USERMAN_DIR)/*.o

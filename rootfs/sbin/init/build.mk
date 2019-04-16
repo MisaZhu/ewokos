@@ -1,5 +1,5 @@
 INIT_DIR = sbin/init
-INIT_PROGRAM = build/init 
+INIT_PROGRAM = build/sbin/init 
 PROGRAM += $(INIT_PROGRAM)
 
 EXTRA_CLEAN += $(INIT_PROGRAM) $(INIT_DIR)/*.o

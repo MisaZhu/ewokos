@@ -17,48 +17,42 @@ int main() {
 	printf("start vfs service ... ");
 	pid = fork();
 	if(pid == 0) { 
-		exec("vfsd");
+		exec("/sbin/vfsd");
 	}
 	kserv_wait("kserv.vfsd");
 	printf("ok.\n");
 
 	pid = fork();
 	if(pid == 0) { 
-		exec("initfs");
-	}
-	kserv_wait("dev.initfs");
-
-	pid = fork();
-	if(pid == 0) { 
-		exec("sdcard");
+		exec("/sbin/dev/sdcard");
 	}
 	kserv_wait("dev.sdcard");
 
 	pid = fork();
 	if(pid == 0) { 
 		//printf("start tty service ... ");
-		exec("ttyd");
+		exec("/sbin/dev/ttyd");
 	}
 	kserv_wait("dev.tty");
 
 	pid = fork();
 	if(pid == 0) { 
 		//printf("start framebuffer service ... ");
-		exec("fbd");
+		exec("/sbin/dev/fbd");
 	}
 	kserv_wait("dev.fb");
 
 	pid = fork();
 	if(pid == 0) { 
 		//printf("start proc service ... ");
-		exec("procd");
+		exec("/sbin/dev/procd");
 	}
 	kserv_wait("dev.proc");
 
 	pid = fork();
 	if(pid == 0) { 
 		printf("start user manager ... ");
-		exec("userman");
+		exec("/sbin/userman");
 	}
 	kserv_wait("kserv.userman");
 	printf("ok.\n");
@@ -85,7 +79,7 @@ int main() {
 	while(1) {
 		pid = fork();
 		if(pid == 0) {
-			exec("login");
+			exec("/sbin/login");
 		}
 		else {
 			wait(pid);

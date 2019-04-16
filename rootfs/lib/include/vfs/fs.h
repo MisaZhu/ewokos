@@ -18,7 +18,7 @@ int fs_open(const char* name, int32_t flags);
 
 int fs_close(int fd);
 
-int fsInfo(int fd, fs_info_t* info);
+int fs_info(int fd, fs_info_t* info);
 
 int fs_finfo(const char* name, fs_info_t* info);
 

@@ -6,6 +6,25 @@
 #include <kstring.h>
 #include <cmain.h>
 
+#define ALIGN_LEN 16
+static const char* align_cmd(const char* cmd) {
+	static char ret[ALIGN_LEN+1];
+	int32_t i = 0;
+
+	while(i< ALIGN_LEN) {
+		ret[i] = cmd[i];
+		if(cmd[i] == 0)
+			break;
+		i++;
+	}
+	
+	while(i< ALIGN_LEN) {
+		ret[i++] = ' ';
+	}
+	ret[i] = 0;
+	return ret;
+}
+
 int main() {
 	int num = 0;
 	uint32_t fr_mem = (uint32_t)syscall2(SYSCALL_SYSTEM_CMD, 1, 0) / KB;
@@ -14,8 +33,9 @@ int main() {
 	proc_info_t* procs = (proc_info_t*)syscall2(SYSCALL_SYSTEM_CMD, 2, (int)&num);
 	if(procs != NULL) {
 		for(int i=0; i<num; i++) {
-			printf("%s\tpid:%d, father:%d, owner:%d, state: %d heap_size: %d\n", 
-				procs[i].cmd,
+			const char* cmd = align_cmd(procs[i].cmd);
+			printf("%s pid:%d, father:%d, owner:%d, state: %d heap_size: %d\n", 
+				cmd,
 				procs[i].pid,
 				procs[i].father_pid,
 				procs[i].owner,

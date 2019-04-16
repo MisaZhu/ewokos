@@ -1,5 +1,5 @@
 LS_DIR = bin/ls
-LS_PROGRAM = build/ls 
+LS_PROGRAM = build/bin/ls 
 PROGRAM += $(LS_PROGRAM)
 
 EXTRA_CLEAN += $(LS_PROGRAM) $(LS_DIR)/*.o

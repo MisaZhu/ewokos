@@ -1,5 +1,5 @@
 CAT_DIR = bin/cat
-CAT_PROGRAM = build/cat 
+CAT_PROGRAM = build/bin/cat 
 PROGRAM += $(CAT_PROGRAM)
 
 EXTRA_CLEAN += $(CAT_PROGRAM) $(CAT_DIR)/*.o

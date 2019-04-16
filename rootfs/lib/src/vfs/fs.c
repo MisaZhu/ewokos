@@ -272,7 +272,7 @@ int fs_finfo(const char* name, fs_info_t* info) {
 	return vfs_node_info(node, info);
 }
 
-int fsInfo(int fd, fs_info_t* info) {
+int fs_info(int fd, fs_info_t* info) {
 	uint32_t node = vfs_node_by_fd(fd);
 	return vfs_node_info(node, info);
 }
@@ -285,5 +285,5 @@ fs_info_t* fs_kids(int fd, uint32_t *num) {
 }
 
 int32_t fs_inited() {
-	return kserv_get_pid("dev.initfs");
+	return kserv_get_pid("dev.sdcard");
 }

@@ -15,31 +15,10 @@ int getpid() {
 	return syscall0(SYSCALL_GETPID);
 }
 
-/*
-static int32_t read_block(int32_t block, char* buf) {
-	if(syscall1(SYSCALL_SDC_READ, block) < 0)
-		return -1;
-
-	int32_t res = -1;
-	while(true) {
-		res = syscall1(SYSCALL_SDC_READ_DONE, (int32_t)buf);
-		if(res == 0)
-			break;
-		yield();
-	}
-	return 0;
-}
-
-static char* read_from_sd(const char* cmd, int *size) {
-	char fname[NAME_MAX];
-	snprintf(fname, NAME_MAX-1, "/sbin/%s", cmd);
-	char* p = ext2_load(fname, read_block, malloc, free, size);
+char* from_sd(const char *filename, int32_t* sz);
+static char* read_from_sd(const char* fname, int *size) {
+	char* p = from_sd(fname, size);
 	return p;
-}
-*/
-
-static char* read_from_initrd(const char* cmd, int *size) {
-	return (char*)syscall3(SYSCALL_INITRD_READ_FILE, (int)cmd, 0, (int)size);
 }
 
 static char* read_from_fs(const char* fname, int *size) {
@@ -48,9 +27,7 @@ static char* read_from_fs(const char* fname, int *size) {
 		return NULL;
 
 	fs_info_t info;
-	fsInfo(fd, &info);
-
-	if(info.size <= 0)
+	if(fs_info(fd, &info) != 0 || info.size <= 0)
 		return NULL;
 
 	char* buf = (char*)malloc(info.size);
@@ -61,7 +38,6 @@ static char* read_from_fs(const char* fname, int *size) {
 		free(buf);
 		*size = 0;
 	}
-
 	*size = info.size;
 	return buf;
 }
@@ -70,7 +46,6 @@ int exec(const char* cmd_line) {
 	char* img = NULL;
 	int size;
 	char cmd[CMD_MAX];
-	char fname[NAME_MAX];
 	int i;
 	for(i=0; i<CMD_MAX-1; i++) {
 		cmd[i] = cmd_line[i];
@@ -80,18 +55,17 @@ int exec(const char* cmd_line) {
 	cmd[i] = 0;
 
 	if(fs_inited() < 0) {
-		img = read_from_initrd(cmd, &size);
+		img = read_from_sd(cmd, &size);
 	}
 	else {
-		snprintf(fname, NAME_MAX-1, "/initfs/%s", cmd);
-		img = read_from_fs(fname, &size);
+		img = read_from_fs(cmd, &size);
 	}
 
 	if(img == NULL) {
-		printf("'%s' dosn't exist!\n", fname);
+		printf("'%s' dosn't exist!\n", cmd);
 		return -1;
 	}
-	int res = syscall3(SYSCALL_EXEC_ELF, (int)cmd_line, (int)img, size);
+	int res = syscall3(SYSCALL_EXEC_ELF, (int)cmd, (int)img, size);
 	free(img);
 	return res;
 }

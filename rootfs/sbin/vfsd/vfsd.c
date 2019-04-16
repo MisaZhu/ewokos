@@ -21,7 +21,7 @@ typedef struct {
 #define MOUNT_MAX 32
 
 static _mountT _mounts[MOUNT_MAX];
-static tree_node_t _root;
+static tree_node_t* _root = NULL;
 
 static bool check_access(tree_node_t* node, bool wr) {
 	(void)node;
@@ -33,10 +33,8 @@ static void fsnode_init() {
 	for(int i=0; i<MOUNT_MAX; i++) {
 		memset(&_mounts[i], 0, sizeof(_mountT));
 	}
-	strcpy(_mounts[0].devName, DEV_VFS);
-
-	fs_tree_node_init(&_root);
-	strcpy(FSN(&_root)->name, "/");
+	//strcpy(_mounts[0].devName, DEV_VFS);
+	_root = NULL;
 }
 
 static tree_node_t* fsnode_add(tree_node_t* nodeTo, const char* name, uint32_t size, int32_t pid, void* data) {
@@ -93,11 +91,14 @@ static tree_node_t* get_node_by_fd(int32_t pid, int32_t fd) {
 }
 
 static tree_node_t* get_node_by_name(const char* fname) {
-	return fs_tree_get(&_root, fname);
+	return fs_tree_get(_root, fname);
 }
 
 static tree_node_t* build_nodes(const char* fname, int32_t owner) {
-	tree_node_t* father = &_root;
+	if(_root == NULL)
+		return NULL;
+
+	tree_node_t* father = _root;
 	if(fname[0] == '/')
 		fname = fname+1;
 
@@ -107,7 +108,10 @@ static tree_node_t* build_nodes(const char* fname, int32_t owner) {
 	for(int i=0; i<NAME_MAX; i++) {
 		n[i] = fname[i];
 		if(n[i] == 0) {
-			return fsnode_add(node, n+j, VFS_DIR_SIZE, owner, NULL);
+			if(i == 0)
+				return node;
+			else
+				return fsnode_add(node, n+j, VFS_DIR_SIZE, owner, NULL);
 		}
 		if(n[i] == '/') {
 			n[i] = 0; 
@@ -124,8 +128,6 @@ static tree_node_t* fsnode_mount(const char* fname, const char* devName,
 		int32_t devIndex, bool isFile, int32_t pid) {
 	int32_t owner = syscall1(SYSCALL_GET_UID, pid);
 	tree_node_t* to = build_nodes(fname, owner);
-	if(to == NULL)
-		return NULL;
 
 	int32_t i;
   for(i=0; i<MOUNT_MAX; i++) {
@@ -144,21 +146,26 @@ static tree_node_t* fsnode_mount(const char* fname, const char* devName,
 	if(node == NULL)
 		return NULL;
 
+	if(_root == NULL)
+		_root = node;
+
 	FSN(node)->owner = owner;
   FSN(node)->mount = i;
 	strcpy(FSN(node)->name, FSN(to)->name);
 
 	//replace the old node
-	node->father = to->father;
-	node->prev = to->prev;
-	if(node->prev != NULL)
-		node->prev->next = node;
-	if(node->next != NULL)
-		node->next->prev = node;
-	if(node->father->fChild == to)
-		node->father->fChild = node;
-	if(node->father->eChild == to)
-		node->father->eChild = node;
+	if(to != NULL) {
+		node->father = to->father;
+		node->prev = to->prev;
+		if(node->prev != NULL)
+			node->prev->next = node;
+		if(node->next != NULL)
+			node->next->prev = node;
+		if(node->father->fChild == to)
+			node->father->fChild = node;
+		if(node->father->eChild == to)
+			node->father->eChild = node;
+	}
 
 	if(isFile)
 		FSN(node)->type = FS_TYPE_FILE;
@@ -168,8 +175,9 @@ static tree_node_t* fsnode_mount(const char* fname, const char* devName,
 }
 
 static int32_t fsnode_unmount(tree_node_t* node) {
-	if(!check_access(node, true))
+	if(!check_access(node, true) || node == _root) //can not umount root
 		return -1;
+
 	tree_node_t* old = _mounts[FSN(node)->mount].old;
 	tree_node_t* father = node->father;
 	tree_del(node, free);

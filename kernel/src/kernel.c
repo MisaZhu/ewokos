@@ -14,9 +14,7 @@
 #include <scheduler.h>
 #include <dev/gpio.h>
 #include <dev/fb.h>
-#include <dev/initrd.h>
 #include <dev/sdc.h>
-#include <sramdisk.h>
 #include <printk.h>
 #include <ext2.h>
 
@@ -96,7 +94,7 @@ static void init_allocable_mem() {
 	kalloc_init(ALLOCATABLE_MEMORY_START + INIT_RESERV_MEMORY_SIZE, P2V(_phy_mem_size));
 }
 
-char* ext2_load(const char *filename, int32_t* sz);
+char* from_sd(const char *filename, int32_t* sz);
 static process_t* load_init_proc() {
 	const char* name = "/sbin/init";
 
@@ -108,7 +106,7 @@ static process_t* load_init_proc() {
 	}
 	
 	int32_t size = 0;
-	char* p = ext2_load(name, &size);
+	char* p = from_sd(name, &size);
 	if(p == NULL) {
 		printk("panic: init process load failed!\n");
 		return NULL;
@@ -123,31 +121,6 @@ static process_t* load_init_proc() {
 	return proc;
 }
 
-/*
-static process_t* load_init_proc() {
-	const char* name = "init";
-	printk("Loading the first process ... ");
-	process_t *proc = proc_create(TYPE_PROC); //create first process
-	if(proc == NULL) {
-		printk("panic: init process create failed!\n");
-		return NULL;
-	}
-	
-	int32_t size = 0;
-	const char* p = read_initrd(name, &size);
-	if(p == NULL) {
-		printk("panic: init process load failed!\n");
-		return NULL;
-	}
-	else {
-		proc_load(proc, p, size);
-		strncpy(proc->cmd, name, CMD_MAX);
-	}
-	printk("ok.\n");
-	return proc;
-}
-*/
-
 static void welcome() {
 	printk("\n=================\n"
 				"EwokOS (by Misa.Z)\n"
@@ -158,9 +131,6 @@ static void welcome() {
 
 void kernel_entry() {
 	init_kernel_vm();  /* Done mapping all mem */
-	/*decode initramdisk to high memory(kernel trunk memory).*/
-	if(load_initrd() != 0)
-		return;
 	init_allocable_mem(); /*init the rest allocable memory VM*/
 
 	welcome(); /*show welcome words*/
@@ -181,5 +151,4 @@ void kernel_entry() {
 	timer_start(); /*start timer*/
 
 	proc_start(first_proc);
-	close_initrd();
 }

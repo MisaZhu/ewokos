@@ -1,35 +1,17 @@
 #include <ext2.h>
 #include <kstring.h>
-#include <dev/sdc.h>
-#include <mm/kmalloc.h>
 
-static char buf1[SDC_BLOCK_SIZE];
-static char buf2[SDC_BLOCK_SIZE];
-
-static int32_t read_block(int32_t block, char* buf) {
-	if(sdc_read_block(block) < 0)
-		return -1;
-
-	int32_t res = -1;
-	while(true) {
-		res = sdc_read_done(buf);
-		if(res == 0)
-			break;
-	}
-	return 0;
-}
-
-static int32_t search(INODE *ip, const char *name) {
+static int32_t search(INODE *ip, const char *name, read_block_func_t read_block, char* buf) {
 	int32_t i; 
 	char c, *cp;
 	DIR  *dp;
 
 	for (i=0; i<12; i++){
 		if ( ip->i_block[i] ){
-			read_block(ip->i_block[i], buf2);
-			dp = (DIR *)buf2;
-			cp = buf2;
-			while (cp < &buf2[SDC_BLOCK_SIZE]){
+			read_block(ip->i_block[i], buf);
+			dp = (DIR *)buf;
+			cp = buf;
+			while (cp < &buf[SDC_BLOCK_SIZE]){
 				c = dp->name[dp->name_len];  // save last byte
 				dp->name[dp->name_len] = 0;   
 				if (strcmp(dp->name, name) == 0 ){
@@ -46,7 +28,7 @@ static int32_t search(INODE *ip, const char *name) {
 
 #define MAX_DIR_DEPTH 4
 
-char* ext2_load(const char *filename, int32_t* sz) { 
+char* ext2_load(const char* filename, int32_t *sz, malloc_func_t mlc, read_block_func_t read_block, char* buf1, char* buf2) {
 	int32_t depth, i, me, iblk, count, u, blk12;
 	char name[MAX_DIR_DEPTH][64];
 	char *ret, *addr;
@@ -87,7 +69,7 @@ char* ext2_load(const char *filename, int32_t* sz) {
 
 	/* serach for system name */
 	for (i=0; i<depth; i++) {
-		me = search(ip, name[i]) - 1;
+		me = search(ip, name[i], read_block, buf2) - 1;
 		if (me < 0) {
 			return NULL;
 		}
@@ -97,7 +79,7 @@ char* ext2_load(const char *filename, int32_t* sz) {
 
 	*sz = ip->i_size;
 	blk12 = ip->i_block[12];
-	addr = (char *)km_alloc(*sz);
+	addr = (char *)mlc(*sz);
 	ret = addr;
 	/* read indirect block into b2 */
 

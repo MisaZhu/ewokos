@@ -44,12 +44,11 @@ ARCH_OBJS = arch/$(arch)/src/irq.o \
 	arch/$(arch)/src/gpio.o \
 	arch/$(arch)/src/spi.o \
 	arch/$(arch)/src/sdc.o \
-	arch/$(arch)/src/initrd.o
 
 DEV_OBJS = src/dev/uart.o
 
 LIB_OBJS = ../lib/src/kstring.o \
-	../lib/src/sramdisk.o \
+	../lib/src/ext2.o \
 	../lib/src/vprintf.o
 
 OBJS += $(ARCH_OBJS) \
@@ -57,7 +56,7 @@ OBJS += $(ARCH_OBJS) \
 	src/system.o \
 	src/timer.o \
 	src/printk.o \
-	src/ext2.o \
+	src/sdread.o \
 	src/kernel.o \
 	src/syscalls.o \
 	src/mm/startup.o \
@@ -80,19 +79,13 @@ $(OS).bin: $(OBJS) $(LIB_OBJS) $(OS).ld
 	$(OBJDUMP) -D build/$(OS).elf > build/$(OS).asm
 
 run:
-	qemu-system-arm $(QEMU_FLAGS) -kernel build/$(OS).bin -initrd ../rootfs/rootfs.rd -serial mon:stdio
-
-runsd:
-	qemu-system-arm $(QEMU_FLAGS) -kernel build/$(OS).bin -initrd ../rootfs/rootfs.rd -serial mon:stdio -sd ../rootfs/rootfs.ext2
+	qemu-system-arm $(QEMU_FLAGS) -kernel build/$(OS).bin -serial mon:stdio -sd ../rootfs/rootfs.ext2
 
 runasm:
-	qemu-system-arm $(QEMU_FLAGS) -kernel build/$(OS).bin -initrd ../rootfs/rootfs.rd -d in_asm -serial mon:stdio
+	qemu-system-arm $(QEMU_FLAGS) -kernel build/$(OS).bin -d in_asm -serial mon:stdio -sd ../rootfs/rootfs.ext2
 
 debug:
-	qemu-system-arm $(QEMU_FLAGS) -gdb tcp::26000 -S -kernel build/$(OS).bin -initrd ../rootfs/rootfs.rd -serial mon:stdio
-
-debugsd:
-	qemu-system-arm $(QEMU_FLAGS) -gdb tcp::26000 -S -kernel build/$(OS).bin -initrd ../rootfs/rootfs.rd -serial mon:stdio -sd ../rootfs/rootfs.ext2
+	qemu-system-arm $(QEMU_FLAGS) -gdb tcp::26000 -S -kernel build/$(OS).bin -serial mon:stdio -sd ../rootfs/rootfs.ext2
 
 gdb: 
 	echo "target remote :26000" > /tmp/gdbinit

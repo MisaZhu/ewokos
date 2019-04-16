@@ -1,5 +1,5 @@
 VFSD_DIR = sbin/vfsd
-VFSD_PROGRAM = build/vfsd
+VFSD_PROGRAM = build/sbin/vfsd
 PROGRAM += $(VFSD_PROGRAM)
 
 EXTRA_CLEAN += $(VFSD_PROGRAM) $(VFSD_DIR)/*.o

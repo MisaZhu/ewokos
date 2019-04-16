@@ -1,5 +1,5 @@
 TTYD_DIR = dev/ttyd
-TTYD_PROGRAM = build/ttyd
+TTYD_PROGRAM = build/sbin/dev/ttyd
 PROGRAM += $(TTYD_PROGRAM)
 
 EXTRA_CLEAN += $(TTYD_PROGRAM) $(TTYD_DIR)/*.o

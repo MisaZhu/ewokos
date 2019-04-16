@@ -1,5 +1,5 @@
 SDCARD_DIR = dev/sdcard
-SDCARD_PROGRAM = build/sdcard 
+SDCARD_PROGRAM = build/sbin/dev/sdcard 
 PROGRAM += $(SDCARD_PROGRAM)
 
 EXTRA_CLEAN += $(SDCARD_PROGRAM) $(SDCARD_DIR)/*.o

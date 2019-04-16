@@ -7,7 +7,7 @@ LD = arm-none-eabi-ld
 
 COMMON_LIB=../lib
 COMMON_OBJ=$(COMMON_LIB)/src/kstring.o \
-	$(COMMON_LIB)/src/sramdisk.o \
+	$(COMMON_LIB)/src/ext2.o \
 	$(COMMON_LIB)/src/vprintf.o
 
 # flags
@@ -23,21 +23,22 @@ CFLAGS = -I. -g \
 
 #ASFLAGS = -g -I $(KERNEL_LIB)/include
 
-all: system
+all: mkdir system
+
+mkdir:
+	mkdir -p build/sbin/dev
+	mkdir -p build/bin
+	mkdir -p build/usr/bin
 
 include lib/build.mk
-include mkramfs/build.mk
 include dev/build.mk
 include sbin/build.mk
 include bin/build.mk
 include test/build.mk
 
 
-system: $(MKRAMFS) $(PROGRAM) $(COMMON_OBJ)
-	mkdir -p build
-	$(MKRAMFS) rootfs.rd build
+system: $(PROGRAM) $(COMMON_OBJ)
 
 clean:
-	rm -f $(EXTRA_CLEAN) $(COMMON_OBJ) rootfs.rd rootfs.ext2
-	rm -fr mkramfs/mkramfs.dSYM
+	rm -f $(EXTRA_CLEAN) $(COMMON_OBJ) rootfs.ext2
 	rm -fr build

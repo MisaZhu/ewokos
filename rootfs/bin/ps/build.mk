@@ -1,5 +1,5 @@
 PS_DIR = bin/ps
-PS_PROGRAM = build/ps 
+PS_PROGRAM = build/bin/ps 
 PROGRAM += $(PS_PROGRAM)
 
 EXTRA_CLEAN += $(PS_PROGRAM) $(PS_DIR)/*.o

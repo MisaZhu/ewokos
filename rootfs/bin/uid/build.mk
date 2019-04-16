@@ -1,5 +1,5 @@
 UID_DIR = bin/uid
-UID_PROGRAM = build/uid 
+UID_PROGRAM = build/bin/uid 
 PROGRAM += $(UID_PROGRAM)
 
 EXTRA_CLEAN += $(UID_PROGRAM) $(UID_DIR)/*.o

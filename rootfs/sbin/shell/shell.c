@@ -103,7 +103,29 @@ static int handle(const char* cmd) {
 	return -1; /*not shell internal command*/
 }
 
-#define CMD_MAX 128
+
+static int32_t find_exec(char* fname, const char* cmd) {
+	fs_info_t info;
+
+	if(cmd[0] == '/') {
+		strcpy(fname, cmd);
+		if(fs_finfo(fname, &info) == 0)
+			return 0;
+	}
+
+	snprintf(fname, NAME_MAX-1, "/sbin/%s", cmd);
+	if(fs_finfo(fname, &info) == 0)
+		return 0;
+
+	snprintf(fname, NAME_MAX-1, "/bin/%s", cmd);
+	if(fs_finfo(fname, &info) == 0)
+		return 0;
+
+	snprintf(fname, NAME_MAX-1, "/usr/bin/%s", cmd);
+	if(fs_finfo(fname, &info) == 0)
+		return 0;
+	return -1;
+}
 
 int main() {
 	char cmd[CMD_MAX];
@@ -137,7 +159,9 @@ int main() {
 
 		int child_pid = fork();
 		if (child_pid == 0) {
-			exec(cmd);
+			char fname[NAME_MAX];
+			if(find_exec(fname, cmd) == 0)
+				exec(fname);
 			return 0;
 		}
 		else if(fg) {
