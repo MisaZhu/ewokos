@@ -162,7 +162,7 @@ process_t *proc_create(uint32_t type) {
 	proc->user_stack = user_stack;
 	proc->wait_pid = -1;
 	proc->father_pid = 0;
-	proc->owner = -1;
+	proc->owner = 0;
 	proc->cmd[0] = 0;
 	strcpy(proc->pwd, "/");
 	proc->state = CREATED;

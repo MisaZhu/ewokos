@@ -65,7 +65,7 @@ static int32_t syscall_shm_unmap(int arg0) {
 }
 
 static int32_t syscall_fb_info(int arg0) {
-	if(_current_proc->owner >= 0)
+	if(_current_proc->owner > 0)
 		return -1;
 
 	fb_info_t* info = fb_get_info();
@@ -76,7 +76,7 @@ static int32_t syscall_fb_info(int arg0) {
 }
 
 static int32_t syscall_fb_write(int arg0, int arg1) {
-	if(_current_proc->owner >= 0)
+	if(_current_proc->owner > 0)
 		return -1;
 
 	fb_info_t* info = fb_get_info();
