@@ -10,20 +10,25 @@ int main() {
 	int num = 0;
 	uint32_t fr_mem = (uint32_t)syscall2(SYSCALL_SYSTEM_CMD, 1, 0) / KB;
 	uint32_t t_mem = (uint32_t)syscall2(SYSCALL_SYSTEM_CMD, 0, 0) / MB;
-	uint32_t sec;
-	syscall3(SYSCALL_SYSTEM_CMD, 4, (int32_t)&sec, 0);
+	uint32_t csec;
+	syscall3(SYSCALL_SYSTEM_CMD, 4, (int32_t)&csec, 0);
 
 	proc_info_t* procs = (proc_info_t*)syscall2(SYSCALL_SYSTEM_CMD, 2, (int)&num);
 	if(procs != NULL) {
+		printf("PID  FATHER OWNER STATE TIME     HEAP     PROC\n"); 
+		printf("--------------------------------------------------------------\n");
 		for(int i=0; i<num; i++) {
-			printf("%16s pid:%4d father:%4d owner:%4d state: %4d cpu_time: %8d heap_size: %d\n", 
-				procs[i].cmd,
+			uint32_t sec = csec - procs[i].start_sec;
+			printf("%4d %6d %5d %5d %02d:%02d:%02d %8d %s\n", 
 				procs[i].pid,
 				procs[i].father_pid,
 				procs[i].owner,
 				procs[i].state,
-				sec - procs[i].start_sec,
-				procs[i].heap_size);
+				sec / (3600),
+				sec / 60,
+				sec % 60,
+				procs[i].heap_size,
+				procs[i].cmd);
 		}
 		free(procs);
 	}
