@@ -69,6 +69,7 @@ typedef struct process {
 	int32_t pid; /*auto-increased id*/
 	int32_t father_pid; /*father pid*/
 	int32_t owner; /*owner for muti-user system*/
+	uint32_t start_sec; /*start time by second*/
 	char cmd[CMD_MAX]; /*run command*/
 	char pwd[NAME_MAX]; /*working dir*/
 	int32_t wait_pid; /*waiting for specific process end*/

@@ -12,6 +12,7 @@
 #include <kserv.h>
 #include <scheduler.h>
 #include <printk.h>
+#include <timer.h>
 #include <mm/shm.h>
 
 process_t _process_table[PROCESS_COUNT_MAX];
@@ -165,6 +166,7 @@ process_t *proc_create(uint32_t type) {
 	proc->cmd[0] = 0;
 	strcpy(proc->pwd, "/");
 	proc->state = CREATED;
+	cpu_tick(&proc->start_sec, NULL);
 	
 	insert(proc);
 	return proc;
