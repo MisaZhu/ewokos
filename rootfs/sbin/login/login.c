@@ -59,8 +59,10 @@ int main() {
 		gets(passwd, 127, false);
 
 		int uid = usermanAuth(user, passwd);
-		if(uid >= 0) 
+		if(uid >= 0) {
+			syscall2(SYSCALL_SET_UID, getpid(), uid);
 			break;
+		}
 	}
 	printf("\n");
 	exec("/sbin/shell");

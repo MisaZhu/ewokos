@@ -326,7 +326,7 @@ static int32_t syscall_get_cmd(int32_t arg0, int32_t arg1) {
 }
 
 static int32_t syscall_set_uid(int32_t arg0, int32_t arg1) {
-	if(arg1 < 0 || _current_proc->owner >= 0) {/*current process not kernel proc*/
+	if(arg1 < 0 || _current_proc->owner > 0) {/*current process not kernel proc*/
 		return -1;
 	}
 	
