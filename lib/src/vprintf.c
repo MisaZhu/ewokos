@@ -8,8 +8,8 @@
 
 /* forward declarations for local functions */
 static void print_string(outc_func_t outc, void* p, const char *str, int32_t width);
-static void print_int(outc_func_t outc, void* p, int32_t numberm, int32_t width);
-static void print_uint_in_base(outc_func_t outc, void* p, uint32_t number, uint32_t base, int32_t width);
+static void print_int(outc_func_t outc, void* p, int32_t numberm, int32_t width, bool zero);
+static void print_uint_in_base(outc_func_t outc, void* p, uint32_t number, uint32_t base, int32_t width, bool zero);
 
 /*
  * unsigned_divmod divides numerator and denmoriator, then returns the quotient
@@ -106,6 +106,11 @@ void v_printf(outc_func_t outc, void* p, const char *format, va_list ap) {
 			break;
 
 		format_index++;
+		bool zero = false;
+		if(format[format_index] == '0') {
+			format_index++;
+			zero = true;
+		}
 		format_index = v_width(format, format_index, &width);
 		format_flag = format[format_index];
 		switch (format_flag) {
@@ -123,19 +128,19 @@ void v_printf(outc_func_t outc, void* p, const char *format, va_list ap) {
 		/* int32_t */
 		case 'd': {
 			int32_t int_arg = va_arg(ap, int);
-			print_int(outc, p, int_arg, width);
+			print_int(outc, p, int_arg, width, zero);
 			break;
 		}
 		/* unsigned int32_t */
 		case 'u': {
 			uint32_t uint_arg = va_arg(ap, uint32_t);
-			print_uint_in_base(outc, p, uint_arg, 10, width);
+			print_uint_in_base(outc, p, uint_arg, 10, width, zero);
 			break;
 		}
 		/* hexadecimal */
 		case 'x': {
 			int32_t uint_arg = va_arg(ap, uint32_t);
-			print_uint_in_base(outc, p, uint_arg, 16, width);
+			print_uint_in_base(outc, p, uint_arg, 16, width, zero);
 			break;
 		}
 		}
@@ -168,38 +173,52 @@ static void print_string(outc_func_t outc, void* p, const char *str, int32_t wid
 	}
 }
 
-static void print_uint_in_base_raw(outc_func_t outc, void* p, uint32_t number, uint32_t base, int32_t* width) {
+static void print_uint_in_base_raw(char* s, uint32_t number, uint32_t base) {
 	uint32_t last_digit = 0;
 	uint32_t rest = 0;
 
 	rest = unsigned_divmod(number, base, &last_digit);
 	if (rest != 0)
-		print_uint_in_base_raw(outc, p, rest, base, width);
-	outc(DIGITS[last_digit], p);
-	(*width)--;
+		print_uint_in_base_raw(s+1, rest, base);
+	*s = DIGITS[last_digit];
 }
 
-static void print_int(outc_func_t outc, void* p, int32_t number, int32_t width) {
+static void print_int(outc_func_t outc, void* p, int32_t number, int32_t width, bool zero) {
 	if (number < 0) {
 		outc('-', p);
 		width--;
-		print_uint_in_base_raw(outc, p, -number, 10, &width);
+		print_uint_in_base(outc, p, -number, 10, width, zero);
 	}
 	else {
-		print_uint_in_base_raw(outc, p, number, 10, &width);
-	}
-
-	while(width > 0) {
-		outc(' ', p);
-		width--;
+		print_uint_in_base(outc, p, number, 10, width, zero);
 	}
 }
 
-static void print_uint_in_base(outc_func_t outc, void* p, uint32_t number, uint32_t base, int32_t width) {
-	print_uint_in_base_raw(outc, p, number, base, &width);
-	while(width > 0) {
+static void print_uint_in_base(outc_func_t outc, void* p, uint32_t number, uint32_t base, int32_t width, bool zero) {
+	char s[32];
+	memset(s, 0, 32);
+	print_uint_in_base_raw(s, number, base);
+
+	int32_t len = width- (int32_t)strlen(s);
+	int32_t i = 0;
+
+	if(zero) {
+		for(; i<len; i++) {
+			outc('0', p);
+		}
+	}
+
+	int32_t j = strlen(s)-1;
+	while(j >= 0 && s[j] != 0) {
+		if(width > 0 && i >= width)
+			break;
+		outc(s[j--], p);
+		i++;
+	}
+
+	while(i < width) {
 		outc(' ', p);
-		width--;
+		i++;
 	}
 }
 
