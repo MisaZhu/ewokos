@@ -1,14 +1,15 @@
 #include <vprintf.h>
 #include <types.h>
+#include <kstring.h>
 #include <stdarg.h>
 
 /* digits */
 #define DIGITS "0123456789abcdef"
 
 /* forward declarations for local functions */
-static void print_string(outc_func_t outc, void* p, const char *str);
-static void print_int(outc_func_t outc, void* p, int number);
-static void print_uint_in_base(outc_func_t outc, void* p, uint32_t number, uint32_t base);
+static void print_string(outc_func_t outc, void* p, const char *str, int32_t width);
+static void print_int(outc_func_t outc, void* p, int32_t numberm, int32_t width);
+static void print_uint_in_base(outc_func_t outc, void* p, uint32_t number, uint32_t base, int32_t width);
 
 /*
  * unsigned_divmod divides numerator and denmoriator, then returns the quotient
@@ -19,7 +20,7 @@ static void print_uint_in_base(outc_func_t outc, void* p, uint32_t number, uint3
  */
 static uint32_t unsigned_divmod(uint32_t numerator, uint32_t denominator,
 			 uint32_t* remainder_pointer) {
-	int i = 0;
+	int32_t i = 0;
 	uint32_t quotient = 0;
 	uint32_t remainder = 0;
 
@@ -39,6 +40,48 @@ static uint32_t unsigned_divmod(uint32_t numerator, uint32_t denominator,
 	return quotient;
 }
 
+static int32_t is_digit(char c) {
+	return (c >= '0') && (c <= '9');
+}
+
+static inline int32_t s2i(const char *str) {
+	int32_t result = 0;
+	int32_t neg_multiplier = 1;
+
+	// Check for negative
+	if (*str && *str == '-') {
+		neg_multiplier = -1;
+		str++;
+	}
+
+	// Do number
+	for (; *str && is_digit(*str); str++) {
+		result = (result * 10) + (*str - '0');
+	}
+
+	return result * neg_multiplier;
+}
+
+static int32_t v_width(const char* format, int32_t format_index, int32_t* w) {
+	char s[8];
+	int32_t i = 0;
+
+	if(format[format_index] == '-') {
+		s[0] = '-';
+		i++;
+	}
+
+	for(; i< 8; i++) {
+		char c = format[format_index+i];
+		if(c < '0' || c > '9')
+			break;
+		s[i] = c;
+	}
+	s[i] = 0;
+	*w = s2i(s);
+	return format_index+i;
+}
+
 /*
  *   - %s: strings,
  *   - %c: characters,
@@ -47,7 +90,8 @@ static uint32_t unsigned_divmod(uint32_t numerator, uint32_t denominator,
  *   - %x: hexadecimal representation of integers.
  */
 void v_printf(outc_func_t outc, void* p, const char *format, va_list ap) {
-	int format_index = 0;
+	int32_t format_index = 0;
+	int32_t width = 0;
 
 	while (format[format_index] != 0) {
 		char format_flag = 0;
@@ -61,12 +105,14 @@ void v_printf(outc_func_t outc, void* p, const char *format, va_list ap) {
 		if (format[format_index] == 0 || format[format_index + 1] == 0)
 			break;
 
-		format_flag = format[format_index + 1];
+		format_index++;
+		format_index = v_width(format, format_index, &width);
+		format_flag = format[format_index];
 		switch (format_flag) {
 		/* string */
 		case 's': {
 			const char *string_arg = va_arg(ap, char *);
-			print_string(outc, p, string_arg);
+			print_string(outc, p, string_arg, width);
 			break;
 		}
 		/* char */
@@ -74,55 +120,87 @@ void v_printf(outc_func_t outc, void* p, const char *format, va_list ap) {
 			outc((char) va_arg(ap, int), p);
 			break;
 		}
-		/* int */
+		/* int32_t */
 		case 'd': {
-			int int_arg = va_arg(ap, int);
-			print_int(outc, p, int_arg);
+			int32_t int_arg = va_arg(ap, int);
+			print_int(outc, p, int_arg, width);
 			break;
 		}
-		/* unsigned int */
+		/* unsigned int32_t */
 		case 'u': {
 			uint32_t uint_arg = va_arg(ap, uint32_t);
-			print_uint_in_base(outc, p, uint_arg, 10);
+			print_uint_in_base(outc, p, uint_arg, 10, width);
 			break;
 		}
 		/* hexadecimal */
 		case 'x': {
-			int uint_arg = va_arg(ap, uint32_t);
-			print_string(outc, p, "0x");
-			print_uint_in_base(outc, p, uint_arg, 16);
+			int32_t uint_arg = va_arg(ap, uint32_t);
+			print_uint_in_base(outc, p, uint_arg, 16, width);
 			break;
 		}
 		}
 		/* skip % and format_flag */
-		format_index += 2;
+		format_index += 1;
 	}
 }
 
-static void print_string(outc_func_t outc, void* p, const char *str) {
+static void print_string(outc_func_t outc, void* p, const char *str, int32_t width) {
+	int32_t len = (int32_t)strlen(str);
+	int32_t i = 0;
+
+	if(width < 0) {
+		width = -width;
+		for(; i<width-len; i++) {
+			outc(' ', p);
+		}
+	}
+
 	while(*str != 0) {
 		outc(*str, p);
 		str++;
+		i++;
+		if(width > 0 && i >= width)
+			break;
+	}
+
+	for(; i< width; i++) {
+		outc(' ', p);
 	}
 }
 
-static void print_int(outc_func_t outc, void* p, int number) {
-	if (number < 0) {
-		outc('-', p);
-		print_uint_in_base(outc, p, -number, 10);
-	} else {
-		print_uint_in_base(outc, p, number, 10);
-	}
-}
-
-static void print_uint_in_base(outc_func_t outc, void* p, uint32_t number, uint32_t base) {
+static void print_uint_in_base_raw(outc_func_t outc, void* p, uint32_t number, uint32_t base, int32_t* width) {
 	uint32_t last_digit = 0;
 	uint32_t rest = 0;
 
 	rest = unsigned_divmod(number, base, &last_digit);
 	if (rest != 0)
-		print_uint_in_base(outc, p, rest, base);
+		print_uint_in_base_raw(outc, p, rest, base, width);
 	outc(DIGITS[last_digit], p);
+	(*width)--;
+}
+
+static void print_int(outc_func_t outc, void* p, int32_t number, int32_t width) {
+	if (number < 0) {
+		outc('-', p);
+		width--;
+		print_uint_in_base_raw(outc, p, -number, 10, &width);
+	}
+	else {
+		print_uint_in_base_raw(outc, p, number, 10, &width);
+	}
+
+	while(width > 0) {
+		outc(' ', p);
+		width--;
+	}
+}
+
+static void print_uint_in_base(outc_func_t outc, void* p, uint32_t number, uint32_t base, int32_t width) {
+	print_uint_in_base_raw(outc, p, number, base, &width);
+	while(width > 0) {
+		outc(' ', p);
+		width--;
+	}
 }
 
 typedef struct {
@@ -143,7 +221,7 @@ static void outc_sn(char c, void* p) {
  * sprintf formats the given data and outputs the result into the given character
  * pointer. See vsprintf for the format flags currently supported.
  */
-int snprintf(char *target, int size, const char *format, ...) {
+int32_t snprintf(char *target, int32_t size, const char *format, ...) {
 	outc_arg_t arg;
 	arg.p = target;
 	arg.index = 0;
