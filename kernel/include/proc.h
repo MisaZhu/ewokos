@@ -73,7 +73,7 @@ typedef struct process {
 	char cmd[CMD_MAX]; /*run command*/
 	char pwd[NAME_MAX]; /*working dir*/
 	int32_t wait_pid; /*waiting for specific process end*/
-	uint32_t wait_semaphore_paddr; /*waiting for specific semaphore(phyaddr)*/
+	int32_t slept_by; /*slept_by*/
 
 	entry_function_t entry;
 	char *user_stack;
@@ -99,8 +99,8 @@ void proc_free(process_t *proc);
 bool proc_expand_mem(void *proc, int32_t page_num);
 void proc_shrink_mem(void *proc, int32_t page_num);
 process_t* proc_get(int32_t pid);
-void proc_sleep(int32_t pid);
-void proc_wake(int32_t pid);
+void proc_sleep(int32_t by);
+void proc_wake(int32_t by);
 
 process_t* kfork(uint32_t type);
 void proc_exit(process_t* proc);

@@ -133,6 +133,9 @@ static int32_t syscall_thread(int32_t arg0, int32_t arg1) {
 
 static int32_t syscall_wait(int32_t arg0) {
 	process_t *proc = proc_get(arg0);
+	if(proc == NULL)
+		return -1;
+
 	if (proc->state != UNUSED) {
 		_current_proc->wait_pid = arg0;
 		_current_proc->state = SLEEPING;

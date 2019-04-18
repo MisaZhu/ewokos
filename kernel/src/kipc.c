@@ -55,8 +55,6 @@ int32_t ipc_open(int32_t pid, uint32_t buf_size) {
 			_channels[i].proc_map[0].shm = shm_proc_map(_current_proc->pid, id);
 			_channels[i].proc_map[1].pid = pid;
 			_channels[i].proc_map[1].shm = shm_proc_map(pid, id);
-			proc_wake(_channels[i].proc_map[0].pid);
-			proc_wake(_channels[i].proc_map[1].pid);
 			ret = i;
 			break;
 		}
@@ -87,8 +85,7 @@ static int32_t ipc_close_raw(channel_t* channel) {
 	shm_proc_unmap(channel->proc_map[1].pid, channel->shm_id);
 	shm_free(channel->shm_id);
 
-	proc_wake(channel->proc_map[0].pid);
-	proc_wake(channel->proc_map[1].pid);
+	proc_wake((int32_t)channel);
 
 	memset(channel, 0, sizeof(channel_t));
 	channel->ring = -1;
@@ -120,7 +117,7 @@ int ipc_ring(int32_t id) {
 	else 
 		channel->ring = 0;
 
-	proc_wake(channel->proc_map[channel->ring].pid);
+	proc_wake((int32_t)channel);
 	channel->offset = 0;
 	return 0;
 }
@@ -147,7 +144,7 @@ int ipc_write(int32_t id, void* data, uint32_t size) {
 		
 	int32_t pid = _current_proc->pid;
 	if(channel->proc_map[channel->ring].pid != pid) {//not read for current proc.
-		proc_sleep(pid);
+		proc_sleep((int32_t)channel);
 		return -1;
 	}
 
@@ -178,7 +175,7 @@ int32_t ipc_read(int32_t id, void* data, uint32_t size) {
 	
 	int32_t pid = _current_proc->pid;
 	if(channel->proc_map[channel->ring].pid != pid) {//not read for current proc.
-		proc_sleep(pid);
+		proc_sleep((int32_t)channel);
 		return -1;
 	}
 
@@ -216,7 +213,7 @@ int32_t ipc_ready() {
 	}
 
 	if(i >= CHANNEL_MAX) { // not channel ring for current proc
-		proc_sleep(pid);
+		proc_sleep(-1);
 		return -1;
 	}
 	return i;

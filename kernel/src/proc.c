@@ -406,18 +406,21 @@ void proc_exit(process_t* proc) {
 	return;
 }
 
-void proc_sleep(int pid) {
-	process_t* proc = proc_get(pid);
-	if(proc == NULL || proc->state == TERMINATED)
-		return;
-	proc->state = SLEEPING;
+void proc_sleep(int32_t by) {
+	_current_proc->state = SLEEPING;
+	_current_proc->slept_by = by;
 }
 
-void proc_wake(int pid) {
-	process_t* proc = proc_get(pid);
-	if(proc == NULL || proc->state == TERMINATED)
-		return;
-	proc->state = READY;
+void proc_wake(int32_t by) {
+	process_t *p = _current_proc->next;
+	while(p != _current_proc) {
+		if (p->state == SLEEPING &&
+				(p->slept_by < 0 || p->slept_by == by)) {
+			p->slept_by = 0;
+			p->state = READY;
+		}
+		p = p->next;
+	}
 }
 
 void _abort_entry() {
