@@ -150,5 +150,7 @@ void kernel_entry() {
 	timer_init(); /*init timer irq*/
 	timer_start(); /*start timer*/
 
-	proc_start(first_proc);
+	if(first_proc != NULL) {
+		proc_start(first_proc);
+	} 
 }
