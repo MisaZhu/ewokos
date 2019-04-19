@@ -141,7 +141,7 @@ void kernel_entry() {
 	gpio_init(); 
 	fb_init(); /*framebuffer init*/
 	uart_init(); /*init uart for debug*/
-	sdc_init(SDC_BLOCK_SIZE); /*init sd card*/
+	sdc_init(); /*init sd card*/
 	ipc_init(); /*init internal process communiation*/
 
 	proc_init(); /*init process mananer*/
@@ -153,4 +153,5 @@ void kernel_entry() {
 	if(first_proc != NULL) {
 		proc_start(first_proc);
 	} 
+	while(true);
 }
