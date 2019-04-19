@@ -30,7 +30,7 @@ uint32_t read_core0timer_pending(void) {
 	return tmp;
 }
 
-extern uint32_t _timerFrq;
+extern uint32_t _timer_frq;
 
 void write_cntv_tval(uint32_t val) {
 	__asm__ volatile ("mcr p15, 0, %0, c14, c3, 0" :: "r"(val) );
@@ -58,7 +58,7 @@ void irq_handle() {
 	volatile uint32_t pic_status = vpic[PIC_STATUS];
 
 	if (read_core0timer_pending() & 0x08 ) {
-		write_cntv_tval(_timerFrq);    // clear cntv interrupt and set next 1/100 sec timer.
+		write_cntv_tval(_timer_frq);    // clear cntv interrupt and set next 1/100 sec timer.
 		timer_handle();
   }
 	if((pic_status & PINT_UART0) != 0) {
