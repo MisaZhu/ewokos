@@ -145,12 +145,10 @@ void kernel_entry() {
 	ipc_init(); /*init internal process communiation*/
 
 	proc_init(); /*init process mananer*/
-	//process_t* first_proc = load_init_proc(); /*load init process(first process)*/
+	process_t* first_proc = load_init_proc(); /*load init process(first process)*/
 
 	timer_init(); /*init timer irq*/
 	timer_start(); /*start timer*/
 
-	//proc_start(first_proc);
-	while(true) {
-	}
+	proc_start(first_proc);
 }
