@@ -77,7 +77,11 @@ static bool shm_map_pages(uint32_t addr, uint32_t pages) {
 	return true;
 }
 
+static int32_t _p_lock = 0;
+
 int32_t shm_alloc(uint32_t size) {
+	CRIT_IN(_p_lock)
+
 	uint32_t addr = shmem_tail;
 	uint32_t pages = (size / PAGE_SIZE);
 	if((size % PAGE_SIZE) != 0)
@@ -111,8 +115,10 @@ int32_t shm_alloc(uint32_t size) {
 	}
 	else { // not found, need to expand pages for new block.
 		i = shmNew();
-		if(i == NULL)
+		if(i == NULL) {
+			CRIT_OUT(_p_lock)
 			return -1;
+		}
 		i->addr = addr;
 		if(_shmHead == NULL) {
 			_shmHead = _shmTail = i;
@@ -125,8 +131,10 @@ int32_t shm_alloc(uint32_t size) {
 	}		
 
 	if(i->pages == 0) { // map pages expanded new block
-		if(!shm_map_pages(addr, pages))
+		if(!shm_map_pages(addr, pages)) {
+			CRIT_OUT(_p_lock)
 			return -1;
+		}
 		i->pages = pages;
 	}	
 
@@ -135,6 +143,8 @@ int32_t shm_alloc(uint32_t size) {
 
 	i->used = true;
 	i->owner = _current_proc->pid;
+
+	CRIT_OUT(_p_lock)
 	return i->id;
 }
 
@@ -177,15 +187,21 @@ static share_mem_t* free_item(share_mem_t* it) {
 }
 
 void shm_free(int32_t id) {
+	CRIT_IN(_p_lock)
 	share_mem_t* i = shm_item(id);
 	if(i == NULL || i->owner != _current_proc->pid) {
+		CRIT_OUT(_p_lock)
 		return;
 	}
 	free_item(i);
+	CRIT_OUT(_p_lock)
 }
 
 void* shm_raw(int32_t id) {
+	CRIT_IN(_p_lock)
 	share_mem_t* it = shm_item(id);
+	CRIT_OUT(_p_lock)
+
 	if(it == NULL)
 		return NULL;
 	return (void*)it->addr;
@@ -193,10 +209,13 @@ void* shm_raw(int32_t id) {
 	
 /*map share memory to process*/
 void* shm_proc_map(int32_t pid, int32_t id) {
+	CRIT_IN(_p_lock)
 	share_mem_t* it = shm_item(id);
 	process_t* proc = proc_get(pid);
-	if(it == NULL || proc == NULL)
+	if(it == NULL || proc == NULL) {
+		CRIT_OUT(_p_lock)
 		return NULL;
+	}
 
 	uint32_t addr = it->addr;
 	for (uint32_t i = 0; i < it->pages; i++) {
@@ -207,26 +226,32 @@ void* shm_proc_map(int32_t pid, int32_t id) {
 				AP_RW_RW);
 		addr += PAGE_SIZE;
 	}
+	CRIT_OUT(_p_lock)
 	return (void*)it->addr;
 }
 
 /*unmap share memory of process*/
 int32_t shm_proc_unmap(int32_t pid, int32_t id) {
+	CRIT_IN(_p_lock)
 	process_t* proc = proc_get(pid);
 	share_mem_t* it = shm_item(id);
-	if(it == NULL || proc == NULL)
+	if(it == NULL || proc == NULL) {
+		CRIT_OUT(_p_lock)
 		return -1;
+	}
 
 	uint32_t addr = it->addr;
 	for (uint32_t i = 0; i < it->pages; i++) {
 		unmap_page(proc->space->vm, addr);
 		addr += PAGE_SIZE;
 	}
+	CRIT_OUT(_p_lock)
 	return 0;
 }
 
 /*free all share memory used by the process*/
 void shm_proc_free(int32_t pid) {
+	CRIT_IN(_p_lock)
 	share_mem_t* i = _shmHead;
 	while(i != NULL) {
 		if(i->used && i->owner == pid) {
@@ -235,5 +260,6 @@ void shm_proc_free(int32_t pid) {
 		else 
 			i = i->next;
 	}
+	CRIT_OUT(_p_lock)
 }
 
