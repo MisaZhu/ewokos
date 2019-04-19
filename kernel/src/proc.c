@@ -406,12 +406,17 @@ void proc_exit(process_t* proc) {
 	return;
 }
 
+static int32_t _p_lock = 0;
+
 void proc_sleep(int32_t by) {
+	CRIT_IN(_p_lock)
 	_current_proc->state = SLEEPING;
 	_current_proc->slept_by = by;
+	CRIT_OUT(_p_lock)
 }
 
 void proc_wake(int32_t by) {
+	CRIT_IN(_p_lock)
 	process_t *p = _current_proc->next;
 	while(p != _current_proc) {
 		if (p->state == SLEEPING &&
@@ -421,6 +426,7 @@ void proc_wake(int32_t by) {
 		}
 		p = p->next;
 	}
+	CRIT_OUT(_p_lock)
 }
 
 void _abort_entry() {
