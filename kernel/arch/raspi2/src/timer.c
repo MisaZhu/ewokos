@@ -36,17 +36,18 @@ void timer_clear_interrupt(void) {
 
 extern void write_cntv_tval(uint32_t val);
 
-void enable_cntv(void) {
+static void enable_cntv(void) {
 	uint32_t cntv_ctl;
 	cntv_ctl = 1;
 	__asm__ volatile ("mcr p15, 0, %0, c14, c3, 1" :: "r"(cntv_ctl) ); // write CNTV_CTL
 }
 
-void disable_cntv(void) {
+/*static void disable_cntv(void) {
 	uint32_t cntv_ctl;
 	cntv_ctl = 0;
 	__asm__ volatile ("mcr p15, 0, %0, c14, c3, 1" :: "r"(cntv_ctl) ); // write CNTV_CTL
 }
+*/
 
 void timer_init() {
 	_timerFrq = read_cntfrq()/100;
