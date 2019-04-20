@@ -67,7 +67,7 @@ OBJS += $(ARCH_OBJS) \
 	src/mm/shm.o \
 	src/proc.o \
 	src/semaphore.o \
-	src/kipc.o \
+	src/ipc.o \
 	src/kfile.o \
 	src/kserv.o \
 	src/scheduler.o

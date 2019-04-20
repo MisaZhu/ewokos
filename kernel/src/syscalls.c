@@ -10,7 +10,7 @@
 #include <mm/trunkmalloc.h>
 #include <mm/kmalloc.h>
 #include <mm/shm.h>
-#include <kipc.h>
+#include <ipc.h>
 #include <types.h>
 #include <kserv.h>
 #include <fsinfo.h>
