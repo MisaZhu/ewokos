@@ -7,10 +7,20 @@
 inline void *memcpy(void *target, const void *source, uint32_t n) {
 	char *target_buffer = (char *) target;
 	char *source_buffer = (char *) source;
+	uint32_t* tp = (uint32_t*)target;
+	uint32_t* sp = (uint32_t*)source;
+	uint32_t m = n / 4;
 	uint32_t i = 0;
+	while(i < m) {
+		tp[i] = sp[i];
+		++i;
+	}
 
-	for (i = 0; i < n; ++i)
+	i = i*4;
+	while(i < n) {
 		target_buffer[i] = source_buffer[i];
+		++i;
+	}
 
 	return target;
 }
