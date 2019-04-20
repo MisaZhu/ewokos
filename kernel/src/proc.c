@@ -415,6 +415,16 @@ void proc_sleep(int32_t by) {
 	CRIT_OUT(_p_lock)
 }
 
+void proc_wake_pid(int32_t pid) {
+	CRIT_IN(_p_lock)
+	process_t* proc = proc_get(pid);
+	if(proc->state == SLEEPING) {
+		proc->state = READY;
+		proc->slept_by = 0;
+	}
+	CRIT_OUT(_p_lock)
+}
+
 void proc_wake(int32_t by) {
 	CRIT_IN(_p_lock)
 	process_t *p = _current_proc->next;

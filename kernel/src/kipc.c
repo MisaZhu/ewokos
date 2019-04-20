@@ -85,7 +85,8 @@ static int32_t ipc_close_raw(channel_t* channel) {
 	shm_proc_unmap(channel->proc_map[1].pid, channel->shm_id);
 	shm_free(channel->shm_id);
 
-	proc_wake((int32_t)channel);
+	proc_wake_pid(channel->proc_map[0].pid);
+	proc_wake_pid(channel->proc_map[1].pid);
 
 	memset(channel, 0, sizeof(channel_t));
 	channel->ring = -1;
@@ -117,12 +118,12 @@ int ipc_ring(int32_t id) {
 	else 
 		channel->ring = 0;
 
-	proc_wake((int32_t)channel);
+	proc_wake_pid(channel->proc_map[channel->ring].pid);
 	channel->offset = 0;
 	return 0;
 }
 
-static int peerChannel(channel_t* channel, int pid) {
+static int peer_channel(channel_t* channel, int pid) {
 	if(channel->proc_map[0].pid == pid)
 		return channel->proc_map[1].pid;
 	return  channel->proc_map[0].pid;
@@ -132,7 +133,7 @@ int ipc_peer(int32_t id) {
 	channel_t* channel = ipc_get_channel(id);
 	if(channel == NULL)
 		return -1;
-	return peerChannel(channel, _current_proc->pid);
+	return peer_channel(channel, _current_proc->pid);
 }
 
 int ipc_write(int32_t id, void* data, uint32_t size) {
@@ -153,7 +154,7 @@ int ipc_write(int32_t id, void* data, uint32_t size) {
 
 	char* p = (char*)channel->proc_map[channel->ring].shm;
 	if(p == NULL || size == 0) {//if channel full.
-		//proc_wake(peerChannel(channel, pid));
+		//proc_wake(peer_channel(channel, pid));
 		return 0;
 	}
 
@@ -161,7 +162,7 @@ int ipc_write(int32_t id, void* data, uint32_t size) {
 	memcpy(p, data, size);
 	channel->offset += size;
 	channel->size = channel->offset;
-	//proc_wake(peerChannel(channel, pid));
+	//proc_wake(peer_channel(channel, pid));
 	return size;
 }
 

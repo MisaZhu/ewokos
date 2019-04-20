@@ -101,6 +101,7 @@ void proc_shrink_mem(void *proc, int32_t page_num);
 process_t* proc_get(int32_t pid);
 void proc_sleep(int32_t by);
 void proc_wake(int32_t by);
+void proc_wake_pid(int32_t pid);
 
 process_t* kfork(uint32_t type);
 void proc_exit(process_t* proc);
