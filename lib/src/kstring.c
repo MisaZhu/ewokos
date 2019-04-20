@@ -4,13 +4,12 @@
  * memcmp copies n bytes from the source buffer to the target buffer. It returns
  * the point32_ter to the target.
  */
-void *memcpy(void *target, const void *source, uint32_t n)
-{
+inline void *memcpy(void *target, const void *source, uint32_t n) {
 	char *target_buffer = (char *) target;
 	char *source_buffer = (char *) source;
 	uint32_t i = 0;
 
-	for (i = 0; i < n; i++)
+	for (i = 0; i < n; ++i)
 		target_buffer[i] = source_buffer[i];
 
 	return target;
@@ -20,8 +19,7 @@ void *memcpy(void *target, const void *source, uint32_t n)
  * strcpy copies the given null-terminated source string int32_to the given target.
  * It returns the point32_ter to the target.
  */
-char *strcpy(char *target, const char *source)
-{
+inline char *strcpy(char *target, const char *source) {
 	char *result = target;
 
 	while (*source) {
@@ -41,8 +39,7 @@ char *strcpy(char *target, const char *source)
  * function returns strlen(source). If return value is >= n, then truncation
  * occured.
  */
-uint32_t strncpy(char *target, const char *source, uint32_t n)
-{
+inline uint32_t strncpy(char *target, const char *source, uint32_t n) {
 	uint32_t source_len = 0;
 	uint32_t i = 0;
 
@@ -62,8 +59,7 @@ uint32_t strncpy(char *target, const char *source, uint32_t n)
  * returns 0 if s1 == s2, returns a negative number if s1 < s2, and returns a 
  * positive number if s1 > s2.
  */
-int32_t strcmp(const char *s1, const char *s2)
-{
+inline int32_t strcmp(const char *s1, const char *s2) {
 	while (*s1 == *s2 && *s1 != '\0' && *s2 != '\0') {
 		s1++;
 		s2++;
@@ -77,8 +73,7 @@ int32_t strcmp(const char *s1, const char *s2)
  * strncmp compares the given input strings upto n characters using the
  * lexicographical order. For return value, please see strcmp.
  */
-int32_t strncmp(const char *s1, const char *s2, uint32_t n)
-{
+inline int32_t strncmp(const char *s1, const char *s2, uint32_t n) {
 	uint32_t i = 0;
 
 	if (n == 0)
@@ -97,8 +92,7 @@ int32_t strncmp(const char *s1, const char *s2, uint32_t n)
  * strchr returns a point32_ter to the first occurence of the given character in the
  * given string. If the character is not found, it returns NULL.
  */
-char *strchr(const char *str, int32_t character)
-{
+inline char *strchr(const char *str, int32_t character) {
 	while (*str != '\0' && *str != character)
 		str++;
 
@@ -116,8 +110,7 @@ char *strchr(const char *str, int32_t character)
  *
  * WARNING: This function changes the original string.
  */
-char *strtok(char *str, const char *delimiters)
-{
+inline char *strtok(char *str, const char *delimiters) {
 	static char *last = NULL;
 	char *token = NULL;
 
@@ -150,8 +143,7 @@ char *strtok(char *str, const char *delimiters)
 }
 
 /* memset fills the given target with given length with the given character. */
-void *memset(void *target, int32_t c, uint32_t len)
-{
+inline void *memset(void *target, int32_t c, uint32_t len) {
 	char *target_buffer = (char *) target;
 
 	uint32_t i = 0;
@@ -162,8 +154,7 @@ void *memset(void *target, int32_t c, uint32_t len)
 }
 
 /* strlen returns the length of the given null-terminated string. */
-uint32_t strlen(const char *str)
-{
+inline uint32_t strlen(const char *str) {
 	uint32_t length = 0;
 	while (*str != '\0') {
 		str++;
