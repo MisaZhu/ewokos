@@ -156,7 +156,7 @@ static int32_t syscall_pmalloc(int32_t arg0) {
 
 static int32_t syscall_pfree(int32_t arg0) {
 	char* p = (char*)arg0;
-	trunk_free(&_current_proc->space->malloc_man, p);
+	pfree(p);
 	return 0;
 }
 

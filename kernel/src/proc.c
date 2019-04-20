@@ -449,3 +449,7 @@ void* pmalloc(uint32_t size) {
 		return NULL;
 	return trunk_malloc(&_current_proc->space->malloc_man, size);
 }
+
+void pfree(void* p) {
+	trunk_free(&_current_proc->space->malloc_man, p);
+}
