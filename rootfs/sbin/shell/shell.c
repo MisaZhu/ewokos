@@ -184,6 +184,8 @@ int main() {
 			char fname[NAME_MAX];
 			if(find_exec(fname, cmd) == 0)
 				exec(fname);
+			else
+				printf("'%s' not found!\n", cmd);
 			return 0;
 		}
 		else if(fg) {
