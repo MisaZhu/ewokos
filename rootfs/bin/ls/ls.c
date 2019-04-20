@@ -35,7 +35,7 @@ int main() {
 				if(info->type == FS_TYPE_FILE)
 					printf("%16s -f-  %4d  %d\n", info->name, info->owner, info->size);
 				else if(info->type == FS_TYPE_DIR)
-					printf("%16s -d-  %4d  %d\n", info->name, info->owner, info->size);
+					printf("*%15s -d-  %4d  %d\n", info->name, info->owner, info->size);
 			}
 			free(infos);
 		}

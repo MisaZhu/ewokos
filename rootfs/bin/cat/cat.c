@@ -32,8 +32,8 @@ int main() {
 	}
 
 	while(true) {
-		char buf[32];
-		int sz = read(fd, buf, 31);
+		char buf[128+1];
+		int sz = read(fd, buf, 128);
 		if(sz <= 0)
 			break;
 		buf[sz] = 0;

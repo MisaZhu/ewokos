@@ -36,6 +36,7 @@ static char* read_from_fs(const char* fname, int *size) {
 
 	if(res <= 0) {
 		free(buf);
+		buf = NULL;
 		*size = 0;
 	}
 	*size = info.size;

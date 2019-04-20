@@ -188,13 +188,13 @@ int32_t sdcard_read(uint32_t node, void* buf, uint32_t size, int32_t seek) {
 
 	fsize = data->node.i_size;
 	p = (const char*)data->data;
-	int32_t restSize = fsize - seek; /*seek*/
-	if(restSize <= 0) {
+	int32_t rest_size = fsize - seek; /*seek*/
+	if(rest_size <= 0) {
 		return 0;
 	}
 
-	if(size > (uint32_t)restSize)
-		size = restSize;
+	if(size > (uint32_t)rest_size)
+		size = rest_size;
 	memcpy(buf, p+seek, size);
 	return size;
 }
