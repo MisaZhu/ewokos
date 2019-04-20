@@ -85,7 +85,7 @@ static void do_add(device_t* dev, package_t* pkg) {
 	ipc_send(pkg->id, pkg->type, &ret, 4);
 }
 
-static void doWrite(device_t* dev, package_t* pkg) { 
+static void do_write(device_t* dev, package_t* pkg) { 
 	proto_t* proto = proto_new(get_pkg_data(pkg), pkg->size);
 	uint32_t node = (uint32_t)proto_read_int(proto);
 	uint32_t size;
@@ -110,6 +110,7 @@ static void do_read(device_t* dev, package_t* pkg) {
 	uint32_t node = (uint32_t)proto_read_int(proto);
 	uint32_t size = (uint32_t)proto_read_int(proto);
 	uint32_t seek = (uint32_t)proto_read_int(proto);
+	proto_free(proto);
 	
 	if(node == 0) {
 		ipc_send(pkg->id, PKG_TYPE_ERR, NULL, 0);
@@ -167,7 +168,7 @@ static void handle(package_t* pkg, void* p) {
 			do_close(dev, pkg);
 			break;
 		case FS_WRITE:
-			doWrite(dev, pkg);
+			do_write(dev, pkg);
 			break;
 		case FS_READ:
 			do_read(dev, pkg);
