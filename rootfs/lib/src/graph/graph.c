@@ -61,12 +61,11 @@ inline void pixel(graph_t* g, int32_t x, int32_t y, uint32_t color) {
 }
 
 void clear(graph_t* g, uint32_t color) {
-	uint32_t loopy,loopx,index;
-	index = 0;
-	for (loopy=0;loopy<g->h;loopy++) {
-		for (loopx=0;loopx<g->w;loopx++) {
-			g->buffer[index++] = color;
-		}
+	uint32_t i = 0;
+	uint32_t s = g->h * g->w;
+	while(i<s) {
+		g->buffer[i] = color;
+		++i;
 	}
 }
 
