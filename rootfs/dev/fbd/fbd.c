@@ -4,55 +4,55 @@
 #include <fbinfo.h>
 #include <shm.h>
 
-static fb_info_t _fbInfo;
-static int32_t _fbBufID = -1;
-static int32_t _fbBufSize = 0;
-static void* _fbBuf = NULL;
+static fb_info_t _fb_info;
+static int32_t _fb_buf_id = -1;
+static int32_t _fb_bufSize = 0;
+static void* _fb_buf = NULL;
 
-static int32_t fbMount(uint32_t node, int32_t index) {
+static int32_t fb_mount(uint32_t node, int32_t index) {
 	(void)node;
 	(void)index;
 
-	if(syscall1(SYSCALL_FB_INFO, (int32_t)&_fbInfo) != 0)
+	if(syscall1(SYSCALL_FB_INFO, (int32_t)&_fb_info) != 0)
 		return -1;
 	
-	_fbBufSize = 4 *_fbInfo.width * _fbInfo.height;
-	if(_fbBufSize == 0)
+	_fb_bufSize = 4 *_fb_info.width * _fb_info.height;
+	if(_fb_bufSize == 0)
 		return -1;
 
-	_fbBufID = shm_alloc(_fbBufSize);
-	if(_fbBufID < 0)
+	_fb_buf_id = shm_alloc(_fb_bufSize);
+	if(_fb_buf_id < 0)
 		return -1;
 
-	_fbBuf = shm_map(_fbBufID);
+	_fb_buf = shm_map(_fb_buf_id);
 	return 0;
 }
 
-int32_t fbWrite(uint32_t node, void* buf, uint32_t size, int32_t seek) {
+int32_t fb_write(uint32_t node, void* buf, uint32_t size, int32_t seek) {
 	(void)node;
 	(void)seek;
 	return syscall2(SYSCALL_FB_WRITE, (int32_t)buf, (int32_t)size);
 }
 
-int32_t fbFlush(uint32_t node) {
+int32_t fb_flush(uint32_t node) {
 	(void)node;
-	return syscall2(SYSCALL_FB_WRITE, (int32_t)_fbBuf, (int32_t)_fbBufSize);
+	return syscall2(SYSCALL_FB_WRITE, (int32_t)_fb_buf, (int32_t)_fb_bufSize);
 }
 
-int32_t fbDMA(uint32_t node, uint32_t *size) {
+int32_t fb_dma(uint32_t node, uint32_t *size) {
 	(void)node;
-	*size = _fbBufSize;
-	return _fbBufID;
+	*size = _fb_bufSize;
+	return _fb_buf_id;
 }
 
-void* fbCtrl(uint32_t node, int32_t cmd, void* data, uint32_t size, int32_t* ret) {
+void* fb_ctrl(uint32_t node, int32_t cmd, void* data, uint32_t size, int32_t* ret) {
 	(void)node;
 	(void)data;
 	(void)size;
 	void* p = NULL;
 
 	if(cmd == 0) {//getfbinfo
-		p = &_fbInfo;
+		p = &_fb_info;
 		*ret = sizeof(fb_info_t);
 	}
 	return p;
@@ -60,13 +60,13 @@ void* fbCtrl(uint32_t node, int32_t cmd, void* data, uint32_t size, int32_t* ret
 
 int main() {
 	device_t dev = {0};
-	dev.write = fbWrite;
-	dev.mount = fbMount;
-	dev.dma = fbDMA;
-	dev.ctrl = fbCtrl;
-	dev.flush = fbFlush;
+	dev.write = fb_write;
+	dev.mount = fb_mount;
+	dev.dma = fb_dma;
+	dev.ctrl = fb_ctrl;
+	dev.flush = fb_flush;
 
 	dev_run(&dev, "dev.fb", 0, "/dev/fb0", true);
-	shm_unmap(_fbBufID);
+	shm_unmap(_fb_buf_id);
 	return 0;
 }
