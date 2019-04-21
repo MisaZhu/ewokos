@@ -36,8 +36,9 @@ OBJS = asm/boot.o \
 			 asm/context.o
 
 ARCH_OBJS = arch/$(arch)/src/irq.o \
-	arch/$(arch)/src/uart.o \
 	arch/$(arch)/src/timer.o \
+	arch/$(arch)/src/uart.o \
+	arch/$(arch)/src/keyboard.o \
 	arch/$(arch)/src/mailbox.o \
 	arch/$(arch)/src/fb.o \
 	arch/$(arch)/src/hardware.o \

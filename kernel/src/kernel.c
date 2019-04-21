@@ -13,6 +13,7 @@
 #include <timer.h>
 #include <scheduler.h>
 #include <dev/gpio.h>
+#include <dev/keyboard.h>
 #include <dev/fb.h>
 #include <dev/sdc.h>
 #include <printk.h>
@@ -141,6 +142,7 @@ void kernel_entry() {
 	gpio_init(); 
 	fb_init(); /*framebuffer init*/
 	uart_init(); /*init uart for debug*/
+	keyboard_init(); /*init keyboard*/
 	sdc_init(); /*init sd card*/
 	ipc_init(); /*init internal process communiation*/
 	proc_init(); /*init process mananer*/

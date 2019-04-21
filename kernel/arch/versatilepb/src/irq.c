@@ -4,6 +4,7 @@
 #include <timer.h>
 #include <dev/uart.h>
 #include <dev/sdc.h>
+#include <dev/keyboard.h>
 
 /* memory mapping for the prime interrupt controller */
 #define PIC ((volatile uint32_t*)(MMIO_BASE+0x00140000))
@@ -22,6 +23,7 @@
 #define PINT_UART0 (1 << 12)
 #define PINT_SIC (1 << 31)
 
+#define SINT_KEY (1 << 3)
 #define SINT_SDC (1 << 22)
 
 void irq_init() {
@@ -29,6 +31,7 @@ void irq_init() {
 	PIC[PIC_INT_ENABLE] |= PINT_UART0; //uart0
 	PIC[PIC_INT_ENABLE] |= PINT_SIC; //SIC on
 
+	SIC[SIC_INT_ENABLE] |= SINT_KEY; //keyboard.
 	SIC[SIC_INT_ENABLE] |= SINT_SDC; //SD card.
 }
 
@@ -42,6 +45,9 @@ void irq_handle() {
 		uart_handle();
 	}
 	if((pic_status & PINT_SIC) != 0) {
+		if((sic_status & SINT_KEY) != 0) {
+			keyboard_handle();
+		}
 		if((sic_status & SINT_SDC) != 0) {
 			sdc_handle();
 		}
