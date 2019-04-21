@@ -91,6 +91,7 @@ typedef struct process {
 extern process_t *_current_proc;
 extern process_t _process_table[PROCESS_COUNT_MAX];
 
+extern int32_t *get_current_context(void);
 extern void proc_init();
 extern process_t *proc_create(uint32_t type);
 bool proc_load(process_t *proc, const char *proc_image, uint32_t img_size);

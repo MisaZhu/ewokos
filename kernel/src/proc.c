@@ -182,7 +182,7 @@ process_t *proc_create(uint32_t type) {
 	return proc;
 }
 
-int *get_current_context(void) {
+inline int32_t *get_current_context(void) {
 	return _current_proc->context;
 }
 

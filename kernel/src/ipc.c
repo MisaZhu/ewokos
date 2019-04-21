@@ -38,16 +38,17 @@ static int32_t _p_lock = 0;
 
 /*open ipcernel ipc channel*/
 int32_t ipc_open(int32_t pid, uint32_t buf_size) {
+	CRIT_IN(_p_lock)
 	if(buf_size < PAGE_SIZE)
 		buf_size = PAGE_SIZE;
 
 	int32_t id = shm_alloc(buf_size); 
 	if(id < 0) {
 		printk("Panic: shm_alloc error when open ipcchannel!\n");
+		CRIT_OUT(_p_lock)
 		return -1;
 	}
 
-	CRIT_IN(_p_lock)
 	int32_t ret = -1;
 	int32_t i;
 	for(i=0; i<CHANNEL_MAX; i++) {
@@ -63,13 +64,11 @@ int32_t ipc_open(int32_t pid, uint32_t buf_size) {
 			break;
 		}
 	}
-
-	CRIT_OUT(_p_lock)
-
 	if(ret < 0) {
 		shm_free(id);
 		printk("Panic: ipcchannels are all busy!\n");
 	}
+	CRIT_OUT(_p_lock)
 	return ret;
 }
 
