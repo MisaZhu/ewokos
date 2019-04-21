@@ -64,7 +64,8 @@ interrupt_table_start: /*interrupt table, with syscall and irq items*/
 	ldr pc, syscall_entry_address /*item 2: syscall*/
 	ldr pc, abort_entry_address /*item 3: prefetchAbort*/
 	ldr pc, abort_entry_address /*item 4: dataAbort*/
-	nop /*item 5: reserved*/
+	ldr pc, abort_entry_address /*item 5: dataAbort*/
+	//nop /*item 5: reserved*/
 	ldr pc, irq_entry_address /*item 6: irq*/
 	
 	syscall_entry_address: .word syscall_entry

@@ -12,10 +12,10 @@ typedef struct k_file {
 	uint16_t ref_w;
 } k_file_t;
 
-k_file_t* kf_open(uint32_t node_addr);
-
-void kf_ref(k_file_t* kf,  uint32_t flags);
-
+int32_t kf_open(uint32_t node_addr, int32_t flags);
+void kf_close(int32_t fd);
 void kf_unref(k_file_t* kf, uint32_t flags);
+void kf_ref(k_file_t* kf, uint32_t flags);
+uint32_t kf_node_addr(int32_t pid, int32_t fd);
 
 #endif

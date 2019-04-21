@@ -24,8 +24,9 @@ static _mountT _mounts[MOUNT_MAX];
 static tree_node_t* _root = NULL;
 
 static bool check_access(tree_node_t* node, bool wr) {
-	(void)node;
 	(void)wr;
+	if(node == NULL)
+		return false;
 	return true;
 }
 

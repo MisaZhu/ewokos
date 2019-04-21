@@ -217,44 +217,11 @@ static int32_t syscall_sdc_write_done() {
 }
 
 static int32_t syscall_pf_open(int32_t arg0, int32_t arg1) {
-	process_t* proc = _current_proc;
-	if(proc == NULL)
-		return -1;
-
-	k_file_t* kf = kf_open((uint32_t)arg0);
-	if(kf == NULL)
-		return -1;
-
-	kf_ref(kf, arg1);
-
-	int32_t i;
-	for(i=0; i<FILE_MAX; i++) {
-		if(proc->space->files[i].kf == NULL) {
-			proc->space->files[i].kf = kf;
-			proc->space->files[i].flags = arg1;
-			proc->space->files[i].seek = 0;
-			return i;
-		}
-	}
-
-	kf_unref(kf, arg1);
-	return -1;
+	return kf_open((uint32_t)arg0, arg1);
 }
 
 static int32_t syscall_pf_close(int32_t arg0) {
-	process_t* proc = _current_proc;
-	if(proc == NULL)
-		return -1;
-
-	int32_t fd = arg0;
-	if(fd < 0 || fd >= FILE_MAX)
-		return -1;
-
-	kf_unref(proc->space->files[fd].kf, proc->space->files[fd].flags);
-
-	proc->space->files[fd].kf = NULL;
-	proc->space->files[fd].flags = 0;
-	proc->space->files[fd].seek = 0;
+	kf_close(arg0);
 	return  0;
 }
 
@@ -290,15 +257,7 @@ static int32_t syscall_pf_get_seek(int32_t arg0) {
 }
 
 static int32_t syscall_pf_node_addr(int32_t arg0, int32_t arg1) {
-	process_t* proc = proc_get(arg0);
-	if(proc == NULL || arg1 < 0 || arg1>= FILE_MAX)
-		return -1;
-
-	k_file_t* kf = proc->space->files[arg1].kf;
-	if(kf == NULL)
-		return -1;
-
-	return (int32_t)kf->node_addr;
+	return (int32_t)kf_node_addr(arg0, arg1);
 }
 
 static int32_t syscall_kserv_reg(int32_t arg0) {

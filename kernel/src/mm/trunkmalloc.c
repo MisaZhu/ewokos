@@ -19,7 +19,7 @@ static mem_block_t* gen_block(char* p, uint32_t size) {
 static void try_break(malloc_t* m, mem_block_t* block, uint32_t size) {
 	uint32_t block_size = sizeof(mem_block_t);
 	//required more than half size of block. no break.
-	if((block_size+size) > (block->size-(block_size*2))) 
+	if((block_size+size) > (uint32_t)(block->size/2)) 
 		return;
 	
 	//do break;
