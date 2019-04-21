@@ -97,7 +97,7 @@ extern process_t *proc_create(uint32_t type);
 bool proc_load(process_t *proc, const char *proc_image, uint32_t img_size);
 void proc_start(process_t *proc);
 void proc_free(process_t *proc);
-bool proc_expand_mem(void *proc, int32_t page_num);
+bool proc_expand_mem(void *proc, int32_t page_num, bool read_only);
 void proc_shrink_mem(void *proc, int32_t page_num);
 process_t* proc_get(int32_t pid);
 void proc_sleep(int32_t by);

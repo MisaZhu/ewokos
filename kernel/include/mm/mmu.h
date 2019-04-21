@@ -91,6 +91,7 @@ void map_page(page_dir_entry_t *vm,
 void unmap_page(page_dir_entry_t *vm, uint32_t virtual_addr);
 void free_page_tables(page_dir_entry_t *vm);
 uint32_t resolve_phy_address(page_dir_entry_t *vm, uint32_t virtual);
+page_table_entry_t* get_page_table_entry(page_dir_entry_t *vm, uint32_t virtual);
 
 #endif
 

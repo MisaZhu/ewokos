@@ -106,6 +106,7 @@ abort_entry:
 	orr r2, #0x3 /*set lower 4 bits(CPSR-MODE) to 0x3, means svc mode*/
 	msr cpsr, r2
 	bl _abort_entry /*kernel/src/proc.c*/
+	sub r14, r14, #8 /*try read again.*/
 
 .global __halt
 __halt:

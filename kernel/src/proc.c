@@ -31,7 +31,7 @@ void proc_init(void) {
 }
 
 /* proc_exapnad_memory expands the heap size of the given process. */
-bool proc_expand_mem(void *p, int page_num) {
+bool proc_expand_mem(void *p, int page_num, bool read_only) {
 	CRIT_IN(_p_proc_lock)
 	process_t* proc = (process_t*)p;	
 	for (int i = 0; i < page_num; i++) {
@@ -44,14 +44,24 @@ bool proc_expand_mem(void *p, int page_num) {
 		}
 		memset(page, 0, PAGE_SIZE);
 
-		map_page(proc->space->vm, 
-				proc->space->heap_size,
-				V2P(page),
-				AP_RW_RW);
+		if(read_only) 
+			map_page(proc->space->vm, 
+					proc->space->heap_size,
+					V2P(page),
+					AP_RW_R);
+		else
+			map_page(proc->space->vm, 
+					proc->space->heap_size,
+					V2P(page),
+					AP_RW_RW);
 		proc->space->heap_size += PAGE_SIZE;
 	}
 	CRIT_OUT(_p_proc_lock)
 	return true;
+}
+
+bool proc_expand(void *p, int page_num) {
+	return proc_expand_mem(p, page_num, false);
 }
 
 /* proc_shrink_memory shrinks the heap size of the given process. */
@@ -62,12 +72,14 @@ void proc_shrink_mem(void* p, int page_num) {
 		uint32_t virtual_addr = proc->space->heap_size - PAGE_SIZE;
 		uint32_t physical_addr = resolve_phy_address(proc->space->vm, virtual_addr);
 
-		//get the kernel address for kalloc/kfree
-		uint32_t kernel_addr = P2V(physical_addr);
-		kfree((void *) kernel_addr);
+		page_table_entry_t * pge = get_page_table_entry(proc->space->vm, virtual_addr);
+		if(pge->permissions != AP_RW_R || proc->entry != NULL) { //copied pages or proc loaded from elf.
+			//get the kernel address for kalloc/kfree
+			uint32_t kernel_addr = P2V(physical_addr);
+			kfree((void *) kernel_addr);
+		}
 
 		unmap_page(proc->space->vm, virtual_addr);
-
 		proc->space->heap_size -= PAGE_SIZE;
 		if (proc->space->heap_size == 0) {
 			break;
@@ -113,7 +125,7 @@ static void proc_init_space(process_t* proc) {
 	proc->space->malloc_man.arg = (void*)proc;
 	proc->space->malloc_man.mHead = 0;
 	proc->space->malloc_man.mTail = 0;
-	proc->space->malloc_man.expand = proc_expand_mem;
+	proc->space->malloc_man.expand = proc_expand;
 	proc->space->malloc_man.shrink = NULL; //TODO
 	//proc->space->malloc_man.shrink = proc_shrink_mem;
 	proc->space->malloc_man.get_mem_tail = proc_get_mem_tail;
@@ -265,10 +277,13 @@ bool proc_load(process_t *proc, const char *pimg, uint32_t img_size) {
 	for (i = 0; i < progHeaderCount; i++) {
 		uint32_t j = 0;
 		struct elf_program_header *header = (void *) (proc_image + prog_header_offset);
+		bool read_only = false;
+		if((header->flags & 0x2) == 0)
+			read_only = true;
 
 		/* make enough room for this section */
 		while (proc->space->heap_size < header->vaddr + header->memsz) {
-			if(!proc_expand_mem(proc, 1)) {
+			if(!proc_expand_mem(proc, 1, read_only)) {
 				printk("Panic: proc expand memory failed!!(%s: %d)\n", proc->cmd, proc->pid);
 				shm_free(shmid);
 				CRIT_OUT(_p_proc_lock)
@@ -332,20 +347,36 @@ static int32_t proc_clone(process_t* child, process_t* parent) {
 	if((parent->space->heap_size % PAGE_SIZE) != 0)
 		pages++;
 
-	if(!proc_expand_mem(child, pages)) {
-		printk("Panic: kfork expand memory failed!!(%s: %d)\n", parent->cmd, parent->pid);
-		CRIT_OUT(_p_proc_lock)
-		return -1;
+	uint32_t p;
+	uint32_t i;
+	for(p=0; p<pages; ++p) {
+		uint32_t v_addr = (p * PAGE_SIZE);
+		page_table_entry_t * pge = get_page_table_entry(parent->space->vm, v_addr);
+		if(pge->permissions == AP_RW_R) {
+			uint32_t phy_page_addr = resolve_phy_address(parent->space->vm, v_addr);
+			map_page(child->space->vm, 
+					child->space->heap_size,
+					phy_page_addr,
+					AP_RW_R);
+			child->space->heap_size += PAGE_SIZE;
+		}
+		else {
+			if(!proc_expand_mem(child, 1, false)) {
+				printk("Panic: kfork expand memory failed!!(%s: %d)\n", parent->cmd, parent->pid);
+				CRIT_OUT(_p_proc_lock)
+					return -1;
+			}
+			/* copy parent's memory to child's memory */
+			for (i=0; i<PAGE_SIZE; ++i) {
+				uint32_t v_addr = (p * PAGE_SIZE) + i;
+				uint32_t child_phy_addr = resolve_phy_address(child->space->vm, v_addr);
+				char *child_ptr = (char *) P2V(child_phy_addr);
+				char *parent_ptr = (char *) v_addr;
+				*child_ptr = *parent_ptr;
+			}
+		}
 	}
 
-	uint32_t i;
-	/* copy parent's memory to child's memory */
-	for (i = 0; i < parent->space->heap_size; i++) {
-		uint32_t child_phy_addr = resolve_phy_address(child->space->vm, i);
-		char *child_ptr = (char *) P2V(child_phy_addr);
-		char *parent_ptr = (char *) i;
-		*child_ptr = *parent_ptr;
-	}
 	/*pmalloc list*/
 	child->space->malloc_man = parent->space->malloc_man;
 	child->space->malloc_man.arg = child;
@@ -364,6 +395,7 @@ static int32_t proc_clone(process_t* child, process_t* parent) {
 	memcpy(child->user_stack, parent->user_stack, PAGE_SIZE);
 	/* copy parent's context to child's context */
 	memcpy(child->context, parent->context, sizeof(child->context));
+	child->entry = NULL; //cloned process.
 	CRIT_OUT(_p_proc_lock)
 	return 0;
 }
