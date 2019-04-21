@@ -2,7 +2,9 @@
 #include <mm/kalloc.h>
 #include <types.h>
 #include <kstring.h>
+#include <proc.h>
 #include <printk.h>
+#include <system.h>
 
 /*
  * map_pages adds the given virtual to physical memory mapping to the given
@@ -100,7 +102,6 @@ uint32_t resolve_phy_address(page_dir_entry_t *vm, uint32_t virtual) {
 	page = (page_table_entry_t*)((uint32_t) base_address | ((virtual >> 10) & 0x3fc));
 	page = (page_table_entry_t*)P2V(page);
 	result = (page->base << 12) | (virtual & 0xfff);
-
 	return result;
 }
 
@@ -113,3 +114,30 @@ void free_page_tables(page_dir_entry_t *vm) {
 	}
 }
 
+static int32_t _p_mmu_lock = 0;
+
+void _abort_entry(uint32_t v_addr) {
+	CRIT_IN(_p_mmu_lock)	
+	v_addr = ALIGN_DOWN(v_addr, PAGE_SIZE);
+	if(v_addr <= _current_proc->space->heap_size) { //copy on write 
+		char *page = kalloc();
+		if(page == NULL) {
+			printk("process %d: '%s' abort at 0x%x!!!\n", _current_proc->pid, _current_proc->cmd, v_addr);
+			CRIT_OUT(_p_mmu_lock)	
+			proc_exit(_current_proc);
+			return;
+		}
+		map_page(_current_proc->space->vm, 
+				v_addr,
+				V2P(page),
+				AP_RW_RW);
+		memcpy(page, (void*)v_addr, PAGE_SIZE);
+		CRIT_OUT(_p_mmu_lock)	
+		schedule();
+	}
+	else { //abort!
+		printk("process %d: '%s' abort at 0x%x!!!\n", _current_proc->pid, _current_proc->cmd, v_addr);
+		CRIT_OUT(_p_mmu_lock)	
+		proc_exit(_current_proc);
+	}
+}

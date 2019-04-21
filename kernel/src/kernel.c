@@ -143,7 +143,6 @@ void kernel_entry() {
 	uart_init(); /*init uart for debug*/
 	sdc_init(); /*init sd card*/
 	ipc_init(); /*init internal process communiation*/
-
 	proc_init(); /*init process mananer*/
 	process_t* first_proc = load_init_proc(); /*load init process(first process)*/
 
