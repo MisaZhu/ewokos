@@ -409,7 +409,7 @@ static void proc_terminate(process_t* proc) {
 	process_t *p = proc->next;
 	while(p != proc) {
 		/*terminate forked from this proc*/
-		if(p->father_pid == proc->pid) {
+		if(p->father_pid == proc->pid && p->entry == NULL) { //terminate forked children, skip reloaded ones
 			proc_terminate(p);
 		}
 		else if (p->state == SLEEPING &&
