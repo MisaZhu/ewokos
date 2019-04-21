@@ -335,7 +335,7 @@ static int32_t proc_clone(process_t* child, process_t* parent) {
 
 	uint32_t p;
 	uint32_t i;
-	for(p=0; p<pages; ++p) {
+	for(p=0; p<pages; ++p) { //pages clone simplely mapped as read only, for copy on write
 		uint32_t v_addr = (p * PAGE_SIZE);
 		uint32_t phy_page_addr = resolve_phy_address(parent->space->vm, v_addr);
 		map_page(child->space->vm, 
