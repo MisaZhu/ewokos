@@ -3,7 +3,6 @@
 #include <types.h>
 #include <kstring.h>
 #include <proc.h>
-#include <printk.h>
 #include <system.h>
 
 /*
@@ -117,12 +116,11 @@ void free_page_tables(page_dir_entry_t *vm) {
 static int32_t _p_mmu_lock = 0;
 
 void _abort_entry(uint32_t v_addr) {
-	CRIT_IN(_p_mmu_lock)	
 	v_addr = ALIGN_DOWN(v_addr, PAGE_SIZE);
-	if(v_addr <= _current_proc->space->heap_size) { //copy on write 
+	if(v_addr <= _current_proc->space->heap_size) { //page fault, copy on write 
+		CRIT_IN(_p_mmu_lock)	
 		char *page = kalloc();
 		if(page == NULL) {
-			printk("process %d: '%s' abort at 0x%x!!!\n", _current_proc->pid, _current_proc->cmd, v_addr);
 			CRIT_OUT(_p_mmu_lock)	
 			proc_exit(_current_proc);
 			return;
@@ -135,9 +133,7 @@ void _abort_entry(uint32_t v_addr) {
 		CRIT_OUT(_p_mmu_lock)	
 		schedule();
 	}
-	else { //abort!
-		printk("process %d: '%s' abort at 0x%x!!!\n", _current_proc->pid, _current_proc->cmd, v_addr);
-		CRIT_OUT(_p_mmu_lock)	
+	else { //abort for wrong address!
 		proc_exit(_current_proc);
 	}
 }
