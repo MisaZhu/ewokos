@@ -40,5 +40,5 @@ include test/build.mk
 system: $(PROGRAM) $(COMMON_OBJ)
 
 clean:
-	rm -f $(EXTRA_CLEAN) $(COMMON_OBJ) rootfs.ext2
+	rm -f $(EXTRA_CLEAN) $(COMMON_OBJ)
 	rm -fr build
