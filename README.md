@@ -30,8 +30,6 @@
 	
 .make and run
 	
-	make rootfs first, and then make kernel.
-	
 	"make run": run EwokOS; 
 	  "qemu-system-arm -kernel build/EwokOS.bin -serial mon:stdio -sd ../rootfs/rootfs.ext2"
 	  boot kernel file and mount SD card.
