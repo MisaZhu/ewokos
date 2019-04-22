@@ -99,18 +99,15 @@ irq_entry:
 	ldmfd sp!, {r0-r12, pc}^ /*pop stack to r0-r12, pc(means return)*/
 
 abort_entry:
-	/*
 	sub r14, r14, #8
 	ldr sp, =_init_stack
 	add sp, #4096
-
-	SAVE_CONTEXT
 
 	stmfd sp!, {r0-r12, r14} //push r0-r12, r14(return pc) to stack
 	mov r0, r3
 	bl _abort_entry
 	ldmfd sp!, {r0-r12, pc}^ //pop stack to r0-r12, pc(means return)
-	*/
+	/*
 	# Abort entry.  Switch back to Supervisor mode, and transfer
 	# to C abort handler
 	mrs r2, cpsr
@@ -119,6 +116,7 @@ abort_entry:
 	msr cpsr, r2
 	mov r0, r3
 	bl _abort_entry //kernel/src/proc.c
+	*/
 
 .global __halt
 __halt:

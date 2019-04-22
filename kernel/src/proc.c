@@ -351,14 +351,13 @@ static int32_t proc_clone(process_t* child, process_t* parent) {
 	uint32_t i;
 	for(p=0; p<pages; ++p) { //pages clone simplely mapped as read only, for copy on write
 		uint32_t v_addr = (p * PAGE_SIZE);
-		/*
 		uint32_t phy_page_addr = resolve_phy_address(parent->space->vm, v_addr);
 		map_page(child->space->vm, 
 				child->space->heap_size,
 				phy_page_addr,
 				AP_RW_R);
 		child->space->heap_size += PAGE_SIZE;
-		*/
+		/*
 		page_table_entry_t * pge = get_page_table_entry(parent->space->vm, v_addr);
 		if(pge->permissions == AP_RW_R) {
 			uint32_t phy_page_addr = resolve_phy_address(parent->space->vm, v_addr);
@@ -374,7 +373,7 @@ static int32_t proc_clone(process_t* child, process_t* parent) {
 				CRIT_OUT(_p_proc_lock)
 					return -1;
 			}
-			/* copy parent's memory to child's memory */
+			// copy parent's memory to child's memory
 			for (i=0; i<PAGE_SIZE; ++i) {
 				uint32_t v_addr = (p * PAGE_SIZE) + i;
 				uint32_t child_phy_addr = resolve_phy_address(child->space->vm, v_addr);
@@ -383,6 +382,7 @@ static int32_t proc_clone(process_t* child, process_t* parent) {
 				*child_ptr = *parent_ptr;
 			}
 		}
+		*/
 	}
 
 	/*pmalloc list*/

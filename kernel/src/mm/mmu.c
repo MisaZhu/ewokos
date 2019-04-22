@@ -131,9 +131,10 @@ void _abort_entry(uint32_t v_addr) {
 				AP_RW_RW);
 		memcpy(page, (void*)v_addr, PAGE_SIZE);
 		CRIT_OUT(_p_mmu_lock)	
-		schedule();
+		//schedule();
 	}
 	else { //abort for wrong address!
 		proc_exit(_current_proc);
+		return;
 	}
 }
