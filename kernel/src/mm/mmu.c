@@ -71,21 +71,6 @@ void unmap_page(page_dir_entry_t *vm, uint32_t virtualAddr) {
 }
 
 /*
-get page entry(virtual addr) by virtual address
-*/
-page_table_entry_t* get_page_table_entry(page_dir_entry_t *vm, uint32_t virtual) {
-	page_dir_entry_t *pdir = NULL;
-	page_table_entry_t *page = NULL;
-	uint32_t base_address = 0;
-
-	pdir = (void *) ((uint32_t) vm | ((virtual >> 20) << 2));
-	base_address = pdir->base << 10;
-	page = (page_table_entry_t*)((uint32_t) base_address | ((virtual >> 10) & 0x3fc));
-	page = (page_table_entry_t*)P2V(page);
-	return page;
-}
-
-/*
  * resolve_physical_address simulates the virtual memory hardware and maps the
  * given virtual address to physical address. This function can be used for
  * debugging if given virtual memory is constructed correctly.
@@ -102,6 +87,21 @@ uint32_t resolve_phy_address(page_dir_entry_t *vm, uint32_t virtual) {
 	page = (page_table_entry_t*)P2V(page);
 	result = (page->base << 12) | (virtual & 0xfff);
 	return result;
+}
+
+/*
+get page entry(virtual addr) by virtual address
+*/
+page_table_entry_t* get_page_table_entry(page_dir_entry_t *vm, uint32_t virtual) {
+	page_dir_entry_t *pdir = NULL;
+	page_table_entry_t *page = NULL;
+	uint32_t base_address = 0;
+
+	pdir = (void *) ((uint32_t) vm | ((virtual >> 20) << 2));
+	base_address = pdir->base << 10;
+	page = (page_table_entry_t*)((uint32_t) base_address | ((virtual >> 10) & 0x3fc));
+	page = (page_table_entry_t*)P2V(page);
+	return page;
 }
 
 void free_page_tables(page_dir_entry_t *vm) {
