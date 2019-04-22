@@ -100,14 +100,14 @@ irq_entry:
 
 abort_entry:
 	sub r14, r14, #8
-	ldr sp, =_init_stack
+	ldr sp, =_abort_stack
 	add sp, #4096
-
 	stmfd sp!, {r0-r12, r14} //push r0-r12, r14(return pc) to stack
 	mov r0, r3
 	bl _abort_entry
 	ldmfd sp!, {r0-r12, pc}^ //pop stack to r0-r12, pc(means return)
-	/*
+	
+	/*	
 	# Abort entry.  Switch back to Supervisor mode, and transfer
 	# to C abort handler
 	mrs r2, cpsr

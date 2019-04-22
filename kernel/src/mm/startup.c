@@ -2,6 +2,7 @@
 
 __attribute__((aligned (PAGE_SIZE))) char _init_stack[PAGE_SIZE];
 __attribute__((aligned (PAGE_SIZE))) char _irq_stack[PAGE_SIZE];
+__attribute__((aligned (PAGE_SIZE))) char _abort_stack[PAGE_SIZE];
 
 __attribute__((__aligned__(PAGE_DIR_SIZE)))
 unsigned _startup_page_dir[PAGE_DIR_NUM] = {

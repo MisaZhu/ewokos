@@ -116,24 +116,21 @@ void free_page_tables(page_dir_entry_t *vm) {
 static int32_t _p_mmu_lock = 0;
 
 void _abort_entry(uint32_t v_addr) {
+	CRIT_IN(_p_mmu_lock)	
 	v_addr = ALIGN_DOWN(v_addr, PAGE_SIZE);
 	if(v_addr <= _current_proc->space->heap_size) { //page fault, copy on write 
 		CRIT_IN(_p_mmu_lock)	
 		char *page = kalloc();
-		if(page == NULL) {
+		if(page != NULL) {
+			map_page(_current_proc->space->vm, 
+					v_addr,
+					V2P(page),
+					AP_RW_RW);
+			memcpy(page, (void*)v_addr, PAGE_SIZE);
 			CRIT_OUT(_p_mmu_lock)	
-			proc_exit(_current_proc);
 			return;
 		}
-		map_page(_current_proc->space->vm, 
-				v_addr,
-				V2P(page),
-				AP_RW_RW);
-		memcpy(page, (void*)v_addr, PAGE_SIZE);
-		CRIT_OUT(_p_mmu_lock)	
 	}
-	else { //abort for wrong address!
-		proc_exit(_current_proc);
-		return;
-	}
+	CRIT_OUT(_p_mmu_lock)
+	proc_exit(_current_proc); //abort for wrong address!
 }
