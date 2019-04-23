@@ -2,6 +2,9 @@
 #include <mm/mmu.h>
 #include <dev/keyboard.h>
 #include <printk.h>
+#include <system.h>
+#include <proc.h>
+#include <dev/device.h>
 
 //0    1    2    3    4    5    6    7     8    9    A    B    C    D    E    F
 const char _ltab[] = {
@@ -39,6 +42,12 @@ void keyboard_init() {
 
 static uint8_t _held[128] = {0};
 
+#define KEYB_BUF_SIZE 16
+
+static char _buffer_data[KEYB_BUF_SIZE];
+static dev_buffer_t _keyb_buffer = { _buffer_data, KEYB_BUF_SIZE, 0, 0 };
+static int32_t _keyb_lock = 0;
+
 void keyboard_handle() {
   uint8_t scode;
 	char c = 0;
@@ -68,4 +77,33 @@ void keyboard_handle() {
 	else { // No significant keys held               
 		c = _ltab[scode];
 	}
+
+	if(c == 0)
+		return;
+
+	CRIT_IN(_keyb_lock)
+	dev_buffer_push(&_keyb_buffer, c, true);
+	CRIT_OUT(_keyb_lock)
+	//proc_wake((int32_t)&_keyb_buffer);
+}
+
+int32_t dev_keyboard_read(int16_t id, void* buf, uint32_t size) {
+	(void)id;
+
+	CRIT_IN(_keyb_lock)
+	int32_t sz = size < _keyb_buffer.size ? size:_keyb_buffer.size;
+	char* p = (char*)buf;	
+	int32_t i = 0;
+	while(i < sz) {
+		char c;
+		if(dev_buffer_pop(&_keyb_buffer, &c) != 0) 
+			break;
+		p[i] = c;
+		i++;
+	}
+	CRIT_OUT(_keyb_lock)
+
+	//if(i == 0)
+	//	proc_sleep((int32_t)&_keyb_buffer);
+	return i;	
 }

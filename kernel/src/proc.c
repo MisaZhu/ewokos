@@ -351,8 +351,8 @@ static int32_t proc_clone(process_t* child, process_t* parent) {
 	uint32_t i;
 	for(p=0; p<pages; ++p) {
 		uint32_t v_addr = (p * PAGE_SIZE);
-		/*
 		//TODO: pages clone simplely mapped as read only, for copy on write
+		/*
 		uint32_t phy_page_addr = resolve_phy_address(parent->space->vm, v_addr);
 		map_page(child->space->vm, 
 				child->space->heap_size,
@@ -360,6 +360,7 @@ static int32_t proc_clone(process_t* child, process_t* parent) {
 				AP_RW_R);
 		child->space->heap_size += PAGE_SIZE;
 		*/
+		
 		page_table_entry_t * pge = get_page_table_entry(parent->space->vm, v_addr);
 		if(pge->permissions == AP_RW_R) {
 			uint32_t phy_page_addr = resolve_phy_address(parent->space->vm, v_addr);
@@ -465,18 +466,19 @@ static void proc_terminate(process_t* proc) {
 void proc_exit(process_t* proc) {
 	if (proc == NULL)
 		return;
-	CRIT_IN(_p_proc_lock)	
-	__set_translation_table_base((uint32_t) V2P(_kernel_vm));
-	__asm__ volatile("ldr sp, = _init_stack");
-	__asm__ volatile("add sp, #4096");
 
+	CRIT_IN(_p_proc_lock)	
 	proc_terminate(proc);
 	CRIT_OUT(_p_proc_lock)	
+	/*__set_translation_table_base((uint32_t) V2P(_kernel_vm));
+	__asm__ volatile("ldr sp, = _init_stack");
+	__asm__ volatile("add sp, #4096");
+	*/
 	schedule();
 	return;
 }
 
-void proc_sleep(int32_t by) {
+void proc_sleep(uint32_t by) {
 	CRIT_IN(_p_proc_lock)
 	_current_proc->state = SLEEPING;
 	_current_proc->slept_by = by;
@@ -486,19 +488,18 @@ void proc_sleep(int32_t by) {
 void proc_wake_pid(int32_t pid) {
 	CRIT_IN(_p_proc_lock)
 	process_t* proc = proc_get(pid);
-	if(proc->state == SLEEPING) {
+	if(proc != NULL && proc->state == SLEEPING) {
 		proc->state = READY;
 		proc->slept_by = 0;
 	}
 	CRIT_OUT(_p_proc_lock)
 }
 
-void proc_wake(int32_t by) {
+void proc_wake(uint32_t by) {
 	CRIT_IN(_p_proc_lock)
 	process_t *p = _current_proc->next;
 	while(p != _current_proc) {
-		if (p->state == SLEEPING &&
-				(p->slept_by < 0 || p->slept_by == by)) {
+		if (p->state == SLEEPING && p->slept_by == by) {
 			p->slept_by = 0;
 			p->state = READY;
 		}

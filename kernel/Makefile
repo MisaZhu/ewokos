@@ -46,7 +46,7 @@ ARCH_OBJS = arch/$(arch)/src/irq.o \
 	arch/$(arch)/src/spi.o \
 	arch/$(arch)/src/sdc.o \
 
-DEV_OBJS = src/dev/uart.o \
+DEV_OBJS =  src/dev/device.o \
 	src/dev/sdread.o
 
 LIB_OBJS = ../lib/src/kstring.o \

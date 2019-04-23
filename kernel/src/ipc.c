@@ -241,7 +241,7 @@ int32_t ipc_ready() {
 	}
 
 	if(i >= CHANNEL_MAX) { // not channel ring for current proc
-		proc_sleep(-1);
+		proc_sleep(0xffffffff);
 		CRIT_OUT(_p_lock)
 		return -1;
 	}

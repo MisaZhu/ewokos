@@ -19,32 +19,14 @@
 #include <semaphore.h>
 #include <dev/initrd.h>
 #include <dev/fb.h>
+#include <dev/device.h>
 
-static int32_t syscall_uart_putch(int32_t c) {
-	uart_putch(c);
-	return 0;
+static int32_t syscall_dev_read(int32_t arg0, int32_t arg1, int32_t arg2) {
+	return dev_read(arg0, (void*)arg1, (uint32_t)arg2);
 }
 
-static int32_t syscall_uart_getch() {
-	int32_t r = uart_getch();
-	return r;
-}
-
-static int32_t syscall_mmio_get(int32_t arg0) {
-	uint32_t addr = (uint32_t)arg0;
-	if(_current_proc->owner > 0 ||
-			addr < MMIO_BASE || addr >= (MMIO_BASE+get_mmio_mem_size()))
-		return -1;
-	return *((int32_t*)(MMIO_BASE+addr));
-}
-
-static int32_t syscall_mmio_put(int32_t arg0, int32_t arg1) {
-	uint32_t addr = (uint32_t)arg0;
-	if(_current_proc->owner > 0 ||
-			addr < MMIO_BASE || addr >= (MMIO_BASE+get_mmio_mem_size()))
-		return -1;
-	*((int32_t*)(MMIO_BASE+addr)) = arg1;
-	return 0;
+static int32_t syscall_dev_write(int32_t arg0, int32_t arg1, int32_t arg2) {
+	return dev_write(arg0, (void*)arg1, (uint32_t)arg2);
 }
 
 static int32_t syscall_shm_alloc(int arg0) {
@@ -188,10 +170,6 @@ static int32_t syscall_ipc_peer(int32_t arg0) {
 	return ipc_peer(arg0);
 }
 
-static int32_t syscall_kdb(int32_t arg0) {
-	return arg0;
-}
-
 static int32_t syscall_sdc_read(int32_t arg0) {
 	if(_current_proc->owner > 0)
 		return -1;
@@ -330,12 +308,8 @@ static int32_t syscall_system_cmd(int32_t arg0, int32_t arg1, int32_t arg2) {
 }
 
 static int32_t (*const _syscallHandler[])() = {
-	[SYSCALL_KDB] = syscall_kdb,
-	[SYSCALL_UART_PUTCH] = syscall_uart_putch,
-	[SYSCALL_UART_GETCH] = syscall_uart_getch,
-
-	[SYSCALL_MMIO_GET] = syscall_mmio_get,
-	[SYSCALL_MMIO_PUT] = syscall_mmio_put,
+	[SYSCALL_DEV_READ] = syscall_dev_read,
+	[SYSCALL_DEV_WRITE] = syscall_dev_write,
 
 	[SYSCALL_SHM_ALLOC] = syscall_shm_alloc,
 	[SYSCALL_SHM_FREE] = syscall_shm_free,

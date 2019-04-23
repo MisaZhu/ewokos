@@ -117,8 +117,9 @@ static int32_t _p_mmu_lock = 0;
 
 void _abort_entry(uint32_t v_addr) {
 	CRIT_IN(_p_mmu_lock)	
+	_current_proc->context[LR] = _current_proc->context[R2];
 	v_addr = ALIGN_DOWN(v_addr, PAGE_SIZE);
-	if(v_addr <= _current_proc->space->heap_size) { //page fault, copy on write 
+	if(v_addr != 0 && v_addr <= _current_proc->space->heap_size) { //page fault, copy on write 
 		CRIT_IN(_p_mmu_lock)	
 		char *page = kalloc();
 		if(page != NULL) {

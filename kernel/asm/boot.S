@@ -9,8 +9,11 @@ __entry:
 	cmp r1, #0
 	bne __halt
 #endif
-
-	ldr sp, =_init_stack /*sp(R13), _init_stack defined in kernel/src/mm/startup.c*/
+	mrs r2, cpsr
+	bic r2, #0xf //clear lower 4 bits(CPSR-MODE) to 0
+	orr r2, #0x3 //set lower 4 bits(CPSR-MODE) to 0x3, means svc mode
+	msr cpsr, r2
+	ldr sp, =_init_stack /*sp(R13), _abort_stack defined in kernel/src/mm/startup.c*/
 	add sp, #4096
 
 	bl enable_paging
@@ -99,6 +102,7 @@ irq_entry:
 	ldmfd sp!, {r0-r12, pc}^ /*pop stack to r0-r12, pc(means return)*/
 
 abort_entry:
+	/*
 	sub r14, r14, #8
 	ldr sp, =_abort_stack
 	add sp, #4096
@@ -106,8 +110,7 @@ abort_entry:
 	mov r0, r3
 	bl _abort_entry
 	ldmfd sp!, {r0-r12, pc}^ //pop stack to r0-r12, pc(means return)
-	
-	/*	
+	*/
 	# Abort entry.  Switch back to Supervisor mode, and transfer
 	# to C abort handler
 	mrs r2, cpsr
@@ -116,7 +119,6 @@ abort_entry:
 	msr cpsr, r2
 	mov r0, r3
 	bl _abort_entry //kernel/src/proc.c
-	*/
 
 .global __halt
 __halt:

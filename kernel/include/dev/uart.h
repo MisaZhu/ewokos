@@ -3,18 +3,9 @@
 
 #include <types.h>
 
-void uart_dev_init(void); //arch init
-
 void uart_init(void);
-void uart_trans(char c);
-bool uart_ready_to_recv(void);
-int uart_recv(void);
-
-void uart_puts(const char* str);
-
+void uart_handle(void);
 void uart_putch(int c);
 int uart_getch();
-
-void uart_handle(void);
 
 #endif
