@@ -17,8 +17,6 @@
 #include <scheduler.h>
 #include <hardware.h>
 #include <semaphore.h>
-#include <dev/initrd.h>
-#include <dev/fb.h>
 #include <dev/device.h>
 
 static int32_t syscall_dev_read(int32_t arg0, int32_t arg1, int32_t arg2) {
@@ -27,6 +25,10 @@ static int32_t syscall_dev_read(int32_t arg0, int32_t arg1, int32_t arg2) {
 
 static int32_t syscall_dev_write(int32_t arg0, int32_t arg1, int32_t arg2) {
 	return dev_write(arg0, (void*)arg1, (uint32_t)arg2);
+}
+
+static int32_t syscall_dev_info(int32_t arg0, int32_t arg1) {
+	return dev_info(arg0, (void*)arg1);
 }
 
 static int32_t syscall_shm_alloc(int arg0) {
@@ -44,33 +46,6 @@ static int32_t syscall_shm_free(int arg0) {
 
 static int32_t syscall_shm_unmap(int arg0) {
 	return shm_proc_unmap(_current_proc->pid, arg0);
-}
-
-static int32_t syscall_fb_info(int arg0) {
-	if(_current_proc->owner > 0)
-		return -1;
-
-	fb_info_t* info = fb_get_info();
-	if(info == NULL)
-		return -1;
-	memcpy((fb_info_t*)arg0, info, sizeof(fb_info_t));
-	return 0;
-}
-
-static int32_t syscall_fb_write(int arg0, int arg1) {
-	if(_current_proc->owner > 0)
-		return -1;
-
-	fb_info_t* info = fb_get_info();
-	if(info == NULL)
-		return -1;
-
-	void* buf = (void*)arg0;
-	int32_t sz = (info->depth/8) * info->width * info->height;
-	if(arg1 > sz)
-		arg1 = sz;
-	memcpy((void*)info->pointer, buf, (uint32_t)arg1);
-	return arg1;
 }
 
 static int32_t syscall_exec_elf(int32_t arg0, int32_t arg1, int32_t arg2) {
@@ -310,14 +285,12 @@ static int32_t syscall_system_cmd(int32_t arg0, int32_t arg1, int32_t arg2) {
 static int32_t (*const _syscallHandler[])() = {
 	[SYSCALL_DEV_READ] = syscall_dev_read,
 	[SYSCALL_DEV_WRITE] = syscall_dev_write,
+	[SYSCALL_DEV_INFO] = syscall_dev_info,
 
 	[SYSCALL_SHM_ALLOC] = syscall_shm_alloc,
 	[SYSCALL_SHM_FREE] = syscall_shm_free,
 	[SYSCALL_SHM_MAP] = syscall_shm_map,
 	[SYSCALL_SHM_UNMAP] = syscall_shm_unmap,
-
-	[SYSCALL_FB_INFO] = syscall_fb_info,
-	[SYSCALL_FB_WRITE] = syscall_fb_write,
 
 	[SYSCALL_FORK] = syscall_fork,
 	[SYSCALL_GETPID] = syscall_getpid,

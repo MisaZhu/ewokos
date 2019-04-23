@@ -1,6 +1,7 @@
 #include <dev/devserv.h>
 #include <unistd.h>
 #include <syscall.h>
+#include <stdio.h>
 
 int32_t tty_write(uint32_t node, void* buf, uint32_t size, int32_t seek) {
 	(void)node;
@@ -8,7 +9,7 @@ int32_t tty_write(uint32_t node, void* buf, uint32_t size, int32_t seek) {
 
 	const char* p = (const char*)buf;
 	for(uint32_t i=0; i<size; i++) {
-		syscall1(SYSCALL_UART_PUTCH, (int)p[i]);
+		putch((int)p[i]);
 	}
 	return size;
 }
@@ -19,7 +20,7 @@ int32_t tty_read(uint32_t node, void* buf, uint32_t size, int32_t seek) {
 
 	char* p  = (char*)buf;
 	for(uint32_t i=0; i<size; i++) {
-		char c = syscall0(SYSCALL_UART_GETCH);
+		char c = (char)getch();
 		if(c == 0) {
 			size = i;
 			break;

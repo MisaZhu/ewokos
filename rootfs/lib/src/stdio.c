@@ -1,13 +1,22 @@
 #include <syscall.h>
 #include <kstring.h>
 #include <vprintf.h>
+#include <devices.h>
+#include <unistd.h>
 
 void putch(int c) {
-	syscall1(SYSCALL_UART_PUTCH, c);
+	char buf[1];
+	buf[0] = (char)c;
+	syscall3(SYSCALL_DEV_WRITE, dev_typeid(DEV_UART, 0), (int32_t)buf, 1);
 }
 
 int getch() {
-	return syscall0(SYSCALL_UART_GETCH);
+	char buf[1];
+	while(true) {
+		if(syscall3(SYSCALL_DEV_READ, dev_typeid(DEV_UART, 0), (int32_t)buf, 1) > 0)
+			break;
+	}
+	return (int)buf[0];
 }
 
 static void outc(char c, void* p) {

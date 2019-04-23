@@ -1,8 +1,25 @@
 #include <dev/device.h>
 
 int32_t dev_keyboard_read(int16_t id, void* buf, uint32_t size);
+
 int32_t dev_uart_read(int16_t id, void* buf, uint32_t size);
 int32_t dev_uart_write(int16_t id, void* buf, uint32_t size);
+
+int32_t dev_fb_info(int16_t id, void* info);
+int32_t dev_fb_write(int16_t id, void* buf, uint32_t size);
+
+int32_t dev_info(int32_t type_id, void* info) {
+	int16_t type, id;
+	type = (type_id & 0xffff0000) >> 16;
+	id = (type_id & 0xffff);
+	(void)id;
+
+	switch(type) {
+	case DEV_FRAME_BUFFER:
+		return dev_fb_info(id, info);
+	}
+	return -1;
+}
 
 int32_t dev_read(int32_t type_id, void* buf, uint32_t size) {
 	int16_t type, id;
@@ -31,6 +48,8 @@ int32_t dev_write(int32_t type_id, void* buf, uint32_t size) {
 	switch(type) {
 	case DEV_UART:
 		return dev_uart_write(id, buf, size);
+	case DEV_FRAME_BUFFER:
+		return dev_fb_write(id, buf, size);
 	}
 	return -1;
 }
