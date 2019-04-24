@@ -5,15 +5,7 @@
 #include <kstring.h>
 #include <stdlib.h>
 
-int main() {
-	init_cmain_arg();
-	const char* arg = read_cmain_arg();
-	arg = read_cmain_arg();
-	if(arg == NULL) {
-		return -1;
-	}
-
-	char fname[NAME_MAX];
+void gen_fname(char* fname, const char* arg) {
 	if(arg[0] == '/') {
 		strcpy(fname, arg);
 	}
@@ -25,20 +17,43 @@ int main() {
 		else
 			snprintf(fname, NAME_MAX-1, "%s/%s", pwd, arg);
 	}
+}
 
-	int fd = open(fname, 0);
-	if(fd < 0) {
+int main() {
+	char fname_r[NAME_MAX];
+	char fname_w[NAME_MAX];
+
+	init_cmain_arg();
+	const char* arg = read_cmain_arg();
+
+	arg = read_cmain_arg();
+	if(arg == NULL)
+		return -1;
+	gen_fname(fname_r, arg);
+	int fd_r = open(fname_r, 0);
+	if(fd_r < 0)
+		return -1;
+
+	arg = read_cmain_arg();
+	if(arg == NULL)
+		strcpy(fname_w, "/dev/tty0");
+	else
+		gen_fname(fname_w, arg);
+	int fd_w = open(fname_w, 0);
+	if(fd_w < 0) {
+		close(fd_r);
 		return -1;
 	}
 
 	while(true) {
 		char buf[128+1];
-		int sz = read(fd, buf, 128);
+		int sz = read(fd_r, buf, 128);
 		if(sz <= 0)
 			break;
 		buf[sz] = 0;
-		printf("%s", buf);
+		write(fd_w, buf, sz);
 	}
-	close(fd);
+	close(fd_r);
+	close(fd_w);
 	return 0;
 }
