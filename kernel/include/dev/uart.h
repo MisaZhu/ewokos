@@ -6,6 +6,6 @@
 void uart_init(void);
 void uart_handle(void);
 void uart_putch(int c);
-int uart_getch();
+int32_t uart_getch();
 
 #endif

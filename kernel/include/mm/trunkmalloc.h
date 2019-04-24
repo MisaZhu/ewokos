@@ -15,8 +15,8 @@ typedef struct mem_block {
 typedef struct {
 	void* arg;
 
-	bool (*expand)(void* arg, int pages);
-	void (*shrink)(void* arg, int pages);
+	bool (*expand)(void* arg, int32_t pages);
+	void (*shrink)(void* arg, int32_t pages);
 	void* (*get_mem_tail)(void*);
 
 	mem_block_t* mHead;

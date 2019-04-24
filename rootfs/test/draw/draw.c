@@ -11,7 +11,7 @@ void fbtest() {
 		return;
 	}
 
-	int32_t i = 0;
+	int i = 0;
 	char s[32];
 	while(i<200) {
 		clear(g, rgb(100, 100, 200));

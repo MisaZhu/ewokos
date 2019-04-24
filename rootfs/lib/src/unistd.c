@@ -16,12 +16,12 @@ int getpid() {
 }
 
 char* from_sd(const char *filename, int32_t* sz);
-static char* read_from_sd(const char* fname, int *size) {
+static char* read_from_sd(const char* fname, int32_t *size) {
 	char* p = from_sd(fname, size);
 	return p;
 }
 
-static char* read_from_fs(const char* fname, int *size) {
+static char* read_from_fs(const char* fname, int32_t *size) {
 	int fd = fs_open(fname, 0);
 	if(fd < 0) 
 		return NULL;
@@ -45,7 +45,7 @@ static char* read_from_fs(const char* fname, int *size) {
 
 int exec(const char* cmd_line) {
 	char* img = NULL;
-	int size;
+	int32_t size;
 	char cmd[CMD_MAX];
 	int i;
 	for(i=0; i<CMD_MAX-1; i++) {

@@ -7,12 +7,12 @@
 static malloc_t _kmalloc;
 static uint32_t _kmalloc_mem_tail;
 
-static void km_shrink(void* arg, int pages) {
+static void km_shrink(void* arg, int32_t pages) {
 	(void)arg;
 	_kmalloc_mem_tail -= pages * PAGE_SIZE;	
 }
 
-static bool km_expand(void* arg, int pages) {
+static bool km_expand(void* arg, int32_t pages) {
 	(void)arg;
 	uint32_t to = _kmalloc_mem_tail + (pages * PAGE_SIZE);
 	if(to > (KMALLOC_BASE + KMALLOC_SIZE))

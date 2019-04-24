@@ -25,16 +25,16 @@ static int32_t _p_proc_lock = 0;
 
 /* proc_init initializes the process sub-system. */
 void proc_init(void) {
-	for (int i = 0; i < PROCESS_COUNT_MAX; i++)
+	for (int32_t i = 0; i < PROCESS_COUNT_MAX; i++)
 		_process_table[i].state = UNUSED;
 	_current_proc = NULL;
 }
 
 /* proc_exapnad_memory expands the heap size of the given process. */
-bool proc_expand_mem(void *p, int page_num, bool read_only) {
+bool proc_expand_mem(void *p, int32_t page_num, bool read_only) {
 	CRIT_IN(_p_proc_lock)
 	process_t* proc = (process_t*)p;	
-	for (int i = 0; i < page_num; i++) {
+	for (int32_t i = 0; i < page_num; i++) {
 		char *page = kalloc();
 		if(page == NULL) {
 			printk("proc expand failed!! free mem size: (%x)\n", get_free_mem_size());
@@ -66,10 +66,10 @@ static bool proc_expand(void* p, int32_t page_num) {
 }
 
 /* proc_shrink_memory shrinks the heap size of the given process. */
-void proc_shrink_mem(void* p, int page_num) {
+void proc_shrink_mem(void* p, int32_t page_num) {
 	CRIT_IN(_p_proc_lock)
 	process_t* proc = (process_t*)p;	
-	for (int i = 0; i < page_num; i++) {
+	for (int32_t i = 0; i < page_num; i++) {
 		uint32_t virtual_addr = proc->space->heap_size - PAGE_SIZE;
 		uint32_t physical_addr = resolve_phy_address(proc->space->vm, virtual_addr);
 
@@ -145,8 +145,8 @@ static inline  uint32_t proc_get_user_stack(process_t* proc) {
 /* proc_creates allocates a new process and returns it. */
 process_t *proc_create(uint32_t type) {
 	CRIT_IN(_p_proc_lock)
-	int index = -1;
-	for (int i = 0; i < PROCESS_COUNT_MAX; i++) {
+	int32_t index = -1;
+	for (int32_t i = 0; i < PROCESS_COUNT_MAX; i++) {
 		if (_process_table[i].state == UNUSED) {
 			index = i;
 			break;
@@ -328,7 +328,7 @@ void proc_start(process_t *proc) {
 	__switch_to_context(proc->context);
 }
 
-process_t* proc_get(int pid) {
+process_t* proc_get(int32_t pid) {
 	if(pid < 0 || pid >= PROCESS_COUNT_MAX)
 		return NULL;
 	CRIT_IN(_p_proc_lock)

@@ -13,7 +13,7 @@ int32_t strcmp(const char *s1, const char *s2);
 int32_t strncmp(const char *s1, const char *s2, uint32_t n);
 
 /* search and tokenization */
-char *strchr(const char *str, int character);
+char *strchr(const char *str, int32_t character);
 char *strtok(char *str, const char *delimiters);
 
 /* other functions */

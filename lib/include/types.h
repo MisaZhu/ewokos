@@ -1,8 +1,10 @@
 #ifndef TYPES_H
 #define TYPES_H
 
+
 #ifndef __ASSEMBLER__
 
+#include <stdint.h>
 #ifndef NULL
 #define NULL ((void*) 0)
 #endif
@@ -13,6 +15,7 @@ typedef int bool;
 #endif
 
 /* integer types */
+/*
 typedef __signed char int8_t;
 typedef unsigned char uint8_t;
 typedef short int16_t;
@@ -26,6 +29,7 @@ typedef short i16_t;
 typedef unsigned short u16_t;
 typedef int i32_t;
 typedef unsigned int u32_t;
+*/
 
 /* boolean constants */
 #ifndef true
