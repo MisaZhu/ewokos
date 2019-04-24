@@ -16,10 +16,13 @@ int32_t tty_write(uint32_t node, void* buf, uint32_t size, int32_t seek) {
 
 int32_t tty_read(uint32_t node, void* buf, uint32_t size, int32_t seek) {
 	(void)node;
+	(void)size;
 	(void)seek;
 
 	char* p  = (char*)buf;
-	for(uint32_t i=0; i<size; i++) {
+	*p = (char)getch();
+	return 1;
+	/*for(uint32_t i=0; i<size; i++) {
 		char c = (char)getch();
 		if(c == 0) {
 			size = i;
@@ -28,6 +31,7 @@ int32_t tty_read(uint32_t node, void* buf, uint32_t size, int32_t seek) {
 		p[i] = c;
 	}
 	return size;
+	*/
 }
 
 int main() {

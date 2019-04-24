@@ -1,4 +1,5 @@
 include test/test/build.mk
+include test/keyb/build.mk
 include test/thread/build.mk
 include test/draw/build.mk
 

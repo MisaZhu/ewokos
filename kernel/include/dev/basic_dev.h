@@ -1,5 +1,5 @@
-#ifndef DEVICE_H
-#define DEVICE_H
+#ifndef BASIC_DEVICE_H
+#define BASIC_DEVICE_H
 
 #include <types.h>
 #include <devices.h>

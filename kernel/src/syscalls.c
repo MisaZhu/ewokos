@@ -17,7 +17,7 @@
 #include <scheduler.h>
 #include <hardware.h>
 #include <semaphore.h>
-#include <dev/device.h>
+#include <dev/basic_dev.h>
 
 static int32_t syscall_dev_read(int32_t arg0, int32_t arg1, int32_t arg2) {
 	return dev_read(arg0, (void*)arg1, (uint32_t)arg2);

@@ -1,7 +1,7 @@
 #include <mm/mmu.h>
 #include <hardware.h>
 #include <dev/uart.h>
-#include <dev/device.h>
+#include <dev/basic_dev.h>
 #include <system.h>
 #include <proc.h>
 

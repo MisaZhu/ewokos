@@ -2,11 +2,9 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <stdlib.h>
-#include <syscall.h>
-#include <devices.h>
 
 int main() {
-	printf("read keyboard: ");
+	printf("read keyboard('enter' to quit):\n");
 	int fd = open("/dev/keyb0", 0);
 	if(fd < 0) {
 		return -1;

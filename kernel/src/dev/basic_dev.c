@@ -1,4 +1,5 @@
-#include <dev/device.h>
+#include <dev/basic_dev.h>
+#include <proc.h>
 
 int32_t dev_keyboard_read(int16_t id, void* buf, uint32_t size);
 
@@ -22,6 +23,9 @@ int32_t dev_info(int32_t type_id, void* info) {
 }
 
 int32_t dev_read(int32_t type_id, void* buf, uint32_t size) {
+	if(_current_proc->owner > 0)
+		return -1;
+
 	int16_t type, id;
 	type = (type_id & 0xffff0000) >> 16;
 	id = (type_id & 0xffff);
@@ -39,6 +43,8 @@ int32_t dev_read(int32_t type_id, void* buf, uint32_t size) {
 int32_t dev_write(int32_t type_id, void* buf, uint32_t size) {
 	(void)buf;
 	(void)size;
+	if(_current_proc->owner > 0)
+		return -1;
 
 	int16_t type, id;
 	type = (type_id & 0xffff0000) >> 16;

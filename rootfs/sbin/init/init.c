@@ -44,6 +44,14 @@ int main() {
 
 	pid = fork();
 	if(pid == 0) { 
+		//printf("start keyboard service ... ");
+		exec("/sbin/dev/keybd");
+	}
+	kserv_wait("dev.keyb");
+
+
+	pid = fork();
+	if(pid == 0) { 
 		//printf("start proc service ... ");
 		exec("/sbin/dev/procd");
 	}
