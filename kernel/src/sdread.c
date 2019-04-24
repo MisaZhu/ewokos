@@ -1,18 +1,20 @@
 #include <ext2.h>
 #include <kstring.h>
 #include <dev/sdc.h>
+#include <dev/basic_dev.h>
 #include <mm/kmalloc.h>
 
 static char buf1[SDC_BLOCK_SIZE];
 static char buf2[SDC_BLOCK_SIZE];
 
 static int32_t read_block(int32_t block, char* buf) {
-	if(sdc_read_block(block) < 0)
+	uint32_t typeid = dev_typeid(DEV_SDC, 0);
+	if(dev_block_read(typeid, block) < 0)
 		return -1;
 
 	int32_t res = -1;
 	while(true) {
-		res = sdc_read_done(buf);
+		res = dev_block_read_done(typeid, buf);
 		if(res == 0)
 			break;
 	}

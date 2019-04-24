@@ -46,8 +46,7 @@ ARCH_OBJS = arch/$(arch)/src/irq.o \
 	arch/$(arch)/src/spi.o \
 	arch/$(arch)/src/sdc.o \
 
-DEV_OBJS =  src/dev/basic_dev.o \
-	src/dev/sdread.o
+DEV_OBJS =  src/dev/basic_dev.o
 
 LIB_OBJS = ../lib/src/kstring.o \
 	../lib/src/ext2.o \
@@ -55,6 +54,7 @@ LIB_OBJS = ../lib/src/kstring.o \
 
 OBJS += $(ARCH_OBJS) \
 	$(DEV_OBJS) \
+	src/sdread.o \
 	src/system.o \
 	src/timer.o \
 	src/printk.o \

@@ -19,16 +19,32 @@
 #include <semaphore.h>
 #include <dev/basic_dev.h>
 
-static int32_t syscall_dev_read(int32_t arg0, int32_t arg1, int32_t arg2) {
-	return dev_read(arg0, (void*)arg1, (uint32_t)arg2);
-}
-
-static int32_t syscall_dev_write(int32_t arg0, int32_t arg1, int32_t arg2) {
-	return dev_write(arg0, (void*)arg1, (uint32_t)arg2);
-}
-
 static int32_t syscall_dev_info(int32_t arg0, int32_t arg1) {
 	return dev_info(arg0, (void*)arg1);
+}
+
+static int32_t syscall_dev_char_read(int32_t arg0, int32_t arg1, int32_t arg2) {
+	return dev_char_read(arg0, (void*)arg1, (uint32_t)arg2);
+}
+
+static int32_t syscall_dev_char_write(int32_t arg0, int32_t arg1, int32_t arg2) {
+	return dev_char_write(arg0, (void*)arg1, (uint32_t)arg2);
+}
+
+static int32_t syscall_dev_block_read(int32_t arg0, int32_t arg1) {
+	return dev_block_read(arg0, arg1);
+}
+
+static int32_t syscall_dev_block_read_done(int32_t arg0, int32_t arg1) {
+	return dev_block_read_done(arg0, (void*)arg1);
+}
+
+static int32_t syscall_dev_block_write(int32_t arg0, int32_t arg1, int32_t arg2) {
+	return dev_block_write(arg0, (uint32_t)arg1, (void*)arg2);
+}
+
+static int32_t syscall_dev_block_write_done(int32_t arg0) {
+	return dev_block_write_done(arg0);
 }
 
 static int32_t syscall_shm_alloc(int arg0) {
@@ -145,30 +161,6 @@ static int32_t syscall_ipc_peer(int32_t arg0) {
 	return ipc_peer(arg0);
 }
 
-static int32_t syscall_sdc_read(int32_t arg0) {
-	if(_current_proc->owner > 0)
-		return -1;
-	return sdc_read_block(arg0);
-}
-
-static int32_t syscall_sdc_read_done(int32_t arg0) {
-	if(_current_proc->owner > 0)
-		return -1;
-	return sdc_read_done((char*)arg0);
-}
-
-static int32_t syscall_sdc_write(int32_t arg0, int32_t arg1) {
-	if(_current_proc->owner > 0)
-		return -1;
-	return sdc_write_block(arg0, (const char*)arg1);
-}
-
-static int32_t syscall_sdc_write_done() {
-	if(_current_proc->owner > 0)
-		return -1;
-	return sdc_write_done();
-}
-
 static int32_t syscall_pf_open(int32_t arg0, int32_t arg1) {
 	return kf_open((uint32_t)arg0, arg1);
 }
@@ -283,9 +275,13 @@ static int32_t syscall_system_cmd(int32_t arg0, int32_t arg1, int32_t arg2) {
 }
 
 static int32_t (*const _syscallHandler[])() = {
-	[SYSCALL_DEV_READ] = syscall_dev_read,
-	[SYSCALL_DEV_WRITE] = syscall_dev_write,
 	[SYSCALL_DEV_INFO] = syscall_dev_info,
+	[SYSCALL_DEV_CHAR_READ] = syscall_dev_char_read,
+	[SYSCALL_DEV_CHAR_WRITE] = syscall_dev_char_write,
+	[SYSCALL_DEV_BLOCK_READ] = syscall_dev_block_read,
+	[SYSCALL_DEV_BLOCK_READ_DONE] = syscall_dev_block_read_done,
+	[SYSCALL_DEV_BLOCK_WRITE] = syscall_dev_block_write,
+	[SYSCALL_DEV_BLOCK_WRITE_DONE] = syscall_dev_block_write_done,
 
 	[SYSCALL_SHM_ALLOC] = syscall_shm_alloc,
 	[SYSCALL_SHM_FREE] = syscall_shm_free,
@@ -313,11 +309,6 @@ static int32_t (*const _syscallHandler[])() = {
 	[SYSCALL_IPC_READ] = syscall_ipc_read,
 	[SYSCALL_IPC_RING] = syscall_ipc_ring,
 	[SYSCALL_IPC_PEER] = syscall_ipc_peer,
-
-	[SYSCALL_SDC_READ] = syscall_sdc_read,
-	[SYSCALL_SDC_READ_DONE] = syscall_sdc_read_done,
-	[SYSCALL_SDC_WRITE] = syscall_sdc_write,
-	[SYSCALL_SDC_WRITE_DONE] = syscall_sdc_write_done,
 
 	[SYSCALL_PFILE_GET_SEEK] = syscall_pf_get_seek,
 	[SYSCALL_PFILE_SEEK] = syscall_pf_seek,

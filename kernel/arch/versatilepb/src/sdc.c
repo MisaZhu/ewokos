@@ -113,7 +113,7 @@ int32_t sdc_init() {
 	return 0;
 }
 
-int32_t sdc_read_block(int32_t block) {
+static int32_t sdc_read_block(int32_t block) {
 	uint32_t cmd, arg;
 	CRIT_IN(_p_lock)
 	if(_rxdone == 0) {
@@ -141,7 +141,7 @@ int32_t sdc_read_block(int32_t block) {
 	return 0;
 }
 
-inline int32_t sdc_read_done(char* buf) {
+static inline int32_t sdc_read_done(char* buf) {
 	CRIT_IN(_p_lock)
 	if(_rxdone == 0) {
 		CRIT_OUT(_p_lock)
@@ -153,7 +153,7 @@ inline int32_t sdc_read_done(char* buf) {
 	return 0;
 }
 
-int32_t sdc_write_block(int32_t block, const char* buf) {
+static int32_t sdc_write_block(int32_t block, const char* buf) {
 	uint32_t cmd, arg;
 	CRIT_IN(_p_lock)
 	if(_txdone == 0) {
@@ -180,7 +180,7 @@ int32_t sdc_write_block(int32_t block, const char* buf) {
 	return 0;
 }
 
-inline int32_t sdc_write_done() {
+static inline int32_t sdc_write_done() {
 	return _txdone;
 }
 
@@ -235,3 +235,22 @@ void sdc_handle() {
 	// printk("SDC interrupt handler done\n");
 }
 
+int32_t dev_sdc_read(int16_t id, uint32_t block) {
+	(void)id;
+	return sdc_read_block(block);
+}
+
+int32_t dev_sdc_read_done(int16_t id, void* buf) {
+	(void)id;
+	return sdc_read_done((char*)buf);
+}
+
+int32_t dev_sdc_write(int16_t id, uint32_t block, void* buf) {
+	(void)id;
+	return sdc_write_block(block, (const char*)buf);
+}
+
+int32_t dev_sdc_write_done(int16_t id) {
+	(void)id;
+	return -1;
+}

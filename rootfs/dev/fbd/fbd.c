@@ -32,12 +32,12 @@ static int32_t fb_mount(uint32_t node, int32_t index) {
 int32_t fb_write(uint32_t node, void* buf, uint32_t size, int32_t seek) {
 	(void)node;
 	(void)seek;
-	return syscall3(SYSCALL_DEV_WRITE, dev_typeid(DEV_FRAME_BUFFER, 0), (int32_t)buf, (int32_t)size);
+	return syscall3(SYSCALL_DEV_CHAR_WRITE, dev_typeid(DEV_FRAME_BUFFER, 0), (int32_t)buf, (int32_t)size);
 }
 
 int32_t fb_flush(uint32_t node) {
 	(void)node;
-	return syscall3(SYSCALL_DEV_WRITE, dev_typeid(DEV_FRAME_BUFFER, 0), (int32_t)_fb_buf, (int32_t)_fb_bufSize);
+	return syscall3(SYSCALL_DEV_CHAR_WRITE, dev_typeid(DEV_FRAME_BUFFER, 0), (int32_t)_fb_buf, (int32_t)_fb_bufSize);
 }
 
 int32_t fb_dma(uint32_t node, uint32_t *size) {

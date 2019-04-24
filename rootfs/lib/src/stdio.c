@@ -7,13 +7,13 @@
 void putch(int c) {
 	char buf[1];
 	buf[0] = (char)c;
-	syscall3(SYSCALL_DEV_WRITE, dev_typeid(DEV_UART, 0), (int32_t)buf, 1);
+	syscall3(SYSCALL_DEV_CHAR_WRITE, dev_typeid(DEV_UART, 0), (int32_t)buf, 1);
 }
 
 int getch() {
 	char buf[1];
 	while(true) {
-		if(syscall3(SYSCALL_DEV_READ, dev_typeid(DEV_UART, 0), (int32_t)buf, 1) > 0)
+		if(syscall3(SYSCALL_DEV_CHAR_READ, dev_typeid(DEV_UART, 0), (int32_t)buf, 1) > 0)
 			break;
 	}
 	return (int)buf[0];

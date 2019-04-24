@@ -4,7 +4,8 @@
 enum {
 	DEV_UART = 0,
 	DEV_KEYBOARD,
-	DEV_FRAME_BUFFER
+	DEV_FRAME_BUFFER,
+	DEV_SDC
 };
 
 #define dev_typeid(type, id) ((type) << 16 | (id))
