@@ -5,12 +5,12 @@
 
 .About
 
-	A microkernel os for learning operating system. versatilepb ported well, raspi2 todo....
+	A microkernel OS for learning operating system. versatilepb ported well, raspi2 todo....
 	-mmu
 	-multi processes
 	-multi thread
 	-ipc
-	-virtual fs service
+	-virtual fs service(everythig is a file)
 	-very simple ramdisk for initrd
 	-framebuffer device service for graphics
 	-uart device service
