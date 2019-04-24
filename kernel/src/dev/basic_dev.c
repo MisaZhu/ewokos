@@ -30,12 +30,10 @@ int32_t dev_buffer_pop(dev_buffer_t *buffer, char* c) {
 	return 0;
 }
 
-/*char devices*/
-int32_t dev_keyboard_read(int16_t id, void* buf, uint32_t size);
-int32_t dev_uart_read(int16_t id, void* buf, uint32_t size);
-int32_t dev_uart_write(int16_t id, void* buf, uint32_t size);
+
+/*some devices     */
 int32_t dev_fb_info(int16_t id, void* info);
-int32_t dev_fb_write(int16_t id, void* buf, uint32_t size);
+/*******************/
 
 int32_t dev_info(int32_t type_id, void* info) {
 	int16_t type, id;
@@ -49,6 +47,15 @@ int32_t dev_info(int32_t type_id, void* info) {
 	}
 	return -1;
 }
+
+/*some char devices*/
+int32_t dev_keyboard_read(int16_t id, void* buf, uint32_t size);
+
+int32_t dev_uart_read(int16_t id, void* buf, uint32_t size);
+int32_t dev_uart_write(int16_t id, void* buf, uint32_t size);
+
+int32_t dev_fb_write(int16_t id, void* buf, uint32_t size);
+/*******************/
 
 int32_t dev_char_read(int32_t type_id, void* buf, uint32_t size) {
 	if(_current_proc->owner > 0)
@@ -69,8 +76,6 @@ int32_t dev_char_read(int32_t type_id, void* buf, uint32_t size) {
 }
 
 int32_t dev_char_write(int32_t type_id, void* buf, uint32_t size) {
-	(void)buf;
-	(void)size;
 	if(_current_proc->owner > 0)
 		return -1;
 
@@ -88,11 +93,12 @@ int32_t dev_char_write(int32_t type_id, void* buf, uint32_t size) {
 	return -1;
 }
 
-/*block devices*/
+/*some block devices*/
 int32_t dev_sdc_read(int16_t id, uint32_t block);
 int32_t dev_sdc_read_done(int16_t id, void* buf);
 int32_t dev_sdc_write(int16_t id, uint32_t block, void* buf);
 int32_t dev_sdc_write_done(int16_t id);
+/********************/
 
 int32_t dev_block_read(int32_t type_id, uint32_t block) {
 	if(_current_proc->owner > 0)
