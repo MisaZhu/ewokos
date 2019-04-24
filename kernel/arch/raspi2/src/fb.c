@@ -1,5 +1,6 @@
 #include "mailbox.h"
 #include "dev/fb.h"
+#include "kstring.h"
 
 void __mem_barrier();
 
@@ -32,29 +33,42 @@ int32_t videoInit(fb_info_t *p_fbinfo) {
 	return test;
 }
 
-static fb_info_t _fbInfo __attribute__((aligned(16)));
-
-inline fb_info_t* fb_get_info() {
-	return &_fbInfo;
-}
+static fb_info_t _fb_info __attribute__((aligned(16)));
 
 bool fb_init() {
 	TagsInfoT info;
 	mailboxGetVideoInfo(&info);
 	/** initialize fbinfo */
-	_fbInfo.height = info.fb_height;
-	_fbInfo.width = info.fb_width;
-	_fbInfo.vheight = info.fb_height;
-	_fbInfo.vwidth = info.fb_width;
-	_fbInfo.pitch = 0;
-	_fbInfo.depth = 32;
-	_fbInfo.xoffset = 0;
-	_fbInfo.yoffset = 0;
-	_fbInfo.pointer = 0;
-	_fbInfo.size = 0;
+	_fb_info.height = info.fb_height;
+	_fb_info.width = info.fb_width;
+	_fb_info.vheight = info.fb_height;
+	_fb_info.vwidth = info.fb_width;
+	_fb_info.pitch = 0;
+	_fb_info.depth = 32;
+	_fb_info.xoffset = 0;
+	_fb_info.yoffset = 0;
+	_fb_info.pointer = 0;
+	_fb_info.size = 0;
 
-	if(videoInit(&_fbInfo) == 0)
+	if(videoInit(&_fb_info) == 0)
 		return true;
 	return false;
+}
+
+int32_t dev_fb_info(int16_t id, void* info) {
+	(void)id;
+
+	fb_info_t* fb_info = (fb_info_t*)info;
+	memcpy(fb_info, &_fb_info, sizeof(fb_info_t));
+	return 0;
+}
+
+int32_t dev_fb_write(int16_t id, void* buf, uint32_t size) {
+	(void)id;
+	uint32_t sz = (_fb_info.depth/8) * _fb_info.width * _fb_info.height;
+	if(size > sz)
+		size = sz;
+	memcpy((void*)_fb_info.pointer, buf, size);
+	return (int32_t)size;
 }
 
