@@ -8,7 +8,7 @@ static graph_t* _graph = NULL;
 static int32_t _cx = 0;
 static int32_t _cy = 0;
 
-static int32_t consoleMount(uint32_t node, int32_t index) {
+static int32_t console_mount(uint32_t node, int32_t index) {
 	(void)node;
 	(void)index;
 	_graph = graph_open("/dev/fb0");
@@ -21,7 +21,7 @@ static int32_t consoleMount(uint32_t node, int32_t index) {
 	return 0;
 }
 
-static int32_t consoleUnmount(uint32_t node) {
+static int32_t console_unmount(uint32_t node) {
 	(void)node;
 	if(_graph == NULL)
 		return -1;
@@ -33,28 +33,28 @@ static int32_t consoleUnmount(uint32_t node) {
 	return 0;
 }
 
-static inline void newLine() {
+static inline void new_line() {
 	_cx = 0;
 	_cy ++;
 }
 
-static inline int32_t getX() {
+static inline int32_t get_x() {
 	return _cx * font_big.w;
 }
 
-static inline int32_t getY() {
+static inline int32_t get_y() {
 	return _cy * font_big.h;
 }
 
-static void checkBoard() {
+static void check_board() {
 	int32_t x, y;
 
 	/*check board*/
-	x = getX();
-	y = getY();
+	x = get_x();
+	y = get_y();
 
 	if(x > (int32_t)(_graph->w-font_big.w))
-		newLine();
+		new_line();
 
 	if(y > (int32_t)(_graph->h-font_big.h)) {
 		clear(_graph, 0x222222);
@@ -62,26 +62,26 @@ static void checkBoard() {
 	}
 }
 
-static void putChar(char c) {
-	checkBoard();
+static void put_char(char c) {
+	check_board();
 
 	if(c == '\n') { //new line.
-		newLine();
+		new_line();
 	}
 	else {
-		draw_char(_graph, getX(), getY(), c, &font_big, 0xFFFFFF);
+		draw_char(_graph, get_x(), get_y(), c, &font_big, 0xFFFFFF);
 		_cx++;
 	}
 }
 
-int32_t consoleWrite(uint32_t node, void* buf, uint32_t size, int32_t seek) {
+int32_t console_write(uint32_t node, void* buf, uint32_t size, int32_t seek) {
 	(void)seek;
 	(void)node;
 
 	const char* p = (const char*)buf;
 	for(uint32_t i=0; i<size; i++) {
 		char c = p[i];
-		putChar(c);
+		put_char(c);
 	}
 	graph_flush(_graph);
 	return size;
@@ -89,9 +89,9 @@ int32_t consoleWrite(uint32_t node, void* buf, uint32_t size, int32_t seek) {
 
 int main() {
 	device_t dev = {0};
-	dev.mount = consoleMount;
-	dev.unmount = consoleUnmount;
-	dev.write = consoleWrite;
+	dev.mount = console_mount;
+	dev.unmount = console_unmount;
+	dev.write = console_write;
 
 	dev_run(&dev, "dev.console", 0, "/dev/console0", true);
 	return 0;
