@@ -22,17 +22,19 @@ static char* read_from_sd(const char* fname, int32_t *size) {
 }
 
 static char* read_from_fs(const char* fname, int32_t *size) {
-	int fd = fs_open(fname, 0);
+	int fd = open(fname, 0);
 	if(fd < 0) 
 		return NULL;
 
 	fs_info_t info;
-	if(fs_info(fd, &info) != 0 || info.size <= 0)
+	if(fs_info(fd, &info) != 0 || info.size <= 0) {
+		close(fd);
 		return NULL;
+	}
 
 	char* buf = (char*)malloc(info.size);
-	int res = fs_read(fd, buf, info.size);
-	fs_close(fd);
+	int res = read(fd, buf, info.size);
+	close(fd);
 
 	if(res <= 0) {
 		free(buf);
