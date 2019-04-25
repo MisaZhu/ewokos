@@ -21,6 +21,8 @@ int32_t tty_read(uint32_t node, void* buf, uint32_t size, int32_t seek) {
 
 	char* p  = (char*)buf;
 	*p = (char)getch();
+	if(*p == 4) //ctrl+d, means closed.
+		return 0;
 	return 1;
 	/*for(uint32_t i=0; i<size; i++) {
 		char c = (char)getch();
