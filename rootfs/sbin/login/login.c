@@ -29,6 +29,12 @@ static void gets(char* buf, int len, bool disp) {
 				i--;
 			}
 		}
+		else if (c == 8) {
+			if (i > 0) {
+				putch(c);
+				i--;
+			}
+		}
 		else {
 			if(c == '\r' || c == '\n') {
 				putch(c);

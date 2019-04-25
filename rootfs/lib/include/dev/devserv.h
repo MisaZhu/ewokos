@@ -2,6 +2,7 @@
 #define DEVSERV_H
 
 #include <types.h>
+#include <device.h>
 
 typedef struct {
 	int32_t (*mount)(uint32_t node, int32_t index);

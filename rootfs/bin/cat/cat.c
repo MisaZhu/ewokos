@@ -34,15 +34,15 @@ int main() {
 	if(fd_r < 0)
 		return -1;
 
+	int fd_w = 0;
 	arg = read_cmain_arg();
-	if(arg == NULL)
-		strcpy(fname_w, "/dev/tty0");
-	else
+	if(arg != NULL) {
 		gen_fname(fname_w, arg);
-	int fd_w = open(fname_w, 0);
-	if(fd_w < 0) {
-		close(fd_r);
-		return -1;
+		int fd_w = open(fname_w, 0);
+		if(fd_w < 0) {
+			close(fd_r);
+			return -1;
+		}
 	}
 
 	while(true) {

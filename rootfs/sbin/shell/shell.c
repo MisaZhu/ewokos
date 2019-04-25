@@ -27,6 +27,13 @@ static void gets(char* buf, int len) {
 				i--;
 			}
 		}
+		else if (c == 8) {
+			if (i > 0) {
+				//delete last char
+				putch(c); 
+				i--;
+			}
+		}
 		else {
 			putch(c);
 			if(c == '\r' || c == '\n')

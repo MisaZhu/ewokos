@@ -11,7 +11,7 @@
 	-multi thread
 	-ipc
 	-virtual fs service(everythig is a file)
-	-very simple ramdisk for initrd
+	-very simple ramdisk for cnitrd
 	-framebuffer device service for graphics
 	-uart device service
 	-SD card
@@ -59,7 +59,6 @@
 	rootfs/lib/src/unistd.c
 	rootfs/lib/src/ipc.c
 	rootfs/lib/src/shm.c
-
 	rootfs/sbin/init/init.c
 	rootfs/sbin/vfsd/vfsd.c
 	rootfs/dev/initfs/initfs.c
@@ -88,5 +87,3 @@
 	......
 	MMIO_BASE_PHY MMIO_BASE    MMIO base (arch)
 	......
-
-

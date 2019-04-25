@@ -21,6 +21,7 @@ CFLAGS = -I. -g \
          -fno-builtin-printf -fno-builtin-strcpy -Wno-overlength-strings \
          -fno-builtin-exit -fno-builtin-stdio \
 				 -std=c99 
+LDFLAGS = -lgcc
 
 #ASFLAGS = -g -I $(KERNEL_LIB)/include
 

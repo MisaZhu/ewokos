@@ -33,6 +33,7 @@ const char* read_cmain_arg() {
 }
 
 void _start() {
+	init_stdio();
 	int ret = main();
 	exit(ret);
 }

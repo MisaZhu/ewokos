@@ -55,6 +55,14 @@ int main() {
 	}
 	kserv_wait("dev.keyb");
 
+	pid = fork();
+	if(pid == 0) { 
+		//printf("start console service ... ");
+		exec("/sbin/dev/consoled");
+	}
+	kserv_wait("dev.console");
+
+	init_stdio();
 
 	pid = fork();
 	if(pid == 0) { 
