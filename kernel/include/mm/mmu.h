@@ -24,9 +24,6 @@
 
 #define INIT_RESERV_MEMORY_SIZE (8*MB) 
 
-#define ALIGN_DOWN(x, alignment) ((x) & ~(alignment - 1))
-#define ALIGN_UP(x, alignment) (((x) + alignment - 1) & ~(alignment - 1))
-
 #define V2P(V) ((uint32_t)V - KERNEL_BASE)
 #define P2V(P) ((uint32_t)P + KERNEL_BASE)
 

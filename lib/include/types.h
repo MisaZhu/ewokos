@@ -47,6 +47,9 @@ typedef unsigned int u32_t;
 #define NAME_MAX 256
 #define DEV_NAME_MAX 64
 
+#define ALIGN_DOWN(x, alignment) ((x) & ~(alignment - 1))
+#define ALIGN_UP(x, alignment) (((x) + alignment - 1) & ~(alignment - 1))
+
 typedef void (*free_func_t) (void* p);
 typedef void* (*malloc_func_t) (uint32_t size);
 

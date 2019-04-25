@@ -102,35 +102,42 @@ static int32_t sdcard_mount(uint32_t node, int32_t index) {
 }
 
 static char* ext2_read(INODE* ip, int32_t* sz) { 
-	char* buf = (char*)malloc(SDC_BLOCK_SIZE);
 	*sz = ip->i_size;
 	int32_t blk12 = ip->i_block[12];
-	char* addr = (char *)malloc(*sz);
+	int32_t mlc_size = ALIGN_UP(*sz, SDC_BLOCK_SIZE);
+	char* addr = (char *)malloc(mlc_size);
 	char* ret = addr;
 	uint32_t *up;
 	/* read indirect block into b2 */
 
 	int32_t i, count = 0;
-	for (i=0; i<12; i++){
+	for (i=0; i<12 && count<(*sz); i++){
 		if (ip->i_block[i] == 0)
 			break;
-		read_block(ip->i_block[i], addr);
+		if(read_block(ip->i_block[i], addr) != 0) {
+			free(addr);
+			return NULL;
+		}
 		addr += SDC_BLOCK_SIZE;
 		count += SDC_BLOCK_SIZE;
 	}
 
 	if (blk12) { // only if file has indirect blocks
+		char* buf = (char*)malloc(SDC_BLOCK_SIZE);
 		read_block(blk12, buf);
 		up = (uint32_t *)buf;      
-		while(*up){
-			read_block(*up, addr); 
+		while(*up && count<(*sz)){
+			if(read_block(*up, addr) != 0) {
+				free(addr);
+				free(buf);
+				return NULL;
+			}
 			addr += SDC_BLOCK_SIZE;
-			up++; count += SDC_BLOCK_SIZE;
-			if(count > (*sz - SDC_BLOCK_SIZE))
-				break;
+			up++;
+			count += SDC_BLOCK_SIZE;
 		}
+		free(buf);
 	}
-	free(buf);
 	return ret;
 }
 

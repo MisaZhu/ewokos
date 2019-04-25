@@ -59,32 +59,34 @@ char* ext2_load(const char* filename, int32_t *sz, malloc_func_t mlc, read_block
 	}
 
 	/* read blk#2 to get group descriptor 0 */
-	read_block(2, buf1);
+	if(read_block(2, buf1) != 0)
+		return NULL;
 	gp = (GD *)buf1;
 	iblk = (uint16_t)gp->bg_inode_table;
 
-
-	read_block(iblk, buf1);       // read first inode block
+	if(read_block(iblk, buf1) != 0) // read first inode block
+		return NULL;
 	ip = (INODE *)buf1 + 1;   // ip->root inode #2
 
 	/* serach for system name */
 	for (i=0; i<depth; i++) {
 		me = search(ip, name[i], read_block, buf2) - 1;
-		if (me < 0) {
+		if (me < 0) 
 			return NULL;
-		}
-		read_block(iblk+(me/8), buf1);    // read block inode of me
+		if(read_block(iblk+(me/8), buf1) != 0)  // read block inode of me
+			return NULL;
 		ip = (INODE *)buf1 + (me % 8);
 	}
 
 	*sz = ip->i_size;
+	int32_t mlc_size = ALIGN_UP(*sz, SDC_BLOCK_SIZE);
 	blk12 = ip->i_block[12];
-	addr = (char *)mlc(*sz);
+	addr = (char *)mlc(mlc_size);
 	ret = addr;
 	/* read indirect block into b2 */
 
 	count = 0;
-	for (i=0; i<12; i++){
+	for (i=0; i<12 && count<(*sz); i++){
 		if (ip->i_block[i] == 0)
 			break;
 		read_block(ip->i_block[i], addr);
@@ -95,12 +97,11 @@ char* ext2_load(const char* filename, int32_t *sz, malloc_func_t mlc, read_block
 	if (blk12) { // only if file has indirect blocks
 		read_block(blk12, buf1);
 		up = (uint32_t *)buf1;      
-		while(*up){
-			read_block(*up, addr); 
+		while(*up && count < (*sz)){
+			read_block(*up, addr);
 			addr += SDC_BLOCK_SIZE;
-			up++; count += SDC_BLOCK_SIZE;
-			if(count > (*sz - SDC_BLOCK_SIZE))
-				break;
+			up++; 
+			count += SDC_BLOCK_SIZE;
 		}
 	}
 	return ret;
