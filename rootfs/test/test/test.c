@@ -3,7 +3,7 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <syscall.h>
-#include <devices.h>
+#include <device.h>
 
 int main() {
 	printf("read keyboard: ");

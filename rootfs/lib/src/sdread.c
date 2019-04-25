@@ -2,7 +2,7 @@
 #include <syscall.h>
 #include <unistd.h>
 #include <stdlib.h>
-#include <devices.h>
+#include <device.h>
 
 static char buf1[SDC_BLOCK_SIZE];
 static char buf2[SDC_BLOCK_SIZE];

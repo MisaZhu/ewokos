@@ -49,6 +49,7 @@ ARCH_OBJS = arch/$(arch)/src/irq.o \
 DEV_OBJS =  src/dev/basic_dev.o
 
 LIB_OBJS = ../lib/src/kstring.o \
+	../lib/src/device.o \
 	../lib/src/ext2.o \
 	../lib/src/vprintf.o
 

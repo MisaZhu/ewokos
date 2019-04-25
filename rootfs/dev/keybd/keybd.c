@@ -1,7 +1,7 @@
 #include <dev/devserv.h>
 #include <unistd.h>
 #include <syscall.h>
-#include <devices.h>
+#include <device.h>
 
 int32_t keyb_read(uint32_t node, void* buf, uint32_t size, int32_t seek) {
 	(void)node;

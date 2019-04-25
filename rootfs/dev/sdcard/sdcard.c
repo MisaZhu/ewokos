@@ -6,7 +6,7 @@
 #include <vfs/fs.h>
 #include <syscall.h>
 #include <ext2.h>
-#include <devices.h>
+#include <device.h>
 
 static int32_t _iblock = 12;
 static int32_t _typeid =  dev_typeid(DEV_SDC, 0);

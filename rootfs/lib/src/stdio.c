@@ -1,7 +1,7 @@
 #include <syscall.h>
 #include <kstring.h>
 #include <vprintf.h>
-#include <devices.h>
+#include <device.h>
 #include <unistd.h>
 
 void putch(int c) {

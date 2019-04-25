@@ -3,7 +3,7 @@
 #include <syscall.h>
 #include <fbinfo.h>
 #include <shm.h>
-#include <devices.h>
+#include <device.h>
 
 static fb_info_t _fb_info;
 static int32_t _fb_buf_id = -1;
