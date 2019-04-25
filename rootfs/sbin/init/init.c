@@ -30,6 +30,12 @@ int main() {
 
 	pid = fork();
 	if(pid == 0) { 
+		exec("/sbin/dev/null");
+	}
+	kserv_wait("dev.null");
+
+	pid = fork();
+	if(pid == 0) { 
 		//printf("start tty service ... ");
 		exec("/sbin/dev/ttyd");
 	}
