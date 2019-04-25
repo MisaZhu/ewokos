@@ -6,100 +6,103 @@
 #include <kserv.h>
 #include <syscall.h>
 
+static int start_vfsd() {
+	printf("start vfs service ... ");
+	int pid = fork();
+	if(pid == 0) { 
+		exec("/sbin/vfsd");
+	}
+	kserv_wait("kserv.vfsd");
+	printf("ok.\n");
+	return 0;
+}
+
+static int mount_root() {
+	printf("mount root fs from sdcard ... ");
+	int pid = fork();
+	if(pid == 0) { 
+		exec("/sbin/dev/sdcard");
+	}
+	kserv_wait("dev.sdcard");
+	return 0;
+}
+
+static int read_line(int fd, char* line, int sz) {
+	int i = 0;
+	while(i<sz) {
+		char c;
+		if(read(fd, &c, 1) <= 0) {
+			line[i] = 0;
+			return -1;
+		}
+		if(c == '\n') {
+			line[i] = 0;
+			break;
+		}
+		line[i++] = c;
+	}
+	return i;
+}
+
+static int run_init_procs(const char* fname) {
+	int fd = open(fname, 0);
+	if(fd < 0)
+		return -1;
+
+	char cmd[CMD_MAX];
+	int i = 0;
+	while(true) {
+		i = read_line(fd, cmd, CMD_MAX-1);
+		if(i < 0)
+			break;
+		if(i == 0)
+			continue;
+
+		int pid = fork();
+		if(pid == 0) { 
+			exec(cmd);
+		}
+	}
+	close(fd);
+	return 0;
+}
+
+static int welcome() {
+	int fd = open("/etc/welcome", 0);
+	if(fd < 0)
+		return -1;
+
+	char line[128];
+	int i = 0;
+	while(true) {
+		i = read_line(fd, line, 128-1);
+		if(i < 0)
+			break;
+		printf("%s\n", line);
+	}
+	close(fd);
+	return 0;
+}
+
 int main() {
 	if(getpid() > 0) {
 		printf("Panic: 'init' process can only run at boot time!\n");
 		return -1;
 	}
 
-	int pid = 0;
-
-	printf("start vfs service ... ");
-	pid = fork();
-	if(pid == 0) { 
-		exec("/sbin/vfsd");
-	}
-	kserv_wait("kserv.vfsd");
-	printf("ok.\n");
-
-	pid = fork();
-	if(pid == 0) { 
-		exec("/sbin/dev/sdcard");
-	}
-	kserv_wait("dev.sdcard");
-
-	pid = fork();
-	if(pid == 0) { 
-		exec("/sbin/dev/null");
-	}
-	kserv_wait("dev.null");
-
-	pid = fork();
-	if(pid == 0) { 
-		//printf("start tty service ... ");
-		exec("/sbin/dev/ttyd");
-	}
-	kserv_wait("dev.tty");
-
-	pid = fork();
-	if(pid == 0) { 
-		//printf("start framebuffer service ... ");
-		exec("/sbin/dev/fbd");
-	}
-	kserv_wait("dev.fb");
-
-	pid = fork();
-	if(pid == 0) { 
-		//printf("start keyboard service ... ");
-		exec("/sbin/dev/keybd");
-	}
-	kserv_wait("dev.keyb");
-
-	pid = fork();
-	if(pid == 0) { 
-		//printf("start console service ... ");
-		exec("/sbin/dev/consoled");
-	}
-	kserv_wait("dev.console");
+	start_vfsd();
+	mount_root();
+	run_init_procs("/etc/init.dev");
+	run_init_procs("/etc/init.rd");
 
 	init_stdio();
-
-	pid = fork();
-	if(pid == 0) { 
-		//printf("start proc service ... ");
-		exec("/sbin/dev/procd");
-	}
-	kserv_wait("dev.proc");
-
-	pid = fork();
-	if(pid == 0) { 
-		printf("start user manager ... ");
-		exec("/sbin/userman");
-	}
-	kserv_wait("kserv.userman");
-	printf("ok.\n");
-
-	printf("\n: Hey! wake up!\n"
-			": Matrix had you.\n"
-			": Follow the rabbit...\n\n");
-
-	printf(
-			"    ,-.,-.\n"
-			"    ( ( (\n"
-			"    \\ ) ) _..-.._\n"
-			"   __)/,’,’       `.\n"
-			" ,'     `.     ,--.  `.\n"
-			",'   @        .’    `  \\\n"
-			"(Y            (         ;’’.\n" 
-			" `--.____,     \\        ,  ;\n"
-			" ((_ ,----’ ,---’    _,’_,’\n"
-			"  (((_,- (((______,-’\n\n"); 
+	welcome();
 
 	/*set uid to root*/
 	syscall2(SYSCALL_SET_UID, getpid(), 0);
 	/*start login process*/
 	while(1) {
-		pid = fork();
+		int pid = fork();
 		if(pid == 0) {
 			exec("/sbin/login");
 		}
