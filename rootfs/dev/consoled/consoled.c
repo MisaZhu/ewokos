@@ -5,9 +5,11 @@
 #include <syscall.h>
 #include <graph/graph.h>
 
+#define BG_COLOR 0x00000000
 #define T_W 2 /*tab width*/
 static graph_t* _graph = NULL;
 static int32_t _keyb_id = -1;
+
 
 typedef struct {
 	uint32_t line;
@@ -42,13 +44,12 @@ static int32_t console_mount(uint32_t node, int32_t index) {
 	if(_graph == NULL)
 		return -1;
 
-
 	_content.offset = 0;
 	_content.line = 0;
 	_content.line_w = udiv(_graph->w, font_big.w);
 	_content.line_num = udiv(_graph->h, font_big.h)-1;
 	_content.data = (char*)malloc(_content.line_num*_content.line_w);
-	clear(_graph, 0x222222);
+	clear(_graph, BG_COLOR);
 	return 0;
 }
 
@@ -66,13 +67,12 @@ static int32_t console_unmount(uint32_t node) {
 }
 
 static void refresh() {
-	clear(_graph, 0x222222);
+	clear(_graph, BG_COLOR);
 	uint32_t i=0;
 	uint32_t x = 0;
 	uint32_t y = 0;
 	while(i < _content.offset) {
 		draw_char(_graph, x*font_big.w, y*font_big.h, _content.data[i], &font_big, 0xFFFFFF);
-		
 		x++;
 		if(x >= _content.line_w) {
 			y++;
@@ -85,6 +85,7 @@ static void refresh() {
 static void move_line() {
 	_content.line--;
 	_content.offset -= _content.line_w;
+	//memcpy(_content.data, _content.data+_content.line_w, _content.offset);
 	uint32_t i = 0;
 	while(i < _content.offset) {
 		_content.data[i] = _content.data[i+_content.line_w];
