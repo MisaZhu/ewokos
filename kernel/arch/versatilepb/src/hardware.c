@@ -20,5 +20,5 @@ uint32_t get_mmio_mem_size() {
 void arch_set_kernel_vm(page_dir_entry_t* vm) {
 	(void)vm;
 	uint32_t fbBase = (uint32_t)V2P(_fb_start); //framebuffer addr
-	map_pages(vm, fbBase, fbBase, fbBase+2*MB, AP_RW_D);
+	map_pages(vm, fbBase, fbBase, fbBase+4*MB, AP_RW_D);
 }
