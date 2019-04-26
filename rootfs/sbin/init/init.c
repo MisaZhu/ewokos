@@ -18,13 +18,13 @@ static int start_vfsd() {
 }
 
 static int mount_root() {
-	printf("mount root fs from sdcard ... ");
+	printf("mount root fs from sdcard ...\n");
 	int pid = fork();
 	if(pid == 0) { 
 		exec("/sbin/dev/sdcard");
 	}
 	kserv_wait("dev.sdcard");
-	printf("ok.\n");
+	printf("root mounted.\n");
 	return 0;
 }
 
