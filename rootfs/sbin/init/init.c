@@ -24,6 +24,7 @@ static int mount_root() {
 		exec("/sbin/dev/sdcard");
 	}
 	kserv_wait("dev.sdcard");
+	printf("ok.\n");
 	return 0;
 }
 
