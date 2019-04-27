@@ -3,7 +3,7 @@
 #include <vprintf.h>
 #include <device.h>
 #include <unistd.h>
-#include <device.h>
+#include <stdlib.h>
 #include <stdio.h>
 
 int32_t _stdin =-1;
@@ -14,7 +14,8 @@ static char _out_buffer[STDOUT_BUF_SIZE];
 static int32_t _out_size = 0;
 
 void init_stdio() {
-	_stdin = _stdout = open("/dev/console0", 0);
+	_stdin = _stdout = -1;
+	_stdin = _stdout = open(getenv("STDIO_DEV"), 0);
 	//_stdin = _stdout = open("/dev/tty0", 0);
 	_out_size = 0;
 }

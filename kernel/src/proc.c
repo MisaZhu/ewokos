@@ -130,6 +130,7 @@ static void proc_init_space(process_t* proc) {
 	//proc->space->malloc_man.shrink = proc_shrink_mem;
 	proc->space->malloc_man.get_mem_tail = proc_get_mem_tail;
 	memset(&proc->space->files, 0, sizeof(proc_file_t)*FILE_MAX);
+	memset(&proc->space->envs, 0, sizeof(proc_env_t)*ENV_MAX);
 }
 
 static inline  uint32_t proc_get_user_stack(process_t* proc) {
@@ -340,6 +341,75 @@ process_t* proc_get(int32_t pid) {
 	return proc;
 }
 
+static inline proc_env_t* find_env(process_t* proc, const char* name) {
+	int32_t i=0;
+	for(i=0; i<ENV_MAX; i++) {
+		if(proc->space->envs[i].name[0] == 0)
+			break;
+		if(strcmp(proc->space->envs[i].name, name) == 0)
+			return &proc->space->envs[i];
+	}
+	return NULL;
+}
+	
+const char* proc_get_env(const char* name) {
+	proc_env_t* env = find_env(_current_proc, name);
+	return env == NULL ? "":env->value;
+}
+	
+const char* proc_get_env_name(int32_t index) {
+	if(index < 0 || index >= ENV_MAX)
+		return "";
+	return _current_proc->space->envs[index].name;
+}
+	
+const char* proc_get_env_value(int32_t index) {
+	if(index < 0 || index >= ENV_MAX)
+		return "";
+	return _current_proc->space->envs[index].value;
+}
+
+int32_t proc_set_env(const char* name, const char* value) {
+	proc_env_t* env = find_env(_current_proc, name);
+	if(env == NULL) {
+		int32_t i=0;
+		for(i=0; i<ENV_MAX; i++) {
+			if(_current_proc->space->envs[i].name[0] == 0) {
+				env = &_current_proc->space->envs[i];
+				strncpy(env->name, name, ENV_NAME_MAX-1);
+				break;
+			}
+		}
+	}
+	if(env == NULL)
+		return -1;
+	strncpy(env->value, value, ENV_VALUE_MAX-1);
+	return 0;
+}
+
+static inline void proc_clone_files(process_t* child, process_t* parent) {
+	int32_t i=0;
+	for(i=0; i<FILE_MAX; i++) {
+		k_file_t* kf = parent->space->files[i].kf;
+		if(kf != NULL) {
+			child->space->files[i].kf = kf;
+			child->space->files[i].flags = parent->space->files[i].flags;
+			child->space->files[i].seek = parent->space->files[i].seek;
+			kf_ref(kf, child->space->files[i].flags); //ref the kernel file table.
+		}
+	}
+}
+
+static inline void proc_clone_envs(process_t* child, process_t* parent) {
+	int32_t i=0;
+	for(i=0; i<ENV_MAX; i++) {
+		if(parent->space->envs[i].name[0] == 0)
+			break;
+		strcpy(child->space->envs[i].name, parent->space->envs[i].name);
+		strcpy(child->space->envs[i].value, parent->space->envs[i].value);
+	}
+}
+
 static int32_t proc_clone(process_t* child, process_t* parent) {
 	CRIT_IN(_p_proc_lock)
 	uint32_t pages = parent->space->heap_size / PAGE_SIZE;
@@ -390,15 +460,9 @@ static int32_t proc_clone(process_t* child, process_t* parent) {
 	child->space->malloc_man = parent->space->malloc_man;
 	child->space->malloc_man.arg = child;
 	/*file info*/
-	for(i=0; i<FILE_MAX; i++) {
-		k_file_t* kf = parent->space->files[i].kf;
-		if(kf != NULL) {
-			child->space->files[i].kf = kf;
-			child->space->files[i].flags = parent->space->files[i].flags;
-			child->space->files[i].seek = parent->space->files[i].seek;
-			kf_ref(kf, child->space->files[i].flags); //ref the kernel file table.
-		}
-	}
+	proc_clone_files(child, parent);
+	/*env info*/
+	proc_clone_envs(child, parent);
 	/* copy parent's stack to child's stack */
 	//memcpy(child->kernelStack, parent->kernelStack, PAGE_SIZE);
 	memcpy(child->user_stack, parent->user_stack, PAGE_SIZE);

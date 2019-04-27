@@ -3,11 +3,6 @@
 #include <syscall.h>
 #include <stdio.h>
 
-static void tty_putch(int c) {
-	char buf[1];
-	buf[0] = (char)c;
-}
-
 static int tty_getch() {
 	char buf[1];
 	while(true) {

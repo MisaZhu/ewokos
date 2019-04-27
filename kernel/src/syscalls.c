@@ -93,6 +93,30 @@ static int32_t syscall_exit(int32_t arg0) {
 	return 0;
 }
 
+static int32_t syscall_get_env(int32_t arg0, int32_t arg1, int32_t arg2) {
+	const char* v = proc_get_env((const char*)arg0);
+	strncpy((char*)arg1, v, arg2);
+	return 0;
+}
+
+static int32_t syscall_get_env_name(int32_t arg0, int32_t arg1, int32_t arg2) {
+	const char* n = proc_get_env_name(arg0);
+	if(n[0] == 0)
+		return -1;
+	strncpy((char*)arg1, n, arg2);
+	return 0;
+}
+
+static int32_t syscall_get_env_value(int32_t arg0, int32_t arg1, int32_t arg2) {
+	const char* v = proc_get_env_value(arg0);
+	strncpy((char*)arg1, v, arg2);
+	return 0;
+}
+
+static int32_t syscall_set_env(int32_t arg0, int32_t arg1) {
+	return proc_set_env((const char*)arg0, (const char*)arg1);
+}
+
 static int32_t syscall_thread(int32_t arg0, int32_t arg1) {
 	process_t* proc = kfork(TYPE_THREAD);
 	if(proc == NULL)
@@ -292,6 +316,11 @@ static int32_t (*const _syscallHandler[])() = {
 	[SYSCALL_WAIT] = syscall_wait,
 	[SYSCALL_YIELD] = syscall_yield,
 	[SYSCALL_EXIT] = syscall_exit,
+
+	[SYSCALL_GET_ENV] = syscall_get_env,
+	[SYSCALL_GET_ENV_NAME] = syscall_get_env_name,
+	[SYSCALL_GET_ENV_VALUE] = syscall_get_env_value,
+	[SYSCALL_SET_ENV] = syscall_set_env,
 
 	[SYSCALL_THREAD] = syscall_thread,
 

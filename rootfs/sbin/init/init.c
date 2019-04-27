@@ -85,23 +85,7 @@ static int welcome() {
 	return 0;
 }
 
-int main() {
-	if(getpid() > 0) {
-		printf("Panic: 'init' process can only run at boot time!\n");
-		return -1;
-	}
-
-	start_vfsd();
-	mount_root();
-	run_init_procs("/etc/init.dev");
-	run_init_procs("/etc/init.rd");
-
-	init_stdio();
-	welcome();
-
-	/*set uid to root*/
-	syscall2(SYSCALL_SET_UID, getpid(), 0);
-	/*start login process*/
+static void shell_loop() {
 	while(1) {
 		int pid = fork();
 		if(pid == 0) {
@@ -110,6 +94,31 @@ int main() {
 		else {
 			wait(pid);
 		}
+	}
+}
+
+int main() {
+	if(getpid() > 0) {
+		printf("Panic: 'init' process can only run at boot time!\n");
+		return -1;
+	}
+	start_vfsd();
+	mount_root();
+	run_init_procs("/etc/init.dev");
+	run_init_procs("/etc/init.rd");
+	welcome();
+
+	/*set uid to root*/
+	syscall2(SYSCALL_SET_UID, getpid(), 0);
+	/*run shell*/
+	int pid = fork();
+	if(pid == 0) {
+		setenv("STDIO_DEV", "/dev/console0");
+		shell_loop();
+	}
+	else {
+		setenv("STDIO_DEV", "/dev/tty0");
+		shell_loop();
 	}
 	return 0;
 }

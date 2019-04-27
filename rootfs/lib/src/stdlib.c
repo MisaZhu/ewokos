@@ -31,3 +31,15 @@ int32_t atoi(const char *str) {
 
 	return result * neg_multiplier;
 }
+
+const char* getenv(const char* name) {
+	static char ret[64];
+	syscall3(SYSCALL_GET_ENV, (int32_t)name, (int32_t)ret, 63);
+	return ret;
+}
+
+int32_t setenv(const char* name, const char* value) {
+	return syscall2(SYSCALL_SET_ENV, (int32_t)name, (int32_t)value);
+}
+
+

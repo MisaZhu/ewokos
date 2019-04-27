@@ -46,12 +46,19 @@ enum {
 };
 
 #define FILE_MAX 32
-
 typedef struct {
 	k_file_t* kf;	
 	uint32_t flags;
 	uint32_t seek;
 } proc_file_t;
+
+#define ENV_NAME_MAX 32
+#define ENV_VALUE_MAX 128
+#define ENV_MAX 32
+typedef struct {
+	char name[ENV_NAME_MAX];	
+	char value[ENV_VALUE_MAX];	
+} proc_env_t;
 
 typedef struct {
 	page_dir_entry_t *vm;
@@ -60,6 +67,8 @@ typedef struct {
 	malloc_t malloc_man;
 	/*for file*/
 	proc_file_t files[FILE_MAX];
+	/*for global env*/
+	proc_env_t envs[ENV_MAX];
 } process_space_t; 
 
 
@@ -90,6 +99,11 @@ typedef struct process {
 /* public symbols */
 extern process_t *_current_proc;
 extern process_t _process_table[PROCESS_COUNT_MAX];
+
+extern const char* proc_get_env(const char* name);
+extern const char* proc_get_env_name(int32_t index);
+extern const char* proc_get_env_value(int32_t index);
+extern int32_t proc_set_env(const char* name, const char* value);
 
 extern int32_t *get_current_context(void);
 extern void proc_init();
