@@ -7,6 +7,7 @@
 #define PIC ((volatile uint32_t*)(MMIO_BASE+0x00140000))
 /* interrupt controller register offsets */
 #define PIC_STATUS     0
+#define PIC_INTACK     3
 #define PIC_INT_ENABLE 4
 
 /* memory mapping for the slave interrupt controller */
@@ -37,10 +38,14 @@ void irq_init() {
 void keyboard_handle();
 void mouse_handle();
 void uart_handle();
+void sdc_handle();
 
 void irq_handle() {
 	uint32_t pic_status = PIC[PIC_STATUS];
 	uint32_t sic_status = SIC[SIC_STATUS];
+	uint32_t irq = PIC[PIC_INTACK] & 0x3ff;
+	PIC[PIC_INT_ENABLE] = 0x0;
+
 	if((pic_status & PINT_TIMER0) != 0) {
 		timer_handle();
 	}
@@ -58,4 +63,5 @@ void irq_handle() {
 			sdc_handle();
 		}
 	}
+	PIC[PIC_INT_ENABLE] = irq;
 }

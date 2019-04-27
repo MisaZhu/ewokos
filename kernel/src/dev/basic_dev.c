@@ -41,6 +41,7 @@ int32_t dev_info(int32_t type_id, void* info) {
 
 /*some char devices*/
 int32_t dev_keyboard_read(int16_t id, void* buf, uint32_t size);
+int32_t dev_mouse_read(int16_t id, void* buf, uint32_t size);
 
 int32_t dev_uart_read(int16_t id, void* buf, uint32_t size);
 int32_t dev_uart_write(int16_t id, void* buf, uint32_t size);
@@ -59,6 +60,8 @@ int32_t dev_char_read(int32_t type_id, void* buf, uint32_t size) {
 	switch(type) {
 	case DEV_KEYBOARD:
 		return dev_keyboard_read(id, buf, size);
+	case DEV_MOUSE:
+		return dev_mouse_read(id, buf, size);
 	case DEV_UART:
 		return dev_uart_read(id, buf, size);
 	}

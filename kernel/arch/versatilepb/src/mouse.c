@@ -1,8 +1,7 @@
 #include <types.h>
 #include <mm/mmu.h>
-#include <printk.h>
 #include <system.h>
-#include <proc.h>
+#include <basic_math.h>
 #include <dev/basic_dev.h>
 
 #define MOUSE_CR 0x00
@@ -58,6 +57,9 @@ static inline bool kmi_read(uint8_t * data) {
 bool mouse_init() {
 	uint8_t data;
 
+	uint32_t divisor = 1000;
+	put8(MOUSE_CLKDIV, divisor);
+
   put8(MOUSE_BASE+MOUSE_CR, MOUSE_CR_EN);
 	//reset mouse, and wait ack and pass/fail code
 	if(! kmi_write(0xff) )
@@ -66,7 +68,7 @@ bool mouse_init() {
 		return false;
 	if(data != 0xaa)
 		return false;
-
+	
 	// enable scroll wheel
 	kmi_write(0xf3);
 	kmi_write(200);
@@ -89,10 +91,8 @@ bool mouse_init() {
 	kmi_write(0xe8);
 	kmi_write(0x02);
 	kmi_write(0xe6);
-
 	//enable data reporting
 	kmi_write(0xf4);
-
 	// clear a receive buffer
 	kmi_read(&data);
 	kmi_read(&data);
@@ -104,24 +104,46 @@ bool mouse_init() {
 	return true;
 }
 
-#define MOUSE_BUF_SIZE 16*4
+#define MOUSE_BUF_SIZE 4 //16*sizeof(mouse_raw_event_t))
 
 static char _buffer_data[MOUSE_BUF_SIZE];
 static dev_buffer_t _mouse_buffer = { _buffer_data, MOUSE_BUF_SIZE, 0, 0 };
 static int32_t _mouse_lock = 0;
 
+int32_t dev_mouse_read(int16_t id, void* buf, uint32_t size) {
+	(void)id;
+	if(mod_u32(size, 4) != 0)
+		return -1;
+
+	CRIT_IN(_mouse_lock)
+	int32_t sz = size < _mouse_buffer.size ? size:_mouse_buffer.size;
+	char* p = (char*)buf;	
+	int32_t i = 0;
+	while(i < sz) {
+		char c;
+		if(dev_buffer_pop(&_mouse_buffer, &c) != 0)  {
+			CRIT_OUT(_mouse_lock)
+			return -1;
+		}
+		p[i] = c;
+		i++;
+	}
+	CRIT_OUT(_mouse_lock)
+	return i;	
+}
+
 void mouse_handle() {
-	uint8_t packet[4], index = 0;
+	CRIT_IN(_mouse_lock)
+	static uint8_t packet[4], index = 0;
 	static uint8_t btn_old = 0;
-	int32_t dx, dy, dz;
 	uint8_t btndown, btnup, btn;
 	uint8_t status;
+	int32_t rx, ry, rz;
 
 	status = get8(MOUSE_BASE + MOUSE_IIR);
 	while(status & MOUSE_IIR_RXINTR) {
 		packet[index] = get8(MOUSE_BASE + MOUSE_DATA);
 		index = (index + 1) & 0x3;
-
 		if(index == 0) {
 			btn = packet[0] & 0x7;
 
@@ -130,21 +152,26 @@ void mouse_handle() {
 			btn_old = btn;
 
 			if(packet[0] & 0x10)
-				dx = 0xffffff00 | packet[1]; //nagtive
+				rx = (int8_t)(0xffffff00 | packet[1]); //nagtive
 			else
-				dx = packet[1];
+				rx = (int8_t)packet[1];
 
 			if(packet[0] & 0x20)
-				dy = 0xffffff00 | packet[2]; //nagtive
+				ry = -(int8_t)(0xffffff00 | packet[2]); //nagtive
 			else
-				dy = packet[2];
+				ry = -(int8_t)packet[2];
 
-			dz = packet[3] & 0xf;
-			if(dz == 0xf)
-				dz = -1;
-			printk("mouse: down:%d, up:%d, x:%d, y:%d, z:%d\n", btndown, btnup, dx, dy, dz);
+			rz = (int8_t)(packet[3] & 0xf);
+			if(rz == 0xf)
+				rz = -1;
+			
+			btndown = (btndown << 1 | btnup);
+			dev_buffer_push(&_mouse_buffer, (char)btndown, true);
+			dev_buffer_push(&_mouse_buffer, (char)rx, true);
+			dev_buffer_push(&_mouse_buffer, (char)ry, true);
+			dev_buffer_push(&_mouse_buffer, (char)rz, true);
 		}
 		status = get8(MOUSE_BASE + MOUSE_IIR);
 	}
-	get8(MOUSE_BASE + MOUSE_STAT);
+	CRIT_OUT(_mouse_lock)
 }

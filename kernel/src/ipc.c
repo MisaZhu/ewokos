@@ -111,6 +111,9 @@ int32_t ipc_close(int32_t id) {
 		if(channel->size == 0)
 			ret = ipc_close_raw(channel);
 	}	
+	else {
+		ret = 0;
+	}
 	CRIT_OUT(_p_lock)
 	return ret;
 }
