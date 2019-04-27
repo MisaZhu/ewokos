@@ -1,6 +1,5 @@
 #include <ext2.h>
 #include <kstring.h>
-#include <dev/sdc.h>
 #include <dev/basic_dev.h>
 #include <mm/kmalloc.h>
 

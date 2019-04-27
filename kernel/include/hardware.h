@@ -4,8 +4,9 @@
 #include <types.h>
 #include <mm/mmu.h>
 
-extern void hw_init();
+extern char _fb_start[];
 
+extern void hw_init();
 extern uint32_t get_mmio_base_phy();
 extern uint32_t get_mmio_mem_size();
 extern uint32_t get_phy_ram_size();

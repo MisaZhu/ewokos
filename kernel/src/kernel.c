@@ -6,16 +6,12 @@
 #include <hardware.h>
 #include <kernel.h>
 #include <system.h>
-#include <dev/uart.h>
 #include <proc.h>
 #include <irq.h>
 #include <kstring.h>
 #include <timer.h>
 #include <scheduler.h>
-#include <dev/gpio.h>
-#include <dev/keyboard.h>
-#include <dev/fb.h>
-#include <dev/sdc.h>
+#include <dev/basic_dev.h>
 #include <printk.h>
 #include <ext2.h>
 
@@ -139,11 +135,7 @@ void kernel_entry() {
 	hw_init(); /*hardware init*/
 	irq_init(); /*init irq interrupts*/
 	shm_init(); /*init share memory*/
-	gpio_init(); 
-	fb_init(); /*framebuffer init*/
-	uart_init(); /*init uart for debug*/
-	keyboard_init(); /*init keyboard*/
-	sdc_init(); /*init sd card*/
+	dev_init();
 	ipc_init(); /*init internal process communiation*/
 	proc_init(); /*init process mananer*/
 	process_t* first_proc = load_init_proc(); /*load init process(first process)*/

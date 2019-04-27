@@ -2,6 +2,27 @@
 #include <proc.h>
 
 /*some devices     */
+bool uart_init();
+bool keyboard_init();
+bool mouse_init();
+bool fb_init();
+bool sdc_init();
+
+bool dev_init() {
+	if(!uart_init())
+		return false;
+	if(!keyboard_init())
+		return false;
+	if(!mouse_init())
+		return false;
+	if(!fb_init())
+		return false;
+	if(!sdc_init())
+		return false;
+	return true;
+}
+
+/*some devices     */
 int32_t dev_fb_info(int16_t id, void* info);
 /*******************/
 

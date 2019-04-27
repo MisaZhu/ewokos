@@ -1,10 +1,10 @@
 #include "printk.h"
 #include "vprintf.h"
-#include "dev/uart.h"
+#include "dev/basic_dev.h"
 
 static void outc(char c, void* p) {
 	(void)p;
-	uart_putch(c);
+	dev_char_write(dev_typeid(DEV_UART, 0), &c, 1);
 }
 
 void printk(const char *format, ...) {

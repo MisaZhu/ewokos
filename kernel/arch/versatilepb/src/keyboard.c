@@ -1,6 +1,5 @@
 #include <types.h>
 #include <mm/mmu.h>
-#include <dev/keyboard.h>
 #include <printk.h>
 #include <system.h>
 #include <proc.h>
@@ -35,9 +34,10 @@ const char _utab[] = {
 
 #define KEYBOARD_BASE (MMIO_BASE+0x6000)
 
-void keyboard_init() {
-  *(uint8_t*)(KEYBOARD_BASE + KCNTL) = 0x10; // bit4=Enable bit0=INT on
-  *(uint8_t*)(KEYBOARD_BASE + KCLK)  = 8;
+bool keyboard_init() {
+  put8(KEYBOARD_BASE + KCNTL, 0x10); // bit4=Enable bit0=INT on
+  put8(KEYBOARD_BASE + KCLK, 8);
+	return true;
 }
 
 static uint8_t _held[128] = {0};
@@ -51,7 +51,7 @@ static int32_t _keyb_lock = 0;
 void keyboard_handle() {
   uint8_t scode;
 	char c = 0;
-  scode = *(uint8_t*)(KEYBOARD_BASE + KDATA);
+  scode = get8(KEYBOARD_BASE + KDATA);
  
 	if (scode == 0xF0) // key release 
 		return;

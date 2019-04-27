@@ -1,9 +1,9 @@
 #include "mm/mmu.h"
-#include "dev/fb.h"
 #include "hardware.h"
 #include "kstring.h"
+#include "fbinfo.h"
 
-int32_t videoInit(fb_info_t *fb_info) {
+int32_t video_init(fb_info_t *fb_info) {
 	/*
 	//640x480
 	*((uint32_t*)(MMIO_BASE | 0x1c)) = 0x2c77;
@@ -57,7 +57,7 @@ bool fb_init() {
 	_fb_info.pointer = V2P(_fb_start);
 	_fb_info.size = 0;
 
-	if(videoInit(&_fb_info) == 0)
+	if(video_init(&_fb_info) == 0)
 		return true;
 	return false;
 }

@@ -1,6 +1,5 @@
 #include <hardware.h>
 #include <mm/mmu.h>
-#include <dev/fb.h>
 
 void hw_init() {
 }

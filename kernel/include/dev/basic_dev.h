@@ -4,6 +4,8 @@
 #include <types.h>
 #include <device.h>
 
+bool dev_init();
+
 int32_t dev_info(int32_t type_id, void* info);
 
 int32_t dev_char_read(int32_t type_id, void* buf, uint32_t size);

@@ -2,8 +2,6 @@
 #include <system.h>
 #include <syscalls.h>
 #include <types.h>
-#include <dev/uart.h>
-#include <dev/sdc.h>
 #include <proc.h>
 #include <kernel.h>
 #include <kstring.h>

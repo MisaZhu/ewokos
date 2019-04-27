@@ -39,16 +39,16 @@ ARCH_OBJS = arch/$(arch)/src/irq.o \
 	arch/$(arch)/src/timer.o \
 	arch/$(arch)/src/uart.o \
 	arch/$(arch)/src/keyboard.o \
+	arch/$(arch)/src/mouse.o \
 	arch/$(arch)/src/mailbox.o \
 	arch/$(arch)/src/fb.o \
 	arch/$(arch)/src/hardware.o \
-	arch/$(arch)/src/gpio.o \
-	arch/$(arch)/src/spi.o \
-	arch/$(arch)/src/sdc.o \
+	arch/$(arch)/src/sdc.o
 
 DEV_OBJS =  src/dev/basic_dev.o
 
 LIB_OBJS = ../lib/src/kstring.o \
+	../lib/src/basic_math.o \
 	../lib/src/device.o \
 	../lib/src/ext2.o \
 	../lib/src/vprintf.o

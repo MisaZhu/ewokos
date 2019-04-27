@@ -1,9 +1,9 @@
-#include <dev/sdc.h>
 #include <system.h>
 #include <mm/mmu.h>
 #include <mm/kmalloc.h>
 #include <kstring.h>
 #include <scheduler.h>
+#include <device.h>
 
 #define CONFIG_ARM_PL180_MMCI_CLOCK_FREQ 6250000
 #define MMC_RSP_PRESENT (1 << 0)

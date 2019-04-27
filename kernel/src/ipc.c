@@ -3,7 +3,6 @@
 #include <proc.h>
 #include <mm/kalloc.h>
 #include <system.h>
-#include <dev/uart.h>
 #include <printk.h>
 #include <mm/shm.h>
 

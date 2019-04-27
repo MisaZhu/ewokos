@@ -6,7 +6,6 @@
 #include <kstring.h>
 #include <system.h>
 #include <types.h>
-#include <dev/uart.h>
 #include <elf.h>
 #include <kernel.h>
 #include <kserv.h>

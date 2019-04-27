@@ -27,11 +27,10 @@
 #define V2P(V) ((uint32_t)V - KERNEL_BASE)
 #define P2V(P) ((uint32_t)P + KERNEL_BASE)
 
-#define get32(addr) (*((uint32_t *)(addr)))
-#define put32(addr, val) (*((uint32_t *)(addr)) = (val))
-
-#define mmio_read(reg) *((volatile uint32_t *)(reg))
-#define mmio_write(reg, data) *((volatile uint32_t *)(reg)) = (data)
+#define get32(addr) (*((volatile uint32_t *)(addr)))
+#define put32(addr, val) (*((volatile uint32_t *)(addr)) = (val))
+#define get8(addr) (*((volatile uint8_t *)(addr)))
+#define put8(addr, val) (*((volatile uint8_t *)(addr)) = (val))
 
 /* descriptor types */
 #define PAGE_TYPE 2
