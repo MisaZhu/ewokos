@@ -6,20 +6,20 @@
 #include <device.h>
 
 int main() {
-	printf("read keyboard: ");
-	int fd = open("/dev/keyb0", 0);
+	printf("read mouse: ");
+	int fd = open("/dev/mouse0", 0);
 	if(fd < 0) {
 		return -1;
 	}
 
 	while(true) {
-		char buf[1];
-		int sz = read(fd, buf, 1);
+		int8_t ev[4];
+
+		int sz = read(fd, ev, 4);
 		if(sz <= 0)
 			break;
-		printf("%c", buf[0]);
-		if(buf[0] == '\r')
-			break;
+
+		printf("mouse: down:0x%x, x:%d, y:%d, z:%d\n", ev[0], ev[1], ev[2], ev[3]);
 	}
 
 	close(fd);

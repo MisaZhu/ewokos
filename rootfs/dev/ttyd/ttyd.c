@@ -6,7 +6,6 @@
 static void tty_putch(int c) {
 	char buf[1];
 	buf[0] = (char)c;
-	syscall3(SYSCALL_DEV_CHAR_WRITE, dev_typeid(DEV_UART, 0), (int32_t)buf, 1);
 }
 
 static int tty_getch() {
@@ -22,10 +21,7 @@ int32_t tty_write(uint32_t node, void* buf, uint32_t size, int32_t seek) {
 	(void)node;
 	(void)seek;
 
-	const char* p = (const char*)buf;
-	for(uint32_t i=0; i<size; i++) {
-		tty_putch((int)p[i]);
-	}
+	syscall3(SYSCALL_DEV_CHAR_WRITE, dev_typeid(DEV_UART, 0), (int32_t)buf, (int32_t)size);
 	return size;
 }
 

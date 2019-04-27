@@ -2,4 +2,5 @@
 /sbin/dev/ttyd
 /sbin/dev/fbd
 /sbin/dev/keybd
+/sbin/dev/moused
 /sbin/dev/consoled
