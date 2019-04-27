@@ -1,5 +1,5 @@
-SHELL_DIR = sbin/shell
-SHELL_PROGRAM = build/sbin/shell 
+SHELL_DIR = bin/shell
+SHELL_PROGRAM = build/bin/shell 
 PROGRAM += $(SHELL_PROGRAM)
 
 EXTRA_CLEAN += $(SHELL_PROGRAM) $(SHELL_DIR)/*.o

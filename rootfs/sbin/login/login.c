@@ -71,6 +71,6 @@ int main() {
 		}
 	}
 	printf("\n");
-	exec("/sbin/shell");
+	exec("/bin/shell");
 	return 0;
 }

@@ -1,4 +1,5 @@
 include bin/ps/build.mk
+include bin/shell/build.mk
 include bin/ls/build.mk
 include bin/export/build.mk
 include bin/cat/build.mk

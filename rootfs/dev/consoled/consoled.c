@@ -11,13 +11,14 @@
 static graph_t* _graph = NULL;
 static int32_t _keyb_id = -1;
 
-
 typedef struct {
+	uint32_t start_line;
 	uint32_t line;
 	uint32_t line_num;
 	uint32_t line_w;
+	uint32_t total;
 	char* data;
-	uint32_t offset;
+	uint32_t size;
 } content_t;
 
 static content_t _content;
@@ -33,10 +34,12 @@ static int32_t console_mount(uint32_t node, int32_t index) {
 	if(_graph == NULL)
 		return -1;
 
-	_content.offset = 0;
+	_content.size = 0;
+	_content.start_line = 0;
 	_content.line = 0;
 	_content.line_w = div_u32(_graph->w, font_big.w);
 	_content.line_num = div_u32(_graph->h, font_big.h)-1;
+	_content.total = _content.line_num * _content.line_w;
 	_content.data = (char*)malloc(_content.line_num*_content.line_w);
 	clear(_graph, BG_COLOR);
 	return 0;
@@ -50,9 +53,16 @@ static int32_t console_unmount(uint32_t node) {
 	free(_content.data);
 	graph_close(_graph);
 	_graph = NULL;
-	_content.offset = 0;
+	_content.size = 0;
 	_content.data = NULL;
 	return 0;
+}
+
+static uint32_t get_at(uint32_t i) {
+	uint32_t at = i + (_content.line_w * _content.start_line);
+	if(at >= _content.total)
+		at -=  _content.total;
+	return at;
 }
 
 static void refresh() {
@@ -60,8 +70,12 @@ static void refresh() {
 	uint32_t i=0;
 	uint32_t x = 0;
 	uint32_t y = 0;
-	while(i < _content.offset) {
-		draw_char(_graph, x*font_big.w, y*font_big.h, _content.data[i], &font_big, 0xFFFFFF);
+	while(i < _content.size) {
+		uint32_t at = get_at(i);
+		char c = _content.data[at];
+		if(c != ' ') {
+			draw_char(_graph, x*font_big.w, y*font_big.h, _content.data[at], &font_big, 0xFFFFFF);
+		}
 		x++;
 		if(x >= _content.line_w) {
 			y++;
@@ -73,13 +87,10 @@ static void refresh() {
 
 static void move_line() {
 	_content.line--;
-	_content.offset -= _content.line_w;
-	//memcpy(_content.data, _content.data+_content.line_w, _content.offset);
-	uint32_t i = 0;
-	while(i < _content.offset) {
-		_content.data[i] = _content.data[i+_content.line_w];
-		i++;
-	}
+	_content.start_line++;
+	if(_content.start_line >= _content.line_num)
+		_content.start_line = 0;
+	_content.size -= _content.line_w;
 	refresh();
 }
 
@@ -88,8 +99,8 @@ static void put_char(char c) {
 		c = '\n';
 
 	if(c == 8) { //backspace
-		if(_content.offset > 0) {
-			_content.offset--;
+		if(_content.size > 0) {
+			_content.size--;
 			refresh();
 		}
 		return;
@@ -103,29 +114,33 @@ static void put_char(char c) {
 		return;
 	}
 	if(c == '\n') { //new line.
-		uint32_t x =  _content.offset - (_content.line*_content.line_w);
+		uint32_t x =  _content.size - (_content.line*_content.line_w);
 		while(x < _content.line_w) {
-			_content.data[_content.offset++] = ' ';
+			uint32_t at = get_at(_content.size);
+			_content.data[at] = ' ';
+			_content.size++;
 			x++;
 		}
 		_content.line++;
 	}
 	else {
-		uint32_t x =  _content.offset - (_content.line*_content.line_w) + 1;
+		uint32_t x =  _content.size - (_content.line*_content.line_w) + 1;
 		if(x == _content.line_w) {
 			_content.line++;
 		}
 	}
 
-	if(_content.line >= _content.line_num) {
+	if((_content.line) >= _content.line_num) {
 		move_line();
 	}
+	
 	if(c != '\n') {
-		_content.data[_content.offset] = c;
-		int32_t x = (_content.offset - (_content.line*_content.line_w)) * font_big.w;
+		uint32_t at = get_at(_content.size);
+		_content.data[at] = c;
+		int32_t x = (_content.size - (_content.line*_content.line_w)) * font_big.w;
 		int32_t y = _content.line * font_big.h;
 		draw_char(_graph, x, y, c, &font_big, 0xFFFFFF);
-		_content.offset++;
+		_content.size++;
 	}
 }
 
