@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <syscall.h>
 #include <graph/graph.h>
+#include <basic_math.h>
 
 #define BG_COLOR 0x00000000
 #define T_W 2 /*tab width*/
@@ -21,18 +22,6 @@ typedef struct {
 
 static content_t _content;
 
-static inline uint32_t udiv(uint32_t v, uint32_t by) {
-	if(by == 0)
-		return 0;
-	uint32_t ret = 0;
-	uint32_t cmp = 0;
-	while(cmp <= v) {
-		cmp += by;
-		ret++;
-	}
-	return ret;
-}
-
 static int32_t console_mount(uint32_t node, int32_t index) {
 	(void)node;
 	(void)index;
@@ -46,8 +35,8 @@ static int32_t console_mount(uint32_t node, int32_t index) {
 
 	_content.offset = 0;
 	_content.line = 0;
-	_content.line_w = udiv(_graph->w, font_big.w);
-	_content.line_num = udiv(_graph->h, font_big.h)-1;
+	_content.line_w = div_u32(_graph->w, font_big.w);
+	_content.line_num = div_u32(_graph->h, font_big.h)-1;
 	_content.data = (char*)malloc(_content.line_num*_content.line_w);
 	clear(_graph, BG_COLOR);
 	return 0;
