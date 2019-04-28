@@ -4,7 +4,7 @@
 #include <stdlib.h>
 
 static inline bool is_space(char c) {
-	return (c == ' ' || c == '\t' || c == '\r');
+	return (c == ' ' || c == '\t' || c == '\r' || c == '\n');
 }
 
 static inline void trim_right(char* s, int32_t i) {
