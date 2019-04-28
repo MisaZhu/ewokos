@@ -10,6 +10,10 @@ inline uint32_t rgb(uint32_t r, uint32_t g, uint32_t b) {
 	return b << 16 | g << 8 | r;
 }
 
+uint32_t rgb_int(uint32_t c) {
+	return rgb((c>>16)&0xff, (c>>8)&0xff, c&0xff);
+}
+
 graph_t* graph_open(const char* fname) {
 	fb_info_t fbInfo;
 	int fd = fs_open(fname, 0);
@@ -123,7 +127,7 @@ void fill(graph_t* g, int32_t x, int32_t y, uint32_t w, uint32_t h, uint32_t col
 	}
 }
 
-void draw_char(graph_t* g, int32_t x, int32_t y, char c, font_t* font, uint32_t color) {
+static void draw_char8(graph_t* g, int32_t x, int32_t y, char c, font_t* font, uint32_t color) {
 	int32_t xchar, ychar, xpart, ypart, index, pmask;
 	unsigned char *pdata = (unsigned char*) font->data, check;
 
@@ -132,9 +136,9 @@ void draw_char(graph_t* g, int32_t x, int32_t y, char c, font_t* font, uint32_t 
 
 	for(ychar=0; (uint32_t)ychar<font->h; ychar++) {
 		xpart = x;
-		pmask = 1 << (font->w-1);
+		pmask = 1 << (8-1);
 		check = pdata[index+ychar];
-		for(xchar=0; (uint32_t)xchar<font->w; xchar++) {
+		for(xchar=0; (uint32_t)xchar<8; xchar++) {
 			if(check&pmask)
 				pixel(g, xpart, ypart, color);
 			//else
@@ -144,6 +148,48 @@ void draw_char(graph_t* g, int32_t x, int32_t y, char c, font_t* font, uint32_t 
 		}
 		ypart++;
 	}
+}
+
+static void draw_char16(graph_t* g, int32_t x, int32_t y, char c, font_t* font, uint32_t color) {
+	int32_t xchar, ychar, xpart, ypart, index, pmask;
+	unsigned char *pdata = (unsigned char*) font->data, check;
+
+	index = (int32_t)c * font->h * 2;
+	ypart = y;
+
+	for(ychar=0; (uint32_t)ychar<font->h; ychar++) {
+		xpart = x;
+		pmask = 1 << (8-1);
+		check = pdata[index+ychar];
+		for(xchar=0; (uint32_t)xchar<8; xchar++) {
+			if(check&pmask)
+				pixel(g, xpart, ypart, color);
+			//else
+			//	pixel(g, xpart, ypart, bg);
+			xpart++;
+			pmask >>= 1;
+		}
+
+		index++;
+		check = pdata[index+ychar];
+		pmask = 1 << (8-1);
+		for(xchar=0; (uint32_t)xchar<8; xchar++) {
+			if(check&pmask)
+				pixel(g, xpart, ypart, color);
+			//else
+			//	pixel(g, xpart, ypart, bg);
+			xpart++;
+			pmask >>= 1;
+		}
+		ypart++;
+	}
+}
+
+void draw_char(graph_t* g, int32_t x, int32_t y, char c, font_t* font, uint32_t color) {
+	if(font->w <= 8)
+		draw_char8(g, x, y, c, font, color);
+	else if(font->w <= 16)
+		draw_char16(g, x, y, c, font, color);
 }
 
 void draw_text(graph_t* g, int32_t x, int32_t y, const char* str, font_t* font, uint32_t color) {
