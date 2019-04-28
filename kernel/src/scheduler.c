@@ -5,6 +5,7 @@ void schedule(void) {
 	if(_current_proc->state == READY) { //current process ready to run
 		_current_proc->state = RUNNING;
 		proc_start(_current_proc);
+		return;
 	}
 
 	//current process is runing, switch to next one.
@@ -17,6 +18,7 @@ void schedule(void) {
 				head_proc->state = READY;
 			proc->state = RUNNING; //run next one.
 			proc_start(proc);
+			return;
 		}
 		else if(proc->state == TERMINATED)  {
 			process_t* tmp = proc;
