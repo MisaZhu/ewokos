@@ -26,6 +26,10 @@ CFLAGS = -I. -Iinclude -I../lib/include \
 				 -g \
 				 -mcpu=$(CPU)
 
+ifdef keymap2
+CFLAGS += -DKEYMAP2
+endif
+
 ASFLAGS = -g -I. -I include -I../lib/include -mcpu=$(CPU) $(ARCH_QEMU_CFLAGS)
 QEMU_FLAGS = $(ARCH_QEMU_FLAGS)
 

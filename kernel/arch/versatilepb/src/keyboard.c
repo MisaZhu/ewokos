@@ -25,7 +25,7 @@ static char _buffer_data[KEYB_BUF_SIZE];
 static dev_buffer_t _keyb_buffer = { _buffer_data, KEYB_BUF_SIZE, 0, 0 };
 static int32_t _keyb_lock = 0;
 
-#if 1
+#ifndef KEYMAP2
            
 //0    1    2    3    4    5    6    7     8    9    A    B    C    D    E    F
 const char _ltab[] = {
