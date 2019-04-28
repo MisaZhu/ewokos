@@ -26,7 +26,7 @@ CFLAGS = -I. -Iinclude -I../lib/include \
 				 -g \
 				 -mcpu=$(CPU)
 
-ifeq ($(keymap2), true)
+ifeq ($(keymap2), yes)
 CFLAGS += -DKEYMAP2
 endif
 
