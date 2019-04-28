@@ -8,7 +8,7 @@ int main() {
 	int32_t fd = _stdout;
 	if(fd < 0)
 		return -1;
-	char c = 0;
-	write(fd, &c, 1);
+	int32_t cmd = 0; //clear console
+	fs_ctrl(fd, cmd, NULL, 0, NULL, 0);
 	return 0;
 }
