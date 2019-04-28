@@ -4,6 +4,29 @@
 #include <proc.h>
 #include <dev/basic_dev.h>
 
+#define KCNTL 0x00
+#define KSTAT 0x04
+#define KDATA 0x08
+#define KCLK  0x0C
+#define KISTA 0x10
+
+#define KEYBOARD_BASE (MMIO_BASE+0x6000)
+
+bool keyboard_init() {
+  put8(KEYBOARD_BASE + KCNTL, 0x10); // bit4=Enable bit0=INT on
+  put8(KEYBOARD_BASE + KCLK, 8);
+	return true;
+}
+
+
+#define KEYB_BUF_SIZE 16
+
+static char _buffer_data[KEYB_BUF_SIZE];
+static dev_buffer_t _keyb_buffer = { _buffer_data, KEYB_BUF_SIZE, 0, 0 };
+static int32_t _keyb_lock = 0;
+
+#if 1
+           
 //0    1    2    3    4    5    6    7     8    9    A    B    C    D    E    F
 const char _ltab[] = {
   0,   0,   0,   0,   0,   0,   0,   0,    0,   0,   0,   0,   0,   0,   0,   0,
@@ -25,27 +48,7 @@ const char _utab[] = {
   0,   0,   0,   0,   0,   0,  '\b', 0,    0,   0,   0,   0,   0,   0,   0,   0
 };
 
-#define KCNTL 0x00
-#define KSTAT 0x04
-#define KDATA 0x08
-#define KCLK  0x0C
-#define KISTA 0x10
-
-#define KEYBOARD_BASE (MMIO_BASE+0x6000)
-
-bool keyboard_init() {
-  put8(KEYBOARD_BASE + KCNTL, 0x10); // bit4=Enable bit0=INT on
-  put8(KEYBOARD_BASE + KCLK, 8);
-	return true;
-}
-
 static uint8_t _held[128] = {0};
-
-#define KEYB_BUF_SIZE 16
-
-static char _buffer_data[KEYB_BUF_SIZE];
-static dev_buffer_t _keyb_buffer = { _buffer_data, KEYB_BUF_SIZE, 0, 0 };
-static int32_t _keyb_lock = 0;
 
 void keyboard_handle() {
   uint8_t scode;
@@ -85,6 +88,41 @@ void keyboard_handle() {
 	CRIT_OUT(_keyb_lock)
 	proc_wake((int32_t)&_keyb_buffer);
 }
+
+#else 
+
+/* Scan codes to ASCII for unshifted keys; unused keys are left out */
+static char unsh[] = {
+	0,033,'1','2','3','4','5','6',        '7','8','9','0', '-','=','\b','\t',
+	'q','w','e','r','t','y','u','i',      'o','p','[',']', '\r', 0,'a','s',
+	'd','f','g','h','j','k','l',';',       0,  0,  0,  0,  'z','x','c','v',
+	'b','n','m',',','.','/', 0,'*',        0, ' '
+};
+
+/* Scan codes to ASCII for shifted keys; unused keys are left out */
+static char sh[] = {
+	0,033,'!','@','#','$','%','^',        '&','*','(',')', '_', '+','\b','\t',
+	'Q','W','E','R','T','Y','U','I',      'O','P','{','}', '\r', 0, 'A', 'S',
+	'D','F','G','H','J','K','L',':',       0, '~', 0, '|', 'Z', 'X','C', 'V',
+	'B','N','M','<','>','?',0,'*',         0, ' '
+};
+
+// kbd_handler1() for scan code set 1
+void keyboard_handle() {
+	uint8_t scode, c;
+	scode = get8(KEYBOARD_BASE + KDATA);
+
+	if (scode & 0x80)
+		return;
+	c = unsh[scode];
+
+	CRIT_IN(_keyb_lock)
+	dev_buffer_push(&_keyb_buffer, c, true);
+	CRIT_OUT(_keyb_lock)
+	proc_wake((int32_t)&_keyb_buffer);
+}
+
+#endif
 
 int32_t dev_keyboard_read(int16_t id, void* buf, uint32_t size) {
 	(void)id;
