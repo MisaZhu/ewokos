@@ -106,19 +106,18 @@ int main() {
 	mount_root();
 	run_init_procs("/etc/init.dev");
 	run_init_procs("/etc/init.rd");
-	welcome();
 
 	/*set uid to root*/
 	syscall2(SYSCALL_SET_UID, getpid(), 0);
 	/*run shell*/
-	/*
-	setenv("STDIO_DEV", "/dev/console0");
+	/*setenv("STDIO_DEV", "/dev/console0");
 	shell_loop();
 	*/
-	
 	int pid = fork();
 	if(pid == 0) {
 		setenv("STDIO_DEV", "/dev/console0");
+		init_stdio();
+		welcome();
 		shell_loop();
 	}
 	else {
