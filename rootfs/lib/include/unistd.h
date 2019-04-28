@@ -23,6 +23,8 @@ void yield();
 int getuid();
 
 /*i/o functions*/
+#define O_RDONLY 0
+
 int open(const char* fname, int mode);
 
 int write(int fd, const void* buf, uint32_t mode);
