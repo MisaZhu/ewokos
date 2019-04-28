@@ -10,7 +10,6 @@ typedef struct  {
 	int32_t pref;
 } font_t;
 
-extern font_t font_big;
-extern font_t font_reg;
+font_t* get_font(const char* name);
 
 #endif

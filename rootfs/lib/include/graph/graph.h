@@ -13,6 +13,7 @@ typedef struct Graph {
 } graph_t;
 
 uint32_t rgb(uint32_t r, uint32_t g, uint32_t b);
+uint32_t rgb_int(uint32_t c);
 
 graph_t* graph_open(const char* fname);
 
