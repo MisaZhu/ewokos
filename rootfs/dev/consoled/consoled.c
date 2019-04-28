@@ -144,6 +144,13 @@ static void put_char(char c) {
 	}
 }
 
+static void console_clear() {
+	_content.size = 0;
+	_content.start_line = 0;
+	_content.line = 0;
+	clear(_graph, BG_COLOR);
+}
+
 int32_t console_write(uint32_t node, void* buf, uint32_t size, int32_t seek) {
 	(void)seek;
 	(void)node;
@@ -151,7 +158,10 @@ int32_t console_write(uint32_t node, void* buf, uint32_t size, int32_t seek) {
 	const char* p = (const char*)buf;
 	for(uint32_t i=0; i<size; i++) {
 		char c = p[i];
-		put_char(c);
+		if(c == 0) //zero for clear.
+			console_clear();
+		else
+			put_char(c);
 	}
 	graph_flush(_graph);
 	return size;
