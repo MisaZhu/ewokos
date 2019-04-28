@@ -110,12 +110,28 @@ static char sh[] = {
 // kbd_handler1() for scan code set 1
 void keyboard_handle() {
 	uint8_t scode, c;
+	static uint32_t t2 = 0;
 	scode = get8(KEYBOARD_BASE + KDATA);
 
-	if (scode & 0x80)
+	if(scode == 182 || scode == 170) { 
+		t2 = 0;
 		return;
-	c = unsh[scode];
+	}	
+	else if(scode & 0x80) {
+		return;
+	}
 
+	if(t2 == 0) {
+		c = unsh[scode];
+		if(c == 0) {
+			t2 = 1;
+			return;
+		}
+	}
+	else {
+		c = sh[scode];
+	}
+	
 	CRIT_IN(_keyb_lock)
 	dev_buffer_push(&_keyb_buffer, c, true);
 	CRIT_OUT(_keyb_lock)

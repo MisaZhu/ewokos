@@ -1,6 +1,7 @@
 #include <types.h>
 #include <mm/mmu.h>
 #include <system.h>
+#include <proc.h>
 #include <basic_math.h>
 #include <dev/basic_dev.h>
 
