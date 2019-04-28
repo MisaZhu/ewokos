@@ -111,6 +111,9 @@ int main() {
 	/*set uid to root*/
 	syscall2(SYSCALL_SET_UID, getpid(), 0);
 	/*run shell*/
+	setenv("STDIO_DEV", "/dev/console0");
+	shell_loop();
+	/*
 	int pid = fork();
 	if(pid == 0) {
 		setenv("STDIO_DEV", "/dev/console0");
@@ -120,5 +123,6 @@ int main() {
 		setenv("STDIO_DEV", "/dev/tty0");
 		shell_loop();
 	}
+	*/
 	return 0;
 }

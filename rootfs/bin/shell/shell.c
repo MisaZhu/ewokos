@@ -2,6 +2,7 @@
 #include <kstring.h>
 #include <unistd.h>
 #include <vfs/fs.h>
+#include <syscall.h>
 
 #define KEY_BACKSPACE 127
 #define KEY_LEFT 0x8
@@ -99,6 +100,45 @@ static int cd(const char* dir) {
 	return 0;
 }
 
+void export_all() {
+	int32_t i=0;
+	while(true) {
+		char name[64], value[128];
+		if(syscall3(SYSCALL_GET_ENV_NAME, i, (int32_t)name, 63) != 0 || name[0] == 0)
+			break;
+		if(syscall3(SYSCALL_GET_ENV_VALUE, i, (int32_t)value, 127) != 0)
+			break;
+		printf("%s=%s\n", name, value);
+		i++;
+	}
+}
+
+void export_get(const char* arg) {
+	char value[128];
+	if(syscall3(SYSCALL_GET_ENV, (int32_t)arg, (int32_t)value, 127) != 0) 
+		return;
+	printf("%s=%s\n", arg, value);
+}
+
+void export_set(const char* arg) {
+	char name[64];
+	char* v = strchr(arg, '=');
+	if(v == NULL)
+		return;
+	strncpy(name, arg, v-arg);
+
+	syscall2(SYSCALL_SET_ENV, (int32_t)name, (int32_t)(v+1));
+}
+
+int export(const char* arg) {
+	char* v = strchr(arg, '=');
+	if(v == NULL)
+		export_get(arg);
+	else
+		export_set(arg);
+	return 0;
+}
+
 static int handle(const char* cmd) {
 	if(strcmp(cmd, "cd") == 0) {
 		return cd("/");
@@ -106,7 +146,13 @@ static int handle(const char* cmd) {
 	else if(strncmp(cmd, "cd ", 3) == 0) {
 		return cd(cmd + 3);
 	}
-
+	else if(strcmp(cmd, "export") == 0) {
+		export_all();
+		return 0;
+	}
+	else if(strncmp(cmd, "export ", 7) == 0) {
+		return export(cmd+7);
+	}
 	return -1; /*not shell internal command*/
 }
 

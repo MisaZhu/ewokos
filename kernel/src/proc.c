@@ -370,15 +370,15 @@ const char* proc_get_env_value(int32_t index) {
 }
 
 int32_t proc_set_env(const char* name, const char* value) {
-	proc_env_t* env = find_env(_current_proc, name);
-	if(env == NULL) {
-		int32_t i=0;
-		for(i=0; i<ENV_MAX; i++) {
-			if(_current_proc->space->envs[i].name[0] == 0) {
-				env = &_current_proc->space->envs[i];
+	proc_env_t* env = NULL;	
+	int32_t i=0;
+	for(i=0; i<ENV_MAX; i++) {
+		if(_current_proc->space->envs[i].name[0] == 0 ||
+				strcmp(_current_proc->space->envs[i].name, name) == 0) {
+			env = &_current_proc->space->envs[i];
+			if(env->name[0] == 0)
 				strncpy(env->name, name, ENV_NAME_MAX-1);
-				break;
-			}
+			break;
 		}
 	}
 	if(env == NULL)
