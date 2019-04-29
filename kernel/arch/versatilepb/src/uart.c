@@ -61,11 +61,12 @@ int32_t dev_uart_read(int16_t id, void* buf, uint32_t size) {
 		p[i] = c;
 		i++;
 	}
-	CRIT_OUT(_uart_lock)
+
 	/*
 	if(i == 0)
 		proc_sleep((int32_t)&_uart_buffer);
 	*/
+	CRIT_OUT(_uart_lock)
 	return i;	
 }
 
