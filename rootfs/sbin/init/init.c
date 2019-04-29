@@ -113,6 +113,7 @@ int main() {
 	/*setenv("STDIO_DEV", "/dev/console0");
 	shell_loop();
 	*/
+	usleep(200000);
 	int pid = fork();
 	if(pid == 0) {
 		setenv("STDIO_DEV", "/dev/console0");

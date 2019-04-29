@@ -71,6 +71,11 @@ typedef struct {
 	proc_env_t envs[ENV_MAX];
 } process_space_t; 
 
+typedef struct {
+	uint32_t count_msec; 
+	uint32_t from_sec; 
+	uint32_t from_msec; 
+} proc_sleep_t;
 
 typedef struct process {
 	uint32_t type;
@@ -83,6 +88,7 @@ typedef struct process {
 	char pwd[NAME_MAX]; /*working dir*/
 	int32_t wait_pid; /*waiting for specific process end*/
 	uint32_t slept_by; /*slept_by*/
+	proc_sleep_t sleep_counter;
 
 	entry_function_t entry;
 	char *user_stack;
@@ -114,6 +120,8 @@ void proc_free(process_t *proc);
 bool proc_expand_mem(void *proc, int32_t page_num, bool read_only);
 void proc_shrink_mem(void *proc, int32_t page_num);
 process_t* proc_get(int32_t pid);
+void proc_sleep_msec(uint32_t msec);
+void proc_sleep_check(process_t* proc);
 void proc_sleep(uint32_t by);
 void proc_wake(uint32_t by);
 void proc_wake_pid(int32_t pid);

@@ -129,8 +129,10 @@ int32_t dev_mouse_read(int16_t id, void* buf, uint32_t size) {
 		p[i] = c;
 		i++;
 	}
+	/*
 	if(i == 0)
 		proc_sleep((int32_t)&_mouse_buffer);
+	*/
 	CRIT_OUT(_mouse_lock)
 	return i;	
 }
@@ -174,7 +176,7 @@ void mouse_handle() {
 			dev_buffer_push(&_mouse_buffer, (char)ry, true);
 			dev_buffer_push(&_mouse_buffer, (char)rz, true);
 
-			proc_wake((int32_t)&_mouse_buffer);
+			//proc_wake((int32_t)&_mouse_buffer);
 		}
 		status = get8(MOUSE_BASE + MOUSE_IIR);
 	}

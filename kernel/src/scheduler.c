@@ -13,6 +13,7 @@ void schedule(void) {
 	process_t* proc = _current_proc->next;
 
 	while(head_proc != proc) {
+		proc_sleep_check(proc);
 		if(proc->state == READY)  {
 			if(head_proc->state == RUNNING) //current process running.
 				head_proc->state = READY;
@@ -25,7 +26,7 @@ void schedule(void) {
 			proc = proc->next;
 			proc_free(tmp);
 		}
-		else 
+		else
 			proc = proc->next;
 	}
 }

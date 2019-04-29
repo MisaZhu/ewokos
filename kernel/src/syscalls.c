@@ -93,6 +93,11 @@ static int32_t syscall_exit(int32_t arg0) {
 	return 0;
 }
 
+static int32_t syscall_sleep_msec(int32_t arg0) {
+	proc_sleep_msec((uint32_t)arg0);
+	return 0;
+}
+
 static int32_t syscall_get_env(int32_t arg0, int32_t arg1, int32_t arg2) {
 	const char* v = proc_get_env((const char*)arg0);
 	strncpy((char*)arg1, v, arg2);
@@ -316,6 +321,7 @@ static int32_t (*const _syscallHandler[])() = {
 	[SYSCALL_WAIT] = syscall_wait,
 	[SYSCALL_YIELD] = syscall_yield,
 	[SYSCALL_EXIT] = syscall_exit,
+	[SYSCALL_SLEEP_MSEC] = syscall_sleep_msec,
 
 	[SYSCALL_GET_ENV] = syscall_get_env,
 	[SYSCALL_GET_ENV_NAME] = syscall_get_env_name,

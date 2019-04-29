@@ -6,6 +6,15 @@
 #include <kstring.h>
 #include <cmain.h>
 
+static const char* _states[] = {
+	"unu",
+	"crt",
+	"slp",
+	"rdy",
+	"run",
+	"tmn"
+};
+
 int main() {
 	int num = 0;
 	uint32_t fr_mem = (uint32_t)syscall2(SYSCALL_SYSTEM_CMD, 1, 0) / KB;
@@ -19,11 +28,11 @@ int main() {
 		printf("--------------------------------------------------------------\n");
 		for(int i=0; i<num; i++) {
 			uint32_t sec = csec - procs[i].start_sec;
-			printf("%4d %6d %5d %5d %02d:%02d:%02d %8d %s\n", 
+			printf("%4d %6d %5d %5s %02d:%02d:%02d %8d %s\n", 
 				procs[i].pid,
 				procs[i].father_pid,
 				procs[i].owner,
-				procs[i].state,
+				_states[procs[i].state],
 				sec / (3600),
 				sec / 60,
 				sec % 60,

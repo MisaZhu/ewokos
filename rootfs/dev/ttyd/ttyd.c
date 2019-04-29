@@ -8,6 +8,7 @@ static int tty_getch() {
 	while(true) {
 		if(syscall3(SYSCALL_DEV_CHAR_READ, dev_typeid(DEV_UART, 0), (int32_t)buf, 1) > 0)
 			break;
+		yield();
 	}
 	return (int)buf[0];
 }
