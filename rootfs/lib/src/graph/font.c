@@ -8,9 +8,12 @@ extern font_t font_12x16;
 extern font_t font_9x16;
 extern font_t font_8x16;
 extern font_t font_8x10;
+extern font_t font_9x8;
 extern font_t font_8x8;
 extern font_t font_7x9;
+extern font_t font_6x8;
 extern font_t font_5x12;
+extern font_t font_4x6;
 
 font_t* get_font(const char* name) {
 	if(strcmp(name, "16x32") == 0)
@@ -27,11 +30,17 @@ font_t* get_font(const char* name) {
 		return &font_8x16;
 	else if(strcmp(name, "8x10") == 0)
 		return &font_8x10;
+	else if(strcmp(name, "9x8") == 0)
+		return &font_9x8;
 	else if(strcmp(name, "8x8") == 0)
 		return &font_8x8;
 	else if(strcmp(name, "7x9") == 0)
 		return &font_7x9;
+	else if(strcmp(name, "6x8") == 0)
+		return &font_6x8;
 	else if(strcmp(name, "5x12") == 0)
 		return &font_5x12;
+	else if(strcmp(name, "4x6") == 0)
+		return &font_4x6;
 	return NULL;
 }

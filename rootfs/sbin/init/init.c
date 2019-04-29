@@ -107,13 +107,13 @@ int main() {
 	run_init_procs("/etc/init.dev");
 	run_init_procs("/etc/init.rd");
 
+	usleep(200000);
 	/*set uid to root*/
 	syscall2(SYSCALL_SET_UID, getpid(), 0);
 	/*run shell*/
 	/*setenv("STDIO_DEV", "/dev/console0");
 	shell_loop();
 	*/
-	usleep(200000);
 	int pid = fork();
 	if(pid == 0) {
 		setenv("STDIO_DEV", "/dev/console0");
