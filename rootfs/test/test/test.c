@@ -6,23 +6,11 @@
 #include <device.h>
 
 int main() {
-	printf("read mouse: ");
-	int fd = open("/dev/mouse0", 0);
-	if(fd < 0) {
-		return -1;
-	}
-
+	int i = 0;
 	while(true) {
-		int8_t ev[4];
-
-		int sz = read(fd, ev, 4);
-		if(sz <= 0)
-			break;
-
-		printf("mouse: down:0x%x, x:%d, y:%d, z:%d\n", ev[0], ev[1], ev[2], ev[3]);
+		printf("%d ", i++);
+		usleep(1000000);
 	}
-
-	close(fd);
 	return 0;
 }
 

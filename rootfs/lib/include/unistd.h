@@ -22,6 +22,9 @@ void yield();
 
 int getuid();
 
+unsigned int sleep(unsigned int secs);
+unsigned int usleep(unsigned int msecs);
+
 /*i/o functions*/
 #define O_RDONLY 0
 

@@ -71,7 +71,7 @@ static int32_t console_mount(uint32_t node, int32_t index) {
 	_content.size = 0;
 	_content.start_line = 0;
 	_content.line = 0;
-	_content.line_w = div_u32(_graph->w, _font->w);
+	_content.line_w = div_u32(_graph->w, _font->w)-1;
 	_content.line_num = div_u32(_graph->h, _font->h)-1;
 	_content.total = _content.line_num * _content.line_w;
 	_content.data = (char*)malloc(_content.line_num*_content.line_w);

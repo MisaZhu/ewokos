@@ -97,6 +97,18 @@ int getuid() {
 	return syscall1(SYSCALL_GET_UID, getpid());
 }
 
+static inline unsigned int msleep(unsigned int msecs) {
+	return syscall1(SYSCALL_SLEEP_MSEC, msecs);
+}
+
+unsigned int usleep(unsigned int usecs) {
+	return syscall1(SYSCALL_SLEEP_MSEC, usecs/1000);
+}
+
+unsigned int sleep(unsigned int secs) {
+	msleep(secs*1000);
+}
+
 /*io functions*/
 
 int open(const char* fname, int mode) {

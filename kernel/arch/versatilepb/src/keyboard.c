@@ -154,9 +154,8 @@ int32_t dev_keyboard_read(int16_t id, void* buf, uint32_t size) {
 		p[i] = c;
 		i++;
 	}
-	CRIT_OUT(_keyb_lock)
-
 	if(i == 0)
 		proc_sleep((int32_t)&_keyb_buffer);
+	CRIT_OUT(_keyb_lock)
 	return i;	
 }

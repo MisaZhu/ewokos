@@ -8,9 +8,12 @@ LIB_OBJS = lib/src/syscall.o \
 	lib/src/vfs/vfs.o \
 	lib/src/vfs/fs.o \
 	lib/src/graph/font.o \
+	lib/src/graph/font4x6.o \
 	lib/src/graph/font5x12.o \
+	lib/src/graph/font6x8.o \
 	lib/src/graph/font7x9.o \
 	lib/src/graph/font8x8.o \
+	lib/src/graph/font9x8.o \
 	lib/src/graph/font8x10.o \
 	lib/src/graph/font8x16.o \
 	lib/src/graph/font9x16.o \

@@ -541,8 +541,41 @@ void proc_exit(process_t* proc) {
 	return;
 }
 
+void proc_sleep_msec(uint32_t msec) {
+	if(msec == 0)
+		return;
+	CRIT_IN(_p_proc_lock)
+	_current_proc->state = SLEEPING;
+	_current_proc->sleep_counter.count_msec = msec;
+	cpu_tick(&_current_proc->sleep_counter.from_sec, &_current_proc->sleep_counter.from_msec);
+	CRIT_OUT(_p_proc_lock)
+	schedule();
+}
+
+void proc_sleep_check(process_t* proc) {
+	CRIT_IN(_p_proc_lock)
+	if(proc->state == SLEEPING) {
+		if(proc->sleep_counter.count_msec > 0) {
+			uint32_t sec, msec, count_msec;
+			cpu_tick(&sec, &msec);
+			sec = sec - proc->sleep_counter.from_sec;
+			msec = sec*1000 + msec;
+			count_msec = msec - proc->sleep_counter.from_msec;
+			if(proc->sleep_counter.count_msec <= count_msec) {
+				proc->state = READY;
+				proc->sleep_counter.count_msec = 0;
+			}
+		}
+	}
+	CRIT_OUT(_p_proc_lock)
+}
+
 void proc_sleep(uint32_t by) {
 	CRIT_IN(_p_proc_lock)
+	if(_current_proc->state == SLEEPING) { //already slept
+		CRIT_OUT(_p_proc_lock)
+		return;
+	}
 	_current_proc->state = SLEEPING;
 	_current_proc->slept_by = by;
 	CRIT_OUT(_p_proc_lock)

@@ -1,5 +1,6 @@
 include test/test/build.mk
 include test/keyb/build.mk
+include test/mouse/build.mk
 include test/thread/build.mk
 include test/draw/build.mk
 

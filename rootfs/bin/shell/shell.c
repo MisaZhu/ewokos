@@ -232,13 +232,15 @@ int main() {
 			fg = false;
 		}	
 
+		char fname[NAME_MAX];
+		if(find_exec(fname, cmd) != 0) {
+			printf("'%s' not found!\n", cmd);
+			continue;
+		}
+
 		int child_pid = fork();
 		if (child_pid == 0) {
-			char fname[NAME_MAX];
-			if(find_exec(fname, cmd) == 0)
-				exec(fname);
-			else
-				printf("'%s' not found!\n", cmd);
+			exec(fname);
 			return 0;
 		}
 		else if(fg) {

@@ -173,7 +173,6 @@ void mouse_handle() {
 			dev_buffer_push(&_mouse_buffer, (char)rx, true);
 			dev_buffer_push(&_mouse_buffer, (char)ry, true);
 			dev_buffer_push(&_mouse_buffer, (char)rz, true);
-
 			proc_wake((int32_t)&_mouse_buffer);
 		}
 		status = get8(MOUSE_BASE + MOUSE_IIR);
