@@ -13,9 +13,19 @@ void init_cmain_arg() {
 
 const char* read_cmain_arg() {
 	const char* p = NULL;
+	bool quotes = false;
+
 	while(_cmd[_offCmd] != 0) {
 		char c = _cmd[_offCmd];
 		_offCmd++;
+		if(quotes) {
+			if(c == '"') {
+				_cmd[_offCmd-1] = 0;
+				return p;
+			}
+			continue;
+		}
+
 		if(c == ' ') {
 			if(p == NULL) {
 				continue;
@@ -26,6 +36,10 @@ const char* read_cmain_arg() {
 			}
 		}
 		else if(p == NULL) {
+			if(c == '"') {
+				quotes = true;
+				_offCmd++;
+			}
 			p = _cmd + _offCmd - 1;
 		}
 	}
