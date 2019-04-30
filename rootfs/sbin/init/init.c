@@ -107,7 +107,7 @@ int main() {
 	run_init_procs("/etc/init/init.dev");
 	run_init_procs("/etc/init/init.rd");
 
-	usleep(200000);
+	usleep(100000);
 	/*set uid to root*/
 	syscall2(SYSCALL_SET_UID, getpid(), 0);
 	/*run shell*/
