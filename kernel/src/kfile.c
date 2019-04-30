@@ -95,19 +95,22 @@ int32_t kf_open(uint32_t node_addr, int32_t wr) {
 		return -1;
 	}
 	kf_ref(kf, wr);
-	uint32_t i;
+
+	int32_t i;
 	for(i=0; i<FILE_MAX; i++) {
 		if(proc->space->files[i].kf == NULL) {
 			proc->space->files[i].kf = kf;
 			proc->space->files[i].wr = wr;
 			proc->space->files[i].seek = 0;
-			CRIT_OUT(_p_lock)
-			return i;
+			break;
 		}
 	}
-	kf_unref(kf, wr);
+	if(i >= FILE_MAX) {
+		kf_unref(kf, wr);
+		i = -1;
+	}
 	CRIT_OUT(_p_lock)
-	return -1;
+	return i;
 }
 
 void kf_close(int32_t fd) {
@@ -125,16 +128,17 @@ void kf_close(int32_t fd) {
 
 uint32_t kf_node_addr(int32_t pid, int32_t fd) {
 	CRIT_IN(_p_lock)
+	uint32_t ret = 0;
 	process_t* proc = proc_get(pid);
 	if(proc == NULL || fd < 0 || fd>= FILE_MAX) {
 		CRIT_OUT(_p_lock)
-		return 0;
+		return ret;
 	}
 
 	kfile_t* kf = proc->space->files[fd].kf;
-	if(kf == NULL) {
-		CRIT_OUT(_p_lock)
-		return 0;
+	if(kf != NULL) {
+		ret = kf->node_addr;
 	}
-	return kf->node_addr;
+	CRIT_OUT(_p_lock)
+	return ret;
 }
