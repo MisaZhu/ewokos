@@ -202,9 +202,9 @@ inline int32_t *get_current_context(void) {
 static void proc_free_space(process_t *proc) {
 	/*free file info*/
 	for(uint32_t i=0; i<FILE_MAX; i++) {
-		k_file_t* kf = proc->space->files[i].kf;
+		kfile_t* kf = proc->space->files[i].kf;
 		if(kf != NULL) {
-			kf_unref(kf, proc->space->files[i].flags); //unref the kernel file table.
+			kf_unref(kf, proc->space->files[i].wr); //unref the kernel file table.
 		}
 	}
 
@@ -390,12 +390,12 @@ int32_t proc_set_env(const char* name, const char* value) {
 static inline void proc_clone_files(process_t* child, process_t* parent) {
 	int32_t i=0;
 	for(i=0; i<FILE_MAX; i++) {
-		k_file_t* kf = parent->space->files[i].kf;
+		kfile_t* kf = parent->space->files[i].kf;
 		if(kf != NULL) {
 			child->space->files[i].kf = kf;
-			child->space->files[i].flags = parent->space->files[i].flags;
+			child->space->files[i].wr = parent->space->files[i].wr;
 			child->space->files[i].seek = parent->space->files[i].seek;
-			kf_ref(kf, child->space->files[i].flags); //ref the kernel file table.
+			kf_ref(kf, child->space->files[i].wr); //ref the kernel file table.
 		}
 	}
 }

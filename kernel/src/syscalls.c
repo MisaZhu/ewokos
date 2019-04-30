@@ -201,7 +201,7 @@ static int32_t syscall_pf_seek(int32_t arg0, int32_t arg1) {
 	if(fd < 0 || fd >= FILE_MAX)
 		return -1;
 
-	k_file_t* kf = proc->space->files[fd].kf;
+	kfile_t* kf = proc->space->files[fd].kf;
 	if(kf == NULL || kf->node_addr == 0)
 		return -1;
 	proc->space->files[fd].seek = arg1;
@@ -217,7 +217,7 @@ static int32_t syscall_pf_get_seek(int32_t arg0) {
 	if(fd < 0 || fd >= FILE_MAX)
 		return -1;
 
-	k_file_t* kf = proc->space->files[fd].kf;
+	kfile_t* kf = proc->space->files[fd].kf;
 	if(kf == NULL || kf->node_addr == 0)
 		return -1;
 	return proc->space->files[fd].seek;
@@ -225,6 +225,10 @@ static int32_t syscall_pf_get_seek(int32_t arg0) {
 
 static int32_t syscall_pf_node_addr(int32_t arg0, int32_t arg1) {
 	return (int32_t)kf_node_addr(arg0, arg1);
+}
+
+static int32_t syscall_pf_get_ref(int32_t arg0, int32_t arg1) {
+	return kf_get_ref(arg0, arg1);
 }
 
 static int32_t syscall_kserv_reg(int32_t arg0) {
@@ -342,6 +346,7 @@ static int32_t (*const _syscallHandler[])() = {
 	[SYSCALL_PFILE_OPEN] = syscall_pf_open,
 	[SYSCALL_PFILE_CLOSE] = syscall_pf_close,
 	[SYSCALL_PFILE_NODE] = syscall_pf_node_addr,
+	[SYSCALL_PFILE_GET_REF] = syscall_pf_get_ref,
 
 	[SYSCALL_KSERV_REG] = syscall_kserv_reg,
 	[SYSCALL_KSERV_GET] = syscall_kserv_get,

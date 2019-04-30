@@ -47,8 +47,8 @@ enum {
 
 #define FILE_MAX 32
 typedef struct {
-	k_file_t* kf;	
-	uint32_t flags;
+	kfile_t* kf;	
+	uint32_t wr;
 	uint32_t seek;
 } proc_file_t;
 
