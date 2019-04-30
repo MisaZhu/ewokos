@@ -69,7 +69,7 @@ static int run_init_procs(const char* fname) {
 }
 
 static int welcome() {
-	int fd = open("/etc/welcome", 0);
+	int fd = open("/etc/init/welcome", 0);
 	if(fd < 0)
 		return -1;
 
@@ -104,8 +104,8 @@ int main() {
 	}
 	start_vfsd();
 	mount_root();
-	run_init_procs("/etc/init.dev");
-	run_init_procs("/etc/init.rd");
+	run_init_procs("/etc/init/init.dev");
+	run_init_procs("/etc/init/init.rd");
 
 	usleep(200000);
 	/*set uid to root*/

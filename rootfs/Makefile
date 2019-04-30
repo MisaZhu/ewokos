@@ -9,6 +9,7 @@ COMMON_LIB=../lib
 COMMON_OBJ=$(COMMON_LIB)/src/kstring.o \
 	$(COMMON_LIB)/src/basic_math.o \
 	$(COMMON_LIB)/src/device.o \
+	$(COMMON_LIB)/src/sconf_parse.o \
 	$(COMMON_LIB)/src/ext2.o \
 	$(COMMON_LIB)/src/vprintf.o
 

@@ -21,30 +21,6 @@ static char* read_from_sd(const char* fname, int32_t *size) {
 	return p;
 }
 
-static char* read_from_fs(const char* fname, int32_t *size) {
-	int fd = open(fname, 0);
-	if(fd < 0) 
-		return NULL;
-
-	fs_info_t info;
-	if(fs_info(fd, &info) != 0 || info.size <= 0) {
-		close(fd);
-		return NULL;
-	}
-
-	char* buf = (char*)malloc(info.size);
-	int res = read(fd, buf, info.size);
-	close(fd);
-
-	if(res <= 0) {
-		free(buf);
-		buf = NULL;
-		*size = 0;
-	}
-	*size = info.size;
-	return buf;
-}
-
 int exec(const char* cmd_line) {
 	char* img = NULL;
 	int32_t size;
@@ -61,7 +37,7 @@ int exec(const char* cmd_line) {
 		img = read_from_sd(cmd, &size);
 	}
 	else {
-		img = read_from_fs(cmd, &size);
+		img = fs_read_file(cmd, &size);
 	}
 
 	if(img == NULL) {

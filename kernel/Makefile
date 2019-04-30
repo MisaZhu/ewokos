@@ -54,12 +54,14 @@ DEV_OBJS =  src/dev/basic_dev.o
 LIB_OBJS = ../lib/src/kstring.o \
 	../lib/src/basic_math.o \
 	../lib/src/device.o \
+	../lib/src/sconf_parse.o \
 	../lib/src/ext2.o \
 	../lib/src/vprintf.o
 
 OBJS += $(ARCH_OBJS) \
 	$(DEV_OBJS) \
 	src/sdread.o \
+	src/sconf.o \
 	src/system.o \
 	src/timer.o \
 	src/printk.o \

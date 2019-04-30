@@ -258,3 +258,28 @@ fs_info_t* fs_kids(int fd, uint32_t *num) {
 int32_t fs_inited() {
 	return kserv_get_pid("dev.sdcard");
 }
+
+char* fs_read_file(const char* fname, int32_t *size) {
+	int fd = open(fname, 0);
+	if(fd < 0) 
+		return NULL;
+
+	fs_info_t info;
+	if(fs_info(fd, &info) != 0 || info.size <= 0) {
+		close(fd);
+		return NULL;
+	}
+
+	char* buf = (char*)malloc(info.size);
+	int res = read(fd, buf, info.size);
+	close(fd);
+
+	if(res <= 0) {
+		free(buf);
+		buf = NULL;
+		*size = 0;
+	}
+	*size = info.size;
+	return buf;
+}
+

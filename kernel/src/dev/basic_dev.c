@@ -1,11 +1,11 @@
 #include <dev/basic_dev.h>
 #include <proc.h>
+#include <sconf.h>
 
 /*some devices     */
 bool uart_init();
 bool keyboard_init();
 bool mouse_init();
-bool fb_init();
 bool sdc_init();
 
 bool dev_init() {
@@ -15,9 +15,15 @@ bool dev_init() {
 		return false;
 	if(!mouse_init())
 		return false;
-	if(!fb_init())
-		return false;
 	if(!sdc_init())
+		return false;
+	return true;
+}
+
+bool fb_init(sconf_t* conf);
+
+bool conf_dev_init(sconf_t* conf) {
+	if(!fb_init(conf))
 		return false;
 	return true;
 }

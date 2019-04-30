@@ -13,7 +13,7 @@
 #include <scheduler.h>
 #include <dev/basic_dev.h>
 #include <printk.h>
-#include <ext2.h>
+#include <sconf.h>
 
 page_dir_entry_t* _kernel_vm;
 static uint32_t _phy_mem_size = 0;
@@ -126,6 +126,8 @@ static void welcome() {
 				"Free mem size: (%d MB)\n\n", get_free_mem_size()/(MB));
 }
 
+#define CONF_FNAME "/etc/boot/device.conf"
+
 void kernel_entry() {
 	init_kernel_vm();  /* Done mapping all mem */
 	init_allocable_mem(); /*init the rest allocable memory VM*/
@@ -135,8 +137,17 @@ void kernel_entry() {
 	hw_init(); /*hardware init*/
 	irq_init(); /*init irq interrupts*/
 	shm_init(); /*init share memory*/
-	dev_init();
 	ipc_init(); /*init internal process communiation*/
+	dev_init(); /*load basic devices*/
+
+	/*load configurable devices*/
+	sconf_t* conf = sconf_load(CONF_FNAME);
+	conf_dev_init(conf);
+	if(conf != NULL)
+		sconf_free(conf, km_free);
+	else
+		printk("warning: %s missed.\n", CONF_FNAME);
+
 	proc_init(); /*init process mananer*/
 	process_t* first_proc = load_init_proc(); /*load init process(first process)*/
 

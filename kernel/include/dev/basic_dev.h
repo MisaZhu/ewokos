@@ -5,6 +5,7 @@
 #include <device.h>
 
 bool dev_init();
+bool conf_dev_init();
 
 int32_t dev_info(int32_t type_id, void* info);
 
