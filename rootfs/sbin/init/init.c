@@ -68,28 +68,11 @@ static int run_init_procs(const char* fname) {
 	return 0;
 }
 
-static int welcome() {
-	int fd = open("/etc/init/welcome", 0);
-	if(fd < 0)
-		return -1;
-
-	char line[128];
-	int i = 0;
-	while(true) {
-		i = read_line(fd, line, 128-1);
-		if(i < 0)
-			break;
-		printf("%s\n", line);
-	}
-	close(fd);
-	return 0;
-}
-
-static void shell_loop() {
+static void session_loop() {
 	while(1) {
 		int pid = fork();
 		if(pid == 0) {
-			exec("/sbin/login");
+			exec("/sbin/session");
 		}
 		else {
 			wait(pid);
@@ -107,24 +90,21 @@ int main() {
 	run_init_procs("/etc/init/init.dev");
 	run_init_procs("/etc/init/init.rd");
 
+	/*sleep while for waiting devices to be ready*/
 	usleep(100000);
 	/*set uid to root*/
 	syscall2(SYSCALL_SET_UID, getpid(), 0);
-	/*run shell*/
-	/*setenv("STDIO_DEV", "/dev/console0");
-	shell_loop();
-	*/
+	/*run 2 session for uart0 and framebuffer based console0*/
 	int pid = fork();
 	if(pid == 0) {
 		setenv("STDIO_DEV", "/dev/console0");
 		init_stdio();
-		welcome();
-		shell_loop();
+		exec("/sbin/session");
+		return 0;
 	}
 	else {
 		setenv("STDIO_DEV", "/dev/tty0");
-		welcome();
-		shell_loop();
+		session_loop();
 	}
 	return 0;
 }
