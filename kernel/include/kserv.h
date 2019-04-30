@@ -7,13 +7,13 @@
 
 typedef struct {
 	char name[KSERV_NAME_MAX+1];
-	int pid;
+	int32_t pid;
 } kserv_t;
 
-int kserv_reg(const char* name); 
+int32_t kserv_reg(const char* name); 
 
-int kserv_unreg(process_t* proc); 
+int32_t kserv_unreg(process_t* proc); 
 
-int kserv_get(const char* name);
+int32_t kserv_get(const char* name);
 
 #endif
