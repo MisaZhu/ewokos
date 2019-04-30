@@ -236,6 +236,10 @@ static int32_t syscall_pf_node_by_addr(int32_t arg0, int32_t arg1) {
 	return kf_node_info_by_addr((uint32_t)arg0, (fs_info_t*)arg1);
 }
 
+static int32_t syscall_pf_node_update(int32_t arg0, int32_t arg1) {
+	return kf_node_info_update((uint32_t)arg0, (fs_info_t*)arg1);
+}
+
 static int32_t syscall_pf_get_ref(int32_t arg0, int32_t arg1) {
 	return kf_get_ref(arg0, arg1);
 }
@@ -357,6 +361,7 @@ static int32_t (*const _syscallHandler[])() = {
 	[SYSCALL_PFILE_CLOSE] = syscall_pf_close,
 	[SYSCALL_PFILE_NODE_BY_FD] = syscall_pf_node_by_fd,
 	[SYSCALL_PFILE_NODE_BY_ADDR] = syscall_pf_node_by_addr,
+	[SYSCALL_PFILE_NODE_UPDATE] = syscall_pf_node_update,
 	[SYSCALL_PFILE_GET_REF] = syscall_pf_get_ref,
 
 	[SYSCALL_KSERV_REG] = syscall_kserv_reg,
