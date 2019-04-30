@@ -189,7 +189,7 @@ static int32_t syscall_ipc_peer(int32_t arg0) {
 }
 
 static int32_t syscall_pf_open(int32_t arg0, int32_t arg1) {
-	return kf_open((uint32_t)arg0, arg1);
+	return kf_open((fs_info_t*)arg0, arg1);
 }
 
 static int32_t syscall_pf_close(int32_t arg0) {
@@ -207,7 +207,7 @@ static int32_t syscall_pf_seek(int32_t arg0, int32_t arg1) {
 		return -1;
 
 	kfile_t* kf = proc->space->files[fd].kf;
-	if(kf == NULL || kf->node_addr == 0)
+	if(kf == NULL || kf->node_info.node == 0)
 		return -1;
 	proc->space->files[fd].seek = arg1;
 	return arg1;
@@ -223,13 +223,17 @@ static int32_t syscall_pf_get_seek(int32_t arg0) {
 		return -1;
 
 	kfile_t* kf = proc->space->files[fd].kf;
-	if(kf == NULL || kf->node_addr == 0)
+	if(kf == NULL || kf->node_info.node == 0)
 		return -1;
 	return proc->space->files[fd].seek;
 }
 
-static int32_t syscall_pf_node_addr(int32_t arg0, int32_t arg1) {
-	return (int32_t)kf_node_addr(arg0, arg1);
+static int32_t syscall_pf_node_by_fd(int32_t arg0, int32_t arg1) {
+	return kf_node_info_by_fd(arg0, (fs_info_t*)arg1);
+}
+
+static int32_t syscall_pf_node_by_addr(int32_t arg0, int32_t arg1) {
+	return kf_node_info_by_addr((uint32_t)arg0, (fs_info_t*)arg1);
 }
 
 static int32_t syscall_pf_get_ref(int32_t arg0, int32_t arg1) {
@@ -351,7 +355,8 @@ static int32_t (*const _syscallHandler[])() = {
 	[SYSCALL_PFILE_SEEK] = syscall_pf_seek,
 	[SYSCALL_PFILE_OPEN] = syscall_pf_open,
 	[SYSCALL_PFILE_CLOSE] = syscall_pf_close,
-	[SYSCALL_PFILE_NODE] = syscall_pf_node_addr,
+	[SYSCALL_PFILE_NODE_BY_FD] = syscall_pf_node_by_fd,
+	[SYSCALL_PFILE_NODE_BY_ADDR] = syscall_pf_node_by_addr,
 	[SYSCALL_PFILE_GET_REF] = syscall_pf_get_ref,
 
 	[SYSCALL_KSERV_REG] = syscall_kserv_reg,

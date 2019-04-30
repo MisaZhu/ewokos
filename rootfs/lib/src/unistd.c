@@ -106,7 +106,7 @@ unsigned int usleep(unsigned int usecs) {
 }
 
 unsigned int sleep(unsigned int secs) {
-	msleep(secs*1000);
+	return msleep(secs*1000);
 }
 
 /*io functions*/

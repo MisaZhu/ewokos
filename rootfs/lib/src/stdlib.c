@@ -10,27 +10,6 @@ void free(void* p) {
 	syscall1(SYSCALL_PFREE, (int)p);
 }
 
-static int32_t isDigit(char c) {
-	return (c >= '0') && (c <= '9');
-}
-
-/*int32_t atoi(const char *str) {
-	int32_t result = 0;
-	int32_t neg_multiplier = 1;
-
-	// Check for negative
-	if (*str && *str == '-') {
-		neg_multiplier = -1;
-		str++;
-	}
-	// Do number
-	for (; *str && isDigit(*str); str++) {
-		result = (result * 10) + (*str - '0');
-	}
-	return result * neg_multiplier;
-}
-*/
-
 int32_t atoi_base(const char *s, int32_t b) {
 	int32_t i, result, x, error;
 	for (i = result = error = 0; s[i]!='\0'; i++, result += x) {

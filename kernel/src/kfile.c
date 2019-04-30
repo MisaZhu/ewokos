@@ -11,26 +11,26 @@ static int32_t _p_lock = 0;
 void kf_init() {
 	uint32_t i = 0;
 	while(i < OPEN_MAX) {
-		_files[i].node_addr = 0;
+		_files[i].node_info.node = 0;
 		i++;
 	}
 }
 	
-static inline kfile_t* get_file(uint32_t node_addr) {
+static inline kfile_t* get_file(uint32_t node_addr, bool add) {
 	uint32_t i = 0; 
 	int32_t at = -1;
 	while(i < OPEN_MAX) {
-		if(_files[i].node_addr == 0)
+		if(_files[i].node_info.node == 0)
 			at = i; //first free file item
-		else if(_files[i].node_addr == node_addr)
+		else if(_files[i].node_info.node == node_addr)
 			return &_files[i];
 		i++;
 	}	
 
-	if(at < 0) // too many _files opened.
+	if(at < 0 || !add)
 		return NULL;
 
-	_files[at].node_addr = node_addr;
+	_files[at].node_info.node = node_addr;
 	_files[at].ref_r = 0;
 	_files[at].ref_w = 0;
 	return &_files[at];
@@ -39,7 +39,7 @@ static inline kfile_t* get_file(uint32_t node_addr) {
 int32_t kf_get_ref(uint32_t node_addr, uint32_t wr) {
 	CRIT_IN(_p_lock)
 	int32_t ret = -1;
-	kfile_t* kf = get_file(node_addr);
+	kfile_t* kf = get_file(node_addr, false);
 	if(kf != NULL) {
 		if(wr == 0)//read mode
 			ret = kf->ref_r;
@@ -66,7 +66,7 @@ void kf_unref(kfile_t* kf, uint32_t wr) {
 			kf->ref_w--;
 	}
 	if((kf->ref_w + kf->ref_r) == 0) { // close when ref cleared.
-		kf->node_addr = 0;
+		kf->node_info.node = 0;
 	}
 	CRIT_OUT(_p_lock)
 }
@@ -83,18 +83,19 @@ void kf_ref(kfile_t* kf, uint32_t wr) {
 	CRIT_OUT(_p_lock)
 }
 
-int32_t kf_open(uint32_t node_addr, int32_t wr) {
+int32_t kf_open(fs_info_t* info, int32_t wr) {
 	process_t* proc = _current_proc;
 	if(proc == NULL)
 		return -1;
 
 	CRIT_IN(_p_lock)
-	kfile_t* kf = get_file(node_addr);
+	kfile_t* kf = get_file(info->node, true);
 	if(kf == NULL) {
 		CRIT_OUT(_p_lock)
 		return -1;
 	}
 	kf_ref(kf, wr);
+	memcpy(&kf->node_info, info, sizeof(fs_info_t));
 
 	int32_t i;
 	for(i=0; i<FILE_MAX; i++) {
@@ -126,10 +127,10 @@ void kf_close(int32_t fd) {
 	CRIT_OUT(_p_lock)
 }
 
-uint32_t kf_node_addr(int32_t pid, int32_t fd) {
+int32_t kf_node_info_by_fd(int32_t fd, fs_info_t* info) {
 	CRIT_IN(_p_lock)
-	uint32_t ret = 0;
-	process_t* proc = proc_get(pid);
+	int32_t ret = -1;
+	process_t* proc = _current_proc;
 	if(proc == NULL || fd < 0 || fd>= FILE_MAX) {
 		CRIT_OUT(_p_lock)
 		return ret;
@@ -137,8 +138,23 @@ uint32_t kf_node_addr(int32_t pid, int32_t fd) {
 
 	kfile_t* kf = proc->space->files[fd].kf;
 	if(kf != NULL) {
-		ret = kf->node_addr;
+		memcpy(info, &kf->node_info, sizeof(fs_info_t));
+		ret = 0;
 	}
 	CRIT_OUT(_p_lock)
 	return ret;
 }
+
+int32_t kf_node_info_by_addr(uint32_t node_addr, fs_info_t* info) {
+	CRIT_IN(_p_lock)
+	int32_t ret = -1;
+	kfile_t* kf = get_file(node_addr, false);
+	if(kf != NULL) {
+		memcpy(info, &kf->node_info, sizeof(fs_info_t));
+		ret = 0;
+	}
+	CRIT_OUT(_p_lock)
+	return ret;
+}
+
+

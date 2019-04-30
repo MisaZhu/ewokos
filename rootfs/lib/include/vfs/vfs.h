@@ -9,11 +9,7 @@ uint32_t vfs_add(uint32_t node, const char* name, uint32_t size, void* data);
 
 int32_t vfs_del(uint32_t node);
 
-int32_t vfs_node_info(uint32_t node, fs_info_t* info);
-
-uint32_t vfs_node_by_fd(int32_t fd);
-
-uint32_t vfs_node_by_name(const char* fname);
+int32_t vfs_node_by_name(const char* fname, fs_info_t* info);
 
 uint32_t vfs_mount(const char* fname, const char* devName, int32_t devIndex, bool isFile);
 

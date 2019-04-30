@@ -11,9 +11,9 @@
 #include <syscall.h>
 
 typedef struct {
-	char devName[DEV_NAME_MAX];
-	int32_t devIndex;
-	int32_t devServPid;
+	char dev_name[DEV_NAME_MAX];
+	int32_t dev_index;
+	int32_t dev_serv_pid;
 	tree_node_t* old;
 } _mountT;
 
@@ -34,7 +34,7 @@ static void fsnode_init() {
 	for(int i=0; i<MOUNT_MAX; i++) {
 		memset(&_mounts[i], 0, sizeof(_mountT));
 	}
-	//strcpy(_mounts[0].devName, DEV_VFS);
+	//strcpy(_mounts[0].dev_name, DEV_VFS);
 	_root = NULL;
 }
 
@@ -79,16 +79,12 @@ static int32_t fsnode_node_info(tree_node_t* node, fs_info_t* info) {
 	info->node = (uint32_t)node;
 	info->type = FSN(node)->type;
 	info->owner = FSN(node)->owner;
-	strcpy(info->devName, _mounts[FSN(node)->mount].devName);
-	info->devIndex = _mounts[FSN(node)->mount].devIndex;
-	info->devServPid = _mounts[FSN(node)->mount].devServPid;
+	strcpy(info->dev_name, _mounts[FSN(node)->mount].dev_name);
+	info->dev_index = _mounts[FSN(node)->mount].dev_index;
+	info->dev_serv_pid = _mounts[FSN(node)->mount].dev_serv_pid;
 	strcpy(info->name, FSN(node)->name);
 	info->data = FSN(node)->data;
 	return 0;
-}
-
-static tree_node_t* get_node_by_fd(int32_t pid, int32_t fd) {
-	return (tree_node_t*)syscall2(SYSCALL_PFILE_NODE, pid, fd);
 }
 
 static tree_node_t* get_node_by_name(const char* fname) {
@@ -125,17 +121,17 @@ static tree_node_t* build_nodes(const char* fname, int32_t owner) {
 	return NULL;
 }
 
-static tree_node_t* fsnode_mount(const char* fname, const char* devName, 
-		int32_t devIndex, bool isFile, int32_t pid) {
+static tree_node_t* fsnode_mount(const char* fname, const char* dev_name, 
+		int32_t dev_index, bool isFile, int32_t pid) {
 	int32_t owner = syscall1(SYSCALL_GET_UID, pid);
 	tree_node_t* to = build_nodes(fname, owner);
 
 	int32_t i;
   for(i=0; i<MOUNT_MAX; i++) {
-    if(_mounts[i].devName[0] == 0) {
-			strcpy(_mounts[i].devName, devName);
-			_mounts[i].devIndex = devIndex;
-			_mounts[i].devServPid = pid;
+    if(_mounts[i].dev_name[0] == 0) {
+			strcpy(_mounts[i].dev_name, dev_name);
+			_mounts[i].dev_index = dev_index;
+			_mounts[i].dev_serv_pid = pid;
 			_mounts[i].old = to; //save the old node.
 			break;
 		}
@@ -217,20 +213,17 @@ static void do_info(package_t* pkg) {
 		ipc_send(pkg->id, pkg->type, &info, sizeof(fs_info_t));
 }
 
-static void do_node_by_fd(package_t* pkg) {
-	int32_t fd = *(int32_t*)get_pkg_data(pkg);
-
-	tree_node_t* node = get_node_by_fd(pkg->pid, fd);
-	ipc_send(pkg->id, pkg->type, &node, 4);
-}
-
 static void do_node_by_name(package_t* pkg) {
 	proto_t* proto = proto_new(get_pkg_data(pkg), pkg->size);
 	const char* name = proto_read_str(proto);
 	proto_free(proto);
 
+	fs_info_t info;
 	tree_node_t* node = get_node_by_name(name);
-	ipc_send(pkg->id, pkg->type, &node, 4);
+	if(node == NULL || fsnode_node_info(node, &info) != 0)
+		ipc_send(pkg->id, PKG_TYPE_ERR, NULL, 0);
+	else
+		ipc_send(pkg->id, pkg->type, &info, sizeof(fs_info_t));
 }
 
 static void do_kids(package_t* pkg) {
@@ -260,12 +253,12 @@ static void do_kids(package_t* pkg) {
 static void do_mount(package_t* pkg) {
 	proto_t* proto = proto_new(get_pkg_data(pkg), pkg->size);
 	const char* fname = proto_read_str(proto);
-	const char* devName = proto_read_str(proto);
-	int32_t devIndex = proto_read_int(proto);
+	const char* dev_name = proto_read_str(proto);
+	int32_t dev_index = proto_read_int(proto);
 	int32_t isFile = proto_read_int(proto);
 	proto_free(proto);
 
-	tree_node_t* node = fsnode_mount(fname, devName, devIndex, isFile, pkg->pid);
+	tree_node_t* node = fsnode_mount(fname, dev_name, dev_index, isFile, pkg->pid);
 	ipc_send(pkg->id, pkg->type, &node, 4);
 }
 
@@ -286,9 +279,6 @@ static void handle(package_t* pkg, void* p) {
 		break;
 	case VFS_CMD_INFO:
 		do_info(pkg);
-		break;
-	case VFS_CMD_NODE_BY_FD:
-		do_node_by_fd(pkg);
 		break;
 	case VFS_CMD_NODE_BY_NAME:
 		do_node_by_name(pkg);

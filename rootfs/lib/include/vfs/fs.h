@@ -20,6 +20,8 @@ int fs_close(int fd);
 
 int fs_info(int fd, fs_info_t* info);
 
+int fs_ninfo(uint32_t node_addr, fs_info_t* info);
+
 int fs_finfo(const char* name, fs_info_t* info);
 
 fs_info_t* fs_kids(int fd, uint32_t *num);

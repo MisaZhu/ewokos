@@ -4,6 +4,7 @@
 #include <kstring.h>
 #include <syscall.h>
 #include <vfs/vfs.h>
+#include <vfs/fs.h>
 
 static int32_t proc_mount(uint32_t node, int32_t index) {
 	(void)index;
@@ -22,7 +23,7 @@ static int32_t proc_read(uint32_t node, void* buf, uint32_t size, int32_t seek) 
 		return 0;
 
 	fs_info_t info;
-	if(vfs_node_info(node, &info) != 0)
+	if(fs_ninfo(node, &info) != 0)
 		return ret;
 	const char* fname = info.name;
 
@@ -37,13 +38,13 @@ static int32_t proc_read(uint32_t node, void* buf, uint32_t size, int32_t seek) 
 	else if(strcmp(fname, "cpu_sec") == 0) {
 		uint32_t sec;
 		syscall3(SYSCALL_SYSTEM_CMD, 4, (int32_t)&sec, 0);
-		snprintf((char*)buf, size-1, "%d\n", sec);
+		snprintf((char*)buf, size-1, "%d\n", (int)sec);
 		ret = strlen((char*)buf);
 	}
 	else if(strcmp(fname, "cpu_msec") == 0) {
 		uint32_t msec;
 		syscall3(SYSCALL_SYSTEM_CMD, 4, 0, (int32_t)&msec);
-		snprintf((char*)buf, size-1, "%d\n", msec);
+		snprintf((char*)buf, size-1, "%d\n", (int)msec);
 		ret = strlen((char*)buf);
 	}
 
