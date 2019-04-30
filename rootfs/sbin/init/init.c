@@ -123,6 +123,7 @@ int main() {
 	}
 	else {
 		setenv("STDIO_DEV", "/dev/tty0");
+		welcome();
 		shell_loop();
 	}
 	return 0;

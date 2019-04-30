@@ -173,9 +173,10 @@ int32_t sdcard_close(uint32_t node) {
 		return -1;
 	if(info.type == FS_TYPE_DIR)
 		return 0;
+	if(syscall2(SYSCALL_PFILE_GET_REF, node, 2) > 0)
+		return 0;
 
 	ext2_node_data_t* data = (ext2_node_data_t*)info.data;
-
 	if(data->data != NULL) {
 		free(data->data);
 		data->data = NULL;
