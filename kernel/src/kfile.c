@@ -5,7 +5,7 @@
 #include <mm/kmalloc.h>
 
 #define OPEN_MAX 128
-static kfile_t _files[OPEN_MAX];
+static kfile_t _files[OPEN_MAX]; //file info caches 
 static int32_t _p_lock = 0;
 
 void kf_init() {
@@ -16,6 +16,7 @@ void kf_init() {
 	}
 }
 	
+//get file info cache by node addr
 static inline kfile_t* get_file(uint32_t node_addr, bool add) {
 	uint32_t i = 0; 
 	int32_t at = -1;
@@ -83,6 +84,7 @@ void kf_ref(kfile_t* kf, uint32_t wr) {
 	CRIT_OUT(_p_lock)
 }
 
+//open file will get file id for this process, and cache the file info
 int32_t kf_open(fs_info_t* info, int32_t wr) {
 	process_t* proc = _current_proc;
 	if(proc == NULL)
