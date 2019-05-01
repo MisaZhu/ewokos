@@ -56,6 +56,7 @@ LIB_OBJS = ../lib/src/kstring.o \
 	../lib/src/device.o \
 	../lib/src/sconf_parse.o \
 	../lib/src/ext2.o \
+	../lib/src/arm_memcpy.o \
 	../lib/src/vprintf.o
 
 OBJS += $(ARCH_OBJS) \
