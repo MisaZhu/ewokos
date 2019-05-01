@@ -168,7 +168,7 @@ int32_t ipc_write(int32_t id, void* data, uint32_t size) {
 		
 	int32_t pid = _current_proc->pid;
 	if(channel->proc_map[channel->ring].pid != pid) {//not read for current proc.
-		proc_sleep((int32_t)channel);
+		//proc_sleep((int32_t)channel);
 		CRIT_OUT(_p_lock)
 		return -1;
 	}
@@ -201,7 +201,7 @@ int32_t ipc_read(int32_t id, void* data, uint32_t size) {
 	
 	int32_t pid = _current_proc->pid;
 	if(channel->proc_map[channel->ring].pid != pid) {//not read for current proc.
-		proc_sleep((int32_t)channel);
+		//proc_sleep((int32_t)channel);
 		CRIT_OUT(_p_lock)
 		return -1;
 	}

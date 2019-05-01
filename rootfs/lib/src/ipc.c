@@ -24,7 +24,6 @@ static int ipc_peer(int id) {
 }
 
 static int ipc_write(int id, void* data, uint32_t size) {
-	//return syscall3(SYSCALL_IPC_WRITE, id, (int)data, size);
 	int i;
 	while(true) {
 		i = syscall3(SYSCALL_IPC_WRITE, id, (int)data, size);
@@ -38,8 +37,6 @@ static int ipc_write(int id, void* data, uint32_t size) {
 static int ipc_read(int id, void* data, uint32_t size) {
 	if(data == NULL || size == 0)
 		return 0;
-
-	//return syscall3(SYSCALL_IPC_READ, id, (int)data, size);
 	int i;
 	while(true) {
 		i = syscall3(SYSCALL_IPC_READ, id, (int)data, size);

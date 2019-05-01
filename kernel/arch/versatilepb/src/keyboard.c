@@ -135,7 +135,7 @@ void keyboard_handle() {
 	CRIT_IN(_keyb_lock)
 	dev_buffer_push(&_keyb_buffer, c, true);
 	CRIT_OUT(_keyb_lock)
-	proc_wake((int32_t)&_keyb_buffer);
+	//proc_wake((int32_t)&_keyb_buffer);
 }
 
 #endif
@@ -154,8 +154,10 @@ int32_t dev_keyboard_read(int16_t id, void* buf, uint32_t size) {
 		p[i] = c;
 		i++;
 	}
+	/*
 	if(i == 0)
 		proc_sleep((int32_t)&_keyb_buffer);
+	*/
 	CRIT_OUT(_keyb_lock)
 	return i;	
 }
