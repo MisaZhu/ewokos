@@ -46,6 +46,7 @@ int getch() {
 			res = read(_stdin, buf, 1);
 		if(res > 0)
 			break;
+		sleep(0);
 	}
 	return (int)buf[0];
 }

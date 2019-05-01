@@ -204,9 +204,7 @@ int32_t console_read(uint32_t node, void* buf, uint32_t size, int32_t seek) {
 	(void)seek;
 	if(_keyb_id < 0)
 		return -1;
-
-	read(_keyb_id, buf, 1);
-	return 1;
+	return read(_keyb_id, buf, 1); 
 }
 
 void* console_ctrl(uint32_t node, int32_t cmd, void* data, uint32_t size, int32_t* ret) {

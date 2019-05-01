@@ -8,14 +8,7 @@ int32_t keyb_read(uint32_t node, void* buf, uint32_t size, int32_t seek) {
 	(void)size;
 	(void)seek;
 
-	int32_t res;
-	while(true) {
-		res = syscall3(SYSCALL_DEV_CHAR_READ, dev_typeid(DEV_KEYBOARD, 0), (int32_t)buf, 1);
-		if(res != 0)
-			break;
-		sleep(0);
-	}
-	return res;
+	return syscall3(SYSCALL_DEV_CHAR_READ, dev_typeid(DEV_KEYBOARD, 0), (int32_t)buf, 1);
 }
 
 int main() {

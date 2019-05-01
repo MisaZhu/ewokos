@@ -3,14 +3,8 @@
 #include <syscall.h>
 #include <stdio.h>
 
-static int tty_getch() {
-	char buf[1];
-	while(true) {
-		if(syscall3(SYSCALL_DEV_CHAR_READ, dev_typeid(DEV_UART, 0), (int32_t)buf, 1) > 0)
-			break;
-		sleep(0);
-	}
-	return (int)buf[0];
+static int tty_getch(char* c) {
+	return syscall3(SYSCALL_DEV_CHAR_READ, dev_typeid(DEV_UART, 0), (int32_t)c, 1);
 }
 
 int32_t tty_write(uint32_t node, void* buf, uint32_t size, int32_t seek) {
@@ -26,21 +20,11 @@ int32_t tty_read(uint32_t node, void* buf, uint32_t size, int32_t seek) {
 	(void)size;
 	(void)seek;
 
-	char* p  = (char*)buf;
-	*p = (char)tty_getch();
-	if(*p == 4) //ctrl+d, means closed.
-		return 0;
-	return 1;
-	/*for(uint32_t i=0; i<size; i++) {
-		char c = (char)getch();
-		if(c == 0) {
-			size = i;
-			break;
-		}
-		p[i] = c;
-	}
-	return size;
-	*/
+	char* p = (char*)buf;
+	int32_t res = tty_getch(&p[0]);
+	if(res == 1 && p[0] == 4) //ctrl+d, means closed.
+		return -1;
+	return res;
 }
 
 int main() {
