@@ -26,11 +26,10 @@ int main() {
 
 	proc_info_t* procs = (proc_info_t*)syscall2(SYSCALL_SYSTEM_CMD, 2, (int)&num);
 	if(procs != NULL) {
-		printf("PID  FATHER OWNER STATE TIME     HEAP     PROC\n"); 
-		printf("--------------------------------------------------------------\n");
+		printf("  PID  FATHER OWNER STATE TIME     HEAP     PROC\n"); 
 		for(int i=0; i<num; i++) {
 			uint32_t sec = csec - procs[i].start_sec;
-			printf("%4d %6d %5d %5s %02d:%02d:%02d %8d %s\n", 
+			printf("  %4d %6d %5d %5s %02d:%02d:%02d %8d %s\n", 
 				procs[i].pid,
 				procs[i].father_pid,
 				procs[i].owner,
@@ -43,12 +42,10 @@ int main() {
 		}
 		free(procs);
 	}
-
-	printf("--------------------------------------------------------------\n");
 	if(fr_mem > 1024)
-		printf("memory: total %d MB, free %d KB (%d MB)\n", t_mem, fr_mem, fr_mem/1024);
+		printf("  memory: total %d MB, free %d KB (%d MB)\n", t_mem, fr_mem, fr_mem/1024);
 	else
-		printf("memory: total %d MB, free %d KB\n", t_mem, fr_mem);
-	printf("processes: %d\n", num);
+		printf("  memory: total %d MB, free %d KB\n", t_mem, fr_mem);
+	printf("  processes: %d\n", num);
 	return 0;
 }
