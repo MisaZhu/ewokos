@@ -79,7 +79,6 @@ static int32_t fsnode_node_info(tree_node_t* node, fs_info_t* info) {
 	info->node = (uint32_t)node;
 	info->type = FSN(node)->type;
 	info->owner = FSN(node)->owner;
-	strcpy(info->dev_name, _mounts[FSN(node)->mount].dev_name);
 	info->dev_index = _mounts[FSN(node)->mount].dev_index;
 	info->dev_serv_pid = _mounts[FSN(node)->mount].dev_serv_pid;
 	strcpy(info->name, FSN(node)->name);

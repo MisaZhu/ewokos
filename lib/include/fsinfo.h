@@ -13,7 +13,6 @@ typedef struct {
 	uint32_t type; //file or dir
 	int32_t owner; //user owner
 	char name[NAME_MAX]; //node name
-	char dev_name[DEV_NAME_MAX]; //device name
 	uint32_t dev_index; //index for same type device
 	int32_t dev_serv_pid; //device kernel service proc id
 	void* data;
