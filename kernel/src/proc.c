@@ -593,7 +593,7 @@ int32_t proc_wait(int32_t pid) {
 	return -1;
 }
 
-void proc_wake(int32_t pid) {
+void proc_wake(int32_t pid) { //wake up the proc at block or wait status.
 	CRIT_IN(_p_proc_lock)
 	process_t* proc = proc_get(pid);
 	if(proc != NULL && (proc->state == WAIT || proc->state == BLOCK)) {
