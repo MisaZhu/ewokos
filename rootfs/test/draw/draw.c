@@ -21,7 +21,7 @@ void fbtest() {
 		fill(g, 10, 10, font->w* strlen(s) + 20, font->h + 20, rgb(0, 0, 0));
 		draw_text(g, 20, 20, s, font, rgb(255, 255, 255));
 		graph_flush(g);
-		yield();
+		sleep(0);
 	}
 
 	graph_close(g);
@@ -44,7 +44,7 @@ int main() {
 			}
 		}
 		while(true) {
-			yield();
+			sleep(0);
 		}
 	}	
 	return 0;

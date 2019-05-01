@@ -144,11 +144,6 @@ static int32_t syscall_wait(int32_t arg0) {
 	return 0;
 }
 
-static int32_t syscall_yield() {
-	schedule();
-	return 0;
-}
-
 static int32_t syscall_pmalloc(int32_t arg0) {
 	char* p = (char*)pmalloc((uint32_t)arg0);
 	return (int)p;
@@ -331,7 +326,6 @@ static int32_t (*const _syscallHandler[])() = {
 	[SYSCALL_GETPID] = syscall_getpid,
 	[SYSCALL_EXEC_ELF] = syscall_exec_elf,
 	[SYSCALL_WAIT] = syscall_wait,
-	[SYSCALL_YIELD] = syscall_yield,
 	[SYSCALL_EXIT] = syscall_exit,
 	[SYSCALL_SLEEP_MSEC] = syscall_sleep_msec,
 

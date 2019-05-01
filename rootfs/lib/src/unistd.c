@@ -57,10 +57,6 @@ void wait(int pid) {
 	syscall1(SYSCALL_WAIT, pid);
 }
 
-void yield() {
-	syscall0(SYSCALL_YIELD);
-}
-
 char* getcwd(char* buf, uint32_t size) {
 	return (char*)syscall2(SYSCALL_GET_CWD, (int)buf, (int)size);
 }

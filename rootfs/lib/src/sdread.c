@@ -18,7 +18,7 @@ static int32_t read_block(int32_t block, char* buf) {
 		res = syscall2(SYSCALL_DEV_BLOCK_READ_DONE, _typeid, (int32_t)buf);
 		if(res == 0)
 			break;
-		yield();
+		sleep(0);
 	}
 	return 0;
 }

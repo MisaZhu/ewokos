@@ -18,8 +18,6 @@ void exit(int code);
 
 void wait(int pid);
 
-void yield();
-
 int getuid();
 
 unsigned int sleep(unsigned int secs);

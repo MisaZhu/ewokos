@@ -15,7 +15,7 @@ static void gets(char* buf, int len) {
 
 		int c = getch();
 		if(c == 0) {
-			yield();
+			sleep(0);
 			continue;
 		}
 

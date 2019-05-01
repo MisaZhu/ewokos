@@ -17,7 +17,7 @@ bool kserv_run(const char* reg_name, kserv_func_t servFunc, void* p) {
       free(pkg);
     }
     else
-      yield();
+      sleep(0);
   }
 	return true;
 }
@@ -28,5 +28,5 @@ int kserv_get_pid(const char* reg_name) {
 
 void kserv_wait(const char* reg_name) {
 	while(kserv_get_pid(reg_name) < 0)
-		yield();
+		sleep(0);
 }

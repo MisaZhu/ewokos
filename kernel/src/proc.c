@@ -542,13 +542,13 @@ void proc_exit(process_t* proc) {
 }
 
 void proc_sleep_msec(uint32_t msec) {
-	if(msec == 0)
-		return;
-	CRIT_IN(_p_proc_lock)
-	_current_proc->state = SLEEPING;
-	_current_proc->sleep_counter.count_msec = msec;
-	cpu_tick(&_current_proc->sleep_counter.from_sec, &_current_proc->sleep_counter.from_msec);
-	CRIT_OUT(_p_proc_lock)
+	if(msec > 0)  {
+		CRIT_IN(_p_proc_lock)
+			_current_proc->state = SLEEPING;
+		_current_proc->sleep_counter.count_msec = msec;
+		cpu_tick(&_current_proc->sleep_counter.from_sec, &_current_proc->sleep_counter.from_msec);
+		CRIT_OUT(_p_proc_lock)
+	}
 	schedule();
 }
 

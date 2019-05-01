@@ -12,7 +12,7 @@ void test(void* p) {
 		semaphore_lock(&s);
 		printf("child thread: %d, arg = '%s'\n", i++, (const char*)p);
 		semaphore_unlock(&s);
-		yield();
+		sleep(0);
 	}
 }
 
@@ -28,7 +28,7 @@ int main() {
 		semaphore_lock(&s);
 		printf("main thread %d\n", i++);
 		semaphore_unlock(&s);
-		yield();
+		sleep(0);
 	}
 
 	semaphore_close(&s);
