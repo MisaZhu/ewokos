@@ -61,11 +61,6 @@ int32_t dev_uart_read(int16_t id, void* buf, uint32_t size) {
 		p[i] = c;
 		i++;
 	}
-
-	/*
-	if(i == 0)
-		proc_sleep((int32_t)&_uart_buffer);
-	*/
 	CRIT_OUT(_uart_lock)
 	return i;	
 }
@@ -95,7 +90,6 @@ void uart_handle(void) {
 
 		CRIT_IN(_uart_lock);
 		dev_buffer_push(&_uart_buffer, (char)data, false);
-		//proc_wake((int32_t)&_uart_buffer);
 		CRIT_OUT(_uart_lock);
 	}
 }

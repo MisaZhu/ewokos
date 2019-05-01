@@ -10,6 +10,8 @@ static const char* _states[] = {
 	"unu",
 	"crt",
 	"slp",
+	"wat",
+	"blk",
 	"rdy",
 	"run",
 	"tmn"
