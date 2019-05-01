@@ -3,7 +3,7 @@
 #include <stdlib.h>
 
 sconf_t* sconf_load(const char* fname) {
-	uint32_t size;
+	int32_t size;
 	char* str = fs_read_file(fname, &size);
 	if(str == NULL || size == 0)
 		return NULL;

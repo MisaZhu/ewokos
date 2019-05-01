@@ -39,6 +39,7 @@ static int welcome() {
 
 int main() {
 	welcome();
+	usleep(100000);
 	while(1) {
 		int pid = fork();
 		if(pid == 0) {

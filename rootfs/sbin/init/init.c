@@ -90,8 +90,6 @@ int main() {
 	run_init_procs("/etc/init/init.dev");
 	run_init_procs("/etc/init/init.rd");
 
-	/*sleep while for waiting devices to be ready*/
-	usleep(100000);
 	/*set uid to root*/
 	syscall2(SYSCALL_SET_UID, getpid(), 0);
 	/*run 2 session for uart0 and framebuffer based console0*/
