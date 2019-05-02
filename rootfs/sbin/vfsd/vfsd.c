@@ -142,12 +142,15 @@ static tree_node_t* fsnode_mount(const char* fname, const char* dev_name,
 	if(node == NULL)
 		return NULL;
 
-	if(_root == NULL)
+	if(to == NULL || _root == NULL) {
 		_root = node;
+		strcpy(FSN(node)->name, "/");
+	}
+	else
+		strcpy(FSN(node)->name, FSN(to)->name);
 
 	FSN(node)->owner = owner;
   FSN(node)->mount = i;
-	strcpy(FSN(node)->name, FSN(to)->name);
 
 	//replace the old node
 	if(to != NULL) {
