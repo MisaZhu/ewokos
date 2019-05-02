@@ -100,8 +100,8 @@ int main(int argc, char* argv[]) {
 	dev.write = sramdisk_write;
 	
 	const char* arg = "/ramdisk";
-	if(argc >= 2) 
-		arg = argv[1];
-	dev_run(&dev, "dev.sramdisk", 0, arg, false);
+	if(argc >= 3) 
+		arg = argv[2];
+	dev_run(&dev, "dev.sramdisk", atoi(argv[1]), arg, false);
 	return 0;
 }

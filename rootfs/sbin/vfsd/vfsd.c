@@ -10,17 +10,10 @@
 #include <stdlib.h>
 #include <syscall.h>
 
-typedef struct {
-	char dev_name[DEV_NAME_MAX];
-	int32_t dev_index;
-	int32_t dev_serv_pid;
-	tree_node_t* old;
-} _mountT;
-
 #define DEV_VFS "dev.vfs"
 #define MOUNT_MAX 32
 
-static _mountT _mounts[MOUNT_MAX];
+static mount_t _mounts[MOUNT_MAX];
 static tree_node_t* _root = NULL;
 
 static bool check_access(tree_node_t* node, bool wr) {
@@ -32,7 +25,7 @@ static bool check_access(tree_node_t* node, bool wr) {
 
 static void fsnode_init() {
 	for(int i=0; i<MOUNT_MAX; i++) {
-		memset(&_mounts[i], 0, sizeof(_mountT));
+		memset(&_mounts[i], 0, sizeof(mount_t));
 	}
 	//strcpy(_mounts[0].dev_name, DEV_VFS);
 	_root = NULL;
@@ -131,7 +124,7 @@ static tree_node_t* fsnode_mount(const char* fname, const char* dev_name,
 			strcpy(_mounts[i].dev_name, dev_name);
 			_mounts[i].dev_index = dev_index;
 			_mounts[i].dev_serv_pid = pid;
-			_mounts[i].old = to; //save the old node.
+			_mounts[i].node_old = (uint32_t)to; //save the node_old node.
 			break;
 		}
 	}
@@ -152,7 +145,7 @@ static tree_node_t* fsnode_mount(const char* fname, const char* dev_name,
 	FSN(node)->owner = owner;
   FSN(node)->mount = i;
 
-	//replace the old node
+	//replace the node_old node
 	if(to != NULL) {
 		node->father = to->father;
 		node->prev = to->prev;
@@ -177,12 +170,12 @@ static int32_t fsnode_unmount(tree_node_t* node) {
 	if(!check_access(node, true) || node == _root) //can not umount root
 		return -1;
 
-	tree_node_t* old = _mounts[FSN(node)->mount].old;
+	tree_node_t* node_old = (tree_node_t*)_mounts[FSN(node)->mount].node_old;
 	tree_node_t* father = node->father;
 	tree_del(node, free);
 
-	if(old != NULL && father != NULL)
-		tree_add(father, old);
+	if(node_old != NULL && father != NULL)
+		tree_add(father, node_old);
 	return 0;
 }
 
@@ -323,6 +316,17 @@ static void do_unmount(package_t* pkg) {
 	ipc_send(pkg->id, pkg->type, NULL, 0);
 }
 
+static void do_get_mount(package_t* pkg) {
+	int32_t index = *(int32_t*)get_pkg_data(pkg);
+	if(index < 0 || index >= MOUNT_MAX) {
+		ipc_send(pkg->id, pkg->type, NULL, 0);
+		return;
+	}
+
+	mount_t* mnt = &_mounts[index];
+	ipc_send(pkg->id, pkg->type, mnt, sizeof(mount_t));
+}
+
 static void handle(package_t* pkg, void* p) {
 	(void)p;
 	switch(pkg->type) {
@@ -352,6 +356,9 @@ static void handle(package_t* pkg, void* p) {
 		break;
 	case VFS_CMD_UNMOUNT:
 		do_unmount(pkg);
+		break;
+	case VFS_CMD_GET_MOUNT:
+		do_get_mount(pkg);
 		break;
 	}
 }

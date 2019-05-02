@@ -127,8 +127,23 @@ int32_t vfs_kid(uint32_t node, int32_t index, fs_info_t* info) {
 		if(pkg != NULL) free(pkg);
 		return -1;
 	}
-
 	memcpy(info, get_pkg_data(pkg), pkg->size);
+	free(pkg);
+	return 0;
+}
+
+int32_t vfs_get_mount(int32_t index, mount_t* mnt) {
+	int32_t serv_pid = kserv_get_pid(VFS_NAME);	
+	if(serv_pid < 0)
+		return -1;
+
+	package_t* pkg = ipc_req(serv_pid, 0, VFS_CMD_GET_MOUNT, &index, 4, true);
+	if(pkg == NULL || pkg->type == PKG_TYPE_ERR || pkg->size == 0) {
+		if(pkg != NULL) free(pkg);
+		return -1;
+	}
+	memcpy(mnt, get_pkg_data(pkg), pkg->size);
+	free(pkg);
 	return 0;
 }
 
