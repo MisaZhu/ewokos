@@ -8,6 +8,7 @@
 #include <device.h>
 
 typedef struct {
+	uint32_t size;
 	void* data;
 } node_data_t;
 
@@ -28,6 +29,7 @@ static int32_t sramdisk_write(uint32_t node, void* buf, uint32_t size, int32_t s
 		}
 		data->data = tmp;
 		info.size = new_size;
+		data->size = new_size;
 	}	
 	char* p  = (char*)data->data;
 	if(p == NULL)
@@ -82,9 +84,9 @@ static int32_t sramdisk_close(uint32_t node) {
 		return -1;
 	if(info.type == FS_TYPE_DIR)
 		return 0;
-	if(info.data == NULL) {
-		info.data = malloc(sizeof(node_data_t));
-		memset(info.data, 0, sizeof(node_data_t));
+	if(info.data != NULL) {
+		node_data_t* data = (node_data_t*)info.data;
+		info.size = data->size;
 		fs_ninfo_update(node, &info);
 	}
 	return 0;
