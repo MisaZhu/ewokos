@@ -16,11 +16,17 @@ int main() {
 		fs_full_name(arg, name, FULL_NAME_MAX);
 	}
 
-	int fd = fs_open(name, 0);
-	printf("cwd: %s\n", name);
+	int fd = open(name, O_RDONLY);
 	if(fd >= 0) {
-		int32_t i = 0;
-		while(true) {
+		fs_info_t dir_info;
+		if(fs_info(fd, &dir_info) != 0 || dir_info.type != FS_TYPE_DIR) {
+			close(fd);
+			return -1;
+		}
+		printf(" total: %d\n", dir_info.size);
+
+		uint32_t i = 0;
+		while(i < dir_info.size) {
 			fs_info_t info;
 			if(fs_kid(fd, i, &info) != 0)
 				break;
@@ -30,7 +36,7 @@ int main() {
 				printf(" +%16s -d-  %4d  %d\n", info.name, info.owner, info.size);
 			i++;
 		}
-		fs_close(fd);
+		close(fd);
 	}
 
 	return 0;

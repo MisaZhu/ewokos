@@ -2,8 +2,7 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <stdlib.h>
-#include <syscall.h>
-#include <device.h>
+#include <kstring.h>
 
 int main() {
 	init_cmain_arg();
@@ -13,9 +12,15 @@ int main() {
 		return -1;
 	}
 	
-	int i = open(arg, O_RDWR|O_CREAT);
-	if(i >= 0)
-		close(i);
+	int fd = open(arg, O_RDWR|O_CREAT);
+	if(fd < 0) {
+		printf("error: open %s failed!\n", arg);
+		return -1;
+	}
+
+	const char* s = "hello world\n";
+	write(fd, s, strlen(s));
+	close(fd);
 	return 0;
 }
 

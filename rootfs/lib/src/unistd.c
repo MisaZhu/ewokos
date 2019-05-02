@@ -84,15 +84,20 @@ unsigned int sleep(unsigned int secs) {
 /*io functions*/
 
 int open(const char* fname, int flags) {
+	if(fname[0] == 0)
+		return -1;
+	char full[FULL_NAME_MAX];
+	fs_full_name(fname, full, FULL_NAME_MAX);
+
 	fs_info_t info;
-	if(fs_finfo(fname, &info) != 0) { //not exist.
+	if(fs_finfo(full, &info) != 0) { //not exist.
 		if((flags & O_WRONLY) == 0 ||
 				(flags & O_CREAT) == 0)
 			return -1;
 
 		char dir[FULL_NAME_MAX];
 		char name[SHORT_NAME_MAX];
-		fs_parse_name(fname, dir, FULL_NAME_MAX, name, SHORT_NAME_MAX);	
+		fs_parse_name(full, dir, FULL_NAME_MAX, name, SHORT_NAME_MAX);	
 
 		int fd = fs_open(dir, O_RDWR);
 		if(fd < 0)
@@ -102,7 +107,7 @@ int open(const char* fname, int flags) {
 		if(res < 0)
 			return -1;
 	}
-	return fs_open(fname, flags);
+	return fs_open(full, flags);
 }
 
 int write(int fd, const void* buf, uint32_t size) {

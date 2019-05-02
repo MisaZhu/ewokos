@@ -99,7 +99,6 @@ int main() {
 	dev.read = sramdisk_read;
 	dev.write = sramdisk_write;
 
-	//dev_run(&dev, "dev.sramdisk", 0, "/sramdisk", false);
-	dev_run(&dev, "dev.sramdisk", 0, "/tmp", false);
+	dev_run(&dev, "dev.sramdisk", 0, "/ramdisk", false);
 	return 0;
 }
