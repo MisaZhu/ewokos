@@ -22,6 +22,47 @@ inline void *memcpy(void *target, const void *source, uint32_t n) {
 }
 
 /* memset fills the given target with given length with the given character. */
+void* memset(void *target, int32_t c, uint32_t size) {
+	char* dst = target;
+	char value = (char)c;
+	uint32_t align_value;
+	align_value = (uint32_t)dst & 0x03;
+	if(align_value) {
+		align_value = 4 - align_value;
+		if(size > align_value) {
+			while(align_value) {
+				*(uint8_t *)dst = value;
+				dst += 1;
+
+				align_value -= 1;
+				size -= 1;
+			}
+		}
+		else {
+			while(size) {
+				*(uint8_t *)dst = value;
+				dst += 1;
+				size -= 1;
+			}
+			return target;
+		}
+	}
+	align_value = value | (value << 8);
+	align_value = align_value | (align_value << 16);
+	while(size >= 4) {
+		*(uint32_t *)dst = align_value;
+		dst += 4;
+		size -= 4;
+	}
+	while(size) {
+		*(uint8_t *)dst = value;
+		dst += 1;
+		size -= 1;
+	}
+	return target;
+}
+
+/*
 inline void *memset(void *target, int32_t c, uint32_t len) {
 	char *target_buffer = (char *) target;
 
@@ -31,6 +72,7 @@ inline void *memset(void *target, int32_t c, uint32_t len) {
 
 	return target;
 }
+*/
 
 /*
  * strcpy copies the given null-terminated source string int32_to the given target.
