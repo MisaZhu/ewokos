@@ -53,7 +53,7 @@
 	kernel/src/sheduler.c
 	kernel/src/syscalls.c
 	kernel/src/mm/shm.c
-	kernel/src/kipc.c
+	kernel/src/ipc.c
 
 	rootfs/lib/src/stdlib.c
 	rootfs/lib/src/unistd.c
