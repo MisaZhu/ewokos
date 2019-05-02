@@ -241,13 +241,13 @@ static int32_t syscall_kserv_get(int32_t arg0) {
 static int32_t syscall_get_cwd(int32_t arg0, int32_t arg1) {
 	char* pwd = (char*)arg0;
 	strncpy(pwd, _current_proc->pwd,
-		arg1 < NAME_MAX ? arg1: NAME_MAX);
+		arg1 < FULL_NAME_MAX ? arg1: FULL_NAME_MAX);
 	return (int)pwd;
 }
 
 static int32_t syscall_set_cwd(int32_t arg0) {
 	const char* pwd = (const char*)arg0;
-	strncpy(_current_proc->pwd, pwd, NAME_MAX);
+	strncpy(_current_proc->pwd, pwd, FULL_NAME_MAX);
 	return 0;
 }
 

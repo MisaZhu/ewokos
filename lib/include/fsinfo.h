@@ -12,14 +12,14 @@ typedef struct {
 	uint32_t size; //file size or children num of dir
 	uint32_t type; //file or dir
 	int32_t owner; //user owner
-	char name[NAME_MAX]; //node name
+	char name[SHORT_NAME_MAX]; //node name
 	uint32_t dev_index; //index for same type device
 	int32_t dev_serv_pid; //device kernel service proc id
 	void* data;
 } fs_info_t;
 
 typedef struct FSNode {
-	char name[NAME_MAX];
+	char name[SHORT_NAME_MAX];
 	int32_t mount;
 	uint32_t size;
 	uint32_t type;

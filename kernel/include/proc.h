@@ -87,7 +87,7 @@ typedef struct process {
 	int32_t owner; /*owner for muti-user system*/
 	uint32_t start_sec; /*start time by second*/
 	char cmd[CMD_MAX]; /*run command*/
-	char pwd[NAME_MAX]; /*working dir*/
+	char pwd[FULL_NAME_MAX]; /*working dir*/
 	int32_t wait_pid; /*waiting for specific process end*/
 	uint32_t slept_by; /*slept_by*/
 	proc_sleep_t sleep_counter;
