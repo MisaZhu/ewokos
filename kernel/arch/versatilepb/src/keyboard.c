@@ -94,7 +94,7 @@ void keyboard_handle() {
 static char unsh[] = {
 	0,033,'1','2','3','4','5','6',        '7','8','9','0', '-','=','\b','\t',
 	'q','w','e','r','t','y','u','i',      'o','p','[',']', '\r', 0,'a','s',
-	'd','f','g','h','j','k','l',';',       0,  0,  0,  0,  'z','x','c','v',
+	'd','f','g','h','j','k','l',';',       0,  '`',  0,  0,  'z','x','c','v',
 	'b','n','m',',','.','/', 0,'*',        0, ' '
 };
 
@@ -115,21 +115,18 @@ void keyboard_handle() {
 	if(scode == 182 || scode == 170) { 
 		t2 = 0;
 		return;
+	}
+	else if(scode == 54 || scode == 42) { 
+		t2 = 1;
+		return;
 	}	
 	else if(scode & 0x80) {
 		return;
 	}
 
-	if(t2 == 0) {
-		c = unsh[scode];
-		if(c == 0) {
-			t2 = 1;
+	c = t2==0 ? unsh[scode] : sh[scode];
+	if(c == 0)
 			return;
-		}
-	}
-	else {
-		c = sh[scode];
-	}
 	
 	CRIT_IN(_keyb_lock)
 	dev_buffer_push(&_keyb_buffer, c, true);
