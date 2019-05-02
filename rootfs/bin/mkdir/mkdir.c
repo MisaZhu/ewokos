@@ -12,7 +12,7 @@ int main() {
 		char cwd[NAME_MAX];
 		int fd = fs_open(getcwd(cwd, NAME_MAX), 0);
 		if(fd >= 0) {
-			fs_add(fd, arg);
+			fs_add(fd, arg, FS_TYPE_DIR);
 			fs_close(fd);
 		}
 	}
