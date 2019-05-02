@@ -2,6 +2,7 @@
 #define FS_H
 
 #include <fsinfo.h>
+#include <vfs/vfs.h>
 
 enum {
 	FS_OPEN = 0,
@@ -26,7 +27,7 @@ int fs_ninfo_update(uint32_t node_addr, fs_info_t* info);
 
 int fs_finfo(const char* name, fs_info_t* info);
 
-fs_info_t* fs_kids(int fd, uint32_t *num);
+int fs_kid(int fd, int32_t index, fs_info_t* info);
 
 int fs_read(int fd, char* buf, uint32_t size);
 

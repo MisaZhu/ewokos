@@ -113,21 +113,39 @@ inline int32_t vfs_unmount(uint32_t node) {
 
 }
 
-fs_info_t* vfs_kids(uint32_t node, uint32_t* num) {
-	*num = 0;
+int32_t vfs_kid(uint32_t node, int32_t index, fs_info_t* info) {
 	int32_t serv_pid = kserv_get_pid(VFS_NAME);	
 	if(serv_pid < 0)
-		return NULL;
+		return -1;
 
-	package_t* pkg = ipc_req(serv_pid, 0, VFS_CMD_KIDS, &node, 4, true);
+	proto_t* proto = proto_new(NULL, 0);
+	proto_add_int(proto, node);
+	proto_add_int(proto, index);
+	package_t* pkg = ipc_req(serv_pid, 0, VFS_CMD_KID, proto->data, proto->size, true);
+	proto_free(proto);
 	if(pkg == NULL || pkg->type == PKG_TYPE_ERR || pkg->size == 0) {
 		if(pkg != NULL) free(pkg);
-		return NULL;
+		return -1;
 	}
 
-	fs_info_t* ret = (fs_info_t*)malloc(pkg->size);
-	memcpy(ret, get_pkg_data(pkg), pkg->size);
-	*num = pkg->size / sizeof(fs_info_t);
-	free(pkg);
-	return ret;
+	memcpy(info, get_pkg_data(pkg), pkg->size);
+	return 0;
 }
+
+//get the full name by node.
+int32_t vfs_node_full_name(uint32_t node, char* full, uint32_t len) {
+	full[0] = 0;
+	int32_t serv_pid = kserv_get_pid(VFS_NAME);	
+	if(serv_pid < 0)
+		return -1;
+
+	package_t* pkg = ipc_req(serv_pid, 0, VFS_CMD_NODE_FULLNAME, &node, 4, true);
+	if(pkg == NULL || pkg->type == PKG_TYPE_ERR || pkg->size == 0) {
+		if(pkg != NULL) free(pkg);
+		return -1;
+	}
+	strncpy(full, (char*)get_pkg_data(pkg), len-1);
+	free(pkg);
+	return 0;
+}
+

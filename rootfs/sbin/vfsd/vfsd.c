@@ -226,6 +226,10 @@ static void do_info_update(package_t* pkg) {
 	}
 
 	tree_node_t* node = (tree_node_t*)info->node;
+	if(pkg->pid != _mounts[FSN(node)->mount].dev_serv_pid) {
+		ipc_send(pkg->id, PKG_TYPE_ERR, NULL, 0);
+		return;
+	}
 	FSN(node)->size = info->size;
 	FSN(node)->data = info->data;
 	FSN(node)->owner = info->owner;
@@ -246,28 +250,59 @@ static void do_node_by_name(package_t* pkg) {
 		ipc_send(pkg->id, pkg->type, &info, sizeof(fs_info_t));
 }
 
-static void do_kids(package_t* pkg) {
-	tree_node_t* node = (tree_node_t*)(*(int32_t*)get_pkg_data(pkg));
+static void do_node_fullname(package_t* pkg) {
+	uint32_t addr = *(uint32_t*)get_pkg_data(pkg);
+	tree_node_t* node = (tree_node_t*)addr;
+	fs_info_t info;
 
-	if(node == NULL || node->size == 0) {
+	if(node == NULL || fsnode_info(node, &info) != 0) {
+		ipc_send(pkg->id, PKG_TYPE_ERR, NULL, 0);
+		return;
+	}
+	char full[FULL_NAME_MAX] = {0};
+	int32_t i = FULL_NAME_MAX-2;
+	const char* n;
+	while(i > 0) {
+		if(node->father == NULL)
+			break;
+		n = FSN(node)->name;
+		int32_t j = strlen(n) - 1;
+		while(i > 0 && j >= 0) {
+			full[i--] = n[j--];
+		}
+		full[i--] = '/';
+		node = node->father;
+	}
+	n = full+i+1;
+	ipc_send(pkg->id, pkg->type, (void*)n, strlen(n)+1);
+}
+
+static void do_kid(package_t* pkg) {
+	proto_t* proto = proto_new(get_pkg_data(pkg), pkg->size);
+	uint32_t addr = (uint32_t)proto_read_int(proto);
+	int32_t index = proto_read_int(proto);
+	proto_free(proto);
+	tree_node_t* node = (tree_node_t*)addr;
+
+	if(node == NULL || index < 0 || index >= (int32_t)node->size) {
 		ipc_send(pkg->id, pkg->type, NULL, 0);
 		return;
 	}
 
-	uint32_t size = sizeof(fs_info_t) * node->size;
-	fs_info_t* ret = (fs_info_t*)malloc(size);
-	memset(ret, 0, size);
-
-	uint32_t i;
+	int32_t i;
 	tree_node_t* n = node->fChild;
-	for(i=0; i<node->size; i++) {
+	for(i=0; i<index; i++) {
 		if(n == NULL)
 			break;
-		fsnode_info(n, &ret[i]);
 		n = n->next;
 	}
-	ipc_send(pkg->id, pkg->type, ret, size);
-	free(ret);
+	if(n == NULL) {
+		ipc_send(pkg->id, pkg->type, NULL, 0);
+		return;
+	}
+	fs_info_t info;
+	fsnode_info(n, &info);
+	ipc_send(pkg->id, pkg->type, &info, sizeof(fs_info_t));
 }
 
 static void do_mount(package_t* pkg) {
@@ -306,8 +341,11 @@ static void handle(package_t* pkg, void* p) {
 	case VFS_CMD_NODE_BY_NAME:
 		do_node_by_name(pkg);
 		break;
-	case VFS_CMD_KIDS:
-		do_kids(pkg);
+	case VFS_CMD_NODE_FULLNAME:
+		do_node_fullname(pkg);
+		break;
+	case VFS_CMD_KID:
+		do_kid(pkg);
 		break;
 	case VFS_CMD_MOUNT:
 		do_mount(pkg);

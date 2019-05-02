@@ -258,11 +258,11 @@ int fs_ninfo_update(uint32_t node_addr, fs_info_t* info) {
 	return 0;
 }
 
-fs_info_t* fs_kids(int fd, uint32_t *num) {
+int fs_kid(int fd, int32_t index, fs_info_t* kid) {
 	fs_info_t info;
 	if(syscall2(SYSCALL_PFILE_NODE_BY_FD, fd, (int32_t)&info) != 0)
 		return NULL;
-	return vfs_kids(info.node, num);
+	return vfs_kid(info.node, index, kid);
 }
 
 int32_t fs_inited() {
@@ -297,7 +297,10 @@ int32_t fs_full_name(const char* fname, char* full, uint32_t full_len) {
 	char pwd[FULL_NAME_MAX];
 	getcwd(pwd, FULL_NAME_MAX-1);
 
-	if(fname[0] == '/') {
+	if(fname[0] == 0) {
+		strncpy(full, pwd, full_len-1);
+	}
+	else if(fname[0] == '/') {
 		strcpy(full, fname);
 	}
 	else {

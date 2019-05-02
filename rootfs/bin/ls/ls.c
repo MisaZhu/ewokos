@@ -17,18 +17,18 @@ int main() {
 	}
 
 	int fd = fs_open(name, 0);
+	printf("cwd: %s\n", name);
 	if(fd >= 0) {
-		uint32_t num;
-		fs_info_t* infos = fs_kids(fd, &num);
-		if(infos != NULL) {
-			for(uint32_t i=0; i<num; i++) {
-				fs_info_t* info = &infos[i];
-				if(info->type == FS_TYPE_FILE)
-					printf("  %16s -f-  %4d  %d\n", info->name, info->owner, info->size);
-				else if(info->type == FS_TYPE_DIR)
-					printf(" +%16s -d-  %4d  %d\n", info->name, info->owner, info->size);
-			}
-			free(infos);
+		int32_t i = 0;
+		while(true) {
+			fs_info_t info;
+			if(fs_kid(fd, i, &info) != 0)
+				break;
+			if(info.type == FS_TYPE_FILE)
+				printf("  %16s -f-  %4d  %d\n", info.name, info.owner, info.size);
+			else if(info.type == FS_TYPE_DIR)
+				printf(" +%16s -d-  %4d  %d\n", info.name, info.owner, info.size);
+			i++;
 		}
 		fs_close(fd);
 	}
