@@ -189,7 +189,7 @@ int fs_write(int fd, const char* buf, uint32_t size) {
 	return sz;
 }
 
-int fs_add(int fd, const char* name) {
+int fs_add(int fd, const char* name, uint32_t type) {
 	fs_info_t info;
 	if(syscall2(SYSCALL_PFILE_NODE_BY_FD, fd, (int32_t)&info) != 0)
 		return -1;
@@ -198,13 +198,11 @@ int fs_add(int fd, const char* name) {
 	if(size == 0)
 		return -1;
 
-	if(info.dev_serv_pid == 0) {
-		return vfs_add(info.node, name, 0, NULL);
-	}
 
 	proto_t* proto = proto_new(NULL, 0);
 	proto_add_int(proto, info.node);
 	proto_add_str(proto, name);
+	proto_add_int(proto, type);
 	package_t* pkg = ipc_req(info.dev_serv_pid, 0, FS_ADD, proto->data, proto->size, true);
 	proto_free(proto);
 
@@ -212,9 +210,13 @@ int fs_add(int fd, const char* name) {
 		if(pkg != NULL) free(pkg);
 		return -1;
 	}
-
-	int sz = *(int*)get_pkg_data(pkg);
 	free(pkg);
+
+	int32_t sz = -1;
+	if(type == FS_TYPE_DIR)
+		sz = vfs_add(info.node, name, VFS_DIR_SIZE, NULL);
+	else
+		sz = vfs_add(info.node, name, 0, NULL);
 	return sz;
 }
 

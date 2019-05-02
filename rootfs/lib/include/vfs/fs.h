@@ -36,7 +36,7 @@ int fs_putch(int fd, int c);
 
 int fs_write(int fd, const char* buf, uint32_t size);
 
-int fs_add(int dirFD, const char* name);
+int fs_add(int dirFD, const char* name, uint32_t type);
 
 int32_t fs_flush(int fd);
 
