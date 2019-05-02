@@ -30,7 +30,7 @@ int main() {
 	if(arg == NULL)
 		return -1;
 	gen_fname(fname_r, arg);
-	int fd_r = open(fname_r, 0);
+	int fd_r = open(fname_r, O_RDONLY);
 	if(fd_r < 0)
 		return -1;
 
@@ -38,7 +38,7 @@ int main() {
 	arg = read_cmain_arg();
 	if(arg != NULL) {
 		gen_fname(fname_w, arg);
-		int fd_w = open(fname_w, 0);
+		fd_w = open(fname_w, O_RDWR|O_CREAT);
 		if(fd_w < 0) {
 			close(fd_r);
 			return -1;

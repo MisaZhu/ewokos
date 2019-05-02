@@ -4,4 +4,5 @@
 /sbin/dev/fbd
 /sbin/dev/keybd
 /sbin/dev/moused
+/sbin/dev/sramdisk
 /sbin/dev/consoled

@@ -22,6 +22,8 @@ int fs_info(int fd, fs_info_t* info);
 
 int fs_ninfo(uint32_t node_addr, fs_info_t* info);
 
+int fs_ninfo_update(uint32_t node_addr, fs_info_t* info);
+
 int fs_finfo(const char* name, fs_info_t* info);
 
 fs_info_t* fs_kids(int fd, uint32_t *num);
@@ -45,5 +47,7 @@ int32_t fs_dma(int fd, uint32_t* size);
 int32_t fs_inited();
 
 char* fs_read_file(const char* fname, int32_t *size);
+
+int32_t fs_full_path(const char* fname, char* dir, uint32_t dir_len, char* name, uint32_t name_len);
 
 #endif

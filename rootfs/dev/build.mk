@@ -1,5 +1,6 @@
 include dev/null/build.mk
 include dev/sdcard/build.mk
+include dev/sramdisk/build.mk
 include dev/ttyd/build.mk
 include dev/keybd/build.mk
 include dev/moused/build.mk

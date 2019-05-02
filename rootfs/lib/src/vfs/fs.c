@@ -1,5 +1,6 @@
 #include <kserv.h>
 #include <vfs/fs.h>
+#include <vprintf.h>
 #include <vfs/vfs.h>
 #include <ipc.h>
 #include <kstring.h>
@@ -198,7 +199,6 @@ int fs_add(int fd, const char* name, uint32_t type) {
 	if(size == 0)
 		return -1;
 
-
 	proto_t* proto = proto_new(NULL, 0);
 	proto_add_int(proto, info.node);
 	proto_add_str(proto, name);
@@ -250,6 +250,12 @@ int fs_ninfo(uint32_t node_addr, fs_info_t* info) {
 	return 0;
 }
 
+int fs_ninfo_update(uint32_t node_addr, fs_info_t* info) {
+	if(syscall2(SYSCALL_PFILE_NODE_UPDATE, node_addr, (int32_t)info) != 0)
+		return -1;
+	return 0;
+}
+
 fs_info_t* fs_kids(int fd, uint32_t *num) {
 	fs_info_t info;
 	if(syscall2(SYSCALL_PFILE_NODE_BY_FD, fd, (int32_t)&info) != 0)
@@ -285,3 +291,30 @@ char* fs_read_file(const char* fname, int32_t *size) {
 	return buf;
 }
 
+int32_t fs_full_path(const char* fname, char* dir, uint32_t dir_len, char* name, uint32_t name_len) {
+	char full[NAME_MAX];
+	char pwd[NAME_MAX];
+	getcwd(pwd, NAME_MAX);
+
+	if(fname[0] == '/') {
+		strcpy(full, fname);
+	}
+	else {
+		if(strcmp(pwd, "/") == 0)
+			snprintf(full, NAME_MAX-1, "/%s", fname);
+		else
+			snprintf(full, NAME_MAX-1, "%s/%s", pwd, fname);
+	}
+
+	int32_t i = strlen(full);
+	while(i >= 0) {
+		if(full[i] == '/') {
+			full[i] = 0;
+			break;
+		}
+		--i;	
+	}
+	strncpy(dir, full, dir_len); 
+	strncpy(name, full+i+1, name_len); 
+	return 0;
+}

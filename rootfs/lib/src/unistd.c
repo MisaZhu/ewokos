@@ -83,8 +83,26 @@ unsigned int sleep(unsigned int secs) {
 
 /*io functions*/
 
-int open(const char* fname, int mode) {
-	return fs_open(fname, mode);
+int open(const char* fname, int flags) {
+	fs_info_t info;
+	if(fs_finfo(fname, &info) != 0) { //not exist.
+		if((flags & O_WRONLY) == 0 ||
+				(flags & O_CREAT) == 0)
+			return -1;
+
+		char dir[NAME_MAX];
+		char name[NAME_MAX];
+		fs_full_path(fname, dir, NAME_MAX-1, name, NAME_MAX-1);	
+
+		int fd = fs_open(dir, O_RDWR);
+		if(fd < 0)
+			return -1;
+		int res = fs_add(fd, name, FS_TYPE_FILE);
+		fs_close(fd);
+		if(res < 0)
+			return -1;
+	}
+	return fs_open(fname, flags);
 }
 
 int write(int fd, const void* buf, uint32_t size) {

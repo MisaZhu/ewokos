@@ -38,22 +38,22 @@ static void fsnode_init() {
 	_root = NULL;
 }
 
-static tree_node_t* fsnode_add(tree_node_t* nodeTo, const char* name, uint32_t size, int32_t pid, void* data) {
+static tree_node_t* fsnode_add(tree_node_t* node_to, const char* name, uint32_t size, int32_t pid, void* data) {
 	int32_t owner = syscall1(SYSCALL_GET_UID, pid);
-	if(!check_access(nodeTo, true))
+	if(!check_access(node_to, true))
 		return NULL;
 
-	tree_node_t* ret = fs_tree_simple_get(nodeTo, name);
+	tree_node_t* ret = fs_tree_simple_get(node_to, name);
 	if(ret != NULL) 
 		return ret;
 	
-	ret = fs_tree_simple_add(nodeTo, name);
+	ret = fs_tree_simple_add(node_to, name);
 	if(size != VFS_DIR_SIZE)
 		FSN(ret)->type = FS_TYPE_FILE;
 	else
 		FSN(ret)->type = FS_TYPE_DIR;
 	FSN(ret)->size = size;
-	FSN(ret)->mount = FSN(nodeTo)->mount;
+	FSN(ret)->mount = FSN(node_to)->mount;
 	FSN(ret)->owner = owner;
 	FSN(ret)->data = data;
 	return ret;
@@ -193,7 +193,9 @@ static void do_add(package_t* pkg) {
 	uint32_t size = (uint32_t)proto_read_int(proto);
 	void* data = (void*)proto_read_int(proto);
 
-	tree_node_t* ret = fsnode_add((tree_node_t*)node, name, size, pkg->pid, data);
+	tree_node_t* ret = NULL; 
+	if(strchr(name, '/') == NULL)
+		ret = fsnode_add((tree_node_t*)node, name, size, pkg->pid, data);
 	ipc_send(pkg->id, pkg->type, &ret, 4);
 }
 

@@ -6,11 +6,16 @@
 #include <device.h>
 
 int main() {
-	int i = 0;
-	while(true) {
-		printf("%d ", i++);
-		usleep(1000000);
+	init_cmain_arg();
+	const char* arg = read_cmain_arg();
+	arg = read_cmain_arg();
+	if(arg == NULL) {
+		return -1;
 	}
+	
+	int i = open(arg, O_RDWR|O_CREAT);
+	if(i >= 0)
+		close(i);
 	return 0;
 }
 

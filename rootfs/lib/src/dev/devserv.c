@@ -72,6 +72,7 @@ static void do_add(device_t* dev, package_t* pkg) {
 	proto_t* proto = proto_new(get_pkg_data(pkg), pkg->size);
 	uint32_t node = (uint32_t)proto_read_int(proto);
 	const char* name = proto_read_str(proto);
+	uint32_t type = (uint32_t)proto_read_int(proto);
 	proto_free(proto);
 
 	if(node == 0 || name[0] == 0) {
@@ -81,7 +82,7 @@ static void do_add(device_t* dev, package_t* pkg) {
 
 	int32_t ret = 0;
 	if(dev->add != NULL)
-		ret = dev->add(node, name);	
+		ret = dev->add(node, name, type);	
 	ipc_send(pkg->id, pkg->type, &ret, 4);
 }
 

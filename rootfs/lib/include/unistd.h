@@ -25,12 +25,16 @@ unsigned int usleep(unsigned int msecs);
 
 /*i/o functions*/
 #define O_RDONLY 0
+#define O_WRONLY 2
+#define O_RDWR	 3
 
-int open(const char* fname, int mode);
+#define O_CREAT	 8
 
-int write(int fd, const void* buf, uint32_t mode);
+int open(const char* fname, int flags);
 
-int read(int fd, void* buf, uint32_t mode);
+int write(int fd, const void* buf, uint32_t size);
+
+int read(int fd, void* buf, uint32_t size);
 
 void close(int fd);
 
