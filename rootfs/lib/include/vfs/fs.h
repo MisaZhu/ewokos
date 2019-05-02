@@ -48,6 +48,8 @@ int32_t fs_inited();
 
 char* fs_read_file(const char* fname, int32_t *size);
 
-int32_t fs_full_path(const char* fname, char* dir, uint32_t dir_len, char* name, uint32_t name_len);
+int32_t fs_full_name(const char* fname, char* name, uint32_t name_len);
+
+int32_t fs_parse_name(const char* fname, char* dir, uint32_t dir_len, char* name, uint32_t name_len);
 
 #endif

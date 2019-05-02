@@ -2,7 +2,7 @@
 #include <stdio.h>
 
 int main() {
-	char pwd[NAME_MAX];
-	printf("%s\n", getcwd(pwd, NAME_MAX));
+	char pwd[FULL_NAME_MAX];
+	printf("%s\n", getcwd(pwd, FULL_NAME_MAX));
 	return 0;
 }

@@ -58,7 +58,7 @@ void wait(int pid) {
 }
 
 char* getcwd(char* buf, uint32_t size) {
-	return (char*)syscall2(SYSCALL_GET_CWD, (int)buf, (int)size);
+	return (char*)syscall2(SYSCALL_GET_CWD, (int)buf, (int)size-1);
 }
 
 int chdir(const char* dir) {
@@ -90,9 +90,9 @@ int open(const char* fname, int flags) {
 				(flags & O_CREAT) == 0)
 			return -1;
 
-		char dir[NAME_MAX];
-		char name[NAME_MAX];
-		fs_full_path(fname, dir, NAME_MAX-1, name, NAME_MAX-1);	
+		char dir[FULL_NAME_MAX];
+		char name[SHORT_NAME_MAX];
+		fs_parse_name(fname, dir, FULL_NAME_MAX, name, SHORT_NAME_MAX);	
 
 		int fd = fs_open(dir, O_RDWR);
 		if(fd < 0)

@@ -63,6 +63,20 @@ inline int32_t vfs_node_by_name(const char* fname, fs_info_t* info) {
 	return 0;
 }
 
+inline int32_t vfs_node_update(fs_info_t* info) {
+	int32_t serv_pid = kserv_get_pid(VFS_NAME);	
+	if(serv_pid < 0)
+		return -1;
+
+	package_t* pkg = ipc_req(serv_pid, 0, VFS_CMD_INFO_UPDATE, info, sizeof(fs_info_t), true);
+	if(pkg == NULL || pkg->type == PKG_TYPE_ERR) {
+		if(pkg != NULL) free(pkg);
+		return -1;
+	}
+	free(pkg);
+	return 0;
+}
+
 inline uint32_t vfs_mount(const char* fname, const char* devName, int32_t devIndex, bool isFile) {
 	int32_t serv_pid = kserv_get_pid(VFS_NAME);	
 	if(serv_pid < 0)

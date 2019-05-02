@@ -66,7 +66,7 @@ static int32_t fsnode_del(tree_node_t* node) {
 	return 0;
 }
 
-static int32_t fsnode_node_info(tree_node_t* node, fs_info_t* info) {
+static int32_t fsnode_info(tree_node_t* node, fs_info_t* info) {
 	if(!check_access(node, false))
 		return -1;
 	
@@ -99,9 +99,9 @@ static tree_node_t* build_nodes(const char* fname, int32_t owner) {
 		fname = fname+1;
 
 	tree_node_t* node = father;	
-	char n[NAME_MAX+1];
+	char n[FULL_NAME_MAX+1];
 	int j = 0;
-	for(int i=0; i<NAME_MAX; i++) {
+	for(int i=0; i<FULL_NAME_MAX; i++) {
 		n[i] = fname[i];
 		if(n[i] == 0) {
 			if(i == 0)
@@ -211,10 +211,26 @@ static void do_info(package_t* pkg) {
 	uint32_t node = *(uint32_t*)get_pkg_data(pkg);
 	fs_info_t info;
 
-	if(node == 0 || fsnode_node_info((tree_node_t*)node, &info) != 0)
+	if(node == 0 || fsnode_info((tree_node_t*)node, &info) != 0)
 		ipc_send(pkg->id, PKG_TYPE_ERR, NULL, 0);
 	else
 		ipc_send(pkg->id, pkg->type, &info, sizeof(fs_info_t));
+}
+
+static void do_info_update(package_t* pkg) {
+	fs_info_t* info = (fs_info_t*)get_pkg_data(pkg);
+
+	if(info == NULL) {
+		ipc_send(pkg->id, PKG_TYPE_ERR, NULL, 0);
+		return;
+	}
+
+	tree_node_t* node = (tree_node_t*)info->node;
+	FSN(node)->size = info->size;
+	FSN(node)->data = info->data;
+	FSN(node)->owner = info->owner;
+	strcpy(FSN(node)->name, info->name);
+	ipc_send(pkg->id, pkg->type, NULL, 0);
 }
 
 static void do_node_by_name(package_t* pkg) {
@@ -224,7 +240,7 @@ static void do_node_by_name(package_t* pkg) {
 
 	fs_info_t info;
 	tree_node_t* node = get_node_by_name(name);
-	if(node == NULL || fsnode_node_info(node, &info) != 0)
+	if(node == NULL || fsnode_info(node, &info) != 0)
 		ipc_send(pkg->id, PKG_TYPE_ERR, NULL, 0);
 	else
 		ipc_send(pkg->id, pkg->type, &info, sizeof(fs_info_t));
@@ -247,7 +263,7 @@ static void do_kids(package_t* pkg) {
 	for(i=0; i<node->size; i++) {
 		if(n == NULL)
 			break;
-		fsnode_node_info(n, &ret[i]);
+		fsnode_info(n, &ret[i]);
 		n = n->next;
 	}
 	ipc_send(pkg->id, pkg->type, ret, size);
@@ -283,6 +299,9 @@ static void handle(package_t* pkg, void* p) {
 		break;
 	case VFS_CMD_INFO:
 		do_info(pkg);
+		break;
+	case VFS_CMD_INFO_UPDATE:
+		do_info_update(pkg);
 		break;
 	case VFS_CMD_NODE_BY_NAME:
 		do_node_by_name(pkg);

@@ -54,9 +54,9 @@ tree_node_t* fs_tree_get(tree_node_t* father, const char* name) {
 
 
 	tree_node_t* node = father;	
-	char n[NAME_MAX+1];
+	char n[FULL_NAME_MAX+1];
 	int j = 0;
-	for(int i=0; i<NAME_MAX; i++) {
+	for(int i=0; i<FULL_NAME_MAX; i++) {
 		n[i] = name[i];
 		if(n[i] == 0) {
 			return fs_tree_simple_get(node, n+j);
@@ -80,7 +80,7 @@ tree_node_t* fs_tree_simple_add(tree_node_t* father, const char* name) {
 			strchr(name, '/') != NULL)
 		return NULL;
 
-	strncpy(data->name, name, NAME_MAX);
+	strncpy(data->name, name, SHORT_NAME_MAX);
 	tree_add(father, node);
 	return node;
 }

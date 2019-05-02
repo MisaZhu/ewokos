@@ -47,8 +47,8 @@ static void gets(char* buf, int len) {
 }
 
 static int cd(const char* dir) {
-	char cwd[NAME_MAX];
-	if(getcwd(cwd, NAME_MAX) == NULL)
+	char cwd[FULL_NAME_MAX];
+	if(getcwd(cwd, FULL_NAME_MAX-1) == NULL)
 		return -1;
 
 	if(strcmp(dir, ".") == 0)
@@ -79,7 +79,7 @@ static int cd(const char* dir) {
 		}
 	}
 	else if(dir[0] == '/') {
-		strncpy(cwd, dir, NAME_MAX);
+		strncpy(cwd, dir, FULL_NAME_MAX);
 	}
 	else {
 		int len = strlen(cwd);
@@ -179,24 +179,24 @@ static int32_t find_exec(char* fname, char* cmd) {
 		}
 	}
 
-	snprintf(fname, NAME_MAX-1, "/sbin/%s", cmd);
+	snprintf(fname, FULL_NAME_MAX-1, "/sbin/%s", cmd);
 	if(fs_finfo(fname, &info) == 0) {
 		cmd[i] = c;
-		snprintf(fname, NAME_MAX-1, "/sbin/%s", cmd);
+		snprintf(fname, FULL_NAME_MAX-1, "/sbin/%s", cmd);
 		return 0;
 	}
 
-	snprintf(fname, NAME_MAX-1, "/bin/%s", cmd);
+	snprintf(fname, FULL_NAME_MAX-1, "/bin/%s", cmd);
 	if(fs_finfo(fname, &info) == 0) {
 		cmd[i] = c;
-		snprintf(fname, NAME_MAX-1, "/bin/%s", cmd);
+		snprintf(fname, FULL_NAME_MAX-1, "/bin/%s", cmd);
 		return 0;
 	}
 
-	snprintf(fname, NAME_MAX-1, "/usr/bin/%s", cmd);
+	snprintf(fname, FULL_NAME_MAX-1, "/usr/bin/%s", cmd);
 	if(fs_finfo(fname, &info) == 0) {
 		cmd[i] = c;
-		snprintf(fname, NAME_MAX-1, "/usr/bin/%s", cmd);
+		snprintf(fname, FULL_NAME_MAX-1, "/usr/bin/%s", cmd);
 		return 0;
 	}
 	return -1;
@@ -204,15 +204,15 @@ static int32_t find_exec(char* fname, char* cmd) {
 
 int main() {
 	char cmd[CMD_MAX];
-	char cwd[NAME_MAX];
+	char cwd[FULL_NAME_MAX];
 
 	int uid = getuid();
 
 	while(1) {
 		if(uid == 0)
-			printf("ewok:%s.# ", getcwd(cwd, NAME_MAX));
+			printf("ewok:%s.# ", getcwd(cwd, FULL_NAME_MAX));
 		else
-			printf("ewok:%s.$ ", getcwd(cwd, NAME_MAX));
+			printf("ewok:%s.$ ", getcwd(cwd, FULL_NAME_MAX));
 
 		gets(cmd, CMD_MAX);
 		if(cmd[0] == 0)
@@ -232,7 +232,7 @@ int main() {
 			fg = false;
 		}	
 
-		char fname[NAME_MAX];
+		char fname[FULL_NAME_MAX];
 		if(find_exec(fname, cmd) != 0) {
 			printf("'%s' not found!\n", cmd);
 			continue;

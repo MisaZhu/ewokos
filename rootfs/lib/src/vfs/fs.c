@@ -251,6 +251,8 @@ int fs_ninfo(uint32_t node_addr, fs_info_t* info) {
 }
 
 int fs_ninfo_update(uint32_t node_addr, fs_info_t* info) {
+	if(vfs_node_update(info) != 0)
+		return -1;
 	if(syscall2(SYSCALL_PFILE_NODE_UPDATE, node_addr, (int32_t)info) != 0)
 		return -1;
 	return 0;
@@ -291,21 +293,25 @@ char* fs_read_file(const char* fname, int32_t *size) {
 	return buf;
 }
 
-int32_t fs_full_path(const char* fname, char* dir, uint32_t dir_len, char* name, uint32_t name_len) {
-	char full[NAME_MAX];
-	char pwd[NAME_MAX];
-	getcwd(pwd, NAME_MAX);
+int32_t fs_full_name(const char* fname, char* full, uint32_t full_len) {
+	char pwd[FULL_NAME_MAX];
+	getcwd(pwd, FULL_NAME_MAX-1);
 
 	if(fname[0] == '/') {
 		strcpy(full, fname);
 	}
 	else {
 		if(strcmp(pwd, "/") == 0)
-			snprintf(full, NAME_MAX-1, "/%s", fname);
+			snprintf(full, full_len-1, "/%s", fname);
 		else
-			snprintf(full, NAME_MAX-1, "%s/%s", pwd, fname);
+			snprintf(full, full_len-1, "%s/%s", pwd, fname);
 	}
+	return 0;
+}
 
+int32_t fs_parse_name(const char* fname, char* dir, uint32_t dir_len, char* name, uint32_t name_len) {
+	char full[FULL_NAME_MAX];
+	fs_full_name(fname, full, FULL_NAME_MAX);
 	int32_t i = strlen(full);
 	while(i >= 0) {
 		if(full[i] == '/') {
@@ -314,7 +320,7 @@ int32_t fs_full_path(const char* fname, char* dir, uint32_t dir_len, char* name,
 		}
 		--i;	
 	}
-	strncpy(dir, full, dir_len); 
-	strncpy(name, full+i+1, name_len); 
+	strncpy(dir, full, dir_len-1); 
+	strncpy(name, full+i+1, name_len-1); 
 	return 0;
 }
