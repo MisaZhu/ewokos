@@ -92,13 +92,16 @@ static int32_t sramdisk_close(uint32_t node) {
 	return 0;
 }
 
-int main() {
+int main(int argc, char* argv[]) {
 	device_t dev = {0};
 	dev.open = sramdisk_open;
 	dev.close = sramdisk_close;
 	dev.read = sramdisk_read;
 	dev.write = sramdisk_write;
-
-	dev_run(&dev, "dev.sramdisk", 0, "/ramdisk", false);
+	
+	const char* arg = "/ramdisk";
+	if(argc >= 2) 
+		arg = argv[1];
+	dev_run(&dev, "dev.sramdisk", 0, arg, false);
 	return 0;
 }

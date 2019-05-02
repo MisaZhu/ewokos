@@ -261,7 +261,7 @@ int fs_ninfo_update(uint32_t node_addr, fs_info_t* info) {
 int fs_kid(int fd, int32_t index, fs_info_t* kid) {
 	fs_info_t info;
 	if(syscall2(SYSCALL_PFILE_NODE_BY_FD, fd, (int32_t)&info) != 0)
-		return NULL;
+		return -1;
 	return vfs_kid(info.node, index, kid);
 }
 

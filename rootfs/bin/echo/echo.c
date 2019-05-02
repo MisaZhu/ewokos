@@ -1,12 +1,9 @@
 #include <unistd.h>
 #include <stdio.h>
 
-int main() {
-	init_cmain_arg();
-	const char* arg = read_cmain_arg();
-	arg = read_cmain_arg();
-	if(arg == NULL)
+int main(int argc, char* argv[]) {
+	if(argc < 2)
 		return 0;
-	printf("%s\n", arg);
+	printf("%s\n", argv[1]);
 	return 0;
 }

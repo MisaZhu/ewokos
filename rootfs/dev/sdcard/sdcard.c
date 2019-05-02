@@ -209,7 +209,10 @@ int32_t sdcard_read(uint32_t node, void* buf, uint32_t size, int32_t seek) {
 	return size;
 }
 
-int main() {
+int main(int argc, char* argv[]) {
+	(void)argc;
+	(void)argv;
+
 	device_t dev = {0};
 	dev.mount = sdcard_mount;
 	dev.open = sdcard_open;

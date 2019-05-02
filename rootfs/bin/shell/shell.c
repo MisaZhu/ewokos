@@ -202,7 +202,10 @@ static int32_t find_exec(char* fname, char* cmd) {
 	return -1;
 }
 
-int main() {
+int main(int argc, char* argv[]) {
+	(void)argc;
+	(void)argv;
+
 	char cmd[CMD_MAX];
 	char cwd[FULL_NAME_MAX];
 

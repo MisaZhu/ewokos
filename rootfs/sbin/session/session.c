@@ -37,7 +37,10 @@ static int welcome() {
 	return 0;
 }
 
-int main() {
+int main(int argc, char* argv[]) {
+	(void)argc;
+	(void)argv;
+
 	welcome();
 	usleep(100000);
 	while(1) {

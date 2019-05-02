@@ -39,7 +39,10 @@ static void handle(package_t* pkg, void* p) {
 	}
 }
 
-int main() {
+int main(int argc, char* argv[]) {
+  (void)argc;
+	(void)argv;
+
 	if(kserv_get_pid("kserv.userman") >= 0) {
     printf("Panic: 'kserv.userman' process has been running already!\n");
 		return -1;

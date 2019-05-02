@@ -4,17 +4,13 @@
 #include <stdlib.h>
 #include <kstring.h>
 
-int main() {
-	init_cmain_arg();
-	const char* arg = read_cmain_arg();
-	arg = read_cmain_arg();
-	if(arg == NULL) {
+int main(int argc, char* argv[]) {
+	if(argc < 2)
 		return -1;
-	}
 	
-	int fd = open(arg, O_RDWR|O_CREAT);
+	int fd = open(argv[1], O_RDWR|O_CREAT);
 	if(fd < 0) {
-		printf("error: open %s failed!\n", arg);
+		printf("error: open %s failed!\n", argv[1]);
 		return -1;
 	}
 

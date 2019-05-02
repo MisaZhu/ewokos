@@ -27,16 +27,13 @@ void fbtest() {
 	graph_close(g);
 }
 
-int main() {
-	init_cmain_arg();
-	const char* arg = read_cmain_arg();
-	arg = read_cmain_arg();
-	if(arg == NULL) {
+int main(int argc, char* argv[]) {
+	if(argc < 2) {
 		fbtest();
 	}
 	else {
 		int i = 0;
-		while(i++ < atoi(arg)) {
+		while(i++ < atoi(argv[1])) {
 			int pid = fork();
 			if(pid == 0) {
 				fbtest();

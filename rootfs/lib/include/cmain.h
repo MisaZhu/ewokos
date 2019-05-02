@@ -3,8 +3,6 @@
 
 #include <types.h>
 
-void init_cmain_arg();
-const char* read_cmain_arg();
-extern int main();
+extern int main(int argc, char* argv[]);
 
 #endif

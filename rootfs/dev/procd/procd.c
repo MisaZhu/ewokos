@@ -53,7 +53,10 @@ static int32_t proc_read(uint32_t node, void* buf, uint32_t size, int32_t seek) 
 	return ret;
 }
 
-int main() {
+int main(int argc, char* argv[]) {
+	(void)argc;
+	(void)argv;
+
 	device_t dev = {0};
 	dev.mount = proc_mount;
 	dev.read = proc_read;

@@ -190,10 +190,11 @@ static void handle(package_t* pkg, void* p) {
 }
 
 void dev_run(device_t* dev, const char* dev_name, uint32_t index, const char* node_name, bool file) {
-	if(kserv_get_pid(dev_name) >= 0) {
+	/*if(kserv_get_pid(dev_name) >= 0) {
 		printf("%s device service has been running!\n", dev_name);
 		exit(0);
 	}
+	*/
 
 	uint32_t node = vfs_mount(node_name, dev_name, index, file);
 	if(node == 0)

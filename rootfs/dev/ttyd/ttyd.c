@@ -27,7 +27,10 @@ int32_t tty_read(uint32_t node, void* buf, uint32_t size, int32_t seek) {
 	return res;
 }
 
-int main() {
+int main(int argc, char* argv[]) {
+	(void)argc;
+	(void)argv;
+
 	device_t dev = {0};
 	dev.write = tty_write;
 	dev.read = tty_read;

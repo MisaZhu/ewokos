@@ -3,15 +3,11 @@
 #include <cmain.h>
 #include <vfs/fs.h>
 
-int main() {
-	init_cmain_arg();
-	const char* arg = read_cmain_arg();
-	arg = read_cmain_arg();
-
-	if(arg != NULL) {
+int main(int argc, char* argv[]) {
+	if(argc > 1) {
 		char dir[FULL_NAME_MAX];
 		char name[SHORT_NAME_MAX];
-		fs_parse_name(arg, dir, FULL_NAME_MAX, name, SHORT_NAME_MAX);	
+		fs_parse_name(argv[1], dir, FULL_NAME_MAX, name, SHORT_NAME_MAX);	
 		int fd = fs_open(dir, O_RDWR);
 		if(fd >= 0) {
 			fs_add(fd, name, FS_TYPE_DIR);

@@ -59,7 +59,10 @@ void* fb_ctrl(uint32_t node, int32_t cmd, void* data, uint32_t size, int32_t* re
 	return p;
 }
 
-int main() {
+int main(int argc, char* argv[]) {
+	(void)argc;
+	(void)argv;
+
 	device_t dev = {0};
 	dev.write = fb_write;
 	dev.mount = fb_mount;

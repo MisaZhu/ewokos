@@ -50,8 +50,10 @@ static void gets(char* buf, int len, bool disp) {
 	buf[i] = 0;
 }
 
+int main(int argc, char* argv[]) {
+	(void)argc;
+	(void)argv;
 
-int main() {
 	while(1) {
 		char user[128];
 		char passwd[128];

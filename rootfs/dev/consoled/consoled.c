@@ -219,7 +219,10 @@ void* console_ctrl(uint32_t node, int32_t cmd, void* data, uint32_t size, int32_
 	return NULL;
 }
 
-int main() {
+int main(int argc, char* argv[]) {
+	(void)argc;
+	(void)argv;
+
 	device_t dev = {0};
 	dev.mount = console_mount;
 	dev.unmount = console_unmount;

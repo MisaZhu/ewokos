@@ -3,7 +3,10 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-int main() {
+int main(int argc, char* argv[]) {
+	(void)argc;
+	(void)argv;
+
 	printf("read mouse, click to quit.\n");
 	int fd = open("/dev/mouse0", 0);
 	if(fd < 0)

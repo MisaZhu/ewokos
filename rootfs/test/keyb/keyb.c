@@ -3,7 +3,10 @@
 #include <unistd.h>
 #include <stdlib.h>
 
-int main() {
+int main(int argc, char* argv[]) {
+	(void)argc;
+	(void)argv;
+
 	printf("read keyboard('enter' to quit):\n");
 	int fd = open("/dev/keyb0", 0);
 	if(fd < 0) {

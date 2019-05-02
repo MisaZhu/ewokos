@@ -4,16 +4,13 @@
 #include <stdlib.h>
 #include <kstring.h>
 
-int main() {
+int main(int argc, char* argv[]) {
 	char name[FULL_NAME_MAX];
-	init_cmain_arg();
-	const char* arg = read_cmain_arg();
-	arg = read_cmain_arg();
-	if(arg == NULL) {
+	if(argc < 2) {
 		fs_full_name("", name, FULL_NAME_MAX);
 	}
 	else {
-		fs_full_name(arg, name, FULL_NAME_MAX);
+		fs_full_name(argv[1], name, FULL_NAME_MAX);
 	}
 
 	int fd = open(name, O_RDONLY);

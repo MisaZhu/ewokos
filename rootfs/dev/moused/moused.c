@@ -10,7 +10,10 @@ int32_t mouse_read(uint32_t node, void* buf, uint32_t size, int32_t seek) {
 	return syscall3(SYSCALL_DEV_CHAR_READ, dev_typeid(DEV_MOUSE, 0), (int32_t)buf, size);
 }
 
-int main() {
+int main(int argc, char* argv[]) {
+	(void)argc;
+	(void)argv;
+
 	device_t dev = {0};
 	dev.read = mouse_read;
 

@@ -68,7 +68,7 @@ void clear(graph_t* g, uint32_t color) {
 	uint8_t byte = color & 0xff;	
 	if(((color >> 8)&0xff) == byte && ((color >> 16)&0xff) == byte) {
 		memset(g->buffer, byte, g->w*g->h*4);
-		return 0;
+		return;
 	}
 
 	if(g->w == 0 || g->w == 0)

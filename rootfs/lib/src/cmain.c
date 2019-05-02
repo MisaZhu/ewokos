@@ -3,16 +3,16 @@
 #include <stdio.h>
 #include <unistd.h>
 
-static char _cmd[256] = { 0 };
+static char _cmd[CMD_MAX] = { 0 };
 static int _offCmd = 0;
 
-void init_cmain_arg() {
+static void init_cmain_arg() {
 	_offCmd = 0;
-	syscall2(SYSCALL_GET_CMD, (int)_cmd, 256);
+	syscall2(SYSCALL_GET_CMD, (int)_cmd, CMD_MAX-1);
 }
 
-const char* read_cmain_arg() {
-	const char* p = NULL;
+static char* read_cmain_arg() {
+	char* p = NULL;
 	bool quotes = false;
 
 	while(_cmd[_offCmd] != 0) {
@@ -46,8 +46,21 @@ const char* read_cmain_arg() {
 	return p;
 }
 
+#define ARG_MAX 16
+
 void _start() {
+	char* argv[ARG_MAX];
+	int32_t argc = 0;
+	init_cmain_arg();
+
+	while(argc < ARG_MAX) {
+		char* arg = read_cmain_arg(); 
+		if(arg == NULL || arg[0] == 0)
+			break;
+		argv[argc++] = arg;
+	}
+
 	init_stdio();
-	int ret = main();
+	int ret = main(argc, argv);
 	exit(ret);
 }

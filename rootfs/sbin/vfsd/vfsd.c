@@ -356,7 +356,10 @@ static void handle(package_t* pkg, void* p) {
 	}
 }
 
-int main() {
+int main(int argc, char* argv[]) {
+  (void)argc;
+	(void)argv;
+
 	if(kserv_get_pid("kserv.vfsd") >= 0) {
     printf("panic: 'kserv.vfsd' process has been running already!\n");
 		return -1;

@@ -4,7 +4,10 @@
 #include <stdlib.h>
 #include <kstring.h>
 
-int main() {
+int main(int argc, char* argv[]) {
+	(void)argc;
+	(void)argv;
+
 	int32_t fd = _stdout;
 	if(fd < 0)
 		return -1;

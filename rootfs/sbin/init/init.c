@@ -80,7 +80,10 @@ static void session_loop() {
 	}
 }
 
-int main() {
+int main(int argc, char* argv[]) {
+	(void)argc;
+	(void)argv;
+
 	if(getpid() > 0) {
 		printf("Panic: 'init' process can only run at boot time!\n");
 		return -1;

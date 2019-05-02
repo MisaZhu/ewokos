@@ -16,7 +16,10 @@ void test(void* p) {
 	}
 }
 
-int main() {
+int main(int argc, char* argv[]) {
+  (void)argc;
+	(void)argv;
+
 	i = 0;
 	semaphore_init(&s);
 
