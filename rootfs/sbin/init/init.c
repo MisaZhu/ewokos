@@ -79,6 +79,7 @@ static int run_init_servs(const char* fname) {
 			exec(cmd);
 		}
 		kserv_wait_by_pid(pid);
+		printf("loaded serv: %s\n", cmd);
 	}
 	close(fd);
 	return 0;
