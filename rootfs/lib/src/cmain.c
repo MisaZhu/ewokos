@@ -16,16 +16,20 @@ static void init_cmain_arg() {
 
 static void do_redir(const char* fname, bool in) {
 	if(in) {
-		int32_t old = _stdin;
-		_stdin = open(fname, O_WRONLY | O_CREAT);
-		if(_stdin < 0)
-			_stdin = old;
+		int32_t fd = open(fname, O_RDONLY);
+		if(fd < 0) {
+			printf("error: '%s' open failed!\n", fname);
+			exit(-1);
+		}
+		_stdin = fd;
 	}
 	else {
-		int32_t old = _stdout;
-		_stdout = open(fname, O_WRONLY | O_CREAT);
-		if(_stdout < 0)
-			_stdout = old;
+		int32_t fd = open(fname, O_WRONLY | O_CREAT);
+		if(fd < 0) {
+			printf("error: '%s' open failed!\n", fname);
+			exit(-1);
+		}
+		_stdout = fd;
 	}
 }
 
