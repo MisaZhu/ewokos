@@ -69,8 +69,8 @@ int32_t atoi(const char *str) {
 }
 
 const char* getenv(const char* name) {
-	static char ret[64];
-	syscall3(SYSCALL_GET_ENV, (int32_t)name, (int32_t)ret, 63);
+	static char ret[1024];
+	syscall3(SYSCALL_GET_ENV, (int32_t)name, (int32_t)ret, 1023);
 	return ret;
 }
 

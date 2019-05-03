@@ -4,12 +4,11 @@
 #include <types.h>
 
 #define S_CONF_NAME_MAX 32
-#define S_CONF_VALUE_MAX 128
 #define S_CONF_ITEM_MAX 32
 
 typedef struct {
 	char name[S_CONF_NAME_MAX];
-	char value[S_CONF_VALUE_MAX];
+	char *value;
 } sconf_item_t;
 
 typedef struct {

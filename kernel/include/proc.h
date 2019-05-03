@@ -54,12 +54,10 @@ typedef struct {
 	uint32_t seek;
 } proc_file_t;
 
-#define ENV_NAME_MAX 32
-#define ENV_VALUE_MAX 128
 #define ENV_MAX 32
 typedef struct {
-	char name[ENV_NAME_MAX];	
-	char value[ENV_VALUE_MAX];	
+	char name[SHORT_NAME_MAX];	
+	char* value;
 } proc_env_t;
 
 typedef struct {

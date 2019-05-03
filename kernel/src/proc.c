@@ -201,13 +201,21 @@ inline int32_t *get_current_context(void) {
 
 static void proc_free_space(process_t *proc) {
 	/*free file info*/
-	for(uint32_t i=0; i<FILE_MAX; i++) {
+	uint32_t i;
+	for(i=0; i<FILE_MAX; i++) {
 		kfile_t* kf = proc->space->files[i].kf;
 		if(kf != NULL) {
 			kf_unref(kf, proc->space->files[i].wr); //unref the kernel file table.
 		}
 	}
-
+	
+	for(i=0; i<ENV_MAX; i++) {
+		proc_env_t* env = &proc->space->envs[i];
+		if(env->value) 
+			km_free(env->value);
+		env->value = NULL;
+		env->name[0] = 0;
+	}
 	kserv_unreg(proc);
 	ipc_close_all(proc->pid);
 	shm_proc_free(proc->pid);
@@ -377,13 +385,16 @@ int32_t proc_set_env(const char* name, const char* value) {
 				strcmp(_current_proc->space->envs[i].name, name) == 0) {
 			env = &_current_proc->space->envs[i];
 			if(env->name[0] == 0)
-				strncpy(env->name, name, ENV_NAME_MAX-1);
+				strncpy(env->name, name, SHORT_NAME_MAX-1);
 			break;
 		}
 	}
 	if(env == NULL)
 		return -1;
-	strncpy(env->value, value, ENV_VALUE_MAX-1);
+	if(env->value != NULL)
+		km_free(env->value);
+	env->value = (char*)km_alloc(strlen(value)+1);
+	strcpy(env->value, value);
 	return 0;
 }
 
@@ -405,8 +416,12 @@ static inline void proc_clone_envs(process_t* child, process_t* parent) {
 	for(i=0; i<ENV_MAX; i++) {
 		if(parent->space->envs[i].name[0] == 0)
 			break;
-		strcpy(child->space->envs[i].name, parent->space->envs[i].name);
-		strcpy(child->space->envs[i].value, parent->space->envs[i].value);
+		proc_env_t* env = &child->space->envs[i];
+		strcpy(env->name, parent->space->envs[i].name);
+		if(env->value != NULL)
+			km_free(env->value);
+		env->value = (char*)km_alloc(strlen(parent->space->envs[i].value)+1);
+		strcpy(env->value, parent->space->envs[i].value);
 	}
 }
 

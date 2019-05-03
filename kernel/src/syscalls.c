@@ -100,7 +100,10 @@ static int32_t syscall_sleep_msec(int32_t arg0) {
 
 static int32_t syscall_get_env(int32_t arg0, int32_t arg1, int32_t arg2) {
 	const char* v = proc_get_env((const char*)arg0);
-	strncpy((char*)arg1, v, arg2);
+	if(v == NULL)
+		((char*)arg1)[0] = 0;
+	else
+		strncpy((char*)arg1, v, arg2);
 	return 0;
 }
 
@@ -114,7 +117,10 @@ static int32_t syscall_get_env_name(int32_t arg0, int32_t arg1, int32_t arg2) {
 
 static int32_t syscall_get_env_value(int32_t arg0, int32_t arg1, int32_t arg2) {
 	const char* v = proc_get_env_value(arg0);
-	strncpy((char*)arg1, v, arg2);
+	if(v == NULL)
+		((char*)arg1)[0] = 0;
+	else
+		strncpy((char*)arg1, v, arg2);
 	return 0;
 }
 

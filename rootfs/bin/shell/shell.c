@@ -2,7 +2,9 @@
 #include <kstring.h>
 #include <unistd.h>
 #include <vfs/fs.h>
+#include <stdlib.h>
 #include <syscall.h>
+#include <sconf.h>
 
 #define KEY_BACKSPACE 127
 #define KEY_LEFT 0x8
@@ -156,10 +158,11 @@ static int handle(const char* cmd) {
 	return -1; /*not shell internal command*/
 }
 
-
 static int32_t find_exec(char* fname, char* cmd) {
+	fname[0] = 0;
 	fs_info_t info;
 	int32_t i = 0;	
+	int32_t at = -1;
 	char c = 0;
 	while(cmd[i] != 0) {
 		if(cmd[i] == ' ') {
@@ -169,37 +172,52 @@ static int32_t find_exec(char* fname, char* cmd) {
 		}
 		i++;
 	}
+	at = i;
 
 	if(cmd[0] == '/') {
 		strcpy(fname, cmd);
 		if(fs_finfo(fname, &info) == 0) {
-			cmd[i] = c;
+			cmd[at] = c;
 			strcpy(fname, cmd);
 			return 0;
 		}
 	}
 
-	snprintf(fname, FULL_NAME_MAX-1, "/sbin/%s", cmd);
-	if(fs_finfo(fname, &info) == 0) {
-		cmd[i] = c;
-		snprintf(fname, FULL_NAME_MAX-1, "/sbin/%s", cmd);
-		return 0;
+	const char* paths = getenv("PATH");
+	char path[FULL_NAME_MAX];
+	i = 0;
+	while(true) {
+		if(paths[i] == 0 || paths[i] == ':') {
+			strncpy(path, paths, i);
+			if(path[0] != 0) {
+				snprintf(fname, FULL_NAME_MAX-1, "%s/%s", path, cmd);
+				if(fs_finfo(fname, &info) == 0) {
+					cmd[at] = c;
+					snprintf(fname, FULL_NAME_MAX-1, "%s/%s", path, cmd);
+					return 0;
+				}
+			}
+			if(paths[i] == 0)
+				break;
+			paths = paths+i+1;
+			fname[0] = 0;
+		}
+		++i;
 	}
 
-	snprintf(fname, FULL_NAME_MAX-1, "/bin/%s", cmd);
-	if(fs_finfo(fname, &info) == 0) {
-		cmd[i] = c;
-		snprintf(fname, FULL_NAME_MAX-1, "/bin/%s", cmd);
-		return 0;
-	}
-
-	snprintf(fname, FULL_NAME_MAX-1, "/usr/bin/%s", cmd);
-	if(fs_finfo(fname, &info) == 0) {
-		cmd[i] = c;
-		snprintf(fname, FULL_NAME_MAX-1, "/usr/bin/%s", cmd);
-		return 0;
-	}
+	cmd[at] = c;
 	return -1;
+}
+
+static int32_t read_config() {
+	sconf_t *conf = sconf_load("/etc/shell.conf");	
+	if(conf == NULL)
+		return -1;
+	const char* v = sconf_get(conf, "PATH");
+	if(v[0] != 0) 
+		setenv("PATH", v);
+	sconf_free(conf, free);
+	return 0;
 }
 
 int main(int argc, char* argv[]) {
@@ -209,8 +227,10 @@ int main(int argc, char* argv[]) {
 	char cmd[CMD_MAX];
 	char cwd[FULL_NAME_MAX];
 
-	int uid = getuid();
+	setenv("PATH", "/bin");
+	read_config();
 
+	int uid = getuid();
 	while(1) {
 		if(uid == 0)
 			printf("ewok:%s.# ", getcwd(cwd, FULL_NAME_MAX));

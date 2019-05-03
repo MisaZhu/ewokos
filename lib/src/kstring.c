@@ -6,6 +6,9 @@
  */
 extern void *__memcpy32(void *target, const void *source, uint32_t n);
 inline void *memcpy(void *target, const void *source, uint32_t n) {
+	if(target == NULL || source == NULL)
+		return NULL;
+
 	char *target_buffer = (char *) target;
 	char *source_buffer = (char *) source;
 	uint32_t m = (n / 32);
@@ -23,6 +26,9 @@ inline void *memcpy(void *target, const void *source, uint32_t n) {
 
 /* memset fills the given target with given length with the given character. */
 void* memset(void *target, int32_t c, uint32_t size) {
+	if(target == NULL)
+		return NULL;
+
 	char* dst = target;
 	char value = (char)c;
 	uint32_t align_value;
@@ -79,8 +85,10 @@ inline void *memset(void *target, int32_t c, uint32_t len) {
  * It returns the point32_ter to the target.
  */
 inline char *strcpy(char *target, const char *source) {
-	char *result = target;
+	if(source == NULL)
+		return target;
 
+	char *result = target;
 	while (*source) {
 		*target = *source;
 		target++;
@@ -88,7 +96,6 @@ inline char *strcpy(char *target, const char *source) {
 	}
 
 	*target = '\0';
-
 	return result;
 }
 
@@ -99,9 +106,11 @@ inline char *strcpy(char *target, const char *source) {
  * occured.
  */
 inline uint32_t strncpy(char *target, const char *source, uint32_t n) {
+	if(source == NULL)
+		return 0;
+
 	uint32_t source_len = 0;
 	uint32_t i = 0;
-
 	while (i < n && source[i] != '\0') {
 		target[i] = source[i];
 		i++;
@@ -119,11 +128,12 @@ inline uint32_t strncpy(char *target, const char *source, uint32_t n) {
  * positive number if s1 > s2.
  */
 inline int32_t strcmp(const char *s1, const char *s2) {
+	if(s1 == NULL || s2 == NULL)
+		return -1;
 	while (*s1 == *s2 && *s1 != '\0' && *s2 != '\0') {
 		s1++;
 		s2++;
 	}
-
 	return (*s1 - *s2);
 }
 
@@ -133,8 +143,10 @@ inline int32_t strcmp(const char *s1, const char *s2) {
  * lexicographical order. For return value, please see strcmp.
  */
 inline int32_t strncmp(const char *s1, const char *s2, uint32_t n) {
-	uint32_t i = 0;
+	if(s1 == NULL || s2 == NULL)
+		return -1;
 
+	uint32_t i = 0;
 	if (n == 0)
 		return 0;
 
@@ -152,9 +164,11 @@ inline int32_t strncmp(const char *s1, const char *s2, uint32_t n) {
  * given string. If the character is not found, it returns NULL.
  */
 inline char *strchr(const char *str, int32_t character) {
+	if(str == NULL)
+		return NULL;
+
 	while (*str != '\0' && *str != character)
 		str++;
-
 	if (*str == character)
 		return (char *) str;
 	else
@@ -170,9 +184,11 @@ inline char *strchr(const char *str, int32_t character) {
  * WARNING: This function changes the original string.
  */
 inline char *strtok(char *str, const char *delimiters) {
+	if(str == NULL)
+		return NULL;
+
 	static char *last = NULL;
 	char *token = NULL;
-
 	if (str != NULL)
 		last = str;
 
@@ -203,11 +219,13 @@ inline char *strtok(char *str, const char *delimiters) {
 
 /* strlen returns the length of the given null-terminated string. */
 inline uint32_t strlen(const char *str) {
+	if(str == NULL)
+		return 0;
+
 	uint32_t length = 0;
 	while (*str != '\0') {
 		str++;
 		length++;
 	}
-
 	return length;
 }
