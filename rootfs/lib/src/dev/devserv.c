@@ -189,6 +189,13 @@ static void handle(package_t* pkg, void* p) {
 	}
 }
 
+static void unmount(device_t* dev, uint32_t node) {
+	if(vfs_unmount(node) != 0)
+		return;
+	if(dev->unmount != NULL)
+		dev->unmount(node);
+}
+
 void dev_run(device_t* dev, int32_t argc, char** argv) {
 	if(argc < 5) {
 		printf("driver:%s arguments missed!\n", argv[0]);
@@ -205,24 +212,24 @@ void dev_run(device_t* dev, int32_t argc, char** argv) {
 	uint32_t node = vfs_mount(node_name, dev_name, index, file);
 	if(node == 0)
 		return;
-	
 	if(dev->mount != NULL) {
 		if(dev->mount(node, index) != 0)
 			return;
 	}
-
-	if(vfs_mounted(node_name) != 0) {
-		printf("%s mounted to vfs:%s failed!\n", dev_name, node_name);
-		return;
-	}
 	printf("(%s mounted to vfs:%s)\n", dev_name, node_name);
 
-	kserv_run(dev_name, handle, dev);
-
-	if(vfs_unmount(node) != 0)
+	if(kserv_register(dev_name) != 0) {
+    printf("Panic: '%s' service register failed!\n", dev_name);
+		unmount(dev, node);
 		return;
-
-	if(dev->unmount != NULL) {
-		dev->unmount(node);
 	}
+
+	if(kserv_ready() != 0) {
+    printf("Panic: '%s' service can not get ready!\n", dev_name);
+		unmount(dev, node);
+		return;
+	}
+
+	kserv_run(handle, dev);
+	unmount(dev, node);
 }

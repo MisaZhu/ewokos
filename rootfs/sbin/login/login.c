@@ -66,7 +66,7 @@ int main(int argc, char* argv[]) {
 		printf("password: ");
 		gets(passwd, 127, false);
 
-		int uid = usermanAuth(user, passwd);
+		int uid = userman_auth(user, passwd);
 		if(uid >= 0) {
 			syscall2(SYSCALL_SET_UID, getpid(), uid);
 			break;

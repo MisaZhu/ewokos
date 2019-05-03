@@ -3,6 +3,6 @@
 
 #include <types.h>
 
-int usermanAuth(const char* name, const char* passwd);
+int userman_auth(const char* name, const char* passwd);
 
 #endif

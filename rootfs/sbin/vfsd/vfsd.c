@@ -120,12 +120,11 @@ static tree_node_t* fsnode_mount(const char* fname, const char* dev_name,
 
 	int32_t i;
   for(i=0; i<MOUNT_MAX; i++) {
-    if(_mounts[i].state == MNT_NONE) {
+    if(_mounts[i].dev_name[0] == 0) {
 			strcpy(_mounts[i].dev_name, dev_name);
 			_mounts[i].dev_index = dev_index;
 			_mounts[i].dev_serv_pid = pid;
 			_mounts[i].node_old = (uint32_t)to; //save the node_old node.
-			_mounts[i].state = MNT_BUSY;
 			break;
 		}
 	}
@@ -178,7 +177,6 @@ static int32_t fsnode_unmount(tree_node_t* node) {
 
 	if(node_old != NULL && father != NULL)
 		tree_add(father, node_old);
-	_mounts[index].state = MNT_NONE;
 	return 0;
 }
 
@@ -313,25 +311,6 @@ static void do_mount(package_t* pkg) {
 	ipc_send(pkg->id, pkg->type, &node, 4);
 }
 
-static void do_mounted(package_t* pkg) {
-	proto_t* proto = proto_new(get_pkg_data(pkg), pkg->size);
-	const char* fname = proto_read_str(proto);
-	proto_free(proto);
-
-	tree_node_t* node = get_node_by_name(fname);
-	if(node == NULL) {
-		ipc_send(pkg->id, PKG_TYPE_ERR, NULL, 0);
-		return;
-	}
-	int32_t index = FSN(node)->mount;
-	if(index < 0 || index >= MOUNT_MAX) {
-		ipc_send(pkg->id, PKG_TYPE_ERR, NULL, 0);
-		return;
-	}
-	_mounts[index].state = MNT_DONE;
-	ipc_send(pkg->id, pkg->type, NULL, 0);
-}
-
 static void do_unmount(package_t* pkg) {
 	tree_node_t* node = (tree_node_t*)(*(int32_t*)get_pkg_data(pkg));
 	fsnode_unmount(node);
@@ -394,9 +373,6 @@ static void handle(package_t* pkg, void* p) {
 	case VFS_CMD_MOUNT:
 		do_mount(pkg);
 		break;
-	case VFS_CMD_MOUNTED:
-		do_mounted(pkg);
-		break;
 	case VFS_CMD_UNMOUNT:
 		do_unmount(pkg);
 		break;
@@ -413,14 +389,13 @@ int main(int argc, char* argv[]) {
   (void)argc;
 	(void)argv;
 
-	if(kserv_get_pid("kserv.vfsd") >= 0) {
+	if(kserv_get_by_name("kserv.vfsd") >= 0) {
     printf("panic: 'kserv.vfsd' process has been running already!\n");
 		return -1;
 	}
 
+	kserv_register("kserv.vfsd");
 	fsnode_init();
-	if(!kserv_run("kserv.vfsd", handle, NULL)) {
-		return -1;
-	}
-	return 0;
+	kserv_ready();
+	return kserv_run(handle, NULL);
 }

@@ -9,7 +9,7 @@
 #define VFS_NAME "kserv.vfsd"
 
 inline uint32_t vfs_add(uint32_t node, const char* name, uint32_t size, void* data) {
-	int32_t serv_pid = kserv_get_pid(VFS_NAME);	
+	int32_t serv_pid = kserv_get_by_name(VFS_NAME);	
 	if(serv_pid < 0)
 		return 0;
 
@@ -32,7 +32,7 @@ inline uint32_t vfs_add(uint32_t node, const char* name, uint32_t size, void* da
 }
 
 inline int32_t vfs_del(uint32_t node) {
-	int32_t serv_pid = kserv_get_pid(VFS_NAME);	
+	int32_t serv_pid = kserv_get_by_name(VFS_NAME);	
 	if(serv_pid < 0)
 		return -1;
 
@@ -46,7 +46,7 @@ inline int32_t vfs_del(uint32_t node) {
 }
 
 inline int32_t vfs_node_by_name(const char* fname, fs_info_t* info) {
-	int32_t serv_pid = kserv_get_pid(VFS_NAME);	
+	int32_t serv_pid = kserv_get_by_name(VFS_NAME);	
 	if(serv_pid < 0)
 		return -1;
 
@@ -64,7 +64,7 @@ inline int32_t vfs_node_by_name(const char* fname, fs_info_t* info) {
 }
 
 inline int32_t vfs_node_update(fs_info_t* info) {
-	int32_t serv_pid = kserv_get_pid(VFS_NAME);	
+	int32_t serv_pid = kserv_get_by_name(VFS_NAME);	
 	if(serv_pid < 0)
 		return -1;
 
@@ -78,7 +78,7 @@ inline int32_t vfs_node_update(fs_info_t* info) {
 }
 
 inline uint32_t vfs_mount(const char* fname, const char* devName, int32_t devIndex, bool isFile) {
-	int32_t serv_pid = kserv_get_pid(VFS_NAME);	
+	int32_t serv_pid = kserv_get_by_name(VFS_NAME);	
 	if(serv_pid < 0)
 		return 0;
 
@@ -98,25 +98,8 @@ inline uint32_t vfs_mount(const char* fname, const char* devName, int32_t devInd
 	return node;
 }
 
-inline int32_t vfs_mounted(const char* fname) {
-	int32_t serv_pid = kserv_get_pid(VFS_NAME);	
-	if(serv_pid < 0)
-		return 0;
-
-	proto_t* proto = proto_new(NULL, 0);
-	proto_add_str(proto, fname);
-	package_t* pkg = ipc_req(serv_pid, 0, VFS_CMD_MOUNTED, proto->data, proto->size, true);
-	proto_free(proto);
-	if(pkg == NULL || pkg->type == PKG_TYPE_ERR) {
-		if(pkg != NULL) free(pkg);
-		return -1;
-	}
-	free(pkg);
-	return 0;
-}
-
 inline int32_t vfs_unmount(uint32_t node) {
-	int32_t serv_pid = kserv_get_pid(VFS_NAME);	
+	int32_t serv_pid = kserv_get_by_name(VFS_NAME);	
 	if(serv_pid < 0)
 		return -1;
 
@@ -131,7 +114,7 @@ inline int32_t vfs_unmount(uint32_t node) {
 }
 
 int32_t vfs_kid(uint32_t node, int32_t index, fs_info_t* info) {
-	int32_t serv_pid = kserv_get_pid(VFS_NAME);	
+	int32_t serv_pid = kserv_get_by_name(VFS_NAME);	
 	if(serv_pid < 0)
 		return -1;
 
@@ -150,7 +133,7 @@ int32_t vfs_kid(uint32_t node, int32_t index, fs_info_t* info) {
 }
 
 int32_t vfs_mount_by_index(int32_t index, mount_t* mnt) {
-	int32_t serv_pid = kserv_get_pid(VFS_NAME);	
+	int32_t serv_pid = kserv_get_by_name(VFS_NAME);	
 	if(serv_pid < 0)
 		return -1;
 
@@ -165,7 +148,7 @@ int32_t vfs_mount_by_index(int32_t index, mount_t* mnt) {
 }
 
 int32_t vfs_mount_by_fname(const char* fname, mount_t* mnt) {
-	int32_t serv_pid = kserv_get_pid(VFS_NAME);	
+	int32_t serv_pid = kserv_get_by_name(VFS_NAME);	
 	if(serv_pid < 0)
 		return -1;
 
@@ -185,7 +168,7 @@ int32_t vfs_mount_by_fname(const char* fname, mount_t* mnt) {
 //get the full name by node.
 int32_t vfs_node_full_name(uint32_t node, char* full, uint32_t len) {
 	full[0] = 0;
-	int32_t serv_pid = kserv_get_pid(VFS_NAME);	
+	int32_t serv_pid = kserv_get_by_name(VFS_NAME);	
 	if(serv_pid < 0)
 		return -1;
 

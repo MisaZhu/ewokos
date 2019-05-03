@@ -40,15 +40,24 @@ static void handle(package_t* pkg, void* p) {
 }
 
 int main(int argc, char* argv[]) {
-  (void)argc;
-	(void)argv;
+	const char* kserv_name =  "kserv.userman";
+	if(argc >= 2)
+		kserv_name = argv[1];
 
-	if(kserv_get_pid("kserv.userman") >= 0) {
-    printf("Panic: 'kserv.userman' process has been running already!\n");
+	if(kserv_get_by_name(kserv_name) >= 0) {
+    printf("Panic: '%s' process has been running already!\n", kserv_name);
+		return -1;
+	}
+	
+	if(kserv_register(kserv_name) != 0) {
+    printf("Panic: '%s' service register failed!\n", kserv_name);
 		return -1;
 	}
 
-	if(!kserv_run("kserv.userman", handle, NULL))
+	if(kserv_ready() != 0) {
+    printf("Panic: '%s' service can not get ready!\n", kserv_name);
 		return -1;
-	return 0;
+	}
+
+	return kserv_run(handle, NULL);
 }

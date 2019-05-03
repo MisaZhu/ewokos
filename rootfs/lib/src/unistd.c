@@ -34,14 +34,10 @@ int exec(const char* cmd_line) {
 	cmd[i] = 0;
 
 	mount_t mnt;
-	if(vfs_mount_by_fname("/", &mnt) != 0 ||
-			mnt.state != MNT_DONE) {
+	if(vfs_mount_by_fname("/", &mnt) != 0)
 		img = read_from_sd(cmd, &size);
-	}
-	else {
+	else 
 		img = fs_read_file(cmd, &size);
-	}
-
 	if(img == NULL) {
 		printf("'%s' dosn't exist!\n", cmd);
 		return -1;

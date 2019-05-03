@@ -5,10 +5,18 @@
 
 typedef void (*kserv_func_t) (package_t* pkg, void *p);
 
-bool kserv_run(const char* reg_name, kserv_func_t servFunc, void* p);
+int kserv_register(const char* reg_name);
 
-int kserv_get_pid(const char* reg_name);
+int kserv_run(kserv_func_t servFunc, void* p);
 
-void kserv_wait(const char* reg_name);
+int kserv_get_by_name(const char* reg_name);
+
+int kserv_get_by_pid(int32_t pid);
+
+int kserv_ready();
+
+void kserv_wait_by_name(const char* reg_name);
+
+void kserv_wait_by_pid(int32_t pid);
 
 #endif

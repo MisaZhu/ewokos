@@ -12,7 +12,7 @@ static int start_vfsd() {
 	if(pid == 0) { 
 		exec("/sbin/vfsd");
 	}
-	kserv_wait("kserv.vfsd");
+	kserv_wait_by_pid(pid);
 	printf("ok.\n");
 	return 0;
 }
@@ -34,12 +34,7 @@ static int run_init_dev(const char* fname) {
 				exec(cmd);
 			}
 			cmd = data+i+1;
-
-			mount_t mnt;
-			while(vfs_mount_by_fname("/", &mnt) != 0 ||
-					mnt.state != MNT_DONE) {
-				usleep(100000);
-			}
+			kserv_wait_by_pid(pid);
 		}
 		++i;
 	}
@@ -63,6 +58,30 @@ static int read_line(int fd, char* line, int sz) {
 		line[i++] = c;
 	}
 	return i;
+}
+
+static int run_init_servs(const char* fname) {
+	int fd = open(fname, 0);
+	if(fd < 0)
+		return -1;
+
+	char cmd[CMD_MAX];
+	int i = 0;
+	while(true) {
+		i = read_line(fd, cmd, CMD_MAX-1);
+		if(i < 0)
+			break;
+		if(i == 0)
+			continue;
+
+		int pid = fork();
+		if(pid == 0) { 
+			exec(cmd);
+		}
+		kserv_wait_by_pid(pid);
+	}
+	close(fd);
+	return 0;
 }
 
 static int run_init_procs(const char* fname) {
@@ -111,6 +130,7 @@ int main(int argc, char* argv[]) {
 	start_vfsd();
 	//mount_root();
 	run_init_dev("/etc/init/init.dev");
+	run_init_servs("/etc/init/init.serv");
 	run_init_procs("/etc/init/init.rd");
 
 	/*set uid to root*/

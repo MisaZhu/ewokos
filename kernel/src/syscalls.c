@@ -234,8 +234,16 @@ static int32_t syscall_kserv_reg(int32_t arg0) {
 	return kserv_reg((const char*)arg0);
 }
 
-static int32_t syscall_kserv_get(int32_t arg0) {
-	return kserv_get((const char*)arg0);
+static int32_t syscall_kserv_ready() {
+	return kserv_ready();
+}
+
+static int32_t syscall_kserv_get_by_name(int32_t arg0) {
+	return kserv_get_by_name((const char*)arg0);
+}
+
+static int32_t syscall_kserv_get_by_pid(int32_t arg0) {
+	return kserv_get_by_pid(arg0);
 }
 
 static int32_t syscall_get_cwd(int32_t arg0, int32_t arg1) {
@@ -350,7 +358,9 @@ static int32_t (*const _syscallHandler[])() = {
 	[SYSCALL_PFILE_GET_REF] = syscall_pf_get_ref,
 
 	[SYSCALL_KSERV_REG] = syscall_kserv_reg,
-	[SYSCALL_KSERV_GET] = syscall_kserv_get,
+	[SYSCALL_KSERV_READY] = syscall_kserv_ready,
+	[SYSCALL_KSERV_GET_BY_NAME] = syscall_kserv_get_by_name,
+	[SYSCALL_KSERV_GET_BY_PID] = syscall_kserv_get_by_pid,
 
 	[SYSCALL_GET_CWD] = syscall_get_cwd,
 	[SYSCALL_SET_CWD] = syscall_set_cwd,
