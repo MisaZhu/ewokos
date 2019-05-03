@@ -33,7 +33,7 @@ int main(int argc, char* argv[]) {
 			i++;
 		}
 		close(fd);
-		printf("\n  total: %d\n", dir_info.size);
+		printf("  [total: %d]\n", dir_info.size);
 	}
 
 	return 0;
