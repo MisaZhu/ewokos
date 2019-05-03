@@ -29,10 +29,10 @@ int main(int argc, char* argv[]) {
 
 	proc_info_t* procs = (proc_info_t*)syscall2(SYSCALL_SYSTEM_CMD, 2, (int)&num);
 	if(procs != NULL) {
-		printf("  PID    FATHER OWNER   STATE TIME     HEAP     PROC\n"); 
+		printf("  PID    FATHER OWNER   STATE TIME       HEAP(k)  PROC\n"); 
 		for(int i=0; i<num; i++) {
 			uint32_t sec = csec - procs[i].start_sec;
-			printf("  %4d   %6d %5d   %5s %02d:%02d:%02d %8d %s\n", 
+			printf("  %4d   %6d %5d   %5s %02d:%02d:%02d   %8d %s\n", 
 				procs[i].pid,
 				procs[i].father_pid,
 				procs[i].owner,
@@ -40,7 +40,7 @@ int main(int argc, char* argv[]) {
 				sec / (3600),
 				sec / 60,
 				sec % 60,
-				procs[i].heap_size,
+				procs[i].heap_size/1024,
 				procs[i].cmd);
 		}
 		free(procs);
