@@ -158,6 +158,8 @@ static int handle(const char* cmd) {
 	return -1; /*not shell internal command*/
 }
 
+#define ENV_PATH "PATH"
+
 static int32_t find_exec(char* fname, char* cmd) {
 	fname[0] = 0;
 	fs_info_t info;
@@ -183,7 +185,7 @@ static int32_t find_exec(char* fname, char* cmd) {
 		}
 	}
 
-	const char* paths = getenv("PATH");
+	const char* paths = getenv(ENV_PATH);
 	char path[FULL_NAME_MAX];
 	i = 0;
 	while(true) {
@@ -213,9 +215,9 @@ static int32_t read_config() {
 	sconf_t *conf = sconf_load("/etc/shell.conf");	
 	if(conf == NULL)
 		return -1;
-	const char* v = sconf_get(conf, "PATH");
+	const char* v = sconf_get(conf, ENV_PATH);
 	if(v[0] != 0) 
-		setenv("PATH", v);
+		setenv(ENV_PATH, v);
 	sconf_free(conf, free);
 	return 0;
 }
@@ -227,7 +229,7 @@ int main(int argc, char* argv[]) {
 	char cmd[CMD_MAX];
 	char cwd[FULL_NAME_MAX];
 
-	setenv("PATH", "/bin");
+	setenv(ENV_PATH, "/bin");
 	read_config();
 
 	int uid = getuid();
