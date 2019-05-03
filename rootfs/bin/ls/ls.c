@@ -20,20 +20,20 @@ int main(int argc, char* argv[]) {
 			close(fd);
 			return -1;
 		}
-		printf(" total: %d\n", dir_info.size);
-
+		printf("  NAME                     TYPE  OWNER  SIZE\n");
 		uint32_t i = 0;
 		while(i < dir_info.size) {
 			fs_info_t info;
 			if(fs_kid(fd, i, &info) != 0)
 				break;
 			if(info.type == FS_TYPE_FILE)
-				printf("  %16s -f-  %4d  %d\n", info.name, info.owner, info.size);
+				printf("  %24s  f     %4d   %d\n", info.name, info.owner, info.size);
 			else if(info.type == FS_TYPE_DIR)
-				printf(" +%16s -d-  %4d  %d\n", info.name, info.owner, info.size);
+				printf("  %24s  d     %4d   %d\n", info.name, info.owner, info.size);
 			i++;
 		}
 		close(fd);
+		printf("\n  total: %d\n", dir_info.size);
 	}
 
 	return 0;
