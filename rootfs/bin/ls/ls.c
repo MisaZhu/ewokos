@@ -27,9 +27,9 @@ int main(int argc, char* argv[]) {
 			if(fs_kid(fd, i, &info) != 0)
 				break;
 			if(info.type == FS_TYPE_FILE)
-				printf("  %24s  f     %4d   %d\n", info.name, info.owner, info.size);
+				printf("  %24s  f    %4d   %d\n", info.name, info.owner, info.size);
 			else if(info.type == FS_TYPE_DIR)
-				printf("  %24s  d     %4d   %d\n", info.name, info.owner, info.size);
+				printf("  %24s  d    %4d   %d\n", info.name, info.owner, info.size);
 			i++;
 		}
 		close(fd);
