@@ -171,7 +171,7 @@ static int32_t fsnode_unmount(tree_node_t* node) {
 		return -1;
 	int32_t index = FSN(node)->mount;
 
-	tree_node_t* node_old = (tree_node_t*)_mounts[FSN(node)->mount].node_old;
+	tree_node_t* node_old = (tree_node_t*)_mounts[index].node_old;
 	tree_node_t* father = node->father;
 	tree_del(node, free);
 
@@ -231,17 +231,37 @@ static void do_info_update(package_t* pkg) {
 	ipc_send(pkg->id, pkg->type, NULL, 0);
 }
 
+#define PIPE_BUF_SIZE 4096
+typedef struct {
+	uint8_t buffer[PIPE_BUF_SIZE];
+	uint32_t size;
+}pipe_buffer_t;
+
 static void do_node_by_name(package_t* pkg) {
 	proto_t* proto = proto_new(get_pkg_data(pkg), pkg->size);
 	const char* name = proto_read_str(proto);
 	proto_free(proto);
 
 	fs_info_t info;
-	tree_node_t* node = get_node_by_name(name);
-	if(node == NULL || fsnode_info(node, &info) != 0)
-		ipc_send(pkg->id, PKG_TYPE_ERR, NULL, 0);
-	else
-		ipc_send(pkg->id, pkg->type, &info, sizeof(fs_info_t));
+	if(name[0] != 0) {
+		tree_node_t* node = get_node_by_name(name);
+		if(node == NULL || fsnode_info(node, &info) != 0) {
+			ipc_send(pkg->id, PKG_TYPE_ERR, NULL, 0);
+			return;
+		}
+	}
+	else { //noname, means pipe.
+		tree_node_t* node = fs_new_node();
+		FSN(node)->data = malloc(sizeof(pipe_buffer_t));
+		info.size = 0;
+		info.type = FS_TYPE_FILE;
+		info.id = node->id;
+		info.node = (uint32_t)node;
+		info.name[0] = 0;
+		info.dev_index = 0;
+		info.dev_serv_pid = getpid();
+	}
+	ipc_send(pkg->id, pkg->type, &info, sizeof(fs_info_t));
 }
 
 static void do_node_fullname(package_t* pkg) {
@@ -346,6 +366,87 @@ static void do_mount_by_fname(package_t* pkg) {
 	ipc_send(pkg->id, pkg->type, mnt, sizeof(mount_t));
 }
 
+static void do_pipe_close(package_t* pkg) {
+	uint32_t node_addr = *(uint32_t*)get_pkg_data(pkg);
+	if(node_addr == 0)
+		return;
+	if(syscall2(SYSCALL_PFILE_GET_REF, node_addr, 2) > 1) //1 ref left for this closing fd
+		return;
+
+	tree_node_t* node = (tree_node_t*)node_addr;
+	if(FSN(node)->data != NULL)
+		free(FSN(node)->data);
+	free(node);
+}
+
+static void do_pipe_write(package_t* pkg) {
+	proto_t* proto = proto_new(get_pkg_data(pkg), pkg->size);
+	uint32_t node_addr = (uint32_t)proto_read_int(proto);
+	uint32_t size;
+	void* p = proto_read(proto, &size);
+	int32_t seek = proto_read_int(proto);
+	(void)seek;
+	proto_free(proto);
+
+	if(node_addr == 0) {
+		ipc_send(pkg->id, PKG_TYPE_ERR, NULL, 0);
+		return;
+	}
+
+	int32_t ret = -1;
+	tree_node_t* node = (tree_node_t*)node_addr;
+	pipe_buffer_t* buffer = (pipe_buffer_t*)FSN(node)->data;
+	if(buffer == NULL) {
+		ipc_send(pkg->id, PKG_TYPE_ERR, NULL, 0);
+		return;
+	}
+	if(buffer->size == 0) {//ready for write.
+		size = size < PIPE_BUF_SIZE ? size : PIPE_BUF_SIZE;
+		memcpy(buffer->buffer, p, size);
+		buffer->size = size;
+		ret = size;
+	}
+	ipc_send(pkg->id, pkg->type, &ret, 4);
+}
+
+static void do_pipe_read(package_t* pkg) {
+	proto_t* proto = proto_new(get_pkg_data(pkg), pkg->size);
+	uint32_t node_addr = (uint32_t)proto_read_int(proto);
+	uint32_t size = (uint32_t)proto_read_int(proto);
+	uint32_t seek = (uint32_t)proto_read_int(proto);
+	(void)seek;
+	proto_free(proto);
+	
+	if(node_addr == 0) {
+		ipc_send(pkg->id, PKG_TYPE_ERR, NULL, 0);
+		return;
+	}
+	if(size == 0) {
+		ipc_send(pkg->id, pkg->type, NULL, 0);
+		return;
+	}
+
+	int32_t ret = 0;
+	tree_node_t* node = (tree_node_t*)node_addr;
+	pipe_buffer_t* buffer = (pipe_buffer_t*)FSN(node)->data;
+	if(buffer == NULL) {
+		ipc_send(pkg->id, PKG_TYPE_ERR, NULL, 0);
+		return;
+	}
+
+	char* buf = NULL;
+	if(buffer->size > 0) {//ready for write.
+		size = size < buffer->size ? size : buffer->size;
+		buf = (char*)malloc(size);
+		memcpy(buf, buffer->buffer, size);
+		ret = size;
+	}
+
+	ipc_send(pkg->id, pkg->type, buf, ret);
+	if(buf != NULL)
+		free(buf);
+}
+
 static void handle(package_t* pkg, void* p) {
 	(void)p;
 	switch(pkg->type) {
@@ -381,6 +482,15 @@ static void handle(package_t* pkg, void* p) {
 		break;
 	case VFS_CMD_MOUNT_BY_FNAME:
 		do_mount_by_fname(pkg);
+		break;
+	case FS_CLOSE:
+		do_pipe_close(pkg);
+		break;
+	case FS_READ:
+		do_pipe_read(pkg);
+		break;
+	case FS_WRITE:
+		do_pipe_write(pkg);
 		break;
 	}
 }

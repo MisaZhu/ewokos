@@ -38,4 +38,6 @@ int read(int fd, void* buf, uint32_t size);
 
 void close(int fd);
 
+int pipe(int fds[2]);
+
 #endif

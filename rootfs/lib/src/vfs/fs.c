@@ -19,8 +19,8 @@ int fs_open(const char* name, int32_t flags) {
 	int32_t fd = syscall2(SYSCALL_PFILE_OPEN, (int32_t)&info, flags);
 	if(fd < 0)
 		return -1;
-
-	if(info.dev_serv_pid == 0) 
+	//noname for pipe open
+	if(name[0] == 0 || info.dev_serv_pid == 0) 
 		return fd;
 
 	proto_t* proto = proto_new(NULL, 0);
@@ -35,6 +35,24 @@ int fs_open(const char* name, int32_t flags) {
 	}
 	free(pkg);
 	return fd;
+}
+
+int fs_pipe_open(int fds[2]) {
+	fs_info_t info;
+	if(vfs_node_by_name("", &info) != 0)
+		return -1;
+	int fd = syscall2(SYSCALL_PFILE_OPEN, (int32_t)&info, O_RDONLY);
+	if(fd < 0)
+		return -1;
+	fds[0] = fd;
+
+	fd = syscall2(SYSCALL_PFILE_OPEN, (int32_t)&info, O_WRONLY);
+	if(fd < 0) {
+		close(fds[0]);
+		return -1;
+	}
+	fds[1] = fd;
+	return 0;
 }
 
 int fs_close(int fd) {
@@ -235,6 +253,8 @@ int fs_putch(int fd, int c) {
 }
 
 int fs_finfo(const char* name, fs_info_t* info) {
+	if(name[0] == 0)
+		return -1;
 	return vfs_node_by_name(name, info);
 }
 

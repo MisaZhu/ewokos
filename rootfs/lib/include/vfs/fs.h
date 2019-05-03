@@ -4,18 +4,9 @@
 #include <fsinfo.h>
 #include <vfs/vfs.h>
 
-enum {
-	FS_OPEN = 0,
-	FS_CLOSE,
-	FS_WRITE,
-	FS_READ,
-	FS_CTRL,
-	FS_FLUSH,
-	FS_DMA,
-	FS_ADD
-};
-
 int fs_open(const char* name, int32_t flags);
+
+int fs_pipe_open(int fds[2]);
 
 int fs_close(int fd);
 

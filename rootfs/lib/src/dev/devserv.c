@@ -28,17 +28,14 @@ static void do_open(device_t* dev, package_t* pkg) {
 
 static void do_close(device_t* dev, package_t* pkg) { 
 	uint32_t node = *(uint32_t*)get_pkg_data(pkg);
-	if(node == 0) {
+	if(node == 0)
 		return;
-	}
-
 	if(dev->close != NULL)
 		dev->close(node);
 }
 
 static void do_dma(device_t* dev, package_t* pkg) { 
 	uint32_t node = *(uint32_t*)get_pkg_data(pkg);
-
 	if(node == 0) {
 		ipc_send(pkg->id, PKG_TYPE_ERR, NULL, 0);
 		return;

@@ -119,3 +119,7 @@ int read(int fd, void* buf, uint32_t size) {
 void close(int fd) {
 	fs_close(fd);
 }
+
+int pipe(int fds[2]) {
+	return  fs_pipe_open(fds);
+}

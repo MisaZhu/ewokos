@@ -2,6 +2,7 @@
 #define VFS_NODE_H
 
 #include <fsinfo.h>
+#include <vfs/vfscmd.h>
 #define VFS_DIR_SIZE 0xffffffff
 
 typedef struct {
