@@ -35,6 +35,6 @@ int main(int argc, char* argv[]) {
 	dev.write = tty_write;
 	dev.read = tty_read;
 
-	dev_run(&dev, "dev.tty", 0, "/dev/tty0", true);
+	dev_run(&dev, argc, argv);
 	return 0;
 }

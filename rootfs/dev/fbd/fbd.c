@@ -70,7 +70,7 @@ int main(int argc, char* argv[]) {
 	dev.ctrl = fb_ctrl;
 	dev.flush = fb_flush;
 
-	dev_run(&dev, "dev.fb", 0, "/dev/fb0", true);
+	dev_run(&dev, argc, argv);
 	shm_unmap(_fb_buf_id);
 	return 0;
 }

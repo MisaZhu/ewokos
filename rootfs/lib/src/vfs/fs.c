@@ -265,10 +265,6 @@ int fs_kid(int fd, int32_t index, fs_info_t* kid) {
 	return vfs_kid(info.node, index, kid);
 }
 
-int32_t fs_inited() {
-	return kserv_get_pid("dev.sdcard");
-}
-
 char* fs_read_file(const char* fname, int32_t *size) {
 	int fd = open(fname, 0);
 	if(fd < 0) 

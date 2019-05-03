@@ -189,7 +189,19 @@ static void handle(package_t* pkg, void* p) {
 	}
 }
 
-void dev_run(device_t* dev, const char* dev_name, uint32_t index, const char* node_name, bool file) {
+void dev_run(device_t* dev, int32_t argc, char** argv) {
+	if(argc < 5) {
+		printf("driver:%s arguments missed!\n", argv[0]);
+		return;
+	}
+	const char* dev_name = argv[1];
+	uint32_t index = atoi(argv[2]);
+	const char* node_name = argv[3];
+	bool file = true;
+
+	if(argv[4][0] == 'D' || argv[4][0] == 'd')
+		file = false;
+
 	uint32_t node = vfs_mount(node_name, dev_name, index, file);
 	if(node == 0)
 		return;
@@ -198,7 +210,13 @@ void dev_run(device_t* dev, const char* dev_name, uint32_t index, const char* no
 		if(dev->mount(node, index) != 0)
 			return;
 	}
+
+	if(vfs_mounted(node_name) != 0) {
+		printf("%s mounted to vfs:%s failed!\n", dev_name, node_name);
+		return;
+	}
 	printf("(%s mounted to vfs:%s)\n", dev_name, node_name);
+
 	kserv_run(dev_name, handle, dev);
 
 	if(vfs_unmount(node) != 0)

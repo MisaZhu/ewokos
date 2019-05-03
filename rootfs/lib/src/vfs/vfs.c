@@ -98,6 +98,23 @@ inline uint32_t vfs_mount(const char* fname, const char* devName, int32_t devInd
 	return node;
 }
 
+inline int32_t vfs_mounted(const char* fname) {
+	int32_t serv_pid = kserv_get_pid(VFS_NAME);	
+	if(serv_pid < 0)
+		return 0;
+
+	proto_t* proto = proto_new(NULL, 0);
+	proto_add_str(proto, fname);
+	package_t* pkg = ipc_req(serv_pid, 0, VFS_CMD_MOUNTED, proto->data, proto->size, true);
+	proto_free(proto);
+	if(pkg == NULL || pkg->type == PKG_TYPE_ERR) {
+		if(pkg != NULL) free(pkg);
+		return -1;
+	}
+	free(pkg);
+	return 0;
+}
+
 inline int32_t vfs_unmount(uint32_t node) {
 	int32_t serv_pid = kserv_get_pid(VFS_NAME);	
 	if(serv_pid < 0)
@@ -132,12 +149,30 @@ int32_t vfs_kid(uint32_t node, int32_t index, fs_info_t* info) {
 	return 0;
 }
 
-int32_t vfs_get_mount(int32_t index, mount_t* mnt) {
+int32_t vfs_mount_by_index(int32_t index, mount_t* mnt) {
 	int32_t serv_pid = kserv_get_pid(VFS_NAME);	
 	if(serv_pid < 0)
 		return -1;
 
-	package_t* pkg = ipc_req(serv_pid, 0, VFS_CMD_GET_MOUNT, &index, 4, true);
+	package_t* pkg = ipc_req(serv_pid, 0, VFS_CMD_MOUNT_BY_INDEX, &index, 4, true);
+	if(pkg == NULL || pkg->type == PKG_TYPE_ERR || pkg->size == 0) {
+		if(pkg != NULL) free(pkg);
+		return -1;
+	}
+	memcpy(mnt, get_pkg_data(pkg), pkg->size);
+	free(pkg);
+	return 0;
+}
+
+int32_t vfs_mount_by_fname(const char* fname, mount_t* mnt) {
+	int32_t serv_pid = kserv_get_pid(VFS_NAME);	
+	if(serv_pid < 0)
+		return -1;
+
+	proto_t* proto = proto_new(NULL, 0);
+	proto_add_str(proto, fname);
+	package_t* pkg = ipc_req(serv_pid, 0, VFS_CMD_MOUNT_BY_FNAME, proto->data, proto->size, true);
+	proto_free(proto);
 	if(pkg == NULL || pkg->type == PKG_TYPE_ERR || pkg->size == 0) {
 		if(pkg != NULL) free(pkg);
 		return -1;

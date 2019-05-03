@@ -45,8 +45,6 @@ int32_t fs_flush(int fd);
 
 int32_t fs_dma(int fd, uint32_t* size);
 
-int32_t fs_inited();
-
 char* fs_read_file(const char* fname, int32_t *size);
 
 int32_t fs_full_name(const char* fname, char* name, uint32_t name_len);

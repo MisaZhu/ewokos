@@ -61,6 +61,6 @@ int main(int argc, char* argv[]) {
 	dev.mount = proc_mount;
 	dev.read = proc_read;
 
-	dev_run(&dev, "dev.proc", 0, "/proc", false);
+	dev_run(&dev, argc, argv);
 	return 0;
 }

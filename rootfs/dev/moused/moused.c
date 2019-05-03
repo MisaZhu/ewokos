@@ -17,6 +17,6 @@ int main(int argc, char* argv[]) {
 	device_t dev = {0};
 	dev.read = mouse_read;
 
-	dev_run(&dev, "dev.mouse", 0, "/dev/mouse0", true);
+	dev_run(&dev, argc, argv);
 	return 0;
 }

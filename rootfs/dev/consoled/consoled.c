@@ -230,6 +230,6 @@ int main(int argc, char* argv[]) {
 	dev.read = console_read;
 	dev.ctrl = console_ctrl;
 
-	dev_run(&dev, "dev.console", 0, "/dev/console0", true);
+	dev_run(&dev, argc, argv);
 	return 0;
 }

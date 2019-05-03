@@ -12,7 +12,7 @@ int main(int argc, char* argv[]) {
 	uint32_t i = 0;
 	while(true) {
 		mount_t mnt;
-		if(vfs_get_mount(i, &mnt) != 0)
+		if(vfs_mount_by_index(i, &mnt) != 0)
 			break;
 
 		if(mnt.dev_serv_pid > 0) {

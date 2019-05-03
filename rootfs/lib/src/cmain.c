@@ -4,10 +4,10 @@
 #include <unistd.h>
 
 static char _cmd[CMD_MAX] = { 0 };
-static int _offCmd = 0;
+static int _off_cmd = 0;
 
 static void init_cmain_arg() {
-	_offCmd = 0;
+	_off_cmd = 0;
 	syscall2(SYSCALL_GET_CMD, (int)_cmd, CMD_MAX-1);
 }
 
@@ -15,12 +15,12 @@ static char* read_cmain_arg() {
 	char* p = NULL;
 	bool quotes = false;
 
-	while(_cmd[_offCmd] != 0) {
-		char c = _cmd[_offCmd];
-		_offCmd++;
+	while(_cmd[_off_cmd] != 0) {
+		char c = _cmd[_off_cmd];
+		_off_cmd++;
 		if(quotes) {
 			if(c == '"') {
-				_cmd[_offCmd-1] = 0;
+				_cmd[_off_cmd-1] = 0;
 				return p;
 			}
 			continue;
@@ -31,16 +31,16 @@ static char* read_cmain_arg() {
 				continue;
 			}
 			else {
-				_cmd[_offCmd-1] = 0;
+				_cmd[_off_cmd-1] = 0;
 				return p;
 			}
 		}
 		else if(p == NULL) {
 			if(c == '"') {
 				quotes = true;
-				_offCmd++;
+				_off_cmd++;
 			}
-			p = _cmd + _offCmd - 1;
+			p = _cmd + _off_cmd - 1;
 		}
 	}
 	return p;

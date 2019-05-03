@@ -120,11 +120,12 @@ static tree_node_t* fsnode_mount(const char* fname, const char* dev_name,
 
 	int32_t i;
   for(i=0; i<MOUNT_MAX; i++) {
-    if(_mounts[i].dev_name[0] == 0) {
+    if(_mounts[i].state == MNT_NONE) {
 			strcpy(_mounts[i].dev_name, dev_name);
 			_mounts[i].dev_index = dev_index;
 			_mounts[i].dev_serv_pid = pid;
 			_mounts[i].node_old = (uint32_t)to; //save the node_old node.
+			_mounts[i].state = MNT_BUSY;
 			break;
 		}
 	}
@@ -169,6 +170,7 @@ static tree_node_t* fsnode_mount(const char* fname, const char* dev_name,
 static int32_t fsnode_unmount(tree_node_t* node) {
 	if(!check_access(node, true) || node == _root) //can not umount root
 		return -1;
+	int32_t index = FSN(node)->mount;
 
 	tree_node_t* node_old = (tree_node_t*)_mounts[FSN(node)->mount].node_old;
 	tree_node_t* father = node->father;
@@ -176,6 +178,7 @@ static int32_t fsnode_unmount(tree_node_t* node) {
 
 	if(node_old != NULL && father != NULL)
 		tree_add(father, node_old);
+	_mounts[index].state = MNT_NONE;
 	return 0;
 }
 
@@ -310,19 +313,56 @@ static void do_mount(package_t* pkg) {
 	ipc_send(pkg->id, pkg->type, &node, 4);
 }
 
+static void do_mounted(package_t* pkg) {
+	proto_t* proto = proto_new(get_pkg_data(pkg), pkg->size);
+	const char* fname = proto_read_str(proto);
+	proto_free(proto);
+
+	tree_node_t* node = get_node_by_name(fname);
+	if(node == NULL) {
+		ipc_send(pkg->id, PKG_TYPE_ERR, NULL, 0);
+		return;
+	}
+	int32_t index = FSN(node)->mount;
+	if(index < 0 || index >= MOUNT_MAX) {
+		ipc_send(pkg->id, PKG_TYPE_ERR, NULL, 0);
+		return;
+	}
+	_mounts[index].state = MNT_DONE;
+	ipc_send(pkg->id, pkg->type, NULL, 0);
+}
+
 static void do_unmount(package_t* pkg) {
 	tree_node_t* node = (tree_node_t*)(*(int32_t*)get_pkg_data(pkg));
 	fsnode_unmount(node);
 	ipc_send(pkg->id, pkg->type, NULL, 0);
 }
 
-static void do_get_mount(package_t* pkg) {
+static void do_mount_by_index(package_t* pkg) {
 	int32_t index = *(int32_t*)get_pkg_data(pkg);
 	if(index < 0 || index >= MOUNT_MAX) {
 		ipc_send(pkg->id, pkg->type, NULL, 0);
 		return;
 	}
+	mount_t* mnt = &_mounts[index];
+	ipc_send(pkg->id, pkg->type, mnt, sizeof(mount_t));
+}
 
+static void do_mount_by_fname(package_t* pkg) {
+	proto_t* proto = proto_new(get_pkg_data(pkg), pkg->size);
+	const char* fname = proto_read_str(proto);
+	proto_free(proto);
+
+	tree_node_t* node = get_node_by_name(fname);
+	if(node == NULL) {
+		ipc_send(pkg->id, PKG_TYPE_ERR, NULL, 0);
+		return;
+	}
+	int32_t index = FSN(node)->mount;
+	if(index < 0 || index >= MOUNT_MAX) {
+		ipc_send(pkg->id, PKG_TYPE_ERR, NULL, 0);
+		return;
+	}
 	mount_t* mnt = &_mounts[index];
 	ipc_send(pkg->id, pkg->type, mnt, sizeof(mount_t));
 }
@@ -354,11 +394,17 @@ static void handle(package_t* pkg, void* p) {
 	case VFS_CMD_MOUNT:
 		do_mount(pkg);
 		break;
+	case VFS_CMD_MOUNTED:
+		do_mounted(pkg);
+		break;
 	case VFS_CMD_UNMOUNT:
 		do_unmount(pkg);
 		break;
-	case VFS_CMD_GET_MOUNT:
-		do_get_mount(pkg);
+	case VFS_CMD_MOUNT_BY_INDEX:
+		do_mount_by_index(pkg);
+		break;
+	case VFS_CMD_MOUNT_BY_FNAME:
+		do_mount_by_fname(pkg);
 		break;
 	}
 }

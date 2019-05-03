@@ -17,14 +17,34 @@ static int start_vfsd() {
 	return 0;
 }
 
-static int mount_root() {
-	printf("mount root fs from sdcard ...\n");
-	int pid = fork();
-	if(pid == 0) { 
-		exec("/sbin/dev/sdcard");
+char* from_sd(const char* fname, int32_t* sz);
+static int run_init_dev(const char* fname) {
+	int32_t size;
+	char* data = from_sd(fname, &size);
+	if(data == NULL)
+		return -1;
+
+	char* cmd = data;
+	int i = 0;
+	while(i < size) {
+		if(data[i] == '\n' || data[i] == 0) {
+			data[i] = 0;
+			int pid = fork();
+			if(pid == 0) { 
+				exec(cmd);
+			}
+			cmd = data+i+1;
+
+			mount_t mnt;
+			while(vfs_mount_by_fname("/", &mnt) != 0 ||
+					mnt.state != MNT_DONE) {
+				usleep(100000);
+			}
+		}
+		++i;
 	}
-	kserv_wait("dev.sdcard");
-	printf("root mounted.\n");
+
+	free(data);
 	return 0;
 }
 
@@ -89,8 +109,8 @@ int main(int argc, char* argv[]) {
 		return -1;
 	}
 	start_vfsd();
-	mount_root();
-	run_init_procs("/etc/init/init.dev");
+	//mount_root();
+	run_init_dev("/etc/init/init.dev");
 	run_init_procs("/etc/init/init.rd");
 
 	/*set uid to root*/

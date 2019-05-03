@@ -6,6 +6,6 @@ int main(int argc, char* argv[]) {
 	(void)argv;
 
 	device_t dev = {0};
-	dev_run(&dev, "dev.null", 0, "/dev/null", true);
+	dev_run(&dev, argc, argv);
 	return 0;
 }

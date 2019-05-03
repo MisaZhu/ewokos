@@ -17,6 +17,6 @@ typedef struct {
 	void* (*ctrl)(uint32_t node, int32_t cmd, void* data, uint32_t size, int32_t* ret);
 } device_t;
 
-void dev_run(device_t* dev, const char* devName, uint32_t index, const char* nodeName, bool file);
+void dev_run(device_t* dev, int32_t argc, char** argv);
 
 #endif
