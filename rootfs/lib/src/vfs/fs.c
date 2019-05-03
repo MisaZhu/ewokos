@@ -39,7 +39,7 @@ int fs_open(const char* name, int32_t flags) {
 
 int fs_close(int fd) {
 	fs_info_t info;
-	if(syscall2(SYSCALL_PFILE_NODE_BY_FD, fd, (int32_t)&info) != 0)
+	if(fd < 0 || syscall2(SYSCALL_PFILE_NODE_BY_FD, fd, (int32_t)&info) != 0)
 		return -1;
 	if(info.dev_serv_pid > 0) {
 		ipc_req(info.dev_serv_pid, 0, FS_CLOSE, &info.node, 4, false);
@@ -58,7 +58,7 @@ int fs_close(int fd) {
 int32_t fs_dma(int fd, uint32_t* size) {
 	*size = 0;
 	fs_info_t info;
-	if(syscall2(SYSCALL_PFILE_NODE_BY_FD, fd, (int32_t)&info) != 0)
+	if(fd < 0 || syscall2(SYSCALL_PFILE_NODE_BY_FD, fd, (int32_t)&info) != 0)
 		return -1;
 	if(info.dev_serv_pid == 0) 
 		return -1;
@@ -78,7 +78,7 @@ int32_t fs_dma(int fd, uint32_t* size) {
 
 int32_t fs_flush(int fd) {
 	fs_info_t info;
-	if(syscall2(SYSCALL_PFILE_NODE_BY_FD, fd, (int32_t)&info) != 0)
+	if(fd < 0 || syscall2(SYSCALL_PFILE_NODE_BY_FD, fd, (int32_t)&info) != 0)
 		return -1;
 	
 	if(info.dev_serv_pid > 0) {
@@ -97,7 +97,7 @@ int32_t fs_flush(int fd) {
 
 int fs_read(int fd, char* buf, uint32_t size) {
 	fs_info_t info;
-	if(syscall2(SYSCALL_PFILE_NODE_BY_FD, fd, (int32_t)&info) != 0)
+	if(fd < 0 || syscall2(SYSCALL_PFILE_NODE_BY_FD, fd, (int32_t)&info) != 0)
 		return -1;
 	uint32_t buf_size = size >= FS_BUF_SIZE ? FS_BUF_SIZE : 0;
 	int seek = syscall1(SYSCALL_PFILE_GET_SEEK, fd);
@@ -132,7 +132,7 @@ int fs_read(int fd, char* buf, uint32_t size) {
 
 int fs_ctrl(int fd, int32_t cmd, void* input, uint32_t isize, void* output, uint32_t osize) {
 	fs_info_t info;
-	if(syscall2(SYSCALL_PFILE_NODE_BY_FD, fd, (int32_t)&info) != 0)
+	if(fd < 0 || syscall2(SYSCALL_PFILE_NODE_BY_FD, fd, (int32_t)&info) != 0)
 		return -1;
 
 	proto_t* proto = proto_new(NULL, 0);
@@ -162,7 +162,7 @@ int fs_ctrl(int fd, int32_t cmd, void* input, uint32_t isize, void* output, uint
 
 int fs_write(int fd, const char* buf, uint32_t size) {
 	fs_info_t info;
-	if(syscall2(SYSCALL_PFILE_NODE_BY_FD, fd, (int32_t)&info) != 0)
+	if(fd < 0 || syscall2(SYSCALL_PFILE_NODE_BY_FD, fd, (int32_t)&info) != 0)
 		return -1;
 	uint32_t buf_size = size >= FS_BUF_SIZE ? FS_BUF_SIZE : 0;
 
@@ -192,7 +192,7 @@ int fs_write(int fd, const char* buf, uint32_t size) {
 
 int fs_add(int fd, const char* name, uint32_t type) {
 	fs_info_t info;
-	if(syscall2(SYSCALL_PFILE_NODE_BY_FD, fd, (int32_t)&info) != 0)
+	if(fd < 0 || syscall2(SYSCALL_PFILE_NODE_BY_FD, fd, (int32_t)&info) != 0)
 		return -1;
 	
 	int size = strlen(name);
@@ -239,19 +239,19 @@ int fs_finfo(const char* name, fs_info_t* info) {
 }
 
 int fs_info(int fd, fs_info_t* info) {
-	if(syscall2(SYSCALL_PFILE_NODE_BY_FD, fd, (int32_t)info) != 0)
+	if(fd < 0 || syscall2(SYSCALL_PFILE_NODE_BY_FD, fd, (int32_t)info) != 0)
 		return -1;
 	return 0;
 }
 
 int fs_ninfo(uint32_t node_addr, fs_info_t* info) {
-	if(syscall2(SYSCALL_PFILE_NODE_BY_ADDR, node_addr, (int32_t)info) != 0)
+	if(node_addr == 0 || syscall2(SYSCALL_PFILE_NODE_BY_ADDR, node_addr, (int32_t)info) != 0)
 		return -1;
 	return 0;
 }
 
 int fs_ninfo_update(uint32_t node_addr, fs_info_t* info) {
-	if(vfs_node_update(info) != 0)
+	if(node_addr == 0 || vfs_node_update(info) != 0)
 		return -1;
 	if(syscall2(SYSCALL_PFILE_NODE_UPDATE, node_addr, (int32_t)info) != 0)
 		return -1;
@@ -260,7 +260,7 @@ int fs_ninfo_update(uint32_t node_addr, fs_info_t* info) {
 
 int fs_kid(int fd, int32_t index, fs_info_t* kid) {
 	fs_info_t info;
-	if(syscall2(SYSCALL_PFILE_NODE_BY_FD, fd, (int32_t)&info) != 0)
+	if(fd < 0 || syscall2(SYSCALL_PFILE_NODE_BY_FD, fd, (int32_t)&info) != 0)
 		return -1;
 	return vfs_kid(info.node, index, kid);
 }

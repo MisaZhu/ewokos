@@ -15,8 +15,8 @@ static int32_t _out_size = 0;
 
 void init_stdio() {
 	_stdin = _stdout = -1;
-	_stdin = _stdout = open(getenv("STDIO_DEV"), 0);
-	//_stdin = _stdout = open("/dev/tty0", 0);
+	_stdin = open(getenv("STDIN_DEV"), O_RDONLY);
+	_stdout = open(getenv("STDOUT_DEV"), O_WRONLY);
 	_out_size = 0;
 }
 

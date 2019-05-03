@@ -144,13 +144,15 @@ int main(int argc, char* argv[]) {
 	/*run 2 session for uart0 and framebuffer based console0*/
 	int pid = fork();
 	if(pid == 0) {
-		setenv("STDIO_DEV", "/dev/console0");
+		setenv("STDOUT_DEV", "/dev/console0");
+		setenv("STDIN_DEV", "/dev/console0");
 		init_stdio();
 		exec("/sbin/session");
 		return 0;
 	}
 	else {
-		setenv("STDIO_DEV", "/dev/tty0");
+		setenv("STDOUT_DEV", "/dev/tty0");
+		setenv("STDIN_DEV", "/dev/tty0");
 		session_loop();
 	}
 	return 0;
