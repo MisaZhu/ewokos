@@ -6,15 +6,11 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-int32_t _stdin =-1;
-int32_t _stdout = -1;
-
 #define STDOUT_BUF_SIZE 128
 static char _out_buffer[STDOUT_BUF_SIZE];
 static int32_t _out_size = 0;
 
 void init_stdio() {
-	_stdin = _stdout = -1;
 	_stdin = open(getenv("STDIN_DEV"), O_RDONLY);
 	_stdout = open(getenv("STDOUT_DEV"), O_WRONLY);
 	_out_size = 0;
