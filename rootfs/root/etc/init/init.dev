@@ -1,10 +1,12 @@
-/sbin/dev/sdcard   dev.sdcard    0 /             d
-/sbin/dev/null     dev.null      0 /dev/null     f
-/sbin/dev/procd    dev.proc      0 /proc         d
-/sbin/dev/ttyd     dev.tty       0 /dev/tty0     f
-/sbin/dev/fbd      dev.fb        0 /dev/fb0      f
-/sbin/dev/keybd    dev.keyboard  0 /dev/keyb0    f
-/sbin/dev/moused   dev.mouse     0 /dev/mouse0   f
-/sbin/dev/consoled dev.console   0 /dev/console0 f
-/sbin/dev/sramdisk dev.sramdisk  0 /ramdisk      d
-/sbin/dev/sramdisk dev.sramdisk  1 /tmp          d
+#PROC              DEV_NAME      DEV_ID   MNT_POINT     TYPE
+/sbin/dev/sdcard   dev.sdcard    0        /             d
+/sbin/dev/null     dev.null      0        /dev/null     f
+/sbin/dev/procd    dev.proc      0        /proc         d
+/sbin/dev/ttyd     dev.tty       0        /dev/tty0     f
+/sbin/dev/fbd      dev.fb        0        /dev/fb0      f
+/sbin/dev/keybd    dev.keyboard  0        /dev/keyb0    f
+/sbin/dev/moused   dev.mouse     0        /dev/mouse0   f
+/sbin/dev/consoled dev.console   0        /dev/console0 f
+
+/sbin/dev/sramdisk dev.sramdisk  0        /ramdisk      d
+/sbin/dev/sramdisk dev.sramdisk  1        /tmp          d

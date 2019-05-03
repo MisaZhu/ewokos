@@ -29,12 +29,14 @@ static int run_init_dev(const char* fname) {
 	while(i < size) {
 		if(data[i] == '\n' || data[i] == 0) {
 			data[i] = 0;
-			int pid = fork();
-			if(pid == 0) { 
-				exec(cmd);
+			if(cmd[0] != 0 && cmd[0] != '#') {
+				int pid = fork();
+				if(pid == 0) { 
+					exec(cmd);
+				}
+				kserv_wait_by_pid(pid);
 			}
 			cmd = data+i+1;
-			kserv_wait_by_pid(pid);
 		}
 		++i;
 	}
@@ -73,13 +75,14 @@ static int run_init_servs(const char* fname) {
 			break;
 		if(i == 0)
 			continue;
-
-		int pid = fork();
-		if(pid == 0) { 
-			exec(cmd);
+		if(cmd[0] != 0 && cmd[0] != '#') {
+			int pid = fork();
+			if(pid == 0) { 
+				exec(cmd);
+			}
+			kserv_wait_by_pid(pid);
+			printf("loaded serv: %s\n", cmd);
 		}
-		kserv_wait_by_pid(pid);
-		printf("loaded serv: %s\n", cmd);
 	}
 	close(fd);
 	return 0;
@@ -99,9 +102,11 @@ static int run_init_procs(const char* fname) {
 		if(i == 0)
 			continue;
 
-		int pid = fork();
-		if(pid == 0) { 
-			exec(cmd);
+		if(cmd[0] != 0 && cmd[0] != '#') {
+			int pid = fork();
+			if(pid == 0) { 
+				exec(cmd);
+			}
 		}
 	}
 	close(fd);

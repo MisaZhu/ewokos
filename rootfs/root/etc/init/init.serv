@@ -1,1 +1,2 @@
-/sbin/userman serv.userman
+#PROC              SERV_NAME
+/sbin/userman      serv.userman
