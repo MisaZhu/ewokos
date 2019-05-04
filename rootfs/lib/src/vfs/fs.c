@@ -38,8 +38,9 @@ int fs_open(const char* name, int32_t flags) {
 
 int fs_pipe_open(int fds[2]) {
 	fs_info_t info;
-	if(vfs_pipe_open(&info) != 0)
+	if(vfs_pipe_open(&info) != 0) {
 		return -1;
+	}
 	int fd = syscall2(SYSCALL_PFILE_OPEN, (int32_t)&info, O_RDONLY);
 	if(fd < 0)
 		return -1;

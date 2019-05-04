@@ -235,6 +235,7 @@ static void do_info_update(package_t* pkg) {
 typedef struct {
 	uint8_t buffer[PIPE_BUF_SIZE];
 	uint32_t size;
+	uint32_t offset;
 }pipe_buffer_t;
 
 static void do_node_by_name(package_t* pkg) {
@@ -406,6 +407,7 @@ static void do_pipe_write(package_t* pkg) {
 		size = size < PIPE_BUF_SIZE ? size : PIPE_BUF_SIZE;
 		memcpy(buffer->buffer, p, size);
 		buffer->size = size;
+		buffer->offset = 0;
 		ret = size;
 	}
 	ipc_send(pkg->id, pkg->type, &ret, 4);
@@ -437,11 +439,17 @@ static void do_pipe_read(package_t* pkg) {
 	}
 
 	char* buf = NULL;
-	if(buffer->size > 0) {//ready for write.
-		size = size < buffer->size ? size : buffer->size;
+	uint32_t rest = buffer->size - buffer->offset;
+	if(rest > 0) {//ready for read.
+		size = size < rest ? size : rest;
 		buf = (char*)malloc(size);
-		memcpy(buf, buffer->buffer, size);
+		memcpy(buf, buffer->buffer+buffer->offset, size);
 		ret = size;
+		buffer->offset += size;
+		if(buffer->offset == buffer->size) {
+			buffer->offset = 0;
+			buffer->size = 0;
+		}
 	}
 
 	ipc_send(pkg->id, pkg->type, buf, ret);

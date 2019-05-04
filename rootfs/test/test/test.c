@@ -16,9 +16,12 @@ int main(int argc, char* argv[]) {
 	int pid = fork();
 	if(pid == 0) {
 		close(fds[0]);
+		int counter = 0;
 		while(true) {
-			const char* s = "hello world\n";
+			char s[128];
+			snprintf(s, 127, "hello world from pipe. %d", counter);
 			write(fds[1], s, strlen(s));
+			counter++;
 		}
 		close(fds[1]);
 	}

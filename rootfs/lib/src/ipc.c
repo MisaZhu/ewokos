@@ -50,11 +50,11 @@ static int ipc_read(int id, void* data, uint32_t size) {
 int ipc_send(int id, uint32_t type, void* data, uint32_t size) {
 	int i = ipc_write(id, &size, 4);
 	if(i == 0)
-		return 0;
+		return -1;
 
 	i = ipc_write(id, &type, 4);
 	if(i == 0)
-		return 0;
+		return -1;
 
 	const char* p = (const char*)data;
 	int32_t ret = size;
@@ -112,7 +112,7 @@ package_t* ipc_req(int pid, uint32_t buf_size, uint32_t type, void* data, uint32
 		return NULL;
 
 	int i = ipc_send(id, type, data, size);
-	if(i == 0 || !reply) {
+	if(i != size || !reply) {
 		ipc_close(id);
 		return NULL;
 	}
