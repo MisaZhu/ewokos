@@ -147,10 +147,8 @@ int32_t kf_dup2(int32_t old_fd, int32_t new_fd) {
 		return -1;
 	
 	kfile_t* new_kf = proc->space->files[new_fd].kf;
-	if(new_kf != NULL) {
+	if(new_kf != NULL)
 		kf_unref(new_kf, proc->space->files[new_fd].wr);
-		return -1;
-	}
 	
 	proc->space->files[new_fd].kf = old_kf;
 	proc->space->files[new_fd].wr = proc->space->files[old_fd].wr;
