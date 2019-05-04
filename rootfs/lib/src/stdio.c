@@ -5,15 +5,35 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <vfs/fs.h>
 
 #define STDOUT_BUF_SIZE 128
 static char _out_buffer[STDOUT_BUF_SIZE];
 static int32_t _out_size = 0;
 
 static void stdout_flush() {
-	int32_t res = write(_stdout, _out_buffer, _out_size);
-	if(res < 0)
-		syscall3(SYSCALL_DEV_CHAR_WRITE, dev_typeid(DEV_UART, 0), (int32_t)_out_buffer, _out_size);
+	fs_info_t info;
+	bool uart = false;
+	if(fs_info(_stdout, &info) != 0)
+		uart = true;
+
+
+	int32_t res = -1;
+	const char* p = _out_buffer;
+	while(_out_size > 0) {
+		int32_t res;
+		if(uart) 
+			res = syscall3(SYSCALL_DEV_CHAR_WRITE, dev_typeid(DEV_UART, 0), (int32_t)_out_buffer, _out_size);
+		else
+			res = write(_stdout, p, _out_size);
+
+		if(res > 0) {
+			p += res;	
+			_out_size -= res;
+		}
+		else if(errno != EAGAIN)
+			break;
+	}
 	_out_size = 0;
 }
 

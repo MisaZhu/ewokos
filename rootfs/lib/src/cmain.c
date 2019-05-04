@@ -14,29 +14,9 @@ static void init_cmain_arg() {
 	syscall2(SYSCALL_GET_CMD, (int)_cmd, CMD_MAX-1);
 }
 
-static void do_redir(const char* fname, bool in) {
-	if(in) {
-		int32_t fd = open(fname, O_RDONLY);
-		if(fd < 0) {
-			printf("error: '%s' open failed!\n", fname);
-			exit(-1);
-		}
-		dup2(fd, 0);
-	}
-	else {
-		int32_t fd = open(fname, O_WRONLY | O_CREAT);
-		if(fd < 0) {
-			printf("error: '%s' open failed!\n", fname);
-			exit(-1);
-		}
-		dup2(fd, 1);
-	}
-}
-
 static char* read_cmain_arg() {
 	char* p = NULL;
 	bool quotes = false;
-	bool redir = false;
 
 	while(_cmd[_off_cmd] != 0) {
 		char c = _cmd[_off_cmd];
@@ -59,20 +39,9 @@ static char* read_cmain_arg() {
 				quotes = true;
 				_off_cmd++;
 			}
-			else if(c == '>') { //if start of redirection
-				redir = true;
-				_off_cmd++;
-				p = NULL;
-				continue;
-			}
 			p = _cmd + _off_cmd - 1;
 		}
 	}
-
-	if(redir && p != NULL) {
-		do_redir(p, false);	 //redir stdout
-		p = NULL;
-	}	
 	return p;
 }
 

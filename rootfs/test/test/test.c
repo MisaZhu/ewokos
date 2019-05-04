@@ -4,50 +4,44 @@
 #include <stdlib.h>
 #include <kstring.h>
 
-int main(int argc, char* argv[]) {
-	(void)argc;
-	(void)argv;
-	int fds[2];
-	if(pipe(fds) != 0) {
-		printf("error: open pipe failed!\n");
-		return -1;
-	}
+static char rpl(char c) {
+	if(c < 0x20 || c > 0x7e)
+		return ' ';
+	return c;
+}
 
-	int pid = fork();
-	if(pid == 0) {
-		close(fds[0]);
-		int counter = 0;
-		while(counter < 100) {
-			char s[128];
-			snprintf(s, 127, "hello world from pipe. %d", counter);
-			while(true) { //non-block
-				int res = write(fds[1], s, strlen(s));
-				if(res < 0 && errno == EAGAIN)
-					continue;
-				break;
-			}
-			counter++;
+int main(int argc, char* argv[]) {
+	char type = 'c';
+	if(argc >= 2)
+		type = argv[1][0];
+
+	int res;
+	printf("      0   1   2   3   4   5   6   7   8   9   10  11  12  13  14  15\n");
+	printf("      --------------------------------------------------------------");
+	int i = 0;
+	int ln = 0;
+	while(true) { //non-block
+		char c;
+		res = read(0, &c, 1);
+		if(res > 0) {
+			if(i == 0)
+				printf("\n%4d| ", ln++);
+			if(type == 'd')
+				printf("%4d", (int)c);
+			else if(type == 'x')
+				printf("%4x", (int)c);
+			else
+				printf("%c   ", rpl(c));
+			i++;
+			if(i == 16)
+				i = 0;
 		}
-		close(fds[1]);
-	}
-	else {
-		close(fds[1]);
-		char buf[128];
-		int res;
-		while(true) {
-			while(true) { //non-block
-				res = read(fds[0], buf, 128);
-				if(res < 0 && errno == EAGAIN)
-					continue;
+		else {
+			if(errno != EAGAIN)
 				break;
-			}
-			if(res <= 0)
-				break;
-			buf[res] = 0;
-			printf("[%s]\n", buf);
 		}
-		close(fds[0]);
 	}
+	printf("\n");
 	return 0;
 }
 

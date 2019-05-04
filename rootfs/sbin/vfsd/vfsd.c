@@ -449,7 +449,7 @@ static void do_pipe_read(package_t* pkg) {
 		ipc_send(pkg->id, PKG_TYPE_ERR, NULL, 0);
 		return;
 	}
-	int32_t rest = buffer->size - buffer->offset;
+	uint32_t rest = buffer->size - buffer->offset;
 	if(rest > 0 && rest <= PIPE_BUF_SIZE) {//ready for read.
 		char* buf = NULL;
 		size = size < rest ? size : rest;
@@ -465,9 +465,10 @@ static void do_pipe_read(package_t* pkg) {
 		free(buf);
 	}
 	else {
-		if(syscall2(SYSCALL_PFILE_GET_REF, node_addr, 2) < 2) //closed by other side of pipe.
+		int32_t ref = syscall2(SYSCALL_PFILE_GET_REF, node_addr, 2);
+		if(ref < 2) //closed by other side of pipe.
 			ipc_send(pkg->id, PKG_TYPE_ERR, NULL, 0);
-		else
+		else 
 			ipc_send(pkg->id, PKG_TYPE_AGAIN, NULL, 0);
 	}
 }

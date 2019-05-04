@@ -52,13 +52,10 @@ static int cd(const char* dir) {
 	char cwd[FULL_NAME_MAX];
 	if(getcwd(cwd, FULL_NAME_MAX-1) == NULL)
 		return -1;
-
 	if(strcmp(dir, ".") == 0)
 		return 0;
-
 	while(*dir == ' ') /*skip all space*/
 		dir++;
-
 	if(dir[0] == 0) {
 		chdir("/");
 		return 0;
@@ -102,27 +99,27 @@ static int cd(const char* dir) {
 	return 0;
 }
 
-void export_all() {
+static void export_all() {
+	char name[64], value[1024];
 	int32_t i=0;
 	while(true) {
-		char name[64], value[128];
 		if(syscall3(SYSCALL_GET_ENV_NAME, i, (int32_t)name, 63) != 0 || name[0] == 0)
 			break;
-		if(syscall3(SYSCALL_GET_ENV_VALUE, i, (int32_t)value, 127) != 0)
+		if(syscall3(SYSCALL_GET_ENV_VALUE, i, (int32_t)value, 1023) != 0)
 			break;
 		printf("%s=%s\n", name, value);
 		i++;
 	}
 }
 
-void export_get(const char* arg) {
-	char value[128];
+static void export_get(const char* arg) {
+	char value[1024];
 	if(syscall3(SYSCALL_GET_ENV, (int32_t)arg, (int32_t)value, 127) != 0) 
 		return;
 	printf("%s=%s\n", arg, value);
 }
 
-void export_set(const char* arg) {
+static void export_set(const char* arg) {
 	char name[64];
 	char* v = strchr(arg, '=');
 	if(v == NULL)
@@ -132,7 +129,7 @@ void export_set(const char* arg) {
 	syscall2(SYSCALL_SET_ENV, (int32_t)name, (int32_t)(v+1));
 }
 
-int export(const char* arg) {
+static int export(const char* arg) {
 	char* v = strchr(arg, '=');
 	if(v == NULL)
 		export_get(arg);
@@ -142,7 +139,10 @@ int export(const char* arg) {
 }
 
 static int handle(const char* cmd) {
-	if(strcmp(cmd, "cd") == 0) {
+	if(strcmp(cmd, "exit") == 0) {
+		exit(0);
+	}
+	else if(strcmp(cmd, "cd") == 0) {
 		return cd("/");
 	}
 	else if(strncmp(cmd, "cd ", 3) == 0) {
@@ -163,6 +163,7 @@ static int handle(const char* cmd) {
 static int32_t find_exec(char* fname, char* cmd) {
 	fname[0] = 0;
 	fs_info_t info;
+	//get the cmd file name(without arguments).
 	int32_t i = 0;	
 	int32_t at = -1;
 	char c = 0;
@@ -175,7 +176,7 @@ static int32_t find_exec(char* fname, char* cmd) {
 		i++;
 	}
 	at = i;
-
+	//if cmd file is fullpath.
 	if(cmd[0] == '/') {
 		strcpy(fname, cmd);
 		if(fs_finfo(fname, &info) == 0) {
@@ -184,7 +185,7 @@ static int32_t find_exec(char* fname, char* cmd) {
 			return 0;
 		}
 	}
-
+	//search executable file in PATH dirs.
 	const char* paths = getenv(ENV_PATH);
 	char path[FULL_NAME_MAX];
 	i = 0;
@@ -206,9 +207,95 @@ static int32_t find_exec(char* fname, char* cmd) {
 		}
 		++i;
 	}
-
 	cmd[at] = c;
 	return -1;
+}
+
+static void redir(const char* fname, int in) {
+	while(*fname == ' ')
+		fname++;
+
+	if(in) {
+		int32_t fd = open(fname, O_RDONLY);
+		if(fd < 0) {
+			printf("error: '%s' open failed!\n", fname);
+			exit(-1);
+		}
+		dup2(fd, _stdin);
+	}
+	else {
+		int32_t fd = open(fname, O_WRONLY | O_CREAT);
+		if(fd < 0) {
+			printf("error: '%s' open failed!\n", fname);
+			exit(-1);
+		}
+		dup2(fd, _stdout);
+	}
+}
+
+static int do_cmd(char* cmd) {
+	while(*cmd == ' ')
+		cmd++;
+
+	char fname[FULL_NAME_MAX];
+	if(find_exec(fname, cmd) != 0) {
+		printf("'%s' not found!\n", cmd);
+		return -1;
+	}
+	exec(fname);
+	return 0;
+}
+
+static int run_cmd(char* cmd);
+
+static int do_pipe_cmd(char* p1, char* p2) {
+	int fds[2];
+	if(pipe(fds) != 0)
+		return -1;
+
+	int pid = fork();
+	if(pid != 0) { //father proc for p2 reader.
+		close(fds[1]);
+		dup2(fds[0], 0);
+		close(fds[0]);
+		run_cmd(p2);
+		exit(0);
+	}
+	//child proc for p1 writer
+	close(fds[0]);
+	dup2(fds[1], 1);
+	close(fds[1]);
+	return do_cmd(p1);
+}
+
+static int run_cmd(char* cmd) {
+	char* proc = NULL;
+	while(*cmd != 0) {
+		char c = *cmd++;
+		if(proc == NULL && c == ' ')
+			continue;
+
+		if(c == '>') { //redirection
+			*(cmd-1) = 0;	
+			redir(cmd, 0); //redir OUT.
+			return do_cmd(proc);
+		}
+		else if(c == '<') { //redirection
+			*(cmd-1) = 0;	
+			redir(cmd, 1); //redir in.
+			return do_cmd(proc);
+		}
+		else if(c == '|') { //redirection
+			*(cmd-1) = 0;	
+			return do_pipe_cmd(proc, cmd);
+		}
+		else if(proc == NULL)
+			proc = cmd-1;
+	}
+
+	if(proc != NULL)
+		do_cmd(proc);
+	return 0;
 }
 
 static int32_t read_config() {
@@ -225,48 +312,32 @@ static int32_t read_config() {
 int main(int argc, char* argv[]) {
 	(void)argc;
 	(void)argv;
-
-	char cmd[CMD_MAX];
+	char cmd[1024];
 	char cwd[FULL_NAME_MAX];
-
 	setenv(ENV_PATH, "/bin");
+
 	read_config();
-
 	int uid = getuid();
-	while(1) {
-		if(uid == 0)
-			printf("ewok:%s.# ", getcwd(cwd, FULL_NAME_MAX));
-		else
-			printf("ewok:%s.$ ", getcwd(cwd, FULL_NAME_MAX));
 
-		gets(cmd, CMD_MAX);
+	while(1) {
+		printf("ewok:%s.%c ", getcwd(cwd, FULL_NAME_MAX), uid==0?'#':'$');
+
+		gets(cmd, 1023);
 		if(cmd[0] == 0)
 			continue;
-
-		if(strcmp(cmd, "exit") == 0)
-			break;
-
 		if(handle(cmd) == 0)
 			continue;
 
-		int len = strlen(cmd);
-		len -= 1;
+		int len = strlen(cmd)-1;
 		bool fg = true;
 		if(cmd[len] == '&') {
 			cmd[len] = 0;
 			fg = false;
 		}	
 
-		char fname[FULL_NAME_MAX];
-		if(find_exec(fname, cmd) != 0) {
-			printf("'%s' not found!\n", cmd);
-			continue;
-		}
-
 		int child_pid = fork();
 		if (child_pid == 0) {
-			exec(fname);
-			return 0;
+			return run_cmd(cmd);
 		}
 		else if(fg) {
 			wait(child_pid);

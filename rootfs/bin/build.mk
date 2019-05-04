@@ -10,5 +10,6 @@ include bin/uid/build.mk
 include bin/kill/build.mk
 include bin/uname/build.mk
 include bin/echo/build.mk
+include bin/dump/build.mk
 
 EXTRA_CLEAN += $(PROGRAM)
