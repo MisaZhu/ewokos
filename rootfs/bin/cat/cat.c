@@ -22,12 +22,15 @@ int main(int argc, char* argv[]) {
 		int sz = read(fd, buf, 128);
 		if(sz <= 0)
 			break;
+		int res = -1;
 		while(true) { //non-block
-			int res = write(fd_w, buf, sz);
+			res = write(fd_w, buf, sz);
 			if(res < 0 && errno == EAGAIN)
 				continue;
 			break;
 		}
+		if(res <= 0)
+			break;
 	}
 	close(fd);
 	return 0;

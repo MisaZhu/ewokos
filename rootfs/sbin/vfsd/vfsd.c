@@ -400,7 +400,9 @@ static void do_pipe_write(package_t* pkg) {
 	}
 
 	int32_t ret = -1;
-	if(syscall2(SYSCALL_PFILE_GET_REF, node_addr, 2) < 2) {//closed by other side of pipe.
+	int32_t ref = syscall2(SYSCALL_PFILE_GET_REF, node_addr, 2);
+	if(ref < 2) {//closed by other side of pipe.
+		printf("closed %d\n", ref);
 		ipc_send(pkg->id, pkg->type, &ret, 4);
 		return;
 	}
