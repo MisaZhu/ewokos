@@ -44,7 +44,7 @@
 
 .Source code read-guide
 
-	kernel/arm/boot.S
+	kernel/asm/boot.S
 	kernel/src/mm/kalloc.c
 	kernel/src/mm/mmu.c
 	kernel/src/mm/trunkmalloc.c
