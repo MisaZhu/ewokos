@@ -6,6 +6,7 @@
 #include <graph/graph.h>
 #include <graph/font.h>
 #include <basic_math.h>
+#include <kstring.h>
 #include <sconf.h>
 
 #define T_W 2 /*tab width*/
@@ -44,9 +45,27 @@ static int32_t read_config() {
 
 	v = sconf_get(conf, "font");
 	if(v[0] != 0) 
-		_font = get_font(v);
+		_font = get_font_by_name(v);
 
 	sconf_free(conf, free);
+	return 0;
+}
+
+static int32_t reset() {
+	_content.size = 0;
+	_content.start_line = 0;
+	_content.line = 0;
+	_content.line_w = div_u32(_graph->w, _font->w)-1;
+	_content.line_num = div_u32(_graph->h, _font->h)-1;
+	_content.total = _content.line_num * _content.line_w;
+
+	uint32_t data_size = _content.line_num*_content.line_w;
+	if(_content.data != NULL)
+		free(_content.data);
+	_content.data = (char*)malloc(data_size);
+	memset(_content.data, 0, data_size);
+
+	clear(_graph, _bg_color);
 	return 0;
 }
 
@@ -55,7 +74,7 @@ static int32_t console_mount(uint32_t node, int32_t index) {
 	(void)index;
 	_bg_color = rgb(0x22, 0x22, 0x66);
 	_fg_color = rgb(0xaa, 0xbb, 0xaa);
-	_font = get_font("8x16");
+	_font = get_font_by_name("8x16");
 	if(_font == NULL)
 		return -1;
 	read_config();
@@ -67,16 +86,8 @@ static int32_t console_mount(uint32_t node, int32_t index) {
 	_graph = graph_open("/dev/fb0");
 	if(_graph == NULL)
 		return -1;
-
-	_content.size = 0;
-	_content.start_line = 0;
-	_content.line = 0;
-	_content.line_w = div_u32(_graph->w, _font->w)-1;
-	_content.line_num = div_u32(_graph->h, _font->h)-1;
-	_content.total = _content.line_num * _content.line_w;
-	_content.data = (char*)malloc(_content.line_num*_content.line_w);
-	clear(_graph, _bg_color);
-	return 0;
+	memset(&_content, 0, sizeof(content_t));
+	return reset();
 }
 
 static int32_t console_unmount(uint32_t node) {
@@ -178,13 +189,6 @@ static void put_char(char c) {
 	}
 }
 
-static void console_clear() {
-	_content.size = 0;
-	_content.start_line = 0;
-	_content.line = 0;
-	clear(_graph, _bg_color);
-}
-
 int32_t console_write(uint32_t node, void* buf, uint32_t size, int32_t seek) {
 	(void)seek;
 	(void)node;
@@ -220,7 +224,22 @@ void* console_ctrl(uint32_t node, int32_t cmd, void* data, uint32_t size, int32_
 	(void)ret;
 
 	if(cmd == 0) { //clear.
-		console_clear();
+		reset();
+	}
+	else if(cmd == 1) { //set font.
+		font_t* fnt = get_font_by_name((char*)data);
+		if(fnt != NULL) {
+			_font = fnt;
+			reset();
+		}
+	}
+	else if(cmd == 2) { //set fg color.
+		_fg_color = rgb_int(atoi_base((char*)data, 16));
+		refresh();
+	}
+	else if(cmd == 3) { //set bg color.
+		_bg_color = rgb_int(atoi_base((char*)data, 16));
+		refresh();
 	}
 	return NULL;
 }

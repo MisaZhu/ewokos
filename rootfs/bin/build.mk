@@ -3,6 +3,7 @@ include bin/shell/build.mk
 include bin/ls/build.mk
 include bin/mount/build.mk
 include bin/clear/build.mk
+include bin/cons/build.mk
 include bin/cat/build.mk
 include bin/pwd/build.mk
 include bin/mkdir/build.mk
