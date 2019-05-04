@@ -27,6 +27,9 @@ cscope*
 *.opt
 *.plg
 *.ncb
+*.lib
+*.o
+*.rel
 obj
 bin
 patches
