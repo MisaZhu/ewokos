@@ -30,12 +30,20 @@
 	
 .make and run
 	
-	"make run": run EwokOS; 
+	"cd rootfs; make":
+	  build EwokOS root filesystem.
+	"cd kernel; make -f Makefile.old":
+	  build EwokOS kernel in old style.
+	"cd kernel; make versatilepb_defconfig; make":
+	  build EwokOS kernel in new style.
+	"cd kernel; make -f Makefile.old run":
+	  run EwokOS;
 	  "qemu-system-arm -kernel build/EwokOS.bin -serial mon:stdio -sd ../rootfs/rootfs.ext2"
 	  boot kernel file and mount SD card.
-
-	"make debug": run EwokOS at debug server-mode;
-	"make gdb": debug EwokOS (debug client-mode);
+	"cd kernel; make -f Makefile.old debug":
+	  run EwokOS at debug server-mode.
+	"cd kernel; make -f Makefile.old gdb":
+	  debug EwokOS (debug client-mode).
 
 .commands 
 	

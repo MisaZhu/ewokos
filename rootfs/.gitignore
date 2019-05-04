@@ -1,0 +1,6 @@
+patches
+.pc
+build
+mkramfs
+lib/libewoklibc.a
+build.analysis
