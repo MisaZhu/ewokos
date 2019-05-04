@@ -3,10 +3,10 @@
 
 #include <vprintf.h>
 
-extern int32_t _stdin;
-extern int32_t _stdout;
+static const int32_t _stdin = 0;
+static const int32_t _stdout = 1;
 
-void init_stdio();
+void init_stdout_buffer();
 void putch(int c);
 int getch();
 void printf(const char *format, ...);

@@ -189,6 +189,10 @@ static int32_t syscall_pf_close(int32_t arg0) {
 	return  0;
 }
 
+static int32_t syscall_pf_dup2(int32_t arg0, int32_t arg1) {
+	return kf_dup2(arg0, arg1);
+}
+
 static int32_t syscall_pf_seek(int32_t arg0, int32_t arg1) {
 	process_t* proc = _current_proc;
 	if(proc == NULL)
@@ -358,6 +362,7 @@ static int32_t (*const _syscallHandler[])() = {
 	[SYSCALL_PFILE_SEEK] = syscall_pf_seek,
 	[SYSCALL_PFILE_OPEN] = syscall_pf_open,
 	[SYSCALL_PFILE_CLOSE] = syscall_pf_close,
+	[SYSCALL_PFILE_DUP2] = syscall_pf_dup2,
 	[SYSCALL_PFILE_NODE_BY_FD] = syscall_pf_node_by_fd,
 	[SYSCALL_PFILE_NODE_BY_ADDR] = syscall_pf_node_by_addr,
 	[SYSCALL_PFILE_NODE_UPDATE] = syscall_pf_node_update,

@@ -18,6 +18,9 @@ void kf_init() {
 	
 //get file info cache by node addr
 static inline kfile_t* get_file(uint32_t node_addr, bool add) {
+	if(node_addr == 0)
+		return NULL;
+
 	uint32_t i = 0; 
 	int32_t at = -1;
 	while(i < OPEN_MAX) {
@@ -67,7 +70,7 @@ void kf_unref(kfile_t* kf, uint32_t wr) {
 			kf->ref_w--;
 	}
 	if((kf->ref_w + kf->ref_r) == 0) { // close when ref cleared.
-		kf->node_info.node = 0;
+		memset(&kf->node_info, 0, sizeof(fs_info_t));
 	}
 	CRIT_OUT(_p_lock)
 }
@@ -100,7 +103,7 @@ int32_t kf_open(fs_info_t* info, int32_t wr) {
 	memcpy(&kf->node_info, info, sizeof(fs_info_t));
 
 	int32_t i;
-	for(i=0; i<FILE_MAX; i++) {
+	for(i=2; i<FILE_MAX; i++) { //start from index 2 , reserve 0 and 1 for stdin/stdout
 		if(proc->space->files[i].kf == NULL) {
 			proc->space->files[i].kf = kf;
 			proc->space->files[i].wr = wr;
@@ -129,6 +132,33 @@ void kf_close(int32_t fd) {
 	CRIT_OUT(_p_lock)
 }
 
+int32_t kf_dup2(int32_t old_fd, int32_t new_fd) {
+	if(old_fd == new_fd)
+		return new_fd;
+
+	process_t* proc = _current_proc;
+	if(proc == NULL ||
+			old_fd < 0 || old_fd >= FILE_MAX ||
+			new_fd < 0 || new_fd >= FILE_MAX)
+		return -1;
+
+	kfile_t* old_kf = proc->space->files[old_fd].kf;
+	if(old_kf == NULL)
+		return -1;
+	
+	kfile_t* new_kf = proc->space->files[new_fd].kf;
+	if(new_kf != NULL) {
+		kf_unref(new_kf, proc->space->files[new_fd].wr);
+		return -1;
+	}
+	
+	proc->space->files[new_fd].kf = old_kf;
+	proc->space->files[new_fd].wr = proc->space->files[old_fd].wr;
+	proc->space->files[new_fd].seek = proc->space->files[old_fd].seek;
+	kf_ref(old_kf, proc->space->files[old_fd].wr);
+	return new_fd;
+}
+
 int32_t kf_node_info_by_fd(int32_t fd, fs_info_t* info) {
 	CRIT_IN(_p_lock)
 	int32_t ret = -1;
@@ -139,7 +169,7 @@ int32_t kf_node_info_by_fd(int32_t fd, fs_info_t* info) {
 	}
 
 	kfile_t* kf = proc->space->files[fd].kf;
-	if(kf != NULL) {
+	if(kf != NULL && kf->node_info.node != 0) {
 		memcpy(info, &kf->node_info, sizeof(fs_info_t));
 		ret = 0;
 	}

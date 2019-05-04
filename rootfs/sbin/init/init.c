@@ -125,6 +125,14 @@ static void session_loop() {
 	}
 }
 
+void init_stdio(const char* dev) {
+	int fd = open(dev, O_RDONLY);
+	if(fd >= 0) {
+		dup2(fd, 0);
+		dup2(fd, 1);
+	}
+}
+
 int main(int argc, char* argv[]) {
 	(void)argc;
 	(void)argv;
@@ -144,15 +152,12 @@ int main(int argc, char* argv[]) {
 	/*run 2 session for uart0 and framebuffer based console0*/
 	int pid = fork();
 	if(pid == 0) {
-		setenv("STDOUT_DEV", "/dev/console0");
-		setenv("STDIN_DEV", "/dev/console0");
-		init_stdio();
+		init_stdio("/dev/console0");
 		exec("/sbin/session");
 		return 0;
 	}
 	else {
-		setenv("STDOUT_DEV", "/dev/tty0");
-		setenv("STDIN_DEV", "/dev/tty0");
+		init_stdio("/dev/tty0");
 		session_loop();
 	}
 	return 0;

@@ -125,3 +125,9 @@ void close(int fd) {
 int pipe(int fds[2]) {
 	return  fs_pipe_open(fds);
 }
+
+int dup2(int old_fd, int new_fd) {
+	if(old_fd < 0 || new_fd < 0)
+		return -1;
+	return syscall2(SYSCALL_PFILE_DUP2, old_fd, new_fd);
+}

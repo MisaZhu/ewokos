@@ -41,4 +41,6 @@ void close(int fd);
 
 int pipe(int fds[2]);
 
+int dup2(int old_fd, int new_fd);
+
 #endif

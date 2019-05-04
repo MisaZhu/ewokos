@@ -6,9 +6,6 @@
 #include <syscall.h>
 #include <device.h>
 
-int32_t _stdin =-1;
-int32_t _stdout = -1;
-
 static char _cmd[CMD_MAX] = { 0 };
 static int _off_cmd = 0;
 
@@ -24,7 +21,7 @@ static void do_redir(const char* fname, bool in) {
 			printf("error: '%s' open failed!\n", fname);
 			exit(-1);
 		}
-		_stdin = fd;
+		dup2(fd, 0);
 	}
 	else {
 		int32_t fd = open(fname, O_WRONLY | O_CREAT);
@@ -32,7 +29,7 @@ static void do_redir(const char* fname, bool in) {
 			printf("error: '%s' open failed!\n", fname);
 			exit(-1);
 		}
-		_stdout = fd;
+		dup2(fd, 1);
 	}
 }
 
@@ -82,13 +79,11 @@ static char* read_cmain_arg() {
 #define ARG_MAX 16
 
 void _start() {
-	_stdin = _stdout = -1;
-	init_stdio();
+	init_stdout_buffer();
 
 	char* argv[ARG_MAX];
 	int32_t argc = 0;
 	init_cmain_arg();
-
 	while(argc < ARG_MAX) {
 		char* arg = read_cmain_arg(); 
 		if(arg == NULL || arg[0] == 0)

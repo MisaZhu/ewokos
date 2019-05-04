@@ -10,17 +10,14 @@
 static char _out_buffer[STDOUT_BUF_SIZE];
 static int32_t _out_size = 0;
 
-void init_stdio() {
-	_stdin = open(getenv("STDIN_DEV"), O_RDONLY);
-	_stdout = open(getenv("STDOUT_DEV"), O_WRONLY);
+static void stdout_flush() {
+	int32_t res = write(_stdout, _out_buffer, _out_size);
+	if(res < 0)
+		syscall3(SYSCALL_DEV_CHAR_WRITE, dev_typeid(DEV_UART, 0), (int32_t)_out_buffer, _out_size);
 	_out_size = 0;
 }
 
-static void stdout_flush() {
-	if(_stdout < 0)
-		syscall3(SYSCALL_DEV_CHAR_WRITE, dev_typeid(DEV_UART, 0), (int32_t)_out_buffer, _out_size);
-	else
-		write(_stdout, _out_buffer, _out_size);
+void init_stdout_buffer() {
 	_out_size = 0;
 }
 
@@ -36,10 +33,8 @@ int getch() {
 
 	int32_t res = -1;
 	while(true) {
-		if(_stdin < 0)
-			res = syscall3(SYSCALL_DEV_CHAR_READ, dev_typeid(DEV_UART, 0), (int32_t)buf, 1);
-		else
-			res = read(_stdin, buf, 1);
+		res = read(_stdin, buf, 1);
+		//res = syscall3(SYSCALL_DEV_CHAR_READ, dev_typeid(DEV_UART, 0), (int32_t)buf, 1);
 		if(res < 0 && errno == EAGAIN) {
 			sleep(0);
 			continue;
