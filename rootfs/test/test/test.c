@@ -17,10 +17,14 @@ int main(int argc, char* argv[]) {
 	if(pid == 0) {
 		close(fds[0]);
 		int counter = 0;
-		while(true) {
+		while(counter < 100) {
 			char s[128];
 			snprintf(s, 127, "hello world from pipe. %d", counter);
-			write(fds[1], s, strlen(s));
+			while(true) { //non-block
+				int res = write(fds[1], s, strlen(s));
+				if(res > 0)
+					break;
+			}
 			counter++;
 		}
 		close(fds[1]);
@@ -30,11 +34,13 @@ int main(int argc, char* argv[]) {
 		char buf[128];
 		int res;
 		while(true) {
-			while(true) {
+			while(true) { //non-block
 				res = read(fds[0], buf, 128);
 				if(res != 0)
 					break;
 			}
+			if(res <= 0)
+				break;
 			buf[res] = 0;
 			printf("[%s]\n", buf);
 		}

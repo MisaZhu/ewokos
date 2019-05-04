@@ -529,6 +529,8 @@ process_t* kfork(uint32_t type) {
 }
 
 static void proc_terminate(process_t* proc) {
+	if(proc->state == TERMINATED || proc->state == UNUSED)
+		return;
 	proc->state = TERMINATED;
 	process_t *p = proc->next;
 	while(p != proc) {

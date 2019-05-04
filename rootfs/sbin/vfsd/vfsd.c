@@ -375,10 +375,11 @@ static void do_pipe_close(package_t* pkg) {
 		return;
 	if(syscall2(SYSCALL_PFILE_GET_REF, info->node, 2) > 0) //1 ref left for this closing fd
 		return;
-
+	
 	tree_node_t* node = (tree_node_t*)info->node;
-	if(FSN(node)->data != NULL)
+	if(FSN(node)->data != NULL) {
 		free(FSN(node)->data);
+	}
 	free(node);
 }
 
@@ -397,6 +398,11 @@ static void do_pipe_write(package_t* pkg) {
 	}
 
 	int32_t ret = -1;
+	if(syscall2(SYSCALL_PFILE_GET_REF, node_addr, 2) < 2) {//closed by other side of pipe.
+		ipc_send(pkg->id, pkg->type, &ret, 4);
+		return;
+	}
+
 	tree_node_t* node = (tree_node_t*)node_addr;
 	pipe_buffer_t* buffer = (pipe_buffer_t*)FSN(node)->data;
 	if(buffer == NULL) {
@@ -451,8 +457,14 @@ static void do_pipe_read(package_t* pkg) {
 			buffer->size = 0;
 		}
 	}
-
-	ipc_send(pkg->id, pkg->type, buf, ret);
+	else {
+		if(syscall2(SYSCALL_PFILE_GET_REF, node_addr, 2) < 2) //closed by other side of pipe.
+			ret = -1;
+	}
+	if(ret < 0)
+		ipc_send(pkg->id, PKG_TYPE_ERR, NULL, 0);
+	else
+		ipc_send(pkg->id, pkg->type, buf, ret);
 	if(buf != NULL)
 		free(buf);
 }
