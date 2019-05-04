@@ -3,6 +3,7 @@
 
 #include <types.h>
 #include <cmain.h>
+#include <errno.h>
 
 int chdir(const char* dir);
 

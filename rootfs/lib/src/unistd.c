@@ -7,6 +7,8 @@
 #include <procinfo.h>
 #include <ext2.h>
 
+int errno = ENONE;
+
 int fork() {
 	return syscall0(SYSCALL_FORK);
 }

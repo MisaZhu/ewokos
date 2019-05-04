@@ -22,8 +22,9 @@ int main(int argc, char* argv[]) {
 			snprintf(s, 127, "hello world from pipe. %d", counter);
 			while(true) { //non-block
 				int res = write(fds[1], s, strlen(s));
-				if(res > 0)
-					break;
+				if(res < 0 && errno == EAGAIN)
+					continue;
+				break;
 			}
 			counter++;
 		}
@@ -36,8 +37,9 @@ int main(int argc, char* argv[]) {
 		while(true) {
 			while(true) { //non-block
 				res = read(fds[0], buf, 128);
-				if(res != 0)
-					break;
+				if(res < 0 && errno == EAGAIN)
+					continue;
+				break;
 			}
 			if(res <= 0)
 				break;

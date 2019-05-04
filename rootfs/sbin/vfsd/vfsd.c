@@ -416,6 +416,10 @@ static void do_pipe_write(package_t* pkg) {
 		buffer->offset = 0;
 		ret = size;
 	}
+	else {
+		ipc_send(pkg->id, PKG_TYPE_AGAIN, NULL, 0);
+		return;
+	}
 	ipc_send(pkg->id, pkg->type, &ret, 4);
 }
 
@@ -444,9 +448,9 @@ static void do_pipe_read(package_t* pkg) {
 		return;
 	}
 
-	char* buf = NULL;
 	uint32_t rest = buffer->size - buffer->offset;
 	if(rest > 0) {//ready for read.
+		char* buf = NULL;
 		size = size < rest ? size : rest;
 		buf = (char*)malloc(size);
 		memcpy(buf, buffer->buffer+buffer->offset, size);
@@ -456,17 +460,15 @@ static void do_pipe_read(package_t* pkg) {
 			buffer->offset = 0;
 			buffer->size = 0;
 		}
+		ipc_send(pkg->id, pkg->type, buf, ret);
+		free(buf);
 	}
 	else {
 		if(syscall2(SYSCALL_PFILE_GET_REF, node_addr, 2) < 2) //closed by other side of pipe.
-			ret = -1;
+			ipc_send(pkg->id, PKG_TYPE_ERR, NULL, 0);
+		else
+			ipc_send(pkg->id, PKG_TYPE_AGAIN, NULL, 0);
 	}
-	if(ret < 0)
-		ipc_send(pkg->id, PKG_TYPE_ERR, NULL, 0);
-	else
-		ipc_send(pkg->id, pkg->type, buf, ret);
-	if(buf != NULL)
-		free(buf);
 }
 
 static void handle(package_t* pkg, void* p) {
