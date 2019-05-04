@@ -15,7 +15,7 @@ int main(int argc, char* argv[]) {
 	(void)argc;
 	(void)argv;
 
-	printf("      | 0  1  2  3  4  5  6  7  8  9  A  B  C  D  E  F  |\n");
+	printf("      | 0  1  2  3  4  5  6  7  8  9  10 11 12 13 14 15 |\n");
 	printf("      | ----------------------------------------------- |\n");
 	int i = 0;
 	int ln = 0;
