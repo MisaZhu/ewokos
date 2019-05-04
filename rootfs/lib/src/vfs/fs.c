@@ -132,6 +132,7 @@ int fs_read(int fd, char* buf, uint32_t size) {
 	package_t* pkg = ipc_req(info.dev_serv_pid, buf_size, FS_READ, proto->data, proto->size, true);
 	proto_free(proto);
 
+	errno = ENONE;
 	if(pkg == NULL || pkg->type == PKG_TYPE_ERR || pkg->type == PKG_TYPE_AGAIN) {
 		if(pkg->type == PKG_TYPE_AGAIN)
 			errno = EAGAIN;
