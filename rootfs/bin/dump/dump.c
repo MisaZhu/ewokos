@@ -4,59 +4,61 @@
 #include <stdlib.h>
 #include <kstring.h>
 
-static void help() {
-	printf(
-			"usage: dump [OPTION]\n"
-			"   -c : dump ascii\n"
-			"   -d : dump decimal\n"
-			"   -x : dump hex\n");
-}
-
 static char rpl(char c) {
-	if(c < 0x20 || c > 0x7e)
-		return ' ';
+	if(c < 0x20 || c > 0x7e || c == ' ')
+		return '.';
 	return c;
 }
 
+#define BUF_SIZE 128
 int main(int argc, char* argv[]) {
-	char arg = 0;
-	if(argc >= 2) 
-		arg = argv[1][1];
-	if(arg == 0)
-		arg = 'x';
-	if(arg == 'h') {
-		help();
-		return 0;
-	}
-				
-	int res;
-	printf("      0   1   2   3   4   5   6   7   8   9   10  11  12  13  14  15\n");
-	printf("      --------------------------------------------------------------");
+	(void)argc;
+	(void)argv;
+
+	printf("      | 0  1  2  3  4  5  6  7  8  9  A  B  C  D  E  F  |\n");
+	printf("      | ----------------------------------------------- |\n");
 	int i = 0;
 	int ln = 0;
+	char out[128];
+	char* p = out;
 	while(true) { //non-block
-		char buf[32];
-		res = read(0, buf, 32);
+		char buf[BUF_SIZE];
+		char str[17];
+		int res;
+		res = read(0, buf, BUF_SIZE);
 		if(res > 0) {
 			int j;
 			for(j=0; j<res; ++j) {
-				if(i == 0)
-					printf("\n%4d| ", ln++);
-
-				if(arg == 'd')
-					printf("%4d", (int)buf[j]);
-				else if(arg == 'x')
-					printf("%4x", (int)buf[j]);
-				else
-					printf("%c   ", rpl(buf[j]));
+				if(i == 0) {
+					snprintf(p, 16, "%6d| ", ln);
+					p += 8;
+				}
+				char c = (char)buf[j];
+				str[i] = rpl(c);
+				snprintf(p, 4, "%02X ", (int)c);
+				p += 3;
 				i++;
-				if(i == 16)
+				if(i == 16) {
+					str[i] = 0;
+					snprintf(p, 32, "| %s\n", str);
+					printf("%s", out);
+					p = out;
 					i = 0;
+					ln++;
+				}
 			}
 		}
 		else {
-			if(errno != EAGAIN)
+			if(errno != EAGAIN) {
+				if(i != 0) {
+					printf("%s", out);
+					str[i] = 0;
+					for(; i< 16; ++i)
+						printf("   ");
+					printf("| %s", str);
+				}
 				break;
+			}
 		}
 	}
 	printf("\n");

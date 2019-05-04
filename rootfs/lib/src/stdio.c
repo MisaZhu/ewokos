@@ -17,7 +17,6 @@ static void stdout_flush() {
 	if(fs_info(_stdout, &info) != 0)
 		uart = true;
 
-
 	int32_t res = -1;
 	const char* p = _out_buffer;
 	while(_out_size > 0) {
