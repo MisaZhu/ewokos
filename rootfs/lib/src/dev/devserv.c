@@ -152,15 +152,17 @@ static void do_ctrl(device_t* dev, package_t* pkg) {
 		return;
 	}
 
-	p = NULL;
+	char* ret_data = NULL;
 	int32_t ret = -1;
 	if(dev->ctrl != NULL)
-		p = dev->ctrl(node, cmd, p, size, &ret);	
+		ret_data = dev->ctrl(node, cmd, p, size, &ret);	
 
 	if(ret < 0)
 		ipc_send(pkg->id, PKG_TYPE_ERR, NULL, 0);
 	else
-		ipc_send(pkg->id, pkg->type, p, ret);
+		ipc_send(pkg->id, pkg->type, ret_data, ret);
+	if(ret_data != NULL)
+		free(ret_data);
 }
 
 static void handle(package_t* pkg, void* p) {

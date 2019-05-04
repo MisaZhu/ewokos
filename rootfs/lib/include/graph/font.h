@@ -10,6 +10,12 @@ typedef struct  {
 	int32_t pref;
 } font_t;
 
-font_t* get_font(const char* name);
+typedef struct {
+	const char* name;
+	font_t* font;
+} font_item_t;
+
+font_t* get_font_by_name(const char* name);
+font_item_t* get_font_by_index(uint32_t index);
 
 #endif

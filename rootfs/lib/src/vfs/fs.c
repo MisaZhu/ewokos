@@ -166,8 +166,10 @@ int fs_ctrl(int fd, int32_t cmd, void* input, uint32_t isize, void* output, uint
 	package_t* pkg = ipc_req(info.dev_serv_pid, 0, FS_CTRL, proto->data, proto->size, true);
 	proto_free(proto);
 
-	if(pkg == NULL || pkg->type == PKG_TYPE_ERR) {
-		if(pkg != NULL) free(pkg);
+	errno = ENONE;
+	if(pkg == NULL || pkg->type == PKG_TYPE_ERR || pkg->type == PKG_TYPE_AGAIN) {
+		if(pkg->type == PKG_TYPE_AGAIN)
+			errno = EAGAIN;
 		return -1;
 	}
 

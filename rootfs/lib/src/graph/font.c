@@ -15,32 +15,39 @@ extern font_t font_6x8;
 extern font_t font_5x12;
 extern font_t font_4x6;
 
-font_t* get_font(const char* name) {
-	if(strcmp(name, "16x32") == 0)
-		return &font_16x32;
-	else if(strcmp(name, "12x24") == 0)
-		return &font_12x24;
-	else if(strcmp(name, "10x20") == 0)
-		return &font_10x20;
-	else if(strcmp(name, "12x16") == 0)
-		return &font_12x16;
-	else if(strcmp(name, "9x16") == 0)
-		return &font_9x16;
-	else if(strcmp(name, "8x16") == 0)
-		return &font_8x16;
-	else if(strcmp(name, "8x10") == 0)
-		return &font_8x10;
-	else if(strcmp(name, "9x8") == 0)
-		return &font_9x8;
-	else if(strcmp(name, "8x8") == 0)
-		return &font_8x8;
-	else if(strcmp(name, "7x9") == 0)
-		return &font_7x9;
-	else if(strcmp(name, "6x8") == 0)
-		return &font_6x8;
-	else if(strcmp(name, "5x12") == 0)
-		return &font_5x12;
-	else if(strcmp(name, "4x6") == 0)
-		return &font_4x6;
+static font_item_t _fonts[] ={
+	{"16x32", &font_16x32},
+	{"12x24", &font_12x24},
+	{"10x20", &font_10x20},
+	{"12x16", &font_12x16},
+	{"9x16", &font_9x16},
+	{"8x16", &font_8x16},
+	{"8x10", &font_8x10},
+	{"9x8", &font_9x8},
+	{"8x8", &font_8x8},
+	{"7x9", &font_7x9},
+	{"6x8", &font_6x8},
+	{"5x12", &font_5x12},
+	{"4x6", &font_4x6},
+	{"", NULL}
+};
+
+static uint32_t _font_num = 14;
+
+font_t* get_font_by_name(const char* name) {
+	int32_t i = 0;
+	while(true) {
+		if(_fonts[i].name[0] == 0)
+			break;
+		if(strcmp(_fonts[i].name, name) == 0)
+			return _fonts[i].font;
+		i++;
+	}
 	return NULL;
+}
+
+font_item_t* get_font_by_index(uint32_t index) {
+	if(index >= _font_num)
+		return NULL;
+	return &_fonts[index];
 }
