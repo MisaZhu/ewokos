@@ -1,0 +1,57 @@
+#
+# For a description of the syntax of this configuration file,
+# see scripts/kbuild/config-language.txt.
+#
+
+menu 'Generic setup'
+
+config EXPERIMENTAL
+	bool "Prompt for development"
+	help
+	  Some of the various things that SDFirm supports can be in a state
+	  of development where the functionality, stability, or the level of
+	  testing is not yet high enough for general use. This is usually
+	  known as the "alpha-test" phase among developers. If a feature is
+	  currently in alpha-test, then the developers usually discourage
+	  uninformed widespread use of this feature by the general public to
+	  avoid "Why doesn't this work?" type mail messages. However, active
+	  testing and use of these systems is welcomed. Just be aware that it
+	  may not meet the normal level of reliability or it may fail to work
+	  in some special cases. Detailed bug reports from people familiar
+	  with the kernel internals are usually welcomed by the developers
+	  This option will also make obsoleted drivers available. These are
+	  drivers that have been replaced by something else, and/or are
+	  scheduled to be removed in a future kernel release.
+	  Unless you intend to help test and develop a feature or driver that
+	  falls into this category, or you have a situation that requires
+	  using these features, you should probably say N here, which will
+	  cause the configurator to present you with fewer choices. If
+	  you say Y here, you will be offered the choice of using features or
+	  drivers that are currently considered to be in the alpha-test phase.
+
+config CC_OPT_SIZE
+	bool "Optimize for size"
+	default y
+	help
+	  Enabling this option will pass "-Os" instead of "-O2" to compiler
+	  resulting in a smaller kernel.
+	  If unsure, say N.
+
+menuconfig DEBUG
+	bool 'Debugging options'
+	depends EXPERIMENTAL
+
+if DEBUG
+
+config CC_GEN_DEBUG
+	bool "Compile with debug info"
+	help
+	  Say Y here if you wish to examine internals while applets are
+	  running.  This increases the size of the binary considerably, and
+	  should only be used when doing development.  If you are doing
+	  development and want to debug, answer Y.
+	  Most people should answer N.
+
+endif
+
+endmenu

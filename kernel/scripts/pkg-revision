@@ -1,0 +1,32 @@
+#!/bin/sh
+
+REVISION=$1
+PROJECT=ewokos
+USER=zetalog
+SITE=github.com
+src_dir=ewokos-code
+
+echo "Cloning source code from $SITE"
+rm -f $PROJECT-$REVISION.tar.gz
+#rm -rf $src_dir
+#git clone ssh://$USER@$SITE/p/$PROJECT/code $src_dir
+
+if [ "x$REVISION" = "x" ]; then
+	if [ -f $src_dir/REVISION ]; then
+		REVISION=`cat $src_dir/REVISION`
+	else
+		exit -1
+	fi
+fi
+echo "Fetching source code revision of v$REVISION"
+(
+	cd $src_dir
+	git checkout master
+	git branch release v$REVISION
+	git checkout release
+)
+
+echo "Archiving source code release of $PROJECT-$REVISION.tar.gz"
+rm -rf $src_dir/.git
+tar -zcf $PROJECT-$REVISION.tar.gz $src_dir
+
