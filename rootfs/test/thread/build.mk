@@ -1,5 +1,5 @@
 THREAD_DIR = test/thread
-THREAD_PROGRAM = build/usr/bin/thread 
+THREAD_PROGRAM = build/usr/bin/thread_test 
 PROGRAM += $(THREAD_PROGRAM)
 
 EXTRA_CLEAN += $(THREAD_PROGRAM) $(THREAD_DIR)/*.o

@@ -1,5 +1,5 @@
 MOUSE_DIR = test/mouse
-MOUSE_PROGRAM = build/usr/bin/mouse 
+MOUSE_PROGRAM = build/usr/bin/mouse_test
 PROGRAM += $(MOUSE_PROGRAM)
 
 EXTRA_CLEAN += $(MOUSE_PROGRAM) $(MOUSE_DIR)/*.o

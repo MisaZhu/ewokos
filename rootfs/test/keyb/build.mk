@@ -1,5 +1,5 @@
 KEYB_DIR = test/keyb
-KEYB_PROGRAM = build/usr/bin/keyb 
+KEYB_PROGRAM = build/usr/bin/keyb_test
 PROGRAM += $(KEYB_PROGRAM)
 
 EXTRA_CLEAN += $(KEYB_PROGRAM) $(KEYB_DIR)/*.o
