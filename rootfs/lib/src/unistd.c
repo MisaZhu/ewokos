@@ -100,9 +100,9 @@ int open(const char* fname, int flags) {
 		int fd = fs_open(dir, O_RDWR);
 		if(fd < 0)
 			return -1;
-		int res = fs_add(fd, name, FS_TYPE_FILE);
+		uint32_t res = fs_add(fd, name, FS_TYPE_FILE);
 		fs_close(fd);
-		if(res < 0)
+		if(res == 0)
 			return -1;
 	}
 	return fs_open(full, flags);

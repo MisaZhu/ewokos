@@ -27,11 +27,11 @@ static void do_open(device_t* dev, package_t* pkg) {
 }
 
 static void do_close(device_t* dev, package_t* pkg) { 
-	uint32_t node = *(uint32_t*)get_pkg_data(pkg);
-	if(node == 0)
+	fs_info_t* info = (fs_info_t*)get_pkg_data(pkg);
+	if(info == NULL || info->node == 0)
 		return;
 	if(dev->close != NULL)
-		dev->close(node);
+		dev->close(info);
 }
 
 static void do_dma(device_t* dev, package_t* pkg) { 
@@ -77,7 +77,7 @@ static void do_add(device_t* dev, package_t* pkg) {
 		return;
 	}
 
-	int32_t ret = 0;
+	int32_t ret = -1;
 	if(dev->add != NULL)
 		ret = dev->add(node, name, type);	
 	ipc_send(pkg->id, pkg->type, &ret, 4);

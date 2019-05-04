@@ -22,6 +22,8 @@ int32_t vfs_node_by_name(const char* fname, fs_info_t* info);
 
 int32_t vfs_node_update(fs_info_t* info);
 
+int32_t vfs_pipe_open(fs_info_t* info);
+
 uint32_t vfs_mount(const char* fname, const char* devName, int32_t devIndex, bool isFile);
 
 int32_t vfs_unmount(uint32_t node);

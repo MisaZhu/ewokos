@@ -19,8 +19,7 @@ int fs_open(const char* name, int32_t flags) {
 	int32_t fd = syscall2(SYSCALL_PFILE_OPEN, (int32_t)&info, flags);
 	if(fd < 0)
 		return -1;
-	//noname for pipe open
-	if(name[0] == 0 || info.dev_serv_pid == 0) 
+	if(info.dev_serv_pid == 0) 
 		return fd;
 
 	proto_t* proto = proto_new(NULL, 0);
@@ -39,7 +38,7 @@ int fs_open(const char* name, int32_t flags) {
 
 int fs_pipe_open(int fds[2]) {
 	fs_info_t info;
-	if(vfs_node_by_name("", &info) != 0)
+	if(vfs_pipe_open(&info) != 0)
 		return -1;
 	int fd = syscall2(SYSCALL_PFILE_OPEN, (int32_t)&info, O_RDONLY);
 	if(fd < 0)
@@ -48,7 +47,7 @@ int fs_pipe_open(int fds[2]) {
 
 	fd = syscall2(SYSCALL_PFILE_OPEN, (int32_t)&info, O_WRONLY);
 	if(fd < 0) {
-		close(fds[0]);
+		fs_close(fds[0]);
 		return -1;
 	}
 	fds[1] = fd;
@@ -59,8 +58,11 @@ int fs_close(int fd) {
 	fs_info_t info;
 	if(fd < 0 || syscall2(SYSCALL_PFILE_NODE_BY_FD, fd, (int32_t)&info) != 0)
 		return -1;
+	if(syscall1(SYSCALL_PFILE_CLOSE, fd) != 0)
+		return -1;
+
 	if(info.dev_serv_pid > 0) {
-		ipc_req(info.dev_serv_pid, 0, FS_CLOSE, &info.node, 4, false);
+		ipc_req(info.dev_serv_pid, 0, FS_CLOSE, &info, sizeof(fs_info_t), false);
 		/*
 		package_t* pkg = ipc_req(info.dev_serv_pid, 0, FS_CLOSE, (void*)&node, 4, false;);
 		if(pkg == NULL || pkg->type == PKG_TYPE_ERR) {
@@ -70,7 +72,7 @@ int fs_close(int fd) {
 		free(pkg);
 		*/
 	}
-	return syscall1(SYSCALL_PFILE_CLOSE, fd);
+	return 0;
 }
 
 int32_t fs_dma(int fd, uint32_t* size) {
@@ -208,14 +210,14 @@ int fs_write(int fd, const char* buf, uint32_t size) {
 	return sz;
 }
 
-int fs_add(int fd, const char* name, uint32_t type) {
+uint32_t fs_add(int fd, const char* name, uint32_t type) {
 	fs_info_t info;
 	if(fd < 0 || syscall2(SYSCALL_PFILE_NODE_BY_FD, fd, (int32_t)&info) != 0)
-		return -1;
+		return 0;
 	
 	int size = strlen(name);
 	if(size == 0)
-		return -1;
+		return 0;
 
 	proto_t* proto = proto_new(NULL, 0);
 	proto_add_int(proto, info.node);
@@ -226,18 +228,20 @@ int fs_add(int fd, const char* name, uint32_t type) {
 
 	if(pkg == NULL || pkg->type == PKG_TYPE_ERR) {
 		if(pkg != NULL) free(pkg);
-		return -1;
+		return 0;
 	}
+	int32_t res = *(int32_t*)get_pkg_data(pkg);
 	free(pkg);
+	if(res != 0)
+		return 0;
 
-	int32_t sz = -1;
+	uint32_t node = 0;
 	if(type == FS_TYPE_DIR)
-		sz = vfs_add(info.node, name, VFS_DIR_SIZE, NULL);
+		node = vfs_add(info.node, name, VFS_DIR_SIZE, NULL);
 	else
-		sz = vfs_add(info.node, name, 0, NULL);
-	return sz;
+		node = vfs_add(info.node, name, 0, NULL);
+	return node;
 }
-
 
 int fs_getch(int fd) {
 	char buf[1];
@@ -264,16 +268,16 @@ int fs_info(int fd, fs_info_t* info) {
 	return 0;
 }
 
-int fs_ninfo(uint32_t node_addr, fs_info_t* info) {
-	if(node_addr == 0 || syscall2(SYSCALL_PFILE_NODE_BY_ADDR, node_addr, (int32_t)info) != 0)
+int fs_ninfo(uint32_t node, fs_info_t* info) {
+	if(syscall2(SYSCALL_PFILE_NODE_BY_ADDR, (int32_t)node, (int32_t)info) != 0)
 		return -1;
 	return 0;
 }
 
-int fs_ninfo_update(uint32_t node_addr, fs_info_t* info) {
-	if(node_addr == 0 || vfs_node_update(info) != 0)
+int fs_ninfo_update(fs_info_t* info) {
+	if(vfs_node_update(info) != 0)
 		return -1;
-	if(syscall2(SYSCALL_PFILE_NODE_UPDATE, node_addr, (int32_t)info) != 0)
+	if(syscall1(SYSCALL_PFILE_NODE_UPDATE, (int32_t)info) != 0)
 		return -1;
 	return 0;
 }
@@ -292,13 +296,13 @@ char* fs_read_file(const char* fname, int32_t *size) {
 
 	fs_info_t info;
 	if(fs_info(fd, &info) != 0 || info.size <= 0) {
-		close(fd);
+		fs_close(fd);
 		return NULL;
 	}
 
 	char* buf = (char*)malloc(info.size);
 	int res = read(fd, buf, info.size);
-	close(fd);
+	fs_close(fd);
 
 	if(res <= 0) {
 		free(buf);
@@ -341,5 +345,7 @@ int32_t fs_parse_name(const char* fname, char* dir, uint32_t dir_len, char* name
 	}
 	strncpy(dir, full, dir_len-1); 
 	strncpy(name, full+i+1, name_len-1); 
+	if(dir[0] == 0)
+		strcpy(dir, "/");
 	return 0;
 }

@@ -167,16 +167,15 @@ int32_t sdcard_open(uint32_t node, int32_t flags) {
 	return 0;
 }
 
-int32_t sdcard_close(uint32_t node) {
-	fs_info_t info;
-	if(fs_ninfo(node, &info) != 0 || info.data == NULL)
+int32_t sdcard_close(fs_info_t* info) {
+	if(info == NULL || info->data == NULL || info->node == 0)
 		return -1;
-	if(info.type == FS_TYPE_DIR)
+	if(info->type == FS_TYPE_DIR)
 		return 0;
-	if(syscall2(SYSCALL_PFILE_GET_REF, node, 2) > 1) //1 ref left for this closing fd
+	if(syscall2(SYSCALL_PFILE_GET_REF, info->node, 2) > 0) 
 		return 0;
 
-	ext2_node_data_t* data = (ext2_node_data_t*)info.data;
+	ext2_node_data_t* data = (ext2_node_data_t*)info->data;
 	if(data->data != NULL) {
 		free(data->data);
 		data->data = NULL;

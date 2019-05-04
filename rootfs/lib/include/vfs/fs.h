@@ -12,9 +12,9 @@ int fs_close(int fd);
 
 int fs_info(int fd, fs_info_t* info);
 
-int fs_ninfo(uint32_t node_addr, fs_info_t* info);
+int fs_ninfo(uint32_t node, fs_info_t* info);
 
-int fs_ninfo_update(uint32_t node_addr, fs_info_t* info);
+int fs_ninfo_update(fs_info_t* info);
 
 int fs_finfo(const char* name, fs_info_t* info);
 
@@ -30,7 +30,7 @@ int fs_putch(int fd, int c);
 
 int fs_write(int fd, const char* buf, uint32_t size);
 
-int fs_add(int dirFD, const char* name, uint32_t type);
+uint32_t fs_add(int dir_fd, const char* name, uint32_t type);
 
 int32_t fs_flush(int fd);
 

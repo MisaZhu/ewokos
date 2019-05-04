@@ -35,7 +35,7 @@ static int32_t sramdisk_write(uint32_t node, void* buf, uint32_t size, int32_t s
 	if(p == NULL)
 		return -1;
 	memcpy(p+seek, buf, size);
-	fs_ninfo_update(node, &info);
+	fs_ninfo_update(&info);
 	return size;
 }
 
@@ -63,6 +63,13 @@ static int32_t sramdisk_read(uint32_t node, void* buf, uint32_t size, int32_t se
 	return size;
 }
 
+static int32_t sramdisk_add(uint32_t node, const char* name, uint32_t type) {
+	(void)node;
+	(void)name;
+	(void)type;
+	return 0;
+}
+
 static int32_t sramdisk_open(uint32_t node, int32_t flags) {
 	(void)flags;
 	fs_info_t info;
@@ -73,27 +80,27 @@ static int32_t sramdisk_open(uint32_t node, int32_t flags) {
 	if(info.data == NULL) {
 		info.data = malloc(sizeof(node_data_t));
 		memset(info.data, 0, sizeof(node_data_t));
-		fs_ninfo_update(node, &info);
+		fs_ninfo_update(&info);
 	}
 	return 0;
 }
 
-static int32_t sramdisk_close(uint32_t node) {
-	fs_info_t info;
-	if(fs_ninfo(node, &info) != 0)
-		return -1;
-	if(info.type == FS_TYPE_DIR)
+static int32_t sramdisk_close(fs_info_t* info) {
+	if(info == NULL)
 		return 0;
-	if(info.data != NULL) {
-		node_data_t* data = (node_data_t*)info.data;
-		info.size = data->size;
-		fs_ninfo_update(node, &info);
+	if(info->type == FS_TYPE_DIR)
+		return 0;
+	if(info->data != NULL) {
+		node_data_t* data = (node_data_t*)info->data;
+		info->size = data->size;
+		fs_ninfo_update(info);
 	}
 	return 0;
 }
 
 int main(int argc, char* argv[]) {
 	device_t dev = {0};
+	dev.add = sramdisk_add;
 	dev.open = sramdisk_open;
 	dev.close = sramdisk_close;
 	dev.read = sramdisk_read;

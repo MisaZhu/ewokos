@@ -243,23 +243,10 @@ static void do_node_by_name(package_t* pkg) {
 	proto_free(proto);
 
 	fs_info_t info;
-	if(name[0] != 0) {
-		tree_node_t* node = get_node_by_name(name);
-		if(node == NULL || fsnode_info(node, &info) != 0) {
-			ipc_send(pkg->id, PKG_TYPE_ERR, NULL, 0);
-			return;
-		}
-	}
-	else { //noname, means pipe.
-		tree_node_t* node = fs_new_node();
-		FSN(node)->data = malloc(sizeof(pipe_buffer_t));
-		info.size = 0;
-		info.type = FS_TYPE_FILE;
-		info.id = node->id;
-		info.node = (uint32_t)node;
-		info.name[0] = 0;
-		info.dev_index = 0;
-		info.dev_serv_pid = getpid();
+	tree_node_t* node = get_node_by_name(name);
+	if(node == NULL || fsnode_info(node, &info) != 0) {
+		ipc_send(pkg->id, PKG_TYPE_ERR, NULL, 0);
+		return;
 	}
 	ipc_send(pkg->id, pkg->type, &info, sizeof(fs_info_t));
 }
@@ -366,14 +353,29 @@ static void do_mount_by_fname(package_t* pkg) {
 	ipc_send(pkg->id, pkg->type, mnt, sizeof(mount_t));
 }
 
+static void do_pipe_open(package_t* pkg) {
+	fs_info_t info;
+	tree_node_t* node = fs_new_node();
+	FSN(node)->data = malloc(sizeof(pipe_buffer_t));
+	info.size = 0;
+	info.type = FS_TYPE_FILE;
+	info.id = node->id;
+	info.node = (uint32_t)node;
+	info.name[0] = 0;
+	info.dev_index = 0;
+	info.data = NULL;
+	info.dev_serv_pid = getpid();
+	ipc_send(pkg->id, pkg->type, &info, sizeof(fs_info_t));
+}
+
 static void do_pipe_close(package_t* pkg) {
-	uint32_t node_addr = *(uint32_t*)get_pkg_data(pkg);
-	if(node_addr == 0)
+	fs_info_t* info = (fs_info_t*)get_pkg_data(pkg);
+	if(info == NULL || info->node == 0)
 		return;
-	if(syscall2(SYSCALL_PFILE_GET_REF, node_addr, 2) > 1) //1 ref left for this closing fd
+	if(syscall2(SYSCALL_PFILE_GET_REF, info->node, 2) > 0) //1 ref left for this closing fd
 		return;
 
-	tree_node_t* node = (tree_node_t*)node_addr;
+	tree_node_t* node = (tree_node_t*)info->node;
 	if(FSN(node)->data != NULL)
 		free(FSN(node)->data);
 	free(node);
@@ -482,6 +484,9 @@ static void handle(package_t* pkg, void* p) {
 		break;
 	case VFS_CMD_MOUNT_BY_FNAME:
 		do_mount_by_fname(pkg);
+		break;
+	case VFS_CMD_PIPE_OPEN:
+		do_pipe_open(pkg);
 		break;
 	case FS_CLOSE:
 		do_pipe_close(pkg);
