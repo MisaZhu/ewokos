@@ -22,8 +22,11 @@ int32_t tty_read(uint32_t node, void* buf, uint32_t size, int32_t seek) {
 
 	char* p = (char*)buf;
 	int32_t res = tty_getch(&p[0]);
-	if(res == 1 && p[0] == 4) //ctrl+d, means closed.
-		return -1;
+	errno = ENONE;
+	if(res == 0) {
+		res = -1;
+		errno = EAGAIN;
+	}
 	return res;
 }
 

@@ -99,8 +99,10 @@ static void do_write(device_t* dev, package_t* pkg) {
 	int32_t ret = 0;
 	if(dev->write != NULL)
 		ret = dev->write(node, p, size, seek);	
-
-	ipc_send(pkg->id, pkg->type, &ret, 4);
+	if(ret < 0 && errno == EAGAIN)
+		ipc_send(pkg->id, PKG_TYPE_AGAIN, NULL, 0);
+	else 
+		ipc_send(pkg->id, pkg->type, &ret, 4);
 }
 
 static void do_read(device_t* dev, package_t* pkg) { 
@@ -125,10 +127,15 @@ static void do_read(device_t* dev, package_t* pkg) {
 	if(dev->read != NULL)
 		ret = dev->read(node, buf, size, seek);	
 
-	if(ret < 0)
-		ipc_send(pkg->id, PKG_TYPE_ERR, NULL, 0);
-	else
+	if(ret < 0) {
+		if(errno == EAGAIN)
+			ipc_send(pkg->id, PKG_TYPE_AGAIN, NULL, 0);
+		else
+			ipc_send(pkg->id, PKG_TYPE_ERR, NULL, 0);
+	}
+	else {
 		ipc_send(pkg->id, pkg->type, buf, ret);
+	}
 	free(buf);
 }
 

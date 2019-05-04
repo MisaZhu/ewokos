@@ -40,11 +40,15 @@ int getch() {
 			res = syscall3(SYSCALL_DEV_CHAR_READ, dev_typeid(DEV_UART, 0), (int32_t)buf, 1);
 		else
 			res = read(_stdin, buf, 1);
-		if(res > 0)
-			break;
-		sleep(0);
+		if(res < 0 && errno == EAGAIN) {
+			sleep(0);
+			continue;
+		}
+		break;
 	}
-	return (int)buf[0];
+	if(res > 0)
+		return (int)buf[0];
+	return 0;
 }
 
 static void outc(char c, void* p) {
