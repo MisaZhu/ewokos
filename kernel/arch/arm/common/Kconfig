@@ -1,0 +1,76 @@
+# Cortex-M3
+config CPU_CORTEXM3
+	bool
+	select CPU_32v7M
+	help
+
+# Cortex-A9
+config CPU_CORTEXA9
+	bool
+	select CPU_32v7
+	help
+
+# Figure out what processor architecture version we should be using.
+# This defines the compiler instruction set which depends on the machine type.
+config CPU_32v4
+	bool
+	help
+	  Includes only the ARM instruction set.
+
+config CPU_32v4T
+	bool
+	help
+	  Adds the Thumb instruction set.
+
+config CPU_32v5T
+	bool
+	help
+	  Adds CLZ and BKPT.
+
+config CPU_32v5TE
+	bool
+	help
+	  Adds PLD, LDRD, STRD, MCRR, MRRC, enhances DSP algorithms.
+
+config CPU_32v5TEJ
+	bool
+	help
+	  Adds BXJ and Jazelle architecture extension.
+
+config CPU_32v6
+	bool
+	help
+	  Adds many new instructions to ARM instruction set and formalizes and
+	  revises the memory model and the Debug architecture.
+
+config CPU_32v6K
+	bool
+	help
+	  Adds multi-processing instructions and extra memory model features.
+
+config CPU_32v6T2
+	select ARM_THUMB2
+	bool
+	help
+	  Introduces Thumb-2 technology.
+
+config CPU_32v6KZ
+	bool
+	help
+	  ARMv6K with optional Security Extension.
+
+config CPU_32v7
+	bool
+
+config CPU_32v7M
+	bool
+	select ARM_THUMB2
+
+config CPU_BIG_ENDIAN
+	bool "Build big-endian kernel"
+	depends on ARCH_SUPPORTS_BIG_ENDIAN
+	help
+	  Say Y if you plan on running a kernel in big-endian mode.
+	  Note that your board must be properly built and your board
+	  port must properly enable any big-endian related features
+	  of your chipset/board/processor.

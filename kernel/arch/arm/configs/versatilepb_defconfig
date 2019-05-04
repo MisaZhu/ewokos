@@ -1,0 +1,36 @@
+#
+# Automatically generated make config: don't edit
+# EwokOS version: 1.0.0.0
+# Sat May  4 00:26:20 2019
+#
+CONFIG_ARM=y
+
+#
+# ARM system options
+#
+CONFIG_ARCH_VERSATILEPB=y
+# CONFIG_ARCH_RASPI2 is not set
+
+#
+# Compiler options
+#
+CONFIG_ARM_EABI=y
+
+#
+# Feature setup
+#
+CONFIG_KEYMAP2=y
+
+#
+# Driver setup
+#
+
+#
+# Library setup
+#
+
+#
+# Generic setup
+#
+# CONFIG_EXPERIMENTAL is not set
+CONFIG_CC_OPT_SIZE=y

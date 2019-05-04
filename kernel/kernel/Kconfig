@@ -1,0 +1,10 @@
+#
+# Firmware Features
+#
+
+menu "Feature setup"
+
+config KEYMAP2
+	bool "Use keymap2"
+
+endmenu
