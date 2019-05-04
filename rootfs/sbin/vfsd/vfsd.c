@@ -449,7 +449,7 @@ static void do_pipe_read(package_t* pkg) {
 		ipc_send(pkg->id, PKG_TYPE_ERR, NULL, 0);
 		return;
 	}
-	uint32_t rest = buffer->size - buffer->offset;
+	int32_t rest = buffer->size - buffer->offset;
 	if(rest > 0) {//ready for read.
 		char* buf = NULL;
 		size = size < rest ? size : rest;
