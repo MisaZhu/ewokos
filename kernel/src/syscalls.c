@@ -228,8 +228,8 @@ static int32_t syscall_pf_node_by_addr(int32_t arg0, int32_t arg1) {
 	return kf_node_info_by_addr((uint32_t)arg0, (fs_info_t*)arg1);
 }
 
-static int32_t syscall_pf_node_update(int32_t arg0, int32_t arg1) {
-	return kf_node_info_update((uint32_t)arg0, (fs_info_t*)arg1);
+static int32_t syscall_pf_node_update(int32_t arg0) {
+	return kf_node_info_update((fs_info_t*)arg0);
 }
 
 static int32_t syscall_pf_get_ref(int32_t arg0, int32_t arg1) {
