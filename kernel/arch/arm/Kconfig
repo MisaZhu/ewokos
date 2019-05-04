@@ -1,0 +1,61 @@
+#
+# For a description of the syntax of this configuration file,
+# see Documentation/kbuild/kconfig-language.txt.
+#
+
+mainmenu "EwokOS - Micro-kernel OS Configuration"
+
+config ARM
+	bool
+	default y
+	help
+
+menu "ARM system options"
+
+choice
+	prompt "ARM system type"
+	default ARCH_VERSATILEPB
+
+config ARCH_VERSATILEPB
+	bool "ARM Versatile-PB"
+
+config ARCH_RASPI2
+	bool "Raspberry Pi 2"
+
+endchoice
+
+source arch/arm/common/Kconfig
+
+menu "Compiler options"
+
+config ARM_THUMB2
+	bool "Compile the firmware in thumb mode"
+	depends on CPU_32v7 || CPU_32v7M || CPU32_v6T2
+	select ARM_EABI
+	select ARM_ASM_UNIFIED
+	help
+	  By enabling this option, the kernel will be compiled in
+	  thumb mode. A compiler/assembler that understand the unified
+	  ARM-thumb syntax is needed.
+	  If unsure, say N.
+
+config ARM_ASM_UNIFIED
+	bool
+
+config ARM_EABI
+	bool "Use the ARM EABI application binary interface"
+	help
+	  This option allows for the firmware to be compiled using the latest
+	  ARM ABI (aka EABI).
+
+endmenu
+
+endmenu
+
+source "arch/arm/mach-versatilepb/Kconfig"
+source "arch/arm/mach-raspi2/Kconfig"
+
+source "kernel/Kconfig"
+source "drivers/Kconfig"
+source "lib/Kconfig"
+source "init/Kconfig"

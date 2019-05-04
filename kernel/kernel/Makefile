@@ -1,0 +1,14 @@
+obj-y:=
+
+obj-y += sdread.o
+obj-y += sconf.o
+obj-y += system.o
+obj-y += timer.o
+obj-y += printk.o
+obj-y += syscalls.o
+obj-y += scheduler.o
+obj-y += proc.o
+obj-y += semaphore.o
+obj-y += ipc.o
+obj-y += kfile.o
+obj-y += kserv.o

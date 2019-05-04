@@ -1,0 +1,15 @@
+#!/bin/sh
+
+REVIISION=$1
+
+if [ "x$REVISION" = "x" ]; then
+	echo "Error: revision not specified"
+	exit -1;
+fi
+
+export REVISION
+scripts/flt-revision.awk ReleaseNotes > ../ReleaseNotes-$REVISION
+
+#git tag v$REVISION -f ../ReleaseNotes-$REVISION
+#echo $REVISION > REVISION
+
