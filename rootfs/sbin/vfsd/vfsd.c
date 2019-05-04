@@ -450,7 +450,7 @@ static void do_pipe_read(package_t* pkg) {
 		return;
 	}
 	int32_t rest = buffer->size - buffer->offset;
-	if(rest > 0) {//ready for read.
+	if(rest > 0 && rest <= PIPE_BUF_SIZE) {//ready for read.
 		char* buf = NULL;
 		size = size < rest ? size : rest;
 		buf = (char*)malloc(size);
