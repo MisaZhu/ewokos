@@ -88,8 +88,8 @@ void kf_ref(kfile_t* kf, uint32_t wr) {
 }
 
 //open file will get file id for this process, and cache the file info
-int32_t kf_open(fs_info_t* info, int32_t wr) {
-	process_t* proc = _current_proc;
+int32_t kf_open(int32_t pid, fs_info_t* info, int32_t wr) {
+	process_t* proc = proc_get(pid);
 	if(proc == NULL)
 		return -1;
 
@@ -119,8 +119,8 @@ int32_t kf_open(fs_info_t* info, int32_t wr) {
 	return i;
 }
 
-void kf_close(int32_t fd) {
-	process_t* proc = _current_proc;
+void kf_close(int32_t pid, int32_t fd) {
+	process_t* proc = proc_get(pid);
 	if(proc == NULL || fd < 0 || fd >= FILE_MAX)
 		return;
 	
@@ -157,10 +157,10 @@ int32_t kf_dup2(int32_t old_fd, int32_t new_fd) {
 	return new_fd;
 }
 
-int32_t kf_node_info_by_fd(int32_t fd, fs_info_t* info) {
+int32_t kf_node_info_by_fd(int32_t pid, int32_t fd, fs_info_t* info) {
 	CRIT_IN(_p_lock)
 	int32_t ret = -1;
-	process_t* proc = _current_proc;
+	process_t* proc = proc_get(pid);
 	if(proc == NULL || fd < 0 || fd>= FILE_MAX) {
 		CRIT_OUT(_p_lock)
 		return ret;
@@ -177,14 +177,14 @@ int32_t kf_node_info_by_fd(int32_t fd, fs_info_t* info) {
 
 int32_t kf_node_info_by_addr(uint32_t node_addr, fs_info_t* info) {
 	CRIT_IN(_p_lock)
-	int32_t ret = -1;
+		int32_t ret = -1;
 	kfile_t* kf = get_file(node_addr, false);
 	if(kf != NULL) {
 		memcpy(info, &kf->node_info, sizeof(fs_info_t));
 		ret = 0;
 	}
 	CRIT_OUT(_p_lock)
-	return ret;
+		return ret;
 }
 
 int32_t kf_node_info_update(fs_info_t* info) {

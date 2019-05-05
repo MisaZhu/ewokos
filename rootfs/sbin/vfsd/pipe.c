@@ -26,11 +26,29 @@ void do_pipe_open(package_t* pkg) {
 	info.type = FS_TYPE_FILE;
 	info.id = node->id;
 	info.node = (uint32_t)node;
-	info.name[0] = 0;
 	info.dev_index = 0;
 	info.data = NULL;
 	info.dev_serv_pid = getpid();
-	ipc_send(pkg->id, pkg->type, &info, sizeof(fs_info_t));
+
+	int32_t fd0 = syscall3(SYSCALL_PFILE_OPEN, pkg->pid, (int32_t)&info, O_RDONLY);
+	if(fd0 < 0) {
+		free(buffer);
+		ipc_send(pkg->id, PKG_TYPE_ERR, NULL, 0);
+		return;
+	}
+
+	int32_t fd1 = syscall3(SYSCALL_PFILE_OPEN, pkg->pid, (int32_t)&info, O_WRONLY);
+	if(fd1 < 0) {
+		free(buffer);
+		ipc_send(pkg->id, PKG_TYPE_ERR, NULL, 0);
+		return;
+	}
+
+	proto_t* proto = proto_new(NULL, 0);
+	proto_add_int(proto, fd0);
+	proto_add_int(proto, fd1);
+	ipc_send(pkg->id, pkg->type, proto->data, proto->size);
+	proto_free(proto);
 }
 
 void do_pipe_close(package_t* pkg) {

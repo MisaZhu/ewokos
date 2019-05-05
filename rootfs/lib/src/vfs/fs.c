@@ -12,13 +12,15 @@
 #define FS_BUF_SIZE (16*KB)
 
 int fs_open(const char* name, int32_t flags) {
-	fs_info_t info;
-	if(vfs_node_by_name(name, &info) != 0)
-		return -1;
-	
-	int32_t fd = syscall2(SYSCALL_PFILE_OPEN, (int32_t)&info, flags);
+	int fd = vfs_open(name, flags);
 	if(fd < 0)
 		return -1;
+
+	fs_info_t info;
+	if(syscall2(SYSCALL_PFILE_NODE_BY_FD, fd, (int32_t)&info) != 0) {
+		fs_close(fd);
+		return -1;
+	}
 	if(info.dev_serv_pid == 0) 
 		return fd;
 
@@ -37,42 +39,17 @@ int fs_open(const char* name, int32_t flags) {
 }
 
 int fs_pipe_open(int fds[2]) {
-	fs_info_t info;
-	if(vfs_pipe_open(&info) != 0) {
-		return -1;
-	}
-	int fd = syscall2(SYSCALL_PFILE_OPEN, (int32_t)&info, O_RDONLY);
-	if(fd < 0)
-		return -1;
-	fds[0] = fd;
-
-	fd = syscall2(SYSCALL_PFILE_OPEN, (int32_t)&info, O_WRONLY);
-	if(fd < 0) {
-		fs_close(fds[0]);
-		return -1;
-	}
-	fds[1] = fd;
-	return 0;
+	return vfs_pipe_open(fds);
 }
 
 int fs_close(int fd) {
 	fs_info_t info;
 	if(fd < 0 || syscall2(SYSCALL_PFILE_NODE_BY_FD, fd, (int32_t)&info) != 0)
 		return -1;
-	if(syscall1(SYSCALL_PFILE_CLOSE, fd) != 0)
-		return -1;
 
-	if(info.dev_serv_pid > 0) {
+	if(info.dev_serv_pid > 0)
 		ipc_req(info.dev_serv_pid, 0, FS_CLOSE, &info, sizeof(fs_info_t), false);
-		/*
-		package_t* pkg = ipc_req(info.dev_serv_pid, 0, FS_CLOSE, (void*)&node, 4, false;);
-		if(pkg == NULL || pkg->type == PKG_TYPE_ERR) {
-			if(pkg != NULL) free(pkg);
-			return -1;
-		}
-		free(pkg);
-		*/
-	}
+	vfs_close(fd);
 	return 0;
 }
 
@@ -278,15 +255,13 @@ int fs_info(int fd, fs_info_t* info) {
 }
 
 int fs_ninfo(uint32_t node, fs_info_t* info) {
-	if(syscall2(SYSCALL_PFILE_NODE_BY_ADDR, (int32_t)node, (int32_t)info) != 0)
+	if(node == 0 || syscall2(SYSCALL_PFILE_NODE_BY_ADDR, node, (int32_t)info) != 0)
 		return -1;
 	return 0;
 }
 
 int fs_ninfo_update(fs_info_t* info) {
 	if(vfs_node_update(info) != 0)
-		return -1;
-	if(syscall1(SYSCALL_PFILE_NODE_UPDATE, (int32_t)info) != 0)
 		return -1;
 	return 0;
 }
@@ -299,7 +274,7 @@ int fs_kid(int fd, int32_t index, fs_info_t* kid) {
 }
 
 char* fs_read_file(const char* fname, int32_t *size) {
-	int fd = open(fname, 0);
+	int fd = open(fname, O_RDONLY);
 	if(fd < 0) 
 		return NULL;
 

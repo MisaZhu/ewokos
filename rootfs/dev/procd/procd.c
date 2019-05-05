@@ -25,7 +25,8 @@ static int32_t proc_read(uint32_t node, void* buf, uint32_t size, int32_t seek) 
 	fs_info_t info;
 	if(fs_ninfo(node, &info) != 0)
 		return ret;
-	const char* fname = info.name;
+	char fname[SHORT_NAME_MAX];
+	vfs_short_name_by_node(info.node, fname, SHORT_NAME_MAX-1);
 
 	if(strcmp(fname, "total_mem") == 0) {
 		snprintf((char*)buf, size-1, "%d\n", syscall2(SYSCALL_SYSTEM_CMD, 0, 0));

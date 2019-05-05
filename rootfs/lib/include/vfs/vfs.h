@@ -14,15 +14,23 @@ typedef struct {
 
 uint32_t vfs_add(uint32_t node, const char* name, uint32_t size, void* data);
 
-int32_t vfs_del(uint32_t node);
+int32_t vfs_del(const char* name);
 
-int32_t vfs_node_full_name(uint32_t node, char* full, uint32_t len);
+int32_t vfs_full_name_by_node(uint32_t node, char* full, uint32_t len);
+
+int32_t vfs_short_name_by_node(uint32_t node, char* name, uint32_t len);
+
+int32_t vfs_open(const char* fname, int32_t flags);
+
+int32_t vfs_close(int32_t fd);
 
 int32_t vfs_node_by_name(const char* fname, fs_info_t* info);
 
+int32_t vfs_node_by_fd(int32_t fd, fs_info_t* info);
+
 int32_t vfs_node_update(fs_info_t* info);
 
-int32_t vfs_pipe_open(fs_info_t* info);
+int32_t vfs_pipe_open(int32_t fds[2]);
 
 uint32_t vfs_mount(const char* fname, const char* devName, int32_t devIndex, bool isFile);
 

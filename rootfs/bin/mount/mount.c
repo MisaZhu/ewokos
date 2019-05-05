@@ -20,7 +20,7 @@ int main(int argc, char* argv[]) {
 			if(mnt.node_old == 0)
 				strcpy(name, "/");
 			else
-				vfs_node_full_name(mnt.node_old, name, FULL_NAME_MAX);
+				vfs_full_name_by_node(mnt.node_old, name, FULL_NAME_MAX);
 			printf("  %24s %16s %6d  %6d\n", name, mnt.dev_name, mnt.dev_index, mnt.dev_serv_pid, name);
 		}
 		i++;

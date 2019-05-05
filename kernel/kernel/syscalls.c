@@ -180,12 +180,16 @@ static int32_t syscall_ipc_peer(int32_t arg0) {
 	return ipc_peer(arg0);
 }
 
-static int32_t syscall_pf_open(int32_t arg0, int32_t arg1) {
-	return kf_open((fs_info_t*)arg0, arg1);
+static int32_t syscall_pf_open(int32_t arg0, int32_t arg1, int32_t arg2) {
+	if(_current_proc->owner > 0)
+		return -1;
+	return kf_open(arg0, (fs_info_t*)arg1, arg2);
 }
 
-static int32_t syscall_pf_close(int32_t arg0) {
-	kf_close(arg0);
+static int32_t syscall_pf_close(int32_t arg0, int32_t arg1) {
+	if(_current_proc->owner > 0)
+		return -1;
+	kf_close(arg0, arg1);
 	return  0;
 }
 
@@ -225,26 +229,42 @@ static int32_t syscall_pf_get_seek(int32_t arg0) {
 }
 
 static int32_t syscall_pf_node_by_fd(int32_t arg0, int32_t arg1) {
-	return kf_node_info_by_fd(arg0, (fs_info_t*)arg1);
+	return kf_node_info_by_fd(_current_proc->pid, arg0, (fs_info_t*)arg1);
+}
+
+static int32_t syscall_pf_node_by_pid_fd(int32_t arg0, int32_t arg1, int32_t arg2) {
+	if(_current_proc->owner > 0)
+		return -1;
+	return kf_node_info_by_fd(arg0, arg1, (fs_info_t*)arg2);
 }
 
 static int32_t syscall_pf_node_by_addr(int32_t arg0, int32_t arg1) {
-	return kf_node_info_by_addr((uint32_t)arg0, (fs_info_t*)arg1);
+	if(_current_proc->owner > 0)
+		return -1;
+	return kf_node_info_by_addr(arg0, (fs_info_t*)arg1);
 }
 
 static int32_t syscall_pf_node_update(int32_t arg0) {
+	if(_current_proc->owner > 0)
+		return -1;
 	return kf_node_info_update((fs_info_t*)arg0);
 }
 
 static int32_t syscall_pf_get_ref(int32_t arg0, int32_t arg1) {
+	if(_current_proc->owner > 0)
+		return -1;
 	return kf_get_ref(arg0, arg1);
 }
 
 static int32_t syscall_kserv_reg(int32_t arg0) {
+	if(_current_proc->owner > 0)
+		return -1;
 	return kserv_reg((const char*)arg0);
 }
 
 static int32_t syscall_kserv_ready() {
+	if(_current_proc->owner > 0)
+		return -1;
 	return kserv_ready();
 }
 
@@ -364,6 +384,7 @@ static int32_t (*const _syscallHandler[])() = {
 	[SYSCALL_PFILE_CLOSE] = syscall_pf_close,
 	[SYSCALL_PFILE_DUP2] = syscall_pf_dup2,
 	[SYSCALL_PFILE_NODE_BY_FD] = syscall_pf_node_by_fd,
+	[SYSCALL_PFILE_NODE_BY_PID_FD] = syscall_pf_node_by_pid_fd,
 	[SYSCALL_PFILE_NODE_BY_ADDR] = syscall_pf_node_by_addr,
 	[SYSCALL_PFILE_NODE_UPDATE] = syscall_pf_node_update,
 	[SYSCALL_PFILE_GET_REF] = syscall_pf_get_ref,
