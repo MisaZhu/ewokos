@@ -376,13 +376,15 @@ bool proc_load(process_t *proc, const char *pimg, uint32_t img_size) {
 
 /* proc_start starts running the given process. */
 void proc_start(process_t *proc) {
+	uint32_t* context = proc->context; 
 	_current_proc = proc;
 	__set_translation_table_base((uint32_t) V2P(proc->space->vm));
 	/* clear TLB */
+	__asm__ volatile("push {R4}");
 	__asm__ volatile("mov R4, #0");
 	__asm__ volatile("MCR p15, 0, R4, c8, c7, 0");
+	__asm__ volatile("pop {R4}");
 
-	volatile uint32_t* context = proc->context;
 	__switch_to_context(context);
 }
 
