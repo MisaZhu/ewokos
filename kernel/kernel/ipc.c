@@ -160,13 +160,13 @@ int32_t ipc_peer(int32_t id) {
 
 int32_t ipc_write(int32_t id, void* data, uint32_t size) {
 	CRIT_IN(_p_lock)
+	int32_t pid = _current_proc->pid;
 	channel_t* channel = ipc_get_channel(id);
-	if(size == 0 || channel->ring < 0 || channel->shm_id < 0) { //closed.
+	if(size == 0 || channel->ring < 0 ||  channel->ring > 1 || channel->shm_id < 0) { //closed.
 		CRIT_OUT(_p_lock)
 		return 0;
 	}
-		
-	int32_t pid = _current_proc->pid;
+	
 	if(channel->proc_map[channel->ring].pid != pid) {//not read for current proc.
 		CRIT_OUT(_p_lock)
 		return -1;
@@ -193,7 +193,7 @@ int32_t ipc_read(int32_t id, void* data, uint32_t size) {
 	CRIT_IN(_p_lock)
 	channel_t* channel = ipc_get_channel(id);
 	if(channel == NULL || data == NULL || size == 0 || 
-			channel->ring < 0 || channel->shm_id < 0) { //closed.
+			channel->ring < 0 || channel->ring > 1 ||channel->shm_id < 0) { //closed.
 		CRIT_OUT(_p_lock)
 		return 0;
 	}
