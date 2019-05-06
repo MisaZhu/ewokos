@@ -128,6 +128,7 @@ static void refresh() {
 		}
 		i++;
 	}	
+	graph_flush(_graph);
 }
 
 static void move_line() {
