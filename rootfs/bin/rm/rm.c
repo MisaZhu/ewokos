@@ -7,7 +7,8 @@
 int main(int argc, char* argv[]) {
 	char name[FULL_NAME_MAX];
 	if(argc < 2) {
-		fs_full_name("", name, FULL_NAME_MAX);
+		printf("usage: rm <fname>.\n");
+		return -1;
 	}
 	else {
 		fs_full_name(argv[1], name, FULL_NAME_MAX);
