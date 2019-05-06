@@ -312,17 +312,15 @@ static int32_t read_config() {
 int main(int argc, char* argv[]) {
 	(void)argc;
 	(void)argv;
-	char cmd[1024];
-	char cwd[FULL_NAME_MAX];
-	setenv(ENV_PATH, "/bin");
+	static char cmd[FULL_NAME_MAX];
 
 	read_config();
 	int uid = getuid();
 
 	while(1) {
-		printf("ewok:%s.%c ", getcwd(cwd, FULL_NAME_MAX), uid==0?'#':'$');
+		printf("ewok %c ", uid==0?'#':'$');
 
-		gets(cmd, 1023);
+		gets(cmd, FULL_NAME_MAX-1);
 		if(cmd[0] == 0)
 			continue;
 		if(handle(cmd) == 0)
