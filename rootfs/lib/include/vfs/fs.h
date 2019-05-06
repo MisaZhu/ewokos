@@ -10,6 +10,8 @@ int fs_pipe_open(int fds[2]);
 
 int fs_close(int fd);
 
+int fs_remove(const char* name);
+
 int fs_info(int fd, fs_info_t* info);
 
 int fs_ninfo(uint32_t node, fs_info_t* info);

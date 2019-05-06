@@ -222,11 +222,9 @@ static void do_add(package_t* pkg) {
 }
 
 static void do_del(package_t* pkg) {
-	proto_t* proto = proto_new(get_pkg_data(pkg), pkg->size);
-	const char* name = proto_read_str(proto);
-	proto_free(proto);
+	uint32_t node_addr = *(uint32_t*)get_pkg_data(pkg);
 	
-	tree_node_t* node = get_node_by_name(name);
+	tree_node_t* node = (tree_node_t*)node_addr;
 	if(node == NULL || fsnode_del(pkg->pid, node) != 0)
 		ipc_send(pkg->id, PKG_TYPE_ERR, NULL, 0);
 	else

@@ -14,7 +14,7 @@ typedef struct {
 
 uint32_t vfs_add(uint32_t node, const char* name, uint32_t size, void* data);
 
-int32_t vfs_del(const char* name);
+int32_t vfs_del(uint32_t node);
 
 int32_t vfs_full_name_by_node(uint32_t node, char* full, uint32_t len);
 

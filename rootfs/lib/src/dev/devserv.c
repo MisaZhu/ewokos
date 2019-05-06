@@ -34,6 +34,23 @@ static void do_close(device_t* dev, package_t* pkg) {
 		dev->close(info);
 }
 
+static void do_remove(device_t* dev, package_t* pkg) { 
+	fs_info_t* info = (fs_info_t*)get_pkg_data(pkg);
+	if(info == NULL) {
+		ipc_send(pkg->id, PKG_TYPE_ERR, NULL, 0);
+		return;
+	}
+
+	int32_t res = -1;
+	if(dev->remove != NULL)
+		res = dev->remove(info);
+	if(res != 0) {
+		ipc_send(pkg->id, PKG_TYPE_ERR, NULL, 0);
+		return;
+	}
+	ipc_send(pkg->id, pkg->type, NULL, 0);
+}
+
 static void do_dma(device_t* dev, package_t* pkg) { 
 	uint32_t node = *(uint32_t*)get_pkg_data(pkg);
 	if(node == 0) {
@@ -60,7 +77,6 @@ static void do_flush(device_t* dev, package_t* pkg) {
 	if(node == 0) {
 		return;
 	}
-
 	if(dev->flush != NULL)
 		dev->flush(node);
 }
@@ -173,6 +189,9 @@ static void handle(package_t* pkg, void* p) {
 			break;
 		case FS_CLOSE:
 			do_close(dev, pkg);
+			break;
+		case FS_REMOVE:
+			do_remove(dev, pkg);
 			break;
 		case FS_WRITE:
 			do_write(dev, pkg);

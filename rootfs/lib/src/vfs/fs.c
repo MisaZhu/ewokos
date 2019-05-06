@@ -53,6 +53,24 @@ int fs_close(int fd) {
 	return 0;
 }
 
+int fs_remove(const char* name) {
+	if(name[0] == 0)
+		return -1;
+	fs_info_t info;
+	if(vfs_node_by_name(name, &info) != 0)
+		return -1;
+
+	if(info.dev_serv_pid > 0) {	
+		package_t* pkg = ipc_req(info.dev_serv_pid, 0, FS_REMOVE, &info, sizeof(fs_info_t), true);
+		if(pkg == NULL || pkg->type == PKG_TYPE_ERR) {
+			if(pkg != NULL) free(pkg);
+			return -1;
+		}
+		free(pkg);
+	}
+	return vfs_del(info.node);
+}
+
 int32_t fs_dma(int fd, uint32_t* size) {
 	*size = 0;
 	fs_info_t info;

@@ -1,6 +1,7 @@
 include bin/ps/build.mk
 include bin/shell/build.mk
 include bin/ls/build.mk
+include bin/rm/build.mk
 include bin/mount/build.mk
 include bin/clear/build.mk
 include bin/cons/build.mk

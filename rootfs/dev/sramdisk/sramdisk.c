@@ -85,6 +85,22 @@ static int32_t sramdisk_open(uint32_t node, int32_t flags) {
 	return 0;
 }
 
+static int32_t sramdisk_remove(fs_info_t* info) {
+	if(info == NULL || info->type == FS_TYPE_DIR)
+		return -1;
+	if(syscall2(SYSCALL_PFILE_GET_REF, info->node, 2) > 0) 
+		return -1;
+
+	if(info->data != NULL) {
+		node_data_t* data = (node_data_t*)info->data;
+		if(data->data != NULL)
+			free(data->data);
+		free(info->data);
+	}
+	return 0;
+}
+
+
 static int32_t sramdisk_close(fs_info_t* info) {
 	if(info == NULL)
 		return 0;
@@ -105,6 +121,7 @@ int main(int argc, char* argv[]) {
 	dev.close = sramdisk_close;
 	dev.read = sramdisk_read;
 	dev.write = sramdisk_write;
+	dev.remove = sramdisk_remove;
 	
 	dev_run(&dev, argc, argv);
 	return 0;

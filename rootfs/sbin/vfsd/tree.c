@@ -45,9 +45,5 @@ void tree_del(tree_node_t* node, free_func_t fr) {
 		node->next->prev = node->prev;
 	if(node->prev != NULL)
 		node->prev->next = node->next;
-
-	/*free node content*/
-	if(node->data != NULL)
-		fr(node->data);
 	fr(node);
 }
