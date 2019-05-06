@@ -91,7 +91,7 @@ static inline void do_command(int32_t cmd, int32_t arg, int32_t resp) {
 	*(uint32_t *)(SDC_BASE + COMMAND)  = 0x400 | (resp<<6) | cmd;
 }
 
-int32_t sdc_init() {
+bool sdc_init() {
 	_rxdone = 1;
 	_txdone = 1;
 	_rxbuf = km_alloc(SDC_BLOCK_SIZE);
@@ -110,7 +110,7 @@ int32_t sdc_init() {
 
 	// set interrupt MASK0 registers bits = RxFULL(17)|TxEmpty(18)
 	*(uint32_t *)(SDC_BASE + MASK0) = (1<<17)|(1<<18);
-	return 0;
+	return true;
 }
 
 static int32_t sdc_read_block(int32_t block) {
