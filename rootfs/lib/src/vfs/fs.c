@@ -46,10 +46,10 @@ int fs_close(int fd) {
 	fs_info_t info;
 	if(fd < 0 || syscall2(SYSCALL_PFILE_NODE_BY_FD, fd, (int32_t)&info) != 0)
 		return -1;
-
+	if(vfs_close(fd) != 0)
+		return -1;
 	if(info.dev_serv_pid > 0)
 		ipc_req(info.dev_serv_pid, 0, FS_CLOSE, &info, sizeof(fs_info_t), false);
-	vfs_close(fd);
 	return 0;
 }
 

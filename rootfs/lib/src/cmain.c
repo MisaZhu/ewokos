@@ -61,5 +61,7 @@ void _start() {
 	}
 
 	int ret = main(argc, argv);
+	close(0);
+	close(1);
 	exit(ret);
 }

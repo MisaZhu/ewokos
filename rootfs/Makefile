@@ -15,7 +15,7 @@ COMMON_OBJ=$(COMMON_LIB)/lib/kstring.o \
 	$(COMMON_LIB)/arch/arm/common/memcpy.o
 
 # flags
-CFLAGS = -I. -g \
+CFLAGS = -I. -O2 \
 				 -I ../lib/include \
 				 -I lib/include \
 				 -I $(COMMON_LIB)/include \
