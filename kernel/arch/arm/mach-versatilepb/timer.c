@@ -17,16 +17,15 @@ The ARM Versatile 926EJS board contains two ARM SB804 dual timer modules [ARM Ti
 #define TIMER_BGLOAD  0x06
 
 void timer_set_interval(uint32_t intervalMicrosecond) {
-	TIMER[TIMER_CONTROL] = 0;
-	TIMER[TIMER_BGLOAD] = 0;
-	TIMER[TIMER_LOAD] = intervalMicrosecond;
-	TIMER[TIMER_CONTROL] = 0xe2;	
+	put8(TIMER + TIMER_CONTROL, 0);
+	put8(TIMER + TIMER_BGLOAD, 0);
+	put8(TIMER + TIMER_LOAD, intervalMicrosecond);
+	put8(TIMER + TIMER_CONTROL, 0xe2);	
 }
 
 void timer_clear_interrupt(void) {
-	TIMER[TIMER_INTCTL] = 0xFFFFFFFF;
+	put32(TIMER + TIMER_INTCTL, 0xFFFFFFFF);
 }
 
 void timer_init() {
 }
-

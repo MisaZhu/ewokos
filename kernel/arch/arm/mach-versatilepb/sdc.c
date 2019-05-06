@@ -4,7 +4,6 @@
 #include <kstring.h>
 #include <scheduler.h>
 #include <device.h>
-#include <asm/io.h>
 
 #define CONFIG_ARM_PL180_MMCI_CLOCK_FREQ 6250000
 #define MMC_RSP_PRESENT (1 << 0)
@@ -87,9 +86,9 @@ volatile char *_rxbuf;
 volatile const char *_txbuf_index;
 volatile uint32_t _rxcount, _txcount, _rxdone, _txdone;
 
-static inline void do_command(uint32_t cmd, uint32_t arg, uint32_t resp) {
-	__raw_writel(arg, SDC_BASE + ARGUMENT);
-	__raw_writel(0x400 | (resp<<6) | cmd, SDC_BASE + COMMAND);
+static inline void do_command(int32_t cmd, int32_t arg, int32_t resp) {
+	put32(SDC_BASE + ARGUMENT, arg);
+	put32(SDC_BASE + COMMAND, 0x400 | (resp<<6) | cmd);
 }
 
 bool sdc_init() {
@@ -97,8 +96,8 @@ bool sdc_init() {
 	_txdone = 1;
 	_rxbuf = km_alloc(SDC_BLOCK_SIZE);
 
-	__raw_writel(0xBF, SDC_BASE + POWER); // power on
-	__raw_writel(0xC6, SDC_BASE + CLOCK); // default CLK
+	put8(SDC_BASE + POWER, 0xBF); // power on
+	put8(SDC_BASE + CLOCK, 0xC6); // default CLK
 
 	// send init command sequence
 	do_command(0, 0, MMC_RSP_NONE);// idle state
@@ -110,7 +109,7 @@ bool sdc_init() {
 	do_command(16, 512, MMC_RSP_R1);  // set data block length
 
 	// set interrupt MASK0 registers bits = RxFULL(17)|TxEmpty(18)
-	__raw_writel((1<<17)|(1<<18), SDC_BASE + MASK0);
+	put32(SDC_BASE + MASK0, (1<<17)|(1<<18));
 	return true;
 }
 
@@ -126,9 +125,9 @@ static int32_t sdc_read_block(int32_t block) {
 	_rxbuf_index = _rxbuf; _rxcount = SDC_BLOCK_SIZE;
 	_rxdone = 0;
 
-	__raw_writel(0xFFFF0000, SDC_BASE + DATATIMER);
+	put32(SDC_BASE + DATATIMER, 0xFFFF0000);
 	// write data_len to datalength reg
-	__raw_writel(SDC_BLOCK_SIZE, SDC_BASE + DATALENGTH);
+	put32(SDC_BASE + DATALENGTH, SDC_BLOCK_SIZE);
 
 	cmd = 18; // CMD17 = READ single sector; 18=read block
 	arg = ((block*2)*512); // absolute byte offset in disk
@@ -136,7 +135,7 @@ static int32_t sdc_read_block(int32_t block) {
 
 	//printk("dataControl=%x\n", 0x93);
 	// 0x93=|9|0011|=|9|DMA=0,0=BLOCK,1=Host<-Card,1=Enable
-	__raw_writel(0x93, SDC_BASE + DATACTRL);
+	put8(SDC_BASE + DATACTRL, 0x93);
 	//printk("getblock return\n");
 	CRIT_OUT(_p_lock)
 	return 0;
@@ -166,8 +165,8 @@ static int32_t sdc_write_block(int32_t block, const char* buf) {
 	_txbuf_index = buf; _txcount = SDC_BLOCK_SIZE;
 	_txdone = 0;
 
-	__raw_writel(0xFFFF0000, SDC_BASE + DATATIMER);
-	__raw_writel(SDC_BLOCK_SIZE, SDC_BASE + DATALENGTH);
+	put32(SDC_BASE + DATATIMER, 0xFFFF0000);
+	put32(SDC_BASE + DATALENGTH, SDC_BLOCK_SIZE);
 
 	cmd = 25;                  // CMD24 = Write single sector; 25=read block
 	arg = (uint32_t)((block*2)*512);  // absolute byte offset in diks
@@ -175,7 +174,7 @@ static int32_t sdc_write_block(int32_t block, const char* buf) {
 
 	//printk("dataControl=%x\n", 0x91);
 	// write 0x91=|9|0001|=|9|DMA=0,BLOCK=0,0=Host->Card, Enable
-	__raw_writel(0x91, SDC_BASE + DATACTRL); // Host->card
+	put8(SDC_BASE + DATACTRL, 0x91); // Host->card
 
 	CRIT_OUT(_p_lock)
 	return 0;
@@ -191,7 +190,7 @@ void sdc_handle() {
 	uint32_t *up;
 
 	// read status register to find out TXempty or RxAvail
-	status = __raw_readl(SDC_BASE + STATUS);
+	status = get32(SDC_BASE + STATUS);
 
 	if (status & (1<<17)){ // RxFull: read 16 uint32_t at a time;
 		//printk("SDC RX interrupt: ");
@@ -200,11 +199,11 @@ void sdc_handle() {
 		if (!status_err && _rxcount) {
 			//printk("R%d ", _rxcount);
 			for (i = 0; i < 16; i++)
-				*(up + i) = __raw_readl(SDC_BASE + FIFO);
+				*(up + i) = get32(SDC_BASE + FIFO);
 			up += 16;
 			_rxcount -= 64;
 			_rxbuf_index += 64;
-			status = __raw_readl(SDC_BASE + STATUS); // read status to clear Rx interrupt
+			status = get32(SDC_BASE + STATUS); // read status to clear Rx interrupt
 		}
 		if (_rxcount == 0){
 			do_command(12, 0, MMC_RSP_R1); // stop transmission
@@ -220,11 +219,11 @@ void sdc_handle() {
 		if (!status_err && _txcount) {
 			// printk("W%d ", _txcount);
 			for (i = 0; i < 16; i++)
-				__raw_writel(*(up + i), SDC_BASE + FIFO);
+				put32(SDC_BASE + FIFO, *(up + i));
 			up += 16;
 			_txcount -= 64;
 			_txbuf_index += 64;            // advance _txbuf_index for next write  
-			status = __raw_readl(SDC_BASE + STATUS); // read status to clear Tx interrupt
+			status = get32(SDC_BASE + STATUS); // read status to clear Tx interrupt
 		}
 		if (_txcount == 0){
 			do_command(12, 0, MMC_RSP_R1); // stop transmission
@@ -232,7 +231,7 @@ void sdc_handle() {
 		}
 	}
 	//printk("write to clear register\n");
-	__raw_writel(0xFFFFFFFF, SDC_BASE + STATUS_CLEAR);
+	put32(SDC_BASE + STATUS_CLEAR, 0xFFFFFFFF);
 	// printk("SDC interrupt handler done\n");
 }
 

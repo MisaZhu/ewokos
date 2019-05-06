@@ -23,14 +23,14 @@ CFLAGS = \
 	-fno-builtin-printf -fno-builtin-strcpy -Wno-overlength-strings \
 	-fno-builtin-exit -fno-builtin-stdio \
 	-std=c99 \
-	-g \
+	-O2 \
 	-mcpu=$(CPU)
 
 ifeq ($(keymap2), yes)
 CFLAGS += -DCONFIG_KEYMAP2
 endif
 
-ASFLAGS = -g -I. -I include -I../lib/include -mcpu=$(CPU) $(ARCH_QEMU_CFLAGS)
+ASFLAGS = -O2 -I. -I include -I../lib/include -mcpu=$(CPU) $(ARCH_QEMU_CFLAGS)
 QEMU_FLAGS = $(ARCH_QEMU_FLAGS)
 
 all: $(OS).bin 

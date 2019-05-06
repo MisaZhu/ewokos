@@ -18,7 +18,7 @@
 #define UART_TRANSMIT 0x20
 
 bool uart_init(void) {
-	UART0[UART_INT_ENABLE] = UART_RECEIVE;
+	put32(UART0+UART_INT_ENABLE, UART_RECEIVE);
 	return true;
 }
 
@@ -26,7 +26,7 @@ void uart_trans(char c) {
 	/* wait until transmit buffer is full */
 	while (UART0[UART_FLAGS] & UART_TRANSMIT);
 	/* write the character */
-	UART0[UART_DATA] = c;
+	put8(UART0+UART_DATA, c);
 }
 
 void uart_putch(int c) {
@@ -36,11 +36,11 @@ void uart_putch(int c) {
 }
 
 bool uart_ready_to_recv(void) {
-	return UART0[UART_INT_TARGET] & UART_RECEIVE;
+	return get8(UART0+UART_INT_TARGET) &  UART_RECEIVE;
 }
 
 int32_t uart_recv(void) {
-	return UART0[UART_DATA];
+	return get32(UART0 + UART_DATA);
 }
 
 #define UART_BUF_SIZE 16
