@@ -5,14 +5,14 @@ CC = arm-none-eabi-gcc
 CXX = arm-none-eabi-c++
 LD = arm-none-eabi-ld
 
-COMMON_LIB=../lib
-COMMON_OBJ=$(COMMON_LIB)/src/kstring.o \
-	$(COMMON_LIB)/src/basic_math.o \
-	$(COMMON_LIB)/src/device.o \
-	$(COMMON_LIB)/src/sconf_parse.o \
-	$(COMMON_LIB)/src/ext2.o \
-	$(COMMON_LIB)/src/arm_memcpy.o \
-	$(COMMON_LIB)/src/vprintf.o
+COMMON_LIB=../kernel
+COMMON_OBJ=$(COMMON_LIB)/lib/kstring.o \
+	$(COMMON_LIB)/lib/basic_math.o \
+	$(COMMON_LIB)/lib/device.o \
+	$(COMMON_LIB)/lib/sconf_parse.o \
+	$(COMMON_LIB)/lib/ext2.o \
+	$(COMMON_LIB)/lib/vprintf.o \
+	$(COMMON_LIB)/arch/arm/common/memcpy.o
 
 # flags
 CFLAGS = -I. -g \

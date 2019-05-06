@@ -17,8 +17,9 @@
 #define UART_RECEIVE  0x10
 #define UART_TRANSMIT 0x20
 
-void uart_init(void) {
+bool uart_init(void) {
 	UART0[UART_INT_ENABLE] = UART_RECEIVE;
+	return true;
 }
 
 void uart_trans(char c) {
