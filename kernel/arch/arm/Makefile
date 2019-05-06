@@ -109,6 +109,7 @@ INCDIR   := mach-$(incdir-y)
 
 ifneq ($(machine-y),)
 MACHINE  := arch/arm/mach-$(machine-y)/
+include arch/arm/mach-$(machine-y)/config.mk
 else
 MACHINE  :=
 endif
@@ -154,6 +155,29 @@ CLEAN_FILES += arch/$(ARCH)/boot/ewokos.bin
 archclean:
 	$(Q)$(MAKE) $(clean)=$(boot)
 
+run:
+	qemu-system-arm $(QEMU_FLAGS) \
+	-kernel arch/arm/boot/ewokos.bin \
+	-serial mon:stdio -sd ../rootfs/rootfs.ext2
+runasm:
+	qemu-system-arm $(QEMU_FLAGS) -d in_asm \
+	-kernel arch/arm/boot/ewokos.bin \
+	-serial mon:stdio -sd ../rootfs/rootfs.ext2
+debug:
+	qemu-system-arm $(QEMU_FLAGS) -gdb tcp::26000 -S \
+	-kernel arch/arm/boot/ewokos.bin \
+	-serial mon:stdio -sd ../rootfs/rootfs.ext2
+debugasm:
+	qemu-system-arm $(QEMU_FLAGS) -gdb tcp::26000 -S -d in_asm \
+	-kernel arch/arm/boot/ewokos.bin \
+	-serial mon:stdio -sd ../rootfs/rootfs.ext2
+gdb:
+	echo "target remote :26000" > /tmp/gdbinit
+	arm-none-eabi-gdb ewokos -x /tmp/gdbinit
+
 define archhelp
   echo  '  ewokos.bin     - Binary image (arch/$(ARCH)/boot/ewokos.bin)'
+  echo  '  run/runasm     - Run (arch/$(ARCH)/boot/ewokos.bin)'
+  echo  '  debug/debugasm - Run (arch/$(ARCH)/boot/ewokos.bin) in debug mode'
+  echo  '  gdb            - Attach debug mode EwokOS'
 endef

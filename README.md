@@ -32,10 +32,8 @@
 	
 	"cd rootfs; make; ./mkfs.sh":
 	  build EwokOS root filesystem.
-	"cd kernel; make":
-	  build EwokOS kernel in old style.
-	"cd kernel; make -f Makefile.kb versatilepb_defconfig; make -f Makefile.kb":
-	  build EwokOS kernel in new style.
+	"cd kernel; make versatilepb_defconfig; make":
+	  build EwokOS kernel image.
 	"cd kernel; make run":
 	  run EwokOS;
 	  "qemu-system-arm -kernel build/EwokOS.bin -serial mon:stdio -sd ../rootfs/rootfs.ext2"
