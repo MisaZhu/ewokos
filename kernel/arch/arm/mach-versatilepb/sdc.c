@@ -80,11 +80,11 @@
 #define SDC_BASE (MMIO_BASE + 0x5000) // PL180 SDC_BASE address
 
 // shared variables between SDC driver and interrupt handler
-static int32_t _p_lock = 0;
-static char *_rxbuf_index;
-static char *_rxbuf;
-static const char *_txbuf_index;
-static uint32_t _rxcount, _txcount, _rxdone, _txdone;
+volatile int32_t _p_lock = 0;
+volatile char *_rxbuf_index;
+volatile char *_rxbuf;
+volatile const char *_txbuf_index;
+volatile uint32_t _rxcount, _txcount, _rxdone, _txdone;
 
 static inline void do_command(int32_t cmd, int32_t arg, int32_t resp) {
 	*(uint32_t *)(SDC_BASE + ARGUMENT) = (uint32_t)arg;
@@ -148,7 +148,7 @@ static inline int32_t sdc_read_done(char* buf) {
 		return -1;
 	}
 
-	memcpy(buf, _rxbuf, SDC_BLOCK_SIZE);
+	memcpy(buf, (void*)_rxbuf, SDC_BLOCK_SIZE);
 	CRIT_OUT(_p_lock)
 	return 0;
 }
