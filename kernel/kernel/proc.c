@@ -14,7 +14,7 @@
 #include <timer.h>
 #include <mm/shm.h>
 
-process_t _process_table[PROCESS_COUNT_MAX];
+static process_t _process_table[PROCESS_COUNT_MAX];
 
 __attribute__((__aligned__(PAGE_DIR_SIZE)))
 static page_dir_entry_t _processVM[PROCESS_COUNT_MAX][PAGE_DIR_NUM];
@@ -28,6 +28,50 @@ void proc_init(void) {
 	for (i = 0; i < PROCESS_COUNT_MAX; i++)
 		_process_table[i].state = UNUSED;
 	_current_proc = NULL;
+}
+
+int32_t get_procs_num() {
+	int32_t res = 0;
+	int32_t i;
+	for(i=0; i<PROCESS_COUNT_MAX; i++) {
+		if(_process_table[i].state != UNUSED && 
+				(_current_proc->owner == 0 || 
+				_process_table[i].owner == _current_proc->owner)) {
+			res++;
+		}
+	}
+	return res;
+}
+
+proc_info_t* get_procs(int32_t *num) {
+	*num = get_procs_num();
+	if(*num == 0)
+		return NULL;
+
+	/*need to be freed later used!*/
+	proc_info_t* procs = (proc_info_t*)pmalloc(sizeof(proc_info_t)*(*num));
+	if(procs == NULL)
+		return NULL;
+
+	int32_t j = 0;
+	int32_t i;
+	for(i=0; i<PROCESS_COUNT_MAX && j<(*num); i++) {
+		if(_process_table[i].state != UNUSED && 
+				(_current_proc->owner == 0 ||
+				 _process_table[i].owner == _current_proc->owner)) {
+			procs[j].pid = _process_table[i].pid;	
+			procs[j].father_pid = _process_table[i].father_pid;	
+			procs[j].owner = _process_table[i].owner;	
+			procs[j].state = _process_table[i].state;
+			procs[j].start_sec = _process_table[i].start_sec;	
+			procs[j].heap_size = _process_table[i].space->heap_size;	
+			strcpy(procs[j].cmd, _process_table[i].cmd);
+			j++;
+		}
+	}
+
+	*num = j;
+	return procs;
 }
 
 /* proc_exapnad_memory expands the heap size of the given process. */
@@ -199,7 +243,7 @@ process_t *proc_create(uint32_t type) {
 	return proc;
 }
 
-inline int32_t *get_current_context(void) {
+inline uint32_t *get_current_context(void) {
 	return _current_proc->context;
 }
 
@@ -337,7 +381,9 @@ void proc_start(process_t *proc) {
 	/* clear TLB */
 	__asm__ volatile("mov R4, #0");
 	__asm__ volatile("MCR p15, 0, R4, c8, c7, 0");
-	__switch_to_context(proc->context);
+
+	volatile uint32_t* context = proc->context;
+	__switch_to_context(context);
 }
 
 process_t* proc_get(int32_t pid) {

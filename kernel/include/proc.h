@@ -93,7 +93,7 @@ typedef struct process {
 	entry_function_t entry;
 	char *user_stack;
 	//char *kernelStack;
-	int32_t context[17];
+	uint32_t context[17];
 
 	process_space_t* space;
 
@@ -104,14 +104,13 @@ typedef struct process {
 
 /* public symbols */
 extern process_t *_current_proc;
-extern process_t _process_table[PROCESS_COUNT_MAX];
 
 extern const char* proc_get_env(const char* name);
 extern const char* proc_get_env_name(int32_t index);
 extern const char* proc_get_env_value(int32_t index);
 extern int32_t proc_set_env(const char* name, const char* value);
 
-extern int32_t *get_current_context(void);
+extern uint32_t *get_current_context(void);
 extern void proc_init();
 extern process_t *proc_create(uint32_t type);
 bool proc_load(process_t *proc, const char *proc_image, uint32_t img_size);
@@ -131,6 +130,9 @@ process_t* kfork(uint32_t type);
 void proc_exit(process_t* proc);
 void* pmalloc(uint32_t size);
 void pfree(void* p);
+
+int32_t get_procs_num();
+proc_info_t* get_procs(int32_t *num);
 
 #endif
 

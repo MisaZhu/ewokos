@@ -5,7 +5,7 @@
 #include <scheduler.h>
 
 void __set_translation_table_base(uint32_t v);
-void __switch_to_context(int32_t *context);
+void __switch_to_context(volatile uint32_t *context);
 
 extern uint32_t __cli(); //disable interrupts
 extern void __sti(uint32_t cpsr); //enable interrupts
