@@ -19,6 +19,7 @@ OBJDUMP = arm-none-eabi-objdump
 CFLAGS = \
 	-I. -I../include -I../arch/arm/include \
 	-marm $(QEMU_CFLAGS) \
+	-Wstrict-prototypes \
 	-pedantic -Wall -Wextra -msoft-float -fPIC -mapcs-frame \
 	-fno-builtin-printf -fno-builtin-strcpy -Wno-overlength-strings \
 	-fno-builtin-exit -fno-builtin-stdio \
