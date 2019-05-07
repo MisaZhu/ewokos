@@ -32,15 +32,15 @@ static char* line(char* ln, int32_t* sz, char c) {
 	return ret;
 }
 
+static char* _line = NULL;
+static int32_t _line_buf_size = 0;
+
 static void grep_line(char* str, const char* key) {
 	if(str == NULL || str[0] == 0 || key == NULL )
 		return;
 	if(strstr(str, key) != NULL) 
-		printf("  %s\n", str);
+		printf("%s\n", str);
 }
-
-static char* _line = NULL;
-static int32_t _line_buf_size = 0;
 	
 static void grep(char* str, int32_t sz, const char* key) {
 	int32_t i = 0;
