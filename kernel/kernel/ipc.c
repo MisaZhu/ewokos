@@ -86,14 +86,15 @@ static inline bool check_channel(channel_t* channel) {
 }
 
 /*close kernel ipc channel*/
-static int32_t ipc_close_raw(channel_t* channel) {
+static int32_t ipc_close_raw(int32_t pid, channel_t* channel) {
 	shm_proc_unmap(channel->proc_map[0].pid, channel->shm_id);
 	shm_proc_unmap(channel->proc_map[1].pid, channel->shm_id);
 	shm_free(channel->shm_id);
 
-	proc_wake(channel->proc_map[0].pid);
-	proc_wake(channel->proc_map[1].pid);
-
+	if(pid == channel->proc_map[0].pid)
+		proc_wake(channel->proc_map[1].pid);
+	else
+		proc_wake(channel->proc_map[1].pid);
 	memset(channel, 0, sizeof(channel_t));
 	channel->ring = -1;
 	channel->shm_id = -1;
@@ -109,7 +110,7 @@ int32_t ipc_close(int32_t id) {
 	int32_t ret = -1;
 	if(check_channel(channel)) {
 		if(channel->size == 0)
-			ret = ipc_close_raw(channel);
+			ret = ipc_close_raw(_current_proc->pid, channel);
 	}	
 	else {
 		ret = 0;
@@ -162,11 +163,10 @@ int32_t ipc_write(int32_t id, void* data, uint32_t size) {
 	CRIT_IN(_p_lock)
 	int32_t pid = _current_proc->pid;
 	channel_t* channel = ipc_get_channel(id);
-	if(size == 0 || channel->ring < 0 ||  channel->ring > 1 || channel->shm_id < 0) { //closed.
+	if(channel == NULL || size == 0 || channel->ring < 0 || channel->shm_id < 0) { //closed.
 		CRIT_OUT(_p_lock)
 		return 0;
 	}
-	
 	if(channel->proc_map[channel->ring].pid != pid) {//not read for current proc.
 		CRIT_OUT(_p_lock)
 		return -1;
@@ -193,7 +193,7 @@ int32_t ipc_read(int32_t id, void* data, uint32_t size) {
 	CRIT_IN(_p_lock)
 	channel_t* channel = ipc_get_channel(id);
 	if(channel == NULL || data == NULL || size == 0 || 
-			channel->ring < 0 || channel->ring > 1 ||channel->shm_id < 0) { //closed.
+			channel->ring < 0 ||channel->shm_id < 0) { //closed.
 		CRIT_OUT(_p_lock)
 		return 0;
 	}
@@ -258,7 +258,7 @@ void ipc_close_all(int32_t pid) {
 		if(channel->ring < 0)
 			continue;
 		if(channel->proc_map[0].pid == pid || channel->proc_map[1].pid == pid) 
-			ipc_close_raw(channel);
+			ipc_close_raw(pid, channel);
 	}
 	CRIT_OUT(_p_lock)
 }
