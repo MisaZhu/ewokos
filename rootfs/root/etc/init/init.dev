@@ -8,5 +8,5 @@
 /sbin/dev/moused   dev.mouse     0        /dev/mouse0   f
 /sbin/dev/consoled dev.console   0        /dev/console0 f
 
-/sbin/dev/sramdisk dev.sramdisk  0        /ramdisk      d
+/sbin/dev/sramdisk dev.sramdisk  0        /home         d
 /sbin/dev/sramdisk dev.sramdisk  1        /tmp          d
