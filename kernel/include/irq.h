@@ -14,6 +14,7 @@ extern void handle_irq(void);
 /* architecture specific functions */
 extern void enable_irq(uint32_t line);
 extern void get_pending_irqs(bool *result);
-extern void irq_init();
+extern void irq_init(void);
+extern void irq_handle(void);
 
 #endif

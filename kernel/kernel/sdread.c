@@ -2,6 +2,7 @@
 #include <kstring.h>
 #include <dev/basic_dev.h>
 #include <mm/kmalloc.h>
+#include <sdread.h>
 
 static char buf1[SDC_BLOCK_SIZE];
 static char buf2[SDC_BLOCK_SIZE];

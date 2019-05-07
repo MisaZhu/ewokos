@@ -111,7 +111,7 @@ extern const char* proc_get_env_value(int32_t index);
 extern int32_t proc_set_env(const char* name, const char* value);
 
 extern uint32_t *get_current_context(void);
-extern void proc_init();
+extern void proc_init(void);
 extern process_t *proc_create(uint32_t type);
 bool proc_load(process_t *proc, const char *proc_image, uint32_t img_size);
 void proc_start(process_t *proc);
@@ -131,8 +131,9 @@ void proc_exit(process_t* proc);
 void* pmalloc(uint32_t size);
 void pfree(void* p);
 
-int32_t get_procs_num();
+int32_t get_procs_num(void);
 proc_info_t* get_procs(int32_t *num);
+void _abort_entry(uint32_t vaddr);
 
 #endif
 

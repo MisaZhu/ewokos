@@ -4,7 +4,7 @@
 #include <types.h>
 
 /*init ipcernel ipc channel*/
-void ipc_init();
+void ipc_init(void);
 
 /*open ipcernel ipc channel*/
 int32_t ipc_open(int32_t pid, uint32_t buf_size);
@@ -25,7 +25,7 @@ int32_t ipc_ring(int32_t id);
 int32_t ipc_peer(int32_t id);
 
 /*get ready to read id of current proc*/
-int32_t ipc_ready();
+int32_t ipc_ready(void);
 
 /*close all channel of current proc*/
 void ipc_close_all(int32_t pid);

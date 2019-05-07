@@ -1,7 +1,7 @@
 #include <irq.h>
 #include <mm/mmu.h>
-
 #include <timer.h>
+#include <dev/basic_dev.h>
 
 /* memory mapping for the prime interrupt controller */
 #define PIC ((volatile uint32_t*)(MMIO_BASE+0x00140000))
@@ -35,12 +35,7 @@ void irq_init() {
 	SIC[SIC_INT_ENABLE] |= SINT_SDC; //SD card.
 }
 
-void keyboard_handle();
-void mouse_handle();
-void uart_handle();
-void sdc_handle();
-
-void irq_handle() {
+void irq_handle(void) {
 	uint32_t pic_status = PIC[PIC_STATUS];
 	uint32_t sic_status = SIC[SIC_STATUS];
 	uint32_t irq = PIC[PIC_INTACK] & 0x3ff;

@@ -34,7 +34,7 @@ void shm_init() {
 	shmem_count = 0;
 }
 
-static share_mem_t* shmNew() {
+static share_mem_t* shm_new(void) {
 	share_mem_t* ret = (share_mem_t*)km_alloc(sizeof(share_mem_t));
 	if(ret == NULL)
 		return NULL;
@@ -100,7 +100,7 @@ int32_t shm_alloc(uint32_t size) {
 	if(i != NULL) { //avaible item found.
 		addr =  i->addr;
 		if(i->pages > pages) { //try split one item to two;
-			tmp = shmNew();
+			tmp = shm_new();
 			if(tmp != NULL) {
 				tmp->pages = i->pages -  pages;
 				tmp->addr = i->addr + (pages * PAGE_SIZE);
@@ -116,7 +116,7 @@ int32_t shm_alloc(uint32_t size) {
 		}
 	}
 	else { // not found, need to expand pages for new block.
-		i = shmNew();
+		i = shm_new();
 		if(i == NULL) {
 			CRIT_OUT(_p_lock)
 			return -1;

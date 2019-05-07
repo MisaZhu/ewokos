@@ -14,6 +14,7 @@
 #include <dev/basic_dev.h>
 #include <printk.h>
 #include <sconf.h>
+#include <sdread.h>
 
 page_dir_entry_t* _kernel_vm;
 static uint32_t _phy_mem_size = 0;
@@ -53,7 +54,7 @@ void set_kernel_vm(page_dir_entry_t* vm) {
 	arch_set_kernel_vm(vm);
 }
 
-static void init_kernel_vm() {
+static void init_kernel_vm(void) {
 	/*
 	build free mems list only for kernel init.
 	We can only use init memory part
@@ -79,7 +80,7 @@ static void init_kernel_vm() {
 	km_init();
 }
 
-static void init_allocable_mem() {
+static void init_allocable_mem(void) {
 	_phy_mem_size = get_phy_ram_size();
 
 	map_pages(_kernel_vm,
@@ -91,8 +92,8 @@ static void init_allocable_mem() {
 	kalloc_init(ALLOCATABLE_MEMORY_START + INIT_RESERV_MEMORY_SIZE, P2V(_phy_mem_size));
 }
 
-char* from_sd(const char *filename, int32_t* sz);
-static process_t* load_init_proc() {
+extern char* from_sd(const char *filename, int32_t* sz);
+static process_t* load_init_proc(void) {
 	const char* name = "/sbin/init";
 
 	printk("Loading the first process ... ");
@@ -118,7 +119,7 @@ static process_t* load_init_proc() {
 	return proc;
 }
 
-static void welcome() {
+static void welcome(void) {
 	printk("\n=================\n"
 				"EwokOS (by Misa.Z)\n"
 				"=================\n"

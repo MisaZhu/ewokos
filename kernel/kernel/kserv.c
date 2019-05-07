@@ -84,9 +84,10 @@ int32_t kserv_ready() {
 	return ret;
 }
 
-int32_t kserv_unreg() {
+int32_t kserv_unreg(process_t* proc) {
+	if(proc == NULL)
+		return -1;
 	CRIT_IN(_kserv_lock)
-	process_t* proc = _current_proc;
 	int32_t i, ret = -1;
 	for(i=0; i<KSERV_MAX; i++) {
 		if(_kernelServices[i].pid == proc->pid) {

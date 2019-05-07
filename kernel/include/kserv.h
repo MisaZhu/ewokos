@@ -19,9 +19,9 @@ typedef struct {
 
 int32_t kserv_reg(const char* name); 
 
-int32_t kserv_ready();
+int32_t kserv_ready(void);
 
-int32_t kserv_unreg(); 
+int32_t kserv_unreg(process_t* proc); 
 
 //if service not exist or not ready , will return -1
 int32_t kserv_get_by_name(const char* name);

@@ -3,7 +3,7 @@
 
 #include <types.h>
 
-void shm_init();
+void shm_init(void);
 
 int32_t shm_alloc(uint32_t size);
 

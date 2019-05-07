@@ -22,24 +22,24 @@ bool uart_init(void) {
 	return true;
 }
 
-void uart_trans(char c) {
+static void uart_trans(char c) {
 	/* wait until transmit buffer is full */
 	while (UART0[UART_FLAGS] & UART_TRANSMIT);
 	/* write the character */
 	put8(UART0+UART_DATA, c);
 }
 
-void uart_putch(int c) {
+static void uart_putch(int c) {
 	if(c == '\r')
 		c = '\n';
 	uart_trans(c);
 }
 
-bool uart_ready_to_recv(void) {
+static bool uart_ready_to_recv(void) {
 	return get8(UART0+UART_INT_TARGET) &  UART_RECEIVE;
 }
 
-int32_t uart_recv(void) {
+static int32_t uart_recv(void) {
 	return get32(UART0 + UART_DATA);
 }
 
@@ -65,13 +65,14 @@ int32_t dev_uart_read(int16_t id, void* buf, uint32_t size) {
 	CRIT_OUT(_uart_lock)
 	return i;	
 }
-
-int32_t uart_getch() {
+/*
+static int32_t uart_getch(void) {
 	char c;
 	if(dev_uart_read(0, &c, 1) == 0)
 		return 0;
 	return (int32_t)c;
 }
+*/
 
 int32_t dev_uart_write(int16_t id, void* buf, uint32_t size) {
 	(void)id;

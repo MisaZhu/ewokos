@@ -4,6 +4,7 @@
 #include <kstring.h>
 #include <scheduler.h>
 #include <device.h>
+#include "dev/basic_dev.h"
 
 #define CONFIG_ARM_PL180_MMCI_CLOCK_FREQ 6250000
 #define MMC_RSP_PRESENT (1 << 0)
@@ -91,7 +92,7 @@ static inline void do_command(int32_t cmd, int32_t arg, int32_t resp) {
 	put32(SDC_BASE + COMMAND, 0x400 | (resp<<6) | cmd);
 }
 
-bool sdc_init() {
+bool sdc_init(void) {
 	_rxdone = 1;
 	_txdone = 1;
 	_rxbuf = km_alloc(SDC_BLOCK_SIZE);
@@ -180,11 +181,11 @@ static int32_t sdc_write_block(int32_t block, const char* buf) {
 	return 0;
 }
 
-static inline int32_t sdc_write_done() {
+static inline int32_t sdc_write_done(void) {
 	return _txdone;
 }
 
-void sdc_handle() {
+void sdc_handle(void) {
 	int32_t status, status_err;
 	int32_t i; 
 	uint32_t *up;

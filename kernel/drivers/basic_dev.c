@@ -1,12 +1,11 @@
 #include <dev/basic_dev.h>
 #include <proc.h>
-#include <sconf.h>
 
 /*some devices     */
-bool uart_init();
-bool keyboard_init();
-bool mouse_init();
-bool sdc_init();
+extern bool uart_init(void);
+extern bool keyboard_init(void);
+extern bool mouse_init(void);
+extern bool sdc_init(void);
 
 bool dev_init() {
 	if(!uart_init())
@@ -20,7 +19,7 @@ bool dev_init() {
 	return true;
 }
 
-bool fb_init(sconf_t* conf);
+extern bool fb_init(sconf_t* conf);
 
 bool conf_dev_init(sconf_t* conf) {
 	if(!fb_init(conf))
@@ -29,7 +28,7 @@ bool conf_dev_init(sconf_t* conf) {
 }
 
 /*some devices     */
-int32_t dev_fb_info(int16_t id, void* info);
+extern int32_t dev_fb_info(int16_t id, void* info);
 /*******************/
 
 int32_t dev_info(int32_t type_id, void* info) {
@@ -46,13 +45,13 @@ int32_t dev_info(int32_t type_id, void* info) {
 }
 
 /*some char devices*/
-int32_t dev_keyboard_read(int16_t id, void* buf, uint32_t size);
-int32_t dev_mouse_read(int16_t id, void* buf, uint32_t size);
+extern int32_t dev_keyboard_read(int16_t id, void* buf, uint32_t size);
+extern int32_t dev_mouse_read(int16_t id, void* buf, uint32_t size);
 
-int32_t dev_uart_read(int16_t id, void* buf, uint32_t size);
-int32_t dev_uart_write(int16_t id, void* buf, uint32_t size);
+extern int32_t dev_uart_read(int16_t id, void* buf, uint32_t size);
+extern int32_t dev_uart_write(int16_t id, void* buf, uint32_t size);
 
-int32_t dev_fb_write(int16_t id, void* buf, uint32_t size);
+extern int32_t dev_fb_write(int16_t id, void* buf, uint32_t size);
 /*******************/
 
 int32_t dev_char_read(int32_t type_id, void* buf, uint32_t size) {
@@ -94,10 +93,10 @@ int32_t dev_char_write(int32_t type_id, void* buf, uint32_t size) {
 }
 
 /*some block devices*/
-int32_t dev_sdc_read(int16_t id, uint32_t block);
-int32_t dev_sdc_read_done(int16_t id, void* buf);
-int32_t dev_sdc_write(int16_t id, uint32_t block, void* buf);
-int32_t dev_sdc_write_done(int16_t id);
+extern int32_t dev_sdc_read(int16_t id, uint32_t block);
+extern int32_t dev_sdc_read_done(int16_t id, void* buf);
+extern int32_t dev_sdc_write(int16_t id, uint32_t block, void* buf);
+extern int32_t dev_sdc_write_done(int16_t id);
 /********************/
 
 int32_t dev_block_read(int32_t type_id, uint32_t block) {

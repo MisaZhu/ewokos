@@ -156,7 +156,7 @@ static int32_t syscall_ipc_open(int32_t arg0, int32_t arg1) {
 	return ipc_open(arg0, arg1);
 }
 
-static int32_t syscall_ipc_ready() {
+static int32_t syscall_ipc_ready(void) {
 	return ipc_ready();
 }
 
@@ -262,7 +262,7 @@ static int32_t syscall_kserv_reg(int32_t arg0) {
 	return kserv_reg((const char*)arg0);
 }
 
-static int32_t syscall_kserv_ready() {
+static int32_t syscall_kserv_ready(void) {
 	if(_current_proc->owner > 0)
 		return -1;
 	return kserv_ready();

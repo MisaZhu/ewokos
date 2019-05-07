@@ -2,7 +2,7 @@
 #include "hardware.h"
 #include "kstring.h"
 #include "fbinfo.h"
-#include "sconf.h"
+#include "dev/basic_dev.h"
 
 enum {
 	RES_640x480 = 0,
@@ -11,7 +11,7 @@ enum {
 };
 static int32_t _res = RES_640x480;
 
-int32_t video_init(fb_info_t *fb_info) {
+static int32_t video_init(fb_info_t *fb_info) {
 	if(_res == RES_640x480) {
 		put32((MMIO_BASE | 0x1c), 0x2c77);
 		put32((MMIO_BASE | 0x00120000), 0x3f1f3f9c);

@@ -10,7 +10,7 @@ typedef struct kfile {
 	uint16_t ref_w;
 } kfile_t;
 
-void kf_init();
+void kf_init(void);
 int32_t kf_open(int32_t pid, fs_info_t* info, int32_t wr);
 void kf_close(int32_t pid, int32_t fd);
 int32_t kf_dup2(int32_t old_fd, int32_t new_fd);

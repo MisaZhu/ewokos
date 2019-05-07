@@ -12,5 +12,6 @@ extern page_dir_entry_t* _kernel_vm;
 void set_kernel_vm(page_dir_entry_t* vm);
 void set_allocable_vm(page_dir_entry_t* vm);
 
+extern void kernel_entry(void);
 
 #endif
