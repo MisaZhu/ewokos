@@ -52,6 +52,9 @@ config CC_GEN_DEBUG
 	  development and want to debug, answer Y.
 	  Most people should answer N.
 
+config CC_GEN_EXTRA_WARNINGS
+	bool "Compile with extra warnings"
+
 endif
 
 endmenu

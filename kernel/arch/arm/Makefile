@@ -15,12 +15,6 @@ CFLAGS		+=-ffixed-r8
 AFLAGS		+=
 LDFLAGS_ewokos	:=--gc-sections -p --no-undefined -X
 
-CFLAGS		+=\
-	-pedantic -Wall -Wextra -msoft-float -fPIC -mapcs-frame \
-	-fno-builtin-printf -fno-builtin-strcpy -Wno-overlength-strings \
-	-fno-builtin-exit -fno-builtin-stdio \
-	-std=c99
-
 # Never generate .eh_frame
 CFLAGS		+= $(call cc-option,-fno-dwarf2-cfi-asm)
 
@@ -29,6 +23,9 @@ KBUILD_DEFCONFIG := versatilepb_defconfig
 
 ifeq ($(CONFIG_FRAME_POINTER),y)
 CFLAGS		+=-fno-omit-frame-pointer -mapcs -mno-sched-prolog
+endif
+ifeq ($(CONFIG_CC_GEN_EXTRA_WARNINGS),y)
+CFLAGS		+=-Wextra -Wstrict-prototypes -Wmissing-prototypes
 endif
 
 ifeq ($(CONFIG_CPU_BIG_ENDIAN),y)
