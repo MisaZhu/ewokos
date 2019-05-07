@@ -9,7 +9,7 @@ static void help() {
 	printf(
 		"console config tool\n"
 		"usage: cons <cmd> <arg> [dev_name]\n"
-		"    cons fonts:          list font names\n"
+		"    cons font:           list font names\n"
 		"    cons font <NAME>:    set font\n"
 		"    cons fg <HEX_COLOR>: set foreground color\n"
 		"    cons bg <HEX_COLOR>: set background color\n");
@@ -35,7 +35,7 @@ int main(int argc, char* argv[]) {
 		help();
 		return -1;
 	}
-	else if(strcmp(argv[1], "fonts") == 0) {
+	else if(strcmp(argv[1], "font") == 0 && argc == 2) {
 		fonts();
 		return 0;
 	}
