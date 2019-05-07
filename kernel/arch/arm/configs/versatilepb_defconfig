@@ -1,7 +1,7 @@
 #
 # Automatically generated make config: don't edit
 # EwokOS version: 1.0.0.0
-# Sat May  4 00:26:20 2019
+# Tue May  7 14:49:26 2019
 #
 CONFIG_ARM=y
 
@@ -33,4 +33,6 @@ CONFIG_KEYMAP2=y
 # Generic setup
 #
 # CONFIG_EXPERIMENTAL is not set
-CONFIG_CC_OPT_SIZE=y
+CONFIG_CC_OPT_SPEED=y
+# CONFIG_CC_OPT_SIZE is not set
+# CONFIG_CC_OPT_NONE is not set
