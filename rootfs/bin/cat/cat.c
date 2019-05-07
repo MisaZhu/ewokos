@@ -19,9 +19,16 @@ int main(int argc, char* argv[]) {
 	int fd_w = _stdout;
 	while(true) {
 		char buf[128];
-		int sz = read(fd, buf, 128);
+		int sz;
+		while(true) { //non-block
+			sz = read(fd, buf, 128);
+			if(sz < 0 && errno == EAGAIN)
+				continue;
+			break;
+		}
 		if(sz <= 0)
 			break;
+
 		int res = -1;
 		while(true) { //non-block
 			res = write(fd_w, buf, sz);

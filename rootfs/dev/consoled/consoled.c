@@ -215,6 +215,10 @@ int32_t console_read(uint32_t node, void* buf, uint32_t size, int32_t seek) {
 		res = -1;
 		errno = EAGAIN;
 	}
+	else if(res < 0) 
+		return -1;
+	if(((char*)buf)[0] == 0x4)//ctrl+d
+		res = 0;
 	return res;
 }
 
