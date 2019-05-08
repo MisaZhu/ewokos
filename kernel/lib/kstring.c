@@ -175,7 +175,7 @@ inline char *strchr(const char *str, int32_t character) {
 		return NULL;
 }
 
-static inline int32_t memcmp(void* m1, void* m2, uint32_t sz) {
+inline int32_t memcmp(void* m1, void* m2, uint32_t sz) {
 	char *p1 = (char*)m1;
 	char *p2 = (char*)m2;
 	if(sz == 0)
@@ -193,62 +193,41 @@ static inline int32_t memcmp(void* m1, void* m2, uint32_t sz) {
 	return 0;
 }
 
+static const char *strstr_bmh(const char *haystack, const char *needle) {
+	int needle_len, haystack_len, bc_table[UCHAR_MAX + 1], i;
+
+	needle_len = strlen(needle);
+	haystack_len = strlen(haystack);
+
+	/* Sanity check. */
+	if (needle[0] == '\0')
+		return haystack;
+
+	/* Initialize bad char shift table and populate with analysis of needle. */
+	for (i = 0; i < UCHAR_MAX + 1; i++)
+		bc_table[i] = needle_len;
+	for (i = 0; i < needle_len - 1; i++) 
+		bc_table[(unsigned char)needle[i]] = needle_len - 1 - i;
+
+	while (haystack_len >= needle_len){
+		/* Match needle to haystack from right to left. */
+		for (i = needle_len - 1; needle[i] == haystack[i]; i--)
+			if (i == 0)
+				return haystack;
+		/* Shift haystack based on bad char shift table. */ 
+		haystack_len -= bc_table[(unsigned char)haystack[needle_len - 1]];
+		haystack += bc_table[(unsigned char)haystack[needle_len - 1]];
+	}
+	/* No match. */
+	return NULL;
+}
+
 /**
  * Finds the first occurrence of the sub-string needle in the string haystack.
  * Returns NULL if needle was not found.
  */
 const char *strstr(const char *haystack, const char *needle) {
-	if (!*needle) // Empty needle.
-		return haystack;
-
-	const char needle_first  = *needle;
-
-	// Runs strchr() on the first section of the haystack as it has a lower
-	// algorithmic complexity for discarding the first non-matching characters.
-	haystack = strchr(haystack, needle_first);
-	if (!haystack) // First character of needle is not in the haystack.
-		return NULL;
-
-	// First characters of haystack and needle are the same now. Both are
-	// guaranteed to be at least one character long.
-	// Now computes the sum of the first needle_len characters of haystack
-	// minus the sum of characters values of needle.
-
-	const char* i_haystack = haystack + 1;
-	const char* i_needle  = needle + 1;
-	uint32_t sums_diff = *haystack;
-	bool identical = true;
-
-	while (*i_haystack && *i_needle) {
-		sums_diff += *i_haystack;
-		sums_diff -= *i_needle;
-		identical &= *i_haystack++ == *i_needle++;
-	}
-	// i_haystack now references the (needle_len + 1)-th character.
-	if (*i_needle) // haystack is smaller than needle.
-		return NULL;
-	else if (identical)
-		return haystack;
-	uint32_t needle_len    = i_needle - needle;
-	uint32_t needle_len_1  = needle_len - 1;
-
-	// Loops for the remaining of the haystack, updating the sum iteratively.
-	const char *sub_start;
-	for (sub_start = haystack; *i_haystack; i_haystack++) {
-		sums_diff -= *sub_start++;
-		sums_diff += *i_haystack;
-
-		// Since the sum of the characters is already known to be equal at that
-		// point, it is enough to check just needle_len-1 characters for
-		// equality.
-		if (
-				sums_diff == 0
-				&& needle_first == *sub_start // Avoids some calls to memcmp.
-				&& memcmp(sub_start, needle, needle_len_1) == 0
-			 )
-			return (const char *) sub_start;
-	}
-	return NULL;
+	return strstr_bmh(haystack, needle);	
 }
 
 /*

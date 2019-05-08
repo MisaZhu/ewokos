@@ -20,5 +20,6 @@ const char *strstr(const char *str, const char *delimiters);
 /* other functions */
 void *memset(void *target, int32_t c, uint32_t len);
 uint32_t strlen(const char *str);
+int32_t memcmp(void* m1, void* m2, uint32_t sz);
 
 #endif

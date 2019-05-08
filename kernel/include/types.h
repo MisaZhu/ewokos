@@ -42,6 +42,7 @@ typedef unsigned int u32_t;
 #define MB (1024*KB)
 #define GB (1024*MB)
 
+#define UCHAR_MAX 255
 #define CMD_MAX 128
 #define FULL_NAME_MAX 256
 #define SHORT_NAME_MAX 32
