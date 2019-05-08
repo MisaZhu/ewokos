@@ -5,18 +5,19 @@
 #include <kstring.h>
 
 int main(int argc, char* argv[]) {
-	char name[FULL_NAME_MAX];
+	tstr_t* fname = NULL;
 	if(argc < 2) {
-		fs_full_name("", name, FULL_NAME_MAX);
+		fname = fs_full_name("");
 	}
 	else {
-		fs_full_name(argv[1], name, FULL_NAME_MAX);
+		fname = fs_full_name(argv[1]);
 	}
-
+	const char *name = CS(fname);
 	int fd = open(name, O_RDONLY);
 	if(fd >= 0) {
 		fs_info_t dir_info;
 		if(fs_info(fd, &dir_info) != 0 || dir_info.type != FS_TYPE_DIR) {
+			tstr_free(fname);
 			close(fd);
 			return -1;
 		}
@@ -37,6 +38,6 @@ int main(int argc, char* argv[]) {
 		}
 		close(fd);
 	}
-
+	tstr_free(fname);
 	return 0;
 }

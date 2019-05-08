@@ -6,15 +6,16 @@
 #include <stdlib.h>
 
 int main(int argc, char* argv[]) {
-	char fname[FULL_NAME_MAX];
 	if(argc < 2)
 		return -1;
-	fs_full_name(argv[1], fname, FULL_NAME_MAX);
-	int fd = open(fname, O_RDONLY);
+	tstr_t* fname = fs_full_name(argv[1]);
+	int fd = open(CS(fname), O_RDONLY);
 	if(fd < 0) {
-		printf("'%s' open failed!\n", fname);
+		printf("'%s' open failed!\n", CS(fname));
+		tstr_free(fname);
 		return -1;
 	}
+	tstr_free(fname);
 
 	int fd_w = _stdout;
 	while(true) {

@@ -29,7 +29,7 @@ tree_node_t* fs_tree_simple_get(tree_node_t* father, const char* name) {
 
 	tree_node_t* node = father->fChild;
 	while(node != NULL) {
-		const char* n = tstr_cstr(FSN(node)->name);
+		const char* n = CS(FSN(node)->name);
 		if(strcmp(n, name) == 0) {
 			return node;
 		}

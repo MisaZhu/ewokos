@@ -74,6 +74,6 @@ void tstr_empty(tstr_t* tstr) {
 tstr_t* tstr_dump(tstr_t* src) {
 	if(src == NULL)
 		return NULL;
-	tstr_t* ret = tstr_new(tstr_cstr(src), src->mlc, src->fr);
+	tstr_t* ret = tstr_new(CS(src), src->mlc, src->fr);
 	return ret;
 }

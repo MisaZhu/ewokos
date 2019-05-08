@@ -3,6 +3,7 @@
 
 #include <fsinfo.h>
 #include <vfs/vfs.h>
+#include <tstr.h>
 
 int fs_open(const char* name, int32_t flags);
 
@@ -40,8 +41,8 @@ int32_t fs_dma(int fd, uint32_t* size);
 
 char* fs_read_file(const char* fname, int32_t *size);
 
-int32_t fs_full_name(const char* fname, char* name, uint32_t name_len);
+tstr_t* fs_full_name(const char* fname);
 
-int32_t fs_parse_name(const char* fname, char* dir, uint32_t dir_len, char* name, uint32_t name_len);
+int32_t fs_parse_name(const char* fname, tstr_t* dir, tstr_t* name);
 
 #endif

@@ -5,18 +5,16 @@
 #include <kstring.h>
 
 int main(int argc, char* argv[]) {
-	char name[FULL_NAME_MAX];
 	if(argc < 2) {
 		printf("usage: rm <fname>.\n");
 		return -1;
 	}
-	else {
-		fs_full_name(argv[1], name, FULL_NAME_MAX);
-	}
 
-	int res = fs_remove(name);
+	tstr_t* name = fs_full_name(argv[1]);
+	int res = fs_remove(CS(name));
 	if(res != 0) {
-		printf("'%s' remove failed!\n", name);
+		printf("'%s' remove failed!\n", CS(name));
 	}
+	tstr_free(name);
 	return 0;
 }

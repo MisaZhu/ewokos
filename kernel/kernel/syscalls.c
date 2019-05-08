@@ -278,7 +278,7 @@ static int32_t syscall_kserv_get_by_pid(int32_t arg0) {
 
 static int32_t syscall_get_cwd(int32_t arg0, int32_t arg1) {
 	char* pwd = (char*)arg0;
-	strncpy(pwd, tstr_cstr(_current_proc->pwd), arg1);
+	strncpy(pwd, CS(_current_proc->pwd), arg1);
 	return (int)pwd;
 }
 
@@ -293,7 +293,7 @@ static int32_t syscall_get_cmd(int32_t arg0, int32_t arg1, int32_t arg2) {
 	if(proc == NULL)
 		return -1;
 	char* cmd = (char*)arg1;
-	strncpy(cmd, tstr_cstr(proc->cmd), arg2);
+	strncpy(cmd, CS(proc->cmd), arg2);
 	return arg0;
 }
 

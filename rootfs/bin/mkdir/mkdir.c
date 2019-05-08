@@ -2,17 +2,20 @@
 #include <stdio.h>
 #include <cmain.h>
 #include <vfs/fs.h>
+#include <stdlib.h>
 
 int main(int argc, char* argv[]) {
 	if(argc > 1) {
-		char dir[FULL_NAME_MAX];
-		char name[SHORT_NAME_MAX];
-		fs_parse_name(argv[1], dir, FULL_NAME_MAX, name, SHORT_NAME_MAX);	
-		int fd = fs_open(dir, O_RDWR);
+		tstr_t* dir = tstr_new("", malloc, free);
+		tstr_t* name = tstr_new("", malloc, free);
+		fs_parse_name(argv[1], dir, name);
+		int fd = fs_open(CS(dir), O_RDWR);
 		if(fd >= 0) {
-			fs_add(fd, name, FS_TYPE_DIR);
+			fs_add(fd, CS(name), FS_TYPE_DIR);
 			fs_close(fd);
 		}
+		tstr_free(dir);
+		tstr_free(name);
 	}
 	return 0;
 }

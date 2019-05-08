@@ -77,7 +77,7 @@ static int run_init_procs(const char* fname, bool wait) {
 			break;
 		if(i == 0)
 			continue;
-		const char* cmd = tstr_cstr(line);
+		const char* cmd = CS(line);
 		if(cmd[0] != 0 && cmd[0] != '#') {
 			int pid = fork();
 			if(pid == 0) { 

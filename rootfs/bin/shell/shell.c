@@ -317,7 +317,7 @@ int main(int argc, char* argv[]) {
 	while(1) {
 		printf("ewok %c ", uid==0?'#':'$');
 		gets(cmdstr);
-		char* cmd = (char*)tstr_cstr(cmdstr);
+		char* cmd = (char*)CS(cmdstr);
 
 		if(cmd[0] == 0)
 			continue;

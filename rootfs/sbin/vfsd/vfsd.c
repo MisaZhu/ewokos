@@ -215,7 +215,7 @@ static tree_node_t* fsnode_mount(const char* fname, const char* dev_name,
 		tstr_cpy(FSN(node)->name, "/");
 	}
 	else
-		tstr_cpy(FSN(node)->name, tstr_cstr(FSN(to)->name));
+		tstr_cpy(FSN(node)->name, CS(FSN(to)->name));
 
 	FSN(node)->owner = owner;
   FSN(node)->mount = i;
@@ -408,7 +408,7 @@ static void do_node_fullname(package_t* pkg) {
 	while(true) {
 		if(node->father == NULL)
 			break;
-		n = tstr_cstr(FSN(node)->name);
+		n = CS(FSN(node)->name);
 		int32_t j = strlen(n) - 1;
 		while(j >= 0) {
 			tstr_addc(full, n[j--]);
@@ -418,7 +418,7 @@ static void do_node_fullname(package_t* pkg) {
 	}
 	tstr_addc(full, 0);
 	tstr_rev(full);
-	n = tstr_cstr(full);
+	n = CS(full);
 	ipc_send(pkg->id, pkg->type, (void*)n, strlen(n)+1);
 	tstr_free(full);
 }
@@ -430,7 +430,7 @@ static void do_node_shortname(package_t* pkg) {
 		ipc_send(pkg->id, PKG_TYPE_ERR, NULL, 0);
 		return;
 	}
-	const char *n = tstr_cstr(FSN(node)->name);
+	const char *n = CS(FSN(node)->name);
 	ipc_send(pkg->id, pkg->type, (void*)n, strlen(n)+1);
 }
 

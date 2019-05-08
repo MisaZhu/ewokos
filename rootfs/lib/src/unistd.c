@@ -37,11 +37,11 @@ int exec(const char* cmd_line) {
 
 	mount_t mnt;
 	if(vfs_mount_by_fname("/", &mnt) != 0)
-		img = read_from_sd(tstr_cstr(cmd), &size);
+		img = read_from_sd(CS(cmd), &size);
 	else 
-		img = fs_read_file(tstr_cstr(cmd), &size);
+		img = fs_read_file(CS(cmd), &size);
 	if(img == NULL) {
-		printf("'%s' dosn't exist!\n", tstr_cstr(cmd));
+		printf("'%s' dosn't exist!\n", CS(cmd));
 		tstr_free(cmd);
 		return -1;
 	}
@@ -88,28 +88,34 @@ unsigned int sleep(unsigned int secs) {
 int open(const char* fname, int flags) {
 	if(fname[0] == 0)
 		return -1;
-	char full[FULL_NAME_MAX];
-	fs_full_name(fname, full, FULL_NAME_MAX);
-
 	fs_info_t info;
-	if(fs_finfo(full, &info) != 0) { //not exist.
-		if((flags & O_WRONLY) == 0 ||
-				(flags & O_CREAT) == 0)
+	tstr_t* full = fs_full_name(fname);
+	const char* full_name = CS(full);
+	if(fs_finfo(full_name, &info) != 0) { //not exist.
+		if((flags & O_WRONLY) == 0 || (flags & O_CREAT) == 0) {
+			tstr_free(full);
 			return -1;
+		}
 
-		char dir[FULL_NAME_MAX];
-		char name[SHORT_NAME_MAX];
-		fs_parse_name(full, dir, FULL_NAME_MAX, name, SHORT_NAME_MAX);	
-
-		int fd = fs_open(dir, O_RDWR);
-		if(fd < 0)
+		tstr_t *dir = tstr_new("", malloc, free);
+		tstr_t *name = tstr_new("", malloc, free);
+		fs_parse_name(full_name, dir, name);
+		int fd = fs_open(CS(dir), O_RDWR);
+		int res = -1;
+		if(fd >= 0) {
+			res = fs_add(fd, CS(name), FS_TYPE_FILE);
+			fs_close(fd);
+		}
+		tstr_free(dir);
+		tstr_free(name);
+		if(res < 0) {
+			tstr_free(full);
 			return -1;
-		uint32_t res = fs_add(fd, name, FS_TYPE_FILE);
-		fs_close(fd);
-		if(res == 0)
-			return -1;
+		}
 	}
-	return fs_open(full, flags);
+	int ret = fs_open(full_name, flags);
+	tstr_free(full);
+	return ret;
 }
 
 int write(int fd, const void* buf, uint32_t size) {

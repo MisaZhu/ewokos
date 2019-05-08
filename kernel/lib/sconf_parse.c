@@ -115,9 +115,9 @@ const char* sconf_get(sconf_t *conf, const char*name) {
 	int32_t i = 0;
 	while(i < S_CONF_ITEM_MAX) {
 		sconf_item_t* item = &conf->items[i++];
-		const char* n = tstr_cstr(item->name);
+		const char* n = CS(item->name);
 		if(strcmp(n, name) == 0)
-			return tstr_cstr(item->value);
+			return CS(item->value);
 	}
 	return "";
 }
