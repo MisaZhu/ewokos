@@ -232,40 +232,38 @@ int32_t vfs_mount_by_fname(const char* fname, mount_t* mnt) {
 }
 
 //get the full name by node.
-int32_t vfs_full_name_by_node(uint32_t node, char* full, uint32_t len) {
-	full[0] = 0;
+tstr_t* vfs_full_name_by_node(uint32_t node) {
 	if(node == 0)
-		return -1;
+		return NULL;
 	int32_t serv_pid = kserv_get_by_name(VFS_NAME);	
 	if(serv_pid < 0)
-		return -1;
+		return NULL;
 
 	package_t* pkg = ipc_req(serv_pid, 0, VFS_CMD_NODE_FULLNAME, &node, 4, true);
 	if(pkg == NULL || pkg->type == PKG_TYPE_ERR || pkg->size == 0) {
 		if(pkg != NULL) free(pkg);
-		return -1;
+		return NULL;
 	}
-	strncpy(full, (char*)get_pkg_data(pkg), len-1);
+	tstr_t *ret = tstr_new((char*)get_pkg_data(pkg), malloc, free);
 	free(pkg);
-	return 0;
+	return ret;
 }
 
 //get the short name by node.
-int32_t vfs_short_name_by_node(uint32_t node, char* name, uint32_t len) {
-	name[0] = 0;
+tstr_t* vfs_short_name_by_node(uint32_t node) {
 	if(node == 0)
-		return -1;
+		return NULL;
 	int32_t serv_pid = kserv_get_by_name(VFS_NAME);	
 	if(serv_pid < 0)
-		return -1;
+		return NULL;
 
 	package_t* pkg = ipc_req(serv_pid, 0, VFS_CMD_NODE_SHORTNAME, &node, 4, true);
 	if(pkg == NULL || pkg->type == PKG_TYPE_ERR || pkg->size == 0) {
 		if(pkg != NULL) free(pkg);
-		return -1;
+		return NULL;
 	}
-	strncpy(name, (char*)get_pkg_data(pkg), len-1);
+	tstr_t *ret = tstr_new((char*)get_pkg_data(pkg), malloc, free);
 	free(pkg);
-	return 0;
+	return ret;
 }
 

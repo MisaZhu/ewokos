@@ -25,30 +25,31 @@ static int32_t proc_read(uint32_t node, void* buf, uint32_t size, int32_t seek) 
 	fs_info_t info;
 	if(fs_ninfo(node, &info) != 0)
 		return ret;
-	char fname[SHORT_NAME_MAX];
-	vfs_short_name_by_node(info.node, fname, SHORT_NAME_MAX-1);
+	tstr_t* fname = vfs_short_name_by_node(info.node);
+	if(fname == NULL)
+		return ret;
 
-	if(strcmp(fname, "total_mem") == 0) {
+	if(strcmp(CS(fname), "total_mem") == 0) {
 		snprintf((char*)buf, size-1, "%d\n", syscall2(SYSCALL_SYSTEM_CMD, 0, 0));
 		ret = strlen((char*)buf);
 	}
-	else if(strcmp(fname, "free_mem") == 0) {
+	else if(strcmp(CS(fname), "free_mem") == 0) {
 		snprintf((char*)buf, size-1, "%d\n", syscall2(SYSCALL_SYSTEM_CMD, 1, 0));
 		ret = strlen((char*)buf);
 	}
-	else if(strcmp(fname, "cpu_sec") == 0) {
+	else if(strcmp(CS(fname), "cpu_sec") == 0) {
 		uint32_t sec;
 		syscall3(SYSCALL_SYSTEM_CMD, 4, (int32_t)&sec, 0);
 		snprintf((char*)buf, size-1, "%d\n", (int)sec);
 		ret = strlen((char*)buf);
 	}
-	else if(strcmp(fname, "cpu_msec") == 0) {
+	else if(strcmp(CS(fname), "cpu_msec") == 0) {
 		uint32_t msec;
 		syscall3(SYSCALL_SYSTEM_CMD, 4, 0, (int32_t)&msec);
 		snprintf((char*)buf, size-1, "%d\n", (int)msec);
 		ret = strlen((char*)buf);
 	}
-
+	tstr_free(fname);
 	if(seek >= ret)
 		ret = 0;
 	return ret;

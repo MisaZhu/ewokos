@@ -28,12 +28,14 @@ int main(int argc, char* argv[]) {
 			if(fs_kid(fd, i, &info) != 0)
 				break;
 
-			char name[SHORT_NAME_MAX];
-			vfs_short_name_by_node(info.node, name, SHORT_NAME_MAX-1);
-			if(info.type == FS_TYPE_FILE)
-				printf("  %24s  f    %4d   %d\n", name, info.owner, info.size);
-			else if(info.type == FS_TYPE_DIR)
-				printf("  %24s  d    %4d   %d\n", name, info.owner, info.size);
+			tstr_t* name = vfs_short_name_by_node(info.node);
+			if(name != NULL) {
+				if(info.type == FS_TYPE_FILE)
+					printf("  %24s  f    %4d   %d\n", CS(name), info.owner, info.size);
+				else if(info.type == FS_TYPE_DIR)
+					printf("  %24s  d    %4d   %d\n", CS(name), info.owner, info.size);
+				tstr_free(name);
+			}
 			i++;
 		}
 		close(fd);

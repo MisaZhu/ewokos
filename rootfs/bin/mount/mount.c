@@ -16,12 +16,15 @@ int main(int argc, char* argv[]) {
 			break;
 
 		if(mnt.dev_serv_pid > 0) {
-			char name[FULL_NAME_MAX];
+			tstr_t* name;
 			if(mnt.node_old == 0)
-				strcpy(name, "/");
+				name = tstr_new("/", malloc, free);
 			else
-				vfs_full_name_by_node(mnt.node_old, name, FULL_NAME_MAX);
-			printf("  %24s %16s %6d  %6d\n", name, mnt.dev_name, mnt.dev_index, mnt.dev_serv_pid, name);
+				name = vfs_full_name_by_node(mnt.node_old);
+			if(name != NULL) {
+				printf("  %24s %16s %6d  %6d\n", CS(name), mnt.dev_name, mnt.dev_index, mnt.dev_serv_pid);
+				tstr_free(name);
+			}
 		}
 		i++;
 	}

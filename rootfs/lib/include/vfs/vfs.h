@@ -2,6 +2,7 @@
 #define VFS_NODE_H
 
 #include <fsinfo.h>
+#include <tstr.h>
 #include <vfs/vfscmd.h>
 #define VFS_DIR_SIZE 0xffffffff
 
@@ -16,9 +17,9 @@ uint32_t vfs_add(uint32_t node, const char* name, uint32_t size, void* data);
 
 int32_t vfs_del(uint32_t node);
 
-int32_t vfs_full_name_by_node(uint32_t node, char* full, uint32_t len);
+tstr_t* vfs_full_name_by_node(uint32_t node);
 
-int32_t vfs_short_name_by_node(uint32_t node, char* name, uint32_t len);
+tstr_t* vfs_short_name_by_node(uint32_t node);
 
 int32_t vfs_open(const char* fname, int32_t flags);
 
