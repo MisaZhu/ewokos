@@ -29,6 +29,7 @@ LIB_OBJS = lib/src/syscall.o \
 	lib/src/semaphore.o \
 	lib/src/sdread.o \
 	lib/src/sconf.o \
+	lib/src/trunk.o \
 	lib/src/kserv.o
 
 lib/libewoklibc.a: $(LIB_OBJS)

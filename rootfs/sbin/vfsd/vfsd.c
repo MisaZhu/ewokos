@@ -9,10 +9,82 @@
 #include <kstring.h>
 #include <stdlib.h>
 #include <syscall.h>
+#include <trunk.h>
+#include "pipe.h"
 
 #define DEV_VFS "dev.vfs"
 #define MOUNT_MAX 32
 
+static trunk_t _opened;
+
+void opens_init(void) {
+	trunk_init(&_opened, 4);
+}
+
+static int32_t close_zombie(uint32_t node) {
+	fs_info_t info;
+	if(node == 0 || syscall2(SYSCALL_PFILE_NODE_BY_ADDR, node, (int32_t)&info) != 0)
+		return -1;
+	if(info.dev_serv_pid == getpid())
+		free_pipe(info.node);
+	else if(info.dev_serv_pid > 0)
+		ipc_req(info.dev_serv_pid, 0, FS_CLOSE, &info, sizeof(fs_info_t), false);
+	return 0;
+}
+
+static void clear_zombie(void) {
+	int32_t i;
+	uint32_t* nodes = (uint32_t*)_opened.items;
+	for(i=0; i<(int32_t)_opened.size; i++) {
+		if(nodes[i] != 0) {
+			if(close_zombie(nodes[i]) == 0)
+				nodes[i] = 0;
+		}	
+	}
+}
+
+void opens_clear(void) {
+	int32_t i;
+	uint32_t* nodes = (uint32_t*)_opened.items;
+	for(i=0; i<(int32_t)_opened.size; i++) {
+		if(nodes[i] != 0) {
+			close_zombie(nodes[i]);
+			nodes[i] = 0;
+		}	
+	}
+	trunk_clear(&_opened);
+}
+
+static int32_t add_opened(uint32_t node) {
+	int32_t i;
+	uint32_t* nodes = (uint32_t*)_opened.items;
+	for(i=0; i<(int32_t)_opened.size; i++) {
+		if(nodes[i] == 0) {
+			nodes[i] = node;
+			return i;
+		}	
+	}
+
+	i = trunk_add(&_opened);
+	nodes = (uint32_t*)_opened.items;
+	if(i >= 0)
+		nodes[i] = node;
+	clear_zombie();
+	return i;	
+}
+
+static void rm_opened(uint32_t node) {
+	int32_t i;
+	uint32_t* nodes = (uint32_t*)_opened.items;
+	for(i=0; i<(int32_t)_opened.size; i++) {
+		if(nodes[i] == node) {
+			if(close_zombie(nodes[i]) == 0)
+				nodes[i] = 0;
+		}	
+	}
+}
+
+/**************************/
 static mount_t _mounts[MOUNT_MAX];
 static tree_node_t* _root = NULL;
 
@@ -268,8 +340,13 @@ static void do_close(package_t* pkg) {
 	int32_t fd = *(int32_t*)get_pkg_data(pkg);
 	if(fd < 0)
 		return;
+
+	fs_info_t info;
+	if(syscall3(SYSCALL_PFILE_NODE_BY_PID_FD, pkg->pid, fd, (int32_t)&info) != 0)
+		return;
 	if(syscall2(SYSCALL_PFILE_CLOSE, pkg->pid, fd) != 0)
 		return;
+	rm_opened(info.node);
 }
 
 static void do_open(package_t* pkg) {
@@ -290,6 +367,8 @@ static void do_open(package_t* pkg) {
 		ipc_send(pkg->id, PKG_TYPE_ERR, NULL, 0);
 		return;
 	}
+
+	add_opened((uint32_t)node);
 	ipc_send(pkg->id, pkg->type, &fd, 4);
 }
 
@@ -380,6 +459,7 @@ static void do_mount(package_t* pkg) {
 	int32_t isFile = proto_read_int(proto);
 	proto_free(proto);
 
+	opens_init();
 	tree_node_t* node = fsnode_mount(fname, dev_name, dev_index, isFile, pkg->pid);
 	ipc_send(pkg->id, pkg->type, &node, 4);
 }
@@ -387,6 +467,7 @@ static void do_mount(package_t* pkg) {
 static void do_unmount(package_t* pkg) {
 	tree_node_t* node = (tree_node_t*)(*(int32_t*)get_pkg_data(pkg));
 	fsnode_unmount(pkg->pid, node);
+	opens_clear();
 	ipc_send(pkg->id, pkg->type, NULL, 0);
 }
 
@@ -418,11 +499,6 @@ static void do_mount_by_fname(package_t* pkg) {
 	mount_t* mnt = &_mounts[index];
 	ipc_send(pkg->id, pkg->type, mnt, sizeof(mount_t));
 }
-
-void do_pipe_open(package_t* pkg);
-void do_pipe_close(package_t* pkg);
-void do_pipe_write(package_t* pkg);
-void do_pipe_read(package_t* pkg);
 
 static void handle(package_t* pkg, void* p) {
 	(void)p;

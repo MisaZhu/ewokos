@@ -8,6 +8,7 @@
 #include <kstring.h>
 #include <stdlib.h>
 #include <syscall.h>
+#include <trunk.h>
 
 #define PIPE_BUF_SIZE 4096
 typedef struct {
@@ -32,6 +33,7 @@ void do_pipe_open(package_t* pkg) {
 
 	int32_t fd0 = syscall3(SYSCALL_PFILE_OPEN, pkg->pid, (int32_t)&info, O_RDONLY);
 	if(fd0 < 0) {
+		free(node);
 		free(buffer);
 		ipc_send(pkg->id, PKG_TYPE_ERR, NULL, 0);
 		return;
@@ -39,6 +41,7 @@ void do_pipe_open(package_t* pkg) {
 
 	int32_t fd1 = syscall3(SYSCALL_PFILE_OPEN, pkg->pid, (int32_t)&info, O_WRONLY);
 	if(fd1 < 0) {
+		free(node);
 		free(buffer);
 		ipc_send(pkg->id, PKG_TYPE_ERR, NULL, 0);
 		return;
@@ -51,18 +54,21 @@ void do_pipe_open(package_t* pkg) {
 	proto_free(proto);
 }
 
-void do_pipe_close(package_t* pkg) {
-	fs_info_t* info = (fs_info_t*)get_pkg_data(pkg);
-	if(info == NULL || info->node == 0)
+void free_pipe(uint32_t node_addr) {
+	if(syscall2(SYSCALL_PFILE_GET_REF, (int32_t)node_addr, 2) > 0)
 		return;
-	if(syscall2(SYSCALL_PFILE_GET_REF, info->node, 2) > 0) //1 ref left for this closing fd
-		return;
-	
-	tree_node_t* node = (tree_node_t*)info->node;
+	tree_node_t* node = (tree_node_t*)node_addr;
 	if(FSN(node)->data != NULL) {
 		free(FSN(node)->data);
 	}
 	free(node);
+}
+
+void do_pipe_close(package_t* pkg) {
+	fs_info_t* info = (fs_info_t*)get_pkg_data(pkg);
+	if(info == NULL || info->node == 0)
+		return;
+	free_pipe(info->node);
 }
 
 void do_pipe_write(package_t* pkg) {
