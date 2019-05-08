@@ -65,7 +65,6 @@ proc_info_t* get_procs(int32_t *num) {
 			procs[j].state = _process_table[i].state;
 			procs[j].start_sec = _process_table[i].start_sec;	
 			procs[j].heap_size = _process_table[i].space->heap_size;	
-			strcpy(procs[j].cmd, _process_table[i].cmd);
 			j++;
 		}
 	}
@@ -233,8 +232,8 @@ process_t *proc_create(uint32_t type) {
 	proc->wait_pid = -1;
 	proc->father_pid = 0;
 	proc->owner = 0;
-	proc->cmd[0] = 0;
-	strcpy(proc->pwd, "/");
+	proc->cmd = tstr_new("", km_alloc, km_free);
+	proc->pwd = tstr_new("", km_alloc, km_free);
 	proc->state = CREATED;
 	cpu_tick(&proc->start_sec, NULL);
 	
@@ -259,10 +258,10 @@ static void proc_free_space(process_t *proc) {
 	
 	for(i=0; i<ENV_MAX; i++) {
 		proc_env_t* env = &proc->space->envs[i];
+		if(env->name) 
+			tstr_free(env->name);
 		if(env->value) 
-			km_free(env->value);
-		env->value = NULL;
-		env->name[0] = 0;
+			tstr_free(env->value);
 	}
 	kserv_unreg(proc);
 	ipc_close_all(proc->pid);
@@ -283,6 +282,8 @@ void proc_free(process_t *proc) {
 		proc->space = NULL;
 	else
 		proc_free_space(proc);
+	tstr_free(proc->cmd);
+	tstr_free(proc->pwd);
 	remove(proc);
 	CRIT_OUT(_p_proc_lock)	
 }
@@ -340,7 +341,7 @@ bool proc_load(process_t *proc, const char *pimg, uint32_t img_size) {
 		/* make enough room for this section */
 		while (proc->space->heap_size < header->vaddr + header->memsz) {
 			if(!proc_expand_mem(proc, 1, read_only)) {
-				printk("Panic: proc expand memory failed!!(%s: %d)\n", proc->cmd, proc->pid);
+				printk("Panic: proc expand memory failed!!(%s: %d)\n", tstr_cstr(proc->cmd), proc->pid);
 				shm_free(shmid);
 				CRIT_OUT(_p_proc_lock)
 				return false;
@@ -404,9 +405,9 @@ process_t* proc_get(int32_t pid) {
 static inline proc_env_t* find_env(process_t* proc, const char* name) {
 	int32_t i=0;
 	for(i=0; i<ENV_MAX; i++) {
-		if(proc->space->envs[i].name[0] == 0)
+		if(proc->space->envs[i].name == NULL)
 			break;
-		if(strcmp(proc->space->envs[i].name, name) == 0)
+		if(strcmp(tstr_cstr(proc->space->envs[i].name), name) == 0)
 			return &proc->space->envs[i];
 	}
 	return NULL;
@@ -414,39 +415,40 @@ static inline proc_env_t* find_env(process_t* proc, const char* name) {
 	
 const char* proc_get_env(const char* name) {
 	proc_env_t* env = find_env(_current_proc, name);
-	return env == NULL ? "":env->value;
+	return env == NULL ? "":tstr_cstr(env->value);
 }
 	
 const char* proc_get_env_name(int32_t index) {
 	if(index < 0 || index >= ENV_MAX)
 		return "";
-	return _current_proc->space->envs[index].name;
+	return tstr_cstr(_current_proc->space->envs[index].name);
 }
 	
 const char* proc_get_env_value(int32_t index) {
 	if(index < 0 || index >= ENV_MAX)
 		return "";
-	return _current_proc->space->envs[index].value;
+	return tstr_cstr(_current_proc->space->envs[index].value);
 }
 
 int32_t proc_set_env(const char* name, const char* value) {
 	proc_env_t* env = NULL;	
 	int32_t i=0;
 	for(i=0; i<ENV_MAX; i++) {
-		if(_current_proc->space->envs[i].name[0] == 0 ||
-				strcmp(_current_proc->space->envs[i].name, name) == 0) {
+		if(_current_proc->space->envs[i].name == NULL ||
+				strcmp(tstr_cstr(_current_proc->space->envs[i].name), name) == 0) {
 			env = &_current_proc->space->envs[i];
-			if(env->name[0] == 0)
-				strncpy(env->name, name, SHORT_NAME_MAX-1);
+			if(env->name == NULL) {
+				env->name = tstr_new("", km_alloc, km_free);
+				tstr_cpy(env->name, name);
+			}
 			break;
 		}
 	}
 	if(env == NULL)
 		return -1;
-	if(env->value != NULL)
-		km_free(env->value);
-	env->value = (char*)km_alloc(strlen(value)+1);
-	strcpy(env->value, value);
+	if(env->value == NULL)
+		env->value = tstr_new("", km_alloc, km_free);
+	tstr_cpy(env->value, value);
 	return 0;
 }
 
@@ -466,14 +468,15 @@ static inline void proc_clone_files(process_t* child, process_t* parent) {
 static inline void proc_clone_envs(process_t* child, process_t* parent) {
 	int32_t i=0;
 	for(i=0; i<ENV_MAX; i++) {
-		if(parent->space->envs[i].name[0] == 0)
+		if(parent->space->envs[i].name == NULL)
 			break;
 		proc_env_t* env = &child->space->envs[i];
-		strcpy(env->name, parent->space->envs[i].name);
-		if(env->value != NULL)
-			km_free(env->value);
-		env->value = (char*)km_alloc(strlen(parent->space->envs[i].value)+1);
-		strcpy(env->value, parent->space->envs[i].value);
+		if(env->name == NULL)
+			env->name = tstr_new("", km_alloc, km_free);
+		if(env->value == NULL)
+			env->value = tstr_new("", km_alloc, km_free);
+		tstr_cpy(env->name, tstr_cstr(parent->space->envs[i].name));
+		tstr_cpy(env->value, tstr_cstr(parent->space->envs[i].value));
 	}
 }
 
@@ -508,7 +511,7 @@ static int32_t proc_clone(process_t* child, process_t* parent) {
 		}
 		else {
 			if(!proc_expand_mem(child, 1, false)) {
-				printk("Panic: kfork expand memory failed!!(%s: %d)\n", parent->cmd, parent->pid);
+				printk("Panic: kfork expand memory failed!!(%s: %d)\n", tstr_cstr(parent->cmd), parent->pid);
 				CRIT_OUT(_p_proc_lock)
 					return -1;
 			}
@@ -549,7 +552,7 @@ process_t* kfork(uint32_t type) {
 	child = proc_create(type);
 	if(type != TYPE_THREAD) {
 		if(proc_clone(child, parent) != 0) {
-			printk("panic: kfork clone failed!!(%s: %d)\n", parent->cmd, parent->pid);
+			printk("panic: kfork clone failed!!(%s: %d)\n", tstr_cstr(parent->cmd), parent->pid);
 			proc_exit(child);
 			CRIT_OUT(_p_proc_lock)
 			return NULL;
@@ -569,9 +572,9 @@ process_t* kfork(uint32_t type) {
 	/*same owner*/
 	child->owner = parent->owner;
 	/*cmd*/
-	strcpy(child->cmd, parent->cmd);
+	tstr_cpy(child->cmd, tstr_cstr(parent->cmd));
 	/*pwd*/
-	strcpy(child->pwd, parent->pwd);
+	tstr_cpy(child->pwd, tstr_cstr(parent->pwd));
 	CRIT_OUT(_p_proc_lock)
 	return child;
 }

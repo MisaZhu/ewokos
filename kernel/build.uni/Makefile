@@ -59,6 +59,7 @@ LIB_OBJS = \
 	../lib/device.o \
 	../lib/sconf_parse.o \
 	../lib/ext2.o \
+	../lib/trunk.o \
 	../arch/arm/common/memcpy.o \
 	../lib/vprintf.o
 

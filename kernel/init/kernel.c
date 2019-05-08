@@ -92,7 +92,6 @@ static void init_allocable_mem(void) {
 	kalloc_init(ALLOCATABLE_MEMORY_START + INIT_RESERV_MEMORY_SIZE, P2V(_phy_mem_size));
 }
 
-extern char* from_sd(const char *filename, int32_t* sz);
 static process_t* load_init_proc(void) {
 	const char* name = "/sbin/init";
 
@@ -111,7 +110,8 @@ static process_t* load_init_proc(void) {
 	}
 	else {
 		proc_load(proc, p, size);
-		strncpy(proc->cmd, name, CMD_MAX);
+		tstr_cpy(proc->cmd, name);
+		tstr_cpy(proc->pwd, "/");
 	}
 
 	km_free(p);

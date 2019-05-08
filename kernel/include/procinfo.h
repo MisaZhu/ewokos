@@ -10,8 +10,6 @@ typedef struct {
 	int32_t state; 
 	uint32_t start_sec;
 	uint32_t heap_size;
-
-	char cmd[CMD_MAX];
 } proc_info_t;
 	
 #endif

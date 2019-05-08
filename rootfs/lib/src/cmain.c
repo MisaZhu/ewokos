@@ -6,12 +6,12 @@
 #include <syscall.h>
 #include <device.h>
 
-static char _cmd[CMD_MAX] = { 0 };
+static char _cmd[1024] = { 0 };
 static int _off_cmd = 0;
 
 static void init_cmain_arg() {
 	_off_cmd = 0;
-	syscall2(SYSCALL_GET_CMD, (int)_cmd, CMD_MAX-1);
+	syscall3(SYSCALL_GET_CMD, getpid(), (int)_cmd, 1023);
 }
 
 static char* read_cmain_arg() {

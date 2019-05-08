@@ -5,19 +5,20 @@ static inline bool is_space(char c) {
 	return (c == ' ' || c == '\t' || c == '\r' || c == '\n');
 }
 
-static inline void trim_right(char* s, int32_t i) {
-	i--;
-	while(i >= 0) {
-		if(is_space(s[i]))
-			s[i--] = 0;
+static inline void trim_right(tstr_t* st) {
+	char* s = (char*)st->items;
+	if(s == NULL)
+		return;
+
+	while(st->size > 0) {
+		if(is_space(s[st->size-1]))
+			st->size--;
 		else
 			break;
 	}
 }
 
-#define CONFV_MAX 1024
-
-sconf_t* sconf_parse(const char* str, malloc_func_t mlc) {
+sconf_t* sconf_parse(const char* str, malloc_func_t mlc, free_func_t fr) {
 	if(str == NULL || str[0] == 0)
 		return NULL;
 
@@ -29,8 +30,9 @@ sconf_t* sconf_parse(const char* str, malloc_func_t mlc) {
 	int32_t i = 0;	
 	int32_t it = 0;	/*item index*/
 	uint8_t stat = 0; /*0 for name; 1 for value; 2 for comment*/
-	char value[CONFV_MAX];
 	sconf_item_t* item = &conf->items[0];
+	item->name = tstr_new("", mlc, fr);
+	item->value = tstr_new("", mlc, fr);
 	while(it < S_CONF_ITEM_MAX) {
 		char c = *str;
 		str++;
@@ -43,19 +45,20 @@ sconf_t* sconf_parse(const char* str, malloc_func_t mlc) {
 		}
 		else if(c == '#') { //comment
 			if(stat == 1) {
-				value[i] = 0;
-				trim_right(value, i);
-				item->value = (char*)mlc(strlen(value)+1);
-				strcpy(item->value, value);
+				trim_right(item->value);
+				tstr_addc(item->value, 0);
 				it++;
 				item = &conf->items[it];
+				item->name = tstr_new("", mlc, fr);
+				item->value = tstr_new("", mlc, fr);
 			}
 			stat = 2;
 			continue;
 		}
 		else if(stat == 0) {/*read name*/
 			if(c == '=') {
-				item->name[i] = 0;
+				trim_right(item->name);
+				tstr_addc(item->name, 0);
 				i = 0;
 				stat = 1;
 				continue;
@@ -63,27 +66,23 @@ sconf_t* sconf_parse(const char* str, malloc_func_t mlc) {
 			else if(is_space(c)) {
 				continue;
 			}
-			else if(i < S_CONF_NAME_MAX) {
-				item->name[i] = c;
-				i++;
-			}
+			tstr_addc(item->name, c);
+			i++;
 		}	
 		else if(stat == 1) { /*read value*/
 			if(c == '\n') {
-				value[i] = 0;
-				trim_right(value, i);
-				item->value = (char*)mlc(strlen(value)+1);
-				strcpy(item->value, value);
+				trim_right(item->value);
+				tstr_addc(item->value, 0);
 				i = 0;
 				stat = 0;
 				it++;
 				item = &conf->items[it];
+				item->name = tstr_new("", mlc, fr);
+				item->value = tstr_new("", mlc, fr);
 				continue;
 			}
-			if(i < CONFV_MAX) {
-				value[i] = c;
-				i++;
-			}
+			tstr_addc(item->value, c);
+			i++;
 		}
 		else { //comment
 			if(c == '\n') {
@@ -92,8 +91,6 @@ sconf_t* sconf_parse(const char* str, malloc_func_t mlc) {
 			}
 		}
 	}
-	if(it < S_CONF_ITEM_MAX) 
-		conf->items[it].name[0] = 0;	
 	return conf;
 }
 
@@ -103,8 +100,10 @@ void sconf_free(sconf_t* conf, free_func_t fr) {
 	int32_t i = 0;
 	while(i < S_CONF_ITEM_MAX) {
 		sconf_item_t* item = &conf->items[i++];
-		if(item->name[0] != 0 && item->value != NULL)
-			fr(item->value);
+		if(item->name == NULL)
+			break;
+		tstr_free(item->name);
+		tstr_free(item->value);
 	}
 	fr(conf);
 }
@@ -116,10 +115,9 @@ const char* sconf_get(sconf_t *conf, const char*name) {
 	int32_t i = 0;
 	while(i < S_CONF_ITEM_MAX) {
 		sconf_item_t* item = &conf->items[i++];
-		if(item->name[0] == 0 || item->value == NULL)
-			return "";
-		if(strcmp(item->name, name) == 0)
-			return item->value;
+		const char* n = tstr_cstr(item->name);
+		if(strcmp(n, name) == 0)
+			return tstr_cstr(item->value);
 	}
 	return "";
 }

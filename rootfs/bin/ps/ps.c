@@ -17,6 +17,12 @@ static const char* _states[] = {
 	"tmn"
 };
 
+static const char* get_cmd(int32_t pid) {
+	static char cmd[1024];
+	syscall3(SYSCALL_GET_CMD, pid, (int)cmd, 1023);
+	return cmd;
+}
+
 int main(int argc, char* argv[]) {
 	(void)argc;
 	(void)argv;
@@ -41,7 +47,7 @@ int main(int argc, char* argv[]) {
 				sec / 60,
 				sec % 60,
 				procs[i].heap_size/1024,
-				procs[i].cmd);
+				get_cmd(procs[i].pid));
 		}
 		free(procs);
 	}

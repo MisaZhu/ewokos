@@ -2,6 +2,7 @@
 #include <vfs/fs.h>
 #include <syscall.h>
 #include <kstring.h>
+#include <tstr.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <procinfo.h>
@@ -26,24 +27,25 @@ static char* read_from_sd(const char* fname, int32_t *size) {
 int exec(const char* cmd_line) {
 	char* img = NULL;
 	int32_t size;
-	char cmd[CMD_MAX];
-	int i;
-	for(i=0; i<CMD_MAX-1; i++) {
-		cmd[i] = cmd_line[i];
-		if(cmd[i] == 0 || cmd[i] == ' ')
-			break;
+	tstr_t* cmd = tstr_new("", malloc, free);
+	const char *p = cmd_line;
+	while(*p != 0 && *p != ' ') {
+		tstr_addc(cmd, *p);
+		p++;
 	}
-	cmd[i] = 0;
+	tstr_addc(cmd, 0);
 
 	mount_t mnt;
 	if(vfs_mount_by_fname("/", &mnt) != 0)
-		img = read_from_sd(cmd, &size);
+		img = read_from_sd(tstr_cstr(cmd), &size);
 	else 
-		img = fs_read_file(cmd, &size);
+		img = fs_read_file(tstr_cstr(cmd), &size);
 	if(img == NULL) {
-		printf("'%s' dosn't exist!\n", cmd);
+		printf("'%s' dosn't exist!\n", tstr_cstr(cmd));
+		tstr_free(cmd);
 		return -1;
 	}
+	tstr_free(cmd);
 	int res = syscall3(SYSCALL_EXEC_ELF, (int)cmd_line, (int)img, size);
 	free(img);
 	return res;

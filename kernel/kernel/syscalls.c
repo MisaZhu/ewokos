@@ -68,7 +68,7 @@ static int32_t syscall_exec_elf(int32_t arg0, int32_t arg1, int32_t arg2) {
 	if(p == NULL || cmd == NULL)
 		return -1;
 		
-	strncpy(_current_proc->cmd, cmd, CMD_MAX);
+	tstr_cpy(_current_proc->cmd, cmd);
 	if(!proc_load(_current_proc, p, (uint32_t)arg2)) {
 		return -1;
 	}
@@ -278,20 +278,22 @@ static int32_t syscall_kserv_get_by_pid(int32_t arg0) {
 
 static int32_t syscall_get_cwd(int32_t arg0, int32_t arg1) {
 	char* pwd = (char*)arg0;
-	strncpy(pwd, _current_proc->pwd,
-		arg1 < FULL_NAME_MAX ? arg1: FULL_NAME_MAX);
+	strncpy(pwd, tstr_cstr(_current_proc->pwd), arg1);
 	return (int)pwd;
 }
 
 static int32_t syscall_set_cwd(int32_t arg0) {
 	const char* pwd = (const char*)arg0;
-	strncpy(_current_proc->pwd, pwd, FULL_NAME_MAX);
+	tstr_cpy(_current_proc->pwd, pwd);
 	return 0;
 }
 
-static int32_t syscall_get_cmd(int32_t arg0, int32_t arg1) {
-	char* cmd = (char*)arg0;
-	strncpy(cmd, _current_proc->cmd, arg1);
+static int32_t syscall_get_cmd(int32_t arg0, int32_t arg1, int32_t arg2) {
+	process_t* proc = proc_get(arg0);
+	if(proc == NULL)
+		return -1;
+	char* cmd = (char*)arg1;
+	strncpy(cmd, tstr_cstr(proc->cmd), arg2);
 	return arg0;
 }
 

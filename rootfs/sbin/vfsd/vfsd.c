@@ -9,7 +9,7 @@
 #include <kstring.h>
 #include <stdlib.h>
 #include <syscall.h>
-#include <trunk.h>
+#include <tstr.h>
 #include "pipe.h"
 
 #define DEV_VFS "dev.vfs"
@@ -18,7 +18,7 @@
 static trunk_t _opened;
 
 void opens_init(void) {
-	trunk_init(&_opened, 4);
+	trunk_init(&_opened, 4, malloc, free);
 }
 
 static int32_t close_zombie(uint32_t node) {
@@ -131,7 +131,7 @@ static tree_node_t* fsnode_add(tree_node_t* node_to, const char* name, uint32_t 
 static int32_t fsnode_del(int32_t pid, tree_node_t* node) {
 	if(!check_access(pid, node, true))
 		return -1;
-	tree_del(node, free);
+	fs_tree_del(node);
 	return 0;
 }
 
@@ -212,10 +212,10 @@ static tree_node_t* fsnode_mount(const char* fname, const char* dev_name,
 
 	if(to == NULL || _root == NULL) {
 		_root = node;
-		strcpy(FSN(node)->name, "/");
+		tstr_cpy(FSN(node)->name, "/");
 	}
 	else
-		strcpy(FSN(node)->name, FSN(to)->name);
+		tstr_cpy(FSN(node)->name, tstr_cstr(FSN(to)->name));
 
 	FSN(node)->owner = owner;
   FSN(node)->mount = i;
@@ -248,7 +248,7 @@ static int32_t fsnode_unmount(int32_t pid, tree_node_t* node) {
 
 	tree_node_t* node_old = (tree_node_t*)_mounts[index].node_old;
 	tree_node_t* father = node->father;
-	tree_del(node, free);
+	fs_tree_del(node);
 
 	if(node_old != NULL && father != NULL)
 		tree_add(father, node_old);
@@ -403,22 +403,24 @@ static void do_node_fullname(package_t* pkg) {
 		return;
 	}
 
-	char full[FULL_NAME_MAX] = {0};
-	int32_t i = FULL_NAME_MAX-2;
+	tstr_t* full = tstr_new("", malloc, free);
 	const char* n;
-	while(i > 0) {
+	while(true) {
 		if(node->father == NULL)
 			break;
-		n = FSN(node)->name;
+		n = tstr_cstr(FSN(node)->name);
 		int32_t j = strlen(n) - 1;
-		while(i > 0 && j >= 0) {
-			full[i--] = n[j--];
+		while(j >= 0) {
+			tstr_addc(full, n[j--]);
 		}
-		full[i--] = '/';
+		tstr_addc(full, '/');
 		node = node->father;
 	}
-	n = full+i+1;
+	tstr_addc(full, 0);
+	tstr_rev(full);
+	n = tstr_cstr(full);
 	ipc_send(pkg->id, pkg->type, (void*)n, strlen(n)+1);
+	tstr_free(full);
 }
 
 static void do_node_shortname(package_t* pkg) {
@@ -428,7 +430,8 @@ static void do_node_shortname(package_t* pkg) {
 		ipc_send(pkg->id, PKG_TYPE_ERR, NULL, 0);
 		return;
 	}
-	ipc_send(pkg->id, pkg->type, (void*)FSN(node)->name, strlen(FSN(node)->name)+1);
+	const char *n = tstr_cstr(FSN(node)->name);
+	ipc_send(pkg->id, pkg->type, (void*)n, strlen(n)+1);
 }
 
 static void do_kid(package_t* pkg) {

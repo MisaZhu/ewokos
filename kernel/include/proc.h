@@ -20,6 +20,7 @@
 #include <ipc.h>
 #include <kfile.h>
 #include <procinfo.h>
+#include <tstr.h>
 
 typedef void (*entry_function_t)(void);
 
@@ -56,8 +57,8 @@ typedef struct {
 
 #define ENV_MAX 32
 typedef struct {
-	char name[SHORT_NAME_MAX];	
-	char* value;
+	tstr_t* name;
+	tstr_t* value;
 } proc_env_t;
 
 typedef struct {
@@ -84,8 +85,8 @@ typedef struct process {
 	int32_t father_pid; /*father pid*/
 	int32_t owner; /*owner for muti-user system*/
 	uint32_t start_sec; /*start time by second*/
-	char cmd[CMD_MAX]; /*run command*/
-	char pwd[FULL_NAME_MAX]; /*working dir*/
+	tstr_t* cmd; /*run command*/
+	tstr_t* pwd; /*working dir*/
 	int32_t wait_pid; /*waiting for specific process end*/
 	uint32_t slept_by; /*slept_by*/
 	proc_sleep_t sleep_counter;

@@ -5,6 +5,7 @@
 #include <vfs/fs.h>
 #include <kserv.h>
 #include <syscall.h>
+#include <tstr.h>
 
 static int start_vfsd() {
 	printf("start vfs service ... ");
@@ -45,70 +46,49 @@ static int run_init_dev(const char* fname) {
 	return 0;
 }
 
-static int read_line(int fd, char* line, int sz) {
+static int read_line(int fd, tstr_t* line) {
 	int i = 0;
-	while(i<sz) {
+	while(true) {
 		char c;
 		if(read(fd, &c, 1) <= 0) {
-			line[i] = 0;
+			tstr_addc(line, 0);
 			return -1;
 		}
 		if(c == '\n') {
-			line[i] = 0;
+			tstr_addc(line, 0);
 			break;
 		}
-		line[i++] = c;
+		tstr_addc(line, c);
+		i++;
 	}
 	return i;
 }
 
-static int run_init_servs(const char* fname) {
+static int run_init_procs(const char* fname, bool wait) {
 	int fd = open(fname, 0);
 	if(fd < 0)
 		return -1;
 
-	char cmd[CMD_MAX];
+	tstr_t* line = tstr_new("", malloc, free);
 	int i = 0;
 	while(true) {
-		i = read_line(fd, cmd, CMD_MAX-1);
+		i = read_line(fd, line);
 		if(i < 0)
 			break;
 		if(i == 0)
 			continue;
+		const char* cmd = tstr_cstr(line);
 		if(cmd[0] != 0 && cmd[0] != '#') {
 			int pid = fork();
 			if(pid == 0) { 
 				exec(cmd);
 			}
-			kserv_wait_by_pid(pid);
-			printf("loaded serv: %s\n", cmd);
+			if(wait)
+				kserv_wait_by_pid(pid);
 		}
+		tstr_empty(line);
 	}
-	close(fd);
-	return 0;
-}
-
-static int run_init_procs(const char* fname) {
-	int fd = open(fname, 0);
-	if(fd < 0)
-		return -1;
-
-	char cmd[CMD_MAX];
-	int i = 0;
-	while(true) {
-		i = read_line(fd, cmd, CMD_MAX-1);
-		if(i < 0)
-			break;
-		if(i == 0)
-			continue;
-
-		if(cmd[0] != 0 && cmd[0] != '#') {
-			int pid = fork();
-			if(pid == 0) { 
-				exec(cmd);
-			}
-		}
-	}
+	tstr_free(line);
 	close(fd);
 	return 0;
 }
@@ -144,8 +124,8 @@ int main(int argc, char* argv[]) {
 	start_vfsd();
 	//mount_root();
 	run_init_dev("/etc/init/init.dev");
-	run_init_servs("/etc/init/init.serv");
-	run_init_procs("/etc/init/init.rd");
+	run_init_procs("/etc/init/init.serv", true);
+	run_init_procs("/etc/init/init.rd", false);
 
 	/*set uid to root*/
 	syscall2(SYSCALL_SET_UID, getpid(), 0);

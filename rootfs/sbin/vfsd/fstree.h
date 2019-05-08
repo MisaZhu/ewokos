@@ -3,11 +3,24 @@
 
 #include "types.h"
 #include "tree.h"
-#include "fsinfo.h"
+#include "tstr.h"
+
+typedef struct FSNode {
+	tstr_t* name;
+	int32_t mount;
+	uint32_t size;
+	uint32_t type;
+	int32_t owner;
+	void* data;
+} fs_node_t;
+
+#define FSN(n) ((fs_node_t*)((n)->data))
 
 void fs_tree_init();
 
 void fs_tree_node_init(tree_node_t* node);
+
+void fs_tree_del(tree_node_t* node);
 
 tree_node_t* fs_new_node();
 

@@ -10,7 +10,7 @@ void fs_tree_node_init(tree_node_t* node) {
 	node->id = _node_id_counter++;
 	node->data = malloc(sizeof(fs_node_t));
 	fs_node_t* fn = (fs_node_t*)node->data;
-	fn->name[0] = 0;
+	fn->name = tstr_new("", malloc, free);
 	fn->mount = 0;
 	fn->type = 0;
 	fn->owner = 0;
@@ -29,7 +29,7 @@ tree_node_t* fs_tree_simple_get(tree_node_t* father, const char* name) {
 
 	tree_node_t* node = father->fChild;
 	while(node != NULL) {
-		const char* n = FSN(node)->name;
+		const char* n = tstr_cstr(FSN(node)->name);
 		if(strcmp(n, name) == 0) {
 			return node;
 		}
@@ -51,7 +51,6 @@ tree_node_t* fs_tree_get(tree_node_t* father, const char* name) {
 		if(name[0] == 0)
 			return father;
 	}
-
 
 	tree_node_t* node = father;	
 	char n[FULL_NAME_MAX+1];
@@ -80,8 +79,14 @@ tree_node_t* fs_tree_simple_add(tree_node_t* father, const char* name) {
 			strchr(name, '/') != NULL)
 		return NULL;
 
-	strncpy(data->name, name, SHORT_NAME_MAX);
+	tstr_cpy(data->name, name);
 	tree_add(father, node);
 	return node;
 }
 
+void fs_tree_del(tree_node_t* node) {
+	if(node == NULL)
+		return;
+	tstr_free(FSN(node)->name);
+	tree_del(node, free);
+}
