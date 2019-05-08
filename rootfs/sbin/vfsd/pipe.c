@@ -54,21 +54,14 @@ void do_pipe_open(package_t* pkg) {
 	proto_free(proto);
 }
 
-void free_pipe(uint32_t node_addr) {
-	if(syscall2(SYSCALL_PFILE_GET_REF, (int32_t)node_addr, 2) > 0)
+void do_pipe_close(uint32_t node_addr, bool force) {
+	if(!force && syscall2(SYSCALL_PFILE_GET_REF, (int32_t)node_addr, 2) > 0)
 		return;
 	tree_node_t* node = (tree_node_t*)node_addr;
 	if(FSN(node)->data != NULL) {
 		free(FSN(node)->data);
 	}
 	free(node);
-}
-
-void do_pipe_close(package_t* pkg) {
-	fs_info_t* info = (fs_info_t*)get_pkg_data(pkg);
-	if(info == NULL || info->node == 0)
-		return;
-	free_pipe(info->node);
 }
 
 void do_pipe_write(package_t* pkg) {

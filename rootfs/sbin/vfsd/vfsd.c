@@ -23,10 +23,13 @@ void opens_init(void) {
 
 static int32_t close_zombie(uint32_t node) {
 	fs_info_t info;
-	if(node == 0 || syscall2(SYSCALL_PFILE_NODE_BY_ADDR, node, (int32_t)&info) != 0)
+	if(node == 0 || syscall2(SYSCALL_PFILE_NODE_BY_ADDR, node, (int32_t)&info) != 0) //all closed
+		return 0;
+	if(syscall2(SYSCALL_PFILE_GET_REF, (int32_t)node, 2) > 0)
 		return -1;
+
 	if(info.dev_serv_pid == getpid())
-		free_pipe(info.node);
+		do_pipe_close(info.node, true);
 	else if(info.dev_serv_pid > 0)
 		ipc_req(info.dev_serv_pid, 0, FS_CLOSE, &info, sizeof(fs_info_t), false);
 	return 0;
@@ -78,7 +81,7 @@ static void rm_opened(uint32_t node) {
 	uint32_t* nodes = (uint32_t*)_opened.items;
 	for(i=0; i<(int32_t)_opened.size; i++) {
 		if(nodes[i] == node) {
-			if(close_zombie(nodes[i]) == 0)
+			if(close_zombie(node) == 0)
 				nodes[i] = 0;
 		}	
 	}
@@ -346,6 +349,11 @@ static void do_close(package_t* pkg) {
 		return;
 	if(syscall2(SYSCALL_PFILE_CLOSE, pkg->pid, fd) != 0)
 		return;
+
+	if(info.dev_serv_pid == getpid())
+		do_pipe_close(info.node, false);
+	else if(info.dev_serv_pid > 0)
+		ipc_req(info.dev_serv_pid, 0, FS_CLOSE, &info, sizeof(fs_info_t), false);
 	rm_opened(info.node);
 }
 
@@ -550,9 +558,6 @@ static void handle(package_t* pkg, void* p) {
 		break;
 	case VFS_CMD_PIPE_OPEN:
 		do_pipe_open(pkg);
-		break;
-	case FS_CLOSE:
-		do_pipe_close(pkg);
 		break;
 	case FS_READ:
 		do_pipe_read(pkg);

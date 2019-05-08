@@ -174,7 +174,6 @@ int32_t sdcard_close(fs_info_t* info) {
 		return 0;
 	if(syscall2(SYSCALL_PFILE_GET_REF, info->node, 2) > 0) 
 		return 0;
-
 	ext2_node_data_t* data = (ext2_node_data_t*)info->data;
 	if(data->data != NULL) {
 		free(data->data);
