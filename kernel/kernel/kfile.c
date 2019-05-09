@@ -198,3 +198,25 @@ int32_t kf_node_info_update(fs_info_t* info) {
 	CRIT_OUT(_p_lock)
 	return ret;
 }
+
+void kf_close_proc(int32_t pid) {
+	uint32_t i = 0;
+	while(i < OPEN_MAX) {
+		if(_files[i].node_info.node != 0 &&
+				_files[i].node_info.dev_serv_pid == pid) {
+			memset(&_files[i].node_info, 0, sizeof(fs_info_t));
+		}
+		i++;
+	}
+	process_t* proc = proc_get(pid);
+	if(proc == NULL)
+		return;
+
+	for(i=0; i<FILE_MAX; i++) {
+		kfile_t* kf = proc->space->files[i].kf;
+		if(kf != NULL) {
+			kf_unref(kf, proc->space->files[i].wr); //unref the kernel file table.
+		}
+	}
+}
+

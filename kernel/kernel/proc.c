@@ -248,14 +248,8 @@ inline uint32_t *get_current_context(void) {
 
 static void proc_free_space(process_t *proc) {
 	/*free file info*/
+	kf_close_proc(proc->pid);
 	uint32_t i;
-	for(i=0; i<FILE_MAX; i++) {
-		kfile_t* kf = proc->space->files[i].kf;
-		if(kf != NULL) {
-			kf_unref(kf, proc->space->files[i].wr); //unref the kernel file table.
-		}
-	}
-	
 	for(i=0; i<ENV_MAX; i++) {
 		proc_env_t* env = &proc->space->envs[i];
 		if(env->name) 
