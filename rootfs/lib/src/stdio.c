@@ -10,20 +10,17 @@
 #define STDOUT_BUF_SIZE 128
 static char _out_buffer[STDOUT_BUF_SIZE];
 static int32_t _out_size = 0;
+bool _stdio_inited = false;
 
 static void stdout_flush() {
 	fs_info_t info;
-	bool uart = false;
-	if(fs_info(_stdout, &info) != 0)
-		uart = true;
-
 	const char* p = _out_buffer;
 	while(_out_size > 0) {
 		int32_t res;
-		if(uart) 
-			res = syscall3(SYSCALL_DEV_CHAR_WRITE, dev_typeid(DEV_UART, 0), (int32_t)_out_buffer, _out_size);
-		else
+		if(getenv("STDIO_DEV")[0] != 0) 
 			res = write(_stdout, p, _out_size);
+		else
+			res = syscall3(SYSCALL_DEV_CHAR_WRITE, dev_typeid(DEV_UART, 0), (int32_t)_out_buffer, _out_size);
 
 		if(res > 0) {
 			p += res;	
@@ -51,9 +48,11 @@ int getch() {
 
 	int32_t res = -1;
 	while(true) {
-		res = read(_stdin, buf, 1);
-		//res = syscall3(SYSCALL_DEV_CHAR_READ, dev_typeid(DEV_UART, 0), (int32_t)buf, 1);
-		if(res < 0 && errno == EAGAIN) {
+		if(getenv("STDIO_DEV")[0] != 0) 
+			res = read(_stdin, buf, 1);
+		else
+			res = syscall3(SYSCALL_DEV_CHAR_READ, dev_typeid(DEV_UART, 0), (int32_t)buf, 1);
+		if(res <= 0 && errno == EAGAIN) {
 			sleep(0);
 			continue;
 		}

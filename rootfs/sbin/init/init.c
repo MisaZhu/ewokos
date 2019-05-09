@@ -105,14 +105,6 @@ static void session_loop() {
 	}
 }
 
-void init_stdio(const char* dev) {
-	int fd = open(dev, O_RDONLY);
-	if(fd >= 0) {
-		dup2(fd, 0);
-		dup2(fd, 1);
-	}
-}
-
 int main(int argc, char* argv[]) {
 	(void)argc;
 	(void)argv;
@@ -126,18 +118,17 @@ int main(int argc, char* argv[]) {
 	run_init_dev("/etc/init/init.dev");
 	run_init_procs("/etc/init/init.serv", true);
 	run_init_procs("/etc/init/init.rd", false);
-
 	/*set uid to root*/
 	syscall2(SYSCALL_SET_UID, getpid(), 0);
 	/*run 2 session for uart0 and framebuffer based console0*/
 	int pid = fork();
 	if(pid == 0) {
-		init_stdio("/dev/console0");
+		setenv("STDIO_DEV", "/dev/console0");
 		exec("/sbin/session");
 		return 0;
 	}
 	else {
-		init_stdio("/dev/tty0");
+		setenv("STDIO_DEV", "/dev/tty0");
 		session_loop();
 	}
 	return 0;

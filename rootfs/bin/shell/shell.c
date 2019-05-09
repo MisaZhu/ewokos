@@ -10,14 +10,12 @@
 #define KEY_BACKSPACE 127
 #define KEY_LEFT 0x8
 
-static void gets(tstr_t* buf) {
+static int32_t gets(tstr_t* buf) {
 	tstr_empty(buf);	
 	while(true) {
 		int c = getch();
-		if(c == 0) {
-			sleep(0);
-			continue;
-		}
+		if(c == 0)
+			return -1;
 
 		if (c == KEY_BACKSPACE) {
 			if (buf->size > 0) {
@@ -43,6 +41,7 @@ static void gets(tstr_t* buf) {
 		}
 	}
 	tstr_addc(buf, 0);
+	return 0;
 }
 
 static int cd(const char* dir) {
@@ -316,9 +315,10 @@ int main(int argc, char* argv[]) {
 
 	while(1) {
 		printf("ewok %c ", uid==0?'#':'$');
-		gets(cmdstr);
-		char* cmd = (char*)CS(cmdstr);
+		if(gets(cmdstr) != 0)
+			break;
 
+		char* cmd = (char*)CS(cmdstr);
 		if(cmd[0] == 0)
 			continue;
 		if(handle(cmd) == 0)

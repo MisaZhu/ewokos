@@ -6,17 +6,14 @@
 #define KEY_BACKSPACE 127
 #define KEY_LEFT 0x8
 
-static void gets(char* buf, int len, bool disp) {
+static int gets(char* buf, int len, bool disp) {
 	int i = 0;
 	while(true) {
 		if(i >= len)
 			break;
-
 		int c = getch();
-		if(c == 0) {
-			sleep(0);
-			continue;
-		}
+		if(c == 0) 
+			return -1;
 
 		if (c == KEY_BACKSPACE) {
 			if (i > 0) {
@@ -48,6 +45,7 @@ static void gets(char* buf, int len, bool disp) {
 		}
 	}
 	buf[i] = 0;
+	return 0;
 }
 
 int main(int argc, char* argv[]) {
@@ -59,10 +57,11 @@ int main(int argc, char* argv[]) {
 		char passwd[128];
 
 		printf("login: ");
-		gets(user, 127, true);
+		if(gets(user, 127, true) != 0)
+			return -1;
+
 		if(user[0] == 0)
 			continue;
-
 		printf("password: ");
 		gets(passwd, 127, false);
 

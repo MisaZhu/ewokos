@@ -37,15 +37,31 @@ static int welcome() {
 	return 0;
 }
 
+static int32_t init_stdio(const char* dev) {
+	int fd = -1;
+	while(true) {
+		fd = open(dev, O_RDONLY);
+		if(fd >= 0)
+			break;
+		usleep(100000);
+	}
+	
+	dup2(fd, 0);
+	dup2(fd, 1);
+	return 0;
+}
+
 int main(int argc, char* argv[]) {
 	(void)argc;
 	(void)argv;
 
+	init_stdio(getenv("STDIO_DEV"));
 	welcome();
 	usleep(100000);
 	while(1) {
 		int pid = fork();
 		if(pid == 0) {
+			init_stdio(getenv("STDIO_DEV"));
 			exec("/sbin/login");
 		}
 		else {
