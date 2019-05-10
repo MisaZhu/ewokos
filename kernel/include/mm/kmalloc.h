@@ -9,4 +9,7 @@ void* km_alloc(uint32_t size);
 void km_free(void* p);
 void km_init(void);
 
+mem_funcs_t* kmem_funcs(void);
+#define KMFS kmem_funcs()
+
 #endif

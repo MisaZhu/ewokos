@@ -4,9 +4,6 @@
 #include <stdlib.h>
 #include <device.h>
 
-static char buf1[SDC_BLOCK_SIZE];
-static char buf2[SDC_BLOCK_SIZE];
-
 static int32_t _typeid = dev_typeid(DEV_SDC, 0);
 
 static int32_t read_block(int32_t block, char* buf) {
@@ -24,5 +21,5 @@ static int32_t read_block(int32_t block, char* buf) {
 }
 
 char* from_sd(const char *filename, int32_t* sz) { 
-	return ext2_load(filename, sz, malloc, read_block, buf1, buf2);
+	return ext2_load(filename, sz, read_block, MFS);
 }

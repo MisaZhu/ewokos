@@ -13,7 +13,6 @@ static int32_t _out_size = 0;
 bool _stdio_inited = false;
 
 static void stdout_flush() {
-	fs_info_t info;
 	const char* p = _out_buffer;
 	while(_out_size > 0) {
 		int32_t res;

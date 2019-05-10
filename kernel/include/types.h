@@ -50,8 +50,13 @@ typedef unsigned int u32_t;
 #define ALIGN_DOWN(x, alignment) ((x) & ~(alignment - 1))
 #define ALIGN_UP(x, alignment) (((x) + alignment - 1) & ~(alignment - 1))
 
-typedef void (*free_func_t) (void* p);
 typedef void* (*malloc_func_t) (uint32_t size);
+typedef void (*free_func_t) (void* p);
+
+typedef struct {
+	malloc_func_t mlc;
+	free_func_t fr;
+} mem_funcs_t;
 
 #endif
 

@@ -28,7 +28,8 @@ static int32_t search(INODE *ip, const char *name, read_block_func_t read_block,
 
 #define MAX_DIR_DEPTH 4
 
-char* ext2_load(const char* filename, int32_t *sz, malloc_func_t mlc, read_block_func_t read_block, char* buf1, char* buf2) {
+char* ext2_load(const char* filename, int32_t *sz, read_block_func_t read_block, mem_funcs_t* mfs) {
+	char* buf1 = (char*)mfs->mlc(SDC_BLOCK_SIZE);
 	int32_t depth, i, me, iblk, count, u, blk12;
 	char name[MAX_DIR_DEPTH][64];
 	char *ret, *addr;
@@ -59,8 +60,10 @@ char* ext2_load(const char* filename, int32_t *sz, malloc_func_t mlc, read_block
 	}
 
 	/* read blk#2 to get group descriptor 0 */
-	if(read_block(2, buf1) != 0)
+	if(read_block(2, buf1) != 0) {
+		mfs->fr(buf1);
 		return NULL;
+	}
 	gp = (GD *)buf1;
 	iblk = (uint16_t)gp->bg_inode_table;
 
@@ -68,20 +71,27 @@ char* ext2_load(const char* filename, int32_t *sz, malloc_func_t mlc, read_block
 		return NULL;
 	ip = (INODE *)buf1 + 1;   // ip->root inode #2
 
+	char* buf2 = (char*)mfs->mlc(SDC_BLOCK_SIZE);
 	/* serach for system name */
 	for (i=0; i<depth; i++) {
 		me = search(ip, name[i], read_block, buf2) - 1;
-		if (me < 0) 
+		if (me < 0) {
+			mfs->fr(buf1);
+			mfs->fr(buf2);
 			return NULL;
-		if(read_block(iblk+(me/8), buf1) != 0)  // read block inode of me
+		}
+		if(read_block(iblk+(me/8), buf1) != 0) { // read block inode of me
+			mfs->fr(buf1);
+			mfs->fr(buf2);
 			return NULL;
+		}
 		ip = (INODE *)buf1 + (me % 8);
 	}
 
 	*sz = ip->i_size;
 	int32_t mlc_size = ALIGN_UP(*sz, SDC_BLOCK_SIZE);
 	blk12 = ip->i_block[12];
-	addr = (char *)mlc(mlc_size);
+	addr = (char *)mfs->mlc(mlc_size);
 	ret = addr;
 	/* read indirect block into b2 */
 
@@ -104,10 +114,87 @@ char* ext2_load(const char* filename, int32_t *sz, malloc_func_t mlc, read_block
 			count += SDC_BLOCK_SIZE;
 		}
 	}
+
+	mfs->fr(buf1);
+	mfs->fr(buf2);
 	return ret;
 }
 
-int32_t ext2_write(INODE* node, int32_t offset, char *buf, int32_t nbytes, read_block_func_t read_block, write_block_func_t write_block, char* wbuf) {
+static int32_t tst_bit(char *buf, int32_t bit) {
+	int32_t i, j;
+	i = bit / 8;
+	j = bit % 8;
+	if (buf[i] & (1 << j))
+		return 1;
+	return 0;
+}
+/*
+static int32_t clr_bit(char *buf, int32_t bit) {
+	int32_t i, j;
+	i = bit / 8;
+	j = bit % 8;
+	buf[i] &= ~(1 << j);
+	return 0;
+}
+*/
+
+static int32_t set_bit(char *buf, int32_t bit) {
+	int32_t i, j;
+	i = bit / 8;
+	j = bit % 8;
+	buf[i] |= (1 << j);
+	return 0;
+}
+
+static void dec_free_blocks(read_block_func_t read_block, write_block_func_t write_block, mem_funcs_t* mfs) {
+	char* buf = (char*)mfs->mlc(SDC_BLOCK_SIZE);
+	// inc free block count in SUPER and GD
+	read_block(1, buf);
+	SUPER* sp = (SUPER *)buf;
+	sp->s_free_blocks_count--;
+	write_block(1, buf);
+
+	read_block(2, buf);
+	GD* gp = (GD *)buf;
+	gp->bg_free_blocks_count--;
+	write_block(2, buf);
+
+	mfs->fr(buf);
+}
+
+static int32_t ext2_alloc(read_block_func_t read_block, write_block_func_t write_block, mem_funcs_t* mfs) {
+ 	char* buf1 = (char*)mfs->mlc(SDC_BLOCK_SIZE);
+	// inc free block count in SUPER and GD
+	read_block(1, buf1);
+	SUPER* sp = (SUPER *)buf1;
+	int32_t nblocks = sp->s_blocks_count;
+	
+	/* read blk#2 to get group descriptor 0 */
+	if(read_block(2, buf1) != 0) {
+		mfs->fr(buf1);
+		return -1;
+	}
+	GD* gp = (GD *)buf1;
+	int32_t bmap = gp->bg_block_bitmap;
+	int32_t i;  
+ 	char* buf2 = (char*)mfs->mlc(SDC_BLOCK_SIZE);
+
+	read_block(bmap, buf1);
+	for (i = 0; i < nblocks; i++) {
+		if (tst_bit(buf1, i) == 0) {
+			set_bit(buf1, i);
+			dec_free_blocks(read_block, write_block, mfs);
+			write_block(bmap, buf1);
+			return i+1;
+		}
+	}
+	mfs->fr(buf1);
+	mfs->fr(buf2);
+	return 0;
+}
+
+int32_t ext2_write(INODE* node, int32_t offset, char *buf, int32_t nbytes, read_block_func_t read_block, write_block_func_t write_block, mem_funcs_t* mfs) {
+ 	char* buf1 = (char*)mfs->mlc(SDC_BLOCK_SIZE);
 	char *cq = buf;
 	char *cp;
 	//(2)
@@ -124,22 +211,22 @@ int32_t ext2_write(INODE* node, int32_t offset, char *buf, int32_t nbytes, read_
 		if(lbk < 12){
 			//if its the first one of the new block, allocatea new one
 			if(node->i_block[lbk] == 0){
-				//node->i_block[lbk] = balloc("dev_name")//TODO MUST ALLOCATE a block
+				node->i_block[lbk] = ext2_alloc(read_block, write_block, mfs);
 			}
 			blk = node->i_block[lbk];
 		}
 		//5.2 indirect 
 		else if(lbk >=12 && lbk < 256+12){
-			int32_t* indirect_buf = (int32_t*)wbuf;
+			int32_t* indirect_buf = (int32_t*)buf1;
 			//if its the first one of the new block, allocatea new one
 			if(node->i_block[12] == 0){
-				//node->i_block[12] = balloc("dev_name"); //TODO
+				node->i_block[12] = ext2_alloc(read_block, write_block, mfs);
 				memset(indirect_buf, 0, SDC_BLOCK_SIZE);
 				write_block(node->i_block[12], (char*)indirect_buf);
 			}
 			read_block(node->i_block[12], (char*)indirect_buf);
 			if(indirect_buf[lbk-12] == 0){
-				//indirect_buf[lbk-12] = balloc("dev_name"); //TODO
+				indirect_buf[lbk-12] = ext2_alloc(read_block, write_block, mfs);
 				write_block(node->i_block[12], (char*)indirect_buf);
 			}
 			blk = indirect_buf[lbk-12]; 
@@ -148,8 +235,8 @@ int32_t ext2_write(INODE* node, int32_t offset, char *buf, int32_t nbytes, read_
 			break;
 		}
 		
-		read_block(blk, wbuf);
-		cp = wbuf + start_byte;
+		read_block(blk, buf1);
+		cp = buf1 + start_byte;
 		remain = SDC_BLOCK_SIZE - start_byte;
 		while(remain > 0){
 			int32_t min = 0;
@@ -164,15 +251,16 @@ int32_t ext2_write(INODE* node, int32_t offset, char *buf, int32_t nbytes, read_
 			nbytes -= min;
 			remain -= min;
 			offset += min;
-			if(offset > node->i_size){
+			if(offset > (int32_t)node->i_size){
 				node->i_size += min;
 			}			
 			if(nbytes<=0){
 				break;
 			}
 		}
-		write_block(blk, wbuf);
+		write_block(blk, buf1);
 		// loop back to while to write more .... until nbytes are written
 	}
+	mfs->fr(buf1);
 	return nbytes_copy;
 }

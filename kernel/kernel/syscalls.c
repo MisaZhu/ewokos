@@ -45,10 +45,6 @@ static int32_t syscall_dev_block_write_done(int32_t arg0) {
 	return dev_block_write_done(arg0);
 }
 
-static int32_t syscall_dev_block_alloc(int32_t arg0) {
-	return dev_block_alloc(arg0);
-}
-
 static int32_t syscall_shm_alloc(int arg0) {
 	return shm_alloc((uint32_t)arg0);
 }
@@ -351,7 +347,6 @@ static int32_t (*const _syscallHandler[])() = {
 	[SYSCALL_DEV_BLOCK_READ_DONE] = syscall_dev_block_read_done,
 	[SYSCALL_DEV_BLOCK_WRITE] = syscall_dev_block_write,
 	[SYSCALL_DEV_BLOCK_WRITE_DONE] = syscall_dev_block_write_done,
-	[SYSCALL_DEV_BLOCK_ALLOC] = syscall_dev_block_alloc,
 
 	[SYSCALL_SHM_ALLOC] = syscall_shm_alloc,
 	[SYSCALL_SHM_FREE] = syscall_shm_free,

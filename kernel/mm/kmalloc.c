@@ -4,6 +4,14 @@
 #include <kernel.h>
 #include <printk.h>
 
+static mem_funcs_t mfs;
+
+mem_funcs_t* kmem_funcs() {
+	mfs.mlc = km_alloc;
+	mfs.fr = km_free;
+	return &mfs;
+}
+
 static malloc_t _kmalloc;
 static uint32_t _kmalloc_mem_tail;
 

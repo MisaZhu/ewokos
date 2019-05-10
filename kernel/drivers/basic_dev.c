@@ -161,19 +161,3 @@ int32_t dev_block_write_done(int32_t type_id) {
 	}
 	return -1;
 }
-
-int32_t dev_block_alloc(int32_t type_id) {
-	if(_current_proc->owner > 0)
-		return -1;
-
-	int16_t type, id;
-	type = (type_id & 0xffff0000) >> 16;
-	id = (type_id & 0xffff);
-	(void)id;
-
-	switch(type) {
-	case DEV_SDC:
-		return dev_sdc_alloc(id);
-	}
-	return 0;	
-}
