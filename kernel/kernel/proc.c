@@ -232,8 +232,8 @@ process_t *proc_create(uint32_t type) {
 	proc->wait_pid = -1;
 	proc->father_pid = 0;
 	proc->owner = 0;
-	proc->cmd = tstr_new("", km_alloc, km_free);
-	proc->pwd = tstr_new("", km_alloc, km_free);
+	proc->cmd = tstr_new("", KMFS);
+	proc->pwd = tstr_new("", KMFS);
 	proc->state = CREATED;
 	cpu_tick(&proc->start_sec, NULL);
 	
@@ -432,7 +432,7 @@ int32_t proc_set_env(const char* name, const char* value) {
 				strcmp(CS(_current_proc->space->envs[i].name), name) == 0) {
 			env = &_current_proc->space->envs[i];
 			if(env->name == NULL) {
-				env->name = tstr_new("", km_alloc, km_free);
+				env->name = tstr_new("", KMFS);
 				tstr_cpy(env->name, name);
 			}
 			break;
@@ -441,7 +441,7 @@ int32_t proc_set_env(const char* name, const char* value) {
 	if(env == NULL)
 		return -1;
 	if(env->value == NULL)
-		env->value = tstr_new("", km_alloc, km_free);
+		env->value = tstr_new("", KMFS);
 	tstr_cpy(env->value, value);
 	return 0;
 }
@@ -466,9 +466,9 @@ static inline void proc_clone_envs(process_t* child, process_t* parent) {
 			break;
 		proc_env_t* env = &child->space->envs[i];
 		if(env->name == NULL)
-			env->name = tstr_new("", km_alloc, km_free);
+			env->name = tstr_new("", KMFS);
 		if(env->value == NULL)
-			env->value = tstr_new("", km_alloc, km_free);
+			env->value = tstr_new("", KMFS);
 		tstr_cpy(env->name, CS(parent->space->envs[i].name));
 		tstr_cpy(env->value, CS(parent->space->envs[i].value));
 	}

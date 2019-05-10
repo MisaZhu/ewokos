@@ -244,7 +244,7 @@ tstr_t* vfs_full_name_by_node(uint32_t node) {
 		if(pkg != NULL) free(pkg);
 		return NULL;
 	}
-	tstr_t *ret = tstr_new((char*)get_pkg_data(pkg), malloc, free);
+	tstr_t *ret = tstr_new((char*)get_pkg_data(pkg), MFS);
 	free(pkg);
 	return ret;
 }
@@ -262,7 +262,7 @@ tstr_t* vfs_short_name_by_node(uint32_t node) {
 		if(pkg != NULL) free(pkg);
 		return NULL;
 	}
-	tstr_t *ret = tstr_new((char*)get_pkg_data(pkg), malloc, free);
+	tstr_t *ret = tstr_new((char*)get_pkg_data(pkg), MFS);
 	free(pkg);
 	return ret;
 }

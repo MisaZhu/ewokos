@@ -145,7 +145,7 @@ void kernel_entry() {
 	sconf_t* conf = sconf_load(CONF_FNAME);
 	conf_dev_init(conf);
 	if(conf != NULL)
-		sconf_free(conf, km_free);
+		sconf_free(conf, KMFS);
 	else
 		printk("warning: %s missed.\n", CONF_FNAME);
 

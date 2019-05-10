@@ -1,9 +1,9 @@
 #include <tstr.h>
 #include <kstring.h>
 
-tstr_t* tstr_new(const char* src, malloc_func_t mlc, free_func_t fr) {
-	tstr_t* tstr = (tstr_t*)mlc(sizeof(tstr_t));
-	trunk_init(tstr, 1, mlc, fr);
+tstr_t* tstr_new(const char* src, mem_funcs_t* mfs) {
+	tstr_t* tstr = (tstr_t*)mfs->mlc(sizeof(tstr_t));
+	trunk_init(tstr, 1, mfs);
 	if(src != NULL)
 		tstr_cpy(tstr, src);
 	return tstr;
@@ -11,7 +11,7 @@ tstr_t* tstr_new(const char* src, malloc_func_t mlc, free_func_t fr) {
 
 void tstr_free(tstr_t* tstr) {
 	if(tstr != NULL) {
-		free_func_t fr = tstr->fr;
+		free_func_t fr = tstr->mfs->fr;
 		trunk_clear(tstr);
 		fr(tstr);
 	}
@@ -74,6 +74,6 @@ void tstr_empty(tstr_t* tstr) {
 tstr_t* tstr_dump(tstr_t* src) {
 	if(src == NULL)
 		return NULL;
-	tstr_t* ret = tstr_new(CS(src), src->mlc, src->fr);
+	tstr_t* ret = tstr_new(CS(src), src->mfs);
 	return ret;
 }

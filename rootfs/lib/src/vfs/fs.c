@@ -312,7 +312,7 @@ tstr_t* fs_full_name(const char* fname) {
 	char pwd[FULL_NAME_MAX];
 	getcwd(pwd, FULL_NAME_MAX-1);
 
-	tstr_t* full = tstr_new("", malloc, free);
+	tstr_t* full = tstr_new("", MFS);
 	if(fname[0] == 0) {
 		tstr_cpy(full, pwd);
 	}

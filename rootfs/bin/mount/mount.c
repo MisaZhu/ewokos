@@ -18,7 +18,7 @@ int main(int argc, char* argv[]) {
 		if(mnt.dev_serv_pid > 0) {
 			tstr_t* name;
 			if(mnt.node_old == 0)
-				name = tstr_new("/", malloc, free);
+				name = tstr_new("/", MFS);
 			else
 				name = vfs_full_name_by_node(mnt.node_old);
 			if(name != NULL) {

@@ -301,14 +301,14 @@ static int32_t read_config() {
 	const char* v = sconf_get(conf, ENV_PATH);
 	if(v[0] != 0) 
 		setenv(ENV_PATH, v);
-	sconf_free(conf, free);
+	sconf_free(conf, MFS);
 	return 0;
 }
 
 int main(int argc, char* argv[]) {
 	(void)argc;
 	(void)argv;
-	tstr_t* cmdstr = tstr_new("", malloc, free);
+	tstr_t* cmdstr = tstr_new("", MFS);
 
 	read_config();
 	int uid = getuid();

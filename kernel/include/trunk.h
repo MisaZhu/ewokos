@@ -8,12 +8,10 @@ typedef struct {
 	uint32_t size;
 	uint32_t trunk_size;
 	void *items;
-
-	malloc_func_t mlc;
-	free_func_t fr;
+	mem_funcs_t* mfs;
 } trunk_t;
 
-int32_t trunk_init(trunk_t* trunk, uint32_t item_size, malloc_func_t mlc, free_func_t fr);
+int32_t trunk_init(trunk_t* trunk, uint32_t item_size, mem_funcs_t* mfs);
 void trunk_clear(trunk_t* trunk);
 int32_t trunk_add(trunk_t* trunk);
 

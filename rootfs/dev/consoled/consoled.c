@@ -47,7 +47,7 @@ static int32_t read_config() {
 	if(v[0] != 0) 
 		_font = get_font_by_name(v);
 
-	sconf_free(conf, free);
+	sconf_free(conf, MFS);
 	return 0;
 }
 

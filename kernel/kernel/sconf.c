@@ -7,7 +7,7 @@ sconf_t* sconf_load(const char* fname) {
 	char* str = from_sd(fname, &size);
 	if(str == NULL || size == 0)
 		return NULL;
-	sconf_t* ret = sconf_parse(str, km_alloc, km_free);	
+	sconf_t* ret = sconf_parse(str, KMFS);	
 	km_free(str);
 	return ret;
 }

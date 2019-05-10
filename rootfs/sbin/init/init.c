@@ -69,7 +69,7 @@ static int run_init_procs(const char* fname, bool wait) {
 	if(fd < 0)
 		return -1;
 
-	tstr_t* line = tstr_new("", malloc, free);
+	tstr_t* line = tstr_new("", MFS);
 	int i = 0;
 	while(true) {
 		i = read_line(fd, line);

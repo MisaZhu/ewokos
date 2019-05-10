@@ -193,9 +193,9 @@ static int32_t ext2_alloc(read_block_func_t read_block, write_block_func_t write
 	return 0;
 }
 
-int32_t ext2_write(INODE* node, int32_t offset, char *buf, int32_t nbytes, read_block_func_t read_block, write_block_func_t write_block, mem_funcs_t* mfs) {
+int32_t ext2_write(INODE* node, char *data, int32_t nbytes, int32_t offset, read_block_func_t read_block, write_block_func_t write_block, mem_funcs_t* mfs) {
  	char* buf1 = (char*)mfs->mlc(SDC_BLOCK_SIZE);
-	char *cq = buf;
+	char *cq = data;
 	char *cp;
 	//(2)
 	int32_t blk =0, lbk = 0, start_byte = 0, remain = 0;

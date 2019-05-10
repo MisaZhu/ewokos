@@ -27,7 +27,7 @@ static char* read_from_sd(const char* fname, int32_t *size) {
 int exec(const char* cmd_line) {
 	char* img = NULL;
 	int32_t size;
-	tstr_t* cmd = tstr_new("", malloc, free);
+	tstr_t* cmd = tstr_new("", MFS);
 	const char *p = cmd_line;
 	while(*p != 0 && *p != ' ') {
 		tstr_addc(cmd, *p);
@@ -97,8 +97,8 @@ int open(const char* fname, int flags) {
 			return -1;
 		}
 
-		tstr_t *dir = tstr_new("", malloc, free);
-		tstr_t *name = tstr_new("", malloc, free);
+		tstr_t *dir = tstr_new("", MFS);
+		tstr_t *name = tstr_new("", MFS);
 		fs_parse_name(full_name, dir, name);
 		int fd = fs_open(CS(dir), O_RDWR);
 		int res = -1;

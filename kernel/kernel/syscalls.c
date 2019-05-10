@@ -339,79 +339,76 @@ static int32_t syscall_system_cmd(int32_t arg0, int32_t arg1, int32_t arg2) {
 	return system_cmd(arg0, arg1, arg2);
 }
 
-static int32_t (*const _syscallHandler[])() = {
-	[SYSCALL_DEV_INFO] = syscall_dev_info,
-	[SYSCALL_DEV_CHAR_READ] = syscall_dev_char_read,
-	[SYSCALL_DEV_CHAR_WRITE] = syscall_dev_char_write,
-	[SYSCALL_DEV_BLOCK_READ] = syscall_dev_block_read,
-	[SYSCALL_DEV_BLOCK_READ_DONE] = syscall_dev_block_read_done,
-	[SYSCALL_DEV_BLOCK_WRITE] = syscall_dev_block_write,
-	[SYSCALL_DEV_BLOCK_WRITE_DONE] = syscall_dev_block_write_done,
-
-	[SYSCALL_SHM_ALLOC] = syscall_shm_alloc,
-	[SYSCALL_SHM_FREE] = syscall_shm_free,
-	[SYSCALL_SHM_MAP] = syscall_shm_map,
-	[SYSCALL_SHM_UNMAP] = syscall_shm_unmap,
-
-	[SYSCALL_FORK] = syscall_fork,
-	[SYSCALL_GETPID] = syscall_getpid,
-	[SYSCALL_EXEC_ELF] = syscall_exec_elf,
-	[SYSCALL_WAIT] = syscall_wait,
-	[SYSCALL_EXIT] = syscall_exit,
-	[SYSCALL_SLEEP_MSEC] = syscall_sleep_msec,
-
-	[SYSCALL_GET_ENV] = syscall_get_env,
-	[SYSCALL_GET_ENV_NAME] = syscall_get_env_name,
-	[SYSCALL_GET_ENV_VALUE] = syscall_get_env_value,
-	[SYSCALL_SET_ENV] = syscall_set_env,
-
-	[SYSCALL_THREAD] = syscall_thread,
-
-	[SYSCALL_PMALLOC] = syscall_pmalloc,
-	[SYSCALL_PFREE] = syscall_pfree,
-
-	[SYSCALL_GET_CMD] = syscall_get_cmd,
-
-	[SYSCALL_IPC_OPEN] = syscall_ipc_open,
-	[SYSCALL_IPC_CLOSE] = syscall_ipc_close,
-	[SYSCALL_IPC_WRITE] = syscall_ipc_write,
-	[SYSCALL_IPC_READY] = syscall_ipc_ready,
-	[SYSCALL_IPC_READ] = syscall_ipc_read,
-	[SYSCALL_IPC_RING] = syscall_ipc_ring,
-	[SYSCALL_IPC_PEER] = syscall_ipc_peer,
-
-	[SYSCALL_PFILE_GET_SEEK] = syscall_pf_get_seek,
-	[SYSCALL_PFILE_SEEK] = syscall_pf_seek,
-	[SYSCALL_PFILE_OPEN] = syscall_pf_open,
-	[SYSCALL_PFILE_CLOSE] = syscall_pf_close,
-	[SYSCALL_PFILE_DUP2] = syscall_pf_dup2,
-	[SYSCALL_PFILE_NODE_BY_FD] = syscall_pf_node_by_fd,
-	[SYSCALL_PFILE_NODE_BY_PID_FD] = syscall_pf_node_by_pid_fd,
-	[SYSCALL_PFILE_NODE_BY_ADDR] = syscall_pf_node_by_addr,
-	[SYSCALL_PFILE_NODE_UPDATE] = syscall_pf_node_update,
-	[SYSCALL_PFILE_GET_REF] = syscall_pf_get_ref,
-
-	[SYSCALL_KSERV_REG] = syscall_kserv_reg,
-	[SYSCALL_KSERV_READY] = syscall_kserv_ready,
-	[SYSCALL_KSERV_GET_BY_NAME] = syscall_kserv_get_by_name,
-	[SYSCALL_KSERV_GET_BY_PID] = syscall_kserv_get_by_pid,
-
-	[SYSCALL_GET_CWD] = syscall_get_cwd,
-	[SYSCALL_SET_CWD] = syscall_set_cwd,
-
-	[SYSCALL_SET_UID] = syscall_set_uid,
-	[SYSCALL_GET_UID] = syscall_get_uid,
-
-	[SYSCALL_SEMAPHORE_LOCK] = syscall_semaphore_lock,
-	[SYSCALL_SEMAPHORE_UNLOCK] = syscall_semaphore_unlock,
-	[SYSCALL_SEMAPHORE_INIT] = syscall_semaphore_init,
-	[SYSCALL_SEMAPHORE_CLOSE] = syscall_semaphore_close,
-
-	[SYSCALL_SYSTEM_CMD] = syscall_system_cmd
-};
-
 /* kernel side of system calls. */
 int32_t handle_syscall(int32_t code, int32_t arg0, int32_t arg1, int32_t arg2) {
-	return _syscallHandler[code](arg0, arg1, arg2);
+	switch(code) {
+		case SYSCALL_DEV_INFO: return  syscall_dev_info(arg0, arg1);
+		case SYSCALL_DEV_CHAR_READ: return  syscall_dev_char_read(arg0, arg1, arg2);
+		case SYSCALL_DEV_CHAR_WRITE: return  syscall_dev_char_write(arg0, arg1, arg2);
+		case SYSCALL_DEV_BLOCK_READ: return  syscall_dev_block_read(arg0, arg1);
+		case SYSCALL_DEV_BLOCK_READ_DONE: return  syscall_dev_block_read_done(arg0, arg1);
+		case SYSCALL_DEV_BLOCK_WRITE: return  syscall_dev_block_write(arg0, arg1, arg2);
+		case SYSCALL_DEV_BLOCK_WRITE_DONE: return  syscall_dev_block_write_done(arg0);
+
+		case SYSCALL_SHM_ALLOC: return  syscall_shm_alloc(arg0);
+		case SYSCALL_SHM_FREE: return  syscall_shm_free(arg0);
+		case SYSCALL_SHM_MAP: return  syscall_shm_map(arg0);
+		case SYSCALL_SHM_UNMAP: return  syscall_shm_unmap(arg0);
+
+		case SYSCALL_FORK: return  syscall_fork();
+		case SYSCALL_GETPID: return  syscall_getpid();
+		case SYSCALL_EXEC_ELF: return  syscall_exec_elf(arg0, arg1, arg2);
+		case SYSCALL_WAIT: return  syscall_wait(arg0);
+		case SYSCALL_EXIT: return  syscall_exit(arg0);
+		case SYSCALL_SLEEP_MSEC: return  syscall_sleep_msec(arg0);
+		case SYSCALL_THREAD: return  syscall_thread(arg0, arg1);
+
+		case SYSCALL_GET_ENV: return  syscall_get_env(arg0, arg1, arg2);
+		case SYSCALL_GET_ENV_NAME: return  syscall_get_env_name(arg0, arg1, arg2);
+		case SYSCALL_GET_ENV_VALUE: return  syscall_get_env_value(arg0, arg1, arg2);
+		case SYSCALL_SET_ENV: return  syscall_set_env(arg0, arg1);
+
+		case SYSCALL_PMALLOC: return  syscall_pmalloc(arg0);
+		case SYSCALL_PFREE: return  syscall_pfree(arg0);
+
+		case SYSCALL_IPC_OPEN: return  syscall_ipc_open(arg0, arg1);
+		case SYSCALL_IPC_CLOSE: return  syscall_ipc_close(arg0);
+		case SYSCALL_IPC_WRITE: return  syscall_ipc_write(arg0, arg1, arg2);
+		case SYSCALL_IPC_READY: return  syscall_ipc_ready();
+		case SYSCALL_IPC_READ: return  syscall_ipc_read(arg0, arg1, arg2);
+		case SYSCALL_IPC_RING: return  syscall_ipc_ring(arg0);
+		case SYSCALL_IPC_PEER: return  syscall_ipc_peer(arg0);
+
+		case SYSCALL_PFILE_GET_SEEK: return  syscall_pf_get_seek(arg0);
+		case SYSCALL_PFILE_SEEK: return  syscall_pf_seek(arg0, arg1);
+		case SYSCALL_PFILE_OPEN: return  syscall_pf_open(arg0, arg1, arg2);
+		case SYSCALL_PFILE_CLOSE: return  syscall_pf_close(arg0, arg1);
+		case SYSCALL_PFILE_DUP2: return  syscall_pf_dup2(arg0, arg1);
+		case SYSCALL_PFILE_NODE_BY_FD: return  syscall_pf_node_by_fd(arg0, arg1);
+		case SYSCALL_PFILE_NODE_BY_PID_FD: return  syscall_pf_node_by_pid_fd(arg0, arg1, arg2);
+		case SYSCALL_PFILE_NODE_BY_ADDR: return  syscall_pf_node_by_addr(arg0, arg1);
+		case SYSCALL_PFILE_NODE_UPDATE: return  syscall_pf_node_update(arg0);
+		case SYSCALL_PFILE_GET_REF: return  syscall_pf_get_ref(arg0, arg1);
+
+		case SYSCALL_KSERV_REG: return  syscall_kserv_reg(arg0);
+		case SYSCALL_KSERV_READY: return  syscall_kserv_ready();
+		case SYSCALL_KSERV_GET_BY_NAME: return  syscall_kserv_get_by_name(arg0);
+		case SYSCALL_KSERV_GET_BY_PID: return  syscall_kserv_get_by_pid(arg0);
+
+		case SYSCALL_GET_CMD: return  syscall_get_cmd(arg0, arg1, arg2);
+		case SYSCALL_GET_CWD: return  syscall_get_cwd(arg0, arg1);
+		case SYSCALL_SET_CWD: return  syscall_set_cwd(arg0);
+
+		case SYSCALL_SET_UID: return  syscall_set_uid(arg0, arg1);
+		case SYSCALL_GET_UID: return  syscall_get_uid(arg0);
+
+		case SYSCALL_SEMAPHORE_LOCK: return  syscall_semaphore_lock(arg0);
+		case SYSCALL_SEMAPHORE_UNLOCK: return  syscall_semaphore_unlock(arg0);
+		case SYSCALL_SEMAPHORE_INIT: return  syscall_semaphore_init(arg0);
+		case SYSCALL_SEMAPHORE_CLOSE: return  syscall_semaphore_close(arg0);
+
+		case SYSCALL_SYSTEM_CMD: return  syscall_system_cmd(arg0, arg1, arg2);
+	}
+	return -1;
 }
 

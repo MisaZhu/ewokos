@@ -18,7 +18,7 @@
 static trunk_t _opened;
 
 void opens_init(void) {
-	trunk_init(&_opened, 4, malloc, free);
+	trunk_init(&_opened, 4, MFS);
 }
 
 static int32_t close_zombie(uint32_t node) {
@@ -403,7 +403,7 @@ static void do_node_fullname(package_t* pkg) {
 		return;
 	}
 
-	tstr_t* full = tstr_new("", malloc, free);
+	tstr_t* full = tstr_new("", MFS);
 	const char* n;
 	while(true) {
 		if(node->father == NULL)

@@ -10,7 +10,7 @@ void fs_tree_node_init(tree_node_t* node) {
 	node->id = _node_id_counter++;
 	node->data = malloc(sizeof(fs_node_t));
 	fs_node_t* fn = (fs_node_t*)node->data;
-	fn->name = tstr_new("", malloc, free);
+	fn->name = tstr_new("", MFS);
 	fn->mount = 0;
 	fn->type = 0;
 	fn->owner = 0;

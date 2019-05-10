@@ -6,8 +6,8 @@
 
 int main(int argc, char* argv[]) {
 	if(argc > 1) {
-		tstr_t* dir = tstr_new("", malloc, free);
-		tstr_t* name = tstr_new("", malloc, free);
+		tstr_t* dir = tstr_new("", MFS);
+		tstr_t* name = tstr_new("", MFS);
 		fs_parse_name(argv[1], dir, name);
 		int fd = fs_open(CS(dir), O_RDWR);
 		if(fd >= 0) {

@@ -7,7 +7,7 @@ sconf_t* sconf_load(const char* fname) {
 	char* str = fs_read_file(fname, &size);
 	if(str == NULL || size == 0)
 		return NULL;
-	sconf_t* ret = sconf_parse(str, malloc, free);
+	sconf_t* ret = sconf_parse(str, MFS);
 	free(str);
 	return ret;
 }

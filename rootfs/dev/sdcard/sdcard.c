@@ -25,6 +25,22 @@ static int32_t read_block(int32_t block, char* buf) {
 	return 0;
 }
 
+static int32_t write_block(int32_t block, char* buf) {
+	printf("pid: %d\n", getpid());
+	if(syscall3(SYSCALL_DEV_BLOCK_WRITE, _typeid, block, (int32_t)buf) < 0)
+		return -1;
+	printf("pid: %d\n", getpid());
+
+	int32_t res = -1;
+	while(true) {
+		res = syscall1(SYSCALL_DEV_BLOCK_WRITE_DONE, _typeid);
+		if(res == 0)
+			break;
+		sleep(0);
+	}
+	return 0;
+}
+
 typedef struct {
 	INODE node;
 	void* data;
@@ -207,6 +223,14 @@ int32_t sdcard_read(uint32_t node, void* buf, uint32_t size, int32_t seek) {
 	return size;
 }
 
+int32_t sdcard_write(uint32_t node, void* buf, uint32_t size, int32_t seek) {
+	fs_info_t info;
+	if(fs_ninfo(node, &info) != 0 || info.data == NULL)
+		return -1;
+	ext2_node_data_t* data = (ext2_node_data_t*)info.data;
+	return ext2_write(&data->node, buf, size, seek, read_block, write_block, MFS);
+}
+
 int main(int argc, char* argv[]) {
 	(void)argc;
 	(void)argv;
@@ -215,6 +239,7 @@ int main(int argc, char* argv[]) {
 	dev.mount = sdcard_mount;
 	dev.open = sdcard_open;
 	dev.read = sdcard_read;
+	dev.write = sdcard_write;
 	dev.close = sdcard_close;
 
 	dev_run(&dev, argc, argv);
