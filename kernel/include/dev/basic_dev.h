@@ -17,6 +17,7 @@ int32_t dev_block_read(int32_t type_id, uint32_t block);
 int32_t dev_block_read_done(int32_t type_id, void* buf);
 int32_t dev_block_write(int32_t type_id, uint32_t block, void* buf);
 int32_t dev_block_write_done(int32_t type_id);
+int32_t dev_block_alloc(int32_t type_id);
 
 /*some devices     */
 extern bool uart_init(void);
@@ -42,6 +43,7 @@ extern int32_t dev_sdc_read(int16_t id, uint32_t block);
 extern int32_t dev_sdc_read_done(int16_t id, void* buf);
 extern int32_t dev_sdc_write(int16_t id, uint32_t block, void* buf);
 extern int32_t dev_sdc_write_done(int16_t id);
+extern int32_t dev_sdc_alloc(int16_t id);
 /********************/
 
 #endif

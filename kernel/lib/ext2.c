@@ -106,3 +106,73 @@ char* ext2_load(const char* filename, int32_t *sz, malloc_func_t mlc, read_block
 	}
 	return ret;
 }
+
+int32_t ext2_write(INODE* node, int32_t offset, char *buf, int32_t nbytes, read_block_func_t read_block, write_block_func_t write_block, char* wbuf) {
+	char *cq = buf;
+	char *cp;
+	//(2)
+	int32_t blk =0, lbk = 0, start_byte = 0, remain = 0;
+	int32_t nbytes_copy = 0;
+	//(3)
+	while(nbytes > 0){
+		/*(4) Compute LOGICAL BLOCK number lbk and start_byte in that block from offset;
+			lbk       = oftp->offset / SDC_BLOCK_SIZE;
+			start_byte = oftp->offset % SDC_BLOCK_SIZE;*/	
+		lbk = offset / SDC_BLOCK_SIZE;
+		start_byte = offset % SDC_BLOCK_SIZE;
+		//5.1 direct
+		if(lbk < 12){
+			//if its the first one of the new block, allocatea new one
+			if(node->i_block[lbk] == 0){
+				//node->i_block[lbk] = balloc("dev_name")//TODO MUST ALLOCATE a block
+			}
+			blk = node->i_block[lbk];
+		}
+		//5.2 indirect 
+		else if(lbk >=12 && lbk < 256+12){
+			int32_t* indirect_buf = (int32_t*)wbuf;
+			//if its the first one of the new block, allocatea new one
+			if(node->i_block[12] == 0){
+				//node->i_block[12] = balloc("dev_name"); //TODO
+				memset(indirect_buf, 0, SDC_BLOCK_SIZE);
+				write_block(node->i_block[12], (char*)indirect_buf);
+			}
+			read_block(node->i_block[12], (char*)indirect_buf);
+			if(indirect_buf[lbk-12] == 0){
+				//indirect_buf[lbk-12] = balloc("dev_name"); //TODO
+				write_block(node->i_block[12], (char*)indirect_buf);
+			}
+			blk = indirect_buf[lbk-12]; 
+		}
+		else{
+			break;
+		}
+		
+		read_block(blk, wbuf);
+		cp = wbuf + start_byte;
+		remain = SDC_BLOCK_SIZE - start_byte;
+		while(remain > 0){
+			int32_t min = 0;
+			if(nbytes<=remain){
+				min = nbytes;
+			}
+			else{
+				min = remain;
+			}
+			memcpy(cp, cq, nbytes);
+			nbytes_copy += min;
+			nbytes -= min;
+			remain -= min;
+			offset += min;
+			if(offset > node->i_size){
+				node->i_size += min;
+			}			
+			if(nbytes<=0){
+				break;
+			}
+		}
+		write_block(blk, wbuf);
+		// loop back to while to write more .... until nbytes are written
+	}
+	return nbytes_copy;
+}

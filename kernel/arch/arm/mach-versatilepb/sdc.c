@@ -185,6 +185,10 @@ static inline int32_t sdc_write_done(void) {
 	return _txdone;
 }
 
+static inline int32_t sdc_alloc(void) {
+	return -1; //TODO
+}
+
 void sdc_handle(void) {
 	int32_t status, status_err;
 	int32_t i; 
@@ -253,5 +257,10 @@ int32_t dev_sdc_write(int16_t id, uint32_t block, void* buf) {
 
 int32_t dev_sdc_write_done(int16_t id) {
 	(void)id;
-	return -1;
+	return sdc_write_done();
+}
+
+int32_t dev_sdc_alloc(int16_t id) {
+	(void)id;
+	return sdc_alloc();
 }
