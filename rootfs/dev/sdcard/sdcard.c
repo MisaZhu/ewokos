@@ -26,10 +26,8 @@ static int32_t read_block(int32_t block, char* buf) {
 }
 
 static int32_t write_block(int32_t block, char* buf) {
-	printf("pid: %d\n", getpid());
 	if(syscall3(SYSCALL_DEV_BLOCK_WRITE, _typeid, block, (int32_t)buf) < 0)
 		return -1;
-	printf("pid: %d\n", getpid());
 
 	int32_t res = -1;
 	while(true) {
@@ -112,49 +110,17 @@ static int32_t sdcard_mount(uint32_t node, int32_t index) {
 	ip = (INODE *)buf + 1;   // ip->root inode #2
 
 	add_nodes(ip, _iblock, node);
-
 	free(buf);
 	return 0;
 }
 
-static char* ext2_read(INODE* ip, int32_t* sz) { 
+static char* ext2_read_file(INODE* ip, int32_t* sz) { 
 	*sz = ip->i_size;
-	int32_t blk12 = ip->i_block[12];
-	int32_t mlc_size = ALIGN_UP(*sz, SDC_BLOCK_SIZE);
-	char* addr = (char *)malloc(mlc_size);
-	char* ret = addr;
-	uint32_t *up;
-	/* read indirect block into b2 */
+	if(*sz == 0)
+		return NULL;
 
-	int32_t i, count = 0;
-	for (i=0; i<12 && count<(*sz); i++){
-		if (ip->i_block[i] == 0)
-			break;
-		if(read_block(ip->i_block[i], addr) != 0) {
-			free(addr);
-			return NULL;
-		}
-		addr += SDC_BLOCK_SIZE;
-		count += SDC_BLOCK_SIZE;
-	}
-
-	if (blk12) { // only if file has indirect blocks
-		char* buf = (char*)malloc(SDC_BLOCK_SIZE);
-		read_block(blk12, buf);
-		up = (uint32_t *)buf;      
-		while(*up && count<(*sz)){
-			if(read_block(*up, addr) != 0) {
-				free(addr);
-				free(buf);
-				return NULL;
-			}
-			addr += SDC_BLOCK_SIZE;
-			up++;
-			count += SDC_BLOCK_SIZE;
-		}
-		free(buf);
-	}
-	return ret;
+	char* ret = (char *)malloc(*sz);
+	return ext2_read(ip, ret, *sz, 0, read_block);	
 }
 
 int32_t sdcard_open(uint32_t node, int32_t flags) {
@@ -163,38 +129,12 @@ int32_t sdcard_open(uint32_t node, int32_t flags) {
 	fs_info_t info;
 	if(fs_ninfo(node, &info) != 0 || info.data == NULL)
 		return -1;
-	if(info.type == FS_TYPE_DIR)
-		return 0;
-
-	ext2_node_data_t* data = (ext2_node_data_t*)info.data;
-
-	int32_t fsize = 0;
-	const char* p = NULL;
-	if(data->data != NULL) {
-		fsize = data->node.i_size;
-		p = (const char*)data->data;
-	}
-	else {
-		p = ext2_read(&data->node, &fsize);
-		if(p == NULL || fsize == 0)
-			return -1;
-		data->data = (void*)p;
-	}
 	return 0;
 }
 
 int32_t sdcard_close(fs_info_t* info) {
 	if(info == NULL || info->data == NULL || info->node == 0)
 		return -1;
-	if(info->type == FS_TYPE_DIR)
-		return 0;
-	if(syscall2(SYSCALL_PFILE_GET_REF, info->node, 2) > 0) 
-		return 0;
-	ext2_node_data_t* data = (ext2_node_data_t*)info->data;
-	if(data->data != NULL) {
-		free(data->data);
-		data->data = NULL;
-	}
 	return 0;
 }
 
@@ -203,24 +143,7 @@ int32_t sdcard_read(uint32_t node, void* buf, uint32_t size, int32_t seek) {
 	if(fs_ninfo(node, &info) != 0 || info.data == NULL)
 		return -1;
 	ext2_node_data_t* data = (ext2_node_data_t*)info.data;
-
-	int32_t fsize = 0;
-	const char* p = NULL;
-	if(data->data == NULL) {
-		return -1;
-	}
-
-	fsize = data->node.i_size;
-	p = (const char*)data->data;
-	int32_t rest_size = fsize - seek; /*seek*/
-	if(rest_size <= 0) {
-		return 0;
-	}
-
-	if(size > (uint32_t)rest_size)
-		size = rest_size;
-	memcpy(buf, p+seek, size);
-	return size;
+	return ext2_read(&data->node, buf, size, seek, read_block);
 }
 
 int32_t sdcard_write(uint32_t node, void* buf, uint32_t size, int32_t seek) {
@@ -231,7 +154,7 @@ int32_t sdcard_write(uint32_t node, void* buf, uint32_t size, int32_t seek) {
 	return ext2_write(&data->node, buf, size, seek, read_block, write_block, MFS);
 }
 
-int main(int argc, char* argv[]) {
+int32_t main(int32_t argc, char* argv[]) {
 	(void)argc;
 	(void)argv;
 

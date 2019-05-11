@@ -120,6 +120,74 @@ char* ext2_load(const char* filename, int32_t *sz, read_block_func_t read_block,
 	return ret;
 }
 
+int32_t ext2_read(INODE* node, char *buf, int32_t nbytes, int32_t offset, read_block_func_t read_block) {
+	//(2) count = 0
+	// avil = fileSize - OFT's offset // number of bytes still available in file.
+	int32_t count_read = 0;
+	char *cq = buf;
+	int32_t avil = node->i_size - offset;
+	int32_t blk =0, lbk = 0, start_byte = 0, remain = 0;
+	if(nbytes > SDC_BLOCK_SIZE)
+		nbytes = SDC_BLOCK_SIZE;
+	//(3)
+	while(nbytes && avil) {
+		/*(4) Compute LOGICAL BLOCK number lbk and start_byte in that block from offset;
+			lbk       = oftp->offset / SDC_BLOCK_SIZE;
+			start_byte = oftp->offset % SDC_BLOCK_SIZE;*/	
+		lbk = offset / SDC_BLOCK_SIZE;
+		start_byte = offset % SDC_BLOCK_SIZE;
+		//(5) READ
+		//(5).1 direct blocks
+		if(lbk < 12) {
+			blk = node->i_block[lbk];
+		}
+		//(5).2 Indirect blocks contains 256 block number 
+		else if(lbk>=12 && lbk < 256 +12){
+			int32_t indirect_buf[256];
+			read_block(node->i_block[12], (char*)indirect_buf);
+			blk = indirect_buf[lbk-12];
+		}
+		//(5).3 Double indiirect blocks
+		else{
+			int32_t count = lbk -12 -256;
+			//total blocks = count / 256
+			//offset of certain block = count %256
+			int32_t num = count / 256;
+			int32_t pos_offset = count % 256;
+			int32_t double_buf1[256];
+			read_block(node->i_block[13], (char*)double_buf1);
+			int32_t double_buf2[256];
+			read_block(double_buf1[num], (char*)double_buf2);
+			blk = double_buf2[pos_offset];
+		}
+
+		char readbuf[SDC_BLOCK_SIZE];
+		read_block(blk, readbuf);
+		char *cp = readbuf + start_byte;
+		remain = SDC_BLOCK_SIZE - start_byte;
+		//(6)
+		while(remain){
+			int32_t min = 0;
+			if(avil <= nbytes){
+				min = avil;
+			}
+			else{
+				min = nbytes;
+			}
+			memcpy(cq, cp, min);
+			offset += min;
+			count_read += min;
+			avil -= min;
+			nbytes -= min;
+			remain -= min;
+			if(nbytes == 0 || avil == 0){
+				break;
+			}	
+		}
+	}
+	return count_read;
+}	
+
 static int32_t tst_bit(char *buf, int32_t bit) {
 	int32_t i, j;
 	i = bit / 8;

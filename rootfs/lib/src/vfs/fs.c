@@ -296,10 +296,18 @@ char* fs_read_file(const char* fname, int32_t *size) {
 	}
 
 	char* buf = (char*)malloc(info.size);
-	int res = read(fd, buf, info.size);
+	int res = 0;
+	int sz = info.size;
+	char* p = buf;
+	while(sz > 0) {
+		res = read(fd, p, sz);
+		if(res < 0)
+			break;
+		sz -= res;
+		p += res;
+	}
 	fs_close(fd);
-
-	if(res <= 0) {
+	if(sz > 0 ) {
 		free(buf);
 		buf = NULL;
 		*size = 0;
