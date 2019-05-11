@@ -98,7 +98,4 @@ typedef int32_t (*read_block_func_t)(int32_t block, char* buf);
 typedef int32_t (*write_block_func_t)(int32_t block, char* buf);
 extern char* ext2_load(const char* filename, int32_t* sz, read_block_func_t read_block, mem_funcs_t* mfs);
 
-int32_t ext2_read(INODE* node, char *buf, int32_t nbytes, int32_t offset, read_block_func_t read_block);
-extern int32_t ext2_write(INODE* node, char *buf, int32_t nbytes, int32_t offset, read_block_func_t read_block, write_block_func_t write_block, mem_funcs_t* mfs);
-
 #endif
