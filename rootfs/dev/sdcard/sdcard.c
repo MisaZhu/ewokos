@@ -9,6 +9,10 @@
 #include <device.h>
 
 static int32_t _iblock = 12;
+static int32_t _nblocks = 0;
+static int32_t _ninodes = 0;
+static int32_t _bmap = 0;
+static int32_t _imap = 0;
 static int32_t _typeid =  dev_typeid(DEV_SDC, 0);
 
 static int32_t read_block(int32_t block, char* buf) {
@@ -80,7 +84,6 @@ static void dec_free_blocks() {
 
 	free(buf);
 }
-
 /*
 static void dec_free_inodes() {
 	char* buf = (char*)malloc(SDC_BLOCK_SIZE);
@@ -98,21 +101,13 @@ static void dec_free_inodes() {
 
 static uint32_t ext2_ialloc() {
 	char* buf = (char*)malloc(SDC_BLOCK_SIZE);
-	read_block(1, buf);
-	SUPER* sp = (SUPER *)buf;
-	int32_t ninodes = sp->s_inodes_count;
-
-	read_block(2, buf);
-	GD* gp = (GD *)buf;
-	int32_t imap = gp->bg_inode_bitmap;
 	// get inode Bitmap into buf
-	read_block(imap, buf);
-
+	read_block(_imap, buf);
 	int32_t i;
-	for (i=0; i < ninodes; i++){
+	for (i=0; i < _ninodes; i++){
 		if (tst_bit(buf, i)==0){
 			set_bit(buf, i);
-			write_block(imap, buf);
+			write_block(_imap, buf);
 			// update free inode count in SUPER and GD
 			dec_free_inodes();
 			free(buf);
@@ -124,33 +119,20 @@ static uint32_t ext2_ialloc() {
 } 
 */
 static int32_t ext2_balloc() {
- 	char* buf1 = (char*)malloc(SDC_BLOCK_SIZE);
-	// inc free block count in SUPER and GD
-	read_block(1, buf1);
-	SUPER* sp = (SUPER *)buf1;
-	int32_t nblocks = sp->s_blocks_count;
-	
-	/* read blk#2 to get group descriptor 0 */
-	if(read_block(2, buf1) != 0) {
-		free(buf1);
-		return -1;
-	}
-	GD* gp = (GD *)buf1;
-	int32_t bmap = gp->bg_block_bitmap;
-	int32_t i;  
- 	char* buf2 = (char*)malloc(SDC_BLOCK_SIZE);
+ 	char* buf = (char*)malloc(SDC_BLOCK_SIZE);
+	read_block(_bmap, buf);
 
-	read_block(bmap, buf1);
-	for (i = 0; i < nblocks; i++) {
-		if (tst_bit(buf1, i) == 0) {
-			set_bit(buf1, i);
+	int32_t i;
+	for (i = 0; i < _nblocks; i++) {
+		if (tst_bit(buf, i) == 0) {
+			set_bit(buf, i);
 			dec_free_blocks();
-			write_block(bmap, buf1);
+			write_block(_bmap, buf);
+			free(buf);
 			return i+1;
 		}
 	}
-	free(buf1);
-	free(buf2);
+	free(buf);
 	return 0;
 }
 
@@ -302,8 +284,8 @@ typedef struct {
 } ext2_node_data_t;
 
 static inline INODE* read_node(int32_t ino, char* buf) {
-	read_block(_iblock+(ino/8), buf);    // read block inode of me
-	return (INODE *)buf + (ino % 8);
+	read_block(_iblock + ((ino-1) / 8), buf);    // read block inode of me
+	return (INODE *)buf + ((ino-1) % 8);
 }
 
 static void put_node(int32_t ino, INODE *node, char* buf){
@@ -336,7 +318,7 @@ static int32_t add_nodes(INODE *ip, uint32_t node) {
 				c = dp->name[dp->name_len];  // save last byte
 				dp->name[dp->name_len] = 0;   
 				if(strcmp(dp->name, ".") != 0 && strcmp(dp->name, "..") != 0) {
-					int32_t ino = dp->inode - 1;
+					int32_t ino = dp->inode;
 					INODE* ip_node = read_node(ino, buf2);
 					ext2_node_data_t* data = (ext2_node_data_t*)malloc(sizeof(ext2_node_data_t));
 					data->data = NULL;
@@ -366,16 +348,21 @@ static int32_t add_nodes(INODE *ip, uint32_t node) {
 
 static int32_t sdcard_mount(uint32_t node, int32_t index) {
 	(void)index;
-	GD *gp;
-	INODE *ip;
 	char* buf = (char*)malloc(SDC_BLOCK_SIZE);
 
+	read_block(1, buf);
+	SUPER* sp = (SUPER *)buf;
+	_nblocks = sp->s_blocks_count;
+	_ninodes = sp->s_inodes_count;
+	
 	/* read blk#2 to get group descriptor 0 */
 	read_block(2, buf);
-	gp = (GD *)buf;
+	GD* gp = (GD *)buf;
 	_iblock = (uint16_t)gp->bg_inode_table;
+	_bmap = gp->bg_block_bitmap;
+	_imap = gp->bg_inode_bitmap;
 	read_block(_iblock, buf);       // read first inode block
-	ip = (INODE *)buf + 1;   // ip->root inode #2
+	INODE *ip = (INODE *)buf + 1;   // ip->root inode #2
 
 	add_nodes(ip, node);
 	free(buf);
