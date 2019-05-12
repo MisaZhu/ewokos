@@ -7,6 +7,7 @@
 #include <stdlib.h>
 #include <procinfo.h>
 #include <ext2.h>
+#include <sdread.h>
 
 int errno = ENONE;
 
@@ -18,7 +19,6 @@ int getpid() {
 	return syscall0(SYSCALL_GETPID);
 }
 
-char* from_sd(const char *filename, int32_t* sz);
 static char* read_from_sd(const char* fname, int32_t *size) {
 	char* p = from_sd(fname, size);
 	return p;

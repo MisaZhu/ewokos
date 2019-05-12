@@ -3,6 +3,7 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <vfs/fs.h>
+#include <sdread.h>
 #include <kserv.h>
 #include <syscall.h>
 #include <tstr.h>
@@ -18,7 +19,6 @@ static int start_vfsd(void) {
 	return 0;
 }
 
-char* from_sd(const char* fname, int32_t* sz);
 static int run_init_dev(const char* fname) {
 	int32_t size;
 	char* data = from_sd(fname, &size);
@@ -114,7 +114,6 @@ int main(int argc, char* argv[]) {
 		return -1;
 	}
 	start_vfsd();
-	//mount_root();
 	run_init_dev("/etc/init/init.dev");
 	run_init_procs("/etc/init/init.serv", true);
 	run_init_procs("/etc/init/init.rd", false);

@@ -29,7 +29,7 @@ static int32_t set_bit(char *buf, int32_t bit) {
 }
 
 static void dec_free_blocks(ext2_t* ext2) {
-	static char buf[SDC_BLOCK_SIZE];
+	char buf[SDC_BLOCK_SIZE];
 	// inc free block count in SUPER and GD
 	ext2->read_block(1, buf);
 	SUPER* sp = (SUPER *)buf;
@@ -43,7 +43,7 @@ static void dec_free_blocks(ext2_t* ext2) {
 }
 
 static void dec_free_inodes(ext2_t* ext2) {
-	static char buf[SDC_BLOCK_SIZE];
+	char buf[SDC_BLOCK_SIZE];
 	ext2->read_block(1, buf);
 	SUPER* sp = (SUPER *)buf;
 	sp->s_free_inodes_count--;
@@ -56,7 +56,7 @@ static void dec_free_inodes(ext2_t* ext2) {
 }
 
 static uint32_t ext2_ialloc(ext2_t* ext2) {
-	static char buf[SDC_BLOCK_SIZE];
+	char buf[SDC_BLOCK_SIZE];
 	// get inode Bitmap into buf
 	ext2->read_block(ext2->imap, buf);
 	int32_t i;
@@ -73,7 +73,7 @@ static uint32_t ext2_ialloc(ext2_t* ext2) {
 } 
 
 static int32_t ext2_balloc(ext2_t* ext2) {
- 	static char buf[SDC_BLOCK_SIZE];
+ 	char buf[SDC_BLOCK_SIZE];
 	ext2->read_block(ext2->bmap, buf);
 
 	int32_t i;
@@ -94,7 +94,7 @@ static int32_t need_len(int32_t len) {
 
 static int32_t enter_child(ext2_t* ext2, INODE* pip, int32_t ino, const char *base, int32_t ftype) {
 	int32_t nlen, ideal_len, remain, i, blk;
-	static char sbuf[SDC_BLOCK_SIZE], *cp;
+	char sbuf[SDC_BLOCK_SIZE], *cp;
 	DIR *dp = NULL;
 	//(1)-(3)
 	nlen = need_len(strlen(base));
@@ -159,8 +159,8 @@ int32_t ext2_rm_child(ext2_t* ext2, INODE *ip, const char *name) {
 	char *cp, *precp = NULL;
 	DIR *dp;
 
-	static char sbuf[SDC_BLOCK_SIZE];
-	static char cpbuf[SDC_BLOCK_SIZE];
+	char sbuf[SDC_BLOCK_SIZE];
+	char cpbuf[SDC_BLOCK_SIZE];
 
 	found = 0;
 	for(i = 0; i<12; i++) {
@@ -281,7 +281,7 @@ INODE* get_node(ext2_t* ext2, int32_t ino, char* buf) {
 void put_node(ext2_t* ext2, int32_t ino, INODE *node) {
 	int32_t blk = (ino-1)/8 + ext2->iblock;
 	int32_t offset = (ino-1)%8;
-	static char buf[SDC_BLOCK_SIZE];
+	char buf[SDC_BLOCK_SIZE];
 	ext2->read_block(blk, buf);
 	INODE *ip = (INODE *)buf + offset;
 	*ip = *node;
@@ -290,7 +290,7 @@ void put_node(ext2_t* ext2, int32_t ino, INODE *node) {
 
 int32_t ext2_create_dir(ext2_t* ext2, INODE* father_inp, const char *base) { //mode file or dir
 	int32_t ino, i, blk;
-	static char buf[SDC_BLOCK_SIZE];
+	char buf[SDC_BLOCK_SIZE];
 
 	ino = ext2_ialloc(ext2);
 	blk = ext2_balloc(ext2);
@@ -318,7 +318,7 @@ int32_t ext2_create_dir(ext2_t* ext2, INODE* father_inp, const char *base) { //m
 
 int32_t ext2_create_file(ext2_t* ext2, INODE* father_inp, const char *base) { //mode file or dir
 	int32_t ino, i;
-	static char buf[SDC_BLOCK_SIZE];
+	char buf[SDC_BLOCK_SIZE];
 
 	ino = ext2_ialloc(ext2);
 
@@ -344,7 +344,7 @@ int32_t ext2_create_file(ext2_t* ext2, INODE* father_inp, const char *base) { //
 }
 
 int32_t ext2_write(ext2_t* ext2, INODE* node, char *data, int32_t nbytes, int32_t offset) {
- 	static char buf [SDC_BLOCK_SIZE];
+ 	char buf [SDC_BLOCK_SIZE];
 	char *cq = data;
 	char *cp;
 	//(2)
@@ -412,7 +412,7 @@ int32_t ext2_write(ext2_t* ext2, INODE* node, char *data, int32_t nbytes, int32_
 }
 
 int32_t ext2_init(ext2_t* ext2, read_block_func_t read_block, write_block_func_t write_block) {
-	static char buf[SDC_BLOCK_SIZE];
+	char buf[SDC_BLOCK_SIZE];
 	ext2->read_block = read_block;
 	ext2->write_block = write_block;
 
