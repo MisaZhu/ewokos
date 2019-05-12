@@ -99,7 +99,7 @@ static bool check_access(int32_t pid, tree_node_t* node, bool wr) {
 	return true;
 }
 
-static void fsnode_init() {
+static void fsnode_init(void) {
 	for(int i=0; i<MOUNT_MAX; i++) {
 		memset(&_mounts[i], 0, sizeof(mount_t));
 	}

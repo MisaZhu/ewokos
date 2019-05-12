@@ -9,12 +9,12 @@
 static char _cmd[1024] = { 0 };
 static int _off_cmd = 0;
 
-static void init_cmain_arg() {
+static void init_cmain_arg(void) {
 	_off_cmd = 0;
 	syscall3(SYSCALL_GET_CMD, getpid(), (int)_cmd, 1023);
 }
 
-static char* read_cmain_arg() {
+static char* read_cmain_arg(void) {
 	char* p = NULL;
 	bool quotes = false;
 
@@ -47,7 +47,7 @@ static char* read_cmain_arg() {
 
 #define ARG_MAX 16
 
-void _start() {
+void _start(void) {
 	init_stdout_buffer();
 
 	char* argv[ARG_MAX];

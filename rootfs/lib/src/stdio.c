@@ -12,7 +12,7 @@ static char _out_buffer[STDOUT_BUF_SIZE];
 static int32_t _out_size = 0;
 bool _stdio_inited = false;
 
-static void stdout_flush() {
+static void stdout_flush(void) {
 	const char* p = _out_buffer;
 	while(_out_size > 0) {
 		int32_t res;

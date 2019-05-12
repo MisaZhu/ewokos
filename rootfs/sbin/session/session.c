@@ -20,7 +20,7 @@ static int read_line(int fd, char* line, int sz) {
 	return i;
 }
 
-static int welcome() {
+static int welcome(void) {
 	int fd = open("/etc/init/welcome", O_RDONLY);
 	if(fd < 0)
 		return -1;

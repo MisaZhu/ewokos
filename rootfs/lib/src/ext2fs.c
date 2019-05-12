@@ -95,12 +95,12 @@ static int32_t need_len(int32_t len) {
 static int32_t enter_child(ext2_t* ext2, INODE* pip, int32_t ino, const char *base, int32_t ftype) {
 	int32_t nlen, ideal_len, remain, i, blk;
 	static char sbuf[SDC_BLOCK_SIZE], *cp;
-	DIR *dp;
+	DIR *dp = NULL;
 	//(1)-(3)
 	nlen = need_len(strlen(base));
 	for(i=0;i<12;i++){
 		//(5) first one creat 
-		if(pip->i_block[i]==0){
+		if(dp != NULL && pip->i_block[i]==0){
 			blk = ext2_balloc(ext2);
 			if(blk<=0){
 				return -1;
@@ -156,11 +156,11 @@ static int32_t enter_child(ext2_t* ext2, INODE* pip, int32_t ino, const char *ba
 
 int32_t ext2_rm_child(ext2_t* ext2, INODE *ip, const char *name) {
 	int32_t i, rec_len, found, first_len;
-	char *cp, *precp;
+	char *cp, *precp = NULL;
 	DIR *dp;
 
-	char sbuf[SDC_BLOCK_SIZE];
-	char cpbuf[SDC_BLOCK_SIZE];
+	static char sbuf[SDC_BLOCK_SIZE];
+	static char cpbuf[SDC_BLOCK_SIZE];
 
 	found = 0;
 	for(i = 0; i<12; i++) {
@@ -179,7 +179,7 @@ int32_t ext2_rm_child(ext2_t* ext2, INODE *ip, const char *name) {
 					return 0;
 				}
 				//(2).2. else if LAST entry in block
-				else if(dp->rec_len + (cp - sbuf) == SDC_BLOCK_SIZE){
+				else if(precp != NULL && dp->rec_len + (cp - sbuf) == SDC_BLOCK_SIZE){
 					dp = (DIR *)precp;
 					dp->rec_len = SDC_BLOCK_SIZE - (precp - sbuf);
 					ext2->write_block(ip->i_block[i], sbuf);
@@ -192,7 +192,8 @@ int32_t ext2_rm_child(ext2_t* ext2, INODE *ip, const char *name) {
 					first_len = cp-sbuf;
 				}
 			}
-			if(found == 0)precp = cp;
+			if(found == 0)
+				precp = cp;
 			cp += dp->rec_len;
 		}
 		if(found == 1) {

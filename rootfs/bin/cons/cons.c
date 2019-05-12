@@ -5,7 +5,7 @@
 #include <vfs/fs.h>
 #include <kstring.h>
 
-static void help() {
+static void help(void) {
 	printf(
 		"console config tool\n"
 		"usage: cons <cmd> <arg> [dev_name]\n"
@@ -15,7 +15,7 @@ static void help() {
 		"    cons bg <HEX_COLOR>: set background color\n");
 }
 
-static void fonts() {
+static void fonts(void) {
 	int32_t i = 0;
 	while(true) {
 		font_item_t * it = get_font_by_index(i);

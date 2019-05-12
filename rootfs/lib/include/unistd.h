@@ -9,9 +9,9 @@ int chdir(const char* dir);
 
 char* getcwd(char* buf, uint32_t size);
 
-int fork();
+int fork(void);
 
-int getpid();
+int getpid(void);
 
 int exec(const char* cmd);
 
@@ -19,7 +19,7 @@ void exit(int code);
 
 void wait(int pid);
 
-int getuid();
+int getuid(void);
 
 unsigned int sleep(unsigned int secs);
 unsigned int usleep(unsigned int msecs);

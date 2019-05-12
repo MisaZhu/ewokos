@@ -16,13 +16,13 @@ typedef struct FSNode {
 
 #define FSN(n) ((fs_node_t*)((n)->data))
 
-void fs_tree_init();
+void fs_tree_init(void);
 
 void fs_tree_node_init(tree_node_t* node);
 
 void fs_tree_del(tree_node_t* node);
 
-tree_node_t* fs_new_node();
+tree_node_t* fs_new_node(void);
 
 tree_node_t* fs_tree_simple_get(tree_node_t* father, const char* name);
 

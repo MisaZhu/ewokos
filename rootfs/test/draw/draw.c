@@ -6,7 +6,7 @@
 #include <graph/graph.h>
 #include <graph/font.h>
 
-void fbtest() {
+void fbtest(void) {
 	font_t* font = get_font_by_name("16x32");
 	graph_t* g = graph_open("/dev/fb0");
 	if(g == NULL) {

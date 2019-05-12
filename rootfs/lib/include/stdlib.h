@@ -6,7 +6,7 @@
 void* malloc(uint32_t size);
 void free(void* p);
 
-mem_funcs_t* mem_funcs();
+mem_funcs_t* mem_funcs(void);
 #define MFS mem_funcs()
 
 int32_t atoi(const char *str);

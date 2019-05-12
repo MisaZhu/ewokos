@@ -6,9 +6,9 @@
 static const int32_t _stdin = 0;
 static const int32_t _stdout = 1;
 
-void init_stdout_buffer();
+void init_stdout_buffer(void);
 void putch(int c);
-int getch();
+int getch(void);
 void printf(const char *format, ...);
 
 #endif

@@ -13,7 +13,7 @@ int kserv_get_by_name(const char* reg_name);
 
 int kserv_get_by_pid(int32_t pid);
 
-int kserv_ready();
+int kserv_ready(void);
 
 void kserv_wait_by_name(const char* reg_name);
 

@@ -18,6 +18,7 @@ COMMON_OBJ=$(COMMON_LIB)/lib/kstring.o \
 
 # flags
 CFLAGS = -I. -g \
+			   -Wstrict-prototypes \
 				 -I ../lib/include \
 				 -I lib/include \
 				 -I $(COMMON_LIB)/include \

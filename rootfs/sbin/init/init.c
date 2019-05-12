@@ -7,7 +7,7 @@
 #include <syscall.h>
 #include <tstr.h>
 
-static int start_vfsd() {
+static int start_vfsd(void) {
 	printf("start vfs service ... ");
 	int pid = fork();
 	if(pid == 0) { 
@@ -93,7 +93,7 @@ static int run_init_procs(const char* fname, bool wait) {
 	return 0;
 }
 
-static void session_loop() {
+static void session_loop(void) {
 	while(1) {
 		int pid = fork();
 		if(pid == 0) {

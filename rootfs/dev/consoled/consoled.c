@@ -30,7 +30,7 @@ typedef struct {
 
 static content_t _content;
 
-static int32_t read_config() {
+static int32_t read_config(void) {
 	sconf_t *conf = sconf_load("/etc/console.conf");	
 	if(conf == NULL)
 		return -1;
@@ -51,7 +51,7 @@ static int32_t read_config() {
 	return 0;
 }
 
-static int32_t reset() {
+static int32_t reset(void) {
 	_content.size = 0;
 	_content.start_line = 0;
 	_content.line = 0;
@@ -110,7 +110,7 @@ static uint32_t get_at(uint32_t i) {
 	return at;
 }
 
-static void refresh() {
+static void refresh(void) {
 	clear(_graph, _bg_color);
 	uint32_t i=0;
 	uint32_t x = 0;
@@ -131,7 +131,7 @@ static void refresh() {
 	graph_flush(_graph);
 }
 
-static void move_line() {
+static void move_line(void) {
 	_content.line--;
 	_content.start_line++;
 	if(_content.start_line >= _content.line_num)

@@ -95,7 +95,7 @@ static int cd(const char* dir) {
 	return 0;
 }
 
-static void export_all() {
+static void export_all(void) {
 	char name[64], value[1024];
 	int32_t i=0;
 	while(true) {
@@ -294,7 +294,7 @@ static int run_cmd(char* cmd) {
 	return 0;
 }
 
-static int32_t read_config() {
+static int32_t read_config(void) {
 	sconf_t *conf = sconf_load("/etc/shell.conf");	
 	if(conf == NULL)
 		return -1;

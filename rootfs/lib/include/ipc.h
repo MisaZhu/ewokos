@@ -14,6 +14,6 @@ package_t* ipc_recv(int id);
 
 package_t* ipc_req(int pid, uint32_t buf_size, uint32_t type, void* data, uint32_t size, bool reply);
 
-package_t* ipc_roll();
+package_t* ipc_roll(void);
 
 #endif
