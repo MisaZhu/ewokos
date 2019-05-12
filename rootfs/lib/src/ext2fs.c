@@ -29,7 +29,7 @@ static int32_t set_bit(char *buf, int32_t bit) {
 }
 
 static void dec_free_blocks(ext2_t* ext2) {
-	char buf[SDC_BLOCK_SIZE];
+	static char buf[SDC_BLOCK_SIZE];
 	// inc free block count in SUPER and GD
 	ext2->read_block(1, buf);
 	SUPER* sp = (SUPER *)buf;
@@ -43,7 +43,7 @@ static void dec_free_blocks(ext2_t* ext2) {
 }
 
 static void dec_free_inodes(ext2_t* ext2) {
-	char buf[SDC_BLOCK_SIZE];
+	static char buf[SDC_BLOCK_SIZE];
 	ext2->read_block(1, buf);
 	SUPER* sp = (SUPER *)buf;
 	sp->s_free_inodes_count--;
@@ -56,7 +56,7 @@ static void dec_free_inodes(ext2_t* ext2) {
 }
 
 static uint32_t ext2_ialloc(ext2_t* ext2) {
-	char buf[SDC_BLOCK_SIZE];
+	static char buf[SDC_BLOCK_SIZE];
 	// get inode Bitmap into buf
 	ext2->read_block(ext2->imap, buf);
 	int32_t i;
@@ -73,7 +73,7 @@ static uint32_t ext2_ialloc(ext2_t* ext2) {
 } 
 
 static int32_t ext2_balloc(ext2_t* ext2) {
- 	char buf[SDC_BLOCK_SIZE];
+ 	static char buf[SDC_BLOCK_SIZE];
 	ext2->read_block(ext2->bmap, buf);
 
 	int32_t i;
@@ -94,7 +94,7 @@ static int32_t need_len(int32_t len) {
 
 static int32_t enter_child(ext2_t* ext2, INODE* pip, int32_t ino, const char *base, int32_t ftype) {
 	int32_t nlen, ideal_len, remain, i, blk;
-	char sbuf[SDC_BLOCK_SIZE], *cp;
+	static char sbuf[SDC_BLOCK_SIZE], *cp;
 	DIR *dp;
 	//(1)-(3)
 	nlen = need_len(strlen(base));
@@ -216,60 +216,58 @@ int32_t ext2_read(ext2_t* ext2, INODE* node, char *buf, int32_t nbytes, int32_t 
 	if(nbytes > SDC_BLOCK_SIZE)
 		nbytes = SDC_BLOCK_SIZE;
 	//(3)
-	while(nbytes && avil) {
-		/*(4) Compute LOGICAL BLOCK number lbk and start_byte in that block from offset;
-			lbk       = oftp->offset / SDC_BLOCK_SIZE;
-			start_byte = oftp->offset % SDC_BLOCK_SIZE;*/	
-		lbk = offset / SDC_BLOCK_SIZE;
-		start_byte = offset % SDC_BLOCK_SIZE;
-		//(5) READ
-		//(5).1 direct blocks
-		if(lbk < 12) {
-			blk = node->i_block[lbk];
-		}
-		//(5).2 Indirect blocks contains 256 block number 
-		else if(lbk>=12 && lbk < 256 +12){
-			int32_t indirect_buf[256];
-			ext2->read_block(node->i_block[12], (char*)indirect_buf);
-			blk = indirect_buf[lbk-12];
-		}
-		//(5).3 Double indiirect blocks
-		else{
-			int32_t count = lbk -12 -256;
-			//total blocks = count / 256
-			//offset of certain block = count %256
-			int32_t num = count / 256;
-			int32_t pos_offset = count % 256;
-			int32_t double_buf1[256];
-			ext2->read_block(node->i_block[13], (char*)double_buf1);
-			int32_t double_buf2[256];
-			ext2->read_block(double_buf1[num], (char*)double_buf2);
-			blk = double_buf2[pos_offset];
-		}
+	/*(4) Compute LOGICAL BLOCK number lbk and start_byte in that block from offset;
+		lbk       = oftp->offset / SDC_BLOCK_SIZE;
+		start_byte = oftp->offset % SDC_BLOCK_SIZE;*/	
+	lbk = offset / SDC_BLOCK_SIZE;
+	start_byte = offset % SDC_BLOCK_SIZE;
+	//(5) READ
+	//(5).1 direct blocks
+	if(lbk < 12) {
+		blk = node->i_block[lbk];
+	}
+	//(5).2 Indirect blocks contains 256 block number 
+	else if(lbk>=12 && lbk < 256 +12){
+		int32_t indirect_buf[256];
+		ext2->read_block(node->i_block[12], (char*)indirect_buf);
+		blk = indirect_buf[lbk-12];
+	}
+	//(5).3 Double indiirect blocks
+	else{
+		int32_t count = lbk -12 -256;
+		//total blocks = count / 256
+		//offset of certain block = count %256
+		int32_t num = count / 256;
+		int32_t pos_offset = count % 256;
+		int32_t double_buf1[256];
+		ext2->read_block(node->i_block[13], (char*)double_buf1);
+		int32_t double_buf2[256];
+		ext2->read_block(double_buf1[num], (char*)double_buf2);
+		blk = double_buf2[pos_offset];
+	}
 
-		char readbuf[SDC_BLOCK_SIZE];
-		ext2->read_block(blk, readbuf);
-		char *cp = readbuf + start_byte;
-		remain = SDC_BLOCK_SIZE - start_byte;
-		//(6)
-		while(remain){
-			int32_t min = 0;
-			if(avil <= nbytes){
-				min = avil;
-			}
-			else{
-				min = nbytes;
-			}
-			memcpy(cq, cp, min);
-			offset += min;
-			count_read += min;
-			avil -= min;
-			nbytes -= min;
-			remain -= min;
-			if(nbytes == 0 || avil == 0){
-				break;
-			}	
+	char readbuf[SDC_BLOCK_SIZE];
+	ext2->read_block(blk, readbuf);
+	char *cp = readbuf + start_byte;
+	remain = SDC_BLOCK_SIZE - start_byte;
+	//(6)
+	while(remain){
+		int32_t min = 0;
+		if(avil <= nbytes){
+			min = avil;
 		}
+		else{
+			min = nbytes;
+		}
+		memcpy(cq, cp, min);
+		offset += min;
+		count_read += min;
+		avil -= min;
+		nbytes -= min;
+		remain -= min;
+		if(nbytes == 0 || avil == 0){
+			break;
+		}	
 	}
 	return count_read;
 }	
@@ -282,7 +280,7 @@ INODE* get_node(ext2_t* ext2, int32_t ino, char* buf) {
 void put_node(ext2_t* ext2, int32_t ino, INODE *node) {
 	int32_t blk = (ino-1)/8 + ext2->iblock;
 	int32_t offset = (ino-1)%8;
-	char buf[SDC_BLOCK_SIZE];
+	static char buf[SDC_BLOCK_SIZE];
 	ext2->read_block(blk, buf);
 	INODE *ip = (INODE *)buf + offset;
 	*ip = *node;
@@ -291,7 +289,7 @@ void put_node(ext2_t* ext2, int32_t ino, INODE *node) {
 
 int32_t ext2_create_dir(ext2_t* ext2, INODE* father_inp, const char *base) { //mode file or dir
 	int32_t ino, i, blk;
-	char buf[SDC_BLOCK_SIZE];
+	static char buf[SDC_BLOCK_SIZE];
 
 	ino = ext2_ialloc(ext2);
 	blk = ext2_balloc(ext2);
@@ -319,7 +317,7 @@ int32_t ext2_create_dir(ext2_t* ext2, INODE* father_inp, const char *base) { //m
 
 int32_t ext2_create_file(ext2_t* ext2, INODE* father_inp, const char *base) { //mode file or dir
 	int32_t ino, i;
-	char buf[SDC_BLOCK_SIZE];
+	static char buf[SDC_BLOCK_SIZE];
 
 	ino = ext2_ialloc(ext2);
 
@@ -345,7 +343,7 @@ int32_t ext2_create_file(ext2_t* ext2, INODE* father_inp, const char *base) { //
 }
 
 int32_t ext2_write(ext2_t* ext2, INODE* node, char *data, int32_t nbytes, int32_t offset) {
- 	char buf [SDC_BLOCK_SIZE];
+ 	static char buf [SDC_BLOCK_SIZE];
 	char *cq = data;
 	char *cp;
 	//(2)
@@ -413,7 +411,7 @@ int32_t ext2_write(ext2_t* ext2, INODE* node, char *data, int32_t nbytes, int32_
 }
 
 int32_t ext2_init(ext2_t* ext2, read_block_func_t read_block, write_block_func_t write_block) {
-	char* buf = (char*)malloc(SDC_BLOCK_SIZE);
+	static char buf[SDC_BLOCK_SIZE];
 	ext2->read_block = read_block;
 	ext2->write_block = write_block;
 
@@ -428,7 +426,5 @@ int32_t ext2_init(ext2_t* ext2, read_block_func_t read_block, write_block_func_t
 	ext2->iblock = (uint16_t)gp->bg_inode_table;
 	ext2->bmap = gp->bg_block_bitmap;
 	ext2->imap = gp->bg_inode_bitmap;
-
-	free(buf);
 	return 0;
 }
