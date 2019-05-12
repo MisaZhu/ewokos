@@ -380,6 +380,20 @@ static void do_open(package_t* pkg) {
 	ipc_send(pkg->id, pkg->type, &fd, 4);
 }
 
+static void do_node_by_addr(package_t* pkg) {
+	proto_t* proto = proto_new(get_pkg_data(pkg), pkg->size);
+	uint32_t node_addr = (uint32_t)proto_read_int(proto);
+	proto_free(proto);
+
+	fs_info_t info;
+	tree_node_t* node = (tree_node_t*)node_addr;
+	if(node == NULL || fsnode_info(pkg->pid, node, &info) != 0) {
+		ipc_send(pkg->id, PKG_TYPE_ERR, NULL, 0);
+		return;
+	}
+	ipc_send(pkg->id, pkg->type, &info, sizeof(fs_info_t));
+}
+
 static void do_node_by_name(package_t* pkg) {
 	proto_t* proto = proto_new(get_pkg_data(pkg), pkg->size);
 	const char* name = proto_read_str(proto);
@@ -531,6 +545,9 @@ static void handle(package_t* pkg, void* p) {
 		break;
 	case VFS_CMD_INFO_UPDATE:
 		do_info_update(pkg);
+		break;
+	case VFS_CMD_NODE_BY_ADDR:
+		do_node_by_addr(pkg);
 		break;
 	case VFS_CMD_NODE_BY_NAME:
 		do_node_by_name(pkg);

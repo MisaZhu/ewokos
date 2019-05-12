@@ -3,6 +3,9 @@
 
 #include <types.h>
 
+#define EXT2_FT_FILE 1 
+#define EXT2_FT_DIR  2
+
 typedef struct ext2_super_block {
 	uint32_t	s_inodes_count;		/* Inodes count */
 	uint32_t	s_blocks_count;		/* Blocks count */

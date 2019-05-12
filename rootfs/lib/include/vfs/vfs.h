@@ -25,6 +25,8 @@ int32_t vfs_open(const char* fname, int32_t flags);
 
 int32_t vfs_close(int32_t fd);
 
+int32_t vfs_node_by_addr(uint32_t node, fs_info_t* info);
+
 int32_t vfs_node_by_name(const char* fname, fs_info_t* info);
 
 int32_t vfs_node_by_fd(int32_t fd, fs_info_t* info);

@@ -63,7 +63,8 @@ static int32_t sramdisk_read(uint32_t node, void* buf, uint32_t size, int32_t se
 	return size;
 }
 
-static int32_t sramdisk_add(uint32_t node, const char* name, uint32_t type) {
+static int32_t sramdisk_add(uint32_t father_node, uint32_t node, const char* name, uint32_t type) {
+	(void)father_node;
 	(void)node;
 	(void)name;
 	(void)type;

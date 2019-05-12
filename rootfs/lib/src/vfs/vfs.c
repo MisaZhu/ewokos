@@ -73,6 +73,26 @@ inline int32_t vfs_close(int32_t fd) {
 	return 0;
 }
 
+int32_t vfs_node_by_addr(uint32_t node, fs_info_t* info) {
+	if(node == 0)
+		return -1;
+	int32_t serv_pid = kserv_get_by_name(VFS_NAME);	
+	if(serv_pid < 0)
+		return -1;
+
+	proto_t* proto = proto_new(NULL, 0);
+	proto_add_int(proto, node);
+	package_t* pkg = ipc_req(serv_pid, 0, VFS_CMD_NODE_BY_ADDR, proto->data, proto->size, true);
+	proto_free(proto);
+	if(pkg == NULL || pkg->type == PKG_TYPE_ERR) {
+		if(pkg != NULL) free(pkg);
+		return -1;
+	}
+	memcpy(info, get_pkg_data(pkg), sizeof(fs_info_t));
+	free(pkg);
+	return 0;
+}
+
 inline int32_t vfs_node_by_name(const char* fname, fs_info_t* info) {
 	if(fname[0] == 0)
 		return -1;

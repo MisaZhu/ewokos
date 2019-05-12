@@ -211,13 +211,21 @@ uint32_t fs_add(int fd, const char* name, uint32_t type) {
 	fs_info_t info;
 	if(fd < 0 || syscall2(SYSCALL_PFILE_NODE_BY_FD, fd, (int32_t)&info) != 0)
 		return 0;
-	
 	int size = strlen(name);
 	if(size == 0)
 		return 0;
 
+	uint32_t node = 0;
+	if(type == FS_TYPE_DIR)
+		node = vfs_add(info.node, name, VFS_DIR_SIZE, NULL);
+	else
+		node = vfs_add(info.node, name, 0, NULL);
+	if(node == 0)
+		return 0;
+
 	proto_t* proto = proto_new(NULL, 0);
 	proto_add_int(proto, info.node);
+	proto_add_int(proto, node);
 	proto_add_str(proto, name);
 	proto_add_int(proto, type);
 	package_t* pkg = ipc_req(info.dev_serv_pid, 0, FS_ADD, proto->data, proto->size, true);
@@ -227,16 +235,11 @@ uint32_t fs_add(int fd, const char* name, uint32_t type) {
 		if(pkg != NULL) free(pkg);
 		return 0;
 	}
+
 	int32_t res = *(int32_t*)get_pkg_data(pkg);
 	free(pkg);
 	if(res != 0)
 		return 0;
-
-	uint32_t node = 0;
-	if(type == FS_TYPE_DIR)
-		node = vfs_add(info.node, name, VFS_DIR_SIZE, NULL);
-	else
-		node = vfs_add(info.node, name, 0, NULL);
 	return node;
 }
 

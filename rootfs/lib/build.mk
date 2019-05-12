@@ -28,6 +28,7 @@ LIB_OBJS = lib/src/syscall.o \
 	lib/src/thread.o \
 	lib/src/semaphore.o \
 	lib/src/sdread.o \
+	lib/src/ext2fs.o \
 	lib/src/sconf.o \
 	lib/src/kserv.o
 

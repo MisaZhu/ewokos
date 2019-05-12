@@ -83,6 +83,7 @@ static void do_flush(device_t* dev, package_t* pkg) {
 
 static void do_add(device_t* dev, package_t* pkg) { 
 	proto_t* proto = proto_new(get_pkg_data(pkg), pkg->size);
+	uint32_t father_node = (uint32_t)proto_read_int(proto);
 	uint32_t node = (uint32_t)proto_read_int(proto);
 	const char* name = proto_read_str(proto);
 	uint32_t type = (uint32_t)proto_read_int(proto);
@@ -95,7 +96,7 @@ static void do_add(device_t* dev, package_t* pkg) {
 
 	int32_t ret = -1;
 	if(dev->add != NULL)
-		ret = dev->add(node, name, type);	
+		ret = dev->add(father_node, node, name, type);	
 	ipc_send(pkg->id, pkg->type, &ret, 4);
 }
 
