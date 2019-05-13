@@ -6,6 +6,8 @@
 #include <vfs/vfscmd.h>
 #define VFS_DIR_SIZE 0xffffffff
 
+#define VFS_NAME "kserv.vfsd"
+
 typedef struct {
 	char dev_name[DEV_NAME_MAX];
 	int32_t dev_index;
@@ -13,7 +15,7 @@ typedef struct {
 	uint32_t node_old;
 } mount_t;
 
-uint32_t vfs_add(uint32_t node, const char* name, uint32_t size, void* data);
+uint32_t vfs_add(int32_t fd, const char* name, uint32_t size, void* data);
 
 int32_t vfs_del(const char* fname);
 

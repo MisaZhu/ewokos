@@ -108,12 +108,10 @@ static int32_t sdcard_mount(uint32_t node, int32_t index) {
 	return 0;
 }
 
-static int32_t sdcard_open(uint32_t node, int32_t flags) {
+static int32_t sdcard_open(int32_t pid, int32_t fd, int32_t flags) {
+	(void)pid;
+	(void)fd;
 	(void)flags;
-
-	fs_info_t info;
-	if(fs_ninfo(node, &info) != 0 || info.data == NULL)
-		return -1;
 	return 0;
 }
 
@@ -124,32 +122,37 @@ static int32_t sdcard_close(fs_info_t* info) {
 	if(info->type == FS_TYPE_FILE && data->dirty != 0) {
 		put_node(&_ext2, data->ino, &data->node);
 		info->size = data->node.i_size;
-		fs_ninfo_update(info);
+		vfs_node_update(info);
 	}
 	return 0;
 }
 
-static int32_t sdcard_read(uint32_t node, void* buf, uint32_t size, int32_t seek) {
+static int32_t sdcard_read(int32_t pid, int32_t fd, void* buf, uint32_t size, int32_t seek) {
 	fs_info_t info;
-	if(fs_ninfo(node, &info) != 0 || info.data == NULL)
+	if(syscall3(SYSCALL_PFILE_NODE_BY_PID_FD, pid, fd, (int32_t)&info) != 0 ||
+			info.data == NULL)
 		return -1;
 	ext2_node_data_t* data = (ext2_node_data_t*)info.data;
 	return ext2_read(&_ext2, &data->node, buf, size, seek);
 }
 
-static int32_t sdcard_write(uint32_t node, void* buf, uint32_t size, int32_t seek) {
+static int32_t sdcard_write(int32_t pid, int32_t fd, void* buf, uint32_t size, int32_t seek) {
 	fs_info_t info;
-	if(fs_ninfo(node, &info) != 0 || info.data == NULL)
+	if(syscall3(SYSCALL_PFILE_NODE_BY_PID_FD, pid, fd, (int32_t)&info) != 0 ||
+			info.data == NULL)
 		return -1;
 	ext2_node_data_t* data = (ext2_node_data_t*)info.data;
 	data->dirty = 1;
 	return ext2_write(&_ext2, &data->node, buf, size, seek);
 }
 
-static int32_t sdcard_add(uint32_t father_node, uint32_t node, const char* name, uint32_t type) {
+static int32_t sdcard_add(int32_t pid, int32_t father_fd, uint32_t node) {
 	fs_info_t father_info, info;
-	if(fs_ninfo(father_node, &father_info) != 0 ||
+	if(syscall3(SYSCALL_PFILE_NODE_BY_PID_FD, pid, father_fd, (int32_t)&father_info) != 0 ||
 			vfs_node_by_addr(node, &info) != 0)
+		return -1;
+	tstr_t* name = vfs_short_name_by_node(node);
+	if(name == NULL)
 		return -1;
 
 	INODE* inp = NULL;
@@ -162,11 +165,13 @@ static int32_t sdcard_add(uint32_t father_node, uint32_t node, const char* name,
 	else {
 		inp = get_node(&_ext2, 2, sbuf);
 	}
+	
 	int32_t ino;
-	if(type == FS_TYPE_DIR)
-		ino= ext2_create_dir(&_ext2, inp, name);
+	if(info.type == FS_TYPE_DIR)
+		ino= ext2_create_dir(&_ext2, inp, CS(name));
 	else
-		ino= ext2_create_file(&_ext2, inp, name);
+		ino= ext2_create_file(&_ext2, inp, CS(name));
+	tstr_free(name);
 
 	inp = get_node(&_ext2, ino, sbuf);
 	ext2_node_data_t* data = (ext2_node_data_t*)malloc(sizeof(ext2_node_data_t));
@@ -176,50 +181,18 @@ static int32_t sdcard_add(uint32_t father_node, uint32_t node, const char* name,
 	memcpy(&data->node, inp, sizeof(INODE));
 	free(sbuf);
 	info.data = data;
-	fs_ninfo_update(&info);
+	vfs_node_update(&info);
 	return 0;
 }
 
-static int32_t sdcard_remove(const char* fname) {
-	if(fname == NULL || fname[0] == 0)
+static int32_t sdcard_remove(fs_info_t* info, const char* fname) {
+	if(info == NULL || fname == NULL || fname[0] == 0)
 		return -1;
-	fs_info_t info;
-	if(vfs_node_by_name(fname, &info) != 0 || info.type == FS_TYPE_DIR)
+	if(info->type == FS_TYPE_DIR)
 		return -1;
-	if(syscall2(SYSCALL_PFILE_GET_REF, info.node, 2) > 0) 
+	if(syscall2(SYSCALL_PFILE_GET_REF, info->node, 2) > 0) 
 		return -1;
-
-	tstr_t* dir = tstr_new("", MFS);
-	tstr_t* name = tstr_new("", MFS);
-	fs_parse_name(fname, dir, name);
-
-	int32_t res = -1;
-	fs_info_t finfo;
-	if(vfs_node_by_name(CS(dir), &finfo) != 0 || vfs_node_by_name(CS(name), &info) != 0) {
-		tstr_free(dir); 
-		tstr_free(name); 
-		return -1;
-	}
-	if(info.data != NULL) {
-		char sbuf [SDC_BLOCK_SIZE];
-		INODE *inp;
-		int32_t fino;
-		if(finfo.data == NULL) { //root
-			inp = get_node(&_ext2, 2, sbuf);
-			fino = 2;
-		}
-		else  {
-			ext2_node_data_t* fdata = (ext2_node_data_t*)finfo.data;
-			inp = &fdata->node;
-			fino = fdata->ino;
-		}
-
-		ext2_node_data_t* data = (ext2_node_data_t*)info.data;
-		res = ext2_unlink(&_ext2, inp, fino, &data->node, data->ino, CS(name));
-	}
-	tstr_free(dir); 
-	tstr_free(name); 
-	return res;
+	return ext2_unlink(&_ext2, fname);
 }
 
 int32_t main(int32_t argc, char* argv[]) {

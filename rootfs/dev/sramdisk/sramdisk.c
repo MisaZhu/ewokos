@@ -12,9 +12,10 @@ typedef struct {
 	void* data;
 } node_data_t;
 
-static int32_t sramdisk_write(uint32_t node, void* buf, uint32_t size, int32_t seek) {
+static int32_t sramdisk_write(int32_t pid, int32_t fd, void* buf, uint32_t size, int32_t seek) {
 	fs_info_t info;
-	if(fs_ninfo(node, &info) != 0 || info.data == NULL)
+	if(syscall3(SYSCALL_PFILE_NODE_BY_PID_FD, pid, fd, (int32_t)&info) != 0 ||
+			info.data == NULL)
 		return -1;
 	node_data_t* data = (node_data_t*)info.data;
 
@@ -35,13 +36,14 @@ static int32_t sramdisk_write(uint32_t node, void* buf, uint32_t size, int32_t s
 	if(p == NULL)
 		return -1;
 	memcpy(p+seek, buf, size);
-	fs_ninfo_update(&info);
+	vfs_node_update(&info);
 	return size;
 }
 
-static int32_t sramdisk_read(uint32_t node, void* buf, uint32_t size, int32_t seek) {
+static int32_t sramdisk_read(int32_t pid, int32_t fd, void* buf, uint32_t size, int32_t seek) {
 	fs_info_t info;
-	if(fs_ninfo(node, &info) != 0 || info.data == NULL)
+	if(syscall3(SYSCALL_PFILE_NODE_BY_PID_FD, pid, fd, (int32_t)&info) != 0 ||
+			info.data == NULL)
 		return -1;
 	node_data_t* data = (node_data_t*)info.data;
 
@@ -63,43 +65,41 @@ static int32_t sramdisk_read(uint32_t node, void* buf, uint32_t size, int32_t se
 	return size;
 }
 
-static int32_t sramdisk_add(uint32_t father_node, uint32_t node, const char* name, uint32_t type) {
-	(void)father_node;
+static int32_t sramdisk_add(int32_t pid, int32_t father_fd, uint32_t node) {
+	(void)pid;
+	(void)father_fd;
 	(void)node;
-	(void)name;
-	(void)type;
 	return 0;
 }
 
-static int32_t sramdisk_open(uint32_t node, int32_t flags) {
+static int32_t sramdisk_open(int32_t pid, int32_t fd, int32_t flags) {
 	(void)flags;
 	fs_info_t info;
-	if(fs_ninfo(node, &info) != 0)
+	if(syscall3(SYSCALL_PFILE_NODE_BY_PID_FD, pid, fd, (int32_t)&info) != 0)
 		return -1;
 	if(info.type == FS_TYPE_DIR)
 		return 0;
 	if(info.data == NULL) {
 		info.data = malloc(sizeof(node_data_t));
 		memset(info.data, 0, sizeof(node_data_t));
-		fs_ninfo_update(&info);
+		vfs_node_update(&info);
 	}
 	return 0;
 }
 
-static int32_t sramdisk_remove(const char* fname) {
-	if(fname == NULL || fname[0] == 0)
+static int32_t sramdisk_remove(fs_info_t* info, const char* fname) {
+	if(info == NULL || fname == NULL || fname[0] == 0)
 		return -1;
-	fs_info_t info;
-	if(vfs_node_by_name(fname, &info) != 0 || info.type == FS_TYPE_DIR)
+	if(info->type == FS_TYPE_DIR)
 		return -1;
-	if(syscall2(SYSCALL_PFILE_GET_REF, info.node, 2) > 0) 
+	if(syscall2(SYSCALL_PFILE_GET_REF, info->node, 2) > 0) 
 		return -1;
 
-	if(info.data != NULL) {
-		node_data_t* data = (node_data_t*)info.data;
+	if(info->data != NULL) {
+		node_data_t* data = (node_data_t*)info->data;
 		if(data->data != NULL)
 			free(data->data);
-		free(info.data);
+		free(info->data);
 	}
 	return 0;
 }
@@ -112,7 +112,7 @@ static int32_t sramdisk_close(fs_info_t* info) {
 	if(info->data != NULL) {
 		node_data_t* data = (node_data_t*)info->data;
 		info->size = data->size;
-		fs_ninfo_update(info);
+		vfs_node_update(info);
 	}
 	return 0;
 }

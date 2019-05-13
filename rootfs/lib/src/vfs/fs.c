@@ -25,7 +25,7 @@ int fs_open(const char* name, int32_t flags) {
 		return fd;
 
 	proto_t* proto = proto_new(NULL, 0);
-	proto_add_int(proto, info.node);
+	proto_add_int(proto, fd);
 	proto_add_int(proto, flags);
 
 	package_t* pkg = ipc_req(info.dev_serv_pid, 0, FS_OPEN, proto->data, proto->size, true);
@@ -47,21 +47,6 @@ int fs_close(int fd) {
 }
 
 int fs_remove(const char* fname) {
-	fs_info_t info;
-	if(fname[0] == 0 || vfs_node_by_name(fname, &info) != 0)
-		return -1;
-
-	if(info.dev_serv_pid > 0) {	
-		proto_t* proto = proto_new(NULL, 0);
-		proto_add_str(proto, fname);
-		package_t* pkg = ipc_req(info.dev_serv_pid, 0, FS_REMOVE, proto->data, proto->size, true);
-		proto_free(proto);
-		if(pkg == NULL || pkg->type == PKG_TYPE_ERR) {
-			if(pkg != NULL) free(pkg);
-			return -1;
-		}
-		free(pkg);
-	}
 	return vfs_del(fname);
 }
 
@@ -72,7 +57,7 @@ int32_t fs_dma(int fd, uint32_t* size) {
 		return -1;
 	if(info.dev_serv_pid == 0) 
 		return -1;
-	package_t* pkg = ipc_req(info.dev_serv_pid, 0, FS_DMA, &info.node, 4, true);
+	package_t* pkg = ipc_req(info.dev_serv_pid, 0, FS_DMA, &fd, 4, true);
 	if(pkg == NULL || pkg->type == PKG_TYPE_ERR) {
 		if(pkg != NULL) free(pkg);
 		return -1;
@@ -92,7 +77,7 @@ int32_t fs_flush(int fd) {
 		return -1;
 	
 	if(info.dev_serv_pid > 0) {
-		ipc_req(info.dev_serv_pid, 0, FS_FLUSH, &info.node, 4, false);
+		ipc_req(info.dev_serv_pid, 0, FS_FLUSH, &fd, 4, false);
 		/*
 		package_t* pkg = ipc_req(info.dev_serv_pid, 0, FS_FLUSH, (void*)&node, 4, true);
 		if(pkg == NULL || pkg->type == PKG_TYPE_ERR) {
@@ -102,6 +87,12 @@ int32_t fs_flush(int fd) {
 		free(pkg);
 		*/
 	}
+	return 0;
+}
+
+int fs_info(int fd, fs_info_t* info) {
+	if(fd < 0 || syscall2(SYSCALL_PFILE_NODE_BY_FD, fd, (int32_t)info) != 0)
+		return -1;
 	return 0;
 }
 
@@ -115,7 +106,7 @@ int fs_read(int fd, char* buf, uint32_t size) {
 		return -1;
 
 	proto_t* proto = proto_new(NULL, 0);
-	proto_add_int(proto, info.node);
+	proto_add_int(proto, fd);
 	proto_add_int(proto, size);
 	proto_add_int(proto, seek);
 	package_t* pkg = ipc_req(info.dev_serv_pid, buf_size, FS_READ, proto->data, proto->size, true);
@@ -149,7 +140,7 @@ int fs_ctrl(int fd, int32_t cmd, void* input, uint32_t isize, void* output, uint
 		return -1;
 
 	proto_t* proto = proto_new(NULL, 0);
-	proto_add_int(proto, info.node);
+	proto_add_int(proto, fd);
 	proto_add_int(proto, cmd);
 	proto_add(proto, input, isize);
 	package_t* pkg = ipc_req(info.dev_serv_pid, 0, FS_CTRL, proto->data, proto->size, true);
@@ -186,7 +177,7 @@ int fs_write(int fd, const char* buf, uint32_t size) {
 		return -1;
 
 	proto_t* proto = proto_new(NULL, 0);
-	proto_add_int(proto, info.node);
+	proto_add_int(proto, fd);
 	proto_add(proto, (void*)buf, size);
 	proto_add_int(proto, seek);
 	package_t* pkg = ipc_req(info.dev_serv_pid, buf_size, FS_WRITE, proto->data, proto->size, true);
@@ -209,11 +200,10 @@ int fs_write(int fd, const char* buf, uint32_t size) {
 }
 
 uint32_t fs_add(int fd, const char* name, uint32_t type) {
-	fs_info_t info;
-	if(fd < 0 || syscall2(SYSCALL_PFILE_NODE_BY_FD, fd, (int32_t)&info) != 0)
+	if(fd < 0 || strlen(name) == 0)
 		return 0;
-	int size = strlen(name);
-	if(size == 0)
+	fs_info_t info;
+	if(syscall2(SYSCALL_PFILE_NODE_BY_FD, fd, (int32_t)&info) != 0)
 		return 0;
 
 	uint32_t node = 0;
@@ -224,23 +214,21 @@ uint32_t fs_add(int fd, const char* name, uint32_t type) {
 	if(node == 0)
 		return 0;
 
-	proto_t* proto = proto_new(NULL, 0);
-	proto_add_int(proto, info.node);
-	proto_add_int(proto, node);
-	proto_add_str(proto, name);
-	proto_add_int(proto, type);
-	package_t* pkg = ipc_req(info.dev_serv_pid, 0, FS_ADD, proto->data, proto->size, true);
-	proto_free(proto);
-
-	if(pkg == NULL || pkg->type == PKG_TYPE_ERR) {
-		if(pkg != NULL) free(pkg);
-		return 0;
+	if(info.dev_serv_pid > 0) {
+		proto_t* proto = proto_new(NULL, 0);
+		proto_add_int(proto, fd);
+		proto_add_int(proto, node);
+		package_t* pkg = ipc_req(info.dev_serv_pid, 0, FS_ADD, proto->data, proto->size, true);
+		proto_free(proto);
+		if(pkg == NULL || pkg->type == PKG_TYPE_ERR) {
+			if(pkg != NULL) free(pkg);
+			return 0;
+		}
+		int32_t res = *(int32_t*)get_pkg_data(pkg);
+		free(pkg);
+		if(res != 0)
+			return 0;
 	}
-
-	int32_t res = *(int32_t*)get_pkg_data(pkg);
-	free(pkg);
-	if(res != 0)
-		return 0;
 	return node;
 }
 
@@ -261,24 +249,6 @@ int fs_finfo(const char* name, fs_info_t* info) {
 	if(name[0] == 0)
 		return -1;
 	return vfs_node_by_name(name, info);
-}
-
-int fs_info(int fd, fs_info_t* info) {
-	if(fd < 0 || syscall2(SYSCALL_PFILE_NODE_BY_FD, fd, (int32_t)info) != 0)
-		return -1;
-	return 0;
-}
-
-int fs_ninfo(uint32_t node, fs_info_t* info) {
-	if(node == 0 || syscall2(SYSCALL_PFILE_NODE_BY_ADDR, node, (int32_t)info) != 0)
-		return -1;
-	return 0;
-}
-
-int fs_ninfo_update(fs_info_t* info) {
-	if(vfs_node_update(info) != 0)
-		return -1;
-	return 0;
 }
 
 int fs_kid(int fd, int32_t index, fs_info_t* kid) {

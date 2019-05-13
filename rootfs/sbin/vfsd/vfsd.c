@@ -268,8 +268,8 @@ static void do_node_by_fd(package_t* pkg) {
 	int32_t fd = *(int32_t*)get_pkg_data(pkg);
 	uint32_t node_addr = get_node_info_by_fd(pkg->pid, fd);
 
-	fs_info_t info;
 	tree_node_t* node = (tree_node_t*)node_addr;
+	fs_info_t info;
 	if(node == NULL || fsnode_info(pkg->pid, node, &info) != 0) {
 		ipc_send(pkg->id, PKG_TYPE_ERR, NULL, 0);
 		return;
@@ -279,20 +279,22 @@ static void do_node_by_fd(package_t* pkg) {
 
 static void do_add(package_t* pkg) {
 	proto_t* proto = proto_new(get_pkg_data(pkg), pkg->size);
-	uint32_t node = (uint32_t)proto_read_int(proto);
+	uint32_t node_addr = (uint32_t)proto_read_int(proto);
 	const char* name = proto_read_str(proto);
 	uint32_t size = (uint32_t)proto_read_int(proto);
 	void* data = (void*)proto_read_int(proto);
 	proto_free(proto);
 
-	if(node == 0) {
+	tree_node_t* node = (tree_node_t*)node_addr;
+	fs_info_t info;
+	if(node == NULL || fsnode_info(pkg->pid, node, &info) != 0) {
 		ipc_send(pkg->id, PKG_TYPE_ERR, NULL, 0);
 		return;
 	}
 
 	tree_node_t* ret = NULL; 
 	if(strchr(name, '/') == NULL)
-		ret = fsnode_add((tree_node_t*)node, name, size, pkg->pid, data);
+		ret = fsnode_add(node, name, size, pkg->pid, data);
 	ipc_send(pkg->id, pkg->type, &ret, 4);
 }
 
@@ -300,9 +302,29 @@ static void do_del(package_t* pkg) {
 	proto_t* proto = proto_new(get_pkg_data(pkg), pkg->size);
 	const char* fname = proto_read_str(proto);
 	proto_free(proto);
-	
 	tree_node_t* node = get_node_by_name(fname);
-	if(node == NULL || fsnode_del(pkg->pid, node) != 0)
+
+	fs_info_t info;
+	if(node == NULL || fsnode_info(pkg->pid, node, &info) != 0) {
+		ipc_send(pkg->id, PKG_TYPE_ERR, NULL, 0);
+		return;
+	}
+
+	if(info.dev_serv_pid > 0) {
+		proto = proto_new(NULL, 0);
+		proto_add_str(proto, fname);
+		proto_add(proto, &info, sizeof(fs_info_t));
+		package_t* p = ipc_req(info.dev_serv_pid, 0, FS_REMOVE, proto->data, proto->size, true);
+		proto_free(proto);
+		if(p == NULL || p->type == PKG_TYPE_ERR) {
+			if(p != NULL) free(p);
+			ipc_send(pkg->id, PKG_TYPE_ERR, NULL, 0);
+			return;
+		}
+		free(p);
+	}
+
+	if(fsnode_del(pkg->pid, node) != 0)
 		ipc_send(pkg->id, PKG_TYPE_ERR, NULL, 0);
 	else
 		ipc_send(pkg->id, pkg->type, NULL, 0);

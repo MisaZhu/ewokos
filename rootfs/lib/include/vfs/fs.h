@@ -15,10 +15,6 @@ int fs_remove(const char* fname);
 
 int fs_info(int fd, fs_info_t* info);
 
-int fs_ninfo(uint32_t node, fs_info_t* info);
-
-int fs_ninfo_update(fs_info_t* info);
-
 int fs_finfo(const char* name, fs_info_t* info);
 
 int fs_kid(int fd, int32_t index, fs_info_t* info);

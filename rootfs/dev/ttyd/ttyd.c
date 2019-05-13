@@ -7,16 +7,18 @@ static int tty_getch(char* c) {
 	return syscall3(SYSCALL_DEV_CHAR_READ, dev_typeid(DEV_UART, 0), (int32_t)c, 1);
 }
 
-int32_t tty_write(uint32_t node, void* buf, uint32_t size, int32_t seek) {
-	(void)node;
+int32_t tty_write(int32_t pid, int32_t fd, void* buf, uint32_t size, int32_t seek) {
+	(void)pid;
+	(void)fd;
 	(void)seek;
 
 	syscall3(SYSCALL_DEV_CHAR_WRITE, dev_typeid(DEV_UART, 0), (int32_t)buf, (int32_t)size);
 	return size;
 }
 
-int32_t tty_read(uint32_t node, void* buf, uint32_t size, int32_t seek) {
-	(void)node;
+int32_t tty_read(int32_t pid, int32_t fd, void* buf, uint32_t size, int32_t seek) {
+	(void)pid;
+	(void)fd;
 	(void)size;
 	(void)seek;
 

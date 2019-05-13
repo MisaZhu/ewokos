@@ -16,14 +16,13 @@ static int32_t proc_mount(uint32_t node, int32_t index) {
 	return 0;
 }
 
-static int32_t proc_read(uint32_t node, void* buf, uint32_t size, int32_t seek) {
+static int32_t proc_read(int32_t pid, int32_t fd, void* buf, uint32_t size, int32_t seek) {
 	int32_t ret = -1;
-
 	if(size == 0)
 		return 0;
 
 	fs_info_t info;
-	if(fs_ninfo(node, &info) != 0)
+	if(syscall3(SYSCALL_PFILE_NODE_BY_PID_FD, pid, fd, (int32_t)&info) != 0)
 		return ret;
 	tstr_t* fname = vfs_short_name_by_node(info.node);
 	if(fname == NULL)

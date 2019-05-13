@@ -6,15 +6,13 @@
 #include <ipc.h>
 #include <package.h>
 
-#define VFS_NAME "kserv.vfsd"
-
-inline uint32_t vfs_add(uint32_t node, const char* name, uint32_t size, void* data) {
+inline uint32_t vfs_add(int32_t fd, const char* name, uint32_t size, void* data) {
 	int32_t serv_pid = kserv_get_by_name(VFS_NAME);	
 	if(serv_pid < 0)
 		return 0;
 
 	proto_t* proto = proto_new(NULL, 0);
-	proto_add_int(proto, (int32_t)node);
+	proto_add_int(proto, fd);
 	proto_add_str(proto, name);
 	proto_add_int(proto, (int32_t)size);
 	proto_add_int(proto, (int32_t)data);

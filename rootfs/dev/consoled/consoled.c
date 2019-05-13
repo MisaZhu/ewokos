@@ -190,9 +190,10 @@ static void put_char(char c) {
 	}
 }
 
-int32_t console_write(uint32_t node, void* buf, uint32_t size, int32_t seek) {
+int32_t console_write(int32_t pid, int32_t fd, void* buf, uint32_t size, int32_t seek) {
+	(void)pid;
+	(void)fd;
 	(void)seek;
-	(void)node;
 
 	const char* p = (const char*)buf;
 	for(uint32_t i=0; i<size; i++) {
@@ -203,8 +204,9 @@ int32_t console_write(uint32_t node, void* buf, uint32_t size, int32_t seek) {
 	return size;
 }
 
-int32_t console_read(uint32_t node, void* buf, uint32_t size, int32_t seek) {
-	(void)node;
+int32_t console_read(int32_t pid, int32_t fd, void* buf, uint32_t size, int32_t seek) {
+	(void)pid;
+	(void)fd;
 	(void)size;
 	(void)seek;
 	if(_keyb_id < 0)
@@ -222,8 +224,9 @@ int32_t console_read(uint32_t node, void* buf, uint32_t size, int32_t seek) {
 	return res;
 }
 
-void* console_ctrl(uint32_t node, int32_t cmd, void* data, uint32_t size, int32_t* ret) {
-	(void)node;
+void* console_ctrl(int32_t pid, int32_t fd, int32_t cmd, void* data, uint32_t size, int32_t* ret) {
+	(void)pid;
+	(void)fd;
 	(void)data;
 	(void)size;
 	(void)ret;

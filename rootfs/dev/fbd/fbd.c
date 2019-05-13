@@ -29,25 +29,29 @@ static int32_t fb_mount(uint32_t node, int32_t index) {
 	return 0;
 }
 
-int32_t fb_write(uint32_t node, void* buf, uint32_t size, int32_t seek) {
-	(void)node;
+int32_t fb_write(int32_t pid, int32_t fd, void* buf, uint32_t size, int32_t seek) {
+	(void)pid;
+	(void)fd;
 	(void)seek;
 	return syscall3(SYSCALL_DEV_CHAR_WRITE, dev_typeid(DEV_FRAME_BUFFER, 0), (int32_t)buf, (int32_t)size);
 }
 
-int32_t fb_flush(uint32_t node) {
-	(void)node;
+int32_t fb_flush(int32_t pid, int32_t fd) {
+	(void)pid;
+	(void)fd;
 	return syscall3(SYSCALL_DEV_CHAR_WRITE, dev_typeid(DEV_FRAME_BUFFER, 0), (int32_t)_fb_buf, (int32_t)_fb_bufSize);
 }
 
-int32_t fb_dma(uint32_t node, uint32_t *size) {
-	(void)node;
+int32_t fb_dma(int32_t pid, int32_t fd, uint32_t *size) {
+	(void)pid;
+	(void)fd;
 	*size = _fb_bufSize;
 	return _fb_buf_id;
 }
 
-void* fb_ctrl(uint32_t node, int32_t cmd, void* data, uint32_t size, int32_t* ret) {
-	(void)node;
+void* fb_ctrl(int32_t pid, int32_t fd, int32_t cmd, void* data, uint32_t size, int32_t* ret) {
+	(void)pid;
+	(void)fd;
 	(void)data;
 	(void)size;
 	void* p = NULL;

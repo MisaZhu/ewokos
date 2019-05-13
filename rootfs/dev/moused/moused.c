@@ -3,8 +3,9 @@
 #include <syscall.h>
 #include <device.h>
 
-int32_t mouse_read(uint32_t node, void* buf, uint32_t size, int32_t seek) {
-	(void)node;
+int32_t mouse_read(int32_t pid, int32_t fd, void* buf, uint32_t size, int32_t seek) {
+	(void)pid;
+	(void)fd;
 	(void)size;
 	(void)seek;
 	return syscall3(SYSCALL_DEV_CHAR_READ, dev_typeid(DEV_MOUSE, 0), (int32_t)buf, size);

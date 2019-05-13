@@ -3,8 +3,9 @@
 #include <syscall.h>
 #include <device.h>
 
-int32_t keyb_read(uint32_t node, void* buf, uint32_t size, int32_t seek) {
-	(void)node;
+int32_t keyb_read(int32_t pid, int32_t fd, void* buf, uint32_t size, int32_t seek) {
+	(void)pid;
+	(void)fd;
 	(void)size;
 	(void)seek;
 
