@@ -471,6 +471,78 @@ int32_t ext2_write(ext2_t* ext2, INODE* node, char *data, int32_t nbytes, int32_
 	return nbytes_copy;
 }
 
+static int32_t search(ext2_t* ext2, INODE *ip, const char *name) {
+	int32_t i; 
+	char c, *cp;
+	DIR  *dp;
+	char buf[SDC_BLOCK_SIZE];
+
+	for (i=0; i<12; i++){
+		if ( ip->i_block[i] ){
+			ext2->read_block(ip->i_block[i], buf);
+			dp = (DIR *)buf;
+			cp = buf;
+			while (cp < &buf[SDC_BLOCK_SIZE]){
+				c = dp->name[dp->name_len];  // save last byte
+				dp->name[dp->name_len] = 0;   
+				if (strcmp(dp->name, name) == 0 ){
+					return dp->inode;
+				}
+				dp->name[dp->name_len] = c; // restore that last byte
+				cp += dp->rec_len;
+				dp = (DIR *)cp;
+			}
+		}
+	}
+	return -1;
+}
+
+#define MAX_DIR_DEPTH 4
+int32_t ext2_getino(ext2_t* ext2, const char* filename) {
+	char buf[SDC_BLOCK_SIZE];
+	int32_t depth, i, ino, u;
+	char name[MAX_DIR_DEPTH][64];
+	INODE *ip;
+
+	depth = 0;
+	while(true) {
+		char* hold = name[depth];
+		u = 0;
+		if(*filename == '/') filename++; //skip '/'
+
+		while(*filename != '/') {
+			hold[u] = *filename;
+			u++;
+			filename++;
+			if(*filename == 0 || u >= 63)
+				break;
+		}
+		hold[u] = 0;
+		depth++;
+		if(*filename != 0)
+			filename++;
+		else
+			break;
+	}
+
+	if(ext2->read_block(ext2->iblock, buf) != 0) // read first inode block
+		return -1;
+	ip = (INODE *)buf + 1;   // ip->root inode #2
+
+	/* serach for system name */
+	for (i=0; i<depth; i++) {
+		ino = search(ext2, ip, name[i]);
+		if (ino < 0) {
+			return -1;
+		}
+		if(ext2->read_block(ext2->iblock+(ino-1/8), buf) != 0) { // read block inode of me
+			return -1;
+		}
+		ip = (INODE *)buf + ((ino-1) % 8);
+	}
+	return ino;
+}
+
 int32_t ext2_unlink(ext2_t* ext2, INODE* father_node, int32_t father_ino, INODE* node, int32_t ino, const char* name) {
 	//check parameters
 	ext2_rm_child(ext2, father_node, name);
