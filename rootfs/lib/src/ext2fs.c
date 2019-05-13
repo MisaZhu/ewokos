@@ -1,6 +1,8 @@
 #include <ext2fs.h>
+#include <vfs/fs.h>
 #include <kstring.h>
 #include <stdlib.h>
+#include <tstr.h>
 
 static int32_t tst_bit(char *buf, int32_t bit) {
 	int32_t i, j;
@@ -504,6 +506,9 @@ int32_t ext2_getino(ext2_t* ext2, const char* filename) {
 	char name[MAX_DIR_DEPTH][64];
 	INODE *ip;
 
+	if(strcmp(filename, "/") == 0)
+		return 2; //ino 2 for root;
+
 	depth = 0;
 	while(true) {
 		char* hold = name[depth];
@@ -528,7 +533,6 @@ int32_t ext2_getino(ext2_t* ext2, const char* filename) {
 	if(ext2->read_block(ext2->iblock, buf) != 0) // read first inode block
 		return -1;
 	ip = (INODE *)buf + 1;   // ip->root inode #2
-
 	/* serach for system name */
 	for (i=0; i<depth; i++) {
 		ino = search(ext2, ip, name[i]);
@@ -543,10 +547,36 @@ int32_t ext2_getino(ext2_t* ext2, const char* filename) {
 	return ino;
 }
 
-int32_t ext2_unlink(ext2_t* ext2, INODE* father_node, int32_t father_ino, INODE* node, int32_t ino, const char* name) {
-	//check parameters
-	ext2_rm_child(ext2, father_node, name);
-	put_node(ext2, father_ino, father_node);
+int32_t ext2_unlink(ext2_t* ext2, const char* fname) {
+	char buf[SDC_BLOCK_SIZE];
+	tstr_t* dir = tstr_new("", MFS);
+	tstr_t* name = tstr_new("", MFS);
+	fs_parse_name(fname, dir, name);
+
+	int32_t fino = ext2_getino(ext2, CS(dir));
+	if(fino < 0) {
+		tstr_free(dir);
+		tstr_free(name);
+		return -1;
+	}
+	INODE* fnode = get_node(ext2, fino, buf);
+	tstr_free(dir);
+	if(fnode == NULL) {
+		tstr_free(name);
+		return -1;
+	}
+	int32_t ino = search(ext2, fnode, CS(name));
+	tstr_free(name);
+
+	ext2_rm_child(ext2, fnode, CS(name));
+	put_node(ext2, fino, fnode);
+
+	if(ino < 0)
+		return -1;
+	INODE* node = get_node(ext2, ino, buf);
+	if(node == NULL) 
+		return -1;
+
 	//(3) -(5)
 	if(node->i_links_count > 0){
 		//node->dirty = 1;
