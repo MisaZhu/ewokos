@@ -31,12 +31,15 @@ inline uint32_t vfs_add(uint32_t node, const char* name, uint32_t size, void* da
 	return ret;
 }
 
-inline int32_t vfs_del(uint32_t node) {
+inline int32_t vfs_del(const char* fname) {
 	int32_t serv_pid = kserv_get_by_name(VFS_NAME);	
 	if(serv_pid < 0)
 		return -1;
 
-	package_t* pkg = ipc_req(serv_pid, 0, VFS_CMD_DEL, &node, 4, true);
+	proto_t* proto = proto_new(NULL, 0);
+	proto_add_str(proto, fname);
+	package_t* pkg = ipc_req(serv_pid, 0, VFS_CMD_DEL, proto->data, proto->size, true);
+	proto_free(proto);
 	if(pkg == NULL || pkg->type == PKG_TYPE_ERR) {
 		if(pkg != NULL) free(pkg);
 		return -1;

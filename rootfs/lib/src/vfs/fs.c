@@ -46,22 +46,23 @@ int fs_close(int fd) {
 	return vfs_close(fd);
 }
 
-int fs_remove(const char* name) {
-	if(name[0] == 0)
-		return -1;
+int fs_remove(const char* fname) {
 	fs_info_t info;
-	if(vfs_node_by_name(name, &info) != 0)
+	if(fname[0] == 0 || vfs_node_by_name(fname, &info) != 0)
 		return -1;
 
 	if(info.dev_serv_pid > 0) {	
-		package_t* pkg = ipc_req(info.dev_serv_pid, 0, FS_REMOVE, &info, sizeof(fs_info_t), true);
+		proto_t* proto = proto_new(NULL, 0);
+		proto_add_str(proto, fname);
+		package_t* pkg = ipc_req(info.dev_serv_pid, 0, FS_REMOVE, proto->data, proto->size, true);
+		proto_free(proto);
 		if(pkg == NULL || pkg->type == PKG_TYPE_ERR) {
 			if(pkg != NULL) free(pkg);
 			return -1;
 		}
 		free(pkg);
 	}
-	return vfs_del(info.node);
+	return vfs_del(fname);
 }
 
 int32_t fs_dma(int fd, uint32_t* size) {

@@ -10,7 +10,7 @@ static int32_t tst_bit(char *buf, int32_t bit) {
 		return 1;
 	return 0;
 }
-/*
+
 static int32_t clr_bit(char *buf, int32_t bit) {
 	int32_t i, j;
 	i = bit / 8;
@@ -18,7 +18,7 @@ static int32_t clr_bit(char *buf, int32_t bit) {
 	buf[i] &= ~(1 << j);
 	return 0;
 }
-*/
+
 
 static int32_t set_bit(char *buf, int32_t bit) {
 	int32_t i, j;
@@ -26,6 +26,34 @@ static int32_t set_bit(char *buf, int32_t bit) {
 	j = bit % 8;
 	buf[i] |= (1 << j);
 	return 0;
+}
+
+/*static void inc_free_blocks(ext2_t* ext2) {
+	char buf[SDC_BLOCK_SIZE];
+	// inc free block count in SUPER and GD
+	ext2->read_block(1, buf);
+	SUPER* sp = (SUPER *)buf;
+	sp->s_free_blocks_count++;
+	ext2->write_block(1, buf);
+
+	ext2->read_block(2, buf);
+	GD* gp = (GD *)buf;
+	gp->bg_free_blocks_count++;
+	ext2->write_block(2, buf);
+}
+*/
+
+static void inc_free_inodes(ext2_t* ext2) {
+	char buf[SDC_BLOCK_SIZE];
+	ext2->read_block(1, buf);
+	SUPER* sp = (SUPER *)buf;
+	sp->s_free_inodes_count++;
+	ext2->write_block(1, buf);
+
+	ext2->read_block(2, buf);
+	GD* gp = (GD *)buf;
+	gp->bg_free_inodes_count++;
+	ext2->write_block(2, buf);  
 }
 
 static void dec_free_blocks(ext2_t* ext2) {
@@ -53,6 +81,38 @@ static void dec_free_inodes(ext2_t* ext2) {
 	GD* gp = (GD *)buf;
 	gp->bg_free_inodes_count--;
 	ext2->write_block(2, buf);  
+}
+
+static void idealloc(ext2_t* ext2, int32_t ino) {
+	char buf[SDC_BLOCK_SIZE];
+
+	if (ino > ext2->ninodes){
+		return;
+	}
+	// get inode bitmap block
+	ext2->read_block(ext2->imap, buf);
+	clr_bit(buf, ino-1);
+	// write buf back
+	ext2->write_block(ext2->imap, buf);
+	// update free inode count in SUPER and GD
+	inc_free_inodes(ext2);
+}
+
+int32_t bdealloc(ext2_t* ext2, int32_t bit) {
+	char buf[SDC_BLOCK_SIZE];
+
+	if (bit <= 0){
+		return -1;
+	}
+
+	ext2->read_block(ext2->bmap, buf);
+	clr_bit(buf, bit-1);
+
+	// write buf back
+	ext2->write_block(ext2->bmap, buf);
+	// update free inode count in SUPER and GD
+	dec_free_blocks(ext2);
+	return 0;
 }
 
 static uint32_t ext2_ialloc(ext2_t* ext2) {
@@ -154,7 +214,7 @@ static int32_t enter_child(ext2_t* ext2, INODE* pip, int32_t ino, const char *ba
 	return -1;
 }
 
-int32_t ext2_rm_child(ext2_t* ext2, INODE *ip, const char *name) {
+static int32_t ext2_rm_child(ext2_t* ext2, INODE *ip, const char *name) {
 	int32_t i, rec_len, found, first_len;
 	char *cp, *precp = NULL;
 	DIR *dp;
@@ -409,6 +469,28 @@ int32_t ext2_write(ext2_t* ext2, INODE* node, char *data, int32_t nbytes, int32_
 	}
 	ext2->write_block(blk, buf);
 	return nbytes_copy;
+}
+
+int32_t ext2_unlink(ext2_t* ext2, INODE* father_node, int32_t father_ino, INODE* node, int32_t ino, const char* name) {
+	//check parameters
+	ext2_rm_child(ext2, father_node, name);
+	put_node(ext2, father_ino, father_node);
+	//(3) -(5)
+	if(node->i_links_count > 0){
+		//node->dirty = 1;
+	}
+	//if(!S_ISLNK(ip->i_mode)){
+	int32_t i;
+	for(i = 0; i < 12; i++) {
+		if(node->i_block[i] == 0)
+			break;
+		bdealloc(ext2, node->i_block[i]);
+	}
+	//}
+	idealloc(ext2, ino);
+	//node->dirty = 1;
+	put_node(ext2, ino, node);	
+	return 0;
 }
 
 int32_t ext2_init(ext2_t* ext2, read_block_func_t read_block, write_block_func_t write_block) {

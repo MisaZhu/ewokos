@@ -17,7 +17,7 @@ COMMON_OBJ=$(COMMON_LIB)/lib/kstring.o \
 	$(COMMON_LIB)/arch/arm/common/memcpy.o
 
 # flags
-CFLAGS = -I. -O2 \
+CFLAGS = -I. -g \
 			   -Wstrict-prototypes \
 				 -I ../lib/include \
 				 -I lib/include \

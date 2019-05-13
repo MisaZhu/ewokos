@@ -16,7 +16,7 @@ typedef struct {
 
 int32_t ext2_init(ext2_t* ext2, read_block_func_t read_block, write_block_func_t write_block);
 
-int32_t ext2_rm_child(ext2_t* ext2, INODE *ip, const char *name);
+int32_t ext2_unlink(ext2_t* ext2, INODE* father_node, int32_t father_ino, INODE* node, int32_t ino, const char* name);
 
 int32_t ext2_read(ext2_t* ext2, INODE* node, char *buf, int32_t nbytes, int32_t offset);
 

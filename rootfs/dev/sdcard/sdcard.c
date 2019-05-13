@@ -180,6 +180,48 @@ static int32_t sdcard_add(uint32_t father_node, uint32_t node, const char* name,
 	return 0;
 }
 
+static int32_t sdcard_remove(const char* fname) {
+	if(fname == NULL || fname[0] == 0)
+		return -1;
+	fs_info_t info;
+	if(vfs_node_by_name(fname, &info) != 0 || info.type == FS_TYPE_DIR)
+		return -1;
+	if(syscall2(SYSCALL_PFILE_GET_REF, info.node, 2) > 0) 
+		return -1;
+
+	tstr_t* dir = tstr_new("", MFS);
+	tstr_t* name = tstr_new("", MFS);
+	fs_parse_name(fname, dir, name);
+
+	int32_t res = -1;
+	fs_info_t finfo;
+	if(vfs_node_by_name(CS(dir), &finfo) != 0 || vfs_node_by_name(CS(name), &info) != 0) {
+		tstr_free(dir); 
+		tstr_free(name); 
+		return -1;
+	}
+	if(info.data != NULL) {
+		char sbuf [SDC_BLOCK_SIZE];
+		INODE *inp;
+		int32_t fino;
+		if(finfo.data == NULL) { //root
+			inp = get_node(&_ext2, 2, sbuf);
+			fino = 2;
+		}
+		else  {
+			ext2_node_data_t* fdata = (ext2_node_data_t*)finfo.data;
+			inp = &fdata->node;
+			fino = fdata->ino;
+		}
+
+		ext2_node_data_t* data = (ext2_node_data_t*)info.data;
+		res = ext2_unlink(&_ext2, inp, fino, &data->node, data->ino, CS(name));
+	}
+	tstr_free(dir); 
+	tstr_free(name); 
+	return res;
+}
+
 int32_t main(int32_t argc, char* argv[]) {
 	(void)argc;
 	(void)argv;
@@ -191,6 +233,7 @@ int32_t main(int32_t argc, char* argv[]) {
 	dev.read = sdcard_read;
 	dev.write = sdcard_write;
 	dev.close = sdcard_close;
+	dev.remove = sdcard_remove;
 
 	dev_run(&dev, argc, argv);
 	return 0;

@@ -218,6 +218,7 @@ static void redir(const char* fname, int in) {
 			exit(-1);
 		}
 		dup2(fd, _stdin);
+		close(fd);
 	}
 	else {
 		int32_t fd = open(fname, O_WRONLY | O_CREAT);
@@ -226,6 +227,7 @@ static void redir(const char* fname, int in) {
 			exit(-1);
 		}
 		dup2(fd, _stdout);
+		close(fd);
 	}
 }
 

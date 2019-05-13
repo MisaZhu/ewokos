@@ -35,15 +35,17 @@ static void do_close(device_t* dev, package_t* pkg) {
 }
 
 static void do_remove(device_t* dev, package_t* pkg) { 
-	fs_info_t* info = (fs_info_t*)get_pkg_data(pkg);
-	if(info == NULL) {
+	proto_t* proto = proto_new(get_pkg_data(pkg), pkg->size);
+	const char* fname = proto_read_str(proto);
+	proto_free(proto);
+	if(fname[0] == 0) {
 		ipc_send(pkg->id, PKG_TYPE_ERR, NULL, 0);
 		return;
 	}
 
 	int32_t res = -1;
 	if(dev->remove != NULL)
-		res = dev->remove(info);
+		res = dev->remove(fname);
 	if(res != 0) {
 		ipc_send(pkg->id, PKG_TYPE_ERR, NULL, 0);
 		return;
