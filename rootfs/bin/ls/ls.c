@@ -13,14 +13,15 @@ int main(int argc, char* argv[]) {
 		fname = fs_full_name(argv[1]);
 	}
 	const char *name = CS(fname);
+
+	fs_info_t dir_info;
+	if(fs_finfo(name, &dir_info) != 0 || dir_info.type != FS_TYPE_DIR) {
+		tstr_free(fname);
+			return -1;
+	}
+
 	int fd = open(name, O_RDONLY);
 	if(fd >= 0) {
-		fs_info_t dir_info;
-		if(fs_info(fd, &dir_info) != 0 || dir_info.type != FS_TYPE_DIR) {
-			tstr_free(fname);
-			close(fd);
-			return -1;
-		}
 		printf("  NAME                     TYPE  OWNER  SIZE\n");
 		uint32_t i = 0;
 		while(i < dir_info.size) {

@@ -16,19 +16,19 @@ int fs_open(const char* name, int32_t flags) {
 	if(fd < 0)
 		return -1;
 
-	fs_info_t info;
-	if(syscall2(SYSCALL_PFILE_NODE_BY_FD, fd, (int32_t)&info) != 0) {
+	int32_t dev_serv_pid = syscall1(SYSCALL_PFILE_SERV_PID_BY_FD, fd);
+	if(dev_serv_pid < 0) {
 		fs_close(fd);
 		return -1;
 	}
-	if(info.dev_serv_pid == 0) 
+	if(dev_serv_pid == 0) 
 		return fd;
 
 	proto_t* proto = proto_new(NULL, 0);
 	proto_add_int(proto, fd);
 	proto_add_int(proto, flags);
 
-	package_t* pkg = ipc_req(info.dev_serv_pid, 0, FS_OPEN, proto->data, proto->size, true);
+	package_t* pkg = ipc_req(dev_serv_pid, 0, FS_OPEN, proto->data, proto->size, true);
 	proto_free(proto);
 	if(pkg == NULL || pkg->type == PKG_TYPE_ERR) {
 		if(pkg != NULL) free(pkg);
@@ -52,12 +52,11 @@ int fs_remove(const char* fname) {
 
 int32_t fs_dma(int fd, uint32_t* size) {
 	*size = 0;
-	fs_info_t info;
-	if(fd < 0 || syscall2(SYSCALL_PFILE_NODE_BY_FD, fd, (int32_t)&info) != 0)
+
+	int32_t dev_serv_pid = syscall1(SYSCALL_PFILE_SERV_PID_BY_FD, fd);
+	if(dev_serv_pid <= 0)
 		return -1;
-	if(info.dev_serv_pid == 0) 
-		return -1;
-	package_t* pkg = ipc_req(info.dev_serv_pid, 0, FS_DMA, &fd, 4, true);
+	package_t* pkg = ipc_req(dev_serv_pid, 0, FS_DMA, &fd, 4, true);
 	if(pkg == NULL || pkg->type == PKG_TYPE_ERR) {
 		if(pkg != NULL) free(pkg);
 		return -1;
@@ -72,12 +71,12 @@ int32_t fs_dma(int fd, uint32_t* size) {
 }
 
 int32_t fs_flush(int fd) {
-	fs_info_t info;
-	if(fd < 0 || syscall2(SYSCALL_PFILE_NODE_BY_FD, fd, (int32_t)&info) != 0)
+	int32_t dev_serv_pid = syscall1(SYSCALL_PFILE_SERV_PID_BY_FD, fd);
+	if(dev_serv_pid < 0)
 		return -1;
 	
-	if(info.dev_serv_pid > 0) {
-		ipc_req(info.dev_serv_pid, 0, FS_FLUSH, &fd, 4, false);
+	if(dev_serv_pid > 0) {
+		ipc_req(dev_serv_pid, 0, FS_FLUSH, &fd, 4, false);
 		/*
 		package_t* pkg = ipc_req(info.dev_serv_pid, 0, FS_FLUSH, (void*)&node, 4, true);
 		if(pkg == NULL || pkg->type == PKG_TYPE_ERR) {
@@ -90,15 +89,19 @@ int32_t fs_flush(int fd) {
 	return 0;
 }
 
+/*
 int fs_info(int fd, fs_info_t* info) {
 	if(fd < 0 || syscall2(SYSCALL_PFILE_NODE_BY_FD, fd, (int32_t)info) != 0)
 		return -1;
 	return 0;
 }
+*/
 
 int fs_read(int fd, char* buf, uint32_t size) {
-	fs_info_t info;
-	if(fd < 0 || syscall2(SYSCALL_PFILE_NODE_BY_FD, fd, (int32_t)&info) != 0)
+	if(fd < 0)
+		return -1;
+	int32_t dev_serv_pid = syscall1(SYSCALL_PFILE_SERV_PID_BY_FD, fd);
+	if(dev_serv_pid < 0)
 		return -1;
 	uint32_t buf_size = size >= FS_BUF_SIZE ? FS_BUF_SIZE : 0;
 	int seek = syscall1(SYSCALL_PFILE_GET_SEEK, fd);
@@ -109,7 +112,7 @@ int fs_read(int fd, char* buf, uint32_t size) {
 	proto_add_int(proto, fd);
 	proto_add_int(proto, size);
 	proto_add_int(proto, seek);
-	package_t* pkg = ipc_req(info.dev_serv_pid, buf_size, FS_READ, proto->data, proto->size, true);
+	package_t* pkg = ipc_req(dev_serv_pid, buf_size, FS_READ, proto->data, proto->size, true);
 	proto_free(proto);
 
 	errno = ENONE;
@@ -135,15 +138,17 @@ int fs_read(int fd, char* buf, uint32_t size) {
 }
 
 int fs_ctrl(int fd, int32_t cmd, void* input, uint32_t isize, void* output, uint32_t osize) {
-	fs_info_t info;
-	if(fd < 0 || syscall2(SYSCALL_PFILE_NODE_BY_FD, fd, (int32_t)&info) != 0)
+	if(fd < 0)
+		return -1;
+	int32_t dev_serv_pid = syscall1(SYSCALL_PFILE_SERV_PID_BY_FD, fd);
+	if(dev_serv_pid < 0)
 		return -1;
 
 	proto_t* proto = proto_new(NULL, 0);
 	proto_add_int(proto, fd);
 	proto_add_int(proto, cmd);
 	proto_add(proto, input, isize);
-	package_t* pkg = ipc_req(info.dev_serv_pid, 0, FS_CTRL, proto->data, proto->size, true);
+	package_t* pkg = ipc_req(dev_serv_pid, 0, FS_CTRL, proto->data, proto->size, true);
 	proto_free(proto);
 
 	errno = ENONE;
@@ -167,8 +172,10 @@ int fs_ctrl(int fd, int32_t cmd, void* input, uint32_t isize, void* output, uint
 }
 
 int fs_write(int fd, const char* buf, uint32_t size) {
-	fs_info_t info;
-	if(fd < 0 || syscall2(SYSCALL_PFILE_NODE_BY_FD, fd, (int32_t)&info) != 0)
+	if(fd < 0)
+		return -1;
+	int32_t dev_serv_pid = syscall1(SYSCALL_PFILE_SERV_PID_BY_FD, fd);
+	if(dev_serv_pid < 0)
 		return -1;
 	uint32_t buf_size = size >= FS_BUF_SIZE ? FS_BUF_SIZE : 0;
 
@@ -180,7 +187,7 @@ int fs_write(int fd, const char* buf, uint32_t size) {
 	proto_add_int(proto, fd);
 	proto_add(proto, (void*)buf, size);
 	proto_add_int(proto, seek);
-	package_t* pkg = ipc_req(info.dev_serv_pid, buf_size, FS_WRITE, proto->data, proto->size, true);
+	package_t* pkg = ipc_req(dev_serv_pid, buf_size, FS_WRITE, proto->data, proto->size, true);
 	proto_free(proto);
 
 	errno = ENONE;
@@ -202,8 +209,9 @@ int fs_write(int fd, const char* buf, uint32_t size) {
 uint32_t fs_add(int fd, const char* name, uint32_t type) {
 	if(fd < 0 || strlen(name) == 0)
 		return 0;
+
 	fs_info_t info;
-	if(syscall2(SYSCALL_PFILE_NODE_BY_FD, fd, (int32_t)&info) != 0)
+	if(syscall3(SYSCALL_PFILE_NODE_BY_PID_FD, getpid(), fd, (int32_t)&info) != 0)
 		return 0;
 
 	uint32_t node = 0;
@@ -253,33 +261,33 @@ int fs_finfo(const char* name, fs_info_t* info) {
 
 int fs_kid(int fd, int32_t index, fs_info_t* kid) {
 	fs_info_t info;
-	if(fd < 0 || syscall2(SYSCALL_PFILE_NODE_BY_FD, fd, (int32_t)&info) != 0)
+	if(fd < 0 || syscall3(SYSCALL_PFILE_NODE_BY_PID_FD, getpid(), fd, (int32_t)&info) != 0)
 		return -1;
 	return vfs_kid(info.node, index, kid);
 }
 
 char* fs_read_file(const char* fname, int32_t *size) {
+	fs_info_t info;
+	if(fs_finfo(fname, &info) != 0 || info.size <= 0) {
+		return NULL;
+	}
+
 	int fd = open(fname, O_RDONLY);
 	if(fd < 0) 
 		return NULL;
 
-	fs_info_t info;
-	if(fs_info(fd, &info) != 0 || info.size <= 0) {
-		fs_close(fd);
-		return NULL;
-	}
-
-	char* buf = (char*)malloc(info.size);
 	int res = 0;
 	int sz = info.size;
+	char* buf = (char*)malloc(sz);
 	char* p = buf;
 	while(sz > 0) {
 		res = read(fd, p, sz);
-		if(res < 0)
+		if(res <= 0)
 			break;
 		sz -= res;
 		p += res;
 	}
+
 	fs_close(fd);
 	if(sz > 0 ) {
 		free(buf);

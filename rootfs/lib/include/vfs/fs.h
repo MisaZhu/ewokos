@@ -29,7 +29,7 @@ int fs_putch(int fd, int c);
 
 int fs_write(int fd, const char* buf, uint32_t size);
 
-uint32_t fs_add(int dir_fd, const char* name, uint32_t type);
+uint32_t fs_add(int fd, const char* name, uint32_t type);
 
 int32_t fs_flush(int fd);
 

@@ -197,6 +197,13 @@ static int32_t syscall_pf_dup2(int32_t arg0, int32_t arg1) {
 	return kf_dup2(arg0, arg1);
 }
 
+static int32_t syscall_pf_serv_pid_by_fd(int32_t arg0) {
+	fs_info_t info;
+	if(kf_node_info_by_fd(_current_proc->pid, arg0, &info) < 0)
+		return -1;
+	return info.dev_serv_pid;
+}
+
 static int32_t syscall_pf_seek(int32_t arg0, int32_t arg1) {
 	process_t* proc = _current_proc;
 	if(proc == NULL)
@@ -226,10 +233,6 @@ static int32_t syscall_pf_get_seek(int32_t arg0) {
 	if(kf == NULL || kf->node_info.node == 0)
 		return -1;
 	return proc->space->files[fd].seek;
-}
-
-static int32_t syscall_pf_node_by_fd(int32_t arg0, int32_t arg1) {
-	return kf_node_info_by_fd(_current_proc->pid, arg0, (fs_info_t*)arg1);
 }
 
 static int32_t syscall_pf_node_by_pid_fd(int32_t arg0, int32_t arg1, int32_t arg2) {
@@ -384,7 +387,7 @@ int32_t handle_syscall(int32_t code, int32_t arg0, int32_t arg1, int32_t arg2) {
 		case SYSCALL_PFILE_OPEN: return  syscall_pf_open(arg0, arg1, arg2);
 		case SYSCALL_PFILE_CLOSE: return  syscall_pf_close(arg0, arg1);
 		case SYSCALL_PFILE_DUP2: return  syscall_pf_dup2(arg0, arg1);
-		case SYSCALL_PFILE_NODE_BY_FD: return  syscall_pf_node_by_fd(arg0, arg1);
+		case SYSCALL_PFILE_SERV_PID_BY_FD: return  syscall_pf_serv_pid_by_fd(arg0);
 		case SYSCALL_PFILE_NODE_BY_PID_FD: return  syscall_pf_node_by_pid_fd(arg0, arg1, arg2);
 		case SYSCALL_PFILE_NODE_BY_ADDR: return  syscall_pf_node_by_addr(arg0, arg1);
 		case SYSCALL_PFILE_NODE_UPDATE: return  syscall_pf_node_update(arg0);
