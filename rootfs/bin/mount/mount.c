@@ -16,15 +16,7 @@ int main(int argc, char* argv[]) {
 			break;
 
 		if(mnt.dev_serv_pid > 0) {
-			tstr_t* name;
-			if(mnt.node_old == 0)
-				name = tstr_new("/", MFS);
-			else
-				name = vfs_full_name_by_node(mnt.node_old);
-			if(name != NULL) {
-				printf("  %24s %16s %6d  %6d\n", CS(name), mnt.dev_name, mnt.dev_index, mnt.dev_serv_pid);
-				tstr_free(name);
-			}
+			printf("  %24s %16s %6d  %6d\n", mnt.fname, mnt.dev_name, mnt.dev_index, mnt.dev_serv_pid);
 		}
 		i++;
 	}

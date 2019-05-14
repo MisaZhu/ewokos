@@ -17,7 +17,7 @@ int fs_info(int fd, fs_info_t* info);
 
 int fs_finfo(const char* name, fs_info_t* info);
 
-int fs_kid(int fd, int32_t index, fs_info_t* info);
+tstr_t* fs_kid(const char* dir_name, int32_t index);
 
 int fs_read(int fd, char* buf, uint32_t size);
 
@@ -29,7 +29,7 @@ int fs_putch(int fd, int c);
 
 int fs_write(int fd, const char* buf, uint32_t size);
 
-uint32_t fs_add(int fd, const char* name, uint32_t type);
+int32_t fs_add(const char* dir_name, const char* name, uint32_t type);
 
 int32_t fs_flush(int fd);
 
@@ -40,5 +40,7 @@ char* fs_read_file(const char* fname, int32_t *size);
 tstr_t* fs_full_name(const char* fname);
 
 int32_t fs_parse_name(const char* fname, tstr_t* dir, tstr_t* name);
+
+tstr_t* fs_make_fname(const char* dir_name, const char* name);
 
 #endif

@@ -6,13 +6,13 @@
 #include <ipc.h>
 #include <package.h>
 
-inline uint32_t vfs_add(int32_t fd, const char* name, uint32_t size, void* data) {
+inline int32_t vfs_add(const char* dir_name, const char* name, uint32_t size, void* data) {
 	int32_t serv_pid = kserv_get_by_name(VFS_NAME);	
 	if(serv_pid < 0)
-		return 0;
+		return -1;
 
 	proto_t* proto = proto_new(NULL, 0);
-	proto_add_int(proto, fd);
+	proto_add_str(proto, dir_name);
 	proto_add_str(proto, name);
 	proto_add_int(proto, (int32_t)size);
 	proto_add_int(proto, (int32_t)data);
@@ -21,12 +21,10 @@ inline uint32_t vfs_add(int32_t fd, const char* name, uint32_t size, void* data)
 	proto_free(proto);
 	if(pkg == NULL || pkg->type == PKG_TYPE_ERR) {
 		if(pkg != NULL) free(pkg);
-		return 0;
+		return -1;
 	}
-
-	uint32_t ret = *(uint32_t*)get_pkg_data(pkg);
 	free(pkg);
-	return ret;
+	return 0;
 }
 
 inline int32_t vfs_del(const char* fname) {
@@ -74,27 +72,7 @@ inline int32_t vfs_close(int32_t fd) {
 	return 0;
 }
 
-int32_t vfs_node_by_addr(uint32_t node, fs_info_t* info) {
-	if(node == 0)
-		return -1;
-	int32_t serv_pid = kserv_get_by_name(VFS_NAME);	
-	if(serv_pid < 0)
-		return -1;
-
-	proto_t* proto = proto_new(NULL, 0);
-	proto_add_int(proto, node);
-	package_t* pkg = ipc_req(serv_pid, 0, VFS_CMD_NODE_BY_ADDR, proto->data, proto->size, true);
-	proto_free(proto);
-	if(pkg == NULL || pkg->type == PKG_TYPE_ERR) {
-		if(pkg != NULL) free(pkg);
-		return -1;
-	}
-	memcpy(info, get_pkg_data(pkg), sizeof(fs_info_t));
-	free(pkg);
-	return 0;
-}
-
-inline int32_t vfs_node_by_name(const char* fname, fs_info_t* info) {
+inline int32_t vfs_info_by_name(const char* fname, fs_info_t* info) {
 	if(fname[0] == 0)
 		return -1;
 	int32_t serv_pid = kserv_get_by_name(VFS_NAME);	
@@ -103,7 +81,7 @@ inline int32_t vfs_node_by_name(const char* fname, fs_info_t* info) {
 
 	proto_t* proto = proto_new(NULL, 0);
 	proto_add_str(proto, fname);
-	package_t* pkg = ipc_req(serv_pid, 0, VFS_CMD_NODE_BY_NAME, proto->data, proto->size, true);
+	package_t* pkg = ipc_req(serv_pid, 0, VFS_CMD_INFO_BY_NAME, proto->data, proto->size, true);
 	proto_free(proto);
 	if(pkg == NULL || pkg->type == PKG_TYPE_ERR) {
 		if(pkg != NULL) free(pkg);
@@ -114,14 +92,14 @@ inline int32_t vfs_node_by_name(const char* fname, fs_info_t* info) {
 	return 0;
 }
 
-inline int32_t vfs_node_by_fd(int32_t fd, fs_info_t* info) {
+inline int32_t vfs_info_by_fd(int32_t fd, fs_info_t* info) {
 	if(fd < 0)
 		return -1;
 	int32_t serv_pid = kserv_get_by_name(VFS_NAME);	
 	if(serv_pid < 0)
 		return -1;
 
-	package_t* pkg = ipc_req(serv_pid, 0, VFS_CMD_NODE_BY_NAME, &fd, 4, true);
+	package_t* pkg = ipc_req(serv_pid, 0, VFS_CMD_INFO_BY_NAME, &fd, 4, true);
 	if(pkg == NULL || pkg->type == PKG_TYPE_ERR) {
 		if(pkg != NULL) free(pkg);
 		return -1;
@@ -164,10 +142,10 @@ inline int32_t vfs_node_update(fs_info_t* info) {
 	return 0;
 }
 
-inline uint32_t vfs_mount(const char* fname, const char* devName, int32_t devIndex, bool isFile) {
+inline int32_t vfs_mount(const char* fname, const char* devName, int32_t devIndex, bool isFile) {
 	int32_t serv_pid = kserv_get_by_name(VFS_NAME);	
 	if(serv_pid < 0)
-		return 0;
+		return -1;
 
 	proto_t* proto = proto_new(NULL, 0);
 	proto_add_str(proto, fname);
@@ -178,19 +156,21 @@ inline uint32_t vfs_mount(const char* fname, const char* devName, int32_t devInd
 	proto_free(proto);
 	if(pkg == NULL || pkg->type == PKG_TYPE_ERR) {
 		if(pkg != NULL) free(pkg);
-		return 0;
+		return -1;
 	}
-	uint32_t node = *(uint32_t*)get_pkg_data(pkg);
 	free(pkg);
-	return node;
+	return 0;
 }
 
-inline int32_t vfs_unmount(uint32_t node) {
+inline int32_t vfs_unmount(const char* fname) {
 	int32_t serv_pid = kserv_get_by_name(VFS_NAME);	
 	if(serv_pid < 0)
 		return -1;
 
-	package_t* pkg = ipc_req(serv_pid, 0, VFS_CMD_UNMOUNT, &node, 4, true);
+	proto_t* proto = proto_new(NULL, 0);
+	proto_add_str(proto, fname);
+	package_t* pkg = ipc_req(serv_pid, 0, VFS_CMD_MOUNT, proto->data, proto->size, true);
+	proto_free(proto);
 	if(pkg == NULL || pkg->type == PKG_TYPE_ERR) {
 		if(pkg != NULL) free(pkg);
 		return -1;
@@ -200,23 +180,23 @@ inline int32_t vfs_unmount(uint32_t node) {
 
 }
 
-int32_t vfs_kid(uint32_t node, int32_t index, fs_info_t* info) {
+tstr_t* vfs_kid(const char* dir_name, int32_t index) {
 	int32_t serv_pid = kserv_get_by_name(VFS_NAME);	
 	if(serv_pid < 0)
-		return -1;
+		return NULL;
 
 	proto_t* proto = proto_new(NULL, 0);
-	proto_add_int(proto, node);
+	proto_add_str(proto, dir_name);
 	proto_add_int(proto, index);
 	package_t* pkg = ipc_req(serv_pid, 0, VFS_CMD_KID, proto->data, proto->size, true);
 	proto_free(proto);
 	if(pkg == NULL || pkg->type == PKG_TYPE_ERR || pkg->size == 0) {
 		if(pkg != NULL) free(pkg);
-		return -1;
+		return NULL;
 	}
-	memcpy(info, get_pkg_data(pkg), pkg->size);
+	tstr_t *ret = tstr_new((char*)get_pkg_data(pkg), MFS);
 	free(pkg);
-	return 0;
+	return ret;
 }
 
 int32_t vfs_mount_by_index(int32_t index, mount_t* mnt) {
@@ -252,15 +232,15 @@ int32_t vfs_mount_by_fname(const char* fname, mount_t* mnt) {
 	return 0;
 }
 
-//get the full name by node.
-tstr_t* vfs_full_name_by_node(uint32_t node) {
-	if(node == 0)
+//get the full name by fd
+tstr_t* vfs_full_name_by_fd(int32_t fd) {
+	if(fd < 0)
 		return NULL;
 	int32_t serv_pid = kserv_get_by_name(VFS_NAME);	
 	if(serv_pid < 0)
 		return NULL;
 
-	package_t* pkg = ipc_req(serv_pid, 0, VFS_CMD_NODE_FULLNAME, &node, 4, true);
+	package_t* pkg = ipc_req(serv_pid, 0, VFS_CMD_FULLNAME, &fd, 4, true);
 	if(pkg == NULL || pkg->type == PKG_TYPE_ERR || pkg->size == 0) {
 		if(pkg != NULL) free(pkg);
 		return NULL;
@@ -270,15 +250,15 @@ tstr_t* vfs_full_name_by_node(uint32_t node) {
 	return ret;
 }
 
-//get the short name by node.
-tstr_t* vfs_short_name_by_node(uint32_t node) {
-	if(node == 0)
+//get the short name by fd.
+tstr_t* vfs_short_name_by_fd(int32_t fd) {
+	if(fd < 0)
 		return NULL;
 	int32_t serv_pid = kserv_get_by_name(VFS_NAME);	
 	if(serv_pid < 0)
 		return NULL;
 
-	package_t* pkg = ipc_req(serv_pid, 0, VFS_CMD_NODE_SHORTNAME, &node, 4, true);
+	package_t* pkg = ipc_req(serv_pid, 0, VFS_CMD_SHORTNAME, &fd, 4, true);
 	if(pkg == NULL || pkg->type == PKG_TYPE_ERR || pkg->size == 0) {
 		if(pkg != NULL) free(pkg);
 		return NULL;

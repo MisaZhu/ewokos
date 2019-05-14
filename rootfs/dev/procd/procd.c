@@ -6,13 +6,13 @@
 #include <vfs/vfs.h>
 #include <vfs/fs.h>
 
-static int32_t proc_mount(uint32_t node, int32_t index) {
+static int32_t proc_mount(const char* fname, int32_t index) {
 	(void)index;
 
-	vfs_add(node, "free_mem", 0, NULL);
-	vfs_add(node, "total_mem", 0, NULL);
-	vfs_add(node, "cpu_sec", 0, NULL);
-	vfs_add(node, "cpu_msec", 0, NULL);
+	vfs_add(fname, "free_mem", 0, NULL);
+	vfs_add(fname, "total_mem", 0, NULL);
+	vfs_add(fname, "cpu_sec", 0, NULL);
+	vfs_add(fname, "cpu_msec", 0, NULL);
 	return 0;
 }
 
@@ -21,10 +21,11 @@ static int32_t proc_read(int32_t pid, int32_t fd, void* buf, uint32_t size, int3
 	if(size == 0)
 		return 0;
 
-	fs_info_t info;
-	if(syscall3(SYSCALL_PFILE_NODE_BY_PID_FD, pid, fd, (int32_t)&info) != 0)
+	//fs_info_t info;
+	/*if(syscall3(SYSCALL_PFILE_INFO_BY_PID_FD, pid, fd, (int32_t)&info) != 0)
 		return ret;
-	tstr_t* fname = vfs_short_name_by_node(info.node);
+		*/
+	tstr_t* fname = vfs_short_name_by_fd(fd);
 	if(fname == NULL)
 		return ret;
 

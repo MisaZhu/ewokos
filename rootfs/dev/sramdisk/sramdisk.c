@@ -14,7 +14,7 @@ typedef struct {
 
 static int32_t sramdisk_write(int32_t pid, int32_t fd, void* buf, uint32_t size, int32_t seek) {
 	fs_info_t info;
-	if(syscall3(SYSCALL_PFILE_NODE_BY_PID_FD, pid, fd, (int32_t)&info) != 0 ||
+	if(syscall3(SYSCALL_PFILE_INFO_BY_PID_FD, pid, fd, (int32_t)&info) != 0 ||
 			info.data == NULL)
 		return -1;
 	node_data_t* data = (node_data_t*)info.data;
@@ -42,7 +42,7 @@ static int32_t sramdisk_write(int32_t pid, int32_t fd, void* buf, uint32_t size,
 
 static int32_t sramdisk_read(int32_t pid, int32_t fd, void* buf, uint32_t size, int32_t seek) {
 	fs_info_t info;
-	if(syscall3(SYSCALL_PFILE_NODE_BY_PID_FD, pid, fd, (int32_t)&info) != 0 ||
+	if(syscall3(SYSCALL_PFILE_INFO_BY_PID_FD, pid, fd, (int32_t)&info) != 0 ||
 			info.data == NULL)
 		return -1;
 	node_data_t* data = (node_data_t*)info.data;
@@ -65,17 +65,16 @@ static int32_t sramdisk_read(int32_t pid, int32_t fd, void* buf, uint32_t size, 
 	return size;
 }
 
-static int32_t sramdisk_add(int32_t pid, int32_t father_fd, uint32_t node) {
+static int32_t sramdisk_add(int32_t pid, const char* fname) {
 	(void)pid;
-	(void)father_fd;
-	(void)node;
+	(void)fname;
 	return 0;
 }
 
 static int32_t sramdisk_open(int32_t pid, int32_t fd, int32_t flags) {
 	(void)flags;
 	fs_info_t info;
-	if(syscall3(SYSCALL_PFILE_NODE_BY_PID_FD, pid, fd, (int32_t)&info) != 0)
+	if(syscall3(SYSCALL_PFILE_INFO_BY_PID_FD, pid, fd, (int32_t)&info) != 0)
 		return -1;
 	if(info.type == FS_TYPE_DIR)
 		return 0;

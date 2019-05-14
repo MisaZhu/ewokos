@@ -175,30 +175,6 @@ int32_t kf_node_info_by_fd(int32_t pid, int32_t fd, fs_info_t* info) {
 	return ret;
 }
 
-int32_t kf_node_info_by_addr(uint32_t node_addr, fs_info_t* info) {
-	CRIT_IN(_p_lock)
-		int32_t ret = -1;
-	kfile_t* kf = get_file(node_addr, false);
-	if(kf != NULL) {
-		memcpy(info, &kf->node_info, sizeof(fs_info_t));
-		ret = 0;
-	}
-	CRIT_OUT(_p_lock)
-		return ret;
-}
-
-int32_t kf_node_info_update(fs_info_t* info) {
-	CRIT_IN(_p_lock)
-	int32_t ret = -1;
-	kfile_t* kf = get_file(info->node, false);
-	if(kf != NULL) {
-		memcpy(&kf->node_info, info, sizeof(fs_info_t));
-		ret = 0;
-	}
-	CRIT_OUT(_p_lock)
-	return ret;
-}
-
 void kf_close_proc(int32_t pid) {
 	uint32_t i = 0;
 	while(i < OPEN_MAX) {

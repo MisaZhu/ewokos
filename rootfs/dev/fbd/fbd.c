@@ -10,8 +10,8 @@ static int32_t _fb_buf_id = -1;
 static int32_t _fb_bufSize = 0;
 static void* _fb_buf = NULL;
 
-static int32_t fb_mount(uint32_t node, int32_t index) {
-	(void)node;
+static int32_t fb_mount(const char* fname, int32_t index) {
+	(void)fname;
 	(void)index;
 
 	if(syscall2(SYSCALL_DEV_INFO, dev_typeid(DEV_FRAME_BUFFER, 0), (int32_t)&_fb_info) != 0)

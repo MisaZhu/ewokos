@@ -100,12 +100,7 @@ int open(const char* fname, int flags) {
 		tstr_t *dir = tstr_new("", MFS);
 		tstr_t *name = tstr_new("", MFS);
 		fs_parse_name(full_name, dir, name);
-		int fd = fs_open(CS(dir), O_RDWR);
-		int res = -1;
-		if(fd >= 0) {
-			res = fs_add(fd, CS(name), FS_TYPE_FILE);
-			fs_close(fd);
-		}
+		int res = fs_add(CS(dir), CS(name), FS_TYPE_FILE);
 		tstr_free(dir);
 		tstr_free(name);
 		if(res < 0) {

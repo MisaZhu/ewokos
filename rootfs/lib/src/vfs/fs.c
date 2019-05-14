@@ -91,7 +91,7 @@ int32_t fs_flush(int fd) {
 
 /*
 int fs_info(int fd, fs_info_t* info) {
-	if(fd < 0 || syscall2(SYSCALL_PFILE_NODE_BY_FD, fd, (int32_t)info) != 0)
+	if(fd < 0 || syscall2(SYSCALL_PFILE_INFO_BY_FD, fd, (int32_t)info) != 0)
 		return -1;
 	return 0;
 }
@@ -206,38 +206,42 @@ int fs_write(int fd, const char* buf, uint32_t size) {
 	return sz;
 }
 
-uint32_t fs_add(int fd, const char* name, uint32_t type) {
-	if(fd < 0 || strlen(name) == 0)
-		return 0;
+int32_t fs_add(const char* dir_name, const char* name, uint32_t type) {
+	if(dir_name[0] == 0 || strlen(name) == 0)
+		return -1;
 
 	fs_info_t info;
-	if(syscall3(SYSCALL_PFILE_NODE_BY_PID_FD, getpid(), fd, (int32_t)&info) != 0)
-		return 0;
+	if(fs_finfo(dir_name, &info) != 0)
+		return -1;
 
-	uint32_t node = 0;
+	int32_t res;
 	if(type == FS_TYPE_DIR)
-		node = vfs_add(info.node, name, VFS_DIR_SIZE, NULL);
+		res = vfs_add(dir_name, name, VFS_DIR_SIZE, NULL);
 	else
-		node = vfs_add(info.node, name, 0, NULL);
-	if(node == 0)
-		return 0;
+		res = vfs_add(dir_name, name, 0, NULL);
+	if(res < 0)
+		return -1;
 
+	int32_t ret = -1;
 	if(info.dev_serv_pid > 0) {
 		proto_t* proto = proto_new(NULL, 0);
-		proto_add_int(proto, fd);
-		proto_add_int(proto, node);
+		tstr_t* fname = fs_make_fname(dir_name, name);
+		proto_add_str(proto, CS(fname));
+		tstr_free(fname);
 		package_t* pkg = ipc_req(info.dev_serv_pid, 0, FS_ADD, proto->data, proto->size, true);
 		proto_free(proto);
 		if(pkg == NULL || pkg->type == PKG_TYPE_ERR) {
 			if(pkg != NULL) free(pkg);
-			return 0;
+			vfs_del(CS(fname));
+			ret = -1;
 		}
-		int32_t res = *(int32_t*)get_pkg_data(pkg);
+		else {
+			ret = 0;
+		}
+		tstr_free(fname);
 		free(pkg);
-		if(res != 0)
-			return 0;
 	}
-	return node;
+	return ret;
 }
 
 int fs_getch(int fd) {
@@ -256,14 +260,11 @@ int fs_putch(int fd, int c) {
 int fs_finfo(const char* name, fs_info_t* info) {
 	if(name[0] == 0)
 		return -1;
-	return vfs_node_by_name(name, info);
+	return vfs_info_by_name(name, info);
 }
 
-int fs_kid(int fd, int32_t index, fs_info_t* kid) {
-	fs_info_t info;
-	if(fd < 0 || syscall3(SYSCALL_PFILE_NODE_BY_PID_FD, getpid(), fd, (int32_t)&info) != 0)
-		return -1;
-	return vfs_kid(info.node, index, kid);
+tstr_t* fs_kid(const char* dir_name, int32_t index) {
+	return vfs_kid(dir_name, index);
 }
 
 char* fs_read_file(const char* fname, int32_t *size) {
@@ -339,4 +340,12 @@ int32_t fs_parse_name(const char* fname, tstr_t* dir, tstr_t* name) {
 		tstr_cpy(dir, "/");
 	tstr_free(fullstr);
 	return 0;
+}
+
+tstr_t* fs_make_fname(const char* dir_name, const char* name) {
+	tstr_t* fullstr = tstr_new(dir_name, MFS);
+	if(strcmp(dir_name, "/") != 0)
+		tstr_addc(fullstr, '/');
+	tstr_add(fullstr, name);
+	return fullstr;
 }

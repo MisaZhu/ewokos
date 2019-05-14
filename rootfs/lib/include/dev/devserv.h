@@ -6,12 +6,12 @@
 #include <fsinfo.h>
 
 typedef struct {
-	int32_t (*mount)(uint32_t node, int32_t index);
-	int32_t (*unmount)(uint32_t node);
+	int32_t (*mount)(const char* fname, int32_t index);
+	int32_t (*unmount)(int32_t pid, const char* fname);
 	int32_t (*open)(int32_t pid, int32_t fd, int32_t flags);
 	int32_t (*close)(fs_info_t* info);
 	int32_t (*remove)(fs_info_t* info, const char* fname);
-	int32_t (*add)(int32_t pid, int32_t father_fd, uint32_t node);
+	int32_t (*add)(int32_t pid, const char* fname);
 	int32_t (*write)(int32_t pid, int32_t fd, void* buf, uint32_t size, int32_t seek);
 	int32_t (*read)(int32_t pid, int32_t fd, void* buf, uint32_t size, int32_t seek);
 	int32_t (*dma)(int32_t pid, int32_t fd, uint32_t *size);

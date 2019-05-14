@@ -93,19 +93,21 @@ static void do_flush(device_t* dev, package_t* pkg) {
 
 static void do_add(device_t* dev, package_t* pkg) { 
 	proto_t* proto = proto_new(get_pkg_data(pkg), pkg->size);
-	int32_t father_fd = proto_read_int(proto);
-	uint32_t node = (uint32_t)proto_read_int(proto);
+	const char* fname = proto_read_str(proto);
 	proto_free(proto);
 
-	if(father_fd < 0 || node == 0) {
+	if(fname[0] == 0) {
 		ipc_send(pkg->id, PKG_TYPE_ERR, NULL, 0);
 		return;
 	}
 
 	int32_t ret = -1;
 	if(dev->add != NULL)
-		ret = dev->add(pkg->pid, father_fd, node);
-	ipc_send(pkg->id, pkg->type, &ret, 4);
+		ret = dev->add(pkg->pid, fname);
+	if(ret < 0)
+		ipc_send(pkg->id, PKG_TYPE_ERR, NULL, 0);
+	else 
+		ipc_send(pkg->id, pkg->type, NULL, 0);
 }
 
 static void do_write(device_t* dev, package_t* pkg) { 
@@ -223,11 +225,11 @@ static void handle(package_t* pkg, void* p) {
 	}
 }
 
-static void unmount(device_t* dev, uint32_t node) {
-	if(vfs_unmount(node) != 0)
+static void unmount(device_t* dev, const char* fname) {
+	if(vfs_unmount(fname) != 0)
 		return;
 	if(dev->unmount != NULL)
-		dev->unmount(node);
+		dev->unmount(getpid(), fname);
 }
 
 void dev_run(device_t* dev, int32_t argc, char** argv) {
@@ -243,27 +245,26 @@ void dev_run(device_t* dev, int32_t argc, char** argv) {
 	if(argv[4][0] == 'D' || argv[4][0] == 'd')
 		file = false;
 
-	uint32_t node = vfs_mount(node_name, dev_name, index, file);
-	if(node == 0)
+	if(vfs_mount(node_name, dev_name, index, file) != 0)
 		return;
 	if(dev->mount != NULL) {
-		if(dev->mount(node, index) != 0)
+		if(dev->mount(node_name, index) != 0)
 			return;
 	}
 	printf("(%s mounted to vfs:%s)\n", dev_name, node_name);
 
 	if(kserv_register(dev_name) != 0) {
     printf("Panic: '%s' service register failed!\n", dev_name);
-		unmount(dev, node);
+		unmount(dev, node_name);
 		return;
 	}
 
 	if(kserv_ready() != 0) {
     printf("Panic: '%s' service can not get ready!\n", dev_name);
-		unmount(dev, node);
+		unmount(dev, node_name);
 		return;
 	}
 
 	kserv_run(handle, dev);
-	unmount(dev, node);
+	unmount(dev, node_name);
 }

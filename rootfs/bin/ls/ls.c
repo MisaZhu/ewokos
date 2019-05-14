@@ -14,32 +14,26 @@ int main(int argc, char* argv[]) {
 	}
 	const char *name = CS(fname);
 
-	fs_info_t dir_info;
-	if(fs_finfo(name, &dir_info) != 0 || dir_info.type != FS_TYPE_DIR) {
-		tstr_free(fname);
-			return -1;
-	}
+	printf("  NAME                     TYPE  OWNER  SIZE\n");
+	uint32_t i = 0;
+	char full[FULL_NAME_MAX];
+	while(true) {
+		tstr_t* kid = fs_kid(name, i);
+		if(kid == NULL)
+			break;
 
-	int fd = open(name, O_RDONLY);
-	if(fd >= 0) {
-		printf("  NAME                     TYPE  OWNER  SIZE\n");
-		uint32_t i = 0;
-		while(i < dir_info.size) {
-			fs_info_t info;
-			if(fs_kid(fd, i, &info) != 0)
-				break;
-
-			tstr_t* name = vfs_short_name_by_node(info.node);
-			if(name != NULL) {
-				if(info.type == FS_TYPE_FILE)
-					printf("  %24s  f    %4d   %d\n", CS(name), info.owner, info.size);
-				else if(info.type == FS_TYPE_DIR)
-					printf("  %24s  d    %4d   %d\n", CS(name), info.owner, info.size);
-				tstr_free(name);
-			}
-			i++;
-		}
-		close(fd);
+		if(strcmp(name, "/") != 0)
+			snprintf(full, FULL_NAME_MAX-1, "%s/%s", name, CS(kid));
+		else
+			snprintf(full, FULL_NAME_MAX-1, "/%s", CS(kid));
+		fs_info_t info;
+		fs_finfo(full, &info);
+		if(info.type == FS_TYPE_FILE)
+			printf("  %24s  f    %4d   %d\n", CS(kid), info.owner, info.size);
+		else if(info.type == FS_TYPE_DIR)
+			printf("  %24s  d    %4d   %d\n", CS(kid), info.owner, info.size);
+		tstr_free(kid);
+		i++;
 	}
 	tstr_free(fname);
 	return 0;

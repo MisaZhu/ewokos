@@ -46,7 +46,7 @@ typedef struct {
 	void* data;
 } ext2_node_data_t;
 
-static int32_t add_nodes(INODE *ip, uint32_t node) {
+static int32_t add_nodes(INODE *ip, const char* dname) {
 	int32_t i; 
 	char c, *cp;
 	DIR  *dp;
@@ -75,12 +75,17 @@ static int32_t add_nodes(INODE *ip, uint32_t node) {
 					memcpy(&data->node, ip_node, sizeof(INODE));
 
 					if(dp->file_type == 2) {//director
-						uint32_t node_add = vfs_add(node, dp->name, VFS_DIR_SIZE, data);
-						add_nodes(&data->node, node_add);
+						vfs_add(dname, dp->name, VFS_DIR_SIZE, data);
+						tstr_t* dir_name = tstr_new(dname, MFS);
+						if(strcmp(dname, "/") != 0)
+							tstr_addc(dir_name, '/');
+						tstr_add(dir_name, dp->name);
+						add_nodes(&data->node, CS(dir_name));
+						tstr_free(dir_name);
 					}
 					else if(dp->file_type == 1) {//file
 						//printf("%s: %d\n",dp->name, data->node.i_size);
-						vfs_add(node, dp->name, data->node.i_size, data);
+						vfs_add(dname, dp->name, data->node.i_size, data);
 					}
 				}
 				//add node
@@ -96,14 +101,14 @@ static int32_t add_nodes(INODE *ip, uint32_t node) {
 	return 0;
 }
 
-static int32_t sdcard_mount(uint32_t node, int32_t index) {
+static int32_t sdcard_mount(const char* fname, int32_t index) {
 	(void)index;
 	ext2_init(&_ext2, read_block, write_block);
 
 	char* buf = (char*)malloc(SDC_BLOCK_SIZE);
 	_ext2.read_block(_ext2.iblock, buf);       // read first inode block
 	INODE *ip = (INODE *)buf + 1;   // ip->root inode #2
-	add_nodes(ip, node);
+	add_nodes(ip, fname);
 	free(buf);
 	return 0;
 }
@@ -129,7 +134,7 @@ static int32_t sdcard_close(fs_info_t* info) {
 
 static int32_t sdcard_read(int32_t pid, int32_t fd, void* buf, uint32_t size, int32_t seek) {
 	fs_info_t info;
-	if(syscall3(SYSCALL_PFILE_NODE_BY_PID_FD, pid, fd, (int32_t)&info) != 0 ||
+	if(syscall3(SYSCALL_PFILE_INFO_BY_PID_FD, pid, fd, (int32_t)&info) != 0 ||
 			info.data == NULL)
 		return -1;
 	ext2_node_data_t* data = (ext2_node_data_t*)info.data;
@@ -138,7 +143,7 @@ static int32_t sdcard_read(int32_t pid, int32_t fd, void* buf, uint32_t size, in
 
 static int32_t sdcard_write(int32_t pid, int32_t fd, void* buf, uint32_t size, int32_t seek) {
 	fs_info_t info;
-	if(syscall3(SYSCALL_PFILE_NODE_BY_PID_FD, pid, fd, (int32_t)&info) != 0 ||
+	if(syscall3(SYSCALL_PFILE_INFO_BY_PID_FD, pid, fd, (int32_t)&info) != 0 ||
 			info.data == NULL)
 		return -1;
 	ext2_node_data_t* data = (ext2_node_data_t*)info.data;
@@ -146,18 +151,24 @@ static int32_t sdcard_write(int32_t pid, int32_t fd, void* buf, uint32_t size, i
 	return ext2_write(&_ext2, &data->node, buf, size, seek);
 }
 
-static int32_t sdcard_add(int32_t pid, int32_t father_fd, uint32_t node) {
+static int32_t sdcard_add(int32_t pid, const char* fname) {
+	(void)pid;
 	fs_info_t father_info, info;
-	if(syscall3(SYSCALL_PFILE_NODE_BY_PID_FD, pid, father_fd, (int32_t)&father_info) != 0 ||
-			vfs_node_by_addr(node, &info) != 0)
+	if(fs_finfo(fname, &info) != 0)
 		return -1;
-	tstr_t* name = vfs_short_name_by_node(node);
-	if(name == NULL)
+	tstr_t* dir = tstr_new("", MFS);
+	tstr_t* name = tstr_new("", MFS);
+	fs_parse_name(fname, dir, name);
+
+	if(fs_finfo(CS(dir), &father_info) != 0) {
+		tstr_free(dir);
+		tstr_free(name);
 		return -1;
+	}
+	tstr_free(dir);
 
 	INODE* inp = NULL;
 	char *sbuf = (char*)malloc(SDC_BLOCK_SIZE);
-
 	if(father_info.data != NULL) {
 		ext2_node_data_t* data = (ext2_node_data_t*)father_info.data;
 		inp = &data->node;

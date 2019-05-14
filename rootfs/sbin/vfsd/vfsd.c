@@ -14,20 +14,56 @@
 
 #define DEV_VFS "dev.vfs"
 #define MOUNT_MAX 32
-
+static mount_t _mounts[MOUNT_MAX];
+static tree_node_t* _root = NULL;
 static trunk_t _opened;
+
+static void fsnode_init(void) {
+	for(int i=0; i<MOUNT_MAX; i++) {
+		memset(&_mounts[i], 0, sizeof(mount_t));
+	}
+	//strcpy(_mounts[0].dev_name, DEV_VFS);
+	_root = NULL;
+}
 
 void opens_init(void) {
 	trunk_init(&_opened, 4, MFS);
 }
 
+static bool check_access(int32_t pid, tree_node_t* node, bool wr) {
+	(void)pid;
+	(void)wr;
+	if(node == NULL)
+		return false;
+	return true;
+}
+
+static int32_t fsnode_info(int32_t pid, tree_node_t* node, fs_info_t* info) {
+	if(!check_access(pid, node, false))
+		return -1;
+	
+	if(FSN(node)->type == FS_TYPE_DIR)
+		info->size = node->size;
+	else 
+		info->size = FSN(node)->size;
+	
+	info->id = node->id;
+	info->node = (uint32_t)node;
+	info->type = FSN(node)->type;
+	info->owner = FSN(node)->owner;
+	info->dev_index = _mounts[FSN(node)->mount].dev_index;
+	info->dev_serv_pid = _mounts[FSN(node)->mount].dev_serv_pid;
+	info->data = FSN(node)->data;
+	return 0;
+}
+
 static int32_t close_zombie(uint32_t node) {
 	fs_info_t info;
-	if(node == 0 || syscall2(SYSCALL_PFILE_NODE_BY_ADDR, node, (int32_t)&info) != 0) //all closed
+	if(node == 0)
 		return 0;
 	if(syscall2(SYSCALL_PFILE_GET_REF, (int32_t)node, 2) > 0)
 		return -1;
-
+	fsnode_info(-1, (tree_node_t*)node, &info);
 	if(info.dev_serv_pid == getpid())
 		do_pipe_close(info.node, true);
 	else if(info.dev_serv_pid > 0)
@@ -88,24 +124,6 @@ static void rm_opened(uint32_t node) {
 }
 
 /**************************/
-static mount_t _mounts[MOUNT_MAX];
-static tree_node_t* _root = NULL;
-
-static bool check_access(int32_t pid, tree_node_t* node, bool wr) {
-	(void)pid;
-	(void)wr;
-	if(node == NULL)
-		return false;
-	return true;
-}
-
-static void fsnode_init(void) {
-	for(int i=0; i<MOUNT_MAX; i++) {
-		memset(&_mounts[i], 0, sizeof(mount_t));
-	}
-	//strcpy(_mounts[0].dev_name, DEV_VFS);
-	_root = NULL;
-}
 
 static tree_node_t* fsnode_add(tree_node_t* node_to, const char* name, uint32_t size, int32_t pid, void* data) {
 	int32_t owner = syscall1(SYSCALL_GET_UID, pid);
@@ -135,28 +153,33 @@ static int32_t fsnode_del(int32_t pid, tree_node_t* node) {
 	return 0;
 }
 
-static int32_t fsnode_info(int32_t pid, tree_node_t* node, fs_info_t* info) {
-	if(!check_access(pid, node, false))
-		return -1;
-	
-	if(FSN(node)->type == FS_TYPE_DIR)
-		info->size = node->size;
-	else 
-		info->size = FSN(node)->size;
-	
-	info->id = node->id;
-	info->node = (uint32_t)node;
-	info->type = FSN(node)->type;
-	info->owner = FSN(node)->owner;
-	info->dev_index = _mounts[FSN(node)->mount].dev_index;
-	info->dev_serv_pid = _mounts[FSN(node)->mount].dev_serv_pid;
-	info->data = FSN(node)->data;
-	return 0;
-}
-
 static tree_node_t* get_node_by_name(const char* fname) {
 	return fs_tree_get(_root, fname);
 }
+
+static int32_t get_info_by_name(int32_t pid, const char* fname, fs_info_t* info) {
+	tree_node_t* node = get_node_by_name(fname);
+	if(node == NULL)
+		return -1;
+	return fsnode_info(pid, node, info);
+}
+
+static tree_node_t* get_node_by_fd(int32_t pid, int32_t fd) {
+	if(fd < 0)
+    return NULL;
+	fs_info_t info;
+	if(syscall3(SYSCALL_PFILE_INFO_BY_PID_FD, pid, fd, (int32_t)&info) != 0)
+		return NULL;
+	return (tree_node_t*)info.node;
+}
+/*
+static int32_t get_info_by_fd(int32_t pid, int32_t fd, fs_info_t* info) {
+	tree_node_t* node = get_node_by_fd(pid, fd);
+	if(node == NULL)
+		return -1;
+	return fsnode_info(pid, node, info);
+}
+*/
 
 static tree_node_t* build_nodes(const char* fname, int32_t owner) {
 	if(_root == NULL)
@@ -197,6 +220,7 @@ static tree_node_t* fsnode_mount(const char* fname, const char* dev_name,
   for(i=0; i<MOUNT_MAX; i++) {
     if(_mounts[i].dev_name[0] == 0) {
 			strcpy(_mounts[i].dev_name, dev_name);
+			strncpy(_mounts[i].fname, fname, FULL_NAME_MAX-1);
 			_mounts[i].dev_index = dev_index;
 			_mounts[i].dev_serv_pid = pid;
 			_mounts[i].node_old = (uint32_t)to; //save the node_old node.
@@ -255,20 +279,9 @@ static int32_t fsnode_unmount(int32_t pid, tree_node_t* node) {
 	return 0;
 }
 
-static uint32_t get_node_info_by_fd(int32_t pid, int32_t fd) {
-	if(fd < 0)
-    return 0;
-	fs_info_t info;
-	if(syscall3(SYSCALL_PFILE_NODE_BY_PID_FD, pid, fd, (int32_t)&info) != 0)
-		return 0;
-	return info.node;
-}
-
-static void do_node_by_fd(package_t* pkg) {
+static void do_info_by_fd(package_t* pkg) {
 	int32_t fd = *(int32_t*)get_pkg_data(pkg);
-	uint32_t node_addr = get_node_info_by_fd(pkg->pid, fd);
-
-	tree_node_t* node = (tree_node_t*)node_addr;
+	tree_node_t* node = get_node_by_fd(pkg->pid, fd);
 	fs_info_t info;
 	if(node == NULL || fsnode_info(pkg->pid, node, &info) != 0) {
 		ipc_send(pkg->id, PKG_TYPE_ERR, NULL, 0);
@@ -279,33 +292,33 @@ static void do_node_by_fd(package_t* pkg) {
 
 static void do_add(package_t* pkg) {
 	proto_t* proto = proto_new(get_pkg_data(pkg), pkg->size);
-	uint32_t node_addr = (uint32_t)proto_read_int(proto);
+	const char* dir_name = proto_read_str(proto);
 	const char* name = proto_read_str(proto);
 	uint32_t size = (uint32_t)proto_read_int(proto);
 	void* data = (void*)proto_read_int(proto);
 	proto_free(proto);
 
-	tree_node_t* node = (tree_node_t*)node_addr;
 	fs_info_t info;
-	if(node == NULL || fsnode_info(pkg->pid, node, &info) != 0) {
+	if(get_info_by_name(pkg->pid, dir_name, &info) != 0) {
 		ipc_send(pkg->id, PKG_TYPE_ERR, NULL, 0);
 		return;
 	}
 
 	tree_node_t* ret = NULL; 
 	if(strchr(name, '/') == NULL)
-		ret = fsnode_add(node, name, size, pkg->pid, data);
-	ipc_send(pkg->id, pkg->type, &ret, 4);
+		ret = fsnode_add((tree_node_t*)info.node, name, size, pkg->pid, data);
+	if(ret == NULL)
+		ipc_send(pkg->id, PKG_TYPE_ERR, NULL, 0);
+	else
+		ipc_send(pkg->id, pkg->type, NULL, 0);
 }
 
 static void do_del(package_t* pkg) {
 	proto_t* proto = proto_new(get_pkg_data(pkg), pkg->size);
 	const char* fname = proto_read_str(proto);
 	proto_free(proto);
-	tree_node_t* node = get_node_by_name(fname);
-
 	fs_info_t info;
-	if(node == NULL || fsnode_info(pkg->pid, node, &info) != 0) {
+	if(get_info_by_name(pkg->pid, fname, &info) != 0) {
 		ipc_send(pkg->id, PKG_TYPE_ERR, NULL, 0);
 		return;
 	}
@@ -324,20 +337,10 @@ static void do_del(package_t* pkg) {
 		free(p);
 	}
 
-	if(fsnode_del(pkg->pid, node) != 0)
+	if(fsnode_del(pkg->pid, (tree_node_t*)info.node) != 0)
 		ipc_send(pkg->id, PKG_TYPE_ERR, NULL, 0);
 	else
 		ipc_send(pkg->id, pkg->type, NULL, 0);
-}
-
-static void do_info(package_t* pkg) {
-	uint32_t node = *(uint32_t*)get_pkg_data(pkg);
-	fs_info_t info;
-
-	if(node == 0 || fsnode_info(pkg->pid, (tree_node_t*)node, &info) != 0)
-		ipc_send(pkg->id, PKG_TYPE_ERR, NULL, 0);
-	else
-		ipc_send(pkg->id, pkg->type, &info, sizeof(fs_info_t));
 }
 
 static void do_info_update(package_t* pkg) {
@@ -356,10 +359,12 @@ static void do_info_update(package_t* pkg) {
 	FSN(node)->size = info->size;
 	FSN(node)->data = info->data;
 	FSN(node)->owner = info->owner;
-	if(syscall1(SYSCALL_PFILE_NODE_UPDATE, (int32_t)info) != 0) {
+	/*
+	if(syscall1(SYSCALL_PFILE_INFO_UPDATE, (int32_t)info) != 0) {
 		ipc_send(pkg->id, PKG_TYPE_ERR, NULL, 0);
 		return;
 	}
+	*/
 	ipc_send(pkg->id, pkg->type, NULL, 0);
 }
 
@@ -369,7 +374,7 @@ static void do_close(package_t* pkg) {
 		return;
 
 	fs_info_t info;
-	if(syscall3(SYSCALL_PFILE_NODE_BY_PID_FD, pkg->pid, fd, (int32_t)&info) != 0)
+	if(syscall3(SYSCALL_PFILE_INFO_BY_PID_FD, pkg->pid, fd, (int32_t)&info) != 0)
 		return;
 	if(syscall2(SYSCALL_PFILE_CLOSE, pkg->pid, fd) != 0)
 		return;
@@ -388,8 +393,7 @@ static void do_open(package_t* pkg) {
 	proto_free(proto);
 
 	fs_info_t info;
-	tree_node_t* node = get_node_by_name(name);
-	if(node == NULL || fsnode_info(pkg->pid, node, &info) != 0) {
+	if(get_info_by_name(pkg->pid, name, &info) != 0) {
 		ipc_send(pkg->id, PKG_TYPE_ERR, NULL, 0);
 		return;
 	}
@@ -400,47 +404,24 @@ static void do_open(package_t* pkg) {
 		return;
 	}
 
-	add_opened((uint32_t)node);
+	add_opened(info.node);
 	ipc_send(pkg->id, pkg->type, &fd, 4);
 }
 
-static void do_node_by_addr(package_t* pkg) {
-	proto_t* proto = proto_new(get_pkg_data(pkg), pkg->size);
-	uint32_t node_addr = (uint32_t)proto_read_int(proto);
-	proto_free(proto);
-
-	fs_info_t info;
-	tree_node_t* node = (tree_node_t*)node_addr;
-	if(node == NULL || fsnode_info(pkg->pid, node, &info) != 0) {
-		ipc_send(pkg->id, PKG_TYPE_ERR, NULL, 0);
-		return;
-	}
-	ipc_send(pkg->id, pkg->type, &info, sizeof(fs_info_t));
-}
-
-static void do_node_by_name(package_t* pkg) {
+static void do_info_by_name(package_t* pkg) {
 	proto_t* proto = proto_new(get_pkg_data(pkg), pkg->size);
 	const char* name = proto_read_str(proto);
 	proto_free(proto);
 
 	fs_info_t info;
-	tree_node_t* node = get_node_by_name(name);
-	if(node == NULL || fsnode_info(pkg->pid, node, &info) != 0) {
+	if(get_info_by_name(pkg->pid, name, &info) != 0) {
 		ipc_send(pkg->id, PKG_TYPE_ERR, NULL, 0);
 		return;
 	}
 	ipc_send(pkg->id, pkg->type, &info, sizeof(fs_info_t));
 }
 
-static void do_node_fullname(package_t* pkg) {
-	uint32_t addr = *(uint32_t*)get_pkg_data(pkg);
-	tree_node_t* node = (tree_node_t*)addr;
-
-	if(node == NULL) {
-		ipc_send(pkg->id, PKG_TYPE_ERR, NULL, 0);
-		return;
-	}
-
+static tstr_t* get_node_fullname(tree_node_t* node) {
 	tstr_t* full = tstr_new("", MFS);
 	const char* n;
 	while(true) {
@@ -456,14 +437,25 @@ static void do_node_fullname(package_t* pkg) {
 	}
 	tstr_addc(full, 0);
 	tstr_rev(full);
-	n = CS(full);
+	return full;
+}
+
+static void do_fullname(package_t* pkg) {
+	int32_t fd = *(int32_t*)get_pkg_data(pkg);
+	tree_node_t* node = get_node_by_fd(pkg->pid, fd);
+	if(node == NULL) {
+		ipc_send(pkg->id, PKG_TYPE_ERR, NULL, 0);
+		return;
+	}
+	tstr_t* full = get_node_fullname(node); 
+	const char* n = CS(full);
 	ipc_send(pkg->id, pkg->type, (void*)n, strlen(n)+1);
 	tstr_free(full);
 }
 
-static void do_node_shortname(package_t* pkg) {
-	uint32_t addr = *(uint32_t*)get_pkg_data(pkg);
-	tree_node_t* node = (tree_node_t*)addr;
+static void do_shortname(package_t* pkg) {
+	int32_t fd = *(int32_t*)get_pkg_data(pkg);
+	tree_node_t* node = get_node_by_fd(pkg->pid, fd);
 	if(node == NULL) {
 		ipc_send(pkg->id, PKG_TYPE_ERR, NULL, 0);
 		return;
@@ -474,13 +466,13 @@ static void do_node_shortname(package_t* pkg) {
 
 static void do_kid(package_t* pkg) {
 	proto_t* proto = proto_new(get_pkg_data(pkg), pkg->size);
-	uint32_t addr = (uint32_t)proto_read_int(proto);
+	const char* dir_name = proto_read_str(proto);
 	int32_t index = proto_read_int(proto);
 	proto_free(proto);
-	tree_node_t* node = (tree_node_t*)addr;
 
+	tree_node_t* node = get_node_by_name(dir_name);
 	if(node == NULL || index < 0 || index >= (int32_t)node->size) {
-		ipc_send(pkg->id, pkg->type, NULL, 0);
+		ipc_send(pkg->id, PKG_TYPE_ERR, NULL, 0);
 		return;
 	}
 
@@ -492,12 +484,11 @@ static void do_kid(package_t* pkg) {
 		n = n->next;
 	}
 	if(n == NULL) {
-		ipc_send(pkg->id, pkg->type, NULL, 0);
+		ipc_send(pkg->id, PKG_TYPE_ERR, NULL, 0);
 		return;
 	}
-	fs_info_t info;
-	fsnode_info(pkg->pid, n, &info);
-	ipc_send(pkg->id, pkg->type, &info, sizeof(fs_info_t));
+	const char *name = CS(FSN(n)->name);
+	ipc_send(pkg->id, pkg->type, (void*)name, strlen(name)+1);
 }
 
 static void do_mount(package_t* pkg) {
@@ -508,15 +499,25 @@ static void do_mount(package_t* pkg) {
 	int32_t isFile = proto_read_int(proto);
 	proto_free(proto);
 
-	opens_init();
 	tree_node_t* node = fsnode_mount(fname, dev_name, dev_index, isFile, pkg->pid);
-	ipc_send(pkg->id, pkg->type, &node, 4);
+	if(node == NULL)
+		ipc_send(pkg->id, PKG_TYPE_ERR, NULL, 0);
+	else
+		ipc_send(pkg->id, pkg->type, NULL, 0);
 }
 
 static void do_unmount(package_t* pkg) {
-	tree_node_t* node = (tree_node_t*)(*(int32_t*)get_pkg_data(pkg));
-	fsnode_unmount(pkg->pid, node);
-	opens_clear();
+	proto_t* proto = proto_new(get_pkg_data(pkg), pkg->size);
+	const char* fname = proto_read_str(proto);
+	proto_free(proto);
+
+	fs_info_t info;
+	if(get_info_by_name(pkg->pid, fname, &info) != 0) {
+		ipc_send(pkg->id, PKG_TYPE_ERR, NULL, 0);
+		return;
+	}
+
+	fsnode_unmount(pkg->pid, (tree_node_t*)info.node);
 	ipc_send(pkg->id, pkg->type, NULL, 0);
 }
 
@@ -564,26 +565,20 @@ static void handle(package_t* pkg, void* p) {
 	case VFS_CMD_DEL:
 		do_del(pkg);
 		break;
-	case VFS_CMD_INFO:
-		do_info(pkg);
-		break;
 	case VFS_CMD_INFO_UPDATE:
 		do_info_update(pkg);
 		break;
-	case VFS_CMD_NODE_BY_ADDR:
-		do_node_by_addr(pkg);
+	case VFS_CMD_INFO_BY_NAME:
+		do_info_by_name(pkg);
 		break;
-	case VFS_CMD_NODE_BY_NAME:
-		do_node_by_name(pkg);
+	case VFS_CMD_INFO_BY_FD:
+		do_info_by_fd(pkg);
 		break;
-	case VFS_CMD_NODE_BY_FD:
-		do_node_by_fd(pkg);
+	case VFS_CMD_FULLNAME:
+		do_fullname(pkg);
 		break;
-	case VFS_CMD_NODE_FULLNAME:
-		do_node_fullname(pkg);
-		break;
-	case VFS_CMD_NODE_SHORTNAME:
-		do_node_shortname(pkg);
+	case VFS_CMD_SHORTNAME:
+		do_shortname(pkg);
 		break;
 	case VFS_CMD_KID:
 		do_kid(pkg);
@@ -623,6 +618,11 @@ int main(int argc, char* argv[]) {
 
 	kserv_register("kserv.vfsd");
 	fsnode_init();
+	opens_init();
+
 	kserv_ready();
-	return kserv_run(handle, NULL);
+	int ret = kserv_run(handle, NULL);
+
+	opens_clear();
+	return ret;
 }

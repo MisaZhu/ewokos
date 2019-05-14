@@ -69,8 +69,8 @@ static int32_t reset(void) {
 	return 0;
 }
 
-static int32_t console_mount(uint32_t node, int32_t index) {
-	(void)node;
+static int32_t console_mount(const char* fname, int32_t index) {
+	(void)fname;
 	(void)index;
 	_bg_color = rgb(0x22, 0x22, 0x66);
 	_fg_color = rgb(0xaa, 0xbb, 0xaa);
@@ -90,8 +90,9 @@ static int32_t console_mount(uint32_t node, int32_t index) {
 	return reset();
 }
 
-static int32_t console_unmount(uint32_t node) {
-	(void)node;
+static int32_t console_unmount(int32_t pid, const char* fname) {
+	(void)pid;
+	(void)fname;
 	if(_graph == NULL)
 		return -1;
 	close(_keyb_id);
