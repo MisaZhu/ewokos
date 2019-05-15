@@ -120,14 +120,22 @@ static int32_t sdcard_open(int32_t pid, int32_t fd, int32_t flags) {
 	return 0;
 }
 
-static int32_t sdcard_close(fs_info_t* info) {
-	if(info == NULL || info->data == NULL || info->node == 0)
+static int32_t sdcard_close(int32_t pid, int32_t fd) {
+	fs_info_t info;
+	if(syscall3(SYSCALL_PFILE_INFO_BY_PID_FD, pid, fd, (int32_t)&info) != 0)
+		return -1;
+	if(info.type == FS_TYPE_DIR)
+		return 0;
+	if(syscall2(SYSCALL_PFILE_GET_REF, (int32_t)info.node, 2) > 1)
+		return 0;
+	if(info.data == NULL || info.node == 0)
 	 	return -1;
-	ext2_node_data_t* data = (ext2_node_data_t*)info->data;
-	if(info->type == FS_TYPE_FILE && data->dirty != 0) {
+
+	ext2_node_data_t* data = (ext2_node_data_t*)info.data;
+	if(data->dirty != 0) {
 		put_node(&_ext2, data->ino, &data->node);
-		info->size = data->node.i_size;
-		vfs_node_update(info);
+		info.size = data->node.i_size;
+		vfs_node_update(&info);
 	}
 	return 0;
 }

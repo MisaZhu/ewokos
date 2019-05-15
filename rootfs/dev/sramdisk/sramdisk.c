@@ -103,15 +103,19 @@ static int32_t sramdisk_remove(fs_info_t* info, const char* fname) {
 	return 0;
 }
 
-static int32_t sramdisk_close(fs_info_t* info) {
-	if(info == NULL)
+static int32_t sramdisk_close(int32_t pid, int32_t fd) {
+	fs_info_t info;
+	if(syscall3(SYSCALL_PFILE_INFO_BY_PID_FD, pid, fd, (int32_t)&info) != 0)
+		return -1;
+	if(info.type == FS_TYPE_DIR)
 		return 0;
-	if(info->type == FS_TYPE_DIR)
+	if(syscall2(SYSCALL_PFILE_GET_REF, (int32_t)info.node, 2) > 1)
 		return 0;
-	if(info->data != NULL) {
-		node_data_t* data = (node_data_t*)info->data;
-		info->size = data->size;
-		vfs_node_update(info);
+
+	if(info.data != NULL) {
+		node_data_t* data = (node_data_t*)info.data;
+		info.size = data->size;
+		vfs_node_update(&info);
 	}
 	return 0;
 }

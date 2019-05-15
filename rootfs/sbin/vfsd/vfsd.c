@@ -359,12 +359,11 @@ static void do_info_update(package_t* pkg) {
 	FSN(node)->size = info->size;
 	FSN(node)->data = info->data;
 	FSN(node)->owner = info->owner;
-	/*
+
 	if(syscall1(SYSCALL_PFILE_INFO_UPDATE, (int32_t)info) != 0) {
 		ipc_send(pkg->id, PKG_TYPE_ERR, NULL, 0);
 		return;
 	}
-	*/
 	ipc_send(pkg->id, pkg->type, NULL, 0);
 }
 
@@ -378,11 +377,6 @@ static void do_close(package_t* pkg) {
 		return;
 	if(syscall2(SYSCALL_PFILE_CLOSE, pkg->pid, fd) != 0)
 		return;
-
-	if(info.dev_serv_pid == getpid())
-		do_pipe_close(info.node, false);
-	else if(info.dev_serv_pid > 0)
-		ipc_req(info.dev_serv_pid, 0, FS_CLOSE, &info, sizeof(fs_info_t), false);
 	rm_opened(info.node);
 }
 

@@ -43,6 +43,9 @@ int fs_pipe_open(int fds[2]) {
 }
 
 int fs_close(int fd) {
+	int32_t dev_serv_pid = syscall1(SYSCALL_PFILE_SERV_PID_BY_FD, fd);
+	if(dev_serv_pid > 0)
+		ipc_req(dev_serv_pid, 0, FS_CLOSE, &fd, 4, false);
 	return vfs_close(fd);
 }
 
@@ -52,7 +55,6 @@ int fs_remove(const char* fname) {
 
 int32_t fs_dma(int fd, uint32_t* size) {
 	*size = 0;
-
 	int32_t dev_serv_pid = syscall1(SYSCALL_PFILE_SERV_PID_BY_FD, fd);
 	if(dev_serv_pid <= 0)
 		return -1;

@@ -31,11 +31,11 @@ static void do_close(device_t* dev, package_t* pkg) {
 	if(serv_pid != pkg->pid) //only accept from vfsd
 		return;
 
-	fs_info_t* info = (fs_info_t*)get_pkg_data(pkg);
-	if(info == NULL || info->node == 0)
+	int32_t fd = *(int32_t*)get_pkg_data(pkg);
+	if(fd < 0)
 		return;
 	if(dev->close != NULL)
-		dev->close(info);
+		dev->close(pkg->pid, fd);
 }
 
 static void do_remove(device_t* dev, package_t* pkg) { 

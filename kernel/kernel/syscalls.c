@@ -241,6 +241,12 @@ static int32_t syscall_pf_node_by_pid_fd(int32_t arg0, int32_t arg1, int32_t arg
 	return kf_node_info_by_fd(arg0, arg1, (fs_info_t*)arg2);
 }
 
+static int32_t syscall_pf_node_update(int32_t arg0) {
+	if(_current_proc->owner > 0)
+		return -1;
+	return kf_node_update((fs_info_t*)arg0);
+}
+
 static int32_t syscall_pf_get_ref(int32_t arg0, int32_t arg1) {
 	if(_current_proc->owner > 0)
 		return -1;
@@ -377,6 +383,7 @@ int32_t handle_syscall(int32_t code, int32_t arg0, int32_t arg1, int32_t arg2) {
 		case SYSCALL_PFILE_DUP2: return  syscall_pf_dup2(arg0, arg1);
 		case SYSCALL_PFILE_SERV_PID_BY_FD: return  syscall_pf_serv_pid_by_fd(arg0);
 		case SYSCALL_PFILE_INFO_BY_PID_FD: return  syscall_pf_node_by_pid_fd(arg0, arg1, arg2);
+		case SYSCALL_PFILE_INFO_UPDATE: return  syscall_pf_node_update(arg0);
 		case SYSCALL_PFILE_GET_REF: return  syscall_pf_get_ref(arg0, arg1);
 
 		case SYSCALL_KSERV_REG: return  syscall_kserv_reg(arg0);
