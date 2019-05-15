@@ -566,9 +566,8 @@ int32_t ext2_unlink(ext2_t* ext2, const char* fname) {
 		return -1;
 	}
 	int32_t ino = search(ext2, fnode, CS(name));
-	tstr_free(name);
-
 	ext2_rm_child(ext2, fnode, CS(name));
+	tstr_free(name);
 	put_node(ext2, fino, fnode);
 
 	if(ino < 0)

@@ -11,6 +11,7 @@ typedef struct channel {
 	uint32_t size;
 	int32_t shm_id;
 	uint32_t shm_size;
+	uint32_t retry_times;
 
 	struct {
 		int32_t pid; //proc id
@@ -21,6 +22,7 @@ typedef struct channel {
 } channel_t;
 
 #define CHANNEL_MAX 128
+#define RETRY_MAX 1024
 
 static channel_t _channels[CHANNEL_MAX];
 
@@ -55,6 +57,7 @@ int32_t ipc_open(int32_t pid, uint32_t buf_size) {
 			_channels[i].shm_id = id;
 			_channels[i].shm_size = buf_size;
 			_channels[i].ring = 0;
+			_channels[i].retry_times = 0;
 			_channels[i].proc_map[0].pid = _current_proc->pid;
 			_channels[i].proc_map[0].shm = shm_proc_map(_current_proc->pid, id);
 			_channels[i].proc_map[1].pid = pid;
@@ -164,13 +167,18 @@ int32_t ipc_write(int32_t id, void* data, uint32_t size) {
 	int32_t pid = _current_proc->pid;
 	channel_t* channel = ipc_get_channel(id);
 	if(channel == NULL || size == 0 || channel->ring < 0 || channel->shm_id < 0) { //closed.
+		channel->retry_times = 0;
 		CRIT_OUT(_p_lock)
 		return 0;
 	}
-	if(channel->proc_map[channel->ring].pid != pid) {//not read for current proc.
+	if(channel->proc_map[channel->ring].pid != pid) {//not ready for current proc.
+		channel->retry_times++;
 		CRIT_OUT(_p_lock)
-		return -1;
+		if(channel->retry_times >= RETRY_MAX)
+			return 0; //close
+		return -1; //retry
 	}
+	channel->retry_times = 0;
 
 	if((size + channel->offset) > channel->shm_size)
 		size = PAGE_SIZE - channel->offset;
@@ -194,15 +202,20 @@ int32_t ipc_read(int32_t id, void* data, uint32_t size) {
 	channel_t* channel = ipc_get_channel(id);
 	if(channel == NULL || data == NULL || size == 0 || 
 			channel->ring < 0 ||channel->shm_id < 0) { //closed.
+		channel->retry_times = 0;
 		CRIT_OUT(_p_lock)
 		return 0;
 	}
 	
 	int32_t pid = _current_proc->pid;
 	if(channel->proc_map[channel->ring].pid != pid) {//not read for current proc.
+		channel->retry_times++;
 		CRIT_OUT(_p_lock)
-		return -1;
+		if(channel->retry_times >= RETRY_MAX)
+			return 0; //close
+		return -1; //retry.
 	}
+	channel->retry_times = 0;
 
 	bool end = false;
 	if((size + channel->offset) >= channel->size) {
