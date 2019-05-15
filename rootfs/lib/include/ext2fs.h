@@ -26,8 +26,8 @@ INODE* get_node(ext2_t* ext2, int32_t ino, char* buf);
 
 void put_node(ext2_t* ext2, int32_t ino, INODE *node);
 
-int32_t ext2_create_dir(ext2_t* ext2, INODE* father_inp, const char *base);
+int32_t ext2_create_dir(ext2_t* ext2, INODE* father_inp, const char *base, int32_t owner);
 
-int32_t ext2_create_file(ext2_t* ext2, INODE* father_inp, const char *base);
+int32_t ext2_create_file(ext2_t* ext2, INODE* father_inp, const char *base, int32_t owner);
 
 #endif

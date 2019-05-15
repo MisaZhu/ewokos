@@ -182,9 +182,9 @@ static int32_t sdcard_add(int32_t pid, const char* fname) {
 	
 	int32_t ino;
 	if(info.type == FS_TYPE_DIR)
-		ino= ext2_create_dir(&_ext2, inp, CS(name));
+		ino= ext2_create_dir(&_ext2, inp, CS(name), info.owner);
 	else
-		ino= ext2_create_file(&_ext2, inp, CS(name));
+		ino= ext2_create_file(&_ext2, inp, CS(name), info.owner);
 	tstr_free(name);
 
 	inp = get_node(&_ext2, ino, sbuf);

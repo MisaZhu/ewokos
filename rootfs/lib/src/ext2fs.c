@@ -350,7 +350,7 @@ void put_node(ext2_t* ext2, int32_t ino, INODE *node) {
 	ext2->write_block(blk, buf);	
 }
 
-int32_t ext2_create_dir(ext2_t* ext2, INODE* father_inp, const char *base) { //mode file or dir
+int32_t ext2_create_dir(ext2_t* ext2, INODE* father_inp, const char *base, int32_t owner) { //mode file or dir
 	int32_t ino, i, blk;
 	char buf[SDC_BLOCK_SIZE];
 
@@ -359,8 +359,8 @@ int32_t ext2_create_dir(ext2_t* ext2, INODE* father_inp, const char *base) { //m
 
 	INODE* inp = get_node(ext2, ino, buf);
 	inp->i_mode = 0;//TODO EXT2_DIR_MODE;
-	inp->i_uid  = 0;//TODO
-	inp->i_gid  = 0;//TODO
+	inp->i_uid  = owner & 0xffff;
+	inp->i_gid  = (owner >> 16) & 0xffff;
 	inp->i_size = 0;	        // Size in bytes 
 	inp->i_links_count = 0;	  //
 	inp->i_atime = 0;         // TODO Set last access to current time
@@ -378,7 +378,7 @@ int32_t ext2_create_dir(ext2_t* ext2, INODE* father_inp, const char *base) { //m
 	return ino;
 }
 
-int32_t ext2_create_file(ext2_t* ext2, INODE* father_inp, const char *base) { //mode file or dir
+int32_t ext2_create_file(ext2_t* ext2, INODE* father_inp, const char *base, int32_t owner) { //mode file or dir
 	int32_t ino, i;
 	char buf[SDC_BLOCK_SIZE];
 
@@ -386,8 +386,8 @@ int32_t ext2_create_file(ext2_t* ext2, INODE* father_inp, const char *base) { //
 
 	INODE* inp = get_node(ext2, ino, buf);
 	inp->i_mode = 0; //TODO EXT2_FILE_MODE;
-	inp->i_uid  = 0;//TODO
-	inp->i_gid  = 0;//TODO
+	inp->i_uid  = owner & 0xffff;
+	inp->i_gid  = (owner >> 16) & 0xffff;
 	inp->i_size = 0;	        // Size in bytes 
 	inp->i_links_count = 0;	  // . and ..
 	inp->i_atime = 0;         // TODO Set last access to current time
