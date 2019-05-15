@@ -118,7 +118,7 @@ static void rm_opened(uint32_t node) {
 	uint32_t* nodes = (uint32_t*)_opened.items;
 	for(i=0; i<(int32_t)_opened.size; i++) {
 		if(nodes[i] == node) {
-			if(close_zombie(node) == 0)
+			if(syscall2(SYSCALL_PFILE_GET_REF, (int32_t)node, 2) == 0)
 				nodes[i] = 0;
 		}	
 	}
@@ -367,13 +367,16 @@ static void do_close(package_t* pkg) {
 	fs_info_t info;
 	if(get_info_by_fd(pkg->pid, fd, &info) != 0)
 		return;
+	syscall2(SYSCALL_PFILE_CLOSE, pkg->pid, fd);
 
 	tree_node_t* node = (tree_node_t*)info.node;
 	FSN(node)->size = info.size;
-	FSN(node)->data = info.data;
-	FSN(node)->owner = info.owner;
+	if(info.dev_serv_pid == getpid())
+		do_pipe_close(info.node, false);
+	else if(info.dev_serv_pid > 0) {
+		ipc_req(info.dev_serv_pid, 0, FS_CLOSE, &info, sizeof(fs_info_t), false);
+	}		
 
-	syscall2(SYSCALL_PFILE_CLOSE, pkg->pid, fd);
 	rm_opened(info.node);
 }
 

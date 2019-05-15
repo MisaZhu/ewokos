@@ -248,8 +248,10 @@ static int run_cmd(char* cmd);
 
 static int do_pipe_cmd(char* p1, char* p2) {
 	int fds[2];
-	if(pipe(fds) != 0)
+	if(pipe(fds) != 0) {
+		printf("pipe create failed!\n");
 		return -1;
+	}
 
 	int pid = fork();
 	if(pid != 0) { //father proc for p2 reader.

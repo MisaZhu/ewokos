@@ -66,26 +66,27 @@ void do_pipe_close(uint32_t node_addr, bool force) {
 
 void do_pipe_write(package_t* pkg) {
 	proto_t* proto = proto_new(get_pkg_data(pkg), pkg->size);
-	uint32_t node_addr = (uint32_t)proto_read_int(proto);
+	int32_t fd = (uint32_t)proto_read_int(proto);
 	uint32_t size;
 	void* p = proto_read(proto, &size);
 	int32_t seek = proto_read_int(proto);
 	(void)seek;
 	proto_free(proto);
-
-	if(node_addr == 0) {
+	
+	fs_info_t info;
+	if(syscall3(SYSCALL_PFILE_INFO_BY_PID_FD, pkg->pid, fd, (int32_t)&info) != 0) {
 		ipc_send(pkg->id, PKG_TYPE_ERR, NULL, 0);
 		return;
 	}
 
 	int32_t ret = -1;
-	int32_t ref = syscall2(SYSCALL_PFILE_GET_REF, node_addr, 2);
+	int32_t ref = syscall2(SYSCALL_PFILE_GET_REF, info.node, 2);
 	if(ref < 2) {//closed by other side of pipe.
 		ipc_send(pkg->id, pkg->type, &ret, 4);
 		return;
 	}
 
-	tree_node_t* node = (tree_node_t*)node_addr;
+	tree_node_t* node = (tree_node_t*)info.node;
 	pipe_buffer_t* buffer = (pipe_buffer_t*)FSN(node)->data;
 	if(buffer == NULL) {
 		ipc_send(pkg->id, PKG_TYPE_ERR, NULL, 0);
@@ -107,13 +108,14 @@ void do_pipe_write(package_t* pkg) {
 
 void do_pipe_read(package_t* pkg) {
 	proto_t* proto = proto_new(get_pkg_data(pkg), pkg->size);
-	uint32_t node_addr = (uint32_t)proto_read_int(proto);
+	int32_t fd = (uint32_t)proto_read_int(proto);
 	uint32_t size = (uint32_t)proto_read_int(proto);
 	uint32_t seek = (uint32_t)proto_read_int(proto);
 	(void)seek;
 	proto_free(proto);
 	
-	if(node_addr == 0) {
+	fs_info_t info;
+	if(syscall3(SYSCALL_PFILE_INFO_BY_PID_FD, pkg->pid, fd, (int32_t)&info) != 0) {
 		ipc_send(pkg->id, PKG_TYPE_ERR, NULL, 0);
 		return;
 	}
@@ -123,7 +125,7 @@ void do_pipe_read(package_t* pkg) {
 	}
 
 	int32_t ret = 0;
-	tree_node_t* node = (tree_node_t*)node_addr;
+	tree_node_t* node = (tree_node_t*)info.node;
 	pipe_buffer_t* buffer = (pipe_buffer_t*)FSN(node)->data;
 	if(buffer == NULL) {
 		ipc_send(pkg->id, PKG_TYPE_ERR, NULL, 0);
@@ -145,7 +147,7 @@ void do_pipe_read(package_t* pkg) {
 		free(buf);
 	}
 	else {
-		int32_t ref = syscall2(SYSCALL_PFILE_GET_REF, node_addr, 2);
+		int32_t ref = syscall2(SYSCALL_PFILE_GET_REF, info.node, 2);
 		if(ref < 2) //closed by other side of pipe.
 			ipc_send(pkg->id, PKG_TYPE_ERR, NULL, 0);
 		else 
