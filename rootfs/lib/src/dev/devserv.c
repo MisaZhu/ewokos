@@ -28,14 +28,16 @@ static void do_open(device_t* dev, package_t* pkg) {
 
 static void do_close(device_t* dev, package_t* pkg) { 
 	int32_t serv_pid = kserv_get_by_name(VFS_NAME);	
-	if(serv_pid != pkg->pid) //only accept from vfsd
+	if(serv_pid != pkg->pid) { //only accept from vfsd
 		return;
+	}
 
-	int32_t fd = *(int32_t*)get_pkg_data(pkg);
-	if(fd < 0)
+	fs_info_t* info = (fs_info_t*)get_pkg_data(pkg);
+	if(info == NULL || info->node == 0) {
 		return;
+	}
 	if(dev->close != NULL)
-		dev->close(pkg->pid, fd);
+		dev->close(info);
 }
 
 static void do_remove(device_t* dev, package_t* pkg) { 

@@ -38,14 +38,15 @@ int fs_open(const char* name, int32_t flags) {
 	return fd;
 }
 
+inline int32_t fs_update(fs_info_t* info) {
+	return syscall1(SYSCALL_PFILE_INFO_UPDATE, (int32_t)info);
+}
+
 int fs_pipe_open(int fds[2]) {
 	return vfs_pipe_open(fds);
 }
 
 int fs_close(int fd) {
-	int32_t dev_serv_pid = syscall1(SYSCALL_PFILE_SERV_PID_BY_FD, fd);
-	if(dev_serv_pid > 0)
-		ipc_req(dev_serv_pid, 0, FS_CLOSE, &fd, 4, false);
 	return vfs_close(fd);
 }
 
@@ -229,7 +230,6 @@ int32_t fs_add(const char* dir_name, const char* name, uint32_t type) {
 		proto_t* proto = proto_new(NULL, 0);
 		tstr_t* fname = fs_make_fname(dir_name, name);
 		proto_add_str(proto, CS(fname));
-		tstr_free(fname);
 		package_t* pkg = ipc_req(info.dev_serv_pid, 0, FS_ADD, proto->data, proto->size, true);
 		proto_free(proto);
 		if(pkg == NULL || pkg->type == PKG_TYPE_ERR) {

@@ -24,7 +24,7 @@ static inline kfile_t* get_file(uint32_t node_addr, bool add) {
 	uint32_t i = 0; 
 	int32_t at = -1;
 	while(i < OPEN_MAX) {
-		if(_files[i].node_info.node == 0)
+		if(_files[i].node_info.node == 0 && at < 0)
 			at = i; //first free file item
 		else if(_files[i].node_info.node == node_addr)
 			return &_files[i];

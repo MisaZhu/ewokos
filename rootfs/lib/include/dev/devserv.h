@@ -9,7 +9,7 @@ typedef struct {
 	int32_t (*mount)(const char* fname, int32_t index);
 	int32_t (*unmount)(int32_t pid, const char* fname);
 	int32_t (*open)(int32_t pid, int32_t fd, int32_t flags);
-	int32_t (*close)(int32_t pid, int32_t fd);
+	int32_t (*close)(fs_info_t* info);
 	int32_t (*remove)(fs_info_t* info, const char* fname);
 	int32_t (*add)(int32_t pid, const char* fname);
 	int32_t (*write)(int32_t pid, int32_t fd, void* buf, uint32_t size, int32_t seek);

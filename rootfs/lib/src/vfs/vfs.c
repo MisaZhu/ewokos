@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <ipc.h>
 #include <package.h>
+#include <syscall.h>
 
 inline int32_t vfs_add(const char* dir_name, const char* name, uint32_t size, void* data) {
 	int32_t serv_pid = kserv_get_by_name(VFS_NAME);	

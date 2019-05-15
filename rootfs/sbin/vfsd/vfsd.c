@@ -66,8 +66,9 @@ static int32_t close_zombie(uint32_t node) {
 	fsnode_info(-1, (tree_node_t*)node, &info);
 	if(info.dev_serv_pid == getpid())
 		do_pipe_close(info.node, true);
-	else if(info.dev_serv_pid > 0)
+	else if(info.dev_serv_pid > 0) {
 		ipc_req(info.dev_serv_pid, 0, FS_CLOSE, &info, sizeof(fs_info_t), false);
+	}		
 	return 0;
 }
 
@@ -172,14 +173,10 @@ static tree_node_t* get_node_by_fd(int32_t pid, int32_t fd) {
 		return NULL;
 	return (tree_node_t*)info.node;
 }
-/*
+
 static int32_t get_info_by_fd(int32_t pid, int32_t fd, fs_info_t* info) {
-	tree_node_t* node = get_node_by_fd(pid, fd);
-	if(node == NULL)
-		return -1;
-	return fsnode_info(pid, node, info);
+	return syscall3(SYSCALL_PFILE_INFO_BY_PID_FD, pid, fd, (int32_t)info);
 }
-*/
 
 static tree_node_t* build_nodes(const char* fname, int32_t owner) {
 	if(_root == NULL)
@@ -345,7 +342,7 @@ static void do_del(package_t* pkg) {
 
 static void do_info_update(package_t* pkg) {
 	fs_info_t* info = (fs_info_t*)get_pkg_data(pkg);
-	if(info == NULL) {
+	if(info == NULL || info->node == 0) {
 		ipc_send(pkg->id, PKG_TYPE_ERR, NULL, 0);
 		return;
 	}
@@ -359,11 +356,6 @@ static void do_info_update(package_t* pkg) {
 	FSN(node)->size = info->size;
 	FSN(node)->data = info->data;
 	FSN(node)->owner = info->owner;
-
-	if(syscall1(SYSCALL_PFILE_INFO_UPDATE, (int32_t)info) != 0) {
-		ipc_send(pkg->id, PKG_TYPE_ERR, NULL, 0);
-		return;
-	}
 	ipc_send(pkg->id, pkg->type, NULL, 0);
 }
 
@@ -373,10 +365,15 @@ static void do_close(package_t* pkg) {
 		return;
 
 	fs_info_t info;
-	if(syscall3(SYSCALL_PFILE_INFO_BY_PID_FD, pkg->pid, fd, (int32_t)&info) != 0)
+	if(get_info_by_fd(pkg->pid, fd, &info) != 0)
 		return;
-	if(syscall2(SYSCALL_PFILE_CLOSE, pkg->pid, fd) != 0)
-		return;
+
+	tree_node_t* node = (tree_node_t*)info.node;
+	FSN(node)->size = info.size;
+	FSN(node)->data = info.data;
+	FSN(node)->owner = info.owner;
+
+	syscall2(SYSCALL_PFILE_CLOSE, pkg->pid, fd);
 	rm_opened(info.node);
 }
 

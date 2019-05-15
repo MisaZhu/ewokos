@@ -15,6 +15,8 @@ int fs_remove(const char* fname);
 
 int fs_info(int fd, fs_info_t* info);
 
+int32_t fs_update(fs_info_t* info);
+
 int fs_finfo(const char* name, fs_info_t* info);
 
 tstr_t* fs_kid(const char* dir_name, int32_t index);
