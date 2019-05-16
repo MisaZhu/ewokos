@@ -218,13 +218,15 @@ static int32_t enter_child(ext2_t* ext2, INODE* pip, int32_t ino, const char *ba
 
 static int32_t ext2_rm_child(ext2_t* ext2, INODE *ip, const char *name) {
 	int32_t i, rec_len, found, first_len;
-	char *cp, *precp = NULL;
-	DIR *dp;
+	char *cp = NULL, *precp = NULL;
+	DIR *dp = NULL;
 
 	char sbuf[SDC_BLOCK_SIZE];
 	char cpbuf[SDC_BLOCK_SIZE];
 
 	found = 0;
+	rec_len = 0;
+	first_len = 0;
 	for(i = 0; i<12; i++) {
 		if(ip->i_block[i] == 0) { //cannot find .
 			return -1;

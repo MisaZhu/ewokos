@@ -17,6 +17,7 @@ static int32_t proc_mount(const char* fname, int32_t index) {
 }
 
 static int32_t proc_read(int32_t pid, int32_t fd, void* buf, uint32_t size, int32_t seek) {
+	(void)pid;
 	int32_t ret = -1;
 	if(size == 0)
 		return 0;
