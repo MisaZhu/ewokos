@@ -78,7 +78,7 @@ typedef struct {
 	uint32_t from_msec; 
 } proc_sleep_t;
 
-#define STACK_PAGES 4
+#define STACK_PAGES 2
 
 typedef struct process {
 	uint32_t type;
