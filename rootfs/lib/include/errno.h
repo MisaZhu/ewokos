@@ -5,7 +5,8 @@ extern int errno;
 
 enum {
 	ENONE = 0,
-	EAGAIN
+	EAGAIN,
+	ENOTEMPTY
 };
 
 #endif

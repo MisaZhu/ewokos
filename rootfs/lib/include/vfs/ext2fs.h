@@ -113,6 +113,8 @@ typedef struct {
 
 int32_t ext2_init(ext2_t* ext2, read_block_func_t read_block, write_block_func_t write_block);
 
+int32_t ext2_rmdir(ext2_t* ext2, const char* fname);
+
 int32_t ext2_unlink(ext2_t* ext2, const char* fname);
 
 int32_t ext2_read(ext2_t* ext2, INODE* node, char *buf, int32_t nbytes, int32_t offset);

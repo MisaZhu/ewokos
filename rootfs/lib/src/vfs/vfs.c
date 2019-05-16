@@ -241,7 +241,25 @@ tstr_t* vfs_full_name_by_fd(int32_t fd) {
 	if(serv_pid < 0)
 		return NULL;
 
-	package_t* pkg = ipc_req(serv_pid, 0, VFS_CMD_FULLNAME, &fd, 4, true);
+	package_t* pkg = ipc_req(serv_pid, 0, VFS_CMD_FULLNAME_BY_FD, &fd, 4, true);
+	if(pkg == NULL || pkg->type == PKG_TYPE_ERR || pkg->size == 0) {
+		if(pkg != NULL) free(pkg);
+		return NULL;
+	}
+	tstr_t *ret = tstr_new((char*)get_pkg_data(pkg), MFS);
+	free(pkg);
+	return ret;
+}
+
+//get the full name by node
+tstr_t* vfs_full_name_by_node(uint32_t node) {
+	if(node == 0)
+		return NULL;
+	int32_t serv_pid = kserv_get_by_name(VFS_NAME);	
+	if(serv_pid < 0)
+		return NULL;
+
+	package_t* pkg = ipc_req(serv_pid, 0, VFS_CMD_FULLNAME_BY_NODE, &node, 4, true);
 	if(pkg == NULL || pkg->type == PKG_TYPE_ERR || pkg->size == 0) {
 		if(pkg != NULL) free(pkg);
 		return NULL;
@@ -259,7 +277,7 @@ tstr_t* vfs_short_name_by_fd(int32_t fd) {
 	if(serv_pid < 0)
 		return NULL;
 
-	package_t* pkg = ipc_req(serv_pid, 0, VFS_CMD_SHORTNAME, &fd, 4, true);
+	package_t* pkg = ipc_req(serv_pid, 0, VFS_CMD_SHORTNAME_BY_FD, &fd, 4, true);
 	if(pkg == NULL || pkg->type == PKG_TYPE_ERR || pkg->size == 0) {
 		if(pkg != NULL) free(pkg);
 		return NULL;
@@ -269,3 +287,20 @@ tstr_t* vfs_short_name_by_fd(int32_t fd) {
 	return ret;
 }
 
+//get the full name by node
+tstr_t* vfs_short_name_by_node(uint32_t node) {
+	if(node == 0)
+		return NULL;
+	int32_t serv_pid = kserv_get_by_name(VFS_NAME);	
+	if(serv_pid < 0)
+		return NULL;
+
+	package_t* pkg = ipc_req(serv_pid, 0, VFS_CMD_SHORTNAME_BY_NODE, &node, 4, true);
+	if(pkg == NULL || pkg->type == PKG_TYPE_ERR || pkg->size == 0) {
+		if(pkg != NULL) free(pkg);
+		return NULL;
+	}
+	tstr_t *ret = tstr_new((char*)get_pkg_data(pkg), MFS);
+	free(pkg);
+	return ret;
+}

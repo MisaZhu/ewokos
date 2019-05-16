@@ -44,8 +44,8 @@ typedef unsigned int u32_t;
 
 #define UCHAR_MAX 255
 #define FULL_NAME_MAX 256
-#define SHORT_NAME_MAX 32
-#define DEV_NAME_MAX 64
+#define SHORT_NAME_MAX 64
+#define DEV_NAME_MAX 32
 
 #define ALIGN_DOWN(x, alignment) ((x) & ~(alignment - 1))
 #define ALIGN_UP(x, alignment) (((x) + alignment - 1) & ~(alignment - 1))

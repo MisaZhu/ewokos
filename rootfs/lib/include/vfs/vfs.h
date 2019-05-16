@@ -10,7 +10,6 @@
 
 typedef struct {
 	char dev_name[DEV_NAME_MAX];
-	char fname[FULL_NAME_MAX];
 	int32_t dev_index;
 	int32_t dev_serv_pid;
 	uint32_t node_old;
@@ -22,7 +21,11 @@ int32_t vfs_del(const char* fname);
 
 tstr_t* vfs_full_name_by_fd(int32_t fd);
 
+tstr_t* vfs_full_name_by_node(uint32_t node);
+
 tstr_t* vfs_short_name_by_fd(int32_t fd);
+
+tstr_t* vfs_short_name_by_node(uint32_t node);
 
 int32_t vfs_open(const char* fname, int32_t flags);
 

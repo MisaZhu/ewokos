@@ -202,10 +202,13 @@ static int32_t sdcard_add(int32_t pid, const char* fname) {
 static int32_t sdcard_remove(fs_info_t* info, const char* fname) {
 	if(info == NULL || fname == NULL || fname[0] == 0)
 		return -1;
-	if(info->type == FS_TYPE_DIR)
-		return -1;
 	if(syscall2(SYSCALL_PFILE_GET_REF, info->node, 2) > 0) 
 		return -1;
+	if(info->type == FS_TYPE_DIR) {
+		if(info->size > 0) 
+			return -1;
+		return ext2_rmdir(&_ext2, fname);
+	}
 	return ext2_unlink(&_ext2, fname);
 }
 

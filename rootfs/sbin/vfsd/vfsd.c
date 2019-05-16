@@ -217,7 +217,6 @@ static tree_node_t* fsnode_mount(const char* fname, const char* dev_name,
   for(i=0; i<MOUNT_MAX; i++) {
     if(_mounts[i].dev_name[0] == 0) {
 			strcpy(_mounts[i].dev_name, dev_name);
-			strncpy(_mounts[i].fname, fname, FULL_NAME_MAX-1);
 			_mounts[i].dev_index = dev_index;
 			_mounts[i].dev_serv_pid = pid;
 			_mounts[i].node_old = (uint32_t)to; //save the node_old node.
@@ -234,6 +233,7 @@ static tree_node_t* fsnode_mount(const char* fname, const char* dev_name,
 	if(to == NULL || _root == NULL) {
 		_root = node;
 		tstr_cpy(FSN(node)->name, "/");
+		_mounts[i].node_old = (uint32_t)_root;
 	}
 	else
 		tstr_cpy(FSN(node)->name, CS(FSN(to)->name));
@@ -371,6 +371,9 @@ static void do_close(package_t* pkg) {
 
 	tree_node_t* node = (tree_node_t*)info.node;
 	FSN(node)->size = info.size;
+	if(info.data != NULL)
+		FSN(node)->data = info.data;
+
 	if(info.dev_serv_pid == getpid())
 		do_pipe_close(info.node, false);
 	else if(info.dev_serv_pid > 0) {
@@ -431,10 +434,13 @@ static tstr_t* get_node_fullname(tree_node_t* node) {
 	}
 	tstr_addc(full, 0);
 	tstr_rev(full);
+
+	if(full->size == 0) 
+		tstr_cpy(full, "/");
 	return full;
 }
 
-static void do_fullname(package_t* pkg) {
+static void do_fullname_by_fd(package_t* pkg) {
 	int32_t fd = *(int32_t*)get_pkg_data(pkg);
 	tree_node_t* node = get_node_by_fd(pkg->pid, fd);
 	if(node == NULL) {
@@ -447,9 +453,33 @@ static void do_fullname(package_t* pkg) {
 	tstr_free(full);
 }
 
-static void do_shortname(package_t* pkg) {
+static void do_fullname_by_node(package_t* pkg) {
+	uint32_t node_addr = *(uint32_t*)get_pkg_data(pkg);
+	tree_node_t* node = (tree_node_t*)node_addr;
+	if(node == NULL) {
+		ipc_send(pkg->id, PKG_TYPE_ERR, NULL, 0);
+		return;
+	}
+	tstr_t* full = get_node_fullname(node); 
+	const char* n = CS(full);
+	ipc_send(pkg->id, pkg->type, (void*)n, strlen(n)+1);
+	tstr_free(full);
+}
+
+static void do_shortname_by_fd(package_t* pkg) {
 	int32_t fd = *(int32_t*)get_pkg_data(pkg);
 	tree_node_t* node = get_node_by_fd(pkg->pid, fd);
+	if(node == NULL) {
+		ipc_send(pkg->id, PKG_TYPE_ERR, NULL, 0);
+		return;
+	}
+	const char *n = CS(FSN(node)->name);
+	ipc_send(pkg->id, pkg->type, (void*)n, strlen(n)+1);
+}
+
+static void do_shortname_by_node(package_t* pkg) {
+	uint32_t node_addr = *(uint32_t*)get_pkg_data(pkg);
+	tree_node_t* node = (tree_node_t*)node_addr;
 	if(node == NULL) {
 		ipc_send(pkg->id, PKG_TYPE_ERR, NULL, 0);
 		return;
@@ -518,7 +548,7 @@ static void do_unmount(package_t* pkg) {
 static void do_mount_by_index(package_t* pkg) {
 	int32_t index = *(int32_t*)get_pkg_data(pkg);
 	if(index < 0 || index >= MOUNT_MAX) {
-		ipc_send(pkg->id, pkg->type, NULL, 0);
+		ipc_send(pkg->id, PKG_TYPE_ERR, NULL, 0);
 		return;
 	}
 	mount_t* mnt = &_mounts[index];
@@ -568,11 +598,17 @@ static void handle(package_t* pkg, void* p) {
 	case VFS_CMD_INFO_BY_FD:
 		do_info_by_fd(pkg);
 		break;
-	case VFS_CMD_FULLNAME:
-		do_fullname(pkg);
+	case VFS_CMD_FULLNAME_BY_FD:
+		do_fullname_by_fd(pkg);
 		break;
-	case VFS_CMD_SHORTNAME:
-		do_shortname(pkg);
+	case VFS_CMD_SHORTNAME_BY_FD:
+		do_shortname_by_fd(pkg);
+		break;
+	case VFS_CMD_FULLNAME_BY_NODE:
+		do_fullname_by_node(pkg);
+		break;
+	case VFS_CMD_SHORTNAME_BY_NODE:
+		do_shortname_by_node(pkg);
 		break;
 	case VFS_CMD_KID:
 		do_kid(pkg);

@@ -49,8 +49,10 @@ static void do_remove(device_t* dev, package_t* pkg) {
 	const char* fname = proto_read_str(proto);
 	fs_info_t* info = proto_read(proto, NULL);
 	proto_free(proto);
+
+	errno = ENONE;
 	if(info == NULL || fname[0] == 0) {
-		ipc_send(pkg->id, PKG_TYPE_ERR, NULL, 0);
+		ipc_send(pkg->id, PKG_TYPE_ERR, &errno, 4);
 		return;
 	}
 
@@ -58,7 +60,8 @@ static void do_remove(device_t* dev, package_t* pkg) {
 	if(dev->remove != NULL)
 		res = dev->remove(info, fname);
 	if(res != 0) {
-		ipc_send(pkg->id, PKG_TYPE_ERR, NULL, 0);
+		ipc_send(pkg->id, PKG_TYPE_ERR, &errno, 4);
+		errno = ENONE;
 		return;
 	}
 	ipc_send(pkg->id, pkg->type, NULL, 0);

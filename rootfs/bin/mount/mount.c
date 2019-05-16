@@ -14,9 +14,10 @@ int main(int argc, char* argv[]) {
 		mount_t mnt;
 		if(vfs_mount_by_index(i, &mnt) != 0)
 			break;
-
 		if(mnt.dev_serv_pid > 0) {
-			printf("  %24s %16s %6d  %6d\n", mnt.fname, mnt.dev_name, mnt.dev_index, mnt.dev_serv_pid);
+			tstr_t* name = vfs_full_name_by_node(mnt.node_old);
+			printf("  %24s %16s %6d  %6d\n", CS(name), mnt.dev_name, mnt.dev_index, mnt.dev_serv_pid);
+			tstr_free(name);
 		}
 		i++;
 	}

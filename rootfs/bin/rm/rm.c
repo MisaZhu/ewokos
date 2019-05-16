@@ -14,6 +14,8 @@ int main(int argc, char* argv[]) {
 	int res = fs_remove(CS(name));
 	if(res != 0) {
 		printf("'%s' remove failed!\n", CS(name));
+		if(errno == ENOTEMPTY)
+			printf("  dir not empty!\n");
 	}
 	tstr_free(name);
 	return 0;
