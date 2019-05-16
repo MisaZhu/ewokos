@@ -87,7 +87,6 @@ static void dec_free_inodes(ext2_t* ext2) {
 
 static void ext2_idealloc(ext2_t* ext2, int32_t ino) {
 	char buf[BLOCK_SIZE];
-
 	if (ino > ext2->ninodes){
 		return;
 	}
@@ -102,7 +101,6 @@ static void ext2_idealloc(ext2_t* ext2, int32_t ino) {
 
 static int32_t ext2_bdealloc(ext2_t* ext2, int32_t bit) {
 	char buf[BLOCK_SIZE];
-
 	if (bit <= 0){
 		return -1;
 	}
@@ -409,7 +407,7 @@ int32_t ext2_create_file(ext2_t* ext2, INODE* father_inp, const char *base, int3
 }
 
 int32_t ext2_write(ext2_t* ext2, INODE* node, char *data, int32_t nbytes, int32_t offset) {
- 	char buf[BLOCK_SIZE];
+	static char buf[BLOCK_SIZE];
 	char *cq = data;
 	char *cp;
 	//(2)

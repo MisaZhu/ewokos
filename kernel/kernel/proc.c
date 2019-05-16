@@ -182,7 +182,7 @@ static void proc_init_space(process_t* proc) {
 static inline  uint32_t proc_get_user_stack(process_t* proc) {
 	uint32_t ret;
 	if(proc->type == TYPE_THREAD)
-		ret = USER_STACK_BOTTOM - proc->pid*PAGE_SIZE;
+		ret = USER_STACK_BOTTOM - proc->pid*STACK_PAGES*PAGE_SIZE;
 	else 
 		ret = USER_STACK_BOTTOM;
 	return ret;
@@ -222,13 +222,13 @@ process_t *proc_create(uint32_t type) {
 	proc->kernelStack = kernelStack;
 	*/
 
-	char *user_stack = kalloc();
-	map_page(proc->space->vm,
-		proc_get_user_stack(proc),
-		V2P(user_stack),
-		AP_RW_RW);
-
-	proc->user_stack = user_stack;
+	for(i=0; i<STACK_PAGES; i++) {
+		proc->user_stack[i] = kalloc();
+		map_page(proc->space->vm,
+			proc_get_user_stack(proc)+PAGE_SIZE*i,
+			V2P(proc->user_stack[i]),
+			AP_RW_RW);
+	}
 	proc->wait_pid = -1;
 	proc->father_pid = 0;
 	proc->owner = 0;
@@ -270,7 +270,10 @@ void proc_free(process_t *proc) {
 	CRIT_IN(_p_proc_lock)	
 	proc->state = UNUSED;
 	//kfree(proc->kernelStack);
-	kfree(proc->user_stack);
+	int32_t i;
+	for(i=0; i<STACK_PAGES; i++) {
+		kfree(proc->user_stack[i]);
+	}
 
 	if(proc->type == TYPE_THREAD)
 		proc->space = NULL;
@@ -364,7 +367,7 @@ bool proc_load(process_t *proc, const char *pimg, uint32_t img_size) {
 	memset(proc->context, 0, sizeof(proc->context));
 	proc->context[CPSR] = cpsrUser(); //CPSR 0x10 for user mode
 	proc->context[RESTART_ADDR] = (int) proc->entry;
-	proc->context[SP] = proc_get_user_stack(proc) + PAGE_SIZE;
+	proc->context[SP] = proc_get_user_stack(proc) + STACK_PAGES*PAGE_SIZE;
 	CRIT_OUT(_p_proc_lock)
 	return true;
 }
@@ -529,7 +532,9 @@ static int32_t proc_clone(process_t* child, process_t* parent) {
 	proc_clone_envs(child, parent);
 	/* copy parent's stack to child's stack */
 	//memcpy(child->kernelStack, parent->kernelStack, PAGE_SIZE);
-	memcpy(child->user_stack, parent->user_stack, PAGE_SIZE);
+	for(i=0; i<STACK_PAGES; i++) {
+		memcpy(child->user_stack[i], parent->user_stack[i], PAGE_SIZE);
+	}
 	/* copy parent's context to child's context */
 	memcpy(child->context, parent->context, sizeof(child->context));
 	child->entry = NULL; //cloned process.
@@ -554,7 +559,7 @@ process_t* kfork(uint32_t type) {
 	}
 	else {
 		memset(child->context, 0, sizeof(child->context));
-		child->context[SP] = proc_get_user_stack(child) + PAGE_SIZE;
+		child->context[SP] = proc_get_user_stack(child) + STACK_PAGES*PAGE_SIZE;
 		child->context[CPSR] = parent->context[CPSR];
 	}
 	/* set return value of fork in child to 0 */

@@ -78,6 +78,8 @@ typedef struct {
 	uint32_t from_msec; 
 } proc_sleep_t;
 
+#define STACK_PAGES 4
+
 typedef struct process {
 	uint32_t type;
 	uint32_t state;
@@ -92,7 +94,7 @@ typedef struct process {
 	proc_sleep_t sleep_counter;
 
 	entry_function_t entry;
-	char *user_stack;
+	char *user_stack[STACK_PAGES];
 	//char *kernelStack;
 	uint32_t context[17];
 
