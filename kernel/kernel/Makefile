@@ -1,7 +1,4 @@
 obj-y:=
-
-obj-y += sdread.o
-obj-y += sconf.o
 obj-y += system.o
 obj-y += timer.o
 obj-y += printk.o

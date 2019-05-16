@@ -5,7 +5,7 @@
 #include <vfs/vfs.h>
 #include <vfs/fs.h>
 #include <syscall.h>
-#include <ext2fs.h>
+#include <vfs/ext2fs.h>
 #include <device.h>
 
 static ext2_t _ext2;
@@ -50,8 +50,8 @@ static int32_t add_nodes(INODE *ip, const char* dname) {
 	int32_t i; 
 	char c, *cp;
 	DIR  *dp;
-	char* buf1 = (char*)malloc(SDC_BLOCK_SIZE);
-	char* buf2 = (char*)malloc(SDC_BLOCK_SIZE);
+	char* buf1 = (char*)malloc(BLOCK_SIZE);
+	char* buf2 = (char*)malloc(BLOCK_SIZE);
 
 	for (i=0; i<12; i++){
 		if ( ip->i_block[i] ){
@@ -62,7 +62,7 @@ static int32_t add_nodes(INODE *ip, const char* dname) {
 			if(dp->inode == 0)
 				continue;
 
-			while (cp < &buf1[SDC_BLOCK_SIZE]){
+			while (cp < &buf1[BLOCK_SIZE]){
 				c = dp->name[dp->name_len];  // save last byte
 				dp->name[dp->name_len] = 0;   
 				if(strcmp(dp->name, ".") != 0 && strcmp(dp->name, "..") != 0) {
@@ -105,7 +105,7 @@ static int32_t sdcard_mount(const char* fname, int32_t index) {
 	(void)index;
 	ext2_init(&_ext2, read_block, write_block);
 
-	char* buf = (char*)malloc(SDC_BLOCK_SIZE);
+	char* buf = (char*)malloc(BLOCK_SIZE);
 	_ext2.read_block(_ext2.iblock, buf);       // read first inode block
 	INODE *ip = (INODE *)buf + 1;   // ip->root inode #2
 	add_nodes(ip, fname);
@@ -171,7 +171,7 @@ static int32_t sdcard_add(int32_t pid, const char* fname) {
 	tstr_free(dir);
 
 	INODE* inp = NULL;
-	char *sbuf = (char*)malloc(SDC_BLOCK_SIZE);
+	char *sbuf = (char*)malloc(BLOCK_SIZE);
 	if(father_info.data != NULL) {
 		ext2_node_data_t* data = (ext2_node_data_t*)father_info.data;
 		inp = &data->node;

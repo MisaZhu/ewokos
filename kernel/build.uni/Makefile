@@ -58,8 +58,9 @@ LIB_OBJS = \
 	../lib/basic_math.o \
 	../lib/device.o \
 	../lib/sconf_parse.o \
-	../lib/ext2.o \
+	../lib/sconf.o \
 	../lib/trunk.o \
+	../lib/sdread.o \
 	../lib/tstr.o \
 	../arch/arm/common/memcpy.o \
 	../lib/vprintf.o
@@ -67,8 +68,6 @@ LIB_OBJS = \
 OBJS += $(ARCH_OBJS) \
 	$(DEV_OBJS) \
 	../init/kernel.o \
-	../kernel/sdread.o \
-	../kernel/sconf.o \
 	../kernel/system.o \
 	../kernel/timer.o \
 	../kernel/printk.o \

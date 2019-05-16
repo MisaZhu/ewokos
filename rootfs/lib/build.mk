@@ -7,6 +7,7 @@ LIB_OBJS = lib/src/syscall.o \
 	lib/src/unistd.o \
 	lib/src/vfs/vfs.o \
 	lib/src/vfs/fs.o \
+	lib/src/vfs/ext2fs.o \
 	lib/src/graph/font.o \
 	lib/src/graph/font4x6.o \
 	lib/src/graph/font5x12.o \
@@ -28,7 +29,6 @@ LIB_OBJS = lib/src/syscall.o \
 	lib/src/thread.o \
 	lib/src/semaphore.o \
 	lib/src/sdread.o \
-	lib/src/ext2fs.o \
 	lib/src/sconf.o \
 	lib/src/kserv.o
 

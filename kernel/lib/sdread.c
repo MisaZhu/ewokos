@@ -1,28 +1,63 @@
-#include <sdread.h>
-#include <vfs/ext2fs.h>
-#include <syscall.h>
-#include <unistd.h>
-#include <stdlib.h>
-#include <device.h>
 #include <kstring.h>
+#include <dev/basic_dev.h>
+#include <mm/kmalloc.h>
+#include <sdread.h>
 
-static int32_t _typeid = dev_typeid(DEV_SDC, 0);
+typedef struct ext2_group_desc {
+	uint32_t	bg_block_bitmap;	/* Blocks bitmap block */
+	uint32_t	bg_inode_bitmap;	/* Inodes bitmap block */
+	uint32_t	bg_inode_table;		/* Inodes table block */
+	uint16_t	bg_free_blocks_count;	/* Free blocks count */
+	uint16_t	bg_free_inodes_count;	/* Free inodes count */
+	uint16_t	bg_used_dirs_count;	/* Directories count */
+	uint16_t	bg_pad;
+	uint32_t	bg_reserved[3];
+} GD;
+
+typedef struct ext2_inode {
+	uint16_t	i_mode;		/* File mode */
+	uint16_t	i_uid;		/* Owner Uid */
+	uint32_t	i_size;		/* Size in bytes */
+	uint32_t	i_atime;	/* Access time */
+	uint32_t	i_ctime;	/* Creation time */
+	uint32_t	i_mtime;	/* Modification time */
+	uint32_t	i_dtime;	/* Deletion Time */
+	uint16_t	i_gid;		/* Group Id */
+	uint16_t	i_links_count;	/* Links count */
+	uint32_t	i_blocks;	/* Blocks count */
+	uint32_t	i_flags;	/* File flags */
+	uint32_t  dummy;
+	uint32_t	i_block[15];    /* Pointers to blocks */
+	uint32_t  pad[5];         /* inode size MUST be 128 bytes */
+	uint32_t	i_date;         /* MTX date */
+	uint32_t	i_time;         /* MTX time */
+} INODE;
+
+typedef struct ext2_dir_entry_2 {
+	uint32_t	inode;			/* Inode number */
+	uint16_t	rec_len;		/* Directory entry length */
+	uint8_t	name_len;		/* Name length */
+	uint8_t	file_type;
+	char	name[255];      	/* File name */
+} DIR;
+
+#define BLOCK_SIZE 1024
 
 static int32_t read_block(int32_t block, char* buf) {
-	if(syscall2(SYSCALL_DEV_BLOCK_READ, _typeid, block) < 0)
+	uint32_t typeid = dev_typeid(DEV_SDC, 0);
+	if(dev_block_read(typeid, block) < 0)
 		return -1;
 
 	int32_t res = -1;
 	while(true) {
-		res = syscall2(SYSCALL_DEV_BLOCK_READ_DONE, _typeid, (int32_t)buf);
+		res = dev_block_read_done(typeid, buf);
 		if(res == 0)
 			break;
-		sleep(0);
 	}
 	return 0;
 }
 
-static int32_t simple_search(INODE *ip, const char *name, char* buf) {
+static int32_t search(INODE *ip, const char *name, char* buf) {
 	int32_t i; 
 	char c, *cp;
 	DIR  *dp;
@@ -32,7 +67,7 @@ static int32_t simple_search(INODE *ip, const char *name, char* buf) {
 			read_block(ip->i_block[i], buf);
 			dp = (DIR *)buf;
 			cp = buf;
-			while (cp < &buf[BLOCK_SIZE]){
+			while (cp < &buf[SDC_BLOCK_SIZE]){
 				c = dp->name[dp->name_len];  // save last byte
 				dp->name[dp->name_len] = 0;   
 				if (strcmp(dp->name, name) == 0 ){
@@ -49,8 +84,8 @@ static int32_t simple_search(INODE *ip, const char *name, char* buf) {
 
 #define MAX_DIR_DEPTH 4
 
-static char* ext2_load(const char* filename, int32_t *sz) {
-	char* buf1 = (char*)malloc(BLOCK_SIZE);
+char* ext2_load(const char* filename, int32_t *sz) {
+	char* buf1 = (char*)km_alloc(BLOCK_SIZE);
 	int32_t depth, i, ino, iblk, count, u, blk12;
 	char name[MAX_DIR_DEPTH][64];
 	char *ret, *addr;
@@ -82,7 +117,7 @@ static char* ext2_load(const char* filename, int32_t *sz) {
 
 	/* read blk#2 to get group descriptor 0 */
 	if(read_block(2, buf1) != 0) {
-		free(buf1);
+		km_free(buf1);
 		return NULL;
 	}
 	gp = (GD *)buf1;
@@ -92,18 +127,18 @@ static char* ext2_load(const char* filename, int32_t *sz) {
 		return NULL;
 	ip = (INODE *)buf1 + 1;   // ip->root inode #2
 
-	char* buf2 = (char*)malloc(BLOCK_SIZE);
+	char* buf2 = (char*)km_alloc(BLOCK_SIZE);
 	/* serach for system name */
 	for (i=0; i<depth; i++) {
-		ino = simple_search(ip, name[i], buf2);
+		ino = search(ip, name[i], buf2);
 		if (ino < 0) {
-			free(buf1);
-			free(buf2);
+			km_free(buf1);
+			km_free(buf2);
 			return NULL;
 		}
 		if(read_block(iblk+(ino/8), buf1) != 0) { // read block inode of me
-			free(buf1);
-			free(buf2);
+			km_free(buf1);
+			km_free(buf2);
 			return NULL;
 		}
 		ip = (INODE *)buf1 + (ino % 8);
@@ -112,7 +147,7 @@ static char* ext2_load(const char* filename, int32_t *sz) {
 	*sz = ip->i_size;
 	int32_t mlc_size = ALIGN_UP(*sz, BLOCK_SIZE);
 	blk12 = ip->i_block[12];
-	addr = (char *)malloc(mlc_size);
+	addr = (char *)km_alloc(mlc_size);
 	ret = addr;
 	/* read indirect block into b2 */
 
@@ -136,8 +171,8 @@ static char* ext2_load(const char* filename, int32_t *sz) {
 		}
 	}
 
-	free(buf1);
-	free(buf2);
+	km_free(buf1);
+	km_free(buf2);
 	return ret;
 }
 

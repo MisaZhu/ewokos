@@ -6,7 +6,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <procinfo.h>
-#include <ext2.h>
 #include <sdread.h>
 
 int errno = ENONE;
