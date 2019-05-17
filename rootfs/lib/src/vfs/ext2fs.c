@@ -540,10 +540,9 @@ int32_t ext2_getino(ext2_t* ext2, const char* filename) {
 		if (ino < 0) {
 			return -1;
 		}
-		if(ext2->read_block(ext2->iblock+(ino-1/8), buf) != 0) { // read block inode of me
+		ip = get_node(ext2, ino, buf);
+		if(ip == NULL) 
 			return -1;
-		}
-		ip = (INODE *)buf + ((ino-1) % 8);
 	}
 	return ino;
 }
