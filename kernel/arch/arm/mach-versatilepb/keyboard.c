@@ -68,6 +68,11 @@ void keyboard_handle() {
 		return;
 
 	if(_held[0x14] == 1 && _ltab[scode] == 'c') { // if control held and 'c' pressed
+		dev_kevent_push(KEV_TERMINATE);
+		return;
+	}
+	else if(_held[0x14] == 1 && _ltab[scode] == '\t') {// if control held and table pressed
+		dev_kevent_push(KEV_CONSOLE_SWITCH);
 		return;
 	}
 	else if(_held[0x14] == 1 && _ltab[scode] == 'd') {// if control held and 'd' pressed

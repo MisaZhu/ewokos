@@ -5,3 +5,4 @@
 obj-y:=
 
 obj-y += basic_dev.o
+obj-y += kevent_dev.o

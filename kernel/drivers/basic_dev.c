@@ -1,13 +1,9 @@
 #include <dev/basic_dev.h>
 #include <proc.h>
 
-/*some devices     */
-extern bool uart_init(void);
-extern bool keyboard_init(void);
-extern bool mouse_init(void);
-extern bool sdc_init(void);
-
 bool dev_init() {
+	if(!kevent_init())
+		return false;
 	if(!uart_init())
 		return false;
 	if(!keyboard_init())
@@ -44,16 +40,6 @@ int32_t dev_info(int32_t type_id, void* info) {
 	return -1;
 }
 
-/*some char devices*/
-extern int32_t dev_keyboard_read(int16_t id, void* buf, uint32_t size);
-extern int32_t dev_mouse_read(int16_t id, void* buf, uint32_t size);
-
-extern int32_t dev_uart_read(int16_t id, void* buf, uint32_t size);
-extern int32_t dev_uart_write(int16_t id, void* buf, uint32_t size);
-
-extern int32_t dev_fb_write(int16_t id, void* buf, uint32_t size);
-/*******************/
-
 int32_t dev_char_read(int32_t type_id, void* buf, uint32_t size) {
 	if(_current_proc->owner > 0)
 		return -1;
@@ -63,6 +49,8 @@ int32_t dev_char_read(int32_t type_id, void* buf, uint32_t size) {
 	id = (type_id & 0xffff);
 
 	switch(type) {
+	case DEV_KEVENT:
+		return dev_kevent_read(id, buf, size);
 	case DEV_KEYBOARD:
 		return dev_keyboard_read(id, buf, size);
 	case DEV_MOUSE:

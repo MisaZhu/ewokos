@@ -51,7 +51,8 @@ ARCH_OBJS = \
 	../arch/arm/mach-$(arch)/hardware.o \
 	../arch/arm/mach-$(arch)/sdc.o
 
-DEV_OBJS =  ../drivers/basic_dev.o
+DEV_OBJS =  ../drivers/basic_dev.o \
+	../drivers/kevent_dev.o
 
 LIB_OBJS = \
 	../lib/kstring.o \

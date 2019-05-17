@@ -4,6 +4,7 @@
 #include <types.h>
 #include <device.h>
 #include <sconf.h>
+#include <dev/kevent_dev.h>
 
 bool dev_init(void);
 bool conf_dev_init(sconf_t* conf);
