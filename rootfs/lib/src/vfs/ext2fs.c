@@ -220,14 +220,14 @@ static int32_t ext2_rm_child(ext2_t* ext2, INODE *ip, const char *name) {
 	char *cp = NULL, *precp = NULL;
 	DIR *dp = NULL;
 
-	char buf[BLOCK_SIZE];
-	char cpbuf[BLOCK_SIZE];
+	char *buf = (char*)malloc(BLOCK_SIZE);
 
 	found = 0;
 	rec_len = 0;
 	first_len = 0;
 	for(i = 0; i<12; i++) {
 		if(ip->i_block[i] == 0) { //cannot find .
+			free(buf);
 			return -1;
 		}
 		ext2->read_block(ip->i_block[i], buf);
@@ -239,6 +239,7 @@ static int32_t ext2_rm_child(ext2_t* ext2, INODE *ip, const char *name) {
 				if(dp->rec_len == BLOCK_SIZE){
 					dp->inode = 0;
 					ext2->write_block(ip->i_block[i], buf);
+					free(buf);
 					return 0;
 				}
 				//(2).2. else if LAST entry in block
@@ -246,6 +247,7 @@ static int32_t ext2_rm_child(ext2_t* ext2, INODE *ip, const char *name) {
 					dp = (DIR *)precp;
 					dp->rec_len = BLOCK_SIZE - (precp - buf);
 					ext2->write_block(ip->i_block[i], buf);
+					free(buf);
 					return 0;
 				}
 				//(2).3. else: entry is first but not the only entry or in the middle of a block:
@@ -261,12 +263,16 @@ static int32_t ext2_rm_child(ext2_t* ext2, INODE *ip, const char *name) {
 		}
 		if(found == 1) {
 			dp->rec_len += rec_len;			
+			char *cpbuf = (char*)malloc(BLOCK_SIZE);
 			memcpy(cpbuf, buf, first_len);
 			memcpy(cpbuf + first_len, buf + first_len + dp->rec_len, BLOCK_SIZE-(first_len+rec_len));
 			ext2->write_block(ip->i_block[i], cpbuf);
+			free(cpbuf);
+			free(buf);
 			return 0;
 		}
 	}
+	free(buf);
 	return -1;
 }
 
@@ -500,19 +506,19 @@ static int32_t search(ext2_t* ext2, INODE *ip, const char *name) {
 	return -1;
 }
 
-#define MAX_DIR_DEPTH 4
+#define MAX_DIR_DEPTH 32
 int32_t ext2_getino(ext2_t* ext2, const char* filename) {
 	char buf[BLOCK_SIZE];
 	int32_t depth, i, ino, u;
-	char name[MAX_DIR_DEPTH][64];
+	tstr_t* name[MAX_DIR_DEPTH];
 	INODE *ip;
 
 	if(strcmp(filename, "/") == 0)
 		return 2; //ino 2 for root;
 
 	depth = 0;
+	char hold[SHORT_NAME_MAX];
 	while(true) {
-		char* hold = name[depth];
 		u = 0;
 		if(*filename == '/') filename++; //skip '/'
 
@@ -520,11 +526,14 @@ int32_t ext2_getino(ext2_t* ext2, const char* filename) {
 			hold[u] = *filename;
 			u++;
 			filename++;
-			if(*filename == 0 || u >= 63)
+			if(*filename == 0 || u >= (SHORT_NAME_MAX-1))
 				break;
 		}
 		hold[u] = 0;
+		name[depth] = tstr_new(hold, MFS);
 		depth++;
+		if(depth >= MAX_DIR_DEPTH)
+			break;
 		if(*filename != 0)
 			filename++;
 		else
@@ -535,14 +544,22 @@ int32_t ext2_getino(ext2_t* ext2, const char* filename) {
 		return -1;
 	ip = (INODE *)buf + 1;   // ip->root inode #2
 	/* serach for system name */
+
+	u = -1;
 	for (i=0; i<depth; i++) {
-		ino = search(ext2, ip, name[i]);
+		ino = search(ext2, ip, CS(name[i]));
 		if (ino < 0) {
-			return -1;
+			ino = -1;
+			break;
 		}
 		ip = get_node(ext2, ino, buf);
-		if(ip == NULL) 
-			return -1;
+		if(ip == NULL) {
+			ino = -1;
+			break;
+		}
+	}
+	for (i=0; i<depth; i++) {
+		tstr_free(name[i]);
 	}
 	return ino;
 }
