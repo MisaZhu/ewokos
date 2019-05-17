@@ -171,6 +171,27 @@ static void do_read(device_t* dev, package_t* pkg) {
 	free(buf);
 }
 
+static void do_fctrl(device_t* dev, package_t* pkg) { 
+	proto_t* proto = proto_new(get_pkg_data(pkg), pkg->size);
+	const char* fname = proto_read_str(proto);
+	uint32_t cmd = (uint32_t)proto_read_int(proto);
+	uint32_t size;
+	void* p = proto_read(proto, &size);
+	proto_free(proto);
+
+	char* ret_data = NULL;
+	int32_t ret = -1;
+	if(dev->fctrl != NULL)
+		ret_data = dev->fctrl(pkg->pid, fname, cmd, p, size, &ret);	
+
+	if(ret < 0)
+		ipc_send(pkg->id, PKG_TYPE_ERR, NULL, 0);
+	else
+		ipc_send(pkg->id, pkg->type, ret_data, ret);
+	if(ret_data != NULL)
+		free(ret_data);
+}
+
 static void do_ctrl(device_t* dev, package_t* pkg) { 
 	proto_t* proto = proto_new(get_pkg_data(pkg), pkg->size);
 	int32_t fd = (int32_t)proto_read_int(proto);
@@ -217,6 +238,9 @@ static void handle(package_t* pkg, void* p) {
 			break;
 		case FS_CTRL:
 			do_ctrl(dev, pkg);
+			break;
+		case FS_FCTRL:
+			do_fctrl(dev, pkg);
 			break;
 		case FS_DMA:
 			do_dma(dev, pkg);

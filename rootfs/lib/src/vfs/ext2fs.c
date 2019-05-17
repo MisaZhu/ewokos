@@ -564,16 +564,15 @@ int32_t ext2_getino(ext2_t* ext2, const char* filename) {
 	return ino;
 }
 
+/*
 static int32_t ext2_findino(ext2_t* ext2, INODE* ip, int32_t *myino, int32_t *pino) {
 	char buf[BLOCK_SIZE];
 	char *cp;
 	DIR *dp;
 
-	/*
-	if(!S_ISDIR(ip->i_mode)) { //not a dir
-		return -1;
-	}
-	*/
+	//if(!S_ISDIR(ip->i_mode)) { //not a dir
+	//	return -1;
+	//}
 	if (ip->i_block[0] == 0)
 		return 0;
 
@@ -586,6 +585,7 @@ static int32_t ext2_findino(ext2_t* ext2, INODE* ip, int32_t *myino, int32_t *pi
 	*pino = dp->inode;
 	return 0;
 }
+*/
 
 int32_t ext2_unlink(ext2_t* ext2, const char* fname) {
 	char buf[BLOCK_SIZE];

@@ -17,6 +17,7 @@ typedef struct {
 	int32_t (*dma)(int32_t pid, int32_t fd, uint32_t *size);
 	int32_t (*flush)(int32_t pid, int32_t fd);
 	void* (*ctrl)(int32_t pid, int32_t fd, int32_t cmd, void* data, uint32_t size, int32_t* ret);
+	void* (*fctrl)(int32_t pid, const char* fname, int32_t cmd, void* data, uint32_t size, int32_t* ret);
 } device_t;
 
 void dev_run(device_t* dev, int32_t argc, char** argv);

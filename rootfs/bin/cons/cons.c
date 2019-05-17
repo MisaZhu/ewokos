@@ -43,19 +43,15 @@ int main(int argc, char* argv[]) {
 	const char* dev_name = "/dev/console0";
 	if(argc > 4) 
 		dev_name = argv[4];
-	int32_t fd = open(dev_name, O_RDONLY);
 
-	if(fd < 0)
-		return -1;
 	if(strcmp(argv[1], "font") == 0) {
-		fs_ctrl(fd, 1, argv[2], strlen(argv[2])+1, NULL, 0); //font cmd: 1;
+		fs_fctrl(dev_name, 1, argv[2], strlen(argv[2])+1, NULL, 0); //font cmd: 1;
 	}
 	else if(strcmp(argv[1], "fg") == 0) {
-		fs_ctrl(fd, 2, argv[2], strlen(argv[2])+1, NULL, 0); //fg color cmd: 2;
+		fs_fctrl(dev_name, 2, argv[2], strlen(argv[2])+1, NULL, 0); //fg color cmd: 2;
 	}
 	else if(strcmp(argv[1], "bg") == 0) {
-		fs_ctrl(fd, 3, argv[2], strlen(argv[2])+1, NULL, 0); //bg color cmd: 3;
+		fs_fctrl(dev_name, 3, argv[2], strlen(argv[2])+1, NULL, 0); //bg color cmd: 3;
 	}
-	close(fd);
 	return 0;
 }

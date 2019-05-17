@@ -25,6 +25,8 @@ int fs_read(int fd, char* buf, uint32_t size);
 
 int fs_ctrl(int fd, int32_t cmd, void* input, uint32_t isize, void* output, uint32_t osize);
 
+int fs_fctrl(const char* fname, int32_t cmd, void* input, uint32_t isize, void* output, uint32_t osize);
+
 int fs_getch(int fd);
 
 int fs_putch(int fd, int c);

@@ -17,6 +17,7 @@ static font_t* _font = NULL;
 
 static graph_t* _graph = NULL;
 static int32_t _keyb_id = -1;
+static bool _enabled = false;
 
 typedef struct {
 	uint32_t start_line;
@@ -51,6 +52,16 @@ static int32_t read_config(void) {
 	return 0;
 }
 
+static void cons_draw_char(int32_t x, int32_t y, char c) {
+	if(_enabled)
+		draw_char(_graph, x, y, c, _font, _fg_color);
+}
+
+static void cons_clear(void) {
+	if(_enabled)
+		clear(_graph, _bg_color);
+}
+
 static int32_t reset(void) {
 	_content.size = 0;
 	_content.start_line = 0;
@@ -65,13 +76,17 @@ static int32_t reset(void) {
 	_content.data = (char*)malloc(data_size);
 	memset(_content.data, 0, data_size);
 
-	clear(_graph, _bg_color);
+	cons_clear();
 	return 0;
 }
 
 static int32_t console_mount(const char* fname, int32_t index) {
 	(void)fname;
-	(void)index;
+	if(index == 0)
+		_enabled = true;
+	else
+		_enabled = false;
+
 	_bg_color = rgb(0x22, 0x22, 0x66);
 	_fg_color = rgb(0xaa, 0xbb, 0xaa);
 	_font = get_font_by_name("8x16");
@@ -111,8 +126,13 @@ static uint32_t get_at(uint32_t i) {
 	return at;
 }
 
+static void flush(void) {
+	if(_enabled)
+		graph_flush(_graph);
+}
+
 static void refresh(void) {
-	clear(_graph, _bg_color);
+	cons_clear();
 	uint32_t i=0;
 	uint32_t x = 0;
 	uint32_t y = 0;
@@ -120,7 +140,7 @@ static void refresh(void) {
 		uint32_t at = get_at(i);
 		char c = _content.data[at];
 		if(c != ' ') {
-			draw_char(_graph, x*_font->w, y*_font->h, _content.data[at], _font, _fg_color);
+			cons_draw_char(x*_font->w, y*_font->h, _content.data[at]);
 		}
 		x++;
 		if(x >= _content.line_w) {
@@ -129,7 +149,7 @@ static void refresh(void) {
 		}
 		i++;
 	}	
-	graph_flush(_graph);
+	flush();
 }
 
 static void move_line(void) {
@@ -186,12 +206,12 @@ static void put_char(char c) {
 		_content.data[at] = c;
 		int32_t x = (_content.size - (_content.line*_content.line_w)) * _font->w;
 		int32_t y = _content.line * _font->h;
-		draw_char(_graph, x, y, c, _font, _fg_color);
+		cons_draw_char(x, y, c);
 		_content.size++;
 	}
 }
 
-int32_t console_write(int32_t pid, int32_t fd, void* buf, uint32_t size, int32_t seek) {
+static int32_t console_write(int32_t pid, int32_t fd, void* buf, uint32_t size, int32_t seek) {
 	(void)pid;
 	(void)fd;
 	(void)seek;
@@ -201,15 +221,22 @@ int32_t console_write(int32_t pid, int32_t fd, void* buf, uint32_t size, int32_t
 		char c = p[i];
 		put_char(c);
 	}
-	graph_flush(_graph);
+	flush();
 	return size;
 }
 
-int32_t console_read(int32_t pid, int32_t fd, void* buf, uint32_t size, int32_t seek) {
+static int32_t console_read(int32_t pid, int32_t fd, void* buf, uint32_t size, int32_t seek) {
 	(void)pid;
 	(void)fd;
 	(void)size;
 	(void)seek;
+
+	if(!_enabled) {
+		errno = EAGAIN;
+		sleep(0);
+		return -1;
+	}
+
 	if(_keyb_id < 0)
 		return -1;
 	int32_t res = read(_keyb_id, buf, 1); 
@@ -225,9 +252,9 @@ int32_t console_read(int32_t pid, int32_t fd, void* buf, uint32_t size, int32_t 
 	return res;
 }
 
-void* console_ctrl(int32_t pid, int32_t fd, int32_t cmd, void* data, uint32_t size, int32_t* ret) {
+static void* console_fctrl(int32_t pid, const char* fname, int32_t cmd, void* data, uint32_t size, int32_t* ret) {
 	(void)pid;
-	(void)fd;
+	(void)fname;
 	(void)data;
 	(void)size;
 	(void)ret;
@@ -250,6 +277,13 @@ void* console_ctrl(int32_t pid, int32_t fd, int32_t cmd, void* data, uint32_t si
 		_bg_color = rgb_int(atoi_base((char*)data, 16));
 		refresh();
 	}
+	else if(cmd == 4) { //enable.
+		_enabled = true;
+		refresh();
+	}
+	else if(cmd == 5) { //disable.
+		_enabled = false;
+	}
 	return NULL;
 }
 
@@ -262,7 +296,7 @@ int main(int argc, char* argv[]) {
 	dev.unmount = console_unmount;
 	dev.write = console_write;
 	dev.read = console_read;
-	dev.ctrl = console_ctrl;
+	dev.fctrl = console_fctrl;
 
 	dev_run(&dev, argc, argv);
 	return 0;

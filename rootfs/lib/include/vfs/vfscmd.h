@@ -26,6 +26,7 @@ enum {
 	FS_WRITE,
 	FS_READ,
 	FS_CTRL,
+	FS_FCTRL,
 	FS_FLUSH,
 	FS_DMA,
 	FS_ADD

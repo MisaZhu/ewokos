@@ -318,7 +318,7 @@ int main(int argc, char* argv[]) {
 	int uid = getuid();
 
 	while(1) {
-		printf("ewok %c ", uid==0?'#':'$');
+		printf("ewok(%s) %c ", getenv("CONSOLE"), uid==0?'#':'$');
 		if(gets(cmdstr) != 0)
 			break;
 

@@ -7,6 +7,7 @@
 #include <kserv.h>
 #include <syscall.h>
 #include <tstr.h>
+#include <kevent.h>
 
 static int start_vfsd(void) {
 	printf("start vfs service ... ");
@@ -93,16 +94,51 @@ static int run_init_procs(const char* fname, bool wait) {
 	return 0;
 }
 
-static void session_loop(void) {
-	while(1) {
-		int pid = fork();
-		if(pid == 0) {
-			exec("/sbin/session");
+/*multi consoles*/
+const char* cons[2] = {
+	"/dev/console0",
+	"/dev/console1"
+};
+
+static int32_t _num = 2;
+static int32_t _si = 0;
+
+static void cons_sw(void) {
+	int32_t i = 0;
+	_si++;
+	if(_si >= _num)
+		_si = 0;
+
+	while(i < _num) {
+		fs_fctrl(cons[i], 5, NULL, 0, NULL, 0); //disable
+		i++;
+	}
+	fs_fctrl(cons[_si], 4, NULL, 0, NULL, 0); //disable
+}
+
+/*system global event*/
+static void kevent_loop(void) {
+	_num = 2;
+	_si = 0;
+	int fd = open("/dev/kevent0", O_RDONLY);
+	if(fd < 0)
+		return;
+
+	while(true) {
+		int32_t ev;
+		int sz = read(fd, &ev, 4);
+		if(sz < 0)
+			break;
+		if(sz == 0)
+			continue;
+		
+		if(ev == KEV_TERMINATE) {//terminate
 		}
-		else {
-			wait(pid);
+		else if(ev == KEV_CONSOLE_SWITCH) {//switch
+			cons_sw();
 		}
 	}
+	close(fd);
 }
 
 int main(int argc, char* argv[]) {
@@ -123,12 +159,27 @@ int main(int argc, char* argv[]) {
 	int pid = fork();
 	if(pid == 0) {
 		setenv("STDIO_DEV", "/dev/console0");
+		setenv("CONSOLE", "1/2");
 		exec("/sbin/session");
 		return 0;
 	}
-	else {
-		setenv("STDIO_DEV", "/dev/tty0");
-		session_loop();
+
+	pid = fork();
+	if(pid == 0) {
+		setenv("STDIO_DEV", "/dev/console1");
+		setenv("CONSOLE", "2/2");
+		exec("/sbin/session");
+		return 0;
 	}
+
+	pid = fork();
+	if(pid == 0) {
+		setenv("STDIO_DEV", "/dev/tty0");
+		setenv("CONSOLE", "tty0");
+		exec("/sbin/session");
+		return 0;
+	}
+
+	kevent_loop();
 	return 0;
 }

@@ -1,5 +1,6 @@
 #include <unistd.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <syscall.h>
 #include <userman.h>
 
@@ -56,7 +57,7 @@ int main(int argc, char* argv[]) {
 		char user[128];
 		char passwd[128];
 
-		printf("login: ");
+		printf("login(%s): ", getenv("CONSOLE"));
 		if(gets(user, 127, true) != 0)
 			return -1;
 

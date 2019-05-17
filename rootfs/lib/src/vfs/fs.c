@@ -140,6 +140,43 @@ int fs_read(int fd, char* buf, uint32_t size) {
 	return sz;
 }
 
+int fs_fctrl(const char* fname, int32_t cmd, void* input, uint32_t isize, void* output, uint32_t osize) {
+	if(fname[0] == 0)
+		return -1;
+	fs_info_t info;
+	if(fs_finfo(fname, &info) != 0)
+		return -1;
+	if(info.dev_serv_pid < 0)
+		return -1;
+
+	proto_t* proto = proto_new(NULL, 0);
+	proto_add_str(proto, fname);
+	proto_add_int(proto, cmd);
+	proto_add(proto, input, isize);
+	package_t* pkg = ipc_req(info.dev_serv_pid, 0, FS_FCTRL, proto->data, proto->size, true);
+	proto_free(proto);
+
+	errno = ENONE;
+	if(pkg == NULL || pkg->type == PKG_TYPE_ERR || pkg->type == PKG_TYPE_AGAIN) {
+		if(pkg->type == PKG_TYPE_AGAIN)
+			errno = EAGAIN;
+		return -1;
+	}
+
+	if(output == NULL || osize == 0) {
+		free(pkg);
+		return 0;
+	}
+	uint32_t sz = pkg->size;
+
+	if(sz > osize)
+		sz = osize;
+	memcpy(output, get_pkg_data(pkg), sz);
+	free(pkg);
+	return 0;
+}
+
+
 int fs_ctrl(int fd, int32_t cmd, void* input, uint32_t isize, void* output, uint32_t osize) {
 	if(fd < 0)
 		return -1;

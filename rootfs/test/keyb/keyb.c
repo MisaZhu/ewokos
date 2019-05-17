@@ -16,8 +16,11 @@ int main(int argc, char* argv[]) {
 	while(true) {
 		char buf[1];
 		int sz = read(fd, buf, 1);
-		if(sz <= 0)
+		if(sz == 0)
+			continue;
+		if(sz < 0) 
 			break;
+
 		printf("%c", buf[0]);
 		if(buf[0] == '\r')
 			break;
