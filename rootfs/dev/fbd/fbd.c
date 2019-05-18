@@ -4,6 +4,7 @@
 #include <fbinfo.h>
 #include <shm.h>
 #include <device.h>
+#include <vfs/fs.h>
 
 static fb_info_t _fb_info;
 static int32_t _fb_buf_id = -1;
@@ -56,7 +57,7 @@ void* fb_ctrl(int32_t pid, int32_t fd, int32_t cmd, void* data, uint32_t size, i
 	(void)size;
 	void* p = NULL;
 
-	if(cmd == 0) {//getfbinfo
+	if(cmd == FS_CTRL_INFO) {//getfbinfo
 		p = &_fb_info;
 		*ret = sizeof(fb_info_t);
 	}

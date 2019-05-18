@@ -5,6 +5,19 @@
 #include <vfs/vfs.h>
 #include <tstr.h>
 
+enum {
+	FS_CTRL_NONE = 0,
+	FS_CTRL_INFO,
+	FS_CTRL_RESET,
+	FS_CTRL_CLEAR,
+	FS_CTRL_ENABLE,
+	FS_CTRL_DISABLE,
+	FS_CTRL_SET_FONT,
+	FS_CTRL_SET_FG_COLOR,
+	FS_CTRL_SET_BG_COLOR,
+	FS_CTRL_CUSTMIZE
+};
+
 int fs_open(const char* name, int32_t flags);
 
 int fs_pipe_open(int fds[2]);

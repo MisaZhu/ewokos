@@ -20,7 +20,7 @@ int32_t fb_open(const char* fname, fb_t* fb) {
 	if(fd < 0) {
 		return -1;
 	}
-	if(fs_ctrl(fd, 0, NULL, 0, &fb_info, sizeof(fb_info_t)) != 0) {
+	if(fs_ctrl(fd, FS_CTRL_INFO, NULL, 0, &fb_info, sizeof(fb_info_t)) != 0) {
 		fs_close(fd);
 		return -1;
 	}

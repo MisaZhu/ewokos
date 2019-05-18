@@ -7,6 +7,7 @@
 #include <graph/font.h>
 #include <basic_math.h>
 #include <kstring.h>
+#include <vfs/fs.h>
 #include <sconf.h>
 
 typedef struct {
@@ -115,11 +116,11 @@ static void xman_fctrl_raw(int32_t cmd, void* data, uint32_t size) {
 	(void)data;
 	(void)size;
 
-	if(cmd == 4) { //enable.
+	if(cmd == FS_CTRL_ENABLE) { //enable.
 		_xman.enabled = true;
 		refresh();
 	}
-	else if(cmd == 5) { //disable.
+	else if(cmd == FS_CTRL_DISABLE) { //disable.
 		_xman.enabled = false;
 	}
 }

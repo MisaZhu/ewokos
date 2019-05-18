@@ -45,13 +45,13 @@ int main(int argc, char* argv[]) {
 		dev_name = argv[4];
 
 	if(strcmp(argv[1], "font") == 0) {
-		fs_fctrl(dev_name, 1, argv[2], strlen(argv[2])+1, NULL, 0); //font cmd: 1;
+		fs_fctrl(dev_name, FS_CTRL_SET_FONT, argv[2], strlen(argv[2])+1, NULL, 0);
 	}
 	else if(strcmp(argv[1], "fg") == 0) {
-		fs_fctrl(dev_name, 2, argv[2], strlen(argv[2])+1, NULL, 0); //fg color cmd: 2;
+		fs_fctrl(dev_name, FS_CTRL_SET_FG_COLOR, argv[2], strlen(argv[2])+1, NULL, 0);
 	}
 	else if(strcmp(argv[1], "bg") == 0) {
-		fs_fctrl(dev_name, 3, argv[2], strlen(argv[2])+1, NULL, 0); //bg color cmd: 3;
+		fs_fctrl(dev_name, FS_CTRL_SET_BG_COLOR, argv[2], strlen(argv[2])+1, NULL, 0);
 	}
 	return 0;
 }

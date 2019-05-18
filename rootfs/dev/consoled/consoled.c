@@ -8,6 +8,7 @@
 #include <basic_math.h>
 #include <kstring.h>
 #include <sconf.h>
+#include <vfs/fs.h>
 
 #define T_W 2 /*tab width*/
 
@@ -257,29 +258,29 @@ static int32_t console_read(int32_t pid, int32_t fd, void* buf, uint32_t size, i
 static void console_fctrl_raw(int32_t cmd, void* data, uint32_t size) {
 	(void)size;
 
-	if(cmd == 0) { //clear.
+	if(cmd == FS_CTRL_CLEAR) { //clear.
 		reset();
 	}
-	else if(cmd == 1) { //set font.
+	else if(cmd == FS_CTRL_SET_FONT) { //set font.
 		font_t* fnt = get_font_by_name((char*)data);
 		if(fnt != NULL) {
 			_font = fnt;
 			reset();
 		}
 	}
-	else if(cmd == 2) { //set fg color.
+	else if(cmd == FS_CTRL_SET_FG_COLOR) { //set fg color.
 		_fg_color = rgb_int(atoi_base((char*)data, 16));
 		refresh();
 	}
-	else if(cmd == 3) { //set bg color.
+	else if(cmd == FS_CTRL_SET_BG_COLOR) { //set bg color.
 		_bg_color = rgb_int(atoi_base((char*)data, 16));
 		refresh();
 	}
-	else if(cmd == 4) { //enable.
+	else if(cmd == FS_CTRL_ENABLE) { //enable.
 		_enabled = true;
 		refresh();
 	}
-	else if(cmd == 5) { //disable.
+	else if(cmd == FS_CTRL_DISABLE) { //disable.
 		_enabled = false;
 	}
 }
