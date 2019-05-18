@@ -43,7 +43,7 @@ static int32_t init_stdio(const char* dev) {
 		fd = open(dev, O_RDONLY);
 		if(fd >= 0)
 			break;
-		usleep(100000);
+		usleep(200000);
 	}
 	
 	dup2(fd, 0);
@@ -57,7 +57,7 @@ int main(int argc, char* argv[]) {
 
 	init_stdio(getenv("STDIO_DEV"));
 	welcome();
-	usleep(100000);
+	usleep(200000);
 	while(1) {
 		int pid = fork();
 		if(pid == 0) {

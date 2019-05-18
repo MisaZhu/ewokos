@@ -120,7 +120,10 @@ static int32_t sdcard_open(int32_t pid, int32_t fd, int32_t flags) {
 	return 0;
 }
 
-static int32_t sdcard_close(fs_info_t* info) {
+static int32_t sdcard_close(int32_t pid, int32_t fd, fs_info_t* info) {
+	(void)pid;
+	(void)fd;
+
 	if(info == NULL || info->data == NULL || info->node == 0)
 		return -1;
 	ext2_node_data_t* data = (ext2_node_data_t*)info->data;

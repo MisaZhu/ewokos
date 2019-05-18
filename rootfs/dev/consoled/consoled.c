@@ -15,6 +15,7 @@ static uint32_t _bg_color = 0x0;
 static uint32_t _fg_color = 0xffffffff;
 static font_t* _font = NULL;
 
+static fb_t _fb;
 static graph_t* _graph = NULL;
 static int32_t _keyb_id = -1;
 static bool _enabled = false;
@@ -98,9 +99,9 @@ static int32_t console_mount(const char* fname, int32_t index) {
 	if(_keyb_id < 0)
 		return -1;
 
-	_graph = graph_open("/dev/fb0");
-	if(_graph == NULL)
+	if(fb_open("/dev/fb0", &_fb) != 0)
 		return -1;
+	_graph = graph_from_fb(&_fb);
 	memset(&_content, 0, sizeof(content_t));
 	return reset();
 }
@@ -112,8 +113,9 @@ static int32_t console_unmount(int32_t pid, const char* fname) {
 		return -1;
 	close(_keyb_id);
 	free(_content.data);
-	graph_close(_graph);
+	graph_free(_graph);
 	_graph = NULL;
+	fb_close(&_fb);
 	_content.size = 0;
 	_content.data = NULL;
 	return 0;
@@ -128,7 +130,7 @@ static uint32_t get_at(uint32_t i) {
 
 static void flush(void) {
 	if(_enabled)
-		graph_flush(_graph);
+		fb_flush(&_fb);
 }
 
 static void refresh(void) {
@@ -233,7 +235,7 @@ static int32_t console_read(int32_t pid, int32_t fd, void* buf, uint32_t size, i
 
 	if(!_enabled) {
 		errno = EAGAIN;
-		//sleep(1);
+		sleep(0);
 		return -1;
 	}
 
@@ -252,12 +254,8 @@ static int32_t console_read(int32_t pid, int32_t fd, void* buf, uint32_t size, i
 	return res;
 }
 
-static void* console_fctrl(int32_t pid, const char* fname, int32_t cmd, void* data, uint32_t size, int32_t* ret) {
-	(void)pid;
-	(void)fname;
-	(void)data;
+static void console_fctrl_raw(int32_t cmd, void* data, uint32_t size) {
 	(void)size;
-	(void)ret;
 
 	if(cmd == 0) { //clear.
 		reset();
@@ -284,6 +282,22 @@ static void* console_fctrl(int32_t pid, const char* fname, int32_t cmd, void* da
 	else if(cmd == 5) { //disable.
 		_enabled = false;
 	}
+}
+
+static void* console_fctrl(int32_t pid, const char* fname, int32_t cmd, void* data, uint32_t size, int32_t* ret) {
+	(void)pid;
+	(void)fname;
+	(void)ret;
+	console_fctrl_raw(cmd, data, size);
+	return NULL;
+}
+
+static void* console_ctrl(int32_t pid, int32_t fd, int32_t cmd, void* data, uint32_t size, int32_t* ret) {
+	(void)pid;
+	(void)fd;
+	(void)ret;
+
+	console_fctrl_raw(cmd, data, size);
 	return NULL;
 }
 
@@ -297,6 +311,7 @@ int main(int argc, char* argv[]) {
 	dev.write = console_write;
 	dev.read = console_read;
 	dev.fctrl = console_fctrl;
+	dev.ctrl = console_ctrl;
 
 	dev_run(&dev, argc, argv);
 	return 0;

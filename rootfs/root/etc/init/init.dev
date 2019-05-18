@@ -12,6 +12,6 @@
 /sbin/dev/moused   dev.mouse     0        /dev/mouse0   f
 /sbin/dev/consoled dev.console   0        /dev/console0 f
 /sbin/dev/consoled dev.console   1        /dev/console1 f
-/sbin/dev/consoled dev.console   2        /dev/console2 f
-/sbin/dev/consoled dev.console   3        /dev/console3 f
-
+#/sbin/dev/consoled dev.console   2        /dev/console2 f
+#/sbin/dev/consoled dev.console   3        /dev/console3 f
+/sbin/dev/xmand    dev.xman      0        /dev/xman0    f

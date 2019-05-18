@@ -59,5 +59,5 @@ int main(int argc, char* argv[]) {
 		return -1;
 	}
 
-	return kserv_run(handle, NULL);
+	return kserv_run(handle, NULL, NULL, NULL);
 }

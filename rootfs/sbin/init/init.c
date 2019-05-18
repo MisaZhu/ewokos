@@ -105,17 +105,27 @@ static int32_t _console_index = 0;
 static void cons_sw(void) {
 	int32_t i = 0;
 	_console_index++;
-	if(_console_index >= _console_num)
+	if(_console_index > _console_num)
 		_console_index = 0;
 
 	char dev[SHORT_NAME_MAX];	
+	strcpy(dev, "/dev/xman0");
+	fs_fctrl(dev, 5, NULL, 0, NULL, 0); //enable
+
 	while(i < _console_num) {
 		snprintf(dev, SHORT_NAME_MAX-1, "/dev/console%d", i);
 		fs_fctrl(dev, 5, NULL, 0, NULL, 0); //disable
 		i++;
 	}
-	snprintf(dev, SHORT_NAME_MAX-1, "/dev/console%d", _console_index);
-	fs_fctrl(dev, 4, NULL, 0, NULL, 0); //enable
+
+	if(_console_index < _console_num) {
+		snprintf(dev, SHORT_NAME_MAX-1, "/dev/console%d", _console_index);
+		fs_fctrl(dev, 4, NULL, 0, NULL, 0); //enable
+	}
+	else if(_console_index == _console_num) { //xman
+		strcpy(dev, "/dev/xman0");
+		fs_fctrl(dev, 4, NULL, 0, NULL, 0); //enable
+	}
 }
 
 /*system global event*/
@@ -130,14 +140,14 @@ static void kevent_loop(void) {
 		int sz = read(fd, &ev, 4);
 		if(sz < 0)
 			break;
-		if(sz == 0)
-			continue;
-		
-		if(ev == KEV_TERMINATE) {//terminate
+		if(sz > 0) {
+			if(ev == KEV_TERMINATE) {//terminate
+			}
+			else if(ev == KEV_CONSOLE_SWITCH) {//switch
+				cons_sw();
+			}
 		}
-		else if(ev == KEV_CONSOLE_SWITCH) {//switch
-			cons_sw();
-		}
+		sleep(0);
 	}
 	close(fd);
 }

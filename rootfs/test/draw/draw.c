@@ -8,7 +8,10 @@
 
 void fbtest(void) {
 	font_t* font = get_font_by_name("16x32");
-	graph_t* g = graph_open("/dev/fb0");
+	fb_t fb;
+	if(fb_open("/dev/fb0", &fb) != 0)
+		return;
+	graph_t* g = graph_from_fb(&fb);
 	if(g == NULL) {
 		return;
 	}
@@ -20,11 +23,12 @@ void fbtest(void) {
 		snprintf(s, 31, "Hello, MicroKernel OS! (%d)", i++);
 		fill(g, 10, 10, font->w* strlen(s) + 20, font->h + 20, rgb(0, 0, 0));
 		draw_text(g, 20, 20, s, font, rgb(255, 255, 255));
-		graph_flush(g);
+		fb_flush(&fb);
 		sleep(0);
 	}
 
-	graph_close(g);
+	graph_free(g);
+	fb_close(&fb);
 }
 
 int main(int argc, char* argv[]) {

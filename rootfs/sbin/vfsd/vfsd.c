@@ -377,7 +377,12 @@ static void do_close(package_t* pkg) {
 	if(info.dev_serv_pid == getpid())
 		do_pipe_close(info.node, false);
 	else if(info.dev_serv_pid > 0) {
-		ipc_req(info.dev_serv_pid, 0, FS_CLOSE, &info, sizeof(fs_info_t), false);
+		proto_t* proto = proto_new(NULL, 0);
+		proto_add_int(proto, pkg->pid);
+		proto_add_int(proto, fd);
+		proto_add(proto, &info, sizeof(fs_info_t));
+		ipc_req(info.dev_serv_pid, 0, FS_CLOSE, proto->data, proto->size, false);
+		proto_free(proto);
 	}		
 
 	rm_opened(info.node);
@@ -651,7 +656,7 @@ int main(int argc, char* argv[]) {
 	opens_init();
 
 	kserv_ready();
-	int ret = kserv_run(handle, NULL);
+	int ret = kserv_run(handle, NULL, NULL, NULL);
 
 	opens_clear();
 	return ret;

@@ -6,6 +6,7 @@ include dev/keybd/build.mk
 include dev/moused/build.mk
 include dev/kevent/build.mk
 include dev/consoled/build.mk
+include dev/xmand/build.mk
 include dev/fbd/build.mk
 include dev/procd/build.mk
 

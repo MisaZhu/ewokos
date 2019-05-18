@@ -105,7 +105,10 @@ static int32_t sramdisk_remove(fs_info_t* info, const char* fname) {
 	return 0;
 }
 
-static int32_t sramdisk_close(fs_info_t* info) {
+static int32_t sramdisk_close(int32_t pid, int32_t fd, fs_info_t* info) {
+	(void)pid;
+	(void)fd;
+
 	if(info == NULL)
 		return 0;
 	if(info->type == FS_TYPE_DIR)
