@@ -7,6 +7,7 @@
 #include <kserv.h>
 #include <syscall.h>
 #include <tstr.h>
+#include <kstring.h>
 #include <kevent.h>
 
 static int start_vfsd(void) {
@@ -20,18 +21,23 @@ static int start_vfsd(void) {
 	return 0;
 }
 
+static int32_t _console_num = 0;
+
 static int run_init_dev(const char* fname) {
 	int32_t size;
 	char* data = from_sd(fname, &size);
 	if(data == NULL)
 		return -1;
 
+	_console_num = 0;
 	char* cmd = data;
 	int i = 0;
 	while(i < size) {
 		if(data[i] == '\n' || data[i] == 0) {
 			data[i] = 0;
 			if(cmd[0] != 0 && cmd[0] != '#') {
+				if(strstr(cmd, "consoled") != NULL)
+					_console_num++;
 				int pid = fork();
 				if(pid == 0) { 
 					exec(cmd);
@@ -94,32 +100,27 @@ static int run_init_procs(const char* fname, bool wait) {
 	return 0;
 }
 
-/*multi consoles*/
-const char* cons[2] = {
-	"/dev/console0",
-	"/dev/console1"
-};
-
-static int32_t _num = 2;
-static int32_t _si = 0;
+static int32_t _console_index = 0;
 
 static void cons_sw(void) {
 	int32_t i = 0;
-	_si++;
-	if(_si >= _num)
-		_si = 0;
+	_console_index++;
+	if(_console_index >= _console_num)
+		_console_index = 0;
 
-	while(i < _num) {
-		fs_fctrl(cons[i], 5, NULL, 0, NULL, 0); //disable
+	char dev[SHORT_NAME_MAX];	
+	while(i < _console_num) {
+		snprintf(dev, SHORT_NAME_MAX-1, "/dev/console%d", i);
+		fs_fctrl(dev, 5, NULL, 0, NULL, 0); //disable
 		i++;
 	}
-	fs_fctrl(cons[_si], 4, NULL, 0, NULL, 0); //disable
+	snprintf(dev, SHORT_NAME_MAX-1, "/dev/console%d", _console_index);
+	fs_fctrl(dev, 4, NULL, 0, NULL, 0); //enable
 }
 
 /*system global event*/
 static void kevent_loop(void) {
-	_num = 2;
-	_si = 0;
+	_console_index = 0;
 	int fd = open("/dev/kevent0", O_RDONLY);
 	if(fd < 0)
 		return;
@@ -141,6 +142,31 @@ static void kevent_loop(void) {
 	close(fd);
 }
 
+static void run_consoles(void) {
+	int pid = 0;
+	int i;	
+	for(i=0; i<_console_num; i++) {	
+		char dev[SHORT_NAME_MAX];	
+		char name[SHORT_NAME_MAX];	
+		snprintf(dev, SHORT_NAME_MAX-1, "/dev/console%d", i);
+		snprintf(name, SHORT_NAME_MAX-1, "%d/%d", i+1, _console_num);
+		pid = fork();
+		if(pid == 0) {
+			setenv("STDIO_DEV", dev);
+			setenv("CONSOLE", name);
+			exec("/sbin/session");
+			return;
+		}
+	}
+
+	pid = fork();
+	if(pid == 0) {
+		setenv("STDIO_DEV", "/dev/tty0");
+		setenv("CONSOLE", "tty0");
+		exec("/sbin/session");
+	}
+}
+
 int main(int argc, char* argv[]) {
 	(void)argc;
 	(void)argv;
@@ -156,30 +182,8 @@ int main(int argc, char* argv[]) {
 	/*set uid to root*/
 	syscall2(SYSCALL_SET_UID, getpid(), 0);
 	/*run 2 session for uart0 and framebuffer based console0*/
-	int pid = fork();
-	if(pid == 0) {
-		setenv("STDIO_DEV", "/dev/console0");
-		setenv("CONSOLE", "1/2");
-		exec("/sbin/session");
-		return 0;
-	}
 
-	pid = fork();
-	if(pid == 0) {
-		setenv("STDIO_DEV", "/dev/console1");
-		setenv("CONSOLE", "2/2");
-		exec("/sbin/session");
-		return 0;
-	}
-
-	pid = fork();
-	if(pid == 0) {
-		setenv("STDIO_DEV", "/dev/tty0");
-		setenv("CONSOLE", "tty0");
-		exec("/sbin/session");
-		return 0;
-	}
-
+	run_consoles();
 	kevent_loop();
 	return 0;
 }

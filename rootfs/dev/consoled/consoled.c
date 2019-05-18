@@ -233,7 +233,7 @@ static int32_t console_read(int32_t pid, int32_t fd, void* buf, uint32_t size, i
 
 	if(!_enabled) {
 		errno = EAGAIN;
-		sleep(0);
+		//sleep(1);
 		return -1;
 	}
 
