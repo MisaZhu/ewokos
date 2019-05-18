@@ -9,15 +9,19 @@ int kserv_register(const char* reg_name) {
 	return syscall1(SYSCALL_KSERV_REG, (int)reg_name);
 }
 
-int kserv_run(kserv_func_t servFunc, void* p) {
+int kserv_run(kserv_func_t serv_func, void* p, kserv_step_func_t step_func, void* pstep) {
   while(true) {
-    package_t* pkg = ipc_roll();
+		bool block = step_func == NULL ? true:false;
+    package_t* pkg = ipc_roll(block);
     if(pkg != NULL) {
-      servFunc(pkg, p);
+      serv_func(pkg, p);
       free(pkg);
     }
-    else
-      sleep(0);
+    else {
+			if(step_func != NULL)
+				step_func(pstep);
+	    sleep(0);
+		}
   }
 	return 0;
 }

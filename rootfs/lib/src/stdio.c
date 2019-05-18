@@ -27,6 +27,7 @@ static void stdout_flush(void) {
 		}
 		else if(errno != EAGAIN)
 			break;
+		sleep(0);
 	}
 	_out_size = 0;
 }

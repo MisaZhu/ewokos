@@ -122,13 +122,17 @@ package_t* ipc_req(int pid, uint32_t buf_size, uint32_t type, void* data, uint32
 	return pkg;
 }
 
-package_t* ipc_roll() {
+package_t* ipc_roll(bool block) {
 	int id = -1;
 	while(true) {
-		id = syscall0(SYSCALL_IPC_READY);
+		id = syscall1(SYSCALL_IPC_READY, (int32_t)block);
 		if(id >= 0)
 			break;
-		sleep(0);
+		else {
+			if(!block)
+				return NULL;
+			sleep(0);
+		}
 	}
 	
 	package_t* pkg = ipc_recv(id);

@@ -32,12 +32,16 @@ static void do_close(device_t* dev, package_t* pkg) {
 		return;
 	}
 
-	fs_info_t* info = (fs_info_t*)get_pkg_data(pkg);
+	proto_t* proto = proto_new(get_pkg_data(pkg), pkg->size);
+	int32_t pid = proto_read_int(proto);
+	int32_t fd = proto_read_int(proto);
+	fs_info_t* info = (fs_info_t*)proto_read(proto, NULL);
+	proto_free(proto);
 	if(info == NULL || info->node == 0) {
 		return;
 	}
 	if(dev->close != NULL)
-		dev->close(info);
+		dev->close(pid, fd, info);
 }
 
 static void do_remove(device_t* dev, package_t* pkg) { 
@@ -294,6 +298,6 @@ void dev_run(device_t* dev, int32_t argc, char** argv) {
 		return;
 	}
 
-	kserv_run(handle, dev);
+	kserv_run(handle, dev, dev->step, dev);
 	unmount(dev, node_name);
 }
