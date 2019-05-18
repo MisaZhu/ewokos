@@ -7,12 +7,12 @@
 
 static void help(void) {
 	printf(
-		"console config tool\n"
-		"usage: cons <cmd> <arg> [dev_name]\n"
-		"    cons font:           list font names\n"
-		"    cons font <NAME>:    set font\n"
-		"    cons fg <HEX_COLOR>: set foreground color\n"
-		"    cons bg <HEX_COLOR>: set background color\n");
+		"xconfole config tool\n"
+		"usage: xconf <cmd> <arg> [dev_name]\n"
+		"    xconf font:           list font names\n"
+		"    xconf font <NAME>:    set font\n"
+		"    xconf fg <HEX_COLOR>: set foreground color\n"
+		"    xconf bg <HEX_COLOR>: set background color\n");
 }
 
 static void fonts(void) {
@@ -41,8 +41,8 @@ int main(int argc, char* argv[]) {
 	}
 
 	const char* dev_name = "/dev/console0";
-	if(argc > 4) 
-		dev_name = argv[4];
+	if(argc > 3) 
+		dev_name = argv[3];
 
 	if(strcmp(argv[1], "font") == 0) {
 		fs_fctrl(dev_name, FS_CTRL_SET_FONT, argv[2], strlen(argv[2])+1, NULL, 0);

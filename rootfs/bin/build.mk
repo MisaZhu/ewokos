@@ -4,7 +4,7 @@ include bin/ls/build.mk
 include bin/rm/build.mk
 include bin/mount/build.mk
 include bin/clear/build.mk
-include bin/cons/build.mk
+include bin/xconf/build.mk
 include bin/cat/build.mk
 include bin/grep/build.mk
 include bin/pwd/build.mk

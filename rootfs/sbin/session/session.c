@@ -55,9 +55,9 @@ int main(int argc, char* argv[]) {
 	(void)argc;
 	(void)argv;
 
+	usleep(200000);
 	init_stdio(getenv("STDIO_DEV"));
 	welcome();
-	usleep(200000);
 	while(1) {
 		int pid = fork();
 		if(pid == 0) {

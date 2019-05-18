@@ -12,15 +12,6 @@
 
 #define T_W 2 /*tab width*/
 
-static uint32_t _bg_color = 0x0;
-static uint32_t _fg_color = 0xffffffff;
-static font_t* _font = NULL;
-
-static fb_t _fb;
-static graph_t* _graph = NULL;
-static int32_t _keyb_id = -1;
-static bool _enabled = false;
-
 typedef struct {
 	uint32_t start_line;
 	uint32_t line;
@@ -31,7 +22,18 @@ typedef struct {
 	uint32_t size;
 } content_t;
 
-static content_t _content;
+typedef struct {
+	uint32_t bg_color;
+	uint32_t fg_color;
+	font_t* font;
+	fb_t fb;
+	graph_t* graph;
+	int32_t keyb_fd;
+	bool enabled;
+	content_t content;
+} console_t;
+
+static console_t _console;
 
 static int32_t read_config(void) {
 	sconf_t *conf = sconf_load("/etc/console.conf");	
@@ -40,43 +42,43 @@ static int32_t read_config(void) {
 	
 	const char* v = sconf_get(conf, "bg_color");
 	if(v[0] != 0) 
-		_bg_color = rgb_int(atoi_base(v, 16));
+		_console.bg_color = rgb_int(atoi_base(v, 16));
 
 	v = sconf_get(conf, "fg_color");
 	if(v[0] != 0) 
-		_fg_color = rgb_int(atoi_base(v, 16));
+		_console.fg_color = rgb_int(atoi_base(v, 16));
 
 	v = sconf_get(conf, "font");
 	if(v[0] != 0) 
-		_font = get_font_by_name(v);
+		_console.font = get_font_by_name(v);
 
 	sconf_free(conf, MFS);
 	return 0;
 }
 
 static void cons_draw_char(int32_t x, int32_t y, char c) {
-	if(_enabled)
-		draw_char(_graph, x, y, c, _font, _fg_color);
+	if(_console.enabled)
+		draw_char(_console.graph, x, y, c, _console.font, _console.fg_color);
 }
 
 static void cons_clear(void) {
-	if(_enabled)
-		clear(_graph, _bg_color);
+	if(_console.enabled)
+		clear(_console.graph, _console.bg_color);
 }
 
 static int32_t reset(void) {
-	_content.size = 0;
-	_content.start_line = 0;
-	_content.line = 0;
-	_content.line_w = div_u32(_graph->w, _font->w)-1;
-	_content.line_num = div_u32(_graph->h, _font->h)-1;
-	_content.total = _content.line_num * _content.line_w;
+	_console.content.size = 0;
+	_console.content.start_line = 0;
+	_console.content.line = 0;
+	_console.content.line_w = div_u32(_console.graph->w, _console.font->w)-1;
+	_console.content.line_num = div_u32(_console.graph->h, _console.font->h)-1;
+	_console.content.total = _console.content.line_num * _console.content.line_w;
 
-	uint32_t data_size = _content.line_num*_content.line_w;
-	if(_content.data != NULL)
-		free(_content.data);
-	_content.data = (char*)malloc(data_size);
-	memset(_content.data, 0, data_size);
+	uint32_t data_size = _console.content.line_num*_console.content.line_w;
+	if(_console.content.data != NULL)
+		free(_console.content.data);
+	_console.content.data = (char*)malloc(data_size);
+	memset(_console.content.data, 0, data_size);
 
 	cons_clear();
 	return 0;
@@ -85,53 +87,53 @@ static int32_t reset(void) {
 static int32_t console_mount(const char* fname, int32_t index) {
 	(void)fname;
 	if(index == 0)
-		_enabled = true;
+		_console.enabled = true;
 	else
-		_enabled = false;
+		_console.enabled = false;
 
-	_bg_color = rgb(0x22, 0x22, 0x66);
-	_fg_color = rgb(0xaa, 0xbb, 0xaa);
-	_font = get_font_by_name("8x16");
-	if(_font == NULL)
+	_console.bg_color = rgb(0x22, 0x22, 0x66);
+	_console.fg_color = rgb(0xaa, 0xbb, 0xaa);
+	_console.font = get_font_by_name("8x16");
+	if(_console.font == NULL)
 		return -1;
 	read_config();
 
-	_keyb_id = open("/dev/keyb0", 0);
-	if(_keyb_id < 0)
+	_console.keyb_fd = open("/dev/keyb0", 0);
+	if(_console.keyb_fd < 0)
 		return -1;
 
-	if(fb_open("/dev/fb0", &_fb) != 0)
+	if(fb_open("/dev/fb0", &_console.fb) != 0)
 		return -1;
-	_graph = graph_from_fb(&_fb);
-	memset(&_content, 0, sizeof(content_t));
+	_console.graph = graph_from_fb(&_console.fb);
+	memset(&_console.content, 0, sizeof(content_t));
 	return reset();
 }
 
 static int32_t console_unmount(int32_t pid, const char* fname) {
 	(void)pid;
 	(void)fname;
-	if(_graph == NULL)
+	if(_console.graph == NULL)
 		return -1;
-	close(_keyb_id);
-	free(_content.data);
-	graph_free(_graph);
-	_graph = NULL;
-	fb_close(&_fb);
-	_content.size = 0;
-	_content.data = NULL;
+	close(_console.keyb_fd);
+	free(_console.content.data);
+	graph_free(_console.graph);
+	_console.graph = NULL;
+	fb_close(&_console.fb);
+	_console.content.size = 0;
+	_console.content.data = NULL;
 	return 0;
 }
 
 static uint32_t get_at(uint32_t i) {
-	uint32_t at = i + (_content.line_w * _content.start_line);
-	if(at >= _content.total)
-		at -=  _content.total;
+	uint32_t at = i + (_console.content.line_w * _console.content.start_line);
+	if(at >= _console.content.total)
+		at -=  _console.content.total;
 	return at;
 }
 
 static void flush(void) {
-	if(_enabled)
-		fb_flush(&_fb);
+	if(_console.enabled)
+		fb_flush(&_console.fb);
 }
 
 static void refresh(void) {
@@ -139,14 +141,14 @@ static void refresh(void) {
 	uint32_t i=0;
 	uint32_t x = 0;
 	uint32_t y = 0;
-	while(i < _content.size) {
+	while(i < _console.content.size) {
 		uint32_t at = get_at(i);
-		char c = _content.data[at];
+		char c = _console.content.data[at];
 		if(c != ' ') {
-			cons_draw_char(x*_font->w, y*_font->h, _content.data[at]);
+			cons_draw_char(x*_console.font->w, y*_console.font->h, _console.content.data[at]);
 		}
 		x++;
-		if(x >= _content.line_w) {
+		if(x >= _console.content.line_w) {
 			y++;
 			x = 0;
 		}
@@ -156,11 +158,11 @@ static void refresh(void) {
 }
 
 static void move_line(void) {
-	_content.line--;
-	_content.start_line++;
-	if(_content.start_line >= _content.line_num)
-		_content.start_line = 0;
-	_content.size -= _content.line_w;
+	_console.content.line--;
+	_console.content.start_line++;
+	if(_console.content.start_line >= _console.content.line_num)
+		_console.content.start_line = 0;
+	_console.content.size -= _console.content.line_w;
 	refresh();
 }
 
@@ -169,8 +171,8 @@ static void put_char(char c) {
 		c = '\n';
 
 	if(c == 8) { //backspace
-		if(_content.size > 0) {
-			_content.size--;
+		if(_console.content.size > 0) {
+			_console.content.size--;
 			refresh();
 		}
 		return;
@@ -184,33 +186,33 @@ static void put_char(char c) {
 		return;
 	}
 	if(c == '\n') { //new line.
-		uint32_t x =  _content.size - (_content.line*_content.line_w);
-		while(x < _content.line_w) {
-			uint32_t at = get_at(_content.size);
-			_content.data[at] = ' ';
-			_content.size++;
+		uint32_t x =  _console.content.size - (_console.content.line*_console.content.line_w);
+		while(x < _console.content.line_w) {
+			uint32_t at = get_at(_console.content.size);
+			_console.content.data[at] = ' ';
+			_console.content.size++;
 			x++;
 		}
-		_content.line++;
+		_console.content.line++;
 	}
 	else {
-		uint32_t x =  _content.size - (_content.line*_content.line_w) + 1;
-		if(x == _content.line_w) {
-			_content.line++;
+		uint32_t x =  _console.content.size - (_console.content.line*_console.content.line_w) + 1;
+		if(x == _console.content.line_w) {
+			_console.content.line++;
 		}
 	}
 
-	if((_content.line) >= _content.line_num) {
+	if((_console.content.line) >= _console.content.line_num) {
 		move_line();
 	}
 	
 	if(c != '\n') {
-		uint32_t at = get_at(_content.size);
-		_content.data[at] = c;
-		int32_t x = (_content.size - (_content.line*_content.line_w)) * _font->w;
-		int32_t y = _content.line * _font->h;
+		uint32_t at = get_at(_console.content.size);
+		_console.content.data[at] = c;
+		int32_t x = (_console.content.size - (_console.content.line*_console.content.line_w)) * _console.font->w;
+		int32_t y = _console.content.line * _console.font->h;
 		cons_draw_char(x, y, c);
-		_content.size++;
+		_console.content.size++;
 	}
 }
 
@@ -234,15 +236,15 @@ static int32_t console_read(int32_t pid, int32_t fd, void* buf, uint32_t size, i
 	(void)size;
 	(void)seek;
 
-	if(!_enabled) {
+	if(!_console.enabled) {
 		errno = EAGAIN;
 		sleep(0);
 		return -1;
 	}
 
-	if(_keyb_id < 0)
+	if(_console.keyb_fd < 0)
 		return -1;
-	int32_t res = read(_keyb_id, buf, 1); 
+	int32_t res = read(_console.keyb_fd, buf, 1); 
 	errno = ENONE;
 	if(res == 0) {
 		res = -1;
@@ -264,24 +266,24 @@ static void console_fctrl_raw(int32_t cmd, void* data, uint32_t size) {
 	else if(cmd == FS_CTRL_SET_FONT) { //set font.
 		font_t* fnt = get_font_by_name((char*)data);
 		if(fnt != NULL) {
-			_font = fnt;
+			_console.font = fnt;
 			reset();
 		}
 	}
 	else if(cmd == FS_CTRL_SET_FG_COLOR) { //set fg color.
-		_fg_color = rgb_int(atoi_base((char*)data, 16));
+		_console.fg_color = rgb_int(atoi_base((char*)data, 16));
 		refresh();
 	}
 	else if(cmd == FS_CTRL_SET_BG_COLOR) { //set bg color.
-		_bg_color = rgb_int(atoi_base((char*)data, 16));
+		_console.bg_color = rgb_int(atoi_base((char*)data, 16));
 		refresh();
 	}
 	else if(cmd == FS_CTRL_ENABLE) { //enable.
-		_enabled = true;
+		_console.enabled = true;
 		refresh();
 	}
 	else if(cmd == FS_CTRL_DISABLE) { //disable.
-		_enabled = false;
+		_console.enabled = false;
 	}
 }
 
