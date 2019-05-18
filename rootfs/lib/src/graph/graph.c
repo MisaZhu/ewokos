@@ -88,7 +88,7 @@ inline void pixel_safe(graph_t* g, int32_t x, int32_t y, uint32_t color) {
 	g->buffer[y * g->w + x] = color;
 }
 
-static inline void pixel(graph_t* g, int32_t x, int32_t y, uint32_t color) {
+inline void pixel(graph_t* g, int32_t x, int32_t y, uint32_t color) {
 	g->buffer[y * g->w + x] = color;
 }
 

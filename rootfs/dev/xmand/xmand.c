@@ -61,6 +61,14 @@ static void flush(void) {
 
 static void refresh(void) {
 	xman_clear();
+	int32_t x, y;
+	for(y=10; y<_xman.graph->h; y+=10) {
+		for(x=0; x<_xman.graph->w; x+=10) {
+			pixel(_xman.graph, x, y, _xman.fg_color);
+		}
+	}
+
+	draw_text(_xman.graph, 10, 10, "EwokOS X Man", _xman.font, _xman.fg_color);
 	flush();
 }
 
@@ -92,8 +100,8 @@ static int32_t xman_mount(const char* fname, int32_t index) {
 
 	_xman.mx=0;
 	_xman.my=0;
-	_xman.mw=16;
-	_xman.mh=16;
+	_xman.mw=14;
+	_xman.mh=14;
 	_xman.mg = NULL;
 	_xman.dirty = 1;
 	return 0;
@@ -145,8 +153,7 @@ static void* xman_fctrl(int32_t pid, const char* fname, int32_t cmd, void* data,
 	return NULL;
 }
 
-static bool read_mouse(int32_t *x, int32_t *y, int32_t* ev, 
-		int32_t mw, int32_t mh, uint32_t times) {
+static bool read_mouse(int32_t *x, int32_t *y, int32_t* ev, uint32_t times) {
 	int8_t mev[4];
 	int sz = read(_xman.mouse_fd, mev, 4);
 	if(sz <= 0)
@@ -156,14 +163,14 @@ static bool read_mouse(int32_t *x, int32_t *y, int32_t* ev,
 	*x = *x + mev[1]*times;
 	*y = *y + mev[2]*times;
 
-	if(*x < -mw/2)
-		*x = -mw/2;
-	if(*x > (int32_t)_xman.graph->w - mw/2)
-		*x = _xman.graph->w - mw/2;
-	if(*y < -mh/2)
-		*y = -mh/2;
-	if(*y > (int32_t)_xman.graph->h - mh/2)
-		*y = _xman.graph->h - mh/2;
+	if(*x < 0)
+		*x = 0;
+	if(*x > (int32_t)_xman.graph->w)
+		*x = _xman.graph->w;
+	if(*y < 0)
+		*y = 0;
+	if(*y > (int32_t)_xman.graph->h)
+		*y = _xman.graph->h;
 	return true;
 }
 
@@ -187,11 +194,18 @@ static inline void xman_mouse(void) {
 	blt(_xman.mg, 0, 0, _xman.mw, _xman.mh,
 		  _xman.graph, _xman.mx, _xman.my, _xman.mw, _xman.mh);	
 
-	if(read_mouse(&_xman.mx, &_xman.my, &_xman.mev, _xman.mw, _xman.mh, 2)) {
+	if(read_mouse(&_xman.mx, &_xman.my, &_xman.mev, 2)) {
 		blt(_xman.graph, _xman.mx, _xman.my, _xman.mw, _xman.mh,
 			  _xman.mg, 0, 0, _xman.mw, _xman.mh);	
 	}
 	draw_cursor(_xman.mx, _xman.my, _xman.mw, _xman.mh);
+}
+
+static void xman_keyb(void) {
+	char c;
+	int32_t res = read(_xman.keyb_fd, &c, 1); 
+	if(res == 1)
+		printf("%c", c);	
 }
 
 static void xman_step(void* p) {
@@ -211,6 +225,8 @@ static void xman_step(void* p) {
 	}
 
 	xman_mouse();
+	xman_keyb();
+
 	fb_flush(&_xman.fb);
 }
 

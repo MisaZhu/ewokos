@@ -47,6 +47,8 @@ void graph_free(graph_t* g);
 
 void pixel_safe(graph_t* g, int32_t x, int32_t y, uint32_t color);
 
+void pixel(graph_t* g, int32_t x, int32_t y, uint32_t color);
+
 void clear(graph_t* g, uint32_t color);
 
 void box(graph_t* g, int32_t x, int32_t y, int32_t w, int32_t h, uint32_t color);
