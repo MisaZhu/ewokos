@@ -156,8 +156,8 @@ static int32_t syscall_ipc_open(int32_t arg0, int32_t arg1) {
 	return ipc_open(arg0, arg1);
 }
 
-static int32_t syscall_ipc_ready(void) {
-	return ipc_ready();
+static int32_t syscall_ipc_ready(int32_t arg0) {
+	return ipc_ready((bool)arg0);
 }
 
 static int32_t syscall_ipc_close(int32_t arg0) {
@@ -371,7 +371,7 @@ int32_t handle_syscall(int32_t code, int32_t arg0, int32_t arg1, int32_t arg2) {
 		case SYSCALL_IPC_OPEN: return  syscall_ipc_open(arg0, arg1);
 		case SYSCALL_IPC_CLOSE: return  syscall_ipc_close(arg0);
 		case SYSCALL_IPC_WRITE: return  syscall_ipc_write(arg0, arg1, arg2);
-		case SYSCALL_IPC_READY: return  syscall_ipc_ready();
+		case SYSCALL_IPC_READY: return  syscall_ipc_ready(arg0);
 		case SYSCALL_IPC_READ: return  syscall_ipc_read(arg0, arg1, arg2);
 		case SYSCALL_IPC_RING: return  syscall_ipc_ring(arg0);
 		case SYSCALL_IPC_PEER: return  syscall_ipc_peer(arg0);

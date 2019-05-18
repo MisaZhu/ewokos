@@ -22,7 +22,7 @@ typedef struct channel {
 } channel_t;
 
 #define CHANNEL_MAX 128
-#define RETRY_MAX 1024
+#define RETRY_MAX 10000
 
 static channel_t _channels[CHANNEL_MAX];
 
@@ -174,8 +174,10 @@ int32_t ipc_write(int32_t id, void* data, uint32_t size) {
 	if(channel->proc_map[channel->ring].pid != pid) {//not ready for current proc.
 		channel->retry_times++;
 		CRIT_OUT(_p_lock)
-		if(channel->retry_times >= RETRY_MAX)
+		if(channel->retry_times >= RETRY_MAX) {
+			printk("%d ipc write timeout!\n", pid);
 			return 0; //close
+		}
 		return -1; //retry
 	}
 	channel->retry_times = 0;
@@ -211,8 +213,10 @@ int32_t ipc_read(int32_t id, void* data, uint32_t size) {
 	if(channel->proc_map[channel->ring].pid != pid) {//not read for current proc.
 		channel->retry_times++;
 		CRIT_OUT(_p_lock)
-		if(channel->retry_times >= RETRY_MAX)
+		if(channel->retry_times >= RETRY_MAX) {
+			printk("%d ipc read timeout!\n", pid);
 			return 0; //close
+		}
 		return -1; //retry.
 	}
 	channel->retry_times = 0;
@@ -241,7 +245,7 @@ int32_t ipc_read(int32_t id, void* data, uint32_t size) {
 	return size;
 }
 
-int32_t ipc_ready() {
+int32_t ipc_ready(bool block) {
 	CRIT_IN(_p_lock)
 	int32_t pid = _current_proc->pid;
 	int32_t i;
@@ -254,7 +258,8 @@ int32_t ipc_ready() {
 	}
 
 	if(i >= CHANNEL_MAX) { // not channel ring for current proc
-		proc_block(0xffffffff);
+		if(block)
+			proc_block(0xffffffff);
 		CRIT_OUT(_p_lock)
 		return -1;
 	}
