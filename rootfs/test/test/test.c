@@ -4,7 +4,7 @@
 #include <stdlib.h>
 #include <kstring.h>
 #include <vprintf.h>
-#include <x/xclient.h>
+#include <x/xcmd.h>
 
 int main(int argc, char* argv[]) {
 	(void)argc;

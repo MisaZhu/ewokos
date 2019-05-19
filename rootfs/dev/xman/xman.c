@@ -9,7 +9,7 @@
 #include <kstring.h>
 #include <vfs/fs.h>
 #include <sconf.h>
-#include <x/xclient.h>
+#include <x/xcmd.h>
 
 typedef struct {
 	uint32_t bg_color;

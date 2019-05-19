@@ -192,7 +192,7 @@ int main(int argc, char* argv[]) {
 	/*set uid to root*/
 	syscall2(SYSCALL_SET_UID, getpid(), 0);
 	/*run 2 session for uart0 and framebuffer based console0*/
-
+	usleep(200000);
 	run_consoles();
 	kevent_loop();
 	return 0;
