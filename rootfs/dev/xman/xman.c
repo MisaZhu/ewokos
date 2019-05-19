@@ -312,6 +312,15 @@ static xres_t* xman_res_new(int32_t pid, int32_t fd) {
 	return r;
 }
 
+static int32_t xman_pixel(xres_t* res, proto_t* input) {
+	pixel_safe(res->g,
+			proto_read_int(input),
+			proto_read_int(input),
+			res->fg_color);
+	_xman.dirty = true;
+	return 0;
+}
+
 static int32_t xman_line(xres_t* res, proto_t* input) {
 	line(res->g,
 			proto_read_int(input),
@@ -408,6 +417,8 @@ static int32_t xman_ctrl(int32_t pid, int32_t fd, int32_t cmd, proto_t* input, p
 		return xman_resize_to(res, input);
 	case X_CMD_LINE:
 		return xman_line(res, input);
+	case X_CMD_PIXEL:
+		return xman_pixel(res, input);
 	case X_CMD_BOX:
 		return xman_box(res, input);
 	case X_CMD_FILL:

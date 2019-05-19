@@ -2,8 +2,6 @@
 #include <syscall.h>
 
 void* malloc(uint32_t size) {
-	if(size > 10240000)
-	printf("malloc: %d\n", size);
 	char* p = (char*)syscall1(SYSCALL_PMALLOC, size);
 	return (void*)p;
 }
