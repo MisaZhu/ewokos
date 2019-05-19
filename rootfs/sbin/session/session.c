@@ -43,7 +43,7 @@ static int32_t init_stdio(const char* dev) {
 		fd = open(dev, O_RDONLY);
 		if(fd >= 0)
 			break;
-		usleep(200000);
+		sleep(0);
 	}
 	
 	dup2(fd, 0);

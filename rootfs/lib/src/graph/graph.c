@@ -20,19 +20,30 @@ int32_t fb_open(const char* fname, fb_t* fb) {
 	if(fd < 0) {
 		return -1;
 	}
-	if(fs_ctrl(fd, FS_CTRL_INFO, NULL, 0, &fb_info, sizeof(fb_info_t)) != 0) {
+
+	proto_t* proto = proto_new(NULL, 0);
+	if(fs_ctrl(fd, FS_CTRL_INFO, NULL, proto) != 0) {
+		proto_free(proto);
 		fs_close(fd);
 		return -1;
 	}
-
 	uint32_t sz;
+	void* p = proto_read(proto, &sz);
+	if(sz != sizeof(fb_info_t)) {
+		proto_free(proto);
+		fs_close(fd);
+		return -1;
+	}
+	memcpy(&fb_info, p, sz);
+	proto_free(proto);
+
 	int shm_id = fs_dma(fd, &sz);
 	if(shm_id < 0 || sz == 0) {
 		fs_close(fd);
 		return -1;
 	}
 	
-	void* p = shm_map(shm_id);
+	p = shm_map(shm_id);
 	if(p == NULL) {
 		fs_close(fd);
 		return -1;

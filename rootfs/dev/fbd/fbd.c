@@ -30,38 +30,35 @@ static int32_t fb_mount(const char* fname, int32_t index) {
 	return 0;
 }
 
-int32_t fb_write(int32_t pid, int32_t fd, void* buf, uint32_t size, int32_t seek) {
+static int32_t fb_write(int32_t pid, int32_t fd, void* buf, uint32_t size, int32_t seek) {
 	(void)pid;
 	(void)fd;
 	(void)seek;
 	return syscall3(SYSCALL_DEV_CHAR_WRITE, dev_typeid(DEV_FRAME_BUFFER, 0), (int32_t)buf, (int32_t)size);
 }
 
-int32_t fb_flush(int32_t pid, int32_t fd) {
+static int32_t fb_flush(int32_t pid, int32_t fd) {
 	(void)pid;
 	(void)fd;
 	return syscall3(SYSCALL_DEV_CHAR_WRITE, dev_typeid(DEV_FRAME_BUFFER, 0), (int32_t)_fb_buf, (int32_t)_fb_bufSize);
 }
 
-int32_t fb_dma(int32_t pid, int32_t fd, uint32_t *size) {
+static int32_t fb_dma(int32_t pid, int32_t fd, uint32_t *size) {
 	(void)pid;
 	(void)fd;
 	*size = _fb_bufSize;
 	return _fb_buf_id;
 }
 
-void* fb_ctrl(int32_t pid, int32_t fd, int32_t cmd, void* data, uint32_t size, int32_t* ret) {
+static int32_t fb_ctrl(int32_t pid, int32_t fd, int32_t cmd, proto_t* input, proto_t* out) {
 	(void)pid;
 	(void)fd;
-	(void)data;
-	(void)size;
-	void* p = NULL;
+	(void)input;
 
 	if(cmd == FS_CTRL_INFO) {//getfbinfo
-		p = &_fb_info;
-		*ret = sizeof(fb_info_t);
+		proto_add(out, &_fb_info, sizeof(fb_info_t));
 	}
-	return p;
+	return 0;
 }
 
 int main(int argc, char* argv[]) {

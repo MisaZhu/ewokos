@@ -3,45 +3,49 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <kstring.h>
-
-static char rpl(char c) {
-	if(c < 0x20 || c > 0x7e)
-		return ' ';
-	return c;
-}
+#include <vprintf.h>
+#include <x/xclient.h>
 
 int main(int argc, char* argv[]) {
-	char type = 'c';
-	if(argc >= 2)
-		type = argv[1][0];
+	(void)argc;
+	(void)argv;
 
-	int res;
-	printf("      0   1   2   3   4   5   6   7   8   9   10  11  12  13  14  15\n");
-	printf("      --------------------------------------------------------------");
-	int i = 0;
-	int ln = 0;
-	while(true) { //non-block
-		char c;
-		res = read(0, &c, 1);
-		if(res > 0) {
-			if(i == 0)
-				printf("\n%4d| ", ln++);
-			if(type == 'd')
-				printf("%4d", (int)c);
-			else if(type == 'x')
-				printf("%4x", (int)c);
-			else
-				printf("%c   ", rpl(c));
-			i++;
-			if(i == 16)
-				i = 0;
-		}
-		else {
-			if(errno != EAGAIN)
-				break;
-		}
+	int32_t fd = x_open("/dev/xman0");
+	if(fd < 0)
+		return -1;
+
+	proto_t* in;
+	
+	in = proto_new(NULL, 0);
+	proto_add_str(in, "8x10");
+	x_cmd(fd, X_CMD_SET_FONT, in, NULL);
+	proto_free(in);
+	
+	in = proto_new(NULL, 0);
+	proto_add_int(in, 0xff);
+	x_cmd(fd, X_CMD_SET_BG, in, NULL);
+	proto_free(in);
+
+	in = proto_new(NULL, 0);
+	proto_add_int(in, 100);
+	proto_add_int(in, 100);
+	x_cmd(fd, X_CMD_MOVE_TO, in, NULL);
+	proto_free(in);
+
+	int32_t i=0;
+	while(true) {
+		char s[32];
+		snprintf(s, 31, "test %d", i++);
+		x_cmd(fd, X_CMD_CLEAR, NULL, NULL);
+
+		in = proto_new(NULL, 0);
+		proto_add_int(in, 10);
+		proto_add_int(in, 10);
+		proto_add_str(in, s);
+		x_cmd(fd, X_CMD_STR, in, NULL);
+		proto_free(in);
+		usleep(100000);
 	}
-	printf("\n");
 	return 0;
 }
 

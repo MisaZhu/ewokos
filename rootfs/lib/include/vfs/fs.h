@@ -4,6 +4,7 @@
 #include <fsinfo.h>
 #include <vfs/vfs.h>
 #include <tstr.h>
+#include <proto.h>
 
 enum {
 	FS_CTRL_NONE = 0,
@@ -36,9 +37,9 @@ tstr_t* fs_kid(const char* dir_name, int32_t index);
 
 int fs_read(int fd, char* buf, uint32_t size);
 
-int fs_ctrl(int fd, int32_t cmd, void* input, uint32_t isize, void* output, uint32_t osize);
+int fs_ctrl(int fd, int32_t cmd, const proto_t* input, proto_t* output);
 
-int fs_fctrl(const char* fname, int32_t cmd, void* input, uint32_t isize, void* output, uint32_t osize);
+int fs_fctrl(const char* fname, int32_t cmd, const proto_t* input, proto_t* output);
 
 int fs_getch(int fd);
 

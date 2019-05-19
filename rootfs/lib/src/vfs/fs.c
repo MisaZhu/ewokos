@@ -140,7 +140,7 @@ int fs_read(int fd, char* buf, uint32_t size) {
 	return sz;
 }
 
-int fs_fctrl(const char* fname, int32_t cmd, void* input, uint32_t isize, void* output, uint32_t osize) {
+int fs_fctrl(const char* fname, int32_t cmd, const proto_t* input, proto_t* output) {
 	if(fname[0] == 0)
 		return -1;
 	fs_info_t info;
@@ -152,7 +152,8 @@ int fs_fctrl(const char* fname, int32_t cmd, void* input, uint32_t isize, void* 
 	proto_t* proto = proto_new(NULL, 0);
 	proto_add_str(proto, fname);
 	proto_add_int(proto, cmd);
-	proto_add(proto, input, isize);
+	if(input != NULL)
+		proto_add(proto, input->data, input->size);
 	package_t* pkg = ipc_req(info.dev_serv_pid, 0, FS_FCTRL, proto->data, proto->size, true);
 	proto_free(proto);
 
@@ -163,21 +164,16 @@ int fs_fctrl(const char* fname, int32_t cmd, void* input, uint32_t isize, void* 
 		return -1;
 	}
 
-	if(output == NULL || osize == 0) {
+	if(output == NULL) {
 		free(pkg);
 		return 0;
 	}
-	uint32_t sz = pkg->size;
-
-	if(sz > osize)
-		sz = osize;
-	memcpy(output, get_pkg_data(pkg), sz);
+	proto_add(output, get_pkg_data(pkg), pkg->size);
 	free(pkg);
 	return 0;
 }
 
-
-int fs_ctrl(int fd, int32_t cmd, void* input, uint32_t isize, void* output, uint32_t osize) {
+int fs_ctrl(int fd, int32_t cmd, const proto_t* input, proto_t* output) {
 	if(fd < 0)
 		return -1;
 	int32_t dev_serv_pid = syscall1(SYSCALL_PFILE_SERV_PID_BY_FD, fd);
@@ -187,7 +183,8 @@ int fs_ctrl(int fd, int32_t cmd, void* input, uint32_t isize, void* output, uint
 	proto_t* proto = proto_new(NULL, 0);
 	proto_add_int(proto, fd);
 	proto_add_int(proto, cmd);
-	proto_add(proto, input, isize);
+	if(input != NULL)
+		proto_add(proto, input->data, input->size);
 	package_t* pkg = ipc_req(dev_serv_pid, 0, FS_CTRL, proto->data, proto->size, true);
 	proto_free(proto);
 
@@ -198,15 +195,11 @@ int fs_ctrl(int fd, int32_t cmd, void* input, uint32_t isize, void* output, uint
 		return -1;
 	}
 
-	if(output == NULL || osize == 0) {
+	if(output == NULL) {
 		free(pkg);
 		return 0;
 	}
-	uint32_t sz = pkg->size;
-
-	if(sz > osize)
-		sz = osize;
-	memcpy(output, get_pkg_data(pkg), sz);
+	proto_add(output, get_pkg_data(pkg), pkg->size);
 	free(pkg);
 	return 0;
 }

@@ -85,12 +85,10 @@ static int32_t reset(void) {
 }
 
 static int32_t console_mount(const char* fname, int32_t index) {
-	(void)fname;
-	if(index == 0)
-		_console.enabled = true;
-	else
-		_console.enabled = false;
+	if(fname == NULL || fname[0] == 0 || index < 0)
+		return -1;
 
+	_console.enabled = false;
 	_console.bg_color = rgb(0x22, 0x22, 0x66);
 	_console.fg_color = rgb(0xaa, 0xbb, 0xaa);
 	_console.font = get_font_by_name("8x16");
@@ -257,25 +255,23 @@ static int32_t console_read(int32_t pid, int32_t fd, void* buf, uint32_t size, i
 	return res;
 }
 
-static void console_fctrl_raw(int32_t cmd, void* data, uint32_t size) {
-	(void)size;
-
+static void console_fctrl_raw(int32_t cmd, const char* data) {
 	if(cmd == FS_CTRL_CLEAR) { //clear.
 		reset();
 	}
 	else if(cmd == FS_CTRL_SET_FONT) { //set font.
-		font_t* fnt = get_font_by_name((char*)data);
+		font_t* fnt = get_font_by_name(data);
 		if(fnt != NULL) {
 			_console.font = fnt;
 			reset();
 		}
 	}
 	else if(cmd == FS_CTRL_SET_FG_COLOR) { //set fg color.
-		_console.fg_color = rgb_int(atoi_base((char*)data, 16));
+		_console.fg_color = rgb_int(atoi_base(data, 16));
 		refresh();
 	}
 	else if(cmd == FS_CTRL_SET_BG_COLOR) { //set bg color.
-		_console.bg_color = rgb_int(atoi_base((char*)data, 16));
+		_console.bg_color = rgb_int(atoi_base(data, 16));
 		refresh();
 	}
 	else if(cmd == FS_CTRL_ENABLE) { //enable.
@@ -287,21 +283,21 @@ static void console_fctrl_raw(int32_t cmd, void* data, uint32_t size) {
 	}
 }
 
-static void* console_fctrl(int32_t pid, const char* fname, int32_t cmd, void* data, uint32_t size, int32_t* ret) {
+static int32_t console_fctrl(int32_t pid, const char* fname, int32_t cmd, proto_t* input, proto_t* out) {
 	(void)pid;
 	(void)fname;
-	(void)ret;
-	console_fctrl_raw(cmd, data, size);
-	return NULL;
+	(void)out;
+	console_fctrl_raw(cmd, proto_read_str(input));
+	return 0;
 }
 
-static void* console_ctrl(int32_t pid, int32_t fd, int32_t cmd, void* data, uint32_t size, int32_t* ret) {
+static int32_t console_ctrl(int32_t pid, int32_t fd, int32_t cmd, proto_t* input, proto_t* out) {
 	(void)pid;
 	(void)fd;
-	(void)ret;
+	(void)out;
 
-	console_fctrl_raw(cmd, data, size);
-	return NULL;
+	console_fctrl_raw(cmd, proto_read_str(input));
+	return 0;
 }
 
 int main(int argc, char* argv[]) {

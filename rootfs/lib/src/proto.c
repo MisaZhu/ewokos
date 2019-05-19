@@ -47,6 +47,8 @@ inline void proto_add_str(proto_t* proto, const char* v) {
 }
 
 void* proto_read(proto_t* proto, uint32_t *size) {
+	if(size != NULL)
+		*size = 0;
 	if(proto->data == NULL || proto->size == 0 ||
 			proto->offset >= proto->size)
 		return NULL;

@@ -30,7 +30,8 @@ LIB_OBJS = lib/src/syscall.o \
 	lib/src/semaphore.o \
 	lib/src/sdread.o \
 	lib/src/sconf.o \
-	lib/src/kserv.o
+	lib/src/kserv.o \
+	lib/src/x/xclient.o
 
 lib/libewoklibc.a: $(LIB_OBJS)
 	mkdir -p build

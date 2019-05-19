@@ -43,15 +43,16 @@ int main(int argc, char* argv[]) {
 	const char* dev_name = "/dev/console0";
 	if(argc > 3) 
 		dev_name = argv[3];
-
+	proto_t* proto = proto_new(argv[2], strlen(argv[2])+1);
 	if(strcmp(argv[1], "font") == 0) {
-		fs_fctrl(dev_name, FS_CTRL_SET_FONT, argv[2], strlen(argv[2])+1, NULL, 0);
+		fs_fctrl(dev_name, FS_CTRL_SET_FONT, proto, NULL);
 	}
 	else if(strcmp(argv[1], "fg") == 0) {
-		fs_fctrl(dev_name, FS_CTRL_SET_FG_COLOR, argv[2], strlen(argv[2])+1, NULL, 0);
+		fs_fctrl(dev_name, FS_CTRL_SET_FG_COLOR, proto, NULL);
 	}
 	else if(strcmp(argv[1], "bg") == 0) {
-		fs_fctrl(dev_name, FS_CTRL_SET_BG_COLOR, argv[2], strlen(argv[2])+1, NULL, 0);
+		fs_fctrl(dev_name, FS_CTRL_SET_BG_COLOR, proto, NULL);
 	}
+	proto_free(proto);
 	return 0;
 }

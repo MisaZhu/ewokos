@@ -183,17 +183,20 @@ static void do_fctrl(device_t* dev, package_t* pkg) {
 	void* p = proto_read(proto, &size);
 	proto_free(proto);
 
-	char* ret_data = NULL;
-	int32_t ret = -1;
+	proto = proto_new(p, size);
+	proto_t* out = proto_new(NULL, 0);
+	int32_t res = -1;
 	if(dev->fctrl != NULL)
-		ret_data = dev->fctrl(pkg->pid, fname, cmd, p, size, &ret);	
+		res = dev->fctrl(pkg->pid, fname, cmd, proto, out);	
 
-	if(ret < 0)
+	if(res < 0)
 		ipc_send(pkg->id, PKG_TYPE_ERR, NULL, 0);
-	else
-		ipc_send(pkg->id, pkg->type, ret_data, ret);
-	if(ret_data != NULL)
-		free(ret_data);
+	else {
+		void* p = proto_read(out, &size);
+		ipc_send(pkg->id, pkg->type, p, size);
+	}
+	proto_free(proto);
+	proto_free(out);
 }
 
 static void do_ctrl(device_t* dev, package_t* pkg) { 
@@ -209,17 +212,21 @@ static void do_ctrl(device_t* dev, package_t* pkg) {
 		return;
 	}
 
-	char* ret_data = NULL;
-	int32_t ret = -1;
-	if(dev->ctrl != NULL)
-		ret_data = dev->ctrl(pkg->pid, fd, cmd, p, size, &ret);	
+	proto = proto_new(p, size);
+	proto_t* out = proto_new(NULL, 0);
 
-	if(ret < 0)
+	int32_t res = -1;
+	if(dev->ctrl != NULL)
+		res = dev->ctrl(pkg->pid, fd, cmd, proto, out);	
+
+	if(res < 0)
 		ipc_send(pkg->id, PKG_TYPE_ERR, NULL, 0);
-	else
-		ipc_send(pkg->id, pkg->type, ret_data, ret);
-	if(ret_data != NULL)
-		free(ret_data);
+	else {
+		void* p = proto_read(out, &size);
+		ipc_send(pkg->id, pkg->type, p, size);
+	}
+	proto_free(proto);
+	proto_free(out);
 }
 
 static void handle(package_t* pkg, void* p) {

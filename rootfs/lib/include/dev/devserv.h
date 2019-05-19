@@ -4,6 +4,7 @@
 #include <types.h>
 #include <device.h>
 #include <fsinfo.h>
+#include <proto.h>
 
 typedef struct {
 	int32_t (*mount)(const char* fname, int32_t index);
@@ -16,8 +17,8 @@ typedef struct {
 	int32_t (*read)(int32_t pid, int32_t fd, void* buf, uint32_t size, int32_t seek);
 	int32_t (*dma)(int32_t pid, int32_t fd, uint32_t *size);
 	int32_t (*flush)(int32_t pid, int32_t fd);
-	void* (*ctrl)(int32_t pid, int32_t fd, int32_t cmd, void* data, uint32_t size, int32_t* ret);
-	void* (*fctrl)(int32_t pid, const char* fname, int32_t cmd, void* data, uint32_t size, int32_t* ret);
+	int32_t (*ctrl)(int32_t pid, int32_t fd, int32_t cmd, proto_t*input, proto_t* output);
+	int32_t (*fctrl)(int32_t pid, const char* fname, int32_t cmd, proto_t*input, proto_t* output);
 	void (*step)(void* data);
 } device_t;
 

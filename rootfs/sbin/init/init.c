@@ -110,21 +110,21 @@ static void cons_sw(void) {
 
 	char dev[SHORT_NAME_MAX];	
 	strcpy(dev, "/dev/xman0");
-	fs_fctrl(dev, FS_CTRL_DISABLE, NULL, 0, NULL, 0); //enable
+	fs_fctrl(dev, FS_CTRL_DISABLE, NULL, NULL); //enable
 
 	while(i < _console_num) {
 		snprintf(dev, SHORT_NAME_MAX-1, "/dev/console%d", i);
-		fs_fctrl(dev, FS_CTRL_DISABLE, NULL, 0, NULL, 0); //disable
+		fs_fctrl(dev, FS_CTRL_DISABLE, NULL, NULL); //disable
 		i++;
 	}
 
 	if(_console_index < _console_num) {
 		snprintf(dev, SHORT_NAME_MAX-1, "/dev/console%d", _console_index);
-		fs_fctrl(dev, FS_CTRL_ENABLE, NULL, 0, NULL, 0); //enable
+		fs_fctrl(dev, FS_CTRL_ENABLE, NULL, NULL); //enable
 	}
 	else if(_console_index == _console_num) { //xman
 		strcpy(dev, "/dev/xman0");
-		fs_fctrl(dev, FS_CTRL_ENABLE, NULL, 0, NULL, 0); //enable
+		fs_fctrl(dev, FS_CTRL_ENABLE, NULL, NULL); //enable
 	}
 }
 
