@@ -82,6 +82,22 @@ static void flush(void) {
 		fb_flush(&_xman.fb);
 }
 
+static void draw_title(xhandle_t* r) {
+	uint32_t fill_color = _xman.bg_color;
+	uint32_t fg_color = _xman.fg_color;
+	uint32_t text_color = _xman.fg_color;
+
+	if(r == _xman.handle_top) {
+		fill_color = 0xaaaaaa;
+		text_color = 0x0;
+	}
+
+	fill(_xman.g, r->x, r->y-20, r->w, 20, fill_color);//title box
+	box(_xman.g, r->x, r->y-20, r->w, 20, fg_color);//title box
+	box(_xman.g, r->x+r->w-20, r->y-20, 20, 20, fg_color);//close box
+	draw_text(_xman.g, r->x, r->y-20, CS(r->title), _xman.font, text_color);//title
+}
+
 static void refresh(void) {
 	xman_xclear();
 	//background pattern
@@ -101,10 +117,7 @@ static void refresh(void) {
 			graph_free(g);
 
 			box(_xman.g, r->x, r->y, r->w, r->h, _xman.fg_color);//win box
-			fill(_xman.g, r->x, r->y-20, r->w, 20, 0);//title box
-			box(_xman.g, r->x, r->y-20, r->w, 20, _xman.fg_color);//title box
-			box(_xman.g, r->x+r->w-20, r->y-20, 20, 20, _xman.fg_color);//close box
-			draw_text(_xman.g, r->x, r->y-20, CS(r->title), _xman.font, _xman.fg_color);//title
+			draw_title(r);
 		}
 		r = r->prev;
 	}

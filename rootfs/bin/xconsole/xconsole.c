@@ -94,6 +94,6 @@ int main(int argc, char* argv[]) {
 	close(fds1[1]);
 	close(fds2[0]);
 	close(fds2[1]);
-	setenv("STDIO_DEV", "xconsole");
+	setenv("CONSOLE", "xconsole");
 	return exec("/bin/shell");
 }
