@@ -130,7 +130,7 @@ static void cons_sw(void) {
 
 /*system global event*/
 static void kevent_loop(void) {
-	_console_index = 0;
+	_console_index = _console_num; //x window actived
 	int fd = open("/dev/kevent0", O_RDONLY);
 	if(fd < 0)
 		return;
@@ -192,7 +192,7 @@ int main(int argc, char* argv[]) {
 	/*set uid to root*/
 	syscall2(SYSCALL_SET_UID, getpid(), 0);
 	/*run 2 session for uart0 and framebuffer based console0*/
-	usleep(200000);
+	//usleep(300000);
 	run_consoles();
 	kevent_loop();
 	return 0;

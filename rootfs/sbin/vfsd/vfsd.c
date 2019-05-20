@@ -18,6 +18,12 @@ static mount_t _mounts[MOUNT_MAX];
 static tree_node_t* _root = NULL;
 static trunk_t _opened;
 
+typedef struct {
+	int32_t pid;
+	int32_t fd;
+	uint32_t node;
+} opened_t;
+
 static void fsnode_init(void) {
 	for(int i=0; i<MOUNT_MAX; i++) {
 		memset(&_mounts[i], 0, sizeof(mount_t));
@@ -27,7 +33,7 @@ static void fsnode_init(void) {
 }
 
 void opens_init(void) {
-	trunk_init(&_opened, 4, MFS);
+	trunk_init(&_opened, sizeof(opened_t), MFS);
 }
 
 static bool check_access(int32_t pid, tree_node_t* node, bool wr) {
@@ -57,69 +63,77 @@ static int32_t fsnode_info(int32_t pid, tree_node_t* node, fs_info_t* info) {
 	return 0;
 }
 
-static int32_t close_zombie(uint32_t node) {
+static int32_t close_zombie(opened_t* opened) {
 	fs_info_t info;
-	if(node == 0)
+	if(opened == NULL || opened->node == 0)
 		return 0;
-	if(syscall2(SYSCALL_PFILE_GET_REF, (int32_t)node, 2) > 0)
+	if(syscall2(SYSCALL_PFILE_GET_REF, (int32_t)opened->node, 2) > 0)
 		return -1;
-	fsnode_info(-1, (tree_node_t*)node, &info);
+	fsnode_info(-1, (tree_node_t*)opened->node, &info);
 	if(info.dev_serv_pid == getpid())
 		do_pipe_close(info.node, true);
 	else if(info.dev_serv_pid > 0) {
-		ipc_req(info.dev_serv_pid, 0, FS_CLOSE, &info, sizeof(fs_info_t), false);
+		proto_t* proto = proto_new(NULL, 0);
+		proto_add_int(proto, opened->pid);
+		proto_add_int(proto, opened->fd);
+		proto_add(proto, &info, sizeof(fs_info_t));
+		ipc_req(info.dev_serv_pid, 0, FS_CLOSE, proto->data, proto->size, false);
+		proto_free(proto);
 	}		
 	return 0;
 }
 
 static void clear_zombie(void) {
 	int32_t i;
-	uint32_t* nodes = (uint32_t*)_opened.items;
+	opened_t* opened = (opened_t*)_opened.items;
 	for(i=0; i<(int32_t)_opened.size; i++) {
-		if(nodes[i] != 0) {
-			if(close_zombie(nodes[i]) == 0)
-				nodes[i] = 0;
-		}	
+		if(opened[i].node != 0 && close_zombie(&opened[i]) == 0)
+			opened[i].node = 0;
 	}
 }
 
 void opens_clear(void) {
 	int32_t i;
-	uint32_t* nodes = (uint32_t*)_opened.items;
+	opened_t* opened = (opened_t*)_opened.items;
 	for(i=0; i<(int32_t)_opened.size; i++) {
-		if(nodes[i] != 0) {
-			close_zombie(nodes[i]);
-			nodes[i] = 0;
+		if(opened[i].node != 0) {
+			close_zombie(&opened[i]);
+			opened[i].node = 0;
 		}	
 	}
 	trunk_clear(&_opened);
 }
 
-static int32_t add_opened(uint32_t node) {
+static int32_t add_opened(int32_t pid, int32_t fd, uint32_t node) {
 	int32_t i;
-	uint32_t* nodes = (uint32_t*)_opened.items;
+	opened_t* opened = (opened_t*)_opened.items;
 	for(i=0; i<(int32_t)_opened.size; i++) {
-		if(nodes[i] == 0) {
-			nodes[i] = node;
+		if(opened[i].node != 0) {
+			opened[i].pid = pid;
+			opened[i].fd = fd;
+			opened[i].node = node;
 			return i;
 		}	
 	}
 
 	i = trunk_add(&_opened);
-	nodes = (uint32_t*)_opened.items;
-	if(i >= 0)
-		nodes[i] = node;
+	opened = (opened_t*)_opened.items;
+	if(i >= 0) {
+		opened[i].pid = pid;
+		opened[i].fd = fd;
+		opened[i].node = node;
+	}
 	clear_zombie();
 	return i;	
 }
 
 static void rm_opened(uint32_t node) {
 	int32_t i;
-	uint32_t* nodes = (uint32_t*)_opened.items;
+	opened_t* opened = (opened_t*)_opened.items;
 	for(i=0; i<(int32_t)_opened.size; i++) {
-		if(nodes[i] == node) {
+		if(opened[i].node == node) {
 			if(syscall2(SYSCALL_PFILE_GET_REF, (int32_t)node, 2) == 0)
-				nodes[i] = 0;
+				opened[i].node = 0;
 		}	
 	}
 }
@@ -361,12 +375,16 @@ static void do_info_update(package_t* pkg) {
 
 static void do_close(package_t* pkg) {
 	int32_t fd = *(int32_t*)get_pkg_data(pkg);
-	if(fd < 0)
+	if(fd < 0) {
+		ipc_send(pkg->id, PKG_TYPE_ERR, NULL, 0);
 		return;
+	}
 
 	fs_info_t info;
-	if(get_info_by_fd(pkg->pid, fd, &info) != 0)
+	if(get_info_by_fd(pkg->pid, fd, &info) != 0) {
+		ipc_send(pkg->id, PKG_TYPE_ERR, NULL, 0);
 		return;
+	}
 	syscall2(SYSCALL_PFILE_CLOSE, pkg->pid, fd);
 
 	tree_node_t* node = (tree_node_t*)info.node;
@@ -384,8 +402,8 @@ static void do_close(package_t* pkg) {
 		ipc_req(info.dev_serv_pid, 0, FS_CLOSE, proto->data, proto->size, false);
 		proto_free(proto);
 	}		
-
 	rm_opened(info.node);
+	ipc_send(pkg->id, pkg->type, NULL, 0);
 }
 
 static void do_open(package_t* pkg) {
@@ -406,7 +424,7 @@ static void do_open(package_t* pkg) {
 		return;
 	}
 
-	add_opened(info.node);
+	add_opened(pkg->pid, fd, info.node);
 	ipc_send(pkg->id, pkg->type, &fd, 4);
 }
 

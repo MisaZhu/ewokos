@@ -24,7 +24,7 @@ CFLAGS = \
 	-fno-builtin-printf -fno-builtin-strcpy -Wno-overlength-strings \
 	-fno-builtin-exit -fno-builtin-stdio \
 	-std=c99 \
-	-g \
+	-O2 \
 	-mcpu=$(CPU)
 
 ifeq ($(keymap2), yes)

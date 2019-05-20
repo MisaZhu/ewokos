@@ -2,31 +2,31 @@
 #define XCLIENT_H
 
 #include <x/xcmd.h>
+#include <x/xevent.h>
+#include <graph/graph.h>
 
-int32_t x_open(const char* dev);
+typedef struct {
+	int32_t fd;
+	int32_t shm_id;
+	int32_t w, h;
+} x_t;
 
-void x_close(int32_t fd);
+int32_t x_open(const char* dev, x_t* x);
 
-void x_move_to(int32_t fd, int32_t x, int32_t y);
+void x_close(x_t* x);
 
-void x_resize_to(int32_t fd, int32_t w, int32_t h);
+void x_flush(x_t* x);
 
-void x_set_bg(int32_t fd, uint32_t color);
+void x_set_title(x_t* x, const char* title);
 
-void x_set_color(int32_t fd, uint32_t color);
+void x_move_to(x_t* x, int32_t tx, int32_t ty);
 
-void x_set_font(int32_t fd, const char* name, uint32_t size, uint32_t style);
+void x_resize_to(x_t* x, int32_t w, int32_t h);
 
-void x_pixel(int32_t fd, int32_t x, int32_t y);
+graph_t* x_get_graph(x_t* x);
 
-void x_clear(int32_t fd);
+int32_t x_get_scr_size(x_t* x, gsize_t* sz);
 
-void x_box(int32_t fd, int32_t x, int32_t y, int32_t w, int32_t h);
-
-void x_fill(int32_t fd, int32_t x, int32_t y, int32_t w, int32_t h);
-
-void x_line(int32_t fd, int32_t x1, int32_t y1, int32_t x2, int32_t y2);
-
-void x_text(int32_t fd, int32_t x, int32_t y, const char* str);
+int32_t x_get_event(x_t* x, x_ev_t* ev);
 
 #endif

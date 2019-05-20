@@ -72,6 +72,10 @@ static void outc(char c, void* p) {
 	}
 }
 
+static void eoutc(char c, void* p) {
+	(void)p;
+	syscall3(SYSCALL_DEV_CHAR_WRITE, dev_typeid(DEV_UART, 0), (int32_t)&c, 1);
+}
 /*
  * printf_base formats and prints the given data. See vsprintf() for the format
  * flags currently supported.
@@ -81,5 +85,12 @@ void printf(const char *format, ...) {
 	va_start(ap, format);
 	v_printf(outc, NULL, format, ap);
 	stdout_flush();
+	va_end(ap);
+}
+
+void eprintf(const char *format, ...) {
+	va_list ap;
+	va_start(ap, format);
+	v_printf(eoutc, NULL, format, ap);
 	va_end(ap);
 }

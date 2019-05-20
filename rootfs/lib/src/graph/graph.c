@@ -88,22 +88,30 @@ graph_t* graph_from_fb(fb_t* fb) {
 }
 
 void graph_free(graph_t* g) {
+	if(g == NULL)
+		return;
 	if(g->type == GRAPH_MEM && g->buffer != NULL)
 		free(g->buffer);
 	free(g);
 }
 
 inline void pixel_safe(graph_t* g, int32_t x, int32_t y, uint32_t color) {
+	if(g == NULL)
+		return;
 	if(x < 0 ||  (uint32_t)x >= g->w || y < 0 || (uint32_t)y >= g->h)
 		return;
 	g->buffer[y * g->w + x] = color;
 }
 
 inline void pixel(graph_t* g, int32_t x, int32_t y, uint32_t color) {
+	if(g == NULL)
+		return;
 	g->buffer[y * g->w + x] = color;
 }
 
 void clear(graph_t* g, uint32_t color) {
+	if(g == NULL)
+		return;
 	uint8_t byte = color & 0xff;	
 	if(((color >> 8)&0xff) == byte && ((color >> 16)&0xff) == byte) {
 		memset(g->buffer, byte, g->w*g->h*4);
@@ -125,6 +133,8 @@ void clear(graph_t* g, uint32_t color) {
 }
 
 void line(graph_t* g, int32_t x1, int32_t y1, int32_t x2, int32_t y2, uint32_t color) {
+	if(g == NULL)
+		return;
 	int32_t dx, dy, x, y, s1, s2, e, temp, swap, i;
 
 	dy = y2 - y1;
@@ -159,6 +169,9 @@ void line(graph_t* g, int32_t x1, int32_t y1, int32_t x2, int32_t y2, uint32_t c
 }
 
 void box(graph_t* g, int32_t x, int32_t y, int32_t w, int32_t h, uint32_t color) {
+	if(g == NULL || w <= 0 || h <= 0)
+		return;
+
 	line(g, x, y, x+w, y, color);
 	line(g, x, y+1, x, y+h, color);
 	line(g, x+1, y+h, x+w, y+h, color);
@@ -170,7 +183,7 @@ void box(graph_t* g, int32_t x, int32_t y, int32_t w, int32_t h, uint32_t color)
 */
 static bool graph_insect(graph_t* g, rect_t* r) {
 	//insect src;
-	if(r->x >= (int32_t)g->w || r->y >= (int32_t)g->h) //check x, y
+	if(g == NULL || r->x >= (int32_t)g->w || r->y >= (int32_t)g->h) //check x, y
 		return false;
 
 	int32_t rx, ry;  //chehck w, h
@@ -233,6 +246,8 @@ static bool insect(graph_t* src, rect_t* sr, graph_t* dst, rect_t* dr) {
 }
 
 void fill(graph_t* g, int32_t x, int32_t y, int32_t w, int32_t h, uint32_t color) {
+	if(g == NULL || w <= 0 || h <= 0)
+		return;
 	rect_t r = {x, y, w, h};
 	if(!graph_insect(g, &r))
 		return;
@@ -251,6 +266,8 @@ void fill(graph_t* g, int32_t x, int32_t y, int32_t w, int32_t h, uint32_t color
 }
 
 static void draw_char8(graph_t* g, int32_t x, int32_t y, char c, font_t* font, uint32_t color) {
+	if(g == NULL)
+		return;
 	int32_t xchar, ychar, xpart, ypart, index, pmask;
 	unsigned char *pdata = (unsigned char*) font->data, check;
 
@@ -274,6 +291,8 @@ static void draw_char8(graph_t* g, int32_t x, int32_t y, char c, font_t* font, u
 }
 
 static void draw_char16(graph_t* g, int32_t x, int32_t y, char c, font_t* font, uint32_t color) {
+	if(g == NULL)
+		return;
 	int32_t xchar, ychar, xpart, ypart, index, pmask;
 	unsigned char *pdata = (unsigned char*) font->data, check;
 
@@ -309,6 +328,8 @@ static void draw_char16(graph_t* g, int32_t x, int32_t y, char c, font_t* font, 
 }
 
 void draw_char(graph_t* g, int32_t x, int32_t y, char c, font_t* font, uint32_t color) {
+	if(g == NULL)
+		return;
 	if(font->w <= 8)
 		draw_char8(g, x, y, c, font, color);
 	else if(font->w <= 16)
@@ -316,6 +337,8 @@ void draw_char(graph_t* g, int32_t x, int32_t y, char c, font_t* font, uint32_t 
 }
 
 void draw_text(graph_t* g, int32_t x, int32_t y, const char* str, font_t* font, uint32_t color) {
+	if(g == NULL)
+		return;
 	while(*str) {
 		draw_char(g, x, y, *str, font, color);
 		x += font->w;

@@ -10,5 +10,6 @@ void init_stdout_buffer(void);
 void putch(int c);
 int getch(void);
 void printf(const char *format, ...);
+void eprintf(const char *format, ...);
 
 #endif

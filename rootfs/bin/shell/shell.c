@@ -134,9 +134,12 @@ static int export(const char* arg) {
 	return 0;
 }
 
+static bool _terminated = false;
+
 static int handle(const char* cmd) {
 	if(strcmp(cmd, "exit") == 0) {
-		exit(0);
+		_terminated = true;
+		return 0;
 	}
 	else if(strcmp(cmd, "cd") == 0) {
 		return cd("/");
@@ -312,12 +315,13 @@ static int32_t read_config(void) {
 int main(int argc, char* argv[]) {
 	(void)argc;
 	(void)argv;
+	_terminated = false;
 	tstr_t* cmdstr = tstr_new("", MFS);
 
 	read_config();
 	int uid = getuid();
 
-	while(1) {
+	while(!_terminated) {
 		printf("ewok(%s) %c ", getenv("CONSOLE"), uid==0?'#':'$');
 		if(gets(cmdstr) != 0)
 			break;

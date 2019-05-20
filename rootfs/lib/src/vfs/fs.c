@@ -55,7 +55,8 @@ int fs_remove(const char* fname) {
 }
 
 int32_t fs_dma(int fd, uint32_t* size) {
-	*size = 0;
+	if(size != NULL)
+		*size = 0;
 	int32_t dev_serv_pid = syscall1(SYSCALL_PFILE_SERV_PID_BY_FD, fd);
 	if(dev_serv_pid <= 0)
 		return -1;
@@ -67,7 +68,8 @@ int32_t fs_dma(int fd, uint32_t* size) {
 
 	proto_t* proto = proto_new(get_pkg_data(pkg), pkg->size);
 	int32_t ret = proto_read_int(proto);
-	*size = proto_read_int(proto);
+	if(size != NULL)
+		*size = proto_read_int(proto);
 	proto_free(proto);
 	free(pkg);
 	return ret;
@@ -120,9 +122,11 @@ int fs_read(int fd, char* buf, uint32_t size) {
 
 	errno = ENONE;
 	if(pkg == NULL || pkg->type == PKG_TYPE_ERR || pkg->type == PKG_TYPE_AGAIN) {
-		if(pkg->type == PKG_TYPE_AGAIN)
-			errno = EAGAIN;
-		if(pkg != NULL) free(pkg);
+		if(pkg != NULL) {
+			if(pkg->type == PKG_TYPE_AGAIN)
+				errno = EAGAIN;
+			free(pkg);
+		}
 		return -1;
 	}
 
@@ -159,8 +163,11 @@ int fs_fctrl(const char* fname, int32_t cmd, const proto_t* input, proto_t* outp
 
 	errno = ENONE;
 	if(pkg == NULL || pkg->type == PKG_TYPE_ERR || pkg->type == PKG_TYPE_AGAIN) {
-		if(pkg->type == PKG_TYPE_AGAIN)
-			errno = EAGAIN;
+		if(pkg != NULL) {
+			if(pkg->type == PKG_TYPE_AGAIN)
+				errno = EAGAIN;
+			free(pkg);
+		}
 		return -1;
 	}
 
@@ -190,8 +197,11 @@ int fs_ctrl(int fd, int32_t cmd, const proto_t* input, proto_t* output) {
 
 	errno = ENONE;
 	if(pkg == NULL || pkg->type == PKG_TYPE_ERR || pkg->type == PKG_TYPE_AGAIN) {
-		if(pkg->type == PKG_TYPE_AGAIN)
-			errno = EAGAIN;
+		if(pkg != NULL) {
+			if(pkg->type == PKG_TYPE_AGAIN)
+				errno = EAGAIN;
+			free(pkg);
+		}
 		return -1;
 	}
 
@@ -225,9 +235,11 @@ int fs_write(int fd, const char* buf, uint32_t size) {
 
 	errno = ENONE;
 	if(pkg == NULL || pkg->type == PKG_TYPE_ERR || pkg->type == PKG_TYPE_AGAIN) {
-		if(pkg->type == PKG_TYPE_AGAIN)
-			errno = EAGAIN;
-		if(pkg != NULL) free(pkg);
+		if(pkg != NULL) {
+			if(pkg->type == PKG_TYPE_AGAIN)
+				errno = EAGAIN;
+			free(pkg);
+		}
 		return -1;
 	}
 

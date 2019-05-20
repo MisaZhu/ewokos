@@ -22,7 +22,7 @@ typedef struct channel {
 } channel_t;
 
 #define CHANNEL_MAX 128
-#define RETRY_MAX 10000
+#define RETRY_MAX 100000
 
 static channel_t _channels[CHANNEL_MAX];
 

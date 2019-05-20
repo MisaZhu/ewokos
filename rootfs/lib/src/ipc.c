@@ -112,13 +112,17 @@ package_t* ipc_req(int pid, uint32_t buf_size, uint32_t type, void* data, uint32
 		return NULL;
 
 	int i = ipc_send(id, type, data, size);
-	if(i != (int32_t)size || !reply) {
+	if(i != (int32_t)size) {
 		ipc_close(id);
 		return NULL;
 	}
 	
 	package_t* pkg = ipc_recv(id);
 	ipc_close(id);
+	if(!reply && pkg != NULL) {
+		free(pkg);
+		return NULL;
+	}
 	return pkg;
 }
 

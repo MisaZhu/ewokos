@@ -1,112 +1,119 @@
 #include <x/xclient.h>
 #include <unistd.h>
+#include <shm.h>
 
-int32_t x_open(const char* dev_name) {
-	return open(dev_name, O_RDWR);
+int32_t x_open(const char* dev_name, x_t* x) {
+	int32_t fd = open(dev_name, O_RDWR);
+	if(fd < 0)
+		return -1;
+	x->fd = fd;
+	x->shm_id = -1;
+	return 0;
 }
 
-void x_close(int32_t fd) {
-	close(fd);
+void x_close(x_t* x) {
+	if(x->fd >= 0)
+		close(x->fd);
+	if(x->shm_id >= 0)
+		shm_unmap(x->shm_id);
 }
 
-void x_move_to(int32_t fd, int32_t x, int32_t y) {
-	proto_t* in;
-	in = proto_new(NULL, 0);
-	proto_add_int(in, x);
-	proto_add_int(in, y);
-	x_cmd(fd, X_CMD_MOVE_TO, in, NULL);
-	proto_free(in);
+void x_flush(x_t* x) {
+	if(x->fd < 0)
+		return;
+	x_cmd(x->fd, X_CMD_FLUSH, NULL, NULL);
 }
 
-void x_resize_to(int32_t fd, int32_t w, int32_t h) {
-	proto_t* in;
-	in = proto_new(NULL, 0);
-	proto_add_int(in, w);
-	proto_add_int(in, h);
-	x_cmd(fd, X_CMD_RESIZE_TO, in, NULL);
-	proto_free(in);
-}
-
-void x_set_bg(int32_t fd, uint32_t color) {
-	proto_t* in;
-	in = proto_new(NULL, 0);
-	proto_add_int(in, color);
-	x_cmd(fd, X_CMD_SET_BG, in, NULL);
-	proto_free(in);
-}
-
-void x_set_color(int32_t fd, uint32_t color) {
-	proto_t* in;
-	in = proto_new(NULL, 0);
-	proto_add_int(in, color);
-	x_cmd(fd, X_CMD_SET_FG, in, NULL);
-	proto_free(in);
-}
-
-void x_set_font(int32_t fd, const char* name, uint32_t size, uint32_t style) {
-	(void)size;
-	(void)style;
-
+void x_set_title(x_t* x, const char* name) {
+	if(x->fd < 0)
+		return;
 	proto_t* in;
 	in = proto_new(NULL, 0);
 	proto_add_str(in, name);
-	x_cmd(fd, X_CMD_SET_FONT, in, NULL);
+	x_cmd(x->fd, X_CMD_SET_TITLE, in, NULL);
 	proto_free(in);
 }
 
-void x_pixel(int32_t fd, int32_t x, int32_t y) {
+void x_move_to(x_t* x, int32_t tx, int32_t ty) {
+	if(x->fd < 0)
+		return;
 	proto_t* in;
 	in = proto_new(NULL, 0);
-	proto_add_int(in, x);
-	proto_add_int(in, y);
-	x_cmd(fd, X_CMD_PIXEL, in, NULL);
+	proto_add_int(in, tx);
+	proto_add_int(in, ty);
+	x_cmd(x->fd, X_CMD_MOVE_TO, in, NULL);
 	proto_free(in);
 }
 
-void x_clear(int32_t fd) {
-	x_cmd(fd, X_CMD_CLEAR, NULL, NULL);
+graph_t* x_get_graph(x_t* x) {
+	if(x->fd < 0 || x->shm_id < 0 || x->w <= 0 || x->h <= 0)
+		return NULL;
+	void *p = shm_map(x->shm_id);
+	if(p == NULL)
+		return NULL;
+	return graph_new(p, x->w, x->h);
 }
 
-void x_box(int32_t fd, int32_t x, int32_t y, int32_t w, int32_t h) {
+void x_resize_to(x_t* x, int32_t w, int32_t h) {
+	if(x->fd < 0 || w <= 0 || h <= 0)
+		return;
+
 	proto_t* in;
 	in = proto_new(NULL, 0);
-	proto_add_int(in, x);
-	proto_add_int(in, y);
 	proto_add_int(in, w);
 	proto_add_int(in, h);
-	x_cmd(fd, X_CMD_BOX, in, NULL);
-	proto_free(in);
+	if(x_cmd(x->fd, X_CMD_RESIZE_TO, in, NULL) != 0) {
+		proto_free(in);
+		return;
+	}
+
+	if(x->shm_id >= 0)
+		shm_unmap(x->shm_id);
+	x->shm_id = fs_dma(x->fd, NULL);
+	if(x->shm_id < 0)
+		return;
+	x->w = w;
+	x->h = h;
 }
 
-void x_fill(int32_t fd, int32_t x, int32_t y, int32_t w, int32_t h) {
-	proto_t* in;
-	in = proto_new(NULL, 0);
-	proto_add_int(in, x);
-	proto_add_int(in, y);
-	proto_add_int(in, w);
-	proto_add_int(in, h);
-	x_cmd(fd, X_CMD_FILL, in, NULL);
-	proto_free(in);
+int32_t x_get_scr_size(x_t* x, gsize_t* size) {
+	if(x->fd < 0 || size == NULL)
+		return -1;
+
+	proto_t* out;
+	out = proto_new(NULL, 0);
+	if(x_cmd(x->fd, X_CMD_GET_SCR_SIZE, NULL, out) != 0) {
+		proto_free(out);
+		return -1;
+	}
+	uint32_t sz;
+	void*p = proto_read(out, &sz);
+	if(sz != sizeof(gsize_t)) {
+		proto_free(out);
+		return -1;
+	}	
+	memcpy(size, p, sz);
+	proto_free(out);
+	return 0;
 }
 
-void x_line(int32_t fd, int32_t x1, int32_t y1, int32_t x2, int32_t y2) {
-	proto_t* in;
-	in = proto_new(NULL, 0);
-	proto_add_int(in, x1);
-	proto_add_int(in, y1);
-	proto_add_int(in, x2);
-	proto_add_int(in, y2);
-	x_cmd(fd, X_CMD_LINE, in, NULL);
-	proto_free(in);
-}
+int32_t x_get_event(x_t* x, x_ev_t* ev) {
+	if(x->fd < 0 || ev == NULL)
+		return -1;
 
-void x_text(int32_t fd, int32_t x, int32_t y, const char* str) {
-	proto_t* in;
-	in = proto_new(NULL, 0);
-	proto_add_int(in, x);
-	proto_add_int(in, y);
-	proto_add_str(in, str);
-	x_cmd(fd, X_CMD_STR, in, NULL);
-	proto_free(in);
+	proto_t* out;
+	out = proto_new(NULL, 0);
+	if(x_cmd(x->fd, X_CMD_GET_EVENT, NULL, out) != 0) {
+		proto_free(out);
+		return -1;
+	}
+	uint32_t sz;
+	void*p = proto_read(out, &sz);
+	if(sz != sizeof(x_ev_t)) {
+		proto_free(out);
+		return -1;
+	}	
+	memcpy(ev, p, sz);
+	proto_free(out);
+	return 0;
 }
-

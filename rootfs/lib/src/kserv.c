@@ -10,8 +10,8 @@ int kserv_register(const char* reg_name) {
 }
 
 int kserv_run(kserv_func_t serv_func, void* p, kserv_step_func_t step_func, void* pstep) {
+	bool block = step_func == NULL ? true:false;
   while(true) {
-		bool block = step_func == NULL ? true:false;
     package_t* pkg = ipc_roll(block);
     if(pkg != NULL) {
       serv_func(pkg, p);

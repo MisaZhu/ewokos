@@ -23,6 +23,16 @@ typedef struct {
 } graph_t;
 
 typedef struct {
+	int32_t w;	
+	int32_t h;	
+} gsize_t;
+
+typedef struct {
+	int32_t x;	
+	int32_t y;	
+} pos_t;
+
+typedef struct {
 	int32_t x;	
 	int32_t y;	
 	int32_t w;	

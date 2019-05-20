@@ -29,6 +29,7 @@ static void do_open(device_t* dev, package_t* pkg) {
 static void do_close(device_t* dev, package_t* pkg) { 
 	int32_t serv_pid = kserv_get_by_name(VFS_NAME);	
 	if(serv_pid != pkg->pid) { //only accept from vfsd
+		ipc_send(pkg->id, PKG_TYPE_ERR, NULL, 0);
 		return;
 	}
 
@@ -38,16 +39,20 @@ static void do_close(device_t* dev, package_t* pkg) {
 	fs_info_t* info = (fs_info_t*)proto_read(proto, NULL);
 	proto_free(proto);
 	if(info == NULL || info->node == 0) {
+		ipc_send(pkg->id, PKG_TYPE_ERR, NULL, 0);
 		return;
 	}
 	if(dev->close != NULL)
 		dev->close(pid, fd, info);
+	ipc_send(pkg->id, pkg->type, NULL, 0);
 }
 
 static void do_remove(device_t* dev, package_t* pkg) { 
 	int32_t serv_pid = kserv_get_by_name(VFS_NAME);	
-	if(serv_pid != pkg->pid) //only accept from vfsd
+	if(serv_pid != pkg->pid) { //only accept from vfsd
+		ipc_send(pkg->id, PKG_TYPE_ERR, &errno, 4);
 		return;
+	}
 
 	proto_t* proto = proto_new(get_pkg_data(pkg), pkg->size);
 	const char* fname = proto_read_str(proto);
@@ -94,10 +99,12 @@ static void do_dma(device_t* dev, package_t* pkg) {
 static void do_flush(device_t* dev, package_t* pkg) { 
 	int32_t fd = *(int32_t*)get_pkg_data(pkg);
 	if(fd < 0) {
+		ipc_send(pkg->id, PKG_TYPE_ERR, NULL, 0);
 		return;
 	}
 	if(dev->flush != NULL)
 		dev->flush(pkg->pid, fd);
+	ipc_send(pkg->id, pkg->type, NULL, 0);
 }
 
 static void do_add(device_t* dev, package_t* pkg) { 
