@@ -18,6 +18,7 @@ typedef struct st_xhandle {
 	tstr_t* title;
 	int32_t x, y, w, h;
 	x_ev_queue_t events;
+	bool dirty;
 
 	int32_t pid;
 	int32_t fd;
@@ -99,29 +100,35 @@ static void draw_title(xhandle_t* r) {
 }
 
 static void refresh(void) {
-	xman_xclear();
-	//background pattern
-	int32_t x, y;
-	for(y=20; y<(int32_t)_xman.g->h; y+=20) {
-		for(x=0; x<(int32_t)_xman.g->w; x+=20) {
-			pixel(_xman.g, x, y, _xman.fg_color);
+	if(_xman.dirty) {
+		xman_xclear();
+		//background pattern
+		int32_t x, y;
+		for(y=20; y<(int32_t)_xman.g->h; y+=20) {
+			for(x=0; x<(int32_t)_xman.g->w; x+=20) {
+				pixel(_xman.g, x, y, _xman.fg_color);
+			}
 		}
 	}
+
 	//blt all handles
 	xhandle_t* r = _xman.handle_bottom;
 	while(r != NULL && r->shm_id >= 0) {
-		void *p = shm_map(r->shm_id);
-		if(p != NULL) {
-			graph_t* g = graph_new(p, r->w, r->h);
-			blt(g, 0, 0, r->w, r->h, _xman.g, r->x, r->y, r->w, r->h);
-			graph_free(g);
+		if(_xman.dirty || r->dirty) {
+			void *p = shm_map(r->shm_id);
+			if(p != NULL) {
+				graph_t* g = graph_new(p, r->w, r->h);
+				blt(g, 0, 0, r->w, r->h, _xman.g, r->x, r->y, r->w, r->h);
+				graph_free(g);
 
-			box(_xman.g, r->x, r->y, r->w, r->h, _xman.fg_color);//win box
-			draw_title(r);
+				box(_xman.g, r->x, r->y, r->w, r->h, _xman.fg_color);//win box
+				draw_title(r);
+			}
+			r->dirty = false;
 		}
 		r = r->prev;
 	}
-	flush();
+	_xman.dirty = false;
 }
 
 static int32_t xman_mount(const char* fname, int32_t index) {
@@ -200,16 +207,6 @@ static bool read_mouse(int32_t *x, int32_t *y, int32_t* ev, uint32_t times) {
 	return true;
 }
 
-static inline void draw_cursor(int32_t mx, int32_t my, int32_t mw, int32_t mh) {
-	line(_xman.g, mx+1, my, mx+mw-1, my+mh-2, _xman.fg_color);
-	line(_xman.g, mx, my, mx+mw-1, my+mh-1, _xman.fg_color);
-	line(_xman.g, mx, my+1, mx+mw-2, my+mh-1, _xman.fg_color);
-
-	line(_xman.g, mx, my+mh-2, mx+mw-2, my, _xman.fg_color);
-	line(_xman.g, mx, my+mh-1, mx+mw-1, my, _xman.fg_color);
-	line(_xman.g, mx+1, my+mh-1, mx+mw-1, my+1, _xman.fg_color);
-}
-
 static xhandle_t* get_mouse_owner(int32_t mx, int32_t my) {
 	xhandle_t* h = _xman.handle_top;
 	while(h != NULL) {
@@ -262,14 +259,6 @@ static void xman_event(xhandle_t* handle, x_ev_t* ev) {
 }
 
 static void xman_mouse(void) {
-	if(_xman.cursor.mg == NULL) {
-		_xman.cursor.mg = graph_new(NULL, _xman.cursor.mw, _xman.cursor.mh);
-		blt(_xman.g, _xman.cursor.mx, _xman.cursor.my, _xman.cursor.mw, _xman.cursor.mh,
-			  _xman.cursor.mg, 0, 0, _xman.cursor.mw, _xman.cursor.mh);	
-	}
-	blt(_xman.cursor.mg, 0, 0, _xman.cursor.mw, _xman.cursor.mh,
-		  _xman.g, _xman.cursor.mx, _xman.cursor.my, _xman.cursor.mw, _xman.cursor.mh);	
-
 	if(read_mouse(&_xman.cursor.mx, &_xman.cursor.my, &_xman.cursor.mev, 1)) {
 		xhandle_t* owner = get_mouse_owner(_xman.cursor.mx, _xman.cursor.my);
 		if(owner != NULL) {
@@ -285,10 +274,7 @@ static void xman_mouse(void) {
 				ev.state = X_EV_MOUSE_MOVE;
 			xman_event(owner, &ev);
 		}
-		blt(_xman.g, _xman.cursor.mx, _xman.cursor.my, _xman.cursor.mw, _xman.cursor.mh,
-			  _xman.cursor.mg, 0, 0, _xman.cursor.mw, _xman.cursor.mh);	
 	}
-	draw_cursor(_xman.cursor.mx, _xman.cursor.my, _xman.cursor.mw, _xman.cursor.mh);
 }
 
 static void xman_keyb(void) {
@@ -302,24 +288,51 @@ static void xman_keyb(void) {
 	}
 }
 
+static inline void draw_cursor(void) {
+	if(_xman.cursor.mg == NULL)
+		return;
+
+	int32_t mx = _xman.cursor.mx;
+	int32_t my = _xman.cursor.my;
+	int32_t mw = _xman.cursor.mw;
+	int32_t mh = _xman.cursor.mh;
+
+	blt(_xman.g, mx, my, mw, mh,
+			_xman.cursor.mg, 0, 0, mw, mh);	
+
+	line(_xman.g, mx+1, my, mx+mw-1, my+mh-2, _xman.fg_color);
+	line(_xman.g, mx, my, mx+mw-1, my+mh-1, _xman.fg_color);
+	line(_xman.g, mx, my+1, mx+mw-2, my+mh-1, _xman.fg_color);
+
+	line(_xman.g, mx, my+mh-2, mx+mw-2, my, _xman.fg_color);
+	line(_xman.g, mx, my+mh-1, mx+mw-1, my, _xman.fg_color);
+	line(_xman.g, mx+1, my+mh-1, mx+mw-1, my+1, _xman.fg_color);
+}
+
+static void hide_cursor(void) {
+	if(_xman.cursor.mg == NULL) {
+		_xman.cursor.mg = graph_new(NULL, _xman.cursor.mw, _xman.cursor.mh);
+		blt(_xman.g, _xman.cursor.mx, _xman.cursor.my, _xman.cursor.mw, _xman.cursor.mh,
+			  _xman.cursor.mg, 0, 0, _xman.cursor.mw, _xman.cursor.mh);	
+	}
+	else  {
+		blt(_xman.cursor.mg, 0, 0, _xman.cursor.mw, _xman.cursor.mh,
+			  _xman.g, _xman.cursor.mx, _xman.cursor.my, _xman.cursor.mw, _xman.cursor.mh);	
+	}
+}
+
 static void xman_step(void* p) {
 	(void)p;
 	if(!_xman.enabled) {
 		sleep(0);
 		return;
 	}
-
-	if(_xman.dirty) {
-		refresh();
-		if(_xman.cursor.mg != NULL) {
-			blt(_xman.g, _xman.cursor.mx, _xman.cursor.my, _xman.cursor.mw, _xman.cursor.mh,
-				  _xman.cursor.mg, 0, 0, _xman.cursor.mw, _xman.cursor.mh);	
-		}
-		_xman.dirty = false;
-	}
+	hide_cursor();
+	refresh();
 	xman_mouse();
 	xman_keyb();
-	fb_flush(&_xman.fb);
+	draw_cursor();
+	flush();
 }
 
 static int32_t xman_fctrl(int32_t pid, const char* fname, int32_t cmd, proto_t* input, proto_t* out) {
@@ -354,6 +367,14 @@ static int32_t xman_fctrl(int32_t pid, const char* fname, int32_t cmd, proto_t* 
 		return 0;
 	}
 	return -1;
+}
+
+static inline void handle_update(xhandle_t* handle) {
+	if(handle == NULL)
+		return;
+	handle->dirty = true;
+	if(handle != _xman.handle_top)
+		_xman.dirty = true;
 }
 
 static xhandle_t* xman_get_handle(int32_t pid, int32_t fd) {
@@ -423,12 +444,14 @@ static int32_t xman_resize_to(xhandle_t* handle, proto_t* input) {
 		return -1;
 	handle->w = w;
 	handle->h = h;
+	handle_update(handle);
+	_xman.dirty = true;
 	return 0;
 }
 
 static int32_t xman_set_title(xhandle_t* handle, proto_t* input) {
 	tstr_cpy(handle->title, proto_read_str(input));
-	_xman.dirty = true;
+	handle_update(handle);
 	return 0;
 }
 
@@ -448,8 +471,9 @@ static int32_t xman_get_scr_size(xhandle_t* handle, proto_t* out) {
 }
 
 static int32_t xman_flush(xhandle_t* handle) {
-	(void)handle;
-	_xman.dirty = 1;
+	if(handle == NULL)
+		return -1;
+	handle_update(handle);
 	return 0;
 }
 
