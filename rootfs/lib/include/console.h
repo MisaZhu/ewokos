@@ -21,7 +21,7 @@ typedef struct {
 	content_t content;
 } console_t;
 
-int32_t console_init(console_t* console, const char* fname);
+int32_t console_init(console_t* console);
 void console_close(console_t* console);
 void console_refresh(console_t* console);
 int32_t console_reset(console_t* console);

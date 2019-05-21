@@ -6,6 +6,7 @@
 #include <console.h>
 #include <kstring.h>
 #include <vfs/fs.h>
+#include <sconf.h>
 #include <shm.h>
 
 static console_t _console;
@@ -13,12 +14,34 @@ static fb_t _fb;
 static int32_t _keyb_fd = -1;
 static bool _enabled = false;
 
+static int32_t read_config(console_t* console, const char* fname) {
+	sconf_t *conf = sconf_load(fname);	
+	if(conf == NULL)
+		return -1;
+	
+	const char* v = sconf_get(conf, "bg_color");
+	if(v[0] != 0) 
+		console->bg_color = rgb_int(atoi_base(v, 16));
+
+	v = sconf_get(conf, "fg_color");
+	if(v[0] != 0) 
+		console->fg_color = rgb_int(atoi_base(v, 16));
+
+	v = sconf_get(conf, "font");
+	if(v[0] != 0) 
+		console->font = get_font_by_name(v);
+
+	sconf_free(conf, MFS);
+	return 0;
+}
+
 static int32_t console_mount(const char* fname, int32_t index) {
 	if(fname == NULL || fname[0] == 0 || index < 0)
 		return -1;
 
 	_enabled = false;
-	console_init(&_console, "/etc/console.conf");
+	console_init(&_console);
+	read_config(&_console, "/etc/console.conf");
 
 	_keyb_fd = open("/dev/keyb0", 0);
 	if(_keyb_fd < 0)
@@ -54,6 +77,11 @@ static int32_t console_write(int32_t pid, int32_t fd, void* buf, uint32_t size, 
 	(void)seek;
 
 	const char* p = (const char*)buf;
+	if(size == 1 && *p == 0) { //clear console.
+		console_reset(&_console);	
+		return size;
+	}
+		
 	for(uint32_t i=0; i<size; i++) {
 		char c = p[i];
 		console_put_char(&_console, c);
@@ -90,10 +118,7 @@ static int32_t console_read(int32_t pid, int32_t fd, void* buf, uint32_t size, i
 }
 
 static void console_fctrl_raw(int32_t cmd, const char* data) {
-	if(cmd == FS_CTRL_CLEAR) { //clear.
-		console_reset(&_console);
-	}
-	else if(cmd == FS_CTRL_SET_FONT) { //set font.
+	if(cmd == FS_CTRL_SET_FONT) { //set font.
 		font_t* fnt = get_font_by_name(data);
 		if(fnt != NULL) {
 			_console.font = fnt;

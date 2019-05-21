@@ -11,27 +11,6 @@
 
 #define T_W 2 /*tab width*/
 
-static int32_t read_config(console_t* console, const char* fname) {
-	sconf_t *conf = sconf_load(fname);	
-	if(conf == NULL)
-		return -1;
-	
-	const char* v = sconf_get(conf, "bg_color");
-	if(v[0] != 0) 
-		console->bg_color = rgb_int(atoi_base(v, 16));
-
-	v = sconf_get(conf, "fg_color");
-	if(v[0] != 0) 
-		console->fg_color = rgb_int(atoi_base(v, 16));
-
-	v = sconf_get(conf, "font");
-	if(v[0] != 0) 
-		console->font = get_font_by_name(v);
-
-	sconf_free(conf, MFS);
-	return 0;
-}
-
 static void cons_draw_char(console_t* console, int32_t x, int32_t y, char c) {
 	draw_char(console->g, x, y, c, console->font, console->fg_color);
 }
@@ -61,14 +40,11 @@ int32_t console_reset(console_t* console) {
 	return 0;
 }
 
-int32_t console_init(console_t* console, const char* fname) {
+int32_t console_init(console_t* console) {
 	console->g = NULL;
 	console->bg_color = rgb(0x22, 0x22, 0x66);
 	console->fg_color = rgb(0xaa, 0xbb, 0xaa);
 	console->font = get_font_by_name("8x16");
-	read_config(console, fname);
-	if(console->font == NULL)
-		return -1;
 	memset(&console->content, 0, sizeof(content_t));
 	return 0;
 }

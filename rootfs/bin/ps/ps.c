@@ -17,15 +17,29 @@ static const char* _states[] = {
 	"tmn"
 };
 
-static const char* get_cmd(int32_t pid) {
+static const char* get_cmd(int32_t pid, bool full) {
 	static char cmd[1024];
 	syscall3(SYSCALL_GET_CMD, pid, (int)cmd, 1023);
+	if(full)
+		return cmd;
+
+	char* p = cmd;
+	while(*p != 0) {
+		if(*p == ' ') {
+			*p = 0;
+			break;
+		}
+		p++;
+	}
 	return cmd;
 }
 
 int main(int argc, char* argv[]) {
-	(void)argc;
-	(void)argv;
+	bool full = false;
+	if(argc == 2 && argv[1][0] == '-') {	
+		if(strchr(argv[1], 'f') != NULL)
+			full = true;
+	}
 
 	int num = 0;
 	uint32_t fr_mem = (uint32_t)syscall2(SYSCALL_SYSTEM_CMD, 1, 0) / KB;
@@ -47,7 +61,7 @@ int main(int argc, char* argv[]) {
 				sec / 60,
 				sec % 60,
 				procs[i].heap_size/1024,
-				get_cmd(procs[i].pid));
+				get_cmd(procs[i].pid, full));
 		}
 		free(procs);
 	}

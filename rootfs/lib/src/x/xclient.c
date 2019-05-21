@@ -6,6 +6,10 @@ int32_t x_open(const char* dev_name, x_t* x) {
 	int32_t fd = open(dev_name, O_RDWR);
 	if(fd < 0)
 		return -1;
+	x->x = 0;
+	x->y = 0;
+	x->w = 0;
+	x->h = 0;
 	x->fd = fd;
 	x->shm_id = -1;
 	return 0;
@@ -34,6 +38,26 @@ void x_set_title(x_t* x, const char* name) {
 	proto_free(in);
 }
 
+void x_set_style(x_t* x, uint32_t style) {
+	if(x->fd < 0)
+		return;
+	proto_t* in;
+	in = proto_new(NULL, 0);
+	proto_add_int(in, style);
+	x_cmd(x->fd, X_CMD_SET_STYLE, in, NULL);
+	proto_free(in);
+}
+
+void x_set_state(x_t* x, uint32_t state) {
+	if(x->fd < 0)
+		return;
+	proto_t* in;
+	in = proto_new(NULL, 0);
+	proto_add_int(in, state);
+	x_cmd(x->fd, X_CMD_SET_STATE, in, NULL);
+	proto_free(in);
+}
+
 void x_move_to(x_t* x, int32_t tx, int32_t ty) {
 	if(x->fd < 0)
 		return;
@@ -43,6 +67,8 @@ void x_move_to(x_t* x, int32_t tx, int32_t ty) {
 	proto_add_int(in, ty);
 	x_cmd(x->fd, X_CMD_MOVE_TO, in, NULL);
 	proto_free(in);
+	x->x = tx;
+	x->y = ty;
 }
 
 graph_t* x_get_graph(x_t* x) {

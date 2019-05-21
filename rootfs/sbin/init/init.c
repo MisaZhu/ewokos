@@ -48,8 +48,8 @@ static int run_init_dev(const char* fname) {
 		}
 		++i;
 	}
-
 	free(data);
+	setenv("DEV_INITED", "yes");
 	return 0;
 }
 

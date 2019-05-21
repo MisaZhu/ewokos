@@ -16,7 +16,7 @@ static void stdout_flush(void) {
 	const char* p = _out_buffer;
 	while(_out_size > 0) {
 		int32_t res;
-		if(getenv("STDIO_DEV")[0] != 0) 
+		if(getenv("DEV_INITED")[0] != 0) 
 			res = write(_stdout, p, _out_size);
 		else
 			res = syscall3(SYSCALL_DEV_CHAR_WRITE, dev_typeid(DEV_UART, 0), (int32_t)_out_buffer, _out_size);
@@ -48,7 +48,7 @@ int getch() {
 
 	int32_t res = -1;
 	while(true) {
-		if(getenv("STDIO_DEV")[0] != 0) 
+		if(getenv("DEV_INITED")[0] != 0) 
 			res = read(_stdin, buf, 1);
 		else
 			res = syscall3(SYSCALL_DEV_CHAR_READ, dev_typeid(DEV_UART, 0), (int32_t)buf, 1);

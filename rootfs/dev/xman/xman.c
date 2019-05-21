@@ -10,7 +10,7 @@
 #include <vfs/fs.h>
 #include <sconf.h>
 #include <x/xcmd.h>
-#include <x/xevent.h>
+#include <x/xclient.h>
 #include <shm.h>
 
 typedef struct st_xhandle {
@@ -18,6 +18,8 @@ typedef struct st_xhandle {
 	tstr_t* title;
 	int32_t x, y, w, h;
 	x_ev_queue_t events;
+	uint32_t style;
+	uint32_t state;
 	bool dirty;
 
 	int32_t pid;
@@ -48,30 +50,10 @@ typedef struct {
 
 	cursor_t cursor;
 	bool dirty;
+	bool need_flush;
 } xman_t;
 
 static xman_t _xman;
-	
-static int32_t read_config(void) {
-	sconf_t *conf = sconf_load("/etc/xman.conf");	
-	if(conf == NULL)
-		return -1;
-	
-	const char* v = sconf_get(conf, "bg_color");
-	if(v[0] != 0) 
-		_xman.bg_color = rgb_int(atoi_base(v, 16));
-
-	v = sconf_get(conf, "fg_color");
-	if(v[0] != 0) 
-		_xman.fg_color = rgb_int(atoi_base(v, 16));
-
-	v = sconf_get(conf, "font");
-	if(v[0] != 0) 
-		_xman.font = get_font_by_name(v);
-
-	sconf_free(conf, MFS);
-	return 0;
-}
 
 static void xman_xclear(void) {
 	if(_xman.enabled)
@@ -109,11 +91,12 @@ static void refresh(void) {
 				pixel(_xman.g, x, y, _xman.fg_color);
 			}
 		}
+		_xman.need_flush = true;
 	}
 
 	//blt all handles
 	xhandle_t* r = _xman.handle_bottom;
-	while(r != NULL && r->shm_id >= 0) {
+	while(r != NULL && r->state != X_STATE_HIDE && r->shm_id >= 0) {
 		if(_xman.dirty || r->dirty) {
 			void *p = shm_map(r->shm_id);
 			if(p != NULL) {
@@ -121,10 +104,13 @@ static void refresh(void) {
 				blt(g, 0, 0, r->w, r->h, _xman.g, r->x, r->y, r->w, r->h);
 				graph_free(g);
 
-				box(_xman.g, r->x, r->y, r->w, r->h, _xman.fg_color);//win box
-				draw_title(r);
+				if((r->style & X_STYLE_NO_FRAME) == 0) {
+					box(_xman.g, r->x, r->y, r->w, r->h, _xman.fg_color);//win box
+					draw_title(r);
+				}
 			}
 			r->dirty = false;
+			_xman.need_flush = true;
 		}
 		r = r->prev;
 	}
@@ -139,12 +125,11 @@ static int32_t xman_mount(const char* fname, int32_t index) {
 	_xman.handle_bottom = NULL;
 
 	_xman.enabled = true;
-	_xman.bg_color = rgb(0x22, 0x22, 0x66);
-	_xman.fg_color = rgb(0xaa, 0xbb, 0xaa);
+	_xman.bg_color = rgb_int(0x222222);
+	_xman.fg_color = rgb_int(0xaaaaaa);
 	_xman.font = get_font_by_name("8x16");
 	if(_xman.font == NULL)
 		return -1;
-	read_config();
 
 	_xman.keyb_fd = open("/dev/keyb0", O_RDONLY);
 	if(_xman.keyb_fd < 0)
@@ -160,8 +145,8 @@ static int32_t xman_mount(const char* fname, int32_t index) {
 		return -1;
 	_xman.g = graph_from_fb(&_xman.fb);
 
-	_xman.cursor.mx = 0;
-	_xman.cursor.my = 0;
+	_xman.cursor.mx = _xman.fb.w/2;
+	_xman.cursor.my = _xman.fb.h/2;
 	_xman.cursor.mw = 14;
 	_xman.cursor.mh = 14;
 	_xman.cursor.offx = 7;
@@ -210,7 +195,8 @@ static bool read_mouse(int32_t *x, int32_t *y, int32_t* ev, uint32_t times) {
 static xhandle_t* get_mouse_owner(int32_t mx, int32_t my) {
 	xhandle_t* h = _xman.handle_top;
 	while(h != NULL) {
-		if(mx >= h->x && mx < (int32_t)(h->x+h->w) &&
+		if(h->state != X_STATE_HIDE && 
+				mx >= h->x && mx < (int32_t)(h->x+h->w) &&
 				my >= h->y-20 && my < (int32_t)(h->y+h->h))
 			return h;
 		h = h->next;
@@ -260,6 +246,7 @@ static void xman_event(xhandle_t* handle, x_ev_t* ev) {
 
 static void xman_mouse(void) {
 	if(read_mouse(&_xman.cursor.mx, &_xman.cursor.my, &_xman.cursor.mev, 1)) {
+		_xman.need_flush = true;
 		xhandle_t* owner = get_mouse_owner(_xman.cursor.mx, _xman.cursor.my);
 		if(owner != NULL) {
 			x_ev_t ev;
@@ -277,14 +264,25 @@ static void xman_mouse(void) {
 	}
 }
 
+static xhandle_t* xman_get_top_handle(void) {
+	xhandle_t* r = _xman.handle_top;
+	while(r != NULL) {
+		if(r->state != X_STATE_HIDE)
+			return r;
+		r = r->next;
+	}
+	return NULL;	
+}
+
 static void xman_keyb(void) {
 	char c;
 	int32_t res = read(_xman.keyb_fd, &c, 1); 
-	if(res == 1 && _xman.handle_top != NULL) {
+	xhandle_t* top = xman_get_top_handle();
+	if(res == 1 && top != NULL) {
 		x_ev_t ev;
 		ev.type = X_EV_KEYB;
 		ev.value.keyboard.value = c;
-		xman_event(_xman.handle_top, &ev);
+		xman_event(top, &ev);
 	}
 }
 
@@ -332,7 +330,11 @@ static void xman_step(void* p) {
 	xman_mouse();
 	xman_keyb();
 	draw_cursor();
-	flush();
+
+	if(_xman.need_flush) {
+		flush();
+		_xman.need_flush = false;
+	}
 }
 
 static int32_t xman_fctrl(int32_t pid, const char* fname, int32_t cmd, proto_t* input, proto_t* out) {
@@ -373,7 +375,7 @@ static inline void handle_update(xhandle_t* handle) {
 	if(handle == NULL)
 		return;
 	handle->dirty = true;
-	if(handle != _xman.handle_top)
+	if(handle != _xman.handle_top && handle->state != X_STATE_HIDE)
 		_xman.dirty = true;
 }
 
@@ -455,6 +457,27 @@ static int32_t xman_set_title(xhandle_t* handle, proto_t* input) {
 	return 0;
 }
 
+static int32_t xman_set_style(xhandle_t* handle, proto_t* input) {
+	uint32_t style = proto_read_int(input);
+	if(handle->style != style) {
+		handle_update(handle);
+		handle->style = style;
+		handle->dirty = true;
+		if((style & X_STYLE_NO_FRAME) != 0)	
+			_xman.dirty = true;
+	}
+	return 0;
+}
+
+static int32_t xman_set_state(xhandle_t* handle, proto_t* input) {
+	uint32_t state = proto_read_int(input);
+	if(handle->state != state) {
+		handle->state = state;
+		_xman.dirty = true;
+	}
+	return 0;
+}
+
 static int32_t xman_get_event(xhandle_t* handle, proto_t* out) {
 	x_ev_t ev;	
 	if(x_ev_queue_pop(&handle->events, &ev) != 0)
@@ -474,6 +497,7 @@ static int32_t xman_flush(xhandle_t* handle) {
 	if(handle == NULL)
 		return -1;
 	handle_update(handle);
+	refresh();
 	return 0;
 }
 
@@ -488,6 +512,10 @@ static int32_t xman_ctrl(int32_t pid, int32_t fd, int32_t cmd, proto_t* input, p
 		return xman_resize_to(handle, input);
 	case X_CMD_SET_TITLE:
 		return xman_set_title(handle, input);
+	case X_CMD_SET_STYLE:
+		return xman_set_style(handle, input);
+	case X_CMD_SET_STATE:
+		return xman_set_state(handle, input);
 	case X_CMD_GET_EVENT:
 		return xman_get_event(handle, out);
 	case X_CMD_GET_SCR_SIZE:
