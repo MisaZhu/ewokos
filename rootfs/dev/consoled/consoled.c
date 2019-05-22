@@ -18,7 +18,6 @@ static int32_t read_config(console_t* console, const char* fname) {
 	sconf_t *conf = sconf_load(fname);	
 	if(conf == NULL)
 		return -1;
-	
 	const char* v = sconf_get(conf, "bg_color");
 	if(v[0] != 0) 
 		console->bg_color = rgb_int(atoi_base(v, 16));

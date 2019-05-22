@@ -77,7 +77,7 @@ static int32_t close_zombie(opened_t* opened) {
 		proto_add_int(proto, opened->pid);
 		proto_add_int(proto, opened->fd);
 		proto_add(proto, &info, sizeof(fs_info_t));
-		ipc_req(info.dev_serv_pid, 0, FS_CLOSE, proto->data, proto->size, false);
+		ipc_call(info.dev_serv_pid, FS_CLOSE, proto, NULL);
 		proto_free(proto);
 	}		
 	return 0;
@@ -290,102 +290,87 @@ static int32_t fsnode_unmount(int32_t pid, tree_node_t* node) {
 	return 0;
 }
 
-static void do_info_by_fd(package_t* pkg) {
-	int32_t fd = *(int32_t*)get_pkg_data(pkg);
-	tree_node_t* node = get_node_by_fd(pkg->pid, fd);
+static int32_t do_info_by_fd(int32_t pid, proto_t* in, proto_t* out) {
+	int32_t fd = proto_read_int(in);
+	tree_node_t* node = get_node_by_fd(pid, fd);
 	fs_info_t info;
-	if(node == NULL || fsnode_info(pkg->pid, node, &info) != 0) {
-		ipc_send(pkg->id, PKG_TYPE_ERR, NULL, 0);
-		return;
+	if(node == NULL || fsnode_info(pid, node, &info) != 0) {
+		return -1;
 	}
-	ipc_send(pkg->id, pkg->type, &info, sizeof(fs_info_t));
+	proto_add(out, &info, sizeof(fs_info_t));
+	return 0;
 }
 
-static void do_add(package_t* pkg) {
-	proto_t* proto = proto_new(get_pkg_data(pkg), pkg->size);
-	const char* dir_name = proto_read_str(proto);
-	const char* name = proto_read_str(proto);
-	uint32_t size = (uint32_t)proto_read_int(proto);
-	void* data = (void*)proto_read_int(proto);
-	proto_free(proto);
+static int32_t do_add(int32_t pid, proto_t* in) {
+	const char* dir_name = proto_read_str(in);
+	const char* name = proto_read_str(in);
+	uint32_t size = (uint32_t)proto_read_int(in);
+	void* data = (void*)proto_read_int(in);
 
 	fs_info_t info;
-	if(get_info_by_name(pkg->pid, dir_name, &info) != 0) {
-		ipc_send(pkg->id, PKG_TYPE_ERR, NULL, 0);
-		return;
+	if(get_info_by_name(pid, dir_name, &info) != 0) {
+		return -1;
 	}
 
 	tree_node_t* ret = NULL; 
 	if(strchr(name, '/') == NULL)
-		ret = fsnode_add((tree_node_t*)info.node, name, size, pkg->pid, data);
+		ret = fsnode_add((tree_node_t*)info.node, name, size, pid, data);
 	if(ret == NULL)
-		ipc_send(pkg->id, PKG_TYPE_ERR, NULL, 0);
-	else
-		ipc_send(pkg->id, pkg->type, NULL, 0);
+		return -1;
+	return 0;
 }
 
-static void do_del(package_t* pkg) {
-	proto_t* proto = proto_new(get_pkg_data(pkg), pkg->size);
-	const char* fname = proto_read_str(proto);
-	proto_free(proto);
+static int32_t do_del(int32_t pid, proto_t* in) {
+	const char* fname = proto_read_str(in);
 	fs_info_t info;
-	if(get_info_by_name(pkg->pid, fname, &info) != 0) {
-		ipc_send(pkg->id, PKG_TYPE_ERR, NULL, 0);
-		return;
+	if(get_info_by_name(pid, fname, &info) != 0) {
+		return -1;
 	}
 
 	if(info.dev_serv_pid > 0) {
-		proto = proto_new(NULL, 0);
+		proto_t* proto = proto_new(NULL, 0);
 		proto_add_str(proto, fname);
 		proto_add(proto, &info, sizeof(fs_info_t));
-		package_t* p = ipc_req(info.dev_serv_pid, 0, FS_REMOVE, proto->data, proto->size, true);
+		int32_t res = ipc_call(info.dev_serv_pid, FS_REMOVE, proto, NULL);
 		proto_free(proto);
-		if(p == NULL || p->type == PKG_TYPE_ERR) {
-			if(p != NULL) free(p);
-			ipc_send(pkg->id, PKG_TYPE_ERR, NULL, 0);
-			return;
+		if(res != 0) {
+			return -1;
 		}
-		free(p);
 	}
 
-	if(fsnode_del(pkg->pid, (tree_node_t*)info.node) != 0)
-		ipc_send(pkg->id, PKG_TYPE_ERR, NULL, 0);
-	else
-		ipc_send(pkg->id, pkg->type, NULL, 0);
+	if(fsnode_del(pid, (tree_node_t*)info.node) != 0)
+		return -1;
+	return 0;
 }
 
-static void do_info_update(package_t* pkg) {
-	fs_info_t* info = (fs_info_t*)get_pkg_data(pkg);
+static int32_t do_info_update(int32_t pid, proto_t* in) {
+	fs_info_t* info = proto_read(in, NULL);
 	if(info == NULL || info->node == 0) {
-		ipc_send(pkg->id, PKG_TYPE_ERR, NULL, 0);
-		return;
+		return -1;
 	}
 
 	tree_node_t* node = (tree_node_t*)info->node;
-	if(pkg->pid != _mounts[FSN(node)->mount].dev_serv_pid) {
-		ipc_send(pkg->id, PKG_TYPE_ERR, NULL, 0);
-		return;
+	if(pid != _mounts[FSN(node)->mount].dev_serv_pid) {
+		return -1;
 	}
 
 	FSN(node)->size = info->size;
 	FSN(node)->data = info->data;
 	FSN(node)->owner = info->owner;
-	ipc_send(pkg->id, pkg->type, NULL, 0);
+	return 0;
 }
 
-static void do_close(package_t* pkg) {
-	int32_t fd = *(int32_t*)get_pkg_data(pkg);
+static int32_t do_close(int pid, proto_t* in) {
+	int32_t fd = proto_read_int(in);
 	if(fd < 0) {
-		ipc_send(pkg->id, PKG_TYPE_ERR, NULL, 0);
-		return;
+		return -1;
 	}
 
 	fs_info_t info;
-	if(get_info_by_fd(pkg->pid, fd, &info) != 0) {
-		ipc_send(pkg->id, PKG_TYPE_ERR, NULL, 0);
-		return;
+	if(get_info_by_fd(pid, fd, &info) != 0) {
+		return -1;
 	}
-	syscall2(SYSCALL_PFILE_CLOSE, pkg->pid, fd);
+	syscall2(SYSCALL_PFILE_CLOSE, pid, fd);
 
 	tree_node_t* node = (tree_node_t*)info.node;
 	FSN(node)->size = info.size;
@@ -396,49 +381,44 @@ static void do_close(package_t* pkg) {
 		do_pipe_close(info.node, false);
 	else if(info.dev_serv_pid > 0) {
 		proto_t* proto = proto_new(NULL, 0);
-		proto_add_int(proto, pkg->pid);
+		proto_add_int(proto, pid);
 		proto_add_int(proto, fd);
 		proto_add(proto, &info, sizeof(fs_info_t));
-		ipc_req(info.dev_serv_pid, 0, FS_CLOSE, proto->data, proto->size, false);
+		ipc_call(info.dev_serv_pid, FS_CLOSE, proto, NULL);
 		proto_free(proto);
 	}		
 	rm_opened(info.node);
-	ipc_send(pkg->id, pkg->type, NULL, 0);
+	return 0;
 }
 
-static void do_open(package_t* pkg) {
-	proto_t* proto = proto_new(get_pkg_data(pkg), pkg->size);
-	const char* name = proto_read_str(proto);
-	int32_t flags = proto_read_int(proto);
-	proto_free(proto);
+static int32_t do_open(int32_t pid, proto_t* in, proto_t* out) {
+	const char* name = proto_read_str(in);
+	int32_t flags = proto_read_int(in);
+	proto_free(in);
 
 	fs_info_t info;
-	if(get_info_by_name(pkg->pid, name, &info) != 0) {
-		ipc_send(pkg->id, PKG_TYPE_ERR, NULL, 0);
-		return;
+	if(get_info_by_name(pid, name, &info) != 0) {
+		return -1;
 	}
 	
-	int32_t fd = syscall3(SYSCALL_PFILE_OPEN, pkg->pid, (int32_t)&info, flags);
+	int32_t fd = syscall3(SYSCALL_PFILE_OPEN, pid, (int32_t)&info, flags);
 	if(fd < 0) {
-		ipc_send(pkg->id, PKG_TYPE_ERR, NULL, 0);
-		return;
+		return -1;
 	}
 
-	add_opened(pkg->pid, fd, info.node);
-	ipc_send(pkg->id, pkg->type, &fd, 4);
+	add_opened(pid, fd, info.node);
+	proto_add_int(out, fd);
+	return 0;
 }
 
-static void do_info_by_name(package_t* pkg) {
-	proto_t* proto = proto_new(get_pkg_data(pkg), pkg->size);
-	const char* name = proto_read_str(proto);
-	proto_free(proto);
-
+static int32_t do_info_by_name(int32_t pid, proto_t* in, proto_t* out) {
+	const char* name = proto_read_str(in);
 	fs_info_t info;
-	if(get_info_by_name(pkg->pid, name, &info) != 0) {
-		ipc_send(pkg->id, PKG_TYPE_ERR, NULL, 0);
-		return;
+	if(get_info_by_name(pid, name, &info) != 0) {
+		return -1;
 	}
-	ipc_send(pkg->id, pkg->type, &info, sizeof(fs_info_t));
+	proto_add(out, &info, sizeof(fs_info_t));
+	return 0;
 }
 
 static tstr_t* get_node_fullname(tree_node_t* node) {
@@ -463,64 +443,59 @@ static tstr_t* get_node_fullname(tree_node_t* node) {
 	return full;
 }
 
-static void do_fullname_by_fd(package_t* pkg) {
-	int32_t fd = *(int32_t*)get_pkg_data(pkg);
-	tree_node_t* node = get_node_by_fd(pkg->pid, fd);
+static int32_t do_fullname_by_fd(int32_t pid, proto_t* in, proto_t* out) {
+	int32_t fd = proto_read_int(in);
+	tree_node_t* node = get_node_by_fd(pid, fd);
 	if(node == NULL) {
-		ipc_send(pkg->id, PKG_TYPE_ERR, NULL, 0);
-		return;
+		return -1;
 	}
 	tstr_t* full = get_node_fullname(node); 
-	const char* n = CS(full);
-	ipc_send(pkg->id, pkg->type, (void*)n, strlen(n)+1);
+	proto_add_str(out, CS(full));
 	tstr_free(full);
+	return 0;
 }
 
-static void do_fullname_by_node(package_t* pkg) {
-	uint32_t node_addr = *(uint32_t*)get_pkg_data(pkg);
+static int32_t do_fullname_by_node(proto_t* in, proto_t* out) {
+	uint32_t node_addr = (uint32_t)proto_read_int(in);
 	tree_node_t* node = (tree_node_t*)node_addr;
 	if(node == NULL) {
-		ipc_send(pkg->id, PKG_TYPE_ERR, NULL, 0);
-		return;
+		return -1;
 	}
 	tstr_t* full = get_node_fullname(node); 
-	const char* n = CS(full);
-	ipc_send(pkg->id, pkg->type, (void*)n, strlen(n)+1);
+	proto_add_str(out, CS(full));
 	tstr_free(full);
+	return 0;
 }
 
-static void do_shortname_by_fd(package_t* pkg) {
-	int32_t fd = *(int32_t*)get_pkg_data(pkg);
-	tree_node_t* node = get_node_by_fd(pkg->pid, fd);
+static int32_t do_shortname_by_fd(int32_t pid, proto_t* in, proto_t* out) {
+	int32_t fd = proto_read_int(in);
+	tree_node_t* node = get_node_by_fd(pid, fd);
 	if(node == NULL) {
-		ipc_send(pkg->id, PKG_TYPE_ERR, NULL, 0);
-		return;
+		return -1;
 	}
 	const char *n = CS(FSN(node)->name);
-	ipc_send(pkg->id, pkg->type, (void*)n, strlen(n)+1);
+	proto_add_str(out, n);
+	return 0;
 }
 
-static void do_shortname_by_node(package_t* pkg) {
-	uint32_t node_addr = *(uint32_t*)get_pkg_data(pkg);
+static int32_t do_shortname_by_node(proto_t* in, proto_t* out) {
+	uint32_t node_addr = (uint32_t)proto_read_int(in);
 	tree_node_t* node = (tree_node_t*)node_addr;
 	if(node == NULL) {
-		ipc_send(pkg->id, PKG_TYPE_ERR, NULL, 0);
-		return;
+		return -1;
 	}
 	const char *n = CS(FSN(node)->name);
-	ipc_send(pkg->id, pkg->type, (void*)n, strlen(n)+1);
+	proto_add_str(out, n);
+	return 0;
 }
 
-static void do_kid(package_t* pkg) {
-	proto_t* proto = proto_new(get_pkg_data(pkg), pkg->size);
-	const char* dir_name = proto_read_str(proto);
-	int32_t index = proto_read_int(proto);
-	proto_free(proto);
+static int32_t do_kid(proto_t* in, proto_t* out) {
+	const char* dir_name = proto_read_str(in);
+	int32_t index = proto_read_int(in);
 
 	tree_node_t* node = get_node_by_name(dir_name);
 	if(node == NULL || index < 0 || index >= (int32_t)node->size) {
-		ipc_send(pkg->id, PKG_TYPE_ERR, NULL, 0);
-		return;
+		return -1;
 	}
 
 	int32_t i;
@@ -531,133 +506,104 @@ static void do_kid(package_t* pkg) {
 		n = n->next;
 	}
 	if(n == NULL) {
-		ipc_send(pkg->id, PKG_TYPE_ERR, NULL, 0);
-		return;
+		return -1;
 	}
 	const char *name = CS(FSN(n)->name);
-	ipc_send(pkg->id, pkg->type, (void*)name, strlen(name)+1);
+	proto_add_str(out, name);
+	return 0;
 }
 
-static void do_mount(package_t* pkg) {
-	proto_t* proto = proto_new(get_pkg_data(pkg), pkg->size);
-	const char* fname = proto_read_str(proto);
-	const char* dev_name = proto_read_str(proto);
-	int32_t dev_index = proto_read_int(proto);
-	int32_t isFile = proto_read_int(proto);
-	proto_free(proto);
+static int32_t do_mount(int32_t pid, proto_t* in) {
+	const char* fname = proto_read_str(in);
+	const char* dev_name = proto_read_str(in);
+	int32_t dev_index = proto_read_int(in);
+	int32_t isFile = proto_read_int(in);
 
-	tree_node_t* node = fsnode_mount(fname, dev_name, dev_index, isFile, pkg->pid);
+	tree_node_t* node = fsnode_mount(fname, dev_name, dev_index, isFile, pid);
 	if(node == NULL)
-		ipc_send(pkg->id, PKG_TYPE_ERR, NULL, 0);
-	else
-		ipc_send(pkg->id, pkg->type, NULL, 0);
+		return -1;
+	return 0;
 }
 
-static void do_unmount(package_t* pkg) {
-	proto_t* proto = proto_new(get_pkg_data(pkg), pkg->size);
-	const char* fname = proto_read_str(proto);
-	proto_free(proto);
-
+static int32_t do_unmount(int32_t pid, proto_t* in) {
 	fs_info_t info;
-	if(get_info_by_name(pkg->pid, fname, &info) != 0) {
-		ipc_send(pkg->id, PKG_TYPE_ERR, NULL, 0);
-		return;
+	const char* fname = proto_read_str(in);
+	if(get_info_by_name(pid, fname, &info) != 0) {
+		return -1;
 	}
 
-	fsnode_unmount(pkg->pid, (tree_node_t*)info.node);
-	ipc_send(pkg->id, pkg->type, NULL, 0);
+	fsnode_unmount(pid, (tree_node_t*)info.node);
+	return 0;
 }
 
-static void do_mount_by_index(package_t* pkg) {
-	int32_t index = *(int32_t*)get_pkg_data(pkg);
+static int32_t do_mount_by_index(proto_t* in, proto_t* out) {
+	int32_t index = proto_read_int(in);
 	if(index < 0 || index >= MOUNT_MAX) {
-		ipc_send(pkg->id, PKG_TYPE_ERR, NULL, 0);
-		return;
+		return -1;
 	}
 	mount_t* mnt = &_mounts[index];
-	ipc_send(pkg->id, pkg->type, mnt, sizeof(mount_t));
+	proto_add(out, mnt, sizeof(mount_t));
+	return 0;
 }
 
-static void do_mount_by_fname(package_t* pkg) {
-	proto_t* proto = proto_new(get_pkg_data(pkg), pkg->size);
-	const char* fname = proto_read_str(proto);
-	proto_free(proto);
-
+static int32_t do_mount_by_fname(proto_t* in, proto_t* out) {
+	const char* fname = proto_read_str(in);
 	tree_node_t* node = get_node_by_name(fname);
 	if(node == NULL) {
-		ipc_send(pkg->id, PKG_TYPE_ERR, NULL, 0);
-		return;
+		return -1;
 	}
 	int32_t index = FSN(node)->mount;
 	if(index < 0 || index >= MOUNT_MAX) {
-		ipc_send(pkg->id, PKG_TYPE_ERR, NULL, 0);
-		return;
+		return -1;
 	}
 	mount_t* mnt = &_mounts[index];
-	ipc_send(pkg->id, pkg->type, mnt, sizeof(mount_t));
+	proto_add(out, mnt, sizeof(mount_t));
+	return 0;
 }
 
-static void handle(package_t* pkg, void* p) {
+static int32_t ipccall(int32_t pid, int32_t call_id, proto_t* in, proto_t* out, void* p) {
 	(void)p;
-	switch(pkg->type) {
+	switch(call_id) {
 	case VFS_CMD_OPEN:
-		do_open(pkg);
-		break;
+		return do_open(pid, in, out);
 	case VFS_CMD_CLOSE:
-		do_close(pkg);
-		break;
+		return do_close(pid, in);
 	case VFS_CMD_ADD:
-		do_add(pkg);
-		break;
+		return do_add(pid, in);
 	case VFS_CMD_DEL:
-		do_del(pkg);
-		break;
+		return do_del(pid, in);
 	case VFS_CMD_INFO_UPDATE:
-		do_info_update(pkg);
-		break;
+		return do_info_update(pid, in);
 	case VFS_CMD_INFO_BY_NAME:
-		do_info_by_name(pkg);
-		break;
+		return do_info_by_name(pid, in, out);
 	case VFS_CMD_INFO_BY_FD:
-		do_info_by_fd(pkg);
-		break;
+		return do_info_by_fd(pid, in, out);
 	case VFS_CMD_FULLNAME_BY_FD:
-		do_fullname_by_fd(pkg);
-		break;
+		return do_fullname_by_fd(pid, in, out);
 	case VFS_CMD_SHORTNAME_BY_FD:
-		do_shortname_by_fd(pkg);
-		break;
+		return do_shortname_by_fd(pid, in, out);
 	case VFS_CMD_FULLNAME_BY_NODE:
-		do_fullname_by_node(pkg);
-		break;
+		return do_fullname_by_node(in, out);
 	case VFS_CMD_SHORTNAME_BY_NODE:
-		do_shortname_by_node(pkg);
-		break;
+		return do_shortname_by_node(in, out);
 	case VFS_CMD_KID:
-		do_kid(pkg);
-		break;
+		return do_kid(in, out);
 	case VFS_CMD_MOUNT:
-		do_mount(pkg);
-		break;
+		return do_mount(pid, in);
 	case VFS_CMD_UNMOUNT:
-		do_unmount(pkg);
-		break;
+		return do_unmount(pid, in);
 	case VFS_CMD_MOUNT_BY_INDEX:
-		do_mount_by_index(pkg);
-		break;
+		return do_mount_by_index(in, out);
 	case VFS_CMD_MOUNT_BY_FNAME:
-		do_mount_by_fname(pkg);
-		break;
+		return do_mount_by_fname(in, out);
 	case VFS_CMD_PIPE_OPEN:
-		do_pipe_open(pkg);
-		break;
+		return do_pipe_open(pid, out);
 	case FS_READ:
-		do_pipe_read(pkg);
-		break;
+		return do_pipe_read(pid, in, out);
 	case FS_WRITE:
-		do_pipe_write(pkg);
-		break;
+		return do_pipe_write(pid, in, out);
 	}
+	return -1;
 }
 
 int main(int argc, char* argv[]) {
@@ -674,7 +620,7 @@ int main(int argc, char* argv[]) {
 	opens_init();
 
 	kserv_ready();
-	int ret = kserv_run(handle, NULL, NULL, NULL);
+	int ret = kserv_run(ipccall, NULL, NULL, NULL);
 
 	opens_clear();
 	return ret;

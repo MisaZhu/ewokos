@@ -10,6 +10,18 @@ void proto_init(proto_t* proto, void* data, uint32_t size) {
 	proto->readOnly = (data == NULL) ? false:true;
 }
 
+void proto_copy(proto_t* proto, void* data, uint32_t size) {
+	if(!proto->readOnly && proto->data != NULL)
+		free(proto->data);
+
+	proto->data = malloc(size);
+	memcpy(proto->data, data, size);
+	proto->size = size;
+	proto->totalSize = size;
+	proto->offset = 0;
+	proto->readOnly = false;
+}
+
 proto_t* proto_new(void* data, uint32_t size) {
 	proto_t* ret = (proto_t*)malloc(sizeof(proto_t));
 	proto_init(ret, data, size);
@@ -80,14 +92,13 @@ void proto_clear(proto_t* proto) {
 	if(proto->readOnly)
 		return;
 
-	if(proto->data != NULL)
-		free(proto->data);
-
-	proto->data = NULL;
 	proto->size = 0;
 	proto->totalSize = 0;
 	proto->offset = 0;
 	proto->readOnly = false;
+	if(proto->data != NULL)
+		free(proto->data);
+	proto->data = NULL;
 }
 
 void proto_free(proto_t* proto) {

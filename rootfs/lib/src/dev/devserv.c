@@ -9,267 +9,205 @@
 #include <proto.h>
 #include <stdio.h>
 
-static void do_open(device_t* dev, package_t* pkg) { 
-	proto_t* proto = proto_new(get_pkg_data(pkg), pkg->size);
-	int32_t fd = proto_read_int(proto);
-	int32_t flags = proto_read_int(proto);
-	proto_free(proto);
+static int32_t do_open(int32_t pid, proto_t* in, device_t* dev) {
+	int32_t fd = proto_read_int(in);
+	int32_t flags = proto_read_int(in);
 
 	if(fd < 0) {
-		ipc_send(pkg->id, PKG_TYPE_ERR, NULL, 0);
-		return;
+		return -1;
 	}
 
 	int32_t ret = 0;
 	if(dev->open != NULL)
-		ret = dev->open(pkg->pid, fd, flags);	
-	ipc_send(pkg->id, pkg->type, &ret, 4);
+		ret = dev->open(pid, fd, flags);	
+	return ret;
 }
 
-static void do_close(device_t* dev, package_t* pkg) { 
+static int32_t do_close(int32_t pid, proto_t* in, device_t* dev) {
 	int32_t serv_pid = kserv_get_by_name(VFS_NAME);	
-	if(serv_pid != pkg->pid) { //only accept from vfsd
-		ipc_send(pkg->id, PKG_TYPE_ERR, NULL, 0);
-		return;
+	if(serv_pid != pid) { //only accept from vfsd
+		return -1;
 	}
 
-	proto_t* proto = proto_new(get_pkg_data(pkg), pkg->size);
-	int32_t pid = proto_read_int(proto);
-	int32_t fd = proto_read_int(proto);
-	fs_info_t* info = (fs_info_t*)proto_read(proto, NULL);
-	proto_free(proto);
+	int32_t from_pid = proto_read_int(in);
+	int32_t fd = proto_read_int(in);
+	fs_info_t* info = (fs_info_t*)proto_read(in, NULL);
 	if(info == NULL || info->node == 0) {
-		ipc_send(pkg->id, PKG_TYPE_ERR, NULL, 0);
-		return;
+		return -1;
 	}
 	if(dev->close != NULL)
-		dev->close(pid, fd, info);
-	ipc_send(pkg->id, pkg->type, NULL, 0);
+		dev->close(from_pid, fd, info);
+	return 0;
 }
 
-static void do_remove(device_t* dev, package_t* pkg) { 
+static int32_t do_remove(int32_t pid, proto_t* in, device_t* dev) {
 	int32_t serv_pid = kserv_get_by_name(VFS_NAME);	
-	if(serv_pid != pkg->pid) { //only accept from vfsd
-		ipc_send(pkg->id, PKG_TYPE_ERR, &errno, 4);
-		return;
+	if(serv_pid != pid) { //only accept from vfsd
+		return -1;
 	}
 
-	proto_t* proto = proto_new(get_pkg_data(pkg), pkg->size);
-	const char* fname = proto_read_str(proto);
-	fs_info_t* info = proto_read(proto, NULL);
-	proto_free(proto);
+	const char* fname = proto_read_str(in);
+	fs_info_t* info = proto_read(in, NULL);
 
 	errno = ENONE;
 	if(info == NULL || fname[0] == 0) {
-		ipc_send(pkg->id, PKG_TYPE_ERR, &errno, 4);
-		return;
+		return -1;
 	}
 
 	int32_t res = -1;
 	if(dev->remove != NULL)
 		res = dev->remove(info, fname);
-	if(res != 0) {
-		ipc_send(pkg->id, PKG_TYPE_ERR, &errno, 4);
-		errno = ENONE;
-		return;
-	}
-	ipc_send(pkg->id, pkg->type, NULL, 0);
+	return res;
 }
 
-static void do_dma(device_t* dev, package_t* pkg) { 
-	int32_t fd = *(int32_t*)get_pkg_data(pkg);
+static int32_t do_dma(int32_t pid, proto_t* in, proto_t* out, device_t* dev) {
+	int32_t fd = proto_read_int(in);
 	if(fd < 0) {
-		ipc_send(pkg->id, PKG_TYPE_ERR, NULL, 0);
-		return;
+		return -1;
 	}
 
 	int32_t dma = 0;
 	uint32_t size = 0;
 	if(dev->dma != NULL) {
-		dma = dev->dma(pkg->pid, fd, &size);
+		dma = dev->dma(pid, fd, &size);
 	}
 		
-	proto_t* proto = proto_new(NULL, 0);
-	proto_add_int(proto, dma);
-	proto_add_int(proto, (int32_t)size);
-	ipc_send(pkg->id, pkg->type, proto->data, proto->size);
-	proto_free(proto);
+	proto_add_int(out, dma);
+	proto_add_int(out, (int32_t)size);
+	return 0;
 }
 
-static void do_flush(device_t* dev, package_t* pkg) { 
-	int32_t fd = *(int32_t*)get_pkg_data(pkg);
+static int32_t do_flush(int32_t pid, proto_t* in, device_t* dev) {
+	int32_t fd = proto_read_int(in);
 	if(fd < 0) {
-		ipc_send(pkg->id, PKG_TYPE_ERR, NULL, 0);
-		return;
+		return -1;
 	}
 	if(dev->flush != NULL)
-		dev->flush(pkg->pid, fd);
-	ipc_send(pkg->id, pkg->type, NULL, 0);
+		dev->flush(pid, fd);
+	return 0;
 }
 
-static void do_add(device_t* dev, package_t* pkg) { 
-	proto_t* proto = proto_new(get_pkg_data(pkg), pkg->size);
-	const char* fname = proto_read_str(proto);
-	proto_free(proto);
+static int32_t do_add(int32_t pid, proto_t* in, device_t* dev) {
+	const char* fname = proto_read_str(in);
 
 	if(fname[0] == 0) {
-		ipc_send(pkg->id, PKG_TYPE_ERR, NULL, 0);
-		return;
+		return -1;
 	}
 
 	int32_t ret = -1;
 	if(dev->add != NULL)
-		ret = dev->add(pkg->pid, fname);
-	if(ret < 0)
-		ipc_send(pkg->id, PKG_TYPE_ERR, NULL, 0);
-	else 
-		ipc_send(pkg->id, pkg->type, NULL, 0);
+		ret = dev->add(pid, fname);
+	return ret;
 }
 
-static void do_write(device_t* dev, package_t* pkg) { 
-	proto_t* proto = proto_new(get_pkg_data(pkg), pkg->size);
-	int32_t fd = proto_read_int(proto);
+static int32_t do_write(int32_t pid, proto_t* in, proto_t* out, device_t* dev) {
+	int32_t fd = proto_read_int(in);
 	uint32_t size;
-	void* p = proto_read(proto, &size);
-	int32_t seek = proto_read_int(proto);
-	proto_free(proto);
+	void* p = proto_read(in, &size);
+	int32_t seek = proto_read_int(in);
 
 	if(fd < 0) {
-		ipc_send(pkg->id, PKG_TYPE_ERR, NULL, 0);
-		return;
+		return -1;
 	}
 
 	int32_t ret = 0;
 	if(dev->write != NULL)
-		ret = dev->write(pkg->pid, fd, p, size, seek);	
-	if(ret < 0 && errno == EAGAIN)
-		ipc_send(pkg->id, PKG_TYPE_AGAIN, NULL, 0);
-	else 
-		ipc_send(pkg->id, pkg->type, &ret, 4);
+		ret = dev->write(pid, fd, p, size, seek);	
+	if(ret <= 0 && errno == EAGAIN) {
+		return -1;
+	}
+	proto_add_int(out, ret);
+	return 0;
 }
 
-static void do_read(device_t* dev, package_t* pkg) { 
-	proto_t* proto = proto_new(get_pkg_data(pkg), pkg->size);
-	int32_t fd = proto_read_int(proto);
-	uint32_t size = (uint32_t)proto_read_int(proto);
-	uint32_t seek = (uint32_t)proto_read_int(proto);
-	proto_free(proto);
+static int32_t do_read(int32_t pid, proto_t* in, proto_t* out, device_t* dev) {
+	int32_t fd = proto_read_int(in);
+	uint32_t size = (uint32_t)proto_read_int(in);
+	uint32_t seek = (uint32_t)proto_read_int(in);
 	
 	if(fd < 0) {
-		ipc_send(pkg->id, PKG_TYPE_ERR, NULL, 0);
-		return;
+		return -1;
 	}
 
 	if(size == 0) {
-		ipc_send(pkg->id, pkg->type, NULL, 0);
-		return;
+		proto_add(out, NULL, 0);
+		return 0;
 	}
 
 	char* buf = (char*)malloc(size);
 	int32_t ret = 0;
 	if(dev->read != NULL)
-		ret = dev->read(pkg->pid, fd, buf, size, seek);	
+		ret = dev->read(pid, fd, buf, size, seek);	
 
-	if(ret < 0) {
-		if(errno == EAGAIN)
-			ipc_send(pkg->id, PKG_TYPE_AGAIN, NULL, 0);
-		else
-			ipc_send(pkg->id, PKG_TYPE_ERR, NULL, 0);
+	if(ret <= 0 && errno == EAGAIN) {
+		free(buf);
+		return -1;
 	}
-	else {
-		ipc_send(pkg->id, pkg->type, buf, ret);
-	}
+
+	proto_add_int(out, ret);
+	if(ret > 0)
+		proto_add(out, buf, ret);
 	free(buf);
+	return 0;
 }
 
-static void do_fctrl(device_t* dev, package_t* pkg) { 
-	proto_t* proto = proto_new(get_pkg_data(pkg), pkg->size);
-	const char* fname = proto_read_str(proto);
-	uint32_t cmd = (uint32_t)proto_read_int(proto);
+static int32_t do_fctrl(int32_t pid, proto_t* in, proto_t* out, device_t* dev) {
+	const char* fname = proto_read_str(in);
+	uint32_t cmd = (uint32_t)proto_read_int(in);
 	uint32_t size;
-	void* p = proto_read(proto, &size);
-	proto_free(proto);
+	void* p = proto_read(in, &size);
 
-	proto = proto_new(p, size);
-	proto_t* out = proto_new(NULL, 0);
+	proto_t* proto = proto_new(p, size);
 	int32_t res = -1;
 	if(dev->fctrl != NULL)
-		res = dev->fctrl(pkg->pid, fname, cmd, proto, out);	
-
-	if(res < 0)
-		ipc_send(pkg->id, PKG_TYPE_ERR, NULL, 0);
-	else {
-		void* p = proto_read(out, &size);
-		ipc_send(pkg->id, pkg->type, p, size);
-	}
+		res = dev->fctrl(pid, fname, cmd, proto, out);	
 	proto_free(proto);
-	proto_free(out);
+	return res;
 }
 
-static void do_ctrl(device_t* dev, package_t* pkg) { 
-	proto_t* proto = proto_new(get_pkg_data(pkg), pkg->size);
-	int32_t fd = (int32_t)proto_read_int(proto);
-	uint32_t cmd = (uint32_t)proto_read_int(proto);
+static int32_t do_ctrl(int32_t pid, proto_t* in, proto_t* out, device_t* dev) {
+	int32_t fd = (int32_t)proto_read_int(in);
+	uint32_t cmd = (uint32_t)proto_read_int(in);
 	uint32_t size;
-	void* p = proto_read(proto, &size);
-	proto_free(proto);
+	void* p = proto_read(in, &size);
 
 	if(fd < 0) {
-		ipc_send(pkg->id, PKG_TYPE_ERR, NULL, 0);
-		return;
+		return -1;
 	}
 
-	proto = proto_new(p, size);
-	proto_t* out = proto_new(NULL, 0);
-
+	proto_t* proto = proto_new(p, size);
 	int32_t res = -1;
 	if(dev->ctrl != NULL)
-		res = dev->ctrl(pkg->pid, fd, cmd, proto, out);	
-
-	if(res < 0)
-		ipc_send(pkg->id, PKG_TYPE_ERR, NULL, 0);
-	else {
-		void* p = proto_read(out, &size);
-		ipc_send(pkg->id, pkg->type, p, size);
-	}
+		res = dev->ctrl(pid, fd, cmd, proto, out);	
 	proto_free(proto);
-	proto_free(out);
+	return res;
 }
 
-static void handle(package_t* pkg, void* p) {
+static int32_t ipccall(int32_t pid, int32_t call_id, proto_t* in, proto_t* out, void* p) {
 	device_t* dev = (device_t*)p;
-	switch(pkg->type) {
+	switch(call_id) {
 		case FS_OPEN:
-			do_open(dev, pkg);
-			break;
+			return do_open(pid, in, dev);
 		case FS_CLOSE:
-			do_close(dev, pkg);
-			break;
+			return do_close(pid, in, dev);
 		case FS_REMOVE:
-			do_remove(dev, pkg);
-			break;
+			return do_remove(pid, in, dev);
 		case FS_WRITE:
-			do_write(dev, pkg);
-			break;
+			return do_write(pid, in, out, dev);
 		case FS_READ:
-			do_read(dev, pkg);
-			break;
+			return do_read(pid, in, out, dev);
 		case FS_CTRL:
-			do_ctrl(dev, pkg);
-			break;
+			return do_ctrl(pid, in, out, dev);
 		case FS_FCTRL:
-			do_fctrl(dev, pkg);
-			break;
+			return do_fctrl(pid, in, out, dev);
 		case FS_DMA:
-			do_dma(dev, pkg);
-			break;
+			return do_dma(pid, in, out, dev);
 		case FS_FLUSH:
-			do_flush(dev, pkg);
-			break;
+			return do_flush(pid, in, dev);
 		case FS_ADD:
-			do_add(dev, pkg);
-			break;
+			return do_flush(pid, in, dev);
 	}
+	return 0;
 }
 
 static void unmount(device_t* dev, const char* fname) {
@@ -312,6 +250,6 @@ void dev_run(device_t* dev, int32_t argc, char** argv) {
 		return;
 	}
 
-	kserv_run(handle, dev, dev->step, dev);
+	kserv_run(ipccall, dev, dev->step, dev);
 	unmount(dev, node_name);
 }

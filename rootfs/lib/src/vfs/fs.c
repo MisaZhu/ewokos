@@ -24,17 +24,17 @@ int fs_open(const char* name, int32_t flags) {
 	if(dev_serv_pid == 0) 
 		return fd;
 
-	proto_t* proto = proto_new(NULL, 0);
-	proto_add_int(proto, fd);
-	proto_add_int(proto, flags);
-
-	package_t* pkg = ipc_req(dev_serv_pid, 0, FS_OPEN, proto->data, proto->size, true);
-	proto_free(proto);
-	if(pkg == NULL || pkg->type == PKG_TYPE_ERR) {
-		if(pkg != NULL) free(pkg);
-		return -1;
+	proto_t* in = proto_new(NULL, 0);
+	proto_t* out = proto_new(NULL, 0);
+	proto_add_int(in, fd);
+	proto_add_int(in, flags);
+	int32_t res = ipc_call(dev_serv_pid, FS_OPEN, in, out);
+	proto_free(in);
+	if(res != 0) {
+		fs_close(fd);
+		fd = -1;
 	}
-	free(pkg);
+	proto_free(out);
 	return fd;
 }
 
@@ -60,19 +60,21 @@ int32_t fs_dma(int fd, uint32_t* size) {
 	int32_t dev_serv_pid = syscall1(SYSCALL_PFILE_SERV_PID_BY_FD, fd);
 	if(dev_serv_pid <= 0)
 		return -1;
-	package_t* pkg = ipc_req(dev_serv_pid, 0, FS_DMA, &fd, 4, true);
-	if(pkg == NULL || pkg->type == PKG_TYPE_ERR) {
-		if(pkg != NULL) free(pkg);
-		return -1;
-	}
 
-	proto_t* proto = proto_new(get_pkg_data(pkg), pkg->size);
-	int32_t ret = proto_read_int(proto);
-	if(size != NULL)
-		*size = proto_read_int(proto);
-	proto_free(proto);
-	free(pkg);
-	return ret;
+	proto_t* in = proto_new(NULL, 0);
+	proto_t* out = proto_new(NULL, 0);
+	proto_add_int(in, fd);
+	int32_t res = ipc_call(dev_serv_pid, FS_DMA, in, out);
+	proto_free(in);
+
+	int32_t shm_id = -1;
+	if(res == 0) {
+		shm_id = proto_read_int(out);
+		if(size != NULL)
+			*size = proto_read_int(out);
+	}
+	proto_free(out);
+	return shm_id;
 }
 
 int32_t fs_flush(int fd) {
@@ -81,26 +83,14 @@ int32_t fs_flush(int fd) {
 		return -1;
 	
 	if(dev_serv_pid > 0) {
-		ipc_req(dev_serv_pid, 0, FS_FLUSH, &fd, 4, false);
-		/*
-		package_t* pkg = ipc_req(info.dev_serv_pid, 0, FS_FLUSH, (void*)&node, 4, true);
-		if(pkg == NULL || pkg->type == PKG_TYPE_ERR) {
-			if(pkg != NULL) free(pkg);
-			return -1;
-		}
-		free(pkg);
-		*/
+		proto_t* in = proto_new(NULL, 0);
+		proto_add_int(in, fd);
+		int32_t res = ipc_call(dev_serv_pid, FS_FLUSH, in, NULL);
+		proto_free(in);
+		return res;
 	}
 	return 0;
 }
-
-/*
-int fs_info(int fd, fs_info_t* info) {
-	if(fd < 0 || syscall2(SYSCALL_PFILE_INFO_BY_FD, fd, (int32_t)info) != 0)
-		return -1;
-	return 0;
-}
-*/
 
 int fs_read(int fd, char* buf, uint32_t size) {
 	if(fd < 0)
@@ -108,36 +98,30 @@ int fs_read(int fd, char* buf, uint32_t size) {
 	int32_t dev_serv_pid = syscall1(SYSCALL_PFILE_SERV_PID_BY_FD, fd);
 	if(dev_serv_pid < 0)
 		return -1;
-	uint32_t buf_size = size >= FS_BUF_SIZE ? FS_BUF_SIZE : 0;
 	int seek = syscall1(SYSCALL_PFILE_GET_SEEK, fd);
 	if(seek < 0)
 		return -1;
 
-	proto_t* proto = proto_new(NULL, 0);
-	proto_add_int(proto, fd);
-	proto_add_int(proto, size);
-	proto_add_int(proto, seek);
-	package_t* pkg = ipc_req(dev_serv_pid, buf_size, FS_READ, proto->data, proto->size, true);
-	proto_free(proto);
+	proto_t* in = proto_new(NULL, 0);
+	proto_t* out = proto_new(NULL, 0);
+	proto_add_int(in, fd);
+	proto_add_int(in, size);
+	proto_add_int(in, seek);
 
-	errno = ENONE;
-	if(pkg == NULL || pkg->type == PKG_TYPE_ERR || pkg->type == PKG_TYPE_AGAIN) {
-		if(pkg != NULL) {
-			if(pkg->type == PKG_TYPE_AGAIN)
-				errno = EAGAIN;
-			free(pkg);
-		}
+	int res = ipc_call(dev_serv_pid, FS_READ, in, out);
+	proto_free(in);
+	if(res < 0) {
+		proto_free(out);
 		return -1;
 	}
 
-	int sz = pkg->size;
-	if(sz == 0) {
-		free(pkg);
-		return 0;
-	}
-	
-	memcpy(buf, get_pkg_data(pkg), sz);
-	free(pkg);
+	int32_t sz = proto_read_int(out);
+	void *p = NULL;
+	if(sz > 0)
+	 	p = proto_read(out, NULL);
+	if(p != NULL && sz > 0)
+		memcpy(buf, p, sz);
+	proto_free(out);
 
 	seek += sz;
 	syscall2(SYSCALL_PFILE_SEEK, fd, seek);
@@ -153,31 +137,14 @@ int fs_fctrl(const char* fname, int32_t cmd, const proto_t* input, proto_t* outp
 	if(info.dev_serv_pid < 0)
 		return -1;
 
-	proto_t* proto = proto_new(NULL, 0);
-	proto_add_str(proto, fname);
-	proto_add_int(proto, cmd);
+	proto_t* in = proto_new(NULL, 0);
+	proto_add_str(in, fname);
+	proto_add_int(in, cmd);
 	if(input != NULL)
-		proto_add(proto, input->data, input->size);
-	package_t* pkg = ipc_req(info.dev_serv_pid, 0, FS_FCTRL, proto->data, proto->size, true);
-	proto_free(proto);
-
-	errno = ENONE;
-	if(pkg == NULL || pkg->type == PKG_TYPE_ERR || pkg->type == PKG_TYPE_AGAIN) {
-		if(pkg != NULL) {
-			if(pkg->type == PKG_TYPE_AGAIN)
-				errno = EAGAIN;
-			free(pkg);
-		}
-		return -1;
-	}
-
-	if(output == NULL) {
-		free(pkg);
-		return 0;
-	}
-	proto_add(output, get_pkg_data(pkg), pkg->size);
-	free(pkg);
-	return 0;
+		proto_add(in, input->data, input->size);
+	int32_t res = ipc_call(info.dev_serv_pid, FS_FCTRL, in, output);
+	proto_free(in);
+	return res;
 }
 
 int fs_ctrl(int fd, int32_t cmd, const proto_t* input, proto_t* output) {
@@ -187,31 +154,14 @@ int fs_ctrl(int fd, int32_t cmd, const proto_t* input, proto_t* output) {
 	if(dev_serv_pid < 0)
 		return -1;
 
-	proto_t* proto = proto_new(NULL, 0);
-	proto_add_int(proto, fd);
-	proto_add_int(proto, cmd);
+	proto_t* in = proto_new(NULL, 0);
+	proto_add_int(in, fd);
+	proto_add_int(in, cmd);
 	if(input != NULL)
-		proto_add(proto, input->data, input->size);
-	package_t* pkg = ipc_req(dev_serv_pid, 0, FS_CTRL, proto->data, proto->size, true);
-	proto_free(proto);
-
-	errno = ENONE;
-	if(pkg == NULL || pkg->type == PKG_TYPE_ERR || pkg->type == PKG_TYPE_AGAIN) {
-		if(pkg != NULL) {
-			if(pkg->type == PKG_TYPE_AGAIN)
-				errno = EAGAIN;
-			free(pkg);
-		}
-		return -1;
-	}
-
-	if(output == NULL) {
-		free(pkg);
-		return 0;
-	}
-	proto_add(output, get_pkg_data(pkg), pkg->size);
-	free(pkg);
-	return 0;
+		proto_add(in, input->data, input->size);
+	int32_t res = ipc_call(dev_serv_pid, FS_CTRL, in, output);
+	proto_free(in);
+	return res;
 }
 
 int fs_write(int fd, const char* buf, uint32_t size) {
@@ -220,34 +170,25 @@ int fs_write(int fd, const char* buf, uint32_t size) {
 	int32_t dev_serv_pid = syscall1(SYSCALL_PFILE_SERV_PID_BY_FD, fd);
 	if(dev_serv_pid < 0)
 		return -1;
-	uint32_t buf_size = size >= FS_BUF_SIZE ? FS_BUF_SIZE : 0;
 
 	int seek = syscall1(SYSCALL_PFILE_GET_SEEK, fd);
 	if(seek < 0)
 		return -1;
 
-	proto_t* proto = proto_new(NULL, 0);
-	proto_add_int(proto, fd);
-	proto_add(proto, (void*)buf, size);
-	proto_add_int(proto, seek);
-	package_t* pkg = ipc_req(dev_serv_pid, buf_size, FS_WRITE, proto->data, proto->size, true);
-	proto_free(proto);
+	proto_t* in = proto_new(NULL, 0);
+	proto_t* out = proto_new(NULL, 0);
+	proto_add_int(in, fd);
+	proto_add(in, (void*)buf, size);
+	proto_add_int(in, seek);
 
-	errno = ENONE;
-	if(pkg == NULL || pkg->type == PKG_TYPE_ERR || pkg->type == PKG_TYPE_AGAIN) {
-		if(pkg != NULL) {
-			if(pkg->type == PKG_TYPE_AGAIN)
-				errno = EAGAIN;
-			free(pkg);
-		}
-		return -1;
+	int32_t res = ipc_call(dev_serv_pid, FS_WRITE, in, out);
+	proto_free(in);
+	int sz = -1;
+	if(res == 0) {
+		sz = proto_read_int(out);
+		seek += sz;
+		syscall2(SYSCALL_PFILE_SEEK, fd, seek);
 	}
-
-	int sz = *(int*)get_pkg_data(pkg);
-	free(pkg);
-
-	seek += sz;
-	syscall2(SYSCALL_PFILE_SEEK, fd, seek);
 	return sz;
 }
 
@@ -272,10 +213,9 @@ int32_t fs_add(const char* dir_name, const char* name, uint32_t type) {
 		proto_t* proto = proto_new(NULL, 0);
 		tstr_t* fname = fs_make_fname(dir_name, name);
 		proto_add_str(proto, CS(fname));
-		package_t* pkg = ipc_req(info.dev_serv_pid, 0, FS_ADD, proto->data, proto->size, true);
+		int32_t res = ipc_call(info.dev_serv_pid, FS_ADD, proto, NULL);
 		proto_free(proto);
-		if(pkg == NULL || pkg->type == PKG_TYPE_ERR) {
-			if(pkg != NULL) free(pkg);
+		if(res != 0) {
 			vfs_del(CS(fname));
 			ret = -1;
 		}
@@ -283,7 +223,6 @@ int32_t fs_add(const char* dir_name, const char* name, uint32_t type) {
 			ret = 0;
 		}
 		tstr_free(fname);
-		free(pkg);
 	}
 	return ret;
 }

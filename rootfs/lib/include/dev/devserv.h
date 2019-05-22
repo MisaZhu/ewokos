@@ -20,6 +20,7 @@ typedef struct {
 	int32_t (*ctrl)(int32_t pid, int32_t fd, int32_t cmd, proto_t*input, proto_t* output);
 	int32_t (*fctrl)(int32_t pid, const char* fname, int32_t cmd, proto_t*input, proto_t* output);
 	void (*step)(void* data);
+	int32_t (*ipc_call)(int32_t pid, int32_t call_id, proto_t* input, proto_t* out, void* data);
 } device_t;
 
 void dev_run(device_t* dev, int32_t argc, char** argv);

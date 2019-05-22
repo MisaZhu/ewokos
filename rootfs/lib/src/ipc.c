@@ -106,7 +106,7 @@ package_t* ipc_recv(int id) {
 	return pkg;
 }
 
-package_t* ipc_req(int pid, uint32_t buf_size, uint32_t type, void* data, uint32_t size, bool reply) {
+static package_t* ipc_req(int pid, uint32_t buf_size, uint32_t type, void* data, uint32_t size, bool reply) {
 	int id = ipc_open(pid, buf_size);
 	if(id < 0)
 		return NULL;
@@ -124,6 +124,30 @@ package_t* ipc_req(int pid, uint32_t buf_size, uint32_t type, void* data, uint32
 		return NULL;
 	}
 	return pkg;
+}
+
+int32_t ipc_call(int32_t pid, int32_t call_id, const proto_t* input, proto_t* output) {
+	if(pid < 0)
+		return -1;
+	package_t* pkg = ipc_req(pid, 0, call_id, input->data, input->size, true);
+
+	errno = ENONE;
+	if(pkg == NULL || pkg->type == PKG_TYPE_ERR || pkg->type == PKG_TYPE_AGAIN) {
+		if(pkg != NULL) {
+			if(pkg->type == PKG_TYPE_AGAIN)
+				errno = EAGAIN;
+			free(pkg);
+		}
+		return -1;
+	}
+
+	if(output == NULL) {
+		free(pkg);
+		return 0;
+	}
+	proto_copy(output, get_pkg_data(pkg), pkg->size);
+	free(pkg);
+	return 0;
 }
 
 package_t* ipc_roll(bool block) {

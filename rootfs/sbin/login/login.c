@@ -13,8 +13,9 @@ static int gets(char* buf, int len, bool disp) {
 		if(i >= len)
 			break;
 		int c = getch();
-		if(c == 0) 
+		if(c == 0) {
 			return -1;
+		}
 
 		if (c == KEY_BACKSPACE) {
 			if (i > 0) {

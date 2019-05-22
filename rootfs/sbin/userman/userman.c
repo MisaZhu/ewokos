@@ -17,26 +17,25 @@ static int login(const char* user, const char* passwd) {
 	return 1;
 }
 
-static void doAuth(package_t* pkg) {
+static int32_t doAuth(int32_t pid, proto_t* in, proto_t* out) {
 	int uid = -1;
-	proto_t* proto = proto_new(get_pkg_data(pkg), pkg->size);
-	const char* user = proto_read_str(proto);
-	const char* passwd = proto_read_str(proto);
-	proto_free(proto);
+	const char* user = proto_read_str(in);
+	const char* passwd = proto_read_str(in);
 
 	uid = login(user, passwd);
-	syscall2(SYSCALL_SET_UID, pkg->pid, uid);
-	ipc_send(pkg->id, pkg->type, &uid, 4);
+	syscall2(SYSCALL_SET_UID, pid, uid);
+	proto_add_int(out, uid);
+	return 0;
 }
 
-static void handle(package_t* pkg, void* p) {
+static int32_t ipccall(int32_t pid, int32_t call_id, proto_t* in, proto_t* out, void* p) {
 	(void)p;
 
-	switch(pkg->type) {
+	switch(call_id) {
 	case 0: //auth
-		doAuth(pkg);
-		break;
+		return doAuth(pid, in, out);
 	}
+	return -1;
 }
 
 int main(int argc, char* argv[]) {
@@ -59,5 +58,5 @@ int main(int argc, char* argv[]) {
 		return -1;
 	}
 
-	return kserv_run(handle, NULL, NULL, NULL);
+	return kserv_run(ipccall, NULL, NULL, NULL);
 }

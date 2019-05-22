@@ -35,6 +35,7 @@ typedef struct {
 } cursor_t;
 
 typedef struct {
+	bool enabled;
 	uint32_t bg_color;
 	uint32_t fg_color;
 	font_t* font;
@@ -43,7 +44,7 @@ typedef struct {
 	graph_t* g;
 	int32_t keyb_fd;
 	int32_t cursor_fd;
-	bool enabled;
+	int32_t wm_pid;
 
 	xhandle_t* handle_top;
 	xhandle_t* handle_bottom;
@@ -120,6 +121,7 @@ static void refresh(void) {
 static int32_t xman_mount(const char* fname, int32_t index) {
 	(void)fname;
 	(void)index;
+	_xman.wm_pid = -1;
 	_xman.handle_top = NULL;
 	_xman.handle_top = NULL;
 	_xman.handle_bottom = NULL;
@@ -205,7 +207,7 @@ static xhandle_t* get_mouse_owner(int32_t mx, int32_t my) {
 }
 
 static void xman_top(xhandle_t* handle) {
-	if(handle == NULL)
+	if(handle == NULL || (handle->style & X_STYLE_NO_FRAME) != 0)
 		return;
 	if(_xman.handle_top == NULL || handle == _xman.handle_top) {
 		_xman.handle_top = handle;
@@ -337,40 +339,6 @@ static void xman_step(void* p) {
 	}
 }
 
-static int32_t xman_fctrl(int32_t pid, const char* fname, int32_t cmd, proto_t* input, proto_t* out) {
-	(void)pid;
-	(void)fname;
-	(void)out;
-	const char* data = proto_read_str(input);
-
-	switch(cmd) {
-	case FS_CTRL_SET_FONT: {//set font.
-			font_t* fnt = get_font_by_name(data);
-			if(fnt != NULL) {
-				_xman.font = fnt;
-				_xman.dirty = 1;
-			}
-		}
-		return 0;
-	case FS_CTRL_SET_FG_COLOR: //set fg color.
-		_xman.fg_color = rgb_int(atoi_base(data, 16));
-		_xman.dirty = 1;
-		return 0;
-	case FS_CTRL_SET_BG_COLOR: //set bg color.
-		_xman.bg_color = rgb_int(atoi_base(data, 16));
-		_xman.dirty = 1;
-		return 0;
-	case FS_CTRL_ENABLE: //enable.
-		_xman.enabled = true;
-		_xman.dirty = 1;
-		return 0;
-	case FS_CTRL_DISABLE: //disable.
-		_xman.enabled = false;
-		return 0;
-	}
-	return -1;
-}
-
 static inline void handle_update(xhandle_t* handle) {
 	if(handle == NULL)
 		return;
@@ -499,6 +467,49 @@ static int32_t xman_flush(xhandle_t* handle) {
 	handle_update(handle);
 	refresh();
 	return 0;
+}
+
+static int32_t xman_fctrl(int32_t pid, const char* fname, int32_t cmd, proto_t* input, proto_t* out) {
+	(void)fname;
+	(void)out;
+	const char* data = proto_read_str(input);
+
+	switch(cmd) {
+	case FS_CTRL_SET_FONT: {//set font.
+			font_t* fnt = get_font_by_name(data);
+			if(fnt != NULL) {
+				_xman.font = fnt;
+				_xman.dirty = 1;
+			}
+		}
+		return 0;
+	case FS_CTRL_SET_FG_COLOR: //set fg color.
+		_xman.fg_color = rgb_int(atoi_base(data, 16));
+		_xman.dirty = 1;
+		return 0;
+	case FS_CTRL_SET_BG_COLOR: //set bg color.
+		_xman.bg_color = rgb_int(atoi_base(data, 16));
+		_xman.dirty = 1;
+		return 0;
+	case FS_CTRL_ENABLE: //enable.
+		_xman.enabled = true;
+		_xman.dirty = 1;
+		return 0;
+	case FS_CTRL_DISABLE: //disable.
+		_xman.enabled = false;
+		return 0;
+	case X_CMD_REG_WM: {//register window manager and return shm id (of framebuffer).
+			proto_add_int(out, _xman.fb.shm_id);
+			proto_add_int(out, _xman.fb.w);
+			proto_add_int(out, _xman.fb.h);
+			_xman.wm_pid = pid;
+		}
+		return 0;
+	case X_CMD_FLUSH:
+		flush();
+		return 0;
+	}
+	return -1;
 }
 
 static int32_t xman_ctrl(int32_t pid, int32_t fd, int32_t cmd, proto_t* input, proto_t* out) {

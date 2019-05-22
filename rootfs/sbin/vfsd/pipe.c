@@ -17,7 +17,7 @@ typedef struct {
 	uint32_t offset;
 }pipe_buffer_t;
 
-void do_pipe_open(package_t* pkg) {
+int32_t do_pipe_open(int32_t pid, proto_t* out) {
 	fs_info_t info;
 	tree_node_t* node = fs_new_node();
 	pipe_buffer_t* buffer = (pipe_buffer_t*)malloc(sizeof(pipe_buffer_t));
@@ -31,27 +31,23 @@ void do_pipe_open(package_t* pkg) {
 	info.data = NULL;
 	info.dev_serv_pid = getpid();
 
-	int32_t fd0 = syscall3(SYSCALL_PFILE_OPEN, pkg->pid, (int32_t)&info, O_RDONLY);
+	int32_t fd0 = syscall3(SYSCALL_PFILE_OPEN, pid, (int32_t)&info, O_RDONLY);
 	if(fd0 < 0) {
 		free(node);
 		free(buffer);
-		ipc_send(pkg->id, PKG_TYPE_ERR, NULL, 0);
-		return;
+		return -1;
 	}
 
-	int32_t fd1 = syscall3(SYSCALL_PFILE_OPEN, pkg->pid, (int32_t)&info, O_WRONLY);
+	int32_t fd1 = syscall3(SYSCALL_PFILE_OPEN, pid, (int32_t)&info, O_WRONLY);
 	if(fd1 < 0) {
 		free(node);
 		free(buffer);
-		ipc_send(pkg->id, PKG_TYPE_ERR, NULL, 0);
-		return;
+		return -1;
 	}
 
-	proto_t* proto = proto_new(NULL, 0);
-	proto_add_int(proto, fd0);
-	proto_add_int(proto, fd1);
-	ipc_send(pkg->id, pkg->type, proto->data, proto->size);
-	proto_free(proto);
+	proto_add_int(out, fd0);
+	proto_add_int(out, fd1);
+	return 0;
 }
 
 void do_pipe_close(uint32_t node_addr, bool force) {
@@ -64,33 +60,29 @@ void do_pipe_close(uint32_t node_addr, bool force) {
 	free(node);
 }
 
-void do_pipe_write(package_t* pkg) {
-	proto_t* proto = proto_new(get_pkg_data(pkg), pkg->size);
-	int32_t fd = (uint32_t)proto_read_int(proto);
+int32_t do_pipe_write(int32_t pid, proto_t* in, proto_t* out) {
+	int32_t fd = (uint32_t)proto_read_int(in);
 	uint32_t size;
-	void* p = proto_read(proto, &size);
-	int32_t seek = proto_read_int(proto);
+	void* p = proto_read(in, &size);
+	int32_t seek = proto_read_int(in);
 	(void)seek;
-	proto_free(proto);
 	
+	errno = ENONE;
 	fs_info_t info;
-	if(syscall3(SYSCALL_PFILE_INFO_BY_PID_FD, pkg->pid, fd, (int32_t)&info) != 0) {
-		ipc_send(pkg->id, PKG_TYPE_ERR, NULL, 0);
-		return;
+	if(syscall3(SYSCALL_PFILE_INFO_BY_PID_FD, pid, fd, (int32_t)&info) != 0) {
+		return -1;
 	}
 
 	int32_t ret = -1;
 	int32_t ref = syscall2(SYSCALL_PFILE_GET_REF, info.node, 2);
 	if(ref < 2) {//closed by other side of pipe.
-		ipc_send(pkg->id, pkg->type, &ret, 4);
-		return;
+		return -1;
 	}
 
 	tree_node_t* node = (tree_node_t*)info.node;
 	pipe_buffer_t* buffer = (pipe_buffer_t*)FSN(node)->data;
 	if(buffer == NULL) {
-		ipc_send(pkg->id, PKG_TYPE_ERR, NULL, 0);
-		return;
+		return -1;
 	}
 	if(buffer->size == 0) {//ready for write.
 		size = size < PIPE_BUF_SIZE ? size : PIPE_BUF_SIZE;
@@ -100,36 +92,35 @@ void do_pipe_write(package_t* pkg) {
 		ret = size;
 	}
 	else {
-		ipc_send(pkg->id, PKG_TYPE_AGAIN, NULL, 0);
-		return;
+		errno = EAGAIN;
+		return -1;
 	}
-	ipc_send(pkg->id, pkg->type, &ret, 4);
+	proto_add_int(out, ret);
+	return 0;
 }
 
-void do_pipe_read(package_t* pkg) {
-	proto_t* proto = proto_new(get_pkg_data(pkg), pkg->size);
-	int32_t fd = (uint32_t)proto_read_int(proto);
-	uint32_t size = (uint32_t)proto_read_int(proto);
-	uint32_t seek = (uint32_t)proto_read_int(proto);
+int32_t do_pipe_read(int32_t pid, proto_t* in, proto_t* out) {
+	int32_t fd = (uint32_t)proto_read_int(in);
+	uint32_t size = (uint32_t)proto_read_int(in);
+	uint32_t seek = (uint32_t)proto_read_int(in);
 	(void)seek;
-	proto_free(proto);
+
+	errno = ENONE;
 	
 	fs_info_t info;
-	if(syscall3(SYSCALL_PFILE_INFO_BY_PID_FD, pkg->pid, fd, (int32_t)&info) != 0) {
-		ipc_send(pkg->id, PKG_TYPE_ERR, NULL, 0);
-		return;
+	if(syscall3(SYSCALL_PFILE_INFO_BY_PID_FD, pid, fd, (int32_t)&info) != 0) {
+		return -1;
 	}
 	if(size == 0) {
-		ipc_send(pkg->id, pkg->type, NULL, 0);
-		return;
+		proto_add_int(out, size);	
+		return 0;
 	}
 
 	int32_t ret = 0;
 	tree_node_t* node = (tree_node_t*)info.node;
 	pipe_buffer_t* buffer = (pipe_buffer_t*)FSN(node)->data;
 	if(buffer == NULL) {
-		ipc_send(pkg->id, PKG_TYPE_ERR, NULL, 0);
-		return;
+		return -1;
 	}
 	uint32_t rest = buffer->size - buffer->offset;
 	if(rest > 0 && rest <= PIPE_BUF_SIZE) {//ready for read.
@@ -143,15 +134,17 @@ void do_pipe_read(package_t* pkg) {
 			buffer->offset = 0;
 			buffer->size = 0;
 		}
-		ipc_send(pkg->id, pkg->type, buf, ret);
+		proto_add(out, buf, ret);
 		free(buf);
+		return 0;
 	}
 	else {
 		int32_t ref = syscall2(SYSCALL_PFILE_GET_REF, info.node, 2);
 		if(ref < 2) //closed by other side of pipe.
-			ipc_send(pkg->id, PKG_TYPE_ERR, NULL, 0);
-		else 
-			ipc_send(pkg->id, PKG_TYPE_AGAIN, NULL, 0);
+			return -1;
+		else {
+			errno = EAGAIN;
+			return -1;
+		}
 	}
 }
-

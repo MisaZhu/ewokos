@@ -76,8 +76,9 @@ static int run(int argc, char* argv[]) {
 				write(1, &c, 1);
 			}
 			else if(ev.type == X_EV_WIN) {
-				if(ev.state == X_EV_WIN_CLOSE)
+				if(ev.state == X_EV_WIN_CLOSE) {
 					break;
+				}
 			}
 		}
 

@@ -16,6 +16,8 @@ typedef struct {
 
 void proto_init(proto_t* proto, void* data, uint32_t size);
 
+void proto_copy(proto_t* proto, void* data, uint32_t size);
+
 proto_t* proto_new(void* data, uint32_t size);
 
 void proto_add(proto_t* proto, void* item, uint32_t size);

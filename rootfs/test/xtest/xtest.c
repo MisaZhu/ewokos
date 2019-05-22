@@ -22,6 +22,7 @@ int main(int argc, char* argv[]) {
 	font_t* font = get_font_by_name("8x10");
 	x_move_to(&x, pos_x, pos_y);
 	x_resize_to(&x, 400, 300);
+	x_set_state(&x, X_STATE_NORMAL);
 	graph_t* g = x_get_graph(&x);
 	clear(g, 0x0);
 	x_flush(&x);
