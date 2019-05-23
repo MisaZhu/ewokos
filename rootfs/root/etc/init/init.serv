@@ -1,2 +1,3 @@
 #PROC              SERV_NAME
 /sbin/userman      serv.userman
+/sbin/xwm

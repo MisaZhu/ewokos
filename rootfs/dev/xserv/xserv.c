@@ -12,6 +12,7 @@
 #include <x/xcmd.h>
 #include <x/xclient.h>
 #include <shm.h>
+#include <ipc.h>
 
 typedef struct st_xhandle {
 	int32_t shm_id;
@@ -66,20 +67,29 @@ static void flush(void) {
 		fb_flush(&_xman.fb);
 }
 
-static void draw_title(xhandle_t* r) {
-	uint32_t fill_color = _xman.bg_color;
-	uint32_t fg_color = _xman.fg_color;
-	uint32_t text_color = _xman.fg_color;
-
-	if(r == _xman.handle_top) {
-		fill_color = 0xaaaaaa;
-		text_color = 0x0;
+static bool is_top(xhandle_t* r) {
+	xhandle_t* h = _xman.handle_top;
+	while(h != NULL && h != r && h->state != X_STATE_HIDE) {
+		return false;
+		h = h->next;
 	}
+	return true;
+}
 
-	fill(_xman.g, r->x, r->y-20, r->w, 20, fill_color);//title box
-	box(_xman.g, r->x, r->y-20, r->w, 20, fg_color);//title box
-	box(_xman.g, r->x+r->w-20, r->y-20, 20, 20, fg_color);//close box
-	draw_text(_xman.g, r->x, r->y-20, CS(r->title), _xman.font, text_color);//title
+static void draw_frame(xhandle_t* r) {
+	proto_t *in = proto_new(NULL, 0);
+	if(is_top(r))
+		proto_add_int(in, r->style | X_STYLE_TOP);
+	else
+		proto_add_int(in, r->style);
+	proto_add_str(in, CS(r->title));
+	proto_add_int(in, r->x);
+	proto_add_int(in, r->y);
+	proto_add_int(in, r->w);
+	proto_add_int(in, r->h);
+
+	ipc_call(_xman.wm_pid, 0, in, NULL);
+	proto_free(in);
 }
 
 static void refresh(void) {
@@ -106,8 +116,7 @@ static void refresh(void) {
 				graph_free(g);
 
 				if((r->style & X_STYLE_NO_FRAME) == 0) {
-					box(_xman.g, r->x, r->y, r->w, r->h, _xman.fg_color);//win box
-					draw_title(r);
+					draw_frame(r);
 				}
 			}
 			r->dirty = false;

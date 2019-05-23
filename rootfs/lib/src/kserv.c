@@ -1,5 +1,6 @@
 #include "kserv.h"
 #include <ipc.h>
+#include <vfs/fs.h>
 #include <syscall.h>
 #include <unistd.h>
 #include <stdlib.h>
@@ -10,18 +11,21 @@ int kserv_register(const char* reg_name) {
 }
 
 static void do_call(package_t* pkg, kserv_call_func_t call_func, void* pcall) {
-	proto_t* proto = proto_new(get_pkg_data(pkg), pkg->size);
+	proto_t* in = proto_new(get_pkg_data(pkg), pkg->size);
 	proto_t* out = proto_new(NULL, 0);
-	int32_t res = call_func(pkg->pid, pkg->type, proto, out, pcall);	
+	int32_t res = call_func(pkg->pid, pkg->type, in, out, pcall);	
 
 	if(errno == EAGAIN) {
 		ipc_send(pkg->id, PKG_TYPE_AGAIN, NULL, 0);
+		errno = ENONE;
 	}
-	else if(res < 0)
+	else if(res < 0) {
 		ipc_send(pkg->id, PKG_TYPE_ERR, NULL, 0);
-	else 
+	}
+	else {
 		ipc_send(pkg->id, pkg->type, out->data, out->size);
-	proto_free(proto);
+	}
+	proto_free(in);
 	proto_free(out);
 }
 
