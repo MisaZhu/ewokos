@@ -164,7 +164,7 @@ tstr_t* vfs_kid(const char* dir_name, int32_t index) {
 	proto_free(in);
 	tstr_t *ret = NULL;
 	if(res == 0)
-		tstr_new(proto_read_str(out), MFS);
+		ret = tstr_new(proto_read_str(out), MFS);
 	proto_free(out);
 	return ret;
 }

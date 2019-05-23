@@ -115,10 +115,9 @@ int fs_read(int fd, char* buf, uint32_t size) {
 		return -1;
 	}
 
-	int32_t sz = proto_read_int(out);
+	uint32_t sz;
 	void *p = NULL;
-	if(sz > 0)
-	 	p = proto_read(out, NULL);
+	p = proto_read(out, &sz);
 	if(p != NULL && sz > 0)
 		memcpy(buf, p, sz);
 	proto_free(out);

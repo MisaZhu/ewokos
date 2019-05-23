@@ -129,7 +129,11 @@ static package_t* ipc_req(int pid, uint32_t buf_size, uint32_t type, void* data,
 int32_t ipc_call(int32_t pid, int32_t call_id, const proto_t* input, proto_t* output) {
 	if(pid < 0)
 		return -1;
-	package_t* pkg = ipc_req(pid, 0, call_id, input->data, input->size, true);
+	package_t* pkg;
+	if(input == NULL)
+		pkg = ipc_req(pid, 0, call_id, NULL, 0, true);
+	else
+		pkg = ipc_req(pid, 0, call_id, input->data, input->size, true);
 
 	errno = ENONE;
 	if(pkg == NULL || pkg->type == PKG_TYPE_ERR || pkg->type == PKG_TYPE_AGAIN) {

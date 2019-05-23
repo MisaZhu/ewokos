@@ -143,10 +143,11 @@ static int32_t do_read(int32_t pid, proto_t* in, proto_t* out, device_t* dev) {
 		free(buf);
 		return -1;
 	}
+	
+	if(ret < 0)
+		return -1;
 
-	proto_add_int(out, ret);
-	if(ret > 0)
-		proto_add(out, buf, ret);
+	proto_add(out, buf, ret);
 	free(buf);
 	return 0;
 }
