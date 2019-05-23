@@ -9,6 +9,7 @@
 #include <proto.h>
 #include <graph/graph.h>
 #include <x/xclient.h>
+#include <x/xwm.h>
 #include <shm.h>
 
 typedef struct {
@@ -49,12 +50,18 @@ static int32_t read_config(xwm_t* xwm, const char* fname) {
 	return 0;
 }
 
-static int32_t ipc_call(int32_t pid, int32_t call_id, proto_t* in, proto_t* out, void* p) {
-	(void)pid;
-	(void)call_id;
-	(void)out;
-	graph_t* g = (graph_t*)p;
+static void draw_background(graph_t* g) {
+	clear(g, 0x222222);
+	//background pattern
+	int32_t x, y;
+	for(y=20; y<(int32_t)g->h; y+=20) {
+		for(x=0; x<(int32_t)g->w; x+=20) {
+			pixel(g, x, y, 0x444444);
+		}
+	}
+}
 
+static void draw_frame(graph_t* g, proto_t* in) {
 	uint32_t style = (uint32_t)proto_read_int(in);
 	const char *title = proto_read_str(in);
 	int32_t x = proto_read_int(in);
@@ -63,7 +70,7 @@ static int32_t ipc_call(int32_t pid, int32_t call_id, proto_t* in, proto_t* out,
 	int32_t h = proto_read_int(in);
 
 	if((style & X_STYLE_NO_FRAME) != 0)
-		return 0;
+		return;
 
 	if((style & X_STYLE_TOP) == 0) {
 		box(g, x, y, w, h, _xwm.fg_color);//win box
@@ -79,8 +86,22 @@ static int32_t ipc_call(int32_t pid, int32_t call_id, proto_t* in, proto_t* out,
 		box(g, x+w-20, y-20, 20, 20, _xwm.top_fg_color);//close box
 		draw_text(g, x, y-20, title, _xwm.font, _xwm.top_fg_color);//title
 	}
+}
 
-	return 0;
+static int32_t ipc_call(int32_t pid, int32_t call_id, proto_t* in, proto_t* out, void* p) {
+	(void)pid;
+	(void)out;
+	graph_t* g = (graph_t*)p;
+
+	switch(call_id) {
+	case XWM_DRAW_BG:
+		draw_background(g);
+		return 0;
+	case XWM_DRAW_FRAME:
+		draw_frame(g, in);
+		return 0;
+	}
+	return -1;
 }
 
 static void xwm_init(void) {

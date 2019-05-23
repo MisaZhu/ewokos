@@ -1,2 +1,2 @@
 #load normal processes
-/bin/xconsole 0 500 1024 268 1
+/bin/xconsole 0 600 1024 168 1

@@ -9,7 +9,7 @@
 #include <kstring.h>
 #include <vfs/fs.h>
 #include <sconf.h>
-#include <x/xcmd.h>
+#include <x/xwm.h>
 #include <x/xclient.h>
 #include <shm.h>
 #include <ipc.h>
@@ -57,11 +57,6 @@ typedef struct {
 
 static xman_t _xman;
 
-static void xman_xclear(void) {
-	if(_xman.enabled)
-		clear(_xman.g, _xman.bg_color);
-}
-
 static void flush(void) {
 	if(_xman.enabled)
 		fb_flush(&_xman.fb);
@@ -76,32 +71,37 @@ static bool is_top(xhandle_t* r) {
 	return true;
 }
 
+static void draw_background(void){
+	if(_xman.wm_pid < 0) {
+		clear(_xman.g, 0);
+		return;
+	}
+	ipc_call(_xman.wm_pid, XWM_DRAW_BG, NULL, NULL);
+}
+
 static void draw_frame(xhandle_t* r) {
+	if(_xman.wm_pid < 0) 
+		return;
+
 	proto_t *in = proto_new(NULL, 0);
 	if(is_top(r))
 		proto_add_int(in, r->style | X_STYLE_TOP);
 	else
 		proto_add_int(in, r->style);
+
 	proto_add_str(in, CS(r->title));
 	proto_add_int(in, r->x);
 	proto_add_int(in, r->y);
 	proto_add_int(in, r->w);
 	proto_add_int(in, r->h);
 
-	ipc_call(_xman.wm_pid, 0, in, NULL);
+	ipc_call(_xman.wm_pid, XWM_DRAW_FRAME, in, NULL);
 	proto_free(in);
 }
 
 static void refresh(void) {
 	if(_xman.dirty) {
-		xman_xclear();
-		//background pattern
-		int32_t x, y;
-		for(y=20; y<(int32_t)_xman.g->h; y+=20) {
-			for(x=0; x<(int32_t)_xman.g->w; x+=20) {
-				pixel(_xman.g, x, y, _xman.fg_color);
-			}
-		}
+		draw_background();
 		_xman.need_flush = true;
 	}
 
@@ -512,6 +512,7 @@ static int32_t xman_fctrl(int32_t pid, const char* fname, int32_t cmd, proto_t* 
 			proto_add_int(out, _xman.fb.w);
 			proto_add_int(out, _xman.fb.h);
 			_xman.wm_pid = pid;
+			_xman.dirty = 1;
 		}
 		return 0;
 	case X_CMD_FLUSH:

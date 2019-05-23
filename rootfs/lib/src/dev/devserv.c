@@ -206,7 +206,7 @@ static int32_t ipccall(int32_t pid, int32_t call_id, proto_t* in, proto_t* out, 
 		case FS_FLUSH:
 			return do_flush(pid, in, dev);
 		case FS_ADD:
-			return do_flush(pid, in, dev);
+			return do_add(pid, in, dev);
 	}
 	return 0;
 }
