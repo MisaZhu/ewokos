@@ -31,7 +31,9 @@ typedef struct st_xhandle {
 
 typedef struct {
 	int32_t offx, offy;
-	int32_t mx, my, mw, mh, mev;
+	int32_t mx, my;
+	int32_t m_start_x, m_start_y;
+	int32_t mw, mh, mev;
 	graph_t* mg;
 } cursor_t;
 
@@ -47,6 +49,8 @@ typedef struct {
 	int32_t cursor_fd;
 	int32_t wm_pid;
 
+	xhandle_t* mouse_owner;
+	xhandle_t* handle_drag;
 	xhandle_t* handle_top;
 	xhandle_t* handle_bottom;
 
@@ -131,7 +135,8 @@ static int32_t xman_mount(const char* fname, int32_t index) {
 	(void)fname;
 	(void)index;
 	_xman.wm_pid = -1;
-	_xman.handle_top = NULL;
+	_xman.handle_drag = NULL;
+	_xman.mouse_owner = NULL;
 	_xman.handle_top = NULL;
 	_xman.handle_bottom = NULL;
 
@@ -247,9 +252,10 @@ static void xman_event(xhandle_t* handle, x_ev_t* ev) {
 				ev->type = X_EV_WIN;
 				ev->state = X_EV_WIN_CLOSE;
 			}
-			else {
-				xman_top(handle);
+			else if(ev->value.mouse.x > 0 && ev->value.mouse.x < (handle->w-20) && ev->value.mouse.y < 0) { //check title mouse down
+				_xman.handle_drag = handle;
 			}
+			xman_top(handle);
 		}
 	}
 	x_ev_queue_push(&handle->events, ev, true);
@@ -258,18 +264,43 @@ static void xman_event(xhandle_t* handle, x_ev_t* ev) {
 static void xman_mouse(void) {
 	if(read_mouse(&_xman.cursor.mx, &_xman.cursor.my, &_xman.cursor.mev, 1)) {
 		_xman.need_flush = true;
+		x_ev_t ev;
 		xhandle_t* owner = get_mouse_owner(_xman.cursor.mx, _xman.cursor.my);
+
+		if(_xman.cursor.mev == 0x1 && _xman.handle_drag != NULL) { //title drag released , means move window.
+			_xman.handle_drag->x += _xman.cursor.mx - _xman.cursor.m_start_x;
+			_xman.handle_drag->y += _xman.cursor.my - _xman.cursor.m_start_y;
+			_xman.mouse_owner = NULL;
+			_xman.handle_drag = NULL;
+			_xman.dirty = true;
+			return;
+		}
+
+		if(_xman.cursor.mev == 0x0 &&  _xman.handle_drag != NULL) { //drag 
+			ev.state = X_EV_MOUSE_DRAG;
+			xman_event(_xman.handle_drag, &ev);
+			return;
+		}
+
 		if(owner != NULL) {
-			x_ev_t ev;
 			ev.type = X_EV_MOUSE;
 			ev.value.mouse.x = _xman.cursor.mx - owner->x + _xman.cursor.offx;
 			ev.value.mouse.y = _xman.cursor.my - owner->y + _xman.cursor.offy;
-			if(_xman.cursor.mev == 0x2) //down	
+	
+			if(_xman.cursor.mev == 0x2) { //down	
 				ev.state = X_EV_MOUSE_DOWN;
-			else if(_xman.cursor.mev == 0x1) //up	
+				_xman.cursor.m_start_x = _xman.cursor.mx;
+				_xman.cursor.m_start_y = _xman.cursor.my;
+				_xman.mouse_owner = owner;
+			}
+			else if(_xman.cursor.mev == 0x1) {//up	
 				ev.state = X_EV_MOUSE_UP;
-			else
-				ev.state = X_EV_MOUSE_MOVE;
+				_xman.mouse_owner = NULL;
+				_xman.handle_drag = NULL;
+			}
+			else {
+					ev.state = X_EV_MOUSE_MOVE;
+			}
 			xman_event(owner, &ev);
 		}
 	}

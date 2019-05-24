@@ -12,6 +12,7 @@ enum {
 
 enum {
 	X_EV_MOUSE_MOVE = 0,
+	X_EV_MOUSE_DRAG,
 	X_EV_MOUSE_DOWN,
 	X_EV_MOUSE_UP
 };
@@ -30,8 +31,8 @@ typedef struct {
 	int32_t state;
 	union {
 		struct {
-			int32_t x;
-			int32_t y;
+			int32_t x, y;
+			int32_t rx, ry;
 			int32_t button;
 		} mouse;
 
