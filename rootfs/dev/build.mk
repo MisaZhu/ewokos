@@ -5,8 +5,7 @@ include dev/ttyd/build.mk
 include dev/keybd/build.mk
 include dev/moused/build.mk
 include dev/kevent/build.mk
-include dev/consoled/build.mk
-include dev/xserv/build.mk
+include dev/X/build.mk
 include dev/fbd/build.mk
 include dev/procd/build.mk
 

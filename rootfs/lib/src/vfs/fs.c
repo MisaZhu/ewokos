@@ -179,7 +179,6 @@ int fs_write(int fd, const char* buf, uint32_t size) {
 	proto_add_int(in, fd);
 	proto_add(in, (void*)buf, size);
 	proto_add_int(in, seek);
-
 	int32_t res = ipc_call(dev_serv_pid, FS_WRITE, in, out);
 	proto_free(in);
 	int sz = -1;

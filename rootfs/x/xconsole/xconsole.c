@@ -43,7 +43,7 @@ static int run(int argc, char* argv[]) {
 	x_t x;
 	console_t console;
 	console_init(&console);
-	read_config(&console, "/etc/xconsole.conf",
+	read_config(&console, "/etc/x/xconsole.conf",
 		&pos_w, &pos_h);
 
 	if(argc >= 3) {
@@ -57,7 +57,7 @@ static int run(int argc, char* argv[]) {
 	if(argc >= 6) {
 		style = atoi(argv[5]);
 	}
-	if(x_open("/dev/xman0", &x) != 0)
+	if(x_open("/dev/X0", &x) != 0)
 		return -1;
 
 	x_resize_to(&x, pos_w, pos_h);
@@ -108,7 +108,7 @@ static int run(int argc, char* argv[]) {
 		}
 		x_flush(&x);
 	}
-	graph_free(console.g);
+	console_close(&console);
 	x_close(&x);
 	return 0;
 }

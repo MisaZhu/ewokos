@@ -118,7 +118,7 @@ inline int32_t vfs_node_update(fs_info_t* info) {
 		return -1;
 
 	proto_t* in = proto_new(NULL, 0);
-	proto_add(in, &info, sizeof(fs_info_t));
+	proto_add(in, info, sizeof(fs_info_t));
 	int32_t res = ipc_call(serv_pid, VFS_CMD_INFO_UPDATE, in, NULL);
 	proto_free(in);
 	return res;
@@ -212,12 +212,12 @@ tstr_t* vfs_full_name_by_fd(int32_t fd) {
 	proto_t* in = proto_new(NULL, 0);
 	proto_t* out = proto_new(NULL, 0);
 	proto_add_int(in, fd);
-	int32_t res = ipc_call(serv_pid, VFS_CMD_FULLNAME_BY_FD, in, NULL);
+	int32_t res = ipc_call(serv_pid, VFS_CMD_FULLNAME_BY_FD, in, out);
 	proto_free(in);
 	
 	tstr_t *ret = NULL;
 	if(res == 0)
-		tstr_new(proto_read_str(out), MFS);
+		ret = tstr_new(proto_read_str(out), MFS);
 	proto_free(out);
 	return ret;
 }
@@ -233,12 +233,12 @@ tstr_t* vfs_full_name_by_node(uint32_t node) {
 	proto_t* in = proto_new(NULL, 0);
 	proto_t* out = proto_new(NULL, 0);
 	proto_add_int(in, node);
-	int32_t res = ipc_call(serv_pid, VFS_CMD_FULLNAME_BY_NODE, in, NULL);
+	int32_t res = ipc_call(serv_pid, VFS_CMD_FULLNAME_BY_NODE, in, out);
 	proto_free(in);
 	
 	tstr_t *ret = NULL;
 	if(res == 0)
-		tstr_new(proto_read_str(out), MFS);
+		ret = tstr_new(proto_read_str(out), MFS);
 	proto_free(out);
 	return ret;
 }
@@ -254,7 +254,7 @@ tstr_t* vfs_short_name_by_fd(int32_t fd) {
 	proto_t* in = proto_new(NULL, 0);
 	proto_t* out = proto_new(NULL, 0);
 	proto_add_int(in, fd);
-	int32_t res = ipc_call(serv_pid, VFS_CMD_SHORTNAME_BY_FD, in, NULL);
+	int32_t res = ipc_call(serv_pid, VFS_CMD_SHORTNAME_BY_FD, in, out);
 	proto_free(in);
 	
 	tstr_t *ret = NULL;
@@ -275,7 +275,7 @@ tstr_t* vfs_short_name_by_node(uint32_t node) {
 	proto_t* in = proto_new(NULL, 0);
 	proto_t* out = proto_new(NULL, 0);
 	proto_add_int(in, node);
-	int32_t res = ipc_call(serv_pid, VFS_CMD_SHORTNAME_BY_NODE, in, NULL);
+	int32_t res = ipc_call(serv_pid, VFS_CMD_SHORTNAME_BY_NODE, in, out);
 	proto_free(in);
 	
 	tstr_t *ret = NULL;

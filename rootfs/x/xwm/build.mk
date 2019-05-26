@@ -1,5 +1,5 @@
-XWM_DIR = sbin/xwm
-XWM_PROGRAM = build/sbin/xwm 
+XWM_DIR = x/xwm
+XWM_PROGRAM = build/bin/x/xwm 
 PROGRAM += $(XWM_PROGRAM)
 
 EXTRA_CLEAN += $(XWM_PROGRAM) $(XWM_DIR)/*.o

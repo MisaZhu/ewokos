@@ -1,2 +1,3 @@
 #load normal processes
-/bin/xconsole 10 40
+/bin/x/xpanel
+/bin/x/xconsole 10 40

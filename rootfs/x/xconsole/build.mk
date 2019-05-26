@@ -1,5 +1,5 @@
-XCONSOLE_DIR = bin/xconsole
-XCONSOLE_PROGRAM = build/bin/xconsole
+XCONSOLE_DIR = x/xconsole
+XCONSOLE_PROGRAM = build/bin/x/xconsole
 PROGRAM += $(XCONSOLE_PROGRAM)
 
 EXTRA_CLEAN += $(XCONSOLE_PROGRAM) $(XCONSOLE_DIR)/*.o

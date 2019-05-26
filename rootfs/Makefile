@@ -34,13 +34,14 @@ all: mkdir system
 
 mkdir:
 	mkdir -p build/sbin/dev
-	mkdir -p build/bin
+	mkdir -p build/bin/x
 	mkdir -p build/usr/bin
 
 include lib/build.mk
 include dev/build.mk
 include sbin/build.mk
 include bin/build.mk
+include x/build.mk
 include test/build.mk
 
 

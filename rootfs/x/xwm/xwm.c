@@ -77,14 +77,14 @@ static void draw_frame(graph_t* g, proto_t* in) {
 		fill(g, x, y-20, w, 20, _xwm.bg_color);//title box
 		box(g, x, y-20, w, 20, _xwm.fg_color);//title box
 		box(g, x+w-20, y-20, 20, 20, _xwm.fg_color);//close box
-		draw_text(g, x, y-20, title, _xwm.font, _xwm.fg_color);//title
+		draw_text(g, x+2, y-20+2, title, _xwm.font, _xwm.fg_color);//title
 	}
 	else {
 		box(g, x, y, w, h, _xwm.top_fg_color);//win box
 		fill(g, x, y-20, w, 20, _xwm.top_bg_color);//title box
 		box(g, x, y-20, w, 20, _xwm.top_fg_color);//title box
 		box(g, x+w-20, y-20, 20, 20, _xwm.top_fg_color);//close box
-		draw_text(g, x, y-20, title, _xwm.font, _xwm.top_fg_color);//title
+		draw_text(g, x+2, y-20+2, title, _xwm.font, _xwm.top_fg_color);//title
 	}
 }
 
@@ -110,13 +110,13 @@ static void xwm_init(void) {
 	_xwm.top_fg_color = 0x0;
 	_xwm.bg_color = 0x888888;
 	_xwm.fg_color = 0x0;
-	read_config(&_xwm, "/etc/xwm.conf");
+	read_config(&_xwm, "/etc/x/xwm.conf");
 }
 
 int main(int argc, char* argv[]) {
 	xwm_init();
 
-	const char* dev_name = "/dev/xman0";
+	const char* dev_name = "/dev/X0";
 	proto_t* out = proto_new(NULL, 0);
 	if(fs_fctrl(dev_name, X_CMD_REG_WM, NULL, out) != 0) {
 		proto_free(out);

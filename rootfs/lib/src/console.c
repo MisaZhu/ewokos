@@ -131,7 +131,7 @@ void console_put_char(console_t* console, char c) {
 		}
 	}
 
-	if((console->content.line) >= console->content.line_num) {
+	if((console->content.line) > console->content.line_num) {
 		move_line(console);
 	}
 	

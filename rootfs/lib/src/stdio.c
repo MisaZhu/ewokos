@@ -53,7 +53,8 @@ int getch() {
 		else
 			res = syscall3(SYSCALL_DEV_CHAR_READ, dev_typeid(DEV_UART, 0), (int32_t)buf, 1);
 		if(res <= 0 && errno == EAGAIN) {
-			sleep(0);
+			usleep(100000);
+			//sleep(0);
 			continue;
 		}
 		break;

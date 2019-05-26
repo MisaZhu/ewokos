@@ -73,6 +73,6 @@ int main(int argc, char* argv[]) {
 	dev.flush = fb_flush;
 
 	dev_run(&dev, argc, argv);
-	shm_unmap(_fb_buf_id);
+	shm_free(_fb_buf_id);
 	return 0;
 }
