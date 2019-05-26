@@ -8,7 +8,8 @@ int32_t mouse_read(int32_t pid, int32_t fd, void* buf, uint32_t size, int32_t se
 	(void)fd;
 	(void)size;
 	(void)seek;
-	return syscall3(SYSCALL_DEV_CHAR_READ, dev_typeid(DEV_MOUSE, 0), (int32_t)buf, size);
+	int32_t res = syscall3(SYSCALL_DEV_CHAR_READ, dev_typeid(DEV_MOUSE, 0), (int32_t)buf, size);
+	return res;
 }
 
 int main(int argc, char* argv[]) {

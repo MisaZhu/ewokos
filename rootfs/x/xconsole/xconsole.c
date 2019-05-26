@@ -37,7 +37,7 @@ static int32_t read_config(console_t* console, const char* fname, int32_t *w, in
 }
 
 static int run(int argc, char* argv[]) {
-	int pos_x = 0, pos_y = 40;
+	int pos_x = 10, pos_y = 40;
 	int pos_w = 640, pos_h = 480;
 	int style = 0;
 	x_t x;

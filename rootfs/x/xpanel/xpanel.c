@@ -53,11 +53,11 @@ int main(int argc, char* argv[]) {
 	(void)argv;
 
 	int p_w = 1024, p_h = 20;
-	int style = X_STYLE_NO_FRAME;
+	int style = X_STYLE_NO_FRAME | X_STYLE_ALPHA;
 	x_t x;
 	panel_t panel;
-	panel.fg_color = 0x111111;
-	panel.bg_color = 0x888888;
+	panel.fg_color = 0xff111111;
+	panel.bg_color = 0xff888888;
 	panel.font = get_font_by_name("8x16");
 	read_config(&panel, "/etc/x/xpanel.conf", &p_w, &p_h);
 
@@ -83,7 +83,7 @@ int main(int argc, char* argv[]) {
 			//x_flush(&x);
 		}
 		else {
-			usleep(100000);
+			sleep(0);
 		}
 	}
 	graph_free(panel.g);

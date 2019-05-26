@@ -10,6 +10,7 @@
 #define X_STYLE_NO_RESIZE 0x4
 #define X_STYLE_NO_MOVE   0x8
 
+#define X_STYLE_ALPHA     0x40000000
 #define X_STYLE_TOP       0x80000000
 
 enum {

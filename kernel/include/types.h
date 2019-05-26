@@ -9,11 +9,6 @@
 #define NULL ((void*) 0)
 #endif
 
-/* boolean */
-#ifndef bool
-typedef int bool;
-#endif
-
 /* integer types */
 
 typedef __signed char int8_t;
@@ -29,6 +24,11 @@ typedef short i16_t;
 typedef unsigned short u16_t;
 typedef int i32_t;
 typedef unsigned int u32_t;
+
+/* boolean */
+#ifndef bool
+typedef uint8_t bool;
+#endif
 
 /* boolean constants */
 #ifndef true

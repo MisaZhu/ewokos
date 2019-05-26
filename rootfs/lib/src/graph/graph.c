@@ -129,7 +129,7 @@ static inline void pixel_argb(graph_t* graph, int32_t x, int32_t y,
 
 static inline void pixel_argb_safe(graph_t* graph, int32_t x, int32_t y,
 		uint8_t a, uint8_t r, uint8_t g, uint8_t b) {
-	if(g == NULL)
+	if(graph == NULL)
 		return;
 	if(x < 0 ||  (uint32_t)x >= graph->w || y < 0 || (uint32_t)y >= graph->h)
 		return;
@@ -307,14 +307,14 @@ void fill(graph_t* g, int32_t x, int32_t y, int32_t w, int32_t h, uint32_t color
 		}
 	}
 	else {
+		uint8_t ca = (color >> 24) & 0xff;
+		uint8_t cr = (color >> 16) & 0xff;
+		uint8_t cg = (color >> 8) & 0xff;
+		uint8_t cb = (color) & 0xff;
 		for(; y < ey; y++) {
 			x = r.x;
 			for(; x < ex; x++) {
-				pixel_argb(g, x, y,
-						(color >> 24) & 0xff,
-						(color >> 16) & 0xff,
-						(color >> 8) & 0xff,
-						color && 0xff);
+				pixel_argb(g, x, y, ca, cr, cg, cb);
 			}
 		}
 	}
@@ -329,19 +329,38 @@ static void draw_char8(graph_t* g, int32_t x, int32_t y, char c, font_t* font, u
 	index = (int32_t)c * font->h;
 	ypart = y;
 
-	for(ychar=0; (uint32_t)ychar<font->h; ychar++) {
-		xpart = x;
-		pmask = 1 << (8-1);
-		check = pdata[index+ychar];
-		for(xchar=0; (uint32_t)xchar<8; xchar++) {
-			if(check&pmask)
-				pixel_safe(g, xpart, ypart, color);
-			//else
-			//	pixel_safe(g, xpart, ypart, bg);
-			xpart++;
-			pmask >>= 1;
+	if(has_alpha(color)) {
+		uint8_t ca = (color >> 24) & 0xff;
+		uint8_t cr = (color >> 16) & 0xff;
+		uint8_t cg = (color >> 8) & 0xff;
+		uint8_t cb = (color) & 0xff;
+		for(ychar=0; (uint32_t)ychar<font->h; ychar++) {
+			xpart = x;
+			pmask = 1 << (8-1);
+			check = pdata[index+ychar];
+			for(xchar=0; (uint32_t)xchar<8; xchar++) {
+				if(check&pmask)
+					pixel_argb_safe(g, xpart, ypart,
+							ca, cr, cg, cb);
+				xpart++;
+				pmask >>= 1;
+			}
+			ypart++;
 		}
-		ypart++;
+	}
+	else {
+		for(ychar=0; (uint32_t)ychar<font->h; ychar++) {
+			xpart = x;
+			pmask = 1 << (8-1);
+			check = pdata[index+ychar];
+			for(xchar=0; (uint32_t)xchar<8; xchar++) {
+				if(check&pmask)
+					pixel_safe(g, xpart, ypart, color);
+				xpart++;
+				pmask >>= 1;
+			}
+			ypart++;
+		}
 	}
 }
 
@@ -354,31 +373,57 @@ static void draw_char16(graph_t* g, int32_t x, int32_t y, char c, font_t* font, 
 	index = (int32_t)c * font->h * 2;
 	ypart = y;
 
-	for(ychar=0; (uint32_t)ychar<font->h; ychar++) {
-		xpart = x;
-		pmask = 1 << (8-1);
-		check = pdata[index+ychar];
-		for(xchar=0; (uint32_t)xchar<8; xchar++) {
-			if(check&pmask)
-				pixel_safe(g, xpart, ypart, color);
-			//else
-			//	pixel_safe(g, xpart, ypart, bg);
-			xpart++;
-			pmask >>= 1;
-		}
+	if(has_alpha(color)) {
+		uint8_t ca = (color >> 24) & 0xff;
+		uint8_t cr = (color >> 16) & 0xff;
+		uint8_t cg = (color >> 8) & 0xff;
+		uint8_t cb = (color) & 0xff;
+		for(ychar=0; (uint32_t)ychar<font->h; ychar++) {
+			xpart = x;
+			pmask = 1 << (8-1);
+			check = pdata[index+ychar];
+			for(xchar=0; (uint32_t)xchar<8; xchar++) {
+				if(check&pmask)
+					pixel_argb_safe(g, xpart, ypart, ca, cr, cg, cb);
+				xpart++;
+				pmask >>= 1;
+			}
 
-		index++;
-		check = pdata[index+ychar];
-		pmask = 1 << (8-1);
-		for(xchar=0; (uint32_t)xchar<8; xchar++) {
-			if(check&pmask)
-				pixel_safe(g, xpart, ypart, color);
-			//else
-			//	pixel_safe(g, xpart, ypart, bg);
-			xpart++;
-			pmask >>= 1;
+			index++;
+			check = pdata[index+ychar];
+			pmask = 1 << (8-1);
+			for(xchar=0; (uint32_t)xchar<8; xchar++) {
+				if(check&pmask)
+					pixel_argb_safe(g, xpart, ypart, ca, cr, cg, cb);
+				xpart++;
+				pmask >>= 1;
+			}
+			ypart++;
 		}
-		ypart++;
+	}
+	else {
+		for(ychar=0; (uint32_t)ychar<font->h; ychar++) {
+			xpart = x;
+			pmask = 1 << (8-1);
+			check = pdata[index+ychar];
+			for(xchar=0; (uint32_t)xchar<8; xchar++) {
+				if(check&pmask)
+					pixel_safe(g, xpart, ypart, color);
+				xpart++;
+				pmask >>= 1;
+			}
+
+			index++;
+			check = pdata[index+ychar];
+			pmask = 1 << (8-1);
+			for(xchar=0; (uint32_t)xchar<8; xchar++) {
+				if(check&pmask)
+					pixel_safe(g, xpart, ypart, color);
+				xpart++;
+				pmask >>= 1;
+			}
+			ypart++;
+		}
 	}
 }
 
@@ -419,6 +464,33 @@ void blt(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_t sh,
 		int32_t dx = dr.x;
 		for(; sx < ex; sx++, dx++) {
 			dst->buffer[dy * dst->w + dx] = src->buffer[sy * src->w + sx];
+		}
+	}
+}
+
+void blt_alpha(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_t sh,
+		graph_t* dst, int32_t dx, int32_t dy, int32_t dw, int32_t dh, uint8_t alpha) {
+	rect_t sr = {sx, sy, sw, sh};
+	rect_t dr = {dx, dy, dw, dh};
+	if(!insect(src, &sr, dst, &dr))
+		return;
+
+	int32_t ex, ey;
+	sy = sr.y;
+	dy = dr.y;
+	ex = sr.x + sr.w;
+	ey = sr.y + sr.h;
+
+	for(; sy < ey; sy++, dy++) {
+		int32_t sx = sr.x;
+		int32_t dx = dr.x;
+		for(; sx < ex; sx++, dx++) {
+			uint32_t color = argb_int(src->buffer[sy * src->w + sx]);
+			pixel_argb(dst, dx, dy,
+					(((color >> 24) & 0xff) * alpha)/0xff,
+					(color >> 16) & 0xff,
+					(color >> 8) & 0xff,
+					color & 0xff);
 		}
 	}
 }

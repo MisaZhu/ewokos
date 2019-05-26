@@ -110,14 +110,16 @@ static void refresh(void) {
 		draw_background();
 		_X.need_flush = true;
 	}
-
 	//blt all handles
 	xhandle_t* r = _X.handle_bottom;
 	while(r != NULL && r->state != X_STATE_HIDE && r->g_buffer != NULL) {
 		if(_X.dirty || r->dirty) {
 			if(r->g_buffer != NULL) {
 				graph_t* g = graph_new(r->g_buffer, r->w, r->h);
-				blt(g, 0, 0, r->w, r->h, _X.g, r->x, r->y, r->w, r->h);
+				if((r->style & X_STYLE_ALPHA) != 0)
+					blt_alpha(g, 0, 0, r->w, r->h, _X.g, r->x, r->y, r->w, r->h, 0xff);
+				else 
+					blt(g, 0, 0, r->w, r->h, _X.g, r->x, r->y, r->w, r->h);
 				graph_free(g);
 
 				if((r->style & X_STYLE_NO_FRAME) == 0) {
@@ -224,14 +226,12 @@ static xhandle_t* get_mouse_owner(int32_t mx, int32_t my) {
 static inline void handle_update(xhandle_t* handle) {
 	if(handle == NULL)
 		return;
-	/*
-	if(is_top(handle)) {
-		handle->dirty = true;
-	}
-	else {
+
+	if((handle->style & X_STYLE_ALPHA) != 0) {
 		_X.dirty = true;
+		return;
 	}
-	*/
+
 	xhandle_t* h = handle;
 	while(h != NULL) {
 		if(h->state != X_STATE_HIDE)
@@ -292,7 +292,6 @@ static void xserv_mouse(void) {
 		x_ev_t ev;
 		ev.type = X_EV_MOUSE;
 		xhandle_t* owner = get_mouse_owner(mx, my);
-
 		if(_X.cursor.mev == 0x0) {
 			if(_X.handle_drag != NULL) { //drag 
 				_X.handle_drag->x += mx - _X.cursor.m_start_x;
@@ -404,9 +403,9 @@ static void xserv_step(void* p) {
 		return;
 	}
 	hide_cursor();
-	refresh();
 	xserv_mouse();
 	xserv_keyb();
+	refresh();
 	draw_cursor();
 
 	if(_X.need_flush) {
@@ -426,6 +425,9 @@ static xhandle_t* xserv_get_handle(int32_t pid, int32_t fd) {
 }
 
 static void xserv_handle_free(xhandle_t* handle) {
+	if(handle == NULL)
+		return;
+
 	if(handle->next != NULL)
 		handle->next->prev = handle->prev;
 	if(handle->prev != NULL)

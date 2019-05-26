@@ -66,8 +66,8 @@ static void draw_background(graph_t* g) {
 	clear(g, _xwm.desk_bg_color);
 	//background pattern
 	int32_t x, y;
-	for(y=20; y<(int32_t)g->h; y+=20) {
-		for(x=0; x<(int32_t)g->w; x+=20) {
+	for(y=10; y<(int32_t)g->h; y+=10) {
+		for(x=0; x<(int32_t)g->w; x+=10) {
 			pixel(g, x, y, _xwm.desk_fg_color);
 		}
 	}
@@ -122,10 +122,10 @@ static int32_t ipc_call(int32_t pid, int32_t call_id, proto_t* in, proto_t* out,
 
 static void xwm_init(void) {
 	_xwm.font = get_font_by_name("8x16");
-	_xwm.top_bg_color = 0xffffff;
-	_xwm.top_fg_color = 0x0;
-	_xwm.bg_color = 0x888888;
-	_xwm.fg_color = 0x0;
+	_xwm.top_bg_color = 0xffffffff;
+	_xwm.top_fg_color = 0xff000000;
+	_xwm.bg_color = 0xff888888;
+	_xwm.fg_color = 0xff000000;
 	read_config(&_xwm, "/etc/x/xwm.conf");
 }
 
