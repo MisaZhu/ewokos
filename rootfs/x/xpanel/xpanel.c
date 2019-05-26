@@ -20,11 +20,11 @@ static int32_t read_config(panel_t* panel, const char* fname, int32_t *w, int32_
 	
 	const char* v = sconf_get(conf, "bg_color");
 	if(v[0] != 0) 
-		panel->bg_color = rgb_int(atoi_base(v, 16));
+		panel->bg_color = argb_int(atoi_base(v, 16));
 
 	v = sconf_get(conf, "fg_color");
 	if(v[0] != 0) 
-		panel->fg_color = rgb_int(atoi_base(v, 16));
+		panel->fg_color = argb_int(atoi_base(v, 16));
 
 	v = sconf_get(conf, "font");
 	if(v[0] != 0) 

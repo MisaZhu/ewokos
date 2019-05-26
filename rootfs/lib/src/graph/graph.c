@@ -6,12 +6,18 @@
 #include <unistd.h>
 #include <shm.h>
 
-inline uint32_t rgb(uint32_t r, uint32_t g, uint32_t b) {
-	return b << 16 | g << 8 | r;
+inline uint32_t argb(uint32_t a, uint32_t r, uint32_t g, uint32_t b) {
+	return a << 24 | b << 16 | g << 8 | r;
 }
 
-uint32_t rgb_int(uint32_t c) {
-	return rgb((c>>16)&0xff, (c>>8)&0xff, c&0xff);
+inline bool has_alpha(uint32_t c) {
+	if(((c >> 24) & 0xff) != 0xff)
+		return true;
+	return false;
+}
+
+uint32_t argb_int(uint32_t c) {
+	return argb((c>>24)&0xff, (c>>16)&0xff, (c>>8)&0xff, c&0xff);
 }
 
 int32_t fb_open(const char* fname, fb_t* fb) {
@@ -95,31 +101,47 @@ void graph_free(graph_t* g) {
 	free(g);
 }
 
+inline void pixel(graph_t* g, int32_t x, int32_t y, uint32_t color) {
+	g->buffer[y * g->w + x] = color;
+}
+
 inline void pixel_safe(graph_t* g, int32_t x, int32_t y, uint32_t color) {
 	if(g == NULL)
 		return;
 	if(x < 0 ||  (uint32_t)x >= g->w || y < 0 || (uint32_t)y >= g->h)
 		return;
-	g->buffer[y * g->w + x] = color;
+	pixel(g, x, y, color);
 }
 
-inline void pixel(graph_t* g, int32_t x, int32_t y, uint32_t color) {
+static inline void pixel_argb(graph_t* graph, int32_t x, int32_t y,
+		uint8_t a, uint8_t r, uint8_t g, uint8_t b) {
+	uint32_t oc = graph->buffer[y * graph->w + x];
+	uint8_t ob = (oc >> 16) & 0xff;
+	uint8_t og = (oc >> 8)  & 0xff;
+	uint8_t or = oc & 0xff;
+
+	or = r*a/255 + or*(255-a)/255;
+	og = g*a/255 + og*(255-a)/255;
+	ob = b*a/255 + ob*(255-a)/255;
+
+	graph->buffer[y * graph->w + x] = argb(0xFF, or, og, ob);
+}
+
+static inline void pixel_argb_safe(graph_t* graph, int32_t x, int32_t y,
+		uint8_t a, uint8_t r, uint8_t g, uint8_t b) {
 	if(g == NULL)
 		return;
-	g->buffer[y * g->w + x] = color;
+	if(x < 0 ||  (uint32_t)x >= graph->w || y < 0 || (uint32_t)y >= graph->h)
+		return;
+	pixel_argb(graph, x, y, a, r, g, b);
 }
 
 void clear(graph_t* g, uint32_t color) {
 	if(g == NULL)
 		return;
-	uint8_t byte = color & 0xff;	
-	if(((color >> 8)&0xff) == byte && ((color >> 16)&0xff) == byte) {
-		memset(g->buffer, byte, g->w*g->h*4);
-		return;
-	}
-
 	if(g->w == 0 || g->w == 0)
 		return;
+
 	uint32_t i = 0;
 	uint32_t sz = g->w * 4;
 	while(i<g->w) {
@@ -155,16 +177,35 @@ void line(graph_t* g, int32_t x1, int32_t y1, int32_t x2, int32_t y2, uint32_t c
 	else swap=0;
 
 	e = 2 * dy - dx;
-	for (i=0; i<=dx; i++) {
-		pixel_safe(g, x, y, color);
-		while (e>=0) {
-			if (swap==1) x += s1;
-			else y += s2;
-			e -= 2*dx;
+	if(!has_alpha(color)) {
+		for (i=0; i<=dx; i++) {
+			pixel_safe(g, x, y, color);
+			while (e>=0) {
+				if (swap==1) x += s1;
+				else y += s2;
+				e -= 2*dx;
+			}
+			if (swap==1) y += s2;
+			else x += s1;
+			e += 2*dy;
 		}
-		if (swap==1) y += s2;
-		else x += s1;
-		e += 2*dy;
+	}
+	else {
+		for (i=0; i<=dx; i++) {
+			pixel_argb_safe(g, x, y,
+					(color >> 24) & 0xff,
+					(color >> 16) & 0xff,
+					(color >> 8) & 0xff,
+					color & 0xff);
+			while (e>=0) {
+				if (swap==1) x += s1;
+				else y += s2;
+				e -= 2*dx;
+			}
+			if (swap==1) y += s2;
+			else x += s1;
+			e += 2*dy;
+		}
 	}
 }
 
@@ -257,10 +298,24 @@ void fill(graph_t* g, int32_t x, int32_t y, int32_t w, int32_t h, uint32_t color
 	ex = r.x + r.w;
 	ey = r.y + r.h;
 
-	for(; y < ey; y++) {
-		x = r.x;
-		for(; x < ex; x++) {
-			pixel(g, x, y, color);
+	if(!has_alpha(color)) {
+		for(; y < ey; y++) {
+			x = r.x;
+			for(; x < ex; x++) {
+				pixel(g, x, y, color);
+			}
+		}
+	}
+	else {
+		for(; y < ey; y++) {
+			x = r.x;
+			for(; x < ex; x++) {
+				pixel_argb(g, x, y,
+						(color >> 24) & 0xff,
+						(color >> 16) & 0xff,
+						(color >> 8) & 0xff,
+						color && 0xff);
+			}
 		}
 	}
 }

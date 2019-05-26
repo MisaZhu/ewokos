@@ -15,11 +15,11 @@ static int32_t read_config(console_t* console, const char* fname, int32_t *w, in
 	
 	const char* v = sconf_get(conf, "bg_color");
 	if(v[0] != 0) 
-		console->bg_color = rgb_int(atoi_base(v, 16));
+		console->bg_color = argb_int(atoi_base(v, 16));
 
 	v = sconf_get(conf, "fg_color");
 	if(v[0] != 0) 
-		console->fg_color = rgb_int(atoi_base(v, 16));
+		console->fg_color = argb_int(atoi_base(v, 16));
 
 	v = sconf_get(conf, "font");
 	if(v[0] != 0) 

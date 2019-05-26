@@ -14,6 +14,8 @@
 
 typedef struct {
 	font_t* font;
+	uint32_t desk_fg_color;
+	uint32_t desk_bg_color;
 	uint32_t fg_color;
 	uint32_t bg_color;
 	uint32_t top_bg_color;
@@ -26,21 +28,31 @@ static int32_t read_config(xwm_t* xwm, const char* fname) {
 	sconf_t *conf = sconf_load(fname);	
 	if(conf == NULL)
 		return -1;
-	const char* v = sconf_get(conf, "bg_color");
+
+	const char* v = sconf_get(conf, "desk_bg_color");
 	if(v[0] != 0) 
-		xwm->bg_color = rgb_int(atoi_base(v, 16));
+		xwm->desk_bg_color = argb_int(atoi_base(v, 16));
+
+	v = sconf_get(conf, "desk_fg_color");
+	if(v[0] != 0) 
+		xwm->desk_fg_color = argb_int(atoi_base(v, 16));
+
+	v = sconf_get(conf, "bg_color");
+	if(v[0] != 0) 
+		xwm->bg_color = argb_int(atoi_base(v, 16));
+
 
 	v = sconf_get(conf, "fg_color");
 	if(v[0] != 0) 
-		xwm->fg_color = rgb_int(atoi_base(v, 16));
+		xwm->fg_color = argb_int(atoi_base(v, 16));
 
 	v = sconf_get(conf, "top_bg_color");
 	if(v[0] != 0) 
-		xwm->top_bg_color = rgb_int(atoi_base(v, 16));
+		xwm->top_bg_color = argb_int(atoi_base(v, 16));
 
 	v = sconf_get(conf, "top_fg_color");
 	if(v[0] != 0) 
-		xwm->top_fg_color = rgb_int(atoi_base(v, 16));
+		xwm->top_fg_color = argb_int(atoi_base(v, 16));
 
 	v = sconf_get(conf, "font");
 	if(v[0] != 0) 
@@ -51,12 +63,12 @@ static int32_t read_config(xwm_t* xwm, const char* fname) {
 }
 
 static void draw_background(graph_t* g) {
-	clear(g, 0x222222);
+	clear(g, _xwm.desk_bg_color);
 	//background pattern
 	int32_t x, y;
 	for(y=20; y<(int32_t)g->h; y+=20) {
 		for(x=0; x<(int32_t)g->w; x+=20) {
-			pixel(g, x, y, 0x444444);
+			pixel(g, x, y, _xwm.desk_fg_color);
 		}
 	}
 }
@@ -86,6 +98,10 @@ static void draw_frame(graph_t* g, proto_t* in) {
 		box(g, x+w-20, y-20, 20, 20, _xwm.top_fg_color);//close box
 		draw_text(g, x+2, y-20+2, title, _xwm.font, _xwm.top_fg_color);//title
 	}
+
+	//shadow.
+	//fill(g, x+w+1, y+7-20, 6, h+20, 0xff222222);
+	//fill(g, x+6, y+h+1, w-5, 6,     0xff222222);
 }
 
 static int32_t ipc_call(int32_t pid, int32_t call_id, proto_t* in, proto_t* out, void* p) {

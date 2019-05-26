@@ -96,10 +96,10 @@ static void draw_frame(xhandle_t* r) {
 		proto_add_int(in, r->style);
 
 	proto_add_str(in, CS(r->title));
-	proto_add_int(in, r->x);
-	proto_add_int(in, r->y);
-	proto_add_int(in, r->w);
-	proto_add_int(in, r->h);
+	proto_add_int(in, r->x-1);
+	proto_add_int(in, r->y-1);
+	proto_add_int(in, r->w+1);
+	proto_add_int(in, r->h+1);
 
 	ipc_call(_X.wm_pid, XWM_DRAW_FRAME, in, NULL);
 	proto_free(in);
@@ -142,8 +142,8 @@ static int32_t xserv_mount(const char* fname, int32_t index) {
 	_X.handle_bottom = NULL;
 
 	_X.enabled = true;
-	_X.bg_color = rgb_int(0x222222);
-	_X.fg_color = rgb_int(0xaaaaaa);
+	_X.bg_color = argb_int(0xff222222);
+	_X.fg_color = argb_int(0xffaaaaaa);
 	_X.font = get_font_by_name("8x16");
 	if(_X.font == NULL)
 		return -1;
@@ -224,6 +224,14 @@ static xhandle_t* get_mouse_owner(int32_t mx, int32_t my) {
 static inline void handle_update(xhandle_t* handle) {
 	if(handle == NULL)
 		return;
+	/*
+	if(is_top(handle)) {
+		handle->dirty = true;
+	}
+	else {
+		_X.dirty = true;
+	}
+	*/
 	xhandle_t* h = handle;
 	while(h != NULL) {
 		if(h->state != X_STATE_HIDE)
@@ -257,6 +265,7 @@ static void xdev_top(xhandle_t* handle) {
 	handle->prev = NULL;
 	_X.handle_top = handle;
 	_X.handle_top->dirty = true;
+	_X.dirty = true;
 }
 
 static void xserv_event(xhandle_t* handle, x_ev_t* ev) {
@@ -277,16 +286,19 @@ static void xserv_event(xhandle_t* handle, x_ev_t* ev) {
 
 static void xserv_mouse(void) {
 	if(read_mouse(&_X.cursor.mx, &_X.cursor.my, &_X.cursor.mev, 140)) {
+		int32_t mx = _X.cursor.mx + _X.cursor.offx;
+		int32_t my = _X.cursor.my + _X.cursor.offy;
 		_X.need_flush = true;
 		x_ev_t ev;
-		xhandle_t* owner = get_mouse_owner(_X.cursor.mx, _X.cursor.my);
+		ev.type = X_EV_MOUSE;
+		xhandle_t* owner = get_mouse_owner(mx, my);
 
 		if(_X.cursor.mev == 0x0) {
 			if(_X.handle_drag != NULL) { //drag 
-				_X.handle_drag->x += _X.cursor.mx - _X.cursor.m_start_x;
-				_X.handle_drag->y += _X.cursor.my - _X.cursor.m_start_y;
-				_X.cursor.m_start_x = _X.cursor.mx;
-				_X.cursor.m_start_y = _X.cursor.my;
+				_X.handle_drag->x += mx - _X.cursor.m_start_x;
+				_X.handle_drag->y += my - _X.cursor.m_start_y;
+				_X.cursor.m_start_x = mx;
+				_X.cursor.m_start_y = my;
 				_X.dirty = true;
 				return;
 			}
@@ -304,14 +316,13 @@ static void xserv_mouse(void) {
 		}
 
 		if(owner != NULL) {
-			ev.type = X_EV_MOUSE;
-			ev.value.mouse.x = _X.cursor.mx - owner->x + _X.cursor.offx;
-			ev.value.mouse.y = _X.cursor.my - owner->y + _X.cursor.offy;
+			ev.value.mouse.x = mx - owner->x;
+			ev.value.mouse.y = my - owner->y;
 	
 			if(_X.cursor.mev == 0x2) { //down	
 				ev.state = X_EV_MOUSE_DOWN;
-				_X.cursor.m_start_x = _X.cursor.mx;
-				_X.cursor.m_start_y = _X.cursor.my;
+				_X.cursor.m_start_x = mx;
+				_X.cursor.m_start_y = my;
 				_X.mouse_owner = owner;
 			}
 			else if(_X.cursor.mev == 0x0) {
@@ -543,11 +554,11 @@ static int32_t xserv_fctrl(int32_t pid, const char* fname, int32_t cmd, proto_t*
 		}
 		return 0;
 	case FS_CTRL_SET_FG_COLOR: //set fg color.
-		_X.fg_color = rgb_int(atoi_base(data, 16));
+		_X.fg_color = argb_int(atoi_base(data, 16));
 		_X.dirty = 1;
 		return 0;
 	case FS_CTRL_SET_BG_COLOR: //set bg color.
-		_X.bg_color = rgb_int(atoi_base(data, 16));
+		_X.bg_color = argb_int(atoi_base(data, 16));
 		_X.dirty = 1;
 		return 0;
 	case FS_CTRL_ENABLE: //enable.

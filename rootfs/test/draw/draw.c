@@ -19,10 +19,10 @@ void fbtest(void) {
 	int i = 0;
 	char s[32];
 	while(i<200) {
-		clear(g, rgb(100, 100, 200));
+		clear(g, argb(0xff, 100, 100, 200));
 		snprintf(s, 31, "Hello, MicroKernel OS! (%d)", i++);
-		fill(g, 10, 10, font->w* strlen(s) + 20, font->h + 20, rgb(0, 0, 0));
-		draw_text(g, 20, 20, s, font, rgb(255, 255, 255));
+		fill(g, 10, 10, font->w* strlen(s) + 20, font->h + 20, argb(0xff, 0, 0, 0));
+		draw_text(g, 20, 20, s, font, argb(0xff, 255, 255, 255));
 		fb_flush(&fb);
 		sleep(0);
 	}

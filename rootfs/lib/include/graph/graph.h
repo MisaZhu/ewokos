@@ -39,9 +39,11 @@ typedef struct {
 	int32_t h;	
 } rect_t;
 
-uint32_t rgb(uint32_t r, uint32_t g, uint32_t b);
+uint32_t argb(uint32_t a, uint32_t r, uint32_t g, uint32_t b);
 
-uint32_t rgb_int(uint32_t c);
+bool has_alpha(uint32_t c);
+
+uint32_t argb_int(uint32_t c);
 
 int32_t fb_open(const char* fname, fb_t* fb);
 
