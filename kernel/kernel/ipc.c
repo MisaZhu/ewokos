@@ -174,10 +174,11 @@ int32_t ipc_write(int32_t id, void* data, uint32_t size) {
 	if(channel->proc_map[channel->ring].pid != pid) {//not ready for current proc.
 		channel->retry_times++;
 		CRIT_OUT(_p_lock)
-		if(channel->retry_times >= RETRY_MAX) {
+		/*if(channel->retry_times >= RETRY_MAX) {
 			printk("%d ipc write timeout!\n", pid);
 			return 0; //close
 		}
+		*/
 		return -1; //retry
 	}
 	channel->retry_times = 0;
@@ -213,10 +214,11 @@ int32_t ipc_read(int32_t id, void* data, uint32_t size) {
 	if(channel->proc_map[channel->ring].pid != pid) {//not read for current proc.
 		channel->retry_times++;
 		CRIT_OUT(_p_lock)
-		if(channel->retry_times >= RETRY_MAX) {
+		/*if(channel->retry_times >= RETRY_MAX) {
 			printk("%d ipc read timeout!\n", pid);
 			return 0; //close
 		}
+		*/
 		return -1; //retry.
 	}
 	channel->retry_times = 0;
