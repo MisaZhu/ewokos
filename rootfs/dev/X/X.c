@@ -526,8 +526,7 @@ static int32_t xserv_get_event(xhandle_t* handle, proto_t* out) {
 	return 0;
 }
 
-static int32_t xserv_get_scr_size(xhandle_t* handle, proto_t* out) {
-	(void)handle;
+static int32_t xserv_get_scr_size(proto_t* out) {
 	gsize_t sz = { _X.g->w, _X.g->h };
 	proto_add(out, &sz, sizeof(gsize_t));
 	return 0;
@@ -581,6 +580,8 @@ static int32_t xserv_fctrl(int32_t pid, const char* fname, int32_t cmd, proto_t*
 	case X_CMD_FLUSH:
 		flush();
 		return 0;
+	case X_CMD_GET_SCR_SIZE:
+		return xserv_get_scr_size(out);
 	}
 	return -1;
 }
@@ -602,8 +603,6 @@ static int32_t xserv_ctrl(int32_t pid, int32_t fd, int32_t cmd, proto_t* input, 
 		return xserv_set_state(handle, input);
 	case X_CMD_GET_EVENT:
 		return xserv_get_event(handle, out);
-	case X_CMD_GET_SCR_SIZE:
-		return xserv_get_scr_size(handle, out);
 	case X_CMD_FLUSH:
 		return xserv_flush(handle);
 	}

@@ -45,7 +45,7 @@ void x_resize_to(x_t* x, int32_t w, int32_t h);
 
 graph_t* x_get_graph(x_t* x);
 
-int32_t x_get_scr_size(x_t* x, gsize_t* sz);
+int32_t x_get_scr_size(const char* dev_name, gsize_t* sz);
 
 int32_t x_get_event(x_t* x, x_ev_t* ev);
 

@@ -102,13 +102,13 @@ void x_resize_to(x_t* x, int32_t w, int32_t h) {
 	x->h = h;
 }
 
-int32_t x_get_scr_size(x_t* x, gsize_t* size) {
-	if(x->fd < 0 || size == NULL)
+int32_t x_get_scr_size(const char* dev_name, gsize_t* size) {
+	if(size == NULL || dev_name == NULL || dev_name[0] == 0)
 		return -1;
 
 	proto_t* out;
 	out = proto_new(NULL, 0);
-	if(x_cmd(x->fd, X_CMD_GET_SCR_SIZE, NULL, out) != 0) {
+	if(fs_fctrl(dev_name, X_CMD_GET_SCR_SIZE, NULL, out) != 0) {
 		proto_free(out);
 		return -1;
 	}
