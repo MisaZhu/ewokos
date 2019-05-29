@@ -120,6 +120,10 @@ int read(int fd, void* buf, uint32_t size) {
 	return fs_read(fd, buf, size);
 }
 
+int lseek(int fd, int offset, int whence) {
+	return fs_lseek(fd, offset, whence);
+}
+
 void close(int fd) {
 	fs_close(fd);
 }

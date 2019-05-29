@@ -23,7 +23,9 @@ enum {
 };
 
 enum {
-	X_EV_WIN_CLOSE = 0
+	X_EV_WIN_CLOSE = 0,
+	X_EV_WIN_FOCUS,
+	X_EV_WIN_UNFOCUS
 };
 
 typedef struct {

@@ -31,11 +31,17 @@ unsigned int usleep(unsigned int msecs);
 
 #define O_CREAT	 8
 
+#define SEEK_SET 0
+#define SEEK_CUR 1
+#define SEEK_END 2
+
 int open(const char* fname, int flags);
 
 int write(int fd, const void* buf, uint32_t size);
 
 int read(int fd, void* buf, uint32_t size);
+
+int lseek(int fd, int offset, int whence);
 
 void close(int fd);
 

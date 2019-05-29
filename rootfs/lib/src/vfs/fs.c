@@ -28,7 +28,7 @@ int fs_open(const char* name, int32_t flags) {
 	proto_t* out = proto_new(NULL, 0);
 	proto_add_int(in, fd);
 	proto_add_int(in, flags);
-	int32_t res = ipc_call(dev_serv_pid, FS_OPEN, in, out);
+	int32_t res = ipc_call(dev_serv_pid, FS_OPEN, in, out, 0);
 	proto_free(in);
 	if(res != 0) {
 		fs_close(fd);
@@ -64,7 +64,7 @@ int32_t fs_dma(int fd, uint32_t* size) {
 	proto_t* in = proto_new(NULL, 0);
 	proto_t* out = proto_new(NULL, 0);
 	proto_add_int(in, fd);
-	int32_t res = ipc_call(dev_serv_pid, FS_DMA, in, out);
+	int32_t res = ipc_call(dev_serv_pid, FS_DMA, in, out, 0);
 	proto_free(in);
 
 	int32_t shm_id = -1;
@@ -85,7 +85,7 @@ int32_t fs_flush(int fd) {
 	if(dev_serv_pid > 0) {
 		proto_t* in = proto_new(NULL, 0);
 		proto_add_int(in, fd);
-		int32_t res = ipc_call(dev_serv_pid, FS_FLUSH, in, NULL);
+		int32_t res = ipc_call(dev_serv_pid, FS_FLUSH, in, NULL, 0);
 		proto_free(in);
 		return res;
 	}
@@ -108,7 +108,7 @@ int fs_read(int fd, char* buf, uint32_t size) {
 	proto_add_int(in, size);
 	proto_add_int(in, seek);
 
-	int res = ipc_call(dev_serv_pid, FS_READ, in, out);
+	int res = ipc_call(dev_serv_pid, FS_READ, in, out, FS_BUF_SIZE);
 	proto_free(in);
 	if(res < 0) {
 		proto_free(out);
@@ -141,7 +141,7 @@ int fs_fctrl(const char* fname, int32_t cmd, const proto_t* input, proto_t* outp
 	proto_add_int(in, cmd);
 	if(input != NULL)
 		proto_add(in, input->data, input->size);
-	int32_t res = ipc_call(info.dev_serv_pid, FS_FCTRL, in, output);
+	int32_t res = ipc_call(info.dev_serv_pid, FS_FCTRL, in, output, 0);
 	proto_free(in);
 	return res;
 }
@@ -158,7 +158,7 @@ int fs_ctrl(int fd, int32_t cmd, const proto_t* input, proto_t* output) {
 	proto_add_int(in, cmd);
 	if(input != NULL)
 		proto_add(in, input->data, input->size);
-	int32_t res = ipc_call(dev_serv_pid, FS_CTRL, in, output);
+	int32_t res = ipc_call(dev_serv_pid, FS_CTRL, in, output, 0);
 	proto_free(in);
 	return res;
 }
@@ -179,7 +179,7 @@ int fs_write(int fd, const char* buf, uint32_t size) {
 	proto_add_int(in, fd);
 	proto_add(in, (void*)buf, size);
 	proto_add_int(in, seek);
-	int32_t res = ipc_call(dev_serv_pid, FS_WRITE, in, out);
+	int32_t res = ipc_call(dev_serv_pid, FS_WRITE, in, out, FS_BUF_SIZE);
 	proto_free(in);
 	int sz = -1;
 	if(res == 0) {
@@ -188,6 +188,28 @@ int fs_write(int fd, const char* buf, uint32_t size) {
 		syscall2(SYSCALL_PFILE_SEEK, fd, seek);
 	}
 	return sz;
+}
+
+int fs_lseek(int fd, int offset, int whence) {
+	if(fd < 0)
+		return -1;
+
+	if(whence == SEEK_SET) {
+		syscall2(SYSCALL_PFILE_SEEK, fd, offset);
+		return offset;
+	}
+	if(whence == SEEK_CUR) {
+		int seek = syscall1(SYSCALL_PFILE_GET_SEEK, fd);
+		if(seek < 0)
+			return -1;
+		seek += offset;
+		syscall2(SYSCALL_PFILE_SEEK, fd, seek);
+		return seek;
+	}
+	//if(whence == SEEK_END) { //TODO
+	//}
+
+	return -1;
 }
 
 int32_t fs_add(const char* dir_name, const char* name, uint32_t type) {
@@ -211,7 +233,7 @@ int32_t fs_add(const char* dir_name, const char* name, uint32_t type) {
 		proto_t* proto = proto_new(NULL, 0);
 		tstr_t* fname = fs_make_fname(dir_name, name);
 		proto_add_str(proto, CS(fname));
-		int32_t res = ipc_call(info.dev_serv_pid, FS_ADD, proto, NULL);
+		int32_t res = ipc_call(info.dev_serv_pid, FS_ADD, proto, NULL, 0);
 		proto_free(proto);
 		if(res != 0) {
 			vfs_del(CS(fname));

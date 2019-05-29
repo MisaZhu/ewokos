@@ -77,7 +77,7 @@ static int32_t close_zombie(opened_t* opened) {
 		proto_add_int(proto, opened->pid);
 		proto_add_int(proto, opened->fd);
 		proto_add(proto, &info, sizeof(fs_info_t));
-		ipc_call(info.dev_serv_pid, FS_CLOSE, proto, NULL);
+		ipc_call(info.dev_serv_pid, FS_CLOSE, proto, NULL, 0);
 		proto_free(proto);
 	}		
 	return 0;
@@ -331,7 +331,7 @@ static int32_t do_del(int32_t pid, proto_t* in) {
 		proto_t* proto = proto_new(NULL, 0);
 		proto_add_str(proto, fname);
 		proto_add(proto, &info, sizeof(fs_info_t));
-		int32_t res = ipc_call(info.dev_serv_pid, FS_REMOVE, proto, NULL);
+		int32_t res = ipc_call(info.dev_serv_pid, FS_REMOVE, proto, NULL, 0);
 		proto_free(proto);
 		if(res != 0) {
 			return -1;
@@ -384,7 +384,7 @@ static int32_t do_close(int pid, proto_t* in) {
 		proto_add_int(proto, pid);
 		proto_add_int(proto, fd);
 		proto_add(proto, &info, sizeof(fs_info_t));
-		ipc_call(info.dev_serv_pid, FS_CLOSE, proto, NULL);
+		ipc_call(info.dev_serv_pid, FS_CLOSE, proto, NULL, 0);
 		proto_free(proto);
 	}		
 	rm_opened(info.node);

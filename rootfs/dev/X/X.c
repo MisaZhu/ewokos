@@ -82,7 +82,7 @@ static void draw_background(void){
 		clear(_X.g, 0);
 		return;
 	}
-	ipc_call(_X.wm_pid, XWM_DRAW_BG, NULL, NULL);
+	ipc_call(_X.wm_pid, XWM_DRAW_BG, NULL, NULL, 0);
 }
 
 static void draw_frame(xhandle_t* r) {
@@ -101,7 +101,7 @@ static void draw_frame(xhandle_t* r) {
 	proto_add_int(in, r->w+1);
 	proto_add_int(in, r->h+1);
 
-	ipc_call(_X.wm_pid, XWM_DRAW_FRAME, in, NULL);
+	ipc_call(_X.wm_pid, XWM_DRAW_FRAME, in, NULL, 0);
 	proto_free(in);
 }
 
@@ -240,15 +240,46 @@ static inline void handle_update(xhandle_t* handle) {
 	}
 }
 
+static void xdev_unfocus(xhandle_t* handle) {
+	handle_update(handle);
+	handle->dirty = true;
+	x_ev_t ev;
+	ev.type = X_EV_WIN;
+	ev.state = X_EV_WIN_UNFOCUS;
+	x_ev_queue_push(&handle->events, &ev, true);
+}
+
+static void xdev_focus(xhandle_t* handle) {
+	handle_update(handle);
+	handle->dirty = true;
+	x_ev_t ev;
+	ev.type = X_EV_WIN;
+	ev.state = X_EV_WIN_FOCUS;
+	x_ev_queue_push(&handle->events, &ev, true);
+}
+
+static xhandle_t* xserv_get_top_handle(void) {
+	xhandle_t* r = _X.handle_top;
+	while(r != NULL) {
+		if(r->state != X_STATE_HIDE)
+			return r;
+		r = r->next;
+	}
+	return NULL;	
+}
+
 static void xdev_top(xhandle_t* handle) {
-	if(handle == NULL || (handle->style & X_STYLE_NO_FRAME) != 0)
+	if(handle == NULL)
 		return;
-	if(_X.handle_top == NULL || handle == _X.handle_top) {
+	xhandle_t* top = xserv_get_top_handle();
+	if(top == NULL) {
 		_X.handle_top = handle;
 		return;
 	}
-	handle_update(_X.handle_top);
-	_X.handle_top->dirty = true;
+	if(handle == top)
+		return;
+
+	xdev_unfocus(top);
 
 	if(handle->next != NULL)
 		handle->next->prev = handle->prev;
@@ -265,6 +296,7 @@ static void xdev_top(xhandle_t* handle) {
 	handle->prev = NULL;
 	_X.handle_top = handle;
 	_X.handle_top->dirty = true;
+	xdev_focus(handle);
 	_X.dirty = true;
 }
 
@@ -339,16 +371,6 @@ static void xserv_mouse(void) {
 			xserv_event(owner, &ev);
 		}
 	}
-}
-
-static xhandle_t* xserv_get_top_handle(void) {
-	xhandle_t* r = _X.handle_top;
-	while(r != NULL) {
-		if(r->state != X_STATE_HIDE)
-			return r;
-		r = r->next;
-	}
-	return NULL;	
 }
 
 static void xserv_keyb(void) {

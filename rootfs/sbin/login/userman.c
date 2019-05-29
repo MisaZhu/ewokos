@@ -21,7 +21,7 @@ int userman_auth(const char* name, const char* passwd) {
 	proto_t* out = proto_new(NULL, 0);
 	proto_add_str(in, name);
 	proto_add_str(in, passwd);
-	int32_t res = ipc_call(_userman_pid, 0, in, out);
+	int32_t res = ipc_call(_userman_pid, 0, in, out, 0);
 	proto_free(in);
 	if(res == 0) {
 		uid = proto_read_int(out);

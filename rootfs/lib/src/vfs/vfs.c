@@ -18,7 +18,7 @@ inline int32_t vfs_add(const char* dir_name, const char* name, uint32_t size, vo
 	proto_add_int(in, (int32_t)size);
 	proto_add_int(in, (int32_t)data);
 
-	int32_t ret = ipc_call(serv_pid, VFS_CMD_ADD, in, NULL);
+	int32_t ret = ipc_call(serv_pid, VFS_CMD_ADD, in, NULL, 0);
 	proto_free(in);
 	return ret;
 }
@@ -30,7 +30,7 @@ inline int32_t vfs_del(const char* fname) {
 
 	proto_t* in = proto_new(NULL, 0);
 	proto_add_str(in, fname);
-	int32_t ret = ipc_call(serv_pid, VFS_CMD_DEL, in, NULL);
+	int32_t ret = ipc_call(serv_pid, VFS_CMD_DEL, in, NULL, 0);
 	proto_free(in);
 	return ret;
 }
@@ -44,7 +44,7 @@ inline int32_t vfs_open(const char* fname, int32_t flags) {
 	proto_add_str(in, fname);
 	proto_add_int(in, flags);
 	proto_t* out = proto_new(NULL, 0);
-	int32_t ret = ipc_call(serv_pid, VFS_CMD_OPEN, in, out);
+	int32_t ret = ipc_call(serv_pid, VFS_CMD_OPEN, in, out, 0);
 	proto_free(in);
 	if(ret == 0)
 		ret = proto_read_int(out);
@@ -58,7 +58,7 @@ inline int32_t vfs_close(int32_t fd) {
 		return -1;
 	proto_t* in = proto_new(NULL, 0);
 	proto_add_int(in, fd);
-	ipc_call(serv_pid, VFS_CMD_CLOSE, in, NULL);
+	ipc_call(serv_pid, VFS_CMD_CLOSE, in, NULL, 0);
 	proto_free(in);
 	return 0;
 }
@@ -73,7 +73,7 @@ inline int32_t vfs_info_by_name(const char* fname, fs_info_t* info) {
 	proto_t* in = proto_new(NULL, 0);
 	proto_t* out = proto_new(NULL, 0);
 	proto_add_str(in, fname);
-	int32_t res = ipc_call(serv_pid, VFS_CMD_INFO_BY_NAME, in, out);
+	int32_t res = ipc_call(serv_pid, VFS_CMD_INFO_BY_NAME, in, out, 0);
 	proto_free(in);
 	if(res == 0)
 		memcpy(info, proto_read(out, NULL), sizeof(fs_info_t));
@@ -90,7 +90,7 @@ inline int32_t vfs_info_by_fd(int32_t fd, fs_info_t* info) {
 	proto_t* in = proto_new(NULL, 0);
 	proto_t* out = proto_new(NULL, 0);
 	proto_add_int(in, fd);
-	int32_t res = ipc_call(serv_pid, VFS_CMD_INFO_BY_FD, in, out);
+	int32_t res = ipc_call(serv_pid, VFS_CMD_INFO_BY_FD, in, out, 0);
 	if(res == 0)
 		memcpy(info, proto_read(out, NULL), sizeof(fs_info_t));
 	proto_free(out);
@@ -103,7 +103,7 @@ inline int32_t vfs_pipe_open(int32_t fds[2]) {
 		return -1;
 
 	proto_t* out = proto_new(NULL, 0);
-	int32_t res = ipc_call(serv_pid, VFS_CMD_PIPE_OPEN, NULL, out);
+	int32_t res = ipc_call(serv_pid, VFS_CMD_PIPE_OPEN, NULL, out, 0);
 	if(res == 0) {
 		fds[0] = proto_read_int(out);
 		fds[1] = proto_read_int(out);
@@ -119,7 +119,7 @@ inline int32_t vfs_node_update(fs_info_t* info) {
 
 	proto_t* in = proto_new(NULL, 0);
 	proto_add(in, info, sizeof(fs_info_t));
-	int32_t res = ipc_call(serv_pid, VFS_CMD_INFO_UPDATE, in, NULL);
+	int32_t res = ipc_call(serv_pid, VFS_CMD_INFO_UPDATE, in, NULL, 0);
 	proto_free(in);
 	return res;
 }
@@ -134,7 +134,7 @@ inline int32_t vfs_mount(const char* fname, const char* devName, int32_t devInde
 	proto_add_str(in, devName);
 	proto_add_int(in, devIndex);
 	proto_add_int(in, (int32_t)isFile);
-	int32_t res = ipc_call(serv_pid, VFS_CMD_MOUNT, in, NULL);
+	int32_t res = ipc_call(serv_pid, VFS_CMD_MOUNT, in, NULL, 0);
 	proto_free(in);
 	return res;
 }
@@ -146,7 +146,7 @@ inline int32_t vfs_unmount(const char* fname) {
 
 	proto_t* in = proto_new(NULL, 0);
 	proto_add_str(in, fname);
-	int32_t res = ipc_call(serv_pid, VFS_CMD_MOUNT, in, NULL);
+	int32_t res = ipc_call(serv_pid, VFS_CMD_MOUNT, in, NULL, 0);
 	proto_free(in);
 	return res;
 }
@@ -160,7 +160,7 @@ tstr_t* vfs_kid(const char* dir_name, int32_t index) {
 	proto_t* out = proto_new(NULL, 0);
 	proto_add_str(in, dir_name);
 	proto_add_int(in, index);
-	int32_t res = ipc_call(serv_pid, VFS_CMD_KID, in, out);
+	int32_t res = ipc_call(serv_pid, VFS_CMD_KID, in, out, 0);
 	proto_free(in);
 	tstr_t *ret = NULL;
 	if(res == 0)
@@ -177,7 +177,7 @@ int32_t vfs_mount_by_index(int32_t index, mount_t* mnt) {
 	proto_t* in = proto_new(NULL, 0);
 	proto_t* out = proto_new(NULL, 0);
 	proto_add_int(in, index);
-	int32_t res = ipc_call(serv_pid, VFS_CMD_MOUNT_BY_INDEX, in, out);
+	int32_t res = ipc_call(serv_pid, VFS_CMD_MOUNT_BY_INDEX, in, out, 0);
 	proto_free(in);
 	if(res == 0)
 		memcpy(mnt, proto_read(out, NULL), sizeof(mount_t));
@@ -193,7 +193,7 @@ int32_t vfs_mount_by_fname(const char* fname, mount_t* mnt) {
 	proto_t* in = proto_new(NULL, 0);
 	proto_t* out = proto_new(NULL, 0);
 	proto_add_str(in, fname);
-	int32_t res = ipc_call(serv_pid, VFS_CMD_MOUNT_BY_FNAME, in, out);
+	int32_t res = ipc_call(serv_pid, VFS_CMD_MOUNT_BY_FNAME, in, out, 0);
 	proto_free(in);
 	if(res == 0)
 		memcpy(mnt, proto_read(out, NULL), sizeof(mount_t));
@@ -212,7 +212,7 @@ tstr_t* vfs_full_name_by_fd(int32_t fd) {
 	proto_t* in = proto_new(NULL, 0);
 	proto_t* out = proto_new(NULL, 0);
 	proto_add_int(in, fd);
-	int32_t res = ipc_call(serv_pid, VFS_CMD_FULLNAME_BY_FD, in, out);
+	int32_t res = ipc_call(serv_pid, VFS_CMD_FULLNAME_BY_FD, in, out, 0);
 	proto_free(in);
 	
 	tstr_t *ret = NULL;
@@ -233,7 +233,7 @@ tstr_t* vfs_full_name_by_node(uint32_t node) {
 	proto_t* in = proto_new(NULL, 0);
 	proto_t* out = proto_new(NULL, 0);
 	proto_add_int(in, node);
-	int32_t res = ipc_call(serv_pid, VFS_CMD_FULLNAME_BY_NODE, in, out);
+	int32_t res = ipc_call(serv_pid, VFS_CMD_FULLNAME_BY_NODE, in, out, 0);
 	proto_free(in);
 	
 	tstr_t *ret = NULL;
@@ -254,7 +254,7 @@ tstr_t* vfs_short_name_by_fd(int32_t fd) {
 	proto_t* in = proto_new(NULL, 0);
 	proto_t* out = proto_new(NULL, 0);
 	proto_add_int(in, fd);
-	int32_t res = ipc_call(serv_pid, VFS_CMD_SHORTNAME_BY_FD, in, out);
+	int32_t res = ipc_call(serv_pid, VFS_CMD_SHORTNAME_BY_FD, in, out, 0);
 	proto_free(in);
 	
 	tstr_t *ret = NULL;
@@ -275,7 +275,7 @@ tstr_t* vfs_short_name_by_node(uint32_t node) {
 	proto_t* in = proto_new(NULL, 0);
 	proto_t* out = proto_new(NULL, 0);
 	proto_add_int(in, node);
-	int32_t res = ipc_call(serv_pid, VFS_CMD_SHORTNAME_BY_NODE, in, out);
+	int32_t res = ipc_call(serv_pid, VFS_CMD_SHORTNAME_BY_NODE, in, out, 0);
 	proto_free(in);
 	
 	tstr_t *ret = NULL;

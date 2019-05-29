@@ -73,7 +73,7 @@ int ipc_send(int id, uint32_t type, void* data, uint32_t size) {
 	return ret;
 }
 
-package_t* ipc_recv(int id) {
+static package_t* ipc_recv(int id) {
 	uint32_t type, size;
 	int i = ipc_read(id, &size, 4);
 	if(i == 0)
@@ -126,14 +126,14 @@ static package_t* ipc_req(int pid, uint32_t buf_size, uint32_t type, void* data,
 	return pkg;
 }
 
-int32_t ipc_call(int32_t pid, int32_t call_id, const proto_t* input, proto_t* output) {
+int32_t ipc_call(int32_t pid, int32_t call_id, const proto_t* input, proto_t* output, uint32_t buf_size) {
 	if(pid < 0)
 		return -1;
 	package_t* pkg;
 	if(input == NULL)
-		pkg = ipc_req(pid, 0, call_id, NULL, 0, true);
+		pkg = ipc_req(pid, buf_size, call_id, NULL, 0, true);
 	else
-		pkg = ipc_req(pid, 0, call_id, input->data, input->size, true);
+		pkg = ipc_req(pid, buf_size, call_id, input->data, input->size, true);
 
 	errno = ENONE;
 	if(pkg == NULL || pkg->type == PKG_TYPE_ERR || pkg->type == PKG_TYPE_AGAIN) {
