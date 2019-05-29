@@ -38,3 +38,8 @@ int32_t trunk_add(trunk_t* trunk) {
 	return trunk->size - 1;
 }
 
+void* trunk_get(trunk_t* trunk, int32_t index) {
+	if(index < 0 || index >= (int32_t)trunk->size)
+		return NULL;
+	return (void*)(((char*)trunk->items) + (index*trunk->item_size));
+}

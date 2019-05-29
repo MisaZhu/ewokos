@@ -14,5 +14,6 @@ typedef struct {
 int32_t trunk_init(trunk_t* trunk, uint32_t item_size, mem_funcs_t* mfs);
 void trunk_clear(trunk_t* trunk);
 int32_t trunk_add(trunk_t* trunk);
+void* trunk_get(trunk_t* trunk, int32_t index);
 
 #endif

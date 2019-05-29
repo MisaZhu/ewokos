@@ -37,11 +37,14 @@ void ipc_init() {
 
 static int32_t _p_lock = 0;
 
+#define IPC_BUF_MAX MB
 /*open ipcernel ipc channel*/
 int32_t ipc_open(int32_t pid, uint32_t buf_size) {
 	CRIT_IN(_p_lock)
 	if(buf_size < PAGE_SIZE)
 		buf_size = PAGE_SIZE;
+	else if(buf_size > IPC_BUF_MAX)
+		buf_size = IPC_BUF_MAX;
 
 	int32_t id = shm_alloc(buf_size); 
 	if(id < 0) {
