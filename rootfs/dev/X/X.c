@@ -246,6 +246,7 @@ static void xdev_unfocus(xhandle_t* handle) {
 	x_ev_t ev;
 	ev.type = X_EV_WIN;
 	ev.state = X_EV_WIN_UNFOCUS;
+	ev.xfd = handle->fd;
 	x_ev_queue_push(&handle->events, &ev, true);
 }
 
@@ -255,6 +256,7 @@ static void xdev_focus(xhandle_t* handle) {
 	x_ev_t ev;
 	ev.type = X_EV_WIN;
 	ev.state = X_EV_WIN_FOCUS;
+	ev.xfd = handle->fd;
 	x_ev_queue_push(&handle->events, &ev, true);
 }
 
@@ -313,6 +315,7 @@ static void xserv_event(xhandle_t* handle, x_ev_t* ev) {
 			xdev_top(handle);
 		}
 	}
+	ev->xfd = handle->fd;
 	x_ev_queue_push(&handle->events, ev, true);
 }
 
@@ -337,10 +340,11 @@ static void xserv_mouse(void) {
 				if(_X.mouse_owner != NULL) {
 					ev.state = X_EV_MOUSE_DRAG;
 					xserv_event(_X.mouse_owner, &ev);
+					return;
 				}
-				return;
 			}
 		}
+
 		if(_X.cursor.mev == 0x1) { //up
 			_X.mouse_owner = NULL;
 			_X.handle_drag = NULL;
@@ -540,12 +544,26 @@ static int32_t xserv_set_state(xhandle_t* handle, proto_t* input) {
 	return 0;
 }
 
-static int32_t xserv_get_event(xhandle_t* handle, proto_t* out) {
-	x_ev_t ev;	
-	if(x_ev_queue_pop(&handle->events, &ev) != 0)
+static int32_t xserv_get_handle_event(xhandle_t* handle, x_ev_t* ev) {
+	if(x_ev_queue_pop(&handle->events, ev) != 0)
 		return -1;
-	proto_add(out, &ev, sizeof(x_ev_t));
 	return 0;
+}
+
+static int32_t xserv_get_event(int32_t pid, proto_t* out) {
+	xhandle_t* h = _X.handle_top;
+	while(h != NULL) {
+		if(h->state != X_STATE_HIDE && 
+				h->pid == pid) {
+			x_ev_t ev;	
+			if(xserv_get_handle_event(h, &ev) == 0) {
+				proto_add(out, &ev, sizeof(x_ev_t));
+				return 0;
+			}
+		}
+		h = h->next;
+	}
+	return -1;
 }
 
 static int32_t xserv_get_scr_size(proto_t* out) {
@@ -599,6 +617,8 @@ static int32_t xserv_fctrl(int32_t pid, const char* fname, int32_t cmd, proto_t*
 			_X.dirty = 1;
 		}
 		return 0;
+	case X_CMD_GET_EVENT:
+		return xserv_get_event(pid, out);
 	case X_CMD_FLUSH:
 		flush();
 		return 0;
@@ -609,6 +629,7 @@ static int32_t xserv_fctrl(int32_t pid, const char* fname, int32_t cmd, proto_t*
 }
 
 static int32_t xserv_ctrl(int32_t pid, int32_t fd, int32_t cmd, proto_t* input, proto_t* out) {
+	(void)out;
 	xhandle_t* handle = xserv_get_handle(pid, fd);
 	if(handle == NULL)
 		return -1;
@@ -623,8 +644,6 @@ static int32_t xserv_ctrl(int32_t pid, int32_t fd, int32_t cmd, proto_t* input, 
 		return xserv_set_style(handle, input);
 	case X_CMD_SET_STATE:
 		return xserv_set_state(handle, input);
-	case X_CMD_GET_EVENT:
-		return xserv_get_event(handle, out);
 	case X_CMD_FLUSH:
 		return xserv_flush(handle);
 	}

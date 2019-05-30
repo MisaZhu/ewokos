@@ -29,6 +29,7 @@ enum {
 };
 
 typedef struct {
+	int32_t xfd;
 	uint8_t type;
 	int32_t state;
 	union {

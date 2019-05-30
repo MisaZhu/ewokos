@@ -1,14 +1,13 @@
 #include <types.h>
 #include <stdio.h>
 #include <unistd.h>
+#include <graph/tga.h>
 
 int main(int argc, char* argv[]) {
-	int fd = open("/etc/init/welcome", O_RDONLY);
-	char buf[6];
-	lseek(fd, 6, SEEK_SET);
-	read(fd, buf, 5);
-	buf[5] = 0;
-	printf("[%s]\n", buf);
-	close(fd);
+	(void)argc;
+	(void)argv;
+
+	tga_image* tga = tga_image_new("/data/res/0.tga");
+	tga_image_destroy(tga);
 	return 0;
 }

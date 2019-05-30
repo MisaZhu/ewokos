@@ -47,6 +47,6 @@ graph_t* x_get_graph(x_t* x);
 
 int32_t x_get_scr_size(const char* dev_name, gsize_t* sz);
 
-int32_t x_get_event(x_t* x, x_ev_t* ev);
+int32_t x_get_event(const char* dev_name, x_ev_t* ev);
 
 #endif

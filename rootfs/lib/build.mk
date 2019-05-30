@@ -23,6 +23,7 @@ LIB_OBJS = lib/src/syscall.o \
 	lib/src/graph/font12x24.o \
 	lib/src/graph/font16x32.o \
 	lib/src/graph/graph.o \
+	lib/src/graph/tga.o \
 	lib/src/shm.o \
 	lib/src/proto.o \
 	lib/src/package.o \

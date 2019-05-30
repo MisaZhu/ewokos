@@ -77,7 +77,7 @@ int main(int argc, char* argv[]) {
 
 	while(true) {
 		x_ev_t ev;
-		if(x_get_event(&x, &ev) == 0) {
+		if(x_get_event("/dev/X0", &ev) == 0) {
 			if(ev.type == X_EV_MOUSE) {
 				if(ev.state == X_EV_MOUSE_DOWN) {
 					run("/bin/x/xconsole");

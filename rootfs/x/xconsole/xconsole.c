@@ -70,7 +70,7 @@ static int run(int argc, char* argv[]) {
 
 	while(true) {
 		x_ev_t ev;
-		if(x_get_event(&x, &ev) == 0) {
+		if(x_get_event("/dev/X0", &ev) == 0) {
 			if(ev.type == X_EV_KEYB) {
 				char c = (char)ev.value.keyboard.value;
 				write(1, &c, 1);

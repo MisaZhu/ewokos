@@ -123,13 +123,13 @@ int32_t x_get_scr_size(const char* dev_name, gsize_t* size) {
 	return 0;
 }
 
-int32_t x_get_event(x_t* x, x_ev_t* ev) {
-	if(x->fd < 0 || ev == NULL)
+int32_t x_get_event(const char* dev_name, x_ev_t* ev) {
+	if(ev == NULL || dev_name == NULL || dev_name[0] == 0)
 		return -1;
 
 	proto_t* out;
 	out = proto_new(NULL, 0);
-	if(x_cmd(x->fd, X_CMD_GET_EVENT, NULL, out) != 0) {
+	if(fs_fctrl(dev_name, X_CMD_GET_EVENT, NULL, out) != 0) {
 		proto_free(out);
 		return -1;
 	}
