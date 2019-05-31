@@ -137,7 +137,6 @@ static void xwm_init(void) {
 
 int main(int argc, char* argv[]) {
 	xwm_init();
-	_bg_img = tga_image_new("/data/res/1.tga");
 
 	const char* dev_name = "/dev/X0";
 	proto_t* out = proto_new(NULL, 0);
@@ -145,6 +144,7 @@ int main(int argc, char* argv[]) {
 		proto_free(out);
 		return -1;
 	}
+	_bg_img = tga_image_new("/data/res/1.tga");
 
 	int32_t shm_id = proto_read_int(out);
 	int32_t w = proto_read_int(out);
