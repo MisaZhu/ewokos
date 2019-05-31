@@ -127,6 +127,20 @@ int fs_read(int fd, char* buf, uint32_t size) {
 	return sz;
 }
 
+int fs_read_all(int fd, char* buf, uint32_t size) {
+	char* p = buf;
+	int32_t sz = 0;
+	while(sz < (int32_t)size) {
+		int32_t res = fs_read(fd, p, size-sz);	
+		if(res <= 0) {
+			break;
+		}
+		sz += res;
+		p += res;
+	}
+	return sz;
+}
+
 int fs_fctrl(const char* fname, int32_t cmd, const proto_t* input, proto_t* output) {
 	if(fname[0] == 0)
 		return -1;
@@ -261,7 +275,7 @@ int fs_putch(int fd, int c) {
 }
 
 int fs_finfo(const char* name, fs_info_t* info) {
-	if(name[0] == 0)
+	if(name == NULL || name[0] == 0)
 		return -1;
 	return vfs_info_by_name(name, info);
 }
@@ -280,25 +294,18 @@ char* fs_read_file(const char* fname, int32_t *size) {
 	if(fd < 0) 
 		return NULL;
 
-	int res = 0;
-	int sz = info.size;
-	char* buf = (char*)malloc(sz);
-	char* p = buf;
-	while(sz > 0) {
-		res = read(fd, p, sz);
-		if(res <= 0)
-			break;
-		sz -= res;
-		p += res;
-	}
-
+	char* buf = (char*)malloc(info.size);
+	int sz = fs_read_all(fd, buf, info.size);	
 	fs_close(fd);
-	if(sz > 0 ) {
+
+	if(sz != (int32_t)info.size) {
 		free(buf);
 		buf = NULL;
-		*size = 0;
+		if(size != NULL)
+			*size = 0;
 	}
-	*size = info.size;
+	if(size != NULL)
+		*size = info.size;
 	return buf;
 }
 

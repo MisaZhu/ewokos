@@ -36,6 +36,9 @@ inline int32_t vfs_del(const char* fname) {
 }
 
 inline int32_t vfs_open(const char* fname, int32_t flags) {
+	if(fname == NULL || fname[0] == 0)
+		return -1;
+
 	int32_t serv_pid = kserv_get_by_name(VFS_NAME);	
 	if(serv_pid < 0)
 		return -1;

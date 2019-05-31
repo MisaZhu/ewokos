@@ -8,13 +8,10 @@
 #include <graph/tga.h>
 
 int main(int argc, char* argv[]) {
-	int pos_x=100, pos_y=100;
-	if(argc == 3) {
-		pos_x = atoi(argv[1]);
-		pos_y = atoi(argv[2]);
-	}
-	printf("pos: %d, %d\n", pos_x, pos_y);
+	if(argc < 2)
+		return -1;
 
+	int pos_x=100, pos_y=100;
 	const char* dev_name = "/dev/X0";
 
 	x_t x;
@@ -31,10 +28,7 @@ int main(int argc, char* argv[]) {
 	x_flush(&x);
 
 	printf("loading...\n");
-	tga_image* tga = tga_image_new("/data/res/16.tga");
-	graph_t* img = graph_new((uint32_t*)tga_image_get_data(tga),
-										tga_image_get_width(tga),
-										tga_image_get_height(tga));
+	graph_t* img = tga_image_new(argv[1]);
 	printf("ok.\n");
 
 	while(true) {
@@ -60,7 +54,6 @@ int main(int argc, char* argv[]) {
 		}
 	}
 
-	tga_image_destroy(tga);
 	graph_free(img);
 	graph_free(g);
 	x_close(&x);

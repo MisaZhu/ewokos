@@ -283,14 +283,14 @@ int32_t ext2_read(ext2_t* ext2, INODE* node, char *buf, int32_t nbytes, int32_t 
 	char *cq = buf;
 	int32_t avil = node->i_size - offset;
 	int32_t blk =0, lbk = 0, start_byte = 0, remain = 0;
-	if(nbytes > BLOCK_SIZE)
-		nbytes = BLOCK_SIZE;
 	//(3)
 	/*(4) Compute LOGICAL BLOCK number lbk and start_byte in that block from offset;
 		lbk       = oftp->offset / BLOCK_SIZE;
 		start_byte = oftp->offset % BLOCK_SIZE;*/	
 	lbk = offset / BLOCK_SIZE;
 	start_byte = offset % BLOCK_SIZE;
+	if(nbytes > (BLOCK_SIZE - start_byte))
+		nbytes = (BLOCK_SIZE - start_byte);
 	//(5) READ
 	//(5).1 direct blocks
 	if(lbk < 12) {
