@@ -1,7 +1,7 @@
 #include <mm/mmu.h>
 
-__attribute__((aligned (PAGE_SIZE))) char _init_stack[PAGE_SIZE];
-__attribute__((aligned (PAGE_SIZE))) char _irq_stack[PAGE_SIZE];
+__attribute__((aligned (PAGE_SIZE))) char _init_stack[PAGE_SIZE*4];
+__attribute__((aligned (PAGE_SIZE))) char _irq_stack[PAGE_SIZE*4];
 __attribute__((aligned (PAGE_SIZE))) char _abort_stack[PAGE_SIZE];
 
 __attribute__((__aligned__(PAGE_DIR_SIZE)))

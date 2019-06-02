@@ -136,6 +136,7 @@ void kernel_entry() {
 	welcome(); /*show welcome words*/
 
 	hw_init(); /*hardware init*/
+	__enable_scu();
 	irq_init(); /*init irq interrupts*/
 	shm_init(); /*init share memory*/
 	ipc_init(); /*init internal process communiation*/

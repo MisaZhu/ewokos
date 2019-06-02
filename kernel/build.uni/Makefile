@@ -1,7 +1,8 @@
 OS = ewokos
 
 ifndef arch
-	arch = versatilepb
+#	arch = versatilepb
+	arch = realview-pbx-a9
 #	arch = raspi2
 endif
 include ../arch/arm/mach-$(arch)/config.mk
@@ -24,14 +25,14 @@ CFLAGS = \
 	-fno-builtin-printf -fno-builtin-strcpy -Wno-overlength-strings \
 	-fno-builtin-exit -fno-builtin-stdio \
 	-std=c99 \
-	-O2 \
+	-g \
 	-mcpu=$(CPU)
 
 ifeq ($(keymap2), yes)
 CFLAGS += -DCONFIG_KEYMAP2
 endif
 
-ASFLAGS = -O2 -I. -I../include -mcpu=$(CPU) $(ARCH_QEMU_CFLAGS)
+ASFLAGS = -g -I. -I../include -mcpu=$(CPU) $(ARCH_QEMU_CFLAGS)
 
 all: $(OS).bin 
 

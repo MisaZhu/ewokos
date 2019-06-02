@@ -25,6 +25,15 @@ __jump2_high_mem:
 	add lr, #KERNEL_BASE
 	mov pc, lr
 
+.global __enable_scu
+__enable_scu:
+	MRC p15, 4, r0, c15, c0, 0
+	LDR r1, [r0, #0x0] // Read periph base address
+	// Read the SCU Control Register
+	ORR r1, r1, #0x1 // Set bit 0 (The Enable bit)
+	STR r1, [r0, #0x0] // Write back modifed value
+	BX lr
+
 .global __enable_interrupts
 __enable_interrupts:
 	push {lr}

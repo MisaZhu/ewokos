@@ -14,7 +14,7 @@ __entry:
 	orr r2, #0x3 //set lower 4 bits(CPSR-MODE) to 0x3, means svc mode
 	msr cpsr, r2
 	ldr sp, =_init_stack /*sp(R13), _abort_stack defined in kernel/src/mm/startup.c*/
-	add sp, #4096
+	add sp, #(4096*4)
 
 	bl enable_paging
 	bl copy_interrupt_table
@@ -78,7 +78,7 @@ interrupt_table_end:
 
 syscall_entry:
 	ldr sp, =_init_stack /*kernel/src/mm/startup.c*/
-	add sp, #4096
+	add sp, #(4096*4)
 
 	SAVE_CONTEXT /*save current process content, kernel/include/proc.h*/
 
@@ -91,7 +91,7 @@ syscall_entry:
 irq_entry:
 	sub r14, r14, #4
 	ldr sp, =_irq_stack
-	add sp, #4096
+	add sp, #(4096*4)
 
 	SAVE_CONTEXT
 
