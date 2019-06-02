@@ -1,8 +1,8 @@
 OS = ewokos
 
 ifndef arch
-#	arch = versatilepb
-	arch = realview-pbx-a9
+	arch = versatilepb
+#	arch = realview-pbx-a9
 #	arch = raspi2
 endif
 include ../arch/arm/mach-$(arch)/config.mk
