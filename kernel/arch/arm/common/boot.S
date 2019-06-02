@@ -4,13 +4,9 @@
 .global __entry
 __entry:
 #ifdef CPU_NUM
-	/*
 	//halt all cores except cpu0
-	mrc p15, #0, r1, c0, c0, #5
-	and r1, r1, #3
-	cmp r1, #0
-	bne __halt
-	*/
+	mrc p15, #0, r11, c0, c0, #5
+	and r11, r11, #3
 #endif
 	mrs r2, cpsr
 	bic r2, #0xf //clear lower 4 bits(CPSR-MODE) to 0
@@ -20,13 +16,25 @@ __entry:
 	add sp, #(4096*4)
 
 	bl enable_paging
-	bl copy_interrupt_table
 	bl __use_high_interrupts  /* (system.S*/
 	bl __enable_interrupts /*system.S*/
 	bl __jump2_high_mem /*system.S*/
 
+#ifdef CPU_NUM
+	cmp r11, #0
+	bne __APS
+#endif
+
+	bl copy_interrupt_table
 	bl kernel_entry /*C entry at kernel/src/kernel.c*/
 	b __halt
+
+#ifdef CPU_NUM
+__APS:
+	adr r0, ap_addr
+	ldr pc, [r0]
+ap_addr: .word ap_start
+#endif
 
 /*set up the init page table for kernel boot and init*/
 enable_paging:

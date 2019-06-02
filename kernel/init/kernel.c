@@ -127,8 +127,17 @@ static void welcome(void) {
 				"Free mem size: (%d MB)\n\n", get_free_mem_size()/(MB));
 }
 
-#define CONF_FNAME "/etc/boot/device.conf"
+#ifdef CPU_NUM
+void ap_start(void) {
+	int32_t cpu = __get_cpu_id();
+	printk("cpu id: %d\n", cpu);
+	while(true) {
+		__asm__("WFI");
+	}
+}
+#endif
 
+#define CONF_FNAME "/etc/boot/device.conf"
 void kernel_entry() {
 	init_kernel_vm();  /* Done mapping all mem */
 	init_allocable_mem(); /*init the rest allocable memory VM*/
