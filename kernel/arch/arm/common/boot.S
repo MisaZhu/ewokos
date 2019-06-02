@@ -8,17 +8,19 @@ __entry:
 	mrc p15, #0, r11, c0, c0, #5
 	and r11, r11, #3
 #endif
-	mrs r2, cpsr
-	bic r2, #0xf //clear lower 4 bits(CPSR-MODE) to 0
-	orr r2, #0x3 //set lower 4 bits(CPSR-MODE) to 0x3, means svc mode
-	msr cpsr, r2
-	ldr sp, =_init_stack /*sp(R13), _abort_stack defined in kernel/src/mm/startup.c*/
+	ldr sp, =_init_stack /*sp(R13), _init_stack defined in kernel/src/mm/startup.c*/
 	add sp, #(4096*4)
 
 	bl enable_paging
 	bl __use_high_interrupts  /* (system.S*/
 	bl __enable_interrupts /*system.S*/
 	bl __jump2_high_mem /*system.S*/
+
+	msr cpsr, #0x12	 //to irq mode
+	ldr sp, =_irq_stack /*sp(R13), _irq_stack defined in kernel/src/mm/startup.c*/
+	add sp, #(4096*4)
+
+	msr cpsr, #0x13 //back to svc mode
 
 #ifdef CPU_NUM
 	cmp r11, #0
@@ -27,7 +29,7 @@ __entry:
 
 	bl copy_interrupt_table
 	bl kernel_entry /*C entry at kernel/src/kernel.c*/
-	b __halt
+	b .
 
 #ifdef CPU_NUM
 __APS:
@@ -88,7 +90,7 @@ interrupt_table_start: /*interrupt table, with syscall and irq items*/
 interrupt_table_end:
 
 syscall_entry:
-	ldr sp, =_init_stack /*kernel/src/mm/startup.c*/
+	ldr sp, =_init_stack
 	add sp, #(4096*4)
 
 	SAVE_CONTEXT /*save current process content, kernel/include/proc.h*/
@@ -100,10 +102,10 @@ syscall_entry:
 	ldmfd sp!, {r1-r12, pc}^ /*pop stack to r1-r12, pc(means return)*/
 
 irq_entry:
-	sub r14, r14, #4
 	ldr sp, =_irq_stack
 	add sp, #(4096*4)
 
+	sub r14, r14, #4
 	SAVE_CONTEXT
 
 	stmfd sp!, {r0-r12, r14} /*push r0-r12, r14(return pc) to stack*/
