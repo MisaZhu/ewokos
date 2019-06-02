@@ -26,7 +26,7 @@ CFLAGS = \
 	-fno-builtin-exit -fno-builtin-stdio \
 	-std=c99 \
 	-g \
-	-mcpu=$(CPU)
+	-mcpu=$(CPU) $(ARCH_QEMU_CFLAGS)
 
 ifeq ($(keymap2), yes)
 CFLAGS += -DCONFIG_KEYMAP2

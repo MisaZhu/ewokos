@@ -3,11 +3,14 @@
 
 .global __entry
 __entry:
-#ifdef MULTI_CPU
+#ifdef CPU_NUM
+	/*
+	//halt all cores except cpu0
 	mrc p15, #0, r1, c0, c0, #5
 	and r1, r1, #3
 	cmp r1, #0
 	bne __halt
+	*/
 #endif
 	mrs r2, cpsr
 	bic r2, #0xf //clear lower 4 bits(CPSR-MODE) to 0

@@ -134,10 +134,17 @@ void kernel_entry() {
 	init_allocable_mem(); /*init the rest allocable memory VM*/
 
 	welcome(); /*show welcome words*/
-
 	hw_init(); /*hardware init*/
-	__enable_scu();
 	irq_init(); /*init irq interrupts*/
+
+#ifdef CPU_NUM
+	__enable_scu();
+	printk("cpu num: %d\n", CPU_NUM);
+	send_sgi(0x00, 0x0F, 0x01); // intID=0,CPUs=0xF,filter=b01
+	int32_t *apAddr = (int32_t *)(MMIO_BASE + 0x30);
+	*apAddr = (int)0x10000;
+#endif
+
 	shm_init(); /*init share memory*/
 	ipc_init(); /*init internal process communiation*/
 	dev_init(); /*load basic devices*/
@@ -150,6 +157,10 @@ void kernel_entry() {
 	else
 		printk("warning: %s missed.\n", CONF_FNAME);
 
+#ifdef CPU_NUM //multi core
+	timer_init(); /*init timer irq*/
+	timer_start(); /*start timer*/
+#else //single core
 	proc_init(); /*init process mananer*/
 	process_t* first_proc = load_init_proc(); /*load init process(first process)*/
 
@@ -159,5 +170,6 @@ void kernel_entry() {
 	if(first_proc != NULL) {
 		proc_start(first_proc);
 	} 
+#endif
 	while(true);
 }

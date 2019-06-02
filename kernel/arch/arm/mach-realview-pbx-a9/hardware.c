@@ -12,6 +12,10 @@ uint32_t get_mmio_base_phy() {
 	return 0x10000000;
 }
 
+uint32_t get_gic_base_phy() {
+	return 0x1F000000;
+}
+
 uint32_t get_mmio_mem_size() {
 	return 4*MB;
 }

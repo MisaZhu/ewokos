@@ -8,6 +8,7 @@ extern char _fb_start[];
 
 extern void hw_init(void);
 extern uint32_t get_mmio_base_phy(void);
+extern uint32_t get_gic_base_phy(void);
 extern uint32_t get_mmio_mem_size(void);
 extern uint32_t get_phy_ram_size(void);
 

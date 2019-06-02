@@ -28,7 +28,7 @@ void irq_init(void) {
 	config_int(44, 0); // UART0
 	//config_int(45, 0); // UART1
 	config_int(49, 0); // sdc handle
-	config_int(52, 0); // KBD
+	config_int(52, 1); // KBD
 	// set int priority mask register
 	*(int *)(GIC_BASE + 0x104) = 0xFF;
 	// set CPU interface control register: enable interrupts routing

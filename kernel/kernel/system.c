@@ -23,6 +23,14 @@ static int32_t kill_proc(int32_t pid) {
 	return 0;
 }
 
+#ifdef CPU_NUM
+void send_sgi(int32_t int_id, int32_t target_cpu, int32_t filter) {
+	uint32_t base = get_gic_base_phy();
+	int *sgi_reg = (int *)(base + 0x1F00);
+	*sgi_reg = (filter<<24)|((1<<target_cpu)<<16)|(int_id);
+}
+#endif
+
 int32_t system_cmd(int32_t cmd, int32_t arg0, int32_t arg1) {
 	int32_t ret = -1;
 	switch(cmd) {

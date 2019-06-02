@@ -6,7 +6,12 @@
 
 void __set_translation_table_base(uint32_t v);
 void __switch_to_context(uint32_t *context);
+
+#ifdef CPU_NUM
 void __enable_scu(void);
+int32_t __get_cpu_id(void);
+void send_sgi(int32_t int_id, int32_t target_cpu, int32_t filter);
+#endif
 
 extern uint32_t __cli(void); //disable interrupts
 extern void __sti(uint32_t cpsr); //enable interrupts
