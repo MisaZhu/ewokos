@@ -46,7 +46,7 @@ int main(int argc, char* argv[]) {
 					break;
 			}
 
-			clear(g, 0xff000000);
+			clear(g, 0xff222222);
 			blt_alpha(img, 0, 0, img->w, img->h,
 					g, 0, 100, img->w, img->h, 0xff);
 			draw_text(g, 10, 10, s, font, 0xffffffff);

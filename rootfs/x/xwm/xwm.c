@@ -23,7 +23,6 @@ typedef struct {
 } xwm_t;
 
 static xwm_t _xwm;
-graph_t* _bg_img;
 
 static int32_t read_config(xwm_t* xwm, const char* fname) {
 	sconf_t *conf = sconf_load(fname);	
@@ -71,11 +70,6 @@ static void draw_background(graph_t* g) {
 		for(x=0; x<(int32_t)g->w; x+=10) {
 			pixel(g, x, y, _xwm.desk_fg_color);
 		}
-	}
-
-	if(_bg_img != NULL) {
-		blt_alpha(_bg_img, 0, 0, _bg_img->w, _bg_img->h,
-				g, 100, 100, _bg_img->w, _bg_img->h, 0x88);
 	}
 }
 
@@ -144,7 +138,6 @@ int main(int argc, char* argv[]) {
 		proto_free(out);
 		return -1;
 	}
-	_bg_img = tga_image_new("/data/res/1.tga");
 
 	int32_t shm_id = proto_read_int(out);
 	int32_t w = proto_read_int(out);

@@ -39,18 +39,18 @@ static void tga_image_decode32(const int c, color_t* cl) {
 	cl->b = c&0xFF;
 }
 
-static unsigned char* tga_image_next_pixel(unsigned char* p, tga_header_t *header, color_t* cl) {
-	if(header->bpp == 16) {
+static unsigned char* tga_image_next_pixel(unsigned char* p, uint8_t bpp, color_t* cl) {
+	if(bpp == 16) {
 		short d;
 		memcpy(&d, p, 2);
 		p += 2;
 		tga_image_decode16(d, cl);
-	} else if(header->bpp == 24) {
+	} else if(bpp == 24) {
 		int d;
 		memcpy(&d, p, 3);
 		p += 3;
 		tga_image_decode24(d, cl);
-	} else if(header->bpp == 32) {
+	} else if(bpp == 32) {
 		int d;
 		memcpy(&d, p, 4);
 		p += 4;
@@ -66,7 +66,7 @@ static graph_t* tga_image_read_rgb(unsigned char* p, tga_header_t *header) {
 	unsigned char* data = (unsigned char*)this->buffer;
 	for(i = 0; i < data_size;i+=4) {
 		color_t colour;
-		p = tga_image_next_pixel(p, header, &colour);
+		p = tga_image_next_pixel(p, header->bpp, &colour);
 		
 		data[i] = colour.r;
 		data[i+1] = colour.g;
@@ -90,7 +90,7 @@ static graph_t* tga_image_read_rle(unsigned char* p, tga_header_t *header) {
 		if( (h>>7) == 1 ) { //RLE
 			unsigned char rle_count = h - 127;
 			color_t colour;
-			p = tga_image_next_pixel(p, header, &colour);
+			p = tga_image_next_pixel(p, header->bpp, &colour);
 			int j;
 			for(j = 0; j < rle_count*4; j+= 4) {
 				data[i+j] = colour.r;
@@ -105,7 +105,7 @@ static graph_t* tga_image_read_rle(unsigned char* p, tga_header_t *header) {
 			int j;
 			for(j = 0; j < raw_count*4; j+= 4) {
 				color_t colour;
-				p = tga_image_next_pixel(p, header, &colour);
+				p = tga_image_next_pixel(p, header->bpp, &colour);
 				data[i+j] = colour.r;
 				data[i+j+1] = colour.g;
 				data[i+j+2] = colour.b;
@@ -118,22 +118,21 @@ static graph_t* tga_image_read_rle(unsigned char* p, tga_header_t *header) {
 }
 
 graph_t* tga_image_new(const char* filename) {
-	unsigned char* p = (unsigned char*)fs_read_file(filename, NULL);
+	int32_t sz;
+	unsigned char* p = (unsigned char*)fs_read_file(filename, &sz);
 	if(p != NULL ) {
+		tga_header_t header;
+		memcpy(&header, p, 3);
+		memcpy(&(header.width), p+12, 10);
+		p = p + (18+header.id_size);
+		
 		graph_t* this = NULL;
-		tga_header_t *header = (tga_header_t*)malloc(sizeof(tga_header_t));
-		
-		memcpy(header, p, 3);
-		memcpy(&(header->width), p+12, 10);
-		p = p + (18+header->id_size);
-		
-		if( header->image_type == UNMAPPED_RGB ) {
-			this = tga_image_read_rgb(p, header);
-		} else if( header->image_type == RLE_RGB ) {
-			this = tga_image_read_rle(p, header);
+		if( header.image_type == UNMAPPED_RGB ) {
+			this = tga_image_read_rgb(p, &header);
+		} else if( header.image_type == RLE_RGB ) {
+			this = tga_image_read_rle(p, &header);
 		}
 		
-		free(header);
 		free(p);
 		return this;
 	}
