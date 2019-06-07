@@ -7,20 +7,19 @@ __entry:
 	//halt all cores except cpu0
 	mrc p15, #0, r11, c0, c0, #5
 	and r11, r11, #3
-#endif
+	LDR r0, = _init_stack // r0->svc_stack (16KB area in t.ld)
+	mov r1, r11 // r1 = cpuid
+	add r1, r1, #1
+	lsl r2, r1, #12 // cpuid++ // (cpuid+1)* 4096
+	add r0, r0, r2
+	mov sp, r0 // SVC sp=svc_stack[cpuid] high end
+#else
 	ldr sp, =_init_stack /*sp(R13), _init_stack defined in kernel/src/mm/startup.c*/
 	add sp, #(4096*4)
+#endif
 
 	bl enable_paging
-	bl __use_high_interrupts  /* (system.S*/
-	bl __enable_interrupts /*system.S*/
 	bl __jump2_high_mem /*system.S*/
-
-	msr cpsr, #0x12	 //to irq mode
-	ldr sp, =_irq_stack /*sp(R13), _irq_stack defined in kernel/src/mm/startup.c*/
-	add sp, #(4096*4)
-
-	msr cpsr, #0x13 //back to svc mode
 
 #ifdef CPU_NUM
 	cmp r11, #0
@@ -28,14 +27,15 @@ __entry:
 #endif
 
 	bl copy_interrupt_table
+	bl __use_high_interrupts  /* (system.S*/
+	bl __enable_interrupts /*system.S*/
 	bl kernel_entry /*C entry at kernel/src/kernel.c*/
 	b .
 
 #ifdef CPU_NUM
 __APS:
-	adr r0, ap_addr
-	ldr pc, [r0]
-ap_addr: .word ap_start
+	bl kernel_entry /*C entry at kernel/src/kernel.c*/
+	b .
 #endif
 
 /*set up the init page table for kernel boot and init*/
@@ -90,8 +90,19 @@ interrupt_table_start: /*interrupt table, with syscall and irq items*/
 interrupt_table_end:
 
 syscall_entry:
-	ldr sp, =_init_stack
+#ifdef CPU_NUM
+	mrc p15, #0, r11, c0, c0, #5
+	and r11, r11, #3
+	LDR r0, = _init_stack // r0->svc_stack (16KB area in t.ld)
+	mov r1, r11 // r1 = cpuid
+	add r1, r1, #1
+	lsl r2, r1, #12 // cpuid++ // (cpuid+1)* 4096
+	add r0, r0, r2
+	mov sp, r0 // SVC sp=svc_stack[cpuid] high end
+#else
+	ldr sp, =_init_stack /*sp(R13), _init_stack defined in kernel/src/mm/startup.c*/
 	add sp, #(4096*4)
+#endif
 
 	SAVE_CONTEXT /*save current process content, kernel/include/proc.h*/
 
@@ -102,8 +113,19 @@ syscall_entry:
 	ldmfd sp!, {r1-r12, pc}^ /*pop stack to r1-r12, pc(means return)*/
 
 irq_entry:
-	ldr sp, =_irq_stack
+#ifdef CPU_NUM
+	mrc p15, #0, r11, c0, c0, #5
+	and r11, r11, #3
+	LDR r0, = _irq_stack // r0->svc_stack (16KB area in t.ld)
+	mov r1, r11 // r1 = cpuid
+	add r1, r1, #1
+	lsl r2, r1, #12 // cpuid++ // (cpuid+1)* 4096
+	add r0, r0, r2
+	mov sp, r0 // SVC sp=svc_stack[cpuid] high end
+#else
+	ldr sp, =_irq_stack /*sp(R13), _irq_stack defined in kernel/src/mm/startup.c*/
 	add sp, #(4096*4)
+#endif
 
 	sub r14, r14, #4
 	SAVE_CONTEXT

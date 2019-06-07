@@ -130,8 +130,8 @@ static void welcome(void) {
 #ifdef CPU_NUM
 void ap_start(void) {
 	int32_t cpu = __get_cpu_id();
-	printk("cpu id: %d\n", cpu);
 	while(true) {
+		printk("cpu id: %d\n", cpu);
 		__asm__("WFI");
 	}
 }
@@ -143,21 +143,27 @@ void kernel_entry() {
 	init_allocable_mem(); /*init the rest allocable memory VM*/
 
 	welcome(); /*show welcome words*/
-	hw_init(); /*hardware init*/
-	irq_init(); /*init irq interrupts*/
 
 #ifdef CPU_NUM
 	__enable_scu();
-	printk("cpu num: %d\n", CPU_NUM);
-	send_sgi(0x00, 0x0F, 0x01); // intID=0,CPUs=0xF,filter=b01
-	int32_t *apAddr = (int32_t *)(MMIO_BASE + 0x30);
-	*apAddr = (int)0x10000;
 #endif
 
+	hw_init(); /*hardware init*/
+	irq_init(); /*init irq interrupts*/
 	shm_init(); /*init share memory*/
 	ipc_init(); /*init internal process communiation*/
 	dev_init(); /*load basic devices*/
 
+#ifdef CPU_NUM //multi core
+	printk("cpu num: %d\n", CPU_NUM);
+	send_sgi(0x00, 0x0F, 0x01); // intID=0,CPUs=0xF,filter=b01
+	//int32_t *apAddr = (int32_t *)(MMIO_BASE + 0x30);
+	int32_t *apAddr = (int32_t *)(0x10000030);
+	*apAddr = (int)0x10000;
+
+	timer_init(); /*init timer irq*/
+	timer_start(); /*start timer*/
+#else //single core
 	/*load configurable devices*/
 	sconf_t* conf = sconf_load(CONF_FNAME);
 	conf_dev_init(conf);
@@ -166,10 +172,6 @@ void kernel_entry() {
 	else
 		printk("warning: %s missed.\n", CONF_FNAME);
 
-#ifdef CPU_NUM //multi core
-	timer_init(); /*init timer irq*/
-	timer_start(); /*start timer*/
-#else //single core
 	proc_init(); /*init process mananer*/
 	process_t* first_proc = load_init_proc(); /*load init process(first process)*/
 

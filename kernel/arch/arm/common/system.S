@@ -79,11 +79,11 @@ __use_high_interrupts:
 
 .global __switch_to_context
 __switch_to_context:
-	LDMIA R0!, {R12, R14}
+	LDMIA R0!, {R12, R14} //proc->context 0(CPSR) 1(RESTART_ADDR), (proc.h)
 	MSR SPSR_fsxc, R12
-	LDMIA R0, {R0-R14}^
+	LDMIA R0, {R0-R14}^ //restore proc->context(2-16: R0-R14)
 	NOP
-	MOVS PC, R14
+	MOVS PC, R14 //run proc.
 
 .global __mem_barrier
 __mem_barrier:

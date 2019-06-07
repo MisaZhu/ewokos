@@ -22,9 +22,12 @@ uint32_t get_mmio_mem_size() {
 
 void arch_set_kernel_vm(page_dir_entry_t* vm) {
 	(void)vm;
-	uint32_t fbBase = (uint32_t)V2P(_fb_start); //framebuffer addr
-	map_pages(vm, fbBase, fbBase, fbBase+4*MB, AP_RW_D);
+	uint32_t base = (uint32_t)V2P(_fb_start); //framebuffer addr
+	map_pages(vm, base, base, base+4*MB, AP_RW_D);
 
-	uint32_t gic_base = 0x1F000000;
-	map_pages(vm, gic_base, gic_base, gic_base+16*KB, AP_RW_D);
+	base = 0x10000000;
+	map_pages(vm, base, base, base+PAGE_SIZE, AP_RW_D);
+	
+	base = 0x1F000000;
+	map_pages(vm, base, base, base+16*KB, AP_RW_D);
 }

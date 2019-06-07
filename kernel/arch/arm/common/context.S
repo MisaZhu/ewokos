@@ -49,6 +49,7 @@ __save_context2: /*store R0 to item 2 of process content array*/
 	/* store r0 to the item 2*/
 	add r0, #8
 	str r1, [r0]
+	b save_context_return
 
 save_context_return:
 	pop {r0-r12, r14}
