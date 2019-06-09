@@ -17,7 +17,8 @@ __set_domain_access_control:
 
 .global __set_translation_table_base
 __set_translation_table_base:
-	mcr p15, 0, r0, cr2, cr0, 0
+	mcr p15, 0, r0, c2, c0, 0 //set ttbase
+	mcr p15, 0, r0, c8, c7, 0 //flush tlb
 	mov pc, lr
 
 .global __jump2_high_mem
@@ -84,6 +85,31 @@ __switch_to_context:
 	LDMIA R0, {R0-R14}^ //restore proc->context(2-16: R0-R14)
 	NOP
 	MOVS PC, R14 //run proc.
+
+#ifdef CPU_NUM
+// spinlock, 0=UNLOCKED, 1=LOCKED
+.global __s_lock
+__s_lock: // slock(int *spin): acquire spinlock
+	ldrex r1, [r0]     // read spinlock value
+	cmp r1, #0x0       // compare with 0
+	WFENE              // not 0 means already locked: do WFE
+	bne __s_lock          // try again after woken up by event // set r1=1
+	mov r1, #1
+	strex r2, r1, [r0] // try to store 1 to [r0]; r2=return value
+	cmp r2, #0x0       // check return value in r2
+	bne __s_lock          // not 0 means failed; retry to lock again
+	DMB                // memory barrier BEFORE accessing CR
+	bx lr              // return only if has acquired the spinlock
+
+.global __s_unlock
+__s_unlock:
+	mov r1, #0x0 
+	DMB
+	str r1, [r0]
+	DSB
+	SEV
+	bx lr
+#endif
 
 .global __mem_barrier
 __mem_barrier:

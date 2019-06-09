@@ -4,19 +4,31 @@
 .global __entry
 __entry:
 #ifdef CPU_NUM
-	//halt all cores except cpu0
 	mrc p15, #0, r11, c0, c0, #5
 	and r11, r11, #3
-	LDR r0, = _init_stack // r0->svc_stack (16KB area in t.ld)
+	LDR r0, = _init_stack //sp(R13), _init_stack defined in kernel/src/mm/startup.c
 	mov r1, r11 // r1 = cpuid
 	add r1, r1, #1
 	lsl r2, r1, #12 // cpuid++ // (cpuid+1)* 4096
 	add r0, r0, r2
 	mov sp, r0 // SVC sp=svc_stack[cpuid] high end
+
+	MSR cpsr, #0x92 //irq mode
+	LDR r0, = _irq_stack //sp(R13), _irq_stack defined in kernel/src/mm/startup.c
+	mov r1, r11 // r1 = cpuid
+	add r1, r1, #1
+	lsl r2, r1, #12 // cpuid++ // (cpuid+1)* 4096
+	add r0, r0, r2
+	mov sp, r0 // IRQ sp=irq_stack[cpuid] high end
 #else
-	ldr sp, =_init_stack /*sp(R13), _init_stack defined in kernel/src/mm/startup.c*/
+	ldr sp, =_init_stack
+	add sp, #(4096*4)
+
+	MSR cpsr, #0x92 //irq mode
+	ldr sp, =_irq_stack
 	add sp, #(4096*4)
 #endif
+	MSR cpsr, #0x13 //svc mode
 
 	bl enable_paging
 	bl __jump2_high_mem /*system.S*/
@@ -90,17 +102,8 @@ interrupt_table_start: /*interrupt table, with syscall and irq items*/
 interrupt_table_end:
 
 syscall_entry:
-#ifdef CPU_NUM
-	mrc p15, #0, r11, c0, c0, #5
-	and r11, r11, #3
-	LDR r0, = _init_stack // r0->svc_stack (16KB area in t.ld)
-	mov r1, r11 // r1 = cpuid
-	add r1, r1, #1
-	lsl r2, r1, #12 // cpuid++ // (cpuid+1)* 4096
-	add r0, r0, r2
-	mov sp, r0 // SVC sp=svc_stack[cpuid] high end
-#else
-	ldr sp, =_init_stack /*sp(R13), _init_stack defined in kernel/src/mm/startup.c*/
+#ifndef CPU_NUM
+	ldr sp, =_init_stack //sp(R13), _init_stack defined in kernel/src/mm/startup.c
 	add sp, #(4096*4)
 #endif
 
@@ -113,17 +116,8 @@ syscall_entry:
 	ldmfd sp!, {r1-r12, pc}^ /*pop stack to r1-r12, pc(means return)*/
 
 irq_entry:
-#ifdef CPU_NUM
-	mrc p15, #0, r11, c0, c0, #5
-	and r11, r11, #3
-	LDR r0, = _irq_stack // r0->svc_stack (16KB area in t.ld)
-	mov r1, r11 // r1 = cpuid
-	add r1, r1, #1
-	lsl r2, r1, #12 // cpuid++ // (cpuid+1)* 4096
-	add r0, r0, r2
-	mov sp, r0 // SVC sp=svc_stack[cpuid] high end
-#else
-	ldr sp, =_irq_stack /*sp(R13), _irq_stack defined in kernel/src/mm/startup.c*/
+#ifndef CPU_NUM
+	ldr sp, =_irq_stack //sp(R13), _irq_stack defined in kernel/src/mm/startup.c
 	add sp, #(4096*4)
 #endif
 

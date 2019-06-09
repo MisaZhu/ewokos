@@ -128,10 +128,13 @@ static void welcome(void) {
 }
 
 #ifdef CPU_NUM
+static int32_t _p_lock = 0;
 void ap_start(void) {
 	int32_t cpu = __get_cpu_id();
 	while(true) {
-		printk("cpu id: %d\n", cpu);
+		__s_lock(&_p_lock);
+		printk("SMP and semaphore lock test, cpu id: %d\n", cpu);
+		__s_unlock(&_p_lock);
 		__asm__("WFI");
 	}
 }
@@ -139,14 +142,20 @@ void ap_start(void) {
 
 #define CONF_FNAME "/etc/boot/device.conf"
 void kernel_entry() {
+
 	init_kernel_vm();  /* Done mapping all mem */
 	init_allocable_mem(); /*init the rest allocable memory VM*/
 
-	welcome(); /*show welcome words*/
-
 #ifdef CPU_NUM
+	_p_lock = 0;
 	__enable_scu();
+	int32_t cpu_id = __get_cpu_id();
+	if(cpu_id > 0) {
+		ap_start();
+		return;
+	}
 #endif
+	welcome(); /*show welcome words*/
 
 	hw_init(); /*hardware init*/
 	irq_init(); /*init irq interrupts*/
@@ -157,12 +166,16 @@ void kernel_entry() {
 #ifdef CPU_NUM //multi core
 	printk("cpu num: %d\n", CPU_NUM);
 	send_sgi(0x00, 0x0F, 0x01); // intID=0,CPUs=0xF,filter=b01
-	//int32_t *apAddr = (int32_t *)(MMIO_BASE + 0x30);
-	int32_t *apAddr = (int32_t *)(0x10000030);
+	int32_t *apAddr = (int32_t *)(MMIO_BASE + 0x30);
+	//int32_t *apAddr = (int32_t *)(0x10000030);
 	*apAddr = (int)0x10000;
 
 	timer_init(); /*init timer irq*/
 	timer_start(); /*start timer*/
+
+	while(true) {
+		//__asm__("WFI");
+	}
 #else //single core
 	/*load configurable devices*/
 	sconf_t* conf = sconf_load(CONF_FNAME);
@@ -181,6 +194,6 @@ void kernel_entry() {
 	if(first_proc != NULL) {
 		proc_start(first_proc);
 	} 
-#endif
 	while(true);
+#endif
 }
