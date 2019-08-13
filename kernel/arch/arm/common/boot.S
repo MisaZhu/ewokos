@@ -38,7 +38,7 @@ __entry:
 	bne __APS
 #endif
 
-	bl copy_interrupt_table
+	bl copy_interrupt_table //kernel/kernel.c.
 	bl __use_high_interrupts  /* (system.S*/
 	bl __enable_interrupts /*system.S*/
 	bl kernel_entry /*C entry at kernel/src/kernel.c*/
@@ -67,25 +67,7 @@ enable_paging:
 
 	mov pc, r2 /*return*/
 
-/*Copy interrupt talbe to phymen address 0x00000000.
-Virtual address #INTERRUPT_VECTOR_BASE(0xFFFF0000 for ARM) must mapped to phymen 0x00000000.
-ref: set_kernel_vm(page_dir_entry_t* vm) kernel/src/kernel.c 
-*/
-copy_interrupt_table: 
-	mov r0, #0x0
-	ldr r1, =interrupt_table_start
-	ldr r3, =interrupt_table_end
-	
-	copy_loop_start:
-		ldr r2, [r1, #0x0] /*read from interrupt_table to R2*/
-		str r2, [r0, #0x0] /*write R2 to phy address(r0)*/
-		add r0, r0, #0x4 /*move to next phy address(32bits)*/
-		add r1, r1, #0x4 /*move to next table item*/
-		cmp r1, r3 /*if endof table*/
-		bne copy_loop_start
-
-	mov pc, lr
-
+.global interrupt_table_start, interrupt_table_end
 interrupt_table_start: /*interrupt table, with syscall and irq items*/
 	nop /*item 0: reserved for reset*/
 	ldr pc, abort_entry_address /*item 1: undef instruct*/
