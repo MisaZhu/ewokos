@@ -17,15 +17,16 @@ COMMON_OBJ=$(COMMON_LIB)/lib/kstring.o \
 
 # flags
 CFLAGS = -I. -O2 \
-			   -Wstrict-prototypes \
-				 -I ../lib/include \
-				 -I lib/include \
-				 -I $(COMMON_LIB)/include \
-				 -marm \
-				 -pedantic -Wall -Wextra -msoft-float -fPIC -mapcs-frame \
-         -fno-builtin-printf -fno-builtin-strcpy -Wno-overlength-strings \
-         -fno-builtin-exit -fno-builtin-stdio \
-				 -std=c99 
+	-Wstrict-prototypes \
+	-I ../lib/include \
+	-I lib/include \
+	-I $(COMMON_LIB)/include \
+	-marm \
+	-pedantic -Wall -Wextra -msoft-float -fPIC -mapcs-frame \
+	-Wno-overlength-strings \
+	-fno-builtin \
+	-std=c99
+
 LDFLAGS = -lgcc
 
 #ASFLAGS = -g -I $(KERNEL_LIB)/include
