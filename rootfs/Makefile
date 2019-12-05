@@ -25,8 +25,10 @@ CFLAGS = -I. -O2 \
 				 -pedantic -Wall -Wextra -msoft-float -fPIC -mapcs-frame \
          -fno-builtin-printf -fno-builtin-strcpy -Wno-overlength-strings \
          -fno-builtin-exit -fno-builtin-stdio \
+				 -fno-builtin-memset \
+				 -fno-builtin-memcpy \
 				 -std=c99 
-LDFLAGS = -lgcc
+LDFLAGS = -lgcc -nosys
 
 #ASFLAGS = -g -I $(KERNEL_LIB)/include
 
