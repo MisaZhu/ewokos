@@ -7,6 +7,7 @@
 #include <kernel/system.h>
 #include <kernel/schedule.h>
 #include <kernel/uspace_int.h>
+#include <kernel/kernel.h>
 #include <kernel/proc.h>
 #include <string.h>
 #include <kprintf.h>
@@ -23,6 +24,7 @@ static uint32_t _timer_tic = 0;
 
 void irq_handler(context_t* ctx) {
 	__irq_disable();
+	_current_ctx = ctx;
 
 	uint32_t irqs = gic_get_irqs();
 

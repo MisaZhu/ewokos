@@ -15,6 +15,7 @@ __attribute__((__aligned__(PAGE_DIR_SIZE)))
 static page_dir_entry_t _proc_vm[PROC_MAX][PAGE_DIR_NUM];
 proc_t* _current_proc = NULL;
 proc_t* _ready_proc = NULL;
+context_t* _current_ctx = NULL;
 
 /* proc_init initializes the process sub-system. */
 void procs_init(void) {

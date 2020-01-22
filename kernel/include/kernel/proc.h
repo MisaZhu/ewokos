@@ -77,6 +77,7 @@ typedef struct st_proc {
 	struct st_proc* next;
 } proc_t;
 
+extern context_t* _current_ctx;
 extern proc_t* _current_proc;
 extern proc_t* _ready_proc;
 
