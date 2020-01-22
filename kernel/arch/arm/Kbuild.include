@@ -1,7 +1,0 @@
-
-ifeq ($(COMPILER),)
-COMPILER	:= gcc
-endif
-ifeq ($(CROSS_COMPILE),)
-CROSS_COMPILE	:= arm-eabi-
-endif

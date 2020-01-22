@@ -1,0 +1,7 @@
+/sbin/dev/fbd                /dev/fb0
+/sbin/dev/nulld              /dev/null
+/sbin/dev/versatilepb/ttyd   /dev/tty0
+/sbin/dev/versatilepb/keybd  /dev/keyb0
+/sbin/dev/versatilepb/moused /dev/mouse0
+/sbin/dev/xserverd           /dev/x
+

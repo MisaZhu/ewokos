@@ -15,12 +15,12 @@ typedef struct mem_block {
 typedef struct {
 	void* arg;
 
-	bool (*expand)(void* arg, int32_t pages);
+	int32_t (*expand)(void* arg, int32_t pages);
 	void (*shrink)(void* arg, int32_t pages);
 	void* (*get_mem_tail)(void*);
 
-	mem_block_t* mHead;
-	mem_block_t* mTail;
+	mem_block_t* head;
+	mem_block_t* tail;
 } malloc_t;
 
 char* trunk_malloc(malloc_t* m, uint32_t size);

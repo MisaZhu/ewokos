@@ -3,29 +3,38 @@
 
 #include <types.h>
 
+#define KB 1024
+#define MB (1024*KB)
+#define GB (1024*MB)
+
 #define PAGE_SIZE (4*KB)
 #define PAGE_TABLE_SIZE (1*KB)
 
 #define PAGE_DIR_NUM 4096
 #define PAGE_DIR_SIZE (PAGE_DIR_NUM*4)
 
-#define KERNEL_BASE 0x80000000 //=2G virtual address start base.
-#define MMIO_BASE (KERNEL_BASE + 1*GB)
-#define IPC_TASK_BASE (MMIO_BASE + 512*MB)
-#define INTERRUPT_VECTOR_BASE 0xffff0000
+#define KERNEL_BASE                    0x80000000 //=2G virtual address start base.
+#define MMIO_BASE                      (KERNEL_BASE + 1*GB)
+#define INTERRUPT_VECTOR_BASE          0xffff0000
+#define USER_STACK_TOP                 (KERNEL_BASE - PAGE_SIZE)
 
-#define USER_STACK_BOTTOM (KERNEL_BASE - 2 * PAGE_SIZE)
-//#define KERNEL_STACK_BOTTOM (KERNEL_BASE - 3 * PAGE_SIZE)
+#define KERNEL_PAGE_DIR_BASE           ALIGN_UP((uint32_t)_kernel_end, PAGE_DIR_SIZE)
+#define KERNEL_PAGE_DIR_END            (KERNEL_PAGE_DIR_BASE + 128*KB)
 
-#define KMALLOC_BASE ((uint32_t)&_kernel_end +  256*KB) //256KB reserved for kernel pageDirTable(at least 16KB).
-#define KMALLOC_SIZE 4*MB // keep for kernel trunk memory, can only used by kernel(km_alloc/km_free).
+#define KMALLOC_BASE                   ALIGN_UP(KERNEL_PAGE_DIR_END, PAGE_SIZE)
+#define KMALLOC_END                    (KMALLOC_BASE + 32*MB)
 
-#define ALLOCATABLE_MEMORY_START (KMALLOC_BASE + KMALLOC_SIZE)
+#define ALLOCATABLE_PAGE_DIR_BASE      KMALLOC_END
+#define ALLOCATABLE_PAGE_DIR_END       (ALLOCATABLE_PAGE_DIR_BASE + 1*MB)
 
-#define INIT_RESERV_MEMORY_SIZE (8*MB) 
+#define ALLOCATABLE_MEMORY_START       ALLOCATABLE_PAGE_DIR_END
+
 
 #define V2P(V) ((uint32_t)V - KERNEL_BASE)
 #define P2V(P) ((uint32_t)P + KERNEL_BASE)
+
+#define ALIGN_DOWN(x, alignment) ((x) & ~(alignment - 1))
+#define ALIGN_UP(x, alignment) (((x) + alignment - 1) & ~(alignment - 1))
 
 #define get32(addr) (*((volatile uint32_t *)(addr)))
 #define put32(addr, val) (*((volatile uint32_t *)(addr)) = (val))
@@ -54,8 +63,6 @@
 #define BASE_TO_PAGE_TABLE(x) ((void *) ((uint32_t)x << 10))
 #define PAGE_TO_BASE(x) ((uint32_t)x >> 12)
 
-#ifndef __ASSEMBLER__
-
 /* a 32-bit entry in hardware's PageDir table */
 typedef struct {
 	uint32_t type : 2;
@@ -77,18 +84,22 @@ typedef struct {
 void map_pages(page_dir_entry_t *vm, uint32_t vaddr, 
 	uint32_t pstart, 
 	uint32_t pend,  
-	int access_permissions);
+	uint32_t access_permissions);
 
-void map_page(page_dir_entry_t *vm, 
+int32_t  map_page(page_dir_entry_t *vm, 
   uint32_t virtual_addr, 
 	uint32_t physical,
-	int access_permissions);
+	uint32_t access_permissions);
 
 void unmap_page(page_dir_entry_t *vm, uint32_t virtual_addr);
+void unmap_pages(page_dir_entry_t *vm, uint32_t virtual_addr, uint32_t pages);
+
 void free_page_tables(page_dir_entry_t *vm);
 uint32_t resolve_phy_address(page_dir_entry_t *vm, uint32_t virtual);
+uint32_t resolve_kernel_address(page_dir_entry_t *vm, uint32_t virtual);
 page_table_entry_t* get_page_table_entry(page_dir_entry_t *vm, uint32_t virtual);
 
-#endif
+extern unsigned _startup_page_dir[PAGE_DIR_NUM];
+extern uint32_t _mmio_base;
 
 #endif

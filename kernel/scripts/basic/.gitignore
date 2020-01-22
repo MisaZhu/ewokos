@@ -1,7 +1,0 @@
-*.cmd
-*.tmp
-*.exe
-*.d
-split-include
-docproc
-fixdep

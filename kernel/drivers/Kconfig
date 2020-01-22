@@ -1,7 +1,0 @@
-#
-# Firmware Drivers
-#
-
-menu "Driver setup"
-
-endmenu

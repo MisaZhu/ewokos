@@ -1,7 +1,5 @@
 #include <vprintf.h>
-#include <types.h>
 #include <kstring.h>
-#include <stdarg.h>
 
 /* digits */
 #define DIGITS_CAP "0123456789ABCDEF"
@@ -9,8 +7,8 @@
 
 /* forward declarations for local functions */
 static void print_string(outc_func_t outc, void* p, const char *str, int32_t width);
-static void print_int(outc_func_t outc, void* p, int32_t numberm, int32_t width, bool zero);
-static void print_uint_in_base(outc_func_t outc, void* p, uint32_t number, uint32_t base, int32_t width, bool zero, bool cap);
+static void print_int(outc_func_t outc, void* p, int32_t numberm, int32_t width, uint8_t zero);
+static void print_uint_in_base(outc_func_t outc, void* p, uint32_t number, uint32_t base, int32_t width, uint8_t zero, uint8_t cap);
 
 /*
  * unsigned_divmod divides numerator and denmoriator, then returns the quotient
@@ -35,7 +33,7 @@ static uint32_t unsigned_divmod(uint32_t numerator, uint32_t denominator,
 		}
 	}
 
-	if (remainder_pointer != NULL)
+	if (remainder_pointer != 0)
 		(*remainder_pointer) = remainder;
 
 	return quotient;
@@ -107,10 +105,10 @@ void v_printf(outc_func_t outc, void* p, const char *format, va_list ap) {
 			break;
 
 		format_index++;
-		bool zero = false;
+		uint8_t zero = 0;
 		if(format[format_index] == '0') {
 			format_index++;
-			zero = true;
+			zero = 1;
 		}
 		format_index = v_width(format, format_index, &width);
 		format_flag = format[format_index];
@@ -135,18 +133,18 @@ void v_printf(outc_func_t outc, void* p, const char *format, va_list ap) {
 		/* unsigned int32_t */
 		case 'u': {
 			uint32_t uint_arg = va_arg(ap, uint32_t);
-			print_uint_in_base(outc, p, uint_arg, 10, width, zero, false);
+			print_uint_in_base(outc, p, uint_arg, 10, width, zero, 0);
 			break;
 		}
 		/* hexadecimal */
 		case 'x': {
 			int32_t uint_arg = va_arg(ap, uint32_t);
-			print_uint_in_base(outc, p, uint_arg, 16, width, zero, false);
+			print_uint_in_base(outc, p, uint_arg, 16, width, zero, 0);
 			break;
 		}
 		case 'X': {
 			int32_t uint_arg = va_arg(ap, uint32_t);
-			print_uint_in_base(outc, p, uint_arg, 16, width, zero, true);
+			print_uint_in_base(outc, p, uint_arg, 16, width, zero, 1);
 			break;
 		}
 		}
@@ -179,7 +177,7 @@ static void print_string(outc_func_t outc, void* p, const char *str, int32_t wid
 	}
 }
 
-static void print_uint_in_base_raw(char* s, uint32_t number, uint32_t base, bool cap) {
+static void print_uint_in_base_raw(char* s, uint32_t number, uint32_t base, uint8_t cap) {
 	uint32_t last_digit = 0;
 	uint32_t rest = 0;
 
@@ -192,18 +190,18 @@ static void print_uint_in_base_raw(char* s, uint32_t number, uint32_t base, bool
 		*s = DIGITS[last_digit];
 }
 
-static void print_int(outc_func_t outc, void* p, int32_t number, int32_t width, bool zero) {
+static void print_int(outc_func_t outc, void* p, int32_t number, int32_t width, uint8_t zero) {
 	if (number < 0) {
 		outc('-', p);
 		width--;
-		print_uint_in_base(outc, p, -number, 10, width, zero, false);
+		print_uint_in_base(outc, p, -number, 10, width, zero, 0);
 	}
 	else {
-		print_uint_in_base(outc, p, number, 10, width, zero, false);
+		print_uint_in_base(outc, p, number, 10, width, zero, 0);
 	}
 }
 
-static void print_uint_in_base(outc_func_t outc, void* p, uint32_t number, uint32_t base, int32_t width, bool zero, bool cap) {
+static void print_uint_in_base(outc_func_t outc, void* p, uint32_t number, uint32_t base, int32_t width, uint8_t zero, uint8_t cap) {
 	char s[32];
 	memset(s, 0, 32);
 	print_uint_in_base_raw(s, number, base, cap);

@@ -1,0 +1,11 @@
+/sbin/dev/fbd             /dev/fb0
+/sbin/dev/nulld           /dev/null
+/sbin/dev/raspi/gpiod     /dev/gpio
+/sbin/dev/raspi/spid      /dev/spi
+/sbin/dev/raspi/actledd   /dev/actled
+/sbin/dev/raspi/ttyd      /dev/tty0
+#/sbin/dev/raspi/keybd     /dev/keyb0
+#/sbin/dev/raspi/moused    /dev/mouse0
+/sbin/dev/raspi/joystickd /dev/joystick
+/sbin/dev/raspi/lcdhatd   /dev/fb1
+/sbin/dev/xserverd        /dev/x

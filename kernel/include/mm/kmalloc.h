@@ -5,11 +5,9 @@
 
 #include <types.h>
 
-void* km_alloc(uint32_t size);
-void km_free(void* p);
+void* kmalloc(uint32_t size);
+void kfree(void* p);
+void* krealloc_raw(void* s, uint32_t old_size, uint32_t new_size);
 void km_init(void);
-
-mem_funcs_t* kmem_funcs(void);
-#define KMFS kmem_funcs()
 
 #endif

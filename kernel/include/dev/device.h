@@ -1,0 +1,30 @@
+#ifndef KDEVICE_TYPE_H
+#define KDEVICE_TYPE_H
+
+enum {
+	DEV_TYPE_CHAR = 0,
+	DEV_TYPE_BLOCK
+};
+
+enum {
+	DEV_STATE_OFF = 0,
+	DEV_STATE_ON,
+	DEV_STATE_INITED
+};
+
+enum {
+	DEV_NULL = 0,
+	DEV_SD,
+	DEV_NUM
+};
+
+enum {
+	DEV_OP_INFO = 0,
+	DEV_OP_SET,
+	DEV_OP_CLEAR_BUFFER,
+	DEV_OP_ON,
+	DEV_OP_OFF
+};
+
+
+#endif
