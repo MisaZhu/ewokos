@@ -1,7 +1,7 @@
 #include <kernel/uspace_int.h>
 #include <kstring.h>
 
-static uint32_t _uspace_int_table[USPACE_INT_MAX];
+static int32_t _uspace_int_table[USPACE_INT_MAX];
 
 void uspace_interrupt_init(void) {
 	for(int32_t i=0; i<USPACE_INT_MAX; i++) {
@@ -39,8 +39,23 @@ bool uspace_interrupt(context_t* ctx, int32_t int_id) {
 	return proc_interrupt(ctx, _uspace_int_table[int_id], int_id);
 }
 
-void uspace_interrupt_register(int32_t pid, int32_t int_id) {
+void uspace_interrupt_register(int32_t int_id) {
 	if(int_id < 0 || int_id >= USPACE_INT_MAX)
 		return;
-	_uspace_int_table[int_id] = pid;
+	_uspace_int_table[int_id] = _current_proc->pid;
+}
+
+void uspace_interrupt_unregister(int32_t int_id) {
+	int32_t pid = _current_proc->pid;
+	if(int_id < 0) { //unregister all interrupts 
+		for(int32_t i=0; i<USPACE_INT_MAX; i++) {
+			if(_uspace_int_table[i] == pid)
+				_uspace_int_table[i] = -1;
+		}
+	}
+	if(int_id >= USPACE_INT_MAX)
+		return;
+	
+	if(pid == _uspace_int_table[int_id])
+		_uspace_int_table[int_id] = -1;
 }

@@ -621,7 +621,11 @@ static void sys_proc_irq_setup(uint32_t entry, uint32_t func, uint32_t data) {
 }
 
 static void sys_proc_irq_register(uint32_t int_id) {
-	uspace_interrupt_register(_current_proc->pid, int_id);
+	uspace_interrupt_register(int_id);
+}
+
+static void sys_proc_irq_unregister(uint32_t int_id) {
+	uspace_interrupt_unregister(int_id);
 }
 
 static void sys_proc_interrupt(context_t* ctx, int32_t pid, int32_t int_id) {
@@ -845,6 +849,9 @@ void svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_t arg2, context
 		return;
 	case SYS_PROC_IRQ_REGISTER:
 		sys_proc_irq_register((uint32_t)arg0);
+		return;
+	case SYS_PROC_IRQ_UNREGISTER:
+		sys_proc_irq_unregister((uint32_t)arg0);
 		return;
 	case SYS_PROC_INTERRUPT:
 		sys_proc_interrupt(ctx, (uint32_t)arg0, (uint32_t)arg1);

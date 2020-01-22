@@ -15,6 +15,10 @@ int proc_interrupt_register(uint32_t int_id) {
 	return syscall1(SYS_PROC_IRQ_REGISTER, (int32_t)int_id);
 }
 
+int proc_interrupt_unregister(uint32_t int_id) {
+	return syscall1(SYS_PROC_IRQ_UNREGISTER, (int32_t)int_id);
+}
+
 void proc_interrupt(int pid, int int_id) {
 	syscall2(SYS_PROC_INTERRUPT, (int32_t)pid, (int32_t)int_id);
 }
