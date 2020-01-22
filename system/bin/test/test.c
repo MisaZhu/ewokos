@@ -18,7 +18,7 @@ int main(int argc, char** argv) {
 	if(pid == 0) {
 		int i = 0;
 		proc_interrupt_setup(int_func, &i);
-		proc_interrupt_register(US_INT_KERNEL_TIC);
+		proc_interrupt_register(US_INT_TIMER_TIC);
 		while(1) {
 			sleep(1);
 			i++;

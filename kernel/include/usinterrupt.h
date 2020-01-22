@@ -3,7 +3,8 @@
 
 
 enum {
-	US_INT_KERNEL_TIC = 0,
+	US_INT_TIMER_TIC = 0,
+	US_INT_TIMER_MTIC,
 	US_INT_USER_DEF
 };
 

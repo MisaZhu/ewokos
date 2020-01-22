@@ -20,6 +20,7 @@
 
 uint32_t _kernel_tic = 0;
 static uint64_t _timer_usec = 0;
+static uint32_t _timer_mtic = 0;
 static uint32_t _timer_tic = 0;
 
 void irq_handler(context_t* ctx) {
@@ -42,11 +43,18 @@ void irq_handler(context_t* ctx) {
 			else {
 				uint64_t usec_gap = usec - _timer_usec;
 				_timer_usec = usec;
+				_timer_mtic += usec_gap;
 				_timer_tic += usec_gap;
 				if(_timer_tic >= 1000000) { //1 sec
 					_kernel_tic++;
 					_timer_tic = 0;
-					if(uspace_interrupt(ctx, US_INT_KERNEL_TIC))
+					if(uspace_interrupt(ctx, US_INT_TIMER_TIC))
+						uspace_int = true;
+				}
+
+				if(_timer_mtic >= 1000) { //1 msec
+					_timer_mtic = 0;
+					if(uspace_interrupt(ctx, US_INT_TIMER_MTIC))
 						uspace_int = true;
 				}
 				renew_sleep_counter(usec_gap);
@@ -97,5 +105,6 @@ void irq_init(void) {
 	__irq_enable();
 	_kernel_tic = 0;
 	_timer_usec = 0;
+	_timer_mtic = 0;
 	_timer_tic = 0;
 }
