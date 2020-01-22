@@ -9,17 +9,17 @@ void uspace_interrupt_init(void) {
 	}
 }
 
-void proc_interrupt(context_t* ctx, int32_t pid, int32_t int_id) {
+bool proc_interrupt(context_t* ctx, int32_t pid, int32_t int_id) {
 	if(pid < 0)
-		return;
+		return false;
 
 	proc_t* proc = proc_get(pid);	
 	if(proc == NULL || proc->interrupt.entry == 0 || proc->interrupt.busy)
-		return;
+		return false;
 
 	proc_t *int_thread = kfork_raw(PROC_TYPE_INTERRUPT, proc);
 	if(int_thread == NULL)
-		return;
+		return false;
 
 	uint32_t sp = int_thread->ctx.sp;
 	memcpy(&int_thread->ctx, &proc->ctx, sizeof(context_t));
@@ -30,12 +30,13 @@ void proc_interrupt(context_t* ctx, int32_t pid, int32_t int_id) {
 	int_thread->ctx.gpr[2] = proc->interrupt.data;
 	proc->interrupt.busy = true;
 	proc_switch(ctx, int_thread);
+	return true;
 }
 
-void uspace_interrupt(context_t* ctx, int32_t int_id) {
+bool uspace_interrupt(context_t* ctx, int32_t int_id) {
 	if(int_id < 0 || int_id >= USPACE_INT_MAX)
-		return;
-	proc_interrupt(ctx, _uspace_int_table[int_id], int_id);
+		return false;
+	return proc_interrupt(ctx, _uspace_int_table[int_id], int_id);
 }
 
 void uspace_interrupt_register(int32_t pid, int32_t int_id) {

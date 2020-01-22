@@ -1,0 +1,13 @@
+#ifndef USINTERRUPT_DEF_H
+#define USINTERRUPT_DEF_H
+
+
+enum {
+	US_INT_KERNEL_TIMER = 0,
+	US_INT_KERNEL_TIC,
+	US_INT_USER_DEF
+};
+
+#define USPACE_INT_MAX US_INT_USER_DEF
+
+#endif

@@ -25,6 +25,7 @@ static uint32_t _timer_tic = 0;
 void irq_handler(context_t* ctx) {
 	__irq_disable();
 	_current_ctx = ctx;
+	bool uspace_int = false;
 
 	uint32_t irqs = gic_get_irqs();
 
@@ -45,18 +46,24 @@ void irq_handler(context_t* ctx) {
 				if(_timer_tic >= 1000000) { //1 sec
 					_kernel_tic++;
 					_timer_tic = 0;
+					if(uspace_interrupt(ctx, US_INT_KERNEL_TIC))
+						uspace_int = true;
 				}
 				renew_sleep_counter(usec_gap);
 			}
 		}	
 		timer_clear_interrupt(0);
 
-		if(_current_proc != NULL && _current_proc->critical_counter > 0) {
-			_current_proc->critical_counter--;
+		if(uspace_interrupt(ctx, US_INT_KERNEL_TIMER))
+			uspace_int = true;
+
+		if(!uspace_int) {
+			if(_current_proc != NULL && _current_proc->critical_counter > 0) {
+				_current_proc->critical_counter--;
+			}
+			else
+				schedule(ctx);
 		}
-		else
-			schedule(ctx);
-		return;
 	}
 }
 

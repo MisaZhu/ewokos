@@ -2,6 +2,7 @@
 #define INTERRUPT_H
 
 #include <stdint.h>
+#include <usinterrupt.h>
 
 typedef void(*interrupt_func_t)(int int_id, void* p);
 
