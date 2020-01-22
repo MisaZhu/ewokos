@@ -17,7 +17,6 @@
 #include <rawdata.h>
 #include <sys/global.h>
 #include <graph/graph.h>
-#include <console.h>
 #include "sdinit.h"
 
 static inline void wait_ready(int pid) {

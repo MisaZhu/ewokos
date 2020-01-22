@@ -3,7 +3,7 @@
 #include <fcntl.h>
 #include <stdio.h>
 #include <string.h>
-#include <console.h>
+#include <console/console.h>
 #include <vprintf.h>
 #include <sys/shm.h>
 #include <sconf.h>

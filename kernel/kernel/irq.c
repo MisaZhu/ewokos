@@ -54,9 +54,6 @@ void irq_handler(context_t* ctx) {
 		}	
 		timer_clear_interrupt(0);
 
-		if(uspace_interrupt(ctx, US_INT_KERNEL_TIMER))
-			uspace_int = true;
-
 		if(!uspace_int) {
 			if(_current_proc != NULL && _current_proc->critical_counter > 0) {
 				_current_proc->critical_counter--;

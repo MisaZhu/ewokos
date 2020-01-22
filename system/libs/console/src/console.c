@@ -3,7 +3,7 @@
 #include <stdlib.h>
 #include <basic_math.h>
 #include <string.h>
-#include <console.h>
+#include <console/console.h>
 
 #define T_W 2 /*tab width*/
 
