@@ -1,0 +1,1 @@
+cmd_arch/arm/common/ewokos.lds := arm-none-eabi-cpp -Wp,-MD,arch/arm/common/.ewokos.lds.d  -nostdinc -nostdlib -D__KERNEL__ -Iinclude -Iinclude/std -include /home/misa/work/EwokOS/kernel/include/target/config.h  -mlittle-endian  -P -C -Uarm -D__ASSEMBLY__ -o arch/arm/common/ewokos.lds arch/arm/common/ewokos.lds.S

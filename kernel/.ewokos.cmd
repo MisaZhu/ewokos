@@ -1,0 +1,1 @@
+cmd_ewokos := arm-none-eabi-ld -EL  --gc-sections -p --no-undefined -X -L arch/arm/mach-versatilepb/ -o ewokos -T arch/arm/common/ewokos.lds arch/arm/common/boot.o  init/built-in.lib --start-group  arch/arm/common/built-in.lib  kernel/built-in.lib  mm/built-in.lib  lib/built-in.lib  drivers/built-in.lib  arch/arm/mach-versatilepb/built-in.lib --end-group 
