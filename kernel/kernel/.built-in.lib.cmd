@@ -1,1 +1,0 @@
-cmd_kernel/built-in.lib :=  arm-none-eabi-ld -EL   -r -o kernel/built-in.lib kernel/system.o kernel/timer.o kernel/printk.o kernel/syscalls.o kernel/scheduler.o kernel/proc.o kernel/semaphore.o kernel/ipc.o kernel/kfile.o kernel/kserv.o
