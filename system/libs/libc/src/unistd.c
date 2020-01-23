@@ -14,6 +14,14 @@
 
 int errno = ENONE;
 
+int getuid(void) {
+	return syscall0(SYS_PROC_GET_UID);
+}
+
+int setuid(int uid) {
+	return syscall1(SYS_PROC_SET_UID, uid);
+}
+
 int getpid(void) {
 	return syscall0(SYS_GET_PID);
 }

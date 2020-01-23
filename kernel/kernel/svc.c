@@ -368,6 +368,13 @@ static int32_t sys_proc_set_cwd(const char* cwd) {
 	return 0;
 }
 
+static int32_t sys_proc_set_uid(int32_t uid) {
+	if(_current_proc->owner != 0)	
+		return -1;
+	_current_proc->owner = uid;
+	return 0;
+}
+
 static void sys_proc_get_cwd(char* cwd, int32_t sz) {
 	strncpy(cwd, CS(_current_proc->cwd), sz);
 }
@@ -765,6 +772,12 @@ void svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_t arg2, context
 		return;
 	case SYS_PROC_GET_CWD: 
 		sys_proc_get_cwd((char*)arg0, arg1);
+		return;
+	case SYS_PROC_SET_UID: 
+		ctx->gpr[0] = sys_proc_set_uid(arg0);
+		return;
+	case SYS_PROC_GET_UID: 
+		ctx->gpr[0] = _current_proc->owner;
 		return;
 	case SYS_PROC_GET_CMD: 
 		sys_proc_get_cmd(arg0, (char*)arg1, arg2);

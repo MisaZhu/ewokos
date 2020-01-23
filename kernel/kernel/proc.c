@@ -577,6 +577,7 @@ proc_t* kfork_raw(int32_t type, proc_t* parent) {
 		return NULL;
 	}
 	child->father_pid = parent->pid;
+	child->owner = parent->owner;
 
 	if(type == PROC_TYPE_PROC) {
 		if(proc_clone(child, parent) != 0) {

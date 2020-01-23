@@ -7,6 +7,8 @@
 
 #define ERR_RETRY -2
 
+int getuid(void);
+int setuid(int uid);
 int getpid(void);
 int fork(void);
 void detach(void);

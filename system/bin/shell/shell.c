@@ -317,9 +317,13 @@ int main(int argc, char* argv[]) {
 
 	str_t* cmdstr = str_new("");
 	_terminated = 0;
+	int uid = getuid();
 	while(_terminated == 0) {
 		char cwd[FS_FULL_NAME_MAX+1];
-		printf("ewok(%s):%s# ", cid, getcwd(cwd, FS_FULL_NAME_MAX));
+		if(uid == 0)
+			printf("ewok(%s):%s# ", cid, getcwd(cwd, FS_FULL_NAME_MAX));
+		else
+			printf("ewok(%s):%s$ ", cid, getcwd(cwd, FS_FULL_NAME_MAX));
 
 		if(gets(cmdstr) != 0)
 			break;
