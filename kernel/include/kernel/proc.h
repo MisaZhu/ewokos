@@ -72,9 +72,6 @@ typedef struct st_proc {
 	str_t* cwd;
 
 	context_t ctx;
-
-	struct st_proc* prev;
-	struct st_proc* next;
 } proc_t;
 
 extern context_t* _current_ctx;

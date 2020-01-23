@@ -87,6 +87,7 @@ LIB_OBJS = \
 	${LIB_DIR}/charbuf.o \
 	${LIB_DIR}/basic_math.o \
 	${LIB_DIR}/ext2read.o \
+	${LIB_DIR}/queue.o \
 	${LIB_DIR}/kprintf.o
 
 KERNEL_DIR = kernel

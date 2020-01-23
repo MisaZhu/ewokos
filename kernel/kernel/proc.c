@@ -10,12 +10,13 @@
 #include <kstring.h>
 #include <kprintf.h>
 #include <elf.h>
+#include <queue.h>
 
 static proc_t _proc_table[PROC_MAX];
 __attribute__((__aligned__(PAGE_DIR_SIZE))) 
 static page_dir_entry_t _proc_vm[PROC_MAX][PAGE_DIR_NUM];
 proc_t* _current_proc = NULL;
-proc_t* _ready_proc = NULL;
+queue_t _ready_queue;
 context_t* _current_ctx = NULL;
 
 /* proc_init initializes the process sub-system. */
@@ -24,7 +25,7 @@ void procs_init(void) {
 	for (int32_t i = 0; i < PROC_MAX; i++)
 		_proc_table[i].state = UNUSED;
 	_current_proc = NULL;
-	_ready_proc = NULL;
+	queue_init(&_ready_queue);
 }
 
 proc_t* proc_get(int32_t pid) {
@@ -81,6 +82,8 @@ void proc_switch(context_t* ctx, proc_t* to){
 
 	if(_current_proc != NULL && _current_proc->state != UNUSED) {
 		memcpy(&_current_proc->ctx, ctx, sizeof(context_t));
+		if(_current_proc->state == READY)
+			queue_push(&_ready_queue, _current_proc);
 	}
 
 	memcpy(ctx, &to->ctx, sizeof(context_t));
@@ -210,22 +213,13 @@ static void proc_ready(proc_t* proc) {
 		return;
 
 	proc->state = READY;
-	if(_ready_proc == NULL) {
-		_ready_proc = proc;
-	}
-
-	proc->prev = _ready_proc;
-	proc->next = _ready_proc->next;
-	_ready_proc->next->prev = proc;
-	_ready_proc->next = proc;
+	queue_push(&_ready_queue, proc);
 }
 
 proc_t* proc_get_next_ready(void) {
-	proc_t* next = NULL;
-	if(_current_proc != NULL)
-		next = _current_proc->next;
-	if(next == NULL)
-		next = _ready_proc;
+	proc_t* next = queue_pop(&_ready_queue);
+	while(next != NULL && next->state != READY)
+		next = queue_pop(&_ready_queue);
 
 	if(next == NULL) {
 		next = &_proc_table[0];
@@ -236,23 +230,8 @@ proc_t* proc_get_next_ready(void) {
 	return next;
 }
 
-static void proc_unready(context_t* ctx, proc_t* proc) {
-	if(proc == NULL)
-		return;
-
-	if(proc->next != NULL)
-		proc->next->prev = proc->prev;
-	if(proc->prev != NULL)
-		proc->prev->next = proc->next;
-
-	if(proc->next == proc) //only one left.
-		_ready_proc = NULL;
-	else
-		_ready_proc = proc->next;
-
-	proc->next = NULL;
-	proc->prev = NULL;
-
+static void proc_unready(context_t* ctx, proc_t* proc, int32_t state) {
+	proc->state = state;
 	if(_current_proc == proc) {
 		schedule(ctx);
 	}
@@ -274,9 +253,7 @@ static void proc_wakeup_waiting(int32_t pid) {
 static void __attribute__((optimize("O0"))) proc_terminate(context_t* ctx, proc_t* proc) {
 	if(proc->state == ZOMBIE || proc->state == UNUSED)
 		return;
-	if(proc->state == READY)
-		proc_unready(ctx, proc);
-	proc->state = ZOMBIE;
+	proc_unready(ctx, proc, ZOMBIE);
 
 	int32_t i;
 	for (i = 0; i < PROC_MAX; i++) {
@@ -436,8 +413,7 @@ void proc_usleep(context_t* ctx, uint32_t count) {
 		return;
 
 	_current_proc->sleep_counter = count;
-	_current_proc->state = SLEEPING;
-	proc_unready(ctx, _current_proc);
+	proc_unready(ctx, _current_proc, SLEEPING);
 }
 
 void proc_block_on(context_t* ctx, uint32_t event) {
@@ -445,8 +421,7 @@ void proc_block_on(context_t* ctx, uint32_t event) {
 		return;
 
 	_current_proc->block_event = event;
-	_current_proc->state = BLOCK;
-	proc_unready(ctx, _current_proc);
+	proc_unready(ctx, _current_proc, BLOCK);
 }
 
 void proc_waitpid(context_t* ctx, int32_t pid) {
@@ -454,8 +429,7 @@ void proc_waitpid(context_t* ctx, int32_t pid) {
 		return;
 
 	_current_proc->wait_pid = pid;
-	_current_proc->state = WAIT;
-	proc_unready(ctx, _current_proc);
+	proc_unready(ctx, _current_proc, WAIT);
 }
 
 void proc_wakeup(uint32_t event) {
