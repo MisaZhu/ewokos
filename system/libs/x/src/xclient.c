@@ -121,33 +121,25 @@ static int win_event_handle(x_t* x, xevent_t* ev) {
 			x->on_unfocus(x, x->data);
 	}
 	else if(ev->value.window.event == XEVT_WIN_MAX) {
-		/*
-		if(x->xinfo.state == X_STATE_MAX) {
-			x_resize_to(x, x->xinfo_prev.r.x, 
-					x->xinfo_prev.r.y,
-					x->xinfo_prev.r.w,
-					x->xinfo_prev.r.h);
-			if(x->on_restore != NULL)
-				x->on_restore(x, x->data);
-			x->xinfo.state = x->xinfo_prev.state;
+		xinfo_t xinfo;
+		x_get_info(x, &xinfo);
+		if(xinfo.state == X_STATE_MAX) {
+			memcpy(&xinfo.r, &x->xinfo_prev.r, sizeof(grect_t));
+			xinfo.state = x->xinfo_prev.state;
 		}
 		else {
 			xscreen_t scr;
 			if(x_screen_info(&scr) == 0) {
-				memcpy(&x->xinfo_prev, &x->xinfo, sizeof(xinfo_t));
-				grect_t r;
-				r.x = 0;
-				r.y = 0;
-				r.w = scr.size.w;
-				r.h = scr.size.h;
-				x_get_workspace(x->fd, x->xinfo.style, &r, &r);
-				x_resize_to(x, r.x, r.y, r.w, r.h);
-				if(x->on_max != NULL)
-					x->on_max(x, x->data);
-				x->xinfo.state = X_STATE_MAX;
+				memcpy(&x->xinfo_prev, &xinfo, sizeof(xinfo_t));
+				grect_t r = {0, 0, scr.size.w, scr.size.h};
+				x_get_workspace(x->fd, xinfo.style, &r, &r);
+				memcpy(&xinfo.r, &r, sizeof(grect_t));
+				xinfo.state = X_STATE_MAX;
 			}
 		}
-		*/
+		x_update_info(x, &xinfo);
+		if(x->on_resize)
+			x->on_resize(x, x->data);
 	}
 	return 0;
 }

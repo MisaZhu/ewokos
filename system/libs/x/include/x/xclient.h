@@ -11,10 +11,8 @@ typedef struct st_x {
 	int closed;
 
 	void* data;
-	void (*on_max)(struct st_x* x, void* p);
 	void (*on_close)(struct st_x* x, void* p);
 	void (*on_min)(struct st_x* x, void* p);
-	void (*on_restore)(struct st_x* x, void* p);
 	void (*on_resize)(struct st_x* x, void* p);
 	void (*on_focus)(struct st_x* x, void* p);
 	void (*on_unfocus)(struct st_x* x, void* p);
