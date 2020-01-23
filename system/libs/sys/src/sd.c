@@ -89,8 +89,10 @@ int32_t sd_read_sector(int32_t sector, void* buf) {
 }
 
 int32_t sd_write_sector(int32_t sector, const void* buf) {
-	if(write_sector(sector, buf) == 0) 
+	if(write_sector(sector, buf) == 0)  {
+		sector_buf_set(sector, buf);
 		return SECTOR_SIZE;
+	}
 	return 0;
 	//return write_block(SD_DEV_PID, buf, SECTOR_SIZE, sector);
 }

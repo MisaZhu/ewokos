@@ -199,7 +199,7 @@ mkdirs:
 
 sd:
 	@echo "\n====building ext2 format sdcard image===="
-	dd if=/dev/zero of=${SD} bs=1024 count=16384
+	dd if=/dev/zero of=${SD} bs=1024 count=32768
 	mke2fs ${SD}
 	mkdir -p tmp
 	sudo fuse-ext2 -o force,rw+ ${SD} ./tmp

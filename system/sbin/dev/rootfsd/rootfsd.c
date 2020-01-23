@@ -42,7 +42,7 @@ static int32_t add_nodes(ext2_t* ext2, INODE *ip, fsinfo_t* dinfo) {
 	int32_t i; 
 	char c, *cp;
 	DIR  *dp;
-	char buf[BLOCK_SIZE];
+	char buf[EXT2_BLOCK_SIZE];
 
 	for (i=0; i<12; i++){
 		if (ip->i_block[i] ){
@@ -53,7 +53,7 @@ static int32_t add_nodes(ext2_t* ext2, INODE *ip, fsinfo_t* dinfo) {
 			if(dp->inode == 0)
 				continue;
 
-			while (cp < &buf[BLOCK_SIZE]){
+			while (cp < &buf[EXT2_BLOCK_SIZE]){
 				c = dp->name[dp->name_len];  // save last byte
 				dp->name[dp->name_len] = 0;   
 				if(dp->name_len == 0)
@@ -102,13 +102,14 @@ static int sdext2_create(fsinfo_t* info_to, fsinfo_t* info, void* p) {
 
 	int ino = -1;
 	if(info->type == FS_TYPE_DIR)  {
-		info->size = BLOCK_SIZE;
-		ino = ext2_create_dir(ext2, ino_to, &inode_to, info->name, info->owner);
+		info->size = EXT2_BLOCK_SIZE;
+		ino = ext2_create_dir(ext2, &inode_to, info->name, info->owner);
 	}
 	else
-		ino = ext2_create_file(ext2, ino_to, &inode_to, info->name, info->owner);
+		ino = ext2_create_file(ext2, &inode_to, info->name, info->owner);
 	if(ino == -1)
 		return -1;
+	put_node(ext2, ino_to, &inode_to);
 	info->data = ino;
 	return 0;
 }
