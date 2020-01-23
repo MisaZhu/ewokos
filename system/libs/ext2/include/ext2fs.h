@@ -23,9 +23,9 @@ int32_t ext2_node_by_ino(ext2_t* ext2, int32_t ino, INODE* node);
 
 void    put_node(ext2_t* ext2, int32_t ino, INODE *node);
 
-int32_t ext2_create_dir(ext2_t* ext2, INODE* father_inp, const char *base, int32_t owner);
+int32_t ext2_create_dir(ext2_t* ext2, int32_t ino_father, INODE* father_inp, const char *base, int32_t owner);
 
-int32_t ext2_create_file(ext2_t* ext2, INODE* father_inp, const char *base, int32_t owner);
+int32_t ext2_create_file(ext2_t* ext2, int32_t ino_father, INODE* father_inp, const char *base, int32_t owner);
 
 void*   ext2_readfile(ext2_t* ext2, const char* fname, int32_t* size);
 

@@ -56,6 +56,8 @@ static int32_t add_nodes(ext2_t* ext2, INODE *ip, fsinfo_t* dinfo) {
 			while (cp < &buf[BLOCK_SIZE]){
 				c = dp->name[dp->name_len];  // save last byte
 				dp->name[dp->name_len] = 0;   
+				if(dp->name_len == 0)
+					break;
 				if(strcmp(dp->name, ".") != 0 && strcmp(dp->name, "..") != 0) {
 					int32_t ino = dp->inode;
 					INODE ip_node;
@@ -101,10 +103,10 @@ static int sdext2_create(fsinfo_t* info_to, fsinfo_t* info, void* p) {
 	int ino = -1;
 	if(info->type == FS_TYPE_DIR)  {
 		info->size = BLOCK_SIZE;
-		ino = ext2_create_dir(ext2, &inode_to, info->name, info->owner);
+		ino = ext2_create_dir(ext2, ino_to, &inode_to, info->name, info->owner);
 	}
 	else
-		ino = ext2_create_file(ext2, &inode_to, info->name, info->owner);
+		ino = ext2_create_file(ext2, ino_to, &inode_to, info->name, info->owner);
 	if(ino == -1)
 		return -1;
 	info->data = ino;
