@@ -75,16 +75,14 @@ static int32_t set_super(ext2_t* ext2) {
 	return ext2->write_block(1, buf);
 }
 
-/*
 static void inc_free_blocks(ext2_t* ext2, int32_t block) {
-	ext2->super.s_free_blocks_count++;
-	set_super(ext2);
-
 	int32_t index = get_gd_index_by_block(ext2, block);
 	ext2->gds[index].bg_free_blocks_count++;
 	set_gd(ext2, index);
+
+	ext2->super.s_free_blocks_count++;
+	set_super(ext2);
 }
-*/
 
 static void inc_free_inodes(ext2_t* ext2, int32_t ino) {
 	int32_t index = get_gd_index_by_ino(ext2, ino);
@@ -113,20 +111,22 @@ static void dec_free_inodes(ext2_t* ext2, int32_t ino) {
 	set_super(ext2);
 }
 
-static void ext2_idealloc(ext2_t* ext2, int32_t ino) {
+static int32_t ext2_idealloc(ext2_t* ext2, int32_t ino) {
 	char buf[EXT2_BLOCK_SIZE];
 	if (ino > (int32_t)ext2->super.s_inodes_count)
-		return;
+		return -1;
 
 	// get inode bitmap block
 	int32_t index = get_gd_index_by_ino(ext2, ino);
 	if(ext2->read_block(ext2->gds[index].bg_inode_bitmap, buf) != 0)
-		return;
+		return -1;
 
 	clr_bit(buf, ino-1);
 	// write buf back
-	if(ext2->write_block(ext2->gds[index].bg_inode_bitmap, buf) == 0) // update free inode count in SUPER and GD
-		inc_free_inodes(ext2, ino);
+	if(ext2->write_block(ext2->gds[index].bg_inode_bitmap, buf) != 0) // update free inode count in SUPER and GD
+		return -1;
+	inc_free_inodes(ext2, ino);
+	return 0;
 }
 
 static int32_t ext2_bdealloc(ext2_t* ext2, int32_t block) {
@@ -142,7 +142,7 @@ static int32_t ext2_bdealloc(ext2_t* ext2, int32_t block) {
 	if(ext2->write_block(ext2->gds[index].bg_block_bitmap, buf) != 0)
 		return -1;
 	// update free inode count in SUPER and GD
-	dec_free_blocks(ext2, block);
+	inc_free_blocks(ext2, block);
 	return 0;
 }
 
@@ -183,8 +183,8 @@ static int32_t ext2_balloc(ext2_t* ext2) {
 		uint32_t block = get_block_in_group(ext2, i, index);
 		if (tst_bit(buf, block) == 0) {
 			set_bit(buf, block);
-			dec_free_blocks(ext2, i);
 			ext2->write_block(ext2->gds[index].bg_block_bitmap, buf);
+			dec_free_blocks(ext2, i);
 			return i+1;
 		}
 	}
