@@ -35,6 +35,9 @@ typedef struct {
 	uint32_t locks[LOCK_MAX];
 	kfile_t files[PROC_FILE_MAX];
 	env_t envs[ENV_MAX];
+
+	proc_msg_t* msg_queue_head;
+	proc_msg_t* msg_queue_tail;
 } proc_space_t;
 
 
@@ -65,9 +68,6 @@ typedef struct st_proc {
 		bool busy;
 	} interrupt;
 
-	proc_msg_t* msg_queue_head;
-	proc_msg_t* msg_queue_tail;
-
 	str_t* cmd;
 	str_t* cwd;
 
@@ -95,6 +95,7 @@ extern void    proc_block_on(context_t* ctx, uint32_t event);
 extern void    proc_wakeup(uint32_t event);
 extern void    proc_waitpid(context_t* ctx, int32_t pid);
 extern proc_t* proc_get(int32_t pid);
+extern proc_t* proc_get_proc(void);
 extern proc_t* kfork_raw(int32_t type, proc_t* parent);
 extern proc_t* kfork(int32_t type);
 

@@ -19,19 +19,19 @@ static proc_msg_t* new_msg(proc_t* proc) {
 	}
 	memset(msg, 0, sizeof(proc_msg_t));
 	
-	if(proc->msg_queue_tail == NULL) {
-		proc->msg_queue_tail = proc->msg_queue_head = msg;
+	if(proc->space->msg_queue_tail == NULL) {
+		proc->space->msg_queue_tail = proc->space->msg_queue_head = msg;
 	}
 	else {
-		proc->msg_queue_tail->next = msg;
-		msg->prev = proc->msg_queue_tail;
-		proc->msg_queue_tail = msg;
+		proc->space->msg_queue_tail->next = msg;
+		msg->prev = proc->space->msg_queue_tail;
+		proc->space->msg_queue_tail = msg;
 	}
 	return msg;
 }
 
 static proc_msg_t* get_msg(proc_t* proc, int32_t id) {
-	proc_msg_t* msg = proc->msg_queue_head;
+	proc_msg_t* msg = proc->space->msg_queue_head;
 	if(id < 0) {
 		while(msg != NULL) {
 			if(msg->type == MSG_PUB)
@@ -56,10 +56,10 @@ static void remove_msg(proc_t* proc, proc_msg_t* msg) {
 	if(msg->prev != NULL)
 		msg->prev->next = msg->next;
 
-	if(msg == proc->msg_queue_head) 
-		proc->msg_queue_head = msg->next;
-	if(msg == proc->msg_queue_tail) 
-		proc->msg_queue_tail = msg->prev;
+	if(msg == proc->space->msg_queue_head) 
+		proc->space->msg_queue_head = msg->next;
+	if(msg == proc->space->msg_queue_tail) 
+		proc->space->msg_queue_tail = msg->prev;
 
 	kfree(msg->data.data);
 	kfree(msg);
@@ -84,8 +84,8 @@ proc_msg_t* proc_send_msg(int32_t to_pid, rawdata_t* data, int32_t id) {
 		msg->id = id;
 		msg->type = MSG_ID;
 	}
-
-	msg->from_pid = _current_proc->pid;
+	proc_t* proc_from = proc_get_proc();
+	msg->from_pid = proc_from->pid;
 	msg->to_pid = to_pid;
 	msg->data.size = data->size;
 	msg->data.data = kmalloc(data->size);
@@ -94,7 +94,7 @@ proc_msg_t* proc_send_msg(int32_t to_pid, rawdata_t* data, int32_t id) {
 		return NULL;
 	}
 	memcpy(msg->data.data, data->data, data->size);
-	proc_wakeup((uint32_t)&proc_to->pid);
+	proc_wakeup((uint32_t)proc_to->space);
 	return msg;
 }
 

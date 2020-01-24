@@ -360,7 +360,7 @@ static void sys_get_msg(context_t* ctx, int32_t *pid, rawdata_t* data, int32_t i
 	}
 	ctx->gpr[0] = -1;
 	proc_t* proc = _current_proc;
-	proc_block_on(ctx, (uint32_t)&proc->pid);
+	proc_block_on(ctx, (uint32_t)proc->space);
 }
 
 static int32_t sys_proc_set_cwd(const char* cwd) {
