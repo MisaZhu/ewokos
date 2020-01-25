@@ -163,7 +163,7 @@ int main(int argc, char* argv[]) {
 	top = false;
 	xscreen_t scr;
 	x_screen_info(&scr);
-	x_t* x = x_open(10, 10, WIN_WIDTH*SCALE_FACTOR, WIN_HEIGHT*SCALE_FACTOR + 20, "snake", X_STYLE_NORMAL);
+	x_t* x = x_open(10, 10, WIN_WIDTH*SCALE_FACTOR, WIN_HEIGHT*SCALE_FACTOR + 20, "snake", X_STYLE_NORMAL | X_STYLE_NO_RESIZE);
 	x->on_focus = on_focus;
 	x->on_unfocus = on_unfocus;
 

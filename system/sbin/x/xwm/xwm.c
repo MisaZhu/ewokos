@@ -111,7 +111,12 @@ static void draw_win_frame(graph_t* g, xinfo_t* info, uint32_t fg, uint32_t bg) 
 static void get_title_rect(xinfo_t* info, grect_t* rect) {
 	rect->x = info->r.x;
 	rect->y = info->r.y - _xwm.title_h;
-	rect->w = info->r.w - _xwm.title_h*3;
+
+	if((info->style & X_STYLE_NO_RESIZE) == 0)
+		rect->w = info->r.w - _xwm.title_h*3;
+	else
+		rect->w = info->r.w - _xwm.title_h;
+
 	rect->h = _xwm.title_h;
 }
 
@@ -208,8 +213,10 @@ static void draw_frame(proto_t* in, proto_t* out) {
 
 		if((info.style & X_STYLE_NO_TITLE) == 0) {
 			draw_title(g, &info, fg, bg, top);
-			draw_min(g, &info, fg, bg);
-			draw_max(g, &info, fg, bg);
+			if((info.style & X_STYLE_NO_RESIZE) == 0) {
+				draw_min(g, &info, fg, bg);
+				draw_max(g, &info, fg, bg);
+			}
 			draw_close(g, &info, fg, bg);
 		}
 		draw_win_frame(g, &info, fg, bg);
@@ -231,15 +238,17 @@ static void get_pos(proto_t* in, proto_t* out) {
 			(info.style & X_STYLE_NO_FRAME) == 0) {
 		grect_t rtitle, rclose, rmax;
 		get_title_rect(&info, &rtitle);
-		get_max_rect(&info, &rmax);
 		get_close_rect(&info, &rclose);
 
 		if(check_in_rect(x, y, &rtitle) == 0)
 			res = XWM_FRAME_TITLE;
 		else if(check_in_rect(x, y, &rclose) == 0)
 			res = XWM_FRAME_CLOSE;
-		else if(check_in_rect(x, y, &rmax) == 0)
-			res = XWM_FRAME_MAX;
+		else if((info.style & X_STYLE_NO_RESIZE) == 0) {
+			get_max_rect(&info, &rmax);
+			if(check_in_rect(x, y, &rmax) == 0)
+				res = XWM_FRAME_MAX;
+		}
 	}
 	proto_add_int(out, res);
 }
