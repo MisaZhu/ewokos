@@ -1,7 +1,5 @@
 /*
  * Simple MD5 implementation
- *
- * Compile with: gcc -o md5 md5.c
  */
 #include <stdlib.h>
 #include <string.h>
