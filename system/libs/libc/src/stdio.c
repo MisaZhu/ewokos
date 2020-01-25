@@ -114,3 +114,11 @@ int fseek(FILE* fp, int offset, int whence) {
 		return -1;
 	return lseek(fp->fd, offset, whence);
 }
+
+void rewind(FILE* fp) {
+	fseek(fp, 0, SEEK_SET);
+}
+
+int ftell(FILE* fp) {
+	return syscall1(SYS_VFS_PROC_TELL, fp->fd);
+}

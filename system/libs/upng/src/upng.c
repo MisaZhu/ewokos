@@ -29,7 +29,7 @@ freely, subject to the following restrictions:
 #include <string.h>
 #include <limits.h>
 
-#include "upng.h"
+#include "upng/upng.h"
 
 #define MAKE_BYTE(b) ((b) & 0xFF)
 #define MAKE_DWORD(a,b,c,d) ((MAKE_BYTE(a) << 24) | (MAKE_BYTE(b) << 16) | (MAKE_BYTE(c) << 8) | MAKE_BYTE(d))
@@ -1000,7 +1000,7 @@ upng_error upng_decode(upng_t* upng)
 	 * verify general well-formed-ness */
 	while (chunk < upng->source.buffer + upng->source.size) {
 		unsigned long length;
-		const unsigned char *data;	/*the data in the chunk */
+		//const unsigned char *data;	/*the data in the chunk */
 
 		/* make sure chunk header is not larger than the total compressed */
 		if ((unsigned long)(chunk - upng->source.buffer + 12) > upng->source.size) {
@@ -1022,7 +1022,7 @@ upng_error upng_decode(upng_t* upng)
 		}
 
 		/* get pointer to payload */
-		data = chunk + 8;
+		//data = chunk + 8;
 
 		/* parse chunks */
 		if (upng_chunk_type(chunk) == CHUNK_IDAT) {

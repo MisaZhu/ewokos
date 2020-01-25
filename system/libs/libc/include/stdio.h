@@ -20,5 +20,7 @@ uint32_t fread(void* ptr, uint32_t size, uint32_t nmemb, FILE* fp);
 uint32_t fwrite(const void* ptr, uint32_t size, uint32_t nmemb, FILE* fp);
 int      fseek(FILE* fp, int offset, int whence);
 void     fclose(FILE* fp);
+void     rewind(FILE* fp);
+int      ftell(FILE* fp);
 
 #endif
