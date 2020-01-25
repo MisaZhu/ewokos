@@ -47,77 +47,77 @@ LIB_INC = -I libs/sys/include \
 				  -I libs/mario/include \
 					-I ../kernel/include
 				 
-LIB_SYS_DIR = libs/sys/src
-LIB_SCONF_DIR = libs/sconf/src
-LIB_LIBC_DIR = libs/libc/src
-LIB_X_DIR = libs/x/src
-LIB_EXT2_DIR = libs/ext2/src
-LIB_GRAPH_DIR = libs/graph/src
-LIB_M_DIR = libs/libm/src
-LIB_CONSOLE_DIR = libs/console/src
-LIB_MARIO_DIR = libs/mario/src
+LIB_SYS_DIR = libs/sys
+LIB_SCONF_DIR = libs/sconf
+LIB_LIBC_DIR = libs/libc
+LIB_X_DIR = libs/x
+LIB_EXT2_DIR = libs/ext2
+LIB_GRAPH_DIR = libs/graph
+LIB_M_DIR = libs/libm
+LIB_CONSOLE_DIR = libs/console
+LIB_MARIO_DIR = libs/mario
 
 CFLAGS += $(LIB_INC)
 
-LIB_GRAPH_OBJS =	$(LIB_GRAPH_DIR)/graph.o \
-	$(LIB_GRAPH_DIR)/tga.o \
-	$(LIB_GRAPH_DIR)/font.o \
-	$(LIB_GRAPH_DIR)/font4x6.o \
-	$(LIB_GRAPH_DIR)/font5x12.o \
-	$(LIB_GRAPH_DIR)/font6x8.o \
-	$(LIB_GRAPH_DIR)/font7x9.o \
-	$(LIB_GRAPH_DIR)/font8x8.o \
-	$(LIB_GRAPH_DIR)/font9x8.o \
-	$(LIB_GRAPH_DIR)/font8x10.o \
-	$(LIB_GRAPH_DIR)/font8x16.o \
-	$(LIB_GRAPH_DIR)/font9x16.o \
-  $(LIB_GRAPH_DIR)/font12x16.o \
-	$(LIB_GRAPH_DIR)/font10x20.o \
-	$(LIB_GRAPH_DIR)/font12x24.o \
-	$(LIB_GRAPH_DIR)/font16x32.o
+LIB_GRAPH_OBJS =	$(LIB_GRAPH_DIR)/src/graph.o \
+	$(LIB_GRAPH_DIR)/src/tga.o \
+	$(LIB_GRAPH_DIR)/src/font.o \
+	$(LIB_GRAPH_DIR)/src/font4x6.o \
+	$(LIB_GRAPH_DIR)/src/font5x12.o \
+	$(LIB_GRAPH_DIR)/src/font6x8.o \
+	$(LIB_GRAPH_DIR)/src/font7x9.o \
+	$(LIB_GRAPH_DIR)/src/font8x8.o \
+	$(LIB_GRAPH_DIR)/src/font9x8.o \
+	$(LIB_GRAPH_DIR)/src/font8x10.o \
+	$(LIB_GRAPH_DIR)/src/font8x16.o \
+	$(LIB_GRAPH_DIR)/src/font9x16.o \
+	$(LIB_GRAPH_DIR)/src/font12x16.o \
+	$(LIB_GRAPH_DIR)/src/font10x20.o \
+	$(LIB_GRAPH_DIR)/src/font12x24.o \
+	$(LIB_GRAPH_DIR)/src/font16x32.o
 
-LIB_X_OBJS = $(LIB_X_DIR)/xclient.o
+LIB_X_OBJS = $(LIB_X_DIR)/src/xclient.o
 
-LIB_EXT2_OBJS = $(LIB_EXT2_DIR)/ext2fs.o
+LIB_EXT2_OBJS = $(LIB_EXT2_DIR)/src/ext2fs.o
 
-LIB_CONSOLE_OBJS = $(LIB_CONSOLE_DIR)/console.o
+LIB_CONSOLE_OBJS = $(LIB_CONSOLE_DIR)/src/console.o
 
-LIB_SCONF_OBJS = $(LIB_SCONF_DIR)/sconf.o
+LIB_SCONF_OBJS = $(LIB_SCONF_DIR)/src/sconf.o
 
-LIB_M_OBJS = $(LIB_M_DIR)/mstr.o \
-	$(LIB_M_DIR)/mstrx.o \
-	$(LIB_M_DIR)/marray.o \
-	$(LIB_M_DIR)/mutf8.o
+LIB_M_OBJS = $(LIB_M_DIR)/src/mstr.o \
+	$(LIB_M_DIR)/src/mstrx.o \
+	$(LIB_M_DIR)/src/marray.o \
+	$(LIB_M_DIR)/src/mutf8.o
 
-LIB_MARIO_OBJS = $(LIB_MARIO_DIR)/mario_bc.o \
-	$(LIB_MARIO_DIR)/mario_json.o \
-	$(LIB_MARIO_DIR)/mario_lex.o \
-	$(LIB_MARIO_DIR)/mario_vm.o \
-	$(LIB_MARIO_DIR)/compiler.o
+LIB_MARIO_OBJS = $(LIB_MARIO_DIR)/src/mario_bc.o \
+	$(LIB_MARIO_DIR)/src/mario_json.o \
+	$(LIB_MARIO_DIR)/src/mario_lex.o \
+	$(LIB_MARIO_DIR)/src/mario_vm.o \
+	$(LIB_MARIO_DIR)/src/compiler.o
 
-LIB_SYS_OBJS = $(LIB_SYS_DIR)/syscall.o \
-	$(LIB_SYS_DIR)/cmain.o \
-	$(LIB_SYS_DIR)/vfs.o \
-	$(LIB_SYS_DIR)/ipc.o \
-	$(LIB_SYS_DIR)/vdevice.o \
-	$(LIB_SYS_DIR)/proto.o \
-	$(LIB_SYS_DIR)/thread.o \
-	$(LIB_SYS_DIR)/basic_math.o \
-	$(LIB_SYS_DIR)/shm.o \
-	$(LIB_SYS_DIR)/sd.o \
-	$(LIB_SYS_DIR)/gpio.o \
-	$(LIB_SYS_DIR)/global.o \
-	$(LIB_SYS_DIR)/proclock.o \
-	$(LIB_SYS_DIR)/wait.o \
-	$(LIB_SYS_DIR)/critical.o \
-	$(LIB_SYS_DIR)/interrupt.o \
-	$(LIB_SYS_DIR)/mmio.o 
+LIB_SYS_OBJS = $(LIB_SYS_DIR)/src/syscall.o \
+	$(LIB_SYS_DIR)/src/cmain.o \
+	$(LIB_SYS_DIR)/src/vfs.o \
+	$(LIB_SYS_DIR)/src/ipc.o \
+	$(LIB_SYS_DIR)/src/vdevice.o \
+	$(LIB_SYS_DIR)/src/proto.o \
+	$(LIB_SYS_DIR)/src/thread.o \
+	$(LIB_SYS_DIR)/src/basic_math.o \
+	$(LIB_SYS_DIR)/src/shm.o \
+	$(LIB_SYS_DIR)/src/sd.o \
+	$(LIB_SYS_DIR)/src/gpio.o \
+	$(LIB_SYS_DIR)/src/global.o \
+	$(LIB_SYS_DIR)/src/proclock.o \
+	$(LIB_SYS_DIR)/src/wait.o \
+	$(LIB_SYS_DIR)/src/critical.o \
+	$(LIB_SYS_DIR)/src/interrupt.o \
+	$(LIB_SYS_DIR)/src/mmio.o 
 
-LIB_LIBC_OBJS = $(LIB_LIBC_DIR)/unistd.o \
-	$(LIB_LIBC_DIR)/stdlib.o \
-	$(LIB_LIBC_DIR)/fcntl.o \
-	$(LIB_LIBC_DIR)/vprintf.o \
-	$(LIB_LIBC_DIR)/stdio.o
+LIB_LIBC_OBJS = $(LIB_LIBC_DIR)/src/unistd.o \
+	$(LIB_LIBC_DIR)/src/stdlib.o \
+	$(LIB_LIBC_DIR)/src/fcntl.o \
+	$(LIB_LIBC_DIR)/src/vprintf.o \
+	$(LIB_LIBC_DIR)/src/stdio.o
 
 LIB_OBJS = $(LIB_SYS_OBJS) \
 	$(LIB_SCONF_OBJS) \
@@ -136,12 +136,19 @@ all: mkdirs libs apps
 
 libs: $(LIB_OBJS)
 	$(AR) rT $(TARGET_DIR)/lib/libewokc.a $(LIB_SYS_OBJS)  $(LIB_LIBC_OBJS) $(LIB_M_OBJS)
+	@cp -r $(LIB_SYS_DIR)/include/* $(LIB_LIBC_DIR)/include/* $(LIB_M_DIR)/include/* $(TARGET_DIR)/include/
 	$(AR) rT $(TARGET_DIR)/lib/libsconf.a $(LIB_SCONF_OBJS)
+	@cp -r $(LIB_SCONF_DIR)/include/* $(TARGET_DIR)/include/
 	$(AR) rT $(TARGET_DIR)/lib/libgraph.a $(LIB_GRAPH_OBJS)
+	@cp -r $(LIB_GRAPH_DIR)/include/* $(TARGET_DIR)/include/
 	$(AR) rT $(TARGET_DIR)/lib/libext2.a $(LIB_EXT2_OBJS)
+	@cp -r $(LIB_EXT2_DIR)/include/* $(TARGET_DIR)/include/
 	$(AR) rT $(TARGET_DIR)/lib/libconsole.a $(LIB_CONSOLE_OBJS)
+	@cp -r $(LIB_CONSOLE_DIR)/include/* $(TARGET_DIR)/include/
 	$(AR) rT $(TARGET_DIR)/lib/libmario.a $(LIB_MARIO_OBJS)
+	@cp -r $(LIB_MARIO_DIR)/include/* $(TARGET_DIR)/include/
 	$(AR) rT $(TARGET_DIR)/lib/libx.a $(LIB_X_OBJS)
+	@cp -r $(LIB_X_DIR)/include/* $(TARGET_DIR)/include/
 
 include $(ROOT_DIR)/sbin/init/build.mk
 include $(ROOT_DIR)/sbin/dev/fbd/build.mk
@@ -198,6 +205,7 @@ mkdirs:
 	@mkdir -p ${TARGET_DIR}/$(ROOT_DIR)/sbin/dev/raspi2
 	@mkdir -p ${TARGET_DIR}/$(ROOT_DIR)/sbin/x
 	@mkdir -p ${TARGET_DIR}/$(ROOT_DIR)/bin
+	@mkdir -p ${TARGET_DIR}/$(ROOT_DIR)/include
 	@mkdir -p ${TARGET_DIR}/$(ROOT_DIR)/lib
 	@mkdir -p ${TARGET_DIR}/$(ROOT_DIR)/dev
 	@mkdir -p ${BUILD_DIR}/asm
