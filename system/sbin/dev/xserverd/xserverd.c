@@ -798,16 +798,16 @@ static void joy_2_mouse(int key, int8_t* mv) {
 	mv[0] = mv[1] = mv[2] = 0;
 	switch(key) {
 	case KEY_V_UP:
-		mv[2] -= 10;
+		mv[2] -= 8;
 		return;
 	case KEY_V_DOWN:
-		mv[2] += 10;
+		mv[2] += 8;
 		return;
 	case KEY_V_LEFT:
-		mv[1] -= 10;
+		mv[1] -= 8;
 		return;
 	case KEY_V_RIGHT:
-		mv[1] += 10;
+		mv[1] += 8;
 		return;
 	case KEY_V_PRESS:
 		if(!prs_down) {
