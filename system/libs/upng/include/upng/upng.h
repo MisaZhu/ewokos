@@ -27,6 +27,8 @@ freely, subject to the following restrictions:
 #if !defined(UPNG_H)
 #define UPNG_H
 
+#include <graph/graph.h>
+
 typedef enum upng_error {
 	UPNG_EOK			= 0, /* success (no error) */
 	UPNG_ENOMEM			= 1, /* memory allocation failed */
@@ -77,5 +79,7 @@ upng_format	upng_get_format		(const upng_t* upng);
 
 const unsigned char*	upng_get_buffer		(const upng_t* upng);
 unsigned				upng_get_size		(const upng_t* upng);
+
+graph_t* png_image_new(const char* filename);
 
 #endif /*defined(UPNG_H)*/

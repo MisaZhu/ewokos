@@ -82,11 +82,25 @@ static void run(const char* item) {
 	str_free(s);
 }
 
+static items_t items;
+
+void x_event_handle(x_t* x, xevent_t* ev, void* p) {
+	(void)x;
+	xinfo_t* xinfo = (xinfo_t*)p;
+	if(ev->type == XEVT_MOUSE && ev->state == XEVT_MOUSE_DOWN) {
+		int i = div_u32(ev->value.mouse.y - xinfo->r.y, items.icon_size);
+		if(i < items.num) {
+			int pid = fork();
+			if(pid == 0)
+				run(items.items[i]->cstr);
+		}
+	}
+}
+
 int main(int argc, char* argv[]) {
 	(void)argc;
 	(void)argv;
 
-	items_t items;
 	memset(&items, 0, sizeof(items_t));
 	read_config("/etc/x/launcher.conf", &items);
 
@@ -102,22 +116,7 @@ int main(int argc, char* argv[]) {
 
 	xinfo_t xinfo;
 	x_get_info(x, &xinfo);
-	xevent_t xev;
-	while(1) {
-		if(x_get_event(x, &xev) == 0) {
-			if(xev.type == XEVT_MOUSE && xev.state == XEVT_MOUSE_DOWN) {
-				int i = div_u32(xev.value.mouse.y - xinfo.r.y, items.icon_size);
-				if(i < items.num) {
-					int pid = fork();
-					if(pid == 0)
-						run(items.items[i]->cstr);
-				}
-			}
-		}
-		else {
-			usleep(100000);
-		}
-	}
+	x_run(x, x_event_handle, NULL, &xinfo);
 
 	int i;
 	for(i=0; i<items.num; i++) {

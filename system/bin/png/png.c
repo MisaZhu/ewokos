@@ -4,33 +4,32 @@
 #include <string.h>
 #include <vprintf.h>
 #include <x/xclient.h>
-#include <graph/tga.h>
+#include <upng/upng.h>
 
 int main(int argc, char* argv[]) {
 	if(argc < 2) {
-		printf("Usage: tga <tga filename>\n");
+		printf("Usage: png <png filename>\n");
 		return -1;
 	}
 
 	printf("loading...");
-	graph_t* img = tga_image_new(argv[1]);
+	graph_t* img = png_image_new(argv[1]);
 	if(img == NULL)  {
 		printf("open '%s' error!\n", argv[1]);
 		return -1;
 	}
-	printf("ok.\n");
+	printf("ok\n");
 
-	x_t* x = x_open(100, 100, img->w, img->h+20, "tga", X_STYLE_NORMAL);
+	x_t* x = x_open(10, 10, img->w, img->h+20, "png", X_STYLE_NORMAL);
 	if(x == NULL) {
 		graph_free(img);
 		return -1;
 	}
 	graph_t* g = x_get_graph(x);
-	clear(g, 0xff888888);
+	clear(g, 0xffffffff);
 
 	blt_alpha(img, 0, 0, img->w, img->h,
 			g, 0, 0, img->w, img->h, 0xff);
-	draw_text(g, 30, g->h-20, "press anykey to quit......", font_by_name("8x16"), 0xffffffff);
 	x_release_graph(x, g);
 	x_update(x);
 

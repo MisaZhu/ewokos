@@ -185,18 +185,21 @@ int str_to(const char* str, char c, str_t* res, uint8_t skipspace) {
 	if(res != NULL)
 		str_reset(res);
 
+	if(skipspace != 0) {
+		while(1) {
+			char offc = str[i]; 
+			if(offc == 0) //the end of str
+				return -1;
+			if(offc != ' ' && offc != '\t')
+				break;
+			i++;
+		}
+	}
+
 	while(1) {
 		char offc = str[i]; 
-		if(offc==0) {//the end of str
+		if(offc == 0) //the end of str
 			return -1;
-		}
-
-		//skip space
-		if(skipspace != 0 && (offc == ' ' || offc == '\t')) {
-			i++;
-			continue;
-		}
-
 		if(offc == c) 
 			break;
 		else if(res != NULL)
@@ -210,6 +213,10 @@ int str_to(const char* str, char c, str_t* res, uint8_t skipspace) {
 			char c = res->cstr[j];
 			if(c == ' ' || c == '\t')
 				res->cstr[j] = 0;
+			else {
+				res->len = j+1;
+				break;
+			}
 			j--;
 		}
 	}

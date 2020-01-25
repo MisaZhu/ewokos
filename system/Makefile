@@ -206,6 +206,7 @@ include $(ROOT_DIR)/bin/mount/build.mk
 include $(ROOT_DIR)/bin/test/build.mk
 include $(ROOT_DIR)/bin/uname/build.mk
 include $(ROOT_DIR)/bin/tga/build.mk
+include $(ROOT_DIR)/bin/png/build.mk
 include $(ROOT_DIR)/bin/gtest/build.mk
 include $(ROOT_DIR)/bin/snake/build.mk
 include $(ROOT_DIR)/bin/grep/build.mk

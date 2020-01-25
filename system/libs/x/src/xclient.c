@@ -54,7 +54,7 @@ x_t* x_open(int x, int y, int w, int h, const char* title, int style) {
 	memset(ret, 0, sizeof(x_t));
 
 	ret->fd = fd;
-	ret->closed = 0;
+	ret->closed = false;
 
 	xinfo_t xinfo;
 	xinfo.style = style;
@@ -110,7 +110,7 @@ static int win_event_handle(x_t* x, xevent_t* ev) {
 	if(ev->value.window.event == XEVT_WIN_MOVE) {
 	}
 	else if(ev->value.window.event == XEVT_WIN_CLOSE) {
-		x->closed = 1;
+		x->closed = true;
 	}
 	else if(ev->value.window.event == XEVT_WIN_FOCUS) {
 		if(x->on_focus) 
@@ -196,4 +196,17 @@ int x_set_visible(x_t* x, bool visible) {
 	int res = fcntl_raw(x->fd, X_CNTL_SET_VISIBLE, &in, NULL);
 	proto_clear(&in);
 	return res;
+}
+
+void  x_run(x_t* x, x_handle_func_t event_handle_func, x_step_func_t step_func, void* p) {
+	xevent_t xev;
+	while(!x->closed) {
+		if(x_get_event(x, &xev) == 0) {
+			if(event_handle_func != NULL)
+				event_handle_func(x, &xev, p);
+		}
+		if(step_func != NULL)
+			step_func(x, p);
+		sleep(0);
+	}
 }

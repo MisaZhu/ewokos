@@ -1279,3 +1279,34 @@ unsigned upng_get_size(const upng_t* upng)
 {
 	return upng->size;
 }
+
+graph_t* png_image_new(const char* filename) {
+	upng_t*	png = upng_new_from_file(filename);
+	if(png == NULL)  {
+		return NULL;
+	}
+	upng_header(png);
+	if(png->color_type != UPNG_RGBA) {
+		upng_free(png);
+		return NULL;
+	}
+	upng_decode(png);
+	uint32_t* buffer = (uint32_t*)upng_get_buffer(png);
+	uint32_t w = upng_get_width(png);
+	uint32_t h = upng_get_height(png);
+
+	uint32_t i = 0;
+	while(i < w * h) {
+		uint32_t oc = buffer[i];
+		uint8_t oa = ((oc >> 24) & 0xff);
+		uint8_t or = oc & 0xff;
+		uint8_t og = ((oc >> 8)  & 0xff);
+		uint8_t ob = ((oc >> 16) & 0xff);
+		buffer[i] = argb(oa, or, og, ob);
+		i++;
+	}
+
+	graph_t* img = graph_new(buffer, w, h);
+	upng_free(png);
+	return img;
+}
