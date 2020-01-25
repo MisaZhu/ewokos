@@ -6,4 +6,4 @@ PROGS += $(CONSOLE)
 CLEAN += $(CONSOLE_OBJS)
 
 $(CONSOLE): $(CONSOLE_OBJS)
-	$(LD) -Ttext=100 $(CONSOLE_OBJS) -o $(CONSOLE) $(LDFLAGS) -lgraph -lconsole -lsconf -lewokc -lc
+	$(LD) -Ttext=100 $(CONSOLE_OBJS) -o $(CONSOLE) $(LDFLAGS) -lgraph -lconsole -lsconf -lewokc

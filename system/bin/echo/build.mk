@@ -6,4 +6,4 @@ PROGS += $(ECHO)
 CLEAN += $(ECHO_OBJS)
 
 $(ECHO): $(ECHO_OBJS)
-	$(LD) -Ttext=100 $(ECHO_OBJS) -o $(ECHO) $(LDFLAGS) -lewokc -lc
+	$(LD) -Ttext=100 $(ECHO_OBJS) -o $(ECHO) $(LDFLAGS) -lewokc

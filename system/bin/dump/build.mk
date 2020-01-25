@@ -6,4 +6,4 @@ PROGS += $(DUMP)
 CLEAN += $(DUMP_OBJS)
 
 $(DUMP): $(DUMP_OBJS)
-	$(LD) -Ttext=100 $(DUMP_OBJS) -o $(DUMP) $(LDFLAGS) -lewokc -lc
+	$(LD) -Ttext=100 $(DUMP_OBJS) -o $(DUMP) $(LDFLAGS) -lewokc

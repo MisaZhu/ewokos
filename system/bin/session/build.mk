@@ -6,4 +6,4 @@ PROGS += $(SESSION_)
 CLEAN += $(SESSION__OBJS)
 
 $(SESSION_): $(SESSION__OBJS)
-	$(LD) -Ttext=100 $(SESSION__OBJS) -o $(SESSION_) $(LDFLAGS) -lewokc -lc
+	$(LD) -Ttext=100 $(SESSION__OBJS) -o $(SESSION_) $(LDFLAGS) -lewokc

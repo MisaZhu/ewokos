@@ -6,4 +6,4 @@ PROGS += $(MOUNT)
 CLEAN += $(MOUNT_OBJS)
 
 $(MOUNT): $(MOUNT_OBJS)
-	$(LD) -Ttext=100 $(MOUNT_OBJS) -o $(MOUNT) $(LDFLAGS) -lewokc -lc
+	$(LD) -Ttext=100 $(MOUNT_OBJS) -o $(MOUNT) $(LDFLAGS) -lewokc

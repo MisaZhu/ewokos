@@ -6,4 +6,4 @@ PROGS += $(SNAKE)
 CLEAN += $(SNAKE_OBJS)
 
 $(SNAKE): $(SNAKE_OBJS)
-	$(LD) -Ttext=100 $(SNAKE_OBJS) -o $(SNAKE) $(LDFLAGS) -lgraph -lx -lewokc -lc
+	$(LD) -Ttext=100 $(SNAKE_OBJS) -o $(SNAKE) $(LDFLAGS) -lgraph -lx -lewokc

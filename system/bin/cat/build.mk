@@ -6,5 +6,4 @@ PROGS += $(CAT)
 CLEAN += $(CAT_OBJS)
 
 $(CAT): $(CAT_OBJS)
-	$(LD) -Ttext=100 $(CAT_OBJS) -o $(CAT) $(LDFLAGS) -lewokc -lc
-
+	$(LD) -Ttext=100 $(CAT_OBJS) -o $(CAT) $(LDFLAGS) -lewokc

@@ -6,4 +6,4 @@ PROGS += $(FBD)
 CLEAN += $(FBD_OBJS)
 
 $(FBD): $(FBD_OBJS) $(LIB_OBJS)
-	$(LD) -Ttext=100 $(FBD_OBJS) -o $(FBD) $(LDFLAGS) -lewokc -lc -lgraph
+	$(LD) -Ttext=100 $(FBD_OBJS) -o $(FBD) $(LDFLAGS) -lewokc -lgraph

@@ -9,4 +9,4 @@ PROGS += $(RASPI_SPID)
 CLEAN += $(RASPI_SPID_OBJS)
 
 $(RASPI_SPID): $(RASPI_SPID_OBJS)
-	$(LD) -Ttext=100 $(RASPI_SPID_OBJS) -o $(RASPI_SPID) $(LDFLAGS) -lewokc -lc
+	$(LD) -Ttext=100 $(RASPI_SPID_OBJS) -o $(RASPI_SPID) $(LDFLAGS) -lewokc
