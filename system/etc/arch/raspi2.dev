@@ -6,5 +6,5 @@
 /sbin/dev/raspi2/ttyd      /dev/tty0
 #/sbin/dev/raspi2/keybd     /dev/keyb0
 #/sbin/dev/raspi2/moused    /dev/mouse0
-/sbin/dev/raspi2/joystickd /dev/joystick
+#/sbin/dev/raspi2/joystickd /dev/joystick
 /sbin/dev/xserverd         /dev/x
