@@ -5,14 +5,17 @@
 #include <vprintf.h>
 #include <x/xclient.h>
 
+static bool top = false;
 void on_focus(x_t* x, void* p) {
 	(void)x;
-	*(int*)p = 1;
+	(void)p;
+	top = true;
 }
 
 void on_unfocus(x_t* x, void* p) {
 	(void)x;
-	*(int*)p = 0;
+	(void)p;
+	top = false;
 }
 
 void event_handle(x_t* x, xevent_t* ev, void* p) {
@@ -25,11 +28,10 @@ void event_handle(x_t* x, xevent_t* ev, void* p) {
 	}
 }
 
-static int top = 0;
 void step(x_t* x, void* p) {
 	int* i = (int*)p;
 
-	if(top == 1) {
+	if(top) {
 		char str[32];
 		font_t* font = font_by_name("12x24");
 		snprintf(str, 31, "paint = %d", (*i)++);
@@ -45,11 +47,10 @@ void step(x_t* x, void* p) {
 int main(int argc, char* argv[]) {
 	(void)argc;
 	(void)argv;
-	top = 0;
+	top = false;
 	xscreen_t scr;
 	x_screen_info(&scr);
 	x_t* x = x_open(10, 10, 220, 200, "gtest", X_STYLE_NORMAL);
-	x->data = &top;
 	x->on_focus = on_focus;
 	x->on_unfocus = on_unfocus;
 

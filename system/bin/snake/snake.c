@@ -21,14 +21,17 @@
 
 static int seed = 31415;
 
+static bool top = false;
 void on_focus(x_t* x, void* p) {
 	(void)x;
-	*(int*)p = 1;
+	(void)p;
+	top = true;
 }
 
 void on_unfocus(x_t* x, void* p) {
 	(void)x;
-	*(int*)p = 0;
+	(void)p;
+	top = false;
 }
 
 enum DIRECTION
@@ -157,11 +160,10 @@ int main(int argc, char* argv[]) {
 	(void)argc;
 	(void)argv;
 
+	top = false;
 	xscreen_t scr;
 	x_screen_info(&scr);
 	x_t* x = x_open(10, 10, WIN_WIDTH*SCALE_FACTOR, WIN_HEIGHT*SCALE_FACTOR + 20, "snake", X_STYLE_NORMAL);
-	int top = 0;
-	x->data = &top;
 	x->on_focus = on_focus;
 	x->on_unfocus = on_unfocus;
 
@@ -181,7 +183,7 @@ int main(int argc, char* argv[]) {
 	xevent_t xev;
 	while(x->closed == 0) {
 		int key = 0;
-		if(x_get_event(x, &xev) == 0) {
+		if(x_get_event(x, &xev, NULL) == 0) {
 			if(xev.type == XEVT_KEYB) {
 				key = xev.value.keyboard.value;
 				if(key == 27) //esc
@@ -189,7 +191,7 @@ int main(int argc, char* argv[]) {
 				seed += key;
 			}
 		}
-		if(top == 1) {
+		if(top == true) {
 
 			if(key == 37 && dir != RIGHT)
 				dir = LEFT;

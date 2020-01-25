@@ -106,7 +106,7 @@ void x_close(x_t* x) {
 	free(x);
 }
 
-static int win_event_handle(x_t* x, xevent_t* ev) {
+static int win_event_handle(x_t* x, xevent_t* ev, void* p) {
 	if(ev->value.window.event == XEVT_WIN_MOVE) {
 	}
 	else if(ev->value.window.event == XEVT_WIN_CLOSE) {
@@ -114,11 +114,11 @@ static int win_event_handle(x_t* x, xevent_t* ev) {
 	}
 	else if(ev->value.window.event == XEVT_WIN_FOCUS) {
 		if(x->on_focus) 
-			x->on_focus(x, x->data);
+			x->on_focus(x, p);
 	}
 	else if(ev->value.window.event == XEVT_WIN_UNFOCUS) {
 		if(x->on_unfocus) 
-			x->on_unfocus(x, x->data);
+			x->on_unfocus(x, p);
 	}
 	else if(ev->value.window.event == XEVT_WIN_MAX) {
 		xinfo_t xinfo;
@@ -139,25 +139,31 @@ static int win_event_handle(x_t* x, xevent_t* ev) {
 		}
 		x_update_info(x, &xinfo);
 		if(x->on_resize)
-			x->on_resize(x, x->data);
+			x->on_resize(x, p);
 	}
 	return 0;
 }
 
-int x_get_event(x_t* x, xevent_t* ev) {
+int x_get_event_raw(x_t* x, xevent_t* ev) {
 	proto_t out;
 	proto_init(&out, NULL, 0);
 
 	int res = -1;
 	if(fcntl_raw(x->fd, X_CNTL_GET_EVT, NULL, &out) == 0) {
 		proto_read_to(&out, ev, sizeof(xevent_t));
-		if(ev->type == XEVT_WIN) 
-			res = win_event_handle(x, ev);
-		else
-			res = 0;
+		res = 0;
 	}
 	proto_clear(&out);
 	return res;
+}
+
+int x_get_event(x_t* x, xevent_t* ev, void* p) {
+	if(x_get_event_raw(x, ev) == 0) {
+		if(ev->type == XEVT_WIN) 
+			win_event_handle(x, ev, p);
+		return 0;
+	}
+	return -1;
 }
 
 int x_is_top(x_t* x) {
@@ -201,7 +207,10 @@ int x_set_visible(x_t* x, bool visible) {
 void  x_run(x_t* x, x_handle_func_t event_handle_func, x_step_func_t step_func, void* p) {
 	xevent_t xev;
 	while(!x->closed) {
-		if(x_get_event(x, &xev) == 0) {
+		if(x_get_event_raw(x, &xev) == 0) {
+			if(xev.type == XEVT_WIN) 
+				win_event_handle(x, &xev, p);
+
 			if(event_handle_func != NULL)
 				event_handle_func(x, &xev, p);
 		}

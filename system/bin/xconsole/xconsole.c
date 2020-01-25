@@ -107,7 +107,6 @@ static int run(int argc, char* argv[]) {
 	console.bg_color = _conf.bg_color;
 	console_reset(&console);
 
-	xp->data = &console;
 	xp->on_resize = console_resize;
 	xp->on_focus = console_focus;
 	xp->on_unfocus = console_unfocus;
@@ -118,7 +117,7 @@ static int run(int argc, char* argv[]) {
 	xevent_t xev;
 	while(xp->closed == 0) {
 		if(krd != 1) {
-			if(x_get_event(xp, &xev) == 0) {
+			if(x_get_event(xp, &xev, &console) == 0) {
 				if(xev.type == XEVT_KEYB)
 					krd = 1;
 			}

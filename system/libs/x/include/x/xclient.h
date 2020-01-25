@@ -10,7 +10,6 @@ typedef struct st_x {
 	xinfo_t xinfo_prev; //for backup the state before fullscreen/min/max.
 	bool closed;
 
-	void* data;
 	void (*on_close)(struct st_x* x, void* p);
 	void (*on_min)(struct st_x* x, void* p);
 	void (*on_resize)(struct st_x* x, void* p);
@@ -25,7 +24,7 @@ int      x_update(x_t* x);
 int      x_update_info(x_t* x, xinfo_t* xinfo);
 int      x_get_info(x_t* x, xinfo_t* xinfo);
 void     x_close(x_t* x);
-int      x_get_event(x_t* x, xevent_t* ev);
+int      x_get_event(x_t* x, xevent_t* ev, void* p);
 int      x_screen_info(xscreen_t* scr);
 int      x_is_top(x_t* x);
 int      x_set_visible(x_t* x, bool visible);
