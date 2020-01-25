@@ -5,5 +5,5 @@ LAUNCHER = $(TARGET_DIR)/$(ROOT_DIR)/bin/launcher
 PROGS += $(LAUNCHER)
 CLEAN += $(LAUNCHER_OBJS)
 
-$(LAUNCHER): $(LAUNCHER_OBJS) $(LIB_OBJS)
-	$(LD) -Ttext=100 $(LAUNCHER_OBJS) $(LIB_OBJS) -o $(LAUNCHER) $(LDFLAGS)
+$(LAUNCHER): $(LAUNCHER_OBJS)
+	$(LD) -Ttext=100 $(LAUNCHER_OBJS) -o $(LAUNCHER) $(LDFLAGS) -lgraph -lx -lsconf -lewokc -lc

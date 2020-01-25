@@ -5,5 +5,5 @@ PS = $(TARGET_DIR)/$(ROOT_DIR)/bin/ps
 PROGS += $(PS)
 CLEAN += $(PS_OBJS)
 
-$(PS): $(PS_OBJS) $(LIB_OBJS)
-	$(LD) -Ttext=100 $(PS_OBJS) $(LIB_OBJS) -o $(PS) $(LDFLAGS)
+$(PS): $(PS_OBJS)
+	$(LD) -Ttext=100 $(PS_OBJS) -o $(PS) $(LDFLAGS) -lewokc -lc

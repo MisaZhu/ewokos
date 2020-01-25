@@ -7,6 +7,10 @@ OBJDUMP = arm-none-eabi-objdump
 
 export QEMU_AUDIO_DRV=none
 
+BUILD_DIR = build
+TARGET_DIR = $(BUILD_DIR)/rootfs
+ROOT_DIR = .
+
 # flags
 CFLAGS = -Wstrict-prototypes \
 				 -marm \
@@ -30,7 +34,7 @@ endif
 
 ARCH_DIR=../kernel/arch
 
-LDFLAGS = -lc -lnosys
+LDFLAGS = -L$(TARGET_DIR)/lib -lnosys
 
 LIB_INC = -I libs/sys/include \
 				  -I libs/sconf/include \
@@ -55,7 +59,7 @@ LIB_MARIO_DIR = libs/mario/src
 
 CFLAGS += $(LIB_INC)
 
-GRAPH_OBJS =	$(LIB_GRAPH_DIR)/graph.o \
+LIB_GRAPH_OBJS =	$(LIB_GRAPH_DIR)/graph.o \
 	$(LIB_GRAPH_DIR)/tga.o \
 	$(LIB_GRAPH_DIR)/font.o \
 	$(LIB_GRAPH_DIR)/font4x6.o \
@@ -91,7 +95,6 @@ LIB_MARIO_OBJS = $(LIB_MARIO_DIR)/mario_bc.o \
 	$(LIB_MARIO_DIR)/mario_vm.o \
 	$(LIB_MARIO_DIR)/compiler.o
 
-
 LIB_SYS_OBJS = $(LIB_SYS_DIR)/syscall.o \
 	$(LIB_SYS_DIR)/cmain.o \
 	$(LIB_SYS_DIR)/vfs.o \
@@ -119,21 +122,26 @@ LIB_LIBC_OBJS = $(LIB_LIBC_DIR)/unistd.o \
 LIB_OBJS = $(LIB_SYS_OBJS) \
 	$(LIB_SCONF_OBJS) \
 	$(LIB_LIBC_OBJS) \
-	$(GRAPH_OBJS) \
+	$(LIB_GRAPH_OBJS) \
 	$(LIB_EXT2_OBJS) \
 	$(LIB_M_OBJS) \
 	$(LIB_X_OBJS)
 
-
 CLEAN = $(LIB_OBJS)
 
-BUILD_DIR = build
-TARGET_DIR = $(BUILD_DIR)/rootfs
-ROOT_DIR = .
 SD = $(BUILD_DIR)/sd.ext2
 
-all: mkdirs $(LIB_OBJS) apps
+all: mkdirs libs apps
 	@echo "all done."
+
+libs: $(LIB_OBJS)
+	$(AR) rT $(TARGET_DIR)/lib/libewokc.a $(LIB_SYS_OBJS)  $(LIB_LIBC_OBJS) $(LIB_M_OBJS)
+	$(AR) rT $(TARGET_DIR)/lib/libsconf.a $(LIB_SCONF_OBJS)
+	$(AR) rT $(TARGET_DIR)/lib/libgraph.a $(LIB_GRAPH_OBJS)
+	$(AR) rT $(TARGET_DIR)/lib/libext2.a $(LIB_EXT2_OBJS)
+	$(AR) rT $(TARGET_DIR)/lib/libconsole.a $(LIB_CONSOLE_OBJS)
+	$(AR) rT $(TARGET_DIR)/lib/libmario.a $(LIB_MARIO_OBJS)
+	$(AR) rT $(TARGET_DIR)/lib/libx.a $(LIB_X_OBJS)
 
 include $(ROOT_DIR)/sbin/init/build.mk
 include $(ROOT_DIR)/sbin/dev/fbd/build.mk
@@ -152,7 +160,6 @@ include $(ROOT_DIR)/sbin/dev/arch/raspi2/sdd/build.mk
 include $(ROOT_DIR)/sbin/dev/arch/raspi2/actledd/build.mk
 include $(ROOT_DIR)/sbin/dev/arch/raspi2/gpiod/build.mk
 include $(ROOT_DIR)/sbin/dev/arch/raspi2/spid/build.mk
-include $(ROOT_DIR)/sbin/dev/arch/raspi2/joystickd/build.mk
 
 include $(ROOT_DIR)/sbin/dev/arch/raspi/ttyd/build.mk
 include $(ROOT_DIR)/sbin/dev/arch/raspi/sdd/build.mk
@@ -183,7 +190,6 @@ include $(ROOT_DIR)/bin/console/build.mk
 include $(ROOT_DIR)/bin/xconsole/build.mk
 include $(ROOT_DIR)/bin/launcher/build.mk
 include $(ROOT_DIR)/bin/session/build.mk
-include $(ROOT_DIR)/bin/x/build.mk
 include $(ROOT_DIR)/bin/mario/build.mk
 
 mkdirs:
@@ -192,6 +198,7 @@ mkdirs:
 	@mkdir -p ${TARGET_DIR}/$(ROOT_DIR)/sbin/dev/raspi2
 	@mkdir -p ${TARGET_DIR}/$(ROOT_DIR)/sbin/x
 	@mkdir -p ${TARGET_DIR}/$(ROOT_DIR)/bin
+	@mkdir -p ${TARGET_DIR}/$(ROOT_DIR)/lib
 	@mkdir -p ${TARGET_DIR}/$(ROOT_DIR)/dev
 	@mkdir -p ${BUILD_DIR}/asm
 	@cp -r ${ROOT_DIR}/etc ${TARGET_DIR}/$(ROOT_DIR)

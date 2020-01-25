@@ -5,5 +5,5 @@ TGATEST = $(TARGET_DIR)/$(ROOT_DIR)/bin/tga
 PROGS += $(TGATEST)
 CLEAN += $(TGATEST_OBJS)
 
-$(TGATEST): $(TGATEST_OBJS) $(LIB_OBJS)
-	$(LD) -Ttext=100 $(TGATEST_OBJS) $(LIB_OBJS) -o $(TGATEST) $(LDFLAGS)
+$(TGATEST): $(TGATEST_OBJS)
+	$(LD) -Ttext=100 $(TGATEST_OBJS) -o $(TGATEST) $(LDFLAGS) -lgraph -lx -lewokc -lc

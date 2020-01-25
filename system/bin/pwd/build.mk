@@ -5,5 +5,5 @@ PWD = $(TARGET_DIR)/$(ROOT_DIR)/bin/pwd
 PROGS += $(PWD)
 CLEAN += $(PWD_OBJS)
 
-$(PWD): $(PWD_OBJS) $(LIB_OBJS)
-	$(LD) -Ttext=100 $(PWD_OBJS) $(LIB_OBJS) -o $(PWD) $(LDFLAGS)
+$(PWD): $(PWD_OBJS)
+	$(LD) -Ttext=100 $(PWD_OBJS) -o $(PWD) $(LDFLAGS) -lewokc -lc

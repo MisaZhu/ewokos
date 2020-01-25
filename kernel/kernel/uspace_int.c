@@ -42,7 +42,8 @@ bool uspace_interrupt(context_t* ctx, int32_t int_id) {
 void uspace_interrupt_register(int32_t int_id) {
 	if(int_id < 0 || int_id >= USPACE_INT_MAX)
 		return;
-	_uspace_int_table[int_id] = _current_proc->pid;
+	if(_uspace_int_table[int_id] < 0)
+		_uspace_int_table[int_id] = _current_proc->pid;
 }
 
 void uspace_interrupt_unregister(int32_t int_id) {

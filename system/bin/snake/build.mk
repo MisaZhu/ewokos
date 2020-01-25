@@ -5,5 +5,5 @@ SNAKE = $(TARGET_DIR)/$(ROOT_DIR)/bin/snake
 PROGS += $(SNAKE)
 CLEAN += $(SNAKE_OBJS)
 
-$(SNAKE): $(SNAKE_OBJS) $(LIB_OBJS)
-	$(LD) -Ttext=100 $(SNAKE_OBJS) $(LIB_OBJS) -o $(SNAKE) $(LDFLAGS)
+$(SNAKE): $(SNAKE_OBJS)
+	$(LD) -Ttext=100 $(SNAKE_OBJS) -o $(SNAKE) $(LDFLAGS) -lgraph -lx -lewokc -lc

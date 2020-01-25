@@ -5,6 +5,6 @@ CAT = $(TARGET_DIR)/$(ROOT_DIR)/bin/cat
 PROGS += $(CAT)
 CLEAN += $(CAT_OBJS)
 
-$(CAT): $(CAT_OBJS) $(LIB_OBJS)
-	$(LD) -Ttext=100 $(CAT_OBJS) $(LIB_OBJS) -o $(CAT) $(LDFLAGS)
+$(CAT): $(CAT_OBJS)
+	$(LD) -Ttext=100 $(CAT_OBJS) -o $(CAT) $(LDFLAGS) -lewokc -lc
 

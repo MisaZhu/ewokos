@@ -5,6 +5,6 @@ TEST = $(TARGET_DIR)/$(ROOT_DIR)/bin/test
 PROGS += $(TEST)
 CLEAN += $(TEST_OBJS)
 
-$(TEST): $(TEST_OBJS) $(LIB_OBJS)
-	$(LD) -Ttext=100 $(TEST_OBJS) $(LIB_OBJS) -o $(TEST) $(LDFLAGS)
+$(TEST): $(TEST_OBJS)
+	$(LD) -Ttext=100 $(TEST_OBJS) -o $(TEST) $(LDFLAGS) -lewokc -lc
 	$(OBJDUMP) -D $(TEST) > $(BUILD_DIR)/asm/test.asm

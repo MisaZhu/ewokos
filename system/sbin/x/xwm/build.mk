@@ -6,4 +6,4 @@ PROGS += $(XWM)
 CLEAN += $(XWM_OBJS)
 
 $(XWM): $(XWM_OBJS) $(LIB_OBJS)
-	$(LD) -Ttext=100 $(XWM_OBJS) $(LIB_OBJS) -o $(XWM) $(LDFLAGS)
+	$(LD) -Ttext=100 $(XWM_OBJS) -o $(XWM) $(LDFLAGS) -lgraph -lewokc -lc -lsconf
