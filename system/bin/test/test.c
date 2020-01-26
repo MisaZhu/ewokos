@@ -4,32 +4,25 @@
 #include <sys/interrupt.h>
 
 void int_func(int int_id, void* p) {
-	if(int_id >= US_INT_USER_DEF)
-		printf("user   interrupt id=%d, i=%d\n", int_id, *(int*)p);
-	else
-		printf("kernel interrupt id=%d, i=%d\n", int_id, *(int*)p);
+	printf("interrupt id=%d, pid=%d, i=%d\n", int_id, getpid(), *(int*)p);
 }
 
 int main(int argc, char** argv) {
 	(void)argc;
 	(void)argv;
 
-	int pid = fork();
-	if(pid == 0) {
-		int i = 0;
-		proc_interrupt_setup(int_func, &i);
-		proc_interrupt_register(US_INT_TIMER_TIC);
-		while(1) {
-			sleep(1);
-			i++;
-		}
+
+	int i=0;
+	proc_interrupt_setup(int_func, &i);
+	int fd = open("/dev/timer0", O_RDWR);
+	int msec = 100;
+	write(fd, &msec, 4);
+
+	while(1) {
+		sleep(1);
+		i++;
 	}
-	else {
-		while(1) {
-			proc_interrupt(pid, 123);
-			sleep(1);
-		}
-	}
+	close(fd);
   return 0;
 }
 

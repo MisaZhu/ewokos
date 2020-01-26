@@ -497,3 +497,17 @@ inline void dup16(uint16_t* dst, uint32_t* src, uint32_t w, uint32_t h) {
 	critical_quit();
 }
 
+/*graph_t* graph_zoom(graph_t* g, uint32_t w, uint32_t h) {
+	graph_t * ret = graph_new(NULL, w, h);
+	float zw = ((float)w) / g->w;
+	float zh = ((float)h) / g->h;
+	for(uint32_t j=0; j<h; j++) {
+		uint32_t y = (int32_t)(j*zh);
+		for(uint32_t i=0; i<w; i++) {
+			uint32_t x = 0;//(int32_t)i*zw;
+			ret->buffer[j*w+i] = g->buffer[y*g->w+x];
+		}
+	}
+	return ret;	
+}
+*/

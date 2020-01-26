@@ -39,11 +39,13 @@ bool uspace_interrupt(context_t* ctx, int32_t int_id) {
 	return proc_interrupt(ctx, _uspace_int_table[int_id], int_id);
 }
 
-void uspace_interrupt_register(int32_t int_id) {
+int32_t uspace_interrupt_register(int32_t int_id) {
 	if(int_id < 0 || int_id >= USPACE_INT_MAX)
-		return;
-	if(_uspace_int_table[int_id] < 0)
-		_uspace_int_table[int_id] = _current_proc->pid;
+		return -1;
+	if(_uspace_int_table[int_id] >= 0)
+		return -1;
+	_uspace_int_table[int_id] = _current_proc->pid;
+	return 0;
 }
 
 void uspace_interrupt_unregister(int32_t int_id) {

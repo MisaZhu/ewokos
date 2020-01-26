@@ -10,7 +10,7 @@ extern bool uspace_interrupt(context_t* ctx, int32_t int_id);
 
 extern bool proc_interrupt(context_t* ctx, int32_t pid, int32_t int_id);
 
-extern void uspace_interrupt_register(int32_t int_id);
+extern int32_t uspace_interrupt_register(int32_t int_id);
 
 extern void uspace_interrupt_unregister(int32_t int_id);
 

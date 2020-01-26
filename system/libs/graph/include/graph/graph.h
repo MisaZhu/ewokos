@@ -35,6 +35,8 @@ uint32_t argb_int(uint32_t c);
 
 graph_t* graph_new(uint32_t* buffer, uint32_t w, uint32_t h);
 
+graph_t* graph_zoom(graph_t* g, uint32_t w, uint32_t h);
+
 void graph_free(graph_t* g);
 
 void pixel_safe(graph_t* g, int32_t x, int32_t y, uint32_t color);

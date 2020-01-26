@@ -112,7 +112,8 @@ static int32_t sys_dev_ch_write(uint32_t type, void* data, uint32_t sz) {
 static int32_t sys_getpid(void) {
 	if(_current_proc == NULL)
 		return -1;
-	return _current_proc->pid;
+	proc_t* p = proc_get_proc();
+	return p->pid;
 }
 
 static void sys_usleep(context_t* ctx, uint32_t count) {
@@ -627,15 +628,15 @@ static void sys_proc_irq_setup(uint32_t entry, uint32_t func, uint32_t data) {
 	_current_proc->interrupt.busy = false;
 }
 
-static void sys_proc_irq_register(uint32_t int_id) {
-	uspace_interrupt_register(int_id);
+static int32_t sys_proc_irq_register(uint32_t int_id) {
+	return uspace_interrupt_register(int_id);
 }
 
 static void sys_proc_irq_unregister(uint32_t int_id) {
 	uspace_interrupt_unregister(int_id);
 }
 
-static void sys_proc_interrupt(context_t* ctx, int32_t pid, int32_t int_id) {
+static void sys_proc_interrupt(context_t* ctx, int32_t pid, uint32_t int_id) {
 	if(_current_proc->owner != 0)
 		return;
 	proc_interrupt(ctx, pid, int_id);
@@ -861,13 +862,13 @@ void svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_t arg2, context
 		sys_proc_irq_setup((uint32_t)arg0, (uint32_t)arg1, (uint32_t)arg2);
 		return;
 	case SYS_PROC_IRQ_REGISTER:
-		sys_proc_irq_register((uint32_t)arg0);
+		ctx->gpr[0] = sys_proc_irq_register((uint32_t)arg0);
 		return;
 	case SYS_PROC_IRQ_UNREGISTER:
 		sys_proc_irq_unregister((uint32_t)arg0);
 		return;
 	case SYS_PROC_INTERRUPT:
-		sys_proc_interrupt(ctx, (uint32_t)arg0, (uint32_t)arg1);
+		sys_proc_interrupt(ctx, arg0, (uint32_t)arg1);
 		return;
 	}
 	printf("pid:%d, code(%d) error!\n", _current_proc->pid, code);
