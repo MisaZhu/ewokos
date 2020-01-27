@@ -725,6 +725,7 @@ static int mouse_handle(x_t* x, int8_t state, int32_t rx, int32_t ry) {
 		if(pos == XWM_FRAME_CLOSE) { //window close
 			e->event.type = XEVT_WIN;
 			e->event.value.window.event = XEVT_WIN_CLOSE;
+			x_del_view(x, view);
 		}
 		else if(pos == XWM_FRAME_MAX) {
 			e->event.type = XEVT_WIN;
@@ -912,7 +913,7 @@ static void read_thread(void* p) {
 				}
 			}
 		}
-		usleep(2000);
+		usleep(20000);
 	}
 }
 

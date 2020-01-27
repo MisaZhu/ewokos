@@ -92,6 +92,8 @@ static int timer_write(int fd,
 		return 0;
 
 	uint32_t msec = *(uint32_t*)buf;
+	msec = msec/10 + 1;
+
 	t->counter = msec;	
 	t->msec = msec;	
 	return 4;
