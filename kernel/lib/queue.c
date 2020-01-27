@@ -22,6 +22,21 @@ void queue_push(queue_t* q, void* data) {
 	}
 }
 
+void queue_push_head(queue_t* q, void* data) {
+	queue_item_t* it = (queue_item_t*)kmalloc(sizeof(queue_item_t));
+	memset(it, 0, sizeof(queue_item_t));
+	it->data = data;
+
+	if(q->head == NULL) {
+		q->head = q->tail = it;
+	}
+	else {
+		q->head->prev = it;
+		it->next = q->head;
+		q->head = it;
+	}
+}
+
 void* queue_pop(queue_t* q) {
 	if(q->head == NULL)
 		return NULL;

@@ -17,6 +17,7 @@ typedef struct {
 
 void  queue_init(queue_t* q);
 void  queue_push(queue_t* q, void* data);
+void  queue_push_head(queue_t* q, void* data);
 void* queue_pop(queue_t* q);
 void  queue_clear(queue_t* q, free_func_t fr);
 

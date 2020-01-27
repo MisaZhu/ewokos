@@ -82,7 +82,7 @@ extern void    procs_init(void);
 extern int32_t proc_load_elf(proc_t *proc, const char *proc_image, uint32_t size);
 extern int32_t proc_start(proc_t* proc, uint32_t entry);
 extern proc_t* proc_get_next_ready(void);
-extern void    proc_switch(context_t* ctx, proc_t* to);
+extern void    proc_switch(context_t* ctx, proc_t* to, bool quick);
 extern int32_t proc_expand_mem(proc_t *proc, int32_t page_num);
 extern void    proc_shrink_mem(proc_t* proc, int32_t page_num);
 extern void    proc_exit(context_t* ctx, proc_t *proc, int32_t res);

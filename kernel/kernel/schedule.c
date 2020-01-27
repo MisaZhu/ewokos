@@ -5,6 +5,6 @@
 void schedule(context_t* ctx) {
 	proc_t* next = proc_get_next_ready();
 	if(next != NULL) {
-		proc_switch(ctx, next);
+		proc_switch(ctx, next, false);
 	}
 }

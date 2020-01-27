@@ -76,14 +76,18 @@ static void proc_init_space(proc_t* proc) {
 	memset(&proc->space->envs, 0, sizeof(env_t)*ENV_MAX);
 }
 
-void proc_switch(context_t* ctx, proc_t* to){
+void proc_switch(context_t* ctx, proc_t* to, bool quick){
 	if(to == NULL || to == _current_proc)
 		return;
 
 	if(_current_proc != NULL && _current_proc->state != UNUSED) {
 		memcpy(&_current_proc->ctx, ctx, sizeof(context_t));
-		if(_current_proc->state == READY)
-			queue_push(&_ready_queue, _current_proc);
+		if(_current_proc->state == READY) {
+			if(quick)
+				queue_push_head(&_ready_queue, _current_proc);
+			else
+				queue_push(&_ready_queue, _current_proc);
+		}	
 	}
 
 	memcpy(ctx, &to->ctx, sizeof(context_t));
