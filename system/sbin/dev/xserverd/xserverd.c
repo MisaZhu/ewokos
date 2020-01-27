@@ -725,7 +725,8 @@ static int mouse_handle(x_t* x, int8_t state, int32_t rx, int32_t ry) {
 		if(pos == XWM_FRAME_CLOSE) { //window close
 			e->event.type = XEVT_WIN;
 			e->event.value.window.event = XEVT_WIN_CLOSE;
-			x_del_view(x, view);
+			view->xinfo.visible = false;
+			x_dirty(x);
 		}
 		else if(pos == XWM_FRAME_MAX) {
 			e->event.type = XEVT_WIN;
@@ -980,7 +981,7 @@ static int xserver_loop_step(void* p) {
 	proc_lock(x->lock);
 	x_repaint(x);	
 	proc_unlock(x->lock);
-	usleep(2000);
+	usleep(1000);
 	return 0;
 }
 

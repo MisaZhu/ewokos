@@ -52,7 +52,7 @@ void irq_handler(context_t* ctx) {
 						uspace_int = true;
 				}
 
-				if(_timer_mtic >= 10000) { //10 msec
+				if(_timer_mtic >= 1000) { //1 msec
 					_timer_mtic = 0;
 					if(uspace_interrupt(ctx, US_INT_TIMER_MTIC))
 						uspace_int = true;
