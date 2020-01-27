@@ -11,6 +11,7 @@
 #include <sysinfo.h>
 #include <dev/framebuffer.h>
 #include <dev/uart.h>
+#include <dev/timer.h>
 #include <vfs.h>
 #include <syscalls.h>
 #include <kstring.h>
@@ -393,6 +394,14 @@ static void	sys_get_sysinfo(sysinfo_t* info) {
 	info->total_mem = get_hw_info()->phy_mem_size;
 	info->shm_mem = shm_alloced_size();
 	info->kernel_tic = _kernel_tic;
+}
+
+static void	sys_get_kernel_usec(uint64_t* usec) {
+	*usec = timer_read_sys_usec();
+}
+
+static int32_t	sys_get_kernel_tic(void) {
+	return _kernel_tic;
 }
 
 static int32_t sys_pipe_open(int32_t* fd0, int32_t* fd1) {
@@ -785,6 +794,12 @@ void svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_t arg2, context
 		return;
 	case SYS_GET_SYSINFO:
 		sys_get_sysinfo((sysinfo_t*)arg0);
+		return;
+	case SYS_GET_KERNEL_USEC:
+		sys_get_kernel_usec((uint64_t*)arg0);
+		return;
+	case SYS_GET_KERNEL_TIC:
+		ctx->gpr[0] = sys_get_kernel_tic();
 		return;
 	case SYS_GET_PROCS: 
 		ctx->gpr[0] = (int32_t)get_procs((int32_t*)arg0);
