@@ -533,11 +533,14 @@ static int32_t sys_shm_ref(int32_t id) {
 	return shm_proc_ref(_current_proc->pid, id);
 }
 
-static int32_t sys_send_msg(int32_t topid, rawdata_t* data, int32_t id) {
+static void sys_send_msg(context_t* ctx, int32_t topid, rawdata_t* data, int32_t id) {
 	proc_msg_t* msg = proc_send_msg(topid, data, id);
-	if(msg == NULL)
-		return -1;
-	return msg->id;	
+	if(msg == NULL) {
+		ctx->gpr[0] = -1;
+	}
+	ctx->gpr[0] = msg->id;	
+	//get the receiv process response ASAP
+	proc_switch(ctx, proc_get(topid), true);
 }
 
 static int32_t sys_lock_new(void) {
@@ -700,7 +703,7 @@ void svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_t arg2, context
 		sys_waitpid(ctx, arg0);
 		return;
 	case SYS_SEND_MSG:
-		ctx->gpr[0] = sys_send_msg(arg0, (rawdata_t*)arg1, arg2);
+		sys_send_msg(ctx, arg0, (rawdata_t*)arg1, arg2);
 		return;
 	case SYS_GET_MSG_NBLOCK:
 		ctx->gpr[0] = proc_get_msg((int32_t*)arg0, (rawdata_t*)arg1, arg2);
