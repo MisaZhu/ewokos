@@ -98,16 +98,15 @@ static int timer_write(int fd,
 }
 
 void int_func(int int_id, void* p) {
+	(void)int_id;
 	(void)p;
-	if(int_id == US_INT_TIMER_MTIC) {
-		for(int i=0; i<TIMER_MAX; i++) {
-			timer_t* t = &_timers[i];
-			if(t->fd > 0 && t->pid > 0 && t->msec > 0) {
-				t->counter--;
-				if(t->counter <= 0) {
-					t->counter = t->msec;
-					proc_interrupt(t->pid, US_INT_TIMER_MTIC);
-				}
+	for(int i=0; i<TIMER_MAX; i++) {
+		timer_t* t = &_timers[i];
+		if(t->msec > 0) {
+			t->counter--;
+			if(t->counter <= 0) {
+				t->counter = t->msec;
+				proc_interrupt(t->pid, US_INT_TIMER_MTIC);
 			}
 		}
 	}
