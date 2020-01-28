@@ -546,10 +546,11 @@ static void sys_send_msg(context_t* ctx, int32_t topid, rawdata_t* data, int32_t
 	proc_msg_t* msg = proc_send_msg(topid, data, id);
 	if(msg == NULL) {
 		ctx->gpr[0] = -1;
+		return;
 	}
 	ctx->gpr[0] = msg->id;	
 	//get the receiv process response ASAP
-	proc_switch(ctx, proc_get(topid), true);
+	proc_switch(ctx, proc_get(topid), false);
 }
 
 static int32_t sys_lock_new(void) {
