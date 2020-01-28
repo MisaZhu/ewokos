@@ -14,7 +14,7 @@
 #include <x/xevent.h>
 #include <x/xwm.h>
 #include <sys/global.h>
-#include <sys/thread.h>
+#include <pthread.h>
 #include <sys/proclock.h>
 
 #define X_EVENT_MAX 16
@@ -845,7 +845,7 @@ static void joy_2_keyb(int key, int8_t* v) {
 	}	
 }
 
-static void read_thread(void* p) {
+static void* read_thread(void* p) {
 	x_t* x = (x_t*)p;
 	while(1) {
 		if(!x->actived)  {
@@ -916,6 +916,7 @@ static void read_thread(void* p) {
 		}
 		usleep(10000);
 	}
+	return NULL;
 }
 
 /*static void read_event(x_t* x) {
@@ -1017,7 +1018,7 @@ int main(int argc, char** argv) {
 		x.xwm_pid = pid;
 		prs_down = false;
 		j_mouse = true;
-		thread_create(read_thread, &x);
+		pthread_create(NULL, NULL, read_thread, &x);
 		device_run(&dev, mnt_point, FS_TYPE_DEV, &x, 0);
 		x_close(&x);
 	}

@@ -123,6 +123,7 @@ LIB_LIBC_OBJS = $(LIB_LIBC_DIR)/src/unistd.o \
 	$(LIB_LIBC_DIR)/src/fcntl.o \
 	$(LIB_LIBC_DIR)/src/vprintf.o \
 	$(LIB_LIBC_DIR)/src/string.o \
+	$(LIB_LIBC_DIR)/src/pthread.o \
 	$(LIB_LIBC_DIR)/src/stdio.o
 
 LIB_OBJS = $(LIB_SYS_OBJS) \
