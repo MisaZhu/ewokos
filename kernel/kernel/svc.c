@@ -117,6 +117,13 @@ static int32_t sys_getpid(void) {
 	return p->pid;
 }
 
+static int32_t sys_get_threadid(void) {
+	if(_current_proc == NULL || _current_proc->type != PROC_TYPE_THREAD)
+		return -1;
+	return _current_proc->pid; 
+}
+
+
 static void sys_usleep(context_t* ctx, uint32_t count) {
 	proc_usleep(ctx, count);
 }
@@ -693,6 +700,9 @@ void svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_t arg2, context
 		return;
 	case SYS_GET_PID:
 		ctx->gpr[0] = sys_getpid();
+		return;
+	case SYS_GET_THREAD_ID:
+		ctx->gpr[0] = sys_get_threadid();
 		return;
 	case SYS_USLEEP:
 		sys_usleep(ctx, (uint32_t)arg0);
