@@ -4,7 +4,7 @@
 #include <string.h>
 #include <vprintf.h>
 #include <x/xclient.h>
-#include <graph/tga.h>
+#include <tga/tga.h>
 
 int main(int argc, char* argv[]) {
 	if(argc < 2) {

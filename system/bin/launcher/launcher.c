@@ -6,7 +6,7 @@
 #include <vprintf.h>
 #include <x/xclient.h>
 #include <sconf.h>
-#include <graph/tga.h>
+#include <tga/tga.h>
 
 #define ITEM_MAX 16
 

@@ -6,4 +6,4 @@ PROGS += $(LAUNCHER)
 CLEAN += $(LAUNCHER_OBJS)
 
 $(LAUNCHER): $(LAUNCHER_OBJS)
-	$(LD) -Ttext=100 $(LAUNCHER_OBJS) -o $(LAUNCHER) $(LDFLAGS) -lgraph -lx -lsconf -lewokc
+	$(LD) -Ttext=100 $(LAUNCHER_OBJS) -o $(LAUNCHER) $(LDFLAGS) -lgraph -ltga -lx -lsconf -lewokc
