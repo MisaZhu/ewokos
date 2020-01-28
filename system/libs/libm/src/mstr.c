@@ -2,6 +2,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <vprintf.h>
+#include <stdarg.h>
 
 /** str functions.-----------------------------*/
 
@@ -222,4 +223,25 @@ int str_to(const char* str, char c, str_t* res, uint8_t skipspace) {
 	}
 
 	return i;
+}
+
+static void outc(char c, void* p) {
+	str_t* buf = (str_t*)p;
+	str_addc(buf, c);
+}
+
+str_t* str_format(str_t* str, const char *format, ...) {
+	str_reset(str);
+	va_list ap;
+	va_start(ap, format);
+	v_printf(outc, str, format, ap);
+	return str;
+}
+
+str_t* str_format_new(const char *format, ...) {
+	str_t* str = str_new(NULL);
+	va_list ap;
+	va_start(ap, format);
+	v_printf(outc, str, format, ap);
+	return str;
 }
