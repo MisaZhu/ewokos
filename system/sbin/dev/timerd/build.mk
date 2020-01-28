@@ -6,4 +6,4 @@ PROGS += $(TIMERD)
 CLEAN += $(TIMERD_OBJS)
 
 $(TIMERD): $(TIMERD_OBJS) $(LIB_OBJS)
-	$(LD) -Ttext=100 $(TIMERD_OBJS) -o $(TIMERD) $(LDFLAGS) -lewokc
+	$(LD) -Ttext=100 $(TIMERD_OBJS) -o $(TIMERD) $(LDFLAGS) -lewokc -lc

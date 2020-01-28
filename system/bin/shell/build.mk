@@ -6,4 +6,4 @@ PROGS += $(SHELL_)
 CLEAN += $(SHELL__OBJS)
 
 $(SHELL_): $(SHELL__OBJS)
-	$(LD) -Ttext=100 $(SHELL__OBJS) -o $(SHELL_) $(LDFLAGS) -lewokc
+	$(LD) -Ttext=100 $(SHELL__OBJS) -o $(SHELL_) $(LDFLAGS) -lewokc -lc

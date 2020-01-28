@@ -6,4 +6,4 @@ PROGS += $(XCONSOLE)
 CLEAN += $(XCONSOLE_OBJS)
 
 $(XCONSOLE): $(XCONSOLE_OBJS)
-	$(LD) -Ttext=100 $(XCONSOLE_OBJS) -o $(XCONSOLE) $(LDFLAGS) -lgraph -lconsole -lx -lsconf -lewokc
+	$(LD) -Ttext=100 $(XCONSOLE_OBJS) -o $(XCONSOLE) $(LDFLAGS) -lgraph -lconsole -lx -lsconf -lewokc -lc

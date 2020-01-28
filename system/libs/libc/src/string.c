@@ -4,14 +4,22 @@
  * memcmp copies n bytes from the source buffer to the target buffer. It returns
  * the point32_ter to the target.
  */
+extern void *__memcpy32(void *target, const void *source, uint32_t n);
 inline void *memcpy(void *target, const void *source, uint32_t n) {
+	critical_enter();
 	char *target_buffer = (char *) target;
 	char *source_buffer = (char *) source;
-	uint32_t m = 0;
+	uint32_t m = (n / 28);
+	if(m > 0) {
+		m *= 28;
+		__memcpy32(target_buffer, source_buffer, m);
+	}
+
 	while(m < n) {
 		target_buffer[m] = source_buffer[m];
 		++m;
 	}
+	critical_quit();
 	return target;
 }
 

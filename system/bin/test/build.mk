@@ -6,5 +6,5 @@ PROGS += $(TEST)
 CLEAN += $(TEST_OBJS)
 
 $(TEST): $(TEST_OBJS)
-	$(LD) -Ttext=100 $(TEST_OBJS) -o $(TEST) $(LDFLAGS) -lewokc
+	$(LD) -Ttext=100 $(TEST_OBJS) -o $(TEST) $(LDFLAGS) -lewokc -lc
 	$(OBJDUMP) -D $(TEST) > $(BUILD_DIR)/asm/test.asm

@@ -914,75 +914,21 @@ static void* read_thread(void* p) {
 				}
 			}
 		}
-		usleep(10000);
+		usleep(5000);
 	}
 	return NULL;
 }
-
-/*static void read_event(x_t* x) {
-	//read keyb
-	if(x->keyb_fd >= 0) {
-		int8_t v;
-		int rd = read_nblock(x->keyb_fd, &v, 1);
-		if(rd == 1) {
-			xview_t* topv = get_top_view(x);
-			if(topv != NULL) {
-				xview_event_t* e = (xview_event_t*)malloc(sizeof(xview_event_t));
-				e->next = NULL;
-				e->event.type = XEVT_KEYB;
-				e->event.value.keyboard.value = v;
-
-				proc_lock(x->lock);
-				x_push_event(topv, e, 1);
-				proc_unlock(x->lock);
-			}
-		}
-	}
-
-	//read mouse
-	if(x->mouse_fd >= 0) {
-		int8_t mv[4];
-		if(read_nblock(x->mouse_fd, mv, 4) == 4) {
-			proc_lock(x->lock);
-			mouse_handle(x, mv[0], mv[1], mv[2]);
-			x->need_repaint = true;
-			proc_unlock(x->lock);
-		}
-	}
-
-	//read joystick
-	if(x->joystick_fd >= 0) {
-		uint8_t key;
-		int8_t mv[4];
-		if(read(x->joystick_fd, &key, 1) == 1) {
-			joy_2_mouse(key, mv);
-			if(key == 0 && prs_down) {
-				key = 1;
-				prs_down = false;
-				mv[0] = 1;
-			}
-			if(key != 0) {
-				proc_lock(x->lock);
-				mouse_handle(x, mv[0], mv[1], mv[2]);
-				x->need_repaint = true;
-				proc_unlock(x->lock);
-			}
-		}
-	}
-}
-*/
 
 static int xserver_loop_step(void* p) {
 	x_t* x = (x_t*)p;
 	if(!x->actived)  {
 		return -1;
 	}
-	//read_event(x);
 
 	proc_lock(x->lock);
 	x_repaint(x);	
 	proc_unlock(x->lock);
-	usleep(1000);
+	usleep(300);
 	return 0;
 }
 

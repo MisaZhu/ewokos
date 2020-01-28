@@ -9,5 +9,5 @@ PROGS += $(INIT)
 CLEAN += $(INIT_OBJS)
 
 $(INIT): $(INIT_OBJS) 
-	$(LD) -Ttext=100 $(INIT_OBJS) -o $(INIT) $(LDFLAGS) -lewokc -lext2
+	$(LD) -Ttext=100 $(INIT_OBJS) -o $(INIT) $(LDFLAGS) -lewokc -lext2 -lc
 	$(OBJDUMP) -D $(INIT) > $(BUILD_DIR)/asm/init.asm

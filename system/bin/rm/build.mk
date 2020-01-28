@@ -6,4 +6,4 @@ PROGS += $(RM)
 CLEAN += $(RM_OBJS)
 
 $(RM): $(RM_OBJS)
-	$(LD) -Ttext=100 $(RM_OBJS) -o $(RM) $(LDFLAGS) -lewokc
+	$(LD) -Ttext=100 $(RM_OBJS) -o $(RM) $(LDFLAGS) -lewokc -lc

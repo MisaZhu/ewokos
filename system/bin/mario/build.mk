@@ -8,4 +8,4 @@ CLEAN += $(MARIO_OBJS)
 #CFLAGS += -DMARIO_DEBUG
 
 $(MARIO): $(MARIO_OBJS)
-	$(LD) -Ttext=100 $(MARIO_OBJS) -o $(MARIO) $(LDFLAGS) -lewokc -lmario
+	$(LD) -Ttext=100 $(MARIO_OBJS) -o $(MARIO) $(LDFLAGS) -lewokc -lmario -lc

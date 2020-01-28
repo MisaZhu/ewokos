@@ -6,4 +6,4 @@ PROGS += $(GREP)
 CLEAN += $(GREP_OBJS)
 
 $(GREP): $(GREP_OBJS)
-	$(LD) -Ttext=100 $(GREP_OBJS) -o $(GREP) $(LDFLAGS) -lewokc
+	$(LD) -Ttext=100 $(GREP_OBJS) -o $(GREP) $(LDFLAGS) -lewokc -lc

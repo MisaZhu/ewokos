@@ -6,4 +6,4 @@ PROGS += $(PNG_TEST)
 CLEAN += $(PNG_TEST_OBJS)
 
 $(PNG_TEST): $(PNG_TEST_OBJS)
-	$(LD) -Ttext=100 $(PNG_TEST_OBJS) -o $(PNG_TEST) $(LDFLAGS) -lgraph -lx -lupng -lewokc
+	$(LD) -Ttext=100 $(PNG_TEST_OBJS) -o $(PNG_TEST) $(LDFLAGS) -lgraph -lx -lupng -lewokc -lc

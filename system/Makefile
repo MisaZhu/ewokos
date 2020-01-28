@@ -125,7 +125,6 @@ LIB_LIBC_OBJS = $(LIB_LIBC_DIR)/src/unistd.o \
 	$(LIB_LIBC_DIR)/src/stdlib.o \
 	$(LIB_LIBC_DIR)/src/fcntl.o \
 	$(LIB_LIBC_DIR)/src/vprintf.o \
-	$(LIB_LIBC_DIR)/src/string.o \
 	$(LIB_LIBC_DIR)/src/pthread.o \
 	$(LIB_LIBC_DIR)/src/stdio.o
 
@@ -182,9 +181,6 @@ include $(ROOT_DIR)/sbin/dev/arch/versatilepb/sdd/build.mk
 
 include $(ROOT_DIR)/sbin/dev/arch/raspi2/ttyd/build.mk
 include $(ROOT_DIR)/sbin/dev/arch/raspi2/sdd/build.mk
-include $(ROOT_DIR)/sbin/dev/arch/raspi2/actledd/build.mk
-include $(ROOT_DIR)/sbin/dev/arch/raspi2/gpiod/build.mk
-include $(ROOT_DIR)/sbin/dev/arch/raspi2/spid/build.mk
 
 include $(ROOT_DIR)/sbin/dev/arch/raspi/ttyd/build.mk
 include $(ROOT_DIR)/sbin/dev/arch/raspi/sdd/build.mk

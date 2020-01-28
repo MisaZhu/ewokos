@@ -6,4 +6,4 @@ PROGS += $(GTEST)
 CLEAN += $(GTEST_OBJS)
 
 $(GTEST): $(GTEST_OBJS)
-	$(LD) -Ttext=100 $(GTEST_OBJS) -o $(GTEST) $(LDFLAGS) -lgraph -lx -lewokc
+	$(LD) -Ttext=100 $(GTEST_OBJS) -o $(GTEST) $(LDFLAGS) -lgraph -lx -lewokc -lc

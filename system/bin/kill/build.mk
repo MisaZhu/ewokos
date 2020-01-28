@@ -6,4 +6,4 @@ PROGS += $(KILL)
 CLEAN += $(KILL_OBJS)
 
 $(KILL): $(KILL_OBJS)
-	$(LD) -Ttext=100 $(KILL_OBJS) -o $(KILL) $(LDFLAGS) -lewokc
+	$(LD) -Ttext=100 $(KILL_OBJS) -o $(KILL) $(LDFLAGS) -lewokc -lc
