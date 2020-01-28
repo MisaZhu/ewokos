@@ -2,7 +2,7 @@
 #include <sys/vfs.h>
 #include <string.h>
 #include <stdlib.h>
-#include <graph/tga.h>
+#include <tga/tga.h>
 
 #define UNMAPPED_RGB 2
 #define RLE_RGB 10
