@@ -113,6 +113,7 @@ static void init_stdio(void) {
 	int fd = open("/dev/tty0", 0);
 	dup2(fd, 0);
 	dup2(fd, 1);
+	dup2(fd, 2);
 }
 
 static const char* read_line(int fd) {

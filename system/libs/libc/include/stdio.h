@@ -7,7 +7,7 @@ void printf(const char *format, ...);
 void kprintf(const char *format, ...);
 void dprintf(int fd, const char *format, ...);
 
-int getch(void);
+int  getch(void);
 void putch(int c);
 
 typedef struct {
@@ -22,5 +22,10 @@ int      fseek(FILE* fp, int offset, int whence);
 void     fclose(FILE* fp);
 void     rewind(FILE* fp);
 int      ftell(FILE* fp);
+void     fprintf(FILE* fp, const char *format, ...);
+
+extern FILE* stdin;
+extern FILE* stdout;
+extern FILE* stderr;
 
 #endif

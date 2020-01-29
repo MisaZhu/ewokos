@@ -52,12 +52,35 @@ static void init_cmd(void) {
 	syscall3(SYS_PROC_GET_CMD, getpid(), (int32_t)_cmd, 1023);
 }
 
+FILE* stdin = NULL;
+FILE* stdout = NULL;
+FILE* stderr = NULL;
+
+static FILE _stdin;
+static FILE _stdout;
+static FILE _stderr;
+
+static void init_stdio(void) {
+	_stdin.fd = 0;
+	_stdin.oflags = O_RDONLY;
+	stdin = &_stdin;
+
+	_stdout.fd = 1;
+	_stdout.oflags = O_WRONLY;
+	stdout = &_stdout;
+
+	_stderr.fd = 2;
+	_stderr.oflags = O_WRONLY;
+	stderr = &_stderr;
+}
+
 #define ARG_MAX 16
 
 void _start(void) {
 	char* argv[ARG_MAX];
 	int32_t argc = 0;
 
+	init_stdio();
 	init_cmd();
 
 	while(argc < ARG_MAX) {

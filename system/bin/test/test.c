@@ -9,7 +9,7 @@ void int_func(int int_id, void* p) {
 	uint32_t tic;
 	syscall1(SYS_GET_KERNEL_USEC, (int32_t)&usec);
 	tic = syscall0(SYS_GET_KERNEL_TIC);
-	printf("interrupt id=%d, i=%d, tic=%d, usec=%d\n", int_id, *(int*)p, tic, usec );
+	fprintf(stderr, "interrupt id=%d, i=%d, tic=%d, usec=%d\n", int_id, *(int*)p, tic, usec );
 }
 
 int main(int argc, char** argv) {

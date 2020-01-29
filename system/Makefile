@@ -19,6 +19,7 @@ CFLAGS = -Wstrict-prototypes \
          -fno-builtin-memset \
          -fno-builtin-snprintf \
          -fno-builtin-sprintf \
+         -fno-builtin-fprintf \
 				 -Wno-overlength-strings \
          -fno-builtin-exit -fno-builtin-stdio \
 				 -std=c99 
