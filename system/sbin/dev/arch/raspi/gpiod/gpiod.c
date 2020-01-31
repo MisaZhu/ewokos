@@ -54,6 +54,6 @@ int main(int argc, char** argv) {
 	strcpy(dev.name, "gpio");
 	dev.fcntl = gpio_fcntl;
 
-	device_run(&dev, mnt_point, FS_TYPE_DEV, NULL, 1);
+	device_run(&dev, mnt_point, FS_TYPE_CHAR, NULL, 1);
 	return 0;
 }

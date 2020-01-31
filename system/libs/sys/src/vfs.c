@@ -42,16 +42,8 @@ int  vfs_access(const char* fname) {
 	return vfs_get(fname, &info);
 }
 
-int vfs_first_kid(fsinfo_t* info, fsinfo_t* ret) {
-	return syscall2(SYS_VFS_FKID, (int32_t)info, (int32_t)ret);
-}
-
-int vfs_next(fsinfo_t* info, fsinfo_t* ret) {
-	return syscall2(SYS_VFS_NEXT, (int32_t)info, (int32_t)ret);
-}
-
-int vfs_father(fsinfo_t* info, fsinfo_t* ret) {
-	return syscall2(SYS_VFS_FATHER, (int32_t)info, (int32_t)ret);
+fsinfo_t* vfs_kids(fsinfo_t* info, uint32_t *num) {
+	return (fsinfo_t*)syscall2(SYS_VFS_KIDS, (int32_t)info, (int32_t)num);
 }
 
 int vfs_set(fsinfo_t* info) {
@@ -148,7 +140,7 @@ int vfs_create(const char* fname, fsinfo_t* ret, int type) {
 		vfs_del(ret);
 		return -1;
 	}
-	if(type == FS_TYPE_DEV)
+	if(type == FS_TYPE_CHAR || type == FS_TYPE_BLOCK)
 		return 0;
 	
 	proto_t in, out;

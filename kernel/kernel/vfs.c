@@ -431,3 +431,27 @@ int32_t vfs_tell(int32_t fd) {
 
 	return file->seek;
 }
+
+fsinfo_t* vfs_kids(vfs_node_t* father, uint32_t* num) {
+	*num = 0;
+	if(father == NULL || father->kids_num == 0)
+		return NULL;
+	
+	uint32_t n = father->kids_num;
+	fsinfo_t* ret = (fsinfo_t*)proc_malloc(n * sizeof(fsinfo_t));
+	if(ret == NULL) {
+		*num = 0;
+		return NULL;
+	}
+
+	uint32_t i = 0;
+	vfs_node_t* node = father->first_kid;
+	while(node != NULL && i<n) {
+		memcpy(&ret[i], &node->fsinfo, sizeof(fsinfo_t));
+		node = node->next;
+		i++;
+	}
+
+	*num = i;
+	return ret;
+}

@@ -192,28 +192,11 @@ static int32_t sys_vfs_get_info(const char* name, fsinfo_t* info) {
 	return 0;
 }
 
-static int32_t sys_vfs_get_fkid(fsinfo_t* info, fsinfo_t* ret) {
+static int32_t sys_vfs_get_kids(fsinfo_t* info, uint32_t* ret) {
 	vfs_node_t* node = (vfs_node_t*)info->node;
-	if(node == NULL || node->first_kid == NULL || ret == NULL)
-		return -1;
-	get_fsinfo(node->first_kid, ret);
-	return 0;
-}
-
-static int32_t sys_vfs_get_next(fsinfo_t* info, fsinfo_t* ret) {
-	vfs_node_t* node = (vfs_node_t*)info->node;
-	if(node == NULL || node->next == NULL || ret == NULL)
-		return -1;
-	get_fsinfo(node->next, ret);
-	return 0;
-}
-
-static int32_t sys_vfs_get_father(fsinfo_t* info, fsinfo_t* ret) {
-	vfs_node_t* node = (vfs_node_t*)info->node;
-	if(node == NULL || node->father == NULL || ret == NULL)
-		return -1;
-	get_fsinfo(node->father, ret);
-	return 0;
+	if(node == NULL || ret == NULL)
+		return 0;
+	return (int32_t)vfs_kids(node, ret);
 }
 
 static int32_t sys_vfs_set_info(fsinfo_t* info) {
@@ -734,14 +717,8 @@ void svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_t arg2, context
 	case SYS_VFS_GET:
 		ctx->gpr[0] = sys_vfs_get_info((const char*)arg0, (fsinfo_t*)arg1);
 		return;
-	case SYS_VFS_FKID:
-		ctx->gpr[0] = sys_vfs_get_fkid((fsinfo_t*)arg0, (fsinfo_t*)arg1);
-		return;
-	case SYS_VFS_NEXT:
-		ctx->gpr[0] = sys_vfs_get_next((fsinfo_t*)arg0, (fsinfo_t*)arg1);
-		return;
-	case SYS_VFS_FATHER:
-		ctx->gpr[0] = sys_vfs_get_father((fsinfo_t*)arg0, (fsinfo_t*)arg1);
+	case SYS_VFS_KIDS:
+		ctx->gpr[0] = sys_vfs_get_kids((fsinfo_t*)arg0, (uint32_t*)arg1);
 		return;
 	case SYS_VFS_SET:
 		ctx->gpr[0] = sys_vfs_set_info((fsinfo_t*)arg0);

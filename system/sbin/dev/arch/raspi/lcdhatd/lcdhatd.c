@@ -401,7 +401,7 @@ int main(int argc, char** argv) {
 	dev.dma   = lcd_dma;
 	dev.fcntl = lcd_fcntl;
 
-	device_run(&dev, mnt_point, FS_TYPE_DEV, &dma, 1);
+	device_run(&dev, mnt_point, FS_TYPE_CHAR, &dma, 1);
 
 	close(_gpio_fd);
 	shm_unmap(dma.shm_id);

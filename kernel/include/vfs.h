@@ -26,6 +26,8 @@ int32_t vfs_set(vfs_node_t* node, fsinfo_t* info);
 
 vfs_node_t* vfs_get(vfs_node_t* father, const char* name);
 
+fsinfo_t* vfs_kids(vfs_node_t* father, uint32_t* num);
+
 vfs_node_t* vfs_node_by_fd(int32_t fd);
 
 int32_t vfs_get_mount(vfs_node_t* node, mount_t* mount);

@@ -3,7 +3,7 @@
 #include <vprintf.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/vfs.h>
+#include <dirent.h>
 
 int main(int argc, char* argv[]) {
 	(void)argc;
@@ -17,27 +17,26 @@ int main(int argc, char* argv[]) {
 	else 
 		r = getcwd(cwd, FS_FULL_NAME_MAX);
 
-	fsinfo_t info;
-	if(vfs_get(r, &info) != 0)
+	DIR* dirp = opendir(r);
+	if(dirp == NULL)
 		return -1;
-	if(vfs_first_kid(&info, &info) != 0)
-		return -1;
-
-	printf("  NAME                     TYPE  OWNER  SIZE\n");
+	printf("  NAME                     TYPE  SIZE\n");
 	while(1) {
-		int sz = (info.size/1024);
-		if(info.size != 0 && sz == 0)
+		struct dirent* it = readdir(dirp);
+		if(it == NULL)
+			break;
+
+		int sz = it->d_reclen / 1024;
+		if(it->d_reclen != 0 && sz == 0)
 			sz++;
 
-		if(info.type == FS_TYPE_FILE)
-			printf("  %24s  f    %4d   %dK\n", info.name, info.owner, sz);
-		else if(info.type == FS_TYPE_DIR)
-			printf("  %24s  r    %4d   %d\n", info.name, info.owner, info.size);
-		else //if(info.type == FS_TYPE_DEV)
-			printf("  %24s  d    %4d   %d\n", info.name, info.owner, info.size);
-
-		if(vfs_next(&info, &info) != 0)
-			break;
+		if(it->d_type == DT_REG)
+			printf("  %24s  f    %dK\n", it->d_name, sz);
+		else if(it->d_type == DT_DIR)
+			printf("  %24s  r    %d\n", it->d_name, it->d_reclen);
+		else if(it->d_type == DT_BLK || it->d_type == DT_CHR)
+			printf("  %24s  d    %d\n", it->d_name, it->d_reclen);
 	}
+	closedir(dirp);
 	return 0;
 }

@@ -965,7 +965,7 @@ int main(int argc, char** argv) {
 		prs_down = false;
 		j_mouse = true;
 		pthread_create(NULL, NULL, read_thread, &x);
-		device_run(&dev, mnt_point, FS_TYPE_DEV, &x, 0);
+		device_run(&dev, mnt_point, FS_TYPE_CHAR, &x, 0);
 		x_close(&x);
 	}
 	return 0;
