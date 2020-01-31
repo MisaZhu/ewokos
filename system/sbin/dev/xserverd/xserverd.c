@@ -8,7 +8,7 @@
 #include <dev/device.h>
 #include <sys/shm.h>
 #include <graph/graph.h>
-#include <dev/fbinfo.h>
+#include <fbinfo.h>
 #include <sys/ipc.h>
 #include <x/xcntl.h>
 #include <x/xevent.h>

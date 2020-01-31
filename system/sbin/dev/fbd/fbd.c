@@ -4,11 +4,11 @@
 #include <string.h>
 #include <sys/vfs.h>
 #include <sys/vdevice.h>
-#include <dev/fbinfo.h>
 #include <sys/syscall.h>
 #include <dev/device.h>
 #include <graph/graph.h>
 #include <sys/shm.h>
+#include <fbinfo.h>
 #include <sys/critical.h>
 
 typedef struct {

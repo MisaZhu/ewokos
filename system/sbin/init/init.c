@@ -3,7 +3,6 @@
 #include <unistd.h>
 #include <string.h>
 #include <fcntl.h>
-#include <dev/fbinfo.h>
 #include <sys/syscall.h>
 #include <dev/device.h>
 #include <sys/shm.h>
