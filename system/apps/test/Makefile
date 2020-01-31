@@ -31,7 +31,10 @@ TEST_OBJS = test.o
 
 TEST = $(TARGET_DIR)/bin/test
 
-$(TEST): $(TEST_OBJS)
+$(TEST): $(TEST_OBJS) \
+		$(TARGET_DIR)/lib/libewokc.a \
+		$(TARGET_DIR)/lib/libx.a \
+		$(TARGET_DIR)/lib/libgraph.a
 	$(LD) -Ttext=100 $(TEST_OBJS) -o $(TEST) $(LDFLAGS) -lgraph -lx -lewokc -lc
 
 clean:

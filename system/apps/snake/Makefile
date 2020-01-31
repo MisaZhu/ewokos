@@ -31,7 +31,10 @@ SNAKE_OBJS = snake.o
 
 SNAKE = $(TARGET_DIR)/bin/snake
 
-$(SNAKE): $(SNAKE_OBJS)
+$(SNAKE): $(SNAKE_OBJS) \
+		$(TARGET_DIR)/lib/libewokc.a \
+		$(TARGET_DIR)/lib/libx.a \
+		$(TARGET_DIR)/lib/libgraph.a
 	$(LD) -Ttext=100 $(SNAKE_OBJS) -o $(SNAKE) $(LDFLAGS) -lgraph -lx -lewokc -lc
 
 clean:

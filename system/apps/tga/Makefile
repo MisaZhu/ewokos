@@ -31,7 +31,11 @@ TGA_OBJS = tga.o
 
 TGA = $(TARGET_DIR)/bin/tga
 
-$(TGA): $(TGA_OBJS)
+$(TGA): $(TGA_OBJS) \
+		$(TARGET_DIR)/lib/libewokc.a \
+		$(TARGET_DIR)/lib/libtga.a \
+		$(TARGET_DIR)/lib/libx.a \
+		$(TARGET_DIR)/lib/libgraph.a
 	$(LD) -Ttext=100 $(TGA_OBJS) -o $(TGA) $(LDFLAGS) -lgraph -lx -ltga -lewokc -lc
 
 clean:

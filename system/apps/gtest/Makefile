@@ -31,7 +31,10 @@ GTEST_OBJS = gtest.o
 
 GTEST = $(TARGET_DIR)/bin/gtest
 
-$(GTEST): $(GTEST_OBJS)
+$(GTEST): $(GTEST_OBJS) \
+		$(TARGET_DIR)/lib/libewokc.a \
+		$(TARGET_DIR)/lib/libx.a \
+		$(TARGET_DIR)/lib/libgraph.a
 	$(LD) -Ttext=100 $(GTEST_OBJS) -o $(GTEST) $(LDFLAGS) -lgraph -lx -lewokc -lc
 
 clean:

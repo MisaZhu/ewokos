@@ -31,7 +31,9 @@ MARIO_OBJS = mario.o shell.o
 
 MARIO = $(TARGET_DIR)/bin/mario
 
-$(MARIO): $(MARIO_OBJS)
+$(MARIO): $(MARIO_OBJS) \
+		$(TARGET_DIR)/lib/libewokc.a \
+		$(TARGET_DIR)/lib/libmario.a
 	$(LD) -Ttext=100 $(MARIO_OBJS) -o $(MARIO) $(LDFLAGS) -lmario -lewokc -lc
 
 clean:

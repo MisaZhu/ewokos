@@ -31,7 +31,11 @@ XCONSOLE_OBJS = xconsole.o
 
 XCONSOLE = $(TARGET_DIR)/bin/xconsole
 
-$(XCONSOLE): $(XCONSOLE_OBJS)
+$(XCONSOLE): $(XCONSOLE_OBJS) \
+		$(TARGET_DIR)/lib/libewokc.a \
+		$(TARGET_DIR)/lib/libconsole.a \
+		$(TARGET_DIR)/lib/libgraph.a \
+		$(TARGET_DIR)/lib/libx.a
 	$(LD) -Ttext=100 $(XCONSOLE_OBJS) -o $(XCONSOLE) $(LDFLAGS) -lgraph -lx -lsconf -lconsole -lewokc -lc
 
 clean:

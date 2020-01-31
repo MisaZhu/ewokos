@@ -31,7 +31,11 @@ PNG_OBJS = png.o
 
 PNG = $(TARGET_DIR)/bin/png
 
-$(PNG): $(PNG_OBJS)
+$(PNG): $(PNG_OBJS) \
+		$(TARGET_DIR)/lib/libewokc.a \
+		$(TARGET_DIR)/lib/libupng.a \
+		$(TARGET_DIR)/lib/libgraph.a \
+		$(TARGET_DIR)/lib/libx.a
 	$(LD) -Ttext=100 $(PNG_OBJS) -o $(PNG) $(LDFLAGS) -lgraph -lx -lupng -lewokc -lc
 
 clean:

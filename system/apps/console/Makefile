@@ -31,7 +31,10 @@ CONSOLE_OBJS = console.o
 
 CONSOLE = $(TARGET_DIR)/bin/console
 
-$(CONSOLE): $(CONSOLE_OBJS)
+$(CONSOLE): $(CONSOLE_OBJS) \
+		$(TARGET_DIR)/lib/libewokc.a \
+		$(TARGET_DIR)/lib/libconsole.a \
+		$(TARGET_DIR)/lib/libgraph.a
 	$(LD) -Ttext=100 $(CONSOLE_OBJS) -o $(CONSOLE) $(LDFLAGS) -lgraph -lsconf -lconsole -lewokc -lc
 
 clean:
