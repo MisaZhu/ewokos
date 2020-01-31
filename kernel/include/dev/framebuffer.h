@@ -1,7 +1,7 @@
 #ifndef FRAMEBUFFER_H
 #define FRAMEBUFFER_H
 
-#include <dev/fbinfo.h>
+#include <fbinfo.h>
 #include <dev/kdevice.h>
 
 extern char _framebuffer_base_raw[];

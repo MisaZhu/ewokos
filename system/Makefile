@@ -153,6 +153,7 @@ KERNEL_H = ../kernel/include/fsinfo.h \
 	../kernel/include/proto.h \
 	../kernel/include/usinterrupt.h \
 	../kernel/include/syscalls.h \
+	../kernel/include/fbinfo.h \
 	../kernel/include/types.h
 
 libs: $(LIB_OBJS)
@@ -206,15 +207,12 @@ include $(ROOT_DIR)/bin/cat/build.mk
 include $(ROOT_DIR)/bin/ps/build.mk
 include $(ROOT_DIR)/bin/echo/build.mk
 include $(ROOT_DIR)/bin/ls/build.mk
-include $(ROOT_DIR)/bin/dump/build.mk
 include $(ROOT_DIR)/bin/mount/build.mk
 include $(ROOT_DIR)/bin/uname/build.mk
 include $(ROOT_DIR)/bin/grep/build.mk
 include $(ROOT_DIR)/bin/kill/build.mk
 include $(ROOT_DIR)/bin/mkdir/build.mk
 include $(ROOT_DIR)/bin/rm/build.mk
-include $(ROOT_DIR)/bin/console/build.mk
-include $(ROOT_DIR)/bin/xconsole/build.mk
 include $(ROOT_DIR)/bin/launcher/build.mk
 include $(ROOT_DIR)/bin/session/build.mk
 

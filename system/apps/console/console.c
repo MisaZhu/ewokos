@@ -8,7 +8,7 @@
 #include <sys/shm.h>
 #include <sconf.h>
 #include <sys/global.h>
-#include <dev/fbinfo.h>
+#include <fbinfo.h>
 #include <sys/thread.h>
 
 typedef struct {
