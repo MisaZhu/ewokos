@@ -149,6 +149,12 @@ SD = $(BUILD_DIR)/sd.ext2
 all: mkdirs libs apps
 	@echo "all done."
 
+KERNEL_H = ../kernel/include/fsinfo.h \
+	../kernel/include/proto.h \
+	../kernel/include/usinterrupt.h \
+	../kernel/include/syscalls.h \
+	../kernel/include/types.h
+
 libs: $(LIB_OBJS)
 	$(AR) rT $(TARGET_DIR)/lib/libewokc.a $(LIB_SYS_OBJS)  $(LIB_LIBC_OBJS) $(LIB_M_OBJS)
 	@cp -r $(LIB_SYS_DIR)/include/* $(LIB_LIBC_DIR)/include/* $(LIB_M_DIR)/include/* $(TARGET_DIR)/include/
@@ -168,6 +174,7 @@ libs: $(LIB_OBJS)
 	@cp -r $(LIB_UPNG_DIR)/include/* $(TARGET_DIR)/include/
 	$(AR) rT $(TARGET_DIR)/lib/libtga.a $(LIB_TGA_OBJS)
 	@cp -r $(LIB_TGA_DIR)/include/* $(TARGET_DIR)/include/
+	@cp -r $(KERNEL_H) $(TARGET_DIR)/include/
 
 include $(ROOT_DIR)/sbin/init/build.mk
 include $(ROOT_DIR)/sbin/dev/fbd/build.mk
@@ -201,12 +208,7 @@ include $(ROOT_DIR)/bin/echo/build.mk
 include $(ROOT_DIR)/bin/ls/build.mk
 include $(ROOT_DIR)/bin/dump/build.mk
 include $(ROOT_DIR)/bin/mount/build.mk
-include $(ROOT_DIR)/bin/test/build.mk
 include $(ROOT_DIR)/bin/uname/build.mk
-include $(ROOT_DIR)/bin/tga/build.mk
-include $(ROOT_DIR)/bin/png/build.mk
-include $(ROOT_DIR)/bin/gtest/build.mk
-include $(ROOT_DIR)/bin/snake/build.mk
 include $(ROOT_DIR)/bin/grep/build.mk
 include $(ROOT_DIR)/bin/kill/build.mk
 include $(ROOT_DIR)/bin/mkdir/build.mk
@@ -215,7 +217,6 @@ include $(ROOT_DIR)/bin/console/build.mk
 include $(ROOT_DIR)/bin/xconsole/build.mk
 include $(ROOT_DIR)/bin/launcher/build.mk
 include $(ROOT_DIR)/bin/session/build.mk
-include $(ROOT_DIR)/bin/mario/build.mk
 
 mkdirs:
 	@mkdir -p ${TARGET_DIR}/$(ROOT_DIR)/sbin/dev/versatilepb
