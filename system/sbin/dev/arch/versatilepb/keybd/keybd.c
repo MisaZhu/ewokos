@@ -5,6 +5,7 @@
 #include <sys/vfs.h>
 #include <sys/vdevice.h>
 #include <sys/mmio.h>
+#include <sys/interrupt.h>
 
 #define KCNTL 0x00
 #define KSTAT 0x04
@@ -15,11 +16,9 @@
 #define KEYBOARD_BASE (_mmio_base+0x6000)
 
 static uint32_t _mmio_base = 0;
-static char _rd;
 int32_t keyb_init(void) {
-	_rd = 0;
 	_mmio_base = mmio_map();
-  //put8(KEYBOARD_BASE + KCNTL, 0x10); // bit4=Enable bit0=INT on
+  put8(KEYBOARD_BASE + KCNTL, 0x10); // bit4=Enable bit0=INT on
   put8(KEYBOARD_BASE + KCLK, 8);
 	return 0;
 }
@@ -53,12 +52,8 @@ static int32_t keyb_handle(void) {
 	scode = get8(KEYBOARD_BASE + KDATA);
 
 	if((scode == 0xF0)) {
-		_rd = 1;
 		return 0;
 	}
-
-	if(_rd == 0)
-		return 0;
 
 	if (_held[scode] == 1 && scode) {    // next scan code following key release
 		_held[scode] = 0;
@@ -89,6 +84,8 @@ static int32_t keyb_handle(void) {
 	return c;
 }
 
+static char _key = 0;
+
 static int keyb_read(int fd, int from_pid, fsinfo_t* info, 
 		void* buf, int size, int offset, void* p) {
 	(void)fd;
@@ -98,19 +95,28 @@ static int keyb_read(int fd, int from_pid, fsinfo_t* info,
 	(void)size;
 	(void)info;
 
-	char c = keyb_handle();
-	if(c == 0) {
+	if(_key == 0) {
 		return ERR_RETRY;
 	}
-	_rd = 0;
-	((char*)buf)[0] = c;
+	((char*)buf)[0] = _key;
+	_key = 0;
 	return 1;
+}
+
+void int_func(int int_id, void* p) {
+	(void)p;
+	if(int_id != US_INT_KEY)
+		return;
+	_key = keyb_handle();
 }
 
 int main(int argc, char** argv) {
 	const char* mnt_point = argc > 1 ? argv[1]: "/dev/keyb0";
 
 	keyb_init();
+	_key = 0;
+	proc_interrupt_setup(int_func, NULL);
+	proc_interrupt_register(US_INT_KEY);
 
 	vdevice_t dev;
 	memset(&dev, 0, sizeof(vdevice_t));
