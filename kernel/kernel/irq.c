@@ -23,12 +23,17 @@ static uint64_t _timer_usec = 0;
 static uint32_t _timer_mtic = 0;
 static uint32_t _timer_tic = 0;
 
+
 void irq_handler(context_t* ctx) {
 	__irq_disable();
 	_current_ctx = ctx;
 	bool uspace_int = false;
 
 	uint32_t irqs = gic_get_irqs();
+
+	if((irqs & IRQ_KEY) != 0) {
+		uspace_interrupt(ctx, US_INT_KEY);
+	}
 
 	/*
 	if((irqs & IRQ_SDC) != 0) {
@@ -101,7 +106,7 @@ void irq_init(void) {
 	uspace_interrupt_init();
 	//gic_set_irqs( IRQ_UART0 | IRQ_TIMER0 | IRQ_KEY | IRQ_MOUSE | IRQ_SDC);
 	//gic_set_irqs(IRQ_TIMER0 | IRQ_SDC);
-	gic_set_irqs(IRQ_TIMER0);
+	gic_set_irqs(IRQ_TIMER0 | IRQ_KEY);
 	__irq_enable();
 	_kernel_tic = 0;
 	_timer_usec = 0;

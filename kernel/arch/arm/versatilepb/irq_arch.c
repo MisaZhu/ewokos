@@ -16,6 +16,11 @@
 #define SIC_INT_MOUSE (1 << 4)
 #define SIC_INT_SDC (1 << 22)
 
+
+#define KDATA 0x08
+#define KEYBOARD_BASE (_mmio_base+0x6000)
+
+
 void irq_arch_init(void) {
 }
 
@@ -49,8 +54,10 @@ uint32_t gic_get_irqs(void) {
 		ret |= IRQ_UART0;
 
   if((pic->status & PIC_INT_SIC) != 0) {
-    if((sic->status & SIC_INT_KEY) != 0) 
+    if((sic->status & SIC_INT_KEY) != 0)  {
+			get8(KEYBOARD_BASE + KDATA); //read and clear interrupt
 			ret |= IRQ_KEY;
+		}
     if((sic->status & SIC_INT_MOUSE) != 0) 
 			ret |= IRQ_MOUSE;
     if((sic->status & SIC_INT_SDC) != 0)
