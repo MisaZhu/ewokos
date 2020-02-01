@@ -146,7 +146,7 @@ CLEAN = $(LIB_OBJS)
 
 SD = $(BUILD_DIR)/sd.ext2
 
-all: mkdirs libs apps
+all: mkdirs libs builtin_apps extra_apps
 	@echo "all done."
 
 KERNEL_H = ../kernel/include/fsinfo.h \
@@ -241,7 +241,19 @@ sd:
 	rm -r tmp
 	@echo "==== ext2 format sdcard image created  ====\n"
 
-apps: ${PROGS}
+builtin_apps: ${PROGS}
+
+APPS_DIR=apps
+extra_apps:
+	cd $(APPS_DIR)/test;make
+	cd $(APPS_DIR)/dump;make
+	cd $(APPS_DIR)/gtest;make
+	cd $(APPS_DIR)/snake;make
+	cd $(APPS_DIR)/console;make
+	cd $(APPS_DIR)/xconsole;make
+	cd $(APPS_DIR)/tga;make
+	cd $(APPS_DIR)/png;make
+	cd $(APPS_DIR)/mario;make
 
 KERNEL=../kernel/build/mkos.bin
 KERNEL_ELF=../kernel/build/mkos.elf
