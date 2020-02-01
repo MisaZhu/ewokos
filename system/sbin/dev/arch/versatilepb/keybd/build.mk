@@ -1,9 +1,0 @@
-VERSATILE_KEYBD_OBJS = $(ROOT_DIR)/sbin/dev/arch/versatilepb/keybd/keybd.o
-
-VERSATILE_KEYBD = $(TARGET_DIR)/$(ROOT_DIR)/sbin/dev/versatilepb/keybd
-
-PROGS += $(VERSATILE_KEYBD)
-CLEAN += $(VERSATILE_KEYBD_OBJS)
-
-$(VERSATILE_KEYBD): $(VERSATILE_KEYBD_OBJS) $(LIB_OBJS)
-	$(LD) -Ttext=100 $(VERSATILE_KEYBD_OBJS) -o $(VERSATILE_KEYBD) $(LDFLAGS) -lewokc -lc

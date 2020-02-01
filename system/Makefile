@@ -185,8 +185,8 @@ include $(ROOT_DIR)/sbin/dev/xserverd/build.mk
 include $(ROOT_DIR)/sbin/dev/rootfsd/build.mk
 include $(ROOT_DIR)/sbin/x/xwm/build.mk
 
-include $(ROOT_DIR)/sbin/dev/arch/versatilepb/keybd/build.mk
-include $(ROOT_DIR)/sbin/dev/arch/versatilepb/moused/build.mk
+include $(ROOT_DIR)/sbin/dev/arch/versatilepb/ps2keybd/build.mk
+include $(ROOT_DIR)/sbin/dev/arch/versatilepb/ps2moused/build.mk
 include $(ROOT_DIR)/sbin/dev/arch/versatilepb/ttyd/build.mk
 include $(ROOT_DIR)/sbin/dev/arch/versatilepb/sdd/build.mk
 
