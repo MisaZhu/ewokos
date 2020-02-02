@@ -107,7 +107,9 @@ extern void    proc_usleep(context_t* ctx, uint32_t usec);
 extern const char* proc_get_env(const char* name);
 extern const char* proc_get_env_name(int32_t index);
 extern const char* proc_get_env_value(int32_t index);
-extern int32_t proc_set_env(const char* name, const char* value);
+extern int32_t     proc_set_env(const char* name, const char* value);
+extern void        proc_set_interrupt_data(void* data, uint32_t size);
+extern void        proc_get_interrupt_data(rawdata_t* data);
 
 #define PROC_MAX 128
 

@@ -879,6 +879,9 @@ void svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_t arg2, context
 	case SYS_PROC_INTERRUPT:
 		sys_proc_interrupt(ctx, arg0, (uint32_t)arg1);
 		return;
+	case SYS_INTERRUPT_DATA:
+		uspace_get_interrupt_data(arg0, (rawdata_t*)arg1);
+		return;
 	}
 	printf("pid:%d, code(%d) error!\n", _current_proc->pid, code);
 }

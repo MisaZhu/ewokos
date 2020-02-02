@@ -7,10 +7,11 @@
 #include <sys/mmio.h>
 #include <sys/interrupt.h>
 #include <sys/charbuf.h>
+#include <sys/syscall.h>
+#include <rawdata.h>
 
 #define KCNTL 0x00
 #define KSTAT 0x04
-#define KDATA 0x08
 #define KCLK  0x0C
 #define KISTA 0x10
 
@@ -48,9 +49,14 @@ const char _utab[] = {
 static uint8_t _held[128] = {0};
 
 static int32_t keyb_handle(void) {
+	rawdata_t data;
 	uint8_t scode;
 	char c = 0;
-	scode = get8(KEYBOARD_BASE + KDATA);
+	syscall2(SYS_INTERRUPT_DATA, US_INT_KEY, (int32_t)&data);
+	if(data.size == 0)
+		return 0;
+	scode = *(uint8_t*)data.data;
+	free(data.data);
 
 	if((scode == 0xF0)) {
 		return 0;

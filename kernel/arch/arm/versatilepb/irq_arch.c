@@ -1,5 +1,6 @@
 #include <dev/gic.h>
 #include <kernel/irq.h>
+#include <kernel/uspace_int.h>
 #include <mm/mmu.h>
 #include <arch.h>
 
@@ -55,7 +56,8 @@ uint32_t gic_get_irqs(void) {
 
   if((pic->status & PIC_INT_SIC) != 0) {
     if((sic->status & SIC_INT_KEY) != 0)  {
-			get8(KEYBOARD_BASE + KDATA); //read and clear interrupt
+			uint8_t scode = get8(KEYBOARD_BASE + KDATA); //read and clear interrupt
+			uspace_set_interrupt_data(US_INT_KEY, &scode, 1);
 			ret |= IRQ_KEY;
 		}
     if((sic->status & SIC_INT_MOUSE) != 0) 
