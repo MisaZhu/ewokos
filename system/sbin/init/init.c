@@ -33,7 +33,7 @@ static void run_init_sd(const char* cmd) {
 	char devfn[FS_FULL_NAME_MAX];
 	snprintf(devfn, FS_FULL_NAME_MAX-1, "/sbin/dev/%s/%s", sysinfo.machine, cmd);
 
-	kprintf("init: load sd %8s ", "");
+	kprintf(false, "init: load sd %8s ", "");
 	int pid = fork();
 	if(pid == 0) {
 		sdinit_init();
@@ -44,19 +44,19 @@ static void run_init_sd(const char* cmd) {
 		ext2_quit(&ext2);
 
 		if(data == NULL) {
-			kprintf("[error!] (%s)\n", devfn);
+			kprintf(false, "[error!] (%s)\n", devfn);
 			exit(-1);
 		}
 		exec_elf(devfn, data, sz);
 		free(data);
 	}
 	wait_ready(pid);
-	kprintf("[ok]\n");
+	kprintf(false, "[ok]\n");
 }
 */
 
 static void run_init_root(const char* cmd) {
-	kprintf("init: %16s ", "/");
+	kprintf(false, "init: %16s ", "/");
 	int pid = fork();
 	if(pid == 0) {
 		sd_init();
@@ -70,25 +70,25 @@ static void run_init_root(const char* cmd) {
 		ext2_quit(&ext2);
 
 		if(data == NULL) {
-			kprintf("[error!] (%s)\n", cmd);
+			kprintf(false, "[error!] (%s)\n", cmd);
 			exit(-1);
 		}
 		exec_elf(cmd, data, sz);
 		free(data);
 	}
 	wait_ready(pid);
-	kprintf("[ok]\n");
+	kprintf(false, "[ok]\n");
 }
 
 static int run_dev(const char* cmd, bool prompt) {
 	if(prompt)
-		kprintf("init: %s ", cmd);
+		kprintf(false, "init: %s ", cmd);
 
 	int pid = fork();
 	if(pid == 0) {
 		if(exec(cmd) != 0) {
 			if(prompt)
-				kprintf("[error!]\n");
+				kprintf(false, "[error!]\n");
 			exit(-1);
 		}
 	}
@@ -96,7 +96,7 @@ static int run_dev(const char* cmd, bool prompt) {
 		wait_ready(pid);
 
 	if(prompt)
-		kprintf("[ok]\n");
+		kprintf(false, "[ok]\n");
 	return 0;
 }
 
@@ -104,7 +104,7 @@ static void run(const char* cmd) {
 	int pid = fork();
 	if(pid == 0) {
 		if(exec(cmd) != 0)
-			kprintf("init: run %s [error!]", cmd);
+			kprintf(false, "init: run %s [error!]", cmd);
 	}
 }
 
@@ -179,7 +179,7 @@ int main(int argc, char** argv) {
 	setenv("OS", "mkos");
 	setenv("PATH", "/sbin:/bin");
 
-	kprintf("\n[init process started]\n");
+	kprintf(false, "\n[init process started]\n");
 	//mount root fs
 	//run_init_sd("sdd");
 	run_init_root("/sbin/dev/rootfsd");

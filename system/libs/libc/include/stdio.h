@@ -2,9 +2,10 @@
 #define STDIO_H
 
 #include <fcntl.h>
+#include <types.h>
 
 void printf(const char *format, ...);
-void kprintf(const char *format, ...);
+void kprintf(bool tty_only, const char *format, ...);
 void dprintf(int fd, const char *format, ...);
 
 int  getch(void);

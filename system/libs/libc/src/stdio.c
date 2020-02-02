@@ -32,13 +32,13 @@ void printf(const char *format, ...) {
 	str_free(buf);
 }
 
-void kprintf(const char *format, ...) {
+void kprintf(bool tty_only, const char *format, ...) {
 	va_list ap;
 	str_t* buf = str_new("");
 	va_start(ap, format);
 	v_printf(outc, buf, format, ap);
 	va_end(ap);
-	syscall2(SYS_KPRINT, (int32_t)buf->cstr, (int32_t)buf->len);
+	syscall3(SYS_KPRINT, (int32_t)buf->cstr, (int32_t)buf->len, (int32_t)tty_only);
 	str_free(buf);
 }
 
