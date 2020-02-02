@@ -105,6 +105,7 @@ LIB_MARIO_OBJS = $(LIB_MARIO_DIR)/src/mario_bc.o \
 
 LIB_SYS_OBJS = $(LIB_SYS_DIR)/src/syscall.o \
 	$(LIB_SYS_DIR)/src/cmain.o \
+	$(LIB_SYS_DIR)/src/charbuf.o \
 	$(LIB_SYS_DIR)/src/vfs.o \
 	$(LIB_SYS_DIR)/src/ipc.o \
 	$(LIB_SYS_DIR)/src/vdevice.o \

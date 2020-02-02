@@ -6,6 +6,7 @@
 #include <sys/vdevice.h>
 #include <sys/mmio.h>
 #include <sys/interrupt.h>
+#include <sys/charbuf.h>
 
 #define KCNTL 0x00
 #define KSTAT 0x04
@@ -84,7 +85,7 @@ static int32_t keyb_handle(void) {
 	return c;
 }
 
-static char _key = 0;
+static charbuf_t _buffer;
 
 static int keyb_read(int fd, int from_pid, fsinfo_t* info, 
 		void* buf, int size, int offset, void* p) {
@@ -95,11 +96,11 @@ static int keyb_read(int fd, int from_pid, fsinfo_t* info,
 	(void)size;
 	(void)info;
 
-	if(_key == 0) {
+	char c;
+	if(charbuf_pop(&_buffer, &c) != 0 || c == 0)
 		return ERR_RETRY;
-	}
-	((char*)buf)[0] = _key;
-	_key = 0;
+
+	((char*)buf)[0] = c;
 	return 1;
 }
 
@@ -107,14 +108,15 @@ void int_func(int int_id, void* p) {
 	(void)p;
 	if(int_id != US_INT_KEY)
 		return;
-	_key = keyb_handle();
+	char c = keyb_handle();
+	charbuf_push(&_buffer, c, true);
 }
 
 int main(int argc, char** argv) {
 	const char* mnt_point = argc > 1 ? argv[1]: "/dev/keyb0";
 
 	keyb_init();
-	_key = 0;
+	charbuf_init(&_buffer);
 	proc_interrupt_setup(int_func, NULL);
 	proc_interrupt_register(US_INT_KEY);
 
