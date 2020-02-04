@@ -216,6 +216,6 @@ void  x_run(x_t* x, x_handle_func_t event_handle_func, x_step_func_t step_func, 
 		}
 		if(step_func != NULL)
 			step_func(x, p);
-		sleep(0);
+		usleep(10000);
 	}
 }
