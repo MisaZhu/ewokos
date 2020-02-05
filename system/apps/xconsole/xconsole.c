@@ -149,7 +149,6 @@ static int run(int argc, char* argv[]) {
 			console_put_char(&console, c);
 		}
 		x_update(xp);
-		usleep(10000);
 	}
 
 	console_close(&console);

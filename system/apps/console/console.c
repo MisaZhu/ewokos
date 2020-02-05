@@ -167,7 +167,6 @@ static int run(int argc, char* argv[]) {
 
 		if(actived == 1)
 			flush(console.fb_fd);
-		usleep(10000);
 	}
 	close(fd);
 	close_console(&console);
