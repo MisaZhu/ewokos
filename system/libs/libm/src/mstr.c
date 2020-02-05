@@ -85,8 +85,10 @@ char* str_add(str_t* str, const char* src) {
 }
 
 char* str_addc(str_t* str, char c) {
-	if(c == 0)
+	if(c == 0) {
+		str->cstr[str->len] = 0;
 		return str->cstr;
+	}
 
 	uint32_t new_size = str->len + 1;
 	if(str->max <= new_size) {
