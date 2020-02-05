@@ -151,7 +151,7 @@ static int run(int argc, char* argv[]) {
 		}
 		else if(size < 0) {
 			if(errno == EAGAIN) {
-				sleep(0);
+				usleep(10000);
 				continue;
 			}
 			else 
@@ -167,6 +167,7 @@ static int run(int argc, char* argv[]) {
 
 		if(actived == 1)
 			flush(console.fb_fd);
+		usleep(10000);
 	}
 	close(fd);
 	close_console(&console);

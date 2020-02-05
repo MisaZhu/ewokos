@@ -135,7 +135,7 @@ static int run(int argc, char* argv[]) {
 		}
 		else if(size < 0) {
 			if(errno == EAGAIN) {
-				sleep(0);
+				usleep(10000);
 				continue;
 			}
 			else 
@@ -149,6 +149,7 @@ static int run(int argc, char* argv[]) {
 			console_put_char(&console, c);
 		}
 		x_update(xp);
+		usleep(10000);
 	}
 
 	console_close(&console);
