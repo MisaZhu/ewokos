@@ -776,9 +776,9 @@ static int keyb_handle(x_t* x, int8_t v) {
 		e->event.type = XEVT_KEYB;
 		e->event.value.keyboard.value = v;
 
-		proc_lock(x->lock);
+		//proc_lock(x->lock);
 		x_push_event(topv, e, 1);
-		proc_unlock(x->lock);
+		//proc_unlock(x->lock);
 	}
 	usleep(50000);
 	return 0;
@@ -866,10 +866,10 @@ static void* read_thread(void* p) {
 		if(x->mouse_fd >= 0) {
 			int8_t mv[4];
 			if(read_nblock(x->mouse_fd, mv, 4) == 4) {
-				proc_lock(x->lock);
+				//proc_lock(x->lock);
 				mouse_handle(x, mv[0], mv[1], mv[2]);
 				x->need_repaint = true;
-				proc_unlock(x->lock);
+				//proc_unlock(x->lock);
 			}
 		}
 
@@ -896,10 +896,10 @@ static void* read_thread(void* p) {
 						mv[0] = 1;
 					}
 					if(key != 0) {
-						proc_lock(x->lock);
+						//proc_lock(x->lock);
 						mouse_handle(x, mv[0], mv[1], mv[2]);
 						x->need_repaint = true;
-						proc_unlock(x->lock);
+						//proc_unlock(x->lock);
 					}
 				}
 				else {
@@ -925,9 +925,9 @@ static int xserver_loop_step(void* p) {
 		return -1;
 	}
 
-	proc_lock(x->lock);
+	//proc_lock(x->lock);
 	x_repaint(x);	
-	proc_unlock(x->lock);
+	//proc_unlock(x->lock);
 	usleep(300);
 	return 0;
 }
