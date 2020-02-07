@@ -66,14 +66,16 @@ ARCH_OBJS = \
 	${ARCH_DIR}/${ARCH}/mailbox.o 
 
 ifeq ($(MACH),raspi)
-CFLAGS += -I${ARCH_DIR}/${ARCH}/extra -DWITH_LCDHAT \
-	-I../../csud/include
+CFLAGS += -I${ARCH_DIR}/${ARCH}/extra -DWITH_LCDHAT
 
 ARCH_OBJS += ${ARCH_DIR}/${ARCH}/extra/lib/gpio_arch.o  \
 	${ARCH_DIR}/${ARCH}/extra/lib/spi_arch.o \
 	${ARCH_DIR}/${ARCH}/extra/lcdhat/lcdhat.o \
 	${ARCH_DIR}/${ARCH}/cpu_freq.o
+endif
 
+ifeq ($(USB), yes)
+CFLAGS += -I../../csud/include -D RASPI_USB
 LDFLAGS += -L../../csud -lcsud
 endif
 

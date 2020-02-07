@@ -4,9 +4,9 @@
 #include <_types.h>
 
 #define MAILBOX_BASE (_mmio_base+0xB880)
-#define MAIL0_READ (((mail_message_t *)(0x00 + MAILBOX_BASE)))
-#define MAIL0_STATUS (((mail_status_t *)(0x18 + MAILBOX_BASE)))
-#define MAIL0_WRITE (((mail_message_t *)(0x20 + MAILBOX_BASE)))
+#define MAIL0_READ (((volatile mail_message_t *)(0x00 + MAILBOX_BASE)))
+#define MAIL0_STATUS (((volatile mail_status_t *)(0x18 + MAILBOX_BASE)))
+#define MAIL0_WRITE (((volatile mail_message_t *)(0x20 + MAILBOX_BASE)))
 #define PROPERTY_CHANNEL 8
 #define FRAMEBUFFER_CHANNEL 1
 

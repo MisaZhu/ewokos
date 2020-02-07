@@ -21,7 +21,7 @@
 #include <basic_math.h>
 #include <graph.h>
 
-#ifdef RASPI
+#ifdef RASPI_USB
 #include <usbd/usbd.h>
 #endif
 
@@ -97,7 +97,7 @@ static void fs_init(void) {
 	vfs_init();
 }
 
-#ifdef RASPI
+#ifdef RASPI_USB
 void LogPrint(const char* message, uint32_t messageLength) {
 	(void)messageLength;
 	printf(message);
@@ -127,8 +127,10 @@ void _kernel_entry_c(context_t* ctx) {
 	uart_dev_init();
 	init_console();
 
-#ifdef RASPI
+#ifdef RASPI_USB
 	usb_host_init();
+	printf("usb inited.\n");
+	while(1);
 #endif
 
 	printf("\n\n"
