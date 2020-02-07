@@ -1,7 +1,8 @@
 #ifndef C_BUF_H
 #define C_BUF_H
 
-#include <types.h>
+#include <stdint.h>
+#include <stdbool.h>
 
 #define CHAR_BUF_MAX 128
 

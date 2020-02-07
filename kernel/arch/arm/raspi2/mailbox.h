@@ -1,7 +1,7 @@
 #ifndef MAILBOX_H
 #define MAILBOX_H
 
-#include <types.h>
+#include <_types.h>
 
 #define MAILBOX_BASE (_mmio_base+0xB880)
 #define MAIL0_READ (((mail_message_t *)(0x00 + MAILBOX_BASE)))

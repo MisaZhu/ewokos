@@ -5,7 +5,8 @@ very tiny js engine in single file.
 #ifndef MARIO_BC
 #define MARIO_BC
 
-#include <types.h>
+#include <stdint.h>
+#include <stdbool.h>
 #include <marray.h>
 #include <mstr.h>
 #include <mstrx.h>

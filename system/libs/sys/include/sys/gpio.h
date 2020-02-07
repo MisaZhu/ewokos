@@ -1,7 +1,8 @@
 #ifndef GPIO_H
 #define GPIO_H
 
-#include <types.h>
+#include <stdint.h>
+#include <stddef.h>
 
 enum {
 	GPIO_PULL_NONE = 0,

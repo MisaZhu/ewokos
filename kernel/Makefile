@@ -45,6 +45,7 @@ CFLAGS += $(OPTM) \
 	-std=c99
 
 LDS = mkos.lds.sd.S
+LDFLAGS = -L ${ARCH_DIR}/${ARCH}
 
 ASFLAGS = $(OPTM) -I. -Iinclude -marm $(ARCH_QEMU_CFLAGS)
 
@@ -65,12 +66,15 @@ ARCH_OBJS = \
 	${ARCH_DIR}/${ARCH}/mailbox.o 
 
 ifeq ($(MACH),raspi)
-CFLAGS += -I${ARCH_DIR}/${ARCH}/extra -DWITH_LCDHAT
+CFLAGS += -I${ARCH_DIR}/${ARCH}/extra -DWITH_LCDHAT \
+	-I../../csud/include
 
 ARCH_OBJS += ${ARCH_DIR}/${ARCH}/extra/lib/gpio_arch.o  \
 	${ARCH_DIR}/${ARCH}/extra/lib/spi_arch.o \
 	${ARCH_DIR}/${ARCH}/extra/lcdhat/lcdhat.o \
 	${ARCH_DIR}/${ARCH}/cpu_freq.o
+
+LDFLAGS += -L../../csud -lcsud
 endif
 
 LIB_DIR = lib
@@ -117,7 +121,7 @@ SYS_DIR = ../system
 
 $(OS).bin: $(OBJS) ${LDS}
 	mkdir -p ${BUILD_DIR}
-	$(LD) -L ${ARCH_DIR}/${ARCH} -T ${LDS} $(OBJS) -o ${BUILD_DIR}/$(OS).elf
+	$(LD) $(OBJS) $(LDFLAGS) -T ${LDS} -o ${BUILD_DIR}/$(OS).elf
 	$(OBJCOPY) -O binary ${BUILD_DIR}/$(OS).elf ${BUILD_DIR}/$(OS).bin
 	$(OBJDUMP) -D ${BUILD_DIR}/$(OS).elf > ${BUILD_DIR}/$(OS).asm
 

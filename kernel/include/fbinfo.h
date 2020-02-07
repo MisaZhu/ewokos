@@ -1,7 +1,7 @@
 #ifndef FRAMEBUFFER_INFO_H
 #define FRAMEBUFFER_INFO_H
 
-#include <types.h>
+#include <_types.h>
 
 enum {
 	RES_640x480 = 0,

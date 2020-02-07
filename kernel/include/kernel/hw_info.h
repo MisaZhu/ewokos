@@ -1,7 +1,7 @@
 #ifndef HW_INFO_H
 #define HW_INFO_H
 
-#include <types.h>
+#include <_types.h>
 #include <mm/mmu.h>
 
 typedef struct {

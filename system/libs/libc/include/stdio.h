@@ -2,7 +2,8 @@
 #define STDIO_H
 
 #include <fcntl.h>
-#include <types.h>
+#include <stdint.h>
+#include <stdbool.h>
 
 void printf(const char *format, ...);
 void kprintf(bool tty_only, const char *format, ...);

@@ -1,7 +1,7 @@
 #ifndef ARCH_H
 #define ARCH_H
 
-#include <types.h>
+#include <_types.h>
 
 typedef struct {
 	uint32_t irq_basic_pending;

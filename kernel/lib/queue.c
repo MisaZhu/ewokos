@@ -1,5 +1,4 @@
 #include <queue.h>
-#include <types.h>
 #include <mm/kmalloc.h>
 #include <kstring.h>
 

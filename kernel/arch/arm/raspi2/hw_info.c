@@ -10,7 +10,7 @@ void hw_info_init(void) {
 	strcpy(_hw_info.machine, "raspi2");
 	_hw_info.phy_mem_size = 512*MB;
 	_hw_info.phy_mmio_base = 0x3F000000;
-	_hw_info.mmio_size = 4*MB;
+	_hw_info.mmio_size = 16*MB;
 }
 
 inline hw_info_t* get_hw_info(void) {

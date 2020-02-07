@@ -2,7 +2,7 @@
 #define VPRINTF_H
 
 #include <stdarg.h>
-#include <types.h>
+#include <_types.h>
 
 typedef void (*outc_func_t)(char c, void* p);
 

@@ -1,7 +1,7 @@
 #ifndef SPI_ARCH_H
 #define SPI_ARCH_H
 
-#include <types.h>
+#include <_types.h>
 
 #define SPI0_OFFSET 0x00204000
 #define SPI1_OFFSET 0x00215080

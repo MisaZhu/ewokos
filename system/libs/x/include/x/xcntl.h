@@ -1,6 +1,8 @@
 #ifndef XCNTL_H
 #define XCNTL_H
 
+#include <stdbool.h>
+
 enum {
 	X_CNTL_NONE = 0,
 	X_CNTL_NEW,

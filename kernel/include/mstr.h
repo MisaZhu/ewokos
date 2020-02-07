@@ -1,7 +1,7 @@
 #ifndef MARIO_STRING
 #define MARIO_STRING
 
-#include <types.h>
+#include <_types.h>
 
 /**
 string functions.

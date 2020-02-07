@@ -1,7 +1,7 @@
 #ifndef PROC_INFO_H
 #define PROC_INFO_H
 
-#include <types.h>
+#include <_types.h>
 
 #define PROC_INFO_CMD_MAX 256
 

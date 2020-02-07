@@ -154,8 +154,7 @@ KERNEL_H = ../kernel/include/fsinfo.h \
 	../kernel/include/proto.h \
 	../kernel/include/usinterrupt.h \
 	../kernel/include/syscalls.h \
-	../kernel/include/fbinfo.h \
-	../kernel/include/types.h
+	../kernel/include/fbinfo.h
 
 libs: $(LIB_OBJS)
 	$(AR) rT $(TARGET_DIR)/lib/libewokc.a $(LIB_SYS_OBJS)  $(LIB_LIBC_OBJS) $(LIB_M_OBJS)

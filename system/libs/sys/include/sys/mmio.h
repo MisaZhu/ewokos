@@ -1,7 +1,7 @@
 #ifndef MMIO_H
 #define MMIO_H
 
-#include <types.h>
+#include <stdint.h>
 
 #define get32(addr) (*((volatile uint32_t *)(addr)))
 #define put32(addr, val) (*((volatile uint32_t *)(addr)) = (val))

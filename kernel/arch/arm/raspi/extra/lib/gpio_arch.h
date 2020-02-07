@@ -1,7 +1,7 @@
 #ifndef GPIO_ARCH_H
 #define GPIO_ARCH_H
 
-#include <types.h>
+#include <_types.h>
 
 #define GPIO_FSEL0         ((volatile uint32_t*)(_mmio_base+0x00200000))
 #define GPIO_SET0          ((volatile uint32_t*)(_mmio_base+0x0020001C))
