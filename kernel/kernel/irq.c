@@ -29,6 +29,11 @@ void irq_handler(context_t* ctx) {
 	_current_ctx = ctx;
 	bool uspace_int = false;
 
+	if(_current_proc != NULL && _current_proc->critical_counter > 0) {
+		_current_proc->critical_counter--;
+		return;
+	}
+
 	uint32_t irqs = gic_get_irqs();
 
 	if((irqs & IRQ_KEY) != 0) {
@@ -68,11 +73,7 @@ void irq_handler(context_t* ctx) {
 		timer_clear_interrupt(0);
 
 		if(!uspace_int) {
-			if(_current_proc != NULL && _current_proc->critical_counter > 0) {
-				_current_proc->critical_counter--;
-			}
-			else
-				schedule(ctx);
+			schedule(ctx);
 		}
 	}
 }
