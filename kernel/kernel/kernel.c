@@ -129,8 +129,6 @@ void _kernel_entry_c(context_t* ctx) {
 
 #ifdef RASPI_USB
 	usb_host_init();
-	printf("usb inited.\n");
-	while(1);
 #endif
 
 	printf("\n\n"
