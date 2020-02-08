@@ -147,7 +147,7 @@ CLEAN = $(LIB_OBJS)
 
 SD = $(BUILD_DIR)/sd.ext2
 
-all: mkdirs libs builtin_apps extra_apps
+all: mkdirs libs builtin_apps extra_apps extra_devs
 	@echo "all done."
 
 KERNEL_H = ../kernel/include/fsinfo.h \
@@ -243,7 +243,7 @@ sd:
 
 builtin_apps: ${PROGS}
 
-APPS_DIR=apps
+APPS_DIR=extra/apps
 extra_apps:
 	cd $(APPS_DIR)/test;make
 	cd $(APPS_DIR)/dump;make
@@ -254,6 +254,10 @@ extra_apps:
 	cd $(APPS_DIR)/tga;make
 	cd $(APPS_DIR)/png;make
 	cd $(APPS_DIR)/mario;make
+
+DEVS_DIR=extra/devs
+extra_devs:
+	cd $(DEVS_DIR)/arch/raspi/usbd;make
 
 KERNEL=../kernel/build/mkos.bin
 KERNEL_ELF=../kernel/build/mkos.elf

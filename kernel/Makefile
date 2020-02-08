@@ -74,11 +74,6 @@ ARCH_OBJS += ${ARCH_DIR}/${ARCH}/extra/lib/gpio_arch.o  \
 	${ARCH_DIR}/${ARCH}/cpu_freq.o
 endif
 
-ifeq ($(USB), yes)
-CFLAGS += -I../../csud/include -D RASPI_USB
-LDFLAGS += -L../../csud -lcsud
-endif
-
 LIB_DIR = lib
 LIB_OBJS = \
 	${LIB_DIR}/graph.o \

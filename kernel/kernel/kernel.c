@@ -21,10 +21,6 @@
 #include <basic_math.h>
 #include <graph.h>
 
-#ifdef RASPI_USB
-#include <usbd/usbd.h>
-#endif
-
 page_dir_entry_t* _kernel_vm = NULL;
 uint32_t _mmio_base = 0;
 
@@ -97,27 +93,6 @@ static void fs_init(void) {
 	vfs_init();
 }
 
-#ifdef RASPI_USB
-void LogPrint(const char* message, uint32_t messageLength) {
-	(void)messageLength;
-	printf(message);
-}
-
-void usb_host_init(void) {
-	UsbInitialise();
-	_delay_usec(100000);
-	UsbCheckForChange();
-	_delay_usec(100000);
-	UsbCheckForChange();
-	_delay_usec(100000);
-	UsbCheckForChange();
-	_delay_usec(100000);
-	UsbCheckForChange();
-	_delay_usec(100000);
-	UsbCheckForChange();
-}
-#endif
-
 void _kernel_entry_c(context_t* ctx) {
 	(void)ctx;
 	hw_info_init();
@@ -126,10 +101,6 @@ void _kernel_entry_c(context_t* ctx) {
 
 	uart_dev_init();
 	init_console();
-
-#ifdef RASPI_USB
-	usb_host_init();
-#endif
 
 	printf("\n\n"
 			"===Ewok micro-kernel===\n\n"
