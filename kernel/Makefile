@@ -79,6 +79,7 @@ LIB_OBJS = \
 	${LIB_DIR}/graph.o \
 	${LIB_DIR}/font.o \
 	${LIB_DIR}/font8x16.o \
+	${LIB_DIR}/font5x12.o \
 	${LIB_DIR}/console.o \
 	${LIB_DIR}/kstring.o \
 	${LIB_DIR}/buffer.o \
