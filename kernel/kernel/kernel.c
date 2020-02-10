@@ -95,6 +95,9 @@ static void fs_init(void) {
 
 void _kernel_entry_c(context_t* ctx) {
 	(void)ctx;
+	//clear bss
+	memset(_bss_start, 0, (uint32_t)_bss_end - (uint32_t)_bss_start);
+
 	hw_info_init();
 	init_kernel_vm();  
 	km_init();

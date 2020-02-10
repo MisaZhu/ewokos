@@ -21,11 +21,13 @@ SECTIONS
 	}
 	. = ALIGN(4096);
 
+	_bss_start = .;
 	.bss : 
 	{ 
 		*(.bss*)
 	}
 	. = ALIGN(4096);
+	_bss_end = .;
 
 	. = . + 0x10000;
 	_irq_stack = .;

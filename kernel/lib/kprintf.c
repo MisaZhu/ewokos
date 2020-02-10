@@ -17,6 +17,7 @@ void init_console(void) {
 	lcd_init();
 	graph_t* g = graph_new(NULL, LCD_WIDTH, LCD_HEIGHT);
 	_console.g = g;
+	_console.font = font_by_name("5x12");
 	console_reset(&_console);
 }
 
