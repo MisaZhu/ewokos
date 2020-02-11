@@ -23,10 +23,10 @@
 #	error Please ensure you compile the driver with the makefile provided
 #endif
 
-// Check we have a target. This should either be RPI or NONE. If neither of
-// these is specified, TARGET_ERROR will be. If not, the haven't used the
-// makefile.
-#if defined TARGET_RPI
+// Check we have a target. This should either be RPI1|RPI2 or NONE.
+// If neither of these is specified, TARGET_ERROR will be. 
+// If not, the haven't used the makefile.
+#if defined TARGET_RPI1
 	// Compiling for the Raspberry Pi (model B). 
 	// This is an ARM1176JZF-S, running ARMv6.
 	// The chip is a Broadcom 2835 with a Designware OTG Core, mapped to 
@@ -37,14 +37,25 @@
 #	define BROADCOM_2835
 #	define HCD_DESIGNWARE_20
 //#	define HCD_DESIGNWARE_BASE ((void*)0x20980000)
-//# define RPI_MMIO_BASE 0x20000000 //phy memory for raspi
-//# define RPI_MMIO_BASE 0x3F000000 //phy memory for raspi2
-# define RPI_MMIO_BASE 0xC0000000 //virtual memory for raspi
-#	define HCD_DESIGNWARE_BASE ((void*)(RPI_MMIO_BASE+0x00980000))
+#	define _RASPI_MMIO_BASE 0xc0000000
+#	define HCD_DESIGNWARE_BASE ((void*)(_RASPI_MMIO_BASE + 0x0980000))
+
+#elif defined TARGET_RPI2
+	// Compiling for the Raspberry Pi 2 (model B). 
+	// This is an Cortex-A7, running ARMv7.
+	// The chip is a Broadcom 2835 with a Designware OTG Core, mapped to 
+	// physical address 0x3F980000
+#	define ARM
+#	define ARM_V6
+#	define ENDIAN_LITTLE
+#	define BROADCOM_2835
+#	define HCD_DESIGNWARE_20
+#	define _RASPI_MMIO_BASE 0xc0000000
+#	define HCD_DESIGNWARE_BASE ((void*)(_RASPI_MMIO_BASE + 0x0980000))
 #elif defined TARGET_NONE
 	// Compiling for no target architecture. This will rapidly run into errors.
 #elif defined TARGET_ERROR
-#	error Please specify the TARGET as either RPI or NONE (default)
+#	error Please specify the TARGET as either RPI1 or RPI2 or NONE (default)
 #else
 #	error Please ensure you compile the driver with the makefile provided
 #endif

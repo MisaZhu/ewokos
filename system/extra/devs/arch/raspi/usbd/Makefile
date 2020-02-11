@@ -24,8 +24,7 @@ CFLAGS += -I $(TARGET_DIR)/include -I../include
 #CFLAGS +=  -g
 CFLAGS +=  -O2
 
-#LDFLAGS = -L$(TARGET_DIR)/lib -lnosys -L../lib -lcsud
-LDFLAGS = -L$(TARGET_DIR)/lib -lnosys -L../lib -lcsud_debug
+LDFLAGS = -L$(TARGET_DIR)/lib -lnosys -L../lib -lcsud
 
 USBD_OBJS = usbd.o
 

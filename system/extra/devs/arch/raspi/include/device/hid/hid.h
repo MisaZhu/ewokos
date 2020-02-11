@@ -161,4 +161,4 @@ Result HidAttach(struct UsbDevice *device, u32 interfaceNumber);
 }
 #endif
 
-#endif HID_H_
+#endif // HID_H_
