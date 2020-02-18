@@ -54,6 +54,10 @@
  		(copy files)
  		umount ./tmp
  		rm -r tmp
+.tty debug
+	
+	install miniterm.py
+	miniterm.py /dev/xxxUSBTTY 115200
 	
 .make and run
 	
