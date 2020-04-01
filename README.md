@@ -19,6 +19,8 @@
 .Environment & Tools
 
 	QEMU: 
+		brew install glib
+		brew install pixman
 		download modified qemu-4.2.0 from https://github.com/MisaZhu/qemu_raspi
 		./configure --enable-kvm --enable-hax --target-list=arm-softmmu
 		make and make install
