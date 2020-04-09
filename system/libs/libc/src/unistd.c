@@ -88,7 +88,6 @@ static int read_raw(int fd, fsinfo_t *info, void* buf, uint32_t size) {
 	proto_init(&in, NULL, 0);
 	proto_init(&out, NULL, 0);
 
-	proto_add_int(&in, FS_CMD_READ);
 	proto_add_int(&in, fd);
 	proto_add(&in, info, sizeof(fsinfo_t));
 	proto_add_int(&in, size);
@@ -96,7 +95,7 @@ static int read_raw(int fd, fsinfo_t *info, void* buf, uint32_t size) {
 	proto_add_int(&in, shm_id);
 
 	int res = -1;
-	if(ipc_msg_call(mount.pid, &in, &out) == 0) {
+	if(ipc_call(mount.pid, FS_CMD_READ, &in, &out) == 0) {
 		int rd = proto_read_int(&out);
 		res = rd;
 		if(rd > 0) {
@@ -172,13 +171,12 @@ int read_block(int pid, void* buf, uint32_t size, int32_t index) {
 	proto_init(&in, NULL, 0);
 	proto_init(&out, NULL, 0);
 
-	proto_add_int(&in, FS_CMD_READ_BLOCK);
 	proto_add_int(&in, size);
 	proto_add_int(&in, index);
 	proto_add_int(&in, shm_id);
 
 	int res = -1;
-	if(ipc_msg_call(pid, &in, &out) == 0) {
+	if(ipc_call(pid, FS_CMD_READ_BLOCK, &in, &out) == 0) {
 		int rd = proto_read_int(&out);
 		res = rd;
 		if(rd > 0) {
@@ -239,7 +237,6 @@ int write_raw(int fd, fsinfo_t* info, const void* buf, uint32_t size) {
 	proto_init(&in, NULL, 0);
 	proto_init(&out, NULL, 0);
 
-	proto_add_int(&in, FS_CMD_WRITE);
 	proto_add_int(&in, fd);
 	proto_add(&in, info, sizeof(fsinfo_t));
 	proto_add_int(&in, offset);
@@ -250,7 +247,7 @@ int write_raw(int fd, fsinfo_t* info, const void* buf, uint32_t size) {
 		proto_add_int(&in, size);
 
 	int res = -1;
-	if(ipc_msg_call(mount.pid, &in, &out) == 0) {
+	if(ipc_call(mount.pid, FS_CMD_WRITE, &in, &out) == 0) {
 		int r = proto_read_int(&out);
 		res = r;
 		if(r > 0) {
@@ -312,12 +309,11 @@ int write_block(int pid, const void* buf, uint32_t size, int32_t index) {
 	proto_init(&in, NULL, 0);
 	proto_init(&out, NULL, 0);
 
-	proto_add_int(&in, FS_CMD_WRITE_BLOCK);
 	proto_add(&in, buf, size);
 	proto_add_int(&in, index);
 
 	int res = -1;
-	if(ipc_msg_call(pid, &in, &out) == 0) {
+	if(ipc_call(pid, FS_CMD_WRITE_BLOCK, &in, &out) == 0) {
 		int r = proto_read_int(&out);
 		res = r;
 		if(res == -2) {
@@ -406,11 +402,10 @@ int unlink(const char* fname) {
 	proto_init(&in, NULL, 0);
 	proto_init(&out, NULL, 0);
 
-	proto_add_int(&in, FS_CMD_UNLINK);
 	proto_add(&in, &info, sizeof(fsinfo_t));
 	proto_add_str(&in, fname);
 
-	ipc_msg_call(mount.pid, &in, &out);
+	ipc_call(mount.pid, FS_CMD_UNLINK, &in, &out);
 	proto_clear(&in);
 	int res = proto_read_int(&out);
 	proto_clear(&out);

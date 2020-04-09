@@ -14,7 +14,7 @@ static void do_ping(int from_pid, proto_t* in) {
 	proto_t out;
 	proto_init(&out, NULL, 0);
 	proto_add_int(&out, 0);
-	ipc_send(from_pid, &out, in->id);
+	ipc_set_return(&out);
 	proto_clear(&out);
 }
 
@@ -32,7 +32,7 @@ static void do_open(vdevice_t* dev, int from_pid, proto_t *in, void* p) {
 	proto_t out;
 	proto_init(&out, NULL, 0);
 	proto_add_int(&out, fd);
-	ipc_send(from_pid, &out, in->id);
+	ipc_set_return(&out);
 	proto_clear(&out);
 }
 
@@ -97,7 +97,7 @@ static void do_read(vdevice_t* dev, int from_pid, proto_t *in, void* p) {
 	else {
 		proto_add_int(&out, -1);
 	}
-	ipc_send(from_pid, &out, in->id);
+	ipc_set_return(&out);
 	proto_clear(&out);
 }
 
@@ -135,7 +135,7 @@ static void do_write(vdevice_t* dev, int from_pid, proto_t *in, void* p) {
 		proto_add_int(&out, -1);
 	}
 
-	ipc_send(from_pid, &out, in->id);
+	ipc_set_return(&out);
 	proto_clear(&out);
 }
 
@@ -174,7 +174,8 @@ static void do_read_block(vdevice_t* dev, int from_pid, proto_t *in, void* p) {
 	else {
 		proto_add_int(&out, -1);
 	}
-	ipc_send(from_pid, &out, in->id);
+
+	ipc_set_return(&out);
 	proto_clear(&out);
 }
 
@@ -193,7 +194,8 @@ static void do_write_block(vdevice_t* dev, int from_pid, proto_t *in, void* p) {
 	else {
 		proto_add_int(&out, -1);
 	}
-	ipc_send(from_pid, &out, in->id);
+
+	ipc_set_return(&out);
 	proto_clear(&out);
 }
 
@@ -212,7 +214,8 @@ static void do_dma(vdevice_t* dev, int from_pid, proto_t *in, void* p) {
 	}
 	proto_add_int(&out, id);
 	proto_add_int(&out, size);
-	ipc_send(from_pid, &out, in->id);
+
+	ipc_set_return(&out);
 	proto_clear(&out);
 }
 
@@ -240,7 +243,7 @@ static void do_fcntl(vdevice_t* dev, int from_pid, proto_t *in, void* p) {
 	proto_add(&out, arg_out.data, arg_out.size);
 	proto_clear(&arg_out);
 
-	ipc_send(from_pid, &out, in->id);
+	ipc_set_return(&out);
 	proto_clear(&out);
 }
 
@@ -256,7 +259,8 @@ static void do_flush(vdevice_t* dev, int from_pid, proto_t *in, void* p) {
 	proto_t out;
 	proto_init(&out, NULL, 0);
 	proto_add_int(&out, 0);
-	ipc_send(from_pid, &out, in->id);
+
+	ipc_set_return(&out);
 	proto_clear(&out);
 }
 
@@ -274,7 +278,8 @@ static void do_create(vdevice_t* dev, int from_pid, proto_t *in, void* p) {
 	proto_init(&out, NULL, 0);
 	proto_add_int(&out, res);
 	proto_add(&out, &info, sizeof(fsinfo_t));
-	ipc_send(from_pid, &out, in->id);
+
+	ipc_set_return(&out);
 	proto_clear(&out);
 }
 
@@ -291,7 +296,8 @@ static void do_unlink(vdevice_t* dev, int from_pid, proto_t *in, void* p) {
 	proto_t out;
 	proto_init(&out, NULL, 0);
 	proto_add_int(&out, res);
-	ipc_send(from_pid, &out, in->id);
+
+	ipc_set_return(&out);
 	proto_clear(&out);
 }
 
@@ -307,64 +313,69 @@ static void do_clear_buffer(vdevice_t* dev, int from_pid, proto_t *in, void* p) 
 	proto_t out;
 	proto_init(&out, NULL, 0);
 	proto_add_int(&out, res);
-	ipc_send(from_pid, &out, in->id);
+
+	ipc_set_return(&out);
 	proto_clear(&out);
 }
 
-static void handle(vdevice_t* dev, int from_pid, proto_t *in, void* p) {
+static void handle(int from_pid, int cmd, void* p) {
+	vdevice_t* dev = (vdevice_t*)p;
 	if(dev == NULL)
 		return;
+	p = dev->extra_data;
 
-	int cmd = proto_read_int(in);
+	proto_t* in = ipc_get_arg();
 
 	switch(cmd) {
 	case FS_CMD_PING:
 		do_ping(from_pid, in);
-		return;
+		break;
 	case FS_CMD_OPEN:
 		do_open(dev, from_pid, in, p);
-		return;
+		break;
 	case FS_CMD_CLOSE:
 		do_close(dev, from_pid, in, p);
-		return;
+		break;
 	case FS_CMD_CLOSED:
 		do_closed(dev, from_pid, in, p);
-		return;
+		break;
 	case FS_CMD_READ:
 		do_read(dev, from_pid, in, p);
-		return;
+		break;
 	case FS_CMD_WRITE:
 		do_write(dev, from_pid, in, p);
-		return;
+		break;
 	case FS_CMD_READ_BLOCK:
 		do_read_block(dev, from_pid, in, p);
-		return;
+		break;
 	case FS_CMD_WRITE_BLOCK:
 		do_write_block(dev, from_pid, in, p);
-		return;
+		break;
 	case FS_CMD_DMA:
 		do_dma(dev, from_pid, in, p);
-		return;
+		break;
 	case FS_CMD_FLUSH:
 		do_flush(dev, from_pid, in, p);
-		return;
+		break;
 	case FS_CMD_CNTL:
 		do_fcntl(dev, from_pid, in, p);
-		return;
+		break;
 	case FS_CMD_CREATE:
 		do_create(dev, from_pid, in, p);
-		return;
+		break;
 	case FS_CMD_UNLINK:
 		do_unlink(dev, from_pid, in, p);
-		return;
+		break;
 	case FS_CMD_CLEAR_BUFFER:
 		do_clear_buffer(dev, from_pid, in, p);
-		return;
+		break;
 	}
+
+	proto_free(in);
+	ipc_end();
 }
 
-static int do_mount(vdevice_t* dev, fsinfo_t* mnt_point, int type, void* p) {
-	(void)p;
+static int do_mount(vdevice_t* dev, fsinfo_t* mnt_point, int type) {
 	fsinfo_t info;
 	memset(&info, 0, sizeof(fsinfo_t));
 	strcpy(info.name, mnt_point->name);
@@ -372,7 +383,7 @@ static int do_mount(vdevice_t* dev, fsinfo_t* mnt_point, int type, void* p) {
 	vfs_new_node(&info);
 
 	if(dev->mount != NULL) {
-		if(dev->mount(&info, p) != 0) {
+		if(dev->mount(&info, dev->extra_data) != 0) {
 			vfs_del(&info);
 			return -1;
 		}
@@ -386,7 +397,7 @@ static int do_mount(vdevice_t* dev, fsinfo_t* mnt_point, int type, void* p) {
 	return 0;
 }
 
-int device_run(vdevice_t* dev, const char* mnt_point, int mnt_type, void* p, int block) {
+int device_run(vdevice_t* dev, const char* mnt_point, int mnt_type) {
 	if(dev == NULL)
 		return -1;
 
@@ -397,26 +408,24 @@ int device_run(vdevice_t* dev, const char* mnt_point, int mnt_type, void* p, int
 		else
 			vfs_get(mnt_point, &mnt_point_info);
 
-		if(do_mount(dev, &mnt_point_info, mnt_type, p) != 0)
+		if(do_mount(dev, &mnt_point_info, mnt_type) != 0)
 			return -1;
 	}
 
-	proto_t pkg;
-	proto_init(&pkg, NULL, 0);
+	ipc_setup(handle, dev);
+
 	while(1) {
-		int pid;
-		if(ipc_get(&pid, &pkg, -1, block) >= 0) {
-			handle(dev, pid, &pkg, p);
-			proto_clear(&pkg);
-		}
-		if(dev->loop_step != NULL)
-			dev->loop_step(p);
-		else if(block == 0)
+		if(dev->loop_step != NULL) {
+			dev->loop_step(dev->extra_data);
 			sleep(0);
+		}
+		else {
+			sleep(1);
+		}
 	}
 
 	if(mnt_point != NULL && dev->umount != NULL) {
-		return dev->umount(&mnt_point_info, p);
+		return dev->umount(&mnt_point_info, dev->extra_data);
 	}
 	vfs_uumount(&mnt_point_info);
 	return 0;

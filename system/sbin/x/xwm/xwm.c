@@ -266,9 +266,10 @@ static void get_workspace(proto_t* in, proto_t* out) {
 	proto_add(out, &r, sizeof(grect_t));
 }
 
-void handle(int from_pid, proto_t* in, void* p) {
+static void handle(int from_pid, int cmd, void* p) {
 	(void)p;
-	int cmd = proto_read_int(in);
+	proto_t* in = ipc_get_arg();
+
 	proto_t out;
 	proto_init(&out, NULL, 0);
 
@@ -285,8 +286,10 @@ void handle(int from_pid, proto_t* in, void* p) {
 		get_workspace(in, &out);
 	}
 
-	ipc_send(from_pid, &out, in->id);
+	proto_free(in);
+	ipc_set_return(&out);
 	proto_clear(&out);
+	ipc_end();
 }
 
 int main(int argc, char** argv) {
@@ -295,6 +298,10 @@ int main(int argc, char** argv) {
 
 	read_config(&_xwm, "/etc/x/xwm.conf");
 	_xwm.title_h = _xwm.font->h+4;
-	ipc_server(handle, NULL);
+
+	ipc_setup(handle, NULL);
+	while(true) {
+		sleep(1);
+	}
 	return 0;
 }

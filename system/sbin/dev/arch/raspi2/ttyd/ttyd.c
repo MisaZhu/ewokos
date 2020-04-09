@@ -110,6 +110,6 @@ int main(int argc, char** argv) {
 	dev.read = tty_read;
 	dev.write = tty_write;
 
-	device_run(&dev, mnt_point, FS_TYPE_CHAR, NULL, 1);
+	device_run(&dev, mnt_point, FS_TYPE_CHAR);
 	return 0;
 }

@@ -119,7 +119,8 @@ int main(int argc, char** argv) {
 	dev.write = fb_write;
 	dev.fcntl = fb_fcntl;
 
-	device_run(&dev, mnt_name, FS_TYPE_CHAR, &dma, 1);
+	dev.extra_data = &dma;
+	device_run(&dev, mnt_name, FS_TYPE_CHAR);
 
 	shm_unmap(dma.shm_id);
 	return 0;

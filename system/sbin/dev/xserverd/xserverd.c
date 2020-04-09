@@ -81,7 +81,6 @@ static void draw_win_frame(x_t* x, xview_t* view) {
 	proto_init(&in, NULL, 0);
 	proto_init(&out, NULL, 0);
 
-	proto_add_int(&in, XWM_CNTL_DRAW_FRAME); // 0 for draw view frame
 	proto_add_int(&in, x->shm_id);
 	proto_add_int(&in, x->g->w);
 	proto_add_int(&in, x->g->h);
@@ -91,7 +90,7 @@ static void draw_win_frame(x_t* x, xview_t* view) {
 	else
 		proto_add_int(&in, 0);
 
-	ipc_msg_call(x->xwm_pid, &in, &out);
+	ipc_call(x->xwm_pid, XWM_CNTL_DRAW_FRAME, &in, &out);
 	proto_clear(&in);
 	proto_clear(&out);
 }
@@ -101,12 +100,11 @@ static void draw_desktop(x_t* x) {
 	proto_init(&in, NULL, 0);
 	proto_init(&out, NULL, 0);
 
-	proto_add_int(&in, XWM_CNTL_DRAW_DESKTOP); // 1 for draw desktop
 	proto_add_int(&in, x->shm_id);
 	proto_add_int(&in, x->g->w);
 	proto_add_int(&in, x->g->h);
 
-	ipc_msg_call(x->xwm_pid, &in, &out);
+	ipc_call(x->xwm_pid, XWM_CNTL_DRAW_DESKTOP, &in, &out);
 	proto_clear(&in);
 	proto_clear(&out);
 }
@@ -470,11 +468,10 @@ static int get_xwm_workspace(x_t* x, int style, grect_t* rin, grect_t* rout) {
 	proto_init(&in, NULL, 0);
 	proto_init(&out, NULL, 0);
 
-	proto_add_int(&in, XWM_CNTL_GET_WORKSPACE); 
 	proto_add_int(&in, style);
 	proto_add(&in, rin, sizeof(grect_t));
 
-	ipc_msg_call(x->xwm_pid, &in, &out);
+	ipc_call(x->xwm_pid, XWM_CNTL_GET_WORKSPACE, &in, &out);
 
 	proto_clear(&in);
 	proto_read_to(&out, rout, sizeof(grect_t));
@@ -631,11 +628,10 @@ static int get_win_frame_pos(x_t* x, xview_t* view) {
 	proto_init(&in, NULL, 0);
 	proto_init(&out, NULL, 0);
 
-	proto_add_int(&in, XWM_CNTL_GET_POS); // 2 for get_win_frame_posos
 	proto_add_int(&in, x->cursor.cpos.x);
 	proto_add_int(&in, x->cursor.cpos.y);
 	proto_add(&in, &view->xinfo, sizeof(xinfo_t));
-	ipc_msg_call(x->xwm_pid, &in, &out);
+	ipc_call(x->xwm_pid, XWM_CNTL_GET_POS, &in, &out);
 	proto_clear(&in);
 
 	int res = proto_read_int(&out);
@@ -965,7 +961,8 @@ int main(int argc, char** argv) {
 		prs_down = false;
 		j_mouse = true;
 		pthread_create(NULL, NULL, read_thread, &x);
-		device_run(&dev, mnt_point, FS_TYPE_CHAR, &x, 0);
+		dev.extra_data = &x;
+		device_run(&dev, mnt_point, FS_TYPE_CHAR);
 		x_close(&x);
 	}
 	return 0;

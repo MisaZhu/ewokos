@@ -6,6 +6,7 @@
 
 typedef struct {
 	char name[FS_NODE_NAME_MAX];
+	void* extra_data;
 	int (*open)(int fd, int from_pid, fsinfo_t* info, int oflag, void* p);
 	int (*create)(fsinfo_t* info_to, fsinfo_t* info, void* p);
 	int (*close)(int fd, int from_pid, fsinfo_t* info, void* p);
@@ -24,6 +25,6 @@ typedef struct {
 	int (*loop_step)(void* p);
 } vdevice_t;
 
-extern int device_run(vdevice_t* dev, const char* mnt_point, int mnt_type, void* p, int block);
+extern int device_run(vdevice_t* dev, const char* mnt_point, int mnt_type);
 
 #endif

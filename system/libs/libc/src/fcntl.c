@@ -7,15 +7,12 @@
 
 int dev_ping(int pid) {
 	int res = -1;
-	proto_t in, out;
-	proto_init(&in, NULL, 0);
+	proto_t out;
 	proto_init(&out, NULL, 0);
 
-	proto_add_int(&in, FS_CMD_PING);
-	if(ipc_msg_call(pid, &in, &out) == 0) {
+	if(ipc_call(pid, FS_CMD_PING, NULL, &out) == 0) {
 		res = proto_read_int(&out);
 	}
-	proto_clear(&in);
 	proto_clear(&out);
 	return res;
 }
@@ -42,11 +39,10 @@ int open(const char* fname, int oflag) {
 	proto_init(&in, NULL, 0);
 	proto_init(&out, NULL, 0);
 
-	proto_add_int(&in, FS_CMD_OPEN);
 	proto_add(&in, &info, sizeof(fsinfo_t));
 	proto_add_int(&in, oflag);
 
-	if(ipc_msg_call(mount.pid, &in, &out) == 0) {
+	if(ipc_call(mount.pid, FS_CMD_OPEN, &in, &out) == 0) {
 		res = proto_read_int(&out);
 	}
 
@@ -65,11 +61,10 @@ void close(int fd) {
 		proto_t in;
 		proto_init(&in, NULL, 0);
 
-		proto_add_int(&in, FS_CMD_CLOSE);
 		proto_add_int(&in, fd);
 		proto_add(&in, &info, sizeof(fsinfo_t));
 
-		ipc_msg_call(mount.pid, &in, NULL);
+		ipc_call(mount.pid, FS_CMD_CLOSE, &in, NULL);
 		proto_clear(&in);
 	}
 
@@ -89,12 +84,11 @@ int dma(int fd, int* size) {
 	proto_init(&in, NULL, 0);
 	proto_init(&out, NULL, 0);
 
-	proto_add_int(&in, FS_CMD_DMA);
 	proto_add_int(&in, fd);
 	proto_add(&in, &info, sizeof(fsinfo_t));
 
 	int shm_id = -1;
-	if(ipc_msg_call(mount.pid, &in, &out) == 0) {
+	if(ipc_call(mount.pid, FS_CMD_DMA, &in, &out) == 0) {
 		shm_id = proto_read_int(&out);
 		if(size != NULL)
 			*size = proto_read_int(&out);
@@ -115,10 +109,9 @@ void flush(int fd) {
 		proto_init(&in, NULL, 0);
 		proto_init(&out, NULL, 0);
 
-		proto_add_int(&in, FS_CMD_FLUSH);
 		proto_add_int(&in, fd);
 		proto_add(&in, &info, sizeof(fsinfo_t));
-		ipc_msg_call(mount.pid, &in, &out);
+		ipc_call(mount.pid, FS_CMD_FLUSH, &in, &out);
 		proto_clear(&in);
 		proto_clear(&out);
 	}
@@ -137,7 +130,6 @@ int fcntl_raw(int fd, int cmd, proto_t* arg_in, proto_t* arg_out) {
 	proto_init(&in, NULL, 0);
 	proto_init(&out, NULL, 0);
 
-	proto_add_int(&in, FS_CMD_CNTL);
 	proto_add_int(&in, fd);
 	proto_add(&in, &info, sizeof(fsinfo_t));
 	proto_add_int(&in, cmd);
@@ -147,7 +139,7 @@ int fcntl_raw(int fd, int cmd, proto_t* arg_in, proto_t* arg_out) {
 		proto_add(&in, arg_in->data, arg_in->size);
 
 	int res = -1;
-	if(ipc_msg_call(mount.pid, &in, &out) == 0) {
+	if(ipc_call(mount.pid, FS_CMD_CNTL, &in, &out) == 0) {
 		res = proto_read_int(&out);
 		if(arg_out != NULL) {
 			int32_t sz;

@@ -21,7 +21,6 @@ context_t* _current_ctx = NULL;
 
 /* proc_init initializes the process sub-system. */
 void procs_init(void) {
-	proc_ipc_init();
 	for (int32_t i = 0; i < PROC_MAX; i++)
 		_proc_table[i].state = UNUSED;
 	_current_proc = NULL;

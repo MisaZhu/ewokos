@@ -65,6 +65,6 @@ int main(int argc, char** argv) {
 	dev.read_block = sd_read_block;
 	dev.write_block = sd_write_block;
 
-	device_run(&dev, NULL, FS_TYPE_BLOCK, NULL, 1);
+	device_run(&dev, NULL, FS_TYPE_BLOCK);
 	return 0;
 }

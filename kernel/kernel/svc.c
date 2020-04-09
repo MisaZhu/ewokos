@@ -347,17 +347,6 @@ static void sys_load_elf(context_t* ctx, const char* cmd, void* elf, uint32_t el
 	memcpy(ctx, &_current_proc->ctx, sizeof(context_t));
 }
 
-static void sys_get_msg(context_t* ctx, int32_t *pid, rawdata_t* data, int32_t id) {
-	int32_t res = proc_get_msg(pid, data, id);
-	if(res >= 0) {
-		ctx->gpr[0] = res;
-		return;
-	}
-	ctx->gpr[0] = -1;
-	proc_t* proc = _current_proc;
-	proc_block_on(ctx, (uint32_t)proc->space);
-}
-
 static int32_t sys_proc_set_cwd(const char* cwd) {
 	str_cpy(_current_proc->cwd, cwd);
 	return 0;
@@ -533,17 +522,6 @@ static int32_t sys_shm_unmap(int32_t id) {
 
 static int32_t sys_shm_ref(int32_t id) {
 	return shm_proc_ref(_current_proc->pid, id);
-}
-
-static void sys_send_msg(context_t* ctx, int32_t topid, rawdata_t* data, int32_t id) {
-	proc_msg_t* msg = proc_send_msg(topid, data, id);
-	if(msg == NULL) {
-		ctx->gpr[0] = -1;
-		return;
-	}
-	ctx->gpr[0] = msg->id;	
-	//get the receiv process response ASAP
-	proc_switch(ctx, proc_get(topid), false);
 }
 
 static int32_t sys_lock_new(void) {
@@ -798,15 +776,6 @@ void svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_t arg2, context
 		return;
 	case SYS_WAIT_PID:
 		sys_waitpid(ctx, arg0);
-		return;
-	case SYS_SEND_MSG:
-		sys_send_msg(ctx, arg0, (rawdata_t*)arg1, arg2);
-		return;
-	case SYS_GET_MSG_NBLOCK:
-		ctx->gpr[0] = proc_get_msg((int32_t*)arg0, (rawdata_t*)arg1, arg2);
-		return;
-	case SYS_GET_MSG:
-		sys_get_msg(ctx, (int32_t*)arg0, (rawdata_t*)arg1, arg2);
 		return;
 	case SYS_VFS_GET:
 		ctx->gpr[0] = sys_vfs_get_info((const char*)arg0, (fsinfo_t*)arg1);

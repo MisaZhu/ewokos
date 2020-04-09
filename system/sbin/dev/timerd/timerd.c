@@ -126,6 +126,6 @@ int main(int argc, char** argv) {
 	proc_interrupt_setup(int_func, NULL);
 	proc_interrupt_register(US_INT_TIMER_MTIC);
 		
-	device_run(&dev, mnt_name, FS_TYPE_CHAR, NULL, 1);
+	device_run(&dev, mnt_name, FS_TYPE_CHAR);
 	return 0;
 }

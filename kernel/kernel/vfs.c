@@ -348,6 +348,7 @@ void vfs_close(proc_t* proc, int32_t fd) {
 		}
 	}
 
+/*
 	proto_t in;
 	proto_init(&in, NULL, 0);
 	proto_add_int(&in, FS_CMD_CLOSED);
@@ -366,6 +367,7 @@ void vfs_close(proc_t* proc, int32_t fd) {
 			msg->from_pid = proc->pid;
 	}
 	proto_clear(&in);
+	*/
 }
 
 int32_t vfs_dup(int32_t from) {

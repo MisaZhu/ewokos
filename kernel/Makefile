@@ -21,8 +21,8 @@ ARCH_DIR=arch
 include ${ARCH_DIR}/${ARCH}/config.mk
 
 # flags
-OPTM = -g
-#OPTM = -O2
+#OPTM = -g
+OPTM = -O2
 
 CFLAGS += $(OPTM) \
 	-I. -I../include -Iinclude \
@@ -107,7 +107,6 @@ OBJS = ${ARCH_OBJS} \
 	${KERNEL_DIR}/env.o \
 	${KERNEL_DIR}/svc.o \
 	${KERNEL_DIR}/proc.o \
-	${KERNEL_DIR}/ipc.o \
 	${KERNEL_DIR}/schedule.o \
 	${KERNEL_DIR}/vfs.o \
 	${KERNEL_DIR}/dev/kdevice.o \

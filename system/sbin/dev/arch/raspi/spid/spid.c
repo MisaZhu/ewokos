@@ -39,6 +39,6 @@ int main(int argc, char** argv) {
 	strcpy(dev.name, "spi");
 	dev.write = spi_write;
 
-	device_run(&dev, mnt_point, FS_TYPE_CHAR, NULL, 1);
+	device_run(&dev, mnt_point, FS_TYPE_CHAR);
 	return 0;
 }
