@@ -84,9 +84,13 @@ int ipc_setup(ipc_handle_t handle, void* p) {
 	return syscall2(SYS_IPC_SETUP, (int32_t)handle, (int32_t)p);
 }
 
-int ipc_return(const proto_t* pkg) {
-	syscall1(SYS_IPC_RETURN, (int32_t)pkg);
+int ipc_set_return(const proto_t* pkg) {
+	syscall1(SYS_IPC_SET_RETURN, (int32_t)pkg);
 	return 0;
+}
+
+void ipc_end(void) {
+	syscall0(SYS_IPC_END);
 }
 
 proto_t* ipc_get_arg(void) {
@@ -109,7 +113,7 @@ int ipc_call(int to_pid, int call_id, const proto_t* ipkg, proto_t* opkg) {
 
 	proto_clear(opkg);
 	while(true) {
-		res = syscall2(SYS_IPC_GET_RETURN, (int32_t)to_pid, opkg);
+		res = syscall2(SYS_IPC_GET_RETURN, (int32_t)to_pid, (int32_t)opkg);
 		if(res == 0)
 			break;
 		if(res == -2)

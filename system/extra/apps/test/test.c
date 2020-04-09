@@ -19,25 +19,16 @@ int main(int argc, char** argv) {
 
 
 	int i=0;
-	/*proc_interrupt_setup(int_func, &i);
+	proc_interrupt_setup(int_func, &i);
 	int fd = open("/dev/timer0", O_RDWR);
 	int msec = 100;
 	write(fd, &msec, 4);
-	*/
 
-	proto_t arg, ret;
-	proto_init(&arg, NULL, 0);
-	proto_init(&ret, NULL, 0);
 	while(1) {
-		usleep(10000);
-		proto_add_int(&arg, i);
-		ipc_call(0, 0, &arg, &ret);
-		proto_clear(&arg);
-		printf("ret: %d\n", proto_read_int(&ret));
-		proto_clear(&ret);
+		sleep(1);
 		i++;
 	}
-	//close(fd);
+	close(fd);
   return 0;
 }
 

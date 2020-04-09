@@ -173,13 +173,6 @@ static void run_procs(void) {
 	close(fd);
 }
 
-static void ipc_handle(int from_pid, int call_id, void* p) {
-	proto_t* arg = ipc_get_arg();
-	if(arg != NULL)
-		proto_free(arg);
-	ipc_return(NULL);//arg);
-}
-
 int main(int argc, char** argv) {
 	(void)argc;
 	(void)argv;
@@ -195,8 +188,6 @@ int main(int argc, char** argv) {
 	load_devs();
 	init_stdio();
 	run_procs();
-
-	ipc_setup(ipc_handle, NULL);
 
 	while(1) {
 		sleep(1);
