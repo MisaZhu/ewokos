@@ -52,7 +52,7 @@ static int ipc_recv(int* from_pid,  proto_t* pkg, int32_t id) {
 	return -1;
 }
 
-int ipc_call(int to_pid,  const proto_t* ipkg, proto_t* opkg) {
+int ipc_msg_call(int to_pid,  const proto_t* ipkg, proto_t* opkg) {
 	if(to_pid < 0 || ipkg == NULL)
 		return -1;
 	int32_t id = ipc_send(to_pid, ipkg, -1);
@@ -68,7 +68,7 @@ int ipc_call(int to_pid,  const proto_t* ipkg, proto_t* opkg) {
 	return 0;
 }
 
-int ipc_server(ipc_handle_t handle, void* p) {
+int ipc_server(ipc_msg_handle_t handle, void* p) {
 	proto_t pkg;
 	proto_init(&pkg, NULL, 0);
 	while(1) {
@@ -79,3 +79,43 @@ int ipc_server(ipc_handle_t handle, void* p) {
 		}
 	}
 }
+
+int ipc_setup(ipc_handle_t handle, void* p) {
+	return syscall2(SYS_IPC_SETUP, (int32_t)handle, (int32_t)p);
+}
+
+int ipc_return(const proto_t* pkg) {
+	syscall1(SYS_IPC_RETURN, (int32_t)pkg);
+	return 0;
+}
+
+proto_t* ipc_get_arg(void) {
+	return (proto_t*)syscall0(SYS_IPC_GET_ARG);
+}
+
+int ipc_call(int to_pid, int call_id, const proto_t* ipkg, proto_t* opkg) {
+	if(to_pid < 0)
+		return -1;
+
+	int res = 0;
+	while(true) {
+		int res = syscall3(SYS_IPC_CALL, (int32_t)to_pid, (int32_t)call_id, (int32_t)ipkg);
+		if(res == 0)
+			break;
+		if(res == -2)
+			return -1;
+		sleep(0); //retry	
+	}
+
+	proto_clear(opkg);
+	while(true) {
+		res = syscall2(SYS_IPC_GET_RETURN, (int32_t)to_pid, opkg);
+		if(res == 0)
+			break;
+		if(res == -2)
+			return -1;
+		sleep(0); //retry	
+	}
+	return 0;
+}
+

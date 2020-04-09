@@ -65,6 +65,8 @@ static void proc_init_space(proc_t* proc) {
 	proc->space = (proc_space_t*)kmalloc(sizeof(proc_space_t));
 	memset(proc->space, 0, sizeof(proc_space_t));
 
+	proc->space->ipc.data = proto_new(NULL, 0);
+
 	proc->space->vm = vm;
 	proc->space->heap_size = 0;
 	proc->space->malloc_man.arg = (void*)proc;
@@ -196,6 +198,8 @@ static void __attribute__((optimize("O0"))) proc_free_space(proc_t *proc) {
 		if(env->value) 
 			str_free(env->value);
 	}
+
+	proto_free(proc->space->ipc.data);
 
 	/*free locks*/
 	proc_free_locks(proc);
@@ -666,5 +670,24 @@ proc_t* proc_get_proc(void) {
 		ret = proc_get(ret->father_pid);
 	}
 	return NULL;
+}
+
+int32_t proc_ipc_call(context_t* ctx, proc_t* proc, int32_t call_id) {
+	if(proc == NULL || proc->space->ipc.entry == 0 || proc->space->ipc.state != IPC_BUSY)
+		return -1;
+
+	proc_t *ipc_thread = kfork_raw(PROC_TYPE_IPC, proc);
+	if(ipc_thread == NULL)
+		return -1;
+
+	uint32_t sp = ipc_thread->ctx.sp;
+	memcpy(&ipc_thread->ctx, &proc->ctx, sizeof(context_t));
+	ipc_thread->ctx.sp = sp;
+	ipc_thread->ctx.pc = ipc_thread->ctx.lr = proc->space->ipc.entry;
+	ipc_thread->ctx.gpr[0] = proc->space->ipc.from_pid;
+	ipc_thread->ctx.gpr[1] = call_id;
+	ipc_thread->ctx.gpr[2] = proc->space->ipc.extra_data;
+	proc_switch(ctx, ipc_thread, true);
+	return true;
 }
 

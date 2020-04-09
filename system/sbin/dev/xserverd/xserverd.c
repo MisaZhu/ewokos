@@ -91,7 +91,7 @@ static void draw_win_frame(x_t* x, xview_t* view) {
 	else
 		proto_add_int(&in, 0);
 
-	ipc_call(x->xwm_pid, &in, &out);
+	ipc_msg_call(x->xwm_pid, &in, &out);
 	proto_clear(&in);
 	proto_clear(&out);
 }
@@ -106,7 +106,7 @@ static void draw_desktop(x_t* x) {
 	proto_add_int(&in, x->g->w);
 	proto_add_int(&in, x->g->h);
 
-	ipc_call(x->xwm_pid, &in, &out);
+	ipc_msg_call(x->xwm_pid, &in, &out);
 	proto_clear(&in);
 	proto_clear(&out);
 }
@@ -474,7 +474,7 @@ static int get_xwm_workspace(x_t* x, int style, grect_t* rin, grect_t* rout) {
 	proto_add_int(&in, style);
 	proto_add(&in, rin, sizeof(grect_t));
 
-	ipc_call(x->xwm_pid, &in, &out);
+	ipc_msg_call(x->xwm_pid, &in, &out);
 
 	proto_clear(&in);
 	proto_read_to(&out, rout, sizeof(grect_t));
@@ -635,7 +635,7 @@ static int get_win_frame_pos(x_t* x, xview_t* view) {
 	proto_add_int(&in, x->cursor.cpos.x);
 	proto_add_int(&in, x->cursor.cpos.y);
 	proto_add(&in, &view->xinfo, sizeof(xinfo_t));
-	ipc_call(x->xwm_pid, &in, &out);
+	ipc_msg_call(x->xwm_pid, &in, &out);
 	proto_clear(&in);
 
 	int res = proto_read_int(&out);

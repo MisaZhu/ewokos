@@ -9,6 +9,7 @@
 #include <kernel/kfile.h>
 #include <mstr.h>
 #include <procinfo.h>
+#include <proto.h>
 
 enum {
 	UNUSED = 0,
@@ -19,6 +20,12 @@ enum {
 	READY,
 	RUNNING,
 	ZOMBIE
+};
+
+enum {
+	IPC_IDLE = 0,
+	IPC_BUSY,
+	IPC_RETURN
 };
 
 #define PROC_FILE_MAX 128
@@ -35,6 +42,14 @@ typedef struct {
 	uint32_t locks[LOCK_MAX];
 	kfile_t files[PROC_FILE_MAX];
 	env_t envs[ENV_MAX];
+
+	struct {
+		uint32_t entry;
+		proto_t* data;
+		uint32_t extra_data;
+		uint32_t state;
+		int32_t from_pid;
+	} ipc;
 
 	proc_msg_t* msg_queue_head;
 	proc_msg_t* msg_queue_tail;
@@ -110,6 +125,7 @@ extern const char* proc_get_env_value(int32_t index);
 extern int32_t     proc_set_env(const char* name, const char* value);
 extern void        proc_set_interrupt_data(void* data, uint32_t size);
 extern void        proc_get_interrupt_data(rawdata_t* data);
+extern int32_t     proc_ipc_call(context_t* ctx, proc_t* proc, int32_t call_id);
 
 #define PROC_MAX 128
 
