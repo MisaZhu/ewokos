@@ -417,7 +417,7 @@ int device_run(vdevice_t* dev, const char* mnt_point, int mnt_type) {
 	while(1) {
 		if(dev->loop_step != NULL) {
 			dev->loop_step(dev->extra_data);
-			sleep(0);
+			usleep(1000);
 		}
 		else {
 			sleep(1);
