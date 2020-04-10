@@ -944,6 +944,7 @@ int main(int argc, char** argv) {
 	if(pid == 0) {
 		exec("/sbin/x/xwm");
 	}
+	usleep(300000);
 
 	vdevice_t dev;
 	memset(&dev, 0, sizeof(vdevice_t));
