@@ -841,7 +841,72 @@ static void joy_2_keyb(int key, int8_t* v) {
 	}	
 }
 
-static void* read_thread(void* p) {
+static void read_input(x_t* x) {
+	//read keyb
+	if(x->keyb_fd >= 0) {
+		int8_t v;
+		int rd = read_nblock(x->keyb_fd, &v, 1);
+		if(rd == 1) {
+			keyb_handle(x, v);
+		}
+	}
+
+	//read mouse
+	if(x->mouse_fd >= 0) {
+		int8_t mv[4];
+		if(read_nblock(x->mouse_fd, mv, 4) == 4) {
+			//proc_lock(x->lock);
+			mouse_handle(x, mv[0], mv[1], mv[2]);
+			x->need_repaint = true;
+			//proc_unlock(x->lock);
+		}
+	}
+
+	//read joystick
+	if(x->joystick_fd >= 0) {
+		uint8_t key;
+		int8_t mv[4];
+		if(read(x->joystick_fd, &key, 1) == 1) {
+			if(key == KEY_V_3 && !prs_down) { //switch joy mouse/keyboard mode
+				j_mouse = !j_mouse;
+				prs_down = true;
+				x->show_cursor = j_mouse;
+				x->need_repaint = true;
+				if(x->show_cursor) {
+					x->cursor.drop = true;
+				}
+			}
+
+			if(j_mouse) {
+				joy_2_mouse(key, mv);
+				if(key == 0 && prs_down) {
+					key = 1;
+					prs_down = false;
+					mv[0] = 1;
+				}
+				if(key != 0) {
+					//proc_lock(x->lock);
+					mouse_handle(x, mv[0], mv[1], mv[2]);
+					x->need_repaint = true;
+					//proc_unlock(x->lock);
+				}
+			}
+			else {
+				int8_t v;
+				if(key == 0 && prs_down)
+					prs_down = false;
+				else {
+					joy_2_keyb(key, &v);
+					if(v != 0)
+						keyb_handle(x, v);
+				}
+			}
+		}
+	}
+}
+
+
+/*static void* read_thread(void* p) {
 	x_t* x = (x_t*)p;
 	while(1) {
 		if(!x->actived)  {
@@ -849,77 +914,20 @@ static void* read_thread(void* p) {
 			continue;
 		}
 
-		//read keyb
-		if(x->keyb_fd >= 0) {
-			int8_t v;
-			int rd = read_nblock(x->keyb_fd, &v, 1);
-			if(rd == 1) {
-				keyb_handle(x, v);
-			}
-		}
-
-		//read mouse
-		if(x->mouse_fd >= 0) {
-			int8_t mv[4];
-			if(read_nblock(x->mouse_fd, mv, 4) == 4) {
-				//proc_lock(x->lock);
-				mouse_handle(x, mv[0], mv[1], mv[2]);
-				x->need_repaint = true;
-				//proc_unlock(x->lock);
-			}
-		}
-
-		//read joystick
-		if(x->joystick_fd >= 0) {
-			uint8_t key;
-			int8_t mv[4];
-			if(read(x->joystick_fd, &key, 1) == 1) {
-				if(key == KEY_V_3 && !prs_down) { //switch joy mouse/keyboard mode
-					j_mouse = !j_mouse;
-					prs_down = true;
-					x->show_cursor = j_mouse;
-					x->need_repaint = true;
-					if(x->show_cursor) {
-						x->cursor.drop = true;
-					}
-				}
-
-				if(j_mouse) {
-					joy_2_mouse(key, mv);
-					if(key == 0 && prs_down) {
-						key = 1;
-						prs_down = false;
-						mv[0] = 1;
-					}
-					if(key != 0) {
-						//proc_lock(x->lock);
-						mouse_handle(x, mv[0], mv[1], mv[2]);
-						x->need_repaint = true;
-						//proc_unlock(x->lock);
-					}
-				}
-				else {
-					int8_t v;
-					if(key == 0 && prs_down)
-						prs_down = false;
-					else {
-						joy_2_keyb(key, &v);
-						if(v != 0)
-							keyb_handle(x, v);
-					}
-				}
-			}
-		}
+		read_input(x);
 		sleep(0);
 	}
 	return NULL;
 }
+*/
 
 static int xserver_loop_step(void* p) {
 	x_t* x = (x_t*)p;
 	if(!x->actived)  {
 		return -1;
 	}
+
+	read_input(x);
 
 	//proc_lock(x->lock);
 	x_repaint(x);	
@@ -960,7 +968,7 @@ int main(int argc, char** argv) {
 		x.xwm_pid = pid;
 		prs_down = false;
 		j_mouse = true;
-		pthread_create(NULL, NULL, read_thread, &x);
+		//pthread_create(NULL, NULL, read_thread, &x);
 		dev.extra_data = &x;
 		device_run(&dev, mnt_point, FS_TYPE_CHAR);
 		x_close(&x);
