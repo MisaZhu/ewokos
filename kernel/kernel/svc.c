@@ -674,7 +674,7 @@ static void sys_ipc_get_return(context_t* ctx, uint32_t pid, proto_t* data) {
 	}
 	proto_clear(proc->space->ipc.data);
 	proc->space->ipc.state = IPC_IDLE;
-	proc_wakeup((uint32_t)&_current_proc->space->ipc.state);
+	proc_wakeup((uint32_t)&proc->space->ipc.state);
 }
 
 static void sys_ipc_set_return(proto_t* data) {
