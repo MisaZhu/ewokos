@@ -65,7 +65,7 @@ int main(int argc, char* argv[]) {
 				sec % 60,
 				procs[i].heap_size/1024,
 				get_cmd(procs[i].cmd, full),
-				procs[i].type == PROC_TYPE_THREAD ? " [t]":"");
+				procs[i].type != PROC_TYPE_PROC ? " [t]":"");
 		}
 		free(procs);
 	}
