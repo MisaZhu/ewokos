@@ -9,5 +9,5 @@
 #/sbin/dev/raspi/moused    /dev/mouse0
 /sbin/dev/raspi/joystickd /dev/joystick
 /sbin/dev/raspi/lcdhatd   /dev/fb1
-/sbin/dev/raspi/usbd      /dev/usb
-#/sbin/dev/xserverd        /dev/x
+#/sbin/dev/raspi/usbd      /dev/usb
+/sbin/dev/xserverd        /dev/x
