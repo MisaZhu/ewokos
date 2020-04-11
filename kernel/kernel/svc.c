@@ -626,8 +626,8 @@ static void sys_proc_interrupt(context_t* ctx, int32_t pid, uint32_t int_id) {
 	proc_interrupt(ctx, pid, int_id);
 }
 
-static void sys_ipc_setup(uint32_t entry, uint32_t extra_data) {
-	proc_ipc_setup(entry, extra_data);
+static int32_t sys_ipc_setup(uint32_t entry, uint32_t extra_data) {
+	return proc_ipc_setup(entry, extra_data);
 }
 
 static void sys_ipc_call(context_t* ctx, uint32_t pid, int32_t call_id, proto_t* data) {
@@ -942,7 +942,7 @@ void svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_t arg2, context
 		uspace_get_interrupt_data(arg0, (rawdata_t*)arg1);
 		return;
 	case SYS_IPC_SETUP:
-		sys_ipc_setup(arg0, arg1);
+		ctx->gpr[0] = sys_ipc_setup(arg0, arg1);
 		return;
 	case SYS_IPC_CALL:
 		sys_ipc_call(ctx, arg0, arg1, (proto_t*)arg2);
