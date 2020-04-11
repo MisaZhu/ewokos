@@ -37,7 +37,6 @@ static void do_open(vdevice_t* dev, int from_pid, proto_t *in, void* p) {
 }
 
 static void do_close(vdevice_t* dev, int from_pid, proto_t *in, void* p) {
-	(void)from_pid;
 	fsinfo_t info;
 	int fd = proto_read_int(in);
 	proto_read_to(in, &info, sizeof(fsinfo_t));
@@ -48,9 +47,11 @@ static void do_close(vdevice_t* dev, int from_pid, proto_t *in, void* p) {
 }
 
 static void do_closed(vdevice_t* dev, int from_pid, proto_t *in, void* p) {
-	(void)from_pid;
+	if(from_pid > MAX_TRUST_PID) //untrusted user
+		return;
 	fsinfo_t info;
 	int fd = proto_read_int(in);
+	from_pid = proto_read_int(in);
 	proto_read_to(in, &info, sizeof(fsinfo_t));
 	if(dev != NULL && dev->closed != NULL) {
 		dev->closed(fd, from_pid, &info, p);

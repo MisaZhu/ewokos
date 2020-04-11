@@ -12,6 +12,7 @@
 #include <kernel/proc.h>
 #include <kernel/irq.h>
 #include <kernel/schedule.h>
+#include <kernel/kevqueue.h>
 #include <dev/timer.h>
 #include <kprintf.h>
 #include <vfs.h>
@@ -101,6 +102,7 @@ void _kernel_entry_c(context_t* ctx) {
 	hw_info_init();
 	init_kernel_vm();  
 	km_init();
+	kev_init();
 
 	uart_dev_init();
 	init_console();

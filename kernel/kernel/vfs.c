@@ -6,6 +6,7 @@
 #include <buffer.h>
 #include <proto.h>
 #include <kernel/ipc.h>
+#include <kernel/kevqueue.h>
 
 static vfs_node_t* _vfs_root = NULL;
 static mount_t _vfs_mounts[FS_MOUNT_MAX];
@@ -348,26 +349,16 @@ void vfs_close(proc_t* proc, int32_t fd) {
 		}
 	}
 
-/*
-	proto_t in;
-	proto_init(&in, NULL, 0);
-	proto_add_int(&in, FS_CMD_CLOSED);
-	proto_add_int(&in, fd);
-	proto_add_int(&in, proc->pid);
-	proto_add(&in, &node->fsinfo, sizeof(fsinfo_t));
-
-	rawdata_t data;
-	data.data = in.data;
-	data.size = in.size;
-
 	int32_t to_pid = get_mount_pid(node);
-	if(to_pid >= 0) {
-		proc_msg_t* msg = proc_send_msg(to_pid, &data, -1);
-		if(msg != NULL)
-			msg->from_pid = proc->pid;
-	}
-	proto_clear(&in);
-	*/
+	if(to_pid < 0)
+		return;
+
+	kevent_t* kev = kev_push(KEV_FCLOSED, NULL);
+
+	proto_add_int(kev->data, to_pid);
+	proto_add_int(kev->data, proc->pid);
+	proto_add_int(kev->data, fd);
+	proto_add(kev->data, &node->fsinfo, sizeof(fsinfo_t));
 }
 
 int32_t vfs_dup(int32_t from) {

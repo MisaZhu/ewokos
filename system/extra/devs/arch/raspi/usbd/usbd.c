@@ -171,6 +171,6 @@ int main(int argc, char** argv) {
 	strcpy(dev.name, "usbd");
 	dev.loop_step = usb_step;
 
-	device_run(&dev, mnt_point, FS_TYPE_CHAR, NULL, 0);
+	device_run(&dev, mnt_point, FS_TYPE_CHAR);
 	return 0;
 }

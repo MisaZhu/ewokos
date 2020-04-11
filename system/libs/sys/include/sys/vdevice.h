@@ -4,6 +4,8 @@
 #include <fsinfo.h>
 #include <proto.h>
 
+#define MAX_TRUST_PID 10
+
 typedef struct {
 	char name[FS_NODE_NAME_MAX];
 	void* extra_data;

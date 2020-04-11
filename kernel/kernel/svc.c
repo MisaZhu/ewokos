@@ -5,6 +5,7 @@
 #include <kernel/proc.h>
 #include <kernel/uspace_int.h>
 #include <kernel/hw_info.h>
+#include <kernel/kevqueue.h>
 #include <mm/kalloc.h>
 #include <mm/shm.h>
 #include <mm/kmalloc.h>
@@ -716,6 +717,41 @@ static int32_t sys_ipc_get_arg(void) {
 	return (int32_t)ret;
 }
 
+static kevent_t* sys_get_kevent_raw(void) {
+	if(_current_proc->owner != 0)	
+		return NULL;
+
+	kevent_t* kev = kev_pop();
+	if(kev == NULL) {
+		return NULL;
+	}
+
+	kevent_t* ret = (kevent_t*)proc_malloc(sizeof(kevent_t));
+	ret->type = kev->type;
+	if(kev->data != NULL && kev->data->size > 0) {
+		ret->data = (proto_t*)proc_malloc(sizeof(proto_t));
+		memset(ret->data, 0, sizeof(proto_t));
+		ret->data->data = proc_malloc(kev->data->size);
+		ret->data->total_size = ret->data->size = kev->data->size;
+		memcpy(ret->data->data, kev->data->data, kev->data->size);
+	}
+
+	if(ret->data != NULL)
+		proto_free(kev->data);
+	kfree(kev);
+	return ret;
+}
+
+static void sys_get_kevent(context_t* ctx) {
+	ctx->gpr[0] = 0;	
+	kevent_t* kev = sys_get_kevent_raw();
+	if(kev == NULL) {
+		proc_block_on(ctx, (uint32_t)kev_init);
+		return;
+	}
+	ctx->gpr[0] = (int32_t)kev;	
+}
+
 void svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_t arg2, context_t* ctx, int32_t processor_mode) {
 	(void)arg1;
 	(void)arg2;
@@ -958,6 +994,9 @@ void svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_t arg2, context
 		return;
 	case SYS_IPC_GET_ARG:
 		ctx->gpr[0] = sys_ipc_get_arg();
+		return;
+	case SYS_GET_KEVENT:
+		sys_get_kevent(ctx);
 		return;
 	}
 	printf("pid:%d, code(%d) error!\n", _current_proc->pid, code);

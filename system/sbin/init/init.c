@@ -17,6 +17,7 @@
 #include <rawdata.h>
 #include <sys/global.h>
 #include <graph/graph.h>
+#include <kevent.h>
 #include "sdinit.h"
 
 static inline void wait_ready(int pid) {
@@ -184,6 +185,7 @@ int main(int argc, char** argv) {
 	//mount root fs
 	//run_init_sd("sdd");
 	run_init_root("/sbin/dev/rootfsd");
+	run("/sbin/keventd");
 
 	load_devs();
 	init_stdio();

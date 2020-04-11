@@ -179,6 +179,7 @@ libs: $(LIB_OBJS)
 	@cp -r $(KERNEL_H) $(TARGET_DIR)/include/
 
 include $(ROOT_DIR)/sbin/init/build.mk
+include $(ROOT_DIR)/sbin/keventd/build.mk
 include $(ROOT_DIR)/sbin/dev/fbd/build.mk
 include $(ROOT_DIR)/sbin/dev/timerd/build.mk
 include $(ROOT_DIR)/sbin/dev/nulld/build.mk
@@ -272,8 +273,8 @@ debug:
 
 gdb: 
 	echo "target remote :26000" > /tmp/gdbinit
-	#arm-none-eabi-gdb ${KERNEL_ELF} -x /tmp/gdbinit
-	gdb-multiarch ${KERNEL_ELF} -x /tmp/gdbinit #for ubuntu 18.04 without arm-none-eabi-gdb
+	arm-none-eabi-gdb ${KERNEL_ELF} -x /tmp/gdbinit
+	#gdb-multiarch ${KERNEL_ELF} -x /tmp/gdbinit #for ubuntu 18.04 without arm-none-eabi-gdb
 
 clean:
 	rm -f $(CLEAN)
