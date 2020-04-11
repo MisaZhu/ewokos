@@ -627,9 +627,7 @@ static void sys_proc_interrupt(context_t* ctx, int32_t pid, uint32_t int_id) {
 }
 
 static void sys_ipc_setup(uint32_t entry, uint32_t extra_data) {
-	_current_proc->space->ipc.entry = entry;
-	_current_proc->space->ipc.extra_data = extra_data;
-	_current_proc->space->ipc.state = IPC_IDLE;
+	proc_ipc_setup(entry, extra_data);
 }
 
 static void sys_ipc_call(context_t* ctx, uint32_t pid, int32_t call_id, proto_t* data) {
@@ -697,7 +695,8 @@ static void sys_ipc_end(context_t* ctx) {
 
 	_current_proc->space->ipc.state = IPC_RETURN;
 	proc_wakeup((uint32_t)&_current_proc->space->ipc.state);
-	proc_exit(ctx, _current_proc, 0);
+	_current_proc->state = BLOCK;
+	schedule(ctx);
 }
 
 static int32_t sys_ipc_get_arg(void) {

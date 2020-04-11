@@ -593,13 +593,13 @@ proc_t* kfork_raw(int32_t type, proc_t* parent) {
 			return NULL;
 		}
 	}
-
-	proc_ready(child);
 	return child;
 }
 
 proc_t* kfork(int32_t type) {
-	return kfork_raw(type, _current_proc);
+	proc_t* child = kfork_raw(type, _current_proc);
+	proc_ready(child);
+	return child;
 }
 
 static int32_t get_procs_num(void) {
@@ -671,21 +671,34 @@ proc_t* proc_get_proc(void) {
 	return NULL;
 }
 
+int32_t proc_ipc_setup(uint32_t entry, uint32_t extra_data) {
+	_current_proc->space->ipc.entry = entry;
+	_current_proc->space->ipc.extra_data = extra_data;
+	_current_proc->space->ipc.state = IPC_IDLE;
+
+	proc_t *ipc_thread = kfork_raw(PROC_TYPE_IPC, _current_proc);
+	if(ipc_thread == NULL)
+		return -1;
+	_current_proc->space->ipc.sp = ipc_thread->ctx.sp;
+	_current_proc->space->ipc.ipc_pid = ipc_thread->pid;
+	return 0;
+}
+
 int32_t proc_ipc_call(context_t* ctx, proc_t* proc, int32_t call_id) {
 	if(proc == NULL || proc->space->ipc.entry == 0 || proc->space->ipc.state != IPC_BUSY)
 		return -1;
 
-	proc_t *ipc_thread = kfork_raw(PROC_TYPE_IPC, proc);
+	proc_t *ipc_thread = proc_get(proc->space->ipc.ipc_pid);
 	if(ipc_thread == NULL)
 		return -1;
 
-	uint32_t sp = ipc_thread->ctx.sp;
 	memcpy(&ipc_thread->ctx, &proc->ctx, sizeof(context_t));
-	ipc_thread->ctx.sp = sp;
+	ipc_thread->ctx.sp = proc->space->ipc.sp;
 	ipc_thread->ctx.pc = ipc_thread->ctx.lr = proc->space->ipc.entry;
 	ipc_thread->ctx.gpr[0] = proc->space->ipc.from_pid;
 	ipc_thread->ctx.gpr[1] = call_id;
 	ipc_thread->ctx.gpr[2] = proc->space->ipc.extra_data;
+	ipc_thread->state = RUNNING;
 	proc_switch(ctx, ipc_thread, true);
 	return true;
 }

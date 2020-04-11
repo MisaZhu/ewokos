@@ -36,6 +36,7 @@ bool proc_interrupt(context_t* ctx, int32_t pid, int32_t int_id) {
 	int_thread->ctx.gpr[1] = proc->interrupt.func;
 	int_thread->ctx.gpr[2] = proc->interrupt.data;
 	proc->interrupt.busy = true;
+	int_thread->state = RUNNING;
 	proc_switch(ctx, int_thread, true);
 	return true;
 }

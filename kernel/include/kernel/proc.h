@@ -44,6 +44,8 @@ typedef struct {
 	env_t envs[ENV_MAX];
 
 	struct {
+		int32_t  ipc_pid;
+		uint32_t sp;
 		uint32_t entry;
 		proto_t* data;
 		uint32_t extra_data;
@@ -125,6 +127,7 @@ extern const char* proc_get_env_value(int32_t index);
 extern int32_t     proc_set_env(const char* name, const char* value);
 extern void        proc_set_interrupt_data(void* data, uint32_t size);
 extern void        proc_get_interrupt_data(rawdata_t* data);
+extern int32_t     proc_ipc_setup(uint32_t entry, uint32_t extra);
 extern int32_t     proc_ipc_call(context_t* ctx, proc_t* proc, int32_t call_id);
 
 #define PROC_MAX 128

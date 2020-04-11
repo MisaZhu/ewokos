@@ -34,9 +34,12 @@ static const char* get_cmd(char* cmd, int full) {
 
 int main(int argc, char* argv[]) {
 	int full = 0;
+	int all = 0;
 	if(argc == 2 && argv[1][0] == '-') {	
 		if(strchr(argv[1], 'f') != NULL)
 			full = 1;
+		if(strchr(argv[1], 'a') != NULL)
+			all = 1;
 	}
 
 	int num = 0;
@@ -51,7 +54,7 @@ int main(int argc, char* argv[]) {
 	if(procs != NULL) {
 		printf("  PID    FATHER OWNER   STATE TIME       HEAP(k)  PROC\n"); 
 		for(int i=0; i<num; i++) {
-			if(procs[i].type == PROC_TYPE_THREAD && full == 0)
+			if(procs[i].type != PROC_TYPE_PROC && all == 0)
 				continue;
 
 			uint32_t sec = csec - procs[i].start_sec;

@@ -21,8 +21,8 @@ ARCH_DIR=arch
 include ${ARCH_DIR}/${ARCH}/config.mk
 
 # flags
-#OPTM = -g
-OPTM = -O2
+OPTM = -g
+#OPTM = -O2
 
 CFLAGS += $(OPTM) \
 	-I. -I../include -Iinclude \
@@ -138,8 +138,8 @@ debugasm:
 
 gdb: 
 	echo "target remote :26000" > /tmp/gdbinit
-	#arm-none-eabi-gdb ${BUILD_DIR}/$(OS).elf -x /tmp/gdbinit
-	gdb-multiarch ${BUILD_DIR}/$(OS).elf -x /tmp/gdbinit #for ubuntu 18.04 without arm-none-eabi-gdb
+	arm-none-eabi-gdb ${BUILD_DIR}/$(OS).elf -x /tmp/gdbinit
+	#gdb-multiarch ${BUILD_DIR}/$(OS).elf -x /tmp/gdbinit #for ubuntu 18.04 without arm-none-eabi-gdb
 
 clean:
 	rm -f $(OBJS)
