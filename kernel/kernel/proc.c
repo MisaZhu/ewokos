@@ -700,6 +700,5 @@ int32_t proc_ipc_call(context_t* ctx, proc_t* proc, int32_t call_id) {
 	ipc_thread->ctx.gpr[2] = proc->space->ipc.extra_data;
 	ipc_thread->state = RUNNING;
 	proc_switch(ctx, ipc_thread, true);
-	return true;
+	return 0;
 }
-
