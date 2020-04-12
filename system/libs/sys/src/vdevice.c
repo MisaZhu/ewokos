@@ -24,8 +24,9 @@ static void do_open(vdevice_t* dev, int from_pid, proto_t *in, void* p) {
 	memcpy(&info, proto_read(in, NULL), sizeof(fsinfo_t));
 	oflag = proto_read_int(in);
 	int32_t fd = syscall3(SYS_VFS_OPEN, from_pid, (int32_t)&info, oflag);
-	if(fd >= 0 && dev != NULL && dev->open != NULL) {
-		if(dev->open(fd, from_pid, &info, oflag, p) != 0) {
+	uint32_t ufid = syscall3(SYS_VFS_GET_BY_FD, fd, from_pid, NULL);
+	if(fd >= 0 && ufid > 0 && dev != NULL && dev->open != NULL) {
+		if(dev->open(fd, ufid, from_pid, &info, oflag, p) != 0) {
 		}
 	}
 
@@ -51,10 +52,11 @@ static void do_closed(vdevice_t* dev, int from_pid, proto_t *in, void* p) {
 		return;
 	fsinfo_t info;
 	int fd = proto_read_int(in);
+	int fuid = proto_read_int(in);
 	from_pid = proto_read_int(in);
 	proto_read_to(in, &info, sizeof(fsinfo_t));
 	if(dev != NULL && dev->closed != NULL) {
-		dev->closed(fd, from_pid, &info, p);
+		dev->closed(fd, fuid, from_pid, &info, p);
 	}
 }
 

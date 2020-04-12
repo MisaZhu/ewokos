@@ -320,15 +320,28 @@ static int32_t sys_vfs_del(fsinfo_t* info) {
 	return 0;
 }
 
-static int32_t sys_vfs_get_by_fd(int32_t fd, fsinfo_t* info) {
-	if(fd < 0 || info == NULL)
+static int32_t sys_vfs_get_by_fd(int32_t fd, int32_t pid, fsinfo_t* info) {
+	uint32_t ufid = 0; 
+	if(fd < 0 || pid < 0 || _current_proc->owner != 0)
+		return ufid;
+
+	vfs_node_t* node = vfs_node_by_fd(fd, proc_get(pid), &ufid);
+	if(node == NULL)
+		return 0;
+	if(info != NULL) 
+		memcpy(info, &node->fsinfo, sizeof(fsinfo_t));
+	return ufid;
+}
+
+static int32_t sys_vfs_proc_get_by_fd(int32_t fd, fsinfo_t* info, uint32_t* ufid) {
+	if(fd < 0)
 		return -1;
 	
-	vfs_node_t* node = vfs_node_by_fd(fd);
+	vfs_node_t* node = vfs_node_by_fd(fd, _current_proc, ufid);
 	if(node == NULL)
 		return -1;
-
-	memcpy(info, &node->fsinfo, sizeof(fsinfo_t));
+	if(info != NULL) 
+		memcpy(info, &node->fsinfo, sizeof(fsinfo_t));
 	return 0;
 }
 
@@ -640,6 +653,7 @@ static void sys_ipc_call(context_t* ctx, uint32_t pid, int32_t call_id, proto_t*
 	}
 	if(proc->space->ipc.state != IPC_IDLE) {
 		ctx->gpr[0] = -1;
+		//printf("ipc retry: from: %d, to:%d, call: %d\n", _current_proc->pid, pid, call_id);
 		proc_block_on(ctx, (uint32_t)&proc->space->ipc.state);
 		return;
 	}
@@ -660,7 +674,7 @@ static void sys_ipc_get_return(context_t* ctx, uint32_t pid, proto_t* data) {
 	}
 	if(proc->space->ipc.state != IPC_RETURN) {
 		ctx->gpr[0] = -1;
-		proc_block_on(ctx, (uint32_t)&proc->space->ipc.state);
+		proc_block_on(ctx, (uint32_t)&proc->space->ipc.data);
 		return;
 	}
 
@@ -695,7 +709,7 @@ static void sys_ipc_end(context_t* ctx) {
 	}
 
 	_current_proc->space->ipc.state = IPC_RETURN;
-	proc_wakeup((uint32_t)&_current_proc->space->ipc.state);
+	proc_wakeup((uint32_t)&_current_proc->space->ipc.data);
 	_current_proc->state = BLOCK;
 	schedule(ctx);
 }
@@ -854,8 +868,11 @@ void svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_t arg2, context
 	case SYS_VFS_PROC_TELL:
 		ctx->gpr[0] = sys_vfs_tell(arg0);
 		return;
+	case SYS_VFS_GET_BY_FD:
+		ctx->gpr[0] = sys_vfs_get_by_fd(arg0, arg1, (fsinfo_t*)arg2);
+		return;
 	case SYS_VFS_PROC_GET_BY_FD:
-		ctx->gpr[0] = sys_vfs_get_by_fd(arg0, (fsinfo_t*)arg1);
+		ctx->gpr[0] = sys_vfs_proc_get_by_fd(arg0, (fsinfo_t*)arg1, (uint32_t*)arg2);
 		return;
 	case SYS_VFS_PROC_DUP:
 		ctx->gpr[0] = vfs_dup(arg0);

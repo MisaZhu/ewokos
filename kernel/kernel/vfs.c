@@ -9,6 +9,7 @@
 #include <kernel/kevqueue.h>
 
 static vfs_node_t* _vfs_root = NULL;
+static uint32_t _ufid_count = 1;
 static mount_t _vfs_mounts[FS_MOUNT_MAX];
 
 static void vfs_node_init(vfs_node_t* node) {
@@ -24,6 +25,7 @@ void vfs_init(void) {
 	}
 
 	_vfs_root = vfs_new_node();
+	_ufid_count = 1;
 	strcpy(_vfs_root->fsinfo.name, "/");
 }
 
@@ -311,6 +313,7 @@ int32_t vfs_open(int32_t pid, vfs_node_t* node, int32_t wr) {
 
 	proc->space->files[fd].node = (uint32_t)node;
 	proc->space->files[fd].wr = wr;
+	proc->space->files[fd].ufid = _ufid_count++;
 
 	node->refs++;
 	if(wr != 0)
@@ -318,8 +321,10 @@ int32_t vfs_open(int32_t pid, vfs_node_t* node, int32_t wr) {
 	return fd;
 }
 
-vfs_node_t* vfs_node_by_fd(int32_t fd) {
-	kfile_t* file = &_current_proc->space->files[fd];
+vfs_node_t* vfs_node_by_fd(int32_t fd, proc_t* proc, uint32_t* ufid) {
+	kfile_t* file = &proc->space->files[fd];
+	if(ufid != NULL)
+		*ufid = file->ufid;
 	return (vfs_node_t*)file->node;
 }
 
@@ -336,6 +341,7 @@ void vfs_close(proc_t* proc, int32_t fd) {
 		node->refs--;
 	if(file->wr != 0 && node->refs_w > 0)
 		node->refs_w--;
+	uint32_t ufid = file->ufid;
 
 	memset(file, 0, sizeof(kfile_t));
 
@@ -358,6 +364,7 @@ void vfs_close(proc_t* proc, int32_t fd) {
 	proto_add_int(kev->data, to_pid);
 	proto_add_int(kev->data, proc->pid);
 	proto_add_int(kev->data, fd);
+	proto_add_int(kev->data, ufid);
 	proto_add(kev->data, &node->fsinfo, sizeof(fsinfo_t));
 }
 

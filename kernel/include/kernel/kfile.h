@@ -4,6 +4,7 @@
 #include <_types.h>
 
 typedef struct {
+	uint32_t ufid;
 	uint32_t node;
 	uint32_t wr;
 	uint32_t seek; 

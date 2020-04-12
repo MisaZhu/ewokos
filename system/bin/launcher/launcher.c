@@ -57,7 +57,7 @@ static void draw_icon(graph_t* g, const char* item, int icon_size, int i) {
 	graph_free(img);
 }
 
-static void draw(x_t* x, items_t* items) {
+static void do_draw(x_t* x, items_t* items) {
 	graph_t* g = x_get_graph(x);
 	//font_t* font = get_font_by_name("8x16");
 	clear(g, argb_int(0x0));
@@ -111,7 +111,7 @@ int main(int argc, char* argv[]) {
 			items.icon_size, 
 			items.icon_size * items.num,
 			"launcher", X_STYLE_NO_FRAME | X_STYLE_ALPHA | X_STYLE_NO_FOCUS);
-	draw(x, &items);
+	do_draw(x, &items);
 	x_set_visible(x, true);
 
 	xinfo_t xinfo;

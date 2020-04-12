@@ -25,7 +25,7 @@ typedef struct st_xview_ev {
 } xview_event_t;
 
 typedef struct st_xview {
-	int fd;
+	int ufid;
 	int from_pid;
 	graph_t* g;
 	xinfo_t xinfo;
@@ -317,8 +317,11 @@ static void x_repaint(x_t* x) {
 	x->need_repaint = false;
 
 	hide_cursor(x);
-	if(x->dirty)
+	bool undirty = false;
+	if(x->dirty) {
 		draw_desktop(x);
+		undirty = true;
+	}
 
 	xview_t* view = x->view_head;
 	while(view != NULL) {
@@ -329,24 +332,27 @@ static void x_repaint(x_t* x) {
 	if(x->show_cursor)
 		draw_cursor(x);
 	flush(x->fb_fd);
-	x->dirty = false;
+
+	if(undirty) {
+		x->dirty = false;
+	}
 }
 
-static xview_t* x_get_view(x_t* x, int fd, int from_pid) {
+static xview_t* x_get_view(x_t* x, int ufid, int from_pid) {
 	xview_t* view = x->view_head;
 	while(view != NULL) {
-		if(view->fd == fd && view->from_pid == from_pid)
+		if(view->ufid == ufid && view->from_pid == from_pid)
 			return view;
 		view = view->next;
 	}
 	return NULL;
 }
 
-static int x_update(int fd, int from_pid, x_t* x) {
-	if(fd < 0)
+static int x_update(int ufid, int from_pid, x_t* x) {
+	if(ufid < 0)
 		return -1;
 	
-	xview_t* view = x_get_view(x, fd, from_pid);
+	xview_t* view = x_get_view(x, ufid, from_pid);
 	if(view == NULL)
 		return -1;
 
@@ -359,11 +365,11 @@ static int x_update(int fd, int from_pid, x_t* x) {
 	return 0;
 }
 
-static int x_set_visible(int fd, int from_pid, proto_t* in, x_t* x) {
-	if(fd < 0)
+static int x_set_visible(int ufid, int from_pid, proto_t* in, x_t* x) {
+	if(ufid < 0)
 		return -1;
 	
-	xview_t* view = x_get_view(x, fd, from_pid);
+	xview_t* view = x_get_view(x, ufid, from_pid);
 	if(view == NULL)
 		return -1;
 
@@ -373,13 +379,13 @@ static int x_set_visible(int fd, int from_pid, proto_t* in, x_t* x) {
 	return 0;
 }
 
-static int x_update_info(int fd, int from_pid, proto_t* in, x_t* x) {
+static int x_update_info(int ufid, int from_pid, proto_t* in, x_t* x) {
 	xinfo_t xinfo;
 	int sz = sizeof(xinfo_t);
-	if(fd < 0 || proto_read_to(in, &xinfo, sz) != sz)
+	if(ufid == 0 || proto_read_to(in, &xinfo, sz) != sz)
 		return -1;
 	
-	xview_t* view = x_get_view(x, fd, from_pid);
+	xview_t* view = x_get_view(x, ufid, from_pid);
 	if(view == NULL)
 		return -1;
 	
@@ -417,8 +423,8 @@ static int x_update_info(int fd, int from_pid, proto_t* in, x_t* x) {
 	return 0;
 }
 
-static int x_get_event(int fd, int from_pid, x_t* x, proto_t* out) {
-	xview_t* view = x_get_view(x, fd, from_pid);
+static int x_get_event(int ufid, int from_pid, x_t* x, proto_t* out) {
+	xview_t* view = x_get_view(x, ufid, from_pid);
 	if(view == NULL || view->event_head == NULL)
 		return -1;
 
@@ -434,16 +440,16 @@ static int x_get_event(int fd, int from_pid, x_t* x, proto_t* out) {
 	return 0;
 }
 
-static int x_get_info(int fd, int from_pid, x_t* x, proto_t* out) {
-	xview_t* view = x_get_view(x, fd, from_pid);
+static int x_get_info(int ufid, int from_pid, x_t* x, proto_t* out) {
+	xview_t* view = x_get_view(x, ufid, from_pid);
 	if(view == NULL)
 		return -1;
 	proto_add(out, &view->xinfo, sizeof(xinfo_t));
 	return 0;
 }
 
-static int x_is_top(int fd, int from_pid, x_t* x, proto_t* out) {
-	xview_t* view = x_get_view(x, fd, from_pid);
+static int x_is_top(int ufid, int from_pid, x_t* x, proto_t* out) {
+	xview_t* view = x_get_view(x, ufid, from_pid);
 	if(view == NULL || x->view_tail == NULL)
 		return -1;
 
@@ -492,21 +498,22 @@ static int xserver_fcntl(int fd, int from_pid, fsinfo_t* info,
 		int cmd, proto_t* in, proto_t* out, void* p) {
 	(void)info;
 	x_t* x = (x_t*)p;
+	uint32_t ufid = syscall3(SYS_VFS_GET_BY_FD, fd, from_pid, 0);
 
 	if(cmd == X_CNTL_UPDATE) {
-		return x_update(fd, from_pid, x);
+		return x_update(ufid, from_pid, x);
 	}	
 	else if(cmd == X_CNTL_UPDATE_INFO) {
-		return x_update_info(fd, from_pid, in, x);
+		return x_update_info(ufid, from_pid, in, x);
 	}
 	else if(cmd == X_CNTL_SET_VISIBLE) {
-		return x_set_visible(fd, from_pid, in, x);
+		return x_set_visible(ufid, from_pid, in, x);
 	}
 	else if(cmd == X_CNTL_GET_INFO) {
-		return x_get_info(fd, from_pid, x, out);
+		return x_get_info(ufid, from_pid, x, out);
 	}
 	else if(cmd == X_CNTL_GET_EVT) {
-		return x_get_event(fd, from_pid, x, out);
+		return x_get_event(ufid, from_pid, x, out);
 	}
 	else if(cmd == X_CNTL_SCR_INFO) {
 		return x_scr_info(x, out);
@@ -515,15 +522,16 @@ static int xserver_fcntl(int fd, int from_pid, fsinfo_t* info,
 		return x_workspace(x, in, out);
 	}
 	else if(cmd == X_CNTL_IS_TOP) {
-		return x_is_top(fd, from_pid, x, out);
+		return x_is_top(ufid, from_pid, x, out);
 	}
 
 	return 0;
 }
 
-static int xserver_open(int fd, int from_pid, fsinfo_t* info, int oflag, void* p) {
+static int xserver_open(int fd, int ufid, int from_pid, fsinfo_t* info, int oflag, void* p) {
 	(void)oflag;
 	(void)info;
+	(void)fd;
 	x_t* x = (x_t*)p;
 	if(fd < 0)
 		return -1;
@@ -532,17 +540,18 @@ static int xserver_open(int fd, int from_pid, fsinfo_t* info, int oflag, void* p
 	if(view == NULL)
 		return -1;
 	memset(view, 0, sizeof(xview_t));
-	view->fd = fd;
+	view->ufid = ufid;
 	view->from_pid = from_pid;
 	push_view(x, view);
 	return 0;
 }
 
-static int xserver_closed(int fd, int from_pid, fsinfo_t* info, void* p) {
+static int xserver_closed(int fd, int ufid, int from_pid, fsinfo_t* info, void* p) {
 	(void)info;
+	(void)fd;
 	x_t* x = (x_t*)p;
 	
-	xview_t* view = x_get_view(x, fd, from_pid);
+	xview_t* view = x_get_view(x, ufid, from_pid);
 	if(view == NULL)
 		return -1;
 

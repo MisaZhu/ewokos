@@ -186,7 +186,6 @@ int main(int argc, char** argv) {
 	//run_init_sd("sdd");
 	run_init_root("/sbin/dev/rootfsd");
 	run("/sbin/keventd");
-
 	load_devs();
 	init_stdio();
 	run_procs();

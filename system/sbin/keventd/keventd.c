@@ -11,11 +11,13 @@ static void do_fsclosed(proto_t *data) {
 	int32_t to_pid = proto_read_int(data);
 	int32_t from_pid = proto_read_int(data);
 	int32_t fd = proto_read_int(data);
+	int32_t fuid = proto_read_int(data);
 	proto_read_to(data, &fsinfo, sizeof(fsinfo_t));
 
 	proto_t in;
 	proto_init(&in, NULL, 0);
 	proto_add_int(&in, fd);
+	proto_add_int(&in, fuid);
 	proto_add_int(&in, from_pid);
 	proto_add(&in, &fsinfo, sizeof(fsinfo_t));
 
@@ -41,7 +43,7 @@ int main(int argc, char** argv) {
 				proto_free(kev->data);
 			free(kev);
 		}
-		sleep(0);
+		usleep(10000);
 	}
 	return 0;
 }
