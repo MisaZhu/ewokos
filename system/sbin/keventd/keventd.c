@@ -43,7 +43,7 @@ int main(int argc, char** argv) {
 				proto_free(kev->data);
 			free(kev);
 		}
-		usleep(10000);
+		usleep(20000);
 	}
 	return 0;
 }

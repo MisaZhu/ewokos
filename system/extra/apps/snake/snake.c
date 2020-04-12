@@ -227,7 +227,7 @@ int main(int argc, char* argv[]) {
 			x_release_graph(x, g);
 			x_update(x);
 		}
-		usleep(20000);
+		usleep(30000);
 	}
 
 	x_close(x);

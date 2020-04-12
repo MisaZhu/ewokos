@@ -46,12 +46,10 @@ static void unreg_timer(int fd, int pid) {
 }
 
 static int timer_open(int fd, 
-		int ufid,
 		int from_pid,
 		fsinfo_t* info, 
 		int oflag,
 		void* p) {
-	(void)ufid;
 	(void)info;
 	(void)oflag;
 	(void)p;

@@ -528,14 +528,15 @@ static int xserver_fcntl(int fd, int from_pid, fsinfo_t* info,
 	return 0;
 }
 
-static int xserver_open(int fd, int ufid, int from_pid, fsinfo_t* info, int oflag, void* p) {
+static int xserver_open(int fd, int from_pid, fsinfo_t* info, int oflag, void* p) {
 	(void)oflag;
 	(void)info;
 	(void)fd;
-	x_t* x = (x_t*)p;
-	if(fd < 0)
+	uint32_t ufid = syscall3(SYS_VFS_GET_BY_FD, fd, from_pid, NULL);
+	if(fd < 0 || ufid == 0)
 		return -1;
 
+	x_t* x = (x_t*)p;
 	xview_t* view = (xview_t*)malloc(sizeof(xview_t));
 	if(view == NULL)
 		return -1;
