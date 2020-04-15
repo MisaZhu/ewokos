@@ -62,7 +62,8 @@ inline void gic_set_irqs(uint32_t irqs) {
 	*/
 }
 
-inline uint32_t gic_get_irqs(void) {
+inline uint32_t gic_get_irqs(proto_t* data) {
+	(void)data;
 	uint32_t ret = 0;
 	if(IRQ_IS_PENDING(_pic, 64)) {
 		ret |= IRQ_TIMER0;
