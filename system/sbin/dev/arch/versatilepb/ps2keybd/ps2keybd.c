@@ -18,10 +18,13 @@
 #define KEYBOARD_BASE (_mmio_base+0x6000)
 
 static uint32_t _mmio_base = 0;
+static uint8_t _held[128] = {0};
+
 int32_t keyb_init(void) {
 	_mmio_base = mmio_map();
   put8(KEYBOARD_BASE + KCNTL, 0x10); // bit4=Enable bit0=INT on
   put8(KEYBOARD_BASE + KCLK, 8);
+	memset(_held, 0, 128);
 	return 0;
 }
 
@@ -45,8 +48,6 @@ const char _utab[] = {
   0,   0,  '"',  0,  '{', '+',  0,   0,    0,   0,  '\r','}',  0,  '|',  0,   0,
   0,   0,   0,   0,   0,   0,  '\b', 0,    0,   0,   0,   0,   0,   0,   0,   0
 };
-
-static uint8_t _held[128] = {0};
 
 static int32_t keyb_handle(void) {
 	rawdata_t data;
