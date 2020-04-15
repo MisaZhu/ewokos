@@ -619,25 +619,18 @@ static void sys_proc_critical_quit(void) {
 	_current_proc->critical_counter = 0;
 }
 
-static void sys_proc_irq_setup(uint32_t entry, uint32_t func, uint32_t data) {
-	_current_proc->interrupt.entry = entry;
-	_current_proc->interrupt.func = func;
-	_current_proc->interrupt.data = data;
-	_current_proc->interrupt.busy = false;
-}
-
-static int32_t sys_proc_irq_register(uint32_t int_id) {
+static int32_t sys_proc_usint_register(uint32_t int_id) {
 	return uspace_interrupt_register(int_id);
 }
 
-static void sys_proc_irq_unregister(uint32_t int_id) {
-	uspace_interrupt_unregister(int_id);
+static int32_t sys_get_usint_pid(uint32_t int_id) {
+	if(_current_proc->owner != 0)
+		return -1;
+	return uspace_interrupt_get_pid(int_id);
 }
 
-static void sys_proc_interrupt(context_t* ctx, int32_t pid, uint32_t int_id) {
-	if(_current_proc->owner != 0)
-		return;
-	proc_interrupt(ctx, pid, int_id);
+static void sys_proc_usint_unregister(uint32_t int_id) {
+	uspace_interrupt_unregister(int_id);
 }
 
 static int32_t sys_ipc_setup(uint32_t entry, uint32_t extra_data) {
@@ -979,20 +972,14 @@ void svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_t arg2, context
 	case SYS_PROC_CRITICAL_QUIT:
 		sys_proc_critical_quit();
 		return;
-	case SYS_PROC_IRQ_SETUP:
-		sys_proc_irq_setup((uint32_t)arg0, (uint32_t)arg1, (uint32_t)arg2);
+	case SYS_PROC_USINT_REGISTER:
+		ctx->gpr[0] = sys_proc_usint_register((uint32_t)arg0);
 		return;
-	case SYS_PROC_IRQ_REGISTER:
-		ctx->gpr[0] = sys_proc_irq_register((uint32_t)arg0);
+	case SYS_GET_USINT_PID:
+		ctx->gpr[0] = sys_get_usint_pid((uint32_t)arg0);
 		return;
-	case SYS_PROC_IRQ_UNREGISTER:
-		sys_proc_irq_unregister((uint32_t)arg0);
-		return;
-	case SYS_PROC_INTERRUPT:
-		sys_proc_interrupt(ctx, arg0, (uint32_t)arg1);
-		return;
-	case SYS_INTERRUPT_DATA:
-		uspace_get_interrupt_data(arg0, (rawdata_t*)arg1);
+	case SYS_PROC_USINT_UNREGISTER:
+		sys_proc_usint_unregister((uint32_t)arg0);
 		return;
 	case SYS_IPC_SETUP:
 		ctx->gpr[0] = sys_ipc_setup(arg0, arg1);

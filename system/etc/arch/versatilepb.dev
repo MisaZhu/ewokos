@@ -1,5 +1,4 @@
 /sbin/dev/fbd                /dev/fb0
-/sbin/dev/timerd             /dev/timer0
 /sbin/dev/nulld              /dev/null
 /sbin/dev/versatilepb/ttyd   /dev/tty0
 /sbin/dev/versatilepb/ps2keybd  /dev/keyb0

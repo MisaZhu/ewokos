@@ -6,7 +6,8 @@
 
 enum {
 	KEV_NONE = 0,
-	KEV_FCLOSED
+	KEV_FCLOSED,
+	KEV_US_INT
 };
 
 typedef struct {

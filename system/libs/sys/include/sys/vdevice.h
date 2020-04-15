@@ -24,6 +24,7 @@ typedef struct {
 	int (*umount)(fsinfo_t* mnt_point, void* p);
 	int (*unlink)(fsinfo_t* info, const char *fname, void* p);
 	int (*clear_buffer)(fsinfo_t* info, void* p);
+	int (*safe_cmd)(int cmd, int from_pid, proto_t* in, void* p);
 	int (*loop_step)(void* p);
 } vdevice_t;
 

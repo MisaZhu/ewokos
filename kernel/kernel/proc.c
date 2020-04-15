@@ -221,7 +221,7 @@ static void proc_ready(proc_t* proc) {
 		return;
 
 	proc->state = READY;
-	queue_push(&_ready_queue, proc);
+	queue_push_head(&_ready_queue, proc);
 }
 
 proc_t* proc_get_next_ready(void) {
@@ -292,13 +292,6 @@ void __attribute__((optimize("O0"))) proc_exit(context_t* ctx, proc_t *proc, int
 		kfree4k(proc->user_stack[i]);
 	}
 	proc_free_space(proc);
-
-	if(proc->type == PROC_TYPE_INTERRUPT) {
-		proc_t* p = proc_get(proc->father_pid);
-		if(p != NULL) {
-			p->interrupt.busy = false;
-		}
-	}
 	memset(proc, 0, sizeof(proc_t));
 }
 

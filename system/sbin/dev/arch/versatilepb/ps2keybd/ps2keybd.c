@@ -49,15 +49,8 @@ const char _utab[] = {
   0,   0,   0,   0,   0,   0,  '\b', 0,    0,   0,   0,   0,   0,   0,   0,   0
 };
 
-static int32_t keyb_handle(void) {
-	rawdata_t data;
-	uint8_t scode;
+static int32_t keyb_handle(uint8_t scode) {
 	char c = 0;
-	syscall2(SYS_INTERRUPT_DATA, US_INT_KEY, (int32_t)&data);
-	if(data.size == 0)
-		return 0;
-	scode = *(uint8_t*)data.data;
-	free(data.data);
 
 	if((scode == 0xF0)) {
 		return 0;
@@ -111,12 +104,14 @@ static int keyb_read(int fd, int from_pid, fsinfo_t* info,
 	return 1;
 }
 
-void int_func(int int_id, void* p) {
+int keyb_safe_cmd(int cmd, int from_pid, proto_t* in, void* p) {
 	(void)p;
-	if(int_id != US_INT_KEY)
-		return;
-	char c = keyb_handle();
+	(void)cmd;
+	(void)from_pid;
+	uint8_t key_scode = proto_read_int(in);
+	char c = keyb_handle(key_scode);
 	charbuf_push(&_buffer, c, true);
+	return 0;
 }
 
 int main(int argc, char** argv) {
@@ -124,13 +119,13 @@ int main(int argc, char** argv) {
 
 	keyb_init();
 	charbuf_init(&_buffer);
-	proc_interrupt_setup(int_func, NULL);
-	proc_interrupt_register(US_INT_KEY);
+	proc_interrupt_register(US_INT_PS2_KEY);
 
 	vdevice_t dev;
 	memset(&dev, 0, sizeof(vdevice_t));
 	strcpy(dev.name, "keyb");
 	dev.read = keyb_read;
+	dev.safe_cmd = keyb_safe_cmd;
 
 	device_run(&dev, mnt_point, FS_TYPE_CHAR);
 	return 0;

@@ -9,6 +9,7 @@
 #include <kernel/uspace_int.h>
 #include <kernel/kernel.h>
 #include <kernel/proc.h>
+#include <kernel/kevqueue.h>
 #include <string.h>
 #include <kprintf.h>
 
@@ -23,22 +24,31 @@ static uint64_t _timer_usec = 0;
 static uint32_t _timer_mtic = 0;
 static uint32_t _timer_tic = 0;
 
+static void keyboard_interrupt(proto_t* data) {
+	kevent_t* kev = kev_push(KEV_US_INT, NULL);
+	proto_add_int(kev->data, US_INT_PS2_KEY);
+	proto_add_int(kev->data, proto_read_int(data));
+}
 
 void irq_handler(context_t* ctx) {
 	__irq_disable();
 	_current_ctx = ctx;
 	bool uspace_int = false;
+	proto_t data;
 
 	if(_current_proc != NULL && _current_proc->critical_counter > 0) {
 		_current_proc->critical_counter--;
 		return;
 	}
 
-	uint32_t irqs = gic_get_irqs();
+	proto_init(&data, NULL, 0);
+	uint32_t irqs = gic_get_irqs(&data);
 
 	if((irqs & IRQ_KEY) != 0) {
-		uspace_interrupt(ctx, US_INT_KEY);
+		//uspace_interrupt(ctx, US_INT_KEY);
+		keyboard_interrupt(&data);
 	}
+	proto_clear(&data);
 
 	/*
 	if((irqs & IRQ_SDC) != 0) {
@@ -55,6 +65,7 @@ void irq_handler(context_t* ctx) {
 				_timer_usec = usec;
 				_timer_mtic += usec_gap;
 				_timer_tic += usec_gap;
+				/*
 				if(_timer_tic >= 1000000) { //1 sec
 					_kernel_tic++;
 					_timer_tic = 0;
@@ -67,6 +78,7 @@ void irq_handler(context_t* ctx) {
 					if(uspace_interrupt(ctx, US_INT_TIMER_MTIC))
 						uspace_int = true;
 				}
+				*/
 				renew_sleep_counter(usec_gap);
 			}
 		}	

@@ -534,7 +534,7 @@ static int xserver_open(int fd, int from_pid, fsinfo_t* info, int oflag, void* p
 	(void)oflag;
 	(void)info;
 	(void)fd;
-	uint32_t ufid = syscall3(SYS_VFS_GET_BY_FD, fd, from_pid, NULL);
+	uint32_t ufid = syscall3(SYS_VFS_GET_BY_FD, fd, from_pid, (int32_t)NULL);
 	if(fd < 0 || ufid == 0)
 		return -1;
 

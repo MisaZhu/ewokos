@@ -1,5 +1,4 @@
 /sbin/dev/fbd             /dev/fb0
-/sbin/dev/timerd          /dev/timer0
 /sbin/dev/nulld           /dev/null
 /sbin/dev/raspi/gpiod     /dev/gpio
 /sbin/dev/raspi/spid      /dev/spi

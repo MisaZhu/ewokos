@@ -181,7 +181,6 @@ libs: $(LIB_OBJS)
 include $(ROOT_DIR)/sbin/init/build.mk
 include $(ROOT_DIR)/sbin/keventd/build.mk
 include $(ROOT_DIR)/sbin/dev/fbd/build.mk
-include $(ROOT_DIR)/sbin/dev/timerd/build.mk
 include $(ROOT_DIR)/sbin/dev/nulld/build.mk
 include $(ROOT_DIR)/sbin/dev/xserverd/build.mk
 include $(ROOT_DIR)/sbin/dev/rootfsd/build.mk

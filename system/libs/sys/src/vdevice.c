@@ -320,6 +320,20 @@ static void do_clear_buffer(vdevice_t* dev, int from_pid, proto_t *in, void* p) 
 	proto_clear(&out);
 }
 
+static void do_safe_cmd(vdevice_t* dev, int cmd, int from_pid, proto_t *in, void* p) {
+	int res = -1;
+	if(dev != NULL && dev->safe_cmd != NULL) {
+		res = dev->safe_cmd(cmd, from_pid, in, p);
+	}
+
+	proto_t out;
+	proto_init(&out, NULL, 0);
+	proto_add_int(&out, res);
+
+	ipc_set_return(&out);
+	proto_clear(&out);
+}
+
 static void handle(int from_pid, int cmd, void* p) {
 	vdevice_t* dev = (vdevice_t*)p;
 	if(dev == NULL)
@@ -370,6 +384,10 @@ static void handle(int from_pid, int cmd, void* p) {
 		break;
 	case FS_CMD_CLEAR_BUFFER:
 		do_clear_buffer(dev, from_pid, in, p);
+		break;
+	default:
+		if(cmd >= IPC_SAFE_CMD_BASE)
+			do_safe_cmd(dev, cmd, from_pid, in, p);
 		break;
 	}
 

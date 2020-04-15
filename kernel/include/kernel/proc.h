@@ -78,13 +78,6 @@ typedef struct st_proc {
 	proc_space_t* space;
 	void* user_stack[STACK_PAGES];
 
-	struct {
-		uint32_t entry;
-		uint32_t func;
-		uint32_t data;
-		bool busy;
-	} interrupt;
-
 	str_t* cmd;
 	str_t* cwd;
 

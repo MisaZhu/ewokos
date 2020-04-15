@@ -44,7 +44,7 @@ void gic_set_irqs(uint32_t irqs) {
 		sic->enable |= SIC_INT_SDC;
 }
 
-uint32_t gic_get_irqs(void) {
+uint32_t gic_get_irqs(proto_t* data) {
 	uint32_t ret = 0;
 	pic_regs_t* pic = (pic_regs_t*)(PIC);
 	sic_regs_t* sic = (sic_regs_t*)(SIC);
@@ -57,7 +57,7 @@ uint32_t gic_get_irqs(void) {
   if((pic->status & PIC_INT_SIC) != 0) {
     if((sic->status & SIC_INT_KEY) != 0)  {
 			uint8_t scode = get8(KEYBOARD_BASE + KDATA); //read and clear interrupt
-			uspace_set_interrupt_data(US_INT_KEY, &scode, 1);
+			proto_add_int(data, scode);
 			ret |= IRQ_KEY;
 		}
     if((sic->status & SIC_INT_MOUSE) != 0) 
