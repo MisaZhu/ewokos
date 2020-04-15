@@ -356,12 +356,14 @@ static int x_update(int ufid, int from_pid, x_t* x) {
 	if(view == NULL)
 		return -1;
 
+	proc_lock(x->lock);
 	view->dirty = true;
 	if(view != x->view_tail ||
 			(view->xinfo.style & X_STYLE_ALPHA) != 0) {
 		x_dirty(x);
 	}
 	x->need_repaint = true;
+	proc_unlock(x->lock);
 	return 0;
 }
 
@@ -939,9 +941,9 @@ static int xserver_loop_step(void* p) {
 
 	read_input(x);
 
-	//proc_lock(x->lock);
+	proc_lock(x->lock);
 	x_repaint(x);	
-	//proc_unlock(x->lock);
+	proc_unlock(x->lock);
 	return 0;
 }
 
