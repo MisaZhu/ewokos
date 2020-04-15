@@ -11,6 +11,8 @@
 #include <sys/syscall.h>
 
 static void do_ping(int from_pid, proto_t* in) {
+	(void)from_pid;
+	(void)in;
 	proto_t out;
 	proto_init(&out, NULL, 0);
 	proto_add_int(&out, 0);
@@ -250,6 +252,7 @@ static void do_fcntl(vdevice_t* dev, int from_pid, proto_t *in, void* p) {
 }
 
 static void do_flush(vdevice_t* dev, int from_pid, proto_t *in, void* p) {
+	(void)from_pid;
 	fsinfo_t info;
 	int fd = proto_read_int(in);
 	memcpy(&info, proto_read(in, NULL), sizeof(fsinfo_t));
@@ -267,6 +270,7 @@ static void do_flush(vdevice_t* dev, int from_pid, proto_t *in, void* p) {
 }
 
 static void do_create(vdevice_t* dev, int from_pid, proto_t *in, void* p) {
+	(void)from_pid;
 	fsinfo_t info_to, info;
 	proto_read_to(in, &info_to, sizeof(fsinfo_t));
 	proto_read_to(in, &info, sizeof(fsinfo_t));
@@ -286,6 +290,7 @@ static void do_create(vdevice_t* dev, int from_pid, proto_t *in, void* p) {
 }
 
 static void do_unlink(vdevice_t* dev, int from_pid, proto_t *in, void* p) {
+	(void)from_pid;
 	fsinfo_t info_to, info;
 	proto_read_to(in, &info_to, sizeof(fsinfo_t));
 	const char* fname = proto_read_str(in);
@@ -304,6 +309,7 @@ static void do_unlink(vdevice_t* dev, int from_pid, proto_t *in, void* p) {
 }
 
 static void do_clear_buffer(vdevice_t* dev, int from_pid, proto_t *in, void* p) {
+	(void)from_pid;
 	fsinfo_t info;
 	proto_read_to(in, &info, sizeof(fsinfo_t));
 

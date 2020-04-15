@@ -268,6 +268,7 @@ static void get_workspace(proto_t* in, proto_t* out) {
 
 static void handle(int from_pid, int cmd, void* p) {
 	(void)p;
+	(void)from_pid;
 	proto_t* in = ipc_get_arg();
 
 	proto_t out;
