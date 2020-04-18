@@ -20,7 +20,6 @@ enum {
 
 enum {
 	FS_CMD_NONE = 0,
-	FS_CMD_PING,
 	FS_CMD_OPEN,
 	FS_CMD_CREATE,
 	FS_CMD_CLOSE,

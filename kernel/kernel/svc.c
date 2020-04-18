@@ -724,6 +724,13 @@ static int32_t sys_ipc_get_arg(void) {
 	return (int32_t)ret;
 }
 
+static int32_t sys_ipc_ping(int32_t pid) {
+	proc_t* proc = proc_get(pid);
+	if(proc == NULL || proc->space->ipc.entry == 0)
+		return -1;
+	return 0;
+}
+
 static kevent_t* sys_get_kevent_raw(void) {
 	if(_current_proc->owner != 0)	
 		return NULL;
@@ -998,6 +1005,9 @@ void svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_t arg2, context
 		return;
 	case SYS_IPC_GET_ARG:
 		ctx->gpr[0] = sys_ipc_get_arg();
+		return;
+	case SYS_IPC_PING:
+		ctx->gpr[0] = sys_ipc_ping(arg0);
 		return;
 	case SYS_GET_KEVENT:
 		sys_get_kevent(ctx);
