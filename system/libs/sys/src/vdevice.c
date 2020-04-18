@@ -425,7 +425,10 @@ int device_run(vdevice_t* dev, const char* mnt_point, int mnt_type) {
 			return -1;
 	}
 
-	ipc_setup(handle, dev);
+	if(dev->loop_step != NULL) 
+		ipc_setup(handle, dev, true);
+	else
+		ipc_setup(handle, dev, false);
 
 	while(1) {
 		if(dev->loop_step != NULL) {
@@ -440,6 +443,6 @@ int device_run(vdevice_t* dev, const char* mnt_point, int mnt_type) {
 	if(mnt_point != NULL && dev->umount != NULL) {
 		return dev->umount(&mnt_point_info, dev->extra_data);
 	}
-	vfs_uumount(&mnt_point_info);
+	vfs_umount(&mnt_point_info);
 	return 0;
 }

@@ -177,10 +177,9 @@ int main(int argc, char** argv) {
 	kprintf(false, "\n[init process started]\n");
 	//mount root fs
 	//run_init_sd("sdd");
+	run_init_cmd("/sbin/keventd");
 	run_init_cmd("/sbin/vfsd");
 	run_init_cmd("/sbin/dev/rootfsd");
-
-	run("/sbin/keventd");
 
 	load_devs();
 	init_stdio();

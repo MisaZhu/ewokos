@@ -347,6 +347,8 @@ proc_t *proc_create(int32_t type, proc_t* parent) {
 			AP_RW_RW);
 	}
 	proc->ctx.sp = user_stack_base + pages*PAGE_SIZE;
+	proc->space->ipc.sp = proc->ctx.sp;
+	proc->space->ipc.ipc_pid = proc->pid;
 	proc->ctx.cpsr = 0x50;
 	proc->start_sec = _kernel_tic;
 	return proc;
@@ -664,16 +666,22 @@ proc_t* proc_get_proc(void) {
 	return NULL;
 }
 
-int32_t proc_ipc_setup(uint32_t entry, uint32_t extra_data) {
+int32_t proc_ipc_setup(context_t* ctx, uint32_t entry, uint32_t extra_data, bool prefork) {
 	_current_proc->space->ipc.entry = entry;
 	_current_proc->space->ipc.extra_data = extra_data;
 	_current_proc->space->ipc.state = IPC_IDLE;
 
-	proc_t *ipc_thread = kfork_raw(PROC_TYPE_IPC, _current_proc);
-	if(ipc_thread == NULL)
-		return -1;
-	_current_proc->space->ipc.sp = ipc_thread->ctx.sp;
-	_current_proc->space->ipc.ipc_pid = ipc_thread->pid;
+	if(prefork) {
+		proc_t *ipc_thread = kfork_raw(PROC_TYPE_IPC, _current_proc);
+		if(ipc_thread == NULL)
+			return -1;
+		_current_proc->space->ipc.sp = ipc_thread->ctx.sp;
+		_current_proc->space->ipc.ipc_pid = ipc_thread->pid;
+	}
+	else {
+		_current_proc->space->ipc.sp = ctx->sp;
+		_current_proc->state = BLOCK;
+	}
 	return 0;
 }
 

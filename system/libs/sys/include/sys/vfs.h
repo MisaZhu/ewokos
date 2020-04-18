@@ -19,7 +19,7 @@ int       vfs_get_mount(fsinfo_t* info, mount_t* mount);
 fsinfo_t* vfs_kids(fsinfo_t* info, uint32_t* num);
 
 int       vfs_mount(fsinfo_t* mount_to, fsinfo_t* info);
-int       vfs_uumount(fsinfo_t* info);
+int       vfs_umount(fsinfo_t* info);
 
 int       vfs_create(const char* fname, fsinfo_t* ret, int type);
 void*     vfs_readfile(const char* fname, int* sz);

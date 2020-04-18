@@ -55,10 +55,17 @@ static void handle_event(kevent_t* kev) {
 	}
 }
 
+static void handle_ipc(int from_pid, int cmd, void* p) {
+	(void)cmd;
+	(void)p;
+	(void)from_pid;
+}
+	
 int main(int argc, char** argv) {
 	(void)argc;
 	(void)argv;
 
+	ipc_setup(handle_ipc, NULL, true);
 	while(1) {
 		kevent_t* kev = (kevent_t*)syscall0(SYS_GET_KEVENT);
 		if(kev != NULL) {

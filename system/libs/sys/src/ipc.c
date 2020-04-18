@@ -4,8 +4,8 @@
 #include <rawdata.h>
 #include <unistd.h>
 
-int ipc_setup(ipc_handle_t handle, void* p) {
-	return syscall2(SYS_IPC_SETUP, (int32_t)handle, (int32_t)p);
+int ipc_setup(ipc_handle_t handle, void* p, bool prefork) {
+	return syscall3(SYS_IPC_SETUP, (int32_t)handle, (int32_t)p, (int32_t)prefork);
 }
 
 int ipc_set_return(const proto_t* pkg) {

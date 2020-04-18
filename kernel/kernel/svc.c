@@ -633,8 +633,8 @@ static void sys_proc_usint_unregister(uint32_t int_id) {
 	uspace_interrupt_unregister(int_id);
 }
 
-static int32_t sys_ipc_setup(uint32_t entry, uint32_t extra_data) {
-	return proc_ipc_setup(entry, extra_data);
+static int32_t sys_ipc_setup(context_t* ctx, uint32_t entry, uint32_t extra_data, bool prefork) {
+	return proc_ipc_setup(ctx, entry, extra_data, prefork);
 }
 
 static void sys_ipc_call(context_t* ctx, uint32_t pid, int32_t call_id, proto_t* data) {
@@ -684,8 +684,8 @@ static void sys_ipc_get_return(context_t* ctx, uint32_t pid, proto_t* data) {
 }
 
 static void sys_ipc_set_return(proto_t* data) {
-	if(_current_proc->type != PROC_TYPE_IPC ||
-			_current_proc->space->ipc.entry == 0 ||
+	//if(_current_proc->type != PROC_TYPE_IPC ||
+	if(_current_proc->space->ipc.entry == 0 ||
 			_current_proc->space->ipc.state != IPC_BUSY) {
 		return;
 	}
@@ -695,8 +695,8 @@ static void sys_ipc_set_return(proto_t* data) {
 }
 
 static void sys_ipc_end(context_t* ctx) {
-	if(_current_proc->type != PROC_TYPE_IPC ||
-			_current_proc->space->ipc.entry == 0 ||
+	//if(_current_proc->type != PROC_TYPE_IPC ||
+	if(_current_proc->space->ipc.entry == 0 ||
 			_current_proc->space->ipc.state != IPC_BUSY) {
 		return;
 	}
@@ -989,7 +989,7 @@ void svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_t arg2, context
 		sys_proc_usint_unregister((uint32_t)arg0);
 		return;
 	case SYS_IPC_SETUP:
-		ctx->gpr[0] = sys_ipc_setup(arg0, arg1);
+		ctx->gpr[0] = sys_ipc_setup(ctx, arg0, arg1, (bool)arg2);
 		return;
 	case SYS_IPC_CALL:
 		sys_ipc_call(ctx, arg0, arg1, (proto_t*)arg2);
