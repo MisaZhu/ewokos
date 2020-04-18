@@ -10,16 +10,6 @@
 #include <sys/shm.h>
 #include <sys/syscall.h>
 
-static void do_ping(int from_pid, proto_t* in) {
-	(void)from_pid;
-	(void)in;
-	proto_t out;
-	proto_init(&out, NULL, 0);
-	proto_add_int(&out, 0);
-	ipc_set_return(&out);
-	proto_clear(&out);
-}
-
 static void do_open(vdevice_t* dev, int from_pid, proto_t *in, void* p) {
 	fsinfo_t info;
 	int oflag;
@@ -349,9 +339,6 @@ static void handle(int from_pid, int cmd, void* p) {
 	proto_t* in = ipc_get_arg();
 
 	switch(cmd) {
-	case FS_CMD_PING:
-		do_ping(from_pid, in);
-		break;
 	case FS_CMD_OPEN:
 		do_open(dev, from_pid, in, p);
 		break;

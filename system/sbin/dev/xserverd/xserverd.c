@@ -918,7 +918,7 @@ static void read_input(x_t* x) {
 }
 
 
-/*static void* read_thread(void* p) {
+static void* read_thread(void* p) {
 	x_t* x = (x_t*)p;
 	while(1) {
 		if(!x->actived)  {
@@ -927,11 +927,10 @@ static void read_input(x_t* x) {
 		}
 
 		read_input(x);
-		sleep(0);
+		usleep(1000);
 	}
 	return NULL;
 }
-*/
 
 static int xserver_loop_step(void* p) {
 	x_t* x = (x_t*)p;
@@ -939,7 +938,7 @@ static int xserver_loop_step(void* p) {
 		return -1;
 	}
 
-	read_input(x);
+	//read_input(x);
 
 	proc_lock(x->lock);
 	x_repaint(x);	
@@ -980,7 +979,7 @@ int main(int argc, char** argv) {
 		x.xwm_pid = pid;
 		prs_down = false;
 		j_mouse = true;
-		//pthread_create(NULL, NULL, read_thread, &x);
+		pthread_create(NULL, NULL, read_thread, &x);
 		dev.extra_data = &x;
 		device_run(&dev, mnt_point, FS_TYPE_CHAR);
 		x_close(&x);

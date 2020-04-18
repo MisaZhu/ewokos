@@ -20,14 +20,6 @@
 #include <kevent.h>
 #include "sdinit.h"
 
-static inline void wait_ready(int pid) {
-	while(1) {
-		if(dev_ping(pid) == 0)
-			break;
-		sleep(1);
-	}
-}
-
 /*
 static void run_init_sd(const char* cmd) {
 	sysinfo_t sysinfo;
@@ -52,13 +44,13 @@ static void run_init_sd(const char* cmd) {
 		exec_elf(devfn, data, sz);
 		free(data);
 	}
-	wait_ready(pid);
+	ipc_wait_ready(pid);
 	kprintf(false, "[ok]\n");
 }
 */
 
-static void run_init_root(const char* cmd) {
-	kprintf(false, "init: %16s ", "/");
+static int run_init_cmd(const char* cmd) {
+	kprintf(false, "init: %s ", cmd);
 	int pid = fork();
 	if(pid == 0) {
 		sd_init();
@@ -78,8 +70,9 @@ static void run_init_root(const char* cmd) {
 		exec_elf(cmd, data, sz);
 		free(data);
 	}
-	wait_ready(pid);
+	ipc_wait_ready(pid);
 	kprintf(false, "[ok]\n");
+	return pid;
 }
 
 static int run_dev(const char* cmd, bool prompt) {
@@ -95,7 +88,7 @@ static int run_dev(const char* cmd, bool prompt) {
 		}
 	}
 	else
-		wait_ready(pid);
+		ipc_wait_ready(pid);
 
 	if(prompt)
 		kprintf(false, "[ok]\n");
@@ -184,8 +177,11 @@ int main(int argc, char** argv) {
 	kprintf(false, "\n[init process started]\n");
 	//mount root fs
 	//run_init_sd("sdd");
-	run_init_root("/sbin/dev/rootfsd");
+	run_init_cmd("/sbin/vfsd");
+	run_init_cmd("/sbin/dev/rootfsd");
+
 	run("/sbin/keventd");
+
 	load_devs();
 	init_stdio();
 	run_procs();
