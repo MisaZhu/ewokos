@@ -396,7 +396,7 @@ static void vfs_close(int32_t pid, int32_t fd) {
 	*/
 }
 
-/*int32_t do_vfs_dup(int32_t pid, int32_t from) {
+static int32_t vfs_dup(int32_t pid, int32_t from) {
 	if(from < 0 || from > PROC_FILE_MAX)
 		return -1;
 	int32_t to = get_free_fd(pid);
@@ -415,7 +415,7 @@ static void vfs_close(int32_t pid, int32_t fd) {
 	return to;
 }
 
-int32_t do_vfs_dup2(int32_t pid, int32_t from, int32_t to) {
+static int32_t vfs_dup2(int32_t pid, int32_t from, int32_t to) {
 	if(from == to)
 		return to;
 
@@ -436,7 +436,6 @@ int32_t do_vfs_dup2(int32_t pid, int32_t from, int32_t to) {
 		f->node->refs_w++;
 	return to;
 }
-*/
 
 static int32_t vfs_seek(int32_t pid, int32_t fd, int32_t offset) {
 	if(fd < 0 || fd >= PROC_FILE_MAX)
@@ -550,6 +549,17 @@ static void do_vfs_seek(int32_t pid, proto_t* in, proto_t* out) {
 	int fd = proto_read_int(in);
 	int seek = proto_read_int(in);
 	proto_add_int(out, vfs_seek(pid, fd, seek));
+}
+
+static void do_vfs_dup(int32_t pid, proto_t* in, proto_t* out) {
+	int fd = proto_read_int(in);
+	proto_add_int(out, vfs_dup(pid, fd));
+}
+
+static void do_vfs_dup2(int32_t pid, proto_t* in, proto_t* out) {
+	int fd = proto_read_int(in);
+	int fdto = proto_read_int(in);
+	proto_add_int(out, vfs_dup2(pid, fd, fdto));
 }
 
 static void do_vfs_set_fsinfo(int32_t pid, proto_t* in, proto_t* out) {
@@ -680,6 +690,8 @@ enum {
 	VFS_SET_FSINFO,
 	VFS_NEW_NODE,
 	VFS_OPEN,
+	VFS_DUP,
+	VFS_DUP2,
 	VFS_CLOSE,
 	VFS_TELL,
 	VFS_SEEK,
@@ -706,6 +718,12 @@ static void handle(int pid, int cmd, void* p) {
 		break;
 	case VFS_OPEN:
 		do_vfs_open(pid, in, &out);
+		break;
+	case VFS_DUP:
+		do_vfs_dup(pid, in, &out);
+		break;
+	case VFS_DUP2:
+		do_vfs_dup2(pid, in, &out);
 		break;
 	case VFS_CLOSE:
 		do_vfs_close(pid, in);
