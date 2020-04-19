@@ -13,7 +13,5 @@ int      ipc_set_return(const proto_t* ipkg);
 proto_t* ipc_get_arg(void);
 void     ipc_end(void);
 void     ipc_ready(void);
-int      ipc_ping(int pid);
-void     ipc_wait_ready(int pid);
 
 #endif

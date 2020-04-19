@@ -4,6 +4,7 @@
 #include <string.h>
 #include <sys/ipc.h>
 #include <sys/shm.h>
+#include <sys/proc.h>
 #include <graph/graph.h>
 #include <sconf.h>
 #include <x/xcntl.h>
@@ -301,6 +302,8 @@ int main(int argc, char** argv) {
 	_xwm.title_h = _xwm.font->h+4;
 
 	ipc_setup(handle, NULL, false);
+	proc_ready_ping();
+
 	while(true) {
 		sleep(1);
 	}

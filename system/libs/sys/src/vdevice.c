@@ -8,6 +8,7 @@
 #include <unistd.h>
 #include <errno.h>
 #include <sys/shm.h>
+#include <sys/proc.h>
 #include <sys/syscall.h>
 
 static void do_open(vdevice_t* dev, int from_pid, proto_t *in, void* p) {
@@ -425,6 +426,7 @@ int device_run(vdevice_t* dev, const char* mnt_point, int mnt_type) {
 			return -1;
 	}
 
+	proc_ready_ping();
 	if(dev->loop_step != NULL) 
 		ipc_setup(handle, dev, true);
 	else

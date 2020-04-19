@@ -366,6 +366,20 @@ static int32_t sys_proc_set_cwd(const char* cwd) {
 	return 0;
 }
 
+static int32_t sys_proc_set_global_name(const char* gname) {
+	if(proc_get_by_global_name(gname) != NULL)
+		return -1;
+	str_cpy(_current_proc->global_name, gname);
+	return 0;
+}
+
+static int32_t sys_getpid_by_global_name(const char* gname) {
+	proc_t* proc = proc_get_by_global_name(gname);
+	if(proc == NULL)
+		return -1;
+	return proc->pid;
+}
+
 static int32_t sys_proc_set_uid(int32_t uid) {
 	if(_current_proc->owner != 0)	
 		return -1;
@@ -724,11 +738,15 @@ static int32_t sys_ipc_get_arg(void) {
 	return (int32_t)ret;
 }
 
-static int32_t sys_ipc_ping(int32_t pid) {
+static int32_t sys_proc_ping(int32_t pid) {
 	proc_t* proc = proc_get(pid);
-	if(proc == NULL || proc->space->ipc.entry == 0)
+	if(proc == NULL || !proc->space->ready_ping)
 		return -1;
 	return 0;
+}
+
+static void sys_proc_ready_ping(void) {
+	_current_proc->space->ready_ping = true;
 }
 
 static kevent_t* sys_get_kevent_raw(void) {
@@ -804,6 +822,9 @@ void svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_t arg2, context
 		return;
 	case SYS_GET_PID:
 		ctx->gpr[0] = sys_getpid();
+		return;
+	case SYS_GET_PID_BY_GNAME:
+		ctx->gpr[0] = sys_getpid_by_global_name((const char*)arg0);
 		return;
 	case SYS_GET_THREAD_ID:
 		ctx->gpr[0] = sys_get_threadid();
@@ -885,6 +906,9 @@ void svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_t arg2, context
 		return;
 	case SYS_PROC_SET_CWD: 
 		ctx->gpr[0] = sys_proc_set_cwd((const char*)arg0);
+		return;
+	case SYS_PROC_SET_GNAME: 
+		ctx->gpr[0] = sys_proc_set_global_name((const char*)arg0);
 		return;
 	case SYS_PROC_GET_CWD: 
 		sys_proc_get_cwd((char*)arg0, arg1);
@@ -1006,8 +1030,11 @@ void svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_t arg2, context
 	case SYS_IPC_GET_ARG:
 		ctx->gpr[0] = sys_ipc_get_arg();
 		return;
-	case SYS_IPC_PING:
-		ctx->gpr[0] = sys_ipc_ping(arg0);
+	case SYS_PROC_PING:
+		ctx->gpr[0] = sys_proc_ping(arg0);
+		return;
+	case SYS_PROC_READY_PING:
+		sys_proc_ready_ping();
 		return;
 	case SYS_GET_KEVENT:
 		sys_get_kevent(ctx);

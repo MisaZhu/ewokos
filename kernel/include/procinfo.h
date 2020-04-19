@@ -4,6 +4,7 @@
 #include <_types.h>
 
 #define PROC_INFO_CMD_MAX 256
+#define PROC_MAX 128
 
 enum {
 	PROC_TYPE_PROC = 0,

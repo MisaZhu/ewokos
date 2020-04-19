@@ -107,6 +107,7 @@ LIB_SYS_OBJS = $(LIB_SYS_DIR)/src/syscall.o \
 	$(LIB_SYS_DIR)/src/cmain.o \
 	$(LIB_SYS_DIR)/src/charbuf.o \
 	$(LIB_SYS_DIR)/src/vfs.o \
+	$(LIB_SYS_DIR)/src/vfsc.o \
 	$(LIB_SYS_DIR)/src/ipc.o \
 	$(LIB_SYS_DIR)/src/vdevice.o \
 	$(LIB_SYS_DIR)/src/proto.o \
@@ -116,11 +117,12 @@ LIB_SYS_OBJS = $(LIB_SYS_DIR)/src/syscall.o \
 	$(LIB_SYS_DIR)/src/sd.o \
 	$(LIB_SYS_DIR)/src/gpio.o \
 	$(LIB_SYS_DIR)/src/global.o \
-	$(LIB_SYS_DIR)/src/proclock.o \
+	$(LIB_SYS_DIR)/src/proc.o \
 	$(LIB_SYS_DIR)/src/wait.o \
 	$(LIB_SYS_DIR)/src/critical.o \
 	$(LIB_SYS_DIR)/src/interrupt.o \
 	$(LIB_SYS_DIR)/src/md5.o \
+	$(LIB_SYS_DIR)/src/buffer.o \
 	$(LIB_SYS_DIR)/src/mmio.o 
 
 LIB_LIBC_OBJS = $(LIB_LIBC_DIR)/src/unistd.o \

@@ -37,6 +37,7 @@ typedef struct {
 	page_dir_entry_t *vm;
 	malloc_t malloc_man;
 	uint32_t heap_size;
+	bool ready_ping;
 	
 	int32_t shms[SHM_MAX];
 	uint32_t locks[LOCK_MAX];
@@ -80,6 +81,7 @@ typedef struct st_proc {
 
 	str_t* cmd;
 	str_t* cwd;
+	str_t* global_name;
 
 	context_t ctx;
 } proc_t;
@@ -105,6 +107,7 @@ extern void    proc_block_on(context_t* ctx, uint32_t event);
 extern void    proc_wakeup(uint32_t event);
 extern void    proc_waitpid(context_t* ctx, int32_t pid);
 extern proc_t* proc_get(int32_t pid);
+extern proc_t* proc_get_by_global_name(const char* gname);
 extern proc_t* proc_get_proc(void);
 extern proc_t* kfork_raw(int32_t type, proc_t* parent);
 extern proc_t* kfork(int32_t type);
@@ -122,7 +125,5 @@ extern void        proc_set_interrupt_data(void* data, uint32_t size);
 extern void        proc_get_interrupt_data(rawdata_t* data);
 extern int32_t     proc_ipc_setup(context_t* ctx, uint32_t entry, uint32_t extra, bool prefork);
 extern int32_t     proc_ipc_call(context_t* ctx, proc_t* proc, int32_t call_id);
-
-#define PROC_MAX 128
 
 #endif

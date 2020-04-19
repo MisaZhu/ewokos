@@ -16,6 +16,7 @@
 #include <sys/ipc.h>
 #include <rawdata.h>
 #include <sys/global.h>
+#include <sys/proc.h>
 #include <graph/graph.h>
 #include <kevent.h>
 #include "sdinit.h"
@@ -44,7 +45,7 @@ static void run_init_sd(const char* cmd) {
 		exec_elf(devfn, data, sz);
 		free(data);
 	}
-	ipc_wait_ready(pid);
+	proc_wait_ready(pid);
 	kprintf(false, "[ok]\n");
 }
 */
@@ -70,7 +71,7 @@ static int run_init_cmd(const char* cmd) {
 		exec_elf(cmd, data, sz);
 		free(data);
 	}
-	ipc_wait_ready(pid);
+	proc_wait_ready(pid);
 	kprintf(false, "[ok]\n");
 	return pid;
 }
@@ -88,7 +89,7 @@ static int run_dev(const char* cmd, bool prompt) {
 		}
 	}
 	else
-		ipc_wait_ready(pid);
+		proc_wait_ready(pid);
 
 	if(prompt)
 		kprintf(false, "[ok]\n");

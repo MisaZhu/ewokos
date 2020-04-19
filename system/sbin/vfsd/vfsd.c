@@ -3,10 +3,13 @@
 #include <unistd.h>
 #include <string.h>
 #include <sys/ipc.h>
+#include <sys/proc.h>
 #include <mstr.h>
 #include <buffer.h>
 #include <proto.h>
 #include <fsinfo.h>
+#include <sys/vfsc.h>
+#include <procinfo.h>
 
 #define PROC_FILE_MAX 128
 
@@ -35,6 +38,12 @@ static vfs_node_t* _vfs_root = NULL;
 static uint32_t _ufid_count = 1;
 static mount_t _vfs_mounts[FS_MOUNT_MAX];
 
+typedef struct {
+	file_t fds[PROC_FILE_MAX];
+} proc_fds_t;
+
+static proc_fds_t _proc_fds_table[PROC_MAX];
+
 static void vfs_node_init(vfs_node_t* node) {
 	memset(node, 0, sizeof(vfs_node_t));
 	node->fsinfo.node = (uint32_t)node;
@@ -53,15 +62,19 @@ static void vfs_init(void) {
 		memset(&_vfs_mounts[i], 0, sizeof(mount_t));
 	}
 
+	for(i = 0; i<PROC_MAX; i++) {
+		memset(&_proc_fds_table[i], 0, sizeof(proc_fds_t));
+	}
+
 	_vfs_root = vfs_new_node();
 	_ufid_count = 1;
 	strcpy(_vfs_root->fsinfo.name, "/");
 }
 
 static file_t* vfs_get_file(int32_t pid, int32_t fd) {
-	(void)pid;
-	(void)fd;
-	return NULL;
+	if(pid < 0 || pid >= PROC_MAX || fd < 0 || fd >= PROC_FILE_MAX)
+		return NULL;
+	return &_proc_fds_table[pid].fds[fd];
 }
 
 static int32_t vfs_get_mount_id(vfs_node_t* node) {
@@ -319,11 +332,10 @@ vfs_node_t* vfs_root(void) {
 }
 
 static int32_t get_free_fd(int32_t pid) {
-	(void)pid;
 	int32_t i;
 	for(i=3; i<PROC_FILE_MAX; i++) { //0, 1, 2 reserved for stdio in/out/err
-		//if(proc->space->files[i].node == 0)
-		//	return i;
+		if(_proc_fds_table[pid].fds[i].node == 0)
+			return i;
 	}
 	return -1;
 }
@@ -336,10 +348,9 @@ static int32_t vfs_open(int32_t pid, vfs_node_t* node, int32_t wr) {
 	if(fd < 0)
 		return -1;
 
-	/*proc->space->files[fd].node = (uint32_t)node;
-	proc->space->files[fd].wr = wr;
-	proc->space->files[fd].ufid = _ufid_count++;
-	*/
+	_proc_fds_table[pid].fds[fd].node = node;
+	_proc_fds_table[pid].fds[fd].wr = wr;
+	_proc_fds_table[pid].fds[fd].ufid = _ufid_count++;
 
 	node->refs++;
 	if(wr != 0)
@@ -684,25 +695,105 @@ static void do_vfs_get_mount_by_id(proto_t* in, proto_t* out) {
 	proto_add(out, &mount, sizeof(mount_t));
 }
 
-enum {
-	VFS_GET_BY_NAME = 0,
-	VFS_GET_BY_FD,
-	VFS_SET_FSINFO,
-	VFS_NEW_NODE,
-	VFS_OPEN,
-	VFS_DUP,
-	VFS_DUP2,
-	VFS_CLOSE,
-	VFS_TELL,
-	VFS_SEEK,
-	VFS_ADD,
-	VFS_DEL,
-	VFS_MOUNT,
-	VFS_UMOUNT,
-	VFS_GET_MOUNT,
-	VFS_GET_MOUNT_BY_ID,
-	VFS_GET_KIDS
-};
+static void do_vfs_pipe_open(int32_t pid, proto_t* out) {
+  vfs_node_t* node = vfs_new_node();
+  if(node == NULL) {
+		proto_add_int(out, -1);
+    return;
+	}
+  node->fsinfo.type = FS_TYPE_PIPE;
+
+  int32_t fd0 = vfs_open(pid, node, 1);
+  if(fd0 < 0) {
+    free(node);
+		proto_add_int(out, -1);
+		return;
+  }
+
+  int32_t fd1 = vfs_open(pid, node, 1);
+  if(fd1 < 0) {
+    vfs_close(pid, fd0);
+    free(node);
+		proto_add_int(out, -1);
+		return;
+  }
+
+  buffer_t* buf = (buffer_t*)malloc(sizeof(buffer_t));
+  memset(buf, 0, sizeof(buffer_t));
+  node->fsinfo.data = (int32_t)buf;
+
+	proto_add_int(out, 0);
+	proto_add_int(out, fd0);
+	proto_add_int(out, fd1);
+}
+
+static void do_vfs_pipe_write(proto_t* in, proto_t* out) {
+	fsinfo_t info;
+	if(proto_read_to(in, &info, sizeof(fsinfo_t)) != sizeof(fsinfo_t)) {
+		proto_add_int(out, -1);
+		return;
+	}
+
+	buffer_t* buffer = (buffer_t*)info.data;
+	if(buffer == NULL) {
+		proto_add_int(out, -1);
+		return;
+	}
+
+	int32_t size = 0;
+	void *data = proto_read(in, &size);
+	if(data == NULL) {
+		proto_add_int(out, -1);
+		return;
+	}
+
+	size = buffer_write(buffer, data, size);
+	if(size > 0) {
+		proto_add_int(out, size);
+		return;
+	}
+
+  vfs_node_t* node = (vfs_node_t*)info.node;
+	if(node == NULL || node->refs < 2) {
+		proto_add_int(out, -1);
+    return;
+	}
+	proto_add_int(out, 0); //retry
+}
+
+static void do_vfs_pipe_read(proto_t* in, proto_t* out) {
+	fsinfo_t info;
+	if(proto_read_to(in, &info, sizeof(fsinfo_t)) != sizeof(fsinfo_t)) {
+		proto_add_int(out, -1);
+		return;
+	}
+
+	int32_t size = proto_read_int(in);
+	if(size < 0) {
+		proto_add_int(out, -1);
+		return;
+	}
+
+	buffer_t* buffer = (buffer_t*)info.data;
+	if(buffer == NULL) {
+		proto_add_int(out, -1);
+		return;
+	}
+	void* data = malloc(size);
+	size = buffer_read(buffer, data, size);
+	if(size > 0) {
+		proto_add_int(out, size);
+		proto_add(out, data, size);
+		return;
+	}
+
+  vfs_node_t* node = (vfs_node_t*)info.node;
+	if(node == NULL || node->refs < 2) {
+		proto_add_int(out, -1);
+    return;
+	}
+	proto_add_int(out, 0); //retry
+}
 
 static void handle(int pid, int cmd, void* p) {
 	(void)cmd;
@@ -718,6 +809,15 @@ static void handle(int pid, int cmd, void* p) {
 		break;
 	case VFS_OPEN:
 		do_vfs_open(pid, in, &out);
+		break;
+	case VFS_PIPE_OPEN:
+		do_vfs_pipe_open(pid, &out);
+		break;
+	case VFS_PIPE_WRITE:
+		do_vfs_pipe_write(in, &out);
+		break;
+	case VFS_PIPE_READ:
+		do_vfs_pipe_read(in, &out);
 		break;
 	case VFS_DUP:
 		do_vfs_dup(pid, in, &out);
@@ -778,6 +878,7 @@ int main(int argc, char** argv) {
 
 	vfs_init();
 
+	proc_ready_ping();
 	ipc_setup(handle, NULL, false);
 	while(true) {
 		sleep(1);

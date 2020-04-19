@@ -47,15 +47,3 @@ int ipc_call(int to_pid, int call_id, const proto_t* ipkg, proto_t* opkg) {
 	return 0;
 }
 
-int ipc_ping(int pid) {
-	return syscall1(SYS_IPC_PING, (int32_t)pid);
-}
-
-void ipc_wait_ready(int pid) {
-	while(1) {
-		if(ipc_ping(pid) == 0)
-			break;
-		usleep(10000);
-	}
-}
-

@@ -15,7 +15,7 @@
 #include <x/xwm.h>
 #include <sys/global.h>
 #include <pthread.h>
-#include <sys/proclock.h>
+#include <sys/proc.h>
 
 #define X_EVENT_MAX 16
 
