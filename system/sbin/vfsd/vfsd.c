@@ -620,6 +620,10 @@ static void do_vfs_add(int32_t pid, proto_t* in, proto_t* out) {
   if(node != NULL)
     return;
 
+  node = (vfs_node_t*)info.node;
+  if(node == NULL)
+    return;
+
 	vfs_add(pid, node_to, node);
 	proto_clear(out);
 	proto_add_int(out, 0);
