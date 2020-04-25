@@ -4,6 +4,13 @@
 #include <string.h>
 #include <sys/wait.h>
 
+static void init_tty_stdio(void) {
+	int fd = open("/dev/tty0", 0);
+	dup2(fd, 0);
+	dup2(fd, 1);
+	dup2(fd, 2);
+}
+
 static void welcome(void) {
 	const char* s;
 	if(strcmp(getenv("CONSOLE"), "console") == 0)  {
@@ -26,6 +33,7 @@ int main(int argc, char* argv[]) {
 	(void)argc;
 	(void)argv;
 
+	init_tty_stdio();
 	while(1) {
 		welcome();
 		int pid = fork();

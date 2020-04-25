@@ -47,7 +47,7 @@ static int run_none_fs(const char* cmd) {
 	return pid;
 }
 
-static int run_serv(const char* cmd, bool prompt) {
+static int run(const char* cmd, bool prompt, bool wait) {
 	if(prompt)
 		kprintf(false, "init: %s ", cmd);
 
@@ -59,27 +59,12 @@ static int run_serv(const char* cmd, bool prompt) {
 			exit(-1);
 		}
 	}
-	else
+	else if(wait)
 		proc_wait_ready(pid);
 
 	if(prompt)
 		kprintf(false, "[ok]\n");
 	return 0;
-}
-
-static void run(const char* cmd) {
-	int pid = fork();
-	if(pid == 0) {
-		if(exec(cmd) != 0)
-			kprintf(false, "init: run %s [error!]", cmd);
-	}
-}
-
-static void init_stdio(void) {
-	int fd = open("/dev/tty0", 0);
-	dup2(fd, 0);
-	dup2(fd, 1);
-	dup2(fd, 2);
 }
 
 static const char* read_line(int fd) {
@@ -118,7 +103,7 @@ static void load_devs(void) {
 			break;
 		if(ln[0] == 0 || ln[0] == '#')
 			continue;
-		run_serv(ln, true);
+		run(ln, true, true);
 	}
 	close(fd);
 }
@@ -134,7 +119,7 @@ static void run_procs(void) {
 			break;
 		if(ln[0] == 0 || ln[0] == '#')
 			continue;
-		run(ln);
+		run(ln, false, false);
 	}
 	close(fd);
 }
@@ -153,10 +138,9 @@ int main(int argc, char** argv) {
 	run_none_fs("/sbin/dev/rootfsd");
 
 	//fs got ready.
-	run_serv("/sbin/keventd", true);
+	run("/sbin/keventd", true, true);
 
 	load_devs();
-	init_stdio();
 	run_procs();
 
 	while(1) {
