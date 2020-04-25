@@ -2,7 +2,6 @@
 #define PROC_H
 
 #include <kernel/context.h>
-#include <kernel/env.h>
 #include <kernel/ipc.h>
 #include <mm/mmu.h>
 #include <mm/trunkmalloc.h>
@@ -34,6 +33,11 @@ enum {
 #define LOCK_MAX 64
 
 typedef struct {
+	str_t* name;
+	str_t* value;
+} env_t;
+
+typedef struct {
 	page_dir_entry_t *vm;
 	malloc_t malloc_man;
 	uint32_t heap_size;
@@ -58,7 +62,6 @@ typedef struct {
 	proc_msg_t* msg_queue_tail;
 } proc_space_t;
 
-
 #define STACK_PAGES 32
 #define THREAD_STACK_PAGES 4
 
@@ -81,7 +84,6 @@ typedef struct st_proc {
 
 	str_t* cmd;
 	str_t* cwd;
-	str_t* global_name;
 
 	context_t ctx;
 } proc_t;
@@ -107,7 +109,6 @@ extern void    proc_block_on(context_t* ctx, uint32_t event);
 extern void    proc_wakeup(uint32_t event);
 extern void    proc_waitpid(context_t* ctx, int32_t pid);
 extern proc_t* proc_get(int32_t pid);
-extern proc_t* proc_get_by_global_name(const char* gname);
 extern proc_t* proc_get_proc(void);
 extern proc_t* kfork_raw(int32_t type, proc_t* parent);
 extern proc_t* kfork(int32_t type);

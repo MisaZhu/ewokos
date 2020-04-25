@@ -135,9 +135,6 @@ void _kernel_entry_c(context_t* ctx) {
 	
 	hw_optimise();
 
-	init_global();
-	printf("kernel: global env inited.\n");
-
 	shm_init();
 	printf("kernel: share memory inited.\n");
 

@@ -104,7 +104,6 @@ OBJS = ${ARCH_OBJS} \
 	${KERNEL_DIR}/init.o \
 	${KERNEL_DIR}/uspace_int.o \
 	${KERNEL_DIR}/irq.o \
-	${KERNEL_DIR}/env.o \
 	${KERNEL_DIR}/svc.o \
 	${KERNEL_DIR}/proc.o \
 	${KERNEL_DIR}/schedule.o \
