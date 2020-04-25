@@ -38,27 +38,18 @@ static void do_unreg(int pid, proto_t* in, proto_t* out) {
 	proto_add_int(out, 0);
 }
 
-static void handle(int pid, int cmd, void* p) {
+static void handle(int pid, int cmd, proto_t* in, proto_t* out, void* p) {
 	(void)p;
-	proto_t* in = ipc_get_arg();
-
-	proto_t out;
-	proto_init(&out, NULL, 0);
 
 	if(cmd == KSERV_CMD_REG) { //regiester kserver pid
-		do_reg(pid, in, &out);
+		do_reg(pid, in, out);
 	}
 	else if(cmd == KSERV_CMD_UNREG) { //unregiester kserver pid
-		do_unreg(pid, in, &out);
+		do_unreg(pid, in, out);
 	}
 	else if(cmd == KSERV_CMD_GET) { //get kserver pid
-		do_get(in, &out);
+		do_get(in, out);
 	}
-	
-	proto_free(in);
-	ipc_set_return(&out);
-	proto_clear(&out);
-	ipc_end();
 }
 
 int main(int argc, char** argv) {
@@ -70,7 +61,7 @@ int main(int argc, char** argv) {
 	}
 
 	proc_ready_ping();
-	ipc_setup(handle, NULL, false);
+	kserv_run(handle, NULL, false);
 
 	while(true) {
 		sleep(1);

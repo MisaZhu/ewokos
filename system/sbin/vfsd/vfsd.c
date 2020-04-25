@@ -800,81 +800,72 @@ static void do_vfs_pipe_read(proto_t* in, proto_t* out) {
 	proto_add_int(out, 0); //retry
 }
 
-static void handle(int pid, int cmd, void* p) {
+static void handle(int pid, int cmd, proto_t* in, proto_t* out, void* p) {
 	(void)cmd;
 	(void)p;
-	proto_t* in = ipc_get_arg();
-
-	proto_t out;
-	proto_init(&out, NULL, 0);
 
 	switch(cmd) {
 	case VFS_NEW_NODE:
-		do_vfs_new_node(in, &out);
+		do_vfs_new_node(in, out);
 		break;
 	case VFS_OPEN:
-		do_vfs_open(pid, in, &out);
+		do_vfs_open(pid, in, out);
 		break;
 	case VFS_PIPE_OPEN:
-		do_vfs_pipe_open(pid, &out);
+		do_vfs_pipe_open(pid, out);
 		break;
 	case VFS_PIPE_WRITE:
-		do_vfs_pipe_write(in, &out);
+		do_vfs_pipe_write(in, out);
 		break;
 	case VFS_PIPE_READ:
-		do_vfs_pipe_read(in, &out);
+		do_vfs_pipe_read(in, out);
 		break;
 	case VFS_DUP:
-		do_vfs_dup(pid, in, &out);
+		do_vfs_dup(pid, in, out);
 		break;
 	case VFS_DUP2:
-		do_vfs_dup2(pid, in, &out);
+		do_vfs_dup2(pid, in, out);
 		break;
 	case VFS_CLOSE:
 		do_vfs_close(pid, in);
 		break;
 	case VFS_TELL:
-		do_vfs_tell(pid, in, &out);
+		do_vfs_tell(pid, in, out);
 		break;
 	case VFS_SEEK:
-		do_vfs_seek(pid, in, &out);
+		do_vfs_seek(pid, in, out);
 		break;
 	case VFS_GET_BY_NAME:
-		do_vfs_get_by_name(in, &out);
+		do_vfs_get_by_name(in, out);
 		break;
 	case VFS_GET_BY_FD:
-		do_vfs_get_by_fd(pid, in, &out);
+		do_vfs_get_by_fd(pid, in, out);
 		break;
 	case VFS_SET_FSINFO:
-		do_vfs_set_fsinfo(pid, in, &out);
+		do_vfs_set_fsinfo(pid, in, out);
 		break;
 	case VFS_ADD:
-		do_vfs_add(pid, in, &out);
+		do_vfs_add(pid, in, out);
 		break;
 	case VFS_DEL:
-		do_vfs_del(pid, in, &out);
+		do_vfs_del(pid, in, out);
 		break;
 	case VFS_MOUNT:
-		do_vfs_mount(pid, in, &out);
+		do_vfs_mount(pid, in, out);
 		break;
 	case VFS_UMOUNT:
 		do_vfs_umount(pid, in);
 		break;
 	case VFS_GET_KIDS:
-		do_vfs_get_kids(in, &out);
+		do_vfs_get_kids(in, out);
 		break;
 	case VFS_GET_MOUNT:
-		do_vfs_get_mount(in, &out);
+		do_vfs_get_mount(in, out);
 		break;
 	case VFS_GET_MOUNT_BY_ID:
-		do_vfs_get_mount_by_id(in, &out);
+		do_vfs_get_mount_by_id(in, out);
 		break;
 	}
-
-	proto_free(in);
-	ipc_set_return(&out);
-	proto_clear(&out);
-	ipc_end();
 }
 
 int main(int argc, char** argv) {
@@ -888,8 +879,7 @@ int main(int argc, char** argv) {
 
 	vfs_init();
 
-	proc_ready_ping();
-	ipc_setup(handle, NULL, false);
+	kserv_run(handle, NULL, false);
 	while(true) {
 		sleep(1);
 	}
