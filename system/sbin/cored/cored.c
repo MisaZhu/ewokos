@@ -42,14 +42,16 @@ static void do_unreg(int pid, proto_t* in, proto_t* out) {
 static void handle(int pid, int cmd, proto_t* in, proto_t* out, void* p) {
 	(void)p;
 
-	if(cmd == CORE_CMD_KSERV_REG) { //regiester kserver pid
+	switch(cmd) {
+	case CORE_CMD_KSERV_REG: //regiester kserver pid
 		do_reg(pid, in, out);
-	}
-	else if(cmd == CORE_CMD_KSERV_UNREG) { //unregiester kserver pid
+		return;
+	case CORE_CMD_KSERV_UNREG: //unregiester kserver pid
 		do_unreg(pid, in, out);
-	}
-	else if(cmd == CORE_CMD_KSERV_GET) { //get kserver pid
+		return;
+	case CORE_CMD_KSERV_GET: //get kserver pid
 		do_get(in, out);
+		return;
 	}
 }
 

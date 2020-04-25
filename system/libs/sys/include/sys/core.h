@@ -7,4 +7,6 @@ enum {
 	CORE_CMD_KSERV_GET
 };
 
+#define CORED_PID 1
+
 #endif
