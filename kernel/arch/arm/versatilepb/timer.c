@@ -56,7 +56,7 @@ void timer_set_interval(uint32_t id, uint32_t interval_microsecond) {
   put8(t + TIMER_LOAD, interval_microsecond);
   put8(t + TIMER_CTRL, 0xe2);
 	*/
-  put32(t + TIMER_LOAD, interval_microsecond/50);
+  put32(t + TIMER_LOAD, interval_microsecond);
 	uint8_t reg = TIMER_CTRL_32BIT | TIMER_CTRL_INTREN |
 		TIMER_CTRL_PERIODIC | DEFAULT_CTRL_DIV | TIMER_CTRL_EN;
   put8(t + TIMER_CTRL, reg);
