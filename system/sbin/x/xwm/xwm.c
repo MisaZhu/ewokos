@@ -301,8 +301,8 @@ int main(int argc, char** argv) {
 	read_config(&_xwm, "/etc/x/xwm.conf");
 	_xwm.title_h = _xwm.font->h+4;
 
-	ipc_setup(handle, NULL, false);
 	proc_ready_ping();
+	ipc_setup(handle, NULL, false);
 
 	while(true) {
 		sleep(1);

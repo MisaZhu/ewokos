@@ -105,6 +105,7 @@ LIB_MARIO_OBJS = $(LIB_MARIO_DIR)/src/mario_bc.o \
 
 LIB_SYS_OBJS = $(LIB_SYS_DIR)/src/syscall.o \
 	$(LIB_SYS_DIR)/src/cmain.o \
+	$(LIB_SYS_DIR)/src/kserv.o \
 	$(LIB_SYS_DIR)/src/charbuf.o \
 	$(LIB_SYS_DIR)/src/vfs.o \
 	$(LIB_SYS_DIR)/src/vfsc.o \
@@ -181,6 +182,7 @@ libs: $(LIB_OBJS)
 	@cp -r $(KERNEL_H) $(TARGET_DIR)/include/
 
 include $(ROOT_DIR)/sbin/init/build.mk
+include $(ROOT_DIR)/sbin/kservd/build.mk
 include $(ROOT_DIR)/sbin/keventd/build.mk
 include $(ROOT_DIR)/sbin/dev/fbd/build.mk
 include $(ROOT_DIR)/sbin/dev/nulld/build.mk

@@ -9,6 +9,7 @@
 #include <proto.h>
 #include <fsinfo.h>
 #include <sys/vfsc.h>
+#include <sys/kserv.h>
 #include <procinfo.h>
 
 #define PROC_FILE_MAX 128
@@ -879,6 +880,11 @@ static void handle(int pid, int cmd, void* p) {
 int main(int argc, char** argv) {
 	(void)argc;
 	(void)argv;
+
+	if(kserv_reg(KSERV_VFS) != 0) {
+		kprintf(false, "reg vfs kserv error!\n");
+		return -1;
+	}
 
 	vfs_init();
 

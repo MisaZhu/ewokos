@@ -21,36 +21,7 @@
 #include <kevent.h>
 #include "sdinit.h"
 
-/*
-static void run_init_sd(const char* cmd) {
-	sysinfo_t sysinfo;
-	syscall1(SYS_GET_SYSINFO, (int32_t)&sysinfo);
-	char devfn[FS_FULL_NAME_MAX];
-	snprintf(devfn, FS_FULL_NAME_MAX-1, "/sbin/dev/%s/%s", sysinfo.machine, cmd);
-
-	kprintf(false, "init: load sd %8s ", "");
-	int pid = fork();
-	if(pid == 0) {
-		sdinit_init();
-		ext2_t ext2;
-		ext2_init(&ext2, sdinit_read, NULL);
-		int32_t sz;
-		void* data = ext2_readfile(&ext2, devfn, &sz);
-		ext2_quit(&ext2);
-
-		if(data == NULL) {
-			kprintf(false, "[error!] (%s)\n", devfn);
-			exit(-1);
-		}
-		exec_elf(devfn, data, sz);
-		free(data);
-	}
-	proc_wait_ready(pid);
-	kprintf(false, "[ok]\n");
-}
-*/
-
-static int run_init_cmd(const char* cmd) {
+static int run_none_fs(const char* cmd) {
 	kprintf(false, "init: %s ", cmd);
 	int pid = fork();
 	if(pid == 0) {
@@ -76,7 +47,7 @@ static int run_init_cmd(const char* cmd) {
 	return pid;
 }
 
-static int run_dev(const char* cmd, bool prompt) {
+static int run_serv(const char* cmd, bool prompt) {
 	if(prompt)
 		kprintf(false, "init: %s ", cmd);
 
@@ -147,7 +118,7 @@ static void load_devs(void) {
 			break;
 		if(ln[0] == 0 || ln[0] == '#')
 			continue;
-		run_dev(ln, true);
+		run_serv(ln, true);
 	}
 	close(fd);
 }
@@ -176,11 +147,13 @@ int main(int argc, char** argv) {
 	setenv("PATH", "/sbin:/bin");
 
 	kprintf(false, "\n[init process started]\n");
+	run_none_fs("/sbin/kservd"); //have to be pid 1
+	run_none_fs("/sbin/vfsd");
 	//mount root fs
-	//run_init_sd("sdd");
-	run_init_cmd("/sbin/keventd");
-	run_init_cmd("/sbin/vfsd");
-	run_init_cmd("/sbin/dev/rootfsd");
+	run_none_fs("/sbin/dev/rootfsd");
+
+	//fs got ready.
+	run_serv("/sbin/keventd", true);
 
 	load_devs();
 	init_stdio();
