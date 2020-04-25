@@ -25,7 +25,7 @@
 		./configure --enable-kvm --enable-hax --target-list=arm-softmmu
 		make and make install
 	Linux:	
-		Ubuntu Linux 16.04 with "gcc-arm-none-eabi","gdb-arm-none-eabi","fuseext2"
+		Ubuntu Linux 16.04 with "libglib2.0-dev","libpixman-1-dev","gcc-arm-none-eabi","gdb-arm-none-eabi","fuseext2"
 		installed(can install by "apt")
 
 	Mac OSX(with brew installed):	
