@@ -59,8 +59,7 @@ int main(int argc, char** argv) {
 	for(int i=0; i<KSERV_MAX; i++) {
 		_kservs[i] = -1;
 	}
-
-	proc_ready_ping();
+	
 	kserv_run(handle, NULL, false);
 
 	while(true) {
