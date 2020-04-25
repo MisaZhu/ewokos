@@ -132,7 +132,7 @@ int main(int argc, char** argv) {
 	setenv("PATH", "/sbin:/bin");
 
 	kprintf(false, "\n[init process started]\n");
-	run_none_fs("/sbin/kservd"); //have to be pid 1
+	run_none_fs("/sbin/cored"); //have to be pid 1
 	run_none_fs("/sbin/vfsd");
 	//mount root fs
 	run_none_fs("/sbin/dev/rootfsd");
