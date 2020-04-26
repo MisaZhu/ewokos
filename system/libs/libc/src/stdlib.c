@@ -6,6 +6,13 @@ void *malloc(size_t size) {
 	return (void*)syscall1(SYS_MALLOC, (int32_t)size);
 }
 
+void *calloc(size_t nmemb, size_t size) {
+	void* p = (void*)syscall1(SYS_MALLOC, (int32_t)(nmemb*size));
+	if(p != NULL)
+		memset(p, 0, size);
+	return p;
+}
+
 void free(void* ptr) {
 	syscall1(SYS_FREE, (int32_t)ptr);
 }

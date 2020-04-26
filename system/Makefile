@@ -17,6 +17,7 @@ CFLAGS = -Wstrict-prototypes \
 				 -pedantic -Wall -Wextra -msoft-float -fPIC -mapcs-frame \
          -fno-builtin-printf \
          -fno-builtin-memset \
+         -fno-builtin-calloc \
          -fno-builtin-snprintf \
          -fno-builtin-sprintf \
          -fno-builtin-fprintf \
@@ -61,7 +62,7 @@ LIB_M_DIR = libs/libm
 LIB_CONSOLE_DIR = libs/console
 LIB_UPNG_DIR = libs/upng
 LIB_TGA_DIR = libs/tga
-LIB_HASH_DIR = libs/tga
+LIB_HASH_DIR = libs/hash
 LIB_MARIO_DIR = libs/mario
 
 CFLAGS += $(LIB_INC)
@@ -92,7 +93,7 @@ LIB_UPNG_OBJS = $(LIB_UPNG_DIR)/src/upng.o
 
 LIB_TGA_OBJS = $(LIB_TGA_DIR)/src/tga.o
 
-LIB_HASh_OBJS = $(LIB_TGA_DIR)/src/hash.o
+LIB_HASH_OBJS = $(LIB_HASH_DIR)/src/hash.o
 
 LIB_SCONF_OBJS = $(LIB_SCONF_DIR)/src/sconf.o
 

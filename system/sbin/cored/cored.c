@@ -3,9 +3,12 @@
 #include <unistd.h>
 #include <string.h>
 #include <sys/ipc.h>
+#include <hash.h>
 #include <sys/proc.h>
 #include <sys/kserv.h>
 #include <sys/core.h>
+
+static hash_t* _global = NULL;
 
 static int _kservs[KSERV_MAX]; //pids of kservers
 
@@ -59,6 +62,8 @@ int main(int argc, char** argv) {
 	(void)argc;
 	(void)argv;
 
+	_global = hash_new();
+
 	for(int i=0; i<KSERV_MAX; i++) {
 		_kservs[i] = -1;
 	}
@@ -68,5 +73,7 @@ int main(int argc, char** argv) {
 	while(true) {
 		sleep(1);
 	}
+
+	hash_free(_global);
 	return 0;
 }
