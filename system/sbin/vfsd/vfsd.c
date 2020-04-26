@@ -4,6 +4,7 @@
 #include <string.h>
 #include <sys/ipc.h>
 #include <sys/proc.h>
+#include <sys/kserv.h>
 #include <mstr.h>
 #include <buffer.h>
 #include <proto.h>

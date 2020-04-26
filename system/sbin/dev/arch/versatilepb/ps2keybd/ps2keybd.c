@@ -4,8 +4,8 @@
 #include <string.h>
 #include <sys/vfs.h>
 #include <sys/vdevice.h>
+#include <sys/kserv.h>
 #include <sys/mmio.h>
-#include <sys/interrupt.h>
 #include <sys/charbuf.h>
 #include <sys/syscall.h>
 #include <rawdata.h>
@@ -119,13 +119,17 @@ int main(int argc, char** argv) {
 
 	keyb_init();
 	charbuf_init(&_buffer);
-	proc_interrupt_register(US_INT_PS2_KEY);
 
 	vdevice_t dev;
 	memset(&dev, 0, sizeof(vdevice_t));
 	strcpy(dev.name, "keyb");
 	dev.read = keyb_read;
 	dev.safe_cmd = keyb_safe_cmd;
+
+	if(kserv_reg(KSERV_PS2_KEYB) != 0) {
+		kprintf(false, "reg ps2keyb kserv error!\n");
+		return -1;
+	}
 
 	device_run(&dev, mnt_point, FS_TYPE_CHAR);
 	return 0;

@@ -3,7 +3,6 @@
 #include <vfs.h>
 #include <kernel/kernel.h>
 #include <kernel/schedule.h>
-#include <kernel/uspace_int.h>
 #include <mm/kalloc.h>
 #include <mm/kmalloc.h>
 #include <mm/shm.h>
@@ -278,7 +277,6 @@ static void __attribute__((optimize("O0"))) proc_terminate(context_t* ctx, proc_
 /* proc_free frees all resources allocated by proc. */
 void __attribute__((optimize("O0"))) proc_exit(context_t* ctx, proc_t *proc, int32_t res) {
 	(void)res;
-	uspace_interrupt_unregister(-1);
 	proc_terminate(ctx, proc);
 	proc->state = UNUSED;
 	str_free(proc->cmd);

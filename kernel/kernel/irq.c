@@ -6,12 +6,12 @@
 #include <kernel/irq.h>
 #include <kernel/system.h>
 #include <kernel/schedule.h>
-#include <kernel/uspace_int.h>
 #include <kernel/kernel.h>
 #include <kernel/proc.h>
 #include <kernel/kevqueue.h>
 #include <string.h>
 #include <kprintf.h>
+#include <usinterrupt.h>
 
 /*static void sd_handler(void) {
 	dev_t* dev = get_dev(DEV_SD);
@@ -33,7 +33,6 @@ static void keyboard_interrupt(proto_t* data) {
 void irq_handler(context_t* ctx) {
 	__irq_disable();
 	_current_ctx = ctx;
-	bool uspace_int = false;
 	proto_t data;
 
 	if(_current_proc != NULL && _current_proc->critical_counter > 0) {
@@ -45,7 +44,6 @@ void irq_handler(context_t* ctx) {
 	uint32_t irqs = gic_get_irqs(&data);
 
 	if((irqs & IRQ_KEY) != 0) {
-		//uspace_interrupt(ctx, US_INT_KEY);
 		keyboard_interrupt(&data);
 	}
 	proto_clear(&data);
@@ -65,28 +63,19 @@ void irq_handler(context_t* ctx) {
 				_timer_usec = usec;
 				_timer_mtic += usec_gap;
 				_timer_tic += usec_gap;
-				/*
 				if(_timer_tic >= 1000000) { //1 sec
 					_kernel_tic++;
 					_timer_tic = 0;
-					if(uspace_interrupt(ctx, US_INT_TIMER_TIC))
-						uspace_int = true;
 				}
 
 				if(_timer_mtic >= 1000) { //1 msec
 					_timer_mtic = 0;
-					if(uspace_interrupt(ctx, US_INT_TIMER_MTIC))
-						uspace_int = true;
 				}
-				*/
 				renew_sleep_counter(usec_gap);
 			}
 		}	
 		timer_clear_interrupt(0);
-
-		if(!uspace_int) {
-			schedule(ctx);
-		}
+		schedule(ctx);
 	}
 }
 
@@ -116,7 +105,6 @@ void data_abort_handler(context_t* ctx) {
 
 void irq_init(void) {
 	irq_arch_init();
-	uspace_interrupt_init();
 	//gic_set_irqs( IRQ_UART0 | IRQ_TIMER0 | IRQ_KEY | IRQ_MOUSE | IRQ_SDC);
 	//gic_set_irqs(IRQ_TIMER0 | IRQ_SDC);
 	gic_set_irqs(IRQ_TIMER0 | IRQ_KEY);

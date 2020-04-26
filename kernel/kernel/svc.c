@@ -623,20 +623,6 @@ static void sys_proc_critical_quit(void) {
 	_current_proc->critical_counter = 0;
 }
 
-static int32_t sys_proc_usint_register(uint32_t int_id) {
-	return uspace_interrupt_register(int_id);
-}
-
-static int32_t sys_get_usint_pid(uint32_t int_id) {
-	if(_current_proc->owner != 0)
-		return -1;
-	return uspace_interrupt_get_pid(int_id);
-}
-
-static void sys_proc_usint_unregister(uint32_t int_id) {
-	uspace_interrupt_unregister(int_id);
-}
-
 static int32_t sys_ipc_setup(context_t* ctx, uint32_t entry, uint32_t extra_data, bool prefork) {
 	return proc_ipc_setup(ctx, entry, extra_data, prefork);
 }
@@ -983,15 +969,6 @@ void svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_t arg2, context
 		return;
 	case SYS_PROC_CRITICAL_QUIT:
 		sys_proc_critical_quit();
-		return;
-	case SYS_PROC_USINT_REGISTER:
-		ctx->gpr[0] = sys_proc_usint_register((uint32_t)arg0);
-		return;
-	case SYS_GET_USINT_PID:
-		ctx->gpr[0] = sys_get_usint_pid((uint32_t)arg0);
-		return;
-	case SYS_PROC_USINT_UNREGISTER:
-		sys_proc_usint_unregister((uint32_t)arg0);
 		return;
 	case SYS_IPC_SETUP:
 		ctx->gpr[0] = sys_ipc_setup(ctx, arg0, arg1, (bool)arg2);

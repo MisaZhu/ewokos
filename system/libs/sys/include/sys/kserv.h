@@ -6,6 +6,7 @@
 
 enum {
 	KSERV_VFS = 0,
+	KSERV_PS2_KEYB,
 	KSERV_MAX
 };
 

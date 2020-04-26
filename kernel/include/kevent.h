@@ -7,6 +7,7 @@
 enum {
 	KEV_NONE = 0,
 	KEV_FCLOSED,
+	KEV_PROC_EXIT,
 	KEV_US_INT
 };
 

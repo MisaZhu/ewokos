@@ -126,7 +126,6 @@ LIB_SYS_OBJS = $(LIB_SYS_DIR)/src/syscall.o \
 	$(LIB_SYS_DIR)/src/proc.o \
 	$(LIB_SYS_DIR)/src/wait.o \
 	$(LIB_SYS_DIR)/src/critical.o \
-	$(LIB_SYS_DIR)/src/interrupt.o \
 	$(LIB_SYS_DIR)/src/md5.o \
 	$(LIB_SYS_DIR)/src/buffer.o \
 	$(LIB_SYS_DIR)/src/mmio.o 

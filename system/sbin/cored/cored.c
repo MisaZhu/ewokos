@@ -84,7 +84,9 @@ static void do_fsclosed(proto_t *data) {
 
 static void do_usint_ps2_key(proto_t* data) {
 	int32_t key_scode = proto_read_int(data);
-	int32_t pid = syscall1(SYS_GET_USINT_PID, US_INT_PS2_KEY);
+	int32_t pid = _kservs[KSERV_PS2_KEYB];
+	if(pid < 0)
+		return;
 
 	proto_t in;
 	proto_init(&in, NULL, 0);
