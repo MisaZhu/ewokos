@@ -136,9 +136,7 @@ int main(int argc, char** argv) {
 	run_none_fs("/sbin/vfsd");
 	//mount root fs
 	run_none_fs("/sbin/dev/rootfsd");
-
 	//fs got ready.
-	run("/sbin/keventd", true, true);
 
 	load_devs();
 	run_procs();
