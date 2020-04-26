@@ -162,6 +162,9 @@ char* trunk_realloc(malloc_t* m, char* p, uint32_t size) {
 		return NULL;
 	}
 
+	if(p == NULL)
+		return ret;
+
 	uint32_t block_size = sizeof(mem_block_t);
 	mem_block_t* block = (mem_block_t*)(p - block_size);
 	if(size > block->size)

@@ -22,7 +22,7 @@ inline void array_add(m_array_t* array, void* item) {
 	uint32_t new_size = array->size + 1; 
 	if(array->max <= new_size) { 
 		new_size = array->size + ARRAY_BUF;
-		array->items = (void**)realloc_raw(array->items, array->max*sizeof(void*), new_size*sizeof(void*)); 
+		array->items = (void**)realloc(array->items, new_size*sizeof(void*)); 
 		array->max = new_size; 
 	} 
 	array->items[array->size] = item; 
@@ -34,7 +34,7 @@ inline void array_add_head(m_array_t* array, void* item) {
 	uint32_t new_size = array->size + 1; 
 	if(array->max <= new_size) { 
 		new_size = array->size + ARRAY_BUF;
-		array->items = (void**)realloc_raw(array->items, array->max*sizeof(void*), new_size*sizeof(void*)); 
+		array->items = (void**)realloc(array->items, new_size*sizeof(void*)); 
 		array->max = new_size; 
 	} 
 	int32_t i;

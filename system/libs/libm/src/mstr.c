@@ -32,7 +32,7 @@ char* str_ncpy(str_t* str, const char* src, uint32_t l) {
 	uint32_t new_size = len;
 	if(str->max <= new_size) {
 		new_size = len + STR_BUF; /*STR BUF for buffer*/
-		str->cstr = realloc_raw(str->cstr, str->max, new_size);
+		str->cstr = realloc(str->cstr, new_size);
 		str->max = new_size;
 	}
 
@@ -74,7 +74,7 @@ char* str_add(str_t* str, const char* src) {
 	uint32_t new_size = str->len + len;
 	if(str->max <= new_size) {
 		new_size = str->len + len + STR_BUF; /*STR BUF for buffer*/
-		str->cstr = realloc_raw(str->cstr, str->max, new_size);
+		str->cstr = realloc(str->cstr, new_size);
 		str->max = new_size;
 	}
 
@@ -93,7 +93,7 @@ char* str_addc(str_t* str, char c) {
 	uint32_t new_size = str->len + 1;
 	if(str->max <= new_size) {
 		new_size = str->len + STR_BUF; /*STR BUF for buffer*/
-		str->cstr = realloc_raw(str->cstr, str->max, new_size);
+		str->cstr = realloc(str->cstr, new_size);
 		str->max = new_size;
 	}
 

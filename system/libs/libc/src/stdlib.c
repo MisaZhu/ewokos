@@ -10,11 +10,8 @@ void free(void* ptr) {
 	syscall1(SYS_FREE, (int32_t)ptr);
 }
 
-void* realloc_raw(void* s, uint32_t old_size, uint32_t new_size) {
-	void* p = malloc(new_size);
-	memcpy(p, s, old_size);
-	free(s);
-	return p;
+void* realloc(void* s, uint32_t new_size) {
+	return (void*)syscall2(SYS_REALLOC, (int32_t)s, (int32_t)new_size);
 }
 
 void exit(int status) {
