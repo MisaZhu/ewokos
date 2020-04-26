@@ -258,18 +258,6 @@ static void proc_wakeup_waiting(int32_t pid) {
 	}
 }
 
-proc_t* proc_get_by_global_name(const char* gname) {
-	int32_t i;
-	for (i = 0; i < PROC_MAX; i++) {
-		proc_t *proc = &_proc_table[i];
-		if (proc->state == UNUSED || CS(proc->global_name)[0] == 0)
-			continue;
-		if(strcmp(gname, CS(proc->global_name)) == 0)
-			return proc;
-	}
-	return NULL;
-}
-
 static void __attribute__((optimize("O0"))) proc_terminate(context_t* ctx, proc_t* proc) {
 	if(proc->state == ZOMBIE || proc->state == UNUSED)
 		return;
@@ -295,7 +283,6 @@ void __attribute__((optimize("O0"))) proc_exit(context_t* ctx, proc_t *proc, int
 	proc->state = UNUSED;
 	str_free(proc->cmd);
 	str_free(proc->cwd);
-	str_free(proc->global_name);
 
 	/*free user_stack*/
 	uint32_t user_stack_base = proc_get_user_stack_base(proc);
@@ -351,7 +338,6 @@ proc_t *proc_create(int32_t type, proc_t* parent) {
 		proc_init_space(proc);
 		proc->cmd = str_new("");
 		proc->cwd = str_new("/");
-		proc->global_name = str_new("");
 	}
 	else {
 		proc->space = parent->space;

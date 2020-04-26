@@ -5,6 +5,7 @@
 #include <sys/ipc.h>
 #include <sys/shm.h>
 #include <sys/proc.h>
+#include <sys/kserv.h>
 #include <graph/graph.h>
 #include <sconf.h>
 #include <x/xcntl.h>
@@ -267,31 +268,22 @@ static void get_workspace(proto_t* in, proto_t* out) {
 	proto_add(out, &r, sizeof(grect_t));
 }
 
-static void handle(int from_pid, int cmd, void* p) {
-	(void)p;
+static void handle(int from_pid, int cmd, proto_t* in, proto_t* out, void* p) {
 	(void)from_pid;
-	proto_t* in = ipc_get_arg();
-
-	proto_t out;
-	proto_init(&out, NULL, 0);
+	(void)p;
 
 	if(cmd == XWM_CNTL_DRAW_FRAME) { //draw frame
-		draw_frame(in, &out);
+		draw_frame(in, out);
 	}
 	else if(cmd == XWM_CNTL_DRAW_DESKTOP) { //draw desktop
-		draw_desktop(in, &out);
+		draw_desktop(in, out);
 	}
 	else if(cmd == XWM_CNTL_GET_POS) { //get pos
-		get_pos(in, &out);
+		get_pos(in, out);
 	}
 	else if(cmd == XWM_CNTL_GET_WORKSPACE) { //get workspace
-		get_workspace(in, &out);
+		get_workspace(in, out);
 	}
-
-	proto_free(in);
-	ipc_set_return(&out);
-	proto_clear(&out);
-	ipc_end();
 }
 
 int main(int argc, char** argv) {
@@ -301,8 +293,7 @@ int main(int argc, char** argv) {
 	read_config(&_xwm, "/etc/x/xwm.conf");
 	_xwm.title_h = _xwm.font->h+4;
 
-	ipc_setup(handle, NULL, false);
-	proc_ready_ping();
+	kserv_run(handle, NULL, false);
 
 	while(true) {
 		sleep(1);

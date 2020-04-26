@@ -370,20 +370,6 @@ static int32_t sys_proc_set_cwd(const char* cwd) {
 	return 0;
 }
 
-static int32_t sys_proc_set_global_name(const char* gname) {
-	if(proc_get_by_global_name(gname) != NULL)
-		return -1;
-	str_cpy(_current_proc->global_name, gname);
-	return 0;
-}
-
-static int32_t sys_getpid_by_global_name(const char* gname) {
-	proc_t* proc = proc_get_by_global_name(gname);
-	if(proc == NULL)
-		return -1;
-	return proc->pid;
-}
-
 static int32_t sys_proc_set_uid(int32_t uid) {
 	if(_current_proc->owner != 0)	
 		return -1;
@@ -830,9 +816,6 @@ void svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_t arg2, context
 	case SYS_GET_PID:
 		ctx->gpr[0] = sys_getpid();
 		return;
-	case SYS_GET_PID_BY_GNAME:
-		ctx->gpr[0] = sys_getpid_by_global_name((const char*)arg0);
-		return;
 	case SYS_GET_THREAD_ID:
 		ctx->gpr[0] = sys_get_threadid();
 		return;
@@ -914,9 +897,6 @@ void svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_t arg2, context
 	case SYS_PROC_SET_CWD: 
 		ctx->gpr[0] = sys_proc_set_cwd((const char*)arg0);
 		return;
-	case SYS_PROC_SET_GNAME: 
-		ctx->gpr[0] = sys_proc_set_global_name((const char*)arg0);
-		return;
 	case SYS_PROC_GET_CWD: 
 		sys_proc_get_cwd((char*)arg0, arg1);
 		return;
@@ -973,12 +953,6 @@ void svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_t arg2, context
 		return;
 	case SYS_PROC_SHM_REF:
 		ctx->gpr[0] = sys_shm_ref(arg0);
-		return;
-	case SYS_SET_GLOBAL:
-		ctx->gpr[0] = set_global((const char*)arg0, (const char*)arg1);
-		return;
-	case SYS_GET_GLOBAL:
-		ctx->gpr[0] = get_global((const char*)arg0, (char*)arg1, arg2);
 		return;
 	case SYS_THREAD:
 		ctx->gpr[0] = sys_thread(ctx, (uint32_t)arg0, (uint32_t)arg1, arg2);

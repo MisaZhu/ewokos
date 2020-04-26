@@ -48,6 +48,7 @@ LIB_INC = -I libs/sys/include \
 					-I libs/mario/include \
 					-I libs/upng/include \
 					-I libs/tga/include \
+					-I libs/hash/include \
 					-I ../kernel/include
 				 
 LIB_SYS_DIR = libs/sys
@@ -60,6 +61,7 @@ LIB_M_DIR = libs/libm
 LIB_CONSOLE_DIR = libs/console
 LIB_UPNG_DIR = libs/upng
 LIB_TGA_DIR = libs/tga
+LIB_HASH_DIR = libs/tga
 LIB_MARIO_DIR = libs/mario
 
 CFLAGS += $(LIB_INC)
@@ -90,6 +92,8 @@ LIB_UPNG_OBJS = $(LIB_UPNG_DIR)/src/upng.o
 
 LIB_TGA_OBJS = $(LIB_TGA_DIR)/src/tga.o
 
+LIB_HASh_OBJS = $(LIB_TGA_DIR)/src/hash.o
+
 LIB_SCONF_OBJS = $(LIB_SCONF_DIR)/src/sconf.o
 
 LIB_M_OBJS = $(LIB_M_DIR)/src/mstr.o \
@@ -105,6 +109,7 @@ LIB_MARIO_OBJS = $(LIB_MARIO_DIR)/src/mario_bc.o \
 
 LIB_SYS_OBJS = $(LIB_SYS_DIR)/src/syscall.o \
 	$(LIB_SYS_DIR)/src/cmain.o \
+	$(LIB_SYS_DIR)/src/kserv.o \
 	$(LIB_SYS_DIR)/src/charbuf.o \
 	$(LIB_SYS_DIR)/src/vfs.o \
 	$(LIB_SYS_DIR)/src/vfsc.o \
@@ -141,6 +146,7 @@ LIB_OBJS = $(LIB_SYS_OBJS) \
 	$(LIB_CONSOLE_OBJS) \
 	$(LIB_UPNG_OBJS) \
 	$(LIB_TGA_OBJS) \
+	$(LIB_HASH_OBJS) \
 	$(LIB_M_OBJS) \
 	$(LIB_MARIO_OBJS) \
 	$(LIB_X_OBJS)
@@ -178,9 +184,12 @@ libs: $(LIB_OBJS)
 	@cp -r $(LIB_UPNG_DIR)/include/* $(TARGET_DIR)/include/
 	$(AR) rT $(TARGET_DIR)/lib/libtga.a $(LIB_TGA_OBJS)
 	@cp -r $(LIB_TGA_DIR)/include/* $(TARGET_DIR)/include/
+	$(AR) rT $(TARGET_DIR)/lib/libhash.a $(LIB_HASH_OBJS)
+	@cp -r $(LIB_HASH_DIR)/include/* $(TARGET_DIR)/include/
 	@cp -r $(KERNEL_H) $(TARGET_DIR)/include/
 
 include $(ROOT_DIR)/sbin/init/build.mk
+include $(ROOT_DIR)/sbin/cored/build.mk
 include $(ROOT_DIR)/sbin/keventd/build.mk
 include $(ROOT_DIR)/sbin/dev/fbd/build.mk
 include $(ROOT_DIR)/sbin/dev/nulld/build.mk

@@ -3,6 +3,7 @@
 #include <sys/proto.h>
 #include <sys/proc.h>
 #include <sys/ipc.h>
+#include <sys/kserv.h>
 #include <fsinfo.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -59,6 +60,8 @@ static void handle_event(kevent_t* kev) {
 int main(int argc, char** argv) {
 	(void)argc;
 	(void)argv;
+
+	//int vfsd_pid = kserv_get(KSERV_VFS);
 
 	proc_ready_ping();
 	while(1) {
