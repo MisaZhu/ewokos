@@ -1,5 +1,6 @@
 #include <mm/trunkmalloc.h>
 #include <mm/mmu.h>
+#include <kstring.h>
 
 /*
 malloc for memory trunk management
@@ -135,13 +136,38 @@ static void try_shrink(malloc_t* m) {
 }
 
 void trunk_free(malloc_t* m, char* p) {
+	if(p == NULL)
+		return;
+
 	uint32_t block_size = sizeof(mem_block_t);
 	if(((uint32_t)p) < block_size) //wrong address.
 		return;
-	mem_block_t* block = (mem_block_t*)(p-block_size);
+	mem_block_t* block = (mem_block_t*)(p - block_size);
 	block->used = 0; //mark as free.
 	try_merge(m, block);
 	
 	if(m->shrink != NULL)
 		try_shrink(m);
+}
+
+char* trunk_realloc(malloc_t* m, char* p, uint32_t size) {
+	if(size == 0) {
+		trunk_free(m, p);
+		return NULL;
+	}
+
+	char* ret = trunk_malloc(m, size);
+	if(ret == NULL) {
+		trunk_free(m, p);
+		return NULL;
+	}
+
+	uint32_t block_size = sizeof(mem_block_t);
+	mem_block_t* block = (mem_block_t*)(p - block_size);
+	if(size > block->size)
+		size = block->size;
+
+	memcpy(ret, block->mem, size);
+	trunk_free(m, p);
+	return ret;
 }

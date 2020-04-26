@@ -101,6 +101,7 @@ extern void    proc_exit(context_t* ctx, proc_t *proc, int32_t res);
 extern proc_t *proc_create(int32_t type, proc_t* parent);
 
 extern void*   proc_malloc(uint32_t size);
+extern void*   proc_realloc(void* p, uint32_t size);
 extern void    proc_free(void* p);
 
 extern void    proc_block_on(context_t* ctx, uint32_t event);

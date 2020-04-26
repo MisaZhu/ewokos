@@ -314,6 +314,14 @@ void* proc_malloc(uint32_t size) {
 	return trunk_malloc(&_current_proc->space->malloc_man, size);
 }
 
+void* proc_realloc(void* p, uint32_t size) {
+	if(size == 0) {
+		proc_free(p);
+		return NULL;
+	}
+	return trunk_realloc(&_current_proc->space->malloc_man, p, size);
+}
+
 void proc_free(void* p) {
 	if(p == NULL)
 		return;
