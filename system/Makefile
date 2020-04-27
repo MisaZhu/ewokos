@@ -93,7 +93,7 @@ LIB_UPNG_OBJS = $(LIB_UPNG_DIR)/src/upng.o
 
 LIB_TGA_OBJS = $(LIB_TGA_DIR)/src/tga.o
 
-LIB_HASH_OBJS = $(LIB_HASH_DIR)/src/hash.o
+LIB_HASH_OBJS = $(LIB_HASH_DIR)/src/hashmap.o
 
 LIB_SCONF_OBJS = $(LIB_SCONF_DIR)/src/sconf.o
 

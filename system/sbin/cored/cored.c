@@ -3,16 +3,61 @@
 #include <unistd.h>
 #include <string.h>
 #include <sys/ipc.h>
-#include <hash.h>
 #include <fsinfo.h>
 #include <sys/proc.h>
 #include <sys/syscall.h>
 #include <sys/kserv.h>
 #include <sys/core.h>
+#include <hashmap.h>
 #include <kevent.h>
 #include <usinterrupt.h>
 
-static hash_t* _global = NULL;
+static map_t* _global = NULL;
+
+static proto_t* global_get(const char* key) {
+	proto_t* ret;
+	hashmap_get(_global, (char*)key, (void**)&ret);
+	return ret;
+}
+
+static proto_t* global_set(const char* key, void* data, uint32_t size) {
+	proto_t* v = global_get(key);
+	if(v != NULL) {
+		proto_copy(v, data, size);
+	}
+	else {
+		v = proto_new(data, size);
+		hashmap_put(_global, (char*)key, v);
+	}
+	return v;
+}
+
+static void global_del(const char* key) {
+	proto_t* v = global_get(key);
+	hashmap_remove(_global, (char*)key);
+	proto_free(v);
+}
+
+static void do_global_set(proto_t* in) {
+	const char* key = proto_read_str(in);
+	int32_t size;
+	void* data = proto_read(in, &size);
+	if(data != NULL) {
+		global_set(key, data, size);
+	}
+}
+
+static void do_global_get(proto_t* in, proto_t* out) {
+	const char* key = proto_read_str(in);
+	proto_t * v= global_get(key);
+	if(v != NULL)
+		proto_copy(out, v->data, v->size);
+}
+
+static void do_global_del(proto_t* in) {
+	const char* key = proto_read_str(in);
+	global_del(key);
+}
 
 static int _kservs[KSERV_MAX]; //pids of kservers
 
@@ -58,6 +103,15 @@ static void handle_ipc(int pid, int cmd, proto_t* in, proto_t* out, void* p) {
 		return;
 	case CORE_CMD_KSERV_GET: //get kserver pid
 		do_get(in, out);
+		return;
+	case CORE_CMD_GLOBAL_SET:
+		do_global_set(in);
+		return;
+	case CORE_CMD_GLOBAL_DEL: 
+		do_global_del(in);
+		return;
+	case CORE_CMD_GLOBAL_GET:
+		do_global_get(in, out);
 		return;
 	}
 }
@@ -117,7 +171,7 @@ int main(int argc, char** argv) {
 	(void)argc;
 	(void)argv;
 
-	_global = hash_new();
+	_global = hashmap_new();
 
 	for(int i=0; i<KSERV_MAX; i++) {
 		_kservs[i] = -1;
@@ -136,6 +190,6 @@ int main(int argc, char** argv) {
 		usleep(0);
 	}
 
-	hash_free(_global);
+	hashmap_free(_global);
 	return 0;
 }
