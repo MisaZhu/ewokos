@@ -110,6 +110,7 @@ OBJS = ${ARCH_OBJS} \
 	${KERNEL_DIR}/dev/kdevice.o \
 	${KERNEL_DIR}/systemc.o \
 	${KERNEL_DIR}/kevqueue.o \
+	${KERNEL_DIR}/global.o \
 	${KERNEL_DIR}/kernel.o
 
 BUILD_DIR = build

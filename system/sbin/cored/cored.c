@@ -184,11 +184,16 @@ static void do_user_space_int(proto_t *data) {
 }
 
 static void handle_event(kevent_t* kev) {
-	if(kev->type == KEV_FCLOSED) {
+	switch(kev->type) {
+	case KEV_FCLOSED:
 		do_fsclosed(kev->data);
-	}
-	if(kev->type == KEV_US_INT) {
+		return;
+	case KEV_US_INT:
 		do_user_space_int(kev->data);
+		return;
+	case KEV_GLOBAL_SET:
+		do_global_set(kev->data);
+		return;
 	}
 }
 
