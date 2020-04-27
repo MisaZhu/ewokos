@@ -29,6 +29,20 @@ proto_t* proto_new(void* data, uint32_t size) {
 	return ret;
 }
 
+proto_t* proto_new_int(int i) {
+	proto_t* ret = (proto_t*)malloc(sizeof(proto_t));
+	proto_init(ret, NULL, 0);
+	proto_add_int(ret, i);
+	return ret;
+}
+
+proto_t* proto_new_str(const char* s) {
+	proto_t* ret = (proto_t*)malloc(sizeof(proto_t));
+	proto_init(ret, NULL, 0);
+	proto_add_str(ret, s);
+	return ret;
+}
+
 void proto_add(proto_t* proto, const void* item, uint32_t size) {
 	if(proto->read_only)
 		return;

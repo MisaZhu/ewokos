@@ -17,7 +17,7 @@ static map_t* _kservs = NULL; //pids of kservers
 
 static proto_t* global_get(const char* key) {
 	proto_t* ret;
-	hashmap_get(_global, (char*)key, (void**)&ret);
+	hashmap_get(_global, key, (void**)&ret);
 	return ret;
 }
 
@@ -28,14 +28,14 @@ static proto_t* global_set(const char* key, void* data, uint32_t size) {
 	}
 	else {
 		v = proto_new(data, size);
-		hashmap_put(_global, (char*)key, v);
+		hashmap_put(_global, key, v);
 	}
 	return v;
 }
 
 static void global_del(const char* key) {
 	proto_t* v = global_get(key);
-	hashmap_remove(_global, (char*)key);
+	hashmap_remove(_global, key);
 	proto_free(v);
 }
 
@@ -64,7 +64,7 @@ static void do_global_del(proto_t* in) {
 
 static int get_kserv(const char* key) {
 	int32_t *v;
-	if(hashmap_get(_kservs, (char*)key, (void**)&v) == MAP_MISSING) {
+	if(hashmap_get(_kservs, key, (void**)&v) == MAP_MISSING) {
 		return -1;
 	}
 	return *v;
@@ -88,7 +88,7 @@ static void do_kserv_reg(int pid, proto_t* in, proto_t* out) {
 
 	int32_t* v = (int32_t*)malloc(sizeof(int32_t));
 	*v = pid;
-	if(hashmap_put(_kservs, (char*)ks_id, v) != MAP_OK) {
+	if(hashmap_put(_kservs, ks_id, v) != MAP_OK) {
 		proto_add_int(out, -1);
 		return;
 	}
@@ -103,7 +103,7 @@ static void do_kserv_unreg(int pid, proto_t* in, proto_t* out) {
 	}
 
 	int32_t *v;
-	if(hashmap_get(_kservs, (char*)ks_id, (void**)&v) == MAP_MISSING) {
+	if(hashmap_get(_kservs, ks_id, (void**)&v) == MAP_MISSING) {
 		proto_add_int(out, -1);
 		return;
 	}
@@ -113,7 +113,7 @@ static void do_kserv_unreg(int pid, proto_t* in, proto_t* out) {
 		return;
 	}
 
-	hashmap_remove(_kservs, (char*)ks_id);
+	hashmap_remove(_kservs, ks_id);
 	free(v);
 	proto_add_int(out, 0);
 }

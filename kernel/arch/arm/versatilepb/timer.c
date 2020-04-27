@@ -69,6 +69,6 @@ void timer_clear_interrupt(uint32_t id) {
 
 static uint32_t _sys_usec_tic = 0;
 uint64_t timer_read_sys_usec(void) { //read microsec
-	_sys_usec_tic += 200;
+	_sys_usec_tic += 1000;
 	return _sys_usec_tic;
 }

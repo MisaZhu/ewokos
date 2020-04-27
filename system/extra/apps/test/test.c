@@ -14,7 +14,7 @@ int main(int argc, char** argv) {
 	proto_add_str(&in, "hello!");
 	while(1) {
 		set_global("test.test", &in);	
-		sleep(1);
+		usleep(1000);
 		proto_t* r = get_global("test.test");	
 		if(r != NULL) {
 			printf("ret:'%s'\n", proto_read_str(r));

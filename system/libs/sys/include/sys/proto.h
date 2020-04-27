@@ -20,6 +20,10 @@ void proto_copy(proto_t* proto, const void* data, uint32_t size);
 
 proto_t* proto_new(void* data, uint32_t size);
 
+proto_t* proto_new_int(int i);
+
+proto_t* proto_new_str(const char* s);
+
 void proto_add(proto_t* proto, const void* item, uint32_t size);
 
 void proto_add_int(proto_t* proto, int32_t v);

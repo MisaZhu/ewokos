@@ -164,9 +164,9 @@ unsigned long crc32(const unsigned char *s, unsigned int len)
 /*
  * Hashing function for a string
  */
-unsigned int hashmap_hash_int(hashmap_map * m, char* keystring){
+unsigned int hashmap_hash_int(hashmap_map * m, const char* keystring){
 
-    unsigned long key = crc32((unsigned char*)(keystring), strlen(keystring));
+    unsigned long key = crc32((const unsigned char*)(keystring), strlen(keystring));
 
 	/* Robert Jenkins' 32 bit Mix Function */
 	key += (key << 12);
@@ -188,7 +188,7 @@ unsigned int hashmap_hash_int(hashmap_map * m, char* keystring){
  * Return the integer of the location in data
  * to store the point to the item, or MAP_FULL.
  */
-int hashmap_hash(map_t in, char* key){
+int hashmap_hash(map_t in, const char* key){
 	int curr;
 	int i;
 
@@ -258,7 +258,7 @@ int hashmap_rehash(map_t in){
 /*
  * Add a pointer to the hashmap with some key
  */
-int hashmap_put(map_t in, char* key, any_t value){
+int hashmap_put(map_t in, const char* key, any_t value){
 	int index;
 	hashmap_map* m;
 
@@ -276,7 +276,8 @@ int hashmap_put(map_t in, char* key, any_t value){
 
 	/* Set the data */
 	m->data[index].data = value;
-	m->data[index].key = key;
+	m->data[index].key = (char*)malloc(strlen(key)+1);
+	memcpy(m->data[index].key, key, strlen(key)+1);
 	m->data[index].in_use = 1;
 	m->size++; 
 
@@ -286,7 +287,7 @@ int hashmap_put(map_t in, char* key, any_t value){
 /*
  * Get your pointer out of the hashmap with a key
  */
-int hashmap_get(map_t in, char* key, any_t *arg){
+int hashmap_get(map_t in, const char* key, any_t *arg){
 	int curr;
 	int i;
 	hashmap_map* m;
@@ -348,7 +349,7 @@ int hashmap_iterate(map_t in, PFany f, any_t item) {
 /*
  * Remove an element with that key from the map
  */
-int hashmap_remove(map_t in, char* key){
+int hashmap_remove(map_t in, const char* key){
 	int i;
 	int curr;
 	hashmap_map* m;
@@ -368,6 +369,7 @@ int hashmap_remove(map_t in, char* key){
                 /* Blank out the fields */
                 m->data[curr].in_use = 0;
                 m->data[curr].data = NULL;
+								free(m->data[curr].key);
                 m->data[curr].key = NULL;
 
                 /* Reduce the size */
@@ -384,7 +386,14 @@ int hashmap_remove(map_t in, char* key){
 
 /* Deallocate the hashmap */
 void hashmap_free(map_t in){
+	int i;
 	hashmap_map* m = (hashmap_map*) in;
+
+	for(i = 0; i< m->table_size; i++) {
+		if(m->data[i].in_use != 0 && m->data[i].key != NULL) 
+			free(m->data[i].key);
+	}
+  
 	free(m->data);
 	free(m);
 }
