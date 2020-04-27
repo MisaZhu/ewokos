@@ -60,7 +60,9 @@ static void do_global_del(proto_t* in) {
 	global_del(key);
 }
 
-static int do_kserv_get(const char* key) {
+/*----------------------------------------------------------*/
+
+static int get_kserv(const char* key) {
 	int32_t *v;
 	if(hashmap_get(_kservs, (char*)key, (void**)&v) == MAP_MISSING) {
 		return -1;
@@ -68,16 +70,16 @@ static int do_kserv_get(const char* key) {
 	return *v;
 }
 
-static void do_get(proto_t* in, proto_t* out) {
+static void do_kserv_get(proto_t* in, proto_t* out) {
 	const char* ks_id = proto_read_str(in);
 	if(ks_id[0] == 0) {
 		proto_add_int(out, -1);
 		return;
 	}
-	proto_add_int(out, do_kserv_get(ks_id));
+	proto_add_int(out, get_kserv(ks_id));
 }
 
-static void do_reg(int pid, proto_t* in, proto_t* out) {
+static void do_kserv_reg(int pid, proto_t* in, proto_t* out) {
 	const char* ks_id = proto_read_str(in);
 	if(ks_id[0] == 0) {
 		proto_add_int(out, -1);
@@ -93,7 +95,7 @@ static void do_reg(int pid, proto_t* in, proto_t* out) {
 	proto_add_int(out, 0);
 }
 
-static void do_unreg(int pid, proto_t* in, proto_t* out) {
+static void do_kserv_unreg(int pid, proto_t* in, proto_t* out) {
 	const char* ks_id = proto_read_str(in);
 	if(ks_id[0] == 0) {
 		proto_add_int(out, -1);
@@ -121,13 +123,13 @@ static void handle_ipc(int pid, int cmd, proto_t* in, proto_t* out, void* p) {
 
 	switch(cmd) {
 	case CORE_CMD_KSERV_REG: //regiester kserver pid
-		do_reg(pid, in, out);
+		do_kserv_reg(pid, in, out);
 		return;
 	case CORE_CMD_KSERV_UNREG: //unregiester kserver pid
-		do_unreg(pid, in, out);
+		do_kserv_unreg(pid, in, out);
 		return;
 	case CORE_CMD_KSERV_GET: //get kserver pid
-		do_get(in, out);
+		do_kserv_get(in, out);
 		return;
 	case CORE_CMD_GLOBAL_SET:
 		do_global_set(in);
@@ -163,7 +165,7 @@ static void do_fsclosed(proto_t *data) {
 
 static void do_usint_ps2_key(proto_t* data) {
 	int32_t key_scode = proto_read_int(data);
-	int32_t pid = do_kserv_get(KSERV_PS2_KEYB);
+	int32_t pid = get_kserv(KSERV_PS2_KEYB);
 	if(pid < 0)
 		return;
 

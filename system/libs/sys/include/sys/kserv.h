@@ -5,7 +5,7 @@
 #include <stdbool.h>
 
 #define KSERV_VFS      "kserv.vfs"
-#define KSERV_PS2_KEYB "kserv.vfs"
+#define KSERV_PS2_KEYB "kserv.ps2keyb"
 
 int kserv_reg(const char* kserv_id);
 int kserv_unreg(const char* kserv_id);
