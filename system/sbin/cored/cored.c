@@ -13,6 +13,7 @@
 #include <usinterrupt.h>
 
 static map_t* _global = NULL;
+static map_t* _kservs = NULL; //pids of kservers
 
 static proto_t* global_get(const char* key) {
 	proto_t* ret;
@@ -59,35 +60,59 @@ static void do_global_del(proto_t* in) {
 	global_del(key);
 }
 
-static int _kservs[KSERV_MAX]; //pids of kservers
-
-static void do_reg(int pid, proto_t* in, proto_t* out) {
-	int ks_id = proto_read_int(in);
-	if(ks_id < 0 || ks_id >= KSERV_MAX || _kservs[ks_id] >= 0) {
-		proto_add_int(out, -1);
-		return;
+static int do_kserv_get(const char* key) {
+	int32_t *v;
+	if(hashmap_get(_kservs, (char*)key, (void**)&v) == MAP_MISSING) {
+		return -1;
 	}
-	_kservs[ks_id] = pid;
-	proto_add_int(out, 0);
+	return *v;
 }
 
 static void do_get(proto_t* in, proto_t* out) {
-	int ks_id = proto_read_int(in);
-	if(ks_id < 0 || ks_id >= KSERV_MAX || _kservs[ks_id] < 0) {
+	const char* ks_id = proto_read_str(in);
+	if(ks_id[0] == 0) {
 		proto_add_int(out, -1);
 		return;
 	}
-	proto_add_int(out, _kservs[ks_id]);
+	proto_add_int(out, do_kserv_get(ks_id));
+}
+
+static void do_reg(int pid, proto_t* in, proto_t* out) {
+	const char* ks_id = proto_read_str(in);
+	if(ks_id[0] == 0) {
+		proto_add_int(out, -1);
+		return;
+	}
+
+	int32_t* v = (int32_t*)malloc(sizeof(int32_t));
+	*v = pid;
+	if(hashmap_put(_kservs, (char*)ks_id, v) != MAP_OK) {
+		proto_add_int(out, -1);
+		return;
+	}
+	proto_add_int(out, 0);
 }
 
 static void do_unreg(int pid, proto_t* in, proto_t* out) {
-	int ks_id = proto_read_int(in);
-	if(ks_id < 0 || ks_id >= KSERV_MAX ||
-			_kservs[ks_id] < 0 ||
-			_kservs[ks_id] != pid) {
+	const char* ks_id = proto_read_str(in);
+	if(ks_id[0] == 0) {
 		proto_add_int(out, -1);
 		return;
 	}
+
+	int32_t *v;
+	if(hashmap_get(_kservs, (char*)ks_id, (void**)&v) == MAP_MISSING) {
+		proto_add_int(out, -1);
+		return;
+	}
+
+	if(*v != pid) {
+		proto_add_int(out, -1);
+		return;
+	}
+
+	hashmap_remove(_kservs, (char*)ks_id);
+	free(v);
 	proto_add_int(out, 0);
 }
 
@@ -138,7 +163,7 @@ static void do_fsclosed(proto_t *data) {
 
 static void do_usint_ps2_key(proto_t* data) {
 	int32_t key_scode = proto_read_int(data);
-	int32_t pid = _kservs[KSERV_PS2_KEYB];
+	int32_t pid = do_kserv_get(KSERV_PS2_KEYB);
 	if(pid < 0)
 		return;
 
@@ -172,10 +197,7 @@ int main(int argc, char** argv) {
 	(void)argv;
 
 	_global = hashmap_new();
-
-	for(int i=0; i<KSERV_MAX; i++) {
-		_kservs[i] = -1;
-	}
+	_kservs = hashmap_new();
 	
 	kserv_run(handle_ipc, NULL, true);
 
@@ -191,5 +213,6 @@ int main(int argc, char** argv) {
 	}
 
 	hashmap_free(_global);
+	hashmap_free(_kservs);
 	return 0;
 }

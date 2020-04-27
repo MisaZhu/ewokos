@@ -3,13 +3,13 @@
 #include <sys/ipc.h> 
 #include <sys/proc.h> 
 
-int kserv_reg(int kserv_id) {
+int kserv_reg(const char* kserv_id) {
 	int res = -1;
 	proto_t in, out;
 	proto_init(&in, NULL, 0);
 	proto_init(&out, NULL, 0);
 
-	proto_add_int(&in, kserv_id);
+	proto_add_str(&in, kserv_id);
 	if(ipc_call(CORED_PID, CORE_CMD_KSERV_REG, &in, &out) == 0) {
 		res = proto_read_int(&out);
 	}
@@ -19,13 +19,13 @@ int kserv_reg(int kserv_id) {
 	return res;
 }
 
-int kserv_get(int kserv_id) {
+int kserv_get(const char* kserv_id) {
 	int res = -1;
 	proto_t in, out;
 	proto_init(&in, NULL, 0);
 	proto_init(&out, NULL, 0);
 
-	proto_add_int(&in, kserv_id);
+	proto_add_str(&in, kserv_id);
 	if(ipc_call(CORED_PID, CORE_CMD_KSERV_GET, &in, &out) == 0) {
 		res = proto_read_int(&out);
 	}
@@ -35,13 +35,13 @@ int kserv_get(int kserv_id) {
 	return res;
 }
 
-int kserv_unreg(int kserv_id) {
+int kserv_unreg(const char* kserv_id) {
 	int res = -1;
 	proto_t in, out;
 	proto_init(&in, NULL, 0);
 	proto_init(&out, NULL, 0);
 
-	proto_add_int(&in, kserv_id);
+	proto_add_str(&in, kserv_id);
 	if(ipc_call(CORED_PID, CORE_CMD_KSERV_UNREG, &in, &out) == 0) {
 		res = proto_read_int(&out);
 	}
