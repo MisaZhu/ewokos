@@ -554,11 +554,14 @@ static int xserver_closed(int fd, int ufid, int from_pid, fsinfo_t* info, void* 
 	(void)fd;
 	x_t* x = (x_t*)p;
 	
+	proc_lock(x->lock);
 	xview_t* view = x_get_view(x, ufid, from_pid);
-	if(view == NULL)
+	if(view == NULL) {
+		proc_unlock(x->lock);
 		return -1;
-
+	}
 	x_del_view(x, view);	
+	proc_unlock(x->lock);
 	return 0;
 }
 
@@ -918,7 +921,7 @@ static void read_input(x_t* x) {
 }
 
 
-static void* read_thread(void* p) {
+/*static void* read_thread(void* p) {
 	x_t* x = (x_t*)p;
 	while(1) {
 		if(!x->actived)  {
@@ -931,6 +934,7 @@ static void* read_thread(void* p) {
 	}
 	return NULL;
 }
+*/
 
 static int xserver_loop_step(void* p) {
 	x_t* x = (x_t*)p;
@@ -938,7 +942,7 @@ static int xserver_loop_step(void* p) {
 		return -1;
 	}
 
-	//read_input(x);
+	read_input(x);
 
 	proc_lock(x->lock);
 	x_repaint(x);	
@@ -979,7 +983,7 @@ int main(int argc, char** argv) {
 		x.xwm_pid = pid;
 		prs_down = false;
 		j_mouse = true;
-		pthread_create(NULL, NULL, read_thread, &x);
+		//pthread_create(NULL, NULL, read_thread, &x);
 		dev.extra_data = &x;
 		device_run(&dev, mnt_point, FS_TYPE_CHAR);
 		x_close(&x);
