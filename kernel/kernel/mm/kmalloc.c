@@ -47,6 +47,12 @@ void *kmalloc(uint32_t size) {
 	return ret;
 }
 
+void *kcalloc(uint32_t nmemb, uint32_t size) {
+	void* ret = kmalloc(nmemb * size);
+	memset(ret, 0, nmemb*size);
+	return ret;
+}
+
 void kfree(void* p) {
 	if(p == 0)
 		return;

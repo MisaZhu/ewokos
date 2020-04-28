@@ -76,6 +76,7 @@ endif
 
 LIB_DIR = lib
 LIB_OBJS = \
+	${LIB_DIR}/hashmap.o \
 	${LIB_DIR}/graph.o \
 	${LIB_DIR}/font.o \
 	${LIB_DIR}/font8x16.o \
