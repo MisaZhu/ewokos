@@ -15,7 +15,6 @@
 #include <kernel/kevqueue.h>
 #include <dev/timer.h>
 #include <kprintf.h>
-#include <vfs.h>
 #include <dev/uart.h>
 #include <ext2read.h>
 #include <partition.h>
@@ -90,10 +89,6 @@ static int32_t load_init(void) {
 	return -1;
 }
 
-static void fs_init(void) {
-	vfs_init();
-}
-
 void _kernel_entry_c(context_t* ctx) {
 	(void)ctx;
 	//clear bss
@@ -140,9 +135,6 @@ void _kernel_entry_c(context_t* ctx) {
 
 	procs_init();
 	printf("kernel: processes inited.\n");
-
-	fs_init();
-	printf("kernel: vfs inited\n");
 
 	irq_init();
 	printf("kernel: irq inited\n");

@@ -107,12 +107,12 @@ OBJS = ${ARCH_OBJS} \
 	${KERNEL_DIR}/svc.o \
 	${KERNEL_DIR}/proc.o \
 	${KERNEL_DIR}/schedule.o \
-	${KERNEL_DIR}/vfs.o \
 	${KERNEL_DIR}/dev/kdevice.o \
 	${KERNEL_DIR}/systemc.o \
 	${KERNEL_DIR}/kevqueue.o \
 	${KERNEL_DIR}/global.o \
-	${KERNEL_DIR}/kernel.o
+	${KERNEL_DIR}/kernel.o 
+	#${KERNEL_DIR}/vfs.o \
 
 BUILD_DIR = build
 SYS_DIR = ../system

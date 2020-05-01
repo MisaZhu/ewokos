@@ -1,11 +1,11 @@
 #include <kernel/system.h>
 #include <kernel/proc.h>
-#include <vfs.h>
 #include <kernel/kernel.h>
 #include <kernel/schedule.h>
 #include <mm/kalloc.h>
 #include <mm/kmalloc.h>
 #include <mm/shm.h>
+#include <kernel/kevqueue.h>
 #include <kstring.h>
 #include <kprintf.h>
 #include <elf.h>
@@ -143,14 +143,6 @@ void proc_shrink_mem(proc_t* proc, int32_t page_num) {
 	_flush_tlb();
 }
 
-static void proc_close_files(proc_t *proc) {
-	int32_t i;
-	for(i=0; i<PROC_FILE_MAX; i++) {
-		if(proc->space->files[i].node != 0)
-			vfs_close(proc, i);
-	}
-}
-
 static void proc_free_locks(proc_t *proc) {
 	int32_t i;
 	for(i=0; i<LOCK_MAX; i++) {
@@ -174,12 +166,8 @@ static void proc_clone_files(proc_t *proc_to, proc_t* from) {
 	int32_t i;
 	for(i=0; i<PROC_FILE_MAX; i++) {
 		kfile_t *f = &from->space->files[i]; 
-		vfs_node_t* node = 	(vfs_node_t*)f->node;
-		if(node != NULL) {
+		if(f->node != 0) {
 			memcpy(&proc_to->space->files[i], f, sizeof(kfile_t));
-			node->refs++;
-			if(f->wr != 0)
-				node->refs_w++;
 		}
 	}
 }
@@ -201,9 +189,6 @@ static void __attribute__((optimize("O0"))) proc_free_space(proc_t *proc) {
 
 	/*free locks*/
 	proc_free_locks(proc);
-
-	/*close files*/
-	proc_close_files(proc);
 
 	/*unmap share mems*/
 	proc_unmap_shms(proc);
@@ -260,8 +245,11 @@ static void proc_wakeup_waiting(int32_t pid) {
 static void __attribute__((optimize("O0"))) proc_terminate(context_t* ctx, proc_t* proc) {
 	if(proc->state == ZOMBIE || proc->state == UNUSED)
 		return;
-	proc_unready(ctx, proc, ZOMBIE);
 
+	if(proc->type == PROC_TYPE_PROC)
+		kev_push(KEV_PROC_EXIT, NULL);
+
+	proc_unready(ctx, proc, ZOMBIE);
 	int32_t i;
 	for (i = 0; i < PROC_MAX; i++) {
 		proc_t *p = &_proc_table[i];
