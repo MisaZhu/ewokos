@@ -159,7 +159,6 @@ all: mkdirs libs builtin_apps extra_apps #extra_devs
 	@echo "all done."
 
 KERNEL_H = ../kernel/include/fsinfo.h \
-	../kernel/include/proto.h \
 	../kernel/include/usinterrupt.h \
 	../kernel/include/syscalls.h \
 	../kernel/include/_types.h \

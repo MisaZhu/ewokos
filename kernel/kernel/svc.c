@@ -642,7 +642,7 @@ static void sys_ipc_call(context_t* ctx, uint32_t pid, int32_t call_id, proto_t*
 	}
 	proc->space->ipc.state = IPC_BUSY;
 	proc->space->ipc.from_pid = _current_proc->pid;
-	proto_copy(proc->space->ipc.data, data->data, data->size);
+	PF->copy(proc->space->ipc.data, data->data, data->size);
 	proc_ipc_call(ctx, proc, call_id);
 }
 
@@ -668,7 +668,7 @@ static void sys_ipc_get_return(context_t* ctx, uint32_t pid, proto_t* data) {
 			memcpy(data->data, proc->space->ipc.data->data, data->size);
 		}
 	}
-	proto_clear(proc->space->ipc.data);
+	PF->clear(proc->space->ipc.data);
 	proc->space->ipc.state = IPC_IDLE;
 	proc_wakeup((uint32_t)&proc->space->ipc.state);
 }
@@ -681,7 +681,7 @@ static void sys_ipc_set_return(proto_t* data) {
 	}
 
 	if(data != NULL)
-		proto_copy(_current_proc->space->ipc.data, data->data, data->size);
+		PF->copy(_current_proc->space->ipc.data, data->data, data->size);
 }
 
 static void sys_ipc_end(context_t* ctx) {

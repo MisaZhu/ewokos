@@ -67,7 +67,7 @@ static void init_console(fb_console_t* console) {
 	}
 
 	proto_t out;
-	proto_init(&out, NULL, 0);
+	PF->init(&out, NULL, 0);
 
 	if(fcntl_raw(fb_fd, CNTL_INFO, NULL, &out) != 0) {
 		shm_unmap(id);
@@ -78,7 +78,7 @@ static void init_console(fb_console_t* console) {
 	int w = proto_read_int(&out);
 	int h = proto_read_int(&out);
 	graph_t* g = graph_new(gbuf, w, h);
-	proto_clear(&out);
+	PF->clear(&out);
 
 	console->fb_fd = fb_fd;
 	console->shm_id = id;

@@ -39,7 +39,7 @@ static int gpio_fcntl(int fd, int from_pid, fsinfo_t* info,
 	}
 	else if(cmd == 3) { //3: read
 		int32_t v = gpio_arch_read(gpio_num);
-		proto_add_int(out, v);
+		PF->addi(out, v);
 	}
 	return 0;
 }

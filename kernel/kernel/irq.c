@@ -26,8 +26,8 @@ static uint32_t _timer_tic = 0;
 
 static void keyboard_interrupt(proto_t* data) {
 	kevent_t* kev = kev_push(KEV_US_INT, NULL);
-	proto_add_int(kev->data, US_INT_PS2_KEY);
-	proto_add_int(kev->data, proto_read_int(data));
+	PF->addi(kev->data, US_INT_PS2_KEY);
+	PF->addi(kev->data, proto_read_int(data));
 }
 
 void irq_handler(context_t* ctx) {
@@ -40,13 +40,13 @@ void irq_handler(context_t* ctx) {
 		return;
 	}
 
-	proto_init(&data, NULL, 0);
+	PF->init(&data, NULL, 0);
 	uint32_t irqs = gic_get_irqs(&data);
 
 	if((irqs & IRQ_KEY) != 0) {
 		keyboard_interrupt(&data);
 	}
-	proto_clear(&data);
+	PF->clear(&data);
 
 	/*
 	if((irqs & IRQ_SDC) != 0) {

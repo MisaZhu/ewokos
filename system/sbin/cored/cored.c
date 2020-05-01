@@ -24,7 +24,7 @@ static proto_t* global_get(const char* key) {
 static proto_t* global_set(const char* key, void* data, uint32_t size) {
 	proto_t* v = global_get(key);
 	if(v != NULL) {
-		proto_copy(v, data, size);
+		PF->copy(v, data, size);
 	}
 	else {
 		v = proto_new(data, size);
@@ -52,7 +52,7 @@ static void do_global_get(proto_t* in, proto_t* out) {
 	const char* key = proto_read_str(in);
 	proto_t * v= global_get(key);
 	if(v != NULL)
-		proto_copy(out, v->data, v->size);
+		PF->copy(out, v->data, v->size);
 }
 
 static void do_global_del(proto_t* in) {
@@ -73,49 +73,49 @@ static int get_kserv(const char* key) {
 static void do_kserv_get(proto_t* in, proto_t* out) {
 	const char* ks_id = proto_read_str(in);
 	if(ks_id[0] == 0) {
-		proto_add_int(out, -1);
+		PF->addi(out, -1);
 		return;
 	}
-	proto_add_int(out, get_kserv(ks_id));
+	PF->addi(out, get_kserv(ks_id));
 }
 
 static void do_kserv_reg(int pid, proto_t* in, proto_t* out) {
 	const char* ks_id = proto_read_str(in);
 	if(ks_id[0] == 0) {
-		proto_add_int(out, -1);
+		PF->addi(out, -1);
 		return;
 	}
 
 	int32_t* v = (int32_t*)malloc(sizeof(int32_t));
 	*v = pid;
 	if(hashmap_put(_kservs, ks_id, v) != MAP_OK) {
-		proto_add_int(out, -1);
+		PF->addi(out, -1);
 		return;
 	}
-	proto_add_int(out, 0);
+	PF->addi(out, 0);
 }
 
 static void do_kserv_unreg(int pid, proto_t* in, proto_t* out) {
 	const char* ks_id = proto_read_str(in);
 	if(ks_id[0] == 0) {
-		proto_add_int(out, -1);
+		PF->addi(out, -1);
 		return;
 	}
 
 	int32_t *v;
 	if(hashmap_get(_kservs, ks_id, (void**)&v) == MAP_MISSING) {
-		proto_add_int(out, -1);
+		PF->addi(out, -1);
 		return;
 	}
 
 	if(*v != pid) {
-		proto_add_int(out, -1);
+		PF->addi(out, -1);
 		return;
 	}
 
 	hashmap_remove(_kservs, ks_id);
 	free(v);
-	proto_add_int(out, 0);
+	PF->addi(out, 0);
 }
 
 static void handle_ipc(int pid, int cmd, proto_t* in, proto_t* out, void* p) {
@@ -153,14 +153,14 @@ static void do_fsclosed(proto_t *data) {
 	proto_read_to(data, &fsinfo, sizeof(fsinfo_t));
 
 	proto_t in;
-	proto_init(&in, NULL, 0);
-	proto_add_int(&in, fd);
-	proto_add_int(&in, fuid);
-	proto_add_int(&in, from_pid);
-	proto_add(&in, &fsinfo, sizeof(fsinfo_t));
+	PF->init(&in, NULL, 0)->
+		addi(&in, fd)->
+		addi(&in, fuid)->
+		addi(&in, from_pid)->
+		add(&in, &fsinfo, sizeof(fsinfo_t));
 
 	ipc_call(to_pid, FS_CMD_CLOSED, &in, NULL);
-	proto_clear(&in);
+	PF->clear(&in);
 }
 
 static void do_usint_ps2_key(proto_t* data) {
@@ -170,10 +170,9 @@ static void do_usint_ps2_key(proto_t* data) {
 		return;
 
 	proto_t in;
-	proto_init(&in, NULL, 0);
-	proto_add_int(&in, key_scode);
+	PF->init(&in, NULL, 0)->addi(&in, key_scode);
 	ipc_call(pid, IPC_SAFE_CMD_BASE, &in, NULL);
-	proto_clear(&in);
+	PF->clear(&in);
 }
 
 static void do_user_space_int(proto_t *data) {

@@ -22,7 +22,7 @@ static void do_open(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, voi
 		if(dev->open(fd, from_pid, &info, oflag, p) != 0) {
 		}
 	}
-	proto_add_int(out, fd);
+	PF->addi(out, fd);
 }
 
 static void do_close(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, void* p) {
@@ -67,14 +67,14 @@ static void do_read(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, voi
 			buf = shm_map(shm_id);
 
 		if(buf == NULL) {
-			proto_add_int(out, -1);
+			PF->addi(out, -1);
 		}
 		else {
 			size = dev->read(fd, from_pid, &info, buf, size, offset, p);
-			proto_add_int(out, size);
+			PF->addi(out, size);
 			if(size > 0) {
 				if(shm_id < 0) {
-					proto_add(out, buf, size);
+					PF->add(out, buf, size);
 				}
 			}
 
@@ -85,7 +85,7 @@ static void do_read(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, voi
 		}
 	}
 	else {
-		proto_add_int(out, -1);
+		PF->addi(out, -1);
 	}
 }
 
@@ -107,17 +107,17 @@ static void do_write(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, vo
 		}
 
 		if(data == NULL) {
-			proto_add_int(out, -1);
+			PF->addi(out, -1);
 		}
 		else {
 			size = dev->write(fd, from_pid, &info, data, size, offset, p);
-			proto_add_int(out, size);
+			PF->addi(out, size);
 		}
 		if(shm_id >= 0)
 			shm_unmap(shm_id);
 	}
 	else {
-		proto_add_int(out, -1);
+		PF->addi(out, -1);
 	}
 }
 
@@ -134,14 +134,14 @@ static void do_read_block(vdevice_t* dev, int from_pid, proto_t *in, proto_t* ou
 		else
 			buf = shm_map(shm_id);
 		if(buf == NULL) {
-			proto_add_int(out, -1);
+			PF->addi(out, -1);
 		}
 		else {
 			size = dev->read_block(from_pid, buf, size, index, p);
-			proto_add_int(out, size);
+			PF->addi(out, size);
 			if(size > 0) {
 				if(shm_id < 0) {
-					proto_add(out, buf, size);
+					PF->add(out, buf, size);
 				}
 			}
 
@@ -152,7 +152,7 @@ static void do_read_block(vdevice_t* dev, int from_pid, proto_t *in, proto_t* ou
 		}
 	}
 	else {
-		proto_add_int(out, -1);
+		PF->addi(out, -1);
 	}
 }
 
@@ -163,10 +163,10 @@ static void do_write_block(vdevice_t* dev, int from_pid, proto_t *in, proto_t* o
 
 	if(dev != NULL && dev->write_block != NULL) {
 		size = dev->write_block(from_pid, data, size, index, p);
-		proto_add_int(out, size);
+		PF->addi(out, size);
 	}
 	else {
-		proto_add_int(out, -1);
+		PF->addi(out, -1);
 	}
 }
 
@@ -180,8 +180,7 @@ static void do_dma(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, void
 	if(dev != NULL && dev->dma != NULL) {
 		id = dev->dma(fd, from_pid, &info, &size, p);
 	}
-	proto_add_int(out, id);
-	proto_add_int(out, size);
+	PF->addi(out, id)->addi(out, size);
 }
 
 static void do_fcntl(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, void* p) {
@@ -191,21 +190,20 @@ static void do_fcntl(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, vo
 	int32_t cmd = proto_read_int(in);
 
 	proto_t arg_in, arg_out;
-	proto_init(&arg_out, NULL, 0);
+	PF->init(&arg_out, NULL, 0);
 
 	int32_t arg_size;
 	void* arg_data = proto_read(in, &arg_size);
-	proto_init(&arg_in, arg_data, arg_size);
+	PF->init(&arg_in, arg_data, arg_size);
 
 	int res = -1;
 	if(dev != NULL && dev->fcntl != NULL) {
 		res = dev->fcntl(fd, from_pid, &info, cmd, &arg_in, &arg_out, p);
 	}
-	proto_clear(&arg_in);
+	PF->clear(&arg_in);
 
-	proto_add_int(out, res);
-	proto_add(out, arg_out.data, arg_out.size);
-	proto_clear(&arg_out);
+	PF->addi(out, res)->add(out, arg_out.data, arg_out.size);
+	PF->clear(&arg_out);
 }
 
 static void do_flush(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, void* p) {
@@ -217,7 +215,7 @@ static void do_flush(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, vo
 	if(dev != NULL && dev->flush != NULL) {
 		dev->flush(fd, from_pid, &info, p);
 	}
-	proto_add_int(out, 0);
+	PF->addi(out, 0);
 }
 
 static void do_create(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, void* p) {
@@ -231,8 +229,7 @@ static void do_create(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, v
 		res = dev->create(&info_to, &info, p);
 	}
 
-	proto_add_int(out, res);
-	proto_add(out, &info, sizeof(fsinfo_t));
+	PF->addi(out, res)->add(out, &info, sizeof(fsinfo_t));
 }
 
 static void do_unlink(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, void* p) {
@@ -245,7 +242,7 @@ static void do_unlink(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, v
 	if(dev != NULL && dev->unlink != NULL) {
 		res = dev->unlink(&info, fname, p);
 	}
-	proto_add_int(out, res);
+	PF->addi(out, res);
 }
 
 static void do_clear_buffer(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, void* p) {
@@ -258,7 +255,7 @@ static void do_clear_buffer(vdevice_t* dev, int from_pid, proto_t *in, proto_t* 
 		res = dev->clear_buffer(&info, p);
 	}
 
-	proto_add_int(out, res);
+	PF->addi(out, res);
 }
 
 static void do_safe_cmd(vdevice_t* dev, int cmd, int from_pid, proto_t *in, proto_t* out, void* p) {
@@ -266,7 +263,7 @@ static void do_safe_cmd(vdevice_t* dev, int cmd, int from_pid, proto_t *in, prot
 	if(dev != NULL && dev->safe_cmd != NULL) {
 		res = dev->safe_cmd(cmd, from_pid, in, p);
 	}
-	proto_add_int(out, res);
+	PF->addi(out, res);
 }
 
 static void handle(int from_pid, int cmd, proto_t* in, proto_t* out, void* p) {

@@ -10,8 +10,7 @@ int main(int argc, char** argv) {
 
 	int i=0;
 	proto_t in;
-	proto_init(&in, NULL, 0);
-	proto_add_str(&in, "hello!");
+	PF->init(&in, NULL, 0)->adds(&in, "hello!");
 	while(1) {
 		set_global("test.test", &in);	
 		usleep(1000);
@@ -21,7 +20,7 @@ int main(int argc, char** argv) {
 		}
 		i++;
 	}
-	proto_clear(&in);
+	PF->clear(&in);
   return 0;
 }
 

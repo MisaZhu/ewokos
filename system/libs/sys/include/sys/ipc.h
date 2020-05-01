@@ -1,7 +1,7 @@
 #ifndef IPC_H
 #define IPC_H
 
-#include <proto.h>
+#include <sys/proto.h>
 #include <_types.h>
 
 #define IPC_SAFE_CMD_BASE 0x0FFFF

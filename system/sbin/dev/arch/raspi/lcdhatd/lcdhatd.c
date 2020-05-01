@@ -372,8 +372,7 @@ static int lcd_fcntl(int fd, int from_pid, fsinfo_t* info,
 	(void)p;
 
 	if(cmd == CNTL_INFO) {
-		proto_add_int(out, LCD_WIDTH);
-		proto_add_int(out, LCD_HEIGHT);
+		PF->addi(out, LCD_WIDTH)->addi(out, LCD_HEIGHT);
 	}
 	return 0;
 }

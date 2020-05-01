@@ -57,7 +57,7 @@ uint32_t gic_get_irqs(proto_t* data) {
   if((pic->status & PIC_INT_SIC) != 0) {
     if((sic->status & SIC_INT_KEY) != 0)  {
 			uint8_t scode = get8(KEYBOARD_BASE + KDATA); //read and clear interrupt
-			proto_add_int(data, scode);
+			PF->addi(data, scode);
 			ret |= IRQ_KEY;
 		}
     if((sic->status & SIC_INT_MOUSE) != 0) 

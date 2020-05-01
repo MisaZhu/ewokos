@@ -7,7 +7,7 @@
 #include <sys/kserv.h>
 #include <mstr.h>
 #include <buffer.h>
-#include <proto.h>
+#include <sys/proto.h>
 #include <fsinfo.h>
 #include <sys/vfsc.h>
 #include <sys/kserv.h>
@@ -401,11 +401,11 @@ static void vfs_close(int32_t pid, int32_t fd) {
 
 	kevent_t* kev = kev_push(KEV_FCLOSED, NULL);
 
-	proto_add_int(kev->data, to_pid);
-	proto_add_int(kev->data, proc->pid);
-	proto_add_int(kev->data, fd);
-	proto_add_int(kev->data, ufid);
-	proto_add(kev->data, &node->fsinfo, sizeof(fsinfo_t));
+	addi(kev->data, to_pid);
+	addi(kev->data, proc->pid);
+	addi(kev->data, fd);
+	addi(kev->data, ufid);
+	add(kev->data, &node->fsinfo, sizeof(fsinfo_t));
 	*/
 }
 
@@ -504,7 +504,7 @@ static void do_vfs_get_by_name(proto_t* in, proto_t* out) {
   vfs_node_t* node = vfs_get_by_name(vfs_root(), name);
   if(node == NULL)
     return;
-	proto_add(out, &node->fsinfo, sizeof(fsinfo_t));
+	PF->add(out, &node->fsinfo, sizeof(fsinfo_t));
 }
 
 static void do_vfs_get_by_fd(int pid, proto_t* in, proto_t* out) {
@@ -513,8 +513,7 @@ static void do_vfs_get_by_fd(int pid, proto_t* in, proto_t* out) {
   vfs_node_t* node = vfs_get_by_fd(pid, fd, &ufid);
   if(node == NULL)
     return;
-	proto_add_int(out, ufid);
-	proto_add(out, &node->fsinfo, sizeof(fsinfo_t));
+	PF->addi(out, ufid)->add(out, &node->fsinfo, sizeof(fsinfo_t));
 }
 
 static void do_vfs_new_node(proto_t* in, proto_t* out) {
@@ -526,12 +525,12 @@ static void do_vfs_new_node(proto_t* in, proto_t* out) {
 		return;
 	info.node = (uint32_t)node;
 	info.mount_id = -1;
-	proto_add(out, &info, sizeof(fsinfo_t));
+	PF->add(out, &info, sizeof(fsinfo_t));
 }
 
 static void do_vfs_open(int32_t pid, proto_t* in, proto_t* out) {
 	fsinfo_t info;
-	proto_add_int(out, -1);
+	PF->addi(out, -1);
 
 	if(proto_read_to(in, &info, sizeof(fsinfo_t)) != sizeof(fsinfo_t))
 		return;
@@ -541,8 +540,8 @@ static void do_vfs_open(int32_t pid, proto_t* in, proto_t* out) {
 		return;
 
 	int res = vfs_open(pid, node, wr);
-	proto_clear(out);
-	proto_add_int(out, res);
+	PF->clear(out);
+	PF->addi(out, res);
 }
 
 static void do_vfs_close(int32_t pid, proto_t* in) {
@@ -555,24 +554,24 @@ static void do_vfs_close(int32_t pid, proto_t* in) {
 
 static void do_vfs_tell(int32_t pid, proto_t* in, proto_t* out) {
 	int fd = proto_read_int(in);
-	proto_add_int(out, vfs_tell(pid, fd));
+	PF->addi(out, vfs_tell(pid, fd));
 }
 
 static void do_vfs_seek(int32_t pid, proto_t* in, proto_t* out) {
 	int fd = proto_read_int(in);
 	int seek = proto_read_int(in);
-	proto_add_int(out, vfs_seek(pid, fd, seek));
+	PF->addi(out, vfs_seek(pid, fd, seek));
 }
 
 static void do_vfs_dup(int32_t pid, proto_t* in, proto_t* out) {
 	int fd = proto_read_int(in);
-	proto_add_int(out, vfs_dup(pid, fd));
+	PF->addi(out, vfs_dup(pid, fd));
 }
 
 static void do_vfs_dup2(int32_t pid, proto_t* in, proto_t* out) {
 	int fd = proto_read_int(in);
 	int fdto = proto_read_int(in);
-	proto_add_int(out, vfs_dup2(pid, fd, fdto));
+	PF->addi(out, vfs_dup2(pid, fd, fdto));
 }
 
 static void do_vfs_set_fsinfo(int32_t pid, proto_t* in, proto_t* out) {
@@ -585,7 +584,7 @@ static void do_vfs_set_fsinfo(int32_t pid, proto_t* in, proto_t* out) {
 			res = 0;
 		}
 	}
-	proto_add_int(out, res);
+	PF->addi(out, res);
 }
 
 static void do_vfs_get_kids(proto_t* in, proto_t* out) {
@@ -601,14 +600,14 @@ static void do_vfs_get_kids(proto_t* in, proto_t* out) {
 	fsinfo_t* kids = vfs_get_kids(node, &num);
 	if(kids == NULL || num == 0)
 		return;
-	proto_add(out, kids, sizeof(fsinfo_t)*num);
+	PF->add(out, kids, sizeof(fsinfo_t)*num);
 }
 
 static void do_vfs_add(int32_t pid, proto_t* in, proto_t* out) {
 	fsinfo_t info_to;
 	fsinfo_t info;
 
-	proto_add_int(out, -1);
+	PF->addi(out, -1);
 	if(proto_read_to(in, &info_to, sizeof(fsinfo_t)) != sizeof(fsinfo_t))
 		return;
 	if(proto_read_to(in, &info, sizeof(fsinfo_t)) != sizeof(fsinfo_t))
@@ -627,14 +626,13 @@ static void do_vfs_add(int32_t pid, proto_t* in, proto_t* out) {
     return;
 
 	vfs_add(pid, node_to, node);
-	proto_clear(out);
-	proto_add_int(out, 0);
+	PF->clear(out)->addi(out, 0);
 }
 
 static void do_vfs_del(int32_t pid, proto_t* in, proto_t* out) {
 	fsinfo_t info;
 
-	proto_add_int(out, -1);
+	PF->addi(out, -1);
 	if(proto_read_to(in, &info, sizeof(fsinfo_t)) != sizeof(fsinfo_t))
 		return;
 
@@ -643,15 +641,14 @@ static void do_vfs_del(int32_t pid, proto_t* in, proto_t* out) {
     return;
 
 	int res = vfs_del(pid, node);
-	proto_clear(out);
-	proto_add_int(out, res);
+	PF->clear(out)->addi(out, res);
 }
 
 static void do_vfs_mount(int32_t pid, proto_t* in, proto_t* out) {
 	fsinfo_t info_to;
 	fsinfo_t info;
 
-	proto_add_int(out, -1);
+	PF->addi(out, -1);
 	if(proto_read_to(in, &info_to, sizeof(fsinfo_t)) != sizeof(fsinfo_t))
 		return;
 	if(proto_read_to(in, &info, sizeof(fsinfo_t)) != sizeof(fsinfo_t))
@@ -663,8 +660,7 @@ static void do_vfs_mount(int32_t pid, proto_t* in, proto_t* out) {
     return;
 
 	vfs_mount(pid, node_to, node);
-	proto_clear(out);
-	proto_add_int(out, 0);
+	PF->clear(out)->addi(out, 0);
 }
 
 static void do_vfs_umount(int32_t pid, proto_t* in) {
@@ -691,20 +687,20 @@ static void do_vfs_get_mount(proto_t* in, proto_t* out) {
 	mount_t mount;
 	if(vfs_get_mount(node, &mount) != 0)
 		return;
-	proto_add(out, &mount, sizeof(mount_t));
+	PF->add(out, &mount, sizeof(mount_t));
 }
 
 static void do_vfs_get_mount_by_id(proto_t* in, proto_t* out) {
 	mount_t mount;
 	if(vfs_get_mount_by_id(proto_read_int(in), &mount) != 0)
 		return;
-	proto_add(out, &mount, sizeof(mount_t));
+	PF->add(out, &mount, sizeof(mount_t));
 }
 
 static void do_vfs_pipe_open(int32_t pid, proto_t* out) {
   vfs_node_t* node = vfs_new_node();
+	PF->addi(out, -1);
   if(node == NULL) {
-		proto_add_int(out, -1);
     return;
 	}
   node->fsinfo.type = FS_TYPE_PIPE;
@@ -712,7 +708,6 @@ static void do_vfs_pipe_open(int32_t pid, proto_t* out) {
   int32_t fd0 = vfs_open(pid, node, 1);
   if(fd0 < 0) {
     free(node);
-		proto_add_int(out, -1);
 		return;
   }
 
@@ -720,7 +715,6 @@ static void do_vfs_pipe_open(int32_t pid, proto_t* out) {
   if(fd1 < 0) {
     vfs_close(pid, fd0);
     free(node);
-		proto_add_int(out, -1);
 		return;
   }
 
@@ -728,77 +722,68 @@ static void do_vfs_pipe_open(int32_t pid, proto_t* out) {
   memset(buf, 0, sizeof(buffer_t));
   node->fsinfo.data = (int32_t)buf;
 
-	proto_add_int(out, 0);
-	proto_add_int(out, fd0);
-	proto_add_int(out, fd1);
+	PF->clear(out)->addi(out, 0)->addi(out, fd0)->addi(out, fd1);
 }
 
 static void do_vfs_pipe_write(proto_t* in, proto_t* out) {
 	fsinfo_t info;
+	PF->addi(out, -1);
 	if(proto_read_to(in, &info, sizeof(fsinfo_t)) != sizeof(fsinfo_t)) {
-		proto_add_int(out, -1);
 		return;
 	}
 
 	buffer_t* buffer = (buffer_t*)info.data;
 	if(buffer == NULL) {
-		proto_add_int(out, -1);
 		return;
 	}
 
 	int32_t size = 0;
 	void *data = proto_read(in, &size);
 	if(data == NULL) {
-		proto_add_int(out, -1);
 		return;
 	}
 
 	size = buffer_write(buffer, data, size);
 	if(size > 0) {
-		proto_add_int(out, size);
+		PF->clear(out)->addi(out, size);
 		return;
 	}
 
   vfs_node_t* node = (vfs_node_t*)info.node;
 	if(node == NULL || node->refs < 2) {
-		proto_add_int(out, -1);
     return;
 	}
-	proto_add_int(out, 0); //retry
+	PF->clear(out)->addi(out, 0); //retry
 }
 
 static void do_vfs_pipe_read(proto_t* in, proto_t* out) {
 	fsinfo_t info;
+	PF->addi(out, -1);
 	if(proto_read_to(in, &info, sizeof(fsinfo_t)) != sizeof(fsinfo_t)) {
-		proto_add_int(out, -1);
 		return;
 	}
 
 	int32_t size = proto_read_int(in);
 	if(size < 0) {
-		proto_add_int(out, -1);
 		return;
 	}
 
 	buffer_t* buffer = (buffer_t*)info.data;
 	if(buffer == NULL) {
-		proto_add_int(out, -1);
 		return;
 	}
 	void* data = malloc(size);
 	size = buffer_read(buffer, data, size);
 	if(size > 0) {
-		proto_add_int(out, size);
-		proto_add(out, data, size);
+		PF->clear(out)->addi(out, size)->add(out, data, size);
 		return;
 	}
 
   vfs_node_t* node = (vfs_node_t*)info.node;
 	if(node == NULL || node->refs < 2) {
-		proto_add_int(out, -1);
     return;
 	}
-	proto_add_int(out, 0); //retry
+	PF->clear(out)->addi(out, 0); //retry
 }
 
 static void handle(int pid, int cmd, proto_t* in, proto_t* out, void* p) {

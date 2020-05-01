@@ -144,11 +144,11 @@ int vfs_create(const char* fname, fsinfo_t* ret, int type) {
 		return 0;
 	
 	proto_t in, out;
-	proto_init(&in, NULL, 0);
-	proto_init(&out, NULL, 0);
+	PF->init(&out, NULL, 0);
 
-	proto_add(&in, &info_to, sizeof(fsinfo_t));
-	proto_add(&in, ret, sizeof(fsinfo_t));
+	PF->init(&in, NULL, 0)->
+		add(&in, &info_to, sizeof(fsinfo_t))->
+		add(&in, ret, sizeof(fsinfo_t));
 
 	int res = -1;
 	if(ipc_call(mount.pid, FS_CMD_CREATE, &in, &out) != 0) {
@@ -161,8 +161,8 @@ int vfs_create(const char* fname, fsinfo_t* ret, int type) {
 			res = vfs_set(ret);
 		}
 	}
-	proto_clear(&in);
-	proto_clear(&out);
+	PF->clear(&in);
+	PF->clear(&out);
 	return res;
 }
 

@@ -85,14 +85,9 @@ static int read_raw(int fd, fsinfo_t *info, void* buf, uint32_t size) {
 	}
 
 	proto_t in, out;
-	proto_init(&in, NULL, 0);
-	proto_init(&out, NULL, 0);
+	PF->init(&out, NULL, 0);
 
-	proto_add_int(&in, fd);
-	proto_add(&in, info, sizeof(fsinfo_t));
-	proto_add_int(&in, size);
-	proto_add_int(&in, offset);
-	proto_add_int(&in, shm_id);
+	PF->init(&in, NULL, 0)->addi(&in, fd)->add(&in, info, sizeof(fsinfo_t))->addi(&in, size)->addi(&in, offset)->addi(&in, shm_id);
 
 	int res = -1;
 	if(ipc_call(mount.pid, FS_CMD_READ, &in, &out) == 0) {
@@ -111,8 +106,8 @@ static int read_raw(int fd, fsinfo_t *info, void* buf, uint32_t size) {
 			res = -1;
 		}
 	}
-	proto_clear(&in);
-	proto_clear(&out);
+	PF->clear(&in);
+	PF->clear(&out);
 	if(shm != NULL)
 		shm_unmap(shm_id);
 	return res;
@@ -168,12 +163,12 @@ int read_block(int pid, void* buf, uint32_t size, int32_t index) {
 		return -1;
 
 	proto_t in, out;
-	proto_init(&in, NULL, 0);
-	proto_init(&out, NULL, 0);
+	PF->init(&out, NULL, 0);
 
-	proto_add_int(&in, size);
-	proto_add_int(&in, index);
-	proto_add_int(&in, shm_id);
+	PF->init(&in, NULL, 0)->
+		addi(&in, size)->
+		addi(&in, index)->
+		addi(&in, shm_id);
 
 	int res = -1;
 	if(ipc_call(pid, FS_CMD_READ_BLOCK, &in, &out) == 0) {
@@ -187,8 +182,8 @@ int read_block(int pid, void* buf, uint32_t size, int32_t index) {
 			res = -1;
 		}
 	}
-	proto_clear(&in);
-	proto_clear(&out);
+	PF->clear(&in);
+	PF->clear(&out);
 	shm_unmap(shm_id);
 	return res;
 }
@@ -234,17 +229,17 @@ int write_raw(int fd, fsinfo_t* info, const void* buf, uint32_t size) {
 	}
 
 	proto_t in, out;
-	proto_init(&in, NULL, 0);
-	proto_init(&out, NULL, 0);
+	PF->init(&out, NULL, 0);
 
-	proto_add_int(&in, fd);
-	proto_add(&in, info, sizeof(fsinfo_t));
-	proto_add_int(&in, offset);
-	proto_add_int(&in, shm_id);
+	PF->init(&in, NULL, 0)->
+		addi(&in, fd)->
+		add(&in, info, sizeof(fsinfo_t))->
+		addi(&in, offset)->
+		addi(&in, shm_id);
 	if(shm_id < 0)
-		proto_add(&in, buf, size);
+		PF->add(&in, buf, size);
 	else
-		proto_add_int(&in, size);
+		PF->addi(&in, size);
 
 	int res = -1;
 	if(ipc_call(mount.pid, FS_CMD_WRITE, &in, &out) == 0) {
@@ -259,8 +254,8 @@ int write_raw(int fd, fsinfo_t* info, const void* buf, uint32_t size) {
 			res = -1;
 		}
 	}
-	proto_clear(&in);
-	proto_clear(&out);
+	PF->clear(&in);
+	PF->clear(&out);
 	if(shm != NULL)
 		shm_unmap(shm_id);
 	return res;
@@ -306,11 +301,11 @@ int write(int fd, const void* buf, uint32_t size) {
 
 int write_block(int pid, const void* buf, uint32_t size, int32_t index) {
 	proto_t in, out;
-	proto_init(&in, NULL, 0);
-	proto_init(&out, NULL, 0);
+	PF->init(&out, NULL, 0);
 
-	proto_add(&in, buf, size);
-	proto_add_int(&in, index);
+	PF->init(&in, NULL, 0)->
+		add(&in, buf, size)->
+		addi(&in, index);
 
 	int res = -1;
 	if(ipc_call(pid, FS_CMD_WRITE_BLOCK, &in, &out) == 0) {
@@ -321,8 +316,8 @@ int write_block(int pid, const void* buf, uint32_t size, int32_t index) {
 			res = -1;
 		}
 	}
-	proto_clear(&in);
-	proto_clear(&out);
+	PF->clear(&in);
+	PF->clear(&out);
 	return res;
 }
 
@@ -399,16 +394,16 @@ int unlink(const char* fname) {
 		return -1;
 	
 	proto_t in, out;
-	proto_init(&in, NULL, 0);
-	proto_init(&out, NULL, 0);
+	PF->init(&out, NULL, 0);
 
-	proto_add(&in, &info, sizeof(fsinfo_t));
-	proto_add_str(&in, fname);
+	PF->init(&in, NULL, 0)->
+		add(&in, &info, sizeof(fsinfo_t))->
+		adds(&in, fname);
 
 	ipc_call(mount.pid, FS_CMD_UNLINK, &in, &out);
-	proto_clear(&in);
+	PF->clear(&in);
 	int res = proto_read_int(&out);
-	proto_clear(&out);
+	PF->clear(&out);
 	if(res == 0)
 		return vfs_del(&info);
 	return -1;

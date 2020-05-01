@@ -24,18 +24,18 @@ int open(const char* fname, int oflag) {
 		return -1;
 	
 	proto_t in, out;
-	proto_init(&in, NULL, 0);
-	proto_init(&out, NULL, 0);
+	PF->init(&out, NULL, 0);
 
-	proto_add(&in, &info, sizeof(fsinfo_t));
-	proto_add_int(&in, oflag);
+	PF->init(&in, NULL, 0)->
+		add(&in, &info, sizeof(fsinfo_t))->
+		addi(&in, oflag);
 
 	if(ipc_call(mount.pid, FS_CMD_OPEN, &in, &out) == 0) {
 		res = proto_read_int(&out);
 	}
 
-	proto_clear(&in);
-	proto_clear(&out);
+	PF->clear(&in);
+	PF->clear(&out);
 	return res;
 }
 
@@ -47,13 +47,13 @@ void close(int fd) {
 	mount_t mount;
 	if(vfs_get_mount(&info, &mount) == 0) {
 		proto_t in;
-		proto_init(&in, NULL, 0);
 
-		proto_add_int(&in, fd);
-		proto_add(&in, &info, sizeof(fsinfo_t));
+		PF->init(&in, NULL, 0)->
+			addi(&in, fd)->
+			add(&in, &info, sizeof(fsinfo_t));
 
 		ipc_call(mount.pid, FS_CMD_CLOSE, &in, NULL);
-		proto_clear(&in);
+		PF->clear(&in);
 	}
 
 	syscall1(SYS_VFS_PROC_CLOSE, fd);
@@ -69,11 +69,11 @@ int dma(int fd, int* size) {
 		return -1;
 
 	proto_t in, out;
-	proto_init(&in, NULL, 0);
-	proto_init(&out, NULL, 0);
+	PF->init(&out, NULL, 0);
 
-	proto_add_int(&in, fd);
-	proto_add(&in, &info, sizeof(fsinfo_t));
+	PF->init(&in, NULL, 0)->
+		addi(&in, fd)->
+		add(&in, &info, sizeof(fsinfo_t));
 
 	int shm_id = -1;
 	if(ipc_call(mount.pid, FS_CMD_DMA, &in, &out) == 0) {
@@ -81,8 +81,8 @@ int dma(int fd, int* size) {
 		if(size != NULL)
 			*size = proto_read_int(&out);
 	}
-	proto_clear(&in);
-	proto_clear(&out);
+	PF->clear(&in);
+	PF->clear(&out);
 	return shm_id;
 }
 
@@ -94,14 +94,14 @@ void flush(int fd) {
 	mount_t mount;
 	if(vfs_get_mount(&info, &mount) == 0) {
 		proto_t in, out;
-		proto_init(&in, NULL, 0);
-		proto_init(&out, NULL, 0);
+		PF->init(&out, NULL, 0);
 
-		proto_add_int(&in, fd);
-		proto_add(&in, &info, sizeof(fsinfo_t));
+		PF->init(&in, NULL, 0)->
+			addi(&in, fd)->
+			add(&in, &info, sizeof(fsinfo_t));
 		ipc_call(mount.pid, FS_CMD_FLUSH, &in, &out);
-		proto_clear(&in);
-		proto_clear(&out);
+		PF->clear(&in);
+		PF->clear(&out);
 	}
 }
 
@@ -115,16 +115,16 @@ int fcntl_raw(int fd, int cmd, proto_t* arg_in, proto_t* arg_out) {
 		return -1;
 
 	proto_t in, out;
-	proto_init(&in, NULL, 0);
-	proto_init(&out, NULL, 0);
+	PF->init(&out, NULL, 0);
 
-	proto_add_int(&in, fd);
-	proto_add(&in, &info, sizeof(fsinfo_t));
-	proto_add_int(&in, cmd);
+	PF->init(&in, NULL, 0)->
+		addi(&in, fd)->
+		add(&in, &info, sizeof(fsinfo_t))->
+		addi(&in, cmd);
 	if(arg_in == NULL)
-		proto_add(&in, NULL, 0);
+		PF->add(&in, NULL, 0);
 	else
-		proto_add(&in, arg_in->data, arg_in->size);
+		PF->add(&in, arg_in->data, arg_in->size);
 
 	int res = -1;
 	if(ipc_call(mount.pid, FS_CMD_CNTL, &in, &out) == 0) {
@@ -132,10 +132,10 @@ int fcntl_raw(int fd, int cmd, proto_t* arg_in, proto_t* arg_out) {
 		if(arg_out != NULL) {
 			int32_t sz;
 			void *p = proto_read(&out, &sz);
-			proto_copy(arg_out, p, sz);
+			PF->copy(arg_out, p, sz);
 		}
 	}
-	proto_clear(&in);
-	proto_clear(&out);
+	PF->clear(&in);
+	PF->clear(&out);
 	return res;
 }

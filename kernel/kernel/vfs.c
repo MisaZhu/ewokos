@@ -361,11 +361,11 @@ void vfs_close(proc_t* proc, int32_t fd) {
 
 	kevent_t* kev = kev_push(KEV_FCLOSED, NULL);
 
-	proto_add_int(kev->data, to_pid);
-	proto_add_int(kev->data, proc->pid);
-	proto_add_int(kev->data, fd);
-	proto_add_int(kev->data, ufid);
-	proto_add(kev->data, &node->fsinfo, sizeof(fsinfo_t));
+	PF->addi(kev->data, to_pid);
+	PF->addi(kev->data, proc->pid);
+	PF->addi(kev->data, fd);
+	PF->addi(kev->data, ufid);
+	PF->add(kev->data, &node->fsinfo, sizeof(fsinfo_t));
 }
 
 int32_t vfs_dup(int32_t from) {

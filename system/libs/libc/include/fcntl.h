@@ -11,7 +11,7 @@
 #define SEEK_CUR 1
 #define SEEK_END 2
 
-#include <proto.h>
+#include <sys/proto.h>
 
 enum {
 	CNTL_NONE = 0,

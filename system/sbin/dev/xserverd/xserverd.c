@@ -78,35 +78,35 @@ static void draw_win_frame(x_t* x, xview_t* view) {
 		return;
 
 	proto_t in, out;
-	proto_init(&in, NULL, 0);
-	proto_init(&out, NULL, 0);
+	PF->init(&out, NULL, 0);
 
-	proto_add_int(&in, x->shm_id);
-	proto_add_int(&in, x->g->w);
-	proto_add_int(&in, x->g->h);
-	proto_add(&in, &view->xinfo, sizeof(xinfo_t));
+	PF->init(&in, NULL, 0)->
+		addi(&in, x->shm_id)->
+		addi(&in, x->g->w)->
+		addi(&in, x->g->h)->
+		add(&in, &view->xinfo, sizeof(xinfo_t));
 	if(view == x->view_tail)
-		proto_add_int(&in, 1); //top win
+		PF->addi(&in, 1); //top win
 	else
-		proto_add_int(&in, 0);
+		PF->addi(&in, 0);
 
 	ipc_call(x->xwm_pid, XWM_CNTL_DRAW_FRAME, &in, &out);
-	proto_clear(&in);
-	proto_clear(&out);
+	PF->clear(&in);
+	PF->clear(&out);
 }
 
 static void draw_desktop(x_t* x) {
 	proto_t in, out;
-	proto_init(&in, NULL, 0);
-	proto_init(&out, NULL, 0);
+	PF->init(&out, NULL, 0);
 
-	proto_add_int(&in, x->shm_id);
-	proto_add_int(&in, x->g->w);
-	proto_add_int(&in, x->g->h);
+	PF->init(&in, NULL, 0)->
+		addi(&in, x->shm_id)->
+		addi(&in, x->g->w)->
+		addi(&in, x->g->h);
 
 	ipc_call(x->xwm_pid, XWM_CNTL_DRAW_DESKTOP, &in, &out);
-	proto_clear(&in);
-	proto_clear(&out);
+	PF->clear(&in);
+	PF->clear(&out);
 }
 
 static void draw_mask(graph_t* g, int x, int y, int w, int h) {
@@ -435,7 +435,7 @@ static int x_get_event(int ufid, int from_pid, x_t* x, proto_t* out) {
 	if(view->event_head == NULL)
 		view->event_tail = NULL;
 
-	proto_add(out, &e->event, sizeof(xevent_t));
+	PF->add(out, &e->event, sizeof(xevent_t));
 	free(e);
 	if(view->event_num > 0)
 		view->event_num--;
@@ -446,7 +446,7 @@ static int x_get_info(int ufid, int from_pid, x_t* x, proto_t* out) {
 	xview_t* view = x_get_view(x, ufid, from_pid);
 	if(view == NULL)
 		return -1;
-	proto_add(out, &view->xinfo, sizeof(xinfo_t));
+	PF->add(out, &view->xinfo, sizeof(xinfo_t));
 	return 0;
 }
 
@@ -456,9 +456,9 @@ static int x_is_top(int ufid, int from_pid, x_t* x, proto_t* out) {
 		return -1;
 
 	if(view == x->view_tail)
-		proto_add_int(out, 0);
+		PF->addi(out, 0);
 	else
-		proto_add_int(out, -1);
+		PF->addi(out, -1);
 	return 0;
 }
 
@@ -467,23 +467,23 @@ static int x_scr_info(x_t* x, proto_t* out) {
 	scr.id = 0;
 	scr.size.w = x->g->w;
 	scr.size.h = x->g->h;
-	proto_add(out, &scr, sizeof(xscreen_t));
+	PF->add(out, &scr, sizeof(xscreen_t));
 	return 0;
 }
 
 static int get_xwm_workspace(x_t* x, int style, grect_t* rin, grect_t* rout) {
 	proto_t in, out;
-	proto_init(&in, NULL, 0);
-	proto_init(&out, NULL, 0);
+	PF->init(&out, NULL, 0);
 
-	proto_add_int(&in, style);
-	proto_add(&in, rin, sizeof(grect_t));
+	PF->init(&in, NULL, 0)->
+		addi(&in, style)->
+		add(&in, rin, sizeof(grect_t));
 
 	ipc_call(x->xwm_pid, XWM_CNTL_GET_WORKSPACE, &in, &out);
 
-	proto_clear(&in);
+	PF->clear(&in);
 	proto_read_to(&out, rout, sizeof(grect_t));
-	proto_clear(&out);
+	PF->clear(&out);
 	return 0;
 }
 
@@ -492,7 +492,7 @@ static int x_workspace(x_t* x, proto_t* in, proto_t* out) {
 	int style = proto_read_int(in);
 	proto_read_to(in, &r, sizeof(grect_t));
 	get_xwm_workspace(x, style, &r, &r);
-	proto_add(out, &r, sizeof(grect_t));
+	PF->add(out, &r, sizeof(grect_t));
 	return 0;
 }
 
@@ -606,7 +606,7 @@ static int x_init(x_t* x) {
 	}
 
 	proto_t out;
-	proto_init(&out, NULL, 0);
+	PF->init(&out, NULL, 0);
 
 	if(fcntl_raw(fd, CNTL_INFO, NULL, &out) != 0) {
 		shm_unmap(id);
@@ -619,7 +619,7 @@ static int x_init(x_t* x) {
 	int w = proto_read_int(&out);
 	int h = proto_read_int(&out);
 	x->g = graph_new(gbuf, w, h);
-	proto_clear(&out);
+	PF->clear(&out);
 	x->shm_id = id;
 	x_dirty(x);
 
@@ -640,17 +640,17 @@ static int get_win_frame_pos(x_t* x, xview_t* view) {
 		return -1;
 
 	proto_t in, out;
-	proto_init(&in, NULL, 0);
-	proto_init(&out, NULL, 0);
+	PF->init(&out, NULL, 0);
 
-	proto_add_int(&in, x->cursor.cpos.x);
-	proto_add_int(&in, x->cursor.cpos.y);
-	proto_add(&in, &view->xinfo, sizeof(xinfo_t));
+	PF->init(&in, NULL, 0)->
+		addi(&in, x->cursor.cpos.x)->
+		addi(&in, x->cursor.cpos.y)->
+		add(&in, &view->xinfo, sizeof(xinfo_t));
 	ipc_call(x->xwm_pid, XWM_CNTL_GET_POS, &in, &out);
-	proto_clear(&in);
+	PF->clear(&in);
 
 	int res = proto_read_int(&out);
-	proto_clear(&out);
+	PF->clear(&out);
 	return res;
 }
 

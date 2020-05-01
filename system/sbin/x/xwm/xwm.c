@@ -88,7 +88,7 @@ static void draw_desktop(proto_t* in, proto_t* out) {
 		graph_free(g);
 		shm_unmap(shm_id);
 	}
-	proto_add_int(out, 0);
+	PF->addi(out, 0);
 }
 
 static void get_frame_rect(xinfo_t* info, grect_t* rect) {
@@ -226,7 +226,7 @@ static void draw_frame(proto_t* in, proto_t* out) {
 		graph_free(g);
 		shm_unmap(shm_id);
 	}
-	proto_add_int(out, 0);
+	PF->addi(out, 0);
 }
 
 static void get_pos(proto_t* in, proto_t* out) {
@@ -252,7 +252,7 @@ static void get_pos(proto_t* in, proto_t* out) {
 				res = XWM_FRAME_MAX;
 		}
 	}
-	proto_add_int(out, res);
+	PF->addi(out, res);
 }
 
 static void get_workspace(proto_t* in, proto_t* out) {
@@ -265,7 +265,7 @@ static void get_workspace(proto_t* in, proto_t* out) {
 		r.y += _xwm.title_h;
 		r.h -= _xwm.title_h;
 	}
-	proto_add(out, &r, sizeof(grect_t));
+	PF->add(out, &r, sizeof(grect_t));
 }
 
 static void handle(int from_pid, int cmd, proto_t* in, proto_t* out, void* p) {

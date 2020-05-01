@@ -13,25 +13,22 @@ int x_update(x_t* x) {
 
 int x_update_info(x_t* x, xinfo_t* info) {
 	proto_t in;
-	proto_init(&in, NULL, 0);
-	proto_add(&in, info, sizeof(xinfo_t));
+	PF->init(&in, NULL, 0)->add(&in, info, sizeof(xinfo_t));
 	int ret = fcntl_raw(x->fd, X_CNTL_UPDATE_INFO, &in, NULL);
-	proto_clear(&in);
+	PF->clear(&in);
 	return ret;
 }
 
 static int  x_get_workspace(int xfd, int style, grect_t* frame, grect_t* workspace) {
 	proto_t in, out;
-	proto_init(&in, NULL, 0);
-	proto_init(&out, NULL, 0);
+	PF->init(&out, NULL, 0);
 
-	proto_add_int(&in, style);
-	proto_add(&in, frame, sizeof(grect_t));
+	PF->init(&in, NULL, 0)->addi(&in, style)->add(&in, frame, sizeof(grect_t));
 	int ret = fcntl_raw(xfd, X_CNTL_WORKSPACE, &in, &out);
-	proto_clear(&in);
+	PF->clear(&in);
 	if(ret == 0) 
 		proto_read_to(&out, workspace, sizeof(grect_t));
-	proto_clear(&out);
+	PF->clear(&out);
 	return ret;
 }
 
@@ -70,11 +67,11 @@ int x_get_info(x_t* x, xinfo_t* info) {
 		return -1;
 	
 	proto_t out;
-	proto_init(&out, NULL, 0);
+	PF->init(&out, NULL, 0);
 	if(fcntl_raw(x->fd, X_CNTL_GET_INFO, NULL, &out) != 0)
 		return -1;
 	proto_read_to(&out, info, sizeof(xinfo_t));
-	proto_clear(&out);
+	PF->clear(&out);
 	return 0;
 }
 
@@ -146,14 +143,14 @@ static int win_event_handle(x_t* x, xevent_t* ev, void* p) {
 
 int x_get_event_raw(x_t* x, xevent_t* ev) {
 	proto_t out;
-	proto_init(&out, NULL, 0);
+	PF->init(&out, NULL, 0);
 
 	int res = -1;
 	if(fcntl_raw(x->fd, X_CNTL_GET_EVT, NULL, &out) == 0) {
 		proto_read_to(&out, ev, sizeof(xevent_t));
 		res = 0;
 	}
-	proto_clear(&out);
+	PF->clear(&out);
 	return res;
 }
 
@@ -168,13 +165,13 @@ int x_get_event(x_t* x, xevent_t* ev, void* p) {
 
 int x_is_top(x_t* x) {
 	proto_t out;
-	proto_init(&out, NULL, 0);
+	PF->init(&out, NULL, 0);
 
 	int res = -1;
 	if(fcntl_raw(x->fd, X_CNTL_IS_TOP, NULL, &out) == 0) {
 		res = proto_read_int(&out);
 	}
-	proto_clear(&out);
+	PF->clear(&out);
 	return res;
 }
 
@@ -184,23 +181,22 @@ int x_screen_info(xscreen_t* scr) {
 		return -1;
 
 	proto_t out;
-	proto_init(&out, NULL, 0);
+	PF->init(&out, NULL, 0);
 	int ret = fcntl_raw(fd, X_CNTL_SCR_INFO, NULL, &out);
 	close(fd);
 
 	if(ret == 0)
 		proto_read_to(&out, scr, sizeof(xscreen_t));
-	proto_clear(&out);
+	PF->clear(&out);
 	return ret;
 }
 
 int x_set_visible(x_t* x, bool visible) {
 	proto_t in;
-	proto_init(&in, NULL, 0);
-	proto_add_int(&in, visible);
+	PF->init(&in, NULL, 0)->addi(&in, visible);
 
 	int res = fcntl_raw(x->fd, X_CNTL_SET_VISIBLE, &in, NULL);
-	proto_clear(&in);
+	PF->clear(&in);
 	return res;
 }
 

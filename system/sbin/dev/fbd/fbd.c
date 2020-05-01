@@ -61,8 +61,7 @@ static int fb_fcntl(int fd,
 	(void)p;
 
 	if(cmd == CNTL_INFO) {
-		proto_add_int(out, _fbinfo.width);
-		proto_add_int(out, _fbinfo.height);
+		PF->addi(out, _fbinfo.width)->addi(out, _fbinfo.height);
 	}
 	return 0;
 }

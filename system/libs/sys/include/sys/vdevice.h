@@ -2,7 +2,7 @@
 #define VDEVICE_H
 
 #include <fsinfo.h>
-#include <proto.h>
+#include <sys/proto.h>
 
 #define MAX_TRUST_PID 10
 
