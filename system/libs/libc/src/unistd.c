@@ -48,10 +48,7 @@ unsigned int sleep(unsigned int seconds) {
 }
 
 static int read_pipe(fsinfo_t* info, void* buf, uint32_t size, int block) {
-	rawdata_t data;
-	data.data = buf;
-	data.size = size;
-	int res = syscall3(SYS_PIPE_READ, (int32_t)info, (int32_t)&data, block);
+	int res = vfs_read_pipe(info, buf, size, block);
 	if(res == 0) { // pipe empty, do retry
 		errno = EAGAIN;
 		return -1;
@@ -68,7 +65,7 @@ static int read_raw(int fd, fsinfo_t *info, void* buf, uint32_t size) {
 	if(vfs_get_mount(info, &mount) != 0)
 		return -1;
 
-	int offset = syscall1(SYS_VFS_PROC_TELL, fd);
+	int offset = vfs_tell(fd);
 	if(offset < 0)
 		offset = 0;
 	
@@ -99,7 +96,7 @@ static int read_raw(int fd, fsinfo_t *info, void* buf, uint32_t size) {
 			else
 				proto_read_to(&out, buf, size);
 			offset += rd;
-			syscall2(SYS_VFS_PROC_SEEK, fd, offset);
+			vfs_seek(fd, offset);
 		}
 		if(res == ERR_RETRY) {
 			errno = EAGAIN;
@@ -189,11 +186,7 @@ int read_block(int pid, void* buf, uint32_t size, int32_t index) {
 }
 
 static int write_pipe(fsinfo_t* info, const void* buf, uint32_t size, int block) {
-	rawdata_t data;
-	data.data = (void*)buf;
-	data.size = size;
-	int res = syscall3(SYS_PIPE_WRITE, (int32_t)info, (int32_t)&data, block);
-
+	int res = vfs_write_pipe(info, buf, size, block);
 	if(res == 0) { // pipe not empty, do retry
 		errno = EAGAIN;
 		return -1;
@@ -211,7 +204,7 @@ int write_raw(int fd, fsinfo_t* info, const void* buf, uint32_t size) {
 	if(vfs_get_mount(info, &mount) != 0)
 		return -1;
 
-	int offset = syscall1(SYS_VFS_PROC_TELL, fd);
+	int offset = vfs_tell(fd);
 	if(offset < 0)
 		offset = 0;
 		
@@ -247,7 +240,7 @@ int write_raw(int fd, fsinfo_t* info, const void* buf, uint32_t size) {
 		res = r;
 		if(r > 0) {
 			offset += r;
-			syscall2(SYS_VFS_PROC_SEEK, fd, offset);
+			vfs_seek(fd, offset);
 		}
 		if(res == -2) {
 			errno = EAGAIN;
@@ -323,7 +316,7 @@ int write_block(int pid, const void* buf, uint32_t size, int32_t index) {
 
 int lseek(int fd, uint32_t offset, int whence) {
 	if(whence == SEEK_CUR) {
-		int cur = syscall1(SYS_VFS_PROC_TELL, fd);
+		int cur = vfs_tell(fd);
 		if(cur < 0)
 			cur = 0;
 		offset += cur;
@@ -335,7 +328,7 @@ int lseek(int fd, uint32_t offset, int whence) {
 			cur = info.size;
 		offset += cur;
 	}
-	return syscall2(SYS_VFS_PROC_SEEK, fd, offset);
+	return vfs_seek(fd, offset);
 }
 
 void exec_elf(const char* cmd_line, const char* elf, int32_t size) {
@@ -371,15 +364,15 @@ int chdir(const char* path) {
 }
 
 int dup2(int from, int to) {
-	return syscall2(SYS_VFS_PROC_DUP2, (int32_t)from, (int32_t)to);
+	return vfs_dup2(from, to);
 }
 
 int dup(int from) {
-	return syscall1(SYS_VFS_PROC_DUP, (int32_t)from);
+	return vfs_dup(from);
 }
 
 int pipe(int fds[2]) {
-	return syscall2(SYS_PIPE_OPEN, (int32_t)&fds[0], (int32_t)&fds[1]);
+	return vfs_open_pipe(fds);
 }
 
 int unlink(const char* fname) {

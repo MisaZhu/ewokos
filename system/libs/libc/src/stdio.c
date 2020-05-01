@@ -120,7 +120,7 @@ void rewind(FILE* fp) {
 }
 
 int ftell(FILE* fp) {
-	return syscall1(SYS_VFS_PROC_TELL, fp->fd);
+	return vfs_tell(fp->fd);
 }
 
 void fprintf(FILE* fp, const char *format, ...) {

@@ -500,7 +500,7 @@ static int xserver_fcntl(int fd, int from_pid, fsinfo_t* info,
 		int cmd, proto_t* in, proto_t* out, void* p) {
 	(void)info;
 	x_t* x = (x_t*)p;
-	uint32_t ufid = syscall3(SYS_VFS_GET_BY_FD, fd, from_pid, 0);
+	uint32_t ufid = vfs_get_by_fd(fd, NULL);
 
 	if(cmd == X_CNTL_UPDATE) {
 		return x_update(ufid, from_pid, x);
@@ -534,7 +534,7 @@ static int xserver_open(int fd, int from_pid, fsinfo_t* info, int oflag, void* p
 	(void)oflag;
 	(void)info;
 	(void)fd;
-	uint32_t ufid = syscall3(SYS_VFS_GET_BY_FD, fd, from_pid, (int32_t)NULL);
+	uint32_t ufid = vfs_get_by_fd(fd, NULL);
 	if(fd < 0 || ufid == 0)
 		return -1;
 

@@ -56,7 +56,7 @@ void close(int fd) {
 		PF->clear(&in);
 	}
 
-	syscall1(SYS_VFS_PROC_CLOSE, fd);
+	vfs_close(fd);
 }
 
 int dma(int fd, int* size) {

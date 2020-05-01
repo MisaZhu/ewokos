@@ -17,7 +17,8 @@ static void do_open(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, voi
 	int oflag;
 	memcpy(&info, proto_read(in, NULL), sizeof(fsinfo_t));
 	oflag = proto_read_int(in);
-	int32_t fd = syscall3(SYS_VFS_OPEN, from_pid, (int32_t)&info, oflag);
+	
+	int fd = vfs_open(&info, oflag);
 	if(fd >= 0 && dev != NULL && dev->open != NULL) {
 		if(dev->open(fd, from_pid, &info, oflag, p) != 0) {
 		}

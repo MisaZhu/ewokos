@@ -823,6 +823,7 @@ void svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_t arg2, context
 	case SYS_WAIT_PID:
 		sys_waitpid(ctx, arg0);
 		return;
+	/*
 	case SYS_VFS_GET:
 		ctx->gpr[0] = sys_vfs_get_info((const char*)arg0, (fsinfo_t*)arg1);
 		return;
@@ -877,6 +878,16 @@ void svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_t arg2, context
 	case SYS_VFS_PROC_DUP2:
 		ctx->gpr[0] = vfs_dup2(arg0, arg1);
 		return;
+	case SYS_PIPE_OPEN: 
+		ctx->gpr[0] = sys_pipe_open((int32_t*)arg0, (int32_t*)arg1);
+		return;
+	case SYS_PIPE_READ: 
+		sys_pipe_read(ctx, (fsinfo_t*)arg0, (rawdata_t*)arg1, (int32_t)arg2);
+		return;
+	case SYS_PIPE_WRITE: 
+		sys_pipe_write(ctx, (fsinfo_t*)arg0, (const rawdata_t*)arg1, (int32_t)arg2);
+		return;
+	*/
 	case SYS_YIELD: 
 		schedule(ctx);
 		return;
@@ -906,15 +917,6 @@ void svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_t arg2, context
 		return;
 	case SYS_GET_PROCS: 
 		ctx->gpr[0] = (int32_t)get_procs((int32_t*)arg0);
-		return;
-	case SYS_PIPE_OPEN: 
-		ctx->gpr[0] = sys_pipe_open((int32_t*)arg0, (int32_t*)arg1);
-		return;
-	case SYS_PIPE_READ: 
-		sys_pipe_read(ctx, (fsinfo_t*)arg0, (rawdata_t*)arg1, (int32_t)arg2);
-		return;
-	case SYS_PIPE_WRITE: 
-		sys_pipe_write(ctx, (fsinfo_t*)arg0, (const rawdata_t*)arg1, (int32_t)arg2);
 		return;
 	case SYS_PROC_SET_ENV: 
 		ctx->gpr[0] = proc_set_env((const char*)arg0, (const char*)arg1);

@@ -600,7 +600,7 @@ static void do_vfs_get_kids(proto_t* in, proto_t* out) {
 	fsinfo_t* kids = vfs_get_kids(node, &num);
 	if(kids == NULL || num == 0)
 		return;
-	PF->add(out, kids, sizeof(fsinfo_t)*num);
+	PF->addi(out, num)->add(out, kids, sizeof(fsinfo_t)*num);
 }
 
 static void do_vfs_add(int32_t pid, proto_t* in, proto_t* out) {
