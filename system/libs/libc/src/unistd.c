@@ -113,7 +113,7 @@ static int read_raw(int fd, fsinfo_t *info, void* buf, uint32_t size) {
 int read_nblock(int fd, void* buf, uint32_t size) {
 	errno = ENONE;
 	fsinfo_t info;
-	if(vfs_get_by_fd(fd, &info) != 0)
+	if(vfs_get_by_fd(fd, NULL, &info) != 0)
 		return -1;
 	if(info.type == FS_TYPE_PIPE)
 		return read_pipe(&info, buf, size, 0);
@@ -123,7 +123,7 @@ int read_nblock(int fd, void* buf, uint32_t size) {
 int read(int fd, void* buf, uint32_t size) {
 	errno = ENONE;
 	fsinfo_t info;
-	if(vfs_get_by_fd(fd, &info) != 0)
+	if(vfs_get_by_fd(fd, NULL, &info) != 0)
 		return -1;
 
 	int res = -1;
@@ -257,7 +257,7 @@ int write_raw(int fd, fsinfo_t* info, const void* buf, uint32_t size) {
 int write_nblock(int fd, const void* buf, uint32_t size) {
 	errno = ENONE;
 	fsinfo_t info;
-	if(vfs_get_by_fd(fd, &info) != 0)
+	if(vfs_get_by_fd(fd, NULL, &info) != 0)
 		return -1;
 	if(info.type == FS_TYPE_PIPE) 
 		return write_pipe(&info, buf, size, 0);
@@ -267,7 +267,7 @@ int write_nblock(int fd, const void* buf, uint32_t size) {
 int write(int fd, const void* buf, uint32_t size) {
 	errno = ENONE;
 	fsinfo_t info;
-	if(vfs_get_by_fd(fd, &info) != 0)
+	if(vfs_get_by_fd(fd, NULL, &info) != 0)
 		return -1;
 
 	int res = -1;
@@ -324,7 +324,7 @@ int lseek(int fd, uint32_t offset, int whence) {
 	else if(whence == SEEK_END) {
 		fsinfo_t info;
 		int cur = 0;
-		if(vfs_get_by_fd(fd, &info) == 0)
+		if(vfs_get_by_fd(fd, NULL, &info) == 0)
 			cur = info.size;
 		offset += cur;
 	}

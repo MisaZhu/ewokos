@@ -110,7 +110,7 @@ static inline int32_t get_mount_pid(vfs_node_t* node) {
 
 static inline int32_t check_mount(int32_t pid, vfs_node_t* node) {
 //	if(_current_proc->owner <= 0)
-//		return 0;
+		return 0;
 
 	int32_t mnt_pid = get_mount_pid(node);
 	if(mnt_pid != pid) //current proc not the mounting one.
@@ -526,6 +526,7 @@ static void do_vfs_new_node(proto_t* in, proto_t* out) {
 		return;
 	info.node = (uint32_t)node;
 	info.mount_id = -1;
+	memcpy(&node->fsinfo, &info, sizeof(fsinfo_t));
 	PF->add(out, &info, sizeof(fsinfo_t));
 }
 
@@ -787,8 +788,28 @@ static void do_vfs_pipe_read(proto_t* in, proto_t* out) {
 	PF->clear(out)->addi(out, 0); //retry
 }
 
+static void do_vfs_proc_clone(int32_t pid, proto_t* in) {
+	(void)pid;
+	int fpid = proto_read_int(in);
+	int cpid = proto_read_int(in);
+	if(fpid < 0 || cpid < 0)
+		return;
+	
+	int32_t i;
+	for(i=0; i<PROC_FILE_MAX; i++) {
+		file_t *f = &_proc_fds_table[fpid].fds[i];
+		vfs_node_t* node = 	(vfs_node_t*)f->node;
+		if(node != NULL) {
+			memcpy(&_proc_fds_table[cpid].fds[i], f, sizeof(file_t));
+			node->refs++;
+			if(f->wr != 0)
+				node->refs_w++;
+		}
+	}
+	syscall1(SYS_PROC_READY, cpid);
+}
+
 static void handle(int pid, int cmd, proto_t* in, proto_t* out, void* p) {
-	(void)cmd;
 	(void)p;
 
 	switch(cmd) {
@@ -852,7 +873,11 @@ static void handle(int pid, int cmd, proto_t* in, proto_t* out, void* p) {
 	case VFS_GET_MOUNT_BY_ID:
 		do_vfs_get_mount_by_id(in, out);
 		break;
+	case VFS_PROC_CLONE:
+		do_vfs_proc_clone(pid, in);
+		break;
 	}
+	kprintf(false, "pid: %d, cmd : %d\n", pid, cmd);
 }
 
 int main(int argc, char** argv) {

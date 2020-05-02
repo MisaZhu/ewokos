@@ -6,7 +6,7 @@
 #include <string.h>
 
 int open(const char* fname, int oflag) {
-	int res = -1;
+	int fd = -1;
 	fsinfo_t info;
 
 	if(vfs_get(fname, &info) != 0) {
@@ -22,26 +22,33 @@ int open(const char* fname, int oflag) {
 	mount_t mount;
 	if(vfs_get_mount(&info, &mount) != 0)
 		return -1;
+
+	fd = vfs_open(&info, oflag);
+	if(fd < 0)
+		return -1;
 	
 	proto_t in, out;
 	PF->init(&out, NULL, 0);
 
 	PF->init(&in, NULL, 0)->
+		addi(&in, fd)->
 		add(&in, &info, sizeof(fsinfo_t))->
 		addi(&in, oflag);
 
-	if(ipc_call(mount.pid, FS_CMD_OPEN, &in, &out) == 0) {
-		res = proto_read_int(&out);
+	if(ipc_call(mount.pid, FS_CMD_OPEN, &in, &out) != 0 ||
+			proto_read_int(&out) != 0) {
+		vfs_close(fd);
+		fd = -1;
 	}
 
 	PF->clear(&in);
 	PF->clear(&out);
-	return res;
+	return fd;
 }
 
 void close(int fd) {
 	fsinfo_t info;
-	if(vfs_get_by_fd(fd, &info) != 0)
+	if(vfs_get_by_fd(fd, NULL, &info) != 0)
 		return;
 	
 	mount_t mount;
@@ -61,7 +68,7 @@ void close(int fd) {
 
 int dma(int fd, int* size) {
 	fsinfo_t info;
-	if(vfs_get_by_fd(fd, &info) != 0)
+	if(vfs_get_by_fd(fd, NULL, &info) != 0)
 		return -1;
 	
 	mount_t mount;
@@ -88,7 +95,7 @@ int dma(int fd, int* size) {
 
 void flush(int fd) {
 	fsinfo_t info;
-	if(vfs_get_by_fd(fd, &info) != 0)
+	if(vfs_get_by_fd(fd, NULL, &info) != 0)
 		return;
 	
 	mount_t mount;
@@ -107,7 +114,7 @@ void flush(int fd) {
 
 int fcntl_raw(int fd, int cmd, proto_t* arg_in, proto_t* arg_out) {
 	fsinfo_t info;
-	if(vfs_get_by_fd(fd, &info) != 0)
+	if(vfs_get_by_fd(fd, NULL, &info) != 0)
 		return -1;
 	
 	mount_t mount;

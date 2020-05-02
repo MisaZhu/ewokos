@@ -23,9 +23,9 @@ enum {
 	VFS_UMOUNT,
 	VFS_GET_MOUNT,
 	VFS_GET_MOUNT_BY_ID,
-	VFS_GET_KIDS
+	VFS_GET_KIDS,
+	VFS_PROC_CLONE,
+	VFS_PROC_EXIT
 };
-
-int vfsc_new_node(fsinfo_t* fsinfo);
 
 #endif

@@ -7,6 +7,7 @@
 #include <sys/syscall.h>
 #include <sys/kserv.h>
 #include <sys/core.h>
+#include <sys/vfsc.h>
 #include <sys/proc.h>
 #include <hashmap.h>
 #include <kevent.h>
@@ -144,37 +145,23 @@ static void handle_ipc(int pid, int cmd, proto_t* in, proto_t* out, void* p) {
 }
 
 /*----kernel event -------*/
-static void do_fsclosed(proto_t *data) {
-	/*
-	fsinfo_t fsinfo;
-	int32_t to_pid = proto_read_int(data);
-	int32_t from_pid = proto_read_int(data);
-	int32_t fd = proto_read_int(data);
-	int32_t fuid = proto_read_int(data);
-	proto_read_to(data, &fsinfo, sizeof(fsinfo_t));
-
-	proto_t in;
-	PF->init(&in, NULL, 0)->
-		addi(&in, fd)->
-		addi(&in, fuid)->
-		addi(&in, from_pid)->
-		add(&in, &fsinfo, sizeof(fsinfo_t));
-
-	ipc_call(to_pid, FS_CMD_CLOSED, &in, NULL);
-	PF->clear(&in);
-	*/
-}
 
 static void do_proc_created(proto_t *data) {
 	int vfs_pid = kserv_get(KSERV_VFS);
 
-	int32_t fpid = proto_read_int(data);
+	/*int32_t fpid = proto_read_int(data);
 	int32_t cpid = proto_read_int(data);
 
 	if(proc_ping(vfs_pid) != 0) { //vfs not ready
 		return;
 	}
-	syscall1(SYS_PROC_READY, cpid);
+	*/
+	ipc_call(vfs_pid, VFS_PROC_CLONE, data, NULL);
+}
+
+static void do_proc_exit(proto_t *data) {
+	int vfs_pid = kserv_get(KSERV_VFS);
+	ipc_call(vfs_pid, VFS_PROC_EXIT, data, NULL);
 }
 
 static void do_usint_ps2_key(proto_t* data) {
@@ -200,8 +187,8 @@ static void do_user_space_int(proto_t *data) {
 
 static void handle_event(kevent_t* kev) {
 	switch(kev->type) {
-	case KEV_FCLOSED:
-		do_fsclosed(kev->data);
+	case KEV_PROC_EXIT:
+		do_proc_exit(kev->data);
 		return;
 	case KEV_US_INT:
 		do_user_space_int(kev->data);

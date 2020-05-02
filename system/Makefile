@@ -25,8 +25,8 @@ CFLAGS = -Wstrict-prototypes \
          -fno-builtin-exit -fno-builtin-stdio \
 				 -std=c99 
 
-#CFLAGS +=  -g
-CFLAGS +=  -O2
+CFLAGS +=  -g
+#CFLAGS +=  -O2
 
 ifneq ($(MACH),)
 ARCH=arm/$(MACH)
@@ -113,7 +113,6 @@ LIB_SYS_OBJS = $(LIB_SYS_DIR)/src/syscall.o \
 	$(LIB_SYS_DIR)/src/kserv.o \
 	$(LIB_SYS_DIR)/src/charbuf.o \
 	$(LIB_SYS_DIR)/src/vfs.o \
-	$(LIB_SYS_DIR)/src/vfsc.o \
 	$(LIB_SYS_DIR)/src/ipc.o \
 	$(LIB_SYS_DIR)/src/vdevice.o \
 	$(LIB_SYS_DIR)/src/proto.o \
@@ -282,8 +281,8 @@ debug:
 
 gdb: 
 	echo "target remote :26000" > /tmp/gdbinit
-	arm-none-eabi-gdb ${KERNEL_ELF} -x /tmp/gdbinit
-	#gdb-multiarch ${KERNEL_ELF} -x /tmp/gdbinit #for ubuntu 18.04 without arm-none-eabi-gdb
+	#arm-none-eabi-gdb ${KERNEL_ELF} -x /tmp/gdbinit
+	gdb-multiarch ${KERNEL_ELF} -x /tmp/gdbinit #for ubuntu 18.04 without arm-none-eabi-gdb
 
 clean:
 	rm -f $(CLEAN)
