@@ -368,11 +368,10 @@ static vfs_node_t* vfs_get_by_fd(int32_t pid, int32_t fd, uint32_t* ufid) {
 	return file->node;
 }
 
-static void vfs_close(int32_t pid, int32_t fd) {
-	if(pid < 0 || fd < 0 || fd >= PROC_FILE_MAX)
+static void proc_file_close(file_t* file) {
+	if(file == NULL)
 		return;
 
-	file_t* file = vfs_get_file(pid, fd);
 	vfs_node_t* node = (vfs_node_t*)file->node;
 	if(node == NULL)
 		return;
@@ -408,6 +407,14 @@ static void vfs_close(int32_t pid, int32_t fd) {
 	addi(kev->data, ufid);
 	add(kev->data, &node->fsinfo, sizeof(fsinfo_t));
 	*/
+}
+
+static void vfs_close(int32_t pid, int32_t fd) {
+	if(pid < 0 || fd < 0 || fd >= PROC_FILE_MAX)
+		return;
+
+	file_t* file = vfs_get_file(pid, fd);
+	proc_file_close(file);
 }
 
 static int32_t vfs_dup(int32_t pid, int32_t from) {
@@ -679,13 +686,15 @@ static void do_vfs_umount(int32_t pid, proto_t* in) {
 
 static void do_vfs_get_mount(proto_t* in, proto_t* out) {
 	fsinfo_t info;
+kprintf(true, "m1\n");
 	if(proto_read_to(in, &info, sizeof(fsinfo_t)) != sizeof(fsinfo_t))
 		return;
 
+kprintf(true, "m2: %s\n", info.name);
   vfs_node_t* node = (vfs_node_t*)info.node;
   if(node == NULL)
     return;
-
+kprintf(true, "m: %s\n", node->fsinfo.name);
 	mount_t mount;
 	if(vfs_get_mount(node, &mount) != 0)
 		return;
@@ -809,8 +818,22 @@ static void do_vfs_proc_clone(int32_t pid, proto_t* in) {
 	syscall1(SYS_PROC_READY, cpid);
 }
 
+static void do_vfs_proc_exit(int32_t pid, proto_t* in) {
+	(void)pid;
+	int cpid = proto_read_int(in);
+	if(cpid < 0)
+		return;
+	
+	int32_t i;
+	for(i=0; i<PROC_FILE_MAX; i++) {
+		file_t *f = &_proc_fds_table[cpid].fds[i];
+		proc_file_close(f);
+	}
+}
+
 static void handle(int pid, int cmd, proto_t* in, proto_t* out, void* p) {
 	(void)p;
+	kprintf(true, "pid: %d, cmd : %d\n", pid, cmd);
 
 	switch(cmd) {
 	case VFS_NEW_NODE:
@@ -876,8 +899,10 @@ static void handle(int pid, int cmd, proto_t* in, proto_t* out, void* p) {
 	case VFS_PROC_CLONE:
 		do_vfs_proc_clone(pid, in);
 		break;
+	case VFS_PROC_EXIT:
+		do_vfs_proc_exit(pid, in);
+		break;
 	}
-	kprintf(false, "pid: %d, cmd : %d\n", pid, cmd);
 }
 
 int main(int argc, char** argv) {
