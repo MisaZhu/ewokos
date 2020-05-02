@@ -158,7 +158,7 @@ SD = $(BUILD_DIR)/sd.ext2
 all: mkdirs libs builtin_apps extra_apps #extra_devs
 	@echo "all done."
 
-KERNEL_H = ../kernel/include/fsinfo.h \
+KERNEL_H = \
 	../kernel/include/usinterrupt.h \
 	../kernel/include/syscalls.h \
 	../kernel/include/_types.h \

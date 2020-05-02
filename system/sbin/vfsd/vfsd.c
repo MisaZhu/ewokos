@@ -8,9 +8,10 @@
 #include <mstr.h>
 #include <buffer.h>
 #include <sys/proto.h>
-#include <fsinfo.h>
+#include <sys/fsinfo.h>
 #include <sys/vfsc.h>
 #include <sys/kserv.h>
+#include <sys/syscall.h>
 #include <procinfo.h>
 
 #define PROC_FILE_MAX 128
@@ -864,6 +865,7 @@ int main(int argc, char** argv) {
 	}
 
 	vfs_init();
+	syscall0(SYS_VFS_READY);
 
 	kserv_run(handle, NULL, false);
 	while(true) {

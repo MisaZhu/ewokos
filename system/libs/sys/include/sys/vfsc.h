@@ -1,7 +1,7 @@
 #ifndef VFSCLIENT_H
 #define VFSCLIENT_H
 
-#include <fsinfo.h>
+#include <sys/fsinfo.h>
 
 enum {
 	VFS_GET_BY_NAME = 0,

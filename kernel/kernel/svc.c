@@ -502,6 +502,21 @@ static void sys_get_kevent(context_t* ctx) {
 	ctx->gpr[0] = (int32_t)kev;	
 }
 
+static void sys_proc_ready(int32_t pid) {
+	if(_current_proc->owner != 0)
+		return;
+	proc_t* proc = proc_get(pid);
+	if(proc == NULL || proc->state != CREATED)
+		return;
+	proc_ready(proc);
+}
+
+static void sys_vfs_ready(void) {
+	if(_current_proc->owner != 0)
+		return;
+	_vfs_ready = true;
+}
+
 void svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_t arg2, context_t* ctx, int32_t processor_mode) {
 	(void)arg1;
 	(void)arg2;
@@ -565,71 +580,6 @@ void svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_t arg2, context
 	case SYS_WAIT_PID:
 		sys_waitpid(ctx, arg0);
 		return;
-	/*
-	case SYS_VFS_GET:
-		ctx->gpr[0] = sys_vfs_get_info((const char*)arg0, (fsinfo_t*)arg1);
-		return;
-	case SYS_VFS_KIDS:
-		ctx->gpr[0] = sys_vfs_get_kids((fsinfo_t*)arg0, (uint32_t*)arg1);
-		return;
-	case SYS_VFS_SET:
-		ctx->gpr[0] = sys_vfs_set_info((fsinfo_t*)arg0);
-		return;
-	case SYS_VFS_ADD:
-		ctx->gpr[0] = sys_vfs_add((fsinfo_t*)arg0, (fsinfo_t*)arg1);
-		return;
-	case SYS_VFS_DEL:
-		ctx->gpr[0] = sys_vfs_del((fsinfo_t*)arg0);
-		return;
-	case SYS_VFS_NEW_NODE:
-		ctx->gpr[0] = (int32_t)sys_vfs_new_node((fsinfo_t*)arg0);
-		return;
-	case SYS_VFS_GET_MOUNT:
-		ctx->gpr[0] = sys_vfs_get_mount((fsinfo_t*)arg0, (mount_t*)arg1);
-		return;
-	case SYS_VFS_GET_MOUNT_BY_ID:
-		ctx->gpr[0] = sys_vfs_get_mount_by_id(arg0, (mount_t*)arg1);
-		return;
-	case SYS_VFS_MOUNT:
-		ctx->gpr[0] = sys_vfs_mount((fsinfo_t*)arg0, (fsinfo_t*)arg1);
-		return;
-	case SYS_VFS_UMOUNT:
-		sys_vfs_umount((fsinfo_t*)arg0);
-		return;
-	case SYS_VFS_OPEN:
-		ctx->gpr[0] = sys_vfs_open(arg0, (fsinfo_t*)arg1, arg2);
-		return;
-	case SYS_VFS_PROC_CLOSE:
-		sys_vfs_close(arg0);
-		return;
-	case SYS_VFS_PROC_SEEK:
-		ctx->gpr[0] = vfs_seek(arg0, arg1);
-		return;
-	case SYS_VFS_PROC_TELL:
-		ctx->gpr[0] = sys_vfs_tell(arg0);
-		return;
-	case SYS_VFS_GET_BY_FD:
-		ctx->gpr[0] = sys_vfs_get_by_fd(arg0, arg1, (fsinfo_t*)arg2);
-		return;
-	case SYS_VFS_PROC_GET_BY_FD:
-		ctx->gpr[0] = sys_vfs_proc_get_by_fd(arg0, (fsinfo_t*)arg1, (uint32_t*)arg2);
-		return;
-	case SYS_VFS_PROC_DUP:
-		ctx->gpr[0] = vfs_dup(arg0);
-		return;
-	case SYS_VFS_PROC_DUP2:
-		ctx->gpr[0] = vfs_dup2(arg0, arg1);
-		return;
-	case SYS_PIPE_OPEN: 
-		ctx->gpr[0] = sys_pipe_open((int32_t*)arg0, (int32_t*)arg1);
-		return;
-	case SYS_PIPE_READ: 
-		sys_pipe_read(ctx, (fsinfo_t*)arg0, (rawdata_t*)arg1, (int32_t)arg2);
-		return;
-	case SYS_PIPE_WRITE: 
-		sys_pipe_write(ctx, (fsinfo_t*)arg0, (const rawdata_t*)arg1, (int32_t)arg2);
-		return;
-	*/
 	case SYS_YIELD: 
 		schedule(ctx);
 		return;
@@ -740,6 +690,12 @@ void svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_t arg2, context
 		return;
 	case SYS_GET_KEVENT:
 		sys_get_kevent(ctx);
+		return;
+	case SYS_PROC_READY:
+		sys_proc_ready(arg0);
+		return;
+	case SYS_VFS_READY:
+		sys_vfs_ready();
 		return;
 	}
 	printf("pid:%d, code(%d) error!\n", _current_proc->pid, code);

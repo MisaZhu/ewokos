@@ -3,11 +3,11 @@
 #include <unistd.h>
 #include <string.h>
 #include <sys/ipc.h>
-#include <fsinfo.h>
 #include <sys/proc.h>
 #include <sys/syscall.h>
 #include <sys/kserv.h>
 #include <sys/core.h>
+#include <sys/proc.h>
 #include <hashmap.h>
 #include <kevent.h>
 #include <usinterrupt.h>
@@ -145,6 +145,7 @@ static void handle_ipc(int pid, int cmd, proto_t* in, proto_t* out, void* p) {
 
 /*----kernel event -------*/
 static void do_fsclosed(proto_t *data) {
+	/*
 	fsinfo_t fsinfo;
 	int32_t to_pid = proto_read_int(data);
 	int32_t from_pid = proto_read_int(data);
@@ -161,6 +162,19 @@ static void do_fsclosed(proto_t *data) {
 
 	ipc_call(to_pid, FS_CMD_CLOSED, &in, NULL);
 	PF->clear(&in);
+	*/
+}
+
+static void do_proc_created(proto_t *data) {
+	int vfs_pid = kserv_get(KSERV_VFS);
+
+	int32_t fpid = proto_read_int(data);
+	int32_t cpid = proto_read_int(data);
+
+	if(proc_ping(vfs_pid) != 0) { //vfs not ready
+		return;
+	}
+	syscall1(SYS_PROC_READY, cpid);
 }
 
 static void do_usint_ps2_key(proto_t* data) {
@@ -194,6 +208,9 @@ static void handle_event(kevent_t* kev) {
 		return;
 	case KEV_GLOBAL_SET:
 		do_global_set(kev->data);
+		return;
+	case KEV_PROC_CREATED:
+		do_proc_created(kev->data);
 		return;
 	}
 }

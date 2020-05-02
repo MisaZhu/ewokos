@@ -5,7 +5,6 @@
 #include <kernel/ipc.h>
 #include <mm/mmu.h>
 #include <mm/trunkmalloc.h>
-#include <kernel/kfile.h>
 #include <mstr.h>
 #include <procinfo.h>
 #include <proto.h>
@@ -45,7 +44,6 @@ typedef struct {
 	
 	int32_t shms[SHM_MAX];
 	uint32_t locks[LOCK_MAX];
-	kfile_t files[PROC_FILE_MAX];
 	env_t envs[ENV_MAX];
 
 	struct {
@@ -91,6 +89,7 @@ typedef struct st_proc {
 extern context_t* _current_ctx;
 extern proc_t* _current_proc;
 extern proc_t* _ready_proc;
+extern bool _vfs_ready;
 
 extern void    procs_init(void);
 extern int32_t proc_load_elf(proc_t *proc, const char *proc_image, uint32_t size);
@@ -118,6 +117,7 @@ extern procinfo_t* get_procs(int32_t* num);
 
 extern void    renew_sleep_counter(uint32_t usec);
 extern void    proc_usleep(context_t* ctx, uint32_t usec);
+extern void    proc_ready(proc_t* proc);
 
 extern const char* proc_get_env(const char* name);
 extern const char* proc_get_env_name(int32_t index);

@@ -1,6 +1,6 @@
 #include <unistd.h>
 #include <stdio.h>
-#include <fsinfo.h>
+#include <sys/fsinfo.h>
 
 int main(int argc, char* argv[]) {
 	(void)argc;

@@ -1,7 +1,7 @@
 #ifndef DIRENT_H
 #define DIRENT_H
 
-#include <fsinfo.h>
+#include <sys/fsinfo.h>
 
 typedef struct {
 	uint32_t  num;    //kids num

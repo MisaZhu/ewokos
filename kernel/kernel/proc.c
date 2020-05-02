@@ -17,9 +17,11 @@ static page_dir_entry_t _proc_vm[PROC_MAX][PAGE_DIR_NUM];
 proc_t* _current_proc = NULL;
 queue_t _ready_queue;
 context_t* _current_ctx = NULL;
+bool _vfs_ready = false;
 
 /* proc_init initializes the process sub-system. */
 void procs_init(void) {
+	_vfs_ready = false;
 	for (int32_t i = 0; i < PROC_MAX; i++)
 		_proc_table[i].state = UNUSED;
 	_current_proc = NULL;
@@ -162,16 +164,6 @@ static void proc_unmap_shms(proc_t *proc) {
 	}
 }
 
-static void proc_clone_files(proc_t *proc_to, proc_t* from) {
-	int32_t i;
-	for(i=0; i<PROC_FILE_MAX; i++) {
-		kfile_t *f = &from->space->files[i]; 
-		if(f->node != 0) {
-			memcpy(&proc_to->space->files[i], f, sizeof(kfile_t));
-		}
-	}
-}
-
 static void __attribute__((optimize("O0"))) proc_free_space(proc_t *proc) {
 	if(proc->type != PROC_TYPE_PROC)
 		return;
@@ -200,7 +192,7 @@ static void __attribute__((optimize("O0"))) proc_free_space(proc_t *proc) {
 	kfree(proc->space);
 }
 
-static void proc_ready(proc_t* proc) {
+void proc_ready(proc_t* proc) {
 	if(proc == NULL || proc->state == READY)
 		return;
 
@@ -557,7 +549,6 @@ static int32_t proc_clone(proc_t* child, proc_t* parent) {
 		memcpy(child->user_stack[i], parent->user_stack[i], PAGE_SIZE);
 	}
 
-	proc_clone_files(child, parent);
 	proc_clone_envs(child, parent);
 
 	str_cpy(child->cmd, CS(parent->cmd));
@@ -587,7 +578,13 @@ proc_t* kfork_raw(int32_t type, proc_t* parent) {
 
 proc_t* kfork(int32_t type) {
 	proc_t* child = kfork_raw(type, _current_proc);
-	proc_ready(child);
+	if(_vfs_ready && child->type == PROC_TYPE_PROC) {
+		kevent_t* kev = kev_push(KEV_PROC_CREATED, NULL);
+		PF->addi(kev->data, _current_proc->pid)->
+			addi(kev->data, child->pid);
+	}
+	else
+		proc_ready(child);
 	return child;
 }
 

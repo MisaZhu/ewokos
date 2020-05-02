@@ -3,7 +3,7 @@
 #include <stdlib.h>
 #include <sys/syscall.h>
 #include <string.h>
-#include <fsinfo.h>
+#include <sys/fsinfo.h>
 
 static const char* get_cmd(char* cmd) {
 	char* p = cmd;
