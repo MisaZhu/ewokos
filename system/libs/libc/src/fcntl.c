@@ -46,12 +46,14 @@ int open(const char* fname, int oflag) {
 
 void close(int fd) {
 	fsinfo_t info;
-	if(vfs_get_by_fd(fd, NULL, &info) != 0)
+	uint32_t ufid = 0;
+	if(vfs_get_by_fd(fd, &ufid, &info) != 0)
 		return;
 
 	proto_t in;
 	PF->init(&in, NULL, 0)->
 		addi(&in, fd)->
+		addi(&in, ufid)->
 		add(&in, &info, sizeof(fsinfo_t));
 
 	ipc_call(info.mount_pid, FS_CMD_CLOSE, &in, NULL);
@@ -61,7 +63,8 @@ void close(int fd) {
 
 int dma(int fd, int* size) {
 	fsinfo_t info;
-	if(vfs_get_by_fd(fd, NULL, &info) != 0)
+	uint32_t ufid = 0;
+	if(vfs_get_by_fd(fd, &ufid, &info) != 0)
 		return -1;
 	
 	proto_t in, out;
@@ -69,6 +72,7 @@ int dma(int fd, int* size) {
 
 	PF->init(&in, NULL, 0)->
 		addi(&in, fd)->
+		addi(&in, ufid)->
 		add(&in, &info, sizeof(fsinfo_t));
 
 	int shm_id = -1;
