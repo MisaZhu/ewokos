@@ -147,8 +147,15 @@ int vfs_get(const char* fname, fsinfo_t* info) {
 	PF->init(&out, NULL, 0);
 	int res = ipc_call(get_vfsd_pid(), VFS_GET_BY_NAME, &in, &out);
 	PF->clear(&in);
-	if(res == 0)
-		proto_read_to(&out, info, sizeof(fsinfo_t));
+	if(res == 0) {
+		res = proto_read_int(&out); //res = node
+		if(res != 0) {
+			proto_read_to(&out, info, sizeof(fsinfo_t));
+			res = 0;
+		}
+		else
+			res = -1;
+	}
 	PF->clear(&out);
 	return res;	
 }
@@ -241,7 +248,9 @@ int vfs_get_mount_by_id(int id, mount_t* mount) {
 	PF->clear(&in);
 
 	if(res == 0) {
-		proto_read_to(&out, mount, sizeof(mount_t));
+		res = proto_read_int(&out);
+		if(res == 0)
+			proto_read_to(&out, mount, sizeof(mount_t));
 	}
 	PF->clear(&out);
 	return res;
@@ -288,8 +297,14 @@ int vfs_get_by_fd(int fd, uint32_t *ufid, fsinfo_t* info) {
 		int uid = proto_read_int(&out);
 		if(ufid != NULL)
 			*ufid = uid;
-		if(info != NULL)
-			proto_read_to(&out, info, sizeof(fsinfo_t));
+
+		if(uid == 0) {
+			res = -1;
+		}
+		else {
+			if(info != NULL)
+				proto_read_to(&out, info, sizeof(fsinfo_t));
+		}
 	}
 	PF->clear(&out);
 	return res;

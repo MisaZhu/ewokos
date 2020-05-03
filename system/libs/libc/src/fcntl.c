@@ -18,7 +18,7 @@ int open(const char* fname, int oflag) {
 			return -1;	
 		}	
 	}
-	
+
 	mount_t mount;
 	if(vfs_get_mount(&info, &mount) != 0)
 		return -1;
