@@ -238,8 +238,10 @@ static void __attribute__((optimize("O0"))) proc_terminate(context_t* ctx, proc_
 	if(proc->state == ZOMBIE || proc->state == UNUSED)
 		return;
 
-	if(proc->type == PROC_TYPE_PROC)
-		kev_push(KEV_PROC_EXIT, NULL);
+	if(proc->type == PROC_TYPE_PROC) {
+		kevent_t* kev = kev_push(KEV_PROC_EXIT, NULL);
+		PF->addi(kev->data, proc->pid);
+	}
 
 	proc_unready(ctx, proc, ZOMBIE);
 	int32_t i;
