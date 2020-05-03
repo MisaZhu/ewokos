@@ -823,7 +823,9 @@ static void do_vfs_proc_clone(int32_t pid, proto_t* in) {
 		file_t *f = &_proc_fds_table[fpid].fds[i];
 		vfs_node_t* node = 	(vfs_node_t*)f->node;
 		if(node != NULL) {
-			memcpy(&_proc_fds_table[cpid].fds[i], f, sizeof(file_t));
+			file_t* file = &_proc_fds_table[cpid].fds[i];
+			memcpy(file, f, sizeof(file_t));
+			file->ufid = _ufid_count++;
 			node->refs++;
 			if(f->wr != 0)
 				node->refs_w++;
