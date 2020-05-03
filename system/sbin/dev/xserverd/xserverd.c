@@ -553,6 +553,7 @@ static int xserver_closed(int fd, int ufid, int from_pid, fsinfo_t* info, void* 
 	(void)info;
 	(void)fd;
 	x_t* x = (x_t*)p;
+kprintf(true, "%d, %d, %d\n", fd, ufid, from_pid);
 	
 	proc_lock(x->lock);
 	xview_t* view = x_get_view(x, ufid, from_pid);
