@@ -235,7 +235,7 @@ int vfs_del(fsinfo_t* info) {
 	PF->clear(&out);
 	return res;
 }
-
+/*
 int vfs_get_mount(fsinfo_t* info, mount_t* mount) {
 	proto_t in, out;
 	PF->init(&in, NULL, 0)->add(&in, info, sizeof(fsinfo_t));
@@ -249,6 +249,7 @@ int vfs_get_mount(fsinfo_t* info, mount_t* mount) {
 	PF->clear(&out);
 	return res;
 }
+*/
 
 int vfs_get_mount_by_id(int id, mount_t* mount) {
 	proto_t in, out;
@@ -396,12 +397,13 @@ int vfs_create(const char* fname, fsinfo_t* ret, int type) {
 		return -1;
 	}
 	
-	mount_t mount;
+	/*mount_t mount;
 	if(vfs_get_mount(&info_to, &mount) != 0) {
 		str_free(dir);
 		str_free(name);
 		return -1;
 	}
+	*/
 
 	memset(ret, 0, sizeof(fsinfo_t));
 	strcpy(ret->name, CS(name));
@@ -425,7 +427,7 @@ int vfs_create(const char* fname, fsinfo_t* ret, int type) {
 		add(&in, ret, sizeof(fsinfo_t));
 
 	int res = -1;
-	if(ipc_call(mount.pid, FS_CMD_CREATE, &in, &out) != 0) {
+	if(ipc_call(info_to.mount_pid, FS_CMD_CREATE, &in, &out) != 0) {
 		vfs_del(ret);
 	}
 	else {

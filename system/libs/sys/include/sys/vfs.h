@@ -20,7 +20,6 @@ int       vfs_tell(int fd);
 int       vfs_seek(int fd, int offset);
 int       vfs_set(fsinfo_t* info);
 int       vfs_block(fsinfo_t* info);
-int       vfs_get_mount(fsinfo_t* info, mount_t* mount);
 int       vfs_get_mount_by_id(int id, mount_t* mount);
 
 fsinfo_t* vfs_kids(fsinfo_t* info, uint32_t* num);

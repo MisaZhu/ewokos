@@ -49,7 +49,7 @@ typedef struct {
 	uint32_t type;
 	uint32_t size;
 	uint32_t owner;
-	int32_t mount_id;
+	int32_t mount_pid;
 
 	uint32_t data;
 } fsinfo_t;

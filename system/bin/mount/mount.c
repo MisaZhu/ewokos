@@ -3,7 +3,7 @@
 #include <stdlib.h>
 #include <sys/syscall.h>
 #include <string.h>
-#include <sys/fsinfo.h>
+#include <sys/vfs.h>
 
 static const char* get_cmd(char* cmd) {
 	char* p = cmd;
@@ -25,7 +25,7 @@ int main(int argc, char* argv[]) {
 	int32_t i;
 	for(i=0; i<FS_MOUNT_MAX; i++) {
 		mount_t mnt;
-		if(vfs_get_mount_by_id(i, (int32_t)&mnt) != 0)
+		if(vfs_get_mount_by_id(i, &mnt) != 0)
 			continue;
 
 		char cmd[128];

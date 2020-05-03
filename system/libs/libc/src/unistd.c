@@ -61,14 +61,18 @@ static int read_pipe(fsinfo_t* info, void* buf, uint32_t size, int block) {
 
 #define SHM_ON 32
 static int read_raw(int fd, fsinfo_t *info, void* buf, uint32_t size) {
-	mount_t mount;
+	/*mount_t mount;
 	if(vfs_get_mount(info, &mount) != 0)
 		return -1;
+		*/
 
-	int offset = vfs_tell(fd);
-	if(offset < 0)
-		offset = 0;
-	
+	int offset = 0;
+	if(info->type == FS_TYPE_FILE) {
+		offset = vfs_tell(fd);
+		if(offset < 0)
+			offset = 0;
+	}
+
 	int32_t shm_id = -1;
 	void* shm = NULL;
 	if(size >= SHM_ON) {
@@ -87,7 +91,7 @@ static int read_raw(int fd, fsinfo_t *info, void* buf, uint32_t size) {
 	PF->init(&in, NULL, 0)->addi(&in, fd)->add(&in, info, sizeof(fsinfo_t))->addi(&in, size)->addi(&in, offset)->addi(&in, shm_id);
 
 	int res = -1;
-	if(ipc_call(mount.pid, FS_CMD_READ, &in, &out) == 0) {
+	if(ipc_call(info->mount_pid, FS_CMD_READ, &in, &out) == 0) {
 		int rd = proto_read_int(&out);
 		res = rd;
 		if(rd > 0) {
@@ -96,7 +100,8 @@ static int read_raw(int fd, fsinfo_t *info, void* buf, uint32_t size) {
 			else
 				proto_read_to(&out, buf, size);
 			offset += rd;
-			vfs_seek(fd, offset);
+			if(info->type == FS_TYPE_FILE)
+				vfs_seek(fd, offset);
 		}
 		if(res == ERR_RETRY) {
 			errno = EAGAIN;
@@ -134,6 +139,7 @@ int read(int fd, void* buf, uint32_t size) {
 				break;
 			if(errno != EAGAIN)
 				break;
+			sleep(0);
 		}
 		return res;
 	}
@@ -144,6 +150,7 @@ int read(int fd, void* buf, uint32_t size) {
 			break;
 		if(errno != EAGAIN)
 			break;
+		sleep(0);
 	}
 	return res;
 }
@@ -200,13 +207,17 @@ int write_raw(int fd, fsinfo_t* info, const void* buf, uint32_t size) {
 	if(info->type == FS_TYPE_DIR) 
 		return -1;
 
-	mount_t mount;
+	/*mount_t mount;
 	if(vfs_get_mount(info, &mount) != 0)
 		return -1;
+		*/
 
-	int offset = vfs_tell(fd);
-	if(offset < 0)
-		offset = 0;
+	int offset = 0;
+	if(info->type == FS_TYPE_FILE) {
+		offset = vfs_tell(fd);
+		if(offset < 0)
+			offset = 0;
+	}
 		
 	int32_t shm_id = -1;
 	void* shm = NULL;
@@ -235,12 +246,13 @@ int write_raw(int fd, fsinfo_t* info, const void* buf, uint32_t size) {
 		PF->addi(&in, size);
 
 	int res = -1;
-	if(ipc_call(mount.pid, FS_CMD_WRITE, &in, &out) == 0) {
+	if(ipc_call(info->mount_pid, FS_CMD_WRITE, &in, &out) == 0) {
 		int r = proto_read_int(&out);
 		res = r;
 		if(r > 0) {
 			offset += r;
-			vfs_seek(fd, offset);
+			if(info->type == FS_TYPE_FILE)
+				vfs_seek(fd, offset);
 		}
 		if(res == -2) {
 			errno = EAGAIN;
@@ -278,6 +290,7 @@ int write(int fd, const void* buf, uint32_t size) {
 				break;
 			if(errno != EAGAIN)
 				break;
+			sleep(0);
 		}
 		return res;
 	}
@@ -288,6 +301,7 @@ int write(int fd, const void* buf, uint32_t size) {
 			break;
 		if(errno != EAGAIN)
 			break;
+		sleep(0);
 	}
 	return res;
 }
@@ -382,9 +396,10 @@ int unlink(const char* fname) {
 	if(info.type != FS_TYPE_FILE) 
 		return -1;
 	
-	mount_t mount;
+	/*mount_t mount;
 	if(vfs_get_mount(&info, &mount) != 0)
 		return -1;
+		*/
 	
 	proto_t in, out;
 	PF->init(&out, NULL, 0);
@@ -393,7 +408,7 @@ int unlink(const char* fname) {
 		add(&in, &info, sizeof(fsinfo_t))->
 		adds(&in, fname);
 
-	ipc_call(mount.pid, FS_CMD_UNLINK, &in, &out);
+	ipc_call(info.mount_pid, FS_CMD_UNLINK, &in, &out);
 	PF->clear(&in);
 	int res = proto_read_int(&out);
 	PF->clear(&out);
