@@ -349,7 +349,7 @@ static int32_t get_free_fd(int32_t pid) {
 	return -1;
 }
 
-static int32_t vfs_open(int32_t pid, vfs_node_t* node, int32_t wr) {
+static int32_t vfs_open(int32_t pid, vfs_node_t* node, int32_t wr, uint32_t *ufid) {
 	if(node == NULL || check_mount(pid, node) != 0)
 		return -1;
 
@@ -360,6 +360,8 @@ static int32_t vfs_open(int32_t pid, vfs_node_t* node, int32_t wr) {
 	_proc_fds_table[pid].fds[fd].node = node;
 	_proc_fds_table[pid].fds[fd].wr = wr;
 	_proc_fds_table[pid].fds[fd].ufid = _ufid_count++;
+	if(ufid != NULL)
+		*ufid = _proc_fds_table[pid].fds[fd].ufid;
 
 	node->refs++;
 	if(wr != 0)
@@ -574,9 +576,10 @@ static void do_vfs_open(int32_t pid, proto_t* in, proto_t* out) {
  	if(node == NULL)
 		return;
 
-	int res = vfs_open(pid, node, wr);
+	uint32_t ufid = 0;
+	int res = vfs_open(pid, node, wr, &ufid);
 	PF->clear(out);
-	PF->addi(out, res);
+	PF->addi(out, res)->addi(out, ufid);
 }
 
 static void do_vfs_close(int32_t pid, proto_t* in) {
@@ -728,13 +731,13 @@ static void do_vfs_pipe_open(int32_t pid, proto_t* out) {
 	}
   node->fsinfo.type = FS_TYPE_PIPE;
 
-  int32_t fd0 = vfs_open(pid, node, 1);
+  int32_t fd0 = vfs_open(pid, node, 1, NULL);
   if(fd0 < 0) {
     free(node);
 		return;
   }
 
-  int32_t fd1 = vfs_open(pid, node, 1);
+  int32_t fd1 = vfs_open(pid, node, 1, NULL);
   if(fd1 < 0) {
     vfs_close(pid, fd0);
     free(node);

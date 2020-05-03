@@ -363,9 +363,10 @@ static int lcd_write(int fd, int from_pid, fsinfo_t* info,
 	return size;
 }
 
-static int lcd_fcntl(int fd, int from_pid, fsinfo_t* info, 
+static int lcd_fcntl(int fd, int ufid, int from_pid, fsinfo_t* info, 
 		int cmd, proto_t* in, proto_t* out, void* p) {
 	(void)fd;
+	(void)ufid;
 	(void)from_pid;
 	(void)info;
 	(void)in;

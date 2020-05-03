@@ -45,15 +45,18 @@ const char* vfs_fullname(const char* fname) {
 	return ret;
 }
 
-int vfs_open(fsinfo_t* info, int oflag) {
+int vfs_open(fsinfo_t* info, int oflag, uint32_t* ufid) {
 	proto_t in, out;
 	PF->init(&in, NULL, 0)->add(&in, info, sizeof(fsinfo_t))->addi(&in, oflag);
 	PF->init(&out, NULL, 0);
 
 	int res = ipc_call(get_vfsd_pid(), VFS_OPEN, &in, &out);
 	PF->clear(&in);
-	if(res == 0)
+	if(res == 0) {
 		res = proto_read_int(&out);
+		if(ufid != NULL)
+			*ufid = proto_read_int(&out);
+	}
 	PF->clear(&out);
 	return res;	
 }

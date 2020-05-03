@@ -16,12 +16,13 @@ static void do_open(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, voi
 	fsinfo_t info;
 	int oflag;
 	int fd = proto_read_int(in);
+	int ufid = proto_read_int(in);
 	proto_read_to(in, &info, sizeof(fsinfo_t));
 	oflag = proto_read_int(in);
 	
 	int res = 0;
 	if(fd >= 0 && dev != NULL && dev->open != NULL) {
-		if(dev->open(fd, from_pid, &info, oflag, p) != 0) {
+		if(dev->open(fd, ufid, from_pid, &info, oflag, p) != 0) {
 			res = -1;
 		}
 	}
@@ -189,7 +190,8 @@ static void do_dma(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, void
 static void do_fcntl(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, void* p) {
 	fsinfo_t info;
 	int fd = proto_read_int(in);
-	memcpy(&info, proto_read(in, NULL), sizeof(fsinfo_t));
+	uint32_t ufid = (uint32_t)proto_read_int(in);
+	proto_read_to(in, &info, sizeof(fsinfo_t));
 	int32_t cmd = proto_read_int(in);
 
 	proto_t arg_in, arg_out;
@@ -201,7 +203,7 @@ static void do_fcntl(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, vo
 
 	int res = -1;
 	if(dev != NULL && dev->fcntl != NULL) {
-		res = dev->fcntl(fd, from_pid, &info, cmd, &arg_in, &arg_out, p);
+		res = dev->fcntl(fd, ufid, from_pid, &info, cmd, &arg_in, &arg_out, p);
 	}
 	PF->clear(&arg_in);
 

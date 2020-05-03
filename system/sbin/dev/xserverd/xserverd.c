@@ -496,11 +496,11 @@ static int x_workspace(x_t* x, proto_t* in, proto_t* out) {
 	return 0;
 }
 
-static int xserver_fcntl(int fd, int from_pid, fsinfo_t* info,
+static int xserver_fcntl(int fd, int ufid, int from_pid, fsinfo_t* info,
 		int cmd, proto_t* in, proto_t* out, void* p) {
+	(void)fd;
 	(void)info;
 	x_t* x = (x_t*)p;
-	uint32_t ufid = vfs_get_by_fd(fd, NULL, NULL);
 
 	if(cmd == X_CNTL_UPDATE) {
 		return x_update(ufid, from_pid, x);
@@ -530,11 +530,10 @@ static int xserver_fcntl(int fd, int from_pid, fsinfo_t* info,
 	return 0;
 }
 
-static int xserver_open(int fd, int from_pid, fsinfo_t* info, int oflag, void* p) {
+static int xserver_open(int fd, int ufid, int from_pid, fsinfo_t* info, int oflag, void* p) {
 	(void)oflag;
 	(void)info;
 	(void)fd;
-	uint32_t ufid = vfs_get_by_fd(fd, NULL, NULL);
 	if(fd < 0 || ufid == 0)
 		return -1;
 
@@ -553,7 +552,6 @@ static int xserver_closed(int fd, int ufid, int from_pid, fsinfo_t* info, void* 
 	(void)info;
 	(void)fd;
 	x_t* x = (x_t*)p;
-kprintf(true, "%d, %d, %d\n", fd, ufid, from_pid);
 	
 	proc_lock(x->lock);
 	xview_t* view = x_get_view(x, ufid, from_pid);

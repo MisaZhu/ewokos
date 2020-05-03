@@ -19,7 +19,8 @@ int open(const char* fname, int oflag) {
 		}	
 	}
 
-	fd = vfs_open(&info, oflag);
+	uint32_t ufid = 0;
+	fd = vfs_open(&info, oflag, &ufid);
 	if(fd < 0)
 		return -1;
 	
@@ -28,6 +29,7 @@ int open(const char* fname, int oflag) {
 
 	PF->init(&in, NULL, 0)->
 		addi(&in, fd)->
+		addi(&in, ufid)->
 		add(&in, &info, sizeof(fsinfo_t))->
 		addi(&in, oflag);
 
@@ -98,7 +100,8 @@ void flush(int fd) {
 
 int fcntl_raw(int fd, int cmd, proto_t* arg_in, proto_t* arg_out) {
 	fsinfo_t info;
-	if(vfs_get_by_fd(fd, NULL, &info) != 0)
+	uint32_t ufid;
+	if(vfs_get_by_fd(fd, &ufid, &info) != 0)
 		return -1;
 	
 	proto_t in, out;
@@ -106,6 +109,7 @@ int fcntl_raw(int fd, int cmd, proto_t* arg_in, proto_t* arg_out) {
 
 	PF->init(&in, NULL, 0)->
 		addi(&in, fd)->
+		addi(&in, ufid)->
 		add(&in, &info, sizeof(fsinfo_t))->
 		addi(&in, cmd);
 	if(arg_in == NULL)

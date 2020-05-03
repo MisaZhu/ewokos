@@ -47,6 +47,7 @@ static int fb_write(int fd,
 }	
 
 static int fb_fcntl(int fd, 
+		int ufid,
 		int from_pid,
 		fsinfo_t* info, 
 		int cmd, 
@@ -55,6 +56,7 @@ static int fb_fcntl(int fd,
 		void* p) {
 
 	(void)fd;
+	(void)ufid;
 	(void)from_pid;
 	(void)info;
 	(void)in;
