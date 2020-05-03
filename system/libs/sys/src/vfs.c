@@ -66,7 +66,9 @@ int vfs_read_pipe(fsinfo_t* info, void* buf, uint32_t size, int block) {
 	int res = ipc_call(get_vfsd_pid(), VFS_PIPE_READ, &in, &out);
 	PF->clear(&in);
 	if(res == 0) {
-		res = proto_read_to(&out, buf, size);
+		res = proto_read_int(&out);
+		if(res > 0)
+			res = proto_read_to(&out, buf, size);
 	}
 	PF->clear(&out);
 	return res;	

@@ -5,6 +5,7 @@
 #include <string.h>
 #include <mstr.h>
 #include <sys/syscall.h>
+#include <sys/vfs.h>
 #include <fcntl.h>
 
 static void outc(char c, void* p) {

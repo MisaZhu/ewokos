@@ -372,7 +372,7 @@ static vfs_node_t* vfs_get_by_fd(int32_t pid, int32_t fd, uint32_t* ufid) {
 	return file->node;
 }
 
-static void proc_file_close(int fd, file_t* file) {
+static void proc_file_close(int fd, file_t* file, bool close_dev) {
 	if(file == NULL)
 		return;
 
@@ -399,6 +399,9 @@ static void proc_file_close(int fd, file_t* file) {
 		}
 	}
 
+	if(!close_dev)
+		return;
+
 	int32_t to_pid = get_mount_pid(node);
 	if(to_pid < 0)
 		return;
@@ -408,7 +411,7 @@ static void proc_file_close(int fd, file_t* file) {
 			addi(&in, fd)->
 			add(&in, &node->fsinfo, sizeof(fsinfo_t));
 
-	//ipc_call(to_pid, FS_CMD_CLOSE, &in, NULL);
+	ipc_call(to_pid, FS_CMD_CLOSE, &in, NULL);
 	PF->clear(&in);
 }
 
@@ -417,7 +420,7 @@ static void vfs_close(int32_t pid, int32_t fd) {
 		return;
 
 	file_t* file = vfs_get_file(pid, fd);
-	proc_file_close(fd, file);
+	proc_file_close(fd, file, false);
 }
 
 static int32_t vfs_dup(int32_t pid, int32_t from) {
@@ -791,7 +794,6 @@ static void do_vfs_pipe_read(proto_t* in, proto_t* out) {
 	}
 	void* data = malloc(size);
 	size = buffer_read(buffer, data, size);
-kprintf(true, "readP: %d\n", size);
 	if(size > 0) {
 		PF->clear(out)->addi(out, size)->add(out, data, size);
 		return;
@@ -834,12 +836,13 @@ static void do_vfs_proc_exit(int32_t pid, proto_t* in) {
 	int32_t i;
 	for(i=0; i<PROC_FILE_MAX; i++) {
 		file_t *f = &_proc_fds_table[cpid].fds[i];
-		proc_file_close(i, f);
+		proc_file_close(i, f, true);
 	}
 }
 
 static void handle(int pid, int cmd, proto_t* in, proto_t* out, void* p) {
 	(void)p;
+//kprintf(true, "pid: %d, cmd: %d\n", pid, cmd);
 
 	switch(cmd) {
 	case VFS_NEW_NODE:
@@ -925,7 +928,7 @@ int main(int argc, char** argv) {
 
 	kserv_run(handle, NULL, false);
 	while(true) {
-		sleep(1);
+		//sleep(1);
 	}
 	return 0;
 }

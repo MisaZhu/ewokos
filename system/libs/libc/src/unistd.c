@@ -49,7 +49,6 @@ unsigned int sleep(unsigned int seconds) {
 
 static int read_pipe(fsinfo_t* info, void* buf, uint32_t size, int block) {
 	int res = vfs_read_pipe(info, buf, size, block);
-kprintf(true, "pipe: read %d\n", res);
 	if(res == 0) { // pipe empty, do retry
 		errno = EAGAIN;
 		return -1;
