@@ -502,7 +502,6 @@ static fsinfo_t* vfs_get_kids(vfs_node_t* father, uint32_t* num) {
 	vfs_node_t* node = father->first_kid;
 	while(node != NULL && i<n) {
 		memcpy(&ret[i], &node->fsinfo, sizeof(fsinfo_t));
-		kprintf(false, ":%s\n", ret[i].name);
 		node = node->next;
 		i++;
 	}

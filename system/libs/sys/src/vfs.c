@@ -175,8 +175,11 @@ fsinfo_t* vfs_kids(fsinfo_t* info, uint32_t *num) {
 	fsinfo_t* ret = NULL;
 	if(res == 0) {
 		uint32_t n = proto_read_int(&out);
-		ret = proto_read(&out, NULL);
 		*num = n;
+		if(n > 0) {
+			ret = (fsinfo_t*)malloc(n * sizeof(fsinfo_t));
+			proto_read_to(&out, ret, n * sizeof(fsinfo_t));
+		}
 	}
 	PF->clear(&out);
 	return ret;
