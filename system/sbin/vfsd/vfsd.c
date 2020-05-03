@@ -363,7 +363,6 @@ static int32_t vfs_open(int32_t pid, vfs_node_t* node, int32_t wr) {
 }
 
 static vfs_node_t* vfs_get_by_fd(int32_t pid, int32_t fd, uint32_t* ufid) {
-//kprintf(true, "fd:%d\n", fd);
 	file_t* file = vfs_get_file(pid, fd);
 	if(file == NULL)
 		return NULL;
@@ -373,7 +372,7 @@ static vfs_node_t* vfs_get_by_fd(int32_t pid, int32_t fd, uint32_t* ufid) {
 	return file->node;
 }
 
-static void proc_file_close(file_t* file) {
+static void proc_file_close(int fd, file_t* file) {
 	if(file == NULL)
 		return;
 
@@ -400,18 +399,17 @@ static void proc_file_close(file_t* file) {
 		}
 	}
 
-	/*int32_t to_pid = get_mount_pid(node);
+	int32_t to_pid = get_mount_pid(node);
 	if(to_pid < 0)
 		return;
 
-	kevent_t* kev = kev_push(KEV_FCLOSED, NULL);
+	proto_t in;
+	PF->init(&in, NULL, 0)->
+			addi(&in, fd)->
+			add(&in, &node->fsinfo, sizeof(fsinfo_t));
 
-	addi(kev->data, to_pid);
-	addi(kev->data, proc->pid);
-	addi(kev->data, fd);
-	addi(kev->data, ufid);
-	add(kev->data, &node->fsinfo, sizeof(fsinfo_t));
-	*/
+	//ipc_call(to_pid, FS_CMD_CLOSE, &in, NULL);
+	PF->clear(&in);
 }
 
 static void vfs_close(int32_t pid, int32_t fd) {
@@ -419,7 +417,7 @@ static void vfs_close(int32_t pid, int32_t fd) {
 		return;
 
 	file_t* file = vfs_get_file(pid, fd);
-	proc_file_close(file);
+	proc_file_close(fd, file);
 }
 
 static int32_t vfs_dup(int32_t pid, int32_t from) {
@@ -552,7 +550,6 @@ static void do_vfs_open(int32_t pid, proto_t* in, proto_t* out) {
 
 	if(proto_read_to(in, &info, sizeof(fsinfo_t)) != sizeof(fsinfo_t))
 		return;
-//kprintf(true, "open: %s\n", info.name);
 	int32_t wr = proto_read_int(in);
  	vfs_node_t* node = (vfs_node_t*)info.node;
  	if(node == NULL)
@@ -697,15 +694,12 @@ static void do_vfs_umount(int32_t pid, proto_t* in) {
 
 static void do_vfs_get_mount(proto_t* in, proto_t* out) {
 	fsinfo_t info;
-//kprintf(true, "m1\n");
 	if(proto_read_to(in, &info, sizeof(fsinfo_t)) != sizeof(fsinfo_t))
 		return;
 
-//kprintf(true, "m2: %d, %s\n", info.type, info.name);
   vfs_node_t* node = (vfs_node_t*)info.node;
   if(node == NULL)
     return;
-//kprintf(true, "m: %s\n", node->fsinfo.name);
 	mount_t mount;
 	if(vfs_get_mount(node, &mount) != 0)
 		return;
@@ -745,7 +739,6 @@ static void do_vfs_pipe_open(int32_t pid, proto_t* out) {
   buffer_t* buf = (buffer_t*)malloc(sizeof(buffer_t));
   memset(buf, 0, sizeof(buffer_t));
   node->fsinfo.data = (int32_t)buf;
-
 	PF->clear(out)->addi(out, 0)->addi(out, fd0)->addi(out, fd1);
 }
 
@@ -798,6 +791,7 @@ static void do_vfs_pipe_read(proto_t* in, proto_t* out) {
 	}
 	void* data = malloc(size);
 	size = buffer_read(buffer, data, size);
+kprintf(true, "readP: %d\n", size);
 	if(size > 0) {
 		PF->clear(out)->addi(out, size)->add(out, data, size);
 		return;
@@ -840,13 +834,12 @@ static void do_vfs_proc_exit(int32_t pid, proto_t* in) {
 	int32_t i;
 	for(i=0; i<PROC_FILE_MAX; i++) {
 		file_t *f = &_proc_fds_table[cpid].fds[i];
-		proc_file_close(f);
+		proc_file_close(i, f);
 	}
 }
 
 static void handle(int pid, int cmd, proto_t* in, proto_t* out, void* p) {
 	(void)p;
-	//kprintf(true, "pid: %d, cmd : %d\n", pid, cmd);
 
 	switch(cmd) {
 	case VFS_NEW_NODE:

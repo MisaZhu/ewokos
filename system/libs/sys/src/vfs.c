@@ -60,7 +60,7 @@ int vfs_open(fsinfo_t* info, int oflag) {
 
 int vfs_read_pipe(fsinfo_t* info, void* buf, uint32_t size, int block) {
 	proto_t in, out;
-	PF->init(&in, NULL, 0)->add(&in, &info, sizeof(fsinfo_t))->addi(&in, size)->addi(&in, block);
+	PF->init(&in, NULL, 0)->add(&in, info, sizeof(fsinfo_t))->addi(&in, size)->addi(&in, block);
 	PF->init(&out, NULL, 0);
 
 	int res = ipc_call(get_vfsd_pid(), VFS_PIPE_READ, &in, &out);
@@ -74,7 +74,7 @@ int vfs_read_pipe(fsinfo_t* info, void* buf, uint32_t size, int block) {
 
 int vfs_write_pipe(fsinfo_t* info, const void* buf, uint32_t size, int block) {
 	proto_t in, out;
-	PF->init(&in, NULL, 0)->add(&in, &info, sizeof(fsinfo_t))->add(&in, buf, size)->addi(&in, block);
+	PF->init(&in, NULL, 0)->add(&in, info, sizeof(fsinfo_t))->add(&in, buf, size)->addi(&in, block);
 	PF->init(&out, NULL, 0);
 
 	int res = ipc_call(get_vfsd_pid(), VFS_PIPE_WRITE, &in, &out);
@@ -133,8 +133,13 @@ int vfs_open_pipe(int fd[2]) {
 	PF->init(&out, NULL, 0);
 	int res = ipc_call(get_vfsd_pid(), VFS_PIPE_OPEN, NULL, &out);
 	if(res == 0) {
-		fd[0] = proto_read_int(&out);
-		fd[1] = proto_read_int(&out);
+		if(proto_read_int(&out) == 0) {
+			fd[0] = proto_read_int(&out);
+			fd[1] = proto_read_int(&out);
+		}
+		else {
+			res = -1;
+		}
 	}
 	PF->clear(&out);
 	return res;
