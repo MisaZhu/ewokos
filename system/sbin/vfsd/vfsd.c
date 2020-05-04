@@ -422,7 +422,7 @@ static void proc_file_close(int pid, int fd, file_t* file, bool close_dev) {
 			addi(&in, ufid)->
 			addi(&in, pid)->
 			add(&in, &node->fsinfo, sizeof(fsinfo_t));
-	ipc_call(to_pid, FS_CMD_CLOSED, &in, NULL);
+	ipc_call(to_pid, FS_CMD_CLOSE, &in, NULL);
 	PF->clear(&in);
 }
 
@@ -851,7 +851,7 @@ static void do_vfs_proc_exit(int32_t pid, proto_t* in) {
 	int32_t i;
 	for(i=0; i<PROC_FILE_MAX; i++) {
 		file_t *f = &_proc_fds_table[cpid].fds[i];
-		proc_file_close(pid, i, f, true);
+		proc_file_close(cpid, i, f, true);
 		memset(f, 0, sizeof(file_t));
 	}
 }

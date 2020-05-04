@@ -34,24 +34,11 @@ static void do_close(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, vo
 	fsinfo_t info;
 	int fd = proto_read_int(in);
 	int ufid = proto_read_int(in);
+	from_pid = proto_read_int(in);
 	proto_read_to(in, &info, sizeof(fsinfo_t));
 
 	if(dev != NULL && dev->close != NULL) {
 		dev->close(fd, ufid, from_pid, &info, p);
-	}
-}
-
-static void do_closed(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, void* p) {
-	(void)out;
-	if(from_pid > MAX_TRUST_PID) //untrusted user
-		return;
-	fsinfo_t info;
-	int fd = proto_read_int(in);
-	int fuid = proto_read_int(in);
-	from_pid = proto_read_int(in);
-	proto_read_to(in, &info, sizeof(fsinfo_t));
-	if(dev != NULL && dev->closed != NULL) {
-		dev->closed(fd, fuid, from_pid, &info, p);
 	}
 }
 
@@ -287,9 +274,6 @@ static void handle(int from_pid, int cmd, proto_t* in, proto_t* out, void* p) {
 		break;
 	case FS_CMD_CLOSE:
 		do_close(dev, from_pid, in, out, p);
-		break;
-	case FS_CMD_CLOSED:
-		do_closed(dev, from_pid, in, out, p);
 		break;
 	case FS_CMD_READ:
 		do_read(dev, from_pid, in, out, p);

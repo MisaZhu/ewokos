@@ -12,7 +12,6 @@ typedef struct {
 	int (*open)(int fd, int ufid, int from_pid, fsinfo_t* info, int oflag, void* p);
 	int (*create)(fsinfo_t* info_to, fsinfo_t* info, void* p);
 	int (*close)(int fd, int ufid, int from_pid, fsinfo_t* info, void* p);
-	int (*closed)(int fd, int ufid, int from_pid, fsinfo_t* info, void* p);
 	int (*read)(int fd, int ufid, int from_pid, fsinfo_t* info, void* buf, int size, int offset, void* p);
 	int (*write)(int fd, int ufid, int from_pid, fsinfo_t* info, const void* buf, int size, int offset, void* p);
 	int (*read_block)(int from_pid, void* buf, int size, int index, void* p);
