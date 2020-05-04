@@ -851,7 +851,7 @@ static void do_vfs_proc_exit(int32_t pid, proto_t* in) {
 	int32_t i;
 	for(i=0; i<PROC_FILE_MAX; i++) {
 		file_t *f = &_proc_fds_table[cpid].fds[i];
-		proc_file_close(cpid, i, f, true);
+		proc_file_close(cpid, i, f, false);
 		memset(f, 0, sizeof(file_t));
 	}
 }

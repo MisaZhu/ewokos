@@ -356,7 +356,6 @@ static int x_update(int ufid, int from_pid, x_t* x) {
 	if(view == NULL)
 		return -1;
 
-kprintf(true, "xupdate\n");
 	proc_lock(x->lock);
 	view->dirty = true;
 	if(view != x->view_tail ||
@@ -365,7 +364,6 @@ kprintf(true, "xupdate\n");
 	}
 	x->need_repaint = true;
 	proc_unlock(x->lock);
-kprintf(true, "xupdate 1\n");
 	return 0;
 }
 
@@ -544,14 +542,12 @@ static int xserver_open(int fd, int ufid, int from_pid, fsinfo_t* info, int ofla
 	if(view == NULL)
 		return -1;
 
-kprintf(true, "xopen\n");
 	proc_lock(x->lock);
 	memset(view, 0, sizeof(xview_t));
 	view->ufid = ufid;
 	view->from_pid = from_pid;
 	push_view(x, view);
 	proc_unlock(x->lock);
-kprintf(true, "xopen 1\n");
 	return 0;
 }
 
@@ -559,17 +555,14 @@ static int xserver_close(int fd, int ufid, int from_pid, fsinfo_t* info, void* p
 	(void)info;
 	(void)fd;
 	x_t* x = (x_t*)p;
-kprintf(true, "close\n");
 	proc_lock(x->lock);
 	xview_t* view = x_get_view(x, ufid, from_pid);
 	if(view == NULL) {
 		proc_unlock(x->lock);
-kprintf(true, "close 2\n");
 		return -1;
 	}
 	x_del_view(x, view);	
 	proc_unlock(x->lock);
-kprintf(true, "close 1\n");
 	return 0;
 }
 
@@ -952,11 +945,9 @@ static int xserver_loop_step(void* p) {
 
 	read_input(x);
 
-kprintf(true, "step\n");
 	proc_lock(x->lock);
 	x_repaint(x);	
 	proc_unlock(x->lock);
-kprintf(true, "step 1\n");
 	return 0;
 }
 
