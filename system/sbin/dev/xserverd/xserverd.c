@@ -555,12 +555,11 @@ static int xserver_close(int fd, int ufid, int from_pid, fsinfo_t* info, void* p
 	(void)info;
 	(void)fd;
 	x_t* x = (x_t*)p;
-	proc_lock(x->lock);
 	xview_t* view = x_get_view(x, ufid, from_pid);
 	if(view == NULL) {
-		proc_unlock(x->lock);
 		return -1;
 	}
+	proc_lock(x->lock);
 	x_del_view(x, view);	
 	proc_unlock(x->lock);
 	return 0;

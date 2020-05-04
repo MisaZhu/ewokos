@@ -386,17 +386,12 @@ static void proc_file_close(int pid, int fd, file_t* file, bool close_dev) {
 	vfs_node_t* node = (vfs_node_t*)file->node;
 	if(node == NULL)
 		return;
-	
 	uint32_t ufid = file->ufid;
 
 	if(node->refs > 0)
 		node->refs--;
 	if(file->wr != 0 && node->refs_w > 0)
 		node->refs_w--;
-
-	//uint32_t ufid = file->ufid;
-
-	memset(file, 0, sizeof(file_t));
 
 	if(node->fsinfo.type == FS_TYPE_PIPE) {
 		buffer_t* buffer = (buffer_t*)node->fsinfo.data;
@@ -851,7 +846,9 @@ static void do_vfs_proc_exit(int32_t pid, proto_t* in) {
 	int32_t i;
 	for(i=0; i<PROC_FILE_MAX; i++) {
 		file_t *f = &_proc_fds_table[cpid].fds[i];
-		proc_file_close(cpid, i, f, false);
+		if(f->node != NULL) {
+			proc_file_close(cpid, i, f, true);
+		}
 		memset(f, 0, sizeof(file_t));
 	}
 }

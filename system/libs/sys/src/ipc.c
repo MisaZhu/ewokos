@@ -30,8 +30,9 @@ int ipc_call(int to_pid, int call_id, const proto_t* ipkg, proto_t* opkg) {
 		int res = syscall3(SYS_IPC_CALL, (int32_t)to_pid, (int32_t)call_id, (int32_t)ipkg);
 		if(res == 0)
 			break;
-		if(res == -2)
+		if(res == -2) {
 			return -1;
+		}
 		sleep(0); //retry	
 	}
 
