@@ -404,6 +404,7 @@ static void proc_file_close(int pid, int fd, file_t* file, bool close_dev) {
 		if(node->refs <= 0) {
 			free(buffer);
 			free(node);
+			node->fsinfo.data = 0;
 			return;
 		}
 	}
@@ -730,6 +731,7 @@ static void do_vfs_pipe_open(int32_t pid, proto_t* out) {
     return;
 	}
   node->fsinfo.type = FS_TYPE_PIPE;
+  node->fsinfo.data = 0; //buffer set as zero , waiting for other-port
 
   int32_t fd0 = vfs_open(pid, node, 1, NULL);
   if(fd0 < 0) {
@@ -744,9 +746,6 @@ static void do_vfs_pipe_open(int32_t pid, proto_t* out) {
 		return;
   }
 
-  buffer_t* buf = (buffer_t*)malloc(sizeof(buffer_t));
-  memset(buf, 0, sizeof(buffer_t));
-  node->fsinfo.data = (int32_t)buf;
 	PF->clear(out)->addi(out, 0)->addi(out, fd0)->addi(out, fd1);
 }
 
@@ -757,14 +756,15 @@ static void do_vfs_pipe_write(proto_t* in, proto_t* out) {
 		return;
 	}
 
-	buffer_t* buffer = (buffer_t*)info.data;
-	if(buffer == NULL) {
-		return;
-	}
-
 	int32_t size = 0;
 	void *data = proto_read(in, &size);
 	if(data == NULL) {
+		return;
+	}
+
+	buffer_t* buffer = (buffer_t*)info.data;
+	if(buffer == NULL) {
+		PF->clear(out)->addi(out, 0); // pipe still waiting for other-port, retry
 		return;
 	}
 
@@ -795,8 +795,10 @@ static void do_vfs_pipe_read(proto_t* in, proto_t* out) {
 
 	buffer_t* buffer = (buffer_t*)info.data;
 	if(buffer == NULL) {
+		PF->clear(out)->addi(out, 0); // pipe still waiting for other-port, retry
 		return;
 	}
+
 	void* data = malloc(size);
 	size = buffer_read(buffer, data, size);
 	if(size > 0) {
@@ -829,6 +831,12 @@ static void do_vfs_proc_clone(int32_t pid, proto_t* in) {
 			node->refs++;
 			if(f->wr != 0)
 				node->refs_w++;
+
+			if(node->fsinfo.type == FS_TYPE_PIPE) {
+				buffer_t* buf = (buffer_t*)malloc(sizeof(buffer_t));
+				memset(buf, 0, sizeof(buffer_t));
+				node->fsinfo.data = (int32_t)buf;
+			}
 		}
 	}
 	syscall1(SYS_PROC_READY, cpid);
