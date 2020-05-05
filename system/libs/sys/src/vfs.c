@@ -324,6 +324,23 @@ int vfs_get_by_fd(int fd, uint32_t *ufid, fsinfo_t* info) {
 	return res;
 }
 
+int vfs_check_fd(int pid, int fd) {
+	proto_t in, out;
+	PF->init(&in, NULL, 0)->addi(&in, fd)->addi(&in, pid);
+	PF->init(&out, NULL, 0);
+	int res = ipc_call(get_vfsd_pid(), VFS_CHECK_FD, &in, &out);
+	PF->clear(&in);
+
+	if(res == 0) {
+		res = proto_read_int(&out);
+	}
+	else {
+		res = 0;
+	}
+	PF->clear(&out);
+	return res;
+}
+
 int vfs_tell(int fd) {
 	proto_t in, out;
 	PF->init(&in, NULL, 0)->addi(&in, fd);

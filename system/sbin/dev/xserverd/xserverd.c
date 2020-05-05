@@ -25,8 +25,9 @@ typedef struct st_xview_ev {
 } xview_event_t;
 
 typedef struct st_xview {
-	int ufid;
+	int fd;
 	int from_pid;
+	uint32_t ufid;
 	graph_t* g;
 	xinfo_t xinfo;
 	bool dirty;
@@ -341,7 +342,7 @@ static void x_repaint(x_t* x) {
 static xview_t* x_get_view(x_t* x, int ufid, int from_pid) {
 	xview_t* view = x->view_head;
 	while(view != NULL) {
-		if(view->ufid == ufid && view->from_pid == from_pid)
+		if(view->ufid == (uint32_t)ufid && view->from_pid == from_pid)
 			return view;
 		view = view->next;
 	}
@@ -533,7 +534,6 @@ static int xserver_fcntl(int fd, int ufid, int from_pid, fsinfo_t* info,
 static int xserver_open(int fd, int ufid, int from_pid, fsinfo_t* info, int oflag, void* p) {
 	(void)oflag;
 	(void)info;
-	(void)fd;
 	if(fd < 0 || ufid == 0)
 		return -1;
 
@@ -544,6 +544,7 @@ static int xserver_open(int fd, int ufid, int from_pid, fsinfo_t* info, int ofla
 
 	proc_lock(x->lock);
 	memset(view, 0, sizeof(xview_t));
+	view->fd = fd;
 	view->ufid = ufid;
 	view->from_pid = from_pid;
 	push_view(x, view);
@@ -563,6 +564,19 @@ static int xserver_close(int fd, int ufid, int from_pid, fsinfo_t* info, void* p
 	x_del_view(x, view);	
 	proc_unlock(x->lock);
 	return 0;
+}
+
+static void x_check_views(x_t* x) {
+	xview_t* view = x->view_head;
+	proc_lock(x->lock);
+	while(view != NULL) {
+		xview_t* next = view->next;
+		uint32_t ufid = vfs_check_fd(view->from_pid, view->fd);
+		if(ufid == 0 || ufid != view->ufid)
+			x_del_view(x, view);
+		view = next;
+	}
+	proc_unlock(x->lock);
 }
 
 static int x_init(x_t* x) {
@@ -938,6 +952,8 @@ static void read_input(x_t* x) {
 
 static int xserver_loop_step(void* p) {
 	x_t* x = (x_t*)p;
+	x_check_views(x);
+
 	if(!x->actived)  {
 		return -1;
 	}

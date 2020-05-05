@@ -36,7 +36,9 @@ int ipc_call(int to_pid, int call_id, const proto_t* ipkg, proto_t* opkg) {
 		sleep(0); //retry	
 	}
 
-	PF->clear(opkg);
+	if(opkg != NULL)
+		PF->clear(opkg);
+
 	while(true) {
 		res = syscall2(SYS_IPC_GET_RETURN, (int32_t)to_pid, (int32_t)opkg);
 		if(res == 0)
