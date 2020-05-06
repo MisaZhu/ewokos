@@ -395,10 +395,11 @@ static void proc_file_close(int pid, int fd, file_t* file, bool close_dev) {
 		node->refs_w--;
 
 	if(node->fsinfo.type == FS_TYPE_PIPE) {
-		buffer_t* buffer = (buffer_t*)node->fsinfo.data;
 		//proc_wakeup((uint32_t)buffer);
 		if(node->refs <= 0) {
-			free(buffer);
+			buffer_t* buffer = (buffer_t*)node->fsinfo.data;
+			if(buffer != NULL)
+				free(buffer);
 			free(node);
 			node->fsinfo.data = 0;
 			return;
@@ -755,7 +756,6 @@ static void do_vfs_pipe_open(int32_t pid, proto_t* out) {
     free(node);
 		return;
   }
-
 	PF->clear(out)->addi(out, 0)->addi(out, fd0)->addi(out, fd1);
 }
 
@@ -843,13 +843,16 @@ static void do_vfs_proc_clone(int32_t pid, proto_t* in) {
 				node->refs_w++;
 
 			if(node->fsinfo.type == FS_TYPE_PIPE) {
-				buffer_t* buf = (buffer_t*)malloc(sizeof(buffer_t));
-				memset(buf, 0, sizeof(buffer_t));
-				node->fsinfo.data = (int32_t)buf;
+				if(node->fsinfo.data == 0) {
+					buffer_t* buf = (buffer_t*)malloc(sizeof(buffer_t));
+					memset(buf, 0, sizeof(buffer_t));
+					node->fsinfo.data = (int32_t)buf;
+				}
 			}
 		}
 	}
 	syscall1(SYS_PROC_READY, cpid);
+	syscall1(SYS_PROC_READY, fpid);
 }
 
 static void do_vfs_proc_exit(int32_t pid, proto_t* in) {

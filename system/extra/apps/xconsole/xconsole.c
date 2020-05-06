@@ -132,14 +132,16 @@ static int run(int argc, char* argv[]) {
 		int32_t size = read_nblock(0, buf, 255);
 		if(size == 0) {
 			break;
+
 		}
 		else if(size < 0) {
 			if(errno == EAGAIN) {
 				usleep(10000);
 				continue;
 			}
-			else 
+			else {
 				break;
+			}
 		}
 
 		buf[size] = 0;
