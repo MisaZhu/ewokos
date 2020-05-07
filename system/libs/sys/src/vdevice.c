@@ -29,6 +29,21 @@ static void do_open(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, voi
 	PF->addi(out, res);
 }
 
+static void do_info(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, void* p) {
+	fsinfo_t info;
+	const char* fname = proto_read_str(in);
+	proto_read_to(in, &info, sizeof(fsinfo_t));
+	
+	proto_t ret;
+	PF->init(&ret, NULL, 0);
+	PF->addi(out, -1);
+	if(dev != NULL && dev->info != NULL) {
+		if(dev->info(from_pid, fname, &info, &ret, p) == 0) {
+			PF->clear(out)->addi(out, 0)->add(out, ret.data, ret.size);
+		}
+	}
+}
+
 static void do_close(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, void* p) {
 	(void)out;
 	fsinfo_t info;
@@ -270,6 +285,9 @@ static void handle(int from_pid, int cmd, proto_t* in, proto_t* out, void* p) {
 	switch(cmd) {
 	case FS_CMD_OPEN:
 		do_open(dev, from_pid, in, out, p);
+		break;
+	case FS_CMD_INFO:
+		do_info(dev, from_pid, in, out, p);
 		break;
 	case FS_CMD_CLOSE:
 		do_close(dev, from_pid, in, out, p);

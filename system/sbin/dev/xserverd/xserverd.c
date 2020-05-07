@@ -463,15 +463,6 @@ static int x_is_top(int ufid, int from_pid, x_t* x, proto_t* out) {
 	return 0;
 }
 
-static int x_scr_info(x_t* x, proto_t* out) {
-	xscreen_t scr;	
-	scr.id = 0;
-	scr.size.w = x->g->w;
-	scr.size.h = x->g->h;
-	PF->add(out, &scr, sizeof(xscreen_t));
-	return 0;
-}
-
 static int get_xwm_workspace(x_t* x, int style, grect_t* rin, grect_t* rout) {
 	proto_t in, out;
 	PF->init(&out, NULL, 0);
@@ -518,9 +509,6 @@ static int xserver_fcntl(int fd, int ufid, int from_pid, fsinfo_t* info,
 	else if(cmd == X_CNTL_GET_EVT) {
 		return x_get_event(ufid, from_pid, x, out);
 	}
-	else if(cmd == X_CNTL_SCR_INFO) {
-		return x_scr_info(x, out);
-	}
 	else if(cmd == X_CNTL_WORKSPACE) {
 		return x_workspace(x, in, out);
 	}
@@ -549,6 +537,20 @@ static int xserver_open(int fd, int ufid, int from_pid, fsinfo_t* info, int ofla
 	view->from_pid = from_pid;
 	push_view(x, view);
 	proc_unlock(x->lock);
+	return 0;
+}
+
+static int xserver_info(int from_pid, const char* fname, fsinfo_t* info, proto_t* ret, void* p) {
+	(void)from_pid;
+	(void)fname;
+	(void)info;
+	x_t* x = (x_t*)p;
+
+	xscreen_t scr;	
+	scr.id = 0;
+	scr.size.w = x->g->w;
+	scr.size.h = x->g->h;
+	PF->add(ret, &scr, sizeof(xscreen_t));
 	return 0;
 }
 
@@ -990,6 +992,7 @@ int main(int argc, char** argv) {
 	dev.fcntl = xserver_fcntl;
 	dev.close = xserver_close;
 	dev.open = xserver_open;
+	dev.info = xserver_info;
 	dev.loop_step= xserver_loop_step;
 
 	x_t x;

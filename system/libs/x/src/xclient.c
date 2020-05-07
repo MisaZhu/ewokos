@@ -176,15 +176,10 @@ int x_is_top(x_t* x) {
 }
 
 int x_screen_info(xscreen_t* scr) {
-	int fd = open("/dev/x", O_RDWR);
-	if(fd < 0)
-		return -1;
-
 	proto_t out;
 	PF->init(&out, NULL, 0);
-	int ret = fcntl_raw(fd, X_CNTL_SCR_INFO, NULL, &out);
-	close(fd);
 
+	int ret = finfo("/dev/x", &out);
 	if(ret == 0)
 		proto_read_to(&out, scr, sizeof(xscreen_t));
 	PF->clear(&out);

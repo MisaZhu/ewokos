@@ -44,6 +44,41 @@ int open(const char* fname, int oflag) {
 	return fd;
 }
 
+int finfo(const char* fname, proto_t* out) {
+	fsinfo_t info;
+
+	if(vfs_get(fname, &info) != 0) {
+		return -1;
+	}
+
+	proto_t in, ret;
+	PF->init(out, NULL, 0);
+	PF->init(&ret, NULL, 0);
+
+	PF->init(&in, NULL, 0)->
+		adds(&in, fname)->
+		add(&in, &info, sizeof(fsinfo_t));
+
+	int res = ipc_call(info.mount_pid, FS_CMD_INFO, &in, &ret);
+	PF->clear(&in);
+	if(res != 0) {
+		PF->clear(&ret);
+		return -1;
+	}
+	
+	res = proto_read_int(&ret);
+	if(res != 0) {
+		res = -1;
+	}
+	else {
+		int32_t sz;
+		void *data = proto_read(&ret, &sz);
+		PF->copy(out, data, sz);
+	}
+	PF->clear(&ret);
+	return res;
+}
+
 void close(int fd) {
 	fsinfo_t info;
 	uint32_t ufid = 0;

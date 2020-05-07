@@ -10,6 +10,7 @@ typedef struct {
 	char name[FS_NODE_NAME_MAX];
 	void* extra_data;
 	int (*open)(int fd, int ufid, int from_pid, fsinfo_t* info, int oflag, void* p);
+	int (*info)(int from_pid, const char* fname, fsinfo_t* info, proto_t* ret, void* p);
 	int (*create)(fsinfo_t* info_to, fsinfo_t* info, void* p);
 	int (*close)(int fd, int ufid, int from_pid, fsinfo_t* info, void* p);
 	int (*read)(int fd, int ufid, int from_pid, fsinfo_t* info, void* buf, int size, int offset, void* p);
