@@ -823,8 +823,10 @@ static void do_vfs_pipe_read(int pid, proto_t* in, proto_t* out) {
 	size = buffer_read(buffer, data, size);
 	if(size > 0) {
 		PF->clear(out)->addi(out, size)->add(out, data, size);
+		free(data);
 		return;
 	}
+	free(data);
 
 	if(node == NULL || node->refs < 2) {
     return;
