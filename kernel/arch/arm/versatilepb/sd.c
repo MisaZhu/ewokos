@@ -215,7 +215,7 @@ void sd_dev_handle(dev_t* dev) {
 		if (sdc->rxcount == 0){
 			do_command(12, 0, MMC_RSP_R1); // stop transmission
 			sdc->rxdone = 1;
-			proc_wakeup((uint32_t)dev);
+			proc_wakeup(-1, (uint32_t)dev);
 			//printf("SDC handler done ");
 		}
 	}
@@ -236,7 +236,7 @@ void sd_dev_handle(dev_t* dev) {
 		if (sdc->txcount == 0){
 			do_command(12, 0, MMC_RSP_R1); // stop transmission
 			sdc->txdone = 1;
-			proc_wakeup((uint32_t)dev);
+			proc_wakeup(-1, (uint32_t)dev);
 		}
 	}
 	//printf("write to clear register\n");

@@ -66,7 +66,8 @@ int vfs_read_pipe(fsinfo_t* info, void* buf, uint32_t size, int block) {
 	PF->init(&in, NULL, 0)->add(&in, info, sizeof(fsinfo_t))->addi(&in, size)->addi(&in, block);
 	PF->init(&out, NULL, 0);
 
-	int res = ipc_call(get_vfsd_pid(), VFS_PIPE_READ, &in, &out);
+	int vfsd_pid = get_vfsd_pid();
+	int res = ipc_call(vfsd_pid, VFS_PIPE_READ, &in, &out);
 	PF->clear(&in);
 	if(res == 0) {
 		res = proto_read_int(&out);
@@ -74,6 +75,10 @@ int vfs_read_pipe(fsinfo_t* info, void* buf, uint32_t size, int block) {
 			res = proto_read_to(&out, buf, size);
 	}
 	PF->clear(&out);
+
+	if(res == 0 && block == 1) {//empty , do retry
+		syscall2(SYS_PROC_BLOCK, vfsd_pid, info->node);
+	}
 	return res;	
 }
 

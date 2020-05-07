@@ -412,6 +412,7 @@ void proc_block_on(context_t* ctx, uint32_t event) {
 		return;
 
 	_current_proc->block_event = event;
+	_current_proc->block_pid = -1;
 	proc_unready(ctx, _current_proc, BLOCK);
 }
 
@@ -423,14 +424,16 @@ void proc_waitpid(context_t* ctx, int32_t pid) {
 	proc_unready(ctx, _current_proc, WAIT);
 }
 
-void proc_wakeup(uint32_t event) {
+void proc_wakeup(int32_t pid, uint32_t event) {
 	int32_t i = 0;	
 	while(1) {
 		if(i >= PROC_MAX)
 			break;
 		proc_t* proc = &_proc_table[i];	
-		if(proc->state == BLOCK && proc->block_event == event) {
+		if(proc->state == BLOCK && proc->block_event == event && 
+				(pid < 0 || proc->block_pid == pid)) {
 			proc->block_event = 0;
+			proc->block_pid = -1;
 			if(proc->sleep_counter == 0)
 				proc_ready(proc);
 		}

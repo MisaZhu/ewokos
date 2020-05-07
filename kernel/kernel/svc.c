@@ -60,7 +60,7 @@ static void sys_dev_block_read_done(context_t* ctx, uint32_t type, void* buf) {
 	int res = dev_block_read_done(dev, buf);
 	if(res == 0) {
 		ctx->gpr[0] = res;
-		proc_wakeup(type);
+		proc_wakeup(-1, type);
 		return;
 	}
 	/*
@@ -81,7 +81,7 @@ static void sys_dev_block_write_done(context_t* ctx, uint32_t type) {
 	int res = dev_block_write_done(dev);
 	if(res == 0) {
 		ctx->gpr[0] = res;
-		proc_wakeup(type);
+		proc_wakeup(-1, type);
 		return;
 	}
 
@@ -99,7 +99,7 @@ static int32_t sys_dev_ch_read(uint32_t type, void* data, uint32_t sz) {
 		return -1;
 	int32_t res = dev_ch_read(dev, data, sz);
 	if(res != 0)
-		proc_wakeup(type);
+		proc_wakeup(-1, type);
 	return res;
 }
 
@@ -109,7 +109,7 @@ static int32_t sys_dev_ch_write(uint32_t type, void* data, uint32_t sz) {
 		return -1;
 	int32_t res = dev_ch_write(dev, data, sz);
 	if(res != 0)
-		proc_wakeup(type);
+		proc_wakeup(-1, type);
 	return res;
 }
 
@@ -341,7 +341,7 @@ static void sys_unlock(int32_t arg) {
 		return;
 	}
 	*lock = 0;
-	proc_wakeup((uint32_t)lock);
+	proc_wakeup(-1, (uint32_t)lock);
 }
 	
 static uint32_t sys_mmio_map(void) {
@@ -418,7 +418,7 @@ static void sys_ipc_get_return(context_t* ctx, uint32_t pid, proto_t* data) {
 	}
 	PF->clear(proc->space->ipc.data);
 	proc->space->ipc.state = IPC_IDLE;
-	proc_wakeup((uint32_t)&proc->space->ipc.state);
+	proc_wakeup(-1, (uint32_t)&proc->space->ipc.state);
 }
 
 static void sys_ipc_set_return(proto_t* data) {
@@ -440,7 +440,7 @@ static void sys_ipc_end(context_t* ctx) {
 	}
 
 	_current_proc->space->ipc.state = IPC_RETURN;
-	proc_wakeup((uint32_t)&_current_proc->space->ipc.data);
+	proc_wakeup(-1, (uint32_t)&_current_proc->space->ipc.data);
 	_current_proc->state = BLOCK;
 	schedule(ctx);
 }
@@ -515,6 +515,19 @@ static void sys_proc_ready(int32_t pid) {
 	if(proc == NULL || (proc->state != CREATED && proc->state != BLOCK))
 		return;
 	proc_ready(proc);
+}
+
+static void sys_proc_block(context_t* ctx, int32_t pid, uint32_t evt) {
+	if(pid == _current_proc->pid)
+		return;
+	_current_proc->state = BLOCK;
+	_current_proc->block_event = evt;
+	_current_proc->block_pid = pid;
+	schedule(ctx);	
+}
+
+static void sys_proc_wakeup(uint32_t evt) {
+	proc_wakeup(_current_proc->pid, evt);
 }
 
 static void sys_vfs_ready(void) {
@@ -699,6 +712,12 @@ void svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_t arg2, context
 		return;
 	case SYS_PROC_READY:
 		sys_proc_ready(arg0);
+		return;
+	case SYS_PROC_WAKEUP:
+		sys_proc_wakeup(arg0);
+		return;
+	case SYS_PROC_BLOCK:
+		sys_proc_block(ctx, arg0, arg1);
 		return;
 	case SYS_VFS_READY:
 		sys_vfs_ready();

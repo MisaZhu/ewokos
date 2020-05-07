@@ -17,7 +17,7 @@ kevent_t* kev_push(uint32_t type, const proto_t* data) {
 	else
 		kev->data = proto_new(data->data, data->size);
 	queue_push(&_kev_queue, kev);
-	proc_wakeup((uint32_t)kev_init);
+	proc_wakeup(-1, (uint32_t)kev_init);
 	return kev;
 }
 
