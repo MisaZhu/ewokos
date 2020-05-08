@@ -167,6 +167,12 @@ static void sys_fork(context_t* ctx) {
 	ctx->gpr[0] = proc->pid;
 	if(proc->state == CREATED) {
 		_current_proc->state = BLOCK;
+		_current_proc->block_pid = _vfs_pid;
+		_current_proc->block_event = proc->pid;
+
+		proc->state = BLOCK;
+		proc->block_pid = _vfs_pid;
+		proc->block_event = proc->pid;
 		schedule(ctx);
 	}
 }
@@ -508,15 +514,6 @@ static void sys_get_kevent(context_t* ctx) {
 	ctx->gpr[0] = (int32_t)kev;	
 }
 
-static void sys_proc_ready(int32_t pid) {
-	if(_current_proc->owner != 0)
-		return;
-	proc_t* proc = proc_get(pid);
-	if(proc == NULL || (proc->state != CREATED && proc->state != BLOCK))
-		return;
-	proc_ready(proc);
-}
-
 static void sys_proc_block(context_t* ctx, int32_t pid, uint32_t evt) {
 	if(pid == _current_proc->pid)
 		return;
@@ -534,6 +531,7 @@ static void sys_vfs_ready(void) {
 	if(_current_proc->owner != 0)
 		return;
 	_vfs_ready = true;
+	_vfs_pid = _current_proc->pid;
 }
 
 void svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_t arg2, context_t* ctx, int32_t processor_mode) {
@@ -709,9 +707,6 @@ void svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_t arg2, context
 		return;
 	case SYS_GET_KEVENT:
 		sys_get_kevent(ctx);
-		return;
-	case SYS_PROC_READY:
-		sys_proc_ready(arg0);
 		return;
 	case SYS_PROC_WAKEUP:
 		sys_proc_wakeup(arg0);

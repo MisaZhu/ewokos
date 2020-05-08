@@ -18,6 +18,7 @@ proc_t* _current_proc = NULL;
 queue_t _ready_queue;
 context_t* _current_ctx = NULL;
 bool _vfs_ready = false;
+int32_t _vfs_pid = -1;
 
 /* proc_init initializes the process sub-system. */
 void procs_init(void) {

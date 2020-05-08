@@ -863,8 +863,7 @@ static void do_vfs_proc_clone(int32_t pid, proto_t* in) {
 			}
 		}
 	}
-	syscall1(SYS_PROC_READY, cpid);
-	syscall1(SYS_PROC_READY, fpid);
+	syscall1(SYS_PROC_WAKEUP, cpid);
 }
 
 static void do_vfs_proc_exit(int32_t pid, proto_t* in) {
