@@ -6,6 +6,7 @@
 
 #define KSERV_VFS      "kserv.vfs"
 #define KSERV_PS2_KEYB "kserv.ps2keyb"
+#define KSERV_LOCK     "kserv.lock"
 
 int kserv_reg(const char* kserv_id);
 int kserv_unreg(const char* kserv_id);

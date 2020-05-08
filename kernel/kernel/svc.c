@@ -295,60 +295,6 @@ static int32_t sys_shm_unmap(int32_t id) {
 static int32_t sys_shm_ref(int32_t id) {
 	return shm_proc_ref(_current_proc->pid, id);
 }
-
-static int32_t sys_lock_new(void) {
-	int32_t i;
-	for(i=0; i<LOCK_MAX; i++) {
-		if(_current_proc->space->locks[i] == 0)
-			break;
-	}
-	if(i >= LOCK_MAX)
-		return -1;
-
-	uint32_t *lock = (uint32_t*)kmalloc(sizeof(uint32_t));
-	*lock = 0;
-	_current_proc->space->locks[i] = (uint32_t)lock;
-	return i;
-}
-
-static inline uint32_t* get_lock(int32_t at) {
-	if(at < 0 || at >= LOCK_MAX)
-		return NULL;
-	return (uint32_t*)_current_proc->space->locks[at];
-}
-
-static int32_t sys_lock_free(int32_t arg) {
-	uint32_t *lock = get_lock(arg);
-	if(lock != NULL) {
-		kfree(lock);
-		_current_proc->space->locks[arg] = 0;
-	}
-	return 0;
-}
-
-static void sys_lock(context_t* ctx, int32_t arg) {
-	uint32_t *lock = get_lock(arg);
-	if(lock == NULL) {
-		ctx->gpr[0] = 0;
-		return;
-	}
-	if(*lock == 0) {
-		*lock = 1;
-		ctx->gpr[0] = 0;
-		return;
-	}
-	ctx->gpr[0] = -1;
-	proc_block_on(ctx, (uint32_t)lock);
-}
-
-static void sys_unlock(int32_t arg) {
-	uint32_t *lock = get_lock(arg);
-	if(lock == NULL) {
-		return;
-	}
-	*lock = 0;
-	proc_wakeup(-1, (uint32_t)lock);
-}
 	
 static uint32_t sys_mmio_map(void) {
 	if(_current_proc->owner != 0)
@@ -396,7 +342,10 @@ static void sys_ipc_call(context_t* ctx, uint32_t pid, int32_t call_id, proto_t*
 	}
 	proc->space->ipc.state = IPC_BUSY;
 	proc->space->ipc.from_pid = _current_proc->pid;
-	PF->copy(proc->space->ipc.data, data->data, data->size);
+	if(data != NULL)
+		PF->copy(proc->space->ipc.data, data->data, data->size);
+	else
+		PF->clear(proc->space->ipc.data);
 	proc_ipc_call(ctx, proc, call_id);
 }
 
@@ -653,18 +602,6 @@ void svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_t arg2, context
 		return;
 	case SYS_THREAD:
 		ctx->gpr[0] = sys_thread(ctx, (uint32_t)arg0, (uint32_t)arg1, arg2);
-		return;
-	case SYS_LOCK_NEW:
-		ctx->gpr[0] = sys_lock_new();
-		return;
-	case SYS_LOCK_FREE:
-		ctx->gpr[0] = sys_lock_free(arg0);
-		return;
-	case SYS_LOCK:
-		sys_lock(ctx, arg0);
-		return;
-	case SYS_UNLOCK:
-		sys_unlock(arg0);
 		return;
 	case SYS_KPRINT:
 		sys_kprint((const char*)arg0, arg1, (bool)arg2);

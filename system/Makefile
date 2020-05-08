@@ -123,6 +123,7 @@ LIB_SYS_OBJS = $(LIB_SYS_DIR)/src/syscall.o \
 	$(LIB_SYS_DIR)/src/gpio.o \
 	$(LIB_SYS_DIR)/src/global.o \
 	$(LIB_SYS_DIR)/src/proc.o \
+	$(LIB_SYS_DIR)/src/lockc.o \
 	$(LIB_SYS_DIR)/src/wait.o \
 	$(LIB_SYS_DIR)/src/critical.o \
 	$(LIB_SYS_DIR)/src/md5.o \
@@ -188,6 +189,7 @@ libs: $(LIB_OBJS)
 
 include $(ROOT_DIR)/sbin/init/build.mk
 include $(ROOT_DIR)/sbin/cored/build.mk
+include $(ROOT_DIR)/sbin/lockd/build.mk
 include $(ROOT_DIR)/sbin/dev/fbd/build.mk
 include $(ROOT_DIR)/sbin/dev/nulld/build.mk
 include $(ROOT_DIR)/sbin/dev/xserverd/build.mk

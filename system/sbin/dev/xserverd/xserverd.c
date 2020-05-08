@@ -4,6 +4,7 @@
 #include <string.h>
 #include <sys/vfs.h>
 #include <sys/vdevice.h>
+#include <sys/lockc.h>
 #include <sys/syscall.h>
 #include <dev/device.h>
 #include <sys/shm.h>
@@ -71,7 +72,7 @@ typedef struct {
 	xview_t* view_tail;
 
 	x_current_t current;
-	proc_lock_t lock;
+	uint32_t lock;
 } x_t;
 
 static void draw_win_frame(x_t* x, xview_t* view) {
@@ -357,14 +358,14 @@ static int x_update(int ufid, int from_pid, x_t* x) {
 	if(view == NULL)
 		return -1;
 
-	proc_lock(x->lock);
+	lock_lock(x->lock);
 	view->dirty = true;
 	if(view != x->view_tail ||
 			(view->xinfo.style & X_STYLE_ALPHA) != 0) {
 		x_dirty(x);
 	}
 	x->need_repaint = true;
-	proc_unlock(x->lock);
+	lock_unlock(x->lock);
 	return 0;
 }
 
@@ -530,13 +531,13 @@ static int xserver_open(int fd, int ufid, int from_pid, fsinfo_t* info, int ofla
 	if(view == NULL)
 		return -1;
 
-	proc_lock(x->lock);
+	lock_lock(x->lock);
 	memset(view, 0, sizeof(xview_t));
 	view->fd = fd;
 	view->ufid = ufid;
 	view->from_pid = from_pid;
 	push_view(x, view);
-	proc_unlock(x->lock);
+	lock_unlock(x->lock);
 	return 0;
 }
 
@@ -562,15 +563,15 @@ static int xserver_close(int fd, int ufid, int from_pid, fsinfo_t* info, void* p
 	if(view == NULL) {
 		return -1;
 	}
-	proc_lock(x->lock);
+	lock_lock(x->lock);
 	x_del_view(x, view);	
-	proc_unlock(x->lock);
+	lock_unlock(x->lock);
 	return 0;
 }
 
 static void x_check_views(x_t* x) {
 	xview_t* view = x->view_head;
-	proc_lock(x->lock);
+	lock_lock(x->lock);
 	while(view != NULL) {
 		xview_t* next = view->next;
 		uint32_t ufid = vfs_check_fd(view->from_pid, view->fd);
@@ -578,7 +579,7 @@ static void x_check_views(x_t* x) {
 			x_del_view(x, view);
 		view = next;
 	}
-	proc_unlock(x->lock);
+	lock_unlock(x->lock);
 }
 
 static int x_init(x_t* x) {
@@ -647,7 +648,7 @@ static int x_init(x_t* x) {
 	x->cursor.cpos.y = h/2; 
 	x->show_cursor = true;
 
-	x->lock = proc_lock_new();
+	x->lock = lock_new();
 	return 0;
 }	
 
@@ -803,9 +804,9 @@ static int keyb_handle(x_t* x, int8_t v) {
 		e->event.type = XEVT_KEYB;
 		e->event.value.keyboard.value = v;
 
-		//proc_lock(x->lock);
+		//lock_lock(x->lock);
 		x_push_event(topv, e, 1);
-		//proc_unlock(x->lock);
+		//lock_unlock(x->lock);
 	}
 	usleep(1000);
 	return 0;
@@ -886,10 +887,10 @@ static void read_input(x_t* x) {
 	if(x->mouse_fd >= 0) {
 		int8_t mv[4];
 		if(read_nblock(x->mouse_fd, mv, 4) == 4) {
-			//proc_lock(x->lock);
+			//lock_lock(x->lock);
 			mouse_handle(x, mv[0], mv[1], mv[2]);
 			x->need_repaint = true;
-			//proc_unlock(x->lock);
+			//lock_unlock(x->lock);
 		}
 	}
 
@@ -916,10 +917,10 @@ static void read_input(x_t* x) {
 					mv[0] = 1;
 				}
 				if(key != 0) {
-					//proc_lock(x->lock);
+					//lock_lock(x->lock);
 					mouse_handle(x, mv[0], mv[1], mv[2]);
 					x->need_repaint = true;
-					//proc_unlock(x->lock);
+					//lock_unlock(x->lock);
 				}
 			}
 			else {
@@ -962,14 +963,14 @@ static int xserver_loop_step(void* p) {
 
 	read_input(x);
 
-	proc_lock(x->lock);
+	lock_lock(x->lock);
 	x_repaint(x);	
-	proc_unlock(x->lock);
+	lock_unlock(x->lock);
 	return 0;
 }
 
 static void x_close(x_t* x) {
-	proc_lock_free(x->lock);
+	lock_free(x->lock);
 	close(x->keyb_fd);
 	close(x->mouse_fd);
 	graph_free(x->g);
