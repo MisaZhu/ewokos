@@ -23,9 +23,8 @@ static void do_lockd_free(proto_t* in) {
 
 static void do_lockd_lock(proto_t* in, proto_t* out) {
 	PF->addi(out, -1);
-
 	int32_t* lock = (int32_t*)proto_read_int(in);
-	if(lock == NULL || *lock == 1) { //locked already , retry
+	if(lock == NULL || *lock != 0) { //locked already , retry
 		return;	
 	}
 
@@ -35,7 +34,6 @@ static void do_lockd_lock(proto_t* in, proto_t* out) {
 
 static void do_lockd_unlock(proto_t* in, proto_t* out) {
 	PF->addi(out, -1);
-
 	int32_t* lock = (int32_t*)proto_read_int(in);
 	if(lock == NULL) { 
 		return;	
@@ -43,10 +41,10 @@ static void do_lockd_unlock(proto_t* in, proto_t* out) {
 
 	*lock = 0;
 	PF->clear(out)->addi(out, 0);
-	syscall1(SYS_PROC_WAKEUP, (int32_t)lock);
 }
 
 static void handle_ipc(int pid, int cmd, proto_t* in, proto_t* out, void* p) {
+	(void)pid;
 	(void)p;
 	(void)out;
 

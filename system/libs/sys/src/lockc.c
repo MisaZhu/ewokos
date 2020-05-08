@@ -30,28 +30,27 @@ int lock_free(uint32_t lock) {
 	return res;
 }
 
-static int lock_lock_raw(uint32_t lock) {
+static int lock_lock_raw(int lockd_pid, uint32_t lock) {
 	proto_t in, out;
 	PF->init(&out, NULL, 0);
 	PF->init(&in, NULL, 0)->addi(&in, lock);
-	int lockd_pid = get_lockd_pid();
 	int res = ipc_call(lockd_pid, LOCK_CMD_LOCK, &in, &out);
 	PF->clear(&in);
 	if(res == 0)
 		res = proto_read_int(&out);
 	else
 		res = -1;
+	PF->clear(&out);
 	return res;
 }
 
 int lock_lock(uint32_t lock) {
+	int lockd_pid = get_lockd_pid();
 	while(1) {
-		if(lock_lock_raw(lock) == 0)
+		if(lock_lock_raw(lockd_pid, lock) == 0)
 			break;
-		kprintf(true, "trylock\n");
-		syscall2(SYS_PROC_BLOCK, get_lockd_pid(), lock);
+		sleep(0);
 	}
-	kprintf(true, "locked\n");
 	return 0;
 }
 
@@ -65,6 +64,6 @@ int lock_unlock(uint32_t lock) {
 		res = proto_read_int(&out);
 	else
 		res = -1;
-kprintf(true, "unlock %d\n", res);
+	PF->clear(&out);
 	return res;
 }
