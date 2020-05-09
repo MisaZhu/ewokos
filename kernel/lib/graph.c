@@ -1,6 +1,5 @@
 #include <graph.h>
 #include <kstring.h>
-#include <dev/device.h>
 #include <mm/kmalloc.h>
 
 inline uint32_t argb(uint32_t a, uint32_t r, uint32_t g, uint32_t b) {

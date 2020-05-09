@@ -4,7 +4,6 @@
 #include <string.h>
 #include <fcntl.h>
 #include <sys/syscall.h>
-#include <dev/device.h>
 #include <sys/shm.h>
 #include <sys/vfs.h>
 #include <ext2fs.h>

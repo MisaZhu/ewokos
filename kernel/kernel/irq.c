@@ -1,7 +1,6 @@
 #include <dev/gic.h>
 #include <dev/timer.h>
 #include <dev/uart.h>
-#include <dev/kdevice.h>
 #include <dev/sd.h>
 #include <kernel/irq.h>
 #include <kernel/system.h>

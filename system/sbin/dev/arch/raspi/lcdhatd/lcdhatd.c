@@ -8,7 +8,6 @@
 #include <sys/vdevice.h>
 #include <sys/syscall.h>
 #include <sys/critical.h>
-#include <dev/device.h>
 #include <graph/graph.h>
 
 

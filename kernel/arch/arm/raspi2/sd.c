@@ -211,18 +211,18 @@ static int32_t __attribute__((optimize("O0"))) sd_cmd(uint32_t code, uint32_t ar
  * read a sector from sd card and return the number of bytes read
  * returns 0 on error.
  */
-static int32_t sd_read_sector(dev_t* dev, uint32_t sector) {
+static int32_t sd_read_sector(uint32_t sector) {
 	if(sd_status(SR_DAT_INHIBIT)) {
 		sd_err = SD_TIMEOUT;
 		return -1;
 	}
 
 	act_led(1);	
-	*EMMC_BLKSIZECNT = (1 << 16) | dev->io.block.block_size;
+	*EMMC_BLKSIZECNT = (1 << 16) | SECTOR_SIZE;
 	if((sd_scr[0] & SCR_SUPP_CCS) != 0)
 		sd_cmd(CMD_READ_SINGLE, sector);
 	else
-		sd_cmd(CMD_READ_SINGLE, sector * dev->io.block.block_size);
+		sd_cmd(CMD_READ_SINGLE, sector * SECTOR_SIZE);
 
 	if(sd_err != 0)
 		return -1;
@@ -233,7 +233,7 @@ static int32_t sd_read_sector(dev_t* dev, uint32_t sector) {
  * write a sector to the sd card and return the number of bytes written
  * returns 0 on error.
  */
-static int32_t sd_write_sector(dev_t* dev, uint32_t sector, unsigned char *buffer) {
+static int32_t sd_write_sector(uint32_t sector, unsigned char *buffer) {
 	uint32_t r, d;
 	if(sd_status(SR_DAT_INHIBIT | SR_WRITE_AVAILABLE)) {
 		sd_err = SD_TIMEOUT;
@@ -241,11 +241,11 @@ static int32_t sd_write_sector(dev_t* dev, uint32_t sector, unsigned char *buffe
 	}
 	uint32_t *buf = (uint32_t *)buffer;
 	
-	*EMMC_BLKSIZECNT = (1 << 16) | dev->io.block.block_size;
+	*EMMC_BLKSIZECNT = (1 << 16) | SECTOR_SIZE;
 	if((sd_scr[0] & SCR_SUPP_CCS) != 0)
 		sd_cmd(CMD_WRITE_SINGLE, sector);
 	else
-		sd_cmd(CMD_WRITE_SINGLE, sector * dev->io.block.block_size);
+		sd_cmd(CMD_WRITE_SINGLE, sector * SECTOR_SIZE);
 
 	if(sd_err) 
 		return 0;
@@ -253,14 +253,14 @@ static int32_t sd_write_sector(dev_t* dev, uint32_t sector, unsigned char *buffe
 		sd_err = r;
 		return 0;
 	}
-	for(d=0; d<dev->io.block.block_size/4; d++) 
+	for(d=0; d<SECTOR_SIZE/4; d++) 
 		*EMMC_DATA = buf[d];
 	
 	if((r = sd_int(INT_DATA_DONE, 1))) {
 		sd_err = r;
 		return 0;
 	}
-	return sd_err!=SD_OK ? 0 : dev->io.block.block_size;
+	return sd_err!=SD_OK ? 0 : SECTOR_SIZE;
 }
 
 /**
@@ -317,8 +317,7 @@ static int32_t sd_clk(uint32_t f) {
 /**
  * initialize EMMC to read SDHC card
  */
-int32_t __attribute__((optimize("O0"))) sd_init(dev_t* dev) {
-	dev->io.block.block_size = SECTOR_SIZE;
+int32_t __attribute__((optimize("O0"))) sd_init(void) {
 	_sdc.rxdone = 1;
 	_sdc.txdone = 1;
 
@@ -453,7 +452,7 @@ int32_t __attribute__((optimize("O0"))) sd_init(dev_t* dev) {
 	return SD_OK;
 }
 
-void sd_dev_handle(dev_t* dev) {
+void sd_dev_handle(void) {
 	if(_sdc.rxdone == 1)
 		return;
 
@@ -462,40 +461,37 @@ void sd_dev_handle(dev_t* dev) {
 		return;
 	}
 	uint32_t* buf = (uint32_t*)_sdc.rxbuf;
-	for(d=0; d<dev->io.block.block_size/4; d++)
+	for(d=0; d<SECTOR_SIZE/4; d++)
 		buf[d] = *EMMC_DATA;
 
-	//proc_wakeup((uint32_t)dev);
 	_sdc.rxdone = 1;
 	return;
 }
 
-int32_t sd_dev_read(dev_t* dev, int32_t sector) {
+int32_t sd_dev_read(int32_t sector) {
 	if(_sdc.rxdone == 0)
 		return -1;
 
 	_sdc.sector = sector;
 	_sdc.rxdone = 0;
-	return sd_read_sector(dev, _sdc.sector);
+	return sd_read_sector(_sdc.sector);
 }
 
-int32_t sd_dev_read_done(dev_t* dev, void* buf) {
-	sd_dev_handle(dev);
+int32_t sd_dev_read_done(void* buf) {
+	sd_dev_handle();
 	if(_sdc.rxdone == 0)
 		return -1;
-	memcpy(buf, _sdc.rxbuf, dev->io.block.block_size);
+	memcpy(buf, _sdc.rxbuf, SECTOR_SIZE);
 	act_led(0);	
 	return 0;
 }
 
-int32_t sd_dev_write(dev_t* dev, int32_t sector, const void* buf) {
-	(void)dev;
-	if(sd_write_sector(dev, sector, (unsigned char*)buf) == 0)
+int32_t sd_dev_write(int32_t sector, const void* buf) {
+	if(sd_write_sector(sector, (unsigned char*)buf) == 0)
 		return -1;
 	return 0;
 }
 
-int32_t sd_dev_write_done(dev_t* dev) {
-	(void)dev;
+int32_t sd_dev_write_done(void) {
 	return 0;
 }

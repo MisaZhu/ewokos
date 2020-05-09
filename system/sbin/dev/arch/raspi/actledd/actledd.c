@@ -4,7 +4,6 @@
 #include <string.h>
 #include <sys/vdevice.h>
 #include <sys/syscall.h>
-#include <dev/device.h>
 #include "../lib/gpio_arch.h"
 
 static int actled_write(int fd, int ufid, int from_pid, fsinfo_t* info,

@@ -4,7 +4,6 @@
 #include <string.h>
 #include <sys/gpio.h>
 #include <sys/vdevice.h>
-#include <dev/device.h>
 #include "../lib/gpio_arch.h"
 
 static int gpio_fcntl(int fd, int ufid, int from_pid, fsinfo_t* info,

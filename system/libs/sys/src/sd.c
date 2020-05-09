@@ -1,5 +1,4 @@
 #include <sys/sd.h>
-#include <dev/device.h>
 #include <sys/syscall.h>
 #include <stdlib.h>
 #include <partition.h>
@@ -54,20 +53,20 @@ static inline void* sector_buf_get(uint32_t index) {
 
 
 static int32_t read_sector(int32_t sector, void* buf) {
-	if(syscall2(SYS_DEV_BLOCK_READ, DEV_SD, sector) != 0)
+	if(syscall1(SYS_SDC_READ, sector) != 0)
 		return -1;
 	while(1) {
-		if(syscall2(SYS_DEV_BLOCK_READ_DONE, DEV_SD, (int32_t)buf)  == 0)
+		if(syscall1(SYS_SDC_READ_DONE, (int32_t)buf)  == 0)
 			break;
 	}
 	return 0;
 }
 
 static int32_t write_sector(int32_t sector, const void* buf) {
-	if(syscall3(SYS_DEV_BLOCK_WRITE, DEV_SD, sector, (int32_t)buf) != 0)
+	if(syscall2(SYS_SDC_WRITE, sector, (int32_t)buf) != 0)
 		return -1;
 	while(1) {
-		if(syscall1(SYS_DEV_BLOCK_WRITE_DONE, DEV_SD)  == 0)
+		if(syscall0(SYS_SDC_WRITE_DONE)  == 0)
 			break;
 	}
 	return 0;

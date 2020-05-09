@@ -2,7 +2,6 @@
 #include <dev/timer.h>
 #include <kernel/irq.h>
 #include <dev/gic.h>
-#include <dev/kdevice.h>
 
 /*
 The ARM Versatile 926EJS board contains two ARM SB804 dual timer modules [ARM Timers 2004]. Each timer module contains two timers, which are driven by the same clock. The base addresses of the timers are:

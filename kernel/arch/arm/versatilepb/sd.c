@@ -2,8 +2,6 @@
 #include <mm/mmu.h>
 #include <mm/kmalloc.h>
 #include <kstring.h>
-#include <dev/kdevice.h>
-#include <dev/device.h>
 #include <kernel/proc.h>
 #include <dev/sd.h>
 
@@ -99,13 +97,11 @@ static inline void do_command(int32_t cmd, int32_t arg, int32_t resp) {
 	put32(SD_BASE + COMMAND, 0x400 | (resp<<6) | cmd);
 }
 
-int32_t sd_init(dev_t* dev) {
+int32_t sd_init(void) {
 	sd_t* sdc = &_sdc;
 	memset(sdc, 0, sizeof(sd_t));
 	sdc->rxdone = 1;
 	sdc->txdone = 1;
-	dev->io.block.block_size = SECTOR_SIZE;
-	dev->io.block.data = (void*)sdc;
 
 	put32(SD_BASE + POWER, 0xBF); // power on
 	put32(SD_BASE + CLOCK, 0xC6); // default CLK
@@ -124,24 +120,24 @@ int32_t sd_init(dev_t* dev) {
 	return 0;
 }
 
-static int32_t sd_read_sector(dev_t* dev, int32_t sector) {
+static int32_t sd_read_sector(int32_t sector) {
 	uint32_t cmd, arg;
-	sd_t* sdc = (sd_t*)dev->io.block.data;
+	sd_t* sdc = (sd_t*)&_sdc;
 	if(sdc->rxdone == 0) {
 		return -1;
 	}
 
 	//printf("getsector %d ", sector);
 	sdc->rxbuf_index = sdc->rxbuf; 
-	sdc->rxcount = dev->io.block.block_size;
+	sdc->rxcount = SECTOR_SIZE;
 	sdc->rxdone = 0;
 
 	put32(SD_BASE + DATATIMER, 0xFFFF0000);
 	// write data_len to datalength reg
-	put32(SD_BASE + DATALENGTH, dev->io.block.block_size);
+	put32(SD_BASE + DATALENGTH, SECTOR_SIZE);
 
 	cmd = 18; // CMD17 = READ single sector; 18=read sector
-	arg = (uint32_t)(sector*dev->io.block.block_size);  // absolute byte offset in diks
+	arg = (uint32_t)(sector*SECTOR_SIZE);  // absolute byte offset in diks
 	do_command(cmd, arg, MMC_RSP_R1);
 
 	//printf("dataControl=%x\n", 0x93);
@@ -151,30 +147,30 @@ static int32_t sd_read_sector(dev_t* dev, int32_t sector) {
 	return 0;
 }
 
-static inline int32_t sd_read_done(dev_t* dev, void* buf) {
-	sd_t* sdc = (sd_t*)dev->io.block.data;
+static inline int32_t sd_read_done(void* buf) {
+	sd_t* sdc = (sd_t*)&_sdc;
 	if(sdc->rxdone == 0) {
 		return -1;
 	}
-	memcpy(buf, (void*)sdc->rxbuf, dev->io.block.block_size);
+	memcpy(buf, (void*)sdc->rxbuf, SECTOR_SIZE);
 	return 0;
 }
 
-static int32_t sd_write_sector(dev_t* dev, int32_t sector, const void* buf) {
-	sd_t* sdc = (sd_t*)dev->io.block.data;
+static int32_t sd_write_sector(int32_t sector, const void* buf) {
+	sd_t* sdc = (sd_t*)&_sdc;
 	uint32_t cmd, arg;
 	if(sdc->txdone == 0) {
 		return -1;
 	}
-	memcpy(sdc->txbuf, buf, dev->io.block.block_size);
-	sdc->txbuf_index = sdc->txbuf; sdc->txcount = dev->io.block.block_size;
+	memcpy(sdc->txbuf, buf, SECTOR_SIZE);
+	sdc->txbuf_index = sdc->txbuf; sdc->txcount = SECTOR_SIZE;
 	sdc->txdone = 0;
 
 	put32(SD_BASE + DATATIMER, 0xFFFF0000);
-	put32(SD_BASE + DATALENGTH, dev->io.block.block_size);
+	put32(SD_BASE + DATALENGTH, SECTOR_SIZE);
 
 	cmd = 25;                  // CMD24 = Write single sector; 25=write sector
-	arg = (uint32_t)(sector*dev->io.block.block_size);  // absolute byte offset in diks
+	arg = (uint32_t)(sector*SECTOR_SIZE);  // absolute byte offset in diks
 	do_command(cmd, arg, MMC_RSP_R1);
 
 	// write 0x91=|9|0001|=|9|DMA=0,BLOCK=0,0=Host->Card, Enable
@@ -182,16 +178,16 @@ static int32_t sd_write_sector(dev_t* dev, int32_t sector, const void* buf) {
 	return 0;
 }
 
-static inline int32_t sd_write_done(dev_t* dev) {
-	sd_t* sdc = (sd_t*)dev->io.block.data;
+static inline int32_t sd_write_done(void) {
+	sd_t* sdc = (sd_t*)&_sdc;
 	if(sdc->txdone == 0) {
 		return -1;
 	}
 	return 0;
 }
 
-void sd_dev_handle(dev_t* dev) {
-	sd_t* sdc = (sd_t*)dev->io.block.data;
+void sd_dev_handle(void) {
+	sd_t* sdc = (sd_t*)&_sdc;
 	int32_t status, status_err;
 	int32_t i; 
 	uint32_t *up;
@@ -215,7 +211,6 @@ void sd_dev_handle(dev_t* dev) {
 		if (sdc->rxcount == 0){
 			do_command(12, 0, MMC_RSP_R1); // stop transmission
 			sdc->rxdone = 1;
-			proc_wakeup(-1, (uint32_t)dev);
 			//printf("SDC handler done ");
 		}
 	}
@@ -236,7 +231,6 @@ void sd_dev_handle(dev_t* dev) {
 		if (sdc->txcount == 0){
 			do_command(12, 0, MMC_RSP_R1); // stop transmission
 			sdc->txdone = 1;
-			proc_wakeup(-1, (uint32_t)dev);
 		}
 	}
 	//printf("write to clear register\n");
@@ -244,20 +238,20 @@ void sd_dev_handle(dev_t* dev) {
 	// printf("SDC interrupt handler done\n");
 }
 
-int32_t sd_dev_read(dev_t* dev, int32_t sector) {
-	return sd_read_sector(dev, sector);
+int32_t sd_dev_read(int32_t sector) {
+	return sd_read_sector(sector);
 }
 
-int32_t sd_dev_read_done(dev_t* dev, void* buf) {
-	sd_dev_handle(dev);
-	return sd_read_done(dev, buf);
+int32_t sd_dev_read_done(void* buf) {
+	sd_dev_handle();
+	return sd_read_done(buf);
 }
 
-int32_t sd_dev_write(dev_t* dev, int32_t sector, const void* buf) {
-	return sd_write_sector(dev, sector, buf);
+int32_t sd_dev_write(int32_t sector, const void* buf) {
+	return sd_write_sector(sector, buf);
 }
 
-int32_t sd_dev_write_done(dev_t* dev) {
-	sd_dev_handle(dev);
-	return sd_write_done(dev);
+int32_t sd_dev_write_done(void) {
+	sd_dev_handle();
+	return sd_write_done();
 }

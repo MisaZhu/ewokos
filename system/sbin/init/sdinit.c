@@ -1,5 +1,4 @@
 #include "sdinit.h"
-#include <dev/device.h>
 #include <sys/syscall.h>
 #include <stdlib.h>
 #include <partition.h>
@@ -9,10 +8,10 @@
 static partition_t _partition;
 
 static int32_t sdinit_read_sector(int32_t sector, void* buf) {
-	if(syscall2(SYS_DEV_BLOCK_READ, DEV_SD, sector) != 0)
+	if(syscall1(SYS_SDC_READ, sector) != 0)
 		return -1;
 	while(1) {
-		if(syscall2(SYS_DEV_BLOCK_READ_DONE, DEV_SD, (int32_t)buf)  == 0)
+		if(syscall1(SYS_SDC_READ_DONE, (int32_t)buf)  == 0)
 			break;
 	}
 	return 0;

@@ -30,8 +30,7 @@ static inline void uart_basic_trans(char c) {
 	put8(UART0+UART_DATA, c);
 }
 
-int32_t uart_write(dev_t* dev, const void* data, uint32_t size) {
-	(void)dev;
+int32_t uart_write(const void* data, uint32_t size) {
 	int32_t i;
 	for(i=0; i<(int32_t)size; i++) {
 		char c = ((char*)data)[i];

@@ -88,8 +88,7 @@ void uart_trans(uint32_t data) {
 	put32(UART_IO_REG, data);
 }
 
-int32_t uart_write(dev_t* dev, const void* data, uint32_t size) {
-  (void)dev;
+int32_t uart_write(const void* data, uint32_t size) {
   int32_t i;
   for(i=0; i<(int32_t)size; i++) {
     char c = ((char*)data)[i];

@@ -6,7 +6,6 @@
 #include <sys/vdevice.h>
 #include <sys/lockc.h>
 #include <sys/syscall.h>
-#include <dev/device.h>
 #include <sys/shm.h>
 #include <graph/graph.h>
 #include <fbinfo.h>

@@ -17,8 +17,16 @@
 #include <kstring.h>
 #include <kprintf.h>
 #include <buffer.h>
-#include <dev/kdevice.h>
 #include <rawdata.h>
+#include <dev/sd.h>
+
+static void sys_kprint(const char* s, int32_t len, bool tty_only) {
+	(void)len;
+	if(tty_only)
+		uart_write(s, strlen(s));
+	else
+		printf(s);
+}
 
 static void sys_exit(context_t* ctx, int32_t res) {
 	if(_current_proc == NULL)
@@ -26,91 +34,30 @@ static void sys_exit(context_t* ctx, int32_t res) {
 	proc_exit(ctx, _current_proc, res);
 }
 
-static int32_t sys_dev_block_read(uint32_t type, int32_t bid) {
-	dev_t* dev = get_dev(type);
-	if(dev == NULL) {
-		return -1;
-	}
-	return dev_block_read(dev, bid);
+static int32_t sys_sdc_read(int32_t bid) {
+	return sd_dev_read(bid);
 }
 
-static void sys_kprint(const char* s, int32_t len, bool tty_only) {
-	(void)len;
-	if(tty_only)
-		uart_write(NULL, s, strlen(s));
-	else
-		printf(s);
+static int32_t sys_sdc_write(int32_t bid, const char* buf) {
+	return sd_dev_write(bid, buf);
 }
 
-static int32_t sys_dev_block_write(uint32_t type, int32_t bid, const char* buf) {
-	dev_t* dev = get_dev(type);
-	if(dev == NULL) {
-		return -1;
-	}
-	return dev_block_write(dev, bid, buf);
-}
-
-static void sys_dev_block_read_done(context_t* ctx, uint32_t type, void* buf) {
-	dev_t* dev = get_dev(type);
-	if(dev == NULL) {
-		ctx->gpr[0] = -1;
-		return;
-	}		
-
-	int res = dev_block_read_done(dev, buf);
+static void sys_sdc_read_done(context_t* ctx, void* buf) {
+	int res = sd_dev_read_done(buf);
 	if(res == 0) {
 		ctx->gpr[0] = res;
-		proc_wakeup(-1, type);
 		return;
 	}
-	/*
-	proc_t* proc = _current_proc;
-	proc_block_on(ctx, (uint32_t)dev);
-	proc->ctx.gpr[0] = -1;
-	*/
 	ctx->gpr[0] = -1;
 }
 
-static void sys_dev_block_write_done(context_t* ctx, uint32_t type) {
-	dev_t* dev = get_dev(type);
-	if(dev == NULL) {
-		ctx->gpr[0] = -1;
-		return;
-	}		
-
-	int res = dev_block_write_done(dev);
+static void sys_sdc_write_done(context_t* ctx) {
+	int res = sd_dev_write_done();
 	if(res == 0) {
 		ctx->gpr[0] = res;
-		proc_wakeup(-1, type);
 		return;
 	}
-
-	/*
-	proc_t* proc = _current_proc;
-	proc_block_on(ctx, (uint32_t)dev);
-	proc->ctx.gpr[0] = -1;
-	*/
 	ctx->gpr[0] = -1;
-}
-
-static int32_t sys_dev_ch_read(uint32_t type, void* data, uint32_t sz) {
-	dev_t* dev = get_dev(type);
-	if(dev == NULL)
-		return -1;
-	int32_t res = dev_ch_read(dev, data, sz);
-	if(res != 0)
-		proc_wakeup(-1, type);
-	return res;
-}
-
-static int32_t sys_dev_ch_write(uint32_t type, void* data, uint32_t sz) {
-	dev_t* dev = get_dev(type);
-	if(dev == NULL) 
-		return -1;
-	int32_t res = dev_ch_write(dev, data, sz);
-	if(res != 0)
-		proc_wakeup(-1, type);
-	return res;
 }
 
 static int32_t sys_getpid(void) {
@@ -244,14 +191,6 @@ static void	sys_get_sysinfo(sysinfo_t* info) {
 	info->total_mem = get_hw_info()->phy_mem_size;
 	info->shm_mem = shm_alloced_size();
 	info->kernel_tic = _kernel_tic;
-}
-
-static void	sys_get_kernel_usec(uint64_t* usec) {
-	*usec = timer_read_sys_usec();
-}
-
-static int32_t	sys_get_kernel_tic(void) {
-	return _kernel_tic;
 }
 
 static int32_t sys_get_env(const char* name, char* value, int32_t size) {
@@ -492,23 +431,17 @@ void svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_t arg2, context
 	_current_ctx = ctx;
 
 	switch(code) {
-	case SYS_DEV_CHAR_READ:
-		ctx->gpr[0] = sys_dev_ch_read(arg0, (void*)arg1, arg2);
+	case SYS_SDC_READ:
+		ctx->gpr[0] = sys_sdc_read(arg0);
 		return;
-	case SYS_DEV_CHAR_WRITE:
-		ctx->gpr[0] = sys_dev_ch_write(arg0, (void*)arg1, arg2);
+	case SYS_SDC_WRITE:
+		ctx->gpr[0] = sys_sdc_write(arg0, (void*)arg1);		
 		return;
-	case SYS_DEV_BLOCK_READ:
-		ctx->gpr[0] = sys_dev_block_read(arg0, arg1);
+	case SYS_SDC_READ_DONE:
+		sys_sdc_read_done(ctx, (void*)arg0);
 		return;
-	case SYS_DEV_BLOCK_WRITE:
-		ctx->gpr[0] = sys_dev_block_write(arg0, arg1, (void*)arg2);		
-		return;
-	case SYS_DEV_BLOCK_READ_DONE:
-		sys_dev_block_read_done(ctx, arg0, (void*)arg1);
-		return;
-	case SYS_DEV_BLOCK_WRITE_DONE:
-		sys_dev_block_write_done(ctx, arg0);
+	case SYS_SDC_WRITE_DONE:
+		sys_sdc_write_done(ctx);
 		return;
 	case SYS_EXIT:
 		sys_exit(ctx, arg0);
@@ -567,12 +500,13 @@ void svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_t arg2, context
 	case SYS_GET_SYSINFO:
 		sys_get_sysinfo((sysinfo_t*)arg0);
 		return;
-	case SYS_GET_KERNEL_USEC:
+	/*case SYS_GET_KERNEL_USEC:
 		sys_get_kernel_usec((uint64_t*)arg0);
 		return;
 	case SYS_GET_KERNEL_TIC:
 		ctx->gpr[0] = sys_get_kernel_tic();
 		return;
+		*/
 	case SYS_GET_PROCS: 
 		ctx->gpr[0] = (int32_t)get_procs((int32_t*)arg0);
 		return;

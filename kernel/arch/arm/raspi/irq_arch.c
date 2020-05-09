@@ -1,7 +1,6 @@
 #include <dev/gic.h>
 #include <kernel/irq.h>
 #include <dev/uart.h>
-#include <dev/kdevice.h>
 #include <kernel/kernel.h>
 #include <kernel/hw_info.h>
 #include <mm/mmu.h>

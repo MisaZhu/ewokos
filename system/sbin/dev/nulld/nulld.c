@@ -5,7 +5,6 @@
 #include <sys/vfs.h>
 #include <sys/vdevice.h>
 #include <sys/syscall.h>
-#include <dev/device.h>
 
 static int null_read(int fd,
 		int ufid,

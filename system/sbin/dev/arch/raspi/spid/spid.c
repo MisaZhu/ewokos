@@ -3,7 +3,6 @@
 #include <unistd.h>
 #include <string.h>
 #include <sys/vdevice.h>
-#include <dev/device.h>
 #include "../lib/spi_arch.h"
 #include "../lib/gpio_arch.h"
 

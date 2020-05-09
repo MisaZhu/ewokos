@@ -8,7 +8,6 @@
 #include <sys/vdevice.h>
 #include <sys/syscall.h>
 #include <ext2fs.h>
-#include <dev/device.h>
 #include <partition.h>
 #include <stdio.h>
 

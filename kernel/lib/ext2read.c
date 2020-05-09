@@ -5,7 +5,6 @@
 #include <mm/kmalloc.h>
 #include <mstr.h>
 #include <dev/sd.h>
-#include <dev/device.h>
 #include "dev/actled.h"
 #include <partition.h>
 
@@ -15,16 +14,12 @@
 static partition_t _partition;
 
 static int32_t sd_read_sector(int32_t sector, void* buf) {
-	dev_t* dev = get_dev(DEV_SD);
-	if(dev == NULL) 
-		return -1;
-
-	if(dev_block_read(dev, sector) != 0)
+	if(sd_dev_read(sector) != 0)
 		return -1;
 
 	while(1) {
-		sd_dev_handle(dev);
-		if(dev_block_read_done(dev, buf)  == 0) {
+		sd_dev_handle();
+		if(sd_dev_read_done(buf)  == 0) {
 			break;
 		}
 	}
@@ -32,9 +27,6 @@ static int32_t sd_read_sector(int32_t sector, void* buf) {
 }
 
 static int32_t sd_read(int32_t block, void* buf) {
-	dev_t* dev = get_dev(DEV_SD);
-	if(dev == NULL) 
-		return -1;
 	int32_t n = EXT2_BLOCK_SIZE/512;
 	int32_t sector = block * n + _partition.start_sector;
 	char* p = (char*)buf;

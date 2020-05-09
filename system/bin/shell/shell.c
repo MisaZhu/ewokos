@@ -7,7 +7,6 @@
 #include <mstr.h>
 #include <fcntl.h>
 #include <sys/syscall.h>
-#include <dev/device.h>
 #include <sys/wait.h>
 
 #define KEY_BACKSPACE 127

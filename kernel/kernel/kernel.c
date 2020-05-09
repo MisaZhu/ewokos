@@ -1,4 +1,3 @@
-#include <dev/kdevice.h>
 #include <dev/actled.h>
 #include <dev/framebuffer.h>
 #include <mm/mmu.h>
@@ -14,6 +13,7 @@
 #include <kernel/schedule.h>
 #include <kernel/kevqueue.h>
 #include <dev/timer.h>
+#include <dev/sd.h>
 #include <kprintf.h>
 #include <dev/uart.h>
 #include <ext2read.h>
@@ -87,6 +87,15 @@ static int32_t load_init(void) {
 		return res;
 	}
 	return -1;
+}
+
+static void dev_init(void) {
+  printf("    %16s ", "mmc_sd");
+  if(sd_init() == 0) {
+    printf("[OK]\n\n");
+  }
+  else
+    printf("[Failed!]\n");
 }
 
 void _kernel_entry_c(context_t* ctx) {

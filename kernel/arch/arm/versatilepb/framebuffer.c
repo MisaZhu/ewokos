@@ -51,8 +51,7 @@ inline fbinfo_t* fb_get_info(void) {
 	return &_fbinfo;
 }
 
-int32_t fb_dev_write(dev_t* dev, const void* buf, uint32_t size) {
-	(void)dev;
+int32_t fb_dev_write(const void* buf, uint32_t size) {
 	uint32_t sz = (_fbinfo.depth/8) * _fbinfo.width * _fbinfo.height;
 	if(size > sz)
 		size = sz;

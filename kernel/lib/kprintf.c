@@ -49,12 +49,12 @@ void setup_console(void) {
 
 static void flush_console(void) {
 	fbinfo_t* info = fb_get_info();
-	fb_dev_write(NULL, _console.g->buffer, info->width * info->height * 4);
+	fb_dev_write(_console.g->buffer, info->width * info->height * 4);
 }
 #endif
 
 void uart_out(const char* s) {
-	uart_write(NULL, s, strlen(s));
+	uart_write(s, strlen(s));
 }
 
 #define PRINTF_BUF_MAX 128

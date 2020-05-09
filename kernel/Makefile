@@ -107,7 +107,6 @@ OBJS = ${ARCH_OBJS} \
 	${KERNEL_DIR}/svc.o \
 	${KERNEL_DIR}/proc.o \
 	${KERNEL_DIR}/schedule.o \
-	${KERNEL_DIR}/dev/kdevice.o \
 	${KERNEL_DIR}/systemc.o \
 	${KERNEL_DIR}/kevqueue.o \
 	${KERNEL_DIR}/global.o \
