@@ -4,8 +4,10 @@
 #include <fcntl.h>
 #include <sys/syscall.h>
 #include <sys/proto.h>
+#include <sys/proc.h>
 #include <sys/vfs.h>
 #include <sys/ipc.h>
+#include <sys/kserv.h>
 #include <string.h>
 #include <mstr.h>
 #include <sys/shm.h>
@@ -377,13 +379,33 @@ int exec(const char* cmd_line) {
 	return 0;
 }
 
+inline static int get_procd_pid(void) {
+	return kserv_get(KSERV_PROC);
+}
+
 char* getcwd(char* buf, uint32_t size) {
-	syscall2(SYS_PROC_GET_CWD, (int32_t)buf, (int32_t)size);
+	proto_t out;
+	PF->init(&out, NULL, 0);
+	if(ipc_call(get_procd_pid(), PROC_CMD_GET_CWD, NULL, &out) == 0) {
+		if(proto_read_int(&out) == 0) {
+			strncpy(buf, proto_read_str(&out), size-1);
+		}
+	}
+	PF->clear(&out);
 	return buf;
 }
 
 int chdir(const char* path) {
-	return syscall1(SYS_PROC_SET_CWD, (int32_t)path);
+	proto_t in, out;
+	PF->init(&out, NULL, 0);
+	PF->init(&in, NULL, 0)->adds(&in, path);
+	int res = ipc_call(get_procd_pid(), PROC_CMD_SET_CWD, &in, &out);
+	PF->clear(&in);
+	if(res == 0) {
+		res = proto_read_int(&out);
+	}
+	PF->clear(&out);
+	return res;
 }
 
 int dup2(int from, int to) {

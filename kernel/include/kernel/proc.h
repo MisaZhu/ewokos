@@ -27,14 +27,8 @@ enum {
 };
 
 #define PROC_FILE_MAX 128
-#define ENV_MAX 32
 #define SHM_MAX 128
 #define LOCK_MAX 64
-
-typedef struct {
-	str_t* name;
-	str_t* value;
-} env_t;
 
 typedef struct {
 	page_dir_entry_t *vm;
@@ -44,7 +38,6 @@ typedef struct {
 	
 	int32_t shms[SHM_MAX];
 	uint32_t locks[LOCK_MAX];
-	env_t envs[ENV_MAX];
 
 	struct {
 		int32_t  ipc_pid;
@@ -82,7 +75,6 @@ typedef struct st_proc {
 	void* user_stack[STACK_PAGES];
 
 	str_t* cmd;
-	str_t* cwd;
 
 	context_t ctx;
 } proc_t;
@@ -121,10 +113,6 @@ extern void    renew_sleep_counter(uint32_t usec);
 extern void    proc_usleep(context_t* ctx, uint32_t usec);
 extern void    proc_ready(proc_t* proc);
 
-extern const char* proc_get_env(const char* name);
-extern const char* proc_get_env_name(int32_t index);
-extern const char* proc_get_env_value(int32_t index);
-extern int32_t     proc_set_env(const char* name, const char* value);
 extern void        proc_set_interrupt_data(void* data, uint32_t size);
 extern void        proc_get_interrupt_data(rawdata_t* data);
 extern int32_t     proc_ipc_setup(context_t* ctx, uint32_t entry, uint32_t extra, bool prefork);

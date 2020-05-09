@@ -1,5 +1,8 @@
 #include <stdlib.h>
 #include <sys/syscall.h>
+#include <sys/kserv.h>
+#include <sys/ipc.h>
+#include <sys/proc.h>
 #include <string.h>
 
 void *malloc(size_t size) {
@@ -32,14 +35,46 @@ int execl(const char* fname, const char* arg, ...) {
 	return 0;
 }
 
+inline static int get_procd_pid(void) {
+	return kserv_get(KSERV_PROC);
+}
+
 const char* getenv(const char* name) {
 	static char ret[1024];
-	syscall3(SYS_PROC_GET_ENV, (int32_t)name, (int32_t)ret, 1023);
+	ret[0] = 0;
+
+	proto_t in, out;
+	PF->init(&out, NULL, 0);
+	PF->init(&in, NULL, 0)->adds(&in, name);
+
+	int res = ipc_call(get_procd_pid(), PROC_CMD_GET_ENV, &in, &out);
+	PF->clear(&in);
+	if(res == 0) {
+		if(proto_read_int(&out) == 0) {
+			strncpy(ret, proto_read_str(&out), 1023);
+		}
+	}
+	PF->clear(&out);
 	return ret;
 }
 
 int setenv(const char* name, const char* value) {
-	return syscall2(SYS_PROC_SET_ENV, (int32_t)name, (int32_t)value);
+	proto_t in, out;
+	PF->init(&out, NULL, 0);
+	PF->init(&in, NULL, 0)->adds(&in, name)->adds(&in, value);
+
+	int res = ipc_call(get_procd_pid(), PROC_CMD_SET_ENV, &in, &out);
+	PF->clear(&in);
+	if(res == 0) {
+		if(proto_read_int(&out) != 0) {
+			res = -1;
+		}
+	}
+	else {
+		res = -1;
+	}
+	PF->clear(&out);
+	return res;
 }
 
 int atoi_base(const char *s, int b) {

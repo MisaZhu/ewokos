@@ -151,17 +151,28 @@ static void do_proc_created(proto_t *data) {
 	int cpid = proto_read_int(data);
 	proto_reset(data);
 
-	int vfs_pid = get_kserv(KSERV_VFS);
-	if(vfs_pid > 0) {
-		ipc_call(vfs_pid, VFS_PROC_CLONE, data, NULL);
+	int pid = get_kserv(KSERV_VFS);
+	if(pid > 0) {
+		ipc_call(pid, VFS_PROC_CLONE, data, NULL);
 	}
+
+	pid = get_kserv(KSERV_PROC);
+	if(pid > 0) {
+		ipc_call(pid, PROC_CMD_CLONE, data, NULL);
+	}
+
 	syscall1(SYS_PROC_WAKEUP, cpid);
 }
 
 static void do_proc_exit(proto_t *data) {
-	int vfs_pid = kserv_get(KSERV_VFS);
-	if(vfs_pid > 0) {
-		ipc_call(vfs_pid, VFS_PROC_EXIT, data, NULL);
+	int pid = kserv_get(KSERV_VFS);
+	if(pid > 0) {
+		ipc_call(pid, VFS_PROC_EXIT, data, NULL);
+	}
+
+	pid = kserv_get(KSERV_PROC);
+	if(pid > 0) {
+		ipc_call(pid, PROC_CMD_EXIT, data, NULL);
 	}
 }
 
@@ -209,7 +220,6 @@ int main(int argc, char** argv) {
 
 	_global = hashmap_new();
 	_kservs = hashmap_new();
-	
 
 	kserv_run(handle_ipc, NULL, true);
 	syscall0(SYS_CORE_READY);

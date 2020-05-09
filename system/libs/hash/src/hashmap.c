@@ -323,7 +323,7 @@ int hashmap_get(map_t in, const char* key, any_t *arg){
  * additional any_t argument is passed to the function as its first
  * argument and the hashmap element is the second.
  */
-int hashmap_iterate(map_t in, PFany f, any_t item) {
+int hashmap_iterate(map_t in, PFany f, any_t arg) {
 	int i;
 
 	/* Cast the hashmap */
@@ -336,8 +336,9 @@ int hashmap_iterate(map_t in, PFany f, any_t item) {
 	/* Linear probing */
 	for(i = 0; i< m->table_size; i++)
 		if(m->data[i].in_use != 0) {
+			const char* key = m->data[i].key;
 			any_t data = (any_t) (m->data[i].data);
-			int status = f(item, data);
+			int status = f(key, data, arg);
 			if (status != MAP_OK) {
 				return status;
 			}

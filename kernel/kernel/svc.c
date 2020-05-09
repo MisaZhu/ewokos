@@ -172,20 +172,11 @@ static void sys_load_elf(context_t* ctx, const char* cmd, void* elf, uint32_t el
 	memcpy(ctx, &_current_proc->ctx, sizeof(context_t));
 }
 
-static int32_t sys_proc_set_cwd(const char* cwd) {
-	str_cpy(_current_proc->cwd, cwd);
-	return 0;
-}
-
 static int32_t sys_proc_set_uid(int32_t uid) {
 	if(_current_proc->owner != 0)	
 		return -1;
 	_current_proc->owner = uid;
 	return 0;
-}
-
-static void sys_proc_get_cwd(char* cwd, int32_t sz) {
-	strncpy(cwd, CS(_current_proc->cwd), sz);
 }
 
 static void sys_proc_get_cmd(int32_t pid, char* cmd, int32_t sz) {
@@ -201,32 +192,6 @@ static void	sys_get_sysinfo(sysinfo_t* info) {
 	info->total_mem = get_hw_info()->phy_mem_size;
 	info->shm_mem = shm_alloced_size();
 	info->kernel_tic = _kernel_tic;
-}
-
-static int32_t sys_get_env(const char* name, char* value, int32_t size) {
-	const char* v = proc_get_env(name);
-	if(v == NULL)
-		value[0] = 0;
-	else
-		strncpy(value, v, size);
-	return 0;
-}
-
-static int32_t sys_get_env_name(int32_t index, char* name, int32_t size) {
-	const char* n = proc_get_env_name(index);
-	if(n[0] == 0)
-		return -1;
-	strncpy(name, n, size);
-	return 0;
-}
-
-static int32_t sys_get_env_value(int32_t index, char* value, int32_t size) {
-	const char* v = proc_get_env_value(index);
-	if(v == NULL)
-		value[0] = 0;
-	else
-		strncpy(value, v, size);
-	return 0;
 }
 
 static int32_t sys_shm_alloc(uint32_t size, int32_t flag) {
@@ -492,12 +457,6 @@ void svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_t arg2, context
 	case SYS_YIELD: 
 		schedule(ctx);
 		return;
-	case SYS_PROC_SET_CWD: 
-		ctx->gpr[0] = sys_proc_set_cwd((const char*)arg0);
-		return;
-	case SYS_PROC_GET_CWD: 
-		sys_proc_get_cwd((char*)arg0, arg1);
-		return;
 	case SYS_PROC_SET_UID: 
 		ctx->gpr[0] = sys_proc_set_uid(arg0);
 		return;
@@ -519,18 +478,6 @@ void svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_t arg2, context
 		*/
 	case SYS_GET_PROCS: 
 		ctx->gpr[0] = (int32_t)get_procs((int32_t*)arg0);
-		return;
-	case SYS_PROC_SET_ENV: 
-		ctx->gpr[0] = proc_set_env((const char*)arg0, (const char*)arg1);
-		return;
-	case SYS_PROC_GET_ENV: 
-		ctx->gpr[0] = sys_get_env((const char*)arg0, (char*)arg1, arg2);
-		return;
-	case SYS_PROC_GET_ENV_NAME: 
-		ctx->gpr[0] = sys_get_env_name(arg0, (char*)arg1, arg2);
-		return;
-	case SYS_PROC_GET_ENV_VALUE: 
-		ctx->gpr[0] = sys_get_env_value(arg0, (char*)arg1, arg2);
 		return;
 	case SYS_PROC_SHM_ALLOC:
 		ctx->gpr[0] = sys_shm_alloc(arg0, arg1);

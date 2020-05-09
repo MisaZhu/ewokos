@@ -3,6 +3,9 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <sys/vfs.h>
+#include <sys/ipc.h>
+#include <sys/proc.h>
+#include <sys/kserv.h>
 #include <vprintf.h>
 #include <mstr.h>
 #include <fcntl.h>
@@ -98,24 +101,29 @@ static int cd(const char* dir) {
 	return 0;
 }
 
-
 static void export_all(void) {
-	char name[64], value[1024];
-	int32_t i=0;
-	while(1) {
-		if(syscall3(SYS_PROC_GET_ENV_NAME, i, (int32_t)name, 63) != 0 || name[0] == 0)
-			break;
-		if(syscall3(SYS_PROC_GET_ENV_VALUE, i, (int32_t)value, 1023) != 0)
-			break;
-		printf("declare -x %s=%s\n", name, value);
-		i++;
+	proto_t out;
+	PF->init(&out, NULL, 0);
+	int pid =  kserv_get(KSERV_PROC);
+	int res = ipc_call(pid, PROC_CMD_GET_ENVS, NULL, &out);
+	if(res != 0) {
+		PF->clear(&out);
+		return;
 	}
+		
+	int n = proto_read_int(&out);
+	if(n > 0) {
+		for(int i=0; i<n; i++) {
+			const char* name = proto_read_str(&out);
+			const char* value = proto_read_str(&out);
+			printf("declare -x %s=%s\n", name, value);
+		}
+	}
+	PF->clear(&out);
 }
 
 static void export_get(const char* arg) {
-	char value[1024];
-	if(syscall3(SYS_PROC_GET_ENV, (int32_t)arg, (int32_t)value, 127) != 0) 
-		return;
+	const char* value = getenv(arg);
 	printf("%s=%s\n", arg, value);
 }
 
@@ -127,7 +135,7 @@ static void export_set(const char* arg) {
 	strncpy(name, arg, v-arg);
 	name[v-arg] = 0;
 
-	syscall2(SYS_PROC_SET_ENV, (int32_t)name, (int32_t)(v+1));
+	setenv(name, (v+1));
 }
 
 static int export(const char* arg) {

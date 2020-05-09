@@ -76,7 +76,6 @@ static void proc_init_space(proc_t* proc) {
 	proc->space->malloc_man.expand = proc_expand;
 	proc->space->malloc_man.shrink = proc_shrink;
 	proc->space->malloc_man.get_mem_tail = proc_get_mem_tail;
-	memset(&proc->space->envs, 0, sizeof(env_t)*ENV_MAX);
 }
 
 void proc_switch(context_t* ctx, proc_t* to, bool quick){
@@ -169,15 +168,6 @@ static void __attribute__((optimize("O0"))) proc_free_space(proc_t *proc) {
 	if(proc->type != PROC_TYPE_PROC)
 		return;
 
-	int32_t i;
-	for(i=0; i<ENV_MAX; i++) {
-		env_t* env = &proc->space->envs[i];
-		if(env->name) 
-			str_free(env->name);
-		if(env->value) 
-			str_free(env->value);
-	}
-
 	proto_free(proc->space->ipc.data);
 
 	/*free locks*/
@@ -263,7 +253,6 @@ void __attribute__((optimize("O0"))) proc_exit(context_t* ctx, proc_t *proc, int
 	proc_terminate(ctx, proc);
 	proc->state = UNUSED;
 	str_free(proc->cmd);
-	str_free(proc->cwd);
 
 	/*free user_stack*/
 	uint32_t user_stack_base = proc_get_user_stack_base(proc);
@@ -318,12 +307,10 @@ proc_t *proc_create(int32_t type, proc_t* parent) {
 	if(type == PROC_TYPE_PROC) {
 		proc_init_space(proc);
 		proc->cmd = str_new("");
-		proc->cwd = str_new("/");
 	}
 	else {
 		proc->space = parent->space;
 		proc->cmd = str_new(parent->cmd->cstr);
-		proc->cwd = str_new(parent->cwd->cstr);
 	}
 
 	uint32_t user_stack_base =  proc_get_user_stack_base(proc);
@@ -442,75 +429,6 @@ void proc_wakeup(int32_t pid, uint32_t event) {
 	}
 }
 
-static inline env_t* find_env(proc_t* proc, const char* name) {
-	int32_t i=0;
-	for(i=0; i<ENV_MAX; i++) {
-		if(proc->space->envs[i].name == NULL)
-			break;
-		if(strcmp(CS(proc->space->envs[i].name), name) == 0)
-			return &proc->space->envs[i];
-	}
-	return NULL;
-}
-	
-const char* proc_get_env(const char* name) {
-	env_t* env = find_env(_current_proc, name);
-	return env == NULL ? "":CS(env->value);
-}
-	
-const char* proc_get_env_name(int32_t index) {
-	if(index < 0 || index >= ENV_MAX)
-		return "";
-	if(_current_proc->space->envs[index].name != NULL)
-		return CS(_current_proc->space->envs[index].name);
-	return "";
-}
-	
-const char* proc_get_env_value(int32_t index) {
-	if(index < 0 || index >= ENV_MAX)
-		return "";
-	if(_current_proc->space->envs[index].value != NULL)
-		return CS(_current_proc->space->envs[index].value);
-	return "";
-}
-
-int32_t proc_set_env(const char* name, const char* value) {
-	env_t* env = NULL;	
-	int32_t i=0;
-	for(i=0; i<ENV_MAX; i++) {
-		if(_current_proc->space->envs[i].name == NULL ||
-				strcmp(CS(_current_proc->space->envs[i].name), name) == 0) {
-			env = &_current_proc->space->envs[i];
-			if(env->name == NULL) {
-				env->name = str_new("");
-				str_cpy(env->name, name);
-			}
-			break;
-		}
-	}
-	if(env == NULL)
-		return -1;
-	if(env->value == NULL)
-		env->value = str_new("");
-	str_cpy(env->value, value);
-	return 0;
-}
-
-static inline void proc_clone_envs(proc_t* child, proc_t* parent) {
-	int32_t i=0;
-	for(i=0; i<ENV_MAX; i++) {
-		if(parent->space->envs[i].name == NULL)
-			break;
-		env_t* env = &child->space->envs[i];
-		if(env->name == NULL)
-			env->name = str_new("");
-		if(env->value == NULL)
-			env->value = str_new("");
-		str_cpy(env->name, CS(parent->space->envs[i].name));
-		str_cpy(env->value, CS(parent->space->envs[i].value));
-	}
-}
-
 static void proc_page_clone(proc_t* to, uint32_t to_addr, proc_t* from, uint32_t from_addr) {
 	char *to_ptr = (char*)resolve_kernel_address(to->space->vm, to_addr);
 	char *from_ptr = (char*)resolve_kernel_address(from->space->vm, from_addr);
@@ -555,10 +473,7 @@ static int32_t proc_clone(proc_t* child, proc_t* parent) {
 		memcpy(child->user_stack[i], parent->user_stack[i], PAGE_SIZE);
 	}
 
-	proc_clone_envs(child, parent);
-
 	str_cpy(child->cmd, CS(parent->cmd));
-	str_cpy(child->cwd, CS(parent->cwd));
 	return 0;
 }
 

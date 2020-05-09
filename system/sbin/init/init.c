@@ -127,19 +127,20 @@ int main(int argc, char** argv) {
 	(void)argc;
 	(void)argv;
 
-	setenv("OS", "mkos");
-	setenv("PATH", "/sbin:/bin");
-
 	kprintf(false, "\n[init process started]\n");
 	run_none_fs("/sbin/cored"); //have to be pid 1
 	run_none_fs("/sbin/vfsd");
 	//mount root fs
 	run_none_fs("/sbin/dev/rootfsd");
 	//fs got ready.
-
+	run("/sbin/procd", true, true);
 	run("/sbin/lockd", true, true);
 
 	load_devs();
+
+	setenv("OS", "mkos");
+	setenv("PATH", "/sbin:/bin");
+
 	run_procs();
 
 	while(1) {
