@@ -63,8 +63,22 @@ static void sys_sdc_write_done(context_t* ctx) {
 static int32_t sys_getpid(void) {
 	if(_current_proc == NULL)
 		return -1;
-	proc_t* p = proc_get_proc();
+	proc_t* p = proc_get_proc(_current_proc);
 	return p->pid;
+}
+
+static int32_t sys_getpid_by_pid(int32_t pid) {
+	proc_t* proc = proc_get(pid);
+	if(proc == NULL)
+		return -1;
+
+	if(_current_proc->owner > 0 && _current_proc->owner != proc->owner)
+		return -1;
+
+	proc_t* p = proc_get_proc(proc);
+	if(p != NULL)
+		return p->pid;
+	return -1;
 }
 
 static int32_t sys_get_threadid(void) {
@@ -457,6 +471,9 @@ void svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_t arg2, context
 		return;
 	case SYS_GET_PID:
 		ctx->gpr[0] = sys_getpid();
+		return;
+	case SYS_GET_PID_BY_PID:
+		ctx->gpr[0] = sys_getpid_by_pid(arg0);
 		return;
 	case SYS_GET_THREAD_ID:
 		ctx->gpr[0] = sys_get_threadid();

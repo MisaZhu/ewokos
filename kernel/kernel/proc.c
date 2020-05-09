@@ -653,12 +653,11 @@ void renew_sleep_counter(uint32_t usec) {
 	}
 }
 
-proc_t* proc_get_proc(void) {
-	proc_t* ret = _current_proc;
-	while(ret != NULL) {
-		if(ret->type == PROC_TYPE_PROC)
-			return ret;
-		ret = proc_get(ret->father_pid);
+proc_t* proc_get_proc(proc_t* proc) {
+	while(proc != NULL) {
+		if(proc->type == PROC_TYPE_PROC)
+			return proc;
+		proc = proc_get(proc->father_pid);
 	}
 	return NULL;
 }

@@ -111,7 +111,7 @@ extern void    proc_block_on(context_t* ctx, uint32_t event);
 extern void    proc_wakeup(int32_t pid, uint32_t event);
 extern void    proc_waitpid(context_t* ctx, int32_t pid);
 extern proc_t* proc_get(int32_t pid);
-extern proc_t* proc_get_proc(void);
+extern proc_t* proc_get_proc(proc_t* proc);
 extern proc_t* kfork_raw(int32_t type, proc_t* parent);
 extern proc_t* kfork(int32_t type);
 
