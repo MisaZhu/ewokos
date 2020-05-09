@@ -22,8 +22,12 @@ int setuid(int uid) {
 	return syscall1(SYS_PROC_SET_UID, uid);
 }
 
+int getpid_raw(int pid) {
+	return syscall1(SYS_GET_PID, pid);
+}
+
 int getpid(void) {
-	return syscall0(SYS_GET_PID);
+	return getpid_raw(-1);
 }
 
 int fork(void) {

@@ -9,6 +9,7 @@
 
 int getuid(void);
 int setuid(int uid);
+int getpid_raw(int pid);
 int getpid(void);
 int fork(void);
 void detach(void);
