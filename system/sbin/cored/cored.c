@@ -147,21 +147,21 @@ static void handle_ipc(int pid, int cmd, proto_t* in, proto_t* out, void* p) {
 /*----kernel event -------*/
 
 static void do_proc_created(proto_t *data) {
-	int vfs_pid = kserv_get(KSERV_VFS);
+	proto_read_int(data); //read father pid
+	int cpid = proto_read_int(data);
+	proto_reset(data);
 
-	/*int32_t fpid = proto_read_int(data);
-	int32_t cpid = proto_read_int(data);
-
-	if(proc_ping(vfs_pid) != 0) { //vfs not ready
-		return;
+	int vfs_pid = get_kserv(KSERV_VFS);
+	if(vfs_pid > 0) {
+		ipc_call(vfs_pid, VFS_PROC_CLONE, data, NULL);
 	}
-	*/
-	ipc_call(vfs_pid, VFS_PROC_CLONE, data, NULL);
+	syscall1(SYS_PROC_WAKEUP, cpid);
 }
 
 static void do_proc_exit(proto_t *data) {
 	int vfs_pid = kserv_get(KSERV_VFS);
-	ipc_call(vfs_pid, VFS_PROC_EXIT, data, NULL);
+	if(vfs_pid > 0) {
+		ipc_call(vfs_pid, VFS_PROC_EXIT, data, NULL);
 }
 
 static void do_usint_ps2_key(proto_t* data) {
@@ -209,7 +209,9 @@ int main(int argc, char** argv) {
 	_global = hashmap_new();
 	_kservs = hashmap_new();
 	
+
 	kserv_run(handle_ipc, NULL, true);
+	syscall0(SYS_CORE_READY);
 
 	while(1) {
 		kevent_t* kev = (kevent_t*)syscall0(SYS_GET_KEVENT);

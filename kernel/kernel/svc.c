@@ -114,11 +114,11 @@ static void sys_fork(context_t* ctx) {
 	ctx->gpr[0] = proc->pid;
 	if(proc->state == CREATED) {
 		_current_proc->state = BLOCK;
-		_current_proc->block_pid = _vfs_pid;
+		_current_proc->block_pid = _core_pid;
 		_current_proc->block_event = proc->pid;
 
 		proc->state = BLOCK;
-		proc->block_pid = _vfs_pid;
+		proc->block_pid = _core_pid;
 		proc->block_event = proc->pid;
 		schedule(ctx);
 	}
@@ -415,11 +415,11 @@ static void sys_proc_wakeup(uint32_t evt) {
 	proc_wakeup(_current_proc->pid, evt);
 }
 
-static void sys_vfs_ready(void) {
+static void sys_core_ready(void) {
 	if(_current_proc->owner != 0)
 		return;
-	_vfs_ready = true;
-	_vfs_pid = _current_proc->pid;
+	_core_ready = true;
+	_core_pid = _current_proc->pid;
 }
 
 void svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_t arg2, context_t* ctx, int32_t processor_mode) {
@@ -585,8 +585,8 @@ void svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_t arg2, context
 	case SYS_PROC_BLOCK:
 		sys_proc_block(ctx, arg0, arg1);
 		return;
-	case SYS_VFS_READY:
-		sys_vfs_ready();
+	case SYS_CORE_READY:
+		sys_core_ready();
 		return;
 	}
 	printf("pid:%d, code(%d) error!\n", _current_proc->pid, code);

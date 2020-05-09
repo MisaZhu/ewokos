@@ -17,12 +17,12 @@ static page_dir_entry_t _proc_vm[PROC_MAX][PAGE_DIR_NUM];
 proc_t* _current_proc = NULL;
 queue_t _ready_queue;
 context_t* _current_ctx = NULL;
-bool _vfs_ready = false;
-int32_t _vfs_pid = -1;
+bool _core_ready = false;
+int32_t _core_pid = -1;
 
 /* proc_init initializes the process sub-system. */
 void procs_init(void) {
-	_vfs_ready = false;
+	_core_ready = false;
 	for (int32_t i = 0; i < PROC_MAX; i++)
 		_proc_table[i].state = UNUSED;
 	_current_proc = NULL;
@@ -584,7 +584,7 @@ proc_t* kfork_raw(int32_t type, proc_t* parent) {
 
 proc_t* kfork(int32_t type) {
 	proc_t* child = kfork_raw(type, _current_proc);
-	if(_vfs_ready && child->type == PROC_TYPE_PROC) {
+	if(_core_ready && child->type == PROC_TYPE_PROC) {
 		kevent_t* kev = kev_push(KEV_PROC_CREATED, NULL);
 		PF->addi(kev->data, _current_proc->pid)->
 			addi(kev->data, child->pid);

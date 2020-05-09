@@ -90,8 +90,8 @@ typedef struct st_proc {
 extern context_t* _current_ctx;
 extern proc_t* _current_proc;
 extern proc_t* _ready_proc;
-extern bool _vfs_ready;
-extern int32_t _vfs_pid;
+extern bool _core_ready;
+extern int32_t _core_pid;
 
 extern void    procs_init(void);
 extern int32_t proc_load_elf(proc_t *proc, const char *proc_image, uint32_t size);

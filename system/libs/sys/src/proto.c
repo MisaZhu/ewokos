@@ -90,6 +90,10 @@ proto_t* proto_new(void* data, uint32_t size) {
 	return ret;
 }
 
+void proto_reset(proto_t* proto) {
+	proto->offset = 0;
+}
+
 void* proto_read(proto_t* proto, int32_t *size) {
 	if(size != NULL)
 		*size = 0;

@@ -863,7 +863,6 @@ static void do_vfs_proc_clone(int32_t pid, proto_t* in) {
 			}
 		}
 	}
-	syscall1(SYS_PROC_WAKEUP, cpid);
 }
 
 static void do_vfs_proc_exit(int32_t pid, proto_t* in) {
@@ -966,7 +965,6 @@ int main(int argc, char** argv) {
 	}
 
 	vfs_init();
-	syscall0(SYS_VFS_READY);
 
 	kserv_run(handle, NULL, false);
 	while(true) {
