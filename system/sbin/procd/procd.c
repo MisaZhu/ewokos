@@ -50,6 +50,18 @@ static proto_t* env_get(map_t* envs, const char* key) {
 	return ret;
 }
 
+static void set_env(map_t* envs, const char* key, const char* val) {
+	proto_t* v = env_get(envs, key);
+	if(v != NULL) {
+		PF->clear(v)->adds(v, val);
+	}
+	else {
+		v = proto_new(NULL, 0);
+		PF->adds(v, val);
+		hashmap_put(envs, key, v);
+	}
+}
+
 static void do_proc_set_env(int pid, proto_t* in, proto_t* out) {
 	PF->addi(out, -1);
 	if(pid < 0 || pid >= PROC_MAX)
@@ -57,15 +69,7 @@ static void do_proc_set_env(int pid, proto_t* in, proto_t* out) {
 	const char* key = proto_read_str(in);
 	const char* val = proto_read_str(in);
 
-	proto_t* v = env_get(_proc_info_table[pid].envs, key);
-	if(v != NULL) {
-		PF->clear(v)->adds(v, val);
-	}
-	else {
-		v = proto_new(NULL, 0);
-		PF->adds(v, val);
-		hashmap_put(_proc_info_table[pid].envs, key, v);
-	}
+	set_env(_proc_info_table[pid].envs, key, val);	
 	PF->clear(out)->addi(out, 0);
 }
 
@@ -105,7 +109,10 @@ static void do_proc_get_env(int pid, proto_t* in, proto_t* out) {
 
 static int copy_envs(const char* key, any_t data, any_t arg) {
 	map_t* to = (map_t*)arg;
-	hashmap_put(to, key, data);
+	proto_t* d = (proto_t*)data;
+	const char* v = proto_read_str(d);
+	set_env(to, key, v);
+	proto_reset(d);
 	return MAP_OK;
 }
 
@@ -118,7 +125,16 @@ static void do_proc_clone(int32_t pid, proto_t* in) {
 		return;
 
 	str_cpy(_proc_info_table[cpid].cwd, CS(_proc_info_table[fpid].cwd));	
+
 	hashmap_iterate(_proc_info_table[fpid].envs, copy_envs, _proc_info_table[cpid].envs);	
+}
+
+static int free_envs(const char* key, any_t data, any_t arg) {
+	(void)arg;
+	proto_t* d = (proto_t*)data;
+	free((char*)key);
+	proto_free(d);
+	return MAP_OK;
 }
 
 static void do_proc_exit(int32_t pid, proto_t* in) {
@@ -129,8 +145,7 @@ static void do_proc_exit(int32_t pid, proto_t* in) {
 	
 	if(cpid < 0 || cpid >= PROC_MAX)
 		return;
-
-	hashmap_free(_proc_info_table[cpid].envs);
+	hashmap_iterate(_proc_info_table[cpid].envs, free_envs, NULL);	
 	_proc_info_table[cpid].envs = hashmap_new();
 }
 
