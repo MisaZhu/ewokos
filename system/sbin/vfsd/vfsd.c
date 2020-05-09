@@ -883,6 +883,7 @@ static void do_vfs_proc_exit(int32_t pid, proto_t* in) {
 
 static void handle(int pid, int cmd, proto_t* in, proto_t* out, void* p) {
 	(void)p;
+	pid = syscall1(SYS_GET_PID_BY_PID, pid);
 //kprintf(true, "pid: %d, cmd: %d\n", pid, cmd);
 
 	switch(cmd) {

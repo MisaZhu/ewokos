@@ -162,6 +162,7 @@ static void do_proc_exit(proto_t *data) {
 	int vfs_pid = kserv_get(KSERV_VFS);
 	if(vfs_pid > 0) {
 		ipc_call(vfs_pid, VFS_PROC_EXIT, data, NULL);
+	}
 }
 
 static void do_usint_ps2_key(proto_t* data) {
