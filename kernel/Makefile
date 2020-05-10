@@ -24,8 +24,8 @@ BUILD_DIR = build
 SYS_DIR = ../system
 
 # flags
-#OPTM = -g
-OPTM = -O2
+OPTM = -g
+#OPTM = -O2
 
 CFLAGS += $(OPTM) \
 	-I. -I../include -Iinclude \
@@ -83,7 +83,8 @@ ifeq ($(LOAD),mem)
 LOAD_DIR = loadinit/mem
 LOAD_OBJS = \
 	${LOAD_DIR}/base16.o \
-	${LOAD_DIR}/init.o
+	${LOAD_DIR}/init_data.o \
+	${LOAD_DIR}/loadinit.o
 
 else
 LOAD_DIR = loadinit/sd
@@ -123,8 +124,6 @@ LDFLAGS = -L ${ARCH_DIR}/${ARCH}
 ASFLAGS = $(OPTM) -I. -Iinclude -marm $(ARCH_QEMU_CFLAGS)
 
 all: $(OS).bin 
-	gcc -o ${BUILD_DIR}/geninit geninit/geninit.c
-	${BUILD_DIR}/geninit < ${SYS_DIR}/build/rootfs/sbin/init > loadinit/mem/init_data.c
 
 $(OS).bin: $(OBJS) ${LDS}
 	mkdir -p ${BUILD_DIR}
@@ -148,8 +147,8 @@ debugasm:
 
 gdb: 
 	echo "target remote :26000" > /tmp/gdbinit
-	arm-none-eabi-gdb ${BUILD_DIR}/$(OS).elf -x /tmp/gdbinit
-	#gdb-multiarch ${BUILD_DIR}/$(OS).elf -x /tmp/gdbinit #for ubuntu 18.04 without arm-none-eabi-gdb
+	#arm-none-eabi-gdb ${BUILD_DIR}/$(OS).elf -x /tmp/gdbinit
+	gdb-multiarch ${BUILD_DIR}/$(OS).elf -x /tmp/gdbinit #for ubuntu 18.04 without arm-none-eabi-gdb
 
 clean:
 	rm -f $(OBJS)

@@ -18,14 +18,16 @@ void b16encode(char *input, int input_len, char *output, int *output_len)
 int main() {
 	int buff_len;
 	int b16_len;
+	int total_buff_len = 0;
 
 	printf("const char* init_data[] = {");
 	while (buff_len = fread(buff, 1, BUF_LEN, stdin)) {
 		b16encode(buff, buff_len, b16, &b16_len);
 		b16[b16_len] = 0;
 		printf("\"%s\",\n", b16);
+		total_buff_len += buff_len;
 	}
-	printf("0};");
+	printf("0};\nconst int init_size=%d;\n", total_buff_len);
 
 	return 0;
 }

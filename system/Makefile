@@ -156,6 +156,8 @@ CLEAN = $(LIB_OBJS)
 SD = $(BUILD_DIR)/sd.ext2
 
 all: mkdirs libs builtin_apps extra_apps #extra_devs
+	gcc -o ${BUILD_DIR}/geninit geninit/geninit.c
+	${BUILD_DIR}/geninit < $(BUILD_DIR)/rootfs/sbin/init > ../kernel/loadinit/mem/init_data.c
 	@echo "all done."
 
 KERNEL_H = \
