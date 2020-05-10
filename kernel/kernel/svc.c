@@ -3,7 +3,6 @@
 #include <kernel/schedule.h>
 #include <kernel/system.h>
 #include <kernel/proc.h>
-#include <kernel/uspace_int.h>
 #include <kernel/hw_info.h>
 #include <kernel/kevqueue.h>
 #include <mm/kalloc.h>
