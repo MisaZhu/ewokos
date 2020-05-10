@@ -76,17 +76,9 @@ endif
 
 LIB_DIR = lib
 LIB_OBJS = \
-	${LIB_DIR}/hashmap.o \
-	${LIB_DIR}/graph.o \
-	${LIB_DIR}/font.o \
-	${LIB_DIR}/font8x16.o \
-	${LIB_DIR}/font5x12.o \
-	${LIB_DIR}/console.o \
 	${LIB_DIR}/kstring.o \
-	${LIB_DIR}/buffer.o \
 	${LIB_DIR}/vprintf.o \
 	${LIB_DIR}/proto.o \
-	${LIB_DIR}/charbuf.o \
 	${LIB_DIR}/basic_math.o \
 	${LIB_DIR}/ext2read.o \
 	${LIB_DIR}/queue.o \

@@ -1,6 +1,5 @@
 #include <dev/uart.h>
 #include <mm/mmu.h>
-#include <buffer.h>
 
 /* memory mapping for the serial port */
 #define UART0 ((volatile uint32_t*)(_mmio_base+0x001f1000))

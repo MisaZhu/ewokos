@@ -109,7 +109,6 @@ void _kernel_entry_c(context_t* ctx) {
 	kev_init();
 
 	uart_dev_init();
-	init_console();
 
 	printf("\n\n"
 			"===Ewok micro-kernel===\n\n"
@@ -128,8 +127,6 @@ void _kernel_entry_c(context_t* ctx) {
 	else {
 		printf("  [Failed!]\n");
 	}
-
-	setup_console(); 
 
 	init_allocable_mem(); //init the rest allocable memory VM
 	printf("kernel: init allocable memory: %dMB\n", div_u32(get_free_mem_size(), 1*MB));
@@ -160,6 +157,4 @@ void _kernel_entry_c(context_t* ctx) {
 	while(1) {
 		__asm__("MOV r0, #0; MCR p15,0,R0,c7,c0,4"); // CPU enter WFI state
 	}
-
-	close_console();
 }
