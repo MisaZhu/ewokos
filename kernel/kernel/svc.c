@@ -28,10 +28,16 @@ static void sys_kprint(const char* s, int32_t len, bool tty_only) {
 		printf(s);
 }
 
-static void sys_exit(context_t* ctx, int32_t res) {
-	if(_current_proc == NULL)
+static void sys_exit(context_t* ctx, int32_t pid, int32_t res) {
+	proc_t* proc = _current_proc;
+	if(pid >= 0)
+		proc = proc_get(pid);
+	if(proc == NULL)
 		return;
-	proc_exit(ctx, _current_proc, res);
+
+	if(_current_proc->owner == 0 || proc->owner == _current_proc->owner) {
+		proc_exit(ctx, proc, res);
+	}
 }
 
 static int32_t sys_sdc_read(int32_t bid) {
@@ -86,16 +92,6 @@ static int32_t sys_get_threadid(void) {
 
 static void sys_usleep(context_t* ctx, uint32_t count) {
 	proc_usleep(ctx, count);
-}
-
-static void sys_kill(context_t* ctx, int32_t pid) {
-	proc_t* proc = proc_get(pid);
-	if(proc == NULL)
-		return;
-
-	if(_current_proc->owner == 0 || proc->owner == _current_proc->owner) {
-		proc_exit(ctx, proc, 0);
-	}
 }
 
 static int32_t sys_malloc(int32_t size) {
@@ -419,7 +415,7 @@ void svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_t arg2, context
 		sys_sdc_write_done(ctx);
 		return;
 	case SYS_EXIT:
-		sys_exit(ctx, arg0);
+		sys_exit(ctx, arg0, arg1);
 		return;
 	case SYS_MALLOC:
 		ctx->gpr[0] = sys_malloc(arg0);
@@ -438,9 +434,6 @@ void svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_t arg2, context
 		return;
 	case SYS_USLEEP:
 		sys_usleep(ctx, (uint32_t)arg0);
-		return;
-	case SYS_KILL:
-		sys_kill(ctx, arg0);
 		return;
 	case SYS_EXEC_ELF:
 		sys_load_elf(ctx, (const char*)arg0, (void*)arg1, (uint32_t)arg2);

@@ -25,7 +25,7 @@ void* realloc(void* s, uint32_t new_size) {
 }
 
 void exit(int status) {
-	syscall1(SYS_EXIT, (int32_t)status);
+	syscall2(SYS_EXIT, -1, (int32_t)status);
 }
 
 int execl(const char* fname, const char* arg, ...) {

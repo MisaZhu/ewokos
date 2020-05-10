@@ -9,6 +9,6 @@ int main(int argc, char* argv[]) {
 	}
 
 	int pid = atoi(argv[1]);
-	return syscall1(SYS_KILL, pid);
+	return syscall2(SYS_EXIT, pid, 0);
 }
 
