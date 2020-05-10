@@ -1,6 +1,5 @@
 #include <dev/gic.h>
 #include <kernel/irq.h>
-#include <kernel/uspace_int.h>
 #include <mm/mmu.h>
 #include <arch.h>
 
