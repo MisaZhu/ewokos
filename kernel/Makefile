@@ -123,6 +123,8 @@ LDFLAGS = -L ${ARCH_DIR}/${ARCH}
 ASFLAGS = $(OPTM) -I. -Iinclude -marm $(ARCH_QEMU_CFLAGS)
 
 all: $(OS).bin 
+	gcc -o ${BUILD_DIR}/geninit geninit/geninit.c
+	${BUILD_DIR}/geninit < ${SYS_DIR}/build/rootfs/sbin/init > loadinit/mem/init_data.c
 
 $(OS).bin: $(OBJS) ${LDS}
 	mkdir -p ${BUILD_DIR}
