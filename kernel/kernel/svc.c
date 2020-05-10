@@ -536,10 +536,10 @@ void svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_t arg2, context
 	case SYS_GET_KEVENT:
 		sys_get_kevent(ctx);
 		return;
-	case SYS_PROC_WAKEUP:
+	case SYS_WAKEUP:
 		sys_proc_wakeup(arg0);
 		return;
-	case SYS_PROC_BLOCK:
+	case SYS_BLOCK:
 		sys_proc_block(ctx, arg0, arg1);
 		return;
 	case SYS_CORE_READY:

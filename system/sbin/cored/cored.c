@@ -161,7 +161,7 @@ static void do_proc_created(proto_t *data) {
 		ipc_call(pid, PROC_CMD_CLONE, data, NULL);
 	}
 
-	syscall1(SYS_PROC_WAKEUP, cpid);
+	syscall1(SYS_WAKEUP, cpid);
 }
 
 static void do_proc_exit(proto_t *data) {

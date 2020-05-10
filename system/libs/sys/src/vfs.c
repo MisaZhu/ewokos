@@ -77,7 +77,7 @@ int vfs_read_pipe(fsinfo_t* info, void* buf, uint32_t size, int block) {
 	PF->clear(&out);
 
 	if(res == 0 && block == 1) {//empty , do retry
-		syscall2(SYS_PROC_BLOCK, vfsd_pid, info->node);
+		syscall2(SYS_BLOCK, vfsd_pid, info->node);
 	}
 	return res;	
 }

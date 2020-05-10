@@ -395,7 +395,7 @@ static void proc_file_close(int pid, int fd, file_t* file, bool close_dev) {
 		node->refs_w--;
 
 	if(node->fsinfo.type == FS_TYPE_PIPE) {
-		syscall1(SYS_PROC_WAKEUP, (int32_t)node);
+		syscall1(SYS_WAKEUP, (int32_t)node);
 		if(node->refs <= 0) {
 			buffer_t* buffer = (buffer_t*)node->fsinfo.data;
 			if(buffer != NULL)
@@ -772,30 +772,30 @@ static void do_vfs_pipe_write(int pid, proto_t* in, proto_t* out) {
 	int32_t size = 0;
 	void *data = proto_read(in, &size);
 	if(data == NULL) {
-		syscall1(SYS_PROC_WAKEUP, (int32_t)node);
+		syscall1(SYS_WAKEUP, (int32_t)node);
 		return;
 	}
 
 	buffer_t* buffer = (buffer_t*)info.data;
 	if(buffer == NULL) {
 		PF->clear(out)->addi(out, 0); // pipe still waiting for other-port, retry
-		syscall1(SYS_PROC_WAKEUP, (int32_t)node);
+		syscall1(SYS_WAKEUP, (int32_t)node);
 		return;
 	}
 
 	size = buffer_write(buffer, data, size);
 	if(size > 0) {
 		PF->clear(out)->addi(out, size);
-		syscall1(SYS_PROC_WAKEUP, (int32_t)node);
+		syscall1(SYS_WAKEUP, (int32_t)node);
 		return;
 	}
 
 	if(node == NULL || node->refs < 2) {
-		syscall1(SYS_PROC_WAKEUP, (int32_t)node);
+		syscall1(SYS_WAKEUP, (int32_t)node);
     return;
 	}
 	PF->clear(out)->addi(out, 0); //retry
-	syscall1(SYS_PROC_WAKEUP, (int32_t)node);
+	syscall1(SYS_WAKEUP, (int32_t)node);
 }
 
 static void do_vfs_pipe_read(int pid, proto_t* in, proto_t* out) {
@@ -858,7 +858,7 @@ static void do_vfs_proc_clone(int32_t pid, proto_t* in) {
 					buffer_t* buf = (buffer_t*)malloc(sizeof(buffer_t));
 					memset(buf, 0, sizeof(buffer_t));
 					node->fsinfo.data = (int32_t)buf;
-					syscall1(SYS_PROC_WAKEUP, (int32_t)node);
+					syscall1(SYS_WAKEUP, (int32_t)node);
 				}
 			}
 		}
