@@ -75,7 +75,6 @@ static void init_allocable_mem(void) {
 	kalloc_init(ALLOCATABLE_MEMORY_START, P2V(get_hw_info()->phy_mem_size-32*MB), true);
 }
 
-
 static void dev_init(void) {
   printf("    %16s ", "mmc_sd");
   if(sd_init() == 0) {
