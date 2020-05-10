@@ -73,13 +73,12 @@ static void do_proc_set_env(int pid, proto_t* in, proto_t* out) {
 	PF->clear(out)->addi(out, 0);
 }
 
-static int get_envs(const char* key, any_t data, any_t arg) {
+static int get_envs(char* key, any_t data, any_t arg) {
 	proto_t* out = (proto_t*)arg;
 	proto_t* v = (proto_t*)data;
 	const char* vs = proto_read_str(v);
 
-	PF->adds(out, key);
-	PF->adds(out, vs);
+	PF->adds(out, key)->adds(out, vs);
 	proto_reset(v);
 	return MAP_OK;
 }
@@ -107,7 +106,7 @@ static void do_proc_get_env(int pid, proto_t* in, proto_t* out) {
 	proto_reset(v);
 }
 
-static int copy_envs(const char* key, any_t data, any_t arg) {
+static int copy_envs(char* key, any_t data, any_t arg) {
 	map_t* to = (map_t*)arg;
 	proto_t* d = (proto_t*)data;
 	const char* v = proto_read_str(d);
@@ -125,11 +124,10 @@ static void do_proc_clone(int32_t pid, proto_t* in) {
 		return;
 
 	str_cpy(_proc_info_table[cpid].cwd, CS(_proc_info_table[fpid].cwd));	
-
 	hashmap_iterate(_proc_info_table[fpid].envs, copy_envs, _proc_info_table[cpid].envs);	
 }
 
-static int free_envs(const char* key, any_t data, any_t arg) {
+static int free_envs(char* key, any_t data, any_t arg) {
 	(void)arg;
 	proto_t* d = (proto_t*)data;
 	free((char*)key);
@@ -145,8 +143,9 @@ static void do_proc_exit(int32_t pid, proto_t* in) {
 	
 	if(cpid < 0 || cpid >= PROC_MAX)
 		return;
-	hashmap_iterate(_proc_info_table[cpid].envs, free_envs, NULL);	
-	_proc_info_table[cpid].envs = hashmap_new();
+	//hashmap_iterate(_proc_info_table[cpid].envs, free_envs, NULL);	
+	//hashmap_free(_proc_info_table[cpid].envs);
+	//_proc_info_table[cpid].envs = hashmap_new();
 }
 
 static void handle(int pid, int cmd, proto_t* in, proto_t* out, void* p) {

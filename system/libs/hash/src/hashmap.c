@@ -336,7 +336,7 @@ int hashmap_iterate(map_t in, PFany f, any_t arg) {
 	/* Linear probing */
 	for(i = 0; i< m->table_size; i++)
 		if(m->data[i].in_use != 0) {
-			const char* key = m->data[i].key;
+			char* key = m->data[i].key;
 			any_t data = (any_t) (m->data[i].data);
 			int status = f(key, data, arg);
 			if (status != MAP_OK) {
