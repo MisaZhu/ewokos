@@ -158,7 +158,7 @@ static void sys_load_elf(context_t* ctx, const char* cmd, void* elf, uint32_t el
 		return;
 	}
 
-	str_cpy(_current_proc->cmd, cmd);
+	strcpy(_current_proc->cmd, cmd);
 	if(proc_load_elf(_current_proc, elf, elf_size) != 0) {
 		ctx->gpr[0] = -1;
 		return;
@@ -176,7 +176,7 @@ static int32_t sys_proc_set_uid(int32_t uid) {
 }
 
 static void sys_proc_get_cmd(int32_t pid, char* cmd, int32_t sz) {
-	strncpy(cmd, CS(proc_get(pid)->cmd), sz);
+	strncpy(cmd, proc_get(pid)->cmd, sz);
 }
 
 static void	sys_get_sysinfo(sysinfo_t* info) {

@@ -3,7 +3,6 @@
 #include <kstring.h>
 #include <basic_math.h>
 #include <mm/kmalloc.h>
-#include <mstr.h>
 #include <dev/sd.h>
 #include "dev/actled.h"
 #include <partition.h>
@@ -190,7 +189,7 @@ static int32_t search(ext2_t* ext2, INODE *ip, const char *name) {
 }
 
 #define MAX_DIR_DEPTH 32
-static int32_t split_fname(const char* filename, str_t* name[]) {
+static int32_t split_fname(const char* filename, char* name[]) {
 	int32_t u, depth;
 	depth = 0;
 
@@ -207,7 +206,11 @@ static int32_t split_fname(const char* filename, str_t* name[]) {
 				break;
 		}
 		hold[u] = 0;
-		name[depth] = str_new(hold);
+		name[depth][0] = 0;
+		if(u > 0) {
+			name[depth] = (char*)kmalloc(u+1);
+			strcpy(name[depth], hold);
+		}
 		depth++;
 		if(depth >= MAX_DIR_DEPTH)
 			break;
@@ -222,7 +225,7 @@ static int32_t split_fname(const char* filename, str_t* name[]) {
 static int32_t ext2_ino_by_fname(ext2_t* ext2, const char* filename) {
 	char buf[EXT2_BLOCK_SIZE];
 	int32_t depth, i, j, ino;
-	str_t* name[MAX_DIR_DEPTH];
+	char* name[MAX_DIR_DEPTH];
 	INODE *ip;
 
 	if(strcmp(filename, "/") == 0)
@@ -236,7 +239,7 @@ static int32_t ext2_ino_by_fname(ext2_t* ext2, const char* filename) {
 			ip = ((INODE *)buf) + 1;   // ip->root inode #2
 			/* serach for system name */
 			for (i=0; i<depth; i++) {
-				ino = search(ext2, ip, CS(name[i]));
+				ino = search(ext2, ip, name[i]);
 				if (ino < 0) {
 					ino = -1;
 					break;
@@ -252,7 +255,7 @@ static int32_t ext2_ino_by_fname(ext2_t* ext2, const char* filename) {
 			break;
 	}
 	for (i=0; i<depth; i++) {
-		str_free(name[i]);
+		kfree(name[i]);
 	}
 	return ino;
 }

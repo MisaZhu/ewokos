@@ -5,7 +5,6 @@
 #include <kernel/ipc.h>
 #include <mm/mmu.h>
 #include <mm/trunkmalloc.h>
-#include <mstr.h>
 #include <procinfo.h>
 #include <proto.h>
 
@@ -71,10 +70,10 @@ typedef struct st_proc {
 	int64_t sleep_counter; //sleep usec
 	int32_t wait_pid;
 
+	char cmd[PROC_INFO_CMD_MAX];
+
 	proc_space_t* space;
 	void* user_stack[STACK_PAGES];
-
-	str_t* cmd;
 
 	context_t ctx;
 } proc_t;

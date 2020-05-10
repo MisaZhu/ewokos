@@ -4,7 +4,6 @@
 #include "dev/framebuffer.h"
 #include "dev/actled.h"
 #include "kstring.h"
-#include "mstr.h"
 #include "graph.h"
 #include "kernel/system.h"
 

@@ -86,7 +86,6 @@ LIB_OBJS = \
 	${LIB_DIR}/buffer.o \
 	${LIB_DIR}/vprintf.o \
 	${LIB_DIR}/proto.o \
-	${LIB_DIR}/mstr.o \
 	${LIB_DIR}/charbuf.o \
 	${LIB_DIR}/basic_math.o \
 	${LIB_DIR}/ext2read.o \

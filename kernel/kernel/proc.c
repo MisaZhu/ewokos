@@ -252,7 +252,6 @@ void __attribute__((optimize("O0"))) proc_exit(context_t* ctx, proc_t *proc, int
 	(void)res;
 	proc_terminate(ctx, proc);
 	proc->state = UNUSED;
-	str_free(proc->cmd);
 
 	/*free user_stack*/
 	uint32_t user_stack_base = proc_get_user_stack_base(proc);
@@ -306,11 +305,11 @@ proc_t *proc_create(int32_t type, proc_t* parent) {
 	proc->state = CREATED;
 	if(type == PROC_TYPE_PROC) {
 		proc_init_space(proc);
-		proc->cmd = str_new("");
+		proc->cmd[0] = 0;
 	}
 	else {
 		proc->space = parent->space;
-		proc->cmd = str_new(parent->cmd->cstr);
+		strcpy(proc->cmd, parent->cmd);
 	}
 
 	uint32_t user_stack_base =  proc_get_user_stack_base(proc);
@@ -473,7 +472,7 @@ static int32_t proc_clone(proc_t* child, proc_t* parent) {
 		memcpy(child->user_stack[i], parent->user_stack[i], PAGE_SIZE);
 	}
 
-	str_cpy(child->cmd, CS(parent->cmd));
+	strcpy(child->cmd, parent->cmd);
 	return 0;
 }
 
@@ -545,7 +544,7 @@ procinfo_t* get_procs(int32_t *num) {
 			procs[j].state = _proc_table[i].state;
 			procs[j].start_sec = _proc_table[i].start_sec;	
 			procs[j].heap_size = _proc_table[i].space->heap_size;	
-			strncpy(procs[j].cmd, CS(_proc_table[i].cmd), PROC_INFO_CMD_MAX-1);
+			strncpy(procs[j].cmd, _proc_table[i].cmd, PROC_INFO_CMD_MAX-1);
 			j++;
 		}
 	}
