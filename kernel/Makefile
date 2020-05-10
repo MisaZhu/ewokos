@@ -20,6 +20,9 @@ endif
 ARCH_DIR=arch
 include ${ARCH_DIR}/${ARCH}/config.mk
 
+BUILD_DIR = build
+SYS_DIR = ../system
+
 # flags
 #OPTM = -g
 OPTM = -O2
@@ -44,13 +47,6 @@ CFLAGS += $(OPTM) \
 	-fno-builtin-strncmp \
 	-std=c99
 
-LDS = mkos.lds.sd.S
-LDFLAGS = -L ${ARCH_DIR}/${ARCH}
-
-ASFLAGS = $(OPTM) -I. -Iinclude -marm $(ARCH_QEMU_CFLAGS)
-
-all: $(OS).bin 
-
 ARCH_OBJS = \
 	${ARCH_DIR}/${ARCH}/boot.o \
 	${ARCH_DIR}/arm/common/interrupt.o \
@@ -73,20 +69,33 @@ ARCH_OBJS += ${ARCH_DIR}/${ARCH}/extra/lib/gpio_arch.o  \
 	${ARCH_DIR}/${ARCH}/extra/lcdhat/lcdhat.o \
 	${ARCH_DIR}/${ARCH}/cpu_freq.o
 endif
-
+	
 LIB_DIR = lib
 LIB_OBJS = \
 	${LIB_DIR}/kstring.o \
 	${LIB_DIR}/vprintf.o \
 	${LIB_DIR}/proto.o \
 	${LIB_DIR}/basic_math.o \
-	${LIB_DIR}/ext2read.o \
 	${LIB_DIR}/queue.o \
 	${LIB_DIR}/kprintf.o
 
+ifeq ($(LOAD),mem)
+LOAD_DIR = loadinit/mem
+LOAD_OBJS = \
+	${LOAD_DIR}/base16.o \
+	${LOAD_DIR}/init.o
+
+else
+LOAD_DIR = loadinit/sd
+LOAD_OBJS = \
+	${LOAD_DIR}/ext2read.o \
+	${LOAD_DIR}/loadinit.o
+endif
+
+CFLAGS += -I$(LOAD_DIR)
+
 KERNEL_DIR = kernel
-OBJS = ${ARCH_OBJS} \
-	${LIB_OBJS} \
+KERNEL_OBJS = \
 	${KERNEL_DIR}/mm/startup.o \
 	${KERNEL_DIR}/mm/kalloc.o \
 	${KERNEL_DIR}/mm/mmu.o \
@@ -101,11 +110,19 @@ OBJS = ${ARCH_OBJS} \
 	${KERNEL_DIR}/systemc.o \
 	${KERNEL_DIR}/kevqueue.o \
 	${KERNEL_DIR}/global.o \
-	${KERNEL_DIR}/kernel.o 
-	#${KERNEL_DIR}/vfs.o \
+	${KERNEL_DIR}/kernel.o
 
-BUILD_DIR = build
-SYS_DIR = ../system
+OBJS = ${ARCH_OBJS} \
+	${LIB_OBJS} \
+	${LOAD_OBJS} \
+	${KERNEL_OBJS} 
+
+LDS = mkos.lds.sd.S
+LDFLAGS = -L ${ARCH_DIR}/${ARCH}
+
+ASFLAGS = $(OPTM) -I. -Iinclude -marm $(ARCH_QEMU_CFLAGS)
+
+all: $(OS).bin 
 
 $(OS).bin: $(OBJS) ${LDS}
 	mkdir -p ${BUILD_DIR}

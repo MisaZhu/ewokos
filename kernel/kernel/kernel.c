@@ -16,9 +16,11 @@
 #include <dev/sd.h>
 #include <kprintf.h>
 #include <dev/uart.h>
-#include <ext2read.h>
-#include <partition.h>
 #include <basic_math.h>
+
+#ifdef WITH_LCDHAT
+#include "lcdhat/lcdhat.h"
+#endif
 
 page_dir_entry_t* _kernel_vm = NULL;
 uint32_t _mmio_base = 0;
@@ -73,20 +75,6 @@ static void init_allocable_mem(void) {
 	kalloc_init(ALLOCATABLE_MEMORY_START, P2V(get_hw_info()->phy_mem_size-32*MB), true);
 }
 
-static int32_t load_init(void) {
-	const char* prog = "/sbin/init";
-	int32_t sz;
-
-	char* elf = sd_read_ext2(prog, &sz);
-	if(elf != NULL) {
-		proc_t *proc = proc_create(PROC_TYPE_PROC, NULL);
-		strcpy(proc->cmd, prog);
-		int32_t res = proc_load_elf(proc, elf, sz);
-		kfree(elf);
-		return res;
-	}
-	return -1;
-}
 
 static void dev_init(void) {
   printf("    %16s ", "mmc_sd");
@@ -97,9 +85,7 @@ static void dev_init(void) {
     printf("[Failed!]\n");
 }
 
-#ifdef WITH_LCDHAT
-#include "lcdhat/lcdhat.h"
-#endif
+int32_t load_init(void);
 
 void _kernel_entry_c(context_t* ctx) {
 	(void)ctx;
