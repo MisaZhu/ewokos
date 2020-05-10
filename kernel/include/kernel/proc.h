@@ -2,7 +2,6 @@
 #define PROC_H
 
 #include <kernel/context.h>
-#include <kernel/ipc.h>
 #include <mm/mmu.h>
 #include <mm/trunkmalloc.h>
 #include <procinfo.h>
@@ -48,8 +47,6 @@ typedef struct {
 		int32_t from_pid;
 	} ipc;
 
-	proc_msg_t* msg_queue_head;
-	proc_msg_t* msg_queue_tail;
 } proc_space_t;
 
 #define STACK_PAGES 32
@@ -112,8 +109,6 @@ extern void    renew_sleep_counter(uint32_t usec);
 extern void    proc_usleep(context_t* ctx, uint32_t usec);
 extern void    proc_ready(proc_t* proc);
 
-extern void        proc_set_interrupt_data(void* data, uint32_t size);
-extern void        proc_get_interrupt_data(rawdata_t* data);
 extern int32_t     proc_ipc_setup(context_t* ctx, uint32_t entry, uint32_t extra, bool prefork);
 extern int32_t     proc_ipc_call(context_t* ctx, proc_t* proc, int32_t call_id);
 

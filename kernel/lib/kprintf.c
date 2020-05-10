@@ -4,7 +4,6 @@
 #include "dev/framebuffer.h"
 #include "dev/actled.h"
 #include "kstring.h"
-#include "graph.h"
 #include "kernel/system.h"
 
 void uart_out(const char* s) {

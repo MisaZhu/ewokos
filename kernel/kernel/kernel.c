@@ -19,7 +19,6 @@
 #include <ext2read.h>
 #include <partition.h>
 #include <basic_math.h>
-#include <graph.h>
 
 page_dir_entry_t* _kernel_vm = NULL;
 uint32_t _mmio_base = 0;
@@ -98,6 +97,10 @@ static void dev_init(void) {
     printf("[Failed!]\n");
 }
 
+#ifdef WITH_LCDHAT
+#include "lcdhat/lcdhat.h"
+#endif
+
 void _kernel_entry_c(context_t* ctx) {
 	(void)ctx;
 	//clear bss
@@ -109,6 +112,10 @@ void _kernel_entry_c(context_t* ctx) {
 	kev_init();
 
 	uart_dev_init();
+
+#ifdef WITH_LCDHAT
+	lcd_init();
+#endif
 
 	printf("\n\n"
 			"===Ewok micro-kernel===\n\n"

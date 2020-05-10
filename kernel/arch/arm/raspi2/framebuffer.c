@@ -136,7 +136,5 @@ int32_t fb_dev_write(const void* buf, uint32_t size) {
 		size = sz;
 	if(_fb_info.depth == 32) 
 		memcpy((void*)_fb_info.pointer, buf, size);
-	else if(_fb_info.depth == 16) 
-		dup16((uint16_t*)_fb_info.pointer, (uint32_t*)buf, _fb_info.width, _fb_info.height);
 	return (int32_t)size;
 }

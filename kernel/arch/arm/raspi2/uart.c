@@ -1,5 +1,4 @@
 #include <dev/uart.h>
-#include <buffer.h>
 #include <mm/mmu.h>
 #include <kernel/system.h>
 

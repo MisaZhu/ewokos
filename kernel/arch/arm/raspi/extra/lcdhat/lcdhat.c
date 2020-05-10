@@ -280,32 +280,3 @@ void lcd_init(void) {
 	LCD_1in3_Init(HORIZONTAL);
 	LCD_1in3_Clear(0x0);
 }
-
-void  lcd_flush(graph_t* g) {
-	if(g->w != LCD_WIDTH  || g->h !=  LCD_HEIGHT)
-		return;
-
-	LCD_1in3_SetWindows(0, 0, LCD_WIDTH, LCD_HEIGHT);
-	LCD_DC_1;
-	spi_arch_activate(1);
-
-	uint32_t *src = (uint32_t*)g->buffer;
-	uint32_t sz = LCD_HEIGHT*LCD_WIDTH;
-	UWORD i;
-	UWORD color;
-
-	for (i = 0; i < sz; i++) {
-		uint32_t s = src[i];
-		uint8_t b = (s >> 16) & 0xff;
-		uint8_t g = (s >> 8)  & 0xff;
-		uint8_t r = s & 0xff;
-		color = ((r >> 3) <<11) | ((g >> 3) << 6) | (b >> 3);
-		//color = ((color<<8)&0xff00)|(color>>8);
-		uint8_t* p = (uint8_t*)&color;
-		spi_arch_transfer(p[1]);
-		spi_arch_transfer(p[0]);
-	}
-
-	spi_arch_activate(0);
-}
-
