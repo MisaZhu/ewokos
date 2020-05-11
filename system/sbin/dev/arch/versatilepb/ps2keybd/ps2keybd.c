@@ -8,7 +8,6 @@
 #include <sys/mmio.h>
 #include <sys/charbuf.h>
 #include <sys/syscall.h>
-#include <rawdata.h>
 
 #define KCNTL 0x00
 #define KSTAT 0x04

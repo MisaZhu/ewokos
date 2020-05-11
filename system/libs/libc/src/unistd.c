@@ -12,7 +12,7 @@
 #include <mstr.h>
 #include <sys/shm.h>
 #include <errno.h>
-#include <rawdata.h>
+//#include <rawdata.h>
 
 int errno = ENONE;
 

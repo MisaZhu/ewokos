@@ -6,7 +6,7 @@
 #include <sys/proc.h>
 #include <sys/kserv.h>
 #include <mstr.h>
-#include <buffer.h>
+#include <sys/buffer.h>
 #include <sys/proto.h>
 #include <sys/fsinfo.h>
 #include <sys/vfsc.h>

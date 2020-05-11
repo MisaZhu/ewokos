@@ -1,7 +1,7 @@
 #include <sys/sd.h>
 #include <sys/syscall.h>
 #include <stdlib.h>
-#include <partition.h>
+#include <sys/partition.h>
 #include <string.h>
 #include <unistd.h>
 

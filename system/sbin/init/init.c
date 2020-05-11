@@ -13,7 +13,6 @@
 #include <sys/sd.h>
 #include <sys/gpio.h>
 #include <sys/ipc.h>
-#include <rawdata.h>
 #include <sys/global.h>
 #include <sys/proc.h>
 #include <graph/graph.h>
