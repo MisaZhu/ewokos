@@ -119,6 +119,40 @@ static void do_kserv_unreg(int pid, proto_t* in, proto_t* out) {
 	PF->addi(out, 0);
 }
 
+static void do_lockd_new(proto_t* out) {
+	int32_t *lock =  (int32_t*)malloc(sizeof(int32_t));
+	*lock = 0;
+	PF->addi(out, (uint32_t)lock);
+}
+
+static void do_lockd_free(proto_t* in) {
+	int32_t* lock = (int32_t*)proto_read_int(in);
+	if(lock != NULL)
+		free(lock);
+}
+
+static void do_lockd_lock(proto_t* in, proto_t* out) {
+	PF->addi(out, -1);
+	int32_t* lock = (int32_t*)proto_read_int(in);
+	if(lock == NULL || *lock != 0) { //locked already , retry
+		return;	
+	}
+
+	*lock = 1;
+	PF->clear(out)->addi(out, 0);
+}
+
+static void do_lockd_unlock(proto_t* in, proto_t* out) {
+	PF->addi(out, -1);
+	int32_t* lock = (int32_t*)proto_read_int(in);
+	if(lock == NULL) { 
+		return;	
+	}
+
+	*lock = 0;
+	PF->clear(out)->addi(out, 0);
+}
+
 static void handle_ipc(int pid, int cmd, proto_t* in, proto_t* out, void* p) {
 	(void)p;
 
@@ -140,6 +174,18 @@ static void handle_ipc(int pid, int cmd, proto_t* in, proto_t* out, void* p) {
 		return;
 	case CORE_CMD_GLOBAL_GET:
 		do_global_get(in, out);
+		return;
+	case CORE_CMD_LOCK_NEW: 
+		do_lockd_new(out);
+		return;
+	case CORE_CMD_LOCK_FREE: 
+		do_lockd_free(in);
+		return;
+	case CORE_CMD_LOCK: 
+		do_lockd_lock(in, out);
+		return;
+	case CORE_CMD_UNLOCK: 
+		do_lockd_unlock(in, out);
 		return;
 	}
 }
