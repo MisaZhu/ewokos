@@ -214,10 +214,7 @@ static void handle_event(kevent_t* kev) {
 	}
 }
 
-int main(int argc, char** argv) {
-	(void)argc;
-	(void)argv;
-
+void core(void) {
 	_global = hashmap_new();
 	_kservs = hashmap_new();
 
@@ -237,5 +234,5 @@ int main(int argc, char** argv) {
 
 	hashmap_free(_global);
 	hashmap_free(_kservs);
-	return 0;
 }
+

@@ -122,12 +122,23 @@ static void run_procs(void) {
 	close(fd);
 }
 
+void core(void);
+static void run_core(void) {
+	int pid = fork();
+	if(pid == 0) {
+		core();
+	}
+	else
+		proc_wait_ready(pid);
+}
+
 int main(int argc, char** argv) {
 	(void)argc;
 	(void)argv;
 
 	kprintf(false, "\n[init process started]\n");
-	run_none_fs("/sbin/cored"); //have to be pid 1
+	run_core();
+
 	run_none_fs("/sbin/vfsd");
 	//mount root fs
 	run_none_fs("/sbin/dev/rootfsd");
@@ -142,7 +153,7 @@ int main(int argc, char** argv) {
 
 	run_procs();
 
-	while(1) {
+	while(true) {
 		sleep(1);
 	}
 	return 0;

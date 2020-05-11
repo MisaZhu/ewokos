@@ -205,7 +205,6 @@ static int32_t split_fname(const char* filename, char* name[]) {
 				break;
 		}
 		hold[u] = 0;
-		name[depth][0] = 0;
 		if(u > 0) {
 			name[depth] = (char*)kmalloc(u+1);
 			strcpy(name[depth], hold);

@@ -190,7 +190,6 @@ libs: $(LIB_OBJS)
 	@cp -r $(KERNEL_H) $(TARGET_DIR)/include/
 
 include $(ROOT_DIR)/sbin/init/build.mk
-include $(ROOT_DIR)/sbin/cored/build.mk
 include $(ROOT_DIR)/sbin/lockd/build.mk
 include $(ROOT_DIR)/sbin/dev/fbd/build.mk
 include $(ROOT_DIR)/sbin/dev/nulld/build.mk
