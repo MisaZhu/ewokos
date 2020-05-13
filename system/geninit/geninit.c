@@ -21,7 +21,10 @@ int main() {
 	int total_buff_len = 0;
 
 	printf("const char* init_data[] = {");
-	while ((buff_len = fread(buff, 1, BUF_LEN, stdin) != 0)) {
+	while (1) {
+		buff_len = fread(buff, 1, BUF_LEN, stdin);
+		if(buff_len <= 0)
+			break;
 		b16encode(buff, buff_len, b16, &b16_len);
 		b16[b16_len] = 0;
 		printf("\"%s\",\n", b16);

@@ -58,8 +58,7 @@ ARCH_OBJS = \
 	${ARCH_DIR}/${ARCH}/framebuffer.o \
 	${ARCH_DIR}/${ARCH}/actled.o \
 	${ARCH_DIR}/${ARCH}/sd.o \
-	${ARCH_DIR}/${ARCH}/timer.o \
-	${ARCH_DIR}/${ARCH}/mailbox.o 
+	${ARCH_DIR}/${ARCH}/timer.o
 
 ifeq ($(MACH),raspi)
 CFLAGS += -I${ARCH_DIR}/${ARCH}/extra -DWITH_LCDHAT
@@ -67,7 +66,12 @@ CFLAGS += -I${ARCH_DIR}/${ARCH}/extra -DWITH_LCDHAT
 ARCH_OBJS += ${ARCH_DIR}/${ARCH}/extra/lib/gpio_arch.o  \
 	${ARCH_DIR}/${ARCH}/extra/lib/spi_arch.o \
 	${ARCH_DIR}/${ARCH}/extra/lcdhat/lcdhat.o \
-	${ARCH_DIR}/${ARCH}/cpu_freq.o
+	${ARCH_DIR}/${ARCH}/cpu_freq.o \
+	${ARCH_DIR}/${ARCH}/mailbox.o 
+else
+ifeq ($(MACH),raspi2)
+ARCH_OBJ += ${ARCH_DIR}/${ARCH}/mailbox.o 
+endif
 endif
 	
 LIB_DIR = lib
