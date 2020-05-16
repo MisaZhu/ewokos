@@ -3,7 +3,7 @@
 
 #include <kernel/context.h>
 #include <mm/mmu.h>
-#include <mm/trunkmalloc.h>
+#include <mm/trunkmem.h>
 #include <procinfo.h>
 #include <proto.h>
 #include <stdbool.h>

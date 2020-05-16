@@ -1,6 +1,6 @@
 #include <mm/kalloc.h>
 #include <mm/kmalloc.h>
-#include <mm/trunkmalloc.h>
+#include <mm/trunkmem.h>
 #include <mm/mmu.h>
 #include <kernel/kernel.h>
 #include <kstring.h>

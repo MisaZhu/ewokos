@@ -1,4 +1,4 @@
-#include <mm/trunkmalloc.h>
+#include <mm/trunkmem.h>
 #include <mm/mmu.h>
 #include <kstring.h>
 #include <stddef.h>
