@@ -8,8 +8,8 @@
 #include <kernel/kevqueue.h>
 #include <kstring.h>
 #include <kprintf.h>
-#include <elf.h>
 #include <queue.h>
+#include <elf.h>
 #include <stddef.h>
 
 static proc_t _proc_table[PROC_MAX];

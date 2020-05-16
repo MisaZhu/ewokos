@@ -57,7 +57,6 @@ ARCH_OBJS = \
 	${ARCH_DIR}/${ARCH}/irq_arch.o \
 	${ARCH_DIR}/${ARCH}/framebuffer.o \
 	${ARCH_DIR}/${ARCH}/actled.o \
-	${ARCH_DIR}/${ARCH}/sd.o \
 	${ARCH_DIR}/${ARCH}/timer.o
 
 ifeq ($(MACH),raspi)
@@ -95,6 +94,13 @@ LOAD_DIR = loadinit/sd
 LOAD_OBJS = \
 	${LOAD_DIR}/ext2read.o \
 	${LOAD_DIR}/loadinit.o
+
+ARCH_OBJS += ${ARCH_DIR}/${ARCH}/sd.o
+
+CFLAGS += -DSDC
+
+SDEXT2 = -sd $(SYS_DIR)/build/sd.ext2
+
 endif
 
 CFLAGS += -I$(LOAD_DIR)
@@ -135,16 +141,15 @@ $(OS).bin: $(OBJS) ${LDS}
 	$(OBJCOPY) -O binary ${BUILD_DIR}/$(OS).elf ${BUILD_DIR}/$(OS).bin
 	$(OBJDUMP) -D ${BUILD_DIR}/$(OS).elf > ${BUILD_DIR}/$(OS).asm
 
-SDEXT2 = $(SYS_DIR)/build/sd.ext2
 
 run: 
-	qemu-system-arm $(QEMU_FLAGS) -kernel ${BUILD_DIR}/$(OS).bin -sd ${SDEXT2}
+	qemu-system-arm $(QEMU_FLAGS) -kernel ${BUILD_DIR}/$(OS).bin ${SDEXT2}
 
 runasm: 
-	qemu-system-arm $(QEMU_FLAGS) -kernel ${BUILD_DIR}/$(OS).bin -sd ${SDEXT2} -d in_asm
+	qemu-system-arm $(QEMU_FLAGS) -kernel ${BUILD_DIR}/$(OS).bin ${SDEXT2} -d in_asm
 
 debug:
-	qemu-system-arm $(QEMU_FLAGS) -gdb tcp::26000 -S -kernel ${BUILD_DIR}/$(OS).bin -sd ${SDEXT2}
+	qemu-system-arm $(QEMU_FLAGS) -gdb tcp::26000 -S -kernel ${BUILD_DIR}/$(OS).bin ${SDEXT2}
 
 debugasm:
 	qemu-system-arm $(QEMU_FLAGS) -d in_asm -gdb tcp::26000 -S -kernel ${BUILD_DIR}/$(OS).bin

@@ -2,6 +2,7 @@
 #include <kernel/proc.h>
 #include <mm/kmalloc.h>
 #include <kstring.h>
+#include <stddef.h>
 
 extern const char* init_data[];
 extern const int init_size;

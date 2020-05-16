@@ -77,12 +77,14 @@ static void init_allocable_mem(void) {
 }
 
 static void dev_init(void) {
+#ifdef SDC
   printf("    %16s ", "mmc_sd");
   if(sd_init() == 0) {
     printf("[OK]\n\n");
   }
   else
     printf("[Failed!]\n");
+#endif
 }
 
 int32_t load_init(void);

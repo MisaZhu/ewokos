@@ -15,8 +15,11 @@
 #include <syscalls.h>
 #include <kstring.h>
 #include <kprintf.h>
-#include <dev/sd.h>
 #include <stddef.h>
+
+#ifdef SDC
+#include <dev/sd.h>
+#endif
 
 static void sys_kprint(const char* s, int32_t len, bool tty_only) {
 	(void)len;
@@ -37,6 +40,8 @@ static void sys_exit(context_t* ctx, int32_t pid, int32_t res) {
 		proc_exit(ctx, proc, res);
 	}
 }
+
+#ifdef SDC
 
 static int32_t sys_sdc_read(int32_t bid) {
 	return sd_dev_read(bid);
@@ -63,6 +68,29 @@ static void sys_sdc_write_done(context_t* ctx) {
 	}
 	ctx->gpr[0] = -1;
 }
+
+#else
+
+static int32_t sys_sdc_read(int32_t bid) {
+	(void)bid;
+	return 0;
+}
+
+static int32_t sys_sdc_write(int32_t bid, const char* buf) {
+	(void)bid;
+	(void)buf;
+	return 0;
+}
+
+static void sys_sdc_read_done(context_t* ctx, void* buf) {
+	(void)ctx;
+	(void)buf;
+}
+
+static void sys_sdc_write_done(context_t* ctx) {
+	(void)ctx;
+}
+#endif
 
 static int32_t sys_getpid(int32_t pid) {
 	proc_t * proc = _current_proc;
