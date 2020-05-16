@@ -17,6 +17,7 @@
 #include <kprintf.h>
 #include <dev/uart.h>
 #include <basic_math.h>
+#include <stddef.h>
 
 #ifdef WITH_LCDHAT
 #include "lcdhat/lcdhat.h"

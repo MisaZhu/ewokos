@@ -11,7 +11,7 @@
 
 int firmware_property(uint32_t tag, uint32_t id, uint32_t *value) {
 	/*message head + tag head + property*/
-	size_t size = 12 + 12 + 8;
+	uint32_t size = 12 + 12 + 8;
 	uint32_t buf[8] __attribute__((aligned(16)));
 	mail_message_t msg;
 

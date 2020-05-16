@@ -1,6 +1,7 @@
 #include <mm/trunkmalloc.h>
 #include <mm/mmu.h>
 #include <kstring.h>
+#include <stddef.h>
 
 /*
 malloc for memory trunk management

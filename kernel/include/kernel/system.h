@@ -1,7 +1,7 @@
 #ifndef SYSTEM_H
 #define SYSTEM_H
 
-#include <_types.h>
+#include <stdint.h>
 
 extern void __irq_enable(void);
 extern void __irq_disable(void);

@@ -1,7 +1,8 @@
 #ifndef BUFFER_H
 #define BUFFER_H
 
-#include <_types.h>
+#include <stddef.h>
+#include <stdint.h>
 
 #define BUFFER_SIZE 1024
 

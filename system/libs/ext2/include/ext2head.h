@@ -1,7 +1,7 @@
 #ifndef EXT2_FS_HEAD_H
 #define EXT2_FS_HEAD_H
 
-#include <_types.h>
+#include <stdint.h>
 
 #define EXT2_FT_FILE 1 
 #define EXT2_FT_DIR  2

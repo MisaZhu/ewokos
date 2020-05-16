@@ -1,4 +1,5 @@
 #include <proto.h>
+#include <stddef.h>
 #include <kstring.h>
 #include <mm/kmalloc.h>
 

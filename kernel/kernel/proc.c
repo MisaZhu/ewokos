@@ -10,6 +10,7 @@
 #include <kprintf.h>
 #include <elf.h>
 #include <queue.h>
+#include <stddef.h>
 
 static proc_t _proc_table[PROC_MAX];
 __attribute__((__aligned__(PAGE_DIR_SIZE))) 

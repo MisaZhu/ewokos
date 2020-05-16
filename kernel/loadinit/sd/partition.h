@@ -1,7 +1,7 @@
 #ifndef PARTITION_H
 #define PARTITION_H
 
-#include <_types.h>
+#include <stdint.h>
 
 typedef struct {
 	uint8_t drive; /* 0x80 - active */

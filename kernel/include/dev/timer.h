@@ -1,7 +1,7 @@
 #ifndef TIMER_H
 #define TIMER_H
 
-#include <_types.h>
+#include <stdint.h>
 
 extern void timer_set_interval(uint32_t id, uint32_t interval_microsecond);
 

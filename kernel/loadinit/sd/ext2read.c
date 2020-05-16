@@ -4,6 +4,7 @@
 #include <basic_math.h>
 #include <mm/kmalloc.h>
 #include <dev/sd.h>
+#include <stddef.h>
 #include <partition.h>
 
 #define EXT2_BLOCK_SIZE 1024
@@ -282,7 +283,7 @@ static int32_t get_gds(ext2_t* ext2) {
 	int32_t gd_num = div_u32(EXT2_BLOCK_SIZE, gd_size);
 	int32_t i = 2;
 	int32_t index = 0;
-	while(true) {
+	while(1) {
 		char buf[EXT2_BLOCK_SIZE];
 		ext2->read_block(ext2->super.s_blocks_per_group+i, buf);
 		for(int32_t j=0; j<gd_num; j++) {

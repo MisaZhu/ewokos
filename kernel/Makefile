@@ -70,7 +70,7 @@ ARCH_OBJS += ${ARCH_DIR}/${ARCH}/extra/lib/gpio_arch.o  \
 	${ARCH_DIR}/${ARCH}/mailbox.o 
 else
 ifeq ($(MACH),raspi2)
-ARCH_OBJ += ${ARCH_DIR}/${ARCH}/mailbox.o 
+ARCH_OBJS += ${ARCH_DIR}/${ARCH}/mailbox.o 
 endif
 endif
 	

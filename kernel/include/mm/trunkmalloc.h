@@ -1,7 +1,7 @@
 #ifndef TRKMALLOC_H
 #define TRKMALLOC_H
 
-#include <_types.h>
+#include <stdint.h>
 
 typedef struct mem_block {
 	struct mem_block* next;

@@ -5,6 +5,7 @@
 #include "dev/actled.h"
 #include "kstring.h"
 #include "kernel/system.h"
+#include <stddef.h>
 
 void uart_out(const char* s) {
 	uart_write(s, strlen(s));

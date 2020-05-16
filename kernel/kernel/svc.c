@@ -16,6 +16,7 @@
 #include <kstring.h>
 #include <kprintf.h>
 #include <dev/sd.h>
+#include <stddef.h>
 
 static void sys_kprint(const char* s, int32_t len, bool tty_only) {
 	(void)len;

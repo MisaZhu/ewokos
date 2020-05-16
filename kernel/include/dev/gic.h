@@ -1,7 +1,6 @@
 #ifndef GIC_H
 #define GIC_H
 
-#include <_types.h>
 #include <proto.h>
 
 extern void pic_set_enabled(uint32_t v);

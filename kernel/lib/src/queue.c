@@ -1,6 +1,7 @@
 #include <queue.h>
 #include <mm/kmalloc.h>
 #include <kstring.h>
+#include <stddef.h>
 
 void queue_init(queue_t* q) {
 	q->head = q->tail = NULL;

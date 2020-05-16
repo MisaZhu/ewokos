@@ -1,7 +1,7 @@
 #ifndef MMU_H
 #define MMU_H
 
-#include <_types.h>
+#include <stdint.h>
 
 #define KB 1024
 #define MB (1024*KB)

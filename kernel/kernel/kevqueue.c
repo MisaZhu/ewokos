@@ -2,6 +2,7 @@
 #include <queue.h>
 #include <mm/kmalloc.h>
 #include <kernel/proc.h>
+#include <stddef.h>
 
 static queue_t  _kev_queue;
 

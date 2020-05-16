@@ -1,6 +1,7 @@
 #include <kernel/global.h>
 #include <kernel/kevqueue.h>
 #include <kevent.h>
+#include <stddef.h>
 
 int32_t global_set(const char* key, proto_t* val) {
 	proto_t in;

@@ -6,6 +6,7 @@
 #include <mm/trunkmalloc.h>
 #include <procinfo.h>
 #include <proto.h>
+#include <stdbool.h>
 
 enum {
 	UNUSED = 0,

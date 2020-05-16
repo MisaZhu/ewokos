@@ -1,7 +1,7 @@
 #ifndef KEVENT_H
 #define KEVENT_H
 
-#include <_types.h>
+#include <stdint.h>
 
 enum {
 	KEV_NONE = 0,

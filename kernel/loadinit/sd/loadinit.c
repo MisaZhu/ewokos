@@ -1,4 +1,5 @@
 #include <ext2read.h>
+#include <stddef.h>
 #include <kernel/proc.h>
 #include <mm/kmalloc.h>
 #include <kstring.h>

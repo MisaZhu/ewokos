@@ -1,7 +1,7 @@
 #ifndef KSTRING_H
 #define KSTRING_H
 
-#include <_types.h>
+#include <stdint.h>
 
 /* copy functions */
 void *memcpy(void *target, const void *source, uint32_t n);

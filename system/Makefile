@@ -163,7 +163,6 @@ all: mkdirs libs builtin_apps extra_apps #extra_devs
 KERNEL_H = \
 	../kernel/include/usinterrupt.h \
 	../kernel/include/syscalls.h \
-	../kernel/include/_types.h \
 	../kernel/include/fbinfo.h
 
 libs: $(LIB_OBJS)

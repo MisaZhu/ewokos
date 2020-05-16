@@ -8,6 +8,7 @@
 #include <kernel/system.h>
 #include <kstring.h>
 #include <kprintf.h>
+#include <stddef.h>
 
 static uint32_t shmem_tail = 0;
 static uint32_t shmem_count = 1; //id start with 1 not 0

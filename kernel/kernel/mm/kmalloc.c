@@ -5,6 +5,7 @@
 #include <kernel/kernel.h>
 #include <kstring.h>
 #include <kprintf.h>
+#include <stddef.h>
 
 static malloc_t _kmalloc;
 static uint32_t _kmalloc_mem_tail;

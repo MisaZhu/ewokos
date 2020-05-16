@@ -1,7 +1,7 @@
 #ifndef SHAREMEM_H
 #define SHAREMEM_H
 
-#include <_types.h>
+#include <stdint.h>
 
 void    shm_init(void);
 int32_t shm_alloc(uint32_t size, int32_t flag);
