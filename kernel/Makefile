@@ -10,7 +10,6 @@ OBJCOPY = arm-none-eabi-objcopy
 OBJDUMP = arm-none-eabi-objdump
 
 export QEMU_AUDIO_DRV=none
-export SDC=yes
 
 ifneq ($(MACH),)
 ARCH=arm/$(MACH)
@@ -22,7 +21,7 @@ ARCH_DIR=arch
 include ${ARCH_DIR}/${ARCH}/config.mk
 
 BUILD_DIR = build
-SYS_DIR = ../system
+SYS_FULL_DIR = ../system/full
 
 # flags
 #OPTM = -g
@@ -97,7 +96,7 @@ LOAD_DIR = loadinit/sd
 LOAD_OBJS = \
 	${LOAD_DIR}/ext2read.o \
 	${LOAD_DIR}/loadinit.o
-SDEXT2 = -sd $(SYS_DIR)/build/sd.ext2
+SDEXT2 = -sd $(SYS_FULL_DIR)/build/sd.ext2
 endif
 
 CFLAGS += -I$(LOAD_DIR)
