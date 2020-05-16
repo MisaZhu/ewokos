@@ -28,7 +28,7 @@ SYS_DIR = ../system
 OPTM = -O2
 
 CFLAGS += $(OPTM) \
-	-I. -I../include -Iinclude \
+	-I. -Iinclude/lib -Iinclude \
 	-I${ARCH_DIR}/${ARCH} \
 	-marm $(ARCH_QEMU_CFLAGS) \
 	-Wstrict-prototypes \

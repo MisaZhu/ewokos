@@ -2,7 +2,6 @@
 #define KEVENT_H
 
 #include <_types.h>
-#include <proto.h>
 
 enum {
 	KEV_NONE = 0,
@@ -15,7 +14,7 @@ enum {
 
 typedef struct {
 	uint32_t type;	
-	proto_t* data;
+	void* data;
 } kevent_t;
 
 #endif

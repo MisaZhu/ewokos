@@ -1,5 +1,5 @@
 #include "graph/font.h"
-#include "kstring.h"
+#include <string.h>
 
 extern font_t font_16x32;
 extern font_t font_12x24;

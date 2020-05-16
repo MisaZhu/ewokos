@@ -1,7 +1,7 @@
 #include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <basic_math.h>
+#include <sys/basic_math.h>
 #include <string.h>
 #include <console/console.h>
 

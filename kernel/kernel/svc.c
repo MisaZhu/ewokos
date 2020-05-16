@@ -346,16 +346,18 @@ static kevent_t* sys_get_kevent_raw(void) {
 
 	kevent_t* ret = (kevent_t*)proc_malloc(sizeof(kevent_t));
 	ret->type = kev->type;
-	if(kev->data != NULL && kev->data->size > 0) {
-		ret->data = (proto_t*)proc_malloc(sizeof(proto_t));
-		memset(ret->data, 0, sizeof(proto_t));
-		ret->data->data = proc_malloc(kev->data->size);
-		ret->data->total_size = ret->data->size = kev->data->size;
-		memcpy(ret->data->data, kev->data->data, kev->data->size);
+	proto_t* data = ((proto_t*)kev->data);
+	if(data != NULL && data->size > 0) {
+		proto_t* ret_data = (proto_t*)proc_malloc(sizeof(proto_t));
+		memset(ret_data, 0, sizeof(proto_t));
+		ret_data->data = proc_malloc(data->size);
+		ret_data->total_size = ret_data->size = data->size;
+		memcpy(ret_data->data, data->data, data->size);
+		ret->data = ret_data;
 	}
 
-	if(ret->data != NULL)
-		proto_free(kev->data);
+	if(data != NULL)
+		proto_free(data);
 	kfree(kev);
 	return ret;
 }
