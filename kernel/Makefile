@@ -62,11 +62,11 @@ ARCH_OBJS = \
 ifeq ($(MACH),raspi)
 CFLAGS += -I${ARCH_DIR}/${ARCH}/extra -DWITH_LCDHAT
 
-ARCH_OBJS += ${ARCH_DIR}/${ARCH}/extra/lib/gpio_arch.o  \
-	${ARCH_DIR}/${ARCH}/extra/lib/spi_arch.o \
-	${ARCH_DIR}/${ARCH}/extra/lcdhat/lcdhat.o \
+ARCH_OBJS += ${ARCH_DIR}/${ARCH}/gpio_arch.o  \
 	${ARCH_DIR}/${ARCH}/cpu_freq.o \
-	${ARCH_DIR}/${ARCH}/mailbox.o 
+	${ARCH_DIR}/${ARCH}/mailbox.o \
+	${ARCH_DIR}/${ARCH}/extra/lib/spi_arch.o \
+	${ARCH_DIR}/${ARCH}/extra/lcdhat/lcdhat.o 
 else
 ifeq ($(MACH),raspi2)
 ARCH_OBJS += ${ARCH_DIR}/${ARCH}/mailbox.o 
@@ -90,17 +90,13 @@ LOAD_OBJS = \
 	${LOAD_DIR}/loadinit.o
 
 else
+CFLAGS += -DSDC
+ARCH_OBJS += ${ARCH_DIR}/${ARCH}/extra/sd/sd.o
 LOAD_DIR = loadinit/sd
 LOAD_OBJS = \
 	${LOAD_DIR}/ext2read.o \
 	${LOAD_DIR}/loadinit.o
-
-ARCH_OBJS += ${ARCH_DIR}/${ARCH}/sd.o
-
-CFLAGS += -DSDC
-
 SDEXT2 = -sd $(SYS_DIR)/build/sd.ext2
-
 endif
 
 CFLAGS += -I$(LOAD_DIR)

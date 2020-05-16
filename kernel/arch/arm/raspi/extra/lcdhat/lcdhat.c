@@ -1,6 +1,6 @@
 #include <kstring.h>
 #include <kernel/system.h>
-#include "../lib/gpio_arch.h"
+#include "../../gpio_arch.h"
 #include "../lib/spi_arch.h"
 #include "lcdhat.h"
 
