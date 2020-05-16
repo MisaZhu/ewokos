@@ -10,6 +10,7 @@ OBJCOPY = arm-none-eabi-objcopy
 OBJDUMP = arm-none-eabi-objdump
 
 export QEMU_AUDIO_DRV=none
+export SDC=yes
 
 ifneq ($(MACH),)
 ARCH=arm/$(MACH)
@@ -82,7 +83,7 @@ LIB_OBJS = \
 	${LIB_DIR}/queue.o \
 	${LIB_DIR}/kprintf.o
 
-ifeq ($(LOAD),mem)
+ifeq ($(SDC),no)
 LOAD_DIR = loadinit/mem
 LOAD_OBJS = \
 	${LOAD_DIR}/base16.o \
