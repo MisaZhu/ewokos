@@ -28,7 +28,7 @@ SYS_DIR = ../system
 OPTM = -O2
 
 CFLAGS += $(OPTM) \
-	-I. -Iinclude/lib -Iinclude \
+	-I. -Ilib/include -Iinclude \
 	-I${ARCH_DIR}/${ARCH} \
 	-marm $(ARCH_QEMU_CFLAGS) \
 	-Wstrict-prototypes \
@@ -74,7 +74,7 @@ ARCH_OBJ += ${ARCH_DIR}/${ARCH}/mailbox.o
 endif
 endif
 	
-LIB_DIR = lib
+LIB_DIR = lib/src
 LIB_OBJS = \
 	${LIB_DIR}/kstring.o \
 	${LIB_DIR}/vprintf.o \
