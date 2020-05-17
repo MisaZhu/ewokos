@@ -128,7 +128,7 @@ static int run(int argc, char* argv[]) {
 	int rd = 0;
 	int8_t c = 0;
 	while(1) {
-		const char* cc = get_global("current_console");
+		const char* cc = "0";//get_global("current_console"); //TODO
 		if(cc[0] == console.id[0]) {
 			if(actived == 0) {
 				console_refresh(&console.console);

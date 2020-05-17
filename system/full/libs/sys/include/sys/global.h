@@ -4,6 +4,6 @@
 #include <sys/proto.h>
 
 int set_global(const char* key, proto_t* in);
-proto_t* get_global(const char* key);
+int get_global(const char* key, proto_t* out);
 
 #endif
