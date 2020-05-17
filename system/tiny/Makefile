@@ -133,9 +133,6 @@ include $(ROOT_DIR)/bin/ls/build.mk
 include $(ROOT_DIR)/bin/mount/build.mk
 include $(ROOT_DIR)/bin/uname/build.mk
 include $(ROOT_DIR)/bin/grep/build.mk
-include $(ROOT_DIR)/bin/kill/build.mk
-include $(ROOT_DIR)/bin/mkdir/build.mk
-include $(ROOT_DIR)/bin/rm/build.mk
 
 include $(ROOT_DIR)/sbin/dev/rootfsd/build.mk
 include $(ROOT_DIR)/sbin/init/build.mk
