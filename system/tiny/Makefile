@@ -98,7 +98,7 @@ CLEAN = $(LIB_OBJS)
 SD = $(BUILD_DIR)/sd.ext2
 
 all: mkdirs libs builtin_apps rootfsd init #extra_devs
-	${BUILD_DIR}/genfile init  $(BUILD_DIR)/rootfs/sbin/init > $(KERNEL_DIR)/loadinit/mem/init_data.c
+	${BUILD_DIR}/genfile init  $(BUILD_DIR)/rootfs/sbin/init > $(KERNEL_DIR)/extra/loadinit/mem/init_data.c
 	@echo "all done."
 
 KERNEL_H = \
