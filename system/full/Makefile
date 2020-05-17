@@ -288,3 +288,12 @@ gdb:
 clean:
 	rm -f $(CLEAN)
 	rm -fr build
+	cd $(APPS_DIR)/test;make clean
+	cd $(APPS_DIR)/dump;make clean
+	cd $(APPS_DIR)/gtest;make clean
+	cd $(APPS_DIR)/snake;make clean
+	cd $(APPS_DIR)/console;make clean
+	cd $(APPS_DIR)/xconsole;make clean
+	cd $(APPS_DIR)/tga;make clean
+	cd $(APPS_DIR)/png;make clean
+	cd $(APPS_DIR)/mario;make clean
