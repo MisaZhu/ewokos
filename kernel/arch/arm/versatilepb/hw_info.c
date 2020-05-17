@@ -1,6 +1,5 @@
 #include <kernel/hw_info.h>
 #include <mm/mmu.h>
-#include <dev/framebuffer.h>
 #include <kstring.h>
 
 static hw_info_t _hw_info;

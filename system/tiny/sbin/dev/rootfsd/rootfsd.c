@@ -7,28 +7,25 @@
 #include <sys/sd.h>
 #include <sys/vdevice.h>
 #include <sys/syscall.h>
-#include <ext2fs.h>
-#include <partition.h>
 #include <stdio.h>
 
-static void add_file(fsinfo_t* node_to, const char* name, INODE* inode, int32_t ino) {
+static void add_file(fsinfo_t* node_to, const char* name, char* p, int32_t size) {
 	fsinfo_t f;
 	memset(&f, 0, sizeof(fsinfo_t));
 	strcpy(f.name, name);
 	f.type = FS_TYPE_FILE;
-	f.size = inode->i_size;
-	f.data = (uint32_t)ino;
+	f.size = size;
+	f.data = (uint32_t)p;
 
 	vfs_new_node(&f);
 	vfs_add(node_to, &f);
 }
 
-static int add_dir(fsinfo_t* node_to, fsinfo_t* ret, const char* dn, INODE* inode, int ino) {
+static int add_dir(fsinfo_t* node_to, fsinfo_t* ret, const char* dn) {
 	memset(ret, 0, sizeof(fsinfo_t));
 	strcpy(ret->name, dn);
 	ret->type = FS_TYPE_DIR;
-	ret->data = (uint32_t)ino;
-	ret->size = inode->i_size;
+	ret->size = 1024;
 	vfs_new_node(ret);
 	if(vfs_add(node_to, ret) != 0) {
 		vfs_del(ret);
@@ -37,134 +34,81 @@ static int add_dir(fsinfo_t* node_to, fsinfo_t* ret, const char* dn, INODE* inod
 	return 0;
 }
 
-static int32_t add_nodes(ext2_t* ext2, INODE *ip, fsinfo_t* dinfo) {
-	int32_t i; 
-	char c, *cp;
-	DIR  *dp;
-	char buf[EXT2_BLOCK_SIZE];
+extern const char* fs_data[];
 
-	for (i=0; i<12; i++){
-		if (ip->i_block[i] ){
-			ext2->read_block(ip->i_block[i], buf);
-			dp = (DIR *)buf;
-			cp = buf;
+static void b16_decode(const char *input, uint32_t input_len, char *output, uint32_t *output_len) {
+	uint32_t i;
+	for (i = 0; i < input_len / 2; i++) {
+		uint8_t low = input[2 * i] - 'A';
+		uint8_t high = input[2 * i + 1] - 'A';
+		output[i] = low | (high << 4);
+	}
+	*output_len = input_len / 2;
+}
 
-			if(dp->inode == 0)
-				continue;
+static int32_t load(char* ret, int32_t i) {
+	while(1) {
+		const char* s = fs_data[i++];
+		if(s == NULL)
+			break;
+		uint32_t sz = 0;
+		b16_decode(s, strlen(s), ret , &sz);
+		ret += sz;
+	}
+	return i;
+}
 
-			while (cp < &buf[EXT2_BLOCK_SIZE]){
-				c = dp->name[dp->name_len];  // save last byte
-				dp->name[dp->name_len] = 0;   
-				if(dp->name_len == 0)
-					break;
-				if(strcmp(dp->name, ".") != 0 && strcmp(dp->name, "..") != 0) {
-					int32_t ino = dp->inode;
-					INODE ip_node;
-					if(ext2_node_by_ino(ext2, ino, &ip_node) == 0) {
-						if(dp->file_type == 2) {//director
-							fsinfo_t ret;
-							add_dir(dinfo, &ret, dp->name, &ip_node, ino);
-							add_nodes(ext2, &ip_node, &ret);
-						}
-						else if(dp->file_type == 1) {//file
-							add_file(dinfo, dp->name, &ip_node, ino);
-						}
-					}
-				}
-				//add node
-				dp->name[dp->name_len] = c; // restore that last byte
-				cp += dp->rec_len;
-				dp = (DIR *)cp;
+
+static int32_t add_nodes(fsinfo_t* dinfo, int32_t i) {
+	while(1) {
+		//read name
+		const char* s = fs_data[i++];
+		if(s == NULL)
+			return i;
+
+		const char* sz = fs_data[i++];
+		if(sz[0] == 'r') { //dir type
+			fsinfo_t info;
+			add_dir(dinfo, &info, s);
+			i = add_nodes(&info, i);
+		}
+		else {
+			int32_t size = atoi(sz);
+			char* data = NULL;
+			if(size > 0) {
+				data = (char*)malloc(size);
 			}
+			i = load(data, i);
+			add_file(dinfo, s, data, size);
 		}
 	}
+	return i;
+}
+
+static int memfs_mount(fsinfo_t* info, void* p) {
+	(void)p;
+	add_nodes(info, 0);
 	return 0;
 }
 
-static int sdext2_mount(fsinfo_t* info, void* p) {
-	ext2_t* ext2 = (ext2_t*)p;
-	INODE root_node;
-	ext2_node_by_fname(ext2, "/", &root_node);
-	add_nodes(ext2, &root_node, info);
-	return 0;
-}
-
-static int sdext2_create(fsinfo_t* info_to, fsinfo_t* info, void* p) {
-	ext2_t* ext2 = (ext2_t*)p;
-	int32_t ino_to = (int32_t)info_to->data;
-	if(ino_to == 0) ino_to = 2;
-
-	INODE inode_to;
-	if(ext2_node_by_ino(ext2, ino_to, &inode_to) != 0) {
-		return -1;
-	}
-
-	int ino = -1;
-	if(info->type == FS_TYPE_DIR)  {
-		info->size = EXT2_BLOCK_SIZE;
-		ino = ext2_create_dir(ext2, &inode_to, info->name, info->owner);
-	}
-	else
-		ino = ext2_create_file(ext2, &inode_to, info->name, info->owner);
-	if(ino == -1)
-		return -1;
-	put_node(ext2, ino_to, &inode_to);
-	info->data = ino;
-	return 0;
-}
-
-static int sdext2_read(int fd, int ufid, int from_pid, fsinfo_t* info, 
+static int memfs_read(int fd, int ufid, int from_pid, fsinfo_t* info, 
 		void* buf, int size, int offset, void* p) {
 	(void)fd;
 	(void)ufid;
 	(void)from_pid;
+	(void)p;
 
-	ext2_t* ext2 = (ext2_t*)p;
-	int32_t ino = (int32_t)info->data;
-	if(ino == 0) ino = 2;
-	INODE inode;
-	if(ext2_node_by_ino(ext2, ino, &inode) != 0) {
-		return -1;
-	}
-
+	char* data = (char*)info->data;
 	int rsize = info->size - offset;
 	if(rsize < size)
 		size = rsize;
 	if(size < 0)
 		size = -1;
 
+	data += offset;
 	if(size > 0) 
-		size = ext2_read(ext2, &inode, buf, size, offset);
+		memcpy(buf, data, size);
 	return size;	
-}
-
-static int sdext2_write(int fd, int ufid, int from_pid, fsinfo_t* info,
-		const void* buf, int size, int offset, void* p) {
-	(void)fd;
-	(void)ufid;
-	(void)from_pid;
-
-	ext2_t* ext2 = (ext2_t*)p;
-	int32_t ino = (int32_t)info->data;
-	if(ino == 0) ino = 2;
-	INODE inode;
-	if(ext2_node_by_ino(ext2, ino, &inode) != 0) {
-		return -1;
-	}
-	size = ext2_write(ext2, &inode, buf, size, offset);
-	if(size >= 0) {
-		inode.i_size += size;
-		info->size += size;
-		put_node(ext2, ino, &inode);
-		vfs_set(info);
-	}
-	return size;	
-}
-
-static int sdext2_unlink(fsinfo_t* info, const char* fname, void* p) {
-	(void)info;
-	ext2_t* ext2 = (ext2_t*)p;
-	return ext2_unlink(ext2, fname);
 }
 
 int main(int argc, char** argv) {
@@ -173,21 +117,10 @@ int main(int argc, char** argv) {
 
 	vdevice_t dev;
 	memset(&dev, 0, sizeof(vdevice_t));
-	strcpy(dev.name, "rootfs(ext2)");
-	dev.mount = sdext2_mount;
-	dev.read = sdext2_read;
-	dev.write = sdext2_write;
-	dev.create = sdext2_create;
-	dev.unlink = sdext2_unlink;
+	strcpy(dev.name, "rootfs(mem)");
+	dev.mount = memfs_mount;
+	dev.read = memfs_read;
 
-	sd_init();
-	ext2_t ext2;
-	ext2_init(&ext2, sd_read, sd_write);
-	sd_set_buffer(ext2.super.s_blocks_count*2);
-	
-	dev.extra_data = &ext2;
 	device_run(&dev, "/", FS_TYPE_DIR);
-	ext2_quit(&ext2);
-	sd_quit();
 	return 0;
 }

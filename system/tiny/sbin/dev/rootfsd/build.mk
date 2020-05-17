@@ -1,8 +1,12 @@
 ROOTFSD_OBJS = $(ROOT_DIR)/sbin/dev/rootfsd/rootfsd.o
 ROOTFSD = $(TARGET_DIR)/$(ROOT_DIR)/sbin/dev/rootfsd
 
-PROGS += $(ROOTFSD)
-CLEAN += $(ROOTFSD_OBJS)
+CLEAN += $(ROOTFSD_OBJS)  \
+		$(ROOT_DIR)/sbin/dev/rootfsd/fs_data.c \
+		$(ROOT_DIR)/sbin/dev/rootfsd/fs_data.o
 
-$(ROOTFSD): $(ROOTFSD_OBJS) $(LIB_OBJS)
-	$(LD) -Ttext=100 $(ROOTFSD_OBJS) -o $(ROOTFSD) $(LDFLAGS) -lext2 -lewokc -lc
+$(ROOTFSD): $(ROOTFSD_OBJS)
+	$(CC) -c $(ROOT_DIR)/sbin/dev/rootfsd/fs_data.c -o $(ROOT_DIR)/sbin/dev/rootfsd/fs_data.o $(CFLAGS)
+	$(LD) -Ttext=100 $(ROOTFSD_OBJS) \
+		$(ROOT_DIR)/sbin/dev/rootfsd/fs_data.o \
+		-o $(ROOTFSD) $(LDFLAGS) -lewokc -lc

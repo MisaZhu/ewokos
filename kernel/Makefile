@@ -55,7 +55,6 @@ ARCH_OBJS = \
 	${ARCH_DIR}/${ARCH}/hw_info.o \
 	${ARCH_DIR}/${ARCH}/uart.o \
 	${ARCH_DIR}/${ARCH}/irq_arch.o \
-	${ARCH_DIR}/${ARCH}/framebuffer.o \
 	${ARCH_DIR}/${ARCH}/actled.o \
 	${ARCH_DIR}/${ARCH}/timer.o
 
@@ -82,7 +81,7 @@ LIB_OBJS = \
 	${LIB_DIR}/queue.o \
 	${LIB_DIR}/kprintf.o
 
-ifeq ($(SDC),no)
+ifeq ($(TINYSYS),yes)
 LOAD_DIR = loadinit/mem
 LOAD_OBJS = \
 	${LOAD_DIR}/base16.o \
@@ -90,13 +89,14 @@ LOAD_OBJS = \
 	${LOAD_DIR}/loadinit.o
 
 else
-CFLAGS += -DSDC
-ARCH_OBJS += ${ARCH_DIR}/${ARCH}/extra/sd/sd.o
+CFLAGS += -DSDC -DFRAMEBUFFER
+ARCH_OBJS += ${ARCH_DIR}/${ARCH}/extra/sd/sd.o \
+	${ARCH_DIR}/${ARCH}/extra/framebuffer/framebuffer.o
 LOAD_DIR = loadinit/sd
 LOAD_OBJS = \
 	${LOAD_DIR}/ext2read.o \
 	${LOAD_DIR}/loadinit.o
-SDEXT2 = -sd $(SYS_FULL_DIR)/build/sd.ext2
+QEMU_ARGS = -sd $(SYS_FULL_DIR)/build/sd.ext2
 endif
 
 CFLAGS += -I$(LOAD_DIR)
@@ -135,17 +135,17 @@ $(OS).bin: $(OBJS) ${LDS}
 	mkdir -p ${BUILD_DIR}
 	$(LD) $(OBJS) $(LDFLAGS) -T ${LDS} -o ${BUILD_DIR}/$(OS).elf
 	$(OBJCOPY) -O binary ${BUILD_DIR}/$(OS).elf ${BUILD_DIR}/$(OS).bin
-	$(OBJDUMP) -D ${BUILD_DIR}/$(OS).elf > ${BUILD_DIR}/$(OS).asm
+#	$(OBJDUMP) -D ${BUILD_DIR}/$(OS).elf > ${BUILD_DIR}/$(OS).asm
 
 
 run: 
-	qemu-system-arm $(QEMU_FLAGS) -kernel ${BUILD_DIR}/$(OS).bin ${SDEXT2}
+	qemu-system-arm $(QEMU_FLAGS) -kernel ${BUILD_DIR}/$(OS).bin ${QEMU_ARGS}
 
 runasm: 
-	qemu-system-arm $(QEMU_FLAGS) -kernel ${BUILD_DIR}/$(OS).bin ${SDEXT2} -d in_asm
+	qemu-system-arm $(QEMU_FLAGS) -kernel ${BUILD_DIR}/$(OS).bin ${QEMU_ARGS} -d in_asm
 
 debug:
-	qemu-system-arm $(QEMU_FLAGS) -gdb tcp::26000 -S -kernel ${BUILD_DIR}/$(OS).bin ${SDEXT2}
+	qemu-system-arm $(QEMU_FLAGS) -gdb tcp::26000 -S -kernel ${BUILD_DIR}/$(OS).bin ${QEMU_ARGS}
 
 debugasm:
 	qemu-system-arm $(QEMU_FLAGS) -d in_asm -gdb tcp::26000 -S -kernel ${BUILD_DIR}/$(OS).bin

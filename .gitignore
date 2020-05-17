@@ -1,4 +1,4 @@
 *.o
 *.swp
-kernel/loadinit/mem/init_data.c
+*_data.c
 build

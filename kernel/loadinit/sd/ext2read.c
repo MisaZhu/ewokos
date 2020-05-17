@@ -3,7 +3,7 @@
 #include <kstring.h>
 #include <basic_math.h>
 #include <mm/kmalloc.h>
-#include <dev/sd.h>
+#include <dev/extra/sd.h>
 #include <stddef.h>
 #include <partition.h>
 

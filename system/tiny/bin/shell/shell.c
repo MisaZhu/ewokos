@@ -322,11 +322,11 @@ int main(int argc, char* argv[]) {
 	if(cid[0] == 0)
 		cid = "0";
 
+	char cwd[FS_FULL_NAME_MAX+1];
 	str_t* cmdstr = str_new("");
 	_terminated = 0;
 	int uid = getuid();
 	while(_terminated == 0) {
-		char cwd[FS_FULL_NAME_MAX+1];
 		if(uid == 0)
 			printf("ewok(%s):%s# ", cid, getcwd(cwd, FS_FULL_NAME_MAX));
 		else

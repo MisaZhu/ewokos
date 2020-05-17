@@ -1,2 +1,1 @@
 /bin/session
-/bin/launcher

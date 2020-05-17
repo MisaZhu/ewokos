@@ -1,5 +1,4 @@
 #include <dev/actled.h>
-#include <dev/framebuffer.h>
 #include <mm/mmu.h>
 #include <mm/kalloc.h>
 #include <mm/kmalloc.h>
@@ -13,11 +12,18 @@
 #include <kernel/schedule.h>
 #include <kernel/kevqueue.h>
 #include <dev/timer.h>
-#include <dev/sd.h>
 #include <kprintf.h>
 #include <dev/uart.h>
 #include <basic_math.h>
 #include <stddef.h>
+
+#ifdef SDC
+#include <dev/extra/sd.h>
+#endif
+
+#ifdef FRAMEBUFFER
+#include <dev/extra/framebuffer.h>
+#endif
 
 #ifdef WITH_LCDHAT
 #include "lcdhat/lcdhat.h"
@@ -111,6 +117,7 @@ void _kernel_entry_c(context_t* ctx) {
 			"kernel: uart inited\n");
 	printf("kernel: kmalloc initing  [ok] : %dMB\n", div_u32(KMALLOC_END-KMALLOC_BASE, 1*MB));
 
+#ifdef FRAMEBUFFER
 	printf("kernel: framebuffer initing\n");
 	if(fb_dev_init(1280, 720, 16) == 0) {
 		fbinfo_t* info = fb_get_info();
@@ -122,6 +129,7 @@ void _kernel_entry_c(context_t* ctx) {
 	else {
 		printf("  [Failed!]\n");
 	}
+#endif
 
 	init_allocable_mem(); //init the rest allocable memory VM
 	printf("kernel: init allocable memory: %dMB\n", div_u32(get_free_mem_size(), 1*MB));

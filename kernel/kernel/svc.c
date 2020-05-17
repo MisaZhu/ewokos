@@ -9,16 +9,20 @@
 #include <mm/shm.h>
 #include <mm/kmalloc.h>
 #include <sysinfo.h>
-#include <dev/framebuffer.h>
 #include <dev/uart.h>
 #include <dev/timer.h>
 #include <syscalls.h>
 #include <kstring.h>
 #include <kprintf.h>
 #include <stddef.h>
+#include <fbinfo.h>
 
 #ifdef SDC
-#include <dev/sd.h>
+#include <dev/extra/sd.h>
+#endif
+
+#ifdef FRAMEBUFFER
+#include <dev/extra/framebuffer.h>
 #endif
 
 static void sys_kprint(const char* s, int32_t len, bool tty_only) {
@@ -241,12 +245,17 @@ static uint32_t sys_mmio_map(void) {
 }
 		
 static int32_t sys_framebuffer_map(fbinfo_t* info) {
+#ifdef FRAMEBUFFER
 	if(_current_proc->owner != 0)
 		return 0;
 	fbinfo_t *fbinfo = fb_get_info();
 	memcpy(info, fbinfo, sizeof(fbinfo_t));
 	map_pages(_current_proc->space->vm, fbinfo->pointer, V2P(fbinfo->pointer), V2P(info->pointer)+info->size, AP_RW_RW);
 	return 0;
+#else
+	(void)info;
+	return -1;
+#endif
 }
 
 static void sys_proc_critical_enter(void) {

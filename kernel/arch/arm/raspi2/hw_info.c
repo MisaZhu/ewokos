@@ -1,6 +1,5 @@
 #include <kernel/hw_info.h>
 #include <kernel/system.h>
-#include <dev/framebuffer.h>
 #include <kstring.h>
 #include "mailbox.h"
 

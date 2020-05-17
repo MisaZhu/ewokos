@@ -1,6 +1,6 @@
 #include "mm/mmu.h"
 #include "string.h"
-#include "dev/framebuffer.h"
+#include "dev/extra/framebuffer.h"
 
 static fbinfo_t _fbinfo __attribute__((aligned(16)));
 

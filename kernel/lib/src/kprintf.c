@@ -1,11 +1,14 @@
 #include "kprintf.h"
 #include "vprintf.h"
 #include "dev/uart.h"
-#include "dev/framebuffer.h"
 #include "dev/actled.h"
 #include "kstring.h"
 #include "kernel/system.h"
 #include <stddef.h>
+
+#ifdef FRAMEBUFFER
+#include "dev/extra/framebuffer.h"
+#endif
 
 void uart_out(const char* s) {
 	uart_write(s, strlen(s));

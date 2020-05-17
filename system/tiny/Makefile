@@ -97,11 +97,8 @@ CLEAN = $(LIB_OBJS)
 
 SD = $(BUILD_DIR)/sd.ext2
 
-all: mkdirs libs builtin_apps #extra_devs
-	gcc -o ${BUILD_DIR}/genvfsd geninit/genvfsd.c
-	gcc -o ${BUILD_DIR}/geninit geninit/geninit.c
-	${BUILD_DIR}/genvfsd < $(BUILD_DIR)/rootfs/sbin/vfsd > sbin/init/vfsd_data.c
-	${BUILD_DIR}/geninit < $(BUILD_DIR)/rootfs/sbin/init > $(KERNEL_DIR)/loadinit/mem/init_data.c
+all: mkdirs libs builtin_apps rootfsd init #extra_devs
+	${BUILD_DIR}/genfile init  $(BUILD_DIR)/rootfs/sbin/init > $(KERNEL_DIR)/loadinit/mem/init_data.c
 	@echo "all done."
 
 KERNEL_H = \
@@ -117,7 +114,6 @@ libs: $(LIB_OBJS)
 	@cp -r $(KERNEL_H) $(TARGET_DIR)/include/
 
 include $(ROOT_DIR)/sbin/vfsd/build.mk
-include $(ROOT_DIR)/sbin/init/build.mk
 include $(ROOT_DIR)/sbin/procd/build.mk
 include $(ROOT_DIR)/sbin/dev/nulld/build.mk
 
@@ -127,6 +123,7 @@ include $(ROOT_DIR)/sbin/dev/arch/raspi2/ttyd/build.mk
 
 include $(ROOT_DIR)/sbin/dev/arch/raspi/ttyd/build.mk
 
+include $(ROOT_DIR)/bin/session/build.mk
 include $(ROOT_DIR)/bin/shell/build.mk
 include $(ROOT_DIR)/bin/pwd/build.mk
 include $(ROOT_DIR)/bin/cat/build.mk
@@ -140,6 +137,9 @@ include $(ROOT_DIR)/bin/kill/build.mk
 include $(ROOT_DIR)/bin/mkdir/build.mk
 include $(ROOT_DIR)/bin/rm/build.mk
 
+include $(ROOT_DIR)/sbin/dev/rootfsd/build.mk
+include $(ROOT_DIR)/sbin/init/build.mk
+
 mkdirs:
 	@mkdir -p ${TARGET_DIR}/$(ROOT_DIR)/sbin/dev/versatilepb
 	@mkdir -p ${TARGET_DIR}/$(ROOT_DIR)/sbin/dev/raspi
@@ -150,10 +150,18 @@ mkdirs:
 	@mkdir -p ${TARGET_DIR}/$(ROOT_DIR)/dev
 	@mkdir -p ${BUILD_DIR}/asm
 	@cp -r ${ROOT_DIR}/etc ${TARGET_DIR}/$(ROOT_DIR)
-	@cp -r ${ROOT_DIR}/data ${TARGET_DIR}/$(ROOT_DIR)
 
 
 builtin_apps: ${PROGS}
+	gcc -o ${BUILD_DIR}/genfile geninit/genfile.c
+	gcc -o ${BUILD_DIR}/genfs   geninit/genfs.c
+	${BUILD_DIR}/genfile vfsd  $(BUILD_DIR)/rootfs/sbin/vfsd > sbin/init/vfsd_data.c
+	${BUILD_DIR}/genfs $(BUILD_DIR)/rootfs > sbin/dev/rootfsd/fs_data.c
+
+init: ${INIT}
+
+rootfsd: ${ROOTFSD}
+	${BUILD_DIR}/genfile rootfsd  $(BUILD_DIR)/rootfs/sbin/dev/rootfsd > sbin/init/rootfsd_data.c
 
 KERNEL=$(KERNEL_DIR)/build/mkos.bin
 KERNEL_ELF=$(KERNEL_DIR)/build/mkos.elf

@@ -50,21 +50,15 @@ static char* decode_fs(const char* data[], int size) {
 
 extern const char* vfsd_data[];
 extern const int vfsd_size;
-/*
 extern const char* rootfsd_data[];
 extern const int rootfsd_size;
-*/
-
-const char* rootfsd_data[] = { NULL };
-const int rootfsd_size = 0;
-
 
 static char* load_none_fs(const char* cmd, int32_t* sz) {
 	if(strcmp(cmd, "/sbin/vfsd") == 0) {
 		*sz = vfsd_size;
 		return decode_fs(vfsd_data, vfsd_size);
 	}
-	else if(strcmp(cmd, "/sbin/rootfsd") == 0) {
+	else if(strcmp(cmd, "/sbin/dev/rootfsd") == 0) {
 		*sz = rootfsd_size;
 		return decode_fs(rootfsd_data, rootfsd_size);
 	}

@@ -3,7 +3,7 @@
 #include <mm/kmalloc.h>
 #include <kstring.h>
 #include <kernel/proc.h>
-#include <dev/sd.h>
+#include <dev/extra/sd.h>
 
 #define CONFIG_ARM_PL180_MMCI_CLOCK_FREQ 6250000
 #define MMC_RSP_PRESENT (1 << 0)

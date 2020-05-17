@@ -6,7 +6,6 @@
 #include <mm/mmu.h>
 #include <kstring.h>
 #include <arch.h>
-#include <dev/sd.h>
 
 /* memory mapping for the prime interrupt controller */
 #define PIC (_mmio_base + 0xB200)

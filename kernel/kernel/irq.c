@@ -1,7 +1,6 @@
 #include <dev/gic.h>
 #include <dev/timer.h>
 #include <dev/uart.h>
-#include <dev/sd.h>
 #include <kernel/irq.h>
 #include <kernel/system.h>
 #include <kernel/schedule.h>
@@ -11,12 +10,6 @@
 #include <string.h>
 #include <kprintf.h>
 #include <usinterrupt.h>
-
-/*static void sd_handler(void) {
-	dev_t* dev = get_dev(DEV_SD);
-	sd_dev_handle(dev);
-}
-*/
 
 uint32_t _kernel_tic = 0;
 static uint64_t _timer_usec = 0;
@@ -47,11 +40,6 @@ void irq_handler(context_t* ctx) {
 	}
 	PF->clear(&data);
 
-	/*
-	if((irqs & IRQ_SDC) != 0) {
-		sd_handler();
-	}
-	*/
 	if((irqs & IRQ_TIMER0) != 0) {
 		uint64_t usec = timer_read_sys_usec();
 		if(_current_proc == NULL || _current_proc->critical_counter == 0) {

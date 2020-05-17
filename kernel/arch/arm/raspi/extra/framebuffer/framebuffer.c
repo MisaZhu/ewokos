@@ -2,9 +2,8 @@
 #include "mm/kmalloc.h"
 #include "mm/kalloc.h"
 #include "kstring.h"
-#include "dev/framebuffer.h"
+#include "dev/extra/framebuffer.h"
 #include "mailbox.h"
-#include "dev/framebuffer.h"
 #include "kstring.h"
 #include <kernel/system.h>
 #include <kernel/kernel.h>
