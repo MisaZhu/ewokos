@@ -7,7 +7,7 @@
 #include <stddef.h>
 
 #ifdef FRAMEBUFFER
-#include "dev/extra/framebuffer.h"
+#include "dev/framebuffer.h"
 #endif
 
 void uart_out(const char* s) {

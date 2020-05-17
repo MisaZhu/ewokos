@@ -18,11 +18,11 @@
 #include <stddef.h>
 
 #ifdef SDC
-#include <dev/extra/sd.h>
+#include <dev/sd.h>
 #endif
 
 #ifdef FRAMEBUFFER
-#include <dev/extra/framebuffer.h>
+#include <dev/framebuffer.h>
 #endif
 
 #ifdef WITH_LCDHAT

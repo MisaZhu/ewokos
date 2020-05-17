@@ -3,9 +3,9 @@
 #include <kstring.h>
 #include <basic_math.h>
 #include <mm/kmalloc.h>
-#include <dev/extra/sd.h>
 #include <stddef.h>
 #include <partition.h>
+#include <dev/sd.h>
 
 #define EXT2_BLOCK_SIZE 1024
 #define SECTOR_SIZE     512

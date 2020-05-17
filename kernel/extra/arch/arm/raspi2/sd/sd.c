@@ -1,5 +1,5 @@
 #include "gpio_arch.h"
-#include <dev/extra/sd.h>
+#include <dev/sd.h>
 #include <dev/actled.h>
 #include <kernel/system.h>
 #include <kernel/proc.h>

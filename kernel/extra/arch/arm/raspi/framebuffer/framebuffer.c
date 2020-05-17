@@ -2,7 +2,7 @@
 #include "mm/kmalloc.h"
 #include "mm/kalloc.h"
 #include "kstring.h"
-#include "dev/extra/framebuffer.h"
+#include "dev/framebuffer.h"
 #include "mailbox.h"
 #include "kstring.h"
 #include <kernel/system.h>

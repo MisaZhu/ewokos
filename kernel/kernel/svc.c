@@ -18,11 +18,11 @@
 #include <fbinfo.h>
 
 #ifdef SDC
-#include <dev/extra/sd.h>
+#include <dev/sd.h>
 #endif
 
 #ifdef FRAMEBUFFER
-#include <dev/extra/framebuffer.h>
+#include <dev/framebuffer.h>
 #endif
 
 static void sys_kprint(const char* s, int32_t len, bool tty_only) {

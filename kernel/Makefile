@@ -28,7 +28,7 @@ SYS_FULL_DIR = ../system/full
 OPTM = -O2
 
 CFLAGS += $(OPTM) \
-	-I. -Ilib/include -Iinclude \
+	-I. -Ilib/include -Iinclude -Iextra/include \
 	-I${ARCH_DIR}/${ARCH} \
 	-marm $(ARCH_QEMU_CFLAGS) \
 	-Wstrict-prototypes \
@@ -59,13 +59,13 @@ ARCH_OBJS = \
 	${ARCH_DIR}/${ARCH}/timer.o
 
 ifeq ($(MACH),raspi)
-CFLAGS += -I${ARCH_DIR}/${ARCH}/extra -DWITH_LCDHAT
+CFLAGS += -Iextra/${ARCH_DIR}/${ARCH} -DWITH_LCDHAT
 
 ARCH_OBJS += ${ARCH_DIR}/${ARCH}/gpio_arch.o  \
 	${ARCH_DIR}/${ARCH}/cpu_freq.o \
 	${ARCH_DIR}/${ARCH}/mailbox.o \
-	${ARCH_DIR}/${ARCH}/extra/lib/spi_arch.o \
-	${ARCH_DIR}/${ARCH}/extra/lcdhat/lcdhat.o 
+	extra/${ARCH_DIR}/${ARCH}/lib/spi_arch.o \
+	extra/${ARCH_DIR}/${ARCH}/lcdhat/lcdhat.o 
 else
 ifeq ($(MACH),raspi2)
 ARCH_OBJS += ${ARCH_DIR}/${ARCH}/mailbox.o 
@@ -82,7 +82,7 @@ LIB_OBJS = \
 	${LIB_DIR}/kprintf.o
 
 ifeq ($(TINYSYS),yes)
-LOAD_DIR = loadinit/mem
+LOAD_DIR = extra/loadinit/mem
 LOAD_OBJS = \
 	${LOAD_DIR}/base16.o \
 	${LOAD_DIR}/init_data.o \
@@ -90,9 +90,9 @@ LOAD_OBJS = \
 
 else
 CFLAGS += -DSDC -DFRAMEBUFFER
-ARCH_OBJS += ${ARCH_DIR}/${ARCH}/extra/sd/sd.o \
-	${ARCH_DIR}/${ARCH}/extra/framebuffer/framebuffer.o
-LOAD_DIR = loadinit/sd
+ARCH_OBJS += extra/${ARCH_DIR}/${ARCH}/sd/sd.o \
+	extra/${ARCH_DIR}/${ARCH}/framebuffer/framebuffer.o
+LOAD_DIR = extra/loadinit/sd
 LOAD_OBJS = \
 	${LOAD_DIR}/ext2read.o \
 	${LOAD_DIR}/loadinit.o
