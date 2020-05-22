@@ -117,9 +117,6 @@ static int copy_envs(const char* key, any_t data, any_t arg) {
 }
 
 static int free_envs(const char* key, any_t data, any_t arg) {
-	if(key == NULL)
-		return MAP_OK;
-
 	map_t* map = (map_t*)arg;
 	proto_t* d = (proto_t*)data;
 	hashmap_remove(map, key);
