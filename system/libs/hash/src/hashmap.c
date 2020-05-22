@@ -7,7 +7,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#define INITIAL_SIZE (256)
+#define INITIAL_SIZE (128)
 #define MAX_CHAIN_LENGTH (8)
 
 /* We need to keep keys and values */
