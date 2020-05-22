@@ -24,7 +24,7 @@ typedef void *any_t;
  * PFany is a pointer to a function that can take two any_t arguments
  * and return an integer. Returns status code..
  */
-typedef int (*PFany)(char*, any_t, any_t);
+typedef int (*PFany)(const char*, any_t, any_t);
 
 /*
  * map_t is a pointer to an internally maintained data structure.
