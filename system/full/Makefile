@@ -39,32 +39,34 @@ ARCH_DIR=$(KERNEL_DIR)/arch
 
 LDFLAGS = -L$(TARGET_DIR)/lib -lnosys
 
-LIB_INC = -I libs/sys/include \
-				  -I libs/sconf/include \
-				  -I libs/libc/include \
-				  -I libs/x/include \
-				  -I libs/ext2/include \
-				  -I libs/graph/include \
-				  -I libs/libm/include \
-				  -I libs/console/include \
-					-I libs/mario/include \
-					-I libs/upng/include \
-					-I libs/tga/include \
-					-I libs/hash/include \
+LIBS_DIR = ../libs
+
+LIB_INC = -I $(LIBS_DIR)/sys/include \
+				  -I $(LIBS_DIR)/sconf/include \
+				  -I $(LIBS_DIR)/libc/include \
+				  -I $(LIBS_DIR)/x/include \
+				  -I $(LIBS_DIR)/ext2/include \
+				  -I $(LIBS_DIR)/graph/include \
+				  -I $(LIBS_DIR)/libm/include \
+				  -I $(LIBS_DIR)/console/include \
+					-I $(LIBS_DIR)/mario/include \
+					-I $(LIBS_DIR)/upng/include \
+					-I $(LIBS_DIR)/tga/include \
+					-I $(LIBS_DIR)/hash/include \
 					-I $(KERNEL_DIR)/include
 				 
-LIB_SYS_DIR = libs/sys
-LIB_SCONF_DIR = libs/sconf
-LIB_LIBC_DIR = libs/libc
-LIB_X_DIR = libs/x
-LIB_EXT2_DIR = libs/ext2
-LIB_GRAPH_DIR = libs/graph
-LIB_M_DIR = libs/libm
-LIB_CONSOLE_DIR = libs/console
-LIB_UPNG_DIR = libs/upng
-LIB_TGA_DIR = libs/tga
-LIB_HASH_DIR = libs/hash
-LIB_MARIO_DIR = libs/mario
+LIB_SYS_DIR = $(LIBS_DIR)/sys
+LIB_SCONF_DIR = $(LIBS_DIR)/sconf
+LIB_LIBC_DIR = $(LIBS_DIR)/libc
+LIB_X_DIR = $(LIBS_DIR)/x
+LIB_EXT2_DIR = $(LIBS_DIR)/ext2
+LIB_GRAPH_DIR = $(LIBS_DIR)/graph
+LIB_M_DIR = $(LIBS_DIR)/libm
+LIB_CONSOLE_DIR = $(LIBS_DIR)/console
+LIB_UPNG_DIR = $(LIBS_DIR)/upng
+LIB_TGA_DIR = $(LIBS_DIR)/tga
+LIB_HASH_DIR = $(LIBS_DIR)/hash
+LIB_MARIO_DIR = $(LIBS_DIR)/mario
 
 CFLAGS += $(LIB_INC)
 

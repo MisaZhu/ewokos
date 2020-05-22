@@ -45,9 +45,10 @@ static void do_proc_set_cwd(int pid, proto_t* in, proto_t* out) {
 }
 
 static proto_t* env_get(map_t* envs, const char* key) {
-	proto_t* ret;
-	hashmap_get(envs, key, (void**)&ret);
-	return ret;
+	proto_t* ret = NULL;
+	if(hashmap_get(envs, key, (void**)&ret) == MAP_OK)
+		return ret;
+	return NULL;
 }
 
 static void set_env(map_t* envs, const char* key, const char* val) {
@@ -73,7 +74,7 @@ static void do_proc_set_env(int pid, proto_t* in, proto_t* out) {
 	PF->clear(out)->addi(out, 0);
 }
 
-static int get_envs(char* key, any_t data, any_t arg) {
+static int get_envs(const char* key, any_t data, any_t arg) {
 	proto_t* out = (proto_t*)arg;
 	proto_t* v = (proto_t*)data;
 	const char* vs = proto_read_str(v);
@@ -106,7 +107,7 @@ static void do_proc_get_env(int pid, proto_t* in, proto_t* out) {
 	proto_reset(v);
 }
 
-static int copy_envs(char* key, any_t data, any_t arg) {
+static int copy_envs(const char* key, any_t data, any_t arg) {
 	map_t* to = (map_t*)arg;
 	proto_t* d = (proto_t*)data;
 	const char* v = proto_read_str(d);
@@ -115,11 +116,13 @@ static int copy_envs(char* key, any_t data, any_t arg) {
 	return MAP_OK;
 }
 
-static int free_envs(char* key, any_t data, any_t arg) {
+static int free_envs(const char* key, any_t data, any_t arg) {
+	if(key == NULL)
+		return MAP_OK;
+
 	map_t* map = (map_t*)arg;
 	proto_t* d = (proto_t*)data;
 	hashmap_remove(map, key);
-	free((char*)key);
 	proto_free(d);
 	return MAP_OK;
 }
