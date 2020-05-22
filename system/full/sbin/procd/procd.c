@@ -116,11 +116,16 @@ static int copy_envs(char* key, any_t data, any_t arg) {
 }
 
 static int free_envs(char* key, any_t data, any_t arg) {
+	if(key == NULL)
+		return MAP_OK;
+
 	map_t* map = (map_t*)arg;
 	proto_t* d = (proto_t*)data;
 	hashmap_remove(map, key);
 	free((char*)key);
-	proto_free(d);
+
+	if(d != NULL)
+		proto_free(d);
 	return MAP_OK;
 }
 
