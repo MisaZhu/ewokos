@@ -45,9 +45,10 @@ static void do_proc_set_cwd(int pid, proto_t* in, proto_t* out) {
 }
 
 static proto_t* env_get(map_t* envs, const char* key) {
-	proto_t* ret;
-	hashmap_get(envs, key, (void**)&ret);
-	return ret;
+	proto_t* ret = NULL;
+	if(hashmap_get(envs, key, (void**)&ret) == MAP_OK)
+		return ret;
+	return NULL;
 }
 
 static void set_env(map_t* envs, const char* key, const char* val) {
@@ -122,10 +123,7 @@ static int free_envs(char* key, any_t data, any_t arg) {
 	map_t* map = (map_t*)arg;
 	proto_t* d = (proto_t*)data;
 	hashmap_remove(map, key);
-	free((char*)key);
-
-	if(d != NULL)
-		proto_free(d);
+	proto_free(d);
 	return MAP_OK;
 }
 

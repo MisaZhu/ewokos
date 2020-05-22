@@ -277,7 +277,7 @@ int hashmap_put(map_t in, const char* key, any_t value){
 	/* Set the data */
 	m->data[index].data = value;
 	m->data[index].key = (char*)malloc(strlen(key)+1);
-	memcpy(m->data[index].key, key, strlen(key)+1);
+	strcpy(m->data[index].key, key);
 	m->data[index].in_use = 1;
 	m->size++; 
 
