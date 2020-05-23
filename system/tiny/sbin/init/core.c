@@ -251,9 +251,6 @@ static void handle_event(kevent_t* kev) {
 	case KEV_US_INT:
 		do_user_space_int(kev->data);
 		return;
-	case KEV_GLOBAL_SET:
-		do_global_set(kev->data);
-		return;
 	case KEV_PROC_CREATED:
 		do_proc_created(kev->data);
 		return;

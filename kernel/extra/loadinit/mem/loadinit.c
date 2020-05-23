@@ -29,7 +29,7 @@ int32_t load_init(void) {
 	}
 
 	proc_t *proc = proc_create(PROC_TYPE_PROC, NULL);
-	strcpy(proc->cmd, "/sbin/init");
+	strcpy(proc->info.cmd, "/sbin/init");
 	int32_t res = proc_load_elf(proc, elf, init_size);
 	kfree(elf);
 	return res;
