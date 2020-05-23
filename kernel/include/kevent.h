@@ -8,8 +8,7 @@ enum {
 	KEV_FCLOSED,
 	KEV_PROC_EXIT,
 	KEV_PROC_CREATED,
-	KEV_US_INT,
-	KEV_GLOBAL_SET
+	KEV_US_INT
 };
 
 typedef struct {
