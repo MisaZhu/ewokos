@@ -19,7 +19,6 @@ typedef struct {
 	int32_t owner; 
 	int32_t state; 
 	uint32_t start_sec;
-	uint32_t heap_size;
 	char cmd[PROC_INFO_CMD_MAX];
 } procinfo_t;
 	

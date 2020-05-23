@@ -73,7 +73,7 @@ void prefetch_abort_handler(context_t* ctx) {
 		return;
 	}
 
-	printf("pid: %d(%s), prefetch abort!!\n", _current_proc->pid, _current_proc->cmd);
+	printf("pid: %d(%s), prefetch abort!!\n", _current_proc->info.pid, _current_proc->info.cmd);
 	while(1);
 }
 
@@ -84,7 +84,7 @@ void data_abort_handler(context_t* ctx) {
 		return;
 	}
 
-	printf("pid: %d(%s), data abort!!\n", _current_proc->pid, _current_proc->cmd);
+	printf("pid: %d(%s), data abort!!\n", _current_proc->info.pid, _current_proc->info.cmd);
 	proc_exit(ctx, _current_proc, -1);
 	_current_proc = NULL;
 	schedule(ctx);

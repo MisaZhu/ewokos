@@ -25,7 +25,7 @@ int32_t _core_pid = -1;
 void procs_init(void) {
 	_core_ready = false;
 	for (int32_t i = 0; i < PROC_MAX; i++)
-		_proc_table[i].state = UNUSED;
+		_proc_table[i].info.state = UNUSED;
 	_current_proc = NULL;
 	queue_init(&_ready_queue);
 }
@@ -37,15 +37,15 @@ proc_t* proc_get(int32_t pid) {
 }
 
 static inline uint32_t proc_get_user_stack_pages(proc_t* proc) {
-	return proc->type == PROC_TYPE_PROC ? STACK_PAGES: THREAD_STACK_PAGES;
+	return proc->info.type == PROC_TYPE_PROC ? STACK_PAGES: THREAD_STACK_PAGES;
 }
 
 static inline  uint32_t proc_get_user_stack_base(proc_t* proc) {
 	(void)proc;
   uint32_t proc_stack_base = USER_STACK_TOP - STACK_PAGES*PAGE_SIZE;
-	if(proc->type == PROC_TYPE_PROC)
+	if(proc->info.type == PROC_TYPE_PROC)
 		return proc_stack_base;
-  return proc_stack_base - proc->pid*THREAD_STACK_PAGES*PAGE_SIZE;
+  return proc_stack_base - proc->info.pid*THREAD_STACK_PAGES*PAGE_SIZE;
 }
 
 static void* proc_get_mem_tail(void* p) {
@@ -62,7 +62,7 @@ static void proc_shrink(void* p, int32_t page_num) {
 }
 
 static void proc_init_space(proc_t* proc) {
-	page_dir_entry_t *vm = _proc_vm[proc->pid];
+	page_dir_entry_t *vm = _proc_vm[proc->info.pid];
 	set_kernel_vm(vm);
 	proc->space = (proc_space_t*)kmalloc(sizeof(proc_space_t));
 	memset(proc->space, 0, sizeof(proc_space_t));
@@ -83,10 +83,10 @@ void proc_switch(context_t* ctx, proc_t* to, bool quick){
 	if(to == NULL || to == _current_proc)
 		return;
 	
-	if(_current_proc != NULL && _current_proc->state != UNUSED) {
+	if(_current_proc != NULL && _current_proc->info.state != UNUSED) {
 		memcpy(&_current_proc->ctx, ctx, sizeof(context_t));
-		if(_current_proc->state == RUNNING) {
-			_current_proc->state = READY;
+		if(_current_proc->info.state == RUNNING) {
+			_current_proc->info.state = READY;
 			if(quick)
 				queue_push_head(&_ready_queue, _current_proc);
 			else
@@ -111,7 +111,7 @@ int32_t proc_expand_mem(proc_t *proc, int32_t page_num) {
 	for (i = 0; i < page_num; i++) {
 		char *page = kalloc4k();
 		if(page == NULL) {
-			printf("proc expand failed!! free mem size: (%x), pid:%d, pages ask:%d\n", get_free_mem_size(), proc->pid, page_num);
+			printf("proc expand failed!! free mem size: (%x), pid:%d, pages ask:%d\n", get_free_mem_size(), proc->info.pid, page_num);
 			proc_shrink_mem(proc, i);
 			res = -1;
 			break;
@@ -161,12 +161,12 @@ static void proc_unmap_shms(proc_t *proc) {
 	for(i=0; i<SHM_MAX; i++) {
 		int32_t shm = proc->space->shms[i];
 		if(shm > 0)
-			shm_proc_unmap(proc->pid, shm);
+			shm_proc_unmap(proc->info.pid, shm);
 	}
 }
 
 static void __attribute__((optimize("O0"))) proc_free_space(proc_t *proc) {
-	if(proc->type != PROC_TYPE_PROC)
+	if(proc->info.type != PROC_TYPE_PROC)
 		return;
 
 	proto_free(proc->space->ipc.data);
@@ -185,21 +185,21 @@ static void __attribute__((optimize("O0"))) proc_free_space(proc_t *proc) {
 }
 
 void proc_ready(proc_t* proc) {
-	if(proc == NULL || proc->state == READY)
+	if(proc == NULL || proc->info.state == READY)
 		return;
 
-	proc->state = READY;
+	proc->info.state = READY;
 	queue_push_head(&_ready_queue, proc);
 }
 
 proc_t* proc_get_next_ready(void) {
 	proc_t* next = queue_pop(&_ready_queue);
-	while(next != NULL && next->state != READY)
+	while(next != NULL && next->info.state != READY)
 		next = queue_pop(&_ready_queue);
 
 	if(next == NULL) {
 		next = &_proc_table[0];
-		if(next->state == UNUSED || next->state == ZOMBIE || next->state == CREATED)
+		if(next->info.state == UNUSED || next->info.state == ZOMBIE || next->info.state == CREATED)
 			return NULL;
 		proc_ready(next);
 	}
@@ -207,7 +207,7 @@ proc_t* proc_get_next_ready(void) {
 }
 
 static void proc_unready(context_t* ctx, proc_t* proc, int32_t state) {
-	proc->state = state;
+	proc->info.state = state;
 	if(_current_proc == proc) {
 		schedule(ctx);
 	}
@@ -220,19 +220,19 @@ static void proc_wakeup_waiting(int32_t pid) {
 	int32_t i;
 	for (i = 0; i < PROC_MAX; i++) {
 		proc_t *proc = &_proc_table[i];
-		if (proc->state == WAIT && proc->wait_pid == pid) {
+		if (proc->info.state == WAIT && proc->wait_pid == pid) {
 			proc_ready(proc);
 		}
 	}
 }
 
 static void __attribute__((optimize("O0"))) proc_terminate(context_t* ctx, proc_t* proc) {
-	if(proc->state == ZOMBIE || proc->state == UNUSED)
+	if(proc->info.state == ZOMBIE || proc->info.state == UNUSED)
 		return;
 
-	if(proc->type == PROC_TYPE_PROC) {
+	if(proc->info.type == PROC_TYPE_PROC) {
 		kevent_t* kev = kev_push(KEV_PROC_EXIT, NULL);
-		PF->addi(kev->data, proc->pid);
+		PF->addi(kev->data, proc->info.pid);
 	}
 
 	proc_unready(ctx, proc, ZOMBIE);
@@ -240,19 +240,19 @@ static void __attribute__((optimize("O0"))) proc_terminate(context_t* ctx, proc_
 	for (i = 0; i < PROC_MAX; i++) {
 		proc_t *p = &_proc_table[i];
 		/*terminate forked from this proc*/
-		if(p->father_pid == proc->pid) { //terminate forked children, skip reloaded ones
+		if(p->info.father_pid == proc->info.pid) { //terminate forked children, skip reloaded ones
 			proc_exit(ctx, p, 0);
 		}
 	}
 
-	proc_wakeup_waiting(proc->pid);
+	proc_wakeup_waiting(proc->info.pid);
 }
 
 /* proc_free frees all resources allocated by proc. */
 void __attribute__((optimize("O0"))) proc_exit(context_t* ctx, proc_t *proc, int32_t res) {
 	(void)res;
 	proc_terminate(ctx, proc);
-	proc->state = UNUSED;
+	proc->info.state = UNUSED;
 
 	/*free user_stack*/
 	uint32_t user_stack_base = proc_get_user_stack_base(proc);
@@ -290,7 +290,7 @@ proc_t *proc_create(int32_t type, proc_t* parent) {
 	int32_t index = -1;
 	uint32_t i;
 	for (i = 0; i < PROC_MAX; i++) {
-		if (_proc_table[i].state == UNUSED) {
+		if (_proc_table[i].info.state == UNUSED) {
 			index = i;
 			break;
 		}
@@ -300,17 +300,17 @@ proc_t *proc_create(int32_t type, proc_t* parent) {
 
 	proc_t *proc = &_proc_table[index];
 	memset(proc, 0, sizeof(proc_t));
-	proc->pid = index;
-	proc->type = type;
-	proc->father_pid = -1;
-	proc->state = CREATED;
+	proc->info.pid = index;
+	proc->info.type = type;
+	proc->info.father_pid = -1;
+	proc->info.state = CREATED;
 	if(type == PROC_TYPE_PROC) {
 		proc_init_space(proc);
-		proc->cmd[0] = 0;
+		proc->info.cmd[0] = 0;
 	}
 	else {
 		proc->space = parent->space;
-		strcpy(proc->cmd, parent->cmd);
+		strcpy(proc->info.cmd, parent->info.cmd);
 	}
 
 	uint32_t user_stack_base =  proc_get_user_stack_base(proc);
@@ -324,9 +324,9 @@ proc_t *proc_create(int32_t type, proc_t* parent) {
 	}
 	proc->ctx.sp = user_stack_base + pages*PAGE_SIZE;
 	proc->space->ipc.sp = proc->ctx.sp;
-	proc->space->ipc.ipc_pid = proc->pid;
+	proc->space->ipc.ipc_pid = proc->info.pid;
 	proc->ctx.cpsr = 0x50;
-	proc->start_sec = _kernel_tic;
+	proc->info.start_sec = _kernel_tic;
 	return proc;
 }
 
@@ -405,7 +405,7 @@ void proc_block_on(context_t* ctx, uint32_t event) {
 }
 
 void proc_waitpid(context_t* ctx, int32_t pid) {
-	if(_current_proc == NULL || _proc_table[pid].state == UNUSED)
+	if(_current_proc == NULL || _proc_table[pid].info.state == UNUSED)
 		return;
 
 	_current_proc->wait_pid = pid;
@@ -418,7 +418,7 @@ void proc_wakeup(int32_t pid, uint32_t event) {
 		if(i >= PROC_MAX)
 			break;
 		proc_t* proc = &_proc_table[i];	
-		if(proc->state == BLOCK && proc->block_event == event && 
+		if(proc->info.state == BLOCK && proc->block_event == event && 
 				(pid < 0 || proc->block_pid == pid)) {
 			proc->block_event = 0;
 			proc->block_pid = -1;
@@ -456,7 +456,7 @@ static int32_t proc_clone(proc_t* child, proc_t* parent) {
 		*/
 		//else {
 			if(proc_expand_mem(child, 1) != 0) {
-				printf("Panic: kfork expand memory failed!!(%d)\n", parent->pid);
+				printf("Panic: kfork expand memory failed!!(%d)\n", parent->info.pid);
 				return -1;
 			}
 			// copy parent's memory to child's memory
@@ -465,7 +465,7 @@ static int32_t proc_clone(proc_t* child, proc_t* parent) {
 	}
 
 	/*set father*/
-	child->father_pid = parent->pid;
+	child->info.father_pid = parent->info.pid;
 	/* copy parent's stack to child's stack */
 	//proc_page_clone(child, child->user_stack, parent, parent->user_stack);
 	int32_t i;
@@ -473,7 +473,7 @@ static int32_t proc_clone(proc_t* child, proc_t* parent) {
 		memcpy(child->user_stack[i], parent->user_stack[i], PAGE_SIZE);
 	}
 
-	strcpy(child->cmd, parent->cmd);
+	strcpy(child->info.cmd, parent->info.cmd);
 	return 0;
 }
 
@@ -482,15 +482,15 @@ proc_t* kfork_raw(int32_t type, proc_t* parent) {
 
 	child = proc_create(type, parent);
 	if(child == NULL) {
-		printf("panic: kfork create proc failed!!(%d)\n", parent->pid);
+		printf("panic: kfork create proc failed!!(%d)\n", parent->info.pid);
 		return NULL;
 	}
-	child->father_pid = parent->pid;
-	child->owner = parent->owner;
+	child->info.father_pid = parent->info.pid;
+	child->info.owner = parent->info.owner;
 
 	if(type == PROC_TYPE_PROC) {
 		if(proc_clone(child, parent) != 0) {
-			printf("panic: kfork clone failed!!(%d)\n", parent->pid);
+			printf("panic: kfork clone failed!!(%d)\n", parent->info.pid);
 			return NULL;
 		}
 	}
@@ -499,10 +499,10 @@ proc_t* kfork_raw(int32_t type, proc_t* parent) {
 
 proc_t* kfork(int32_t type) {
 	proc_t* child = kfork_raw(type, _current_proc);
-	if(_core_ready && child->type == PROC_TYPE_PROC) {
+	if(_core_ready && child->info.type == PROC_TYPE_PROC) {
 		kevent_t* kev = kev_push(KEV_PROC_CREATED, NULL);
-		PF->addi(kev->data, _current_proc->pid)->
-			addi(kev->data, child->pid);
+		PF->addi(kev->data, _current_proc->info.pid)->
+			addi(kev->data, child->info.pid);
 	}
 	else
 		proc_ready(child);
@@ -513,9 +513,9 @@ static int32_t get_procs_num(void) {
 	int32_t res = 0;
 	int32_t i;
 	for(i=0; i<PROC_MAX; i++) {
-		if(_proc_table[i].state != UNUSED &&
-				(_current_proc->owner == 0 ||
-				 _proc_table[i].owner == _current_proc->owner)) {
+		if(_proc_table[i].info.state != UNUSED &&
+				(_current_proc->info.owner == 0 ||
+				 _proc_table[i].info.owner == _current_proc->info.owner)) {
 			res++;
 		}
 	}
@@ -535,17 +535,10 @@ procinfo_t* get_procs(int32_t *num) {
 	int32_t j = 0;
 	int32_t i;
 	for(i=0; i<PROC_MAX && j<(*num); i++) {
-		if(_proc_table[i].state != UNUSED && 
-				(_current_proc->owner == 0 ||
-				 _proc_table[i].owner == _current_proc->owner)) {
-			procs[j].type = _proc_table[i].type;	
-			procs[j].pid = _proc_table[i].pid;	
-			procs[j].father_pid = _proc_table[i].father_pid;	
-			procs[j].owner = _proc_table[i].owner;	
-			procs[j].state = _proc_table[i].state;
-			procs[j].start_sec = _proc_table[i].start_sec;	
-			procs[j].heap_size = _proc_table[i].space->heap_size;	
-			strncpy(procs[j].cmd, _proc_table[i].cmd, PROC_INFO_CMD_MAX-1);
+		if(_proc_table[i].info.state != UNUSED && 
+				(_current_proc->info.owner == 0 ||
+				 _proc_table[i].info.owner == _current_proc->info.owner)) {
+			memcpy(&procs[j], &_proc_table[i].info, sizeof(procinfo_t));
 			j++;
 		}
 	}
@@ -558,7 +551,7 @@ void renew_sleep_counter(uint32_t usec) {
 	int i;
 	for(i=0; i<PROC_MAX; i++) {
 		proc_t* proc = &_proc_table[i];
-		if(proc->state == SLEEPING && proc->sleep_counter > 0) {
+		if(proc->info.state == SLEEPING && proc->sleep_counter > 0) {
 			proc->sleep_counter -= usec;
 			if(proc->sleep_counter <= 0) {
 				proc->sleep_counter = 0;
@@ -570,9 +563,9 @@ void renew_sleep_counter(uint32_t usec) {
 
 proc_t* proc_get_proc(proc_t* proc) {
 	while(proc != NULL) {
-		if(proc->type == PROC_TYPE_PROC)
+		if(proc->info.type == PROC_TYPE_PROC)
 			return proc;
-		proc = proc_get(proc->father_pid);
+		proc = proc_get(proc->info.father_pid);
 	}
 	return NULL;
 }
@@ -587,11 +580,11 @@ int32_t proc_ipc_setup(context_t* ctx, uint32_t entry, uint32_t extra_data, bool
 		if(ipc_thread == NULL)
 			return -1;
 		_current_proc->space->ipc.sp = ipc_thread->ctx.sp;
-		_current_proc->space->ipc.ipc_pid = ipc_thread->pid;
+		_current_proc->space->ipc.ipc_pid = ipc_thread->info.pid;
 	}
 	else {
 		_current_proc->space->ipc.sp = ctx->sp;
-		_current_proc->state = BLOCK;
+		_current_proc->info.state = BLOCK;
 	}
 	return 0;
 }
@@ -610,7 +603,7 @@ int32_t proc_ipc_call(context_t* ctx, proc_t* proc, int32_t call_id) {
 	ipc_thread->ctx.gpr[0] = proc->space->ipc.from_pid;
 	ipc_thread->ctx.gpr[1] = call_id;
 	ipc_thread->ctx.gpr[2] = proc->space->ipc.extra_data;
-	ipc_thread->state = RUNNING;
+	ipc_thread->info.state = RUNNING;
 	proc_switch(ctx, ipc_thread, true);
 	return 0;
 }

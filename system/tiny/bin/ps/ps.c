@@ -52,13 +52,13 @@ int main(int argc, char* argv[]) {
 
 	procinfo_t* procs = (procinfo_t*)syscall1(SYS_GET_PROCS, (int)&num);
 	if(procs != NULL) {
-		printf("  PID    FATHER OWNER   STATE TIME       HEAP(k)  PROC\n"); 
+		printf("  PID    FATHER OWNER   STATE TIME       PROC\n"); 
 		for(int i=0; i<num; i++) {
 			if(procs[i].type != PROC_TYPE_PROC && all == 0)
 				continue;
 
 			uint32_t sec = csec - procs[i].start_sec;
-			printf("  %4d   %6d %5d   %5s %02d:%02d:%02d   %8d %s%s\n", 
+			printf("  %4d   %6d %5d   %5s %02d:%02d:%02d   %s%s\n", 
 				procs[i].pid,
 				procs[i].father_pid,
 				procs[i].owner,
@@ -66,7 +66,6 @@ int main(int argc, char* argv[]) {
 				sec / (3600),
 				sec / 60,
 				sec % 60,
-				procs[i].heap_size/1024,
 				get_cmd(procs[i].cmd, full),
 				procs[i].type != PROC_TYPE_PROC ? " [t]":"");
 		}

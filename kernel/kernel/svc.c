@@ -40,7 +40,7 @@ static void sys_exit(context_t* ctx, int32_t pid, int32_t res) {
 	if(proc == NULL)
 		return;
 
-	if(_current_proc->owner == 0 || proc->owner == _current_proc->owner) {
+	if(_current_proc->info.owner == 0 || proc->info.owner == _current_proc->info.owner) {
 		proc_exit(ctx, proc, res);
 	}
 }
@@ -104,19 +104,19 @@ static int32_t sys_getpid(int32_t pid) {
 	if(proc == NULL)
 		return -1;
 
-	if(_current_proc->owner > 0 && _current_proc->owner != proc->owner)
+	if(_current_proc->info.owner > 0 && _current_proc->info.owner != proc->info.owner)
 		return -1;
 
 	proc_t* p = proc_get_proc(proc);
 	if(p != NULL)
-		return p->pid;
+		return p->info.pid;
 	return -1;
 }
 
 static int32_t sys_get_threadid(void) {
-	if(_current_proc == NULL || _current_proc->type != PROC_TYPE_THREAD)
+	if(_current_proc == NULL || _current_proc->info.type != PROC_TYPE_THREAD)
 		return -1;
-	return _current_proc->pid; 
+	return _current_proc->info.pid; 
 }
 
 
@@ -147,21 +147,21 @@ static void sys_fork(context_t* ctx) {
 
 	memcpy(&proc->ctx, ctx, sizeof(context_t));
 	proc->ctx.gpr[0] = 0;
-	ctx->gpr[0] = proc->pid;
-	if(proc->state == CREATED) {
-		_current_proc->state = BLOCK;
+	ctx->gpr[0] = proc->info.pid;
+	if(proc->info.state == CREATED) {
+		_current_proc->info.state = BLOCK;
 		_current_proc->block_pid = _core_pid;
-		_current_proc->block_event = proc->pid;
+		_current_proc->block_event = proc->info.pid;
 
-		proc->state = BLOCK;
+		proc->info.state = BLOCK;
 		proc->block_pid = _core_pid;
-		proc->block_event = proc->pid;
+		proc->block_event = proc->info.pid;
 		schedule(ctx);
 	}
 }
 
 static void sys_detach(void) {
-	_current_proc->father_pid = 0;
+	_current_proc->info.father_pid = 0;
 }
 
 static int32_t sys_thread(context_t* ctx, uint32_t entry, uint32_t func, int32_t arg) {
@@ -175,7 +175,7 @@ static int32_t sys_thread(context_t* ctx, uint32_t entry, uint32_t func, int32_t
 	proc->ctx.lr = entry;
 	proc->ctx.gpr[0] = func;
 	proc->ctx.gpr[1] = arg;
-	return proc->pid;
+	return proc->info.pid;
 }
 
 static void sys_waitpid(context_t* ctx, int32_t pid) {
@@ -188,7 +188,7 @@ static void sys_load_elf(context_t* ctx, const char* cmd, void* elf, uint32_t el
 		return;
 	}
 
-	strcpy(_current_proc->cmd, cmd);
+	strcpy(_current_proc->info.cmd, cmd);
 	if(proc_load_elf(_current_proc, elf, elf_size) != 0) {
 		ctx->gpr[0] = -1;
 		return;
@@ -199,14 +199,14 @@ static void sys_load_elf(context_t* ctx, const char* cmd, void* elf, uint32_t el
 }
 
 static int32_t sys_proc_set_uid(int32_t uid) {
-	if(_current_proc->owner != 0)	
+	if(_current_proc->info.owner != 0)	
 		return -1;
-	_current_proc->owner = uid;
+	_current_proc->info.owner = uid;
 	return 0;
 }
 
 static void sys_proc_get_cmd(int32_t pid, char* cmd, int32_t sz) {
-	strncpy(cmd, proc_get(pid)->cmd, sz);
+	strncpy(cmd, proc_get(pid)->info.cmd, sz);
 }
 
 static void	sys_get_sysinfo(sysinfo_t* info) {
@@ -225,19 +225,19 @@ static int32_t sys_shm_alloc(uint32_t size, int32_t flag) {
 }
 
 static void* sys_shm_map(int32_t id) {
-	return shm_proc_map(_current_proc->pid, id);
+	return shm_proc_map(_current_proc->info.pid, id);
 }
 
 static int32_t sys_shm_unmap(int32_t id) {
-	return shm_proc_unmap(_current_proc->pid, id);
+	return shm_proc_unmap(_current_proc->info.pid, id);
 }
 
 static int32_t sys_shm_ref(int32_t id) {
-	return shm_proc_ref(_current_proc->pid, id);
+	return shm_proc_ref(_current_proc->info.pid, id);
 }
 	
 static uint32_t sys_mmio_map(void) {
-	if(_current_proc->owner != 0)
+	if(_current_proc->info.owner != 0)
 		return 0;
 	hw_info_t* hw_info = get_hw_info();
 	map_pages(_current_proc->space->vm, MMIO_BASE, hw_info->phy_mmio_base, hw_info->phy_mmio_base + hw_info->mmio_size, AP_RW_RW);
@@ -246,7 +246,7 @@ static uint32_t sys_mmio_map(void) {
 		
 static int32_t sys_framebuffer_map(fbinfo_t* info) {
 #ifdef FRAMEBUFFER
-	if(_current_proc->owner != 0)
+	if(_current_proc->info.owner != 0)
 		return 0;
 	fbinfo_t *fbinfo = fb_get_info();
 	memcpy(info, fbinfo, sizeof(fbinfo_t));
@@ -259,7 +259,7 @@ static int32_t sys_framebuffer_map(fbinfo_t* info) {
 }
 
 static void sys_proc_critical_enter(void) {
-	if(_current_proc->owner != 0)
+	if(_current_proc->info.owner != 0)
 		return;
 	_current_proc->critical_counter = CRITICAL_MAX;
 }
@@ -286,7 +286,7 @@ static void sys_ipc_call(context_t* ctx, uint32_t pid, int32_t call_id, proto_t*
 		return;
 	}
 	proc->space->ipc.state = IPC_BUSY;
-	proc->space->ipc.from_pid = _current_proc->pid;
+	proc->space->ipc.from_pid = _current_proc->info.pid;
 	if(data != NULL)
 		PF->copy(proc->space->ipc.data, data->data, data->size);
 	else
@@ -298,7 +298,7 @@ static void sys_ipc_get_return(context_t* ctx, uint32_t pid, proto_t* data) {
 	ctx->gpr[0] = 0;
 	proc_t* proc = proc_get(pid);
 	if(proc->space->ipc.entry == 0 ||
-			proc->space->ipc.from_pid != _current_proc->pid ||
+			proc->space->ipc.from_pid != _current_proc->info.pid ||
 			proc->space->ipc.state == IPC_IDLE) {
 		ctx->gpr[0] = -2;
 		return;
@@ -341,7 +341,7 @@ static void sys_ipc_end(context_t* ctx) {
 
 	_current_proc->space->ipc.state = IPC_RETURN;
 	proc_wakeup(-1, (uint32_t)&_current_proc->space->ipc.data);
-	_current_proc->state = BLOCK;
+	_current_proc->info.state = BLOCK;
 	schedule(ctx);
 }
 
@@ -374,7 +374,7 @@ static void sys_proc_ready_ping(void) {
 }
 
 static kevent_t* sys_get_kevent_raw(void) {
-	if(_current_proc->owner != 0)	
+	if(_current_proc->info.owner != 0)	
 		return NULL;
 
 	kevent_t* kev = kev_pop();
@@ -411,23 +411,23 @@ static void sys_get_kevent(context_t* ctx) {
 }
 
 static void sys_proc_block(context_t* ctx, int32_t pid, uint32_t evt) {
-	if(pid == _current_proc->pid)
+	if(pid == _current_proc->info.pid)
 		return;
-	_current_proc->state = BLOCK;
+	_current_proc->info.state = BLOCK;
 	_current_proc->block_event = evt;
 	_current_proc->block_pid = pid;
 	schedule(ctx);	
 }
 
 static void sys_proc_wakeup(uint32_t evt) {
-	proc_wakeup(_current_proc->pid, evt);
+	proc_wakeup(_current_proc->info.pid, evt);
 }
 
 static void sys_core_ready(void) {
-	if(_current_proc->owner != 0)
+	if(_current_proc->info.owner != 0)
 		return;
 	_core_ready = true;
-	_core_pid = _current_proc->pid;
+	_core_pid = _current_proc->info.pid;
 }
 
 void svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_t arg2, context_t* ctx, int32_t processor_mode) {
@@ -491,7 +491,7 @@ void svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_t arg2, context
 		ctx->gpr[0] = sys_proc_set_uid(arg0);
 		return;
 	case SYS_PROC_GET_UID: 
-		ctx->gpr[0] = _current_proc->owner;
+		ctx->gpr[0] = _current_proc->info.owner;
 		return;
 	case SYS_PROC_GET_CMD: 
 		sys_proc_get_cmd(arg0, (char*)arg1, arg2);
@@ -576,6 +576,6 @@ void svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_t arg2, context
 		sys_core_ready();
 		return;
 	}
-	printf("pid:%d, code(%d) error!\n", _current_proc->pid, code);
+	printf("pid:%d, code(%d) error!\n", _current_proc->info.pid, code);
 }
 

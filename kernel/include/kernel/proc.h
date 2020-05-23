@@ -55,20 +55,13 @@ typedef struct {
 
 #define CRITICAL_MAX 32 //critical zone keep just for 32 timer schedules
 typedef struct st_proc {
-	int32_t type;
-	int32_t pid;
-	int32_t father_pid;
-	int32_t state;
-	int32_t owner;
-	uint32_t start_sec;
+	procinfo_t info;
 
 	int32_t critical_counter;
 	uint32_t block_event;
 	int32_t block_pid;
 	int64_t sleep_counter; //sleep usec
 	int32_t wait_pid;
-
-	char cmd[PROC_INFO_CMD_MAX];
 
 	proc_space_t* space;
 	void* user_stack[STACK_PAGES];

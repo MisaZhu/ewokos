@@ -141,7 +141,7 @@ int32_t shm_alloc(uint32_t size, int32_t flag) {
 		shmem_tail += pages * PAGE_SIZE;
 
 	i->used = 1;
-	i->owner = _current_proc->pid;
+	i->owner = _current_proc->info.pid;
 	i->flag = flag;
 
 	return i->id;
@@ -211,9 +211,9 @@ static int32_t check_owner(proc_t* proc, share_mem_t* it) {
 		return 0;
 
 	while(proc != NULL) {
-		if(proc->pid == it->owner)
+		if(proc->info.pid == it->owner)
 			return 0; //passed
-		proc = proc_get(proc->father_pid);
+		proc = proc_get(proc->info.father_pid);
 	}
 	return -1; //not passed!
 }
