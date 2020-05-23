@@ -51,28 +51,6 @@ static inline void* sector_buf_get(uint32_t index) {
 	return _sector_buf[index].data;
 }
 
-
-static int32_t read_sector(int32_t sector, void* buf) {
-	if(syscall1(SYS_SDC_READ, sector) != 0)
-		return -1;
-	while(1) {
-		if(syscall1(SYS_SDC_READ_DONE, (int32_t)buf)  == 0)
-			break;
-	}
-	return 0;
-}
-
-static int32_t write_sector(int32_t sector, const void* buf) {
-	if(syscall2(SYS_SDC_WRITE, sector, (int32_t)buf) != 0)
-		return -1;
-	while(1) {
-		if(syscall0(SYS_SDC_WRITE_DONE)  == 0)
-			break;
-	}
-	return 0;
-}
-
-
 int32_t sd_read_sector(int32_t sector, void* buf) {
 	void* b = sector_buf_get(sector);
 	if(b != NULL) {
@@ -80,7 +58,7 @@ int32_t sd_read_sector(int32_t sector, void* buf) {
 		return SECTOR_SIZE;
 	}	
 	//if(read_block(SD_DEV_PID, buf, SECTOR_SIZE, sector) == SECTOR_SIZE) {
-	if(read_sector(sector, buf) == 0) {
+	if(sd_read_sector_arch(sector, buf) == 0) {
 		sector_buf_set(sector, buf);
 		return SECTOR_SIZE;
 	}
@@ -88,7 +66,7 @@ int32_t sd_read_sector(int32_t sector, void* buf) {
 }
 
 int32_t sd_write_sector(int32_t sector, const void* buf) {
-	if(write_sector(sector, buf) == 0)  {
+	if(sd_write_sector_arch(sector, buf) == 0)  {
 		sector_buf_set(sector, buf);
 		return SECTOR_SIZE;
 	}
@@ -166,6 +144,8 @@ int32_t sd_init(void) {
 	_sector_buf = NULL;
 	_sector_buf_num = 0;
 	memset(&_partition, 0, sizeof(partition_t));
+
+	sd_init_arch();
 
 	if(read_partition() != 0 || partition_get(1, &_partition) != 0) {
 		memset(&_partition, 0, sizeof(partition_t));

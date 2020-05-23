@@ -4,11 +4,8 @@
 enum {
 	SYS_NONE = 0,
 	SYS_KPRINT,
-	SYS_SDC_READ,
-	SYS_SDC_WRITE,
-	SYS_SDC_READ_DONE,
-	SYS_SDC_WRITE_DONE,
 
+	//proccess memory manage
 	SYS_MALLOC,
 	SYS_REALLOC,
 	SYS_FREE,
@@ -26,6 +23,7 @@ enum {
 
 	SYS_GET_PID,
 	SYS_GET_THREAD_ID,
+
 	SYS_PROC_PING,
 	SYS_PROC_READY_PING,
 
@@ -33,6 +31,7 @@ enum {
 	SYS_PROC_GET_UID,
 	SYS_PROC_SET_UID,
 
+	//share memory syscalls
 	SYS_PROC_SHM_ALLOC,
 	SYS_PROC_SHM_MAP,
 	SYS_PROC_SHM_UNMAP,
@@ -47,6 +46,7 @@ enum {
 	SYS_PROC_CRITICAL_ENTER,
 	SYS_PROC_CRITICAL_QUIT,
 
+	//internal proccess communication
 	SYS_IPC_SETUP,
 	SYS_IPC_CALL,
 	SYS_IPC_GET_ARG,

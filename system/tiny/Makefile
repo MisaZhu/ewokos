@@ -39,16 +39,18 @@ ARCH_DIR=$(KERNEL_DIR)/arch
 
 LDFLAGS = -L$(TARGET_DIR)/lib -lnosys
 
-LIB_INC = -I ../libs/sys/include \
-				  -I ../libs/libc/include \
-				  -I ../libs/libm/include \
-					-I ../libs/hash/include \
+LIB_DIR = ../full/libs
+
+LIB_INC = -I $(LIB_DIR)/sys/include \
+				  -I $(LIB_DIR)/libc/include \
+				  -I $(LIB_DIR)/libm/include \
+					-I $(LIB_DIR)/hash/include \
 					-I $(KERNEL_DIR)/include
 				 
-LIB_SYS_DIR = ../libs/sys
-LIB_LIBC_DIR = ../libs/libc
-LIB_M_DIR = ../libs/libm
-LIB_HASH_DIR = ../libs/hash
+LIB_SYS_DIR = $(LIB_DIR)/sys
+LIB_LIBC_DIR = $(LIB_DIR)/libc
+LIB_M_DIR = $(LIB_DIR)/libm
+LIB_HASH_DIR = $(LIB_DIR)/hash
 
 CFLAGS += $(LIB_INC)
 

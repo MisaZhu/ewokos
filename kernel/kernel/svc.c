@@ -45,57 +45,6 @@ static void sys_exit(context_t* ctx, int32_t pid, int32_t res) {
 	}
 }
 
-#ifdef SDC
-
-static int32_t sys_sdc_read(int32_t bid) {
-	return sd_dev_read(bid);
-}
-
-static int32_t sys_sdc_write(int32_t bid, const char* buf) {
-	return sd_dev_write(bid, buf);
-}
-
-static void sys_sdc_read_done(context_t* ctx, void* buf) {
-	int res = sd_dev_read_done(buf);
-	if(res == 0) {
-		ctx->gpr[0] = res;
-		return;
-	}
-	ctx->gpr[0] = -1;
-}
-
-static void sys_sdc_write_done(context_t* ctx) {
-	int res = sd_dev_write_done();
-	if(res == 0) {
-		ctx->gpr[0] = res;
-		return;
-	}
-	ctx->gpr[0] = -1;
-}
-
-#else
-
-static int32_t sys_sdc_read(int32_t bid) {
-	(void)bid;
-	return 0;
-}
-
-static int32_t sys_sdc_write(int32_t bid, const char* buf) {
-	(void)bid;
-	(void)buf;
-	return 0;
-}
-
-static void sys_sdc_read_done(context_t* ctx, void* buf) {
-	(void)ctx;
-	(void)buf;
-}
-
-static void sys_sdc_write_done(context_t* ctx) {
-	(void)ctx;
-}
-#endif
-
 static int32_t sys_getpid(int32_t pid) {
 	proc_t * proc = _current_proc;
 	if(pid >= 0)
@@ -439,18 +388,6 @@ void svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_t arg2, context
 	_current_ctx = ctx;
 
 	switch(code) {
-	case SYS_SDC_READ:
-		ctx->gpr[0] = sys_sdc_read(arg0);
-		return;
-	case SYS_SDC_WRITE:
-		ctx->gpr[0] = sys_sdc_write(arg0, (void*)arg1);		
-		return;
-	case SYS_SDC_READ_DONE:
-		sys_sdc_read_done(ctx, (void*)arg0);
-		return;
-	case SYS_SDC_WRITE_DONE:
-		sys_sdc_write_done(ctx);
-		return;
 	case SYS_EXIT:
 		sys_exit(ctx, arg0, arg1);
 		return;

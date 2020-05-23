@@ -1,5 +1,6 @@
 #include "sdinit.h"
 #include <sys/syscall.h>
+#include <sys/sd.h>
 #include <stdlib.h>
 #include <partition.h>
 #include <string.h>
@@ -7,23 +8,13 @@
 #define EXT2_BLOCK_SIZE 1024
 static partition_t _partition;
 
-static int32_t sdinit_read_sector(int32_t sector, void* buf) {
-	if(syscall1(SYS_SDC_READ, sector) != 0)
-		return -1;
-	while(1) {
-		if(syscall1(SYS_SDC_READ_DONE, (int32_t)buf)  == 0)
-			break;
-	}
-	return 0;
-}
-
 int32_t sdinit_read(int32_t block, void* buf) {
   int32_t n = EXT2_BLOCK_SIZE/512;
   int32_t sector = block * n + _partition.start_sector;
   char* p = (char*)buf;
 
 	while(n > 0) {
-		if(sdinit_read_sector(sector, p) != 0) {
+		if(sd_read_sector_arch(sector, p) != 0) {
 			return -1;
 		}
 		sector++;
@@ -38,7 +29,7 @@ static partition_t _partitions[PARTITION_MAX];
 
 static int32_t read_partition(void) {
 	uint8_t sector[512];
-	if(sdinit_read_sector(0, sector) != 0)
+	if(sd_read_sector_arch(0, sector) != 0)
 		return -1;
 	//check magic 
 	if(sector[510] != 0x55 || sector[511] != 0xAA) 

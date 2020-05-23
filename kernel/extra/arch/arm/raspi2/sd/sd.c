@@ -230,40 +230,6 @@ static int32_t sd_read_sector(uint32_t sector) {
 }
 
 /**
- * write a sector to the sd card and return the number of bytes written
- * returns 0 on error.
- */
-static int32_t sd_write_sector(uint32_t sector, unsigned char *buffer) {
-	uint32_t r, d;
-	if(sd_status(SR_DAT_INHIBIT | SR_WRITE_AVAILABLE)) {
-		sd_err = SD_TIMEOUT;
-		return 0;
-	}
-	uint32_t *buf = (uint32_t *)buffer;
-	
-	*EMMC_BLKSIZECNT = (1 << 16) | SECTOR_SIZE;
-	if((sd_scr[0] & SCR_SUPP_CCS) != 0)
-		sd_cmd(CMD_WRITE_SINGLE, sector);
-	else
-		sd_cmd(CMD_WRITE_SINGLE, sector * SECTOR_SIZE);
-
-	if(sd_err) 
-		return 0;
-	if((r = sd_int(INT_WRITE_RDY, 1))) {
-		sd_err = r;
-		return 0;
-	}
-	for(d=0; d<SECTOR_SIZE/4; d++) 
-		*EMMC_DATA = buf[d];
-	
-	if((r = sd_int(INT_DATA_DONE, 1))) {
-		sd_err = r;
-		return 0;
-	}
-	return sd_err!=SD_OK ? 0 : SECTOR_SIZE;
-}
-
-/**
  * set SD clock to frequency in Hz
  */
 static int32_t sd_clk(uint32_t f) {
@@ -452,7 +418,7 @@ int32_t __attribute__((optimize("O0"))) sd_init(void) {
 	return SD_OK;
 }
 
-void sd_dev_handle(void) {
+static void sd_dev_handle(void) {
 	if(_sdc.rxdone == 1)
 		return;
 
@@ -486,12 +452,3 @@ int32_t sd_dev_read_done(void* buf) {
 	return 0;
 }
 
-int32_t sd_dev_write(int32_t sector, const void* buf) {
-	if(sd_write_sector(sector, (unsigned char*)buf) == 0)
-		return -1;
-	return 0;
-}
-
-int32_t sd_dev_write_done(void) {
-	return 0;
-}

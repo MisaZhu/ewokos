@@ -7,6 +7,12 @@ OBJDUMP = arm-none-eabi-objdump
 
 export QEMU_AUDIO_DRV=none
 
+ifneq ($(MACH),)
+ARCH=arm/$(MACH)
+else
+ARCH=arm/versatilepb
+endif
+
 BUILD_DIR = build
 TARGET_DIR = $(BUILD_DIR)/rootfs
 ROOT_DIR = .
@@ -28,18 +34,12 @@ CFLAGS = -Wstrict-prototypes \
 #CFLAGS +=  -g
 CFLAGS +=  -O2
 
-ifneq ($(MACH),)
-ARCH=arm/$(MACH)
-else
-ARCH=arm/versatilepb
-endif
-
 KERNEL_DIR=../../kernel
 ARCH_DIR=$(KERNEL_DIR)/arch
 
 LDFLAGS = -L$(TARGET_DIR)/lib -lnosys
 
-LIBS_DIR = ../libs
+LIBS_DIR = libs
 
 LIB_INC = -I $(LIBS_DIR)/sys/include \
 				  -I $(LIBS_DIR)/sconf/include \
@@ -123,6 +123,7 @@ LIB_SYS_OBJS = $(LIB_SYS_DIR)/src/syscall.o \
 	$(LIB_SYS_DIR)/src/basic_math.o \
 	$(LIB_SYS_DIR)/src/shm.o \
 	$(LIB_SYS_DIR)/src/sd.o \
+	$(LIB_SYS_DIR)/src/arch/$(ARCH)/sd_arch.o \
 	$(LIB_SYS_DIR)/src/gpio.o \
 	$(LIB_SYS_DIR)/src/global.o \
 	$(LIB_SYS_DIR)/src/proc.o \
@@ -193,7 +194,6 @@ include $(ROOT_DIR)/sbin/init/build.mk
 include $(ROOT_DIR)/sbin/dev/fbd/build.mk
 include $(ROOT_DIR)/sbin/dev/nulld/build.mk
 include $(ROOT_DIR)/sbin/dev/xserverd/build.mk
-include $(ROOT_DIR)/sbin/dev/sdd/build.mk
 include $(ROOT_DIR)/sbin/dev/rootfsd/build.mk
 include $(ROOT_DIR)/sbin/vfsd/build.mk
 include $(ROOT_DIR)/sbin/procd/build.mk

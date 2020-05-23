@@ -1,9 +1,13 @@
-#include <kernel/system.h>
-#include <mm/mmu.h>
-#include <mm/kmalloc.h>
-#include <kstring.h>
-#include <kernel/proc.h>
-#include <dev/sd.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <string.h>
+#include <sys/vfs.h>
+#include <sys/vdevice.h>
+#include <sys/syscall.h>
+#include <sys/mmio.h>
+
+#define SECTOR_SIZE 512
 
 #define CONFIG_ARM_PL180_MMCI_CLOCK_FREQ 6250000
 #define MMC_RSP_PRESENT (1 << 0)
@@ -77,9 +81,9 @@
 #define FIFO          0x80
 
 #define SD_RCA  0x45670000 // QEMU's hard-coded RCA
-#define SD_BASE (_mmio_base + 0x5000) // PL180 SD_BASE address
 
-#define SECTOR_SIZE   512
+static uint32_t _mmio_base = 0;
+#define SD_BASE (_mmio_base + 0x5000) // PL180 SD_BASE address
 
 // shared variables between SDC driver and interrupt handler
 typedef struct {
@@ -97,7 +101,8 @@ static inline void do_command(int32_t cmd, int32_t arg, int32_t resp) {
 	put32(SD_BASE + COMMAND, 0x400 | (resp<<6) | cmd);
 }
 
-int32_t sd_init(void) {
+int32_t sd_init_arch(void) {
+	_mmio_base = mmio_map();
 	sd_t* sdc = &_sdc;
 	memset(sdc, 0, sizeof(sd_t));
 	sdc->rxdone = 1;
@@ -153,6 +158,28 @@ static inline int32_t sd_read_done(void* buf) {
 		return -1;
 	}
 	memcpy(buf, (void*)sdc->rxbuf, SECTOR_SIZE);
+	return 0;
+}
+
+static int32_t sd_write_sector(int32_t sector, const void* buf) {
+	sd_t* sdc = (sd_t*)&_sdc;
+	uint32_t cmd, arg;
+	if(sdc->txdone == 0) {
+		return -1;
+	}
+	memcpy(sdc->txbuf, buf, SECTOR_SIZE);
+	sdc->txbuf_index = sdc->txbuf; sdc->txcount = SECTOR_SIZE;
+	sdc->txdone = 0;
+
+	put32(SD_BASE + DATATIMER, 0xFFFF0000);
+	put32(SD_BASE + DATALENGTH, SECTOR_SIZE);
+
+	cmd = 25;                  // CMD24 = Write single sector; 25=write sector
+	arg = (uint32_t)(sector*SECTOR_SIZE);  // absolute byte offset in diks
+	do_command(cmd, arg, MMC_RSP_R1);
+
+	// write 0x91=|9|0001|=|9|DMA=0,BLOCK=0,0=Host->Card, Enable
+	put32(SD_BASE + DATACTRL, 0x91); // Host->card
 	return 0;
 }
 
@@ -216,12 +243,31 @@ static void sd_dev_handle(void) {
 	// printf("SDC interrupt handler done\n");
 }
 
-int32_t sd_dev_read(int32_t sector) {
-	return sd_read_sector(sector);
+
+int32_t sd_read_sector_arch(int32_t sector, void* buf) {
+	if(sd_read_sector(sector) != 0)
+		return -1;
+
+	while(1) {
+		sd_dev_handle();
+		if(sd_read_done(buf) == 0) {
+			break;
+		}
+		usleep(0);
+	}
+	return 0;
 }
 
-int32_t sd_dev_read_done(void* buf) {
-	sd_dev_handle();
-	return sd_read_done(buf);
+int32_t sd_write_sector_arch(int32_t sector, const void* buf) {
+	if(sd_write_sector(sector, buf) != 0)
+		return -1;
+
+	while(1) {
+		sd_dev_handle();
+		if(sd_write_done() == 0)
+			break;
+		usleep(0);
+	}
+	return 0;
 }
 

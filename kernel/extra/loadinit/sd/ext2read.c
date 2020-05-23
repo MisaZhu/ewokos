@@ -17,7 +17,6 @@ static int32_t sd_read_sector(int32_t sector, void* buf) {
 		return -1;
 
 	while(1) {
-		sd_dev_handle();
 		if(sd_dev_read_done(buf)  == 0) {
 			break;
 		}
