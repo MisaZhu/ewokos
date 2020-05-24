@@ -23,9 +23,6 @@ typedef struct {
 static conf_t _conf;
 
 static int32_t read_config(conf_t* conf, const char* fname) {
-	conf->w = 800;
-	conf->h = 600;
-
 	sconf_t *sconf = sconf_load(fname);	
 	if(sconf == NULL)
 		return -1;
@@ -92,7 +89,16 @@ static int run(int argc, char* argv[]) {
 	memset(&_conf, 0, sizeof(conf_t));
 	read_config(&_conf, "/etc/x/xconsole.conf");
 
-	x_t* xp = x_open(0, 0, _conf.w, _conf.h, "xconsole", 0);
+	x_t* xp = NULL;
+	if(_conf.w > 0 && _conf.h > 0) {
+		xp  = x_open(0, 0, _conf.w, _conf.h, "xconsole", 0);
+	}
+	else {
+		xscreen_t scr;
+ 		x_screen_info(&scr);
+		xp = x_open(0, 0, scr.size.w*3/4, scr.size.h*3/4, "xconsole", 0);
+	}
+
 	if(xp == NULL) {
 		return -1;
 	}
