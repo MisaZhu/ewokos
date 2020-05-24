@@ -125,7 +125,7 @@ void core(void);
 static void run_core(void) {
 	int pid = fork();
 	if(pid == 0) {
-		syscall1(SYS_PROC_SET_CMD, "core");
+		syscall1(SYS_PROC_SET_CMD, (int32_t)"core");
 		core();
 	}
 	else
