@@ -24,8 +24,8 @@ BUILD_DIR = build
 SYS_FULL_DIR = ../system/full
 
 # flags
-#OPTM = -g
-OPTM = -O2
+OPTM = -g
+#OPTM = -O2
 
 CFLAGS += $(OPTM) \
 	-I. -Ilib/include -Iinclude -Iextra/include \
