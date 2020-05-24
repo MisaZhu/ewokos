@@ -47,7 +47,8 @@ void irq_handler(context_t* ctx) {
 	//handle userspace interrupt
 	do_int = do_userspace_int(irqs, &data);
 	PF->clear(&data);
-	if(do_int && _core_pid >= 0) {
+	if(do_int && _core_pid >= 0) { 
+		//if userspace interrtup event pushed, switch to core process immidiately.
 		proc_switch(ctx, proc_get(_core_pid), true);
 		return;
 	}
