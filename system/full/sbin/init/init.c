@@ -16,7 +16,6 @@
 #include <sys/global.h>
 #include <sys/proc.h>
 #include <kevent.h>
-#include "sdinit.h"
 
 static int run_none_fs(const char* cmd) {
 	kprintf(false, "init: %s ", cmd);
