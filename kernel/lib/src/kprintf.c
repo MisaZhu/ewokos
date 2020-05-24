@@ -7,7 +7,8 @@
 #include <stddef.h>
 
 #ifdef FRAMEBUFFER
-#include "dev/framebuffer.h"
+#include <dev/framebuffer.h>
+#include <kconsole.h>
 #endif
 
 void uart_out(const char* s) {
@@ -35,6 +36,7 @@ void printf(const char *format, ...) {
 	_len = 0;
 	v_printf(outc, NULL, format, ap);
 	uart_out(_buf);
+	kconsole_out(_buf);
 	act_led(0);
 }
 

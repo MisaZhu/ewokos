@@ -23,10 +23,7 @@
 
 #ifdef FRAMEBUFFER
 #include <dev/framebuffer.h>
-#endif
-
-#ifdef WITH_LCDHAT
-#include "lcdhat/lcdhat.h"
+#include <kconsole.h>
 #endif
 
 page_dir_entry_t* _kernel_vm = NULL;
@@ -107,30 +104,30 @@ void _kernel_entry_c(context_t* ctx) {
 
 	uart_dev_init();
 
-#ifdef WITH_LCDHAT
-	lcd_init();
-#endif
-
-	printf("\n\n"
+	const char* msg = "\n\n"
 			"===Ewok micro-kernel===\n\n"
 			"kernel: mmu inited\n"
-			"kernel: uart inited\n");
-	printf("kernel: kmalloc initing  [ok] : %dMB\n", div_u32(KMALLOC_END-KMALLOC_BASE, 1*MB));
+			"kernel: uart inited\n";
+	uart_write(msg, strlen(msg));
 
 #ifdef FRAMEBUFFER
+	kconsole_init();
+
 	printf("kernel: framebuffer initing\n");
 	if(fb_dev_init(1280, 720, 16) == 0) {
 		fbinfo_t* info = fb_get_info();
-		printf(  "[OK] : %dx%d %dbits, addr: 0x%X, size:%d\n", 
+		printf("    [OK] : %dx%d %dbits, addr: 0x%X, size:%d\n", 
 				info->width, info->height, info->depth,
 				info->pointer, info->size);
 		memset((void*)info->pointer, 0, info->size);
+		kconsole_setup();
 	}
 	else {
 		printf("  [Failed!]\n");
 	}
 #endif
 
+	printf("kernel: kmalloc initing  [ok] : %dMB\n", div_u32(KMALLOC_END-KMALLOC_BASE, 1*MB));
 	init_allocable_mem(); //init the rest allocable memory VM
 	printf("kernel: init allocable memory: %dMB\n", div_u32(get_free_mem_size(), 1*MB));
 
@@ -160,4 +157,8 @@ void _kernel_entry_c(context_t* ctx) {
 	while(1) {
 		__asm__("MOV r0, #0; MCR p15,0,R0,c7,c0,4"); // CPU enter WFI state
 	}
+
+#ifdef FRAMEBUFFER
+	kconsole_close();
+#endif
 }

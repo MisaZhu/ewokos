@@ -28,7 +28,7 @@ SYS_FULL_DIR = ../system/full
 OPTM = -O2
 
 CFLAGS += $(OPTM) \
-	-I. -Ilib/include -Iinclude -Iextra/include \
+	-I. -Ilib/include -Iinclude -Iextra/include -Iextra/lib/include \
 	-I${ARCH_DIR}/${ARCH} \
 	-marm $(ARCH_QEMU_CFLAGS) \
 	-Wstrict-prototypes \
@@ -73,13 +73,20 @@ endif
 endif
 	
 LIB_DIR = lib/src
+EXTRA_LIB_DIR = extra/lib/src
+
 LIB_OBJS = \
 	${LIB_DIR}/kstring.o \
 	${LIB_DIR}/vprintf.o \
 	${LIB_DIR}/proto.o \
 	${LIB_DIR}/basic_math.o \
 	${LIB_DIR}/queue.o \
-	${LIB_DIR}/kprintf.o
+	${LIB_DIR}/kprintf.o \
+	${EXTRA_LIB_DIR}/graph.o \
+	${EXTRA_LIB_DIR}/font.o \
+	${EXTRA_LIB_DIR}/font8x16.o \
+	${EXTRA_LIB_DIR}/console.o \
+	${EXTRA_LIB_DIR}/kconsole.o
 
 ifeq ($(TINYSYS),yes)
 LOAD_DIR = extra/loadinit/mem
