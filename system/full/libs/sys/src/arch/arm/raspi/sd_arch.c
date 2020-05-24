@@ -511,7 +511,6 @@ int32_t sd_read_sector_arch(int32_t sector, void* buf) {
 	if(sd_read_sector(sector) != 0)
 		return -1;
 	while(1) {
-		sd_dev_handle();
 		if(sd_read_done(buf) == 0)
 			break;
 	}
