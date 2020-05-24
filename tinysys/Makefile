@@ -34,12 +34,12 @@ else
 ARCH=arm/versatilepb
 endif
 
-KERNEL_DIR=../../kernel
+KERNEL_DIR=../kernel
 ARCH_DIR=$(KERNEL_DIR)/arch
 
 LDFLAGS = -L$(TARGET_DIR)/lib -lnosys
 
-LIB_DIR = ../full/libs
+LIB_DIR = ../system/libs
 
 LIB_INC = -I $(LIB_DIR)/sys/include \
 				  -I $(LIB_DIR)/libc/include \

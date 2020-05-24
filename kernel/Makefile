@@ -21,7 +21,7 @@ ARCH_DIR=arch
 include ${ARCH_DIR}/${ARCH}/config.mk
 
 BUILD_DIR = build
-SYS_FULL_DIR = ../system/full
+SYS_FULL_DIR = ../system
 
 # flags
 #OPTM = -g
@@ -64,11 +64,12 @@ CFLAGS += -Iextra/${ARCH_DIR}/${ARCH} -DWITH_LCDHAT
 ARCH_OBJS += ${ARCH_DIR}/${ARCH}/gpio_arch.o  \
 	${ARCH_DIR}/${ARCH}/cpu_freq.o \
 	${ARCH_DIR}/${ARCH}/mailbox.o \
+	extra/${ARCH_DIR}/${ARCH}/framebuffer/framebuffer.o \
 	extra/${ARCH_DIR}/${ARCH}/lib/spi_arch.o \
 	extra/${ARCH_DIR}/${ARCH}/lcdhat/lcdhat.o 
 else
 ifeq ($(MACH),raspi2)
-ARCH_OBJS += ${ARCH_DIR}/${ARCH}/mailbox.o 
+ARCH_OBJS += ${ARCH_DIR}/${ARCH}/mailbox.o
 endif
 endif
 	
@@ -81,12 +82,7 @@ LIB_OBJS = \
 	${LIB_DIR}/proto.o \
 	${LIB_DIR}/basic_math.o \
 	${LIB_DIR}/queue.o \
-	${LIB_DIR}/kprintf.o \
-	${EXTRA_LIB_DIR}/graph.o \
-	${EXTRA_LIB_DIR}/font.o \
-	${EXTRA_LIB_DIR}/font8x16.o \
-	${EXTRA_LIB_DIR}/console.o \
-	${EXTRA_LIB_DIR}/kconsole.o
+	${LIB_DIR}/kprintf.o
 
 ifeq ($(TINYSYS),yes)
 LOAD_DIR = extra/loadinit/mem
@@ -97,12 +93,21 @@ LOAD_OBJS = \
 
 else
 CFLAGS += -DSDC -DFRAMEBUFFER
+LIB_OBJS += \
+	${EXTRA_LIB_DIR}/graph.o \
+	${EXTRA_LIB_DIR}/font.o \
+	${EXTRA_LIB_DIR}/font8x16.o \
+	${EXTRA_LIB_DIR}/console.o \
+	${EXTRA_LIB_DIR}/kconsole.o
+
 ARCH_OBJS += extra/${ARCH_DIR}/${ARCH}/sd/sd.o \
-	extra/${ARCH_DIR}/${ARCH}/framebuffer/framebuffer.o
+	extra/${ARCH_DIR}/${ARCH}/framebuffer/framebuffer.o 
+
 LOAD_DIR = extra/loadinit/sd
 LOAD_OBJS = \
 	${LOAD_DIR}/ext2read.o \
 	${LOAD_DIR}/loadinit.o
+
 QEMU_ARGS = -sd $(SYS_FULL_DIR)/build/sd.ext2
 endif
 
