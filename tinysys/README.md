@@ -1,1 +1,1 @@
-tiny rootfs
+tiny rootfs built-in in kernel image
