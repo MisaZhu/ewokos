@@ -238,6 +238,9 @@ static void sd_dev_handle(void) {
 			sdc->txdone = 1;
 		}
 	}
+	else {
+		return;
+	}
 	//printf("write to clear register\n");
 	put32(SD_BASE + STATUS_CLEAR, 0xFFFFFFFF);
 	// printf("SDC interrupt handler done\n");
@@ -253,7 +256,6 @@ int32_t sd_read_sector_arch(int32_t sector, void* buf) {
 		if(sd_read_done(buf) == 0) {
 			break;
 		}
-		usleep(0);
 	}
 	return 0;
 }
@@ -266,7 +268,6 @@ int32_t sd_write_sector_arch(int32_t sector, const void* buf) {
 		sd_dev_handle();
 		if(sd_write_done() == 0)
 			break;
-		usleep(0);
 	}
 	return 0;
 }

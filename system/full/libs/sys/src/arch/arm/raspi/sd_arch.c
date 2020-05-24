@@ -134,7 +134,6 @@ volatile int32_t sd_err;
 typedef struct {
 	volatile int32_t sector;
 	char rxbuf[SECTOR_SIZE];
-	char txbuf[SECTOR_SIZE];
 	volatile uint32_t rxdone, txdone;
 } sd_t;
 
