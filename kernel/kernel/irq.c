@@ -22,10 +22,19 @@ static void keyboard_interrupt(proto_t* data) {
 	PF->addi(kev->data, proto_read_int(data));
 }
 
+static bool do_userspace_int(uint32_t irqs, proto_t* data) {
+	if((irqs & IRQ_KEY) != 0) {
+		keyboard_interrupt(data);
+		return true;
+	}
+	return false;
+}
+
 void irq_handler(context_t* ctx) {
 	__irq_disable();
 	_current_ctx = ctx;
 	proto_t data;
+	bool do_int = false;
 
 	if(_current_proc != NULL && _current_proc->critical_counter > 0) {
 		_current_proc->critical_counter--;
@@ -35,11 +44,15 @@ void irq_handler(context_t* ctx) {
 	PF->init(&data, NULL, 0);
 	uint32_t irqs = gic_get_irqs(&data);
 
-	if((irqs & IRQ_KEY) != 0) {
-		keyboard_interrupt(&data);
-	}
+	//handle userspace interrupt
+	do_int = do_userspace_int(irqs, &data);
 	PF->clear(&data);
+	if(do_int && _core_pid >= 0) {
+		proc_switch(ctx, proc_get(_core_pid), true);
+		return;
+	}
 
+	//handle irq
 	if((irqs & IRQ_TIMER0) != 0) {
 		uint64_t usec = timer_read_sys_usec();
 		if(_current_proc == NULL || _current_proc->critical_counter == 0) {

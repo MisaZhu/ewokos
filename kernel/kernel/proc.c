@@ -27,6 +27,7 @@ void procs_init(void) {
 	for (int32_t i = 0; i < PROC_MAX; i++)
 		_proc_table[i].info.state = UNUSED;
 	_current_proc = NULL;
+	_core_pid = -1;
 	queue_init(&_ready_queue);
 }
 
