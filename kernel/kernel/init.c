@@ -16,6 +16,13 @@ void __attribute__((optimize("O0"))) _copy_interrupt_table(void) {
 	}
 }
 
+static void flush_actled(void) {
+	act_led(1);
+	_delay(1000000);
+	act_led(0);
+	_delay(1000000);
+}
+
 void _boot_init(void) {
 	hw_info_init();
 	_mmio_base = get_hw_info()->phy_mmio_base;

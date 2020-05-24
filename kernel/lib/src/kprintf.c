@@ -26,13 +26,6 @@ static void outc(char c, void* p) {
 	_buf[_len] = 0;
 }
 
-void flush_actled(void) {
-	act_led(1);
-	_delay(1000000);
-	act_led(0);
-	_delay(1000000);
-}
-
 void printf(const char *format, ...) {
 	act_led(1);
 	_delay_msec(10);
