@@ -152,15 +152,6 @@ static int32_t sd_read_sector(int32_t sector) {
 	return 0;
 }
 
-static inline int32_t sd_read_done(void* buf) {
-	sd_t* sdc = (sd_t*)&_sdc;
-	if(sdc->rxdone == 0) {
-		return -1;
-	}
-	memcpy(buf, (void*)sdc->rxbuf, SECTOR_SIZE);
-	return 0;
-}
-
 static int32_t sd_write_sector(int32_t sector, const void* buf) {
 	sd_t* sdc = (sd_t*)&_sdc;
 	uint32_t cmd, arg;
@@ -180,14 +171,6 @@ static int32_t sd_write_sector(int32_t sector, const void* buf) {
 
 	// write 0x91=|9|0001|=|9|DMA=0,BLOCK=0,0=Host->Card, Enable
 	put32(SD_BASE + DATACTRL, 0x91); // Host->card
-	return 0;
-}
-
-static inline int32_t sd_write_done(void) {
-	sd_t* sdc = (sd_t*)&_sdc;
-	if(sdc->txdone == 0) {
-		return -1;
-	}
 	return 0;
 }
 
@@ -247,13 +230,30 @@ static void sd_dev_handle(void) {
 	// printf("SDC interrupt handler done\n");
 }
 
+static inline int32_t sd_read_done(void* buf) {
+	sd_t* sdc = (sd_t*)&_sdc;
+	sd_dev_handle();
+	if(sdc->rxdone == 0) {
+		return -1;
+	}
+	memcpy(buf, (void*)sdc->rxbuf, SECTOR_SIZE);
+	return 0;
+}
+
+static inline int32_t sd_write_done(void) {
+	sd_t* sdc = (sd_t*)&_sdc;
+	sd_dev_handle();
+	if(sdc->txdone == 0) {
+		return -1;
+	}
+	return 0;
+}
 
 int32_t sd_read_sector_arch(int32_t sector, void* buf) {
 	if(sd_read_sector(sector) != 0)
 		return -1;
 
 	while(1) {
-		sd_dev_handle();
 		if(sd_read_done(buf) == 0) {
 			break;
 		}
@@ -266,7 +266,6 @@ int32_t sd_write_sector_arch(int32_t sector, const void* buf) {
 		return -1;
 
 	while(1) {
-		sd_dev_handle();
 		if(sd_write_done() == 0)
 			break;
 	}
