@@ -8,17 +8,20 @@
 #define T_W 2 /*tab width*/
 
 static void cons_draw_char(console_t* console, int32_t x, int32_t y, char c) {
+	if(console->g == NULL)
+		return;
 	draw_char(console->g, x, y, c, console->font, console->fg_color);
 }
 
 static void cons_clear(console_t* console) {
+	if(console->g == NULL)
+		return;
 	clear(console->g, console->bg_color);
 }
 
 int32_t console_reset(console_t* console) {
 	if(console->g == NULL)
-		return -1;
-
+		return 0;
 	//save content data
 	int old_size = console->content.size;
 	int old_total = console->content.total;
@@ -87,6 +90,8 @@ static uint32_t get_at(console_t* console, uint32_t i) {
 }
 
 void console_refresh(console_t* console) {
+	if(console->g == NULL)
+		return;
 	cons_clear(console);
 	uint32_t i=0;
 	uint32_t x = 0;

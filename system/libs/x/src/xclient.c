@@ -6,11 +6,6 @@
 #include <fcntl.h>
 #include <string.h>
 
-int x_update(x_t* x) {
-	int ret = fcntl_raw(x->fd, X_CNTL_UPDATE, NULL, NULL);
-	return ret;
-}
-
 int x_update_info(x_t* x, xinfo_t* info) {
 	proto_t in;
 	PF->init(&in, NULL, 0)->add(&in, info, sizeof(xinfo_t));
@@ -75,7 +70,7 @@ int x_get_info(x_t* x, xinfo_t* info) {
 	return 0;
 }
 
-graph_t* x_get_graph(x_t* x) {
+static graph_t* x_get_graph(x_t* x) {
 	if(x == NULL)
 		return NULL;
 
@@ -88,7 +83,7 @@ graph_t* x_get_graph(x_t* x) {
 	return graph_new(gbuf, info.r.w, info.r.h);
 }
 
-void  x_release_graph(x_t* x, graph_t* g) {
+static void x_release_graph(x_t* x, graph_t* g) {
 	xinfo_t info;
 	if(x_get_info(x, &info) != 0)
 		return;
@@ -103,19 +98,23 @@ void x_close(x_t* x) {
 	free(x);
 }
 
-static int win_event_handle(x_t* x, xevent_t* ev, void* p) {
+static int win_event_handle(x_t* x, xevent_t* ev) {
 	if(ev->value.window.event == XEVT_WIN_MOVE) {
 	}
 	else if(ev->value.window.event == XEVT_WIN_CLOSE) {
 		x->closed = true;
 	}
 	else if(ev->value.window.event == XEVT_WIN_FOCUS) {
-		if(x->on_focus) 
-			x->on_focus(x, p);
+		if(x->on_focus) {
+			x->on_focus(x);
+			x_repaint(x);
+		}
 	}
 	else if(ev->value.window.event == XEVT_WIN_UNFOCUS) {
-		if(x->on_unfocus) 
-			x->on_unfocus(x, p);
+		if(x->on_unfocus) {
+			x->on_unfocus(x);
+			x_repaint(x);
+		}
 	}
 	else if(ev->value.window.event == XEVT_WIN_MAX) {
 		xinfo_t xinfo;
@@ -135,8 +134,10 @@ static int win_event_handle(x_t* x, xevent_t* ev, void* p) {
 			}
 		}
 		x_update_info(x, &xinfo);
-		if(x->on_resize)
-			x->on_resize(x, p);
+		if(x->on_resize) {
+			x->on_resize(x);
+			x_repaint(x);
+		}
 	}
 	return 0;
 }
@@ -154,10 +155,10 @@ int x_get_event_raw(x_t* x, xevent_t* ev) {
 	return res;
 }
 
-int x_get_event(x_t* x, xevent_t* ev, void* p) {
+int x_get_event(x_t* x, xevent_t* ev) {
 	if(x_get_event_raw(x, ev) == 0) {
 		if(ev->type == XEVT_WIN) 
-			win_event_handle(x, ev, p);
+			win_event_handle(x, ev);
 		return 0;
 	}
 	return -1;
@@ -192,21 +193,35 @@ int x_set_visible(x_t* x, bool visible) {
 
 	int res = fcntl_raw(x->fd, X_CNTL_SET_VISIBLE, &in, NULL);
 	PF->clear(&in);
+	x_repaint(x);
 	return res;
 }
 
-void  x_run(x_t* x, x_handle_func_t event_handle_func, x_step_func_t step_func, void* p) {
+void x_repaint(x_t* x) {
+	if(x->on_repaint == NULL)
+		return;
+	graph_t* g = x_get_graph(x);
+	x->on_repaint(x, g);
+	fcntl_raw(x->fd, X_CNTL_UPDATE, NULL, NULL);
+	x_release_graph(x, g);
+}
+
+void  x_run(x_t* x) {
+	if(x->on_init != NULL)
+		x->on_init(x);
+
 	xevent_t xev;
 	while(!x->closed) {
 		if(x_get_event_raw(x, &xev) == 0) {
 			if(xev.type == XEVT_WIN) 
-				win_event_handle(x, &xev, p);
+				win_event_handle(x, &xev);
 
-			if(event_handle_func != NULL)
-				event_handle_func(x, &xev, p);
+			if(x->on_event != NULL)
+				x->on_event(x, &xev);
 		}
-		if(step_func != NULL)
-			step_func(x, p);
+		if(x->on_loop != NULL) {
+			x->on_loop(x);
+		}
 		usleep(10000);
 	}
 }

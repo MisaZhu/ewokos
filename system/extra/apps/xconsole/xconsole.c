@@ -59,28 +59,72 @@ static int32_t read_config(conf_t* conf, const char* fname) {
 	return 0;
 }
 
-static void console_resize(x_t* x, void* p) {
-	console_t* console = (console_t*)p;
-	console->g = x_get_graph(x);
-	console_reset(console);
-}
-
-static void console_focus(x_t* x, void* p) {
-	(void)x;
-	console_t* console = (console_t*)p;
+static void console_focus(x_t* x) {
+	console_t* console = (console_t*)x->data;
 	console->fg_color = _conf.fg_color;
 	console->bg_color = _conf.bg_color;
 	console_refresh(console);
-	x_update(x);
 }
 
-static void console_unfocus(x_t* x, void* p) {
-	(void)x;
-	console_t* console = (console_t*)p;
+static void console_unfocus(x_t* x) {
+	console_t* console = (console_t*)x->data;
 	console->fg_color = _conf.unfocus_fg_color;
 	console->bg_color = _conf.unfocus_bg_color;
 	console_refresh(console);
-	x_update(x);
+}
+
+static void console_resize(x_t* x) {
+	console_t* console = (console_t*)x->data;
+	if(console->g != NULL) {
+		graph_free(console->g);
+		console->g = NULL;
+	}
+}
+
+static void repaint(x_t* x, graph_t* g) {
+	console_t* console = (console_t*)x->data;
+	if(console->g == NULL) {
+		console->g = graph_new(NULL, g->w, g->h);
+		console_reset(console);
+	}
+	else {
+		blt(console->g, 0, 0, console->g->w, console->g->h,
+				g, 0, 0, g->w, g->h);
+	}
+}
+
+static void event_handle(x_t* x, xevent_t* ev) {
+	(void)x;
+	if(ev->type == XEVT_KEYB) {
+		char c = ev->value.keyboard.value;
+		write_nblock(1, &c, 1);
+	}
+}
+
+static void loop(x_t* x) {
+	console_t* console = (console_t*)x->data;
+	char buf[256];
+	int32_t size = read_nblock(0, buf, 255);
+	if(size == 0) {
+		x->closed = true;
+	}
+	else if(size < 0) {
+		if(errno == EAGAIN) {
+			usleep(10000);
+			return;
+		}
+		else {
+			x->closed = true;
+		}
+	}
+
+	buf[size] = 0;
+	const char* p = (const char*)buf;
+	for(int32_t i=0; i<size; i++) {
+		char c = p[i];
+		console_put_char(console, c);
+	}
+	x_repaint(x);
 }
 
 static int run(int argc, char* argv[]) {
@@ -103,64 +147,27 @@ static int run(int argc, char* argv[]) {
 		return -1;
 	}
 
-	graph_t* g = x_get_graph(xp);
 	console_t console;
 	console_init(&console);
-	console.g = g;
-
 	console.font = _conf.font;
 	console.fg_color = _conf.fg_color;
 	console.bg_color = _conf.bg_color;
-	console_reset(&console);
 
+	xp->data = &console;
 	xp->on_resize = console_resize;
 	xp->on_focus = console_focus;
 	xp->on_unfocus = console_unfocus;
+	xp->on_repaint = repaint;
+	xp->on_loop = loop;
+	xp->on_event = event_handle;
 
 	x_set_visible(xp, true);
 
-	int krd = 0;
-	xevent_t xev;
-	while(xp->closed == 0) {
-		if(krd != 1) {
-			if(x_get_event(xp, &xev, &console) == 0) {
-				if(xev.type == XEVT_KEYB)
-					krd = 1;
-			}
-		}
-		else {
-			char c = xev.value.keyboard.value;
-			if(write_nblock(1, &c, 1) == 1)
-				krd = 0;
-		}
+	x_run(xp);
 
-		char buf[256];
-		int32_t size = read_nblock(0, buf, 255);
-		if(size == 0) {
-			break;
-
-		}
-		else if(size < 0) {
-			if(errno == EAGAIN) {
-				usleep(10000);
-				continue;
-			}
-			else {
-				break;
-			}
-		}
-
-		buf[size] = 0;
-		const char* p = (const char*)buf;
-		for(int32_t i=0; i<size; i++) {
-			char c = p[i];
-			console_put_char(&console, c);
-		}
-		x_update(xp);
-	}
-
+	if(console.g != NULL)
+		graph_free(console.g);
 	console_close(&console);
-	x_release_graph(xp, g);
 	x_close(xp);
 	return 0;
 }

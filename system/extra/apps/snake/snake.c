@@ -22,15 +22,13 @@
 static int seed = 31415;
 
 static bool top = false;
-void on_focus(x_t* x, void* p) {
+void on_focus(x_t* x) {
 	(void)x;
-	(void)p;
 	top = true;
 }
 
-void on_unfocus(x_t* x, void* p) {
+void on_unfocus(x_t* x) {
 	(void)x;
-	(void)p;
 	top = false;
 }
 
@@ -156,6 +154,67 @@ bool snake_eat_self(snake *s){
 	return false;
 }
 
+static snake s;
+static food f;
+static char info[32];
+font_t* font;
+static int record = 0;
+static bool dead = true;
+static int dir = LEFT;
+
+static void event_handle(x_t* x, xevent_t* xev) {
+
+	if(xev->type == XEVT_KEYB) {
+		int key = xev->value.keyboard.value;
+		if(key == 27) {//esc
+			x->closed = true;
+			return;
+		}
+		seed += key;
+
+		if(key == 37 && dir != RIGHT)
+			dir = LEFT;
+		else if(key == 38 && dir != DOWN)
+			dir = UP;
+		else if(key == 39 && dir != LEFT)
+			dir = RIGHT;
+		else if(key == 40 && dir != UP)
+			dir = DOWN;
+		else if(key == 13)
+			dead = false;
+	}
+
+}
+
+static void repaint(x_t* x, graph_t* g) {
+	(void)x;
+	clear(g, argb_int(BG_COLOR));
+	draw_text(g, 0, 0, info, font, TEXT_COLOR);
+	snake_draw(g, &s, &f);
+}
+
+static void loop(x_t* x) {
+	if(!top)
+		return;
+
+	if(dead == false){
+		snake_move(&s, dir);
+		snake_eat(&s, &f);
+		dead = snake_eat_self(&s);
+		if(dead == true){
+			if(s.score > record){
+				snprintf(info, sizeof(info), "New Record: %d", s.score);
+				record = s.score;
+			}else
+				snprintf(info, sizeof(info), "DEAD! SCORE: %d", s.score);
+			snake_init(&s, &f);
+		}
+		else
+			snprintf(info, sizeof(info), "BEST:%d  SCORE:%d", record, s.score);
+	}
+	x_repaint(x);
+}
+
 int main(int argc, char* argv[]) {
 	(void)argc;
 	(void)argv;
@@ -166,70 +225,21 @@ int main(int argc, char* argv[]) {
 	x_t* x = x_open(10, 10, WIN_WIDTH*SCALE_FACTOR, WIN_HEIGHT*SCALE_FACTOR + 20, "snake", X_STYLE_NORMAL | X_STYLE_NO_RESIZE);
 	x->on_focus = on_focus;
 	x->on_unfocus = on_unfocus;
+	x->on_event = event_handle;
+	x->on_repaint = repaint;
+	x->on_loop = loop;
 
-	x_set_visible(x, true);
-	font_t* font = font_by_name("7x9");
-
-	snake s;
-	food f;
-	int dir = LEFT;
-	int record = 0;
-	bool dead = true;
-	char info[32];
+	font = font_by_name("7x9");
+	dead = true;
+	record = 0;
+	dir = LEFT;
 
 	snprintf(info, sizeof(info),  "Press to Start...");
 	snake_init(&s, &f);
 
-	xevent_t xev;
-	while(x->closed == 0) {
-		int key = 0;
-		if(x_get_event(x, &xev, NULL) == 0) {
-			if(xev.type == XEVT_KEYB) {
-				key = xev.value.keyboard.value;
-				if(key == 27) //esc
-					break;
-				seed += key;
-			}
-		}
-		if(top == true) {
+	x_set_visible(x, true);
 
-			if(key == 37 && dir != RIGHT)
-				dir = LEFT;
-			else if(key == 38 && dir != DOWN)
-				dir = UP;
-			else if(key == 39 && dir != LEFT)
-				dir = RIGHT;
-			else if(key == 40 && dir != UP)
-				dir = DOWN;
-			else if(key == 13)
-				dead = false;
-
-			if(dead == false){
-				snake_move(&s, dir);
-				snake_eat(&s, &f);
-				dead = snake_eat_self(&s);
-				if(dead == true){
-					if(s.score > record){
-						snprintf(info, sizeof(info), "New Record: %d", s.score);
-						record = s.score;
-					}else
-						snprintf(info, sizeof(info), "DEAD! SCORE: %d", s.score);
-					snake_init(&s, &f);
-				}
-				else
-					snprintf(info, sizeof(info), "BEST:%d  SCORE:%d", record, s.score);
-			}
-
-			graph_t* g = x_get_graph(x);
-			clear(g, argb_int(BG_COLOR));
-			draw_text(g, 0, 0, info, font, TEXT_COLOR);
-			snake_draw(g, &s, &f);
-			x_release_graph(x, g);
-			x_update(x);
-		}
-		usleep(30000);
-	}
-
+	x_run(x);
 	x_close(x);
 	return 0;
 } 

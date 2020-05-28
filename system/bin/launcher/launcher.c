@@ -57,22 +57,22 @@ static void draw_icon(graph_t* g, const char* item, int icon_size, int i) {
 	graph_free(img);
 }
 
-static void do_draw(x_t* x, items_t* items) {
-	graph_t* g = x_get_graph(x);
+static items_t items;
+
+static void repaint(x_t* x, graph_t* g) {
+	(void)x;
 	//font_t* font = get_font_by_name("8x16");
 	clear(g, argb_int(0x0));
 	int i;
-	for(i=0; i<items->num; i++) {
-		/*box(g, 0, i*items->icon_size,
-			items->icon_size,
-			items->icon_size,
+	for(i=0; i<items.num; i++) {
+		/*box(g, 0, i*items.icon_size,
+			items.icon_size,
+			items.icon_size,
 			0xffaaaaaa);
 			*/
-		draw_icon(g, items->items[i]->cstr, items->icon_size, i);
-		//draw_text(g, 0, i*items->icon_size + 4, items->items[i], font, 0xff888888);
+		draw_icon(g, items.items[i]->cstr, items.icon_size, i);
+		//draw_text(g, 0, i*items.icon_size + 4, items.items[i], font, 0xff888888);
 	}
-	x_release_graph(x, g);
-	x_update(x);
 }
 
 static void run(const char* item) {
@@ -82,11 +82,9 @@ static void run(const char* item) {
 	str_free(s);
 }
 
-static items_t items;
-
-void x_event_handle(x_t* x, xevent_t* ev, void* p) {
+void x_event_handle(x_t* x, xevent_t* ev) {
 	(void)x;
-	xinfo_t* xinfo = (xinfo_t*)p;
+	xinfo_t* xinfo = (xinfo_t*)x->data;
 	if(ev->type == XEVT_MOUSE && ev->state == XEVT_MOUSE_DOWN) {
 		int i = div_u32(ev->value.mouse.y - xinfo->r.y, items.icon_size);
 		if(i < items.num) {
@@ -111,12 +109,15 @@ int main(int argc, char* argv[]) {
 			items.icon_size, 
 			items.icon_size * items.num,
 			"launcher", X_STYLE_NO_FRAME | X_STYLE_ALPHA | X_STYLE_NO_FOCUS);
-	do_draw(x, &items);
-	x_set_visible(x, true);
 
 	xinfo_t xinfo;
 	x_get_info(x, &xinfo);
-	x_run(x, x_event_handle, NULL, &xinfo);
+	x->data = &xinfo;
+	x->on_repaint = repaint;
+	x->on_event = x_event_handle;
+
+	x_set_visible(x, true);
+	x_run(x);
 
 	int i;
 	for(i=0; i<items.num; i++) {
@@ -125,4 +126,4 @@ int main(int argc, char* argv[]) {
 
 	x_close(x);
 	return 0;
-} 
+}

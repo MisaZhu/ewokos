@@ -6,8 +6,7 @@
 #include <x/xclient.h>
 #include <upng/upng.h>
 
-static void draw(x_t* xp, graph_t* img) {
-	graph_t* g = x_get_graph(xp);
+static void draw(graph_t* g, graph_t* img) {
 	int x, y;
 	clear(g, 0xff444444);
 	for(y=10; y<(int32_t)g->h; y+=16) {
@@ -18,14 +17,12 @@ static void draw(x_t* xp, graph_t* img) {
 
 	blt_alpha(img, 0, 0, img->w, img->h,
 			g, 0, 0, img->w, img->h, 0xff);
-	x_release_graph(xp, g);
-	x_update(xp);
-
 }
 
-static void on_resize(x_t* x, void* p) {
-	graph_t* img = (graph_t*)p;
-	draw(x, img);
+static void repaint(x_t* x, graph_t* g) {
+	(void)x;
+	graph_t* img = (graph_t*)x->data;
+	draw(g, img);
 }
 
 int main(int argc, char* argv[]) {
@@ -47,13 +44,10 @@ int main(int argc, char* argv[]) {
 		graph_free(img);
 		return -1;
 	}
-
-	x->on_resize = on_resize;
-
-	draw(x, img);
+	x->data = img;
+	x->on_repaint = repaint;
 	x_set_visible(x, true);
-
-	x_run(x, NULL, NULL, img);
+	x_run(x);
 
 	graph_free(img);
 	x_close(x);
