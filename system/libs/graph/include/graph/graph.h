@@ -57,8 +57,8 @@ void draw_char(graph_t* g, int32_t x, int32_t y, char c, font_t* font, uint32_t 
 
 void draw_text(graph_t* g, int32_t x, int32_t y, const char* str, font_t* font, uint32_t color);
 
-void blt(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_t sh,
-		graph_t* dst, int32_t dx, int32_t dy, int32_t dw, int32_t dh);
+void blt(graph_t* src, int32_t sx, int32_t sy, uint32_t sw, uint32_t sh,
+		graph_t* dst, int32_t dx, int32_t dy, uint32_t dw, uint32_t dh);
 
 void blt_alpha(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_t sh,
 		graph_t* dst, int32_t dx, int32_t dy, int32_t dw, int32_t dh, uint8_t alpha);

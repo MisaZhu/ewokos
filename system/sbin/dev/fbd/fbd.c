@@ -38,12 +38,13 @@ static int fb_write(int fd,
 	if(size < sz)
 		return 0;
 	
-	critical_enter();
-	if(_fbinfo.depth == 32) 
+	if(_fbinfo.depth == 32) {
+		critical_enter();
 		memcpy((void*)_fbinfo.pointer, buf, size);
+		critical_quit();
+	}
 	else if(_fbinfo.depth == 16) 
 		dup16((uint16_t*)_fbinfo.pointer, (uint32_t*)buf, _fbinfo.width, _fbinfo.height);
-	critical_quit();
 	return sz;
 }	
 
@@ -80,12 +81,13 @@ static int fb_flush(int fd, int from_pid, fsinfo_t* info, void* p) {
 	if(size > sz)
 		size = sz;
 
-	critical_enter();
-	if(_fbinfo.depth == 32) 
+	if(_fbinfo.depth == 32) {
+		critical_enter();
 		memcpy((void*)_fbinfo.pointer, dma->data, size);
+		critical_quit();
+	}
 	else if(_fbinfo.depth == 16) 
 		dup16((uint16_t*)_fbinfo.pointer, (uint32_t*)dma->data, _fbinfo.width, _fbinfo.height);
-	critical_quit();
 	return 0;
 }
 

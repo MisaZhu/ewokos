@@ -417,8 +417,17 @@ void draw_text(graph_t* g, int32_t x, int32_t y, const char* str, font_t* font, 
 	}
 }
 
-inline void blt(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_t sh,
-		graph_t* dst, int32_t dx, int32_t dy, int32_t dw, int32_t dh) {
+inline void blt(graph_t* src, int32_t sx, int32_t sy, uint32_t sw, uint32_t sh,
+		graph_t* dst, int32_t dx, int32_t dy, uint32_t dw, uint32_t dh) {
+	if(sx == 0 && sy == 0 && dx == 0 && dy == 0 &&
+			sw == dw && sh == dh && src->w == sw && src->h == sh &&
+				dst->w == dw && dst->h == dh) {
+		critical_enter();
+		memcpy(dst->buffer, src->buffer, 4*sw*sh);	
+		critical_quit();
+		return;
+	}
+
 	grect_t sr = {sx, sy, sw, sh};
 	grect_t dr = {dx, dy, dw, dh};
 	if(!insect(src, &sr, dst, &dr))
@@ -430,6 +439,7 @@ inline void blt(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_t sh,
 	ex = sr.x + sr.w;
 	ey = sr.y + sr.h;
 
+	critical_enter();
 	for(; sy < ey; sy++, dy++) {
 		sx = sr.x;
 		dx = dr.x;
@@ -437,6 +447,7 @@ inline void blt(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_t sh,
 			dst->buffer[dy * dst->w + dx] = src->buffer[sy * src->w + sx];
 		}
 	}
+	critical_quit();
 }
 
 inline void blt_alpha(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_t sh,
