@@ -79,6 +79,7 @@ static void console_resize(x_t* x) {
 		graph_free(console->g);
 		console->g = NULL;
 	}
+	x_repaint(x);
 }
 
 static void repaint(x_t* x, graph_t* g) {
