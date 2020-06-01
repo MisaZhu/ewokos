@@ -55,10 +55,8 @@ int32_t console_reset(console_t* console) {
 		if(at >= old_total)
 			at -= old_total;
 		char c = old_data[at];
-		console_put_char(console, c);
-		if(mod_u32(i, old_line_w) == 0) {
-			console_put_char(console, '\n');
-		}
+		if(c != 0)
+			console_put_char(console, c);
 	}
 	free(old_data);
 	return 0;
@@ -97,7 +95,7 @@ void console_refresh(console_t* console) {
 	while(i < console->content.size) {
 		uint32_t at = get_at(console, i);
 		char c = console->content.data[at];
-		if(c != ' ') {
+		if(c != 0 && c != '\n') {
 			cons_draw_char(console, x*console->font->w, y*console->font->h, console->content.data[at]);
 		}
 		x++;
@@ -148,10 +146,12 @@ void console_put_char(console_t* console, char c) {
 		uint32_t x =  console->content.size - (console->content.line*console->content.line_w);
 		while(x < console->content.line_w) {
 			uint32_t at = get_at(console, console->content.size);
-			console->content.data[at] = ' ';
+			console->content.data[at] = c;
+			c = 0;
 			console->content.size++;
 			x++;
 		}
+		c = '\n';
 		console->content.line++;
 	}
 	else {
