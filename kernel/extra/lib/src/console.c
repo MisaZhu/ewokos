@@ -1,23 +1,26 @@
 #include <basic_math.h>
 #include <kstring.h>
 #include <console.h>
-#include <graph.h>
 #include <stddef.h>
 #include <mm/kmalloc.h>
 
 #define T_W 2 /*tab width*/
 
 static void cons_draw_char(console_t* console, int32_t x, int32_t y, char c) {
+	if(console->g == NULL)
+		return;
 	draw_char(console->g, x, y, c, console->font, console->fg_color);
 }
 
 static void cons_clear(console_t* console) {
+	if(console->g == NULL)
+		return;
 	clear(console->g, console->bg_color);
 }
 
 int32_t console_reset(console_t* console) {
 	if(console->g == NULL)
-		return -1;
+		return 0;
 	//save content data
 	int old_size = console->content.size;
 	int old_total = console->content.total;
@@ -30,9 +33,7 @@ int32_t console_reset(console_t* console) {
 	console->content.start_line = 0;
 	console->content.line = 0;
 	console->content.line_w = div_u32(console->g->w, console->font->w)-1;
-	console->content.line_num = div_u32(console->g->h, console->font->h)-1;
-	if(mod_u32(console->g->h, console->font->h) != 0)
-		console->content.line_num--;
+	console->content.line_num = div_u32(console->g->h, console->font->h);
 	uint32_t data_size = console->content.line_num*console->content.line_w;
 	console->content.total = data_size;
 	if(console->content.data != NULL)
@@ -53,10 +54,8 @@ int32_t console_reset(console_t* console) {
 		if(at >= old_total)
 			at -= old_total;
 		char c = old_data[at];
-		console_put_char(console, c);
-		if(mod_u32(i, old_line_w) == 0) {
-			console_put_char(console, '\n');
-		}
+		if(c != 0)
+			console_put_char(console, c);
 	}
 	kfree(old_data);
 	return 0;
@@ -64,8 +63,8 @@ int32_t console_reset(console_t* console) {
 
 int32_t console_init(console_t* console) {
 	console->g = NULL;
-	console->fg_color = argb(0xff, 0xff, 0xff, 0xff);
-	console->bg_color = argb(0xff, 0x00, 0x00, 0x00);
+	console->bg_color = argb(0xff, 0x0, 0x0, 0x0);
+	console->fg_color = argb(0xff, 0xaa, 0xaa, 0xaa);
 	console->font = font_by_name("8x16");
 	memset(&console->content, 0, sizeof(content_t));
 	return 0;
@@ -86,6 +85,8 @@ static uint32_t get_at(console_t* console, uint32_t i) {
 }
 
 void console_refresh(console_t* console) {
+	if(console->g == NULL)
+		return;
 	cons_clear(console);
 	uint32_t i=0;
 	uint32_t x = 0;
@@ -93,7 +94,7 @@ void console_refresh(console_t* console) {
 	while(i < console->content.size) {
 		uint32_t at = get_at(console, i);
 		char c = console->content.data[at];
-		if(c != ' ') {
+		if(c != 0 && c != '\n') {
 			cons_draw_char(console, x*console->font->w, y*console->font->h, console->content.data[at]);
 		}
 		x++;
@@ -103,6 +104,13 @@ void console_refresh(console_t* console) {
 		}
 		i++;
 	}	
+}
+
+void console_clear(console_t* console) {
+	console->content.size = 0;
+	console->content.start_line = 0;
+	console->content.line = 0;
+	console_refresh(console);
 }
 
 static void move_line(console_t* console) {
@@ -137,10 +145,12 @@ void console_put_char(console_t* console, char c) {
 		uint32_t x =  console->content.size - (console->content.line*console->content.line_w);
 		while(x < console->content.line_w) {
 			uint32_t at = get_at(console, console->content.size);
-			console->content.data[at] = ' ';
+			console->content.data[at] = c;
+			c = 0;
 			console->content.size++;
 			x++;
 		}
+		c = '\n';
 		console->content.line++;
 	}
 	else {
@@ -150,7 +160,7 @@ void console_put_char(console_t* console, char c) {
 		}
 	}
 
-	if((console->content.line) > console->content.line_num) {
+	if((console->content.line) >= console->content.line_num) {
 		move_line(console);
 	}
 	
