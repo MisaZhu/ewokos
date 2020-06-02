@@ -55,11 +55,11 @@ inline void pixel_safe(graph_t* g, int32_t x, int32_t y, uint32_t color) {
 
 static inline void pixel_argb(graph_t* graph, int32_t x, int32_t y,
 		uint8_t a, uint8_t r, uint8_t g, uint8_t b) {
-	uint32_t oc = graph->buffer[y * graph->w + x];
-	uint8_t oa = (oc >> 24) & 0xff;
-	uint8_t ob = (oc >> 16) & 0xff;
-	uint8_t og = (oc >> 8)  & 0xff;
-	uint8_t or = oc & 0xff;
+	register uint32_t oc = graph->buffer[y * graph->w + x];
+	register uint8_t oa = (oc >> 24) & 0xff;
+	register uint8_t ob = (oc >> 16) & 0xff;
+	register uint8_t og = (oc >> 8)  & 0xff;
+	register uint8_t or = oc & 0xff;
 
 	oa = oa + (255 - oa) * a / 255;
 	or = r*a/255 + or*(255-a)/255;

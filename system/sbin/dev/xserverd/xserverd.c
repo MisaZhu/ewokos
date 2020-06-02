@@ -110,30 +110,6 @@ static void draw_desktop(x_t* x) {
 	PF->clear(&out);
 }
 
-static void draw_mask(graph_t* g, int x, int y, int w, int h) {
-	if(x < 0) {
-		w += x;
-		x = 0;
-	}
-	if(y < 0) {
-		h += y;
-		y = 0;
-	}
-	if((x+w) >= (int)g->w)
-		w = g->w - x - 1;
-	if((y+h) >= (int)g->h) 
-		h = g->h - y - 1;
-
-	int i, j;
-	int step = 4;
-	for(j=0; j<h; j+=step) {
-		for(i=0; i<w; i+=step) {
-			pixel(g, i+x, j+y, 0xff000000);
-			pixel(g, i+x+1, j+y+1, 0xffffffff);
-		}
-	}
-}
-
 static int draw_view(x_t* xp, xview_t* view) {
 	if(!xp->dirty && !view->dirty)
 		return 0;
@@ -162,11 +138,14 @@ static int draw_view(x_t* xp, xview_t* view) {
 			}
 		}
 		else {
-			draw_mask(xp->g, 
-					view->xinfo.r.x,
-					view->xinfo.r.y,
-					view->xinfo.r.w,
-					view->xinfo.r.h);
+			blt_alpha(view->g, 0, 0, 
+						view->xinfo.r.w,
+						view->xinfo.r.h,
+						xp->g,
+						view->xinfo.r.x,
+						view->xinfo.r.y,
+						view->xinfo.r.w,
+						view->xinfo.r.h, 0x88);
 		}
 	}
 
