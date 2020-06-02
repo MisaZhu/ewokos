@@ -16,6 +16,7 @@
 #include <sys/global.h>
 #include <pthread.h>
 #include <sys/proc.h>
+#include <sconf.h>
 
 #define X_EVENT_MAX 16
 
@@ -54,6 +55,11 @@ typedef struct {
 } x_current_t;
 
 typedef struct {
+	int win_move_alpha;
+	char xwm[128];
+} x_conf_t;
+
+typedef struct {
 	bool actived;
 	int fb_fd;
 	int keyb_fd;
@@ -71,8 +77,31 @@ typedef struct {
 	xview_t* view_tail;
 
 	x_current_t current;
+	x_conf_t config;
+
 	uint32_t lock;
 } x_t;
+
+static int32_t read_config(x_t* x, const char* fname) {
+	x->config.win_move_alpha = 0x88;
+	x->config.xwm[0] = 0;
+
+	sconf_t *conf = sconf_load(fname);	
+	if(conf == NULL)
+		return -1;
+
+	const char* v = sconf_get(conf, "win_move_alpha");
+	if(v[0] != 0) 
+		x->config.win_move_alpha = atoi_base(v, 16);
+
+	v = sconf_get(conf, "xwm");
+	if(v[0] != 0) 
+		strncpy(x->config.xwm, v, 127);
+
+	sconf_free(conf);
+	return 0;
+}
+
 
 static void draw_win_frame(x_t* x, xview_t* view) {
 	if((view->xinfo.style & X_STYLE_NO_FRAME) != 0)
@@ -115,19 +144,28 @@ static int draw_view(x_t* xp, xview_t* view) {
 		return 0;
 
 	if(view->g != NULL) {
-		if(xp->current.view != view) { //drag and moving
-			if((view->xinfo.style & X_STYLE_ALPHA) != 0) {
-				blt_alpha(view->g, 0, 0, 
-						view->xinfo.r.w,
-						view->xinfo.r.h,
-						xp->g,
-						view->xinfo.r.x,
-						view->xinfo.r.y,
-						view->xinfo.r.w,
-						view->xinfo.r.h, 0xff);
-			}
-			else {
-				blt(view->g, 0, 0, 
+		if(xp->current.view == view && xp->config.win_move_alpha < 0xff) { //drag and moving
+			blt_alpha(view->g, 0, 0, 
+					view->xinfo.r.w,
+					view->xinfo.r.h,
+					xp->g,
+					view->xinfo.r.x,
+					view->xinfo.r.y,
+					view->xinfo.r.w,
+					view->xinfo.r.h, xp->config.win_move_alpha);
+		}
+		else	if((view->xinfo.style & X_STYLE_ALPHA) != 0) {
+			blt_alpha(view->g, 0, 0, 
+					view->xinfo.r.w,
+					view->xinfo.r.h,
+					xp->g,
+					view->xinfo.r.x,
+					view->xinfo.r.y,
+					view->xinfo.r.w,
+					view->xinfo.r.h, 0xff);
+		}
+		else {
+			blt(view->g, 0, 0, 
 						view->xinfo.r.w,
 						view->xinfo.r.h,
 						xp->g,
@@ -135,17 +173,6 @@ static int draw_view(x_t* xp, xview_t* view) {
 						view->xinfo.r.y,
 						view->xinfo.r.w,
 						view->xinfo.r.h);
-			}
-		}
-		else {
-			blt_alpha(view->g, 0, 0, 
-						view->xinfo.r.w,
-						view->xinfo.r.h,
-						xp->g,
-						view->xinfo.r.x,
-						view->xinfo.r.y,
-						view->xinfo.r.w,
-						view->xinfo.r.h, 0x88);
 		}
 	}
 
@@ -562,8 +589,7 @@ static void x_check_views(x_t* x) {
 
 static int x_init(x_t* x) {
 	memset(x, 0, sizeof(x_t));
-	x->view_head = NULL;	
-	x->view_tail = NULL;	
+	x->xwm_pid = -1;
 
 	int fd = open("/dev/keyb0", O_RDONLY);
 	x->keyb_fd = fd;
@@ -959,11 +985,20 @@ static void x_close(x_t* x) {
 int main(int argc, char** argv) {
 	const char* mnt_point = argc > 1 ? argv[1]: "/dev/x";
 
-	int pid = fork();
-	if(pid == 0) {
-		exec("/sbin/x/xwm");
+	x_t x;
+	if(x_init(&x) != 0) {
+		return -1;
 	}
-	proc_wait_ready(pid);
+	read_config(&x, "/etc/x/x.conf");
+
+	int xwm_pid = -1;
+	if(x.config.xwm[0] != 0) {
+		xwm_pid = fork();
+		if(xwm_pid == 0) {
+			exec(x.config.xwm);
+		}
+		proc_wait_ready(xwm_pid);
+	}
 
 	vdevice_t dev;
 	memset(&dev, 0, sizeof(vdevice_t));
@@ -974,16 +1009,13 @@ int main(int argc, char** argv) {
 	dev.info = xserver_info;
 	dev.loop_step= xserver_loop_step;
 
-	x_t x;
-	if(x_init(&x) == 0) {
-		x.actived = true;
-		x.xwm_pid = pid;
-		prs_down = false;
-		j_mouse = true;
-		//pthread_create(NULL, NULL, read_thread, &x);
-		dev.extra_data = &x;
-		device_run(&dev, mnt_point, FS_TYPE_CHAR);
-		x_close(&x);
-	}
+	x.actived = true;
+	x.xwm_pid = xwm_pid;
+	prs_down = false;
+	j_mouse = true;
+	//pthread_create(NULL, NULL, read_thread, &x);
+	dev.extra_data = &x;
+	device_run(&dev, mnt_point, FS_TYPE_CHAR);
+	x_close(&x);
 	return 0;
 }

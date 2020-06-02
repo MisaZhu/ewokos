@@ -86,7 +86,8 @@ LIB_GRAPH_OBJS =	$(LIB_GRAPH_DIR)/src/graph.o \
 	$(LIB_GRAPH_DIR)/src/font12x24.o \
 	$(LIB_GRAPH_DIR)/src/font16x32.o
 
-LIB_X_OBJS = $(LIB_X_DIR)/src/xclient.o
+LIB_X_OBJS = $(LIB_X_DIR)/src/xclient.o \
+	$(LIB_X_DIR)/src/xwm.o
 
 LIB_EXT2_OBJS = $(LIB_EXT2_DIR)/src/ext2fs.o
 
@@ -197,7 +198,8 @@ include $(ROOT_DIR)/sbin/dev/xserverd/build.mk
 include $(ROOT_DIR)/sbin/dev/rootfsd/build.mk
 include $(ROOT_DIR)/sbin/vfsd/build.mk
 include $(ROOT_DIR)/sbin/procd/build.mk
-include $(ROOT_DIR)/sbin/x/xwm/build.mk
+include $(ROOT_DIR)/sbin/x/xwm/tiny/build.mk
+include $(ROOT_DIR)/sbin/x/xwm/macos7/build.mk
 
 include $(ROOT_DIR)/sbin/dev/arch/versatilepb/ps2keybd/build.mk
 include $(ROOT_DIR)/sbin/dev/arch/versatilepb/ps2moused/build.mk
