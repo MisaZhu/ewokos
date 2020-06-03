@@ -11,7 +11,6 @@ enum {
 	X_CNTL_GET_INFO,
 	X_CNTL_WORKSPACE,
 	X_CNTL_IS_TOP,
-	X_CNTL_GET_EVT,
 	X_CNTL_SET_VISIBLE
 };
 
@@ -20,6 +19,10 @@ enum {
 	X_STATE_MAX,
 	X_STATE_MIN,
 	X_STATE_FULL_SCREEN
+};
+
+enum {
+	X_CMD_PUSH_EVENT = 0
 };
 
 #define X_STYLE_NORMAL    0x0

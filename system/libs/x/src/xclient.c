@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <fcntl.h>
 #include <string.h>
+#include <sys/kserv.h>
 
 int x_update_info(x_t* x, xinfo_t* info) {
 	proto_t in;
@@ -142,26 +143,30 @@ static int win_event_handle(x_t* x, xevent_t* ev) {
 	return 0;
 }
 
-int x_get_event_raw(x_t* x, xevent_t* ev) {
-	proto_t out;
-	PF->init(&out, NULL, 0);
+static void x_push_event(x_t* x, xevent_t* ev) {
+	x_event_t* e = (x_event_t*)malloc(sizeof(x_event_t));
+	e->next = NULL;
+	memcpy(&e->event, ev, sizeof(xevent_t));
 
-	int res = -1;
-	if(fcntl_raw(x->fd, X_CNTL_GET_EVT, NULL, &out) == 0) {
-		proto_read_to(&out, ev, sizeof(xevent_t));
-		res = 0;
-	}
-	PF->clear(&out);
-	return res;
+  if(x->event_tail != NULL)
+    x->event_tail->next = e;
+  else
+    x->event_head = e;
+  x->event_tail = e;
 }
 
-int x_get_event(x_t* x, xevent_t* ev) {
-	if(x_get_event_raw(x, ev) == 0) {
-		if(ev->type == XEVT_WIN) 
-			win_event_handle(x, ev);
-		return 0;
-	}
-	return -1;
+static int x_get_event(x_t* x, xevent_t* ev) {
+  x_event_t* e = x->event_head;
+	if(e == NULL)
+		return -1;
+
+  x->event_head = x->event_head->next;
+  if(x->event_head == NULL)
+    x->event_tail = NULL;
+
+  memcpy(ev, &e->event, sizeof(xevent_t));
+  free(e);
+  return 0;
 }
 
 int x_is_top(x_t* x) {
@@ -193,6 +198,8 @@ int x_set_visible(x_t* x, bool visible) {
 
 	int res = fcntl_raw(x->fd, X_CNTL_SET_VISIBLE, &in, NULL);
 	PF->clear(&in);
+	if(x->on_focus)
+		x->on_focus(x);
 	x_repaint(x);
 	return res;
 }
@@ -206,13 +213,27 @@ void x_repaint(x_t* x) {
 	x_release_graph(x, g);
 }
 
+static void handle(int from_pid, int cmd, proto_t* in, proto_t* out, void* p) {
+	(void)from_pid;
+	(void)out;
+	x_t* x = (x_t*)p;
+
+	if(cmd == X_CMD_PUSH_EVENT) {
+		xevent_t ev;
+		proto_read_to(in, &ev, sizeof(xevent_t));
+		x_push_event(x, &ev);
+	}
+}
+
 void  x_run(x_t* x) {
 	if(x->on_init != NULL)
 		x->on_init(x);
+	
+	kserv_run(handle, x, true);
 
 	xevent_t xev;
 	while(!x->closed) {
-		if(x_get_event_raw(x, &xev) == 0) {
+		if(x_get_event(x, &xev) == 0) {
 			if(xev.type == XEVT_WIN) 
 				win_event_handle(x, &xev);
 

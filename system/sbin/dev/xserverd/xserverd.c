@@ -20,11 +20,6 @@
 
 #define X_EVENT_MAX 16
 
-typedef struct st_xview_ev {
-	xevent_t event;
-	struct st_xview_ev* next;
-} xview_event_t;
-
 typedef struct st_xview {
 	int fd;
 	int from_pid;
@@ -35,9 +30,6 @@ typedef struct st_xview {
 
 	struct st_xview *next;
 	struct st_xview *prev;
-	xview_event_t* event_head;
-	xview_event_t* event_tail;
-	int event_num;
 } xview_t;
 
 typedef struct {
@@ -199,26 +191,22 @@ static void remove_view(x_t* x, xview_t* view) {
 	x_dirty(x);
 }
 
-static void x_push_event(xview_t* view, xview_event_t* e, uint8_t must) {
-	if(view->event_num >= X_EVENT_MAX && must == 0)
+static void x_push_event(xview_t* view, xevent_t* e) {
+	if(view->from_pid <= 0)
 		return;
-
-	if(view->event_tail != NULL)
-		view->event_tail->next = e;
-	else
-		view->event_head = e;
-	view->event_tail = e;
-	view->event_num++;
+	proto_t in;
+	PF->init(&in, NULL, 0)->add(&in, e, sizeof(xevent_t));
+	ipc_call(view->from_pid, X_CMD_PUSH_EVENT, &in, NULL);
+	PF->clear(&in);
 }
 
 static void push_view(x_t* x, xview_t* view) {
 	if((view->xinfo.style & X_STYLE_NO_FOCUS) == 0) {
 		if(x->view_tail != NULL) {
-			xview_event_t* e = (xview_event_t*)malloc(sizeof(xview_event_t));
-			e->next = NULL;
-			e->event.type = XEVT_WIN;
-			e->event.value.window.event = XEVT_WIN_UNFOCUS;
-			x_push_event(x->view_tail, e, 1);
+			xevent_t e;
+			e.type = XEVT_WIN;
+			e.value.window.event = XEVT_WIN_UNFOCUS;
+			x_push_event(x->view_tail, &e);
 
 			x->view_tail->next = view;
 			view->prev = x->view_tail;
@@ -228,11 +216,10 @@ static void push_view(x_t* x, xview_t* view) {
 			x->view_tail = x->view_head = view;
 		}
 
-		xview_event_t* e = (xview_event_t*)malloc(sizeof(xview_event_t));
-		e->next = NULL;
-		e->event.type = XEVT_WIN;
-		e->event.value.window.event = XEVT_WIN_FOCUS;
-		x_push_event(view, e, 1);
+		xevent_t e;
+		e.type = XEVT_WIN;
+		e.value.window.event = XEVT_WIN_FOCUS;
+		x_push_event(view, &e);
 	}
 	else {
 		if(x->view_head != NULL) {
@@ -254,11 +241,10 @@ static void x_del_view(x_t* x, xview_t* view) {
 	free(view);
 
 	if(x->view_tail != NULL) {
-		xview_event_t* e = (xview_event_t*)malloc(sizeof(xview_event_t));
-		e->next = NULL;
-		e->event.type = XEVT_WIN;
-		e->event.value.window.event = XEVT_WIN_FOCUS;
-		x_push_event(x->view_tail, e, 1);
+		xevent_t e;
+		e.type = XEVT_WIN;
+		e.value.window.event = XEVT_WIN_FOCUS;
+		x_push_event(x->view_tail, &e);
 	}
 }
 
@@ -432,23 +418,6 @@ static int x_update_info(int ufid, int from_pid, proto_t* in, x_t* x) {
 	return 0;
 }
 
-static int x_get_event(int ufid, int from_pid, x_t* x, proto_t* out) {
-	xview_t* view = x_get_view(x, ufid, from_pid);
-	if(view == NULL || view->event_head == NULL)
-		return -1;
-
-	xview_event_t* e = view->event_head;
-	view->event_head = view->event_head->next;
-	if(view->event_head == NULL)
-		view->event_tail = NULL;
-
-	PF->add(out, &e->event, sizeof(xevent_t));
-	free(e);
-	if(view->event_num > 0)
-		view->event_num--;
-	return 0;
-}
-
 static int x_get_info(int ufid, int from_pid, x_t* x, proto_t* out) {
 	xview_t* view = x_get_view(x, ufid, from_pid);
 	if(view == NULL)
@@ -511,9 +480,6 @@ static int xserver_fcntl(int fd, int ufid, int from_pid, fsinfo_t* info,
 	}
 	else if(cmd == X_CNTL_GET_INFO) {
 		return x_get_info(ufid, from_pid, x, out);
-	}
-	else if(cmd == X_CNTL_GET_EVT) {
-		return x_get_event(ufid, from_pid, x, out);
 	}
 	else if(cmd == X_CNTL_WORKSPACE) {
 		return x_workspace(x, in, out);
@@ -727,14 +693,13 @@ static xview_t* get_top_view(x_t* x) {
 static int mouse_handle(x_t* x, int8_t state, int32_t rx, int32_t ry) {
 	mouse_cxy(x, rx, ry);
 
-	xview_event_t* e = (xview_event_t*)malloc(sizeof(xview_event_t));
-	e->next = NULL;
-	e->event.type = XEVT_MOUSE;
-	e->event.state = XEVT_MOUSE_MOVE;
-	e->event.value.mouse.x = x->cursor.cpos.x;
-	e->event.value.mouse.y = x->cursor.cpos.y;
-	e->event.value.mouse.rx = rx;
-	e->event.value.mouse.ry = ry;
+	xevent_t e;
+	e.type = XEVT_MOUSE;
+	e.state = XEVT_MOUSE_MOVE;
+	e.value.mouse.x = x->cursor.cpos.x;
+	e.value.mouse.y = x->cursor.cpos.y;
+	e.value.mouse.rx = rx;
+	e.value.mouse.ry = ry;
 
 	int pos = -1;
 	xview_t* view = NULL;
@@ -744,7 +709,6 @@ static int mouse_handle(x_t* x, int8_t state, int32_t rx, int32_t ry) {
 		view = get_mouse_owner(x, &pos);
 
 	if(view == NULL) {
-		free(e);
 		return -1;
 	}
 
@@ -755,14 +719,14 @@ static int mouse_handle(x_t* x, int8_t state, int32_t rx, int32_t ry) {
 		}
 
 		if(pos == XWM_FRAME_CLOSE) { //window close
-			e->event.type = XEVT_WIN;
-			e->event.value.window.event = XEVT_WIN_CLOSE;
+			e.type = XEVT_WIN;
+			e.value.window.event = XEVT_WIN_CLOSE;
 			view->xinfo.visible = false;
 			x_dirty(x);
 		}
 		else if(pos == XWM_FRAME_MAX) {
-			e->event.type = XEVT_WIN;
-			e->event.value.window.event = XEVT_WIN_MAX;
+			e.type = XEVT_WIN;
+			e.value.window.event = XEVT_WIN_MAX;
 		}
 		else { // mouse down
 			if(pos == XWM_FRAME_TITLE) {//window title 
@@ -771,11 +735,11 @@ static int mouse_handle(x_t* x, int8_t state, int32_t rx, int32_t ry) {
 				x->current.old_pos.y = x->cursor.cpos.y;
 				x_dirty(x);
 			}
-			e->event.state = XEVT_MOUSE_DOWN;
+			e.state = XEVT_MOUSE_DOWN;
 		}
 	}
 	else if(state == 1) {
-		e->event.state = XEVT_MOUSE_UP;
+		e.state = XEVT_MOUSE_UP;
 		if(x->current.view == view) {
 			x_dirty(x);
 		}
@@ -793,23 +757,19 @@ static int mouse_handle(x_t* x, int8_t state, int32_t rx, int32_t ry) {
 			x_dirty(x);
 		}
 	}
-	if(e->event.type == XEVT_MOUSE && e->event.state == XEVT_MOUSE_MOVE)
-		x_push_event(view, e, 0);
-	else
-		x_push_event(view, e, 1);
+	x_push_event(view, &e);
 	return -1;
 }
 
 static int keyb_handle(x_t* x, int8_t v) {
 	xview_t* topv = get_top_view(x);
 	if(topv != NULL) {
-		xview_event_t* e = (xview_event_t*)malloc(sizeof(xview_event_t));
-		e->next = NULL;
-		e->event.type = XEVT_KEYB;
-		e->event.value.keyboard.value = v;
+		xevent_t e;
+		e.type = XEVT_KEYB;
+		e.value.keyboard.value = v;
 
 		//lock_lock(x->lock);
-		x_push_event(topv, e, 1);
+		x_push_event(topv, &e);
 		//lock_unlock(x->lock);
 	}
 	usleep(1000);
