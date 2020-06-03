@@ -198,7 +198,6 @@ include $(ROOT_DIR)/sbin/dev/xserverd/build.mk
 include $(ROOT_DIR)/sbin/dev/rootfsd/build.mk
 include $(ROOT_DIR)/sbin/vfsd/build.mk
 include $(ROOT_DIR)/sbin/procd/build.mk
-include $(ROOT_DIR)/sbin/x/xwm/tiny/build.mk
 include $(ROOT_DIR)/sbin/x/xwm/macos7/build.mk
 
 include $(ROOT_DIR)/sbin/dev/arch/versatilepb/ps2keybd/build.mk

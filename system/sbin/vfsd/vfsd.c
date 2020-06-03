@@ -380,6 +380,7 @@ static vfs_node_t* vfs_get_by_fd(int32_t pid, int32_t fd, uint32_t* ufid) {
 }
 
 static void proc_file_close(int pid, int fd, file_t* file, bool close_dev) {
+	(void)close_dev;
 	(void)pid;
 	(void)fd;
 	if(file == NULL)

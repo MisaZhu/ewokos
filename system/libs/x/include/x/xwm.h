@@ -20,10 +20,19 @@ enum {
 
 typedef struct {
 	void* data;
-	void (*draw_desktop)(graph_t* g, void* p);
-	void (*draw_frame)(graph_t* g, xinfo_t* info, bool top, void* p);
-	int  (*get_pos)(int x, int y, xinfo_t* info, void* p);
+
 	void (*get_workspace)(int style, grect_t* xr, grect_t* wsr, void* p);
+	void (*get_close)(xinfo_t* info, grect_t* r, void* p);
+	void (*get_min)(xinfo_t* info, grect_t* r, void* p);
+	void (*get_max)(xinfo_t* info, grect_t* r, void* p);
+	void (*get_title)(xinfo_t* info, grect_t* r, void* p);
+
+	void (*draw_desktop)(graph_t* g, void* p);
+	void (*draw_title)(graph_t* g, xinfo_t* info, grect_t* r, bool top, void* p);
+	void (*draw_max)(graph_t* g, xinfo_t* info, grect_t* r, bool top, void* p);
+	void (*draw_min)(graph_t* g, xinfo_t* info, grect_t* r, bool top, void* p);
+	void (*draw_close)(graph_t* g, xinfo_t* info, grect_t* r, bool top, void* p);
+	void (*draw_frame)(graph_t* g, xinfo_t* info, bool top, void* p);
 } xwm_t;
 
 void xwm_run(xwm_t* xwm);
