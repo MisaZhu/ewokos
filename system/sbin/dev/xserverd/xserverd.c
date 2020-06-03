@@ -146,33 +146,33 @@ static int draw_view(x_t* xp, xview_t* view) {
 	if(view->g != NULL) {
 		if(xp->current.view == view && xp->config.win_move_alpha < 0xff) { //drag and moving
 			blt_alpha(view->g, 0, 0, 
-					view->xinfo.r.w,
-					view->xinfo.r.h,
+					view->xinfo.wsr.w,
+					view->xinfo.wsr.h,
 					xp->g,
-					view->xinfo.r.x,
-					view->xinfo.r.y,
-					view->xinfo.r.w,
-					view->xinfo.r.h, xp->config.win_move_alpha);
+					view->xinfo.wsr.x,
+					view->xinfo.wsr.y,
+					view->xinfo.wsr.w,
+					view->xinfo.wsr.h, xp->config.win_move_alpha);
 		}
 		else	if((view->xinfo.style & X_STYLE_ALPHA) != 0) {
 			blt_alpha(view->g, 0, 0, 
-					view->xinfo.r.w,
-					view->xinfo.r.h,
+					view->xinfo.wsr.w,
+					view->xinfo.wsr.h,
 					xp->g,
-					view->xinfo.r.x,
-					view->xinfo.r.y,
-					view->xinfo.r.w,
-					view->xinfo.r.h, 0xff);
+					view->xinfo.wsr.x,
+					view->xinfo.wsr.y,
+					view->xinfo.wsr.w,
+					view->xinfo.wsr.h, 0xff);
 		}
 		else {
 			blt(view->g, 0, 0, 
-						view->xinfo.r.w,
-						view->xinfo.r.h,
+						view->xinfo.wsr.w,
+						view->xinfo.wsr.h,
 						xp->g,
-						view->xinfo.r.x,
-						view->xinfo.r.y,
-						view->xinfo.r.w,
-						view->xinfo.r.h);
+						view->xinfo.wsr.x,
+						view->xinfo.wsr.y,
+						view->xinfo.wsr.w,
+						view->xinfo.wsr.h);
 		}
 	}
 
@@ -401,27 +401,27 @@ static int x_update_info(int ufid, int from_pid, proto_t* in, x_t* x) {
 	int shm_id = view->xinfo.shm_id;
 	if(shm_id == 0 ||
 			view->g == NULL ||
-			view->xinfo.r.w != xinfo.r.w ||
-			view->xinfo.r.h != xinfo.r.h) {
+			view->xinfo.wsr.w != xinfo.wsr.w ||
+			view->xinfo.wsr.h != xinfo.wsr.h) {
 		if(view->g != NULL && shm_id > 0) {
 			graph_free(view->g);
 			shm_unmap(shm_id);
 		}
-		shm_id = shm_alloc(xinfo.r.w * xinfo.r.h * 4, 1);
+		shm_id = shm_alloc(xinfo.wsr.w * xinfo.wsr.h * 4, 1);
 		void* p = shm_map(shm_id);
 		if(p == NULL) 
 			return -1;
-		view->g = graph_new(p, xinfo.r.w, xinfo.r.h);
+		view->g = graph_new(p, xinfo.wsr.w, xinfo.wsr.h);
 		clear(view->g, 0xff000000);
 	}
 	view->dirty = true;
 	x->need_repaint = true;
 
 	if(view != x->view_tail ||
-			view->xinfo.r.x != xinfo.r.x ||
-			view->xinfo.r.y != xinfo.r.y ||
-			view->xinfo.r.w != xinfo.r.w ||
-			view->xinfo.r.h != xinfo.r.h ||
+			view->xinfo.wsr.x != xinfo.wsr.x ||
+			view->xinfo.wsr.y != xinfo.wsr.y ||
+			view->xinfo.wsr.w != xinfo.wsr.w ||
+			view->xinfo.wsr.h != xinfo.wsr.h ||
 			view->xinfo.visible != xinfo.visible ||
 			(view->xinfo.style & X_STYLE_ALPHA) != 0) {
 		x_dirty(x);
@@ -685,10 +685,10 @@ static xview_t* get_mouse_owner(x_t* x, int* win_frame_pos) {
 			view = view->prev;
 			continue;
 		}
-		if(x->cursor.cpos.x >= view->xinfo.r.x &&
-				x->cursor.cpos.x < (view->xinfo.r.x+view->xinfo.r.w) &&
-				x->cursor.cpos.y >= view->xinfo.r.y &&
-				x->cursor.cpos.y < (view->xinfo.r.y+view->xinfo.r.h))
+		if(x->cursor.cpos.x >= view->xinfo.wsr.x &&
+				x->cursor.cpos.x < (view->xinfo.wsr.x+view->xinfo.wsr.w) &&
+				x->cursor.cpos.y >= view->xinfo.wsr.y &&
+				x->cursor.cpos.y < (view->xinfo.wsr.y+view->xinfo.wsr.h))
 			return view;
 		int pos = get_win_frame_pos(x, view);
 		if(pos >= 0) {
@@ -788,8 +788,8 @@ static int mouse_handle(x_t* x, int8_t state, int32_t rx, int32_t ry) {
 		if(abs32(mrx) > 16 || abs32(mry) > 16) {
 			x->current.old_pos.x = x->cursor.cpos.x;
 			x->current.old_pos.y = x->cursor.cpos.y;
-			view->xinfo.r.x += mrx;
-			view->xinfo.r.y += mry;
+			view->xinfo.wsr.x += mrx;
+			view->xinfo.wsr.y += mry;
 			x_dirty(x);
 		}
 	}

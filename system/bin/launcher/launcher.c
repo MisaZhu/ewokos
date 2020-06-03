@@ -86,7 +86,7 @@ void x_event_handle(x_t* x, xevent_t* ev) {
 	(void)x;
 	xinfo_t* xinfo = (xinfo_t*)x->data;
 	if(ev->type == XEVT_MOUSE && ev->state == XEVT_MOUSE_DOWN) {
-		int i = div_u32(ev->value.mouse.y - xinfo->r.y, items.icon_size);
+		int i = div_u32(ev->value.mouse.y - xinfo->wsr.y, items.icon_size);
 		if(i < items.num) {
 			int pid = fork();
 			if(pid == 0)

@@ -51,7 +51,7 @@ x_t* x_open(int x, int y, int w, int h, const char* title, int style) {
 	xinfo_t xinfo;
 	xinfo.style = style;
 	xinfo.state = X_STATE_NORMAL;
-	memcpy(&xinfo.r, &r, sizeof(grect_t));
+	memcpy(&xinfo.wsr, &r, sizeof(grect_t));
 	strncpy(xinfo.title, title, X_TITLE_MAX-1);
 	x_update_info(ret, &xinfo);
 	return ret;
@@ -80,7 +80,7 @@ static graph_t* x_get_graph(x_t* x) {
 	void* gbuf = shm_map(info.shm_id);
 	if(gbuf == NULL)
 		return NULL;
-	return graph_new(gbuf, info.r.w, info.r.h);
+	return graph_new(gbuf, info.wsr.w, info.wsr.h);
 }
 
 static void x_release_graph(x_t* x, graph_t* g) {
@@ -120,7 +120,7 @@ static int win_event_handle(x_t* x, xevent_t* ev) {
 		xinfo_t xinfo;
 		x_get_info(x, &xinfo);
 		if(xinfo.state == X_STATE_MAX) {
-			memcpy(&xinfo.r, &x->xinfo_prev.r, sizeof(grect_t));
+			memcpy(&xinfo.wsr, &x->xinfo_prev.wsr, sizeof(grect_t));
 			xinfo.state = x->xinfo_prev.state;
 		}
 		else {
@@ -129,7 +129,7 @@ static int win_event_handle(x_t* x, xevent_t* ev) {
 				memcpy(&x->xinfo_prev, &xinfo, sizeof(xinfo_t));
 				grect_t r = {0, 0, scr.size.w, scr.size.h};
 				x_get_workspace(x->fd, xinfo.style, &r, &r);
-				memcpy(&xinfo.r, &r, sizeof(grect_t));
+				memcpy(&xinfo.wsr, &r, sizeof(grect_t));
 				xinfo.state = X_STATE_MAX;
 			}
 		}

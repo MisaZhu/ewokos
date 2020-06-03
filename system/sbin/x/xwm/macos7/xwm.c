@@ -79,37 +79,37 @@ static void get_workspace(int style, grect_t* xr, grect_t* wsr, void* p) {
 
 static void get_title(xinfo_t* info, grect_t* rect, void* p) {
 	(void)p;
-	rect->x = info->r.x;
-	rect->y = info->r.y - _xwm_config.title_h;
+	rect->x = info->wsr.x;
+	rect->y = info->wsr.y - _xwm_config.title_h;
 
 	if((info->style & X_STYLE_NO_RESIZE) == 0)
-		rect->w = info->r.w - _xwm_config.title_h*3;
+		rect->w = info->wsr.w - _xwm_config.title_h*3;
 	else
-		rect->w = info->r.w - _xwm_config.title_h;
+		rect->w = info->wsr.w - _xwm_config.title_h;
 
 	rect->h = _xwm_config.title_h;
 }
 
 static void get_min(xinfo_t* info, grect_t* rect, void* p) {
 	(void)p;
-	rect->x = info->r.x+info->r.w-_xwm_config.title_h*3;
-	rect->y = info->r.y - _xwm_config.title_h;
+	rect->x = info->wsr.x+info->wsr.w-_xwm_config.title_h*3;
+	rect->y = info->wsr.y - _xwm_config.title_h;
 	rect->w = _xwm_config.title_h;
 	rect->h = _xwm_config.title_h;
 }
 
 static void get_max(xinfo_t* info, grect_t* rect, void* p) {
 	(void)p;
-	rect->x = info->r.x+info->r.w-_xwm_config.title_h*2;
-	rect->y = info->r.y - _xwm_config.title_h;
+	rect->x = info->wsr.x+info->wsr.w-_xwm_config.title_h*2;
+	rect->y = info->wsr.y - _xwm_config.title_h;
 	rect->w = _xwm_config.title_h;
 	rect->h = _xwm_config.title_h;
 }
 
 static void get_close(xinfo_t* info, grect_t* rect, void* p) {
 	(void)p;
-	rect->x = info->r.x+info->r.w-_xwm_config.title_h;
-	rect->y = info->r.y - _xwm_config.title_h;
+	rect->x = info->wsr.x+info->wsr.w-_xwm_config.title_h;
+	rect->y = info->wsr.y - _xwm_config.title_h;
 	rect->w = _xwm_config.title_h;
 	rect->h = _xwm_config.title_h;
 }
@@ -132,10 +132,10 @@ static void draw_frame(graph_t* g, xinfo_t* info, bool top, void* p) {
 	uint32_t fg, bg;
 	get_color(&fg, &bg, top);
 
-	int x = info->r.x;
-	int y = info->r.y;
-	int w = info->r.w;
-	int h = info->r.h;
+	int x = info->wsr.x;
+	int y = info->wsr.y;
+	int w = info->wsr.w;
+	int h = info->wsr.h;
 
 	if((info->style & X_STYLE_NO_TITLE) == 0) {
 		h += _xwm_config.title_h;

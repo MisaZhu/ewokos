@@ -35,7 +35,7 @@ typedef struct {
 	int style;
 	int state;
 	bool visible;
-	grect_t r;
+	grect_t wsr; //workspace rect
 	char title[X_TITLE_MAX];
 } xinfo_t;
 
