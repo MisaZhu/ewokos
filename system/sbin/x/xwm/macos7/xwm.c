@@ -135,10 +135,12 @@ static void draw_frame(graph_t* g, xinfo_t* info, bool top, void* p) {
 	int x = info->wsr.x;
 	int y = info->wsr.y;
 	int w = info->wsr.w;
-	int h = info->wsr.h;
+	//int h = info->wsr.h;
+	int h = 0;
 
 	if((info->style & X_STYLE_NO_TITLE) == 0) {
-		h += _xwm_config.title_h;
+		//h += _xwm_config.title_h;
+		h = _xwm_config.title_h;
 		y -= _xwm_config.title_h;
 	}
 	box(g, x, y, w, h, bg);//win box
