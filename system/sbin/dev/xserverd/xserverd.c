@@ -901,29 +901,24 @@ static void read_input(x_t* x) {
 	}
 }
 
-
-/*static void* read_thread(void* p) {
-	x_t* x = (x_t*)p;
-	while(1) {
-		if(!x->actived)  {
-			usleep(10000);
-			continue;
-		}
-
-		read_input(x);
-		usleep(1000);
-	}
-	return NULL;
-}
-*/
-
 static int xserver_loop_step(void* p) {
 	x_t* x = (x_t*)p;
 	x_check_views(x);
 
-	if(!x->actived)  {
+	/*const char* cc = get_global_str("system.current_console");
+	if(cc[0] == 'x') {
+		if(x->actived == 0) {
+			x_dirty(x);
+		}
+		x->actived = 1;
+	}
+	else {
+		x->actived = 0;
+		usleep(10000);
 		return -1;
 	}
+	*/
+	x->actived = 1;
 
 	read_input(x);
 
@@ -969,7 +964,6 @@ int main(int argc, char** argv) {
 	dev.info = xserver_info;
 	dev.loop_step= xserver_loop_step;
 
-	x.actived = true;
 	x.xwm_pid = xwm_pid;
 	prs_down = false;
 	j_mouse = true;

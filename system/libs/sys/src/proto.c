@@ -125,6 +125,15 @@ int32_t proto_read_to(proto_t* proto, void* to, int32_t size) {
 	return sz;
 }
 
+int32_t proto_read_proto(proto_t* proto, proto_t* to) {
+	int32_t sz;
+	void *p = proto_read(proto, &sz);
+	if(p == NULL || sz == 0)
+		return -1;
+	proto_copy(to, p, sz);
+	return 0;
+}
+
 inline int32_t proto_read_int(proto_t* proto) {
 	void *p = proto_read(proto, NULL);
 	if(p == NULL)

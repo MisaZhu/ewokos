@@ -131,6 +131,13 @@ static void run_core(void) {
 		proc_wait_ready(pid);
 }
 
+static void init_tty_stdio(void) {
+	int fd = open("/dev/tty0", 0);
+	dup2(fd, 0);
+	dup2(fd, 1);
+	dup2(fd, 2);
+}
+
 int main(int argc, char** argv) {
 	(void)argc;
 	(void)argv;
@@ -149,6 +156,7 @@ int main(int argc, char** argv) {
 	setenv("OS", "mkos");
 	setenv("PATH", "/sbin:/bin");
 
+	init_tty_stdio();
 	run_procs();
 
 	while(true) {

@@ -33,6 +33,8 @@ int32_t proto_read_int(proto_t* proto);
 
 const char* proto_read_str(proto_t* proto);
 
+int32_t proto_read_proto(proto_t* proto, proto_t* to);
+
 void proto_reset(proto_t* proto);
 
 void proto_free(proto_t* proto);

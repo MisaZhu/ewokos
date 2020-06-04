@@ -53,7 +53,9 @@ static void do_global_get(proto_t* in, proto_t* out) {
 	const char* key = proto_read_str(in);
 	proto_t * v= global_get(key);
 	if(v != NULL)
-		PF->copy(out, v->data, v->size);
+		PF->addi(out, 0)->add(out, v->data, v->size);
+	else
+		PF->addi(out, -1);
 }
 
 static void do_global_del(proto_t* in) {

@@ -101,11 +101,12 @@ static int actived = 0;
 static int read_input(int fd, int8_t* c, int rd) {
 	//read keyb
 	if(actived == 1) {
-		if(rd != 1) {
+		if(rd <= 0) {
 			rd = read_nblock(fd, c, 1);
 		}
 		else {
-			if(write_nblock(1, c, 1) == 1)
+			int res = write_nblock(1, c, 1);
+			if(res == 1)
 				rd = 0;
 		}
 	}
@@ -128,7 +129,7 @@ static int run(int argc, char* argv[]) {
 	int rd = 0;
 	int8_t c = 0;
 	while(1) {
-		const char* cc = "0";//get_global("current_console"); //TODO
+		const char* cc = get_global_str("system.current_console");
 		if(cc[0] == console.id[0]) {
 			if(actived == 0) {
 				console_refresh(&console.console);
@@ -138,7 +139,7 @@ static int run(int argc, char* argv[]) {
 		}
 		else {
 			actived = 0;
-			usleep(10000);
+			usleep(100000);
 			continue;
 		}
 
@@ -181,6 +182,7 @@ int main(int argc, char* argv[]) {
 
 	int pid = fork();
 	if(pid != 0) { //father proc for p2 reader.
+	sleep(1);
 		dup2(fds1[0], 0);
 		dup2(fds2[1], 1);
 		close(fds1[0]);
