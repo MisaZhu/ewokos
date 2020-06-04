@@ -4,9 +4,13 @@
 #include <unistd.h>
 
 uint32_t lock_new(void) {
+	int core_pid = syscall0(SYS_CORE_PID);
+	if(core_pid < 0)
+		return -1;
+
 	proto_t out;
 	PF->init(&out, NULL, 0);
-	int res = ipc_call(CORED_PID, CORE_CMD_LOCK_NEW, NULL, &out);
+	int res = ipc_call(core_pid, CORE_CMD_LOCK_NEW, NULL, &out);
 	if(res == 0)
 		res = proto_read_int(&out);
 	else 
@@ -16,9 +20,13 @@ uint32_t lock_new(void) {
 }
 
 int lock_free(uint32_t lock) {
+	int core_pid = syscall0(SYS_CORE_PID);
+	if(core_pid < 0)
+		return -1;
+
 	proto_t in;
 	PF->init(&in, NULL, 0)->addi(&in, lock);
-	int res = ipc_call(CORED_PID, CORE_CMD_LOCK_FREE, &in, NULL);
+	int res = ipc_call(core_pid, CORE_CMD_LOCK_FREE, &in, NULL);
 	PF->clear(&in);
 	if(res != 0)
 		res = -1;
@@ -26,10 +34,14 @@ int lock_free(uint32_t lock) {
 }
 
 static int lock_lock_raw(uint32_t lock) {
+	int core_pid = syscall0(SYS_CORE_PID);
+	if(core_pid < 0)
+		return -1;
+
 	proto_t in, out;
 	PF->init(&out, NULL, 0);
 	PF->init(&in, NULL, 0)->addi(&in, lock);
-	int res = ipc_call(CORED_PID, CORE_CMD_LOCK, &in, &out);
+	int res = ipc_call(core_pid, CORE_CMD_LOCK, &in, &out);
 	PF->clear(&in);
 	if(res == 0)
 		res = proto_read_int(&out);
@@ -49,10 +61,14 @@ int lock_lock(uint32_t lock) {
 }
 
 int lock_unlock(uint32_t lock) {
+	int core_pid = syscall0(SYS_CORE_PID);
+	if(core_pid < 0)
+		return -1;
+
 	proto_t in, out;
 	PF->init(&out, NULL, 0);
 	PF->init(&in, NULL, 0)->addi(&in, lock);
-	int res = ipc_call(CORED_PID, CORE_CMD_UNLOCK, &in, &out);
+	int res = ipc_call(core_pid, CORE_CMD_UNLOCK, &in, &out);
 	PF->clear(&in);
 	if(res == 0)
 		res = proto_read_int(&out);

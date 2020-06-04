@@ -52,15 +52,18 @@ int ipc_call(int to_pid, int call_id, const proto_t* ipkg, proto_t* opkg) {
 }
 
 /*----ipc server ------*/
-#define CORED_PID 1
 
 int ipc_serv_reg(const char* ipc_serv_id) {
+	int core_pid = syscall0(SYS_CORE_PID);
+	if(core_pid < 0)
+		return -1;
+
 	int res = -1;
 	proto_t in, out;
 	PF->init(&out, NULL, 0);
 
 	PF->init(&in, NULL, 0)->adds(&in, ipc_serv_id);
-	if(ipc_call(CORED_PID, CORE_CMD_IPC_SERV_REG, &in, &out) == 0) {
+	if(ipc_call(core_pid, CORE_CMD_IPC_SERV_REG, &in, &out) == 0) {
 		res = proto_read_int(&out);
 	}
 
@@ -70,12 +73,16 @@ int ipc_serv_reg(const char* ipc_serv_id) {
 }
 
 int ipc_serv_get(const char* ipc_serv_id) {
+	int core_pid = syscall0(SYS_CORE_PID);
+	if(core_pid < 0)
+		return -1;
+
 	int res = -1;
 	proto_t in, out;
 	PF->init(&out, NULL, 0);
 
 	PF->init(&in, NULL, 0)->adds(&in, ipc_serv_id);
-	if(ipc_call(CORED_PID, CORE_CMD_IPC_SERV_GET, &in, &out) == 0) {
+	if(ipc_call(core_pid, CORE_CMD_IPC_SERV_GET, &in, &out) == 0) {
 		res = proto_read_int(&out);
 	}
 
@@ -85,12 +92,16 @@ int ipc_serv_get(const char* ipc_serv_id) {
 }
 
 int ipc_serv_unreg(const char* ipc_serv_id) {
+	int core_pid = syscall0(SYS_CORE_PID);
+	if(core_pid < 0)
+		return -1;
+
 	int res = -1;
 	proto_t in, out;
 	PF->init(&out, NULL, 0);
 
 	PF->init(&in, NULL, 0)->adds(&in, ipc_serv_id);
-	if(ipc_call(CORED_PID, CORE_CMD_IPC_SERV_UNREG, &in, &out) == 0) {
+	if(ipc_call(core_pid, CORE_CMD_IPC_SERV_UNREG, &in, &out) == 0) {
 		res = proto_read_int(&out);
 	}
 

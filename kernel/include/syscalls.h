@@ -56,6 +56,7 @@ enum {
 	SYS_IPC_END,
 
 	SYS_CORE_READY,
+	SYS_CORE_PID,
 	SYS_GET_KEVENT
 };
 

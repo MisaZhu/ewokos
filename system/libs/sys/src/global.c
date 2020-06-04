@@ -6,23 +6,31 @@
 #include <string.h>
 
 int set_global(const char* key, proto_t* val) {
+	int core_pid = syscall0(SYS_CORE_PID);
+	if(core_pid < 0)
+		return -1;
+
 	proto_t in;
 	PF->init(&in, NULL, 0)->adds(&in, key);
 	if(val != NULL)
 		PF->add(&in, val->data, val->size);
 
-	ipc_call(CORED_PID, CORE_CMD_GLOBAL_SET, &in, NULL);
+	ipc_call(core_pid, CORE_CMD_GLOBAL_SET, &in, NULL);
 	PF->clear(&in);
 	return 0;
 }
 
 int get_global(const char* key, proto_t* ret) {
+	int core_pid = syscall0(SYS_CORE_PID);
+	if(core_pid < 0)
+		return -1;
+
 	PF->clear(ret);
 
 	proto_t in, out;
 	PF->init(&out, NULL, 0);
 	PF->init(&in, NULL, 0)->adds(&in, key);
-	int res = ipc_call(CORED_PID, CORE_CMD_GLOBAL_GET, &in, &out);
+	int res = ipc_call(core_pid, CORE_CMD_GLOBAL_GET, &in, &out);
 	PF->clear(&in);
 	if(res == 0) {
 		res = proto_read_int(&out);

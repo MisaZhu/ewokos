@@ -14,6 +14,4 @@ enum {
 	CORE_CMD_UNLOCK
 };
 
-#define CORED_PID 1
-
 #endif

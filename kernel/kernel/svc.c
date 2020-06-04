@@ -383,6 +383,10 @@ static void sys_core_ready(void) {
 	_core_pid = _current_proc->info.pid;
 }
 
+static int32_t sys_core_pid(void) {
+	return _core_pid;
+}
+
 void svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_t arg2, context_t* ctx, int32_t processor_mode) {
 	(void)arg1;
 	(void)arg2;
@@ -518,6 +522,9 @@ void svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_t arg2, context
 		return;
 	case SYS_CORE_READY:
 		sys_core_ready();
+		return;
+	case SYS_CORE_PID:
+		ctx->gpr[0] = sys_core_pid();
 		return;
 	}
 	printf("pid:%d, code(%d) error!\n", _current_proc->info.pid, code);
