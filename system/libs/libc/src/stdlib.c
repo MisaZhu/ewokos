@@ -1,6 +1,5 @@
 #include <stdlib.h>
 #include <sys/syscall.h>
-#include <sys/kserv.h>
 #include <sys/ipc.h>
 #include <sys/proc.h>
 #include <string.h>
@@ -36,7 +35,7 @@ int execl(const char* fname, const char* arg, ...) {
 }
 
 inline static int get_procd_pid(void) {
-	return kserv_get(KSERV_PROC);
+	return ipc_serv_get(IPC_SERV_PROC);
 }
 
 const char* getenv(const char* name) {

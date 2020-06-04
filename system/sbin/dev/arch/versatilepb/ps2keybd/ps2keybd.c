@@ -3,8 +3,8 @@
 #include <unistd.h>
 #include <string.h>
 #include <sys/vfs.h>
+#include <sys/ipc.h>
 #include <sys/vdevice.h>
-#include <sys/kserv.h>
 #include <sys/mmio.h>
 #include <sys/charbuf.h>
 #include <sys/syscall.h>
@@ -126,8 +126,8 @@ int main(int argc, char** argv) {
 	dev.read = keyb_read;
 	dev.safe_cmd = keyb_safe_cmd;
 
-	if(kserv_reg(KSERV_PS2_KEYB) != 0) {
-		kprintf(false, "reg ps2keyb kserv error!\n");
+	if(ipc_serv_reg(IPC_SERV_PS2_KEYB) != 0) {
+		kprintf(false, "reg ps2keyb ipc_serv error!\n");
 		return -1;
 	}
 

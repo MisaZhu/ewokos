@@ -4,10 +4,8 @@
 #include <string.h>
 #include <sys/ipc.h>
 #include <sys/proc.h>
-#include <sys/kserv.h>
 #include <mstr.h>
 #include <sys/proto.h>
-#include <sys/kserv.h>
 #include <sys/syscall.h>
 #include <procinfo.h>
 #include <hashmap.h>
@@ -184,12 +182,12 @@ int main(int argc, char** argv) {
 
 	procd_init();
 
-	if(kserv_reg(KSERV_PROC) != 0) {
-		kprintf(false, "reg proc kserv error!\n");
+	if(ipc_serv_reg(IPC_SERV_PROC) != 0) {
+		kprintf(false, "reg proc ipc_serv error!\n");
 		return -1;
 	}
 
-	kserv_run(handle, NULL, false);
+	ipc_serv_run(handle, NULL, false);
 
 	while(true) {
 		sleep(1);

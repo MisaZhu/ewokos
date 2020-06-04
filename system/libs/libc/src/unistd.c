@@ -7,7 +7,6 @@
 #include <sys/proc.h>
 #include <sys/vfs.h>
 #include <sys/ipc.h>
-#include <sys/kserv.h>
 #include <string.h>
 #include <mstr.h>
 #include <sys/shm.h>
@@ -380,7 +379,7 @@ int exec(const char* cmd_line) {
 }
 
 inline static int get_procd_pid(void) {
-	return kserv_get(KSERV_PROC);
+	return ipc_serv_get(IPC_SERV_PROC);
 }
 
 char* getcwd(char* buf, uint32_t size) {

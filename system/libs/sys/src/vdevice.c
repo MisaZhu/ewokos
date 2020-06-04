@@ -9,7 +9,6 @@
 #include <errno.h>
 #include <sys/shm.h>
 #include <sys/proc.h>
-#include <sys/kserv.h>
 #include <sys/syscall.h>
 
 static void do_open(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, void* p) {
@@ -367,9 +366,9 @@ int device_run(vdevice_t* dev, const char* mnt_point, int mnt_type) {
 	}
 
 	if(dev->loop_step != NULL) 
-		kserv_run(handle, dev, true);
+		ipc_serv_run(handle, dev, true);
 	else
-		kserv_run(handle, dev, false);
+		ipc_serv_run(handle, dev, false);
 
 	while(1) {
 		if(dev->loop_step != NULL) {

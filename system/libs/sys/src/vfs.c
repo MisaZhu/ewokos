@@ -6,11 +6,10 @@
 #include <stdio.h>
 #include <mstr.h>
 #include <sys/ipc.h>
-#include <sys/kserv.h>
 #include <sys/vfsc.h>
 
 inline static int get_vfsd_pid(void) {
-	return kserv_get(KSERV_VFS);
+	return ipc_serv_get(IPC_SERV_VFS);
 }
 
 int vfs_new_node(fsinfo_t* info) {

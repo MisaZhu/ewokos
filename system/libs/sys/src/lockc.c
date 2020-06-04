@@ -1,5 +1,4 @@
 #include <sys/core.h>
-#include <sys/kserv.h>
 #include <sys/ipc.h>
 #include <sys/syscall.h>
 #include <unistd.h>

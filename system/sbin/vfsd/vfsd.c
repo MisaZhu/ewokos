@@ -4,13 +4,11 @@
 #include <string.h>
 #include <sys/ipc.h>
 #include <sys/proc.h>
-#include <sys/kserv.h>
 #include <mstr.h>
 #include <sys/buffer.h>
 #include <sys/proto.h>
 #include <sys/fsinfo.h>
 #include <sys/vfsc.h>
-#include <sys/kserv.h>
 #include <sys/syscall.h>
 #include <procinfo.h>
 
@@ -958,14 +956,14 @@ int main(int argc, char** argv) {
 	(void)argc;
 	(void)argv;
 
-	if(kserv_reg(KSERV_VFS) != 0) {
-		kprintf(false, "reg vfs kserv error!\n");
+	if(ipc_serv_reg(IPC_SERV_VFS) != 0) {
+		kprintf(false, "reg vfs ipc_serv error!\n");
 		return -1;
 	}
 
 	vfs_init();
 
-	kserv_run(handle, NULL, false);
+	ipc_serv_run(handle, NULL, false);
 	while(true) {
 		//sleep(1);
 	}

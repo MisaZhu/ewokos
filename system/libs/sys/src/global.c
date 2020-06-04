@@ -3,6 +3,7 @@
 #include <sys/ipc.h>
 #include <sys/core.h>
 #include <stddef.h>
+#include <string.h>
 
 int set_global(const char* key, proto_t* val) {
 	proto_t in;

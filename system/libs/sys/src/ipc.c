@@ -1,7 +1,8 @@
 #include <sys/ipc.h>
 #include <stddef.h>
 #include <sys/syscall.h>
-//#include <rawdata.h>
+#include <sys/core.h>
+#include <sys/proc.h>
 #include <unistd.h>
 
 int ipc_setup(ipc_handle_t handle, void* p, bool prefork) {
@@ -50,3 +51,73 @@ int ipc_call(int to_pid, int call_id, const proto_t* ipkg, proto_t* opkg) {
 	return 0;
 }
 
+/*----ipc server ------*/
+#define CORED_PID 1
+
+int ipc_serv_reg(const char* ipc_serv_id) {
+	int res = -1;
+	proto_t in, out;
+	PF->init(&out, NULL, 0);
+
+	PF->init(&in, NULL, 0)->adds(&in, ipc_serv_id);
+	if(ipc_call(CORED_PID, CORE_CMD_IPC_SERV_REG, &in, &out) == 0) {
+		res = proto_read_int(&out);
+	}
+
+	PF->clear(&in);
+	PF->clear(&out);
+	return res;
+}
+
+int ipc_serv_get(const char* ipc_serv_id) {
+	int res = -1;
+	proto_t in, out;
+	PF->init(&out, NULL, 0);
+
+	PF->init(&in, NULL, 0)->adds(&in, ipc_serv_id);
+	if(ipc_call(CORED_PID, CORE_CMD_IPC_SERV_GET, &in, &out) == 0) {
+		res = proto_read_int(&out);
+	}
+
+	PF->clear(&in);
+	PF->clear(&out);
+	return res;
+}
+
+int ipc_serv_unreg(const char* ipc_serv_id) {
+	int res = -1;
+	proto_t in, out;
+	PF->init(&out, NULL, 0);
+
+	PF->init(&in, NULL, 0)->adds(&in, ipc_serv_id);
+	if(ipc_call(CORED_PID, CORE_CMD_IPC_SERV_UNREG, &in, &out) == 0) {
+		res = proto_read_int(&out);
+	}
+
+	PF->clear(&in);
+	PF->clear(&out);
+	return res;
+}
+
+static ipc_serv_handle_t _ipc_serv_handle;
+
+static void handle_ipc(int pid, int cmd, void* p) {
+	proto_t* in = ipc_get_arg();
+
+	proto_t out;
+	PF->init(&out, NULL, 0);
+
+	_ipc_serv_handle(pid, cmd, in, &out, p);
+
+	proto_free(in);
+	ipc_set_return(&out);
+	PF->clear(&out);
+	ipc_end();
+}
+
+void ipc_serv_run(ipc_serv_handle_t handle, void* p, bool prefork) {
+	_ipc_serv_handle = handle;
+
+	proc_ready_ping();
+	ipc_setup(handle_ipc, p, prefork);
+}

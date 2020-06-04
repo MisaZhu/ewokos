@@ -1,11 +1,11 @@
 #include <x/xclient.h>
 #include <sys/shm.h>
+#include <sys/ipc.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <stdlib.h>
 #include <fcntl.h>
 #include <string.h>
-#include <sys/kserv.h>
 
 int x_update_info(x_t* x, xinfo_t* info) {
 	proto_t in;
@@ -229,7 +229,7 @@ void  x_run(x_t* x) {
 	if(x->on_init != NULL)
 		x->on_init(x);
 	
-	kserv_run(handle, x, true);
+	ipc_serv_run(handle, x, true);
 
 	xevent_t xev;
 	while(!x->closed) {

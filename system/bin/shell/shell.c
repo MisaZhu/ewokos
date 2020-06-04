@@ -5,7 +5,6 @@
 #include <sys/vfs.h>
 #include <sys/ipc.h>
 #include <sys/proc.h>
-#include <sys/kserv.h>
 #include <vprintf.h>
 #include <mstr.h>
 #include <fcntl.h>
@@ -104,7 +103,7 @@ static int cd(const char* dir) {
 static void export_all(void) {
 	proto_t out;
 	PF->init(&out, NULL, 0);
-	int pid =  kserv_get(KSERV_PROC);
+	int pid =  ipc_serv_get(IPC_SERV_PROC);
 	int res = ipc_call(pid, PROC_CMD_GET_ENVS, NULL, &out);
 	if(res != 0) {
 		PF->clear(&out);
