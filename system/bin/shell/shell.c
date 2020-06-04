@@ -47,11 +47,16 @@ static void free_history(void) {
 }
 
 static void clear_buf(str_t* buf) {
-	while(buf->len > 0) {
-		//delete current chars 
-		putch(CONSOLE_LEFT); 
-		buf->len--;
+	if(buf->len == 0)
+		return;
+
+	int i = 0;
+	while(i < buf->len) {
+		buf->cstr[i] = CONSOLE_LEFT; 
+		i++;
 	}
+	puts(buf->cstr);
+	buf->len = 0;
 }
 
 static int32_t gets(str_t* buf) {

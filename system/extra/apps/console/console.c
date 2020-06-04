@@ -48,7 +48,10 @@ static int32_t read_config(conf_t* conf, const char* fname) {
 	return 0;
 }
 
+static graph_t* _console_g = NULL;
+
 static void init_console(fb_console_t* console) {
+	_console_g = NULL;
 	int fb_fd = open("/dev/fb0", O_RDONLY);
 	if(fb_fd < 0) {
 		return;
@@ -83,15 +86,15 @@ static void init_console(fb_console_t* console) {
 	console->fb_fd = fb_fd;
 	console->shm_id = id;
 	console_init(&console->console);
-	console->console.g = g;
+	_console_g = g;
 	console->console.font = _conf.font;
 	console->console.fg_color = _conf.fg_color;
 	console->console.bg_color = _conf.bg_color;
-	console_reset(&console->console);
+	console_reset(&console->console, w, h);
 }
 
 static void close_console(fb_console_t* console) {
-	graph_free(console->console.g);
+	graph_free(_console_g);
 	shm_unmap(console->shm_id);
 	close(console->fb_fd);
 }
@@ -130,9 +133,9 @@ static int run(int argc, char* argv[]) {
 	int8_t c = 0;
 	while(1) {
 		const char* cc = get_global_str("system.current_console");
-		if(cc[0] == console.id[0]) {
+		if(cc[0] == 0 || cc[0] == console.id[0]) {
 			if(actived == 0) {
-				console_refresh(&console.console);
+				console_refresh(&console.console, _console_g);
 				flush(console.fb_fd);
 			}
 			actived = 1;
@@ -166,8 +169,10 @@ static int run(int argc, char* argv[]) {
 			console_put_char(&console.console, c);
 		}
 
-		if(actived == 1)
+		if(actived == 1) {
+			console_refresh(&console.console, _console_g);
 			flush(console.fb_fd);
+		}
 	}
 	close(fd);
 	close_console(&console);

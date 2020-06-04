@@ -8,21 +8,15 @@
 
 #define T_W 2 /*tab width*/
 
-static void cons_draw_char(console_t* console, int32_t x, int32_t y, char c) {
-	if(console->g == NULL)
-		return;
-	draw_char(console->g, x, y, c, console->font, console->fg_color);
+static void cons_draw_char(console_t* console, graph_t* g, int32_t x, int32_t y, char c) {
+	draw_char(g, x, y, c, console->font, console->fg_color);
 }
 
-static void cons_clear(console_t* console) {
-	if(console->g == NULL)
-		return;
-	clear(console->g, console->bg_color);
+static void cons_clear(console_t* console, graph_t* g) {
+	clear(g, console->bg_color);
 }
 
-int32_t console_reset(console_t* console) {
-	if(console->g == NULL)
-		return 0;
+int32_t console_reset(console_t* console, uint32_t w, uint32_t h) {
 	//save content data
 	int old_size = console->content.size;
 	int old_total = console->content.total;
@@ -34,15 +28,14 @@ int32_t console_reset(console_t* console) {
 	console->content.size = 0;
 	console->content.start_line = 0;
 	console->content.line = 0;
-	console->content.line_w = div_u32(console->g->w, console->font->w)-1;
-	console->content.line_num = div_u32(console->g->h, console->font->h);
+	console->content.line_w = div_u32(w, console->font->w)-1;
+	console->content.line_num = div_u32(h, console->font->h);
 	uint32_t data_size = console->content.line_num*console->content.line_w;
 	console->content.total = data_size;
 	if(console->content.data != NULL)
 		free(console->content.data);
 	console->content.data = (char*)malloc(data_size);
 	memset(console->content.data, 0, data_size);
-	cons_clear(console);
 
 	//restore old data
 	if(old_start_line > 0 && old_size > old_line_w) {
@@ -64,7 +57,8 @@ int32_t console_reset(console_t* console) {
 }
 
 int32_t console_init(console_t* console) {
-	console->g = NULL;
+	console->w = 0;
+	console->h = 0;
 	console->bg_color = argb(0xff, 0x0, 0x0, 0x0);
 	console->fg_color = argb(0xff, 0xaa, 0xaa, 0xaa);
 	console->font = font_by_name("8x16");
@@ -76,7 +70,6 @@ void console_close(console_t* console) {
 	free(console->content.data);
 	console->content.size = 0;
 	console->content.data = NULL;
-	console->g = NULL;
 }
 
 static uint32_t get_at(console_t* console, uint32_t i) {
@@ -86,10 +79,8 @@ static uint32_t get_at(console_t* console, uint32_t i) {
 	return at;
 }
 
-void console_refresh(console_t* console) {
-	if(console->g == NULL)
-		return;
-	cons_clear(console);
+void console_refresh(console_t* console, graph_t* g) {
+	cons_clear(console, g);
 	uint32_t i=0;
 	uint32_t x = 0;
 	uint32_t y = 0;
@@ -97,7 +88,7 @@ void console_refresh(console_t* console) {
 		uint32_t at = get_at(console, i);
 		char c = console->content.data[at];
 		if(c != 0 && c != '\n') {
-			cons_draw_char(console, x*console->font->w, y*console->font->h, console->content.data[at]);
+			cons_draw_char(console, g, x*console->font->w, y*console->font->h, console->content.data[at]);
 		}
 		x++;
 		if(x >= console->content.line_w) {
@@ -112,7 +103,6 @@ void console_clear(console_t* console) {
 	console->content.size = 0;
 	console->content.start_line = 0;
 	console->content.line = 0;
-	console_refresh(console);
 }
 
 static void move_line(console_t* console) {
@@ -121,7 +111,6 @@ static void move_line(console_t* console) {
 	if(console->content.start_line >= console->content.line_num)
 		console->content.start_line = 0;
 	console->content.size -= console->content.line_w;
-	console_refresh(console);
 }
 
 void console_put_char(console_t* console, char c) {
@@ -131,7 +120,6 @@ void console_put_char(console_t* console, char c) {
 	if(c == CONSOLE_LEFT) { //backspace
 		if(console->content.size > 0) {
 			console->content.size--;
-			console_refresh(console);
 		}
 		return;
 	}
@@ -171,9 +159,6 @@ void console_put_char(console_t* console, char c) {
 	if(c != '\n') {
 		uint32_t at = get_at(console, console->content.size);
 		console->content.data[at] = c;
-		int32_t x = (console->content.size - (console->content.line*console->content.line_w)) * console->font->w;
-		int32_t y = console->content.line * console->font->h;
-		cons_draw_char(console, x, y, c);
 		console->content.size++;
 	}
 }

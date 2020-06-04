@@ -14,7 +14,8 @@ typedef struct {
 } content_t;
 
 typedef struct {
-	graph_t* g;
+	uint32_t w;
+	uint32_t h;
 	uint32_t bg_color;
 	uint32_t fg_color;
 	font_t* font;
@@ -24,8 +25,8 @@ typedef struct {
 int32_t console_init(console_t* console);
 void console_close(console_t* console);
 void console_clear(console_t* console);
-void console_refresh(console_t* console);
-int32_t console_reset(console_t* console);
+void console_refresh(console_t* console, graph_t* g);
+int32_t console_reset(console_t* console, uint32_t w, uint32_t h);
 void console_put_char(console_t* console, char c);
 void console_put_string(console_t* console, const char* s);
 

@@ -63,35 +63,26 @@ static void console_focus(x_t* x) {
 	console_t* console = (console_t*)x->data;
 	console->fg_color = _conf.fg_color;
 	console->bg_color = _conf.bg_color;
-	console_refresh(console);
+	x_repaint(x);
 }
 
 static void console_unfocus(x_t* x) {
 	console_t* console = (console_t*)x->data;
 	console->fg_color = _conf.unfocus_fg_color;
 	console->bg_color = _conf.unfocus_bg_color;
-	console_refresh(console);
+	x_repaint(x);
 }
 
 static void console_resize(x_t* x) {
-	console_t* console = (console_t*)x->data;
-	if(console->g != NULL) {
-		graph_free(console->g);
-		console->g = NULL;
-	}
 	x_repaint(x);
 }
 
 static void repaint(x_t* x, graph_t* g) {
 	console_t* console = (console_t*)x->data;
-	if(console->g == NULL) {
-		console->g = graph_new(NULL, g->w, g->h);
-		console_reset(console);
+	if(console->w != g->w || console->h != g->h) {
+		console_reset(console, g->w, g->h);
 	}
-	else {
-		blt(console->g, 0, 0, console->g->w, console->g->h,
-				g, 0, 0, g->w, g->h);
-	}
+	console_refresh(console, g);
 }
 
 static void event_handle(x_t* x, xevent_t* ev) {
@@ -167,8 +158,6 @@ static int run(int argc, char* argv[]) {
 
 	x_run(xp);
 
-	if(console.g != NULL)
-		graph_free(console.g);
 	console_close(&console);
 	x_close(xp);
 	return 0;
