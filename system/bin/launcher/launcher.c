@@ -104,8 +104,8 @@ int main(int argc, char* argv[]) {
 
 	xscreen_t scr;
 	x_screen_info(&scr);
-	x_t* x = x_open(scr.size.w - items.icon_size - 24,
-			24,
+	x_t* x = x_open(scr.size.w - items.icon_size - 10,
+			10,
 			items.icon_size, 
 			items.icon_size * items.num,
 			"launcher", X_STYLE_NO_FRAME | X_STYLE_ALPHA | X_STYLE_NO_FOCUS);

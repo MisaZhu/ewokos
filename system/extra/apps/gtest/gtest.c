@@ -46,7 +46,7 @@ int main(int argc, char* argv[]) {
 	top = false;
 	xscreen_t scr;
 	x_screen_info(&scr);
-	x_t* x = x_open(10, 10, 220, 200, "gtest", X_STYLE_NORMAL);
+	x_t* x = x_open(10, 10, 220, 200, "gtest", X_STYLE_NORMAL | X_STYLE_NO_RESIZE);
 
 	int i = 0;
 	x->data = &i;
