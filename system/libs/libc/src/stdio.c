@@ -61,16 +61,9 @@ void putch(int c) {
 }
 
 int puts(const char *s) {
-	if(s == NULL)
-		return -1;
-
 	int ret = strlen(s);
-	for(int i=0; i<ret; i++) {
-		putch(s[i]);
-	}
-	return ret;
+	return write(1, s, ret);
 }
-
 
 FILE* fopen(const char* fname, const char* mode) {
 	FILE *fp = (FILE*)malloc(sizeof(FILE));
