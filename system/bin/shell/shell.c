@@ -22,6 +22,9 @@ static old_cmd_t* _history = NULL;
 static old_cmd_t* _history_tail = NULL;
 
 static void add_history(const char* cmd) {
+	if(_history != NULL && strcmp(cmd, _history->cmd->cstr) == 0)
+		return;
+
 	old_cmd_t* oc = (old_cmd_t*)malloc(sizeof(old_cmd_t));	
 	oc->cmd = str_new(cmd);
 	oc->prev = NULL;
