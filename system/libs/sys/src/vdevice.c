@@ -267,12 +267,10 @@ static void do_clear_buffer(vdevice_t* dev, int from_pid, proto_t *in, proto_t* 
 	PF->addi(out, res);
 }
 
-static void do_safe_cmd(vdevice_t* dev, int cmd, int from_pid, proto_t *in, proto_t* out, void* p) {
-	int res = -1;
-	if(dev != NULL && dev->safe_cmd != NULL) {
-		res = dev->safe_cmd(cmd, from_pid, in, p);
+static void do_interrupt(vdevice_t* dev, proto_t *in, void* p) {
+	if(dev != NULL && dev->interrupt != NULL) {
+		dev->interrupt(in, p);
 	}
-	PF->addi(out, res);
 }
 
 static void handle(int from_pid, int cmd, proto_t* in, proto_t* out, void* p) {
@@ -321,9 +319,8 @@ static void handle(int from_pid, int cmd, proto_t* in, proto_t* out, void* p) {
 	case FS_CMD_CLEAR_BUFFER:
 		do_clear_buffer(dev, from_pid, in, out, p);
 		break;
-	default:
-		if(cmd >= IPC_SAFE_CMD_BASE)
-			do_safe_cmd(dev, cmd, from_pid, in, out, p);
+	case FS_CMD_INTERRUPT:
+		do_interrupt(dev, in, p);
 		break;
 	}
 }

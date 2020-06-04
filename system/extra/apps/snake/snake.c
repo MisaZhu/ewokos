@@ -172,15 +172,15 @@ static void event_handle(x_t* x, xevent_t* xev) {
 		}
 		seed += key;
 
-		if(key == 37 && dir != RIGHT)
+		if(key == X_KEY_LEFT && dir != RIGHT)
 			dir = LEFT;
-		else if(key == 38 && dir != DOWN)
+		else if(key == X_KEY_UP && dir != DOWN)
 			dir = UP;
-		else if(key == 39 && dir != LEFT)
+		else if(key == X_KEY_RIGHT && dir != LEFT)
 			dir = RIGHT;
-		else if(key == 40 && dir != UP)
+		else if(key == X_KEY_DOWN && dir != UP)
 			dir = DOWN;
-		else if(key == 13)
+		else if(key == X_KEY_ENTER)
 			dead = false;
 	}
 

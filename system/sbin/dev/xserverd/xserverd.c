@@ -816,23 +816,23 @@ static void joy_2_keyb(int key, int8_t* v) {
 	*v = 0;
 	switch(key) {
 	case KEY_V_UP:
-		*v = 38;
+		*v = X_KEY_UP;
 		return;
 	case KEY_V_DOWN:
-		*v = 40;
+		*v = X_KEY_DOWN;
 		return;
 	case KEY_V_LEFT:
-		*v = 37;
+		*v = X_KEY_LEFT;
 		return;
 	case KEY_V_RIGHT:
-		*v = 39;
+		*v = X_KEY_RIGHT;
 		return;
 	case KEY_V_1:
 	case KEY_V_PRESS:
-		*v = 13;
+		*v = X_KEY_ENTER;
 		return;
 	case KEY_V_2:
-		*v = 27; //esc
+		*v = X_KEY_ESC;
 		return;
 	}	
 }

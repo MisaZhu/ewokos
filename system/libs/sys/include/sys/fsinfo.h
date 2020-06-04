@@ -34,7 +34,8 @@ enum {
 	FS_CMD_DUP,
 	FS_CMD_UNLINK,
 	FS_CMD_CLEAR_BUFFER,
-	FS_CMD_FLUSH
+	FS_CMD_FLUSH,
+	FS_CMD_INTERRUPT
 };
 
 typedef struct {

@@ -31,6 +31,14 @@ enum {
 	XEVT_WIN_UNFOCUS
 };
 
+static const int X_KEY_UP        = 5;
+static const int X_KEY_DOWN      = 24;
+static const int X_KEY_LEFT      = 19;
+static const int X_KEY_RIGHT     = 4;
+static const int X_KEY_ESC       = 27;
+static const int X_KEY_ENTER     = 13;
+static const int X_KEY_BACKSPACE = 8;
+
 typedef struct {
 	uint8_t type;
 	int32_t state;

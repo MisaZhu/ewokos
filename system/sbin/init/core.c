@@ -231,7 +231,7 @@ static void do_usint_ps2_key(proto_t* data) {
 
 	proto_t in;
 	PF->init(&in, NULL, 0)->addi(&in, key_scode);
-	ipc_call(pid, IPC_SAFE_CMD_BASE, &in, NULL);
+	ipc_call(pid, FS_CMD_INTERRUPT, &in, NULL);
 	PF->clear(&in);
 }
 

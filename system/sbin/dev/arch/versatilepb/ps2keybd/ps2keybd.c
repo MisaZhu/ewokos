@@ -29,29 +29,30 @@ int32_t keyb_init(void) {
 
 //0    1    2    3    4    5    6    7     8    9    A    B    C    D    E    F
 const char _ltab[] = {
-  0,   0,   0,   0,   0,   0,   0,   0,    0,   0,   0,   0,   0, '\t',  '`',   0,
+  0,   0,   0,   0,   0,   0,   0,   0,    0,   0,   0,   0,   0, '\t', '`',  0,
   0,   0,   0,   0,   0,  'q', '1',  0,    0,   0,  'z', 's', 'a', 'w', '2',  0,
   0,  'c', 'x', 'd', 'e', '4', '3',  0,    0,  ' ', 'v', 'f', 't', 'r', '5',  0,
   0,  'n', 'b', 'h', 'g', 'y', '6',  0,    0,   0,  'm', 'j', 'u', '7', '8',  0,
   0,  ',', 'k', 'i', 'o', '0', '9',  0,    0,  '.', '/', 'l', ';', 'p', '-',  0,
-  0,   0,  '\'',  0,  '[', '=',  0,   0,    0,   0, '\r', ']',  0, '\\',  0,   0,
-  0,   0,   0,   0,   0,   0,  '\b', 0,    0,   0,   0,   0,   0,   0,   0,   0
+  0,   0,  '\'', 0,  '[', '=',  0,   0,    0,   0, '\r', ']',  0, '\\',  0,   0,
+  0,   0,   0,   0,   0,   0,  '\b', 0,    0,   0,   0,  19,   0,   0,   0,   0,
+  0,   0,  24,   0,   4,   5,  27,   0,    0,   0,   0,  0,    0,   0,   0,   0
 };
 
 const char _utab[] = {
-  0,   0,   0,   0,   0,   0,   0,   0,    0,   0,   0,   0,   0,   0,   '~',   0,
+  0,   0,   0,   0,   0,   0,   0,   0,    0,   0,   0,   0,   0,   0,   '~', 0,
   0,   0,   0,   0,   0,  'Q', '!',  0,    0,   0,  'Z', 'S', 'A', 'W', '@',  0,
   0,  'C', 'X', 'D', 'E', '$', '#',  0,    0,  ' ', 'V', 'F', 'T', 'R', '%',  0,
   0,  'N', 'B', 'H', 'G', 'Y', '^',  0,    0,   0,  'M', 'J', 'U', '&', '*',  0,
   0,  '<', 'K', 'I', 'O', ')', '(',  0,    0,  '>', '?', 'L', ':', 'P', '_',  0,
   0,   0,  '"',  0,  '{', '+',  0,   0,    0,   0,  '\r','}',  0,  '|',  0,   0,
-  0,   0,   0,   0,   0,   0,  '\b', 0,    0,   0,   0,   0,   0,   0,   0,   0
+  0,   0,   0,   0,   0,   0,  '\b', 0,    0,   0,   0,  19,   0,   0,   0,   0,
+  0,   0,  24,   0,   4,   5,  27,   0,    0,   0,   0,   0,   0,   0,   0,   0
 };
 
 static int32_t keyb_handle(uint8_t scode) {
 	char c = 0;
-
-	if((scode == 0xF0)) {
+	if((scode == 0xF0 || scode == 0xE0)) {
 		return 0;
 	}
 
@@ -104,14 +105,11 @@ static int keyb_read(int fd, int ufid, int from_pid, fsinfo_t* info,
 	return 1;
 }
 
-int keyb_safe_cmd(int cmd, int from_pid, proto_t* in, void* p) {
+void keyb_interrupt(proto_t* in, void* p) {
 	(void)p;
-	(void)cmd;
-	(void)from_pid;
 	uint8_t key_scode = proto_read_int(in);
 	char c = keyb_handle(key_scode);
 	charbuf_push(&_buffer, c, true);
-	return 0;
 }
 
 int main(int argc, char** argv) {
@@ -124,7 +122,7 @@ int main(int argc, char** argv) {
 	memset(&dev, 0, sizeof(vdevice_t));
 	strcpy(dev.name, "keyb");
 	dev.read = keyb_read;
-	dev.safe_cmd = keyb_safe_cmd;
+	dev.interrupt = keyb_interrupt;
 
 	if(ipc_serv_reg(IPC_SERV_PS2_KEYB) != 0) {
 		kprintf(false, "reg ps2keyb ipc_serv error!\n");
