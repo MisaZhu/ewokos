@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/basic_math.h>
+#include <sys/keydef.h>
 #include <string.h>
 #include <console/console.h>
 
@@ -127,7 +128,7 @@ void console_put_char(console_t* console, char c) {
 	if(c == '\r')
 		c = '\n';
 
-	if(c == 8) { //backspace
+	if(c == CONSOLE_LEFT) { //backspace
 		if(console->content.size > 0) {
 			console->content.size--;
 			console_refresh(console);
@@ -155,6 +156,8 @@ void console_put_char(console_t* console, char c) {
 		console->content.line++;
 	}
 	else {
+		if(c <= 27) 
+			return;
 		uint32_t x =  console->content.size - (console->content.line*console->content.line_w) + 1;
 		if(x == console->content.line_w) {
 			console->content.line++;

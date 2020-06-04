@@ -98,9 +98,7 @@ static void event_handle(x_t* x, xevent_t* ev) {
 	(void)x;
 	if(ev->type == XEVT_KEYB) {
 		int c = ev->value.keyboard.value;
-		if(c > X_KEY_ESC || 
-				c == '\n' || c == '\t' || 
-				c == X_KEY_BACKSPACE || c == X_KEY_ENTER)
+		if(c != 0)
 			write_nblock(1, &c, 1);
 	}
 }

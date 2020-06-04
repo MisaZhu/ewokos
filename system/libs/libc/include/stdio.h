@@ -11,6 +11,7 @@ void dprintf(int fd, const char *format, ...);
 
 int  getch(void);
 void putch(int c);
+int  puts(const char* s);
 
 typedef struct {
 	int fd;

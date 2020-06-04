@@ -60,6 +60,18 @@ void putch(int c) {
 	write(1, &c, 1);
 }
 
+int puts(const char *s) {
+	if(s == NULL)
+		return -1;
+
+	int ret = strlen(s);
+	for(int i=0; i<ret; i++) {
+		putch(s[i]);
+	}
+	return ret;
+}
+
+
 FILE* fopen(const char* fname, const char* mode) {
 	FILE *fp = (FILE*)malloc(sizeof(FILE));
 	if(fp == NULL)

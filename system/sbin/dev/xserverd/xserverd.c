@@ -16,6 +16,7 @@
 #include <sys/global.h>
 #include <pthread.h>
 #include <sys/proc.h>
+#include <sys/keydef.h>
 #include <sconf.h>
 
 #define X_EVENT_MAX 16
@@ -816,23 +817,23 @@ static void joy_2_keyb(int key, int8_t* v) {
 	*v = 0;
 	switch(key) {
 	case KEY_V_UP:
-		*v = X_KEY_UP;
+		*v = KEY_UP;
 		return;
 	case KEY_V_DOWN:
-		*v = X_KEY_DOWN;
+		*v = KEY_DOWN;
 		return;
 	case KEY_V_LEFT:
-		*v = X_KEY_LEFT;
+		*v = KEY_LEFT;
 		return;
 	case KEY_V_RIGHT:
-		*v = X_KEY_RIGHT;
+		*v = KEY_RIGHT;
 		return;
 	case KEY_V_1:
 	case KEY_V_PRESS:
-		*v = X_KEY_ENTER;
+		*v = KEY_ENTER;
 		return;
 	case KEY_V_2:
-		*v = X_KEY_ESC;
+		*v = KEY_ESC;
 		return;
 	}	
 }

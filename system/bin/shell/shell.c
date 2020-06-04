@@ -10,12 +10,35 @@
 #include <fcntl.h>
 #include <sys/syscall.h>
 #include <sys/wait.h>
+#include <sys/keydef.h>
 
-#define KEY_BACKSPACE 127
-#define KEY_LEFT 0x8
+typedef struct st_old_cmd {
+	str_t* cmd;
+	struct st_old_cmd* next;
+	struct st_old_cmd* prev;
+} old_cmd_t;
+
+static old_cmd_t* _history = NULL;
+static old_cmd_t* _history_tail = NULL;
+
+static void add_history(const char* cmd) {
+	old_cmd_t* oc = (old_cmd_t*)malloc(sizeof(old_cmd_t));	
+	oc->cmd = str_new(cmd);
+	oc->prev = NULL;
+	oc->next = _history;
+	if(_history != NULL)
+		_history->prev = oc;
+	else
+		_history_tail = oc;
+	_history = oc;
+}
 
 static int32_t gets(str_t* buf) {
 	str_reset(buf);	
+	old_cmd_t* head = NULL;
+	old_cmd_t* tail = NULL;
+	bool first_up = true;
+
 	while(1) {
 		int c = getch();
 		if(c == 0)
@@ -24,24 +47,61 @@ static int32_t gets(str_t* buf) {
 		if (c == KEY_BACKSPACE) {
 			if (buf->len > 0) {
 				//delete last char
-				putch(KEY_LEFT); 
+				putch(CONSOLE_LEFT); 
 				putch(' ');
-				putch(KEY_LEFT); 
+				putch(CONSOLE_LEFT); 
 				buf->len--;
 			}
 		}
-		else if (c == 8) {
+		else if (c == CONSOLE_LEFT) {
 			if (buf->len > 0) {
 				//delete last char
 				putch(c); 
 				buf->len--;
 			}
 		}
+		else if (c == KEY_UP) {
+			if(first_up) {
+				head = _history;
+				first_up = false;
+			}
+			else if(head != NULL) {
+				tail = head;
+				head = head->next;
+			}
+
+			if(head != NULL) {
+				while(buf->len > 0) {
+					//delete current chars 
+					putch(CONSOLE_LEFT); 
+					buf->len--;
+				}
+				str_cpy(buf, head->cmd->cstr);
+				puts(buf->cstr);
+			}
+		}
+		else if (c == KEY_DOWN) {
+			if(tail != NULL) {
+				head = tail;
+				tail = tail->prev;
+			}
+
+			if(tail != NULL) {
+				while(buf->len > 0) {
+					//delete current chars 
+					putch(CONSOLE_LEFT); 
+					buf->len--;
+				}
+				str_cpy(buf, tail->cmd->cstr);
+				puts(buf->cstr);
+			}
+		}
 		else {
 			putch(c);
 			if(c == '\r' || c == '\n')
 				break;
-			str_addc(buf, c);
+			if(c > 27)
+				str_addc(buf, c);
 		}
 		usleep(10000);
 	}
@@ -146,6 +206,15 @@ static int export(const char* arg) {
 	return 0;
 }
 
+static int history(void) {
+	old_cmd_t* oc = _history_tail;
+	while(oc != NULL) {
+		printf("%s\n", oc->cmd->cstr);
+		oc = oc->prev;
+	}
+	return 0;
+}
+
 static int _terminated = 0;
 
 static int handle(const char* cmd) {
@@ -165,6 +234,9 @@ static int handle(const char* cmd) {
 	}
 	else if(strncmp(cmd, "export ", 7) == 0) {
 		return export(cmd+7);
+	}
+	else if(strcmp(cmd, "history") == 0) {
+		return history();
 	}
 	return -1; /*not shell internal command*/
 }
@@ -321,6 +393,7 @@ int main(int argc, char* argv[]) {
 	if(cid[0] == 0)
 		cid = "0";
 
+	_history = NULL;
 	str_t* cmdstr = str_new("");
 	_terminated = 0;
 	int uid = getuid();
@@ -334,9 +407,12 @@ int main(int argc, char* argv[]) {
 		if(gets(cmdstr) != 0)
 			break;
 
+
 		char* cmd = cmdstr->cstr;
 		if(cmd[0] == 0)
 			continue;
+		add_history(cmdstr->cstr);
+
 		if(handle(cmd) == 0)
 			continue;
 

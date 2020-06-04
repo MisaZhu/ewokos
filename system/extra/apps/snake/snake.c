@@ -4,6 +4,7 @@
 #include <string.h>
 #include <vprintf.h>
 #include <x/xclient.h>
+#include <sys/keydef.h>
 
 #define WIN_WIDTH		55
 #define WIN_HEIGHT		50
@@ -172,15 +173,15 @@ static void event_handle(x_t* x, xevent_t* xev) {
 		}
 		seed += key;
 
-		if(key == X_KEY_LEFT && dir != RIGHT)
+		if(key == KEY_LEFT && dir != RIGHT)
 			dir = LEFT;
-		else if(key == X_KEY_UP && dir != DOWN)
+		else if(key == KEY_UP && dir != DOWN)
 			dir = UP;
-		else if(key == X_KEY_RIGHT && dir != LEFT)
+		else if(key == KEY_RIGHT && dir != LEFT)
 			dir = RIGHT;
-		else if(key == X_KEY_DOWN && dir != UP)
+		else if(key == KEY_DOWN && dir != UP)
 			dir = DOWN;
-		else if(key == X_KEY_ENTER)
+		else if(key == KEY_ENTER)
 			dead = false;
 	}
 
