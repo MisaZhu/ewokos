@@ -33,6 +33,24 @@ static void add_history(const char* cmd) {
 	_history = oc;
 }
 
+static void free_history(void) {
+	old_cmd_t* oc = _history_tail;
+	while(oc != NULL) {
+		old_cmd_t* prev = oc->prev;
+		str_free(oc->cmd);
+		free(oc);
+		oc = prev;
+	}
+}
+
+static void clear_buf(str_t* buf) {
+	while(buf->len > 0) {
+		//delete current chars 
+		putch(CONSOLE_LEFT); 
+		buf->len--;
+	}
+}
+
 static int32_t gets(str_t* buf) {
 	str_reset(buf);	
 	old_cmd_t* head = NULL;
@@ -60,40 +78,35 @@ static int32_t gets(str_t* buf) {
 				buf->len--;
 			}
 		}
-		else if (c == KEY_UP) {
+		else if (c == KEY_UP) { //prev command
 			if(first_up) {
 				head = _history;
 				first_up = false;
 			}
 			else if(head != NULL) {
-				tail = head;
 				head = head->next;
 			}
 
 			if(head != NULL) {
-				while(buf->len > 0) {
-					//delete current chars 
-					putch(CONSOLE_LEFT); 
-					buf->len--;
-				}
+				tail = head;
+				clear_buf(buf);
 				str_cpy(buf, head->cmd->cstr);
 				puts(buf->cstr);
 			}
 		}
-		else if (c == KEY_DOWN) {
-			if(tail != NULL) {
-				head = tail;
+		else if (c == KEY_DOWN) { //next command
+			if(tail != NULL)
 				tail = tail->prev;
-			}
+			clear_buf(buf);
 
 			if(tail != NULL) {
-				while(buf->len > 0) {
-					//delete current chars 
-					putch(CONSOLE_LEFT); 
-					buf->len--;
-				}
+				head = tail;
 				str_cpy(buf, tail->cmd->cstr);
 				puts(buf->cstr);
+			}
+			else {
+				head = _history;
+				first_up = true;
 			}
 		}
 		else {
@@ -437,5 +450,6 @@ int main(int argc, char* argv[]) {
 	}
 
 	str_free(cmdstr);	
+	free_history();
 	return 0;
 }
