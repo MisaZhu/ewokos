@@ -23,7 +23,7 @@ int ipc_serv_unreg(const char* ipc_serv_id);
 int ipc_serv_get(const char* ipc_serv_id);
 
 typedef void (*ipc_serv_handle_t)(int from_pid, int cmd, proto_t* in, proto_t* out, void* p);
-void ipc_serv_run(ipc_serv_handle_t handle, void* p, bool prefork);
+int ipc_serv_run(ipc_serv_handle_t handle, void* p, bool prefork);
 
 
 #endif

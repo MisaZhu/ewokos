@@ -1,6 +1,7 @@
 #include <x/xclient.h>
 #include <sys/shm.h>
 #include <sys/ipc.h>
+#include <sys/syscall.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <stdlib.h>
@@ -223,13 +224,16 @@ static void handle(int from_pid, int cmd, proto_t* in, proto_t* out, void* p) {
 		proto_read_to(in, &ev, sizeof(xevent_t));
 		x_push_event(x, &ev);
 	}
+
+	if(x->on_loop == NULL)
+		syscall1(SYS_WAKEUP, (int32_t)x);
 }
 
 void  x_run(x_t* x) {
 	if(x->on_init != NULL)
 		x->on_init(x);
 	
-	ipc_serv_run(handle, x, true);
+	int ipc_pid = ipc_serv_run(handle, x, true);
 
 	xevent_t xev;
 	while(!x->closed) {
@@ -240,9 +244,14 @@ void  x_run(x_t* x) {
 			if(x->on_event != NULL)
 				x->on_event(x, &xev);
 		}
-		if(x->on_loop != NULL) {
-			x->on_loop(x);
+		else {
+			if(x->on_loop == NULL) {
+				syscall2(SYS_BLOCK, ipc_pid, (int32_t)x);
+			}
+			else {
+				x->on_loop(x);
+				usleep(10000);
+			}
 		}
-		usleep(10000);
 	}
 }

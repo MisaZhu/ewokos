@@ -126,9 +126,9 @@ static void handle_ipc(int pid, int cmd, void* p) {
 	ipc_end();
 }
 
-void ipc_serv_run(ipc_serv_handle_t handle, void* p, bool prefork) {
+int ipc_serv_run(ipc_serv_handle_t handle, void* p, bool prefork) {
 	_ipc_serv_handle = handle;
 
 	proc_ready_ping();
-	ipc_setup(handle_ipc, p, prefork);
+	return ipc_setup(handle_ipc, p, prefork);
 }

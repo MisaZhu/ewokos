@@ -582,6 +582,7 @@ int32_t proc_ipc_setup(context_t* ctx, uint32_t entry, uint32_t extra_data, bool
 			return -1;
 		_current_proc->space->ipc.sp = ipc_thread->ctx.sp;
 		_current_proc->space->ipc.ipc_pid = ipc_thread->info.pid;
+		return ipc_thread->info.pid;
 	}
 	else {
 		_current_proc->space->ipc.sp = ctx->sp;
