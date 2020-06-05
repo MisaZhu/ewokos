@@ -71,7 +71,7 @@ void console_close(console_t* console) {
 	console->content.data = NULL;
 }
 
-static uint32_t get_at(console_t* console, uint32_t i) {
+static inline uint32_t get_at(console_t* console, uint32_t i) {
 	uint32_t at = i + (console->content.cols * console->state.start_row);
 	uint32_t total = console->content.cols* console->content.rows;
 	if(at >= total)
