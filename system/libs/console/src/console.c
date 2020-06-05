@@ -18,34 +18,33 @@ static void cons_clear(console_t* console, graph_t* g) {
 
 int32_t console_reset(console_t* console, uint32_t w, uint32_t h) {
 	//save content data
-	int old_size = console->content.size;
-	int old_total = console->content.total;
-	int old_line_w = console->content.line_w;
-	int old_start_line = console->content.start_line;
+	int old_size = console->state.size;
+	int old_total = console->content.cols* console->content.rows;
+	int old_cols = console->content.cols;
+	int old_start_row = console->state.start_row;
 	char* old_data = (char*)malloc(old_total);
 	memcpy(old_data, console->content.data, old_total);
 
-	console->content.size = 0;
-	console->content.start_line = 0;
-	console->content.line = 0;
-	console->content.line_w = div_u32(w, console->font->w)-1;
-	console->content.line_num = div_u32(h, console->font->h);
-	uint32_t data_size = console->content.line_num*console->content.line_w;
-	console->content.total = data_size;
+	console->state.size = 0;
+	console->state.start_row = 0;
+	console->state.current_row = 0;
+	console->content.cols = div_u32(w, console->font->w)-1;
+	console->content.rows = div_u32(h, console->font->h);
+	uint32_t data_size = console->content.rows*console->content.cols;
 	if(console->content.data != NULL)
 		free(console->content.data);
 	console->content.data = (char*)malloc(data_size);
 	memset(console->content.data, 0, data_size);
 
 	//restore old data
-	if(old_start_line > 0 && old_size > old_line_w) {
-		old_start_line++;
-		old_size -= old_line_w;
+	if(old_start_row > 0 && old_size > old_cols) {
+		old_start_row++;
+		old_size -= old_cols;
 	}
 
 	int i = 0;
 	while(i < old_size) {
-		int at = (old_line_w * old_start_line) + (i++);
+		int at = (old_cols * old_start_row) + (i++);
 		if(at >= old_total)
 			at -= old_total;
 		char c = old_data[at];
@@ -68,14 +67,15 @@ int32_t console_init(console_t* console) {
 
 void console_close(console_t* console) {
 	free(console->content.data);
-	console->content.size = 0;
+	console->state.size = 0;
 	console->content.data = NULL;
 }
 
 static uint32_t get_at(console_t* console, uint32_t i) {
-	uint32_t at = i + (console->content.line_w * console->content.start_line);
-	if(at >= console->content.total)
-		at -=  console->content.total;
+	uint32_t at = i + (console->content.cols * console->state.start_row);
+	uint32_t total = console->content.cols* console->content.rows;
+	if(at >= total)
+		at -=  total;
 	return at;
 }
 
@@ -84,14 +84,14 @@ void console_refresh(console_t* console, graph_t* g) {
 	uint32_t i=0;
 	uint32_t x = 0;
 	uint32_t y = 0;
-	while(i < console->content.size) {
+	while(i < console->state.size) {
 		uint32_t at = get_at(console, i);
 		char c = console->content.data[at];
 		if(c != 0 && c != '\n') {
 			cons_draw_char(console, g, x*console->font->w, y*console->font->h, console->content.data[at]);
 		}
 		x++;
-		if(x >= console->content.line_w) {
+		if(x >= console->content.cols) {
 			y++;
 			x = 0;
 		}
@@ -100,17 +100,17 @@ void console_refresh(console_t* console, graph_t* g) {
 }
 
 void console_clear(console_t* console) {
-	console->content.size = 0;
-	console->content.start_line = 0;
-	console->content.line = 0;
+	console->state.size = 0;
+	console->state.start_row = 0;
+	console->state.current_row = 0;
 }
 
 static void move_line(console_t* console) {
-	console->content.line--;
-	console->content.start_line++;
-	if(console->content.start_line >= console->content.line_num)
-		console->content.start_line = 0;
-	console->content.size -= console->content.line_w;
+	console->state.current_row--;
+	console->state.start_row++;
+	if(console->state.start_row >= console->content.rows)
+		console->state.start_row = 0;
+	console->state.size -= console->content.cols;
 }
 
 void console_put_char(console_t* console, char c) {
@@ -118,8 +118,8 @@ void console_put_char(console_t* console, char c) {
 		c = '\n';
 
 	if(c == CONSOLE_LEFT) { //backspace
-		if(console->content.size > 0) {
-			console->content.size--;
+		if(console->state.size > 0) {
+			console->state.size--;
 		}
 		return;
 	}
@@ -132,34 +132,34 @@ void console_put_char(console_t* console, char c) {
 		return;
 	}
 	if(c == '\n') { //new line.
-		uint32_t x =  console->content.size - (console->content.line*console->content.line_w);
-		while(x < console->content.line_w) {
-			uint32_t at = get_at(console, console->content.size);
+		uint32_t x =  console->state.size - (console->state.current_row*console->content.cols);
+		while(x < console->content.cols) {
+			uint32_t at = get_at(console, console->state.size);
 			console->content.data[at] = c;
 			c = 0;
-			console->content.size++;
+			console->state.size++;
 			x++;
 		}
 		c = '\n';
-		console->content.line++;
+		console->state.current_row++;
 	}
 	else {
 		if(c <= 27) 
 			return;
-		uint32_t x =  console->content.size - (console->content.line*console->content.line_w) + 1;
-		if(x == console->content.line_w) {
-			console->content.line++;
+		uint32_t x =  console->state.size - (console->state.current_row*console->content.cols) + 1;
+		if(x == console->content.cols) {
+			console->state.current_row++;
 		}
 	}
 
-	if((console->content.line) >= console->content.line_num) {
+	if((console->state.current_row) >= console->content.rows) {
 		move_line(console);
 	}
 	
 	if(c != '\n') {
-		uint32_t at = get_at(console, console->content.size);
+		uint32_t at = get_at(console, console->state.size);
 		console->content.data[at] = c;
-		console->content.size++;
+		console->state.size++;
 	}
 }
 

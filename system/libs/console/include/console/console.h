@@ -4,13 +4,15 @@
 #include <graph/graph.h>
 
 typedef struct {
-	uint32_t start_line;
-	uint32_t line;
-	uint32_t line_num;
-	uint32_t line_w;
-	uint32_t total;
-	char* data;
+	uint32_t start_row;
+	uint32_t current_row;
 	uint32_t size;
+} state_t;
+
+typedef struct {
+	uint32_t cols;
+	uint32_t rows;
+	char* data;
 } content_t;
 
 typedef struct {
@@ -20,6 +22,7 @@ typedef struct {
 	uint32_t fg_color;
 	font_t* font;
 	content_t content;
+	state_t state;
 } console_t;
 
 int32_t console_init(console_t* console);
