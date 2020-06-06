@@ -98,26 +98,21 @@ static void loop(x_t* x) {
 	console_t* console = (console_t*)x->data;
 	char buf[256];
 	int32_t size = read_nblock(0, buf, 255);
-	if(size == 0) {
-		x->closed = true;
-	}
-	else if(size < 0) {
-		if(errno == EAGAIN) {
-			usleep(10000);
-			return;
+	if(size > 0) {
+		buf[size] = 0;
+		const char* p = (const char*)buf;
+		for(int32_t i=0; i<size; i++) {
+			char c = p[i];
+			console_put_char(console, c);
 		}
-		else {
-			x->closed = true;
-		}
+		x_repaint(x);
+		return;
 	}
 
-	buf[size] = 0;
-	const char* p = (const char*)buf;
-	for(int32_t i=0; i<size; i++) {
-		char c = p[i];
-		console_put_char(console, c);
-	}
-	x_repaint(x);
+	if(errno != EAGAIN) 
+		x->closed = true;
+	else
+		usleep(30000);
 }
 
 static int run(int argc, char* argv[]) {
