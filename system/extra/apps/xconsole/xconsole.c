@@ -90,7 +90,7 @@ static void event_handle(x_t* x, xevent_t* ev) {
 	if(ev->type == XEVT_KEYB) {
 		int c = ev->value.keyboard.value;
 		if(c != 0)
-			write(1, &c, 1);
+			write_nblock(1, &c, 1);
 	}
 }
 
