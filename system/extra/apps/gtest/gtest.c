@@ -38,6 +38,8 @@ static void step(x_t* x) {
 	if(top) {
 		x_repaint(x);
 	}
+	else
+		usleep(100000);
 }
 
 int main(int argc, char* argv[]) {

@@ -90,7 +90,7 @@ static void event_handle(x_t* x, xevent_t* ev) {
 	if(ev->type == XEVT_KEYB) {
 		int c = ev->value.keyboard.value;
 		if(c != 0)
-			write_nblock(1, &c, 1);
+			write(1, &c, 1);
 	}
 }
 
@@ -99,10 +99,8 @@ static void loop(x_t* x) {
 	char buf[256];
 	int32_t size = read_nblock(0, buf, 255);
 	if(size > 0) {
-		buf[size] = 0;
-		const char* p = (const char*)buf;
 		for(int32_t i=0; i<size; i++) {
-			char c = p[i];
+			char c = buf[i];
 			console_put_char(console, c);
 		}
 		x_repaint(x);
@@ -111,8 +109,6 @@ static void loop(x_t* x) {
 
 	if(errno != EAGAIN) 
 		x->closed = true;
-	else
-		usleep(30000);
 }
 
 static int run(int argc, char* argv[]) {
