@@ -24,15 +24,7 @@ static void repaint(x_t* x, graph_t* g) {
 }
 
 static void step(x_t* x) {
-<<<<<<< HEAD
 	x_repaint(x);
-=======
-	if(top) {
-		x_repaint(x);
-	}
-	else
-		usleep(100000);
->>>>>>> a45ad3eeea5094bad41d8728d74bf04f0cda20ac
 }
 
 int main(int argc, char* argv[]) {
