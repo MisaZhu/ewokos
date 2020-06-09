@@ -154,8 +154,12 @@ static int32_t sys_proc_set_uid(int32_t uid) {
 	return 0;
 }
 
-static void sys_proc_get_cmd(int32_t pid, char* cmd, int32_t sz) {
-	strncpy(cmd, proc_get(pid)->info.cmd, sz);
+static int32_t sys_proc_get_cmd(int32_t pid, char* cmd, int32_t sz) {
+	proc_t* proc = proc_get(pid);
+	if(proc == NULL)
+		return -1;
+	strncpy(cmd, proc->info.cmd, sz);
+	return 0;
 }
 
 static void sys_proc_set_cmd(const char* cmd) {
@@ -228,7 +232,7 @@ static int32_t sys_ipc_setup(context_t* ctx, uint32_t entry, uint32_t extra_data
 static void sys_ipc_call(context_t* ctx, uint32_t pid, int32_t call_id, proto_t* data) {
 	ctx->gpr[0] = 0;
 	proc_t* proc = proc_get(pid);
-	if(proc->space->ipc.entry == 0) {
+	if(proc == NULL || proc->space->ipc.entry == 0) {
 		ctx->gpr[0] = -2;
 		return;
 	}
@@ -250,7 +254,9 @@ static void sys_ipc_call(context_t* ctx, uint32_t pid, int32_t call_id, proto_t*
 static void sys_ipc_get_return(context_t* ctx, uint32_t pid, proto_t* data) {
 	ctx->gpr[0] = 0;
 	proc_t* proc = proc_get(pid);
-	if(proc->space->ipc.entry == 0 ||
+
+	if(proc == NULL ||
+			proc->space->ipc.entry == 0 ||
 			proc->space->ipc.from_pid != _current_proc->info.pid ||
 			proc->space->ipc.state == IPC_IDLE) {
 		ctx->gpr[0] = -2;
@@ -439,7 +445,7 @@ void svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_t arg2, context
 		ctx->gpr[0] = _current_proc->info.owner;
 		return;
 	case SYS_PROC_GET_CMD: 
-		sys_proc_get_cmd(arg0, (char*)arg1, arg2);
+		ctx->gpr[0] = sys_proc_get_cmd(arg0, (char*)arg1, arg2);
 		return;
 	case SYS_PROC_SET_CMD: 
 		sys_proc_set_cmd((const char*)arg0);

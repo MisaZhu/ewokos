@@ -32,7 +32,9 @@ void procs_init(void) {
 }
 
 proc_t* proc_get(int32_t pid) {
-	if(pid < 0 || pid >= PROC_MAX)
+	if(pid < 0 || pid >= PROC_MAX ||
+			_proc_table[pid].info.state == UNUSED ||
+			_proc_table[pid].info.state == ZOMBIE)
 		return NULL;
 	return &_proc_table[pid];
 }
