@@ -111,8 +111,6 @@ static void loop(x_t* x) {
 
 	if(errno != EAGAIN) 
 		x->closed = true;
-	else
-		usleep(30000);
 }
 
 static int run(int argc, char* argv[]) {

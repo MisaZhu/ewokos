@@ -227,6 +227,7 @@ include $(ROOT_DIR)/bin/kill/build.mk
 include $(ROOT_DIR)/bin/mkdir/build.mk
 include $(ROOT_DIR)/bin/rm/build.mk
 include $(ROOT_DIR)/bin/launcher/build.mk
+include $(ROOT_DIR)/bin/syspanel/build.mk
 include $(ROOT_DIR)/bin/session/build.mk
 
 mkdirs:

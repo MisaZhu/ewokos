@@ -78,11 +78,11 @@ static void get_workspace(int style, grect_t* xr, grect_t* wsr, void* p) {
 
 static void get_title(xinfo_t* info, grect_t* rect, void* p) {
 	(void)p;
-	rect->x = info->wsr.x;
+	rect->x = info->wsr.x + _xwm_config.title_h;
 	rect->y = info->wsr.y - _xwm_config.title_h;
 
 	if((info->style & X_STYLE_NO_RESIZE) == 0)
-		rect->w = info->wsr.w - _xwm_config.title_h*3;
+		rect->w = info->wsr.w - _xwm_config.title_h*2;
 	else
 		rect->w = info->wsr.w - _xwm_config.title_h;
 
@@ -91,7 +91,7 @@ static void get_title(xinfo_t* info, grect_t* rect, void* p) {
 
 static void get_min(xinfo_t* info, grect_t* rect, void* p) {
 	(void)p;
-	rect->x = info->wsr.x+info->wsr.w-_xwm_config.title_h*3;
+	rect->x = info->wsr.x+info->wsr.w-_xwm_config.title_h*2;
 	rect->y = info->wsr.y - _xwm_config.title_h;
 	rect->w = _xwm_config.title_h;
 	rect->h = _xwm_config.title_h;
@@ -99,7 +99,7 @@ static void get_min(xinfo_t* info, grect_t* rect, void* p) {
 
 static void get_max(xinfo_t* info, grect_t* rect, void* p) {
 	(void)p;
-	rect->x = info->wsr.x+info->wsr.w-_xwm_config.title_h*2;
+	rect->x = info->wsr.x+info->wsr.w-_xwm_config.title_h*1;
 	rect->y = info->wsr.y - _xwm_config.title_h;
 	rect->w = _xwm_config.title_h;
 	rect->h = _xwm_config.title_h;
@@ -107,7 +107,7 @@ static void get_max(xinfo_t* info, grect_t* rect, void* p) {
 
 static void get_close(xinfo_t* info, grect_t* rect, void* p) {
 	(void)p;
-	rect->x = info->wsr.x+info->wsr.w-_xwm_config.title_h;
+	rect->x = info->wsr.x;
 	rect->y = info->wsr.y - _xwm_config.title_h;
 	rect->w = _xwm_config.title_h;
 	rect->h = _xwm_config.title_h;
@@ -134,15 +134,27 @@ static void draw_frame(graph_t* g, xinfo_t* info, bool top, void* p) {
 	int x = info->wsr.x;
 	int y = info->wsr.y;
 	int w = info->wsr.w;
-	//int h = info->wsr.h;
-	int h = 0;
+	int h = info->wsr.h;
+	//int h = 0;
 
 	if((info->style & X_STYLE_NO_TITLE) == 0) {
-		//h += _xwm_config.title_h;
-		h = _xwm_config.title_h;
+		h += _xwm_config.title_h;
+		//h = _xwm_config.title_h;
 		y -= _xwm_config.title_h;
 	}
 	box(g, x, y, w, h, bg);//win box
+}
+
+static void draw_title_pattern(graph_t* g, int x, int y, int w, int h, uint32_t fg, uint32_t bg) {
+	(void)bg;
+	int step = 3;
+	y = y + step;
+	int steps = h / step;
+
+	for(int i=0; i< steps; i++) {
+		line(g, x+4, y, x+w-8, y, fg);
+		y += step;
+	}
 }
 
 static void draw_title(graph_t* g, xinfo_t* info, grect_t* r, bool top, void* p) {
@@ -150,19 +162,16 @@ static void draw_title(graph_t* g, xinfo_t* info, grect_t* r, bool top, void* p)
 	uint32_t fg, bg;
 	get_color(&fg, &bg, top);
 
-	fill(g, r->x, r->y, r->w, _xwm_config.title_h, bg);//title box
-	draw_text(g, r->x+10, r->y+2, info->title, _xwm_config.font, fg);//title
-
 	gsize_t sz;
 	get_text_size(info->title, _xwm_config.font, &sz);
-	int step = 4;
-	int y = r->y + step;
-	while(1) {
-		line(g, r->x+20+sz.w, y, r->x+r->w-10, y, fg);
-		y += step;
-		if(y >= (r->y + r->h))
-			break;
+
+	int pw = (r->w-sz.w)/2;
+	fill(g, r->x, r->y, r->w, _xwm_config.title_h, bg);//title box
+	if(top) {
+		draw_title_pattern(g, r->x, r->y, pw, r->h, fg, bg);
+		draw_title_pattern(g, r->x+pw+sz.w, r->y, pw, r->h, fg, bg);
 	}
+	draw_text(g, r->x+pw, r->y+2, info->title, _xwm_config.font, fg);//title
 }
 
 static void draw_min(graph_t* g, xinfo_t* info, grect_t* r, bool top, void* p) {
@@ -172,7 +181,7 @@ static void draw_min(graph_t* g, xinfo_t* info, grect_t* r, bool top, void* p) {
 	get_color(&fg, &bg, top);
 
 	fill(g, r->x, r->y, r->w, r->h, bg);
-	box(g, r->x+4, r->y+r->h-8, r->w-8, 4, fg);
+	box(g, r->x+2, r->y+r->h-6, r->w-4, 4, fg);
 }
 
 static void draw_max(graph_t* g, xinfo_t* info, grect_t* r, bool top, void* p) {
@@ -182,7 +191,8 @@ static void draw_max(graph_t* g, xinfo_t* info, grect_t* r, bool top, void* p) {
 	get_color(&fg, &bg, top);
 
 	fill(g, r->x, r->y, r->w, r->h, bg);
-	box(g, r->x+4, r->y+4, r->w-8, r->h-8, fg);
+	box(g, r->x+2, r->y+2, r->w-4, r->h-4, fg);
+	box(g, r->x+2, r->y+2, r->w-8, r->h-8, fg);
 }
 
 static void draw_close(graph_t* g, xinfo_t* info, grect_t* r, bool top, void* p) {
@@ -192,20 +202,20 @@ static void draw_close(graph_t* g, xinfo_t* info, grect_t* r, bool top, void* p)
 	get_color(&fg, &bg, top);
 
 	fill(g, r->x, r->y, r->w, r->h, bg);
-	line(g, r->x+4, r->y+4, r->x+r->w-5, r->y+r->h-5, fg);
-	line(g, r->x+4, r->y+r->h-5, r->x+r->w-5, r->y+4, fg);
+	box(g, r->x+2, r->y+2, r->w-4, r->h-4, fg);
 }
 
 static void draw_desktop(graph_t* g, void* p) {
 	(void)p;
 	clear(g, _xwm_config.desk_bg_color);
 	//background pattern
-	int32_t x, y;
+	/*int32_t x, y;
 	for(y=10; y<(int32_t)g->h; y+=10) {
 		for(x=0; x<(int32_t)g->w; x+=10) {
 			pixel(g, x, y, _xwm_config.desk_fg_color);
 		}
 	}
+	*/
 }
 
 int main(int argc, char** argv) {

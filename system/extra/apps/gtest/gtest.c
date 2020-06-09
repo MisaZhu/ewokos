@@ -5,17 +5,6 @@
 #include <vprintf.h>
 #include <x/xclient.h>
 
-static bool top = false;
-static void on_focus(x_t* x) {
-	(void)x;
-	top = true;
-}
-
-static void on_unfocus(x_t* x) {
-	(void)x;
-	top = false;
-}
-
 static void event_handle(x_t* x, xevent_t* ev) {
 	int key = 0;
 	if(ev->type == XEVT_KEYB) {
@@ -35,15 +24,12 @@ static void repaint(x_t* x, graph_t* g) {
 }
 
 static void step(x_t* x) {
-	if(top) {
-		x_repaint(x);
-	}
+	x_repaint(x);
 }
 
 int main(int argc, char* argv[]) {
 	(void)argc;
 	(void)argv;
-	top = false;
 	xscreen_t scr;
 	x_screen_info(&scr);
 	x_t* x = x_open(10, 10, 220, 200, "gtest", X_STYLE_NORMAL | X_STYLE_NO_RESIZE);
@@ -51,8 +37,6 @@ int main(int argc, char* argv[]) {
 	int i = 0;
 	x->data = &i;
 	x->on_repaint = repaint;
-	x->on_focus = on_focus;
-	x->on_unfocus = on_unfocus;
 	x->on_event = event_handle;
 	x->on_loop = step;
 
