@@ -51,13 +51,13 @@ int main(int argc, char* argv[]) {
 		return -1;
 	}
 
-	printf("loading...");
+	//printf("loading...");
 	graph_t* img = png_image_new(argv[1]);
 	if(img == NULL)  {
-		printf("open '%s' error!\n", argv[1]);
+		//printf("open '%s' error!\n", argv[1]);
 		return -1;
 	}
-	printf("ok\n");
+	//printf("ok\n");
 
 	_alpha = 0xff;
 	x_t* x = x_open(10, 10, img->w, img->h+60, "png", X_STYLE_NORMAL | X_STYLE_NO_RESIZE | X_STYLE_ALPHA);
