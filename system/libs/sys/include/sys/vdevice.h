@@ -9,8 +9,8 @@
 typedef struct {
 	char name[FS_NODE_NAME_MAX];
 	void* extra_data;
+	int (*dcntl)(int from_pid, const char* fname, fsinfo_t* info, int cmd, proto_t* in, proto_t* ret, void* p);
 	int (*open)(int fd, int ufid, int from_pid, fsinfo_t* info, int oflag, void* p);
-	int (*info)(int from_pid, const char* fname, fsinfo_t* info, proto_t* ret, void* p);
 	int (*create)(fsinfo_t* info_to, fsinfo_t* info, void* p);
 	int (*close)(int fd, int ufid, int from_pid, fsinfo_t* info, void* p);
 	int (*read)(int fd, int ufid, int from_pid, fsinfo_t* info, void* buf, int size, int offset, void* p);
@@ -29,5 +29,7 @@ typedef struct {
 } vdevice_t;
 
 extern int device_run(vdevice_t* dev, const char* mnt_point, int mnt_type);
+
+extern int dcntl(const char* fname, int cmd, proto_t* in, proto_t* out);
 
 #endif

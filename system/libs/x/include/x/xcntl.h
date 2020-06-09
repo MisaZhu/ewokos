@@ -11,7 +11,12 @@ enum {
 	X_CNTL_GET_INFO,
 	X_CNTL_WORKSPACE,
 	X_CNTL_IS_TOP,
+	X_CNTL_SET_XWM,
 	X_CNTL_SET_VISIBLE
+};
+
+enum {
+	X_DCNTL_GET_INFO = 0
 };
 
 enum {

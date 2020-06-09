@@ -21,7 +21,6 @@ enum {
 int  fcntl_raw(int fd, int cmd, proto_t* in, proto_t* out);
 
 int  open(const char* name, int oflag);
-int  finfo(const char* name, proto_t* out);
 void close(int fd);
 int  dma(int fd, int* size);
 void flush(int fd);

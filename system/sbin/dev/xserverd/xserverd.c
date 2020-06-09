@@ -127,9 +127,11 @@ static void draw_desktop(x_t* x) {
 		addi(&in, x->g->w)->
 		addi(&in, x->g->h);
 
-	ipc_call(x->xwm_pid, XWM_CNTL_DRAW_DESKTOP, &in, &out);
+	int res = ipc_call(x->xwm_pid, XWM_CNTL_DRAW_DESKTOP, &in, &out);
 	PF->clear(&in);
 	PF->clear(&out);
+	if(res != 0)
+	 fill(x->g, 0, 0, x->g->w, x->g->h, 0xff000000);
 }
 
 static int draw_view(x_t* xp, xview_t* view) {
@@ -447,19 +449,20 @@ static int get_xwm_workspace(x_t* x, int style, grect_t* rin, grect_t* rout) {
 		addi(&in, style)->
 		add(&in, rin, sizeof(grect_t));
 
-	ipc_call(x->xwm_pid, XWM_CNTL_GET_WORKSPACE, &in, &out);
-
+	int res = ipc_call(x->xwm_pid, XWM_CNTL_GET_WORKSPACE, &in, &out);
 	PF->clear(&in);
-	proto_read_to(&out, rout, sizeof(grect_t));
+	if(res == 0)
+		proto_read_to(&out, rout, sizeof(grect_t));
 	PF->clear(&out);
-	return 0;
+
+	return res;
 }
 
 static int x_workspace(x_t* x, proto_t* in, proto_t* out) {
 	grect_t r;
 	int style = proto_read_int(in);
 	proto_read_to(in, &r, sizeof(grect_t));
-	get_xwm_workspace(x, style, &r, &r);
+	get_xwm_workspace(x, style, &r, &r); 
 	PF->add(out, &r, sizeof(grect_t));
 	return 0;
 }
@@ -488,6 +491,11 @@ static int xserver_fcntl(int fd, int ufid, int from_pid, fsinfo_t* info,
 	else if(cmd == X_CNTL_IS_TOP) {
 		return x_is_top(ufid, from_pid, x, out);
 	}
+	else if(cmd == X_CNTL_SET_XWM) {
+		 x->xwm_pid = from_pid;
+		 x_dirty(x);
+		 return 0;
+	}
 
 	return 0;
 }
@@ -513,17 +521,20 @@ static int xserver_open(int fd, int ufid, int from_pid, fsinfo_t* info, int ofla
 	return 0;
 }
 
-static int xserver_info(int from_pid, const char* fname, fsinfo_t* info, proto_t* ret, void* p) {
+static int xserver_dcntl(int from_pid, const char* fname, fsinfo_t* info, int cmd, proto_t* in, proto_t* ret, void* p) {
 	(void)from_pid;
 	(void)fname;
 	(void)info;
+	(void)in;
 	x_t* x = (x_t*)p;
 
-	xscreen_t scr;	
-	scr.id = 0;
-	scr.size.w = x->g->w;
-	scr.size.h = x->g->h;
-	PF->add(ret, &scr, sizeof(xscreen_t));
+	if(cmd == X_DCNTL_GET_INFO) {
+		xscreen_t scr;	
+		scr.id = 0;
+		scr.size.w = x->g->w;
+		scr.size.h = x->g->h;
+		PF->add(ret, &scr, sizeof(xscreen_t));
+	}
 	return 0;
 }
 
@@ -634,10 +645,12 @@ static int get_win_frame_pos(x_t* x, xview_t* view) {
 		addi(&in, x->cursor.cpos.x)->
 		addi(&in, x->cursor.cpos.y)->
 		add(&in, &view->xinfo, sizeof(xinfo_t));
-	ipc_call(x->xwm_pid, XWM_CNTL_GET_POS, &in, &out);
+	int res = ipc_call(x->xwm_pid, XWM_CNTL_GET_POS, &in, &out);
 	PF->clear(&in);
-
-	int res = proto_read_int(&out);
+	if(res == 0)
+		res = proto_read_int(&out);
+	else
+		res = -1;
 	PF->clear(&out);
 	return res;
 }
@@ -962,7 +975,7 @@ int main(int argc, char** argv) {
 	dev.fcntl = xserver_fcntl;
 	dev.close = xserver_close;
 	dev.open = xserver_open;
-	dev.info = xserver_info;
+	dev.dcntl = xserver_dcntl;
 	dev.loop_step= xserver_loop_step;
 
 	x.xwm_pid = xwm_pid;

@@ -2,6 +2,7 @@
 #include <sys/shm.h>
 #include <sys/ipc.h>
 #include <sys/syscall.h>
+#include <sys/vdevice.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <stdlib.h>
@@ -186,7 +187,7 @@ int x_screen_info(xscreen_t* scr) {
 	proto_t out;
 	PF->init(&out, NULL, 0);
 
-	int ret = finfo("/dev/x", &out);
+	int ret = dcntl("/dev/x", X_DCNTL_GET_INFO, NULL, &out);
 	if(ret == 0)
 		proto_read_to(&out, scr, sizeof(xscreen_t));
 	PF->clear(&out);
