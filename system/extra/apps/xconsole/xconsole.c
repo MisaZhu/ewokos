@@ -99,10 +99,8 @@ static void loop(x_t* x) {
 	char buf[256];
 	int32_t size = read_nblock(0, buf, 255);
 	if(size > 0) {
-		buf[size] = 0;
-		const char* p = (const char*)buf;
 		for(int32_t i=0; i<size; i++) {
-			char c = p[i];
+			char c = buf[i];
 			console_put_char(console, c);
 		}
 		x_repaint(x);
