@@ -143,6 +143,11 @@ static void draw_frame(graph_t* g, xinfo_t* info, bool top, void* p) {
 		y -= _xwm_config.title_h;
 	}
 	box(g, x, y, w, h, bg);//win box
+	//shadow
+	if(top) {
+		fill(g, x+w, y+2, 2, h, 0x88000000);
+		fill(g, x+2, y+h, w-2, 2, 0x88000000);
+	}
 }
 
 static void draw_title_pattern(graph_t* g, int x, int y, int w, int h, uint32_t fg, uint32_t bg) {
@@ -209,13 +214,12 @@ static void draw_desktop(graph_t* g, void* p) {
 	(void)p;
 	clear(g, _xwm_config.desk_bg_color);
 	//background pattern
-	/*int32_t x, y;
+	int32_t x, y;
 	for(y=10; y<(int32_t)g->h; y+=10) {
 		for(x=0; x<(int32_t)g->w; x+=10) {
 			pixel(g, x, y, _xwm_config.desk_fg_color);
 		}
 	}
-	*/
 }
 
 int main(int argc, char** argv) {
