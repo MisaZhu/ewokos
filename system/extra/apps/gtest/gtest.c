@@ -25,6 +25,7 @@ static void repaint(x_t* x, graph_t* g) {
 
 static void step(x_t* x) {
 	x_repaint(x);
+	usleep(20000);
 }
 
 int main(int argc, char* argv[]) {

@@ -16,7 +16,8 @@ enum {
 };
 
 enum {
-	X_DCNTL_GET_INFO = 0
+	X_DCNTL_GET_INFO = 0,
+	X_DCNTL_SET_XWM
 };
 
 enum {

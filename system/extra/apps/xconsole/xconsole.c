@@ -99,6 +99,7 @@ static void loop(x_t* x) {
 	char buf[256];
 	int32_t size = read_nblock(0, buf, 255);
 	if(size > 0) {
+		buf[size] = 0;
 		for(int32_t i=0; i<size; i++) {
 			char c = buf[i];
 			console_put_char(console, c);
@@ -119,12 +120,12 @@ static int run(int argc, char* argv[]) {
 
 	x_t* xp = NULL;
 	if(_conf.w > 0 && _conf.h > 0) {
-		xp  = x_open(0, 0, _conf.w, _conf.h, "xconsole", 0);
+		xp  = x_open(10, 40, _conf.w, _conf.h, "xconsole", 0);
 	}
 	else {
 		xscreen_t scr;
  		x_screen_info(&scr);
-		xp = x_open(0, 0, scr.size.w*3/4, scr.size.h*3/4, "xconsole", 0);
+		xp = x_open(10, 40, scr.size.w*3/4, scr.size.h*3/4, "xconsole", 0);
 	}
 
 	if(xp == NULL) {

@@ -535,6 +535,10 @@ static int xserver_dcntl(int from_pid, const char* fname, fsinfo_t* info, int cm
 		scr.size.h = x->g->h;
 		PF->add(ret, &scr, sizeof(xscreen_t));
 	}
+	else if(cmd == X_DCNTL_SET_XWM) {
+		x->xwm_pid = from_pid;
+		x_dirty(x);
+	}
 	return 0;
 }
 

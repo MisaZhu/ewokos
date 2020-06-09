@@ -60,7 +60,7 @@ int main(int argc, char* argv[]) {
 	//printf("ok\n");
 
 	_alpha = 0xff;
-	x_t* x = x_open(10, 10, img->w, img->h+60, "png", X_STYLE_NORMAL | X_STYLE_NO_RESIZE | X_STYLE_ALPHA);
+	x_t* x = x_open(30, 30, img->w, img->h+60, "png", X_STYLE_NORMAL | X_STYLE_NO_RESIZE | X_STYLE_ALPHA);
 	if(x == NULL) {
 		graph_free(img);
 		return -1;

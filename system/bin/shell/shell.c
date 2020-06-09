@@ -55,7 +55,8 @@ static void clear_buf(str_t* buf) {
 		buf->cstr[i] = CONSOLE_LEFT; 
 		i++;
 	}
-	puts(buf->cstr);
+	if(buf->len > 0)
+		puts(buf->cstr);
 	buf->len = 0;
 }
 
@@ -99,7 +100,8 @@ static int32_t gets(str_t* buf) {
 				tail = head;
 				clear_buf(buf);
 				str_cpy(buf, head->cmd->cstr);
-				puts(buf->cstr);
+				if(buf->len > 0)
+					puts(buf->cstr);
 			}
 		}
 		else if (c == KEY_DOWN) { //next command
@@ -110,7 +112,8 @@ static int32_t gets(str_t* buf) {
 			if(tail != NULL) {
 				head = tail;
 				str_cpy(buf, tail->cmd->cstr);
-				puts(buf->cstr);
+				if(buf->len > 0)
+					puts(buf->cstr);
 			}
 			else {
 				head = _history;

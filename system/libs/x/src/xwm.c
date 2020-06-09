@@ -5,6 +5,7 @@
 #include <sys/ipc.h>
 #include <sys/shm.h>
 #include <sys/proc.h>
+#include <sys/vdevice.h>
 #include <graph/graph.h>
 #include <sconf.h>
 #include <x/xcntl.h>
@@ -142,6 +143,7 @@ static void handle(int from_pid, int cmd, proto_t* in, proto_t* out, void* p) {
 }
 
 void xwm_run(xwm_t* xwm) {
+	dcntl("/dev/x", X_DCNTL_SET_XWM, NULL, NULL);
 	ipc_serv_run(handle, xwm, false);
 	while(true) {
 		sleep(1);

@@ -22,8 +22,11 @@ int32_t console_reset(console_t* console, uint32_t w, uint32_t h) {
 	int old_total = console->content.cols* console->content.rows;
 	int old_cols = console->content.cols;
 	int old_start_row = console->state.start_row;
-	char* old_data = (char*)malloc(old_total);
-	memcpy(old_data, console->content.data, old_total);
+	char* old_data = NULL;
+	if(old_total > 0 && console->content.data != NULL) {
+		old_data = (char*)malloc(old_total);
+		memcpy(old_data, console->content.data, old_total);
+	}
 
 	console->state.size = 0;
 	console->state.start_row = 0;
@@ -31,10 +34,18 @@ int32_t console_reset(console_t* console, uint32_t w, uint32_t h) {
 	console->content.cols = div_u32(w, console->font->w)-1;
 	console->content.rows = div_u32(h, console->font->h);
 	uint32_t data_size = console->content.rows*console->content.cols;
-	if(console->content.data != NULL)
+	if(console->content.data != NULL) {
 		free(console->content.data);
-	console->content.data = (char*)malloc(data_size);
-	memset(console->content.data, 0, data_size);
+		console->content.data = NULL;
+	}
+
+	if(data_size > 0) {
+		console->content.data = (char*)malloc(data_size);
+		memset(console->content.data, 0, data_size);
+	}
+
+	if(old_data == NULL)
+		return 0;
 
 	//restore old data
 	if(old_start_row > 0 && old_size > old_cols) {

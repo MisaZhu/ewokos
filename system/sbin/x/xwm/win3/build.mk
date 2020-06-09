@@ -6,4 +6,4 @@ PROGS += $(XWM_WIN3)
 CLEAN += $(XWM_WIN3_OBJS)
 
 $(XWM_WIN3): $(XWM_WIN3_OBJS) $(LIB_OBJS)
-	$(LD) -Ttext=100 $(XWM_WIN3_OBJS) -o $(XWM_WIN3) $(LDFLAGS) -lgraph -lewokc -lsconf -lc -lx
+	$(LD) -Ttext=100 $(XWM_WIN3_OBJS) -o $(XWM_WIN3) $(LDFLAGS) -lgraph -lx -lewokc -lsconf -lc
