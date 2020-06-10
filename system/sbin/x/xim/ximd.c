@@ -13,7 +13,7 @@ static void input(char c) {
 
 	proto_t in;
 	PF->init(&in, NULL, 0)->adds(&in, s);
-	dcntl("/dev/x", X_DCNTL_INPUT, &in, NULL);
+	dev_cntl("/dev/x", X_DCNTL_INPUT, &in, NULL);
 	PF->clear(&in);
 }
 

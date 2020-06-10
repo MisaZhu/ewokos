@@ -144,7 +144,7 @@ static void do_proc_exit(int32_t pid, proto_t* in) {
 	
 	str_t* v = env_get(_proc_info_table[cpid].envs, "XWM"); //if is xwm proc
 	if(v != NULL) {
-		dcntl("/dev/x", X_DCNTL_UNSET_XWM, NULL, NULL);
+		dev_cntl("/dev/x", X_DCNTL_UNSET_XWM, NULL, NULL);
 		return;
 	}
 }

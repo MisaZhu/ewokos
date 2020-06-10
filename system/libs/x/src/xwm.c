@@ -144,7 +144,7 @@ static void handle(int from_pid, int cmd, proto_t* in, proto_t* out, void* p) {
 
 void xwm_run(xwm_t* xwm) {
 	setenv("XWM", "true");
-	dcntl("/dev/x", X_DCNTL_SET_XWM, NULL, NULL);
+	dev_cntl("/dev/x", X_DCNTL_SET_XWM, NULL, NULL);
 	ipc_serv_run(handle, xwm, false);
 	while(true) {
 		sleep(1);

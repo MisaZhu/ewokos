@@ -252,12 +252,8 @@ static void do_clear_buffer(vdevice_t* dev, int from_pid, proto_t *in, proto_t* 
 	PF->addi(out, res);
 }
 
-static void do_dcntl(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, void* p) {
-	fsinfo_t info;
+static void do_dev_cntl(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, void* p) {
 	int cmd = proto_read_int(in);
-	const char* fname = proto_read_str(in);
-	proto_read_to(in, &info, sizeof(fsinfo_t));
-
 	int32_t  sz;
 	void* data = proto_read(in, &sz);
 	
@@ -269,8 +265,8 @@ static void do_dcntl(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, vo
 	if(data != NULL) 
 		PF->copy(&in_arg, data, sz);
 
-	if(dev != NULL && dev->dcntl != NULL) {
-		if(dev->dcntl(from_pid, fname, &info, cmd, &in_arg, &ret, p) == 0) {
+	if(dev != NULL && dev->dev_cntl != NULL) {
+		if(dev->dev_cntl(from_pid, cmd, &in_arg, &ret, p) == 0) {
 			PF->clear(out)->addi(out, 0)->add(out, ret.data, ret.size);
 		}
 	}
@@ -329,8 +325,8 @@ static void handle(int from_pid, int cmd, proto_t* in, proto_t* out, void* p) {
 	case FS_CMD_INTERRUPT:
 		do_interrupt(dev, in, p);
 		break;
-	case FS_CMD_DCNTL:
-		do_dcntl(dev, from_pid, in, out, p);
+	case FS_CMD_DEV_CNTL:
+		do_dev_cntl(dev, from_pid, in, out, p);
 		break;
 	}
 }
@@ -394,25 +390,17 @@ int device_run(vdevice_t* dev, const char* mnt_point, int mnt_type) {
 	return 0;
 }
 
-int dcntl(const char* fname, int cmd, proto_t* in, proto_t* out) {
-	fsinfo_t info;
-
-	if(vfs_get(fname, &info) != 0) {
-		return -1;
-	}
-
+int dev_cntl_by_pid(int pid, int cmd, proto_t* in, proto_t* out) {
 	proto_t in_arg, ret;
 	PF->init(&ret, NULL, 0);
 
 	PF->init(&in_arg, NULL, 0)->
-		addi(&in_arg, cmd)->
-		adds(&in_arg, fname)->
-		add(&in_arg, &info, sizeof(fsinfo_t));
+		addi(&in_arg, cmd);
 
 	if(in != NULL)
 		PF->add(&in_arg, in->data, in->size);
 
-	int res = ipc_call(info.mount_pid, FS_CMD_DCNTL, &in_arg, &ret);
+	int res = ipc_call(pid, FS_CMD_DEV_CNTL, &in_arg, &ret);
 	PF->clear(&in_arg);
 	if(res != 0) {
 		PF->clear(&ret);
@@ -432,4 +420,11 @@ int dcntl(const char* fname, int cmd, proto_t* in, proto_t* out) {
 	}
 	PF->clear(&ret);
 	return res;
+}
+
+int dev_cntl(const char* fname, int cmd, proto_t* in, proto_t* out) {
+	fsinfo_t info;
+	if(vfs_get(fname, &info) != 0)
+		return -1;
+	return dev_cntl_by_pid(info.mount_pid, cmd, in, out);
 }

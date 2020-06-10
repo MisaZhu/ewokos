@@ -187,7 +187,7 @@ int x_screen_info(xscreen_t* scr) {
 	proto_t out;
 	PF->init(&out, NULL, 0);
 
-	int ret = dcntl("/dev/x", X_DCNTL_GET_INFO, NULL, &out);
+	int ret = dev_cntl("/dev/x", X_DCNTL_GET_INFO, NULL, &out);
 	if(ret == 0)
 		proto_read_to(&out, scr, sizeof(xscreen_t));
 	PF->clear(&out);

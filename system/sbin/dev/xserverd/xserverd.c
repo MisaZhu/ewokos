@@ -518,10 +518,8 @@ static int xserver_open(int fd, int ufid, int from_pid, fsinfo_t* info, int ofla
 	return 0;
 }
 
-static int xserver_dcntl(int from_pid, const char* fname, fsinfo_t* info, int cmd, proto_t* in, proto_t* ret, void* p) {
+static int xserver_dev_cntl(int from_pid, int cmd, proto_t* in, proto_t* ret, void* p) {
 	(void)from_pid;
-	(void)fname;
-	(void)info;
 	(void)in;
 	x_t* x = (x_t*)p;
 
@@ -978,7 +976,7 @@ int main(int argc, char** argv) {
 	dev.fcntl = xserver_fcntl;
 	dev.close = xserver_close;
 	dev.open = xserver_open;
-	dev.dcntl = xserver_dcntl;
+	dev.dev_cntl = xserver_dev_cntl;
 	dev.loop_step= xserver_loop_step;
 
 	prs_down = false;

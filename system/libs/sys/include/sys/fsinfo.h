@@ -35,7 +35,7 @@ enum {
 	FS_CMD_CLEAR_BUFFER,
 	FS_CMD_FLUSH,
 	FS_CMD_INTERRUPT,
-	FS_CMD_DCNTL
+	FS_CMD_DEV_CNTL
 };
 
 typedef struct {
