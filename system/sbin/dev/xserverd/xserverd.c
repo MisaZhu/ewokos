@@ -73,7 +73,7 @@ typedef struct {
 	x_current_t current;
 	x_conf_t config;
 
-	charbuf_t input_buffer;
+	charbuf_t keyb_buffer;
 	uint32_t lock;
 } x_t;
 
@@ -541,7 +541,7 @@ static int xserver_dev_cntl(int from_pid, int cmd, proto_t* in, proto_t* ret, vo
 	else if(cmd == X_DCNTL_INPUT) {
 		const char* s = proto_read_str(in);
 		while(*s != 0) {
-			charbuf_push(&x->input_buffer, *s, true);
+			charbuf_push(&x->keyb_buffer, *s, true);
 			s++;
 		}
 	}
@@ -634,7 +634,7 @@ static int x_init(x_t* x) {
 	x->cursor.cpos.y = h/2; 
 	x->show_cursor = true;
 
-	charbuf_init(&x->input_buffer);
+	charbuf_init(&x->keyb_buffer);
 
 	x->lock = lock_new();
 	return 0;
@@ -859,7 +859,7 @@ static void joy_2_keyb(int key, int8_t* v) {
 
 static void read_input(x_t* x) {
 	char c;
-	if(charbuf_pop(&x->input_buffer, &c) == 0 && c != 0)
+	if(charbuf_pop(&x->keyb_buffer, &c) == 0 && c != 0)
 		keyb_handle(x, c);
 
 	//read mouse
