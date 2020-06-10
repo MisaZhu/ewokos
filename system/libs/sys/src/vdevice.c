@@ -422,9 +422,16 @@ int dev_cntl_by_pid(int pid, int cmd, proto_t* in, proto_t* out) {
 	return res;
 }
 
-int dev_cntl(const char* fname, int cmd, proto_t* in, proto_t* out) {
+int dev_get_pid(const char* fname) {
 	fsinfo_t info;
 	if(vfs_get(fname, &info) != 0)
 		return -1;
-	return dev_cntl_by_pid(info.mount_pid, cmd, in, out);
+	return info.mount_pid;
+}
+
+int dev_cntl(const char* fname, int cmd, proto_t* in, proto_t* out) {
+	int pid = dev_get_pid(fname);
+	if(pid < 0)
+		return -1;
+	return dev_cntl_by_pid(pid, cmd, in, out);
 }
