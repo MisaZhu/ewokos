@@ -56,6 +56,9 @@ typedef struct {
 typedef struct {
 	bool actived;
 	int fb_fd;
+	int keyb_fd;
+	int mouse_fd;
+	int joystick_fd;
 	int xwm_pid;
 	int shm_id;
 	bool dirty;
@@ -515,18 +518,127 @@ static int xserver_open(int fd, int ufid, int from_pid, fsinfo_t* info, int ofla
 	return 0;
 }
 
-static void mouse_cxy(x_t* x, int32_t rx, int32_t ry) {
-	x->cursor.cpos.x += rx;
-	x->cursor.cpos.y += ry;
-	if(x->cursor.cpos.x < 0)
-		x->cursor.cpos.x = 0;
-	if(x->cursor.cpos.x >= (int32_t)x->g->w)
-		x->cursor.cpos.x = x->g->w;
-	if(x->cursor.cpos.y < 0)
-		x->cursor.cpos.y = 0;
-	if(x->cursor.cpos.y >= (int32_t)x->g->h)
-		x->cursor.cpos.y = x->g->h;
+static int xserver_dev_cntl(int from_pid, int cmd, proto_t* in, proto_t* ret, void* p) {
+	(void)from_pid;
+	(void)in;
+	x_t* x = (x_t*)p;
+
+	if(cmd == X_DCNTL_GET_INFO) {
+		xscreen_t scr;	
+		scr.id = 0;
+		scr.size.w = x->g->w;
+		scr.size.h = x->g->h;
+		PF->add(ret, &scr, sizeof(xscreen_t));
+	}
+	else if(cmd == X_DCNTL_SET_XWM) {
+		x->xwm_pid = from_pid;
+		x_dirty(x);
+	}
+	else if(cmd == X_DCNTL_UNSET_XWM) {
+		x->xwm_pid = -1;
+		x_dirty(x);
+	}
+	else if(cmd == X_DCNTL_INPUT) {
+		const char* s = proto_read_str(in);
+		while(*s != 0) {
+			charbuf_push(&x->keyb_buffer, *s, true);
+			s++;
+		}
+	}
+
+	return 0;
 }
+
+static int xserver_close(int fd, int ufid, int from_pid, fsinfo_t* info, void* p) {
+	(void)info;
+	(void)fd;
+	x_t* x = (x_t*)p;
+	xview_t* view = x_get_view(x, ufid, from_pid);
+	if(view == NULL) {
+		return -1;
+	}
+	lock_lock(x->lock);
+	x_del_view(x, view);	
+	lock_unlock(x->lock);
+	return 0;
+}
+
+static void x_check_views(x_t* x) {
+	xview_t* view = x->view_head;
+	lock_lock(x->lock);
+	while(view != NULL) {
+		xview_t* next = view->next;
+		uint32_t ufid = vfs_check_fd(view->from_pid, view->fd);
+		if(ufid == 0 || ufid != view->ufid)
+			x_del_view(x, view);
+		view = next;
+	}
+	lock_unlock(x->lock);
+}
+
+static int x_init(x_t* x) {
+	memset(x, 0, sizeof(x_t));
+	x->xwm_pid = -1;
+
+	int fd = open("/dev/mouse0", O_RDONLY);
+	x->mouse_fd = fd;
+
+	fd = open("/dev/joystick", O_RDONLY);
+	x->joystick_fd = fd;
+
+	fd = open("/dev/fb1", O_RDWR);
+	if(fd < 0) 
+		fd = open("/dev/fb0", O_RDWR);
+	if(fd < 0) {
+		close(x->mouse_fd);
+		return -1;
+	}
+	x->fb_fd = fd;
+
+	int id = dma(fd, NULL);
+	if(id <= 0) {
+		close(x->mouse_fd);
+		close(x->fb_fd);
+		return -1;
+	}
+
+	void* gbuf = shm_map(id);
+	if(gbuf == NULL) {
+		close(x->mouse_fd);
+		close(x->fb_fd);
+		return -1;
+	}
+
+	proto_t out;
+	PF->init(&out, NULL, 0);
+
+	if(fcntl_raw(fd, CNTL_INFO, NULL, &out) != 0) {
+		shm_unmap(id);
+		close(x->mouse_fd);
+		close(x->fb_fd);
+		return -1;
+	}
+
+	int w = proto_read_int(&out);
+	int h = proto_read_int(&out);
+	x->g = graph_new(gbuf, w, h);
+	PF->clear(&out);
+	x->shm_id = id;
+	x_dirty(x);
+
+	x->cursor.size.w = 15;
+	x->cursor.size.h = 15;
+	x->cursor.offset.x = 8;
+	x->cursor.offset.y = 8;
+	x->cursor.cpos.x = w/2;
+	x->cursor.cpos.y = h/2; 
+	x->show_cursor = true;
+
+	charbuf_init(&x->keyb_buffer);
+
+	x->lock = lock_new();
+	return 0;
+}	
 
 static int get_win_frame_pos(x_t* x, xview_t* view) {
 	if((view->xinfo.style & X_STYLE_NO_FRAME) != 0)
@@ -575,10 +687,39 @@ static xview_t* get_mouse_owner(x_t* x, int* win_frame_pos) {
 	return NULL;
 }
 
-static int mouse_handle(x_t* x, xevent_t* ev) {
-	mouse_cxy(x, ev->value.mouse.rx, ev->value.mouse.ry);
-	ev->value.mouse.x = x->cursor.cpos.x;
-	ev->value.mouse.y = x->cursor.cpos.y;
+static void mouse_cxy(x_t* x, int32_t rx, int32_t ry) {
+	x->cursor.cpos.x += rx;
+	x->cursor.cpos.y += ry;
+	if(x->cursor.cpos.x < 0)
+		x->cursor.cpos.x = 0;
+	if(x->cursor.cpos.x >= (int32_t)x->g->w)
+		x->cursor.cpos.x = x->g->w;
+	if(x->cursor.cpos.y < 0)
+		x->cursor.cpos.y = 0;
+	if(x->cursor.cpos.y >= (int32_t)x->g->h)
+		x->cursor.cpos.y = x->g->h;
+}
+
+static xview_t* get_top_view(x_t* x) {
+	xview_t* ret = x->view_tail; 
+	while(ret != NULL) {
+		if(ret->xinfo.visible)
+			return ret;
+		ret = ret->prev;
+	}
+	return NULL;
+}
+
+static int mouse_handle(x_t* x, int8_t state, int32_t rx, int32_t ry) {
+	mouse_cxy(x, rx, ry);
+
+	xevent_t e;
+	e.type = XEVT_MOUSE;
+	e.state = XEVT_MOUSE_MOVE;
+	e.value.mouse.x = x->cursor.cpos.x;
+	e.value.mouse.y = x->cursor.cpos.y;
+	e.value.mouse.rx = rx;
+	e.value.mouse.ry = ry;
 
 	int pos = -1;
 	xview_t* view = NULL;
@@ -591,21 +732,21 @@ static int mouse_handle(x_t* x, xevent_t* ev) {
 		return -1;
 	}
 
-	if(ev->state ==  XEVT_MOUSE_DOWN) {
+	if(state == 2) { //down
 		if(view != x->view_tail) {
 			remove_view(x, view);
 			push_view(x, view);
 		}
 
 		if(pos == XWM_FRAME_CLOSE) { //window close
-			ev->type = XEVT_WIN;
-			ev->value.window.event = XEVT_WIN_CLOSE;
+			e.type = XEVT_WIN;
+			e.value.window.event = XEVT_WIN_CLOSE;
 			view->xinfo.visible = false;
 			x_dirty(x);
 		}
 		else if(pos == XWM_FRAME_MAX) {
-			ev->type = XEVT_WIN;
-			ev->value.window.event = XEVT_WIN_MAX;
+			e.type = XEVT_WIN;
+			e.value.window.event = XEVT_WIN_MAX;
 		}
 		else { // mouse down
 			if(pos == XWM_FRAME_TITLE) {//window title 
@@ -614,10 +755,11 @@ static int mouse_handle(x_t* x, xevent_t* ev) {
 				x->current.old_pos.y = x->cursor.cpos.y;
 				x_dirty(x);
 			}
-			ev->state = XEVT_MOUSE_DOWN;
+			e.state = XEVT_MOUSE_DOWN;
 		}
 	}
-	else if(ev->state == XEVT_MOUSE_UP) {
+	else if(state == 1) {
+		e.state = XEVT_MOUSE_UP;
 		if(x->current.view == view) {
 			x_dirty(x);
 		}
@@ -635,151 +777,144 @@ static int mouse_handle(x_t* x, xevent_t* ev) {
 			x_dirty(x);
 		}
 	}
-	x_push_event(view, ev);
+	x_push_event(view, &e);
 	return -1;
 }
 
-static xview_t* get_top_view(x_t* x) {
-	xview_t* ret = x->view_tail; 
-	while(ret != NULL) {
-		if(ret->xinfo.visible)
-			return ret;
-		ret = ret->prev;
-	}
-	return NULL;
-}
-
-static int keyb_handle(x_t* x, xevent_t* ev) {
+static int keyb_handle(x_t* x, int8_t v) {
 	xview_t* topv = get_top_view(x);
 	if(topv != NULL) {
+		xevent_t e;
+		e.type = XEVT_KEYB;
+		e.value.keyboard.value = v;
+
 		//lock_lock(x->lock);
-		x_push_event(topv, ev);
+		x_push_event(topv, &e);
 		//lock_unlock(x->lock);
 	}
+	usleep(1000);
 	return 0;
 }
 
-static void handle_input(x_t* x, xevent_t* ev) {
-	if(ev->type == XEVT_KEYB) {
-		keyb_handle(x, ev);
+#define KEY_V_UP        0x1
+#define KEY_V_DOWN      0x2
+#define KEY_V_LEFT      0x4
+#define KEY_V_RIGHT     0x8
+#define KEY_V_PRESS     0x10
+#define KEY_V_1         0x20
+#define KEY_V_2         0x40
+#define KEY_V_3         0x80
+
+static bool prs_down = false;
+static bool j_mouse = true;
+
+static void joy_2_mouse(int key, int8_t* mv) {
+	mv[0] = mv[1] = mv[2] = 0;
+	switch(key) {
+	case KEY_V_UP:
+		mv[2] -= 8;
 		return;
-	}
-
-	if(ev->type == XEVT_MOUSE) {
-		mouse_handle(x, ev);
-		x->need_repaint = true;
-	}
+	case KEY_V_DOWN:
+		mv[2] += 8;
+		return;
+	case KEY_V_LEFT:
+		mv[1] -= 8;
+		return;
+	case KEY_V_RIGHT:
+		mv[1] += 8;
+		return;
+	case KEY_V_PRESS:
+		if(!prs_down) {
+			mv[0] = 2;
+			prs_down = true;
+		}
+		return;
+	}	
 }
 
-static int xserver_dev_cntl(int from_pid, int cmd, proto_t* in, proto_t* ret, void* p) {
-	(void)from_pid;
-	(void)in;
-	x_t* x = (x_t*)p;
-
-	if(cmd == X_DCNTL_GET_INFO) {
-		xscreen_t scr;	
-		scr.id = 0;
-		scr.size.w = x->g->w;
-		scr.size.h = x->g->h;
-		PF->add(ret, &scr, sizeof(xscreen_t));
-	}
-	else if(cmd == X_DCNTL_SET_XWM) {
-		x->xwm_pid = from_pid;
-		x_dirty(x);
-	}
-	else if(cmd == X_DCNTL_UNSET_XWM) {
-		x->xwm_pid = -1;
-		x_dirty(x);
-	}
-	else if(cmd == X_DCNTL_INPUT) {
-    xevent_t ev;
-    proto_read_to(in, &ev, sizeof(xevent_t));
-		handle_input(x, &ev);
-	}
-
-	return 0;
+static void joy_2_keyb(int key, int8_t* v) {
+	*v = 0;
+	switch(key) {
+	case KEY_V_UP:
+		*v = KEY_UP;
+		return;
+	case KEY_V_DOWN:
+		*v = KEY_DOWN;
+		return;
+	case KEY_V_LEFT:
+		*v = KEY_LEFT;
+		return;
+	case KEY_V_RIGHT:
+		*v = KEY_RIGHT;
+		return;
+	case KEY_V_1:
+	case KEY_V_PRESS:
+		*v = KEY_ENTER;
+		return;
+	case KEY_V_2:
+		*v = KEY_ESC;
+		return;
+	}	
 }
 
-static int xserver_close(int fd, int ufid, int from_pid, fsinfo_t* info, void* p) {
-	(void)info;
-	(void)fd;
-	x_t* x = (x_t*)p;
-	xview_t* view = x_get_view(x, ufid, from_pid);
-	if(view == NULL) {
-		return -1;
+static void read_input(x_t* x) {
+	char c;
+	if(charbuf_pop(&x->keyb_buffer, &c) == 0 && c != 0)
+		keyb_handle(x, c);
+
+	//read mouse
+	if(x->mouse_fd >= 0) {
+		int8_t mv[4];
+		if(read_nblock(x->mouse_fd, mv, 4) == 4) {
+			//lock_lock(x->lock);
+			mouse_handle(x, mv[0], mv[1], mv[2]);
+			x->need_repaint = true;
+			//lock_unlock(x->lock);
+		}
 	}
-	lock_lock(x->lock);
-	x_del_view(x, view);	
-	lock_unlock(x->lock);
-	return 0;
+
+	//read joystick
+	if(x->joystick_fd >= 0) {
+		uint8_t key;
+		int8_t mv[4];
+		if(read(x->joystick_fd, &key, 1) == 1) {
+			if(key == KEY_V_3 && !prs_down) { //switch joy mouse/keyboard mode
+				j_mouse = !j_mouse;
+				prs_down = true;
+				x->show_cursor = j_mouse;
+				x->need_repaint = true;
+				if(x->show_cursor) {
+					x->cursor.drop = true;
+				}
+			}
+
+			if(j_mouse) {
+				joy_2_mouse(key, mv);
+				if(key == 0 && prs_down) {
+					key = 1;
+					prs_down = false;
+					mv[0] = 1;
+				}
+				if(key != 0) {
+					//lock_lock(x->lock);
+					mouse_handle(x, mv[0], mv[1], mv[2]);
+					x->need_repaint = true;
+					//lock_unlock(x->lock);
+				}
+			}
+			else {
+				int8_t v;
+				if(key == 0 && prs_down)
+					prs_down = false;
+				else {
+					joy_2_keyb(key, &v);
+					if(v != 0)
+						keyb_handle(x, v);
+				}
+			}
+		}
+	}
 }
-
-static void x_check_views(x_t* x) {
-	xview_t* view = x->view_head;
-	lock_lock(x->lock);
-	while(view != NULL) {
-		xview_t* next = view->next;
-		uint32_t ufid = vfs_check_fd(view->from_pid, view->fd);
-		if(ufid == 0 || ufid != view->ufid)
-			x_del_view(x, view);
-		view = next;
-	}
-	lock_unlock(x->lock);
-}
-
-static int x_init(x_t* x) {
-	memset(x, 0, sizeof(x_t));
-	x->xwm_pid = -1;
-
-	int fd = open("/dev/fb1", O_RDWR);
-	if(fd < 0) 
-		fd = open("/dev/fb0", O_RDWR);
-	if(fd < 0) {
-		return -1;
-	}
-	x->fb_fd = fd;
-
-	int id = dma(fd, NULL);
-	if(id <= 0) {
-		close(x->fb_fd);
-		return -1;
-	}
-
-	void* gbuf = shm_map(id);
-	if(gbuf == NULL) {
-		close(x->fb_fd);
-		return -1;
-	}
-
-	proto_t out;
-	PF->init(&out, NULL, 0);
-
-	if(fcntl_raw(fd, CNTL_INFO, NULL, &out) != 0) {
-		shm_unmap(id);
-		close(x->fb_fd);
-		return -1;
-	}
-
-	int w = proto_read_int(&out);
-	int h = proto_read_int(&out);
-	x->g = graph_new(gbuf, w, h);
-	PF->clear(&out);
-	x->shm_id = id;
-	x_dirty(x);
-
-	x->cursor.size.w = 15;
-	x->cursor.size.h = 15;
-	x->cursor.offset.x = 8;
-	x->cursor.offset.y = 8;
-	x->cursor.cpos.x = w/2;
-	x->cursor.cpos.y = h/2; 
-	x->show_cursor = true;
-
-	charbuf_init(&x->keyb_buffer);
-
-	x->lock = lock_new();
-	return 0;
-}	
 
 static int xserver_loop_step(void* p) {
 	x_t* x = (x_t*)p;
@@ -800,6 +935,8 @@ static int xserver_loop_step(void* p) {
 	*/
 	x->actived = 1;
 
+	read_input(x);
+
 	lock_lock(x->lock);
 	x_repaint(x);	
 	lock_unlock(x->lock);
@@ -808,6 +945,7 @@ static int xserver_loop_step(void* p) {
 
 static void x_close(x_t* x) {
 	lock_free(x->lock);
+	close(x->mouse_fd);
 	graph_free(x->g);
 	shm_unmap(x->shm_id);
 	close(x->fb_fd);
@@ -841,6 +979,8 @@ int main(int argc, char** argv) {
 	dev.dev_cntl = xserver_dev_cntl;
 	dev.loop_step= xserver_loop_step;
 
+	prs_down = false;
+	j_mouse = true;
 	//pthread_create(NULL, NULL, read_thread, &x);
 	dev.extra_data = &x;
 	device_run(&dev, mnt_point, FS_TYPE_CHAR);
