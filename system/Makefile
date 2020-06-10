@@ -197,6 +197,7 @@ include $(ROOT_DIR)/sbin/dev/xserverd/build.mk
 include $(ROOT_DIR)/sbin/dev/rootfsd/build.mk
 include $(ROOT_DIR)/sbin/vfsd/build.mk
 include $(ROOT_DIR)/sbin/procd/build.mk
+include $(ROOT_DIR)/sbin/x/xim/build.mk
 include $(ROOT_DIR)/sbin/x/xwm/macos7/build.mk
 include $(ROOT_DIR)/sbin/x/xwm/win3/build.mk
 

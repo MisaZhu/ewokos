@@ -6,6 +6,7 @@
 #include <sys/vdevice.h>
 #include <sys/lockc.h>
 #include <sys/syscall.h>
+#include <sys/charbuf.h>
 #include <sys/shm.h>
 #include <graph/graph.h>
 #include <fbinfo.h>
@@ -72,6 +73,7 @@ typedef struct {
 	x_current_t current;
 	x_conf_t config;
 
+	charbuf_t input_buffer;
 	uint32_t lock;
 } x_t;
 
@@ -538,6 +540,13 @@ static int xserver_dcntl(int from_pid, const char* fname, fsinfo_t* info, int cm
 		x->xwm_pid = -1;
 		x_dirty(x);
 	}
+	else if(cmd == X_DCNTL_INPUT) {
+		const char* s = proto_read_str(in);
+		while(*s != 0) {
+			charbuf_push(&x->input_buffer, *s, true);
+			s++;
+		}
+	}
 
 	return 0;
 }
@@ -573,10 +582,7 @@ static int x_init(x_t* x) {
 	memset(x, 0, sizeof(x_t));
 	x->xwm_pid = -1;
 
-	int fd = open("/dev/keyb0", O_RDONLY);
-	x->keyb_fd = fd;
-
-	fd = open("/dev/mouse0", O_RDONLY);
+	int fd = open("/dev/mouse0", O_RDONLY);
 	x->mouse_fd = fd;
 
 	fd = open("/dev/joystick", O_RDONLY);
@@ -586,7 +592,6 @@ static int x_init(x_t* x) {
 	if(fd < 0) 
 		fd = open("/dev/fb0", O_RDWR);
 	if(fd < 0) {
-		close(x->keyb_fd);
 		close(x->mouse_fd);
 		return -1;
 	}
@@ -594,7 +599,6 @@ static int x_init(x_t* x) {
 
 	int id = dma(fd, NULL);
 	if(id <= 0) {
-		close(x->keyb_fd);
 		close(x->mouse_fd);
 		close(x->fb_fd);
 		return -1;
@@ -602,7 +606,6 @@ static int x_init(x_t* x) {
 
 	void* gbuf = shm_map(id);
 	if(gbuf == NULL) {
-		close(x->keyb_fd);
 		close(x->mouse_fd);
 		close(x->fb_fd);
 		return -1;
@@ -613,7 +616,6 @@ static int x_init(x_t* x) {
 
 	if(fcntl_raw(fd, CNTL_INFO, NULL, &out) != 0) {
 		shm_unmap(id);
-		close(x->keyb_fd);
 		close(x->mouse_fd);
 		close(x->fb_fd);
 		return -1;
@@ -633,6 +635,8 @@ static int x_init(x_t* x) {
 	x->cursor.cpos.x = w/2;
 	x->cursor.cpos.y = h/2; 
 	x->show_cursor = true;
+
+	charbuf_init(&x->input_buffer);
 
 	x->lock = lock_new();
 	return 0;
@@ -856,14 +860,9 @@ static void joy_2_keyb(int key, int8_t* v) {
 }
 
 static void read_input(x_t* x) {
-	//read keyb
-	if(x->keyb_fd >= 0) {
-		int8_t v;
-		int rd = read_nblock(x->keyb_fd, &v, 1);
-		if(rd == 1) {
-			keyb_handle(x, v);
-		}
-	}
+	char c;
+	if(charbuf_pop(&x->input_buffer, &c) == 0 && c != 0)
+		keyb_handle(x, c);
 
 	//read mouse
 	if(x->mouse_fd >= 0) {
@@ -948,7 +947,6 @@ static int xserver_loop_step(void* p) {
 
 static void x_close(x_t* x) {
 	lock_free(x->lock);
-	close(x->keyb_fd);
 	close(x->mouse_fd);
 	graph_free(x->g);
 	shm_unmap(x->shm_id);
@@ -964,13 +962,14 @@ int main(int argc, char** argv) {
 	}
 	read_config(&x, "/etc/x/x.conf");
 
-	int xwm_pid = -1;
+	int pid = -1;
 	if(x.config.xwm[0] != 0) {
-		xwm_pid = fork();
-		if(xwm_pid == 0) {
+		pid = fork();
+		if(pid == 0) {
 			exec(x.config.xwm);
 		}
-		proc_wait_ready(xwm_pid);
+		proc_wait_ready(pid);
+		x.xwm_pid = pid;
 	}
 
 	vdevice_t dev;
@@ -982,7 +981,6 @@ int main(int argc, char** argv) {
 	dev.dcntl = xserver_dcntl;
 	dev.loop_step= xserver_loop_step;
 
-	x.xwm_pid = xwm_pid;
 	prs_down = false;
 	j_mouse = true;
 	//pthread_create(NULL, NULL, read_thread, &x);
