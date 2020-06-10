@@ -7,6 +7,8 @@
 #include <mstr.h>
 #include <sys/proto.h>
 #include <sys/syscall.h>
+#include <sys/vdevice.h>
+#include <x/xcntl.h>
 #include <procinfo.h>
 #include <hashmap.h>
 
@@ -42,21 +44,20 @@ static void do_proc_set_cwd(int pid, proto_t* in, proto_t* out) {
 	PF->clear(out)->addi(out, 0);
 }
 
-static proto_t* env_get(map_t* envs, const char* key) {
-	proto_t* ret = NULL;
+static str_t* env_get(map_t* envs, const char* key) {
+	str_t* ret = NULL;
 	if(hashmap_get(envs, key, (void**)&ret) == MAP_OK)
 		return ret;
 	return NULL;
 }
 
 static void set_env(map_t* envs, const char* key, const char* val) {
-	proto_t* v = env_get(envs, key);
+	str_t* v = env_get(envs, key);
 	if(v != NULL) {
-		PF->clear(v)->adds(v, val);
+		str_cpy(v, val);
 	}
 	else {
-		v = proto_new(NULL, 0);
-		PF->adds(v, val);
+		v = str_new(val);
 		hashmap_put(envs, key, v);
 	}
 }
@@ -74,11 +75,9 @@ static void do_proc_set_env(int pid, proto_t* in, proto_t* out) {
 
 static int get_envs(const char* key, any_t data, any_t arg) {
 	proto_t* out = (proto_t*)arg;
-	proto_t* v = (proto_t*)data;
-	const char* vs = proto_read_str(v);
+	str_t* v = (str_t*)data;
 
-	PF->adds(out, key)->adds(out, vs);
-	proto_reset(v);
+	PF->adds(out, key)->adds(out, v->cstr);
 	return MAP_OK;
 }
 
@@ -97,28 +96,25 @@ static void do_proc_get_env(int pid, proto_t* in, proto_t* out) {
 		return;
 	const char* key = proto_read_str(in);
 
-	proto_t* v = env_get(_proc_info_table[pid].envs, key);
+	str_t* v = env_get(_proc_info_table[pid].envs, key);
 	if(v == NULL) {
 		return;
 	}
-	PF->clear(out)->addi(out, 0)->adds(out, proto_read_str(v));
-	proto_reset(v);
+	PF->clear(out)->addi(out, 0)->adds(out, v->cstr);
 }
 
 static int copy_envs(const char* key, any_t data, any_t arg) {
 	map_t* to = (map_t*)arg;
-	proto_t* d = (proto_t*)data;
-	const char* v = proto_read_str(d);
-	set_env(to, key, v);
-	proto_reset(d);
+	str_t* v = (str_t*)data;
+	set_env(to, key, v->cstr);
 	return MAP_OK;
 }
 
 static int free_envs(const char* key, any_t data, any_t arg) {
 	map_t* map = (map_t*)arg;
-	proto_t* d = (proto_t*)data;
+	str_t* v = (str_t*)data;
 	hashmap_remove(map, key);
-	proto_free(d);
+	str_free(v);
 	return MAP_OK;
 }
 
@@ -145,6 +141,12 @@ static void do_proc_exit(int32_t pid, proto_t* in) {
 	
 	if(cpid < 0 || cpid >= PROC_MAX)
 		return;
+	
+	str_t* v = env_get(_proc_info_table[cpid].envs, "XWM"); //if is xwm proc
+	if(v != NULL) {
+		dcntl("/dev/x", X_DCNTL_UNSET_XWM, NULL, NULL);
+		return;
+	}
 }
 
 static void handle(int pid, int cmd, proto_t* in, proto_t* out, void* p) {

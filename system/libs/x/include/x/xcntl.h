@@ -2,6 +2,7 @@
 #define XCNTL_H
 
 #include <stdbool.h>
+#include <graph/graph.h>
 
 enum {
 	X_CNTL_NONE = 0,
@@ -11,13 +12,13 @@ enum {
 	X_CNTL_GET_INFO,
 	X_CNTL_WORKSPACE,
 	X_CNTL_IS_TOP,
-	X_CNTL_SET_XWM,
 	X_CNTL_SET_VISIBLE
 };
 
 enum {
 	X_DCNTL_GET_INFO = 0,
-	X_DCNTL_SET_XWM
+	X_DCNTL_SET_XWM,
+	X_DCNTL_UNSET_XWM
 };
 
 enum {

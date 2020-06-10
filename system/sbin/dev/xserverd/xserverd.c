@@ -491,11 +491,6 @@ static int xserver_fcntl(int fd, int ufid, int from_pid, fsinfo_t* info,
 	else if(cmd == X_CNTL_IS_TOP) {
 		return x_is_top(ufid, from_pid, x, out);
 	}
-	else if(cmd == X_CNTL_SET_XWM) {
-		 x->xwm_pid = from_pid;
-		 x_dirty(x);
-		 return 0;
-	}
 
 	return 0;
 }
@@ -539,6 +534,11 @@ static int xserver_dcntl(int from_pid, const char* fname, fsinfo_t* info, int cm
 		x->xwm_pid = from_pid;
 		x_dirty(x);
 	}
+	else if(cmd == X_DCNTL_UNSET_XWM) {
+		x->xwm_pid = -1;
+		x_dirty(x);
+	}
+
 	return 0;
 }
 
