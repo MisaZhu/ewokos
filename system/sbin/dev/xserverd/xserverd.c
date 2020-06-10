@@ -652,9 +652,7 @@ static xview_t* get_top_view(x_t* x) {
 static int keyb_handle(x_t* x, xevent_t* ev) {
 	xview_t* topv = get_top_view(x);
 	if(topv != NULL) {
-		//lock_lock(x->lock);
 		x_push_event(topv, ev);
-		//lock_unlock(x->lock);
 	}
 	return 0;
 }
