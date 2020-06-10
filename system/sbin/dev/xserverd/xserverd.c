@@ -6,7 +6,6 @@
 #include <sys/vdevice.h>
 #include <sys/lockc.h>
 #include <sys/syscall.h>
-#include <sys/charbuf.h>
 #include <sys/shm.h>
 #include <graph/graph.h>
 #include <fbinfo.h>
@@ -15,9 +14,7 @@
 #include <x/xevent.h>
 #include <x/xwm.h>
 #include <sys/global.h>
-#include <pthread.h>
 #include <sys/proc.h>
-#include <sys/keydef.h>
 #include <sconf.h>
 
 #define X_EVENT_MAX 16
@@ -70,7 +67,6 @@ typedef struct {
 	x_current_t current;
 	x_conf_t config;
 
-	charbuf_t keyb_buffer;
 	uint32_t lock;
 } x_t;
 
@@ -772,8 +768,6 @@ static int x_init(x_t* x) {
 	x->cursor.cpos.x = w/2;
 	x->cursor.cpos.y = h/2; 
 	x->show_cursor = true;
-
-	charbuf_init(&x->keyb_buffer);
 
 	x->lock = lock_new();
 	return 0;
