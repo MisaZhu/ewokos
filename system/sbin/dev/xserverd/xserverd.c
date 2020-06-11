@@ -656,12 +656,12 @@ static int keyb_handle(x_t* x, xevent_t* ev) {
 static void handle_input(x_t* x, xevent_t* ev) {
 	if(ev->type == XEVT_KEYB) {
 		keyb_handle(x, ev);
-		return;
 	}
-
-	if(ev->type == XEVT_MOUSE) {
+	else if(ev->type == XEVT_MOUSE) {
+		lock_lock(x->lock);
 		mouse_handle(x, ev);
 		x->need_repaint = true;
+		lock_unlock(x->lock);
 	}
 }
 
