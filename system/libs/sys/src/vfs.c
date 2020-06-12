@@ -7,6 +7,7 @@
 #include <mstr.h>
 #include <sys/ipc.h>
 #include <sys/vfsc.h>
+#include <sys/proc.h>
 
 inline static int get_vfsd_pid(void) {
 	return ipc_serv_get(IPC_SERV_VFS);
@@ -76,7 +77,7 @@ int vfs_read_pipe(fsinfo_t* info, void* buf, uint32_t size, int block) {
 	PF->clear(&out);
 
 	if(res == 0 && block == 1) {//empty , do retry
-		syscall2(SYS_BLOCK, vfsd_pid, info->node);
+		proc_block(vfsd_pid, info->node);
 	}
 	return res;	
 }

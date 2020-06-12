@@ -18,3 +18,10 @@ void proc_wait_ready(int pid) {
 	}
 }
 
+void proc_block(int by_pid, uint32_t evt) {
+	syscall2(SYS_BLOCK, by_pid, evt);
+}
+
+void proc_wakeup(uint32_t evt) {
+	syscall1(SYS_WAKEUP, evt);
+}

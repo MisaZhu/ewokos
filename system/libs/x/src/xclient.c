@@ -2,6 +2,7 @@
 #include <sys/shm.h>
 #include <sys/ipc.h>
 #include <sys/syscall.h>
+#include <sys/proc.h>
 #include <sys/vdevice.h>
 #include <fcntl.h>
 #include <unistd.h>
@@ -227,7 +228,7 @@ static void handle(int from_pid, int cmd, proto_t* in, proto_t* out, void* p) {
 	}
 
 	if(x->on_loop == NULL)
-		syscall1(SYS_WAKEUP, (int32_t)x);
+		proc_wakeup((int32_t)x);
 }
 
 void  x_run(x_t* x) {
@@ -247,7 +248,7 @@ void  x_run(x_t* x) {
 		}
 		else {
 			if(x->on_loop == NULL) {
-				syscall2(SYS_BLOCK, ipc_pid, (int32_t)x);
+				proc_block(ipc_pid, (int32_t)x);
 			}
 			else {
 				x->on_loop(x);
