@@ -157,7 +157,10 @@ int read(int fd, void* buf, uint32_t size) {
 			break;
 		if(errno != EAGAIN)
 			break;
-		sleep(0);
+		if((info.type & FS_TYPE_SYNC) != 0)
+			proc_block(info.mount_pid, 0);
+		else
+			sleep(0);
 	}
 	return res;
 }

@@ -8,6 +8,7 @@
 #include <sys/mmio.h>
 #include <sys/charbuf.h>
 #include <sys/syscall.h>
+#include <sys/proc.h>
 
 #define KCNTL 0x00
 #define KSTAT 0x04
@@ -98,7 +99,9 @@ static int keyb_read(int fd, int ufid, int from_pid, fsinfo_t* info,
 	(void)info;
 
 	char c;
-	if(charbuf_pop(&_buffer, &c) != 0 || c == 0)
+	int res = charbuf_pop(&_buffer, &c);
+
+	if(res != 0 || c == 0)
 		return ERR_RETRY;
 
 	((char*)buf)[0] = c;
@@ -109,7 +112,10 @@ void keyb_interrupt(proto_t* in, void* p) {
 	(void)p;
 	uint8_t key_scode = proto_read_int(in);
 	char c = keyb_handle(key_scode);
-	charbuf_push(&_buffer, c, true);
+	if(c != 0) {
+		charbuf_push(&_buffer, c, true);
+		proc_wakeup(0);
+	}
 }
 
 int main(int argc, char** argv) {
@@ -129,6 +135,6 @@ int main(int argc, char** argv) {
 		return -1;
 	}
 
-	device_run(&dev, mnt_point, FS_TYPE_CHAR);
+	device_run(&dev, mnt_point, FS_TYPE_CHAR | FS_TYPE_SYNC);
 	return 0;
 }

@@ -40,8 +40,8 @@ int main(int argc, char** argv) {
 		}
 		else {
 			_x_pid = dev_get_pid("/dev/x");
+			usleep(30000);
 		}
-		usleep(30000);
 	}
 
 	close(fd);

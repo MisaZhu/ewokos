@@ -7,6 +7,7 @@
 
 #define FS_NODE_NAME_MAX 64
 #define FS_FULL_NAME_MAX 512
+#define FS_TYPE_SYNC     0x80000000
 
 enum {
 	FS_TYPE_DIR = 0,
