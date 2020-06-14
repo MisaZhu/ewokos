@@ -4,7 +4,9 @@
 #include <string.h>
 #include <sys/vfs.h>
 #include <sys/vdevice.h>
+#include <sys/charbuf.h>
 #include <sys/mmio.h>
+#include <sys/proc.h>
 
 /* memory mapping for the serial port */
 #define UART0 ((volatile uint32_t*)(_mmio_base+0x001f1000))
@@ -50,6 +52,8 @@ int32_t uart_write(const void* data, uint32_t size) {
   return i;
 }
 
+static charbuf_t _buffer;
+
 static int tty_read(int fd, int ufid, int from_pid, fsinfo_t* info,
 		void* buf, int size, int offset, void* p) {
 	(void)fd;
@@ -59,15 +63,15 @@ static int tty_read(int fd, int ufid, int from_pid, fsinfo_t* info,
 	(void)info;
 	(void)size;
 	(void)p;
-	if(uart_ready_to_recv() != 0)
-		return ERR_RETRY;
 
-	char c = uart_recv();
-	if(c == 0) 
+	char c;
+	int res = charbuf_pop(&_buffer, &c);
+
+	if(res != 0 || c == 0)
 		return ERR_RETRY;
 
 	((char*)buf)[0] = c;
-	return 1;	
+	return 1;
 }
 
 static int tty_write(int fd, int ufid, int from_pid, fsinfo_t* info,
@@ -81,16 +85,36 @@ static int tty_write(int fd, int ufid, int from_pid, fsinfo_t* info,
 	return uart_write(buf, size);
 }
 
+
+static int tty_loop(void* p) {
+	(void)p;
+
+	if(uart_ready_to_recv() != 0)
+		return 0;
+
+	char c = uart_recv();
+	if(c == 0) 
+		return 0;
+
+	charbuf_push(&_buffer, c, true);
+	proc_wakeup(0);
+	usleep(20000);
+	return 0;
+}
+
 int main(int argc, char** argv) {
 	const char* mnt_point = argc > 1 ? argv[1]: "/dev/tty0";
 	_mmio_base = mmio_map();
+
+	charbuf_init(&_buffer);
 
 	vdevice_t dev;
 	memset(&dev, 0, sizeof(vdevice_t));
 	strcpy(dev.name, "tty");
 	dev.read = tty_read;
 	dev.write = tty_write;
+	dev.loop_step = tty_loop;
 
-	device_run(&dev, mnt_point, FS_TYPE_CHAR);
+	device_run(&dev, mnt_point, FS_TYPE_CHAR | FS_TYPE_SYNC);
 	return 0;
 }
