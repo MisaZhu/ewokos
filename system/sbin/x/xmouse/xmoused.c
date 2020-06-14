@@ -46,7 +46,7 @@ int main(int argc, char** argv) {
 			if(read_nblock(fd, mv, 4) == 4)
 				input(mv[0], mv[1], mv[2]);
 			else
-				usleep(0);
+				usleep(3000);
 		}
 		else {
 			_x_pid = dev_get_pid("/dev/x");
