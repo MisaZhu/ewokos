@@ -436,6 +436,8 @@ int vfs_create(const char* fname, fsinfo_t* ret, int type) {
 	str_free(name);
 	str_free(dir);
 
+	type = type & FS_TYPE_MASK;
+
 	vfs_new_node(ret);
 	if(vfs_add(&info_to, ret) != 0) {
 		vfs_del(ret);
