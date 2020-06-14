@@ -6,7 +6,7 @@
 #include <vprintf.h>
 #include <x/xclient.h>
 #include <sconf.h>
-#include <tga/tga.h>
+#include <upng/upng.h>
 
 #define ITEM_MAX 16
 
@@ -43,7 +43,7 @@ static void draw_icon(graph_t* g, const char* item, int icon_size, int i) {
 	int at = str_to(item, ',', NULL, 1);
 	str_to(item + at + 1, ',', s, 1);
 
-	graph_t* img = tga_image_new(s->cstr);
+	graph_t* img = png_image_new(s->cstr);
 	str_free(s);
 	if(img == NULL)
 		return;
