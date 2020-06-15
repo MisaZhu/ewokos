@@ -131,7 +131,7 @@ CLEAN = $(LIB_OBJS)
 
 SD = $(BUILD_DIR)/sd.ext2
 
-all: mkdirs libs  extra_libs builtin_apps extra_apps #extra_devs
+all: mkdirs libs  extra_libs builtin_apps extra_apps
 	@echo "all done."
 
 KERNEL_H = \
@@ -239,10 +239,6 @@ extra_apps:
 	cd $(APPS_DIR)/xconsole;make
 	cd $(APPS_DIR)/png;make
 	cd $(APPS_DIR)/mario;make
-
-DEVS_DIR=extra/devs
-extra_devs:
-	cd $(DEVS_DIR)/arch/raspi/usbd;make
 
 KERNEL=$(KERNEL_DIR)/build/mkos.bin
 KERNEL_ELF=$(KERNEL_DIR)/build/mkos.elf
