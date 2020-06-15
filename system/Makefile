@@ -49,9 +49,7 @@ LIB_INC = -I $(LIBS_DIR)/sys/include \
 				  -I $(LIBS_DIR)/graph/include \
 				  -I $(LIBS_DIR)/libm/include \
 				  -I $(LIBS_DIR)/console/include \
-					-I $(LIBS_DIR)/mario/include \
 					-I $(LIBS_DIR)/upng/include \
-					-I $(LIBS_DIR)/tga/include \
 					-I $(LIBS_DIR)/hash/include \
 					-I $(KERNEL_DIR)/include
 				 
@@ -64,9 +62,7 @@ LIB_GRAPH_DIR = $(LIBS_DIR)/graph
 LIB_M_DIR = $(LIBS_DIR)/libm
 LIB_CONSOLE_DIR = $(LIBS_DIR)/console
 LIB_UPNG_DIR = $(LIBS_DIR)/upng
-LIB_TGA_DIR = $(LIBS_DIR)/tga
 LIB_HASH_DIR = $(LIBS_DIR)/hash
-LIB_MARIO_DIR = $(LIBS_DIR)/mario
 
 CFLAGS += $(LIB_INC)
 
@@ -95,8 +91,6 @@ LIB_CONSOLE_OBJS = $(LIB_CONSOLE_DIR)/src/console.o
 
 LIB_UPNG_OBJS = $(LIB_UPNG_DIR)/src/upng.o
 
-LIB_TGA_OBJS = $(LIB_TGA_DIR)/src/tga.o
-
 LIB_HASH_OBJS = $(LIB_HASH_DIR)/src/hashmap.o
 
 LIB_SCONF_OBJS = $(LIB_SCONF_DIR)/src/sconf.o
@@ -105,12 +99,6 @@ LIB_M_OBJS = $(LIB_M_DIR)/src/mstr.o \
 	$(LIB_M_DIR)/src/mstrx.o \
 	$(LIB_M_DIR)/src/marray.o \
 	$(LIB_M_DIR)/src/mutf8.o
-
-LIB_MARIO_OBJS = $(LIB_MARIO_DIR)/src/mario_bc.o \
-	$(LIB_MARIO_DIR)/src/mario_json.o \
-	$(LIB_MARIO_DIR)/src/mario_lex.o \
-	$(LIB_MARIO_DIR)/src/mario_vm.o \
-	$(LIB_MARIO_DIR)/src/compiler.o
 
 LIB_SYS_OBJS = $(LIB_SYS_DIR)/src/syscall.o \
 	$(LIB_SYS_DIR)/src/cmain.o \
@@ -159,7 +147,7 @@ CLEAN = $(LIB_OBJS)
 
 SD = $(BUILD_DIR)/sd.ext2
 
-all: mkdirs libs builtin_apps extra_apps #extra_devs
+all: mkdirs libs builtin_apps extra_libs extra_apps #extra_devs
 	@echo "all done."
 
 KERNEL_H = \
@@ -178,14 +166,10 @@ libs: $(LIB_OBJS)
 	@cp -r $(LIB_EXT2_DIR)/include/* $(TARGET_DIR)/include/
 	$(AR) rT $(TARGET_DIR)/lib/libconsole.a $(LIB_CONSOLE_OBJS)
 	@cp -r $(LIB_CONSOLE_DIR)/include/* $(TARGET_DIR)/include/
-	$(AR) rT $(TARGET_DIR)/lib/libmario.a $(LIB_MARIO_OBJS)
-	@cp -r $(LIB_MARIO_DIR)/include/* $(TARGET_DIR)/include/
 	$(AR) rT $(TARGET_DIR)/lib/libx.a $(LIB_X_OBJS)
 	@cp -r $(LIB_X_DIR)/include/* $(TARGET_DIR)/include/
 	$(AR) rT $(TARGET_DIR)/lib/libupng.a $(LIB_UPNG_OBJS)
 	@cp -r $(LIB_UPNG_DIR)/include/* $(TARGET_DIR)/include/
-	$(AR) rT $(TARGET_DIR)/lib/libtga.a $(LIB_TGA_OBJS)
-	@cp -r $(LIB_TGA_DIR)/include/* $(TARGET_DIR)/include/
 	$(AR) rT $(TARGET_DIR)/lib/libhash.a $(LIB_HASH_OBJS)
 	@cp -r $(LIB_HASH_DIR)/include/* $(TARGET_DIR)/include/
 	@cp -r $(KERNEL_H) $(TARGET_DIR)/include/
@@ -229,8 +213,6 @@ include $(ROOT_DIR)/bin/grep/build.mk
 include $(ROOT_DIR)/bin/kill/build.mk
 include $(ROOT_DIR)/bin/mkdir/build.mk
 include $(ROOT_DIR)/bin/rm/build.mk
-include $(ROOT_DIR)/bin/launcher/build.mk
-include $(ROOT_DIR)/bin/syspanel/build.mk
 include $(ROOT_DIR)/bin/session/build.mk
 
 mkdirs:
@@ -260,6 +242,10 @@ sd:
 
 builtin_apps: ${PROGS}
 
+EXTRA_LIBS_DIR=extra/libs
+extra_libs:
+	cd $(EXTRA_LIBS_DIR)/mario; make
+
 APPS_DIR=extra/apps
 extra_apps:
 	cd $(APPS_DIR)/test;make
@@ -267,8 +253,9 @@ extra_apps:
 	cd $(APPS_DIR)/gtest;make
 	cd $(APPS_DIR)/snake;make
 	cd $(APPS_DIR)/console;make
+	cd $(APPS_DIR)/launcher;make
+	cd $(APPS_DIR)/syspanel;make
 	cd $(APPS_DIR)/xconsole;make
-	cd $(APPS_DIR)/tga;make
 	cd $(APPS_DIR)/png;make
 	cd $(APPS_DIR)/mario;make
 
@@ -299,7 +286,8 @@ clean:
 	cd $(APPS_DIR)/gtest;make clean
 	cd $(APPS_DIR)/snake;make clean
 	cd $(APPS_DIR)/console;make clean
+	cd $(APPS_DIR)/launcher;make clean
+	cd $(APPS_DIR)/syspanel;make clean
 	cd $(APPS_DIR)/xconsole;make clean
-	cd $(APPS_DIR)/tga;make clean
 	cd $(APPS_DIR)/png;make clean
-	cd $(APPS_DIR)/mario;make clean
+	cd $(EXTRA_LIBS_DIR)/mario;make clean

@@ -2,6 +2,7 @@
 #define XCNTL_H
 
 #include <stdbool.h>
+#include <stddef.h>
 #include <graph/graph.h>
 
 enum {
