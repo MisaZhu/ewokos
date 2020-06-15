@@ -41,16 +41,14 @@ LDFLAGS = -L$(TARGET_DIR)/lib -lnosys
 
 LIBS_DIR = libs
 
-LIB_INC = -I $(LIBS_DIR)/sys/include \
+LIB_INC = -I$(TARGET_DIR)/include \
+					-I $(LIBS_DIR)/sys/include \
 				  -I $(LIBS_DIR)/sconf/include \
 				  -I $(LIBS_DIR)/libc/include \
 				  -I $(LIBS_DIR)/x/include \
 				  -I $(LIBS_DIR)/ext2/include \
 				  -I $(LIBS_DIR)/graph/include \
 				  -I $(LIBS_DIR)/libm/include \
-				  -I $(LIBS_DIR)/console/include \
-					-I $(LIBS_DIR)/upng/include \
-					-I $(LIBS_DIR)/hash/include \
 					-I $(KERNEL_DIR)/include
 				 
 LIB_SYS_DIR = $(LIBS_DIR)/sys
@@ -60,9 +58,6 @@ LIB_X_DIR = $(LIBS_DIR)/x
 LIB_EXT2_DIR = $(LIBS_DIR)/ext2
 LIB_GRAPH_DIR = $(LIBS_DIR)/graph
 LIB_M_DIR = $(LIBS_DIR)/libm
-LIB_CONSOLE_DIR = $(LIBS_DIR)/console
-LIB_UPNG_DIR = $(LIBS_DIR)/upng
-LIB_HASH_DIR = $(LIBS_DIR)/hash
 
 CFLAGS += $(LIB_INC)
 
@@ -86,12 +81,6 @@ LIB_X_OBJS = $(LIB_X_DIR)/src/xclient.o \
 	$(LIB_X_DIR)/src/xwm.o
 
 LIB_EXT2_OBJS = $(LIB_EXT2_DIR)/src/ext2fs.o
-
-LIB_CONSOLE_OBJS = $(LIB_CONSOLE_DIR)/src/console.o
-
-LIB_UPNG_OBJS = $(LIB_UPNG_DIR)/src/upng.o
-
-LIB_HASH_OBJS = $(LIB_HASH_DIR)/src/hashmap.o
 
 LIB_SCONF_OBJS = $(LIB_SCONF_DIR)/src/sconf.o
 
@@ -135,19 +124,14 @@ LIB_OBJS = $(LIB_SYS_OBJS) \
 	$(LIB_LIBC_OBJS) \
 	$(LIB_GRAPH_OBJS) \
 	$(LIB_EXT2_OBJS) \
-	$(LIB_CONSOLE_OBJS) \
-	$(LIB_UPNG_OBJS) \
-	$(LIB_TGA_OBJS) \
-	$(LIB_HASH_OBJS) \
 	$(LIB_M_OBJS) \
-	$(LIB_MARIO_OBJS) \
 	$(LIB_X_OBJS)
 
 CLEAN = $(LIB_OBJS)
 
 SD = $(BUILD_DIR)/sd.ext2
 
-all: mkdirs libs builtin_apps extra_libs extra_apps #extra_devs
+all: mkdirs libs  extra_libs builtin_apps extra_apps #extra_devs
 	@echo "all done."
 
 KERNEL_H = \
@@ -164,14 +148,8 @@ libs: $(LIB_OBJS)
 	@cp -r $(LIB_GRAPH_DIR)/include/* $(TARGET_DIR)/include/
 	$(AR) rT $(TARGET_DIR)/lib/libext2.a $(LIB_EXT2_OBJS)
 	@cp -r $(LIB_EXT2_DIR)/include/* $(TARGET_DIR)/include/
-	$(AR) rT $(TARGET_DIR)/lib/libconsole.a $(LIB_CONSOLE_OBJS)
-	@cp -r $(LIB_CONSOLE_DIR)/include/* $(TARGET_DIR)/include/
 	$(AR) rT $(TARGET_DIR)/lib/libx.a $(LIB_X_OBJS)
 	@cp -r $(LIB_X_DIR)/include/* $(TARGET_DIR)/include/
-	$(AR) rT $(TARGET_DIR)/lib/libupng.a $(LIB_UPNG_OBJS)
-	@cp -r $(LIB_UPNG_DIR)/include/* $(TARGET_DIR)/include/
-	$(AR) rT $(TARGET_DIR)/lib/libhash.a $(LIB_HASH_OBJS)
-	@cp -r $(LIB_HASH_DIR)/include/* $(TARGET_DIR)/include/
 	@cp -r $(KERNEL_H) $(TARGET_DIR)/include/
 
 include $(ROOT_DIR)/sbin/init/build.mk
@@ -245,6 +223,9 @@ builtin_apps: ${PROGS}
 EXTRA_LIBS_DIR=extra/libs
 extra_libs:
 	cd $(EXTRA_LIBS_DIR)/mario; make
+	cd $(EXTRA_LIBS_DIR)/console; make
+	cd $(EXTRA_LIBS_DIR)/hash; make
+	cd $(EXTRA_LIBS_DIR)/upng; make
 
 APPS_DIR=extra/apps
 extra_apps:
@@ -291,3 +272,6 @@ clean:
 	cd $(APPS_DIR)/xconsole;make clean
 	cd $(APPS_DIR)/png;make clean
 	cd $(EXTRA_LIBS_DIR)/mario;make clean
+	cd $(EXTRA_LIBS_DIR)/console;make clean
+	cd $(EXTRA_LIBS_DIR)/hash; make clean
+	cd $(EXTRA_LIBS_DIR)/upng; make clean
