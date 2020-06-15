@@ -154,7 +154,7 @@ static void draw_title_pattern(graph_t* g, int x, int y, int w, int h, uint32_t 
 	(void)bg;
 	int step = 3;
 	y = y + step;
-	int steps = h / step;
+	int steps = div_u32(h, step);
 
 	for(int i=0; i< steps; i++) {
 		line(g, x+4, y, x+w-8, y, fg);
