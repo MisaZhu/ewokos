@@ -30,7 +30,10 @@ public:
 	void drawText(int32_t x, int32_t y, const char* str, font_t* font, uint32_t color);
 
 	void blt(Graph* src, int32_t sx, int32_t sy, int32_t sw, int32_t sh,
-			Graph* dst, int32_t dx, int32_t dy, int32_t dw, int32_t dh, uint8_t alpha = 0xff);
+			int32_t dx, int32_t dy, int32_t dw, int32_t dh, uint8_t alpha = 0xff);
+
+	void blt(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_t sh,
+			int32_t dx, int32_t dy, int32_t dw, int32_t dh, uint8_t alpha = 0xff);
 };
 
 #endif
