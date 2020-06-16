@@ -2,7 +2,7 @@
 #define VFS_H
 
 #include <sys/fsinfo.h>
-#include <mstr.h>
+#include <sys/mstr.h>
 
 const char* vfs_fullname(const char* fname);
 

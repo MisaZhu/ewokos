@@ -4,7 +4,6 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <marray.h>
-#include <mstr.h>
 #include <mstrx.h>
 
 #ifdef __cplusplus

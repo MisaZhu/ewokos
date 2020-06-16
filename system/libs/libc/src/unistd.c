@@ -8,7 +8,7 @@
 #include <sys/vfs.h>
 #include <sys/ipc.h>
 #include <string.h>
-#include <mstr.h>
+#include <sys/mstr.h>
 #include <sys/shm.h>
 #include <errno.h>
 //#include <rawdata.h>

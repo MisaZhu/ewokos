@@ -1,4 +1,4 @@
-#include "mstr.h"
+#include <sys/mstr.h>
 #include <string.h>
 #include <stdlib.h>
 #include <vprintf.h>

@@ -4,7 +4,6 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <string.h>
-#include <mstr.h>
 
 static inline int is_space(char c) {
 	if(c == ' ' || c == '\t' || c == '\r' || c == '\n')

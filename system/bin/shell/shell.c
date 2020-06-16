@@ -6,7 +6,7 @@
 #include <sys/ipc.h>
 #include <sys/proc.h>
 #include <vprintf.h>
-#include <mstr.h>
+#include <sys/mstr.h>
 #include <fcntl.h>
 #include <sys/syscall.h>
 #include <sys/wait.h>

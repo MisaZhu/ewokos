@@ -7,7 +7,6 @@
 #include <sys/proc.h>
 #include <sys/vdevice.h>
 #include <graph/graph.h>
-#include <sconf.h>
 #include <x/xcntl.h>
 #include <x/xwm.h>
 

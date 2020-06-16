@@ -1,8 +1,6 @@
 AR = arm-none-eabi-ar
 CC = arm-none-eabi-gcc
-CXX = arm-none-eabi-c++
 LD = arm-none-eabi-ld
-OBJDUMP = arm-none-eabi-objdump
 
 BUILD_DIR = ../../../build
 TARGET_DIR = $(BUILD_DIR)/rootfs
@@ -25,17 +23,20 @@ CFLAGS +=  -O2
 
 LDFLAGS = -L$(TARGET_DIR)/lib -lnosys
 
-CFLAGS += -I $(TARGET_DIR)/include
+CFLAGS += -I $(TARGET_DIR)/include -Iinclude
 
-MARIO_OBJS = mario.o shell.o
+LIB_M_OBJS = src/mstrx.o \
+	src/marray.o \
+	src/mutf8.o
 
-MARIO = $(TARGET_DIR)/bin/mario
+LIB_M = $(TARGET_DIR)/lib/libm.a
 
-$(MARIO): $(MARIO_OBJS) \
-		$(TARGET_DIR)/lib/libewokc.a \
-		$(TARGET_DIR)/lib/libmario.a
-	$(LD) -Ttext=100 $(MARIO_OBJS) -o $(MARIO) $(LDFLAGS) -lmario -lm -lewokc -lc
+$(LIB_M): $(LIB_M_OBJS)
+	$(AR) rT $(LIB_M) $(LIB_M_OBJS)
+	cp -r include/* $(TARGET_DIR)/include
+
 
 clean:
-	rm -f $(MARIO_OBJS)
+	rm -f $(LIB_M_OBJS)
+	rm -f $(LIB_M)
 

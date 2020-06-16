@@ -4,7 +4,7 @@
 #include <string.h>
 #include <sys/ipc.h>
 #include <sys/proc.h>
-#include <mstr.h>
+#include <sys/mstr.h>
 #include <sys/proto.h>
 #include <sys/syscall.h>
 #include <sys/vdevice.h>

@@ -3,7 +3,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
-#include <mstr.h>
+#include <sys/mstr.h>
 #include <sys/syscall.h>
 #include <sys/vfs.h>
 #include <fcntl.h>

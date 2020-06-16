@@ -1,7 +1,7 @@
 #ifndef SIMPLE_CONFIG_H
 #define SIMPLE_CONFIG_H
 
-#include <mstr.h>
+#include <sys/mstr.h>
 
 #define S_CONF_ITEM_MAX 32
 

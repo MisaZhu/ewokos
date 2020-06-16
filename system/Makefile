@@ -43,7 +43,6 @@ LIBS_DIR = libs
 
 LIB_INC = -I$(TARGET_DIR)/include \
 					-I $(LIBS_DIR)/sys/include \
-				  -I $(LIBS_DIR)/sconf/include \
 				  -I $(LIBS_DIR)/libc/include \
 				  -I $(LIBS_DIR)/x/include \
 				  -I $(LIBS_DIR)/ext2/include \
@@ -52,12 +51,10 @@ LIB_INC = -I$(TARGET_DIR)/include \
 					-I $(KERNEL_DIR)/include
 				 
 LIB_SYS_DIR = $(LIBS_DIR)/sys
-LIB_SCONF_DIR = $(LIBS_DIR)/sconf
 LIB_LIBC_DIR = $(LIBS_DIR)/libc
 LIB_X_DIR = $(LIBS_DIR)/x
 LIB_EXT2_DIR = $(LIBS_DIR)/ext2
 LIB_GRAPH_DIR = $(LIBS_DIR)/graph
-LIB_M_DIR = $(LIBS_DIR)/libm
 
 CFLAGS += $(LIB_INC)
 
@@ -82,14 +79,8 @@ LIB_X_OBJS = $(LIB_X_DIR)/src/xclient.o \
 
 LIB_EXT2_OBJS = $(LIB_EXT2_DIR)/src/ext2fs.o
 
-LIB_SCONF_OBJS = $(LIB_SCONF_DIR)/src/sconf.o
-
-LIB_M_OBJS = $(LIB_M_DIR)/src/mstr.o \
-	$(LIB_M_DIR)/src/mstrx.o \
-	$(LIB_M_DIR)/src/marray.o \
-	$(LIB_M_DIR)/src/mutf8.o
-
 LIB_SYS_OBJS = $(LIB_SYS_DIR)/src/syscall.o \
+	$(LIB_SYS_DIR)/src/mstr.o \
 	$(LIB_SYS_DIR)/src/cmain.o \
 	$(LIB_SYS_DIR)/src/charbuf.o \
 	$(LIB_SYS_DIR)/src/vfs.o \
@@ -120,18 +111,16 @@ LIB_LIBC_OBJS = $(LIB_LIBC_DIR)/src/unistd.o \
 	$(LIB_LIBC_DIR)/src/stdio.o
 
 LIB_OBJS = $(LIB_SYS_OBJS) \
-	$(LIB_SCONF_OBJS) \
 	$(LIB_LIBC_OBJS) \
 	$(LIB_GRAPH_OBJS) \
 	$(LIB_EXT2_OBJS) \
-	$(LIB_M_OBJS) \
 	$(LIB_X_OBJS)
 
 CLEAN = $(LIB_OBJS)
 
 SD = $(BUILD_DIR)/sd.ext2
 
-all: mkdirs libs  extra_libs builtin_apps extra_apps
+all: mkdirs libs extra_libs builtin_apps extra_apps
 	@echo "all done."
 
 KERNEL_H = \
@@ -140,10 +129,8 @@ KERNEL_H = \
 	$(KERNEL_DIR)/include/fbinfo.h
 
 libs: $(LIB_OBJS)
-	$(AR) rT $(TARGET_DIR)/lib/libewokc.a $(LIB_SYS_OBJS)  $(LIB_LIBC_OBJS) $(LIB_M_OBJS)
-	@cp -r $(LIB_SYS_DIR)/include/* $(LIB_LIBC_DIR)/include/* $(LIB_M_DIR)/include/* $(TARGET_DIR)/include/
-	$(AR) rT $(TARGET_DIR)/lib/libsconf.a $(LIB_SCONF_OBJS)
-	@cp -r $(LIB_SCONF_DIR)/include/* $(TARGET_DIR)/include/
+	$(AR) rT $(TARGET_DIR)/lib/libewokc.a $(LIB_SYS_OBJS)  $(LIB_LIBC_OBJS)
+	@cp -r $(LIB_SYS_DIR)/include/* $(LIB_LIBC_DIR)/include/* $(TARGET_DIR)/include/
 	$(AR) rT $(TARGET_DIR)/lib/libgraph.a $(LIB_GRAPH_OBJS)
 	@cp -r $(LIB_GRAPH_DIR)/include/* $(TARGET_DIR)/include/
 	$(AR) rT $(TARGET_DIR)/lib/libext2.a $(LIB_EXT2_OBJS)
@@ -222,9 +209,11 @@ builtin_apps: ${PROGS}
 
 EXTRA_LIBS_DIR=extra/libs
 extra_libs:
+	cd $(EXTRA_LIBS_DIR)/libm; make
 	cd $(EXTRA_LIBS_DIR)/mario; make
 	cd $(EXTRA_LIBS_DIR)/console; make
 	cd $(EXTRA_LIBS_DIR)/hash; make
+	cd $(EXTRA_LIBS_DIR)/sconf; make
 	cd $(EXTRA_LIBS_DIR)/upng; make
 
 APPS_DIR=extra/apps
@@ -267,7 +256,9 @@ clean:
 	cd $(APPS_DIR)/syspanel;make clean
 	cd $(APPS_DIR)/xconsole;make clean
 	cd $(APPS_DIR)/png;make clean
+	cd $(EXTRA_LIBS_DIR)/libm; make clean
 	cd $(EXTRA_LIBS_DIR)/mario;make clean
 	cd $(EXTRA_LIBS_DIR)/console;make clean
 	cd $(EXTRA_LIBS_DIR)/hash; make clean
+	cd $(EXTRA_LIBS_DIR)/sconf; make clean
 	cd $(EXTRA_LIBS_DIR)/upng; make clean

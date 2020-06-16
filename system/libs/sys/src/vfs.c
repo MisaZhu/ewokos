@@ -4,7 +4,7 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <stdio.h>
-#include <mstr.h>
+#include <sys/mstr.h>
 #include <sys/ipc.h>
 #include <sys/vfsc.h>
 #include <sys/proc.h>
