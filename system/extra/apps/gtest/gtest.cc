@@ -7,6 +7,7 @@ extern "C" {
 }
 
 #include <x++/X.h>
+#include <x++/X.h>
 
 class TestX : public X {
 public:
@@ -21,12 +22,12 @@ protected:
 		}
 	}
 
-	void onRepaint(graph_t* g) {
+	void onRepaint(Graph& g) {
 		char str[32];
 		font_t* font = font_by_name("12x24");
 		snprintf(str, 31, "paint = %d", i++);
-		clear(g, argb_int(0xff0000ff));
-		draw_text(g, 10, 10, str, font, 0xffffffff);
+		g.clear(argb_int(0xff0000ff));
+		g.drawText(10, 10, str, font, 0xffffffff);
 	}
 
 	void onLoop(void) {

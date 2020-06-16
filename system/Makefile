@@ -217,6 +217,7 @@ extra_libs:
 	cd $(EXTRA_LIBS_DIR)/sconf; make
 	cd $(EXTRA_LIBS_DIR)/upng; make
 	cd $(EXTRA_LIBXX_DIR)/cxx; make
+	cd $(EXTRA_LIBXX_DIR)/graphxx; make
 	cd $(EXTRA_LIBXX_DIR)/x++; make
 
 APPS_DIR=extra/apps
@@ -266,4 +267,5 @@ clean:
 	cd $(EXTRA_LIBS_DIR)/sconf; make clean
 	cd $(EXTRA_LIBS_DIR)/upng; make clean
 	cd $(EXTRA_LIBXX_DIR)/cxx; make clean
+	cd $(EXTRA_LIBXX_DIR)/graphxx; make clean
 	cd $(EXTRA_LIBXX_DIR)/x++; make clean

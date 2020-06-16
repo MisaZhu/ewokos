@@ -24,16 +24,16 @@ LDFLAGS = -L$(TARGET_DIR)/lib -lnosys
 
 CXXFLAGS += -Iinclude -I $(TARGET_DIR)/include
 
-LIB_X_OBJS = src/X.o
+LIB_GRAPHXX_OBJS = src/graphxx.o
 
-LIB_X = $(TARGET_DIR)/lib/libx++.a
+LIB_X = $(TARGET_DIR)/lib/libgraphxx.a
 
-$(LIB_X): $(LIB_X_OBJS)
-	$(AR) rT $(LIB_X) $(LIB_X_OBJS) $(TARGET_DIR)/lib/libx.a
+$(LIB_X): $(LIB_GRAPHXX_OBJS)
+	$(AR) rT $(LIB_X) $(LIB_GRAPHXX_OBJS) $(TARGET_DIR)/lib/libgraph.a
 	cp -r include/* $(TARGET_DIR)/include
 
 
 clean:
-	rm -f $(LIB_X_OBJS)
+	rm -f $(LIB_GRAPHXX_OBJS)
 	rm -f $(LIB_X)
 

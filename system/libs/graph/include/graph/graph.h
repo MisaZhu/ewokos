@@ -11,8 +11,8 @@ typedef struct {
 } graph_t;
 
 typedef struct {
-	int32_t w;	
-	int32_t h;	
+	uint32_t w;	
+	uint32_t h;	
 } gsize_t;
 
 typedef struct {
@@ -39,34 +39,32 @@ graph_t* graph_zoom(graph_t* g, uint32_t w, uint32_t h);
 
 void graph_free(graph_t* g);
 
-void pixel_safe(graph_t* g, int32_t x, int32_t y, uint32_t color);
+void graph_pixel_safe(graph_t* g, int32_t x, int32_t y, uint32_t color);
 
-void pixel(graph_t* g, int32_t x, int32_t y, uint32_t color);
+void graph_pixel(graph_t* g, int32_t x, int32_t y, uint32_t color);
 
-void clear(graph_t* g, uint32_t color);
+void graph_clear(graph_t* g, uint32_t color);
 
-void reverse(graph_t* g);
+void graph_reverse(graph_t* g);
 
-void box(graph_t* g, int32_t x, int32_t y, int32_t w, int32_t h, uint32_t color);
+void graph_box(graph_t* g, int32_t x, int32_t y, int32_t w, int32_t h, uint32_t color);
 
-void fill(graph_t* g, int32_t x, int32_t y, int32_t w, int32_t h, uint32_t color);
+void graph_fill(graph_t* g, int32_t x, int32_t y, int32_t w, int32_t h, uint32_t color);
 
-void line(graph_t* g, int32_t x1, int32_t y1, int32_t x2, int32_t y2, uint32_t color);
+void graph_line(graph_t* g, int32_t x1, int32_t y1, int32_t x2, int32_t y2, uint32_t color);
 
-void draw_char(graph_t* g, int32_t x, int32_t y, char c, font_t* font, uint32_t color);
+void graph_draw_char(graph_t* g, int32_t x, int32_t y, char c, font_t* font, uint32_t color);
 
-void draw_text(graph_t* g, int32_t x, int32_t y, const char* str, font_t* font, uint32_t color);
+void graph_draw_text(graph_t* g, int32_t x, int32_t y, const char* str, font_t* font, uint32_t color);
 
-void blt(graph_t* src, int32_t sx, int32_t sy, uint32_t sw, uint32_t sh,
+void graph_blt(graph_t* src, int32_t sx, int32_t sy, uint32_t sw, uint32_t sh,
 		graph_t* dst, int32_t dx, int32_t dy, uint32_t dw, uint32_t dh);
 
-void blt_alpha(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_t sh,
+void graph_blt_alpha(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_t sh,
 		graph_t* dst, int32_t dx, int32_t dy, int32_t dw, int32_t dh, uint8_t alpha);
 	
 int32_t check_in_rect(int32_t x, int32_t y, grect_t* rect);
 
-int32_t get_text_size(const char* s, font_t* font, gsize_t* size);
-
-void dup16(uint16_t* dst, uint32_t* src, uint32_t w, uint32_t h);
+void graph_dup16(uint16_t* dst, uint32_t* src, uint32_t w, uint32_t h);
 
 #endif

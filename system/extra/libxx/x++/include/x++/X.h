@@ -4,13 +4,14 @@
 extern "C" {
 	#include <stddef.h>
 	#include <x/xclient.h>
-
 }
+
+#include <graphxx/graphxx.h>
 
 class X {
 protected:
 	x_t* xp;
-	virtual void onRepaint(graph_t* g) = 0;
+	virtual void onRepaint(Graph& g) = 0;
 
 	inline virtual void onClose(void)   { }
 	inline virtual void onMin(void)     { }
@@ -34,7 +35,7 @@ public:
 		xp = NULL;
 	}
 
-	inline void __doRepaint(graph_t* g) { onRepaint(g); }
+	inline void __doRepaint(graph_t* g) { Graph gxx(g->buffer, g->w, g->h); onRepaint(gxx); }
 	inline void __doClose(void) { onClose(); }
 	inline void __doMin(void) { onMin(); }
 	inline void __doResize(void) { onResize(); }

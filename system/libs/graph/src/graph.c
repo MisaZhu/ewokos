@@ -41,16 +41,16 @@ void graph_free(graph_t* g) {
 	free(g);
 }
 
-inline void pixel(graph_t* g, int32_t x, int32_t y, uint32_t color) {
+inline void graph_pixel(graph_t* g, int32_t x, int32_t y, uint32_t color) {
 	g->buffer[y * g->w + x] = color;
 }
 
-inline void pixel_safe(graph_t* g, int32_t x, int32_t y, uint32_t color) {
+inline void graph_pixel_safe(graph_t* g, int32_t x, int32_t y, uint32_t color) {
 	if(g == NULL)
 		return;
 	if(x < 0 ||  (uint32_t)x >= g->w || y < 0 || (uint32_t)y >= g->h)
 		return;
-	pixel(g, x, y, color);
+	graph_pixel(g, x, y, color);
 }
 
 static inline void pixel_argb(graph_t* graph, int32_t x, int32_t y,
@@ -78,7 +78,7 @@ static inline void pixel_argb_safe(graph_t* graph, int32_t x, int32_t y,
 	pixel_argb(graph, x, y, a, r, g, b);
 }
 
-void clear(graph_t* g, uint32_t color) {
+void graph_clear(graph_t* g, uint32_t color) {
 	if(g == NULL)
 		return;
 	if(g->w == 0 || g->w == 0)
@@ -98,7 +98,7 @@ void clear(graph_t* g, uint32_t color) {
 	critical_quit();
 }
 
-void reverse(graph_t* g) {
+void graph_reverse(graph_t* g) {
 	if(g == NULL)
 		return;
 	uint32_t i = 0;
@@ -113,7 +113,7 @@ void reverse(graph_t* g) {
 	}
 }
 
-void line(graph_t* g, int32_t x1, int32_t y1, int32_t x2, int32_t y2, uint32_t color) {
+void graph_line(graph_t* g, int32_t x1, int32_t y1, int32_t x2, int32_t y2, uint32_t color) {
 	if(g == NULL)
 		return;
 	int32_t dx, dy, x, y, s1, s2, e, temp, swap, i;
@@ -138,7 +138,7 @@ void line(graph_t* g, int32_t x1, int32_t y1, int32_t x2, int32_t y2, uint32_t c
 	e = 2 * dy - dx;
 	if(!has_alpha(color)) {
 		for (i=0; i<=dx; i++) {
-			pixel_safe(g, x, y, color);
+			graph_pixel_safe(g, x, y, color);
 			while (e>=0) {
 				if (swap==1) x += s1;
 				else y += s2;
@@ -168,14 +168,14 @@ void line(graph_t* g, int32_t x1, int32_t y1, int32_t x2, int32_t y2, uint32_t c
 	}
 }
 
-void box(graph_t* g, int32_t x, int32_t y, int32_t w, int32_t h, uint32_t color) {
+void graph_box(graph_t* g, int32_t x, int32_t y, int32_t w, int32_t h, uint32_t color) {
 	if(g == NULL || w <= 0 || h <= 0)
 		return;
 
-	line(g, x, y, x+w-1, y, color);
-	line(g, x, y+1, x, y+h-1, color);
-	line(g, x+1, y+h-1, x+w-1, y+h-1, color);
-	line(g, x+w-1, y+1, x+w-1, y+h-1, color);
+	graph_line(g, x, y, x+w-1, y, color);
+	graph_line(g, x, y+1, x, y+h-1, color);
+	graph_line(g, x+1, y+h-1, x+w-1, y+h-1, color);
+	graph_line(g, x+w-1, y+1, x+w-1, y+h-1, color);
 }
 
 /*will change the value of sr, dr.
@@ -253,7 +253,7 @@ static int32_t insect(graph_t* src, grect_t* sr, graph_t* dst, grect_t* dr) {
 	return 1;
 }
 
-void fill(graph_t* g, int32_t x, int32_t y, int32_t w, int32_t h, uint32_t color) {
+void graph_fill(graph_t* g, int32_t x, int32_t y, int32_t w, int32_t h, uint32_t color) {
 	if(g == NULL || w <= 0 || h <= 0)
 		return;
 	grect_t r = {x, y, w, h};
@@ -271,7 +271,7 @@ void fill(graph_t* g, int32_t x, int32_t y, int32_t w, int32_t h, uint32_t color
 		for(; y < ey; y++) {
 			x = r.x;
 			for(; x < ex; x++) {
-				pixel(g, x, y, color);
+				graph_pixel(g, x, y, color);
 			}
 		}
 	}
@@ -326,7 +326,7 @@ static void draw_char8(graph_t* g, int32_t x, int32_t y, char c, font_t* font, u
 			check = pdata[index+ychar];
 			for(xchar=0; (uint32_t)xchar<8; xchar++) {
 				if(check&pmask)
-					pixel_safe(g, xpart, ypart, color);
+					graph_pixel_safe(g, xpart, ypart, color);
 				xpart++;
 				pmask >>= 1;
 			}
@@ -379,7 +379,7 @@ static void draw_char16(graph_t* g, int32_t x, int32_t y, char c, font_t* font, 
 			check = pdata[index+ychar];
 			for(xchar=0; (uint32_t)xchar<8; xchar++) {
 				if(check&pmask)
-					pixel_safe(g, xpart, ypart, color);
+					graph_pixel_safe(g, xpart, ypart, color);
 				xpart++;
 				pmask >>= 1;
 			}
@@ -389,7 +389,7 @@ static void draw_char16(graph_t* g, int32_t x, int32_t y, char c, font_t* font, 
 			pmask = 1 << (8-1);
 			for(xchar=0; (uint32_t)xchar<8; xchar++) {
 				if(check&pmask)
-					pixel_safe(g, xpart, ypart, color);
+					graph_pixel_safe(g, xpart, ypart, color);
 				xpart++;
 				pmask >>= 1;
 			}
@@ -398,7 +398,7 @@ static void draw_char16(graph_t* g, int32_t x, int32_t y, char c, font_t* font, 
 	}
 }
 
-void draw_char(graph_t* g, int32_t x, int32_t y, char c, font_t* font, uint32_t color) {
+void graph_draw_char(graph_t* g, int32_t x, int32_t y, char c, font_t* font, uint32_t color) {
 	if(g == NULL)
 		return;
 	if(font->w <= 8)
@@ -407,17 +407,17 @@ void draw_char(graph_t* g, int32_t x, int32_t y, char c, font_t* font, uint32_t 
 		draw_char16(g, x, y, c, font, color);
 }
 
-void draw_text(graph_t* g, int32_t x, int32_t y, const char* str, font_t* font, uint32_t color) {
+void graph_draw_text(graph_t* g, int32_t x, int32_t y, const char* str, font_t* font, uint32_t color) {
 	if(g == NULL)
 		return;
 	while(*str) {
-		draw_char(g, x, y, *str, font, color);
+		graph_draw_char(g, x, y, *str, font, color);
 		x += font->w;
 		str++;
 	}
 }
 
-inline void blt(graph_t* src, int32_t sx, int32_t sy, uint32_t sw, uint32_t sh,
+inline void graph_blt(graph_t* src, int32_t sx, int32_t sy, uint32_t sw, uint32_t sh,
 		graph_t* dst, int32_t dx, int32_t dy, uint32_t dw, uint32_t dh) {
 	if(sx == 0 && sy == 0 && dx == 0 && dy == 0 &&
 			sw == dw && sh == dh && src->w == sw && src->h == sh &&
@@ -450,7 +450,7 @@ inline void blt(graph_t* src, int32_t sx, int32_t sy, uint32_t sw, uint32_t sh,
 	critical_quit();
 }
 
-inline void blt_alpha(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_t sh,
+inline void graph_blt_alpha(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_t sh,
 		graph_t* dst, int32_t dx, int32_t dy, int32_t dw, int32_t dh, uint8_t alpha) {
 	grect_t sr = {sx, sy, sw, sh};
 	grect_t dr = {dx, dy, dw, dh};
@@ -486,15 +486,7 @@ int32_t check_in_rect(int32_t x, int32_t y, grect_t* rect) {
 	return -1;
 }
 
-int32_t get_text_size(const char* s, font_t* font, gsize_t* size) {
-	if(font == NULL || size == NULL)
-		return -1;
-	size->w = strlen(s) * font->w;
-	size->h = font->h;
-	return 0;
-}
-
-inline void dup16(uint16_t* dst, uint32_t* src, uint32_t w, uint32_t h) {
+inline void graph_dup16(uint16_t* dst, uint32_t* src, uint32_t w, uint32_t h) {
 	register int32_t i, size;
 	size = w * h;
 	critical_enter();

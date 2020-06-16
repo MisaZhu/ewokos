@@ -142,11 +142,11 @@ static void draw_frame(graph_t* g, xinfo_t* info, bool top, void* p) {
 		//h = _xwm_config.title_h;
 		y -= _xwm_config.title_h;
 	}
-	box(g, x, y, w, h, bg);//win box
+	graph_box(g, x, y, w, h, bg);//win box
 	//shadow
 	if(top) {
-		fill(g, x+w, y+2, 2, h, 0x88000000);
-		fill(g, x+2, y+h, w-2, 2, 0x88000000);
+		graph_fill(g, x+w, y+2, 2, h, 0x88000000);
+		graph_fill(g, x+2, y+h, w-2, 2, 0x88000000);
 	}
 }
 
@@ -157,7 +157,7 @@ static void draw_title_pattern(graph_t* g, int x, int y, int w, int h, uint32_t 
 	int steps = div_u32(h, step);
 
 	for(int i=0; i< steps; i++) {
-		line(g, x+4, y, x+w-8, y, fg);
+		graph_line(g, x+4, y, x+w-8, y, fg);
 		y += step;
 	}
 }
@@ -168,15 +168,15 @@ static void draw_title(graph_t* g, xinfo_t* info, grect_t* r, bool top, void* p)
 	get_color(&fg, &bg, top);
 
 	gsize_t sz;
-	get_text_size(info->title, _xwm_config.font, &sz);
+	get_text_size(info->title, _xwm_config.font, &sz.w, &sz.h);
 
 	int pw = (r->w-sz.w)/2;
-	fill(g, r->x, r->y, r->w, _xwm_config.title_h, bg);//title box
+	graph_fill(g, r->x, r->y, r->w, _xwm_config.title_h, bg);//title box
 	if(top) {
 		draw_title_pattern(g, r->x, r->y, pw, r->h, fg, bg);
 		draw_title_pattern(g, r->x+pw+sz.w, r->y, pw, r->h, fg, bg);
 	}
-	draw_text(g, r->x+pw, r->y+2, info->title, _xwm_config.font, fg);//title
+	graph_draw_text(g, r->x+pw, r->y+2, info->title, _xwm_config.font, fg);//title
 }
 
 static void draw_min(graph_t* g, xinfo_t* info, grect_t* r, bool top, void* p) {
@@ -185,8 +185,8 @@ static void draw_min(graph_t* g, xinfo_t* info, grect_t* r, bool top, void* p) {
 	uint32_t fg, bg;
 	get_color(&fg, &bg, top);
 
-	fill(g, r->x, r->y, r->w, r->h, bg);
-	box(g, r->x+2, r->y+r->h-6, r->w-4, 4, fg);
+	graph_fill(g, r->x, r->y, r->w, r->h, bg);
+	graph_box(g, r->x+2, r->y+r->h-6, r->w-4, 4, fg);
 }
 
 static void draw_max(graph_t* g, xinfo_t* info, grect_t* r, bool top, void* p) {
@@ -195,9 +195,9 @@ static void draw_max(graph_t* g, xinfo_t* info, grect_t* r, bool top, void* p) {
 	uint32_t fg, bg;
 	get_color(&fg, &bg, top);
 
-	fill(g, r->x, r->y, r->w, r->h, bg);
-	box(g, r->x+2, r->y+2, r->w-4, r->h-4, fg);
-	box(g, r->x+2, r->y+2, r->w-8, r->h-8, fg);
+	graph_fill(g, r->x, r->y, r->w, r->h, bg);
+	graph_box(g, r->x+2, r->y+2, r->w-4, r->h-4, fg);
+	graph_box(g, r->x+2, r->y+2, r->w-8, r->h-8, fg);
 }
 
 static void draw_close(graph_t* g, xinfo_t* info, grect_t* r, bool top, void* p) {
@@ -206,18 +206,18 @@ static void draw_close(graph_t* g, xinfo_t* info, grect_t* r, bool top, void* p)
 	uint32_t fg, bg;
 	get_color(&fg, &bg, top);
 
-	fill(g, r->x, r->y, r->w, r->h, bg);
-	box(g, r->x+2, r->y+2, r->w-4, r->h-4, fg);
+	graph_fill(g, r->x, r->y, r->w, r->h, bg);
+	graph_box(g, r->x+2, r->y+2, r->w-4, r->h-4, fg);
 }
 
 static void draw_desktop(graph_t* g, void* p) {
 	(void)p;
-	clear(g, _xwm_config.desk_bg_color);
+	graph_clear(g, _xwm_config.desk_bg_color);
 	//background pattern
 	int32_t x, y;
 	for(y=10; y<(int32_t)g->h; y+=10) {
 		for(x=0; x<(int32_t)g->w; x+=10) {
-			pixel(g, x, y, _xwm_config.desk_fg_color);
+			graph_pixel(g, x, y, _xwm_config.desk_fg_color);
 		}
 	}
 }

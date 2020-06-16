@@ -44,7 +44,7 @@ static int fb_write(int fd,
 		critical_quit();
 	}
 	else if(_fbinfo.depth == 16) 
-		dup16((uint16_t*)_fbinfo.pointer, (uint32_t*)buf, _fbinfo.width, _fbinfo.height);
+		graph_dup16((uint16_t*)_fbinfo.pointer, (uint32_t*)buf, _fbinfo.width, _fbinfo.height);
 	return sz;
 }	
 
@@ -87,7 +87,7 @@ static int fb_flush(int fd, int from_pid, fsinfo_t* info, void* p) {
 		critical_quit();
 	}
 	else if(_fbinfo.depth == 16) 
-		dup16((uint16_t*)_fbinfo.pointer, (uint32_t*)dma->data, _fbinfo.width, _fbinfo.height);
+		graph_dup16((uint16_t*)_fbinfo.pointer, (uint32_t*)dma->data, _fbinfo.width, _fbinfo.height);
 	return 0;
 }
 

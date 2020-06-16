@@ -10,18 +10,18 @@
 static int _alpha = 0xff;
 
 static void draw(graph_t* g, graph_t* img) {
-	blt_alpha(img, 0, 0, img->w, img->h,
+	graph_blt_alpha(img, 0, 0, img->w, img->h,
 			g, 0, 0, img->w, img->h, 0xff);
 }
 
 static void repaint(x_t* x, graph_t* g) {
 	(void)x;
-	clear(g, 0xffffff | (_alpha << 24));
+	graph_clear(g, 0xffffff | (_alpha << 24));
 	graph_t* img = (graph_t*)x->data;
 	draw(g, img);
-	draw_text(g, 10, img->h+10, "Press Up/Down to", font_by_name("7x9"), 0xff000000);
-	draw_text(g, 10, img->h+20, "change transparency", font_by_name("7x9"), 0xff000000);
-	draw_text(g, 10, img->h+30, "of background.", font_by_name("7x9"), 0xff000000);
+	graph_draw_text(g, 10, img->h+10, "Press Up/Down to", font_by_name("7x9"), 0xff000000);
+	graph_draw_text(g, 10, img->h+20, "change transparency", font_by_name("7x9"), 0xff000000);
+	graph_draw_text(g, 10, img->h+30, "of background.", font_by_name("7x9"), 0xff000000);
 }
 
 static void event_handle(x_t* x, xevent_t* ev) {

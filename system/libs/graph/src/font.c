@@ -51,3 +51,15 @@ font_item_t* font_by_index(uint32_t index) {
 		return NULL;
 	return &_fonts[index];
 }
+
+int32_t get_text_size(const char* s, font_t* font, uint32_t* w, uint32_t* h) {
+	if(font == NULL)
+		return -1;
+	if(w != NULL)
+		*w = strlen(s) * font->w;
+	if(h != NULL)
+		*h = font->h;
+	return 0;
+}
+
+

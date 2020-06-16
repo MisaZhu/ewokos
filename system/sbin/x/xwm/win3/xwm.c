@@ -140,9 +140,9 @@ static void draw_frame(graph_t* g, xinfo_t* info, bool top, void* p) {
 		h += _xwm_config.title_h;
 		y -= _xwm_config.title_h;
 	}
-	box(g, x-1, y-1, w+2, h+2, bg);//win box
-	box(g, x-2, y-2, w+4, h+4, 0xffffffff);//win box
-	box(g, x-3, y-3, w+6, h+6, bg);//win box
+	graph_box(g, x-1, y-1, w+2, h+2, bg);//win box
+	graph_box(g, x-2, y-2, w+4, h+4, 0xffffffff);//win box
+	graph_box(g, x-3, y-3, w+6, h+6, bg);//win box
 }
 
 static void draw_title(graph_t* g, xinfo_t* info, grect_t* r, bool top, void* p) {
@@ -151,10 +151,10 @@ static void draw_title(graph_t* g, xinfo_t* info, grect_t* r, bool top, void* p)
 	get_color(&fg, &bg, top);
 
 	if(top)
-		fill(g, r->x, r->y, r->w, _xwm_config.title_h, argb_int(0xff0000ff));//title box
+		graph_fill(g, r->x, r->y, r->w, _xwm_config.title_h, argb_int(0xff0000ff));//title box
 	else
-		fill(g, r->x, r->y, r->w, _xwm_config.title_h, bg);//title box
-	draw_text(g, r->x+10, r->y+2, info->title, _xwm_config.font, fg);//title
+		graph_fill(g, r->x, r->y, r->w, _xwm_config.title_h, bg);//title box
+	graph_draw_text(g, r->x+10, r->y+2, info->title, _xwm_config.font, fg);//title
 }
 
 static void draw_min(graph_t* g, xinfo_t* info, grect_t* r, bool top, void* p) {
@@ -163,8 +163,8 @@ static void draw_min(graph_t* g, xinfo_t* info, grect_t* r, bool top, void* p) {
 	uint32_t fg, bg;
 	get_color(&fg, &bg, top);
 
-	fill(g, r->x, r->y, r->w, r->h, bg);
-	box(g, r->x+4, r->y+r->h-8, r->w-8, 4, fg);
+	graph_fill(g, r->x, r->y, r->w, r->h, bg);
+	graph_box(g, r->x+4, r->y+r->h-8, r->w-8, 4, fg);
 }
 
 static void draw_max(graph_t* g, xinfo_t* info, grect_t* r, bool top, void* p) {
@@ -173,8 +173,8 @@ static void draw_max(graph_t* g, xinfo_t* info, grect_t* r, bool top, void* p) {
 	uint32_t fg, bg;
 	get_color(&fg, &bg, top);
 
-	fill(g, r->x, r->y, r->w, r->h, bg);
-	box(g, r->x+4, r->y+4, r->w-8, r->h-8, fg);
+	graph_fill(g, r->x, r->y, r->w, r->h, bg);
+	graph_box(g, r->x+4, r->y+4, r->w-8, r->h-8, fg);
 }
 
 static void draw_close(graph_t* g, xinfo_t* info, grect_t* r, bool top, void* p) {
@@ -183,14 +183,14 @@ static void draw_close(graph_t* g, xinfo_t* info, grect_t* r, bool top, void* p)
 	uint32_t fg, bg;
 	get_color(&fg, &bg, top);
 
-	fill(g, r->x, r->y, r->w, r->h, bg);
-	line(g, r->x+4, r->y+4, r->x+r->w-5, r->y+r->h-5, fg);
-	line(g, r->x+4, r->y+r->h-5, r->x+r->w-5, r->y+4, fg);
+	graph_fill(g, r->x, r->y, r->w, r->h, bg);
+	graph_line(g, r->x+4, r->y+4, r->x+r->w-5, r->y+r->h-5, fg);
+	graph_line(g, r->x+4, r->y+r->h-5, r->x+r->w-5, r->y+4, fg);
 }
 
 static void draw_desktop(graph_t* g, void* p) {
 	(void)p;
-	clear(g, _xwm_config.desk_bg_color);
+	graph_clear(g, _xwm_config.desk_bg_color);
 }
 
 int main(int argc, char** argv) {

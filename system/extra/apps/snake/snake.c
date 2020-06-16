@@ -93,7 +93,7 @@ void draw_dot(graph_t *g, int x, int y, int scale, int color){
 
 	for(i = 0; i < SCALE_FACTOR; i++)
 		for( j = 0; j < SCALE_FACTOR; j++)
-			pixel_safe(g, x * scale + i, 
+			graph_pixel_safe(g, x * scale + i, 
 						  y * scale + j, 
 						  color);
 }
@@ -189,8 +189,8 @@ static void event_handle(x_t* x, xevent_t* xev) {
 
 static void repaint(x_t* x, graph_t* g) {
 	(void)x;
-	clear(g, argb_int(BG_COLOR));
-	draw_text(g, 0, 0, info, font, TEXT_COLOR);
+	graph_clear(g, argb_int(BG_COLOR));
+	graph_draw_text(g, 0, 0, info, font, TEXT_COLOR);
 	snake_draw(g, &s, &f);
 }
 

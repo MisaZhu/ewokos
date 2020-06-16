@@ -51,7 +51,7 @@ static void draw_icon(graph_t* g, const char* item, int icon_size, int i) {
 	int dx = (icon_size - img->w)/2;
 	int dy = (icon_size - img->h)/2;
 
-	blt(img, 0, 0, img->w, img->h,
+	graph_blt(img, 0, 0, img->w, img->h,
 			g, dx, dy+i*icon_size, img->w, img->h);
 	graph_free(img);
 }
@@ -61,7 +61,7 @@ static items_t items;
 static void repaint(x_t* x, graph_t* g) {
 	(void)x;
 	//font_t* font = get_font_by_name("8x16");
-	clear(g, argb_int(0x0));
+	graph_clear(g, argb_int(0x0));
 	int i;
 	for(i=0; i<items.num; i++) {
 		/*box(g, 0, i*items.icon_size,

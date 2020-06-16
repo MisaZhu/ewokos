@@ -28,9 +28,9 @@ static int32_t read_config(const char* fname, items_t* items) {
 
 static void repaint(x_t* x, graph_t* g) {
 	(void)x;
-	clear(g, argb_int(0xffaaaaaa));
-	draw_text(g, 2, 2, "EwokOS", _items.font, 0xff222222);
-	line(g, 0, g->h-1, g->w, g->h-1, argb_int(0xff222222));
+	graph_clear(g, argb_int(0xffaaaaaa));
+	graph_draw_text(g, 2, 2, "EwokOS", _items.font, 0xff222222);
+	graph_line(g, 0, g->h-1, g->w, g->h-1, argb_int(0xff222222));
 }
 
 int main(int argc, char* argv[]) {

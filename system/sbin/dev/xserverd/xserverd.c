@@ -126,7 +126,7 @@ static void draw_desktop(x_t* x) {
 	PF->clear(&in);
 	PF->clear(&out);
 	if(res != 0)
-	 fill(x->g, 0, 0, x->g->w, x->g->h, 0xff000000);
+	 graph_fill(x->g, 0, 0, x->g->w, x->g->h, 0xff000000);
 }
 
 static int draw_view(x_t* xp, xview_t* view) {
@@ -135,7 +135,7 @@ static int draw_view(x_t* xp, xview_t* view) {
 
 	if(view->g != NULL) {
 		if(xp->current.view == view && xp->config.win_move_alpha < 0xff) { //drag and moving
-			blt_alpha(view->g, 0, 0, 
+			graph_blt_alpha(view->g, 0, 0, 
 					view->xinfo.wsr.w,
 					view->xinfo.wsr.h,
 					xp->g,
@@ -145,7 +145,7 @@ static int draw_view(x_t* xp, xview_t* view) {
 					view->xinfo.wsr.h, xp->config.win_move_alpha);
 		}
 		else	if((view->xinfo.style & X_STYLE_ALPHA) != 0) {
-			blt_alpha(view->g, 0, 0, 
+			graph_blt_alpha(view->g, 0, 0, 
 					view->xinfo.wsr.w,
 					view->xinfo.wsr.h,
 					xp->g,
@@ -155,7 +155,7 @@ static int draw_view(x_t* xp, xview_t* view) {
 					view->xinfo.wsr.h, 0xff);
 		}
 		else {
-			blt(view->g, 0, 0, 
+			graph_blt(view->g, 0, 0, 
 						view->xinfo.wsr.w,
 						view->xinfo.wsr.h,
 						xp->g,
@@ -252,7 +252,7 @@ static void hide_cursor(x_t* x) {
 
 	if(x->cursor.g == NULL) {
 		x->cursor.g = graph_new(NULL, x->cursor.size.w, x->cursor.size.h);
-		blt(x->g,
+		graph_blt(x->g,
 				x->cursor.old_pos.x - x->cursor.offset.x,
 				x->cursor.old_pos.y - x->cursor.offset.y,
 				x->cursor.size.w,
@@ -264,7 +264,7 @@ static void hide_cursor(x_t* x) {
 				x->cursor.size.h);
 	}
 	else  {
-		blt(x->cursor.g,
+		graph_blt(x->cursor.g,
 				0,
 				0,
 				x->cursor.size.w,
@@ -286,16 +286,16 @@ static inline void draw_cursor(x_t* x) {
 	if(x->cursor.g == NULL)
 		return;
 
-	blt(x->g, mx, my, mw, mh,
+	graph_blt(x->g, mx, my, mw, mh,
 			x->cursor.g, 0, 0, mw, mh);
 
-	line(x->g, mx+1, my, mx+mw-1, my+mh-2, 0xffffffff);
-	line(x->g, mx, my, mx+mw-1, my+mh-1, 0xff000000);
-	line(x->g, mx, my+1, mx+mw-2, my+mh-1, 0xffffffff);
+	graph_line(x->g, mx+1, my, mx+mw-1, my+mh-2, 0xffffffff);
+	graph_line(x->g, mx, my, mx+mw-1, my+mh-1, 0xff000000);
+	graph_line(x->g, mx, my+1, mx+mw-2, my+mh-1, 0xffffffff);
 
-	line(x->g, mx, my+mh-2, mx+mw-2, my, 0xffffffff);
-	line(x->g, mx, my+mh-1, mx+mw-1, my, 0xff000000);
-	line(x->g, mx+1, my+mh-1, mx+mw-1, my+1, 0xffffffff);
+	graph_line(x->g, mx, my+mh-2, mx+mw-2, my, 0xffffffff);
+	graph_line(x->g, mx, my+mh-1, mx+mw-1, my, 0xff000000);
+	graph_line(x->g, mx+1, my+mh-1, mx+mw-1, my+1, 0xffffffff);
 	x->cursor.old_pos.x = x->cursor.cpos.x;
 	x->cursor.old_pos.y = x->cursor.cpos.y;
 	x->cursor.drop = false;
@@ -396,7 +396,7 @@ static int x_update_info(int ufid, int from_pid, proto_t* in, x_t* x) {
 		if(p == NULL) 
 			return -1;
 		view->g = graph_new(p, xinfo.wsr.w, xinfo.wsr.h);
-		clear(view->g, 0xff000000);
+		graph_clear(view->g, 0xff000000);
 	}
 	view->dirty = true;
 	x->need_repaint = true;

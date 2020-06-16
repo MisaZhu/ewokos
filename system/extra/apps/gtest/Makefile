@@ -33,7 +33,7 @@ $(GTEST): $(GTEST_OBJS) \
 		$(TARGET_DIR)/lib/libewokc.a \
 		$(TARGET_DIR)/lib/libx++.a \
 		$(TARGET_DIR)/lib/libcxx.a 
-	$(LD) -Ttext=100 $(GTEST_OBJS) -o $(GTEST) $(LDFLAGS)  -lx++ -lewokc -lc -lcxx
+	$(LD) -Ttext=100 $(GTEST_OBJS) -o $(GTEST) $(LDFLAGS)  -lgraphxx -lx++ -lewokc -lc -lcxx
 
 clean:
 	rm -f $(GTEST_OBJS)
