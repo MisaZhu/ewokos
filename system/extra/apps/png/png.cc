@@ -8,7 +8,7 @@ extern "C" {
 }
 #include <x++/X.h>
 
-class Png : public X {
+class Png : public XWin {
 	int alpha;
 	graph_t* img;
 

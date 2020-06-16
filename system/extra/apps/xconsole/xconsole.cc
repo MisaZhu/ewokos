@@ -16,7 +16,7 @@ typedef struct {
 	uint32_t unfocus_bg_color;
 } conf_t;
 
-class XConsole : public X {
+class XConsole : public XWin {
 	conf_t conf;
 	console_t console;
 public:
@@ -114,7 +114,7 @@ static int run(int argc, char* argv[]) {
 	x.readConfig("/etc/x/xconsole.conf");
 
 	xscreen_t scr;
- 	X::screenInfo(scr);
+ 	XWin::screenInfo(scr);
 	x.open(10, 40, scr.size.w*3/4, scr.size.h*3/4, "xconsole", 0);
 	x.setVisible(true);
 	x.run();

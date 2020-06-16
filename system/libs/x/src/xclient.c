@@ -10,10 +10,10 @@
 #include <fcntl.h>
 #include <string.h>
 
-int x_update_info(x_t* x, const xinfo_t* info) {
+int x_update_info(xwin_t* xwin, const xinfo_t* info) {
 	proto_t in;
 	PF->init(&in, NULL, 0)->add(&in, info, sizeof(xinfo_t));
-	int ret = fcntl_raw(x->fd, X_CNTL_UPDATE_INFO, &in, NULL);
+	int ret = fcntl_raw(xwin->fd, X_CNTL_UPDATE_INFO, &in, NULL);
 	PF->clear(&in);
 	return ret;
 }
@@ -31,7 +31,7 @@ static int  x_get_workspace(int xfd, int style, grect_t* frame, grect_t* workspa
 	return ret;
 }
 
-x_t* x_open(int x, int y, int w, int h, const char* title, int style) {
+xwin_t* x_open(int x, int y, int w, int h, const char* title, int style) {
 	if(w <= 0 || h <= 0)
 		return NULL;
 
@@ -46,11 +46,11 @@ x_t* x_open(int x, int y, int w, int h, const char* title, int style) {
 	r.h = h;
 	x_get_workspace(fd, style, &r, &r);
 
-	x_t* ret = (x_t*)malloc(sizeof(x_t));
-	memset(ret, 0, sizeof(x_t));
+	xwin_t* ret = (xwin_t*)malloc(sizeof(xwin_t));
+	memset(ret, 0, sizeof(xwin_t));
 
 	ret->fd = fd;
-	ret->closed = false;
+	ret->terminated = false;
 
 	xinfo_t xinfo;
 	xinfo.style = style;
@@ -61,25 +61,25 @@ x_t* x_open(int x, int y, int w, int h, const char* title, int style) {
 	return ret;
 }
 
-int x_get_info(x_t* x, xinfo_t* info) {
-	if(x == NULL || info == NULL)
+int x_get_info(xwin_t* xwin, xinfo_t* info) {
+	if(xwin == NULL || info == NULL)
 		return -1;
 	
 	proto_t out;
 	PF->init(&out, NULL, 0);
-	if(fcntl_raw(x->fd, X_CNTL_GET_INFO, NULL, &out) != 0)
+	if(fcntl_raw(xwin->fd, X_CNTL_GET_INFO, NULL, &out) != 0)
 		return -1;
 	proto_read_to(&out, info, sizeof(xinfo_t));
 	PF->clear(&out);
 	return 0;
 }
 
-static graph_t* x_get_graph(x_t* x) {
-	if(x == NULL)
+static graph_t* x_get_graph(xwin_t* xwin) {
+	if(xwin == NULL)
 		return NULL;
 
 	xinfo_t info;
-	if(x_get_info(x, &info) != 0)
+	if(x_get_info(xwin, &info) != 0)
 		return NULL;
 	void* gbuf = shm_map(info.shm_id);
 	if(gbuf == NULL)
@@ -87,97 +87,97 @@ static graph_t* x_get_graph(x_t* x) {
 	return graph_new(gbuf, info.wsr.w, info.wsr.h);
 }
 
-static void x_release_graph(x_t* x, graph_t* g) {
+static void x_release_graph(xwin_t* xwin, graph_t* g) {
 	xinfo_t info;
-	if(x_get_info(x, &info) != 0)
+	if(x_get_info(xwin, &info) != 0)
 		return;
 	graph_free(g);
 	shm_unmap(info.shm_id);
 }
 
-void x_close(x_t* x) {
-	if(x == NULL)
+void x_close(xwin_t* xwin) {
+	if(xwin == NULL)
 		return;
-	close(x->fd);
-	free(x);
+	close(xwin->fd);
+	free(xwin);
 }
 
-static int win_event_handle(x_t* x, xevent_t* ev) {
+static int win_event_handle(xwin_t* xwin, xevent_t* ev) {
 	if(ev->value.window.event == XEVT_WIN_MOVE) {
 	}
 	else if(ev->value.window.event == XEVT_WIN_CLOSE) {
-		x->closed = true;
+		xwin->terminated = true;
 	}
 	else if(ev->value.window.event == XEVT_WIN_FOCUS) {
-		if(x->on_focus) {
-			x->on_focus(x);
-			x_repaint(x);
+		if(xwin->on_focus) {
+			xwin->on_focus(xwin);
+			x_repaint(xwin);
 		}
 	}
 	else if(ev->value.window.event == XEVT_WIN_UNFOCUS) {
-		if(x->on_unfocus) {
-			x->on_unfocus(x);
-			x_repaint(x);
+		if(xwin->on_unfocus) {
+			xwin->on_unfocus(xwin);
+			x_repaint(xwin);
 		}
 	}
 	else if(ev->value.window.event == XEVT_WIN_MAX) {
 		xinfo_t xinfo;
-		x_get_info(x, &xinfo);
+		x_get_info(xwin, &xinfo);
 		if(xinfo.state == X_STATE_MAX) {
-			memcpy(&xinfo.wsr, &x->xinfo_prev.wsr, sizeof(grect_t));
-			xinfo.state = x->xinfo_prev.state;
+			memcpy(&xinfo.wsr, &xwin->xinfo_prev.wsr, sizeof(grect_t));
+			xinfo.state = xwin->xinfo_prev.state;
 		}
 		else {
 			xscreen_t scr;
 			if(x_screen_info(&scr) == 0) {
-				memcpy(&x->xinfo_prev, &xinfo, sizeof(xinfo_t));
+				memcpy(&xwin->xinfo_prev, &xinfo, sizeof(xinfo_t));
 				grect_t r = {0, 0, scr.size.w, scr.size.h};
-				x_get_workspace(x->fd, xinfo.style, &r, &r);
+				x_get_workspace(xwin->fd, xinfo.style, &r, &r);
 				memcpy(&xinfo.wsr, &r, sizeof(grect_t));
 				xinfo.state = X_STATE_MAX;
 			}
 		}
-		x_update_info(x, &xinfo);
-		if(x->on_resize) {
-			x->on_resize(x);
-			x_repaint(x);
+		x_update_info(xwin, &xinfo);
+		if(xwin->on_resize) {
+			xwin->on_resize(xwin);
+			x_repaint(xwin);
 		}
 	}
 	return 0;
 }
 
-static void x_push_event(x_t* x, xevent_t* ev) {
+static void x_push_event(xwin_t* xwin, xevent_t* ev) {
 	x_event_t* e = (x_event_t*)malloc(sizeof(x_event_t));
 	e->next = NULL;
 	memcpy(&e->event, ev, sizeof(xevent_t));
 
-  if(x->event_tail != NULL)
-    x->event_tail->next = e;
+  if(xwin->event_tail != NULL)
+    xwin->event_tail->next = e;
   else
-    x->event_head = e;
-  x->event_tail = e;
+    xwin->event_head = e;
+  xwin->event_tail = e;
 }
 
-static int x_get_event(x_t* x, xevent_t* ev) {
-  x_event_t* e = x->event_head;
+static int x_get_event(xwin_t* xwin, xevent_t* ev) {
+  x_event_t* e = xwin->event_head;
 	if(e == NULL)
 		return -1;
 
-  x->event_head = x->event_head->next;
-  if(x->event_head == NULL)
-    x->event_tail = NULL;
+  xwin->event_head = xwin->event_head->next;
+  if(xwin->event_head == NULL)
+    xwin->event_tail = NULL;
 
   memcpy(ev, &e->event, sizeof(xevent_t));
   free(e);
   return 0;
 }
 
-int x_is_top(x_t* x) {
+int x_is_top(xwin_t* xwin) {
 	proto_t out;
 	PF->init(&out, NULL, 0);
 
 	int res = -1;
-	if(fcntl_raw(x->fd, X_CNTL_IS_TOP, NULL, &out) == 0) {
+	if(fcntl_raw(xwin->fd, X_CNTL_IS_TOP, NULL, &out) == 0) {
 		res = proto_read_int(&out);
 	}
 	PF->clear(&out);
@@ -195,66 +195,63 @@ int x_screen_info(xscreen_t* scr) {
 	return ret;
 }
 
-int x_set_visible(x_t* x, bool visible) {
+int x_set_visible(xwin_t* xwin, bool visible) {
 	proto_t in;
 	PF->init(&in, NULL, 0)->addi(&in, visible);
 
-	int res = fcntl_raw(x->fd, X_CNTL_SET_VISIBLE, &in, NULL);
+	int res = fcntl_raw(xwin->fd, X_CNTL_SET_VISIBLE, &in, NULL);
 	PF->clear(&in);
-	if(x->on_focus)
-		x->on_focus(x);
-	x_repaint(x);
+	if(xwin->on_focus)
+		xwin->on_focus(xwin);
+	x_repaint(xwin);
 	return res;
 }
 
-void x_repaint(x_t* x) {
-	if(x->on_repaint == NULL) {
-		fcntl_raw(x->fd, X_CNTL_UPDATE, NULL, NULL);
+void x_repaint(xwin_t* xwin) {
+	if(xwin->on_repaint == NULL) {
+		fcntl_raw(xwin->fd, X_CNTL_UPDATE, NULL, NULL);
 		return;
 	}
 
-	graph_t* g = x_get_graph(x);
-	x->on_repaint(x, g);
-	fcntl_raw(x->fd, X_CNTL_UPDATE, NULL, NULL);
-	x_release_graph(x, g);
+	graph_t* g = x_get_graph(xwin);
+	xwin->on_repaint(xwin, g);
+	fcntl_raw(xwin->fd, X_CNTL_UPDATE, NULL, NULL);
+	x_release_graph(xwin, g);
 }
 
 static void handle(int from_pid, int cmd, proto_t* in, proto_t* out, void* p) {
 	(void)from_pid;
 	(void)out;
-	x_t* x = (x_t*)p;
+	xwin_t* xwin = (xwin_t*)p;
 
 	if(cmd == X_CMD_PUSH_EVENT) {
 		xevent_t ev;
 		proto_read_to(in, &ev, sizeof(xevent_t));
-		x_push_event(x, &ev);
+		x_push_event(xwin, &ev);
 	}
 
-	if(x->on_loop == NULL)
-		proc_wakeup((int32_t)x);
+	if(xwin->on_loop == NULL)
+		proc_wakeup((int32_t)xwin);
 }
 
-void  x_run(x_t* x) {
-	if(x->on_init != NULL)
-		x->on_init(x);
-	
-	int ipc_pid = ipc_serv_run(handle, x, true);
+void  x_run(xwin_t* xwin) {
+	int ipc_pid = ipc_serv_run(handle, xwin, true);
 
 	xevent_t xev;
-	while(!x->closed) {
-		if(x_get_event(x, &xev) == 0) {
+	while(!xwin->terminated) {
+		if(x_get_event(xwin, &xev) == 0) {
 			if(xev.type == XEVT_WIN) 
-				win_event_handle(x, &xev);
+				win_event_handle(xwin, &xev);
 
-			if(x->on_event != NULL)
-				x->on_event(x, &xev);
+			if(xwin->on_event != NULL)
+				xwin->on_event(xwin, &xev);
 		}
 		else {
-			if(x->on_loop == NULL) {
-				proc_block(ipc_pid, (int32_t)x);
+			if(xwin->on_loop == NULL) {
+				proc_block(ipc_pid, (int32_t)xwin);
 			}
 			else {
-				x->on_loop(x);
+				xwin->on_loop(xwin);
 				usleep(10000);
 			}
 		}

@@ -15,7 +15,7 @@ typedef struct {
 	str_t* items[ITEM_MAX];	
 } items_t;
 
-class Launcher: public X {
+class Launcher: public XWin {
 	items_t items;
 
 	void drawIcon(Graph& g, const char* item, int icon_size, int i) {
@@ -112,7 +112,7 @@ int main(int argc, char* argv[]) {
 	(void)argv;
 
 	xscreen_t scr;
-	X::screenInfo(scr);
+	XWin::screenInfo(scr);
 	Launcher x;
 	x.readConfig("/etc/x/launcher.conf");
 	uint32_t is = x.getIconSize();

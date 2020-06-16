@@ -23,12 +23,12 @@
 static int seed = 31415;
 
 static bool top = false;
-void on_focus(x_t* x) {
+void on_focus(xwin_t* x) {
 	(void)x;
 	top = true;
 }
 
-void on_unfocus(x_t* x) {
+void on_unfocus(xwin_t* x) {
 	(void)x;
 	top = false;
 }
@@ -163,12 +163,12 @@ static int record = 0;
 static bool dead = true;
 static int dir = LEFT;
 
-static void event_handle(x_t* x, xevent_t* xev) {
+static void event_handle(xwin_t* x, xevent_t* xev) {
 
 	if(xev->type == XEVT_KEYB) {
 		int key = xev->value.keyboard.value;
 		if(key == 27) {//esc
-			x->closed = true;
+			x->terminated = true;
 			return;
 		}
 		seed += key;
@@ -187,14 +187,14 @@ static void event_handle(x_t* x, xevent_t* xev) {
 
 }
 
-static void repaint(x_t* x, graph_t* g) {
+static void repaint(xwin_t* x, graph_t* g) {
 	(void)x;
 	graph_clear(g, argb_int(BG_COLOR));
 	graph_draw_text(g, 0, 0, info, font, TEXT_COLOR);
 	snake_draw(g, &s, &f);
 }
 
-static void loop(x_t* x) {
+static void loop(xwin_t* x) {
 	if(!top)
 		return;
 
@@ -223,7 +223,7 @@ int main(int argc, char* argv[]) {
 	top = false;
 	xscreen_t scr;
 	x_screen_info(&scr);
-	x_t* x = x_open(10, 10, WIN_WIDTH*SCALE_FACTOR, WIN_HEIGHT*SCALE_FACTOR + 20, "snake", X_STYLE_NORMAL | X_STYLE_NO_RESIZE);
+	xwin_t* x = x_open(10, 10, WIN_WIDTH*SCALE_FACTOR, WIN_HEIGHT*SCALE_FACTOR + 20, "snake", X_STYLE_NORMAL | X_STYLE_NO_RESIZE);
 	x->on_focus = on_focus;
 	x->on_unfocus = on_unfocus;
 	x->on_event = event_handle;

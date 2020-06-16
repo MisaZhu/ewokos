@@ -23,7 +23,7 @@ static int32_t read_config(const char* fname, items_t* items) {
 	return 0;
 }
 
-class Panel : public X {
+class Panel : public XWin {
 protected:
 	void onRepaint(Graph& g) {
 		g.clear(argb_int(0xffaaaaaa));
@@ -40,7 +40,7 @@ int main(int argc, char* argv[]) {
 	read_config("/etc/x/syspanel.conf", &_items);
 
 	xscreen_t scr;
-	X::screenInfo(scr);
+	XWin::screenInfo(scr);
 
 	Panel x;
 	x.open(0,  0, scr.size.w, _items.font->h + 4,

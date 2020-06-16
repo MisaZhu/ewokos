@@ -1,133 +1,133 @@
 #include "x++/X.h"
 
-static void _on_repaint(x_t* xp, graph_t* g) {
-	if(xp == NULL || g == NULL)
+static void _on_repaint(xwin_t* xw, graph_t* g) {
+	if(xw == NULL || g == NULL)
 		return;
-	X* x = (X*)xp->data;
-	if(x == NULL)
+	XWin* xwin = (XWin*)xw->data;
+	if(xwin == NULL)
 		return;
-	x->__doRepaint(g);
+	xwin->__doRepaint(g);
 }
 
-static void _on_min(x_t* xp) {
-	if(xp == NULL)
+static void _on_min(xwin_t* xw) {
+	if(xw == NULL)
 		return;
-	X* x = (X*)xp->data;
-	if(x == NULL)
+	XWin* xwin = (XWin*)xw->data;
+	if(xwin == NULL)
 		return;
-	x->__doMin();
+	xwin->__doMin();
 }
 
-static void _on_resize(x_t* xp) {
-	if(xp == NULL)
+static void _on_resize(xwin_t* xw) {
+	if(xw == NULL)
 		return;
-	X* x = (X*)xp->data;
-	if(x == NULL)
+	XWin* xwin = (XWin*)xw->data;
+	if(xwin == NULL)
 		return;
-	x->__doResize();
+	xwin->__doResize();
 }
 
-static void _on_focus(x_t* xp) {
-	if(xp == NULL)
+static void _on_focus(xwin_t* xw) {
+	if(xw == NULL)
 		return;
-	X* x = (X*)xp->data;
-	if(x == NULL)
+	XWin* xwin = (XWin*)xw->data;
+	if(xwin == NULL)
 		return;
-	x->__doFocus();
+	xwin->__doFocus();
 }
 
-static void _on_unfocus(x_t* xp) {
-	if(xp == NULL)
+static void _on_unfocus(xwin_t* xw) {
+	if(xw == NULL)
 		return;
-	X* x = (X*)xp->data;
-	if(x == NULL)
+	XWin* xwin = (XWin*)xw->data;
+	if(xwin == NULL)
 		return;
-	x->__doUnfocus();
+	xwin->__doUnfocus();
 }
 
-static void _on_loop(x_t* xp) {
-	if(xp == NULL)
+static void _on_loop(xwin_t* xw) {
+	if(xw == NULL)
 		return;
-	X* x = (X*)xp->data;
-	if(x == NULL)
+	XWin* xwin = (XWin*)xw->data;
+	if(xwin == NULL)
 		return;
-	x->__doLoop();
+	xwin->__doLoop();
 }
 
-static void _on_event(x_t* xp, xevent_t* ev) {
-	if(xp == NULL)
+static void _on_event(xwin_t* xw, xevent_t* ev) {
+	if(xw == NULL)
 		return;
-	X* x = (X*)xp->data;
-	if(x == NULL)
+	XWin* xwin = (XWin*)xw->data;
+	if(xwin == NULL)
 		return;
-	x->__doEvent(ev);
+	xwin->__doEvent(ev);
 }
 
-bool X::open(int x, int y, uint32_t w, uint32_t h, const char* title, uint32_t style) {
-	if(xp != NULL)
-		x_close(xp);
+bool XWin::open(int x, int y, uint32_t w, uint32_t h, const char* title, uint32_t style) {
+	if(xwin != NULL)
+		x_close(xwin);
 
-	xp = x_open(x, y, w, h, title, style);
-	if(xp == NULL)
+	xwin = x_open(x, y, w, h, title, style);
+	if(xwin == NULL)
 		return false;
-	xp->data = this;
-	xp->on_repaint = _on_repaint;
-	xp->on_min = _on_min;
-	xp->on_resize = _on_resize;
-	xp->on_focus = _on_focus;
-	xp->on_unfocus = _on_unfocus;
-	xp->on_loop = _on_loop;
-	xp->on_event = _on_event;
+	xwin->data = this;
+	xwin->on_repaint = _on_repaint;
+	xwin->on_min = _on_min;
+	xwin->on_resize = _on_resize;
+	xwin->on_focus = _on_focus;
+	xwin->on_unfocus = _on_unfocus;
+	xwin->on_loop = _on_loop;
+	xwin->on_event = _on_event;
 	return true;
 }
 
-void X::close() {
-	if(xp != NULL) {
-		xp->closed = true;
+void XWin::close() {
+	if(xwin != NULL) {
+		xwin->terminated = true;
 	}
 }
 
-bool X::setVisible(bool visible) {
-	if(xp == NULL)
+bool XWin::setVisible(bool visible) {
+	if(xwin == NULL)
 		return false;
-	x_set_visible(xp, visible);
+	x_set_visible(xwin, visible);
 	return true;
 }
 
-void X::run() {
-	if(xp == NULL)
+void XWin::run() {
+	if(xwin == NULL)
 		return;
 	
-	x_run(xp);
+	x_run(xwin);
 
-	x_close(xp);
-	xp = NULL;
+	x_close(xwin);
+	xwin = NULL;
 }
 
-bool X::updateInfo(const xinfo_t& xinfo) {
-	if(xp == NULL)	
+bool XWin::updateInfo(const xinfo_t& xinfo) {
+	if(xwin == NULL)	
 		return false;
-	return (x_update_info(xp, &xinfo) == 0);
+	return (x_update_info(xwin, &xinfo) == 0);
 }
 
-bool X::getInfo(xinfo_t& xinfo) {
-	if(xp == NULL)	
+bool XWin::getInfo(xinfo_t& xinfo) {
+	if(xwin == NULL)	
 		return false;
-	return (x_get_info(xp, &xinfo) == 0);
+	return (x_get_info(xwin, &xinfo) == 0);
 }
 
-bool X::screenInfo(xscreen_t& scr) {
+bool XWin::screenInfo(xscreen_t& scr) {
 	return (x_screen_info(&scr) == 0);
 }
 
-bool X::isTop(void) {
-	if(xp == NULL)	
+bool XWin::isTop(void) {
+	if(xwin == NULL)	
 		return false;
-	return (x_is_top(xp) == 0);
+	return (x_is_top(xwin) == 0);
 }
 
-void X::repaint() {
-	if(xp == NULL)	
+void XWin::repaint() {
+	if(xwin == NULL)	
 		return;
-	x_repaint(xp);
+	x_repaint(xwin);
 }
