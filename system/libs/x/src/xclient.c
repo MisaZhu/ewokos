@@ -10,7 +10,7 @@
 #include <fcntl.h>
 #include <string.h>
 
-int x_update_info(x_t* x, xinfo_t* info) {
+int x_update_info(x_t* x, const xinfo_t* info) {
 	proto_t in;
 	PF->init(&in, NULL, 0)->add(&in, info, sizeof(xinfo_t));
 	int ret = fcntl_raw(x->fd, X_CNTL_UPDATE_INFO, &in, NULL);

@@ -166,6 +166,7 @@ include $(ROOT_DIR)/sbin/dev/arch/raspi/lcdhatd/build.mk
 include $(ROOT_DIR)/sbin/dev/arch/raspi/joystickd/build.mk
 
 include $(ROOT_DIR)/bin/shell/build.mk
+include $(ROOT_DIR)/bin/dump/build.mk
 include $(ROOT_DIR)/bin/pwd/build.mk
 include $(ROOT_DIR)/bin/cat/build.mk
 include $(ROOT_DIR)/bin/ps/build.mk
@@ -186,6 +187,7 @@ mkdirs:
 	@mkdir -p ${TARGET_DIR}/$(ROOT_DIR)/sbin/dev/raspi2
 	@mkdir -p ${TARGET_DIR}/$(ROOT_DIR)/sbin/x
 	@mkdir -p ${TARGET_DIR}/$(ROOT_DIR)/bin
+	@mkdir -p ${TARGET_DIR}/$(ROOT_DIR)/apps
 	@mkdir -p ${TARGET_DIR}/$(ROOT_DIR)/include
 	@mkdir -p ${TARGET_DIR}/$(ROOT_DIR)/lib
 	@mkdir -p ${TARGET_DIR}/$(ROOT_DIR)/dev
@@ -211,8 +213,8 @@ EXTRA_LIBS_DIR=extra/libs
 EXTRA_LIBXX_DIR=extra/libxx
 extra_libs:
 	cd $(EXTRA_LIBS_DIR)/libm; make
-	cd $(EXTRA_LIBS_DIR)/mario; make
 	cd $(EXTRA_LIBS_DIR)/console; make
+	cd $(EXTRA_LIBS_DIR)/mario; make
 	cd $(EXTRA_LIBS_DIR)/hash; make
 	cd $(EXTRA_LIBS_DIR)/sconf; make
 	cd $(EXTRA_LIBS_DIR)/upng; make
@@ -220,18 +222,16 @@ extra_libs:
 	cd $(EXTRA_LIBXX_DIR)/graphxx; make
 	cd $(EXTRA_LIBXX_DIR)/x++; make
 
+EXTRA_BIN_DIR=extra/bin
 APPS_DIR=extra/apps
 extra_apps:
-	cd $(APPS_DIR)/test;make
-	cd $(APPS_DIR)/dump;make
+	cd $(EXTRA_BIN_DIR)/mario;make
 	cd $(APPS_DIR)/gtest;make
 	cd $(APPS_DIR)/snake;make
-	cd $(APPS_DIR)/console;make
 	cd $(APPS_DIR)/launcher;make
 	cd $(APPS_DIR)/syspanel;make
 	cd $(APPS_DIR)/xconsole;make
 	cd $(APPS_DIR)/png;make
-	cd $(APPS_DIR)/mario;make
 
 KERNEL=$(KERNEL_DIR)/build/mkos.bin
 KERNEL_ELF=$(KERNEL_DIR)/build/mkos.elf
@@ -251,17 +251,15 @@ gdb:
 clean:
 	rm -f $(CLEAN)
 	rm -fr build
-	cd $(APPS_DIR)/test;make clean
-	cd $(APPS_DIR)/dump;make clean
 	cd $(APPS_DIR)/gtest;make clean
 	cd $(APPS_DIR)/snake;make clean
-	cd $(APPS_DIR)/console;make clean
 	cd $(APPS_DIR)/launcher;make clean
 	cd $(APPS_DIR)/syspanel;make clean
 	cd $(APPS_DIR)/xconsole;make clean
 	cd $(APPS_DIR)/png;make clean
+	cd $(EXTRA_BIN_DIR)/mario;make clean;
 	cd $(EXTRA_LIBS_DIR)/libm; make clean
-	cd $(EXTRA_LIBS_DIR)/mario;make clean
+	cd $(EXTRA_LIBS_DIR)/console; make clean
 	cd $(EXTRA_LIBS_DIR)/console;make clean
 	cd $(EXTRA_LIBS_DIR)/hash; make clean
 	cd $(EXTRA_LIBS_DIR)/sconf; make clean

@@ -201,11 +201,12 @@ static void x_push_event(xview_t* view, xevent_t* e) {
 static void push_view(x_t* x, xview_t* view) {
 	if((view->xinfo.style & X_STYLE_NO_FOCUS) == 0) {
 		if(x->view_tail != NULL) {
-			xevent_t e;
-			e.type = XEVT_WIN;
-			e.value.window.event = XEVT_WIN_UNFOCUS;
-			x_push_event(x->view_tail, &e);
-
+			if((x->view_tail->xinfo.style & X_STYLE_NO_FOCUS) == 0) {
+				xevent_t e;
+				e.type = XEVT_WIN;
+				e.value.window.event = XEVT_WIN_UNFOCUS;
+				x_push_event(x->view_tail, &e);
+			}
 			x->view_tail->next = view;
 			view->prev = x->view_tail;
 			x->view_tail = view;
@@ -238,11 +239,12 @@ static void x_del_view(x_t* x, xview_t* view) {
 	remove_view(x, view);
 	free(view);
 
-	if(x->view_tail != NULL) {
+	view = x->view_tail;
+	if(view != NULL && (view->xinfo.style & X_STYLE_NO_FOCUS) == 0) {
 		xevent_t e;
 		e.type = XEVT_WIN;
 		e.value.window.event = XEVT_WIN_FOCUS;
-		x_push_event(x->view_tail, &e);
+		x_push_event(view, &e);
 	}
 }
 

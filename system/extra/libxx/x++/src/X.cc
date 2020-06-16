@@ -104,20 +104,20 @@ void X::run() {
 	xp = NULL;
 }
 
-bool X::updateInfo(xinfo_t* xinfo) {
+bool X::updateInfo(const xinfo_t& xinfo) {
 	if(xp == NULL)	
 		return false;
-	return (x_update_info(xp, xinfo) == 0);
+	return (x_update_info(xp, &xinfo) == 0);
 }
 
-bool X::getInfo(xinfo_t* xinfo) {
+bool X::getInfo(xinfo_t& xinfo) {
 	if(xp == NULL)	
 		return false;
-	return (x_get_info(xp, xinfo) == 0);
+	return (x_get_info(xp, &xinfo) == 0);
 }
 
-bool X::screenInfo(xscreen_t* scr) {
-	return (x_screen_info(scr) == 0);
+bool X::screenInfo(xscreen_t& scr) {
+	return (x_screen_info(&scr) == 0);
 }
 
 bool X::isTop(void) {

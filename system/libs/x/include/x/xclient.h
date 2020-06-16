@@ -32,7 +32,7 @@ typedef struct st_x {
 } x_t;
 
 x_t*     x_open(int x, int y, int w, int h, const char* title, int style);
-int      x_update_info(x_t* x, xinfo_t* xinfo);
+int      x_update_info(x_t* x, const xinfo_t* xinfo);
 int      x_get_info(x_t* x, xinfo_t* xinfo);
 void     x_close(x_t* x);
 int      x_screen_info(xscreen_t* scr);

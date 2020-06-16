@@ -40,7 +40,7 @@ int main(int argc, char* argv[]) {
 	(void)argc;
 	(void)argv;
 	xscreen_t scr;
-	X::screenInfo(&scr);
+	X::screenInfo(scr);
 
 	TestX* x = new TestX();
 	x->open(10, 10, 220, 200, "gtest", X_STYLE_NORMAL | X_STYLE_NO_RESIZE);

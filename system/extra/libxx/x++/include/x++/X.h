@@ -49,9 +49,9 @@ public:
 	bool setVisible(bool visible);
 	void run(void);
 
-	bool updateInfo(xinfo_t* xinfo);
-	bool getInfo(xinfo_t* xinfo);
-	static bool  screenInfo(xscreen_t* scr);
+	bool updateInfo(const xinfo_t& xinfo);
+	bool getInfo(xinfo_t& xinfo);
+	static bool screenInfo(xscreen_t& scr);
 	bool isTop(void);
 	void repaint();
 };

@@ -1,8 +1,6 @@
-AR = arm-none-eabi-ar
 CC = arm-none-eabi-gcc
 CXX = arm-none-eabi-c++
 LD = arm-none-eabi-ld
-OBJDUMP = arm-none-eabi-objdump
 
 BUILD_DIR = ../../../build
 TARGET_DIR = $(BUILD_DIR)/rootfs
@@ -29,7 +27,7 @@ CFLAGS += -I $(TARGET_DIR)/include
 
 SNAKE_OBJS = snake.o
 
-SNAKE = $(TARGET_DIR)/bin/snake
+SNAKE = $(TARGET_DIR)/apps/snake
 
 $(SNAKE): $(SNAKE_OBJS) \
 		$(TARGET_DIR)/lib/libewokc.a \
