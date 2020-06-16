@@ -208,8 +208,11 @@ int x_set_visible(x_t* x, bool visible) {
 }
 
 void x_repaint(x_t* x) {
-	if(x->on_repaint == NULL)
+	if(x->on_repaint == NULL) {
+		fcntl_raw(x->fd, X_CNTL_UPDATE, NULL, NULL);
 		return;
+	}
+
 	graph_t* g = x_get_graph(x);
 	x->on_repaint(x, g);
 	fcntl_raw(x->fd, X_CNTL_UPDATE, NULL, NULL);

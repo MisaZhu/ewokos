@@ -208,6 +208,7 @@ sd:
 builtin_apps: ${PROGS}
 
 EXTRA_LIBS_DIR=extra/libs
+EXTRA_LIBXX_DIR=extra/libxx
 extra_libs:
 	cd $(EXTRA_LIBS_DIR)/libm; make
 	cd $(EXTRA_LIBS_DIR)/mario; make
@@ -215,6 +216,8 @@ extra_libs:
 	cd $(EXTRA_LIBS_DIR)/hash; make
 	cd $(EXTRA_LIBS_DIR)/sconf; make
 	cd $(EXTRA_LIBS_DIR)/upng; make
+	cd $(EXTRA_LIBXX_DIR)/cxx; make
+	cd $(EXTRA_LIBXX_DIR)/x++; make
 
 APPS_DIR=extra/apps
 extra_apps:
@@ -262,3 +265,5 @@ clean:
 	cd $(EXTRA_LIBS_DIR)/hash; make clean
 	cd $(EXTRA_LIBS_DIR)/sconf; make clean
 	cd $(EXTRA_LIBS_DIR)/upng; make clean
+	cd $(EXTRA_LIBXX_DIR)/cxx; make clean
+	cd $(EXTRA_LIBXX_DIR)/x++; make clean
