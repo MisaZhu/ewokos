@@ -476,30 +476,59 @@ void graph_fill_circle(graph_t* g, int32_t x, int32_t y, uint32_t radius, uint32
 
 void graph_circle(graph_t* g, int32_t x, int32_t y, uint32_t radius, uint32_t color) {
 	int32_t a, b, P;
-	a = 0;
+	a = 1;
 	b = radius;
 	P = 1 - radius;
 
-	uint8_t ca = (color >> 24) & 0xff;
-	uint8_t cr = (color >> 16) & 0xff;
-	uint8_t cg = (color >> 8) & 0xff;
-	uint8_t cb = (color) & 0xff;
+	if(has_alpha(color)) {
+		uint8_t ca = (color >> 24) & 0xff;
+		uint8_t cr = (color >> 16) & 0xff;
+		uint8_t cg = (color >> 8) & 0xff;
+		uint8_t cb = (color) & 0xff;
 
-	do {
-		pixel_argb_safe(g, a+x, b+y, ca, cr, cg, cb);
-		pixel_argb_safe(g, b+x, a+y, ca, cr, cg, cb);
-		pixel_argb_safe(g, x-a, b+y, ca, cr, cg, cb);
-		pixel_argb_safe(g, x-b, a+y, ca, cr, cg, cb);
-		pixel_argb_safe(g, b+x, y-a, ca, cr, cg, cb);
-		pixel_argb_safe(g, a+x, y-b, ca, cr, cg, cb);
-		pixel_argb_safe(g, x-a, y-b, ca, cr, cg, cb);
-		pixel_argb_safe(g, x-b, y-a, ca, cr, cg, cb);
+		pixel_argb_safe(g, x, radius+y, ca, cr, cg, cb);
+		pixel_argb_safe(g, x, y-radius, ca, cr, cg, cb);
+		pixel_argb_safe(g, x+radius, y, ca, cr, cg, cb);
+		pixel_argb_safe(g, x-radius, y, ca, cr, cg, cb);
 
-		if(P < 0)
-			P+= 3 + 2*a++;
-		else
-			P+= 5 + 2*(a++ - b--);
-	} while(a < b);
+		do {
+			pixel_argb_safe(g, a+x, b+y, ca, cr, cg, cb);
+			pixel_argb_safe(g, b+x, a+y, ca, cr, cg, cb);
+			pixel_argb_safe(g, x-a, b+y, ca, cr, cg, cb);
+			pixel_argb_safe(g, x-b, a+y, ca, cr, cg, cb);
+			pixel_argb_safe(g, b+x, y-a, ca, cr, cg, cb);
+			pixel_argb_safe(g, a+x, y-b, ca, cr, cg, cb);
+			pixel_argb_safe(g, x-a, y-b, ca, cr, cg, cb);
+			pixel_argb_safe(g, x-b, y-a, ca, cr, cg, cb);
+
+			if(P < 0)
+				P+= 3 + 2*a++;
+			else
+				P+= 5 + 2*(a++ - b--);
+		} while(a < b);
+	}
+	else {
+		graph_pixel_safe(g, x, radius+y, color);
+		graph_pixel_safe(g, x, y-radius, color);
+		graph_pixel_safe(g, x+radius, y, color);
+		graph_pixel_safe(g, x-radius, y, color);
+
+		do {
+			graph_pixel_safe(g, a+x, b+y, color);
+			graph_pixel_safe(g, b+x, a+y, color);
+			graph_pixel_safe(g, x-a, b+y, color);
+			graph_pixel_safe(g, x-b, a+y, color);
+			graph_pixel_safe(g, b+x, y-a, color);
+			graph_pixel_safe(g, a+x, y-b, color);
+			graph_pixel_safe(g, x-a, y-b, color);
+			graph_pixel_safe(g, x-b, y-a, color);
+
+			if(P < 0)
+				P+= 3 + 2*a++;
+			else
+				P+= 5 + 2*(a++ - b--);
+		} while(a < b);
+	}
 }
 
 inline void graph_blt(graph_t* src, int32_t sx, int32_t sy, uint32_t sw, uint32_t sh,
