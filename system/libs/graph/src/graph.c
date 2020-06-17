@@ -464,14 +464,14 @@ void graph_fill_circle(graph_t* g, int32_t x, int32_t y, uint32_t radius, uint32
 
 	graph_line(g, x-radius, y, x+radius, y, color);
 	do {
+		graph_line(g, x-b, y+a, x+b, y+a, color);
+		graph_line(g, x-b, y-a, x+b, y-a, color);
 		if(P < 0) {
-			graph_line(g, x-b, y+a, x+b, y+a, color);
-			graph_line(g, x-b, y-a, x+b, y-a, color);
 			P += 3 + 2*a++;
 		}
 		else {
-			graph_line(g, x-a, y+b, x+a, y+b, color);
-			graph_line(g, x-a, y-b, x+a, y-b, color);
+		graph_line(g, x-a, y+b, x+a, y+b, color);
+		graph_line(g, x-a, y-b, x+a, y-b, color);
 			P += 5 + 2*(a++ - b--);
 		}
 	} while(a < b);

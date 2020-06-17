@@ -35,6 +35,18 @@ void Graph::fill(int32_t x, int32_t y, int32_t w, int32_t h, uint32_t color) {
 	graph_fill(g, x, y, w, h, color);
 }
 
+void Graph::fillCircle(int32_t x, int32_t y, uint32_t r, uint32_t color) {
+	if(g == NULL)
+		return;
+	graph_fill_circle(g, x, y, r, color);
+}
+
+void Graph::circle(int32_t x, int32_t y, uint32_t r, uint32_t color) {
+	if(g == NULL)
+		return;
+	graph_circle(g, x, y, r, color);
+}
+
 void Graph::line(int32_t x1, int32_t y1, int32_t x2, int32_t y2, uint32_t color) {
 	if(g == NULL)
 		return;

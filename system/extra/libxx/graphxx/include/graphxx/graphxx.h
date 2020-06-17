@@ -29,6 +29,10 @@ public:
 
 	void line(int32_t x1, int32_t y1, int32_t x2, int32_t y2, uint32_t color);
 
+	void circle(int32_t x, int32_t y, uint32_t r, uint32_t color);
+
+	void fillCircle(int32_t x, int32_t y, uint32_t r, uint32_t color);
+
 	void drawChar(int32_t x, int32_t y, char c, font_t* font, uint32_t color);
 
 	void drawText(int32_t x, int32_t y, const char* str, font_t* font, uint32_t color);
