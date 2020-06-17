@@ -458,19 +458,22 @@ void graph_draw_text(graph_t* g, int32_t x, int32_t y, const char* str, font_t* 
 
 void graph_fill_circle(graph_t* g, int32_t x, int32_t y, uint32_t radius, uint32_t color) {
 	int32_t a, b, P;
-	a = 0;
+	a = 1;
 	b = radius;
 	P = 1 - radius;
 
+	graph_line(g, x-radius, y, x+radius, y, color);
 	do {
-		graph_line(g, x-a, y+b, x+a, y+b, color);
-		graph_line(g, x-a, y-b, x+a, y-b, color);
-		graph_line(g, x-b, y+a, x+b, y+a, color);
-		graph_line(g, x-b, y-a, x+b, y-a, color);
-		if(P < 0)
+		if(P < 0) {
+			graph_line(g, x-b, y+a, x+b, y+a, color);
+			graph_line(g, x-b, y-a, x+b, y-a, color);
 			P += 3 + 2*a++;
-		else
+		}
+		else {
+			graph_line(g, x-a, y+b, x+a, y+b, color);
+			graph_line(g, x-a, y-b, x+a, y-b, color);
 			P += 5 + 2*(a++ - b--);
+		}
 	} while(a < b);
 }
 
