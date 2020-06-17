@@ -1,7 +1,5 @@
-AR = arm-none-eabi-ar
 CXX = arm-none-eabi-g++
 LD = arm-none-eabi-ld
-OBJDUMP = arm-none-eabi-objdump
 
 BUILD_DIR = ../../../build
 TARGET_DIR = $(BUILD_DIR)/rootfs
@@ -27,7 +25,7 @@ CXXFLAGS += -I $(TARGET_DIR)/include
 
 GTEST_OBJS = gtest.o
 
-GTEST = $(TARGET_DIR)/bin/gtest
+GTEST = $(TARGET_DIR)/apps/gtest
 
 $(GTEST): $(GTEST_OBJS) \
 		$(TARGET_DIR)/lib/libewokc.a \

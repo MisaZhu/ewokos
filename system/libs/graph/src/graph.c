@@ -442,9 +442,16 @@ void graph_draw_char(graph_t* g, int32_t x, int32_t y, char c, font_t* font, uin
 void graph_draw_text(graph_t* g, int32_t x, int32_t y, const char* str, font_t* font, uint32_t color) {
 	if(g == NULL)
 		return;
+	int32_t ox = x;
 	while(*str) {
-		graph_draw_char(g, x, y, *str, font, color);
-		x += font->w;
+		if(*str == '\n') {
+			x = ox;
+			y += font->h;
+		}
+		else {
+			graph_draw_char(g, x, y, *str, font, color);
+			x += font->w;
+		}
 		str++;
 	}
 }

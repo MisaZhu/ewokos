@@ -7,9 +7,8 @@ extern "C" {
 }
 
 #include <x++/X.h>
-#include <x++/X.h>
 
-class TestX : public X {
+class TestX : public XWin {
 public:
 	int i;
 protected:
@@ -40,7 +39,7 @@ int main(int argc, char* argv[]) {
 	(void)argc;
 	(void)argv;
 	xscreen_t scr;
-	X::screenInfo(&scr);
+	XWin::screenInfo(scr);
 
 	TestX* x = new TestX();
 	x->open(10, 10, 220, 200, "gtest", X_STYLE_NORMAL | X_STYLE_NO_RESIZE);

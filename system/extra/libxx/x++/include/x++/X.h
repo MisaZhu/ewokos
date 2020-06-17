@@ -8,9 +8,9 @@ extern "C" {
 
 #include <graphxx/graphxx.h>
 
-class X {
+class XWin {
 protected:
-	x_t* xp;
+	xwin_t* xwin;
 	virtual void onRepaint(Graph& g) = 0;
 
 	inline virtual void onClose(void)   { }
@@ -24,15 +24,15 @@ protected:
 	}
 
 public:
-	inline X() {
-		xp = NULL;
+	inline XWin() {
+		xwin = NULL;
 	}
 
-	inline virtual ~X() {
-		if(xp == NULL)
+	inline virtual ~XWin() {
+		if(xwin == NULL)
 			return;
-		x_close(xp);
-		xp = NULL;
+		x_close(xwin);
+		xwin = NULL;
 	}
 
 	inline void __doRepaint(graph_t* g) { Graph gxx(g->buffer, g->w, g->h); onRepaint(gxx); }
@@ -49,9 +49,9 @@ public:
 	bool setVisible(bool visible);
 	void run(void);
 
-	bool updateInfo(xinfo_t* xinfo);
-	bool getInfo(xinfo_t* xinfo);
-	static bool  screenInfo(xscreen_t* scr);
+	bool updateInfo(const xinfo_t& xinfo);
+	bool getInfo(xinfo_t& xinfo);
+	static bool screenInfo(xscreen_t& scr);
 	bool isTop(void);
 	void repaint();
 };

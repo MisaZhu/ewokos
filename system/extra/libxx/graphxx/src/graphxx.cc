@@ -53,18 +53,30 @@ void Graph::drawText(int32_t x, int32_t y, const char* str, font_t* font, uint32
 	graph_draw_text(g, x, y, str, font, color);
 }
 
-void Graph::blt(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_t sh,
+void Graph::blt(graph_t* src, 
+		int32_t sx, int32_t sy, int32_t sw, int32_t sh,
 		int32_t dx, int32_t dy, int32_t dw, int32_t dh, uint8_t alpha) {
 	if(g == NULL)
 		return;
-	if(alpha == 0xff)
-		graph_blt(src, sx, sy, sw, sh, g, dx, dy, dw, dh);
-	else
-		graph_blt_alpha(src, sx, sy, sw, sh, g, dx, dy, dw, dh, alpha);
+	graph_blt_alpha(src, sx, sy, sw, sh, g, dx, dy, dw, dh, alpha);
 }
 
-void Graph::blt(Graph* src, int32_t sx, int32_t sy, int32_t sw, int32_t sh,
+void Graph::blt(Graph* src,
+		int32_t sx, int32_t sy, int32_t sw, int32_t sh,
 		int32_t dx, int32_t dy, int32_t dw, int32_t dh, uint8_t alpha) {
-	blt(src->g, sx, sy, sw, sh, dx, dy, dw, dh, alpha);
+	this->blt(src->g, sx, sy, sw, sh, dx, dy, dw, dh, alpha);
 }
 
+void Graph::blt(graph_t* src,
+		int32_t sx, int32_t sy, int32_t sw, int32_t sh,
+		int32_t dx, int32_t dy, int32_t dw, int32_t dh) {
+	if(g == NULL)
+		return;
+	graph_blt(src, sx, sy, sw, sh, g, dx, dy, dw, dh);
+}
+
+void Graph::blt(Graph* src, 
+		int32_t sx, int32_t sy, int32_t sw, int32_t sh,
+		int32_t dx, int32_t dy, int32_t dw, int32_t dh) {
+	this->blt(src->g, sx, sy, sw, sh, dx, dy, dw, dh);
+}

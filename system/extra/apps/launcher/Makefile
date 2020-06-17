@@ -1,15 +1,11 @@
-AR = arm-none-eabi-ar
-CC = arm-none-eabi-gcc
-CXX = arm-none-eabi-c++
+CXX = arm-none-eabi-g++
 LD = arm-none-eabi-ld
-OBJDUMP = arm-none-eabi-objdump
 
 BUILD_DIR = ../../../build
 TARGET_DIR = $(BUILD_DIR)/rootfs
 
 # flags
-CFLAGS = -Wstrict-prototypes \
-				 -marm \
+CXXFLAGS = -marm \
 				 -pedantic -Wall -Wextra -msoft-float -fPIC -mapcs-frame \
          -fno-builtin-printf \
          -fno-builtin-memset \
@@ -18,25 +14,24 @@ CFLAGS = -Wstrict-prototypes \
          -fno-builtin-fprintf \
 				 -Wno-overlength-strings \
          -fno-builtin-exit -fno-builtin-stdio \
-				 -std=c99 
+				 -fno-rtti -fno-exceptions
 
-#CFLAGS +=  -g
-CFLAGS +=  -O2
+#CXXFLAGS +=  -g
+CXXFLAGS +=  -O2
 
 LDFLAGS = -L$(TARGET_DIR)/lib -lnosys
 
-CFLAGS += -I $(TARGET_DIR)/include
+CXXFLAGS += -I $(TARGET_DIR)/include
 
 LAUNCHER_OBJS = launcher.o
 
-LAUNCHER = $(TARGET_DIR)/bin/launcher
+LAUNCHER = $(TARGET_DIR)/apps/launcher
 
 $(LAUNCHER): $(LAUNCHER_OBJS) \
 		$(TARGET_DIR)/lib/libewokc.a \
-		$(TARGET_DIR)/lib/libconsole.a \
-		$(TARGET_DIR)/lib/libgraph.a \
-		$(TARGET_DIR)/lib/libx.a
-	$(LD) -Ttext=100 $(LAUNCHER_OBJS) -o $(LAUNCHER) $(LDFLAGS) -lgraph -lupng -lx -lsconf -lconsole -lewokc -lc
+		$(TARGET_DIR)/lib/libx++.a \
+		$(TARGET_DIR)/lib/libcxx.a 
+	$(LD) -Ttext=100 $(LAUNCHER_OBJS) -o $(LAUNCHER) $(LDFLAGS)  -lgraphxx -lupng -lx++ -lsconf -lewokc -lc -lcxx
 
 clean:
 	rm -f $(LAUNCHER_OBJS)
