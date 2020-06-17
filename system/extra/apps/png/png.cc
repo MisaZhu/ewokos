@@ -75,11 +75,14 @@ int main(int argc, char* argv[]) {
 		return -1;
 	}
 
-	Png x;
-	x.open(30, 30, img->w, img->h+60, "png", X_STYLE_NORMAL | X_STYLE_NO_RESIZE | X_STYLE_ALPHA);
-	x.setImage(img);
-	x.setVisible(true);
-	x.run();
+	X x;
+
+	Png xwin;
+	xwin.open(&x, 30, 30, img->w, img->h+60, "png", X_STYLE_NORMAL | X_STYLE_NO_RESIZE | X_STYLE_ALPHA);
+	xwin.setImage(img);
+	xwin.setVisible(true);
+
+	x.run(NULL);
 	return 0;
 }
 

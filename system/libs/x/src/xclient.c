@@ -31,7 +31,7 @@ static int  x_get_workspace(int xfd, int style, grect_t* frame, grect_t* workspa
 	return ret;
 }
 
-xwin_t* x_open(int x, int y, int w, int h, const char* title, int style) {
+xwin_t* x_open(x_t* xp, int x, int y, int w, int h, const char* title, int style) {
 	if(w <= 0 || h <= 0)
 		return NULL;
 
@@ -48,11 +48,14 @@ xwin_t* x_open(int x, int y, int w, int h, const char* title, int style) {
 
 	xwin_t* ret = (xwin_t*)malloc(sizeof(xwin_t));
 	memset(ret, 0, sizeof(xwin_t));
-
 	ret->fd = fd;
-	ret->terminated = false;
+
+	ret->x = xp;
+	if(xp->main_win == NULL)
+		xp->main_win = ret;
 
 	xinfo_t xinfo;
+	xinfo.win = (uint32_t)ret;
 	xinfo.style = style;
 	xinfo.state = X_STATE_NORMAL;
 	memcpy(&xinfo.wsr, &r, sizeof(grect_t));
@@ -99,6 +102,9 @@ void x_close(xwin_t* xwin) {
 	if(xwin == NULL)
 		return;
 	close(xwin->fd);
+
+	if(xwin->x->main_win == xwin)
+		xwin->x->terminated = true;
 	free(xwin);
 }
 
@@ -106,7 +112,8 @@ static int win_event_handle(xwin_t* xwin, xevent_t* ev) {
 	if(ev->value.window.event == XEVT_WIN_MOVE) {
 	}
 	else if(ev->value.window.event == XEVT_WIN_CLOSE) {
-		xwin->terminated = true;
+		if(xwin->x->main_win == xwin)
+			xwin->x->terminated = true;
 	}
 	else if(ev->value.window.event == XEVT_WIN_FOCUS) {
 		if(xwin->on_focus) {
@@ -146,26 +153,26 @@ static int win_event_handle(xwin_t* xwin, xevent_t* ev) {
 	return 0;
 }
 
-static void x_push_event(xwin_t* xwin, xevent_t* ev) {
+static void x_push_event(x_t* x, xevent_t* ev) {
 	x_event_t* e = (x_event_t*)malloc(sizeof(x_event_t));
 	e->next = NULL;
 	memcpy(&e->event, ev, sizeof(xevent_t));
 
-  if(xwin->event_tail != NULL)
-    xwin->event_tail->next = e;
+  if(x->event_tail != NULL)
+    x->event_tail->next = e;
   else
-    xwin->event_head = e;
-  xwin->event_tail = e;
+    x->event_head = e;
+  x->event_tail = e;
 }
 
-static int x_get_event(xwin_t* xwin, xevent_t* ev) {
-  x_event_t* e = xwin->event_head;
+static int x_get_event(x_t* x, xevent_t* ev) {
+  x_event_t* e = x->event_head;
 	if(e == NULL)
 		return -1;
 
-  xwin->event_head = xwin->event_head->next;
-  if(xwin->event_head == NULL)
-    xwin->event_tail = NULL;
+  x->event_head = x->event_head->next;
+  if(x->event_head == NULL)
+    x->event_tail = NULL;
 
   memcpy(ev, &e->event, sizeof(xevent_t));
   free(e);
@@ -222,36 +229,46 @@ void x_repaint(xwin_t* xwin) {
 static void handle(int from_pid, int cmd, proto_t* in, proto_t* out, void* p) {
 	(void)from_pid;
 	(void)out;
-	xwin_t* xwin = (xwin_t*)p;
+	x_t* x = (x_t*)p;
 
 	if(cmd == X_CMD_PUSH_EVENT) {
 		xevent_t ev;
 		proto_read_to(in, &ev, sizeof(xevent_t));
-		x_push_event(xwin, &ev);
+		x_push_event(x, &ev);
 	}
 
-	if(xwin->on_loop == NULL)
-		proc_wakeup((int32_t)xwin);
+	if(x->on_loop == NULL)
+		proc_wakeup((int32_t)x);
 }
 
-void  x_run(xwin_t* xwin) {
-	int ipc_pid = ipc_serv_run(handle, xwin, true);
+void  x_init(x_t* x, void* data) {
+	memset(x, 0, sizeof(x_t));
+	x->data = data;
+}
+
+void  x_run(x_t* x, void* loop_data) {
+	int ipc_pid = ipc_serv_run(handle, x, true);
 
 	xevent_t xev;
-	while(!xwin->terminated) {
-		if(x_get_event(xwin, &xev) == 0) {
-			if(xev.type == XEVT_WIN) 
-				win_event_handle(xwin, &xev);
+	while(!x->terminated) {
+		if(x_get_event(x, &xev) == 0) {
+			xwin_t* xwin = (xwin_t*)xev.win;
+			if(xwin != NULL) {
 
-			if(xwin->on_event != NULL)
-				xwin->on_event(xwin, &xev);
+				if(xev.type == XEVT_WIN) {
+					win_event_handle(xwin, &xev);
+				}
+
+				if(xwin->on_event != NULL)
+					xwin->on_event(xwin, &xev);
+			}
 		}
 		else {
-			if(xwin->on_loop == NULL) {
-				proc_block(ipc_pid, (int32_t)xwin);
+			if(x->on_loop == NULL) {
+				proc_block(ipc_pid, (int32_t)x);
 			}
 			else {
-				xwin->on_loop(xwin);
+				x->on_loop(loop_data);
 				usleep(10000);
 			}
 		}

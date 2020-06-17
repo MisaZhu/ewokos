@@ -39,13 +39,16 @@ int main(int argc, char* argv[]) {
 	memset(&_items, 0, sizeof(items_t));
 	read_config("/etc/x/syspanel.conf", &_items);
 
+	X x;
+
 	xscreen_t scr;
 	XWin::screenInfo(scr);
 
-	Panel x;
-	x.open(0,  0, scr.size.w, _items.font->h + 4,
+	Panel xwin;
+	xwin.open(&x, 0,  0, scr.size.w, _items.font->h + 4,
 			"syspanel", X_STYLE_NO_FRAME | X_STYLE_ALPHA | X_STYLE_NO_FOCUS);
-	x.setVisible(true);
-	x.run();
+	xwin.setVisible(true);
+
+	x.run(NULL);
 	return 0;
 }

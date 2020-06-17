@@ -62,6 +62,10 @@ public:
 		return true;
 	}
 
+	void putChar(char c) {
+		console_put_char(&console, c);
+	}
+
 protected:
 	void onFocus(void) {
 		console.fg_color = conf.fg_color;
@@ -87,37 +91,42 @@ protected:
 				write_nblock(1, &c, 1);
 		}
 	}
-
-	void onLoop(void) {
-		char buf[256];
-		int32_t size = read_nblock(0, buf, 255);
-		if(size > 0) {
-			buf[size] = 0;
-			for(int32_t i=0; i<size; i++) {
-				char c = buf[i];
-				console_put_char(&console, c);
-			}
-			repaint();
-			return;
-		}
-
-		if(errno != EAGAIN) 
-			close();
-	}
 };
+
+static void loop(void* p) {
+	XConsole* console = (XConsole*)p;
+
+	char buf[256];
+	int32_t size = read_nblock(0, buf, 255);
+	if(size > 0) {
+		buf[size] = 0;
+		for(int32_t i=0; i<size; i++) {
+			char c = buf[i];
+			console->putChar(c);
+		}
+		console->repaint();
+		return;
+	}
+
+	if(errno != EAGAIN) 
+		console->close();
+}
 
 static int run(int argc, char* argv[]) {
 	(void)argc;
 	(void)argv;
 
-	XConsole x;
-	x.readConfig("/etc/x/xconsole.conf");
+	XConsole xwin;
+	xwin.readConfig("/etc/x/xconsole.conf");
+
+	X x;
 
 	xscreen_t scr;
  	XWin::screenInfo(scr);
-	x.open(10, 40, scr.size.w*3/4, scr.size.h*3/4, "xconsole", 0);
-	x.setVisible(true);
-	x.run();
+	xwin.open(&x, 10, 40, scr.size.w*3/4, scr.size.h*3/4, "xconsole", 0);
+	xwin.setVisible(true);
+
+	x.run(loop, &xwin);
 	return 0;
 }
 

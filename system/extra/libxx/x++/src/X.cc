@@ -45,15 +45,6 @@ static void _on_unfocus(xwin_t* xw) {
 	xwin->__doUnfocus();
 }
 
-static void _on_loop(xwin_t* xw) {
-	if(xw == NULL)
-		return;
-	XWin* xwin = (XWin*)xw->data;
-	if(xwin == NULL)
-		return;
-	xwin->__doLoop();
-}
-
 static void _on_event(xwin_t* xw, xevent_t* ev) {
 	if(xw == NULL)
 		return;
@@ -63,28 +54,11 @@ static void _on_event(xwin_t* xw, xevent_t* ev) {
 	xwin->__doEvent(ev);
 }
 
-bool XWin::open(int x, int y, uint32_t w, uint32_t h, const char* title, uint32_t style) {
-	if(xwin != NULL)
-		x_close(xwin);
-
-	xwin = x_open(x, y, w, h, title, style);
-	if(xwin == NULL)
-		return false;
-	xwin->data = this;
-	xwin->on_repaint = _on_repaint;
-	xwin->on_min = _on_min;
-	xwin->on_resize = _on_resize;
-	xwin->on_focus = _on_focus;
-	xwin->on_unfocus = _on_unfocus;
-	xwin->on_loop = _on_loop;
-	xwin->on_event = _on_event;
-	return true;
-}
-
 void XWin::close() {
-	if(xwin != NULL) {
-		xwin->terminated = true;
-	}
+	if(xwin == NULL)
+		return;
+	x_close(xwin);
+	xwin = NULL;
 }
 
 bool XWin::setVisible(bool visible) {
@@ -92,16 +66,6 @@ bool XWin::setVisible(bool visible) {
 		return false;
 	x_set_visible(xwin, visible);
 	return true;
-}
-
-void XWin::run() {
-	if(xwin == NULL)
-		return;
-	
-	x_run(xwin);
-
-	x_close(xwin);
-	xwin = NULL;
 }
 
 bool XWin::updateInfo(const xinfo_t& xinfo) {
@@ -131,3 +95,31 @@ void XWin::repaint() {
 		return;
 	x_repaint(xwin);
 }
+
+bool XWin::open(X* xp, int x, int y, uint32_t w, uint32_t h, const char* title, uint32_t style) {
+	xwin = x_open(xp->c_x(), x, y, w, h, title, style);
+	if(xwin == NULL)
+		return false;
+	xwin->data = this;
+	xwin->on_repaint = _on_repaint;
+	xwin->on_min = _on_min;
+	xwin->on_resize = _on_resize;
+	xwin->on_focus = _on_focus;
+	xwin->on_unfocus = _on_unfocus;
+	xwin->on_event = _on_event;
+	return true;
+}
+
+X::X(void) {
+	x_init(&x, this);
+}
+
+void X::run(void (*loop)(void*), void* p) {
+	x.on_loop = loop;
+	x_run(&x, p);
+}
+
+void X::terminate(void) {
+	x.terminated = true;
+}
+

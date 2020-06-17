@@ -164,11 +164,11 @@ static bool dead = true;
 static int dir = LEFT;
 
 static void event_handle(xwin_t* x, xevent_t* xev) {
-
+	(void)x;
 	if(xev->type == XEVT_KEYB) {
 		int key = xev->value.keyboard.value;
 		if(key == 27) {//esc
-			x->terminated = true;
+			//x->terminated = true; //TODO
 			return;
 		}
 		seed += key;
@@ -194,10 +194,12 @@ static void repaint(xwin_t* x, graph_t* g) {
 	snake_draw(g, &s, &f);
 }
 
-static void loop(xwin_t* x) {
+static void loop(void* p) {
 	if(!top)
 		return;
+	x_t* x = (x_t*)p;
 
+	xwin_t* xwin = (xwin_t*)x->data;
 	if(dead == false){
 		snake_move(&s, dir);
 		snake_eat(&s, &f);
@@ -213,7 +215,7 @@ static void loop(xwin_t* x) {
 		else
 			snprintf(info, sizeof(info), "BEST:%d  SCORE:%d", record, s.score);
 	}
-	x_repaint(x);
+	x_repaint(xwin);
 }
 
 int main(int argc, char* argv[]) {
@@ -223,12 +225,15 @@ int main(int argc, char* argv[]) {
 	top = false;
 	xscreen_t scr;
 	x_screen_info(&scr);
-	xwin_t* x = x_open(10, 10, WIN_WIDTH*SCALE_FACTOR, WIN_HEIGHT*SCALE_FACTOR + 20, "snake", X_STYLE_NORMAL | X_STYLE_NO_RESIZE);
-	x->on_focus = on_focus;
-	x->on_unfocus = on_unfocus;
-	x->on_event = event_handle;
-	x->on_repaint = repaint;
-	x->on_loop = loop;
+
+	x_t x;
+	x_init(&x, NULL);
+
+	xwin_t* xwin = x_open(&x, 10, 10, WIN_WIDTH*SCALE_FACTOR, WIN_HEIGHT*SCALE_FACTOR + 20, "snake", X_STYLE_NORMAL | X_STYLE_NO_RESIZE);
+	xwin->on_focus = on_focus;
+	xwin->on_unfocus = on_unfocus;
+	xwin->on_event = event_handle;
+	xwin->on_repaint = repaint;
 
 	font = font_by_name("7x9");
 	dead = true;
@@ -238,9 +243,11 @@ int main(int argc, char* argv[]) {
 	snprintf(info, sizeof(info),  "Press to Start...");
 	snake_init(&s, &f);
 
-	x_set_visible(x, true);
+	x_set_visible(xwin, true);
 
-	x_run(x);
-	x_close(x);
+	x.on_loop = loop;
+	x_run(&x, xwin);
+
+	x_close(xwin);
 	return 0;
 } 

@@ -43,6 +43,7 @@ enum {
 
 #define X_TITLE_MAX 64
 typedef struct {
+	uint32_t win;
 	int shm_id;
 	int style;
 	int state;

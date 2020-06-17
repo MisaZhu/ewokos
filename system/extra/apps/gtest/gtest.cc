@@ -27,14 +27,16 @@ protected:
 		snprintf(str, 31, "paint = %d", i++);
 		g.clear(argb_int(0xff0000ff));
 		g.drawText(10, 10, str, font, 0xffffffff);
-		g.fillCircle(40, 40, 50, 0x99000000);
-	}
-
-	void onLoop(void) {
-		repaint();
-		usleep(10000);
+		g.fillCircle(100, 100, 50, 0x99000000);
+		g.circle(100, 100, 60, 0x99000000);
 	}
 };
+
+static void loop(void* p) {
+	XWin* xwin = (XWin*)p;
+	xwin->repaint();
+	usleep(10000);
+}
 
 int main(int argc, char* argv[]) {
 	(void)argc;
@@ -42,12 +44,14 @@ int main(int argc, char* argv[]) {
 	xscreen_t scr;
 	XWin::screenInfo(scr);
 
-	TestX* x = new TestX();
-	x->open(10, 10, 220, 200, "gtest", X_STYLE_NORMAL | X_STYLE_NO_RESIZE);
+	X x;
 
-	x->i = 0;
-	x->setVisible(true);
-	x->run();
-	delete x;
+	TestX xwin;
+	xwin.open(&x, 10, 10, 220, 200, "gtest", X_STYLE_NORMAL | X_STYLE_NO_RESIZE);
+
+	xwin.i = 0;
+	xwin.setVisible(true);
+
+	x.run(loop, &xwin);
 	return 0;
 } 

@@ -111,19 +111,22 @@ int main(int argc, char* argv[]) {
 	(void)argc;
 	(void)argv;
 
+	X x;
+
 	xscreen_t scr;
 	XWin::screenInfo(scr);
-	Launcher x;
-	x.readConfig("/etc/x/launcher.conf");
-	uint32_t is = x.getIconSize();
-	x.open(scr.size.w - is - 10,
+	Launcher xwin;
+	xwin.readConfig("/etc/x/launcher.conf");
+	uint32_t is = xwin.getIconSize();
+
+	xwin.open(&x, scr.size.w - is - 10,
 			10,
 			is, 
-			is * x.getItemNum(),
+			is * xwin.getItemNum(),
 			"launcher", X_STYLE_NO_FRAME | X_STYLE_ALPHA | X_STYLE_NO_FOCUS);
 
-	x.setVisible(true);
-	x.run();
+	xwin.setVisible(true);
 
+	x.run(NULL);
 	return 0;
 }

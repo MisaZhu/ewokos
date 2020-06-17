@@ -8,6 +8,15 @@ extern "C" {
 
 #include <graphxx/graphxx.h>
 
+class X {
+	x_t x;
+public:
+	inline x_t* c_x(void) { return &x; }
+	X(void);
+	void run(void (*loop)(void*), void* p = NULL);
+	void terminate(void);
+};
+
 class XWin {
 protected:
 	xwin_t* xwin;
@@ -24,15 +33,12 @@ protected:
 	}
 
 public:
-	inline XWin() {
-		xwin = NULL;
+	inline XWin(void) {
+		this->xwin = NULL;
 	}
 
-	inline virtual ~XWin() {
-		if(xwin == NULL)
-			return;
-		x_close(xwin);
-		xwin = NULL;
+	inline virtual ~XWin(void) {
+		this->close();
 	}
 
 	inline void __doRepaint(graph_t* g) { Graph gxx(g->buffer, g->w, g->h); onRepaint(gxx); }
@@ -41,19 +47,17 @@ public:
 	inline void __doResize(void) { onResize(); }
 	inline void __doFocus(void) { onFocus(); }
 	inline void __doUnfocus(void) { onUnfocus(); }
-	inline void __doLoop(void) { onLoop(); }
 	inline void __doEvent(xevent_t* ev) { onEvent(ev); }
 
-	bool open(int x, int y, uint32_t w, uint32_t h, const char* title, uint32_t style);
+	bool open(X* xp, int x, int y, uint32_t w, uint32_t h, const char* title, uint32_t style);
 	void close(void);
 	bool setVisible(bool visible);
-	void run(void);
 
 	bool updateInfo(const xinfo_t& xinfo);
 	bool getInfo(xinfo_t& xinfo);
 	static bool screenInfo(xscreen_t& scr);
 	bool isTop(void);
-	void repaint();
+	void repaint(void);
 };
 
 #endif

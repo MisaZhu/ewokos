@@ -192,6 +192,7 @@ static void remove_view(x_t* x, xview_t* view) {
 static void x_push_event(xview_t* view, xevent_t* e) {
 	if(view->from_pid <= 0)
 		return;
+	e->win = view->xinfo.win;
 	proto_t in;
 	PF->init(&in, NULL, 0)->add(&in, e, sizeof(xevent_t));
 	ipc_call(view->from_pid, X_CMD_PUSH_EVENT, &in, NULL);
