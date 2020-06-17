@@ -13,7 +13,7 @@ public:
 	Graph(uint32_t* buffer, uint32_t w, uint32_t h);
 	~Graph();
 
-	inline graph_t* getCGraph(void) { return g; }
+	inline graph_t* cgraph(void) { return g; }
 	inline uint32_t getW(void) { return g->w; }
 	inline uint32_t getH(void) { return g->h; }
 

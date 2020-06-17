@@ -456,6 +456,52 @@ void graph_draw_text(graph_t* g, int32_t x, int32_t y, const char* str, font_t* 
 	}
 }
 
+void graph_fill_circle(graph_t* g, int32_t x, int32_t y, uint32_t radius, uint32_t color) {
+	int32_t a, b, P;
+	a = 0;
+	b = radius;
+	P = 1 - radius;
+
+	do {
+		graph_line(g, x-a, y+b, x+a, y+b, color);
+		graph_line(g, x-a, y-b, x+a, y-b, color);
+		graph_line(g, x-b, y+a, x+b, y+a, color);
+		graph_line(g, x-b, y-a, x+b, y-a, color);
+		if(P < 0)
+			P += 3 + 2*a++;
+		else
+			P += 5 + 2*(a++ - b--);
+	} while(a < b);
+}
+
+void graph_circle(graph_t* g, int32_t x, int32_t y, uint32_t radius, uint32_t color) {
+	int32_t a, b, P;
+	a = 0;
+	b = radius;
+	P = 1 - radius;
+
+	uint8_t ca = (color >> 24) & 0xff;
+	uint8_t cr = (color >> 16) & 0xff;
+	uint8_t cg = (color >> 8) & 0xff;
+	uint8_t cb = (color) & 0xff;
+
+	do {
+		pixel_argb_safe(g, a+x, b+y, ca, cr, cg, cb);
+		pixel_argb_safe(g, b+x, a+y, ca, cr, cg, cb);
+		pixel_argb_safe(g, x-a, b+y, ca, cr, cg, cb);
+		pixel_argb_safe(g, x-b, a+y, ca, cr, cg, cb);
+		pixel_argb_safe(g, b+x, y-a, ca, cr, cg, cb);
+		pixel_argb_safe(g, a+x, y-b, ca, cr, cg, cb);
+		pixel_argb_safe(g, x-a, y-b, ca, cr, cg, cb);
+		pixel_argb_safe(g, x-b, y-a, ca, cr, cg, cb);
+
+		if(P < 0)
+			P+= 3 + 2*a++;
+		else
+			P+= 5 + 2*(a++ - b--);
+	} while(a < b);
+}
+
 inline void graph_blt(graph_t* src, int32_t sx, int32_t sy, uint32_t sw, uint32_t sh,
 		graph_t* dst, int32_t dx, int32_t dy, uint32_t dw, uint32_t dh) {
 	if(sx == 0 && sy == 0 && dx == 0 && dy == 0 &&

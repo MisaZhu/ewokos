@@ -27,6 +27,8 @@ protected:
 		snprintf(str, 31, "paint = %d", i++);
 		g.clear(argb_int(0xff0000ff));
 		g.drawText(10, 10, str, font, 0xffffffff);
+		graph_fill_circle(g.cgraph(), 100, 100, 50, 0x99ffffff);
+		graph_circle(g.cgraph(), 100, 100, 60, 0x99ffffff);
 	}
 
 	void onLoop(void) {

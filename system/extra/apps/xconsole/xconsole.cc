@@ -77,7 +77,7 @@ protected:
 		if(console.w != g.getW() || console.h != g.getH()) {
 			console_reset(&console, g.getW(), g.getH());
 		}
-		console_refresh(&console, g.getCGraph());
+		console_refresh(&console, g.cgraph());
 	}
 
 	void onEvent(xevent_t* ev) {

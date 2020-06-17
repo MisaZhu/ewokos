@@ -57,6 +57,10 @@ void graph_draw_char(graph_t* g, int32_t x, int32_t y, char c, font_t* font, uin
 
 void graph_draw_text(graph_t* g, int32_t x, int32_t y, const char* str, font_t* font, uint32_t color);
 
+void graph_circle(graph_t* g, int32_t x, int32_t y, uint32_t radius, uint32_t color);
+
+void graph_fill_circle(graph_t* g, int32_t x, int32_t y, uint32_t radius, uint32_t color);
+
 void graph_blt(graph_t* src, int32_t sx, int32_t sy, uint32_t sw, uint32_t sh,
 		graph_t* dst, int32_t dx, int32_t dy, uint32_t dw, uint32_t dh);
 

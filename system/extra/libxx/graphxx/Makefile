@@ -28,7 +28,7 @@ LIB_GRAPHXX_OBJS = src/graphxx.o
 
 LIB_X = $(TARGET_DIR)/lib/libgraphxx.a
 
-$(LIB_X): $(LIB_GRAPHXX_OBJS)
+$(LIB_X): $(LIB_GRAPHXX_OBJS) $(TARGET_DIR)/lib/libgraph.a
 	$(AR) rT $(LIB_X) $(LIB_GRAPHXX_OBJS) $(TARGET_DIR)/lib/libgraph.a
 	cp -r include/* $(TARGET_DIR)/include
 
