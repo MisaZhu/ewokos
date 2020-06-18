@@ -20,11 +20,12 @@ static void draw_frame(xwm_t* xwm, proto_t* in, proto_t* out) {
 
 	void* gbuf = shm_map(shm_id);
 	if(gbuf != NULL) {
-		grect_t rtitle, rclose, rmax, rmin;
+		grect_t rtitle, rclose, rmax, rmin, rresize;
 		memset(&rtitle, 0, sizeof(grect_t));
 		memset(&rclose, 0, sizeof(grect_t));
 		memset(&rmax, 0, sizeof(grect_t));
 		memset(&rmin, 0, sizeof(grect_t));
+		memset(&rresize, 0, sizeof(grect_t));
 
 		if(xwm->get_title != NULL)
 			xwm->get_title(&info, &rtitle, xwm->data);
@@ -34,6 +35,8 @@ static void draw_frame(xwm_t* xwm, proto_t* in, proto_t* out) {
 			xwm->get_max(&info, &rmax, xwm->data);
 		if(xwm->get_min != NULL)
 			xwm->get_min(&info, &rmin, xwm->data);
+		if(xwm->get_resize != NULL)
+			xwm->get_resize(&info, &rresize, xwm->data);
 
 		graph_t* g = graph_new(gbuf, xw, xh);
 
@@ -46,6 +49,8 @@ static void draw_frame(xwm_t* xwm, proto_t* in, proto_t* out) {
 					xwm->draw_min(g, &info, &rmin, top, xwm->data);
 				if(xwm->draw_max != NULL)
 					xwm->draw_max(g, &info, &rmax, top, xwm->data);
+				if(xwm->draw_resize != NULL)
+					xwm->draw_resize(g, &info, &rresize, top, xwm->data);
 			}
 			if(xwm->draw_close != NULL)
 				xwm->draw_close(g, &info, &rclose, top, xwm->data);
@@ -68,11 +73,12 @@ static void get_pos(xwm_t* xwm, proto_t* in, proto_t* out) {
 	int res = -1;
 	if((info.style & X_STYLE_NO_TITLE) == 0 &&
 			(info.style & X_STYLE_NO_FRAME) == 0) {
-		grect_t rtitle, rclose, rmax, rmin;
+		grect_t rtitle, rclose, rmax, rmin, rresize;
 		memset(&rtitle, 0, sizeof(grect_t));
 		memset(&rclose, 0, sizeof(grect_t));
 		memset(&rmax, 0, sizeof(grect_t));
 		memset(&rmin, 0, sizeof(grect_t));
+		memset(&rresize, 0, sizeof(grect_t));
 
 		if(xwm->get_title != NULL)
 			xwm->get_title(&info, &rtitle, xwm->data);
@@ -82,6 +88,8 @@ static void get_pos(xwm_t* xwm, proto_t* in, proto_t* out) {
 			xwm->get_max(&info, &rmax, xwm->data);
 		if(xwm->get_min != NULL)
 			xwm->get_min(&info, &rmin, xwm->data);
+		if(xwm->get_resize != NULL)
+			xwm->get_resize(&info, &rresize, xwm->data);
 
 		if(check_in_rect(x, y, &rtitle) == 0)
 			res = XWM_FRAME_TITLE;
@@ -90,6 +98,9 @@ static void get_pos(xwm_t* xwm, proto_t* in, proto_t* out) {
 		else if((info.style & X_STYLE_NO_RESIZE) == 0) {
 			if(check_in_rect(x, y, &rmax) == 0)
 				res = XWM_FRAME_MAX;
+			else if(check_in_rect(x, y, &rresize) == 0) {
+				res = XWM_FRAME_RESIZE;
+			}
 		}
 	}
 	PF->addi(out, res);

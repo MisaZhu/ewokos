@@ -154,7 +154,7 @@ int main(int argc, char** argv) {
 	load_devs();
 
 	setenv("OS", "mkos");
-	setenv("PATH", "/sbin:/bin");
+	setenv("PATH", "/sbin:/bin:/apps");
 
 	init_tty_stdio();
 	run_procs();

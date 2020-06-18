@@ -113,6 +113,14 @@ static void get_close(xinfo_t* info, grect_t* rect, void* p) {
 	rect->h = _xwm_config.title_h;
 }
 
+static void get_resize(xinfo_t* info, grect_t* rect, void* p) {
+	(void)p;
+	rect->x = info->wsr.x + info-> wsr.w;
+	rect->y = info->wsr.y + info-> wsr.h - 24;
+	rect->w = 12;
+	rect->h = 24;
+}
+
 /*-------draw functions.----------*/
 static void get_color(uint32_t *fg, uint32_t* bg, bool top) {
 	if(!top) {
@@ -210,6 +218,16 @@ static void draw_close(graph_t* g, xinfo_t* info, grect_t* r, bool top, void* p)
 	graph_box(g, r->x+2, r->y+2, r->w-4, r->h-4, fg);
 }
 
+static void draw_resize(graph_t* g, xinfo_t* info, grect_t* r, bool top, void* p) {
+	(void)info;
+	(void)p;
+	uint32_t fg, bg;
+	get_color(&fg, &bg, top);
+
+	graph_fill(g, r->x, r->y, r->w, r->h, bg);
+	graph_box(g, r->x+2, r->y+2, r->w-4, r->h-4, fg);
+}
+
 static void draw_desktop(graph_t* g, void* p) {
 	(void)p;
 	graph_clear(g, _xwm_config.desk_bg_color);
@@ -232,12 +250,14 @@ int main(int argc, char** argv) {
 	xwm.get_max = get_max;
 	xwm.get_min = get_min;
 	xwm.get_title = get_title;
+	xwm.get_resize = get_resize;
 
 	xwm.draw_frame = draw_frame;
 	xwm.draw_close = draw_close;
 	xwm.draw_title = draw_title;
 	xwm.draw_min = draw_min;
 	xwm.draw_max = draw_max;
+	xwm.draw_resize = draw_resize;
 	xwm.draw_desktop = draw_desktop;
 
 	read_config(&_xwm_config, "/etc/x/xwm_macos7.conf");

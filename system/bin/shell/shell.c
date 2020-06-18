@@ -311,6 +311,7 @@ static int32_t find_exec(char* fname, char* cmd) {
 			if(paths[i] == 0)
 				break;
 			paths = paths+i+1;
+			i = 0;
 			fname[0] = 0;
 		}
 		++i;

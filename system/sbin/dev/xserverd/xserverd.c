@@ -19,6 +19,11 @@
 
 #define X_EVENT_MAX 16
 
+enum {
+	X_VIEW_DRAG_MOVE = 0,
+	X_VIEW_DRAG_RESIZE
+};
+
 typedef struct st_xview {
 	int fd;
 	int from_pid;
@@ -43,6 +48,8 @@ typedef struct {
 typedef struct {
 	xview_t* view; //moving or resizing;
 	gpos_t old_pos;
+	gsize_t old_size;
+	uint32_t drag_state;
 } x_current_t;
 
 typedef struct {
@@ -611,6 +618,16 @@ static int mouse_handle(x_t* x, xevent_t* ev) {
 				x->current.view = view;
 				x->current.old_pos.x = x->cursor.cpos.x;
 				x->current.old_pos.y = x->cursor.cpos.y;
+				x->current.drag_state = X_VIEW_DRAG_MOVE;
+				x_dirty(x);
+			}
+			else if(pos == XWM_FRAME_RESIZE) {//window resize
+				x->current.view = view;
+				x->current.old_pos.x = x->cursor.cpos.x;
+				x->current.old_pos.y = x->cursor.cpos.y;
+				x->current.old_size.w = x->current.view->xinfo.wsr.w;
+				x->current.old_size.h = x->current.view->xinfo.wsr.h;
+				x->current.drag_state = X_VIEW_DRAG_RESIZE;
 				x_dirty(x);
 			}
 			ev->state = XEVT_MOUSE_DOWN;
@@ -618,7 +635,16 @@ static int mouse_handle(x_t* x, xevent_t* ev) {
 	}
 	else if(ev->state == XEVT_MOUSE_UP) {
 		if(x->current.view == view) {
-			x_dirty(x);
+			if(x->current.drag_state == X_VIEW_DRAG_RESIZE) {
+				int mrx = x->cursor.cpos.x - x->current.old_pos.x;
+				int mry = x->cursor.cpos.y - x->current.old_pos.y;
+				ev->type = XEVT_WIN;
+				ev->value.window.v0 = x->current.old_size.w + mrx;
+				ev->value.window.v1 = x->current.old_size.h + mry;
+				ev->value.window.event = XEVT_WIN_RESIZE;
+			}
+			else 
+				x_dirty(x);
 		}
 		x->current.view = NULL;
 	}
@@ -627,11 +653,13 @@ static int mouse_handle(x_t* x, xevent_t* ev) {
 		int mrx = x->cursor.cpos.x - x->current.old_pos.x;
 		int mry = x->cursor.cpos.y - x->current.old_pos.y;
 		if(abs32(mrx) > 16 || abs32(mry) > 16) {
-			x->current.old_pos.x = x->cursor.cpos.x;
-			x->current.old_pos.y = x->cursor.cpos.y;
-			view->xinfo.wsr.x += mrx;
-			view->xinfo.wsr.y += mry;
-			x_dirty(x);
+			if(x->current.drag_state == X_VIEW_DRAG_MOVE) {
+				x->current.old_pos.x = x->cursor.cpos.x;
+				x->current.old_pos.y = x->cursor.cpos.y;
+				view->xinfo.wsr.x += mrx;
+				view->xinfo.wsr.y += mry;
+				x_dirty(x);
+			}
 		}
 	}
 	x_push_event(view, ev);

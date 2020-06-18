@@ -131,6 +131,17 @@ static int win_event_handle(xwin_t* xwin, xevent_t* ev) {
 			x_repaint(xwin);
 		}
 	}
+	else if(ev->value.window.event == XEVT_WIN_RESIZE) {
+		xinfo_t xinfo;
+		x_get_info(xwin, &xinfo);
+		xinfo.wsr.w = ev->value.window.v0;
+		xinfo.wsr.h = ev->value.window.v1;
+		x_update_info(xwin, &xinfo);
+		if(xwin->on_resize) {
+			xwin->on_resize(xwin);
+		}
+		x_repaint(xwin);
+	}
 	else if(ev->value.window.event == XEVT_WIN_MAX) {
 		xinfo_t xinfo;
 		x_get_info(xwin, &xinfo);
@@ -151,8 +162,8 @@ static int win_event_handle(xwin_t* xwin, xevent_t* ev) {
 		x_update_info(xwin, &xinfo);
 		if(xwin->on_resize) {
 			xwin->on_resize(xwin);
-			x_repaint(xwin);
 		}
+		x_repaint(xwin);
 	}
 	return 0;
 }
