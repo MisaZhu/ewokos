@@ -105,18 +105,19 @@ void XWin::repaint() {
 	x_repaint(xwin);
 }
 
-bool XWin::open(X* xp, int x, int y, uint32_t w, uint32_t h, const char* title, uint32_t style) {
-	xwin = x_open(xp->c_x(), x, y, w, h, title, style);
-	if(xwin == NULL)
+bool X::open(XWin* xwin, int x, int y, uint32_t w, uint32_t h, const char* title, uint32_t style) {
+	xwin_t* xw = x_open(&this->x, x, y, w, h, title, style);
+	if(xw == NULL)
 		return false;
-	xwin->data = this;
-	xwin->on_close = _on_close;
-	xwin->on_repaint = _on_repaint;
-	xwin->on_min = _on_min;
-	xwin->on_resize = _on_resize;
-	xwin->on_focus = _on_focus;
-	xwin->on_unfocus = _on_unfocus;
-	xwin->on_event = _on_event;
+	xw->data = xwin;
+	xw->on_close = _on_close;
+	xw->on_repaint = _on_repaint;
+	xw->on_min = _on_min;
+	xw->on_resize = _on_resize;
+	xw->on_focus = _on_focus;
+	xw->on_unfocus = _on_unfocus;
+	xw->on_event = _on_event;
+	xwin->setCWin(xw);
 	return true;
 }
 

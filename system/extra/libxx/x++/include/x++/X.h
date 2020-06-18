@@ -8,6 +8,8 @@ extern "C" {
 
 #include <graphxx/graphxx.h>
 
+class XWin;
+
 class X {
 	x_t x;
 public:
@@ -15,6 +17,7 @@ public:
 	X(void);
 	void run(void (*loop)(void*), void* p = NULL);
 	void terminate(void);
+	bool open(XWin* xwin, int x, int y, uint32_t w, uint32_t h, const char* title, uint32_t style);
 };
 
 class XWin {
@@ -40,6 +43,10 @@ public:
 		this->close();
 	}
 
+	inline void setCWin(xwin_t* xw) {
+		xwin = xw;
+	}
+
 	inline void __doRepaint(graph_t* g) { Graph gxx(g->buffer, g->w, g->h); onRepaint(gxx); }
 	inline void __doClose(void) { onClose(); }
 	inline void __doMin(void) { onMin(); }
@@ -48,7 +55,6 @@ public:
 	inline void __doUnfocus(void) { onUnfocus(); }
 	inline void __doEvent(xevent_t* ev) { onEvent(ev); }
 
-	bool open(X* xp, int x, int y, uint32_t w, uint32_t h, const char* title, uint32_t style);
 	void close(void);
 	bool setVisible(bool visible);
 

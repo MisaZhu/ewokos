@@ -47,7 +47,7 @@ int main(int argc, char* argv[]) {
 	X x;
 
 	TestX xwin;
-	xwin.open(&x, 10, 10, 220, 200, "gtest", X_STYLE_NORMAL | X_STYLE_NO_RESIZE);
+	x.open(&xwin, 10, 10, 220, 200, "gtest", X_STYLE_NORMAL | X_STYLE_NO_RESIZE);
 
 	xwin.i = 0;
 	xwin.setVisible(true);

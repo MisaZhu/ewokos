@@ -78,7 +78,7 @@ int main(int argc, char* argv[]) {
 	X x;
 
 	Png xwin;
-	xwin.open(&x, 30, 30, img->w, img->h+60, "png", X_STYLE_NORMAL | X_STYLE_NO_RESIZE | X_STYLE_ALPHA);
+	x.open(&xwin, 30, 30, img->w, img->h+60, "png", X_STYLE_NORMAL | X_STYLE_NO_RESIZE | X_STYLE_ALPHA);
 	xwin.setImage(img);
 	xwin.setVisible(true);
 

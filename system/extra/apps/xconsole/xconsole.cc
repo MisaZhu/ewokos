@@ -123,7 +123,7 @@ static int run(int argc, char* argv[]) {
 
 	xscreen_t scr;
  	XWin::screenInfo(scr);
-	xwin.open(&x, 10, 40, scr.size.w*3/4, scr.size.h*3/4, "xconsole", 0);
+	x.open(&xwin, 10, 40, scr.size.w*3/4, scr.size.h*3/4, "xconsole", 0);
 	xwin.setVisible(true);
 
 	x.run(loop, &xwin);

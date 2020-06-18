@@ -111,7 +111,6 @@ int main(int argc, char* argv[]) {
 	(void)argc;
 	(void)argv;
 
-	X x;
 
 	xscreen_t scr;
 	XWin::screenInfo(scr);
@@ -119,7 +118,8 @@ int main(int argc, char* argv[]) {
 	xwin.readConfig("/etc/x/launcher.conf");
 	uint32_t is = xwin.getIconSize();
 
-	xwin.open(&x, scr.size.w - is - 10,
+	X x;
+	x.open(&xwin, scr.size.w - is - 10,
 			10,
 			is, 
 			is * xwin.getItemNum(),

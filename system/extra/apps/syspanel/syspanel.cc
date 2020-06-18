@@ -45,7 +45,7 @@ int main(int argc, char* argv[]) {
 	XWin::screenInfo(scr);
 
 	Panel xwin;
-	xwin.open(&x, 0,  0, scr.size.w, _items.font->h + 4,
+	x.open(&xwin, 0,  0, scr.size.w, _items.font->h + 4,
 			"syspanel", X_STYLE_NO_FRAME | X_STYLE_ALPHA | X_STYLE_NO_FOCUS);
 	xwin.setVisible(true);
 
