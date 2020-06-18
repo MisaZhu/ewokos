@@ -101,6 +101,10 @@ static void x_release_graph(xwin_t* xwin, graph_t* g) {
 void x_close(xwin_t* xwin) {
 	if(xwin == NULL)
 		return;
+	if(xwin->on_close) {
+		xwin->on_close(xwin);
+	}
+
 	close(xwin->fd);
 
 	if(xwin->x->main_win == xwin)

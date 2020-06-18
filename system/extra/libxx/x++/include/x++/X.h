@@ -27,7 +27,6 @@ protected:
 	inline virtual void onResize(void)  { }
 	inline virtual void onFocus(void)   { }
 	inline virtual void onUnfocus(void) { }
-	inline virtual void onLoop(void)    { }
 	inline virtual void onEvent(xevent_t* ev)  {
 		(void)ev;
 	}
