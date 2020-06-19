@@ -48,7 +48,7 @@ typedef struct {
 typedef struct {
 	xview_t* view; //moving or resizing;
 	gpos_t old_pos;
-	gsize_t old_size;
+	gpos_t pos_delta;
 	uint32_t drag_state;
 } x_current_t;
 
@@ -136,22 +136,30 @@ static void draw_desktop(x_t* x) {
 	 graph_fill(x->g, 0, 0, x->g->w, x->g->h, 0xff000000);
 }
 
+static void draw_drag_frame(x_t* xp) {
+	int x = xp->current.view->xinfo.wsr.x;
+	int y = xp->current.view->xinfo.wsr.y;
+	int w = xp->current.view->xinfo.wsr.w;
+	int h = xp->current.view->xinfo.wsr.h;
+
+	if(xp->current.drag_state == X_VIEW_DRAG_MOVE)  {
+		x += xp->current.pos_delta.x;
+		y += xp->current.pos_delta.y;
+	}
+	else if(xp->current.drag_state == X_VIEW_DRAG_RESIZE)  {
+		w += xp->current.pos_delta.x;
+		h += xp->current.pos_delta.y;
+	}
+
+	graph_box(xp->g, x, y, w, h, 0xffffffff);
+}
+
 static int draw_view(x_t* xp, xview_t* view) {
 	if(!xp->dirty && !view->dirty)
 		return 0;
 
 	if(view->g != NULL) {
-		if(xp->current.view == view && xp->config.win_move_alpha < 0xff) { //drag and moving
-			graph_blt_alpha(view->g, 0, 0, 
-					view->xinfo.wsr.w,
-					view->xinfo.wsr.h,
-					xp->g,
-					view->xinfo.wsr.x,
-					view->xinfo.wsr.y,
-					view->xinfo.wsr.w,
-					view->xinfo.wsr.h, xp->config.win_move_alpha);
-		}
-		else	if((view->xinfo.style & X_STYLE_ALPHA) != 0) {
+		if((view->xinfo.style & X_STYLE_ALPHA) != 0) {
 			graph_blt_alpha(view->g, 0, 0, 
 					view->xinfo.wsr.w,
 					view->xinfo.wsr.h,
@@ -171,9 +179,12 @@ static int draw_view(x_t* xp, xview_t* view) {
 						view->xinfo.wsr.w,
 						view->xinfo.wsr.h);
 		}
+
 	}
 
 	draw_win_frame(xp, view);
+	if(xp->current.view == view && xp->config.win_move_alpha < 0xff) //drag and moving
+		draw_drag_frame(xp);
 	view->dirty = false;
 	return 0;
 }
@@ -625,8 +636,6 @@ static int mouse_handle(x_t* x, xevent_t* ev) {
 				x->current.view = view;
 				x->current.old_pos.x = x->cursor.cpos.x;
 				x->current.old_pos.y = x->cursor.cpos.y;
-				x->current.old_size.w = x->current.view->xinfo.wsr.w;
-				x->current.old_size.h = x->current.view->xinfo.wsr.h;
 				x->current.drag_state = X_VIEW_DRAG_RESIZE;
 				x_dirty(x);
 			}
@@ -636,15 +645,18 @@ static int mouse_handle(x_t* x, xevent_t* ev) {
 	else if(ev->state == XEVT_MOUSE_UP) {
 		if(x->current.view == view) {
 			if(x->current.drag_state == X_VIEW_DRAG_RESIZE) {
-				int mrx = x->cursor.cpos.x - x->current.old_pos.x;
-				int mry = x->cursor.cpos.y - x->current.old_pos.y;
 				ev->type = XEVT_WIN;
-				ev->value.window.v0 = x->current.old_size.w + mrx;
-				ev->value.window.v1 = x->current.old_size.h + mry;
+				ev->value.window.v0 = x->current.view->xinfo.wsr.w + x->current.pos_delta.x;
+				ev->value.window.v1 = x->current.view->xinfo.wsr.h + x->current.pos_delta.y;
 				ev->value.window.event = XEVT_WIN_RESIZE;
 			}
-			else 
-				x_dirty(x);
+			else if(x->current.drag_state == X_VIEW_DRAG_MOVE) {
+				view->xinfo.wsr.x += x->current.pos_delta.x;
+				view->xinfo.wsr.y += x->current.pos_delta.y;
+			}
+			x->current.pos_delta.x = 0;
+			x->current.pos_delta.y = 0;
+			x_dirty(x);
 		}
 		x->current.view = NULL;
 	}
@@ -652,14 +664,10 @@ static int mouse_handle(x_t* x, xevent_t* ev) {
 	if(x->current.view == view) {
 		int mrx = x->cursor.cpos.x - x->current.old_pos.x;
 		int mry = x->cursor.cpos.y - x->current.old_pos.y;
-		if(abs32(mrx) > 16 || abs32(mry) > 16) {
-			if(x->current.drag_state == X_VIEW_DRAG_MOVE) {
-				x->current.old_pos.x = x->cursor.cpos.x;
-				x->current.old_pos.y = x->cursor.cpos.y;
-				view->xinfo.wsr.x += mrx;
-				view->xinfo.wsr.y += mry;
-				x_dirty(x);
-			}
+		if(abs32(mrx) > 15 || abs32(mry) > 15) {
+			x->current.pos_delta.x = mrx;
+			x->current.pos_delta.y = mry;
+			x_dirty(x);
 		}
 	}
 	x_push_event(view, ev);
