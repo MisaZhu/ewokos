@@ -32,6 +32,12 @@ typedef struct st_xview {
 	xinfo_t xinfo;
 	bool dirty;
 
+	grect_t r_title;
+	grect_t r_close;
+	grect_t r_min;
+	grect_t r_max;
+	grect_t r_resize;
+
 	struct st_xview *next;
 	struct st_xview *prev;
 } xview_t;
@@ -398,6 +404,26 @@ static int x_set_visible(int ufid, int from_pid, proto_t* in, x_t* x) {
 	return 0;
 }
 
+static int x_update_frame_areas(x_t* x, xview_t* view) {
+	if((view->xinfo.style & X_STYLE_NO_FRAME) != 0)
+		return -1;
+
+	proto_t in, out;
+	PF->init(&out, NULL, 0);
+	PF->init(&in, NULL, 0)->
+		add(&in, &view->xinfo, sizeof(xinfo_t));
+	int res = ipc_call(x->xwm_pid, XWM_CNTL_GET_FRAME_AREAS, &in, &out);
+	PF->clear(&in);
+
+	proto_read_to(&out, &view->r_title, sizeof(grect_t));
+	proto_read_to(&out, &view->r_close, sizeof(grect_t));
+	proto_read_to(&out, &view->r_min, sizeof(grect_t));
+	proto_read_to(&out, &view->r_max, sizeof(grect_t));
+	proto_read_to(&out, &view->r_resize, sizeof(grect_t));
+	PF->clear(&out);
+	return res;
+}
+
 static int x_update_info(int ufid, int from_pid, proto_t* in, x_t* x) {
 	xinfo_t xinfo;
 	int sz = sizeof(xinfo_t);
@@ -438,6 +464,7 @@ static int x_update_info(int ufid, int from_pid, proto_t* in, x_t* x) {
 	}
 	memcpy(&view->xinfo, &xinfo, sizeof(xinfo_t));
 	view->xinfo.shm_id = shm_id;
+	x_update_frame_areas(x, view);
 
 	return 0;
 }
@@ -550,24 +577,29 @@ static void mouse_cxy(x_t* x, int32_t rx, int32_t ry) {
 		x->cursor.cpos.y = x->g->h;
 }
 
+enum {
+	FRAME_R_TITLE = 0,
+	FRAME_R_CLOSE,
+	FRAME_R_MIN,
+	FRAME_R_MAX,
+	FRAME_R_RESIZE
+};
+
 static int get_win_frame_pos(x_t* x, xview_t* view) {
 	if((view->xinfo.style & X_STYLE_NO_FRAME) != 0)
 		return -1;
 
-	proto_t in, out;
-	PF->init(&out, NULL, 0);
-
-	PF->init(&in, NULL, 0)->
-		addi(&in, x->cursor.cpos.x)->
-		addi(&in, x->cursor.cpos.y)->
-		add(&in, &view->xinfo, sizeof(xinfo_t));
-	int res = ipc_call(x->xwm_pid, XWM_CNTL_GET_POS, &in, &out);
-	PF->clear(&in);
-	if(res == 0)
-		res = proto_read_int(&out);
-	else
-		res = -1;
-	PF->clear(&out);
+	int res = -1;
+	if(check_in_rect(x->cursor.cpos.x, x->cursor.cpos.y, &view->r_title))
+		res = FRAME_R_TITLE;
+	else if(check_in_rect(x->cursor.cpos.x, x->cursor.cpos.y, &view->r_close))
+		res = FRAME_R_CLOSE;
+	else if(check_in_rect(x->cursor.cpos.x, x->cursor.cpos.y, &view->r_min))
+		res = FRAME_R_MIN;
+	else if(check_in_rect(x->cursor.cpos.x, x->cursor.cpos.y, &view->r_max))
+		res = FRAME_R_MAX;
+	else if(check_in_rect(x->cursor.cpos.x, x->cursor.cpos.y, &view->r_resize))
+		res = FRAME_R_RESIZE;
 	return res;
 }
 
@@ -581,20 +613,37 @@ static xview_t* get_mouse_owner(x_t* x, int* win_frame_pos) {
 			view = view->prev;
 			continue;
 		}
-		if(x->cursor.cpos.x >= view->xinfo.wsr.x &&
-				x->cursor.cpos.x < (view->xinfo.wsr.x+view->xinfo.wsr.w) &&
-				x->cursor.cpos.y >= view->xinfo.wsr.y &&
-				x->cursor.cpos.y < (view->xinfo.wsr.y+view->xinfo.wsr.h))
-			return view;
 		int pos = get_win_frame_pos(x, view);
 		if(pos >= 0) {
 			if(win_frame_pos != NULL)
 				*win_frame_pos = pos;
 			return view;
 		}
+		if(check_in_rect(x->cursor.cpos.x, x->cursor.cpos.y, &view->xinfo.wsr))
+			return view;
 		view = view->prev;
 	}
 	return NULL;
+}
+
+static void x_view_move(xview_t* view, int dx, int dy) {
+	view->xinfo.wsr.x += dx;
+	view->xinfo.wsr.y += dy;
+
+	view->r_title.x += dx;
+	view->r_title.y += dy;
+
+	view->r_close.x += dx;
+	view->r_close.y += dy;
+
+	view->r_min.x += dx;
+	view->r_min.y += dy;
+
+	view->r_max.x += dx;
+	view->r_max.y += dy;
+
+	view->r_resize.x += dx;
+	view->r_resize.y += dy;
 }
 
 static int mouse_handle(x_t* x, xevent_t* ev) {
@@ -619,25 +668,25 @@ static int mouse_handle(x_t* x, xevent_t* ev) {
 			push_view(x, view);
 		}
 
-		if(pos == XWM_FRAME_CLOSE) { //window close
+		if(pos == FRAME_R_CLOSE) { //window close
 			ev->type = XEVT_WIN;
 			ev->value.window.event = XEVT_WIN_CLOSE;
 			view->xinfo.visible = false;
 			x_dirty(x);
 		}
-		else if(pos == XWM_FRAME_MAX) {
+		else if(pos == FRAME_R_MAX) {
 			ev->type = XEVT_WIN;
 			ev->value.window.event = XEVT_WIN_MAX;
 		}
 		else { // mouse down
-			if(pos == XWM_FRAME_TITLE) {//window title 
+			if(pos == FRAME_R_TITLE) {//window title 
 				x->current.view = view;
 				x->current.old_pos.x = x->cursor.cpos.x;
 				x->current.old_pos.y = x->cursor.cpos.y;
 				x->current.drag_state = X_VIEW_DRAG_MOVE;
 				x_dirty(x);
 			}
-			else if(pos == XWM_FRAME_RESIZE) {//window resize
+			else if(pos == FRAME_R_RESIZE) {//window resize
 				x->current.view = view;
 				x->current.old_pos.x = x->cursor.cpos.x;
 				x->current.old_pos.y = x->cursor.cpos.y;
@@ -662,8 +711,7 @@ static int mouse_handle(x_t* x, xevent_t* ev) {
 				ev->value.window.event = XEVT_WIN_RESIZE;
 			}
 			else if(x->current.drag_state == X_VIEW_DRAG_MOVE) {
-				view->xinfo.wsr.x += x->current.pos_delta.x;
-				view->xinfo.wsr.y += x->current.pos_delta.y;
+				x_view_move(view, x->current.pos_delta.x, x->current.pos_delta.y);
 				x_dirty(x);
 			}
 			x->current.pos_delta.x = 0;

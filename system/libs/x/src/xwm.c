@@ -84,46 +84,39 @@ static void draw_frame(xwm_t* xwm, proto_t* in) {
 	}
 }
 
-static void get_pos(xwm_t* xwm, proto_t* in, proto_t* out) {
+static void get_frame_areas(xwm_t* xwm, proto_t* in, proto_t* out) {
 	xinfo_t info;
-	int x = proto_read_int(in);
-	int y = proto_read_int(in);
 	proto_read_to(in, &info, sizeof(xinfo_t));
 
-	int res = -1;
+	grect_t rtitle, rclose, rmax, rmin, rresize;
+	memset(&rtitle, 0, sizeof(grect_t));
+	memset(&rclose, 0, sizeof(grect_t));
+	memset(&rmax, 0, sizeof(grect_t));
+	memset(&rmin, 0, sizeof(grect_t));
+	memset(&rresize, 0, sizeof(grect_t));
+
 	if((info.style & X_STYLE_NO_TITLE) == 0 &&
 			(info.style & X_STYLE_NO_FRAME) == 0) {
-		grect_t rtitle, rclose, rmax, rmin, rresize;
-		memset(&rtitle, 0, sizeof(grect_t));
-		memset(&rclose, 0, sizeof(grect_t));
-		memset(&rmax, 0, sizeof(grect_t));
-		memset(&rmin, 0, sizeof(grect_t));
-		memset(&rresize, 0, sizeof(grect_t));
 
 		if(xwm->get_title != NULL)
 			xwm->get_title(&info, &rtitle, xwm->data);
 		if(xwm->get_close != NULL)
 			xwm->get_close(&info, &rclose, xwm->data);
-		if(xwm->get_max != NULL)
-			xwm->get_max(&info, &rmax, xwm->data);
 		if(xwm->get_min != NULL)
 			xwm->get_min(&info, &rmin, xwm->data);
-		if(xwm->get_resize != NULL)
-			xwm->get_resize(&info, &rresize, xwm->data);
 
-		if(check_in_rect(x, y, &rtitle) == 0)
-			res = XWM_FRAME_TITLE;
-		else if(check_in_rect(x, y, &rclose) == 0)
-			res = XWM_FRAME_CLOSE;
-		else if((info.style & X_STYLE_NO_RESIZE) == 0) {
-			if(check_in_rect(x, y, &rmax) == 0)
-				res = XWM_FRAME_MAX;
-			else if(check_in_rect(x, y, &rresize) == 0) {
-				res = XWM_FRAME_RESIZE;
-			}
+		if((info.style & X_STYLE_NO_RESIZE) == 0) {
+			if(xwm->get_max != NULL)
+				xwm->get_max(&info, &rmax, xwm->data);
+			if(xwm->get_resize != NULL)
+				xwm->get_resize(&info, &rresize, xwm->data);
 		}
 	}
-	PF->addi(out, res);
+	PF->add(out, &rtitle, sizeof(grect_t))->
+		add(out, &rclose, sizeof(grect_t))->
+		add(out, &rmin, sizeof(grect_t))->
+		add(out, &rmax, sizeof(grect_t))->
+		add(out, &rresize, sizeof(grect_t));
 }
 
 static void draw_desktop(xwm_t* xwm, proto_t* in) {
@@ -166,8 +159,8 @@ static void handle(int from_pid, int cmd, proto_t* in, proto_t* out, void* p) {
 	else if(cmd == XWM_CNTL_DRAW_DESKTOP) { //draw desktop
 		draw_desktop(xwm, in);
 	}
-	else if(cmd == XWM_CNTL_GET_POS) { //get pos
-		get_pos(xwm, in, out);
+	else if(cmd == XWM_CNTL_GET_FRAME_AREAS) {
+		get_frame_areas(xwm, in, out);
 	}
 	else if(cmd == XWM_CNTL_GET_WORKSPACE) { //get workspace
 		get_workspace(xwm, in, out);

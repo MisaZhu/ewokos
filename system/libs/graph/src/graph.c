@@ -611,11 +611,11 @@ inline void graph_blt_alpha(graph_t* src, int32_t sx, int32_t sy, int32_t sw, in
 	critical_quit();
 }
 
-int32_t check_in_rect(int32_t x, int32_t y, grect_t* rect) {
+bool check_in_rect(int32_t x, int32_t y, grect_t* rect) {
 	if(x >= rect->x && x < (rect->x+rect->w) && 
 			y >= rect->y && y < (rect->y+rect->h))
-		return 0;
-	return -1;
+		return true;
+	return false;
 }
 
 inline void graph_dup16(uint16_t* dst, uint32_t* src, int32_t w, int32_t h) {

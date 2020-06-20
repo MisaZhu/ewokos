@@ -115,10 +115,10 @@ static void get_close(xinfo_t* info, grect_t* rect, void* p) {
 
 static void get_resize(xinfo_t* info, grect_t* rect, void* p) {
 	(void)p;
-	rect->x = info->wsr.x + info-> wsr.w;
-	rect->y = info->wsr.y + info-> wsr.h - 24;
+	rect->x = info->wsr.x + info-> wsr.w - 12;
+	rect->y = info->wsr.y + info-> wsr.h - 12;
 	rect->w = 12;
-	rect->h = 24;
+	rect->h = 12;
 }
 
 /*-------draw functions.----------*/
