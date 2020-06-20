@@ -245,6 +245,7 @@ int main(int argc, char** argv) {
 	(void)argv;
 
 	xwm_t xwm;
+	memset(&xwm, 0, sizeof(xwm_t));
 	xwm.get_workspace = get_workspace;
 	xwm.get_close = get_close;
 	xwm.get_max = get_max;

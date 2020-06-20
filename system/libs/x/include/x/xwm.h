@@ -14,6 +14,7 @@ enum {
 
 enum {
 	XWM_CNTL_DRAW_FRAME = 0,
+	XWM_CNTL_DRAW_DRAG_FRAME,
 	XWM_CNTL_DRAW_DESKTOP,
 	XWM_CNTL_GET_WORKSPACE,
 	XWM_CNTL_GET_POS
@@ -36,6 +37,7 @@ typedef struct {
 	void (*draw_close)(graph_t* g, xinfo_t* info, grect_t* r, bool top, void* p);
 	void (*draw_resize)(graph_t* g, xinfo_t* info, grect_t* r, bool top, void* p);
 	void (*draw_frame)(graph_t* g, xinfo_t* info, bool top, void* p);
+	void (*draw_drag_frame)(graph_t* g, grect_t* r, void* p);
 } xwm_t;
 
 void xwm_run(xwm_t* xwm);

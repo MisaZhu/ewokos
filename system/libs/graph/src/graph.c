@@ -18,17 +18,20 @@ uint32_t argb_int(uint32_t c) {
 	return argb((c>>24)&0xff, (c>>16)&0xff, (c>>8)&0xff, c&0xff);
 }
 
-graph_t* graph_new(uint32_t* buffer, uint32_t w, uint32_t h) {
+graph_t* graph_new(uint32_t* buffer, int32_t w, int32_t h) {
+	if(w <= 0 || h <= 0)
+		return NULL;
+
 	graph_t* ret = (graph_t*)malloc(sizeof(graph_t));
 	ret->w = w;
 	ret->h = h;
 	if(buffer != NULL) {
 		ret->buffer = buffer;
-		ret->need_free = 0;
+		ret->need_free = false;
 	}
 	else {
 		ret->buffer = (uint32_t*)malloc(w*h*4);
-		ret->need_free = 1;
+		ret->need_free = true;
 	}
 	return ret;
 }
@@ -36,7 +39,7 @@ graph_t* graph_new(uint32_t* buffer, uint32_t w, uint32_t h) {
 void graph_free(graph_t* g) {
 	if(g == NULL)
 		return;
-	if(g->buffer != NULL && g->need_free == 1)
+	if(g->buffer != NULL && g->need_free)
 		free(g->buffer);
 	free(g);
 }
@@ -48,7 +51,7 @@ inline void graph_pixel(graph_t* g, int32_t x, int32_t y, uint32_t color) {
 inline void graph_pixel_safe(graph_t* g, int32_t x, int32_t y, uint32_t color) {
 	if(g == NULL)
 		return;
-	if(x < 0 ||  (uint32_t)x >= g->w || y < 0 || (uint32_t)y >= g->h)
+	if(x < 0 || x >= g->w || y < 0 || y >= g->h)
 		return;
 	graph_pixel(g, x, y, color);
 }
@@ -73,7 +76,7 @@ static inline void pixel_argb_safe(graph_t* graph, int32_t x, int32_t y,
 		uint8_t a, uint8_t r, uint8_t g, uint8_t b) {
 	if(graph == NULL)
 		return;
-	if(x < 0 ||  (uint32_t)x >= graph->w || y < 0 || (uint32_t)y >= graph->h)
+	if(x < 0 || x >= graph->w || y < 0 || y >= graph->h)
 		return;
 	pixel_argb(graph, x, y, a, r, g, b);
 }
@@ -85,8 +88,8 @@ void graph_clear(graph_t* g, uint32_t color) {
 		return;
 
 	critical_enter();
-	uint32_t i = 0;
-	uint32_t sz = g->w * 4;
+	int32_t i = 0;
+	int32_t sz = g->w * 4;
 	while(i<g->w) {
 		g->buffer[i] = color;
 		++i;
@@ -101,7 +104,7 @@ void graph_clear(graph_t* g, uint32_t color) {
 void graph_reverse(graph_t* g) {
 	if(g == NULL)
 		return;
-	uint32_t i = 0;
+	int32_t i = 0;
 	while(i < g->w*g->h) {
 		uint32_t oc = g->buffer[i];
 		uint8_t oa = (oc >> 24) & 0xff;
@@ -456,7 +459,10 @@ void graph_draw_text(graph_t* g, int32_t x, int32_t y, const char* str, font_t* 
 	}
 }
 
-void graph_fill_circle(graph_t* g, int32_t x, int32_t y, uint32_t radius, uint32_t color) {
+void graph_fill_circle(graph_t* g, int32_t x, int32_t y, int32_t radius, uint32_t color) {
+	if(radius <= 0)
+		return;
+
 	int32_t a, b, P;
 	a = 1;
 	b = radius;
@@ -477,7 +483,9 @@ void graph_fill_circle(graph_t* g, int32_t x, int32_t y, uint32_t radius, uint32
 	} while(a < b);
 }
 
-void graph_circle(graph_t* g, int32_t x, int32_t y, uint32_t radius, uint32_t color) {
+void graph_circle(graph_t* g, int32_t x, int32_t y, int32_t radius, uint32_t color) {
+	if(radius <= 0)
+		return;
 	int32_t a, b, P;
 	a = 1;
 	b = radius;
@@ -534,8 +542,12 @@ void graph_circle(graph_t* g, int32_t x, int32_t y, uint32_t radius, uint32_t co
 	}
 }
 
-inline void graph_blt(graph_t* src, int32_t sx, int32_t sy, uint32_t sw, uint32_t sh,
-		graph_t* dst, int32_t dx, int32_t dy, uint32_t dw, uint32_t dh) {
+inline void graph_blt(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_t sh,
+		graph_t* dst, int32_t dx, int32_t dy, int32_t dw, int32_t dh) {
+	
+	if(sw <= 0 || sh <= 0 || dw <= 0 || dh <= 0)
+		return;
+
 	if(sx == 0 && sy == 0 && dx == 0 && dy == 0 &&
 			sw == dw && sh == dh && src->w == sw && src->h == sh &&
 				dst->w == dw && dst->h == dh) {
@@ -569,6 +581,9 @@ inline void graph_blt(graph_t* src, int32_t sx, int32_t sy, uint32_t sw, uint32_
 
 inline void graph_blt_alpha(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_t sh,
 		graph_t* dst, int32_t dx, int32_t dy, int32_t dw, int32_t dh, uint8_t alpha) {
+	if(sw <= 0 || sh <= 0 || dw <= 0 || dh <= 0)
+		return;
+
 	grect_t sr = {sx, sy, sw, sh};
 	grect_t dr = {dx, dy, dw, dh};
 	if(!insect(src, &sr, dst, &dr))
@@ -603,7 +618,10 @@ int32_t check_in_rect(int32_t x, int32_t y, grect_t* rect) {
 	return -1;
 }
 
-inline void graph_dup16(uint16_t* dst, uint32_t* src, uint32_t w, uint32_t h) {
+inline void graph_dup16(uint16_t* dst, uint32_t* src, int32_t w, int32_t h) {
+	if(w <= 0 || h <= 0)
+		return;
+
 	register int32_t i, size;
 	size = w * h;
 	critical_enter();
@@ -617,17 +635,3 @@ inline void graph_dup16(uint16_t* dst, uint32_t* src, uint32_t w, uint32_t h) {
 	critical_quit();
 }
 
-/*graph_t* graph_zoom(graph_t* g, uint32_t w, uint32_t h) {
-	graph_t * ret = graph_new(NULL, w, h);
-	float zw = ((float)w) / g->w;
-	float zh = ((float)h) / g->h;
-	for(uint32_t j=0; j<h; j++) {
-		uint32_t y = (int32_t)(j*zh);
-		for(uint32_t i=0; i<w; i++) {
-			uint32_t x = 0;//(int32_t)i*zw;
-			ret->buffer[j*w+i] = g->buffer[y*g->w+x];
-		}
-	}
-	return ret;	
-}
-*/

@@ -2,17 +2,18 @@
 #define GRAPH_H
 
 #include <graph/font.h>
+#include <stdbool.h>
 
 typedef struct {
 	uint32_t *buffer;
-	uint32_t w;
-	uint32_t h;
-	uint32_t need_free;
+	int32_t w;
+	int32_t h;
+	bool need_free;
 } graph_t;
 
 typedef struct {
-	uint32_t w;	
-	uint32_t h;	
+	int32_t w;	
+	int32_t h;	
 } gsize_t;
 
 typedef struct {
@@ -33,9 +34,7 @@ int32_t has_alpha(uint32_t c);
 
 uint32_t argb_int(uint32_t c);
 
-graph_t* graph_new(uint32_t* buffer, uint32_t w, uint32_t h);
-
-graph_t* graph_zoom(graph_t* g, uint32_t w, uint32_t h);
+graph_t* graph_new(uint32_t* buffer, int32_t w, int32_t h);
 
 void graph_free(graph_t* g);
 
@@ -57,18 +56,18 @@ void graph_draw_char(graph_t* g, int32_t x, int32_t y, char c, font_t* font, uin
 
 void graph_draw_text(graph_t* g, int32_t x, int32_t y, const char* str, font_t* font, uint32_t color);
 
-void graph_circle(graph_t* g, int32_t x, int32_t y, uint32_t radius, uint32_t color);
+void graph_circle(graph_t* g, int32_t x, int32_t y, int32_t radius, uint32_t color);
 
-void graph_fill_circle(graph_t* g, int32_t x, int32_t y, uint32_t radius, uint32_t color);
+void graph_fill_circle(graph_t* g, int32_t x, int32_t y, int32_t radius, uint32_t color);
 
-void graph_blt(graph_t* src, int32_t sx, int32_t sy, uint32_t sw, uint32_t sh,
-		graph_t* dst, int32_t dx, int32_t dy, uint32_t dw, uint32_t dh);
+void graph_blt(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_t sh,
+		graph_t* dst, int32_t dx, int32_t dy, int32_t dw, int32_t dh);
 
 void graph_blt_alpha(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_t sh,
 		graph_t* dst, int32_t dx, int32_t dy, int32_t dw, int32_t dh, uint8_t alpha);
 	
 int32_t check_in_rect(int32_t x, int32_t y, grect_t* rect);
 
-void graph_dup16(uint16_t* dst, uint32_t* src, uint32_t w, uint32_t h);
+void graph_dup16(uint16_t* dst, uint32_t* src, int32_t w, int32_t h);
 
 #endif

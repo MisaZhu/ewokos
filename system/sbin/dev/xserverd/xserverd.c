@@ -102,8 +102,7 @@ static void draw_win_frame(x_t* x, xview_t* view) {
 	if((view->xinfo.style & X_STYLE_NO_FRAME) != 0)
 		return;
 
-	proto_t in, out;
-	PF->init(&out, NULL, 0);
+	proto_t in;
 
 	PF->init(&in, NULL, 0)->
 		addi(&in, x->shm_id)->
@@ -115,23 +114,19 @@ static void draw_win_frame(x_t* x, xview_t* view) {
 	else
 		PF->addi(&in, 0);
 
-	ipc_call(x->xwm_pid, XWM_CNTL_DRAW_FRAME, &in, &out);
+	ipc_call(x->xwm_pid, XWM_CNTL_DRAW_FRAME, &in, NULL);
 	PF->clear(&in);
-	PF->clear(&out);
 }
 
 static void draw_desktop(x_t* x) {
-	proto_t in, out;
-	PF->init(&out, NULL, 0);
-
+	proto_t in;
 	PF->init(&in, NULL, 0)->
 		addi(&in, x->shm_id)->
 		addi(&in, x->g->w)->
 		addi(&in, x->g->h);
 
-	int res = ipc_call(x->xwm_pid, XWM_CNTL_DRAW_DESKTOP, &in, &out);
+	int res = ipc_call(x->xwm_pid, XWM_CNTL_DRAW_DESKTOP, &in, NULL);
 	PF->clear(&in);
-	PF->clear(&out);
 	if(res != 0)
 	 graph_fill(x->g, 0, 0, x->g->w, x->g->h, 0xff000000);
 }
@@ -151,7 +146,17 @@ static void draw_drag_frame(x_t* xp) {
 		h += xp->current.pos_delta.y;
 	}
 
-	graph_box(xp->g, x, y, w, h, 0xffffffff);
+	grect_t r = {x, y, w, h};
+
+	proto_t in;
+	PF->init(&in, NULL, 0)->
+		addi(&in, xp->shm_id)->
+		addi(&in, xp->g->w)->
+		addi(&in, xp->g->h)->
+		add(&in, &r, sizeof(grect_t));
+
+	ipc_call(xp->xwm_pid, XWM_CNTL_DRAW_DRAG_FRAME, &in, NULL);
+	PF->clear(&in);
 }
 
 static int draw_view(x_t* xp, xview_t* view) {
@@ -646,17 +651,23 @@ static int mouse_handle(x_t* x, xevent_t* ev) {
 		if(x->current.view == view) {
 			if(x->current.drag_state == X_VIEW_DRAG_RESIZE) {
 				ev->type = XEVT_WIN;
-				ev->value.window.v0 = x->current.view->xinfo.wsr.w + x->current.pos_delta.x;
-				ev->value.window.v1 = x->current.view->xinfo.wsr.h + x->current.pos_delta.y;
+				int nw = x->current.view->xinfo.wsr.w + x->current.pos_delta.x;
+				int nh = x->current.view->xinfo.wsr.h + x->current.pos_delta.y;
+				if(nw <= 0)
+					nw = 256;
+				if(nh <= 0)
+					nh = 24;
+				ev->value.window.v0 = nw;
+				ev->value.window.v1 = nh;
 				ev->value.window.event = XEVT_WIN_RESIZE;
 			}
 			else if(x->current.drag_state == X_VIEW_DRAG_MOVE) {
 				view->xinfo.wsr.x += x->current.pos_delta.x;
 				view->xinfo.wsr.y += x->current.pos_delta.y;
+				x_dirty(x);
 			}
 			x->current.pos_delta.x = 0;
 			x->current.pos_delta.y = 0;
-			x_dirty(x);
 		}
 		x->current.view = NULL;
 	}
