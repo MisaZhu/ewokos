@@ -1,2 +1,0 @@
-/sbin/dev/nulld            /dev/null
-/sbin/dev/raspi2/ttyd      /dev/tty0

@@ -90,7 +90,16 @@ static void dev_init(void) {
 #endif
 }
 
-int32_t load_init(void);
+#ifdef SDC
+int32_t load_init_sdc(void);
+#endif
+
+int32_t load_init_proc(void) {
+#ifdef SDC
+	return load_init_sdc();
+#endif
+	return -1;
+}
 
 void _kernel_entry_c(context_t* ctx) {
 	(void)ctx;
@@ -146,7 +155,7 @@ void _kernel_entry_c(context_t* ctx) {
 	printf("kernel: irq inited\n");
 
 	printf("kernel: loading init");
-	if(load_init() != 0) 
+	if(load_init_proc() != 0) 
 		printf(" [failed!]\n");
 	else
 		printf(" [ok]\n");

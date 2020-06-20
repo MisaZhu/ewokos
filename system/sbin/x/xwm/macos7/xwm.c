@@ -133,6 +133,14 @@ static void get_color(uint32_t *fg, uint32_t* bg, bool top) {
 	}
 }
 
+static void draw_drag_frame(graph_t* g, grect_t* r, void* p) {
+	(void)p;
+	graph_box(g, r->x+1, r->y - _xwm_config.title_h+1,
+		r->w, r->h + _xwm_config.title_h, 0x88000000);
+	graph_box(g, r->x, r->y - _xwm_config.title_h,
+		r->w, r->h + _xwm_config.title_h, 0x88ffffff);
+}
+
 static void draw_frame(graph_t* g, xinfo_t* info, bool top, void* p) {
 	(void)p;
 	(void)info;
@@ -254,6 +262,7 @@ int main(int argc, char** argv) {
 	xwm.get_resize = get_resize;
 
 	xwm.draw_frame = draw_frame;
+	xwm.draw_drag_frame = draw_drag_frame;
 	xwm.draw_close = draw_close;
 	xwm.draw_title = draw_title;
 	xwm.draw_min = draw_min;

@@ -1,2 +1,0 @@
-/sbin/dev/nulld              /dev/null
-/sbin/dev/versatilepb/ttyd   /dev/tty0

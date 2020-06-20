@@ -83,14 +83,7 @@ LIB_OBJS = \
 	${LIB_DIR}/queue.o \
 	${LIB_DIR}/kprintf.o
 
-ifeq ($(TINYSYS),yes)
-LOAD_DIR = extra/loadinit/mem
-LOAD_OBJS = \
-	${LOAD_DIR}/base16.o \
-	${LOAD_DIR}/init_data.o \
-	${LOAD_DIR}/loadinit.o
-
-else
+ifneq ($(TINYSYS),yes)
 CFLAGS += -DSDC -DFRAMEBUFFER
 LIB_OBJS += \
 	${EXTRA_LIB_DIR}/graph.o \
@@ -108,9 +101,9 @@ LOAD_OBJS = \
 	${LOAD_DIR}/loadinit.o
 
 QEMU_ARGS = -sd $(SYS_FULL_DIR)/build/sd.ext2
+CFLAGS += -I$(LOAD_DIR)
 endif
 
-CFLAGS += -I$(LOAD_DIR)
 
 KERNEL_DIR = kernel
 KERNEL_OBJS = \

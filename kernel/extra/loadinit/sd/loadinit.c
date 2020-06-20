@@ -4,7 +4,7 @@
 #include <mm/kmalloc.h>
 #include <kstring.h>
 
-int32_t load_init(void) {
+int32_t load_init_sdc(void) {
 	const char* prog = "/sbin/init";
 	int32_t sz;
 
