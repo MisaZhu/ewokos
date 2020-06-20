@@ -27,8 +27,9 @@ protected:
 		snprintf(str, 31, "paint = %d", i++);
 		g.clear(argb_int(0xff0000ff));
 		g.drawText(10, 10, str, font, 0xffffffff);
-		g.fillCircle(100, 100, 50, 0x99000000);
-		g.circle(100, 100, 60, 0x99000000);
+
+		g.fillCircle(g.getW()/2, g.getH()/2, 50, 0x99000000);
+		g.circle(g.getW()/2, g.getH()/2, 60, 0x99000000);
 	}
 };
 
@@ -47,7 +48,8 @@ int main(int argc, char* argv[]) {
 	X x;
 
 	TestX xwin;
-	x.open(&xwin, 10, 10, 220, 200, "gtest", X_STYLE_NORMAL | X_STYLE_NO_RESIZE);
+	//x.open(&xwin, 10, 10, 220, 200, "gtest", X_STYLE_NORMAL | X_STYLE_NO_RESIZE);
+	x.open(&xwin, 10, 10, 220, 200, "gtest", X_STYLE_NORMAL);
 
 	xwin.i = 0;
 	xwin.setVisible(true);
