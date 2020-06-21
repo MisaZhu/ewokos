@@ -142,3 +142,7 @@ float atof(const char* s) {
 	return 0.0f;
 #endif
 }
+
+uint32_t random(void) {
+	return random_u32();
+}

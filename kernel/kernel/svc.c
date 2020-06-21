@@ -230,6 +230,12 @@ static int32_t sys_ipc_setup(context_t* ctx, uint32_t entry, uint32_t extra_data
 }
 
 static void sys_ipc_call(context_t* ctx, uint32_t pid, int32_t call_id, proto_t* data) {
+	if((call_id & 0xffff0000) != 0 && _current_proc->info.owner != 0) {
+		//ipc call id > 0xffff0000 means kernel ipccall	
+		ctx->gpr[0] = -2;
+		return;
+	}
+
 	ctx->gpr[0] = 0;
 	proc_t* proc = proc_get(pid);
 	if(proc == NULL || proc->space->ipc.entry == 0) {
@@ -394,6 +400,13 @@ static int32_t sys_core_pid(void) {
 	return _core_pid;
 }
 
+static void sys_get_kernel_usec(uint32_t* h, uint32_t* l) {
+	if(h != NULL)
+		*h = (uint32_t)(_kernel_usec >> 32);
+	if(l != NULL)
+		*l = (uint32_t)_kernel_usec;
+}
+
 void svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_t arg2, context_t* ctx, int32_t processor_mode) {
 	(void)arg1;
 	(void)arg2;
@@ -532,6 +545,9 @@ void svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_t arg2, context
 		return;
 	case SYS_CORE_PID:
 		ctx->gpr[0] = sys_core_pid();
+		return;
+	case SYS_GET_KERNEL_USEC:
+		sys_get_kernel_usec((uint32_t*)arg0, (uint32_t*)arg1);
 		return;
 	}
 	printf("pid:%d, code(%d) error!\n", _current_proc->info.pid, code);

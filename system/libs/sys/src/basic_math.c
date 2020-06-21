@@ -1,4 +1,5 @@
 #include <sys/basic_math.h>
+#include <sys/syscall.h>
 
 inline uint32_t div_u32(uint32_t v, uint32_t by) {
 	if(by == 0)
@@ -85,4 +86,10 @@ inline uint32_t abs32(int32_t v) {
 	if(v < 0)
 		return (-v);
 	return v;
+}
+
+inline uint32_t random_u32(void) {
+	uint32_t ret;
+	syscall2(SYS_GET_KERNEL_USEC, 0, (int32_t)&ret);
+	return ret >> 5 | ret << 16;
 }

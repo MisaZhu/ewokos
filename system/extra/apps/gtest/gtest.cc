@@ -1,9 +1,11 @@
 extern "C" {
 #include <unistd.h>
+#include <stdlib.h>
 #include <fcntl.h>
 #include <stdio.h>
 #include <string.h>
 #include <vprintf.h>
+#include <sys/basic_math.h>
 }
 
 #include <x++/X.h>
@@ -24,12 +26,19 @@ protected:
 	void onRepaint(Graph& g) {
 		char str[32];
 		font_t* font = font_by_name("12x24");
-		snprintf(str, 31, "paint = %d", i++);
-		g.clear(argb_int(0xff0000ff));
-		g.drawText(10, 10, str, font, 0xffffffff);
 
-		g.fillCircle(g.getW()/2, g.getH()/2, 50, 0x99000000);
-		g.circle(g.getW()/2, g.getH()/2, 60, 0x99000000);
+		int x = mod_u32(random(), g.getW());
+		int y = mod_u32(random(), g.getH());
+		int w = mod_u32(random(), 256);
+		int h = mod_u32(random(), 256);
+		int c = random();
+
+		g.fill(x+5, y+5, w-10, h-10, c);
+		g.box(x, y, w, h, c);
+
+		snprintf(str, 31, "paint = %d", i++);
+		g.fill(0, 0, g.getW(), font->h, 0xff000000);
+		g.drawText(0, 0, str, font, 0xffffffff);
 	}
 };
 
@@ -48,8 +57,7 @@ int main(int argc, char* argv[]) {
 	X x;
 
 	TestX xwin;
-	//x.open(&xwin, 10, 10, 220, 200, "gtest", X_STYLE_NORMAL | X_STYLE_NO_RESIZE);
-	x.open(&xwin, 10, 10, 220, 200, "gtest", X_STYLE_NORMAL);
+	x.open(&xwin, 10, 10, 600, 400, "gtest", X_STYLE_NORMAL);
 
 	xwin.i = 0;
 	xwin.setVisible(true);

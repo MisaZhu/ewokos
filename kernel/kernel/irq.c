@@ -12,7 +12,7 @@
 #include <usinterrupt.h>
 
 uint32_t _kernel_tic = 0;
-static uint64_t _timer_usec = 0;
+uint64_t _kernel_usec = 0;
 static uint32_t _timer_mtic = 0;
 static uint32_t _timer_tic = 0;
 
@@ -57,11 +57,11 @@ void irq_handler(context_t* ctx) {
 	if((irqs & IRQ_TIMER0) != 0) {
 		uint64_t usec = timer_read_sys_usec();
 		if(_current_proc == NULL || _current_proc->critical_counter == 0) {
-			if(_timer_usec == 0)
-				_timer_usec = usec;
+			if(_kernel_usec == 0)
+				_kernel_usec = usec;
 			else {
-				uint64_t usec_gap = usec - _timer_usec;
-				_timer_usec = usec;
+				uint64_t usec_gap = usec - _kernel_usec;
+				_kernel_usec = usec;
 				_timer_mtic += usec_gap;
 				_timer_tic += usec_gap;
 				if(_timer_tic >= 1000000) { //1 sec
@@ -111,7 +111,7 @@ void irq_init(void) {
 	gic_set_irqs(IRQ_TIMER0 | IRQ_KEY);
 	__irq_enable();
 	_kernel_tic = 0;
-	_timer_usec = 0;
+	_kernel_usec = 0;
 	_timer_mtic = 0;
 	_timer_tic = 0;
 }
