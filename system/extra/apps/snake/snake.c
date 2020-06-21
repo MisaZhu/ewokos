@@ -197,9 +197,8 @@ static void repaint(xwin_t* x, graph_t* g) {
 static void loop(void* p) {
 	if(!top)
 		return;
-	x_t* x = (x_t*)p;
 
-	xwin_t* xwin = (xwin_t*)x->data;
+	xwin_t* xwin = (xwin_t*)p;
 	if(dead == false){
 		snake_move(&s, dir);
 		snake_eat(&s, &f);
