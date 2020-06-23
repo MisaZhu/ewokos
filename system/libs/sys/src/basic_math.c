@@ -88,8 +88,10 @@ inline uint32_t abs32(int32_t v) {
 	return v;
 }
 
+static uint32_t _r_mask = 0x13579abc;
 inline uint32_t random_u32(void) {
-	uint32_t ret;
-	syscall2(SYS_GET_KERNEL_USEC, 0, (int32_t)&ret);
-	return ret >> 5 | ret << 16;
+	uint32_t ret = (uint32_t)syscall0(SYS_GET_KERNEL_TIC) * _r_mask;
+	_r_mask *= 0x79efd1;
+	_r_mask += 0xe1;
+	return ret;
 }
