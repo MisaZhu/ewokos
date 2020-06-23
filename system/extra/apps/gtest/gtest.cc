@@ -57,7 +57,7 @@ int main(int argc, char* argv[]) {
 	X x;
 
 	TestX xwin;
-	x.open(&xwin, 10, 10, 600, 400, "gtest", X_STYLE_NORMAL);
+	x.open(&xwin, 10, 10, scr.size.w-20, scr.size.h-20, "gtest", X_STYLE_NORMAL);
 
 	xwin.i = 0;
 	xwin.setVisible(true);
