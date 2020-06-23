@@ -6,7 +6,7 @@ typedef struct {
 	uint32_t free_mem;
 	uint32_t shm_mem;
 	uint32_t total_mem;
-	uint32_t kernel_tic;
+	uint32_t kernel_sec;
 } sysinfo_t;
 
 #endif

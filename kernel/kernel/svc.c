@@ -174,7 +174,7 @@ static void	sys_get_sysinfo(sysinfo_t* info) {
 	info->free_mem = get_free_mem_size();
 	info->total_mem = get_hw_info()->phy_mem_size;
 	info->shm_mem = shm_alloced_size();
-	info->kernel_tic = _kernel_tic;
+	info->kernel_sec = _kernel_sec;
 }
 
 static int32_t sys_shm_alloc(uint32_t size, int32_t flag) {
@@ -400,18 +400,16 @@ static int32_t sys_core_pid(void) {
 	return _core_pid;
 }
 
-static void sys_get_kernel_usec(uint32_t* h, uint32_t* l) {
-	if(h != NULL)
-		*h = (uint32_t)(_kernel_usec >> 32);
-	if(l != NULL)
-		*l = (uint32_t)_kernel_usec;
+static uint32_t _svc_tic = 0;
+
+static int32_t sys_get_kernel_tic(void) {
+	return _svc_tic;
 }
 
 void svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_t arg2, context_t* ctx, int32_t processor_mode) {
-	(void)arg1;
-	(void)arg2;
-	(void)ctx;
 	(void)processor_mode;
+	_svc_tic++;
+
 	__irq_disable();
 	_current_ctx = ctx;
 
@@ -467,13 +465,9 @@ void svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_t arg2, context
 	case SYS_GET_SYSINFO:
 		sys_get_sysinfo((sysinfo_t*)arg0);
 		return;
-	/*case SYS_GET_KERNEL_USEC:
-		sys_get_kernel_usec((uint64_t*)arg0);
-		return;
 	case SYS_GET_KERNEL_TIC:
 		ctx->gpr[0] = sys_get_kernel_tic();
 		return;
-		*/
 	case SYS_GET_PROCS: 
 		ctx->gpr[0] = (int32_t)get_procs((int32_t*)arg0);
 		return;
@@ -545,9 +539,6 @@ void svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_t arg2, context
 		return;
 	case SYS_CORE_PID:
 		ctx->gpr[0] = sys_core_pid();
-		return;
-	case SYS_GET_KERNEL_USEC:
-		sys_get_kernel_usec((uint32_t*)arg0, (uint32_t*)arg1);
 		return;
 	}
 	printf("pid:%d, code(%d) error!\n", _current_proc->info.pid, code);

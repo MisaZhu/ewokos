@@ -329,7 +329,7 @@ proc_t *proc_create(int32_t type, proc_t* parent) {
 	proc->space->ipc.sp = proc->ctx.sp;
 	proc->space->ipc.ipc_pid = proc->info.pid;
 	proc->ctx.cpsr = 0x50;
-	proc->info.start_sec = _kernel_tic;
+	proc->info.start_sec = _kernel_sec;
 	return proc;
 }
 

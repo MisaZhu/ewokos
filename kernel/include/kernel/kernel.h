@@ -3,7 +3,7 @@
 
 #include <mm/mmu.h>
 
-extern uint32_t _kernel_tic;
+extern uint32_t _kernel_sec;
 extern uint64_t _kernel_usec;
 extern char _kernel_start[];
 extern char _kernel_end[];
