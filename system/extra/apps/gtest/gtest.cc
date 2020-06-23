@@ -29,8 +29,8 @@ protected:
 
 		int x = random_to(g.getW());
 		int y = random_to(g.getH());
-		int w = random_to(g.getW());
-		int h = random_to(g.getH());
+		int w = random_to(128);
+		int h = random_to(128);
 		int c = random();
 
 		g.fill(x+5, y+5, w-10, h-10, c);
