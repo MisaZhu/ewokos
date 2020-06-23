@@ -27,10 +27,10 @@ protected:
 		char str[32];
 		font_t* font = font_by_name("12x24");
 
-		int x = mod_u32(random() >> 16, g.getW());
-		int y = mod_u32(random() >> 16, g.getH());
-		int w = mod_u32(random() >> 16, 256);
-		int h = mod_u32(random() >> 16, 256);
+		int x = random_to(g.getW());
+		int y = random_to(g.getH());
+		int w = random_to(g.getW());
+		int h = random_to(g.getH());
 		int c = random();
 
 		g.fill(x+5, y+5, w-10, h-10, c);

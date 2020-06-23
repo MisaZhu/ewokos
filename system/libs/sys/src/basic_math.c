@@ -95,3 +95,15 @@ inline uint32_t random_u32(void) {
 	_r_mask += 0xe1;
 	return ret;
 }
+
+inline uint32_t random_to(uint32_t to) {
+	uint32_t r = random_u32();	
+
+	while(1) {
+		if((r >> 1) <= to) {
+			break;
+		}
+		r = r >> 1;	
+	}
+	return mod_u32(r, to);
+}
