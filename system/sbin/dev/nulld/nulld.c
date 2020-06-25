@@ -7,7 +7,6 @@
 #include <sys/syscall.h>
 
 static int null_read(int fd,
-		int ufid,
 		int from_pid,
 		fsinfo_t* info,
 		void* buf,
@@ -16,7 +15,6 @@ static int null_read(int fd,
 		void* p) {
 
 	(void)fd;
-	(void)ufid;
 	(void)from_pid;
 	(void)info;
 	(void)buf;
@@ -27,7 +25,6 @@ static int null_read(int fd,
 }
 
 static int null_write(int fd, 
-		int ufid,
 		int from_pid,
 		fsinfo_t* info,
 		const void* buf,
@@ -35,7 +32,6 @@ static int null_write(int fd,
 		int offset,
 		void* p) {
 		
-	(void)ufid;
 	(void)fd;
 	(void)from_pid;
 	(void)info;

@@ -8,14 +8,14 @@ const char* vfs_fullname(const char* fname);
 
 int       vfs_read_pipe(fsinfo_t* info, void* buf, uint32_t size, int block);
 int       vfs_write_pipe(fsinfo_t* info, const void* buf, uint32_t size, int block);
-int       vfs_open(fsinfo_t* info, int wr, uint32_t* ufid);
+int       vfs_open(fsinfo_t* info, int wr);
 int       vfs_close(int fd);
 int       vfs_new_node(fsinfo_t* info);
 int       vfs_add(fsinfo_t* to, fsinfo_t* info);
 int       vfs_del(fsinfo_t* info);
 int       vfs_access(const char* fname);
 int       vfs_get(const char* fname, fsinfo_t* info);
-int       vfs_get_by_fd(int fd, uint32_t *ufid, fsinfo_t* info);
+int       vfs_get_by_fd(int fd, fsinfo_t* info);
 int       vfs_tell(int fd);
 int       vfs_seek(int fd, int offset);
 int       vfs_set(fsinfo_t* info);

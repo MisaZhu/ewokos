@@ -6,10 +6,9 @@
 #include <sys/syscall.h>
 #include "../lib/gpio_arch.h"
 
-static int actled_write(int fd, int ufid, int from_pid, fsinfo_t* info,
+static int actled_write(int fd, int from_pid, fsinfo_t* info,
 		const void* buf, int size, int offset, void* p) {
 	(void)fd;
-	(void)ufid;
 	(void)from_pid;
 	(void)info;
 	(void)offset;

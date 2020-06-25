@@ -19,7 +19,6 @@ typedef struct {
 static fbinfo_t _fbinfo;
 
 static int fb_write(int fd,
-		int ufid,
 		int from_pid, 
 		fsinfo_t* info, 
 		const void* buf,
@@ -28,7 +27,6 @@ static int fb_write(int fd,
 		void* p) {
 
 	(void)fd;
-	(void)ufid;
 	(void)from_pid;
 	(void)info;
 	(void)offset;
@@ -49,7 +47,6 @@ static int fb_write(int fd,
 }	
 
 static int fb_fcntl(int fd, 
-		int ufid,
 		int from_pid,
 		fsinfo_t* info, 
 		int cmd, 
@@ -58,7 +55,6 @@ static int fb_fcntl(int fd,
 		void* p) {
 
 	(void)fd;
-	(void)ufid;
 	(void)from_pid;
 	(void)info;
 	(void)in;
@@ -91,9 +87,8 @@ static int fb_flush(int fd, int from_pid, fsinfo_t* info, void* p) {
 	return 0;
 }
 
-static int fb_dma(int fd, int ufid, int from_pid, fsinfo_t* info, int* size, void* p) {
+static int fb_dma(int fd, int from_pid, fsinfo_t* info, int* size, void* p) {
 	(void)fd;
-	(void)ufid;
 	(void)from_pid;
 	(void)info;
 	fb_dma_t* dma = (fb_dma_t*)p;

@@ -88,10 +88,9 @@ static int32_t keyb_handle(uint8_t scode) {
 
 static charbuf_t _buffer;
 
-static int keyb_read(int fd, int ufid, int from_pid, fsinfo_t* info, 
+static int keyb_read(int fd, int from_pid, fsinfo_t* info, 
 		void* buf, int size, int offset, void* p) {
 	(void)fd;
-	(void)ufid;
 	(void)from_pid;
 	(void)offset;
 	(void)p;

@@ -45,7 +45,7 @@ const char* vfs_fullname(const char* fname) {
 	return ret;
 }
 
-int vfs_open(fsinfo_t* info, int oflag, uint32_t* ufid) {
+int vfs_open(fsinfo_t* info, int oflag) {
 	proto_t in, out;
 	PF->init(&in, NULL, 0)->add(&in, info, sizeof(fsinfo_t))->addi(&in, oflag);
 	PF->init(&out, NULL, 0);
@@ -54,8 +54,6 @@ int vfs_open(fsinfo_t* info, int oflag, uint32_t* ufid) {
 	PF->clear(&in);
 	if(res == 0) {
 		res = proto_read_int(&out);
-		if(ufid != NULL)
-			*ufid = proto_read_int(&out);
 	}
 	PF->clear(&out);
 	return res;	
@@ -305,7 +303,7 @@ int vfs_umount(fsinfo_t* info) {
 	return res;
 }
 
-int vfs_get_by_fd(int fd, uint32_t *ufid, fsinfo_t* info) {
+int vfs_get_by_fd(int fd, fsinfo_t* info) {
 	proto_t in, out;
 	PF->init(&in, NULL, 0)->addi(&in, fd);
 	PF->init(&out, NULL, 0);
@@ -313,17 +311,8 @@ int vfs_get_by_fd(int fd, uint32_t *ufid, fsinfo_t* info) {
 	PF->clear(&in);
 
 	if(res == 0) {
-		int uid = proto_read_int(&out);
-		if(ufid != NULL)
-			*ufid = uid;
-
-		if(uid == 0) {
-			res = -1;
-		}
-		else {
-			if(info != NULL)
-				proto_read_to(&out, info, sizeof(fsinfo_t));
-		}
+		if(info != NULL)
+			proto_read_to(&out, info, sizeof(fsinfo_t));
 	}
 	PF->clear(&out);
 	return res;

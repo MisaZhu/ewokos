@@ -65,7 +65,7 @@ static int read_pipe(fsinfo_t* info, void* buf, uint32_t size, int block) {
 }
 
 #define SHM_ON 32
-static int read_raw(int fd, int ufid, fsinfo_t *info, void* buf, uint32_t size) {
+static int read_raw(int fd, fsinfo_t *info, void* buf, uint32_t size) {
 	/*mount_t mount;
 	if(vfs_get_mount(info, &mount) != 0)
 		return -1;
@@ -93,7 +93,7 @@ static int read_raw(int fd, int ufid, fsinfo_t *info, void* buf, uint32_t size) 
 	proto_t in, out;
 	PF->init(&out, NULL, 0);
 
-	PF->init(&in, NULL, 0)->addi(&in, fd)->addi(&in, ufid)->add(&in, info, sizeof(fsinfo_t))->addi(&in, size)->addi(&in, offset)->addi(&in, shm_id);
+	PF->init(&in, NULL, 0)->addi(&in, fd)->add(&in, info, sizeof(fsinfo_t))->addi(&in, size)->addi(&in, offset)->addi(&in, shm_id);
 
 	int res = -1;
 	if(ipc_call(info->mount_pid, FS_CMD_READ, &in, &out) == 0) {
@@ -123,19 +123,17 @@ static int read_raw(int fd, int ufid, fsinfo_t *info, void* buf, uint32_t size) 
 int read_nblock(int fd, void* buf, uint32_t size) {
 	errno = ENONE;
 	fsinfo_t info;
-	uint32_t ufid = 0;
-	if(vfs_get_by_fd(fd, &ufid, &info) != 0)
+	if(vfs_get_by_fd(fd, &info) != 0)
 		return -1;
 	if(info.type == FS_TYPE_PIPE)
 		return read_pipe(&info, buf, size, 0);
-	return read_raw(fd, ufid, &info, buf, size);
+	return read_raw(fd, &info, buf, size);
 }
 
 int read(int fd, void* buf, uint32_t size) {
 	errno = ENONE;
 	fsinfo_t info;
-	uint32_t ufid = 0;
-	if(vfs_get_by_fd(fd, &ufid, &info) != 0)
+	if(vfs_get_by_fd(fd, &info) != 0)
 		return -1;
 
 	int res = -1;
@@ -152,7 +150,7 @@ int read(int fd, void* buf, uint32_t size) {
 	}
 
 	while(1) {
-		res = read_raw(fd, ufid, &info, buf, size);
+		res = read_raw(fd, &info, buf, size);
 		if(res >= 0)
 			break;
 		if(errno != EAGAIN)
@@ -213,7 +211,7 @@ static int write_pipe(fsinfo_t* info, const void* buf, uint32_t size, int block)
 	return 0; //res < 0 , pipe closed, return 0.
 }
 
-int write_raw(int fd, int ufid, fsinfo_t* info, const void* buf, uint32_t size) {
+int write_raw(int fd, fsinfo_t* info, const void* buf, uint32_t size) {
 	if(info->type == FS_TYPE_DIR) 
 		return -1;
 
@@ -247,7 +245,6 @@ int write_raw(int fd, int ufid, fsinfo_t* info, const void* buf, uint32_t size) 
 
 	PF->init(&in, NULL, 0)->
 		addi(&in, fd)->
-		addi(&in, ufid)->
 		add(&in, info, sizeof(fsinfo_t))->
 		addi(&in, offset)->
 		addi(&in, shm_id);
@@ -280,19 +277,17 @@ int write_raw(int fd, int ufid, fsinfo_t* info, const void* buf, uint32_t size) 
 int write_nblock(int fd, const void* buf, uint32_t size) {
 	errno = ENONE;
 	fsinfo_t info;
-	uint32_t ufid = 0;
-	if(vfs_get_by_fd(fd, &ufid, &info) != 0)
+	if(vfs_get_by_fd(fd, &info) != 0)
 		return -1;
 	if(info.type == FS_TYPE_PIPE) 
 		return write_pipe(&info, buf, size, 0);
-	return write_raw(fd, ufid, &info, buf, size);
+	return write_raw(fd, &info, buf, size);
 }
 
 int write(int fd, const void* buf, uint32_t size) {
 	errno = ENONE;
 	fsinfo_t info;
-	uint32_t ufid = 0;
-	if(vfs_get_by_fd(fd, &ufid, &info) != 0)
+	if(vfs_get_by_fd(fd, &info) != 0)
 		return -1;
 
 	int res = -1;
@@ -309,7 +304,7 @@ int write(int fd, const void* buf, uint32_t size) {
 	}
 
 	while(1) {
-		res = write_raw(fd, ufid, &info, buf, size);
+		res = write_raw(fd, &info, buf, size);
 		if(res >= 0)
 			break;
 		if(errno != EAGAIN)
@@ -351,7 +346,7 @@ int lseek(int fd, uint32_t offset, int whence) {
 	else if(whence == SEEK_END) {
 		fsinfo_t info;
 		int cur = 0;
-		if(vfs_get_by_fd(fd, NULL, &info) == 0)
+		if(vfs_get_by_fd(fd, &info) == 0)
 			cur = info.size;
 		offset += cur;
 	}

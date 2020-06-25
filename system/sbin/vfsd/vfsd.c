@@ -30,14 +30,12 @@ typedef struct vfs_node {
 } vfs_node_t;
 
 typedef struct {
-  uint32_t ufid;
   vfs_node_t *node;
   uint32_t wr;
   uint32_t seek;
 } file_t;
 
 static vfs_node_t* _vfs_root = NULL;
-static uint32_t _ufid_count = 1;
 static mount_t _vfs_mounts[FS_MOUNT_MAX];
 
 typedef struct {
@@ -70,7 +68,6 @@ static void vfs_init(void) {
 	}
 
 	_vfs_root = vfs_new_node();
-	_ufid_count = 1;
 	strcpy(_vfs_root->fsinfo.name, "/");
 }
 
@@ -347,7 +344,7 @@ static int32_t get_free_fd(int32_t pid) {
 	return -1;
 }
 
-static int32_t vfs_open(int32_t pid, vfs_node_t* node, int32_t wr, uint32_t *ufid) {
+static int32_t vfs_open(int32_t pid, vfs_node_t* node, int32_t wr) {
 	if(node == NULL || check_mount(pid, node) != 0)
 		return -1;
 
@@ -357,9 +354,6 @@ static int32_t vfs_open(int32_t pid, vfs_node_t* node, int32_t wr, uint32_t *ufi
 
 	_proc_fds_table[pid].fds[fd].node = node;
 	_proc_fds_table[pid].fds[fd].wr = wr;
-	_proc_fds_table[pid].fds[fd].ufid = _ufid_count++;
-	if(ufid != NULL)
-		*ufid = _proc_fds_table[pid].fds[fd].ufid;
 
 	node->refs++;
 	if(wr != 0)
@@ -367,13 +361,11 @@ static int32_t vfs_open(int32_t pid, vfs_node_t* node, int32_t wr, uint32_t *ufi
 	return fd;
 }
 
-static vfs_node_t* vfs_get_by_fd(int32_t pid, int32_t fd, uint32_t* ufid) {
+static vfs_node_t* vfs_get_by_fd(int32_t pid, int32_t fd) {
 	file_t* file = vfs_get_file(pid, fd);
 	if(file == NULL)
 		return NULL;
 
-	if(ufid != NULL)
-		*ufid = file->ufid;
 	return file->node;
 }
 
@@ -406,7 +398,6 @@ static void proc_file_close(int pid, int fd, file_t* file, bool close_dev) {
 	if(!close_dev)
 		return;
 
-	uint32_t ufid = file->ufid;
 	int32_t to_pid = get_mount_pid(node);
 	if(to_pid < 0)
 		return;
@@ -414,7 +405,6 @@ static void proc_file_close(int pid, int fd, file_t* file, bool close_dev) {
 	proto_t in;
 	PF->init(&in, NULL, 0)->
 			addi(&in, fd)->
-			addi(&in, ufid)->
 			addi(&in, pid)->
 			add(&in, &node->fsinfo, sizeof(fsinfo_t));
 	ipc_call(to_pid, FS_CMD_CLOSE, &in, NULL);
@@ -539,13 +529,12 @@ static void do_vfs_get_by_name(proto_t* in, proto_t* out) {
 
 static void do_vfs_get_by_fd(int pid, proto_t* in, proto_t* out) {
 	int fd = proto_read_int(in);
-	uint32_t ufid = 0;
-  vfs_node_t* node = vfs_get_by_fd(pid, fd, &ufid);
+  vfs_node_t* node = vfs_get_by_fd(pid, fd);
   if(node == NULL) {
 		PF->addi(out, 0);
     return;
 	}
-	PF->addi(out, ufid)->add(out, gen_fsinfo(node), sizeof(fsinfo_t));
+	PF->add(out, gen_fsinfo(node), sizeof(fsinfo_t));
 }
 
 static void do_vfs_new_node(proto_t* in, proto_t* out) {
@@ -572,10 +561,9 @@ static void do_vfs_open(int32_t pid, proto_t* in, proto_t* out) {
  	if(node == NULL)
 		return;
 
-	uint32_t ufid = 0;
-	int res = vfs_open(pid, node, wr, &ufid);
+	int res = vfs_open(pid, node, wr);
 	PF->clear(out);
-	PF->addi(out, res)->addi(out, ufid);
+	PF->addi(out, res);
 }
 
 static void do_vfs_close(int32_t pid, proto_t* in) {
@@ -728,13 +716,13 @@ static void do_vfs_pipe_open(int32_t pid, proto_t* out) {
   node->fsinfo.type = FS_TYPE_PIPE;
   node->fsinfo.data = 0; //buffer set as zero , waiting for other-port
 
-  int32_t fd0 = vfs_open(pid, node, 1, NULL);
+  int32_t fd0 = vfs_open(pid, node, 1);
   if(fd0 < 0) {
     free(node);
 		return;
   }
 
-  int32_t fd1 = vfs_open(pid, node, 1, NULL);
+  int32_t fd1 = vfs_open(pid, node, 1);
   if(fd1 < 0) {
     vfs_close(pid, fd0);
     free(node);
@@ -832,7 +820,6 @@ static void do_vfs_proc_clone(int32_t pid, proto_t* in) {
 		if(node != NULL) {
 			file_t* file = &_proc_fds_table[cpid].fds[i];
 			memcpy(file, f, sizeof(file_t));
-			file->ufid = _ufid_count++;
 			node->refs++;
 			if(f->wr != 0)
 				node->refs_w++;

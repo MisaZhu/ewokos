@@ -54,10 +54,9 @@ int32_t uart_write(const void* data, uint32_t size) {
 
 static charbuf_t _buffer;
 
-static int tty_read(int fd, int ufid, int from_pid, fsinfo_t* info,
+static int tty_read(int fd, int from_pid, fsinfo_t* info,
 		void* buf, int size, int offset, void* p) {
 	(void)fd;
-	(void)ufid;
 	(void)from_pid;
 	(void)offset;
 	(void)info;
@@ -74,10 +73,9 @@ static int tty_read(int fd, int ufid, int from_pid, fsinfo_t* info,
 	return 1;
 }
 
-static int tty_write(int fd, int ufid, int from_pid, fsinfo_t* info,
+static int tty_write(int fd, int from_pid, fsinfo_t* info,
 		const void* buf, int size, int offset, void* p) {
 	(void)fd;
-	(void)ufid;
 	(void)info;
 	(void)from_pid;
 	(void)offset;

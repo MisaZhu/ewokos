@@ -24,10 +24,9 @@
 #define KEY_V_2         0x40
 #define KEY_V_3         0x80
 
-static int joystick_read(int fd, int ufid, int from_pid, fsinfo_t* info,
+static int joystick_read(int fd, int from_pid, fsinfo_t* info,
 		void* buf, int size, int offset, void* p) {
 	(void)fd;
-	(void)ufid;
 	(void)from_pid;
 	(void)info;
 	(void)offset;

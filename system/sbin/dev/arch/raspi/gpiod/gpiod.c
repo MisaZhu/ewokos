@@ -6,10 +6,9 @@
 #include <sys/vdevice.h>
 #include "../lib/gpio_arch.h"
 
-static int gpio_fcntl(int fd, int ufid, int from_pid, fsinfo_t* info,
+static int gpio_fcntl(int fd, int from_pid, fsinfo_t* info,
 		int cmd, proto_t* in, proto_t* out, void* p) {
 	(void)fd;
-	(void)ufid;
 	(void)from_pid;
 	(void)info;
 	(void)p;

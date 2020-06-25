@@ -19,8 +19,7 @@ int open(const char* fname, int oflag) {
 		}	
 	}
 
-	uint32_t ufid = 0;
-	fd = vfs_open(&info, oflag, &ufid);
+	fd = vfs_open(&info, oflag);
 	if(fd < 0)
 		return -1;
 	
@@ -29,7 +28,6 @@ int open(const char* fname, int oflag) {
 
 	PF->init(&in, NULL, 0)->
 		addi(&in, fd)->
-		addi(&in, ufid)->
 		add(&in, &info, sizeof(fsinfo_t))->
 		addi(&in, oflag);
 
@@ -47,14 +45,12 @@ int open(const char* fname, int oflag) {
 
 void close(int fd) {
 	fsinfo_t info;
-	uint32_t ufid = 0;
-	if(vfs_get_by_fd(fd, &ufid, &info) != 0)
+	if(vfs_get_by_fd(fd, &info) != 0)
 		return;
 
 	proto_t in;
 	PF->init(&in, NULL, 0)->
 		addi(&in, fd)->
-		addi(&in, ufid)->
 		addi(&in, -1)->
 		add(&in, &info, sizeof(fsinfo_t));
 
@@ -65,8 +61,7 @@ void close(int fd) {
 
 int dma(int fd, int* size) {
 	fsinfo_t info;
-	uint32_t ufid = 0;
-	if(vfs_get_by_fd(fd, &ufid, &info) != 0)
+	if(vfs_get_by_fd(fd, &info) != 0)
 		return -1;
 	
 	proto_t in, out;
@@ -74,7 +69,6 @@ int dma(int fd, int* size) {
 
 	PF->init(&in, NULL, 0)->
 		addi(&in, fd)->
-		addi(&in, ufid)->
 		add(&in, &info, sizeof(fsinfo_t));
 
 	int shm_id = -1;
@@ -90,7 +84,7 @@ int dma(int fd, int* size) {
 
 void flush(int fd) {
 	fsinfo_t info;
-	if(vfs_get_by_fd(fd, NULL, &info) != 0)
+	if(vfs_get_by_fd(fd, &info) != 0)
 		return;
 	
 	proto_t in, out;
@@ -106,8 +100,7 @@ void flush(int fd) {
 
 int fcntl_raw(int fd, int cmd, proto_t* arg_in, proto_t* arg_out) {
 	fsinfo_t info;
-	uint32_t ufid;
-	if(vfs_get_by_fd(fd, &ufid, &info) != 0)
+	if(vfs_get_by_fd(fd, &info) != 0)
 		return -1;
 	
 	proto_t in, out;
@@ -115,7 +108,6 @@ int fcntl_raw(int fd, int cmd, proto_t* arg_in, proto_t* arg_out) {
 
 	PF->init(&in, NULL, 0)->
 		addi(&in, fd)->
-		addi(&in, ufid)->
 		add(&in, &info, sizeof(fsinfo_t))->
 		addi(&in, cmd);
 	if(arg_in == NULL)
