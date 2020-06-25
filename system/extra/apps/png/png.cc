@@ -27,8 +27,8 @@ protected:
 
 	void onEvent(xevent_t* ev) {
 		int key = 0;
-		if(ev->type == XEVT_KEYB) {
-			key = ev->value.keyboard.value;
+		if(ev->type == XEVT_IM) {
+			key = ev->value.im.value;
 			if(key == KEY_ESC)
 				close();
 			else if(key == KEY_UP) {

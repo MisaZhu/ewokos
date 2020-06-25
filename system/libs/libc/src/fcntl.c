@@ -55,6 +55,7 @@ void close(int fd) {
 	PF->init(&in, NULL, 0)->
 		addi(&in, fd)->
 		addi(&in, ufid)->
+		addi(&in, -1)->
 		add(&in, &info, sizeof(fsinfo_t));
 
 	ipc_call(info.mount_pid, FS_CMD_CLOSE, &in, NULL);

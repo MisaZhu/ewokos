@@ -85,8 +85,8 @@ protected:
 	}
 
 	void onEvent(xevent_t* ev) {
-		if(ev->type == XEVT_KEYB) {
-			int c = ev->value.keyboard.value;
+		if(ev->type == XEVT_IM) {
+			int c = ev->value.im.value;
 			if(c != 0)
 				write_nblock(1, &c, 1);
 		}

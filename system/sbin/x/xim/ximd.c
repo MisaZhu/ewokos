@@ -11,8 +11,8 @@ static int _x_pid = -1;
 
 static void input(char c) {
 	xevent_t ev;
-	ev.type = XEVT_KEYB;
-	ev.value.keyboard.value = c;
+	ev.type = XEVT_IM;
+	ev.value.im.value = c;
 	proto_t in;
 
 	PF->init(&in, NULL, 0)->add(&in, &ev, sizeof(xevent_t));

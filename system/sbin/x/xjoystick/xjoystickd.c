@@ -91,10 +91,10 @@ static void mouse_input(int8_t state, int8_t rx, int8_t ry) {
 	PF->clear(&in);
 }
 
-static void keyb_input(char c) {
+static void im_input(char c) {
 	xevent_t ev;
-	ev.type = XEVT_KEYB;
-	ev.value.keyboard.value = c;
+	ev.type = XEVT_IM;
+	ev.value.im.value = c;
 	proto_t in;
 
 	PF->init(&in, NULL, 0)->add(&in, &ev, sizeof(xevent_t));
@@ -104,7 +104,7 @@ static void keyb_input(char c) {
 
 static void input(char key) {
 	int8_t mv[4];
-	if(key == KEY_V_3 && !_prs_down) { //switch joy mouse/keyboard mode
+	if(key == KEY_V_3 && !_prs_down) { //switch joy mouse/im mode
 		_j_mouse = !_j_mouse;
 		_prs_down = true;
 	}
@@ -127,7 +127,7 @@ static void input(char key) {
 		else {
 			joy_2_keyb(key, &v);
 			if(v != 0)
-				keyb_input(v);
+				im_input(v);
 		}
 	}
 }

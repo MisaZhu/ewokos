@@ -6,7 +6,7 @@
 enum {
 	XEVT_NONE = 0,
 	XEVT_MOUSE,
-	XEVT_KEYB,
+	XEVT_IM, //input method
 	XEVT_WIN
 };
 
@@ -15,11 +15,6 @@ enum {
 	XEVT_MOUSE_DRAG,
 	XEVT_MOUSE_DOWN,
 	XEVT_MOUSE_UP
-};
-
-enum {
-	XEVT_KEYB_DOWN = 0,
-	XEVT_KEYB_UP
 };
 
 enum {
@@ -45,7 +40,7 @@ typedef struct {
 
 		struct {
 			int32_t value;
-		} keyboard;
+		} im;
 
 		struct {
 			int32_t event;

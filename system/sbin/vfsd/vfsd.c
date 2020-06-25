@@ -403,8 +403,9 @@ static void proc_file_close(int pid, int fd, file_t* file, bool close_dev) {
 			file->node = 0;
 		}
 	}
-	/*if(!close_dev)
+	if(!close_dev)
 		return;
+
 	uint32_t ufid = file->ufid;
 	int32_t to_pid = get_mount_pid(node);
 	if(to_pid < 0)
@@ -418,7 +419,6 @@ static void proc_file_close(int pid, int fd, file_t* file, bool close_dev) {
 			add(&in, &node->fsinfo, sizeof(fsinfo_t));
 	ipc_call(to_pid, FS_CMD_CLOSE, &in, NULL);
 	PF->clear(&in);
-	*/
 }
 
 static void vfs_close(int32_t pid, int32_t fd) {
@@ -546,18 +546,6 @@ static void do_vfs_get_by_fd(int pid, proto_t* in, proto_t* out) {
     return;
 	}
 	PF->addi(out, ufid)->add(out, gen_fsinfo(node), sizeof(fsinfo_t));
-}
-
-static void do_vfs_check_fd(proto_t* in, proto_t* out) {
-	int fd = proto_read_int(in);
-	int pid = proto_read_int(in);
-	uint32_t ufid = 0;
-  vfs_node_t* node = vfs_get_by_fd(pid, fd, &ufid);
-  if(node == NULL) {
-		PF->addi(out, 0);
-    return;
-	}
-	PF->addi(out, ufid);
 }
 
 static void do_vfs_new_node(proto_t* in, proto_t* out) {
@@ -918,9 +906,6 @@ static void handle(int pid, int cmd, proto_t* in, proto_t* out, void* p) {
 		break;
 	case VFS_GET_BY_FD:
 		do_vfs_get_by_fd(pid, in, out);
-		break;
-	case VFS_CHECK_FD:
-		do_vfs_check_fd(in, out);
 		break;
 	case VFS_SET_FSINFO:
 		do_vfs_set_fsinfo(pid, in, out);

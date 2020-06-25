@@ -671,8 +671,8 @@ static int mouse_handle(x_t* x, xevent_t* ev) {
 		if(pos == FRAME_R_CLOSE) { //window close
 			ev->type = XEVT_WIN;
 			ev->value.window.event = XEVT_WIN_CLOSE;
-			view->xinfo.visible = false;
-			x_dirty(x);
+			//view->xinfo.visible = false;
+			//x_dirty(x);
 		}
 		else if(pos == FRAME_R_MAX) {
 			ev->type = XEVT_WIN;
@@ -743,7 +743,7 @@ static xview_t* get_top_view(x_t* x) {
 	return NULL;
 }
 
-static int keyb_handle(x_t* x, xevent_t* ev) {
+static int im_handle(x_t* x, xevent_t* ev) {
 	xview_t* topv = get_top_view(x);
 	if(topv != NULL) {
 		x_push_event(topv, ev);
@@ -752,8 +752,8 @@ static int keyb_handle(x_t* x, xevent_t* ev) {
 }
 
 static void handle_input(x_t* x, xevent_t* ev) {
-	if(ev->type == XEVT_KEYB) {
-		keyb_handle(x, ev);
+	if(ev->type == XEVT_IM) {
+		im_handle(x, ev);
 	}
 	else if(ev->type == XEVT_MOUSE) {
 		lock_lock(x->lock);
@@ -804,19 +804,6 @@ static int xserver_close(int fd, int ufid, int from_pid, fsinfo_t* info, void* p
 	x_del_view(x, view);	
 	lock_unlock(x->lock);
 	return 0;
-}
-
-static void x_check_views(x_t* x) {
-	xview_t* view = x->view_head;
-	lock_lock(x->lock);
-	while(view != NULL) {
-		xview_t* next = view->next;
-		uint32_t ufid = vfs_check_fd(view->from_pid, view->fd);
-		if(ufid == 0 || ufid != view->ufid)
-			x_del_view(x, view);
-		view = next;
-	}
-	lock_unlock(x->lock);
 }
 
 static int x_init(x_t* x) {
@@ -873,7 +860,6 @@ static int x_init(x_t* x) {
 
 static int xserver_loop_step(void* p) {
 	x_t* x = (x_t*)p;
-	x_check_views(x);
 
 	/*const char* cc = get_global_str("system.current_console");
 	if(cc[0] == 'x') {

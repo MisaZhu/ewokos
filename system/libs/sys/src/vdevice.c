@@ -33,10 +33,13 @@ static void do_close(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, vo
 	fsinfo_t info;
 	int fd = proto_read_int(in);
 	int ufid = proto_read_int(in);
+	int pid = proto_read_int(in);
+	if(pid < 0)
+		pid = from_pid;
 	proto_read_to(in, &info, sizeof(fsinfo_t));
 
 	if(dev != NULL && dev->close != NULL) {
-		dev->close(fd, ufid, from_pid, &info, p);
+		dev->close(fd, ufid, pid, &info, p);
 	}
 }
 

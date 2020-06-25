@@ -16,7 +16,6 @@ int       vfs_del(fsinfo_t* info);
 int       vfs_access(const char* fname);
 int       vfs_get(const char* fname, fsinfo_t* info);
 int       vfs_get_by_fd(int fd, uint32_t *ufid, fsinfo_t* info);
-int       vfs_check_fd(int pid, int fd);
 int       vfs_tell(int fd);
 int       vfs_seek(int fd, int offset);
 int       vfs_set(fsinfo_t* info);

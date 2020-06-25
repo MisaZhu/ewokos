@@ -165,8 +165,8 @@ static int dir = LEFT;
 
 static void event_handle(xwin_t* x, xevent_t* xev) {
 	(void)x;
-	if(xev->type == XEVT_KEYB) {
-		int key = xev->value.keyboard.value;
+	if(xev->type == XEVT_IM) {
+		int key = xev->value.im.value;
 		if(key == 27) {//esc
 			//x->terminated = true; //TODO
 			return;
