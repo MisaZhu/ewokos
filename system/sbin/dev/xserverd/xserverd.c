@@ -754,10 +754,8 @@ static void handle_input(x_t* x, xevent_t* ev) {
 		im_handle(x, ev);
 	}
 	else if(ev->type == XEVT_MOUSE) {
-		lock_lock(x->lock);
 		mouse_handle(x, ev);
 		x->need_repaint = true;
-		lock_unlock(x->lock);
 	}
 }
 
