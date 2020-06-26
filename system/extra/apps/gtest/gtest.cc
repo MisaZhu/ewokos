@@ -11,8 +11,13 @@ extern "C" {
 #include <x++/X.h>
 
 class TestX : public XWin {
+	int count;
+	bool circle;
 public:
-	int i;
+	inline TestX() {
+		count = 0;
+		circle = true;
+	}
 protected:
 	void onEvent(xevent_t* ev) {
 		int key = 0;
@@ -33,12 +38,20 @@ protected:
 		int h = random_to(128);
 		int c = random();
 
-		g.fill(x+5, y+5, w-10, h-10, c);
-		g.box(x, y, w, h, c);
+		if(circle) {
+			g.fillCircle(x, y, w, c);
+			g.circle(x, y, w+10, c);
+		}
+		else {
+			g.fill(x+5, y+5, w-10, h-10, c);
+			g.box(x, y, w, h, c);
+		}
 
-		snprintf(str, 31, "paint = %d", i++);
+		snprintf(str, 31, "paint = %d", count++);
 		g.fill(0, 0, g.getW(), font->h, 0xff000000);
 		g.drawText(0, 0, str, font, 0xffffffff);
+
+		circle = !circle;	
 	}
 };
 
@@ -59,7 +72,6 @@ int main(int argc, char* argv[]) {
 	TestX xwin;
 	x.open(&xwin, 10, 10, scr.size.w-20, scr.size.h-20, "gtest", X_STYLE_NORMAL);
 
-	xwin.i = 0;
 	xwin.setVisible(true);
 
 	x.run(loop, &xwin);

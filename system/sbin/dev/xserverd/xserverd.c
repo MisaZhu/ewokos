@@ -452,6 +452,7 @@ static int x_update_info(int fd, int from_pid, proto_t* in, x_t* x) {
 	view->dirty = true;
 	x->need_repaint = true;
 
+	lock_lock(x->lock);
 	if(view != x->view_tail ||
 			view->xinfo.wsr.x != xinfo.wsr.x ||
 			view->xinfo.wsr.y != xinfo.wsr.y ||
@@ -464,6 +465,7 @@ static int x_update_info(int fd, int from_pid, proto_t* in, x_t* x) {
 	memcpy(&view->xinfo, &xinfo, sizeof(xinfo_t));
 	view->xinfo.shm_id = shm_id;
 	x_update_frame_areas(x, view);
+	lock_unlock(x->lock);
 
 	return 0;
 }
@@ -624,26 +626,6 @@ static xview_t* get_mouse_owner(x_t* x, int* win_frame_pos) {
 	return NULL;
 }
 
-static void x_view_move(xview_t* view, int dx, int dy) {
-	view->xinfo.wsr.x += dx;
-	view->xinfo.wsr.y += dy;
-
-	view->r_title.x += dx;
-	view->r_title.y += dy;
-
-	view->r_close.x += dx;
-	view->r_close.y += dy;
-
-	view->r_min.x += dx;
-	view->r_min.y += dy;
-
-	view->r_max.x += dx;
-	view->r_max.y += dy;
-
-	view->r_resize.x += dx;
-	view->r_resize.y += dy;
-}
-
 static int mouse_handle(x_t* x, xevent_t* ev) {
 	mouse_cxy(x, ev->value.mouse.rx, ev->value.mouse.ry);
 	ev->value.mouse.x = x->cursor.cpos.x;
@@ -696,21 +678,14 @@ static int mouse_handle(x_t* x, xevent_t* ev) {
 	}
 	else if(ev->state == XEVT_MOUSE_UP) {
 		if(x->current.view == view) {
+			ev->type = XEVT_WIN;
+			ev->value.window.v0 =  x->current.pos_delta.x;
+			ev->value.window.v1 =  x->current.pos_delta.y;
 			if(x->current.drag_state == X_VIEW_DRAG_RESIZE) {
-				ev->type = XEVT_WIN;
-				int nw = x->current.view->xinfo.wsr.w + x->current.pos_delta.x;
-				int nh = x->current.view->xinfo.wsr.h + x->current.pos_delta.y;
-				if(nw <= 0)
-					nw = 256;
-				if(nh <= 0)
-					nh = 24;
-				ev->value.window.v0 = nw;
-				ev->value.window.v1 = nh;
 				ev->value.window.event = XEVT_WIN_RESIZE;
 			}
 			else if(x->current.drag_state == X_VIEW_DRAG_MOVE) {
-				x_view_move(view, x->current.pos_delta.x, x->current.pos_delta.y);
-				x_dirty(x);
+				ev->value.window.event = XEVT_WIN_MOVE;
 			}
 			x->current.pos_delta.x = 0;
 			x->current.pos_delta.y = 0;
