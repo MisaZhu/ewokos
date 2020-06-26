@@ -378,14 +378,12 @@ static int x_update(int fd, int from_pid, x_t* x) {
 	if(view == NULL)
 		return -1;
 
-	lock_lock(x->lock);
 	view->dirty = true;
 	if(view != x->view_tail ||
 			(view->xinfo.style & X_STYLE_ALPHA) != 0) {
 		x_dirty(x);
 	}
 	x->need_repaint = true;
-	lock_unlock(x->lock);
 	return 0;
 }
 
@@ -423,7 +421,7 @@ static int x_update_frame_areas(x_t* x, xview_t* view) {
 	return res;
 }
 
-static int x_update_info(int fd, int from_pid, proto_t* in, x_t* x) {
+static int x_update_info_raw(int fd, int from_pid, proto_t* in, x_t* x) {
 	xinfo_t xinfo;
 	int sz = sizeof(xinfo_t);
 	if(fd < 0 || proto_read_to(in, &xinfo, sz) != sz)
@@ -452,7 +450,6 @@ static int x_update_info(int fd, int from_pid, proto_t* in, x_t* x) {
 	view->dirty = true;
 	x->need_repaint = true;
 
-	lock_lock(x->lock);
 	if(view != x->view_tail ||
 			view->xinfo.wsr.x != xinfo.wsr.x ||
 			view->xinfo.wsr.y != xinfo.wsr.y ||
@@ -465,9 +462,13 @@ static int x_update_info(int fd, int from_pid, proto_t* in, x_t* x) {
 	memcpy(&view->xinfo, &xinfo, sizeof(xinfo_t));
 	view->xinfo.shm_id = shm_id;
 	x_update_frame_areas(x, view);
-	lock_unlock(x->lock);
 
 	return 0;
+}
+
+static int x_update_info(int fd, int from_pid, proto_t* in, x_t* x) {
+	int res = x_update_info_raw(fd, from_pid, in, x);
+	return res;
 }
 
 static int x_get_info(int fd, int from_pid, x_t* x, proto_t* out) {
@@ -522,26 +523,28 @@ static int xserver_fcntl(int fd, int from_pid, fsinfo_t* info,
 	(void)info;
 	x_t* x = (x_t*)p;
 
+	int res = -1;
+	lock_lock(x->lock);
 	if(cmd == X_CNTL_UPDATE) {
-		return x_update(fd, from_pid, x);
+		res = x_update(fd, from_pid, x);
 	}	
 	else if(cmd == X_CNTL_UPDATE_INFO) {
-		return x_update_info(fd, from_pid, in, x);
+		res = x_update_info(fd, from_pid, in, x);
 	}
 	else if(cmd == X_CNTL_SET_VISIBLE) {
-		return x_set_visible(fd, from_pid, in, x);
+		res = x_set_visible(fd, from_pid, in, x);
 	}
 	else if(cmd == X_CNTL_GET_INFO) {
-		return x_get_info(fd, from_pid, x, out);
+		res = x_get_info(fd, from_pid, x, out);
 	}
 	else if(cmd == X_CNTL_WORKSPACE) {
-		return x_workspace(x, in, out);
+		res = x_workspace(x, in, out);
 	}
 	else if(cmd == X_CNTL_IS_TOP) {
-		return x_is_top(fd, from_pid, x, out);
+		res = x_is_top(fd, from_pid, x, out);
 	}
-
-	return 0;
+	lock_unlock(x->lock);
+	return res;
 }
 
 static int xserver_open(int fd, int from_pid, fsinfo_t* info, int oflag, void* p) {
