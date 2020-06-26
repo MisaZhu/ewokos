@@ -473,7 +473,7 @@ static int x_update_info_raw(int fd, int from_pid, proto_t* in, x_t* x) {
 		if(p == NULL) 
 			return -1;
 		view->g = graph_new(p, xinfo.wsr.w, xinfo.wsr.h);
-		graph_clear(view->g, 0xff000000);
+		graph_clear(view->g, 0x0);
 	}
 	view->dirty = true;
 	x->need_repaint = true;
