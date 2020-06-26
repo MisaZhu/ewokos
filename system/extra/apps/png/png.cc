@@ -48,7 +48,7 @@ protected:
 
 public:
 	Png() {
-		alpha = 0xff;
+		alpha = 0x22;
 		img = NULL;
 	}
 
