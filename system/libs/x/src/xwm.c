@@ -146,6 +146,18 @@ static void get_workspace(xwm_t* xwm, proto_t* in, proto_t* out) {
 	PF->add(out, &wsr, sizeof(grect_t));
 }
 
+static void get_min_size(xwm_t* xwm, proto_t* in, proto_t* out) {
+	xinfo_t info;
+	proto_read_to(in, &info, sizeof(xinfo_t));
+	
+	int w = 0, h = 0;
+	if(xwm->get_min_size != NULL)
+		xwm->get_min_size(&info, &w, &h, xwm->data);
+
+	PF->addi(out, w)->
+		addi(out, h);
+}
+
 static void handle(int from_pid, int cmd, proto_t* in, proto_t* out, void* p) {
 	(void)from_pid;
 	xwm_t* xwm = (xwm_t*)p;
@@ -164,6 +176,9 @@ static void handle(int from_pid, int cmd, proto_t* in, proto_t* out, void* p) {
 	}
 	else if(cmd == XWM_CNTL_GET_WORKSPACE) { //get workspace
 		get_workspace(xwm, in, out);
+	}
+	else if(cmd == XWM_CNTL_GET_MIN_SIZE) {
+		get_min_size(xwm, in, out);
 	}
 }
 

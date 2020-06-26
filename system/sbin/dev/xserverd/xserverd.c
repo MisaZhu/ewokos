@@ -421,6 +421,20 @@ static int x_update_frame_areas(x_t* x, xview_t* view) {
 	return res;
 }
 
+static void x_get_min_size(x_t* x, xview_t* view, int *w, int* h) {
+	proto_t in, out;
+	PF->init(&out, NULL, 0);
+	PF->init(&in, NULL, 0)->
+		add(&in, &view->xinfo, sizeof(xinfo_t));
+	int res = ipc_call(x->xwm_pid, XWM_CNTL_GET_MIN_SIZE, &in, &out);
+	PF->clear(&in);
+	if(res == 0) { 
+		*w = proto_read_int(&out);
+		*h = proto_read_int(&out);
+	}
+	PF->clear(&out);
+}
+
 static int x_update_info_raw(int fd, int from_pid, proto_t* in, x_t* x) {
 	xinfo_t xinfo;
 	int sz = sizeof(xinfo_t);
@@ -430,6 +444,16 @@ static int x_update_info_raw(int fd, int from_pid, proto_t* in, x_t* x) {
 	xview_t* view = x_get_view(x, fd, from_pid);
 	if(view == NULL)
 		return -1;
+	
+	if((xinfo.style & X_STYLE_NO_FRAME) == 0 &&
+      (xinfo.style & X_STYLE_NO_TITLE) == 0) {
+		int minw = 0, minh = 0;
+		x_get_min_size(x, view, &minw, &minh);
+		if(xinfo.wsr.w < minw)
+			xinfo.wsr.w = minw;
+		if(xinfo.wsr.h < minh)
+			xinfo.wsr.h = minh;
+	}
 	
 	int shm_id = view->xinfo.shm_id;
 	if(shm_id == 0 ||

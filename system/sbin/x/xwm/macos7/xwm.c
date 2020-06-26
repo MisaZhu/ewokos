@@ -82,7 +82,7 @@ static void get_title(xinfo_t* info, grect_t* rect, void* p) {
 	rect->y = info->wsr.y - _xwm_config.title_h;
 
 	if((info->style & X_STYLE_NO_RESIZE) == 0)
-		rect->w = info->wsr.w - _xwm_config.title_h*2;
+		rect->w = info->wsr.w - _xwm_config.title_h*3;
 	else
 		rect->w = info->wsr.w - _xwm_config.title_h;
 
@@ -119,6 +119,14 @@ static void get_resize(xinfo_t* info, grect_t* rect, void* p) {
 	rect->y = info->wsr.y + info-> wsr.h - 12;
 	rect->w = 12;
 	rect->h = 12;
+}
+
+static void get_min_size(xinfo_t* info, int* w, int* h, void* p) {
+	(void)p;
+	int32_t fw;
+	get_text_size(info->title, _xwm_config.font, &fw, NULL);
+	*w = fw + _xwm_config.title_h*5;
+	*h = _xwm_config.title_h*2;
 }
 
 /*-------draw functions.----------*/
@@ -260,6 +268,7 @@ int main(int argc, char** argv) {
 	xwm.get_min = get_min;
 	xwm.get_title = get_title;
 	xwm.get_resize = get_resize;
+	xwm.get_min_size = get_min_size;
 
 	xwm.draw_frame = draw_frame;
 	xwm.draw_drag_frame = draw_drag_frame;
