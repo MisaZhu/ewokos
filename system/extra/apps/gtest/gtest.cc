@@ -70,7 +70,7 @@ int main(int argc, char* argv[]) {
 	X x;
 
 	TestX xwin;
-	x.open(&xwin, 10, 10, scr.size.w-20, scr.size.h-20, "gtest", X_STYLE_NORMAL);
+	x.open(&xwin, 10, 10, scr.size.w/2-20, scr.size.h/2-20, "gtest", X_STYLE_NORMAL);
 
 	xwin.setVisible(true);
 

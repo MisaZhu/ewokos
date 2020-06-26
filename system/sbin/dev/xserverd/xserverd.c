@@ -454,6 +454,9 @@ static int x_update_info_raw(int fd, int from_pid, proto_t* in, x_t* x) {
 		if(xinfo.wsr.h < minh)
 			xinfo.wsr.h = minh;
 	}
+
+	if(xinfo.wsr.w <= 0 || xinfo.wsr.h <= 0)
+		return -1;
 	
 	int shm_id = view->xinfo.shm_id;
 	if(shm_id == 0 ||
@@ -463,6 +466,7 @@ static int x_update_info_raw(int fd, int from_pid, proto_t* in, x_t* x) {
 		if(view->g != NULL && shm_id > 0) {
 			graph_free(view->g);
 			shm_unmap(shm_id);
+			view->g = NULL;
 		}
 		shm_id = shm_alloc(xinfo.wsr.w * xinfo.wsr.h * 4, 1);
 		void* p = shm_map(shm_id);
