@@ -40,6 +40,8 @@ enum {
 #define X_STYLE_NO_RESIZE 0x4
 #define X_STYLE_ALPHA     0x8
 #define X_STYLE_NO_FOCUS  0x10
+#define X_STYLE_SYSTOP    0x20
+#define X_STYLE_SYSBOTTOM 0x40
 
 #define X_TITLE_MAX 64
 typedef struct {

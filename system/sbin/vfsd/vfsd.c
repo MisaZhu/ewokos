@@ -395,9 +395,9 @@ static void proc_file_close(int pid, int fd, file_t* file, bool close_dev) {
 			file->node = 0;
 		}
 	}
+
 	if(!close_dev)
 		return;
-
 	int32_t to_pid = get_mount_pid(node);
 	if(to_pid < 0)
 		return;

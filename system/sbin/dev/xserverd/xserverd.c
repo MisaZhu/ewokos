@@ -75,6 +75,7 @@ typedef struct {
 
 	xview_t* view_head;
 	xview_t* view_tail;
+	xview_t* view_focus;
 
 	x_current_t current;
 	x_conf_t config;
@@ -228,28 +229,7 @@ static void x_push_event(xview_t* view, xevent_t* e) {
 }
 
 static void push_view(x_t* x, xview_t* view) {
-	if((view->xinfo.style & X_STYLE_NO_FOCUS) == 0) {
-		if(x->view_tail != NULL) {
-			if((x->view_tail->xinfo.style & X_STYLE_NO_FOCUS) == 0) {
-				xevent_t e;
-				e.type = XEVT_WIN;
-				e.value.window.event = XEVT_WIN_UNFOCUS;
-				x_push_event(x->view_tail, &e);
-			}
-			x->view_tail->next = view;
-			view->prev = x->view_tail;
-			x->view_tail = view;
-		}
-		else {
-			x->view_tail = x->view_head = view;
-		}
-
-		xevent_t e;
-		e.type = XEVT_WIN;
-		e.value.window.event = XEVT_WIN_FOCUS;
-		x_push_event(view, &e);
-	}
-	else {
+	if((view->xinfo.style & X_STYLE_SYSBOTTOM) != 0) { //push head if sysbottom style
 		if(x->view_head != NULL) {
 			x->view_head->prev = view;
 			view->next = x->view_head;
@@ -259,6 +239,58 @@ static void push_view(x_t* x, xview_t* view) {
 			x->view_tail = x->view_head = view;
 		}
 	}
+	else if((view->xinfo.style & X_STYLE_SYSTOP) != 0) { //push tail if systop style
+		if(x->view_tail != NULL) {
+			x->view_tail->next = view;
+			view->prev = x->view_tail;
+			x->view_tail = view;
+		}
+		else {
+			x->view_tail = x->view_head = view;
+		}
+	}
+	else { 
+		xview_t* view_top = x->view_tail;
+		xview_t* view_systop = NULL;
+		while(view_top != NULL) {
+			if((view_top->xinfo.style & X_STYLE_SYSTOP) == 0)
+				break;
+			view_systop = view_top;
+			view_top = view_top->prev;
+		}
+
+		if(view_top != NULL) {
+			view_top->next = view;
+			view->prev = view_top;
+			if(view_top == x->view_tail)
+				x->view_tail = view;
+		}
+		else {
+			x->view_head = view;
+			if(view_systop != NULL)  {
+				view_systop->prev = view;
+				view->next = view_systop;
+			}
+			else {
+				x->view_tail = view;
+			}
+		}
+	}
+
+	if((view->xinfo.style & X_STYLE_NO_FOCUS) == 0) {
+		if(x->view_focus != NULL) {
+			xevent_t e;
+			e.type = XEVT_WIN;
+			e.value.window.event = XEVT_WIN_UNFOCUS;
+			x_push_event(x->view_focus, &e);
+		}
+
+		xevent_t e;
+		e.type = XEVT_WIN;
+		e.value.window.event = XEVT_WIN_FOCUS;
+		x_push_event(view, &e);
+		x->view_focus = view;
+	}
 
 	if(view->xinfo.visible)
 		x_dirty(x);
@@ -267,7 +299,6 @@ static void push_view(x_t* x, xview_t* view) {
 static void x_del_view(x_t* x, xview_t* view) {
 	remove_view(x, view);
 	free(view);
-
 	view = x->view_tail;
 	if(view != NULL && (view->xinfo.style & X_STYLE_NO_FOCUS) == 0) {
 		xevent_t e;

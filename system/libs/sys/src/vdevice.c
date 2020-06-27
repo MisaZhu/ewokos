@@ -10,6 +10,7 @@
 #include <sys/shm.h>
 #include <sys/proc.h>
 #include <sys/syscall.h>
+#include <sys/lockc.h>
 
 static void do_open(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, void* p) {
 	fsinfo_t info;
@@ -280,8 +281,8 @@ static void handle(int from_pid, int cmd, proto_t* in, proto_t* out, void* p) {
 	vdevice_t* dev = (vdevice_t*)p;
 	if(dev == NULL)
 		return;
-	p = dev->extra_data;
 
+	p = dev->extra_data;
 	switch(cmd) {
 	case FS_CMD_OPEN:
 		do_open(dev, from_pid, in, out, p);
@@ -353,7 +354,7 @@ static int do_mount(vdevice_t* dev, fsinfo_t* mnt_point, int type) {
 int device_run(vdevice_t* dev, const char* mnt_point, int mnt_type) {
 	if(dev == NULL)
 		return -1;
-
+	
 	fsinfo_t mnt_point_info;
 	if(mnt_point != NULL) {
 		if(strcmp(mnt_point, "/") != 0)
