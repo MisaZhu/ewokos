@@ -259,14 +259,22 @@ static void push_view(x_t* x, xview_t* view) {
 		}
 
 		if(view_top != NULL) {
+			view->next = view_top->next;
+			if(view_top->next != NULL)
+				view_top->next->prev = view;
+			else 
+				x->view_tail = view;
+
 			view_top->next = view;
 			view->prev = view_top;
-			if(view_top == x->view_tail)
-				x->view_tail = view;
 		}
 		else {
 			x->view_head = view;
 			if(view_systop != NULL)  {
+				if(view_systop->prev != NULL)
+					view_systop->prev->next = view;
+
+				view->prev = view_systop->prev;
 				view_systop->prev = view;
 				view->next = view_systop;
 			}
