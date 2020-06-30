@@ -379,9 +379,11 @@ static void sys_proc_block(context_t* ctx, int32_t pid, uint32_t evt) {
 	if(pid == _current_proc->info.pid)
 		return;
 	
+	proc_t* proc = proc_get_proc(proc_get(pid));
+
 	_current_proc->info.state = BLOCK;
 	_current_proc->block_event = evt;
-	_current_proc->block_pid = pid;
+	_current_proc->block_pid = proc->info.pid;
 	schedule(ctx);	
 }
 
