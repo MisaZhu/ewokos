@@ -120,13 +120,11 @@ static int win_event_handle(xwin_t* xwin, xevent_t* ev) {
 	else if(ev->value.window.event == XEVT_WIN_FOCUS) {
 		if(xwin->on_focus) {
 			xwin->on_focus(xwin);
-			x_repaint(xwin);
 		}
 	}
 	else if(ev->value.window.event == XEVT_WIN_UNFOCUS) {
 		if(xwin->on_unfocus) {
 			xwin->on_unfocus(xwin);
-			x_repaint(xwin);
 		}
 	}
 	else if(ev->value.window.event == XEVT_WIN_RESIZE) {
