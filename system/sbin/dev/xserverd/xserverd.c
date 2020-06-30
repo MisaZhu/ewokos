@@ -295,15 +295,25 @@ static void push_view(x_t* x, xview_t* view) {
 		x_dirty(x);
 }
 
+static xview_t* get_next_focus_view(x_t* x) {
+	xview_t* ret = x->view_tail; 
+	while(ret != NULL) {
+		if(ret->xinfo.visible && (ret->xinfo.style & X_STYLE_NO_FOCUS) == 0)
+			return ret;
+		ret = ret->prev;
+	}
+	return NULL;
+}
+
 static void x_del_view(x_t* x, xview_t* view) {
 	remove_view(x, view);
 	free(view);
-	view = x->view_tail;
-	if(view != NULL && (view->xinfo.style & X_STYLE_NO_FOCUS) == 0) {
+	x->view_focus = get_next_focus_view(x);
+	if(x->view_focus != NULL) {
 		xevent_t e;
 		e.type = XEVT_WIN;
 		e.value.window.event = XEVT_WIN_FOCUS;
-		x_push_event(view, &e);
+		x_push_event(x->view_focus, &e);
 	}
 }
 
@@ -752,20 +762,9 @@ static int mouse_handle(x_t* x, xevent_t* ev) {
 	return -1;
 }
 
-static xview_t* get_top_view(x_t* x) {
-	xview_t* ret = x->view_tail; 
-	while(ret != NULL) {
-		if(ret->xinfo.visible)
-			return ret;
-		ret = ret->prev;
-	}
-	return NULL;
-}
-
 static int im_handle(x_t* x, xevent_t* ev) {
-	xview_t* topv = get_top_view(x);
-	if(topv != NULL) {
-		x_push_event(topv, ev);
+	if(x->view_focus != NULL) {
+		x_push_event(x->view_focus, ev);
 	}
 	return 0;
 }
