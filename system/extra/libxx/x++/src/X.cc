@@ -93,12 +93,6 @@ bool XWin::screenInfo(xscreen_t& scr) {
 	return (x_screen_info(&scr) == 0);
 }
 
-bool XWin::isTop(void) {
-	if(xwin == NULL)	
-		return false;
-	return (x_is_top(xwin) == 0);
-}
-
 void XWin::repaint() {
 	if(xwin == NULL)	
 		return;

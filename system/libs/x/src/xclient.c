@@ -197,18 +197,6 @@ static int x_get_event(x_t* x, xevent_t* ev) {
   return 0;
 }
 
-int x_is_top(xwin_t* xwin) {
-	proto_t out;
-	PF->init(&out, NULL, 0);
-
-	int res = -1;
-	if(fcntl_raw(xwin->fd, X_CNTL_IS_TOP, NULL, &out) == 0) {
-		res = proto_read_int(&out);
-	}
-	PF->clear(&out);
-	return res;
-}
-
 int x_screen_info(xscreen_t* scr) {
 	proto_t out;
 	PF->init(&out, NULL, 0);

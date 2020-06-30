@@ -103,7 +103,6 @@ static int32_t read_config(x_t* x, const char* fname) {
 	return 0;
 }
 
-
 static void draw_win_frame(x_t* x, xview_t* view) {
 	if((view->xinfo.style & X_STYLE_NO_FRAME) != 0)
 		return;
@@ -115,7 +114,7 @@ static void draw_win_frame(x_t* x, xview_t* view) {
 		addi(&in, x->g->w)->
 		addi(&in, x->g->h)->
 		add(&in, &view->xinfo, sizeof(xinfo_t));
-	if(view == x->view_tail)
+	if(view == x->view_focus)
 		PF->addi(&in, 1); //top win
 	else
 		PF->addi(&in, 0);
@@ -538,18 +537,6 @@ static int x_get_info(int fd, int from_pid, x_t* x, proto_t* out) {
 	return 0;
 }
 
-static int x_is_top(int fd, int from_pid, x_t* x, proto_t* out) {
-	xview_t* view = x_get_view(x, fd, from_pid);
-	if(view == NULL || x->view_tail == NULL)
-		return -1;
-
-	if(view == x->view_tail)
-		PF->addi(out, 0);
-	else
-		PF->addi(out, -1);
-	return 0;
-}
-
 static int get_xwm_workspace(x_t* x, int style, grect_t* rin, grect_t* rout) {
 	proto_t in, out;
 	PF->init(&out, NULL, 0);
@@ -598,9 +585,6 @@ static int xserver_fcntl(int fd, int from_pid, fsinfo_t* info,
 	}
 	else if(cmd == X_CNTL_WORKSPACE) {
 		res = x_workspace(x, in, out);
-	}
-	else if(cmd == X_CNTL_IS_TOP) {
-		res = x_is_top(fd, from_pid, x, out);
 	}
 	lock_unlock(x->lock);
 	return res;
