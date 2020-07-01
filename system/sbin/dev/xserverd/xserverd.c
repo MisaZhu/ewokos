@@ -671,13 +671,13 @@ static int get_win_frame_pos(x_t* x, xview_t* view) {
 }
 
 static xview_t* get_mouse_owner(x_t* x, int* win_frame_pos) {
-	xview_t* view = x->view_head;
+	xview_t* view = x->view_tail;
 	if(win_frame_pos != NULL)
 		*win_frame_pos = -1;
 
 	while(view != NULL) {
 		if(!view->xinfo.visible) {
-			view = view->next;
+			view = view->prev;
 			continue;
 		}
 		int pos = get_win_frame_pos(x, view);
@@ -688,7 +688,7 @@ static xview_t* get_mouse_owner(x_t* x, int* win_frame_pos) {
 		}
 		if(check_in_rect(x->cursor.cpos.x, x->cursor.cpos.y, &view->xinfo.wsr))
 			return view;
-		view = view->next;
+		view = view->prev;
 	}
 	return NULL;
 }
