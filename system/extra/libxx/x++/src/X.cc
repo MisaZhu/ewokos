@@ -1,4 +1,7 @@
 #include "x++/X.h"
+extern "C" {
+	#include <stdio.h>
+}
 
 static void _on_repaint(xwin_t* xw, graph_t* g) {
 	if(xw == NULL || g == NULL)
@@ -74,6 +77,13 @@ bool XWin::setVisible(bool visible) {
 	if(xwin == NULL)
 		return false;
 	x_set_visible(xwin, visible);
+	return true;
+}
+
+bool XWin::callXIM(void) {
+	if(xwin == NULL)
+		return false;
+	x_call_xim(xwin);
 	return true;
 }
 

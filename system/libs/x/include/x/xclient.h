@@ -44,6 +44,7 @@ void     x_close(xwin_t* x);
 int      x_screen_info(xscreen_t* scr);
 int      x_set_visible(xwin_t* x, bool visible);
 void     x_repaint(xwin_t* x);
+int      x_call_xim(xwin_t* xwin);
 
 void     x_init(x_t* x, void* data);
 void     x_run(x_t* x, void* loop_data);

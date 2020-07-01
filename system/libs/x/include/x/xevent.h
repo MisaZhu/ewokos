@@ -24,7 +24,8 @@ enum {
 	XEVT_WIN_MAX,
 	XEVT_WIN_RESIZE,
 	XEVT_WIN_FOCUS,
-	XEVT_WIN_UNFOCUS
+	XEVT_WIN_UNFOCUS,
+	XEVT_WIN_VISIBLE
 };
 
 typedef struct {
@@ -34,6 +35,7 @@ typedef struct {
 	union {
 		struct {
 			int32_t x, y;
+			int32_t winx, winy;
 			int32_t rx, ry;
 			int32_t button;
 		} mouse;

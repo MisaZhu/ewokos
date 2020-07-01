@@ -1,6 +1,6 @@
 /bin/session
 /apps/syspanel
 /apps/launcher
-/sbin/x/ximd
+/apps/xim
 /sbin/x/xmoused
 /sbin/x/xjoystickd

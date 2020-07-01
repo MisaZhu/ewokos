@@ -146,7 +146,6 @@ include $(ROOT_DIR)/sbin/dev/xserverd/build.mk
 include $(ROOT_DIR)/sbin/dev/rootfsd/build.mk
 include $(ROOT_DIR)/sbin/vfsd/build.mk
 include $(ROOT_DIR)/sbin/procd/build.mk
-include $(ROOT_DIR)/sbin/x/xim/build.mk
 include $(ROOT_DIR)/sbin/x/xmouse/build.mk
 include $(ROOT_DIR)/sbin/x/xjoystick/build.mk
 include $(ROOT_DIR)/sbin/x/xwm/macos7/build.mk
@@ -231,6 +230,7 @@ extra_apps:
 	cd $(APPS_DIR)/launcher;make
 	cd $(APPS_DIR)/syspanel;make
 	cd $(APPS_DIR)/xconsole;make
+	cd $(APPS_DIR)/xim;make
 	cd $(APPS_DIR)/png;make
 
 KERNEL=$(KERNEL_DIR)/build/mkos.bin
@@ -257,6 +257,7 @@ clean:
 	cd $(APPS_DIR)/syspanel;make clean
 	cd $(APPS_DIR)/xconsole;make clean
 	cd $(APPS_DIR)/png;make clean
+	cd $(APPS_DIR)/xim;make clean
 	cd $(EXTRA_BIN_DIR)/mario;make clean;
 	cd $(EXTRA_LIBS_DIR)/libm; make clean
 	cd $(EXTRA_LIBS_DIR)/console; make clean

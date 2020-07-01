@@ -123,7 +123,7 @@ int main(int argc, char* argv[]) {
 			10,
 			is, 
 			is * xwin.getItemNum(),
-			"launcher", X_STYLE_NO_FRAME | X_STYLE_ALPHA | X_STYLE_SYSBOTTOM);
+			"launcher", X_STYLE_NO_FRAME | X_STYLE_ALPHA | X_STYLE_SYSBOTTOM | X_STYLE_NO_FOCUS);
 
 	xwin.setVisible(true);
 

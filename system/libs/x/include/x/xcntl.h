@@ -12,7 +12,8 @@ enum {
 	X_CNTL_UPDATE_INFO,
 	X_CNTL_GET_INFO,
 	X_CNTL_WORKSPACE,
-	X_CNTL_SET_VISIBLE
+	X_CNTL_SET_VISIBLE,
+	X_CNTL_CALL_XIM
 };
 
 enum {
@@ -41,6 +42,7 @@ enum {
 #define X_STYLE_NO_FOCUS  0x10
 #define X_STYLE_SYSTOP    0x20
 #define X_STYLE_SYSBOTTOM 0x40
+#define X_STYLE_XIM       0x80
 
 #define X_TITLE_MAX 64
 typedef struct {

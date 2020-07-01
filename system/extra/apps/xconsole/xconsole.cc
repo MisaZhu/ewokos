@@ -71,6 +71,7 @@ protected:
 		console.fg_color = conf.fg_color;
 		console.bg_color = conf.bg_color;
 		repaint();
+		callXIM();
 	}
 
 	void onUnfocus(void) {

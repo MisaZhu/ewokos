@@ -76,6 +76,7 @@ typedef struct {
 	xview_t* view_head;
 	xview_t* view_tail;
 	xview_t* view_focus;
+	xview_t* view_xim;
 
 	x_current_t current;
 	x_conf_t config;
@@ -227,8 +228,33 @@ static void x_push_event(xview_t* view, xevent_t* e) {
 	PF->clear(&in);
 }
 
+static void hide_view(xview_t* view) {
+	if(view == NULL)
+		return;
+
+	xevent_t e;
+	e.type = XEVT_WIN;
+	e.value.window.event = XEVT_WIN_VISIBLE;
+	e.value.window.v0 = 0;
+	x_push_event(view, &e);
+}
+
+static void show_view(xview_t* view) {
+	if(view == NULL)
+		return;
+
+	xevent_t e;
+	e.type = XEVT_WIN;
+	e.value.window.event = XEVT_WIN_VISIBLE;
+	e.value.window.v0 = 1;
+	x_push_event(view, &e);
+}
+
 static void try_focus(x_t* x, xview_t* view) {
+	if(x->view_focus == view)
+		return;
 	if((view->xinfo.style & X_STYLE_NO_FOCUS) == 0) {
+		hide_view(x->view_xim);
 		if(x->view_focus != NULL) {
 			xevent_t e;
 			e.type = XEVT_WIN;
@@ -317,6 +343,9 @@ static xview_t* get_next_focus_view(x_t* x) {
 }
 
 static void x_del_view(x_t* x, xview_t* view) {
+	if(view == x->view_focus)
+		hide_view(x->view_xim);
+
 	remove_view(x, view);
 	free(view);
 	x->view_focus = get_next_focus_view(x);
@@ -428,6 +457,8 @@ static int x_update(int fd, int from_pid, x_t* x) {
 	xview_t* view = x_get_view(x, fd, from_pid);
 	if(view == NULL)
 		return -1;
+	if(!view->xinfo.visible)
+		return 0;
 
 	view->dirty = true;
 	if(view != x->view_tail ||
@@ -495,6 +526,9 @@ static int x_update_info_raw(int fd, int from_pid, proto_t* in, x_t* x) {
 	xview_t* view = x_get_view(x, fd, from_pid);
 	if(view == NULL)
 		return -1;
+
+	if((xinfo.style & X_STYLE_XIM) != 0)
+		x->view_xim = view;
 	
 	if((xinfo.style & X_STYLE_NO_FRAME) == 0 &&
       (xinfo.style & X_STYLE_NO_TITLE) == 0) {
@@ -584,6 +618,11 @@ static int x_workspace(x_t* x, proto_t* in, proto_t* out) {
 	return 0;
 }
 
+static int x_call_xim(x_t* x) {
+	show_view(x->view_xim);
+	return 0;
+}
+
 static int xserver_fcntl(int fd, int from_pid, fsinfo_t* info,
 		int cmd, proto_t* in, proto_t* out, void* p) {
 	(void)fd;
@@ -606,6 +645,9 @@ static int xserver_fcntl(int fd, int from_pid, fsinfo_t* info,
 	}
 	else if(cmd == X_CNTL_WORKSPACE) {
 		res = x_workspace(x, in, out);
+	}
+	else if(cmd == X_CNTL_CALL_XIM) {
+		res = x_call_xim(x);
 	}
 	lock_unlock(x->lock);
 	return res;
@@ -707,6 +749,8 @@ static int mouse_handle(x_t* x, xevent_t* ev) {
 
 	if(view == NULL)
 		return -1;
+	ev->value.mouse.winx = ev->value.mouse.x - view->xinfo.wsr.x;
+	ev->value.mouse.winy = ev->value.mouse.y - view->xinfo.wsr.y;
 
 	if(ev->state ==  XEVT_MOUSE_DOWN) {
 		if(view != x->view_tail) {

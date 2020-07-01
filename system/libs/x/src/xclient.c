@@ -18,6 +18,11 @@ int x_update_info(xwin_t* xwin, const xinfo_t* info) {
 	return ret;
 }
 
+int x_call_xim(xwin_t* xwin) {
+	int ret = fcntl_raw(xwin->fd, X_CNTL_CALL_XIM, NULL, NULL);
+	return ret;
+}
+
 static int  x_get_workspace(int xfd, int style, grect_t* frame, grect_t* workspace) {
 	proto_t in, out;
 	PF->init(&out, NULL, 0);
@@ -55,6 +60,7 @@ xwin_t* x_open(x_t* xp, int x, int y, int w, int h, const char* title, int style
 		xp->main_win = ret;
 
 	xinfo_t xinfo;
+	memset(&xinfo, 0, sizeof(xinfo_t));
 	xinfo.win = (uint32_t)ret;
 	xinfo.style = style;
 	xinfo.state = X_STATE_NORMAL;
@@ -113,6 +119,9 @@ void x_close(xwin_t* xwin) {
 }
 
 static int win_event_handle(xwin_t* xwin, xevent_t* ev) {
+	xinfo_t xinfo;
+	x_get_info(xwin, &xinfo);
+
 	if(ev->value.window.event == XEVT_WIN_CLOSE) {
 		if(xwin->x->main_win == xwin)
 			xwin->x->terminated = true;
@@ -128,8 +137,6 @@ static int win_event_handle(xwin_t* xwin, xevent_t* ev) {
 		}
 	}
 	else if(ev->value.window.event == XEVT_WIN_RESIZE) {
-		xinfo_t xinfo;
-		x_get_info(xwin, &xinfo);
 		xinfo.wsr.w += ev->value.window.v0;
 		xinfo.wsr.h += ev->value.window.v1;
 		x_update_info(xwin, &xinfo);
@@ -139,15 +146,14 @@ static int win_event_handle(xwin_t* xwin, xevent_t* ev) {
 		x_repaint(xwin);
 	}
 	else if(ev->value.window.event == XEVT_WIN_MOVE) {
-		xinfo_t xinfo;
-		x_get_info(xwin, &xinfo);
 		xinfo.wsr.x += ev->value.window.v0;
 		xinfo.wsr.y += ev->value.window.v1;
 		x_update_info(xwin, &xinfo);
 	}
+	else if(ev->value.window.event == XEVT_WIN_VISIBLE) {
+		x_set_visible(xwin, ev->value.window.v0 == 1);
+	}
 	else if(ev->value.window.event == XEVT_WIN_MAX) {
-		xinfo_t xinfo;
-		x_get_info(xwin, &xinfo);
 		if(xinfo.state == X_STATE_MAX) {
 			memcpy(&xinfo.wsr, &xwin->xinfo_prev.wsr, sizeof(grect_t));
 			xinfo.state = xwin->xinfo_prev.state;
