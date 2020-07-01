@@ -227,6 +227,23 @@ static void x_push_event(xview_t* view, xevent_t* e) {
 	PF->clear(&in);
 }
 
+static void try_focus(x_t* x, xview_t* view) {
+	if((view->xinfo.style & X_STYLE_NO_FOCUS) == 0) {
+		if(x->view_focus != NULL) {
+			xevent_t e;
+			e.type = XEVT_WIN;
+			e.value.window.event = XEVT_WIN_UNFOCUS;
+			x_push_event(x->view_focus, &e);
+		}
+
+		xevent_t e;
+		e.type = XEVT_WIN;
+		e.value.window.event = XEVT_WIN_FOCUS;
+		x_push_event(view, &e);
+		x->view_focus = view;
+	}
+}
+
 static void push_view(x_t* x, xview_t* view) {
 	if((view->xinfo.style & X_STYLE_SYSBOTTOM) != 0) { //push head if sysbottom style
 		if(x->view_head != NULL) {
@@ -284,21 +301,7 @@ static void push_view(x_t* x, xview_t* view) {
 		}
 	}
 
-	if((view->xinfo.style & X_STYLE_NO_FOCUS) == 0) {
-		if(x->view_focus != NULL) {
-			xevent_t e;
-			e.type = XEVT_WIN;
-			e.value.window.event = XEVT_WIN_UNFOCUS;
-			x_push_event(x->view_focus, &e);
-		}
-
-		xevent_t e;
-		e.type = XEVT_WIN;
-		e.value.window.event = XEVT_WIN_FOCUS;
-		x_push_event(view, &e);
-		x->view_focus = view;
-	}
-
+	try_focus(x, view);
 	if(view->xinfo.visible)
 		x_dirty(x);
 }
@@ -668,13 +671,13 @@ static int get_win_frame_pos(x_t* x, xview_t* view) {
 }
 
 static xview_t* get_mouse_owner(x_t* x, int* win_frame_pos) {
-	xview_t* view = x->view_tail;
+	xview_t* view = x->view_head;
 	if(win_frame_pos != NULL)
 		*win_frame_pos = -1;
 
 	while(view != NULL) {
 		if(!view->xinfo.visible) {
-			view = view->prev;
+			view = view->next;
 			continue;
 		}
 		int pos = get_win_frame_pos(x, view);
@@ -685,7 +688,7 @@ static xview_t* get_mouse_owner(x_t* x, int* win_frame_pos) {
 		}
 		if(check_in_rect(x->cursor.cpos.x, x->cursor.cpos.y, &view->xinfo.wsr))
 			return view;
-		view = view->prev;
+		view = view->next;
 	}
 	return NULL;
 }
@@ -702,14 +705,16 @@ static int mouse_handle(x_t* x, xevent_t* ev) {
 	else
 		view = get_mouse_owner(x, &pos);
 
-	if(view == NULL) {
+	if(view == NULL)
 		return -1;
-	}
 
 	if(ev->state ==  XEVT_MOUSE_DOWN) {
 		if(view != x->view_tail) {
 			remove_view(x, view);
 			push_view(x, view);
+		}
+		else {
+			try_focus(x, view);
 		}
 
 		if(pos == FRAME_R_CLOSE) { //window close
