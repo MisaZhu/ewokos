@@ -450,6 +450,16 @@ static xview_t* x_get_view(x_t* x, int fd, int from_pid) {
 	return NULL;
 }
 
+static xview_t* get_first_visible_view(x_t* x) {
+	xview_t* ret = x->view_tail; 
+	while(ret != NULL) {
+		if(ret->xinfo.visible)
+			return ret;
+		ret = ret->prev;
+	}
+	return NULL;
+}
+
 static int x_update(int fd, int from_pid, x_t* x) {
 	if(fd < 0)
 		return -1;
@@ -461,7 +471,7 @@ static int x_update(int fd, int from_pid, x_t* x) {
 		return 0;
 
 	view->dirty = true;
-	if(view != x->view_tail ||
+	if(view != get_first_visible_view(x) ||
 			(view->xinfo.style & X_STYLE_ALPHA) != 0) {
 		x_dirty(x);
 	}
