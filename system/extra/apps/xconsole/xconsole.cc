@@ -123,9 +123,8 @@ static int run(int argc, char* argv[]) {
 	xwin.readConfig("/etc/x/xconsole.conf");
 
 	X x;
-
 	xscreen_t scr;
- 	XWin::screenInfo(scr);
+ 	x.screenInfo(scr);
 	x.open(&xwin, 10, 40, scr.size.w*3/4, scr.size.h*3/4, "xconsole", 0);
 	xwin.setVisible(true);
 

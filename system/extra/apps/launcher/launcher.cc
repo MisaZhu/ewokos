@@ -113,12 +113,12 @@ int main(int argc, char* argv[]) {
 
 
 	xscreen_t scr;
-	XWin::screenInfo(scr);
 	Launcher xwin;
 	xwin.readConfig("/etc/x/launcher.conf");
 	uint32_t is = xwin.getIconSize();
 
 	X x;
+	x.screenInfo(scr);
 	x.open(&xwin, scr.size.w - is - 10,
 			10,
 			is, 

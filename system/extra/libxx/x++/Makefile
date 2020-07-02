@@ -24,7 +24,7 @@ LDFLAGS = -L$(TARGET_DIR)/lib -lnosys
 
 CXXFLAGS += -Iinclude -I $(TARGET_DIR)/include
 
-LIB_X_OBJS = src/X.o
+LIB_X_OBJS = src/X.o src/XWin.o
 
 LIB_X = $(TARGET_DIR)/lib/libx++.a
 

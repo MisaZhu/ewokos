@@ -7,8 +7,7 @@ extern "C" {
 }
 
 #include <graphxx/graphxx.h>
-
-class XWin;
+#include <x++/XWin.h>
 
 class X {
 	x_t x;
@@ -18,51 +17,7 @@ public:
 	void run(void (*loop)(void*), void* p = NULL);
 	void terminate(void);
 	bool open(XWin* xwin, int x, int y, uint32_t w, uint32_t h, const char* title, uint32_t style);
-};
-
-class XWin {
-protected:
-	xwin_t* xwin;
-	virtual void onRepaint(Graph& g) = 0;
-
-	inline virtual void onClose(void)   { }
-	inline virtual void onMin(void)     { }
-	inline virtual void onResize(void)  { }
-	inline virtual void onFocus(void)   { }
-	inline virtual void onUnfocus(void) { }
-	inline virtual void onEvent(xevent_t* ev)  {
-		(void)ev;
-	}
-
-public:
-	inline XWin(void) {
-		this->xwin = NULL;
-	}
-
-	inline virtual ~XWin(void) {
-		this->close();
-	}
-
-	inline void setCWin(xwin_t* xw) {
-		xwin = xw;
-	}
-
-	inline void __doRepaint(graph_t* g) { Graph gxx(g->buffer, g->w, g->h); onRepaint(gxx); }
-	inline void __doClose(void) { onClose(); }
-	inline void __doMin(void) { onMin(); }
-	inline void __doResize(void) { onResize(); }
-	inline void __doFocus(void) { onFocus(); }
-	inline void __doUnfocus(void) { onUnfocus(); }
-	inline void __doEvent(xevent_t* ev) { onEvent(ev); }
-
-	void close(void);
-	bool setVisible(bool visible);
-	bool callXIM(void);
-
-	bool updateInfo(const xinfo_t& xinfo);
-	bool getInfo(xinfo_t& xinfo);
-	static bool screenInfo(xscreen_t& scr);
-	void repaint(void);
+	bool screenInfo(xscreen_t& scr);
 };
 
 #endif

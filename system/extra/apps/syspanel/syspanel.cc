@@ -40,9 +40,8 @@ int main(int argc, char* argv[]) {
 	read_config("/etc/x/syspanel.conf", &_items);
 
 	X x;
-
 	xscreen_t scr;
-	XWin::screenInfo(scr);
+	x.screenInfo(scr);
 
 	Panel xwin;
 	x.open(&xwin, 0,  0, scr.size.w, _items.font->h + 4,

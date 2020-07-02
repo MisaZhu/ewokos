@@ -65,9 +65,9 @@ int main(int argc, char* argv[]) {
 	(void)argc;
 	(void)argv;
 	xscreen_t scr;
-	XWin::screenInfo(scr);
 
 	X x;
+	x.screenInfo(scr);
 
 	TestX xwin;
 	x.open(&xwin, 10, 10, scr.size.w/2-20, scr.size.h/2-20, "gtest", X_STYLE_NORMAL);

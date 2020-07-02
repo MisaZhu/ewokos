@@ -115,10 +115,9 @@ static void loop(void* p) {
 int main(int argc, char* argv[]) {
 	(void)argc;
 	(void)argv;
-	xscreen_t scr;
-	XWin::screenInfo(scr);
-
 	X x;
+	xscreen_t scr;
+	x.screenInfo(scr);
 
 	XIMX xwin;
 	x.open(&xwin, 0, scr.size.h-xwin.getFixH(), 240, xwin.getFixH(), "xim",
