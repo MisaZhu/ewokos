@@ -48,7 +48,10 @@ protected:
 				if(at >= (int)strlen(keytable))
 					break;
 				char c = keytable[at];
-				g.drawChar(i*keyw+(keyw/2)-font->w, j*keyh+2, c, font, 0xff000000);
+				if(c == '\n')
+					g.drawText(i*keyw+(keyw/2)-font->w, j*keyh+2, "En", font, 0xff000000);
+				else
+					g.drawChar(i*keyw+(keyw/2)-font->w, j*keyh+2, c, font, 0xff000000);
 				g.box(i*keyw, j*keyh, keyw, keyh, 0xffaaaaaa);
 			}
 		}
@@ -118,7 +121,7 @@ int main(int argc, char* argv[]) {
 	X x;
 
 	XIMX xwin;
-	x.open(&xwin, 0, scr.size.h-xwin.getFixH(), scr.size.w, xwin.getFixH(), "xim",
+	x.open(&xwin, 0, scr.size.h-xwin.getFixH(), 240, xwin.getFixH(), "xim",
 			X_STYLE_NO_FRAME | X_STYLE_NO_FOCUS | X_STYLE_SYSTOP | X_STYLE_XIM);
 	x.run(loop, &xwin);
 	return 0;
