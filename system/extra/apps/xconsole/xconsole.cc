@@ -1,4 +1,3 @@
-extern "C" {
 #include <stdlib.h>
 #include <unistd.h>
 #include <stdio.h>
@@ -6,8 +5,9 @@ extern "C" {
 #include <console/console.h>
 #include <sconf.h>
 #include <sys/vfs.h>
-}
 #include <x++/X.h>
+
+using namespace Ewok;
 
 typedef struct {
 	font_t* font;

@@ -4,6 +4,7 @@
 #include <stddef.h>
 #include <graph/graph.h>
 
+namespace Ewok {
 class Graph {
 protected:
 	graph_t* g;
@@ -52,5 +53,6 @@ public:
 			int32_t dx, int32_t dy, int32_t dw, int32_t dh, uint8_t alpha);
 
 };
+}
 
 #endif

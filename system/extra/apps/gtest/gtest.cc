@@ -1,4 +1,3 @@
-extern "C" {
 #include <unistd.h>
 #include <stdlib.h>
 #include <fcntl.h>
@@ -6,9 +5,9 @@ extern "C" {
 #include <string.h>
 #include <vprintf.h>
 #include <sys/basic_math.h>
-}
-
 #include <x++/X.h>
+
+using namespace Ewok;
 
 class TestX : public XWin {
 	int count;

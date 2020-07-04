@@ -1,12 +1,12 @@
-extern "C" {
 #include <stdio.h>
 #include <unistd.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/keydef.h>
 #include <upng/upng.h>
-}
 #include <x++/X.h>
+
+using namespace Ewok;
 
 class Png : public XWin {
 	int alpha;

@@ -1,6 +1,8 @@
 #include "x++/XWin.h"
 #include <stdio.h>
 
+using namespace Ewok;
+
 static void _on_repaint(xwin_t* xw, graph_t* g) {
 	if(xw == NULL || g == NULL)
 		return;

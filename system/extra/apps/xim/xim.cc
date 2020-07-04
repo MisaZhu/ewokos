@@ -1,4 +1,3 @@
-extern "C" {
 #include <unistd.h>
 #include <stdlib.h>
 #include <fcntl.h>
@@ -7,9 +6,9 @@ extern "C" {
 #include <sys/basic_math.h>
 #include <sys/vfs.h>
 #include <sys/vdevice.h>
-}
-
 #include <x++/X.h>
+
+using namespace Ewok;
 
 class XIMX : public XWin {
 	int count;

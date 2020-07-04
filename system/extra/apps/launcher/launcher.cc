@@ -1,13 +1,13 @@
-extern "C" {
 #include <unistd.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sconf.h>
 #include <upng/upng.h>
-}
 #include <x++/X.h>
 
 #define ITEM_MAX 16
+
+using namespace Ewok;
 
 typedef struct {
 	int icon_size;

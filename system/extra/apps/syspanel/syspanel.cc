@@ -1,11 +1,10 @@
-extern "C" {
 #include <string.h>
 #include <sconf.h>
-}
-
 #include <x++/X.h>
 
 #define ITEM_MAX 16
+
+using namespace Ewok;
 
 typedef struct {
 	font_t* font;

@@ -1,5 +1,7 @@
 #include <graphxx/graphxx.h>
 
+using namespace  Ewok;
+
 Graph::Graph(uint32_t* buffer, uint32_t w, uint32_t h) {
 	g = graph_new(buffer, w, h);
 }

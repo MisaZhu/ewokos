@@ -4,6 +4,8 @@
 #include <x/xclient.h>
 #include <graphxx/graphxx.h>
 
+namespace Ewok {
+
 class XWin {
 protected:
 	xwin_t* xwin;
@@ -44,5 +46,6 @@ public:
 	void repaint(void);
 };
 
+}
 #endif
 

@@ -5,6 +5,8 @@
 #include <graphxx/graphxx.h>
 #include <x++/XWin.h>
 
+namespace Ewok {
+
 class X {
 	x_t x;
 public:
@@ -16,5 +18,6 @@ public:
 	bool screenInfo(xscreen_t& scr);
 };
 
+}
 #endif
 
