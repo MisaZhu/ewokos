@@ -3,6 +3,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <sys/mstr.h>
+#include <sys/basic_math.h>
 
 #define SHORT_NAME_MAX 64
 

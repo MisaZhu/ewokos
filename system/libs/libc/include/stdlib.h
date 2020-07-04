@@ -2,7 +2,6 @@
 #define STDLIB_H
 
 #include <sys/ewokdef.h>
-#include <sys/basic_math.h>
 
 #ifdef __cplusplus
 extern "C" {

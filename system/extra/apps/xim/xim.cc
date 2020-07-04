@@ -78,7 +78,7 @@ public:
 		row = 3;
 		keyh = font->h+4;
 		keyw = font->w+4;
-		keybFD = open("/dev/keyb0", O_RDONLY);
+		keybFD = open("/dev/keyb0", O_RDONLY | O_NONBLOCK);
 		x_pid = -1;
 	}
 
@@ -99,7 +99,7 @@ public:
 			return;
 
 		char v;
-		int rd = vfs_read_nblock(keybFD, &v, 1);
+		int rd = read(keybFD, &v, 1);
 		if(rd == 1) {
 			input(v);
 		}

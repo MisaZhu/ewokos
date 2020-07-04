@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <fcntl.h>
 #include <unistd.h>
 #include <string.h>
 #include <sys/vdevice.h>
@@ -36,15 +37,14 @@ int main(int argc, char** argv) {
 
 	_x_pid = -1;
 
-	int fd = open("/dev/mouse0", O_RDONLY);
+	int fd = open("/dev/mouse0", O_RDONLY | O_NONBLOCK);
 	if(fd < 0)
 		return 1;
 
 	while(true) {
 		if(_x_pid > 0) {
 			int8_t mv[4];
-			//if(read(fd, mv, 4) == 4)
-			if(vfs_read_nblock(fd, mv, 4) == 4)
+			if(read(fd, mv, 4) == 4)
 				input(mv[0], mv[1], mv[2]);
 			else
 				usleep(3000);

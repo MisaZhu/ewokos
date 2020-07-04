@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include <unistd.h>
+#include <fcntl.h>
 #include <stdio.h>
 #include <string.h>
 #include <console/console.h>
@@ -92,7 +93,7 @@ protected:
 		if(ev->type == XEVT_IM) {
 			int c = ev->value.im.value;
 			if(c != 0)
-				vfs_write_nblock(1, &c, 1);
+				write(1, &c, 1);
 		}
 	}
 };
@@ -101,7 +102,7 @@ static void loop(void* p) {
 	XConsole* console = (XConsole*)p;
 
 	char buf[256];
-	int32_t size = vfs_read_nblock(0, buf, 255);
+	int32_t size = read(0, buf, 255);
 	if(size > 0) {
 		buf[size] = 0;
 		for(int32_t i=0; i<size; i++) {
@@ -119,6 +120,11 @@ static void loop(void* p) {
 static int run(int argc, char* argv[]) {
 	(void)argc;
 	(void)argv;
+
+	int flags = fcntl(0, F_GETFL, 0);
+	fcntl(0, F_SETFL, flags | O_NONBLOCK);
+	flags = fcntl(1, F_GETFL, 0);
+	fcntl(1, F_SETFL, flags | O_NONBLOCK);
 
 	XConsole xwin;
 	xwin.readConfig("/etc/x/xconsole.conf");

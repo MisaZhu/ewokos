@@ -158,7 +158,8 @@ LIB_LIBC_OBJS = $(LIB_LIBC_DIR)/src/unistd/chdir.o \
 	$(LIB_LIBC_DIR)/src/stdio/puts.o \
 	\
 	$(LIB_LIBC_DIR)/src/fcntl/open.o \
-	$(LIB_LIBC_DIR)/src/fcntl/close.o
+	$(LIB_LIBC_DIR)/src/fcntl/close.o \
+	$(LIB_LIBC_DIR)/src/fcntl/fcntl.o
 
 LIB_OBJS = $(LIB_SYS_OBJS) \
 	$(LIB_LIBC_OBJS) \

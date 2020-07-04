@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <fcntl.h>
 #include <string.h>
 #include <sys/ipc.h>
 #include <sys/kprintf.h>
@@ -32,7 +33,7 @@ typedef struct vfs_node {
 
 typedef struct {
   vfs_node_t *node;
-  uint32_t wr;
+  uint32_t flags;
   uint32_t seek;
 } file_t;
 
@@ -345,7 +346,7 @@ static int32_t get_free_fd(int32_t pid) {
 	return -1;
 }
 
-static int32_t vfs_open(int32_t pid, vfs_node_t* node, int32_t wr) {
+static int32_t vfs_open(int32_t pid, vfs_node_t* node, int32_t flags) {
 	if(node == NULL || check_mount(pid, node) != 0)
 		return -1;
 
@@ -354,10 +355,10 @@ static int32_t vfs_open(int32_t pid, vfs_node_t* node, int32_t wr) {
 		return -1;
 
 	_proc_fds_table[pid].fds[fd].node = node;
-	_proc_fds_table[pid].fds[fd].wr = wr;
+	_proc_fds_table[pid].fds[fd].flags = flags;
 
 	node->refs++;
-	if(wr != 0)
+	if((flags & O_WRONLY) != 0)
 		node->refs_w++;
 	return fd;
 }
@@ -423,7 +424,7 @@ static void proc_file_close(int pid, int fd, file_t* file, bool close_dev) {
 
 	if(node->refs > 0)
 		node->refs--;
-	if(file->wr != 0 && node->refs_w > 0)
+	if((file->flags & O_WRONLY) != 0 && node->refs_w > 0)
 		node->refs_w--;
 
 	if(node->fsinfo.type == FS_TYPE_PIPE) {
@@ -475,7 +476,7 @@ static int32_t vfs_dup(int32_t pid, int32_t from) {
 	file_t* f_to = vfs_get_file(pid, to);
 	memcpy(f_to, f, sizeof(file_t));
 	f->node->refs++;
-	if(f->wr != 0)
+	if((f->flags & O_WRONLY) != 0)
 		f->node->refs_w++;
 	return to;
 }
@@ -497,7 +498,7 @@ static int32_t vfs_dup2(int32_t pid, int32_t from, int32_t to) {
 	file_t* f_to = vfs_get_file(pid, to);
 	memcpy(f_to, f, sizeof(file_t));
 	f->node->refs++;
-	if(f->wr != 0)
+	if((f->flags & O_WRONLY) != 0)
 		f->node->refs_w++;
 	return to;
 }
@@ -578,6 +579,28 @@ static void do_vfs_get_by_fd(int pid, proto_t* in, proto_t* out) {
 	PF->add(out, gen_fsinfo(node), sizeof(fsinfo_t));
 }
 
+static void do_vfs_get_flags(int pid, proto_t* in, proto_t* out) {
+	int fd = proto_read_int(in);
+	file_t* file = vfs_get_file(pid, fd);
+  if(file == NULL) {
+		PF->addi(out, -1);
+    return;
+	}
+	PF->addi(out, 0)->addi(out, file->flags);
+}
+
+static void do_vfs_set_flags(int pid, proto_t* in, proto_t* out) {
+	int fd = proto_read_int(in);
+	int flags = proto_read_int(in);
+	file_t* file = vfs_get_file(pid, fd);
+  if(file == NULL) {
+		PF->addi(out, -1);
+    return;
+	}
+	file->flags = flags;
+	PF->addi(out, 0);
+}
+
 static void do_vfs_new_node(proto_t* in, proto_t* out) {
 	fsinfo_t info;
 	if(proto_read_to(in, &info, sizeof(fsinfo_t)) != sizeof(fsinfo_t))
@@ -597,12 +620,12 @@ static void do_vfs_open(int32_t pid, proto_t* in, proto_t* out) {
 
 	if(proto_read_to(in, &info, sizeof(fsinfo_t)) != sizeof(fsinfo_t))
 		return;
-	int32_t wr = proto_read_int(in);
+	int32_t flags = proto_read_int(in);
  	vfs_node_t* node = (vfs_node_t*)info.node;
  	if(node == NULL)
 		return;
 
-	int res = vfs_open(pid, node, wr);
+	int res = vfs_open(pid, node, flags);
 	PF->clear(out);
 	PF->addi(out, res);
 }
@@ -862,7 +885,7 @@ static void do_vfs_proc_clone(int32_t pid, proto_t* in) {
 			file_t* file = &_proc_fds_table[cpid].fds[i];
 			memcpy(file, f, sizeof(file_t));
 			node->refs++;
-			if(f->wr != 0)
+			if((f->flags & O_WRONLY) != 0)
 				node->refs_w++;
 
 			if(node->fsinfo.type == FS_TYPE_PIPE) {
@@ -934,6 +957,12 @@ static void handle(int pid, int cmd, proto_t* in, proto_t* out, void* p) {
 		break;
 	case VFS_GET_BY_FD:
 		do_vfs_get_by_fd(pid, in, out);
+		break;
+	case VFS_GET_FLAGS:
+		do_vfs_get_flags(pid, in, out);
+		break;
+	case VFS_SET_FLAGS:
+		do_vfs_set_flags(pid, in, out);
 		break;
 	case VFS_SET_FSINFO:
 		do_vfs_set_fsinfo(pid, in, out);

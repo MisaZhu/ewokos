@@ -4,6 +4,7 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <fcntl.h>
 #include <sys/mstr.h>
 #include <sys/shm.h>
 #include <sys/ipc.h>
@@ -14,8 +15,7 @@
 extern "C" {
 #endif
 
-
-inline static int get_vfsd_pid(void) {
+int get_vfsd_pid(void) {
 	return ipc_serv_get(IPC_SERV_VFS);
 }
 
@@ -65,9 +65,9 @@ int vfs_open(fsinfo_t* info, int oflag) {
 	return res;	
 }
 
-static int read_pipe(fsinfo_t* info, void* buf, uint32_t size, int block) {
+static int read_pipe(fsinfo_t* info, void* buf, uint32_t size, bool block) {
 	proto_t in, out;
-	PF->init(&in, NULL, 0)->add(&in, info, sizeof(fsinfo_t))->addi(&in, size)->addi(&in, block);
+	PF->init(&in, NULL, 0)->add(&in, info, sizeof(fsinfo_t))->addi(&in, size)->addi(&in, block?1:0);
 	PF->init(&out, NULL, 0);
 
 	int vfsd_pid = get_vfsd_pid();
@@ -86,9 +86,9 @@ static int read_pipe(fsinfo_t* info, void* buf, uint32_t size, int block) {
 	return res;	
 }
 
-static int write_pipe(fsinfo_t* info, const void* buf, uint32_t size, int block) {
+static int write_pipe(fsinfo_t* info, const void* buf, uint32_t size, bool block) {
 	proto_t in, out;
-	PF->init(&in, NULL, 0)->add(&in, info, sizeof(fsinfo_t))->add(&in, buf, size)->addi(&in, block);
+	PF->init(&in, NULL, 0)->add(&in, info, sizeof(fsinfo_t))->add(&in, buf, size)->addi(&in, block?1:0);
 	PF->init(&out, NULL, 0);
 
 	int res = ipc_call(get_vfsd_pid(), VFS_PIPE_WRITE, &in, &out);
@@ -595,7 +595,7 @@ int vfs_read_block(int pid, void* buf, uint32_t size, int32_t index) {
 	return res;
 }
 
-int vfs_read_pipe(fsinfo_t* info, void* buf, uint32_t size, int block) {
+int vfs_read_pipe(fsinfo_t* info, void* buf, uint32_t size, bool block) {
 	int res = read_pipe(info, buf, size, block);
 	if(res == 0) { // pipe empty, do retry
 		errno = EAGAIN;
@@ -663,17 +663,7 @@ int vfs_read(int fd, fsinfo_t *info, void* buf, uint32_t size) {
 	return res;
 }
 
-int vfs_read_nblock(int fd, void* buf, uint32_t size) {
-	errno = ENONE;
-	fsinfo_t info;
-	if(vfs_get_by_fd(fd, &info) != 0)
-		return -1;
-	if(info.type == FS_TYPE_PIPE)
-		return vfs_read_pipe(&info, buf, size, 0);
-	return vfs_read(fd, &info, buf, size);
-}
-
-int vfs_write_pipe(fsinfo_t* info, const void* buf, uint32_t size, int block) {
+int vfs_write_pipe(fsinfo_t* info, const void* buf, uint32_t size, bool block) {
 	int res = write_pipe(info, buf, size, block);
 	if(res == 0) { // pipe not empty, do retry
 		errno = EAGAIN;
@@ -745,16 +735,6 @@ int vfs_write(int fd, fsinfo_t* info, const void* buf, uint32_t size) {
 	if(shm != NULL)
 		shm_unmap(shm_id);
 	return res;
-}
-
-int vfs_write_nblock(int fd, const void* buf, uint32_t size) {
-	errno = ENONE;
-	fsinfo_t info;
-	if(vfs_get_by_fd(fd, &info) != 0)
-		return -1;
-	if(info.type == FS_TYPE_PIPE) 
-		return vfs_write_pipe(&info, buf, size, 0);
-	return vfs_write(fd, &info, buf, size);
 }
 
 #ifdef __cplusplus

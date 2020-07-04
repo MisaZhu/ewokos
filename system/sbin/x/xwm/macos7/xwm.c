@@ -5,6 +5,7 @@
 #include <sys/ipc.h>
 #include <sys/shm.h>
 #include <sys/proc.h>
+#include <sys/basic_math.h>
 #include <graph/graph.h>
 #include <sconf.h>
 #include <x/xcntl.h>

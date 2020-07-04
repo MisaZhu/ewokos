@@ -1,11 +1,13 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <fcntl.h>
 #include <unistd.h>
 #include <string.h>
 #include <sys/vfs.h>
 #include <sys/vdevice.h>
 #include <sys/lockc.h>
 #include <sys/syscall.h>
+#include <sys/basic_math.h>
 #include <sys/shm.h>
 #include <graph/graph.h>
 #include <fbinfo.h>

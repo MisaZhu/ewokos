@@ -4,6 +4,7 @@
 #include <sconf.h>
 #include <upng/upng.h>
 #include <x++/X.h>
+#include <sys/basic_math.h>
 
 #define ITEM_MAX 16
 

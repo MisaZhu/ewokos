@@ -12,8 +12,10 @@ extern "C" {
 
 const char* vfs_fullname(const char* fname);
 
-int       vfs_read_pipe(fsinfo_t* info, void* buf, uint32_t size, int block);
-int       vfs_write_pipe(fsinfo_t* info, const void* buf, uint32_t size, int block);
+int       get_vfsd_pid(void);
+
+int       vfs_read_pipe(fsinfo_t* info, void* buf, uint32_t size, bool block);
+int       vfs_write_pipe(fsinfo_t* info, const void* buf, uint32_t size, bool block);
 int       vfs_open(fsinfo_t* info, int wr);
 int       vfs_close(int fd);
 int       vfs_new_node(fsinfo_t* info);
@@ -46,8 +48,6 @@ int       vfs_write_block(int pid, const void* buf, uint32_t size, int32_t index
 
 int       vfs_read(int fd, fsinfo_t *info, void* buf, uint32_t size);
 int       vfs_write(int fd, fsinfo_t *info, const void* buf, uint32_t size);
-int       vfs_write_nblock(int fd, const void* buf, uint32_t size);
-int       vfs_read_nblock(int fd, void* buf, uint32_t size);
 
 enum {
 	CNTL_NONE = 0,

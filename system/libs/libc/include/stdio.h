@@ -2,7 +2,6 @@
 #define STDIO_H
 
 #include <sys/ewokdef.h>
-#include <fcntl.h>
 
 #ifdef __cplusplus
 extern "C" {
