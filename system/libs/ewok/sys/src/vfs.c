@@ -664,7 +664,7 @@ int vfs_read_nblock(int fd, void* buf, uint32_t size) {
 	if(vfs_get_by_fd(fd, &info) != 0)
 		return -1;
 	if(info.type == FS_TYPE_PIPE)
-		return read_pipe(&info, buf, size, 0);
+		return vfs_read_pipe(&info, buf, size, 0);
 	return vfs_read(fd, &info, buf, size);
 }
 
@@ -748,6 +748,6 @@ int vfs_write_nblock(int fd, const void* buf, uint32_t size) {
 	if(vfs_get_by_fd(fd, &info) != 0)
 		return -1;
 	if(info.type == FS_TYPE_PIPE) 
-		return write_pipe(&info, buf, size, 0);
+		return vfs_write_pipe(&info, buf, size, 0);
 	return vfs_write(fd, &info, buf, size);
 }
