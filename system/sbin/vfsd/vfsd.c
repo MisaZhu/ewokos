@@ -3,6 +3,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <sys/ipc.h>
+#include <sys/kprintf.h>
 #include <sys/proc.h>
 #include <sys/mstr.h>
 #include <sys/buffer.h>

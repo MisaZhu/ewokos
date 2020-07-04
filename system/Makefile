@@ -81,6 +81,7 @@ LIB_EXT2_OBJS = $(LIB_EXT2_DIR)/src/ext2fs.o
 
 LIB_SYS_OBJS = $(LIB_SYS_DIR)/src/syscall.o \
 	$(LIB_SYS_DIR)/src/mstr.o \
+	$(LIB_SYS_DIR)/src/kprintf.o \
 	$(LIB_SYS_DIR)/src/cmain.o \
 	$(LIB_SYS_DIR)/src/charbuf.o \
 	$(LIB_SYS_DIR)/src/vfs.o \
@@ -104,11 +105,26 @@ LIB_SYS_OBJS = $(LIB_SYS_DIR)/src/syscall.o \
 
 LIB_LIBC_OBJS = $(LIB_LIBC_DIR)/src/unistd.o \
 	$(LIB_LIBC_DIR)/src/stdlib.o \
-	$(LIB_LIBC_DIR)/src/fcntl.o \
 	$(LIB_LIBC_DIR)/src/vprintf.o \
 	$(LIB_LIBC_DIR)/src/pthread.o \
 	$(LIB_LIBC_DIR)/src/dirent.o \
-	$(LIB_LIBC_DIR)/src/stdio.o
+	\
+	$(LIB_LIBC_DIR)/src/stdio/dprintf.o \
+	$(LIB_LIBC_DIR)/src/stdio/printf.o \
+	$(LIB_LIBC_DIR)/src/stdio/fprintf.o \
+	$(LIB_LIBC_DIR)/src/stdio/fopen.o \
+	$(LIB_LIBC_DIR)/src/stdio/fclose.o \
+	$(LIB_LIBC_DIR)/src/stdio/fread.o \
+	$(LIB_LIBC_DIR)/src/stdio/fwrite.o \
+	$(LIB_LIBC_DIR)/src/stdio/ftell.o \
+	$(LIB_LIBC_DIR)/src/stdio/fseek.o \
+	$(LIB_LIBC_DIR)/src/stdio/rewind.o \
+	$(LIB_LIBC_DIR)/src/stdio/getch.o \
+	$(LIB_LIBC_DIR)/src/stdio/putch.o \
+	$(LIB_LIBC_DIR)/src/stdio/puts.o \
+	\
+	$(LIB_LIBC_DIR)/src/fcntl/open.o \
+	$(LIB_LIBC_DIR)/src/fcntl/close.o
 
 LIB_OBJS = $(LIB_SYS_OBJS) \
 	$(LIB_LIBC_OBJS) \

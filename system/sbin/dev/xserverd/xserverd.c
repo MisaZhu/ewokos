@@ -433,7 +433,7 @@ static void x_repaint(x_t* x) {
 	}
 	if(x->show_cursor)
 		draw_cursor(x);
-	flush(x->fb_fd);
+	vfs_flush(x->fb_fd);
 
 	if(undirty) {
 		x->dirty = false;
@@ -901,7 +901,7 @@ static int x_init(x_t* x) {
 	}
 	x->fb_fd = fd;
 
-	int id = dma(fd, NULL);
+	int id = vfs_dma(fd, NULL);
 	if(id <= 0) {
 		close(x->fb_fd);
 		return -1;

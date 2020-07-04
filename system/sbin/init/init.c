@@ -11,6 +11,7 @@
 #include <sysinfo.h>
 #include <sconf.h>
 #include <sys/sd.h>
+#include <sys/kprintf.h>
 #include <sys/gpio.h>
 #include <sys/ipc.h>
 #include <sys/global.h>

@@ -33,6 +33,8 @@ int       vfs_parse_name(const char* fname, str_t* dir, str_t* name);
 int       vfs_dup(int fd);
 int       vfs_dup2(int fd, int to);
 int       vfs_open_pipe(int fd[2]);
+void      vfs_flush(int fd);
+int       vfs_dma(int fd, int* size); 
 
 enum {
 	CNTL_NONE = 0,

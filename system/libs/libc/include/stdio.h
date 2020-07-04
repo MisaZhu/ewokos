@@ -3,10 +3,10 @@
 
 #include <fcntl.h>
 #include <stdint.h>
+#include <stddef.h>
 #include <stdbool.h>
 
 void printf(const char *format, ...);
-void kprintf(bool tty_only, const char *format, ...);
 void dprintf(int fd, const char *format, ...);
 
 int  getch(void);

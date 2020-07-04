@@ -3,6 +3,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <sys/vfs.h>
+#include <sys/kprintf.h>
 #include <sys/ipc.h>
 #include <sys/vdevice.h>
 #include <sys/mmio.h>

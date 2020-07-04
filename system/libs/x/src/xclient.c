@@ -1,6 +1,7 @@
 #include <x/xclient.h>
 #include <sys/shm.h>
 #include <sys/ipc.h>
+#include <sys/vfs.h>
 #include <sys/syscall.h>
 #include <sys/proc.h>
 #include <sys/vdevice.h>

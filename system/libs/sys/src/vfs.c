@@ -490,9 +490,43 @@ int vfs_fcntl(int fd, int cmd, proto_t* arg_in, proto_t* arg_out) {
 	PF->clear(&out);
 	return res;
 }
-/*
-int vfs_seek(int fd, int offset, int whence) {
-	return syscall3(SYS_VFS_PROC_SEEK, (int32_t)fd,(int32_t)offset, (int32_t)whence);
+
+int vfs_dma(int fd, int* size) {
+	fsinfo_t info;
+	if(vfs_get_by_fd(fd, &info) != 0)
+		return -1;
+	
+	proto_t in, out;
+	PF->init(&out, NULL, 0);
+
+	PF->init(&in, NULL, 0)->
+		addi(&in, fd)->
+		add(&in, &info, sizeof(fsinfo_t));
+
+	int shm_id = -1;
+	if(ipc_call(info.mount_pid, FS_CMD_DMA, &in, &out) == 0) {
+		shm_id = proto_read_int(&out);
+		if(size != NULL)
+			*size = proto_read_int(&out);
+	}
+	PF->clear(&in);
+	PF->clear(&out);
+	return shm_id;
 }
-*/
+
+void vfs_flush(int fd) {
+	fsinfo_t info;
+	if(vfs_get_by_fd(fd, &info) != 0)
+		return;
+	
+	proto_t in, out;
+	PF->init(&out, NULL, 0);
+
+	PF->init(&in, NULL, 0)->
+		addi(&in, fd)->
+		add(&in, &info, sizeof(fsinfo_t));
+	ipc_call(info.mount_pid, FS_CMD_FLUSH, &in, &out);
+	PF->clear(&in);
+	PF->clear(&out);
+}
 
