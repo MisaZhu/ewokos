@@ -1,4 +1,5 @@
-#include <stddef.h>
+#include <unistd.h>
+#include <stdlib.h>
 #include <sys/mstr.h>
 #include <sys/syscall.h>
 #include <sys/proc.h>
