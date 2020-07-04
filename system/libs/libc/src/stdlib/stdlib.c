@@ -34,10 +34,6 @@ int execl(const char* fname, const char* arg, ...) {
 	return 0;
 }
 
-inline static int get_procd_pid(void) {
-	return ipc_serv_get(IPC_SERV_PROC);
-}
-
 const char* getenv(const char* name) {
 	static char ret[1024];
 	ret[0] = 0;

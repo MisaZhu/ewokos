@@ -36,6 +36,14 @@ int       vfs_open_pipe(int fd[2]);
 void      vfs_flush(int fd);
 int       vfs_dma(int fd, int* size); 
 
+int       vfs_read_block(int pid, void* buf, uint32_t size, int32_t index);
+int       vfs_write_block(int pid, const void* buf, uint32_t size, int32_t index);
+
+int       vfs_read(int fd, fsinfo_t *info, void* buf, uint32_t size);
+int       vfs_write(int fd, fsinfo_t *info, const void* buf, uint32_t size);
+int       vfs_write_nblock(int fd, const void* buf, uint32_t size);
+int       vfs_read_nblock(int fd, void* buf, uint32_t size);
+
 enum {
 	CNTL_NONE = 0,
 	CNTL_INFO

@@ -12,17 +12,11 @@ int setuid(int uid);
 int getpid_raw(int pid);
 int getpid(void);
 int fork(void);
-void detach(void);
 unsigned int sleep(unsigned int seconds);
 int usleep(unsigned int usecs);
 
 int read(int fd, void* buf, uint32_t size);
-int read_nblock(int fd, void* buf, uint32_t size);
 int write(int fd, const void* buf, uint32_t size);
-int write_nblock(int fd, const void* buf, uint32_t size);
-
-int read_block(int pid, void* buf, uint32_t size, int32_t index);
-int write_block(int pid, const void* buf, uint32_t size, int32_t index);
 
 int unlink(const char* fname);
 

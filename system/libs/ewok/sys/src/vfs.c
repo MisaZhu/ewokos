@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <sys/mstr.h>
+#include <sys/shm.h>
 #include <sys/ipc.h>
 #include <sys/vfsc.h>
 #include <sys/proc.h>
@@ -59,7 +60,7 @@ int vfs_open(fsinfo_t* info, int oflag) {
 	return res;	
 }
 
-int vfs_read_pipe(fsinfo_t* info, void* buf, uint32_t size, int block) {
+static int read_pipe(fsinfo_t* info, void* buf, uint32_t size, int block) {
 	proto_t in, out;
 	PF->init(&in, NULL, 0)->add(&in, info, sizeof(fsinfo_t))->addi(&in, size)->addi(&in, block);
 	PF->init(&out, NULL, 0);
@@ -80,7 +81,7 @@ int vfs_read_pipe(fsinfo_t* info, void* buf, uint32_t size, int block) {
 	return res;	
 }
 
-int vfs_write_pipe(fsinfo_t* info, const void* buf, uint32_t size, int block) {
+static int write_pipe(fsinfo_t* info, const void* buf, uint32_t size, int block) {
 	proto_t in, out;
 	PF->init(&in, NULL, 0)->add(&in, info, sizeof(fsinfo_t))->add(&in, buf, size)->addi(&in, block);
 	PF->init(&out, NULL, 0);
@@ -530,3 +531,223 @@ void vfs_flush(int fd) {
 	PF->clear(&out);
 }
 
+int vfs_write_block(int pid, const void* buf, uint32_t size, int32_t index) {
+	proto_t in, out;
+	PF->init(&out, NULL, 0);
+
+	PF->init(&in, NULL, 0)->
+		add(&in, buf, size)->
+		addi(&in, index);
+
+	int res = -1;
+	if(ipc_call(pid, FS_CMD_WRITE_BLOCK, &in, &out) == 0) {
+		int r = proto_read_int(&out);
+		res = r;
+		if(res == -2) {
+			errno = EAGAIN;
+			res = -1;
+		}
+	}
+	PF->clear(&in);
+	PF->clear(&out);
+	return res;
+}
+
+int vfs_read_block(int pid, void* buf, uint32_t size, int32_t index) {
+	int32_t shm_id = -1;
+	void* shm = NULL;
+	shm_id = shm_alloc(size, SHM_PUBLIC);
+	if(shm_id < 0)
+		return -1;
+
+	shm = shm_map(shm_id);
+	if(shm == NULL) 
+		return -1;
+
+	proto_t in, out;
+	PF->init(&out, NULL, 0);
+
+	PF->init(&in, NULL, 0)->
+		addi(&in, size)->
+		addi(&in, index)->
+		addi(&in, shm_id);
+
+	int res = -1;
+	if(ipc_call(pid, FS_CMD_READ_BLOCK, &in, &out) == 0) {
+		int rd = proto_read_int(&out);
+		res = rd;
+		if(rd > 0) {
+			memcpy(buf, shm, rd);
+		}
+		if(res == ERR_RETRY) {
+			errno = EAGAIN;
+			res = -1;
+		}
+	}
+	PF->clear(&in);
+	PF->clear(&out);
+	shm_unmap(shm_id);
+	return res;
+}
+
+int vfs_read_pipe(fsinfo_t* info, void* buf, uint32_t size, int block) {
+	int res = read_pipe(info, buf, size, block);
+	if(res == 0) { // pipe empty, do retry
+		errno = EAGAIN;
+		return -1;
+	}
+	if(res > 0) {
+		return res;
+	}
+	return 0; //res < 0 , pipe closed, return 0.
+}
+
+#define SHM_ON 32
+int vfs_read(int fd, fsinfo_t *info, void* buf, uint32_t size) {
+	/*mount_t mount;
+	if(vfs_get_mount(info, &mount) != 0)
+		return -1;
+		*/
+
+	int offset = 0;
+	if(info->type == FS_TYPE_FILE) {
+		offset = vfs_tell(fd);
+		if(offset < 0)
+			offset = 0;
+	}
+
+	int32_t shm_id = -1;
+	void* shm = NULL;
+	if(size >= SHM_ON) {
+		shm_id = shm_alloc(size, SHM_PUBLIC);
+		if(shm_id < 0)
+			return -1;
+
+		shm = shm_map(shm_id);
+		if(shm == NULL) 
+			return -1;
+	}
+
+	proto_t in, out;
+	PF->init(&out, NULL, 0);
+
+	PF->init(&in, NULL, 0)->addi(&in, fd)->add(&in, info, sizeof(fsinfo_t))->addi(&in, size)->addi(&in, offset)->addi(&in, shm_id);
+
+	int res = -1;
+	if(ipc_call(info->mount_pid, FS_CMD_READ, &in, &out) == 0) {
+		int rd = proto_read_int(&out);
+		res = rd;
+		if(rd > 0) {
+			if(shm != NULL)
+				memcpy(buf, shm, rd);
+			else
+				proto_read_to(&out, buf, size);
+			offset += rd;
+			if(info->type == FS_TYPE_FILE)
+				vfs_seek(fd, offset);
+		}
+		if(res == ERR_RETRY) {
+			errno = EAGAIN;
+			res = -1;
+		}
+	}
+	PF->clear(&in);
+	PF->clear(&out);
+	if(shm != NULL)
+		shm_unmap(shm_id);
+	return res;
+}
+
+int vfs_read_nblock(int fd, void* buf, uint32_t size) {
+	errno = ENONE;
+	fsinfo_t info;
+	if(vfs_get_by_fd(fd, &info) != 0)
+		return -1;
+	if(info.type == FS_TYPE_PIPE)
+		return read_pipe(&info, buf, size, 0);
+	return vfs_read(fd, &info, buf, size);
+}
+
+int vfs_write_pipe(fsinfo_t* info, const void* buf, uint32_t size, int block) {
+	int res = write_pipe(info, buf, size, block);
+	if(res == 0) { // pipe not empty, do retry
+		errno = EAGAIN;
+		return -1;
+	}
+	if(res > 0)
+		return res;
+	return 0; //res < 0 , pipe closed, return 0.
+}
+
+int vfs_write(int fd, fsinfo_t* info, const void* buf, uint32_t size) {
+	if(info->type == FS_TYPE_DIR) 
+		return -1;
+
+	/*mount_t mount;
+	if(vfs_get_mount(info, &mount) != 0)
+		return -1;
+		*/
+
+	int offset = 0;
+	if(info->type == FS_TYPE_FILE) {
+		offset = vfs_tell(fd);
+		if(offset < 0)
+			offset = 0;
+	}
+		
+	int32_t shm_id = -1;
+	void* shm = NULL;
+	if(size >= SHM_ON) {
+		shm_id = shm_alloc(size, SHM_PUBLIC);
+		if(shm_id < 0)
+			return -1;
+
+		shm = shm_map(shm_id);
+		if(shm == NULL) 
+			return -1;
+		memcpy(shm, buf, size);
+	}
+
+	proto_t in, out;
+	PF->init(&out, NULL, 0);
+
+	PF->init(&in, NULL, 0)->
+		addi(&in, fd)->
+		add(&in, info, sizeof(fsinfo_t))->
+		addi(&in, offset)->
+		addi(&in, shm_id);
+	if(shm_id < 0)
+		PF->add(&in, buf, size);
+	else
+		PF->addi(&in, size);
+
+	int res = -1;
+	if(ipc_call(info->mount_pid, FS_CMD_WRITE, &in, &out) == 0) {
+		int r = proto_read_int(&out);
+		res = r;
+		if(r > 0) {
+			offset += r;
+			if(info->type == FS_TYPE_FILE)
+				vfs_seek(fd, offset);
+		}
+		if(res == -2) {
+			errno = EAGAIN;
+			res = -1;
+		}
+	}
+	PF->clear(&in);
+	PF->clear(&out);
+	if(shm != NULL)
+		shm_unmap(shm_id);
+	return res;
+}
+
+int vfs_write_nblock(int fd, const void* buf, uint32_t size) {
+	errno = ENONE;
+	fsinfo_t info;
+	if(vfs_get_by_fd(fd, &info) != 0)
+		return -1;
+	if(info.type == FS_TYPE_PIPE) 
+		return write_pipe(&info, buf, size, 0);
+	return vfs_write(fd, &info, buf, size);
+}

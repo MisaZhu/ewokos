@@ -103,11 +103,29 @@ LIB_SYS_OBJS = $(LIB_SYS_DIR)/src/syscall.o \
 	$(LIB_SYS_DIR)/src/mmio.o 
 
 LIB_LIBC_OBJS = $(LIB_LIBC_DIR)/src/unistd.o \
-	$(LIB_LIBC_DIR)/src/stdlib.o \
-	$(LIB_LIBC_DIR)/src/vprintf.o \
-	$(LIB_LIBC_DIR)/src/pthread.o \
-	$(LIB_LIBC_DIR)/src/dirent.o \
 	\
+	$(LIB_LIBC_DIR)/src/dirent/opendir.o \
+	$(LIB_LIBC_DIR)/src/dirent/closedir.o \
+	$(LIB_LIBC_DIR)/src/dirent/readdir.o \
+	$(LIB_LIBC_DIR)/src/dirent/rewinddir.o \
+	$(LIB_LIBC_DIR)/src/dirent/telldir.o \
+	$(LIB_LIBC_DIR)/src/dirent/seekdir.o \
+	\
+	$(LIB_LIBC_DIR)/src/stdlib/atof.o \
+	$(LIB_LIBC_DIR)/src/stdlib/atoi.o \
+	$(LIB_LIBC_DIR)/src/stdlib/calloc.o \
+	$(LIB_LIBC_DIR)/src/stdlib/execl.o \
+	$(LIB_LIBC_DIR)/src/stdlib/exit.o \
+	$(LIB_LIBC_DIR)/src/stdlib/free.o \
+	$(LIB_LIBC_DIR)/src/stdlib/malloc.o \
+	$(LIB_LIBC_DIR)/src/stdlib/realloc.o \
+	$(LIB_LIBC_DIR)/src/stdlib/random.o \
+	$(LIB_LIBC_DIR)/src/stdlib/setenv.o \
+	$(LIB_LIBC_DIR)/src/stdlib/getenv.o \
+	\
+	$(LIB_LIBC_DIR)/src/pthread/pthread_create.o \
+	\
+	$(LIB_LIBC_DIR)/src/stdio/vprintf.o \
 	$(LIB_LIBC_DIR)/src/stdio/dprintf.o \
 	$(LIB_LIBC_DIR)/src/stdio/printf.o \
 	$(LIB_LIBC_DIR)/src/stdio/fprintf.o \

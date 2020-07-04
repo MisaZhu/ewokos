@@ -5,6 +5,7 @@ extern "C" {
 #include <string.h>
 #include <console/console.h>
 #include <sconf.h>
+#include <sys/vfs.h>
 }
 #include <x++/X.h>
 
@@ -91,7 +92,7 @@ protected:
 		if(ev->type == XEVT_IM) {
 			int c = ev->value.im.value;
 			if(c != 0)
-				write_nblock(1, &c, 1);
+				vfs_write_nblock(1, &c, 1);
 		}
 	}
 };
@@ -100,7 +101,7 @@ static void loop(void* p) {
 	XConsole* console = (XConsole*)p;
 
 	char buf[256];
-	int32_t size = read_nblock(0, buf, 255);
+	int32_t size = vfs_read_nblock(0, buf, 255);
 	if(size > 0) {
 		buf[size] = 0;
 		for(int32_t i=0; i<size; i++) {

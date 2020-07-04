@@ -13,6 +13,7 @@ enum {
 	PROC_CMD_EXIT
 };
 
+void proc_detach(void);
 int proc_ping(int pid);
 void proc_ready_ping(void);
 void proc_wait_ready(int pid);

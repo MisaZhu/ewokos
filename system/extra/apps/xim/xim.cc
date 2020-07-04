@@ -5,6 +5,7 @@ extern "C" {
 #include <stdio.h>
 #include <string.h>
 #include <sys/basic_math.h>
+#include <sys/vfs.h>
 #include <sys/vdevice.h>
 }
 
@@ -99,7 +100,7 @@ public:
 			return;
 
 		char v;
-		int rd = read_nblock(keybFD, &v, 1);
+		int rd = vfs_read_nblock(keybFD, &v, 1);
 		if(rd == 1) {
 			input(v);
 		}

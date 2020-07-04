@@ -2,6 +2,10 @@
 #include <sys/syscall.h>
 #include <unistd.h>
 
+void proc_detach(void) {
+	syscall0(SYS_DETACH);
+}
+
 int proc_ping(int pid) {
 	return syscall1(SYS_PROC_PING, (int32_t)pid);
 }

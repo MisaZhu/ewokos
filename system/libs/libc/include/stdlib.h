@@ -1,8 +1,9 @@
 #ifndef STDLIB_H
 #define STDLIB_H
 
-#include <sys/basic_math.h>
 #include <stddef.h>
+#include <stddef.h>
+#include <sys/basic_math.h>
 
 void *malloc(size_t size);
 void *calloc(size_t nmemb, size_t size);
