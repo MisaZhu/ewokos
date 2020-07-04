@@ -13,13 +13,13 @@
 int x_update_info(xwin_t* xwin, const xinfo_t* info) {
 	proto_t in;
 	PF->init(&in, NULL, 0)->add(&in, info, sizeof(xinfo_t));
-	int ret = fcntl_raw(xwin->fd, X_CNTL_UPDATE_INFO, &in, NULL);
+	int ret = vfs_fcntl(xwin->fd, X_CNTL_UPDATE_INFO, &in, NULL);
 	PF->clear(&in);
 	return ret;
 }
 
 int x_call_xim(xwin_t* xwin) {
-	int ret = fcntl_raw(xwin->fd, X_CNTL_CALL_XIM, NULL, NULL);
+	int ret = vfs_fcntl(xwin->fd, X_CNTL_CALL_XIM, NULL, NULL);
 	return ret;
 }
 
@@ -28,7 +28,7 @@ static int  x_get_workspace(int xfd, int style, grect_t* frame, grect_t* workspa
 	PF->init(&out, NULL, 0);
 
 	PF->init(&in, NULL, 0)->addi(&in, style)->add(&in, frame, sizeof(grect_t));
-	int ret = fcntl_raw(xfd, X_CNTL_WORKSPACE, &in, &out);
+	int ret = vfs_fcntl(xfd, X_CNTL_WORKSPACE, &in, &out);
 	PF->clear(&in);
 	if(ret == 0) 
 		proto_read_to(&out, workspace, sizeof(grect_t));
@@ -76,7 +76,7 @@ int x_get_info(xwin_t* xwin, xinfo_t* info) {
 	
 	proto_t out;
 	PF->init(&out, NULL, 0);
-	if(fcntl_raw(xwin->fd, X_CNTL_GET_INFO, NULL, &out) != 0)
+	if(vfs_fcntl(xwin->fd, X_CNTL_GET_INFO, NULL, &out) != 0)
 		return -1;
 	proto_read_to(&out, info, sizeof(xinfo_t));
 	PF->clear(&out);
@@ -218,7 +218,7 @@ int x_set_visible(xwin_t* xwin, bool visible) {
 	proto_t in;
 	PF->init(&in, NULL, 0)->addi(&in, visible);
 
-	int res = fcntl_raw(xwin->fd, X_CNTL_SET_VISIBLE, &in, NULL);
+	int res = vfs_fcntl(xwin->fd, X_CNTL_SET_VISIBLE, &in, NULL);
 	PF->clear(&in);
 	if(xwin->on_focus)
 		xwin->on_focus(xwin);
@@ -228,13 +228,13 @@ int x_set_visible(xwin_t* xwin, bool visible) {
 
 void x_repaint(xwin_t* xwin) {
 	if(xwin->on_repaint == NULL) {
-		fcntl_raw(xwin->fd, X_CNTL_UPDATE, NULL, NULL);
+		vfs_fcntl(xwin->fd, X_CNTL_UPDATE, NULL, NULL);
 		return;
 	}
 
 	graph_t* g = x_get_graph(xwin);
 	xwin->on_repaint(xwin, g);
-	fcntl_raw(xwin->fd, X_CNTL_UPDATE, NULL, NULL);
+	vfs_fcntl(xwin->fd, X_CNTL_UPDATE, NULL, NULL);
 	x_release_graph(xwin, g);
 }
 

@@ -6,6 +6,7 @@
 #include "../lib/gpio_arch.h"
 #include "../lib/spi_arch.h"
 #include <sys/vdevice.h>
+#include <sys/vfs.h>
 #include <sys/syscall.h>
 #include <sys/critical.h>
 #include <graph/graph.h>

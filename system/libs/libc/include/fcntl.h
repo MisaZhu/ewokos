@@ -11,15 +11,6 @@
 #define SEEK_CUR 1
 #define SEEK_END 2
 
-#include <sys/proto.h>
-
-enum {
-	CNTL_NONE = 0,
-	CNTL_INFO
-}; //cntl command
-
-int  fcntl_raw(int fd, int cmd, proto_t* in, proto_t* out);
-
 int  open(const char* name, int oflag);
 void close(int fd);
 int  dma(int fd, int* size);

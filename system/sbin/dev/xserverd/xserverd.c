@@ -916,7 +916,7 @@ static int x_init(x_t* x) {
 	proto_t out;
 	PF->init(&out, NULL, 0);
 
-	if(fcntl_raw(fd, CNTL_INFO, NULL, &out) != 0) {
+	if(vfs_fcntl(fd, CNTL_INFO, NULL, &out) != 0) {
 		shm_unmap(id);
 		close(x->fb_fd);
 		return -1;

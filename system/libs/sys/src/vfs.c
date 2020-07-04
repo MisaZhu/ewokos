@@ -460,6 +460,36 @@ int vfs_parse_name(const char* fname, str_t* dir, str_t* name) {
 	return 0;
 }
 
+int vfs_fcntl(int fd, int cmd, proto_t* arg_in, proto_t* arg_out) {
+	fsinfo_t info;
+	if(vfs_get_by_fd(fd, &info) != 0)
+		return -1;
+	
+	proto_t in, out;
+	PF->init(&out, NULL, 0);
+
+	PF->init(&in, NULL, 0)->
+		addi(&in, fd)->
+		add(&in, &info, sizeof(fsinfo_t))->
+		addi(&in, cmd);
+	if(arg_in == NULL)
+		PF->add(&in, NULL, 0);
+	else
+		PF->add(&in, arg_in->data, arg_in->size);
+
+	int res = -1;
+	if(ipc_call(info.mount_pid, FS_CMD_CNTL, &in, &out) == 0) {
+		res = proto_read_int(&out);
+		if(arg_out != NULL) {
+			int32_t sz;
+			void *p = proto_read(&out, &sz);
+			PF->copy(arg_out, p, sz);
+		}
+	}
+	PF->clear(&in);
+	PF->clear(&out);
+	return res;
+}
 /*
 int vfs_seek(int fd, int offset, int whence) {
 	return syscall3(SYS_VFS_PROC_SEEK, (int32_t)fd,(int32_t)offset, (int32_t)whence);

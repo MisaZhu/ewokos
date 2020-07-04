@@ -3,6 +3,7 @@
 
 #include <sys/fsinfo.h>
 #include <sys/mstr.h>
+#include <sys/proto.h>
 
 const char* vfs_fullname(const char* fname);
 
@@ -32,5 +33,12 @@ int       vfs_parse_name(const char* fname, str_t* dir, str_t* name);
 int       vfs_dup(int fd);
 int       vfs_dup2(int fd, int to);
 int       vfs_open_pipe(int fd[2]);
+
+enum {
+	CNTL_NONE = 0,
+	CNTL_INFO
+}; //cntl command
+
+int       vfs_fcntl(int fd, int cmd, proto_t* in, proto_t* out);
 
 #endif
