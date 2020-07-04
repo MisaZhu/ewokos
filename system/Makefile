@@ -42,19 +42,18 @@ LDFLAGS = -L$(TARGET_DIR)/lib -lnosys
 LIBS_DIR = libs
 
 LIB_INC = -I$(TARGET_DIR)/include \
-					-I $(LIBS_DIR)/sys/include \
+					-I $(LIBS_DIR)/ewok/sys/include \
+				  -I $(LIBS_DIR)/ewok/x/include \
+				  -I $(LIBS_DIR)/ewok/ext2/include \
+				  -I $(LIBS_DIR)/ewok/graph/include \
 				  -I $(LIBS_DIR)/libc/include \
-				  -I $(LIBS_DIR)/x/include \
-				  -I $(LIBS_DIR)/ext2/include \
-				  -I $(LIBS_DIR)/graph/include \
-				  -I $(LIBS_DIR)/libm/include \
 					-I $(KERNEL_DIR)/include
 				 
-LIB_SYS_DIR = $(LIBS_DIR)/sys
+LIB_SYS_DIR = $(LIBS_DIR)/ewok/sys
+LIB_X_DIR = $(LIBS_DIR)/ewok/x
+LIB_EXT2_DIR = $(LIBS_DIR)/ewok/ext2
+LIB_GRAPH_DIR = $(LIBS_DIR)/ewok/graph
 LIB_LIBC_DIR = $(LIBS_DIR)/libc
-LIB_X_DIR = $(LIBS_DIR)/x
-LIB_EXT2_DIR = $(LIBS_DIR)/ext2
-LIB_GRAPH_DIR = $(LIBS_DIR)/graph
 
 CFLAGS += $(LIB_INC)
 
