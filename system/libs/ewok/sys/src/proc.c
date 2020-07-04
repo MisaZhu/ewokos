@@ -1,6 +1,15 @@
 #include <sys/proc.h>
+#include <sys/ipc.h>
 #include <sys/syscall.h>
 #include <unistd.h>
+
+int get_procd_pid(void) {
+	return ipc_serv_get(IPC_SERV_PROC);
+}
+
+int proc_getpid(int pid) {
+  return syscall1(SYS_GET_PID, pid);
+}
 
 void proc_detach(void) {
 	syscall0(SYS_DETACH);
@@ -29,3 +38,8 @@ void proc_block(int by_pid, uint32_t evt) {
 void proc_wakeup(uint32_t evt) {
 	syscall1(SYS_WAKEUP, evt);
 }
+
+void proc_exec_elf(const char* cmd_line, const char* elf, int32_t size) {
+	syscall3(SYS_EXEC_ELF, (int32_t)cmd_line, (int32_t)elf, size);
+}
+

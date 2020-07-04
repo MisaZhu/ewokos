@@ -13,6 +13,9 @@ enum {
 	PROC_CMD_EXIT
 };
 
+int get_procd_pid(void);
+void proc_exec_elf(const char* cmd_line, const char* elf, int32_t size);
+int proc_getpid(int pid);
 void proc_detach(void);
 int proc_ping(int pid);
 void proc_ready_ping(void);

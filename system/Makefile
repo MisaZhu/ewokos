@@ -102,7 +102,23 @@ LIB_SYS_OBJS = $(LIB_SYS_DIR)/src/syscall.o \
 	$(LIB_SYS_DIR)/src/buffer.o \
 	$(LIB_SYS_DIR)/src/mmio.o 
 
-LIB_LIBC_OBJS = $(LIB_LIBC_DIR)/src/unistd.o \
+LIB_LIBC_OBJS = $(LIB_LIBC_DIR)/src/unistd/chdir.o \
+	$(LIB_LIBC_DIR)/src/unistd/dup.o \
+	$(LIB_LIBC_DIR)/src/unistd/dup2.o \
+	$(LIB_LIBC_DIR)/src/unistd/errno.o \
+	$(LIB_LIBC_DIR)/src/unistd/exec.o \
+	$(LIB_LIBC_DIR)/src/unistd/fork.o \
+	$(LIB_LIBC_DIR)/src/unistd/getcwd.o \
+	$(LIB_LIBC_DIR)/src/unistd/getuid.o \
+	$(LIB_LIBC_DIR)/src/unistd/getpid.o \
+	$(LIB_LIBC_DIR)/src/unistd/lseek.o \
+	$(LIB_LIBC_DIR)/src/unistd/pipe.o \
+	$(LIB_LIBC_DIR)/src/unistd/read.o \
+	$(LIB_LIBC_DIR)/src/unistd/setuid.o \
+	$(LIB_LIBC_DIR)/src/unistd/sleep.o \
+	$(LIB_LIBC_DIR)/src/unistd/usleep.o \
+	$(LIB_LIBC_DIR)/src/unistd/unlink.o \
+	$(LIB_LIBC_DIR)/src/unistd/write.o \
 	\
 	$(LIB_LIBC_DIR)/src/dirent/opendir.o \
 	$(LIB_LIBC_DIR)/src/dirent/closedir.o \

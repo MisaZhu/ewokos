@@ -36,7 +36,7 @@ static int run_none_fs(const char* cmd) {
 			kprintf(false, "[error!] (%s)\n", cmd);
 			exit(-1);
 		}
-		exec_elf(cmd, data, sz);
+		proc_exec_elf(cmd, data, sz);
 		free(data);
 	}
 	proc_wait_ready(pid);

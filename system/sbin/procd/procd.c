@@ -152,7 +152,7 @@ static void do_proc_exit(int32_t pid, proto_t* in) {
 
 static void handle(int pid, int cmd, proto_t* in, proto_t* out, void* p) {
 	(void)p;
-	pid = getpid_raw(pid);
+	pid = proc_getpid(pid);
 
 	switch(cmd) {
 	case PROC_CMD_SET_CWD:

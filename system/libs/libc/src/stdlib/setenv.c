@@ -3,10 +3,6 @@
 #include <sys/proc.h>
 #include <string.h>
 
-inline static int get_procd_pid(void) {
-	return ipc_serv_get(IPC_SERV_PROC);
-}
-
 int setenv(const char* name, const char* value) {
 	proto_t in, out;
 	PF->init(&out, NULL, 0);

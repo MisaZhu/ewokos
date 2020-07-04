@@ -9,7 +9,6 @@
 
 int getuid(void);
 int setuid(int uid);
-int getpid_raw(int pid);
 int getpid(void);
 int fork(void);
 unsigned int sleep(unsigned int seconds);
@@ -22,7 +21,6 @@ int unlink(const char* fname);
 
 int lseek(int fd, uint32_t offset, int whence);
 
-void exec_elf(const char* cmd_line, const char* elf, int32_t size);
 int exec(const char* cmd_line);
 
 char* getcwd(char* buf, uint32_t size);
