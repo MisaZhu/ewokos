@@ -6,6 +6,7 @@
 #include <sys/proto.h>
 #include <x/xcntl.h>
 #include <x/xevent.h>
+#include <sys/vfs.h>
 
 static int _x_pid = -1;
 
