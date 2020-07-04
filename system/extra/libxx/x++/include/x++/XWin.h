@@ -1,11 +1,7 @@
 #ifndef XWIN_H
 #define XWIN_H
 
-extern "C" {
-	#include <stddef.h>
-	#include <x/xclient.h>
-}
-
+#include <x/xclient.h>
 #include <graphxx/graphxx.h>
 
 class XWin {

@@ -1,6 +1,11 @@
 #include <sys/gpio.h>
 #include <sys/vfs.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+
 int32_t gpio_config(int32_t fd, int32_t gpio_num, int32_t gpio_sel) {
 	proto_t in;
 	PF->init(&in, NULL, 0)->addi(&in, gpio_num)->addi(&in, gpio_sel);
@@ -38,4 +43,8 @@ uint32_t gpio_read(int32_t fd, int32_t gpio_num) {
 	PF->clear(&out);
 	return res;
 }
+
+#ifdef __cplusplus
+}
+#endif
 

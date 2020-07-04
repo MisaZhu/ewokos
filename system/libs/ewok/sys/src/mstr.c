@@ -4,6 +4,11 @@
 #include <vprintf.h>
 #include <stdarg.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+
 /** str functions.-----------------------------*/
 
 #define STR_BUF 16
@@ -247,3 +252,8 @@ str_t* str_format_new(const char *format, ...) {
 	v_printf(outc, str, format, ap);
 	return str;
 }
+
+#ifdef __cplusplus
+}
+#endif
+

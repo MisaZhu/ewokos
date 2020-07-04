@@ -6,6 +6,11 @@
 #include <string.h>
 #include <console/console.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+
 #define T_W 2 /*tab width*/
 
 static void cons_draw_char(console_t* console, graph_t* g, int32_t x, int32_t y, char c) {
@@ -180,3 +185,8 @@ void console_put_string(console_t* console, const char* s) {
 		s++;
 	}
 }
+
+#ifdef __cplusplus
+}
+#endif
+

@@ -1,9 +1,13 @@
 #ifndef STDLIB_H
 #define STDLIB_H
 
-#include <stddef.h>
-#include <stddef.h>
+#include <sys/ewokdef.h>
 #include <sys/basic_math.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 
 void *malloc(size_t size);
 void *calloc(size_t nmemb, size_t size);
@@ -18,5 +22,9 @@ int atoi_base(const char *s, int b);
 int atoi(const char *s);
 float atof(const char *s);
 uint32_t random(void);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

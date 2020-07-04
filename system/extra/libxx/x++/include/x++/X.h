@@ -1,11 +1,7 @@
 #ifndef X_H
 #define X_H
 
-extern "C" {
-	#include <stddef.h>
-	#include <x/xclient.h>
-}
-
+#include <x/xclient.h>
 #include <graphxx/graphxx.h>
 #include <x++/XWin.h>
 

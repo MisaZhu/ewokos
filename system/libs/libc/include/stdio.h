@@ -1,10 +1,13 @@
 #ifndef STDIO_H
 #define STDIO_H
 
+#include <sys/ewokdef.h>
 #include <fcntl.h>
-#include <stdint.h>
-#include <stddef.h>
-#include <stdbool.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 
 void printf(const char *format, ...);
 void dprintf(int fd, const char *format, ...);
@@ -30,5 +33,9 @@ void     fprintf(FILE* fp, const char *format, ...);
 extern FILE* stdin;
 extern FILE* stdout;
 extern FILE* stderr;
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

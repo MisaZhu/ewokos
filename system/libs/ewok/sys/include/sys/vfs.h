@@ -5,6 +5,11 @@
 #include <sys/mstr.h>
 #include <sys/proto.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+
 const char* vfs_fullname(const char* fname);
 
 int       vfs_read_pipe(fsinfo_t* info, void* buf, uint32_t size, int block);
@@ -50,5 +55,9 @@ enum {
 }; //cntl command
 
 int       vfs_fcntl(int fd, int cmd, proto_t* in, proto_t* out);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

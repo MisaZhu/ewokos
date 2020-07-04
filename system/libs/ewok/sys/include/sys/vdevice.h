@@ -4,6 +4,11 @@
 #include <sys/fsinfo.h>
 #include <sys/proto.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+
 #define MAX_TRUST_PID 10
 
 typedef struct {
@@ -33,5 +38,9 @@ extern int device_run(vdevice_t* dev, const char* mnt_point, int mnt_type);
 extern int dev_cntl(const char* fname, int cmd, proto_t* in, proto_t* out);
 extern int dev_cntl_by_pid(int pid, int cmd, proto_t* in, proto_t* out);
 extern int dev_get_pid(const char* fname);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

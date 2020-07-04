@@ -12,6 +12,11 @@
 #include <sys/syscall.h>
 #include <sys/lockc.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+
 static void do_open(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, void* p) {
 	fsinfo_t info;
 	int oflag;
@@ -433,3 +438,8 @@ int dev_cntl(const char* fname, int cmd, proto_t* in, proto_t* out) {
 		return -1;
 	return dev_cntl_by_pid(pid, cmd, in, out);
 }
+
+#ifdef __cplusplus
+}
+#endif
+

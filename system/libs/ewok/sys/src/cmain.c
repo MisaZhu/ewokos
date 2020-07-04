@@ -1,11 +1,14 @@
 #include <sys/cmain.h>
-#include <stddef.h>
 #include <string.h>
-#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/syscall.h>
 #include <unistd.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 
 static char _cmd[1024];
 static int _off_cmd;
@@ -94,3 +97,8 @@ void _start(void) {
 	close_stdio();
 	exit(ret);
 }
+
+#ifdef __cplusplus
+}
+#endif
+

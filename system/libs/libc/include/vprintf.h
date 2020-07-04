@@ -1,12 +1,21 @@
 #ifndef VPRINTF_H
 #define VPRINTF_H
 
+#include <sys/ewokdef.h>
 #include <stdarg.h>
-#include <stdint.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 
 typedef void (*outc_func_t)(char c, void* p);
 
 void v_printf(outc_func_t outc, void* p, const char* format, va_list ap);
-int32_t snprintf(char *target, int32_t size, const char *format, ...);
+int snprintf(char *target, int size, const char *format, ...);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

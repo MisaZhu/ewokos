@@ -5,6 +5,11 @@
 #include <x/xcntl.h>
 #include <x/xevent.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+
 typedef struct st_xevent {
   xevent_t event;
   struct st_xevent* next;
@@ -48,5 +53,9 @@ int      x_call_xim(xwin_t* xwin);
 
 void     x_init(x_t* x, void* data);
 void     x_run(x_t* x, void* loop_data);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

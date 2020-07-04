@@ -262,7 +262,6 @@ EXTRA_LIBXX_DIR=extra/libxx
 extra_libs:
 	cd $(EXTRA_LIBS_DIR)/libm; make
 	cd $(EXTRA_LIBS_DIR)/console; make
-	cd $(EXTRA_LIBS_DIR)/mario; make
 	cd $(EXTRA_LIBS_DIR)/hash; make
 	cd $(EXTRA_LIBS_DIR)/sconf; make
 	cd $(EXTRA_LIBS_DIR)/upng; make
@@ -273,7 +272,6 @@ extra_libs:
 EXTRA_BIN_DIR=extra/bin
 APPS_DIR=extra/apps
 extra_apps:
-	cd $(EXTRA_BIN_DIR)/mario;make
 	cd $(APPS_DIR)/gtest;make
 	cd $(APPS_DIR)/snake;make
 	cd $(APPS_DIR)/launcher;make
@@ -307,7 +305,6 @@ clean:
 	cd $(APPS_DIR)/xconsole;make clean
 	cd $(APPS_DIR)/png;make clean
 	cd $(APPS_DIR)/xim;make clean
-	cd $(EXTRA_BIN_DIR)/mario;make clean;
 	cd $(EXTRA_LIBS_DIR)/libm; make clean
 	cd $(EXTRA_LIBS_DIR)/console; make clean
 	cd $(EXTRA_LIBS_DIR)/console;make clean

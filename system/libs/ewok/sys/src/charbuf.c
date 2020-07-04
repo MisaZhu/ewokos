@@ -1,6 +1,11 @@
 #include <sys/charbuf.h>
 #include <string.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+
 void charbuf_init(charbuf_t *buffer) {
 	memset(buffer, 0, sizeof(charbuf_t));	
 }
@@ -41,4 +46,8 @@ int32_t charbuf_pop(charbuf_t *buffer, char* c) {
 	buffer->size--;
 	return 0;
 }
+
+#ifdef __cplusplus
+}
+#endif
 

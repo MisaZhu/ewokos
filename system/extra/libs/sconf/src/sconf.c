@@ -5,6 +5,11 @@
 #include <unistd.h>
 #include <string.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+
 static inline int is_space(char c) {
 	if(c == ' ' || c == '\t' || c == '\r' || c == '\n')
 		return 1;
@@ -150,3 +155,8 @@ sconf_t* sconf_load(const char* fname) {
 	free(str);
 	return ret;
 }
+
+#ifdef __cplusplus
+}
+#endif
+

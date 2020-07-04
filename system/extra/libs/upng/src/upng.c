@@ -30,6 +30,10 @@ freely, subject to the following restrictions:
 #include <limits.h>
 
 #include "upng/upng.h"
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 
 #define MAKE_BYTE(b) ((b) & 0xFF)
 #define MAKE_DWORD(a,b,c,d) ((MAKE_BYTE(a) << 24) | (MAKE_BYTE(b) << 16) | (MAKE_BYTE(c) << 8) | MAKE_BYTE(d))
@@ -1321,3 +1325,8 @@ graph_t* png_image_new(const char* filename) {
 	upng_free(png);
 	return img;
 }
+
+#ifdef __cplusplus
+}
+#endif
+

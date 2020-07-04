@@ -5,6 +5,11 @@
 #include <string.h>
 #include <unistd.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+
 #define EXT2_BLOCK_SIZE 1024
 #define SD_DEV_PID      1
 
@@ -152,3 +157,7 @@ int32_t sd_init(void) {
 	}
 	return 0;
 }
+
+#ifdef __cplusplus
+}
+#endif

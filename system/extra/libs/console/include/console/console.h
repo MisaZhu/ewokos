@@ -2,6 +2,10 @@
 #define CONSOLE_H
 
 #include <graph/graph.h>
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 
 typedef struct {
 	uint32_t start_row;
@@ -32,5 +36,9 @@ void console_refresh(console_t* console, graph_t* g);
 int32_t console_reset(console_t* console, uint32_t w, uint32_t h);
 void console_put_char(console_t* console, char c);
 void console_put_string(console_t* console, const char* s);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

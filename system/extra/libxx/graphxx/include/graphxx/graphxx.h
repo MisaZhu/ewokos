@@ -1,10 +1,8 @@
 #ifndef GRAPHXX_H
 #define GRAPHXX_H
 
-extern "C" {
-	#include <stddef.h>
-	#include <graph/graph.h>
-}
+#include <stddef.h>
+#include <graph/graph.h>
 
 class Graph {
 protected:

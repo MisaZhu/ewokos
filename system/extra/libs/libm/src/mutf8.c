@@ -1,6 +1,5 @@
 #include "mutf8.h"
 #include <stdio.h>
-#include <stddef.h>
 #include <stdlib.h>
 
 #ifdef __cplusplus

@@ -7,6 +7,11 @@
 #include <stdio.h>
 #include <string.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+
 #define INITIAL_SIZE (128)
 #define MAX_CHAIN_LENGTH (8)
 
@@ -405,3 +410,8 @@ int hashmap_length(map_t in){
 	if(m != NULL) return m->size;
 	else return 0;
 }
+
+#ifdef __cplusplus
+}
+#endif
+

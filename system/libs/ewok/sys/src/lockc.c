@@ -3,6 +3,11 @@
 #include <sys/syscall.h>
 #include <unistd.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+
 uint32_t lock_new(void) {
 	int core_pid = syscall0(SYS_CORE_PID);
 	if(core_pid < 0)
@@ -77,3 +82,8 @@ int lock_unlock(uint32_t lock) {
 	PF->clear(&out);
 	return res;
 }
+
+#ifdef __cplusplus
+}
+#endif
+

@@ -3,6 +3,11 @@
 
 #include <sys/fsinfo.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+
 enum {
 	VFS_GET_BY_NAME = 0,
 	VFS_GET_BY_FD,
@@ -26,5 +31,9 @@ enum {
 	VFS_PROC_CLONE,
 	VFS_PROC_EXIT
 };
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

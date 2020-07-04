@@ -2,8 +2,12 @@
 #define IPC_H
 
 #include <sys/proto.h>
-#include <stddef.h>
-#include <stdbool.h>
+#include <sys/ewokdef.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 
 typedef void (*ipc_handle_t)(int from_pid, int call_id, void* p);
 int      ipc_call(int to_pid, int call_id, const proto_t* ipkg, proto_t* opkg);
@@ -25,5 +29,8 @@ int ipc_serv_get(const char* ipc_serv_id);
 typedef void (*ipc_serv_handle_t)(int from_pid, int cmd, proto_t* in, proto_t* out, void* p);
 int ipc_serv_run(ipc_serv_handle_t handle, void* p, bool prefork);
 
+#ifdef __cplusplus 
+}
+#endif
 
 #endif

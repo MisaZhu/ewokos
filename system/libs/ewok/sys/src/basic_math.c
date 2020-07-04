@@ -1,6 +1,10 @@
 #include <sys/basic_math.h>
 #include <sys/syscall.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 inline uint32_t div_u32(uint32_t v, uint32_t by) {
 	if(by == 0)
 		return 0;
@@ -107,3 +111,8 @@ inline uint32_t random_to(uint32_t to) {
 	}
 	return mod_u32(r, to);
 }
+
+#ifdef __cplusplus
+}
+#endif
+

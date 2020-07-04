@@ -1,8 +1,12 @@
 #ifndef MARIO_ARRAY
 #define MARIO_ARRAY
 
-#include <stdint.h>
-#include <stddef.h>
+#include <sys/ewokdef.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 
 /**
 array functions.
@@ -30,5 +34,9 @@ void array_del(m_array_t* array, uint32_t index, free_func_t fr);
 void array_remove_all(m_array_t* array);
 void array_clean(m_array_t* array, free_func_t fr);
 #define array_tail(array) (((array)->items == NULL || (array)->size == 0) ? NULL: (array)->items[(array)->size-1]);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

@@ -1,6 +1,6 @@
-extern "C" {
-	#include <stdlib.h>
+#include <stdlib.h>
 
+extern "C" {
 	void __cxa_pure_virtual(void) {while(1);}
 }
 

@@ -2,7 +2,6 @@
 #define MARIO_UTF8
 
 #include "mstrx.h"
-#include <stdbool.h>
 
 #ifdef __cplusplus /* __cplusplus */
 extern "C" {

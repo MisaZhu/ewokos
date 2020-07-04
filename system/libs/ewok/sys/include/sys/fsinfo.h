@@ -2,6 +2,11 @@
 #define FS_INFO_H
 
 #include <stdint.h>
+#ifdef __cplusplus 
+extern "C" { 
+#endif
+
+
 
 #define FS_MOUNT_MAX 32
 
@@ -57,4 +62,9 @@ typedef struct {
 	uint32_t data;
 } fsinfo_t;
 
+#ifdef __cplusplus 
+}
 #endif
+
+#endif
+

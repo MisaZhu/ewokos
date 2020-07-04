@@ -1,8 +1,12 @@
 #ifndef BUFFER_H
 #define BUFFER_H
 
-#include <stddef.h>
-#include <stdint.h>
+#include <sys/ewokdef.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 
 #define BUFFER_SIZE 1024
 
@@ -15,5 +19,9 @@ typedef struct {
 extern int32_t buffer_is_empty(buffer_t* buffer);
 extern int32_t buffer_read(buffer_t* buffer, void* buf, int32_t size);
 extern int32_t buffer_write(buffer_t* buffer, const void* buf, int32_t size);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

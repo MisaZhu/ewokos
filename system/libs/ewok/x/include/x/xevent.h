@@ -1,7 +1,12 @@
 #ifndef XEVENT_H
 #define XEVENT_H
 
-#include <stdint.h>
+#include <sys/ewokdef.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 
 enum {
 	XEVT_NONE = 0,
@@ -51,5 +56,9 @@ typedef struct {
 		} window;
 	} value;
 } xevent_t;
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

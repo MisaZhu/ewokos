@@ -1,7 +1,11 @@
 #ifndef PROC_H
 #define PROC_H
 
-#include <stdint.h>
+#include <sys/ewokdef.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 enum {
 	PROC_CMD_SET_CWD = 0,
@@ -23,5 +27,9 @@ void proc_wait_ready(int pid);
 
 void proc_block(int by_pid, uint32_t evt);
 void proc_wakeup(uint32_t evt);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

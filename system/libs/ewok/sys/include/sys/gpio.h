@@ -1,8 +1,12 @@
 #ifndef GPIO_H
 #define GPIO_H
 
-#include <stdint.h>
-#include <stddef.h>
+#include <sys/ewokdef.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 
 enum {
 	GPIO_PULL_NONE = 0,
@@ -22,5 +26,9 @@ int32_t gpio_pull(int32_t fd, int32_t gpio_num, int32_t pull_dir);
 int32_t gpio_write(int32_t fd, int32_t gpio_num, int32_t value);
 
 uint32_t gpio_read(int32_t fd, int32_t gpio_num);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

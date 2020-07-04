@@ -2,7 +2,12 @@
 #define GRAPH_H
 
 #include <graph/font.h>
-#include <stdbool.h>
+#include <sys/ewokdef.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 
 typedef struct {
 	uint32_t *buffer;
@@ -69,5 +74,9 @@ void graph_blt_alpha(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_t s
 bool check_in_rect(int32_t x, int32_t y, grect_t* rect);
 
 void graph_dup16(uint16_t* dst, uint32_t* src, int32_t w, int32_t h);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

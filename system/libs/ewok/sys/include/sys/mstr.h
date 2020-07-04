@@ -1,8 +1,12 @@
 #ifndef MARIO_STRING
 #define MARIO_STRING
 
-#include <stdint.h>
-#include <stdbool.h>
+#include <sys/ewokdef.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 
 /**
 string functions.
@@ -34,5 +38,9 @@ str_t* str_format(str_t* str, const char *format, ...);
 str_t* str_format_new(const char *format, ...);
 
 #define CS(s) ((s)->cstr)
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

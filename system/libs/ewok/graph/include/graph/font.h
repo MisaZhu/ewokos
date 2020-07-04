@@ -1,7 +1,12 @@
 #ifndef FONT_H
 #define FONT_H
 
-#include <stdint.h>
+#include <sys/ewokdef.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 
 typedef struct  {
 	int32_t idx;
@@ -19,5 +24,9 @@ font_t* font_by_name(const char* name);
 font_item_t* font_by_index(uint32_t index);
 
 int32_t get_text_size(const char* s, font_t* font, int32_t *w, int32_t* h);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

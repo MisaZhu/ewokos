@@ -11,11 +11,20 @@
 #define SEEK_CUR 1
 #define SEEK_END 2
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+
 int  open(const char* name, int oflag);
 void close(int fd);
 int  dma(int fd, int* size);
 void flush(int fd);
 
 int dev_ping(int pid);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

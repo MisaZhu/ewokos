@@ -1,9 +1,13 @@
 #ifndef XCNTL_H
 #define XCNTL_H
 
-#include <stdbool.h>
-#include <stddef.h>
+#include <sys/ewokdef.h>
 #include <graph/graph.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 
 enum {
 	X_CNTL_NONE = 0,
@@ -59,5 +63,9 @@ typedef struct {
 	int id;
 	gsize_t size;
 } xscreen_t;
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

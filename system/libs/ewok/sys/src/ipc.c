@@ -1,9 +1,13 @@
 #include <sys/ipc.h>
-#include <stddef.h>
 #include <sys/syscall.h>
 #include <sys/core.h>
 #include <sys/proc.h>
 #include <unistd.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 
 int ipc_setup(ipc_handle_t handle, void* p, bool prefork) {
 	return syscall3(SYS_IPC_SETUP, (int32_t)handle, (int32_t)p, (int32_t)prefork);
@@ -132,3 +136,8 @@ int ipc_serv_run(ipc_serv_handle_t handle, void* p, bool prefork) {
 	proc_ready_ping();
 	return ipc_setup(handle_ipc, p, prefork);
 }
+
+#ifdef __cplusplus
+}
+#endif
+

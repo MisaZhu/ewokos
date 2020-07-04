@@ -10,6 +10,11 @@
 #include <x/xcntl.h>
 #include <x/xwm.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+
 static void draw_drag_frame(xwm_t* xwm, proto_t* in) {
 	grect_t r;
 	int shm_id = proto_read_int(in);
@@ -190,3 +195,8 @@ void xwm_run(xwm_t* xwm) {
 		sleep(1);
 	}
 }
+
+#ifdef __cplusplus
+}
+#endif
+

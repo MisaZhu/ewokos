@@ -1,7 +1,5 @@
 #include "x++/XWin.h"
-extern "C" {
-	#include <stdio.h>
-}
+#include <stdio.h>
 
 static void _on_repaint(xwin_t* xw, graph_t* g) {
 	if(xw == NULL || g == NULL)

@@ -1,6 +1,11 @@
 #include <sys/buffer.h>
 #include <string.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+
 int32_t buffer_is_empty(buffer_t* buffer) {
 	int32_t rest = buffer->size - buffer->offset;
 	if(rest > 0)
@@ -33,4 +38,8 @@ int32_t buffer_write(buffer_t* buffer, const void* buf, int32_t size) {
 	}
 	return 0;
 }
+
+#ifdef __cplusplus
+}
+#endif
 

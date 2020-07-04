@@ -1,8 +1,6 @@
 #include "x++/X.h"
 #include "x++/XWin.h"
-extern "C" {
-	#include <stdio.h>
-}
+#include <stdio.h>
 
 bool X::open(XWin* xwin, int x, int y, uint32_t w, uint32_t h, const char* title, uint32_t style) {
 	xwin_t* xw = x_open(&this->x, x, y, w, h, title, style);

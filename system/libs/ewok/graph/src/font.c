@@ -1,5 +1,10 @@
-#include "graph/font.h"
+#include <graph/font.h>
 #include <string.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 
 extern font_t font_16x32;
 extern font_t font_12x24;
@@ -62,4 +67,7 @@ int32_t get_text_size(const char* s, font_t* font, int32_t* w, int32_t* h) {
 	return 0;
 }
 
+#ifdef __cplusplus 
+}
+#endif
 

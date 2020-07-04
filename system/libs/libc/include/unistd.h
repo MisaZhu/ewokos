@@ -1,9 +1,14 @@
 #ifndef UNISTD_H
 #define UNISTD_H
 
-#include <stdint.h>
+#include <sys/ewokdef.h>
 #include <errno.h>
 #include <sys/cmain.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 
 #define ERR_RETRY -2
 
@@ -30,5 +35,9 @@ int dup2(int from, int to);
 int dup(int from);
 
 int pipe(int fds[2]);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

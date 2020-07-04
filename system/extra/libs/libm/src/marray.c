@@ -2,6 +2,11 @@
 #include <stdlib.h>
 #include <string.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+
 /** array functions.-----------------------------*/
 
 #define ARRAY_BUF 16
@@ -128,4 +133,8 @@ inline void array_clean(m_array_t* array, free_func_t fr) { //remove all items a
 	}
 	array->max = array->size = 0;
 }
+
+#ifdef __cplusplus
+}
+#endif
 

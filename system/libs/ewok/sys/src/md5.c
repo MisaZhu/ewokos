@@ -5,6 +5,11 @@
 #include <string.h>
 #include <vprintf.h>
 #include <sys/md5.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
  
 // Constants are the integer part of the sines of integers (in radians) * 2^32.
 const uint32_t k[64] = {
@@ -155,3 +160,8 @@ const char* md5_encode_str(const uint8_t *initial_msg, uint32_t initial_len) {
 	}
 	return ret;
 }
+
+#ifdef __cplusplus
+}
+#endif
+

@@ -4,6 +4,11 @@
 #include <graph/graph.h>
 #include <x/xcntl.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+
 enum {
 	XWM_CNTL_DRAW_FRAME = 0,
 	XWM_CNTL_DRAW_DRAG_FRAME,
@@ -35,5 +40,9 @@ typedef struct {
 } xwm_t;
 
 void xwm_run(xwm_t* xwm);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

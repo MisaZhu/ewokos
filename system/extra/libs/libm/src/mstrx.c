@@ -3,6 +3,11 @@
 #include <stdlib.h>
 #include <string.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+
 void str_split(const char* str, char c, m_array_t* array) {
 	int i = 0;
 	char offc = str[i];
@@ -25,4 +30,8 @@ void str_split(const char* str, char c, m_array_t* array) {
 		}
 	}
 }
+
+#ifdef __cplusplus 
+}
+#endif
 

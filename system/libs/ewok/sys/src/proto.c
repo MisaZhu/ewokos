@@ -2,6 +2,11 @@
 #include <string.h>
 #include <stdlib.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+
 static proto_factor_t _proto_factor;
 
 static proto_factor_t* proto_init(proto_t* proto, void* data, uint32_t size) {
@@ -149,3 +154,8 @@ void proto_free(proto_t* proto) {
 	proto_clear(proto);
 	free(proto);
 }
+
+#ifdef __cplusplus
+}
+#endif
+

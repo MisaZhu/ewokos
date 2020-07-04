@@ -11,6 +11,11 @@
 #include <fcntl.h>
 #include <string.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+
 int x_update_info(xwin_t* xwin, const xinfo_t* info) {
 	proto_t in;
 	PF->init(&in, NULL, 0)->add(&in, info, sizeof(xinfo_t));
@@ -287,3 +292,8 @@ void  x_run(x_t* x, void* loop_data) {
 		}
 	}
 }
+
+#ifdef __cplusplus
+}
+#endif
+

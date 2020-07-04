@@ -247,7 +247,7 @@ static void outc_sn(char c, void* p) {
  * sprintf formats the given data and outputs the result into the given character
  * pointer. See vsprintf for the format flags currently supported.
  */
-int32_t snprintf(char *target, int32_t size, const char *format, ...) {
+int snprintf(char *target, int size, const char *format, ...) {
 	outc_arg_t arg;
 	arg.p = target;
 	arg.index = 0;

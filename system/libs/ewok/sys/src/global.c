@@ -2,8 +2,12 @@
 #include <sys/syscall.h>
 #include <sys/ipc.h>
 #include <sys/core.h>
-#include <stddef.h>
 #include <string.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 
 int set_global(const char* key, proto_t* val) {
 	int core_pid = syscall0(SYS_CORE_PID);
@@ -61,4 +65,8 @@ const char* get_global_str(const char* key) {
 	PF->clear(&out);
 	return s;
 }
+
+#ifdef __cplusplus
+}
+#endif
 

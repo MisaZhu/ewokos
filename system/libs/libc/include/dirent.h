@@ -3,6 +3,11 @@
 
 #include <sys/fsinfo.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+
 typedef struct {
 	uint32_t  num;    //kids num
 	fsinfo_t* kids;	  //kids info
@@ -32,5 +37,9 @@ int            telldir(DIR* dirp);
 struct dirent* readdir(DIR *dirp);
 void           rewinddir(DIR* dirp);
 void           seekdir(DIR* dirp, uint32_t loc);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

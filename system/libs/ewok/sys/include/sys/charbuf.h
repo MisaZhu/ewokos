@@ -1,8 +1,11 @@
 #ifndef C_BUF_H
 #define C_BUF_H
 
-#include <stdint.h>
-#include <stdbool.h>
+#include <sys/ewokdef.h>
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 
 #define CHAR_BUF_MAX 128
 
@@ -15,5 +18,9 @@ typedef struct {
 void    charbuf_init(charbuf_t *buffer);
 int32_t charbuf_push(charbuf_t *buffer, char c, bool loop);
 int32_t charbuf_pop(charbuf_t *buffer, char* c);
+
+#ifdef __cplusplus 
+}
+#endif
 
 #endif

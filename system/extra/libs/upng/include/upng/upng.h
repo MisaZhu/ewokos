@@ -28,6 +28,10 @@ freely, subject to the following restrictions:
 #define UPNG_H
 
 #include <graph/graph.h>
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 
 typedef enum upng_error {
 	UPNG_EOK			= 0, /* success (no error) */
@@ -81,5 +85,9 @@ const unsigned char*	upng_get_buffer		(const upng_t* upng);
 unsigned				upng_get_size		(const upng_t* upng);
 
 graph_t* png_image_new(const char* filename);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /*defined(UPNG_H)*/

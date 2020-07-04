@@ -3,6 +3,11 @@
 #include <sys/syscall.h>
 #include <unistd.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+
 int get_procd_pid(void) {
 	return ipc_serv_get(IPC_SERV_PROC);
 }
@@ -42,4 +47,8 @@ void proc_wakeup(uint32_t evt) {
 void proc_exec_elf(const char* cmd_line, const char* elf, int32_t size) {
 	syscall3(SYS_EXEC_ELF, (int32_t)cmd_line, (int32_t)elf, size);
 }
+
+#ifdef __cplusplus
+}
+#endif
 

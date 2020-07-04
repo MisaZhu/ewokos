@@ -9,6 +9,11 @@
 #ifndef __HASHMAP_H__
 #define __HASHMAP_H__
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+
 #define MAP_MISSING -3  /* No such element */
 #define MAP_FULL -2 	/* Hashmap is full */
 #define MAP_OMEM -1 	/* Out of Memory */
@@ -77,6 +82,10 @@ extern void hashmap_free(map_t in);
  * Get the current size of a hashmap
  */
 extern int hashmap_length(map_t in);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif
 

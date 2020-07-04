@@ -1,7 +1,12 @@
 #ifndef PROTO_H
 #define PROTO_H
 
-#include <stdint.h>
+#include <sys/ewokdef.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 
 #define PROTO_BUFFER 128
 
@@ -42,5 +47,9 @@ void proto_free(proto_t* proto);
 proto_factor_t* get_proto_factor(void);
 
 #define PF get_proto_factor()
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

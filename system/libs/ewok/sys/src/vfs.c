@@ -10,6 +10,11 @@
 #include <sys/vfsc.h>
 #include <sys/proc.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+
 inline static int get_vfsd_pid(void) {
 	return ipc_serv_get(IPC_SERV_VFS);
 }
@@ -751,3 +756,8 @@ int vfs_write_nblock(int fd, const void* buf, uint32_t size) {
 		return vfs_write_pipe(&info, buf, size, 0);
 	return vfs_write(fd, &info, buf, size);
 }
+
+#ifdef __cplusplus
+}
+#endif
+
