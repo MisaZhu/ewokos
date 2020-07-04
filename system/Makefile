@@ -142,6 +142,7 @@ LIB_LIBC_OBJS = $(LIB_LIBC_DIR)/src/unistd/chdir.o \
 	$(LIB_LIBC_DIR)/src/pthread/pthread_create.o \
 	\
 	$(LIB_LIBC_DIR)/src/stdio/vprintf.o \
+	$(LIB_LIBC_DIR)/src/stdio/snprintf.o \
 	$(LIB_LIBC_DIR)/src/stdio/dprintf.o \
 	$(LIB_LIBC_DIR)/src/stdio/printf.o \
 	$(LIB_LIBC_DIR)/src/stdio/fprintf.o \

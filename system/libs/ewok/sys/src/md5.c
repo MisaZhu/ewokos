@@ -3,7 +3,7 @@
  */
 #include <stdlib.h>
 #include <string.h>
-#include <vprintf.h>
+#include <stdio.h>
 #include <sys/md5.h>
 
 #ifdef __cplusplus

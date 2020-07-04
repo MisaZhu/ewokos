@@ -11,6 +11,7 @@ extern "C" {
 
 void printf(const char *format, ...);
 void dprintf(int fd, const char *format, ...);
+int snprintf(char *target, int size, const char *format, ...);
 
 int  getch(void);
 void putch(int c);
