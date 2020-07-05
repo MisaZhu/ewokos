@@ -573,12 +573,13 @@ proc_t* proc_get_proc(proc_t* proc) {
 	return NULL;
 }
 
-int32_t proc_ipc_setup(context_t* ctx, uint32_t entry, uint32_t extra_data, bool prefork) {
+int32_t proc_ipc_setup(context_t* ctx, uint32_t entry, uint32_t extra_data, bool nonblock) {
+	(void)ctx;
 	_current_proc->space->ipc.entry = entry;
 	_current_proc->space->ipc.extra_data = extra_data;
 	_current_proc->space->ipc.state = IPC_IDLE;
 
-	/*if(prefork) {
+	/*if(nonblock) {
 		proc_t *ipc_thread = kfork_raw(PROC_TYPE_IPC, _current_proc);
 		if(ipc_thread == NULL)
 			return -1;
@@ -592,7 +593,7 @@ int32_t proc_ipc_setup(context_t* ctx, uint32_t entry, uint32_t extra_data, bool
 	}
 	*/
 
-	if(!prefork)
+	if(!nonblock)
 		_current_proc->info.state = BLOCK;
 	return 0;
 }

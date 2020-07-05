@@ -9,8 +9,8 @@ extern "C" {
 #endif
 
 
-int ipc_setup(ipc_handle_t handle, void* p, bool prefork) {
-	return syscall3(SYS_IPC_SETUP, (int32_t)handle, (int32_t)p, (int32_t)prefork);
+int ipc_setup(ipc_handle_t handle, void* p, bool nonblock) {
+	return syscall3(SYS_IPC_SETUP, (int32_t)handle, (int32_t)p, (int32_t)nonblock);
 }
 
 int ipc_set_return(const proto_t* pkg) {
@@ -130,11 +130,11 @@ static void handle_ipc(int pid, int cmd, void* p) {
 	ipc_end();
 }
 
-int ipc_serv_run(ipc_serv_handle_t handle, void* p, bool prefork) {
+int ipc_serv_run(ipc_serv_handle_t handle, void* p, bool nonblock) {
 	_ipc_serv_handle = handle;
 
 	proc_ready_ping();
-	return ipc_setup(handle_ipc, p, prefork);
+	return ipc_setup(handle_ipc, p, nonblock);
 }
 
 #ifdef __cplusplus

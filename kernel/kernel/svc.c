@@ -225,11 +225,15 @@ static void sys_proc_critical_quit(void) {
 	_current_proc->critical_counter = 0;
 }
 
-static int32_t sys_ipc_setup(context_t* ctx, uint32_t entry, uint32_t extra_data, bool prefork) {
-	return proc_ipc_setup(ctx, entry, extra_data, prefork);
+static int32_t sys_ipc_setup(context_t* ctx, uint32_t entry, uint32_t extra_data, bool nonblock) {
+	return proc_ipc_setup(ctx, entry, extra_data, nonblock);
 }
 
-static void sys_ipc_call(context_t* ctx, uint32_t pid, int32_t call_id, proto_t* data) {
+static void sys_ipc_call(context_t* ctx, int32_t pid, int32_t call_id, proto_t* data) {
+	if(_current_proc->info.pid == pid) {
+		ctx->gpr[0] = -2;
+		return;
+	}
 	if((call_id & 0xffff0000) != 0 && _current_proc->info.owner != 0) {
 		//ipc call id > 0xffff0000 means kernel ipccall	
 		ctx->gpr[0] = -2;
@@ -372,7 +376,7 @@ static void sys_get_kevent(context_t* ctx) {
 	ctx->gpr[0] = 0;	
 	kevent_t* kev = sys_get_kevent_raw();
 	if(kev == NULL) {
-		//proc_block_on(ctx, (uint32_t)kev_init);
+		proc_block_on(ctx, (uint32_t)kev_init);
 		return;
 	}
 	ctx->gpr[0] = (int32_t)kev;	

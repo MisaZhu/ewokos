@@ -104,7 +104,7 @@ extern void    renew_sleep_counter(uint32_t usec);
 extern void    proc_usleep(context_t* ctx, uint32_t usec);
 extern void    proc_ready(proc_t* proc);
 
-extern int32_t     proc_ipc_setup(context_t* ctx, uint32_t entry, uint32_t extra, bool prefork);
+extern int32_t     proc_ipc_setup(context_t* ctx, uint32_t entry, uint32_t extra, bool nonblock);
 extern int32_t     proc_ipc_call(context_t* ctx, proc_t* proc, int32_t call_id);
 
 #endif
