@@ -47,7 +47,7 @@ typedef struct {
 		uint32_t state;
 		uint32_t proc_state;
 		int32_t from_pid;
-		context_t ctx;
+		//context_t ctx;
 	} ipc;
 
 } proc_space_t;
