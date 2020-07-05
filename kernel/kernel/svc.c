@@ -283,12 +283,14 @@ static void sys_ipc_get_return(context_t* ctx, uint32_t pid, proto_t* data) {
 	}
 	PF->clear(proc->space->ipc.data);
 	proc->space->ipc.state = IPC_IDLE;
-	//memcpy(&proc->ctx, &proc->space->ipc.ctx, sizeof(context_t));
+
+	memcpy(&proc->ctx, &proc->space->ipc.ctx, sizeof(context_t));
+	proc_ready(proc);
 	proc_wakeup(-1, (uint32_t)&proc->space->ipc.state);
+	schedule(ctx);
 }
 
 static void sys_ipc_set_return(proto_t* data) {
-	//if(_current_proc->type != PROC_TYPE_IPC ||
 	if(_current_proc->space->ipc.entry == 0 ||
 			_current_proc->space->ipc.state != IPC_BUSY) {
 		return;
@@ -370,7 +372,7 @@ static void sys_get_kevent(context_t* ctx) {
 	ctx->gpr[0] = 0;	
 	kevent_t* kev = sys_get_kevent_raw();
 	if(kev == NULL) {
-		proc_block_on(ctx, (uint32_t)kev_init);
+		//proc_block_on(ctx, (uint32_t)kev_init);
 		return;
 	}
 	ctx->gpr[0] = (int32_t)kev;	

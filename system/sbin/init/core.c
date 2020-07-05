@@ -212,6 +212,7 @@ static void do_proc_created(proto_t *data) {
 }
 
 static void do_proc_exit(proto_t *data) {
+	return;
 	int pid = ipc_serv_get(IPC_SERV_VFS);
 	if(pid > 0) {
 		ipc_call(pid, VFS_PROC_EXIT, data, NULL);
