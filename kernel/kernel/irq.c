@@ -32,7 +32,6 @@ static bool do_userspace_int(uint32_t irqs, proto_t* data) {
 
 void irq_handler(context_t* ctx) {
 	__irq_disable();
-	_current_ctx = ctx;
 	proto_t data;
 	bool do_int = false;
 

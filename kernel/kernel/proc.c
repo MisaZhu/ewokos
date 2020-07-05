@@ -17,7 +17,6 @@ __attribute__((__aligned__(PAGE_DIR_SIZE)))
 static page_dir_entry_t _proc_vm[PROC_MAX][PAGE_DIR_NUM];
 proc_t* _current_proc = NULL;
 queue_t _ready_queue;
-context_t* _current_ctx = NULL;
 bool _core_ready = false;
 int32_t _core_pid = -1;
 
@@ -579,6 +578,7 @@ int32_t proc_ipc_setup(context_t* ctx, uint32_t entry, uint32_t extra_data, bool
 	_current_proc->space->ipc.extra_data = extra_data;
 	_current_proc->space->ipc.state = IPC_IDLE;
 
+/*
 	if(prefork) {
 		proc_t *ipc_thread = kfork_raw(PROC_TYPE_IPC, _current_proc);
 		if(ipc_thread == NULL)
@@ -591,6 +591,7 @@ int32_t proc_ipc_setup(context_t* ctx, uint32_t entry, uint32_t extra_data, bool
 		_current_proc->space->ipc.sp = ctx->sp;
 		_current_proc->info.state = BLOCK;
 	}
+	*/
 	return 0;
 }
 
@@ -598,7 +599,7 @@ int32_t proc_ipc_call(context_t* ctx, proc_t* proc, int32_t call_id) {
 	if(proc == NULL || proc->space->ipc.entry == 0 || proc->space->ipc.state != IPC_BUSY)
 		return -1;
 
-	proc_t *ipc_thread = proc_get(proc->space->ipc.ipc_pid);
+	/*proc_t *ipc_thread = proc_get(proc->space->ipc.ipc_pid);
 	if(ipc_thread == NULL)
 		return -1;
 
@@ -609,6 +610,16 @@ int32_t proc_ipc_call(context_t* ctx, proc_t* proc, int32_t call_id) {
 	ipc_thread->ctx.gpr[1] = call_id;
 	ipc_thread->ctx.gpr[2] = proc->space->ipc.extra_data;
 	ipc_thread->info.state = RUNNING;
-	proc_switch(ctx, ipc_thread, true);
+	*/
+
+	proc->space->ipc.proc_state = proc->info.state;
+	memcpy(&proc->space->ipc.ctx, &proc->ctx, sizeof(context_t));
+
+	proc->ctx.pc = proc->ctx.lr = proc->space->ipc.entry;
+	proc->ctx.gpr[0] = proc->space->ipc.from_pid;
+	proc->ctx.gpr[1] = call_id;
+	proc->ctx.gpr[2] = proc->space->ipc.extra_data;
+	proc->info.state = RUNNING;
+	proc_switch(ctx, proc, true);
 	return 0;
 }
