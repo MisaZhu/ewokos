@@ -12,8 +12,6 @@ extern "C" {
 
 #define FS_NODE_NAME_MAX 64
 #define FS_FULL_NAME_MAX 512
-#define FS_TYPE_SYNC     0x80000000
-#define FS_TYPE_MASK     0x0fffffff
 
 enum {
 	FS_TYPE_DIR = 0,

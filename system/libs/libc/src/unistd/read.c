@@ -39,10 +39,8 @@ static int read_block(int fd, void* buf, uint32_t size) {
 			break;
 		if(errno != EAGAIN)
 			break;
-		if((info.type & FS_TYPE_SYNC) != 0)
-			proc_block(info.mount_pid, 0);
-		else
-			sleep(0);
+		proc_block(info.mount_pid, 0);
+		sleep(0);
 	}
 	return res;
 }
