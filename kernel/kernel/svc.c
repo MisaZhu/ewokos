@@ -288,7 +288,7 @@ static void sys_ipc_get_return(context_t* ctx, uint32_t pid, proto_t* data) {
 	PF->clear(proc->space->ipc.data);
 
 	memcpy(&proc->ctx, &proc->space->ipc.ctx, sizeof(context_t));
-	if(proc->space->ipc.proc_state == RUNNING)
+	if(proc->space->ipc.proc_state != BLOCK)
 		proc_ready(proc);
 	else
 		proc->info.state = proc->space->ipc.proc_state;
