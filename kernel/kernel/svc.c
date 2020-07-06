@@ -286,15 +286,8 @@ static void sys_ipc_get_return(context_t* ctx, uint32_t pid, proto_t* data) {
 		}
 	}
 	PF->clear(proc->space->ipc.data);
-
-	memcpy(&proc->ctx, &proc->space->ipc.ctx, sizeof(context_t));
-	if(proc->space->ipc.proc_state == BLOCK)
-		proc->info.state = BLOCK;
-	else
-		proc_ready(proc);
 	proc->space->ipc.state = IPC_IDLE;
 	proc_wakeup(-1, (uint32_t)&proc->space->ipc.state);
-	schedule(ctx);
 }
 
 static void sys_ipc_set_return(proto_t* data) {
@@ -308,15 +301,16 @@ static void sys_ipc_set_return(proto_t* data) {
 }
 
 static void sys_ipc_end(context_t* ctx) {
-	(void)ctx;
 	if(_current_proc->space->ipc.entry == 0 ||
 			_current_proc->space->ipc.state != IPC_BUSY) {
 		return;
 	}
-	_current_proc->info.state = BLOCK;
+
 	_current_proc->space->ipc.state = IPC_RETURN;
 	proc_wakeup(-1, (uint32_t)&_current_proc->space->ipc);
-	schedule(ctx);
+
+	_current_proc->info.state = _current_proc->space->ipc.proc_state;
+	memcpy(ctx, &_current_proc->space->ipc.ctx, sizeof(context_t));
 }
 
 static int32_t sys_ipc_get_arg(void) {

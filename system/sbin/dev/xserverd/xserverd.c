@@ -957,6 +957,12 @@ static void x_close(x_t* x) {
 	close(x->fb_fd);
 }
 
+static int xserver_loop_step(void* p) {
+	x_t* x = (x_t*)p;
+	x_repaint(x);
+	return 0;
+}
+
 int main(int argc, char** argv) {
 	const char* mnt_point = argc > 1 ? argv[1]: "/dev/x";
 
@@ -983,6 +989,7 @@ int main(int argc, char** argv) {
 	dev.close = xserver_close;
 	dev.open = xserver_open;
 	dev.dev_cntl = xserver_dev_cntl;
+	dev.loop_step = xserver_loop_step;
 
 	//pthread_create(NULL, NULL, read_thread, &x);
 	dev.extra_data = &x;
