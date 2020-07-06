@@ -4,6 +4,7 @@
 #include <fcntl.h>
 #include <stdlib.h>
 #include <sys/syscall.h>
+#include <sys/proc.h>
 #include <unistd.h>
 
 #ifdef __cplusplus
@@ -84,6 +85,7 @@ void _start(void) {
 	char* argv[ARG_MAX];
 	int32_t argc = 0;
 
+	proc_init();
 	init_stdio();
 	init_cmd();
 

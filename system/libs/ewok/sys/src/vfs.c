@@ -15,10 +15,6 @@
 extern "C" {
 #endif
 
-int get_vfsd_pid(void) {
-	return ipc_serv_get(IPC_SERV_VFS);
-}
-
 int vfs_new_node(fsinfo_t* info) {
 	proto_t in, out;
 	PF->init(&in, NULL, 0)->add(&in, info, sizeof(fsinfo_t));
@@ -523,15 +519,12 @@ void vfs_flush(int fd) {
 	if(vfs_get_by_fd(fd, &info) != 0)
 		return;
 	
-	proto_t in, out;
-	PF->init(&out, NULL, 0);
-
+	proto_t in;
 	PF->init(&in, NULL, 0)->
 		addi(&in, fd)->
 		add(&in, &info, sizeof(fsinfo_t));
-	ipc_call(info.mount_pid, FS_CMD_FLUSH, &in, &out);
+	ipc_call(info.mount_pid, FS_CMD_FLUSH, &in, NULL);
 	PF->clear(&in);
-	PF->clear(&out);
 }
 
 int vfs_write_block(int pid, const void* buf, uint32_t size, int32_t index) {

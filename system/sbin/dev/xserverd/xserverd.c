@@ -204,7 +204,6 @@ static int draw_view(x_t* xp, xview_t* view) {
 
 static inline void x_dirty(x_t* x) {
 	x->dirty = true;
-	x->need_repaint = true;
 }
 
 static void remove_view(x_t* x, xview_t* view) {
@@ -433,13 +432,19 @@ static void x_repaint(x_t* x) {
 			draw_view(x, view);
 		view = view->next;
 	}
+
 	if(x->show_cursor)
 		draw_cursor(x);
-	vfs_flush(x->fb_fd);
 
+	vfs_flush(x->fb_fd);
 	if(undirty) {
 		x->dirty = false;
 	}
+}
+
+static inline void x_repaint_req(x_t* x) {
+	x->need_repaint = true;
+	x_repaint(x);
 }
 
 static xview_t* x_get_view(x_t* x, int fd, int from_pid) {
@@ -477,7 +482,7 @@ static int x_update(int fd, int from_pid, x_t* x) {
 			(view->xinfo.style & X_STYLE_ALPHA) != 0) {
 		x_dirty(x);
 	}
-	x->need_repaint = true;
+	x_repaint_req(x);
 	return 0;
 }
 
@@ -573,7 +578,7 @@ static int x_update_info_raw(int fd, int from_pid, proto_t* in, x_t* x) {
 		graph_clear(view->g, 0x0);
 	}
 	view->dirty = true;
-	x->need_repaint = true;
+	x_repaint_req(x);
 
 	if(view != x->view_tail ||
 			view->xinfo.wsr.x != xinfo.wsr.x ||
@@ -642,7 +647,7 @@ static int xserver_fcntl(int fd, int from_pid, fsinfo_t* info,
 	x_t* x = (x_t*)p;
 
 	int res = -1;
-	lock_lock(x->lock);
+	//lock_lock(x->lock);
 	if(cmd == X_CNTL_UPDATE) {
 		res = x_update(fd, from_pid, x);
 	}	
@@ -661,7 +666,7 @@ static int xserver_fcntl(int fd, int from_pid, fsinfo_t* info,
 	else if(cmd == X_CNTL_CALL_XIM) {
 		res = x_call_xim(x);
 	}
-	lock_unlock(x->lock);
+	//lock_unlock(x->lock);
 	return res;
 }
 
@@ -676,12 +681,12 @@ static int xserver_open(int fd, int from_pid, fsinfo_t* info, int oflag, void* p
 	if(view == NULL)
 		return -1;
 
-	lock_lock(x->lock);
+	//lock_lock(x->lock);
 	memset(view, 0, sizeof(xview_t));
 	view->fd = fd;
 	view->from_pid = from_pid;
 	push_view(x, view);
-	lock_unlock(x->lock);
+	//lock_unlock(x->lock);
 	return 0;
 }
 
@@ -844,8 +849,8 @@ static void handle_input(x_t* x, xevent_t* ev) {
 	}
 	else if(ev->type == XEVT_MOUSE) {
 		mouse_handle(x, ev);
-		x->need_repaint = true;
 	}
+	x_repaint_req(x);
 }
 
 static int xserver_dev_cntl(int from_pid, int cmd, proto_t* in, proto_t* ret, void* p) {
@@ -885,9 +890,9 @@ static int xserver_close(int fd, int from_pid, fsinfo_t* info, void* p) {
 	if(view == NULL) {
 		return -1;
 	}
-	lock_lock(x->lock);
+	//lock_lock(x->lock);
 	x_del_view(x, view);	
-	lock_unlock(x->lock);
+	//lock_unlock(x->lock);
 	return 0;
 }
 
@@ -940,32 +945,10 @@ static int x_init(x_t* x) {
 	x->show_cursor = true;
 
 	x->lock = lock_new();
+	x->dirty = true;
+	x->actived = true;
 	return 0;
 }	
-
-static int xserver_loop_step(void* p) {
-	x_t* x = (x_t*)p;
-
-	/*const char* cc = get_global_str("system.current_console");
-	if(cc[0] == 'x') {
-		if(x->actived == 0) {
-			x_dirty(x);
-		}
-		x->actived = 1;
-	}
-	else {
-		x->actived = 0;
-		usleep(10000);
-		return -1;
-	}
-	*/
-	x->actived = 1;
-
-	lock_lock(x->lock);
-	x_repaint(x);	
-	lock_unlock(x->lock);
-	return 0;
-}
 
 static void x_close(x_t* x) {
 	lock_free(x->lock);
@@ -1000,7 +983,6 @@ int main(int argc, char** argv) {
 	dev.close = xserver_close;
 	dev.open = xserver_open;
 	dev.dev_cntl = xserver_dev_cntl;
-	dev.loop_step= xserver_loop_step;
 
 	//pthread_create(NULL, NULL, read_thread, &x);
 	dev.extra_data = &x;

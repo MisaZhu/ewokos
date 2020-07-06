@@ -8,8 +8,24 @@ extern "C" {
 #endif
 
 
+static int _procd_pid;
+static int _vfsd_pid;
+
+void proc_init(void) {
+	_procd_pid = -1;
+	_vfsd_pid = -1;
+}
+
 int get_procd_pid(void) {
-	return ipc_serv_get(IPC_SERV_PROC);
+	if(_procd_pid < 0)
+		_procd_pid = ipc_serv_get(IPC_SERV_PROC);
+	return _procd_pid;
+}
+
+int get_vfsd_pid(void) {
+	if(_vfsd_pid < 0)
+		_vfsd_pid = ipc_serv_get(IPC_SERV_VFS);
+	return _vfsd_pid;
 }
 
 int proc_getpid(int pid) {
