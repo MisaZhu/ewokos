@@ -248,7 +248,7 @@ static void sys_ipc_call(context_t* ctx, int32_t pid, int32_t call_id, proto_t* 
 	}
 	if(proc->space->ipc.state != IPC_IDLE) {
 		ctx->gpr[0] = -1;
-		//printf("ipc retry: from: %d, to:%d, call: %d\n", _current_proc->pid, pid, call_id);
+		//printf("ipc retry: from: %d, to:%d, call: %d\n", _current_proc->info.pid, pid, call_id);
 		proc_block_on(ctx, (uint32_t)&proc->space->ipc.state);
 		return;
 	}
@@ -286,10 +286,13 @@ static void sys_ipc_get_return(context_t* ctx, uint32_t pid, proto_t* data) {
 		}
 	}
 	PF->clear(proc->space->ipc.data);
-	proc->space->ipc.state = IPC_IDLE;
 
 	memcpy(&proc->ctx, &proc->space->ipc.ctx, sizeof(context_t));
-	proc_ready(proc);
+	if(proc->space->ipc.proc_state == RUNNING)
+		proc_ready(proc);
+	else
+		proc->info.state = proc->space->ipc.proc_state;
+	proc->space->ipc.state = IPC_IDLE;
 	proc_wakeup(-1, (uint32_t)&proc->space->ipc.state);
 	schedule(ctx);
 }
