@@ -1,4 +1,5 @@
 #include <kernel/ipc.h>
+#include <kernel/proc.h>
 #include <stddef.h>
 #include <kstring.h>
 
@@ -39,4 +40,17 @@ int32_t proc_ipc_call(context_t* ctx, proc_t* proc, ipc_t *ipc) {
 	proc->info.state = RUNNING;
 	proc_switch(ctx, proc, true);
 	return 0;
+}
+
+ipc_t* proc_ipc_req(proc_t* proc) {
+	for(int i=0; i<IPC_CTX_MAX; i++) {
+		if(proc->space->ipc.ctx[i].state == IPC_IDLE)
+			return &proc->space->ipc.ctx[i];
+	}
+	return NULL;
+}
+
+void proc_ipc_close(ipc_t* ipc) {
+	PF->clear(&ipc->data);
+	ipc->state = IPC_IDLE;
 }

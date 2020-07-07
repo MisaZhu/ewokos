@@ -245,7 +245,7 @@ static void sys_ipc_call(context_t* ctx, int32_t pid, int32_t call_id, proto_t* 
 		return;
 	}
 
-	ipc_t* ipc = (ipc_t*)kcalloc(1, sizeof(ipc_t));
+	ipc_t* ipc = proc_ipc_req(_current_proc);
 	ipc->state = IPC_BUSY;
 	ipc->call_id = call_id;
 	PF->init(&ipc->data, NULL, 0);
@@ -280,7 +280,7 @@ static void sys_ipc_get_return(context_t* ctx, ipc_t* ipc, proto_t* data) {
 		}
 	}
 	PF->clear(&ipc->data);
-	kfree(ipc);
+	proc_ipc_close(ipc);
 }
 
 static void sys_ipc_set_return(ipc_t* ipc, proto_t* data) {

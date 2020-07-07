@@ -2,6 +2,7 @@
 #define PROC_H
 
 #include <kernel/context.h>
+#include <kernel/ipc.h>
 #include <mm/mmu.h>
 #include <mm/trunkmem.h>
 #include <procinfo.h>
@@ -28,7 +29,7 @@ enum {
 #define PROC_FILE_MAX 128
 #define SHM_MAX 128
 #define LOCK_MAX 64
-
+#define IPC_CTX_MAX 8
 typedef struct {
 	page_dir_entry_t *vm;
 	malloc_t malloc_man;
@@ -36,11 +37,11 @@ typedef struct {
 	bool ready_ping;
 	
 	int32_t shms[SHM_MAX];
-	uint32_t locks[LOCK_MAX];
 
 	struct {
 		uint32_t entry;
 		uint32_t extra_data;
+		ipc_t ctx[IPC_CTX_MAX];
 	} ipc;
 } proc_space_t;
 

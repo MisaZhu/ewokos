@@ -146,16 +146,6 @@ void proc_shrink_mem(proc_t* proc, int32_t page_num) {
 	_flush_tlb();
 }
 
-static void proc_free_locks(proc_t *proc) {
-	int32_t i;
-	for(i=0; i<LOCK_MAX; i++) {
-		if(proc->space->locks[i] != 0) {
-			kfree((uint32_t*)proc->space->locks[i]);
-			proc->space->locks[i] = 0;
-		}
-	}
-}
-
 static void proc_unmap_shms(proc_t *proc) {
 	int32_t i;
 	for(i=0; i<SHM_MAX; i++) {
@@ -169,8 +159,8 @@ static void __attribute__((optimize("O0"))) proc_free_space(proc_t *proc) {
 	if(proc->info.type != PROC_TYPE_PROC)
 		return;
 
-	/*free locks*/
-	proc_free_locks(proc);
+	for(int i=0; i<IPC_CTX_MAX; i++)
+		PF->clear(&proc->space->ipc.ctx[i].data);
 
 	/*unmap share mems*/
 	proc_unmap_shms(proc);
