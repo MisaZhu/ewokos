@@ -1,9 +1,0 @@
-XJOYSTICKD_OBJS = $(ROOT_DIR)/sbin/x/xjoystick/xjoystickd.o
-
-XJOYSTICKD = $(TARGET_DIR)/$(ROOT_DIR)/sbin/x/xjoystickd
-
-PROGS += $(XJOYSTICKD)
-CLEAN += $(XJOYSTICKD_OBJS)
-
-$(XJOYSTICKD): $(XJOYSTICKD_OBJS) $(LIB_OBJS)
-	$(LD) -Ttext=100 $(XJOYSTICKD_OBJS) -o $(XJOYSTICKD) $(LDFLAGS) -lewokc -lc

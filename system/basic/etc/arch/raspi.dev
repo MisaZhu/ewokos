@@ -1,0 +1,7 @@
+/sbin/dev/fbd             /dev/fb0
+/sbin/dev/nulld           /dev/null
+/sbin/dev/raspi/actledd   /dev/actled
+/sbin/dev/raspi/ttyd      /dev/tty0
+/sbin/dev/raspi/joystickd /dev/joystick
+/sbin/dev/raspi/lcdhatd   /dev/fb1
+/sbin/dev/xserverd        /dev/x
