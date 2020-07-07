@@ -9,12 +9,9 @@ extern "C" {
 #endif
 
 
-typedef void (*ipc_handle_t)(int from_pid, int call_id, void* p);
-int      ipc_call(int to_pid, int call_id, const proto_t* ipkg, proto_t* opkg);
+typedef void (*ipc_handle_t)(uint32_t ipc_id, void* p);
 int      ipc_setup(ipc_handle_t handle, void* p, bool prefork);
-int      ipc_set_return(const proto_t* ipkg);
-proto_t* ipc_get_arg(void);
-void     ipc_end(void);
+int      ipc_call(int to_pid, int call_id, const proto_t* ipkg, proto_t* opkg);
 void     ipc_ready(void);
 
 #define IPC_SERV_VFS      "ipc_serv.vfs"

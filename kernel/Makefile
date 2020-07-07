@@ -24,8 +24,8 @@ BUILD_DIR = build
 SYS_FULL_DIR = ../system
 
 # flags
-#OPTM = -g
-OPTM = -O2
+OPTM = -g
+#OPTM = -O2
 
 CFLAGS += $(OPTM) \
 	-I. -Ilib/include -Iinclude -Iextra/include -Iextra/lib/include \
@@ -117,6 +117,7 @@ KERNEL_OBJS = \
 	${KERNEL_DIR}/irq.o \
 	${KERNEL_DIR}/svc.o \
 	${KERNEL_DIR}/proc.o \
+	${KERNEL_DIR}/ipc.o \
 	${KERNEL_DIR}/schedule.o \
 	${KERNEL_DIR}/systemc.o \
 	${KERNEL_DIR}/kevqueue.o \
@@ -155,8 +156,8 @@ debugasm:
 
 gdb: 
 	echo "target remote :26000" > /tmp/gdbinit
-	#arm-none-eabi-gdb ${BUILD_DIR}/$(OS).elf -x /tmp/gdbinit
-	gdb-multiarch ${BUILD_DIR}/$(OS).elf -x /tmp/gdbinit #for ubuntu 18.04 without arm-none-eabi-gdb
+	arm-none-eabi-gdb ${BUILD_DIR}/$(OS).elf -x /tmp/gdbinit
+	#gdb-multiarch ${BUILD_DIR}/$(OS).elf -x /tmp/gdbinit #for ubuntu 18.04 without arm-none-eabi-gdb
 
 clean:
 	rm -f $(OBJS)

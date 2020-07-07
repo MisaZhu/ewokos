@@ -2,6 +2,7 @@
 #define PROC_H
 
 #include <kernel/context.h>
+#include <kernel/ipc.h>
 #include <mm/mmu.h>
 #include <mm/trunkmem.h>
 #include <procinfo.h>
@@ -28,7 +29,7 @@ enum {
 #define PROC_FILE_MAX 128
 #define SHM_MAX 128
 #define LOCK_MAX 64
-
+#define IPC_CTX_MAX 8
 typedef struct {
 	page_dir_entry_t *vm;
 	malloc_t malloc_man;
@@ -36,20 +37,12 @@ typedef struct {
 	bool ready_ping;
 	
 	int32_t shms[SHM_MAX];
-	uint32_t locks[LOCK_MAX];
 
 	struct {
-		int32_t  ipc_pid;
-		uint32_t sp;
 		uint32_t entry;
-		proto_t* data;
 		uint32_t extra_data;
-		uint32_t state;
-		uint32_t proc_state;
-		int32_t from_pid;
-		context_t ctx;
+		ipc_t ctx[IPC_CTX_MAX];
 	} ipc;
-
 } proc_space_t;
 
 #define STACK_PAGES 32
@@ -103,8 +96,5 @@ extern procinfo_t* get_procs(int32_t* num);
 extern void    renew_sleep_counter(uint32_t usec);
 extern void    proc_usleep(context_t* ctx, uint32_t usec);
 extern void    proc_ready(proc_t* proc);
-
-extern int32_t     proc_ipc_setup(context_t* ctx, uint32_t entry, uint32_t extra, bool nonblock);
-extern int32_t     proc_ipc_call(context_t* ctx, proc_t* proc, int32_t call_id);
 
 #endif

@@ -3,6 +3,7 @@
 #include <kernel/schedule.h>
 #include <kernel/system.h>
 #include <kernel/proc.h>
+#include <kernel/ipc.h>
 #include <kernel/hw_info.h>
 #include <kernel/kevqueue.h>
 #include <mm/kalloc.h>
@@ -230,102 +231,99 @@ static int32_t sys_ipc_setup(context_t* ctx, uint32_t entry, uint32_t extra_data
 }
 
 static void sys_ipc_call(context_t* ctx, int32_t pid, int32_t call_id, proto_t* data) {
+	ctx->gpr[0] = 0;
 	if(_current_proc->info.pid == pid) {
-		ctx->gpr[0] = -2;
 		return;
 	}
 	if((call_id & 0xffff0000) != 0 && _current_proc->info.owner != 0) {
 		//ipc call id > 0xffff0000 means kernel ipccall	
-		ctx->gpr[0] = -2;
 		return;
 	}
 
-	ctx->gpr[0] = 0;
 	proc_t* proc = proc_get(pid);
 	if(proc == NULL || proc->space->ipc.entry == 0) {
-		ctx->gpr[0] = -2;
 		return;
 	}
-	if(proc->space->ipc.state != IPC_IDLE) {
-		ctx->gpr[0] = -1;
-		//printf("ipc retry: from: %d, to:%d, call: %d\n", _current_proc->info.pid, pid, call_id);
-		proc_block_on(ctx, (uint32_t)&proc->space->ipc.state);
-		return;
-	}
-	proc->space->ipc.state = IPC_BUSY;
-	proc->space->ipc.from_pid = _current_proc->info.pid;
+
+	ipc_t* ipc = proc_ipc_req(_current_proc);
+	ipc->state = IPC_BUSY;
+	ipc->call_id = call_id;
+	PF->init(&ipc->data, NULL, 0);
+	ipc->from_pid = _current_proc->info.pid;
 	if(data != NULL)
-		PF->copy(proc->space->ipc.data, data->data, data->size);
-	else
-		PF->clear(proc->space->ipc.data);
-	proc_ipc_call(ctx, proc, call_id);
+		PF->copy(&ipc->data, data->data, data->size);
+
+	ctx->gpr[0] = (int32_t)ipc;
+	proc_ipc_call(ctx, proc, ipc);
 }
 
-static void sys_ipc_get_return(context_t* ctx, uint32_t pid, proto_t* data) {
-	ctx->gpr[0] = 0;
-	proc_t* proc = proc_get(pid);
-
-	if(proc == NULL ||
-			proc->space->ipc.entry == 0 ||
-			proc->space->ipc.from_pid != _current_proc->info.pid ||
-			proc->space->ipc.state == IPC_IDLE) {
+static void sys_ipc_get_return(context_t* ctx, ipc_t* ipc, proto_t* data) {
+	if(ipc == NULL ||
+			ipc->from_pid != _current_proc->info.pid ||
+			ipc->state == IPC_IDLE) {
 		ctx->gpr[0] = -2;
 		return;
 	}
-	if(proc->space->ipc.state != IPC_RETURN) {
+
+	ctx->gpr[0] = 0;
+	if(ipc->state != IPC_RETURN) {
 		ctx->gpr[0] = -1;
-		proc_block_on(ctx, (uint32_t)&proc->space->ipc);
+		proc_block_on(ctx, (uint32_t)ipc);
 		return;
 	}
 
 	if(data != NULL) {
-		data->total_size = data->size = proc->space->ipc.data->size;
+		data->total_size = data->size = ipc->data.size;
 		if(data->size > 0) {
-			data->data = (proto_t*)proc_malloc(proc->space->ipc.data->size);
-			memcpy(data->data, proc->space->ipc.data->data, data->size);
+			data->data = (proto_t*)proc_malloc(ipc->data.size);
+			memcpy(data->data, ipc->data.data, data->size);
 		}
 	}
-	PF->clear(proc->space->ipc.data);
-	proc->space->ipc.state = IPC_IDLE;
-	proc_wakeup(-1, (uint32_t)&proc->space->ipc.state);
+	PF->clear(&ipc->data);
+	proc_ipc_close(ipc);
 }
 
-static void sys_ipc_set_return(proto_t* data) {
-	if(_current_proc->space->ipc.entry == 0 ||
-			_current_proc->space->ipc.state != IPC_BUSY) {
+static void sys_ipc_set_return(ipc_t* ipc, proto_t* data) {
+	if(ipc == NULL || 
+			_current_proc->space->ipc.entry == 0 ||
+			ipc->state != IPC_BUSY) {
 		return;
 	}
 
 	if(data != NULL)
-		PF->copy(_current_proc->space->ipc.data, data->data, data->size);
+		PF->copy(&ipc->data, data->data, data->size);
 }
 
-static void sys_ipc_end(context_t* ctx) {
-	if(_current_proc->space->ipc.entry == 0 ||
-			_current_proc->space->ipc.state != IPC_BUSY) {
+static void sys_ipc_end(context_t* ctx, ipc_t* ipc) {
+	if(ipc == NULL ||
+			_current_proc->space->ipc.entry == 0 ||
+			ipc->state != IPC_BUSY) {
 		return;
 	}
 
-	_current_proc->space->ipc.state = IPC_RETURN;
-	proc_wakeup(-1, (uint32_t)&_current_proc->space->ipc);
 
-	_current_proc->info.state = _current_proc->space->ipc.proc_state;
-	memcpy(ctx, &_current_proc->space->ipc.ctx, sizeof(context_t));
+	_current_proc->info.state = ipc->proc_state;
+	memcpy(ctx, &ipc->ctx, sizeof(context_t));
+	ipc->state = IPC_RETURN;
+	proc_wakeup(-1, (uint32_t)ipc);
 }
 
-static int32_t sys_ipc_get_arg(void) {
-	if(_current_proc->space->ipc.entry == 0 ||
-			_current_proc->space->ipc.state != IPC_BUSY) {
+static int32_t sys_ipc_get_info(ipc_t* ipc, int32_t* pid, int32_t* cmd) {
+	if(ipc == NULL || _current_proc->space->ipc.entry == 0 ||
+			ipc->state != IPC_BUSY) {
 		return 0;
 	}
 
+	*pid = ipc->from_pid;
+	*cmd = ipc->call_id;
+
 	proto_t* ret = NULL;
-	if(_current_proc->space->ipc.data->size > 0) {
+	if(ipc->data.size > 0) {
 		ret = (proto_t*)proc_malloc(sizeof(proto_t));
 		memset(ret, 0, sizeof(proto_t));
-		ret->data = proc_malloc(_current_proc->space->ipc.data->size);
-		ret->total_size = ret->size = _current_proc->space->ipc.data->size;
-		memcpy(ret->data, _current_proc->space->ipc.data->data, _current_proc->space->ipc.data->size);
+		ret->data = proc_malloc(ipc->data.size);
+		ret->total_size = ret->size = ipc->data.size;
+		memcpy(ret->data, ipc->data.data, ipc->data.size);
 	}
 	return (int32_t)ret;
 }
@@ -513,16 +511,16 @@ void svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_t arg2, context
 		sys_ipc_call(ctx, arg0, arg1, (proto_t*)arg2);
 		return;
 	case SYS_IPC_GET_RETURN:
-		sys_ipc_get_return(ctx, arg0, (proto_t*)arg1);
+		sys_ipc_get_return(ctx, (ipc_t*)arg0, (proto_t*)arg1);
 		return;
 	case SYS_IPC_SET_RETURN:
-		sys_ipc_set_return((proto_t*)arg0);
+		sys_ipc_set_return((ipc_t*)arg0, (proto_t*)arg1);
 		return;
 	case SYS_IPC_END:
-		sys_ipc_end(ctx);
+		sys_ipc_end(ctx, (ipc_t*)arg0);
 		return;
 	case SYS_IPC_GET_ARG:
-		ctx->gpr[0] = sys_ipc_get_arg();
+		ctx->gpr[0] = sys_ipc_get_info((ipc_t*)arg0, (int32_t*)arg1, (int32_t*)arg2);
 		return;
 	case SYS_PROC_PING:
 		ctx->gpr[0] = sys_proc_ping(arg0);
@@ -544,6 +542,9 @@ void svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_t arg2, context
 		return;
 	case SYS_CORE_PID:
 		ctx->gpr[0] = sys_core_pid();
+		return;
+	case SYS_SAFE_SET:
+		*(int32_t*)arg0 = arg1;
 		return;
 	}
 	printf("pid:%d, code(%d) error!\n", _current_proc->info.pid, code);

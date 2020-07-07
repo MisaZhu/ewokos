@@ -1,62 +1,38 @@
-#include <sys/core.h>
-#include <sys/ipc.h>
 #include <sys/syscall.h>
-#include <unistd.h>
+#include <sys/lockc.h>
+#include <stdlib.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 
-uint32_t lock_new(void) {
-	int core_pid = syscall0(SYS_CORE_PID);
-	if(core_pid < 0)
+lock_t lock_new(void) {
+	bool* lock = (bool*)malloc(sizeof(bool));
+	if(lock == NULL)
 		return -1;
-
-	proto_t out;
-	PF->init(&out, NULL, 0);
-	int res = ipc_call(core_pid, CORE_CMD_LOCK_NEW, NULL, &out);
-	if(res == 0)
-		res = proto_read_int(&out);
-	else 
-		res = 0;
-	PF->clear(&out);
-	return (uint32_t)res;	
+	*lock = false;
+	return (lock_t)lock;	
 }
 
-int lock_free(uint32_t lock) {
-	int core_pid = syscall0(SYS_CORE_PID);
-	if(core_pid < 0)
-		return -1;
-
-	proto_t in;
-	PF->init(&in, NULL, 0)->addi(&in, lock);
-	int res = ipc_call(core_pid, CORE_CMD_LOCK_FREE, &in, NULL);
-	PF->clear(&in);
-	if(res != 0)
-		res = -1;
-	return res;
+void lock_free(lock_t lock) {
+	if(lock == 0)
+		return;
+	bool* p = (bool*)lock;
+	free(p);
 }
 
-static int lock_lock_raw(uint32_t lock) {
-	int core_pid = syscall0(SYS_CORE_PID);
-	if(core_pid < 0)
+static int lock_lock_raw(lock_t lock) {
+	if(lock == 0)
+		return 0;
+	bool* locked = (bool*)lock;
+	if(*locked)
 		return -1;
-
-	proto_t in, out;
-	PF->init(&out, NULL, 0);
-	PF->init(&in, NULL, 0)->addi(&in, lock);
-	int res = ipc_call(core_pid, CORE_CMD_LOCK, &in, &out);
-	PF->clear(&in);
-	if(res == 0)
-		res = proto_read_int(&out);
-	else
-		res = -1;
-	PF->clear(&out);
-	return res;
+	syscall2(SYS_SAFE_SET, lock, true);
+	return 0;
 }
 
-int lock_lock(uint32_t lock) {
+int lock_lock(lock_t lock) {
 	while(1) {
 		if(lock_lock_raw(lock) == 0)
 			break;
@@ -65,22 +41,10 @@ int lock_lock(uint32_t lock) {
 	return 0;
 }
 
-int lock_unlock(uint32_t lock) {
-	int core_pid = syscall0(SYS_CORE_PID);
-	if(core_pid < 0)
-		return -1;
-
-	proto_t in, out;
-	PF->init(&out, NULL, 0);
-	PF->init(&in, NULL, 0)->addi(&in, lock);
-	int res = ipc_call(core_pid, CORE_CMD_UNLOCK, &in, &out);
-	PF->clear(&in);
-	if(res == 0)
-		res = proto_read_int(&out);
-	else
-		res = -1;
-	PF->clear(&out);
-	return res;
+void lock_unlock(lock_t lock) {
+	if(lock == 0)
+		return 0;
+	syscall2(SYS_SAFE_SET, lock, false);
 }
 
 #ifdef __cplusplus

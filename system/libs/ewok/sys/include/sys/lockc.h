@@ -7,11 +7,12 @@
 extern "C" {
 #endif
 
+typedef uint32_t lock_t;
 
-uint32_t lock_new(void);
-int lock_free(uint32_t lock);
-int lock_lock(uint32_t lock);
-int lock_unlock(uint32_t lock);
+lock_t lock_new(void);
+void lock_free(lock_t lock);
+int lock_lock(lock_t lock);
+void lock_unlock(lock_t lock);
 
 #ifdef __cplusplus
 }
