@@ -268,7 +268,7 @@ static void sys_ipc_get_return(context_t* ctx, ipc_t* ipc, proto_t* data) {
 	ctx->gpr[0] = 0;
 	if(ipc->state != IPC_RETURN) {
 		ctx->gpr[0] = -1;
-		proc_block_on(ctx, (uint32_t)ipc);
+		//proc_block_on(ctx, (uint32_t)ipc);
 		return;
 	}
 
@@ -301,11 +301,11 @@ static void sys_ipc_end(context_t* ctx, ipc_t* ipc) {
 		return;
 	}
 
-	ipc->state = IPC_RETURN;
-	proc_wakeup(-1, (uint32_t)ipc);
 
 	_current_proc->info.state = ipc->proc_state;
 	memcpy(ctx, &ipc->ctx, sizeof(context_t));
+	ipc->state = IPC_RETURN;
+	proc_wakeup(-1, (uint32_t)ipc);
 }
 
 static int32_t sys_ipc_get_info(ipc_t* ipc, int32_t* pid, int32_t* cmd) {
@@ -542,6 +542,9 @@ void svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_t arg2, context
 		return;
 	case SYS_CORE_PID:
 		ctx->gpr[0] = sys_core_pid();
+		return;
+	case SYS_SAFE_SET:
+		*(int32_t*)arg0 = arg1;
 		return;
 	}
 	printf("pid:%d, code(%d) error!\n", _current_proc->info.pid, code);

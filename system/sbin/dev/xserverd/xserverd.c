@@ -647,7 +647,7 @@ static int xserver_fcntl(int fd, int from_pid, fsinfo_t* info,
 	x_t* x = (x_t*)p;
 
 	int res = -1;
-	//lock_lock(x->lock);
+	lock_lock(x->lock);
 	if(cmd == X_CNTL_UPDATE) {
 		res = x_update(fd, from_pid, x);
 	}	
@@ -666,7 +666,7 @@ static int xserver_fcntl(int fd, int from_pid, fsinfo_t* info,
 	else if(cmd == X_CNTL_CALL_XIM) {
 		res = x_call_xim(x);
 	}
-	//lock_unlock(x->lock);
+	lock_unlock(x->lock);
 	return res;
 }
 
@@ -681,12 +681,12 @@ static int xserver_open(int fd, int from_pid, fsinfo_t* info, int oflag, void* p
 	if(view == NULL)
 		return -1;
 
-	//lock_lock(x->lock);
+	lock_lock(x->lock);
 	memset(view, 0, sizeof(xview_t));
 	view->fd = fd;
 	view->from_pid = from_pid;
 	push_view(x, view);
-	//lock_unlock(x->lock);
+	lock_unlock(x->lock);
 	return 0;
 }
 
@@ -890,9 +890,9 @@ static int xserver_close(int fd, int from_pid, fsinfo_t* info, void* p) {
 	if(view == NULL) {
 		return -1;
 	}
-	//lock_lock(x->lock);
+	lock_lock(x->lock);
 	x_del_view(x, view);	
-	//lock_unlock(x->lock);
+	lock_unlock(x->lock);
 	return 0;
 }
 
@@ -959,7 +959,9 @@ static void x_close(x_t* x) {
 
 static int xserver_loop_step(void* p) {
 	x_t* x = (x_t*)p;
+	lock_lock(x->lock);
 	x_repaint(x);
+	lock_unlock(x->lock);
 	return 0;
 }
 
