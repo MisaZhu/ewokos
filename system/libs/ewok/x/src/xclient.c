@@ -188,11 +188,13 @@ static void x_push_event(x_t* x, xevent_t* ev) {
 	e->next = NULL;
 	memcpy(&e->event, ev, sizeof(xevent_t));
 
+	lock_lock(x->lock);
   if(x->event_tail != NULL)
     x->event_tail->next = e;
   else
     x->event_head = e;
   x->event_tail = e;
+	lock_unlock(x->lock);
 }
 
 static int x_get_event(x_t* x, xevent_t* ev) {
@@ -200,12 +202,14 @@ static int x_get_event(x_t* x, xevent_t* ev) {
 	if(e == NULL)
 		return -1;
 
+	lock_lock(x->lock);
   x->event_head = x->event_head->next;
   if(x->event_head == NULL)
     x->event_tail = NULL;
 
   memcpy(ev, &e->event, sizeof(xevent_t));
   free(e);
+	lock_unlock(x->lock);
   return 0;
 }
 
@@ -263,6 +267,7 @@ void  x_init(x_t* x, void* data) {
 
 void  x_run(x_t* x, void* loop_data) {
 	int ipc_pid = ipc_serv_run(handle, x, true);
+	x->lock = lock_new();
 
 	xevent_t xev;
 	while(!x->terminated) {
@@ -284,6 +289,7 @@ void  x_run(x_t* x, void* loop_data) {
 			usleep(10000);
 		}
 	}
+	lock_free(x->lock);
 }
 
 #ifdef __cplusplus

@@ -83,7 +83,7 @@ typedef struct {
 	x_current_t current;
 	x_conf_t config;
 
-	uint32_t lock;
+	lock_t lock;
 } x_t;
 
 static int32_t read_config(x_t* x, const char* fname) {

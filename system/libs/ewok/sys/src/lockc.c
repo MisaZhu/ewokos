@@ -1,4 +1,5 @@
 #include <sys/syscall.h>
+#include <sys/lockc.h>
 #include <stdlib.h>
 
 #ifdef __cplusplus
@@ -6,22 +7,22 @@ extern "C" {
 #endif
 
 
-uint32_t lock_new(void) {
+lock_t lock_new(void) {
 	bool* lock = (bool*)malloc(sizeof(bool));
 	if(lock == NULL)
 		return -1;
 	*lock = false;
-	return (uint32_t)lock;	
+	return (lock_t)lock;	
 }
 
-void lock_free(uint32_t lock) {
+void lock_free(lock_t lock) {
 	if(lock == 0)
 		return;
 	bool* p = (bool*)lock;
 	free(p);
 }
 
-static int lock_lock_raw(uint32_t lock) {
+static int lock_lock_raw(lock_t lock) {
 	if(lock == 0)
 		return 0;
 	bool* locked = (bool*)lock;
@@ -31,7 +32,7 @@ static int lock_lock_raw(uint32_t lock) {
 	return 0;
 }
 
-int lock_lock(uint32_t lock) {
+int lock_lock(lock_t lock) {
 	while(1) {
 		if(lock_lock_raw(lock) == 0)
 			break;
@@ -40,7 +41,7 @@ int lock_lock(uint32_t lock) {
 	return 0;
 }
 
-void lock_unlock(uint32_t lock) {
+void lock_unlock(lock_t lock) {
 	if(lock == 0)
 		return 0;
 	syscall2(SYS_SAFE_SET, lock, false);
