@@ -5,20 +5,10 @@
 #include <sys/wait.h>
 
 static void welcome(void) {
-	const char* s;
-	if(strcmp(getenv("CONSOLE"), "console") == 0)  {
-		s = "\n"
+	const char* s = "\n"
 			"+-----Ewok micro-kernel OS-----------------------+\n"
-			"| https://github.com/MisaZhu/micro_kernel_os.git |\n"
-			"+------------------------------------------------+\n"
-			"(CTRL + TAB to switch between X and console)\n\n";
-	}
-	else {
-		s = "\n"
-			"+-----Ewok micro-kernel OS-----------------------+\n"
-			"| https://github.com/MisaZhu/micro_kernel_os.git |\n"
+			"| https://github.com/MisaZhu/EwokOS.git          |\n"
 			"+------------------------------------------------+\n\n";
-	}
 	printf("%s", s);
 }
 
