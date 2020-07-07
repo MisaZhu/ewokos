@@ -9,6 +9,7 @@ mkdirs:
 	@mkdir -p ${TARGET_DIR}/$(ROOT_DIR)/sbin/dev/raspi
 	@mkdir -p ${TARGET_DIR}/$(ROOT_DIR)/sbin/x
 	@mkdir -p ${TARGET_DIR}/$(ROOT_DIR)/apps
+	@cp -r ${ROOT_DIR}/data ${TARGET_DIR}/$(ROOT_DIR)
 
 EXTRA_LIBS_DIR=libs
 EXTRA_LIBXX_DIR=libxx

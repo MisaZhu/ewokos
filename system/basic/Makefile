@@ -239,7 +239,6 @@ mkdirs:
 	@mkdir -p ${TARGET_DIR}/$(ROOT_DIR)/dev
 	@mkdir -p ${BUILD_DIR}/asm
 	@cp -r ${ROOT_DIR}/etc ${TARGET_DIR}/$(ROOT_DIR)
-	@cp -r ${ROOT_DIR}/data ${TARGET_DIR}/$(ROOT_DIR)
 
 builtin_apps: ${PROGS}
 
