@@ -268,7 +268,7 @@ static void sys_ipc_get_return(context_t* ctx, ipc_t* ipc, proto_t* data) {
 	ctx->gpr[0] = 0;
 	if(ipc->state != IPC_RETURN) {
 		ctx->gpr[0] = -1;
-		//proc_block_on(ctx, (uint32_t)ipc);
+		proc_block_on(ctx, (uint32_t)ipc);
 		return;
 	}
 
