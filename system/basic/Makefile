@@ -35,7 +35,6 @@ CFLAGS = -Wstrict-prototypes \
 CFLAGS +=  -O2
 
 KERNEL_DIR=../../kernel
-ARCH_DIR=$(KERNEL_DIR)/arch
 
 LDFLAGS = -L$(TARGET_DIR)/lib -lnosys
 
@@ -242,34 +241,7 @@ mkdirs:
 	@cp -r ${ROOT_DIR}/etc ${TARGET_DIR}/$(ROOT_DIR)
 	@cp -r ${ROOT_DIR}/data ${TARGET_DIR}/$(ROOT_DIR)
 
-sd:
-	@echo "\n====building ext2 format sdcard image===="
-#256M ext2 sd
-	dd if=/dev/zero of=${SD} bs=1024 count=262144
-	mke2fs ${SD}
-	mkdir -p tmp
-	sudo fuse-ext2 -o force,rw+ ${SD} ./tmp
-	sudo cp -r build/rootfs/* ./tmp
-	sudo umount ./tmp
-	rm -r tmp
-	@echo "==== ext2 format sdcard image created  ====\n"
-
 builtin_apps: ${PROGS}
-
-KERNEL=$(KERNEL_DIR)/build/mkos.bin
-KERNEL_ELF=$(KERNEL_DIR)/build/mkos.elf
-include ${ARCH_DIR}/${ARCH}/config.mk
-
-run: 
-	qemu-system-arm $(QEMU_FLAGS) -kernel ${KERNEL} -sd ${SD}
-
-debug:
-	qemu-system-arm $(QEMU_FLAGS) -gdb tcp::26000 -S -kernel ${KERNEL} -sd ${SD}
-
-gdb: 
-	echo "target remote :26000" > /tmp/gdbinit
-	arm-none-eabi-gdb ${KERNEL_ELF} -x /tmp/gdbinit
-	#gdb-multiarch ${KERNEL_ELF} -x /tmp/gdbinit #for ubuntu 18.04 without arm-none-eabi-gdb
 
 clean:
 	rm -f $(CLEAN)
