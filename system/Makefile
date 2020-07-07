@@ -1,4 +1,7 @@
-all: basic_fs extra_fs
+all: basic_fs 
+	@echo "all done."
+
+full: basic_fs extra_fs
 	@echo "all done."
 
 basic_fs:

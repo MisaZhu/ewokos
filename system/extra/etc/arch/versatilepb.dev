@@ -3,3 +3,4 @@
 /sbin/dev/versatilepb/ttyd   /dev/tty0
 /sbin/dev/versatilepb/ps2keybd  /dev/keyb0
 /sbin/dev/versatilepb/ps2moused /dev/mouse0
+/sbin/dev/xserverd           /dev/x
