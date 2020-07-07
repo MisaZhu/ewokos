@@ -254,9 +254,6 @@ static void handle(int from_pid, int cmd, proto_t* in, proto_t* out, void* p) {
 		proto_read_to(in, &ev, sizeof(xevent_t));
 		x_push_event(x, &ev);
 	}
-
-	if(x->on_loop == NULL)
-		proc_wakeup((int32_t)x);
 }
 
 void  x_init(x_t* x, void* data) {
@@ -282,13 +279,9 @@ void  x_run(x_t* x, void* loop_data) {
 			}
 		}
 		else {
-			if(x->on_loop == NULL) {
-				proc_block(ipc_pid, (int32_t)x);
-			}
-			else {
+			if(x->on_loop != NULL)
 				x->on_loop(loop_data);
-				usleep(10000);
-			}
+			usleep(10000);
 		}
 	}
 }
