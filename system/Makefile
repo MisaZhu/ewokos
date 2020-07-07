@@ -278,6 +278,7 @@ extra_apps:
 	cd $(APPS_DIR)/snake;make
 	cd $(APPS_DIR)/launcher;make
 	cd $(APPS_DIR)/syspanel;make
+	cd $(APPS_DIR)/console;make
 	cd $(APPS_DIR)/xconsole;make
 	cd $(APPS_DIR)/xim;make
 	cd $(APPS_DIR)/png;make
@@ -304,6 +305,7 @@ clean:
 	cd $(APPS_DIR)/snake;make clean
 	cd $(APPS_DIR)/launcher;make clean
 	cd $(APPS_DIR)/syspanel;make clean
+	cd $(APPS_DIR)/console;make clean
 	cd $(APPS_DIR)/xconsole;make clean
 	cd $(APPS_DIR)/png;make clean
 	cd $(APPS_DIR)/xim;make clean

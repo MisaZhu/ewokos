@@ -283,7 +283,7 @@ void  x_run(x_t* x, void* loop_data) {
 		}
 		else {
 			if(x->on_loop == NULL) {
-				proc_block(ipc_pid, (int32_t)x);
+				//proc_block(ipc_pid, (int32_t)x);
 			}
 			else {
 				x->on_loop(loop_data);
