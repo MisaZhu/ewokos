@@ -69,8 +69,6 @@ static void proc_init_space(proc_t* proc) {
 	proc->space = (proc_space_t*)kmalloc(sizeof(proc_space_t));
 	memset(proc->space, 0, sizeof(proc_space_t));
 
-	proc->space->ipc.data = proto_new(NULL, 0);
-
 	proc->space->vm = vm;
 	proc->space->heap_size = 0;
 	proc->space->malloc_man.arg = (void*)proc;
@@ -170,8 +168,6 @@ static void proc_unmap_shms(proc_t *proc) {
 static void __attribute__((optimize("O0"))) proc_free_space(proc_t *proc) {
 	if(proc->info.type != PROC_TYPE_PROC)
 		return;
-
-	proto_free(proc->space->ipc.data);
 
 	/*free locks*/
 	proc_free_locks(proc);
@@ -325,8 +321,6 @@ proc_t *proc_create(int32_t type, proc_t* parent) {
 			AP_RW_RW);
 	}
 	proc->ctx.sp = user_stack_base + pages*PAGE_SIZE;
-	proc->space->ipc.sp = proc->ctx.sp;
-	proc->space->ipc.ipc_pid = proc->info.pid;
 	proc->ctx.cpsr = 0x50;
 	proc->info.start_sec = _kernel_sec;
 	return proc;
@@ -573,57 +567,3 @@ proc_t* proc_get_proc(proc_t* proc) {
 	return NULL;
 }
 
-int32_t proc_ipc_setup(context_t* ctx, uint32_t entry, uint32_t extra_data, bool nonblock) {
-	(void)ctx;
-	_current_proc->space->ipc.entry = entry;
-	_current_proc->space->ipc.extra_data = extra_data;
-	_current_proc->space->ipc.state = IPC_IDLE;
-
-	/*if(nonblock) {
-		proc_t *ipc_thread = kfork_raw(PROC_TYPE_IPC, _current_proc);
-		if(ipc_thread == NULL)
-			return -1;
-		_current_proc->space->ipc.sp = ipc_thread->ctx.sp;
-		_current_proc->space->ipc.ipc_pid = ipc_thread->info.pid;
-		return ipc_thread->info.pid;
-	}
-	else {
-		_current_proc->space->ipc.sp = ctx->sp;
-		_current_proc->info.state = BLOCK;
-	}
-	*/
-
-	if(!nonblock)
-		_current_proc->info.state = BLOCK;
-	return 0;
-}
-
-int32_t proc_ipc_call(context_t* ctx, proc_t* proc, int32_t call_id) {
-	if(proc == NULL || proc->space->ipc.entry == 0 || proc->space->ipc.state != IPC_BUSY)
-		return -1;
-
-/*
-	proc_t *ipc_thread = proc_get(proc->space->ipc.ipc_pid);
-	if(ipc_thread == NULL)
-		return -1;
-	memcpy(&ipc_thread->ctx, &proc->ctx, sizeof(context_t));
-	ipc_thread->ctx.sp = proc->space->ipc.sp;
-	ipc_thread->ctx.pc = ipc_thread->ctx.lr = proc->space->ipc.entry;
-	ipc_thread->ctx.gpr[0] = proc->space->ipc.from_pid;
-	ipc_thread->ctx.gpr[1] = call_id;
-	ipc_thread->ctx.gpr[2] = proc->space->ipc.extra_data;
-	ipc_thread->info.state = RUNNING;
-	proc_switch(ctx, ipc_thread, true);
-	*/
-
-	proc->space->ipc.proc_state = proc->info.state;
-	memcpy(&proc->space->ipc.ctx, &proc->ctx, sizeof(context_t));
-
-	proc->ctx.pc = proc->ctx.lr = proc->space->ipc.entry;
-	proc->ctx.gpr[0] = proc->space->ipc.from_pid;
-	proc->ctx.gpr[1] = call_id;
-	proc->ctx.gpr[2] = proc->space->ipc.extra_data;
-	proc->info.state = RUNNING;
-	proc_switch(ctx, proc, true);
-	return 0;
-}

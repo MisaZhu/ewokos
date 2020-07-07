@@ -13,39 +13,42 @@ int ipc_setup(ipc_handle_t handle, void* p, bool nonblock) {
 	return syscall3(SYS_IPC_SETUP, (int32_t)handle, (int32_t)p, (int32_t)nonblock);
 }
 
-int ipc_set_return(const proto_t* pkg) {
-	syscall1(SYS_IPC_SET_RETURN, (int32_t)pkg);
+static int ipc_set_return(uint32_t ipc_id, const proto_t* pkg) {
+	syscall2(SYS_IPC_SET_RETURN, ipc_id, (int32_t)pkg);
 	return 0;
 }
 
-void ipc_end(void) {
-	syscall0(SYS_IPC_END);
+static void ipc_end(uint32_t ipc_id) {
+	syscall1(SYS_IPC_END, ipc_id);
 }
 
-proto_t* ipc_get_arg(void) {
-	return (proto_t*)syscall0(SYS_IPC_GET_ARG);
+static proto_t* ipc_get_info(uint32_t ipc_id, int32_t* pid, int32_t* call_id) {
+	return (proto_t*)syscall3(SYS_IPC_GET_ARG, ipc_id, (int32_t)pid, (int32_t)call_id);
 }
 
 int ipc_call(int to_pid, int call_id, const proto_t* ipkg, proto_t* opkg) {
 	if(to_pid < 0)
 		return -1;
 
+	int ipc_id = 0;
 	int res = 0;
 	while(true) {
-		int res = syscall3(SYS_IPC_CALL, (int32_t)to_pid, (int32_t)call_id, (int32_t)ipkg);
-		if(res == 0)
-			break;
-		if(res == -2) {
+		ipc_id = syscall3(SYS_IPC_CALL, (int32_t)to_pid, (int32_t)call_id, (int32_t)ipkg);
+		if(ipc_id == -1) {
+			sleep(0); //retry	
+			continue;
+		}
+		if(ipc_id == 0) {
 			return -1;
 		}
-		sleep(0); //retry	
+		break;
 	}
 
 	if(opkg != NULL)
 		PF->clear(opkg);
 
 	while(true) {
-		res = syscall2(SYS_IPC_GET_RETURN, (int32_t)to_pid, (int32_t)opkg);
+		res = syscall2(SYS_IPC_GET_RETURN, (int32_t)ipc_id, (int32_t)opkg);
 		if(res == 0)
 			break;
 		if(res == -2)
@@ -116,18 +119,18 @@ int ipc_serv_unreg(const char* ipc_serv_id) {
 
 static ipc_serv_handle_t _ipc_serv_handle;
 
-static void handle_ipc(int pid, int cmd, void* p) {
-	proto_t* in = ipc_get_arg();
-
+static void handle_ipc(uint32_t ipc_id, void* p) {
+	int32_t pid, cmd;
 	proto_t out;
 	PF->init(&out, NULL, 0);
 
+	proto_t* in = ipc_get_info(ipc_id, &pid, &cmd);
 	_ipc_serv_handle(pid, cmd, in, &out, p);
-
 	proto_free(in);
-	ipc_set_return(&out);
+
+	ipc_set_return(ipc_id, &out);
 	PF->clear(&out);
-	ipc_end();
+	ipc_end(ipc_id);
 }
 
 int ipc_serv_run(ipc_serv_handle_t handle, void* p, bool nonblock) {

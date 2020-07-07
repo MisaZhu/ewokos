@@ -39,17 +39,9 @@ typedef struct {
 	uint32_t locks[LOCK_MAX];
 
 	struct {
-		int32_t  ipc_pid;
-		uint32_t sp;
 		uint32_t entry;
-		proto_t* data;
 		uint32_t extra_data;
-		uint32_t state;
-		uint32_t proc_state;
-		int32_t from_pid;
-		context_t ctx;
 	} ipc;
-
 } proc_space_t;
 
 #define STACK_PAGES 32
@@ -103,8 +95,5 @@ extern procinfo_t* get_procs(int32_t* num);
 extern void    renew_sleep_counter(uint32_t usec);
 extern void    proc_usleep(context_t* ctx, uint32_t usec);
 extern void    proc_ready(proc_t* proc);
-
-extern int32_t     proc_ipc_setup(context_t* ctx, uint32_t entry, uint32_t extra, bool nonblock);
-extern int32_t     proc_ipc_call(context_t* ctx, proc_t* proc, int32_t call_id);
 
 #endif
