@@ -9,7 +9,6 @@
 #include <ext2fs.h>
 #include <vprintf.h>
 #include <sysinfo.h>
-#include <sconf.h>
 #include <sys/sd.h>
 #include <sys/kprintf.h>
 #include <sys/gpio.h>

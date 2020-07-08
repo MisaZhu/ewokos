@@ -16,6 +16,8 @@ EXTRA_LIBS_DIR=libs
 EXTRA_LIBXX_DIR=libxx
 extra_libs:
 	cd $(EXTRA_LIBS_DIR)/upng; make
+	cd $(EXTRA_LIBS_DIR)/sconf; make
+	cd $(EXTRA_LIBS_DIR)/tiny-json; make
 	cd $(EXTRA_LIBS_DIR)/x; make
 	cd $(EXTRA_LIBXX_DIR)/cxx; make
 	cd $(EXTRA_LIBXX_DIR)/graphxx; make
@@ -52,6 +54,8 @@ clean:
 	cd $(APPS_DIR)/xim;make clean
 	cd $(EXTRA_LIBS_DIR)/x; make clean
 	cd $(EXTRA_LIBS_DIR)/upng; make clean
+	cd $(EXTRA_LIBS_DIR)/sconf; make clean
+	cd $(EXTRA_LIBS_DIR)/tiny-json; make clean
 	cd $(EXTRA_LIBXX_DIR)/cxx; make clean
 	cd $(EXTRA_LIBXX_DIR)/graphxx; make clean
 	cd $(EXTRA_LIBXX_DIR)/x++; make clean

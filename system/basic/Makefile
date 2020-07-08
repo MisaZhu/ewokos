@@ -45,7 +45,6 @@ LIB_INC = -I$(TARGET_DIR)/include \
 				  -I $(LIBS_DIR)/ext2/include \
 				  -I $(LIBS_DIR)/graph/include \
 				  -I $(LIBS_DIR)/console/include \
-				  -I $(LIBS_DIR)/sconf/include \
 				  -I $(LIBS_DIR)/hash/include \
 				  -I $(LIBS_DIR)/libc/include \
 					-I $(KERNEL_DIR)/include
@@ -54,7 +53,6 @@ LIB_SYS_DIR = $(LIBS_DIR)/sys
 LIB_EXT2_DIR = $(LIBS_DIR)/ext2
 LIB_GRAPH_DIR = $(LIBS_DIR)/graph
 LIB_CONSOLE_DIR = $(LIBS_DIR)/console
-LIB_SCONF_DIR = $(LIBS_DIR)/sconf
 LIB_HASH_DIR = $(LIBS_DIR)/hash
 LIB_LIBC_DIR = $(LIBS_DIR)/libc
 
@@ -79,8 +77,6 @@ LIB_GRAPH_OBJS =	$(LIB_GRAPH_DIR)/src/graph.o \
 LIB_EXT2_OBJS = $(LIB_EXT2_DIR)/src/ext2fs.o
 
 LIB_CONSOLE_OBJS = $(LIB_CONSOLE_DIR)/src/console.o
-
-LIB_SCONF_OBJS = $(LIB_SCONF_DIR)/src/sconf.o
 
 LIB_HASH_OBJS = $(LIB_HASH_DIR)/src/hashmap.o
 
@@ -135,6 +131,7 @@ LIB_LIBC_OBJS = $(LIB_LIBC_DIR)/src/unistd/chdir.o \
 	\
 	$(LIB_LIBC_DIR)/src/stdlib/atof.o \
 	$(LIB_LIBC_DIR)/src/stdlib/atoi.o \
+	$(LIB_LIBC_DIR)/src/stdlib/atoll.o \
 	$(LIB_LIBC_DIR)/src/stdlib/calloc.o \
 	$(LIB_LIBC_DIR)/src/stdlib/execl.o \
 	$(LIB_LIBC_DIR)/src/stdlib/exit.o \
@@ -173,6 +170,7 @@ LIB_OBJS = $(LIB_SYS_OBJS) \
 	$(LIB_CONSOLE_OBJS) \
 	$(LIB_SCONF_OBJS) \
 	$(LIB_HASH_OBJS) \
+	$(LIB_TINYJSON_OBJS) \
 	$(LIB_EXT2_OBJS)
 
 CLEAN = $(LIB_OBJS)
@@ -196,8 +194,6 @@ libs: $(LIB_OBJS)
 	@cp -r $(LIB_EXT2_DIR)/include/* $(TARGET_DIR)/include/
 	$(AR) rT $(TARGET_DIR)/lib/libconsole.a $(LIB_CONSOLE_OBJS)
 	@cp -r $(LIB_CONSOLE_DIR)/include/* $(TARGET_DIR)/include/
-	$(AR) rT $(TARGET_DIR)/lib/libsconf.a $(LIB_SCONF_OBJS)
-	@cp -r $(LIB_SCONF_DIR)/include/* $(TARGET_DIR)/include/
 	$(AR) rT $(TARGET_DIR)/lib/libhash.a $(LIB_HASH_OBJS)
 	@cp -r $(LIB_HASH_DIR)/include/* $(TARGET_DIR)/include/
 	@cp -r $(KERNEL_H) $(TARGET_DIR)/include/
