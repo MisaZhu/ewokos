@@ -18,8 +18,6 @@ sd:
 	mkdir -p tmp
 	sudo fuse-ext2 -o force,rw+ ${SD} ./tmp
 	sudo cp -r build/rootfs/* ./tmp
-	sudo rm -fr ./tmp/include
-	sudo rm -fr ./tmp/lib
 	sudo umount ./tmp
 	rm -r tmp
 	@echo "==== ext2 format sdcard image created  ====\n"
@@ -44,8 +42,8 @@ debug:
 
 gdb: 
 	echo "target remote :26000" > /tmp/gdbinit
-	arm-none-eabi-gdb ${KERNEL_ELF} -x /tmp/gdbinit
-	#gdb-multiarch ${KERNEL_ELF} -x /tmp/gdbinit #for ubuntu 18.04 without arm-none-eabi-gdb
+	#arm-none-eabi-gdb ${KERNEL_ELF} -x /tmp/gdbinit
+	gdb-multiarch ${KERNEL_ELF} -x /tmp/gdbinit #for ubuntu 18.04 without arm-none-eabi-gdb
 
 clean:
 	cd extra;make clean

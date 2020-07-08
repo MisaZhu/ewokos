@@ -98,13 +98,13 @@ static void sys_fork(context_t* ctx) {
 	memcpy(&proc->ctx, ctx, sizeof(context_t));
 	proc->ctx.gpr[0] = 0;
 	ctx->gpr[0] = proc->info.pid;
-	if(proc->info.state == CREATED) {
+	if(proc->info.state == CREATED && _core_ready) {
 		_current_proc->info.state = BLOCK;
-		_current_proc->block_pid = _core_pid;
+		_current_proc->info.block_by = _core_pid;
 		_current_proc->block_event = proc->info.pid;
 
 		proc->info.state = BLOCK;
-		proc->block_pid = _core_pid;
+		proc->info.block_by = _core_pid;
 		proc->block_event = proc->info.pid;
 		schedule(ctx);
 	}
@@ -226,8 +226,13 @@ static void sys_proc_critical_quit(void) {
 	_current_proc->critical_counter = 0;
 }
 
-static int32_t sys_ipc_setup(context_t* ctx, uint32_t entry, uint32_t extra_data, bool nonblock) {
-	return proc_ipc_setup(ctx, entry, extra_data, nonblock);
+static void sys_ipc_setup(context_t* ctx, uint32_t entry, uint32_t extra_data, bool nonblock) {
+	ctx->gpr[0] = proc_ipc_setup(ctx, entry, extra_data, nonblock);
+	if(!nonblock) {
+		_current_proc->info.state = BLOCK;
+		_current_proc->info.block_by = _current_proc->info.pid;
+		schedule(ctx);
+	}
 }
 
 static void sys_ipc_call(context_t* ctx, int32_t pid, int32_t call_id, proto_t* data) {
@@ -249,7 +254,8 @@ static void sys_ipc_call(context_t* ctx, int32_t pid, int32_t call_id, proto_t* 
 	ipc->state = IPC_BUSY;
 	ipc->call_id = call_id;
 	PF->init(&ipc->data, NULL, 0);
-	ipc->from_pid = _current_proc->info.pid;
+	ipc->pid_client = _current_proc->info.pid;
+	ipc->pid_server = pid;
 	if(data != NULL)
 		PF->copy(&ipc->data, data->data, data->size);
 
@@ -259,7 +265,7 @@ static void sys_ipc_call(context_t* ctx, int32_t pid, int32_t call_id, proto_t* 
 
 static void sys_ipc_get_return(context_t* ctx, ipc_t* ipc, proto_t* data) {
 	if(ipc == NULL ||
-			ipc->from_pid != _current_proc->info.pid ||
+			ipc->pid_client != _current_proc->info.pid ||
 			ipc->state == IPC_IDLE) {
 		ctx->gpr[0] = -2;
 		return;
@@ -268,7 +274,7 @@ static void sys_ipc_get_return(context_t* ctx, ipc_t* ipc, proto_t* data) {
 	ctx->gpr[0] = 0;
 	if(ipc->state != IPC_RETURN) {
 		ctx->gpr[0] = -1;
-		proc_block_on(ctx, (uint32_t)ipc);
+		proc_block_on(ctx, ipc->pid_server, (uint32_t)ipc);
 		return;
 	}
 
@@ -314,7 +320,7 @@ static int32_t sys_ipc_get_info(ipc_t* ipc, int32_t* pid, int32_t* cmd) {
 		return 0;
 	}
 
-	*pid = ipc->from_pid;
+	*pid = ipc->pid_client;
 	*cmd = ipc->call_id;
 
 	proto_t* ret = NULL;
@@ -370,7 +376,7 @@ static void sys_get_kevent(context_t* ctx) {
 	ctx->gpr[0] = 0;	
 	kevent_t* kev = sys_get_kevent_raw();
 	if(kev == NULL) {
-		proc_block_on(ctx, (uint32_t)kev_init);
+		proc_block_on(ctx, -1, (uint32_t)kev_init);
 		return;
 	}
 	ctx->gpr[0] = (int32_t)kev;	
@@ -384,7 +390,7 @@ static void sys_proc_block(context_t* ctx, int32_t pid, uint32_t evt) {
 
 	_current_proc->info.state = BLOCK;
 	_current_proc->block_event = evt;
-	_current_proc->block_pid = proc->info.pid;
+	_current_proc->info.block_by = proc->info.pid;
 	schedule(ctx);	
 }
 
@@ -505,7 +511,7 @@ void svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_t arg2, context
 		sys_proc_critical_quit();
 		return;
 	case SYS_IPC_SETUP:
-		ctx->gpr[0] = sys_ipc_setup(ctx, arg0, arg1, (bool)arg2);
+		sys_ipc_setup(ctx, arg0, arg1, (bool)arg2);
 		return;
 	case SYS_IPC_CALL:
 		sys_ipc_call(ctx, arg0, arg1, (proto_t*)arg2);

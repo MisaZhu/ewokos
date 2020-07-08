@@ -5,6 +5,7 @@
 
 int32_t proc_ipc_setup(context_t* ctx, uint32_t entry, uint32_t extra_data, bool nonblock) {
 	(void)ctx;
+	(void)nonblock;
 	_current_proc->space->ipc.entry = entry;
 	_current_proc->space->ipc.extra_data = extra_data;
 
@@ -21,9 +22,6 @@ int32_t proc_ipc_setup(context_t* ctx, uint32_t entry, uint32_t extra_data, bool
 		_current_proc->info.state = BLOCK;
 	}
 	*/
-
-	if(!nonblock)
-		_current_proc->info.state = BLOCK;
 	return 0;
 }
 

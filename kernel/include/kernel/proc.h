@@ -54,7 +54,6 @@ typedef struct st_proc {
 
 	int32_t critical_counter;
 	uint32_t block_event;
-	int32_t block_pid;
 	int64_t sleep_counter; //sleep usec
 	int32_t wait_pid;
 
@@ -83,7 +82,7 @@ extern void*   proc_malloc(uint32_t size);
 extern void*   proc_realloc(void* p, uint32_t size);
 extern void    proc_free(void* p);
 
-extern void    proc_block_on(context_t* ctx, uint32_t event);
+extern void    proc_block_on(context_t* ctx, int32_t pid_by, uint32_t event);
 extern void    proc_wakeup(int32_t pid, uint32_t event);
 extern void    proc_waitpid(context_t* ctx, int32_t pid);
 extern proc_t* proc_get(int32_t pid);

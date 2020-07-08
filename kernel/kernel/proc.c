@@ -381,12 +381,12 @@ void proc_usleep(context_t* ctx, uint32_t count) {
 	proc_unready(ctx, _current_proc, SLEEPING);
 }
 
-void proc_block_on(context_t* ctx, uint32_t event) {
+void proc_block_on(context_t* ctx, int32_t pid_by, uint32_t event) {
 	if(_current_proc == NULL)
 		return;
 
 	_current_proc->block_event = event;
-	_current_proc->block_pid = -1;
+	_current_proc->info.block_by = pid_by;
 	proc_unready(ctx, _current_proc, BLOCK);
 }
 
@@ -406,11 +406,13 @@ void proc_wakeup(int32_t pid, uint32_t event) {
 		proc_t* proc = &_proc_table[i];	
 		if(proc->info.state == BLOCK && 
 				(proc->block_event == event || event == 0) && 
-				(pid < 0 || proc->block_pid == pid)) {
+				(pid < 0 || proc->info.block_by == pid)) {
 			proc->block_event = 0;
-			proc->block_pid = -1;
+			proc->info.block_by = -1;
 			if(proc->sleep_counter == 0)
 				proc_ready(proc);
+			else
+				proc->info.state = SLEEPING;
 		}
 		i++;
 	}

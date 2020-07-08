@@ -11,7 +11,8 @@ typedef	struct {
 	proto_t data;
 	uint32_t state;
 	uint32_t proc_state;
-	int32_t from_pid;
+	int32_t pid_client;
+	int32_t pid_server;
 	int32_t call_id;
 	context_t ctx;
 } ipc_t;
