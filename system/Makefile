@@ -18,6 +18,8 @@ sd:
 	mkdir -p tmp
 	sudo fuse-ext2 -o force,rw+ ${SD} ./tmp
 	sudo cp -r build/rootfs/* ./tmp
+	sudo rm -fr ./tmp/include
+	sudo rm -fr ./tmp/lib
 	sudo umount ./tmp
 	rm -r tmp
 	@echo "==== ext2 format sdcard image created  ====\n"
