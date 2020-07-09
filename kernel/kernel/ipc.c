@@ -3,11 +3,11 @@
 #include <stddef.h>
 #include <kstring.h>
 
-int32_t proc_ipc_setup(context_t* ctx, uint32_t entry, uint32_t extra_data, bool nonblock) {
+int32_t proc_ipc_setup(context_t* ctx, uint32_t entry, uint32_t extra_data, uint32_t flags) {
 	(void)ctx;
-	(void)nonblock;
 	_current_proc->space->ipc.entry = entry;
 	_current_proc->space->ipc.extra_data = extra_data;
+	_current_proc->space->ipc.flags = flags;
 
 	/*if(nonblock) {
 		proc_t *ipc_thread = kfork_raw(PROC_TYPE_IPC, _current_proc);

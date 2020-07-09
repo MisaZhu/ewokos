@@ -190,7 +190,7 @@ int main(int argc, char** argv) {
 		return -1;
 	}
 
-	ipc_serv_run(handle, NULL, false);
+	ipc_serv_run(handle, NULL, 0);
 
 	while(true) {
 		sleep(1);

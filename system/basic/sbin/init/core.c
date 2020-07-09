@@ -217,7 +217,7 @@ void core(void) {
 	_global = hashmap_new();
 	_ipc_servs = hashmap_new();
 
-	ipc_serv_run(handle_ipc, NULL, true);
+	ipc_serv_run(handle_ipc, NULL, IPC_NONBLOCK);
 	syscall0(SYS_CORE_READY);
 
 	while(1) {

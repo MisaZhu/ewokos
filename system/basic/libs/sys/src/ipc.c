@@ -9,8 +9,8 @@ extern "C" {
 #endif
 
 
-int ipc_setup(ipc_handle_t handle, void* p, bool nonblock) {
-	return syscall3(SYS_IPC_SETUP, (int32_t)handle, (int32_t)p, (int32_t)nonblock);
+static int ipc_setup(ipc_handle_t handle, void* p, int flags) {
+	return syscall3(SYS_IPC_SETUP, (int32_t)handle, (int32_t)p, (int32_t)flags);
 }
 
 static int ipc_set_return(uint32_t ipc_id, const proto_t* pkg) {
@@ -20,6 +20,10 @@ static int ipc_set_return(uint32_t ipc_id, const proto_t* pkg) {
 
 static void ipc_end(uint32_t ipc_id) {
 	syscall1(SYS_IPC_END, ipc_id);
+}
+
+int ipc_task_num(void) {
+	return syscall0(SYS_IPC_TASK_NUM);
 }
 
 static proto_t* ipc_get_info(uint32_t ipc_id, int32_t* pid, int32_t* call_id) {
@@ -133,11 +137,11 @@ static void handle_ipc(uint32_t ipc_id, void* p) {
 	ipc_end(ipc_id);
 }
 
-int ipc_serv_run(ipc_serv_handle_t handle, void* p, bool nonblock) {
+int ipc_serv_run(ipc_serv_handle_t handle, void* p, int flags) {
 	_ipc_serv_handle = handle;
 
 	proc_ready_ping();
-	return ipc_setup(handle_ipc, p, nonblock);
+	return ipc_setup(handle_ipc, p, flags);
 }
 
 #ifdef __cplusplus

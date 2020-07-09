@@ -183,6 +183,7 @@ all: mkdirs libs builtin_apps
 KERNEL_H = \
 	$(KERNEL_DIR)/include/usinterrupt.h \
 	$(KERNEL_DIR)/include/syscalls.h \
+	$(KERNEL_DIR)/include/procinfo.h \
 	$(KERNEL_DIR)/include/fbinfo.h
 
 libs: $(LIB_OBJS)

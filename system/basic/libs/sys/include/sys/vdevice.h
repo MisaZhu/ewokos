@@ -13,6 +13,7 @@ extern "C" {
 
 typedef struct {
 	bool terminated;
+	bool single_task;
 	char name[FS_NODE_NAME_MAX];
 	void* extra_data;
 	int (*dev_cntl)(int from_pid, int cmd, proto_t* in, proto_t* ret, void* p);

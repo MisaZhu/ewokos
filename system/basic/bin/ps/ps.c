@@ -52,25 +52,32 @@ int main(int argc, char* argv[]) {
 
 	procinfo_t* procs = (procinfo_t*)syscall1(SYS_GET_PROCS, (int)&num);
 	if(procs != NULL) {
-		printf("  PID    FATHER OWNER   STATE TIME       PROC\n"); 
+		printf("  PID    FATHER OWNER   STATE IPCS TIME       PROC\n"); 
 		for(int i=0; i<num; i++) {
 			if(procs[i].type != PROC_TYPE_PROC && all == 0)
 				continue;
 
 			uint32_t sec = csec - procs[i].start_sec;
-			printf("  %4d   %6d %5d   %5s %02d:%02d:%02d   %s%s", 
+			printf("  %4d   %6d %5d   %5s %4d %02d:%02d:%02d   %s", 
 				procs[i].pid,
 				procs[i].father_pid,
 				procs[i].owner,
 				_states[procs[i].state],
+				procs[i].ipc_tasks,
 				sec / (3600),
 				sec / 60,
 				sec % 60,
-				get_cmd(procs[i].cmd, full),
-				procs[i].type != PROC_TYPE_PROC ? " [t]":"");
-
-			if(procs[i].state == 4)
-				printf(" : blk_by %d\n", procs[i].block_by);
+				get_cmd(procs[i].cmd, full));
+			
+			int blk = procs[i].block_by;
+			if(procs[i].state == 4) {
+				if(blk == procs[i].pid)
+					printf(" : wat_ipc_call\n");
+				else if(blk < 0)
+					printf(" : blk_by kernel\n");
+				else
+					printf(" : blk_by %d:%s\n", blk, get_cmd(procs[procs[i].block_by].cmd, full));
+			}
 			else
 				printf("\n");
 		}

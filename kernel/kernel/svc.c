@@ -226,9 +226,9 @@ static void sys_proc_critical_quit(void) {
 	_current_proc->critical_counter = 0;
 }
 
-static void sys_ipc_setup(context_t* ctx, uint32_t entry, uint32_t extra_data, bool nonblock) {
-	ctx->gpr[0] = proc_ipc_setup(ctx, entry, extra_data, nonblock);
-	if(!nonblock) {
+static void sys_ipc_setup(context_t* ctx, uint32_t entry, uint32_t extra_data, uint32_t flags) {
+	ctx->gpr[0] = proc_ipc_setup(ctx, entry, extra_data, flags);
+	if((flags & IPC_NONBLOCK) == 0) {
 		_current_proc->info.state = BLOCK;
 		_current_proc->info.block_by = _current_proc->info.pid;
 		schedule(ctx);
@@ -246,9 +246,14 @@ static void sys_ipc_call(context_t* ctx, int32_t pid, int32_t call_id, proto_t* 
 	}
 
 	proc_t* proc = proc_get(pid);
-	if(proc == NULL || proc->space->ipc.entry == 0) {
+	if(proc == NULL || proc->space->ipc.entry == 0)
+		return;
+
+	if(proc->info.ipc_tasks > 0 && (proc->space->ipc.flags & IPC_SINGLE_TASK) != 0) {
+		ctx->gpr[0] = -1; //busy for single task , should retry
 		return;
 	}
+	proc->info.ipc_tasks++;
 
 	ipc_t* ipc = proc_ipc_req(_current_proc);
 	ipc->state = IPC_BUSY;
@@ -285,6 +290,10 @@ static void sys_ipc_get_return(context_t* ctx, ipc_t* ipc, proto_t* data) {
 			memcpy(data->data, ipc->data.data, data->size);
 		}
 	}
+	
+	proc_t* proc = proc_get(ipc->pid_server);
+	if(proc != NULL && proc->info.ipc_tasks > 0)
+		proc->info.ipc_tasks--;
 	PF->clear(&ipc->data);
 	proc_ipc_close(ipc);
 }
@@ -511,7 +520,7 @@ void svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_t arg2, context
 		sys_proc_critical_quit();
 		return;
 	case SYS_IPC_SETUP:
-		sys_ipc_setup(ctx, arg0, arg1, (bool)arg2);
+		sys_ipc_setup(ctx, arg0, arg1, arg2);
 		return;
 	case SYS_IPC_CALL:
 		sys_ipc_call(ctx, arg0, arg1, (proto_t*)arg2);
@@ -527,6 +536,9 @@ void svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_t arg2, context
 		return;
 	case SYS_IPC_GET_ARG:
 		ctx->gpr[0] = sys_ipc_get_info((ipc_t*)arg0, (int32_t*)arg1, (int32_t*)arg2);
+		return;
+	case SYS_IPC_TASK_NUM:
+		ctx->gpr[0] = _current_proc->info.ipc_tasks;
 		return;
 	case SYS_PROC_PING:
 		ctx->gpr[0] = sys_proc_ping(arg0);

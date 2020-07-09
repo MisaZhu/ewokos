@@ -40,6 +40,7 @@ typedef struct {
 
 	struct {
 		uint32_t entry;
+		uint32_t flags;
 		uint32_t extra_data;
 		ipc_t ctx[IPC_CTX_MAX];
 	} ipc;

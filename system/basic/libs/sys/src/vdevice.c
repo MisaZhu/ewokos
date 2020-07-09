@@ -371,10 +371,13 @@ int device_run(vdevice_t* dev, const char* mnt_point, int mnt_type) {
 			return -1;
 	}
 
+	int ipc_flags = 0;
+
 	if(dev->loop_step != NULL) 
-		ipc_serv_run(handle, dev, true);
-	else
-		ipc_serv_run(handle, dev, false);
+		ipc_flags |= IPC_NONBLOCK;
+	if(dev->single_task)
+		ipc_flags |= IPC_SINGLE_TASK;
+	ipc_serv_run(handle, dev, ipc_flags);
 
 	while(1) {
 		if(dev->loop_step != NULL) {
