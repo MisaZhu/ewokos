@@ -20,7 +20,9 @@ int main(int argc, char* argv[]) {
 		welcome();
 		int pid = fork();
 		if(pid == 0) {
-			exec("/bin/shell");
+			if(exec("/bin/shell") < 0) {
+				exit(-1);
+			}
 		}
 		else {
 			waitpid(pid);

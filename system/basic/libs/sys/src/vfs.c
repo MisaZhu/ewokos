@@ -356,19 +356,18 @@ void* vfs_readfile(const char* fname, int* rsz) {
 	void* buf = malloc(info.size);
 	if(buf == NULL)
 		return NULL;
+
 	char* p = (char*)buf;
 	int fd = open(fname, O_RDONLY);
 	int fsize = info.size;
 	if(fd >= 0) {
-		while(1) {
+		while(fsize > 0) {
 			int sz = read(fd, p, fsize);
-			if(sz <= 0 && errno != EAGAIN)
+			if(sz < 0 && errno != EAGAIN)
 				break;
 			if(sz > 0) {
 				fsize -= sz;
 				p += sz;
-				if(fsize <= 0)
-					break;
 			}
 		}
 		close(fd);
