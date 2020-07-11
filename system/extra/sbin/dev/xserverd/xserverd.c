@@ -444,7 +444,6 @@ static void x_repaint(x_t* x) {
 
 static inline void x_repaint_req(x_t* x) {
 	x->need_repaint = true;
-	x_repaint(x);
 }
 
 static xview_t* x_get_view(x_t* x, int fd, int from_pid) {
@@ -681,12 +680,12 @@ static int xserver_open(int fd, int from_pid, fsinfo_t* info, int oflag, void* p
 	if(view == NULL)
 		return -1;
 
-	lock_lock(x->lock);
+	//lock_lock(x->lock);
 	memset(view, 0, sizeof(xview_t));
 	view->fd = fd;
 	view->from_pid = from_pid;
 	push_view(x, view);
-	lock_unlock(x->lock);
+	//lock_unlock(x->lock);
 	return 0;
 }
 
@@ -890,9 +889,9 @@ static int xserver_close(int fd, int from_pid, fsinfo_t* info, void* p) {
 	if(view == NULL) {
 		return -1;
 	}
-	lock_lock(x->lock);
+	//lock_lock(x->lock);
 	x_del_view(x, view);	
-	lock_unlock(x->lock);
+	//lock_unlock(x->lock);
 	return 0;
 }
 
@@ -959,9 +958,9 @@ static void x_close(x_t* x) {
 
 static int xserver_loop_step(void* p) {
 	x_t* x = (x_t*)p;
-	lock_lock(x->lock);
+	//lock_lock(x->lock);
 	x_repaint(x);
-	lock_unlock(x->lock);
+	//lock_unlock(x->lock);
 	return 0;
 }
 
@@ -995,7 +994,7 @@ int main(int argc, char** argv) {
 
 	//pthread_create(NULL, NULL, read_thread, &x);
 	dev.extra_data = &x;
-	device_run(&dev, mnt_point, FS_TYPE_CHAR, false);
+	device_run(&dev, mnt_point, FS_TYPE_CHAR, true);
 	x_close(&x);
 	return 0;
 }

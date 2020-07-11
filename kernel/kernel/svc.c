@@ -414,9 +414,27 @@ static int32_t sys_core_pid(void) {
 }
 
 static uint32_t _svc_tic = 0;
-
 static int32_t sys_get_kernel_tic(void) {
 	return _svc_tic;
+}
+
+static void sys_lock(context_t* ctx, bool* lock) {
+	ctx->gpr[0] = 0;
+	if(lock == NULL)
+		return;
+
+	if(*lock == true) {//already locked , wait and retry
+		//proc_block_on(ctx, -1, (uint32_t)_current_proc->space);
+		ctx->gpr[0] = -1;
+	}
+	*lock = true;
+}
+
+static void sys_unlock(bool* lock) {
+	if(lock == NULL)
+		return;
+	*lock = false;
+	//proc_wakeup(-1, (uint32_t)_current_proc->space);
 }
 
 void svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_t arg2, context_t* ctx, int32_t processor_mode) {
@@ -549,8 +567,11 @@ void svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_t arg2, context
 	case SYS_CORE_PID:
 		ctx->gpr[0] = sys_core_pid();
 		return;
-	case SYS_SAFE_SET:
-		*(int32_t*)arg0 = arg1;
+	case SYS_LOCK:
+		sys_lock(ctx, (bool*)arg0);
+		return;
+	case SYS_UNLOCK:
+		sys_unlock((bool*)arg0);
 		return;
 	}
 	printf("pid:%d, code(%d) error!\n", _current_proc->info.pid, code);

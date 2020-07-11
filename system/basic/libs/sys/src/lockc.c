@@ -23,19 +23,9 @@ void lock_free(lock_t lock) {
 	free(p);
 }
 
-static int lock_lock_raw(lock_t lock) {
-	if(lock == 0)
-		return 0;
-	bool* locked = (bool*)lock;
-	if(*locked)
-		return -1;
-	syscall2(SYS_SAFE_SET, lock, true);
-	return 0;
-}
-
 int lock_lock(lock_t lock) {
 	while(1) {
-		if(lock_lock_raw(lock) == 0)
+		if(syscall1(SYS_LOCK, lock) == 0)
 			break;
 		sleep(0);
 	}
@@ -43,9 +33,7 @@ int lock_lock(lock_t lock) {
 }
 
 void lock_unlock(lock_t lock) {
-	if(lock == 0)
-		return;
-	syscall2(SYS_SAFE_SET, lock, false);
+	syscall1(SYS_UNLOCK, lock);
 }
 
 #ifdef __cplusplus

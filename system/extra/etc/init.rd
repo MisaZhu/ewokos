@@ -1,5 +1,5 @@
 /bin/session
-#/apps/xim
+/apps/xim
 #/apps/syspanel
 /apps/launcher
 /sbin/x/xmoused

@@ -58,7 +58,8 @@ enum {
 	SYS_GET_KEVENT,
 	SYS_GET_KERNEL_TIC,
 
-	SYS_SAFE_SET
+	SYS_LOCK,
+	SYS_UNLOCK
 };
 
 #endif
