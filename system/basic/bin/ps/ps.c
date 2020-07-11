@@ -17,19 +17,35 @@ static const char* _states[] = {
 	"zmb"
 };
 
-static const char* get_cmd(char* cmd, int full) {
-	if(full)
-		return cmd;
-
-	char* p = cmd;
-	while(*p != 0) {
-		if(*p == ' ') {
-			*p = 0;
-			break;
-		}
-		p++;
+static const char* get_state(procinfo_t* proc) {
+	if(proc->state == 4) {
+		if(proc->pid == proc->block_by)
+			return "blk_ipc";
+		if(proc->block_by < 0)
+			return "blk_kev";
 	}
-	return cmd;
+	return _states[proc->state];
+}
+
+static const char* get_cmd(procinfo_t* proc, int full) {
+	static char ret[1024];
+	if(!full) {
+		char* p = proc->cmd;
+		while(*p != 0) {
+			if(*p == ' ') {
+				*p = 0;
+				break;
+			}
+			p++;
+		}
+	}	
+
+	if(proc->state == 4 && proc->block_by > 0 && proc->block_by != proc->pid)
+		snprintf(ret, 1023, "%s : blk_by %d", 
+				proc->cmd, proc->block_by);
+	else
+		snprintf(ret, 1023, "%s", proc->cmd);
+	return ret;
 }
 
 int main(int argc, char* argv[]) {
@@ -52,34 +68,22 @@ int main(int argc, char* argv[]) {
 
 	procinfo_t* procs = (procinfo_t*)syscall1(SYS_GET_PROCS, (int)&num);
 	if(procs != NULL) {
-		printf("  PID    FATHER OWNER   STATE IPCS TIME       PROC\n"); 
+		printf("  PID    FATHER OWNER   STATE     IPCS TIME       PROC\n"); 
 		for(int i=0; i<num; i++) {
 			if(procs[i].type != PROC_TYPE_PROC && all == 0)
 				continue;
 
 			uint32_t sec = csec - procs[i].start_sec;
-			printf("  %4d   %6d %5d   %5s %4d %02d:%02d:%02d   %s", 
+			printf("  %4d   %6d %5d   %8s  %4d %02d:%02d:%02d   %s\n", 
 				procs[i].pid,
 				procs[i].father_pid,
 				procs[i].owner,
-				_states[procs[i].state],
+				get_state(&procs[i]),
 				procs[i].ipc_tasks,
 				sec / (3600),
 				sec / 60,
 				sec % 60,
-				get_cmd(procs[i].cmd, full));
-			
-			int blk = procs[i].block_by;
-			if(procs[i].state == 4) {
-				if(blk == procs[i].pid)
-					printf(" : wat_ipc_call\n");
-				else if(blk < 0)
-					printf(" : blk_by kernel\n");
-				else
-					printf(" : blk_by %d:%s\n", blk, get_cmd(procs[procs[i].block_by].cmd, full));
-			}
-			else
-				printf("\n");
+				get_cmd(&procs[i], full));
 		}
 		free(procs);
 	}

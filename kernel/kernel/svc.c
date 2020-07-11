@@ -289,7 +289,7 @@ static void sys_ipc_get_return(context_t* ctx, ipc_t* ipc, proto_t* data) {
 	proc_ipc_close(ipc);
 
 	if((proc->space->ipc.flags & IPC_SINGLE_TASK) != 0)
-		proc_wakeup(-1, (uint32_t)&proc->space->ipc);
+		proc_wakeup(proc->info.pid, (uint32_t)&proc->space->ipc);
 }
 
 static void sys_ipc_set_return(ipc_t* ipc, proto_t* data) {
@@ -310,11 +310,17 @@ static void sys_ipc_end(context_t* ctx, ipc_t* ipc) {
 		return;
 	}
 
+	if((_current_proc->space->ipc.flags & IPC_NONBLOCK) == 0) {
+		_current_proc->info.state = BLOCK;
+		_current_proc->info.block_by = _current_proc->info.pid;
+	}
+	else
+		_current_proc->info.state = ipc->proc_state;
 
-	_current_proc->info.state = ipc->proc_state;
 	memcpy(ctx, &ipc->ctx, sizeof(context_t));
 	ipc->state = IPC_RETURN;
-	proc_wakeup(-1, (uint32_t)ipc);
+	proc_wakeup(_current_proc->info.pid, (uint32_t)ipc);
+	schedule(ctx);
 }
 
 static int32_t sys_ipc_get_info(ipc_t* ipc, int32_t* pid, int32_t* cmd) {

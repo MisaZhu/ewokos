@@ -665,6 +665,7 @@ static int xserver_fcntl(int fd, int from_pid, fsinfo_t* info,
 	else if(cmd == X_CNTL_CALL_XIM) {
 		res = x_call_xim(x);
 	}
+	x_repaint(x);
 	lock_unlock(x->lock);
 	return res;
 }
@@ -680,12 +681,12 @@ static int xserver_open(int fd, int from_pid, fsinfo_t* info, int oflag, void* p
 	if(view == NULL)
 		return -1;
 
-	//lock_lock(x->lock);
+	lock_lock(x->lock);
 	memset(view, 0, sizeof(xview_t));
 	view->fd = fd;
 	view->from_pid = from_pid;
 	push_view(x, view);
-	//lock_unlock(x->lock);
+	lock_unlock(x->lock);
 	return 0;
 }
 
@@ -877,6 +878,7 @@ static int xserver_dev_cntl(int from_pid, int cmd, proto_t* in, proto_t* ret, vo
     proto_read_to(in, &ev, sizeof(xevent_t));
 		handle_input(x, &ev);
 	}
+	x_repaint(x);
 
 	return 0;
 }
@@ -889,9 +891,9 @@ static int xserver_close(int fd, int from_pid, fsinfo_t* info, void* p) {
 	if(view == NULL) {
 		return -1;
 	}
-	//lock_lock(x->lock);
+	lock_lock(x->lock);
 	x_del_view(x, view);	
-	//lock_unlock(x->lock);
+	lock_unlock(x->lock);
 	return 0;
 }
 
@@ -956,14 +958,6 @@ static void x_close(x_t* x) {
 	close(x->fb_fd);
 }
 
-static int xserver_loop_step(void* p) {
-	x_t* x = (x_t*)p;
-	//lock_lock(x->lock);
-	x_repaint(x);
-	//lock_unlock(x->lock);
-	return 0;
-}
-
 int main(int argc, char** argv) {
 	const char* mnt_point = argc > 1 ? argv[1]: "/dev/x";
 
@@ -990,9 +984,7 @@ int main(int argc, char** argv) {
 	dev.close = xserver_close;
 	dev.open = xserver_open;
 	dev.dev_cntl = xserver_dev_cntl;
-	dev.loop_step = xserver_loop_step;
 
-	//pthread_create(NULL, NULL, read_thread, &x);
 	dev.extra_data = &x;
 	device_run(&dev, mnt_point, FS_TYPE_CHAR, true);
 	x_close(&x);
