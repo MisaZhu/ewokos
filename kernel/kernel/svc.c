@@ -251,6 +251,7 @@ static void sys_ipc_call(context_t* ctx, int32_t pid, int32_t call_id, proto_t* 
 
 	if(proc->info.ipc_tasks > 0 && (proc->space->ipc.flags & IPC_SINGLE_TASK) != 0) {
 		ctx->gpr[0] = -1; //busy for single task , should retry
+		proc_block_on(ctx, pid, (uint32_t)&proc->space->ipc);
 		return;
 	}
 	proc->info.ipc_tasks++;
@@ -296,6 +297,9 @@ static void sys_ipc_get_return(context_t* ctx, ipc_t* ipc, proto_t* data) {
 		proc->info.ipc_tasks--;
 	PF->clear(&ipc->data);
 	proc_ipc_close(ipc);
+
+	if((proc->space->ipc.flags & IPC_SINGLE_TASK) != 0)
+		proc_wakeup(-1, (uint32_t)&proc->space->ipc);
 }
 
 static void sys_ipc_set_return(ipc_t* ipc, proto_t* data) {

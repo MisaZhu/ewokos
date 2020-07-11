@@ -995,7 +995,7 @@ int main(int argc, char** argv) {
 
 	//pthread_create(NULL, NULL, read_thread, &x);
 	dev.extra_data = &x;
-	device_run(&dev, mnt_point, FS_TYPE_CHAR);
+	device_run(&dev, mnt_point, FS_TYPE_CHAR, false);
 	x_close(&x);
 	return 0;
 }

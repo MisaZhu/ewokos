@@ -120,9 +120,7 @@ int main(int argc, char** argv) {
 	dev.fcntl = fb_fcntl;
 
 	dev.extra_data = &dma;
-	dev.single_task = true;
-	device_run(&dev, mnt_name, FS_TYPE_CHAR);
-
+	device_run(&dev, mnt_name, FS_TYPE_CHAR, true);
 	shm_unmap(dma.shm_id);
 	return 0;
 }

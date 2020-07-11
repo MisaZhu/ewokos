@@ -92,6 +92,6 @@ int main(int argc, char** argv) {
 	strcpy(dev.name, "joystick");
 	dev.read = joystick_read;
 
-	device_run(&dev, mnt_point, FS_TYPE_CHAR);
+	device_run(&dev, mnt_point, FS_TYPE_CHAR, true);
 	return 0;
 }

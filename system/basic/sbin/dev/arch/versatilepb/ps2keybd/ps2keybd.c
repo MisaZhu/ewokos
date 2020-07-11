@@ -135,6 +135,6 @@ int main(int argc, char** argv) {
 		return -1;
 	}
 
-	device_run(&dev, mnt_point, FS_TYPE_CHAR);
+	device_run(&dev, mnt_point, FS_TYPE_CHAR, true);
 	return 0;
 }

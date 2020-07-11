@@ -184,7 +184,7 @@ int main(int argc, char** argv) {
 	sd_set_buffer(ext2.super.s_blocks_count*2);
 	
 	dev.extra_data = &ext2;
-	device_run(&dev, "/", FS_TYPE_DIR);
+	device_run(&dev, "/", FS_TYPE_DIR, true);
 	ext2_quit(&ext2);
 	sd_quit();
 	return 0;

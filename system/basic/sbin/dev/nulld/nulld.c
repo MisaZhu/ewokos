@@ -50,6 +50,6 @@ int main(int argc, char** argv) {
 	dev.read = null_read;
 	dev.write = null_write;
 
-	device_run(&dev, mnt_point, FS_TYPE_CHAR);
+	device_run(&dev, mnt_point, FS_TYPE_CHAR, false);
 	return 0;
 }
