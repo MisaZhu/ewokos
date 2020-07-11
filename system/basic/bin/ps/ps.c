@@ -20,9 +20,9 @@ static const char* _states[] = {
 static const char* get_state(procinfo_t* proc) {
 	if(proc->state == 4) {
 		if(proc->pid == proc->block_by)
-			return "blk_ipc";
+			return "wat_ipc";
 		if(proc->block_by < 0)
-			return "blk_kev";
+			return "wat_kev";
 	}
 	return _states[proc->state];
 }
