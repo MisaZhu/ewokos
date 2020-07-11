@@ -25,7 +25,7 @@ SYS_FULL_DIR = ../system
 
 # flags
 #OPTM = -g
-#OPTM = -O2
+OPTM = -O2
 
 CFLAGS += $(OPTM) \
 	-I. -Ilib/include -Iinclude -Iextra/include -Iextra/lib/include \
