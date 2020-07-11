@@ -966,7 +966,7 @@ int main(int argc, char** argv) {
 
 	vfs_init();
 
-	ipc_serv_run(handle, NULL, IPC_SINGLE_TASK);
+	ipc_serv_run(handle, NULL, 0);//IPC_SINGLE_TASK);
 
 	while(true) {
 		sleep(1);

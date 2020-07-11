@@ -9,7 +9,6 @@
 #include <sys/vdevice.h>
 #include <sys/vfs.h>
 #include <sys/syscall.h>
-#include <sys/critical.h>
 #include <graph/graph.h>
 
 
@@ -308,8 +307,6 @@ static void  do_flush(const void* buf, uint32_t size) {
 	if(size < LCD_WIDTH * LCD_HEIGHT* 4)
 		return;
 
-	critical_enter();
-
 	LCD_DC_1;
 	spi_arch_activate(1);
 
@@ -330,7 +327,6 @@ static void  do_flush(const void* buf, uint32_t size) {
 	}
 
 	spi_arch_activate(0);
-	critical_quit();
 }
 
 static int lcd_flush(int fd, int from_pid, fsinfo_t* info, void* p) {

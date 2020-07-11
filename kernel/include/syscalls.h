@@ -44,9 +44,6 @@ enum {
 	SYS_MMIO_MAP,
 	SYS_FRAMEBUFFER_MAP,
 
-	SYS_PROC_CRITICAL_ENTER,
-	SYS_PROC_CRITICAL_QUIT,
-
 	//internal proccess communication
 	SYS_IPC_SETUP,
 	SYS_IPC_CALL,

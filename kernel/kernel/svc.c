@@ -216,16 +216,6 @@ static int32_t sys_framebuffer_map(fbinfo_t* info) {
 #endif
 }
 
-static void sys_proc_critical_enter(void) {
-	if(_current_proc->info.owner != 0)
-		return;
-	_current_proc->critical_counter = CRITICAL_MAX;
-}
-	
-static void sys_proc_critical_quit(void) {
-	_current_proc->critical_counter = 0;
-}
-
 static void sys_ipc_setup(context_t* ctx, uint32_t entry, uint32_t extra_data, uint32_t flags) {
 	ctx->gpr[0] = proc_ipc_setup(ctx, entry, extra_data, flags);
 	if((flags & IPC_NONBLOCK) == 0) {
@@ -516,12 +506,6 @@ void svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_t arg2, context
 		return;
 	case SYS_FRAMEBUFFER_MAP:
 		ctx->gpr[0] = sys_framebuffer_map((fbinfo_t*)arg0);
-		return;
-	case SYS_PROC_CRITICAL_ENTER:
-		sys_proc_critical_enter();
-		return;
-	case SYS_PROC_CRITICAL_QUIT:
-		sys_proc_critical_quit();
 		return;
 	case SYS_IPC_SETUP:
 		sys_ipc_setup(ctx, arg0, arg1, arg2);

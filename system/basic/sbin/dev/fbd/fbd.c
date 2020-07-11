@@ -8,7 +8,6 @@
 #include <graph/graph.h>
 #include <sys/shm.h>
 #include <fbinfo.h>
-#include <sys/critical.h>
 
 typedef struct {
 	void* data;
@@ -37,9 +36,7 @@ static int fb_write(int fd,
 		return 0;
 	
 	if(_fbinfo.depth == 32) {
-		critical_enter();
 		memcpy((void*)_fbinfo.pointer, buf, size);
-		critical_quit();
 	}
 	else if(_fbinfo.depth == 16) 
 		graph_dup16((uint16_t*)_fbinfo.pointer, (uint32_t*)buf, _fbinfo.width, _fbinfo.height);
@@ -78,9 +75,7 @@ static int fb_flush(int fd, int from_pid, fsinfo_t* info, void* p) {
 		size = sz;
 
 	if(_fbinfo.depth == 32) {
-		critical_enter();
 		memcpy((void*)_fbinfo.pointer, dma->data, size);
-		critical_quit();
 	}
 	else if(_fbinfo.depth == 16) 
 		graph_dup16((uint16_t*)_fbinfo.pointer, (uint32_t*)dma->data, _fbinfo.width, _fbinfo.height);

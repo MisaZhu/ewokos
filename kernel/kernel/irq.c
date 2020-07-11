@@ -35,11 +35,6 @@ void irq_handler(context_t* ctx) {
 	proto_t data;
 	bool do_int = false;
 
-	if(_current_proc != NULL && _current_proc->critical_counter > 0) {
-		_current_proc->critical_counter--;
-		return;
-	}
-
 	PF->init(&data, NULL, 0);
 	uint32_t irqs = gic_get_irqs(&data);
 
@@ -55,25 +50,23 @@ void irq_handler(context_t* ctx) {
 	//handle irq
 	if((irqs & IRQ_TIMER0) != 0) {
 		uint64_t usec = timer_read_sys_usec();
-		if(_current_proc == NULL || _current_proc->critical_counter == 0) {
-			if(_kernel_usec == 0)
-				_kernel_usec = usec;
-			else {
-				uint64_t usec_gap = usec - _kernel_usec;
-				_kernel_usec = usec;
-				_timer_mtic += usec_gap;
-				_timer_tic += usec_gap;
-				if(_timer_tic >= 1000000) { //1 sec
-					_kernel_sec++;
-					_timer_tic = 0;
-				}
-
-				if(_timer_mtic >= 1000) { //1 msec
-					_timer_mtic = 0;
-				}
-				renew_sleep_counter(usec_gap);
+		if(_kernel_usec == 0)
+			_kernel_usec = usec;
+		else {
+			uint64_t usec_gap = usec - _kernel_usec;
+			_kernel_usec = usec;
+			_timer_mtic += usec_gap;
+			_timer_tic += usec_gap;
+			if(_timer_tic >= 1000000) { //1 sec
+				_kernel_sec++;
+				_timer_tic = 0;
 			}
-		}	
+
+			if(_timer_mtic >= 1000) { //1 msec
+				_timer_mtic = 0;
+			}
+			renew_sleep_counter(usec_gap);
+		}
 		timer_clear_interrupt(0);
 		schedule(ctx);
 	}
