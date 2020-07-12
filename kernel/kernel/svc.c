@@ -239,7 +239,8 @@ static void sys_ipc_call(context_t* ctx, int32_t pid, int32_t call_id, proto_t* 
 	if(proc == NULL || proc->space->ipc.entry == 0)
 		return;
 
-	if(proc->info.ipc_tasks > 0 && (proc->space->ipc.flags & IPC_SINGLE_TASK) != 0) {
+	if(proc->space->ipc.lock == 1 || 
+			(proc->info.ipc_tasks > 0 && (proc->space->ipc.flags & IPC_SINGLE_TASK) != 0)) {
 		ctx->gpr[0] = -1; //busy for single task , should retry
 		proc_block_on(ctx, pid, (uint32_t)&proc->space->ipc);
 		return;
@@ -424,23 +425,14 @@ static int32_t sys_get_kernel_tic(void) {
 	return _svc_tic;
 }
 
-static void sys_lock(context_t* ctx, bool* lock) {
-	ctx->gpr[0] = 0;
-	if(lock == NULL)
-		return;
-
-	if(*lock == true) {//already locked , wait and retry
-		//proc_block_on(ctx, -1, (uint32_t)_current_proc->space);
-		ctx->gpr[0] = -1;
-	}
-	*lock = true;
+static void sys_ipc_lock(void) {
+	_current_proc->space->ipc.lock = 1;
 }
 
-static void sys_unlock(bool* lock) {
-	if(lock == NULL)
-		return;
-	*lock = false;
-	//proc_wakeup(-1, (uint32_t)_current_proc->space);
+static void sys_ipc_unlock(void) {
+	_current_proc->space->ipc.lock = 0;
+	if((_current_proc->space->ipc.flags & IPC_SINGLE_TASK) == 0)
+		proc_wakeup(_current_proc->info.pid, (uint32_t)&_current_proc->space->ipc);
 }
 
 void svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_t arg2, context_t* ctx, int32_t processor_mode) {
@@ -573,11 +565,11 @@ void svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_t arg2, context
 	case SYS_CORE_PID:
 		ctx->gpr[0] = sys_core_pid();
 		return;
-	case SYS_LOCK:
-		sys_lock(ctx, (bool*)arg0);
+	case SYS_IPC_LOCK:
+		sys_ipc_lock();
 		return;
-	case SYS_UNLOCK:
-		sys_unlock((bool*)arg0);
+	case SYS_IPC_UNLOCK:
+		sys_ipc_unlock();
 		return;
 	}
 	printf("pid:%d, code(%d) error!\n", _current_proc->info.pid, code);

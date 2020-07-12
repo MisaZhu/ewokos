@@ -5,7 +5,6 @@
 #include <string.h>
 #include <sys/vfs.h>
 #include <sys/vdevice.h>
-#include <sys/lockc.h>
 #include <sys/syscall.h>
 #include <sys/basic_math.h>
 #include <sys/shm.h>
@@ -83,7 +82,6 @@ typedef struct {
 	x_current_t current;
 	x_conf_t config;
 
-	lock_t lock;
 } x_t;
 
 static int32_t read_config(x_t* x, const char* fname) {
@@ -646,7 +644,7 @@ static int xserver_fcntl(int fd, int from_pid, fsinfo_t* info,
 	x_t* x = (x_t*)p;
 
 	int res = -1;
-	lock_lock(x->lock);
+	//ipc_lock();
 	if(cmd == X_CNTL_UPDATE) {
 		res = x_update(fd, from_pid, x);
 	}	
@@ -666,7 +664,7 @@ static int xserver_fcntl(int fd, int from_pid, fsinfo_t* info,
 		res = x_call_xim(x);
 	}
 	x_repaint(x);
-	lock_unlock(x->lock);
+	//ipc_unlock();
 	return res;
 }
 
@@ -681,12 +679,12 @@ static int xserver_open(int fd, int from_pid, fsinfo_t* info, int oflag, void* p
 	if(view == NULL)
 		return -1;
 
-	lock_lock(x->lock);
+	//ipc_lock();
 	memset(view, 0, sizeof(xview_t));
 	view->fd = fd;
 	view->from_pid = from_pid;
 	push_view(x, view);
-	lock_unlock(x->lock);
+	//ipc_unlock();
 	return 0;
 }
 
@@ -858,6 +856,7 @@ static int xserver_dev_cntl(int from_pid, int cmd, proto_t* in, proto_t* ret, vo
 	(void)in;
 	x_t* x = (x_t*)p;
 
+	//ipc_lock();
 	if(cmd == X_DCNTL_GET_INFO) {
 		xscreen_t scr;	
 		scr.id = 0;
@@ -879,7 +878,7 @@ static int xserver_dev_cntl(int from_pid, int cmd, proto_t* in, proto_t* ret, vo
 		handle_input(x, &ev);
 	}
 	x_repaint(x);
-
+	//ipc_unlock();
 	return 0;
 }
 
@@ -891,9 +890,9 @@ static int xserver_close(int fd, int from_pid, fsinfo_t* info, void* p) {
 	if(view == NULL) {
 		return -1;
 	}
-	lock_lock(x->lock);
+	//ipc_lock();
 	x_del_view(x, view);	
-	lock_unlock(x->lock);
+	//ipc_unlock();
 	return 0;
 }
 
@@ -945,14 +944,12 @@ static int x_init(x_t* x) {
 	x->cursor.cpos.y = h/2; 
 	x->show_cursor = true;
 
-	x->lock = lock_new();
 	x->dirty = true;
 	x->actived = true;
 	return 0;
 }	
 
 static void x_close(x_t* x) {
-	lock_free(x->lock);
 	graph_free(x->g);
 	shm_unmap(x->shm_id);
 	close(x->fb_fd);

@@ -24,16 +24,19 @@ void lock_free(lock_t lock) {
 }
 
 int lock_lock(lock_t lock) {
-	while(1) {
+	(void)lock; //TODO
+	/*while(1) {
 		if(syscall1(SYS_LOCK, lock) == 0)
 			break;
 		sleep(0);
 	}
+	*/
 	return 0;
 }
 
 void lock_unlock(lock_t lock) {
-	syscall1(SYS_UNLOCK, lock);
+	(void)lock; //TODO
+	//syscall1(SYS_UNLOCK, lock);
 }
 
 #ifdef __cplusplus

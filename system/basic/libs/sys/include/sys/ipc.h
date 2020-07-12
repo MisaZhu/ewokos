@@ -15,6 +15,8 @@ typedef void (*ipc_handle_t)(uint32_t ipc_id, void* p);
 int      ipc_call(int to_pid, int call_id, const proto_t* ipkg, proto_t* opkg);
 void     ipc_ready(void);
 int      ipc_task_num(void);
+void     ipc_lock(void);
+void     ipc_unlock(void);
 
 #define IPC_SERV_VFS      "ipc_serv.vfs"
 #define IPC_SERV_PS2_KEYB "ipc_serv.ps2keyb"

@@ -42,6 +42,7 @@ typedef struct {
 		uint32_t entry;
 		uint32_t flags;
 		uint32_t extra_data;
+		uint32_t lock;
 		ipc_t ctx[IPC_CTX_MAX];
 	} ipc;
 } proc_space_t;

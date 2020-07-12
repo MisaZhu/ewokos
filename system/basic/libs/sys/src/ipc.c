@@ -26,6 +26,14 @@ int ipc_task_num(void) {
 	return syscall0(SYS_IPC_TASK_NUM);
 }
 
+void ipc_lock(void) {
+	syscall0(SYS_IPC_LOCK);
+}
+
+void ipc_unlock(void) {
+	syscall0(SYS_IPC_UNLOCK);
+}
+
 static proto_t* ipc_get_info(uint32_t ipc_id, int32_t* pid, int32_t* call_id) {
 	return (proto_t*)syscall3(SYS_IPC_GET_ARG, ipc_id, (int32_t)pid, (int32_t)call_id);
 }
