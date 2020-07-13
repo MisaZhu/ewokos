@@ -9,23 +9,6 @@
 #include <proto.h>
 #include <stdbool.h>
 
-enum {
-	UNUSED = 0,
-	CREATED,
-	SLEEPING,
-	WAIT,
-	BLOCK,
-	READY,
-	RUNNING,
-	ZOMBIE
-};
-
-enum {
-	IPC_IDLE = 0,
-	IPC_BUSY,
-	IPC_RETURN
-};
-
 #define PROC_FILE_MAX 128
 #define SHM_MAX 128
 #define LOCK_MAX 64
@@ -55,7 +38,6 @@ typedef struct st_proc {
 
 	uint32_t block_event;
 	int64_t sleep_counter; //sleep usec
-	int32_t wait_pid;
 
 	proc_space_t* space;
 	void* user_stack[STACK_PAGES];

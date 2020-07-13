@@ -208,7 +208,7 @@ static void proc_wakeup_waiting(int32_t pid) {
 	int32_t i;
 	for (i = 0; i < PROC_MAX; i++) {
 		proc_t *proc = &_proc_table[i];
-		if (proc->info.state == WAIT && proc->wait_pid == pid) {
+		if (proc->info.state == WAIT && proc->info.wait_for == pid) {
 			proc_ready(proc);
 		}
 	}
@@ -394,7 +394,7 @@ void proc_waitpid(context_t* ctx, int32_t pid) {
 	if(_current_proc == NULL || _proc_table[pid].info.state == UNUSED)
 		return;
 
-	_current_proc->wait_pid = pid;
+	_current_proc->info.wait_for = pid;
 	proc_unready(ctx, _current_proc, WAIT);
 }
 

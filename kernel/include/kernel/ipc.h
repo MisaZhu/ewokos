@@ -5,6 +5,12 @@
 #include <kernel/context.h>
 #include <stdbool.h>
 
+enum {
+	IPC_IDLE = 0,
+	IPC_BUSY,
+	IPC_RETURN
+};
+
 struct st_proc;
 
 typedef	struct {

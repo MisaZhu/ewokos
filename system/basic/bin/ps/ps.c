@@ -43,6 +43,9 @@ static const char* get_cmd(procinfo_t* proc, int full) {
 	if(proc->state == 4 && proc->block_by > 0 && proc->block_by != proc->pid)
 		snprintf(ret, 1023, "%s : blk_by %d", 
 				proc->cmd, proc->block_by);
+	else if(proc->state == 3)
+		snprintf(ret, 1023, "%s : wat_for %d", 
+				proc->cmd, proc->wait_for);
 	else
 		snprintf(ret, 1023, "%s", proc->cmd);
 	return ret;
