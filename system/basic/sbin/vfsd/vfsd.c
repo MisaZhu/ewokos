@@ -371,6 +371,46 @@ static vfs_node_t* vfs_get_by_fd(int32_t pid, int32_t fd) {
 	return file->node;
 }
 
+typedef struct st_close_event {
+	int fd;
+	int owner_pid;
+	int dev_pid;
+	fsinfo_t info;
+
+	struct st_close_event* next;
+} close_event_t;
+
+static close_event_t* _event_head = NULL;
+static close_event_t* _event_tail = NULL;
+
+static void push_close_event(close_event_t* ev) {
+  close_event_t* e = (close_event_t*)malloc(sizeof(close_event_t));
+  memcpy(e, ev, sizeof(close_event_t));
+  e->next = NULL;
+
+  if(_event_tail != NULL)
+    _event_tail->next = e;
+  else
+    _event_head = e;
+  _event_tail = e;
+	//proc_wakeup((int32_t)_vfs_root);
+	proc_wakeup(0);
+}
+
+static int get_close_event(close_event_t* ev) {
+  close_event_t* e = _event_head;
+  if(e == NULL)
+    return -1;
+
+  _event_head = _event_head->next;
+  if(_event_head == NULL)
+    _event_tail = NULL;
+
+  memcpy(ev, e, sizeof(close_event_t));
+  free(e);
+  return 0;
+}
+
 static void proc_file_close(int pid, int fd, file_t* file, bool close_dev) {
 	(void)close_dev;
 	(void)pid;
@@ -405,13 +445,21 @@ static void proc_file_close(int pid, int fd, file_t* file, bool close_dev) {
 	if(to_pid < 0)
 		return;
 
-	proto_t in;
+	close_event_t ev;
+	ev.fd = fd;
+	ev.owner_pid = pid;
+	ev.dev_pid = to_pid;
+	memcpy(&ev.info, &node->fsinfo, sizeof(fsinfo_t));
+	push_close_event(&ev);
+
+	/*proto_t in;
 	PF->init(&in, NULL, 0)->
 			addi(&in, fd)->
 			addi(&in, pid)->
 			add(&in, &node->fsinfo, sizeof(fsinfo_t));
 	ipc_call(to_pid, FS_CMD_CLOSE, &in, NULL);
 	PF->clear(&in);
+	*/
 }
 
 static void vfs_close(int32_t pid, int32_t fd) {
@@ -955,9 +1003,20 @@ static void handle(int pid, int cmd, proto_t* in, proto_t* out, void* p) {
 	}
 }
 
+static void handle_close_event(close_event_t* ev) {
+	proto_t in;
+	PF->init(&in, NULL, 0)->
+			addi(&in, ev->fd)->
+			addi(&in, ev->owner_pid)->
+			add(&in, &ev->info, sizeof(fsinfo_t));
+	ipc_call(ev->dev_pid, FS_CMD_CLOSE, &in, NULL);
+	PF->clear(&in);
+}
+
 int main(int argc, char** argv) {
 	(void)argc;
 	(void)argv;
+	_event_head = _event_tail = NULL;
 
 	if(ipc_serv_reg(IPC_SERV_VFS) != 0) {
 		kprintf(false, "reg vfs ipc_serv error!\n");
@@ -966,10 +1025,16 @@ int main(int argc, char** argv) {
 
 	vfs_init();
 
-	ipc_serv_run(handle, NULL, IPC_SINGLE_TASK);
-
+	ipc_serv_run(handle, NULL, IPC_SINGLE_TASK | IPC_NONBLOCK);
+	close_event_t ev;
 	while(true) {
-		sleep(1);
+		if(get_close_event(&ev) == 0) {
+			handle_close_event(&ev);
+		}
+		else {
+			usleep(10000);
+		}
 	}
 	return 0;
 }
+
