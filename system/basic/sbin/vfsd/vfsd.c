@@ -1032,7 +1032,7 @@ int main(int argc, char** argv) {
 			handle_close_event(&ev);
 		}
 		else {
-			usleep(10000);
+			usleep(30000);
 		}
 	}
 	return 0;
