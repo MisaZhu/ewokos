@@ -202,6 +202,7 @@ static int draw_view(x_t* xp, xview_t* view) {
 
 static inline void x_dirty(x_t* x) {
 	x->dirty = true;
+	x->need_repaint = true;
 }
 
 static void remove_view(x_t* x, xview_t* view) {

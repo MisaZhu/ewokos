@@ -101,8 +101,8 @@ protected:
 static void loop(void* p) {
 	XConsole* console = (XConsole*)p;
 
-	char buf[256];
-	int32_t size = read(0, buf, 255);
+	char buf[512];
+	int32_t size = read(0, buf, 512);
 	if(size > 0) {
 		buf[size] = 0;
 		for(int32_t i=0; i<size; i++) {
