@@ -166,13 +166,12 @@ static void do_proc_created(proto_t *data) {
 }
 
 static void do_proc_exit(proto_t *data) {
-	return;
-	int pid = ipc_serv_get(IPC_SERV_VFS);
+	int pid = get_ipc_serv(IPC_SERV_VFS);
 	if(pid > 0) {
 		ipc_call(pid, VFS_PROC_EXIT, data, NULL);
 	}
 
-	pid = ipc_serv_get(IPC_SERV_PROC);
+	pid = get_ipc_serv(IPC_SERV_PROC);
 	if(pid > 0) {
 		ipc_call(pid, PROC_CMD_EXIT, data, NULL);
 	}

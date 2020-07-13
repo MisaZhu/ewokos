@@ -30,12 +30,12 @@ extra_apps:
 	cd $(APPS_DIR)/launcher;make
 	cd $(APPS_DIR)/syspanel;make
 	cd $(APPS_DIR)/xconsole;make
-	cd $(APPS_DIR)/xim;make
 	cd $(APPS_DIR)/png;make
 
 EXTRA_SBIN_DIR=sbin
 extra_sbin:
 	cd $(EXTRA_SBIN_DIR)/x/xmouse;make
+	cd $(EXTRA_SBIN_DIR)/x/xim;make
 	cd $(EXTRA_SBIN_DIR)/x/xjoystick;make
 	cd $(EXTRA_SBIN_DIR)/x/xwm/macos7;make
 	cd $(EXTRA_SBIN_DIR)/x/xwm/win3;make
@@ -51,7 +51,6 @@ clean:
 	cd $(APPS_DIR)/syspanel;make clean
 	cd $(APPS_DIR)/xconsole;make clean
 	cd $(APPS_DIR)/png;make clean
-	cd $(APPS_DIR)/xim;make clean
 	cd $(EXTRA_LIBS_DIR)/x; make clean
 	cd $(EXTRA_LIBS_DIR)/upng; make clean
 	cd $(EXTRA_LIBS_DIR)/sconf; make clean
@@ -60,6 +59,7 @@ clean:
 	cd $(EXTRA_LIBXX_DIR)/graphxx; make clean
 	cd $(EXTRA_LIBXX_DIR)/x++; make clean
 	cd $(EXTRA_SBIN_DIR)/x/xmouse;make clean
+	cd $(EXTRA_SBIN_DIR)/x/xim;make clean
 	cd $(EXTRA_SBIN_DIR)/x/xjoystick;make clean
 	cd $(EXTRA_SBIN_DIR)/x/xwm/macos7;make clean
 	cd $(EXTRA_SBIN_DIR)/x/xwm/win3;make clean
