@@ -18,17 +18,24 @@ static const char* _states[] = {
 };
 
 static const char* get_state(procinfo_t* proc) {
+	static char ret[16];
 	if(proc->state == 4) {
 		if(proc->pid == proc->block_by)
-			return "wat_ipc";
-		if(proc->block_by < 0)
-			return "wat_kev";
+			strcpy(ret, "blk [ipc]");
+		else if(proc->block_by < 0)
+			strcpy(ret, "blk [kev]");
+		else if(proc->block_by < 0) {
+			snprintf(ret, 15, "blk [%d]", proc->block_by);
+		}
 	}
-	return _states[proc->state];
+	else if(proc->state == 3)
+		snprintf(ret, 15, "wat [%d]", proc->wait_for);
+	else 
+		strcpy(ret, _states[proc->state]);
+	return ret;
 }
 
 static const char* get_cmd(procinfo_t* proc, int full) {
-	static char ret[1024];
 	if(!full) {
 		char* p = proc->cmd;
 		while(*p != 0) {
@@ -39,16 +46,7 @@ static const char* get_cmd(procinfo_t* proc, int full) {
 			p++;
 		}
 	}	
-
-	if(proc->state == 4 && proc->block_by > 0 && proc->block_by != proc->pid)
-		snprintf(ret, 1023, "%s : blk_by %d", 
-				proc->cmd, proc->block_by);
-	else if(proc->state == 3)
-		snprintf(ret, 1023, "%s : wat_for %d", 
-				proc->cmd, proc->wait_for);
-	else
-		snprintf(ret, 1023, "%s", proc->cmd);
-	return ret;
+	return proc->cmd;
 }
 
 int main(int argc, char* argv[]) {
@@ -71,13 +69,13 @@ int main(int argc, char* argv[]) {
 
 	procinfo_t* procs = (procinfo_t*)syscall1(SYS_GET_PROCS, (int)&num);
 	if(procs != NULL) {
-		printf("  PID    FATHER OWNER   STATE     IPCS TIME       PROC\n"); 
+		printf("  PID    FATHER OWNER   STATE       IPCS TIME       PROC\n"); 
 		for(int i=0; i<num; i++) {
 			if(procs[i].type != PROC_TYPE_PROC && all == 0)
 				continue;
 
 			uint32_t sec = csec - procs[i].start_sec;
-			printf("  %4d   %6d %5d   %8s  %4d %02d:%02d:%02d   %s\n", 
+			printf("  %4d   %6d %5d   %10s  %4d %02d:%02d:%02d   %s\n", 
 				procs[i].pid,
 				procs[i].father_pid,
 				procs[i].owner,
