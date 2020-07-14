@@ -188,28 +188,23 @@ static void x_push_event(x_t* x, xevent_t* ev) {
 	e->next = NULL;
 	memcpy(&e->event, ev, sizeof(xevent_t));
 
-	ipc_lock();
   if(x->event_tail != NULL)
     x->event_tail->next = e;
   else
     x->event_head = e;
   x->event_tail = e;
-	ipc_unlock();
 }
 
 static int x_get_event(x_t* x, xevent_t* ev) {
   x_event_t* e = x->event_head;
 	if(e == NULL)
 		return -1;
-
-	ipc_lock();
   x->event_head = x->event_head->next;
   if(x->event_head == NULL)
     x->event_tail = NULL;
 
   memcpy(ev, &e->event, sizeof(xevent_t));
   free(e);
-	ipc_unlock();
   return 0;
 }
 
@@ -270,7 +265,11 @@ void  x_run(x_t* x, void* loop_data) {
 
 	xevent_t xev;
 	while(!x->terminated) {
-		if(x_get_event(x, &xev) == 0) {
+		ipc_lock();
+		int res = x_get_event(x, &xev);
+		ipc_unlock();
+
+		if(res == 0) {
 			xwin_t* xwin = (xwin_t*)xev.win;
 			if(xwin != NULL) {
 
