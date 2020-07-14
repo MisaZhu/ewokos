@@ -29,7 +29,7 @@ CFLAGS += -I $(TARGET_DIR)/include
 
 XWM_OBJS = xwm.o 
 
-XWM = $(TARGET_DIR)/sbin/x/xwm_win30
+XWM = $(TARGET_DIR)/sbin/x/xwm_win3
 
 $(XWM): $(XWM_OBJS) \
 		$(TARGET_DIR)/lib/libewokc.a \

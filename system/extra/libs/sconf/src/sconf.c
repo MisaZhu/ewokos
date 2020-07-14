@@ -4,6 +4,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <string.h>
+#include <sys/kprintf.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -66,6 +67,7 @@ sconf_t* sconf_parse(const char* str) {
 				item->value = str_new("");
 			}
 			stat = 2;
+			i++;
 			continue;
 		}
 		else if(stat == 0) {/*read name*/
@@ -102,6 +104,7 @@ sconf_t* sconf_parse(const char* str) {
 				i = 0;
 				stat = 0;
 			}
+			i++;
 		}
 	}
 	return conf;

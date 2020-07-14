@@ -31,7 +31,7 @@ $(SYSPANEL): $(SYSPANEL_OBJS) \
 		$(TARGET_DIR)/lib/libewokc.a \
 		$(TARGET_DIR)/lib/libx++.a \
 		$(TARGET_DIR)/lib/libcxx.a 
-	$(LD) -Ttext=100 $(SYSPANEL_OBJS) -o $(SYSPANEL) $(LDFLAGS)  -lgraphxx -lx++ -lewokc -lc -lcxx -lsconf
+	$(LD) -Ttext=100 $(SYSPANEL_OBJS) -o $(SYSPANEL) $(LDFLAGS) -lsconf  -lgraphxx -lx++ -lewokc -lc -lcxx
 
 clean:
 	rm -f $(SYSPANEL_OBJS)

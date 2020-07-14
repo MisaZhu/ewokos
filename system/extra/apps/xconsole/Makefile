@@ -31,7 +31,7 @@ $(XCONSOLE): $(XCONSOLE_OBJS) \
 		$(TARGET_DIR)/lib/libewokc.a \
 		$(TARGET_DIR)/lib/libx++.a \
 		$(TARGET_DIR)/lib/libcxx.a 
-	$(LD) -Ttext=100 $(XCONSOLE_OBJS) -o $(XCONSOLE) $(LDFLAGS)  -lx++ -lgraphxx -lewokc -lc -lcxx -lsconf -lconsole
+	$(LD) -Ttext=100 $(XCONSOLE_OBJS) -o $(XCONSOLE) $(LDFLAGS) -lsconf -lx++ -lgraphxx -lewokc -lc -lcxx -lconsole
 
 clean:
 	rm -f $(XCONSOLE_OBJS)
