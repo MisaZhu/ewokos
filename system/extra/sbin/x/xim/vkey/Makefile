@@ -1,7 +1,7 @@
 CXX = arm-none-eabi-g++
 LD = arm-none-eabi-ld
 
-BUILD_DIR = ../../../../build
+BUILD_DIR = ../../../../../build
 TARGET_DIR = $(BUILD_DIR)/rootfs
 
 # flags
@@ -25,7 +25,7 @@ CXXFLAGS += -I $(TARGET_DIR)/include
 
 XIM_OBJS = xim.o
 
-XIM = $(TARGET_DIR)/sbin/x/xim
+XIM = $(TARGET_DIR)/sbin/x/xim_vkey
 
 $(XIM): $(XIM_OBJS) \
 		$(TARGET_DIR)/lib/libewokc.a \

@@ -886,6 +886,7 @@ static int xserver_close(int fd, int from_pid, fsinfo_t* info, void* p) {
 		return -1;
 	}
 	x_del_view(x, view);	
+	x_repaint(x);
 	return 0;
 }
 

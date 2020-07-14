@@ -11,8 +11,6 @@
 using namespace Ewok;
 
 class XIMX : public XWin {
-	int count;
-	bool circle;
  	int x_pid;
  	int keybFD;
 	const char* keytable;
@@ -70,8 +68,6 @@ protected:
 
 public:
 	inline XIMX() {
-		count = 0;
-		circle = true;
 		font = font_by_name("8x16");
 		keytable = "abcdefghijklmnopqrstuvwxyz1234567890-.\n";
 		col = 13;

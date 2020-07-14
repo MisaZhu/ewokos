@@ -35,7 +35,8 @@ extra_apps:
 EXTRA_SBIN_DIR=sbin
 extra_sbin:
 	cd $(EXTRA_SBIN_DIR)/x/xmouse;make
-	cd $(EXTRA_SBIN_DIR)/x/xim;make
+	cd $(EXTRA_SBIN_DIR)/x/xim/vkey;make
+	cd $(EXTRA_SBIN_DIR)/x/xim/none;make
 	cd $(EXTRA_SBIN_DIR)/x/xjoystick;make
 	cd $(EXTRA_SBIN_DIR)/x/xwm/macos7;make
 	cd $(EXTRA_SBIN_DIR)/x/xwm/win3;make
@@ -59,7 +60,8 @@ clean:
 	cd $(EXTRA_LIBXX_DIR)/graphxx; make clean
 	cd $(EXTRA_LIBXX_DIR)/x++; make clean
 	cd $(EXTRA_SBIN_DIR)/x/xmouse;make clean
-	cd $(EXTRA_SBIN_DIR)/x/xim;make clean
+	cd $(EXTRA_SBIN_DIR)/x/xim/vkey;make clean
+	cd $(EXTRA_SBIN_DIR)/x/xim/none;make clean
 	cd $(EXTRA_SBIN_DIR)/x/xjoystick;make clean
 	cd $(EXTRA_SBIN_DIR)/x/xwm/macos7;make clean
 	cd $(EXTRA_SBIN_DIR)/x/xwm/win3;make clean

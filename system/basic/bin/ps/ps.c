@@ -24,9 +24,8 @@ static const char* get_state(procinfo_t* proc) {
 			strcpy(ret, "blk [ipc]");
 		else if(proc->block_by < 0)
 			strcpy(ret, "blk [kev]");
-		else if(proc->block_by < 0) {
+		else 
 			snprintf(ret, 15, "blk [%d]", proc->block_by);
-		}
 	}
 	else if(proc->state == 3)
 		snprintf(ret, 15, "wat [%d]", proc->wait_for);
