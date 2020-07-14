@@ -1,7 +1,7 @@
 CXX = arm-none-eabi-g++
 LD = arm-none-eabi-ld
 
-BUILD_DIR = ../../../build
+BUILD_DIR = ../../../../build
 TARGET_DIR = $(BUILD_DIR)/rootfs
 
 # flags
@@ -23,16 +23,16 @@ LDFLAGS = -L$(TARGET_DIR)/lib -lnosys
 
 CXXFLAGS += -I $(TARGET_DIR)/include
 
-PNG_OBJS = png.o
+SYSPANEL_OBJS = syspanel.o
 
-PNG = $(TARGET_DIR)/apps/png
+SYSPANEL = $(TARGET_DIR)/apps/syspanel
 
-$(PNG): $(PNG_OBJS) \
+$(SYSPANEL): $(SYSPANEL_OBJS) \
 		$(TARGET_DIR)/lib/libewokc.a \
 		$(TARGET_DIR)/lib/libx++.a \
 		$(TARGET_DIR)/lib/libcxx.a 
-	$(LD) -Ttext=100 $(PNG_OBJS) -o $(PNG) $(LDFLAGS)  -lgraphxx -lupng -lx++ -lewokc -lc -lcxx
+	$(LD) -Ttext=100 $(SYSPANEL_OBJS) -o $(SYSPANEL) $(LDFLAGS) -lsconf  -lgraphxx -lx++ -lewokc -lc -lcxx
 
 clean:
-	rm -f $(PNG_OBJS)
+	rm -f $(SYSPANEL_OBJS)
 

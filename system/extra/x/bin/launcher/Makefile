@@ -1,7 +1,7 @@
 CXX = arm-none-eabi-g++
 LD = arm-none-eabi-ld
 
-BUILD_DIR = ../../../build
+BUILD_DIR = ../../../../build
 TARGET_DIR = $(BUILD_DIR)/rootfs
 
 # flags
@@ -23,16 +23,16 @@ LDFLAGS = -L$(TARGET_DIR)/lib -lnosys
 
 CXXFLAGS += -I $(TARGET_DIR)/include
 
-SYSPANEL_OBJS = syspanel.o
+LAUNCHER_OBJS = launcher.o
 
-SYSPANEL = $(TARGET_DIR)/apps/syspanel
+LAUNCHER = $(TARGET_DIR)/apps/launcher
 
-$(SYSPANEL): $(SYSPANEL_OBJS) \
+$(LAUNCHER): $(LAUNCHER_OBJS) \
 		$(TARGET_DIR)/lib/libewokc.a \
 		$(TARGET_DIR)/lib/libx++.a \
 		$(TARGET_DIR)/lib/libcxx.a 
-	$(LD) -Ttext=100 $(SYSPANEL_OBJS) -o $(SYSPANEL) $(LDFLAGS) -lsconf  -lgraphxx -lx++ -lewokc -lc -lcxx
+	$(LD) -Ttext=100 $(LAUNCHER_OBJS) -o $(LAUNCHER) $(LDFLAGS)  -lgraphxx -lupng -lx++ -lsconf -lewokc -lc -lcxx
 
 clean:
-	rm -f $(SYSPANEL_OBJS)
+	rm -f $(LAUNCHER_OBJS)
 

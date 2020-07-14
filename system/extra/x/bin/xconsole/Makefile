@@ -1,7 +1,7 @@
 CXX = arm-none-eabi-g++
 LD = arm-none-eabi-ld
 
-BUILD_DIR = ../../../build
+BUILD_DIR = ../../../../build
 TARGET_DIR = $(BUILD_DIR)/rootfs
 
 # flags
@@ -23,16 +23,16 @@ LDFLAGS = -L$(TARGET_DIR)/lib -lnosys
 
 CXXFLAGS += -I $(TARGET_DIR)/include
 
-LAUNCHER_OBJS = launcher.o
+XCONSOLE_OBJS = xconsole.o
 
-LAUNCHER = $(TARGET_DIR)/apps/launcher
+XCONSOLE = $(TARGET_DIR)/apps/xconsole
 
-$(LAUNCHER): $(LAUNCHER_OBJS) \
+$(XCONSOLE): $(XCONSOLE_OBJS) \
 		$(TARGET_DIR)/lib/libewokc.a \
 		$(TARGET_DIR)/lib/libx++.a \
 		$(TARGET_DIR)/lib/libcxx.a 
-	$(LD) -Ttext=100 $(LAUNCHER_OBJS) -o $(LAUNCHER) $(LDFLAGS)  -lgraphxx -lupng -lx++ -lsconf -lewokc -lc -lcxx
+	$(LD) -Ttext=100 $(XCONSOLE_OBJS) -o $(XCONSOLE) $(LDFLAGS) -lsconf -lx++ -lgraphxx -lewokc -lc -lcxx -lconsole
 
 clean:
-	rm -f $(LAUNCHER_OBJS)
+	rm -f $(XCONSOLE_OBJS)
 
