@@ -384,7 +384,6 @@ static close_event_t* _event_head = NULL;
 static close_event_t* _event_tail = NULL;
 
 static void push_close_event(close_event_t* ev) {
-	ipc_lock();
   close_event_t* e = (close_event_t*)malloc(sizeof(close_event_t));
   memcpy(e, ev, sizeof(close_event_t));
   e->next = NULL;
@@ -394,22 +393,18 @@ static void push_close_event(close_event_t* ev) {
   else
     _event_head = e;
   _event_tail = e;
-	ipc_unlock();
 }
 
 static int get_close_event(close_event_t* ev) {
   close_event_t* e = _event_head;
   if(e == NULL)
     return -1;
-
-	ipc_lock();
   _event_head = _event_head->next;
   if(_event_head == NULL)
     _event_tail = NULL;
 
   memcpy(ev, e, sizeof(close_event_t));
   free(e);
-	ipc_unlock();
   return 0;
 }
 
@@ -1030,12 +1025,14 @@ int main(int argc, char** argv) {
 	ipc_serv_run(handle, NULL, IPC_SINGLE_TASK | IPC_NONBLOCK);
 	close_event_t ev;
 	while(true) {
-		if(get_close_event(&ev) == 0) {
+		ipc_lock();
+		int res = get_close_event(&ev);
+		ipc_unlock();
+
+		if( res == 0)
 			handle_close_event(&ev);
-		}
-		else {
+		else
 			usleep(30000);
-		}
 	}
 	return 0;
 }
