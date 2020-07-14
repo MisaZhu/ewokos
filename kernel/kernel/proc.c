@@ -23,8 +23,10 @@ int32_t _core_pid = -1;
 /* proc_init initializes the process sub-system. */
 void procs_init(void) {
 	_core_ready = false;
-	for (int32_t i = 0; i < PROC_MAX; i++)
+	for (int32_t i = 0; i < PROC_MAX; i++) {
 		_proc_table[i].info.state = UNUSED;
+		_proc_table[i].info.wait_for = -1;
+	}
 	_current_proc = NULL;
 	_core_pid = -1;
 	queue_init(&_ready_queue);
@@ -209,6 +211,7 @@ static void proc_wakeup_waiting(int32_t pid) {
 	for (i = 0; i < PROC_MAX; i++) {
 		proc_t *proc = &_proc_table[i];
 		if (proc->info.state == WAIT && proc->info.wait_for == pid) {
+			proc->info.wait_for = -1;
 			proc_ready(proc);
 		}
 	}

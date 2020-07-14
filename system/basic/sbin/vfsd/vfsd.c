@@ -384,6 +384,7 @@ static close_event_t* _event_head = NULL;
 static close_event_t* _event_tail = NULL;
 
 static void push_close_event(close_event_t* ev) {
+	ipc_lock();
   close_event_t* e = (close_event_t*)malloc(sizeof(close_event_t));
   memcpy(e, ev, sizeof(close_event_t));
   e->next = NULL;
@@ -393,8 +394,7 @@ static void push_close_event(close_event_t* ev) {
   else
     _event_head = e;
   _event_tail = e;
-	//proc_wakeup((int32_t)_vfs_root);
-	proc_wakeup(0);
+	ipc_unlock();
 }
 
 static int get_close_event(close_event_t* ev) {
@@ -402,12 +402,14 @@ static int get_close_event(close_event_t* ev) {
   if(e == NULL)
     return -1;
 
+	ipc_lock();
   _event_head = _event_head->next;
   if(_event_head == NULL)
     _event_tail = NULL;
 
   memcpy(ev, e, sizeof(close_event_t));
   free(e);
+	ipc_unlock();
   return 0;
 }
 
