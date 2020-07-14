@@ -6,6 +6,7 @@
 #include <sys/vdevice.h>
 #include <sys/syscall.h>
 #include <sys/mmio.h>
+#include <sys/basic_math.h>
 
 static uint32_t _mmio_base = 0;
 

@@ -88,7 +88,7 @@ static void load_devs(void) {
 	sysinfo_t sysinfo;
 	syscall1(SYS_GET_SYSINFO, (int32_t)&sysinfo);
 	char fn[FS_FULL_NAME_MAX];
-	snprintf(fn, FS_FULL_NAME_MAX-1, "/etc/arch/%s.dev", sysinfo.machine);
+	snprintf(fn, FS_FULL_NAME_MAX-1, "/etc/arch/%s/init.dev", sysinfo.machine);
 	int fd = open(fn, O_RDONLY);
 	if(fd < 0)
 		return;
@@ -105,7 +105,12 @@ static void load_devs(void) {
 }
 
 static void run_procs(void) {
-	int fd = open("/etc/init.rd", O_RDONLY);
+	sysinfo_t sysinfo;
+	syscall1(SYS_GET_SYSINFO, (int32_t)&sysinfo);
+	char fn[FS_FULL_NAME_MAX];
+	snprintf(fn, FS_FULL_NAME_MAX-1, "/etc/arch/%s/init.rd", sysinfo.machine);
+	
+	int fd = open(fn, O_RDONLY);
 	if(fd < 0)
 		return;
 
