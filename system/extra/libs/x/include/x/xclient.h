@@ -4,7 +4,6 @@
 #include <graph/graph.h>
 #include <x/xcntl.h>
 #include <x/xevent.h>
-#include <sys/lockc.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -21,7 +20,6 @@ typedef struct st_x {
 	struct st_xwin* main_win;
 	void* data;
 	bool terminated;
-	lock_t lock;
 	x_event_t* event_head;
   x_event_t* event_tail;
 

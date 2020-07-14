@@ -645,7 +645,6 @@ static int xserver_fcntl(int fd, int from_pid, fsinfo_t* info,
 	x_t* x = (x_t*)p;
 
 	int res = -1;
-	//ipc_lock();
 	if(cmd == X_CNTL_UPDATE) {
 		res = x_update(fd, from_pid, x);
 	}	
@@ -665,7 +664,6 @@ static int xserver_fcntl(int fd, int from_pid, fsinfo_t* info,
 		res = x_call_xim(x);
 	}
 	x_repaint(x);
-	//ipc_unlock();
 	return res;
 }
 
@@ -680,12 +678,10 @@ static int xserver_open(int fd, int from_pid, fsinfo_t* info, int oflag, void* p
 	if(view == NULL)
 		return -1;
 
-	//ipc_lock();
 	memset(view, 0, sizeof(xview_t));
 	view->fd = fd;
 	view->from_pid = from_pid;
 	push_view(x, view);
-	//ipc_unlock();
 	return 0;
 }
 
@@ -857,7 +853,6 @@ static int xserver_dev_cntl(int from_pid, int cmd, proto_t* in, proto_t* ret, vo
 	(void)in;
 	x_t* x = (x_t*)p;
 
-	//ipc_lock();
 	if(cmd == X_DCNTL_GET_INFO) {
 		xscreen_t scr;	
 		scr.id = 0;
@@ -879,7 +874,6 @@ static int xserver_dev_cntl(int from_pid, int cmd, proto_t* in, proto_t* ret, vo
 		handle_input(x, &ev);
 	}
 	x_repaint(x);
-	//ipc_unlock();
 	return 0;
 }
 
@@ -891,9 +885,7 @@ static int xserver_close(int fd, int from_pid, fsinfo_t* info, void* p) {
 	if(view == NULL) {
 		return -1;
 	}
-	//ipc_lock();
 	x_del_view(x, view);	
-	//ipc_unlock();
 	return 0;
 }
 
