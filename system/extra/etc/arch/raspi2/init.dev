@@ -1,3 +1,4 @@
 /sbin/dev/fbd             /dev/fb0
 /sbin/dev/nulld           /dev/null
 /sbin/dev/raspi2/ttyd      /dev/tty0
+/sbin/dev/xserverd        /dev/x
