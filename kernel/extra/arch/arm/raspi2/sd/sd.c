@@ -1,14 +1,11 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <string.h>
-#include <sys/vfs.h>
-#include <sys/vdevice.h>
-#include <sys/syscall.h>
-#include <sys/basic_math.h>
-#include <sys/mmio.h>
-
-static uint32_t _mmio_base = 0;
+#include "gpio_arch.h"
+#include <dev/sd.h>
+#include <dev/actled.h>
+#include <kernel/system.h>
+#include <kernel/proc.h>
+#include <basic_math.h>
+#include <mm/mmu.h>
+#include <kstring.h>
 
 #define SD_OK                0
 #define SD_TIMEOUT          -1
@@ -106,26 +103,6 @@ static uint32_t _mmio_base = 0;
 #define ACMD41_CMD_CCS      0x40000000
 #define ACMD41_ARG_HC       0x51ff8000
 
-#define GPIO_FSEL0         ((volatile uint32_t*)(_mmio_base+0x00200000))
-#define GPIO_FSEL1         ((volatile uint32_t*)(_mmio_base+0x00200004))
-#define GPIO_FSEL2         ((volatile uint32_t*)(_mmio_base+0x00200008))
-#define GPIO_FSEL3         ((volatile uint32_t*)(_mmio_base+0x0020000C))
-#define GPIO_FSEL4         ((volatile uint32_t*)(_mmio_base+0x00200010))
-#define GPIO_FSEL5         ((volatile uint32_t*)(_mmio_base+0x00200014))
-#define GPIO_SET0          ((volatile uint32_t*)(_mmio_base+0x0020001C))
-#define GPIO_SET1          ((volatile uint32_t*)(_mmio_base+0x00200020))
-#define GPIO_CLR0          ((volatile uint32_t*)(_mmio_base+0x00200028))
-#define GPIO_CLR1          ((volatile uint32_t*)(_mmio_base+0x0020002C))
-#define GPIO_LEV0          ((volatile uint32_t*)(_mmio_base+0x00200034))
-#define GPIO_LEV1          ((volatile uint32_t*)(_mmio_base+0x00200038))
-#define GPIO_EDS0          ((volatile uint32_t*)(_mmio_base+0x00200040))
-#define GPIO_EDS1          ((volatile uint32_t*)(_mmio_base+0x00200044))
-#define GPIO_HEN0          ((volatile uint32_t*)(_mmio_base+0x00200064))
-#define GPIO_HEN1          ((volatile uint32_t*)(_mmio_base+0x00200068))
-#define GPIO_PUD           ((volatile uint32_t*)(_mmio_base+0x00200094))
-#define GPIO_PUDCLK0       ((volatile uint32_t*)(_mmio_base+0x00200098))
-#define GPIO_PUDCLK1       ((volatile uint32_t*)(_mmio_base+0x0020009C))
-
 #define SECTOR_SIZE         512 
 
 volatile uint32_t sd_scr[2], sd_ocr, sd_rca, sd_hv;
@@ -135,6 +112,7 @@ volatile int32_t sd_err;
 typedef struct {
 	volatile int32_t sector;
 	char rxbuf[SECTOR_SIZE];
+	char txbuf[SECTOR_SIZE];
 	volatile uint32_t rxdone, txdone;
 } sd_t;
 
@@ -145,8 +123,8 @@ static sd_t _sdc;
  */
 static int32_t __attribute__((optimize("O0"))) sd_status(uint32_t mask) {
 	int32_t cnt = 1000000; 
-	while((*EMMC_STATUS & mask) != 0 && (*EMMC_INTERRUPT & INT_ERROR_MASK) == 0 && cnt-- > 0)
-		usleep(1);
+	while((*EMMC_STATUS & mask) != 0 && (*EMMC_INTERRUPT & INT_ERROR_MASK) == 0 && cnt > 0)
+		_delay_usec(1);
 	return (cnt <= 0 || (*EMMC_INTERRUPT & INT_ERROR_MASK)) ? SD_ERROR : SD_OK;
 }
 
@@ -157,7 +135,7 @@ static int32_t __attribute__((optimize("O0"))) sd_int(uint32_t mask, int32_t wai
 	uint32_t r, m = (mask | INT_ERROR_MASK);
 	int32_t cnt = 10000; 
 	while((*EMMC_INTERRUPT & m) == 0 && cnt--) {
-		usleep(1);
+		_delay_usec(1);
 		if(wait == 0)
 			return -1;
 	}
@@ -197,9 +175,9 @@ static int32_t __attribute__((optimize("O0"))) sd_cmd(uint32_t code, uint32_t ar
 	*EMMC_ARG1 = arg;
 	*EMMC_CMDTM = code;
 	if(code == CMD_SEND_OP_COND)
-		usleep(1000);
+		_delay_usec(1000);
 	else if(code==CMD_SEND_IF_COND || code==CMD_APP_CMD)
-		usleep(100);
+		_delay_usec(100);
 
 	if((r = sd_int(INT_CMD_DONE, 1))) {
 		sd_err = r;
@@ -239,6 +217,7 @@ static int32_t sd_read_sector(uint32_t sector) {
 		return -1;
 	}
 
+	act_led(1);	
 	*EMMC_BLKSIZECNT = (1 << 16) | SECTOR_SIZE;
 	if((sd_scr[0] & SCR_SUPP_CCS) != 0)
 		sd_cmd(CMD_READ_SINGLE, sector);
@@ -251,53 +230,19 @@ static int32_t sd_read_sector(uint32_t sector) {
 }
 
 /**
- * write a sector to the sd card and return the number of bytes written
- * returns 0 on error.
- */
-static int32_t sd_write_sector(uint32_t sector, const void *buffer) {
-	uint32_t r, d;
-	if(sd_status(SR_DAT_INHIBIT | SR_WRITE_AVAILABLE)) {
-		sd_err = SD_TIMEOUT;
-		return 0;
-	}
-	uint32_t *buf = (uint32_t *)buffer;
-	
-	*EMMC_BLKSIZECNT = (1 << 16) | SECTOR_SIZE;
-	if((sd_scr[0] & SCR_SUPP_CCS) != 0)
-		sd_cmd(CMD_WRITE_SINGLE, sector);
-	else
-		sd_cmd(CMD_WRITE_SINGLE, sector * SECTOR_SIZE);
-
-	if(sd_err) 
-		return 0;
-	if((r = sd_int(INT_WRITE_RDY, 1))) {
-		sd_err = r;
-		return 0;
-	}
-	for(d=0; d<SECTOR_SIZE/4; d++) 
-		*EMMC_DATA = buf[d];
-	
-	if((r = sd_int(INT_DATA_DONE, 1))) {
-		sd_err = r;
-		return 0;
-	}
-	return sd_err!=SD_OK ? 0 : SECTOR_SIZE;
-}
-
-/**
  * set SD clock to frequency in Hz
  */
 static int32_t sd_clk(uint32_t f) {
 	uint32_t d, c=div_u32(41666666,f), x , s=32, h=0;
 	int32_t cnt = 100000;
 	while((*EMMC_STATUS & (SR_CMD_INHIBIT|SR_DAT_INHIBIT)) && cnt--) 
-		usleep(1);
+		_delay_usec(1);
 	if(cnt<=0) {
 		return SD_ERROR;
 	}
 
 	*EMMC_CONTROL1 &= ~C1_CLK_EN;
-	usleep(10);
+	_delay_usec(10);
 	x=c-1;
 	if(!x)
 		s=0; 
@@ -323,28 +268,22 @@ static int32_t sd_clk(uint32_t f) {
 
 	d = (((d&0x0ff)<<8)|h);
 	*EMMC_CONTROL1 = (*EMMC_CONTROL1&0xffff003f) | d;
-	usleep(10);
+	_delay_usec(10);
 	*EMMC_CONTROL1 |= C1_CLK_EN;
-	usleep(10);
+	_delay_usec(10);
 	cnt=10000; 
 	while(!(*EMMC_CONTROL1 & C1_CLK_STABLE) && cnt--)
-		usleep(10);
+		_delay_usec(10);
 	if(cnt<=0) {
 		return SD_ERROR;
 	}
 	return SD_OK;
 }
 
-static inline void delay(int32_t n) {
-	while(n > 0) n--;
-}
-
 /**
  * initialize EMMC to read SDHC card
  */
-int32_t __attribute__((optimize("O0"))) sd_init_arch(void) {
-	_mmio_base = mmio_map();
-
+int32_t __attribute__((optimize("O0"))) sd_init(void) {
 	_sdc.rxdone = 1;
 	_sdc.txdone = 1;
 
@@ -354,10 +293,10 @@ int32_t __attribute__((optimize("O0"))) sd_init_arch(void) {
 	r &= ~(7<<(7*3));
 	*GPIO_FSEL4 = r;
 	*GPIO_PUD=2;
-	delay(150);
+	_delay(150);
 	
 	*GPIO_PUDCLK1 = (1<<15);
-	delay(150);
+	_delay(150);
 	
 	*GPIO_PUD = 0;
 	*GPIO_PUDCLK1 = 0;
@@ -370,9 +309,9 @@ int32_t __attribute__((optimize("O0"))) sd_init_arch(void) {
 	r |= (7<<(8*3)) | (7<<(9*3));
 	*GPIO_FSEL4 = r;
 	*GPIO_PUD=2;
-	delay(150);
+	_delay(150);
 	*GPIO_PUDCLK1 = (1<<16)|(1<<17); 
-	delay(150);
+	_delay(150);
 	*GPIO_PUD = 0; 
 	*GPIO_PUDCLK1 = 0;
 
@@ -381,9 +320,9 @@ int32_t __attribute__((optimize("O0"))) sd_init_arch(void) {
 	r |= (7<<(0*3)) | (7<<(1*3)) | (7<<(2*3)) | (7<<(3*3));
 	*GPIO_FSEL5 = r;
 	*GPIO_PUD = 2; 
-	delay(150);
+	_delay(150);
 	*GPIO_PUDCLK1 = (1<<18) | (1<<19) | (1<<20) | (1<<21);
-	delay(150);
+	_delay(150);
 	*GPIO_PUD = 0;
 	*GPIO_PUDCLK1 = 0;
 
@@ -393,14 +332,14 @@ int32_t __attribute__((optimize("O0"))) sd_init_arch(void) {
 	*EMMC_CONTROL1 |= C1_SRST_HC;
 	cnt = 10000;
 	do{
-		usleep(10);
+		_delay_usec(10);
 	} while((*EMMC_CONTROL1 & C1_SRST_HC) && cnt-- );
 
 	if(cnt<=0)
 		return SD_ERROR;
 
 	*EMMC_CONTROL1 |= C1_CLK_INTLEN | C1_TOUNIT_MAX;
-	usleep(10);
+	_delay_usec(10);
 	// Set clock to setup frequency.
 	if((r = sd_clk(400000)))
 		return r;
@@ -417,8 +356,7 @@ int32_t __attribute__((optimize("O0"))) sd_init_arch(void) {
 	cnt = 6;
 	r = 0;
 	while(!(r&ACMD41_CMD_COMPLETE) && cnt--) {
-		usleep(4000);
-		//printf(".");
+		_delay(4000);
 		r = sd_cmd(CMD_SEND_OP_COND, ACMD41_ARG_HC);
 		if((r & ACMD41_CMD_COMPLETE) &&
 				(r & ACMD41_VOLTAGE) &&
@@ -442,7 +380,7 @@ int32_t __attribute__((optimize("O0"))) sd_init_arch(void) {
 	if(sd_err)
 		return sd_err;
 	
-	if((r=sd_clk(12500000)))
+	if((r=sd_clk(25000000)))
 		return r;
 
 	if(sd_status(SR_DAT_INHIBIT))
@@ -451,26 +389,27 @@ int32_t __attribute__((optimize("O0"))) sd_init_arch(void) {
 	*EMMC_BLKSIZECNT = (1<<16) | 8;
 
 	sd_cmd(CMD_SEND_SCR, 0);
-	if(sd_err == 0) {
-		if(sd_int(INT_READ_RDY, 1))
-			return SD_TIMEOUT;
+	if(sd_err)
+		return sd_err;
 
-		r=0; cnt=100000; 
-		while(r<2 && cnt) {
-			if( *EMMC_STATUS & SR_READ_AVAILABLE )
-				sd_scr[r++] = *EMMC_DATA;
-			else
-				usleep(1);
-		}
-		if(r != 2) 
-			return SD_TIMEOUT;
+	if(sd_int(INT_READ_RDY, 1))
+		return SD_TIMEOUT;
 
-		if(sd_scr[0] & SCR_SD_BUS_WIDTH_4) {
-			sd_cmd(CMD_SET_BUS_WIDTH, sd_rca|2);
-			if(sd_err)
-				return sd_err;
-			*EMMC_CONTROL0 |= C0_HCTL_DWITDH;
-		}
+	r=0; cnt=100000; 
+	while(r<2 && cnt) {
+		if( *EMMC_STATUS & SR_READ_AVAILABLE )
+			sd_scr[r++] = *EMMC_DATA;
+		else
+			_delay_usec(1);
+	}
+	if(r != 2) 
+		return SD_TIMEOUT;
+
+	if(sd_scr[0] & SCR_SD_BUS_WIDTH_4) {
+		sd_cmd(CMD_SET_BUS_WIDTH, sd_rca|2);
+		if(sd_err)
+			return sd_err;
+		*EMMC_CONTROL0 |= C0_HCTL_DWITDH;
 	}
 
 	// add software flag
@@ -495,32 +434,21 @@ static void sd_dev_handle(void) {
 	return;
 }
 
-static int32_t sd_read_done(void* buf) {
+int32_t sd_dev_read(int32_t sector) {
+	if(_sdc.rxdone == 0)
+		return -1;
+
+	_sdc.sector = sector;
+	_sdc.rxdone = 0;
+	return sd_read_sector(_sdc.sector);
+}
+
+int32_t sd_dev_read_done(void* buf) {
 	sd_dev_handle();
 	if(_sdc.rxdone == 0)
 		return -1;
 	memcpy(buf, _sdc.rxbuf, SECTOR_SIZE);
-	return 0;
-}
-
-int32_t sd_read_sector_arch(int32_t sector, void* buf) {
-	if(_sdc.rxdone == 0)
-		return -1;
-	_sdc.sector = sector;
-	_sdc.rxdone = 0;
-
-	if(sd_read_sector(sector) != 0)
-		return -1;
-	while(1) {
-		if(sd_read_done(buf) == 0)
-			break;
-	}
-	return 0;
-}
-
-int32_t sd_write_sector_arch(int32_t sector, const void* buf) {
-	if(sd_write_sector(sector, buf) != 0)
-		return -1;
+	act_led(0);	
 	return 0;
 }
 

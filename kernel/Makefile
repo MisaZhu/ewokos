@@ -66,6 +66,10 @@ ARCH_OBJS += ${ARCH_DIR}/${ARCH}/gpio_arch.o  \
 	${ARCH_DIR}/${ARCH}/mailbox.o \
 	extra/${ARCH_DIR}/${ARCH}/lib/spi_arch.o \
 	extra/${ARCH_DIR}/${ARCH}/lcdhat/lcdhat.o 
+else
+ifeq ($(MACH),raspi2)
+ARCH_OBJS += ${ARCH_DIR}/${ARCH}/mailbox.o
+endif
 endif
 	
 LIB_DIR = lib/src

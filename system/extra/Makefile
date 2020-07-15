@@ -7,6 +7,7 @@ all: mkdirs extra_libs extra_sbin x_sbin x_bin
 
 mkdirs:
 	@mkdir -p ${TARGET_DIR}/$(ROOT_DIR)/sbin/dev/raspi
+	@mkdir -p ${TARGET_DIR}/$(ROOT_DIR)/sbin/dev/raspi2
 	@mkdir -p ${TARGET_DIR}/$(ROOT_DIR)/sbin/x
 	@mkdir -p ${TARGET_DIR}/$(ROOT_DIR)/apps
 	@cp -r ${ROOT_DIR}/etc ${TARGET_DIR}/$(ROOT_DIR)
@@ -46,6 +47,7 @@ extra_sbin:
 	cd $(EXTRA_SBIN_DIR)/dev/arch/raspi/joystickd;make
 	cd $(EXTRA_SBIN_DIR)/dev/arch/raspi/lcdhatd;make
 	cd $(EXTRA_SBIN_DIR)/dev/arch/raspi/ttyd;make
+	cd $(EXTRA_SBIN_DIR)/dev/arch/raspi2/ttyd;make
 
 clean:
 	cd $(EXTRA_LIBS_DIR)/x; make clean
@@ -59,6 +61,7 @@ clean:
 	cd $(EXTRA_SBIN_DIR)/dev/arch/raspi/joystickd;make clean
 	cd $(EXTRA_SBIN_DIR)/dev/arch/raspi/lcdhatd;make clean
 	cd $(EXTRA_SBIN_DIR)/dev/arch/raspi/ttyd;make clean
+	cd $(EXTRA_SBIN_DIR)/dev/arch/raspi2/ttyd;make clean
 	cd $(X_DIR)/sbin/xmouse;make clean
 	cd $(X_DIR)/sbin/xim/vkey;make clean
 	cd $(X_DIR)/sbin/xim/none;make clean
