@@ -6,6 +6,7 @@
 #include <sys/vdevice.h>
 #include <sys/charbuf.h>
 #include <sys/mmio.h>
+#include <sys/proc.h>
 
 enum {
 	// The GPIO registers base address.

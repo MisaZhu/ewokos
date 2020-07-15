@@ -6,6 +6,7 @@
 #include <sys/vdevice.h>
 #include <sys/charbuf.h>
 #include <sys/mmio.h>
+#include <sys/proc.h>
 
 #define AUX_OFFSET 0x00215000
 #define UART_OFFSET 0x00215040
