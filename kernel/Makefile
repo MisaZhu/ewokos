@@ -58,9 +58,11 @@ ARCH_OBJS = \
 	${ARCH_DIR}/${ARCH}/actled.o \
 	${ARCH_DIR}/${ARCH}/timer.o
 
+QEMU_CMD = qemu-system-arm
+OS_IMG = kernel.img
+
 ifeq ($(MACH),raspi)
 CFLAGS += -Iextra/${ARCH_DIR}/${ARCH} -DWITH_LCDHAT
-
 ARCH_OBJS += ${ARCH_DIR}/${ARCH}/gpio_arch.o  \
 	${ARCH_DIR}/${ARCH}/cpu_freq.o \
 	${ARCH_DIR}/${ARCH}/mailbox.o \
@@ -69,6 +71,13 @@ ARCH_OBJS += ${ARCH_DIR}/${ARCH}/gpio_arch.o  \
 else
 ifeq ($(MACH),raspi2)
 ARCH_OBJS += ${ARCH_DIR}/${ARCH}/mailbox.o
+OS_IMG = kernel7.img
+else
+ifeq ($(MACH),raspi3)
+ARCH_OBJS += ${ARCH_DIR}/${ARCH}/mailbox.o
+QEMU_CMD = qemu-system-aarch64
+OS_IMG = kernel7.img
+endif
 endif
 endif
 	
@@ -133,26 +142,26 @@ LDFLAGS = -L ${ARCH_DIR}/${ARCH}
 
 ASFLAGS = $(OPTM) -I. -Iinclude -marm $(ARCH_QEMU_CFLAGS)
 
-all: $(OS).bin 
+all: $(OS_IMG) 
 
-$(OS).bin: $(OBJS) ${LDS}
+$(OS_IMG): $(OBJS) ${LDS}
 	mkdir -p ${BUILD_DIR}
 	$(LD) $(OBJS) $(LDFLAGS) -T ${LDS} -o ${BUILD_DIR}/$(OS).elf
-	$(OBJCOPY) -O binary ${BUILD_DIR}/$(OS).elf ${BUILD_DIR}/$(OS).bin
+	$(OBJCOPY) -O binary ${BUILD_DIR}/$(OS).elf ${BUILD_DIR}/$(OS_IMG)
 #	$(OBJDUMP) -D ${BUILD_DIR}/$(OS).elf > ${BUILD_DIR}/$(OS).asm
 
 
 run: 
-	qemu-system-arm $(QEMU_FLAGS) -kernel ${BUILD_DIR}/$(OS).bin ${QEMU_ARGS}
+	$(QEMU_CMD) $(QEMU_FLAGS) -kernel ${BUILD_DIR}/$(OS_IMG) ${QEMU_ARGS}
 
 runasm: 
-	qemu-system-arm $(QEMU_FLAGS) -kernel ${BUILD_DIR}/$(OS).bin ${QEMU_ARGS} -d in_asm
+	$(QEMU_CMD) $(QEMU_FLAGS) -kernel ${BUILD_DIR}/$(OS_IMG) ${QEMU_ARGS} -d in_asm
 
 debug:
-	qemu-system-arm $(QEMU_FLAGS) -gdb tcp::26000 -S -kernel ${BUILD_DIR}/$(OS).bin ${QEMU_ARGS}
+	$(QEMU_CMD) $(QEMU_FLAGS) -gdb tcp::26000 -S -kernel ${BUILD_DIR}/$(OS_IMG) ${QEMU_ARGS}
 
 debugasm:
-	qemu-system-arm $(QEMU_FLAGS) -d in_asm -gdb tcp::26000 -S -kernel ${BUILD_DIR}/$(OS).bin
+	$(QEMU_CMD) $(QEMU_FLAGS) -d in_asm -gdb tcp::26000 -S -kernel ${BUILD_DIR}/$(OS_IMG)
 
 gdb: 
 	echo "target remote :26000" > /tmp/gdbinit
