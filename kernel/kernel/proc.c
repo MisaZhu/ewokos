@@ -180,7 +180,7 @@ void proc_ready(proc_t* proc) {
 		return;
 
 	proc->info.state = READY;
-	if(!queue_in(&_ready_queue, proc))
+	if(queue_in(&_ready_queue, proc) == NULL)
 		queue_push_head(&_ready_queue, proc);
 }
 
@@ -199,6 +199,10 @@ proc_t* proc_get_next_ready(void) {
 }
 
 static void proc_unready(context_t* ctx, proc_t* proc, int32_t state) {
+	queue_item_t* it = queue_in(&_ready_queue, proc);	
+	if(it != NULL)
+		queue_remove(&_ready_queue, it);
+
 	proc->info.state = state;
 	if(_current_proc == proc) {
 		schedule(ctx);
