@@ -20,8 +20,8 @@
 void timer_set_interval(uint32_t id, uint32_t interval_microsecond) {
 	(void)id;
   put32(ARM_TIMER_CTL,0x003E0000);
-	put32(ARM_TIMER_LOD,interval_microsecond*5-1);
-	put32(ARM_TIMER_RLD,interval_microsecond*5-1);
+	put32(ARM_TIMER_LOD,interval_microsecond*10-1);
+	put32(ARM_TIMER_RLD,interval_microsecond*10-1);
   put32(ARM_TIMER_CLI,0);
   put32(ARM_TIMER_CTL,0x003E00A2);
   put32(ARM_TIMER_CLI,0);
