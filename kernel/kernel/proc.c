@@ -162,8 +162,7 @@ static void __attribute__((optimize("O0"))) proc_free_space(proc_t *proc) {
 	if(proc->info.type != PROC_TYPE_PROC)
 		return;
 
-	for(int i=0; i<IPC_CTX_MAX; i++)
-		PF->clear(&proc->space->ipc.ctx[i].data);
+	PF->clear(&proc->space->ipc.ctx.data);
 
 	/*unmap share mems*/
 	proc_unmap_shms(proc);
@@ -418,8 +417,10 @@ void proc_wakeup(int32_t pid, uint32_t event) {
 				(pid < 0 || proc->info.block_by == pid)) {
 			proc->block_event = 0;
 			proc->info.block_by = -1;
-			if(proc->sleep_counter == 0)
+			if(proc->sleep_counter == 0) {
+				//proc->space->ipc.ctx.proc_state = READY;
 				proc_ready(proc);
+			}
 			else
 				proc->info.state = SLEEPING;
 		}

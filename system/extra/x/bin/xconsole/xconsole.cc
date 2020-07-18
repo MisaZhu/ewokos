@@ -112,9 +112,10 @@ static void loop(void* p) {
 		console->repaint();
 		return;
 	}
-
 	if(errno != EAGAIN) 
 		console->close();
+	else
+		usleep(10000);
 }
 
 static int run(int argc, char* argv[]) {

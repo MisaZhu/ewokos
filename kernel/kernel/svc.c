@@ -246,7 +246,7 @@ static void sys_ipc_call(context_t* ctx, int32_t pid, int32_t call_id, proto_t* 
 	}
 	proc->info.ipc_busy = true;
 
-	ipc_t* ipc = proc_ipc_req(_current_proc);
+	ipc_t* ipc = proc_ipc_req(proc);
 	ipc->state = IPC_BUSY;
 	ipc->call_id = call_id;
 	PF->init(&ipc->data, NULL, 0);
@@ -310,15 +310,9 @@ static void sys_ipc_end(context_t* ctx, ipc_t* ipc) {
 		return;
 	}
 
-	if((_current_proc->space->ipc.flags & IPC_NONBLOCK) == 0) {
-		_current_proc->info.state = BLOCK;
-		_current_proc->info.block_by = _current_proc->info.pid;
-	}
-	else {
-		_current_proc->info.state = ipc->proc_state;
-		if(ipc->proc_state == READY || ipc->proc_state == RUNNING)
-			proc_ready(_current_proc);
-	}
+	_current_proc->info.state = ipc->proc_state;
+	if(ipc->proc_state == READY || ipc->proc_state == RUNNING)
+		proc_ready(_current_proc);
 
 	memcpy(ctx, &ipc->ctx, sizeof(context_t));
 	ipc->state = IPC_RETURN;
@@ -404,10 +398,11 @@ static void sys_get_kevent(context_t* ctx) {
 }
 
 static void sys_proc_block(context_t* ctx, int32_t pid, uint32_t evt) {
+	proc_t* proc = NULL;
 	if(pid == _current_proc->info.pid)
-		return;
-	
-	proc_t* proc = proc_get_proc(proc_get(pid));
+		proc = _current_proc;
+	else
+		proc = proc_get_proc(proc_get(pid));
 
 	_current_proc->info.state = BLOCK;
 	_current_proc->block_event = evt;
@@ -417,6 +412,8 @@ static void sys_proc_block(context_t* ctx, int32_t pid, uint32_t evt) {
 
 static void sys_proc_wakeup(uint32_t evt) {
 	proc_t* proc = proc_get_proc(_current_proc);
+	if(proc->info.block_by == proc->info.pid)
+		proc->space->ipc.ctx.proc_state = READY;
 	proc_wakeup(proc->info.pid, evt);
 }
 

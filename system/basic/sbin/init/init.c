@@ -165,7 +165,8 @@ int main(int argc, char** argv) {
 	run_procs();
 
 	while(true) {
-		sleep(1);
+		proc_block(getpid(), 0);
+		//sleep(1);
 	}
 	return 0;
 }

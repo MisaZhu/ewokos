@@ -7,6 +7,7 @@
 #include <sys/charbuf.h>
 #include <sys/mmio.h>
 #include <sys/proc.h>
+#include <sys/ipc.h>
 
 /* memory mapping for the serial port */
 #define UART0 ((volatile uint32_t*)(_mmio_base+0x001f1000))
@@ -84,9 +85,7 @@ static int tty_write(int fd, int from_pid, fsinfo_t* info,
 }
 
 
-static int tty_loop(void* p) {
-	(void)p;
-
+static int tty_loop_raw(void) {
 	if(uart_ready_to_recv() != 0)
 		return 0;
 
@@ -94,10 +93,18 @@ static int tty_loop(void* p) {
 	if(c == 0) 
 		return 0;
 
+	ipc_lock();
 	charbuf_push(&_buffer, c, true);
+	ipc_unlock();
 	proc_wakeup(0);
-	usleep(20000);
 	return 0;
+}
+
+static int tty_loop(void*p) {
+	(void)p;
+	int res = tty_loop_raw();
+	usleep(20000);
+	return res;
 }
 
 int main(int argc, char** argv) {

@@ -7,6 +7,7 @@
 #include <sys/charbuf.h>
 #include <sys/mmio.h>
 #include <sys/proc.h>
+#include <sys/ipc.h>
 
 enum {
 	// The GPIO registers base address.
@@ -104,20 +105,26 @@ static int tty_write(int fd, int from_pid, fsinfo_t* info,
 	return uart_write(buf, size);
 }
 
-static int tty_loop(void* p) {
-  (void)p;
+static int tty_loop_raw(void) {
+	if(uart_ready_to_recv() != 0)
+		return 0;
 
-  if(uart_ready_to_recv() != 0)
-    return 0;
+	char c = uart_recv();
+	if(c == 0) 
+		return 0;
 
-  char c = uart_recv();
-  if(c == 0)
-    return 0;
+	ipc_lock();
+	charbuf_push(&_buffer, c, true);
+	ipc_unlock();
+	proc_wakeup(0);
+	return 0;
+}
 
-  charbuf_push(&_buffer, c, true);
-  proc_wakeup(0);
-  usleep(20000);
-  return 0;
+static int tty_loop(void*p) {
+	(void)p;
+	int res = tty_loop_raw();
+	usleep(20000);
+	return res;
 }
 
 int main(int argc, char** argv) {
