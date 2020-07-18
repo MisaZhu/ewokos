@@ -53,6 +53,16 @@ void* queue_pop(queue_t* q) {
 	return ret;
 }
 
+bool queue_in(queue_t* q, void* data) {
+	queue_item_t* it = q->head;
+	while(it != NULL) {
+		if(it->data == data)
+			return true;
+		it = it->next;
+	}
+	return false;
+}
+
 void queue_clear(queue_t* q, free_func_t fr) {
 	queue_item_t* it = q->head;
 	while(it != NULL) {

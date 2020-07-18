@@ -22,10 +22,6 @@ static void ipc_end(uint32_t ipc_id) {
 	syscall1(SYS_IPC_END, ipc_id);
 }
 
-int ipc_task_num(void) {
-	return syscall0(SYS_IPC_TASK_NUM);
-}
-
 void ipc_lock(void) {
 	syscall0(SYS_IPC_LOCK);
 }

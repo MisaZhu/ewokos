@@ -127,7 +127,7 @@ int main(int argc, char** argv) {
 	dev.write = tty_write;
 	dev.loop_step = tty_loop;
 
-	device_run(&dev, mnt_point, FS_TYPE_CHAR, true);
+	device_run(&dev, mnt_point, FS_TYPE_CHAR);
 	return 0;
 }
 

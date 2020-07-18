@@ -398,7 +398,7 @@ int main(int argc, char** argv) {
 	dev.fcntl = lcd_fcntl;
 
 	dev.extra_data = &dma;
-	device_run(&dev, mnt_point, FS_TYPE_CHAR, true);
+	device_run(&dev, mnt_point, FS_TYPE_CHAR);
 
 	close(_gpio_fd);
 	shm_unmap(dma.shm_id);

@@ -34,6 +34,7 @@ TTYD = $(TARGET_DIR)/sbin/dev/raspi2/ttyd
 $(TTYD): $(TTYD_OBJS) \
 		$(TARGET_DIR)/lib/libewokc.a 
 	$(LD) -Ttext=100 $(TTYD_OBJS) -o $(TTYD) $(LDFLAGS) -lewokc -lc
+	$(OBJDUMP) -D $(TTYD) > $(BUILD_DIR)/asm/ttyd.asm
 
 clean:
 	rm -f $(TTYD_OBJS)

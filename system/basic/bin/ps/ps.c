@@ -68,18 +68,18 @@ int main(int argc, char* argv[]) {
 
 	procinfo_t* procs = (procinfo_t*)syscall1(SYS_GET_PROCS, (int)&num);
 	if(procs != NULL) {
-		printf("  PID    FATHER OWNER   STATE       IPCS TIME       PROC\n"); 
+		printf("  PID    FATHER OWNER   STATE       IPC_BUSY TIME       PROC\n"); 
 		for(int i=0; i<num; i++) {
 			if(procs[i].type != PROC_TYPE_PROC && all == 0)
 				continue;
 
 			uint32_t sec = csec - procs[i].start_sec;
-			printf("  %4d   %6d %5d   %10s  %4d %02d:%02d:%02d   %s\n", 
+			printf("  %4d   %6d %5d   %10s  %8s %02d:%02d:%02d   %s\n", 
 				procs[i].pid,
 				procs[i].father_pid,
 				procs[i].owner,
 				get_state(&procs[i]),
-				procs[i].ipc_tasks,
+				procs[i].ipc_busy ? "true":"false",
 				sec / (3600),
 				sec / 60,
 				sec % 60,

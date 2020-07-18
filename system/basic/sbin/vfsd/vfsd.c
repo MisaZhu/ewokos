@@ -1022,7 +1022,7 @@ int main(int argc, char** argv) {
 
 	vfs_init();
 
-	ipc_serv_run(handle, NULL, IPC_SINGLE_TASK | IPC_NONBLOCK);
+	ipc_serv_run(handle, NULL, IPC_NONBLOCK);
 	close_event_t ev;
 	while(true) {
 		ipc_lock();

@@ -356,7 +356,7 @@ static int do_mount(vdevice_t* dev, fsinfo_t* mnt_point, int type) {
 	return 0;
 }
 
-int device_run(vdevice_t* dev, const char* mnt_point, int mnt_type, bool single_task) {
+int device_run(vdevice_t* dev, const char* mnt_point, int mnt_type) {
 	if(dev == NULL)
 		return -1;
 	
@@ -375,13 +375,13 @@ int device_run(vdevice_t* dev, const char* mnt_point, int mnt_type, bool single_
 
 	if(dev->loop_step != NULL) 
 		ipc_flags |= IPC_NONBLOCK;
-	if(single_task)
-		ipc_flags |= IPC_SINGLE_TASK;
 	ipc_serv_run(handle, dev, ipc_flags);
 
 	while(1) {
 		if(dev->loop_step != NULL) {
+			ipc_lock();
 			dev->loop_step(dev->extra_data);
+			ipc_unlock();
 			usleep(10000);
 		}
 		else {

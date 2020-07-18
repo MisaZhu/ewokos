@@ -239,13 +239,12 @@ static void sys_ipc_call(context_t* ctx, int32_t pid, int32_t call_id, proto_t* 
 	if(proc == NULL || proc->space->ipc.entry == 0)
 		return;
 
-	if(proc->space->ipc.lock == 1 || 
-			(proc->info.ipc_tasks > 0 && (proc->space->ipc.flags & IPC_SINGLE_TASK) != 0)) {
+	if(proc->info.ipc_busy) {
 		ctx->gpr[0] = -1; //busy for single task , should retry
 		proc_block_on(ctx, pid, (uint32_t)&proc->space->ipc);
 		return;
 	}
-	proc->info.ipc_tasks++;
+	proc->info.ipc_busy = true;
 
 	ipc_t* ipc = proc_ipc_req(_current_proc);
 	ipc->state = IPC_BUSY;
@@ -284,13 +283,13 @@ static void sys_ipc_get_return(context_t* ctx, ipc_t* ipc, proto_t* data) {
 	}
 	
 	proc_t* proc = proc_get(ipc->pid_server);
-	if(proc != NULL && proc->info.ipc_tasks > 0)
-		proc->info.ipc_tasks--;
 	PF->clear(&ipc->data);
 	proc_ipc_close(ipc);
 
-	if((proc->space->ipc.flags & IPC_SINGLE_TASK) != 0)
+	if(proc != NULL) {
+		proc->info.ipc_busy = false;
 		proc_wakeup(proc->info.pid, (uint32_t)&proc->space->ipc);
+	}
 }
 
 static void sys_ipc_set_return(ipc_t* ipc, proto_t* data) {
@@ -315,13 +314,25 @@ static void sys_ipc_end(context_t* ctx, ipc_t* ipc) {
 		_current_proc->info.state = BLOCK;
 		_current_proc->info.block_by = _current_proc->info.pid;
 	}
-	else
+	else {
 		_current_proc->info.state = ipc->proc_state;
+		if(ipc->proc_state == READY || ipc->proc_state == RUNNING)
+			proc_ready(_current_proc);
+	}
 
 	memcpy(ctx, &ipc->ctx, sizeof(context_t));
 	ipc->state = IPC_RETURN;
 	proc_wakeup(_current_proc->info.pid, (uint32_t)ipc);
 	schedule(ctx);
+}
+
+static void sys_ipc_lock(void) {
+	_current_proc->info.ipc_busy = true;
+}
+
+static void sys_ipc_unlock(void) {
+	_current_proc->info.ipc_busy = false;
+	proc_wakeup(_current_proc->info.pid, (uint32_t)&_current_proc->space->ipc);
 }
 
 static int32_t sys_ipc_get_info(ipc_t* ipc, int32_t* pid, int32_t* cmd) {
@@ -423,16 +434,6 @@ static int32_t sys_core_pid(void) {
 static uint32_t _svc_tic = 0;
 static int32_t sys_get_kernel_tic(void) {
 	return _svc_tic;
-}
-
-static void sys_ipc_lock(void) {
-	_current_proc->space->ipc.lock = 1;
-}
-
-static void sys_ipc_unlock(void) {
-	_current_proc->space->ipc.lock = 0;
-	if((_current_proc->space->ipc.flags & IPC_SINGLE_TASK) == 0)
-		proc_wakeup(_current_proc->info.pid, (uint32_t)&_current_proc->space->ipc);
 }
 
 void svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_t arg2, context_t* ctx, int32_t processor_mode) {
@@ -540,9 +541,6 @@ void svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_t arg2, context
 		return;
 	case SYS_IPC_GET_ARG:
 		ctx->gpr[0] = sys_ipc_get_info((ipc_t*)arg0, (int32_t*)arg1, (int32_t*)arg2);
-		return;
-	case SYS_IPC_TASK_NUM:
-		ctx->gpr[0] = _current_proc->info.ipc_tasks;
 		return;
 	case SYS_PROC_PING:
 		ctx->gpr[0] = sys_proc_ping(arg0);

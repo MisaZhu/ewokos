@@ -15,8 +15,9 @@
 static proc_t _proc_table[PROC_MAX];
 __attribute__((__aligned__(PAGE_DIR_SIZE))) 
 static page_dir_entry_t _proc_vm[PROC_MAX][PAGE_DIR_NUM];
+static queue_t _ready_queue;
+
 proc_t* _current_proc = NULL;
-queue_t _ready_queue;
 bool _core_ready = false;
 int32_t _core_pid = -1;
 
@@ -175,11 +176,12 @@ static void __attribute__((optimize("O0"))) proc_free_space(proc_t *proc) {
 }
 
 void proc_ready(proc_t* proc) {
-	if(proc == NULL || proc->info.state == READY)
+	if(proc == NULL)
 		return;
 
 	proc->info.state = READY;
-	queue_push_head(&_ready_queue, proc);
+	if(!queue_in(&_ready_queue, proc))
+		queue_push_head(&_ready_queue, proc);
 }
 
 proc_t* proc_get_next_ready(void) {

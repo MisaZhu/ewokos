@@ -1,11 +1,12 @@
 #include <sys/syscall.h>
+#include <sys/ipc.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 
-inline int32_t syscall3(int32_t code, int32_t arg0, int32_t arg1, int32_t arg2) {
+inline int32_t syscall3_raw(int32_t code, int32_t arg0, int32_t arg1, int32_t arg2) {
 	volatile int32_t r;
   __asm__ volatile(
 			"stmdb sp!, {lr}\n"
@@ -25,16 +26,24 @@ inline int32_t syscall3(int32_t code, int32_t arg0, int32_t arg1, int32_t arg2) 
 	return r;
 }
 
+inline int32_t syscall3(int32_t code, int32_t arg0, int32_t arg1, int32_t arg2) {
+	int32_t res = syscall3_raw(code, arg0, arg1, arg2);
+	return res;
+}
+
 inline int32_t syscall2(int32_t code, int32_t arg0, int32_t arg1) {
-	return syscall3(code, arg0, arg1, 0);
+	int32_t res = syscall3_raw(code, arg0, arg1, 0);
+	return res;
 }
 
 inline int32_t syscall1(int32_t code, int32_t arg0) {
-	return syscall3(code, arg0, 0, 0);
+	int32_t res = syscall3_raw(code, arg0, 0, 0);
+	return res;
 }
 
 inline int32_t syscall0(int32_t code) {
-	return syscall3(code, 0, 0, 0);
+	int32_t res = syscall3_raw(code, 0, 0, 0);
+	return res;
 }
 
 #ifdef __cplusplus

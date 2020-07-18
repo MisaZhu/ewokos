@@ -977,7 +977,7 @@ int main(int argc, char** argv) {
 	dev.dev_cntl = xserver_dev_cntl;
 
 	dev.extra_data = &x;
-	device_run(&dev, mnt_point, FS_TYPE_CHAR, true);
+	device_run(&dev, mnt_point, FS_TYPE_CHAR);
 	x_close(&x);
 	return 0;
 }
