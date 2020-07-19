@@ -331,7 +331,7 @@ static void proc_free_heap(proc_t* proc) {
 }
 
 /* proc_load loads the given ELF process image into the given process. */
-int32_t proc_load_elf(proc_t *proc, const char *image, uint32_t size) {
+int32_t __attribute__((optimize("O0"))) proc_load_elf(proc_t *proc, const char *image, uint32_t size) {
 	uint32_t prog_header_offset = 0;
 	uint32_t prog_header_count = 0;
 	uint32_t i = 0;
