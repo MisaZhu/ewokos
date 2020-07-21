@@ -4,6 +4,7 @@
 #include <partition.h>
 #include <string.h>
 #include <unistd.h>
+#include <sysinfo.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -55,6 +56,11 @@ static inline void* sector_buf_get(uint32_t index) {
 	}
 	return _sector_buf[index].data;
 }
+
+//sd arch functions 
+static int32_t (*sd_init_arch)(void);
+static int32_t (*sd_read_sector_arch)(int32_t sector, void* buf);
+static int32_t (*sd_write_sector_arch)(int32_t sector, const void* buf);
 
 int32_t sd_read_sector(int32_t sector, void* buf) {
 	void* b = sector_buf_get(sector);
@@ -145,10 +151,44 @@ int32_t sd_quit(void) {
 	return 0;
 }
 
+/*raspi sd functions*/
+int32_t sd_init_arch_raspi(void);
+int32_t sd_read_sector_arch_raspi(int32_t sector, void* buf);
+int32_t sd_write_sector_arch_raspi(int32_t sector, const void* buf);
+
+/*raspi2 sd functions*/
+int32_t sd_init_arch_raspi2(void);
+int32_t sd_read_sector_arch_raspi2(int32_t sector, void* buf);
+int32_t sd_write_sector_arch_raspi2(int32_t sector, const void* buf);
+
+/*versatilepb sd functions*/
+int32_t sd_init_arch_versatilepb(void);
+int32_t sd_read_sector_arch_versatilepb(int32_t sector, void* buf);
+int32_t sd_write_sector_arch_versatilepb(int32_t sector, const void* buf);
+
 int32_t sd_init(void) {
 	_sector_buf = NULL;
 	_sector_buf_num = 0;
 	memset(&_partition, 0, sizeof(partition_t));
+
+	sysinfo_t sysinfo;
+	syscall1(SYS_GET_SYSINFO, (int32_t)&sysinfo);
+
+	if(strcmp(sysinfo.machine, "raspi") == 0) {
+		sd_init_arch = sd_init_arch_raspi;
+		sd_read_sector_arch = sd_read_sector_arch_raspi;
+		sd_write_sector_arch = sd_write_sector_arch_raspi;
+	}
+	else if(strcmp(sysinfo.machine, "raspi2") == 0) {
+		sd_init_arch = sd_init_arch_raspi2;
+		sd_read_sector_arch = sd_read_sector_arch_raspi2;
+		sd_write_sector_arch = sd_write_sector_arch_raspi2;
+	}
+	else {
+		sd_init_arch = sd_init_arch_versatilepb;
+		sd_read_sector_arch = sd_read_sector_arch_versatilepb;
+		sd_write_sector_arch = sd_write_sector_arch_versatilepb;
+	}
 
 	sd_init_arch();
 

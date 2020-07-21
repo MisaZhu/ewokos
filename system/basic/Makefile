@@ -7,12 +7,6 @@ OBJDUMP = arm-none-eabi-objdump
 
 export QEMU_AUDIO_DRV=none
 
-ifneq ($(MACH),)
-ARCH=arm/$(MACH)
-else
-ARCH=arm/versatilepb
-endif
-
 BUILD_DIR = ../build
 TARGET_DIR = $(BUILD_DIR)/rootfs
 ROOT_DIR = .
@@ -93,7 +87,9 @@ LIB_SYS_OBJS = $(LIB_SYS_DIR)/src/syscall.o \
 	$(LIB_SYS_DIR)/src/basic_math.o \
 	$(LIB_SYS_DIR)/src/shm.o \
 	$(LIB_SYS_DIR)/src/sd.o \
-	$(LIB_SYS_DIR)/src/arch/$(ARCH)/sd_arch.o \
+	$(LIB_SYS_DIR)/src/arch/arm/raspi/sd_arch.o \
+	$(LIB_SYS_DIR)/src/arch/arm/raspi2/sd_arch.o \
+	$(LIB_SYS_DIR)/src/arch/arm/versatilepb/sd_arch.o \
 	$(LIB_SYS_DIR)/src/gpio.o \
 	$(LIB_SYS_DIR)/src/global.o \
 	$(LIB_SYS_DIR)/src/proc.o \
@@ -198,16 +194,18 @@ libs: $(LIB_OBJS)
 	@cp -r $(LIB_HASH_DIR)/include/* $(TARGET_DIR)/include/
 	@cp -r $(KERNEL_H) $(TARGET_DIR)/include/
 
-include $(ROOT_DIR)/sbin/init/build.mk
-include $(ROOT_DIR)/sbin/dev/fbd/build.mk
-include $(ROOT_DIR)/sbin/dev/nulld/build.mk
-include $(ROOT_DIR)/sbin/dev/rootfsd/build.mk
 include $(ROOT_DIR)/sbin/vfsd/build.mk
 include $(ROOT_DIR)/sbin/procd/build.mk
+include $(ROOT_DIR)/sbin/init/build.mk
 
-include $(ROOT_DIR)/sbin/dev/arch/versatilepb/ps2keybd/build.mk
-include $(ROOT_DIR)/sbin/dev/arch/versatilepb/ps2moused/build.mk
-include $(ROOT_DIR)/sbin/dev/arch/versatilepb/ttyd/build.mk
+include $(ROOT_DIR)/drivers/nulld/build.mk
+include $(ROOT_DIR)/drivers/fbd/build.mk
+include $(ROOT_DIR)/drivers/rootfsd/build.mk
+include $(ROOT_DIR)/drivers/arch/versatilepb/ps2keybd/build.mk
+include $(ROOT_DIR)/drivers/arch/versatilepb/ps2moused/build.mk
+include $(ROOT_DIR)/drivers/arch/versatilepb/ttyd/build.mk
+include $(ROOT_DIR)/drivers/arch/raspi/ttyd/build.mk
+include $(ROOT_DIR)/drivers/arch/raspi2/ttyd/build.mk
 
 include $(ROOT_DIR)/bin/shell/build.mk
 include $(ROOT_DIR)/bin/dump/build.mk
@@ -227,7 +225,10 @@ include $(ROOT_DIR)/bin/session/build.mk
 include $(ROOT_DIR)/bin/console/build.mk
 
 mkdirs:
-	@mkdir -p ${TARGET_DIR}/$(ROOT_DIR)/sbin/dev/versatilepb
+	@mkdir -p ${TARGET_DIR}/$(ROOT_DIR)/sbin
+	@mkdir -p ${TARGET_DIR}/$(ROOT_DIR)/drivers/versatilepb
+	@mkdir -p ${TARGET_DIR}/$(ROOT_DIR)/drivers/raspi
+	@mkdir -p ${TARGET_DIR}/$(ROOT_DIR)/drivers/raspi2
 	@mkdir -p ${TARGET_DIR}/$(ROOT_DIR)/bin
 	@mkdir -p ${TARGET_DIR}/$(ROOT_DIR)/apps
 	@mkdir -p ${TARGET_DIR}/$(ROOT_DIR)/include

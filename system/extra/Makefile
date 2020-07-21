@@ -2,12 +2,10 @@ BUILD_DIR = ../build
 TARGET_DIR = $(BUILD_DIR)/rootfs
 ROOT_DIR = .
 
-all: mkdirs extra_libs extra_sbin x_sbin x_bin
+all: mkdirs extra_libs extra_driver x_sbin x_bin
 	@echo "all done."
 
 mkdirs:
-	@mkdir -p ${TARGET_DIR}/$(ROOT_DIR)/sbin/dev/raspi
-	@mkdir -p ${TARGET_DIR}/$(ROOT_DIR)/sbin/dev/raspi2
 	@mkdir -p ${TARGET_DIR}/$(ROOT_DIR)/sbin/x
 	@mkdir -p ${TARGET_DIR}/$(ROOT_DIR)/apps
 	@cp -r ${ROOT_DIR}/etc ${TARGET_DIR}/$(ROOT_DIR)
@@ -41,13 +39,11 @@ x_sbin:
 	cd $(X_DIR)/sbin/xwm/macos7;make
 	cd $(X_DIR)/sbin/xwm/win3;make
 
-EXTRA_SBIN_DIR=sbin
-extra_sbin:
-	cd $(EXTRA_SBIN_DIR)/dev/xserverd;make
-	cd $(EXTRA_SBIN_DIR)/dev/arch/raspi/joystickd;make
-	cd $(EXTRA_SBIN_DIR)/dev/arch/raspi/lcdhatd;make
-	cd $(EXTRA_SBIN_DIR)/dev/arch/raspi/ttyd;make
-	cd $(EXTRA_SBIN_DIR)/dev/arch/raspi2/ttyd;make
+EXTRA_DRIVERS_DIR=drivers
+extra_driver:
+	cd $(EXTRA_DRIVERS_DIR)/xserverd;make
+	cd $(EXTRA_DRIVERS_DIR)/arch/raspi/joystickd;make
+	cd $(EXTRA_DRIVERS_DIR)/arch/raspi/lcdhatd;make
 
 clean:
 	cd $(EXTRA_LIBS_DIR)/x; make clean
@@ -57,11 +53,9 @@ clean:
 	cd $(EXTRA_LIBXX_DIR)/cxx; make clean
 	cd $(EXTRA_LIBXX_DIR)/graphxx; make clean
 	cd $(EXTRA_LIBXX_DIR)/x++; make clean
-	cd $(EXTRA_SBIN_DIR)/dev/xserverd;make clean
-	cd $(EXTRA_SBIN_DIR)/dev/arch/raspi/joystickd;make clean
-	cd $(EXTRA_SBIN_DIR)/dev/arch/raspi/lcdhatd;make clean
-	cd $(EXTRA_SBIN_DIR)/dev/arch/raspi/ttyd;make clean
-	cd $(EXTRA_SBIN_DIR)/dev/arch/raspi2/ttyd;make clean
+	cd $(EXTRA_DRIVERS_DIR)/xserverd;make clean
+	cd $(EXTRA_DRIVERS_DIR)/arch/raspi/joystickd;make clean
+	cd $(EXTRA_DRIVERS_DIR)/arch/raspi/lcdhatd;make clean
 	cd $(X_DIR)/sbin/xmouse;make clean
 	cd $(X_DIR)/sbin/xim/vkey;make clean
 	cd $(X_DIR)/sbin/xim/none;make clean

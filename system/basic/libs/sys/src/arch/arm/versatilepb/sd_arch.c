@@ -101,7 +101,7 @@ static inline void do_command(int32_t cmd, int32_t arg, int32_t resp) {
 	put32(SD_BASE + COMMAND, 0x400 | (resp<<6) | cmd);
 }
 
-int32_t sd_init_arch(void) {
+int32_t sd_init_arch_versatilepb(void) {
 	_mmio_base = mmio_map();
 	sd_t* sdc = &_sdc;
 	memset(sdc, 0, sizeof(sd_t));
@@ -249,7 +249,7 @@ static inline int32_t sd_write_done(void) {
 	return 0;
 }
 
-int32_t sd_read_sector_arch(int32_t sector, void* buf) {
+int32_t sd_read_sector_arch_versatilepb(int32_t sector, void* buf) {
 	if(sd_read_sector(sector) != 0)
 		return -1;
 
@@ -261,7 +261,7 @@ int32_t sd_read_sector_arch(int32_t sector, void* buf) {
 	return 0;
 }
 
-int32_t sd_write_sector_arch(int32_t sector, const void* buf) {
+int32_t sd_write_sector_arch_versatilepb(int32_t sector, const void* buf) {
 	if(sd_write_sector(sector, buf) != 0)
 		return -1;
 

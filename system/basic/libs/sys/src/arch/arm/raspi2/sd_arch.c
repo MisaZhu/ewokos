@@ -342,7 +342,7 @@ static inline void delay(int32_t n) {
 /**
  * initialize EMMC to read SDHC card
  */
-int32_t __attribute__((optimize("O0"))) sd_init_arch(void) {
+int32_t __attribute__((optimize("O0"))) sd_init_arch_raspi2(void) {
 	_mmio_base = mmio_map();
 
 	_sdc.rxdone = 1;
@@ -503,7 +503,7 @@ static int32_t sd_read_done(void* buf) {
 	return 0;
 }
 
-int32_t sd_read_sector_arch(int32_t sector, void* buf) {
+int32_t sd_read_sector_arch_raspi2(int32_t sector, void* buf) {
 	if(_sdc.rxdone == 0)
 		return -1;
 	_sdc.sector = sector;
@@ -518,7 +518,7 @@ int32_t sd_read_sector_arch(int32_t sector, void* buf) {
 	return 0;
 }
 
-int32_t sd_write_sector_arch(int32_t sector, const void* buf) {
+int32_t sd_write_sector_arch_raspi2(int32_t sector, const void* buf) {
 	if(sd_write_sector(sector, buf) != 0)
 		return -1;
 	return 0;

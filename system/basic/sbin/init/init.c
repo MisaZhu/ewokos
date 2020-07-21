@@ -152,7 +152,7 @@ int main(int argc, char** argv) {
 
 	run_none_fs("/sbin/vfsd");
 	//mount root fs
-	run_none_fs("/sbin/dev/rootfsd");
+	run_none_fs("/drivers/rootfsd");
 	//fs got ready.
 	run("/sbin/procd", true, true);
 

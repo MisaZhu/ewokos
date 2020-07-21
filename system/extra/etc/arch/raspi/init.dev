@@ -1,6 +1,6 @@
-/sbin/dev/fbd             /dev/fb0
-/sbin/dev/nulld           /dev/null
-/sbin/dev/raspi/ttyd      /dev/tty0
-/sbin/dev/raspi/joystickd /dev/joystick
-/sbin/dev/raspi/lcdhatd   /dev/fb1
-/sbin/dev/xserverd        /dev/x
+/drivers/fbd             /dev/fb0
+/drivers/nulld           /dev/null
+/drivers/raspi/ttyd      /dev/tty0
+/drivers/raspi/joystickd /dev/joystick
+/drivers/raspi/lcdhatd   /dev/fb1
+/drivers/xserverd        /dev/x
