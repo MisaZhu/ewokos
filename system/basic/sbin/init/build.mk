@@ -8,5 +8,5 @@ CLEAN += $(INIT_OBJS)
 
 
 $(INIT): $(INIT_OBJS) 
-	$(LD) -Ttext=100 $(INIT_OBJS) -o $(INIT) $(LDFLAGS)  -lext2 -lhash  -lewokc -lc -lnosys
+	$(LD) -Ttext=100 $(INIT_OBJS) -o $(INIT) $(LDFLAGS)  -lext2 -lhash -lsd  -lewokc -lc -lnosys
 	$(OBJDUMP) -D $(INIT) > $(BUILD_DIR)/asm/init.asm

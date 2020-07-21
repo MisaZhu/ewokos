@@ -36,6 +36,7 @@ LIBS_DIR = libs
 
 LIB_INC = -I$(TARGET_DIR)/include \
 					-I $(LIBS_DIR)/sys/include \
+					-I $(LIBS_DIR)/sd/include \
 				  -I $(LIBS_DIR)/ext2/include \
 				  -I $(LIBS_DIR)/graph/include \
 				  -I $(LIBS_DIR)/console/include \
@@ -44,6 +45,7 @@ LIB_INC = -I$(TARGET_DIR)/include \
 					-I $(KERNEL_DIR)/include
 				 
 LIB_SYS_DIR = $(LIBS_DIR)/sys
+LIB_SD_DIR = $(LIBS_DIR)/sd
 LIB_EXT2_DIR = $(LIBS_DIR)/ext2
 LIB_GRAPH_DIR = $(LIBS_DIR)/graph
 LIB_CONSOLE_DIR = $(LIBS_DIR)/console
@@ -70,6 +72,11 @@ LIB_GRAPH_OBJS =	$(LIB_GRAPH_DIR)/src/graph.o \
 
 LIB_EXT2_OBJS = $(LIB_EXT2_DIR)/src/ext2fs.o
 
+LIB_SD_OBJS = $(LIB_SD_DIR)/src/sd.o \
+	$(LIB_SD_DIR)/src/arch/arm/raspi/sd_arch.o \
+	$(LIB_SD_DIR)/src/arch/arm/raspi2/sd_arch.o \
+	$(LIB_SD_DIR)/src/arch/arm/versatilepb/sd_arch.o \
+
 LIB_CONSOLE_OBJS = $(LIB_CONSOLE_DIR)/src/console.o
 
 LIB_HASH_OBJS = $(LIB_HASH_DIR)/src/hashmap.o
@@ -86,10 +93,6 @@ LIB_SYS_OBJS = $(LIB_SYS_DIR)/src/syscall.o \
 	$(LIB_SYS_DIR)/src/thread.o \
 	$(LIB_SYS_DIR)/src/basic_math.o \
 	$(LIB_SYS_DIR)/src/shm.o \
-	$(LIB_SYS_DIR)/src/sd.o \
-	$(LIB_SYS_DIR)/src/arch/arm/raspi/sd_arch.o \
-	$(LIB_SYS_DIR)/src/arch/arm/raspi2/sd_arch.o \
-	$(LIB_SYS_DIR)/src/arch/arm/versatilepb/sd_arch.o \
 	$(LIB_SYS_DIR)/src/gpio.o \
 	$(LIB_SYS_DIR)/src/global.o \
 	$(LIB_SYS_DIR)/src/proc.o \
@@ -160,6 +163,7 @@ LIB_LIBC_OBJS = $(LIB_LIBC_DIR)/src/unistd/chdir.o \
 	$(LIB_LIBC_DIR)/src/fcntl/fcntl.o
 
 LIB_OBJS = $(LIB_SYS_OBJS) \
+	$(LIB_SD_OBJS) \
 	$(LIB_LIBC_OBJS) \
 	$(LIB_GRAPH_OBJS) \
 	$(LIB_CONSOLE_OBJS) \
@@ -184,6 +188,8 @@ KERNEL_H = \
 libs: $(LIB_OBJS)
 	$(AR) rT $(TARGET_DIR)/lib/libewokc.a $(LIB_SYS_OBJS)  $(LIB_LIBC_OBJS)
 	@cp -r $(LIB_SYS_DIR)/include/* $(LIB_LIBC_DIR)/include/* $(TARGET_DIR)/include/
+	$(AR) rT $(TARGET_DIR)/lib/libsd.a $(LIB_SD_OBJS)  $(LIB_LIBC_OBJS)
+	@cp -r $(LIB_SD_DIR)/include/* $(LIB_LIBC_DIR)/include/* $(TARGET_DIR)/include/
 	$(AR) rT $(TARGET_DIR)/lib/libgraph.a $(LIB_GRAPH_OBJS)
 	@cp -r $(LIB_GRAPH_DIR)/include/* $(TARGET_DIR)/include/
 	$(AR) rT $(TARGET_DIR)/lib/libext2.a $(LIB_EXT2_OBJS)
