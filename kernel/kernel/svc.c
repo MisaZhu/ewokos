@@ -132,7 +132,7 @@ static void sys_waitpid(context_t* ctx, int32_t pid) {
 	proc_waitpid(ctx, pid);
 }
 
-static void sys_load_elf(context_t* ctx, const char* cmd, void* elf, uint32_t elf_size) {
+static void __attribute__((optimize("O0"))) sys_load_elf(context_t* ctx, const char* cmd, void* elf, uint32_t elf_size) {
 	if(elf == NULL) {
 		ctx->gpr[0] = -1;
 		return;
