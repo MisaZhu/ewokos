@@ -28,7 +28,7 @@ else
 ARCH=arm/versatilepb
 endif
 
-KERNEL_DIR=../kernel
+KERNEL_DIR=../kernel/basic
 ARCH_DIR=$(KERNEL_DIR)/arch
 KERNEL=$(KERNEL_DIR)/build/mkos.bin
 KERNEL_ELF=$(KERNEL_DIR)/build/mkos.elf

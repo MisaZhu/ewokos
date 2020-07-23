@@ -28,7 +28,7 @@ CFLAGS = -Wstrict-prototypes \
 #CFLAGS +=  -g
 CFLAGS +=  -O2
 
-KERNEL_DIR=../../kernel
+KERNEL_DIR=../../kernel/basic
 
 LDFLAGS = -L$(TARGET_DIR)/lib -lnosys
 
