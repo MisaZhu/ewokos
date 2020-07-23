@@ -17,7 +17,8 @@ else
 ARCH=arm/versatilepb
 endif
 
-ARCH_DIR=arch
+ARCH_DIR=basic/arch
+EXTRA_ARCH_DIR=extra/arch
 include ${ARCH_DIR}/${ARCH}/config.mk
 
 BUILD_DIR = build
@@ -28,7 +29,7 @@ SYS_FULL_DIR = ../system
 OPTM = -O2
 
 CFLAGS += $(OPTM) \
-	-I. -Ilib/include -Iinclude -Iextra/include -Iextra/lib/include \
+	-I. -Ibasic/lib/include -Ibasic/include -Iextra/include -Iextra/lib/include \
 	-I${ARCH_DIR}/${ARCH} \
 	-marm $(ARCH_QEMU_CFLAGS) \
 	-Wstrict-prototypes \
@@ -62,12 +63,12 @@ QEMU_CMD = qemu-system-arm
 OS_IMG = kernel.img
 
 ifeq ($(MACH),raspi)
-CFLAGS += -Iextra/${ARCH_DIR}/${ARCH} -DWITH_LCDHAT
+CFLAGS += -I${EXTRA_ARCH_DIR}/${ARCH} -DWITH_LCDHAT
 ARCH_OBJS += ${ARCH_DIR}/${ARCH}/gpio_arch.o  \
 	${ARCH_DIR}/${ARCH}/cpu_freq.o \
 	${ARCH_DIR}/${ARCH}/mailbox.o \
-	extra/${ARCH_DIR}/${ARCH}/lib/spi_arch.o \
-	extra/${ARCH_DIR}/${ARCH}/lcdhat/lcdhat.o 
+	${EXTRA_ARCH_DIR}/${ARCH}/lib/spi_arch.o \
+	${EXTRA_ARCH_DIR}/${ARCH}/lcdhat/lcdhat.o 
 else
 ifeq ($(MACH),raspi2)
 ARCH_OBJS += ${ARCH_DIR}/${ARCH}/mailbox.o
@@ -81,7 +82,7 @@ endif
 endif
 endif
 	
-LIB_DIR = lib/src
+LIB_DIR = basic/lib/src
 EXTRA_LIB_DIR = extra/lib/src
 
 LIB_OBJS = \
@@ -101,8 +102,8 @@ LIB_OBJS += \
 	${EXTRA_LIB_DIR}/console.o \
 	${EXTRA_LIB_DIR}/kconsole.o
 
-ARCH_OBJS += extra/${ARCH_DIR}/${ARCH}/sd/sd.o \
-	extra/${ARCH_DIR}/${ARCH}/framebuffer/framebuffer.o 
+ARCH_OBJS += ${EXTRA_ARCH_DIR}/${ARCH}/sd/sd.o \
+	${EXTRA_ARCH_DIR}/${ARCH}/framebuffer/framebuffer.o 
 
 LOAD_DIR = extra/loadinit/sd
 LOAD_OBJS = \
@@ -114,7 +115,7 @@ CFLAGS += -I$(LOAD_DIR)
 endif
 
 
-KERNEL_DIR = kernel
+KERNEL_DIR = basic/kernel
 KERNEL_OBJS = \
 	${KERNEL_DIR}/mm/startup.o \
 	${KERNEL_DIR}/mm/kalloc.o \
@@ -140,7 +141,7 @@ OBJS = ${ARCH_OBJS} \
 LDS = mkos.lds.sd.S
 LDFLAGS = -L ${ARCH_DIR}/${ARCH}
 
-ASFLAGS = $(OPTM) -I. -Iinclude -marm $(ARCH_QEMU_CFLAGS)
+ASFLAGS = $(OPTM) -I. -Ibasic/include -marm $(ARCH_QEMU_CFLAGS)
 
 all: $(OS_IMG) 
 
