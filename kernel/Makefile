@@ -93,7 +93,7 @@ LIB_OBJS = \
 	${LIB_DIR}/queue.o \
 	${LIB_DIR}/kprintf.o
 
-ifneq ($(TINYSYS),yes)
+ifneq ($(NOFS),yes)
 CFLAGS += -DSDC -DFRAMEBUFFER
 LIB_OBJS += \
 	${EXTRA_LIB_DIR}/graph.o \
