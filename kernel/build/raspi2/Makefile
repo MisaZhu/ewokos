@@ -1,5 +1,3 @@
-OS = mkos
-
 # tools
 AR = arm-none-eabi-ar
 AS = arm-none-eabi-as
@@ -11,25 +9,22 @@ OBJDUMP = arm-none-eabi-objdump
 
 export QEMU_AUDIO_DRV=none
 
-ifneq ($(MACH),)
-ARCH=arm/$(MACH)
-else
-ARCH=arm/versatilepb
-endif
+ARCH=arm/raspi2
 
-ARCH_DIR=basic/arch
-EXTRA_ARCH_DIR=extra/arch
+SYS_FULL_DIR = ../../../system
+SRC_DIR=../..
+BUILD_DIR = .
+
+ARCH_DIR=$(SRC_DIR)/basic/arch
+EXTRA_ARCH_DIR=$(SRC_DIR)/extra/arch
 include ${ARCH_DIR}/${ARCH}/config.mk
-
-BUILD_DIR = build
-SYS_FULL_DIR = ../system
 
 # flags
 #OPTM = -g
 OPTM = -O2
 
 CFLAGS += $(OPTM) \
-	-I. -Ibasic/lib/include -Ibasic/include -Iextra/include -Iextra/lib/include \
+	-I. -I$(SRC_DIR)/basic/lib/include -I$(SRC_DIR)/basic/include -I$(SRC_DIR)/extra/include -I$(SRC_DIR)/extra/lib/include \
 	-I${ARCH_DIR}/${ARCH} \
 	-marm $(ARCH_QEMU_CFLAGS) \
 	-Wstrict-prototypes \
@@ -60,30 +55,13 @@ ARCH_OBJS = \
 	${ARCH_DIR}/${ARCH}/timer.o
 
 QEMU_CMD = qemu-system-arm
-OS_IMG = kernel.img
+OS_IMG = kernel7.img
+OS_ELF = kernel7.elf
 
-ifeq ($(MACH),raspi)
-CFLAGS += -I${EXTRA_ARCH_DIR}/${ARCH} -DWITH_LCDHAT
-ARCH_OBJS += ${ARCH_DIR}/${ARCH}/gpio_arch.o  \
-	${ARCH_DIR}/${ARCH}/cpu_freq.o \
-	${ARCH_DIR}/${ARCH}/mailbox.o \
-	${EXTRA_ARCH_DIR}/${ARCH}/lib/spi_arch.o \
-	${EXTRA_ARCH_DIR}/${ARCH}/lcdhat/lcdhat.o 
-else
-ifeq ($(MACH),raspi2)
 ARCH_OBJS += ${ARCH_DIR}/${ARCH}/mailbox.o
-OS_IMG = kernel7.img
-else
-ifeq ($(MACH),raspi3)
-ARCH_OBJS += ${ARCH_DIR}/${ARCH}/mailbox.o
-QEMU_CMD = qemu-system-aarch64
-OS_IMG = kernel7.img
-endif
-endif
-endif
 	
-LIB_DIR = basic/lib/src
-EXTRA_LIB_DIR = extra/lib/src
+LIB_DIR = $(SRC_DIR)/basic/lib/src
+EXTRA_LIB_DIR = $(SRC_DIR)/extra/lib/src
 
 LIB_OBJS = \
 	${LIB_DIR}/kstring.o \
@@ -105,7 +83,7 @@ LIB_OBJS += \
 ARCH_OBJS += ${EXTRA_ARCH_DIR}/${ARCH}/sd/sd.o \
 	${EXTRA_ARCH_DIR}/${ARCH}/framebuffer/framebuffer.o 
 
-LOAD_DIR = extra/loadinit/sd
+LOAD_DIR = $(SRC_DIR)/extra/loadinit/sd
 LOAD_OBJS = \
 	${LOAD_DIR}/ext2read.o \
 	${LOAD_DIR}/loadinit.o
@@ -115,7 +93,7 @@ CFLAGS += -I$(LOAD_DIR)
 endif
 
 
-KERNEL_DIR = basic/kernel
+KERNEL_DIR = $(SRC_DIR)/basic/kernel
 KERNEL_OBJS = \
 	${KERNEL_DIR}/mm/startup.o \
 	${KERNEL_DIR}/mm/kalloc.o \
@@ -138,18 +116,18 @@ OBJS = ${ARCH_OBJS} \
 	${LOAD_OBJS} \
 	${KERNEL_OBJS} 
 
-LDS = mkos.lds.sd.S
+LDS = $(SRC_DIR)/mkos.lds.sd.S
 LDFLAGS = -L ${ARCH_DIR}/${ARCH}
 
-ASFLAGS = $(OPTM) -I. -Ibasic/include -marm $(ARCH_QEMU_CFLAGS)
+ASFLAGS = $(OPTM) -I. -I$(SRC_DIR)/basic/include -marm $(ARCH_QEMU_CFLAGS)
 
 all: $(OS_IMG) 
 
 $(OS_IMG): $(OBJS) ${LDS}
 	mkdir -p ${BUILD_DIR}
-	$(LD) $(OBJS) $(LDFLAGS) -T ${LDS} -o ${BUILD_DIR}/$(OS).elf
-	$(OBJCOPY) -O binary ${BUILD_DIR}/$(OS).elf ${BUILD_DIR}/$(OS_IMG)
-#	$(OBJDUMP) -D ${BUILD_DIR}/$(OS).elf > ${BUILD_DIR}/$(OS).asm
+	$(LD) $(OBJS) $(LDFLAGS) -T ${LDS} -o ${BUILD_DIR}/$(OS_ELF)
+	$(OBJCOPY) -O binary ${BUILD_DIR}/$(OS_ELF) ${BUILD_DIR}/$(OS_IMG)
+#	$(OBJDUMP) -D ${BUILD_DIR}/$(OS_ELF) > ${BUILD_DIR}/$(OS).asm
 
 
 run: 
@@ -166,9 +144,9 @@ debugasm:
 
 gdb: 
 	echo "target remote :26000" > /tmp/gdbinit
-	arm-none-eabi-gdb ${BUILD_DIR}/$(OS).elf -x /tmp/gdbinit
-	#gdb-multiarch ${BUILD_DIR}/$(OS).elf -x /tmp/gdbinit #for ubuntu 18.04 without arm-none-eabi-gdb
+	arm-none-eabi-gdb ${BUILD_DIR}/$(OS_ELF) -x /tmp/gdbinit
+	#gdb-multiarch ${BUILD_DIR}/$(OS_ELF) -x /tmp/gdbinit #for ubuntu 18.04 without arm-none-eabi-gdb
 
 clean:
 	rm -f $(OBJS)
-	rm -fr ${BUILD_DIR}
+	rm -f $(OS_IMG) $(OS_ELF)

@@ -1,4 +1,6 @@
 *.o
 *.swp
 *_data.c
-build
+kernel*.img
+kernel*.elf
+system/build
