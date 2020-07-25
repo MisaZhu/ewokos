@@ -55,8 +55,7 @@ LIB_LIBC_DIR = $(LIBS_DIR)/libc
 CFLAGS += $(LIB_INC)
 
 LIB_GRAPH_OBJS =	$(LIB_GRAPH_DIR)/src/graph.o \
-	$(LIB_GRAPH_DIR)/src/font.o \
-	$(LIB_GRAPH_DIR)/src/font8x16.o
+	$(LIB_GRAPH_DIR)/src/font.o
 
 LIB_EXT2_OBJS = $(LIB_EXT2_DIR)/src/ext2fs.o
 
