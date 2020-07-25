@@ -32,8 +32,9 @@ SNAKE = $(TARGET_DIR)/apps/snake
 $(SNAKE): $(SNAKE_OBJS) \
 		$(TARGET_DIR)/lib/libewokc.a \
 		$(TARGET_DIR)/lib/libx.a \
+		$(TARGET_DIR)/lib/libfonts.a \
 		$(TARGET_DIR)/lib/libgraph.a
-	$(LD) -Ttext=100 $(SNAKE_OBJS) -o $(SNAKE) $(LDFLAGS) -lgraph -lx -lewokc -lc
+	$(LD) -Ttext=100 $(SNAKE_OBJS) -o $(SNAKE) $(LDFLAGS) -lgraph -lfonts -lx -lewokc -lc
 
 clean:
 	rm -f $(SNAKE_OBJS)

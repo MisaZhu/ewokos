@@ -1,11 +1,11 @@
-CXX = arm-none-eabi-g++
+CC = arm-none-eabi-gcc
 LD = arm-none-eabi-ld
 
-BUILD_DIR = ../../../../build
+BUILD_DIR = ../../../build
 TARGET_DIR = $(BUILD_DIR)/rootfs
 
 # flags
-CXXFLAGS = -marm \
+CFLAGS = -marm \
 				 -pedantic -Wall -Wextra -msoft-float -fPIC -mapcs-frame \
          -fno-builtin-printf \
          -fno-builtin-memset \
@@ -16,23 +16,22 @@ CXXFLAGS = -marm \
          -fno-builtin-exit -fno-builtin-stdio \
 				 -fno-rtti -fno-exceptions
 
-#CXXFLAGS +=  -g
-CXXFLAGS +=  -O2
+#CFLAGS +=  -g
+CFLAGS +=  -O2
 
 LDFLAGS = -L$(TARGET_DIR)/lib -lnosys
 
-CXXFLAGS += -I $(TARGET_DIR)/include
+CFLAGS += -I $(TARGET_DIR)/include
 
-GTEST_OBJS = gtest.o
+CONSOLE_OBJS = console.o
 
-GTEST = $(TARGET_DIR)/apps/gtest
+CONSOLE = $(TARGET_DIR)/apps/console
 
-$(GTEST): $(GTEST_OBJS) \
+$(CONSOLE): $(CONSOLE_OBJS) \
 		$(TARGET_DIR)/lib/libewokc.a \
-		$(TARGET_DIR)/lib/libx++.a \
-		$(TARGET_DIR)/lib/libcxx.a 
-	$(LD) -Ttext=100 $(GTEST_OBJS) -o $(GTEST) $(LDFLAGS) -lfonts -lgraphxx -lx++ -lewokc -lc -lcxx
+		$(TARGET_DIR)/lib/libfonts.a
+	$(LD) -Ttext=100 $(CONSOLE_OBJS) -o $(CONSOLE) $(LDFLAGS) -lfonts -lgraph -lewokc -lc
 
 clean:
-	rm -f $(GTEST_OBJS)
+	rm -f $(CONSOLE_OBJS)
 

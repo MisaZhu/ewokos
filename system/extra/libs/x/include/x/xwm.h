@@ -2,6 +2,7 @@
 #define XWM_H
 
 #include <graph/graph.h>
+#include <fonts/fonts.h>
 #include <x/xcntl.h>
 
 #ifdef __cplusplus

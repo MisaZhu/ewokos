@@ -14,6 +14,7 @@ mkdirs:
 EXTRA_LIBS_DIR=libs
 EXTRA_LIBXX_DIR=libs/cxx
 extra_libs:
+	cd $(EXTRA_LIBS_DIR)/fonts; make
 	cd $(EXTRA_LIBS_DIR)/upng; make
 	cd $(EXTRA_LIBS_DIR)/sconf; make
 	cd $(EXTRA_LIBS_DIR)/tiny-json; make
@@ -46,6 +47,7 @@ extra_driver:
 	cd $(EXTRA_DRIVERS_DIR)/arch/raspi/lcdhatd;make
 
 clean:
+	cd $(EXTRA_LIBS_DIR)/fonts; make clean
 	cd $(EXTRA_LIBS_DIR)/x; make clean
 	cd $(EXTRA_LIBS_DIR)/upng; make clean
 	cd $(EXTRA_LIBS_DIR)/sconf; make clean

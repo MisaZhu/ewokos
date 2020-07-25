@@ -22,6 +22,9 @@ static void cons_clear(console_t* console, graph_t* g) {
 }
 
 int32_t console_reset(console_t* console, uint32_t w, uint32_t h) {
+	if(console->font == NULL)
+		return -1;
+
 	//save content data
 	int old_size = console->state.size;
 	int old_total = console->content.cols* console->content.rows;
@@ -76,7 +79,7 @@ int32_t console_init(console_t* console) {
 	console->h = 0;
 	console->bg_color = argb(0xff, 0x0, 0x0, 0x0);
 	console->fg_color = argb(0xff, 0xaa, 0xaa, 0xaa);
-	console->font = font_by_name("8x16");
+	console->font = NULL;
 	memset(&console->content, 0, sizeof(content_t));
 	return 0;
 }
@@ -96,6 +99,9 @@ static inline uint32_t get_at(console_t* console, uint32_t i) {
 }
 
 void console_refresh(console_t* console, graph_t* g) {
+	if(console->font == NULL)
+		return;
+
 	cons_clear(console, g);
 	uint32_t i=0;
 	uint32_t x = 0;

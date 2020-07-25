@@ -35,8 +35,9 @@ $(XWM): $(XWM_OBJS) \
 		$(TARGET_DIR)/lib/libewokc.a \
 		$(TARGET_DIR)/lib/libx.a  \
 		$(TARGET_DIR)/lib/libsconf.a  \
+		$(TARGET_DIR)/lib/libfonts.a  \
 		$(TARGET_DIR)/lib/libgraph.a 
-	$(LD) -Ttext=100 $(XWM_OBJS) -o $(XWM) $(LDFLAGS) -lx -lgraph -lsconf -lewokc -lc
+	$(LD) -Ttext=100 $(XWM_OBJS) -o $(XWM) $(LDFLAGS) -lx -lgraph -lfonts -lsconf -lewokc -lc
 
 clean:
 	rm -f $(XWM_OBJS)

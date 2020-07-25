@@ -1,10 +1,8 @@
 AR = arm-none-eabi-ar
 CC = arm-none-eabi-gcc
-CXX = arm-none-eabi-c++
 LD = arm-none-eabi-ld
-OBJDUMP = arm-none-eabi-objdump
 
-BUILD_DIR = ../../../../../build
+BUILD_DIR = ../../../build
 TARGET_DIR = $(BUILD_DIR)/rootfs
 
 # flags
@@ -25,18 +23,31 @@ CFLAGS +=  -O2
 
 LDFLAGS = -L$(TARGET_DIR)/lib -lnosys
 
-CFLAGS += -I $(TARGET_DIR)/include
+CFLAGS += -I $(TARGET_DIR)/include -Iinclude
 
-XWM_OBJS = xwm.o 
+LIB_FONTS_OBJS = src/fonts.o \
+	src/font10x20.o \
+	src/font12x24.o \
+	src/font4x6.o \
+	src/font6x8.o \
+	src/font8x10.o \
+	src/font8x16.o \
+	src/font9x16.o \
+	src/font12x16.o \
+	src/font16x32.o \
+	src/font5x12.o \
+	src/font7x9.o \
+	src/font8x8.o \
+	src/font9x8.o
 
-XWM = $(TARGET_DIR)/sbin/x/xwm_macos7
+FONTS = $(TARGET_DIR)/lib/libfonts.a
 
-$(XWM): $(XWM_OBJS) \
-		$(TARGET_DIR)/lib/libewokc.a \
-		$(TARGET_DIR)/lib/libx.a  \
-		$(TARGET_DIR)/lib/libsconf.a  \
-		$(TARGET_DIR)/lib/libgraph.a 
-	$(LD) -Ttext=100 $(XWM_OBJS) -o $(XWM) $(LDFLAGS) -lx -lgraph -lfonts -lsconf -lewokc -lc
+$(FONTS): $(LIB_FONTS_OBJS)
+	$(AR) rT $(FONTS) $(LIB_FONTS_OBJS)
+	cp -r include/* $(TARGET_DIR)/include
+
 
 clean:
-	rm -f $(XWM_OBJS)
+	rm -f $(LIB_FONTS_OBJS)
+	rm -f $(FONTS)
+

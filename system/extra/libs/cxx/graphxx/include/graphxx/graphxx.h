@@ -3,6 +3,7 @@
 
 #include <stddef.h>
 #include <graph/graph.h>
+#include <fonts/fonts.h>
 
 namespace Ewok {
 class Graph {

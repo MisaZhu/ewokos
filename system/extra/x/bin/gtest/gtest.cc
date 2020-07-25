@@ -29,7 +29,7 @@ protected:
 
 	void onRepaint(Graph& g) {
 		char str[32];
-		font_t* font = font_by_name("12x24");
+		font_t* font = font_by_name("16x32");
 
 		int x = random_to(g.getW());
 		int y = random_to(g.getH());

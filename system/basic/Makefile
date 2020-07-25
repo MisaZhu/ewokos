@@ -56,19 +56,7 @@ CFLAGS += $(LIB_INC)
 
 LIB_GRAPH_OBJS =	$(LIB_GRAPH_DIR)/src/graph.o \
 	$(LIB_GRAPH_DIR)/src/font.o \
-	$(LIB_GRAPH_DIR)/src/font4x6.o \
-	$(LIB_GRAPH_DIR)/src/font5x12.o \
-	$(LIB_GRAPH_DIR)/src/font6x8.o \
-	$(LIB_GRAPH_DIR)/src/font7x9.o \
-	$(LIB_GRAPH_DIR)/src/font8x8.o \
-	$(LIB_GRAPH_DIR)/src/font9x8.o \
-	$(LIB_GRAPH_DIR)/src/font8x10.o \
-	$(LIB_GRAPH_DIR)/src/font8x16.o \
-	$(LIB_GRAPH_DIR)/src/font9x16.o \
-	$(LIB_GRAPH_DIR)/src/font12x16.o \
-	$(LIB_GRAPH_DIR)/src/font10x20.o \
-	$(LIB_GRAPH_DIR)/src/font12x24.o \
-	$(LIB_GRAPH_DIR)/src/font16x32.o
+	$(LIB_GRAPH_DIR)/src/font8x16.o
 
 LIB_EXT2_OBJS = $(LIB_EXT2_DIR)/src/ext2fs.o
 
@@ -228,7 +216,6 @@ include $(ROOT_DIR)/bin/kill/build.mk
 include $(ROOT_DIR)/bin/mkdir/build.mk
 include $(ROOT_DIR)/bin/rm/build.mk
 include $(ROOT_DIR)/bin/session/build.mk
-include $(ROOT_DIR)/bin/console/build.mk
 
 mkdirs:
 	@mkdir -p ${TARGET_DIR}/$(ROOT_DIR)/sbin
