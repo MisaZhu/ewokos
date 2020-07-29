@@ -9,7 +9,7 @@
 #include <kstring.h>
 #include <kprintf.h>
 #include <queue.h>
-#include <elf.h>
+#include <kernel/elf.h>
 #include <stddef.h>
 
 static proc_t _proc_table[PROC_MAX];
