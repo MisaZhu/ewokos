@@ -127,7 +127,7 @@ $(OS_IMG): $(OBJS) ${LDS}
 	mkdir -p ${BUILD_DIR}
 	$(LD) $(OBJS) $(LDFLAGS) -T ${LDS} -o ${BUILD_DIR}/$(OS_ELF)
 	$(OBJCOPY) -O binary ${BUILD_DIR}/$(OS_ELF) ${BUILD_DIR}/$(OS_IMG)
-#	$(OBJDUMP) -D ${BUILD_DIR}/$(OS_ELF) > ${BUILD_DIR}/$(OS).asm
+	$(OBJDUMP) -D ${BUILD_DIR}/$(OS_ELF) > ${BUILD_DIR}/kernel.asm
 
 
 run: 

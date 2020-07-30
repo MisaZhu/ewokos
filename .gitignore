@@ -1,6 +1,8 @@
 *.o
 *.swp
 *_data.c
+.DS_*
 kernel*.img
 kernel*.elf
+kernel*.asm
 system/build
