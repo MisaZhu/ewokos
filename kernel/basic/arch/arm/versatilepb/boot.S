@@ -1,11 +1,8 @@
 #define KERNEL_BASE 0x80000000
 
+.section ".init"
 .global __entry
 __entry:
-	msr cpsr, #0xD3             @ enter SVC mode with IRQ and FIQ interrupts disabled
-	ldr sp, = _svc_stack        @ initialise SVC mode stack
-	sub sp, #KERNEL_BASE
-
 	//enable paging
 	mov r0, #0x1
 	//set_domain_access_control
@@ -26,11 +23,6 @@ __entry:
 	//set_control_register
 	mcr p15, 0, r0, cr1, cr0, 0 /*operate-0 from R0 to co-processor-p15*/
 
-	//jump to high mem
-	add pc, #KERNEL_BASE
-
-	bl _boot_init
-
 	msr cpsr, #0xD2             @ enter IRQ mode with IRQ and FIQ interrupts disabled
 	ldr sp, = _irq_stack        @ initialise IRQ mode stack
 
@@ -39,6 +31,9 @@ __entry:
 
 	msr cpsr, #0xD3             @ enter SVC mode with IRQ and FIQ interrupts disabled
 	ldr sp, = _svc_stack        @ initialise SVC mode stack
+
+	//jump to high mem
+	add pc, #KERNEL_BASE-4
 
 	bl _copy_interrupt_table
 	bl __use_high_interrupts  /* (system.S*/

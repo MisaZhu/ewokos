@@ -97,16 +97,26 @@ int32_t load_init_proc(void) {
 }
 #endif
 
+static void flash_actled(void) {
+	act_led(true);
+	_delay(1000000);
+	act_led(false);
+	_delay(1000000);
+	act_led(true);
+	_delay(1000000);
+	act_led(false);
+}
+
 void _kernel_entry_c(context_t* ctx) {
 	(void)ctx;
 	//clear bss
 	memset(_bss_start, 0, (uint32_t)_bss_end - (uint32_t)_bss_start);
-
 	hw_info_init();
 	init_kernel_vm();  
+	flash_actled();
+
 	km_init();
 	kev_init();
-
 	uart_dev_init();
 
 	const char* msg = "\n\n"
