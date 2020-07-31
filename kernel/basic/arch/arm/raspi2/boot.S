@@ -39,6 +39,7 @@ __entry:
 	msr cpsr, #0xD3             @ enter SVC mode with IRQ and FIQ interrupts disabled
 	ldr sp, = _svc_stack        @ initialise SVC mode stack
 
+	//jump to high mem
 	add pc, #KERNEL_BASE-4
 
 	bl _copy_interrupt_table
@@ -46,9 +47,6 @@ __entry:
 
 	sub   sp, sp, #68             @ initialise dummy context
 	mov   r0, sp                  @ set    high-level C function arg. = SP
-
-	b halt
-	//jump to high mem
 
 	bl _kernel_entry_c
 
