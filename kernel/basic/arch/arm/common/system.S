@@ -24,32 +24,6 @@ __set_translation_table_base:
   mcr p15, 0, r0, c7, c10, 4 // DSB ??
 	mov pc, lr
 
-.global __enable_paging
-__enable_paging:
-	push {lr} /*lr(R14) return PC stored*/
-
-	mov r0, #0x1
-	//bic r0, #0xc
-	bl __set_domain_access_control /*system.S*/
-
-	ldr r0, =_startup_page_dir /*kernel/src/mm/startup.c*/
-	sub r0, #KERNEL_BASE /*get physical address from virtual address*/
-	bl __set_translation_table_base /*system.S*/
-
-	bl __read_control_register /*system.S*/
-	orr r0, #0x1 
-	//orr r0, #0x4 
-	//orr r0, #0x1000 
-	bl __set_control_register /*system.S*/
-
-	pop {lr}
-	mov pc, lr /*return*/
-
-.global __jump2_high_mem
-__jump2_high_mem:
-	add lr, #KERNEL_BASE
-	mov pc, lr
-
 .global __irq_enable
 __irq_enable:
 	mrs r0, cpsr

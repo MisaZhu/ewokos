@@ -12,10 +12,30 @@ __entry:
 	ldr sp, = _svc_stack        @ initialise SVC mode stack
 	sub sp, #KERNEL_BASE
 
-	bl _boot_init
+	//enable paging
+	mov r0, #0x1
+	//set_domain_access_control
+	mcr p15, 0, r0, cr3, cr0, 0
 
-	bl __enable_paging
-	bl __jump2_high_mem
+	//set_translation_table_base 
+	ldr r0, =_startup_page_dir /*kernel/src/mm/startup.c*/
+	sub r0, #KERNEL_BASE /*get physical address from virtual address*/
+	mcr p15, 0, r0, c2, c0, 0 //set ttbase
+	mcr p15, 0, r0, c2, c0, 1 //set ttbase
+	mov r0, #0
+	mcr p15, 0, r0, c8, c7, 0 //flush tlb
+  mcr p15, 0, r0, c7, c10, 4 // DSB ??
+
+	//read_control_register
+	mrc p15, 0, r0, cr1, cr0, 0 /*operate-0 from co-processor-p15 to R0, cr1 cr0 are registers on co-proc*/
+	orr r0, #0x1 
+	//set_control_register
+	mcr p15, 0, r0, cr1, cr0, 0 /*operate-0 from R0 to co-processor-p15*/
+
+	//jump to high mem
+	add pc, #KERNEL_BASE
+
+	bl _boot_init
 
 	msr cpsr, #0xD2             @ enter IRQ mode with IRQ and FIQ interrupts disabled
 	ldr sp, = _irq_stack        @ initialise IRQ mode stack
