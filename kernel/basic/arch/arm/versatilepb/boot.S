@@ -1,6 +1,5 @@
 #define KERNEL_BASE 0x80000000
 
-.section ".init"
 .global __entry
 __entry:
 	//enable paging

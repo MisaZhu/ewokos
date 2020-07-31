@@ -114,7 +114,7 @@ OBJS = ${ARCH_OBJS} \
 	${LOAD_OBJS} \
 	${KERNEL_OBJS} 
 
-LDS = $(SRC_DIR)/mkos.lds.sd.S
+LDS = mkos.lds.sd.S
 LDFLAGS = -L ${ARCH_DIR}/${ARCH}
 
 ASFLAGS = $(OPTM) -I. -I$(SRC_DIR)/basic/include -marm $(ARCH_QEMU_CFLAGS)

@@ -1,13 +1,22 @@
 #define KERNEL_BASE 0x80000000
 
-.section ".init"
+//.section ".init"
 .global __entry
 __entry:
 	// Shut off extra cores
-	mrc p15, 0, r5, c0, c0, 5
+	/*mrc p15, 0, r5, c0, c0, 5
 	and r5, r5, #3
 	cmp r5, #0
 	bne halt
+	*/
+
+	msr cpsr, #0xD3             @ enter SVC mode with IRQ and FIQ interrupts disabled
+	ldr sp, = _svc_stack        @ initialise SVC mode stack
+	//sub sp, #KERNEL_BASE
+
+	bl act_led_flash
+	bl act_led_flash
+	bl act_led_flash
 
 	//enable paging
 	mov r0, #0x1
@@ -16,7 +25,7 @@ __entry:
 
 	//set_translation_table_base 
 	ldr r0, =_startup_page_dir /*kernel/src/mm/startup.c*/
-	sub r0, #KERNEL_BASE /*get physical address from virtual address*/
+	//sub r0, #KERNEL_BASE /*get physical address from virtual address*/
 	mcr p15, 0, r0, c2, c0, 0 //set ttbase
 	mcr p15, 0, r0, c2, c0, 1 //set ttbase
 	mov r0, #0
@@ -40,7 +49,7 @@ __entry:
 	ldr sp, = _svc_stack        @ initialise SVC mode stack
 
 	//jump to high mem
-	add pc, #KERNEL_BASE-4
+	//add pc, #KERNEL_BASE-4
 
 	bl _copy_interrupt_table
 	bl __use_high_interrupts  /* (system.S*/

@@ -16,3 +16,10 @@ void __attribute__((optimize("O0"))) _copy_interrupt_table(void) {
 	}
 }
 
+void act_led_flash(void) {
+	act_led(true);
+	_delay(1000000);
+	act_led(false);
+	_delay(1000000);
+}
+
