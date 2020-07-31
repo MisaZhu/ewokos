@@ -1,44 +1,29 @@
 ENTRY(__entry)
 
 INCLUDE linker.lds.S
-
-/*PHDRS
+PHDRS
 {
-  init   PT_LOAD FLAGS(5); // read-only, executable
-  text   PT_LOAD FLAGS(5); // read-only, executable
+  init   PT_LOAD FLAGS(5); /* read-only, executable*/
+  text   PT_LOAD FLAGS(5); /* read-only, executable*/
 }
-*/
 
 SECTIONS
 {
 	/*kernel will be compiled with virtual address base at 2GB*/
 
-	/*
 	.init start_address : AT(start_address) ALIGN(4096)
   {
     KEEP(*(.init .init.*))
   } : init
-
   _init_end = ALIGN(4096);
 
 	PROVIDE(_kernel_start = base_address + _init_end);
 
 	.text base_address + _init_end : AT(_init_end) ALIGN(4096)
 	{
-		KEEP(*(.text.boot))
+		KEEP(*(.text))
 		*(.text)
 	} : text
-	. = ALIGN(4096);
-	*/
-
-	. = base_address + start_address;
-	PROVIDE(_kernel_start = .);
-
-	.text : AT(start_address)
-	{
-		KEEP(*(.text.boot))
-		*(.text)
-	}
 	. = ALIGN(4096);
 
 	.data : { /** data segment */
