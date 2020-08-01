@@ -17,7 +17,8 @@ SECTIONS
   } : init
   _init_end = ALIGN(4096);
 
-	PROVIDE(_kernel_start = base_address + _init_end);
+	. =  base_address + _init_end;
+	PROVIDE(_kernel_start = .);
 
 	.text base_address + _init_end : AT(_init_end) ALIGN(4096)
 	{
