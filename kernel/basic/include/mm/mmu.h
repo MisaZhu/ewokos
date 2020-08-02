@@ -99,7 +99,7 @@ uint32_t resolve_phy_address(page_dir_entry_t *vm, uint32_t virtual);
 uint32_t resolve_kernel_address(page_dir_entry_t *vm, uint32_t virtual);
 page_table_entry_t* get_page_table_entry(page_dir_entry_t *vm, uint32_t virtual);
 
-extern unsigned _startup_page_dir[PAGE_DIR_NUM];
+extern uint32_t _startup_page_dir[PAGE_DIR_NUM];
 extern uint32_t _mmio_base;
 
 #endif
