@@ -24,7 +24,8 @@ int32_t _core_pid = -1;
 /* proc_init initializes the process sub-system. */
 void procs_init(void) {
 	_core_ready = false;
-	for (int32_t i = 0; i < PROC_MAX; i++) {
+	int32_t i;
+	for (i = 0; i < PROC_MAX; i++) {
 		_proc_table[i].info.state = UNUSED;
 		_proc_table[i].info.wait_for = -1;
 	}
@@ -253,7 +254,8 @@ void __attribute__((optimize("O0"))) proc_exit(context_t* ctx, proc_t *proc, int
 	/*free user_stack*/
 	uint32_t user_stack_base = proc_get_user_stack_base(proc);
 	uint32_t pages = proc_get_user_stack_pages(proc);
-	for(uint32_t i=0; i<pages; i++) {
+	uint32_t i;
+	for(i=0; i<pages; i++) {
 		unmap_page(proc->space->vm, user_stack_base + PAGE_SIZE*i);
 		kfree4k(proc->user_stack[i]);
 	}

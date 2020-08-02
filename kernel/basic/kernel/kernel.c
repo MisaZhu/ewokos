@@ -54,7 +54,8 @@ void set_kernel_vm(page_dir_entry_t* vm) {
 }
 
 static void init_kernel_vm(void) {
-	for(int32_t i=0; i<RAM_HOLE_MAX; i++)
+	int32_t i;
+	for(i=0; i<RAM_HOLE_MAX; i++)
 		_ram_holes[i].base = _ram_holes[i].end = 0;
 
 	_kernel_vm = (page_dir_entry_t*)KERNEL_PAGE_DIR_BASE;

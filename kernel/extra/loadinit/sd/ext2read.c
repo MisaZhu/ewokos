@@ -51,7 +51,8 @@ int32_t read_partition(void) {
 	if(sector[510] != 0x55 || sector[511] != 0xAA) 
 		return -1;
 	uint8_t* p = sector + 0x1BE;
-	for(int32_t i=0; i<PARTITION_MAX; i++) {
+	int32_t i;
+	for(i=0; i<PARTITION_MAX; i++) {
 		memcpy(&_partitions[i], p, sizeof(partition_t));
 		p += sizeof(partition_t);
 //		printf("partition %d: start_sector: %d\n", i, _partitions[i].start_sector);
@@ -285,7 +286,8 @@ static int32_t get_gds(ext2_t* ext2) {
 	while(1) {
 		char buf[EXT2_BLOCK_SIZE];
 		ext2->read_block(ext2->super.s_blocks_per_group+i, buf);
-		for(int32_t j=0; j<gd_num; j++) {
+		int32_t j;
+		for(j=0; j<gd_num; j++) {
 			memcpy(&ext2->gds[index], buf+(j*gd_size), gd_size);
 			index++;
 			if(index >= ext2->group_num)
