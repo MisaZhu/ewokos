@@ -23,3 +23,8 @@ void act_led_flash(void) {
 	_delay(1000000);
 }
 
+void boot_init(void) {
+	hw_info_init();
+	_mmio_base = get_hw_info()->phy_mmio_base;
+	act_led_flash();
+}
