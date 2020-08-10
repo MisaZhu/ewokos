@@ -45,6 +45,7 @@ CFLAGS += $(OPTM) \
 
 ARCH_OBJS = \
 	${ARCH_DIR}/${ARCH}/boot.o \
+	${ARCH_DIR}/${ARCH}/start.o \
 	${ARCH_DIR}/arm/common/interrupt.o \
 	${ARCH_DIR}/arm/common/system.o \
 	${ARCH_DIR}/arm/common/memcpy.o \
@@ -95,7 +96,6 @@ endif
 
 KERNEL_DIR = $(SRC_DIR)/basic/kernel
 KERNEL_OBJS = \
-	${KERNEL_DIR}/mm/startup.o \
 	${KERNEL_DIR}/mm/kalloc.o \
 	${KERNEL_DIR}/mm/mmu.o \
 	${KERNEL_DIR}/mm/trunkmem.o \
@@ -144,8 +144,8 @@ debugasm:
 
 gdb: 
 	echo "target remote :26000" > /tmp/gdbinit
-	arm-none-eabi-gdb ${BUILD_DIR}/$(OS_ELF) -x /tmp/gdbinit
-	#gdb-multiarch ${BUILD_DIR}/$(OS_ELF) -x /tmp/gdbinit #for ubuntu 18.04 without arm-none-eabi-gdb
+	#arm-none-eabi-gdb ${BUILD_DIR}/$(OS_ELF) -x /tmp/gdbinit
+	gdb-multiarch ${BUILD_DIR}/$(OS_ELF) -x /tmp/gdbinit #for ubuntu 18.04 without arm-none-eabi-gdb
 
 clean:
 	rm -f $(OBJS)

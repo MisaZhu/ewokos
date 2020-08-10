@@ -14,11 +14,13 @@ SECTIONS
 	.init start_address : AT(start_address) ALIGN(4096)
   {
     KEEP(*(.init .init.*))
+		../../basic/arch/arm/raspi2/start.o(.text .text.*)
+		../../basic/arch/arm/raspi2/start.o(.rodata .rodata.*)
+		../../basic/arch/arm/raspi2/start.o(.data .data.*)
   } : init
   _init_end = ALIGN(4096);
 
-	. =  base_address + _init_end;
-	PROVIDE(_kernel_start = .);
+	PROVIDE(_kernel_start = base_address + _init_end);
 
 	.text base_address + _init_end : AT(_init_end) ALIGN(4096)
 	{

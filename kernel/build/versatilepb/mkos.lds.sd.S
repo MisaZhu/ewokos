@@ -14,6 +14,9 @@ SECTIONS
 	.init start_address : AT(start_address) ALIGN(4096)
   {
     KEEP(*(.init .init.*))
+		../../basic/arch/arm/versatilepb/start.o(.text .text.*)
+		../../basic/arch/arm/versatilepb/start.o(.rodata .rodata.*)
+		../../basic/arch/arm/versatilepb/start.o(.data .data.*)
   } : init
   _init_end = ALIGN(4096);
 
