@@ -11,7 +11,7 @@ uint32_t startup_page_dir[PAGE_DIR_NUM] = { 0 };
 // setup the boot page table: dev_mem whether it is device memory
 static void set_boot_pgt(uint32_t virt, uint32_t phy, uint32_t len, uint8_t is_dev) {
 	(void)is_dev;
-	uint32_t  pde, idx;
+	uint32_t idx;
 
 	// convert all the parameters to indexes
 	virt >>= PDE_SHIFT;
@@ -24,8 +24,7 @@ static void set_boot_pgt(uint32_t virt, uint32_t phy, uint32_t len, uint8_t is_d
 		12bits 20-31 : base address of section (1M for one section)
 	 */
 	for (idx = 0; idx < len; idx++) {
-		pde = (phy << PDE_SHIFT) | 2 | (2 << 10);
-		startup_page_dir[virt] = pde;
+		startup_page_dir[virt] = (phy << PDE_SHIFT) | 2 | (2 << 10);
 		virt++;
 		phy++;
 	}
@@ -38,7 +37,7 @@ static void load_boot_pgt(void) {
 	__asm("MCR p15, 0, %[v], c3, c0, 0": :[v]"r" (val):);
 
 	// set the kernel page table
-	val = (uint32_t)startup_page_dir | 0x00;
+	val = (uint32_t)&startup_page_dir;
 	__asm("MCR p15, 0, %[v], c2, c0, 1": :[v]"r" (val):);
 	// set the user page table
 	__asm("MCR p15, 0, %[v], c2, c0, 0": :[v]"r" (val):);
@@ -49,12 +48,14 @@ static void load_boot_pgt(void) {
 	__asm("MCR p15, 0, %[r], c1, c0, 0": :[r]"r" (val):); //write
 
 	// flush all TLB
-	__asm("MCR p15, 0, r0, c8, c7, 0");
+	val = 0;
+	__asm("MCR p15, 0, %[r], c8, c7, 0": :[r]"r" (val):);
 }
 
 void _boot_start(void) {
 	set_boot_pgt(0, 0, 1024*1024*32, 0);
 	set_boot_pgt(KERNEL_BASE, 0, 1024*1024*32, 0);
-	set_boot_pgt(KERNEL_BASE + DEV_BASE, DEV_BASE, DEV_MEM_SIZE, 1);
+	set_boot_pgt(DEV_BASE, DEV_BASE, DEV_MEM_SIZE, 1);
+	set_boot_pgt(MMIO_BASE, DEV_BASE, DEV_MEM_SIZE, 1);
 	load_boot_pgt();
 }

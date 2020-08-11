@@ -47,9 +47,9 @@
 
 /* access permissions */
 #ifdef A_CORE
-	#define AP_RW_D 0x1
-	#define AP_RW_R 0x2
-	#define AP_RW_RW 0x3
+	#define AP_RW_D 0x5
+	#define AP_RW_R 0xa
+	#define AP_RW_RW 0xf
 #else
 	#define AP_RW_D 0x55
 	#define AP_RW_R 0xaa

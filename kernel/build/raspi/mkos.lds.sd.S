@@ -17,6 +17,7 @@ SECTIONS
 		../../basic/arch/arm/raspi/start.o(.text .text.*)
 		../../basic/arch/arm/raspi/start.o(.rodata .rodata.*)
 		../../basic/arch/arm/raspi/start.o(.data .data.*)
+		../../basic/arch/arm/raspi/start.o(.bss .bss.*)
   } : init
   _init_end = ALIGN(4096);
 

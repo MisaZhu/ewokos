@@ -65,7 +65,6 @@ static void init_kernel_vm(void) {
 
 	//Use physical address of kernel virtual memory as the new virtual memory page dir table base.
 	__set_translation_table_base(V2P((uint32_t)_kernel_vm));
-	_mmio_base = MMIO_BASE;
 }
 
 static void init_allocable_mem(void) {
@@ -86,7 +85,8 @@ ref: set_kernel_vm(page_dir_entry_t* vm)
 static void __attribute__((optimize("O0"))) copy_interrupt_table(void) {
 	extern uint32_t  interrupt_table_start, interrupt_table_end;
 	uint32_t *vsrc = &interrupt_table_start;
-	uint32_t *vdst = (uint32_t*)0;
+	//uint32_t *vdst = (uint32_t*)INTERRUPT_VECTOR_BASE;
+	uint32_t *vdst = (uint32_t*)0x0;
 	while(vsrc < &interrupt_table_end) {
 		*vdst++ = *vsrc++;
 	}
@@ -114,19 +114,22 @@ void _kernel_entry_c(context_t* ctx) {
 	(void)ctx;
 	//clear bss
 	memset(_bss_start, 0, (uint32_t)_bss_end - (uint32_t)_bss_start);
+
 	copy_interrupt_table();
+
 	hw_info_init();
 	init_kernel_vm();  
-
 	km_init();
-	kev_init();
-	uart_dev_init();
+	_mmio_base = MMIO_BASE;
 
+	uart_dev_init();
 	const char* msg = "\n\n"
 			"===Ewok micro-kernel===\n\n"
 			"kernel: mmu inited\n"
 			"kernel: uart inited\n";
 	uart_write(msg, strlen(msg));
+
+	kev_init();
 
 #ifdef FRAMEBUFFER
 	kconsole_init();

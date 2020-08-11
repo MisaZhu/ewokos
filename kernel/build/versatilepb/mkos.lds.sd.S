@@ -17,6 +17,7 @@ SECTIONS
 		../../basic/arch/arm/versatilepb/start.o(.text .text.*)
 		../../basic/arch/arm/versatilepb/start.o(.rodata .rodata.*)
 		../../basic/arch/arm/versatilepb/start.o(.data .data.*)
+		../../basic/arch/arm/versatilepb/start.o(.bss .bss.*)
   } : init
   _init_end = ALIGN(4096);
 

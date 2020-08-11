@@ -107,7 +107,6 @@ KERNEL_OBJS = \
 	${KERNEL_DIR}/mm/trunkmem.o \
 	${KERNEL_DIR}/mm/kmalloc.o \
 	${KERNEL_DIR}/mm/shm.o \
-	${KERNEL_DIR}/init.o \
 	${KERNEL_DIR}/irq.o \
 	${KERNEL_DIR}/svc.o \
 	${KERNEL_DIR}/proc.o \

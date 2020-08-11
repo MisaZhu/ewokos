@@ -101,7 +101,6 @@ KERNEL_OBJS = \
 	${KERNEL_DIR}/mm/trunkmem.o \
 	${KERNEL_DIR}/mm/kmalloc.o \
 	${KERNEL_DIR}/mm/shm.o \
-	${KERNEL_DIR}/init.o \
 	${KERNEL_DIR}/irq.o \
 	${KERNEL_DIR}/svc.o \
 	${KERNEL_DIR}/proc.o \
@@ -144,8 +143,8 @@ debugasm:
 
 gdb: 
 	echo "target remote :26000" > /tmp/gdbinit
-	#arm-none-eabi-gdb ${BUILD_DIR}/$(OS_ELF) -x /tmp/gdbinit
-	gdb-multiarch ${BUILD_DIR}/$(OS_ELF) -x /tmp/gdbinit #for ubuntu 18.04 without arm-none-eabi-gdb
+	arm-none-eabi-gdb ${BUILD_DIR}/$(OS_ELF) -x /tmp/gdbinit
+	#gdb-multiarch ${BUILD_DIR}/$(OS_ELF) -x /tmp/gdbinit #for ubuntu 18.04 without arm-none-eabi-gdb
 
 clean:
 	rm -f $(OBJS)
