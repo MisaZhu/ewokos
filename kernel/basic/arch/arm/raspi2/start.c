@@ -88,7 +88,9 @@ static void load_boot_pgt(void) {
 	// invalidate tlb
 	__asm("MOV r0, #0");
 	__asm("MCR p15, 0, r0, c8, c7, 0");      //I-TLB and D-TLB invalidation
-	__asm("MCR p15, 0, r0, c7, c5, 6");      //BPIALL - Invalidate entire branch predictor array
+	__asm("MCR p15, 0, r0, c7, c5, 1");      //ICIALLU: invalidate instruction cache
+	//__asm("MCR p15, 0, r0, c7, c5, 6");      //BPIALL - Invalidate entire branch predictor array
+	__asm("dsb");
 }
 
 
