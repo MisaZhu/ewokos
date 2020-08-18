@@ -85,14 +85,14 @@ static void boot_act_led_flash(void) {
 
 void _boot_start(void) {
 	mmio_base = DEV_BASE;
+	boot_act_led_flash();
+
 	set_boot_pgt(0, 0, 1024*1024*32, 0);
 	set_boot_pgt(KERNEL_BASE, 0, 1024*1024*32, 0);
 	set_boot_pgt(DEV_BASE, DEV_BASE, DEV_MEM_SIZE, 1);
 	set_boot_pgt(MMIO_BASE, DEV_BASE, DEV_MEM_SIZE, 1);
 
-	boot_act_led_flash();
 	load_boot_pgt();
-	boot_act_led_flash();
 
 	mmio_base = MMIO_BASE;
 	boot_act_led_flash();

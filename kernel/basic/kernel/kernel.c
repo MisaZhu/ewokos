@@ -28,6 +28,20 @@
 page_dir_entry_t* _kernel_vm = NULL;
 uint32_t _mmio_base = 0;
 
+/*Copy interrupt talbe to phymen address 0x00000000.
+	Virtual address #INTERRUPT_VECTOR_BASE(0xFFFF0000 for ARM) must mapped to phymen 0x00000000.
+ref: set_kernel_vm(page_dir_entry_t* vm)
+ */
+static void __attribute__((optimize("O0"))) copy_interrupt_table(void) {
+	extern uint32_t  interrupt_table_start, interrupt_table_end;
+	uint32_t *vsrc = &interrupt_table_start;
+	//uint32_t *vdst = (uint32_t*)INTERRUPT_VECTOR_BASE;
+	uint32_t *vdst = (uint32_t*)0x0;
+	while(vsrc < &interrupt_table_end) {
+		*vdst++ = *vsrc++;
+	}
+}
+
 static void set_kernel_init_vm(page_dir_entry_t* vm) {
 	memset(vm, 0, PAGE_DIR_SIZE);
 
@@ -78,20 +92,6 @@ static void init_allocable_mem(void) {
 	kalloc_init(ALLOCATABLE_MEMORY_START, P2V(get_hw_info()->phy_mem_size)-24*MB, true);
 }
 
-/*Copy interrupt talbe to phymen address 0x00000000.
-	Virtual address #INTERRUPT_VECTOR_BASE(0xFFFF0000 for ARM) must mapped to phymen 0x00000000.
-ref: set_kernel_vm(page_dir_entry_t* vm)
- */
-static void __attribute__((optimize("O0"))) copy_interrupt_table(void) {
-	extern uint32_t  interrupt_table_start, interrupt_table_end;
-	uint32_t *vsrc = &interrupt_table_start;
-	//uint32_t *vdst = (uint32_t*)INTERRUPT_VECTOR_BASE;
-	uint32_t *vdst = (uint32_t*)0x0;
-	while(vsrc < &interrupt_table_end) {
-		*vdst++ = *vsrc++;
-	}
-}
-
 static void dev_init(void) {
 #ifdef SDC
   printf("    %16s ", "mmc_sd");
@@ -114,7 +114,6 @@ void _kernel_entry_c(context_t* ctx) {
 	(void)ctx;
 	//clear bss
 	memset(_bss_start, 0, (uint32_t)_bss_end - (uint32_t)_bss_start);
-
 	copy_interrupt_table();
 
 	hw_info_init();
