@@ -73,7 +73,8 @@ LIB_OBJS = \
 	${LIB_DIR}/kprintf.o
 
 ifneq ($(NOFS),yes)
-CFLAGS += -DSDC -DFRAMEBUFFER
+#CFLAGS += -DSDC -DFRAMEBUFFER
+CFLAGS += -DSDC
 LIB_OBJS += \
 	${EXTRA_LIB_DIR}/graph.o \
 	${EXTRA_LIB_DIR}/font.o \

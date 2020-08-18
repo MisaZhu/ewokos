@@ -124,7 +124,7 @@ static sd_t _sdc;
 static int32_t __attribute__((optimize("O0"))) sd_status(uint32_t mask) {
 	int32_t cnt = 1000000; 
 	while((*EMMC_STATUS & mask) != 0 && (*EMMC_INTERRUPT & INT_ERROR_MASK) == 0 && cnt > 0)
-		_delay_usec(1);
+		_delay_msec(1);
 	return (cnt <= 0 || (*EMMC_INTERRUPT & INT_ERROR_MASK)) ? SD_ERROR : SD_OK;
 }
 
@@ -135,7 +135,7 @@ static int32_t __attribute__((optimize("O0"))) sd_int(uint32_t mask, int32_t wai
 	uint32_t r, m = (mask | INT_ERROR_MASK);
 	int32_t cnt = 10000; 
 	while((*EMMC_INTERRUPT & m) == 0 && cnt--) {
-		_delay_usec(1);
+		_delay_msec(1);
 		if(wait == 0)
 			return -1;
 	}
@@ -175,9 +175,9 @@ static int32_t __attribute__((optimize("O0"))) sd_cmd(uint32_t code, uint32_t ar
 	*EMMC_ARG1 = arg;
 	*EMMC_CMDTM = code;
 	if(code == CMD_SEND_OP_COND)
-		_delay_usec(1000);
+		_delay_msec(1000);
 	else if(code==CMD_SEND_IF_COND || code==CMD_APP_CMD)
-		_delay_usec(100);
+		_delay_msec(100);
 
 	if((r = sd_int(INT_CMD_DONE, 1))) {
 		sd_err = r;
@@ -217,7 +217,7 @@ static int32_t sd_read_sector(uint32_t sector) {
 		return -1;
 	}
 
-	act_led(1);	
+	act_led(true);	
 	*EMMC_BLKSIZECNT = (1 << 16) | SECTOR_SIZE;
 	if((sd_scr[0] & SCR_SUPP_CCS) != 0)
 		sd_cmd(CMD_READ_SINGLE, sector);
@@ -234,15 +234,15 @@ static int32_t sd_read_sector(uint32_t sector) {
  */
 static int32_t sd_clk(uint32_t f) {
 	uint32_t d, c=div_u32(41666666,f), x , s=32, h=0;
-	int32_t cnt = 100000;
+	int32_t cnt = 10000;
 	while((*EMMC_STATUS & (SR_CMD_INHIBIT|SR_DAT_INHIBIT)) && cnt--) 
-		_delay_usec(1);
+		_delay_msec(1);
 	if(cnt<=0) {
 		return SD_ERROR;
 	}
 
 	*EMMC_CONTROL1 &= ~C1_CLK_EN;
-	_delay_usec(10);
+	_delay_msec(10);
 	x=c-1;
 	if(!x)
 		s=0; 
@@ -268,13 +268,16 @@ static int32_t sd_clk(uint32_t f) {
 
 	d = (((d&0x0ff)<<8)|h);
 	*EMMC_CONTROL1 = (*EMMC_CONTROL1&0xffff003f) | d;
-	_delay_usec(10);
+	_delay_msec(10);
 	*EMMC_CONTROL1 |= C1_CLK_EN;
-	_delay_usec(10);
+	_delay_msec(10);
 	cnt=10000; 
+	printf("sd clk 0\n");
 	while(!(*EMMC_CONTROL1 & C1_CLK_STABLE) && cnt--)
-		_delay_usec(10);
+		_delay_msec(2);
+	printf("sd clk 1\n");
 	if(cnt<=0) {
+	printf("sd clk 2\n");
 		return SD_ERROR;
 	}
 	return SD_OK;
@@ -330,19 +333,23 @@ int32_t __attribute__((optimize("O0"))) sd_init(void) {
 	// Reset the card.
 	*EMMC_CONTROL0 = 0;
 	*EMMC_CONTROL1 |= C1_SRST_HC;
-	cnt = 10000;
+	cnt = 100000;
 	do{
-		_delay_usec(10);
+		_delay_msec(1);
 	} while((*EMMC_CONTROL1 & C1_SRST_HC) && cnt-- );
 
 	if(cnt<=0)
 		return SD_ERROR;
 
+	printf("sd 0, %d\n",sd_hv);
+
 	*EMMC_CONTROL1 |= C1_CLK_INTLEN | C1_TOUNIT_MAX;
-	_delay_usec(10);
+	_delay_msec(10);
 	// Set clock to setup frequency.
+	printf("sd 0.1\n");
 	if((r = sd_clk(400000)))
 		return r;
+	printf("sd 0.2\n");
 	*EMMC_INT_EN   = 0xffffffff;
 	*EMMC_INT_MASK = 0xffffffff;
 	sd_scr[0] = sd_scr[1] = sd_rca = sd_err = 0;
@@ -350,6 +357,7 @@ int32_t __attribute__((optimize("O0"))) sd_init(void) {
 	if(sd_err)
 		return sd_err;
 
+	printf("sd 1\n");
 	sd_cmd(CMD_SEND_IF_COND, 0x000001AA);
 	if(sd_err) 
 		return sd_err;
@@ -366,6 +374,7 @@ int32_t __attribute__((optimize("O0"))) sd_init(void) {
 		}
 	}
 
+	printf("sd 2\n");
 	if(!(r & ACMD41_CMD_COMPLETE) || !cnt ) 
 		return SD_TIMEOUT;
 	if(!(r & ACMD41_VOLTAGE))
@@ -382,6 +391,7 @@ int32_t __attribute__((optimize("O0"))) sd_init(void) {
 	
 	if((r=sd_clk(25000000)))
 		return r;
+	printf("sd 3\n");
 
 	if(sd_status(SR_DAT_INHIBIT))
 		return SD_TIMEOUT;
@@ -400,11 +410,12 @@ int32_t __attribute__((optimize("O0"))) sd_init(void) {
 		if( *EMMC_STATUS & SR_READ_AVAILABLE )
 			sd_scr[r++] = *EMMC_DATA;
 		else
-			_delay_usec(1);
+			_delay_msec(1);
 	}
 	if(r != 2) 
 		return SD_TIMEOUT;
 
+	printf("sd 4\n");
 	if(sd_scr[0] & SCR_SD_BUS_WIDTH_4) {
 		sd_cmd(CMD_SET_BUS_WIDTH, sd_rca|2);
 		if(sd_err)
@@ -412,6 +423,7 @@ int32_t __attribute__((optimize("O0"))) sd_init(void) {
 		*EMMC_CONTROL0 |= C0_HCTL_DWITDH;
 	}
 
+	printf("sd 5\n");
 	// add software flag
 	sd_scr[0] &= ~SCR_SUPP_CCS;
 	sd_scr[0] |= ccs;
@@ -448,7 +460,7 @@ int32_t sd_dev_read_done(void* buf) {
 	if(_sdc.rxdone == 0)
 		return -1;
 	memcpy(buf, _sdc.rxbuf, SECTOR_SIZE);
-	act_led(0);	
+	act_led(false);	
 	return 0;
 }
 
