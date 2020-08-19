@@ -1,6 +1,7 @@
 #include "mm/mmu.h"
 #include "string.h"
 #include "dev/framebuffer.h"
+#include "graph.h"
 
 static fbinfo_t _fbinfo __attribute__((aligned(16)));
 
@@ -55,6 +56,10 @@ int32_t fb_dev_write(const void* buf, uint32_t size) {
 	uint32_t sz = (_fbinfo.depth/8) * _fbinfo.width * _fbinfo.height;
 	if(size > sz)
 		size = sz;
-	memcpy((void*)_fbinfo.pointer, buf, size);
+
+	if(_fbinfo.depth == 32) 
+		memcpy((void*)_fbinfo.pointer, buf, size);
+	else if(_fbinfo.depth == 16) 
+		dup16((uint16_t*)_fbinfo.pointer, (uint32_t*)buf,  _fbinfo.width, _fbinfo.height);
 	return (int32_t)size;
 }
