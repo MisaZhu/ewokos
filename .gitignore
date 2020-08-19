@@ -5,4 +5,4 @@
 kernel*.img
 kernel*.elf
 kernel*.asm
-system/build
+build

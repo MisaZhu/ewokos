@@ -1,3 +1,0 @@
-/drviers/fbd             /dev/fb0
-/drivers/nulld           /dev/null
-/drivers/raspi/ttyd      /dev/tty0
