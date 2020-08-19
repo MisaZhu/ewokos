@@ -17,19 +17,47 @@
 #include <sys/proc.h>
 #include <kevent.h>
 
-static int run_none_fs(const char* cmd) {
+static char* run_none_fs_sd(const char* cmd, int32_t *size) {
+	sd_init();
+	ext2_t ext2;
+	ext2_init(&ext2, sd_read, sd_write);
+	str_t* fname = str_new("");
+	str_to(cmd, ' ', fname, 1);
+	void* data = ext2_readfile(&ext2, fname->cstr, size);
+	str_free(fname);
+	ext2_quit(&ext2);
+	return data;
+}
+
+static char* run_none_fs_kfs(const char* cmd, int32_t *size) {
+	int32_t index = 0;
+	char* data = NULL;
+	while(true) {
+		char name[64];
+		int32_t sz = syscall3(SYS_KFS_GET, index, (int32_t)name, (int32_t)NULL);	
+		if(sz < 0) 
+			break;
+		if(sz > 0 && name[0] != 0 && strstr(cmd, name) != NULL)  {
+			data = (char*)malloc(sz);
+			sz = syscall3(SYS_KFS_GET, index, (int32_t)name, (int32_t)data);	
+			*size = sz;
+			return data;
+		}
+		index++;
+	}
+	return NULL;	
+}
+
+static int run_none_fs(const char* cmd, bool kfs) {
 	kprintf(false, "init: %s ", cmd);
 	int pid = fork();
 	if(pid == 0) {
-		sd_init();
-		ext2_t ext2;
-		ext2_init(&ext2, sd_read, sd_write);
-		str_t* fname = str_new("");
-		str_to(cmd, ' ', fname, 1);
-		int32_t sz;
-		void* data = ext2_readfile(&ext2, fname->cstr, &sz);
-		str_free(fname);
-		ext2_quit(&ext2);
+		char* data = NULL;
+		int32_t sz = 0;
+		if(kfs)
+			data = run_none_fs_kfs(cmd, &sz);
+		else
+			data = run_none_fs_sd(cmd, &sz);
 
 		if(data == NULL) {
 			kprintf(false, "[error!] (%s)\n", cmd);
@@ -150,9 +178,18 @@ int main(int argc, char** argv) {
 	kprintf(false, "\n[init process started]\n");
 	run_core();
 
-	run_none_fs("/sbin/vfsd");
-	//mount root fs
-	run_none_fs("/drivers/rootfsd");
+	sysinfo_t sysinfo;
+	syscall1(SYS_GET_SYSINFO, (int32_t)&sysinfo);
+
+	if(sysinfo.kfs == 0) {
+		run_none_fs("/sbin/vfsd", false);
+		run_none_fs("/drivers/rootfsd", false);
+	}
+	else {
+		run_none_fs("/sbin/vfsd", true);
+		run_none_fs("/drivers/rootkfsd", true);
+	}
+
 	//fs got ready.
 	run("/sbin/procd", true, true);
 

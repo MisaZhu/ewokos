@@ -3,6 +3,7 @@
 
 typedef struct {
 	char machine[32];
+	uint32_t kfs;
 	uint32_t free_mem;
 	uint32_t shm_mem;
 	uint32_t total_mem;

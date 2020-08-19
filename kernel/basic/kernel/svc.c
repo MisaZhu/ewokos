@@ -176,6 +176,7 @@ static void	sys_get_sysinfo(sysinfo_t* info) {
 	info->total_mem = get_hw_info()->phy_mem_size;
 	info->shm_mem = shm_alloced_size();
 	info->kernel_sec = _kernel_sec;
+	info->kfs = get_hw_info()->kfs;
 }
 
 static int32_t sys_shm_alloc(uint32_t size, int32_t flag) {
@@ -433,6 +434,20 @@ static int32_t sys_get_kernel_tic(void) {
 	return _svc_tic;
 }
 
+#ifndef SDC
+int32_t kfs_get(uint32_t index, char* name, char* data);
+static int32_t sys_kfs_get(uint32_t index, char* name, char* data) {
+	return kfs_get(index, name, data);
+}
+#else
+static int32_t sys_kfs_get(uint32_t index, char* name, char* data) {
+	(void)index;
+	(void)name;
+	(void)data;
+	return -1;
+}
+#endif
+
 void svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_t arg2, context_t* ctx, int32_t processor_mode) {
 	(void)processor_mode;
 	_svc_tic++;
@@ -565,6 +580,9 @@ void svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_t arg2, context
 		return;
 	case SYS_IPC_UNLOCK:
 		sys_ipc_unlock();
+		return;
+	case SYS_KFS_GET:
+		ctx->gpr[0] = sys_kfs_get(arg0, (char*)arg1, (char*)arg2);
 		return;
 	}
 	printf("pid:%d, code(%d) error!\n", _current_proc->info.pid, code);

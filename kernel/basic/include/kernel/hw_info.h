@@ -9,6 +9,7 @@ typedef struct {
 	uint32_t phy_mem_size;
 	uint32_t phy_mmio_base;
 	uint32_t mmio_size;
+	uint32_t kfs;
 } hw_info_t;
 
 extern void hw_info_init(void);

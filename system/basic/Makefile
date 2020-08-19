@@ -194,6 +194,7 @@ include $(ROOT_DIR)/sbin/init/build.mk
 include $(ROOT_DIR)/drivers/nulld/build.mk
 include $(ROOT_DIR)/drivers/fbd/build.mk
 include $(ROOT_DIR)/drivers/rootfsd/build.mk
+include $(ROOT_DIR)/drivers/rootkfsd/build.mk
 include $(ROOT_DIR)/drivers/arch/versatilepb/ps2keybd/build.mk
 include $(ROOT_DIR)/drivers/arch/versatilepb/ps2moused/build.mk
 include $(ROOT_DIR)/drivers/arch/versatilepb/ttyd/build.mk

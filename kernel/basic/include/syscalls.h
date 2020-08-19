@@ -58,6 +58,8 @@ enum {
 	SYS_CORE_PID,
 	SYS_GET_KEVENT,
 	SYS_GET_KERNEL_TIC,
+
+	SYS_KFS_GET
 };
 
 #endif

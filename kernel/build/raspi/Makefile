@@ -78,8 +78,8 @@ LIB_OBJS = \
 	${LIB_DIR}/queue.o \
 	${LIB_DIR}/kprintf.o
 
-ifneq ($(NOFS),yes)
-CFLAGS += -DSDC -DFRAMEBUFFER
+ifneq ($(NOFB),yes)
+CFLAGS += -DFRAMEBUFFER
 LIB_OBJS += \
 	${EXTRA_LIB_DIR}/graph.o \
 	${EXTRA_LIB_DIR}/font.o \
@@ -87,8 +87,12 @@ LIB_OBJS += \
 	${EXTRA_LIB_DIR}/console.o \
 	${EXTRA_LIB_DIR}/kconsole.o
 
-ARCH_OBJS += ${EXTRA_ARCH_DIR}/${ARCH}/sd/sd.o \
-	${EXTRA_ARCH_DIR}/${ARCH}/framebuffer/framebuffer.o 
+ARCH_OBJS += ${EXTRA_ARCH_DIR}/${ARCH}/framebuffer/framebuffer.o 
+endif
+
+ifneq ($(KFS),yes)
+CFLAGS += -DSDC
+ARCH_OBJS += ${EXTRA_ARCH_DIR}/${ARCH}/sd/sd.o
 
 LOAD_DIR = $(SRC_DIR)/extra/loadinit/sd
 LOAD_OBJS = \
@@ -97,8 +101,14 @@ LOAD_OBJS = \
 
 QEMU_ARGS = -sd $(SYS_FULL_DIR)/build/sd.ext2
 CFLAGS += -I$(LOAD_DIR)
+else
+LOAD_DIR = $(SRC_DIR)/extra/loadinit/kfs
+LOAD_OBJS = \
+	${LOAD_DIR}/init_data.o \
+	${LOAD_DIR}/kfs_data.o \
+	${LOAD_DIR}/loadinit.o
+CFLAGS += -I$(LOAD_DIR)
 endif
-
 
 KERNEL_DIR = $(SRC_DIR)/basic/kernel
 KERNEL_OBJS = \
@@ -132,6 +142,8 @@ $(OS_IMG): $(OBJS) ${LDS}
 	mkdir -p ${BUILD_DIR}
 	$(LD) $(OBJS) $(LDFLAGS) -T ${LDS} -o ${BUILD_DIR}/$(OS_ELF)
 	$(OBJCOPY) -O binary ${BUILD_DIR}/$(OS_ELF) ${BUILD_DIR}/$(OS_IMG)
+
+asm:
 	$(OBJDUMP) -D ${BUILD_DIR}/$(OS_ELF) > ${BUILD_DIR}/kernel.asm
 
 
