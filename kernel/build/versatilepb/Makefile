@@ -131,7 +131,6 @@ ASFLAGS = $(OPTM) -I. -I$(SRC_DIR)/basic/include -marm $(ARCH_QEMU_CFLAGS)
 all: $(OS_IMG) 
 
 $(OS_IMG): $(OBJS) ${LDS}
-	mkdir -p ${BUILD_DIR}
 	$(LD) $(OBJS) $(LDFLAGS) -T ${LDS} -o ${BUILD_DIR}/$(OS_ELF)
 	$(OBJCOPY) -O binary ${BUILD_DIR}/$(OS_ELF) ${BUILD_DIR}/$(OS_IMG)
 

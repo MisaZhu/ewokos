@@ -38,7 +38,7 @@ enum {
 	UART0_TDR = (UART0_BASE_OFF + 0x8C),
 };
 
-int32_t uart_dev_init(void) {
+int32_t __attribute__((optimize("O0"))) uart_dev_init(void) {
 	// Disable UART0.
 	put32(_mmio_base+UART0_CR, 0x00000000);
 	// Setup the GPIO pin 14 && 15.
@@ -79,7 +79,7 @@ int32_t uart_dev_init(void) {
 	return 0;
 }
 
-static void uart_trans(char c) {
+static void __attribute__((optimize("O0")))  uart_trans(char c) {
 	// Wait for UART to become ready to transmit.
 	while (get32(_mmio_base+UART0_FR) & (1 << 5)) {}
 	if(c == '\r')

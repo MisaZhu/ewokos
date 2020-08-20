@@ -20,8 +20,8 @@ EXTRA_ARCH_DIR=$(SRC_DIR)/extra/arch
 include ${ARCH_DIR}/${ARCH}/config.mk
 
 # flags
-OPTM = -g
-#OPTM = -O2
+#OPTM = -g
+OPTM = -O2
 
 CFLAGS += $(OPTM) \
 	-I. -I$(SRC_DIR)/basic/lib/include -I$(SRC_DIR)/basic/include -I$(SRC_DIR)/extra/include -I$(SRC_DIR)/extra/lib/include \
@@ -133,7 +133,6 @@ ASFLAGS = $(OPTM) -I. -I$(SRC_DIR)/basic/include -marm $(ARCH_QEMU_CFLAGS)
 all: $(OS_IMG) 
 
 $(OS_IMG): $(OBJS) ${LDS}
-	mkdir -p ${BUILD_DIR}
 	$(LD) $(OBJS) $(LDFLAGS) -T ${LDS} -o ${BUILD_DIR}/$(OS_ELF)
 	$(OBJCOPY) -O binary ${BUILD_DIR}/$(OS_ELF) ${BUILD_DIR}/$(OS_IMG)
 

@@ -8,7 +8,7 @@
 
 #define DEV_BASE      0x3f000000
 #define DEV_MEM_SIZE  0x00400000
-static uint32_t mmio_base = 0;
+static volatile uint32_t mmio_base = 0;
 
 
 __attribute__((__aligned__(PAGE_DIR_SIZE))) 
