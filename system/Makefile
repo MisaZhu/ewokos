@@ -1,7 +1,7 @@
-all: basic_fs sd
+all: basic_fs kernelfs
 	@echo "all done."
 
-full: basic_fs extra_fs sd
+full: basic_fs extra_fs kernelfs
 	@echo "all done."
 
 basic_fs:
@@ -21,6 +21,9 @@ sd:
 	sudo umount ./tmp
 	rm -r tmp
 	@echo "==== ext2 format sdcard image created  ====\n"
+
+kernelfs:
+	cd kfs;make
 
 ifneq ($(MACH),)
 ARCH=arm/$(MACH)
