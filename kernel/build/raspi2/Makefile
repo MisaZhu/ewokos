@@ -84,7 +84,7 @@ LIB_OBJS += \
 ARCH_OBJS += ${EXTRA_ARCH_DIR}/${ARCH}/framebuffer/framebuffer.o 
 endif
 
-ifneq ($(KFS),yes)
+ifeq ($(SDC),yes)
 CFLAGS += -DSDC
 ARCH_OBJS += ${EXTRA_ARCH_DIR}/${ARCH}/sd/sd.o
 
