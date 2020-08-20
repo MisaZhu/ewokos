@@ -70,7 +70,6 @@ LIB_OBJS = \
 	${LIB_DIR}/queue.o \
 	${LIB_DIR}/kprintf.o
 
-ifneq ($(NOFB),yes)
 CFLAGS += -DFRAMEBUFFER
 LIB_OBJS += \
 	${EXTRA_LIB_DIR}/graph.o \
@@ -80,7 +79,6 @@ LIB_OBJS += \
 	${EXTRA_LIB_DIR}/kconsole.o
 
 ARCH_OBJS += ${EXTRA_ARCH_DIR}/${ARCH}/framebuffer/framebuffer.o 
-endif
 
 ifeq ($(SDC),yes)
 CFLAGS += -DSDC
