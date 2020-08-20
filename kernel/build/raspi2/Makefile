@@ -20,8 +20,12 @@ EXTRA_ARCH_DIR=$(SRC_DIR)/extra/arch
 include ${ARCH_DIR}/${ARCH}/config.mk
 
 # flags
-#OPTM = -g
+
+ifeq ($(DEBUG),yes)
+OPTM = -g
+else
 OPTM = -O2
+endif
 
 CFLAGS += $(OPTM) \
 	-I. -I$(SRC_DIR)/basic/lib/include -I$(SRC_DIR)/basic/include -I$(SRC_DIR)/extra/include -I$(SRC_DIR)/extra/lib/include \
