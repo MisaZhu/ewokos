@@ -2,15 +2,13 @@
 #include <dev/timer.h>
 #include <dev/actled.h>
 
-extern void __dummy(void);
-inline void _delay(uint32_t count) {
+void __attribute__((optimize("O0"))) _delay(uint32_t count) {
 	while(count > 0) {
-		__dummy();
 		count--;
 	}
 }
 
-inline void _delay_usec(uint64_t count) {
+void _delay_usec(uint64_t count) {
 	uint64_t s = timer_read_sys_usec();
 	uint64_t t = s + count;
 	while(s < t) {

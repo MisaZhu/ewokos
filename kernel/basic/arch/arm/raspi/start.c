@@ -71,7 +71,7 @@ static void boot_act_led(uint8_t on) {
 		put32(GPIO_SET1, 1<<(47-32));
 }
 
-static inline void delay(uint32_t count) {
+static void __attribute__((optimize("O0"))) delay(uint32_t count) {
   while(count > 0) 
     count--;
 }

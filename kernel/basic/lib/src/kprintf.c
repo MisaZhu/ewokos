@@ -29,7 +29,7 @@ static void outc(char c, void* p) {
 
 void printf(const char *format, ...) {
 	act_led(true);
-	_delay_msec(10);
+	_delay_msec(30);
 
 	va_list ap;
 	va_start(ap, format);
