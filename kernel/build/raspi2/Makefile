@@ -59,7 +59,11 @@ QEMU_CMD = qemu-system-arm
 OS_IMG = kernel7.img
 OS_ELF = kernel7.elf
 
-ARCH_OBJS += ${ARCH_DIR}/${ARCH}/mailbox.o
+CFLAGS += -I${EXTRA_ARCH_DIR}/${ARCH} -DWITH_LCDHAT
+ARCH_OBJS += ${ARCH_DIR}/${ARCH}/gpio_arch.o  \
+	${ARCH_DIR}/${ARCH}/mailbox.o \
+	${EXTRA_ARCH_DIR}/${ARCH}/lib/spi_arch.o \
+	${EXTRA_ARCH_DIR}/${ARCH}/lcdhat/lcdhat.o 
 	
 LIB_DIR = $(SRC_DIR)/basic/lib/src
 EXTRA_LIB_DIR = $(SRC_DIR)/extra/lib/src
