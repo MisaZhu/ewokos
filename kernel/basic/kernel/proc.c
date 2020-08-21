@@ -104,7 +104,6 @@ void proc_switch(context_t* ctx, proc_t* to, bool quick){
 		page_dir_entry_t *vm = to->space->vm;
 		__set_translation_table_base((uint32_t) V2P(vm));
 		_current_proc = to;
-		//_flush_tlb();
 	}
 }
 
@@ -124,7 +123,7 @@ int32_t proc_expand_mem(proc_t *proc, int32_t page_num) {
 		map_page(proc->space->vm,
 				proc->space->heap_size,
 				V2P(page),
-				AP_RW_RW);
+				AP_RW_RW, 0);
 		proc->space->heap_size += PAGE_SIZE;
 	}
 	return res;
@@ -147,7 +146,7 @@ void proc_shrink_mem(proc_t* proc, int32_t page_num) {
 		if (proc->space->heap_size == 0)
 			break;
 	}
-	_flush_tlb();
+	__flush_tlb();
 }
 
 static void proc_unmap_shms(proc_t *proc) {
@@ -318,7 +317,7 @@ proc_t *proc_create(int32_t type, proc_t* parent) {
 		map_page(proc->space->vm,
 			user_stack_base + PAGE_SIZE*i,
 			V2P(proc->user_stack[i]),
-			AP_RW_RW);
+			AP_RW_RW, 0);
 	}
 	proc->ctx.sp = user_stack_base + pages*PAGE_SIZE;
 	proc->ctx.cpsr = 0x50;
@@ -451,7 +450,7 @@ static int32_t proc_clone(proc_t* child, proc_t* parent) {
 			map_page(child->space->vm, 
 					child->space->heap_size,
 					phy_page_addr,
-					AP_RW_R);
+					AP_RW_R, 0);
 			child->space->heap_size += PAGE_SIZE;
 		}
 		*/

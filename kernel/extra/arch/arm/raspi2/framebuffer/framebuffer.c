@@ -63,7 +63,7 @@ int32_t fb_dev_init(uint32_t w, uint32_t h, uint32_t dep) {
 		_fb_info.pointer = P2V(_fb_info.pointer);
 	}
 
-	map_pages(_kernel_vm, _fb_info.pointer, V2P(_fb_info.pointer), V2P(_fb_info.pointer)+_fb_info.size, AP_RW_D);
+	map_pages(_kernel_vm, _fb_info.pointer, V2P(_fb_info.pointer), V2P(_fb_info.pointer)+_fb_info.size, AP_RW_D, 0);
 	kmake_hole(_fb_info.pointer, _fb_info.pointer+_fb_info.size);
 	return 0;
 }
@@ -119,7 +119,7 @@ int32_t __attribute__((optimize("O0"))) fb_dev_init(uint32_t w, uint32_t h, uint
 	}
 	_framebuffer_end = _framebuffer_base + _fb_info.size;
 	_fb_info.pointer = (uint32_t)_framebuffer_base;
-	map_pages(_kernel_vm, (uint32_t)_framebuffer_base, (uint32_t)(_framebuffer_base), (uint32_t)(_framebuffer_end), AP_RW_D);
+	map_pages(_kernel_vm, (uint32_t)_framebuffer_base, (uint32_t)(_framebuffer_base), (uint32_t)(_framebuffer_end), AP_RW_D, 0);
 	kmake_hole((uint32_t)_framebuffer_base, (uint32_t)_framebuffer_end);
 	return 0;
 }

@@ -77,10 +77,10 @@ static void __attribute__((optimize("O0"))) delay(uint32_t count) {
 }
 
 static void boot_act_led_flash(void) {
+	delay(1000000);
 	boot_act_led(1);
 	delay(1000000);
 	boot_act_led(0);
-	delay(1000000);
 }
 
 void _boot_start(void) {

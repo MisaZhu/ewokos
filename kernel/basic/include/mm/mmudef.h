@@ -42,18 +42,12 @@
 #define put8(addr, val) (*((volatile uint8_t *)(addr)) = (val))
 
 /* descriptor types */
-#define PAGE_TYPE 2
-#define PAGE_DIR_TYPE 1
+#define SMALL_PAGE_TYPE 2
+#define PAGE_DIR_2LEVEL_TYPE 1
 
 /* access permissions */
-#ifdef A_CORE
-	#define AP_RW_D 0x5
-	#define AP_RW_R 0xa
-	#define AP_RW_RW 0xf
-#else
-	#define AP_RW_D 0x55
-	#define AP_RW_R 0xaa
-	#define AP_RW_RW 0xff
-#endif
+#define AP_RW_D  0x1
+#define AP_RW_R  0x2
+#define AP_RW_RW 0x3
 
 #endif

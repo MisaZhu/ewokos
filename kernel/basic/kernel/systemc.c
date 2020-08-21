@@ -20,7 +20,3 @@ inline void _delay_msec(uint32_t count) {
 	_delay_usec(count*1000);
 }
 
-inline void __attribute__((optimize("O0"))) _flush_tlb(void) {
-  __asm__ volatile("MOV R6, #0");
-  __asm__ volatile("MCR p15, 0, R6, c8, c7, 0");
-}

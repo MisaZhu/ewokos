@@ -87,7 +87,7 @@ static void __attribute__((optimize("O0")))  uart_trans(char c) {
 	put32(_mmio_base+UART0_DR, c);
 }
 
-int32_t uart_write(const void* data, uint32_t size) {
+int32_t __attribute__((optimize("O0"))) uart_write(const void* data, uint32_t size) {
   int32_t i;
   for(i=0; i<(int32_t)size; i++) {
     char c = ((char*)data)[i];

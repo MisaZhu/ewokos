@@ -7,7 +7,7 @@
  * map_pages adds the given virtual to physical memory mapping to the given
  * virtual memory. A mapping can map multiple pages.
  */
-void map_pages(page_dir_entry_t *vm, uint32_t vaddr, uint32_t pstart, uint32_t pend, uint32_t permissions) {
+void __attribute__((optimize("O0"))) map_pages(page_dir_entry_t *vm, uint32_t vaddr, uint32_t pstart, uint32_t pend, uint32_t permissions, uint32_t is_dev) {
 	uint32_t physical_current = 0;
 	uint32_t virtual_current = 0;
 
@@ -20,9 +20,30 @@ void map_pages(page_dir_entry_t *vm, uint32_t vaddr, uint32_t pstart, uint32_t p
 	for (physical_current = physical_start; 
 			physical_current < physical_end;
 			physical_current += PAGE_SIZE) {
-		map_page(vm,  virtual_current, physical_current, permissions);
+		map_page(vm,  virtual_current, physical_current, permissions, is_dev);
 		virtual_current += PAGE_SIZE;
 	}
+}
+
+static inline void __attribute__((optimize("O0"))) set_extra_flags(page_table_entry_t* pte, uint32_t is_dev) {
+	pte->bufferable = 0;
+	pte->cacheable = 0;
+
+#ifdef A_CORE
+	pte->bufferable = 1;
+	pte->cacheable = 1;
+#else
+	if(pte->ap == AP_RW_RW) {
+		pte->tex = 0x7;
+		pte->apx = 1;
+		pte->ng = 1;
+	}
+	else {
+		pte->tex = 0x5;
+		pte->apx = 0;
+	}
+	pte->sharable = 1;
+#endif
 }
 
 /*
@@ -30,8 +51,8 @@ void map_pages(page_dir_entry_t *vm, uint32_t vaddr, uint32_t pstart, uint32_t p
  * to a physical page.
  * Notice: virtual and physical address inputed must be all aliend by PAGE_SIZE !
  */
-int32_t map_page(page_dir_entry_t *vm, uint32_t virtual_addr,
-		     uint32_t physical, uint32_t permissions) {
+int32_t __attribute__((optimize("O0"))) map_page(page_dir_entry_t *vm, uint32_t virtual_addr,
+		     uint32_t physical, uint32_t permissions, uint32_t is_dev) {
 	page_table_entry_t *page_table = 0;
 
 	uint32_t page_dir_index = PAGE_DIR_INDEX(virtual_addr);
@@ -44,9 +65,10 @@ int32_t map_page(page_dir_entry_t *vm, uint32_t virtual_addr,
 			return -1;
 
 		memset(page_table, 0, PAGE_TABLE_SIZE);
-		vm[page_dir_index].base = PAGE_TABLE_TO_BASE(V2P(page_table));
-		vm[page_dir_index].type = PAGE_DIR_TYPE;
+		vm[page_dir_index].type = PAGE_DIR_2LEVEL_TYPE;
+		vm[page_dir_index].sbz= 0;
 		vm[page_dir_index].domain = 0;
+		vm[page_dir_index].base = PAGE_TABLE_TO_BASE(V2P(page_table));
 	}
 	/* otherwise use the previously allocated page table */
 	else {
@@ -54,11 +76,10 @@ int32_t map_page(page_dir_entry_t *vm, uint32_t virtual_addr,
 	}
 
 	/* map the virtual page to physical page in page table */
-	page_table[page_index].type = PAGE_TYPE,
-	page_table[page_index].bufferable = 0;
-	page_table[page_index].cacheable = 0;
-	page_table[page_index].permissions = permissions;
+	page_table[page_index].type = SMALL_PAGE_TYPE,
 	page_table[page_index].base = PAGE_TO_BASE(physical);
+	page_table[page_index].ap = permissions;
+	set_extra_flags(&page_table[page_index], is_dev);
 	return 0;
 }
 

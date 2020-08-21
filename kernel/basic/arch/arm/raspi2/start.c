@@ -2,9 +2,7 @@
 
 #define PDE_SHIFT     20   // shift how many bits to get PDE index
 #define KPDE_TYPE     0x02 // use "section" type for kernel page directory
-#define AP_KO         0x03 // privilaged access, kernel: RW, user: no access
-#define DOMAIN        (0xf << 5) // execute never on strongly-ordered mem
-#define XN            (1 << 4) // execute never on strongly-ordered mem
+#define AP_KO         0x01 // privilaged access, kernel: RW, user: no access
 
 #define DEV_BASE      0x3f000000
 #define DEV_MEM_SIZE  0x00400000
@@ -15,8 +13,7 @@ __attribute__((__aligned__(PAGE_DIR_SIZE)))
 volatile uint32_t startup_page_dir[PAGE_DIR_NUM] = { 0 };
 
 // setup the boot page table: dev_mem whether it is device memory
-//static void __attribute__((optimize("O0"))) set_boot_pgt(uint32_t virt, uint32_t phy, uint32_t len, uint8_t is_dev) {
-static void set_boot_pgt(uint32_t virt, uint32_t phy, uint32_t len, uint8_t is_dev) {
+static void __attribute__((optimize("O0"))) set_boot_pgt(uint32_t virt, uint32_t phy, uint32_t len, uint8_t is_dev) {
 	(void)is_dev;
 	volatile uint32_t idx;
 
@@ -32,8 +29,8 @@ static void set_boot_pgt(uint32_t virt, uint32_t phy, uint32_t len, uint8_t is_d
 	}
 }
 
+//static void __attribute__((optimize("O0"))) load_boot_pgt(void) {
 static void load_boot_pgt(void) {
-//static void load_boot_pgt(void) {
 	volatile uint32_t val;
 	// set domain access control: all domain will be checked for permission
 	val = 0x55555555;
@@ -58,6 +55,7 @@ static void load_boot_pgt(void) {
 	// invalidate tlb
 	__asm("MOV r0, #0");
 	__asm("MCR p15, 0, r0, c8, c7, 0");      //I-TLB and D-TLB invalidation
+	__asm("MCR p15, 0, r0, c7, c10, 4");     //DSB
 }
 
 
@@ -84,10 +82,10 @@ static void __attribute__((optimize("O0"))) delay(uint32_t count) {
 }
 
 static void boot_act_led_flash(void) {
+	delay(1000000);
 	boot_act_led(1);
 	delay(1000000);
 	boot_act_led(0);
-	delay(1000000);
 }
 
 void _boot_start(void) {

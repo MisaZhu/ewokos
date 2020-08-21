@@ -60,7 +60,7 @@ int32_t __attribute__((optimize("O0"))) fb_dev_init(uint32_t w, uint32_t h, uint
 	if(_fb_info.pointer < KERNEL_BASE) {
 		_fb_info.pointer = P2V(_fb_info.pointer);
 	}
-	map_pages(_kernel_vm, _fb_info.pointer, V2P(_fb_info.pointer), V2P(_fb_info.pointer)+_fb_info.size, AP_RW_D);
+	map_pages(_kernel_vm, _fb_info.pointer, V2P(_fb_info.pointer), V2P(_fb_info.pointer)+_fb_info.size, AP_RW_D, 0);
 	kmake_hole(_fb_info.pointer, _fb_info.pointer+_fb_info.size);
 	return 0;
 }

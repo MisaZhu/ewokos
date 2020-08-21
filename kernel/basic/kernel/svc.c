@@ -199,7 +199,7 @@ static uint32_t sys_mmio_map(void) {
 	if(_current_proc->info.owner != 0)
 		return 0;
 	hw_info_t* hw_info = get_hw_info();
-	map_pages(_current_proc->space->vm, MMIO_BASE, hw_info->phy_mmio_base, hw_info->phy_mmio_base + hw_info->mmio_size, AP_RW_RW);
+	map_pages(_current_proc->space->vm, MMIO_BASE, hw_info->phy_mmio_base, hw_info->phy_mmio_base + hw_info->mmio_size, AP_RW_RW, 1);
 	return MMIO_BASE;
 }
 		
@@ -209,7 +209,7 @@ static int32_t sys_framebuffer_map(fbinfo_t* info) {
 		return 0;
 	fbinfo_t *fbinfo = fb_get_info();
 	memcpy(info, fbinfo, sizeof(fbinfo_t));
-	map_pages(_current_proc->space->vm, fbinfo->pointer, V2P(fbinfo->pointer), V2P(info->pointer)+info->size, AP_RW_RW);
+	map_pages(_current_proc->space->vm, fbinfo->pointer, V2P(fbinfo->pointer), V2P(info->pointer)+info->size, AP_RW_RW, 0);
 	return 0;
 #else
 	(void)info;

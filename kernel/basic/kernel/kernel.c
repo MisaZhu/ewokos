@@ -42,32 +42,32 @@ static void __attribute__((optimize("O0"))) copy_interrupt_table(void) {
 	}
 }
 
-static void set_kernel_init_vm(page_dir_entry_t* vm) {
+static void __attribute__((optimize("O0"))) set_kernel_init_vm(page_dir_entry_t* vm) {
 	memset(vm, 0, PAGE_DIR_SIZE);
 
 	//map interrupt vector to high(virtual) mem
-	map_pages(vm, 0, 0, PAGE_SIZE, AP_RW_D);
-	map_pages(vm, INTERRUPT_VECTOR_BASE, 0, PAGE_SIZE, AP_RW_D);
+	map_pages(vm, 0, 0, PAGE_SIZE, AP_RW_D, 0);
+	map_pages(vm, INTERRUPT_VECTOR_BASE, 0, PAGE_SIZE, AP_RW_D, 0);
 
 	//map kernel image, page dir, kernel malloc mem
-	map_pages(vm, KERNEL_BASE+PAGE_SIZE, PAGE_SIZE, V2P(ALLOCATABLE_PAGE_DIR_END), AP_RW_D);
+	map_pages(vm, KERNEL_BASE+PAGE_SIZE, PAGE_SIZE, V2P(ALLOCATABLE_PAGE_DIR_END), AP_RW_D, 0);
 
 	//map MMIO to high(virtual) mem.
 	hw_info_t* hw_info = get_hw_info();
-	map_pages(vm, MMIO_BASE, hw_info->phy_mmio_base, hw_info->phy_mmio_base + hw_info->mmio_size, AP_RW_D);
+	map_pages(vm, MMIO_BASE, hw_info->phy_mmio_base, hw_info->phy_mmio_base + hw_info->mmio_size, AP_RW_D, 1);
 	arch_vm(vm);
 }
 
-void set_kernel_vm(page_dir_entry_t* vm) {
+void __attribute__((optimize("O0"))) set_kernel_vm(page_dir_entry_t* vm) {
 	set_kernel_init_vm(vm);
 	map_pages(vm, 
 		ALLOCATABLE_MEMORY_START, 
 		V2P(ALLOCATABLE_MEMORY_START),
 		get_hw_info()->phy_mem_size,
-		AP_RW_D);
+		AP_RW_D, 0);
 }
 
-static void init_kernel_vm(void) {
+static void __attribute__((optimize("O0"))) init_kernel_vm(void) {
 	int32_t i;
 	for(i=0; i<RAM_HOLE_MAX; i++)
 		_ram_holes[i].base = _ram_holes[i].end = 0;
@@ -81,13 +81,14 @@ static void init_kernel_vm(void) {
 	__set_translation_table_base(V2P((uint32_t)_kernel_vm));
 }
 
-static void init_allocable_mem(void) {
+static void __attribute__((optimize("O0"))) init_allocable_mem(void) {
+//static void init_allocable_mem(void) {
 	kalloc_init(ALLOCATABLE_PAGE_DIR_BASE, ALLOCATABLE_PAGE_DIR_END, false);
 	map_pages(_kernel_vm,
 		ALLOCATABLE_MEMORY_START,
 		V2P(ALLOCATABLE_MEMORY_START),
 		get_hw_info()->phy_mem_size,
-		AP_RW_D);
+		AP_RW_D, 0);
 
 	kalloc_init(ALLOCATABLE_MEMORY_START, P2V(get_hw_info()->phy_mem_size)-24*MB, true);
 }
@@ -117,16 +118,16 @@ int32_t load_init_proc(void) {
 }
 #endif
 
-void _kernel_entry_c(context_t* ctx) {
+void  __attribute__((optimize("O0"))) _kernel_entry_c(context_t* ctx) {
 	(void)ctx;
 	//clear bss
 	memset(_bss_start, 0, (uint32_t)_bss_end - (uint32_t)_bss_start);
 	copy_interrupt_table();
-
 	hw_info_init();
+	_mmio_base = MMIO_BASE;
+
 	init_kernel_vm();  
 	km_init();
-	_mmio_base = MMIO_BASE;
 
 	uart_dev_init();
 	const char* msg = "\n\n"
@@ -134,6 +135,13 @@ void _kernel_entry_c(context_t* ctx) {
 			"kernel: mmu inited\n"
 			"kernel: uart inited\n";
 	uart_write(msg, strlen(msg));
+
+	while(1) {
+		act_led(true);
+		_delay(1000000);
+		act_led(false);
+		_delay(1000000);
+	}
 
 	kev_init();
 
@@ -178,6 +186,13 @@ void _kernel_entry_c(context_t* ctx) {
 		printf(" [failed!]\n");
 	else
 		printf(" [ok]\n");
+
+	while(1) {
+		act_led(true);
+		_delay(1000000);
+		act_led(false);
+		_delay(1000000);
+	}
 	
 	printf("kernel: start timer.\n");
 	timer_set_interval(0, 0x200); 
