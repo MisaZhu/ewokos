@@ -136,13 +136,6 @@ void  __attribute__((optimize("O0"))) _kernel_entry_c(context_t* ctx) {
 			"kernel: uart inited\n";
 	uart_write(msg, strlen(msg));
 
-	while(1) {
-		act_led(true);
-		_delay(1000000);
-		act_led(false);
-		_delay(1000000);
-	}
-
 	kev_init();
 
 #ifdef FRAMEBUFFER
@@ -186,13 +179,6 @@ void  __attribute__((optimize("O0"))) _kernel_entry_c(context_t* ctx) {
 		printf(" [failed!]\n");
 	else
 		printf(" [ok]\n");
-
-	while(1) {
-		act_led(true);
-		_delay(1000000);
-		act_led(false);
-		_delay(1000000);
-	}
 	
 	printf("kernel: start timer.\n");
 	timer_set_interval(0, 0x200); 

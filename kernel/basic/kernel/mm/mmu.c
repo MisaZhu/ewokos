@@ -30,8 +30,13 @@ static inline void __attribute__((optimize("O0"))) set_extra_flags(page_table_en
 	pte->cacheable = 0;
 
 #ifdef A_CORE
-	pte->bufferable = 1;
-	pte->cacheable = 1;
+	if(is_dev == 0) { //normal mem
+		pte->tex = 0x1;
+	}
+	else { //device 
+		pte->bufferable = 1;
+		pte->tex = 0x7;
+	}
 #else
 	if(pte->ap == AP_RW_RW) {
 		pte->tex = 0x7;
