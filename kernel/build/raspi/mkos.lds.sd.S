@@ -9,7 +9,7 @@ PHDRS
 
 SECTIONS
 {
-	/*bootloader will be compiled with virtual address base at 0x8000*/
+	/*bootloader will be compiled with phy address base at 0x8000*/
 	.init start_address : AT(start_address) ALIGN(4096)
   {
     KEEP(*(.init .init.*))
