@@ -17,7 +17,7 @@ BUILD_DIR = .
 
 ARCH_DIR=$(SRC_DIR)/basic/arch
 EXTRA_ARCH_DIR=$(SRC_DIR)/extra/arch
-include ${ARCH_DIR}/${ARCH}/config.mk
+include config.mk
 
 ifeq ($(DEBUG),yes)
 OPTM = -g

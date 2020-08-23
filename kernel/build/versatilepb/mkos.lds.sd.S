@@ -9,8 +9,7 @@ PHDRS
 
 SECTIONS
 {
-	/*kernel will be compiled with virtual address base at 2GB*/
-
+	/*bootloader will be compiled with virtual address base at 0x8000*/
 	.init start_address : AT(start_address) ALIGN(4096)
   {
     KEEP(*(.init .init.*))
@@ -21,6 +20,7 @@ SECTIONS
   } : init
   _init_end = ALIGN(4096);
 
+	/*kernel will be compiled with virtual address base at 2GB*/
 	PROVIDE(_kernel_start = base_address + _init_end);
 
 	.text base_address + _init_end : AT(_init_end) ALIGN(4096)
