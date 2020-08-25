@@ -5,4 +5,5 @@
 kernel*.img
 kernel*.elf
 kernel*.asm
-build
+system/build
+system/kfs/build
