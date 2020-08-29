@@ -45,6 +45,8 @@ extra_driver:
 	cd $(EXTRA_DRIVERS_DIR)/xserverd;make
 	cd $(EXTRA_DRIVERS_DIR)/arch/raspi/joystickd;make
 	cd $(EXTRA_DRIVERS_DIR)/arch/raspi/lcdhatd;make
+	cd $(EXTRA_DRIVERS_DIR)/arch/raspi2/joystickd;make
+	cd $(EXTRA_DRIVERS_DIR)/arch/raspi2/lcdhatd;make
 
 clean:
 	cd $(EXTRA_LIBS_DIR)/fonts; make clean
