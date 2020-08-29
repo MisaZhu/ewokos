@@ -138,9 +138,11 @@ void  __attribute__((optimize("O0"))) _kernel_entry_c(context_t* ctx) {
 
 	kev_init();
 
-#ifdef FRAMEBUFFER
+#ifdef DISPLAY
 	kconsole_init();
+#endif
 
+#ifdef FRAMEBUFFER
 	printf("kernel: framebuffer initing\n");
 	if(fb_dev_init(1280, 720, 32) == 0) {
 	//if(fb_dev_init(640, 480, 16) == 0) {
@@ -187,7 +189,7 @@ void  __attribute__((optimize("O0"))) _kernel_entry_c(context_t* ctx) {
 		__asm__("MOV r0, #0; MCR p15,0,R0,c7,c0,4"); // CPU enter WFI state
 	}
 
-#ifdef FRAMEBUFFER
+#ifdef DISPLAY
 	kconsole_close();
 #endif
 }

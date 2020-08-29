@@ -8,6 +8,7 @@ OBJCOPY = arm-none-eabi-objcopy
 OBJDUMP = arm-none-eabi-objdump
 
 export QEMU_AUDIO_DRV=none
+
 ARCH=arm/versatilepb
 
 SYS_FULL_DIR = ../../../system
@@ -17,6 +18,8 @@ BUILD_DIR = .
 ARCH_DIR=$(SRC_DIR)/basic/arch
 EXTRA_ARCH_DIR=$(SRC_DIR)/extra/arch
 include config.mk
+
+# flags
 
 ifeq ($(DEBUG),yes)
 OPTM = -g
@@ -57,8 +60,8 @@ ARCH_OBJS = \
 	${ARCH_DIR}/${ARCH}/timer.o
 
 QEMU_CMD = qemu-system-arm
-OS_IMG = kernel.img
-OS_ELF = kernel.elf
+OS_IMG = kernel7.img
+OS_ELF = kernel7.elf
 
 LIB_DIR = $(SRC_DIR)/basic/lib/src
 EXTRA_LIB_DIR = $(SRC_DIR)/extra/lib/src
@@ -71,7 +74,8 @@ LIB_OBJS = \
 	${LIB_DIR}/queue.o \
 	${LIB_DIR}/kprintf.o
 
-CFLAGS += -DFRAMEBUFFER
+ifeq ($(DISPLAY),yes)
+CFLAGS += -DDISPLAY
 LIB_OBJS += \
 	${EXTRA_LIB_DIR}/graph.o \
 	${EXTRA_LIB_DIR}/font.o \
@@ -79,7 +83,9 @@ LIB_OBJS += \
 	${EXTRA_LIB_DIR}/console.o \
 	${EXTRA_LIB_DIR}/kconsole.o
 
+CFLAGS += -DFRAMEBUFFER
 ARCH_OBJS += ${EXTRA_ARCH_DIR}/${ARCH}/framebuffer/framebuffer.o 
+endif
 
 ifeq ($(SDC),yes)
 CFLAGS += -DSDC

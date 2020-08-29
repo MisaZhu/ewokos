@@ -63,12 +63,10 @@ QEMU_CMD = qemu-system-arm
 OS_IMG = kernel7.img
 OS_ELF = kernel7.elf
 
-CFLAGS += -I${EXTRA_ARCH_DIR}/${ARCH} -DWITH_LCDHAT
 ARCH_OBJS += ${ARCH_DIR}/${ARCH}/gpio_arch.o  \
 	${ARCH_DIR}/${ARCH}/mailbox.o \
-	${ARCH_DIR}/${ARCH}/cpu_freq.o \
-	${EXTRA_ARCH_DIR}/${ARCH}/lib/spi_arch.o \
-	${EXTRA_ARCH_DIR}/${ARCH}/lcdhat/lcdhat.o 
+	${ARCH_DIR}/${ARCH}/cpu_freq.o
+
 	
 LIB_DIR = $(SRC_DIR)/basic/lib/src
 EXTRA_LIB_DIR = $(SRC_DIR)/extra/lib/src
@@ -81,8 +79,8 @@ LIB_OBJS = \
 	${LIB_DIR}/queue.o \
 	${LIB_DIR}/kprintf.o
 
-ifneq ($(NOFB),yes)
-CFLAGS += -DFRAMEBUFFER
+ifeq ($(DISPLAY),yes)
+CFLAGS += -DDISPLAY
 LIB_OBJS += \
 	${EXTRA_LIB_DIR}/graph.o \
 	${EXTRA_LIB_DIR}/font.o \
@@ -90,7 +88,15 @@ LIB_OBJS += \
 	${EXTRA_LIB_DIR}/console.o \
 	${EXTRA_LIB_DIR}/kconsole.o
 
+ifeq ($(LCDHAT),yes)
+CFLAGS += -I${EXTRA_ARCH_DIR}/${ARCH} -DWITH_LCDHAT
+ARCH_OBJS += ${EXTRA_ARCH_DIR}/${ARCH}/lib/spi_arch.o \
+	${EXTRA_ARCH_DIR}/${ARCH}/lcdhat/lcdhat.o 
+else
+CFLAGS += -DFRAMEBUFFER
 ARCH_OBJS += ${EXTRA_ARCH_DIR}/${ARCH}/framebuffer/framebuffer.o 
+endif
+
 endif
 
 ifeq ($(SDC),yes)
@@ -163,8 +169,8 @@ debugasm:
 
 gdb: 
 	echo "target remote :26000" > /tmp/gdbinit
-	#arm-none-eabi-gdb ${BUILD_DIR}/$(OS_ELF) -x /tmp/gdbinit
-	gdb-multiarch ${BUILD_DIR}/$(OS_ELF) -x /tmp/gdbinit #for ubuntu 18.04 without arm-none-eabi-gdb
+	arm-none-eabi-gdb ${BUILD_DIR}/$(OS_ELF) -x /tmp/gdbinit
+	#gdb-multiarch ${BUILD_DIR}/$(OS_ELF) -x /tmp/gdbinit #for ubuntu 18.04 without arm-none-eabi-gdb
 
 clean:
 	rm -f $(OBJS)

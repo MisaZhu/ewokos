@@ -19,6 +19,8 @@ ARCH_DIR=$(SRC_DIR)/basic/arch
 EXTRA_ARCH_DIR=$(SRC_DIR)/extra/arch
 include config.mk
 
+# flags
+
 ifeq ($(DEBUG),yes)
 OPTM = -g
 else
@@ -58,15 +60,13 @@ ARCH_OBJS = \
 	${ARCH_DIR}/${ARCH}/timer.o
 
 QEMU_CMD = qemu-system-arm
-OS_IMG = kernel.img
-OS_ELF = kernel.elf
+OS_IMG = kernel7.img
+OS_ELF = kernel7.elf
 
-CFLAGS += -I${EXTRA_ARCH_DIR}/${ARCH} -DWITH_LCDHAT
 ARCH_OBJS += ${ARCH_DIR}/${ARCH}/gpio_arch.o  \
-	${ARCH_DIR}/${ARCH}/cpu_freq.o \
 	${ARCH_DIR}/${ARCH}/mailbox.o \
-	${EXTRA_ARCH_DIR}/${ARCH}/lib/spi_arch.o \
-	${EXTRA_ARCH_DIR}/${ARCH}/lcdhat/lcdhat.o 
+	${ARCH_DIR}/${ARCH}/cpu_freq.o
+
 	
 LIB_DIR = $(SRC_DIR)/basic/lib/src
 EXTRA_LIB_DIR = $(SRC_DIR)/extra/lib/src
@@ -79,7 +79,8 @@ LIB_OBJS = \
 	${LIB_DIR}/queue.o \
 	${LIB_DIR}/kprintf.o
 
-CFLAGS += -DFRAMEBUFFER
+ifeq ($(DISPLAY),yes)
+CFLAGS += -DDISPLAY
 LIB_OBJS += \
 	${EXTRA_LIB_DIR}/graph.o \
 	${EXTRA_LIB_DIR}/font.o \
@@ -87,7 +88,16 @@ LIB_OBJS += \
 	${EXTRA_LIB_DIR}/console.o \
 	${EXTRA_LIB_DIR}/kconsole.o
 
+ifeq ($(LCDHAT),yes)
+CFLAGS += -I${EXTRA_ARCH_DIR}/${ARCH} -DWITH_LCDHAT
+ARCH_OBJS += ${EXTRA_ARCH_DIR}/${ARCH}/lib/spi_arch.o \
+	${EXTRA_ARCH_DIR}/${ARCH}/lcdhat/lcdhat.o 
+else
+CFLAGS += -DFRAMEBUFFER
 ARCH_OBJS += ${EXTRA_ARCH_DIR}/${ARCH}/framebuffer/framebuffer.o 
+endif
+
+endif
 
 ifeq ($(SDC),yes)
 CFLAGS += -DSDC
@@ -164,4 +174,4 @@ gdb:
 
 clean:
 	rm -f $(OBJS)
-	rm -f $(OS_IMG) $(OS_ELF) kernel.asm
+	rm -f $(OS_IMG) $(OS_ELF)
