@@ -20,3 +20,16 @@ inline void _delay_msec(uint32_t count) {
 	_delay_usec(count*1000);
 }
 
+extern void __set_translation_table_base(uint32_t);
+extern void __flush_tlb(void);
+extern void __cpu_dcache_clean_flush(void);
+
+void __attribute__((optimize("O0"))) flush_tlb(void) {
+	__flush_tlb();
+	__cpu_dcache_clean_flush();
+}
+
+void __attribute__((optimize("O0"))) set_translation_table_base(uint32_t tlb_base) {
+	__set_translation_table_base(tlb_base);
+	flush_tlb();
+}

@@ -102,7 +102,7 @@ void proc_switch(context_t* ctx, proc_t* to, bool quick){
 
 	if(_current_proc != to) {
 		page_dir_entry_t *vm = to->space->vm;
-		__set_translation_table_base((uint32_t) V2P(vm));
+		set_translation_table_base((uint32_t) V2P(vm));
 		_current_proc = to;
 	}
 }
@@ -146,7 +146,7 @@ void proc_shrink_mem(proc_t* proc, int32_t page_num) {
 		if (proc->space->heap_size == 0)
 			break;
 	}
-	__flush_tlb();
+	flush_tlb();
 }
 
 static void proc_unmap_shms(proc_t *proc) {

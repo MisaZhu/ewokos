@@ -82,8 +82,8 @@ _FLD_MAX_WAY:
 _FLD_MAX_IDX:
  .word  0x7ff
 
-.globl cpu_dcache_clean_flush
-cpu_dcache_clean_flush:
+.local boot_cpu_dcache_clean_flush
+boot_cpu_dcache_clean_flush:
 	push    {r4-r11}
 	dmb
 	mrc     p15, #1, r0, c0, c0, #1  @ read clid register
@@ -128,17 +128,17 @@ finished:
 	pop     {r4-r11}
 	bx      lr
 
-.globl cpu_dcache_disable
+.local cpu_dcache_disable
 cpu_dcache_disable:
 	push    {r4-r11, lr}
-	bl      cpu_dcache_clean_flush
+	bl      boot_cpu_dcache_clean_flush
 	mrc     p15, #0, r0, c1, c0, #0
 	bic     r0,  r0, #0x00000004
 	mcr     p15, #0, r0, c1, c0, #0
 	pop     {r4-r11, lr}
 	bx      lr
 
-.globl cpu_icache_disable
+.local cpu_icache_disable
 cpu_icache_disable:
 	mrc     p15, #0, r0, c1, c0, #0
 	bic     r0,  r0, #0x00001000

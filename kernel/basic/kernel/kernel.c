@@ -78,7 +78,7 @@ static void __attribute__((optimize("O0"))) init_kernel_vm(void) {
 	set_kernel_init_vm(_kernel_vm);
 
 	//Use physical address of kernel virtual memory as the new virtual memory page dir table base.
-	__set_translation_table_base(V2P((uint32_t)_kernel_vm));
+	set_translation_table_base(V2P((uint32_t)_kernel_vm));
 }
 
 static void __attribute__((optimize("O0"))) init_allocable_mem(void) {

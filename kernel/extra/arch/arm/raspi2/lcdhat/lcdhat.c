@@ -120,12 +120,9 @@ static void LCD_SetAttributes(UBYTE Scan_dir) {
 		MemoryAccessReg = 0X00;
 	}
 
-printf("lcd set 0\n");
 	// Set the read / write scan direction of the frame memory
 	LCD_SendCommand(0x36); //MX, MY, RGB mode
-printf("lcd set 1\n");
 	LCD_SendData_8Bit(MemoryAccessReg);	//0x08 set RGB
-printf("lcd set 2\n");
 }
 
 /******************************************************************************
@@ -219,16 +216,12 @@ static void LCD_1in3_Init(UBYTE Scan_dir) {
 	LCD_BL_1;
 
 	//Hardware reset
-printf("lcd 1\n");
 	LCD_Reset();
-printf("lcd 2\n");
 	//Set the resolution and scanning method of the screen
 	LCD_SetAttributes(Scan_dir);
-printf("lcd 3\n");
 
 	//Set the initialization register
 	LCD_InitReg();
-printf("lcd 4\n");
 }
 
 /********************************************************************************

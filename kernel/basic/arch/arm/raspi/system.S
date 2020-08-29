@@ -1,5 +1,9 @@
 #define KERNEL_BASE 0x80000000
 
+.global __cpu_dcache_clean_flush
+__cpu_dcache_clean_flush:
+	bx lr
+
 .global __flush_tlb
 __flush_tlb:
 	mov r0, #0
@@ -50,7 +54,3 @@ __mem_barrier:
 	mov r0, #0 @ <Rd> should be zero (SBZ) for this
 	mcr p15, 0, r0, c7, c10, 5 @ data memory barrier
 	mov pc, lr
-
-.global __dummy
-__dummy:
-	bx lr

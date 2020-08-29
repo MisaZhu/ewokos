@@ -47,8 +47,8 @@ CFLAGS += $(OPTM) \
 ARCH_OBJS = \
 	${ARCH_DIR}/${ARCH}/boot.o \
 	${ARCH_DIR}/${ARCH}/start.o \
+	${ARCH_DIR}/${ARCH}/system.o \
 	${ARCH_DIR}/arm/common/interrupt.o \
-	${ARCH_DIR}/arm/common/system.o \
 	${ARCH_DIR}/arm/common/memcpy.o \
 	${ARCH_DIR}/${ARCH}/hw_info.o \
 	${ARCH_DIR}/${ARCH}/uart.o \

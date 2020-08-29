@@ -272,12 +272,9 @@ static int32_t sd_clk(uint32_t f) {
 	*EMMC_CONTROL1 |= C1_CLK_EN;
 	_delay_msec(10);
 	cnt=10000; 
-	printf("sd clk 0\n");
 	while(!(*EMMC_CONTROL1 & C1_CLK_STABLE) && cnt--)
 		_delay_msec(2);
-	printf("sd clk 1\n");
 	if(cnt<=0) {
-	printf("sd clk 2\n");
 		return SD_ERROR;
 	}
 	return SD_OK;
@@ -341,15 +338,11 @@ int32_t __attribute__((optimize("O0"))) sd_init(void) {
 	if(cnt<=0)
 		return SD_ERROR;
 
-	printf("sd 0, %d\n",sd_hv);
-
 	*EMMC_CONTROL1 |= C1_CLK_INTLEN | C1_TOUNIT_MAX;
 	_delay_msec(10);
 	// Set clock to setup frequency.
-	printf("sd 0.1\n");
 	if((r = sd_clk(400000)))
 		return r;
-	printf("sd 0.2\n");
 	*EMMC_INT_EN   = 0xffffffff;
 	*EMMC_INT_MASK = 0xffffffff;
 	sd_scr[0] = sd_scr[1] = sd_rca = sd_err = 0;
@@ -357,7 +350,6 @@ int32_t __attribute__((optimize("O0"))) sd_init(void) {
 	if(sd_err)
 		return sd_err;
 
-	printf("sd 1\n");
 	sd_cmd(CMD_SEND_IF_COND, 0x000001AA);
 	if(sd_err) 
 		return sd_err;
@@ -374,7 +366,6 @@ int32_t __attribute__((optimize("O0"))) sd_init(void) {
 		}
 	}
 
-	printf("sd 2\n");
 	if(!(r & ACMD41_CMD_COMPLETE) || !cnt ) 
 		return SD_TIMEOUT;
 	if(!(r & ACMD41_VOLTAGE))
@@ -391,7 +382,6 @@ int32_t __attribute__((optimize("O0"))) sd_init(void) {
 	
 	if((r=sd_clk(25000000)))
 		return r;
-	printf("sd 3\n");
 
 	if(sd_status(SR_DAT_INHIBIT))
 		return SD_TIMEOUT;
@@ -415,7 +405,6 @@ int32_t __attribute__((optimize("O0"))) sd_init(void) {
 	if(r != 2) 
 		return SD_TIMEOUT;
 
-	printf("sd 4\n");
 	if(sd_scr[0] & SCR_SD_BUS_WIDTH_4) {
 		sd_cmd(CMD_SET_BUS_WIDTH, sd_rca|2);
 		if(sd_err)
@@ -423,7 +412,6 @@ int32_t __attribute__((optimize("O0"))) sd_init(void) {
 		*EMMC_CONTROL0 |= C0_HCTL_DWITDH;
 	}
 
-	printf("sd 5\n");
 	// add software flag
 	sd_scr[0] &= ~SCR_SUPP_CCS;
 	sd_scr[0] |= ccs;
