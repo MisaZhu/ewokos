@@ -60,8 +60,8 @@ ARCH_OBJS = \
 	${ARCH_DIR}/${ARCH}/timer.o
 
 QEMU_CMD = qemu-system-arm
-OS_IMG = kernel7.img
-OS_ELF = kernel7.elf
+OS_IMG = kernel.img
+OS_ELF = kernel.elf
 
 LIB_DIR = $(SRC_DIR)/basic/lib/src
 EXTRA_LIB_DIR = $(SRC_DIR)/extra/lib/src
