@@ -13,7 +13,7 @@
 
 uint32_t _kernel_sec = 0;
 uint64_t _kernel_usec = 0;
-static uint32_t _timer_mtic = 0;
+static uint32_t _schedule_tic = 0;
 static uint32_t _timer_tic = 0;
 
 static void keyboard_interrupt(proto_t* data) {
@@ -50,25 +50,27 @@ void irq_handler(context_t* ctx) {
 	//handle irq
 	if((irqs & IRQ_TIMER0) != 0) {
 		uint64_t usec = timer_read_sys_usec();
-		if(_kernel_usec == 0)
+		if(_kernel_usec == 0) {
 			_kernel_usec = usec;
+		}
 		else {
 			uint64_t usec_gap = usec - _kernel_usec;
 			_kernel_usec = usec;
-			_timer_mtic += usec_gap;
+			_schedule_tic += usec_gap;
 			_timer_tic += usec_gap;
 			if(_timer_tic >= 1000000) { //1 sec
 				_kernel_sec++;
 				_timer_tic = 0;
 			}
 
-			if(_timer_mtic >= 1000) { //1 msec
-				_timer_mtic = 0;
+			if(_schedule_tic >= 10000) { //10 msec, 100 times scheduling per second
+				_schedule_tic = 0;
 			}
 			renew_sleep_counter(usec_gap);
 		}
 		timer_clear_interrupt(0);
-		schedule(ctx);
+		if(_schedule_tic == 0)
+			schedule(ctx);
 	}
 }
 
@@ -104,6 +106,6 @@ void irq_init(void) {
 	__irq_enable();
 	_kernel_sec = 0;
 	_kernel_usec = 0;
-	_timer_mtic = 0;
+	_schedule_tic = 0;
 	_timer_tic = 0;
 }
