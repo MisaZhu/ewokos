@@ -66,6 +66,7 @@ OS_ELF = kernel7.elf
 CFLAGS += -I${EXTRA_ARCH_DIR}/${ARCH} -DWITH_LCDHAT
 ARCH_OBJS += ${ARCH_DIR}/${ARCH}/gpio_arch.o  \
 	${ARCH_DIR}/${ARCH}/mailbox.o \
+	${ARCH_DIR}/${ARCH}/cpu_freq.o \
 	${EXTRA_ARCH_DIR}/${ARCH}/lib/spi_arch.o \
 	${EXTRA_ARCH_DIR}/${ARCH}/lcdhat/lcdhat.o 
 	

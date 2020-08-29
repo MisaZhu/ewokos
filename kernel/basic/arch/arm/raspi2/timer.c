@@ -54,7 +54,8 @@ void timer_set_interval(uint32_t id, uint32_t interval_microsecond) {
 	(void)id;
   if(interval_microsecond == 0)
     interval_microsecond = 100;
-  _timer_frq = div_u32(read_cntfrq() , (interval_microsecond*10));
+  //_timer_frq = div_u32(read_cntfrq() , (interval_microsecond*10));
+  _timer_frq = div_u32(read_cntfrq() , interval_microsecond);
   write_cntv_tval(_timer_frq);
   enable_cntv();
 }
