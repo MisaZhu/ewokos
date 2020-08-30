@@ -3,7 +3,7 @@ CC = arm-none-eabi-gcc
 LD = arm-none-eabi-ld
 
 BUILD_DIR = ../../../build
-TARGET_DIR = $(BUILD_DIR)/rootfs
+TARGET_DIR = $(BUILD_DIR)
 
 # flags
 CFLAGS = -Wstrict-prototypes \

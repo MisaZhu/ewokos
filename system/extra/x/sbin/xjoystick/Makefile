@@ -23,16 +23,16 @@ CFLAGS = -Wstrict-prototypes \
 #CFLAGS +=  -g
 CFLAGS +=  -O2
 
-LDFLAGS = -L$(TARGET_DIR)/lib -lnosys
+LDFLAGS = -L$(BUILD_DIR)/lib -lnosys
 
-CFLAGS += -I $(TARGET_DIR)/include
+CFLAGS += -I $(BUILD_DIR)/include
 
 XJOYSTICKD_OBJS = xjoystickd.o 
 
 XJOYSTICKD = $(TARGET_DIR)/sbin/x/xjoystickd
 
 $(XJOYSTICKD): $(XJOYSTICKD_OBJS) \
-		$(TARGET_DIR)/lib/libewokc.a 
+		$(BUILD_DIR)/lib/libewokc.a 
 	$(LD) -Ttext=100 $(XJOYSTICKD_OBJS) -o $(XJOYSTICKD) $(LDFLAGS) -lewokc -lc
 
 clean:

@@ -7,7 +7,7 @@ all: mkdirs extra_libs extra_driver x_sbin x_bin
 
 mkdirs:
 	@mkdir -p ${TARGET_DIR}/$(ROOT_DIR)/sbin/x
-	@mkdir -p ${TARGET_DIR}/$(ROOT_DIR)/apps
+	@mkdir -p ${TARGET_DIR}/$(ROOT_DIR)/bin/x
 	@cp -r ${ROOT_DIR}/etc ${TARGET_DIR}/$(ROOT_DIR)
 	@cp -r ${ROOT_DIR}/data ${TARGET_DIR}/$(ROOT_DIR)
 

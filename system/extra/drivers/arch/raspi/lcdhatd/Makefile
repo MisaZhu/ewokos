@@ -23,9 +23,9 @@ CFLAGS = -Wstrict-prototypes \
 #CFLAGS +=  -g
 CFLAGS +=  -O2
 
-LDFLAGS = -L$(TARGET_DIR)/lib -lnosys
+LDFLAGS = -L$(BUILD_DIR)/lib -lnosys
 
-CFLAGS += -I $(TARGET_DIR)/include
+CFLAGS += -I $(BUILD_DIR)/include
 
 LCDHATD_OBJS = lcdhatd.o \
 	../lib/gpio_arch.o \
@@ -34,7 +34,7 @@ LCDHATD_OBJS = lcdhatd.o \
 LCDHATD = $(TARGET_DIR)/drivers/raspi/lcdhatd
 
 $(LCDHATD): $(LCDHATD_OBJS) \
-		$(TARGET_DIR)/lib/libewokc.a 
+		$(BUILD_DIR)/lib/libewokc.a 
 	$(LD) -Ttext=100 $(LCDHATD_OBJS) -o $(LCDHATD) $(LDFLAGS) -lewokc -lc
 
 clean:

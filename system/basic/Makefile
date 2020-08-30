@@ -30,11 +30,11 @@ CFLAGS +=  -O2
 
 KERNEL_DIR=../../kernel/basic
 
-LDFLAGS = -L$(TARGET_DIR)/lib -lnosys
+LDFLAGS = -L$(BUILD_DIR)/lib -lnosys
 
 LIBS_DIR = libs
 
-LIB_INC = -I$(TARGET_DIR)/include \
+LIB_INC = -I$(BUILD_DIR)/include \
 					-I $(LIBS_DIR)/sys/include \
 					-I $(LIBS_DIR)/sd/include \
 				  -I $(LIBS_DIR)/ext2/include \
@@ -173,19 +173,19 @@ KERNEL_H = \
 	$(KERNEL_DIR)/include/fbinfo.h
 
 libs: $(LIB_OBJS)
-	$(AR) rT $(TARGET_DIR)/lib/libewokc.a $(LIB_SYS_OBJS)  $(LIB_LIBC_OBJS)
-	@cp -r $(LIB_SYS_DIR)/include/* $(LIB_LIBC_DIR)/include/* $(TARGET_DIR)/include/
-	$(AR) rT $(TARGET_DIR)/lib/libsd.a $(LIB_SD_OBJS)  $(LIB_LIBC_OBJS)
-	@cp -r $(LIB_SD_DIR)/include/* $(LIB_LIBC_DIR)/include/* $(TARGET_DIR)/include/
-	$(AR) rT $(TARGET_DIR)/lib/libgraph.a $(LIB_GRAPH_OBJS)
-	@cp -r $(LIB_GRAPH_DIR)/include/* $(TARGET_DIR)/include/
-	$(AR) rT $(TARGET_DIR)/lib/libext2.a $(LIB_EXT2_OBJS)
-	@cp -r $(LIB_EXT2_DIR)/include/* $(TARGET_DIR)/include/
-	$(AR) rT $(TARGET_DIR)/lib/libconsole.a $(LIB_CONSOLE_OBJS)
-	@cp -r $(LIB_CONSOLE_DIR)/include/* $(TARGET_DIR)/include/
-	$(AR) rT $(TARGET_DIR)/lib/libhash.a $(LIB_HASH_OBJS)
-	@cp -r $(LIB_HASH_DIR)/include/* $(TARGET_DIR)/include/
-	@cp -r $(KERNEL_H) $(TARGET_DIR)/include/
+	$(AR) rT $(BUILD_DIR)/lib/libewokc.a $(LIB_SYS_OBJS)  $(LIB_LIBC_OBJS)
+	@cp -r $(LIB_SYS_DIR)/include/* $(LIB_LIBC_DIR)/include/* $(BUILD_DIR)/include/
+	$(AR) rT $(BUILD_DIR)/lib/libsd.a $(LIB_SD_OBJS)  $(LIB_LIBC_OBJS)
+	@cp -r $(LIB_SD_DIR)/include/* $(LIB_LIBC_DIR)/include/* $(BUILD_DIR)/include/
+	$(AR) rT $(BUILD_DIR)/lib/libgraph.a $(LIB_GRAPH_OBJS)
+	@cp -r $(LIB_GRAPH_DIR)/include/* $(BUILD_DIR)/include/
+	$(AR) rT $(BUILD_DIR)/lib/libext2.a $(LIB_EXT2_OBJS)
+	@cp -r $(LIB_EXT2_DIR)/include/* $(BUILD_DIR)/include/
+	$(AR) rT $(BUILD_DIR)/lib/libconsole.a $(LIB_CONSOLE_OBJS)
+	@cp -r $(LIB_CONSOLE_DIR)/include/* $(BUILD_DIR)/include/
+	$(AR) rT $(BUILD_DIR)/lib/libhash.a $(LIB_HASH_OBJS)
+	@cp -r $(LIB_HASH_DIR)/include/* $(BUILD_DIR)/include/
+	@cp -r $(KERNEL_H) $(BUILD_DIR)/include/
 
 include $(ROOT_DIR)/sbin/vfsd/build.mk
 include $(ROOT_DIR)/sbin/procd/build.mk
@@ -223,11 +223,9 @@ mkdirs:
 	@mkdir -p ${TARGET_DIR}/$(ROOT_DIR)/drivers/raspi
 	@mkdir -p ${TARGET_DIR}/$(ROOT_DIR)/drivers/raspi2
 	@mkdir -p ${TARGET_DIR}/$(ROOT_DIR)/bin
-	@mkdir -p ${TARGET_DIR}/$(ROOT_DIR)/apps
-	@mkdir -p ${TARGET_DIR}/$(ROOT_DIR)/include
-	@mkdir -p ${TARGET_DIR}/$(ROOT_DIR)/lib
-	@mkdir -p ${TARGET_DIR}/$(ROOT_DIR)/dev
 	@mkdir -p ${BUILD_DIR}/asm
+	@mkdir -p ${BUILD_DIR}/include
+	@mkdir -p ${BUILD_DIR}/lib
 	@cp -r ${ROOT_DIR}/etc ${TARGET_DIR}/$(ROOT_DIR)
 
 builtin_apps: ${PROGS}

@@ -414,6 +414,8 @@ int main(int argc, char* argv[]) {
 	(void)argc;
 	(void)argv;
 
+	setenv("PATH", "/sbin:/bin:/bin/x");
+
 	const char* cid = getenv("CONSOLE_ID");
 	if(cid[0] == 0)
 		cid = "0";

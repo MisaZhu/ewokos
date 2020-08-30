@@ -19,18 +19,18 @@ CXXFLAGS = -marm \
 #CXXFLAGS +=  -g
 CXXFLAGS +=  -O2
 
-LDFLAGS = -L$(TARGET_DIR)/lib -lnosys
+LDFLAGS = -L$(BUILD_DIR)/lib -lnosys
 
-CXXFLAGS += -I $(TARGET_DIR)/include
+CXXFLAGS += -I $(BUILD_DIR)/include
 
 SYSPANEL_OBJS = syspanel.o
 
-SYSPANEL = $(TARGET_DIR)/apps/syspanel
+SYSPANEL = $(TARGET_DIR)/bin/x/syspanel
 
 $(SYSPANEL): $(SYSPANEL_OBJS) \
-		$(TARGET_DIR)/lib/libewokc.a \
-		$(TARGET_DIR)/lib/libx++.a \
-		$(TARGET_DIR)/lib/libcxx.a 
+		$(BUILD_DIR)/lib/libewokc.a \
+		$(BUILD_DIR)/lib/libx++.a \
+		$(BUILD_DIR)/lib/libcxx.a 
 	$(LD) -Ttext=100 $(SYSPANEL_OBJS) -o $(SYSPANEL) $(LDFLAGS) -lsconf  -lgraphxx -lx++ -lewokc -lc -lcxx
 
 clean:

@@ -23,18 +23,18 @@ CFLAGS = -Wstrict-prototypes \
 #CFLAGS +=  -g
 CFLAGS +=  -O2
 
-LDFLAGS = -L$(TARGET_DIR)/lib -lnosys
+LDFLAGS = -L$(BUILD_DIR)/lib -lnosys
 
-CFLAGS += -I $(TARGET_DIR)/include
+CFLAGS += -I $(BUILD_DIR)/include
 
 XSERVERD_OBJS = xserverd.o 
 
 XSERVERD = $(TARGET_DIR)/drivers/xserverd
 
 $(XSERVERD): $(XSERVERD_OBJS) \
-		$(TARGET_DIR)/lib/libewokc.a \
-		$(TARGET_DIR)/lib/libsconf.a  \
-		$(TARGET_DIR)/lib/libgraph.a 
+		$(BUILD_DIR)/lib/libewokc.a \
+		$(BUILD_DIR)/lib/libsconf.a  \
+		$(BUILD_DIR)/lib/libgraph.a 
 	$(LD) -Ttext=100 $(XSERVERD_OBJS) -o $(XSERVERD) $(LDFLAGS) -lgraph -lsconf -lewokc -lc
 
 clean:

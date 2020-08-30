@@ -23,16 +23,16 @@ CFLAGS = -Wstrict-prototypes \
 #CFLAGS +=  -g
 CFLAGS +=  -O2
 
-LDFLAGS = -L$(TARGET_DIR)/lib -lnosys
+LDFLAGS = -L$(BUILD_DIR)/lib -lnosys
 
-CFLAGS += -I $(TARGET_DIR)/include
+CFLAGS += -I $(BUILD_DIR)/include
 
 XMOUSED_OBJS = xmoused.o 
 
 XMOUSED = $(TARGET_DIR)/sbin/x/xmoused
 
 $(XMOUSED): $(XMOUSED_OBJS) \
-		$(TARGET_DIR)/lib/libewokc.a 
+		$(BUILD_DIR)/lib/libewokc.a 
 	$(LD) -Ttext=100 $(XMOUSED_OBJS) -o $(XMOUSED) $(LDFLAGS) -lewokc -lc
 
 clean:

@@ -19,18 +19,18 @@ CXXFLAGS = -marm \
 #CXXFLAGS +=  -g
 CXXFLAGS +=  -O2
 
-LDFLAGS = -L$(TARGET_DIR)/lib -lnosys
+LDFLAGS = -L$(BUILD_DIR)/lib -lnosys
 
-CXXFLAGS += -I $(TARGET_DIR)/include
+CXXFLAGS += -I $(BUILD_DIR)/include
 
 PNG_OBJS = png.o
 
-PNG = $(TARGET_DIR)/apps/png
+PNG = $(TARGET_DIR)/bin/x/png
 
 $(PNG): $(PNG_OBJS) \
-		$(TARGET_DIR)/lib/libewokc.a \
-		$(TARGET_DIR)/lib/libx++.a \
-		$(TARGET_DIR)/lib/libcxx.a 
+		$(BUILD_DIR)/lib/libewokc.a \
+		$(BUILD_DIR)/lib/libx++.a \
+		$(BUILD_DIR)/lib/libcxx.a 
 	$(LD) -Ttext=100 $(PNG_OBJS) -o $(PNG) $(LDFLAGS)  -lgraphxx -lupng -lx++ -lewokc -lc -lcxx
 
 clean:

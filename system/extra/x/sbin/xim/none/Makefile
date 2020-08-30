@@ -19,17 +19,17 @@ CXXFLAGS = -marm \
 #CXXFLAGS +=  -g
 CXXFLAGS +=  -O2
 
-LDFLAGS = -L$(TARGET_DIR)/lib -lnosys
+LDFLAGS = -L$(BUILD_DIR)/lib -lnosys
 
-CXXFLAGS += -I $(TARGET_DIR)/include
+CXXFLAGS += -I $(BUILD_DIR)/include
 
 XIM_OBJS = xim.o
 
 XIM = $(TARGET_DIR)/sbin/x/xim_none
 
 $(XIM): $(XIM_OBJS) \
-		$(TARGET_DIR)/lib/libewokc.a \
-		$(TARGET_DIR)/lib/libcxx.a 
+		$(BUILD_DIR)/lib/libewokc.a \
+		$(BUILD_DIR)/lib/libcxx.a 
 	$(LD) -Ttext=100 $(XIM_OBJS) -o $(XIM) $(LDFLAGS) -lewokc -lc -lcxx
 
 clean:

@@ -23,9 +23,9 @@ CFLAGS = -Wstrict-prototypes \
 #CFLAGS +=  -g
 CFLAGS +=  -O2
 
-LDFLAGS = -L$(TARGET_DIR)/lib -lnosys
+LDFLAGS = -L$(BUILD_DIR)/lib -lnosys
 
-CFLAGS += -I $(TARGET_DIR)/include
+CFLAGS += -I $(BUILD_DIR)/include
 
 JOYSTICKD_OBJS = joystickd.o \
 	../lib/gpio_arch.o \
@@ -34,7 +34,7 @@ JOYSTICKD_OBJS = joystickd.o \
 JOYSTICKD = $(TARGET_DIR)/drivers/raspi2/joystickd
 
 $(JOYSTICKD): $(JOYSTICKD_OBJS) \
-		$(TARGET_DIR)/lib/libewokc.a 
+		$(BUILD_DIR)/lib/libewokc.a 
 	$(LD) -Ttext=100 $(JOYSTICKD_OBJS) -o $(JOYSTICKD) $(LDFLAGS) -lewokc -lc
 
 clean:

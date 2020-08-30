@@ -21,19 +21,19 @@ CFLAGS = -Wstrict-prototypes \
 #CFLAGS +=  -g
 CFLAGS +=  -O2
 
-LDFLAGS = -L$(TARGET_DIR)/lib -lnosys
+LDFLAGS = -L$(BUILD_DIR)/lib -lnosys
 
-CFLAGS += -I $(TARGET_DIR)/include
+CFLAGS += -I $(BUILD_DIR)/include
 
 SNAKE_OBJS = snake.o
 
-SNAKE = $(TARGET_DIR)/apps/snake
+SNAKE = $(TARGET_DIR)/bin/x/snake
 
 $(SNAKE): $(SNAKE_OBJS) \
-		$(TARGET_DIR)/lib/libewokc.a \
-		$(TARGET_DIR)/lib/libx.a \
-		$(TARGET_DIR)/lib/libfonts.a \
-		$(TARGET_DIR)/lib/libgraph.a
+		$(BUILD_DIR)/lib/libewokc.a \
+		$(BUILD_DIR)/lib/libx.a \
+		$(BUILD_DIR)/lib/libfonts.a \
+		$(BUILD_DIR)/lib/libgraph.a
 	$(LD) -Ttext=100 $(SNAKE_OBJS) -o $(SNAKE) $(LDFLAGS) -lgraph -lfonts -lx -lewokc -lc
 
 clean:
