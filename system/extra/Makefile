@@ -44,7 +44,10 @@ x_sbin:
 
 EXTRA_DRIVERS_DIR=drivers
 extra_driver:
+	cd $(EXTRA_DRIVERS_DIR)/fbd;make
 	cd $(EXTRA_DRIVERS_DIR)/xserverd;make
+	cd $(EXTRA_DRIVERS_DIR)/arch/versatilepb/ps2keybd;make
+	cd $(EXTRA_DRIVERS_DIR)/arch/versatilepb/ps2moused;make
 	cd $(EXTRA_DRIVERS_DIR)/arch/raspi/joystickd;make
 	cd $(EXTRA_DRIVERS_DIR)/arch/raspi/lcdhatd;make
 	cd $(EXTRA_DRIVERS_DIR)/arch/raspi2/joystickd;make
