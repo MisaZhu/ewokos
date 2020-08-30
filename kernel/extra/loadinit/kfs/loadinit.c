@@ -4,7 +4,7 @@
 #include <kstring.h>
 
 #define KFS_ITEM_MAX 256
-#define FNAME_MAX 64
+#define FNAME_MAX 256
 #define KFS_TYPE_DIR  0
 #define KFS_TYPE_FILE 1
 
@@ -149,31 +149,46 @@ static int32_t add_nodes(int32_t i) {
 	return i;
 }
 
-extern const char* init_data[];
-extern const int init_size;
+int32_t kfs_get(uint32_t index, char* name, char* data) {
+	if(index >= _kfs_item_num)
+		return -1;
+
+	if(name != NULL)
+		strcpy(name, _kfs_items[index].name);
+	if(data != NULL && _kfs_items[index].data != NULL && _kfs_items[index].size > 0)
+		memcpy(data, _kfs_items[index].data, _kfs_items[index].size);
+	return _kfs_items[index].size;
+}
+
+static char* kfs_get_by_name(const char* fname, int32_t *size) {
+  int32_t index = 0;
+	*size = 0;
+  char* data = NULL;
+
+  while(true) {
+    char name[FNAME_MAX+1];
+    int32_t sz = kfs_get(index, name, NULL);
+    if(sz < 0)
+      break;
+    if(sz > 0 && name[0] != 0 && strcmp(fname, name) == 0)  {
+      data = (char*)kmalloc(sz);
+      sz = kfs_get(index, NULL, data);
+      *size = sz;
+      return data;
+    }
+    index++;
+  }
+  return NULL;
+}
 
 int32_t load_init_kfs(void) {
 	_kfs_item_num = 0;
 	add_nodes(0);
 
-  if(init_size <= 0)
-    return -1;
-
-  char* elf = (char*)kmalloc(init_size);
+  int32_t init_size;
+  char* elf = kfs_get_by_name("/sbin/init", &init_size);
   if(elf == NULL) {
     return -1;
-  }
-
-  uint32_t i = 0;
-  char* p = elf;
-  while(1) {
-    const char* s = init_data[i];
-    if(s == NULL)
-      break;
-    uint32_t sz = 0;
-    b16_decode(s, strlen(s), p , &sz);
-    p += sz;
-    i++;
   }
 
   proc_t *proc = proc_create(PROC_TYPE_PROC, NULL);
@@ -183,12 +198,3 @@ int32_t load_init_kfs(void) {
   return res;
 }
 
-int32_t kfs_get(uint32_t index, char* name, char* data) {
-	if(index >= _kfs_item_num)
-		return -1;
-
-	strcpy(name, _kfs_items[index].name);
-	if(data != NULL && _kfs_items[index].data != NULL && _kfs_items[index].size > 0)
-		memcpy(data, _kfs_items[index].data, _kfs_items[index].size);
-	return _kfs_items[index].size;
-}

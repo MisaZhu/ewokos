@@ -1,12 +1,12 @@
-all: basic_fs kernelfs
+all: basic_sys kernelfs
 	@echo "all done."
 
-full: basic_fs extra_fs kernelfs
+full: basic_sys extra_sys kernelfs
 	@echo "all done."
 
-basic_fs:
+basic_sys:
 	cd basic;make
-extra_fs:
+extra_sys:
 	cd extra;make
 
 SD = build/sd.ext2
@@ -24,6 +24,9 @@ sd:
 
 kernelfs:
 	cd kfs;make
+
+kinit:
+	cd kfs;make init
 
 KERNEL_DIR=../kernel/basic
 ARCH_DIR=$(KERNEL_DIR)/arch

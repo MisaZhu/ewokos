@@ -101,7 +101,6 @@ CFLAGS += -I$(LOAD_DIR)
 else
 LOAD_DIR = $(SRC_DIR)/extra/loadinit/kfs
 LOAD_OBJS = \
-	${LOAD_DIR}/init_data.o \
 	${LOAD_DIR}/kfs_data.o \
 	${LOAD_DIR}/loadinit.o
 CFLAGS += -I$(LOAD_DIR)
@@ -157,8 +156,8 @@ debugasm:
 
 gdb: 
 	echo "target remote :26000" > /tmp/gdbinit
-	arm-none-eabi-gdb ${BUILD_DIR}/$(OS_ELF) -x /tmp/gdbinit
-	#gdb-multiarch ${BUILD_DIR}/$(OS_ELF) -x /tmp/gdbinit #for ubuntu 18.04 without arm-none-eabi-gdb
+	#arm-none-eabi-gdb ${BUILD_DIR}/$(OS_ELF) -x /tmp/gdbinit
+	gdb-multiarch ${BUILD_DIR}/$(OS_ELF) -x /tmp/gdbinit #for ubuntu 18.04 without arm-none-eabi-gdb
 
 clean:
 	rm -f $(OBJS)

@@ -33,11 +33,11 @@ static char* run_none_fs_kfs(const char* cmd, int32_t *size) {
 	int32_t index = 0;
 	char* data = NULL;
 	while(true) {
-		char name[64];
+		char name[FS_FULL_NAME_MAX];
 		int32_t sz = syscall3(SYS_KFS_GET, index, (int32_t)name, (int32_t)NULL);	
 		if(sz < 0) 
 			break;
-		if(sz > 0 && name[0] != 0 && strstr(cmd, name) != NULL)  {
+		if(sz > 0 && name[0] != 0 && strcmp(cmd, name) == 0)  {
 			data = (char*)malloc(sz);
 			sz = syscall3(SYS_KFS_GET, index, (int32_t)name, (int32_t)data);	
 			*size = sz;

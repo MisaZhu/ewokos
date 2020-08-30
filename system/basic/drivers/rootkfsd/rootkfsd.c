@@ -33,27 +33,47 @@ static int add_dir(fsinfo_t* node_to, fsinfo_t* ret, const char* dn) {
 	return 0;
 }
 
+static const char* short_name(const char* name) {
+	if(name[0] == 0)
+		return name;
+
+	int32_t len = strlen(name);
+	const char* p = name+(len-1);
+	while(true) {
+		if(*p == '/') {
+			p++;
+			break;
+		}
+		if(p == name) {
+			break;
+		}
+		p--;
+	}
+	return p;
+}
+
 static int32_t add_nodes(fsinfo_t* dinfo, int32_t i) {
 	while(1) {
-		char name[64];
+		char name[FS_FULL_NAME_MAX+1];
 		int32_t sz = syscall3(SYS_KFS_GET, i, (int32_t)name, (int32_t)NULL);	
 		if(sz < 0)
 			return -1;
-		if(sz == 0 && name[0] == 0)  //end of dir
+		const char* sname = short_name(name);
+		if(sz == 0 && sname[0] == 0)  //end of dir
 			return i+1;
 
-		if(sz == 0 && name[0] != 0) { //dir type
+		if(sz == 0 && sname[0] != 0) { //dir type
 			fsinfo_t info;
-			add_dir(dinfo, &info, name);
+			add_dir(dinfo, &info, sname);
 			i = add_nodes(&info, i+1);
 		}
 		else {
 			char* data = NULL;
 			if(sz > 0) {
 				data = (char*)malloc(sz);
-				sz = syscall3(SYS_KFS_GET, i, (int32_t)name, (int32_t)data);	
+				sz = syscall3(SYS_KFS_GET, i, 0, (int32_t)data);	
 			}
-			add_file(dinfo, name, data, sz);
+			add_file(dinfo, sname, data, sz);
 			i++;
 		}
 	}

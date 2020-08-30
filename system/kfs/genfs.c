@@ -19,17 +19,17 @@ void b16encode(char *input, int input_len, char *output, int *output_len)
 	*output_len = 2 * input_len;
 }
 
-void do_file(const char* fname, const char* dname) {
+void do_file(const char* src_name, const char* name) {
 	int buff_len;
 	int b16_len;
 	int total_buff_len = 0;
 
 	struct stat st;
-	stat(fname, &st);
+	stat(src_name, &st);
 
-	printf("\"%s\", \"%d\",\n", dname, (int)st.st_size);
+	printf("\"%s\", \"%d\",\n", name, (int)st.st_size);
 
-	FILE* fp  = fopen(fname, "r");
+	FILE* fp  = fopen(src_name, "r");
 	while (1) {
 		buff_len = fread(buff, 1, BUF_LEN, fp);
 		if(buff_len <= 0)
@@ -43,12 +43,12 @@ void do_file(const char* fname, const char* dname) {
 	fclose(fp);
 }
 
-void do_dir(const char* name, const char* dname) {
-	DIR *dir = opendir(name);
+void do_dir(const char* src_name, const char* name) {
+	DIR *dir = opendir(src_name);
 	if(dir == NULL)
 		return;
-	if(dname[0] != 0)
-		printf("\"%s\", \"r\",\n", dname);
+	if(name[0] != 0)
+		printf("\"%s\", \"r\",\n", name);
 	
 	while(1) {
 		struct dirent* r = readdir(dir);
@@ -57,12 +57,14 @@ void do_dir(const char* name, const char* dname) {
 		if(r->d_name[0] == '.')
 			continue;
 		
+		char src_full[512];
 		char full[512];
+		snprintf(src_full, 511, "%s/%s", src_name, r->d_name);
 		snprintf(full, 511, "%s/%s", name, r->d_name);
 		if(r->d_type == DT_DIR)
-			do_dir(full, r->d_name);
+			do_dir(src_full, full);
 		else
-			do_file(full, r->d_name);
+			do_file(src_full, full);
 	}
 	closedir(dir);
 	printf("0,\n");

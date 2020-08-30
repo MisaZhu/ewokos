@@ -113,7 +113,6 @@ CFLAGS += -I$(LOAD_DIR)
 else
 LOAD_DIR = $(SRC_DIR)/extra/loadinit/kfs
 LOAD_OBJS = \
-	${LOAD_DIR}/init_data.o \
 	${LOAD_DIR}/kfs_data.o \
 	${LOAD_DIR}/loadinit.o
 CFLAGS += -I$(LOAD_DIR)
