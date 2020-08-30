@@ -11,7 +11,5 @@ all:
 	@cp -r $(FROM_DIR) $(BUILD_DIR)
 	gcc -o ${BUILD_DIR}/genfs   genfs.c
 	${BUILD_DIR}/genfs $(BUILD_DIR)/rootfs > $(KERNEL_DIR)/extra/loadinit/kfs/kfs_data.c
-	@echo "all done."
-
-clean:
 	rm -fr build
+	@echo "all done."
