@@ -38,8 +38,6 @@ LIB_INC = -I$(BUILD_DIR)/include \
 					-I $(LIBS_DIR)/sys/include \
 					-I $(LIBS_DIR)/sd/include \
 				  -I $(LIBS_DIR)/ext2/include \
-				  -I $(LIBS_DIR)/graph/include \
-				  -I $(LIBS_DIR)/console/include \
 				  -I $(LIBS_DIR)/hash/include \
 				  -I $(LIBS_DIR)/libc/include \
 					-I $(KERNEL_DIR)/include
@@ -47,15 +45,10 @@ LIB_INC = -I$(BUILD_DIR)/include \
 LIB_SYS_DIR = $(LIBS_DIR)/sys
 LIB_SD_DIR = $(LIBS_DIR)/sd
 LIB_EXT2_DIR = $(LIBS_DIR)/ext2
-LIB_GRAPH_DIR = $(LIBS_DIR)/graph
-LIB_CONSOLE_DIR = $(LIBS_DIR)/console
 LIB_HASH_DIR = $(LIBS_DIR)/hash
 LIB_LIBC_DIR = $(LIBS_DIR)/libc
 
 CFLAGS += $(LIB_INC)
-
-LIB_GRAPH_OBJS =	$(LIB_GRAPH_DIR)/src/graph.o \
-	$(LIB_GRAPH_DIR)/src/font.o
 
 LIB_EXT2_OBJS = $(LIB_EXT2_DIR)/src/ext2fs.o
 
@@ -63,8 +56,6 @@ LIB_SD_OBJS = $(LIB_SD_DIR)/src/sd.o \
 	$(LIB_SD_DIR)/src/arch/arm/raspi/sd_arch.o \
 	$(LIB_SD_DIR)/src/arch/arm/raspi2/sd_arch.o \
 	$(LIB_SD_DIR)/src/arch/arm/versatilepb/sd_arch.o \
-
-LIB_CONSOLE_OBJS = $(LIB_CONSOLE_DIR)/src/console.o
 
 LIB_HASH_OBJS = $(LIB_HASH_DIR)/src/hashmap.o
 
@@ -177,12 +168,8 @@ libs: $(LIB_OBJS)
 	@cp -r $(LIB_SYS_DIR)/include/* $(LIB_LIBC_DIR)/include/* $(BUILD_DIR)/include/
 	$(AR) rT $(BUILD_DIR)/lib/libsd.a $(LIB_SD_OBJS)  $(LIB_LIBC_OBJS)
 	@cp -r $(LIB_SD_DIR)/include/* $(LIB_LIBC_DIR)/include/* $(BUILD_DIR)/include/
-	$(AR) rT $(BUILD_DIR)/lib/libgraph.a $(LIB_GRAPH_OBJS)
-	@cp -r $(LIB_GRAPH_DIR)/include/* $(BUILD_DIR)/include/
 	$(AR) rT $(BUILD_DIR)/lib/libext2.a $(LIB_EXT2_OBJS)
 	@cp -r $(LIB_EXT2_DIR)/include/* $(BUILD_DIR)/include/
-	$(AR) rT $(BUILD_DIR)/lib/libconsole.a $(LIB_CONSOLE_OBJS)
-	@cp -r $(LIB_CONSOLE_DIR)/include/* $(BUILD_DIR)/include/
 	$(AR) rT $(BUILD_DIR)/lib/libhash.a $(LIB_HASH_OBJS)
 	@cp -r $(LIB_HASH_DIR)/include/* $(BUILD_DIR)/include/
 	@cp -r $(KERNEL_H) $(BUILD_DIR)/include/

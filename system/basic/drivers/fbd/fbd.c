@@ -5,7 +5,6 @@
 #include <sys/vfs.h>
 #include <sys/syscall.h>
 #include <sys/vdevice.h>
-#include <graph/graph.h>
 #include <sys/shm.h>
 #include <fbinfo.h>
 
@@ -16,6 +15,21 @@ typedef struct {
 } fb_dma_t;
 
 static fbinfo_t _fbinfo;
+
+static inline void dup16(uint16_t* dst, uint32_t* src, int32_t w, int32_t h) {
+	if(w <= 0 || h <= 0)
+		return;
+
+	register int32_t i, size;
+	size = w * h;
+	for(i=0; i < size; i++) {
+		register uint32_t s = src[i];
+		register uint8_t b = (s >> 16);
+		register uint8_t g = (s >> 8);
+		register uint8_t r = s;
+		dst[i] = ((r >> 3) <<11) | ((g >> 3) << 6) | (b >> 3);
+	}
+}
 
 static int fb_write(int fd,
 		int from_pid, 
@@ -39,7 +53,7 @@ static int fb_write(int fd,
 		memcpy((void*)_fbinfo.pointer, buf, size);
 	}
 	else if(_fbinfo.depth == 16) 
-		graph_dup16((uint16_t*)_fbinfo.pointer, (uint32_t*)buf, _fbinfo.width, _fbinfo.height);
+		dup16((uint16_t*)_fbinfo.pointer, (uint32_t*)buf, _fbinfo.width, _fbinfo.height);
 	return sz;
 }	
 
@@ -78,7 +92,7 @@ static int fb_flush(int fd, int from_pid, fsinfo_t* info, void* p) {
 		memcpy((void*)_fbinfo.pointer, dma->data, size);
 	}
 	else if(_fbinfo.depth == 16) 
-		graph_dup16((uint16_t*)_fbinfo.pointer, (uint32_t*)dma->data, _fbinfo.width, _fbinfo.height);
+		dup16((uint16_t*)_fbinfo.pointer, (uint32_t*)dma->data, _fbinfo.width, _fbinfo.height);
 	return 0;
 }
 

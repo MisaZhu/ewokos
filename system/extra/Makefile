@@ -14,7 +14,9 @@ mkdirs:
 EXTRA_LIBS_DIR=libs
 EXTRA_LIBXX_DIR=libs/cxx
 extra_libs:
+	cd $(EXTRA_LIBS_DIR)/graph; make
 	cd $(EXTRA_LIBS_DIR)/fonts; make
+	cd $(EXTRA_LIBS_DIR)/console; make
 	cd $(EXTRA_LIBS_DIR)/upng; make
 	cd $(EXTRA_LIBS_DIR)/sconf; make
 	cd $(EXTRA_LIBS_DIR)/tiny-json; make
