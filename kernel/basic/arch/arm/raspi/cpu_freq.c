@@ -46,8 +46,8 @@ void cpu_freq_init(void) {
 	//wait voltage stable
 	_delay_msec(100);
 
-	//uint32_t freq;
-	//firmware_property(RPI_FIRMWARE_GET_MAX_CLOCK_RATE, VCMSG_ID_ARM_CLOCK, &freq);	
-	//firmware_property(RPI_FIRMWARE_SET_CLOCK_RATE, VCMSG_ID_ARM_CLOCK, &freq);	
+	uint32_t freq;
+	firmware_property(RPI_FIRMWARE_GET_MAX_CLOCK_RATE, VCMSG_ID_ARM_CLOCK, &freq);	
+	firmware_property(RPI_FIRMWARE_SET_CLOCK_RATE, VCMSG_ID_ARM_CLOCK, &freq);	
 }
 
