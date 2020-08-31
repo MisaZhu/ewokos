@@ -20,6 +20,21 @@ static int actled_write(int fd, int from_pid, fsinfo_t* info,
 	return size;
 }
 
+static int actled_dev_cntl(int from_pid, int cmd, proto_t* in, proto_t* ret, void* p) {
+	(void)from_pid;
+	(void)cmd;
+	(void)ret;
+	(void)p;
+
+	if(proto_read_int(in) == 0) {
+		actled_arch(false);
+	}
+	else {
+		actled_arch(true);
+	}
+	return 0;
+}
+
 int main(int argc, char** argv) {
 	const char* mnt_point = argc > 1 ? argv[1]: "/dev/actled";
 	gpio_arch_init();
@@ -28,6 +43,7 @@ int main(int argc, char** argv) {
 	memset(&dev, 0, sizeof(vdevice_t));
 	strcpy(dev.name, "actled");
 	dev.write = actled_write;
+	dev.dev_cntl = actled_dev_cntl;
 	device_run(&dev, mnt_point, FS_TYPE_CHAR);
 	return 0;
 }

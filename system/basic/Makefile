@@ -205,6 +205,7 @@ include $(ROOT_DIR)/drivers/arch/arm/raspi2/ttyd/build.mk
 include $(ROOT_DIR)/drivers/arch/arm/raspi2/actledd/build.mk
 
 include $(ROOT_DIR)/bin/shell/build.mk
+include $(ROOT_DIR)/bin/actled/build.mk
 include $(ROOT_DIR)/bin/dump/build.mk
 include $(ROOT_DIR)/bin/pwd/build.mk
 include $(ROOT_DIR)/bin/cat/build.mk
