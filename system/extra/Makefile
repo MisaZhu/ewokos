@@ -46,12 +46,12 @@ EXTRA_DRIVERS_DIR=drivers
 extra_driver:
 	cd $(EXTRA_DRIVERS_DIR)/fbd;make
 	cd $(EXTRA_DRIVERS_DIR)/xserverd;make
-	cd $(EXTRA_DRIVERS_DIR)/arch/versatilepb/ps2keybd;make
-	cd $(EXTRA_DRIVERS_DIR)/arch/versatilepb/ps2moused;make
-	cd $(EXTRA_DRIVERS_DIR)/arch/raspi/joystickd;make
-	cd $(EXTRA_DRIVERS_DIR)/arch/raspi/lcdhatd;make
-	cd $(EXTRA_DRIVERS_DIR)/arch/raspi2/joystickd;make
-	cd $(EXTRA_DRIVERS_DIR)/arch/raspi2/lcdhatd;make
+	cd $(EXTRA_DRIVERS_DIR)/arch/arm/versatilepb/ps2keybd;make
+	cd $(EXTRA_DRIVERS_DIR)/arch/arm/versatilepb/ps2moused;make
+	cd $(EXTRA_DRIVERS_DIR)/arch/arm/raspi/joystickd;make
+	cd $(EXTRA_DRIVERS_DIR)/arch/arm/raspi/lcdhatd;make
+	cd $(EXTRA_DRIVERS_DIR)/arch/arm/raspi2/joystickd;make
+	cd $(EXTRA_DRIVERS_DIR)/arch/arm/raspi2/lcdhatd;make
 
 clean:
 	cd $(EXTRA_LIBS_DIR)/fonts; make clean
@@ -63,8 +63,12 @@ clean:
 	cd $(EXTRA_LIBXX_DIR)/graphxx; make clean
 	cd $(EXTRA_LIBXX_DIR)/x++; make clean
 	cd $(EXTRA_DRIVERS_DIR)/xserverd;make clean
-	cd $(EXTRA_DRIVERS_DIR)/arch/raspi/joystickd;make clean
-	cd $(EXTRA_DRIVERS_DIR)/arch/raspi/lcdhatd;make clean
+	cd $(EXTRA_DRIVERS_DIR)/arch/arm/versatilepb/ps2keybd;make clean
+	cd $(EXTRA_DRIVERS_DIR)/arch/arm/versatilepb/ps2moused;make clean
+	cd $(EXTRA_DRIVERS_DIR)/arch/arm/raspi/joystickd;make clean
+	cd $(EXTRA_DRIVERS_DIR)/arch/arm/raspi/lcdhatd;make clean
+	cd $(EXTRA_DRIVERS_DIR)/arch/arm/raspi2/joystickd;make clean
+	cd $(EXTRA_DRIVERS_DIR)/arch/arm/raspi2/lcdhatd;make clean
 	cd $(X_DIR)/sbin/xmouse;make clean
 	cd $(X_DIR)/sbin/xim/vkey;make clean
 	cd $(X_DIR)/sbin/xim/none;make clean

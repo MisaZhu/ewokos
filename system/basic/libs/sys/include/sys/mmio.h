@@ -13,6 +13,7 @@ extern "C" {
 #define get8(addr) (*((volatile uint8_t *)(addr)))
 #define put8(addr, val) (*((volatile uint8_t *)(addr)) = (val))
 
+extern uint32_t _mmio_base;
 uint32_t mmio_map(void);
 
 #ifdef __cplusplus

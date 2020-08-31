@@ -82,7 +82,6 @@
 
 #define SD_RCA  0x45670000 // QEMU's hard-coded RCA
 
-static uint32_t _mmio_base = 0;
 #define SD_BASE (_mmio_base + 0x5000) // PL180 SD_BASE address
 
 // shared variables between SDC driver and interrupt handler

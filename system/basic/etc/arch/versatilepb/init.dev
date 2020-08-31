@@ -1,2 +1,2 @@
-/drivers/nulld              /dev/null
-/drivers/versatilepb/ttyd   /dev/tty0
+/drivers/nulld                  /dev/null
+/drivers/arm/versatilepb/ttyd   /dev/tty0

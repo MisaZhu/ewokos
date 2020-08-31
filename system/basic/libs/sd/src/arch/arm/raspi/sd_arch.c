@@ -8,8 +8,6 @@
 #include <sys/mmio.h>
 #include <sys/basic_math.h>
 
-static uint32_t _mmio_base = 0;
-
 #define SD_OK                0
 #define SD_TIMEOUT          -1
 #define SD_ERROR            -2

@@ -36,6 +36,8 @@ LIBS_DIR = libs
 
 LIB_INC = -I$(BUILD_DIR)/include \
 					-I $(LIBS_DIR)/sys/include \
+					-I $(LIBS_DIR)/arch/arm/raspi/include \
+					-I $(LIBS_DIR)/arch/arm/raspi2/include \
 					-I $(LIBS_DIR)/sd/include \
 				  -I $(LIBS_DIR)/ext2/include \
 				  -I $(LIBS_DIR)/hash/include \
@@ -43,6 +45,8 @@ LIB_INC = -I$(BUILD_DIR)/include \
 					-I $(KERNEL_DIR)/include
 				 
 LIB_SYS_DIR = $(LIBS_DIR)/sys
+LIB_ARCH_RASPI_DIR = $(LIBS_DIR)/arch/arm/raspi
+LIB_ARCH_RASPI2_DIR = $(LIBS_DIR)/arch/arm/raspi2
 LIB_SD_DIR = $(LIBS_DIR)/sd
 LIB_EXT2_DIR = $(LIBS_DIR)/ext2
 LIB_HASH_DIR = $(LIBS_DIR)/hash
@@ -71,7 +75,6 @@ LIB_SYS_OBJS = $(LIB_SYS_DIR)/src/syscall.o \
 	$(LIB_SYS_DIR)/src/thread.o \
 	$(LIB_SYS_DIR)/src/basic_math.o \
 	$(LIB_SYS_DIR)/src/shm.o \
-	$(LIB_SYS_DIR)/src/gpio.o \
 	$(LIB_SYS_DIR)/src/global.o \
 	$(LIB_SYS_DIR)/src/proc.o \
 	$(LIB_SYS_DIR)/src/lockc.o \
@@ -79,6 +82,14 @@ LIB_SYS_OBJS = $(LIB_SYS_DIR)/src/syscall.o \
 	$(LIB_SYS_DIR)/src/md5.o \
 	$(LIB_SYS_DIR)/src/buffer.o \
 	$(LIB_SYS_DIR)/src/mmio.o 
+
+LIB_ARCH_RASPI_OBJS = $(LIB_ARCH_RASPI_DIR)/src/gpio_arch.o \
+	$(LIB_ARCH_RASPI_DIR)/src/spi_arch.o \
+	$(LIB_ARCH_RASPI_DIR)/src/actled_arch.o
+
+LIB_ARCH_RASPI2_OBJS = $(LIB_ARCH_RASPI2_DIR)/src/gpio_arch.o \
+	$(LIB_ARCH_RASPI2_DIR)/src/spi_arch.o \
+	$(LIB_ARCH_RASPI2_DIR)/src/actled_arch.o
 
 LIB_LIBC_OBJS = $(LIB_LIBC_DIR)/src/unistd/chdir.o \
 	$(LIB_LIBC_DIR)/src/unistd/dup.o \
@@ -141,6 +152,8 @@ LIB_LIBC_OBJS = $(LIB_LIBC_DIR)/src/unistd/chdir.o \
 	$(LIB_LIBC_DIR)/src/fcntl/fcntl.o
 
 LIB_OBJS = $(LIB_SYS_OBJS) \
+	$(LIB_ARCH_RASPI_OBJS) \
+	$(LIB_ARCH_RASPI2_OBJS) \
 	$(LIB_SD_OBJS) \
 	$(LIB_LIBC_OBJS) \
 	$(LIB_GRAPH_OBJS) \
@@ -166,6 +179,10 @@ KERNEL_H = \
 libs: $(LIB_OBJS)
 	$(AR) rT $(BUILD_DIR)/lib/libewokc.a $(LIB_SYS_OBJS)  $(LIB_LIBC_OBJS)
 	@cp -r $(LIB_SYS_DIR)/include/* $(LIB_LIBC_DIR)/include/* $(BUILD_DIR)/include/
+	$(AR) rT $(BUILD_DIR)/lib/libarch_raspi.a $(LIB_ARCH_RASPI_OBJS)
+	@cp -r $(LIB_ARCH_RASPI_DIR)/include/* $(BUILD_DIR)/include/
+	$(AR) rT $(BUILD_DIR)/lib/libarch_raspi2.a $(LIB_ARCH_RASPI2_OBJS)
+	@cp -r $(LIB_ARCH_RASPI2_DIR)/include/* $(BUILD_DIR)/include/
 	$(AR) rT $(BUILD_DIR)/lib/libsd.a $(LIB_SD_OBJS)  $(LIB_LIBC_OBJS)
 	@cp -r $(LIB_SD_DIR)/include/* $(LIB_LIBC_DIR)/include/* $(BUILD_DIR)/include/
 	$(AR) rT $(BUILD_DIR)/lib/libext2.a $(LIB_EXT2_OBJS)
@@ -181,9 +198,11 @@ include $(ROOT_DIR)/sbin/init/build.mk
 include $(ROOT_DIR)/drivers/nulld/build.mk
 include $(ROOT_DIR)/drivers/rootfsd/build.mk
 include $(ROOT_DIR)/drivers/rootkfsd/build.mk
-include $(ROOT_DIR)/drivers/arch/versatilepb/ttyd/build.mk
-include $(ROOT_DIR)/drivers/arch/raspi/ttyd/build.mk
-include $(ROOT_DIR)/drivers/arch/raspi2/ttyd/build.mk
+include $(ROOT_DIR)/drivers/arch/arm/versatilepb/ttyd/build.mk
+include $(ROOT_DIR)/drivers/arch/arm/raspi/ttyd/build.mk
+include $(ROOT_DIR)/drivers/arch/arm/raspi/actledd/build.mk
+include $(ROOT_DIR)/drivers/arch/arm/raspi2/ttyd/build.mk
+include $(ROOT_DIR)/drivers/arch/arm/raspi2/actledd/build.mk
 
 include $(ROOT_DIR)/bin/shell/build.mk
 include $(ROOT_DIR)/bin/dump/build.mk
@@ -203,9 +222,9 @@ include $(ROOT_DIR)/bin/session/build.mk
 
 mkdirs:
 	@mkdir -p ${TARGET_DIR}/$(ROOT_DIR)/sbin
-	@mkdir -p ${TARGET_DIR}/$(ROOT_DIR)/drivers/versatilepb
-	@mkdir -p ${TARGET_DIR}/$(ROOT_DIR)/drivers/raspi
-	@mkdir -p ${TARGET_DIR}/$(ROOT_DIR)/drivers/raspi2
+	@mkdir -p ${TARGET_DIR}/$(ROOT_DIR)/drivers/arm/versatilepb
+	@mkdir -p ${TARGET_DIR}/$(ROOT_DIR)/drivers/arm/raspi
+	@mkdir -p ${TARGET_DIR}/$(ROOT_DIR)/drivers/arm/raspi2
 	@mkdir -p ${TARGET_DIR}/$(ROOT_DIR)/bin
 	@mkdir -p ${TARGET_DIR}/$(ROOT_DIR)/dev
 	@mkdir -p ${BUILD_DIR}/asm
