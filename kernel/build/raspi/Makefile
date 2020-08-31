@@ -88,15 +88,8 @@ LIB_OBJS += \
 	${EXTRA_LIB_DIR}/console.o \
 	${EXTRA_LIB_DIR}/kconsole.o
 
-ifeq ($(LCDHAT),yes)
-CFLAGS += -I${EXTRA_ARCH_DIR}/${ARCH} -DWITH_LCDHAT
-ARCH_OBJS += ${EXTRA_ARCH_DIR}/${ARCH}/lib/spi_arch.o \
-	${EXTRA_ARCH_DIR}/${ARCH}/lcdhat/lcdhat.o 
-else
 CFLAGS += -DFRAMEBUFFER
 ARCH_OBJS += ${EXTRA_ARCH_DIR}/${ARCH}/framebuffer/framebuffer.o 
-endif
-
 endif
 
 ifeq ($(SDC),yes)

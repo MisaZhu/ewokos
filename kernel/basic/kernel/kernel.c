@@ -132,6 +132,8 @@ void _kernel_entry_c(context_t* ctx) {
 	hw_info_init();
 	_mmio_base = MMIO_BASE;
 
+	hw_optimise();
+
 	init_kernel_vm();  
 	km_init();
 
@@ -171,7 +173,6 @@ void _kernel_entry_c(context_t* ctx) {
 	printf("kernel: devices initing.\n");
 	dev_init();
 	
-	hw_optimise();
 
 	shm_init();
 	printf("kernel: share memory inited.\n");

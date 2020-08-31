@@ -17,8 +17,12 @@ inline hw_info_t* get_hw_info(void) {
 	return &_hw_info;
 }
 
+#define AUX_OFFSET 0x00215000
 void arch_vm(page_dir_entry_t* vm) {
-	(void)vm;
+	uint32_t offset = AUX_OFFSET;
+	uint32_t vbase = MMIO_BASE + offset;
+	uint32_t pbase = _hw_info.phy_mmio_base + offset;
+	map_page(vm, vbase, pbase, AP_RW_D, 0);
 }
 
 void hw_optimise(void) {

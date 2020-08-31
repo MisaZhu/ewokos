@@ -9,7 +9,8 @@
 #define VCMSG_ID_ARM_CLOCK 0x000000003		/* Clock/Voltage ID's */
 #define RPI_FIRMWARE_V3D_CLK_ID     0x00000005
 
-int firmware_property(uint32_t tag, uint32_t id, uint32_t *value) {
+//static int32_t __attribute__((optimize("O0"))) firmware_property(uint32_t tag, uint32_t id, uint32_t *value) {
+static int32_t firmware_property(uint32_t tag, uint32_t id, uint32_t *value) {
 	/*message head + tag head + property*/
 	uint32_t size = 12 + 12 + 8;
 	uint32_t buf[8] __attribute__((aligned(16)));
@@ -38,14 +39,15 @@ int firmware_property(uint32_t tag, uint32_t id, uint32_t *value) {
 }
 
 void cpu_freq_init(void) {
-	uint32_t voltage, freq;
-	/*adjuest cpu voltage*/
-	 firmware_property(RPI_FIRMWARE_GET_MAX_VOLTAGE, VCMSG_ID_ARM_CLOCK, &voltage);	
-	 firmware_property(RPI_FIRMWARE_SET_VOLTAGE, VCMSG_ID_ARM_CLOCK, &voltage);	
-	 /*wait voltage stable*/
-	 _delay_usec(20000);
-	
-	 firmware_property(RPI_FIRMWARE_GET_MAX_CLOCK_RATE, VCMSG_ID_ARM_CLOCK, &freq);	
-	 firmware_property(RPI_FIRMWARE_SET_CLOCK_RATE, VCMSG_ID_ARM_CLOCK, &freq);	
+	uint32_t voltage;
+	//adjuest cpu voltage
+	firmware_property(RPI_FIRMWARE_GET_MAX_VOLTAGE, VCMSG_ID_ARM_CLOCK, &voltage);	
+	firmware_property(RPI_FIRMWARE_SET_VOLTAGE, VCMSG_ID_ARM_CLOCK, &voltage);	
+	//wait voltage stable
+	_delay_msec(100);
+
+	//uint32_t freq;
+	//firmware_property(RPI_FIRMWARE_GET_MAX_CLOCK_RATE, VCMSG_ID_ARM_CLOCK, &freq);	
+	//firmware_property(RPI_FIRMWARE_SET_CLOCK_RATE, VCMSG_ID_ARM_CLOCK, &freq);	
 }
 

@@ -41,6 +41,7 @@ static inline void set_extra_flags(page_table_entry_t* pte, uint32_t is_dev) {
 		//pte->tex = 0x7;
 	//}
 #else
+	(void)is_dev;
 	if(pte->ap == AP_RW_RW) {
 		pte->tex = 0x7;
 		pte->apx = 1;

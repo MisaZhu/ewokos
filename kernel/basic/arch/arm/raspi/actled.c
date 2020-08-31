@@ -8,7 +8,7 @@ void act_led(bool on) {
 	ra |= 1<<21;
 	put32(GPIO_FSEL4, ra);
 
-	if(!on) 	
+	if(on) 	
 		put32(GPIO_CLR1, 1<<(47-32));
 	else
 		put32(GPIO_SET1, 1<<(47-32));
