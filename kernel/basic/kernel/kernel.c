@@ -20,9 +20,12 @@
 #include <dev/sd.h>
 #endif
 
+#ifdef DISPLAY
+#include <kconsole.h>
+#endif
+
 #ifdef FRAMEBUFFER
 #include <dev/framebuffer.h>
-#include <kconsole.h>
 #endif
 
 page_dir_entry_t* _kernel_vm = NULL;
@@ -42,6 +45,7 @@ static void __attribute__((optimize("O0"))) copy_interrupt_table(void) {
 	}
 }
 
+//static void __attribute__((optimize("O0"))) set_kernel_init_vm(page_dir_entry_t* vm) {
 static void set_kernel_init_vm(page_dir_entry_t* vm) {
 	memset(vm, 0, PAGE_DIR_SIZE);
 
@@ -58,6 +62,7 @@ static void set_kernel_init_vm(page_dir_entry_t* vm) {
 	arch_vm(vm);
 }
 
+//void __attribute__((optimize("O0"))) set_kernel_vm(page_dir_entry_t* vm) {
 void set_kernel_vm(page_dir_entry_t* vm) {
 	set_kernel_init_vm(vm);
 	map_pages(vm, 
@@ -67,6 +72,7 @@ void set_kernel_vm(page_dir_entry_t* vm) {
 		AP_RW_D, 0);
 }
 
+//static void __attribute__((optimize("O0"))) init_kernel_vm(void) {
 static void init_kernel_vm(void) {
 	int32_t i;
 	for(i=0; i<RAM_HOLE_MAX; i++)

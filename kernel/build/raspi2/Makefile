@@ -81,12 +81,6 @@ LIB_OBJS = \
 
 ifeq ($(DISP),yes)
 CFLAGS += -DDISPLAY
-LIB_OBJS += \
-	${EXTRA_LIB_DIR}/graph.o \
-	${EXTRA_LIB_DIR}/font.o \
-	${EXTRA_LIB_DIR}/font8x16.o \
-	${EXTRA_LIB_DIR}/console.o \
-	${EXTRA_LIB_DIR}/kconsole.o
 
 ifeq ($(LCDHAT),yes)
 CFLAGS += -I${EXTRA_ARCH_DIR}/${ARCH} -DWITH_LCDHAT
@@ -97,6 +91,12 @@ CFLAGS += -DFRAMEBUFFER
 ARCH_OBJS += ${EXTRA_ARCH_DIR}/${ARCH}/framebuffer/framebuffer.o 
 endif
 
+LIB_OBJS += \
+	${EXTRA_LIB_DIR}/graph.o \
+	${EXTRA_LIB_DIR}/font.o \
+	${EXTRA_LIB_DIR}/font8x16.o \
+	${EXTRA_LIB_DIR}/console.o \
+	${EXTRA_LIB_DIR}/kconsole.o
 endif
 
 ifeq ($(SDC),yes)
