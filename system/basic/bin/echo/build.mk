@@ -5,5 +5,6 @@ ECHO = $(TARGET_DIR)/$(ROOT_DIR)/bin/echo
 PROGS += $(ECHO)
 CLEAN += $(ECHO_OBJS)
 
-$(ECHO): $(ECHO_OBJS)
+$(ECHO): $(ECHO_OBJS) \
+		$(BUILD_DIR)/lib/libewokc.a
 	$(LD) -Ttext=100 $(ECHO_OBJS) -o $(ECHO) $(LDFLAGS) -lewokc -lc

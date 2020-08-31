@@ -19,17 +19,17 @@ CFLAGS = -marm \
 #CFLAGS +=  -g
 CFLAGS +=  -O2
 
-LDFLAGS = -L$(TARGET_DIR)/lib -lnosys
+LDFLAGS = -L$(BUILD_DIR)/lib -lnosys
 
-CFLAGS += -I $(TARGET_DIR)/include
+CFLAGS += -I $(BUILD_DIR)/include
 
 CONSOLE_OBJS = console.o
 
 CONSOLE = $(TARGET_DIR)/apps/console
 
 $(CONSOLE): $(CONSOLE_OBJS) \
-		$(TARGET_DIR)/lib/libewokc.a \
-		$(TARGET_DIR)/lib/libfonts.a
+		$(BUILD_DIR)/lib/libewokc.a \
+		$(BUILD_DIR)/lib/libfonts.a
 	$(LD) -Ttext=100 $(CONSOLE_OBJS) -o $(CONSOLE) $(LDFLAGS) -lfonts -lgraph -lewokc -lc
 
 clean:

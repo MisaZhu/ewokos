@@ -332,7 +332,8 @@ static void proc_free_heap(proc_t* proc) {
 }
 
 /* proc_load loads the given ELF process image into the given process. */
-int32_t __attribute__((optimize("O0"))) proc_load_elf(proc_t *proc, const char *image, uint32_t size) {
+//int32_t __attribute__((optimize("O0"))) proc_load_elf(proc_t *proc, const char *image, uint32_t size) {
+int32_t proc_load_elf(proc_t *proc, const char *image, uint32_t size) {
 	uint32_t prog_header_offset = 0;
 	uint32_t prog_header_count = 0;
 	uint32_t i = 0;
@@ -479,7 +480,6 @@ static int32_t proc_clone(proc_t* child, proc_t* parent) {
 
 proc_t* kfork_raw(int32_t type, proc_t* parent) {
 	proc_t *child = NULL;
-
 	child = proc_create(type, parent);
 	if(child == NULL) {
 		printf("panic: kfork create proc failed!!(%d)\n", parent->info.pid);

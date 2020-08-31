@@ -7,7 +7,8 @@
  * map_pages adds the given virtual to physical memory mapping to the given
  * virtual memory. A mapping can map multiple pages.
  */
-void __attribute__((optimize("O0"))) map_pages(page_dir_entry_t *vm, uint32_t vaddr, uint32_t pstart, uint32_t pend, uint32_t permissions, uint32_t is_dev) {
+//void __attribute__((optimize("O0"))) map_pages(page_dir_entry_t *vm, uint32_t vaddr, uint32_t pstart, uint32_t pend, uint32_t permissions, uint32_t is_dev) {
+void map_pages(page_dir_entry_t *vm, uint32_t vaddr, uint32_t pstart, uint32_t pend, uint32_t permissions, uint32_t is_dev) {
 	uint32_t physical_current = 0;
 	uint32_t virtual_current = 0;
 
@@ -25,7 +26,8 @@ void __attribute__((optimize("O0"))) map_pages(page_dir_entry_t *vm, uint32_t va
 	}
 }
 
-static inline void __attribute__((optimize("O0"))) set_extra_flags(page_table_entry_t* pte, uint32_t is_dev) {
+//static inline void __attribute__((optimize("O0"))) set_extra_flags(page_table_entry_t* pte, uint32_t is_dev) {
+static inline void set_extra_flags(page_table_entry_t* pte, uint32_t is_dev) {
 	pte->bufferable = 0;
 	pte->cacheable = 0;
 
@@ -57,7 +59,8 @@ static inline void __attribute__((optimize("O0"))) set_extra_flags(page_table_en
  * to a physical page.
  * Notice: virtual and physical address inputed must be all aliend by PAGE_SIZE !
  */
-int32_t __attribute__((optimize("O0"))) map_page(page_dir_entry_t *vm, uint32_t virtual_addr,
+//int32_t __attribute__((optimize("O0"))) map_page(page_dir_entry_t *vm, uint32_t virtual_addr,
+int32_t map_page(page_dir_entry_t *vm, uint32_t virtual_addr,
 		     uint32_t physical, uint32_t permissions, uint32_t is_dev) {
 	page_table_entry_t *page_table = 0;
 

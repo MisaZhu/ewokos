@@ -42,7 +42,7 @@ static void __attribute__((optimize("O0"))) copy_interrupt_table(void) {
 	}
 }
 
-static void __attribute__((optimize("O0"))) set_kernel_init_vm(page_dir_entry_t* vm) {
+static void set_kernel_init_vm(page_dir_entry_t* vm) {
 	memset(vm, 0, PAGE_DIR_SIZE);
 
 	//map interrupt vector to high(virtual) mem
@@ -58,7 +58,7 @@ static void __attribute__((optimize("O0"))) set_kernel_init_vm(page_dir_entry_t*
 	arch_vm(vm);
 }
 
-void __attribute__((optimize("O0"))) set_kernel_vm(page_dir_entry_t* vm) {
+void set_kernel_vm(page_dir_entry_t* vm) {
 	set_kernel_init_vm(vm);
 	map_pages(vm, 
 		ALLOCATABLE_MEMORY_START, 
@@ -67,7 +67,7 @@ void __attribute__((optimize("O0"))) set_kernel_vm(page_dir_entry_t* vm) {
 		AP_RW_D, 0);
 }
 
-static void __attribute__((optimize("O0"))) init_kernel_vm(void) {
+static void init_kernel_vm(void) {
 	int32_t i;
 	for(i=0; i<RAM_HOLE_MAX; i++)
 		_ram_holes[i].base = _ram_holes[i].end = 0;
@@ -81,8 +81,7 @@ static void __attribute__((optimize("O0"))) init_kernel_vm(void) {
 	set_translation_table_base(V2P((uint32_t)_kernel_vm));
 }
 
-static void __attribute__((optimize("O0"))) init_allocable_mem(void) {
-//static void init_allocable_mem(void) {
+static void init_allocable_mem(void) {
 	kalloc_init(ALLOCATABLE_PAGE_DIR_BASE, ALLOCATABLE_PAGE_DIR_END, false);
 	map_pages(_kernel_vm,
 		ALLOCATABLE_MEMORY_START,
@@ -118,7 +117,8 @@ int32_t load_init_proc(void) {
 }
 #endif
 
-void  __attribute__((optimize("O0"))) _kernel_entry_c(context_t* ctx) {
+//void  __attribute__((optimize("O0"))) _kernel_entry_c(context_t* ctx) {
+void _kernel_entry_c(context_t* ctx) {
 	(void)ctx;
 	//clear bss
 	memset(_bss_start, 0, (uint32_t)_bss_end - (uint32_t)_bss_start);

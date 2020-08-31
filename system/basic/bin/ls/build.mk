@@ -5,5 +5,6 @@ LS = $(TARGET_DIR)/$(ROOT_DIR)/bin/ls
 PROGS += $(LS)
 CLEAN += $(LS_OBJS)
 
-$(LS): $(LS_OBJS)
+$(LS): $(LS_OBJS) \
+		$(BUILD_DIR)/lib/libewokc.a
 	$(LD) -Ttext=100 $(LS_OBJS) -o $(LS) $(LDFLAGS) -lewokc -lc

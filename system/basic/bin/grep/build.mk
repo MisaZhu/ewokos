@@ -5,5 +5,6 @@ GREP = $(TARGET_DIR)/$(ROOT_DIR)/bin/grep
 PROGS += $(GREP)
 CLEAN += $(GREP_OBJS)
 
-$(GREP): $(GREP_OBJS)
+$(GREP): $(GREP_OBJS) \
+		$(BUILD_DIR)/lib/libewokc.a
 	$(LD) -Ttext=100 $(GREP_OBJS) -o $(GREP) $(LDFLAGS) -lewokc -lc
