@@ -1,4 +1,4 @@
-#include "arch/raspi/gpio_arch.h"
+#include "arch/bcm2836/gpio_arch.h"
 
 void actled_arch(bool on) {
   uint32_t ra;
@@ -7,7 +7,7 @@ void actled_arch(bool on) {
   ra |= 1<<21;
   put32(GPIO_FSEL4, ra);
 
-  if(on)
+  if(!on)
     put32(GPIO_CLR1, 1<<(47-32));
   else
     put32(GPIO_SET1, 1<<(47-32));

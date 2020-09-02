@@ -6,5 +6,5 @@ PROGS += $(RASPI_ACTLEDD)
 CLEAN += $(RASPI_ACTLEDD_OBJS)
 
 $(RASPI_ACTLEDD): $(RASPI_ACTLEDD_OBJS) \
-		$(BUILD_DIR)/lib/libarch_raspi.a
-	$(LD) -Ttext=100 $(RASPI_ACTLEDD_OBJS) -o $(RASPI_ACTLEDD) $(LDFLAGS) -larch_raspi -lewokc -lc
+		$(BUILD_DIR)/lib/libarch_bcm2835.a
+	$(LD) -Ttext=100 $(RASPI_ACTLEDD_OBJS) -o $(RASPI_ACTLEDD) $(LDFLAGS) -larch_bcm2835 -lewokc -lc

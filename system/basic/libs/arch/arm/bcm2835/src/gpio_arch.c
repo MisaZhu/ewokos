@@ -1,4 +1,4 @@
-#include "arch/raspi/gpio_arch.h"
+#include "arch/bcm2835/gpio_arch.h"
 
 void gpio_arch_init(void) {
 	_mmio_base = mmio_map();

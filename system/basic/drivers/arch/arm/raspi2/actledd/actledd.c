@@ -1,5 +1,5 @@
-#include <arch/raspi2/gpio_arch.h>
-#include <arch/raspi2/actled_arch.h>
+#include <arch/bcm2835/gpio_arch.h>
+#include <arch/bcm2835/actled_arch.h>
 #include <sys/vdevice.h>
 #include <string.h>
 

@@ -6,8 +6,8 @@
  *     $ part of auxiliary peripheral (along with mini-uart)
  *     $ NOT using these
  **/
-#include "arch/raspi/gpio_arch.h"
-#include "arch/raspi/spi_arch.h"
+#include "arch/bcm2835/gpio_arch.h"
+#include "arch/bcm2835/spi_arch.h"
 
 static uint32_t spi_which = SPI_SELECT_DEFAULT;
 

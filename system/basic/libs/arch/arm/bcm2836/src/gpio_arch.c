@@ -1,4 +1,4 @@
-#include "arch/raspi2/gpio_arch.h"
+#include "arch/bcm2836/gpio_arch.h"
 #include <sys/mmio.h>
 
 void gpio_arch_init(void) {
