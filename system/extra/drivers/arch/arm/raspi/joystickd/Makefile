@@ -33,8 +33,8 @@ JOYSTICKD = $(TARGET_DIR)/drivers/arm/raspi/joystickd
 
 $(JOYSTICKD): $(JOYSTICKD_OBJS) \
 		$(BUILD_DIR)/lib/libewokc.a \
-		$(BUILD_DIR)/lib/libarch_raspi.a 
-	$(LD) -Ttext=100 $(JOYSTICKD_OBJS) -o $(JOYSTICKD) $(LDFLAGS) -larch_raspi -lewokc -lc
+		$(BUILD_DIR)/lib/libarch_bcm2835.a 
+	$(LD) -Ttext=100 $(JOYSTICKD_OBJS) -o $(JOYSTICKD) $(LDFLAGS) -larch_bcm2835 -lewokc -lc
 
 clean:
 	rm -f $(JOYSTICKD_OBJS)

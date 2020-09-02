@@ -18,10 +18,6 @@
 #include <stddef.h>
 #include <fbinfo.h>
 
-#ifdef SDC
-#include <dev/sd.h>
-#endif
-
 #ifdef FRAMEBUFFER
 #include <dev/framebuffer.h>
 #endif
@@ -205,8 +201,11 @@ static uint32_t sys_mmio_map(void) {
 static int32_t sys_framebuffer_map(fbinfo_t* info) {
 #ifdef FRAMEBUFFER
 	if(_current_proc->info.owner != 0)
-		return 0;
+		return -1;
 	fbinfo_t *fbinfo = fb_get_info();
+	if(fbinfo->pointer == 0)
+		return -1;
+
 	memcpy(info, fbinfo, sizeof(fbinfo_t));
 	map_pages(_current_proc->space->vm, fbinfo->pointer, V2P(fbinfo->pointer), V2P(info->pointer)+info->size, AP_RW_RW, 0);
 	return 0;

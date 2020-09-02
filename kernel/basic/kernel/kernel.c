@@ -153,13 +153,18 @@ void _kernel_entry_c(context_t* ctx) {
 #ifdef FRAMEBUFFER
 	printf("kernel: framebuffer initing\n");
 	if(fb_dev_init(1280, 720, 32) == 0) {
-	//if(fb_dev_init(640, 480, 16) == 0) {
 		fbinfo_t* info = fb_get_info();
-		printf("    [OK] : %dx%d %dbits, addr: 0x%X, size:%d\n", 
-				info->width, info->height, info->depth,
-				info->pointer, info->size);
-		memset((void*)info->pointer, 0, info->size);
-		kconsole_setup();
+		if(info->width*info->height*info->depth/4 == info->size) {
+			printf("    [OK] : %dx%d %dbits, addr: 0x%X, size:%d\n", 
+					info->width, info->height, info->depth,
+					info->pointer, info->size);
+			memset((void*)info->pointer, 0, info->size);
+			kconsole_setup();
+		}
+		else {
+			info->pointer = 0;
+			printf("  [Failed!]\n");
+		}
 	}
 	else {
 		printf("  [Failed!]\n");
@@ -183,11 +188,11 @@ void _kernel_entry_c(context_t* ctx) {
 	irq_init();
 	printf("kernel: irq inited\n");
 
-	printf("kernel: loading init");
+	printf("kernel: loading init process\n");
 	if(load_init_proc() != 0) 
-		printf(" [failed!]\n");
+		printf("  [failed!]\n");
 	else
-		printf(" [ok]\n");
+		printf("  [ok]\n");
 	
 	printf("kernel: start timer.\n");
 	timer_set_interval(0, 0x200); 

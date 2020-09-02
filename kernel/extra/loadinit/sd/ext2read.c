@@ -6,6 +6,7 @@
 #include <stddef.h>
 #include <partition.h>
 #include <dev/sd.h>
+#include <kprintf.h>
 
 #define EXT2_BLOCK_SIZE 1024
 #define SECTOR_SIZE     512
@@ -46,12 +47,12 @@ static partition_t _partitions[PARTITION_MAX];
 int32_t read_partition(void) {
 	uint8_t sector[512];
 	if(sd_read_sector(0, sector) != 0) {
-		printf("read zero sector error!\n");
+		printf("  read zero sector error!\n");
 		return -1;
 	}
 	//check magic 
 	if(sector[510] != 0x55 || sector[511] != 0xAA)  {
-		printf("check zero sector magic error!\n");
+		printf("  check zero sector magic error!\n");
 		return -1;
 	}
 	uint8_t* p = sector + 0x1BE;
@@ -59,9 +60,11 @@ int32_t read_partition(void) {
 	for(i=0; i<PARTITION_MAX; i++) {
 		memcpy(&_partitions[i], p, sizeof(partition_t));
 		p += sizeof(partition_t);
-		printf("partition %d: start_sector: %d\n", i, _partitions[i].start_sector);
+		if(_partitions[i].start_sector == 0)
+			break;
+		printf("  partition %d: start_sector: %d\n", i, _partitions[i].start_sector);
 	}
-
+	printf("  %d partitions found.\n");
 	return 0;
 }
 
@@ -305,7 +308,6 @@ static int32_t get_gds(ext2_t* ext2) {
 static int32_t ext2_init(ext2_t* ext2, read_block_func_t read_block, write_block_func_t write_block) {
 	if(read_partition() != 0 || partition_get(1, &_partition) != 0) {
 		memset(&_partition, 0, sizeof(partition_t));
-		printf("partition error\n");
 		return -1;
 	}
 

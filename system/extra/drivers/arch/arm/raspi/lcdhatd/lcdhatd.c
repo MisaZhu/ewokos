@@ -4,8 +4,8 @@
 #include <fcntl.h>
 #include <string.h>
 #include <sys/shm.h>
-#include "arch/raspi/gpio_arch.h"
-#include "arch/raspi/spi_arch.h"
+#include "arch/bcm2835/gpio_arch.h"
+#include "arch/bcm2835/spi_arch.h"
 #include <sys/vdevice.h>
 #include <sys/vfs.h>
 #include <sys/syscall.h>

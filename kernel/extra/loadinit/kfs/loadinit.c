@@ -2,6 +2,7 @@
 #include <kernel/proc.h>
 #include <mm/kmalloc.h>
 #include <kstring.h>
+#include <kprintf.h>
 
 #define KFS_ITEM_MAX 256
 #define FNAME_MAX 256
@@ -184,15 +185,17 @@ static char* kfs_get_by_name(const char* fname, int32_t *size) {
 int32_t load_init_kfs(void) {
 	_kfs_item_num = 0;
 	add_nodes(0);
+	const char* prog = "/sbin/init";
 
+	printf("  read %s from kernel-fs\n", prog);
   int32_t init_size;
-  char* elf = kfs_get_by_name("/sbin/init", &init_size);
+  char* elf = kfs_get_by_name(prog, &init_size);
   if(elf == NULL) {
     return -1;
   }
 
   proc_t *proc = proc_create(PROC_TYPE_PROC, NULL);
-  strcpy(proc->info.cmd, "/sbin/init");
+  strcpy(proc->info.cmd, prog);
   int32_t res = proc_load_elf(proc, elf, init_size);
   kfree(elf);
   return res;

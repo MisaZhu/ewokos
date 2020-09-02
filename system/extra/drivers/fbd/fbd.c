@@ -45,6 +45,9 @@ static int fb_write(int fd,
 	(void)offset;
 	(void)p;
 
+	if(_fbinfo.pointer == 0)
+		return 0;
+
 	int32_t sz = (_fbinfo.depth/8) * _fbinfo.width * _fbinfo.height;
 	if(size < sz)
 		return 0;
@@ -83,6 +86,9 @@ static int fb_flush(int fd, int from_pid, fsinfo_t* info, void* p) {
 	(void)info;
 	fb_dma_t* dma = (fb_dma_t*)p;
 
+	if(_fbinfo.pointer == 0)
+		return 0;
+
 	uint32_t size = dma->size;
 	uint32_t sz = (_fbinfo.depth/8) * _fbinfo.width * _fbinfo.height;
 	if(size > sz)
@@ -108,9 +114,12 @@ static int fb_dma(int fd, int from_pid, fsinfo_t* info, int* size, void* p) {
 int main(int argc, char** argv) {
 	const char* mnt_name = argc > 1 ? argv[1]: "/dev/fb0";
 
-	syscall1(SYS_FRAMEBUFFER_MAP, (int32_t)&_fbinfo);
-	uint32_t sz = _fbinfo.width * _fbinfo.height * 4;
+	if(syscall1(SYS_FRAMEBUFFER_MAP, (int32_t)&_fbinfo) != 0) {
+		kprintf(false, " framebuffer mapping failed!\n");
+		return -1;
+	}
 
+	uint32_t sz = _fbinfo.width * _fbinfo.height * 4;
 	fb_dma_t dma;
 	dma.shm_id = shm_alloc(sz, 1);
 	if(dma.shm_id <= 0)

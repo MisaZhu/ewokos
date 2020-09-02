@@ -33,8 +33,8 @@ LCDHATD = $(TARGET_DIR)/drivers/arm/raspi/lcdhatd
 
 $(LCDHATD): $(LCDHATD_OBJS) \
 		$(BUILD_DIR)/lib/libewokc.a \
-		$(BUILD_DIR)/lib/libarch_raspi.a 
-	$(LD) -Ttext=100 $(LCDHATD_OBJS) -o $(LCDHATD) $(LDFLAGS) -larch_raspi -lewokc -lc
+		$(BUILD_DIR)/lib/libarch_bcm2835.a 
+	$(LD) -Ttext=100 $(LCDHATD_OBJS) -o $(LCDHATD) $(LDFLAGS) -larch_bcm2835 -lewokc -lc
 
 clean:
 	rm -f $(LCDHATD_OBJS)
