@@ -8,7 +8,6 @@
 #include <sys/mmio.h>
 #include <sys/proc.h>
 #include <sys/ipc.h>
-#include <arch/bcm2836/actled_arch.h>
 
 enum {
 	// The GPIO registers base address.
@@ -102,9 +101,7 @@ static int tty_write(int fd, int from_pid, fsinfo_t* info,
 	(void)offset;
 	(void)p;
 
-	actled_arch(true);
 	int ret = uart_write(buf, size);
-	actled_arch(false);
 	return ret;
 }
 
