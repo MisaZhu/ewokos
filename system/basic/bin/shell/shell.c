@@ -121,11 +121,13 @@ static int32_t gets(str_t* buf) {
 			}
 		}
 		else {
-			putch(c);
-			if(c == '\r' || c == '\n')
-				break;
-			if(c > 27)
-				str_addc(buf, c);
+			if(c != '\r') {
+				putch(c);
+				if(c == '\n')
+					break;
+				if(c > 27)
+					str_addc(buf, c);
+			}
 		}
 		usleep(10000);
 	}
