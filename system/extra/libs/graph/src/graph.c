@@ -9,7 +9,7 @@ extern "C" {
 
 
 inline uint32_t argb(uint32_t a, uint32_t r, uint32_t g, uint32_t b) {
-	return a << 24 | b << 16 | g << 8 | r;
+	return a << 24 | r << 16 | g << 8 | b;
 }
 
 inline int32_t has_alpha(uint32_t c) {
@@ -64,9 +64,9 @@ static inline void pixel_argb(graph_t* graph, int32_t x, int32_t y,
 		uint8_t a, uint8_t r, uint8_t g, uint8_t b) {
 	register uint32_t oc = graph->buffer[y * graph->w + x];
 	register uint8_t oa = (oc >> 24) & 0xff;
-	register uint8_t ob = (oc >> 16) & 0xff;
+	register uint8_t or = (oc >> 16) & 0xff;
 	register uint8_t og = (oc >> 8)  & 0xff;
-	register uint8_t or = oc & 0xff;
+	register uint8_t ob = oc & 0xff;
 
 	oa = oa + (255 - oa) * a / 255;
 	or = r*a/255 + or*(255-a)/255;
@@ -110,9 +110,9 @@ void graph_reverse(graph_t* g) {
 	while(i < g->w*g->h) {
 		uint32_t oc = g->buffer[i];
 		uint8_t oa = (oc >> 24) & 0xff;
-		uint8_t ob = 0xff - ((oc >> 16) & 0xff);
+		uint8_t or = 0xff - ((oc >> 16) & 0xff);
 		uint8_t og = 0xff - ((oc >> 8)  & 0xff);
-		uint8_t or = 0xff - (oc & 0xff);
+		uint8_t ob = 0xff - (oc & 0xff);
 		g->buffer[i] = argb(oa, or, og, ob);
 		i++;
 	}
@@ -618,9 +618,9 @@ inline void graph_dup16(uint16_t* dst, uint32_t* src, int32_t w, int32_t h) {
 	size = w * h;
 	for(i=0; i < size; i++) {
 		register uint32_t s = src[i];
-		register uint8_t b = (s >> 16);
+		register uint8_t r = (s >> 16);
 		register uint8_t g = (s >> 8);
-		register uint8_t r = s;
+		register uint8_t b = s;
 		dst[i] = ((r >> 3) <<11) | ((g >> 3) << 6) | (b >> 3);
 	}
 }
