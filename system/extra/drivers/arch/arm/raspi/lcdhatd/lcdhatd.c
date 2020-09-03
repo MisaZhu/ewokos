@@ -4,8 +4,8 @@
 #include <fcntl.h>
 #include <string.h>
 #include <sys/shm.h>
-#include "arch/bcm2835/gpio_arch.h"
-#include "arch/bcm2835/spi_arch.h"
+#include "arch/bcm283x/gpio_arch.h"
+#include "arch/bcm283x/spi_arch.h"
 #include <sys/vdevice.h>
 #include <sys/vfs.h>
 #include <sys/syscall.h>

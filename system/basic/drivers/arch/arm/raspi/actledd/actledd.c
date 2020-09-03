@@ -1,7 +1,19 @@
-#include <arch/bcm2835/gpio_arch.h>
-#include <arch/bcm2835/actled_arch.h>
+#include <arch/bcm283x/gpio_arch.h>
 #include <sys/vdevice.h>
 #include <string.h>
+
+static void actled(bool on) {
+  uint32_t ra;
+  ra = get32(GPIO_FSEL4);
+  ra &= ~(7<<21);
+  ra |= 1<<21;
+  put32(GPIO_FSEL4, ra);
+
+  if(on)
+    put32(GPIO_CLR1, 1<<(47-32));
+  else
+    put32(GPIO_SET1, 1<<(47-32));
+}
 
 static int actled_write(int fd, int from_pid, fsinfo_t* info,
 		const void* buf, int size, int offset, void* p) {
@@ -12,10 +24,10 @@ static int actled_write(int fd, int from_pid, fsinfo_t* info,
 	(void)p;
 
 	if(size == 0 || ((const char*)buf)[0] == 0) {
-		actled_arch(false);
+		actled(false);
 	}
 	else {
-		actled_arch(true);
+		actled(true);
 	}
 	return size;
 }
@@ -27,10 +39,10 @@ static int actled_dev_cntl(int from_pid, int cmd, proto_t* in, proto_t* ret, voi
 	(void)p;
 
 	if(proto_read_int(in) == 0) {
-		actled_arch(false);
+		actled(false);
 	}
 	else {
-		actled_arch(true);
+		actled(true);
 	}
 	return 0;
 }
