@@ -39,14 +39,14 @@
 
 #define GPIO_PULL_MASK 0x03
 
-void    gpio_arch_init(void);
+void    gpio_init(void);
 
-void gpio_arch_config(int32_t gpio_num, int32_t gpio_sel);
+void gpio_config(int32_t gpio_num, int32_t gpio_sel);
 
-void gpio_arch_pull(int32_t gpio_num, int32_t pull_dir);
+void gpio_pull(int32_t gpio_num, int32_t pull_dir);
 
-void gpio_arch_write(int32_t gpio_num, int32_t value);
+void gpio_write(int32_t gpio_num, int32_t value);
 
-uint32_t gpio_arch_read(int32_t gpio_num);
+uint32_t gpio_read(int32_t gpio_num);
 
 #endif

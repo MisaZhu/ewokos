@@ -1,6 +1,6 @@
-#include "arch/raspi2/gpio_arch.h"
-#include "arch/raspi2/spi_arch.h"
-#include "arch/raspi2/actled_arch.h"
+#include "arch/raspi2/gpio.h"
+#include "arch/raspi2/spi.h"
+#include "arch/raspi2/actled.h"
 #include <unistd.h>
 
 #define EPD_RST_PIN      17
@@ -17,37 +17,37 @@ static inline void wait_msec(uint32_t n) {
 
 //bc
 void epaper_reset(void) {
-	gpio_arch_write(EPD_RST_PIN, 1);
+	gpio_write(EPD_RST_PIN, 1);
 	wait_msec(200);
-	gpio_arch_write(EPD_RST_PIN, 0);
+	gpio_write(EPD_RST_PIN, 0);
 	wait_msec(200);
-	gpio_arch_write(EPD_RST_PIN, 1);
+	gpio_write(EPD_RST_PIN, 1);
 	wait_msec(200);
 }
 
 void epaper_cmd(uint8_t reg) {
-	actled_arch(true);
-	gpio_arch_write(EPD_DC_PIN, 0);
-	gpio_arch_write(EPD_CS_PIN, 0);
-	spi_arch_transfer(reg);
-	gpio_arch_write(EPD_CS_PIN, 1);
-	actled_arch(false);
+	actled(true);
+	gpio_write(EPD_DC_PIN, 0);
+	gpio_write(EPD_CS_PIN, 0);
+	spi_transfer(reg);
+	gpio_write(EPD_CS_PIN, 1);
+	actled(false);
 }
 
 void epaper_write(uint8_t data) {
-	actled_arch(true);
-	gpio_arch_write(EPD_DC_PIN, 1);
-	gpio_arch_write(EPD_CS_PIN, 0);
-	spi_arch_transfer(data);
-	gpio_arch_write(EPD_CS_PIN, 1);
-	actled_arch(false);
+	actled(true);
+	gpio_write(EPD_DC_PIN, 1);
+	gpio_write(EPD_CS_PIN, 0);
+	spi_transfer(data);
+	gpio_write(EPD_CS_PIN, 1);
+	actled(false);
 }
 
 void epaper_wait(void) {
-	while(gpio_arch_read(EPD_BUSY_PIN) == 0) {
-		actled_arch(true);
+	while(gpio_read(EPD_BUSY_PIN) == 0) {
+		actled(true);
 		wait_msec(50);
-		actled_arch(false);
+		actled(false);
 		wait_msec(50);
 	}
 }
@@ -129,30 +129,30 @@ const unsigned char EPD_2IN13_lut_partial_update[] = {
 };
 static void epaper_reset(void)
 {
-    gpio_arch_write(EPD_RST_PIN, 1);
+    gpio_write(EPD_RST_PIN, 1);
     wait_msec(200);
-    gpio_arch_write(EPD_RST_PIN, 0);
+    gpio_write(EPD_RST_PIN, 0);
     wait_msec(10);
-    gpio_arch_write(EPD_RST_PIN, 1);
+    gpio_write(EPD_RST_PIN, 1);
     wait_msec(200);
 }
 static void epaper_cmd(uint8_t Reg)
 {
-    gpio_arch_write(EPD_DC_PIN, 0);
-    gpio_arch_write(EPD_CS_PIN, 0);
-    spi_arch_transfer(Reg);
-    gpio_arch_write(EPD_CS_PIN, 1);
+    gpio_write(EPD_DC_PIN, 0);
+    gpio_write(EPD_CS_PIN, 0);
+    spi_transfer(Reg);
+    gpio_write(EPD_CS_PIN, 1);
 }
 static void epaper_write(uint8_t Data)
 {
-    gpio_arch_write(EPD_DC_PIN, 1);
-    gpio_arch_write(EPD_CS_PIN, 0);
-    spi_arch_transfer(Data);
-    gpio_arch_write(EPD_CS_PIN, 1);
+    gpio_write(EPD_DC_PIN, 1);
+    gpio_write(EPD_CS_PIN, 0);
+    spi_transfer(Data);
+    gpio_write(EPD_CS_PIN, 1);
 }
 void EPD_2IN13_ReadBusy(void)
 {
-    while(gpio_arch_read(EPD_BUSY_PIN) == 1) {      //LOW: idle, HIGH: busy
+    while(gpio_read(EPD_BUSY_PIN) == 1) {      //LOW: idle, HIGH: busy
         wait_msec(100);
     }
 }
@@ -265,30 +265,30 @@ const unsigned char epaper_lut_partial_update[]= { //20 bytes
 };
 static void epaper_reset(void)
 {
-	gpio_arch_write(EPD_RST_PIN, 1);
+	gpio_write(EPD_RST_PIN, 1);
 	wait_msec(200);
-	gpio_arch_write(EPD_RST_PIN, 0);
+	gpio_write(EPD_RST_PIN, 0);
 	wait_msec(10);
-	gpio_arch_write(EPD_RST_PIN, 1);
+	gpio_write(EPD_RST_PIN, 1);
 	wait_msec(200);
 }
 static void epaper_cmd(uint8_t Reg)
 {
-	gpio_arch_write(EPD_DC_PIN, 0);
-	gpio_arch_write(EPD_CS_PIN, 0);
-	spi_arch_transfer(Reg);
-	gpio_arch_write(EPD_CS_PIN, 1);
+	gpio_write(EPD_DC_PIN, 0);
+	gpio_write(EPD_CS_PIN, 0);
+	spi_transfer(Reg);
+	gpio_write(EPD_CS_PIN, 1);
 }
 static void epaper_write(uint8_t Data)
 {
-	gpio_arch_write(EPD_DC_PIN, 1);
-	gpio_arch_write(EPD_CS_PIN, 0);
-	spi_arch_transfer(Data);
-	gpio_arch_write(EPD_CS_PIN, 1);
+	gpio_write(EPD_DC_PIN, 1);
+	gpio_write(EPD_CS_PIN, 0);
+	spi_transfer(Data);
+	gpio_write(EPD_CS_PIN, 1);
 }
 void epaper_ReadBusy(void)
 {
-	while(gpio_arch_read(EPD_BUSY_PIN) == 1) {      //LOW: idle, HIGH: busy
+	while(gpio_read(EPD_BUSY_PIN) == 1) {      //LOW: idle, HIGH: busy
 		wait_msec(100);
 	}
 }
@@ -400,7 +400,7 @@ void epaper_clear(void)
 int main(int argc, char** argv) {
 	(void)argc;
 	(void)argv;
-	spi_arch_init(SPI_CLK_DIVIDE_TEST);
+	spi_init(SPI_CLK_DIVIDE_TEST);
 	epaper_init();
 	epaper_clear();
 	wait_msec(200);

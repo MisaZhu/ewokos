@@ -4,8 +4,8 @@
 #include <fcntl.h>
 #include <string.h>
 #include <sys/shm.h>
-#include "arch/bcm283x/gpio_arch.h"
-#include "arch/bcm283x/spi_arch.h"
+#include "arch/bcm283x/gpio.h"
+#include "arch/bcm283x/spi.h"
 #include <sys/vdevice.h>
 #include <sys/vfs.h>
 #include <sys/syscall.h>
@@ -22,7 +22,7 @@
 #define LCD_BL   24
 
 #define DEV_Delay_ms(x) usleep((x)*1000)
-#define DEV_Digital_Write gpio_arch_write
+#define DEV_Digital_Write gpio_write
 
 #define LCD_CS_0		DEV_Digital_Write(LCD_CS,0)
 #define LCD_CS_1		DEV_Digital_Write(LCD_CS,1)
@@ -52,10 +52,10 @@ typedef struct{
 static LCD_ATTRIBUTES LCD;
 
 static inline void DEV_SPI_Write(UBYTE* data, uint32_t sz) {
-	spi_arch_activate(1);
+	spi_activate(1);
 	for(uint32_t i=0; i<sz; i++)
-		spi_arch_transfer(data[i]);
-	spi_arch_activate(0);
+		spi_transfer(data[i]);
+	spi_activate(0);
 }
 
 /******************************************************************************
@@ -280,15 +280,15 @@ static void LCD_1in3_Clear(UWORD Color) {
 }
 
 static void lcd_init(void) {
-	gpio_arch_init();
+	gpio_init();
 
-	gpio_arch_config(LCD_CS, 1);
-	gpio_arch_config(LCD_RST, 1);
-	gpio_arch_config(LCD_DC, 1);
-	gpio_arch_config(LCD_BL, 1);
+	gpio_config(LCD_CS, 1);
+	gpio_config(LCD_RST, 1);
+	gpio_config(LCD_DC, 1);
+	gpio_config(LCD_BL, 1);
 
-	spi_arch_init(4);
-	spi_arch_select(1);
+	spi_init(4);
+	spi_select(1);
 
 	LCD_1in3_Init(HORIZONTAL);
 	LCD_1in3_SetWindows(0, 0, LCD_WIDTH, LCD_HEIGHT);
@@ -308,7 +308,7 @@ static void  do_flush(const void* buf, uint32_t size) {
 		return;
 
 	LCD_DC_1;
-	spi_arch_activate(1);
+	spi_activate(1);
 
 	uint32_t *src = (uint32_t*)buf;
 	uint32_t sz = LCD_HEIGHT*LCD_WIDTH;
@@ -322,11 +322,11 @@ static void  do_flush(const void* buf, uint32_t size) {
 		UWORD color = ((r >> 3) <<11) | ((g >> 3) << 6) | (b >> 3);
 		//color = ((color<<8)&0xff00)|(color>>8);
 		uint8_t* p = (uint8_t*)&color;
-		spi_arch_transfer(p[1]);
-		spi_arch_transfer(p[0]);
+		spi_transfer(p[1]);
+		spi_transfer(p[0]);
 	}
 
-	spi_arch_activate(0);
+	spi_activate(0);
 }
 
 static int lcd_flush(int fd, int from_pid, fsinfo_t* info, void* p) {

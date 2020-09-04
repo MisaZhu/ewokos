@@ -81,8 +81,9 @@ LIB_SYS_OBJS = $(LIB_SYS_DIR)/src/syscall.o \
 	$(LIB_SYS_DIR)/src/buffer.o \
 	$(LIB_SYS_DIR)/src/mmio.o 
 
-LIB_ARCH_BCM283x_OBJS = $(LIB_ARCH_BCM283x_DIR)/src/gpio_arch.o \
-	$(LIB_ARCH_BCM283x_DIR)/src/spi_arch.o
+LIB_ARCH_BCM283x_OBJS = $(LIB_ARCH_BCM283x_DIR)/src/gpio.o \
+	$(LIB_ARCH_BCM283x_DIR)/src/spi.o \
+	$(LIB_ARCH_BCM283x_DIR)/src/mailbox.o
 
 LIB_LIBC_OBJS = $(LIB_LIBC_DIR)/src/unistd/chdir.o \
 	$(LIB_LIBC_DIR)/src/unistd/dup.o \

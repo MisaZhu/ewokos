@@ -6,13 +6,13 @@
  *     $ part of auxiliary peripheral (along with mini-uart)
  *     $ NOT using these
  **/
-#include "arch/bcm283x/gpio_arch.h"
-#include "arch/bcm283x/spi_arch.h"
+#include "arch/bcm283x/gpio.h"
+#include "arch/bcm283x/spi.h"
 
 static uint32_t spi_which = SPI_SELECT_DEFAULT;
 
-void spi_arch_init(int32_t clk_divide) {
-	gpio_arch_init();
+void spi_init(int32_t clk_divide) {
+	gpio_init();
 
 	uint32_t data = SPI_CNTL_CLMASK; /* clear both rx/tx fifo */
 	/* clear spi fifo */
@@ -21,14 +21,14 @@ void spi_arch_init(int32_t clk_divide) {
 	clk_divide &= SPI_CLK_DIVIDE_MASK; /* 16-bit value */
 	put32(SPI_CLK_REG,clk_divide); /** 0=65536, power of 2, rounded down */
 	/* setup spi pins (ALTF0) */
-	gpio_arch_config(SPI_SCLK, GPIO_ALTF0);
-	gpio_arch_config(SPI_MOSI, GPIO_ALTF0);
-	gpio_arch_config(SPI_MISO, GPIO_ALTF0);
-	gpio_arch_config(SPI_CE0N, GPIO_ALTF0);
-	gpio_arch_config(SPI_CE1N, GPIO_ALTF0);
+	gpio_config(SPI_SCLK, GPIO_ALTF0);
+	gpio_config(SPI_MOSI, GPIO_ALTF0);
+	gpio_config(SPI_MISO, GPIO_ALTF0);
+	gpio_config(SPI_CE0N, GPIO_ALTF0);
+	gpio_config(SPI_CE1N, GPIO_ALTF0);
 }
 
-void spi_arch_select(uint32_t which) {
+void spi_select(uint32_t which) {
 	switch (which) {
 		case SPI_SELECT_0:
 		case SPI_SELECT_1:
@@ -39,7 +39,7 @@ void spi_arch_select(uint32_t which) {
 	}
 }
 
-inline void spi_arch_activate(uint32_t enable) {
+inline void spi_activate(uint32_t enable) {
 	uint32_t data = SPI_CNTL_TRXACT;
 	if (enable) {
 		/* activate transfer on selected channel 0 or 1 */
@@ -51,7 +51,7 @@ inline void spi_arch_activate(uint32_t enable) {
 	}
 }
 
-inline void spi_arch_write(uint32_t data) {
+inline void spi_write(uint32_t data) {
 	/* wait if fifo is full */
 	while (!(get32(SPI_CS_REG)&SPI_STAT_TXDATA));
 	/* write a byte */
@@ -60,7 +60,7 @@ inline void spi_arch_write(uint32_t data) {
 	while (!(get32(SPI_CS_REG)&SPI_STAT_TXDONE));
 }
 
-inline uint32_t spi_arch_transfer(uint32_t data) {
+inline uint32_t spi_transfer(uint32_t data) {
 	/* wait if fifo is full */
 	while (!(get32(SPI_CS_REG)&SPI_STAT_TXDATA));
 	/* write a byte */

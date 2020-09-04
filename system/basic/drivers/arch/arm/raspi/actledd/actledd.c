@@ -1,4 +1,4 @@
-#include <arch/bcm283x/gpio_arch.h>
+#include <arch/bcm283x/gpio.h>
 #include <sys/vdevice.h>
 #include <string.h>
 
@@ -49,7 +49,7 @@ static int actled_dev_cntl(int from_pid, int cmd, proto_t* in, proto_t* ret, voi
 
 int main(int argc, char** argv) {
 	const char* mnt_point = argc > 1 ? argv[1]: "/dev/actled";
-	gpio_arch_init();
+	gpio_init();
 
 	vdevice_t dev;
 	memset(&dev, 0, sizeof(vdevice_t));

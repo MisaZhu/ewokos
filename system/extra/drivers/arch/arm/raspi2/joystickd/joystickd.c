@@ -4,7 +4,7 @@
 #include <string.h>
 #include <sys/vdevice.h>
 #include <sys/syscall.h>
-#include "arch/bcm283x/gpio_arch.h"
+#include "arch/bcm283x/gpio.h"
 
 #define KEY_UP_PIN      6
 #define KEY_DOWN_PIN    19
@@ -36,53 +36,53 @@ static int joystick_read(int fd, int from_pid, fsinfo_t* info,
 	char* rd = (char*)buf;
 	*rd = 0;
 
-	if(gpio_arch_read(KEY_UP_PIN) == 0)
+	if(gpio_read(KEY_UP_PIN) == 0)
 		*rd |= KEY_V_UP;
-	if(gpio_arch_read(KEY_DOWN_PIN) == 0)
+	if(gpio_read(KEY_DOWN_PIN) == 0)
 		*rd |= KEY_V_DOWN;
-	if(gpio_arch_read(KEY_LEFT_PIN) == 0)
+	if(gpio_read(KEY_LEFT_PIN) == 0)
 		*rd |= KEY_V_LEFT;
-	if(gpio_arch_read(KEY_RIGHT_PIN) == 0)
+	if(gpio_read(KEY_RIGHT_PIN) == 0)
 		*rd |= KEY_V_RIGHT;
-	if(gpio_arch_read(KEY_PRESS_PIN) == 0)
+	if(gpio_read(KEY_PRESS_PIN) == 0)
 		*rd |= KEY_V_PRESS;
-	if(gpio_arch_read(KEY1_PIN) == 0)
+	if(gpio_read(KEY1_PIN) == 0)
 		*rd |= KEY_V_1;
-	if(gpio_arch_read(KEY2_PIN) == 0)
+	if(gpio_read(KEY2_PIN) == 0)
 		*rd |= KEY_V_2;
-	if(gpio_arch_read(KEY3_PIN) == 0)
+	if(gpio_read(KEY3_PIN) == 0)
 		*rd |= KEY_V_3;
 	return 1;
 }
 
 static void init_gpio(void) {
-	gpio_arch_config(KEY_UP_PIN, 0);//input	
-	gpio_arch_pull(KEY_UP_PIN, 2); //pull up
+	gpio_config(KEY_UP_PIN, 0);//input	
+	gpio_pull(KEY_UP_PIN, 2); //pull up
 
-	gpio_arch_config(KEY_DOWN_PIN, 0);//input	
-	gpio_arch_pull(KEY_DOWN_PIN, 2); //pull up
+	gpio_config(KEY_DOWN_PIN, 0);//input	
+	gpio_pull(KEY_DOWN_PIN, 2); //pull up
 
-	gpio_arch_config(KEY_LEFT_PIN, 0);//input	
-	gpio_arch_pull(KEY_LEFT_PIN, 2); //pull up
+	gpio_config(KEY_LEFT_PIN, 0);//input	
+	gpio_pull(KEY_LEFT_PIN, 2); //pull up
 
-	gpio_arch_config(KEY_RIGHT_PIN, 0);//input	
-	gpio_arch_pull(KEY_RIGHT_PIN, 2); //pull up
+	gpio_config(KEY_RIGHT_PIN, 0);//input	
+	gpio_pull(KEY_RIGHT_PIN, 2); //pull up
 
-	gpio_arch_config(KEY_PRESS_PIN, 0);//input	
-	gpio_arch_pull(KEY_PRESS_PIN, 2); //pull up
+	gpio_config(KEY_PRESS_PIN, 0);//input	
+	gpio_pull(KEY_PRESS_PIN, 2); //pull up
 
-	gpio_arch_config(KEY1_PIN, 0);//input	
-	gpio_arch_pull(KEY1_PIN, 2); //pull up
+	gpio_config(KEY1_PIN, 0);//input	
+	gpio_pull(KEY1_PIN, 2); //pull up
 
-	gpio_arch_config(KEY2_PIN, 0);//input	
-	gpio_arch_pull(KEY2_PIN, 2); //pull up
+	gpio_config(KEY2_PIN, 0);//input	
+	gpio_pull(KEY2_PIN, 2); //pull up
 
-	gpio_arch_config(KEY3_PIN, 0);//input	
-	gpio_arch_pull(KEY3_PIN, 2); //pull up
+	gpio_config(KEY3_PIN, 0);//input	
+	gpio_pull(KEY3_PIN, 2); //pull up
 }
 
 int main(int argc, char** argv) {
-	gpio_arch_init();
+	gpio_init();
 	init_gpio();
 
 	const char* mnt_point = argc > 1 ? argv[1]: "/dev/joystick";
