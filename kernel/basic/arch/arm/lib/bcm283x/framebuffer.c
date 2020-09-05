@@ -20,8 +20,9 @@ typedef struct {
 } fb_init_t;
 
 static fb_init_t fbinit __attribute__((aligned(16)));
+static fbinfo_t _fb_info;
 
-int32_t bcm283x_fb_init(uint32_t w, uint32_t h, uint32_t dep, fbinfo_t* fbinfo) {
+int32_t bcm283x_fb_init(uint32_t w, uint32_t h, uint32_t dep) {
 	mail_message_t msg;
 	memset(&msg, 0, sizeof(mail_message_t));
 
@@ -37,25 +38,28 @@ int32_t bcm283x_fb_init(uint32_t w, uint32_t h, uint32_t dep, fbinfo_t* fbinfo) 
 	mailbox_send(FRAMEBUFFER_CHANNEL, &msg);
 	mailbox_read(FRAMEBUFFER_CHANNEL, &msg);
 
-	fbinfo->width = fbinit.width;
-	fbinfo->height = fbinit.height;
-	fbinfo->vwidth = fbinit.width;
-	fbinfo->vheight = fbinit.height;
-	fbinfo->depth = fbinit.depth;
-	fbinfo->pitch = fbinfo->width*(fbinfo->depth/8);
+	_fb_info.width = fbinit.width;
+	_fb_info.height = fbinit.height;
+	_fb_info.vwidth = fbinit.width;
+	_fb_info.vheight = fbinit.height;
+	_fb_info.depth = fbinit.depth;
+	_fb_info.pitch = _fb_info.width*(_fb_info.depth/8);
 
-	fbinfo->pointer = (uint32_t)fbinit.pointer - 0x40000000; //gpu address sub 0x40000000 with l2 cache enabled
-	//fbinfo->pointer = (uint32_t)fbinit.pointer - 0xc0000000; //gpu address sub 0xc0000000 with l2 cache disabled
-	fbinfo->size = fbinit.size;
-	fbinfo->xoffset = 0;
-	fbinfo->yoffset = 0;
+	_fb_info.pointer = (uint32_t)fbinit.pointer - 0x40000000; //gpu address sub 0x40000000 with l2 cache enabled
+	//_fb_info.pointer = (uint32_t)fbinit.pointer - 0xc0000000; //gpu address sub 0xc0000000 with l2 cache disabled
+	_fb_info.size = fbinit.size;
+	_fb_info.xoffset = 0;
+	_fb_info.yoffset = 0;
 
-	if(fbinfo->pointer < KERNEL_BASE) {
-		fbinfo->pointer = P2V(fbinfo->pointer);
+	if(_fb_info.pointer < KERNEL_BASE) {
+		_fb_info.pointer = P2V(_fb_info.pointer);
 	}
 
-	map_pages(_kernel_vm, fbinfo->pointer, V2P(fbinfo->pointer), V2P(fbinfo->pointer)+fbinfo->size, AP_RW_D, 0);
-	kmake_hole(fbinfo->pointer, fbinfo->pointer+fbinfo->size);
+	map_pages(_kernel_vm, _fb_info.pointer, V2P(_fb_info.pointer), V2P(_fb_info.pointer)+_fb_info.size, AP_RW_D, 0);
+	kmake_hole(_fb_info.pointer, _fb_info.pointer+_fb_info.size);
 	return 0;
 }
 
+fbinfo_t* bcm283x_get_fbinfo(void) {
+	return &_fb_info;
+}

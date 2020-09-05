@@ -4,6 +4,15 @@
 #include <kernel/system.h>
 
 ram_hole_t _ram_holes[RAM_HOLE_MAX];
+
+void ram_hole_init(void) {
+	int32_t i;
+	for(i=0; i<RAM_HOLE_MAX; i++) {
+		_ram_holes[i].base = 0;
+		_ram_holes[i].end = 0;
+	}
+}
+
 /*physical memory split to pages for paging mmu, managed by kalloc/kfree, phymem page state must be occupied or free*/
 
 /*

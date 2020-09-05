@@ -8,14 +8,12 @@
 #include <kernel/system.h>
 #include <kernel/kernel.h>
 
-static fbinfo_t _fb_info;
-
 int32_t fb_dev_init(uint32_t w, uint32_t h, uint32_t dep) {
-	return bcm283x_fb_init(w, h, dep, &_fb_info);
+	return bcm283x_fb_init(w, h, dep);
 }
 
 fbinfo_t* fb_get_info(void) {
-	return &_fb_info;
+	return bcm283x_get_fbinfo();
 }
 
 /*static inline void argb2abgr(uint32_t* dst, const uint32_t* src, uint32_t size) {
@@ -45,13 +43,14 @@ static inline void dup16(uint16_t* dst, uint32_t* src, uint32_t w, uint32_t h) {
 }
 
 int32_t fb_dev_write(const void* buf, uint32_t size) {
-	uint32_t sz = (_fb_info.depth/8) * _fb_info.width * _fb_info.height;
+	fbinfo_t* info = fb_get_info();
+	uint32_t sz = (info->depth/8) * info->width * info->height;
 	if(size > sz)
 		size = sz;
-	if(_fb_info.depth == 32) 
-		//argb2abgr((uint32_t*)_fb_info.pointer, (const uint32_t*)buf, size/4);
-		memcpy((void*)_fb_info.pointer, buf, size);
-	else if(_fb_info.depth == 16) 
-		dup16((uint16_t*)_fb_info.pointer, (uint32_t*)buf,  _fb_info.width, _fb_info.height);
+	if(info->depth == 32) 
+		//argb2abgr((uint32_t*)info->pointer, (const uint32_t*)buf, size/4);
+		memcpy((void*)info->pointer, buf, size);
+	else if(info->depth == 16) 
+		dup16((uint16_t*)info->pointer, (uint32_t*)buf,  info->width, info->height);
 	return (int32_t)size;
 }

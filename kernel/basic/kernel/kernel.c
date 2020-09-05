@@ -134,6 +134,7 @@ void _kernel_entry_c(context_t* ctx) {
 
 	hw_optimise();
 
+	ram_hole_init();
 	init_kernel_vm();  
 	km_init();
 
@@ -154,17 +155,18 @@ void _kernel_entry_c(context_t* ctx) {
 	printf("kernel: framebuffer initing\n");
 	if(fb_dev_init(1280, 720, 32) == 0) {
 		fbinfo_t* info = fb_get_info();
-		if(info->width*info->height*info->depth/8 == info->size) {
+		//if(info->width*info->height*info->depth/8 == info->size) {
 			printf("    [OK] : %dx%d %dbits, addr: 0x%X, size:%d\n", 
 					info->width, info->height, info->depth,
 					info->pointer, info->size);
 			memset((void*)info->pointer, 0, info->size);
 			kconsole_setup();
-		}
+		/*}
 		else {
 			info->pointer = 0;
 			printf("  [Failed!]\n");
 		}
+		*/
 	}
 	else {
 		printf("  [Failed!]\n");
