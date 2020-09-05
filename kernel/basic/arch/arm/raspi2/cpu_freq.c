@@ -4,7 +4,7 @@
 #include "kstring.h"
 #include <kernel/system.h>
 #include "raspberrypi-firmware.h"
-#include "mailbox.h"
+#include "bcm283x/mailbox.h"
 
 #define VCMSG_ID_ARM_CLOCK 0x000000003		/* Clock/Voltage ID's */
 #define RPI_FIRMWARE_V3D_CLK_ID     0x00000005

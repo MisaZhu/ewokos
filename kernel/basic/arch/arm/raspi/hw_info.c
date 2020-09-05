@@ -1,7 +1,7 @@
 #include <kernel/hw_info.h>
 #include <kernel/system.h>
 #include <kstring.h>
-#include "mailbox.h"
+#include "bcm283x/mailbox.h"
 #include "cpu_freq.h"
 
 static hw_info_t _hw_info;

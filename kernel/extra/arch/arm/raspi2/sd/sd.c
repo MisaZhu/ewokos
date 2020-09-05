@@ -1,4 +1,4 @@
-#include "gpio_arch.h"
+#include "bcm283x/gpio.h"
 #include <dev/sd.h>
 #include <dev/actled.h>
 #include <kernel/system.h>

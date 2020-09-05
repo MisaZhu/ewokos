@@ -30,6 +30,7 @@ endif
 CFLAGS += $(OPTM) \
 	-I. -I$(SRC_DIR)/basic/lib/include -I$(SRC_DIR)/basic/include -I$(SRC_DIR)/extra/include -I$(SRC_DIR)/extra/lib/include \
 	-I${ARCH_DIR}/${ARCH} \
+	-I${ARCH_DIR}/arm/lib \
 	-marm $(ARCH_QEMU_CFLAGS) \
 	-Wstrict-prototypes \
 	-pedantic -Wall -Wextra -msoft-float -fPIC -mapcs-frame \
@@ -57,17 +58,15 @@ ARCH_OBJS = \
 	${ARCH_DIR}/${ARCH}/uart.o \
 	${ARCH_DIR}/${ARCH}/irq_arch.o \
 	${ARCH_DIR}/${ARCH}/actled.o \
-	${ARCH_DIR}/${ARCH}/timer.o
+	${ARCH_DIR}/${ARCH}/timer.o \
+	${ARCH_DIR}/${ARCH}/cpu_freq.o \
+	${ARCH_DIR}/arm/lib/bcm283x/gpio.o  \
+	${ARCH_DIR}/arm/lib/bcm283x/mailbox.o
 
 QEMU_CMD = qemu-system-arm
 OS_IMG = kernel.img
 OS_ELF = kernel.elf
 
-ARCH_OBJS += ${ARCH_DIR}/${ARCH}/gpio_arch.o  \
-	${ARCH_DIR}/${ARCH}/mailbox.o \
-	${ARCH_DIR}/${ARCH}/cpu_freq.o
-
-	
 LIB_DIR = $(SRC_DIR)/basic/lib/src
 EXTRA_LIB_DIR = $(SRC_DIR)/extra/lib/src
 

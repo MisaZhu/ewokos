@@ -3,7 +3,7 @@
 #include "mm/kalloc.h"
 #include "kstring.h"
 #include "dev/framebuffer.h"
-#include "mailbox.h"
+#include "bcm283x/mailbox.h"
 #include "kstring.h"
 #include <kernel/system.h>
 #include <kernel/kernel.h>

@@ -223,7 +223,8 @@ static int32_t sys_framebuffer_flush(void* buf, uint32_t size) {
 	fb_dev_write(buf, size);
 	return 0;
 #else
-	(void)info;
+	(void)buf;
+	(void)size;
 	return -1;
 #endif
 }

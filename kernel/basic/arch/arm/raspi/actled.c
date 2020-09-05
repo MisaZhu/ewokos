@@ -1,5 +1,5 @@
 #include <dev/actled.h>
-#include "gpio_arch.h"
+#include "bcm283x/gpio.h"
 
 void act_led(bool on) {
 	uint32_t ra;
