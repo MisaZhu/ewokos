@@ -47,7 +47,7 @@ class Launcher: public XWin {
 protected:
 	void onRepaint(Graph& g) {
 		//font_t* font = get_font_by_name("8x16");
-		g.clear(argb_int(0x0));
+		g.clear(0x0);
 		int i;
 		for(i=0; i<items.num; i++) {
 			drawIcon(g, items.items[i]->cstr, items.icon_size, i);

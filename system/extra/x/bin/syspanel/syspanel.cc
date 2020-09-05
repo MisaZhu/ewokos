@@ -25,9 +25,9 @@ static int32_t read_config(const char* fname, items_t* items) {
 class Panel : public XWin {
 protected:
 	void onRepaint(Graph& g) {
-		g.clear(argb_int(0xffaaaaaa));
+		g.clear(0xffaaaaaa);
 		g.drawText(2, 2, "EwokOS", _items.font, 0xff222222);
-		g.line(0, g.getH()-1, g.getW(), g.getH()-1, argb_int(0xff222222));
+		g.line(0, g.getH()-1, g.getW(), g.getH()-1, 0xff222222);
 	}
 };
 

@@ -18,10 +18,6 @@ inline int32_t has_alpha(uint32_t c) {
 	return 0;
 }
 
-uint32_t argb_int(uint32_t c) {
-	return argb((c>>24)&0xff, (c>>16)&0xff, (c>>8)&0xff, c&0xff);
-}
-
 graph_t* graph_new(uint32_t* buffer, int32_t w, int32_t h) {
 	if(w <= 0 || h <= 0)
 		return NULL;
@@ -593,7 +589,7 @@ inline void graph_blt_alpha(graph_t* src, int32_t sx, int32_t sy, int32_t sw, in
 		register int32_t sx = sr.x;
 		register int32_t dx = dr.x;
 		for(; sx < ex; sx++, dx++) {
-			register uint32_t color = argb_int(src->buffer[sy * src->w + sx]);
+			register uint32_t color = src->buffer[sy * src->w + sx];
 			pixel_argb(dst, dx, dy,
 					(((color >> 24) & 0xff) * alpha)/0xff,
 					(color >> 16) & 0xff,
@@ -608,21 +604,6 @@ bool check_in_rect(int32_t x, int32_t y, grect_t* rect) {
 			y >= rect->y && y < (rect->y+rect->h))
 		return true;
 	return false;
-}
-
-inline void graph_dup16(uint16_t* dst, uint32_t* src, int32_t w, int32_t h) {
-	if(w <= 0 || h <= 0)
-		return;
-
-	register int32_t i, size;
-	size = w * h;
-	for(i=0; i < size; i++) {
-		register uint32_t s = src[i];
-		register uint8_t r = (s >> 16);
-		register uint8_t g = (s >> 8);
-		register uint8_t b = s;
-		dst[i] = ((r >> 3) <<11) | ((g >> 3) << 6) | (b >> 3);
-	}
 }
 
 #ifdef __cplusplus

@@ -42,7 +42,8 @@ enum {
 	SYS_GET_PROCS,
 
 	SYS_MMIO_MAP,
-	SYS_FRAMEBUFFER_MAP,
+	SYS_FRAMEBUFFER_INFO,
+	SYS_FRAMEBUFFER_FLUSH,
 
 	//internal proccess communication
 	SYS_IPC_SETUP,

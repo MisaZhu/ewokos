@@ -31,28 +31,28 @@ static int32_t read_config(xwm_conf_t* xwm, const char* fname) {
 
 	const char* v = sconf_get(conf, "desk_bg_color");
 	if(v[0] != 0) 
-		xwm->desk_bg_color = argb_int(atoi_base(v, 16));
+		xwm->desk_bg_color = atoi_base(v, 16);
 
 	v = sconf_get(conf, "desk_fg_color");
 	if(v[0] != 0) 
-		xwm->desk_fg_color = argb_int(atoi_base(v, 16));
+		xwm->desk_fg_color = atoi_base(v, 16);
 
 	v = sconf_get(conf, "bg_color");
 	if(v[0] != 0) 
-		xwm->bg_color = argb_int(atoi_base(v, 16));
+		xwm->bg_color = atoi_base(v, 16);
 
 
 	v = sconf_get(conf, "fg_color");
 	if(v[0] != 0) 
-		xwm->fg_color = argb_int(atoi_base(v, 16));
+		xwm->fg_color = atoi_base(v, 16);
 
 	v = sconf_get(conf, "top_bg_color");
 	if(v[0] != 0) 
-		xwm->top_bg_color = argb_int(atoi_base(v, 16));
+		xwm->top_bg_color = atoi_base(v, 16);
 
 	v = sconf_get(conf, "top_fg_color");
 	if(v[0] != 0) 
-		xwm->top_fg_color = argb_int(atoi_base(v, 16));
+		xwm->top_fg_color = atoi_base(v, 16);
 
 	v = sconf_get(conf, "font");
 	if(v[0] != 0) 
@@ -151,7 +151,7 @@ static void draw_title(graph_t* g, xinfo_t* info, grect_t* r, bool top, void* p)
 	get_color(&fg, &bg, top);
 
 	if(top)
-		graph_fill(g, r->x, r->y, r->w, _xwm_config.title_h, argb_int(0xff0000ff));//title box
+		graph_fill(g, r->x, r->y, r->w, _xwm_config.title_h, 0xff0000ff);//title box
 	else
 		graph_fill(g, r->x, r->y, r->w, _xwm_config.title_h, bg);//title box
 	graph_draw_text(g, r->x+10, r->y+2, info->title, _xwm_config.font, fg);//title

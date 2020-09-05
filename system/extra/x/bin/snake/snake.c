@@ -189,7 +189,7 @@ static void event_handle(xwin_t* x, xevent_t* xev) {
 
 static void repaint(xwin_t* x, graph_t* g) {
 	(void)x;
-	graph_clear(g, argb_int(BG_COLOR));
+	graph_clear(g, BG_COLOR);
 	graph_draw_text(g, 0, 0, info, font, TEXT_COLOR);
 	snake_draw(g, &s, &f);
 }

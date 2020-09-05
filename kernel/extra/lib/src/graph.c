@@ -4,17 +4,13 @@
 #include <mm/kmalloc.h>
 
 inline uint32_t argb(uint32_t a, uint32_t r, uint32_t g, uint32_t b) {
-	return a << 24 | b << 16 | g << 8 | r;
+	return a << 24 | r << 16 | g << 8 | b;
 }
 
 inline int32_t has_alpha(uint32_t c) {
 	if(((c >> 24) & 0xff) != 0xff)
 		return 1;
 	return 0;
-}
-
-uint32_t argb_int(uint32_t c) {
-	return argb((c>>24)&0xff, (c>>16)&0xff, (c>>8)&0xff, c&0xff);
 }
 
 graph_t* graph_new(uint32_t* buffer, uint32_t w, uint32_t h) {
@@ -56,9 +52,9 @@ static inline void pixel_argb(graph_t* graph, int32_t x, int32_t y,
 		uint8_t a, uint8_t r, uint8_t g, uint8_t b) {
 	uint32_t oc = graph->buffer[y * graph->w + x];
 	uint8_t oa = (oc >> 24) & 0xff;
-	uint8_t ob = (oc >> 16) & 0xff;
+	uint8_t or = (oc >> 16) & 0xff;
 	uint8_t og = (oc >> 8)  & 0xff;
-	uint8_t or = oc & 0xff;
+	uint8_t ob = oc & 0xff;
 
 	oa = oa + (255 - oa) * a / 255;
 	or = r*a/255 + or*(255-a)/255;
@@ -102,9 +98,9 @@ void reverse(graph_t* g) {
 	while(i < g->w*g->h) {
 		uint32_t oc = g->buffer[i];
 		uint8_t oa = (oc >> 24) & 0xff;
-		uint8_t ob = 0xff - ((oc >> 16) & 0xff);
+		uint8_t or = 0xff - ((oc >> 16) & 0xff);
 		uint8_t og = 0xff - ((oc >> 8)  & 0xff);
-		uint8_t or = 0xff - (oc & 0xff);
+		uint8_t ob = 0xff - (oc & 0xff);
 		g->buffer[i] = argb(oa, or, og, ob);
 		i++;
 	}
@@ -449,7 +445,7 @@ inline void blt_alpha(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_t 
 		register int32_t sx = sr.x;
 		register int32_t dx = dr.x;
 		for(; sx < ex; sx++, dx++) {
-			register uint32_t color = argb_int(src->buffer[sy * src->w + sx]);
+			register uint32_t color = src->buffer[sy * src->w + sx];
 			pixel_argb(dst, dx, dy,
 					(((color >> 24) & 0xff) * alpha)/0xff,
 					(color >> 16) & 0xff,
@@ -474,14 +470,3 @@ int32_t get_text_size(const char* s, font_t* font, gsize_t* size) {
 	return 0;
 }
 
-inline void dup16(uint16_t* dst, uint32_t* src, uint32_t w, uint32_t h) {
-	register int32_t i, size;
-	size = w * h;
-	for(i=0; i < size; i++) {
-		register uint32_t s = src[i];
-		register uint8_t b = (s >> 16) & 0xff;
-		register uint8_t g = (s >> 8)  & 0xff;
-		register uint8_t r = s & 0xff;
-		dst[i] = ((r >> 3) <<11) | ((g >> 3) << 6) | (b >> 3);
-	}
-}

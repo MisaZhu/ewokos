@@ -32,28 +32,28 @@ static int32_t read_config(xwm_conf_t* xwm, const char* fname) {
 
 	const char* v = sconf_get(conf, "desk_bg_color");
 	if(v[0] != 0) 
-		xwm->desk_bg_color = argb_int(atoi_base(v, 16));
+		xwm->desk_bg_color = atoi_base(v, 16);
 
 	v = sconf_get(conf, "desk_fg_color");
 	if(v[0] != 0) 
-		xwm->desk_fg_color = argb_int(atoi_base(v, 16));
+		xwm->desk_fg_color = atoi_base(v, 16);
 
 	v = sconf_get(conf, "bg_color");
 	if(v[0] != 0) 
-		xwm->bg_color = argb_int(atoi_base(v, 16));
+		xwm->bg_color = atoi_base(v, 16);
 
 
 	v = sconf_get(conf, "fg_color");
 	if(v[0] != 0) 
-		xwm->fg_color = argb_int(atoi_base(v, 16));
+		xwm->fg_color = atoi_base(v, 16);
 
 	v = sconf_get(conf, "top_bg_color");
 	if(v[0] != 0) 
-		xwm->top_bg_color = argb_int(atoi_base(v, 16));
+		xwm->top_bg_color = atoi_base(v, 16);
 
 	v = sconf_get(conf, "top_fg_color");
 	if(v[0] != 0) 
-		xwm->top_fg_color = argb_int(atoi_base(v, 16));
+		xwm->top_fg_color = atoi_base(v, 16);
 
 	v = sconf_get(conf, "font");
 	if(v[0] != 0) 

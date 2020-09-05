@@ -198,16 +198,29 @@ static uint32_t sys_mmio_map(void) {
 	return MMIO_BASE;
 }
 		
-static int32_t sys_framebuffer_map(fbinfo_t* info) {
+static int32_t sys_framebuffer_info(fbinfo_t* info) {
 #ifdef FRAMEBUFFER
 	if(_current_proc->info.owner != 0)
 		return -1;
 	fbinfo_t *fbinfo = fb_get_info();
 	if(fbinfo->pointer == 0)
 		return -1;
-
 	memcpy(info, fbinfo, sizeof(fbinfo_t));
-	map_pages(_current_proc->space->vm, fbinfo->pointer, V2P(fbinfo->pointer), V2P(info->pointer)+info->size, AP_RW_RW, 0);
+	return 0;
+#else
+	(void)info;
+	return -1;
+#endif
+}
+	
+static int32_t sys_framebuffer_flush(void* buf, uint32_t size) {
+#ifdef FRAMEBUFFER
+	if(_current_proc->info.owner != 0)
+		return -1;
+	fbinfo_t *fbinfo = fb_get_info();
+	if(fbinfo->pointer == 0)
+		return -1;
+	fb_dev_write(buf, size);
 	return 0;
 #else
 	(void)info;
@@ -531,8 +544,11 @@ void svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_t arg2, context
 	case SYS_MMIO_MAP:
 		ctx->gpr[0] = sys_mmio_map();
 		return;
-	case SYS_FRAMEBUFFER_MAP:
-		ctx->gpr[0] = sys_framebuffer_map((fbinfo_t*)arg0);
+	case SYS_FRAMEBUFFER_INFO:
+		ctx->gpr[0] = sys_framebuffer_info((fbinfo_t*)arg0);
+		return;
+	case SYS_FRAMEBUFFER_FLUSH:
+		ctx->gpr[0] = sys_framebuffer_flush((void*)arg0, (uint32_t)arg1);
 		return;
 	case SYS_IPC_SETUP:
 		sys_ipc_setup(ctx, arg0, arg1, arg2);

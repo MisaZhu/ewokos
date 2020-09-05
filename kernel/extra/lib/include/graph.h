@@ -31,8 +31,6 @@ uint32_t argb(uint32_t a, uint32_t r, uint32_t g, uint32_t b);
 
 int32_t has_alpha(uint32_t c);
 
-uint32_t argb_int(uint32_t c);
-
 graph_t* graph_new(uint32_t* buffer, uint32_t w, uint32_t h);
 
 void graph_free(graph_t* g);
@@ -64,7 +62,5 @@ void blt_alpha(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_t sh,
 int32_t check_in_rect(int32_t x, int32_t y, grect_t* rect);
 
 int32_t get_text_size(const char* s, font_t* font, gsize_t* size);
-
-void dup16(uint16_t* dst, uint32_t* src, uint32_t w, uint32_t h); 
 
 #endif
