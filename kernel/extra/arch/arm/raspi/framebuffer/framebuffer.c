@@ -69,6 +69,7 @@ inline fbinfo_t* fb_get_info(void) {
 	return &_fb_info;
 }
 
+/*
 static inline void argb2abgr(uint32_t* dst, const uint32_t* src, uint32_t size) {
 	while(size > 0) {
 		register uint32_t c = src[size-1];
@@ -80,6 +81,11 @@ static inline void argb2abgr(uint32_t* dst, const uint32_t* src, uint32_t size) 
 		dst[size-1] = a << 24 | b << 16 | g << 8 | r;
 		size--;
 	}
+}
+*/
+
+static inline void argb2abgr(uint32_t* dst, const uint32_t* src, uint32_t size) {
+	memcpy(dst, src, size*4);
 }
 
 static inline void dup16(uint16_t* dst, uint32_t* src, uint32_t w, uint32_t h) {
@@ -93,6 +99,7 @@ static inline void dup16(uint16_t* dst, uint32_t* src, uint32_t w, uint32_t h) {
 		dst[i] = ((r >> 3) <<11) | ((g >> 3) << 6) | (b >> 3);
 	}
 }
+
 int32_t fb_dev_write(const void* buf, uint32_t size) {
 	uint32_t sz = (_fb_info.depth/8) * _fb_info.width * _fb_info.height;
 	if(size > sz)
