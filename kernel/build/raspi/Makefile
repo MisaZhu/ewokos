@@ -88,12 +88,14 @@ LIB_OBJS += \
 	${EXTRA_LIB_DIR}/kconsole.o
 
 CFLAGS += -DFRAMEBUFFER
-ARCH_OBJS += ${EXTRA_ARCH_DIR}/${ARCH}/framebuffer/framebuffer.o 
+ARCH_OBJS += ${EXTRA_ARCH_DIR}/${ARCH}/framebuffer/framebuffer.o  \
+	${ARCH_DIR}/arm/lib/bcm283x/framebuffer.o
 endif
 
 ifeq ($(SDC),yes)
 CFLAGS += -DSDC
-ARCH_OBJS += ${EXTRA_ARCH_DIR}/${ARCH}/sd/sd.o
+ARCH_OBJS += ${EXTRA_ARCH_DIR}/${ARCH}/sd/sd.o \
+	${ARCH_DIR}/arm/lib/bcm283x/sd.o
 
 LOAD_DIR = $(SRC_DIR)/extra/loadinit/sd
 LOAD_OBJS = \
