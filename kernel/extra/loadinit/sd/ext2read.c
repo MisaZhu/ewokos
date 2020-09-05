@@ -64,7 +64,7 @@ int32_t read_partition(void) {
 			break;
 		printf("  partition %d: start_sector: %d\n", i, _partitions[i].start_sector);
 	}
-	printf("  %d partitions found.\n");
+	printf("  %d partitions found.\n", i);
 	return 0;
 }
 

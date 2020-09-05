@@ -39,13 +39,12 @@ static int32_t firmware_property(uint32_t tag, uint32_t id, uint32_t *value) {
 }
 
 void cpu_freq_init(void) {
+/*
 	uint32_t voltage;
-	//adjuest cpu voltage
 	firmware_property(RPI_FIRMWARE_GET_MAX_VOLTAGE, VCMSG_ID_ARM_CLOCK, &voltage);	
 	firmware_property(RPI_FIRMWARE_SET_VOLTAGE, VCMSG_ID_ARM_CLOCK, &voltage);	
-	//wait voltage stable
 	_delay_msec(100);
-
+	*/
 	uint32_t freq;
 	firmware_property(RPI_FIRMWARE_GET_MAX_CLOCK_RATE, VCMSG_ID_ARM_CLOCK, &freq);	
 	firmware_property(RPI_FIRMWARE_SET_CLOCK_RATE, VCMSG_ID_ARM_CLOCK, &freq);	
