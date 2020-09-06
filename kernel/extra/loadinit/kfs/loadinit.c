@@ -1,5 +1,7 @@
 #include <stddef.h>
 #include <kernel/proc.h>
+#include <kernel/system.h>
+#include <kernel/kernel.h>
 #include <mm/kmalloc.h>
 #include <kstring.h>
 #include <kprintf.h>
@@ -196,7 +198,9 @@ int32_t load_init_kfs(void) {
 
   proc_t *proc = proc_create(PROC_TYPE_PROC, NULL);
   strcpy(proc->info.cmd, prog);
+  set_translation_table_base((uint32_t)V2P(proc->space->vm));
   int32_t res = proc_load_elf(proc, elf, init_size);
+  set_translation_table_base((uint32_t)V2P(_kernel_vm));
   kfree(elf);
   return res;
 }
