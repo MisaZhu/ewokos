@@ -361,6 +361,8 @@ int32_t proc_load_elf(proc_t *proc, const char *image, uint32_t size) {
 				return -1;
 			}
 		}
+		if(_current_proc == proc)
+			flush_tlb();
 		/* copy the section from kernel to proc mem space*/
 		uint32_t hvaddr = header->vaddr;
 		uint32_t hoff = header->off;
