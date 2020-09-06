@@ -88,14 +88,19 @@ static void init_kernel_vm(void) {
 }
 
 static void init_allocable_mem(void) {
-	kalloc_init(ALLOCATABLE_PAGE_DIR_BASE, ALLOCATABLE_PAGE_DIR_END, false);
+	hw_info_t* hw_info = get_hw_info();
+	kmake_hole(P2V(hw_info->phy_mmio_base-8*MB), P2V(hw_info->phy_mem_size));
+	printf("kernel: kalloc init for allocatable page dir\n");
+	kalloc_init(ALLOCATABLE_PAGE_DIR_BASE, ALLOCATABLE_PAGE_DIR_END, false); 
+	printf("kernel: mapping allocatable pages\n");
 	map_pages(_kernel_vm,
-		ALLOCATABLE_MEMORY_START,
-		V2P(ALLOCATABLE_MEMORY_START),
-		get_hw_info()->phy_mem_size,
-		AP_RW_D, 0);
-
-	kalloc_init(ALLOCATABLE_MEMORY_START, P2V(get_hw_info()->phy_mem_size)-24*MB, true);
+			ALLOCATABLE_MEMORY_START,
+			V2P(ALLOCATABLE_MEMORY_START),
+			get_hw_info()->phy_mem_size,
+			AP_RW_D, 0);
+	flush_tlb();
+	printf("kernel: kalloc init for all allocatable pages\n");
+	kalloc_init(ALLOCATABLE_MEMORY_START, P2V(get_hw_info()->phy_mem_size), true);
 }
 
 static void dev_init(void) {
@@ -134,7 +139,6 @@ void _kernel_entry_c(context_t* ctx) {
 
 	hw_optimise();
 
-	ram_hole_init();
 	init_kernel_vm();  
 	km_init();
 

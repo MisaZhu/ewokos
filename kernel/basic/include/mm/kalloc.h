@@ -24,7 +24,6 @@ typedef struct {
 #define RAM_HOLE_MAX 4
 
 extern ram_hole_t _ram_holes[RAM_HOLE_MAX];
-extern void ram_hole_init(void);
 void kmake_hole(uint32_t base, uint32_t end);
 
 #endif

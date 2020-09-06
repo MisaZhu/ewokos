@@ -195,6 +195,7 @@ static uint32_t sys_mmio_map(void) {
 		return 0;
 	hw_info_t* hw_info = get_hw_info();
 	map_pages(_current_proc->space->vm, MMIO_BASE, hw_info->phy_mmio_base, hw_info->phy_mmio_base + hw_info->mmio_size, AP_RW_RW, 1);
+	flush_tlb();
 	return MMIO_BASE;
 }
 		

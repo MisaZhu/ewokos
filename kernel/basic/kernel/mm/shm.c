@@ -79,6 +79,7 @@ static int32_t shm_map_pages(uint32_t addr, uint32_t pages) {
 				AP_RW_D, 0);
 		addr += PAGE_SIZE;
 	}
+	flush_tlb();
 	return 1;
 }
 

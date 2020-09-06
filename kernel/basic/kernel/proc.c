@@ -146,7 +146,8 @@ void proc_shrink_mem(proc_t* proc, int32_t page_num) {
 		if (proc->space->heap_size == 0)
 			break;
 	}
-	flush_tlb();
+	if(_current_proc == proc)
+		flush_tlb();
 }
 
 static void proc_unmap_shms(proc_t *proc) {

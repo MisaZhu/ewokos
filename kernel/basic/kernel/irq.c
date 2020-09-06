@@ -85,14 +85,31 @@ void prefetch_abort_handler(context_t* ctx) {
 	while(1);
 }
 
+static void dump_ctx(context_t* ctx) {
+	printf("ctx dump:\n"
+		"  cpsr=0x%x\n"
+		"  pc=0x%x\n"
+		"  sp=0x%x\n"
+		"  lr=0x%x\n",
+		ctx->cpsr,
+		ctx->pc,
+		ctx->sp,
+		ctx->lr);
+	uint32_t i;
+	for(i=0; i<13; i++) 
+		printf("  r%d: 0x%x\n", i, ctx->gpr[i]);
+}
+
 void data_abort_handler(context_t* ctx) {
 	(void)ctx;
 	if(_current_proc == NULL) {
 		printf("_kernel, data abort!!\n");
-		return;
+		dump_ctx(ctx);
+		while(1);
 	}
 
 	printf("pid: %d(%s), data abort!!\n", _current_proc->info.pid, _current_proc->info.cmd);
+	dump_ctx(ctx);
 	proc_exit(ctx, _current_proc, -1);
 	_current_proc = NULL;
 	schedule(ctx);
