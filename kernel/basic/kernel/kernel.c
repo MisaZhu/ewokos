@@ -89,7 +89,7 @@ static void init_kernel_vm(void) {
 
 static void init_allocable_mem(void) {
 	hw_info_t* hw_info = get_hw_info();
-	kmake_hole(P2V(hw_info->phy_mmio_base-8*MB), P2V(hw_info->phy_mem_size));
+	kmake_hole(P2V(hw_info->phy_mmio_base-16*MB), P2V(hw_info->phy_mem_size));
 	printf("kernel: kalloc init for allocatable page dir\n");
 	kalloc_init(ALLOCATABLE_PAGE_DIR_BASE, ALLOCATABLE_PAGE_DIR_END, false); 
 	printf("kernel: mapping allocatable pages\n");
