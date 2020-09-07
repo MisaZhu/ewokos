@@ -158,7 +158,7 @@ void _kernel_entry_c(context_t* ctx) {
 
 #ifdef FRAMEBUFFER
 	printf("kernel: framebuffer initing\n");
-	if(fb_dev_init(1280, 720, 32) == 0) {
+	if(fb_dev_init() == 0) {
 		fbinfo_t* info = fb_get_info();
 		if(info->width*info->height*info->depth/8 == info->size) {
 			printf("    [OK] : %dx%d %dbits, addr: 0x%X, size:%d\n", 

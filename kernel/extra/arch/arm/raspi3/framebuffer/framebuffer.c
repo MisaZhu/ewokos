@@ -8,8 +8,9 @@
 #include <kernel/system.h>
 #include <kernel/kernel.h>
 
-int32_t fb_dev_init(uint32_t w, uint32_t h, uint32_t dep) {
-	return bcm283x_fb_init(w, h, dep);
+int32_t fb_dev_init(void) {
+	//return bcm283x_fb_init(640, 480, 32);
+	return bcm283x_fb_init(320, 240, 32);
 }
 
 fbinfo_t* fb_get_info(void) {

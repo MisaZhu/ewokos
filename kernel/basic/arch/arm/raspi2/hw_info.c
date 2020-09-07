@@ -25,7 +25,6 @@ void arch_vm(page_dir_entry_t* vm) {
 	uint32_t vbase = MMIO_BASE + offset;
 	uint32_t pbase = _hw_info.phy_mmio_base + offset;
 	map_pages(vm, vbase, pbase, pbase+16*KB, AP_RW_D, 0);
-	kmake_hole(vbase, vbase+16*KB);
 
 	offset = UART_OFFSET;
 	vbase = MMIO_BASE + offset;
