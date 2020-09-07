@@ -2,6 +2,9 @@
 #include <mm/kalloc.h>
 #include <kstring.h>
 #include <stddef.h>
+#include <kernel/proc.h>
+#include <kernel/system.h>
+#include <kernel/kernel.h>
 
 /*
  * map_pages adds the given virtual to physical memory mapping to the given
@@ -156,4 +159,15 @@ void free_page_tables(page_dir_entry_t *vm) {
 				kfree1k(page_table);
 		}
 	}
+}
+
+inline void vm_flush_tlb(page_dir_entry_t* vm) {
+	page_dir_entry_t* old_vm = _current_proc == NULL ? _kernel_vm : _current_proc->space->vm;
+	if(old_vm == vm) {
+		flush_tlb();
+		return;
+	}
+
+	set_translation_table_base((uint32_t)V2P(vm));
+	set_translation_table_base((uint32_t)V2P(old_vm));
 }

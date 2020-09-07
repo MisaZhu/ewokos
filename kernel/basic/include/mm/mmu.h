@@ -54,6 +54,7 @@ void free_page_tables(page_dir_entry_t *vm);
 uint32_t resolve_phy_address(page_dir_entry_t *vm, uint32_t virtual);
 uint32_t resolve_kernel_address(page_dir_entry_t *vm, uint32_t virtual);
 page_table_entry_t* get_page_table_entry(page_dir_entry_t *vm, uint32_t virtual);
+void vm_flush_tlb(page_dir_entry_t* vm);
 
 extern uint32_t _mmio_base;
 

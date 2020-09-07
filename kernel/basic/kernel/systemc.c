@@ -33,3 +33,4 @@ void __attribute__((optimize("O0"))) set_translation_table_base(uint32_t tlb_bas
 	__set_translation_table_base(tlb_base);
 	flush_tlb();
 }
+
