@@ -5,8 +5,8 @@
 #include <sys/vfs.h>
 #include <sys/vdevice.h>
 #include <sys/syscall.h>
-#include <sys/basic_math.h>
 #include <sys/mmio.h>
+#include <sys/basic_math.h>
 
 #define SD_OK                0
 #define SD_TIMEOUT          -1
@@ -340,7 +340,7 @@ static inline void delay(int32_t n) {
 /**
  * initialize EMMC to read SDHC card
  */
-int32_t __attribute__((optimize("O0"))) sd_init_arch_raspi2(void) {
+int32_t __attribute__((optimize("O0"))) sd_init_arch_bcm283x(void) {
 	_mmio_base = mmio_map();
 
 	_sdc.rxdone = 1;
@@ -501,7 +501,7 @@ static int32_t sd_read_done(void* buf) {
 	return 0;
 }
 
-int32_t sd_read_sector_arch_raspi2(int32_t sector, void* buf) {
+int32_t sd_read_sector_arch_bcm283x(int32_t sector, void* buf) {
 	if(_sdc.rxdone == 0)
 		return -1;
 	_sdc.sector = sector;
@@ -516,7 +516,7 @@ int32_t sd_read_sector_arch_raspi2(int32_t sector, void* buf) {
 	return 0;
 }
 
-int32_t sd_write_sector_arch_raspi2(int32_t sector, const void* buf) {
+int32_t sd_write_sector_arch_bcm283x(int32_t sector, const void* buf) {
 	if(sd_write_sector(sector, buf) != 0)
 		return -1;
 	return 0;

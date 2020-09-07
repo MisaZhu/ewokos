@@ -151,15 +151,10 @@ int32_t sd_quit(void) {
 	return 0;
 }
 
-/*raspi sd functions*/
-int32_t sd_init_arch_raspi(void);
-int32_t sd_read_sector_arch_raspi(int32_t sector, void* buf);
-int32_t sd_write_sector_arch_raspi(int32_t sector, const void* buf);
-
-/*raspi2 sd functions*/
-int32_t sd_init_arch_raspi2(void);
-int32_t sd_read_sector_arch_raspi2(int32_t sector, void* buf);
-int32_t sd_write_sector_arch_raspi2(int32_t sector, const void* buf);
+/*bcm283x sd functions*/
+int32_t sd_init_arch_bcm283x(void);
+int32_t sd_read_sector_arch_bcm283x(int32_t sector, void* buf);
+int32_t sd_write_sector_arch_bcm283x(int32_t sector, const void* buf);
 
 /*versatilepb sd functions*/
 int32_t sd_init_arch_versatilepb(void);
@@ -174,15 +169,10 @@ int32_t sd_init(void) {
 	sysinfo_t sysinfo;
 	syscall1(SYS_GET_SYSINFO, (int32_t)&sysinfo);
 
-	if(strcmp(sysinfo.machine, "raspi") == 0) {
-		sd_init_arch = sd_init_arch_raspi;
-		sd_read_sector_arch = sd_read_sector_arch_raspi;
-		sd_write_sector_arch = sd_write_sector_arch_raspi;
-	}
-	else if(strcmp(sysinfo.machine, "raspi2") == 0) {
-		sd_init_arch = sd_init_arch_raspi2;
-		sd_read_sector_arch = sd_read_sector_arch_raspi2;
-		sd_write_sector_arch = sd_write_sector_arch_raspi2;
+	if(strncmp(sysinfo.machine, "raspi", 5) == 0) {
+		sd_init_arch = sd_init_arch_bcm283x;
+		sd_read_sector_arch = sd_read_sector_arch_bcm283x;
+		sd_write_sector_arch = sd_write_sector_arch_bcm283x;
 	}
 	else {
 		sd_init_arch = sd_init_arch_versatilepb;

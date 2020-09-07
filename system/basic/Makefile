@@ -55,8 +55,7 @@ CFLAGS += $(LIB_INC)
 LIB_EXT2_OBJS = $(LIB_EXT2_DIR)/src/ext2fs.o
 
 LIB_SD_OBJS = $(LIB_SD_DIR)/src/sd.o \
-	$(LIB_SD_DIR)/src/arch/arm/raspi/sd_arch.o \
-	$(LIB_SD_DIR)/src/arch/arm/raspi2/sd_arch.o \
+	$(LIB_SD_DIR)/src/arch/arm/bcm283x/sd_arch.o \
 	$(LIB_SD_DIR)/src/arch/arm/versatilepb/sd_arch.o \
 
 LIB_HASH_OBJS = $(LIB_HASH_DIR)/src/hashmap.o
@@ -194,6 +193,8 @@ include $(ROOT_DIR)/drivers/arch/arm/raspi/ttyd/build.mk
 include $(ROOT_DIR)/drivers/arch/arm/raspi/actledd/build.mk
 include $(ROOT_DIR)/drivers/arch/arm/raspi2/ttyd/build.mk
 include $(ROOT_DIR)/drivers/arch/arm/raspi2/actledd/build.mk
+include $(ROOT_DIR)/drivers/arch/arm/raspi3/ttyd/build.mk
+include $(ROOT_DIR)/drivers/arch/arm/raspi3/actledd/build.mk
 
 include $(ROOT_DIR)/bin/shell/build.mk
 include $(ROOT_DIR)/bin/actled/build.mk
@@ -217,6 +218,7 @@ mkdirs:
 	@mkdir -p ${TARGET_DIR}/$(ROOT_DIR)/drivers/arm/versatilepb
 	@mkdir -p ${TARGET_DIR}/$(ROOT_DIR)/drivers/arm/raspi
 	@mkdir -p ${TARGET_DIR}/$(ROOT_DIR)/drivers/arm/raspi2
+	@mkdir -p ${TARGET_DIR}/$(ROOT_DIR)/drivers/arm/raspi3
 	@mkdir -p ${TARGET_DIR}/$(ROOT_DIR)/bin
 	@mkdir -p ${TARGET_DIR}/$(ROOT_DIR)/dev
 	@mkdir -p ${BUILD_DIR}/asm

@@ -132,6 +132,7 @@ int32_t load_init_proc(void) {
 //void  __attribute__((optimize("O0"))) _kernel_entry_c(context_t* ctx) {
 void _kernel_entry_c(context_t* ctx) {
 	(void)ctx;
+	__irq_disable();
 	//clear bss
 	memset(_bss_start, 0, (uint32_t)_bss_end - (uint32_t)_bss_start);
 	copy_interrupt_table();
@@ -199,9 +200,12 @@ void _kernel_entry_c(context_t* ctx) {
 		printf("  [failed!]\n");
 	else
 		printf("  [ok]\n");
-	
-	printf("kernel: start timer.\n");
+
+	printf("kernel: set timer.\n");
 	timer_set_interval(0, 0x200); 
+
+	printf("kernel: enable irq.\n");
+	__irq_enable();
 
 	while(1) {
 		__asm__("MOV r0, #0; MCR p15,0,R0,c7,c0,4"); // CPU enter WFI state

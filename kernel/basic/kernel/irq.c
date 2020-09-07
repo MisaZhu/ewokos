@@ -110,6 +110,7 @@ void data_abort_handler(context_t* ctx) {
 
 	printf("pid: %d(%s), data abort!!\n", _current_proc->info.pid, _current_proc->info.cmd);
 	dump_ctx(ctx);
+	while(1);
 	proc_exit(ctx, _current_proc, -1);
 	_current_proc = NULL;
 	schedule(ctx);
@@ -117,12 +118,11 @@ void data_abort_handler(context_t* ctx) {
 
 void irq_init(void) {
 	irq_arch_init();
-	//gic_set_irqs( IRQ_UART0 | IRQ_TIMER0 | IRQ_KEY | IRQ_MOUSE | IRQ_SDC);
-	//gic_set_irqs(IRQ_TIMER0 | IRQ_SDC);
-	gic_set_irqs(IRQ_TIMER0 | IRQ_KEY);
-	__irq_enable();
 	_kernel_sec = 0;
 	_kernel_usec = 0;
 	_schedule_tic = 0;
 	_timer_tic = 0;
+	//gic_set_irqs( IRQ_UART0 | IRQ_TIMER0 | IRQ_KEY | IRQ_MOUSE | IRQ_SDC);
+	//gic_set_irqs(IRQ_TIMER0 | IRQ_SDC);
+	gic_set_irqs(IRQ_TIMER0 | IRQ_KEY);
 }

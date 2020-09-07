@@ -1,0 +1,3 @@
+/drivers/nulld               /dev/null
+/drivers/arm/raspi3/actledd  /dev/actled
+/drivers/arm/raspi3/ttyd     /dev/tty0

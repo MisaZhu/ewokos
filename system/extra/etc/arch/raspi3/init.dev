@@ -1,0 +1,7 @@
+/drivers/fbd                  /dev/fb0
+/drivers/nulld                 /dev/null
+/drivers/arm/raspi3/actledd  /dev/actled
+/drivers/arm/raspi3/ttyd       /dev/tty0
+#/drivers/arm/raspi3/joystickd /dev/joystick
+#/drivers/arm/raspi3/lcdhatd   /dev/fb1
+/drivers/xserverd             /dev/x
