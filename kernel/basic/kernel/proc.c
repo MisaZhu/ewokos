@@ -108,9 +108,22 @@ void proc_switch(context_t* ctx, proc_t* to, bool quick){
 }
 
 /* proc_exapnad_memory expands the heap size of the given process. */
+void proc_flush_tlb(proc_t *proc) {
+	page_dir_entry_t* old_vm = _current_proc == NULL ? _kernel_vm : _current_proc->space->vm;
+	if(_current_proc == proc)
+		flush_tlb();
+	else
+		set_translation_table_base((uint32_t)V2P(proc->space->vm));
+
+	if(_current_proc != proc)
+		set_translation_table_base((uint32_t)V2P(old_vm));
+}
+
+/* proc_exapnad_memory expands the heap size of the given process. */
 int32_t proc_expand_mem(proc_t *proc, int32_t page_num) {
 	int32_t i;
 	int32_t res = 0;
+
 	for (i = 0; i < page_num; i++) {
 		char *page = kalloc4k();
 		if(page == NULL) {
@@ -126,6 +139,7 @@ int32_t proc_expand_mem(proc_t *proc, int32_t page_num) {
 				AP_RW_RW, 0);
 		proc->space->heap_size += PAGE_SIZE;
 	}
+	proc_flush_tlb(proc);
 	return res;
 }
 
@@ -146,7 +160,7 @@ void proc_shrink_mem(proc_t* proc, int32_t page_num) {
 		if (proc->space->heap_size == 0)
 			break;
 	}
-	flush_tlb();
+	proc_flush_tlb(proc);
 }
 
 static void proc_unmap_shms(proc_t *proc) {
@@ -360,7 +374,6 @@ int32_t proc_load_elf(proc_t *proc, const char *image, uint32_t size) {
 				return -1;
 			}
 		}
-		flush_tlb();
 		/* copy the section from kernel to proc mem space*/
 		uint32_t hvaddr = header->vaddr;
 		uint32_t hoff = header->off;

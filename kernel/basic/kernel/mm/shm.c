@@ -48,7 +48,6 @@ static share_mem_t* shm_new(void) {
 }
 
 static void shm_unmap_pages(uint32_t addr, uint32_t pages) {
-	set_translation_table_base((uint32_t)V2P(_kernel_vm));
 	uint32_t i;
 	for (i = 0; i < pages; i++) {
 		uint32_t physical_addr = resolve_phy_address(_kernel_vm, addr);
@@ -59,14 +58,13 @@ static void shm_unmap_pages(uint32_t addr, uint32_t pages) {
 		kfree((void *) kernel_addr);
 		addr += PAGE_SIZE;
 	}
-	flush_tlb();
+	set_translation_table_base((uint32_t)V2P(_kernel_vm));
 	set_translation_table_base((uint32_t)V2P(_current_proc->space->vm));
 }
 
 static int32_t shm_map_pages(uint32_t addr, uint32_t pages) {
 	uint32_t old_addr = addr;
 	uint32_t i;
-	set_translation_table_base((uint32_t)V2P(_kernel_vm));
 	for (i = 0; i < pages; i++) {
 		char *page = kalloc4k();
 		if(page == NULL) {
@@ -82,7 +80,7 @@ static int32_t shm_map_pages(uint32_t addr, uint32_t pages) {
 				AP_RW_D, 0);
 		addr += PAGE_SIZE;
 	}
-	flush_tlb();
+	set_translation_table_base((uint32_t)V2P(_kernel_vm));
 	set_translation_table_base((uint32_t)V2P(_current_proc->space->vm));
 	return 1;
 }
@@ -265,7 +263,7 @@ void* shm_proc_map(int32_t pid, int32_t id) {
 				AP_RW_RW, 0);
 		addr += PAGE_SIZE;
 	}
-	flush_tlb();
+	proc_flush_tlb(proc);
 	it->refs++;
 	return (void*)it->addr;
 }
@@ -296,12 +294,12 @@ int32_t shm_proc_unmap(int32_t pid, int32_t id) {
 		unmap_page(proc->space->vm, addr);
 		addr += PAGE_SIZE;
 	}
+	proc_flush_tlb(proc);
 
 	it->refs--;
 	if(it->refs <= 0) {
 		free_item(it);
 	}
-	flush_tlb();
 	return 0;
 }
 

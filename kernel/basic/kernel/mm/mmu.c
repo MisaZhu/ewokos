@@ -34,8 +34,8 @@ static inline void set_extra_flags(page_table_entry_t* pte, uint32_t is_dev) {
 #ifdef A_CORE
 	if(is_dev == 0) { //normal mem
 		//pte->tex = 0x1;
-		//pte->cacheable = 1;
-		pte->bufferable = 1;
+		pte->cacheable = 1;
+		//pte->bufferable = 1;
 	}
 	//else { //device 
 		//pte->tex = 0x7;
