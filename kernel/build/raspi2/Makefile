@@ -31,6 +31,7 @@ CFLAGS += $(OPTM) \
 	-I. -I$(SRC_DIR)/basic/lib/include -I$(SRC_DIR)/basic/include -I$(SRC_DIR)/extra/include -I$(SRC_DIR)/extra/lib/include \
 	-I${ARCH_DIR}/${ARCH} \
 	-I${ARCH_DIR}/arm/lib \
+	-I${ARCH_DIR}/arm/common/include \
 	-marm $(ARCH_QEMU_CFLAGS) \
 	-Wstrict-prototypes \
 	-pedantic -Wall -Wextra -msoft-float -fPIC -mapcs-frame \
@@ -52,8 +53,9 @@ ARCH_OBJS = \
 	${ARCH_DIR}/${ARCH}/boot.o \
 	${ARCH_DIR}/${ARCH}/start.o \
 	${ARCH_DIR}/${ARCH}/system.o \
-	${ARCH_DIR}/arm/common/interrupt.o \
-	${ARCH_DIR}/arm/common/memcpy.o \
+	${ARCH_DIR}/arm/common/src/interrupt.o \
+	${ARCH_DIR}/arm/common/src/memcpy.o \
+	${ARCH_DIR}/arm/common/src/mm/mmu_arch.o \
 	${ARCH_DIR}/${ARCH}/hw_info.o \
 	${ARCH_DIR}/${ARCH}/uart.o \
 	${ARCH_DIR}/${ARCH}/irq_arch.o \
@@ -116,10 +118,10 @@ endif
 KERNEL_DIR = $(SRC_DIR)/basic/kernel
 KERNEL_OBJS = \
 	${KERNEL_DIR}/mm/kalloc.o \
-	${KERNEL_DIR}/mm/mmu.o \
 	${KERNEL_DIR}/mm/trunkmem.o \
 	${KERNEL_DIR}/mm/kmalloc.o \
 	${KERNEL_DIR}/mm/shm.o \
+	${KERNEL_DIR}/mm/mmu.o \
 	${KERNEL_DIR}/irq.o \
 	${KERNEL_DIR}/svc.o \
 	${KERNEL_DIR}/proc.o \
