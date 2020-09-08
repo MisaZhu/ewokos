@@ -80,7 +80,7 @@ LIB_OBJS = \
 	${LIB_DIR}/queue.o \
 	${LIB_DIR}/kprintf.o
 
-ifeq ($(DISP),yes)
+ifneq ($(DISP),no)
 CFLAGS += -DDISPLAY
 LIB_OBJS += \
 	${EXTRA_LIB_DIR}/graph.o \
