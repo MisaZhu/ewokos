@@ -9,8 +9,7 @@
 #include <kernel/kernel.h>
 
 int32_t fb_dev_init(void) {
-	//return bcm283x_fb_init(640, 480, 32);
-	return bcm283x_fb_init(320, 240, 32);
+	return bcm283x_fb_init(640, 480, 32);
 }
 
 fbinfo_t* fb_get_info(void) {
