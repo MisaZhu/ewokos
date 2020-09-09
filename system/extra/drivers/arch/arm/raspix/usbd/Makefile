@@ -23,18 +23,18 @@ CFLAGS = -Wstrict-prototypes \
 #CFLAGS +=  -g
 CFLAGS +=  -O2
 
-LDFLAGS = -L$(BUILD_DIR)/lib -lnosys
+LDFLAGS = -L$(BUILD_DIR)/lib -Llib -lnosys
 
-CFLAGS += -I $(BUILD_DIR)/include
+CFLAGS += -I $(BUILD_DIR)/include -Iinclude -DTARGET_RPI2
 
-JOYSTICKD_OBJS = joystickd.o
+USBD_OBJS = usbd.o
 
-JOYSTICKD = $(TARGET_DIR)/drivers/arm/raspi3/joystickd
+USBD = $(TARGET_DIR)/drivers/arm/raspix/usbd
 
-$(JOYSTICKD): $(JOYSTICKD_OBJS) \
+$(USBD): $(USBD_OBJS) \
 		$(BUILD_DIR)/lib/libewokc.a \
 		$(BUILD_DIR)/lib/libarch_bcm283x.a 
-	$(LD) -Ttext=100 $(JOYSTICKD_OBJS) -o $(JOYSTICKD) $(LDFLAGS) -larch_bcm283x -lewokc -lc
+	$(LD) -Ttext=100 $(USBD_OBJS) -o $(USBD) $(LDFLAGS) -larch_bcm283x -lewokc -lcsud -lc
 
 clean:
-	rm -f $(JOYSTICKD_OBJS)
+	rm -f $(USBD_OBJS)

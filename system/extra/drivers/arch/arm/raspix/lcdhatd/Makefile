@@ -27,14 +27,14 @@ LDFLAGS = -L$(BUILD_DIR)/lib -lnosys
 
 CFLAGS += -I $(BUILD_DIR)/include
 
-JOYSTICKD_OBJS = joystickd.o
+LCDHATD_OBJS = lcdhatd.o
 
-JOYSTICKD = $(TARGET_DIR)/drivers/arm/raspi2/joystickd
+LCDHATD = $(TARGET_DIR)/drivers/arm/raspix/lcdhatd
 
-$(JOYSTICKD): $(JOYSTICKD_OBJS) \
+$(LCDHATD): $(LCDHATD_OBJS) \
 		$(BUILD_DIR)/lib/libewokc.a \
 		$(BUILD_DIR)/lib/libarch_bcm283x.a 
-	$(LD) -Ttext=100 $(JOYSTICKD_OBJS) -o $(JOYSTICKD) $(LDFLAGS) -larch_bcm283x -lewokc -lc
+	$(LD) -Ttext=100 $(LCDHATD_OBJS) -o $(LCDHATD) $(LDFLAGS) -larch_bcm283x -lewokc -lc
 
 clean:
-	rm -f $(JOYSTICKD_OBJS)
+	rm -f $(LCDHATD_OBJS)

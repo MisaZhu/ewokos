@@ -1,6 +1,5 @@
-#include "arch/raspi2/gpio.h"
-#include "arch/raspi2/spi.h"
-#include "arch/raspi2/actled.h"
+#include "arch/bcm283x/gpio.h"
+#include "arch/bcm283x/spi.h"
 #include <unistd.h>
 
 #define EPD_RST_PIN      17
@@ -26,28 +25,21 @@ void epaper_reset(void) {
 }
 
 void epaper_cmd(uint8_t reg) {
-	actled(true);
 	gpio_write(EPD_DC_PIN, 0);
 	gpio_write(EPD_CS_PIN, 0);
 	spi_transfer(reg);
 	gpio_write(EPD_CS_PIN, 1);
-	actled(false);
 }
 
 void epaper_write(uint8_t data) {
-	actled(true);
 	gpio_write(EPD_DC_PIN, 1);
 	gpio_write(EPD_CS_PIN, 0);
 	spi_transfer(data);
 	gpio_write(EPD_CS_PIN, 1);
-	actled(false);
 }
 
 void epaper_wait(void) {
 	while(gpio_read(EPD_BUSY_PIN) == 0) {
-		actled(true);
-		wait_msec(50);
-		actled(false);
 		wait_msec(50);
 	}
 }
@@ -101,14 +93,13 @@ void epaper_clear(void) {
 	epaper_cmd(0x92);
 
 	//send red data
-	/*epaper_cmd(0x13);
+	epaper_cmd(0x13);
 	for (uint32_t j = 0; j < h; j++) {
 		for (uint32_t i = 0; i < w; i++) {
 			epaper_write(0x6);
 		}
 	}
 	epaper_cmd(0x92);
-	*/
 
 	epaper_on();
 }

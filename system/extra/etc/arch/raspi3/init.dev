@@ -2,6 +2,8 @@
 /drivers/nulld                 /dev/null
 /drivers/arm/raspi3/actledd  /dev/actled
 /drivers/arm/raspi3/ttyd       /dev/tty0
-#/drivers/arm/raspi3/joystickd /dev/joystick
-#/drivers/arm/raspi3/lcdhatd   /dev/fb1
-/drivers/xserverd             /dev/x
+#/drivers/arm/raspix/joystickd /dev/joystick
+#/drivers/arm/raspix/lcdhatd   /dev/fb1
+#/drivers/arm/raspix/epaperd   /dev/epaper
+/drivers/arm/raspix/ili9486d   /dev/ili9486
+#/drivers/xserverd             /dev/x

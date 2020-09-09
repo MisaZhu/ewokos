@@ -23,18 +23,18 @@ CFLAGS = -Wstrict-prototypes \
 #CFLAGS +=  -g
 CFLAGS +=  -O2
 
-LDFLAGS = -L$(BUILD_DIR)/lib -Llib -lnosys
+LDFLAGS = -L$(BUILD_DIR)/lib -lnosys
 
-CFLAGS += -I $(BUILD_DIR)/include -Iinclude -DTARGET_RPI2
+CFLAGS += -I $(BUILD_DIR)/include
 
-USBD_OBJS = usbd.o
+EPAPERD_OBJS = epaperd.o
 
-USBD = $(TARGET_DIR)/drivers/arm/raspi3/usbd
+EPAPERD = $(TARGET_DIR)/drivers/arm/raspix/epaperd
 
-$(USBD): $(USBD_OBJS) \
+$(EPAPERD): $(EPAPERD_OBJS) \
 		$(BUILD_DIR)/lib/libewokc.a \
 		$(BUILD_DIR)/lib/libarch_bcm283x.a 
-	$(LD) -Ttext=100 $(USBD_OBJS) -o $(USBD) $(LDFLAGS) -larch_bcm283x -lewokc -lcsud -lc
+	$(LD) -Ttext=100 $(EPAPERD_OBJS) -o $(EPAPERD) $(LDFLAGS) -larch_bcm283x -lewokc -lc
 
 clean:
-	rm -f $(USBD_OBJS)
+	rm -f $(EPAPERD_OBJS)
