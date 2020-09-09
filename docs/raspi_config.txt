@@ -1,0 +1,4 @@
+enable_uart=1
+dtparam=spi=on
+dtparam=i2c_arm=on
+dtparam=i2c=on
