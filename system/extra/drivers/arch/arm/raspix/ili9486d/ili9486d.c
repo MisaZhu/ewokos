@@ -9,7 +9,7 @@
 
 void TP_init(void) {
 	spi_init(SPI_CLK_DIVIDE_TEST);
-	spi_select(SPI_SELECT_1);
+	spi_select(SPI_SELECT_0);
 
 	gpio_config(TP_CS, GPIO_OUTPUT);
 	gpio_write(TP_CS, 0); // prevent blockage of the SPI bus
@@ -34,9 +34,9 @@ bool TP_Read(uint32_t* x, uint32_t* y){
 	uint32_t tx[3];
 	uint32_t ty[3];
 	uint32_t i;
+	if(gpio_read(TP_IRQ) != 0)
+		return false;
 	for(i=0; i<3; i++){
-		if(gpio_read(TP_IRQ) != 0)
-			return false;
 		tx[i] = TP_Send(0xD0);  //x
 		ty[i] =  TP_Send(0x90); //y
 	}

@@ -15,7 +15,7 @@ static inline void wait_msec(uint32_t n) {
 }
 
 //bc
-void epaper_reset(void) {
+static void epaper_reset(void) {
 	gpio_write(EPD_RST_PIN, 1);
 	wait_msec(200);
 	gpio_write(EPD_RST_PIN, 0);
@@ -24,14 +24,14 @@ void epaper_reset(void) {
 	wait_msec(200);
 }
 
-void epaper_cmd_raw(uint8_t reg) {
+static void epaper_cmd_raw(uint8_t reg) {
 	gpio_write(EPD_DC_PIN, 0);
 	gpio_write(EPD_CS_PIN, 0);
 	spi_transfer(reg);
 	gpio_write(EPD_CS_PIN, 1);
 }
 
-void epaper_cmd(uint8_t reg) {
+static void epaper_cmd(uint8_t reg) {
 	spi_activate(1);
 	epaper_cmd_raw(reg);
 	spi_activate(0);
@@ -44,31 +44,31 @@ static inline void epaper_write_raw(uint8_t data) {
 	gpio_write(EPD_CS_PIN, 1);
 }
 
-void epaper_write(uint8_t data) {
+static void epaper_write(uint8_t data) {
 	spi_activate(1);
 	epaper_write_raw(data);
 	spi_activate(0);
 }
 
-void epaper_wait(void) {
+static void epaper_wait(void) {
 	while(gpio_read(EPD_BUSY_PIN) == 0) {
-		wait_msec(50);
+		wait_msec(5);
 	}
 }
 
-void epaper_on(void) {
+static void epaper_on(void) {
 	epaper_cmd(0x12);		 //DISPLAY REFRESH
 	epaper_wait();
 }
 
-void epaper_off(void) {
+static void epaper_off(void) {
 	epaper_cmd(0x02); // POWER_OFF
 	epaper_wait();
 	epaper_cmd(0x07); // DEEP_SLEEP
 	epaper_write(0xA5); // check code
 }
 
-void epaper_init(void) {
+static void epaper_init(void) {
 	epaper_reset();
 
 	epaper_cmd(0x06); // BOOSTER_SOFT_START
@@ -90,7 +90,7 @@ void epaper_init(void) {
 	epaper_write(EPD_HEIGHT & 0xFF);
 }
 
-void epaper_clear(void) {
+static void epaper_clear(void) {
 	uint32_t w = (EPD_WIDTH % 8 == 0)? (EPD_WIDTH / 8 ): (EPD_WIDTH / 8 + 1);
 	uint32_t h = EPD_HEIGHT;
 
@@ -118,7 +118,7 @@ void epaper_clear(void) {
 	epaper_on();
 }
 
-#define SPI_CLK_DIVIDE_TEST 128
+#define SPI_CLK_DIVIDE_TEST 64
 
 int main(int argc, char** argv) {
 	(void)argc;
@@ -133,8 +133,6 @@ int main(int argc, char** argv) {
 	spi_init(SPI_CLK_DIVIDE_TEST);
 	spi_select(SPI_SELECT_0);
 	epaper_init();
-kprintf(false, "clear...");
 	epaper_clear();
-kprintf(false, "done\n");
 	return 0;
 }

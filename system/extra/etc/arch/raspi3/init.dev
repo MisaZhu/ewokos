@@ -4,6 +4,4 @@
 /drivers/arm/raspi3/ttyd       /dev/tty0
 #/drivers/arm/raspix/joystickd /dev/joystick
 #/drivers/arm/raspix/lcdhatd   /dev/fb1
-#/drivers/arm/raspix/epaperd   /dev/epaper
-/drivers/arm/raspix/ili9486d   /dev/ili9486
-#/drivers/xserverd             /dev/x
+/drivers/xserverd             /dev/x
