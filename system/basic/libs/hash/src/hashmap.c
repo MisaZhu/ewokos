@@ -309,7 +309,7 @@ int hashmap_get(map_t in, const char* key, any_t *arg){
 
         int in_use = m->data[curr].in_use;
         if (in_use == 1){
-            if (strcmp(m->data[curr].key,key)==0){
+            if (m->data[curr].key != NULL && strcmp(m->data[curr].key,key)==0){
                 *arg = (m->data[curr].data);
                 return MAP_OK;
             }
@@ -340,8 +340,8 @@ int hashmap_iterate(map_t in, PFany f, any_t arg) {
 		return MAP_MISSING;	
 
 	/* Linear probing */
-	for(i = 0; i< m->table_size; i++)
-		if(m->data[i].in_use != 0) {
+	for(i = 0; i< m->table_size; i++) {
+		if(m->data[i].in_use != 0 && m->data[i].key != NULL) {
 			char* key = m->data[i].key;
 			any_t data = (any_t) (m->data[i].data);
 			int status = f(key, data, arg);
@@ -349,8 +349,9 @@ int hashmap_iterate(map_t in, PFany f, any_t arg) {
 				return status;
 			}
 		}
+	}
 
-    return MAP_OK;
+	return MAP_OK;
 }
 
 /*

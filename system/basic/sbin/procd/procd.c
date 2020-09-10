@@ -46,8 +46,9 @@ static void do_proc_set_cwd(int pid, proto_t* in, proto_t* out) {
 
 static str_t* env_get(map_t* envs, const char* key) {
 	str_t* ret = NULL;
-	if(hashmap_get(envs, key, (void**)&ret) == MAP_OK)
+	if(hashmap_get(envs, key, (void**)&ret) == MAP_OK) {
 		return ret;
+	}
 	return NULL;
 }
 
@@ -95,7 +96,6 @@ static void do_proc_get_env(int pid, proto_t* in, proto_t* out) {
 	if(pid < 0 || pid >= PROC_MAX)
 		return;
 	const char* key = proto_read_str(in);
-
 	str_t* v = env_get(_proc_info_table[pid].envs, key);
 	if(v == NULL) {
 		return;
@@ -129,7 +129,7 @@ static void do_proc_clone(int32_t pid, proto_t* in) {
 	hashmap_iterate(_proc_info_table[cpid].envs, free_envs, _proc_info_table[cpid].envs);	
 	hashmap_free(_proc_info_table[cpid].envs);
 	_proc_info_table[cpid].envs = hashmap_new();
-	hashmap_iterate(_proc_info_table[cpid].envs, copy_envs, _proc_info_table[fpid].envs);	
+	hashmap_iterate(_proc_info_table[fpid].envs, copy_envs, _proc_info_table[cpid].envs);	
 }
 
 static void do_proc_exit(int32_t pid, proto_t* in) {
