@@ -125,12 +125,11 @@ static void do_proc_clone(int32_t pid, proto_t* in) {
 	if(fpid < 0 || fpid >= PROC_MAX ||
 			cpid < 0 || cpid >= PROC_MAX)
 		return;
-
 	str_cpy(_proc_info_table[cpid].cwd, CS(_proc_info_table[fpid].cwd));	
 	hashmap_iterate(_proc_info_table[cpid].envs, free_envs, _proc_info_table[cpid].envs);	
 	hashmap_free(_proc_info_table[cpid].envs);
 	_proc_info_table[cpid].envs = hashmap_new();
-	hashmap_iterate(_proc_info_table[fpid].envs, copy_envs, _proc_info_table[cpid].envs);	
+	hashmap_iterate(_proc_info_table[cpid].envs, copy_envs, _proc_info_table[fpid].envs);	
 }
 
 static void do_proc_exit(int32_t pid, proto_t* in) {
