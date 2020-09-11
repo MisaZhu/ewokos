@@ -4,7 +4,7 @@
 #include <string.h>
 #include <sys/vdevice.h>
 #include <sys/syscall.h>
-#include "arch/bcm283x/gpio.h"
+#include "arch/arm/bcm283x/gpio.h"
 
 #define KEY_UP_PIN      6
 #define KEY_DOWN_PIN    19

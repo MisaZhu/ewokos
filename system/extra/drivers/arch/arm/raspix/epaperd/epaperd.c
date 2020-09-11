@@ -1,5 +1,5 @@
-#include "arch/bcm283x/gpio.h"
-#include "arch/bcm283x/spi.h"
+#include "arch/arm/bcm283x/gpio.h"
+#include "arch/arm/bcm283x/spi.h"
 #include <unistd.h>
 
 #define EPD_RST_PIN      17

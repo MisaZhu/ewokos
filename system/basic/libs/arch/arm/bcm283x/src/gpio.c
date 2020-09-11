@@ -1,4 +1,4 @@
-#include "arch/bcm283x/gpio.h"
+#include "arch/arm/bcm283x/gpio.h"
 
 void gpio_init(void) {
 	_mmio_base = mmio_map();

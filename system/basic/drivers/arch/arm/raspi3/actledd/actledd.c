@@ -1,4 +1,4 @@
-#include <arch/bcm283x/mailbox.h>
+#include <arch/arm/bcm283x/mailbox.h>
 #include <sys/vdevice.h>
 #include <string.h>
 
