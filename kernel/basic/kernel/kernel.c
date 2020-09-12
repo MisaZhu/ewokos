@@ -104,14 +104,48 @@ static void init_allocable_mem(void) {
 	kalloc_init(ALLOCATABLE_MEMORY_START, P2V(get_hw_info()->phy_mem_size), true);
 }
 
+#ifdef FRAMEBUFFER
+static void fb_init(void) {
+	fbinfo_t* fbinfo = NULL;
+	printf("kernel: framebuffer initing");
+	if(fb_dev_init() == 0) {
+		fbinfo = fb_get_info();
+		if(fbinfo->width * fbinfo->height * fbinfo->depth/8 == fbinfo->size) {
+			printf("  [OK]\n");
+			kconsole_setup();
+		}
+		else {
+			fbinfo->pointer = 0;
+			printf("  [Failed!]\n");
+		}
+	}
+	else {
+		printf("  [Failed!]\n");
+	}
+
+	if(fbinfo != NULL) {
+		printf("kernel: framebuffer: %dx%d %dbits, addr: 0x%X, size:%d\n", 
+				fbinfo->width, fbinfo->height, fbinfo->depth,
+				fbinfo->pointer, fbinfo->size);
+	}
+}
+#endif
+
 static void dev_init(void) {
+	kev_init();
+
 #ifdef SDC
+	printf("kernel: sd card initing.\n");
   printf("    %16s ", "mmc_sd");
   if(sd_init() == 0) {
     printf("[OK]\n\n");
   }
   else
     printf("[Failed!]\n");
+#endif
+
+#ifdef FRAMEBUFFER
+	fb_init();
 #endif
 }
 
@@ -145,45 +179,30 @@ void _kernel_entry_c(context_t* ctx) {
 	hw_optimise();
 
 	uart_dev_init();
-	const char* msg = "\n\n"
-			"===Ewok micro-kernel===\n\n"
-			"kernel: mmu inited\n"
-			"kernel: uart inited\n";
+	
+	const char* msg = "\n"
+		"███████╗██╗    ██╗ ██████╗ ██╗  ██╗ ██████╗ ███████╗\n"
+	  "██╔════╝██║    ██║██╔═══██╗██║ ██╔╝██╔═══██╗██╔════╝\n"
+		"█████╗  ██║ █╗ ██║██║   ██║█████╔╝ ██║   ██║███████╗\n"
+		"██╔══╝  ██║███╗██║██║   ██║██╔═██╗ ██║   ██║╚════██║\n"
+		"███████╗╚███╔███╔╝╚██████╔╝██║  ██╗╚██████╔╝███████║\n"
+		"╚══════╝ ╚══╝╚══╝  ╚═════╝ ╚═╝  ╚═╝ ╚═════╝ ╚══════╝\n";
+	/*
+	const char* msg = "\n"
+			"┌─┐┬ ┬┌─┐┬┌─┌─┐┌─┐\n"
+			"├┤ ││││ │├┴┐│ │└─┐\n"
+			"└─┘└┴┘└─┘┴ ┴└─┘└─┘\n";*/
 	uart_write(msg, strlen(msg));
-
-	kev_init();
 
 #ifdef DISPLAY
 	kconsole_init();
 #endif
 
-#ifdef FRAMEBUFFER
-	printf("kernel: framebuffer initing\n");
-	if(fb_dev_init() == 0) {
-		fbinfo_t* info = fb_get_info();
-		if(info->width*info->height*info->depth/8 == info->size) {
-			printf("    [OK] : %dx%d %dbits, addr: 0x%X, size:%d\n", 
-					info->width, info->height, info->depth,
-					info->pointer, info->size);
-			memset((void*)info->pointer, 0, info->size);
-			kconsole_setup();
-		}
-		else {
-			info->pointer = 0;
-			printf("  [Failed!]\n");
-		}
-	}
-	else {
-		printf("  [Failed!]\n");
-	}
-#endif
+	dev_init();
 
 	printf("kernel: kmalloc initing  [ok] : %dMB\n", div_u32(KMALLOC_END-KMALLOC_BASE, 1*MB));
 	init_allocable_mem(); //init the rest allocable memory VM
 	printf("kernel: init allocable memory: %dMB\n", div_u32(get_free_mem_size(), 1*MB));
-
-	printf("kernel: devices initing.\n");
-	dev_init();
 	
 
 	shm_init();

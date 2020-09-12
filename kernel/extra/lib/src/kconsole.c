@@ -9,7 +9,6 @@ static console_t _console;
 #ifdef FRAMEBUFFER
 
 void kconsole_init(void) {
-	printf("kernel: console with framebuffer out\n");
 	console_init(&_console);
 }
 
