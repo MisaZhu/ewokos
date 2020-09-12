@@ -66,14 +66,12 @@
 	
 .make and run
 	
-	"cd system; make; make sd":
+	"cd system; make/make full":
 	  build EwokOS rootfs apps and sd file system.
 	"cd kernel; make":
 	  build EwokOS kernel image.
 	"make run":
 	  run EwokOS;
-	  "qemu-system-arm -kernel build/EwokOS.bin -serial mon:stdio -initrd ../system/build/rootfs.img"
-	  boot kernel file and mount initrd.
 	"make debug":
 	  run EwokOS at debug server-mode.
 	"make gdb":
@@ -92,15 +90,12 @@
 	PhyMem        VMem         Desc
 	----------------------------------------------------
 	0x00000000    0xFFFF0000   interrupt table
-	0x00010000    0x80010000   Kernel start (load to)
+	0x00008000    0x80008000   Kernel start (load to)
 	***           ***          (_init_stack, _irq_stack, _startup_page_dir)
 	***           ***          Kernel end, Kernel PageDir Table start
 	+16KB         +16KB        Kernel PageDir Table end.
 	+128KB        +128KB        kernel malloc base
 	+32M           +32M          kernel malloc end (size=2M).
-	......
-	0x08000000    0x08000000   init ramdisk base (load initrd to)
-	0x08020000    0x08020000   init ramdisk end (size=2M).
 	......
 	physical ram top           Share memory start base               
 	......
