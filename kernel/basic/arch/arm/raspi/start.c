@@ -2,7 +2,7 @@
 
 #define PDE_SHIFT     20   // shift how many bits to get PDE index
 
-__attribute__((__aligned__(PAGE_DIR_SIZE))) 
+static __attribute__((__aligned__(PAGE_DIR_SIZE))) 
 uint32_t startup_page_dir[PAGE_DIR_NUM] = { 0 };
 
 // setup the boot page table: dev_mem whether it is device memory
