@@ -2,9 +2,6 @@
 
 #define PDE_SHIFT     20   // shift how many bits to get PDE index
 
-#define DEV_BASE      0x10000000
-#define DEV_MEM_SIZE  0x400000
-
 __attribute__((__aligned__(PAGE_DIR_SIZE))) 
 uint32_t startup_page_dir[PAGE_DIR_NUM] = { 0 };
 
@@ -55,7 +52,6 @@ static void load_boot_pgt(void) {
 void _boot_start(void) {
 	set_boot_pgt(0, 0, 1024*1024*32, 0);
 	set_boot_pgt(KERNEL_BASE, 0, 1024*1024*32, 0);
-	set_boot_pgt(DEV_BASE, DEV_BASE, DEV_MEM_SIZE, 1);
-	set_boot_pgt(MMIO_BASE, DEV_BASE, DEV_MEM_SIZE, 1);
+
 	load_boot_pgt();
 }

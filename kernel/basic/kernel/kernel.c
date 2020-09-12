@@ -28,8 +28,8 @@
 #include <dev/framebuffer.h>
 #endif
 
-page_dir_entry_t* _kernel_vm = NULL;
 uint32_t _mmio_base = 0;
+page_dir_entry_t* _kernel_vm = NULL;
 
 /*Copy interrupt talbe to phymen address 0x00000000.
 	Virtual address #INTERRUPT_VECTOR_BASE(0xFFFF0000 for ARM) must mapped to phymen 0x00000000.
@@ -89,7 +89,7 @@ static void init_kernel_vm(void) {
 
 static void init_allocable_mem(void) {
 	hw_info_t* hw_info = get_hw_info();
-	kmake_hole(P2V(hw_info->phy_mmio_base-16*MB), P2V(hw_info->phy_mem_size));
+	kmake_hole(P2V(hw_info->phy_mmio_base-20*MB), P2V(hw_info->phy_mem_size));
 	//kmake_hole(P2V(hw_info->phy_mmio_base), P2V(hw_info->phy_mem_size));
 	printf("kernel: kalloc init for allocatable page dir\n");
 	kalloc_init(ALLOCATABLE_PAGE_DIR_BASE, ALLOCATABLE_PAGE_DIR_END, false); 
@@ -137,12 +137,12 @@ void _kernel_entry_c(context_t* ctx) {
 	memset(_bss_start, 0, (uint32_t)_bss_end - (uint32_t)_bss_start);
 	copy_interrupt_table();
 	hw_info_init();
-	_mmio_base = MMIO_BASE;
-
-	hw_optimise();
 
 	init_kernel_vm();  
 	km_init();
+
+	_mmio_base = MMIO_BASE;
+	hw_optimise();
 
 	uart_dev_init();
 	const char* msg = "\n\n"
