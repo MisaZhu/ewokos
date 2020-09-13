@@ -15,10 +15,10 @@ SECTIONS
 	.init start_address : AT(start_address) ALIGN(4096)
   {
     KEEP(*(.init .init.*))
-		../../basic/arch/arm/raspi2/start.o(.text .text.*)
-		../../basic/arch/arm/raspi2/start.o(.rodata .rodata.*)
-		../../basic/arch/arm/raspi2/start.o(.data .data.*)
-		../../basic/arch/arm/raspi2/start.o(.bss .bss.*)
+		../../basic/arch/arm/raspi32/start.o(.text .text.*)
+		../../basic/arch/arm/raspi32/start.o(.rodata .rodata.*)
+		../../basic/arch/arm/raspi32/start.o(.data .data.*)
+		../../basic/arch/arm/raspi32/start.o(.bss .bss.*)
   } : init
   _init_end = ALIGN(4096);
 

@@ -1,7 +1,22 @@
 #include <mm/mmu.h>
 #include <dev/actled.h>
 #include "bcm283x/mailbox.h"
+#include "bcm283x/gpio.h"
 
+#ifdef RASPI2
+void act_led(bool on) {
+	uint32_t ra;
+	ra = get32(GPIO_FSEL4);
+	ra &= ~(7<<21);
+	ra |= 1<<21;
+	put32(GPIO_FSEL4, ra);
+
+	if(!on) 	
+		put32(GPIO_CLR1, 1<<(47-32));
+	else
+		put32(GPIO_SET1, 1<<(47-32));
+}
+#else
 void act_led(bool on) {
 	mail_message_t msg;
 	/*message head + tag head + property*/
@@ -25,4 +40,4 @@ void act_led(bool on) {
 	mailbox_send(PROPERTY_CHANNEL, &msg);
 	mailbox_read(PROPERTY_CHANNEL, &msg);
 }
-
+#endif

@@ -9,7 +9,7 @@ OBJDUMP = arm-none-eabi-objdump
 
 export QEMU_AUDIO_DRV=none
 
-ARCH=arm/raspi3
+ARCH=arm/raspi32
 
 SYS_FULL_DIR = ../../../system
 SRC_DIR=../..
@@ -27,7 +27,7 @@ else
 OPTM = -O2
 endif
 
-CFLAGS += $(OPTM) \
+CFLAGS += -DRASPI3 $(OPTM) \
 	-I. -I$(SRC_DIR)/basic/lib/include -I$(SRC_DIR)/basic/include -I$(SRC_DIR)/extra/include -I$(SRC_DIR)/extra/lib/include \
 	-I${ARCH_DIR}/${ARCH} \
 	-I${ARCH_DIR}/arm/lib \

@@ -38,7 +38,6 @@ enum {
 	UART0_TDR = (UART0_BASE_OFF + 0x8C),
 };
 
-//int32_t __attribute__((optimize("O0"))) pl011_uart_init(void) {
 int32_t pl011_uart_init(void) {
 	// Disable UART0.
 	put32(_mmio_base+UART0_CR, 0x00000000);
@@ -80,8 +79,7 @@ int32_t pl011_uart_init(void) {
 	return 0;
 }
 
-//static void __attribute__((optimize("O0")))  uart_trans(char c) {
-static void uart_trans(char c) {
+static void __attribute__((optimize("O0")))  uart_trans(char c) {
 	// Wait for UART to become ready to transmit.
 	while (get32(_mmio_base+UART0_FR) & (1 << 5)) {}
 	if(c == '\r')
@@ -89,7 +87,6 @@ static void uart_trans(char c) {
 	put32(_mmio_base+UART0_DR, c);
 }
 
-//int32_t __attribute__((optimize("O0"))) pl011_uart_write(const void* data, uint32_t size) {
 int32_t pl011_uart_write(const void* data, uint32_t size) {
   int32_t i;
   for(i=0; i<(int32_t)size; i++) {
