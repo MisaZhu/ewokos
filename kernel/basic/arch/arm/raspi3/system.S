@@ -92,8 +92,24 @@ __int_on:
 	msr cpsr, r0
   mov pc, lr
 
-.global __mem_barrier
-__mem_barrier:
-	mov r0, #0 @ <Rd> should be zero (SBZ) for this
-	mcr p15, 0, r0, c7, c10, 5 @ data memory barrier
-	mov pc, lr
+.global __read_current_freq
+__read_current_freq:
+  mcr p15, 0, r0, c14, c0, 0
+  mov pc, lr
+
+.global __write_cntv_tval
+__write_cntv_tval:
+  mcr p15, 0, r0, c14, c3, 0
+  mov pc, lr
+
+.global __enable_cntv
+__enable_cntv:
+  mov r0, #1;
+  mcr p15, 0, r0, c14, c3, 1
+  mov pc, lr
+
+.global __disable_cntv
+__disable_cntv:
+  mov r0, #0;
+  mcr p15, 0, r0, c14, c3, 1
+  mov pc, lr

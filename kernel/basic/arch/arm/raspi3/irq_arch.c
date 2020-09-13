@@ -71,6 +71,8 @@ inline void gic_set_irqs(uint32_t irqs) {
 	*/
 }
 
+void __write_cntv_tval(uint32_t); 
+
 inline uint32_t gic_get_irqs(proto_t* data) {
 	(void)data;
 	uint32_t ret = 0;
@@ -78,7 +80,7 @@ inline uint32_t gic_get_irqs(proto_t* data) {
 
 	if (pending & 0x08 ) {
 		ret |= IRQ_TIMER0;
-		write_cntv_tval(_timer_frq); 
+		__write_cntv_tval(_timer_frq); 
 	}
 
 	/*if (pending & (1 << 8)) { //GPU_INT
