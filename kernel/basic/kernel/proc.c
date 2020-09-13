@@ -160,7 +160,7 @@ static void proc_unmap_shms(proc_t *proc) {
 	}
 }
 
-static void __attribute__((optimize("O0"))) proc_free_space(proc_t *proc) {
+static void proc_free_space(proc_t *proc) {
 	if(proc->info.type != PROC_TYPE_PROC)
 		return;
 
@@ -224,7 +224,7 @@ static void proc_wakeup_waiting(int32_t pid) {
 	}
 }
 
-static void __attribute__((optimize("O0"))) proc_terminate(context_t* ctx, proc_t* proc) {
+static void proc_terminate(context_t* ctx, proc_t* proc) {
 	if(proc->info.state == ZOMBIE || proc->info.state == UNUSED)
 		return;
 
@@ -247,7 +247,7 @@ static void __attribute__((optimize("O0"))) proc_terminate(context_t* ctx, proc_
 }
 
 /* proc_free frees all resources allocated by proc. */
-void __attribute__((optimize("O0"))) proc_exit(context_t* ctx, proc_t *proc, int32_t res) {
+void proc_exit(context_t* ctx, proc_t *proc, int32_t res) {
 	(void)res;
 	proc_terminate(ctx, proc);
 	proc->info.state = UNUSED;
@@ -334,7 +334,6 @@ static void proc_free_heap(proc_t* proc) {
 }
 
 /* proc_load loads the given ELF process image into the given process. */
-//int32_t __attribute__((optimize("O0"))) proc_load_elf(proc_t *proc, const char *image, uint32_t size) {
 int32_t proc_load_elf(proc_t *proc, const char *image, uint32_t size) {
 	uint32_t prog_header_offset = 0;
 	uint32_t prog_header_count = 0;
