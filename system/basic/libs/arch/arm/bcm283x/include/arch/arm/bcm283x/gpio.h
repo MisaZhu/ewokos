@@ -37,6 +37,9 @@
 #define GPIO_ALTF2  0x06
 #define GPIO_ALTF3  0x07
 
+#define GPIO_PULL_NONE 0x00
+#define GPIO_PULL_DOWN 0x01
+#define GPIO_PULL_UP   0x02
 #define GPIO_PULL_MASK 0x03
 
 void    gpio_init(void);
