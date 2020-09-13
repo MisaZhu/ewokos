@@ -9,7 +9,8 @@ OBJDUMP = arm-none-eabi-objdump
 
 export QEMU_AUDIO_DRV=none
 
-ARCH=arm/raspi32
+ARCH=arm/raspi2
+ARCH_RPI32=arm/raspi32
 
 SYS_FULL_DIR = ../../../system
 SRC_DIR=../..
@@ -27,9 +28,9 @@ else
 OPTM = -O2
 endif
 
-CFLAGS += -DRASPI2 $(OPTM) \
+CFLAGS += -DRASPI3 $(OPTM) \
 	-I. -I$(SRC_DIR)/basic/lib/include -I$(SRC_DIR)/basic/include -I$(SRC_DIR)/extra/include -I$(SRC_DIR)/extra/lib/include \
-	-I${ARCH_DIR}/${ARCH} \
+	-I${ARCH_DIR}/${ARCH_RPI32} \
 	-I${ARCH_DIR}/arm/lib \
 	-I${ARCH_DIR}/arm/common/include \
 	-marm $(ARCH_QEMU_CFLAGS) \
@@ -50,17 +51,17 @@ CFLAGS += -DRASPI2 $(OPTM) \
 	-std=c99
 
 ARCH_OBJS = \
-	${ARCH_DIR}/${ARCH}/boot.o \
-	${ARCH_DIR}/${ARCH}/start.o \
-	${ARCH_DIR}/${ARCH}/system.o \
+	${ARCH_DIR}/${ARCH}/hw_info.o \
+	${ARCH_DIR}/${ARCH}/uart.o \
+	${ARCH_DIR}/${ARCH_RPI32}/boot.o \
+	${ARCH_DIR}/${ARCH_RPI32}/start.o \
+	${ARCH_DIR}/${ARCH_RPI32}/system.o \
+	${ARCH_DIR}/${ARCH_RPI32}/irq_arch.o \
+	${ARCH_DIR}/${ARCH_RPI32}/actled.o \
+	${ARCH_DIR}/${ARCH_RPI32}/timer.o \
 	${ARCH_DIR}/arm/common/src/interrupt.o \
 	${ARCH_DIR}/arm/common/src/memcpy.o \
 	${ARCH_DIR}/arm/common/src/mm/mmu_arch.o \
-	${ARCH_DIR}/${ARCH}/hw_info.o \
-	${ARCH_DIR}/${ARCH}/uart.o \
-	${ARCH_DIR}/${ARCH}/irq_arch.o \
-	${ARCH_DIR}/${ARCH}/actled.o \
-	${ARCH_DIR}/${ARCH}/timer.o \
 	${ARCH_DIR}/arm/lib/bcm283x/gpio.o  \
 	${ARCH_DIR}/arm/lib/bcm283x/mailbox.o \
 	${ARCH_DIR}/arm/lib/bcm283x/pl011_uart.o \
@@ -87,7 +88,7 @@ ifneq ($(DISP),no)
 CFLAGS += -DDISPLAY
 
 CFLAGS += -DFRAMEBUFFER
-ARCH_OBJS += ${EXTRA_ARCH_DIR}/${ARCH}/framebuffer/framebuffer.o \
+ARCH_OBJS += ${EXTRA_ARCH_DIR}/${ARCH_RPI32}/framebuffer/framebuffer.o \
 	${ARCH_DIR}/arm/lib/bcm283x/framebuffer.o
 
 LIB_OBJS += \
@@ -100,7 +101,7 @@ endif
 
 ifeq ($(SDC),yes)
 CFLAGS += -DSDC
-ARCH_OBJS += ${EXTRA_ARCH_DIR}/${ARCH}/sd/sd.o \
+ARCH_OBJS += ${EXTRA_ARCH_DIR}/${ARCH_RPI32}/sd/sd.o \
 	${ARCH_DIR}/arm/lib/bcm283x/sd.o
 
 LOAD_DIR = $(SRC_DIR)/extra/loadinit/sd
@@ -140,7 +141,7 @@ OBJS = ${ARCH_OBJS} \
 	${KERNEL_OBJS} 
 
 LDS = mkos.lds.sd.S
-LDFLAGS = -L ${ARCH_DIR}/${ARCH}
+LDFLAGS = -L ${ARCH_DIR}/${ARCH_RPI32}
 
 ASFLAGS = $(OPTM) -I. -I$(SRC_DIR)/basic/include -marm $(ARCH_QEMU_CFLAGS)
 
