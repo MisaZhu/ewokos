@@ -4,6 +4,6 @@
 #include <kernel/system.h>
 #include <stdbool.h>
 
-void act_led(bool on);
+void actled(bool on);
 
 #endif

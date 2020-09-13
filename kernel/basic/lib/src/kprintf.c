@@ -28,7 +28,7 @@ static void outc(char c, void* p) {
 }
 
 void printf(const char *format, ...) {
-	act_led(true);
+	actled(true);
 	_delay_msec(30);
 
 	va_list ap;
@@ -39,6 +39,6 @@ void printf(const char *format, ...) {
 #ifdef FRAMEBUFFER
 	kconsole_out(_buf);
 #endif
-	act_led(false);
+	actled(false);
 }
 
