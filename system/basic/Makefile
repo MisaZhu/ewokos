@@ -191,12 +191,10 @@ include $(ROOT_DIR)/drivers/nulld/build.mk
 include $(ROOT_DIR)/drivers/rootfsd/build.mk
 include $(ROOT_DIR)/drivers/rootkfsd/build.mk
 include $(ROOT_DIR)/drivers/arch/arm/versatilepb/ttyd/build.mk
-include $(ROOT_DIR)/drivers/arch/arm/raspi/ttyd/build.mk
-include $(ROOT_DIR)/drivers/arch/arm/raspi/actledd/build.mk
-include $(ROOT_DIR)/drivers/arch/arm/raspi2/ttyd/build.mk
-include $(ROOT_DIR)/drivers/arch/arm/raspi2/actledd/build.mk
-include $(ROOT_DIR)/drivers/arch/arm/raspi3/ttyd/build.mk
-include $(ROOT_DIR)/drivers/arch/arm/raspi3/actledd/build.mk
+include $(ROOT_DIR)/drivers/arch/arm/raspix/pl011_uartd/build.mk
+include $(ROOT_DIR)/drivers/arch/arm/raspix/mini_uartd/build.mk
+include $(ROOT_DIR)/drivers/arch/arm/raspix/gpio_actledd/build.mk
+include $(ROOT_DIR)/drivers/arch/arm/raspix/mbox_actledd/build.mk
 
 include $(ROOT_DIR)/bin/shell/build.mk
 include $(ROOT_DIR)/bin/actled/build.mk

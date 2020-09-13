@@ -12,7 +12,7 @@
 
 static charbuf_t _buffer;
 
-static int tty_read(int fd, int from_pid, fsinfo_t* info, 
+static int uart_read(int fd, int from_pid, fsinfo_t* info, 
 		void* buf, int size, int offset, void* p) {
 	(void)fd;
 	(void)from_pid;
@@ -31,17 +31,19 @@ static int tty_read(int fd, int from_pid, fsinfo_t* info,
   return 1;
 }
 
-static int tty_write(int fd, int from_pid, fsinfo_t* info,
+static int uart_write(int fd, int from_pid, fsinfo_t* info,
 		const void* buf, int size, int offset, void* p) {
 	(void)fd;
 	(void)info;
 	(void)from_pid;
 	(void)offset;
 	(void)p;
-	return mini_uart_write(buf, size);
+
+	int ret = mini_uart_write(buf, size);
+	return ret;
 }
 
-static int tty_loop_raw(void) {
+static int uart_loop_raw(void) {
 	if(mini_uart_ready_to_recv() != 0)
 		return 0;
 
@@ -56,27 +58,26 @@ static int tty_loop_raw(void) {
 	return 0;
 }
 
-static int tty_loop(void*p) {
+static int uart_loop(void*p) {
 	(void)p;
-	int res = tty_loop_raw();
+	int res = uart_loop_raw();
 	usleep(30000);
 	return res;
 }
 
 int main(int argc, char** argv) {
-	const char* mnt_point = argc > 1 ? argv[1]: "/dev/tty0";
+	const char* mnt_point = argc > 1 ? argv[1]: "/dev/tty1";
 	_mmio_base = mmio_map();
 
 	charbuf_init(&_buffer);
 
 	vdevice_t dev;
 	memset(&dev, 0, sizeof(vdevice_t));
-	strcpy(dev.name, "tty");
-	dev.read = tty_read;
-	dev.write = tty_write;
-	dev.loop_step = tty_loop;
+	strcpy(dev.name, "mini_uart");
+	dev.read = uart_read;
+	dev.write = uart_write;
+	dev.loop_step = uart_loop;
 
 	device_run(&dev, mnt_point, FS_TYPE_CHAR);
 	return 0;
 }
-

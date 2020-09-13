@@ -1,3 +1,3 @@
-/drivers/nulld               /dev/null
-/drivers/arm/raspi2/actledd  /dev/actled
-/drivers/arm/raspi2/ttyd     /dev/tty0
+/drivers/nulld                    /dev/null
+/drivers/arm/raspix/gpio_actledd  /dev/actled
+/drivers/arm/raspix/pl011_uartd   /dev/tty0

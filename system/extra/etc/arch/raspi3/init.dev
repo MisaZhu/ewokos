@@ -1,7 +1,7 @@
-/drivers/fbd                  /dev/fb0
-/drivers/nulld                 /dev/null
-/drivers/arm/raspi3/actledd  /dev/actled
-/drivers/arm/raspi3/ttyd       /dev/tty0
-#/drivers/arm/raspix/joystickd /dev/joystick
-#/drivers/arm/raspix/lcdhatd   /dev/fb1
-/drivers/xserverd             /dev/x
+/drivers/fbd                      /dev/fb0
+/drivers/nulld                    /dev/null
+/drivers/arm/raspix/mbox_actledd  /dev/actled
+/drivers/arm/raspix/mini_uartd    /dev/tty0
+#/drivers/arm/raspix/joystickd    /dev/joystick
+#/drivers/arm/raspix/lcdhatd      /dev/fb1
+/drivers/xserverd                 /dev/x
