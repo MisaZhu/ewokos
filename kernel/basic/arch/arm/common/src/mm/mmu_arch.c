@@ -5,35 +5,6 @@
 #include <kernel/system.h>
 #include <kernel/kernel.h>
 
-//static inline void __attribute__((optimize("O0"))) set_extra_flags(page_table_entry_t* pte, uint32_t is_dev) {
-static inline void set_extra_flags(page_table_entry_t* pte, uint32_t is_dev) {
-	pte->bufferable = 0;
-	pte->cacheable = 0;
-
-#ifdef A_CORE
-	if(is_dev == 0) { //normal mem
-		//pte->tex = 0x1;
-		pte->cacheable = 1;
-		//pte->bufferable = 1;
-	}
-	//else { //device 
-		//pte->tex = 0x7;
-	//}
-#else
-	(void)is_dev;
-	if(pte->ap == AP_RW_RW) {
-		pte->tex = 0x7;
-		pte->apx = 1;
-		pte->ng = 1;
-	}
-	else {
-		pte->tex = 0x5;
-		pte->apx = 0;
-	}
-	pte->sharable = 1;
-#endif
-}
-
 /*
  * map_page adds to the given virtual memory the mapping of a single virtual page
  * to a physical page.
@@ -68,7 +39,7 @@ int32_t map_page(page_dir_entry_t *vm, uint32_t virtual_addr,
 	page_table[page_index].type = SMALL_PAGE_TYPE,
 	page_table[page_index].base = PAGE_TO_BASE(physical);
 	page_table[page_index].ap = permissions;
-	set_extra_flags(&page_table[page_index], is_dev);
+	set_pte_flags(&page_table[page_index], is_dev);
 	return 0;
 }
 

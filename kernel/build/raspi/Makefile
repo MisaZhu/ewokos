@@ -32,7 +32,7 @@ CFLAGS += $(OPTM) \
 	-I${ARCH_DIR}/${ARCH} \
 	-I${ARCH_DIR}/arm/lib \
 	-I${ARCH_DIR}/arm/common/include \
-	-marm $(ARCH_QEMU_CFLAGS) \
+	-marm $(ARCH_CFLAGS) \
 	-Wstrict-prototypes \
 	-pedantic -Wall -Wextra -msoft-float -fPIC -mapcs-frame \
 	-fno-builtin-printf \
@@ -61,6 +61,7 @@ ARCH_OBJS = \
 	${ARCH_DIR}/arm/common/src/interrupt.o \
 	${ARCH_DIR}/arm/common/src/memcpy.o \
 	${ARCH_DIR}/arm/common/src/mm/mmu_arch.o \
+	${ARCH_DIR}/arm/common/src/mm/v6/mmu_pte_flags.o \
 	${ARCH_DIR}/arm/lib/bcm283x/gpio.o  \
 	${ARCH_DIR}/arm/lib/bcm283x/mailbox.o \
 	${ARCH_DIR}/arm/lib/bcm283x/pl011_uart.o \
@@ -141,7 +142,7 @@ OBJS = ${ARCH_OBJS} \
 LDS = mkos.lds.sd.S
 LDFLAGS = -L ${ARCH_DIR}/${ARCH}
 
-ASFLAGS = $(OPTM) -I. -I$(SRC_DIR)/basic/include -marm $(ARCH_QEMU_CFLAGS)
+ASFLAGS = $(OPTM) -I. -I$(SRC_DIR)/basic/include -marm $(ARCH_CFLAGS)
 
 all: $(OS_IMG) 
 

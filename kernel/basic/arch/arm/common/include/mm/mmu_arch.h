@@ -35,6 +35,8 @@ typedef struct {
 	uint32_t base       : 20;
 } page_table_entry_t; 
 
+void set_pte_flags(page_table_entry_t* pte, uint32_t is_dev);
+
 int32_t  map_page(page_dir_entry_t *vm, 
   uint32_t virtual_addr, 
 	uint32_t physical,
