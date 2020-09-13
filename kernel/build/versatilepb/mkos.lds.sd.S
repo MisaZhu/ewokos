@@ -1,6 +1,9 @@
 ENTRY(__entry)
 
-INCLUDE linker.lds.S
+base_address = 0x80000000;
+start_address = 0x8000;
+framebuffer_size = 0x400000;
+
 PHDRS
 {
   init   PT_LOAD FLAGS(5); /* read-only, executable*/

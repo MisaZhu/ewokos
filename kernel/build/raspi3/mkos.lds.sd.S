@@ -1,6 +1,8 @@
 ENTRY(__entry)
 
-INCLUDE linker.lds.S
+base_address = 0x80000000;
+start_address = 0x8000; /*for real hardware*/
+
 PHDRS
 {
   init   PT_LOAD FLAGS(5); /* read-only, executable*/
@@ -51,11 +53,6 @@ SECTIONS
 
 	. = . + 0x10000;
 	_svc_stack = .;
-
-	. = ALIGN(4096);
-	PROVIDE(_framebuffer_base_raw = .); 
-	. += framebuffer_size;
-	PROVIDE(_framebuffer_end_raw = .); 
 
 	. = ALIGN(4096);
 	PROVIDE(_kernel_end = .);
