@@ -4,7 +4,7 @@
 #include <kernel/hw_info.h>
 #include <mm/mmu.h>
 #include <kstring.h>
-#include <arch.h>
+#include "arch.h"
 #include "timer_arch.h"
 
 /* memory mapping for the prime interrupt controller */

@@ -9,7 +9,7 @@ OBJDUMP = arm-none-eabi-objdump
 
 export QEMU_AUDIO_DRV=none
 
-ARCH=arm/raspi32
+ARCH=arm/raspi_a32
 
 SYS_FULL_DIR = ../../../system
 SRC_DIR=../..
@@ -52,12 +52,12 @@ CFLAGS += -DRASPI3 $(OPTM) \
 ARCH_OBJS = \
 	${ARCH_DIR}/${ARCH}/raspi2/hw_info.o \
 	${ARCH_DIR}/${ARCH}/raspi2/uart.o \
-	${ARCH_DIR}/${ARCH}/boot.o \
-	${ARCH_DIR}/${ARCH}/start.o \
-	${ARCH_DIR}/${ARCH}/system.o \
-	${ARCH_DIR}/${ARCH}/irq_arch.o \
-	${ARCH_DIR}/${ARCH}/actled.o \
-	${ARCH_DIR}/${ARCH}/timer.o \
+	${ARCH_DIR}/${ARCH}/common/boot.o \
+	${ARCH_DIR}/${ARCH}/common/start.o \
+	${ARCH_DIR}/${ARCH}/common/system.o \
+	${ARCH_DIR}/${ARCH}/common/irq_arch.o \
+	${ARCH_DIR}/${ARCH}/common/actled.o \
+	${ARCH_DIR}/${ARCH}/common/timer.o \
 	${ARCH_DIR}/arm/common/src/interrupt.o \
 	${ARCH_DIR}/arm/common/src/memcpy.o \
 	${ARCH_DIR}/arm/common/src/mm/mmu_arch.o \
