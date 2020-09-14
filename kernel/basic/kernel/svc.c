@@ -230,13 +230,13 @@ static int32_t sys_framebuffer_flush(void* buf, uint32_t size) {
 #endif
 }
 
-static __attribute__((aligned(PAGE_SIZE))) uint8_t _mbox_buf[PAGE_SIZE];
-static uint32_t sys_mbox_map(void) {
+static __attribute__((aligned(PAGE_SIZE))) uint8_t _kmem_buf[PAGE_SIZE];
+static uint32_t sys_kmem_map(void) {
 	if(_current_proc->info.owner != 0)
 		return 0;
-	map_page(_current_proc->space->vm, (uint32_t)_mbox_buf, V2P((uint32_t)_mbox_buf), AP_RW_RW, 0);
+	map_page(_current_proc->space->vm, (uint32_t)_kmem_buf, V2P((uint32_t)_kmem_buf), AP_RW_RW, 0);
 	flush_tlb();
-	return (uint32_t)_mbox_buf;	
+	return (uint32_t)_kmem_buf;	
 }
 
 static void sys_ipc_setup(context_t* ctx, uint32_t entry, uint32_t extra_data, uint32_t flags) {
@@ -555,8 +555,8 @@ void svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_t arg2, context
 	case SYS_MMIO_MAP:
 		ctx->gpr[0] = sys_mmio_map();
 		return;
-	case SYS_MBOX_MAP:
-		ctx->gpr[0] = sys_mbox_map();
+	case SYS_KMEM_MAP:
+		ctx->gpr[0] = sys_kmem_map();
 		return;
 	case SYS_FRAMEBUFFER_INFO:
 		ctx->gpr[0] = sys_framebuffer_info((fbinfo_t*)arg0);
