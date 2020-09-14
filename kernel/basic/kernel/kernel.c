@@ -217,7 +217,7 @@ void _kernel_entry_c(context_t* ctx) {
 		printf("  [ok]\n");
 
 	printf("kernel: set timer.\n");
-	timer_set_interval(0, 0x200); 
+	timer_set_interval(0, 256); 
 
 	printf("kernel: enable irq.\n");
 	__irq_enable();

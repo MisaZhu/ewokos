@@ -48,14 +48,14 @@ static volatile uint32_t* timer_addr_by_id(uint32_t id) {
 	return TIMER0;
 }
 
-void timer_set_interval(uint32_t id, uint32_t interval_microsecond) {
+void timer_set_interval(uint32_t id, uint32_t times_per_sec) {
 	volatile uint32_t* t = timer_addr_by_id(id);
   /*put8(t + TIMER_CTRL, 0);
   put8(t + TIMER_BGLOAD, 0);
-  put8(t + TIMER_LOAD, interval_microsecond);
+  put8(t + TIMER_LOAD, times_per_sec);
   put8(t + TIMER_CTRL, 0xe2);
 	*/
-  put32(t + TIMER_LOAD, interval_microsecond/5);
+  put32(t + TIMER_LOAD, times_per_sec);
 	uint8_t reg = TIMER_CTRL_32BIT | TIMER_CTRL_INTREN |
 		TIMER_CTRL_PERIODIC | DEFAULT_CTRL_DIV | TIMER_CTRL_EN;
   put8(t + TIMER_CTRL, reg);
@@ -68,6 +68,6 @@ void timer_clear_interrupt(uint32_t id) {
 
 static uint32_t _sys_usec_tic = 0;
 uint64_t timer_read_sys_usec(void) { //read microsec
-	_sys_usec_tic += 1000;
+	_sys_usec_tic += 4000;
 	return _sys_usec_tic;
 }

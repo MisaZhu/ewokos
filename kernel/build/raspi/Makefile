@@ -66,7 +66,7 @@ ARCH_OBJS = \
 	${ARCH_DIR}/arm/lib/bcm283x/mailbox.o \
 	${ARCH_DIR}/arm/lib/bcm283x/pl011_uart.o \
 	${ARCH_DIR}/arm/lib/bcm283x/mini_uart.o \
-	${ARCH_DIR}/arm/lib/bcm283x/actled.o \
+	${ARCH_DIR}/arm/lib/bcm283x/gpio_actled.o \
 	${ARCH_DIR}/arm/lib/bcm283x/cpu_freq.o
 
 QEMU_CMD = qemu-system-arm

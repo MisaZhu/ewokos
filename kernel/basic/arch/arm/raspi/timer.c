@@ -17,11 +17,11 @@
 #define ARM_TIMER_DIV (_mmio_base+0x0B41C)
 #define ARM_TIMER_CNT (_mmio_base+0x0B420)
 
-void timer_set_interval(uint32_t id, uint32_t interval_microsecond) {
+void timer_set_interval(uint32_t id, uint32_t times_per_sec) {
 	(void)id;
   put32(ARM_TIMER_CTL,0x003E0000);
-	put32(ARM_TIMER_LOD,interval_microsecond*10-1);
-	put32(ARM_TIMER_RLD,interval_microsecond*10-1);
+	put32(ARM_TIMER_LOD,times_per_sec*10-1);
+	put32(ARM_TIMER_RLD,times_per_sec*10-1);
   put32(ARM_TIMER_CLI,0);
   put32(ARM_TIMER_CTL,0x003E00A2);
   put32(ARM_TIMER_CLI,0);

@@ -3,7 +3,7 @@
 
 #include <stdint.h>
 
-extern void timer_set_interval(uint32_t id, uint32_t interval_microsecond);
+extern void timer_set_interval(uint32_t id, uint32_t times_per_sec);
 
 extern void timer_clear_interrupt(uint32_t id);
 
