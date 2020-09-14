@@ -252,6 +252,13 @@ void proc_exit(context_t* ctx, proc_t *proc, int32_t res) {
 	proc_terminate(ctx, proc);
 	proc->info.state = UNUSED;
 
+	/*free kpage*/
+	if(proc->space->kpage != 0) {
+		unmap_page(proc->space->vm, proc->space->kpage);
+		kfree4k((char*)proc->space->kpage);
+		proc->space->kpage = 0;
+	}
+
 	/*free user_stack*/
 	uint32_t user_stack_base = proc_get_user_stack_base(proc);
 	uint32_t pages = proc_get_user_stack_pages(proc);

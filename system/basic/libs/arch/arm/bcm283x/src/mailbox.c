@@ -2,7 +2,7 @@
 #include "arch/arm/bcm283x/mailbox.h"
 
 uint32_t mailbox_map(void) {
-	return syscall0(SYS_KMEM_MAP);
+	return syscall0(SYS_KPAGE_MAP);
 }
 
 //void __attribute__((optimize("O0"))) mailbox_read(int channel, mail_message_t *msg) {

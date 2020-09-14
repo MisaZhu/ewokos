@@ -42,7 +42,7 @@ enum {
 	SYS_GET_PROCS,
 
 	SYS_MMIO_MAP,
-	SYS_KMEM_MAP, //map kernel memory (just one page size) for userspace access
+	SYS_KPAGE_MAP, //map kernel memory (just one page size) for userspace access
 	SYS_FRAMEBUFFER_INFO,
 	SYS_FRAMEBUFFER_FLUSH,
 

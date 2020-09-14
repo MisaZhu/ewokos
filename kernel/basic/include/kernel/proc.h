@@ -17,6 +17,7 @@ typedef struct {
 	page_dir_entry_t *vm;
 	malloc_t malloc_man;
 	uint32_t heap_size;
+	uint32_t kpage; //mapped page , share same address with kernel
 	bool ready_ping;
 	
 	int32_t shms[SHM_MAX];
