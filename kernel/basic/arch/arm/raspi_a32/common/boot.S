@@ -60,7 +60,8 @@ continue:
 
 halt:
 	b halt
-
+	
+/*copy from RT-Thread (https://github.com/BernardXiong/rt-thread/)*/
 .globl arm_smp_disable
 arm_smp_disable:
 	mrc p15, 0, r0, c1, c0, 1   // clear SMP bit in ACTLR
