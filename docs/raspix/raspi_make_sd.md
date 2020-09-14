@@ -6,12 +6,12 @@
 
     sudo mke2fs -L rootfs -b 1024 -I 128 /dev/(SD_PARTITION_EXT4)
 
-4.remove  kernel*.img files from boot partition root dir.
+4.cd system and make
 
-5.export MACH=raspi and remake kernel (with make clean)
+5.copy system/build/rootfs/* to ext2 partition root dir
 
-6.copy kernel/build/mkos.bin to boot partition /kernel.img
+6.remove  kernel*.img files from boot partition root dir.
 
-7.cd system and make
+7.cd build path and remake kernel (with make clean)
 
-8.copy system/build/rootfs/* to ext2 partition root dir
+8.copy kernel image file(kernel.img / kernel7.img) to boot partition
