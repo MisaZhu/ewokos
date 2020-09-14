@@ -5,6 +5,7 @@ _FLD_MAX_WAY:
 _FLD_MAX_IDX:
  .word  0x7ff
 
+/*copy from RT-Thread (https://github.com/BernardXiong/rt-thread/)*/
 .global __cpu_dcache_clean_flush
 __cpu_dcache_clean_flush:
 	push    {r4-r11}
