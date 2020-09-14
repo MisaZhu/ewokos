@@ -10,6 +10,7 @@ OBJDUMP = arm-none-eabi-objdump
 export QEMU_AUDIO_DRV=none
 
 ARCH=arm/raspi_a32
+BOARD=raspi3
 
 SYS_FULL_DIR = ../../../system
 SRC_DIR=../..
@@ -50,13 +51,13 @@ CFLAGS += $(OPTM) \
 	-std=c99
 
 ARCH_OBJS = \
-	${ARCH_DIR}/${ARCH}/raspi3/hw_info.o \
-	${ARCH_DIR}/${ARCH}/raspi3/uart.o \
+	${ARCH_DIR}/${ARCH}/${BOARD}/hw_info.o \
+	${ARCH_DIR}/${ARCH}/${BOARD}/uart.o \
+	${ARCH_DIR}/${ARCH}/${BOARD}/actled.o \
 	${ARCH_DIR}/${ARCH}/common/boot.o \
 	${ARCH_DIR}/${ARCH}/common/start.o \
 	${ARCH_DIR}/${ARCH}/common/system.o \
 	${ARCH_DIR}/${ARCH}/common/irq_arch.o \
-	${ARCH_DIR}/${ARCH}/common/actled.o \
 	${ARCH_DIR}/${ARCH}/common/timer.o \
 	${ARCH_DIR}/arm/common/src/interrupt.o \
 	${ARCH_DIR}/arm/common/src/memcpy.o \
@@ -66,7 +67,8 @@ ARCH_OBJS = \
 	${ARCH_DIR}/arm/lib/bcm283x/mailbox.o \
 	${ARCH_DIR}/arm/lib/bcm283x/pl011_uart.o \
 	${ARCH_DIR}/arm/lib/bcm283x/mini_uart.o \
-	${ARCH_DIR}/arm/lib/bcm283x/actled.o \
+	${ARCH_DIR}/arm/lib/bcm283x/gpio_actled.o \
+	${ARCH_DIR}/arm/lib/bcm283x/mbox_actled.o \
 	${ARCH_DIR}/arm/lib/bcm283x/cpu_freq.o
 
 QEMU_CMD = qemu-system-arm
