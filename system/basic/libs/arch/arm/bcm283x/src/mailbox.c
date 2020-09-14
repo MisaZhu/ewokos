@@ -1,4 +1,9 @@
+#include <sys/syscall.h>
 #include "arch/arm/bcm283x/mailbox.h"
+
+uint32_t mailbox_map(void) {
+	return syscall0(SYS_MBOX_MAP);
+}
 
 //void __attribute__((optimize("O0"))) mailbox_read(int channel, mail_message_t *msg) {
 void mailbox_read(int channel, mail_message_t *msg) {

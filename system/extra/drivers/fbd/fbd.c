@@ -6,6 +6,7 @@
 #include <sys/syscall.h>
 #include <sys/vdevice.h>
 #include <sys/shm.h>
+#include <sys/kprintf.h>
 #include <fbinfo.h>
 
 typedef struct {

@@ -2,11 +2,12 @@
 #include <sys/vdevice.h>
 #include <string.h>
 
+static uint32_t _mbox_addr = 0;
 static void actled(bool on) {
 	mail_message_t msg;
 	/*message head + tag head + property*/
 	uint32_t size = 12 + 12 + 8;
-	uint32_t buf[8] __attribute__((aligned(16)));
+	uint32_t* buf = (uint32_t*)_mbox_addr;
 
 	/*message head*/
 	buf[0] = size;
@@ -61,6 +62,7 @@ static int actled_dev_cntl(int from_pid, int cmd, proto_t* in, proto_t* ret, voi
 int main(int argc, char** argv) {
 	const char* mnt_point = argc > 1 ? argv[1]: "/dev/actled";
 	_mmio_base = mmio_map();
+	_mbox_addr = mailbox_map();
 
 	vdevice_t dev;
 	memset(&dev, 0, sizeof(vdevice_t));
