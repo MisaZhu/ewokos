@@ -22,7 +22,8 @@ typedef struct {
     uint8_t full:1;
 } mail_status_t;
 
-uint32_t mailbox_map(void);
+extern uint32_t _mailbox_addr;
+uint32_t mailbox_init(void);
 void mailbox_read(int channel, mail_message_t* msg);
 void mailbox_send(int channel, mail_message_t* msg);
 

@@ -84,7 +84,9 @@ LIB_ARCH_BCM283x_OBJS = $(LIB_ARCH_BCM283x_DIR)/src/gpio.o \
 	$(LIB_ARCH_BCM283x_DIR)/src/spi.o \
 	$(LIB_ARCH_BCM283x_DIR)/src/pl011_uart.o \
 	$(LIB_ARCH_BCM283x_DIR)/src/mini_uart.o \
-	$(LIB_ARCH_BCM283x_DIR)/src/mailbox.o
+	$(LIB_ARCH_BCM283x_DIR)/src/mailbox.o \
+	$(LIB_ARCH_BCM283x_DIR)/src/mbox_actled.o \
+	$(LIB_ARCH_BCM283x_DIR)/src/gpio_actled.o
 
 LIB_LIBC_OBJS = $(LIB_LIBC_DIR)/src/unistd/chdir.o \
 	$(LIB_LIBC_DIR)/src/unistd/dup.o \

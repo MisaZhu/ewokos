@@ -1,8 +1,13 @@
 #include <sys/syscall.h>
 #include "arch/arm/bcm283x/mailbox.h"
 
-uint32_t mailbox_map(void) {
-	return syscall0(SYS_KPAGE_MAP);
+uint32_t _mailbox_addr = 0;
+uint32_t mailbox_init(void) {
+	if(mmio_map() == 0)
+		return 0;
+
+	_mailbox_addr = syscall0(SYS_KPAGE_MAP);
+	return _mailbox_addr;
 }
 
 //void __attribute__((optimize("O0"))) mailbox_read(int channel, mail_message_t *msg) {

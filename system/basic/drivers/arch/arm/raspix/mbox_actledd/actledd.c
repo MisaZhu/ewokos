@@ -1,30 +1,10 @@
 #include <arch/arm/bcm283x/mailbox.h>
+#include <arch/arm/bcm283x/mbox_actled.h>
 #include <sys/vdevice.h>
 #include <string.h>
 
-static uint32_t _mbox_addr = 0;
 static void actled(bool on) {
-	mail_message_t msg;
-	/*message head + tag head + property*/
-	uint32_t size = 12 + 12 + 8;
-	uint32_t* buf = (uint32_t*)_mbox_addr;
-
-	/*message head*/
-	buf[0] = size;
-	buf[1] = 0;	//RPI_FIRMWARE_STATUS_REQUEST;
-	/*tag head*/
-	buf[2] = 0x00038041;								/*tag*/
-	buf[3] = 8;									/*buffer size*/
-	buf[4] = 0;									/*respons size*/
-	/*property package*/
-	buf[5] =  130;				/*actled pin number*/
-	buf[6] =  on ? 1: 0;								/*property value*/
-	/*message end*/
-	buf[7] = 0;
-	
-	msg.data = ((uint32_t)buf + 0x40000000) >> 4;	
-	mailbox_send(PROPERTY_CHANNEL, &msg);
-	mailbox_read(PROPERTY_CHANNEL, &msg);
+	bcm283x_mbox_actled(on);
 }
 
 static int actled_write(int fd, int from_pid, fsinfo_t* info,
@@ -61,8 +41,7 @@ static int actled_dev_cntl(int from_pid, int cmd, proto_t* in, proto_t* ret, voi
 
 int main(int argc, char** argv) {
 	const char* mnt_point = argc > 1 ? argv[1]: "/dev/actled";
-	_mmio_base = mmio_map();
-	_mbox_addr = mailbox_map();
+	mailbox_init();
 
 	vdevice_t dev;
 	memset(&dev, 0, sizeof(vdevice_t));

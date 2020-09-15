@@ -1,18 +1,9 @@
-#include <arch/arm/bcm283x/gpio.h>
+#include <arch/arm/bcm283x/gpio_actled.h>
 #include <sys/vdevice.h>
 #include <string.h>
 
 static void actled(bool on) {
-  uint32_t ra;
-  ra = get32(GPIO_FSEL4);
-  ra &= ~(7<<21);
-  ra |= 1<<21;
-  put32(GPIO_FSEL4, ra);
-
-  if(!on)
-    put32(GPIO_CLR1, 1<<(47-32));
-  else
-    put32(GPIO_SET1, 1<<(47-32));
+	bcm283x_gpio_actled(on);
 }
 
 static int actled_write(int fd, int from_pid, fsinfo_t* info,
