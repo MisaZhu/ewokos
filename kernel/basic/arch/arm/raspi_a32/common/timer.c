@@ -39,8 +39,8 @@ uint32_t read_cntfrq(void) {
 
 void timer_set_interval(uint32_t id, uint32_t times_per_sec) {
 	(void)id;
-  if(times_per_sec == 0)
-    times_per_sec = 256;
+  if(times_per_sec < 512)
+    times_per_sec = 512;
   _timer_frq = div_u32(read_cntfrq() , (times_per_sec));
   __write_cntv_tval(_timer_frq);
   __enable_cntv();
