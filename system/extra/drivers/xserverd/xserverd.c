@@ -748,9 +748,15 @@ static xview_t* get_mouse_owner(x_t* x, int* win_frame_pos) {
 }
 
 static int mouse_handle(x_t* x, xevent_t* ev) {
-	mouse_cxy(x, ev->value.mouse.rx, ev->value.mouse.ry);
-	ev->value.mouse.x = x->cursor.cpos.x;
-	ev->value.mouse.y = x->cursor.cpos.y;
+	if(ev->value.mouse.rx != 0 || ev->value.mouse.ry != 0) {
+		mouse_cxy(x, ev->value.mouse.rx, ev->value.mouse.ry);
+		ev->value.mouse.x = x->cursor.cpos.x;
+		ev->value.mouse.y = x->cursor.cpos.y;
+	}
+	else {
+		x->cursor.cpos.x = ev->value.mouse.x;
+		x->cursor.cpos.y = ev->value.mouse.y;
+	}
 
 	int pos = -1;
 	xview_t* view = NULL;

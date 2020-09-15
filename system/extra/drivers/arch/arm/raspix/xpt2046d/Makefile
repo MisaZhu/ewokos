@@ -27,9 +27,9 @@ LDFLAGS = -L$(BUILD_DIR)/lib -lnosys
 
 CFLAGS += -I $(BUILD_DIR)/include
 
-EPAPERD_OBJS = ili9486d.o
+EPAPERD_OBJS = xpt2046d.o
 
-EPAPERD = $(TARGET_DIR)/drivers/arm/raspix/ili9486d
+EPAPERD = $(TARGET_DIR)/drivers/arm/raspix/xpt2046d
 
 $(EPAPERD): $(EPAPERD_OBJS) \
 		$(BUILD_DIR)/lib/libewokc.a \
