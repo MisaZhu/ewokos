@@ -19,5 +19,3 @@ void arch_vm(page_dir_entry_t* vm) {
 	(void)vm;
 }
 
-void hw_optimise(void) {
-}

@@ -171,11 +171,9 @@ void _kernel_entry_c(context_t* ctx) {
 	init_kernel_vm();  
 	km_init();
 
-	_mmio_base = MMIO_BASE;
-	hw_optimise();
+	enable_vmmio_base();
 
 	uart_dev_init();
-	
 	const char* msg = "\n"
 		"███████╗██╗    ██╗ ██████╗ ██╗  ██╗ ██████╗ ███████╗\n"
 	  "██╔════╝██║    ██║██╔═══██╗██║ ██╔╝██╔═══██╗██╔════╝\n"

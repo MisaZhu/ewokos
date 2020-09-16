@@ -1,8 +1,6 @@
 #include <kernel/hw_info.h>
 #include <kernel/system.h>
 #include <kstring.h>
-#include "bcm283x/mailbox.h"
-#include "bcm283x/cpu_freq.h"
 
 static hw_info_t _hw_info;
 
@@ -29,6 +27,3 @@ void arch_vm(page_dir_entry_t* vm) {
 	map_page(vm, vbase, pbase, AP_RW_D, 0);
 }
 
-void hw_optimise(void) {
-	cpu_freq_init();	
-}

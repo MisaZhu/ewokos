@@ -62,3 +62,7 @@ inline void vm_flush_tlb(page_dir_entry_t* vm) {
 	set_translation_table_base((uint32_t)V2P(vm));
 	set_translation_table_base((uint32_t)V2P(old_vm));
 }
+
+inline void enable_vmmio_base(void) {
+	_mmio_base = MMIO_BASE;
+}
