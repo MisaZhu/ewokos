@@ -4,5 +4,5 @@
 /drivers/arm/raspix/mini_uartd    /dev/tty0
 #/drivers/arm/raspix/joystickd    /dev/joystick
 #/drivers/arm/raspix/lcdhatd      /dev/fb1
-/drivers/arm/raspix/xpt2046d      /dev/touch0
+/drivers/arm/raspix/hdmi_xpt2046d /dev/touch0
 /drivers/xserverd                 /dev/x

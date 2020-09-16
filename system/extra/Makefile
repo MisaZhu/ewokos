@@ -52,7 +52,7 @@ extra_driver:
 	cd $(EXTRA_DRIVERS_DIR)/arch/arm/raspix/joystickd;make
 	cd $(EXTRA_DRIVERS_DIR)/arch/arm/raspix/lcdhatd;make
 	cd $(EXTRA_DRIVERS_DIR)/arch/arm/raspix/epaperd;make
-	cd $(EXTRA_DRIVERS_DIR)/arch/arm/raspix/xpt2046d;make
+	cd $(EXTRA_DRIVERS_DIR)/arch/arm/raspix/hdmi_xpt2046d;make
 	cd $(EXTRA_DRIVERS_DIR)/arch/arm/raspix/usbd;make
 
 clean:
@@ -70,7 +70,7 @@ clean:
 	cd $(EXTRA_DRIVERS_DIR)/arch/arm/raspix/joystickd;make clean
 	cd $(EXTRA_DRIVERS_DIR)/arch/arm/raspix/lcdhatd;make clean
 	cd $(EXTRA_DRIVERS_DIR)/arch/arm/raspix/epaperd;make clean
-	cd $(EXTRA_DRIVERS_DIR)/arch/arm/raspix/xpt2046d;make clean
+	cd $(EXTRA_DRIVERS_DIR)/arch/arm/raspix/hdmi_xpt2046d;make clean
 	cd $(EXTRA_DRIVERS_DIR)/arch/arm/raspix/usbd;make clean
 	cd $(X_DIR)/sbin/xmouse;make clean
 	cd $(X_DIR)/sbin/xtouch;make clean

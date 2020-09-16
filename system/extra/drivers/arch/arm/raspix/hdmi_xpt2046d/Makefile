@@ -27,14 +27,14 @@ LDFLAGS = -L$(BUILD_DIR)/lib -lnosys
 
 CFLAGS += -I $(BUILD_DIR)/include
 
-EPAPERD_OBJS = xpt2046d.o
+XPTOUCHD_OBJS = xpt2046d.o
 
-EPAPERD = $(TARGET_DIR)/drivers/arm/raspix/xpt2046d
+XPTOUCHD = $(TARGET_DIR)/drivers/arm/raspix/hdmi_xpt2046d
 
-$(EPAPERD): $(EPAPERD_OBJS) \
+$(XPTOUCHD): $(XPTOUCHD_OBJS) \
 		$(BUILD_DIR)/lib/libewokc.a \
 		$(BUILD_DIR)/lib/libarch_bcm283x.a 
-	$(LD) -Ttext=100 $(EPAPERD_OBJS) -o $(EPAPERD) $(LDFLAGS) -larch_bcm283x -lewokc -lc
+	$(LD) -Ttext=100 $(XPTOUCHD_OBJS) -o $(XPTOUCHD) $(LDFLAGS) -larch_bcm283x -lewokc -lc
 
 clean:
-	rm -f $(EPAPERD_OBJS)
+	rm -f $(XPTOUCHD_OBJS)
