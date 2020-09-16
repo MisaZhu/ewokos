@@ -55,7 +55,6 @@ ARCH_OBJS = \
 	${ARCH_DIR}/${ARCH}/system.o \
 	${ARCH_DIR}/${ARCH}/hw_info.o \
 	${ARCH_DIR}/${ARCH}/irq_arch.o \
-	${ARCH_DIR}/${ARCH}/actled.o \
 	${ARCH_DIR}/${ARCH}/timer.o \
 	${ARCH_DIR}/${ARCH}/uart.o \
 	${ARCH_DIR}/arm/common/src/interrupt.o \
@@ -66,7 +65,7 @@ ARCH_OBJS = \
 	${ARCH_DIR}/arm/lib/bcm283x/mailbox.o \
 	${ARCH_DIR}/arm/lib/bcm283x/pl011_uart.o \
 	${ARCH_DIR}/arm/lib/bcm283x/mini_uart.o \
-	${ARCH_DIR}/arm/lib/bcm283x/gpio_actled.o \
+	${ARCH_DIR}/arm/lib/bcm283x/gpio_actled.o 
 
 QEMU_CMD = qemu-system-arm
 OS_IMG = kernel.img

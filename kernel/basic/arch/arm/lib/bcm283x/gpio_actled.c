@@ -2,7 +2,7 @@
 #include <dev/actled.h>
 #include "bcm283x/gpio.h"
 
-void bcm283x_gpio_actled(bool on) {
+void actled(bool on) {
 	uint32_t ra;
 	ra = get32(GPIO_FSEL4);
 	ra &= ~(7<<21);

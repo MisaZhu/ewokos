@@ -217,7 +217,7 @@ static int32_t sd_read_sector(uint32_t sector) {
 		return -1;
 	}
 
-	act_led(true);	
+	actled(true);	
 	*EMMC_BLKSIZECNT = (1 << 16) | SECTOR_SIZE;
 	if((sd_scr[0] & SCR_SUPP_CCS) != 0)
 		sd_cmd(CMD_READ_SINGLE, sector);
@@ -448,7 +448,7 @@ int32_t bcm283x_sd_read_done(void* buf) {
 	if(_sdc.rxdone == 0)
 		return -1;
 	memcpy(buf, _sdc.rxbuf, SECTOR_SIZE);
-	act_led(false);	
+	actled(false);	
 	return 0;
 }
 

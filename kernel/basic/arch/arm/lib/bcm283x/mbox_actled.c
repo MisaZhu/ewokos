@@ -2,7 +2,7 @@
 #include <dev/actled.h>
 #include "bcm283x/mailbox.h"
 
-void bcm283x_mbox_actled(bool on) {
+void actled(bool on) {
 	mail_message_t msg;
 	/*message head + tag head + property*/
 	uint32_t size = 12 + 12 + 8;
