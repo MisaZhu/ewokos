@@ -73,10 +73,8 @@ static int tp_read(int fd, int from_pid, fsinfo_t* info,
 
 		uint32_t x, y;
 		do_read(&x, &y);
-		_x = 320-x/6;
-		_y = 240-y/8;
-		if(_x < 0) _x = 0;
-		if(_y < 0) _y = 0;
+		_x = x;
+		_y = y;
 	}
 	else {  //release
 		_down = false;
