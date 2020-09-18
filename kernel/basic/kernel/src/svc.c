@@ -16,7 +16,7 @@
 #include <kstring.h>
 #include <kprintf.h>
 #include <stddef.h>
-#include <fbinfo.h>
+#include <dev/fbinfo.h>
 
 #ifdef FRAMEBUFFER
 #include <dev/framebuffer.h>

@@ -9,7 +9,6 @@
 #include <sys/basic_math.h>
 #include <sys/shm.h>
 #include <graph/graph.h>
-#include <fbinfo.h>
 #include <sys/ipc.h>
 #include <x/xcntl.h>
 #include <x/xevent.h>

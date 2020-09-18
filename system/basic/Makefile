@@ -169,8 +169,7 @@ all: mkdirs libs builtin_apps
 KERNEL_H = \
 	$(KERNEL_DIR)/include/usinterrupt.h \
 	$(KERNEL_DIR)/include/syscalls.h \
-	$(KERNEL_DIR)/include/procinfo.h \
-	$(KERNEL_DIR)/include/fbinfo.h
+	$(KERNEL_DIR)/include/procinfo.h
 
 libs: $(LIB_OBJS)
 	$(AR) rT $(BUILD_DIR)/lib/libewokc.a $(LIB_SYS_OBJS)  $(LIB_LIBC_OBJS)
