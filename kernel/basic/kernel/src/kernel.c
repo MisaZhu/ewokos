@@ -113,20 +113,18 @@ void _kernel_entry_c(context_t* ctx) {
 	enable_vmmio_base();
 	dev_init();
 
-	const char* msg = "\n"
-		"███████╗██╗    ██╗ ██████╗ ██╗  ██╗ ██████╗ ███████╗\n"
-	  "██╔════╝██║    ██║██╔═══██╗██║ ██╔╝██╔═══██╗██╔════╝\n"
-		"█████╗  ██║ █╗ ██║██║   ██║█████╔╝ ██║   ██║███████╗\n"
-		"██╔══╝  ██║███╗██║██║   ██║██╔═██╗ ██║   ██║╚════██║\n"
-		"███████╗╚███╔███╔╝╚██████╔╝██║  ██╗╚██████╔╝███████║\n"
-		"╚══════╝ ╚══╝╚══╝  ╚═════╝ ╚═╝  ╚═╝ ╚═════╝ ╚══════╝\n";
-	uart_write(msg, strlen(msg));
-
+	printf(
+			" ______           ______  _    _   ______  ______ \n"
+			"(  ___ \\|\\     /|(  __  )| \\  / \\ (  __  )(  ___ \\\n"
+			"| (__   | | _ | || |  | || (_/  / | |  | || (____\n"
+			"|  __)  | |( )| || |  | ||  _  (  | |  | |(____  )\n"
+			"| (___  | || || || |__| || ( \\  \\ | |__| |  ___) |\n"
+			"(______/(_______)(______)|_/  \\_/ (______)\\______)\n\n");
+                                                      
 	printf("kernel: kmalloc initing  [ok] : %dMB\n", div_u32(KMALLOC_END-KMALLOC_BASE, 1*MB));
 	init_allocable_mem(); //init the rest allocable memory VM
 	printf("kernel: init allocable memory: %dMB\n", div_u32(get_free_mem_size(), 1*MB));
 	
-
 	shm_init();
 	printf("kernel: share memory inited.\n");
 
