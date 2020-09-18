@@ -1,7 +1,7 @@
 #include <dev/gic.h>
 #include <kernel/irq.h>
 #include <mm/mmu.h>
-#include <arch.h>
+#include "arch.h"
 
 /* memory mapping for the prime interrupt controller */
 #define PIC (_mmio_base + 0x00140000)

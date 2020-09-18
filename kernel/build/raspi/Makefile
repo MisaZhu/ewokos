@@ -13,6 +13,7 @@ ARCH_DIR=$(SRC_DIR)/basic/arch/sys
 BSP_DIR=$(SRC_DIR)/basic/arch/bsp
 ARCH=arm/v6
 BSP=raspi
+EXTRA_BSP=raspi
 
 SYS_FULL_DIR = ../../../system
 SRC_DIR=../..
@@ -30,7 +31,7 @@ OPTM = -O2
 endif
 
 CFLAGS += $(OPTM) \
-	-I. -I$(SRC_DIR)/basic/lib/include -I$(SRC_DIR)/basic/include -I$(SRC_DIR)/extra/include -I$(SRC_DIR)/extra/lib/include \
+	-I. -I$(SRC_DIR)/basic/lib/include -I$(SRC_DIR)/basic/kernel/include -I$(SRC_DIR)/extra/include -I$(SRC_DIR)/extra/lib/include \
 	-I${ARCH_DIR}/${ARCH} \
 	-I${BSP_DIR}/lib \
 	-I${ARCH_DIR}/arm/common/include \
@@ -94,13 +95,13 @@ LIB_OBJS += \
 	${EXTRA_LIB_DIR}/kconsole.o
 
 CFLAGS += -DFRAMEBUFFER
-ARCH_OBJS += ${EXTRA_BSP_DIR}/${BSP}/framebuffer/framebuffer.o  \
+ARCH_OBJS += ${EXTRA_BSP_DIR}/${EXTRA_BSP}/framebuffer/framebuffer.o  \
 	${BSP_DIR}/lib/bcm283x/framebuffer.o
 endif
 
 ifeq ($(SDC),yes)
 CFLAGS += -DSDC
-ARCH_OBJS += ${EXTRA_BSP_DIR}/${BSP}/sd/sd.o \
+ARCH_OBJS += ${EXTRA_BSP_DIR}/${EXTRA_BSP}/sd/sd.o \
 	${BSP_DIR}/arm/lib/bcm283x/sd.o
 
 LOAD_DIR = $(SRC_DIR)/extra/loadinit/sd
@@ -118,7 +119,7 @@ LOAD_OBJS = \
 CFLAGS += -I$(LOAD_DIR)
 endif
 
-KERNEL_DIR = $(SRC_DIR)/basic/kernel
+KERNEL_DIR = $(SRC_DIR)/basic/kernel/src
 KERNEL_OBJS = \
 	${KERNEL_DIR}/mm/kalloc.o \
 	${KERNEL_DIR}/mm/trunkmem.o \
