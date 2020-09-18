@@ -15,7 +15,7 @@ void uart_out(const char* s) {
 	uart_write(s, strlen(s));
 }
 
-#define PRINTF_BUF_MAX 128
+#define PRINTF_BUF_MAX 1024
 static uint32_t _len = 0;
 static char _buf[PRINTF_BUF_MAX];
 static void outc(char c, void* p) {

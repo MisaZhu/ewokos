@@ -1,18 +1,13 @@
-#include "dev/framebuffer.h"
+#include <dev/framebuffer.h>
 #include <graph.h>
 #include <console.h>
 #include <stddef.h>
-#include <kprintf.h>
 
 static console_t _console;
 
 #ifdef FRAMEBUFFER
-
-void kconsole_init(void) {
-	console_init(&_console);
-}
-
 void kconsole_setup(void) {
+	console_init(&_console);
 	if(_console.g != NULL)
 		return;
 	fbinfo_t* info = fb_get_info();
@@ -31,14 +26,12 @@ static void kconsole_flush(void) {
 }
 
 #else
-void kconsole_init(void) {
-	_console.g == NULL;
-}
 
 static void kconsole_flush(void) {
 }
 
 void kconsole_setup(void) {
+	console_init(&_console);
 }
 
 #endif

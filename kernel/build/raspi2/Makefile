@@ -106,7 +106,7 @@ endif
 ifeq ($(SDC),yes)
 CFLAGS += -DSDC
 ARCH_OBJS += ${EXTRA_BSP_DIR}/${EXTRA_BSP}/sd/sd.o \
-	${BSP_DIR}/arm/lib/bcm283x/sd.o
+	${BSP_DIR}/lib/bcm283x/sd.o
 
 LOAD_DIR = $(SRC_DIR)/extra/loadinit/sd
 LOAD_OBJS = \
@@ -123,6 +123,10 @@ LOAD_OBJS = \
 CFLAGS += -I$(LOAD_DIR)
 endif
 
+DEV_DIR = $(SRC_DIR)/basic/dev/src
+DEV_OBJS = \
+	${DEV_DIR}/dev.o 
+
 KERNEL_DIR = $(SRC_DIR)/basic/kernel/src
 KERNEL_OBJS = \
 	${KERNEL_DIR}/mm/kalloc.o \
@@ -137,12 +141,14 @@ KERNEL_OBJS = \
 	${KERNEL_DIR}/schedule.o \
 	${KERNEL_DIR}/systemc.o \
 	${KERNEL_DIR}/kevqueue.o \
+	${KERNEL_DIR}/loadinit.o \
 	${KERNEL_DIR}/kernel.o
 
 OBJS = ${ARCH_OBJS} \
 	${LIB_OBJS} \
 	${LOAD_OBJS} \
-	${KERNEL_OBJS} 
+	${KERNEL_OBJS} \
+	${DEV_OBJS} 
 
 LDS = mkos.lds.sd.S
 LDFLAGS = -L ${ARCH_DIR}/${ARCH}

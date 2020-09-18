@@ -12,21 +12,10 @@
 #include <kernel/kevqueue.h>
 #include <dev/timer.h>
 #include <kprintf.h>
+#include <dev/dev.h>
 #include <dev/uart.h>
 #include <basic_math.h>
 #include <stddef.h>
-
-#ifdef SDC
-#include <dev/sd.h>
-#endif
-
-#ifdef DISPLAY
-#include <kconsole.h>
-#endif
-
-#ifdef FRAMEBUFFER
-#include <dev/framebuffer.h>
-#endif
 
 uint32_t _mmio_base = 0;
 page_dir_entry_t* _kernel_vm = NULL;
@@ -101,79 +90,29 @@ static void init_allocable_mem(void) {
 	kalloc_init(ALLOCATABLE_MEMORY_START, P2V(get_hw_info()->phy_mem_size), true);
 }
 
-#ifdef FRAMEBUFFER
-static void fb_init(void) {
-	fbinfo_t* fbinfo = NULL;
-	printf("kernel: framebuffer initing");
-	if(fb_dev_init() == 0) {
-		fbinfo = fb_get_info();
-		if(fbinfo->width * fbinfo->height * fbinfo->depth/8 == fbinfo->size) {
-			printf("  [OK]\n");
-			kconsole_setup();
-		}
-		else {
-			fbinfo->pointer = 0;
-			printf("  [Failed!]\n");
-		}
-	}
-	else {
-		printf("  [Failed!]\n");
-	}
-
-	if(fbinfo != NULL) {
-		printf("kernel: framebuffer: %dx%d %dbits, addr: 0x%X, size:%d\n", 
-				fbinfo->width, fbinfo->height, fbinfo->depth,
-				fbinfo->pointer, fbinfo->size);
+static void halt(void) {
+	while(1) {
+		__asm__("MOV r0, #0; MCR p15,0,R0,c7,c0,4"); // CPU enter WFI state
 	}
 }
-#endif
 
-static void dev_init(void) {
-	kev_init();
-
-#ifdef SDC
-	printf("kernel: sd card initing.\n");
-  printf("    %16s ", "mmc_sd");
-  if(sd_init() == 0) {
-    printf("[OK]\n\n");
-  }
-  else
-    printf("[Failed!]\n");
-#endif
-
-#ifdef FRAMEBUFFER
-	fb_init();
-#endif
-}
-
-#ifdef SDC
-int32_t load_init_sdc(void);
-int32_t load_init_proc(void) {
-	get_hw_info()->kfs = 0;
-	return load_init_sdc();
-}
-#else
-int32_t load_init_kfs(void);
-int32_t load_init_proc(void) {
-	get_hw_info()->kfs = 1;
-	return load_init_kfs();
-}
-#endif
-
+int32_t load_init_proc(void);
 void _kernel_entry_c(context_t* ctx) {
 	(void)ctx;
 	__irq_disable();
 	//clear bss
 	memset(_bss_start, 0, (uint32_t)_bss_end - (uint32_t)_bss_start);
-	copy_interrupt_table();
 	hw_info_init();
+
+	copy_interrupt_table();
 
 	init_kernel_vm();  
 	km_init();
+	kev_init();
 
 	enable_vmmio_base();
+	dev_init();
 
-	uart_dev_init();
 	const char* msg = "\n"
 		"███████╗██╗    ██╗ ██████╗ ██╗  ██╗ ██████╗ ███████╗\n"
 	  "██╔════╝██║    ██║██╔═══██╗██║ ██╔╝██╔═══██╗██╔════╝\n"
@@ -181,18 +120,7 @@ void _kernel_entry_c(context_t* ctx) {
 		"██╔══╝  ██║███╗██║██║   ██║██╔═██╗ ██║   ██║╚════██║\n"
 		"███████╗╚███╔███╔╝╚██████╔╝██║  ██╗╚██████╔╝███████║\n"
 		"╚══════╝ ╚══╝╚══╝  ╚═════╝ ╚═╝  ╚═╝ ╚═════╝ ╚══════╝\n";
-	/*
-	const char* msg = "\n"
-			"┌─┐┬ ┬┌─┐┬┌─┌─┐┌─┐\n"
-			"├┤ ││││ │├┴┐│ │└─┐\n"
-			"└─┘└┴┘└─┘┴ ┴└─┘└─┘\n";*/
 	uart_write(msg, strlen(msg));
-
-#ifdef DISPLAY
-	kconsole_init();
-#endif
-
-	dev_init();
 
 	printf("kernel: kmalloc initing  [ok] : %dMB\n", div_u32(KMALLOC_END-KMALLOC_BASE, 1*MB));
 	init_allocable_mem(); //init the rest allocable memory VM
@@ -209,10 +137,11 @@ void _kernel_entry_c(context_t* ctx) {
 	printf("kernel: irq inited\n");
 
 	printf("kernel: loading init process\n");
-	if(load_init_proc() != 0) 
+	if(load_init_proc() != 0)  {
 		printf("  [failed!]\n");
-	else
-		printf("  [ok]\n");
+		halt();
+	}
+	printf("  [ok]\n");
 
 	printf("kernel: set timer.\n");
 	timer_set_interval(0, 512); 
@@ -220,11 +149,5 @@ void _kernel_entry_c(context_t* ctx) {
 	printf("kernel: enable irq.\n");
 	__irq_enable();
 
-	while(1) {
-		__asm__("MOV r0, #0; MCR p15,0,R0,c7,c0,4"); // CPU enter WFI state
-	}
-
-#ifdef DISPLAY
-	kconsole_close();
-#endif
+	halt();
 }
