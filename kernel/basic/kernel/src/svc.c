@@ -34,10 +34,14 @@ static void sys_exit(context_t* ctx, int32_t pid, int32_t res) {
 	proc_t* proc = _current_proc;
 	if(pid >= 0)
 		proc = proc_get(pid);
-	if(proc == NULL)
-		return;
 
-	if(_current_proc->info.owner == 0 || proc->info.owner == _current_proc->info.owner) {
+	ctx->gpr[0] = -1;
+	if(proc == NULL || proc->info.owner < 0) {
+		return;
+	}
+
+	if(_current_proc->info.owner <= 0 || proc->info.owner == _current_proc->info.owner) {
+		ctx->gpr[0] = 0;
 		proc_exit(ctx, proc, res);
 	}
 }
@@ -144,7 +148,7 @@ static void sys_load_elf(context_t* ctx, const char* cmd, void* elf, uint32_t el
 }
 
 static int32_t sys_proc_set_uid(int32_t uid) {
-	if(_current_proc->info.owner != 0)	
+	if(_current_proc->info.owner > 0)	
 		return -1;
 	_current_proc->info.owner = uid;
 	return 0;
@@ -191,7 +195,7 @@ static int32_t sys_shm_ref(int32_t id) {
 }
 	
 static uint32_t sys_mmio_map(void) {
-	if(_current_proc->info.owner != 0)
+	if(_current_proc->info.owner > 0)
 		return 0;
 	hw_info_t* hw_info = get_hw_info();
 	map_pages(_current_proc->space->vm, MMIO_BASE, hw_info->phy_mmio_base, hw_info->phy_mmio_base + hw_info->mmio_size, AP_RW_RW, 1);
@@ -201,7 +205,7 @@ static uint32_t sys_mmio_map(void) {
 		
 static int32_t sys_framebuffer_info(fbinfo_t* info) {
 #ifdef FRAMEBUFFER
-	if(_current_proc->info.owner != 0)
+	if(_current_proc->info.owner > 0)
 		return -1;
 	fbinfo_t *fbinfo = fb_get_info();
 	if(fbinfo->pointer == 0)
@@ -216,7 +220,7 @@ static int32_t sys_framebuffer_info(fbinfo_t* info) {
 	
 static int32_t sys_framebuffer_flush(void* buf, uint32_t size) {
 #ifdef FRAMEBUFFER
-	if(_current_proc->info.owner != 0)
+	if(_current_proc->info.owner > 0)
 		return -1;
 	fbinfo_t *fbinfo = fb_get_info();
 	if(fbinfo->pointer == 0)
@@ -255,7 +259,7 @@ static void sys_ipc_call(context_t* ctx, int32_t pid, int32_t call_id, proto_t* 
 	if(_current_proc->info.pid == pid) {
 		return;
 	}
-	if((call_id & 0xffff0000) != 0 && _current_proc->info.owner != 0) {
+	if((call_id & 0xffff0000) != 0 && _current_proc->info.owner > 0) {
 		//ipc call id > 0xffff0000 means kernel ipccall	
 		return;
 	}
@@ -386,7 +390,7 @@ static void sys_proc_ready_ping(void) {
 }
 
 static kevent_t* sys_get_kevent_raw(void) {
-	if(_current_proc->info.owner != 0)	
+	if(_current_proc->info.owner > 0)	
 		return NULL;
 
 	kevent_t* kev = kev_pop();
@@ -443,7 +447,7 @@ static void sys_proc_wakeup(uint32_t evt) {
 }
 
 static void sys_core_ready(void) {
-	if(_current_proc->info.owner != 0)
+	if(_current_proc->info.owner > 0)
 		return;
 	_core_ready = true;
 	_core_pid = _current_proc->info.pid;

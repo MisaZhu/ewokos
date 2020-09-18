@@ -21,6 +21,7 @@ int32_t load_init_sdc(void) {
 	char* elf = sd_read_ext2(prog, &sz);
 	if(elf != NULL) {
 		proc_t *proc = proc_create(PROC_TYPE_PROC, NULL);
+		proc->info.owner = -1;
 		strcpy(proc->info.cmd, prog);
   	//set_translation_table_base((uint32_t)V2P(proc->space->vm));
 		int32_t res = proc_load_elf(proc, elf, sz);

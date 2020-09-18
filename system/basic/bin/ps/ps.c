@@ -34,6 +34,14 @@ static const char* get_state(procinfo_t* proc) {
 	return ret;
 }
 
+static const char* get_owner(procinfo_t* proc) {
+	if(proc->owner < 0)
+		return "kernel";
+	if(proc->owner == 0)
+		return "root";
+	return "user";
+}
+
 static const char* get_cmd(procinfo_t* proc, int full) {
 	if(!full) {
 		char* p = proc->cmd;
@@ -68,16 +76,16 @@ int main(int argc, char* argv[]) {
 
 	procinfo_t* procs = (procinfo_t*)syscall1(SYS_GET_PROCS, (int)&num);
 	if(procs != NULL) {
-		printf("  PID    FATHER OWNER   STATE       IPC_BUSY TIME       PROC\n"); 
+		printf("OWNER    PID    FATHER  STATE       IPC_BUSY TIME       PROC\n"); 
 		for(int i=0; i<num; i++) {
 			if(procs[i].type != PROC_TYPE_PROC && all == 0)
 				continue;
 
 			uint32_t sec = csec - procs[i].start_sec;
-			printf("  %4d   %6d %5d   %10s  %8s %02d:%02d:%02d   %s\n", 
+			printf("%8s %4d   %6d  %10s  %8s %02d:%02d:%02d   %s\n", 
+				get_owner(&procs[i]),
 				procs[i].pid,
 				procs[i].father_pid,
-				procs[i].owner,
 				get_state(&procs[i]),
 				procs[i].ipc_busy ? "true":"false",
 				sec / (3600),
@@ -87,7 +95,7 @@ int main(int argc, char* argv[]) {
 		}
 		free(procs);
 	}
-	printf("  memory: total %d MB, free %d MB, shm %d MB\n", t_mem, fr_mem, shm_mem);
-	printf("  processes: %d\n", num);
+	printf("\nmemory: total %d MB, free %d MB, shm %d MB\n", t_mem, fr_mem, shm_mem);
+	printf("processes: %d\n", num);
 	return 0;
 }

@@ -76,6 +76,7 @@ static int run(const char* cmd, bool prompt, bool wait) {
 
 	int pid = fork();
 	if(pid == 0) {
+		setuid(0);
 		if(exec(cmd) != 0) {
 			if(prompt)
 				kprintf(false, "[error!]\n");
@@ -181,16 +182,15 @@ int main(int argc, char** argv) {
 	syscall1(SYS_GET_SYSINFO, (int32_t)&sysinfo);
 
 	if(sysinfo.kfs == 0) {
+		run_none_fs("/sbin/procd", false);
 		run_none_fs("/sbin/vfsd", false);
 		run_none_fs("/drivers/rootfsd", false);
 	}
 	else {
+		run_none_fs("/sbin/procd", true);
 		run_none_fs("/sbin/vfsd", true);
 		run_none_fs("/drivers/rootkfsd", true);
 	}
-
-	//fs got ready.
-	run("/sbin/procd", true, true);
 
 	load_devs();
 
@@ -201,7 +201,7 @@ int main(int argc, char** argv) {
 
 	while(true) {
 		proc_block(getpid(), 0);
-		//sleep(1);
+		sleep(1);
 	}
 	return 0;
 }
