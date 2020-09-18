@@ -31,7 +31,11 @@ OPTM = -O2
 endif
 
 CFLAGS += $(OPTM) \
-	-I. -I$(SRC_DIR)/basic/lib/include -I$(SRC_DIR)/basic/kernel/include -I$(SRC_DIR)/extra/include -I$(SRC_DIR)/extra/lib/include \
+	-I. -I$(SRC_DIR)/basic/lib/include \
+	-I$(SRC_DIR)/basic/kernel/include \
+	-I$(SRC_DIR)/basic/dev/include \
+	-I$(SRC_DIR)/extra/dev/include \
+	-I$(SRC_DIR)/extra/lib/include \
 	-I${ARCH_DIR}/${ARCH} \
 	-I${BSP_DIR}/lib \
 	-I${ARCH_DIR}/arm/common/include \
