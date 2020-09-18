@@ -218,9 +218,6 @@ mkdirs:
 	@mkdir -p ${TARGET_DIR}/$(ROOT_DIR)/sbin
 	@mkdir -p ${TARGET_DIR}/$(ROOT_DIR)/drivers/arm/versatilepb
 	@mkdir -p ${TARGET_DIR}/$(ROOT_DIR)/drivers/arm/raspix
-	@mkdir -p ${TARGET_DIR}/$(ROOT_DIR)/drivers/arm/raspi
-	@mkdir -p ${TARGET_DIR}/$(ROOT_DIR)/drivers/arm/raspi2
-	@mkdir -p ${TARGET_DIR}/$(ROOT_DIR)/drivers/arm/raspi3
 	@mkdir -p ${TARGET_DIR}/$(ROOT_DIR)/bin
 	@mkdir -p ${TARGET_DIR}/$(ROOT_DIR)/dev
 	@mkdir -p ${BUILD_DIR}/asm
