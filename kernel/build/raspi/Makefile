@@ -9,14 +9,16 @@ OBJDUMP = arm-none-eabi-objdump
 
 export QEMU_AUDIO_DRV=none
 
-ARCH=arm/raspi
+ARCH_DIR=$(SRC_DIR)/basic/arch/sys
+BSP_DIR=$(SRC_DIR)/basic/arch/bsp
+ARCH=arm/v6
+BSP=raspi
 
 SYS_FULL_DIR = ../../../system
 SRC_DIR=../..
 BUILD_DIR = .
 
-ARCH_DIR=$(SRC_DIR)/basic/arch
-EXTRA_ARCH_DIR=$(SRC_DIR)/extra/arch
+EXTRA_BSP_DIR=$(SRC_DIR)/extra/arch/bsp
 include config.mk
 
 # flags
@@ -30,7 +32,7 @@ endif
 CFLAGS += $(OPTM) \
 	-I. -I$(SRC_DIR)/basic/lib/include -I$(SRC_DIR)/basic/include -I$(SRC_DIR)/extra/include -I$(SRC_DIR)/extra/lib/include \
 	-I${ARCH_DIR}/${ARCH} \
-	-I${ARCH_DIR}/arm/lib \
+	-I${BSP_DIR}/lib \
 	-I${ARCH_DIR}/arm/common/include \
 	-marm $(ARCH_CFLAGS) \
 	-Wstrict-prototypes \
@@ -53,19 +55,19 @@ ARCH_OBJS = \
 	${ARCH_DIR}/${ARCH}/boot.o \
 	${ARCH_DIR}/${ARCH}/start.o \
 	${ARCH_DIR}/${ARCH}/system.o \
-	${ARCH_DIR}/${ARCH}/hw_info.o \
-	${ARCH_DIR}/${ARCH}/irq_arch.o \
-	${ARCH_DIR}/${ARCH}/timer.o \
-	${ARCH_DIR}/${ARCH}/uart.o \
+	${ARCH_DIR}/${ARCH}/mmu_pte_flags.o \
+	${BSP_DIR}/${BSP}/hw_info.o \
+	${BSP_DIR}/${BSP}/irq_arch.o \
+	${BSP_DIR}/${BSP}/timer.o \
+	${BSP_DIR}/${BSP}/uart.o \
 	${ARCH_DIR}/arm/common/src/interrupt.o \
 	${ARCH_DIR}/arm/common/src/memcpy.o \
-	${ARCH_DIR}/arm/common/src/mm/mmu_arch.o \
-	${ARCH_DIR}/arm/common/src/mm/v6/mmu_pte_flags.o \
-	${ARCH_DIR}/arm/lib/bcm283x/gpio.o  \
-	${ARCH_DIR}/arm/lib/bcm283x/mailbox.o \
-	${ARCH_DIR}/arm/lib/bcm283x/pl011_uart.o \
-	${ARCH_DIR}/arm/lib/bcm283x/mini_uart.o \
-	${ARCH_DIR}/arm/lib/bcm283x/gpio_actled.o 
+	${ARCH_DIR}/arm/common/src/mmu_arch.o \
+	${BSP_DIR}/lib/bcm283x/gpio.o  \
+	${BSP_DIR}/lib/bcm283x/mailbox.o \
+	${BSP_DIR}/lib/bcm283x/pl011_uart.o \
+	${BSP_DIR}/lib/bcm283x/mini_uart.o \
+	${BSP_DIR}/lib/bcm283x/gpio_actled.o 
 
 QEMU_CMD = qemu-system-arm
 OS_IMG = kernel.img
@@ -92,14 +94,14 @@ LIB_OBJS += \
 	${EXTRA_LIB_DIR}/kconsole.o
 
 CFLAGS += -DFRAMEBUFFER
-ARCH_OBJS += ${EXTRA_ARCH_DIR}/${ARCH}/framebuffer/framebuffer.o  \
-	${ARCH_DIR}/arm/lib/bcm283x/framebuffer.o
+ARCH_OBJS += ${EXTRA_BSP_DIR}/${BSP}/framebuffer/framebuffer.o  \
+	${BSP_DIR}/lib/bcm283x/framebuffer.o
 endif
 
 ifeq ($(SDC),yes)
 CFLAGS += -DSDC
-ARCH_OBJS += ${EXTRA_ARCH_DIR}/${ARCH}/sd/sd.o \
-	${ARCH_DIR}/arm/lib/bcm283x/sd.o
+ARCH_OBJS += ${EXTRA_BSP_DIR}/${BSP}/sd/sd.o \
+	${BSP_DIR}/arm/lib/bcm283x/sd.o
 
 LOAD_DIR = $(SRC_DIR)/extra/loadinit/sd
 LOAD_OBJS = \
