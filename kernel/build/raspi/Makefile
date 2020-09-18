@@ -62,7 +62,7 @@ ARCH_OBJS = \
 	${ARCH_DIR}/${ARCH}/system.o \
 	${ARCH_DIR}/${ARCH}/mmu_pte_flags.o \
 	${BSP_DIR}/${BSP}/hw_info.o \
-	${BSP_DIR}/${BSP}/irq_arch.o \
+	${BSP_DIR}/${BSP}/irq.o \
 	${BSP_DIR}/${BSP}/timer.o \
 	${BSP_DIR}/${BSP}/uart.o \
 	${ARCH_DIR}/arm/common/src/interrupt.o \
