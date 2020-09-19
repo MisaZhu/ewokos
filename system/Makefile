@@ -1,11 +1,11 @@
-all: basic_sys kernelfs
+all: tiny_sys kernelfs
 	@echo "all done."
 
-full: basic_sys extra_sys kernelfs
+full: tiny_sys extra_sys kernelfs
 	@echo "all done."
 
-basic_sys:
-	cd basic;make
+tiny_sys:
+	cd tiny;make
 extra_sys:
 	cd extra;make
 
@@ -28,11 +28,11 @@ kernelfs:
 kinit:
 	cd kfs;make init
 
-KERNEL_DIR=../kernel/basic
+KERNEL_DIR=../kernel/tiny
 ARCH_DIR=$(KERNEL_DIR)/arch
 KERNEL=$(KERNEL_DIR)/build/mkos.bin
 KERNEL_ELF=$(KERNEL_DIR)/build/mkos.elf
 
 clean:
 	cd extra;make clean
-	cd basic;make clean
+	cd tiny;make clean
