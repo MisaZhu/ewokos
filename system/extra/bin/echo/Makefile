@@ -14,7 +14,7 @@ CFLAGS = -marm \
          -fno-builtin-fprintf \
 				 -Wno-overlength-strings \
          -fno-builtin-exit -fno-builtin-stdio \
-				 -fno-rtti -fno-exceptions
+				 -fno-exceptions
 
 #CFLAGS +=  -g
 CFLAGS +=  -O2

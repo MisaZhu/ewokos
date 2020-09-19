@@ -1,11 +1,15 @@
+AR = arm-none-eabi-ar
 CC = arm-none-eabi-gcc
+CXX = arm-none-eabi-c++
 LD = arm-none-eabi-ld
+OBJDUMP = arm-none-eabi-objdump
 
-BUILD_DIR = ../../../build
+BUILD_DIR = ../../../../../../build
 TARGET_DIR = $(BUILD_DIR)/rootfs
 
 # flags
-CFLAGS = -marm \
+CFLAGS = -Wstrict-prototypes \
+				 -marm \
 				 -pedantic -Wall -Wextra -msoft-float -fPIC -mapcs-frame \
          -fno-builtin-printf \
          -fno-builtin-memset \
@@ -14,7 +18,7 @@ CFLAGS = -marm \
          -fno-builtin-fprintf \
 				 -Wno-overlength-strings \
          -fno-builtin-exit -fno-builtin-stdio \
-				 -fno-exceptions
+				 -std=c99 
 
 #CFLAGS +=  -g
 CFLAGS +=  -O2
@@ -23,14 +27,14 @@ LDFLAGS = -L$(BUILD_DIR)/lib -lnosys
 
 CFLAGS += -I $(BUILD_DIR)/include
 
-GLOBAL_OBJS = global.o
+ACTLEDD_OBJS = actledd.o
 
-GLOBAL = $(TARGET_DIR)/bin/global
+ACTLEDD = $(TARGET_DIR)/drivers/arm/raspix/mbox_actledd
 
-$(GLOBAL): $(GLOBAL_OBJS) \
-		$(BUILD_DIR)/lib/libewokc.a
-	$(LD) -Ttext=100 $(GLOBAL_OBJS) -o $(GLOBAL) $(LDFLAGS) -lewokc -lc
+$(ACTLEDD): $(ACTLEDD_OBJS) \
+		$(BUILD_DIR)/lib/libewokc.a \
+		$(BUILD_DIR)/lib/libarch_bcm283x.a 
+	$(LD) -Ttext=100 $(ACTLEDD_OBJS) -o $(ACTLEDD) $(LDFLAGS) -larch_bcm283x -lewokc -lc
 
 clean:
-	rm -f $(GLOBAL_OBJS)
-
+	rm -f $(ACTLEDD_OBJS)

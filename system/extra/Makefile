@@ -64,6 +64,8 @@ extra_driver:
 	cd $(EXTRA_DRIVERS_DIR)/xserverd;make
 	cd $(EXTRA_DRIVERS_DIR)/arch/arm/versatilepb/ps2keybd;make
 	cd $(EXTRA_DRIVERS_DIR)/arch/arm/versatilepb/ps2moused;make
+	cd $(EXTRA_DRIVERS_DIR)/arch/arm/raspix/gpio_actledd;make
+	cd $(EXTRA_DRIVERS_DIR)/arch/arm/raspix/mbox_actledd;make
 	cd $(EXTRA_DRIVERS_DIR)/arch/arm/raspix/joystickd;make
 	cd $(EXTRA_DRIVERS_DIR)/arch/arm/raspix/lcdhatd;make
 	cd $(EXTRA_DRIVERS_DIR)/arch/arm/raspix/epaperd;make
@@ -82,6 +84,8 @@ clean:
 	cd $(EXTRA_DRIVERS_DIR)/xserverd;make clean
 	cd $(EXTRA_DRIVERS_DIR)/arch/arm/versatilepb/ps2keybd;make clean
 	cd $(EXTRA_DRIVERS_DIR)/arch/arm/versatilepb/ps2moused;make clean
+	cd $(EXTRA_DRIVERS_DIR)/arch/arm/raspix/gpio_actledd;make clean
+	cd $(EXTRA_DRIVERS_DIR)/arch/arm/raspix/mbox_actledd;make clean
 	cd $(EXTRA_DRIVERS_DIR)/arch/arm/raspix/joystickd;make clean
 	cd $(EXTRA_DRIVERS_DIR)/arch/arm/raspix/lcdhatd;make clean
 	cd $(EXTRA_DRIVERS_DIR)/arch/arm/raspix/epaperd;make clean
