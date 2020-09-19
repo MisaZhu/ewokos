@@ -202,6 +202,8 @@ include $(ROOT_DIR)/bin/ps/build.mk
 include $(ROOT_DIR)/bin/ls/build.mk
 include $(ROOT_DIR)/bin/login/build.mk
 include $(ROOT_DIR)/bin/session/build.mk
+include $(ROOT_DIR)/bin/mount/build.mk
+include $(ROOT_DIR)/bin/uname/build.mk
 
 mkdirs:
 	@mkdir -p ${TARGET_DIR}/$(ROOT_DIR)/sbin
