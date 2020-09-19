@@ -75,7 +75,7 @@ ARCH_OBJS = \
 	${BSP_DIR}/lib/bcm283x/gpio_actled.o 
 
 QEMU_CMD = qemu-system-arm
-OS_IMG = kernel.img
+OS_IMG = kernel7.img
 OS_ELF = kernel.elf
 
 LIB_DIR = $(SRC_DIR)/basic/lib/src
