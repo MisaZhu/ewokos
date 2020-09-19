@@ -84,7 +84,7 @@ static int read_user_item(int fd, user_info_t* info) {
 }
 
 static int read_user_info(void) {
-	int fd = open("/etc/password", O_RDONLY);
+	int fd = open("/etc/passwd", O_RDONLY);
 	if(fd < 0) {
 		dprintf(3, "Error, open password file failed!\n");
 		return -1;
