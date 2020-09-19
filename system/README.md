@@ -1,6 +1,6 @@
 rootfs
 	
-	'make' for basic system
+	'make' for tiny system
 	'make full' for full system, extra apps included
 
 login
