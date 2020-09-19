@@ -155,7 +155,7 @@ const char* md5_encode_str(const uint8_t *initial_msg, uint32_t initial_len) {
 	md5_encode(initial_msg, initial_len, md5);
 	char *p = ret;
 	for(int i=0; i<16; i++) {
-		snprintf(p, 2, "%2x", md5[i]);
+		snprintf(p, 2, "%02x", md5[i]);
 		p += 2;
 	}
 	return ret;

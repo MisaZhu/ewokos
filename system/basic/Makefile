@@ -208,6 +208,7 @@ include $(ROOT_DIR)/bin/ls/build.mk
 include $(ROOT_DIR)/bin/global/build.mk
 include $(ROOT_DIR)/bin/mount/build.mk
 include $(ROOT_DIR)/bin/uname/build.mk
+include $(ROOT_DIR)/bin/login/build.mk
 include $(ROOT_DIR)/bin/grep/build.mk
 include $(ROOT_DIR)/bin/kill/build.mk
 include $(ROOT_DIR)/bin/mkdir/build.mk

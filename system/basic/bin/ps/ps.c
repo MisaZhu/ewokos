@@ -39,7 +39,9 @@ static const char* get_owner(procinfo_t* proc) {
 		return "kernel";
 	if(proc->owner == 0)
 		return "root";
-	return "user";
+	static char ret[32];
+	snprintf(ret, 31, "%d", proc->owner);
+	return ret;
 }
 
 static const char* get_cmd(procinfo_t* proc, int full) {
