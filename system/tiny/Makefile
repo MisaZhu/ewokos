@@ -209,6 +209,8 @@ mkdirs:
 	@mkdir -p ${TARGET_DIR}/$(ROOT_DIR)/drivers/arm/raspix
 	@mkdir -p ${TARGET_DIR}/$(ROOT_DIR)/bin
 	@mkdir -p ${TARGET_DIR}/$(ROOT_DIR)/dev
+	@mkdir -p ${TARGET_DIR}/$(ROOT_DIR)/home/root
+	@mkdir -p ${TARGET_DIR}/$(ROOT_DIR)/home/guest
 	@mkdir -p ${BUILD_DIR}/asm
 	@mkdir -p ${BUILD_DIR}/include
 	@mkdir -p ${BUILD_DIR}/lib

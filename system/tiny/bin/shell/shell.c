@@ -247,7 +247,10 @@ static int handle(const char* cmd) {
 		return 0;
 	}
 	else if(strcmp(cmd, "cd") == 0) {
-		return cd("/");
+		const char* home = getenv("HOME");
+		if(home[0] == 0)
+			home = "/";
+		return cd(home);
 	}
 	else if(strncmp(cmd, "cd ", 3) == 0) {
 		return cd(cmd + 3);
@@ -419,6 +422,11 @@ int main(int argc, char* argv[]) {
 	const char* cid = getenv("CONSOLE_ID");
 	if(cid[0] == 0)
 		cid = "0";
+
+	const char* home = getenv("HOME");
+	if(home[0] == 0)
+		home = "/";
+	cd(home);
 
 	_history = NULL;
 	str_t* cmdstr = str_new("");
