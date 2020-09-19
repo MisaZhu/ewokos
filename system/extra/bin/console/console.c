@@ -4,9 +4,10 @@
 #include <stdio.h>
 #include <string.h>
 #include <console/console.h>
+#include <graph/graph.h>
+#include <fonts/fonts.h>
 #include <sys/shm.h>
 #include <sys/vfs.h>
-#include <fbinfo.h>
 
 typedef struct {
 	const char* id;

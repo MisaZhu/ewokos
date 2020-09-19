@@ -23,16 +23,14 @@ LDFLAGS = -L$(BUILD_DIR)/lib -lnosys
 
 CFLAGS += -I $(BUILD_DIR)/include
 
-CONSOLE_OBJS = console.o
+PWD_OBJS = pwd.o
 
-CONSOLE = $(TARGET_DIR)/bin/console
+PWD = $(TARGET_DIR)/bin/pwd
 
-$(CONSOLE): $(CONSOLE_OBJS) \
-		$(BUILD_DIR)/lib/libewokc.a \
-		$(BUILD_DIR)/lib/libconsole.a \
-		$(BUILD_DIR)/lib/libfonts.a
-	$(LD) -Ttext=100 $(CONSOLE_OBJS) -o $(CONSOLE) $(LDFLAGS) -lfonts -lgraph -lconsole -lewokc -lc
+$(PWD): $(PWD_OBJS) \
+		$(BUILD_DIR)/lib/libewokc.a
+	$(LD) -Ttext=100 $(PWD_OBJS) -o $(PWD) $(LDFLAGS) -lewokc -lc
 
 clean:
-	rm -f $(CONSOLE_OBJS)
+	rm -f $(PWD_OBJS)
 

@@ -2,7 +2,7 @@ BUILD_DIR = ../build
 TARGET_DIR = $(BUILD_DIR)/rootfs
 ROOT_DIR = .
 
-all: mkdirs extra_libs extra_driver x_sbin x_bin
+all: mkdirs extra_libs extra_driver extra_bin x_sbin x_bin
 	@echo "all done."
 
 mkdirs:
@@ -24,6 +24,21 @@ extra_libs:
 	cd $(EXTRA_LIBXX_DIR)/cxx; make
 	cd $(EXTRA_LIBXX_DIR)/graphxx; make
 	cd $(EXTRA_LIBXX_DIR)/x++; make
+
+EXTRA_BIN_DIR=bin
+extra_bin:
+	cd $(EXTRA_BIN_DIR)/actled;make
+	cd $(EXTRA_BIN_DIR)/console;make
+	cd $(EXTRA_BIN_DIR)/dump;make
+	cd $(EXTRA_BIN_DIR)/echo;make
+	cd $(EXTRA_BIN_DIR)/global;make
+	cd $(EXTRA_BIN_DIR)/grep;make
+	cd $(EXTRA_BIN_DIR)/kill;make
+	cd $(EXTRA_BIN_DIR)/mkdir;make
+	cd $(EXTRA_BIN_DIR)/mount;make
+	cd $(EXTRA_BIN_DIR)/pwd;make
+	cd $(EXTRA_BIN_DIR)/rm;make
+	cd $(EXTRA_BIN_DIR)/uname;make
 
 X_DIR=x
 x_bin:
@@ -85,3 +100,15 @@ clean:
 	cd $(X_DIR)/bin/syspanel;make clean
 	cd $(X_DIR)/bin/xconsole;make clean
 	cd $(X_DIR)/bin/png;make clean
+	cd $(EXTRA_BIN_DIR)/actled;make clean
+	cd $(EXTRA_BIN_DIR)/console;make clean
+	cd $(EXTRA_BIN_DIR)/dump;make clean
+	cd $(EXTRA_BIN_DIR)/echo;make clean
+	cd $(EXTRA_BIN_DIR)/global;make clean
+	cd $(EXTRA_BIN_DIR)/grep;make clean
+	cd $(EXTRA_BIN_DIR)/kill;make clean
+	cd $(EXTRA_BIN_DIR)/mkdir;make clean
+	cd $(EXTRA_BIN_DIR)/mount;make clean
+	cd $(EXTRA_BIN_DIR)/pwd;make clean
+	cd $(EXTRA_BIN_DIR)/rm;make clean
+	cd $(EXTRA_BIN_DIR)/uname;make clean

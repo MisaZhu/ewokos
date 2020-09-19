@@ -194,25 +194,12 @@ include $(ROOT_DIR)/drivers/rootkfsd/build.mk
 include $(ROOT_DIR)/drivers/arch/arm/versatilepb/ttyd/build.mk
 include $(ROOT_DIR)/drivers/arch/arm/raspix/pl011_uartd/build.mk
 include $(ROOT_DIR)/drivers/arch/arm/raspix/mini_uartd/build.mk
-include $(ROOT_DIR)/drivers/arch/arm/raspix/gpio_actledd/build.mk
-include $(ROOT_DIR)/drivers/arch/arm/raspix/mbox_actledd/build.mk
 
 include $(ROOT_DIR)/bin/shell/build.mk
-include $(ROOT_DIR)/bin/actled/build.mk
-include $(ROOT_DIR)/bin/dump/build.mk
-include $(ROOT_DIR)/bin/pwd/build.mk
 include $(ROOT_DIR)/bin/cat/build.mk
 include $(ROOT_DIR)/bin/ps/build.mk
-include $(ROOT_DIR)/bin/echo/build.mk
 include $(ROOT_DIR)/bin/ls/build.mk
-include $(ROOT_DIR)/bin/global/build.mk
-include $(ROOT_DIR)/bin/mount/build.mk
-include $(ROOT_DIR)/bin/uname/build.mk
 include $(ROOT_DIR)/bin/login/build.mk
-include $(ROOT_DIR)/bin/grep/build.mk
-include $(ROOT_DIR)/bin/kill/build.mk
-include $(ROOT_DIR)/bin/mkdir/build.mk
-include $(ROOT_DIR)/bin/rm/build.mk
 include $(ROOT_DIR)/bin/session/build.mk
 
 mkdirs:

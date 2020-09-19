@@ -23,16 +23,14 @@ LDFLAGS = -L$(BUILD_DIR)/lib -lnosys
 
 CFLAGS += -I $(BUILD_DIR)/include
 
-CONSOLE_OBJS = console.o
+KILL_OBJS = kill.o
 
-CONSOLE = $(TARGET_DIR)/bin/console
+KILL = $(TARGET_DIR)/bin/kill
 
-$(CONSOLE): $(CONSOLE_OBJS) \
-		$(BUILD_DIR)/lib/libewokc.a \
-		$(BUILD_DIR)/lib/libconsole.a \
-		$(BUILD_DIR)/lib/libfonts.a
-	$(LD) -Ttext=100 $(CONSOLE_OBJS) -o $(CONSOLE) $(LDFLAGS) -lfonts -lgraph -lconsole -lewokc -lc
+$(KILL): $(KILL_OBJS) \
+		$(BUILD_DIR)/lib/libewokc.a
+	$(LD) -Ttext=100 $(KILL_OBJS) -o $(KILL) $(LDFLAGS) -lewokc -lc
 
 clean:
-	rm -f $(CONSOLE_OBJS)
+	rm -f $(KILL_OBJS)
 

@@ -23,16 +23,14 @@ LDFLAGS = -L$(BUILD_DIR)/lib -lnosys
 
 CFLAGS += -I $(BUILD_DIR)/include
 
-CONSOLE_OBJS = console.o
+GREP_OBJS = grep.o
 
-CONSOLE = $(TARGET_DIR)/bin/console
+GREP = $(TARGET_DIR)/bin/grep
 
-$(CONSOLE): $(CONSOLE_OBJS) \
-		$(BUILD_DIR)/lib/libewokc.a \
-		$(BUILD_DIR)/lib/libconsole.a \
-		$(BUILD_DIR)/lib/libfonts.a
-	$(LD) -Ttext=100 $(CONSOLE_OBJS) -o $(CONSOLE) $(LDFLAGS) -lfonts -lgraph -lconsole -lewokc -lc
+$(GREP): $(GREP_OBJS) \
+		$(BUILD_DIR)/lib/libewokc.a
+	$(LD) -Ttext=100 $(GREP_OBJS) -o $(GREP) $(LDFLAGS) -lewokc -lc
 
 clean:
-	rm -f $(CONSOLE_OBJS)
+	rm -f $(GREP_OBJS)
 

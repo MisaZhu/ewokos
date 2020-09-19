@@ -1,3 +1,2 @@
 /drivers/nulld                    /dev/null
-/drivers/arm/raspix/gpio_actledd  /dev/actled
 /drivers/arm/raspix/mini_uartd    /dev/tty0
