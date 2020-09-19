@@ -30,7 +30,7 @@ static int32_t fb_init(void) {
 }
 #endif
 
-void dev_init(void) {
+void __attribute__((optimize("O0"))) dev_init(void) {
 	uart_dev_init();
 
 #ifdef FRAMEBUFFER
