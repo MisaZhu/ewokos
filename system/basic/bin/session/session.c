@@ -8,7 +8,7 @@ static void welcome(void) {
 	const char* s = "\n"
 			"+-----Ewok micro-kernel OS-----------------------+\n"
 			"| https://github.com/MisaZhu/EwokOS.git          |\n"
-			"+------------------------------------------------+\n\n";
+			"+------------------------------------------------+\n";
 	printf("%s", s);
 }
 
