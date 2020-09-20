@@ -18,7 +18,6 @@
 #include <stddef.h>
 
 uint32_t _mmio_base = 0;
-uint32_t _allocatable_mem_size = 0;
 page_dir_entry_t* _kernel_vm = NULL;
 
 /*Copy interrupt talbe to phymen address 0x00000000.

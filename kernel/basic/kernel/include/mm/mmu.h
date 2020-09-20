@@ -16,7 +16,6 @@ uint32_t resolve_kernel_address(page_dir_entry_t *vm, uint32_t virtual);
 void vm_flush_tlb(page_dir_entry_t* vm);
 
 extern uint32_t _mmio_base;
-extern uint32_t _allocatable_mem_size;
 void enable_vmmio_base(void);
 
 #endif
