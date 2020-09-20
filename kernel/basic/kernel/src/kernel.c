@@ -18,6 +18,7 @@
 #include <stddef.h>
 
 uint32_t _mmio_base = 0;
+uint32_t _allocatable_mem_size = 0;
 page_dir_entry_t* _kernel_vm = NULL;
 
 /*Copy interrupt talbe to phymen address 0x00000000.
@@ -60,34 +61,33 @@ void set_kernel_vm(page_dir_entry_t* vm) {
 }
 
 static void init_kernel_vm(void) {
-	int32_t i;
-	for(i=0; i<RAM_HOLE_MAX; i++)
-		_ram_holes[i].base = _ram_holes[i].end = 0;
+	hw_info_t* hw_info = get_hw_info();
+	_allocatable_mem_size = 
+			hw_info->phy_mem_size < hw_info->phy_mmio_base ?
+			hw_info->phy_mem_size : hw_info->phy_mmio_base;
 
 	_kernel_vm = (page_dir_entry_t*)KERNEL_PAGE_DIR_BASE;
 	//get kalloc ready just for kernel page tables.
-	kalloc_init(KERNEL_PAGE_DIR_BASE+PAGE_DIR_SIZE, KERNEL_PAGE_DIR_END, false); 
+	kalloc_init(KERNEL_PAGE_DIR_BASE+PAGE_DIR_SIZE, KERNEL_PAGE_DIR_END); 
 	set_kernel_init_vm(_kernel_vm);
 
 	//Use physical address of kernel virtual memory as the new virtual memory page dir table base.
 	set_translation_table_base(V2P((uint32_t)_kernel_vm));
+
 }
 
 static void init_allocable_mem(void) {
-	hw_info_t* hw_info = get_hw_info();
-	kmake_hole(P2V(hw_info->phy_mmio_base-20*MB), P2V(hw_info->phy_mem_size));
-	//kmake_hole(P2V(hw_info->phy_mmio_base), P2V(hw_info->phy_mem_size));
 	printf("kernel: kalloc init for allocatable page dir\n");
-	kalloc_init(ALLOCATABLE_PAGE_DIR_BASE, ALLOCATABLE_PAGE_DIR_END, false); 
+	kalloc_init(ALLOCATABLE_PAGE_DIR_BASE, ALLOCATABLE_PAGE_DIR_END); 
 	printf("kernel: mapping allocatable pages\n");
 	map_pages(_kernel_vm,
 			ALLOCATABLE_MEMORY_START,
 			V2P(ALLOCATABLE_MEMORY_START),
-			get_hw_info()->phy_mem_size,
+			_allocatable_mem_size,
 			AP_RW_D, 0);
 	flush_tlb();
 	printf("kernel: kalloc init for all allocatable pages\n");
-	kalloc_init(ALLOCATABLE_MEMORY_START, P2V(get_hw_info()->phy_mem_size), true);
+	kalloc_init(ALLOCATABLE_MEMORY_START, P2V(_allocatable_mem_size));
 }
 
 static void halt(void) {
@@ -102,9 +102,9 @@ void _kernel_entry_c(context_t* ctx) {
 	__irq_disable();
 	//clear bss
 	memset(_bss_start, 0, (uint32_t)_bss_end - (uint32_t)_bss_start);
-	hw_info_init();
-
 	copy_interrupt_table();
+
+	hw_info_init();
 
 	init_kernel_vm();  
 	km_init();

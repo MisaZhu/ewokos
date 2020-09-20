@@ -57,7 +57,9 @@ int32_t bcm283x_fb_init(uint32_t w, uint32_t h, uint32_t dep) {
 
 	map_pages(_kernel_vm, _fb_info.pointer, V2P(_fb_info.pointer), V2P(_fb_info.pointer)+_fb_info.size, AP_RW_D, 0);
 	flush_tlb();
-	kmake_hole(_fb_info.pointer, _fb_info.pointer+_fb_info.size);
+	//kmake_hole(_fb_info.pointer, _fb_info.pointer+_fb_info.size);
+	if(_allocatable_mem_size > V2P(_fb_info.pointer))
+		_allocatable_mem_size = V2P(_fb_info.pointer);
 	return 0;
 }
 
