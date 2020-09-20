@@ -12,18 +12,18 @@ static char rpl(char c) {
 
 #define BUF_SIZE 128
 int main(int argc, char* argv[]) {
+	int i = 0;
+	int ln = 0;
+	char out[128];
+	char* p = out;
 	(void)argc;
 	(void)argv;
 
 	printf("      | 0  1  2  3  4  5  6  7  8  9  10 11 12 13 14 15 |\n");
 	printf("      | ----------------------------------------------- |\n");
-	int i = 0;
-	int ln = 0;
-	char out[128];
-	char* p = out;
 	while(1) {
 		char buf[BUF_SIZE];
-		char str[17];
+		char str[17], c;
 		int res;
 		res = read(0, buf, BUF_SIZE);
 		if(res > 0) {
@@ -33,7 +33,7 @@ int main(int argc, char* argv[]) {
 					snprintf(p, 16, "%6d| ", ln);
 					p += 8;
 				}
-				char c = (char)buf[j];
+				c = (char)buf[j];
 				str[i] = rpl(c);
 				snprintf(p, 4, "%02X ", (int)c);
 				p += 3;

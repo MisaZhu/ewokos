@@ -50,7 +50,7 @@ static void clear_buf(str_t* buf) {
 	if(buf->len == 0)
 		return;
 
-	int i = 0;
+	uint32_t i = 0;
 	while(i < buf->len) {
 		buf->cstr[i] = CONSOLE_LEFT; 
 		i++;

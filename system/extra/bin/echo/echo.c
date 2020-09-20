@@ -4,9 +4,9 @@
 #include <string.h>
 
 int main(int argc, char* argv[]) {
+	const char* p = argv[1];
 	if(argc < 2)
 		return -1;
-	const char* p = argv[1];
 	if(p[0] != '\\') {
 		write(1, p, strlen(p));
 	}

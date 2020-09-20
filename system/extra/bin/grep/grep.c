@@ -6,6 +6,8 @@
 #define BUF_SIZE 128
 
 static char* line(char* ln, int32_t* sz, char c) {
+	int len;
+	char* ret;
 	if(ln == NULL) {
 		ln = (char*)malloc(BUF_SIZE);
 		*sz = BUF_SIZE;
@@ -14,7 +16,7 @@ static char* line(char* ln, int32_t* sz, char c) {
 		return ln;
 	}
 
-	int len = strlen(ln);
+	len = strlen(ln);
 	if(len < *sz-1) {
 		ln[len] = c;
 		ln[len+1] = 0;
@@ -22,7 +24,7 @@ static char* line(char* ln, int32_t* sz, char c) {
 	}
 
 	*sz = len + BUF_SIZE;
-	char* ret = (char*)malloc(*sz);
+	ret = (char*)malloc(*sz);
 	strcpy(ret, ln);
 	ret[len] = c;
 	ret[len+1] = 0;

@@ -61,12 +61,13 @@ static void epaper_on(void) {
 	epaper_wait();
 }
 
-static void epaper_off(void) {
+/*static void epaper_off(void) {
 	epaper_cmd(0x02); // POWER_OFF
 	epaper_wait();
 	epaper_cmd(0x07); // DEEP_SLEEP
 	epaper_write(0xA5); // check code
 }
+*/
 
 static void epaper_init(void) {
 	epaper_reset();
