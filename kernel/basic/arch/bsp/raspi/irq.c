@@ -3,7 +3,7 @@
 #include <dev/uart.h>
 #include <kernel/kernel.h>
 #include <kernel/hw_info.h>
-#include <mm/mmu.h>
+#include <dev/dev.h>
 #include <kstring.h>
 #include "arch.h"
 

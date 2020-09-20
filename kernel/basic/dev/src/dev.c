@@ -1,6 +1,9 @@
 #include <stddef.h>
 #include <kprintf.h>
+#include <dev/dev.h>
 #include <dev/uart.h>
+
+uint32_t _mmio_base = 0;
 
 #ifdef FRAMEBUFFER
 #include <dev/framebuffer.h>
@@ -37,4 +40,8 @@ void __attribute__((optimize("O0"))) dev_init(void) {
 	fb_init();
 	kconsole_setup();
 #endif
+}
+
+inline void enable_vmmio_base(void) {
+	_mmio_base = MMIO_BASE;
 }

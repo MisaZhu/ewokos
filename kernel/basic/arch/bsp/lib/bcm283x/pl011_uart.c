@@ -1,4 +1,4 @@
-#include <mm/mmu.h>
+#include <dev/dev.h>
 #include <kernel/system.h>
 #include "bcm283x/pl011_uart.h"
 
