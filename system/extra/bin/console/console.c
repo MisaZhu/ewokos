@@ -18,24 +18,27 @@ typedef struct {
 } fb_console_t;
 
 static void init_console(fb_console_t* console) {
+	int id, w, h;
+	void* gbuf;
+	proto_t out;
+	graph_t* g;
 	int fb_fd = open("/dev/fb0", O_RDONLY);
 	if(fb_fd < 0) {
 		return;
 	}
 
-	int id = vfs_dma(fb_fd, NULL);
+	id = vfs_dma(fb_fd, NULL);
 	if(id <= 0) {
 		close(fb_fd);
 		return;
 	}
 
-	void* gbuf = shm_map(id);
+	gbuf = shm_map(id);
 	if(gbuf == NULL) {
 		close(fb_fd);
 		return;
 	}
 
-	proto_t out;
 	PF->init(&out, NULL, 0);
 
 	if(vfs_fcntl(fb_fd, CNTL_INFO, NULL, &out) != 0) {
@@ -44,9 +47,9 @@ static void init_console(fb_console_t* console) {
 		return;
 	}
 
-	int w = proto_read_int(&out);
-	int h = proto_read_int(&out);
-	graph_t* g = graph_new(gbuf, w, h);
+	w = proto_read_int(&out);
+	h = proto_read_int(&out);
+	g = graph_new(gbuf, w, h);
 	PF->clear(&out);
 
 	console_init(&console->console);
@@ -66,7 +69,7 @@ static void close_console(fb_console_t* console) {
 }
 
 static int read_input(int fd, int8_t* c, int rd) {
-	//read keyb
+	/*read keyb*/
 	if(rd != 1) {
 		rd = read(fd, c, 1);
 	}
@@ -78,25 +81,29 @@ static int read_input(int fd, int8_t* c, int rd) {
 }
 
 static int run(void) {
+	int flags, rd;
+	int8_t c;
+	fb_console_t console;
 	int fd = open("/dev/keyb0", O_RDONLY | O_NONBLOCK);
 	if(fd < 0)
 		return -1;
 
-	int flags = fcntl(0, F_GETFL, 0);
+	flags = fcntl(0, F_GETFL, 0);
 	fcntl(0, F_SETFL, flags | O_NONBLOCK);
 	flags = fcntl(1, F_GETFL, 0);
 	fcntl(1, F_SETFL, flags | O_NONBLOCK);
 
-	fb_console_t console;
 	init_console(&console);
 	
-	int rd = 0;
-	int8_t c = 0;
+	rd = 0;
+	c = 0;
 	while(1) {
+		char buf[256];
+		const char* p;
+		int32_t size, i;
 		rd = read_input(fd, &c, rd);
 
-		char buf[256];
-		int32_t size = read(0, buf, 255);
+		size = read(0, buf, 255);
 		if(size == 0) {
 			break;
 		}
@@ -110,8 +117,8 @@ static int run(void) {
 		}
 
 		buf[size] = 0;
-		const char* p = (const char*)buf;
-		for(int32_t i=0; i<size; i++) {
+		p = (const char*)buf;
+		for(i=0; i<size; i++) {
 			char c = p[i];
 			console_put_char(&console.console, c);
 		}
@@ -125,15 +132,18 @@ static int run(void) {
 }
 
 int main(int argc, char* argv[]) {
-	(void)argc;
-	(void)argv;
 	int fds1[2];
 	int fds2[2];
+	int pid;
+
+	(void)argc;
+	(void)argv;
+
 	pipe(fds1);
 	pipe(fds2);
 
-	int pid = fork();
-	if(pid != 0) { //father proc for p2 reader.
+	pid = fork();
+	if(pid != 0) { 
 		dup2(fds1[0], 0);
 		dup2(fds2[1], 1);
 		close(fds1[0]);
@@ -142,7 +152,6 @@ int main(int argc, char* argv[]) {
 		close(fds2[1]);
 		return run();
 	}
-	//child proc for p1 writer
 	dup2(fds1[1], 1);
 	dup2(fds2[0], 0);
 	close(fds1[0]);

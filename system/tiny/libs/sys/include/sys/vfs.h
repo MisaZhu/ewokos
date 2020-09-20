@@ -50,7 +50,7 @@ int       vfs_write(int fd, fsinfo_t *info, const void* buf, uint32_t size);
 enum {
 	CNTL_NONE = 0,
 	CNTL_INFO
-}; //cntl command
+}; /*cntl command*/
 
 int       vfs_fcntl(int fd, int cmd, proto_t* in, proto_t* out);
 

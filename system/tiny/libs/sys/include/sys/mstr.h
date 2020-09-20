@@ -13,8 +13,8 @@ string functions.
 */
 typedef struct st_str {
 	char* cstr;
-	uint32_t max: 16;
-	uint32_t len: 16;
+	uint32_t max;
+	uint32_t len;
 } str_t;
 
 void str_reset(str_t* str);
