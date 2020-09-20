@@ -5,6 +5,7 @@
 #include <string.h>
 #include <sys/md5.h>
 #include <sys/mstr.h>
+#include <sys/keydef.h>
 
 #define USER_MAX 32
 #define PSWD_MAX 64
@@ -105,16 +106,31 @@ static void input(str_t* s, bool show) {
 	str_reset(s);
 	char c;
 	while(true) {
-		if(read(0, &c , 1) != 1)
+		c = getch();
+		if(c == 0)
 			break;
-		if(c == '\r')
-			c = '\n';
 
-		if(show || c == '\n')
-			write(1, &c, 1);
-		if(c == '\n')
-			break;
-		str_addc(s, c);
+		if (c == KEY_BACKSPACE) {
+			if (s->len > 0) {
+				//delete last char
+				if(show) {
+					putch(CONSOLE_LEFT);
+					putch(' ');
+					putch(CONSOLE_LEFT);
+				}
+				s->len--;
+			}
+		}
+		else {
+			if(c == '\r')
+				c = '\n';
+
+			if(show || c == '\n')
+				write(1, &c, 1);
+			if(c == '\n')
+				break;
+			str_addc(s, c);
+		}
 	}
 }
 
