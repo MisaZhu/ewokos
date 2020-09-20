@@ -52,8 +52,8 @@ int32_t read_partition(void) {
 	}
 	//check magic 
 	if(sector[510] != 0x55 || sector[511] != 0xAA)  {
-		printf("  check zero sector magic error!\n");
-		return -1;
+		printf("  check zero sector magic failed!\n");
+		return -2;
 	}
 	uint8_t* p = sector + 0x1BE;
 	int32_t i;
@@ -306,9 +306,16 @@ static int32_t get_gds(ext2_t* ext2) {
 }
 
 static int32_t ext2_init(ext2_t* ext2, read_block_func_t read_block, write_block_func_t write_block) {
-	if(read_partition() != 0 || partition_get(1, &_partition) != 0) {
-		memset(&_partition, 0, sizeof(partition_t));
+	int32_t res = read_partition();
+	if(res == -1)
 		return -1;
+
+	if(res == 0 && partition_get(1, &_partition) != 0)
+		return -1;
+
+	if(res == -2) {
+		memset(&_partition, 0, sizeof(partition_t));
+		printf("  try raw ext2 without partition.\n");
 	}
 
 	char buf[EXT2_BLOCK_SIZE];

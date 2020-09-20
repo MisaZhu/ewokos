@@ -1,5 +1,5 @@
 #include <kernel/system.h>
-#include <mm/mmu.h>
+#include <dev/dev.h>
 #include <mm/kmalloc.h>
 #include <kstring.h>
 #include <kernel/proc.h>
