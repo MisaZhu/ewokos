@@ -175,8 +175,12 @@ int main(int argc, char* argv[]) {
 	if(info == NULL || info->cmd[0] == 0)
 		return -1;
 
+	if(setuid(info->uid) != 0) {
+		dprintf(3, "Error, setuid failed!\n");
+		return -1;
+	}
+
 	setenv("HOME", info->home);
-	setuid(info->uid);
 	exec(info->cmd);
 	return 0;
 }
