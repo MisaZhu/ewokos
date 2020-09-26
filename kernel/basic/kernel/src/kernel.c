@@ -44,8 +44,7 @@ static void set_kernel_init_vm(page_dir_entry_t* vm) {
 	map_pages(vm, KERNEL_BASE+PAGE_SIZE, PAGE_SIZE, V2P(ALLOCATABLE_PAGE_DIR_END), AP_RW_D, 0);
 
 	//map MMIO to high(virtual) mem.
-	hw_info_t* hw_info = get_hw_info();
-	map_pages(vm, MMIO_BASE, hw_info->phy_mmio_base, hw_info->phy_mmio_base + hw_info->mmio_size, AP_RW_D, 1);
+	map_pages(vm, MMIO_BASE, _sys_info.mmio.phy_base, _sys_info.mmio.phy_base + _sys_info.mmio.size, AP_RW_D, 1);
 	arch_vm(vm);
 }
 
@@ -54,15 +53,14 @@ void set_kernel_vm(page_dir_entry_t* vm) {
 	map_pages(vm, 
 		ALLOCATABLE_MEMORY_START, 
 		V2P(ALLOCATABLE_MEMORY_START),
-		get_hw_info()->phy_mem_size,
+		_sys_info.phy_mem_size,
 		AP_RW_D, 0);
 }
 
 static void init_kernel_vm(void) {
-	hw_info_t* hw_info = get_hw_info();
 	_allocatable_mem_size = 
-			hw_info->phy_mem_size < hw_info->phy_mmio_base ?
-			hw_info->phy_mem_size : hw_info->phy_mmio_base;
+			_sys_info.phy_mem_size < _sys_info.mmio.phy_base ?
+			_sys_info.phy_mem_size : _sys_info.mmio.phy_base;
 
 	_kernel_vm = (page_dir_entry_t*)KERNEL_PAGE_DIR_BASE;
 	//get kalloc ready just for kernel page tables.
@@ -102,7 +100,7 @@ void _kernel_entry_c(context_t* ctx) {
 	memset(_bss_start, 0, (uint32_t)_bss_end - (uint32_t)_bss_start);
 	copy_interrupt_table();
 
-	hw_info_init();
+	sys_info_init();
 
 	init_kernel_vm();  
 	km_init();

@@ -2,17 +2,23 @@
 #include <mm/mmu.h>
 #include <kstring.h>
 
-static hw_info_t _hw_info;
+extern char _framebuffer_base_raw[];
+extern char _framebuffer_end_raw[];
 
-void hw_info_init(void) {
-	strcpy(_hw_info.machine, "versatilepb");
-	_hw_info.phy_mem_size = 256*MB;
-	_hw_info.phy_mmio_base = 0x10000000;
-	_hw_info.mmio_size = 4*MB;
-}
+sys_info_t _sys_info;
 
-inline hw_info_t* get_hw_info(void) {
-	return &_hw_info;
+void sys_info_init(void) {
+	memset(&_sys_info, 0, sizeof(sys_info_t));
+
+	strcpy(_sys_info.machine, "versatilepb");
+	_sys_info.phy_mem_size = 256*MB;
+	_sys_info.mmio.phy_base = 0x10000000;
+	_sys_info.mmio.v_base = MMIO_BASE;
+	_sys_info.mmio.size = 4*MB;
+
+	_sys_info.fb.v_base = (uint32_t)_framebuffer_base_raw;
+	_sys_info.fb.phy_base = V2P(_sys_info.fb.v_base);
+	_sys_info.fb.size = _framebuffer_end_raw - _framebuffer_base_raw;
 }
 
 void arch_vm(page_dir_entry_t* vm) {

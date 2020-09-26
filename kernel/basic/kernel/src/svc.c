@@ -166,21 +166,15 @@ static void sys_proc_set_cmd(const char* cmd) {
 	strncpy(_current_proc->info.cmd, cmd, PROC_INFO_CMD_MAX-1);
 }
 
-static void	sys_get_sysinfo(sysinfo_t* info) {
+static void	sys_get_sysinfo(sys_info_t* info) {
 	if(info == NULL)
 		return;
 
-	hw_info_t* hw_info = get_hw_info();
+	memcpy(info, &_sys_info, sizeof(sys_info_t));
 
-	strcpy(info->machine, hw_info->machine);
-	info->free_mem = get_free_mem_size();
-	info->total_mem = hw_info->phy_mem_size;
-	info->shm_mem = shm_alloced_size();
+	info->mem.free = get_free_mem_size();
+	info->mem.shared = shm_alloced_size();
 	info->kernel_sec = _kernel_sec;
-	info->kfs = hw_info->kfs;
-	info->mmio_info.phy_base = hw_info->phy_mmio_base;
-	info->mmio_info.v_base = MMIO_BASE;
-	info->mmio_info.size = hw_info->mmio_size;
 }
 
 static int32_t sys_shm_alloc(uint32_t size, int32_t flag) {
@@ -204,7 +198,7 @@ static uint32_t sys_mem_map(uint32_t vaddr, uint32_t paddr, uint32_t size) {
 		return 0;
 	/*allocatable memory can only mapped by kernel,
 	userspace can map upper address such as MMIO/FRAMEBUFFER... */
-	if(paddr < _allocatable_mem_size || (paddr+size) > get_hw_info()->phy_mem_size)
+	if(paddr < _allocatable_mem_size)
 		return 0;
 	map_pages(_current_proc->space->vm, vaddr, paddr, paddr+size, AP_RW_RW, 1);
 	flush_tlb();
@@ -540,7 +534,7 @@ void svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_t arg2, context
 		sys_proc_set_cmd((const char*)arg0);
 		return;
 	case SYS_GET_SYSINFO:
-		sys_get_sysinfo((sysinfo_t*)arg0);
+		sys_get_sysinfo((sys_info_t*)arg0);
 		return;
 	case SYS_GET_KERNEL_TIC:
 		ctx->gpr[0] = sys_get_kernel_tic();

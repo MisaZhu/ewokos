@@ -113,7 +113,7 @@ static const char* read_line(int fd) {
 }
 
 static void load_devs(void) {
-	sysinfo_t sysinfo;
+	sys_info_t sysinfo;
 	syscall1(SYS_GET_SYSINFO, (int32_t)&sysinfo);
 	char fn[FS_FULL_NAME_MAX];
 	snprintf(fn, FS_FULL_NAME_MAX-1, "/etc/arch/%s/init.dev", sysinfo.machine);
@@ -133,7 +133,7 @@ static void load_devs(void) {
 }
 
 static void run_procs(void) {
-	sysinfo_t sysinfo;
+	sys_info_t sysinfo;
 	syscall1(SYS_GET_SYSINFO, (int32_t)&sysinfo);
 	char fn[FS_FULL_NAME_MAX];
 	snprintf(fn, FS_FULL_NAME_MAX-1, "/etc/arch/%s/init.rd", sysinfo.machine);
@@ -183,7 +183,7 @@ int main(int argc, char** argv) {
 	kprintf(false, "\n[init process started]\n");
 	run_core();
 
-	sysinfo_t sysinfo;
+	sys_info_t sysinfo;
 	syscall1(SYS_GET_SYSINFO, (int32_t)&sysinfo);
 
 	if(sysinfo.kfs == 0) {

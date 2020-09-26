@@ -2,18 +2,12 @@
 #define HW_INFO_H
 
 #include <stdint.h>
+#include <sysinfo.h>
 #include <mm/mmu.h>
 
-typedef struct {
-	char machine[32];
-	uint32_t phy_mem_size;
-	uint32_t phy_mmio_base;
-	uint32_t mmio_size;
-	uint32_t kfs;
-} hw_info_t;
+extern sys_info_t _sys_info;
 
-extern void hw_info_init(void);
-extern hw_info_t*  get_hw_info(void);
-extern void arch_vm(page_dir_entry_t* vm);
+extern void       sys_info_init(void);
+extern void       arch_vm(page_dir_entry_t* vm);
 
 #endif

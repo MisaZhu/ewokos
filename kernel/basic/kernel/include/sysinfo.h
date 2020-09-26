@@ -8,14 +8,29 @@ typedef struct {
 } mmio_info_t;
 
 typedef struct {
+	uint32_t phy_base;
+	uint32_t v_base;
+	uint32_t size;
+} fb_info_t;
+
+typedef struct {
+	uint32_t free;
+	uint32_t shared;
+} mem_info_t;
+
+typedef struct {
+/*static attr*/
 	char machine[32];
 	uint32_t kfs;
-	mmio_info_t mmio_info;
-	uint32_t free_mem;
-	uint32_t shm_mem;
-	uint32_t total_mem;
+	uint32_t phy_mem_size;
+
+	mmio_info_t mmio;
+	fb_info_t fb;
+
+/*dynamic attr*/
+	mem_info_t mem;
 	uint32_t kernel_sec;
-} sysinfo_t;
+} sys_info_t;
 
 #endif
 

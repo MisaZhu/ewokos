@@ -19,7 +19,7 @@
 #define GPU_INTERRUPTS_ROUTING 0x4000000C
 
 static void routing_core0_irq(void) {
-  uint32_t offset = CORE0_TIMER__irqCNTL - get_hw_info()->phy_mmio_base;
+  uint32_t offset = CORE0_TIMER__irqCNTL - _sys_info.mmio.phy_base;
   uint32_t vbase = _mmio_base+offset;
   put32(vbase, 0x08);
 }
@@ -27,7 +27,7 @@ static void routing_core0_irq(void) {
 #define CORE0__irq_SOURCE 0x40000060
 static uint32_t read_core0_pending(void) {
   uint32_t tmp;
-  uint32_t offset = CORE0__irq_SOURCE -  get_hw_info()->phy_mmio_base;
+  uint32_t offset = CORE0__irq_SOURCE -  _sys_info.mmio.phy_base;
   uint32_t vbase = _mmio_base+offset;
   tmp = get32(vbase);
   return tmp;

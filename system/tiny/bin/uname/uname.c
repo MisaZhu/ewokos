@@ -5,7 +5,7 @@
 #include <sysinfo.h>
 
 int main(int argc, char* argv[]) {
-	sysinfo_t sysinfo;
+	sys_info_t sysinfo;
 	syscall1(SYS_GET_SYSINFO, (int32_t)&sysinfo);
 
 	if(argc == 1)

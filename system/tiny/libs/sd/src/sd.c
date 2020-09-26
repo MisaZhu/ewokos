@@ -166,7 +166,7 @@ int32_t sd_init(void) {
 	_sector_buf_num = 0;
 	memset(&_partition, 0, sizeof(partition_t));
 
-	sysinfo_t sysinfo;
+	sys_info_t sysinfo;
 	syscall1(SYS_GET_SYSINFO, (int32_t)&sysinfo);
 
 	if(strncmp(sysinfo.machine, "raspi", 5) == 0) {

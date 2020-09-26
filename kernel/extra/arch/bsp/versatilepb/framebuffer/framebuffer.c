@@ -2,9 +2,7 @@
 #include "string.h"
 #include "dev/framebuffer.h"
 #include "graph.h"
-
-extern char _framebuffer_base_raw[];
-extern char _framebuffer_end_raw[];
+#include <kernel/hw_info.h>
 
 static fbinfo_t _fb_info;
 int32_t fb_dev_init(void) {
@@ -20,7 +18,7 @@ int32_t fb_dev_init(void) {
 	_fb_info.pitch = 0;
 	_fb_info.xoffset = 0;
 	_fb_info.yoffset = 0;
-	_fb_info.pointer = (uint32_t)_framebuffer_base_raw;
+	_fb_info.pointer = (uint32_t)_sys_info.fb.v_base;
 
 	if(w == 640 && h == 480) {
 		put32((_mmio_base | 0x1c), 0x2c77);
