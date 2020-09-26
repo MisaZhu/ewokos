@@ -108,6 +108,7 @@ DEV_OBJS = \
 
 KERNEL_DIR = $(SRC_DIR)/basic/kernel/src
 KERNEL_OBJS = \
+	${SRC_DIR}/basic/loadinit/loadinit.o \
 	${KERNEL_DIR}/mm/kalloc.o \
 	${KERNEL_DIR}/mm/trunkmem.o \
 	${KERNEL_DIR}/mm/kmalloc.o \
@@ -120,7 +121,6 @@ KERNEL_OBJS = \
 	${KERNEL_DIR}/schedule.o \
 	${KERNEL_DIR}/systemc.o \
 	${KERNEL_DIR}/kevqueue.o \
-	${KERNEL_DIR}/loadinit.o \
 	${KERNEL_DIR}/kernel.o
 
 OBJS = ${ARCH_OBJS} \
