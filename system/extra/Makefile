@@ -58,10 +58,11 @@ x_sbin:
 
 EXTRA_DRIVERS_DIR=drivers
 extra_driver:
-	cd $(EXTRA_DRIVERS_DIR)/fbd;make
 	cd $(EXTRA_DRIVERS_DIR)/xserverd;make
+	cd $(EXTRA_DRIVERS_DIR)/arch/arm/versatilepb/fbd;make
 	cd $(EXTRA_DRIVERS_DIR)/arch/arm/versatilepb/ps2keybd;make
 	cd $(EXTRA_DRIVERS_DIR)/arch/arm/versatilepb/ps2moused;make
+	cd $(EXTRA_DRIVERS_DIR)/arch/arm/raspix/fbd;make
 	cd $(EXTRA_DRIVERS_DIR)/arch/arm/raspix/gpio_actledd;make
 	cd $(EXTRA_DRIVERS_DIR)/arch/arm/raspix/mbox_actledd;make
 	cd $(EXTRA_DRIVERS_DIR)/arch/arm/raspix/joystickd;make
@@ -80,8 +81,10 @@ clean:
 	cd $(EXTRA_LIBXX_DIR)/graphxx; make clean
 	cd $(EXTRA_LIBXX_DIR)/x++; make clean
 	cd $(EXTRA_DRIVERS_DIR)/xserverd;make clean
+	cd $(EXTRA_DRIVERS_DIR)/arch/arm/versatilepb/fbd;make clean
 	cd $(EXTRA_DRIVERS_DIR)/arch/arm/versatilepb/ps2keybd;make clean
 	cd $(EXTRA_DRIVERS_DIR)/arch/arm/versatilepb/ps2moused;make clean
+	cd $(EXTRA_DRIVERS_DIR)/arch/arm/raspix/fbd;make clean
 	cd $(EXTRA_DRIVERS_DIR)/arch/arm/raspix/gpio_actledd;make clean
 	cd $(EXTRA_DRIVERS_DIR)/arch/arm/raspix/mbox_actledd;make clean
 	cd $(EXTRA_DRIVERS_DIR)/arch/arm/raspix/joystickd;make clean

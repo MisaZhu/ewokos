@@ -30,8 +30,9 @@ FB_TEST = $(TARGET_DIR)/bin/fbtest
 
 $(FB_TEST): $(FB_TEST_OBJS) \
 		$(BUILD_DIR)/lib/libewokc.a \
-		$(BUILD_DIR)/lib/libarch_bcm283x.a 
-	$(LD) -Ttext=100 $(FB_TEST_OBJS) -o $(FB_TEST) $(LDFLAGS) -larch_bcm283x -lewokc -lc
+		$(BUILD_DIR)/lib/libarch_bcm283x.a  \
+		$(BUILD_DIR)/lib/libarch_vpb.a 
+	$(LD) -Ttext=100 $(FB_TEST_OBJS) -o $(FB_TEST) $(LDFLAGS) -larch_bcm283x -larch_vpb -lewokc -lc
 
 clean:
 	rm -f $(FB_TEST_OBJS)

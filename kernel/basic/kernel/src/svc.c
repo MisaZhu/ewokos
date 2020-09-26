@@ -202,7 +202,7 @@ static uint32_t sys_mem_map(uint32_t vaddr, uint32_t paddr, uint32_t size) {
 		return 0;
 	/*allocatable memory can only mapped by kernel,
 	userspace can map upper address such as MMIO/FRAMEBUFFER... */
-	if(paddr < _allocatable_mem_size)
+	if(paddr > _allocatable_mem_base && paddr < _allocatable_mem_top)
 		return 0;
 	map_pages(_current_proc->space->vm, vaddr, paddr, paddr+size, AP_RW_RW, 1);
 	flush_tlb();

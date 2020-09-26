@@ -29,11 +29,12 @@ CFLAGS += -I $(BUILD_DIR)/include
 
 FBD_OBJS = fbd.o
 
-FBD = $(TARGET_DIR)/drivers/fbd
+FBD = $(TARGET_DIR)/drivers/arm/versatilepb/fbd
 
 $(FBD): $(FBD_OBJS) \
-		$(BUILD_DIR)/lib/libewokc.a 
-	$(LD) -Ttext=100 $(FBD_OBJS) -o $(FBD) $(LDFLAGS) -lewokc -lc
+		$(BUILD_DIR)/lib/libewokc.a \
+		$(BUILD_DIR)/lib/libarch_vpb.a
+	$(LD) -Ttext=100 $(FBD_OBJS) -o $(FBD) $(LDFLAGS) -larch_vpb -lewokc -lc
 
 clean:
 	rm -f $(FBD_OBJS)

@@ -7,7 +7,7 @@
 #include <sys/vdevice.h>
 #include <sys/shm.h>
 #include <sys/kprintf.h>
-#include <sys/fbinfo.h>
+#include <arch/arm/vpb/framebuffer.h>
 
 typedef struct {
 	void* data;
@@ -15,7 +15,7 @@ typedef struct {
 	int32_t shm_id;
 } fb_dma_t;
 
-static fbinfo_t _fbinfo;
+static fbinfo_t* _fbinfo;
 
 static int fb_fcntl(int fd, 
 		int from_pid,
@@ -32,9 +32,47 @@ static int fb_fcntl(int fd,
 	(void)p;
 
 	if(cmd == CNTL_INFO) {
-		PF->addi(out, _fbinfo.width)->addi(out, _fbinfo.height);
+		PF->addi(out, _fbinfo->width)->addi(out, _fbinfo->height);
 	}
 	return 0;
+}
+
+static inline void argb2abgr(uint32_t* dst, const uint32_t* src, uint32_t size) {
+  while(size > 0) {
+    register uint32_t c = src[size-1];
+    uint8_t a = c >> 24;
+    uint8_t r = c >> 16;
+    uint8_t g = c >> 8;
+    uint8_t b = c & 0xff;
+
+    dst[size-1] = a << 24 | b << 16 | g << 8 | r;
+    size--;
+  }
+}
+
+static inline void dup16(uint16_t* dst, uint32_t* src, uint32_t w, uint32_t h) {
+  register int32_t i, size;
+  size = w * h;
+  for(i=0; i < size; i++) {
+    register uint32_t s = src[i];
+    register uint8_t r = (s >> 16) & 0xff;
+    register uint8_t g = (s >> 8)  & 0xff;
+    register uint8_t b = s & 0xff;
+    dst[i] = ((r >> 3) <<11) | ((g >> 3) << 6) | (b >> 3);
+  }
+}
+
+static int32_t do_flush(const void* buf, uint32_t size) {
+  uint32_t sz = (_fbinfo->depth/8) * _fbinfo->width * _fbinfo->height;
+  if(size > sz)
+    size = sz;
+  if(_fbinfo->depth == 32)
+    argb2abgr((uint32_t*)_fbinfo->pointer, (const uint32_t*)buf, size/4);
+  else if(_fbinfo->depth == 16)
+    dup16((uint16_t*)_fbinfo->pointer, (uint32_t*)buf,  _fbinfo->width, _fbinfo->height);
+	else 
+		size = 0;
+  return (int32_t)size;
 }
 
 static int fb_flush(int fd, int from_pid, fsinfo_t* info, void* p) {
@@ -43,15 +81,17 @@ static int fb_flush(int fd, int from_pid, fsinfo_t* info, void* p) {
 	(void)info;
 	fb_dma_t* dma = (fb_dma_t*)p;
 
-	if(_fbinfo.pointer == 0)
+	if(_fbinfo->pointer == 0)
 		return -1;
 
 	uint32_t size = dma->size;
-	uint32_t sz = (_fbinfo.depth/8) * _fbinfo.width * _fbinfo.height;
+	uint32_t sz = (_fbinfo->depth/8) * _fbinfo->width * _fbinfo->height;
 	if(size > sz)
 		size = sz;
 
-	return syscall2(SYS_FRAMEBUFFER_FLUSH, (int32_t)dma->data, size);
+	if(do_flush(dma->data, dma->size) == 0)
+		return -1;
+	return 0;
 }
 
 static int fb_dma(int fd, int from_pid, fsinfo_t* info, int* size, void* p) {
@@ -66,12 +106,12 @@ static int fb_dma(int fd, int from_pid, fsinfo_t* info, int* size, void* p) {
 int main(int argc, char** argv) {
 	const char* mnt_name = argc > 1 ? argv[1]: "/dev/fb0";
 
-	if(syscall1(SYS_FRAMEBUFFER_INFO, (int32_t)&_fbinfo) != 0) {
-		kprintf(false, " framebuffer mapping failed!\n");
+	if(vpb_fb_init(1024, 768, 32) != 0) {
 		return -1;
 	}
+	_fbinfo = vpb_get_fbinfo();
 
-	uint32_t sz = _fbinfo.width * _fbinfo.height * 4;
+	uint32_t sz = _fbinfo->width * _fbinfo->height * 4;
 	fb_dma_t dma;
 	dma.shm_id = shm_alloc(sz, 1);
 	if(dma.shm_id <= 0)

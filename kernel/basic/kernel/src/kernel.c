@@ -58,7 +58,7 @@ void set_kernel_vm(page_dir_entry_t* vm) {
 }
 
 static void init_kernel_vm(void) {
-	_allocatable_mem_size = 
+	_allocatable_mem_top = 
 			_sys_info.phy_mem_size < _sys_info.mmio.phy_base ?
 			_sys_info.phy_mem_size : _sys_info.mmio.phy_base;
 
@@ -79,11 +79,12 @@ static void init_allocable_mem(void) {
 	map_pages(_kernel_vm,
 			ALLOCATABLE_MEMORY_START,
 			V2P(ALLOCATABLE_MEMORY_START),
-			_allocatable_mem_size,
+			_allocatable_mem_top,
 			AP_RW_D, 0);
 	flush_tlb();
 	printf("kernel: kalloc init for all allocatable pages\n");
-	kalloc_init(ALLOCATABLE_MEMORY_START, P2V(_allocatable_mem_size));
+	_allocatable_mem_base = V2P(ALLOCATABLE_MEMORY_START);
+	kalloc_init(ALLOCATABLE_MEMORY_START, P2V(_allocatable_mem_top));
 }
 
 static void halt(void) {

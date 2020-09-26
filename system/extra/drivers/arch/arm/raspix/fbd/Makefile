@@ -4,7 +4,7 @@ CXX = arm-none-eabi-c++
 LD = arm-none-eabi-ld
 OBJDUMP = arm-none-eabi-objdump
 
-BUILD_DIR = ../../../build
+BUILD_DIR = ../../../../../../build
 TARGET_DIR = $(BUILD_DIR)/rootfs
 
 # flags
@@ -29,11 +29,12 @@ CFLAGS += -I $(BUILD_DIR)/include
 
 FBD_OBJS = fbd.o
 
-FBD = $(TARGET_DIR)/drivers/fbd
+FBD = $(TARGET_DIR)/drivers/arm/raspix/fbd
 
 $(FBD): $(FBD_OBJS) \
-		$(BUILD_DIR)/lib/libewokc.a 
-	$(LD) -Ttext=100 $(FBD_OBJS) -o $(FBD) $(LDFLAGS) -lewokc -lc
+		$(BUILD_DIR)/lib/libewokc.a \
+		$(BUILD_DIR)/lib/libarch_bcm283x.a
+	$(LD) -Ttext=100 $(FBD_OBJS) -o $(FBD) $(LDFLAGS) -larch_bcm283x -lewokc -lc
 
 clean:
 	rm -f $(FBD_OBJS)
