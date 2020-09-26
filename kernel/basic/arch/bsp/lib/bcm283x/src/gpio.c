@@ -1,4 +1,4 @@
-#include "gpio.h"
+#include <bcm283x/gpio.h>
 #include <mm/mmu.h>
 
 void gpio_config(int32_t num, int32_t gpio_sel) {

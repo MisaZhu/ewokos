@@ -1,6 +1,6 @@
 #include <mm/mmu.h>
 #include <dev/actled.h>
-#include "bcm283x/mailbox.h"
+#include <bcm283x/mailbox.h>
 
 void actled(bool on) {
 	mail_message_t msg;

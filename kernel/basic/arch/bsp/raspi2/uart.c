@@ -1,6 +1,6 @@
 #include <dev/uart.h>
+#include <bcm283x/pl011_uart.h>
 
-#include "bcm283x/pl011_uart.h"
 int32_t uart_dev_init(void) {
 	return pl011_uart_init();
 }

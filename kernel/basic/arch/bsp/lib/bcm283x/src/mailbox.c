@@ -1,4 +1,4 @@
-#include "mailbox.h"
+#include <bcm283x/mailbox.h>
 
 //void __attribute__((optimize("O0"))) mailbox_read(int channel, mail_message_t *msg) {
 void mailbox_read(uint8_t channel, mail_message_t *msg) {

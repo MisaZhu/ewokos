@@ -1,6 +1,6 @@
 #include <mm/mmu.h>
 #include <dev/actled.h>
-#include "bcm283x/gpio.h"
+#include <bcm283x/gpio.h>
 
 void actled(bool on) {
 	uint32_t ra;

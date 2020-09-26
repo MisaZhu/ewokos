@@ -1,5 +1,5 @@
 #include <dev/uart.h>
-#include "bcm283x/mini_uart.h"
+#include <bcm283x/mini_uart.h>
 
 int32_t uart_dev_init(void) {
 	return mini_uart_init();

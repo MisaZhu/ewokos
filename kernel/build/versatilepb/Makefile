@@ -37,7 +37,6 @@ CFLAGS += $(OPTM) \
 	-I$(SRC_DIR)/extra/dev/include \
 	-I$(SRC_DIR)/extra/lib/include \
 	-I${ARCH_DIR}/${ARCH} \
-	-I${BSP_DIR}/lib \
 	-I${ARCH_DIR}/arm/common/include \
 	-marm $(ARCH_CFLAGS) \
 	-Wstrict-prototypes \
@@ -65,14 +64,10 @@ ARCH_OBJS = \
 	${BSP_DIR}/${BSP}/irq.o \
 	${BSP_DIR}/${BSP}/timer.o \
 	${BSP_DIR}/${BSP}/uart.o \
+	${BSP_DIR}/${BSP}/actled.o \
 	${ARCH_DIR}/arm/common/src/interrupt.o \
 	${ARCH_DIR}/arm/common/src/memcpy.o \
-	${ARCH_DIR}/arm/common/src/mmu_arch.o \
-	${BSP_DIR}/lib/bcm283x/gpio.o  \
-	${BSP_DIR}/lib/bcm283x/mailbox.o \
-	${BSP_DIR}/lib/bcm283x/pl011_uart.o \
-	${BSP_DIR}/lib/bcm283x/mini_uart.o \
-	${BSP_DIR}/lib/bcm283x/gpio_actled.o 
+	${ARCH_DIR}/arm/common/src/mmu_arch.o
 
 QEMU_CMD = qemu-system-arm
 OS_IMG = kernel.img
