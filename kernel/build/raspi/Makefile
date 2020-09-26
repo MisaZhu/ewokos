@@ -13,7 +13,7 @@ ARCH_DIR=$(SRC_DIR)/basic/arch/sys
 BSP_DIR=$(SRC_DIR)/basic/arch/bsp
 ARCH=arm/v6
 BSP=raspi
-EXTRA_BSP=raspi
+EXTRA_BSP=raspix
 
 SYS_FULL_DIR = ../../../system
 SRC_DIR=../..
