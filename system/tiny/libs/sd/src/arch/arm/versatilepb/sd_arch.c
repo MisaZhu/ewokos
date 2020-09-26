@@ -5,7 +5,7 @@
 #include <sys/vfs.h>
 #include <sys/vdevice.h>
 #include <sys/syscall.h>
-#include <sys/mmio.h>
+#include <sys/mmu.h>
 
 #define SECTOR_SIZE 512
 

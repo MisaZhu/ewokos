@@ -2,7 +2,7 @@
 #define MAILBOX_H
 
 #include <stdint.h>
-#include <sys/mmio.h>
+#include <sys/mmu.h>
 
 #define MAILBOX_BASE (_mmio_base+0xB880)
 #define MAIL0_READ (((volatile mail_message_t *)(0x00 + MAILBOX_BASE)))

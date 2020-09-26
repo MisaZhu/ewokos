@@ -9,6 +9,7 @@ void sys_info_init(void) {
 
 	strcpy(_sys_info.machine, "raspi2");
 	_sys_info.phy_mem_size = 1024*MB;
+	_sys_info.kernel_base = KERNEL_BASE;
 	_sys_info.mmio.phy_base = 0x3f000000;
 	_sys_info.mmio.v_base = MMIO_BASE;
 	_sys_info.mmio.size = 16*MB;

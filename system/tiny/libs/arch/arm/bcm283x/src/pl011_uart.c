@@ -1,4 +1,4 @@
-#include <sys/mmio.h>
+#include <sys/mmu.h>
 
 enum {
 	// The GPIO registers base address.

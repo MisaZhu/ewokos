@@ -167,7 +167,7 @@ int32_t sd_init(void) {
 	memset(&_partition, 0, sizeof(partition_t));
 
 	sys_info_t sysinfo;
-	syscall1(SYS_GET_SYSINFO, (int32_t)&sysinfo);
+	syscall1(SYS_GET_SYS_INFO, (int32_t)&sysinfo);
 
 	if(strncmp(sysinfo.machine, "raspi", 5) == 0) {
 		sd_init_arch = sd_init_arch_bcm283x;

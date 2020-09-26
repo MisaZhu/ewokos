@@ -69,12 +69,14 @@ int main(int argc, char* argv[]) {
 	}
 
 	int num = 0;
-	sys_info_t sysinfo;
-	syscall1(SYS_GET_SYSINFO, (int32_t)&sysinfo);
-	uint32_t fr_mem = sysinfo.mem.free / (1024*1024);
-	uint32_t shm_mem = sysinfo.mem.shared / (1024*1024);
-	uint32_t t_mem = sysinfo.phy_mem_size / (1024*1024);
-	uint32_t csec = sysinfo.kernel_sec;
+	sys_info_t sys_info;
+	sys_state_t sys_state;
+	syscall1(SYS_GET_SYS_INFO, (int32_t)&sys_info);
+	syscall1(SYS_GET_SYS_STATE, (int32_t)&sys_state);
+	uint32_t fr_mem = sys_state.mem.free / (1024*1024);
+	uint32_t shm_mem = sys_state.mem.shared / (1024*1024);
+	uint32_t t_mem = sys_info.phy_mem_size / (1024*1024);
+	uint32_t csec = sys_state.kernel_sec;
 
 	procinfo_t* procs = (procinfo_t*)syscall1(SYS_GET_PROCS, (int)&num);
 	if(procs != NULL) {

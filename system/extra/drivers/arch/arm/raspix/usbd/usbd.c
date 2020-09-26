@@ -4,7 +4,7 @@
 #include <string.h>
 #include <sys/vdevice.h>
 #include <sys/syscall.h>
-#include <sys/mmio.h>
+#include <sys/mmu.h>
 #include <usbd/usbd.h>
 #include <device/hid/keyboard.h>
 

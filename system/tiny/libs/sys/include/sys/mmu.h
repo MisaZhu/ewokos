@@ -1,12 +1,11 @@
-#ifndef MMIO_H
-#define MMIO_H
+#ifndef MMU_H
+#define MMU_H
 
 #include <sys/ewokdef.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
-
 
 #define get32(addr) (*((volatile uint32_t *)(addr)))
 #define put32(addr, val) (*((volatile uint32_t *)(addr)) = (val))

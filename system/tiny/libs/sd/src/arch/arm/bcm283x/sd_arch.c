@@ -5,7 +5,7 @@
 #include <sys/vfs.h>
 #include <sys/vdevice.h>
 #include <sys/syscall.h>
-#include <sys/mmio.h>
+#include <sys/mmu.h>
 #include <sys/basic_math.h>
 
 #define SD_OK                0

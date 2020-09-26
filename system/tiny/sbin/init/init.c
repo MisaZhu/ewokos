@@ -114,7 +114,7 @@ static const char* read_line(int fd) {
 
 static void load_devs(void) {
 	sys_info_t sysinfo;
-	syscall1(SYS_GET_SYSINFO, (int32_t)&sysinfo);
+	syscall1(SYS_GET_SYS_INFO, (int32_t)&sysinfo);
 	char fn[FS_FULL_NAME_MAX];
 	snprintf(fn, FS_FULL_NAME_MAX-1, "/etc/arch/%s/init.dev", sysinfo.machine);
 	int fd = open(fn, O_RDONLY);
@@ -134,7 +134,7 @@ static void load_devs(void) {
 
 static void run_procs(void) {
 	sys_info_t sysinfo;
-	syscall1(SYS_GET_SYSINFO, (int32_t)&sysinfo);
+	syscall1(SYS_GET_SYS_INFO, (int32_t)&sysinfo);
 	char fn[FS_FULL_NAME_MAX];
 	snprintf(fn, FS_FULL_NAME_MAX-1, "/etc/arch/%s/init.rd", sysinfo.machine);
 	
@@ -184,7 +184,7 @@ int main(int argc, char** argv) {
 	run_core();
 
 	sys_info_t sysinfo;
-	syscall1(SYS_GET_SYSINFO, (int32_t)&sysinfo);
+	syscall1(SYS_GET_SYS_INFO, (int32_t)&sysinfo);
 
 	if(sysinfo.kfs == 0) {
 		run_none_fs("/sbin/procd", false);

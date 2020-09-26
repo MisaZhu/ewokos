@@ -37,14 +37,15 @@ LIBS_DIR = libs
 LIB_INC = -I$(BUILD_DIR)/include \
 					-I $(LIBS_DIR)/sys/include \
 					-I $(LIBS_DIR)/arch/arm/bcm283x/include \
+					-I $(LIBS_DIR)/arch/arm/vpb/include \
 					-I $(LIBS_DIR)/sd/include \
 				  -I $(LIBS_DIR)/ext2/include \
 				  -I $(LIBS_DIR)/hash/include \
-				  -I $(LIBS_DIR)/libc/include \
-					-I $(KERNEL_DIR)/include
+				  -I $(LIBS_DIR)/libc/include
 				 
 LIB_SYS_DIR = $(LIBS_DIR)/sys
-LIB_ARCH_BCM283x_DIR = $(LIBS_DIR)/arch/arm/bcm283x
+LIB_ARCH_BCM283X_DIR = $(LIBS_DIR)/arch/arm/bcm283x
+LIB_ARCH_VPB_DIR = $(LIBS_DIR)/arch/arm/vpb
 LIB_SD_DIR = $(LIBS_DIR)/sd
 LIB_EXT2_DIR = $(LIBS_DIR)/ext2
 LIB_HASH_DIR = $(LIBS_DIR)/hash
@@ -80,14 +81,16 @@ LIB_SYS_OBJS = $(LIB_SYS_DIR)/src/syscall.o \
 	$(LIB_SYS_DIR)/src/buffer.o \
 	$(LIB_SYS_DIR)/src/mmio.o 
 
-LIB_ARCH_BCM283x_OBJS = $(LIB_ARCH_BCM283x_DIR)/src/gpio.o \
-	$(LIB_ARCH_BCM283x_DIR)/src/spi.o \
-	$(LIB_ARCH_BCM283x_DIR)/src/pl011_uart.o \
-	$(LIB_ARCH_BCM283x_DIR)/src/mini_uart.o \
-	$(LIB_ARCH_BCM283x_DIR)/src/mailbox.o \
-	$(LIB_ARCH_BCM283x_DIR)/src/mbox_actled.o \
-	$(LIB_ARCH_BCM283x_DIR)/src/gpio_actled.o \
-	$(LIB_ARCH_BCM283x_DIR)/src/framebuffer.o
+LIB_ARCH_BCM283X_OBJS = $(LIB_ARCH_BCM283X_DIR)/src/gpio.o \
+	$(LIB_ARCH_BCM283X_DIR)/src/spi.o \
+	$(LIB_ARCH_BCM283X_DIR)/src/pl011_uart.o \
+	$(LIB_ARCH_BCM283X_DIR)/src/mini_uart.o \
+	$(LIB_ARCH_BCM283X_DIR)/src/mailbox.o \
+	$(LIB_ARCH_BCM283X_DIR)/src/mbox_actled.o \
+	$(LIB_ARCH_BCM283X_DIR)/src/gpio_actled.o \
+	$(LIB_ARCH_BCM283X_DIR)/src/framebuffer.o
+
+LIB_ARCH_VPB_OBJS = $(LIB_ARCH_VPB_DIR)/src/framebuffer.o
 
 LIB_LIBC_OBJS = $(LIB_LIBC_DIR)/src/unistd/chdir.o \
 	$(LIB_LIBC_DIR)/src/unistd/dup.o \
@@ -150,7 +153,8 @@ LIB_LIBC_OBJS = $(LIB_LIBC_DIR)/src/unistd/chdir.o \
 	$(LIB_LIBC_DIR)/src/fcntl/fcntl.o
 
 LIB_OBJS = $(LIB_SYS_OBJS) \
-	$(LIB_ARCH_BCM283x_OBJS) \
+	$(LIB_ARCH_BCM283X_OBJS) \
+	$(LIB_ARCH_VPB_OBJS) \
 	$(LIB_SD_OBJS) \
 	$(LIB_LIBC_OBJS) \
 	$(LIB_GRAPH_OBJS) \
@@ -171,20 +175,22 @@ KERNEL_H = \
 	$(KERNEL_DIR)/include/usinterrupt.h \
 	$(KERNEL_DIR)/include/syscalls.h \
 	$(KERNEL_DIR)/include/sysinfo.h \
+	$(KERNEL_DIR)/include/kevent.h \
 	$(KERNEL_DIR)/include/procinfo.h
 
 libs: $(LIB_OBJS)
 	$(AR) rT $(BUILD_DIR)/lib/libewokc.a $(LIB_SYS_OBJS)  $(LIB_LIBC_OBJS)
 	@cp -r $(LIB_SYS_DIR)/include/* $(LIB_LIBC_DIR)/include/* $(BUILD_DIR)/include/
-	$(AR) rT $(BUILD_DIR)/lib/libarch_bcm283x.a $(LIB_ARCH_BCM283x_OBJS)
-	@cp -r $(LIB_ARCH_BCM283x_DIR)/include/* $(BUILD_DIR)/include/
+	$(AR) rT $(BUILD_DIR)/lib/libarch_bcm283x.a $(LIB_ARCH_BCM283X_OBJS)
+	@cp -r $(LIB_ARCH_BCM283X_DIR)/include/* $(BUILD_DIR)/include/
+	$(AR) rT $(BUILD_DIR)/lib/libarch_vpb.a $(LIB_ARCH_VPB_OBJS)
+	@cp -r $(LIB_ARCH_VPB_DIR)/include/* $(BUILD_DIR)/include/
 	$(AR) rT $(BUILD_DIR)/lib/libsd.a $(LIB_SD_OBJS)  $(LIB_LIBC_OBJS)
 	@cp -r $(LIB_SD_DIR)/include/* $(LIB_LIBC_DIR)/include/* $(BUILD_DIR)/include/
 	$(AR) rT $(BUILD_DIR)/lib/libext2.a $(LIB_EXT2_OBJS)
 	@cp -r $(LIB_EXT2_DIR)/include/* $(BUILD_DIR)/include/
 	$(AR) rT $(BUILD_DIR)/lib/libhash.a $(LIB_HASH_OBJS)
 	@cp -r $(LIB_HASH_DIR)/include/* $(BUILD_DIR)/include/
-	@cp -r $(KERNEL_H) $(BUILD_DIR)/include/
 
 include $(ROOT_DIR)/sbin/vfsd/build.mk
 include $(ROOT_DIR)/sbin/procd/build.mk
@@ -218,6 +224,7 @@ mkdirs:
 	@mkdir -p ${BUILD_DIR}/asm
 	@mkdir -p ${BUILD_DIR}/include
 	@mkdir -p ${BUILD_DIR}/lib
+	@cp -r $(KERNEL_H) $(BUILD_DIR)/include/
 	@cp -r ${ROOT_DIR}/etc ${TARGET_DIR}/$(ROOT_DIR)
 
 builtin_apps: ${PROGS}

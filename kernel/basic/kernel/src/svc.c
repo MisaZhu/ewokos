@@ -166,11 +166,15 @@ static void sys_proc_set_cmd(const char* cmd) {
 	strncpy(_current_proc->info.cmd, cmd, PROC_INFO_CMD_MAX-1);
 }
 
-static void	sys_get_sysinfo(sys_info_t* info) {
+static void	sys_get_sys_info(sys_info_t* info) {
 	if(info == NULL)
 		return;
-
 	memcpy(info, &_sys_info, sizeof(sys_info_t));
+}
+
+static void	sys_get_sys_state(sys_state_t* info) {
+	if(info == NULL)
+		return;
 
 	info->mem.free = get_free_mem_size();
 	info->mem.shared = shm_alloced_size();
@@ -533,8 +537,11 @@ void svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_t arg2, context
 	case SYS_PROC_SET_CMD: 
 		sys_proc_set_cmd((const char*)arg0);
 		return;
-	case SYS_GET_SYSINFO:
-		sys_get_sysinfo((sys_info_t*)arg0);
+	case SYS_GET_SYS_INFO:
+		sys_get_sys_info((sys_info_t*)arg0);
+		return;
+	case SYS_GET_SYS_STATE:
+		sys_get_sys_state((sys_state_t*)arg0);
 		return;
 	case SYS_GET_KERNEL_TIC:
 		ctx->gpr[0] = sys_get_kernel_tic();

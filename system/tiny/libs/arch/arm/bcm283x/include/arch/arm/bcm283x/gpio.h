@@ -2,7 +2,7 @@
 #define GPIO_ARCH_H
 
 #include <stdint.h>
-#include <sys/mmio.h>
+#include <sys/mmu.h>
 
 #define GPIO_FSEL0         ((volatile uint32_t*)(_mmio_base+0x00200000))
 #define GPIO_FSEL1         ((volatile uint32_t*)(_mmio_base+0x00200004))

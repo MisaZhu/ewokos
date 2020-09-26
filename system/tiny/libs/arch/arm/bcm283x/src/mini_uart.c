@@ -1,4 +1,4 @@
-#include <sys/mmio.h>
+#include <sys/mmu.h>
 #include "arch/arm/bcm283x/gpio.h"
 
 #define AUX_OFFSET 0x00215000

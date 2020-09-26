@@ -1,5 +1,4 @@
 #include <sys/syscall.h>
-#include <sys/mmio.h>
 #include "arch/arm/bcm283x/mailbox.h"
 
 uint32_t _bcm283x_mailbox_addr = 0;
