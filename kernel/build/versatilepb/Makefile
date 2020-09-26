@@ -19,7 +19,7 @@ SYS_FULL_DIR = ../../../system
 SRC_DIR=../..
 BUILD_DIR = .
 
-EXTRA_DIR=$(SRC_DIR)/extra
+EXTRA_DIR=$(SRC_DIR)/loadinit
 include config.mk
 
 # flags
@@ -108,7 +108,7 @@ DEV_OBJS = \
 
 KERNEL_DIR = $(SRC_DIR)/basic/kernel/src
 KERNEL_OBJS = \
-	${SRC_DIR}/basic/loadinit/loadinit.o \
+	${SRC_DIR}/loadinit/loadinit.o \
 	${KERNEL_DIR}/mm/kalloc.o \
 	${KERNEL_DIR}/mm/trunkmem.o \
 	${KERNEL_DIR}/mm/kmalloc.o \
