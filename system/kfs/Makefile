@@ -6,5 +6,5 @@ FROM_DIR=../build/rootfs
 
 all:
 	gcc -o ${BUILD_DIR}/genfs   genfs.c
-	${BUILD_DIR}/genfs $(FROM_DIR) > $(KERNEL_DIR)/basic/loadinit/kfs/kfs_data.c
+	${BUILD_DIR}/genfs $(FROM_DIR) > $(KERNEL_DIR)/extra/kfs/kfs_data.c
 	@echo "all done."
