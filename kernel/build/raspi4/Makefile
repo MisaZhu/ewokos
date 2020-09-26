@@ -100,7 +100,7 @@ LOAD_OBJS = \
 QEMU_ARGS = -sd $(SYS_FULL_DIR)/build/sd.ext2
 CFLAGS += -I$(LOAD_DIR) -I$(EXTRA_DIR)/sd/dev/include
 else
-LOAD_DIR = $(SRC_DIR)/basic/loadinit/kfs
+LOAD_DIR = $(EXTRA_DIR)/kfs
 LOAD_OBJS = \
 	$(LOAD_DIR)/kfs_data.o \
 	$(LOAD_DIR)/loadinit.o
