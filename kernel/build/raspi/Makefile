@@ -19,7 +19,7 @@ SYS_FULL_DIR = ../../../system
 SRC_DIR=../..
 BUILD_DIR = .
 
-EXTRA_BSP_DIR=$(SRC_DIR)/extra/arch/bsp
+EXTRA_DIR=$(SRC_DIR)/extra
 include config.mk
 
 # flags
@@ -79,7 +79,6 @@ OS_IMG = kernel.img
 OS_ELF = kernel.elf
 
 LIB_DIR = $(SRC_DIR)/basic/lib/src
-EXTRA_LIB_DIR = $(SRC_DIR)/extra/lib/src
 
 LIB_OBJS = \
 	${LIB_DIR}/kstring.o \
@@ -89,32 +88,18 @@ LIB_OBJS = \
 	${LIB_DIR}/queue.o \
 	${LIB_DIR}/kprintf.o
 
-ifneq ($(DISP),no)
-CFLAGS += -DDISPLAY
-LIB_OBJS += \
-	${EXTRA_LIB_DIR}/graph.o \
-	${EXTRA_LIB_DIR}/font.o \
-	${EXTRA_LIB_DIR}/font8x16.o \
-	${EXTRA_LIB_DIR}/console.o \
-	${EXTRA_LIB_DIR}/kconsole.o
-
-CFLAGS += -DFRAMEBUFFER
-ARCH_OBJS += ${EXTRA_BSP_DIR}/${EXTRA_BSP}/framebuffer/framebuffer.o  \
-	${BSP_DIR}/lib/bcm283x/framebuffer.o
-endif
-
 ifeq ($(SDC),yes)
 CFLAGS += -DSDC
-ARCH_OBJS += ${EXTRA_BSP_DIR}/${EXTRA_BSP}/sd/sd.o \
+ARCH_OBJS += ${EXTRA_DIR}/sd/arch/bsp/${EXTRA_BSP}/sd.o \
 	${BSP_DIR}/lib/bcm283x/sd.o
 
-LOAD_DIR = $(SRC_DIR)/extra/loadinit/sd
+LOAD_DIR = $(EXTRA_DIR)/sd/loadinit
 LOAD_OBJS = \
 	${LOAD_DIR}/ext2read.o \
 	${LOAD_DIR}/loadinit.o
 
 QEMU_ARGS = -sd $(SYS_FULL_DIR)/build/sd.ext2
-CFLAGS += -I$(LOAD_DIR)
+CFLAGS += -I$(LOAD_DIR) -I$(EXTRA_DIR)/sd/dev/include
 else
 LOAD_DIR = $(SRC_DIR)/basic/loadinit/kfs
 LOAD_OBJS = \

@@ -6,11 +6,6 @@
 #include "kernel/system.h"
 #include <stddef.h>
 
-#ifdef FRAMEBUFFER
-#include <dev/framebuffer.h>
-#include <kconsole.h>
-#endif
-
 void uart_out(const char* s) {
 	uart_write(s, strlen(s));
 }
@@ -36,9 +31,6 @@ void printf(const char *format, ...) {
 	_len = 0;
 	v_printf(outc, NULL, format, ap);
 	uart_out(_buf);
-#ifdef FRAMEBUFFER
-	kconsole_out(_buf);
-#endif
 	actled(false);
 }
 

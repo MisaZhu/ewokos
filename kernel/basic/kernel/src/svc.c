@@ -18,10 +18,6 @@
 #include <stddef.h>
 #include <dev/fbinfo.h>
 
-#ifdef FRAMEBUFFER
-#include <dev/framebuffer.h>
-#endif
-
 static void sys_kprint(const char* s, int32_t len, bool tty_only) {
 	(void)len;
 	if(tty_only)
@@ -207,37 +203,6 @@ static uint32_t sys_mem_map(uint32_t vaddr, uint32_t paddr, uint32_t size) {
 	map_pages(_current_proc->space->vm, vaddr, paddr, paddr+size, AP_RW_RW, 1);
 	flush_tlb();
 	return vaddr;
-}
-
-static int32_t sys_framebuffer_info(fbinfo_t* info) {
-#ifdef FRAMEBUFFER
-	if(_current_proc->info.owner > 0)
-		return -1;
-	fbinfo_t *fbinfo = fb_get_info();
-	if(fbinfo->pointer == 0)
-		return -1;
-	memcpy(info, fbinfo, sizeof(fbinfo_t));
-	return 0;
-#else
-	(void)info;
-	return -1;
-#endif
-}
-	
-static int32_t sys_framebuffer_flush(void* buf, uint32_t size) {
-#ifdef FRAMEBUFFER
-	if(_current_proc->info.owner > 0)
-		return -1;
-	fbinfo_t *fbinfo = fb_get_info();
-	if(fbinfo->pointer == 0)
-		return -1;
-	fb_dev_write(buf, size);
-	return 0;
-#else
-	(void)buf;
-	(void)size;
-	return -1;
-#endif
 }
 
 static uint32_t sys_kpage_map(void) {
@@ -572,12 +537,6 @@ void svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_t arg2, context
 		return;
 	case SYS_KPAGE_MAP:
 		ctx->gpr[0] = sys_kpage_map();
-		return;
-	case SYS_FRAMEBUFFER_INFO:
-		ctx->gpr[0] = sys_framebuffer_info((fbinfo_t*)arg0);
-		return;
-	case SYS_FRAMEBUFFER_FLUSH:
-		ctx->gpr[0] = sys_framebuffer_flush((void*)arg0, (uint32_t)arg1);
 		return;
 	case SYS_IPC_SETUP:
 		sys_ipc_setup(ctx, arg0, arg1, arg2);

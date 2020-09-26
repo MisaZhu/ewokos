@@ -44,8 +44,6 @@ enum {
 
 	SYS_MEM_MAP,
 	SYS_KPAGE_MAP, //map kernel memory (just one page size) for userspace access
-	SYS_FRAMEBUFFER_INFO,
-	SYS_FRAMEBUFFER_FLUSH,
 
 	//internal proccess communication
 	SYS_IPC_SETUP,

@@ -3,9 +3,6 @@
 #include <mm/mmu.h>
 #include <kernel/system.h>
 
-uint32_t _allocatable_mem_top = 0;
-uint32_t _allocatable_mem_base = 0;
-
 /*physical memory split to pages for paging mmu, managed by kalloc/kfree, phymem page state must be occupied or free*/
 
 /*

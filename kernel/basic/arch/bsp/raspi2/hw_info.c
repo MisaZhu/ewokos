@@ -1,8 +1,11 @@
 #include <kernel/hw_info.h>
-#include <kernel/system.h>
+#include <kernel/kernel.h>
+#include <mm/mmu.h>
 #include <kstring.h>
 
 sys_info_t _sys_info;
+uint32_t _allocatable_mem_top = 0;
+uint32_t _allocatable_mem_base = 0;
 
 void sys_info_init(void) {
 	memset(&_sys_info, 0, sizeof(sys_info_t));
@@ -13,6 +16,9 @@ void sys_info_init(void) {
 	_sys_info.mmio.phy_base = 0x3f000000;
 	_sys_info.mmio.v_base = MMIO_BASE;
 	_sys_info.mmio.size = 16*MB;
+
+  _allocatable_mem_base = V2P(ALLOCATABLE_MEMORY_START);
+	_allocatable_mem_top = 0x3c100000; //bcm283x framebuffer mem base
 }
 
 void arch_vm(page_dir_entry_t* vm) {

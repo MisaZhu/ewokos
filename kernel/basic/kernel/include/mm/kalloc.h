@@ -16,7 +16,4 @@ void *kalloc1k(void);
 void kfree1k(void *page);
 uint32_t get_free_mem_size(void);
 
-extern uint32_t _allocatable_mem_top;
-extern uint32_t _allocatable_mem_base;
-
 #endif

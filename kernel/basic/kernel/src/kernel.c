@@ -58,9 +58,6 @@ void set_kernel_vm(page_dir_entry_t* vm) {
 }
 
 static void init_kernel_vm(void) {
-	_allocatable_mem_top = 
-			_sys_info.phy_mem_size < _sys_info.mmio.phy_base ?
-			_sys_info.phy_mem_size : _sys_info.mmio.phy_base;
 
 	_kernel_vm = (page_dir_entry_t*)KERNEL_PAGE_DIR_BASE;
 	//get kalloc ready just for kernel page tables.
@@ -69,7 +66,6 @@ static void init_kernel_vm(void) {
 
 	//Use physical address of kernel virtual memory as the new virtual memory page dir table base.
 	set_translation_table_base(V2P((uint32_t)_kernel_vm));
-
 }
 
 static void init_allocable_mem(void) {
@@ -77,14 +73,13 @@ static void init_allocable_mem(void) {
 	kalloc_init(ALLOCATABLE_PAGE_DIR_BASE, ALLOCATABLE_PAGE_DIR_END); 
 	printf("kernel: mapping allocatable pages\n");
 	map_pages(_kernel_vm,
-			ALLOCATABLE_MEMORY_START,
-			V2P(ALLOCATABLE_MEMORY_START),
+			P2V(_allocatable_mem_base),
+			_allocatable_mem_base,
 			_allocatable_mem_top,
 			AP_RW_D, 0);
 	flush_tlb();
 	printf("kernel: kalloc init for all allocatable pages\n");
-	_allocatable_mem_base = V2P(ALLOCATABLE_MEMORY_START);
-	kalloc_init(ALLOCATABLE_MEMORY_START, P2V(_allocatable_mem_top));
+	kalloc_init(P2V(_allocatable_mem_base), P2V(_allocatable_mem_top));
 }
 
 static void halt(void) {
