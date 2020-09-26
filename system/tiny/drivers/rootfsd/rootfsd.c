@@ -7,6 +7,7 @@
 #include <sys/sd.h>
 #include <sys/vdevice.h>
 #include <sys/syscall.h>
+#include <sys/kprintf.h>
 #include <ext2fs.h>
 #include <partition.h>
 #include <stdio.h>
@@ -168,6 +169,11 @@ static int sdext2_unlink(fsinfo_t* info, const char* fname, void* p) {
 int main(int argc, char** argv) {
 	(void)argc;
 	(void)argv;
+
+	if(getuid() >= 0) {
+		kprintf(false, "this process can only loaded by kernel!\n");
+		return -1;
+	}
 
 	vdevice_t dev;
 	memset(&dev, 0, sizeof(vdevice_t));

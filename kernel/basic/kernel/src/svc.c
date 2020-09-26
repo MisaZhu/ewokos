@@ -170,12 +170,17 @@ static void	sys_get_sysinfo(sysinfo_t* info) {
 	if(info == NULL)
 		return;
 
-	strcpy(info->machine, get_hw_info()->machine);
+	hw_info_t* hw_info = get_hw_info();
+
+	strcpy(info->machine, hw_info->machine);
 	info->free_mem = get_free_mem_size();
-	info->total_mem = get_hw_info()->phy_mem_size;
+	info->total_mem = hw_info->phy_mem_size;
 	info->shm_mem = shm_alloced_size();
 	info->kernel_sec = _kernel_sec;
-	info->kfs = get_hw_info()->kfs;
+	info->kfs = hw_info->kfs;
+	info->mmio_info.phy_base = hw_info->phy_mmio_base;
+	info->mmio_info.v_base = MMIO_BASE;
+	info->mmio_info.size = hw_info->mmio_size;
 }
 
 static int32_t sys_shm_alloc(uint32_t size, int32_t flag) {
@@ -194,15 +199,18 @@ static int32_t sys_shm_ref(int32_t id) {
 	return shm_proc_ref(_current_proc->info.pid, id);
 }
 	
-static uint32_t sys_mmio_map(void) {
+static uint32_t sys_mem_map(uint32_t vaddr, uint32_t paddr, uint32_t size) {
 	if(_current_proc->info.owner > 0)
 		return 0;
-	hw_info_t* hw_info = get_hw_info();
-	map_pages(_current_proc->space->vm, MMIO_BASE, hw_info->phy_mmio_base, hw_info->phy_mmio_base + hw_info->mmio_size, AP_RW_RW, 1);
+	/*allocatable memory can only mapped by kernel,
+	userspace can map upper address such as MMIO/FRAMEBUFFER... */
+	if(paddr < _allocatable_mem_size || (paddr+size) > get_hw_info()->phy_mem_size)
+		return 0;
+	map_pages(_current_proc->space->vm, vaddr, paddr, paddr+size, AP_RW_RW, 1);
 	flush_tlb();
-	return MMIO_BASE;
+	return vaddr;
 }
-		
+
 static int32_t sys_framebuffer_info(fbinfo_t* info) {
 #ifdef FRAMEBUFFER
 	if(_current_proc->info.owner > 0)
@@ -558,8 +566,8 @@ void svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_t arg2, context
 	case SYS_KPRINT:
 		sys_kprint((const char*)arg0, arg1, (bool)arg2);
 		return;
-	case SYS_MMIO_MAP:
-		ctx->gpr[0] = sys_mmio_map();
+	case SYS_MEM_MAP:
+		ctx->gpr[0] = sys_mem_map((uint32_t)arg0, (uint32_t)arg1, (uint32_t)arg2);
 		return;
 	case SYS_KPAGE_MAP:
 		ctx->gpr[0] = sys_kpage_map();

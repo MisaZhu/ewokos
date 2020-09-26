@@ -40,7 +40,7 @@ static inline void delay(int32_t n) {
 	while(n > 0) n--;
 }
 
-int32_t pl011_uart_init(void) {
+int32_t bcm283x_pl011_uart_init(void) {
 	// Disable UART0.
 	put32(_mmio_base+UART0_CR, 0x00000000);
 	// Setup the GPIO pin 14 && 15.
@@ -89,17 +89,17 @@ static void __attribute__((optimize("O0")))  uart_trans(char c) {
 	put32(_mmio_base+UART0_DR, c);
 }
 
-int32_t pl011_uart_ready_to_recv(void) {
+int32_t bcm283x_pl011_uart_ready_to_recv(void) {
 	if(get32(_mmio_base+UART0_FR) & (1 << 4)) 
 		return -1;
 	return 0;
 }
 
-int32_t pl011_uart_recv(void) {
+int32_t bcm283x_pl011_uart_recv(void) {
 	return get32(_mmio_base+UART0_DR);
 }
 
-int32_t pl011_uart_write(const void* data, uint32_t size) {
+int32_t bcm283x_pl011_uart_write(const void* data, uint32_t size) {
   int32_t i;
   for(i=0; i<(int32_t)size; i++) {
     char c = ((char*)data)[i];

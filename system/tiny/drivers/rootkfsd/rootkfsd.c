@@ -6,6 +6,7 @@
 #include <sys/vfs.h>
 #include <sys/vdevice.h>
 #include <sys/syscall.h>
+#include <sys/kprintf.h>
 #include <stdio.h>
 
 static void add_file(fsinfo_t* node_to, const char* name, char* p, int32_t size) {
@@ -108,6 +109,11 @@ static int memfs_read(int fd, int from_pid, fsinfo_t* info,
 int main(int argc, char** argv) {
 	(void)argc;
 	(void)argv;
+
+	if(getuid() >= 0) {
+		kprintf(false, "this process can only loaded by kernel!\n");
+		return -1;
+	}
 
 	vdevice_t dev;
 	memset(&dev, 0, sizeof(vdevice_t));

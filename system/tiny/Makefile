@@ -86,7 +86,8 @@ LIB_ARCH_BCM283x_OBJS = $(LIB_ARCH_BCM283x_DIR)/src/gpio.o \
 	$(LIB_ARCH_BCM283x_DIR)/src/mini_uart.o \
 	$(LIB_ARCH_BCM283x_DIR)/src/mailbox.o \
 	$(LIB_ARCH_BCM283x_DIR)/src/mbox_actled.o \
-	$(LIB_ARCH_BCM283x_DIR)/src/gpio_actled.o
+	$(LIB_ARCH_BCM283x_DIR)/src/gpio_actled.o \
+	$(LIB_ARCH_BCM283x_DIR)/src/framebuffer.o
 
 LIB_LIBC_OBJS = $(LIB_LIBC_DIR)/src/unistd/chdir.o \
 	$(LIB_LIBC_DIR)/src/unistd/dup.o \
@@ -205,6 +206,7 @@ include $(ROOT_DIR)/bin/session/build.mk
 include $(ROOT_DIR)/bin/mount/build.mk
 include $(ROOT_DIR)/bin/uname/build.mk
 include $(ROOT_DIR)/bin/pwd/build.mk
+include $(ROOT_DIR)/bin/test/build.mk
 
 mkdirs:
 	@mkdir -p ${TARGET_DIR}/$(ROOT_DIR)/sbin

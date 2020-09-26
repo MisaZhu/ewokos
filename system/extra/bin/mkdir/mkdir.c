@@ -5,12 +5,12 @@
 
 int main(int argc, char* argv[]) {
 	const char* fname;
+	fsinfo_t info;
 	if(argc < 2) {
 		printf("Usage: mkdir <dir>");
 		return -1;
 	}
 
 	fname = vfs_fullname(argv[1]);
-	fsinfo_t info;
 	return vfs_create(fname, &info, FS_TYPE_DIR);
 }

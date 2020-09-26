@@ -1020,6 +1020,11 @@ int main(int argc, char** argv) {
 	(void)argv;
 	_event_head = _event_tail = NULL;
 
+	if(getuid() >= 0) {
+		kprintf(false, "this process can only loaded by kernel!\n");
+		return -1;
+	}
+
 	if(ipc_serv_reg(IPC_SERV_VFS) != 0) {
 		kprintf(false, "reg vfs ipc_serv error!\n");
 		return -1;

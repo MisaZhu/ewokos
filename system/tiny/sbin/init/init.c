@@ -175,6 +175,11 @@ int main(int argc, char** argv) {
 	(void)argc;
 	(void)argv;
 
+	if(getuid() >= 0) {
+		kprintf(false, "process 'init' can only loaded by kernel!\n");
+		return -1;
+	}
+
 	kprintf(false, "\n[init process started]\n");
 	run_core();
 

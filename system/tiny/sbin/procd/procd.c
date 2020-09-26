@@ -182,6 +182,11 @@ int main(int argc, char** argv) {
 	(void)argc;
 	(void)argv;
 
+	if(getuid() >= 0) {
+		kprintf(false, "this process can only loaded by kernel!\n");
+		return -1;
+	}
+
 	procd_init();
 
 	if(ipc_serv_reg(IPC_SERV_PROC) != 0) {

@@ -41,7 +41,7 @@ static int actled_dev_cntl(int from_pid, int cmd, proto_t* in, proto_t* ret, voi
 
 int main(int argc, char** argv) {
 	const char* mnt_point = argc > 1 ? argv[1]: "/dev/actled";
-	mailbox_init();
+	bcm283x_mailbox_init();
 
 	vdevice_t dev;
 	memset(&dev, 0, sizeof(vdevice_t));

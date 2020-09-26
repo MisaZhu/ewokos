@@ -38,14 +38,14 @@ static int uart_write(int fd, int from_pid, fsinfo_t* info,
 	(void)from_pid;
 	(void)offset;
 	(void)p;
-	return pl011_uart_write(buf, size);
+	return bcm283x_pl011_uart_write(buf, size);
 }
 
 static int uart_loop_raw(void) {
-	if(pl011_uart_ready_to_recv() != 0)
+	if(bcm283x_pl011_uart_ready_to_recv() != 0)
 		return 0;
 
-	char c = pl011_uart_recv();
+	char c = bcm283x_pl011_uart_recv();
 	if(c == 0) 
 		return 0;
 

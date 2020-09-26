@@ -16,42 +16,42 @@ static inline void wait_msec(uint32_t n) {
 
 //bc
 static void epaper_reset(void) {
-	gpio_write(EPD_RST_PIN, 1);
+	bcm283x_gpio_write(EPD_RST_PIN, 1);
 	wait_msec(200);
-	gpio_write(EPD_RST_PIN, 0);
+	bcm283x_gpio_write(EPD_RST_PIN, 0);
 	wait_msec(200);
-	gpio_write(EPD_RST_PIN, 1);
+	bcm283x_gpio_write(EPD_RST_PIN, 1);
 	wait_msec(200);
 }
 
 static void epaper_cmd_raw(uint8_t reg) {
-	gpio_write(EPD_DC_PIN, 0);
-	gpio_write(EPD_CS_PIN, 0);
-	spi_transfer(reg);
-	gpio_write(EPD_CS_PIN, 1);
+	bcm283x_gpio_write(EPD_DC_PIN, 0);
+	bcm283x_gpio_write(EPD_CS_PIN, 0);
+	bcm283x_spi_transfer(reg);
+	bcm283x_gpio_write(EPD_CS_PIN, 1);
 }
 
 static void epaper_cmd(uint8_t reg) {
-	spi_activate(1);
+	bcm283x_spi_activate(1);
 	epaper_cmd_raw(reg);
-	spi_activate(0);
+	bcm283x_spi_activate(0);
 }
 
 static inline void epaper_write_raw(uint8_t data) {
-	gpio_write(EPD_DC_PIN, 1);
-	gpio_write(EPD_CS_PIN, 0);
-	spi_transfer(data);
-	gpio_write(EPD_CS_PIN, 1);
+	bcm283x_gpio_write(EPD_DC_PIN, 1);
+	bcm283x_gpio_write(EPD_CS_PIN, 0);
+	bcm283x_spi_transfer(data);
+	bcm283x_gpio_write(EPD_CS_PIN, 1);
 }
 
 static void epaper_write(uint8_t data) {
-	spi_activate(1);
+	bcm283x_spi_activate(1);
 	epaper_write_raw(data);
-	spi_activate(0);
+	bcm283x_spi_activate(0);
 }
 
 static void epaper_wait(void) {
-	while(gpio_read(EPD_BUSY_PIN) == 0) {
+	while(bcm283x_gpio_read(EPD_BUSY_PIN) == 0) {
 		wait_msec(5);
 	}
 }
@@ -96,7 +96,7 @@ static void epaper_clear(void) {
 	uint32_t h = EPD_HEIGHT;
 
 	//send black data
-	spi_activate(1);
+	bcm283x_spi_activate(1);
 
 	epaper_cmd_raw(0x10);
 	for (uint32_t j = 0; j < h; j++) {
@@ -115,7 +115,7 @@ static void epaper_clear(void) {
 	}
 	epaper_cmd_raw(0x92);
 
-	spi_activate(0);
+	bcm283x_spi_activate(0);
 	epaper_on();
 }
 
@@ -124,15 +124,15 @@ static void epaper_clear(void) {
 int main(int argc, char** argv) {
 	(void)argc;
 	(void)argv;
-	gpio_init();
-	gpio_config(EPD_RST_PIN, GPIO_OUTPUT);
-	gpio_config(EPD_DC_PIN, GPIO_OUTPUT);
-	gpio_config(EPD_CS_PIN, GPIO_OUTPUT);
-	gpio_config(EPD_BUSY_PIN, GPIO_INPUT);
-	gpio_write(EPD_CS_PIN, 1);
+	bcm283x_gpio_init();
+	bcm283x_gpio_config(EPD_RST_PIN, GPIO_OUTPUT);
+	bcm283x_gpio_config(EPD_DC_PIN, GPIO_OUTPUT);
+	bcm283x_gpio_config(EPD_CS_PIN, GPIO_OUTPUT);
+	bcm283x_gpio_config(EPD_BUSY_PIN, GPIO_INPUT);
+	bcm283x_gpio_write(EPD_CS_PIN, 1);
 
-	spi_init(SPI_CLK_DIVIDE_TEST);
-	spi_select(SPI_SELECT_0);
+	bcm283x_spi_init(SPI_CLK_DIVIDE_TEST);
+	bcm283x_spi_select(SPI_SELECT_0);
 	epaper_init();
 	epaper_clear();
 	return 0;

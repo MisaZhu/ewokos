@@ -9,10 +9,10 @@
 #include "arch/arm/bcm283x/gpio.h"
 #include "arch/arm/bcm283x/spi.h"
 
-static uint32_t spi_which = SPI_SELECT_DEFAULT;
+static uint32_t bcm283x_spi_which = SPI_SELECT_DEFAULT;
 
-void spi_init(int32_t clk_divide) {
-	gpio_init();
+void bcm283x_spi_init(int32_t clk_divide) {
+	bcm283x_gpio_init();
 
 	uint32_t data = SPI_CNTL_CLMASK; /* clear both rx/tx fifo */
 	/* clear spi fifo */
@@ -21,29 +21,29 @@ void spi_init(int32_t clk_divide) {
 	clk_divide &= SPI_CLK_DIVIDE_MASK; /* 16-bit value */
 	put32(SPI_CLK_REG,clk_divide); /** 0=65536, power of 2, rounded down */
 	/* setup spi pins (ALTF0) */
-	gpio_config(SPI_SCLK, GPIO_ALTF0);
-	gpio_config(SPI_MOSI, GPIO_ALTF0);
-	gpio_config(SPI_MISO, GPIO_ALTF0);
-	gpio_config(SPI_CE0N, GPIO_ALTF0);
-	gpio_config(SPI_CE1N, GPIO_ALTF0);
+	bcm283x_gpio_config(SPI_SCLK, GPIO_ALTF0);
+	bcm283x_gpio_config(SPI_MOSI, GPIO_ALTF0);
+	bcm283x_gpio_config(SPI_MISO, GPIO_ALTF0);
+	bcm283x_gpio_config(SPI_CE0N, GPIO_ALTF0);
+	bcm283x_gpio_config(SPI_CE1N, GPIO_ALTF0);
 }
 
-void spi_select(uint32_t which) {
+void bcm283x_spi_select(uint32_t which) {
 	switch (which) {
 		case SPI_SELECT_0:
 		case SPI_SELECT_1:
-			spi_which = which;
+			bcm283x_spi_which = which;
 			break;
 		default:
-			spi_which = SPI_SELECT_DEFAULT;
+			bcm283x_spi_which = SPI_SELECT_DEFAULT;
 	}
 }
 
-inline void spi_activate(uint32_t enable) {
+inline void bcm283x_spi_activate(uint32_t enable) {
 	uint32_t data = SPI_CNTL_TRXACT;
 	if (enable) {
 		/* activate transfer on selected channel 0 or 1 */
-		put32(SPI_CS_REG,data|(spi_which>>1));
+		put32(SPI_CS_REG,data|(bcm283x_spi_which>>1));
 	}
 	else {
 		/* de-activate transfer */
@@ -51,7 +51,7 @@ inline void spi_activate(uint32_t enable) {
 	}
 }
 
-inline void spi_write(uint32_t data) {
+inline void bcm283x_spi_write(uint32_t data) {
 	/* wait if fifo is full */
 	while (!(get32(SPI_CS_REG)&SPI_STAT_TXDATA));
 	/* write a byte */
@@ -60,7 +60,7 @@ inline void spi_write(uint32_t data) {
 	while (!(get32(SPI_CS_REG)&SPI_STAT_TXDONE));
 }
 
-inline uint32_t spi_transfer(uint32_t data) {
+inline uint32_t bcm283x_spi_transfer(uint32_t data) {
 	/* wait if fifo is full */
 	while (!(get32(SPI_CS_REG)&SPI_STAT_TXDATA));
 	/* write a byte */

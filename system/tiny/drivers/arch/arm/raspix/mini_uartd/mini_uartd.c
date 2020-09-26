@@ -39,15 +39,15 @@ static int uart_write(int fd, int from_pid, fsinfo_t* info,
 	(void)offset;
 	(void)p;
 
-	int ret = mini_uart_write(buf, size);
+	int ret = bcm283x_mini_uart_write(buf, size);
 	return ret;
 }
 
 static int uart_loop_raw(void) {
-	if(mini_uart_ready_to_recv() != 0)
+	if(bcm283x_mini_uart_ready_to_recv() != 0)
 		return 0;
 
-	char c = mini_uart_recv();
+	char c = bcm283x_mini_uart_recv();
 	if(c == 0) 
 		return 0;
 

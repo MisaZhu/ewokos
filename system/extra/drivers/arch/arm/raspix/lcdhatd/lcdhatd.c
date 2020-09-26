@@ -22,7 +22,7 @@
 #define LCD_BL   24
 
 #define DEV_Delay_ms(x) usleep((x)*1000)
-#define DEV_Digital_Write gpio_write
+#define DEV_Digital_Write bcm283x_gpio_write
 
 #define LCD_CS_0		DEV_Digital_Write(LCD_CS,0)
 #define LCD_CS_1		DEV_Digital_Write(LCD_CS,1)
@@ -52,10 +52,10 @@ typedef struct{
 static LCD_ATTRIBUTES LCD;
 
 static inline void DEV_SPI_Write(UBYTE* data, uint32_t sz) {
-	spi_activate(1);
+	bcm283x_spi_activate(1);
 	for(uint32_t i=0; i<sz; i++)
-		spi_transfer(data[i]);
-	spi_activate(0);
+		bcm283x_spi_transfer(data[i]);
+	bcm283x_spi_activate(0);
 }
 
 /******************************************************************************
@@ -280,15 +280,15 @@ static void LCD_1in3_Clear(UWORD Color) {
 }
 
 static void lcd_init(void) {
-	gpio_init();
+	bcm283x_gpio_init();
 
-	gpio_config(LCD_CS, 1);
-	gpio_config(LCD_RST, 1);
-	gpio_config(LCD_DC, 1);
-	gpio_config(LCD_BL, 1);
+	bcm283x_gpio_config(LCD_CS, 1);
+	bcm283x_gpio_config(LCD_RST, 1);
+	bcm283x_gpio_config(LCD_DC, 1);
+	bcm283x_gpio_config(LCD_BL, 1);
 
-	spi_init(4);
-	spi_select(1);
+	bcm283x_spi_init(4);
+	bcm283x_spi_select(1);
 
 	LCD_1in3_Init(HORIZONTAL);
 	LCD_1in3_SetWindows(0, 0, LCD_WIDTH, LCD_HEIGHT);
@@ -301,14 +301,14 @@ typedef struct {
 	int32_t shm_id;
 } fb_dma_t;
 
-static int _gpio_fd = -1;
+static int _bcm283x_gpio_fd = -1;
 
 static void  do_flush(const void* buf, uint32_t size) {
 	if(size < LCD_WIDTH * LCD_HEIGHT* 4)
 		return;
 
 	LCD_DC_1;
-	spi_activate(1);
+	bcm283x_spi_activate(1);
 
 	uint32_t *src = (uint32_t*)buf;
 	uint32_t sz = LCD_HEIGHT*LCD_WIDTH;
@@ -322,11 +322,11 @@ static void  do_flush(const void* buf, uint32_t size) {
 		UWORD color = ((r >> 3) <<11) | ((g >> 3) << 6) | (b >> 3);
 		//color = ((color<<8)&0xff00)|(color>>8);
 		uint8_t* p = (uint8_t*)&color;
-		spi_transfer(p[1]);
-		spi_transfer(p[0]);
+		bcm283x_spi_transfer(p[1]);
+		bcm283x_spi_transfer(p[0]);
 	}
 
-	spi_activate(0);
+	bcm283x_spi_activate(0);
 }
 
 static int lcd_flush(int fd, int from_pid, fsinfo_t* info, void* p) {
@@ -400,7 +400,7 @@ int main(int argc, char** argv) {
 	dev.extra_data = &dma;
 	device_run(&dev, mnt_point, FS_TYPE_CHAR);
 
-	close(_gpio_fd);
+	close(_bcm283x_gpio_fd);
 	shm_unmap(dma.shm_id);
 	return 0;
 }
