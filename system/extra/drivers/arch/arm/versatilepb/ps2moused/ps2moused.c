@@ -56,7 +56,14 @@ static inline int32_t kmi_read(uint8_t * data) {
 	return 0;
 }
 
+static uint8_t _packet_inex = 0;
+static uint8_t _btn_old = 0;
+static uint8_t _packet[4];
+
 int32_t mouse_init(void) {
+	_packet_inex = 0;
+	_btn_old = 0;
+
 	_mmio_base = mmio_map();
 	uint8_t data;
 	uint32_t divisor = 1000;
@@ -114,34 +121,32 @@ typedef struct {
 } mouse_info_t;
 
 int32_t mouse_handler(mouse_info_t *info) {
-	static uint8_t packet[4], index = 0;
-	static uint8_t btn_old = 0;
 	uint8_t btndown, btnup, btn;
 	uint8_t status;
 	int32_t rx, ry, rz;
 
 	status = get8(MOUSE_BASE + MOUSE_IIR);
 	if(status & MOUSE_IIR_RXINTR) {
-		packet[index] = get8(MOUSE_BASE + MOUSE_DATA);
-		index = (index + 1) & 0x3;
-		if(index == 0) {
-			btn = packet[0] & 0x7;
+		_packet[_packet_inex] = get8(MOUSE_BASE + MOUSE_DATA);
+		_packet_inex = (_packet_inex + 1) & 0x3;
+		if(_packet_inex == 0) {
+			btn = _packet[0] & 0x7;
 
-			btndown = (btn ^ btn_old) & btn;
-			btnup = (btn ^ btn_old) & btn_old;
-			btn_old = btn;
+			btndown = (btn ^ _btn_old) & btn;
+			btnup = (btn ^ _btn_old) & _btn_old;
+			_btn_old = btn;
 
-			if(packet[0] & 0x10)
-				rx = (int8_t)(0xffffff00 | packet[1]); //nagtive
+			if(_packet[0] & 0x10)
+				rx = (int8_t)(0xffffff00 | _packet[1]); //nagtive
 			else
-				rx = (int8_t)packet[1];
+				rx = (int8_t)_packet[1];
 
-			if(packet[0] & 0x20)
-				ry = -(int8_t)(0xffffff00 | packet[2]); //nagtive
+			if(_packet[0] & 0x20)
+				ry = -(int8_t)(0xffffff00 | _packet[2]); //nagtive
 			else
-				ry = -(int8_t)packet[2];
+				ry = -(int8_t)_packet[2];
 
-			rz = (int8_t)(packet[3] & 0xf);
+			rz = (int8_t)(_packet[3] & 0xf);
 			if(rz == 0xf)
 				rz = -1;
 			
