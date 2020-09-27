@@ -102,7 +102,7 @@ CFLAGS += -I$(LOAD_DIR) -I$(EXTRA_DIR)/sd/dev/include
 else
 LOAD_DIR = $(EXTRA_DIR)/kfs
 LOAD_OBJS = \
-	$(LOAD_DIR)/kfs_data.o \
+	$(LOAD_DIR)/memfs_data.o \
 	$(LOAD_DIR)/loadinit.o
 CFLAGS += -I$(LOAD_DIR)
 endif
@@ -134,7 +134,7 @@ OBJS = $(ARCH_OBJS) \
 	$(KERNEL_OBJS) \
 	$(DEV_OBJS) 
 
-LDS = mkos.lds.sd.S
+LDS = mkos.lds.S
 LDFLAGS = -L $(ARCH_DIR)/$(ARCH)
 
 ASFLAGS = $(OPTM) -I. -I$(SRC_DIR)/basic/include -marm $(ARCH_CFLAGS)

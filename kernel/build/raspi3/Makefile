@@ -13,13 +13,12 @@ ARCH_DIR=$(SRC_DIR)/basic/arch/sys
 BSP_DIR=$(SRC_DIR)/basic/arch/bsp
 ARCH=arm/acore32
 BSP=raspi3
-EXTRA_BSP=raspix
 
 SYS_FULL_DIR = ../../../system
 SRC_DIR=../..
 BUILD_DIR = .
 
-EXTRA_DIR=$(SRC_DIR)/loadinit
+LOAD_DIR=$(SRC_DIR)/loadinit
 include config.mk
 
 # flags
@@ -88,24 +87,10 @@ LIB_OBJS = \
 	$(LIB_DIR)/queue.o \
 	$(LIB_DIR)/kprintf.o
 
-ifeq ($(SDC),yes)
-CFLAGS += -DSDC
-ARCH_OBJS += $(EXTRA_DIR)/sd/arch/bsp/$(EXTRA_BSP)/sd.o
-
-LOAD_DIR = $(EXTRA_DIR)/sd/loadinit
 LOAD_OBJS = \
-	$(LOAD_DIR)/ext2read.o \
-	$(LOAD_DIR)/loadinit.o
-
-QEMU_ARGS = -sd $(SYS_FULL_DIR)/build/sd.ext2
-CFLAGS += -I$(LOAD_DIR) -I$(EXTRA_DIR)/sd/dev/include
-else
-LOAD_DIR = $(EXTRA_DIR)/kfs
-LOAD_OBJS = \
-	$(LOAD_DIR)/kfs_data.o \
+	$(LOAD_DIR)/memfs_data.o \
 	$(LOAD_DIR)/loadinit.o
 CFLAGS += -I$(LOAD_DIR)
-endif
 
 DEV_DIR = $(SRC_DIR)/basic/dev/src
 DEV_OBJS = \
@@ -113,7 +98,6 @@ DEV_OBJS = \
 
 KERNEL_DIR = $(SRC_DIR)/basic/kernel/src
 KERNEL_OBJS = \
-	$(SRC_DIR)/loadinit/loadinit.o \
 	$(KERNEL_DIR)/mm/kalloc.o \
 	$(KERNEL_DIR)/mm/trunkmem.o \
 	$(KERNEL_DIR)/mm/kmalloc.o \
@@ -134,7 +118,7 @@ OBJS = $(ARCH_OBJS) \
 	$(KERNEL_OBJS) \
 	$(DEV_OBJS) 
 
-LDS = mkos.lds.sd.S
+LDS = mkos.lds.S
 LDFLAGS = -L $(ARCH_DIR)/$(ARCH)
 
 ASFLAGS = $(OPTM) -I. -I$(SRC_DIR)/basic/include -marm $(ARCH_CFLAGS)
@@ -151,6 +135,9 @@ asm:
 
 run: 
 	$(QEMU_CMD) $(QEMU_FLAGS) -kernel $(BUILD_DIR)/$(OS_IMG) $(QEMU_ARGS)
+
+runsd: 
+	$(QEMU_CMD) $(QEMU_FLAGS) -kernel $(BUILD_DIR)/$(OS_IMG) $(QEMU_ARGS) -sd $(SYS_FULL_DIR)/build/sd.ext2
 
 runasm: 
 	$(QEMU_CMD) $(QEMU_FLAGS) -kernel $(BUILD_DIR)/$(OS_IMG) $(QEMU_ARGS) -d in_asm
