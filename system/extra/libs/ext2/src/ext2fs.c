@@ -1,4 +1,4 @@
-#include <ext2fs.h>
+#include <ext2/ext2fs.h>
 #include <sys/vfs.h>
 #include <string.h>
 #include <stdlib.h>

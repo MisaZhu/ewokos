@@ -38,26 +38,16 @@ LIB_INC = -I$(BUILD_DIR)/include \
 					-I $(LIBS_DIR)/sys/include \
 					-I $(LIBS_DIR)/arch/arm/bcm283x/include \
 					-I $(LIBS_DIR)/arch/arm/vpb/include \
-					-I $(LIBS_DIR)/sd/include \
-				  -I $(LIBS_DIR)/ext2/include \
 				  -I $(LIBS_DIR)/hash/include \
 				  -I $(LIBS_DIR)/libc/include
 				 
 LIB_SYS_DIR = $(LIBS_DIR)/sys
 LIB_ARCH_BCM283X_DIR = $(LIBS_DIR)/arch/arm/bcm283x
 LIB_ARCH_VPB_DIR = $(LIBS_DIR)/arch/arm/vpb
-LIB_SD_DIR = $(LIBS_DIR)/sd
-LIB_EXT2_DIR = $(LIBS_DIR)/ext2
 LIB_HASH_DIR = $(LIBS_DIR)/hash
 LIB_LIBC_DIR = $(LIBS_DIR)/libc
 
 CFLAGS += $(LIB_INC)
-
-LIB_EXT2_OBJS = $(LIB_EXT2_DIR)/src/ext2fs.o
-
-LIB_SD_OBJS = $(LIB_SD_DIR)/src/sd.o \
-	$(LIB_SD_DIR)/src/arch/arm/bcm283x/sd_arch.o \
-	$(LIB_SD_DIR)/src/arch/arm/versatilepb/sd_arch.o \
 
 LIB_HASH_OBJS = $(LIB_HASH_DIR)/src/hashmap.o
 
@@ -166,8 +156,6 @@ LIB_OBJS = $(LIB_SYS_OBJS) \
 
 CLEAN = $(LIB_OBJS)
 
-SD = $(BUILD_DIR)/sd.ext2
-
 all: mkdirs libs builtin_apps
 	@echo "all done."
 
@@ -185,10 +173,6 @@ libs: $(LIB_OBJS)
 	@cp -r $(LIB_ARCH_BCM283X_DIR)/include/* $(BUILD_DIR)/include/
 	$(AR) rT $(BUILD_DIR)/lib/libarch_vpb.a $(LIB_ARCH_VPB_OBJS)
 	@cp -r $(LIB_ARCH_VPB_DIR)/include/* $(BUILD_DIR)/include/
-	$(AR) rT $(BUILD_DIR)/lib/libsd.a $(LIB_SD_OBJS)  $(LIB_LIBC_OBJS)
-	@cp -r $(LIB_SD_DIR)/include/* $(LIB_LIBC_DIR)/include/* $(BUILD_DIR)/include/
-	$(AR) rT $(BUILD_DIR)/lib/libext2.a $(LIB_EXT2_OBJS)
-	@cp -r $(LIB_EXT2_DIR)/include/* $(BUILD_DIR)/include/
 	$(AR) rT $(BUILD_DIR)/lib/libhash.a $(LIB_HASH_OBJS)
 	@cp -r $(LIB_HASH_DIR)/include/* $(BUILD_DIR)/include/
 
@@ -197,8 +181,7 @@ include $(ROOT_DIR)/sbin/procd/build.mk
 include $(ROOT_DIR)/sbin/init/build.mk
 
 include $(ROOT_DIR)/drivers/nulld/build.mk
-include $(ROOT_DIR)/drivers/rootfsd/build.mk
-include $(ROOT_DIR)/drivers/rootkfsd/build.mk
+include $(ROOT_DIR)/drivers/rootmemfsd/build.mk
 include $(ROOT_DIR)/drivers/arch/arm/versatilepb/ttyd/build.mk
 include $(ROOT_DIR)/drivers/arch/arm/raspix/pl011_uartd/build.mk
 include $(ROOT_DIR)/drivers/arch/arm/raspix/mini_uartd/build.mk

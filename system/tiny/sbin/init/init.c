@@ -4,29 +4,12 @@
 #include <string.h>
 #include <fcntl.h>
 #include <sys/syscall.h>
-#include <sys/shm.h>
 #include <sys/vfs.h>
-#include <ext2fs.h>
 #include <vprintf.h>
 #include <sysinfo.h>
-#include <sys/sd.h>
 #include <sys/kprintf.h>
 #include <sys/ipc.h>
-#include <sys/global.h>
 #include <sys/proc.h>
-#include <kevent.h>
-
-static char* run_none_fs_sd(const char* cmd, int32_t *size) {
-	sd_init();
-	ext2_t ext2;
-	ext2_init(&ext2, sd_read, sd_write);
-	str_t* fname = str_new("");
-	str_to(cmd, ' ', fname, 1);
-	void* data = ext2_readfile(&ext2, fname->cstr, size);
-	str_free(fname);
-	ext2_quit(&ext2);
-	return data;
-}
 
 static char* run_none_fs_kfs(const char* cmd, int32_t *size) {
 	int32_t index = 0;
@@ -47,17 +30,13 @@ static char* run_none_fs_kfs(const char* cmd, int32_t *size) {
 	return NULL;	
 }
 
-static int run_none_fs(const char* cmd, bool kfs) {
+static int run_none_fs(const char* cmd) {
 	kprintf(false, "init: %s ", cmd);
 	int pid = fork();
 	if(pid == 0) {
 		char* data = NULL;
 		int32_t sz = 0;
-		if(kfs)
-			data = run_none_fs_kfs(cmd, &sz);
-		else
-			data = run_none_fs_sd(cmd, &sz);
-
+		data = run_none_fs_kfs(cmd, &sz);
 		if(data == NULL) {
 			kprintf(false, "[error!] (%s)\n", cmd);
 			exit(-1);
@@ -186,16 +165,9 @@ int main(int argc, char** argv) {
 	sys_info_t sysinfo;
 	syscall1(SYS_GET_SYS_INFO, (int32_t)&sysinfo);
 
-	if(sysinfo.kfs == 0) {
-		run_none_fs("/sbin/procd", false);
-		run_none_fs("/sbin/vfsd", false);
-		run_none_fs("/drivers/rootfsd", false);
-	}
-	else {
-		run_none_fs("/sbin/procd", true);
-		run_none_fs("/sbin/vfsd", true);
-		run_none_fs("/drivers/rootkfsd", true);
-	}
+	run_none_fs("/sbin/procd");
+	run_none_fs("/sbin/vfsd");
+	run_none_fs("/drivers/rootfsd");
 
 	load_devs();
 

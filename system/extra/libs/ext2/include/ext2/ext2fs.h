@@ -1,7 +1,7 @@
 #ifndef EXT2_FS_H
 #define EXT2_FS_H
 
-#include <ext2head.h>
+#include <ext2/ext2head.h>
 
 int32_t ext2_init(ext2_t* ext2, read_block_func_t read_block, write_block_func_t write_block);
 

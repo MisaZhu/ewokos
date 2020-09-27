@@ -8,6 +8,7 @@ CLEAN += $(INIT_OBJS)
 
 
 $(INIT): $(INIT_OBJS) \
-		$(BUILD_DIR)/lib/libewokc.a
-	$(LD) -Ttext=100 $(INIT_OBJS) -o $(INIT) $(LDFLAGS)  -lext2 -lhash -lsd  -lewokc -lc -lnosys
+		$(BUILD_DIR)/lib/libewokc.a \
+		$(BUILD_DIR)/lib/libhash.a
+	$(LD) -Ttext=100 $(INIT_OBJS) -o $(INIT) $(LDFLAGS) -lhash -lewokc -lc -lnosys
 	$(OBJDUMP) -D $(INIT) > $(BUILD_DIR)/asm/init.asm

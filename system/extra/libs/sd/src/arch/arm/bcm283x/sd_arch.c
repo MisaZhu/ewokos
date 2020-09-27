@@ -2,8 +2,6 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
-#include <sys/vfs.h>
-#include <sys/vdevice.h>
 #include <sys/syscall.h>
 #include <sys/mmu.h>
 #include <sys/basic_math.h>

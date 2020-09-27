@@ -14,6 +14,8 @@ mkdirs:
 EXTRA_LIBS_DIR=libs
 EXTRA_LIBXX_DIR=libs/cxx
 extra_libs:
+	cd $(EXTRA_LIBS_DIR)/ext2; make
+	cd $(EXTRA_LIBS_DIR)/sd; make
 	cd $(EXTRA_LIBS_DIR)/graph; make
 	cd $(EXTRA_LIBS_DIR)/fonts; make
 	cd $(EXTRA_LIBS_DIR)/console; make
@@ -58,6 +60,7 @@ x_sbin:
 
 EXTRA_DRIVERS_DIR=drivers
 extra_driver:
+	cd $(EXTRA_DRIVERS_DIR)/rootsdfsd;make
 	cd $(EXTRA_DRIVERS_DIR)/xserverd;make
 	cd $(EXTRA_DRIVERS_DIR)/arch/arm/versatilepb/fbd;make
 	cd $(EXTRA_DRIVERS_DIR)/arch/arm/versatilepb/ps2keybd;make
@@ -72,6 +75,10 @@ extra_driver:
 	cd $(EXTRA_DRIVERS_DIR)/arch/arm/raspix/usbd;make
 
 clean:
+	cd $(EXTRA_LIBS_DIR)/sd; make clean
+	cd $(EXTRA_LIBS_DIR)/ext2; make clean
+	cd $(EXTRA_LIBS_DIR)/graph; make clean
+	cd $(EXTRA_LIBS_DIR)/console; make clean
 	cd $(EXTRA_LIBS_DIR)/fonts; make clean
 	cd $(EXTRA_LIBS_DIR)/x; make clean
 	cd $(EXTRA_LIBS_DIR)/upng; make clean
@@ -80,6 +87,7 @@ clean:
 	cd $(EXTRA_LIBXX_DIR)/cxx; make clean
 	cd $(EXTRA_LIBXX_DIR)/graphxx; make clean
 	cd $(EXTRA_LIBXX_DIR)/x++; make clean
+	cd $(EXTRA_DRIVERS_DIR)/rootsdfsd;make clean
 	cd $(EXTRA_DRIVERS_DIR)/xserverd;make clean
 	cd $(EXTRA_DRIVERS_DIR)/arch/arm/versatilepb/fbd;make clean
 	cd $(EXTRA_DRIVERS_DIR)/arch/arm/versatilepb/ps2keybd;make clean

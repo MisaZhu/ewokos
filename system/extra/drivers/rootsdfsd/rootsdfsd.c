@@ -4,12 +4,11 @@
 #include <string.h>
 #include <sys/ipc.h>
 #include <sys/vfs.h>
-#include <sys/sd.h>
 #include <sys/vdevice.h>
 #include <sys/syscall.h>
 #include <sys/kprintf.h>
-#include <ext2fs.h>
-#include <partition.h>
+#include <sd/sd.h>
+#include <ext2/ext2fs.h>
 #include <stdio.h>
 
 static void add_file(fsinfo_t* node_to, const char* name, INODE* inode, int32_t ino) {
