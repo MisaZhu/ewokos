@@ -2,7 +2,4 @@
 /drivers/nulld                    /dev/null
 /drivers/arm/raspix/mbox_actledd  /dev/actled
 /drivers/arm/raspix/mini_uartd    /dev/tty0
-#/drivers/arm/raspix/joystickd    /dev/joystick
-#/drivers/arm/raspix/lcdhatd      /dev/fb1
-#/drivers/arm/raspix/hdmi_xpt2046d /dev/touch0
-/drivers/xserverd                 /dev/x
+/drivers/consoled                 /dev/console0
