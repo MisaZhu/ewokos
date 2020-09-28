@@ -17,10 +17,6 @@ static void cons_draw_char(console_t* console, graph_t* g, int32_t x, int32_t y,
 	graph_draw_char(g, x, y, c, console->font, console->fg_color);
 }
 
-static void cons_clear(console_t* console, graph_t* g) {
-	graph_clear(g, console->bg_color);
-}
-
 int32_t console_reset(console_t* console, uint32_t w, uint32_t h) {
 	if(console->font == NULL)
 		return -1;
@@ -102,7 +98,7 @@ void console_refresh(console_t* console, graph_t* g) {
 	if(console->font == NULL)
 		return;
 
-	cons_clear(console, g);
+	graph_clear(g, console->bg_color);
 	uint32_t i=0;
 	uint32_t x = 0;
 	uint32_t y = 0;
