@@ -38,7 +38,7 @@ extra_bin:
 	cd $(EXTRA_BIN_DIR)/kill;make
 	cd $(EXTRA_BIN_DIR)/mkdir;make
 	cd $(EXTRA_BIN_DIR)/rm;make
-	cd $(EXTRA_BIN_DIR)/fbtest;make
+	cd $(EXTRA_BIN_DIR)/fbset;make
 
 X_DIR=x
 x_bin:
@@ -122,4 +122,4 @@ clean:
 	cd $(EXTRA_BIN_DIR)/kill;make clean
 	cd $(EXTRA_BIN_DIR)/mkdir;make clean
 	cd $(EXTRA_BIN_DIR)/rm;make clean
-	cd $(EXTRA_BIN_DIR)/fbtest;make clean
+	cd $(EXTRA_BIN_DIR)/fbset;make clean

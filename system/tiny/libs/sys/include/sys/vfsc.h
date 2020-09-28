@@ -7,7 +7,6 @@
 extern "C" {
 #endif
 
-
 enum {
 	VFS_GET_BY_NAME = 0,
 	VFS_GET_BY_FD,

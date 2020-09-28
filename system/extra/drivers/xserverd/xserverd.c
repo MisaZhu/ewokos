@@ -411,8 +411,98 @@ static inline void draw_cursor(x_t* x) {
 	x->cursor.drop = false;
 }
 
+static int x_init(x_t* x) {
+	memset(x, 0, sizeof(x_t));
+	x->xwm_pid = -1;
+
+	int fd = open("/dev/fb1", O_RDWR);
+	if(fd < 0) 
+		fd = open("/dev/fb0", O_RDWR);
+	if(fd < 0) {
+		return -1;
+	}
+	x->fb_fd = fd;
+
+	int id = vfs_dma(fd, NULL);
+	if(id <= 0) {
+		close(x->fb_fd);
+		return -1;
+	}
+
+	void* gbuf = shm_map(id);
+	if(gbuf == NULL) {
+		close(x->fb_fd);
+		return -1;
+	}
+
+	proto_t out;
+	PF->init(&out, NULL, 0);
+
+	if(vfs_fcntl(fd, 0, NULL, &out) != 0) { //fcntl cmd 0 for get fb size
+		shm_unmap(id);
+		close(x->fb_fd);
+		return -1;
+	}
+
+	int w = proto_read_int(&out);
+	int h = proto_read_int(&out);
+	x->g = graph_new(gbuf, w, h);
+	PF->clear(&out);
+	x->shm_id = id;
+	x_dirty(x);
+
+	x->cursor.size.w = 15;
+	x->cursor.size.h = 15;
+	x->cursor.offset.x = 8;
+	x->cursor.offset.y = 8;
+	x->cursor.cpos.x = w/2;
+	x->cursor.cpos.y = h/2; 
+	x->show_cursor = true;
+
+	x->dirty = true;
+	x->actived = true;
+	return 0;
+}	
+
+static void x_reset(x_t* x) {
+	int fd = x->fb_fd;
+	shm_unmap(x->shm_id);
+	graph_free(x->g);
+	x->g = NULL;
+
+	int id = vfs_dma(fd, NULL);
+	if(id <= 0) {
+		return;
+	}
+
+	void* gbuf = shm_map(id);
+	if(gbuf == NULL) {
+		return;
+	}
+
+	proto_t out;
+	PF->init(&out, NULL, 0);
+
+	if(vfs_fcntl(fd, 0, NULL, &out) != 0) { //fcntl cmd 0 for get fb size
+		shm_unmap(id);
+		return;
+	}
+
+	int w = proto_read_int(&out);
+	int h = proto_read_int(&out);
+	x->g = graph_new(gbuf, w, h);
+	PF->clear(&out);
+	x->shm_id = id;
+}	
+
+static void x_close(x_t* x) {
+	shm_unmap(x->shm_id);
+	close(x->fb_fd);
+}
+
 static void x_repaint(x_t* x) {
-	if(!x->actived ||
+	if(x->g == NULL ||
+			!x->actived ||
 			(!x->need_repaint))
 		return;
 	x->need_repaint = false;
@@ -434,7 +524,13 @@ static void x_repaint(x_t* x) {
 	if(x->show_cursor)
 		draw_cursor(x);
 
-	vfs_flush(x->fb_fd);
+	int ret = vfs_flush(x->fb_fd);
+	if(ret == -1) { //fb resized;
+		x_reset(x);
+		x_dirty(x);
+		return;
+	}
+
 	if(undirty) {
 		x->dirty = false;
 	}
@@ -893,65 +989,6 @@ static int xserver_close(int fd, int from_pid, fsinfo_t* info, void* p) {
 	x_del_view(x, view);	
 	x_repaint(x);
 	return 0;
-}
-
-static int x_init(x_t* x) {
-	memset(x, 0, sizeof(x_t));
-	x->xwm_pid = -1;
-
-	int fd = open("/dev/fb1", O_RDWR);
-	if(fd < 0) 
-		fd = open("/dev/fb0", O_RDWR);
-	if(fd < 0) {
-		return -1;
-	}
-	x->fb_fd = fd;
-
-	int id = vfs_dma(fd, NULL);
-	if(id <= 0) {
-		close(x->fb_fd);
-		return -1;
-	}
-
-	void* gbuf = shm_map(id);
-	if(gbuf == NULL) {
-		close(x->fb_fd);
-		return -1;
-	}
-
-	proto_t out;
-	PF->init(&out, NULL, 0);
-
-	if(vfs_fcntl(fd, CNTL_INFO, NULL, &out) != 0) {
-		shm_unmap(id);
-		close(x->fb_fd);
-		return -1;
-	}
-
-	int w = proto_read_int(&out);
-	int h = proto_read_int(&out);
-	x->g = graph_new(gbuf, w, h);
-	PF->clear(&out);
-	x->shm_id = id;
-	x_dirty(x);
-
-	x->cursor.size.w = 15;
-	x->cursor.size.h = 15;
-	x->cursor.offset.x = 8;
-	x->cursor.offset.y = 8;
-	x->cursor.cpos.x = w/2;
-	x->cursor.cpos.y = h/2; 
-	x->show_cursor = true;
-
-	x->dirty = true;
-	x->actived = true;
-	return 0;
-}	
-
-static void x_close(x_t* x) {
-	graph_free(x->g);
-	shm_unmap(x->shm_id);
-	close(x->fb_fd);
 }
 
 int main(int argc, char** argv) {

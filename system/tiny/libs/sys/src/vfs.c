@@ -513,17 +513,22 @@ int vfs_dma(int fd, int* size) {
 	return shm_id;
 }
 
-void vfs_flush(int fd) {
+int vfs_flush(int fd) {
 	fsinfo_t info;
 	if(vfs_get_by_fd(fd, &info) != 0)
-		return;
+		return 0; //error
 	
-	proto_t in;
+	proto_t in, out;
+	PF->init(&out, NULL, 0);
 	PF->init(&in, NULL, 0)->
 		addi(&in, fd)->
 		add(&in, &info, sizeof(fsinfo_t));
-	ipc_call(info.mount_pid, FS_CMD_FLUSH, &in, NULL);
+	ipc_call(info.mount_pid, FS_CMD_FLUSH, &in, &out);
 	PF->clear(&in);
+
+	int ret = proto_read_int(&out);
+	PF->clear(&out);
+	return ret;
 }
 
 int vfs_write_block(int pid, const void* buf, uint32_t size, int32_t index) {

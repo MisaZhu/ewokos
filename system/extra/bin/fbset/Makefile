@@ -24,16 +24,16 @@ LDFLAGS = -L$(BUILD_DIR)/lib -lnosys
 
 CFLAGS += -I $(BUILD_DIR)/include
 
-FB_TEST_OBJS = fbtest.o
+FB_SET_OBJS = fbset.o
 
-FB_TEST = $(TARGET_DIR)/bin/fbtest
+FB_SET = $(TARGET_DIR)/bin/fbset
 
-$(FB_TEST): $(FB_TEST_OBJS) \
+$(FB_SET): $(FB_SET_OBJS) \
 		$(BUILD_DIR)/lib/libewokc.a \
 		$(BUILD_DIR)/lib/libarch_bcm283x.a  \
 		$(BUILD_DIR)/lib/libarch_vpb.a 
-	$(LD) -Ttext=100 $(FB_TEST_OBJS) -o $(FB_TEST) $(LDFLAGS) -larch_bcm283x -larch_vpb -lewokc -lc
+	$(LD) -Ttext=100 $(FB_SET_OBJS) -o $(FB_SET) $(LDFLAGS) -larch_bcm283x -larch_vpb -lewokc -lc
 
 clean:
-	rm -f $(FB_TEST_OBJS)
+	rm -f $(FB_SET_OBJS)
 

@@ -30,8 +30,24 @@ static int fb_fcntl(int fd,
 	(void)in;
 	(void)p;
 
-	if(cmd == CNTL_INFO) {
+	if(cmd == 0) { //get fb size
 		PF->addi(out, _fbinfo->width)->addi(out, _fbinfo->height);
+	}
+	return 0;
+}
+
+static int fb_dev_cntl(int from_pid, int cmd, proto_t* in, proto_t* ret, void* p) {
+	(void)from_pid;
+	(void)ret;
+	(void)p;
+
+	if(cmd == 0) { //set fb size and bpp
+		int w = proto_read_int(in);
+		int h = proto_read_int(in);
+		int bpp = proto_read_int(in);
+		if(bcm283x_fb_init(w, h, bpp) != 0)
+			return -1;
+		_fbinfo = bcm283x_get_fbinfo();
 	}
 	return 0;
 }
@@ -48,10 +64,33 @@ static inline void dup16(uint16_t* dst, uint32_t* src, uint32_t w, uint32_t h) {
   }
 }
 
-static int32_t do_flush(const void* buf, uint32_t size) {
-  uint32_t sz = (_fbinfo->depth/8) * _fbinfo->width * _fbinfo->height;
-  if(size > sz)
-    size = sz;
+static int fb_dma_reset(fb_dma_t* dma) {
+  uint32_t size = 4 * _fbinfo->width * _fbinfo->height;
+
+	if(dma->shm_id > 0) {
+		shm_unmap(dma->shm_id);
+		dma->shm_id = 0;
+	}
+
+	dma->shm_id = shm_alloc(size, 1);
+	if(dma->shm_id <= 0)
+		return -1;
+	dma->size = size;
+	dma->data = shm_map(dma->shm_id);
+	if(dma->data == NULL)
+		return -1;
+	return 0;
+}
+
+static int32_t do_flush(fb_dma_t* dma) {
+	const void* buf = dma->data;
+	uint32_t size = dma->size;
+  uint32_t sz = 4 * _fbinfo->width * _fbinfo->height;
+  if(size != sz) {
+		fb_dma_reset(dma);
+		return -1;
+	}
+
   if(_fbinfo->depth == 32)
     memcpy((void*)_fbinfo->pointer, buf, size);
   else if(_fbinfo->depth == 16)
@@ -61,6 +100,10 @@ static int32_t do_flush(const void* buf, uint32_t size) {
   return (int32_t)size;
 }
 
+/*return
+0: error;
+-1: resized;
+>0: size flushed*/
 static int fb_flush(int fd, int from_pid, fsinfo_t* info, void* p) {
 	(void)fd;
 	(void)from_pid;
@@ -68,16 +111,9 @@ static int fb_flush(int fd, int from_pid, fsinfo_t* info, void* p) {
 	fb_dma_t* dma = (fb_dma_t*)p;
 
 	if(_fbinfo->pointer == 0)
-		return -1;
+		return 0;
 
-	uint32_t size = dma->size;
-	uint32_t sz = (_fbinfo->depth/8) * _fbinfo->width * _fbinfo->height;
-	if(size > sz)
-		size = sz;
-
-	if(do_flush(dma->data, dma->size) == 0)
-		return -1;
-	return 0;
+	return do_flush(dma);
 }
 
 static int fb_dma(int fd, int from_pid, fsinfo_t* info, int* size, void* p) {
@@ -91,21 +127,15 @@ static int fb_dma(int fd, int from_pid, fsinfo_t* info, int* size, void* p) {
 
 int main(int argc, char** argv) {
 	const char* mnt_name = argc > 1 ? argv[1]: "/dev/fb0";
-
-	if(bcm283x_fb_init(1024, 768, 32) != 0) {
+	fb_dma_t dma;
+	dma.shm_id = 0;
+	if(bcm283x_fb_init(1024, 768, 32) != 0)
+		return -1;
+	_fbinfo = bcm283x_get_fbinfo();
+	
+	if(fb_dma_reset(&dma) != 0) {
 		return -1;
 	}
-	_fbinfo = bcm283x_get_fbinfo();
-
-	uint32_t sz = _fbinfo->width * _fbinfo->height * 4;
-	fb_dma_t dma;
-	dma.shm_id = shm_alloc(sz, 1);
-	if(dma.shm_id <= 0)
-		return -1;
-	dma.size = sz;
-	dma.data = shm_map(dma.shm_id);
-	if(dma.data == NULL)
-		return -1;
 
 	vdevice_t dev;
 	memset(&dev, 0, sizeof(vdevice_t));
@@ -113,6 +143,7 @@ int main(int argc, char** argv) {
 	dev.dma = fb_dma;
 	dev.flush = fb_flush;
 	dev.fcntl = fb_fcntl;
+	dev.dev_cntl = fb_dev_cntl;
 
 	dev.extra_data = &dma;
 	device_run(&dev, mnt_name, FS_TYPE_CHAR);

@@ -368,7 +368,7 @@ static int lcd_fcntl(int fd, int from_pid, fsinfo_t* info,
 	(void)in;
 	(void)p;
 
-	if(cmd == CNTL_INFO) {
+	if(cmd == 0) { //get lcd size
 		PF->addi(out, LCD_WIDTH)->addi(out, LCD_HEIGHT);
 	}
 	return 0;

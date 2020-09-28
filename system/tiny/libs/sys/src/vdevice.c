@@ -209,10 +209,11 @@ static void do_flush(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, vo
 	int fd = proto_read_int(in);
 	memcpy(&info, proto_read(in, NULL), sizeof(fsinfo_t));
 
+	int ret = 0;
 	if(dev != NULL && dev->flush != NULL) {
-		dev->flush(fd, from_pid, &info, p);
+		ret = dev->flush(fd, from_pid, &info, p);
 	}
-	PF->addi(out, 0);
+	PF->addi(out, ret);
 }
 
 static void do_create(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, void* p) {

@@ -38,7 +38,7 @@ int       vfs_parse_name(const char* fname, str_t* dir, str_t* name);
 int       vfs_dup(int fd);
 int       vfs_dup2(int fd, int to);
 int       vfs_open_pipe(int fd[2]);
-void      vfs_flush(int fd);
+int       vfs_flush(int fd);
 int       vfs_dma(int fd, int* size); 
 
 int       vfs_read_block(int pid, void* buf, uint32_t size, int32_t index);
@@ -46,11 +46,6 @@ int       vfs_write_block(int pid, const void* buf, uint32_t size, int32_t index
 
 int       vfs_read(int fd, fsinfo_t *info, void* buf, uint32_t size);
 int       vfs_write(int fd, fsinfo_t *info, const void* buf, uint32_t size);
-
-enum {
-	CNTL_NONE = 0,
-	CNTL_INFO
-}; /*cntl command*/
 
 int       vfs_fcntl(int fd, int cmd, proto_t* in, proto_t* out);
 
