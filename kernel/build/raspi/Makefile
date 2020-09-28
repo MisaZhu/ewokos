@@ -102,7 +102,7 @@ CFLAGS += -I$(LOAD_DIR) -I$(EXTRA_DIR)/sd/dev/include
 else
 LOAD_DIR = $(EXTRA_DIR)/kfs
 LOAD_OBJS = \
-	$(LOAD_DIR)/memfs_data.o \
+	$(LOAD_DIR)/romfs_data.o \
 	$(LOAD_DIR)/loadinit.o
 CFLAGS += -I$(LOAD_DIR)
 endif

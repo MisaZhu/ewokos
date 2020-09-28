@@ -27,15 +27,15 @@ LDFLAGS = -L$(BUILD_DIR)/lib -lnosys
 
 CFLAGS += -I $(BUILD_DIR)/include
 
-ROOTSDFSD_OBJS = rootsdfsd.o
+SDFSD_OBJS = sdfsd.o
 
-ROOTSDFSD = $(TARGET_DIR)/drivers/rootsdfsd
+SDFSD = $(TARGET_DIR)/drivers/sdfsd
 
-$(ROOTSDFSD): $(ROOTSDFSD_OBJS) \
+$(SDFSD): $(SDFSD_OBJS) \
 		$(BUILD_DIR)/lib/libewokc.a \
 		$(BUILD_DIR)/lib/libsd.a \
 		$(BUILD_DIR)/lib/libext2.a 
-	$(LD) -Ttext=100 $(ROOTSDFSD_OBJS) -o $(ROOTSDFSD) $(LDFLAGS) -lext2 -lsd -lewokc -lc
+	$(LD) -Ttext=100 $(SDFSD_OBJS) -o $(SDFSD) $(LDFLAGS) -lext2 -lsd -lewokc -lc
 
 clean:
-	rm -f $(ROOTSDFSD_OBJS)
+	rm -f $(SDFSD_OBJS)

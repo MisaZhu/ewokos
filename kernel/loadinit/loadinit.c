@@ -16,39 +16,39 @@ typedef struct {
 	uint32_t type;
 	char* data;
 	uint32_t size;
-} kfs_item_t;
+} romfs_item_t;
 
-kfs_item_t _kfs_items[KFS_ITEM_MAX];
-uint32_t _kfs_item_num = 0;
+romfs_item_t _romfs_items[KFS_ITEM_MAX];
+uint32_t _romfs_item_num = 0;
 
 static void add_file(const char* name, char* p, int32_t size) {
-	if(_kfs_item_num >= KFS_ITEM_MAX)
+	if(_romfs_item_num >= KFS_ITEM_MAX)
 		return;
 
-	kfs_item_t* f = (kfs_item_t*)&_kfs_items[_kfs_item_num];
-	memset(f, 0, sizeof(kfs_item_t));
+	romfs_item_t* f = (romfs_item_t*)&_romfs_items[_romfs_item_num];
+	memset(f, 0, sizeof(romfs_item_t));
 	strncpy(f->name, name, FNAME_MAX-1);
 	f->type = KFS_TYPE_FILE;
 	f->size = size;
 	f->data = p;
-	_kfs_item_num++;
+	_romfs_item_num++;
 }
 
 static int32_t add_dir(const char* name) {
-	if(_kfs_item_num >= KFS_ITEM_MAX)
+	if(_romfs_item_num >= KFS_ITEM_MAX)
 		return -1;
 
-	kfs_item_t* f = (kfs_item_t*)&_kfs_items[_kfs_item_num];
-	memset(f, 0, sizeof(kfs_item_t));
+	romfs_item_t* f = (romfs_item_t*)&_romfs_items[_romfs_item_num];
+	memset(f, 0, sizeof(romfs_item_t));
 	strncpy(f->name, name, FNAME_MAX-1);
 	f->type = KFS_TYPE_DIR;
 	f->size = 0;
 	f->data = NULL;
-	_kfs_item_num++;
+	_romfs_item_num++;
 	return 0;
 }
 
-extern const char* kfs_data[];
+extern const char* romfs_data[];
 
 static void b16_decode(const char *input, uint32_t input_len, char *output, uint32_t *output_len) {
 	uint32_t i;
@@ -62,7 +62,7 @@ static void b16_decode(const char *input, uint32_t input_len, char *output, uint
 
 static int32_t load(char* ret, int32_t i) {
 	while(1) {
-		const char* s = kfs_data[i++];
+		const char* s = romfs_data[i++];
 		if(s == NULL)
 			break;
 		uint32_t sz = 0;
@@ -129,11 +129,11 @@ static int32_t atoi_base(const char *s, int32_t b) {
 static int32_t add_nodes(int32_t i) {
 	while(1) {
 		//read name
-		const char* s = kfs_data[i++];
+		const char* s = romfs_data[i++];
 		if(s == NULL)
 			return i;
 
-		const char* sz = kfs_data[i++];
+		const char* sz = romfs_data[i++];
 		if(sz[0] == 'r') { //dir type
 			add_dir(s);
 			i = add_nodes(i);
@@ -152,30 +152,30 @@ static int32_t add_nodes(int32_t i) {
 	return i;
 }
 
-int32_t kfs_get(uint32_t index, char* name, char* data) {
-	if(index >= _kfs_item_num)
+int32_t romfs_get(uint32_t index, char* name, char* data) {
+	if(index >= _romfs_item_num)
 		return -1;
 
 	if(name != NULL)
-		strcpy(name, _kfs_items[index].name);
-	if(data != NULL && _kfs_items[index].data != NULL && _kfs_items[index].size > 0)
-		memcpy(data, _kfs_items[index].data, _kfs_items[index].size);
-	return _kfs_items[index].size;
+		strcpy(name, _romfs_items[index].name);
+	if(data != NULL && _romfs_items[index].data != NULL && _romfs_items[index].size > 0)
+		memcpy(data, _romfs_items[index].data, _romfs_items[index].size);
+	return _romfs_items[index].size;
 }
 
-static char* kfs_get_by_name(const char* fname, int32_t *size) {
+static char* romfs_get_by_name(const char* fname, int32_t *size) {
   int32_t index = 0;
 	*size = 0;
   char* data = NULL;
 
   while(true) {
     char name[FNAME_MAX+1];
-    int32_t sz = kfs_get(index, name, NULL);
+    int32_t sz = romfs_get(index, name, NULL);
     if(sz < 0)
       break;
     if(sz > 0 && name[0] != 0 && strcmp(fname, name) == 0)  {
       data = (char*)kmalloc(sz);
-      sz = kfs_get(index, NULL, data);
+      sz = romfs_get(index, NULL, data);
       *size = sz;
       return data;
     }
@@ -185,13 +185,13 @@ static char* kfs_get_by_name(const char* fname, int32_t *size) {
 }
 
 int32_t load_init_proc(void) {
-	_kfs_item_num = 0;
+	_romfs_item_num = 0;
 	add_nodes(0);
 	const char* prog = "/sbin/init";
 
 	printf("  read %s from kernel-fs\n", prog);
   int32_t init_size;
-  char* elf = kfs_get_by_name(prog, &init_size);
+  char* elf = romfs_get_by_name(prog, &init_size);
   if(elf == NULL) {
     return -1;
   }

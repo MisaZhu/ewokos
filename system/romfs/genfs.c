@@ -75,7 +75,7 @@ int main(int argc, char** argv) {
 		return 1;
 	}
 
-	printf("const char* kfs_data[] = {");
+	printf("const char* romfs_data[] = {");
 	do_dir(argv[1], "");
 	printf("0};\n");
 	return 0;

@@ -60,7 +60,7 @@ x_sbin:
 
 EXTRA_DRIVERS_DIR=drivers
 extra_driver:
-	cd $(EXTRA_DRIVERS_DIR)/rootsdfsd;make
+	cd $(EXTRA_DRIVERS_DIR)/sdfsd;make
 	cd $(EXTRA_DRIVERS_DIR)/xserverd;make
 	cd $(EXTRA_DRIVERS_DIR)/arch/arm/versatilepb/fbd;make
 	cd $(EXTRA_DRIVERS_DIR)/arch/arm/versatilepb/ps2keybd;make
@@ -87,7 +87,7 @@ clean:
 	cd $(EXTRA_LIBXX_DIR)/cxx; make clean
 	cd $(EXTRA_LIBXX_DIR)/graphxx; make clean
 	cd $(EXTRA_LIBXX_DIR)/x++; make clean
-	cd $(EXTRA_DRIVERS_DIR)/rootsdfsd;make clean
+	cd $(EXTRA_DRIVERS_DIR)/sdfsd;make clean
 	cd $(EXTRA_DRIVERS_DIR)/xserverd;make clean
 	cd $(EXTRA_DRIVERS_DIR)/arch/arm/versatilepb/fbd;make clean
 	cd $(EXTRA_DRIVERS_DIR)/arch/arm/versatilepb/ps2keybd;make clean

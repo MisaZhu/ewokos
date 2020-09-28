@@ -434,12 +434,12 @@ static int32_t sys_get_kernel_tic(void) {
 }
 
 #ifndef SDC
-int32_t kfs_get(uint32_t index, char* name, char* data);
-static int32_t sys_kfs_get(uint32_t index, char* name, char* data) {
-	return kfs_get(index, name, data);
+int32_t romfs_get(uint32_t index, char* name, char* data);
+static int32_t sys_romfs_get(uint32_t index, char* name, char* data) {
+	return romfs_get(index, name, data);
 }
 #else
-static int32_t sys_kfs_get(uint32_t index, char* name, char* data) {
+static int32_t sys_romfs_get(uint32_t index, char* name, char* data) {
 	(void)index;
 	(void)name;
 	(void)data;
@@ -584,7 +584,7 @@ void svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_t arg2, context
 		sys_ipc_unlock();
 		return;
 	case SYS_KFS_GET:
-		ctx->gpr[0] = sys_kfs_get(arg0, (char*)arg1, (char*)arg2);
+		ctx->gpr[0] = sys_romfs_get(arg0, (char*)arg1, (char*)arg2);
 		return;
 	}
 	printf("pid:%d, code(%d) error!\n", _current_proc->info.pid, code);

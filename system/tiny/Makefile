@@ -181,7 +181,7 @@ include $(ROOT_DIR)/sbin/procd/build.mk
 include $(ROOT_DIR)/sbin/init/build.mk
 
 include $(ROOT_DIR)/drivers/nulld/build.mk
-include $(ROOT_DIR)/drivers/rootmemfsd/build.mk
+include $(ROOT_DIR)/drivers/romfsd/build.mk
 include $(ROOT_DIR)/drivers/arch/arm/versatilepb/ttyd/build.mk
 include $(ROOT_DIR)/drivers/arch/arm/raspix/pl011_uartd/build.mk
 include $(ROOT_DIR)/drivers/arch/arm/raspix/mini_uartd/build.mk
