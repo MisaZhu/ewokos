@@ -18,12 +18,9 @@
 #include <stddef.h>
 #include <dev/fbinfo.h>
 
-static void sys_kprint(const char* s, int32_t len, bool tty_only) {
+static void sys_kprint(const char* s, int32_t len) {
 	(void)len;
-	if(tty_only)
-		uart_write(s, strlen(s));
-	else
-		printf(s);
+	printf(s);
 }
 
 static void sys_exit(context_t* ctx, int32_t pid, int32_t res) {
@@ -530,7 +527,7 @@ void svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_t arg2, context
 		ctx->gpr[0] = sys_thread(ctx, (uint32_t)arg0, (uint32_t)arg1, arg2);
 		return;
 	case SYS_KPRINT:
-		sys_kprint((const char*)arg0, arg1, (bool)arg2);
+		sys_kprint((const char*)arg0, arg1);
 		return;
 	case SYS_MEM_MAP:
 		ctx->gpr[0] = sys_mem_map((uint32_t)arg0, (uint32_t)arg1, (uint32_t)arg2);
@@ -583,7 +580,7 @@ void svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_t arg2, context
 	case SYS_IPC_UNLOCK:
 		sys_ipc_unlock();
 		return;
-	case SYS_KFS_GET:
+	case SYS_KROMFS_GET:
 		ctx->gpr[0] = sys_romfs_get(arg0, (char*)arg1, (char*)arg2);
 		return;
 	}

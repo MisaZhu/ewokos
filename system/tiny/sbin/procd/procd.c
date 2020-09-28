@@ -3,7 +3,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <sys/ipc.h>
-#include <sys/kprintf.h>
+#include <sys/klog.h>
 #include <sys/proc.h>
 #include <sys/mstr.h>
 #include <sys/proto.h>
@@ -183,14 +183,14 @@ int main(int argc, char** argv) {
 	(void)argv;
 
 	if(getuid() >= 0) {
-		kprintf(false, "this process can only loaded by kernel!\n");
+		klog("this process can only loaded by kernel!\n");
 		return -1;
 	}
 
 	procd_init();
 
 	if(ipc_serv_reg(IPC_SERV_PROC) != 0) {
-		kprintf(false, "reg proc ipc_serv error!\n");
+		klog("reg proc ipc_serv error!\n");
 		return -1;
 	}
 

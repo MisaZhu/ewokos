@@ -7,7 +7,7 @@
 #include <sys/vfs.h>
 #include <vprintf.h>
 #include <sysinfo.h>
-#include <sys/kprintf.h>
+#include <sys/klog.h>
 #include <sys/ipc.h>
 #include <sys/proc.h>
 
@@ -16,12 +16,12 @@ static char* run_none_fs_kfs(const char* cmd, int32_t *size) {
 	char* data = NULL;
 	while(true) {
 		char name[FS_FULL_NAME_MAX];
-		int32_t sz = syscall3(SYS_KFS_GET, index, (int32_t)name, (int32_t)NULL);	
+		int32_t sz = syscall3(SYS_KROMFS_GET, index, (int32_t)name, (int32_t)NULL);	
 		if(sz < 0) 
 			break;
 		if(sz > 0 && name[0] != 0 && strcmp(cmd, name) == 0)  {
 			data = (char*)malloc(sz);
-			sz = syscall3(SYS_KFS_GET, index, (int32_t)name, (int32_t)data);	
+			sz = syscall3(SYS_KROMFS_GET, index, (int32_t)name, (int32_t)data);	
 			*size = sz;
 			return data;
 		}
@@ -31,34 +31,34 @@ static char* run_none_fs_kfs(const char* cmd, int32_t *size) {
 }
 
 static int run_none_fs(const char* cmd) {
-	kprintf(false, "init: %s ", cmd);
+	klog("init: %s ", cmd);
 	int pid = fork();
 	if(pid == 0) {
 		char* data = NULL;
 		int32_t sz = 0;
 		data = run_none_fs_kfs(cmd, &sz);
 		if(data == NULL) {
-			kprintf(false, "[error!] (%s)\n", cmd);
+			klog("[error!] (%s)\n", cmd);
 			exit(-1);
 		}
 		proc_exec_elf(cmd, data, sz);
 		free(data);
 	}
 	proc_wait_ready(pid);
-	kprintf(false, "[ok]\n");
+	klog("[ok]\n");
 	return pid;
 }
 
 static int run(const char* cmd, bool prompt, bool wait) {
 	if(prompt)
-		kprintf(false, "init: %s ", cmd);
+		klog("init: %s ", cmd);
 
 	int pid = fork();
 	if(pid == 0) {
 		setuid(0);
 		if(exec(cmd) != 0) {
 			if(prompt)
-				kprintf(false, "[error!]\n");
+				klog("[error!]\n");
 			exit(-1);
 		}
 	}
@@ -66,7 +66,7 @@ static int run(const char* cmd, bool prompt, bool wait) {
 		proc_wait_ready(pid);
 
 	if(prompt)
-		kprintf(false, "[ok]\n");
+		klog("[ok]\n");
 	return 0;
 }
 
@@ -155,11 +155,11 @@ int main(int argc, char** argv) {
 	(void)argv;
 
 	if(getuid() >= 0) {
-		kprintf(false, "process 'init' can only loaded by kernel!\n");
+		klog("process 'init' can only loaded by kernel!\n");
 		return -1;
 	}
 
-	kprintf(false, "\n[init process started]\n");
+	klog("\n[init process started]\n");
 	run_core();
 
 	sys_info_t sysinfo;

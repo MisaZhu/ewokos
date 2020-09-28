@@ -4,7 +4,6 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <string.h>
-#include <sys/kprintf.h>
 
 #ifdef __cplusplus
 extern "C" {

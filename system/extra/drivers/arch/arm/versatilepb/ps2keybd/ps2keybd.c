@@ -3,7 +3,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <sys/vfs.h>
-#include <sys/kprintf.h>
+#include <sys/klog.h>
 #include <sys/ipc.h>
 #include <sys/vdevice.h>
 #include <sys/mmu.h>
@@ -130,7 +130,7 @@ int main(int argc, char** argv) {
 	dev.interrupt = keyb_interrupt;
 
 	if(ipc_serv_reg(IPC_SERV_PS2_KEYB) != 0) {
-		kprintf(false, "reg ps2keyb ipc_serv error!\n");
+		klog("reg ps2keyb ipc_serv error!\n");
 		return -1;
 	}
 

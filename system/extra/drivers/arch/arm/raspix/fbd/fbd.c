@@ -6,7 +6,6 @@
 #include <sys/syscall.h>
 #include <sys/vdevice.h>
 #include <sys/shm.h>
-#include <sys/kprintf.h>
 #include <arch/arm/bcm283x/framebuffer.h>
 
 typedef struct {

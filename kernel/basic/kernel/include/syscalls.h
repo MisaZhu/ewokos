@@ -60,7 +60,7 @@ enum {
 	SYS_GET_KEVENT,
 	SYS_GET_KERNEL_TIC,
 
-	SYS_KFS_GET
+	SYS_KROMFS_GET
 };
 
 #endif

@@ -6,19 +6,18 @@
 extern "C" {
 #endif
 
-
 static void outc(char c, void* p) {
 	str_t* buf = (str_t*)p;
 	str_addc(buf, c);
 }
 
-void kprintf(bool tty_only, const char *format, ...) {
+void klog(const char *format, ...) {
 	va_list ap;
 	str_t* buf = str_new("");
 	va_start(ap, format);
 	v_printf(outc, buf, format, ap);
 	va_end(ap);
-	syscall3(SYS_KPRINT, (int32_t)buf->cstr, (int32_t)buf->len, (int32_t)tty_only);
+	syscall2(SYS_KPRINT, (int32_t)buf->cstr, (int32_t)buf->len);
 	str_free(buf);
 }
 

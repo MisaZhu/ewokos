@@ -6,7 +6,7 @@
 #include <sys/vfs.h>
 #include <sys/vdevice.h>
 #include <sys/syscall.h>
-#include <sys/kprintf.h>
+#include <sys/klog.h>
 #include <stdio.h>
 
 static void add_file(fsinfo_t* node_to, const char* name, char* p, int32_t size) {
@@ -56,7 +56,7 @@ static const char* short_name(const char* name) {
 static int32_t add_nodes(fsinfo_t* dinfo, int32_t i) {
 	while(1) {
 		char name[FS_FULL_NAME_MAX+1];
-		int32_t sz = syscall3(SYS_KFS_GET, i, (int32_t)name, (int32_t)NULL);	
+		int32_t sz = syscall3(SYS_KROMFS_GET, i, (int32_t)name, (int32_t)NULL);	
 		if(sz < 0)
 			return -1;
 		const char* sname = short_name(name);
@@ -72,7 +72,7 @@ static int32_t add_nodes(fsinfo_t* dinfo, int32_t i) {
 			char* data = NULL;
 			if(sz > 0) {
 				data = (char*)malloc(sz);
-				sz = syscall3(SYS_KFS_GET, i, 0, (int32_t)data);	
+				sz = syscall3(SYS_KROMFS_GET, i, 0, (int32_t)data);	
 			}
 			add_file(dinfo, sname, data, sz);
 			i++;
@@ -111,7 +111,7 @@ int main(int argc, char** argv) {
 	(void)argv;
 
 	if(getuid() >= 0) {
-		kprintf(false, "this process can only loaded by kernel!\n");
+		klog("this process can only loaded by kernel!\n");
 		return -1;
 	}
 

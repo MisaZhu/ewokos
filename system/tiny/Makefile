@@ -53,7 +53,7 @@ LIB_HASH_OBJS = $(LIB_HASH_DIR)/src/hashmap.o
 
 LIB_SYS_OBJS = $(LIB_SYS_DIR)/src/syscall.o \
 	$(LIB_SYS_DIR)/src/mstr.o \
-	$(LIB_SYS_DIR)/src/kprintf.o \
+	$(LIB_SYS_DIR)/src/klog.o \
 	$(LIB_SYS_DIR)/src/cmain.o \
 	$(LIB_SYS_DIR)/src/charbuf.o \
 	$(LIB_SYS_DIR)/src/vfs.o \

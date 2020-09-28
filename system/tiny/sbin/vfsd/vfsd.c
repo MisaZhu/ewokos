@@ -4,7 +4,7 @@
 #include <fcntl.h>
 #include <string.h>
 #include <sys/ipc.h>
-#include <sys/kprintf.h>
+#include <sys/klog.h>
 #include <sys/proc.h>
 #include <sys/mstr.h>
 #include <sys/buffer.h>
@@ -930,7 +930,6 @@ static void do_vfs_proc_exit(int32_t pid, proto_t* in) {
 static void handle(int pid, int cmd, proto_t* in, proto_t* out, void* p) {
 	(void)p;
 	pid = proc_getpid(pid);
-//kprintf(true, "pid: %d, cmd: %d\n", pid, cmd);
 
 	switch(cmd) {
 	case VFS_NEW_NODE:
@@ -1021,12 +1020,12 @@ int main(int argc, char** argv) {
 	_event_head = _event_tail = NULL;
 
 	if(getuid() >= 0) {
-		kprintf(false, "this process can only loaded by kernel!\n");
+		klog("this process can only loaded by kernel!\n");
 		return -1;
 	}
 
 	if(ipc_serv_reg(IPC_SERV_VFS) != 0) {
-		kprintf(false, "reg vfs ipc_serv error!\n");
+		klog("reg vfs ipc_serv error!\n");
 		return -1;
 	}
 

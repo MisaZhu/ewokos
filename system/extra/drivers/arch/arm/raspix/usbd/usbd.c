@@ -10,7 +10,7 @@
 
 void LogPrint(const char* message, uint32_t messageLength) {
   (void)messageLength;
-  kprintf(false, message);
+  klog(message);
 	//usleep(600000);
 }
 
@@ -150,7 +150,7 @@ static int usbkbd_getc(usbkbd_t *kbd) {
 static int usb_step(void* p) {
 	(void)p;	
 	//int c = usbkbd_getc(&_usbkeyb);
-	//kprintf(false, "key: %d\n", c);
+	//klog("key: %d\n", c);
   UsbCheckForChange();
 	usleep(100000);
 	return 0;

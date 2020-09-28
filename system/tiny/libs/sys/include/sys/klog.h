@@ -5,7 +5,7 @@
 extern "C" {
 #endif
 
-void kprintf(bool tty_only, const char *format, ...);
+void klog(const char *format, ...);
 
 #ifdef __cplusplus
 }
