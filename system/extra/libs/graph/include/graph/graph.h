@@ -73,6 +73,8 @@ void graph_blt_alpha(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_t s
 	
 bool check_in_rect(int32_t x, int32_t y, grect_t* rect);
 
+graph_t* graph_from_fb(int fd, int *dma_id);
+
 #ifdef __cplusplus
 }
 #endif

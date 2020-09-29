@@ -5,7 +5,7 @@
 #include <string.h>
 #include <sys/vfs.h>
 #include <console/console.h>
-#include <graph/graph.h>
+#include <graph/graph_fb.h>
 #include <fonts/fonts.h>
 #include <sys/shm.h>
 #include <sys/vdevice.h>
@@ -19,39 +19,18 @@ typedef struct {
 } fb_console_t;
 
 static void init_console(fb_console_t* console) {
-	int id, w, h;
-	void* gbuf;
-	proto_t out;
+	int id;
 	graph_t* g;
 	int fb_fd = open("/dev/fb0", O_RDONLY);
 	if(fb_fd < 0) {
 		return;
 	}
 
-	id = vfs_dma(fb_fd, NULL);
-	if(id <= 0) {
+	g = graph_from_fb(fb_fd, &id);
+	if(g == NULL) {
 		close(fb_fd);
 		return;
 	}
-
-	gbuf = shm_map(id);
-	if(gbuf == NULL) {
-		close(fb_fd);
-		return;
-	}
-
-	PF->init(&out, NULL, 0);
-
-	if(vfs_fcntl(fb_fd, 0, NULL, &out) != 0) { //get fb size
-		shm_unmap(id);
-		close(fb_fd);
-		return;
-	}
-
-	w = proto_read_int(&out);
-	h = proto_read_int(&out);
-	g = graph_new(gbuf, w, h);
-	PF->clear(&out);
 
 	console_init(&console->console);
 	console->fb_fd = fb_fd;
@@ -60,7 +39,7 @@ static void init_console(fb_console_t* console) {
 	console->console.font = font_by_name("8x16");
 	console->console.fg_color = 0xffcccccc;
 	console->console.bg_color = 0xff000000;
-	console_reset(&console->console, w, h);
+	console_reset(&console->console, g->w, g->h);
 }
 
 static void close_console(fb_console_t* console) {
@@ -71,38 +50,16 @@ static void close_console(fb_console_t* console) {
 
 static void reset_console(fb_console_t* console) {
 	int fb_fd = console->fb_fd;
-	int id, w, h;
-	void* gbuf;
-	graph_t* g;
 
-	graph_free(console->g);
-	shm_unmap(console->shm_id);
-	console->g = NULL;
-
-	id = vfs_dma(fb_fd, NULL);
-	if(id <= 0) {
-		return;
+	if(console->g != NULL) {
+		graph_free(console->g);
+		shm_unmap(console->shm_id);
 	}
-
-	gbuf = shm_map(id);
-	if(gbuf == NULL) {
+	console->shm_id = 0;
+	console->g = graph_from_fb(fb_fd, &console->shm_id);
+	if(console->g == NULL)
 		return;
-	}
-
-	proto_t out;
-	PF->init(&out, NULL, 0);
-	if(vfs_fcntl(fb_fd, 0, NULL, &out) != 0) { //get fb size
-		shm_unmap(id);
-		return;
-	}
-
-	w = proto_read_int(&out);
-	h = proto_read_int(&out);
-	g = graph_new(gbuf, w, h);
-	PF->clear(&out);
-	console->shm_id = id;
-	console->g = g;
-	console_reset(&console->console, w, h);
+	console_reset(&console->console, console->g->w, console->g->h);
 }
 
 static fb_console_t _console;
@@ -120,7 +77,7 @@ static int console_write(int fd,
 	(void)offset;
 	(void)p;
 
-	if(size <= 0)
+	if(size <= 0 || _console.g == NULL)
 		return 0;
 
 	const char* pb = (const char*)buf;
@@ -130,11 +87,9 @@ static int console_write(int fd,
 		console_put_char(&_console.console, c);
 	}
 
+	reset_console(&_console);
 	console_refresh(&_console.console, _console.g);
-	if(vfs_flush(_console.fb_fd) == -1) { //fb resize
-		reset_console(&_console);
-		console_refresh(&_console.console, _console.g);
-	}
+	vfs_flush(_console.fb_fd);
 	return size;
 }
 

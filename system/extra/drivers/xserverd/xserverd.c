@@ -8,7 +8,7 @@
 #include <sys/syscall.h>
 #include <sys/basic_math.h>
 #include <sys/shm.h>
-#include <graph/graph.h>
+#include <graph/graph_fb.h>
 #include <sys/ipc.h>
 #include <x/xcntl.h>
 #include <x/xevent.h>
@@ -468,31 +468,7 @@ static void x_reset(x_t* x) {
 	int fd = x->fb_fd;
 	shm_unmap(x->shm_id);
 	graph_free(x->g);
-	x->g = NULL;
-
-	int id = vfs_dma(fd, NULL);
-	if(id <= 0) {
-		return;
-	}
-
-	void* gbuf = shm_map(id);
-	if(gbuf == NULL) {
-		return;
-	}
-
-	proto_t out;
-	PF->init(&out, NULL, 0);
-
-	if(vfs_fcntl(fd, 0, NULL, &out) != 0) { //fcntl cmd 0 for get fb size
-		shm_unmap(id);
-		return;
-	}
-
-	int w = proto_read_int(&out);
-	int h = proto_read_int(&out);
-	x->g = graph_new(gbuf, w, h);
-	PF->clear(&out);
-	x->shm_id = id;
+	x->g = graph_from_fb(fd, &x->shm_id);
 }	
 
 static void x_close(x_t* x) {
@@ -506,6 +482,7 @@ static void x_repaint(x_t* x) {
 			(!x->need_repaint))
 		return;
 	x->need_repaint = false;
+	x_reset(x);
 
 	hide_cursor(x);
 	bool undirty = false;
@@ -524,12 +501,7 @@ static void x_repaint(x_t* x) {
 	if(x->show_cursor)
 		draw_cursor(x);
 
-	int ret = vfs_flush(x->fb_fd);
-	if(ret == -1) { //fb resized;
-		x_reset(x);
-		x_dirty(x);
-		return;
-	}
+	vfs_flush(x->fb_fd);
 
 	if(undirty) {
 		x->dirty = false;

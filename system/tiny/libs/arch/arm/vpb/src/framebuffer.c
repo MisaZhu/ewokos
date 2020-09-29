@@ -8,6 +8,8 @@
 
 static fbinfo_t _fb_info;
 int32_t vpb_fb_init(uint32_t w, uint32_t h, uint32_t dep) {
+	memset(&_fb_info, 0, sizeof(fbinfo_t));
+
 	if(mmio_map() == 0)
 		return -1;
 	sys_info_t sysinfo;

@@ -26,7 +26,8 @@ LDFLAGS = -L$(TARGET_DIR)/lib -lnosys
 CFLAGS += -I $(TARGET_DIR)/include -Iinclude
 
 LIB_GRAPH_OBJS = src/font.o \
-	src/graph.o
+	src/graph.o \
+	src/graph_fb.o
 
 GRAPH = $(TARGET_DIR)/lib/libgraph.a
 
