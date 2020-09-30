@@ -2,7 +2,7 @@
 /drivers/nulld                    /dev/null
 /drivers/arm/raspix/gpio_actledd  /dev/actled
 /drivers/arm/raspix/pl011_uartd   /dev/tty0
-#/drivers/consoled                 /dev/console0
+/drivers/consoled                 /dev/console0
 #/drivers/arm/raspix/joystickd    /dev/joystick
 #/drivers/arm/raspix/lcdhatd      /dev/fb1
 #/drivers/arm/raspix/epaperd      /dev/epaper
