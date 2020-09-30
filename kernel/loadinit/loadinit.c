@@ -189,7 +189,7 @@ int32_t load_init_proc(void) {
 	add_nodes(0);
 	const char* prog = "/sbin/init";
 
-	printf("  read %s from kernel-fs\n", prog);
+	printf("  read %s from kernel-romfs\n", prog);
   int32_t init_size;
   char* elf = romfs_get_by_name(prog, &init_size);
   if(elf == NULL) {
