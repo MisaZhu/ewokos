@@ -174,6 +174,23 @@ int main(int argc, char** argv) {
 		return -1;
 	}
 
+	klog("\n    init sdc ... ");
+	if(sd_init() != 0) {
+		klog("failed!\n");
+		return -1;
+	}
+	klog("ok.\n");
+
+	ext2_t ext2;
+	klog("    init ext2 fs ... ");
+	if(ext2_init(&ext2, sd_read, sd_write) != 0) {
+		sd_quit();
+		klog("failed!\n");
+		return -1;
+	}
+	klog("ok.\n");
+	sd_set_buffer(ext2.super.s_blocks_count*2);
+
 	vdevice_t dev;
 	memset(&dev, 0, sizeof(vdevice_t));
 	strcpy(dev.name, "rootfs(ext2)");
@@ -182,11 +199,6 @@ int main(int argc, char** argv) {
 	dev.write = sdext2_write;
 	dev.create = sdext2_create;
 	dev.unlink = sdext2_unlink;
-
-	sd_init();
-	ext2_t ext2;
-	ext2_init(&ext2, sd_read, sd_write);
-	sd_set_buffer(ext2.super.s_blocks_count*2);
 	
 	dev.extra_data = &ext2;
 	device_run(&dev, "/", FS_TYPE_DIR);

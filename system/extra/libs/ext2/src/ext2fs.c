@@ -741,9 +741,9 @@ int32_t ext2_init(ext2_t* ext2, read_block_func_t read_block, write_block_func_t
 	ext2->write_block = write_block;
 
 	//read super block
-	ext2->read_block(1, buf);
+	if(ext2->read_block(1, buf) != 0)
+		return -1;
 	memcpy(&ext2->super, buf, sizeof(SUPER));
-
 	get_gds(ext2);
 	return 0;
 }

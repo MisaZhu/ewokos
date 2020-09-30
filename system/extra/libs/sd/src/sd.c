@@ -180,7 +180,8 @@ int32_t sd_init(void) {
 		sd_write_sector_arch = sd_write_sector_arch_versatilepb;
 	}
 
-	sd_init_arch();
+	if(sd_init_arch() != 0)
+		return -1;
 
 	if(read_partition() != 0 || partition_get(1, &_partition) != 0) {
 		memset(&_partition, 0, sizeof(partition_t));
