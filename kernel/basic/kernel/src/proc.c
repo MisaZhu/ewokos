@@ -559,7 +559,7 @@ void renew_sleep_counter(uint32_t usec) {
 	int i;
 	for(i=0; i<PROC_MAX; i++) {
 		proc_t* proc = &_proc_table[i];
-		if(proc->info.state == SLEEPING && proc->sleep_counter > 0) {
+		if(proc->info.state == SLEEPING) {
 			proc->sleep_counter -= usec;
 			if(proc->sleep_counter <= 0) {
 				proc->sleep_counter = 0;
