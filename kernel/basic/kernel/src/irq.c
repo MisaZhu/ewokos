@@ -35,7 +35,7 @@ void irq_handler(context_t* ctx) {
 	proto_t data;
 	bool do_int = false;
 
-	PF->init(&data, NULL, 0);
+	PF->init(&data);
 	uint32_t irqs = gic_get_irqs(&data);
 
 	//handle userspace interrupt

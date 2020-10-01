@@ -14,7 +14,7 @@ int main(int argc, char* argv[]) {
 	if(argv[1][0] != '0')
 		on = 1;
 
-	PF->init(&in, NULL, 0)->addi(&in, on);
+	PF->init(&in)->addi(&in, on);
 
 	dev_cntl("/dev/actled", 0, &in, NULL);
 	PF->clear(&in);

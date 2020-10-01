@@ -186,7 +186,7 @@ static int cd(const char* dir) {
 
 static void export_all(void) {
 	proto_t out;
-	PF->init(&out, NULL, 0);
+	PF->init(&out);
 	int pid =  ipc_serv_get(IPC_SERV_PROC);
 	int res = ipc_call(pid, PROC_CMD_GET_ENVS, NULL, &out);
 	if(res != 0) {

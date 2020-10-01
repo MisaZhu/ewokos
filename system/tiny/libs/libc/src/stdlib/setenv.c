@@ -5,8 +5,8 @@
 
 int setenv(const char* name, const char* value) {
 	proto_t in, out;
-	PF->init(&out, NULL, 0);
-	PF->init(&in, NULL, 0)->adds(&in, name)->adds(&in, value);
+	PF->init(&out);
+	PF->init(&in)->adds(&in, name)->adds(&in, value);
 
 	int res = ipc_call(get_procd_pid(), PROC_CMD_SET_ENV, &in, &out);
 	PF->clear(&in);

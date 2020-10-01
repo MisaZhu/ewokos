@@ -39,7 +39,7 @@ static void init_console(fb_console_t* console) {
 		return;
 	}
 
-	PF->init(&out, NULL, 0);
+	PF->init(&out);
 
 	if(vfs_fcntl(fb_fd, 0, NULL, &out) != 0) { //get fb size
 		shm_unmap(id);

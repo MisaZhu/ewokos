@@ -11,7 +11,7 @@ void close(int fd) {
 		return;
 
 	proto_t in;
-	PF->init(&in, NULL, 0)->
+	PF->init(&in)->
 		addi(&in, fd)->
 		addi(&in, -1)->
 		add(&in, &info, sizeof(fsinfo_t));

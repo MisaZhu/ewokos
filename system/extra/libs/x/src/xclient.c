@@ -18,7 +18,7 @@ extern "C" {
 
 int x_update_info(xwin_t* xwin, const xinfo_t* info) {
 	proto_t in;
-	PF->init(&in, NULL, 0)->add(&in, info, sizeof(xinfo_t));
+	PF->init(&in)->add(&in, info, sizeof(xinfo_t));
 	int ret = vfs_fcntl(xwin->fd, X_CNTL_UPDATE_INFO, &in, NULL);
 	PF->clear(&in);
 	return ret;
@@ -31,9 +31,9 @@ int x_call_xim(xwin_t* xwin) {
 
 static int  x_get_workspace(int xfd, int style, grect_t* frame, grect_t* workspace) {
 	proto_t in, out;
-	PF->init(&out, NULL, 0);
+	PF->init(&out);
 
-	PF->init(&in, NULL, 0)->addi(&in, style)->add(&in, frame, sizeof(grect_t));
+	PF->init(&in)->addi(&in, style)->add(&in, frame, sizeof(grect_t));
 	int ret = vfs_fcntl(xfd, X_CNTL_WORKSPACE, &in, &out);
 	PF->clear(&in);
 	if(ret == 0) 
@@ -81,7 +81,7 @@ int x_get_info(xwin_t* xwin, xinfo_t* info) {
 		return -1;
 	
 	proto_t out;
-	PF->init(&out, NULL, 0);
+	PF->init(&out);
 	if(vfs_fcntl(xwin->fd, X_CNTL_GET_INFO, NULL, &out) != 0)
 		return -1;
 	proto_read_to(&out, info, sizeof(xinfo_t));
@@ -218,7 +218,7 @@ static int x_get_event(x_t* x, xevent_t* ev) {
 
 int x_screen_info(xscreen_t* scr) {
 	proto_t out;
-	PF->init(&out, NULL, 0);
+	PF->init(&out);
 
 	int ret = dev_cntl("/dev/x", X_DCNTL_GET_INFO, NULL, &out);
 	if(ret == 0)
@@ -229,7 +229,7 @@ int x_screen_info(xscreen_t* scr) {
 
 int x_set_visible(xwin_t* xwin, bool visible) {
 	proto_t in;
-	PF->init(&in, NULL, 0)->addi(&in, visible);
+	PF->init(&in)->addi(&in, visible);
 
 	int res = vfs_fcntl(xwin->fd, X_CNTL_SET_VISIBLE, &in, NULL);
 	PF->clear(&in);

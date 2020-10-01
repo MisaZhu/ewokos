@@ -109,7 +109,7 @@ static void draw_win_frame(x_t* x, xview_t* view) {
 
 	proto_t in;
 
-	PF->init(&in, NULL, 0)->
+	PF->init(&in)->
 		addi(&in, x->shm_id)->
 		addi(&in, x->g->w)->
 		addi(&in, x->g->h)->
@@ -125,7 +125,7 @@ static void draw_win_frame(x_t* x, xview_t* view) {
 
 static void draw_desktop(x_t* x) {
 	proto_t in;
-	PF->init(&in, NULL, 0)->
+	PF->init(&in)->
 		addi(&in, x->shm_id)->
 		addi(&in, x->g->w)->
 		addi(&in, x->g->h);
@@ -154,7 +154,7 @@ static void draw_drag_frame(x_t* xp) {
 	grect_t r = {x, y, w, h};
 
 	proto_t in;
-	PF->init(&in, NULL, 0)->
+	PF->init(&in)->
 		addi(&in, xp->shm_id)->
 		addi(&in, xp->g->w)->
 		addi(&in, xp->g->h)->
@@ -222,7 +222,7 @@ static void x_push_event(xview_t* view, xevent_t* e) {
 		return;
 	e->win = view->xinfo.win;
 	proto_t in;
-	PF->init(&in, NULL, 0)->add(&in, e, sizeof(xevent_t));
+	PF->init(&in)->add(&in, e, sizeof(xevent_t));
 	ipc_call(view->from_pid, X_CMD_PUSH_EVENT, &in, NULL);
 	PF->clear(&in);
 }
@@ -436,7 +436,7 @@ static int x_init(x_t* x) {
 	}
 
 	proto_t out;
-	PF->init(&out, NULL, 0);
+	PF->init(&out);
 
 	if(vfs_fcntl(fd, 0, NULL, &out) != 0) { //fcntl cmd 0 for get fb size
 		shm_unmap(id);
@@ -570,8 +570,8 @@ static int x_update_frame_areas(x_t* x, xview_t* view) {
 		return -1;
 
 	proto_t in, out;
-	PF->init(&out, NULL, 0);
-	PF->init(&in, NULL, 0)->
+	PF->init(&out);
+	PF->init(&in)->
 		add(&in, &view->xinfo, sizeof(xinfo_t));
 	int res = ipc_call(x->xwm_pid, XWM_CNTL_GET_FRAME_AREAS, &in, &out);
 	PF->clear(&in);
@@ -587,8 +587,8 @@ static int x_update_frame_areas(x_t* x, xview_t* view) {
 
 static void x_get_min_size(x_t* x, xview_t* view, int *w, int* h) {
 	proto_t in, out;
-	PF->init(&out, NULL, 0);
-	PF->init(&in, NULL, 0)->
+	PF->init(&out);
+	PF->init(&in)->
 		add(&in, &view->xinfo, sizeof(xinfo_t));
 	int res = ipc_call(x->xwm_pid, XWM_CNTL_GET_MIN_SIZE, &in, &out);
 	PF->clear(&in);
@@ -676,9 +676,9 @@ static int x_get_info(int fd, int from_pid, x_t* x, proto_t* out) {
 
 static int get_xwm_workspace(x_t* x, int style, grect_t* rin, grect_t* rout) {
 	proto_t in, out;
-	PF->init(&out, NULL, 0);
+	PF->init(&out);
 
-	PF->init(&in, NULL, 0)->
+	PF->init(&in)->
 		addi(&in, style)->
 		add(&in, rin, sizeof(grect_t));
 

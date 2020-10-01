@@ -6,8 +6,8 @@
 
 int chdir(const char* path) {
 	proto_t in, out;
-	PF->init(&out, NULL, 0);
-	PF->init(&in, NULL, 0)->adds(&in, path);
+	PF->init(&out);
+	PF->init(&in)->adds(&in, path);
 	int res = ipc_call(get_procd_pid(), PROC_CMD_SET_CWD, &in, &out);
 	PF->clear(&in);
 	if(res == 0) {

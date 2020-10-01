@@ -9,7 +9,7 @@ extern "C" {
 
 static proto_factor_t _proto_factor;
 
-static proto_factor_t* proto_init(proto_t* proto, void* data, uint32_t size) {
+static proto_factor_t* proto_init_data(proto_t* proto, void* data, uint32_t size) {
 	proto->id = -1;
 	proto->data = data;
 	proto->size = size;
@@ -17,6 +17,10 @@ static proto_factor_t* proto_init(proto_t* proto, void* data, uint32_t size) {
 	proto->offset = 0;
 	proto->read_only = (data == NULL) ? 0:1;
 	return &_proto_factor;
+}
+
+static proto_factor_t* proto_init(proto_t* proto) {
+	return proto_init_data(proto, NULL, 0);
 }
 
 static proto_factor_t* proto_copy(proto_t* proto, const void* data, uint32_t size) {
@@ -80,6 +84,7 @@ static proto_factor_t* proto_clear(proto_t* proto) {
 }
 
 proto_factor_t* get_proto_factor() {
+	_proto_factor.init_data = proto_init_data;
 	_proto_factor.init = proto_init;
 	_proto_factor.copy = proto_copy;
 	_proto_factor.clear = proto_clear;
@@ -91,7 +96,7 @@ proto_factor_t* get_proto_factor() {
 
 proto_t* proto_new(void* data, uint32_t size) {
 	proto_t* ret = (proto_t*)malloc(sizeof(proto_t));
-	proto_init(ret, data, size);
+	proto_init_data(ret, data, size);
 	return ret;
 }
 

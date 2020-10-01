@@ -187,11 +187,11 @@ static void do_fcntl(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, vo
 	int32_t cmd = proto_read_int(in);
 
 	proto_t arg_in, arg_out;
-	PF->init(&arg_out, NULL, 0);
+	PF->init(&arg_out);
 
 	int32_t arg_size;
 	void* arg_data = proto_read(in, &arg_size);
-	PF->init(&arg_in, arg_data, arg_size);
+	PF->init_data(&arg_in, arg_data, arg_size);
 
 	int res = -1;
 	if(dev != NULL && dev->fcntl != NULL) {
@@ -262,8 +262,8 @@ static void do_dev_cntl(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out,
 	void* data = proto_read(in, &sz);
 	
 	proto_t in_arg, ret;
-	PF->init(&in_arg, NULL, 0);
-	PF->init(&ret, NULL, 0);
+	PF->init(&in_arg);
+	PF->init(&ret);
 	PF->addi(out, -1);
 
 	if(data != NULL) 
@@ -396,9 +396,9 @@ int device_run(vdevice_t* dev, const char* mnt_point, int mnt_type) {
 
 int dev_cntl_by_pid(int pid, int cmd, proto_t* in, proto_t* out) {
 	proto_t in_arg, ret;
-	PF->init(&ret, NULL, 0);
+	PF->init(&ret);
 
-	PF->init(&in_arg, NULL, 0)->
+	PF->init(&in_arg)->
 		addi(&in_arg, cmd);
 
 	if(in != NULL)

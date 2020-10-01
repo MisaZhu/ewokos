@@ -75,9 +75,9 @@ int ipc_serv_reg(const char* ipc_serv_id) {
 
 	int res = -1;
 	proto_t in, out;
-	PF->init(&out, NULL, 0);
+	PF->init(&out);
 
-	PF->init(&in, NULL, 0)->adds(&in, ipc_serv_id);
+	PF->init(&in)->adds(&in, ipc_serv_id);
 	if(ipc_call(core_pid, CORE_CMD_IPC_SERV_REG, &in, &out) == 0) {
 		res = proto_read_int(&out);
 	}
@@ -94,9 +94,9 @@ int ipc_serv_get(const char* ipc_serv_id) {
 
 	int res = -1;
 	proto_t in, out;
-	PF->init(&out, NULL, 0);
+	PF->init(&out);
 
-	PF->init(&in, NULL, 0)->adds(&in, ipc_serv_id);
+	PF->init(&in)->adds(&in, ipc_serv_id);
 	if(ipc_call(core_pid, CORE_CMD_IPC_SERV_GET, &in, &out) == 0) {
 		res = proto_read_int(&out);
 	}
@@ -113,9 +113,9 @@ int ipc_serv_unreg(const char* ipc_serv_id) {
 
 	int res = -1;
 	proto_t in, out;
-	PF->init(&out, NULL, 0);
+	PF->init(&out);
 
-	PF->init(&in, NULL, 0)->adds(&in, ipc_serv_id);
+	PF->init(&in)->adds(&in, ipc_serv_id);
 	if(ipc_call(core_pid, CORE_CMD_IPC_SERV_UNREG, &in, &out) == 0) {
 		res = proto_read_int(&out);
 	}
@@ -130,7 +130,7 @@ static ipc_serv_handle_t _ipc_serv_handle;
 static void handle_ipc(uint32_t ipc_id, void* p) {
 	int32_t pid, cmd;
 	proto_t out;
-	PF->init(&out, NULL, 0);
+	PF->init(&out);
 
 	proto_t* in = ipc_get_info(ipc_id, &pid, &cmd);
 	_ipc_serv_handle(pid, cmd, in, &out, p);

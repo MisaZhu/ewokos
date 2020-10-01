@@ -15,9 +15,9 @@ int unlink(const char* fname) {
 		*/
 	
 	proto_t in, out;
-	PF->init(&out, NULL, 0);
+	PF->init(&out);
 
-	PF->init(&in, NULL, 0)->
+	PF->init(&in)->
 		add(&in, &info, sizeof(fsinfo_t))->
 		adds(&in, fname);
 

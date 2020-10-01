@@ -15,7 +15,7 @@ int main(int argc, char* argv[]) {
 	}
 
 	proto_t in;
-	PF->init(&in, NULL, 0)->
+	PF->init(&in)->
 		addi(&in, atoi(argv[1]))->
 		addi(&in, atoi(argv[2]))->
 		addi(&in, bpp);

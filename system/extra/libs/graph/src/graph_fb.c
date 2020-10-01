@@ -29,7 +29,7 @@ graph_t* graph_from_fb(int fd, int *dma_id) {
 	}
 
 	proto_t out;
-	PF->init(&out, NULL, 0);
+	PF->init(&out);
 	if(vfs_fcntl(fd, 0, NULL, &out) != 0) { //get fb size
 		PF->clear(&out);
 		shm_unmap(id);

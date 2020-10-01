@@ -61,7 +61,7 @@ protected:
 		ev.value.im.value = c;
 
 		proto_t in;
-		PF->init(&in, NULL, 0)->add(&in, &ev, sizeof(xevent_t));
+		PF->init(&in)->add(&in, &ev, sizeof(xevent_t));
 		dev_cntl_by_pid(x_pid, X_DCNTL_INPUT, &in, NULL);
 		PF->clear(&in);
 	}

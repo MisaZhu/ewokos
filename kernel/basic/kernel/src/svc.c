@@ -246,7 +246,7 @@ static void sys_ipc_call(context_t* ctx, int32_t pid, int32_t call_id, proto_t* 
 	ipc_t* ipc = proc_ipc_req(proc);
 	ipc->state = IPC_BUSY;
 	ipc->call_id = call_id;
-	PF->init(&ipc->data, NULL, 0);
+	PF->init(&ipc->data);
 	ipc->pid_client = _current_proc->info.pid;
 	ipc->pid_server = pid;
 	if(data != NULL)

@@ -20,7 +20,8 @@ typedef struct {
 }proto_t;
 
 typedef struct proto_factor {
-	struct proto_factor* (*init)(proto_t* proto, void* data, uint32_t size);
+	struct proto_factor* (*init_data)(proto_t* proto, void* data, uint32_t size);
+	struct proto_factor* (*init)(proto_t* proto);
 	struct proto_factor* (*copy)(proto_t* proto, const void* data, uint32_t size);
 	struct proto_factor* (*clear)(proto_t* proto);
 	struct proto_factor* (*add)(proto_t* proto, const void* item, uint32_t size);

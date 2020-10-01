@@ -15,7 +15,7 @@ int set_global(const char* key, proto_t* val) {
 		return -1;
 
 	proto_t in;
-	PF->init(&in, NULL, 0)->adds(&in, key);
+	PF->init(&in)->adds(&in, key);
 	if(val != NULL)
 		PF->add(&in, val->data, val->size);
 
@@ -32,8 +32,8 @@ int get_global(const char* key, proto_t* ret) {
 	PF->clear(ret);
 
 	proto_t in, out;
-	PF->init(&out, NULL, 0);
-	PF->init(&in, NULL, 0)->adds(&in, key);
+	PF->init(&out);
+	PF->init(&in)->adds(&in, key);
 	int res = ipc_call(core_pid, CORE_CMD_GLOBAL_GET, &in, &out);
 	PF->clear(&in);
 	if(res == 0) {
@@ -47,7 +47,7 @@ int get_global(const char* key, proto_t* ret) {
 
 int set_global_str(const char* key, const char* s) {
 	proto_t in;
-	PF->init(&in, NULL, 0)->adds(&in, s);
+	PF->init(&in)->adds(&in, s);
 	int ret = set_global(key, &in);
 	PF->clear(&in);
 	return ret;
@@ -58,7 +58,7 @@ const char* get_global_str(const char* key) {
 	s[0] = 0;
 
 	proto_t out;
-	PF->init(&out, NULL, 0);
+	PF->init(&out);
 	int ret = get_global(key, &out);
 	if(ret == 0) 
 		strncpy(s, proto_read_str(&out), 255);	

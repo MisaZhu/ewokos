@@ -29,9 +29,9 @@ int open(const char* fname, int oflag) {
 	}
 	
 	proto_t in, out;
-	PF->init(&out, NULL, 0);
+	PF->init(&out);
 
-	PF->init(&in, NULL, 0)->
+	PF->init(&in)->
 		addi(&in, fd)->
 		add(&in, &info, sizeof(fsinfo_t))->
 		addi(&in, oflag);

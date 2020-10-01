@@ -455,7 +455,7 @@ static void proc_file_close(int pid, int fd, file_t* file, bool close_dev) {
 	push_close_event(&ev);
 
 	/*proto_t in;
-	PF->init(&in, NULL, 0)->
+	PF->init(&in)->
 			addi(&in, fd)->
 			addi(&in, pid)->
 			add(&in, &node->fsinfo, sizeof(fsinfo_t));
@@ -1006,7 +1006,7 @@ static void handle(int pid, int cmd, proto_t* in, proto_t* out, void* p) {
 
 static void handle_close_event(close_event_t* ev) {
 	proto_t in;
-	PF->init(&in, NULL, 0)->
+	PF->init(&in)->
 			addi(&in, ev->fd)->
 			addi(&in, ev->owner_pid)->
 			add(&in, &ev->info, sizeof(fsinfo_t));

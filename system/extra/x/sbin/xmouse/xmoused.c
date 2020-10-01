@@ -26,7 +26,7 @@ static void input(int8_t state, int8_t rx, int8_t ry) {
 		ev.state = XEVT_MOUSE_UP;
 
 	proto_t in;
-	PF->init(&in, NULL, 0)->add(&in, &ev, sizeof(xevent_t));
+	PF->init(&in)->add(&in, &ev, sizeof(xevent_t));
 	dev_cntl_by_pid(_x_pid, X_DCNTL_INPUT, &in, NULL);
 	PF->clear(&in);
 }

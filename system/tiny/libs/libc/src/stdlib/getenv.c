@@ -8,8 +8,8 @@ const char* getenv(const char* name) {
 	ret[0] = 0;
 
 	proto_t in, out;
-	PF->init(&out, NULL, 0);
-	PF->init(&in, NULL, 0)->adds(&in, name);
+	PF->init(&out);
+	PF->init(&in)->adds(&in, name);
 
 	int res = ipc_call(get_procd_pid(), PROC_CMD_GET_ENV, &in, &out);
 	PF->clear(&in);

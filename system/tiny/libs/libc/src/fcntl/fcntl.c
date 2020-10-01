@@ -11,8 +11,8 @@
 int fcntl(int fd, int cmd, int data) {
 	int res = -1;
 	proto_t in, out;
-	PF->init(&in, NULL, 0);
-	PF->init(&out, NULL, 0);
+	PF->init(&in);
+	PF->init(&out);
 
 	if(cmd == F_GETFL) {
 		PF->addi(&in, fd);
