@@ -34,7 +34,7 @@ static proto_t* ipc_get_info(uint32_t ipc_id, int32_t* pid, int32_t* call_id) {
 	return (proto_t*)syscall3(SYS_IPC_GET_ARG, ipc_id, (int32_t)pid, (int32_t)call_id);
 }
 
-int ipc_call(int to_pid, int call_id, const proto_t* ipkg, proto_t* opkg) {
+inline int ipc_call(int to_pid, int call_id, const proto_t* ipkg, proto_t* opkg) {
 	if(to_pid < 0)
 		return -1;
 

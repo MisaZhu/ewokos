@@ -9,7 +9,7 @@ extern "C" {
 
 static proto_factor_t _proto_factor;
 
-static proto_factor_t* proto_init_data(proto_t* proto, void* data, uint32_t size) {
+inline static proto_factor_t* proto_init_data(proto_t* proto, void* data, uint32_t size) {
 	proto->id = -1;
 	proto->data = data;
 	proto->size = size;
@@ -19,11 +19,11 @@ static proto_factor_t* proto_init_data(proto_t* proto, void* data, uint32_t size
 	return &_proto_factor;
 }
 
-static proto_factor_t* proto_init(proto_t* proto) {
+inline static proto_factor_t* proto_init(proto_t* proto) {
 	return proto_init_data(proto, NULL, 0);
 }
 
-static proto_factor_t* proto_copy(proto_t* proto, const void* data, uint32_t size) {
+inline static proto_factor_t* proto_copy(proto_t* proto, const void* data, uint32_t size) {
 	if(!proto->read_only && proto->data != NULL)
 		free(proto->data);
 
@@ -36,7 +36,7 @@ static proto_factor_t* proto_copy(proto_t* proto, const void* data, uint32_t siz
 	return &_proto_factor;
 }
 
-static proto_factor_t* proto_add(proto_t* proto, const void* item, uint32_t size) {
+inline static proto_factor_t* proto_add(proto_t* proto, const void* item, uint32_t size) {
 	if(proto->read_only)
 		return &_proto_factor;
 
@@ -59,17 +59,17 @@ static proto_factor_t* proto_add(proto_t* proto, const void* item, uint32_t size
 	return &_proto_factor;
 }
 
-static proto_factor_t* proto_add_int(proto_t* proto, int32_t v) {
+inline static proto_factor_t* proto_add_int(proto_t* proto, int32_t v) {
 	proto_add(proto, (void*)&v, 4);
 	return &_proto_factor;
 }
 
-static proto_factor_t* proto_add_str(proto_t* proto, const char* v) {
+inline static proto_factor_t* proto_add_str(proto_t* proto, const char* v) {
 	proto_add(proto, (void*)v, strlen(v)+1);
 	return &_proto_factor;
 }
 
-static proto_factor_t* proto_clear(proto_t* proto) {
+inline static proto_factor_t* proto_clear(proto_t* proto) {
 	if(proto->read_only)
 		return &_proto_factor;
 
@@ -83,7 +83,7 @@ static proto_factor_t* proto_clear(proto_t* proto) {
 	return &_proto_factor;
 }
 
-proto_factor_t* get_proto_factor() {
+inline proto_factor_t* get_proto_factor() {
 	_proto_factor.init_data = proto_init_data;
 	_proto_factor.init = proto_init;
 	_proto_factor.copy = proto_copy;
@@ -94,17 +94,17 @@ proto_factor_t* get_proto_factor() {
 	return &_proto_factor;
 }
 
-proto_t* proto_new(void* data, uint32_t size) {
+inline proto_t* proto_new(void* data, uint32_t size) {
 	proto_t* ret = (proto_t*)malloc(sizeof(proto_t));
 	proto_init_data(ret, data, size);
 	return ret;
 }
 
-void proto_reset(proto_t* proto) {
+inline void proto_reset(proto_t* proto) {
 	proto->offset = 0;
 }
 
-void* proto_read(proto_t* proto, int32_t *size) {
+inline void* proto_read(proto_t* proto, int32_t *size) {
 	if(size != NULL)
 		*size = 0;
 	if(proto->data == NULL || proto->size == 0 ||
@@ -123,7 +123,7 @@ void* proto_read(proto_t* proto, int32_t *size) {
 	return p+4;
 }
 
-int32_t proto_read_to(proto_t* proto, void* to, int32_t size) {
+inline int32_t proto_read_to(proto_t* proto, void* to, int32_t size) {
 	int32_t sz;
 	void *p = proto_read(proto, &sz);
 	if(sz > size)
@@ -135,7 +135,7 @@ int32_t proto_read_to(proto_t* proto, void* to, int32_t size) {
 	return sz;
 }
 
-int32_t proto_read_proto(proto_t* proto, proto_t* to) {
+inline int32_t proto_read_proto(proto_t* proto, proto_t* to) {
 	int32_t sz;
 	void *p = proto_read(proto, &sz);
 	if(p == NULL || sz == 0)
