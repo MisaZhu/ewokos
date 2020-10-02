@@ -49,9 +49,7 @@ static int uart_loop_raw(void) {
 	if(c == 0) 
 		return 0;
 
-	ipc_lock();
 	charbuf_push(&_buffer, c, true);
-	ipc_unlock();
 	proc_wakeup(0);
 	return 0;
 }

@@ -82,7 +82,6 @@ static int tty_write(int fd, int from_pid, fsinfo_t* info,
 	return uart_write(buf, size);
 }
 
-
 static int tty_loop_raw(void) {
 	if(uart_ready_to_recv() != 0)
 		return 0;
@@ -91,9 +90,7 @@ static int tty_loop_raw(void) {
 	if(c == 0) 
 		return 0;
 
-	ipc_lock();
 	charbuf_push(&_buffer, c, true);
-	ipc_unlock();
 	proc_wakeup(0);
 	return 0;
 }
