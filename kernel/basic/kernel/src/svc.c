@@ -29,7 +29,8 @@ static void sys_exit(context_t* ctx, int32_t pid, int32_t res) {
 		proc = proc_get(pid);
 
 	ctx->gpr[0] = -1;
-	if(proc == NULL || proc->info.owner < 0) {
+	if(proc->info.owner != _current_proc->info.owner &&
+			proc->info.owner < 0) { //can not kill kenrel owned procs
 		return;
 	}
 
