@@ -139,7 +139,7 @@ static user_info_t* check(const char* user, const char* password) {
 	for(i=0; i<_user_num; i++) {
 		user_info_t* info = &_users[i];
 		if(strcmp(info->user, user) == 0) {
-			if(password[0] == 0)
+			if(info->password[0] == 0)
 				return info;
 			const char* md5 = md5_encode_str((uint8_t*)password, strlen(password));
 			if(strcmp(info->password, md5) == 0) 
