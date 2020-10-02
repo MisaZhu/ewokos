@@ -227,10 +227,6 @@ static void sys_ipc_call(context_t* ctx, int32_t pid, int32_t call_id, proto_t* 
 	if(_current_proc->info.pid == pid) {
 		return;
 	}
-	if((call_id & 0xffff0000) != 0 && _current_proc->info.owner > 0) {
-		//ipc call id > 0xffff0000 means kernel ipccall	
-		return;
-	}
 
 	proc_t* proc = proc_get(pid);
 	if(proc == NULL || proc->space->ipc.entry == 0)
