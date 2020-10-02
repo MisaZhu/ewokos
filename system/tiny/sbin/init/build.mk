@@ -1,5 +1,7 @@
 INIT_OBJS = $(ROOT_DIR)/sbin/init/init.o \
-		$(ROOT_DIR)/sbin/init/core.o
+		$(ROOT_DIR)/sbin/init/core.o \
+		$(ROOT_DIR)/sbin/init/procd.o \
+		$(ROOT_DIR)/sbin/init/vfsd.o
 	
 INIT = $(TARGET_DIR)/$(ROOT_DIR)/sbin/init
 

@@ -176,8 +176,6 @@ libs: $(LIB_OBJS)
 	$(AR) rT $(BUILD_DIR)/lib/libhash.a $(LIB_HASH_OBJS)
 	@cp -r $(LIB_HASH_DIR)/include/* $(BUILD_DIR)/include/
 
-include $(ROOT_DIR)/sbin/vfsd/build.mk
-include $(ROOT_DIR)/sbin/procd/build.mk
 include $(ROOT_DIR)/sbin/init/build.mk
 
 include $(ROOT_DIR)/drivers/nulld/build.mk

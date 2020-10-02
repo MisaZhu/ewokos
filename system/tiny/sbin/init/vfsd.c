@@ -1014,15 +1014,8 @@ static void handle_close_event(close_event_t* ev) {
 	PF->clear(&in);
 }
 
-int main(int argc, char** argv) {
-	(void)argc;
-	(void)argv;
+int vfsd_main(void) {
 	_event_head = _event_tail = NULL;
-
-	if(getuid() >= 0) {
-		klog("this process can only loaded by kernel!\n");
-		return -1;
-	}
 
 	if(ipc_serv_reg(IPC_SERV_VFS) != 0) {
 		klog("reg vfs ipc_serv error!\n");
