@@ -39,6 +39,7 @@ typedef struct {
 	uint32_t win;
 	union {
 		struct {
+			int32_t relative;
 			int32_t x, y;
 			int32_t winx, winy;
 			int32_t rx, ry;
