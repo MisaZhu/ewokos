@@ -45,7 +45,6 @@ x_bin:
 	cd $(X_DIR)/bin/gtest;make
 	cd $(X_DIR)/bin/snake;make
 	cd $(X_DIR)/bin/launcher;make
-	cd $(X_DIR)/bin/syspanel;make
 	cd $(X_DIR)/bin/xconsole;make
 	cd $(X_DIR)/bin/png;make
 
@@ -112,7 +111,6 @@ clean:
 	cd $(X_DIR)/bin/gtest;make clean
 	cd $(X_DIR)/bin/snake;make clean
 	cd $(X_DIR)/bin/launcher;make clean
-	cd $(X_DIR)/bin/syspanel;make clean
 	cd $(X_DIR)/bin/xconsole;make clean
 	cd $(X_DIR)/bin/png;make clean
 	cd $(EXTRA_BIN_DIR)/actled;make clean
