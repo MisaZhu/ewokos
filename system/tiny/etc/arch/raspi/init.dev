@@ -1,2 +1,3 @@
 /drivers/nulld                    /dev/null
+/drivers/ramfsd                   /tmp
 /drivers/arm/raspix/mini_uartd    /dev/tty0
