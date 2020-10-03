@@ -16,6 +16,7 @@ CFLAGS = -Wstrict-prototypes \
 				 -marm \
 				 -pedantic -Wall -Wextra -msoft-float -fPIC -mapcs-frame \
          -fno-builtin-printf \
+         -fno-builtin-stat \
          -fno-builtin-memset \
          -fno-builtin-calloc \
          -fno-builtin-snprintf \
@@ -140,6 +141,7 @@ LIB_LIBC_OBJS = $(LIB_LIBC_DIR)/src/unistd/chdir.o \
 	\
 	$(LIB_LIBC_DIR)/src/fcntl/open.o \
 	$(LIB_LIBC_DIR)/src/fcntl/close.o \
+	$(LIB_LIBC_DIR)/src/fcntl/stat.o \
 	$(LIB_LIBC_DIR)/src/fcntl/fcntl.o
 
 LIB_OBJS = $(LIB_SYS_OBJS) \
