@@ -62,8 +62,8 @@ void timer_set_interval(uint32_t id, uint32_t times_per_sec) {
   put8(t + TIMER_LOAD, times_per_sec);
   put8(t + TIMER_CTRL, 0xe2);
 	*/
-	if(times_per_sec > 256)
-		_times_per_sec = times_per_sec/2;
+	if(times_per_sec > 0)
+		_times_per_sec = times_per_sec;
   put32(t + TIMER_LOAD, _times_per_sec);
 	uint8_t reg = TIMER_CTRL_32BIT | TIMER_CTRL_INTREN |
 		TIMER_CTRL_PERIODIC | DEFAULT_CTRL_DIV | TIMER_CTRL_EN;

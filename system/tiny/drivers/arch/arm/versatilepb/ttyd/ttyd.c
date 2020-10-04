@@ -98,7 +98,7 @@ static int tty_loop_raw(void) {
 static int tty_loop(void*p) {
 	(void)p;
 	int res = tty_loop_raw();
-	usleep(30000);
+	//usleep(30000);
 	return res;
 }
 

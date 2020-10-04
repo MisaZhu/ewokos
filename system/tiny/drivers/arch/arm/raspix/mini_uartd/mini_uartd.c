@@ -59,7 +59,7 @@ static int uart_loop_raw(void) {
 static int uart_loop(void*p) {
 	(void)p;
 	int res = uart_loop_raw();
-	usleep(30000);
+	//usleep(30000);
 	return res;
 }
 

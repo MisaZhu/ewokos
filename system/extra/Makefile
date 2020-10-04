@@ -30,7 +30,6 @@ extra_libs:
 EXTRA_BIN_DIR=bin
 extra_bin:
 	cd $(EXTRA_BIN_DIR)/actled;make
-	cd $(EXTRA_BIN_DIR)/console;make
 	cd $(EXTRA_BIN_DIR)/dump;make
 	cd $(EXTRA_BIN_DIR)/echo;make
 	cd $(EXTRA_BIN_DIR)/global;make
@@ -114,7 +113,6 @@ clean:
 	cd $(X_DIR)/bin/xconsole;make clean
 	cd $(X_DIR)/bin/png;make clean
 	cd $(EXTRA_BIN_DIR)/actled;make clean
-	cd $(EXTRA_BIN_DIR)/console;make clean
 	cd $(EXTRA_BIN_DIR)/dump;make clean
 	cd $(EXTRA_BIN_DIR)/echo;make clean
 	cd $(EXTRA_BIN_DIR)/global;make clean
