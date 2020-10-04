@@ -5,7 +5,7 @@
 #include <string.h>
 #include <sys/vfs.h>
 #include <console/console.h>
-#include <graph/graph_fb.h>
+#include <fb/fb.h>
 #include <fonts/fonts.h>
 #include <sys/shm.h>
 #include <sys/vdevice.h>
@@ -93,6 +93,21 @@ static int console_write(int fd,
 	return size;
 }
 
+static int console_step(void* p) {
+	(void)p;
+	int w, h;
+	if(fb_size(_console.fb_fd, &w, &h) != 0)
+		return -1;
+
+	if(w == _console.g->w && h == _console.g->h)
+		return 0;
+
+	reset_console(&_console);
+	console_refresh(&_console.console, _console.g);
+	vfs_flush(_console.fb_fd);
+	return 0;
+}
+	
 int main(int argc, char** argv) {
 	const char* mnt_point = argc > 1 ? argv[1]: "/dev/console0";
 
@@ -102,6 +117,7 @@ int main(int argc, char** argv) {
 	memset(&dev, 0, sizeof(vdevice_t));
 	strcpy(dev.name, "console");
 	dev.write = console_write;
+	dev.loop_step = console_step;
 
 	device_run(&dev, mnt_point, FS_TYPE_CHAR);
 	close_console(&_console);

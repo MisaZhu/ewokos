@@ -8,7 +8,7 @@
 #include <sys/syscall.h>
 #include <sys/basic_math.h>
 #include <sys/shm.h>
-#include <graph/graph_fb.h>
+#include <fb/fb.h>
 #include <sys/ipc.h>
 #include <x/xcntl.h>
 #include <x/xevent.h>
@@ -963,6 +963,20 @@ static int xserver_close(int fd, int from_pid, fsinfo_t* info, void* p) {
 	return 0;
 }
 
+static int xserver_step(void* p) {
+	x_t* x = (x_t*)p;
+	int w, h;
+	if(fb_size(x->fb_fd, &w, &h) != 0)
+		return -1;
+
+	if(w == x->g->w && h == x->g->h)
+		return 0;
+
+	x_dirty(x);
+	x_repaint(x);
+	return 0;
+}
+
 int main(int argc, char** argv) {
 	const char* mnt_point = argc > 1 ? argv[1]: "/dev/x";
 
@@ -989,6 +1003,7 @@ int main(int argc, char** argv) {
 	dev.close = xserver_close;
 	dev.open = xserver_open;
 	dev.dev_cntl = xserver_dev_cntl;
+	dev.loop_step = xserver_step;
 
 	dev.extra_data = &x;
 	device_run(&dev, mnt_point, FS_TYPE_CHAR);

@@ -25,17 +25,16 @@ LDFLAGS = -L$(TARGET_DIR)/lib -lnosys
 
 CFLAGS += -I $(TARGET_DIR)/include -Iinclude
 
-LIB_GRAPH_OBJS = src/font.o \
-	src/graph.o
+LIB_FB_OBJS = src/fb.o
 
-GRAPH = $(TARGET_DIR)/lib/libgraph.a
+FB = $(TARGET_DIR)/lib/libfb.a
 
-$(GRAPH): $(LIB_GRAPH_OBJS)
-	$(AR) rT $(GRAPH) $(LIB_GRAPH_OBJS)
+$(FB): $(LIB_FB_OBJS)
+	$(AR) rT $(FB) $(LIB_FB_OBJS)
 	cp -r include/* $(TARGET_DIR)/include
 
 
 clean:
-	rm -f $(LIB_GRAPH_OBJS)
-	rm -f $(GRAPH)
+	rm -f $(LIB_FB_OBJS)
+	rm -f $(FB)
 

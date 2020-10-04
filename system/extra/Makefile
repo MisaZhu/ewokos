@@ -18,6 +18,7 @@ extra_libs:
 	cd $(EXTRA_LIBS_DIR)/sd; make
 	cd $(EXTRA_LIBS_DIR)/graph; make
 	cd $(EXTRA_LIBS_DIR)/fonts; make
+	cd $(EXTRA_LIBS_DIR)/fb; make
 	cd $(EXTRA_LIBS_DIR)/console; make
 	cd $(EXTRA_LIBS_DIR)/upng; make
 	cd $(EXTRA_LIBS_DIR)/sconf; make
@@ -77,6 +78,7 @@ clean:
 	cd $(EXTRA_LIBS_DIR)/sd; make clean
 	cd $(EXTRA_LIBS_DIR)/ext2; make clean
 	cd $(EXTRA_LIBS_DIR)/graph; make clean
+	cd $(EXTRA_LIBS_DIR)/fb; make clean
 	cd $(EXTRA_LIBS_DIR)/console; make clean
 	cd $(EXTRA_LIBS_DIR)/fonts; make clean
 	cd $(EXTRA_LIBS_DIR)/x; make clean

@@ -1,5 +1,5 @@
-#ifndef GRAPH_FB_H
-#define GRAPH_FB_H
+#ifndef FB_H
+#define FB_H
 
 #include <graph/graph.h>
 
@@ -8,6 +8,7 @@ extern "C" {
 #endif
 
 graph_t* graph_from_fb(int fd, int *dma_id);
+int      fb_size(int fd, int* w, int* h);
 
 #ifdef __cplusplus
 }
