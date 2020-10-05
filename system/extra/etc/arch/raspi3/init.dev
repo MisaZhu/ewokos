@@ -4,4 +4,5 @@
 /drivers/ramfsd                   /tmp
 /drivers/arm/raspix/gpio_actledd  /dev/actled
 /drivers/arm/raspix/mini_uartd    /dev/tty0
+/drivers/arm/raspix/hdmi_xpt2046d /dev/touch0
 /drivers/xserverd                 /dev/x
