@@ -64,13 +64,11 @@ typedef struct {
 
 typedef struct {
 	bool actived;
-	int fb_fd;
+	fb_t fb;
 	int xwm_pid;
-	int shm_id;
 	bool dirty;
 	bool need_repaint;
 	bool show_cursor;
-	graph_t* g;
 	cursor_t cursor;
 
 	xview_t* view_head;
@@ -110,9 +108,9 @@ static void draw_win_frame(x_t* x, xview_t* view) {
 	proto_t in;
 
 	PF->init(&in)->
-		addi(&in, x->shm_id)->
-		addi(&in, x->g->w)->
-		addi(&in, x->g->h)->
+		addi(&in, x->fb.dma_id)->
+		addi(&in, x->fb.g->w)->
+		addi(&in, x->fb.g->h)->
 		add(&in, &view->xinfo, sizeof(xinfo_t));
 	if(view == x->view_focus)
 		PF->addi(&in, 1); //top win
@@ -126,14 +124,14 @@ static void draw_win_frame(x_t* x, xview_t* view) {
 static void draw_desktop(x_t* x) {
 	proto_t in;
 	PF->init(&in)->
-		addi(&in, x->shm_id)->
-		addi(&in, x->g->w)->
-		addi(&in, x->g->h);
+		addi(&in, x->fb.dma_id)->
+		addi(&in, x->fb.g->w)->
+		addi(&in, x->fb.g->h);
 
 	int res = ipc_call(x->xwm_pid, XWM_CNTL_DRAW_DESKTOP, &in, NULL);
 	PF->clear(&in);
 	if(res != 0)
-	 graph_fill(x->g, 0, 0, x->g->w, x->g->h, 0xff000000);
+	 graph_fill(x->fb.g, 0, 0, x->fb.g->w, x->fb.g->h, 0xff000000);
 }
 
 static void draw_drag_frame(x_t* xp) {
@@ -155,9 +153,9 @@ static void draw_drag_frame(x_t* xp) {
 
 	proto_t in;
 	PF->init(&in)->
-		addi(&in, xp->shm_id)->
-		addi(&in, xp->g->w)->
-		addi(&in, xp->g->h)->
+		addi(&in, xp->fb.dma_id)->
+		addi(&in, xp->fb.g->w)->
+		addi(&in, xp->fb.g->h)->
 		add(&in, &r, sizeof(grect_t));
 
 	ipc_call(xp->xwm_pid, XWM_CNTL_DRAW_DRAG_FRAME, &in, NULL);
@@ -173,7 +171,7 @@ static int draw_view(x_t* xp, xview_t* view) {
 			graph_blt_alpha(view->g, 0, 0, 
 					view->xinfo.wsr.w,
 					view->xinfo.wsr.h,
-					xp->g,
+					xp->fb.g,
 					view->xinfo.wsr.x,
 					view->xinfo.wsr.y,
 					view->xinfo.wsr.w,
@@ -183,7 +181,7 @@ static int draw_view(x_t* xp, xview_t* view) {
 			graph_blt(view->g, 0, 0, 
 						view->xinfo.wsr.w,
 						view->xinfo.wsr.h,
-						xp->g,
+						xp->fb.g,
 						view->xinfo.wsr.x,
 						view->xinfo.wsr.y,
 						view->xinfo.wsr.w,
@@ -362,7 +360,7 @@ static void hide_cursor(x_t* x) {
 
 	if(x->cursor.g == NULL) {
 		x->cursor.g = graph_new(NULL, x->cursor.size.w, x->cursor.size.h);
-		graph_blt(x->g,
+		graph_blt(x->fb.g,
 				x->cursor.old_pos.x - x->cursor.offset.x,
 				x->cursor.old_pos.y - x->cursor.offset.y,
 				x->cursor.size.w,
@@ -379,7 +377,7 @@ static void hide_cursor(x_t* x) {
 				0,
 				x->cursor.size.w,
 				x->cursor.size.h,
-				x->g,
+				x->fb.g,
 				x->cursor.old_pos.x - x->cursor.offset.x,
 				x->cursor.old_pos.y - x->cursor.offset.x,
 				x->cursor.size.w,
@@ -396,16 +394,16 @@ static inline void draw_cursor(x_t* x) {
 	if(x->cursor.g == NULL)
 		return;
 
-	graph_blt(x->g, mx, my, mw, mh,
+	graph_blt(x->fb.g, mx, my, mw, mh,
 			x->cursor.g, 0, 0, mw, mh);
 
-	graph_line(x->g, mx+1, my, mx+mw-1, my+mh-2, 0xffffffff);
-	graph_line(x->g, mx, my, mx+mw-1, my+mh-1, 0xff000000);
-	graph_line(x->g, mx, my+1, mx+mw-2, my+mh-1, 0xffffffff);
+	graph_line(x->fb.g, mx+1, my, mx+mw-1, my+mh-2, 0xffffffff);
+	graph_line(x->fb.g, mx, my, mx+mw-1, my+mh-1, 0xff000000);
+	graph_line(x->fb.g, mx, my+1, mx+mw-2, my+mh-1, 0xffffffff);
 
-	graph_line(x->g, mx, my+mh-2, mx+mw-2, my, 0xffffffff);
-	graph_line(x->g, mx, my+mh-1, mx+mw-1, my, 0xff000000);
-	graph_line(x->g, mx+1, my+mh-1, mx+mw-1, my+1, 0xffffffff);
+	graph_line(x->fb.g, mx, my+mh-2, mx+mw-2, my, 0xffffffff);
+	graph_line(x->fb.g, mx, my+mh-1, mx+mw-1, my, 0xff000000);
+	graph_line(x->fb.g, mx+1, my+mh-1, mx+mw-1, my+1, 0xffffffff);
 	x->cursor.old_pos.x = x->cursor.cpos.x;
 	x->cursor.old_pos.y = x->cursor.cpos.y;
 	x->cursor.drop = false;
@@ -415,48 +413,23 @@ static int x_init(x_t* x) {
 	memset(x, 0, sizeof(x_t));
 	x->xwm_pid = -1;
 
-	int fd = open("/dev/fb1", O_RDWR);
-	if(fd < 0) 
-		fd = open("/dev/fb0", O_RDWR);
-	if(fd < 0) {
-		return -1;
+	if(fb_open("/dev/fb1", &x->fb) != 0) {
+		if(fb_open("/dev/fb0", &x->fb) != 0) {
+			return -1;
+		}
 	}
-	x->fb_fd = fd;
 
-	int id = vfs_dma(fd, NULL);
-	if(id <= 0) {
-		close(x->fb_fd);
+	if(fb_fetch_graph(&x->fb) == NULL) {
 		return -1;
 	}
 
-	void* gbuf = shm_map(id);
-	if(gbuf == NULL) {
-		close(x->fb_fd);
-		return -1;
-	}
-
-	proto_t out;
-	PF->init(&out);
-
-	if(vfs_fcntl(fd, 0, NULL, &out) != 0) { //fcntl cmd 0 for get fb size
-		shm_unmap(id);
-		close(x->fb_fd);
-		return -1;
-	}
-
-	int w = proto_read_int(&out);
-	int h = proto_read_int(&out);
-	x->g = graph_new(gbuf, w, h);
-	PF->clear(&out);
-	x->shm_id = id;
 	x_dirty(x);
-
 	x->cursor.size.w = 15;
 	x->cursor.size.h = 15;
 	x->cursor.offset.x = 8;
 	x->cursor.offset.y = 8;
-	x->cursor.cpos.x = w/2;
-	x->cursor.cpos.y = h/2; 
+	x->cursor.cpos.x = x->fb.g->w/2;
+	x->cursor.cpos.y = x->fb.g->h/2; 
 	x->show_cursor = true;
 
 	x->dirty = true;
@@ -465,19 +438,15 @@ static int x_init(x_t* x) {
 }	
 
 static void x_reset(x_t* x) {
-	int fd = x->fb_fd;
-	shm_unmap(x->shm_id);
-	graph_free(x->g);
-	x->g = graph_from_fb(fd, &x->shm_id);
+	fb_fetch_graph(&x->fb);
 }	
 
 static void x_close(x_t* x) {
-	shm_unmap(x->shm_id);
-	close(x->fb_fd);
+	fb_close(&x->fb);
 }
 
 static void x_repaint(x_t* x) {
-	if(x->g == NULL ||
+	if(x->fb.g == NULL ||
 			!x->actived ||
 			(!x->need_repaint))
 		return;
@@ -501,7 +470,7 @@ static void x_repaint(x_t* x) {
 	if(x->show_cursor)
 		draw_cursor(x);
 
-	vfs_flush(x->fb_fd);
+	fb_flush(&x->fb);
 
 	if(undirty) {
 		x->dirty = false;
@@ -757,12 +726,12 @@ static void mouse_cxy(x_t* x, int32_t rx, int32_t ry) {
 	x->cursor.cpos.y += ry;
 	if(x->cursor.cpos.x < 0)
 		x->cursor.cpos.x = 0;
-	if(x->cursor.cpos.x >= (int32_t)x->g->w)
-		x->cursor.cpos.x = x->g->w;
+	if(x->cursor.cpos.x >= (int32_t)x->fb.g->w)
+		x->cursor.cpos.x = x->fb.g->w;
 	if(x->cursor.cpos.y < 0)
 		x->cursor.cpos.y = 0;
-	if(x->cursor.cpos.y >= (int32_t)x->g->h)
-		x->cursor.cpos.y = x->g->h;
+	if(x->cursor.cpos.y >= (int32_t)x->fb.g->h)
+		x->cursor.cpos.y = x->fb.g->h;
 }
 
 enum {
@@ -929,8 +898,8 @@ static int xserver_dev_cntl(int from_pid, int cmd, proto_t* in, proto_t* ret, vo
 	if(cmd == X_DCNTL_GET_INFO) {
 		xscreen_t scr;	
 		scr.id = 0;
-		scr.size.w = x->g->w;
-		scr.size.h = x->g->h;
+		scr.size.w = x->fb.g->w;
+		scr.size.h = x->fb.g->h;
 		PF->add(ret, &scr, sizeof(xscreen_t));
 	}
 	else if(cmd == X_DCNTL_SET_XWM) {
@@ -966,10 +935,10 @@ static int xserver_close(int fd, int from_pid, fsinfo_t* info, void* p) {
 static int xserver_step(void* p) {
 	x_t* x = (x_t*)p;
 	int w, h;
-	if(fb_size(x->fb_fd, &w, &h) != 0)
+	if(fb_size(&x->fb, &w, &h) != 0)
 		return -1;
 
-	if(w == x->g->w && h == x->g->h)
+	if(w == x->fb.g->w && h == x->fb.g->h)
 		return 0;
 
 	x_dirty(x);

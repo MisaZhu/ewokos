@@ -12,54 +12,29 @@
 
 typedef struct {
 	const char* id;
-	int fb_fd;
-	int shm_id;
-	graph_t* g;
+	fb_t fb;
 	console_t console;
 } fb_console_t;
 
 static void init_console(fb_console_t* console) {
-	int id;
-	graph_t* g;
-	int fb_fd = open("/dev/fb0", O_RDONLY);
-	if(fb_fd < 0) {
+	if(fb_open("/dev/fb0", &console->fb) != 0)
 		return;
-	}
-
-	g = graph_from_fb(fb_fd, &id);
-	if(g == NULL) {
-		close(fb_fd);
-		return;
-	}
 
 	console_init(&console->console);
-	console->fb_fd = fb_fd;
-	console->shm_id = id;
-	console->g = g;
 	console->console.font = font_by_name("8x16");
 	console->console.fg_color = 0xffcccccc;
 	console->console.bg_color = 0xff000000;
-	console_reset(&console->console, g->w, g->h);
+	console_reset(&console->console, console->fb.g->w, console->fb.g->h);
 }
 
 static void close_console(fb_console_t* console) {
-	graph_free(console->g);
-	shm_unmap(console->shm_id);
-	close(console->fb_fd);
+	fb_close(&console->fb);
 }
 
 static void reset_console(fb_console_t* console) {
-	int fb_fd = console->fb_fd;
-
-	if(console->g != NULL) {
-		graph_free(console->g);
-		shm_unmap(console->shm_id);
-	}
-	console->shm_id = 0;
-	console->g = graph_from_fb(fb_fd, &console->shm_id);
-	if(console->g == NULL)
+	if(fb_fetch_graph(&console->fb) == NULL)
 		return;
-	console_reset(&console->console, console->g->w, console->g->h);
+	console_reset(&console->console, console->fb.g->w, console->fb.g->h);
 }
 
 static fb_console_t _console;
@@ -77,7 +52,7 @@ static int console_write(int fd,
 	(void)offset;
 	(void)p;
 
-	if(size <= 0 || _console.g == NULL)
+	if(size <= 0 || _console.fb.g == NULL)
 		return 0;
 
 	const char* pb = (const char*)buf;
@@ -88,23 +63,25 @@ static int console_write(int fd,
 	}
 
 	reset_console(&_console);
-	console_refresh(&_console.console, _console.g);
-	vfs_flush(_console.fb_fd);
+	console_refresh(&_console.console, _console.fb.g);
+	fb_flush(&_console.fb);
 	return size;
 }
 
 static int console_step(void* p) {
 	(void)p;
 	int w, h;
-	if(fb_size(_console.fb_fd, &w, &h) != 0)
+	if(fb_size(&_console.fb, &w, &h) != 0)
 		return -1;
 
-	if(w == _console.g->w && h == _console.g->h)
+	if(w == _console.fb.g->w && h == _console.fb.g->h)
 		return 0;
 
 	reset_console(&_console);
-	console_refresh(&_console.console, _console.g);
-	vfs_flush(_console.fb_fd);
+	if(_console.fb.g != NULL) {
+		console_refresh(&_console.console, _console.fb.g);
+		fb_flush(&_console.fb);
+	}
 	return 0;
 }
 	
