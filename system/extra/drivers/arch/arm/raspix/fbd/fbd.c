@@ -130,7 +130,7 @@ int main(int argc, char** argv) {
 	const char* mnt_name = argc > 1 ? argv[1]: "/dev/fb0";
 	fb_dma_t dma;
 	dma.shm_id = 0;
-	if(bcm283x_fb_init(1024, 768, 32) != 0)
+	if(bcm283x_fb_init(640, 480, 32) != 0)
 		return -1;
 	_fbinfo = bcm283x_get_fbinfo();
 	

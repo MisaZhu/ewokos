@@ -10,8 +10,8 @@
  * to a physical page.
  * Notice: virtual and physical address inputed must be all aliend by PAGE_SIZE !
  */
-int32_t __attribute__((optimize("O0"))) map_page(page_dir_entry_t *vm, uint32_t virtual_addr,
-//int32_t map_page(page_dir_entry_t *vm, uint32_t virtual_addr,
+//int32_t __attribute__((optimize("O0"))) map_page(page_dir_entry_t *vm, uint32_t virtual_addr,
+int32_t map_page(page_dir_entry_t *vm, uint32_t virtual_addr,
 		     uint32_t physical, uint32_t permissions, uint32_t is_dev) {
 	page_table_entry_t *page_table = 0;
 
