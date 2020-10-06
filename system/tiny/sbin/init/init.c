@@ -182,9 +182,9 @@ static void init_tty_stdio(void) {
 }
 
 static void load_stdios(void) {
-	run("/drivers/stdind", false, false);
-	run("/drivers/stdoutd", false, false);
-	run("/drivers/stderrd", false, false);
+	run("/drivers/stdiod stdin", false, false);
+	run("/drivers/stdiod stdout", false, false);
+	run("/drivers/stdiod stderr", false, false);
 }
 
 static void switch_root(void) {
