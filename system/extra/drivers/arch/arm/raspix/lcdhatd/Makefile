@@ -27,7 +27,7 @@ LDFLAGS = -L$(BUILD_DIR)/lib -lnosys
 
 CFLAGS += -I $(BUILD_DIR)/include
 
-LCDHATD_OBJS = lcdhatd.o
+LCDHATD_OBJS = lcdhatd.o fbd.o
 
 LCDHATD = $(TARGET_DIR)/drivers/arm/raspix/lcdhatd
 
