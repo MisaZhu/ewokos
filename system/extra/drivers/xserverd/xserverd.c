@@ -409,14 +409,12 @@ static inline void draw_cursor(x_t* x) {
 	x->cursor.drop = false;
 }
 
-static int x_init(x_t* x) {
+static int x_init(const char* fb_dev, x_t* x) {
 	memset(x, 0, sizeof(x_t));
 	x->xwm_pid = -1;
 
-	if(fb_open("/dev/fb1", &x->fb) != 0) {
-		if(fb_open("/dev/fb0", &x->fb) != 0) {
-			return -1;
-		}
+	if(fb_open(fb_dev, &x->fb) != 0) {
+		return -1;
 	}
 
 	if(fb_fetch_graph(&x->fb) == NULL) {
@@ -948,9 +946,10 @@ static int xserver_step(void* p) {
 
 int main(int argc, char** argv) {
 	const char* mnt_point = argc > 1 ? argv[1]: "/dev/x";
+	const char* fb_dev = argc > 2 ? argv[2]: "/dev/fb0";
 
 	x_t x;
-	if(x_init(&x) != 0) {
+	if(x_init(fb_dev, &x) != 0) {
 		return -1;
 	}
 	read_config(&x, "/etc/x/x.conf");
