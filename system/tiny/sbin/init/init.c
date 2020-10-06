@@ -181,12 +181,19 @@ static void init_tty_stdio(void) {
 		dup2(fd, 2);
 }
 
+static void load_stdios(void) {
+	run("/drivers/stdind", false, false);
+	run("/drivers/stdoutd", false, false);
+	run("/drivers/stderrd", false, false);
+}
+
 static void switch_root(void) {
 	int pid = fork();
 	if(pid == 0) {
 		setuid(0);
 		load_devs();
 		init_tty_stdio();
+		load_stdios();
 		run_procs();
 		exit(0);
 	}
