@@ -93,6 +93,35 @@ graph_t* fb_fetch_graph(fb_t* fb) {
 	return g;
 }
 
+int fb_set(const char *dev, int w, int h, int bpp) {
+	if(bpp != 16 && bpp != 32) {
+		bpp = 32;
+	}
+
+	proto_t in;
+	PF->init(&in)->
+		addi(&in, w)->
+		addi(&in, h)->
+		addi(&in, bpp);
+
+	int res = dev_cntl(dev, 0, &in, NULL);
+	PF->clear(&in);
+	return res;
+}
+
+int fb_dev_info(const char *dev, int *w, int *h, int *bpp) {
+	proto_t out;
+	PF->init(&out);
+	if(dev_cntl(dev, 1, NULL, &out) != 0)
+		return -1;
+
+	*w = proto_read_int(&out);
+	*h = proto_read_int(&out);
+	*bpp = proto_read_int(&out);
+	PF->clear(&out);
+	return 0;
+}
+
 #ifdef __cplusplus
 }
 #endif

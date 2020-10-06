@@ -8,7 +8,7 @@ TARGET_DIR = $(BUILD_DIR)/rootfs
 CFLAGS = -marm \
 				 -pedantic -Wall -Wextra -msoft-float -fPIC -mapcs-frame \
          -fno-builtin-printf \
-         -fno-builtin-memset \
+         -fno-builtin-memtool \
          -fno-builtin-snprintf \
          -fno-builtin-sprintf \
          -fno-builtin-fprintf \
@@ -24,16 +24,18 @@ LDFLAGS = -L$(BUILD_DIR)/lib -lnosys
 
 CFLAGS += -I $(BUILD_DIR)/include
 
-FB_SET_OBJS = fbset.o
+FB_TOOL_OBJS = fbtool.o
 
-FB_SET = $(TARGET_DIR)/bin/fbset
+FB_TOOL = $(TARGET_DIR)/bin/fbtool
 
-$(FB_SET): $(FB_SET_OBJS) \
+$(FB_TOOL): $(FB_TOOL_OBJS) \
 		$(BUILD_DIR)/lib/libewokc.a \
 		$(BUILD_DIR)/lib/libarch_bcm283x.a  \
+		$(BUILD_DIR)/lib/libgraph.a  \
+		$(BUILD_DIR)/lib/libfb.a  \
 		$(BUILD_DIR)/lib/libarch_vpb.a 
-	$(LD) -Ttext=100 $(FB_SET_OBJS) -o $(FB_SET) $(LDFLAGS) -larch_bcm283x -larch_vpb -lewokc -lc
+	$(LD) -Ttext=100 $(FB_TOOL_OBJS) -o $(FB_TOOL) $(LDFLAGS) -larch_bcm283x -larch_vpb -lfb -lgraph -lewokc -lc
 
 clean:
-	rm -f $(FB_SET_OBJS)
+	rm -f $(FB_TOOL_OBJS)
 
