@@ -31,7 +31,7 @@ static int fb_fcntl(int fd,
 	(void)p;
 
 	if(cmd == 0) { //get fb size
-		PF->addi(out, _fbinfo->width)->addi(out, _fbinfo->height);
+		PF->addi(out, _fbinfo->width)->addi(out, _fbinfo->height)->addi(out, _fbinfo->depth);
 	}
 	return 0;
 }
@@ -69,6 +69,9 @@ static int fb_dev_cntl(int from_pid, int cmd, proto_t* in, proto_t* ret, void* p
 		_fbinfo = vpb_get_fbinfo();
 		fb_dma_reset(dma);
 	}
+	else {
+		PF->addi(ret, _fbinfo->width)->addi(ret, _fbinfo->height)->addi(ret, _fbinfo->depth);
+	}	
 	return 0;
 }
 
@@ -84,19 +87,6 @@ static inline void dup16(uint16_t* dst, uint32_t* src, uint32_t w, uint32_t h) {
   }
 }
 
-static inline void argb2abgr(uint32_t* dst, const uint32_t* src, uint32_t size) {
-  while(size > 0) {
-    register uint32_t c = src[size-1];
-    uint8_t a = c >> 24;
-    uint8_t r = c >> 16;
-    uint8_t g = c >> 8;
-    uint8_t b = c & 0xff;
-
-    dst[size-1] = a << 24 | b << 16 | g << 8 | r;
-    size--;
-  }
-}
-
 static int32_t do_flush(fb_dma_t* dma) {
 	const void* buf = dma->data;
 	uint32_t size = dma->size;
@@ -106,7 +96,7 @@ static int32_t do_flush(fb_dma_t* dma) {
 	}
 
   if(_fbinfo->depth == 32)
-    argb2abgr((uint32_t*)_fbinfo->pointer, (const uint32_t*)buf, size/4);
+    memcpy((void*)_fbinfo->pointer, buf, size);
   else if(_fbinfo->depth == 16)
     dup16((uint16_t*)_fbinfo->pointer, (uint32_t*)buf,  _fbinfo->width, _fbinfo->height);
 	else 
@@ -143,7 +133,7 @@ int main(int argc, char** argv) {
 	const char* mnt_name = argc > 1 ? argv[1]: "/dev/fb0";
 	fb_dma_t dma;
 	dma.shm_id = 0;
-	if(vpb_fb_init(1024, 768, 32) != 0)
+	if(vpb_fb_init(640, 480, 32) != 0)
 		return -1;
 	_fbinfo = vpb_get_fbinfo();
 	

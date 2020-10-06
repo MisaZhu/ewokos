@@ -1,7 +1,7 @@
 /drivers/arm/versatilepb/fbd       /dev/fb0
+/drivers/consoled                  /dev/console0
 /drivers/nulld                     /dev/null
 /drivers/ramfsd                    /tmp
-/drivers/consoled                  /dev/console0
 /drivers/arm/versatilepb/ttyd      /dev/tty0
 /drivers/arm/versatilepb/ps2keybd  /dev/keyb0
 /drivers/arm/versatilepb/ps2moused /dev/mouse0

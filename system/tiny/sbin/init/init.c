@@ -171,9 +171,14 @@ static void init_fs(void) {
 
 static void init_tty_stdio(void) {
 	int fd = open("/dev/tty0", 0);
+	int err_fd = open("/dev/console0", 0);
+
 	dup2(fd, 0);
 	dup2(fd, 1);
-	dup2(fd, 2);
+	if(err_fd > 0)
+		dup2(err_fd, 2);
+	else
+		dup2(fd, 2);
 }
 
 static void switch_root(void) {
