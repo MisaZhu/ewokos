@@ -120,7 +120,7 @@ int main(int argc, char* argv[]) {
 
 	X x;
 	x.screenInfo(scr);
-	x.open(&xwin, scr.size.w - is - 10,
+	x.open(&xwin, 10,
 			10,
 			is, 
 			is * xwin.getItemNum(),
