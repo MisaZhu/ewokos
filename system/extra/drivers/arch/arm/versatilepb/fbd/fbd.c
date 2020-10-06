@@ -75,6 +75,19 @@ static int fb_dev_cntl(int from_pid, int cmd, proto_t* in, proto_t* ret, void* p
 	return 0;
 }
 
+static inline void argb2abgr(uint32_t* dst, const uint32_t* src, uint32_t size) {
+	while(size > 0) {
+		register uint32_t c = src[size-1];
+		uint8_t a = c >> 24;
+		uint8_t r = c >> 16;
+		uint8_t g = c >> 8;
+		uint8_t b = c & 0xff;
+
+		dst[size-1] = a << 24 | b << 16 | g << 8 | r;
+		size--;
+	}
+}
+
 static inline void dup16(uint16_t* dst, uint32_t* src, uint32_t w, uint32_t h) {
   register int32_t i, size;
   size = w * h;
@@ -96,7 +109,7 @@ static int32_t do_flush(fb_dma_t* dma) {
 	}
 
   if(_fbinfo->depth == 32)
-    memcpy((void*)_fbinfo->pointer, buf, size);
+    argb2abgr((uint32_t*)_fbinfo->pointer, (uint32_t*)buf, size/4);
   else if(_fbinfo->depth == 16)
     dup16((uint16_t*)_fbinfo->pointer, (uint32_t*)buf,  _fbinfo->width, _fbinfo->height);
 	else 
