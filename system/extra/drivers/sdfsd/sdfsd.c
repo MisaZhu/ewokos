@@ -102,10 +102,10 @@ static int sdext2_create(fsinfo_t* info_to, fsinfo_t* info, void* p) {
 	int ino = -1;
 	if(info->type == FS_TYPE_DIR)  {
 		info->size = EXT2_BLOCK_SIZE;
-		ino = ext2_create_dir(ext2, &inode_to, info->name, info->owner);
+		ino = ext2_create_dir(ext2, &inode_to, info->name, info->uid);
 	}
 	else
-		ino = ext2_create_file(ext2, &inode_to, info->name, info->owner);
+		ino = ext2_create_file(ext2, &inode_to, info->name, info->uid);
 	if(ino == -1)
 		return -1;
 	put_node(ext2, ino_to, &inode_to);

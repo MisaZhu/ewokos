@@ -18,6 +18,7 @@ extra_libs:
 	cd $(EXTRA_LIBS_DIR)/sd; make
 	cd $(EXTRA_LIBS_DIR)/graph; make
 	cd $(EXTRA_LIBS_DIR)/fonts; make
+	cd $(EXTRA_LIBS_DIR)/fb; make
 	cd $(EXTRA_LIBS_DIR)/console; make
 	cd $(EXTRA_LIBS_DIR)/upng; make
 	cd $(EXTRA_LIBS_DIR)/sconf; make
@@ -30,7 +31,6 @@ extra_libs:
 EXTRA_BIN_DIR=bin
 extra_bin:
 	cd $(EXTRA_BIN_DIR)/actled;make
-	cd $(EXTRA_BIN_DIR)/console;make
 	cd $(EXTRA_BIN_DIR)/dump;make
 	cd $(EXTRA_BIN_DIR)/echo;make
 	cd $(EXTRA_BIN_DIR)/global;make
@@ -38,14 +38,13 @@ extra_bin:
 	cd $(EXTRA_BIN_DIR)/kill;make
 	cd $(EXTRA_BIN_DIR)/mkdir;make
 	cd $(EXTRA_BIN_DIR)/rm;make
-	cd $(EXTRA_BIN_DIR)/fbset;make
+	cd $(EXTRA_BIN_DIR)/fbtool;make
 
 X_DIR=x
 x_bin:
 	cd $(X_DIR)/bin/gtest;make
 	cd $(X_DIR)/bin/snake;make
 	cd $(X_DIR)/bin/launcher;make
-	cd $(X_DIR)/bin/syspanel;make
 	cd $(X_DIR)/bin/xconsole;make
 	cd $(X_DIR)/bin/png;make
 
@@ -79,6 +78,7 @@ clean:
 	cd $(EXTRA_LIBS_DIR)/sd; make clean
 	cd $(EXTRA_LIBS_DIR)/ext2; make clean
 	cd $(EXTRA_LIBS_DIR)/graph; make clean
+	cd $(EXTRA_LIBS_DIR)/fb; make clean
 	cd $(EXTRA_LIBS_DIR)/console; make clean
 	cd $(EXTRA_LIBS_DIR)/fonts; make clean
 	cd $(EXTRA_LIBS_DIR)/x; make clean
@@ -112,11 +112,9 @@ clean:
 	cd $(X_DIR)/bin/gtest;make clean
 	cd $(X_DIR)/bin/snake;make clean
 	cd $(X_DIR)/bin/launcher;make clean
-	cd $(X_DIR)/bin/syspanel;make clean
 	cd $(X_DIR)/bin/xconsole;make clean
 	cd $(X_DIR)/bin/png;make clean
 	cd $(EXTRA_BIN_DIR)/actled;make clean
-	cd $(EXTRA_BIN_DIR)/console;make clean
 	cd $(EXTRA_BIN_DIR)/dump;make clean
 	cd $(EXTRA_BIN_DIR)/echo;make clean
 	cd $(EXTRA_BIN_DIR)/global;make clean
@@ -124,4 +122,4 @@ clean:
 	cd $(EXTRA_BIN_DIR)/kill;make clean
 	cd $(EXTRA_BIN_DIR)/mkdir;make clean
 	cd $(EXTRA_BIN_DIR)/rm;make clean
-	cd $(EXTRA_BIN_DIR)/fbset;make clean
+	cd $(EXTRA_BIN_DIR)/fbtool;make clean

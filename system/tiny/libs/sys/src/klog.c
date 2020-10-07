@@ -18,6 +18,7 @@ void klog(const char *format, ...) {
 	v_printf(outc, buf, format, ap);
 	va_end(ap);
 	syscall2(SYS_KPRINT, (int32_t)buf->cstr, (int32_t)buf->len);
+	write(2, buf->cstr, buf->len);
 	str_free(buf);
 }
 

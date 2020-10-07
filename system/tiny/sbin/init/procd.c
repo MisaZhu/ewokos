@@ -178,15 +178,7 @@ static void handle(int pid, int cmd, proto_t* in, proto_t* out, void* p) {
 	}
 }
 
-int main(int argc, char** argv) {
-	(void)argc;
-	(void)argv;
-
-	if(getuid() >= 0) {
-		klog("this process can only loaded by kernel!\n");
-		return -1;
-	}
-
+int procd_main(void) {
 	procd_init();
 
 	if(ipc_serv_reg(IPC_SERV_PROC) != 0) {
@@ -197,7 +189,7 @@ int main(int argc, char** argv) {
 	ipc_serv_run(handle, NULL, 0);
 
 	while(true) {
-		sleep(1);
+		proc_block(getpid(), (uint32_t)procd_main);
 	}
 	return 0;
 }

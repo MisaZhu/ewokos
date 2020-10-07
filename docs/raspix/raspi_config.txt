@@ -2,3 +2,12 @@ enable_uart=1
 dtparam=spi=on
 dtparam=i2c_arm=on
 dtparam=i2c=on
+
+#for customize hdmi spec
+hdmi_timings=400 0 100 10 140 1280 10 20 20 2 0 0 0 60 0 43000000 3
+hdmi_cvt=400 1280 60 6 0 0 1
+hdmi_group=2
+hdmi_mode=88
+display_hdmi_rotate=3
+hdmi_force_hotplug=1
+

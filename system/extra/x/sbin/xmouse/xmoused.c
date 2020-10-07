@@ -15,6 +15,7 @@ static void input(int8_t state, int8_t rx, int8_t ry) {
 	xevent_t ev;
 	ev.type = XEVT_MOUSE;
 	ev.state = XEVT_MOUSE_MOVE;
+	ev.value.mouse.relative = 1;
 	ev.value.mouse.x = 0;
 	ev.value.mouse.y = 0;
 	ev.value.mouse.rx = rx;

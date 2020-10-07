@@ -8,7 +8,7 @@ TARGET_DIR = $(BUILD_DIR)/rootfs
 CFLAGS = -marm \
 				 -pedantic -Wall -Wextra -msoft-float -fPIC -mapcs-frame \
          -fno-builtin-printf \
-         -fno-builtin-memset \
+         -fno-builtin-memtool \
          -fno-builtin-snprintf \
          -fno-builtin-sprintf \
          -fno-builtin-fprintf \
@@ -24,16 +24,18 @@ LDFLAGS = -L$(BUILD_DIR)/lib -lnosys
 
 CFLAGS += -I $(BUILD_DIR)/include
 
-CONSOLE_OBJS = console.o
+FB_TOOL_OBJS = fbtool.o
 
-CONSOLE = $(TARGET_DIR)/bin/console
+FB_TOOL = $(TARGET_DIR)/bin/fbtool
 
-$(CONSOLE): $(CONSOLE_OBJS) \
+$(FB_TOOL): $(FB_TOOL_OBJS) \
 		$(BUILD_DIR)/lib/libewokc.a \
-		$(BUILD_DIR)/lib/libconsole.a \
-		$(BUILD_DIR)/lib/libfonts.a
-	$(LD) -Ttext=100 $(CONSOLE_OBJS) -o $(CONSOLE) $(LDFLAGS) -lfonts -lgraph -lconsole -lewokc -lc
+		$(BUILD_DIR)/lib/libarch_bcm283x.a  \
+		$(BUILD_DIR)/lib/libgraph.a  \
+		$(BUILD_DIR)/lib/libfb.a  \
+		$(BUILD_DIR)/lib/libarch_vpb.a 
+	$(LD) -Ttext=100 $(FB_TOOL_OBJS) -o $(FB_TOOL) $(LDFLAGS) -larch_bcm283x -larch_vpb -lfb -lgraph -lewokc -lc
 
 clean:
-	rm -f $(CONSOLE_OBJS)
+	rm -f $(FB_TOOL_OBJS)
 

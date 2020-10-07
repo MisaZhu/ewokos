@@ -29,7 +29,8 @@ static void sys_exit(context_t* ctx, int32_t pid, int32_t res) {
 		proc = proc_get(pid);
 
 	ctx->gpr[0] = -1;
-	if(proc == NULL || proc->info.owner < 0) {
+	if(proc->info.owner != _current_proc->info.owner &&
+			proc->info.owner < 0) { //can not kill kenrel owned procs
 		return;
 	}
 
@@ -225,10 +226,6 @@ static void sys_ipc_setup(context_t* ctx, uint32_t entry, uint32_t extra_data, u
 static void sys_ipc_call(context_t* ctx, int32_t pid, int32_t call_id, proto_t* data) {
 	ctx->gpr[0] = 0;
 	if(_current_proc->info.pid == pid) {
-		return;
-	}
-	if((call_id & 0xffff0000) != 0 && _current_proc->info.owner > 0) {
-		//ipc call id > 0xffff0000 means kernel ipccall	
 		return;
 	}
 
@@ -430,19 +427,10 @@ static int32_t sys_get_kernel_tic(void) {
 	return _svc_tic;
 }
 
-#ifndef SDC
 int32_t romfs_get(uint32_t index, char* name, char* data);
 static int32_t sys_romfs_get(uint32_t index, char* name, char* data) {
 	return romfs_get(index, name, data);
 }
-#else
-static int32_t sys_romfs_get(uint32_t index, char* name, char* data) {
-	(void)index;
-	(void)name;
-	(void)data;
-	return -1;
-}
-#endif
 
 void svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_t arg2, context_t* ctx, int32_t processor_mode) {
 	(void)processor_mode;

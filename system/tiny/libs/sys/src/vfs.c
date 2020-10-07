@@ -416,7 +416,11 @@ int vfs_create(const char* fname, fsinfo_t* ret, int type) {
 	}
 	if(type == FS_TYPE_CHAR || type == FS_TYPE_BLOCK)
 		return 0;
-	
+
+	if(type == FS_TYPE_DIR)
+		ret->size = 1024;
+	ret->mount_pid = info_to.mount_pid;
+
 	proto_t in, out;
 	PF->init(&out);
 

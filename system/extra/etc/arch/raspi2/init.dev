@@ -1,10 +1,11 @@
 /drivers/arm/raspix/fbd           /dev/fb0
+/drivers/consoled                 /dev/console0
 /drivers/nulld                    /dev/null
+/drivers/ramfsd                   /tmp
 /drivers/arm/raspix/gpio_actledd  /dev/actled
 /drivers/arm/raspix/pl011_uartd   /dev/tty0
-/drivers/consoled                 /dev/console0
 #/drivers/arm/raspix/joystickd    /dev/joystick
 #/drivers/arm/raspix/lcdhatd      /dev/fb1
 #/drivers/arm/raspix/epaperd      /dev/epaper
-#/drivers/arm/raspix/hdmi_xpt2046d /dev/touch0
+/drivers/arm/raspix/hdmi_xpt2046d /dev/touch0
 /drivers/xserverd                 /dev/x

@@ -279,7 +279,7 @@ static void LCD_1in3_Clear(UWORD Color) {
 	DEV_SPI_Write((uint8_t *)Image, LCD_WIDTH*LCD_HEIGHT*2);
 }
 
-static void lcd_init(void) {
+void lcd_init(void) {
 	bcm283x_gpio_init();
 
 	bcm283x_gpio_config(LCD_CS, 1);
@@ -295,15 +295,7 @@ static void lcd_init(void) {
 	LCD_1in3_Clear(0x0);
 }
 
-typedef struct {
-	void* data;
-	uint32_t size;
-	int32_t shm_id;
-} fb_dma_t;
-
-static int _bcm283x_gpio_fd = -1;
-
-static void  do_flush(const void* buf, uint32_t size) {
+void  do_flush(const void* buf, uint32_t size) {
 	if(size < LCD_WIDTH * LCD_HEIGHT* 4)
 		return;
 
@@ -329,78 +321,3 @@ static void  do_flush(const void* buf, uint32_t size) {
 	bcm283x_spi_activate(0);
 }
 
-static int lcd_flush(int fd, int from_pid, fsinfo_t* info, void* p) {
-	(void)fd;
-	(void)from_pid;
-	(void)info;
-	fb_dma_t* dma = (fb_dma_t*)p;
-
-	do_flush(dma->data, dma->size);
-	return 0;
-}
-
-static int lcd_dma(int fd, int from_pid, fsinfo_t* info, int* size, void* p) {
-	(void)fd;
-	(void)from_pid;
-	(void)info;
-	fb_dma_t* dma = (fb_dma_t*)p;
-	*size = dma->size;
-	return dma->shm_id;
-}
-
-static int lcd_write(int fd, int from_pid, fsinfo_t* info, 
-		const void* buf, int size, int offset, void* p) {
-	(void)fd;
-	(void)from_pid;
-	(void)info;
-	(void)offset;
-	(void)p;
-	
-	do_flush(buf, size);
-	return size;
-}
-
-static int lcd_fcntl(int fd, int from_pid, fsinfo_t* info, 
-		int cmd, proto_t* in, proto_t* out, void* p) {
-	(void)fd;
-	(void)from_pid;
-	(void)info;
-	(void)in;
-	(void)p;
-
-	if(cmd == 0) { //get lcd size
-		PF->addi(out, LCD_WIDTH)->addi(out, LCD_HEIGHT);
-	}
-	return 0;
-}
-
-int main(int argc, char** argv) {
-	lcd_init();
-
-	const char* mnt_point = argc > 1 ? argv[1]: "/dev/lcd";
-
-	uint32_t sz = LCD_HEIGHT*LCD_WIDTH*4;
-	fb_dma_t dma;
-	dma.shm_id = shm_alloc(sz, 1);
-	if(dma.shm_id <= 0)
-		return -1;
-	dma.size = sz;
-	dma.data = shm_map(dma.shm_id);
-	if(dma.data == NULL)
-		return -1;
-
-	vdevice_t dev;
-	memset(&dev, 0, sizeof(vdevice_t));
-	strcpy(dev.name, "lcd");
-	dev.write = lcd_write;
-	dev.flush = lcd_flush;
-	dev.dma   = lcd_dma;
-	dev.fcntl = lcd_fcntl;
-
-	dev.extra_data = &dma;
-	device_run(&dev, mnt_point, FS_TYPE_CHAR);
-
-	close(_bcm283x_gpio_fd);
-	shm_unmap(dma.shm_id);
-	return 0;
-}

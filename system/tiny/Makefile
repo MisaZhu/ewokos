@@ -16,6 +16,7 @@ CFLAGS = -Wstrict-prototypes \
 				 -marm \
 				 -pedantic -Wall -Wextra -msoft-float -fPIC -mapcs-frame \
          -fno-builtin-printf \
+         -fno-builtin-stat \
          -fno-builtin-memset \
          -fno-builtin-calloc \
          -fno-builtin-snprintf \
@@ -140,6 +141,7 @@ LIB_LIBC_OBJS = $(LIB_LIBC_DIR)/src/unistd/chdir.o \
 	\
 	$(LIB_LIBC_DIR)/src/fcntl/open.o \
 	$(LIB_LIBC_DIR)/src/fcntl/close.o \
+	$(LIB_LIBC_DIR)/src/fcntl/stat.o \
 	$(LIB_LIBC_DIR)/src/fcntl/fcntl.o
 
 LIB_OBJS = $(LIB_SYS_OBJS) \
@@ -176,12 +178,12 @@ libs: $(LIB_OBJS)
 	$(AR) rT $(BUILD_DIR)/lib/libhash.a $(LIB_HASH_OBJS)
 	@cp -r $(LIB_HASH_DIR)/include/* $(BUILD_DIR)/include/
 
-include $(ROOT_DIR)/sbin/vfsd/build.mk
-include $(ROOT_DIR)/sbin/procd/build.mk
 include $(ROOT_DIR)/sbin/init/build.mk
 
 include $(ROOT_DIR)/drivers/nulld/build.mk
+include $(ROOT_DIR)/drivers/stdiod/build.mk
 include $(ROOT_DIR)/drivers/romfsd/build.mk
+include $(ROOT_DIR)/drivers/ramfsd/build.mk
 include $(ROOT_DIR)/drivers/arch/arm/versatilepb/ttyd/build.mk
 include $(ROOT_DIR)/drivers/arch/arm/raspix/pl011_uartd/build.mk
 include $(ROOT_DIR)/drivers/arch/arm/raspix/mini_uartd/build.mk

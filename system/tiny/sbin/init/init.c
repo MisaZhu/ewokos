@@ -55,7 +55,7 @@ static int run(const char* cmd, bool prompt, bool wait) {
 
 	int pid = fork();
 	if(pid == 0) {
-		setuid(0);
+		proc_detach();
 		if(exec(cmd) != 0) {
 			if(prompt)
 				klog("[error!]\n");
@@ -136,18 +136,63 @@ void core(void);
 static void run_core(void) {
 	int pid = fork();
 	if(pid == 0) {
-		syscall1(SYS_PROC_SET_CMD, (int32_t)"/sbin/init-core");
+		syscall1(SYS_PROC_SET_CMD, (int32_t)"init-core");
 		core();
 	}
 	else
 		proc_wait_ready(pid);
 }
 
+int vfsd_main(void);
+static void run_vfsd(void) {
+	int pid = fork();
+	if(pid == 0) {
+		syscall1(SYS_PROC_SET_CMD, (int32_t)"init-vfsd");
+		vfsd_main();
+	}
+	else
+		proc_wait_ready(pid);
+}
+
+int procd_main(void);
+static void run_procd(void) {
+	int pid = fork();
+	if(pid == 0) {
+		syscall1(SYS_PROC_SET_CMD, (int32_t)"init-procd");
+		procd_main();
+	}
+	else
+		proc_wait_ready(pid);
+}
+
+static void init_fs(void) {
+	run_none_fs("/drivers/rootfsd");
+}
+
 static void init_tty_stdio(void) {
 	int fd = open("/dev/tty0", 0);
+
 	dup2(fd, 0);
 	dup2(fd, 1);
 	dup2(fd, 2);
+}
+
+static void load_stdios(void) {
+	run("/drivers/stdiod stdin", false, false);
+	run("/drivers/stdiod stdout", false, false);
+	run("/drivers/stdiod stderr", false, false);
+}
+
+static void switch_root(void) {
+	int pid = fork();
+	if(pid == 0) {
+		setuid(0);
+		load_devs();
+		init_tty_stdio();
+		load_stdios();
+		run_procs();
+		exit(0);
+	}
 }
 
 int main(int argc, char** argv) {
@@ -160,25 +205,18 @@ int main(int argc, char** argv) {
 	}
 
 	klog("\n[init process started]\n");
+	syscall1(SYS_PROC_SET_CMD, (int32_t)"init");
 	run_core();
+	run_procd();
+	run_vfsd();
 
-	sys_info_t sysinfo;
-	syscall1(SYS_GET_SYS_INFO, (int32_t)&sysinfo);
+	//load procs before file system ready
+	init_fs();
 
-	run_none_fs("/sbin/procd");
-	run_none_fs("/sbin/vfsd");
-	run_none_fs("/drivers/rootfsd");
-
-	load_devs();
-
-	setenv("OS", "mkos");
-
-	init_tty_stdio();
-	run_procs();
+	switch_root();
 
 	while(true) {
-		proc_block(getpid(), 0);
-		sleep(1);
+		proc_block(getpid(), (uint32_t)main);
 	}
 	return 0;
 }

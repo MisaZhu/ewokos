@@ -75,7 +75,7 @@ ARCH_OBJS = \
 
 QEMU_CMD = qemu-system-arm
 OS_IMG = kernel7.img
-OS_ELF = kernel.elf
+OS_ELF = kernel7.elf
 
 LIB_DIR = $(SRC_DIR)/basic/lib/src
 
