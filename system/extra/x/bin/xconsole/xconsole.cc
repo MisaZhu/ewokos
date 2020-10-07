@@ -133,7 +133,7 @@ static int run(int argc, char* argv[]) {
 	X x;
 	xscreen_t scr;
  	x.screenInfo(scr);
-	x.open(&xwin, 640, 40, scr.size.w*3/4, scr.size.h*3/4, "xconsole", 0);
+	x.open(&xwin, 64, 40, scr.size.w*3/4, scr.size.h*3/4, "xconsole", 0);
 	xwin.setVisible(true);
 
 	x.run(loop, &xwin);
