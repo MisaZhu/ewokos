@@ -7,19 +7,11 @@
 extern "C" {
 #endif
 
-typedef struct {
-	int fd;
-	int dma_id;
-	graph_t* g;
-} fb_t;
-
-int      fb_open(const char *dev, fb_t* fb);
 int      fb_set(const char *dev, int w, int h, int bpp);
-int      fb_size(fb_t* fb, int* w, int* h);
+int      fb_size(int fd, int* w, int* h);
 int      fb_dev_info(const char* dev, int* w, int* h, int* bpp);
-graph_t* fb_fetch_graph(fb_t* fb);
-int      fb_flush(fb_t* fb);
-int      fb_close(fb_t* fb);
+int      fb_flush(int fd, graph_t* g);
+graph_t* fb_graph(int fd);
 
 #ifdef __cplusplus
 }
