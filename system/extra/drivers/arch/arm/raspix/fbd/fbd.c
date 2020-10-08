@@ -29,7 +29,6 @@ static int fb_fcntl(int fd,
 	(void)info;
 	(void)in;
 	(void)p;
-
 	if(cmd == 0) { //get fb size
 		PF->addi(out, _fbinfo->width)->addi(out, _fbinfo->height)->addi(out, _fbinfo->depth);
 	}
@@ -95,6 +94,7 @@ static int32_t do_flush(fb_dma_t* dma) {
 		return -1;
 	}
 
+//klog("2\n");	
   if(_fbinfo->depth == 32)
     memcpy((void*)_fbinfo->pointer, buf, size);
   else if(_fbinfo->depth == 16)
@@ -113,7 +113,6 @@ static int fb_flush(int fd, int from_pid, fsinfo_t* info, void* p) {
 	(void)from_pid;
 	(void)info;
 	fb_dma_t* dma = (fb_dma_t*)p;
-
 	if(_fbinfo->pointer == 0)
 		return 0;
 

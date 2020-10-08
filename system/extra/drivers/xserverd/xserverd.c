@@ -65,6 +65,7 @@ typedef struct {
 typedef struct {
 	bool actived;
 	int  fb_fd;
+	fb_dma_t  fb_dma;
 	int  shm_id;
 	graph_t* g;
 	int xwm_pid;
@@ -421,6 +422,8 @@ static void x_reset(x_t* x) {
 	int w, h;
 	if(fb_size(x->fb_fd, &w, &h) != 0 || w <= 0 || h <= 0)
 		return;
+	if(fb_dma(x->fb_fd, &x->fb_dma, w, h) != 0)
+		return;
 
 	int shm_id = shm_alloc(w * h * 4, 1);
 	if(shm_id <= 0)
@@ -467,6 +470,7 @@ static void x_close(x_t* x) {
 		graph_free(x->g);
 		shm_unmap(x->shm_id);
 	}
+	fb_close_dma(&x->fb_dma);
 	close(x->fb_fd);
 }
 
@@ -494,7 +498,7 @@ static void x_repaint(x_t* x) {
 	if(x->show_cursor)
 		draw_cursor(x);
 
-	fb_flush(x->fb_fd, x->g);
+	fb_flush(x->fb_fd, &x->fb_dma, x->g);
 
 	if(undirty) {
 		x->dirty = false;
@@ -959,7 +963,7 @@ static int xserver_close(int fd, int from_pid, fsinfo_t* info, void* p) {
 static int xserver_step(void* p) {
 	x_t* x = (x_t*)p;
 	int w, h;
-	if(fb_size(x->fb_fd, &w, &h) != 0)
+	if(x->fb_fd <= 0 || fb_size(x->fb_fd, &w, &h) != 0)
 		return -1;
 
 	if(x->g != NULL && w == x->g->w && h == x->g->h)

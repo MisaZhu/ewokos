@@ -227,7 +227,7 @@ void core(void) {
 				proto_free(kev->data);
 			free(kev);
 		}
-		usleep(0);
+		usleep(10000);
 	}
 
 	hashmap_free(_global);

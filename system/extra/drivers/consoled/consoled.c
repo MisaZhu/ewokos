@@ -14,6 +14,7 @@ typedef struct {
 	const char* id;
 	int fb_fd;
 	graph_t* g;
+	fb_dma_t fb_dma;
 	console_t console;
 } fb_console_t;
 
@@ -43,6 +44,7 @@ static int init_console(fb_console_t* console) {
 static void close_console(fb_console_t* console) {
 	if(console->g != NULL)
 		graph_free(console->g);
+	fb_close_dma(&console->fb_dma);
 	close(console->fb_fd);
 }
 
@@ -83,7 +85,7 @@ static int console_write(int fd,
 		console_put_char(&_console.console, c);
 	}
 
-	fb_flush(_console.fb_fd, _console.g);
+	fb_flush(_console.fb_fd, &_console.fb_dma, _console.g);
 	return size;
 }
 
@@ -95,10 +97,12 @@ static int console_step(void* p) {
 
 	if(_console.g != NULL && w == _console.g->w && h == _console.g->h)
 		return 0;
+	if(fb_dma(_console.fb_fd, &_console.fb_dma, w, h) != 0)
+		return -1;
 
 	if(reset_console(&_console) == 0 && _console.g != NULL) {
 		console_refresh(&_console.console, _console.g);
-		fb_flush(_console.fb_fd, _console.g);
+		fb_flush(_console.fb_fd, &_console.fb_dma, _console.g);
 	}
 	return 0;
 }
