@@ -164,8 +164,6 @@ static void proc_free_space(proc_t *proc) {
 	if(proc->info.type != PROC_TYPE_PROC)
 		return;
 
-	PF->clear(&proc->space->ipc.ctx.data);
-
 	/*unmap share mems*/
 	proc_unmap_shms(proc);
 
@@ -267,6 +265,7 @@ void proc_exit(context_t* ctx, proc_t *proc, int32_t res) {
 		unmap_page(proc->space->vm, user_stack_base + PAGE_SIZE*i);
 		kfree4k(proc->user_stack[i]);
 	}
+	PF->clear(&proc->ipc_ctx.data);
 	proc_free_space(proc);
 	memset(proc, 0, sizeof(proc_t));
 }
