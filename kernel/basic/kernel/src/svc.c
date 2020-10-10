@@ -287,12 +287,9 @@ static void sys_ipc_set_return(ipc_t* ipc, proto_t* data) {
 
 	if(data != NULL)
 		PF->copy(&ipc->data, data->data, data->size);
-
-	ipc->state = IPC_RETURN;
-	proc_wakeup(_current_proc->info.pid, (uint32_t)ipc);
 }
 
-static void sys_ipc_end(context_t* ctx) {
+static void sys_ipc_end(context_t* ctx, ipc_t* ipc) {
 	if(_current_proc->space->ipc.entry == 0) {
 		return;
 	}
@@ -306,7 +303,14 @@ static void sys_ipc_end(context_t* ctx) {
 
 	_current_proc->info.ipc_busy = false;
 	proc_wakeup(_current_proc->info.pid, (uint32_t)&_current_proc->space->ipc);
-	schedule(ctx);
+
+	ipc->state = IPC_RETURN;
+	proc_wakeup(_current_proc->info.pid, (uint32_t)ipc);
+	proc_t* proc = proc_get(ipc->client_pid);
+	if(proc != NULL)
+		proc_switch(ctx, proc, true);
+	else
+		schedule(ctx);
 }
 
 static void sys_ipc_lock(void) {
@@ -533,7 +537,7 @@ void svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_t arg2, context
 		sys_ipc_set_return((ipc_t*)arg0, (proto_t*)arg1);
 		return;
 	case SYS_IPC_END:
-		sys_ipc_end(ctx);
+		sys_ipc_end(ctx, (ipc_t*)arg0);
 		return;
 	case SYS_IPC_GET_ARG:
 		ctx->gpr[0] = sys_ipc_get_info((ipc_t*)arg0, (int32_t*)arg1, (int32_t*)arg2);
