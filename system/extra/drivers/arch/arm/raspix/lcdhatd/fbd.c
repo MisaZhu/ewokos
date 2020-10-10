@@ -17,15 +17,14 @@ typedef struct {
 	int32_t shm_id;
 } fb_dma_t;
 
-void  do_flush(const void* buf, uint32_t size);
+int  do_flush(const void* buf, uint32_t size);
 static int lcd_flush(int fd, int from_pid, fsinfo_t* info, void* p) {
 	(void)fd;
 	(void)from_pid;
 	(void)info;
 	fb_dma_t* dma = (fb_dma_t*)p;
 
-	do_flush(dma->data, dma->size);
-	return 0;
+	return do_flush(dma->data, dma->size);
 }
 
 static int lcd_dma(int fd, int from_pid, fsinfo_t* info, int* size, void* p) {

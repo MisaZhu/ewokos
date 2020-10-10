@@ -12,29 +12,51 @@
 
 typedef struct {
 	const char* id;
-	fb_t fb;
+	int fb_fd;
+	graph_t* g;
+	fb_dma_t fb_dma;
 	console_t console;
 } fb_console_t;
 
-static void init_console(fb_console_t* console) {
-	if(fb_open("/dev/fb0", &console->fb) != 0)
-		return;
+static int init_console(fb_console_t* console) {
+	memset(console, 0, sizeof(fb_console_t));
 
+	int fd = open("/dev/fb0", O_WRONLY);
+	if(fd < 0)
+		return -1;
+
+	graph_t* g = fb_graph(fd);
+	if(g == NULL) {
+		close(fd);
+		return -1;
+	}
+
+	console->g = g;
+	console->fb_fd = fd;
 	console_init(&console->console);
 	console->console.font = font_by_name("8x16");
 	console->console.fg_color = 0xffcccccc;
 	console->console.bg_color = 0xff000000;
-	console_reset(&console->console, console->fb.g->w, console->fb.g->h);
+	console_reset(&console->console, console->g->w, console->g->h);
+	return 0;
 }
 
 static void close_console(fb_console_t* console) {
-	fb_close(&console->fb);
+	if(console->g != NULL)
+		graph_free(console->g);
+	fb_close_dma(&console->fb_dma);
+	close(console->fb_fd);
 }
 
-static void reset_console(fb_console_t* console) {
-	if(fb_fetch_graph(&console->fb) == NULL)
-		return;
-	console_reset(&console->console, console->fb.g->w, console->fb.g->h);
+static int reset_console(fb_console_t* console) {
+	if(console->g != NULL)
+		graph_free(console->g);
+	console->g = fb_graph(console->fb_fd);
+
+	if(console->g == NULL)
+		return -1;
+	console_reset(&console->console, console->g->w, console->g->h);
+	return 0;
 }
 
 static fb_console_t _console;
@@ -52,9 +74,10 @@ static int console_write(int fd,
 	(void)offset;
 	(void)p;
 
-	if(size <= 0 || _console.fb.g == NULL)
+	if(size <= 0 || _console.g == NULL)
 		return 0;
 
+	console_refresh(&_console.console, _console.g);
 	const char* pb = (const char*)buf;
 	int i;
 	for(i=0; i<size; i++) {
@@ -62,25 +85,24 @@ static int console_write(int fd,
 		console_put_char(&_console.console, c);
 	}
 
-	reset_console(&_console);
-	console_refresh(&_console.console, _console.fb.g);
-	fb_flush(&_console.fb);
+	fb_flush(_console.fb_fd, &_console.fb_dma, _console.g);
 	return size;
 }
 
 static int console_step(void* p) {
 	(void)p;
 	int w, h;
-	if(fb_size(&_console.fb, &w, &h) != 0)
+	if(fb_size(_console.fb_fd, &w, &h) != 0)
 		return -1;
 
-	if(w == _console.fb.g->w && h == _console.fb.g->h)
+	if(_console.g != NULL && w == _console.g->w && h == _console.g->h)
 		return 0;
+	if(fb_dma(_console.fb_fd, &_console.fb_dma, w, h) != 0)
+		return -1;
 
-	reset_console(&_console);
-	if(_console.fb.g != NULL) {
-		console_refresh(&_console.console, _console.fb.g);
-		fb_flush(&_console.fb);
+	if(reset_console(&_console) == 0 && _console.g != NULL) {
+		console_refresh(&_console.console, _console.g);
+		fb_flush(_console.fb_fd, &_console.fb_dma, _console.g);
 	}
 	return 0;
 }

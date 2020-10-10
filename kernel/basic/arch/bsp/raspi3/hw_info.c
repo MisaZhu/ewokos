@@ -11,14 +11,18 @@ void sys_info_init(void) {
 	memset(&_sys_info, 0, sizeof(sys_info_t));
 
 	strcpy(_sys_info.machine, "raspi3");
+#ifdef PI3A
+	_sys_info.phy_mem_size = 512*MB;
+#else
 	_sys_info.phy_mem_size = 1024*MB;
+#endif
 	_sys_info.kernel_base = KERNEL_BASE;
 	_sys_info.mmio.phy_base = 0x3f000000;
 	_sys_info.mmio.v_base = MMIO_BASE;
 	_sys_info.mmio.size = 16*MB;
 
   _allocatable_mem_base = V2P(ALLOCATABLE_MEMORY_START);
-	_allocatable_mem_top = 0x3c100000; //bcm283x framebuffer mem base
+	_allocatable_mem_top = _sys_info.phy_mem_size - 64*MB; //bcm283x framebuffer mem base
 }
 
 void arch_vm(page_dir_entry_t* vm) {

@@ -15,8 +15,8 @@ int32_t proc_ipc_call(context_t* ctx, proc_t* proc, ipc_t *ipc) {
 	if(proc == NULL || proc->space->ipc.entry == 0 || ipc == NULL)
 		return -1;
 	
-	ipc->proc_state = proc->info.state;
-	memcpy(&ipc->ctx, &proc->ctx, sizeof(context_t));
+	proc->space->ipc.state = proc->info.state;
+	memcpy(&proc->space->ipc.ctx, &proc->ctx, sizeof(context_t));
 
 	proc->ctx.pc = proc->ctx.lr = proc->space->ipc.entry;
 	proc->ctx.gpr[0] = (uint32_t)ipc;
@@ -27,7 +27,7 @@ int32_t proc_ipc_call(context_t* ctx, proc_t* proc, ipc_t *ipc) {
 }
 
 ipc_t* proc_ipc_req(proc_t* proc) {
-	return &proc->space->ipc.ctx;
+	return &proc->ipc_ctx;
 }
 
 void proc_ipc_close(ipc_t* ipc) {

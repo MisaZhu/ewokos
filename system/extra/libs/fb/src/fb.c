@@ -7,46 +7,20 @@
 #include <sys/shm.h>
 #include <sys/proto.h>
 #include <sys/vfs.h>
+#include <sys/vdevice.h>
 
 #ifdef __cplusplus 
 extern "C" { 
 #endif
 
-int fb_open(const char *dev, fb_t* fb) {
-	if(fb == NULL || dev == NULL)
+int fb_size(int fd, int* w, int* h) {
+	if(fd < 0)
 		return -1;
 
-	memset(fb, 0, sizeof(fb_t));
-	fb->fd = open(dev, O_RDWR);
-	if(fb->fd < 0)
-		return -1;
-	return 0;	
-}
-
-int fb_flush(fb_t* fb) {
-	if(fb == NULL || fb->fd < 0)
-		return -1;
-	return vfs_flush(fb->fd);
-}
-
-int fb_close(fb_t* fb) {
-	if(fb == NULL || fb->fd < 0)
-		return -1;
-	if(fb->g != NULL) {
-		graph_free(fb->g);
-		shm_unmap(fb->dma_id);
-	}
-	close(fb->fd);
-	return 0;
-}
-
-int fb_size(fb_t* fb, int* w, int* h) {
-	if(fb == NULL || fb->fd < 0)
-		return -1;
-
-	proto_t out;
+	proto_t in, out;
+	PF->init(&in);
 	PF->init(&out);
-	if(vfs_fcntl(fb->fd, 0, NULL, &out) != 0) { //get fb size
+	if(vfs_fcntl(fd, 0, &in, &out) != 0) { //get fb size
 		PF->clear(&out);
 		return -1;
 	}
@@ -56,41 +30,52 @@ int fb_size(fb_t* fb, int* w, int* h) {
 	return 0;
 }
 
-graph_t* fb_fetch_graph(fb_t* fb) {
-	if(fb == NULL || fb->fd < 0)
-		return NULL;
-
-	int id, w, h;
-	void* gbuf;
-	graph_t* g;
-
-	if(fb_size(fb, &w, &h) != 0 ||
+graph_t* fb_graph(int fd) {
+	int w, h;
+	if(fb_size(fd, &w, &h) != 0 ||
 			w <= 0 || h <= 0)
 		return NULL;
+	return graph_new(NULL, w, h);
+}
 
-	if(fb->g != NULL && fb->g->w == w && fb->g->h == h)
-		return fb->g;
+int fb_dma(int fd, fb_dma_t* dma, int w, int h) {
+	if(fd < 0 || dma == NULL || w <= 0 || h <= 0)
+		return -1;
+
+	if(dma->w == w && dma->h == h)
+		return 0;
 	
-	if(fb->g != NULL) {
-		graph_free(fb->g);
-		shm_unmap(fb->dma_id);
-		fb->g = NULL;
-		fb->dma_id = 0;
+	if(dma->shm_id > 0) {
+		shm_unmap(dma->shm_id);
+		dma->buf = NULL;
+	}
+	
+	dma->shm_id = vfs_dma(fd, NULL);
+	if(dma->shm_id <= 0) {
+		return -1;
 	}
 
-	id = vfs_dma(fb->fd, NULL);
-	if(id <= 0) {
-		return NULL;
+	dma->buf = shm_map(dma->shm_id);
+	if(dma->buf == NULL) {
+		return -1;
 	}
+	dma->w = w;
+	dma->h = h;
+	return 0;
+}
 
-	gbuf = shm_map(id);
-	if(gbuf == NULL) {
-		return NULL;
-	}
-	g = graph_new(gbuf, w, h);
-	fb->dma_id = id;
-	fb->g = g;
-	return g;
+void fb_close_dma(fb_dma_t* dma) {
+	if(dma == NULL || dma->shm_id <= 0)
+		return;
+	shm_unmap(dma->shm_id);
+}
+
+int fb_flush(int fd, fb_dma_t* dma, graph_t* g) {
+	if(fd < 0 || dma == NULL || dma->buf == NULL ||
+			g == NULL || dma->w != g->w || dma->h != g->h)
+		return -1;
+	memcpy(dma->buf, g->buffer, g->w*g->h*4);
+	return vfs_flush(fd);
 }
 
 int fb_set(const char *dev, int w, int h, int bpp) {

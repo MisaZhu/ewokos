@@ -380,9 +380,9 @@ int device_run(vdevice_t* dev, const char* mnt_point, int mnt_type) {
 
 	while(1) {
 		if(dev->loop_step != NULL) {
-			ipc_lock();
+			//ipc_lock();
 			dev->loop_step(dev->extra_data);
-			ipc_unlock();
+			//ipc_unlock();
 			usleep(10000);
 		}
 		else {

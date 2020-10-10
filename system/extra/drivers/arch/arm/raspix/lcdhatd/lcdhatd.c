@@ -295,9 +295,9 @@ void lcd_init(void) {
 	LCD_1in3_Clear(0x0);
 }
 
-void  do_flush(const void* buf, uint32_t size) {
+int  do_flush(const void* buf, uint32_t size) {
 	if(size < LCD_WIDTH * LCD_HEIGHT* 4)
-		return;
+		return -1;
 
 	LCD_DC_1;
 	bcm283x_spi_activate(1);
@@ -319,5 +319,6 @@ void  do_flush(const void* buf, uint32_t size) {
 	}
 
 	bcm283x_spi_activate(0);
+	return 0;
 }
 

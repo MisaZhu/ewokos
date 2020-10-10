@@ -55,6 +55,10 @@ CFLAGS += $(OPTM) \
 	-fno-builtin-strncmp \
 	-std=c99
 
+ifeq ($(PI3A),yes)
+CFLAGS += -DPI3A
+endif
+
 ARCH_OBJS = \
 	$(ARCH_DIR)/$(ARCH)/boot.o \
 	$(ARCH_DIR)/$(ARCH)/start.o \

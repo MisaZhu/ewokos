@@ -26,7 +26,8 @@ typedef struct {
 		uint32_t entry;
 		uint32_t flags;
 		uint32_t extra_data;
-		ipc_t ctx;
+		context_t ctx;
+	  uint32_t state;
 	} ipc;
 } proc_space_t;
 
@@ -43,6 +44,7 @@ typedef struct st_proc {
 	void* user_stack[STACK_PAGES];
 
 	context_t ctx;
+	ipc_t ipc_ctx;
 } proc_t;
 
 extern proc_t* _current_proc;
