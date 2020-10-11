@@ -63,7 +63,7 @@ void irq_handler(context_t* ctx) {
 				_timer_tic = 0;
 			}
 
-			if(_schedule_tic >= 10000) { //10 msec, 100 times scheduling per second
+			if(_schedule_tic >= 20000) { //20 msec, 50 times scheduling per second
 				_schedule_tic = 0;
 			}
 			renew_sleep_counter(usec_gap);

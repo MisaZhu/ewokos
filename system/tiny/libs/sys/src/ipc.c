@@ -18,8 +18,8 @@ static int ipc_set_return(uint32_t ipc_id, const proto_t* pkg) {
 	return 0;
 }
 
-static void ipc_end(void) {
-	syscall0(SYS_IPC_END);
+static void ipc_end(uint32_t ipc_id) {
+	syscall1(SYS_IPC_END, ipc_id);
 }
 
 void ipc_lock(void) {
@@ -138,7 +138,7 @@ static void handle_ipc(uint32_t ipc_id, void* p) {
 
 	ipc_set_return(ipc_id, &out);
 	PF->clear(&out);
-	ipc_end();
+	ipc_end(ipc_id);
 }
 
 int ipc_serv_run(ipc_serv_handle_t handle, void* p, int flags) {

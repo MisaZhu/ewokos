@@ -16,31 +16,31 @@ void proc_init(void) {
 	_vfsd_pid = -1;
 }
 
-int get_procd_pid(void) {
+inline int get_procd_pid(void) {
 	if(_procd_pid < 0)
 		_procd_pid = ipc_serv_get(IPC_SERV_PROC);
 	return _procd_pid;
 }
 
-int get_vfsd_pid(void) {
+inline int get_vfsd_pid(void) {
 	if(_vfsd_pid < 0)
 		_vfsd_pid = ipc_serv_get(IPC_SERV_VFS);
 	return _vfsd_pid;
 }
 
-int proc_getpid(int pid) {
+inline int proc_getpid(int pid) {
   return syscall1(SYS_GET_PID, pid);
 }
 
-void proc_detach(void) {
+inline void proc_detach(void) {
 	syscall0(SYS_DETACH);
 }
 
-int proc_ping(int pid) {
+inline int proc_ping(int pid) {
 	return syscall1(SYS_PROC_PING, (int32_t)pid);
 }
 
-void proc_ready_ping(void) {
+inline void proc_ready_ping(void) {
 	syscall0(SYS_PROC_READY_PING);
 }
 
@@ -52,15 +52,15 @@ void proc_wait_ready(int pid) {
 	}
 }
 
-void proc_block(int by_pid, uint32_t evt) {
+inline void proc_block(int by_pid, uint32_t evt) {
 	syscall2(SYS_BLOCK, by_pid, evt);
 }
 
-void proc_wakeup(uint32_t evt) {
+inline void proc_wakeup(uint32_t evt) {
 	syscall1(SYS_WAKEUP, evt);
 }
 
-void proc_exec_elf(const char* cmd_line, const char* elf, int32_t size) {
+inline void proc_exec_elf(const char* cmd_line, const char* elf, int32_t size) {
 	syscall3(SYS_EXEC_ELF, (int32_t)cmd_line, (int32_t)elf, size);
 }
 

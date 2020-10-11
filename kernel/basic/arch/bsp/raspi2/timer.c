@@ -4,6 +4,8 @@
 #include <basic_math.h>
 #include "timer_arch.h"
 
+uint32_t _timer_frq  = 0;
+
 /*#define ARM_TIMER_BASE (_mmio_base + 0xB400)
 #define ARM_TIMER_LOAD ARM_TIMER_BASE
 #define ARM_TIMER_CTRL ARM_TIMER_BASE+(4*2)
@@ -26,7 +28,6 @@ void timer_set_interval(uint32_t id, uint32_t interval_microsecond) {
 }
 */
 
-uint32_t _timer_frq  = 0;
 void __write_cntv_tval(uint32_t);
 void __enable_cntv(void);
 
