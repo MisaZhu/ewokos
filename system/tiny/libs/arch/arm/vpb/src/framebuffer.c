@@ -54,7 +54,8 @@ int32_t vpb_fb_init(uint32_t w, uint32_t h, uint32_t dep) {
   put32((_mmio_base | 0x00120018), 0x082b);
 
   _fb_info.size = _fb_info.width * _fb_info.height * (_fb_info.depth/8);
-  syscall3(SYS_MEM_MAP, _fb_info.pointer, _fb_info.pointer-sysinfo.kernel_base, _fb_info.size);
+	_fb_info.size_max = 4*1024*1024;
+  syscall3(SYS_MEM_MAP, _fb_info.pointer, _fb_info.pointer-sysinfo.kernel_base, _fb_info.size_max);
   return 0;
 }
 

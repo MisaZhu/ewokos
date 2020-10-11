@@ -29,26 +29,21 @@ static int fb_fcntl(int fd,
 	(void)info;
 	(void)in;
 	(void)p;
-
 	if(cmd == 0) { //get fb size
 		PF->addi(out, _fbinfo->width)->addi(out, _fbinfo->height)->addi(out, _fbinfo->depth);
 	}
 	return 0;
 }
 
-static int fb_dma_reset(fb_dma_t* dma) {
-	if(dma->shm_id > 0) {
-		shm_unmap(dma->shm_id);
-		dma->shm_id = 0;
-	}
+static int fb_dma_init(fb_dma_t* dma) {
+	memset(dma, 0, sizeof(fb_dma_t));
 	if(_fbinfo->pointer == 0)
 		return -1;
 
-  uint32_t size = 4 * _fbinfo->width * _fbinfo->height;
-	dma->shm_id = shm_alloc(size, 1);
+	dma->shm_id = shm_alloc(_fbinfo->size_max, 1);
 	if(dma->shm_id <= 0)
 		return -1;
-	dma->size = size;
+	dma->size = _fbinfo->size_max;
 	dma->data = shm_map(dma->shm_id);
 	if(dma->data == NULL)
 		return -1;
@@ -58,7 +53,7 @@ static int fb_dma_reset(fb_dma_t* dma) {
 static int fb_dev_cntl(int from_pid, int cmd, proto_t* in, proto_t* ret, void* p) {
 	(void)from_pid;
 	(void)ret;
-	fb_dma_t* dma = (fb_dma_t*)p;
+	(void)p;
 
 	if(cmd == 0) { //set fb size and bpp
 		int w = proto_read_int(in);
@@ -67,7 +62,6 @@ static int fb_dev_cntl(int from_pid, int cmd, proto_t* in, proto_t* ret, void* p
 		if(vpb_fb_init(w, h, bpp) != 0)
 			return -1;
 		_fbinfo = vpb_get_fbinfo();
-		fb_dma_reset(dma);
 	}
 	else {
 		PF->addi(ret, _fbinfo->width)->addi(ret, _fbinfo->height)->addi(ret, _fbinfo->depth);
@@ -104,12 +98,12 @@ static int32_t do_flush(fb_dma_t* dma) {
 	const void* buf = dma->data;
 	uint32_t size = dma->size;
   uint32_t sz = 4 * _fbinfo->width * _fbinfo->height;
-  if(size != sz) {
+  if(size < sz) {
 		return -1;
 	}
 
   if(_fbinfo->depth == 32)
-    argb2abgr((uint32_t*)_fbinfo->pointer, (uint32_t*)buf, size/4);
+    argb2abgr((uint32_t*)_fbinfo->pointer, (const uint32_t*)buf, size/4);
   else if(_fbinfo->depth == 16)
     dup16((uint16_t*)_fbinfo->pointer, (uint32_t*)buf,  _fbinfo->width, _fbinfo->height);
 	else 
@@ -126,7 +120,6 @@ static int fb_flush(int fd, int from_pid, fsinfo_t* info, void* p) {
 	(void)from_pid;
 	(void)info;
 	fb_dma_t* dma = (fb_dma_t*)p;
-
 	if(_fbinfo->pointer == 0)
 		return 0;
 
@@ -150,7 +143,7 @@ int main(int argc, char** argv) {
 		return -1;
 	_fbinfo = vpb_get_fbinfo();
 	
-	if(fb_dma_reset(&dma) != 0) {
+	if(fb_dma_init(&dma) != 0) {
 		return -1;
 	}
 

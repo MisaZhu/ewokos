@@ -64,9 +64,7 @@ typedef struct {
 
 typedef struct {
 	bool actived;
-	int  fb_fd;
-	fb_dma_t  fb_dma;
-	int  shm_id;
+	fb_t fb;
 	graph_t* g;
 	int xwm_pid;
 	bool dirty;
@@ -111,7 +109,7 @@ static void draw_win_frame(x_t* x, xview_t* view) {
 	proto_t in;
 
 	PF->init(&in)->
-		addi(&in, x->shm_id)->
+		addi(&in, x->fb.dma_id)->
 		addi(&in, x->g->w)->
 		addi(&in, x->g->h)->
 		add(&in, &view->xinfo, sizeof(xinfo_t));
@@ -130,7 +128,7 @@ static void draw_desktop(x_t* x) {
 
 	proto_t in;
 	PF->init(&in)->
-		addi(&in, x->shm_id)->
+		addi(&in, x->fb.dma_id)->
 		addi(&in, x->g->w)->
 		addi(&in, x->g->h);
 
@@ -162,7 +160,7 @@ static void draw_drag_frame(x_t* xp) {
 
 	proto_t in;
 	PF->init(&in)->
-		addi(&in, xp->shm_id)->
+		addi(&in, xp->fb.dma_id)->
 		addi(&in, xp->g->w)->
 		addi(&in, xp->g->h)->
 		add(&in, &r, sizeof(grect_t));
@@ -419,35 +417,15 @@ static inline void draw_cursor(x_t* x) {
 }
 
 static void x_reset(x_t* x) {
-	int w, h;
-	if(fb_size(x->fb_fd, &w, &h) != 0 || w <= 0 || h <= 0)
-		return;
-	if(fb_dma(x->fb_fd, &x->fb_dma, w, h) != 0)
-		return;
-
-	int shm_id = shm_alloc(w * h * 4, 1);
-	if(shm_id <= 0)
-		return;
-
-	void* p = shm_map(shm_id);
-	if(p == NULL) 
-		return;
-
-	if(x->g != NULL) {
-		graph_free(x->g);
-		shm_unmap(x->shm_id);
-	}
-	x->g = graph_new(p, w, h);
-	x->shm_id = shm_id;
-}	
+	x->g = fb_fetch_graph(&x->fb);
+}
 
 static int x_init(const char* fb_dev, x_t* x) {
 	memset(x, 0, sizeof(x_t));
 	x->xwm_pid = -1;
 
-	if((x->fb_fd = open(fb_dev, O_WRONLY)) < 0) {
+	if(fb_open(fb_dev, &x->fb) != 0)
 		return -1;
-	}
 
 	x_reset(x);
 	x_dirty(x);
@@ -466,12 +444,7 @@ static int x_init(const char* fb_dev, x_t* x) {
 
 
 static void x_close(x_t* x) {
-	if(x->g != NULL) {
-		graph_free(x->g);
-		shm_unmap(x->shm_id);
-	}
-	fb_close_dma(&x->fb_dma);
-	close(x->fb_fd);
+	fb_close(&x->fb);
 }
 
 static void x_repaint(x_t* x) {
@@ -480,7 +453,6 @@ static void x_repaint(x_t* x) {
 			(!x->need_repaint))
 		return;
 	x->need_repaint = false;
-
 	hide_cursor(x);
 	bool undirty = false;
 	if(x->dirty) {
@@ -498,7 +470,7 @@ static void x_repaint(x_t* x) {
 	if(x->show_cursor)
 		draw_cursor(x);
 
-	fb_flush(x->fb_fd, &x->fb_dma, x->g);
+	fb_flush(&x->fb);
 
 	if(undirty) {
 		x->dirty = false;
@@ -962,8 +934,8 @@ static int xserver_close(int fd, int from_pid, fsinfo_t* info, void* p) {
 
 static int xserver_step(void* p) {
 	x_t* x = (x_t*)p;
-	int w, h;
-	if(x->fb_fd <= 0 || fb_size(x->fb_fd, &w, &h) != 0)
+	int w, h, bpp;
+	if(fb_info(&x->fb, &w, &h, &bpp) != 0)
 		return -1;
 
 	if(x->g != NULL && w == x->g->w && h == x->g->h)

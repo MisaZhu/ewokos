@@ -2,6 +2,7 @@
 #include <arch/arm/bcm283x/mailbox.h>
 #include <arch/arm/bcm283x/framebuffer.h>
 #include <sys/syscall.h>
+#include <sysinfo.h>
 #include <sys/mmu.h>
 
 #define KERNEL_BASE 0x80000000
@@ -61,7 +62,11 @@ int32_t bcm283x_fb_init(uint32_t w, uint32_t h, uint32_t dep) {
 		_fb_info.pointer += KERNEL_BASE;
 	}
 
-	syscall3(SYS_MEM_MAP, _fb_info.pointer, _fb_info.pointer-KERNEL_BASE, _fb_info.size);
+	sys_info_t sysinfo;
+	syscall1(SYS_GET_SYS_INFO, (int32_t)&sysinfo);
+	_fb_info.size_max = sysinfo.phy_mem_size - (_fb_info.pointer-KERNEL_BASE);
+	
+	syscall3(SYS_MEM_MAP, _fb_info.pointer, _fb_info.pointer-KERNEL_BASE, _fb_info.size_max);
 	return 0;
 }
 
