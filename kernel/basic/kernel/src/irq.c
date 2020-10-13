@@ -74,17 +74,6 @@ void irq_handler(context_t* ctx) {
 	}
 }
 
-void prefetch_abort_handler(context_t* ctx) {
-	(void)ctx;
-	if(_current_proc == NULL) {
-		printf("_kernel, prefetch abort!!\n");
-		return;
-	}
-
-	printf("pid: %d(%s), prefetch abort!!\n", _current_proc->info.pid, _current_proc->info.cmd);
-	while(1);
-}
-
 static void dump_ctx(context_t* ctx) {
 	printf("ctx dump:\n"
 		"  cpsr=0x%x\n"
@@ -98,6 +87,19 @@ static void dump_ctx(context_t* ctx) {
 	uint32_t i;
 	for(i=0; i<13; i++) 
 		printf("  r%d: 0x%x\n", i, ctx->gpr[i]);
+}
+
+void prefetch_abort_handler(context_t* ctx) {
+	(void)ctx;
+	if(_current_proc == NULL) {
+		printf("_kernel, prefetch abort!!\n");
+		dump_ctx(ctx);
+		while(1);
+	}
+
+	printf("pid: %d(%s), prefetch abort!!\n", _current_proc->info.pid, _current_proc->info.cmd);
+	dump_ctx(ctx);
+	while(1);
 }
 
 void data_abort_handler(context_t* ctx) {
