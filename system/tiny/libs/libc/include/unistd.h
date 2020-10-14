@@ -16,6 +16,7 @@ int getuid(void);
 int setuid(int uid);
 int getpid(void);
 int fork(void);
+int vfork(void);
 unsigned int sleep(unsigned int seconds);
 int usleep(unsigned int usecs);
 

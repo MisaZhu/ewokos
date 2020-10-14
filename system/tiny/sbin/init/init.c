@@ -32,6 +32,7 @@ static char* run_none_fs_kfs(const char* cmd, int32_t *size) {
 
 static int run_none_fs(const char* cmd) {
 	klog("init: %s ", cmd);
+	//int pid = vfork();
 	int pid = fork();
 	if(pid == 0) {
 		char* data = NULL;

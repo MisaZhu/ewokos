@@ -89,6 +89,7 @@ LIB_LIBC_OBJS = $(LIB_LIBC_DIR)/src/unistd/chdir.o \
 	$(LIB_LIBC_DIR)/src/unistd/errno.o \
 	$(LIB_LIBC_DIR)/src/unistd/exec.o \
 	$(LIB_LIBC_DIR)/src/unistd/fork.o \
+	$(LIB_LIBC_DIR)/src/unistd/vfork.o \
 	$(LIB_LIBC_DIR)/src/unistd/getcwd.o \
 	$(LIB_LIBC_DIR)/src/unistd/getuid.o \
 	$(LIB_LIBC_DIR)/src/unistd/getpid.o \

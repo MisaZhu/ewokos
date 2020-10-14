@@ -244,6 +244,31 @@ static void proc_terminate(context_t* ctx, proc_t* proc) {
 	proc_wakeup_waiting(proc->info.pid);
 }
 
+static inline void proc_init_user_stack(proc_t* proc) {
+	uint32_t i;
+	uint32_t user_stack_base =  proc_get_user_stack_base(proc);
+	uint32_t pages = proc_get_user_stack_pages(proc);
+	for(i=0; i<pages; i++) {
+		proc->user_stack[i] = kalloc4k();
+		map_page(proc->space->vm,
+			user_stack_base + PAGE_SIZE*i,
+			V2P(proc->user_stack[i]),
+			AP_RW_RW, 0);
+	}
+	proc->ctx.sp = user_stack_base + pages*PAGE_SIZE;
+}
+
+static inline void proc_free_user_stack(proc_t* proc) {
+	/*free user_stack*/
+	uint32_t user_stack_base = proc_get_user_stack_base(proc);
+	uint32_t pages = proc_get_user_stack_pages(proc);
+	uint32_t i;
+	for(i=0; i<pages; i++) {
+		unmap_page(proc->space->vm, user_stack_base + PAGE_SIZE*i);
+		kfree4k(proc->user_stack[i]);
+	}
+}
+
 /* proc_free frees all resources allocated by proc. */
 void proc_exit(context_t* ctx, proc_t *proc, int32_t res) {
 	(void)res;
@@ -258,13 +283,7 @@ void proc_exit(context_t* ctx, proc_t *proc, int32_t res) {
 	}
 
 	/*free user_stack*/
-	uint32_t user_stack_base = proc_get_user_stack_base(proc);
-	uint32_t pages = proc_get_user_stack_pages(proc);
-	uint32_t i;
-	for(i=0; i<pages; i++) {
-		unmap_page(proc->space->vm, user_stack_base + PAGE_SIZE*i);
-		kfree4k(proc->user_stack[i]);
-	}
+	proc_free_user_stack(proc);
 	PF->clear(&proc->ipc_ctx.data);
 	proc_free_space(proc);
 	memset(proc, 0, sizeof(proc_t));
@@ -318,16 +337,7 @@ proc_t *proc_create(int32_t type, proc_t* parent) {
 		strcpy(proc->info.cmd, parent->info.cmd);
 	}
 
-	uint32_t user_stack_base =  proc_get_user_stack_base(proc);
-	uint32_t pages = proc_get_user_stack_pages(proc);
-	for(i=0; i<pages; i++) {
-		proc->user_stack[i] = kalloc4k();
-		map_page(proc->space->vm,
-			user_stack_base + PAGE_SIZE*i,
-			V2P(proc->user_stack[i]),
-			AP_RW_RW, 0);
-	}
-	proc->ctx.sp = user_stack_base + pages*PAGE_SIZE;
+	proc_init_user_stack(proc);
 	proc->ctx.cpsr = 0x50;
 	proc->info.start_sec = _kernel_sec;
 	return proc;
@@ -348,6 +358,20 @@ int32_t proc_load_elf(proc_t *proc, const char *image, uint32_t size) {
 	char* proc_image = kmalloc(size);
 	memcpy(proc_image, image, size);
 	proc_free_heap(proc);
+	proc_free_user_stack(proc);
+
+	if(proc->info.type == PROC_TYPE_VFORK) {
+		proc->info.type = PROC_TYPE_PROC;
+		proc_init_space(proc);
+		page_dir_entry_t *vm = proc->space->vm;
+		set_translation_table_base((uint32_t) V2P(vm));
+
+		proc_t* father = proc_get(proc->info.father_pid);
+		if(father != NULL &&
+				father->info.block_by == proc->info.pid &&
+				father->block_event == (uint32_t)proc->info.pid)
+			proc_ready(father);
+	}
 
 	/*read elf format from saved proc image*/
 	struct elf_header *header = (struct elf_header *) proc_image;
@@ -381,8 +405,7 @@ int32_t proc_load_elf(proc_t *proc, const char *image, uint32_t size) {
 		prog_header_offset += sizeof(struct elf_program_header);
 	}
 
-	uint32_t user_stack_base =  proc_get_user_stack_base(proc);
-	proc->ctx.sp = user_stack_base + proc_get_user_stack_pages(proc)*PAGE_SIZE;
+	proc_init_user_stack(proc);
 	proc->ctx.pc = header->entry;
 	proc->ctx.lr = header->entry;
 	proc_ready(proc);
@@ -506,7 +529,7 @@ proc_t* kfork_raw(int32_t type, proc_t* parent) {
 
 proc_t* kfork(int32_t type) {
 	proc_t* child = kfork_raw(type, _current_proc);
-	if(_core_ready && child->info.type == PROC_TYPE_PROC) {
+	if(_core_ready && (child->info.type == PROC_TYPE_PROC || child->info.type == PROC_TYPE_VFORK)) {
 		kevent_t* kev = kev_push(KEV_PROC_CREATED, NULL);
 		PF->addi(kev->data, _current_proc->info.pid)->
 			addi(kev->data, child->info.pid);
@@ -570,7 +593,7 @@ void renew_sleep_counter(uint32_t usec) {
 
 proc_t* proc_get_proc(proc_t* proc) {
 	while(proc != NULL) {
-		if(proc->info.type == PROC_TYPE_PROC)
+		if(proc->info.type == PROC_TYPE_PROC || proc->info.type == PROC_TYPE_VFORK)
 			return proc;
 		proc = proc_get(proc->info.father_pid);
 	}
