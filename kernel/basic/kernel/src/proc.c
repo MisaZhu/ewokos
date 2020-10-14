@@ -188,8 +188,8 @@ proc_t* proc_get_next_ready(void) {
 	while(next != NULL && next->info.state != READY)
 		next = queue_pop(&_ready_queue);
 
-	if(next == NULL) {
-		next = &_proc_table[0];
+	if(next == NULL && _core_ready) {
+		next = &_proc_table[_core_pid];
 		if(next->info.state == UNUSED || next->info.state == ZOMBIE || next->info.state == CREATED)
 			return NULL;
 		proc_ready(next);
@@ -357,20 +357,23 @@ int32_t proc_load_elf(proc_t *proc, const char *image, uint32_t size) {
 
 	char* proc_image = kmalloc(size);
 	memcpy(proc_image, image, size);
-	proc_free_heap(proc);
-	proc_free_user_stack(proc);
 
 	if(proc->info.type == PROC_TYPE_VFORK) {
+		proc_free_user_stack(proc);
 		proc->info.type = PROC_TYPE_PROC;
 		proc_init_space(proc);
 		page_dir_entry_t *vm = proc->space->vm;
 		set_translation_table_base((uint32_t) V2P(vm));
+		proc_init_user_stack(proc);
 
 		proc_t* father = proc_get(proc->info.father_pid);
 		if(father != NULL &&
 				father->info.block_by == proc->info.pid &&
 				father->block_event == (uint32_t)proc->info.pid)
 			proc_ready(father);
+	}
+	else {
+		proc_free_heap(proc);
 	}
 
 	/*read elf format from saved proc image*/
@@ -405,7 +408,9 @@ int32_t proc_load_elf(proc_t *proc, const char *image, uint32_t size) {
 		prog_header_offset += sizeof(struct elf_program_header);
 	}
 
-	proc_init_user_stack(proc);
+	uint32_t user_stack_base =  proc_get_user_stack_base(proc);
+	uint32_t pages = proc_get_user_stack_pages(proc);
+	proc->ctx.sp = user_stack_base + pages*PAGE_SIZE;
 	proc->ctx.pc = header->entry;
 	proc->ctx.lr = header->entry;
 	proc_ready(proc);
@@ -508,7 +513,24 @@ static int32_t proc_clone(proc_t* child, proc_t* parent) {
 	return 0;
 }
 
-proc_t* kfork_raw(int32_t type, proc_t* parent) {
+static inline void proc_vfork_clone(context_t* ctx, proc_t* child, proc_t* parent) {
+	uint32_t pages = proc_get_user_stack_pages(child) - 1;
+	uint32_t v_addr =  proc_get_user_stack_base(child) + pages*PAGE_SIZE;
+	uint32_t stack_top = v_addr + PAGE_SIZE;
+	uint32_t ppages = proc_get_user_stack_pages(parent) - 1;
+	uint32_t pv_addr =  proc_get_user_stack_base(parent) + ppages*PAGE_SIZE;
+	uint32_t pstack_top = pv_addr + PAGE_SIZE;
+	uint32_t i;
+
+	for(i=0; i<pages; i++) {
+		proc_page_clone(child, v_addr, parent, pv_addr);
+		v_addr -= PAGE_SIZE;
+		pv_addr -= PAGE_SIZE;
+	}
+	child->ctx.sp = stack_top - (pstack_top - ctx->sp);
+}
+
+proc_t* kfork_raw(context_t* ctx, int32_t type, proc_t* parent) {
 	proc_t *child = NULL;
 	child = proc_create(type, parent);
 	if(child == NULL) {
@@ -524,11 +546,14 @@ proc_t* kfork_raw(int32_t type, proc_t* parent) {
 			return NULL;
 		}
 	}
+	else {
+		proc_vfork_clone(ctx, child, parent);
+	}
 	return child;
 }
 
-proc_t* kfork(int32_t type) {
-	proc_t* child = kfork_raw(type, _current_proc);
+proc_t* kfork(context_t* ctx, int32_t type) {
+	proc_t* child = kfork_raw(ctx, type, _current_proc);
 	if(_core_ready && (child->info.type == PROC_TYPE_PROC || child->info.type == PROC_TYPE_VFORK)) {
 		kevent_t* kev = kev_push(KEV_PROC_CREATED, NULL);
 		PF->addi(kev->data, _current_proc->info.pid)->

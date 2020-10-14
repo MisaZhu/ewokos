@@ -84,18 +84,25 @@ static void sys_free(int32_t p) {
 
 static void sys_fork(context_t* ctx, int32_t vfork) {
 	proc_t *proc;
-	if(vfork == 0)
-		proc = kfork(PROC_TYPE_PROC);
-	else
-		proc = kfork(PROC_TYPE_VFORK);
+	uint32_t psp = ctx->sp;
+	if(vfork == 0) {
+		proc = kfork(ctx, PROC_TYPE_PROC);
+	}
+	else {
+		proc = kfork(ctx, PROC_TYPE_VFORK);
+		psp = proc->ctx.sp;
+	}
 	if(proc == NULL) {
 		ctx->gpr[0] = -1;
 		return;
 	}
 
 	memcpy(&proc->ctx, ctx, sizeof(context_t));
+	//memcpy(&_current_proc->ctx, ctx, sizeof(context_t));
+	proc->ctx.sp = psp;
 	proc->ctx.gpr[0] = 0;
 	ctx->gpr[0] = proc->info.pid;
+
 	if(proc->info.state == CREATED && _core_ready) {
 		proc->info.state = BLOCK;
 		proc->info.block_by = _core_pid;
@@ -103,6 +110,7 @@ static void sys_fork(context_t* ctx, int32_t vfork) {
 
 		_current_proc->info.state = BLOCK;
 		_current_proc->block_event = proc->info.pid;
+		_current_proc->ctx.gpr[0] = proc->info.pid;
 		if(vfork == 0) {
 			_current_proc->info.block_by = _core_pid;
 		}
@@ -118,7 +126,7 @@ static void sys_detach(void) {
 }
 
 static int32_t sys_thread(context_t* ctx, uint32_t entry, uint32_t func, int32_t arg) {
-	proc_t *proc = kfork(PROC_TYPE_THREAD);
+	proc_t *proc = kfork(ctx, PROC_TYPE_THREAD);
 	if(proc == NULL)
 		return -1;
 	uint32_t sp = proc->ctx.sp;
