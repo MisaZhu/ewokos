@@ -23,14 +23,14 @@ LDFLAGS = -L$(BUILD_DIR)/lib -lnosys
 
 CFLAGS += -I $(BUILD_DIR)/include
 
-ACTLED_OBJS = actled.o
+UNAME_OBJS = uname.o
 
-ACTLED = $(TARGET_DIR)/bin/actled
+UNAME = $(TARGET_DIR)/bin/uname
 
-$(ACTLED): $(ACTLED_OBJS) \
+$(UNAME): $(UNAME_OBJS) \
 		$(BUILD_DIR)/lib/libewokc.a
-	$(LD) -Ttext=100 $(ACTLED_OBJS) -o $(ACTLED) $(LDFLAGS) -lewokc -lc
+	$(LD) -Ttext=100 $(UNAME_OBJS) -o $(UNAME) $(LDFLAGS) -lewokc -lc
 
 clean:
-	rm -f $(ACTLED_OBJS)
+	rm -f $(UNAME_OBJS)
 

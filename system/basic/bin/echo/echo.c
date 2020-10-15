@@ -11,7 +11,12 @@ int main(int argc, char* argv[]) {
 		write(1, p, strlen(p));
 	}
 	else {
-		uint8_t i = atoi(p+1);
+		p++;
+		uint8_t i;
+		if(p[0] == '0')
+			i = atoi_base(p, 16);
+		else
+			i = atoi(p);
 		write(1, &i, 1);
 	}
 	return 0;

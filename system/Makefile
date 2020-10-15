@@ -1,13 +1,13 @@
 KERNEL_DIR=../kernel
 
-all: tiny_sys kernelfs
+all: basic_sys kernelfs
 	@echo "all done."
 
-full: tiny_sys full_sys kernelfs
+full: basic_sys full_sys kernelfs
 	@echo "all done."
 
-tiny_sys:
-	cd tiny;make
+basic_sys:
+	cd basic;make
 full_sys:
 	cd full;make
 
@@ -19,7 +19,7 @@ kernelfs:
 	@echo "==== kernel romfs created ===="
 
 SD = build/sd.ext2
-sd: tiny_sys full_sys
+sd: basic_sys full_sys
 	cp build/rootfs/drivers/sdfsd build/rootfs/drivers/rootfsd
 	@echo "\n====building ext2 format sdcard image===="
 #256M ext2 sd
@@ -43,4 +43,5 @@ sd: tiny_sys full_sys
 
 clean:
 	cd full;make clean
-	cd tiny;make clean
+	cd basic;make clean
+	rm -fr build

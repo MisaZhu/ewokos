@@ -189,16 +189,6 @@ include $(ROOT_DIR)/drivers/arch/arm/versatilepb/ttyd/build.mk
 include $(ROOT_DIR)/drivers/arch/arm/raspix/pl011_uartd/build.mk
 include $(ROOT_DIR)/drivers/arch/arm/raspix/mini_uartd/build.mk
 
-include $(ROOT_DIR)/bin/shell/build.mk
-include $(ROOT_DIR)/bin/cat/build.mk
-include $(ROOT_DIR)/bin/ps/build.mk
-include $(ROOT_DIR)/bin/ls/build.mk
-include $(ROOT_DIR)/bin/login/build.mk
-include $(ROOT_DIR)/bin/session/build.mk
-include $(ROOT_DIR)/bin/mount/build.mk
-include $(ROOT_DIR)/bin/uname/build.mk
-include $(ROOT_DIR)/bin/pwd/build.mk
-
 mkdirs:
 	@mkdir -p ${TARGET_DIR}/$(ROOT_DIR)/sbin
 	@mkdir -p ${TARGET_DIR}/$(ROOT_DIR)/drivers/arm/versatilepb
@@ -213,8 +203,25 @@ mkdirs:
 	@cp -r $(KERNEL_H) $(BUILD_DIR)/include/
 	@cp -r ${ROOT_DIR}/etc ${TARGET_DIR}/$(ROOT_DIR)
 
-builtin_apps: ${PROGS}
+builtin_apps: $(PROGS)
+	cd $(ROOT_DIR)/bin/echo;make
+	cd $(ROOT_DIR)/bin/cat;make
+	cd $(ROOT_DIR)/bin/shell;make
+	cd $(ROOT_DIR)/bin/ls;make
+	cd $(ROOT_DIR)/bin/login;make
+	cd $(ROOT_DIR)/bin/session;make
+	cd $(ROOT_DIR)/bin/mount;make
+	cd $(ROOT_DIR)/bin/uname;make
+	cd $(ROOT_DIR)/bin/pwd;make
 
 clean:
 	rm -f $(CLEAN)
-	rm -fr $(BUILD_DIR)
+	cd $(ROOT_DIR)/bin/echo;make clean
+	cd $(ROOT_DIR)/bin/cat;make clean
+	cd $(ROOT_DIR)/bin/shell;make clean
+	cd $(ROOT_DIR)/bin/ls;make clean
+	cd $(ROOT_DIR)/bin/login;make clean
+	cd $(ROOT_DIR)/bin/session;make clean
+	cd $(ROOT_DIR)/bin/mount;make clean
+	cd $(ROOT_DIR)/bin/uname;make clean
+	cd $(ROOT_DIR)/bin/pwd;make clean
