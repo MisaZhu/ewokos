@@ -30,7 +30,6 @@ extra_libs:
 
 EXTRA_BIN_DIR=bin
 extra_bin:
-	cd $(EXTRA_BIN_DIR)/dump;make
 	cd $(EXTRA_BIN_DIR)/global;make
 	cd $(EXTRA_BIN_DIR)/grep;make
 	cd $(EXTRA_BIN_DIR)/kill;make
@@ -112,7 +111,6 @@ clean:
 	cd $(X_DIR)/bin/launcher;make clean
 	cd $(X_DIR)/bin/xconsole;make clean
 	cd $(X_DIR)/bin/png;make clean
-	cd $(EXTRA_BIN_DIR)/dump;make clean
 	cd $(EXTRA_BIN_DIR)/global;make clean
 	cd $(EXTRA_BIN_DIR)/grep;make clean
 	cd $(EXTRA_BIN_DIR)/kill;make clean

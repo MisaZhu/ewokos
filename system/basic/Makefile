@@ -205,6 +205,7 @@ mkdirs:
 
 builtin_apps: $(PROGS)
 	cd $(ROOT_DIR)/bin/echo;make
+	cd $(ROOT_DIR)/bin/ps;make
 	cd $(ROOT_DIR)/bin/cat;make
 	cd $(ROOT_DIR)/bin/shell;make
 	cd $(ROOT_DIR)/bin/ls;make
@@ -213,10 +214,12 @@ builtin_apps: $(PROGS)
 	cd $(ROOT_DIR)/bin/mount;make
 	cd $(ROOT_DIR)/bin/uname;make
 	cd $(ROOT_DIR)/bin/pwd;make
+	cd $(ROOT_DIR)/bin/dump;make
 
 clean:
 	rm -f $(CLEAN)
 	cd $(ROOT_DIR)/bin/echo;make clean
+	cd $(ROOT_DIR)/bin/ps;make clean
 	cd $(ROOT_DIR)/bin/cat;make clean
 	cd $(ROOT_DIR)/bin/shell;make clean
 	cd $(ROOT_DIR)/bin/ls;make clean
@@ -225,3 +228,4 @@ clean:
 	cd $(ROOT_DIR)/bin/mount;make clean
 	cd $(ROOT_DIR)/bin/uname;make clean
 	cd $(ROOT_DIR)/bin/pwd;make clean
+	cd $(ROOT_DIR)/bin/dump;make clean
