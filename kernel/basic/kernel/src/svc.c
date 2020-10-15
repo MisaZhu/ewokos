@@ -98,7 +98,6 @@ static void sys_fork(context_t* ctx, int32_t vfork) {
 	}
 
 	memcpy(&proc->ctx, ctx, sizeof(context_t));
-	//memcpy(&_current_proc->ctx, ctx, sizeof(context_t));
 	proc->ctx.sp = psp;
 	proc->ctx.gpr[0] = 0;
 	ctx->gpr[0] = proc->info.pid;

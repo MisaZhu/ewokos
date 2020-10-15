@@ -255,6 +255,7 @@ static inline void proc_init_user_stack(proc_t* proc) {
 			V2P(proc->user_stack[i]),
 			AP_RW_RW, 0);
 	}
+	vm_flush_tlb(proc->space->vm);
 	proc->ctx.sp = user_stack_base + pages*PAGE_SIZE;
 }
 
@@ -267,6 +268,7 @@ static inline void proc_free_user_stack(proc_t* proc) {
 		unmap_page(proc->space->vm, user_stack_base + PAGE_SIZE*i);
 		kfree4k(proc->user_stack[i]);
 	}
+	vm_flush_tlb(proc->space->vm);
 }
 
 /* proc_free frees all resources allocated by proc. */
