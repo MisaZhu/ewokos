@@ -421,10 +421,8 @@ static void sys_proc_block(context_t* ctx, int32_t pid, uint32_t evt) {
 
 static void sys_proc_wakeup(uint32_t evt) {
 	proc_t* proc = proc_get_proc(_current_proc);
-	/*if(proc->info.block_by == proc->info.pid)
-		proc->space->ipc.ctx.server_state = READY;
-	proc_wakeup(proc->info.pid, evt);
-	*/
+	if(proc->info.block_by == proc->info.pid)
+		proc->space->ipc.state = READY;
 	proc_wakeup(proc->info.pid, evt);
 }
 
