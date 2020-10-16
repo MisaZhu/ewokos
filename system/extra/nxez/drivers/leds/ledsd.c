@@ -17,7 +17,7 @@ static void init(void) {
 	bcm283x_gpio_write(STCP, 0);
 }
 
-void leds(int v) {
+static void leds(int v) {
 	int i;
 	for(i=0; i<8; i++) {
 		bcm283x_gpio_write(DS, (v >> i) & 0x1);
