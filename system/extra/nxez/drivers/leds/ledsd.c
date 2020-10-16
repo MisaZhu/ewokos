@@ -42,7 +42,7 @@ static int leds_write(int fd, int from_pid, fsinfo_t* info,
 	else {
 		leds(((char*)buf)[0]);
 	}
-	return size;
+	return 1;
 }
 
 int main(int argc, char** argv) {
