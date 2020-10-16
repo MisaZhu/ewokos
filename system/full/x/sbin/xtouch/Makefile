@@ -35,7 +35,7 @@ $(XMOUSED): $(XMOUSED_OBJS) \
 		$(BUILD_DIR)/lib/libewokc.a \
 		$(BUILD_DIR)/lib/libgraph.a \
 		$(BUILD_DIR)/lib/libx.a
-	$(LD) -Ttext=100 $(XMOUSED_OBJS) -o $(XMOUSED) $(LDFLAGS) -lewokc -lc -lx -lgraph
+	$(LD) -Ttext=100 $(XMOUSED_OBJS) -o $(XMOUSED) $(LDFLAGS) -lx -lewokc -lc -lgraph
 
 clean:
 	rm -f $(XMOUSED_OBJS)
