@@ -1,21 +1,24 @@
+AR = arm-none-eabi-ar
 CC = arm-none-eabi-gcc
+CXX = arm-none-eabi-c++
 LD = arm-none-eabi-ld
+OBJDUMP = arm-none-eabi-objdump
 
-BUILD_DIR = ../../../build
+BUILD_DIR = ../../../../build
 TARGET_DIR = $(BUILD_DIR)/rootfs
 
 # flags
-CFLAGS = -marm \
+CFLAGS = -Wstrict-prototypes \
+				 -marm \
 				 -pedantic -Wall -Wextra -msoft-float -fPIC -mapcs-frame \
          -fno-builtin-printf \
-         -fno-builtin-memtool \
+         -fno-builtin-memset \
          -fno-builtin-snprintf \
          -fno-builtin-sprintf \
          -fno-builtin-fprintf \
 				 -Wno-overlength-strings \
          -fno-builtin-exit -fno-builtin-stdio \
-				 -fno-exceptions \
-				 -std=c99
+				 -std=c99 
 
 #CFLAGS +=  -g
 CFLAGS +=  -O2
@@ -24,16 +27,14 @@ LDFLAGS = -L$(BUILD_DIR)/lib -lnosys
 
 CFLAGS += -I $(BUILD_DIR)/include
 
-FB_TOOL_OBJS = fbtool.o
+XPTOUCHD_OBJS = xpt2046d.o
 
-FB_TOOL = $(TARGET_DIR)/bin/fbtool
+XPTOUCHD = $(TARGET_DIR)/drivers/raspix/hdmi_xpt2046d
 
-$(FB_TOOL): $(FB_TOOL_OBJS) \
+$(XPTOUCHD): $(XPTOUCHD_OBJS) \
 		$(BUILD_DIR)/lib/libewokc.a \
-		$(BUILD_DIR)/lib/libgraph.a  \
-		$(BUILD_DIR)/lib/libfb.a 
-	$(LD) -Ttext=100 $(FB_TOOL_OBJS) -o $(FB_TOOL) $(LDFLAGS) -lfb -lgraph -lewokc -lc
+		$(BUILD_DIR)/lib/libarch_bcm283x.a 
+	$(LD) -Ttext=100 $(XPTOUCHD_OBJS) -o $(XPTOUCHD) $(LDFLAGS) -larch_bcm283x -lewokc -lc
 
 clean:
-	rm -f $(FB_TOOL_OBJS)
-
+	rm -f $(XPTOUCHD_OBJS)

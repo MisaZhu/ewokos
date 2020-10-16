@@ -6,8 +6,7 @@ INIT_OBJS = $(ROOT_DIR)/sbin/init/init.o \
 INIT = $(TARGET_DIR)/$(ROOT_DIR)/sbin/init
 
 PROGS += $(INIT)
-CLEAN += $(INIT_OBJS)
-
+CLEAN += $(INIT_OBJS) $(INIT)
 
 $(INIT): $(INIT_OBJS) \
 		$(BUILD_DIR)/lib/libewokc.a \

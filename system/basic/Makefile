@@ -37,14 +37,10 @@ LIBS_DIR = libs
 
 LIB_INC = -I$(BUILD_DIR)/include \
 					-I $(LIBS_DIR)/sys/include \
-					-I $(LIBS_DIR)/arch/arm/bcm283x/include \
-					-I $(LIBS_DIR)/arch/arm/vpb/include \
 				  -I $(LIBS_DIR)/hash/include \
 				  -I $(LIBS_DIR)/libc/include
 				 
 LIB_SYS_DIR = $(LIBS_DIR)/sys
-LIB_ARCH_BCM283X_DIR = $(LIBS_DIR)/arch/arm/bcm283x
-LIB_ARCH_VPB_DIR = $(LIBS_DIR)/arch/arm/vpb
 LIB_HASH_DIR = $(LIBS_DIR)/hash
 LIB_LIBC_DIR = $(LIBS_DIR)/libc
 
@@ -71,17 +67,6 @@ LIB_SYS_OBJS = $(LIB_SYS_DIR)/src/syscall.o \
 	$(LIB_SYS_DIR)/src/md5.o \
 	$(LIB_SYS_DIR)/src/buffer.o \
 	$(LIB_SYS_DIR)/src/mmio.o 
-
-LIB_ARCH_BCM283X_OBJS = $(LIB_ARCH_BCM283X_DIR)/src/gpio.o \
-	$(LIB_ARCH_BCM283X_DIR)/src/spi.o \
-	$(LIB_ARCH_BCM283X_DIR)/src/pl011_uart.o \
-	$(LIB_ARCH_BCM283X_DIR)/src/mini_uart.o \
-	$(LIB_ARCH_BCM283X_DIR)/src/mailbox.o \
-	$(LIB_ARCH_BCM283X_DIR)/src/mbox_actled.o \
-	$(LIB_ARCH_BCM283X_DIR)/src/gpio_actled.o \
-	$(LIB_ARCH_BCM283X_DIR)/src/framebuffer.o
-
-LIB_ARCH_VPB_OBJS = $(LIB_ARCH_VPB_DIR)/src/framebuffer.o
 
 LIB_LIBC_OBJS = $(LIB_LIBC_DIR)/src/unistd/chdir.o \
 	$(LIB_LIBC_DIR)/src/unistd/dup.o \
@@ -146,16 +131,8 @@ LIB_LIBC_OBJS = $(LIB_LIBC_DIR)/src/unistd/chdir.o \
 	$(LIB_LIBC_DIR)/src/fcntl/fcntl.o
 
 LIB_OBJS = $(LIB_SYS_OBJS) \
-	$(LIB_ARCH_BCM283X_OBJS) \
-	$(LIB_ARCH_VPB_OBJS) \
-	$(LIB_SD_OBJS) \
 	$(LIB_LIBC_OBJS) \
-	$(LIB_GRAPH_OBJS) \
-	$(LIB_CONSOLE_OBJS) \
-	$(LIB_SCONF_OBJS) \
-	$(LIB_HASH_OBJS) \
-	$(LIB_TINYJSON_OBJS) \
-	$(LIB_EXT2_OBJS)
+	$(LIB_HASH_OBJS)
 
 CLEAN = $(LIB_OBJS)
 
@@ -172,10 +149,6 @@ KERNEL_H = \
 libs: $(LIB_OBJS)
 	$(AR) rT $(BUILD_DIR)/lib/libewokc.a $(LIB_SYS_OBJS)  $(LIB_LIBC_OBJS)
 	@cp -r $(LIB_SYS_DIR)/include/* $(LIB_LIBC_DIR)/include/* $(BUILD_DIR)/include/
-	$(AR) rT $(BUILD_DIR)/lib/libarch_bcm283x.a $(LIB_ARCH_BCM283X_OBJS)
-	@cp -r $(LIB_ARCH_BCM283X_DIR)/include/* $(BUILD_DIR)/include/
-	$(AR) rT $(BUILD_DIR)/lib/libarch_vpb.a $(LIB_ARCH_VPB_OBJS)
-	@cp -r $(LIB_ARCH_VPB_DIR)/include/* $(BUILD_DIR)/include/
 	$(AR) rT $(BUILD_DIR)/lib/libhash.a $(LIB_HASH_OBJS)
 	@cp -r $(LIB_HASH_DIR)/include/* $(BUILD_DIR)/include/
 
@@ -185,16 +158,12 @@ include $(ROOT_DIR)/drivers/nulld/build.mk
 include $(ROOT_DIR)/drivers/stdiod/build.mk
 include $(ROOT_DIR)/drivers/romfsd/build.mk
 include $(ROOT_DIR)/drivers/ramfsd/build.mk
-include $(ROOT_DIR)/drivers/arch/arm/versatilepb/ttyd/build.mk
-include $(ROOT_DIR)/drivers/arch/arm/raspix/pl011_uartd/build.mk
-include $(ROOT_DIR)/drivers/arch/arm/raspix/mini_uartd/build.mk
 
 mkdirs:
 	@mkdir -p ${TARGET_DIR}/$(ROOT_DIR)/sbin
-	@mkdir -p ${TARGET_DIR}/$(ROOT_DIR)/drivers/arm/versatilepb
-	@mkdir -p ${TARGET_DIR}/$(ROOT_DIR)/drivers/arm/raspix
 	@mkdir -p ${TARGET_DIR}/$(ROOT_DIR)/bin
 	@mkdir -p ${TARGET_DIR}/$(ROOT_DIR)/dev
+	@mkdir -p ${TARGET_DIR}/$(ROOT_DIR)/drivers
 	@mkdir -p ${TARGET_DIR}/$(ROOT_DIR)/home/root
 	@mkdir -p ${TARGET_DIR}/$(ROOT_DIR)/home/guest
 	@mkdir -p ${BUILD_DIR}/asm

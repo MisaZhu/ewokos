@@ -1,17 +1,19 @@
 KERNEL_DIR=../kernel
 
-all: basic_sys kernelfs
+all: basic_sys
 	@echo "all done."
 
-full: basic_sys full_sys kernelfs
+full: basic_sys full_sys
 	@echo "all done."
 
 basic_sys:
 	cd basic;make
 full_sys:
 	cd full;make
+sd_sys:
+	cd sd;make
 
-kernelfs:
+rom:
 	cd romfs;make
 	@echo "\n====building kernel romfs  ===="
 	cp build/rootfs/drivers/romfsd build/rootfs/drivers/rootfsd
@@ -19,7 +21,7 @@ kernelfs:
 	@echo "==== kernel romfs created ===="
 
 SD = build/sd.ext2
-sd: basic_sys full_sys
+sd: sd_sys
 	cp build/rootfs/drivers/sdfsd build/rootfs/drivers/rootfsd
 	@echo "\n====building ext2 format sdcard image===="
 #256M ext2 sd
@@ -34,14 +36,12 @@ sd: basic_sys full_sys
 	mkdir -p tmp/sbin
 	mkdir -p tmp/drivers
 	cp build/rootfs/sbin/init tmp/sbin
-	cp build/rootfs/sbin/procd tmp/sbin
-	cp build/rootfs/sbin/vfsd tmp/sbin
 	cp build/rootfs/drivers/rootfsd tmp/drivers
 	build/genfs tmp > $(KERNEL_DIR)/loadinit/romfs_data.c
 	rm -r tmp
 	@echo "==== kernel romfs created ====\n"
 
 clean:
-	cd full;make clean
+	#cd full;make clean
 	cd basic;make clean
 	rm -fr build
