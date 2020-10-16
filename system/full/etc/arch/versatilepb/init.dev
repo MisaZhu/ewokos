@@ -1,5 +1,5 @@
 /drivers/arm/versatilepb/fbd       /dev/fb0
-/drivers/consoled                  /dev/console0
+#/drivers/consoled                  /dev/console0
 /drivers/nulld                     /dev/null
 /drivers/ramfsd                    /tmp
 /drivers/arm/versatilepb/ttyd      /dev/tty0
