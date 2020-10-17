@@ -22,8 +22,14 @@ class XIM {
 
 public:
 	inline XIM() {
-		keybFD = open("/dev/keyb0", O_RDONLY);
 		x_pid = -1;
+		keybFD = -1;
+		while(true) {
+			keybFD = open("/dev/keyb0", O_RDONLY);
+			if(keybFD > 0)
+				break;
+			usleep(300000);
+		}
 	}
 
 	inline ~XIM() {

@@ -40,9 +40,12 @@ int main(int argc, char** argv) {
 
 	_x_pid = -1;
 
-	int fd = open("/dev/touch0", O_RDONLY | O_NONBLOCK);
-	if(fd < 0)
-		return 1;
+	int fd = -1;
+	while(true) {
+		fd = open("/dev/touch0", O_RDONLY | O_NONBLOCK);
+		if(fd > 0)
+			break;
+	}
 
 	while(true) {
 		if(_x_pid > 0) {

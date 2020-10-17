@@ -1,17 +1,19 @@
 KERNEL_DIR=../kernel
 
-all: basic_sys
+all: basic_sys platform rom
 	@echo "all done."
 
-full: basic_sys full_sys
+full: basic_sys platform full_sys rom
 	@echo "all done."
 
 basic_sys:
 	cd basic;make
 full_sys:
 	cd full;make
+platform:
+	cd platforms;make
 sd_sys:
-	cd sd;make
+	cd devices/sd;make
 
 rom:
 	cd romfs;make
@@ -22,6 +24,7 @@ rom:
 
 SD = build/sd.ext2
 sd: sd_sys
+	cd romfs;make
 	cp build/rootfs/drivers/sdfsd build/rootfs/drivers/rootfsd
 	@echo "\n====building ext2 format sdcard image===="
 #256M ext2 sd

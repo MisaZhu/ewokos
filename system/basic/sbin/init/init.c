@@ -92,7 +92,7 @@ static const char* read_line(int fd) {
 	return line;
 }
 
-static void load_devs(void) {
+static void load_arch_devs(void) {
 	sys_info_t sysinfo;
 	syscall1(SYS_GET_SYS_INFO, (int32_t)&sysinfo);
 	char fn[FS_FULL_NAME_MAX];
@@ -112,13 +112,24 @@ static void load_devs(void) {
 	close(fd);
 }
 
+static void load_devs(void) {
+	int fd = open("/etc/init.dev", O_RDONLY);
+	if(fd < 0)
+		return;
+
+	while(true) {
+		const char* ln = read_line(fd);
+		if(ln == NULL)
+			break;
+		if(ln[0] == 0 || ln[0] == '#')
+			continue;
+		run(ln, true, true);
+	}
+	close(fd);
+}
+
 static void run_procs(void) {
-	sys_info_t sysinfo;
-	syscall1(SYS_GET_SYS_INFO, (int32_t)&sysinfo);
-	char fn[FS_FULL_NAME_MAX];
-	snprintf(fn, FS_FULL_NAME_MAX-1, "/etc/arch/%s/init.rd", sysinfo.machine);
-	
-	int fd = open(fn, O_RDONLY);
+	int fd = open("/etc/init.rd", O_RDONLY);
 	if(fd < 0)
 		return;
 
@@ -188,6 +199,7 @@ static void switch_root(void) {
 	int pid = fork();
 	if(pid == 0) {
 		setuid(0);
+		load_arch_devs();
 		load_devs();
 		init_tty_stdio();
 		load_stdios();

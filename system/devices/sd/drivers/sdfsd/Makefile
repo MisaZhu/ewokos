@@ -4,7 +4,7 @@ CXX = arm-none-eabi-c++
 LD = arm-none-eabi-ld
 OBJDUMP = arm-none-eabi-objdump
 
-BUILD_DIR = ../../../build
+BUILD_DIR = ../../../../build
 TARGET_DIR = $(BUILD_DIR)/rootfs
 
 # flags

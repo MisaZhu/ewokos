@@ -1,3 +1,4 @@
-/drivers/nulld                  /dev/null
-/drivers/ramfsd                 /tmp
-/drivers/arm/versatilepb/ttyd   /dev/tty0
+/drivers/versatilepb/ttyd      /dev/tty0
+/drivers/versatilepb/ps2keybd  /dev/keyb0
+/drivers/versatilepb/ps2moused /dev/mouse0
+/drivers/versatilepb/fbd       /dev/fb0
