@@ -1,3 +1,3 @@
-/drivers/arm/raspix/joystickd     /dev/joystick
-/drivers/arm/raspix/lcdhatd       /dev/fb1
-/drivers/arm/raspix/hdmi_xpt2046d /dev/touch0
+/drivers/raspix/joystickd     /dev/joystick
+/drivers/raspix/lcdhatd       /dev/fb1
+/drivers/raspix/hdmi_xpt2046d /dev/touch0

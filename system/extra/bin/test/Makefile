@@ -1,7 +1,7 @@
 CC = arm-none-eabi-gcc
 LD = arm-none-eabi-ld
 
-BUILD_DIR = ../../../../build
+BUILD_DIR = ../../../build
 TARGET_DIR = $(BUILD_DIR)/rootfs
 
 # flags
