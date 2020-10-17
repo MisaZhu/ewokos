@@ -60,7 +60,6 @@ LIB_SYS_OBJS = $(LIB_SYS_DIR)/src/syscall.o \
 	$(LIB_SYS_DIR)/src/thread.o \
 	$(LIB_SYS_DIR)/src/basic_math.o \
 	$(LIB_SYS_DIR)/src/shm.o \
-	$(LIB_SYS_DIR)/src/global.o \
 	$(LIB_SYS_DIR)/src/proc.o \
 	$(LIB_SYS_DIR)/src/lockc.o \
 	$(LIB_SYS_DIR)/src/wait.o \

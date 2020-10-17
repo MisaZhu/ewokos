@@ -12,57 +12,7 @@
 #include <kevent.h>
 #include <usinterrupt.h>
 
-static map_t* _global = NULL;
 static map_t* _ipc_servs = NULL; //pids of ipc_servers
-
-static proto_t* global_get(const char* key) {
-	proto_t* ret;
-	hashmap_get(_global, key, (void**)&ret);
-	return ret;
-}
-
-static proto_t* global_set(const char* key, void* data, uint32_t size) {
-	proto_t* v = global_get(key);
-	if(v != NULL) {
-		PF->copy(v, data, size);
-	}
-	else {
-		v = proto_new(data, size);
-		hashmap_put(_global, key, v);
-	}
-	return v;
-}
-
-static void global_del(const char* key) {
-	proto_t* v = global_get(key);
-	hashmap_remove(_global, key);
-	proto_free(v);
-}
-
-static void do_global_set(proto_t* in) {
-	const char* key = proto_read_str(in);
-	int32_t size;
-	void* data = proto_read(in, &size);
-	if(data != NULL) {
-		global_set(key, data, size);
-	}
-}
-
-static void do_global_get(proto_t* in, proto_t* out) {
-	const char* key = proto_read_str(in);
-	proto_t * v= global_get(key);
-	if(v != NULL)
-		PF->addi(out, 0)->add(out, v->data, v->size);
-	else
-		PF->addi(out, -1);
-}
-
-static void do_global_del(proto_t* in) {
-	const char* key = proto_read_str(in);
-	global_del(key);
-}
-
-/*----------------------------------------------------------*/
 
 static int get_ipc_serv(const char* key) {
 	int32_t *v;
@@ -132,15 +82,6 @@ static void handle_ipc(int pid, int cmd, proto_t* in, proto_t* out, void* p) {
 		return;
 	case CORE_CMD_IPC_SERV_GET: //get ipc_server pid
 		do_ipc_serv_get(in, out);
-		return;
-	case CORE_CMD_GLOBAL_SET:
-		do_global_set(in);
-		return;
-	case CORE_CMD_GLOBAL_DEL: 
-		do_global_del(in);
-		return;
-	case CORE_CMD_GLOBAL_GET:
-		do_global_get(in, out);
 		return;
 	}
 }
@@ -213,7 +154,6 @@ static void handle_event(kevent_t* kev) {
 }
 
 void core(void) {
-	_global = hashmap_new();
 	_ipc_servs = hashmap_new();
 
 	ipc_serv_run(handle_ipc, NULL, IPC_NON_BLOCK);
@@ -230,7 +170,6 @@ void core(void) {
 		usleep(10000);
 	}
 
-	hashmap_free(_global);
 	hashmap_free(_ipc_servs);
 }
 
