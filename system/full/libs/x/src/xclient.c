@@ -269,7 +269,7 @@ void  x_init(x_t* x, void* data) {
 }
 
 void  x_run(x_t* x, void* loop_data) {
-	ipc_serv_run(handle, x, IPC_NONBLOCK);
+	ipc_serv_run(handle, x, IPC_NON_BLOCK);
 
 	xevent_t xev;
 	while(!x->terminated) {
