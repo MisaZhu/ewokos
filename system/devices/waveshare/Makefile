@@ -1,8 +1,9 @@
 BUILD_DIR = ../../build
-TARGET_DIR = $(BUILD_DIR)/rootfs
-ROOT_DIR = .
+TARGET_DIR = $(BUILD_DIR)/rootfs/etc/dev/extra
 
 all: 
+	mkdir -p $(TARGET_DIR)
+	cp waveshare.dev $(TARGET_DIR)
 	cd drivers/epaperd; make
 	cd drivers/hdmi_xpt2046d; make
 	cd drivers/joystickd; make
@@ -13,3 +14,4 @@ clean:
 	cd drivers/hdmi_xpt2046d; make clean
 	cd drivers/joystickd; make clean
 	cd drivers/lcdhatd; make clean
+	rm -f $(TARGET_DIR)/waveshare.dev

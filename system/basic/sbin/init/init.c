@@ -10,6 +10,7 @@
 #include <sys/klog.h>
 #include <sys/ipc.h>
 #include <sys/proc.h>
+#include <dirent.h>
 
 static char* run_none_fs_kfs(const char* cmd, int32_t *size) {
 	int32_t index = 0;
@@ -92,12 +93,8 @@ static const char* read_line(int fd) {
 	return line;
 }
 
-static void load_arch_devs(void) {
-	sys_info_t sysinfo;
-	syscall1(SYS_GET_SYS_INFO, (int32_t)&sysinfo);
-	char fn[FS_FULL_NAME_MAX];
-	snprintf(fn, FS_FULL_NAME_MAX-1, "/etc/arch/%s/init.dev", sysinfo.machine);
-	int fd = open(fn, O_RDONLY);
+static void load_devs(const char* cfg) {
+	int fd = open(cfg, O_RDONLY);
 	if(fd < 0)
 		return;
 
@@ -112,20 +109,32 @@ static void load_arch_devs(void) {
 	close(fd);
 }
 
-static void load_devs(void) {
-	int fd = open("/etc/init.dev", O_RDONLY);
-	if(fd < 0)
-		return;
+static void load_init_devs(void) {
+	sys_info_t sysinfo;
+	syscall1(SYS_GET_SYS_INFO, (int32_t)&sysinfo);
+	char fn[FS_FULL_NAME_MAX];
+	snprintf(fn, FS_FULL_NAME_MAX-1, "/etc/dev/arch/%s/init.dev", sysinfo.machine);
+	load_devs(fn);
+}
 
-	while(true) {
-		const char* ln = read_line(fd);
-		if(ln == NULL)
-			break;
-		if(ln[0] == 0 || ln[0] == '#')
-			continue;
-		run(ln, true, true);
-	}
-	close(fd);
+static void load_extra_devs(void) {
+	const char* dirn = "/etc/dev/extra";
+  DIR* dirp = opendir(dirn);
+  if(dirp == NULL)
+    return;
+  while(1) {
+    struct dirent* it = readdir(dirp);
+    if(it == NULL)
+      break;
+		char fn[FS_FULL_NAME_MAX];
+    snprintf(fn, FS_FULL_NAME_MAX-1, "%s/%s", dirn, it->d_name);
+		load_devs(fn);
+  }
+  closedir(dirp);
+}
+
+static void load_sys_devs(void) {
+	load_devs("/etc/dev/sys.dev");
 }
 
 static void run_procs(void) {
@@ -199,8 +208,9 @@ static void switch_root(void) {
 	int pid = fork();
 	if(pid == 0) {
 		setuid(0);
-		load_arch_devs();
-		load_devs();
+		load_init_devs();
+		load_extra_devs();
+		load_sys_devs();
 		init_tty_stdio();
 		load_stdios();
 		run_procs();
