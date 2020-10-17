@@ -31,6 +31,6 @@ ipc_t* proc_ipc_req(proc_t* proc) {
 }
 
 void proc_ipc_close(ipc_t* ipc) {
-	PF->clear(&ipc->data);
+	memset(ipc, 0, sizeof(ipc_t));
 	ipc->state = IPC_IDLE;
 }

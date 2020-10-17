@@ -23,11 +23,11 @@ typedef struct {
 	int32_t shms[SHM_MAX];
 
 	struct {
-		uint32_t entry;
-		uint32_t flags;
-		uint32_t extra_data;
+		uint32_t  entry;
+		uint32_t  flags;
+		uint32_t  extra_data;
 		context_t ctx;
-	  uint32_t state;
+	  uint32_t  state;
 	} ipc;
 } proc_space_t;
 

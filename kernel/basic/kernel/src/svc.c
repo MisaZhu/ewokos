@@ -249,12 +249,12 @@ static void sys_ipc_call(context_t* ctx, int32_t pid, int32_t call_id, proto_t* 
 	if(proc == NULL || proc->space->ipc.entry == 0)
 		return;
 
-	if(proc->info.ipc_busy) {
+	if(proc->info.ipc_state != IPC_IDLE) {
 		ctx->gpr[0] = -1; //busy for single task , should retry
 		proc_block_on(ctx, pid, (uint32_t)&proc->space->ipc);
 		return;
 	}
-	proc->info.ipc_busy = true;
+	proc->info.ipc_state = IPC_BUSY;
 
 	ipc_t* ipc = proc_ipc_req(_current_proc);
 	ipc->state = IPC_BUSY;
@@ -317,7 +317,7 @@ static void sys_ipc_end(context_t* ctx, ipc_t* ipc) {
 
 	memcpy(ctx, &_current_proc->space->ipc.ctx, sizeof(context_t));
 
-	_current_proc->info.ipc_busy = false;
+	_current_proc->info.ipc_state = IPC_IDLE;
 	proc_wakeup(_current_proc->info.pid, (uint32_t)&_current_proc->space->ipc);
 
 	ipc->state = IPC_RETURN;
@@ -330,11 +330,11 @@ static void sys_ipc_end(context_t* ctx, ipc_t* ipc) {
 }
 
 static void sys_ipc_lock(void) {
-	_current_proc->info.ipc_busy = true;
+	_current_proc->info.ipc_state = IPC_BUSY;
 }
 
 static void sys_ipc_unlock(void) {
-	_current_proc->info.ipc_busy = false;
+	_current_proc->info.ipc_state = IPC_IDLE;
 	proc_wakeup(_current_proc->info.pid, (uint32_t)&_current_proc->space->ipc);
 }
 

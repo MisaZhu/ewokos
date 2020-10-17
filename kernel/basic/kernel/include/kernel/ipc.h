@@ -5,20 +5,14 @@
 #include <kernel/context.h>
 #include <stdbool.h>
 
-enum {
-	IPC_IDLE = 0,
-	IPC_BUSY,
-	IPC_RETURN
-};
-
 struct st_proc;
 
 typedef	struct {
-	proto_t data;
 	uint32_t state;
-	int32_t server_pid;
-	int32_t client_pid;
-	int32_t call_id;
+	proto_t  data;
+	int32_t  server_pid;
+	int32_t  client_pid;
+	int32_t  call_id;
 } ipc_t;
 
 extern int32_t  proc_ipc_setup(context_t* ctx, uint32_t entry, uint32_t extra, uint32_t flags);

@@ -25,6 +25,12 @@ enum {
 	PROC_TYPE_VFORK
 };
 
+enum {
+	IPC_IDLE = 0,
+	IPC_BUSY,
+	IPC_RETURN
+};
+
 #define IPC_NONBLOCK    0x01
 
 typedef struct {
@@ -35,7 +41,7 @@ typedef struct {
 	int32_t  state; 
 	int32_t  block_by;
 	int32_t  wait_for;
-	bool     ipc_busy;
+	int32_t  ipc_state;
 	uint32_t start_sec;
 	char     cmd[PROC_INFO_CMD_MAX];
 } procinfo_t;

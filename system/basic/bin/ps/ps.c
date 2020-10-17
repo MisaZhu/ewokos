@@ -91,7 +91,7 @@ int main(int argc, char* argv[]) {
 				procs[i].pid,
 				procs[i].father_pid,
 				get_state(&procs[i]),
-				procs[i].ipc_busy ? "true":"false",
+				procs[i].ipc_state == IPC_IDLE ? "false":"true",
 				sec / (3600),
 				sec / 60,
 				sec % 60,
