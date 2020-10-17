@@ -13,7 +13,7 @@ full_sys:
 platform:
 	cd platforms;make
 sd_sys:
-	cd devices/sd;make
+	cd platforms/sd;make
 
 rom:
 	cd romfs;make
