@@ -39,31 +39,22 @@ inline int ipc_call(int to_pid, int call_id, const proto_t* ipkg, proto_t* opkg)
 		return -1;
 
 	int ipc_id = 0;
-	int res = 0;
 	while(true) {
+		if(opkg == NULL)
+			call_id |= IPC_NON_RETURN;
 		ipc_id = syscall3(SYS_IPC_CALL, (int32_t)to_pid, (int32_t)call_id, (int32_t)ipkg);
-		if(ipc_id == -1) {
-			sleep(0); //retry	
+		if(ipc_id == -1)
 			continue;
-		}
-		if(ipc_id == 0) {
+		if(ipc_id == 0)
 			return -1;
-		}
 		break;
 	}
 
-	if(opkg != NULL)
-		PF->clear(opkg);
+	if(opkg == NULL)
+		return 0;
 
-	while(true) {
-		res = syscall2(SYS_IPC_GET_RETURN, (int32_t)ipc_id, (int32_t)opkg);
-		if(res == 0)
-			break;
-		if(res == -2)
-			return -1;
-		sleep(0); //retry	
-	}
-	return 0;
+	PF->clear(opkg);
+	return syscall2(SYS_IPC_GET_RETURN, (int32_t)ipc_id, (int32_t)opkg);
 }
 
 /*----ipc server ------*/
@@ -129,15 +120,20 @@ static ipc_serv_handle_t _ipc_serv_handle;
 
 static void handle_ipc(uint32_t ipc_id, void* p) {
 	int32_t pid, cmd;
-	proto_t out;
-	PF->init(&out);
 
 	proto_t* in = ipc_get_info(ipc_id, &pid, &cmd);
-	_ipc_serv_handle(pid, cmd, in, &out, p);
-	proto_free(in);
-
-	ipc_set_return(ipc_id, &out);
-	PF->clear(&out);
+	if((cmd & IPC_NON_RETURN) != 0) { //no return
+		_ipc_serv_handle(pid, (cmd & IPC_NON_RETURN_MASK), in, NULL, p);
+		proto_free(in);
+	}
+	else {
+		proto_t out;
+		PF->init(&out);
+		_ipc_serv_handle(pid, cmd, in, &out, p);
+		proto_free(in);
+		ipc_set_return(ipc_id, &out);
+		PF->clear(&out);
+	}
 	ipc_end(ipc_id);
 }
 

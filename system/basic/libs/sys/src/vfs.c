@@ -111,16 +111,11 @@ int vfs_dup(int fd) {
 }
 
 int vfs_close(int fd) {
-	proto_t in, out;
+	proto_t in;
 	PF->init(&in)->addi(&in, fd);
-	PF->init(&out);
 
-	int res = ipc_call(get_vfsd_pid(), VFS_CLOSE, &in, &out);
+	int res = ipc_call(get_vfsd_pid(), VFS_CLOSE, &in, NULL);
 	PF->clear(&in);
-	if(res == 0) {
-		res = proto_read_int(&out);
-	}
-	PF->clear(&out);
 	return res;
 }
 
@@ -522,17 +517,13 @@ int vfs_flush(int fd) {
 	if(vfs_get_by_fd(fd, &info) != 0)
 		return 0; //error
 	
-	proto_t in, out;
-	PF->init(&out);
+	proto_t in;
 	PF->init(&in)->
 		addi(&in, fd)->
 		add(&in, &info, sizeof(fsinfo_t));
-	ipc_call(info.mount_pid, FS_CMD_FLUSH, &in, &out);
+	int res = ipc_call(info.mount_pid, FS_CMD_FLUSH, &in, NULL);
 	PF->clear(&in);
-
-	int ret = proto_read_int(&out);
-	PF->clear(&out);
-	return ret;
+	return res;
 }
 
 int vfs_write_block(int pid, const void* buf, uint32_t size, int32_t index) {

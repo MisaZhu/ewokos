@@ -13,6 +13,7 @@ typedef	struct {
 	int32_t  server_pid;
 	int32_t  client_pid;
 	int32_t  call_id;
+	bool     noret;
 } ipc_t;
 
 extern int32_t  proc_ipc_setup(context_t* ctx, uint32_t entry, uint32_t extra, uint32_t flags);

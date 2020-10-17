@@ -18,6 +18,10 @@ int32_t proc_ipc_call(context_t* ctx, proc_t* proc, ipc_t *ipc) {
 	proc->space->ipc.state = proc->info.state;
 	memcpy(&proc->space->ipc.ctx, &proc->ctx, sizeof(context_t));
 
+	_current_proc->info.state = BLOCK;
+	_current_proc->block_event = (uint32_t)ipc;
+	_current_proc->info.block_by = proc->info.pid;
+
 	proc->ctx.pc = proc->ctx.lr = proc->space->ipc.entry;
 	proc->ctx.gpr[0] = (uint32_t)ipc;
 	proc->ctx.gpr[1] = proc->space->ipc.extra_data;
@@ -31,6 +35,6 @@ ipc_t* proc_ipc_req(proc_t* proc) {
 }
 
 void proc_ipc_close(ipc_t* ipc) {
-	memset(ipc, 0, sizeof(ipc_t));
+	PF->clear(&ipc->data);
 	ipc->state = IPC_IDLE;
 }

@@ -1024,7 +1024,7 @@ int vfsd_main(void) {
 
 	vfs_init();
 
-	ipc_serv_run(handle, NULL, IPC_NONBLOCK);
+	ipc_serv_run(handle, NULL, IPC_NON_BLOCK);
 	close_event_t ev;
 	while(true) {
 		//ipc_lock();

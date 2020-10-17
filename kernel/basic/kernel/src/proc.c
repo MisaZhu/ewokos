@@ -453,7 +453,7 @@ void proc_wakeup(int32_t pid, uint32_t event) {
 		proc_t* proc = &_proc_table[i];	
 		if(proc->info.state == BLOCK && 
 				(proc->block_event == event || event == 0) && 
-				(pid < 0 || proc->info.block_by == pid)) {
+				proc->info.block_by == pid) {
 			proc->block_event = 0;
 			proc->info.block_by = -1;
 			if(proc->sleep_counter == 0) {

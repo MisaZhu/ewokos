@@ -31,7 +31,10 @@ enum {
 	IPC_RETURN
 };
 
-#define IPC_NONBLOCK    0x01
+
+#define IPC_NON_BLOCK        0x01
+#define IPC_NON_RETURN       0x80000000
+#define IPC_NON_RETURN_MASK  0x7fffffff
 
 typedef struct {
 	int32_t  type; 
