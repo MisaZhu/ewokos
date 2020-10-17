@@ -463,9 +463,7 @@ int vfs_fcntl(int fd, int cmd, proto_t* arg_in, proto_t* arg_out) {
 	if(vfs_get_by_fd(fd, &info) != 0)
 		return -1;
 	
-	proto_t in, out;
-	PF->init(&out);
-
+	proto_t in;
 	PF->init(&in)->
 		addi(&in, fd)->
 		add(&in, &info, sizeof(fsinfo_t))->
@@ -476,16 +474,25 @@ int vfs_fcntl(int fd, int cmd, proto_t* arg_in, proto_t* arg_out) {
 		PF->add(&in, arg_in->data, arg_in->size);
 
 	int res = -1;
-	if(ipc_call(info.mount_pid, FS_CMD_CNTL, &in, &out) == 0) {
-		res = proto_read_int(&out);
-		if(arg_out != NULL) {
-			int32_t sz;
-			void *p = proto_read(&out, &sz);
-			PF->copy(arg_out, p, sz);
+	if(arg_out != NULL) {
+		proto_t out;
+		PF->init(&out);
+		if(ipc_call(info.mount_pid, FS_CMD_CNTL, &in, &out) == 0) {
+			res = proto_read_int(&out);
+			if(arg_out != NULL) {
+				int32_t sz;
+				void *p = proto_read(&out, &sz);
+				PF->copy(arg_out, p, sz);
+			}
 		}
+		PF->clear(&in);
+		PF->clear(&out);
 	}
-	PF->clear(&in);
-	PF->clear(&out);
+	else {
+		res = ipc_call(info.mount_pid, FS_CMD_CNTL, &in, NULL);
+		PF->clear(&in);
+	}
+
 	return res;
 }
 

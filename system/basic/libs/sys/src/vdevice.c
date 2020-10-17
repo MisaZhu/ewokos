@@ -398,34 +398,39 @@ int device_run(vdevice_t* dev, const char* mnt_point, int mnt_type) {
 }
 
 int dev_cntl_by_pid(int pid, int cmd, proto_t* in, proto_t* out) {
-	proto_t in_arg, ret;
-	PF->init(&ret);
-
+	proto_t in_arg;
 	PF->init(&in_arg)->
 		addi(&in_arg, cmd);
 
 	if(in != NULL)
 		PF->add(&in_arg, in->data, in->size);
 
-	int res = ipc_call(pid, FS_CMD_DEV_CNTL, &in_arg, &ret);
-	PF->clear(&in_arg);
-	if(res != 0) {
-		PF->clear(&ret);
-		return -1;
-	}
-	
-	res = proto_read_int(&ret);
-	if(res != 0) {
-		res = -1;
-	}
-	else {
-		if(out != NULL) {
+	int res = -1;
+	if(out != NULL) {
+		proto_t ret;
+		PF->init(&ret);
+		res = ipc_call(pid, FS_CMD_DEV_CNTL, &in_arg, &ret);
+		PF->clear(&in_arg);
+		if(res != 0) {
+			PF->clear(&ret);
+			return -1;
+		}
+
+		res = proto_read_int(&ret);
+		if(res != 0) {
+			res = -1;
+		}
+		else {
 			int32_t sz;
 			void *data = proto_read(&ret, &sz);
 			PF->copy(out, data, sz);
 		}
+		PF->clear(&ret);
 	}
-	PF->clear(&ret);
+	else {
+		res = ipc_call(pid, FS_CMD_DEV_CNTL, &in_arg, NULL);
+		PF->clear(&in_arg);
+	}
 	return res;
 }
 
