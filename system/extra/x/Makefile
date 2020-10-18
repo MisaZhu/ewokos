@@ -3,7 +3,6 @@ TARGET_DIR = $(BUILD_DIR)/rootfs
 ROOT_DIR = .
 
 all: 
-	cd bin/gtest; make
 	cd bin/snake; make
 	cd bin/png; make
 	cd sbin/xjoystick; make
@@ -11,7 +10,6 @@ all:
 	cd sbin/xwm/win3; make
 
 clean:	
-	cd bin/gtest; make clean
 	cd bin/snake; make clean
 	cd bin/png; make clean
 	cd sbin/xjoystick; make clean
