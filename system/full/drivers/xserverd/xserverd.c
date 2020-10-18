@@ -13,7 +13,6 @@
 #include <x/xcntl.h>
 #include <x/xevent.h>
 #include <x/xwm.h>
-#include <sys/global.h>
 #include <sys/proc.h>
 #include <sconf.h>
 
