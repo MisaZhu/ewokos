@@ -48,6 +48,7 @@ static int leds_write(int fd, int from_pid, fsinfo_t* info,
 int main(int argc, char** argv) {
 	const char* mnt_point = argc > 1 ? argv[1]: "/dev/leds";
 	init();
+	leds(0);
 
 	vdevice_t dev;
 	memset(&dev, 0, sizeof(vdevice_t));
