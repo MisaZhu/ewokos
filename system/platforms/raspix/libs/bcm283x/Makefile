@@ -40,7 +40,6 @@ $(ARCH_BCM283X): $(LIB_ARCH_BCM283X_OBJS)
 	$(AR) rT $(ARCH_BCM283X) $(LIB_ARCH_BCM283X_OBJS)
 	cp -r include/* $(TARGET_DIR)/include
 
-
 clean:
 	rm -f $(LIB_ARCH_BCM283X_OBJS)
 	rm -f $(ARCH_BCM283X)

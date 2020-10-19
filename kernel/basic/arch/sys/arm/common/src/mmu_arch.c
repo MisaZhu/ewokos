@@ -12,7 +12,7 @@
  */
 //int32_t __attribute__((optimize("O0"))) map_page(page_dir_entry_t *vm, uint32_t virtual_addr,
 int32_t map_page(page_dir_entry_t *vm, uint32_t virtual_addr,
-		     uint32_t physical, uint32_t permissions, uint32_t is_dev) {
+		     uint32_t physical, uint32_t permissions, uint32_t no_cache) {
 	page_table_entry_t *page_table = 0;
 
 	uint32_t page_dir_index = PAGE_DIR_INDEX(virtual_addr);
@@ -39,7 +39,7 @@ int32_t map_page(page_dir_entry_t *vm, uint32_t virtual_addr,
 	page_table[page_index].type = SMALL_PAGE_TYPE,
 	page_table[page_index].base = PAGE_TO_BASE(physical);
 	page_table[page_index].ap = permissions;
-	set_pte_flags(&page_table[page_index], is_dev);
+	set_pte_flags(&page_table[page_index], no_cache);
 	return 0;
 }
 

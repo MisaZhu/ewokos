@@ -65,7 +65,7 @@ static int uart_loop(void*p) {
 
 int main(int argc, char** argv) {
 	const char* mnt_point = argc > 1 ? argv[1]: "/dev/tty1";
-	_mmio_base = mmio_map();
+	_mmio_base = mmio_map(false);
 
 	charbuf_init(&_buffer);
 

@@ -10,8 +10,8 @@
  * map_pages adds the given virtual to physical memory mapping to the given
  * virtual memory. A mapping can map multiple pages.
  */
-//void __attribute__((optimize("O0"))) map_pages(page_dir_entry_t *vm, uint32_t vaddr, uint32_t pstart, uint32_t pend, uint32_t permissions, uint32_t is_dev) {
-void map_pages(page_dir_entry_t *vm, uint32_t vaddr, uint32_t pstart, uint32_t pend, uint32_t permissions, uint32_t is_dev) {
+//void __attribute__((optimize("O0"))) map_pages(page_dir_entry_t *vm, uint32_t vaddr, uint32_t pstart, uint32_t pend, uint32_t permissions, uint32_t no_cache) {
+void map_pages(page_dir_entry_t *vm, uint32_t vaddr, uint32_t pstart, uint32_t pend, uint32_t permissions, uint32_t no_cache) {
 	uint32_t physical_current = 0;
 	uint32_t virtual_current = 0;
 
@@ -24,7 +24,7 @@ void map_pages(page_dir_entry_t *vm, uint32_t vaddr, uint32_t pstart, uint32_t p
 	for (physical_current = physical_start; 
 			physical_current < physical_end;
 			physical_current += PAGE_SIZE) {
-		map_page(vm,  virtual_current, physical_current, permissions, is_dev);
+		map_page(vm,  virtual_current, physical_current, permissions, no_cache);
 		virtual_current += PAGE_SIZE;
 	}
 }

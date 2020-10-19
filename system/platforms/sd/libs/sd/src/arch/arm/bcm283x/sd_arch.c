@@ -339,7 +339,7 @@ static inline void delay(int32_t n) {
  * initialize EMMC to read SDHC card
  */
 int32_t __attribute__((optimize("O0"))) sd_init_arch_bcm283x(void) {
-	_mmio_base = mmio_map();
+	_mmio_base = mmio_map(false);
 
 	_sdc.rxdone = 1;
 	_sdc.txdone = 1;

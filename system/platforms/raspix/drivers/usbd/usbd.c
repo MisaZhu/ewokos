@@ -157,7 +157,7 @@ static int usb_step(void* p) {
 }
 
 int main(int argc, char** argv) {
-	uint32_t _mmio_base = mmio_map();
+	uint32_t _mmio_base = mmio_map(false);
 	if(_mmio_base == 0)
 		return -1;
 

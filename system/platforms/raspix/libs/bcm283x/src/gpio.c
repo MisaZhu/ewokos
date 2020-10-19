@@ -1,7 +1,7 @@
 #include "arch/arm/bcm283x/gpio.h"
 
 void bcm283x_gpio_init(void) {
-	_mmio_base = mmio_map();
+	_mmio_base = mmio_map(false);
 }
 
 void bcm283x_gpio_config(int32_t no, int32_t gpio_sel) {

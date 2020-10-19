@@ -21,7 +21,7 @@
 static uint8_t _held[128] = {0};
 
 int32_t keyb_init(void) {
-	_mmio_base = mmio_map();
+	_mmio_base = mmio_map(false);
   put8(KEYBOARD_BASE + KCNTL, 0x10); // bit4=Enable bit0=INT on
   put8(KEYBOARD_BASE + KCLK, 8);
 	memset(_held, 0, 128);

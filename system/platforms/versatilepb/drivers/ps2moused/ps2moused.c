@@ -64,7 +64,7 @@ int32_t mouse_init(void) {
 	_packet_inex = 0;
 	_btn_old = 0;
 
-	_mmio_base = mmio_map();
+	_mmio_base = mmio_map(false);
 	uint8_t data;
 	uint32_t divisor = 1000;
 	put8(MOUSE_CLKDIV, divisor);

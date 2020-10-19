@@ -99,7 +99,7 @@ static inline void do_command(int32_t cmd, int32_t arg, int32_t resp) {
 }
 
 int32_t sd_init_arch_versatilepb(void) {
-	_mmio_base = mmio_map();
+	_mmio_base = mmio_map(false);
 	sd_t* sdc = &_sdc;
 	memset(sdc, 0, sizeof(sd_t));
 	sdc->rxdone = 1;
