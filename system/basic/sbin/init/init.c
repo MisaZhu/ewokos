@@ -198,12 +198,6 @@ static void init_tty_stdio(void) {
 	dup2(fd, 2);
 }
 
-static void load_stdios(void) {
-	run("/drivers/stdiod stdin", false, false);
-	run("/drivers/stdiod stdout", false, false);
-	run("/drivers/stdiod stderr", false, false);
-}
-
 static void switch_root(void) {
 	int pid = fork();
 	if(pid == 0) {
@@ -212,7 +206,6 @@ static void switch_root(void) {
 		load_extra_devs();
 		load_sys_devs();
 		init_tty_stdio();
-		load_stdios();
 		run_procs();
 		exit(0);
 	}

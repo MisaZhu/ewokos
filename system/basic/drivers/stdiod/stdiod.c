@@ -42,18 +42,16 @@ static int stdio_write(int fd,
 
 int main(int argc, char** argv) {
 	_io_fd = 0;
-	char mnt_point[FS_FULL_NAME_MAX];
-	const char* dev_name = argc < 2 ?  "stdin": argv[1];
-	snprintf(mnt_point, FS_FULL_NAME_MAX, "/dev/%s", dev_name);
+	const char* mnt_point = argc < 2 ?  "/dev/stdin": argv[1];
 
-	if(strcmp(dev_name, "stdout") == 0)
+	if(strstr(mnt_point, "stdout") == 0)
 		_io_fd = 1;
-	else if(strcmp(dev_name, "stderr") == 0)
+	else if(strstr(mnt_point, "stderr") == 0)
 		_io_fd = 2;
 
 	vdevice_t dev;
 	memset(&dev, 0, sizeof(vdevice_t));
-	strcpy(dev.name, dev_name);
+	strcpy(dev.name, "stdio");
 	dev.read = stdio_read;
 	dev.write = stdio_write;
 
