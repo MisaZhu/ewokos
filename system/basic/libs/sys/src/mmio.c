@@ -8,13 +8,18 @@ extern "C" {
 
 uint32_t _mmio_base = 0;
 
-uint32_t mmio_map(void) {
+uint32_t mmio_map(bool cache) {
 	sys_info_t sysinfo;
 	syscall1(SYS_GET_SYS_INFO, (int32_t)&sysinfo);
+	uint32_t size = sysinfo.mmio.size;
+	if(cache) {
+		size |= 0x80000000;
+	}
+
 	_mmio_base = syscall3(SYS_MEM_MAP,
 			sysinfo.mmio.v_base,
 			sysinfo.mmio.phy_base,
-			sysinfo.mmio.size);
+			size);
 	return _mmio_base;
 }
 
