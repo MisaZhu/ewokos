@@ -73,7 +73,7 @@ int fb_info(fb_t* fb, int* w, int* h, int* bpp) {
 int fb_flush(fb_t* fb) {
 	if(fb == NULL || fb->fd < 0)
 		return -1;
-	return vfs_flush(fb->fd);
+	return vfs_flush(fb->fd, true);
 }
 
 int fb_close(fb_t* fb) {

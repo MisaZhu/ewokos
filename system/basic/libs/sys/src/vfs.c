@@ -519,7 +519,7 @@ int vfs_dma(int fd, int* size) {
 	return shm_id;
 }
 
-int vfs_flush(int fd) {
+int vfs_flush(int fd, bool wait) {
 	fsinfo_t info;
 	if(vfs_get_by_fd(fd, &info) != 0)
 		return 0; //error
@@ -528,7 +528,11 @@ int vfs_flush(int fd) {
 	PF->init(&in)->
 		addi(&in, fd)->
 		add(&in, &info, sizeof(fsinfo_t));
-	int res = ipc_call(info.mount_pid, FS_CMD_FLUSH, &in, NULL);
+	int res = -1;
+	if(wait)
+		ipc_call_wait(info.mount_pid, FS_CMD_FLUSH, &in, NULL);
+	else
+		ipc_call(info.mount_pid, FS_CMD_FLUSH, &in, NULL);
 	PF->clear(&in);
 	return res;
 }
