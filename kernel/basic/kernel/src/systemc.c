@@ -25,8 +25,8 @@ extern void __flush_tlb(void);
 extern void __cpu_dcache_clean_flush(void);
 
 void flush_tlb(void) {
-	__flush_tlb();
 	__cpu_dcache_clean_flush();
+	__flush_tlb();
 }
 
 void set_translation_table_base(uint32_t tlb_base) {

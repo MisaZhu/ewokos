@@ -59,7 +59,7 @@ static void shm_unmap_pages(uint32_t addr, uint32_t pages) {
 		addr += PAGE_SIZE;
 	}
 	vm_flush_tlb(_kernel_vm);
-	vm_flush_tlb(_current_proc->space->vm);
+	//vm_flush_tlb(_current_proc->space->vm);
 }
 
 static int32_t shm_map_pages(uint32_t addr, uint32_t pages) {
@@ -81,7 +81,7 @@ static int32_t shm_map_pages(uint32_t addr, uint32_t pages) {
 		addr += PAGE_SIZE;
 	}
 	vm_flush_tlb(_kernel_vm);
-	vm_flush_tlb(_current_proc->space->vm);
+	//vm_flush_tlb(_current_proc->space->vm);
 	return 1;
 }
 

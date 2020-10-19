@@ -255,7 +255,6 @@ static inline void proc_init_user_stack(proc_t* proc) {
 			V2P(proc->user_stack[i]),
 			AP_RW_RW, 0);
 	}
-	vm_flush_tlb(proc->space->vm);
 	proc->ctx.sp = user_stack_base + pages*PAGE_SIZE;
 }
 
