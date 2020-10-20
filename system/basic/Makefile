@@ -173,6 +173,7 @@ mkdirs:
 
 builtin_apps: $(PROGS)
 	cd $(ROOT_DIR)/bin/echo;make
+	cd $(ROOT_DIR)/bin/sleep;make
 	cd $(ROOT_DIR)/bin/ps;make
 	cd $(ROOT_DIR)/bin/cat;make
 	cd $(ROOT_DIR)/bin/shell;make
@@ -187,6 +188,7 @@ builtin_apps: $(PROGS)
 clean:
 	rm -f $(CLEAN)
 	cd $(ROOT_DIR)/bin/echo;make clean
+	cd $(ROOT_DIR)/bin/sleep;make clean
 	cd $(ROOT_DIR)/bin/ps;make clean
 	cd $(ROOT_DIR)/bin/cat;make clean
 	cd $(ROOT_DIR)/bin/shell;make clean

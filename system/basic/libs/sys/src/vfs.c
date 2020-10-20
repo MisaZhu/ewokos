@@ -87,12 +87,17 @@ static int write_pipe(fsinfo_t* info, const void* buf, uint32_t size, bool block
 	PF->init(&in)->add(&in, info, sizeof(fsinfo_t))->add(&in, buf, size)->addi(&in, block?1:0);
 	PF->init(&out);
 
-	int res = ipc_call(get_vfsd_pid(), VFS_PIPE_WRITE, &in, &out);
+	int vfsd_pid = get_vfsd_pid();
+	int res = ipc_call(vfsd_pid, VFS_PIPE_WRITE, &in, &out);
 	PF->clear(&in);
 	if(res == 0) {
 		res = proto_read_int(&out);
 	}
 	PF->clear(&out);
+
+	if(res == 0 && block == 1) {//empty , do retry
+		proc_block(vfsd_pid, info->node);
+	}
 	return res;	
 }
 

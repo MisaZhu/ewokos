@@ -3,4 +3,5 @@
 /drivers/stdiod               /dev/stdout
 /drivers/stdiod               /dev/stderr
 /drivers/ramfsd               /tmp
+/drivers/consoled             /dev/console0
 /drivers/xserverd             /dev/x
