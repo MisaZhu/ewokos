@@ -19,8 +19,9 @@ static void input(uint16_t state, int16_t x, int16_t y) {
 	ev.type = XEVT_MOUSE;
 	ev.state = XEVT_MOUSE_MOVE;
 	ev.value.mouse.relative = 0;
-	ev.value.mouse.x = _scr_w - x*_scr_w/2000;
-	ev.value.mouse.y = _scr_h - y*_scr_h/2000;
+	//ev.value.mouse.x = _scr_w - x*_scr_w/2000;
+	ev.value.mouse.x = (x-20)*_scr_w/2000;
+	ev.value.mouse.y = _scr_h - y*_scr_h/1920;
 	ev.value.mouse.rx = 0;
 	ev.value.mouse.ry = 0;
 

@@ -74,7 +74,7 @@ inline uint8_t bcm283x_spi_transfer(uint8_t data) {
 }
 
 inline uint16_t bcm283x_spi_transfer16(uint16_t data) {
-	uint8_t low = bcm283x_spi_transfer(data & 0xff);
 	uint8_t hi = bcm283x_spi_transfer((data >> 8) & 0xff);
+	uint8_t low = bcm283x_spi_transfer(data & 0xff);
 	return (hi << 8) | low;
 }

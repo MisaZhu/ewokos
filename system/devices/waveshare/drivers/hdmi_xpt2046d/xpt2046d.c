@@ -26,7 +26,6 @@ void TP_init(void) {
 
 static uint32_t cmd(uint8_t set_val) {
 	uint16_t get_val;
-	uint8_t* p = (uint8_t*)&get_val;
 	bcm283x_spi_activate(1);
 	bcm283x_gpio_write(TP_CS, 0);
 	bcm283x_spi_transfer(set_val);
@@ -38,15 +37,14 @@ static uint32_t cmd(uint8_t set_val) {
 }
 
 static bool do_read(uint32_t* x, uint32_t* y){
-	uint32_t tx[3];
-	uint32_t ty[3];
+	uint32_t tx=0, ty=0;
 	uint32_t i=0;
-	for(i=0; i<3; i++){
-		tx[i] =  cmd(0x90); //x
-		ty[i] = cmd(0xD0);  //y
+	for(i=0; i<4; i++){
+		tx += cmd(0x90); //x
+		ty += cmd(0xD0);  //y
 	}
-	*x = (tx[0] + tx[1] + tx[2])/3;
-	*y = (ty[0] + ty[1] + ty[2])/3;
+	*x = tx/4;
+	*y = ty/4;
 	return true;
 }
 

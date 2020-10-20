@@ -22,7 +22,7 @@ protected:
 		if(keyw == 0 || keyh == 0)
 			return;
 
-		if(ev->type == XEVT_MOUSE && ev->state == XEVT_MOUSE_DOWN) {
+		if(ev->type == XEVT_MOUSE && ev->state == XEVT_MOUSE_UP) {
 			int x = ev->value.mouse.winx;
 			int y = ev->value.mouse.winy;
 			int i = div_u32(x, keyw);
@@ -39,6 +39,7 @@ protected:
 		keyw = div_u32(g.getW(), col);
 		g.fill(0, 0, g.getW(), g.getH(), 0xffffffff);
 		g.box(0, 0, g.getW(), g.getH(), 0xff222222);
+		keyw = div_u32(g.getW(), col);
 
 		for(int j=0; j<row; j++) {
 			for(int i=0; i<col; i++) {
@@ -47,9 +48,13 @@ protected:
 					break;
 				char c = keytable[at];
 				if(c == '\n')
-					g.drawText(i*keyw+(keyw/2)-font->w, j*keyh+2, "En", font, 0xff000000);
+					g.drawText(i*keyw + (keyw - font->w)/2, 
+							j*keyh + (keyh - font->h)/2,
+							"En", font, 0xff000000);
 				else
-					g.drawChar(i*keyw+(keyw/2)-font->w, j*keyh+2, c, font, 0xff000000);
+					g.drawChar(i*keyw + (keyw - font->w)/2,
+							j*keyh + (keyh - font->h)/2,
+							c, font, 0xff000000);
 				g.box(i*keyw, j*keyh, keyw, keyh, 0xffaaaaaa);
 			}
 		}
@@ -68,12 +73,14 @@ protected:
 
 public:
 	inline XIMX() {
-		font = font_by_name("8x16");
-		keytable = "abcdefghijklmnopqrstuvwxyz1234567890-.\n";
+		font = font_by_name("12x24");
+		keytable = "abcdefghijklm"
+							 "nopqrstuvwxyz"
+							 "1234567890-+."
+							 "!@#$%^&*()_=\n";
 		col = 13;
-		row = 3;
-		keyh = font->h+4;
-		keyw = font->w+4;
+		row = 4;
+		keyh = font->h + 8;
 		keybFD = open("/dev/keyb0", O_RDONLY | O_NONBLOCK);
 		x_pid = -1;
 	}
@@ -116,7 +123,7 @@ int main(int argc, char* argv[]) {
 	x.screenInfo(scr);
 
 	XIMX xwin;
-	x.open(&xwin, 0, scr.size.h-xwin.getFixH(), 240, xwin.getFixH(), "xim",
+	x.open(&xwin, 0, scr.size.h-xwin.getFixH(), scr.size.w, xwin.getFixH(), "xim",
 			X_STYLE_NO_FRAME | X_STYLE_NO_FOCUS | X_STYLE_SYSTOP | X_STYLE_XIM);
 	x.run(loop, &xwin);
 	return 0;

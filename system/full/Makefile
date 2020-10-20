@@ -44,6 +44,7 @@ x_sbin:
 	cd $(X_DIR)/sbin/xmouse;make
 	cd $(X_DIR)/sbin/xtouch;make
 	cd $(X_DIR)/sbin/xim/none;make
+	cd $(X_DIR)/sbin/xim/vkey;make
 	cd $(X_DIR)/sbin/xwm/macos7;make
 
 EXTRA_DRIVERS_DIR=drivers
@@ -68,6 +69,7 @@ clean:
 	cd $(X_DIR)/sbin/xmouse;make clean
 	cd $(X_DIR)/sbin/xtouch;make clean
 	cd $(X_DIR)/sbin/xim/none;make clean
+	cd $(X_DIR)/sbin/xim/vkey;make clean
 	cd $(X_DIR)/sbin/xwm/macos7;make clean
 	cd $(X_DIR)/bin/gtest;make clean
 	cd $(X_DIR)/bin/launcher;make clean

@@ -57,7 +57,7 @@ protected:
 	void onEvent(xevent_t* ev) {
 		xinfo_t xinfo;
 		getInfo(xinfo);
-		if(ev->type == XEVT_MOUSE && ev->state == XEVT_MOUSE_DOWN) {
+		if(ev->type == XEVT_MOUSE && ev->state == XEVT_MOUSE_UP) {
 			int i = div_u32(ev->value.mouse.y - xinfo.wsr.y, items.icon_size);
 			if(i < items.num) {
 				int pid = fork();
