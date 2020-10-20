@@ -39,7 +39,7 @@ void bcm283x_spi_select(uint32_t which) {
 	}
 }
 
-inline void bcm283x_spi_activate(uint32_t enable) {
+inline void bcm283x_spi_activate(uint8_t enable) {
 	uint32_t data = SPI_CNTL_TRXACT;
 	if (enable) {
 		/* activate transfer on selected channel 0 or 1 */
@@ -51,7 +51,7 @@ inline void bcm283x_spi_activate(uint32_t enable) {
 	}
 }
 
-inline void bcm283x_spi_write(uint32_t data) {
+inline void bcm283x_spi_write(uint8_t data) {
 	/* wait if fifo is full */
 	while (!(get32(SPI_CS_REG)&SPI_STAT_TXDATA));
 	/* write a byte */
@@ -60,7 +60,7 @@ inline void bcm283x_spi_write(uint32_t data) {
 	while (!(get32(SPI_CS_REG)&SPI_STAT_TXDONE));
 }
 
-inline uint32_t bcm283x_spi_transfer(uint32_t data) {
+inline uint8_t bcm283x_spi_transfer(uint8_t data) {
 	/* wait if fifo is full */
 	while (!(get32(SPI_CS_REG)&SPI_STAT_TXDATA));
 	/* write a byte */
@@ -71,4 +71,10 @@ inline uint32_t bcm283x_spi_transfer(uint32_t data) {
 	while (!(get32(SPI_CS_REG)&SPI_STAT_RXDATA));
 	/* read a byte */
 	return get32(SPI_FIFO_REG)&0xff;
+}
+
+inline uint16_t bcm283x_spi_transfer16(uint16_t data) {
+	uint8_t low = bcm283x_spi_transfer(data & 0xff);
+	uint8_t hi = bcm283x_spi_transfer((data >> 8) & 0xff);
+	return (hi << 8) | low;
 }

@@ -30,8 +30,7 @@ static uint32_t cmd(uint8_t set_val) {
 	bcm283x_spi_activate(1);
 	bcm283x_gpio_write(TP_CS, 0);
 	bcm283x_spi_transfer(set_val);
-	p[1] = bcm283x_spi_transfer(0);
-	p[0] = bcm283x_spi_transfer(0);
+	get_val = bcm283x_spi_transfer16(0);
 	bcm283x_gpio_write(TP_CS, 1);
 	bcm283x_spi_activate(0);
 	uint32_t ret = get_val >> 4;

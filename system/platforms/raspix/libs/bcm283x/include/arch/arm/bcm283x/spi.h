@@ -68,9 +68,10 @@
 #define SPI0_CS_CPHA                 0x00000004 ///< Clock Phase
 
 void     bcm283x_spi_init(int32_t clk_divide);
-uint32_t bcm283x_spi_transfer(uint32_t data);
-void     bcm283x_spi_write(uint32_t data);
-void     bcm283x_spi_activate(uint32_t enable);
+uint8_t  bcm283x_spi_transfer(uint8_t data);
+uint16_t bcm283x_spi_transfer16(uint16_t data);
+void     bcm283x_spi_write(uint8_t data);
+void     bcm283x_spi_activate(uint8_t enable);
 void     bcm283x_spi_select(uint32_t which); 
 
 #endif
