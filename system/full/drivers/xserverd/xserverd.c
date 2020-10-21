@@ -814,33 +814,21 @@ static int mouse_handle(x_t* x, xevent_t* ev) {
 			try_focus(x, view);
 		}
 
-		if(pos == FRAME_R_CLOSE) { //window close
-			ev->type = XEVT_WIN;
-			ev->value.window.event = XEVT_WIN_CLOSE;
-			//view->xinfo.visible = false;
-			//x_dirty(x);
+		if(pos == FRAME_R_TITLE) {//window title 
+			x->current.view = view;
+			x->current.old_pos.x = x->cursor.cpos.x;
+			x->current.old_pos.y = x->cursor.cpos.y;
+			x->current.drag_state = X_VIEW_DRAG_MOVE;
+			x_dirty(x);
 		}
-		else if(pos == FRAME_R_MAX) {
-			ev->type = XEVT_WIN;
-			ev->value.window.event = XEVT_WIN_MAX;
+		else if(pos == FRAME_R_RESIZE) {//window resize
+			x->current.view = view;
+			x->current.old_pos.x = x->cursor.cpos.x;
+			x->current.old_pos.y = x->cursor.cpos.y;
+			x->current.drag_state = X_VIEW_DRAG_RESIZE;
+			x_dirty(x);
 		}
-		else { // mouse down
-			if(pos == FRAME_R_TITLE) {//window title 
-				x->current.view = view;
-				x->current.old_pos.x = x->cursor.cpos.x;
-				x->current.old_pos.y = x->cursor.cpos.y;
-				x->current.drag_state = X_VIEW_DRAG_MOVE;
-				x_dirty(x);
-			}
-			else if(pos == FRAME_R_RESIZE) {//window resize
-				x->current.view = view;
-				x->current.old_pos.x = x->cursor.cpos.x;
-				x->current.old_pos.y = x->cursor.cpos.y;
-				x->current.drag_state = X_VIEW_DRAG_RESIZE;
-				x_dirty(x);
-			}
-			ev->state = XEVT_MOUSE_DOWN;
-		}
+		ev->state = XEVT_MOUSE_DOWN;
 	}
 	else if(ev->state == XEVT_MOUSE_UP) {
 		if(x->current.view == view) {
@@ -855,6 +843,16 @@ static int mouse_handle(x_t* x, xevent_t* ev) {
 			}
 			x->current.pos_delta.x = 0;
 			x->current.pos_delta.y = 0;
+		}
+		else if(pos == FRAME_R_CLOSE) { //window close
+			ev->type = XEVT_WIN;
+			ev->value.window.event = XEVT_WIN_CLOSE;
+			//view->xinfo.visible = false;
+			//x_dirty(x);
+		}
+		else if(pos == FRAME_R_MAX) {
+			ev->type = XEVT_WIN;
+			ev->value.window.event = XEVT_WIN_MAX;
 		}
 		x->current.view = NULL;
 	}

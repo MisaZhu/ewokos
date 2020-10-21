@@ -22,21 +22,24 @@ static int _x_pid = -1;
 
 static bool _prs_down = false;
 static bool _j_mouse = true;
+static bool _j_x_rev = false;
+static bool _j_y_rev = false;
+static bool _j_times = 1;
 
 static void joy_2_mouse(int key, int8_t* mv) {
 	mv[0] = mv[1] = mv[2] = 0;
 	switch(key) {
 	case KEY_V_UP:
-		mv[2] -= 8;
+		mv[2] -= (_j_y_rev ? -8:8) * _j_times;
 		return;
 	case KEY_V_DOWN:
-		mv[2] += 8;
+		mv[2] += (_j_y_rev ? -8:8) * _j_times;
 		return;
 	case KEY_V_LEFT:
-		mv[1] -= 8;
+		mv[1] -= (_j_x_rev ? -8:8) * _j_times;
 		return;
 	case KEY_V_RIGHT:
-		mv[1] += 8;
+		mv[1] += (_j_x_rev ? -8:8) * _j_times;
 		return;
 	case KEY_V_PRESS:
 		if(!_prs_down) {
@@ -51,16 +54,16 @@ static void joy_2_keyb(int key, int8_t* v) {
 	*v = 0;
 	switch(key) {
 	case KEY_V_UP:
-		*v = KEY_UP;
+		*v = _j_y_rev ? KEY_DOWN:KEY_UP;
 		return;
 	case KEY_V_DOWN:
-		*v = KEY_DOWN;
+		*v = _j_y_rev ? KEY_UP:KEY_DOWN;
 		return;
 	case KEY_V_LEFT:
-		*v = KEY_LEFT;
+		*v = _j_x_rev ? KEY_LEFT:KEY_RIGHT;
 		return;
 	case KEY_V_RIGHT:
-		*v = KEY_RIGHT;
+		*v = _j_x_rev ? KEY_RIGHT:KEY_LEFT;
 		return;
 	case KEY_V_1:
 	case KEY_V_PRESS:
@@ -134,12 +137,25 @@ static void input(char key) {
 }
 
 int main(int argc, char** argv) {
-	(void)argc;
-	(void)argv;
-
 	_prs_down = false;
 	_j_mouse = true;
+	_j_x_rev = false;
+	_j_y_rev = false;
+	_j_times = 1;
 	_x_pid = -1;
+
+	if(argc > 1) {
+		_j_times = atoi(argv[1]);
+		if(_j_times <= 0)
+			_j_times = 1;
+	}
+
+	if(argc > 2 && strstr(argv[2], "rev") != NULL) {
+		if(strchr(argv[2], 'x') != NULL)
+			_j_x_rev = true;
+		if(strchr(argv[2], 'y') != NULL)
+			_j_y_rev = true;
+	}
 
 	int fd = open("/dev/joystick", O_RDONLY);
 	if(fd < 0)

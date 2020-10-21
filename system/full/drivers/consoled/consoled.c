@@ -17,10 +17,10 @@ typedef struct {
 	console_t console;
 } fb_console_t;
 
-static int init_console(fb_console_t* console) {
+static int init_console(fb_console_t* console, const char* fb_dev) {
 	memset(console, 0, sizeof(fb_console_t));
 
-	if(fb_open("/dev/fb0", &console->fb) != 0)
+	if(fb_open(fb_dev, &console->fb) != 0)
 		return -1;
 
 	console_init(&console->console);
@@ -90,8 +90,9 @@ static int console_step(void* p) {
 	
 int main(int argc, char** argv) {
 	const char* mnt_point = argc > 1 ? argv[1]: "/dev/console0";
+	const char* fb_dev = argc > 2 ? argv[2]: "/dev/fb0";
 
-	init_console(&_console);
+	init_console(&_console, fb_dev);
 
 	vdevice_t dev;
 	memset(&dev, 0, sizeof(vdevice_t));
