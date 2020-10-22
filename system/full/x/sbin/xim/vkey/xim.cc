@@ -6,6 +6,7 @@
 #include <sys/basic_math.h>
 #include <sys/vfs.h>
 #include <sys/vdevice.h>
+#include <sys/keydef.h>
 #include <x++/X.h>
 
 using namespace Ewok;
@@ -31,6 +32,8 @@ protected:
 			if(at >= (int)strlen(keytable))
 				return;
 			char c = keytable[at];
+			if(c == '\b')
+				c = KEY_BACKSPACE;
 			input(c);
 		}
 	}
@@ -39,7 +42,6 @@ protected:
 		keyw = div_u32(g.getW(), col);
 		g.fill(0, 0, g.getW(), g.getH(), 0xffffffff);
 		g.box(0, 0, g.getW(), g.getH(), 0xff222222);
-		keyw = div_u32(g.getW(), col);
 
 		for(int j=0; j<row; j++) {
 			for(int i=0; i<col; i++) {
@@ -48,9 +50,13 @@ protected:
 					break;
 				char c = keytable[at];
 				if(c == '\n')
-					g.drawText(i*keyw + (keyw - font->w)/2, 
+					g.drawText(i*keyw + 2, 
 							j*keyh + (keyh - font->h)/2,
 							"En", font, 0xff000000);
+				else if(c == '\b')
+					g.drawText(i*keyw + 2, 
+							j*keyh + (keyh - font->h)/2,
+							"<-", font, 0xff000000);
 				else
 					g.drawChar(i*keyw + (keyw - font->w)/2,
 							j*keyh + (keyh - font->h)/2,
@@ -74,13 +80,14 @@ protected:
 public:
 	inline XIMX() {
 		font = font_by_name("12x24");
-		keytable = "abcdefghijklm"
-							 "nopqrstuvwxyz"
-							 "1234567890-+."
-							 "!@#$%^&*()_=\n";
-		col = 13;
+		keytable = "abcdefghijklm/\\{}"
+							 "nopqrstuvwxyz<>[]"
+							 "1234567890-+.,'\" "
+							 "`~!@#$%^&*()|_=\b\n";
+		col = 17;
 		row = 4;
 		keyh = font->h + 8;
+		keyw = font->w*2 + 8;
 		keybFD = open("/dev/keyb0", O_RDONLY | O_NONBLOCK);
 		x_pid = -1;
 	}
@@ -93,6 +100,10 @@ public:
 
 	int getFixH(void) {
 		return keyh * row;
+	}
+
+	int getFixW(void) {
+		return keyw * col;
 	}
 
 	void doRead(void) {
@@ -123,7 +134,7 @@ int main(int argc, char* argv[]) {
 	x.screenInfo(scr);
 
 	XIMX xwin;
-	x.open(&xwin, 0, scr.size.h-xwin.getFixH(), scr.size.w, xwin.getFixH(), "xim",
+	x.open(&xwin, scr.size.w - xwin.getFixW(), scr.size.h-xwin.getFixH(), xwin.getFixW(), xwin.getFixH(), "xim",
 			X_STYLE_NO_FRAME | X_STYLE_NO_FOCUS | X_STYLE_SYSTOP | X_STYLE_XIM);
 	x.run(loop, &xwin);
 	return 0;

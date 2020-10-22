@@ -723,14 +723,18 @@ static int xserver_open(int fd, int from_pid, fsinfo_t* info, int oflag, void* p
 static void mouse_cxy(x_t* x, int32_t rx, int32_t ry) {
 	x->cursor.cpos.x += rx;
 	x->cursor.cpos.y += ry;
+
 	if(x->cursor.cpos.x < 0)
-		x->cursor.cpos.x = 0;
-	if(x->cursor.cpos.x >= (int32_t)x->g->w)
-		x->cursor.cpos.x = x->g->w;
+		x->cursor.cpos.x += x->g->w;
+
+	if(x->cursor.cpos.x > (int32_t)x->g->w)
+		x->cursor.cpos.x = x->g->w - x->cursor.cpos.x;
+
 	if(x->cursor.cpos.y < 0)
-		x->cursor.cpos.y = 0;
+		x->cursor.cpos.y += x->g->h;
+
 	if(x->cursor.cpos.y >= (int32_t)x->g->h)
-		x->cursor.cpos.y = x->g->h;
+		x->cursor.cpos.y = x->g->h - x->cursor.cpos.y;
 }
 
 enum {
