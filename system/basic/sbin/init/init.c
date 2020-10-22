@@ -192,10 +192,18 @@ static void init_fs(void) {
 
 static void init_tty_stdio(void) {
 	int fd = open("/dev/tty0", 0);
+	int fd_cons = open("/dev/console0", 0);
 
 	dup2(fd, 0);
 	dup2(fd, 1);
-	dup2(fd, 2);
+	if(fd_cons > 0)
+		dup2(fd_cons, 2);
+	else
+		dup2(fd, 2);
+
+	run("/drivers/stdiod /dev/stdin", true, true);
+	run("/drivers/stdiod /dev/stdout", true, true);
+	run("/drivers/stdiod /dev/stderr", true, true);
 }
 
 static void switch_root(void) {

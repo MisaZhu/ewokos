@@ -1,7 +1,4 @@
 /drivers/nulld                /dev/null
-/drivers/stdiod               /dev/stdin
-/drivers/stdiod               /dev/stdout
-/drivers/stdiod               /dev/stderr
+/drivers/consoled             /dev/console0 /dev/fb1
 /drivers/ramfsd               /tmp
-#/drivers/consoled             /dev/console0
 /drivers/xserverd             /dev/x

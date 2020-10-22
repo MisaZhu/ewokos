@@ -44,9 +44,9 @@ int main(int argc, char** argv) {
 	_io_fd = 0;
 	const char* mnt_point = argc < 2 ?  "/dev/stdin": argv[1];
 
-	if(strstr(mnt_point, "stdout") == 0)
+	if(strstr(mnt_point, "stdout") != 0)
 		_io_fd = 1;
-	else if(strstr(mnt_point, "stderr") == 0)
+	else if(strstr(mnt_point, "stderr") != 0)
 		_io_fd = 2;
 
 	vdevice_t dev;
