@@ -17,37 +17,62 @@ class XIMX : public XWin {
 	const char* keytable;
 	font_t* font;
 
-	int col, row, keyw, keyh;
+	int col, row, keyw, keyh, down_at;
 protected:
+	int get_at(int x, int y) {
+		int i = div_u32(x, keyw);
+		int j = div_u32(y, keyh);
+		int at = i+j*col;
+		if(at >= (int)strlen(keytable))
+			return -1;
+		return at;
+	}
+
 	void onEvent(xevent_t* ev) {
 		if(keyw == 0 || keyh == 0)
 			return;
 
-		if(ev->type == XEVT_MOUSE && ev->state == XEVT_MOUSE_UP) {
+		if(ev->type == XEVT_MOUSE) {
 			int x = ev->value.mouse.winx;
 			int y = ev->value.mouse.winy;
-			int i = div_u32(x, keyw);
-			int j = div_u32(y, keyh);
-			int at = i+j*col;
-			if(at >= (int)strlen(keytable))
+			int at = get_at(x, y);
+			if(at < 0)
 				return;
-			char c = keytable[at];
-			if(c == '\b')
-				c = KEY_BACKSPACE;
-			input(c);
+
+			if(ev->state == XEVT_MOUSE_DOWN) {
+				down_at = at;
+				repaint();
+			}
+			else if(ev->state == XEVT_MOUSE_MOVE) {
+				if(down_at >= 0 && down_at != at) {
+					down_at = at;
+					repaint();
+				}
+			}
+			else if(ev->state == XEVT_MOUSE_UP) {
+				down_at = -1;
+				char c = keytable[at];
+				if(c == '\b')
+					c = KEY_BACKSPACE;
+				input(c);
+				repaint();
+			}
 		}
 	}
 
 	void onRepaint(Graph& g) {
 		keyw = div_u32(g.getW(), col);
-		g.fill(0, 0, g.getW(), g.getH(), 0xffffffff);
-		g.box(0, 0, g.getW(), g.getH(), 0xff222222);
+		g.fill(0, 0, g.getW(), g.getH(), 0xffaaaaaa);
 
 		for(int j=0; j<row; j++) {
 			for(int i=0; i<col; i++) {
 				int at = i+j*col;
 				if(at >= (int)strlen(keytable))
 					break;
+
+				if(down_at == at)
+					g.fill(i*keyw, j*keyh, keyw, keyh, 0xffffffff);
+
 				char c = keytable[at];
 				if(c == '\n')
 					g.drawText(i*keyw + 2, 
@@ -61,7 +86,7 @@ protected:
 					g.drawChar(i*keyw + (keyw - font->w)/2,
 							j*keyh + (keyh - font->h)/2,
 							c, font, 0xff000000);
-				g.box(i*keyw, j*keyh, keyw, keyh, 0xffaaaaaa);
+				g.box(i*keyw, j*keyh, keyw, keyh, 0xffcccccc);
 			}
 		}
 	}
@@ -90,6 +115,7 @@ public:
 		keyw = font->w*2 + 8;
 		keybFD = open("/dev/keyb0", O_RDONLY | O_NONBLOCK);
 		x_pid = -1;
+		down_at = -1;
 	}
 
 	inline ~XIMX() {
