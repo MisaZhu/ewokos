@@ -13,6 +13,12 @@
 #define SHM_MAX 128
 #define LOCK_MAX 64
 #define IPC_CTX_MAX 8
+
+enum {
+	SIG_STATE_IDLE = 0,
+	SIG_STATE_BUSY
+};
+
 typedef struct {
 	page_dir_entry_t *vm;
 	malloc_t malloc_man;
@@ -29,6 +35,13 @@ typedef struct {
 		context_t ctx;
 	  uint32_t  state;
 	} ipc;
+
+	struct {
+		uint32_t  entry;
+		context_t ctx;
+	  uint32_t  state;
+	  uint32_t  proc_state;
+	} signal;
 } proc_space_t;
 
 #define STACK_PAGES 32
