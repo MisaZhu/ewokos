@@ -10,7 +10,6 @@
 #include <sys/proc.h>
 #include <hashmap.h>
 #include <kevent.h>
-#include <usinterrupt.h>
 
 static map_t* _ipc_servs = NULL; //pids of ipc_servers
 
@@ -118,34 +117,10 @@ static void do_proc_exit(proto_t *data) {
 	}
 }
 
-static void do_usint_ps2_key(proto_t* data) {
-	int32_t key_scode = proto_read_int(data);
-	int32_t pid = get_ipc_serv(IPC_SERV_PS2_KEYB);
-	if(pid < 0)
-		return;
-
-	proto_t in;
-	PF->init(&in)->addi(&in, key_scode);
-	ipc_call(pid, FS_CMD_INTERRUPT, &in, NULL);
-	PF->clear(&in);
-}
-
-static void do_user_space_int(proto_t *data) {
-	int32_t usint = proto_read_int(data);
-	switch(usint) {
-	case US_INT_PS2_KEY:
-		do_usint_ps2_key(data);
-		return;
-	}
-}
-
 static void handle_event(kevent_t* kev) {
 	switch(kev->type) {
 	case KEV_PROC_EXIT:
 		do_proc_exit(kev->data);
-		return;
-	case KEV_US_INT:
-		do_user_space_int(kev->data);
 		return;
 	case KEV_PROC_CREATED:
 		do_proc_created(kev->data);

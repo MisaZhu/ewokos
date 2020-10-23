@@ -9,44 +9,15 @@
 #include <kernel/kevqueue.h>
 #include <string.h>
 #include <kprintf.h>
-#include <usinterrupt.h>
 
 uint32_t _kernel_sec = 0;
 uint64_t _kernel_usec = 0;
 static uint32_t _schedule_tic = 0;
 static uint32_t _timer_tic = 0;
 
-static void keyboard_interrupt(proto_t* data) {
-	kevent_t* kev = kev_push(KEV_US_INT, NULL);
-	PF->addi(kev->data, US_INT_PS2_KEY);
-	PF->addi(kev->data, proto_read_int(data));
-}
-
-static bool do_userspace_int(uint32_t irqs, proto_t* data) {
-	if((irqs & IRQ_KEY) != 0) {
-		keyboard_interrupt(data);
-		return true;
-	}
-	return false;
-}
-
 void irq_handler(context_t* ctx) {
 	__irq_disable();
-	proto_t data;
-	bool do_int = false;
-
-	PF->init(&data);
-	uint32_t irqs = gic_get_irqs(&data);
-
-	//handle userspace interrupt
-	do_int = do_userspace_int(irqs, &data);
-	PF->clear(&data);
-	if(do_int && _core_pid >= 0) { 
-		//if userspace interrtup event pushed, switch to core process immidiately.
-		proc_switch(ctx, proc_get(_core_pid), true);
-		return;
-	}
-
+	uint32_t irqs = gic_get_irqs();
 	//handle irq
 	if((irqs & IRQ_TIMER0) != 0) {
 		uint64_t usec = timer_read_sys_usec();
@@ -126,6 +97,5 @@ void irq_init(void) {
 	_schedule_tic = 0;
 	_timer_tic = 0;
 	//gic_set_irqs( IRQ_UART0 | IRQ_TIMER0 | IRQ_KEY | IRQ_MOUSE | IRQ_SDC);
-	//gic_set_irqs(IRQ_TIMER0 | IRQ_SDC);
-	gic_set_irqs(IRQ_TIMER0 | IRQ_KEY);
+	gic_set_irqs(IRQ_TIMER0);
 }

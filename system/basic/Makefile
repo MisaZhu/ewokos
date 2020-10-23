@@ -139,7 +139,6 @@ all: mkdirs libs builtin_apps
 	@echo "all done."
 
 KERNEL_H = \
-	$(KERNEL_DIR)/include/usinterrupt.h \
 	$(KERNEL_DIR)/include/syscalls.h \
 	$(KERNEL_DIR)/include/sysinfo.h \
 	$(KERNEL_DIR)/include/kevent.h \

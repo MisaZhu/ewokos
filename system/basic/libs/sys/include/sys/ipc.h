@@ -19,8 +19,6 @@ void     ipc_lock(void);
 void     ipc_unlock(void);
 
 #define IPC_SERV_VFS      "ipc_serv.vfs"
-#define IPC_SERV_PS2_KEYB "ipc_serv.ps2keyb"
-#define IPC_SERV_LOCK     "ipc_serv.lock"
 #define IPC_SERV_PROC     "ipc_serv.proc"
 
 int ipc_serv_reg(const char* ipc_serv_id);
