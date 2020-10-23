@@ -6,6 +6,7 @@
 #include <kernel/ipc.h>
 #include <kernel/hw_info.h>
 #include <kernel/kevqueue.h>
+#include <kernel/signal.h>
 #include <mm/kalloc.h>
 #include <mm/shm.h>
 #include <mm/kmalloc.h>
@@ -23,21 +24,21 @@ static void sys_kprint(const char* s, int32_t len) {
 	printf(s);
 }
 
-static void sys_exit(context_t* ctx, int32_t pid, int32_t res) {
-	proc_t* proc = _current_proc;
-	if(pid >= 0)
-		proc = proc_get(pid);
+static void sys_exit(context_t* ctx, int32_t res) {
+	ctx->gpr[0] = 0;
+	proc_exit(ctx, _current_proc, res);
+}
 
+static void sys_signal(context_t* ctx, int32_t pid, int32_t sig) {
 	ctx->gpr[0] = -1;
-	if(proc->info.owner != _current_proc->info.owner &&
-			proc->info.owner < 0) { //can not kill kenrel owned procs
+	proc_t* proc = proc_get(pid);
+	if((_current_proc->info.owner > 0 &&
+			_current_proc->info.owner != proc->info.owner) ||
+			proc->info.owner < 0) {
 		return;
 	}
 
-	if(_current_proc->info.owner <= 0 || proc->info.owner == _current_proc->info.owner) {
-		ctx->gpr[0] = 0;
-		proc_exit(ctx, proc, res);
-	}
+	proc_signal_send(ctx, proc, sig);
 }
 
 static int32_t sys_getpid(int32_t pid) {
@@ -465,7 +466,10 @@ void svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_t arg2, context
 
 	switch(code) {
 	case SYS_EXIT:
-		sys_exit(ctx, arg0, arg1);
+		sys_exit(ctx, arg0);
+		return;
+	case SYS_SIGNAL:
+		sys_signal(ctx, arg0, arg1);
 		return;
 	case SYS_MALLOC:
 		ctx->gpr[0] = sys_malloc(arg0);
