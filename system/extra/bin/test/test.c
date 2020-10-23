@@ -11,7 +11,6 @@ void do_sig(int sig_no) {
 
 int main(int argc, char* argv[]) {
 	signal(SIGSTOP, do_sig);
-	int i = 0;	
 	while(1) {
 		sleep(1);
 	}

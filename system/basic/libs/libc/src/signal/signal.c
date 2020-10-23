@@ -1,5 +1,11 @@
 #include <signal.h>
+#include <stddef.h>
 
-signal_handler_t signal(int signum, signal_handler_t handler) {
-	return sys_signal(signum, handler);
+void do_sys_signal(int signum, void* p) {
+	sighandler_t func = (sighandler_t)p;
+	func(signum);
+}
+
+sighandler_t signal(int signum, sighandler_t handler) {
+	return sys_signal(signum, do_sys_signal, handler );
 }

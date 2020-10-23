@@ -6,6 +6,8 @@
 #define SIGSTOP SYS_SIG_STOP
 #define SIGKILL SYS_SIG_KILL
 
-signal_handler_t signal(int signum, signal_handler_t handler);
+typedef void (*sighandler_t)(int signum);
+
+sighandler_t signal(int signum, sighandler_t handler);
 
 #endif
