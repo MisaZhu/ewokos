@@ -5,5 +5,6 @@
 
 extern int32_t  proc_signal_setup(uint32_t entry);
 extern void     proc_signal_send(context_t* ctx, proc_t* proc, int32_t sig_no);
+extern void     proc_signal_end(context_t* ctx);
 
 #endif

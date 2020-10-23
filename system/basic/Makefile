@@ -128,7 +128,9 @@ LIB_LIBC_OBJS = $(LIB_LIBC_DIR)/src/unistd/chdir.o \
 	$(LIB_LIBC_DIR)/src/fcntl/open.o \
 	$(LIB_LIBC_DIR)/src/fcntl/close.o \
 	$(LIB_LIBC_DIR)/src/fcntl/stat.o \
-	$(LIB_LIBC_DIR)/src/fcntl/fcntl.o
+	$(LIB_LIBC_DIR)/src/fcntl/fcntl.o \
+	\
+	$(LIB_LIBC_DIR)/src/signal/signal.o \
 
 LIB_OBJS = $(LIB_SYS_OBJS) \
 	$(LIB_LIBC_OBJS) \
@@ -141,6 +143,7 @@ all: mkdirs libs builtin_apps
 
 KERNEL_H = \
 	$(KERNEL_DIR)/include/syscalls.h \
+	$(KERNEL_DIR)/include/signals.h \
 	$(KERNEL_DIR)/include/sysinfo.h \
 	$(KERNEL_DIR)/include/kevent.h \
 	$(KERNEL_DIR)/include/procinfo.h

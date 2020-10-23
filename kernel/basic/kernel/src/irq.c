@@ -8,6 +8,8 @@
 #include <kernel/proc.h>
 #include <kernel/kevqueue.h>
 #include <string.h>
+#include <signals.h>
+#include <kernel/signal.h>
 #include <kprintf.h>
 
 uint32_t _kernel_sec = 0;
@@ -70,9 +72,9 @@ void prefetch_abort_handler(context_t* ctx) {
 
 	printf("pid: %d(%s), prefetch abort!!\n", _current_proc->info.pid, _current_proc->info.cmd);
 	dump_ctx(ctx);
-	proc_exit(ctx, _current_proc, -1);
-	_current_proc = NULL;
-	schedule(ctx);
+	proc_signal_send(ctx, _current_proc, SYS_SIG_STOP);
+	//_current_proc = NULL;
+	//schedule(ctx);
 }
 
 void data_abort_handler(context_t* ctx) {
@@ -85,9 +87,10 @@ void data_abort_handler(context_t* ctx) {
 
 	printf("pid: %d(%s), data abort!!\n", _current_proc->info.pid, _current_proc->info.cmd);
 	dump_ctx(ctx);
-	proc_exit(ctx, _current_proc, -1);
-	_current_proc = NULL;
-	schedule(ctx);
+	//proc_exit(ctx, _current_proc, -1);
+	proc_signal_send(ctx, _current_proc, SYS_SIG_STOP);
+	//_current_proc = NULL;
+	//schedule(ctx);
 }
 
 void irq_init(void) {

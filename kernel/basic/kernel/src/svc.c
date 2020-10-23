@@ -29,6 +29,10 @@ static void sys_exit(context_t* ctx, int32_t res) {
 	proc_exit(ctx, _current_proc, res);
 }
 
+static int32_t sys_signal_setup(uint32_t entry) {
+	return proc_signal_setup(entry);
+}
+
 static void sys_signal(context_t* ctx, int32_t pid, int32_t sig) {
 	ctx->gpr[0] = -1;
 	proc_t* proc = proc_get(pid);
@@ -39,6 +43,10 @@ static void sys_signal(context_t* ctx, int32_t pid, int32_t sig) {
 	}
 
 	proc_signal_send(ctx, proc, sig);
+}
+
+static void sys_signal_end(context_t* ctx) {
+	proc_signal_end(ctx);
 }
 
 static int32_t sys_getpid(int32_t pid) {
@@ -468,8 +476,14 @@ void svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_t arg2, context
 	case SYS_EXIT:
 		sys_exit(ctx, arg0);
 		return;
+	case SYS_SIGNAL_SETUP:
+		sys_signal_setup(arg0);
+		return;
 	case SYS_SIGNAL:
 		sys_signal(ctx, arg0, arg1);
+		return;
+	case SYS_SIGNAL_END:
+		sys_signal_end(ctx);
 		return;
 	case SYS_MALLOC:
 		ctx->gpr[0] = sys_malloc(arg0);

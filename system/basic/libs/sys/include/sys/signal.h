@@ -1,14 +1,16 @@
 #ifndef SYS_SIGNAL_H
 #define SYS_SIGNAL_H
 
-enum {
-	SYS_SIGNAL_EXIT = 0,
-	SYS_SIGNAL_NUM
-};
+#include <signals.h>
 
 typedef void(*signal_handler_t)(int signo);
 
-void sys_singal_init(void);
-int  sys_singal(int sig_no, signal_handler_t handler);
+void             sys_sig_default(int sig_no);
+void             sys_sig_ignore(int sig_no);
+void             sys_signal_init(void);
+signal_handler_t sys_signal(int sig_no, signal_handler_t handler);
+
+#define SIG_IGN sys_sig_ignore
+#define SIG_DFL sys_sig_default
 
 #endif

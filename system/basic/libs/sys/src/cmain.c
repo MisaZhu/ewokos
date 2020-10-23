@@ -86,7 +86,7 @@ void _start(void) {
 	char* argv[ARG_MAX];
 	int32_t argc = 0;
 
-	sys_singal_init();
+	sys_signal_init();
 	proc_init();
 	init_stdio();
 	init_cmd();

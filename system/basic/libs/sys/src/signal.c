@@ -3,28 +3,41 @@
 #include <string.h>
 #include <stdlib.h>
 
-static signal_handler_t _signals[SYS_SIGNAL_NUM];
+static signal_handler_t _signals[SYS_SIG_NUM];
 
 static void _do_signal(int sig_no) {
-	if(sig_no < 0 || sig_no >= SYS_SIGNAL_NUM)
+	if(sig_no < 0 || sig_no >= SYS_SIG_NUM)
 		return;
 	_signals[sig_no](sig_no);
+	syscall0(SYS_SIGNAL_END);
 }
 
-void sig_exit_default(int sig_no) {
-	klog("exit\n");
-	exit(0);
+void sys_sig_ignore(int sig_no) {
+	(void)sig_no;
+	return;
 }
 
-void sys_singal_init(void) {
-	memset(_signals, 0, sizeof(signal_handler_t) * SYS_SIGNAL_NUM);
-	_signals[SYS_SIGNAL_EXIT] = sig_exit_default;
-	syscall1(SYS_SIGNAL, (int32_t)_do_signal);
+void sys_sig_default(int sig_no) {
+	switch(sig_no) {
+	case SYS_SIG_STOP:
+	case SYS_SIG_KILL:
+		exit(0);
+		return;
+	}
 }
 
-int sys_singal(int sig_no, signal_handler_t handler) {
-	if(sig_no < 0 || sig_no >= SYS_SIGNAL_NUM)
-		return -1;
+void sys_signal_init(void) {
+	int i;
+	for(i=0; i<SYS_SIG_NUM; i++) {
+		_signals[i] = sys_sig_default;
+	}
+	syscall1(SYS_SIGNAL_SETUP, (int32_t)_do_signal);
+}
+
+signal_handler_t sys_signal(int sig_no, signal_handler_t handler) {
+	if(sig_no < 0 || sig_no >= SYS_SIG_NUM)
+		return NULL;
+	signal_handler_t ret = _signals[sig_no];
 	_signals[sig_no] = handler;
-	return 0;
+	return ret;
 }
