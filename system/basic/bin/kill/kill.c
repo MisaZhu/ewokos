@@ -3,14 +3,17 @@
 #include <sys/syscall.h>
 
 int main(int argc, char* argv[]) {
-	int pid, res;
+	int pid, res, sig=0;
 	if(argc < 2) {
-		printf("Usage: kill <pid>.\n");
+		printf("Usage: kill <pid> {sig}.\n");
 		return -1;
 	}
 
 	pid = atoi(argv[1]);
-	res = syscall2(SYS_EXIT, pid, 0);
+	if(argc > 2) 
+		sig = atoi(argv[2]);
+
+	res = syscall2(SYS_SIGNAL, pid, sig);
 	if(res != 0) {
 		printf("Error, can not kill proc: %d!\n", pid);
 		return -1;

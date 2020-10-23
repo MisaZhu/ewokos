@@ -129,11 +129,6 @@ int main(int argc, char** argv) {
 	dev.read = keyb_read;
 	dev.interrupt = keyb_interrupt;
 
-	if(ipc_serv_reg(IPC_SERV_PS2_KEYB) != 0) {
-		klog("reg ps2keyb ipc_serv error!\n");
-		return -1;
-	}
-
 	device_run(&dev, mnt_point, FS_TYPE_CHAR);
 	return 0;
 }

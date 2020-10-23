@@ -4,6 +4,7 @@
 #include <fcntl.h>
 #include <stdlib.h>
 #include <sys/syscall.h>
+#include <sys/signal.h>
 #include <sys/proc.h>
 #include <unistd.h>
 
@@ -85,6 +86,7 @@ void _start(void) {
 	char* argv[ARG_MAX];
 	int32_t argc = 0;
 
+	sys_singal_init();
 	proc_init();
 	init_stdio();
 	init_cmd();

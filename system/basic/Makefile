@@ -55,6 +55,7 @@ LIB_SYS_OBJS = $(LIB_SYS_DIR)/src/syscall.o \
 	$(LIB_SYS_DIR)/src/charbuf.o \
 	$(LIB_SYS_DIR)/src/vfs.o \
 	$(LIB_SYS_DIR)/src/ipc.o \
+	$(LIB_SYS_DIR)/src/signal.o \
 	$(LIB_SYS_DIR)/src/vdevice.o \
 	$(LIB_SYS_DIR)/src/proto.o \
 	$(LIB_SYS_DIR)/src/thread.o \
@@ -183,6 +184,7 @@ builtin_apps: $(PROGS)
 	cd $(ROOT_DIR)/bin/uname;make
 	cd $(ROOT_DIR)/bin/pwd;make
 	cd $(ROOT_DIR)/bin/dump;make
+	cd $(ROOT_DIR)/bin/kill;make
 
 clean:
 	rm -f $(CLEAN)
@@ -198,3 +200,4 @@ clean:
 	cd $(ROOT_DIR)/bin/uname;make clean
 	cd $(ROOT_DIR)/bin/pwd;make clean
 	cd $(ROOT_DIR)/bin/dump;make clean
+	cd $(ROOT_DIR)/bin/kill;make clean

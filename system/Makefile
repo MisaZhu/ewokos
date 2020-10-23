@@ -45,6 +45,8 @@ sd: sd_sys
 	@echo "==== kernel romfs created ====\n"
 
 clean:
-	#cd full;make clean
 	cd basic;make clean
+	cd platforms;make clean
+	cd platforms/sd;make clean
+	cd full;make clean
 	rm -fr build
