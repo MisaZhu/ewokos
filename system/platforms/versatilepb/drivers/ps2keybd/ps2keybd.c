@@ -13,18 +13,21 @@
 
 #define KCNTL 0x00
 #define KSTAT 0x04
+#define KDATA 0x08
 #define KCLK  0x0C
 #define KISTA 0x10
 
 #define KEYBOARD_BASE (_mmio_base+0x6000)
 
 static uint8_t _held[128] = {0};
+static bool _idle = true;
 
 int32_t keyb_init(void) {
 	_mmio_base = mmio_map(false);
   put8(KEYBOARD_BASE + KCNTL, 0x10); // bit4=Enable bit0=INT on
   put8(KEYBOARD_BASE + KCLK, 8);
 	memset(_held, 0, 128);
+	_idle = true;
 	return 0;
 }
 
@@ -54,6 +57,7 @@ const char _utab[] = {
 static int32_t keyb_handle(uint8_t scode) {
 	char c = 0;
 	if((scode == 0xF0 || scode == 0xE0)) {
+		_idle = true;
 		return 0;
 	}
 
@@ -62,6 +66,10 @@ static int32_t keyb_handle(uint8_t scode) {
 		return 0;
 	}
 	_held[scode] = 1;
+
+	if(!_idle)
+		return 0;
+	_idle = false;
 
 	if(scode == 0x12 || scode == 0x59 || scode == 0x14)
 		return 0;
@@ -107,14 +115,14 @@ static int keyb_read(int fd, int from_pid, fsinfo_t* info,
 	return 1;
 }
 
-void keyb_interrupt(proto_t* in, void* p) {
+int keyb_step(void* p) {
 	(void)p;
-	uint8_t key_scode = proto_read_int(in);
+	uint8_t key_scode = get8(KEYBOARD_BASE+KDATA);
 	char c = keyb_handle(key_scode);
 	if(c != 0) {
 		charbuf_push(&_buffer, c, true);
-		proc_wakeup(0);
 	}
+	return 0;
 }
 
 int main(int argc, char** argv) {
@@ -127,7 +135,7 @@ int main(int argc, char** argv) {
 	memset(&dev, 0, sizeof(vdevice_t));
 	strcpy(dev.name, "keyb");
 	dev.read = keyb_read;
-	dev.interrupt = keyb_interrupt;
+	dev.loop_step = keyb_step;
 
 	device_run(&dev, mnt_point, FS_TYPE_CHAR);
 	return 0;
