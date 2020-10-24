@@ -192,12 +192,12 @@ static void init_fs(void) {
 
 static void init_tty_stdio(void) {
 	int fd = open("/dev/tty0", 0);
-	int fd_cons = open("/dev/console0", 0);
+	int fd_log = open("/dev/klog", 0);
 
 	dup2(fd, 0);
 	dup2(fd, 1);
-	if(fd_cons > 0)
-		dup2(fd_cons, 2);
+	if(fd_log > 0)
+		dup2(fd_log, 2);
 	else
 		dup2(fd, 2);
 

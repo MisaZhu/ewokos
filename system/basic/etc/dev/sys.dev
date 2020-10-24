@@ -1,2 +1,3 @@
 /drivers/nulld                /dev/null
+/drivers/klogd                /dev/klog
 /drivers/ramfsd               /tmp
