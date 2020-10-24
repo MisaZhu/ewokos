@@ -920,6 +920,7 @@ static int xserver_dev_cntl(int from_pid, int cmd, proto_t* in, proto_t* ret, vo
     proto_read_to(in, &ev, sizeof(xevent_t));
 		handle_input(x, &ev);
 	}
+
 	x_repaint(x);
 	return 0;
 }

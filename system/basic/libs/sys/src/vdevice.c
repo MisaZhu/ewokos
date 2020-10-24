@@ -11,11 +11,11 @@
 #include <sys/proc.h>
 #include <sys/syscall.h>
 #include <sys/lockc.h>
+#include <sys/signal.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
-
 
 static void do_open(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, void* p) {
 	fsinfo_t info;
@@ -357,16 +357,21 @@ static int do_mount(vdevice_t* dev, fsinfo_t* mnt_point, int type) {
 	return 0;
 }
 
+static void sig_stop(int sig_no, void* p) {
+  (void)sig_no;
+  vdevice_t* dev = (vdevice_t*)p;
+  dev->terminated = true;
+}
+
 int device_run(vdevice_t* dev, const char* mnt_point, int mnt_type) {
 	if(dev == NULL)
 		return -1;
+	sys_signal(SYS_SIG_STOP, sig_stop, dev);
 	
 	fsinfo_t mnt_point_info;
 	if(mnt_point != NULL) {
-		if(strcmp(mnt_point, "/") != 0)
+		if(vfs_get(mnt_point, &mnt_point_info) != 0)
 			vfs_create(mnt_point, &mnt_point_info, mnt_type);
-		else
-			vfs_get(mnt_point, &mnt_point_info);
 
 		if(do_mount(dev, &mnt_point_info, mnt_type) != 0)
 			return -1;
@@ -378,7 +383,7 @@ int device_run(vdevice_t* dev, const char* mnt_point, int mnt_type) {
 		ipc_flags |= IPC_NON_BLOCK;
 	ipc_serv_run(handle, dev, ipc_flags);
 
-	while(1) {
+	while(!dev->terminated) {
 		if(dev->loop_step != NULL) {
 			//ipc_lock();
 			dev->loop_step(dev->extra_data);
@@ -391,7 +396,7 @@ int device_run(vdevice_t* dev, const char* mnt_point, int mnt_type) {
 	}
 
 	if(mnt_point != NULL && dev->umount != NULL) {
-		return dev->umount(&mnt_point_info, dev->extra_data);
+		dev->umount(&mnt_point_info, dev->extra_data);
 	}
 	vfs_umount(&mnt_point_info);
 	return 0;

@@ -32,11 +32,7 @@ void proc_signal_end(context_t* ctx) {
 	if(_current_proc->space->signal.entry == 0)
 		return;
 
-	_current_proc->info.state = _current_proc->space->signal.proc_state;
-	if(_current_proc->space->signal.proc_state == READY || 
-			_current_proc->space->signal.proc_state == RUNNING)
-		proc_ready(_current_proc);
-
+	proc_ready(_current_proc);
 	memcpy(ctx, &_current_proc->space->signal.ctx, sizeof(context_t));
 	schedule(ctx);
 }

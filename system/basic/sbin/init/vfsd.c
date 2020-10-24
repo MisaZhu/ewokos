@@ -284,8 +284,9 @@ static void vfs_umount(int32_t pid, vfs_node_t* node) {
 		return;
 
 	vfs_node_t* org = (vfs_node_t*)_vfs_mounts[node->mount_id].org_node;
-	if(org == NULL)
+	if(org == NULL) {
 		return;
+	}
 	
 	vfs_node_t* father = node->father;
 	if(father == NULL) {
@@ -295,6 +296,7 @@ static void vfs_umount(int32_t pid, vfs_node_t* node) {
 		vfs_remove(pid, node);
 		vfs_add(pid, father, org);
 	}
+	memset(&_vfs_mounts[node->mount_id], 0, sizeof(mount_t));
 }
 
 static int32_t vfs_del(int32_t pid, vfs_node_t* node) {

@@ -10,6 +10,7 @@
 #include <stdlib.h>
 #include <fcntl.h>
 #include <string.h>
+#include <signal.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -263,9 +264,16 @@ static void handle(int from_pid, int cmd, proto_t* in, proto_t* out, void* p) {
 	}
 }
 
+static void sig_stop(int sig_no, void* p) {
+	(void)sig_no;
+	x_t* x = (x_t*)p;
+	x->terminated = true;
+}
+
 void  x_init(x_t* x, void* data) {
 	memset(x, 0, sizeof(x_t));
 	x->data = data;
+	sys_signal(SYS_SIG_STOP, sig_stop, x);
 }
 
 void  x_run(x_t* x, void* loop_data) {
