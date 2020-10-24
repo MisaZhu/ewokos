@@ -1,5 +1,5 @@
 /drivers/nulld                /dev/null
-/drivers/klogd                /dev/klog
 /drivers/consoled             /dev/console0 /dev/fb1
+/drivers/klogd                /dev/klog
 /drivers/ramfsd               /tmp
 /drivers/xserverd             /dev/x
