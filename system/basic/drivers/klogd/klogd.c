@@ -6,8 +6,10 @@
 #include <sys/vdevice.h>
 #include <sys/syscall.h>
 
-static int _tty_fd = -1;
-static int _cons_fd = -1;
+#define DFT_LOG_DEV "/dev/tty0"
+#define MAX_LOG_DEV 4
+static int _fds[MAX_LOG_DEV]; 
+static int _fds_num = 0;
 
 static int klog_write(int fd, 
 		int from_pid,
@@ -23,17 +25,27 @@ static int klog_write(int fd,
 	(void)offset;
 	(void)p;
 
-	if(_tty_fd > 0)
-		write(_tty_fd, buf, size);
-	if(_cons_fd > 0)
-		write(_cons_fd, buf, size);
+	int i;
+	for(i=0; i<_fds_num; i++) {
+		if(_fds[i] > 0)
+			write(_fds[i], buf, size);
+	}
 	return size;
 }
 
 int main(int argc, char** argv) {
 	const char* mnt_point = argc > 1 ? argv[1]: "/dev/klog";
-	_tty_fd = open("/dev/tty0", O_WRONLY);
-	_cons_fd = open("/dev/console0", O_WRONLY);
+	if(argv > 2) {
+		int i;
+		for(i=0; i<MAX_LOG_DEV && i<(argv-2); i++) {
+			_fds[i] = open(argv[i+2], O_WRONLY);
+		}
+		_fds_num = i;
+	}
+	else {
+		_fds[0] = open(DFT_LOG_DEV, O_WRONLY);
+		_fds_num = 1;
+	}
 
 	vdevice_t dev;
 	memset(&dev, 0, sizeof(vdevice_t));
