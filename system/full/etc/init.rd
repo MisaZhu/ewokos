@@ -7,6 +7,6 @@
 #/sbin/x/xtouchd
 /sbin/x/xmoused
 /sbin/x/xim_vkey
-/sbin/x/xjoystickd 2 revx
+/sbin/x/xjoystickd 1 revx
 
 /bin/x/launcher

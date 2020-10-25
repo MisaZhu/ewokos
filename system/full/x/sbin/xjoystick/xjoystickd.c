@@ -33,8 +33,8 @@ static void joy_2_mouse(int key, int8_t* mv) {
 	uint32_t t = 1;
 	if(_j_speed_up > 6) {
 		t = _j_speed_up/6;
-		if(t > 4)
-			t = 4;
+		if(t > 8)
+			t = 8;
 	}
 		
 	mv[0] = mv[1] = mv[2] = 0;
