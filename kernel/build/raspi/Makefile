@@ -107,6 +107,7 @@ KERNEL_OBJS = \
 	$(KERNEL_DIR)/svc.o \
 	$(KERNEL_DIR)/proc.o \
 	$(KERNEL_DIR)/ipc.o \
+	$(KERNEL_DIR)/signal.o \
 	$(KERNEL_DIR)/schedule.o \
 	$(KERNEL_DIR)/systemc.o \
 	$(KERNEL_DIR)/kevqueue.o \
