@@ -1,6 +1,6 @@
 #include <stdlib.h>
 #include <stdio.h>
-#include <sys/syscall.h>
+#include <signal.h>
 
 int main(int argc, char* argv[]) {
 	int pid, res, sig=0;
@@ -13,7 +13,7 @@ int main(int argc, char* argv[]) {
 	if(argc > 2) 
 		sig = atoi(argv[2]);
 
-	res = syscall2(SYS_SIGNAL, pid, sig);
+	res = kill(pid, sig);
 	if(res != 0) {
 		printf("Error, can not kill proc: %d!\n", pid);
 		return -1;

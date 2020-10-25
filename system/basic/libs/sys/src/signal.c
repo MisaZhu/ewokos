@@ -15,6 +15,10 @@ static void _do_signal(int sig_no) {
 			sig_no >= SYS_SIG_NUM ||
 			_signals[sig_no].func == NULL)
 		return;
+	if(sig_no == SYS_SIG_KILL) {
+		exit(0);
+	}
+
 	_signals[sig_no].func(sig_no, _signals[sig_no].data);
 	syscall0(SYS_SIGNAL_END);
 }
@@ -29,7 +33,6 @@ void sys_sig_default(int sig_no, void* p) {
 	(void)p;
 	switch(sig_no) {
 	case SYS_SIG_STOP:
-	case SYS_SIG_KILL:
 		exit(0);
 		return;
 	}
