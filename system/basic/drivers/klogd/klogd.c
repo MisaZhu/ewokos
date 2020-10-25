@@ -35,9 +35,9 @@ static int klog_write(int fd,
 
 int main(int argc, char** argv) {
 	const char* mnt_point = argc > 1 ? argv[1]: "/dev/klog";
-	if(argv > 2) {
+	if(argc > 2) {
 		int i;
-		for(i=0; i<MAX_LOG_DEV && i<(argv-2); i++) {
+		for(i=0; i<MAX_LOG_DEV && i<(argc-2); i++) {
 			_fds[i] = open(argv[i+2], O_WRONLY);
 		}
 		_fds_num = i;
