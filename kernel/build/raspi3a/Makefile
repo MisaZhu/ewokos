@@ -91,6 +91,7 @@ LIB_OBJS = \
 
 LOAD_OBJS = \
 	$(LOAD_DIR)/romfs_data.o \
+	$(LOAD_DIR)/romfs.o \
 	$(LOAD_DIR)/loadinit.o
 CFLAGS += -I$(LOAD_DIR)
 
