@@ -190,6 +190,8 @@ builtin_apps: $(PROGS)
 	cd $(ROOT_DIR)/bin/pwd;make
 	cd $(ROOT_DIR)/bin/dump;make
 	cd $(ROOT_DIR)/bin/kill;make
+	cd $(ROOT_DIR)/bin/rm;make
+	cd $(ROOT_DIR)/bin/mkdir;make
 
 clean:
 	rm -f $(CLEAN)
@@ -206,3 +208,5 @@ clean:
 	cd $(ROOT_DIR)/bin/pwd;make clean
 	cd $(ROOT_DIR)/bin/dump;make clean
 	cd $(ROOT_DIR)/bin/kill;make clean
+	cd $(ROOT_DIR)/bin/rm;make clean
+	cd $(ROOT_DIR)/bin/mkdir;make clean
