@@ -13,7 +13,7 @@ int main(int argc, char* argv[]) {
 
 	fname = vfs_fullname(argv[1]);
 	if(vfs_create(fname, &info, FS_TYPE_DIR, false) != 0) {
-		fprintf(stderr, "mkdir '%s' failed!\n", fname);
+		printf("mkdir '%s' failed!\n", fname);
 		return -1;
 	}
 	return 0;
