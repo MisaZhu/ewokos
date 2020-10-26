@@ -222,7 +222,7 @@ static void do_create(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, v
 	proto_read_to(in, &info_to, sizeof(fsinfo_t));
 	proto_read_to(in, &info, sizeof(fsinfo_t));
 
-	int res = 0;
+	int res = -1;
 	if(dev != NULL && dev->create != NULL) {
 		res = dev->create(&info_to, &info, p);
 	}
@@ -371,7 +371,7 @@ int device_run(vdevice_t* dev, const char* mnt_point, int mnt_type) {
 	fsinfo_t mnt_point_info;
 	if(mnt_point != NULL) {
 		if(vfs_get(mnt_point, &mnt_point_info) != 0)
-			vfs_create(mnt_point, &mnt_point_info, mnt_type);
+			vfs_create(mnt_point, &mnt_point_info, mnt_type, true);
 
 		if(do_mount(dev, &mnt_point_info, mnt_type) != 0)
 			return -1;

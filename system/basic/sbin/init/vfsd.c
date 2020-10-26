@@ -294,7 +294,10 @@ static void vfs_umount(int32_t pid, vfs_node_t* node) {
 	}
 	else {
 		vfs_remove(pid, node);
-		vfs_add(pid, father, org);
+		if(org->mount_id < 0)
+			free(org);
+		else
+			vfs_add(pid, father, org);
 	}
 	memset(&_vfs_mounts[node->mount_id], 0, sizeof(mount_t));
 }

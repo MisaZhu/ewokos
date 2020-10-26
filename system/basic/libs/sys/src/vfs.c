@@ -383,7 +383,7 @@ void* vfs_readfile(const char* fname, int* rsz) {
 	return buf;
 }
 
-int vfs_create(const char* fname, fsinfo_t* ret, int type) {
+int vfs_create(const char* fname, fsinfo_t* ret, int type, bool vfs_node_only) {
 	str_t *dir = str_new("");
 	str_t *name = str_new("");
 	vfs_parse_name(fname, dir, name);
@@ -414,7 +414,7 @@ int vfs_create(const char* fname, fsinfo_t* ret, int type) {
 		vfs_del(ret);
 		return -1;
 	}
-	if(type == FS_TYPE_CHAR || type == FS_TYPE_BLOCK)
+	if(vfs_node_only)
 		return 0;
 
 	if(type == FS_TYPE_DIR)
@@ -438,6 +438,8 @@ int vfs_create(const char* fname, fsinfo_t* ret, int type) {
 			proto_read_to(&out, ret, sizeof(fsinfo_t));
 			res = vfs_set(ret);
 		}
+		else 
+			vfs_del(ret);
 	}
 	PF->clear(&in);
 	PF->clear(&out);
