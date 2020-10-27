@@ -94,6 +94,7 @@ LOAD_OBJS = \
 	$(LOAD_DIR)/ext2read.o \
 	$(LOAD_DIR)/loadinit.o
 CFLAGS += -I$(LOAD_DIR) -DLOAD_SD
+QEMU_ARGS += -sd $(SYS_FULL_DIR)/build/sd.ext2
 else
 LOAD_DIR=$(SRC_DIR)/loadinit/romfs
 LOAD_OBJS = \
@@ -148,17 +149,11 @@ asm:
 run: 
 	$(QEMU_CMD) $(QEMU_FLAGS) -kernel $(BUILD_DIR)/$(OS_IMG) $(QEMU_ARGS)
 
-runsd: 
-	$(QEMU_CMD) $(QEMU_FLAGS) -kernel $(BUILD_DIR)/$(OS_IMG) $(QEMU_ARGS) -sd $(SYS_FULL_DIR)/build/sd.ext2
-
 runasm: 
 	$(QEMU_CMD) $(QEMU_FLAGS) -kernel $(BUILD_DIR)/$(OS_IMG) $(QEMU_ARGS) -d in_asm
 
 debug:
 	$(QEMU_CMD) $(QEMU_FLAGS) -gdb tcp::26000 -S -kernel $(BUILD_DIR)/$(OS_IMG) $(QEMU_ARGS)
-
-debugsd:
-	$(QEMU_CMD) $(QEMU_FLAGS) -gdb tcp::26000 -S -kernel $(BUILD_DIR)/$(OS_IMG) $(QEMU_ARGS) -sd $(SYS_FULL_DIR)/build/sd.ext2
 
 debugasm:
 	$(QEMU_CMD) $(QEMU_FLAGS) -d in_asm -gdb tcp::26000 -S -kernel $(BUILD_DIR)/$(OS_IMG)
