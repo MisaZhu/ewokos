@@ -26,30 +26,29 @@ static bool _prs_down = false;
 static bool _j_mouse = true;
 static bool _j_x_rev = false;
 static bool _j_y_rev = false;
-static uint32_t _j_times = 1;
 static uint32_t _j_speed_up = 0;
 
 static void joy_2_mouse(int key, int8_t* mv) {
-	uint32_t t = 1;
+	uint32_t j_times = 1;
 	if(_j_speed_up > 6) {
-		t = _j_speed_up/6;
-		if(t > 8)
-			t = 8;
+		j_times = _j_speed_up/6;
+		if(j_times > 16)
+			j_times = 16;
 	}
 		
 	mv[0] = mv[1] = mv[2] = 0;
 	switch(key) {
 	case KEY_V_UP:
-		mv[2] -= (_j_y_rev ? -JOY_STEP:JOY_STEP) * _j_times * t;
+		mv[2] -= (_j_y_rev ? -JOY_STEP:JOY_STEP) * j_times;
 		return;
 	case KEY_V_DOWN:
-		mv[2] += (_j_y_rev ? -JOY_STEP:JOY_STEP) * _j_times * t;
+		mv[2] += (_j_y_rev ? -JOY_STEP:JOY_STEP) * j_times;
 		return;
 	case KEY_V_LEFT:
-		mv[1] -= (_j_x_rev ? -JOY_STEP:JOY_STEP) * _j_times * t;
+		mv[1] -= (_j_x_rev ? -JOY_STEP:JOY_STEP) * j_times;
 		return;
 	case KEY_V_RIGHT:
-		mv[1] += (_j_x_rev ? -JOY_STEP:JOY_STEP) * _j_times * t;
+		mv[1] += (_j_x_rev ? -JOY_STEP:JOY_STEP) * j_times;
 		return;
 	case KEY_V_PRESS:
 		if(!_prs_down) {
@@ -156,20 +155,13 @@ int main(int argc, char** argv) {
 	_j_mouse = true;
 	_j_x_rev = false;
 	_j_y_rev = false;
-	_j_times = 1;
 	_j_speed_up = 0;
 	_x_pid = -1;
 
-	if(argc > 1) {
-		_j_times = atoi(argv[1]);
-		if(_j_times <= 0)
-			_j_times = 1;
-	}
-
-	if(argc > 2 && strstr(argv[2], "rev") != NULL) {
-		if(strchr(argv[2], 'x') != NULL)
+	if(argc > 1 && strstr(argv[1], "rev") != NULL) {
+		if(strchr(argv[1], 'x') != NULL)
 			_j_x_rev = true;
-		if(strchr(argv[2], 'y') != NULL)
+		if(strchr(argv[1], 'y') != NULL)
 			_j_y_rev = true;
 	}
 
