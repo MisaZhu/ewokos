@@ -1,5 +1,5 @@
 #include <string.h>
-#include <arch/arm/vpb/framebuffer.h>
+#include <arch/vpb/framebuffer.h>
 #include <sys/syscall.h>
 #include <sys/mmu.h>
 #include <sysinfo.h>

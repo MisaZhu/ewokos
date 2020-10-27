@@ -8,7 +8,7 @@
 #include <sys/mmu.h>
 #include <sys/proc.h>
 #include <sys/ipc.h>
-#include <arch/arm/bcm283x/pl011_uart.h>
+#include <arch/bcm283x/pl011_uart.h>
 
 static charbuf_t _buffer;
 

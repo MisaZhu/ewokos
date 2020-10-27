@@ -2,7 +2,7 @@ AR = arm-none-eabi-ar
 CC = arm-none-eabi-gcc
 LD = arm-none-eabi-ld
 
-BUILD_DIR = ../../../../build
+BUILD_DIR = ../../../build
 TARGET_DIR = $(BUILD_DIR)
 
 # flags
@@ -25,23 +25,16 @@ LDFLAGS = -L$(TARGET_DIR)/lib -lnosys
 
 CFLAGS += -I $(TARGET_DIR)/include -Iinclude
 
-LIB_ARCH_BCM283X_OBJS = src/framebuffer.o \
-	src/gpio_actled.o \
-	src/gpio.o \
-	src/mailbox.o \
-	src/mbox_actled.o \
-	src/mini_uart.o \
-	src/pl011_uart.o \
-	src/spi.o
+LIB_ARCH_VPB_OBJS = src/framebuffer.o src/sd.o
 
-ARCH_BCM283X = $(TARGET_DIR)/lib/libarch_bcm283x.a
+ARCH_VPB = $(TARGET_DIR)/lib/libarch_vpb.a
 
-$(ARCH_BCM283X): $(LIB_ARCH_BCM283X_OBJS)
-	$(AR) rT $(ARCH_BCM283X) $(LIB_ARCH_BCM283X_OBJS)
+$(ARCH_VPB): $(LIB_ARCH_VPB_OBJS)
+	$(AR) rT $(ARCH_VPB) $(LIB_ARCH_VPB_OBJS)
 	cp -r include/* $(TARGET_DIR)/include
 
-clean:
-	rm -f $(LIB_ARCH_BCM283X_OBJS)
-	rm -f $(ARCH_BCM283X)
 
+clean:
+	rm -f $(LIB_ARCH_VPB_OBJS)
+	rm -f $(ARCH_VPB)
 

@@ -1,4 +1,4 @@
-#include "arch/arm/bcm283x/mailbox.h"
+#include <arch/bcm283x/mailbox.h>
 
 void bcm283x_mbox_actled(bool on) {
 	if(_bcm283x_mailbox_addr == 0) //mailbox not inited!

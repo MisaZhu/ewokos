@@ -1,4 +1,4 @@
-#include <arch/arm/bcm283x/gpio.h>
+#include <arch/bcm283x/gpio.h>
 #include <sys/vdevice.h>
 #include <string.h>
 #include <unistd.h>

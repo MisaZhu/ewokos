@@ -25,9 +25,7 @@ LDFLAGS = -L$(TARGET_DIR)/lib -lnosys
 
 CFLAGS += -I $(TARGET_DIR)/include -Iinclude
 
-LIB_SD_OBJS = src/arch/arm/bcm283x/sd_arch.o \
-	src/arch/arm/versatilepb/sd_arch.o \
-	src/sd.o
+LIB_SD_OBJS = src/sd.o
 
 SD = $(TARGET_DIR)/lib/libsd.a
 

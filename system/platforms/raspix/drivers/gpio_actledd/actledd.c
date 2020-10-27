@@ -1,4 +1,4 @@
-#include <arch/arm/bcm283x/gpio_actled.h>
+#include <arch/bcm283x/gpio_actled.h>
 #include <sys/vdevice.h>
 #include <string.h>
 

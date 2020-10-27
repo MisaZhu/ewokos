@@ -6,7 +6,7 @@
 #include <sys/syscall.h>
 #include <sys/vdevice.h>
 #include <sys/shm.h>
-#include <arch/arm/vpb/framebuffer.h>
+#include <arch/vpb/framebuffer.h>
 
 typedef struct {
 	void* data;

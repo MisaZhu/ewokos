@@ -1,5 +1,5 @@
-#include "arch/arm/bcm283x/gpio.h"
-#include "arch/arm/bcm283x/spi.h"
+#include <arch/bcm283x/gpio.h>
+#include <arch/bcm283x/spi.h>
 #include <sys/vdevice.h>
 #include <unistd.h>
 #include <string.h>

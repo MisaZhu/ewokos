@@ -1,5 +1,5 @@
-#include <arch/arm/bcm283x/mailbox.h>
-#include <arch/arm/bcm283x/mbox_actled.h>
+#include <arch/bcm283x/mailbox.h>
+#include <arch/bcm283x/mbox_actled.h>
 #include <sys/vdevice.h>
 #include <string.h>
 

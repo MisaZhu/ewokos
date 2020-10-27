@@ -5,6 +5,8 @@
 #include <string.h>
 #include <unistd.h>
 #include <sysinfo.h>
+#include <arch/bcm283x/sd.h>
+#include <arch/vpb/sd.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -151,16 +153,6 @@ int32_t sd_quit(void) {
 	return 0;
 }
 
-/*bcm283x sd functions*/
-int32_t sd_init_arch_bcm283x(void);
-int32_t sd_read_sector_arch_bcm283x(int32_t sector, void* buf);
-int32_t sd_write_sector_arch_bcm283x(int32_t sector, const void* buf);
-
-/*versatilepb sd functions*/
-int32_t sd_init_arch_versatilepb(void);
-int32_t sd_read_sector_arch_versatilepb(int32_t sector, void* buf);
-int32_t sd_write_sector_arch_versatilepb(int32_t sector, const void* buf);
-
 int32_t sd_init(void) {
 	_sector_buf = NULL;
 	_sector_buf_num = 0;
@@ -170,14 +162,14 @@ int32_t sd_init(void) {
 	syscall1(SYS_GET_SYS_INFO, (int32_t)&sysinfo);
 
 	if(strncmp(sysinfo.machine, "raspi", 5) == 0) {
-		sd_init_arch = sd_init_arch_bcm283x;
-		sd_read_sector_arch = sd_read_sector_arch_bcm283x;
-		sd_write_sector_arch = sd_write_sector_arch_bcm283x;
+		sd_init_arch = bcm283x_sd_init;
+		sd_read_sector_arch = bcm283x_sd_read_sector;
+		sd_write_sector_arch = bcm283x_sd_write_sector;
 	}
 	else {
-		sd_init_arch = sd_init_arch_versatilepb;
-		sd_read_sector_arch = sd_read_sector_arch_versatilepb;
-		sd_write_sector_arch = sd_write_sector_arch_versatilepb;
+		sd_init_arch = versatilepb_sd_init;
+		sd_read_sector_arch = versatilepb_sd_read_sector;
+		sd_write_sector_arch = versatilepb_sd_write_sector;
 	}
 
 	if(sd_init_arch() != 0)

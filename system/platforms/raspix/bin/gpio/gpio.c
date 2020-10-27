@@ -2,7 +2,7 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <string.h>
-#include <arch/arm/bcm283x/gpio.h>
+#include <arch/bcm283x/gpio.h>
 
 int main(int argc, char* argv[]) {
 	bcm283x_gpio_init();

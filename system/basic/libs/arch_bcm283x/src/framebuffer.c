@@ -1,6 +1,6 @@
 #include <string.h>
-#include <arch/arm/bcm283x/mailbox.h>
-#include <arch/arm/bcm283x/framebuffer.h>
+#include <arch/bcm283x/mailbox.h>
+#include <arch/bcm283x/framebuffer.h>
 #include <sys/syscall.h>
 #include <sysinfo.h>
 #include <sys/mmu.h>
