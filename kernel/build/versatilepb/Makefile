@@ -18,7 +18,6 @@ SYS_FULL_DIR = ../../../system
 SRC_DIR=../..
 BUILD_DIR = .
 
-LOAD_DIR=$(SRC_DIR)/loadinit
 include config.mk
 
 # flags
@@ -63,11 +62,13 @@ ARCH_OBJS = \
 	$(BSP_DIR)/$(BSP)/hw_info.o \
 	$(BSP_DIR)/$(BSP)/irq.o \
 	$(BSP_DIR)/$(BSP)/timer.o \
+	$(BSP_DIR)/$(BSP)/sd.o \
 	$(BSP_DIR)/$(BSP)/uart.o \
 	$(ARCH_DIR)/arm/common/src/interrupt.o \
 	$(ARCH_DIR)/arm/common/src/memcpy.o \
 	$(ARCH_DIR)/arm/common/src/mmu_arch.o \
 	$(BSP_DIR)/lib/bcm283x/src/gpio.o  \
+	$(BSP_DIR)/lib/bcm283x/src/sd.o  \
 	$(BSP_DIR)/lib/bcm283x/src/mailbox.o \
 	$(BSP_DIR)/lib/bcm283x/src/pl011_uart.o \
 	$(BSP_DIR)/lib/bcm283x/src/mini_uart.o \
@@ -87,11 +88,20 @@ LIB_OBJS = \
 	$(LIB_DIR)/queue.o \
 	$(LIB_DIR)/kprintf.o
 
+ifeq ($(LOAD_MODE), sd)
+LOAD_DIR=$(SRC_DIR)/loadinit/sd
+LOAD_OBJS = \
+	$(LOAD_DIR)/ext2read.o \
+	$(LOAD_DIR)/loadinit.o
+CFLAGS += -I$(LOAD_DIR) -DLOAD_SD
+else
+LOAD_DIR=$(SRC_DIR)/loadinit/romfs
 LOAD_OBJS = \
 	$(LOAD_DIR)/romfs_data.o \
 	$(LOAD_DIR)/romfs.o \
 	$(LOAD_DIR)/loadinit.o
 CFLAGS += -I$(LOAD_DIR)
+endif
 
 DEV_DIR = $(SRC_DIR)/basic/dev/src
 DEV_OBJS = \

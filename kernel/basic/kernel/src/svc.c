@@ -461,10 +461,19 @@ static int32_t sys_get_kernel_tic(void) {
 	return _svc_tic;
 }
 
+#ifdef LOAD_SD
+static int32_t sys_romfs_get(uint32_t index, char* name, char* data) {
+	(void)index;
+	(void)name;
+	(void)data;
+	return -1;
+}
+#else
 int32_t romfs_get_by_index(uint32_t index, char* name, char* data);
 static int32_t sys_romfs_get(uint32_t index, char* name, char* data) {
 	return romfs_get_by_index(index, name, data);
 }
+#endif
 
 void svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_t arg2, context_t* ctx, int32_t processor_mode) {
 	(void)processor_mode;
