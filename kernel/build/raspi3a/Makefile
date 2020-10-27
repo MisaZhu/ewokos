@@ -90,7 +90,7 @@ LIB_OBJS = \
 	$(LIB_DIR)/queue.o \
 	$(LIB_DIR)/kprintf.o
 
-ifeq ($(LOAD_MODE), sd)
+ifeq ($(SYS_LOAD_MODE), sd)
 LOAD_DIR=$(SRC_DIR)/loadinit/sd
 LOAD_OBJS = \
 	$(LOAD_DIR)/ext2read.o \
