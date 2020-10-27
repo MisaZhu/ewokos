@@ -12,45 +12,6 @@
 #include <sys/proc.h>
 #include <dirent.h>
 
-static char* run_none_fs_kfs(const char* cmd, int32_t *size) {
-	int32_t index = 0;
-	char* data = NULL;
-	while(true) {
-		char name[FS_FULL_NAME_MAX];
-		int32_t sz = syscall3(SYS_KROMFS_GET, index, (int32_t)name, (int32_t)NULL);	
-		if(sz < 0) 
-			break;
-		if(sz > 0 && name[0] != 0 && strcmp(cmd, name) == 0)  {
-			data = (char*)malloc(sz);
-			sz = syscall3(SYS_KROMFS_GET, index, (int32_t)name, (int32_t)data);	
-			*size = sz;
-			return data;
-		}
-		index++;
-	}
-	return NULL;	
-}
-
-static int run_none_fs(const char* cmd) {
-	klog("init: %s ", cmd);
-	//int pid = vfork();
-	int pid = fork();
-	if(pid == 0) {
-		char* data = NULL;
-		int32_t sz = 0;
-		data = run_none_fs_kfs(cmd, &sz);
-		if(data == NULL) {
-			klog("[error!] (%s)\n", cmd);
-			exit(-1);
-		}
-		proc_exec_elf(cmd, data, sz);
-		free(data);
-	}
-	proc_wait_ready(pid);
-	klog("[ok]\n");
-	return pid;
-}
-
 static int run(const char* cmd, bool prompt, bool wait) {
 	if(prompt)
 		klog("init: %s ", cmd);
@@ -155,6 +116,7 @@ static void run_procs(void) {
 
 void core(void);
 static void run_core(void) {
+	klog("run init-core    ");
 	int pid = fork();
 	if(pid == 0) {
 		syscall1(SYS_PROC_SET_CMD, (int32_t)"init-core");
@@ -162,10 +124,12 @@ static void run_core(void) {
 	}
 	else
 		proc_wait_ready(pid);
+	klog("[ok]\n");
 }
 
 int vfsd_main(void);
 static void run_vfsd(void) {
+	klog("run init-vfsd    ");
 	int pid = fork();
 	if(pid == 0) {
 		syscall1(SYS_PROC_SET_CMD, (int32_t)"init-vfsd");
@@ -173,10 +137,12 @@ static void run_vfsd(void) {
 	}
 	else
 		proc_wait_ready(pid);
+	klog("[ok]\n");
 }
 
 int procd_main(void);
 static void run_procd(void) {
+	klog("run init-procd    ");
 	int pid = fork();
 	if(pid == 0) {
 		syscall1(SYS_PROC_SET_CMD, (int32_t)"init-procd");
@@ -184,10 +150,28 @@ static void run_procd(void) {
 	}
 	else
 		proc_wait_ready(pid);
+	klog("[ok]\n");
 }
 
-static void init_fs(void) {
-	run_none_fs("/drivers/rootfsd");
+void romfsd_main(void);
+void sdfsd_main(void);
+static void init_rootfs(void) {
+	klog("run init-rootfsd    ");
+	int pid = fork();
+	if(pid == 0) {
+		int32_t sz = syscall3(SYS_KROMFS_GET, 0, (int32_t)NULL, (int32_t)NULL);	
+		if(sz < 0) {
+			syscall1(SYS_PROC_SET_CMD, (int32_t)"init-sdfsd");
+			sdfsd_main();
+		}
+		else {
+			syscall1(SYS_PROC_SET_CMD, (int32_t)"init-romfsd");
+			romfsd_main();
+		}
+	}
+	else
+		proc_wait_ready(pid);
+	klog("[ok]\n");
 }
 
 static void init_tty_stdio(void) {
@@ -235,7 +219,7 @@ int main(int argc, char** argv) {
 	run_vfsd();
 
 	//load procs before file system ready
-	init_fs();
+	init_rootfs();
 
 	switch_root();
 

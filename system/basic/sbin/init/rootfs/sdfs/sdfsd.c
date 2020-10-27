@@ -165,10 +165,7 @@ static int sdext2_unlink(fsinfo_t* info, const char* fname, void* p) {
 	return ext2_unlink(ext2, fname);
 }
 
-int main(int argc, char** argv) {
-	(void)argc;
-	(void)argv;
-
+int sdfsd_main(void) {
 	if(getuid() >= 0) {
 		klog("this process can only loaded by kernel!\n");
 		return -1;

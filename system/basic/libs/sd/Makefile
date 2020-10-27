@@ -2,7 +2,7 @@ AR = arm-none-eabi-ar
 CC = arm-none-eabi-gcc
 LD = arm-none-eabi-ld
 
-BUILD_DIR = ../../../../build
+BUILD_DIR = ../../../build
 TARGET_DIR = $(BUILD_DIR)
 
 # flags
@@ -25,16 +25,18 @@ LDFLAGS = -L$(TARGET_DIR)/lib -lnosys
 
 CFLAGS += -I $(TARGET_DIR)/include -Iinclude
 
-LIB_EXT2_OBJS = src/ext2fs.o
+LIB_SD_OBJS = src/arch/arm/bcm283x/sd_arch.o \
+	src/arch/arm/versatilepb/sd_arch.o \
+	src/sd.o
 
-EXT2 = $(TARGET_DIR)/lib/libext2.a
+SD = $(TARGET_DIR)/lib/libsd.a
 
-$(EXT2): $(LIB_EXT2_OBJS)
-	$(AR) rT $(EXT2) $(LIB_EXT2_OBJS)
+$(SD): $(LIB_SD_OBJS)
+	$(AR) rT $(SD) $(LIB_SD_OBJS)
 	cp -r include/* $(TARGET_DIR)/include
 
 
 clean:
-	rm -f $(LIB_EXT2_OBJS)
-	rm -f $(EXT2)
+	rm -f $(LIB_SD_OBJS)
+	rm -f $(SD)
 

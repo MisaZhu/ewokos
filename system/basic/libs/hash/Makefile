@@ -1,11 +1,9 @@
 AR = arm-none-eabi-ar
 CC = arm-none-eabi-gcc
-CXX = arm-none-eabi-c++
 LD = arm-none-eabi-ld
-OBJDUMP = arm-none-eabi-objdump
 
-BUILD_DIR = ../../../../build
-TARGET_DIR = $(BUILD_DIR)/rootfs
+BUILD_DIR = ../../../build
+TARGET_DIR = $(BUILD_DIR)
 
 # flags
 CFLAGS = -Wstrict-prototypes \
@@ -23,19 +21,20 @@ CFLAGS = -Wstrict-prototypes \
 #CFLAGS +=  -g
 CFLAGS +=  -O2
 
-LDFLAGS = -L$(BUILD_DIR)/lib -lnosys
+LDFLAGS = -L$(TARGET_DIR)/lib -lnosys
 
-CFLAGS += -I $(BUILD_DIR)/include
+CFLAGS += -I $(TARGET_DIR)/include -Iinclude
 
-SDFSD_OBJS = sdfsd.o
+LIB_HASH_OBJS = src/hashmap.o
 
-SDFSD = $(TARGET_DIR)/drivers/sdfsd
+HASH = $(TARGET_DIR)/lib/libhash.a
 
-$(SDFSD): $(SDFSD_OBJS) \
-		$(BUILD_DIR)/lib/libewokc.a \
-		$(BUILD_DIR)/lib/libsd.a \
-		$(BUILD_DIR)/lib/libext2.a 
-	$(LD) -Ttext=100 $(SDFSD_OBJS) -o $(SDFSD) $(LDFLAGS) -lext2 -lsd -lewokc -lc
+$(HASH): $(LIB_HASH_OBJS)
+	$(AR) rT $(HASH) $(LIB_HASH_OBJS)
+	cp -r include/* $(TARGET_DIR)/include
+
 
 clean:
-	rm -f $(SDFSD_OBJS)
+	rm -f $(LIB_HASH_OBJS)
+	rm -f $(HASH)
+

@@ -106,15 +106,7 @@ static int memfs_read(int fd, int from_pid, fsinfo_t* info,
 	return size;	
 }
 
-int main(int argc, char** argv) {
-	(void)argc;
-	(void)argv;
-
-	if(getuid() >= 0) {
-		klog("this process can only loaded by kernel!\n");
-		return -1;
-	}
-
+int romfsd_main(void) {
 	vdevice_t dev;
 	memset(&dev, 0, sizeof(vdevice_t));
 	strcpy(dev.name, "rootfs(mem)");
