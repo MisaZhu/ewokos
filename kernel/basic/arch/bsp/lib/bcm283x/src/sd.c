@@ -125,7 +125,7 @@ static sd_t _sdc;
 static int32_t __attribute__((optimize("O0"))) sd_status(uint32_t mask) {
 	int32_t cnt = 1000000; 
 	while((*EMMC_STATUS & mask) != 0 && (*EMMC_INTERRUPT & INT_ERROR_MASK) == 0 && cnt > 0)
-		_delay_usec(1);
+		_delay_msec(1);
 	return (cnt <= 0 || (*EMMC_INTERRUPT & INT_ERROR_MASK)) ? SD_ERROR : SD_OK;
 }
 
@@ -136,7 +136,7 @@ static int32_t __attribute__((optimize("O0"))) sd_int(uint32_t mask, int32_t wai
 	uint32_t r, m = (mask | INT_ERROR_MASK);
 	int32_t cnt = 10000; 
 	while((*EMMC_INTERRUPT & m) == 0 && cnt--) {
-		_delay_usec(1);
+		_delay_msec(1);
 		if(wait == 0)
 			return -1;
 	}
@@ -176,9 +176,9 @@ static int32_t __attribute__((optimize("O0"))) sd_cmd(uint32_t code, uint32_t ar
 	*EMMC_ARG1 = arg;
 	*EMMC_CMDTM = code;
 	if(code == CMD_SEND_OP_COND)
-		_delay_usec(1000);
+		_delay_msec(1000);
 	else if(code==CMD_SEND_IF_COND || code==CMD_APP_CMD)
-		_delay_usec(100);
+		_delay_msec(100);
 
 	if((r = sd_int(INT_CMD_DONE, 1))) {
 		sd_err = r;
@@ -270,13 +270,13 @@ static int32_t sd_clk(uint32_t f) {
 	uint32_t d, c=div_u32(41666666,f), x , s=32, h=0;
 	int32_t cnt = 100000;
 	while((*EMMC_STATUS & (SR_CMD_INHIBIT|SR_DAT_INHIBIT)) && cnt--) 
-		_delay_usec(1);
+		_delay_msec(1);
 	if(cnt<=0) {
 		return SD_ERROR;
 	}
 
 	*EMMC_CONTROL1 &= ~C1_CLK_EN;
-	_delay_usec(10);
+	_delay_msec(10);
 	x=c-1;
 	if(!x)
 		s=0; 
@@ -302,12 +302,12 @@ static int32_t sd_clk(uint32_t f) {
 
 	d = (((d&0x0ff)<<8)|h);
 	*EMMC_CONTROL1 = (*EMMC_CONTROL1&0xffff003f) | d;
-	_delay_usec(10);
+	_delay_msec(10);
 	*EMMC_CONTROL1 |= C1_CLK_EN;
-	_delay_usec(10);
+	_delay_msec(10);
 	cnt=10000; 
 	while(!(*EMMC_CONTROL1 & C1_CLK_STABLE) && cnt--)
-		_delay_usec(10);
+		_delay_msec(10);
 	if(cnt<=0) {
 		return SD_ERROR;
 	}
@@ -366,14 +366,14 @@ int32_t __attribute__((optimize("O0"))) bcm283x_sd_init(void) {
 	*EMMC_CONTROL1 |= C1_SRST_HC;
 	cnt = 10000;
 	do{
-		_delay_usec(10);
+		_delay_msec(10);
 	} while((*EMMC_CONTROL1 & C1_SRST_HC) && cnt-- );
 
 	if(cnt<=0)
 		return SD_ERROR;
 
 	*EMMC_CONTROL1 |= C1_CLK_INTLEN | C1_TOUNIT_MAX;
-	_delay_usec(10);
+	_delay_msec(10);
 	// Set clock to setup frequency.
 	if((r = sd_clk(400000)))
 		return r;
@@ -434,7 +434,7 @@ int32_t __attribute__((optimize("O0"))) bcm283x_sd_init(void) {
 		if( *EMMC_STATUS & SR_READ_AVAILABLE )
 			sd_scr[r++] = *EMMC_DATA;
 		else
-			_delay_usec(1);
+			_delay_msec(1);
 	}
 	if(r != 2) 
 		return SD_TIMEOUT;
