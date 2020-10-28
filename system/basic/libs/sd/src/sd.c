@@ -1,5 +1,5 @@
 #include <sd/sd.h>
-#include <ext2/partition.h>
+#include <sd/partition.h>
 #include <sys/syscall.h>
 #include <stdlib.h>
 #include <string.h>

@@ -23,7 +23,7 @@ CFLAGS +=  -O2
 
 LDFLAGS = -L$(TARGET_DIR)/lib -lnosys
 
-CFLAGS += -I $(TARGET_DIR)/include -Iinclude
+CFLAGS += -I $(TARGET_DIR)/include -Iinclude -Isys/include
 
 LIB_EWOKSYS_OBJS = sys/src/syscall.o \
 	sys/src/mstr.o \

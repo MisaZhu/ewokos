@@ -50,9 +50,9 @@ basic_libs:
 	cd $(ROOT_DIR)/libs/libc;make
 	cd $(ROOT_DIR)/libs/hash;make
 	cd $(ROOT_DIR)/libs/ext2;make
-	cd $(ROOT_DIR)/libs/sd;make
 	cd $(ROOT_DIR)/libs/arch_vpb;make
 	cd $(ROOT_DIR)/libs/arch_bcm283x;make
+	cd $(ROOT_DIR)/libs/sd;make
 
 include $(ROOT_DIR)/sbin/init/build.mk
 

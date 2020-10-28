@@ -1,4 +1,4 @@
-#include <sys/vprintf.h>
+#include <vprintf.h>
 #include <unistd.h>
 #include <sys/mstr.h>
 #include <sys/syscall.h>
