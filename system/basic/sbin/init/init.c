@@ -70,7 +70,7 @@ static void load_devs(const char* cfg) {
 	close(fd);
 }
 
-static void load_init_devs(void) {
+static void load_arch_devs(void) {
 	sys_info_t sysinfo;
 	syscall1(SYS_GET_SYS_INFO, (int32_t)&sysinfo);
 	char fn[FS_FULL_NAME_MAX];
@@ -93,6 +93,11 @@ static void load_extra_devs(void) {
   }
   closedir(dirp);
 }
+
+static void load_sys_init_devs(void) {
+	load_devs("/etc/dev/sys_init.dev");
+}
+
 
 static void load_sys_devs(void) {
 	load_devs("/etc/dev/sys.dev");
@@ -176,28 +181,21 @@ static void init_rootfs(void) {
 
 static void init_tty_stdio(void) {
 	int fd = open("/dev/tty0", 0);
-	int fd_log = open("/dev/klog", 0);
-
 	dup2(fd, 0);
 	dup2(fd, 1);
-	if(fd_log > 0)
-		dup2(fd_log, 2);
-	else
-		dup2(fd, 2);
-
-	run("/drivers/stdiod /dev/stdin", true, true);
-	run("/drivers/stdiod /dev/stdout", true, true);
-	run("/drivers/stdiod /dev/stderr", true, true);
+	dup2(fd, 2);
+	close(fd);
 }
 
 static void switch_root(void) {
 	int pid = fork();
 	if(pid == 0) {
 		setuid(0);
-		load_init_devs();
+		load_arch_devs();
 		load_extra_devs();
-		load_sys_devs();
+		load_sys_init_devs();
 		init_tty_stdio();
+		load_sys_devs();
 		run_procs();
 		exit(0);
 	}

@@ -57,8 +57,7 @@ basic_libs:
 include $(ROOT_DIR)/sbin/init/build.mk
 
 include $(ROOT_DIR)/drivers/nulld/build.mk
-include $(ROOT_DIR)/drivers/klogd/build.mk
-include $(ROOT_DIR)/drivers/stdiod/build.mk
+include $(ROOT_DIR)/drivers/dupd/build.mk
 include $(ROOT_DIR)/drivers/ramfsd/build.mk
 
 mkdirs:

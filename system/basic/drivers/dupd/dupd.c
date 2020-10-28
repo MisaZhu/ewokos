@@ -6,12 +6,12 @@
 #include <sys/vdevice.h>
 #include <sys/syscall.h>
 
-#define DFT_LOG_DEV "/dev/tty0"
-#define MAX_LOG_DEV 4
-static int _fds[MAX_LOG_DEV]; 
+#define MAX_DUP_DEV 8
+
+static int _fds[MAX_DUP_DEV]; 
 static int _fds_num = 0;
 
-static int klog_write(int fd, 
+static int dup_write(int fd, 
 		int from_pid,
 		fsinfo_t* info,
 		const void* buf,
@@ -34,23 +34,23 @@ static int klog_write(int fd,
 }
 
 int main(int argc, char** argv) {
-	const char* mnt_point = argc > 1 ? argv[1]: "/dev/klog";
-	if(argc > 2) {
-		int i;
-		for(i=0; i<MAX_LOG_DEV && i<(argc-2); i++) {
-			_fds[i] = open(argv[i+2], O_WRONLY);
-		}
-		_fds_num = i;
+	if(argc < 3) {
+		fprintf(stderr, "Error: target devices missed!\n"
+				"Usage: dupd <mnt_point> {target devices}\n");
+		return -1;
 	}
-	else {
-		_fds[0] = open(DFT_LOG_DEV, O_WRONLY);
-		_fds_num = 1;
+
+	const char* mnt_point = argv[1];
+	int i;
+	for(i=0; i<MAX_DUP_DEV && i<(argc-2); i++) {
+		_fds[i] = open(argv[i+2], O_WRONLY);
 	}
+	_fds_num = i;
 
 	vdevice_t dev;
 	memset(&dev, 0, sizeof(vdevice_t));
-	strcpy(dev.name, "klog");
-	dev.write = klog_write;
+	strcpy(dev.name, "dup");
+	dev.write = dup_write;
 
 	device_run(&dev, mnt_point, FS_TYPE_CHAR);
 	return 0;
