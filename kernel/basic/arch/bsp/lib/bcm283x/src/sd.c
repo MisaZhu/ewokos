@@ -122,7 +122,8 @@ static sd_t _sdc;
 /**
  * Wait for data or command ready
  */
-static int32_t __attribute__((optimize("O0"))) sd_status(uint32_t mask) {
+//static int32_t __attribute__((optimize("O0"))) sd_status(uint32_t mask) {
+static inline int32_t sd_status(uint32_t mask) {
 	int32_t cnt = 1000000; 
 	while((*EMMC_STATUS & mask) != 0 && (*EMMC_INTERRUPT & INT_ERROR_MASK) == 0 && cnt > 0)
 		_delay_msec(1);
@@ -132,7 +133,8 @@ static int32_t __attribute__((optimize("O0"))) sd_status(uint32_t mask) {
 /**
  * Wait for interrupt
  */
-static int32_t __attribute__((optimize("O0"))) sd_int(uint32_t mask, int32_t wait) {
+//static int32_t __attribute__((optimize("O0"))) sd_int(uint32_t mask, int32_t wait) {
+static inline int32_t sd_int(uint32_t mask, int32_t wait) {
 	uint32_t r, m = (mask | INT_ERROR_MASK);
 	int32_t cnt = 10000; 
 	while((*EMMC_INTERRUPT & m) == 0 && cnt--) {
@@ -157,7 +159,8 @@ static int32_t __attribute__((optimize("O0"))) sd_int(uint32_t mask, int32_t wai
 /**
  * Send a command
  */
-static int32_t __attribute__((optimize("O0"))) sd_cmd(uint32_t code, uint32_t arg) {
+//static int32_t __attribute__((optimize("O0"))) sd_cmd(uint32_t code, uint32_t arg) {
+static inline int32_t sd_cmd(uint32_t code, uint32_t arg) {
 	int32_t r = 0;
 	sd_err = SD_OK;
 	if(code & CMD_NEED_APP) {
@@ -317,7 +320,8 @@ static int32_t sd_clk(uint32_t f) {
 /**
  * initialize EMMC to read SDHC card
  */
-int32_t __attribute__((optimize("O0"))) bcm283x_sd_init(void) {
+//int32_t __attribute__((optimize("O0"))) bcm283x_sd_init(void) {
+int32_t bcm283x_sd_init(void) {
 	_sdc.rxdone = 1;
 	_sdc.txdone = 1;
 
@@ -414,7 +418,8 @@ int32_t __attribute__((optimize("O0"))) bcm283x_sd_init(void) {
 	if(sd_err)
 		return sd_err;
 	
-	if((r=sd_clk(25000000)))
+	//if((r=sd_clk(25000000)))
+	if((r=sd_clk(12500000)))
 		return r;
 
 	if(sd_status(SR_DAT_INHIBIT))
@@ -452,7 +457,7 @@ int32_t __attribute__((optimize("O0"))) bcm283x_sd_init(void) {
 	return SD_OK;
 }
 
-static void sd_handle(void) {
+static inline void sd_handle(void) {
 	if(_sdc.rxdone == 1)
 		return;
 
@@ -477,7 +482,7 @@ int32_t bcm283x_sd_read(int32_t sector) {
 	return sd_read_sector(_sdc.sector);
 }
 
-int32_t bcm283x_sd_read_done(void* buf) {
+inline int32_t bcm283x_sd_read_done(void* buf) {
 	sd_handle();
 	if(_sdc.rxdone == 0)
 		return -1;
