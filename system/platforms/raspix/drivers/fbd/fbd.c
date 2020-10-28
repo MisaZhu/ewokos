@@ -124,9 +124,16 @@ static int fb_dma(int fd, int from_pid, fsinfo_t* info, int* size, void* p) {
 
 int main(int argc, char** argv) {
 	const char* mnt_name = argc > 1 ? argv[1]: "/dev/fb0";
+	int w = 1024;
+	int h = 768;
+	if(argc > 3) {
+		w = atoi(argv[2]);
+		h = atoi(argv[3]);
+	}
+
 	fb_dma_t dma;
 	dma.shm_id = 0;
-	if(bcm283x_fb_init(640, 480, 32) != 0)
+	if(bcm283x_fb_init(w, h, 32) != 0)
 		return -1;
 	_fbinfo = bcm283x_get_fbinfo();
 	
