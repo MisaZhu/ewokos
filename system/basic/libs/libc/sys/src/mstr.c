@@ -187,6 +187,7 @@ bool str_to_bool(const char* str) {
 
 float str_to_float(const char* str) {
 	//return atof(str);
+	(void)str;
 	return 0.0;
 }
 
@@ -244,6 +245,7 @@ str_t* str_format(str_t* str, const char *format, ...) {
 	va_list ap;
 	va_start(ap, format);
 	v_printf(outc, str, format, ap);
+	va_end(ap);
 	return str;
 }
 
@@ -252,6 +254,7 @@ str_t* str_format_new(const char *format, ...) {
 	va_list ap;
 	va_start(ap, format);
 	v_printf(outc, str, format, ap);
+	va_end(ap);
 	return str;
 }
 

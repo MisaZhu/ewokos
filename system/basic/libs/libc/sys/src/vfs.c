@@ -165,7 +165,8 @@ int vfs_get(const char* fname, fsinfo_t* info) {
 	if(res == 0) {
 		res = proto_read_int(&out); //res = node
 		if(res != 0) {
-			proto_read_to(&out, info, sizeof(fsinfo_t));
+			if(info != NULL)
+				proto_read_to(&out, info, sizeof(fsinfo_t));
 			res = 0;
 		}
 		else
@@ -176,8 +177,7 @@ int vfs_get(const char* fname, fsinfo_t* info) {
 }
 
 int  vfs_access(const char* fname) {
-	fsinfo_t info;
-	return vfs_get(fname, &info);
+	return vfs_get(fname, NULL);
 }
 
 fsinfo_t* vfs_kids(fsinfo_t* info, uint32_t *num) {

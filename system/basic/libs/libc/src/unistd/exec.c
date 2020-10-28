@@ -15,8 +15,8 @@ int exec(const char* cmd_line) {
 	str_addc(cmd, 0);
 	int sz;
 	void* buf = vfs_readfile(cmd->cstr, &sz);
+	str_free(cmd);
 	if(buf == NULL) {
-		str_free(cmd);
 		return -1;
 	}
 	proc_exec_elf(cmd_line, buf, sz);

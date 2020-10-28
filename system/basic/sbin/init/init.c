@@ -12,16 +12,58 @@
 #include <sys/proc.h>
 #include <dirent.h>
 
+static int _console_fd = -1;
+
+static void outc(char c, void* p) {
+  str_t* buf = (str_t*)p;
+  str_addc(buf, c);
+}
+
+static void out(const char *format, ...) {
+  str_t* str = str_new(NULL);
+  va_list ap;
+  va_start(ap, format);
+  v_printf(outc, str, format, ap);
+	va_end(ap);
+	klog("%s", str->cstr);
+	if(_console_fd > 0)
+		write(_console_fd, str->cstr, str->len);
+  str_free(str);;
+}
+
+static int check_file(const char* cmd_line) {
+  str_t* cmd = str_new("");
+  const char *p = cmd_line;
+  while(*p != 0 && *p != ' ') {
+    str_addc(cmd, *p);
+    p++;
+  }
+  str_addc(cmd, 0);
+	int res = vfs_access(cmd->cstr);
+  str_free(cmd);
+	return res;
+}
+
 static int run(const char* cmd, bool prompt, bool wait) {
+	if(check_file(cmd) != 0) {
+		out("init: file not found! [%s]\n", cmd);
+		return -1;
+	}
+
 	if(prompt)
-		klog("init: %s ", cmd);
+		out("init: %s ", cmd);
 
 	int pid = fork();
 	if(pid == 0) {
+		if(_console_fd > 0) {
+			close(_console_fd);
+			_console_fd = -1;
+		}
+
 		proc_detach();
 		if(exec(cmd) != 0) {
 			if(prompt)
-				klog("[error!]\n");
+				out("[error!]\n");
 			exit(-1);
 		}
 	}
@@ -29,7 +71,7 @@ static int run(const char* cmd, bool prompt, bool wait) {
 		proc_wait_ready(pid);
 
 	if(prompt)
-		klog("[ok]\n");
+		out("[ok]\n");
 	return 0;
 }
 
@@ -94,10 +136,22 @@ static void load_extra_devs(void) {
   closedir(dirp);
 }
 
-static void load_sys_init_devs(void) {
-	load_devs("/etc/dev/sys_init.dev");
+static void console_welcome(void) {
+	dprintf(_console_fd,
+			" ______           ______  _    _   ______  ______ \n"
+			"(  ___ \\|\\     /|(  __  )| \\  / \\ (  __  )(  ___ \\\n"
+			"| (__   | | _ | || |  | || (_/  / | |  | || (____\n"
+			"|  __)  | |( )| || |  | ||  _  (  | |  | |(____  )\n"
+			"| (___  | || || || |__| || ( \\  \\ | |__| |  ___) |\n"
+			"(______/(_______)(______)|_/  \\_/ (______)\\______)\n\n");
 }
 
+static void load_sys_init_devs(void) {
+	load_devs("/etc/dev/sys_init.dev");
+	_console_fd = open("/dev/console0", O_WRONLY);
+	if(_console_fd > 0) 
+		console_welcome();
+}
 
 static void load_sys_devs(void) {
 	load_devs("/etc/dev/sys.dev");
@@ -121,7 +175,7 @@ static void run_procs(void) {
 
 void core(void);
 static void run_core(void) {
-	klog("run init-core    ");
+	out("run init-core    ");
 	int pid = fork();
 	if(pid == 0) {
 		syscall1(SYS_PROC_SET_CMD, (int32_t)"init-core");
@@ -129,12 +183,12 @@ static void run_core(void) {
 	}
 	else
 		proc_wait_ready(pid);
-	klog("[ok]\n");
+	out("[ok]\n");
 }
 
 int vfsd_main(void);
 static void run_vfsd(void) {
-	klog("run init-vfsd    ");
+	out("run init-vfsd    ");
 	int pid = fork();
 	if(pid == 0) {
 		syscall1(SYS_PROC_SET_CMD, (int32_t)"init-vfsd");
@@ -142,12 +196,12 @@ static void run_vfsd(void) {
 	}
 	else
 		proc_wait_ready(pid);
-	klog("[ok]\n");
+	out("[ok]\n");
 }
 
 int procd_main(void);
 static void run_procd(void) {
-	klog("run init-procd    ");
+	out("run init-procd    ");
 	int pid = fork();
 	if(pid == 0) {
 		syscall1(SYS_PROC_SET_CMD, (int32_t)"init-procd");
@@ -155,13 +209,13 @@ static void run_procd(void) {
 	}
 	else
 		proc_wait_ready(pid);
-	klog("[ok]\n");
+	out("[ok]\n");
 }
 
 void romfsd_main(void);
 void sdfsd_main(void);
 static void init_rootfs(void) {
-	klog("run init-rootfsd    ");
+	out("run init-rootfsd    ");
 	int pid = fork();
 	if(pid == 0) {
 		int32_t sz = syscall3(SYS_KROMFS_GET, 0, (int32_t)NULL, (int32_t)NULL);	
@@ -176,7 +230,7 @@ static void init_rootfs(void) {
 	}
 	else
 		proc_wait_ready(pid);
-	klog("[ok]\n");
+	out("[ok]\n");
 }
 
 static void init_tty_stdio(void) {
@@ -204,13 +258,14 @@ static void switch_root(void) {
 int main(int argc, char** argv) {
 	(void)argc;
 	(void)argv;
+	_console_fd = -1;
 
 	if(getuid() >= 0) {
-		klog("process 'init' can only loaded by kernel!\n");
+		out("process 'init' can only loaded by kernel!\n");
 		return -1;
 	}
 
-	klog("\n[init process started]\n");
+	out("\n[init process started]\n");
 	syscall1(SYS_PROC_SET_CMD, (int32_t)"init");
 	run_core();
 	run_procd();
@@ -218,9 +273,10 @@ int main(int argc, char** argv) {
 
 	//load procs before file system ready
 	init_rootfs();
-
 	switch_root();
 
+	if(_console_fd > 0)
+		close(_console_fd);
 	while(true) {
 		proc_block(getpid(), (uint32_t)main);
 	}
