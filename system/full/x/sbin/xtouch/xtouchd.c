@@ -13,15 +13,23 @@
 static int _x_pid = -1;
 static int _scr_w = 0;
 static int _scr_h = 0;
+static bool _x_rev = false;
+static bool _y_rev = false;
 
 static void input(uint16_t state, int16_t x, int16_t y) {
 	xevent_t ev;
 	ev.type = XEVT_MOUSE;
 	ev.state = XEVT_MOUSE_MOVE;
 	ev.value.mouse.relative = 0;
-	//ev.value.mouse.x = _scr_w - x*_scr_w/2000;
-	ev.value.mouse.x = (x-20)*_scr_w/2000;
-	ev.value.mouse.y = _scr_h - y*_scr_h/1920;
+	if(_x_rev)
+		ev.value.mouse.x = _scr_w - x*_scr_w/2000;
+	else
+		ev.value.mouse.x = (x-20)*_scr_w/2000;
+
+	if(_y_rev)
+		ev.value.mouse.y = y*_scr_h/1920;
+	else
+		ev.value.mouse.y = _scr_h - y*_scr_h/1920;
 	ev.value.mouse.rx = 0;
 	ev.value.mouse.ry = 0;
 
@@ -39,7 +47,16 @@ int main(int argc, char** argv) {
 	(void)argc;
 	(void)argv;
 
+	_x_rev = false;
+	_y_rev = false;
 	_x_pid = -1;
+
+	if(argc > 1 && strstr(argv[1], "rev") != NULL) {
+		if(strchr(argv[1], 'x') != NULL)
+			_x_rev = true;
+		if(strchr(argv[1], 'y') != NULL)
+			_y_rev = true;
+	}
 
 	int fd = -1;
 	while(true) {
