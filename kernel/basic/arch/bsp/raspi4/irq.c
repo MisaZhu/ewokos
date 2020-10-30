@@ -15,8 +15,9 @@
 #define IRQ_IS_GPU2(x) ((x) >= 32 && (x) < 64 )
 #define IRQ_IS_GPU1(x) ((x) < 32 )
 
-#define CORE0_TIMER__irqCNTL 0x40000040
-#define GPU_INTERRUPTS_ROUTING 0x4000000C
+#define CORE0_BASE 0xff800000
+#define CORE0_TIMER__irqCNTL (CORE0_BASE+0x40)
+#define GPU_INTERRUPTS_ROUTING (CORE0_BASE+ 0xC)
 
 static void routing_core0_irq(void) {
   uint32_t offset = CORE0_TIMER__irqCNTL - _sys_info.mmio.phy_base;
@@ -24,7 +25,7 @@ static void routing_core0_irq(void) {
   put32(vbase, 0x08);
 }
 
-#define CORE0__irq_SOURCE 0x40000060
+#define CORE0__irq_SOURCE (CORE0_BASE + 0x60)
 static uint32_t read_core0_pending(void) {
   uint32_t tmp;
   uint32_t offset = CORE0__irq_SOURCE -  _sys_info.mmio.phy_base;

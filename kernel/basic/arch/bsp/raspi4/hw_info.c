@@ -21,15 +21,17 @@ void sys_info_init(void) {
 	_allocatable_mem_top = _sys_info.phy_mem_size - 64*MB;
 }
 
+#define CORE0_BASE 0xff800000
 void arch_vm(page_dir_entry_t* vm) {
-	uint32_t offset = 0x40000000 - _sys_info.mmio.phy_base; //CORE0_ROUTING
+	uint32_t offset = CORE0_BASE - _sys_info.mmio.phy_base; //CORE0_ROUTING
 	uint32_t vbase = MMIO_BASE + offset;
 	uint32_t pbase = _sys_info.mmio.phy_base + offset;
 	map_pages(vm, vbase, pbase, pbase+16*KB, AP_RW_D, 1);
 
-	offset = 0x00201000; //UART_OFFSET
+	/*offset = 0x00201000; //UART_OFFSET
 	vbase = MMIO_BASE + offset;
 	pbase = _sys_info.mmio.phy_base + offset;
 	map_page(vm, vbase, pbase, AP_RW_D, 0);
+	*/
 }
 
