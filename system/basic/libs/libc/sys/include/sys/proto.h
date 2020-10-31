@@ -16,7 +16,7 @@ typedef struct {
 	uint32_t size;
 	uint32_t total_size;
 	uint32_t offset;
-	uint32_t read_only;
+	bool read_only;
 }proto_t;
 
 typedef struct proto_factor {

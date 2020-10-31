@@ -15,7 +15,7 @@ inline static proto_factor_t* proto_init_data(proto_t* proto, void* data, uint32
 	proto->size = size;
 	proto->total_size = size;
 	proto->offset = 0;
-	proto->read_only = (data == NULL) ? 0:1;
+	proto->read_only = (data != NULL);
 	return &_proto_factor;
 }
 
@@ -24,15 +24,17 @@ inline static proto_factor_t* proto_init(proto_t* proto) {
 }
 
 inline static proto_factor_t* proto_copy(proto_t* proto, const void* data, uint32_t size) {
-	if(!proto->read_only && proto->data != NULL)
-		free(proto->data);
+	if(proto->read_only || proto->total_size < size) {
+		if(!proto->read_only && proto->data != NULL)
+			free(proto->data);
+		proto->data = malloc(size);
+		proto->total_size = size;
+	}
 
-	proto->data = malloc(size);
 	memcpy(proto->data, data, size);
 	proto->size = size;
-	proto->total_size = size;
 	proto->offset = 0;
-	proto->read_only = 0;
+	proto->read_only = false;
 	return &_proto_factor;
 }
 
@@ -76,7 +78,7 @@ inline static proto_factor_t* proto_clear(proto_t* proto) {
 	proto->size = 0;
 	proto->total_size = 0;
 	proto->offset = 0;
-	proto->read_only = 0;
+	proto->read_only = false;
 	if(proto->data != NULL)
 		free(proto->data);
 	proto->data = NULL;
