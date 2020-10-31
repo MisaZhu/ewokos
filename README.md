@@ -5,7 +5,7 @@
 
 .About
 
-	A microkernel OS for learning operating system. versatilepb ported well, raspi2 todo....
+	A microkernel OS for learning operating system. versatilepb / raspi1,2,3 ported well, raspi4 todo....
 	-mmu
 	-multi processes
 	-multi thread
