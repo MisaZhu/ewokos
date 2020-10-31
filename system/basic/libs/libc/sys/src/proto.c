@@ -15,7 +15,7 @@ inline static proto_factor_t* proto_init_data(proto_t* proto, void* data, uint32
 	proto->size = size;
 	proto->total_size = size;
 	proto->offset = 0;
-	proto->read_only = (data != NULL);
+	proto->pre_alloc = (data != NULL);
 	return &_proto_factor;
 }
 
@@ -24,8 +24,8 @@ inline static proto_factor_t* proto_init(proto_t* proto) {
 }
 
 inline static proto_factor_t* proto_copy(proto_t* proto, const void* data, uint32_t size) {
-	if(proto->read_only || proto->total_size < size) {
-		if(!proto->read_only && proto->data != NULL)
+	if(proto->pre_alloc || proto->total_size < size) {
+		if(!proto->pre_alloc && proto->data != NULL)
 			free(proto->data);
 		proto->data = malloc(size);
 		proto->total_size = size;
@@ -34,25 +34,20 @@ inline static proto_factor_t* proto_copy(proto_t* proto, const void* data, uint3
 	memcpy(proto->data, data, size);
 	proto->size = size;
 	proto->offset = 0;
-	proto->read_only = false;
+	proto->pre_alloc = false;
 	return &_proto_factor;
 }
 
 inline static proto_factor_t* proto_add(proto_t* proto, const void* item, uint32_t size) {
-	if(proto->read_only)
-		return &_proto_factor;
-
 	uint32_t new_size = proto->size + size + 4;
 	char* p = (char*)proto->data;
-	if(proto->total_size <= new_size) { 
+	if(proto->total_size < new_size) { 
+		if(proto->pre_alloc)
+			return &_proto_factor;
 		new_size +=  PROTO_BUFFER;
 		proto->total_size = new_size;
-		p = (char*)malloc(new_size);
-		if(proto->data != NULL) {
-			memcpy(p, proto->data, proto->size);
-			free(proto->data);
-		}
-		proto->data = p;
+		proto->data = realloc(proto->data, new_size);
+		p = (char*)proto->data;
 	} 
 	memcpy(p+proto->size, &size, 4);
 	if(size > 0 && item != NULL)
@@ -72,13 +67,13 @@ inline static proto_factor_t* proto_add_str(proto_t* proto, const char* v) {
 }
 
 inline static proto_factor_t* proto_clear(proto_t* proto) {
-	if(proto->read_only)
+	if(proto->pre_alloc)
 		return &_proto_factor;
 
 	proto->size = 0;
 	proto->total_size = 0;
 	proto->offset = 0;
-	proto->read_only = false;
+	proto->pre_alloc = false;
 	if(proto->data != NULL)
 		free(proto->data);
 	proto->data = NULL;
