@@ -6,7 +6,6 @@
 #include <mm/mmu.h>
 #include <mm/trunkmem.h>
 #include <procinfo.h>
-#include <proto.h>
 #include <stdbool.h>
 
 #define PROC_FILE_MAX 128

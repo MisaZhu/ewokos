@@ -227,8 +227,7 @@ static void proc_terminate(context_t* ctx, proc_t* proc) {
 		return;
 
 	if(proc->info.type == PROC_TYPE_PROC) {
-		kevent_t* kev = kev_push(KEV_PROC_EXIT, NULL);
-		PF->addi(kev->data, proc->info.pid);
+		kev_push(KEV_PROC_EXIT, proc->info.pid, 0, 0);
 	}
 
 	proc_unready(ctx, proc, ZOMBIE);
@@ -556,9 +555,7 @@ proc_t* kfork_raw(context_t* ctx, int32_t type, proc_t* parent) {
 proc_t* kfork(context_t* ctx, int32_t type) {
 	proc_t* child = kfork_raw(ctx, type, _current_proc);
 	if(_core_ready && (child->info.type == PROC_TYPE_PROC || child->info.type == PROC_TYPE_VFORK)) {
-		kevent_t* kev = kev_push(KEV_PROC_CREATED, NULL);
-		PF->addi(kev->data, _current_proc->info.pid)->
-			addi(kev->data, child->info.pid);
+		kev_push(KEV_PROC_CREATED, _current_proc->info.pid, child->info.pid, 0);
 	}
 	else
 		proc_ready(child);

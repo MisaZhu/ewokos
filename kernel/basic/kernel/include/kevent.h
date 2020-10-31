@@ -13,7 +13,7 @@ enum {
 
 typedef struct {
 	uint32_t type;	
-	void* data;
+	uint32_t data[3];
 } kevent_t;
 
 #endif

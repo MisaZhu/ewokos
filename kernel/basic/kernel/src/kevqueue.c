@@ -10,13 +10,12 @@ void kev_init(void) {
 	queue_init(&_kev_queue);
 }
 
-kevent_t* kev_push(uint32_t type, const proto_t* data) {
+kevent_t* kev_push(uint32_t type, uint32_t arg0, uint32_t arg1, uint32_t arg2) {
 	kevent_t* kev = (kevent_t*)kmalloc(sizeof(kevent_t));
 	kev->type = type;
-	if(data == NULL)
-		kev->data = proto_new(NULL, 0);
-	else
-		kev->data = proto_new(data->data, data->size);
+	kev->data[0] = arg0;
+	kev->data[1] = arg1;
+	kev->data[2] = arg2;
 	queue_push(&_kev_queue, kev);
 	proc_wakeup(-1, (uint32_t)kev_init);
 	return kev;

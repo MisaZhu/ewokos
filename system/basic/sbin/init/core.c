@@ -87,43 +87,46 @@ static void handle_ipc(int pid, int cmd, proto_t* in, proto_t* out, void* p) {
 
 /*----kernel event -------*/
 
-static void do_proc_created(proto_t *data) {
-	proto_read_int(data); //read father pid
-	int cpid = proto_read_int(data);
-	proto_reset(data);
+static void do_proc_created(kevent_t* kev) {
+	int cpid = kev->data[1];
+	proto_t data;
+	PF->init(&data)->addi(&data, kev->data[0])->addi(&data, kev->data[1]);
 
 	int pid = get_ipc_serv(IPC_SERV_VFS);
 	if(pid > 0) {
-		ipc_call(pid, VFS_PROC_CLONE, data, NULL);
+		ipc_call(pid, VFS_PROC_CLONE, &data, NULL);
 	}
 
 	pid = get_ipc_serv(IPC_SERV_PROC);
 	if(pid > 0) {
-		ipc_call(pid, PROC_CMD_CLONE, data, NULL);
+		ipc_call(pid, PROC_CMD_CLONE, &data, NULL);
 	}
-
+	PF->clear(&data);
 	proc_wakeup(cpid);
 }
 
-static void do_proc_exit(proto_t *data) {
+static void do_proc_exit(kevent_t* kev) {
+	proto_t data;
+	PF->init(&data)->addi(&data, kev->data[0]);
 	int pid = get_ipc_serv(IPC_SERV_VFS);
 	if(pid > 0) {
-		ipc_call(pid, VFS_PROC_EXIT, data, NULL);
+		ipc_call(pid, VFS_PROC_EXIT, &data, NULL);
 	}
 
 	pid = get_ipc_serv(IPC_SERV_PROC);
 	if(pid > 0) {
-		ipc_call(pid, PROC_CMD_EXIT, data, NULL);
+		ipc_call(pid, PROC_CMD_EXIT, &data, NULL);
 	}
+	PF->clear(&data);
 }
 
 static void handle_event(kevent_t* kev) {
 	switch(kev->type) {
 	case KEV_PROC_EXIT:
-		do_proc_exit(kev->data);
+		do_proc_exit(kev);
 		return;
 	case KEV_PROC_CREATED:
-		do_proc_created(kev->data);
+		do_proc_created(kev);
 		return;
 	}
 }
@@ -138,8 +141,6 @@ void core(void) {
 		kevent_t* kev = (kevent_t*)syscall0(SYS_GET_KEVENT);
 		if(kev != NULL) {
 			handle_event(kev);
-			if(kev->data != NULL)
-				proto_free(kev->data);
 			free(kev);
 		}
 		usleep(10000);
