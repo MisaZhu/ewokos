@@ -2,6 +2,7 @@
 #define PROTO_H
 
 #include <stdint.h>
+#include <stdbool.h>
 
 #define PROTO_BUFFER 128
 
@@ -11,7 +12,7 @@ typedef struct {
 	uint32_t size;
 	uint32_t total_size;
 	uint32_t offset;
-	uint32_t read_only;
+	bool pre_alloc;
 }proto_t;
 
 typedef struct proto_factor {
