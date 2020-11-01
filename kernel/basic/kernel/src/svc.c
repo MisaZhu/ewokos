@@ -271,11 +271,10 @@ static void sys_ipc_call(context_t* ctx, int32_t pid, int32_t call_id, proto_t* 
 	ipc_t* ipc = proc_ipc_req(_current_proc);
 	ipc->state = IPC_BUSY;
 	ipc->call_id = call_id;
-	PF->init(&ipc->data);
 	ipc->client_pid = _current_proc->info.pid;
 	ipc->server_pid = pid;
 	if(data != NULL)
-		PF->copy(&ipc->data, data->data, data->size);
+		proto_copy(&ipc->data, data->data, data->size);
 
 	ctx->gpr[0] = (int32_t)ipc;
 	proc_ipc_call(ctx, proc, ipc);
@@ -309,7 +308,7 @@ static void sys_ipc_set_return(ipc_t* ipc, proto_t* data) {
 	}
 
 	if(data != NULL)
-		PF->copy(&ipc->data, data->data, data->size);
+		proto_copy(&ipc->data, data->data, data->size);
 }
 
 static void sys_ipc_end(context_t* ctx, ipc_t* ipc) {

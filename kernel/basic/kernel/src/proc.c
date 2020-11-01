@@ -284,7 +284,7 @@ void proc_exit(context_t* ctx, proc_t *proc, int32_t res) {
 
 	/*free user_stack*/
 	proc_free_user_stack(proc);
-	PF->clear(&proc->ipc_ctx.data);
+	proto_clear(&proc->ipc_ctx.data);
 	proc_free_space(proc);
 	memset(proc, 0, sizeof(proc_t));
 }

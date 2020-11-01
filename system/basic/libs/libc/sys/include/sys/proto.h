@@ -2,22 +2,13 @@
 #define PROTO_H
 
 #include <sys/ewokdef.h>
+#include <proto_t.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-
 #define PROTO_BUFFER 128
-
-typedef struct {
-	int32_t id;
-	void *data;
-	uint32_t size;
-	uint32_t total_size;
-	uint32_t offset;
-	bool pre_alloc;
-}proto_t;
 
 typedef struct proto_factor {
 	struct proto_factor* (*init_data)(proto_t* proto, void* data, uint32_t size);
