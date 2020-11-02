@@ -8,7 +8,7 @@
 #include <arch/bcm283x/spi.h>
 
 #define LCD_DC		24
-#define LCD_RST		25
+#define LCD_RST		22
 
 // Screen settings
 #define LCD_SCREEN_WIDTH 		480
