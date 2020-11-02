@@ -1,3 +1,4 @@
 /drivers/raspix/joystickd     /dev/joystick
+/drivers/raspix/ili9486d      /dev/fb1
 #/drivers/raspix/lcdhatd       /dev/fb1
 #/drivers/raspix/hdmi_xpt2046d /dev/touch0
