@@ -7,9 +7,7 @@
 #include <sys/shm.h>
 #include <sys/vdevice.h>
 #include <ili9486/ili9486.h>
-
-extern uint16_t LCD_HEIGHT;
-extern uint16_t LCD_WIDTH;
+#include <xpt2046/xpt2046.h>
 
 typedef struct {
 	void* data;
@@ -60,19 +58,35 @@ static int lcd_dev_cntl(int from_pid, int cmd, proto_t* in, proto_t* ret, void* 
 	return 0;
 }
 
+static int tp_read(int fd, int from_pid, fsinfo_t* info,
+		void* buf, int size, int offset, void* p) {
+	(void)fd;
+	(void)from_pid;
+	(void)info;
+	(void)offset;
+	(void)p;
+
+	if(size < 6)
+    return ERR_RETRY;
+
+	uint16_t* d = (uint16_t*)buf;
+
+	if(xpt2046_read(&d[0], &d[1], &d[2]) != 0)
+		return ERR_RETRY;
+	return 6;	
+}
+
 int main(int argc, char** argv) {
 	int lcd_dc = 24;
 	int lcd_cs = 8;
   int lcd_rst = 25;
+  int tp_cs = 7;
+  int tp_irq = 17;
 
 	const char* mnt_point = argc > 1 ? argv[1]: "/dev/fb1";
-	if(argc > 4) {
-		lcd_dc = atoi(argv[2]);
-		lcd_cs = atoi(argv[3]);
-		lcd_rst = atoi(argv[4]);
-	}
 
 	ili9486_init(lcd_dc, lcd_cs, lcd_rst);
+	xpt2046_init(tp_cs, tp_irq);
 
 	uint32_t sz = LCD_HEIGHT*LCD_WIDTH*4;
 	fb_dma_t dma;
@@ -91,6 +105,7 @@ int main(int argc, char** argv) {
 	dev.flush = lcd_flush;
 	dev.fcntl = lcd_fcntl;
 	dev.dev_cntl = lcd_dev_cntl;
+	dev.read = tp_read;
 
 	dev.extra_data = &dma;
 	device_run(&dev, mnt_point, FS_TYPE_CHAR);
