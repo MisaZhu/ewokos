@@ -27,7 +27,7 @@ LDFLAGS = -L$(BUILD_DIR)/lib -lnosys
 
 CFLAGS += -I $(BUILD_DIR)/include
 
-RPI_LCDD_OBJS = fbd.o
+RPI_LCDD_OBJS = rpi_lcdd.o
 
 RPI_LCDD = $(TARGET_DIR)/drivers/raspix/rpi_lcdd
 
