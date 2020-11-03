@@ -30,20 +30,20 @@ static inline void delay(int32_t count) {
 }
 
 /* LCD CONTROL */
-static inline void LCD_spiSendByte(uint8_t byte) {
+static inline void lcd_spi_send(uint8_t byte) {
 	bcm283x_spi_transfer16(byte);
 }
 
 /* Send command (char) to LCD  - OK */
-static inline void LCD_writeCommand(uint8_t command) {
+static inline void lcd_write_commmand(uint8_t command) {
 	bcm283x_gpio_write(LCD_DC, 0);
-	LCD_spiSendByte(command);
+	lcd_spi_send(command);
 	bcm283x_gpio_write(LCD_DC, 1);
 }
 
 /* Send Data (char) to LCD */
-static inline void LCD_writeData(uint8_t Data) {
-	LCD_spiSendByte(Data);
+static inline void lcd_write_data(uint8_t Data) {
+	lcd_spi_send(Data);
 }
 
 /* Reset LCD */
@@ -57,28 +57,28 @@ static inline void LCD_reset( void ) {
 }
 
 /*Ser rotation of the screen - changes x0 and y0*/
-static inline void LCD_setRotation(uint8_t rotation) {
-	LCD_writeCommand(0x36);
+static inline void lcd_set_rotation(uint8_t rotation) {
+	lcd_write_commmand(0x36);
 	delay(100);
 
 	switch(rotation) {
 		case SCREEN_VERTICAL_1:
-			LCD_writeData(0x48);
+			lcd_write_data(0x48);
 			LCD_WIDTH = 320;
 			LCD_HEIGHT = 480;
 			break;
 		case SCREEN_HORIZONTAL_1:
-			LCD_writeData(0x28);
+			lcd_write_data(0x28);
 			LCD_WIDTH  = 480;
 			LCD_HEIGHT = 320;
 			break;
 		case SCREEN_VERTICAL_2:
-			LCD_writeData(0x98);
+			lcd_write_data(0x98);
 			LCD_WIDTH  = 320;
 			LCD_HEIGHT = 480;
 			break;
 		case SCREEN_HORIZONTAL_2:
-			LCD_writeData(0xF8);
+			lcd_write_data(0xF8);
 			LCD_WIDTH  = 480;
 			LCD_HEIGHT = 320;
 			break;
@@ -88,27 +88,27 @@ static inline void LCD_setRotation(uint8_t rotation) {
 	}
 }
 
-static inline void LCD_brightness(uint8_t brightness) {
+static inline void lcd_brightness(uint8_t brightness) {
 	// chyba trzeba wczesniej zainicjalizowac - rejestr 0x53
-	LCD_writeCommand(0x51); // byc moze 2 bajty?
-	LCD_writeData(brightness); // byc moze 2 bajty
+	lcd_write_commmand(0x51); // byc moze 2 bajty?
+	lcd_write_data(brightness); // byc moze 2 bajty
 }
 
-static inline void LCD_show(void) {
+static inline void lcd_show(void) {
 	int i, j;
-	LCD_writeCommand(0x2B);
-	LCD_writeData(0x00);
-	LCD_writeData(0x00);
-	LCD_writeData(0x01);
-	LCD_writeData(0x3F);
+	lcd_write_commmand(0x2B);
+	lcd_write_data(0x00);
+	lcd_write_data(0x00);
+	lcd_write_data(0x01);
+	lcd_write_data(0x3F);
 
-	LCD_writeCommand(0x2A);
-	LCD_writeData(0x00);
-	LCD_writeData(0x00);
-	LCD_writeData(0x01);
-	LCD_writeData(0xE0);
+	lcd_write_commmand(0x2A);
+	lcd_write_data(0x00);
+	lcd_write_data(0x00);
+	lcd_write_data(0x01);
+	lcd_write_data(0xE0);
 
-	LCD_writeCommand(0x2C); // Memory write?
+	lcd_write_commmand(0x2C); // Memory write?
 
 	for ( i = 0 ; i < 30  ; i ++ ) {
 		uint8_t *tx_data = (uint8_t*)&_lcd_buffer[5120*i];
@@ -138,7 +138,7 @@ int  do_flush(const void* buf, uint32_t size) {
 		_lcd_buffer[i] = ((r >> 3) <<10) | ((g >> 3) << 5) | (b >> 3);
 	}
 
-	LCD_show();
+	lcd_show();
 	return 0;
 }
 
@@ -152,65 +152,65 @@ void lcd_init(void) {
 	bcm283x_spi_select(1);
 	bcm283x_spi_activate(1);
 	LCD_reset();
-	LCD_writeCommand(0x28); // Display OFF
+	lcd_write_commmand(0x28); // Display OFF
 
-	LCD_writeCommand(0x3A); // Interface Pixel Format
-	LCD_writeData(0x55);	// 16 bit/pixel
+	lcd_write_commmand(0x3A); // Interface Pixel Format
+	lcd_write_data(0x55);	// 16 bit/pixel
 
-	LCD_writeCommand(0xC2); // Power Control 3 (For Normal Mode)
-	LCD_writeData(0x44);    // Cos z napieciem
+	lcd_write_commmand(0xC2); // Power Control 3 (For Normal Mode)
+	lcd_write_data(0x44);    // Cos z napieciem
 
-	LCD_writeCommand(0xC5); // VCOM Control
-	LCD_writeData(0x00);  // const
-	LCD_writeData(0x00);  // nVM ? 0x48
-	LCD_writeData(0x00);  // VCOM voltage ref
-	LCD_writeData(0x00);  // VCM out
+	lcd_write_commmand(0xC5); // VCOM Control
+	lcd_write_data(0x00);  // const
+	lcd_write_data(0x00);  // nVM ? 0x48
+	lcd_write_data(0x00);  // VCOM voltage ref
+	lcd_write_data(0x00);  // VCM out
 
-	LCD_writeCommand(0xE0); // PGAMCTRL(Positive Gamma Control)
-	LCD_writeData(0x0F);
-	LCD_writeData(0x1F);
-	LCD_writeData(0x1C);
-	LCD_writeData(0x0C);
-	LCD_writeData(0x0F);
-	LCD_writeData(0x08);
-	LCD_writeData(0x48);
-	LCD_writeData(0x98);
-	LCD_writeData(0x37);
-	LCD_writeData(0x0A);
-	LCD_writeData(0x13);
-	LCD_writeData(0x04);
-	LCD_writeData(0x11);
-	LCD_writeData(0x0D);
-	LCD_writeData(0x00);
+	lcd_write_commmand(0xE0); // PGAMCTRL(Positive Gamma Control)
+	lcd_write_data(0x0F);
+	lcd_write_data(0x1F);
+	lcd_write_data(0x1C);
+	lcd_write_data(0x0C);
+	lcd_write_data(0x0F);
+	lcd_write_data(0x08);
+	lcd_write_data(0x48);
+	lcd_write_data(0x98);
+	lcd_write_data(0x37);
+	lcd_write_data(0x0A);
+	lcd_write_data(0x13);
+	lcd_write_data(0x04);
+	lcd_write_data(0x11);
+	lcd_write_data(0x0D);
+	lcd_write_data(0x00);
 
-	LCD_writeCommand(0xE1); // NGAMCTRL (Negative Gamma Correction)
-	LCD_writeData(0x0F);
-	LCD_writeData(0x32);
-	LCD_writeData(0x2E);
-	LCD_writeData(0x0B);
-	LCD_writeData(0x0D);
-	LCD_writeData(0x05);
-	LCD_writeData(0x47);
-	LCD_writeData(0x75);
-	LCD_writeData(0x37);
-	LCD_writeData(0x06);
-	LCD_writeData(0x10);
-	LCD_writeData(0x03);
-	LCD_writeData(0x24);
-	LCD_writeData(0x20);
-	LCD_writeData(0x00);
+	lcd_write_commmand(0xE1); // NGAMCTRL (Negative Gamma Correction)
+	lcd_write_data(0x0F);
+	lcd_write_data(0x32);
+	lcd_write_data(0x2E);
+	lcd_write_data(0x0B);
+	lcd_write_data(0x0D);
+	lcd_write_data(0x05);
+	lcd_write_data(0x47);
+	lcd_write_data(0x75);
+	lcd_write_data(0x37);
+	lcd_write_data(0x06);
+	lcd_write_data(0x10);
+	lcd_write_data(0x03);
+	lcd_write_data(0x24);
+	lcd_write_data(0x20);
+	lcd_write_data(0x00);
 
-	LCD_writeCommand(0x11); // sw reset, wakeup
+	lcd_write_commmand(0x11); // sw reset, wakeup
 	delay(150000);
 
-	LCD_writeCommand(0x20); // Display Inversion OFF   RPi LCD (A)
-	//LCD_writeCommand(0x21); // Display Inversion ON    RPi LCD (B)
+	lcd_write_commmand(0x20); // Display Inversion OFF   RPi LCD (A)
+	//lcd_write_commmand(0x21); // Display Inversion ON    RPi LCD (B)
 
-	LCD_writeCommand(0x36); // Memory Access Control
-	LCD_writeData(0x48);
+	lcd_write_commmand(0x36); // Memory Access Control
+	lcd_write_data(0x48);
 
-	LCD_writeCommand(0x29); // Display ON
+	lcd_write_commmand(0x29); // Display ON
 	delay(150000);
-	LCD_setRotation(SCREEN_HORIZONTAL_1);
+	lcd_set_rotation(SCREEN_HORIZONTAL_1);
 }
 
