@@ -205,11 +205,10 @@ void lcd_init(void) {
 	lcd_write_commmand(0x20); // Display Inversion OFF   RPi LCD (A)
 	//lcd_write_commmand(0x21); // Display Inversion ON    RPi LCD (B)
 
-	lcd_write_commmand(0x36); // Memory Access Control
-	lcd_write_data(0x48);
-
+	//lcd_write_commmand(0x36); // Memory Access Control
+	//lcd_write_data(0x48);
+	lcd_set_rotation(SCREEN_HORIZONTAL_1);
 	lcd_write_commmand(0x29); // Display ON
 	delay(150000);
-	lcd_set_rotation(SCREEN_HORIZONTAL_1);
 }
 
