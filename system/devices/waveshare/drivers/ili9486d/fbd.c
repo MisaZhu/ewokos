@@ -6,7 +6,7 @@
 #include <sys/shm.h>
 #include <sys/shm.h>
 #include <sys/vdevice.h>
-#include <sys/vfs.h>
+#include <ili9486/ili9486.h>
 
 extern uint16_t LCD_HEIGHT;
 extern uint16_t LCD_WIDTH;
@@ -17,14 +17,13 @@ typedef struct {
 	int32_t shm_id;
 } fb_dma_t;
 
-int  do_flush(const void* buf, uint32_t size);
 static int lcd_flush(int fd, int from_pid, fsinfo_t* info, void* p) {
 	(void)fd;
 	(void)from_pid;
 	(void)info;
 	fb_dma_t* dma = (fb_dma_t*)p;
-
-	return do_flush(dma->data, dma->size);
+	ili9486_flush(dma->data, dma->size);
+	return 0;
 }
 
 static int lcd_dma(int fd, int from_pid, fsinfo_t* info, int* size, void* p) {
@@ -61,7 +60,6 @@ static int lcd_dev_cntl(int from_pid, int cmd, proto_t* in, proto_t* ret, void* 
 	return 0;
 }
 
-void lcd_init(int pin_dc, int pin_cs, int pin_rst);
 int main(int argc, char** argv) {
 	int lcd_dc = 24;
 	int lcd_cs = 8;
@@ -74,7 +72,7 @@ int main(int argc, char** argv) {
 		lcd_rst = atoi(argv[4]);
 	}
 
-	lcd_init(lcd_dc, lcd_cs, lcd_rst);
+	ili9486_init(lcd_dc, lcd_cs, lcd_rst);
 
 	uint32_t sz = LCD_HEIGHT*LCD_WIDTH*4;
 	fb_dma_t dma;

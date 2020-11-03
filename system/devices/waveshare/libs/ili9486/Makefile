@@ -1,11 +1,9 @@
 AR = arm-none-eabi-ar
 CC = arm-none-eabi-gcc
-CXX = arm-none-eabi-c++
 LD = arm-none-eabi-ld
-OBJDUMP = arm-none-eabi-objdump
 
 BUILD_DIR = ../../../../build
-TARGET_DIR = $(BUILD_DIR)/rootfs
+TARGET_DIR = $(BUILD_DIR)
 
 # flags
 CFLAGS = -Wstrict-prototypes \
@@ -23,19 +21,20 @@ CFLAGS = -Wstrict-prototypes \
 #CFLAGS +=  -g
 CFLAGS +=  -O2
 
-LDFLAGS = -L$(BUILD_DIR)/lib -lnosys
+LDFLAGS = -L$(TARGET_DIR)/lib -lnosys
 
-CFLAGS += -I $(BUILD_DIR)/include
+CFLAGS += -I $(TARGET_DIR)/include -Iinclude
 
-ILI9486D_OBJS = fbd.o
+LIB_ILI9486_OBJS = src/ili9486.o 
 
-ILI9486D = $(TARGET_DIR)/drivers/raspix/ili9486d
+ILI9486 = $(TARGET_DIR)/lib/libili9486.a
 
-$(ILI9486D): $(ILI9486D_OBJS) \
-		$(BUILD_DIR)/lib/libewokc.a \
-		$(BUILD_DIR)/lib/libarch_bcm283x.a \
-		$(BUILD_DIR)/lib/libili9486.a 
-	$(LD) -Ttext=100 $(ILI9486D_OBJS) -o $(ILI9486D) $(LDFLAGS) -lili9486 -larch_bcm283x -lewokc -lc
+$(ILI9486): $(LIB_ILI9486_OBJS)
+	$(AR) rT $(ILI9486) $(LIB_ILI9486_OBJS)
+	cp -r include/* $(TARGET_DIR)/include
 
 clean:
-	rm -f $(ILI9486D_OBJS)
+	rm -f $(LIB_ILI9486_OBJS)
+	rm -f $(ILI9486)
+
+

@@ -33,8 +33,9 @@ XPTOUCHD = $(TARGET_DIR)/drivers/raspix/xpt2046d
 
 $(XPTOUCHD): $(XPTOUCHD_OBJS) \
 		$(BUILD_DIR)/lib/libewokc.a \
-		$(BUILD_DIR)/lib/libarch_bcm283x.a 
-	$(LD) -Ttext=100 $(XPTOUCHD_OBJS) -o $(XPTOUCHD) $(LDFLAGS) -larch_bcm283x -lewokc -lc
+		$(BUILD_DIR)/lib/libarch_bcm283x.a \
+		$(BUILD_DIR)/lib/libxpt2046.a 
+	$(LD) -Ttext=100 $(XPTOUCHD_OBJS) -o $(XPTOUCHD) $(LDFLAGS) -lxpt2046 -larch_bcm283x -lewokc -lc
 
 clean:
 	rm -f $(XPTOUCHD_OBJS)

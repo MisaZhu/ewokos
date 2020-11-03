@@ -2,10 +2,10 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
-#include <sys/vfs.h>
 #include <sys/vdevice.h>
 #include <arch/bcm283x/gpio.h>
 #include <arch/bcm283x/spi.h>
+#include <ili9486/ili9486.h>
 
 static int LCD_DC =	24;
 static int LCD_CS	= 8;
@@ -127,9 +127,9 @@ static inline void lcd_show(void) {
 	}
 }
 
-int  do_flush(const void* buf, uint32_t size) {
+void ili9486_flush(const void* buf, uint32_t size) {
 	if(size < LCD_WIDTH * LCD_HEIGHT* 4)
-		return -1;
+		return;
 
 	uint32_t *src = (uint32_t*)buf;
 	uint32_t sz = LCD_HEIGHT*LCD_WIDTH;
@@ -146,10 +146,9 @@ int  do_flush(const void* buf, uint32_t size) {
 	lcd_start();
 	lcd_show();
 	lcd_end();
-	return 0;
 }
 
-void lcd_init(int pin_dc, int pin_cs, int pin_rst) {
+void ili9486_init(int pin_dc, int pin_cs, int pin_rst) {
 	LCD_DC = pin_dc;
 	LCD_CS = pin_cs;
 	LCD_RST = pin_rst;
