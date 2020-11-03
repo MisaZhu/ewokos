@@ -27,7 +27,7 @@ LDFLAGS = -L$(BUILD_DIR)/lib -lnosys
 
 CFLAGS += -I $(BUILD_DIR)/include
 
-XPTOUCHD_OBJS = ili9486d.o
+XPTOUCHD_OBJS = ili9486d.o fbd.o
 
 XPTOUCHD = $(TARGET_DIR)/drivers/raspix/ili9486d
 
