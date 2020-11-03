@@ -47,13 +47,21 @@ static inline void lcd_write_data(uint8_t Data) {
 }
 
 /* Reset LCD */
-static inline void LCD_reset( void ) {
-	bcm283x_gpio_write(LCD_CS, 0);
-	delay(150);
+static inline void lcd_reset( void ) {
 	bcm283x_gpio_write(LCD_RST, 0);
 	delay(200);
 	bcm283x_gpio_write(LCD_RST, 1);
 	delay(200);
+}
+
+static inline void lcd_start(void) {
+	bcm283x_gpio_write(LCD_CS, 0);
+	bcm283x_spi_activate(1);
+}
+
+static inline void lcd_end(void) {
+	bcm283x_spi_activate(0);
+	bcm283x_gpio_write(LCD_CS, 1);
 }
 
 /*Ser rotation of the screen - changes x0 and y0*/
@@ -119,8 +127,6 @@ static inline void lcd_show(void) {
 	}
 }
 
-#define MIN(x, y) ((x)<(y)? (x):(y))
-
 int  do_flush(const void* buf, uint32_t size) {
 	if(size < LCD_WIDTH * LCD_HEIGHT* 4)
 		return -1;
@@ -137,7 +143,9 @@ int  do_flush(const void* buf, uint32_t size) {
 		_lcd_buffer[i] = ((r >> 3) <<11) | ((g >> 3) << 6) | (b >> 3);
 	}
 
+	lcd_start();
 	lcd_show();
+	lcd_end();
 	return 0;
 }
 
@@ -147,10 +155,12 @@ void lcd_init(void) {
 	bcm283x_gpio_config(LCD_CS, GPIO_OUTPUT);
 	bcm283x_gpio_config(LCD_RST, GPIO_OUTPUT);
 
+	lcd_reset();
 	bcm283x_spi_init(2);
 	bcm283x_spi_select(1);
-	bcm283x_spi_activate(1);
-	LCD_reset();
+
+	lcd_start();
+
 	lcd_write_commmand(0x28); // Display OFF
 
 	lcd_write_commmand(0x3A); // Interface Pixel Format
@@ -210,5 +220,6 @@ void lcd_init(void) {
 	lcd_set_rotation(SCREEN_HORIZONTAL_1);
 	lcd_write_commmand(0x29); // Display ON
 	delay(150000);
+	lcd_end();
 }
 
