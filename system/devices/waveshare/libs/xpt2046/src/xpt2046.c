@@ -9,7 +9,7 @@
 static int TP_CS = 7;
 static int TP_IRQ = 25;
 
-#define SPI_CLK_DIVIDE_TEST 16384
+#define SPI_CLK_DIVIDE_TEST 2
 
 static bool _down = false;
 static int32_t _x, _y;
