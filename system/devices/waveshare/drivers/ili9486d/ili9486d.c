@@ -25,23 +25,6 @@ uint16_t _lcd_buffer[LCD_SCREEN_WIDTH * LCD_SCREEN_HEIGHT];
 uint16_t LCD_HEIGHT = LCD_SCREEN_HEIGHT;
 uint16_t LCD_WIDTH  = LCD_SCREEN_WIDTH;
 
-static int ili9486write(int fd, 
-		int from_pid,
-		fsinfo_t* info,
-		const void* buf,
-		int size,
-		int offset,
-		void* p) {
-		
-	(void)fd;
-	(void)from_pid;
-	(void)info;
-	(void)buf;
-	(void)offset;
-	(void)p;
-	return size;
-}
-
 static inline void delay(int32_t count) {
 	usleep(count);
 }
@@ -152,7 +135,7 @@ int  do_flush(const void* buf, uint32_t size) {
 		register uint8_t g = (s >> 8)  & 0xff;
 		register uint8_t b = s & 0xff;
 		//_lcd_buffer[i] = ((r >> 3) <<11) | ((g >> 3) << 6) | (b >> 3);
-		_lcd_buffer[i] = ((r & 0xF8) << 8) | ((g & 0xFC) << 3) | ((b & 0xF8) >> 3);
+		_lcd_buffer[i] = ((r >> 3) <<10) | ((g >> 3) << 5) | (b >> 3);
 	}
 
 	LCD_show();
@@ -228,6 +211,6 @@ void lcd_init(void) {
 
 	LCD_writeCommand(0x29); // Display ON
 	delay(150000);
-	LCD_setRotation(SCREEN_HORIZONTAL_2);
+	LCD_setRotation(SCREEN_HORIZONTAL_1);
 }
 
