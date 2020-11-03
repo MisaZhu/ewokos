@@ -7,7 +7,8 @@
 #include <arch/bcm283x/gpio.h>
 #include <arch/bcm283x/spi.h>
 
-#define LCD_DC		24
+#define LCD_DC		18
+#define LCD_CS		24
 #define LCD_RST		22
 
 // Screen settings
@@ -42,23 +43,23 @@ static int ili9486write(int fd,
 }
 
 static inline void delay(int32_t count) {
-	while(count > 0) count--;
+	usleep(count);
 }
 
 /* LCD CONTROL */
 static inline void LCD_spiSendByte(uint8_t byte) {
-	bcm283x_spi_transfer(byte);
+	bcm283x_spi_transfer16(byte);
 }
 
 /* Send command (char) to LCD  - OK */
 static inline void LCD_writeCommand(uint8_t command) {
 	bcm283x_gpio_write(LCD_DC, 0);
 	LCD_spiSendByte(command);
+	bcm283x_gpio_write(LCD_DC, 1);
 }
 
 /* Send Data (char) to LCD */
 static inline void LCD_writeData(uint8_t Data) {
-	bcm283x_gpio_write(LCD_DC, 1);
 	LCD_spiSendByte(Data);
 }
 
@@ -68,6 +69,9 @@ static inline void LCD_reset( void ) {
 	delay(200000);
 	bcm283x_gpio_write(LCD_RST, 1);
 	delay(200000);
+	bcm283x_gpio_write(LCD_CS, 0);
+	LCD_writeCommand(0x11); // Display OFF
+	delay(150000);
 }
 
 /*Ser rotation of the screen - changes x0 and y0*/
@@ -108,32 +112,6 @@ void LCD_brightness(uint8_t brightness) {
 	LCD_writeData(brightness); // byc moze 2 bajty
 }
 
-uint16_t setColor(uint8_t r, uint8_t g, uint8_t b) {
-	uint16_t color = ((r >> 3) <<11) | ((g >> 3) << 6) | (b >> 3);
-	return color;
-}
-
-void LCD_drawPixel(uint16_t X,uint16_t Y,uint16_t colour) {
-	if((X >=LCD_WIDTH) || (Y >=LCD_HEIGHT)) return;	//OUT OF BOUNDS!
-
-	LCD_writeCommand(0x2A); // Column Address Set
-	LCD_writeData( (uint8_t)( X >> 8 ) );
-	LCD_writeData( (uint8_t)( X ) );
-	LCD_writeData( (uint8_t)( X >> 8 ) );
-	LCD_writeData( (uint8_t)( X ) );
-
-	LCD_writeCommand(0x2B); // Page Address Set
-	LCD_writeData( (uint8_t)( Y >> 8 ) );
-	LCD_writeData( (uint8_t)( Y ) );
-	LCD_writeData( (uint8_t)( Y >> 8 ) );
-	LCD_writeData( (uint8_t)( Y ) );
-
-	LCD_writeCommand(0x2C); // Memory write
-
-	LCD_writeData( (uint8_t)(colour >> 8) ); // set color
-	LCD_writeData( (uint8_t)(colour) );
-}
-
 void LCD_fill(uint16_t color) {
 	int i, j;
 	for ( i = 0 ; i < LCD_WIDTH*LCD_HEIGHT ; i ++ ) {
@@ -154,11 +132,13 @@ void LCD_fill(uint16_t color) {
 
 	LCD_writeCommand(0x2C); // Memory write?
 
+	//bcm283x_gpio_write(LCD_DC, 1);
 	for ( i = 0 ; i < 30  ; i ++ ) {
 		uint8_t *tx_data = (uint8_t*)&_lcd_buffer[5120*i];
 		int32_t data_sz = 2 * 5120;
-		for( j=0; j<data_sz; j++) 
+		for( j=0; j<data_sz; j++)  {
 			bcm283x_spi_transfer(tx_data[j]);
+		}
 	}
 }
 
@@ -189,7 +169,7 @@ void LCD_showBuffer(void) {
 
 
 void LCD_clear(void) {
-	LCD_fill(0x0ff0);
+	LCD_fill(0x9fcf);
 }
 
 void LCD_bufferClear(uint16_t* buffer) {
@@ -201,24 +181,33 @@ void LCD_bufferClear(uint16_t* buffer) {
 static int init(void) {
 	bcm283x_gpio_init();
 	bcm283x_gpio_config(LCD_DC, GPIO_OUTPUT);
+	bcm283x_gpio_config(LCD_CS, GPIO_OUTPUT);
 	bcm283x_gpio_config(LCD_RST, GPIO_OUTPUT);
 
+	bcm283x_spi_init(4);
+	bcm283x_spi_select(1);
+	bcm283x_spi_activate(1);
+klog("reset\n");
 	LCD_reset();
 
+klog("off\n");
 	LCD_writeCommand(0x28); // Display OFF
 
+klog("format\n");
 	LCD_writeCommand(0x3A); // Interface Pixel Format
 	LCD_writeData(0x55);	// 16 bit/pixel
 
 	LCD_writeCommand(0xC2); // Power Control 3 (For Normal Mode)
 	LCD_writeData(0x44);    // Cos z napieciem
 
+klog("vcom\n");
 	LCD_writeCommand(0xC5); // VCOM Control
 	LCD_writeData(0x00);  // const
 	LCD_writeData(0x00);  // nVM ? 0x48
 	LCD_writeData(0x00);  // VCOM voltage ref
 	LCD_writeData(0x00);  // VCM out
 
+klog("gama\n");
 	LCD_writeCommand(0xE0); // PGAMCTRL(Positive Gamma Control)
 	LCD_writeData(0x0F);
 	LCD_writeData(0x1F);
@@ -236,6 +225,7 @@ static int init(void) {
 	LCD_writeData(0x0D);
 	LCD_writeData(0x00);
 
+klog("ngama\n");
 	LCD_writeCommand(0xE1); // NGAMCTRL (Negative Gamma Correction)
 	LCD_writeData(0x0F);
 	LCD_writeData(0x32);
@@ -253,20 +243,29 @@ static int init(void) {
 	LCD_writeData(0x20);
 	LCD_writeData(0x00);
 
+klog("exit\n");
 	LCD_writeCommand(0x11);	// Exit sleep - Sleep OUT
 	delay(120000);	 		// 120 ms wait
 
-	LCD_writeCommand(0x20); // Display Inversion OFF   RPi LCD (A)
-	//LCD_writeCommand(0x21); // Display Inversion ON    RPi LCD (B)
+klog("iversion\n");
+	//LCD_writeCommand(0x20); // Display Inversion OFF   RPi LCD (A)
+	LCD_writeCommand(0x21); // Display Inversion ON    RPi LCD (B)
+	//LCD_writeCommand(0x22); // Display Inversion ON    RPi LCD (C)
 
+klog("mem\n");
 	LCD_writeCommand(0x36); // Memory Access Control
 	LCD_writeData(0x48);
 
+klog("on\n");
 	LCD_writeCommand(0x29); // Display ON
 	delay(150000);
 
+klog("rot\n");
 	LCD_setRotation(SCREEN_HORIZONTAL_2);
+klog("clear\n");
 	LCD_clear();
+	bcm283x_spi_activate(0);
+klog("done\n");
 	return 0;
 }
 
