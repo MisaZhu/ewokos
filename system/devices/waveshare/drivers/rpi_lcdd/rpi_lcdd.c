@@ -83,7 +83,7 @@ int main(int argc, char** argv) {
   const int tp_cs = 7;
   const int tp_irq = 17;
 
-	const char* mnt_point = argc > 1 ? argv[1]: "/dev/fb1";
+	const char* mnt_point = argc > 1 ? argv[1]: "/dev/rpi_lcd";
 
 	ili9486_init(lcd_dc, lcd_cs, lcd_rst);
 	xpt2046_init(tp_cs, tp_irq);
@@ -100,7 +100,7 @@ int main(int argc, char** argv) {
 
 	vdevice_t dev;
 	memset(&dev, 0, sizeof(vdevice_t));
-	strcpy(dev.name, "ili9486");
+	strcpy(dev.name, "rpi_lcd(c)");
 	dev.dma   = lcd_dma;
 	dev.flush = lcd_flush;
 	dev.fcntl = lcd_fcntl;
