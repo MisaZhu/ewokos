@@ -2,11 +2,12 @@
 #include <arch/bcm283x/spi.h>
 #include <sys/vdevice.h>
 #include <unistd.h>
+#include <stdlib.h>
 #include <string.h>
 #include <sys/vfs.h>
 
-#define TP_CS 7 //GPIO 7
-#define TP_IRQ 25 //GPIO 25
+static int TP_CS = 7;
+static int TP_IRQ = 25;
 
 #define SPI_CLK_DIVIDE_TEST 16384
 
@@ -20,18 +21,21 @@ void TP_init(void) {
 	bcm283x_spi_select(SPI_SELECT_0);
 
 	bcm283x_gpio_config(TP_CS, GPIO_OUTPUT);
-	bcm283x_gpio_write(TP_CS, 1); // prevent blockage of the SPI bus
 	bcm283x_gpio_config(TP_IRQ, GPIO_INPUT);
+	bcm283x_gpio_write(TP_CS, 1); // prevent blockage of the SPI bus
 }
 
-static uint32_t cmd(uint8_t set_val) {
+static uint32_t cmd(uint8_t cmd) {
 	uint16_t get_val;
-	bcm283x_spi_activate(1);
+
 	bcm283x_gpio_write(TP_CS, 0);
-	bcm283x_spi_transfer(set_val);
+	bcm283x_spi_activate(1);
+
+	bcm283x_spi_transfer(cmd);
 	get_val = bcm283x_spi_transfer16(0);
-	bcm283x_gpio_write(TP_CS, 1);
+
 	bcm283x_spi_activate(0);
+	bcm283x_gpio_write(TP_CS, 1);
 	uint32_t ret = get_val >> 4;
 	return ret;
 }
@@ -84,8 +88,15 @@ static int tp_read(int fd, int from_pid, fsinfo_t* info,
 }
 
 int main(int argc, char** argv) {
+	TP_CS = 7;
+	TP_IRQ = 25;
 	TP_init();
 	const char* mnt_point = argc > 1 ? argv[1]: "/dev/touch0";
+
+	if(argc > 3) {
+		TP_CS = atoi(argv[2]);
+		TP_IRQ = atoi(argv[3]);
+	}
 
 	vdevice_t dev;
 	memset(&dev, 0, sizeof(vdevice_t));

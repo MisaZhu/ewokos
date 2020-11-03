@@ -29,7 +29,7 @@ CFLAGS += -I $(BUILD_DIR)/include
 
 XPTOUCHD_OBJS = xpt2046d.o
 
-XPTOUCHD = $(TARGET_DIR)/drivers/raspix/hdmi_xpt2046d
+XPTOUCHD = $(TARGET_DIR)/drivers/raspix/xpt2046d
 
 $(XPTOUCHD): $(XPTOUCHD_OBJS) \
 		$(BUILD_DIR)/lib/libewokc.a \

@@ -7,9 +7,9 @@
 #include <arch/bcm283x/gpio.h>
 #include <arch/bcm283x/spi.h>
 
-#define LCD_DC		24
-#define LCD_CS		8
-#define LCD_RST		25
+static int LCD_DC =	24;
+static int LCD_CS	= 8;
+static int LCD_RST = 25;
 
 // Screen settings
 #define LCD_SCREEN_WIDTH 		480
@@ -149,7 +149,10 @@ int  do_flush(const void* buf, uint32_t size) {
 	return 0;
 }
 
-void lcd_init(void) {
+void lcd_init(int pin_dc, int pin_cs, int pin_rst) {
+	LCD_DC = pin_dc;
+	LCD_CS = pin_cs;
+	LCD_RST = pin_rst;
 	bcm283x_gpio_init();
 	bcm283x_gpio_config(LCD_DC, GPIO_OUTPUT);
 	bcm283x_gpio_config(LCD_CS, GPIO_OUTPUT);

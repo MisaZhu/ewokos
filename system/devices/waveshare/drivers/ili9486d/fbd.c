@@ -61,11 +61,20 @@ static int lcd_dev_cntl(int from_pid, int cmd, proto_t* in, proto_t* ret, void* 
 	return 0;
 }
 
-void lcd_init(void);
+void lcd_init(int pin_dc, int pin_cs, int pin_rst);
 int main(int argc, char** argv) {
-	lcd_init();
+	int lcd_dc = 24;
+	int lcd_cs = 8;
+  int lcd_rst = 25;
 
-	const char* mnt_point = argc > 1 ? argv[1]: "/dev/lcd";
+	const char* mnt_point = argc > 1 ? argv[1]: "/dev/fb1";
+	if(argc > 4) {
+		lcd_dc = atoi(argv[2]);
+		lcd_cs = atoi(argv[3]);
+		lcd_rst = atoi(argv[4]);
+	}
+
+	lcd_init(lcd_dc, lcd_cs, lcd_rst);
 
 	uint32_t sz = LCD_HEIGHT*LCD_WIDTH*4;
 	fb_dma_t dma;
@@ -79,7 +88,7 @@ int main(int argc, char** argv) {
 
 	vdevice_t dev;
 	memset(&dev, 0, sizeof(vdevice_t));
-	strcpy(dev.name, "lcd");
+	strcpy(dev.name, "ili9486");
 	dev.dma   = lcd_dma;
 	dev.flush = lcd_flush;
 	dev.fcntl = lcd_fcntl;
