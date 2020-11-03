@@ -1,7 +1,7 @@
 /bin/session
 
 #/sbin/x/xim_none
-#/sbin/x/xtouchd
+#/sbin/x/xtouchd /dev/touch0
 #/sbin/x/xmoused
 #/sbin/x/xjoystickd revx
 /sbin/x/xim_vkey

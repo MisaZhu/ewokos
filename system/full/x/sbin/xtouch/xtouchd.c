@@ -51,16 +51,18 @@ int main(int argc, char** argv) {
 	_y_rev = false;
 	_x_pid = -1;
 
-	if(argc > 1 && strstr(argv[1], "rev") != NULL) {
-		if(strchr(argv[1], 'x') != NULL)
+	const char* touch_dev = argc > 1 ? argv[1]:"/dev/touch0";
+
+	if(argc > 2 && strstr(argv[2], "rev") != NULL) {
+		if(strchr(argv[2], 'x') != NULL)
 			_x_rev = true;
-		if(strchr(argv[1], 'y') != NULL)
+		if(strchr(argv[2], 'y') != NULL)
 			_y_rev = true;
 	}
 
 	int fd = -1;
 	while(true) {
-		fd = open("/dev/touch0", O_RDONLY | O_NONBLOCK);
+		fd = open(touch_dev, O_RDONLY | O_NONBLOCK);
 		if(fd > 0)
 			break;
 	}
