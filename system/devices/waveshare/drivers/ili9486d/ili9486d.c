@@ -111,10 +111,10 @@ static inline void lcd_show(void) {
 	lcd_write_commmand(0x2C); // Memory write?
 
 	for ( i = 0 ; i < 30  ; i ++ ) {
-		uint8_t *tx_data = (uint8_t*)&_lcd_buffer[5120*i];
-		int32_t data_sz = 2 * 5120;
+		uint16_t *tx_data = (uint16_t*)&_lcd_buffer[5120*i];
+		int32_t data_sz = 5120;
 		for( j=0; j<data_sz; j++)  {
-			bcm283x_spi_transfer(tx_data[j]);
+			bcm283x_spi_transfer16(tx_data[j]);
 		}
 	}
 }
@@ -134,8 +134,7 @@ int  do_flush(const void* buf, uint32_t size) {
 		register uint8_t r = (s >> 16) & 0xff;
 		register uint8_t g = (s >> 8)  & 0xff;
 		register uint8_t b = s & 0xff;
-		//_lcd_buffer[i] = ((r >> 3) <<11) | ((g >> 3) << 6) | (b >> 3);
-		_lcd_buffer[i] = ((r >> 3) <<10) | ((g >> 3) << 5) | (b >> 3);
+		_lcd_buffer[i] = ((r >> 3) <<11) | ((g >> 3) << 6) | (b >> 3);
 	}
 
 	lcd_show();
