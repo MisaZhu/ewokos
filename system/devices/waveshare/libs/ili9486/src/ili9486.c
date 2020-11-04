@@ -159,7 +159,7 @@ void ili9486_init(int pin_dc, int pin_cs, int pin_rst) {
 
 	lcd_reset();
 	bcm283x_spi_init(2);
-	bcm283x_spi_select(1);
+	bcm283x_spi_select(SPI_SELECT_0);
 
 	lcd_start();
 
