@@ -26,8 +26,6 @@ static void out(const char *format, ...) {
   v_printf(outc, str, format, ap);
 	va_end(ap);
 	klog("%s", str->cstr);
-	if(_console_fd > 0)
-		write(_console_fd, str->cstr, str->len);
   str_free(str);;
 }
 
@@ -237,8 +235,11 @@ static void init_tty_stdio(void) {
 	int fd = open("/dev/tty0", 0);
 	dup2(fd, 0);
 	dup2(fd, 1);
-	if(_console_fd > 0)
+	if(_console_fd > 0) {
 		dup2(_console_fd, 2);
+		close(_console_fd);
+		_console_fd = -1;
+	}
 	else
 		dup2(fd, 2);
 	close(fd);
@@ -278,8 +279,6 @@ int main(int argc, char** argv) {
 	init_rootfs();
 	switch_root();
 
-	if(_console_fd > 0)
-		close(_console_fd);
 	while(true) {
 		proc_block(getpid(), (uint32_t)main);
 	}

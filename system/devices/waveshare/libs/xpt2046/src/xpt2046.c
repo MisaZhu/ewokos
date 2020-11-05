@@ -22,6 +22,7 @@ static void TP_init(void) {
 
 	bcm283x_gpio_config(TP_CS, GPIO_OUTPUT);
 	bcm283x_gpio_config(TP_IRQ, GPIO_INPUT);
+	bcm283x_gpio_pull(TP_IRQ, GPIO_PULL_UP);
 	bcm283x_gpio_write(TP_CS, 1); // prevent blockage of the SPI bus
 }
 
@@ -56,7 +57,9 @@ int xpt2046_read(uint16_t* press,  uint16_t* x, uint16_t* y) {
 	if(press == NULL || x == NULL || y == NULL)
 		return -1;
 
+	bcm283x_gpio_write(TP_CS, 0);
 	uint32_t t = bcm283x_gpio_read(TP_IRQ);
+	//klog("t: pin:%d, %d\n", TP_IRQ, t);
 	if(t == 1 && !_down)
     return -1;
 
