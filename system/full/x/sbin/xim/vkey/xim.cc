@@ -12,12 +12,12 @@
 using namespace Ewok;
 
 class XIMX : public XWin {
- 	int x_pid;
+ 	int xPid;
  	int keybFD;
 	const char* keytable;
 	font_t* font;
 
-	int col, row, keyw, keyh, down_at;
+	int col, row, keyw, keyh, keySelect;
 protected:
 	int get_at(int x, int y) {
 		int i = div_u32(x, keyw);
@@ -40,17 +40,17 @@ protected:
 				return;
 
 			if(ev->state == XEVT_MOUSE_DOWN) {
-				down_at = at;
+				keySelect = at;
 				repaint();
 			}
 			else if(ev->state == XEVT_MOUSE_MOVE) {
-				if(down_at >= 0 && down_at != at) {
-					down_at = at;
+				if(keySelect >= 0 && keySelect != at) {
+					keySelect = at;
 					repaint();
 				}
 			}
 			else if(ev->state == XEVT_MOUSE_UP) {
-				down_at = -1;
+				keySelect = -1;
 				char c = keytable[at];
 				if(c == '\b')
 					c = KEY_BACKSPACE;
@@ -70,7 +70,7 @@ protected:
 				if(at >= (int)strlen(keytable))
 					break;
 
-				if(down_at == at)
+				if(keySelect == at)
 					g.fill(i*keyw, j*keyh, keyw, keyh, 0xffffffff);
 
 				char c = keytable[at];
@@ -98,8 +98,44 @@ protected:
 
 		proto_t in;
 		PF->init(&in)->add(&in, &ev, sizeof(xevent_t));
-		dev_cntl_by_pid(x_pid, X_DCNTL_INPUT, &in, NULL);
+		dev_cntl_by_pid(xPid, X_DCNTL_INPUT, &in, NULL);
 		PF->clear(&in);
+	}
+
+	void keyMove(char c) {
+		if(keySelect < 0)
+			keySelect = 0;
+		else if(keySelect >= (int)strlen(keytable))
+			keySelect = strlen(keytable)-1;
+
+		if(c == KEY_ENTER) {
+			char v = keytable[keySelect];
+			if(v == '\b')
+				v = KEY_BACKSPACE;
+			input(v);
+			return;
+		}
+
+		switch(c) {
+		case KEY_UP:
+			keySelect -= col;
+			break;
+		case KEY_DOWN:
+			keySelect += col;
+			break;
+		case KEY_LEFT:
+			keySelect--;
+			break;
+		case KEY_RIGHT:
+			keySelect++;
+			break;
+		}
+		
+		if(keySelect < 0)
+			keySelect = 0;
+		else if(keySelect >= (int)strlen(keytable))
+			keySelect = strlen(keytable)-1;
+		repaint();
 	}
 
 public:
@@ -114,8 +150,8 @@ public:
 		keyh = font->h + 8;
 		keyw = font->w*2 + 8;
 		keybFD = open("/dev/keyb0", O_RDONLY | O_NONBLOCK);
-		x_pid = -1;
-		down_at = -1;
+		xPid = -1;
+		keySelect = -1;
 	}
 
 	inline ~XIMX() {
@@ -133,15 +169,20 @@ public:
 	}
 
 	void doRead(void) {
-		if(x_pid < 0)
-			x_pid = dev_get_pid("/dev/x");
-		if(x_pid <= 0 || keybFD < 0)
+		if(xPid < 0)
+			xPid = dev_get_pid("/dev/x");
+		if(xPid <= 0 || keybFD < 0)
 			return;
 
 		char v;
 		int rd = read(keybFD, &v, 1);
 		if(rd == 1) {
-			input(v);
+			if(v == KEY_UP || v == KEY_DOWN ||
+					v == KEY_LEFT || v == KEY_RIGHT ||
+					v == KEY_ENTER)
+				keyMove(v);
+			else
+				input(v);
 		}
 	}
 };
