@@ -33,17 +33,13 @@ static void input(int8_t state, int8_t rx, int8_t ry) {
 }
 
 int main(int argc, char** argv) {
-	(void)argc;
-	(void)argv;
-
+	const char* dev_name = argc < 2 ? "/dev/mouse0":argv[1];
 	_x_pid = -1;
 
-	int fd = -1;
-	while(true) {
-		fd = open("/dev/mouse0", O_RDONLY | O_NONBLOCK);
-		if(fd > 0)
-			break;
-		usleep(300000);
+	int fd = open(dev_name, O_RDONLY | O_NONBLOCK);
+	if(fd < 0) {
+		fprintf(stderr, "xmoused error: open [%s] failed!\n", dev_name);
+		return -1;
 	}
 
 	while(true) {

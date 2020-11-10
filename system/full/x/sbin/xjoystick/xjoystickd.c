@@ -158,16 +158,20 @@ int main(int argc, char** argv) {
 	_j_speed_up = 0;
 	_x_pid = -1;
 
-	if(argc > 1 && strstr(argv[1], "rev") != NULL) {
-		if(strchr(argv[1], 'x') != NULL)
+	const char* dev_name = argc < 2 ? "/dev/joystick":argv[1];
+
+	if(argc > 2 && strstr(argv[2], "rev") != NULL) {
+		if(strchr(argv[2], 'x') != NULL)
 			_j_x_rev = true;
-		if(strchr(argv[1], 'y') != NULL)
+		if(strchr(argv[2], 'y') != NULL)
 			_j_y_rev = true;
 	}
 
-	int fd = open("/dev/joystick", O_RDONLY);
-	if(fd < 0)
-		return 1;
+	int fd = open(dev_name, O_RDONLY);
+	if(fd < 0) {
+		fprintf(stderr, "xjoystickd error: open [%s] failed!\n", dev_name);
+		return -1;
+	}
 
 	while(true) {
 		if(_x_pid > 0) {

@@ -60,11 +60,10 @@ int main(int argc, char** argv) {
 			_y_rev = true;
 	}
 
-	int fd = -1;
-	while(true) {
-		fd = open(touch_dev, O_RDONLY | O_NONBLOCK);
-		if(fd > 0)
-			break;
+	int fd = open(touch_dev, O_RDONLY | O_NONBLOCK);
+	if(fd < 0) {
+		fprintf(stderr, "xtouchd error: open [%s] failed!\n", touch_dev);
+		return -1;
 	}
 
 	while(true) {
