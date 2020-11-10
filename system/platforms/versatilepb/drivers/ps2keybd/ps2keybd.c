@@ -56,7 +56,7 @@ const char _utab[] = {
 
 static int32_t keyb_handle(uint8_t scode) {
 	char c = 0;
-	if((scode == 0xF0 || scode == 0xE0)) {
+	if(scode == 0xF0) {
 		_idle = true;
 		return 0;
 	}
