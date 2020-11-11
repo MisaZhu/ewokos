@@ -190,7 +190,7 @@ public:
 static void loop(void* p) {
 	XIMX* xwin = (XIMX*)p;
 	xwin->doRead();
-	usleep(10000);
+	usleep(200000);
 }
 
 int main(int argc, char* argv[]) {

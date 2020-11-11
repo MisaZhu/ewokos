@@ -29,10 +29,12 @@ static uint32_t _j_speed_up = 0;
 
 static void joy_2_mouse(int key, int8_t* mv) {
 	uint32_t j_times = 1;
-	if(_j_speed_up > 6) {
-		j_times = _j_speed_up/6;
+	if(_j_speed_up > 8) {
+		/*j_times = _j_speed_up/6;
 		if(j_times > 16)
 			j_times = 16;
+			*/
+		j_times = 4;
 	}
 		
 	mv[0] = mv[1] = mv[2] = 0;

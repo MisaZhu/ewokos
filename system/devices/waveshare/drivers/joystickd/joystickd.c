@@ -33,11 +33,12 @@ static int joystick_read(int fd, int from_pid, fsinfo_t* info,
 	(void)size;
 	(void)p;
 
-	if(bcm283x_gpio_read(KEY3_PIN) == 0)
-		return ERR_RETRY;
 
 	char* rd = (char*)buf;
 	*rd = 0;
+
+	if(bcm283x_gpio_read(KEY3_PIN) == 0) 
+		return 1;
 
 	if(bcm283x_gpio_read(KEY_UP_PIN) == 0)
 		*rd |= KEY_V_UP;

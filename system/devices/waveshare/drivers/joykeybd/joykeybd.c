@@ -16,6 +16,9 @@
 #define KEY2_PIN        20
 #define KEY3_PIN        16
 
+static bool _j_x_rev = false;
+static bool _j_y_rev = false;
+
 static int joystick_read(int fd, int from_pid, fsinfo_t* info,
 		void* buf, int size, int offset, void* p) {
 	(void)fd;
@@ -32,13 +35,13 @@ static int joystick_read(int fd, int from_pid, fsinfo_t* info,
 	*rd = 0;
 
 	if(bcm283x_gpio_read(KEY_UP_PIN) == 0)
-		*rd = KEY_UP;
+		*rd = _j_y_rev ? KEY_DOWN:KEY_UP;
 	else if(bcm283x_gpio_read(KEY_DOWN_PIN) == 0)
-		*rd = KEY_DOWN;
+		*rd = _j_y_rev ? KEY_UP:KEY_DOWN;
 	else if(bcm283x_gpio_read(KEY_LEFT_PIN) == 0)
-		*rd = KEY_LEFT;
+		*rd = _j_x_rev ? KEY_RIGHT:KEY_LEFT;
 	else if(bcm283x_gpio_read(KEY_RIGHT_PIN) == 0)
-		*rd = KEY_RIGHT;
+		*rd = _j_x_rev ? KEY_LEFT:KEY_RIGHT;
 	else if(bcm283x_gpio_read(KEY_PRESS_PIN) == 0)
 		*rd = KEY_ENTER;
 	else if(bcm283x_gpio_read(KEY1_PIN) == 0)
@@ -79,6 +82,15 @@ int main(int argc, char** argv) {
 	init_gpio();
 
 	const char* mnt_point = argc > 1 ? argv[1]: "/dev/joykeyb";
+
+	_j_x_rev = false;
+	_j_y_rev = false;
+	if(argc > 2 && strstr(argv[2], "rev") != NULL) {
+    if(strchr(argv[2], 'x') != NULL)
+      _j_x_rev = true;
+    if(strchr(argv[2], 'y') != NULL)
+      _j_y_rev = true;
+  }
 
 	vdevice_t dev;
 	memset(&dev, 0, sizeof(vdevice_t));
