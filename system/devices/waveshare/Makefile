@@ -11,6 +11,7 @@ all:
 	cd drivers/xpt2046d; make
 	cd drivers/ili9486d; make
 	cd drivers/joystickd; make
+	cd drivers/joykeybd; make
 	cd drivers/lcdhatd; make
 
 clean:	
@@ -21,5 +22,6 @@ clean:
 	cd drivers/ili9486d; make clean
 	cd drivers/epaperd; make clean
 	cd drivers/joystickd; make clean
+	cd drivers/joykeybd; make clean
 	cd drivers/lcdhatd; make clean
 	rm -f $(TARGET_DIR)/waveshare.dev

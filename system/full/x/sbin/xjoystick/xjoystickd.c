@@ -23,7 +23,6 @@ static int _x_pid = -1;
 #define JOY_STEP          6
 
 static bool _prs_down = false;
-static bool _j_mouse = true;
 static bool _j_x_rev = false;
 static bool _j_y_rev = false;
 static uint32_t _j_speed_up = 0;
@@ -59,31 +58,6 @@ static void joy_2_mouse(int key, int8_t* mv) {
 	}	
 }
 
-static void joy_2_keyb(int key, int8_t* v) {
-	*v = 0;
-	switch(key) {
-	case KEY_V_UP:
-		*v = _j_y_rev ? KEY_DOWN:KEY_UP;
-		return;
-	case KEY_V_DOWN:
-		*v = _j_y_rev ? KEY_UP:KEY_DOWN;
-		return;
-	case KEY_V_LEFT:
-		*v = _j_x_rev ? KEY_LEFT:KEY_RIGHT;
-		return;
-	case KEY_V_RIGHT:
-		*v = _j_x_rev ? KEY_RIGHT:KEY_LEFT;
-		return;
-	case KEY_V_1:
-	case KEY_V_PRESS:
-		*v = KEY_ENTER;
-		return;
-	case KEY_V_2:
-		*v = KEY_ESC;
-		return;
-	}	
-}
-
 static void mouse_input(int8_t state, int8_t rx, int8_t ry) {
 	xevent_t ev;
 	ev.type = XEVT_MOUSE;
@@ -104,55 +78,26 @@ static void mouse_input(int8_t state, int8_t rx, int8_t ry) {
 	PF->clear(&in);
 }
 
-static void im_input(char c) {
-	xevent_t ev;
-	ev.type = XEVT_IM;
-	ev.value.im.value = c;
-	proto_t in;
-
-	PF->init(&in)->add(&in, &ev, sizeof(xevent_t));
-	dev_cntl_by_pid(_x_pid, X_DCNTL_INPUT, &in, NULL);
-	PF->clear(&in);
-}
-
 static void input(char key) {
 	int8_t mv[4];
-	if(key == KEY_V_3 && !_prs_down) { //switch joy mouse/im mode
-		_j_mouse = !_j_mouse;
-		_prs_down = true;
-	}
+	joy_2_mouse(key, mv);
+	if(mv[1] != 0 || mv[2] != 0)
+		_j_speed_up++;
+	else
+		_j_speed_up = 0;
 
-	if(_j_mouse) {
-		joy_2_mouse(key, mv);
-		if(mv[1] != 0 || mv[2] != 0)
-			_j_speed_up++;
-		else
-			_j_speed_up = 0;
-
-		if(key == 0 && _prs_down) {
-			key = 1;
-			_prs_down = false;
-			mv[0] = 1;
-		}
-		if(key != 0) {
-			mouse_input(mv[0], mv[1], mv[2]);
-		}
+	if(key == 0 && _prs_down) {
+		key = 1;
+		_prs_down = false;
+		mv[0] = 1;
 	}
-	else {
-		int8_t v;
-		if(key == 0 && _prs_down)
-			_prs_down = false;
-		else {
-			joy_2_keyb(key, &v);
-			if(v != 0)
-				im_input(v);
-		}
+	if(key != 0) {
+		mouse_input(mv[0], mv[1], mv[2]);
 	}
 }
 
 int main(int argc, char** argv) {
 	_prs_down = false;
-	_j_mouse = true;
 	_j_x_rev = false;
 	_j_y_rev = false;
 	_j_speed_up = 0;
