@@ -179,8 +179,11 @@ public:
 		if(rd == 1) {
 			if(v == KEY_UP || v == KEY_DOWN ||
 					v == KEY_LEFT || v == KEY_RIGHT ||
-					v == KEY_ENTER)
+					v == KEY_ENTER) {
 				keyMove(v);
+				if(v == KEY_ENTER)
+					usleep(100000);
+			}
 			else
 				input(v);
 		}
