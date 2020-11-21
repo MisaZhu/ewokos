@@ -99,12 +99,9 @@ void proc_switch(context_t* ctx, proc_t* to, bool quick){
 	}
 
 	memcpy(ctx, &to->ctx, sizeof(context_t));
-
-	if(_current_proc != to) {
-		page_dir_entry_t *vm = to->space->vm;
-		set_translation_table_base((uint32_t) V2P(vm));
-		_current_proc = to;
-	}
+	page_dir_entry_t *vm = to->space->vm;
+	set_translation_table_base((uint32_t) V2P(vm));
+	_current_proc = to;
 }
 
 /* proc_exapnad_memory expands the heap size of the given process. */
