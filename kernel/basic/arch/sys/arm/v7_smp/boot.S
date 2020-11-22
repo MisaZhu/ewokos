@@ -1,5 +1,11 @@
 #define KERNEL_BASE 0x80000000
 
+#define CPU_CONTROL_DC_ENABLE   0x00000004 /* C: IDC/DC enable */
+#define CPU_CONTROL_IC_ENABLE   0x00001000 /* I: IC enable */
+
+#define	BCM2836_ARM_LOCAL_BASE            0x40000000
+#define	BCM2836_LOCAL_MAILBOX3_CLRN(n)		(0xcc + 0x10 * (n))
+
 .section ".init"
 .global __entry
 __entry:
@@ -21,22 +27,43 @@ over_hyped: // Get out of HYP mode
 	eret
 
 continue:
-	// Shut off extra cores
-	mrc p15, 0, r5, c0, c0, 5
-	and r5, r5, #3
-	cmp r5, #0
-	bne halt
+	@ Enable data & instruction caches.
+	mrc	p15, 0, r4, c1, c0, 0	@ System Control Register
+	orr	r4, r4, #CPU_CONTROL_DC_ENABLE
+	orr	r4, r4, #CPU_CONTROL_IC_ENABLE
+	mcr	p15, 0, r4, c1, c0, 0
 
+	//enable smp
+	mrc p15, 0, r0, c1, c0, 1   
+	orr r0, r0, #0x40
+	mcr p15, 0, r0, c1, c0, 1
+
+	// Shut off extra cores
+	mrc p15, 0, r11, c0, c0, 5
+	and r11, r11, #3
+	cmp r11, #0
+	beq core0
+
+	ldr	r4, =BCM2836_ARM_LOCAL_BASE + BCM2836_LOCAL_MAILBOX3_CLRN(0)
+1:
+	wfe
+	ldr	lr, [r4, r3, lsl #4]	@ read mailbox #3 for n-th CPU
+	cmp	lr, #0
+	beq	1b
+	str	lr, [r4, r3, lsl #4]	@ clear the mailbox
+	bne slave_core
+
+core0:
+	//0 core
 	msr cpsr, #0xD3             @ enter SVC mode with IRQ and FIQ interrupts disabled
 	ldr sp, = _svc_stack        @ initialise SVC mode stack
 	sub sp, #KERNEL_BASE
 
-	bl arm_smp_disable
 	bl cpu_mmu_disable
 	bl cpu_dcache_disable
 	bl cpu_icache_disable
 
-	blx _boot_start
+	bl _boot_start
 
 	msr cpsr, #0xD2             @ enter IRQ mode with IRQ and FIQ interrupts disabled
 	ldr sp, = _irq_stack        @ initialise IRQ mode stack
@@ -48,15 +75,43 @@ continue:
 	ldr sp, = _svc_stack        @ initialise SVC mode stack
 
 	sub   sp, sp, #68             @ initialise dummy context
-	mov   r0, sp                  @ set    high-level C function arg. = SP
+	mov   r0, sp                  @ set    high-level C function arg. = SP(cpu ctx)
 
-	blx _kernel_entry_c
+	bl _kernel_entry_c
 
 	ldmia sp!, { r0, lr }         @ load   USR mode PC and CPSR
 	msr   spsr, r0                @ set    USR mode        CPSR
 	ldmia sp, { r0-r12, sp, lr }^ @ load   USR mode registers
 	add   sp, sp, #60             @ update SVC mode SP
 	movs  pc, lr                  @ return from interrupt
+	b halt
+
+slave_core:                   @ 1-3 cores
+	msr cpsr, #0xD3             @ enter SVC mode with IRQ and FIQ interrupts disabled
+	ldr sp, = _svc_stack        @ initialise SVC mode stack
+	sub sp, #KERNEL_BASE
+	mov r0, r11
+	lsl r0, #16                 @ core_id << 16
+	sub sp, r0 
+
+	msr cpsr, #0xD2             @ enter IRQ mode with IRQ and FIQ interrupts disabled
+	ldr sp, = _irq_stack        @ initialise IRQ mode stack
+	mov r0, r11
+	lsl r0, #16                 @ core_id << 16
+	sub sp, r0 
+
+	msr cpsr, #0xD7             @ enter ABT mode with IRQ and FIQ interrupts disabled
+	ldr sp, = _abt_stack        @ initialise ABT mode stack
+	mov r0, r11
+	lsl r0, #16                 @ core_id << 16
+	sub sp, r0 
+
+	msr cpsr, #0xD3             @ enter SVC mode with IRQ and FIQ interrupts disabled
+	ldr sp, = _svc_stack        @ initialise SVC mode stack
+	mov r0, r11
+	lsl r0, #16                 @ core_id << 16
+	sub sp, r0 
+	b halt
 
 halt:
 	b halt
@@ -64,13 +119,6 @@ halt:
 /*copy from RT-Thread 
 (https://github.com/BernardXiong/rt-thread/bsp/raspberry-pi/raspi2/cpu)
 Exchanged with Bernard by one cup of coffee*/
-.globl arm_smp_disable
-arm_smp_disable:
-	mrc p15, 0, r0, c1, c0, 1   // clear SMP bit in ACTLR
-	bic r0, r0, #0x40
-	mcr p15, 0, r0, c1, c0, 1
-	bx lr
-
 .globl cpu_mmu_disable
 cpu_mmu_disable:
 	mcr     p15, #0, r0, c8, c7, #0    @ invalidate tlb
