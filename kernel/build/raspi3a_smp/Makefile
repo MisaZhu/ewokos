@@ -11,8 +11,8 @@ export QEMU_AUDIO_DRV=none
 
 ARCH_DIR=$(SRC_DIR)/basic/arch/sys
 BSP_DIR=$(SRC_DIR)/basic/arch/bsp
-ARCH=arm/v7
-BSP=raspi4
+ARCH=arm/v7_smp
+BSP=raspi3
 
 SYS_FULL_DIR = ../../../system
 SRC_DIR=../..
@@ -53,6 +53,8 @@ CFLAGS += $(OPTM) \
 	-fno-builtin-strncpy \
 	-fno-builtin-strncmp \
 	-std=c99
+
+CFLAGS += -DPI3A
 
 ARCH_OBJS = \
 	$(ARCH_DIR)/$(ARCH)/boot.o \
@@ -144,7 +146,6 @@ $(OS_IMG): $(OBJS) $(LDS)
 
 asm:
 	$(OBJDUMP) -D $(BUILD_DIR)/$(OS_ELF) > $(BUILD_DIR)/kernel.asm
-
 
 run: 
 	$(QEMU_CMD) $(QEMU_FLAGS) -kernel $(BUILD_DIR)/$(OS_IMG) $(QEMU_ARGS)

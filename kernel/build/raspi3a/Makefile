@@ -11,7 +11,7 @@ export QEMU_AUDIO_DRV=none
 
 ARCH_DIR=$(SRC_DIR)/basic/arch/sys
 BSP_DIR=$(SRC_DIR)/basic/arch/bsp
-ARCH=arm/acore32
+ARCH=arm/v7
 BSP=raspi3
 
 SYS_FULL_DIR = ../../../system
