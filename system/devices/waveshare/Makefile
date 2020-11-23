@@ -10,8 +10,10 @@ all:
 	cd drivers/rpi_lcdd; make
 	cd drivers/xpt2046d; make
 	cd drivers/ili9486d; make
-	cd drivers/joystickd; make
-	cd drivers/joykeybd; make
+	cd drivers/hat13_joystickd; make
+	cd drivers/hat13_joykeybd; make
+	cd drivers/gp15_joystickd; make
+	cd drivers/gp15_joykeybd; make
 	cd drivers/lcdhatd; make
 
 clean:	
@@ -21,7 +23,9 @@ clean:
 	cd drivers/xpt2046d; make clean
 	cd drivers/ili9486d; make clean
 	cd drivers/epaperd; make clean
-	cd drivers/joystickd; make clean
-	cd drivers/joykeybd; make clean
+	cd drivers/hat13_joystickd; make clean
+	cd drivers/hat13_joykeybd; make clean
+	cd drivers/gp15_joystickd; make clean
+	cd drivers/gp15_joykeybd; make clean
 	cd drivers/lcdhatd; make clean
 	rm -f $(TARGET_DIR)/waveshare.dev
