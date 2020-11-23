@@ -29,7 +29,7 @@ CFLAGS += -I $(BUILD_DIR)/include
 
 JOYKEYBD_OBJS = joykeybd.o
 
-JOYKEYBD = $(TARGET_DIR)/drivers/raspix/joykeybd
+JOYKEYBD = $(TARGET_DIR)/drivers/raspix/hat13_joykeybd
 
 $(JOYKEYBD): $(JOYKEYBD_OBJS) \
 		$(BUILD_DIR)/lib/libewokc.a \

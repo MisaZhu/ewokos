@@ -29,7 +29,7 @@ CFLAGS += -I $(BUILD_DIR)/include
 
 JOYSTICKD_OBJS = joystickd.o
 
-JOYSTICKD = $(TARGET_DIR)/drivers/raspix/joystickd
+JOYSTICKD = $(TARGET_DIR)/drivers/raspix/hat13_joystickd
 
 $(JOYSTICKD): $(JOYSTICKD_OBJS) \
 		$(BUILD_DIR)/lib/libewokc.a \
