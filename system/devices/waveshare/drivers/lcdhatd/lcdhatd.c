@@ -34,18 +34,15 @@
 #define LCD_BL_0		DEV_Digital_Write(LCD_BL,0)
 #define LCD_BL_1		DEV_Digital_Write(LCD_BL,1)
 
-#define LCD_HEIGHT 240
-#define LCD_WIDTH 240
-
-#define LCD_WIDTH_Byte 240
-
-#define HORIZONTAL 0
-#define VERTICAL   1
+#define ROT_0        0
+#define ROT_90       1
+#define ROT_180      2
+#define ROT_270      3
 
 typedef struct{
 	UWORD WIDTH;
 	UWORD HEIGHT;
-	UBYTE SCAN_DIR;
+	UBYTE ROT;
 }LCD_ATTRIBUTES;
 static LCD_ATTRIBUTES LCD;
 
@@ -110,21 +107,21 @@ parameter:
 /********************************************************************************
 function:	Set the resolution and scanning method of the screen
 parameter:
-		Scan_dir:   Scan direction
+		rot:   Scan direction
  ********************************************************************************/
-static void LCD_SetAttributes(UBYTE Scan_dir) {
+static void LCD_SetAttributes(UBYTE rot, uint32_t w, uint32_t h) {
 	//Get the screen scan direction
-	LCD.SCAN_DIR = Scan_dir;
+	LCD.ROT = rot;
 	UBYTE MemoryAccessReg = 0x00;
 
 	//Get GRAM and LCD width and height
-	if(Scan_dir == HORIZONTAL) {
-		LCD.HEIGHT	= LCD_HEIGHT;
-		LCD.WIDTH   = LCD_WIDTH;
+	if(rot == ROT_0 || rot == ROT_180) {
+		LCD.HEIGHT	= h;
+		LCD.WIDTH   = w;
 		MemoryAccessReg = 0X70;
 	} else {
-		LCD.HEIGHT	= LCD_WIDTH;
-		LCD.WIDTH   = LCD_HEIGHT;
+		LCD.HEIGHT	= w;
+		LCD.WIDTH   = h;
 		MemoryAccessReg = 0X00;
 	}
 
@@ -219,14 +216,14 @@ static void LCD_InitReg(void) {
 function :	Initialize the lcd
 parameter:
  ********************************************************************************/
-static void LCD_1in3_Init(UBYTE Scan_dir) {
+static void LCD_1in3_Init(UBYTE rot, uint32_t w, uint32_t h) {
 	//Turn on the backlight
 	LCD_BL_1;
 
 	//Hardware reset
 	LCD_Reset();
 	//Set the resolution and scanning method of the screen
-	LCD_SetAttributes(Scan_dir);
+	LCD_SetAttributes(rot, w, h);
 
 	//Set the initialization register
 	LCD_InitReg();
@@ -264,20 +261,20 @@ parameter:
  ******************************************************************************/
 static void LCD_1in3_Clear(UWORD Color) {
 	UWORD j;
-	UWORD Image[LCD_WIDTH*LCD_HEIGHT];
+	UWORD Image[LCD.WIDTH*LCD.HEIGHT];
 
 	Color = ((Color<<8)&0xff00)|(Color>>8);
 
-	for (j = 0; j < LCD_HEIGHT*LCD_WIDTH; j++) {
+	for (j = 0; j < LCD.HEIGHT*LCD.WIDTH; j++) {
 		Image[j] = Color;
 	}
 
-	//LCD_1in3_SetWindows(0, 0, LCD_WIDTH, LCD_HEIGHT);
+	//LCD_1in3_SetWindows(0, 0, LCD.WIDTH, LCD.HEIGHT);
 	LCD_DC_1;
-	DEV_SPI_Write((uint8_t *)Image, LCD_WIDTH*LCD_HEIGHT*2);
+	DEV_SPI_Write((uint8_t *)Image, LCD.WIDTH*LCD.HEIGHT*2);
 }
 
-void lcd_init(void) {
+void lcd_init(uint32_t w, uint32_t h, uint32_t rot) {
 	bcm283x_gpio_init();
 
 	bcm283x_gpio_config(LCD_CS, 1);
@@ -288,34 +285,48 @@ void lcd_init(void) {
 	bcm283x_spi_init(4);
 	bcm283x_spi_select(1);
 
-	LCD_1in3_Init(HORIZONTAL);
-	LCD_1in3_SetWindows(0, 0, LCD_WIDTH, LCD_HEIGHT);
+	LCD_1in3_Init(rot, w, h);
+	LCD_1in3_SetWindows(0, 0, LCD.WIDTH, LCD.HEIGHT);
 	LCD_1in3_Clear(0x0);
 }
 
 int  do_flush(const void* buf, uint32_t size) {
-	if(size < LCD_WIDTH * LCD_HEIGHT* 4)
+	if(size < LCD.WIDTH * LCD.HEIGHT* 4)
 		return -1;
 
 	LCD_DC_1;
 	bcm283x_spi_activate(1);
 
 	uint32_t *src = (uint32_t*)buf;
-	uint32_t sz = LCD_HEIGHT*LCD_WIDTH;
+	uint32_t sz = LCD.HEIGHT*LCD.WIDTH;
 	UWORD i;
 
-	for (i = 0; i < sz; i++) {
-		register uint32_t s = src[i];
-		register uint8_t r = (s >> 16) & 0xff;
-		register uint8_t g = (s >> 8)  & 0xff;
-		register uint8_t b = s & 0xff;
-		UWORD color = ((r >> 3) <<11) | ((g >> 3) << 6) | (b >> 3);
-		//color = ((color<<8)&0xff00)|(color>>8);
-		uint8_t* p = (uint8_t*)&color;
-		bcm283x_spi_transfer(p[1]);
-		bcm283x_spi_transfer(p[0]);
+	if(LCD.ROT == ROT_0 || LCD.ROT == ROT_90) {
+		for (i = 0; i <sz; i++) {
+			register uint32_t s = src[i-1];
+			register uint8_t r = (s >> 16) & 0xff;
+			register uint8_t g = (s >> 8)  & 0xff;
+			register uint8_t b = s & 0xff;
+			UWORD color = ((r >> 3) <<11) | ((g >> 3) << 6) | (b >> 3);
+			//color = ((color<<8)&0xff00)|(color>>8);
+			uint8_t* p = (uint8_t*)&color;
+			bcm283x_spi_transfer(p[1]);
+			bcm283x_spi_transfer(p[0]);
+		}
 	}
-
+	else {
+		for (i = sz; i > 0; i--) {
+			register uint32_t s = src[i-1];
+			register uint8_t r = (s >> 16) & 0xff;
+			register uint8_t g = (s >> 8)  & 0xff;
+			register uint8_t b = s & 0xff;
+			UWORD color = ((r >> 3) <<11) | ((g >> 3) << 6) | (b >> 3);
+			//color = ((color<<8)&0xff00)|(color>>8);
+			uint8_t* p = (uint8_t*)&color;
+			bcm283x_spi_transfer(p[1]);
+			bcm283x_spi_transfer(p[0]);
+		}
+	}
 	bcm283x_spi_activate(0);
 	return 0;
 }

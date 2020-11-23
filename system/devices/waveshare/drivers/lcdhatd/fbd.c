@@ -8,8 +8,8 @@
 #include <sys/vdevice.h>
 #include <sys/vfs.h>
 
-#define LCD_HEIGHT 240
-#define LCD_WIDTH 240
+static uint32_t LCD_HEIGHT = 240;
+static uint32_t LCD_WIDTH = 240;
 
 typedef struct {
 	void* data;
@@ -61,11 +61,19 @@ static int lcd_dev_cntl(int from_pid, int cmd, proto_t* in, proto_t* ret, void* 
 	return 0;
 }
 
-void lcd_init(void);
+void lcd_init(uint32_t w, uint32_t h, uint32_t rot);
 int main(int argc, char** argv) {
-	lcd_init();
-
+	uint32_t w=240, h=240, rot=0;
 	const char* mnt_point = argc > 1 ? argv[1]: "/dev/lcd";
+
+	if(argc >=5) {
+		w = atoi(argv[2]);
+		h = atoi(argv[3]);
+		rot = atoi(argv[4]);
+	}
+	LCD_HEIGHT = h;
+	LCD_WIDTH = w;
+	lcd_init(w, h, rot);
 
 	uint32_t sz = LCD_HEIGHT*LCD_WIDTH*4;
 	fb_dma_t dma;
