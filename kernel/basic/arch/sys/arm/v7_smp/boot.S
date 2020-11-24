@@ -38,12 +38,12 @@ continue:
 	orr r0, r0, #0x40
 	mcr p15, 0, r0, c1, c0, 1
 
-	// Shut off extra cores
 	mrc p15, 0, r11, c0, c0, 5
 	and r11, r11, #3
 	cmp r11, #0
-	beq core0
+	bne slave_core
 
+/*
 	ldr	r4, =BCM2836_ARM_LOCAL_BASE + BCM2836_LOCAL_MAILBOX3_CLRN(0)
 1:
 	wfe
@@ -52,6 +52,7 @@ continue:
 	beq	1b
 	str	lr, [r4, r3, lsl #4]	@ clear the mailbox
 	bne slave_core
+	*/
 
 core0:
 	//0 core
@@ -59,11 +60,14 @@ core0:
 	ldr sp, = _svc_stack        @ initialise SVC mode stack
 	sub sp, #KERNEL_BASE
 
+	mov r0, r11
+	bl _boot_start
+
 	bl cpu_mmu_disable
 	bl cpu_dcache_disable
 	bl cpu_icache_disable
 
-	bl _boot_start
+	//bl _boot_start
 
 	msr cpsr, #0xD2             @ enter IRQ mode with IRQ and FIQ interrupts disabled
 	ldr sp, = _irq_stack        @ initialise IRQ mode stack
@@ -87,32 +91,28 @@ core0:
 	b halt
 
 slave_core:                   @ 1-3 cores
-	msr cpsr, #0xD3             @ enter SVC mode with IRQ and FIQ interrupts disabled
-	ldr sp, = _svc_stack        @ initialise SVC mode stack
-	sub sp, #KERNEL_BASE
-	mov r0, r11
-	lsl r0, #16                 @ core_id << 16
-	sub sp, r0 
-
-	msr cpsr, #0xD2             @ enter IRQ mode with IRQ and FIQ interrupts disabled
+	/*msr cpsr, #0xD2             @ enter IRQ mode with IRQ and FIQ interrupts disabled
 	ldr sp, = _irq_stack        @ initialise IRQ mode stack
 	mov r0, r11
-	lsl r0, #16                 @ core_id << 16
+	lsl r0, #14                 @ core_id << 16
 	sub sp, r0 
 
 	msr cpsr, #0xD7             @ enter ABT mode with IRQ and FIQ interrupts disabled
 	ldr sp, = _abt_stack        @ initialise ABT mode stack
 	mov r0, r11
-	lsl r0, #16                 @ core_id << 16
+	lsl r0, #14                 @ core_id << 16
 	sub sp, r0 
+	*/
 
 	msr cpsr, #0xD3             @ enter SVC mode with IRQ and FIQ interrupts disabled
 	ldr sp, = _svc_stack        @ initialise SVC mode stack
-	mov r0, r11
-	lsl r0, #16                 @ core_id << 16
-	sub sp, r0 
-	b halt
+	sub sp, #KERNEL_BASE
+	sub sp, #0x1000
 
+	mov r0, r11
+	bl _boot_start
+
+	b halt
 halt:
 	b halt
 	

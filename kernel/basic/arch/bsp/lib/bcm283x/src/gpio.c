@@ -1,7 +1,7 @@
 #include <bcm283x/gpio.h>
 #include <mm/mmu.h>
 
-void gpio_config(int32_t num, int32_t gpio_sel) {
+inline void gpio_config(int32_t num, int32_t gpio_sel) {
 	uint32_t raddr = (uint32_t)GPIO_FSEL0 + ((num/10)<<2);
 	uint32_t shift = (num%10) * GPIO_SEL_BITS;
 	uint32_t value = gpio_sel << shift;
@@ -12,7 +12,7 @@ void gpio_config(int32_t num, int32_t gpio_sel) {
 	put32(raddr, data);
 }
 
-void gpio_pull(int32_t num, int32_t pull_dir) {
+inline void gpio_pull(int32_t num, int32_t pull_dir) {
 	uint32_t shift = (num % 32);
 	uint32_t index = (num/32) + 1;
 	*GPIO_PUD = pull_dir & GPIO_PULL_MASK;
