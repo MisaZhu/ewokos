@@ -27,14 +27,14 @@ LDFLAGS = -L$(BUILD_DIR)/lib -lnosys
 
 CFLAGS += -I $(BUILD_DIR)/include
 
-JOYKEYBD_OBJS = joykeybd.o
+JOYSTICKD_OBJS = joystickd.o
 
-JOYKEYBD = $(TARGET_DIR)/drivers/raspix/gp15_joykeybd
+JOYSTICKD = $(TARGET_DIR)/drivers/raspix/gpio_joystickd
 
-$(JOYKEYBD): $(JOYKEYBD_OBJS) \
+$(JOYSTICKD): $(JOYSTICKD_OBJS) \
 		$(BUILD_DIR)/lib/libewokc.a \
 		$(BUILD_DIR)/lib/libarch_bcm283x.a 
-	$(LD) -Ttext=100 $(JOYKEYBD_OBJS) -o $(JOYKEYBD) $(LDFLAGS) -larch_bcm283x -lewokc -lc
+	$(LD) -Ttext=100 $(JOYSTICKD_OBJS) -o $(JOYSTICKD) $(LDFLAGS) -larch_bcm283x -lewokc -lc
 
 clean:
-	rm -f $(JOYKEYBD_OBJS)
+	rm -f $(JOYSTICKD_OBJS)

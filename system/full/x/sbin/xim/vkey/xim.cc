@@ -63,6 +63,7 @@ protected:
 	void onRepaint(Graph& g) {
 		keyw = div_u32(g.getW(), col);
 		g.fill(0, 0, g.getW(), g.getH(), 0xffaaaaaa);
+		keyw = div_u32(g.getW(), col);
 
 		for(int j=0; j<row; j++) {
 			for(int i=0; i<col; i++) {
@@ -140,7 +141,7 @@ protected:
 
 public:
 	inline XIMX() {
-		font = font_by_name("12x24");
+		font = font_by_name("8x16");
 		keytable = "abcdefghijklm/\\{}"
 							 "nopqrstuvwxyz<>[]"
 							 "1234567890-+.,'\" "
@@ -204,7 +205,8 @@ int main(int argc, char* argv[]) {
 	x.screenInfo(scr);
 
 	XIMX xwin;
-	x.open(&xwin, scr.size.w - xwin.getFixW(), scr.size.h-xwin.getFixH(), xwin.getFixW(), xwin.getFixH(), "xim",
+	//x.open(&xwin, scr.size.w - xwin.getFixW(), scr.size.h-xwin.getFixH(), xwin.getFixW(), xwin.getFixH(), "xim",
+	x.open(&xwin, 0, scr.size.h-xwin.getFixH(), scr.size.w, xwin.getFixH(), "xim",
 			X_STYLE_NO_FRAME | X_STYLE_NO_FOCUS | X_STYLE_SYSTOP | X_STYLE_XIM);
 	x.run(loop, &xwin);
 	return 0;
