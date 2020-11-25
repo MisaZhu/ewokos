@@ -3,20 +3,10 @@
 #include <kernel/kernel.h>
 #include <kernel/hw_info.h>
 #include <dev/dev.h>
-#include <kstring.h>
 #include "timer_arch.h"
 
-/* memory mapping for the prime interrupt controller */
-#define PIC (_mmio_base + 0xB200)
-#define PIC_INT_UART0 (25+64)
-#define PIC_INT_SDC (30)
-
-#define IRQ_IS_BASIC(x) ((x) >= 64 )
-#define IRQ_IS_GPU2(x) ((x) >= 32 && (x) < 64 )
-#define IRQ_IS_GPU1(x) ((x) < 32 )
-
 #define CORE0_TIMER__irqCNTL 0x40000040
-#define GPU_INTERRUPTS_ROUTING 0x4000000C
+#define CORE0__irq_SOURCE    0x40000060
 
 static void routing_core0_irq(void) {
   uint32_t offset = CORE0_TIMER__irqCNTL - _sys_info.mmio.phy_base;
@@ -24,7 +14,6 @@ static void routing_core0_irq(void) {
   put32(vbase, 0x08);
 }
 
-#define CORE0__irq_SOURCE 0x40000060
 static uint32_t read_core0_pending(void) {
   uint32_t tmp;
   uint32_t offset = CORE0__irq_SOURCE -  _sys_info.mmio.phy_base;
