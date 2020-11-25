@@ -3,6 +3,7 @@
 #include <mm/kmalloc.h>
 #include <mm/shm.h>
 #include <kstring.h>
+#include <kernel/core.h>
 #include <kernel/kernel.h>
 #include <kernel/system.h>
 #include <kernel/hw_info.h>
@@ -89,14 +90,9 @@ static void halt(void) {
 }
 
 #ifdef KERNEL_SMP
-static uint32_t _slave_core_flag = 0x0;
-static inline void start_slave_cores(void) {
-	_slave_core_flag = 0x12345678;
-}
-
 void __attribute__((optimize("O0"))) _slave_kernel_entry_c(void) {
 	while(1) {
-		if(_slave_core_flag == 0x12345678)
+		if(slave_cores_ready() == 0)
 			break;
 	}
 
