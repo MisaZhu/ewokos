@@ -95,12 +95,8 @@ void __attribute__((optimize("O0"))) _slave_kernel_entry_c(void) {
 		if(multi_cores_ready() == 0)
 			break;
 	}
-
 	set_translation_table_base(V2P((uint32_t)_kernel_vm));
-	while(1) {
-	printf("[multi core] %d\n", get_cpu_id());
-	_delay_msec(1000);
-	}
+
 	halt();
 }
 #endif
