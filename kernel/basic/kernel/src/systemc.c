@@ -23,6 +23,7 @@ inline void _delay_msec(uint32_t count) {
 extern void __set_translation_table_base(uint32_t);
 extern void __flush_tlb(void);
 extern void __cpu_dcache_clean_flush(void);
+extern uint32_t __cpu_id(void);
 
 void flush_tlb(void) {
 	__cpu_dcache_clean_flush();
@@ -34,3 +35,6 @@ void set_translation_table_base(uint32_t tlb_base) {
 	flush_tlb();
 }
 
+uint32_t get_cpu_id(void) {
+	return __cpu_id();
+}

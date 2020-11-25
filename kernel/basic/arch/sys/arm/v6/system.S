@@ -1,5 +1,10 @@
 #define KERNEL_BASE 0x80000000
 
+.global __cpu_id
+__cpu_id:
+	mov r0, #0
+	mov pc, lr
+	
 .global __cpu_dcache_clean_flush
 __cpu_dcache_clean_flush:
 	bx lr

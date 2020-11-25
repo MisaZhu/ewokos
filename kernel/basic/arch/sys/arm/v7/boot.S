@@ -21,22 +21,35 @@ over_hyped: // Get out of HYP mode
 	eret
 
 continue:
-	// Shut off extra cores
-	mrc p15, 0, r5, c0, c0, 5
-	and r5, r5, #3
-	cmp r5, #0
+	mrc p15, 0, r11, c0, c0, 5
+	and r11, r11, #3
+	cmp r11, #0
+#ifdef KERNEL_SMP
+	bne slave_core
+#else
 	bne halt
+#endif
 
+core0:
+	//0 core
 	msr cpsr, #0xD3             @ enter SVC mode with IRQ and FIQ interrupts disabled
 	ldr sp, = _svc_stack        @ initialise SVC mode stack
 	sub sp, #KERNEL_BASE
 
-	bl arm_smp_disable
 	bl cpu_mmu_disable
 	bl cpu_dcache_disable
 	bl cpu_icache_disable
 
-	blx _boot_start
+	bl _boot_init
+
+#ifdef KERNEL_SMP
+	bl arm_smp_enable
+	bl start_core_1
+	bl start_core_2
+	bl start_core_3
+#endif
+
+	bl _boot_start
 
 	msr cpsr, #0xD2             @ enter IRQ mode with IRQ and FIQ interrupts disabled
 	ldr sp, = _irq_stack        @ initialise IRQ mode stack
@@ -47,23 +60,70 @@ continue:
 	msr cpsr, #0xD3             @ enter SVC mode with IRQ and FIQ interrupts disabled
 	ldr sp, = _svc_stack        @ initialise SVC mode stack
 
-	sub   sp, sp, #68             @ initialise dummy context
-	mov   r0, sp                  @ set    high-level C function arg. = SP
+	bl _kernel_entry_c
+	b halt
 
-	blx _kernel_entry_c
+#ifdef KERNEL_SMP
+.local start_core_1
+start_core_1:
+	ldr r0, =__entry
+	mov r1, #0x40000000
+	str r0, [r1, #0x9C]
+	sev
+	bx lr
 
-	ldmia sp!, { r0, lr }         @ load   USR mode PC and CPSR
-	msr   spsr, r0                @ set    USR mode        CPSR
-	ldmia sp, { r0-r12, sp, lr }^ @ load   USR mode registers
-	add   sp, sp, #60             @ update SVC mode SP
-	movs  pc, lr                  @ return from interrupt
+.local start_core_2
+start_core_2:
+	ldr r0, =__entry
+	mov r1, #0x40000000
+	str r0, [r1, #0xAC]
+	sev
+	bx lr
+
+.local start_core_3
+start_core_3:
+	ldr r0, =__entry
+	mov r1, #0x40000000
+	str r0, [r1, #0xBC]
+	sev
+	bx lr
+
+slave_core:                   @ 1-3 cores
+	mrc p15, 0, r11, c0, c0, 5
+	and r11, r11, #3
+
+	mov r0, #0x4000
+	mul r0, r0, r11
+
+	msr cpsr, #0xD3             @ enter SVC mode with IRQ and FIQ interrupts disabled
+	ldr sp, = _svc_stack        @ initialise SVC mode stack
+	sub sp, #KERNEL_BASE
+	sub sp, r0
+	
+	bl _boot_start
+
+	mov r0, #0x4000
+	mul r0, r0, r11
+
+	msr cpsr, #0xD2             @ enter IRQ mode with IRQ and FIQ interrupts disabled
+	ldr sp, = _irq_stack        @ initialise IRQ mode stack
+	sub sp, r0
+
+	msr cpsr, #0xD7             @ enter ABT mode with IRQ and FIQ interrupts disabled
+	ldr sp, = _abt_stack        @ initialise ABT mode stack
+	sub sp, r0
+
+	msr cpsr, #0xD3             @ enter SVC mode with IRQ and FIQ interrupts disabled
+	ldr sp, = _svc_stack        @ initialise SVC mode stack
+	sub sp, r0
+	
+	bl _slave_kernel_entry_c
+	b halt
+#endif
 
 halt:
 	b halt
-	
-/*copy from RT-Thread 
-(https://github.com/BernardXiong/rt-thread/bsp/raspberry-pi/raspi2/cpu)
-Exchanged with Bernard by one cup of coffee*/
+
 .globl arm_smp_disable
 arm_smp_disable:
 	mrc p15, 0, r0, c1, c0, 1   // clear SMP bit in ACTLR
@@ -71,6 +131,16 @@ arm_smp_disable:
 	mcr p15, 0, r0, c1, c0, 1
 	bx lr
 
+.globl arm_smp_enable
+arm_smp_enable:
+	mrc p15, 0, r0, c1, c0, 1   // clear SMP bit in ACTLR
+	orr r0, r0, #0x40
+	mcr p15, 0, r0, c1, c0, 1
+	bx lr
+
+/*copy from RT-Thread 
+(https://github.com/BernardXiong/rt-thread/bsp/raspberry-pi/raspi2/cpu)
+Exchanged with Bernard by one cup of coffee*/
 .globl cpu_mmu_disable
 cpu_mmu_disable:
 	mcr     p15, #0, r0, c8, c7, #0    @ invalidate tlb

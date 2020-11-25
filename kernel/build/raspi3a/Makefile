@@ -9,16 +9,15 @@ OBJDUMP = arm-none-eabi-objdump
 
 export QEMU_AUDIO_DRV=none
 
+include config.mk
+
 ARCH_DIR=$(SRC_DIR)/basic/arch/sys
 BSP_DIR=$(SRC_DIR)/basic/arch/bsp
-ARCH=arm/v7
-BSP=raspi3
 
 SYS_FULL_DIR = ../../../system
 SRC_DIR=../..
 BUILD_DIR = .
 
-include config.mk
 
 # flags
 
@@ -53,8 +52,6 @@ CFLAGS += $(OPTM) \
 	-fno-builtin-strncpy \
 	-fno-builtin-strncmp \
 	-std=c99
-
-CFLAGS += -DPI3A
 
 ARCH_OBJS = \
 	$(ARCH_DIR)/$(ARCH)/boot.o \

@@ -53,11 +53,11 @@ static void load_boot_pgt(void) {
 	__asm("MCR p15, 0, r0, c7, c10, 4");     //DSB
 }
 
-//void __attribute__((optimize("O0"))) _boot_start(void) {
-void _boot_start(void) {
+void _boot_init(void) {
 	set_boot_pgt(0, 0, 1024*1024*32, 0);
 	set_boot_pgt(KERNEL_BASE, 0, 1024*1024*32, 0);
-
-	load_boot_pgt();
 }
 
+void _boot_start(void) {
+	load_boot_pgt();
+}

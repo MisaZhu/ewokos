@@ -88,6 +88,27 @@ static void halt(void) {
 	}
 }
 
+#ifdef KERNEL_SMP
+static uint32_t _slave_core_flag = 0x0;
+static inline void start_slave_cores(void) {
+	_slave_core_flag = 0x12345678;
+}
+
+void __attribute__((optimize("O0"))) _slave_kernel_entry_c(void) {
+	while(1) {
+		if(_slave_core_flag == 0x12345678)
+			break;
+	}
+
+	set_translation_table_base(V2P((uint32_t)_kernel_vm));
+	while(1) {
+	printf("[slave core] %d\n", get_cpu_id());
+	_delay_msec(1000);
+	}
+	halt();
+}
+#endif
+
 int32_t load_init_proc(void);
 void _kernel_entry_c(context_t* ctx) {
 	(void)ctx;
@@ -97,7 +118,6 @@ void _kernel_entry_c(context_t* ctx) {
 	copy_interrupt_table();
 
 	sys_info_init();
-
 	init_kernel_vm();  
 	km_init();
 	kev_init();
@@ -116,6 +136,10 @@ void _kernel_entry_c(context_t* ctx) {
 	printf("kernel: kmalloc initing  [ok] : %dMB\n", div_u32(KMALLOC_END-KMALLOC_BASE, 1*MB));
 	init_allocable_mem(); //init the rest allocable memory VM
 	printf("kernel: init allocable memory: %dMB\n", div_u32(get_free_mem_size(), 1*MB));
+
+#ifdef KERNEL_SMP
+	start_slave_cores();
+#endif
 	
 	shm_init();
 	printf("kernel: share memory inited.\n");
@@ -141,3 +165,4 @@ void _kernel_entry_c(context_t* ctx) {
 
 	halt();
 }
+
