@@ -5,7 +5,11 @@ __cpu_id:
 	mrc p15, 0, r0, c0, c0, 5
 	and r0, r0, #3
 	mov pc, lr
-	
+
+.global __cpu_cores
+__cpu_cores:
+	mov r0, #4
+	mov pc, lr
 
 _FLD_MAX_WAY:
  .word  0x3ff

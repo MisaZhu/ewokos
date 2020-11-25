@@ -5,6 +5,11 @@ __cpu_id:
 	mov r0, #0
 	mov pc, lr
 	
+.global __cpu_cores
+__cpu_cores:
+	mov r0, #1
+	mov pc, lr
+
 .global __cpu_dcache_clean_flush
 __cpu_dcache_clean_flush:
 	bx lr

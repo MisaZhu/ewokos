@@ -92,13 +92,13 @@ static void halt(void) {
 #ifdef KERNEL_SMP
 void __attribute__((optimize("O0"))) _slave_kernel_entry_c(void) {
 	while(1) {
-		if(slave_cores_ready() == 0)
+		if(multi_cores_ready() == 0)
 			break;
 	}
 
 	set_translation_table_base(V2P((uint32_t)_kernel_vm));
 	while(1) {
-	printf("[slave core] %d\n", get_cpu_id());
+	printf("[multi core] %d\n", get_cpu_id());
 	_delay_msec(1000);
 	}
 	halt();
@@ -134,8 +134,9 @@ void _kernel_entry_c(context_t* ctx) {
 	printf("kernel: init allocable memory: %dMB\n", div_u32(get_free_mem_size(), 1*MB));
 
 #ifdef KERNEL_SMP
-	printf("kernel: start other cores(SMP)\n");
-	start_slave_cores();
+	uint32_t cores = get_cpu_cores();
+	printf("kernel: start SMP (%d cores)\n", cores);
+	start_multi_cores(cores);
 #endif
 	
 	shm_init();

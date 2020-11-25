@@ -24,6 +24,7 @@ extern void __set_translation_table_base(uint32_t);
 extern void __flush_tlb(void);
 extern void __cpu_dcache_clean_flush(void);
 extern uint32_t __cpu_id(void);
+extern uint32_t __cpu_cores(void);
 
 void flush_tlb(void) {
 	__cpu_dcache_clean_flush();
@@ -37,4 +38,8 @@ void set_translation_table_base(uint32_t tlb_base) {
 
 uint32_t get_cpu_id(void) {
 	return __cpu_id();
+}
+
+uint32_t get_cpu_cores(void) {
+	return __cpu_cores();
 }
