@@ -27,32 +27,11 @@ over_hyped: // Get out of HYP mode
 	eret
 
 continue:
-	@ Enable data & instruction caches.
-	mrc	p15, 0, r4, c1, c0, 0	@ System Control Register
-	orr	r4, r4, #CPU_CONTROL_DC_ENABLE
-	orr	r4, r4, #CPU_CONTROL_IC_ENABLE
-	mcr	p15, 0, r4, c1, c0, 0
-
-	//enable smp
-	mrc p15, 0, r0, c1, c0, 1   
-	orr r0, r0, #0x40
-	mcr p15, 0, r0, c1, c0, 1
 
 	mrc p15, 0, r11, c0, c0, 5
 	and r11, r11, #3
 	cmp r11, #0
 	bne slave_core
-
-/*
-	ldr	r4, =BCM2836_ARM_LOCAL_BASE + BCM2836_LOCAL_MAILBOX3_CLRN(0)
-1:
-	wfe
-	ldr	lr, [r4, r3, lsl #4]	@ read mailbox #3 for n-th CPU
-	cmp	lr, #0
-	beq	1b
-	str	lr, [r4, r3, lsl #4]	@ clear the mailbox
-	bne slave_core
-	*/
 
 core0:
 	//0 core
@@ -60,14 +39,17 @@ core0:
 	ldr sp, = _svc_stack        @ initialise SVC mode stack
 	sub sp, #KERNEL_BASE
 
-	mov r0, r11
-	bl _boot_start
+	bl arm_smp_enable
+	bl start_core_1
+	bl start_core_2
+	bl start_core_3
 
 	bl cpu_mmu_disable
 	bl cpu_dcache_disable
 	bl cpu_icache_disable
 
-	//bl _boot_start
+	mov r0, r11
+	bl _boot_start
 
 	msr cpsr, #0xD2             @ enter IRQ mode with IRQ and FIQ interrupts disabled
 	ldr sp, = _irq_stack        @ initialise IRQ mode stack
@@ -90,32 +72,72 @@ core0:
 	movs  pc, lr                  @ return from interrupt
 	b halt
 
+.global start_core_1
+start_core_1:
+	ldr r0, =__entry
+	mov r1, #0x40000000
+	str r0, [r1, #0x9C]
+	sev
+	bx lr
+
+.global start_core_2
+start_core_2:
+	ldr r0, =__entry
+	mov r1, #0x40000000
+	str r0, [r1, #0xAC]
+	sev
+	bx lr
+
+.global start_core_3
+start_core_3:
+	ldr r0, =__entry
+	mov r1, #0x40000000
+	str r0, [r1, #0xBC]
+	sev
+	bx lr
+
 slave_core:                   @ 1-3 cores
-	/*msr cpsr, #0xD2             @ enter IRQ mode with IRQ and FIQ interrupts disabled
+	mrc p15, 0, r11, c0, c0, 5
+	and r11, r11, #3
+
+	mov r0, #0x4000
+	//mul r0, r0, r11
+
+	msr cpsr, #0xD2             @ enter IRQ mode with IRQ and FIQ interrupts disabled
 	ldr sp, = _irq_stack        @ initialise IRQ mode stack
-	mov r0, r11
-	lsl r0, #14                 @ core_id << 16
-	sub sp, r0 
+	sub sp, #KERNEL_BASE
+	sub sp, r0
 
 	msr cpsr, #0xD7             @ enter ABT mode with IRQ and FIQ interrupts disabled
 	ldr sp, = _abt_stack        @ initialise ABT mode stack
-	mov r0, r11
-	lsl r0, #14                 @ core_id << 16
-	sub sp, r0 
-	*/
+	sub sp, #KERNEL_BASE
+	sub sp, r0
 
 	msr cpsr, #0xD3             @ enter SVC mode with IRQ and FIQ interrupts disabled
 	ldr sp, = _svc_stack        @ initialise SVC mode stack
 	sub sp, #KERNEL_BASE
-	sub sp, #0x1000
-
+	sub sp, r0
+	
 	mov r0, r11
-	bl _boot_start
+	bl _slave_core_start
 
-	b halt
 halt:
 	b halt
-	
+
+.globl arm_smp_disable
+arm_smp_disable:
+	mrc p15, 0, r0, c1, c0, 1   // clear SMP bit in ACTLR
+	bic r0, r0, #0x40
+	mcr p15, 0, r0, c1, c0, 1
+	bx lr
+
+.globl arm_smp_enable
+arm_smp_enable:
+	mrc p15, 0, r0, c1, c0, 1   // clear SMP bit in ACTLR
+	orr r0, r0, #0x40
+	mcr p15, 0, r0, c1, c0, 1
+	bx lr
+
 /*copy from RT-Thread 
 (https://github.com/BernardXiong/rt-thread/bsp/raspberry-pi/raspi2/cpu)
 Exchanged with Bernard by one cup of coffee*/

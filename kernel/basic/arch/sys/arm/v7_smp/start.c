@@ -151,16 +151,17 @@ static void load_boot_pgt(void) {
 }
 
 //void __attribute__((optimize("O0"))) _boot_start(void) {
-void _boot_start(uint32_t core) {
-	_mmio_base = 0x3f000000;
-	uart_init();
-	uart_trans('0'+core);
-	uart_write(" hello\n");
-
-while(1);
+void _boot_start(void) {
 	set_boot_pgt(0, 0, 1024*1024*32, 0);
 	set_boot_pgt(KERNEL_BASE, 0, 1024*1024*32, 0);
-
 	load_boot_pgt();
 }
 
+void _slave_core_start(uint32_t core) {
+	_mmio_base = 0x3f000000;
+	uart_init();
+	while(1) {
+	uart_trans('0'+core);
+	uart_write(" hello\n");
+	}
+}
