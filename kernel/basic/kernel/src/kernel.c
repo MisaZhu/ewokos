@@ -138,6 +138,7 @@ void _kernel_entry_c(context_t* ctx) {
 	printf("kernel: init allocable memory: %dMB\n", div_u32(get_free_mem_size(), 1*MB));
 
 #ifdef KERNEL_SMP
+	printf("kernel: start other cores(SMP)\n");
 	start_slave_cores();
 #endif
 	
