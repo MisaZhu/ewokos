@@ -21,7 +21,7 @@ inline int32_t multi_cores_ready(void) {
 	if(_multi_core_flag != 0x12345678)
 		return -1;
 
-	int32_t i = get_cpu_id();
+	int32_t i = get_core_id();
 	if(i < CPU_MAX_CORES)
 		_cpu_cores[i].actived = 1;
 	return 0;

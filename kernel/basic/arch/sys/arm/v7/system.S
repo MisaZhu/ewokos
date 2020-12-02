@@ -1,7 +1,7 @@
 #define KERNEL_BASE 0x80000000
 
-.global __cpu_id
-__cpu_id:
+.global __core_id
+__core_id:
 	mrc p15, 0, r0, c0, c0, 5
 	and r0, r0, #3
 	mov pc, lr
@@ -127,3 +127,26 @@ __disable_cntv:
   mov r0, #0;
   mcr p15, 0, r0, c14, c3, 1
   mov pc, lr
+
+.global __smp_lock
+__smp_lock:
+	ldrex r1, [r0]
+	cmp r1, #0x0
+	WFENE
+	bne __smp_lock
+	mov r1, #1
+	strex r2, r1, [r0]
+	cmp r2, #0x0
+	bne __smp_lock
+	DMB
+	bx lr
+
+.global __smp_unlock
+__smp_unlock:
+	mov r1, #0x0
+	DMB
+	str r1, [r0]
+	DSB
+	SEV
+	bx lr
+

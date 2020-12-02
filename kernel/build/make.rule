@@ -71,6 +71,7 @@ ARCH_OBJS = \
 	$(BSP_DIR)/lib/bcm283x/src/mailbox.o \
 	$(BSP_DIR)/lib/bcm283x/src/pl011_uart.o \
 	$(BSP_DIR)/lib/bcm283x/src/mini_uart.o \
+	$(BSP_DIR)/lib/bcm283x/src/ipi.o \
 	$(BSP_DIR)/lib/bcm283x/src/gpio_actled.o 
 
 QEMU_CMD = qemu-system-arm

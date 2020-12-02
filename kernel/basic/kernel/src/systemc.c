@@ -23,8 +23,7 @@ inline void _delay_msec(uint32_t count) {
 extern void __set_translation_table_base(uint32_t);
 extern void __flush_tlb(void);
 extern void __cpu_dcache_clean_flush(void);
-extern uint32_t __cpu_id(void);
-extern uint32_t __cpu_cores(void);
+
 
 void flush_tlb(void) {
 	__cpu_dcache_clean_flush();
@@ -36,10 +35,43 @@ void set_translation_table_base(uint32_t tlb_base) {
 	flush_tlb();
 }
 
-uint32_t get_cpu_id(void) {
-	return __cpu_id();
+#ifdef KERNEL_SMP
+extern uint32_t __core_id(void);
+extern uint32_t __cpu_cores(void);
+extern uint32_t __smp_lock(int32_t* v);
+extern uint32_t __smp_unlock(int32_t* v);
+
+uint32_t get_core_id(void) {
+	return __core_id();
 }
 
 uint32_t get_cpu_cores(void) {
 	return __cpu_cores();
 }
+
+void smp_lock(int32_t* v) {
+	__smp_lock(v);
+}
+
+void smp_unlock(int32_t* v) {
+	__smp_unlock(v);
+}
+
+#else
+
+uint32_t get_core_id(void) {
+	return 0;
+}
+
+uint32_t get_cpu_cores(void) {
+	return 1;
+}
+
+void smp_lock(int32_t* v) {
+	(void)v;
+}
+
+void smp_unlock(int32_t* v) {
+	(void)v;
+}
+#endif

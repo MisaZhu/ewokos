@@ -10,6 +10,7 @@
 #include <string.h>
 #include <signals.h>
 #include <kernel/signal.h>
+#include <kernel/hw_info.h>
 #include <kprintf.h>
 
 uint32_t _kernel_sec = 0;
@@ -17,8 +18,34 @@ uint64_t _kernel_usec = 0;
 static uint32_t _schedule_tic = 0;
 static uint32_t _timer_tic = 0;
 
+#ifdef KERNEL_SMP
+void ipi_enable_all(void) {
+	uint32_t i;
+	for(i=1; i<get_cpu_cores(); i++) {
+		ipi_enable(i);
+	}
+}
+
+void ipi_send_all(void) {
+	uint32_t i;
+	for(i=1; i<get_cpu_cores(); i++) {
+		ipi_send(i);
+	}
+}
+#endif
+
 void irq_handler(context_t* ctx) {
 	__irq_disable();
+
+#ifdef KERNEL_SMP
+	uint32_t cid = get_core_id();
+	if(cid > 0) {
+		ipi_clear(cid);
+		schedule(ctx);
+		return;
+	}
+#endif
+
 	uint32_t irqs = gic_get_irqs();
 	//handle irq
 	if((irqs & IRQ_TIMER0) != 0) {
@@ -42,8 +69,12 @@ void irq_handler(context_t* ctx) {
 			renew_sleep_counter(usec_gap);
 		}
 		timer_clear_interrupt(0);
-		if(_schedule_tic == 0)
+		if(_schedule_tic == 0) {
+#ifdef KERNEL_SMP
+			ipi_send_all();
+#endif
 			schedule(ctx);
+		}
 	}
 }
 
@@ -101,4 +132,8 @@ void irq_init(void) {
 	_timer_tic = 0;
 	//gic_set_irqs( IRQ_UART0 | IRQ_TIMER0 | IRQ_KEY | IRQ_MOUSE | IRQ_SDC);
 	gic_set_irqs(IRQ_TIMER0);
+
+#ifdef KERNEL_SMP
+	ipi_enable_all();
+#endif
 }

@@ -15,7 +15,9 @@ extern void _delay_msec(uint32_t count);
 
 extern void set_translation_table_base(uint32_t);
 extern void flush_tlb(void);
-extern uint32_t get_cpu_id(void);
+extern uint32_t get_core_id(void);
 extern uint32_t get_cpu_cores(void);
+extern void smp_lock(int32_t* v);
+extern void smp_unlock(int32_t* v);
 
 #endif
