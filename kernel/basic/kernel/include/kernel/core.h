@@ -3,7 +3,7 @@
 
 #include <stdint.h>
 
-#define CPU_MAX_CORES 32
+#define CPU_MAX_CORES 16
 
 typedef struct {
 	uint32_t actived;

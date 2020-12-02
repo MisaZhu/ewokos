@@ -95,33 +95,30 @@ static void dump_ctx(context_t* ctx) {
 
 void prefetch_abort_handler(context_t* ctx) {
 	(void)ctx;
-	if(_current_proc == NULL) {
+	proc_t* cproc = get_current_proc();
+	if(cproc == NULL) {
 		printf("_kernel, prefetch abort!!\n");
 		dump_ctx(ctx);
 		while(1);
 	}
 
-	printf("pid: %d(%s), prefetch abort!!\n", _current_proc->info.pid, _current_proc->info.cmd);
+	printf("pid: %d(%s), prefetch abort!!\n", cproc->info.pid, cproc->info.cmd);
 	dump_ctx(ctx);
-	proc_signal_send(ctx, _current_proc, SYS_SIG_STOP);
-	//_current_proc = NULL;
-	//schedule(ctx);
+	proc_signal_send(ctx, cproc, SYS_SIG_STOP);
 }
 
 void data_abort_handler(context_t* ctx) {
 	(void)ctx;
-	if(_current_proc == NULL) {
+	proc_t* cproc = get_current_proc();
+	if(cproc == NULL) {
 		printf("_kernel, data abort!!\n");
 		dump_ctx(ctx);
 		while(1);
 	}
 
-	printf("pid: %d(%s), data abort!!\n", _current_proc->info.pid, _current_proc->info.cmd);
+	printf("pid: %d(%s), core: %d, data abort!!\n", cproc->info.pid, cproc->info.cmd, cproc->info.core);
 	dump_ctx(ctx);
-	//proc_exit(ctx, _current_proc, -1);
-	proc_signal_send(ctx, _current_proc, SYS_SIG_STOP);
-	//_current_proc = NULL;
-	//schedule(ctx);
+	proc_signal_send(ctx, cproc, SYS_SIG_STOP);
 }
 
 void irq_init(void) {

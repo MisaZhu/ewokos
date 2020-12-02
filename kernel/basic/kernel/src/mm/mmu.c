@@ -53,7 +53,8 @@ void free_page_tables(page_dir_entry_t *vm) {
 }
 
 inline void vm_flush_tlb(page_dir_entry_t* vm) {
-	page_dir_entry_t* old_vm = _current_proc == NULL ? _kernel_vm : _current_proc->space->vm;
+	proc_t* cproc = get_current_proc();
+	page_dir_entry_t* old_vm = cproc == NULL ? _kernel_vm : cproc->space->vm;
 	if(old_vm == vm) {
 		flush_tlb();
 		return;

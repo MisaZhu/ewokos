@@ -3,6 +3,7 @@
 
 #include <kernel/context.h>
 #include <kernel/ipc.h>
+#include <kernel/core.h>
 #include <mm/mmu.h>
 #include <mm/trunkmem.h>
 #include <procinfo.h>
@@ -59,8 +60,7 @@ typedef struct st_proc {
 	ipc_t ipc_ctx;
 } proc_t;
 
-extern proc_t* _current_proc;
-extern proc_t* _ready_proc;
+extern proc_t* get_current_proc(void);
 extern bool _core_proc_ready;
 extern int32_t _core_proc_pid;
 

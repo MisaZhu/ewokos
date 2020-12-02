@@ -59,7 +59,6 @@ static void shm_unmap_pages(uint32_t addr, uint32_t pages) {
 		addr += PAGE_SIZE;
 	}
 	vm_flush_tlb(_kernel_vm);
-	//vm_flush_tlb(_current_proc->space->vm);
 }
 
 static int32_t shm_map_pages(uint32_t addr, uint32_t pages) {
@@ -81,7 +80,6 @@ static int32_t shm_map_pages(uint32_t addr, uint32_t pages) {
 		addr += PAGE_SIZE;
 	}
 	vm_flush_tlb(_kernel_vm);
-	//vm_flush_tlb(_current_proc->space->vm);
 	return 1;
 }
 
@@ -144,7 +142,7 @@ int32_t shm_alloc(uint32_t size, int32_t flag) {
 		shmem_tail += pages * PAGE_SIZE;
 
 	i->used = 1;
-	i->owner = _current_proc->info.pid;
+	i->owner = get_current_proc()->info.pid;
 	i->flag = flag;
 
 	return i->id;
