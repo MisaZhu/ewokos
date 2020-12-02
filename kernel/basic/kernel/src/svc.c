@@ -111,16 +111,16 @@ static void sys_fork(context_t* ctx, int32_t vfork) {
 	proc->ctx.gpr[0] = 0;
 	ctx->gpr[0] = proc->info.pid;
 
-	if(proc->info.state == CREATED && _core_ready) {
+	if(proc->info.state == CREATED && _core_proc_ready) {
 		proc->info.state = BLOCK;
-		proc->info.block_by = _core_pid;
+		proc->info.block_by = _core_proc_pid;
 		proc->block_event = proc->info.pid;
 
 		_current_proc->info.state = BLOCK;
 		_current_proc->block_event = proc->info.pid;
 		_current_proc->ctx.gpr[0] = proc->info.pid;
 		if(vfork == 0) {
-			_current_proc->info.block_by = _core_pid;
+			_current_proc->info.block_by = _core_proc_pid;
 		}
 		else {
 			_current_proc->info.block_by = proc->info.pid;
@@ -435,15 +435,15 @@ static void sys_proc_wakeup(uint32_t evt) {
 	proc_wakeup(proc->info.pid, evt);
 }
 
-static void sys_core_ready(void) {
+static void sys_core_proc_ready(void) {
 	if(_current_proc->info.owner > 0)
 		return;
-	_core_ready = true;
-	_core_pid = _current_proc->info.pid;
+	_core_proc_ready = true;
+	_core_proc_pid = _current_proc->info.pid;
 }
 
-static int32_t sys_core_pid(void) {
-	return _core_pid;
+static int32_t sys_core_proc_pid(void) {
+	return _core_proc_pid;
 }
 
 static uint32_t _svc_tic = 0;
@@ -465,7 +465,7 @@ static int32_t sys_romfs_get(uint32_t index, char* name, char* data) {
 }
 #endif
 
-void svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_t arg2, context_t* ctx, int32_t processor_mode) {
+static void _svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_t arg2, context_t* ctx, int32_t processor_mode) {
 	(void)processor_mode;
 	_svc_tic++;
 
@@ -599,10 +599,10 @@ void svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_t arg2, context
 		sys_proc_block(ctx, arg0, arg1);
 		return;
 	case SYS_CORE_READY:
-		sys_core_ready();
+		sys_core_proc_ready();
 		return;
 	case SYS_CORE_PID:
-		ctx->gpr[0] = sys_core_pid();
+		ctx->gpr[0] = sys_core_proc_pid();
 		return;
 	case SYS_IPC_LOCK:
 		sys_ipc_lock();
@@ -617,3 +617,9 @@ void svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_t arg2, context
 	printf("pid:%d, code(%d) error!\n", _current_proc->info.pid, code);
 }
 
+static int32_t _spin = 0;
+inline void svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_t arg2, context_t* ctx, int32_t processor_mode) {
+	smp_lock(&_spin);
+	_svc_handler(code, arg0, arg1, arg2, ctx, processor_mode);
+	smp_unlock(&_spin);
+}

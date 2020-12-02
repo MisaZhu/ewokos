@@ -18,19 +18,19 @@ static page_dir_entry_t _proc_vm[PROC_MAX][PAGE_DIR_NUM];
 static queue_t _ready_queue;
 
 proc_t* _current_proc = NULL;
-bool _core_ready = false;
-int32_t _core_pid = -1;
+bool _core_proc_ready = false;
+int32_t _core_proc_pid = -1;
 
 /* proc_init initializes the process sub-system. */
 void procs_init(void) {
-	_core_ready = false;
+	_core_proc_ready = false;
 	int32_t i;
 	for (i = 0; i < PROC_MAX; i++) {
 		_proc_table[i].info.state = UNUSED;
 		_proc_table[i].info.wait_for = -1;
 	}
 	_current_proc = NULL;
-	_core_pid = -1;
+	_core_proc_pid = -1;
 	queue_init(&_ready_queue);
 }
 
@@ -185,8 +185,8 @@ proc_t* proc_get_next_ready(void) {
 	while(next != NULL && next->info.state != READY)
 		next = queue_pop(&_ready_queue);
 
-	if(next == NULL && _core_ready) {
-		next = &_proc_table[_core_pid];
+	if(next == NULL && _core_proc_ready) {
+		next = &_proc_table[_core_proc_pid];
 		if(next->info.state == UNUSED || next->info.state == ZOMBIE || next->info.state == CREATED)
 			return NULL;
 		proc_ready(next);
@@ -551,7 +551,7 @@ proc_t* kfork_raw(context_t* ctx, int32_t type, proc_t* parent) {
 
 proc_t* kfork(context_t* ctx, int32_t type) {
 	proc_t* child = kfork_raw(ctx, type, _current_proc);
-	if(_core_ready && (child->info.type == PROC_TYPE_PROC || child->info.type == PROC_TYPE_VFORK)) {
+	if(_core_proc_ready && (child->info.type == PROC_TYPE_PROC || child->info.type == PROC_TYPE_VFORK)) {
 		kev_push(KEV_PROC_CREATED, _current_proc->info.pid, child->info.pid, 0);
 	}
 	else
