@@ -3,7 +3,11 @@
 
 #include <stdint.h>
 
+#ifdef KERNEL_SMP
 #define CPU_MAX_CORES 16
+#else
+#define CPU_MAX_CORES 1
+#endif
 
 typedef struct {
 	uint32_t actived;
