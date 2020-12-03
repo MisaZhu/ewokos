@@ -114,10 +114,11 @@ slave_core:                   @ 1-3 cores
 	ldr sp, = _abt_stack        @ initialise ABT mode stack
 	sub sp, r0
 
-	msr cpsr, #0x13             @ enter SVC mode with IRQ and FIQ interrupts enabled
+	msr cpsr, #0xD3             @ enter SVC mode with IRQ and FIQ interrupts disabled
 	ldr sp, = _svc_stack        @ initialise SVC mode stack
 	sub sp, r0
 	
+	msr cpsr, #0x13             @ enter SVC mode with IRQ and FIQ interrupts enabled
 	bl _slave_kernel_entry_c
 	b halt
 #endif
