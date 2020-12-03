@@ -213,15 +213,18 @@ static int32_t sys_shm_alloc(uint32_t size, int32_t flag) {
 }
 
 static void* sys_shm_map(int32_t id) {
-	return shm_proc_map(get_current_proc()->info.pid, id);
+	proc_t* cproc = get_current_proc();
+	return shm_proc_map(cproc->info.pid, id);
 }
 
 static int32_t sys_shm_unmap(int32_t id) {
-	return shm_proc_unmap(get_current_proc()->info.pid, id);
+	proc_t* cproc = get_current_proc();
+	return shm_proc_unmap(cproc->info.pid, id);
 }
 
 static int32_t sys_shm_ref(int32_t id) {
-	return shm_proc_ref(get_current_proc()->info.pid, id);
+	proc_t* cproc = get_current_proc();
+	return shm_proc_ref(cproc->info.pid, id);
 }
 	
 static uint32_t sys_mem_map(uint32_t vaddr, uint32_t paddr, uint32_t size) {

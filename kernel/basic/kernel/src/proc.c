@@ -209,6 +209,16 @@ proc_t* proc_get_next_ready(void) {
 			return NULL;
 		proc_ready(next);
 	}
+	else if(core_id > 0) {
+		int32_t i;
+		for (i = 0; i < PROC_MAX; i++) {
+			if(_proc_table[i].info.core == core_id) {
+				next = &_proc_table[i];
+				proc_ready(next);
+				break;
+			}
+		}
+	}
 	return next;
 }
 
@@ -307,7 +317,8 @@ void proc_exit(context_t* ctx, proc_t *proc, int32_t res) {
 void* proc_malloc(uint32_t size) {
 	if(size == 0)
 		return NULL;
-	return trunk_malloc(&get_current_proc()->space->malloc_man, size);
+	proc_t* cproc = get_current_proc();
+	return trunk_malloc(&cproc->space->malloc_man, size);
 }
 
 void* proc_realloc(void* p, uint32_t size) {
@@ -586,7 +597,7 @@ proc_t* kfork(context_t* ctx, int32_t type) {
 	else
 		proc_ready(child);
 
-	//core_attach(child);//TODO
+	core_attach(child);//TODO
 	return child;
 }
 
