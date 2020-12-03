@@ -20,4 +20,8 @@ extern uint32_t get_cpu_cores(void);
 extern void smp_lock(int32_t* v);
 extern void smp_unlock(int32_t* v);
 
+extern void kernel_lock(void);
+extern void kernel_unlock(void);
+
+extern void halt(void);
 #endif

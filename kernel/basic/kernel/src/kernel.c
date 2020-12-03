@@ -83,12 +83,6 @@ static void init_allocable_mem(void) {
 	kalloc_init(P2V(_allocatable_mem_base), P2V(_allocatable_mem_top));
 }
 
-static void halt(void) {
-	while(1) {
-		__asm__("MOV r0, #0; MCR p15,0,R0,c7,c0,4"); // CPU enter WFI state
-	}
-}
-
 #ifdef KERNEL_SMP
 void __attribute__((optimize("O0"))) _slave_kernel_entry_c(void) {
 	while(1) {

@@ -75,3 +75,19 @@ void smp_unlock(int32_t* v) {
 	(void)v;
 }
 #endif
+
+static int32_t _spin = 0;
+inline void kernel_lock(void) {
+	smp_lock(&_spin);
+}
+
+inline void kernel_unlock(void) {
+	smp_unlock(&_spin);
+}
+
+inline void halt(void) {
+	while(1) {
+		__asm__("MOV r0, #0; MCR p15,0,R0,c7,c0,4"); // CPU enter WFI state
+	}
+}
+

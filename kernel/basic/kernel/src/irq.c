@@ -34,7 +34,7 @@ void ipi_send_all(void) {
 }
 #endif
 
-void irq_handler(context_t* ctx) {
+static void _irq_handler(context_t* ctx) {
 	__irq_disable();
 
 #ifdef KERNEL_SMP
@@ -76,6 +76,12 @@ void irq_handler(context_t* ctx) {
 			schedule(ctx);
 		}
 	}
+}
+
+inline void irq_handler(context_t* ctx) {
+	kernel_lock();
+	_irq_handler(ctx);
+	kernel_unlock();
 }
 
 static void dump_ctx(context_t* ctx) {
