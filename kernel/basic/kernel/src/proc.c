@@ -54,7 +54,7 @@ inline proc_t* get_current_proc(void) {
 }
 
 static inline void set_current_proc(proc_t* proc) {
-	if(proc->info.core ==  (int32_t)get_core_id())
+	if(proc->info.core == get_core_id())
 		_current_proc[proc->info.core] = proc;
 }
 
@@ -195,6 +195,10 @@ void proc_ready(proc_t* proc) {
 	proc->info.state = READY;
 	if(queue_in(&_ready_queue[proc->info.core], proc) == NULL)
 		queue_push_head(&_ready_queue[proc->info.core], proc);
+}
+
+proc_t* proc_get_core_ready(uint32_t core_id) {
+	return (proc_t*)_ready_queue[core_id].head;
 }
 
 proc_t* proc_get_next_ready(void) {
