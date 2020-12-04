@@ -207,19 +207,21 @@ proc_t* proc_get_next_ready(void) {
 	while(next != NULL && next->info.state != READY)
 		next = queue_pop(&_ready_queue[core_id]);
 
-	if(core_id == 0 && next == NULL && _core_proc_ready) {
-		next = &_proc_table[_core_proc_pid];
-		if(next->info.state == UNUSED || next->info.state == ZOMBIE || next->info.state == CREATED)
-			return NULL;
-		proc_ready(next);
-	}
-	else if(core_id > 0) {
-		int32_t i;
-		for (i = 0; i < PROC_MAX; i++) {
-			if(_proc_table[i].info.core == core_id) {
-				next = &_proc_table[i];
-				proc_ready(next);
-				break;
+	if(next == NULL) {
+		if(core_id == 0 && _core_proc_ready) {
+			next = &_proc_table[_core_proc_pid];
+			if(next->info.state == UNUSED || next->info.state == ZOMBIE || next->info.state == CREATED)
+				return NULL;
+			proc_ready(next);
+		}
+		else if(core_id > 0) {
+			int32_t i;
+			for (i = 0; i < PROC_MAX; i++) {
+				if(_proc_table[i].info.core == core_id) {
+					next = &_proc_table[i];
+					proc_ready(next);
+					break;
+				}
 			}
 		}
 	}
