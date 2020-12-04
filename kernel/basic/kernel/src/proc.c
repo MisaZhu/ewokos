@@ -214,16 +214,6 @@ proc_t* proc_get_next_ready(void) {
 				return NULL;
 			proc_ready(next);
 		}
-		else if(core_id > 0) {
-			int32_t i;
-			for (i = 0; i < PROC_MAX; i++) {
-				if(_proc_table[i].info.core == core_id) {
-					next = &_proc_table[i];
-					proc_ready(next);
-					break;
-				}
-			}
-		}
 	}
 	return next;
 }
