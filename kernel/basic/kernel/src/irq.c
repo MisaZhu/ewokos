@@ -110,7 +110,7 @@ void prefetch_abort_handler(context_t* ctx) {
 	}
 
 	printf("pid: %d(%s), prefetch abort!!\n", cproc->info.pid, cproc->info.cmd);
-	dump_ctx(ctx);
+	dump_ctx(&cproc->ctx);
 	proc_signal_send(ctx, cproc, SYS_SIG_STOP);
 }
 
@@ -124,7 +124,7 @@ void data_abort_handler(context_t* ctx) {
 	}
 
 	printf("pid: %d(%s), core: %d, data abort!!\n", cproc->info.pid, cproc->info.cmd, cproc->info.core);
-	dump_ctx(ctx);
+	dump_ctx(&cproc->ctx);
 	proc_signal_send(ctx, cproc, SYS_SIG_STOP);
 }
 
