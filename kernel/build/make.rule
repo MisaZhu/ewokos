@@ -156,7 +156,7 @@ debug:
 	$(QEMU_CMD) $(QEMU_FLAGS) -gdb tcp::26000 -S -kernel $(BUILD_DIR)/$(OS_IMG) $(QEMU_ARGS)
 
 debugasm:
-	$(QEMU_CMD) $(QEMU_FLAGS) -d in_asm -gdb tcp::26000 -S -kernel $(BUILD_DIR)/$(OS_IMG)
+	$(QEMU_CMD) $(QEMU_FLAGS) -d in_asm -gdb tcp::26000 -S -kernel $(BUILD_DIR)/$(OS_IMG) $(QEMU_ARGS)
 
 gdb: 
 	echo "target remote :26000" > /tmp/gdbinit
