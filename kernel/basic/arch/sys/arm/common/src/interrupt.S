@@ -63,6 +63,7 @@ irq_entry:
 prefetch_abort_entry:
 	sub   lr, lr, #4              @ correct return address
 	msr   cpsr, #0xD7             @ enter ABT mode with IRQ and FIQ interrupts disabled
+	sub   sp, sp, #60             @ update SVC mode stack
 	stmia sp, { r0-r12, sp, lr }^ @ store  USR registers
 	mrs   r0, spsr                @ get    USR        CPSR
 	stmdb sp!, { r0, lr }         @ store  USR PC and CPSR
@@ -79,6 +80,7 @@ prefetch_abort_entry:
 data_abort_entry:
 	sub   lr, lr, #8              @ correct return address
 	msr   cpsr, #0xD7             @ enter ABT mode with IRQ and FIQ interrupts disabled
+	sub   sp, sp, #60             @ update SVC mode stack
 	stmia sp, { r0-r12, sp, lr }^ @ store  USR registers
 	mrs   r0, spsr                @ get    USR        CPSR
 	stmdb sp!, { r0, lr }         @ store  USR PC and CPSR

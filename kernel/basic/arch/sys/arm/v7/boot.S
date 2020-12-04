@@ -61,8 +61,17 @@ core0:
 	msr cpsr, #0xD3             @ enter SVC mode with IRQ and FIQ interrupts disabled
 	ldr sp, = _svc_stack        @ initialise SVC mode stack
 
+	sub   sp, sp, #68             @ initialise dummy context
+	mov   r0, sp                  @ set    high-level C function arg. = SP
+
 	bl _kernel_entry_c
-	b halt
+
+	ldmia sp!, { r0, lr }         @ load   USR mode PC and CPSR
+	msr   spsr, r0                @ set    USR mode        CPSR
+	ldmia sp, { r0-r12, sp, lr }^ @ load   USR mode registers
+	add   sp, sp, #60             @ update SVC mode SP
+	//movs  pc, lr                  @ return from interrupt
+	bl halt
 
 #ifdef KERNEL_SMP
 .local start_core_1
@@ -119,8 +128,16 @@ slave_core:                   @ 1-3 cores
 	sub sp, r0
 	
 	msr cpsr, #0x13             @ enter SVC mode with IRQ and FIQ interrupts enabled
+	sub   sp, sp, #68             @ initialise dummy context
+	mov   r0, sp                  @ set    high-level C function arg. = SP
 	bl _slave_kernel_entry_c
-	b halt
+
+	ldmia sp!, { r0, lr }         @ load   USR mode PC and CPSR
+	msr   spsr, r0                @ set    USR mode        CPSR
+	ldmia sp, { r0-r12, sp, lr }^ @ load   USR mode registers
+	add   sp, sp, #60             @ update SVC mode SP
+	//movs  pc, lr                  @ return from interrupt
+	bl halt
 #endif
 
 halt:
