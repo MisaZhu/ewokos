@@ -29,7 +29,7 @@ void ipi_enable_all(void) {
 void ipi_send_all(void) {
 	uint32_t i;
 	for(i=1; i<get_cpu_cores(); i++) {
-		if(proc_get_core_ready(i) != NULL)
+		//if(proc_get_core_ready(i) != NULL)
 			ipi_send(i);
 	}
 }

@@ -37,7 +37,6 @@ static proto_t* ipc_get_info(uint32_t ipc_id, int32_t* pid, int32_t* call_id) {
 inline int ipc_call(int to_pid, int call_id, const proto_t* ipkg, proto_t* opkg) {
 	if(to_pid < 0)
 		return -1;
-
 	int ipc_id = 0;
 	while(true) {
 		if(opkg == NULL)
@@ -54,7 +53,12 @@ inline int ipc_call(int to_pid, int call_id, const proto_t* ipkg, proto_t* opkg)
 		return 0;
 
 	PF->clear(opkg);
-	return syscall2(SYS_IPC_GET_RETURN, (int32_t)ipc_id, (int32_t)opkg);
+	while(true) {
+		int res = syscall2(SYS_IPC_GET_RETURN, (int32_t)ipc_id, (int32_t)opkg);
+		if(res != -1)  //not retry
+			return res;
+		sleep(0);
+	}
 }
 
 inline int ipc_call_wait(int to_pid, int call_id, const proto_t* ipkg, proto_t* opkg) {

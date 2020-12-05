@@ -299,9 +299,12 @@ static int32_t sys_ipc_get_return(ipc_t* ipc, proto_t* data) {
 	proc_t* cproc = get_current_proc();
 	if(ipc == NULL ||
 			ipc->client_pid != cproc->info.pid ||
-			ipc->state == IPC_IDLE ||
-			ipc->state != IPC_RETURN) {
+			ipc->state == IPC_IDLE) {
 		return -2;
+	}
+	
+	if(ipc->state != IPC_RETURN) {
+		return -1;
 	}
 
 	if(data != NULL) {
@@ -340,20 +343,25 @@ static void sys_ipc_end(context_t* ctx, ipc_t* ipc) {
 		proc_ready(cproc);
 
 	memcpy(ctx, &cproc->space->ipc.ctx, sizeof(context_t));
+	memcpy(&cproc->ctx, &cproc->space->ipc.ctx, sizeof(context_t));
 
-	if(cproc->info.ipc_state == IPC_RETURN)
+	proc_t* proc = proc_get(ipc->client_pid);
+	if(cproc->info.ipc_state == IPC_RETURN) {
 		ipc = NULL;
+	}
 
 	cproc->info.ipc_state = IPC_IDLE;
 	proc_wakeup(cproc->info.pid, (uint32_t)&cproc->space->ipc);
+	proc_ready(proc);
 
 	if(ipc != NULL) {
 		ipc->state = IPC_RETURN;
 		proc_wakeup(cproc->info.pid, (uint32_t)ipc);
-		proc_t* proc = proc_get(ipc->client_pid);
 		if(proc != NULL) {
-			proc_switch(ctx, proc, true);
-			return;
+			if(proc->info.core == cproc->info.core) {
+				proc_switch(ctx, proc, true);
+				return;
+			}
 		}
 	}
 	schedule(ctx);
@@ -432,7 +440,7 @@ static void sys_get_kevent(context_t* ctx) {
 	ctx->gpr[0] = 0;	
 	kevent_t* kev = sys_get_kevent_raw();
 	if(kev == NULL) {
-		proc_block_on(ctx, -1, (uint32_t)kev_init);
+		//proc_block_on(ctx, -1, (uint32_t)kev_init);
 		return;
 	}
 	ctx->gpr[0] = (int32_t)kev;	

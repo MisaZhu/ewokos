@@ -101,8 +101,13 @@ static void proc_init_space(proc_t* proc) {
 
 void proc_switch(context_t* ctx, proc_t* to, bool quick){
 	proc_t* cproc = get_current_proc();
-	if(to == NULL || to == cproc)
+	if(to == NULL)
 		return;
+	if(to == cproc) {
+		if(ctx->pc != to->ctx.pc && to->ctx.pc == to->space->ipc.entry)
+			memcpy(ctx, &to->ctx, sizeof(context_t));
+		return;
+	}
 	
 	if(cproc != NULL && cproc->info.state != UNUSED) {
 		memcpy(&cproc->ctx, ctx, sizeof(context_t));
@@ -204,7 +209,7 @@ proc_t* proc_get_core_ready(uint32_t core_id) {
 proc_t* proc_get_next_ready(void) {
 	uint32_t core_id = get_core_id();
 	proc_t* next = queue_pop(&_ready_queue[core_id]);
-	while(next != NULL && next->info.state != READY)
+	while(next != NULL && next->info.state != READY && next->info.state != RUNNING)
 		next = queue_pop(&_ready_queue[core_id]);
 
 	if(next == NULL) {
@@ -322,13 +327,15 @@ void* proc_realloc(void* p, uint32_t size) {
 		proc_free(p);
 		return NULL;
 	}
-	return trunk_realloc(&get_current_proc()->space->malloc_man, p, size);
+	proc_t* cproc = get_current_proc();
+	return trunk_realloc(&cproc->space->malloc_man, p, size);
 }
 
 void proc_free(void* p) {
 	if(p == NULL)
 		return;
-	trunk_free(&get_current_proc()->space->malloc_man, p);
+	proc_t* cproc = get_current_proc();
+	trunk_free(&cproc->space->malloc_man, p);
 }
 
 static inline void core_attach(proc_t* proc) {
@@ -538,7 +545,8 @@ static int32_t proc_clone(proc_t* child, proc_t* parent) {
 	//proc_page_clone(child, child->user_stack, parent, parent->user_stack);
 	int32_t i;
 	for(i=0; i<STACK_PAGES; i++) {
-		memcpy(child->user_stack[i], parent->user_stack[i], PAGE_SIZE);
+		proc_page_clone(child, (uint32_t)child->user_stack[i], parent, (uint32_t)parent->user_stack[i]);
+		//memcpy(child->user_stack[i], parent->user_stack[i], PAGE_SIZE);
 	}
 
 	strcpy(child->info.cmd, parent->info.cmd);
@@ -593,7 +601,7 @@ proc_t* kfork(context_t* ctx, int32_t type) {
 	else
 		proc_ready(child);
 
-	core_attach(child);//TODO
+	//core_attach(child);
 	return child;
 }
 

@@ -1,5 +1,6 @@
 #include <kernel/ipc.h>
 #include <kernel/proc.h>
+#include <kernel/schedule.h>
 #include <stddef.h>
 #include <kstring.h>
 
@@ -27,8 +28,14 @@ int32_t proc_ipc_call(context_t* ctx, proc_t* proc, ipc_t *ipc) {
 	proc->ctx.pc = proc->ctx.lr = proc->space->ipc.entry;
 	proc->ctx.gpr[0] = (uint32_t)ipc;
 	proc->ctx.gpr[1] = proc->space->ipc.extra_data;
-	proc->info.state = RUNNING;
-	proc_switch(ctx, proc, true);
+	if(proc->info.core == cproc->info.core) {
+		proc->info.state = RUNNING;
+		proc_switch(ctx, proc, true);
+	}
+	else {
+		proc_ready(proc);
+		schedule(ctx);
+	}
 	return 0;
 }
 

@@ -46,7 +46,8 @@ uint32_t get_core_id(void) {
 }
 
 uint32_t get_cpu_cores(void) {
-	return __cpu_cores();
+	//return __cpu_cores();
+	return 2;
 }
 
 void smp_lock(int32_t* v) {
