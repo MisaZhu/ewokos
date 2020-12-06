@@ -103,12 +103,18 @@ void proc_switch(context_t* ctx, proc_t* to, bool quick){
 	proc_t* cproc = get_current_proc();
 	if(to == NULL)
 		return;
+	
 	if(to == cproc) {
-		if(ctx->pc != to->ctx.pc && to->ctx.pc == to->space->ipc.entry)
+		if(to->space->ipc.ipc != 0) {
+			to->ctx.gpr[0] = to->space->ipc.ipc;
+			to->ctx.gpr[1] = to->space->ipc.extra_data;
+			to->space->ipc.ipc = 0;
+			to->ctx.pc = to->ctx.lr = to->space->ipc.entry;
 			memcpy(ctx, &to->ctx, sizeof(context_t));
+		}
 		return;
 	}
-	
+
 	if(cproc != NULL && cproc->info.state != UNUSED) {
 		memcpy(&cproc->ctx, ctx, sizeof(context_t));
 		if(cproc->info.state == RUNNING) {

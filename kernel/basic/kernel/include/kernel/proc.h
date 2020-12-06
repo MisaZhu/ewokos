@@ -31,6 +31,7 @@ typedef struct {
 	struct {
 		uint32_t  entry;
 		uint32_t  flags;
+	  uint32_t  ipc;
 		uint32_t  extra_data;
 		context_t ctx;
 	  uint32_t  state;

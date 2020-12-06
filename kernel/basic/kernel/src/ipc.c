@@ -25,14 +25,16 @@ int32_t proc_ipc_call(context_t* ctx, proc_t* proc, ipc_t *ipc) {
 	cproc->block_event = (uint32_t)ipc;
 	cproc->info.block_by = proc->info.pid;
 
-	proc->ctx.pc = proc->ctx.lr = proc->space->ipc.entry;
-	proc->ctx.gpr[0] = (uint32_t)ipc;
-	proc->ctx.gpr[1] = proc->space->ipc.extra_data;
 	if(proc->info.core == cproc->info.core) {
+		proc->space->ipc.ipc = 0;
+		proc->ctx.pc = proc->ctx.lr = proc->space->ipc.entry;
+		proc->ctx.gpr[0] = (uint32_t)ipc;
+		proc->ctx.gpr[1] = proc->space->ipc.extra_data;
 		proc->info.state = RUNNING;
 		proc_switch(ctx, proc, true);
 	}
 	else {
+		proc->space->ipc.ipc = (uint32_t)ipc;
 		proc_ready(proc);
 		schedule(ctx);
 	}
