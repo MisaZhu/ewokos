@@ -106,6 +106,9 @@ void proc_switch(context_t* ctx, proc_t* to, bool quick){
 	
 	if(to == cproc) {
 		if(to->space->ipc.ipc != 0) {
+			to->space->ipc.state = to->info.state;
+			memcpy(&to->ctx, ctx, sizeof(context_t));
+			memcpy(&to->space->ipc.ctx, ctx, sizeof(context_t));
 			to->ctx.gpr[0] = to->space->ipc.ipc;
 			to->ctx.gpr[1] = to->space->ipc.extra_data;
 			to->space->ipc.ipc = 0;
