@@ -104,18 +104,20 @@ void proc_switch(context_t* ctx, proc_t* to, bool quick){
 	if(to == NULL)
 		return;
 	
-	if(to == cproc) {
-		if(to->space->ipc.ipc != 0) {
-			to->space->ipc.state = to->info.state;
-			memcpy(&to->ctx, ctx, sizeof(context_t));
+	if(to->space->ipc.ipc != 0) {
+		uint32_t ipc = to->space->ipc.ipc;
+		to->space->ipc.ipc = 0;
+		to->space->ipc.state = to->info.state;
+		memcpy(&to->space->ipc.ctx, &to->ctx, sizeof(context_t));
+		to->ctx.gpr[0] = ipc;
+		to->ctx.gpr[1] = to->space->ipc.extra_data;
+		to->ctx.pc = to->ctx.lr = to->space->ipc.entry;
+
+		if(to == cproc) {
 			memcpy(&to->space->ipc.ctx, ctx, sizeof(context_t));
-			to->ctx.gpr[0] = to->space->ipc.ipc;
-			to->ctx.gpr[1] = to->space->ipc.extra_data;
-			to->space->ipc.ipc = 0;
-			to->ctx.pc = to->ctx.lr = to->space->ipc.entry;
 			memcpy(ctx, &to->ctx, sizeof(context_t));
+			return;
 		}
-		return;
 	}
 
 	if(cproc != NULL && cproc->info.state != UNUSED) {
@@ -610,7 +612,7 @@ proc_t* kfork(context_t* ctx, int32_t type) {
 	else
 		proc_ready(child);
 
-	//core_attach(child);
+	core_attach(child);
 	return child;
 }
 
