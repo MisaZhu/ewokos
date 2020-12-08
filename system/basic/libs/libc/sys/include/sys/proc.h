@@ -13,8 +13,7 @@ enum {
 	PROC_CMD_SET_ENV,
 	PROC_CMD_GET_ENV,
 	PROC_CMD_GET_ENVS,
-	PROC_CMD_CLONE,
-	PROC_CMD_EXIT
+	PROC_CMD_CLONE
 };
 
 int  get_procd_pid(void);

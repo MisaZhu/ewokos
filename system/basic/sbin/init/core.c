@@ -113,10 +113,6 @@ static void do_proc_exit(kevent_t* kev) {
 		ipc_call(pid, VFS_PROC_EXIT, &data, NULL);
 	}
 
-	pid = get_ipc_serv(IPC_SERV_PROC);
-	if(pid > 0) {
-		ipc_call(pid, PROC_CMD_EXIT, &data, NULL);
-	}
 	PF->clear(&data);
 }
 

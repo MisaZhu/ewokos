@@ -132,23 +132,6 @@ static void do_proc_clone(int32_t pid, proto_t* in) {
 	hashmap_iterate(_proc_info_table[fpid].envs, copy_envs, _proc_info_table[cpid].envs);	
 }
 
-static void do_proc_exit(int32_t pid, proto_t* in) {
-	(void)pid;
-	int cpid = proto_read_int(in);
-	if(cpid < 0)
-		return;
-	
-	if(cpid < 0 || cpid >= PROC_MAX)
-		return;
-	
-	/*str_t* v = env_get(_proc_info_table[cpid].envs, "XWM"); //if is xwm proc
-	if(v != NULL) {
-		dev_cntl("/dev/x", X_DCNTL_UNSET_XWM, NULL, NULL);
-		return;
-	}
-	*/
-}
-
 static void handle(int pid, int cmd, proto_t* in, proto_t* out, void* p) {
 	(void)p;
 	pid = proc_getpid(pid);
@@ -171,9 +154,6 @@ static void handle(int pid, int cmd, proto_t* in, proto_t* out, void* p) {
 		break;
 	case PROC_CMD_CLONE:
 		do_proc_clone(pid, in);
-		break;
-	case PROC_CMD_EXIT:
-		do_proc_exit(pid, in);
 		break;
 	}
 }

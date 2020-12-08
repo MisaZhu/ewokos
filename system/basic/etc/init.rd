@@ -1,1 +1,2 @@
-/bin/session
+#/bin/session
+/bin/shell

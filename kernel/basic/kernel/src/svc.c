@@ -27,6 +27,7 @@ static void sys_kprint(const char* s, int32_t len) {
 static void sys_exit(context_t* ctx, int32_t res) {
 	ctx->gpr[0] = 0;
 	proc_exit(ctx, get_current_proc(), res);
+	schedule(ctx);
 }
 
 static int32_t sys_signal_setup(uint32_t entry) {
@@ -42,7 +43,6 @@ static void sys_signal(context_t* ctx, int32_t pid, int32_t sig) {
 			proc->info.owner < 0) {
 		return;
 	}
-
 	proc_signal_send(ctx, proc, sig);
 }
 
@@ -75,9 +75,10 @@ static int32_t sys_get_threadid(void) {
 	return cproc->info.pid; 
 }
 
-
 static void sys_usleep(context_t* ctx, uint32_t count) {
-	proc_usleep(ctx, count);
+	proc_t * cproc = get_current_proc();
+	if(cproc->space->ipc.ipc == 0)
+		proc_usleep(ctx, count);
 }
 
 static int32_t sys_malloc(int32_t size) {
@@ -454,10 +455,10 @@ static void sys_proc_block(context_t* ctx, int32_t pid, uint32_t evt) {
 	else
 		proc = proc_get_proc(proc_get(pid));
 
-	if(cproc->space->ipc.ipc == 0) {
-		cproc->info.state = BLOCK;
-		cproc->block_event = evt;
-		cproc->info.block_by = proc->info.pid;
+	if(proc->space->ipc.ipc == 0) {
+		proc->info.state = BLOCK;
+		proc->block_event = evt;
+		proc->info.block_by = cproc->info.pid;
 	}
 	schedule(ctx);	
 }
