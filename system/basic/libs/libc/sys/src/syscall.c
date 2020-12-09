@@ -5,8 +5,7 @@
 extern "C" {
 #endif
 
-
-inline int32_t syscall3_raw(int32_t code, int32_t arg0, int32_t arg1, int32_t arg2) {
+int32_t syscall3_raw(int32_t code, int32_t arg0, int32_t arg1, int32_t arg2) {
 	volatile int32_t r;
   __asm__ volatile(
 			"stmdb sp!, {lr}\n"

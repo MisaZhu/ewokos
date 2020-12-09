@@ -27,7 +27,7 @@ static void sys_kprint(const char* s, int32_t len) {
 static void sys_exit(context_t* ctx, int32_t res) {
 	ctx->gpr[0] = 0;
 	proc_exit(ctx, get_current_proc(), res);
-	schedule(ctx);
+	//schedule(ctx);
 }
 
 static int32_t sys_signal_setup(uint32_t entry) {
