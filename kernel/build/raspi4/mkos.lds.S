@@ -53,6 +53,7 @@ SECTIONS
 
 	. = . + 0x10000;
 	_svc_stack = .;
+	PROVIDE(_kernel_sp = .);
 
 	. = ALIGN(4096);
 	PROVIDE(_kernel_end = .);
