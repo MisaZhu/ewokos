@@ -3,6 +3,6 @@
 
 #include <kernel/context.h>
 
-extern void schedule(context_t* ctx);
+extern int32_t schedule(context_t* ctx);
 
 #endif

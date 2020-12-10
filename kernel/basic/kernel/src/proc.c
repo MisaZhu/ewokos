@@ -309,6 +309,7 @@ static inline void proc_free_user_stack(proc_t* proc) {
 /* proc_free frees all resources allocated by proc. */
 void proc_exit(context_t* ctx, proc_t *proc, int32_t res) {
 	(void)res;
+	_current_proc[proc->info.core] = NULL;
 	proc_terminate(ctx, proc);
 	proc->info.state = UNUSED;
 
