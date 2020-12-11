@@ -230,6 +230,19 @@ proc_t* proc_get_next_ready(void) {
 				return NULL;
 			proc_ready(next);
 		}
+		else if(core_id > 0) {
+			int32_t i;
+			for (i = 0; i < PROC_MAX; i++) {
+				proc_t* n = &_proc_table[i];
+				if(n->info.core == core_id) {
+					if(n->info.state == UNUSED || n->info.state == ZOMBIE || n->info.state == CREATED)
+						continue;
+					proc_ready(n);
+					next = n;
+					break;
+				}
+			}
+		}
 	}
 	return next;
 }

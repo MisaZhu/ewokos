@@ -26,10 +26,12 @@ static void sys_kprint(const char* s, int32_t len) {
 
 static void sys_exit(context_t* ctx, int32_t res) {
 	ctx->gpr[0] = 0;
-	proc_exit(ctx, get_current_proc(), res);
+	proc_t* cproc = get_current_proc();
+	uint32_t core = cproc->info.core;
+	proc_exit(ctx, cproc, res);
 	if(schedule(ctx) != 0) {
 		ctx->pc = ctx->lr = (uint32_t)halt;
-		ctx->sp = _kernel_sp;
+		ctx->sp = (uint32_t)_kernel_sp - (core*0x4000);
 		set_translation_table_base(V2P((uint32_t)_kernel_vm));
 	}	
 }
