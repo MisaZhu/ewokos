@@ -84,6 +84,7 @@ static void init_allocable_mem(void) {
 }
 
 #ifdef KERNEL_SMP
+static uint32_t _started_cores = 0;
 void __attribute__((optimize("O0"))) _slave_kernel_entry_c(context_t* ctx) {
 	(void)ctx;
 	while(1) {
@@ -91,8 +92,12 @@ void __attribute__((optimize("O0"))) _slave_kernel_entry_c(context_t* ctx) {
 			break;
 	}
 	set_translation_table_base(V2P((uint32_t)_kernel_vm));
-
-	halt();
+	kernel_lock();
+	//printf("kernel: start core %d\n", get_core_id());
+	_started_cores++;
+	kernel_unlock();
+	//halt();
+	while(1);
 }
 #endif
 
@@ -125,19 +130,19 @@ void _kernel_entry_c(context_t* ctx) {
 	printf("kernel: init allocable memory: %dMB\n", div_u32(get_free_mem_size(), 1*MB));
 
 #ifdef KERNEL_SMP
+	_started_cores = 1;
 	uint32_t cores = get_cpu_cores();
-	printf("kernel: start SMP (%d cores)\n", cores);
 	start_multi_cores(cores);
 #endif
-	
+
+	irq_init();
+	printf("kernel: irq inited\n");
+
 	shm_init();
 	printf("kernel: share memory inited.\n");
 
 	procs_init();
 	printf("kernel: processes inited.\n");
-
-	irq_init();
-	printf("kernel: irq inited\n");
 
 	printf("kernel: loading init process\n");
 	if(load_init_proc() != 0)  {
@@ -145,6 +150,13 @@ void _kernel_entry_c(context_t* ctx) {
 		halt();
 	}
 	printf("  [ok]\n");
+
+#ifdef KERNEL_SMP
+	while(_started_cores < cores) {
+		printf("kernel: started: %d\n", _started_cores);
+	}
+	printf("kernel: start SMP (%d cores)\n", cores);
+#endif
 
 	printf("kernel: set timer.\n");
 	timer_set_interval(0, 512); 
