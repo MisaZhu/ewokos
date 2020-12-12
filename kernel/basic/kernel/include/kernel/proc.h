@@ -95,4 +95,5 @@ extern void    renew_sleep_counter(uint32_t usec);
 extern void    proc_usleep(context_t* ctx, uint32_t usec);
 extern void    proc_ready(proc_t* proc);
 
+extern uint32_t proc_num_in_core(uint32_t core);
 #endif

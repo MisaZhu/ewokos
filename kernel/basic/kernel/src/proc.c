@@ -217,6 +217,20 @@ proc_t* proc_get_core_ready(uint32_t core_id) {
 	return (proc_t*)_ready_queue[core_id].head;
 }
 
+uint32_t proc_num_in_core(uint32_t core) {
+	uint32_t i, ret;
+	ret = 0;
+	for (i = 0; i < PROC_MAX; i++) {
+		proc_t* n = &_proc_table[i];
+		if(n->info.core == core) {
+			if(n->info.state == UNUSED || n->info.state == ZOMBIE || n->info.state == CREATED)
+				continue;
+			ret++;
+		}
+	}
+	return ret;
+}
+
 proc_t* proc_get_next_ready(void) {
 	uint32_t core_id = get_core_id();
 	proc_t* next = queue_pop(&_ready_queue[core_id]);
