@@ -336,7 +336,7 @@ static inline void proc_free_user_stack(proc_t* proc) {
 /* proc_free frees all resources allocated by proc. */
 void proc_exit(context_t* ctx, proc_t *proc, int32_t res) {
 	(void)res;
-	_current_proc[proc->info.core] = NULL;
+	uint32_t core = proc->info.core;
 	proc_terminate(ctx, proc);
 	proc->info.state = UNUSED;
 
@@ -352,6 +352,8 @@ void proc_exit(context_t* ctx, proc_t *proc, int32_t res) {
 	proto_clear(&proc->ipc_ctx.data);
 	proc_free_space(proc);
 	memset(proc, 0, sizeof(proc_t));
+	if(_current_proc[core] == proc)
+		_current_proc[core] = NULL;
 }
 
 void* proc_malloc(uint32_t size) {
