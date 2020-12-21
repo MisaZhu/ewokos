@@ -94,12 +94,12 @@ static void do_proc_created(kevent_t* kev) {
 
 	int pid = get_ipc_serv(IPC_SERV_VFS);
 	if(pid > 0) {
-		ipc_call(pid, VFS_PROC_CLONE, &data, NULL);
+		ipc_call_wait(pid, VFS_PROC_CLONE, &data, NULL);
 	}
 
 	pid = get_ipc_serv(IPC_SERV_PROC);
 	if(pid > 0) {
-		ipc_call(pid, PROC_CMD_CLONE, &data, NULL);
+		ipc_call_wait(pid, PROC_CMD_CLONE, &data, NULL);
 	}
 	PF->clear(&data);
 	proc_wakeup(cpid);
