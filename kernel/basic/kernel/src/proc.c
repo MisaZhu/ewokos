@@ -223,7 +223,10 @@ uint32_t proc_num_in_core(uint32_t core) {
 	for (i = 0; i < PROC_MAX; i++) {
 		proc_t* n = &_proc_table[i];
 		if(n->info.core == core) {
-			if(n->info.state == UNUSED || n->info.state == ZOMBIE || n->info.state == CREATED)
+			if(n->info.state == UNUSED || 
+					n->info.state == ZOMBIE ||
+					n->info.state == WAIT || 
+					n->info.state == CREATED)
 				continue;
 			ret++;
 		}
@@ -249,16 +252,17 @@ proc_t* proc_get_next_ready(void) {
 			if(next->info.state == UNUSED || next->info.state == ZOMBIE || next->info.state == CREATED)
 				return NULL;
 			next->info.state = READY;
-			//proc_ready(next);
 		}
 		else if(core_id > 0) {
 			int32_t i;
 			for (i = 0; i < PROC_MAX; i++) {
 				proc_t* n = &_proc_table[i];
 				if(n->info.core == core_id) {
-					if(n->info.state == UNUSED || n->info.state == ZOMBIE || n->info.state == CREATED)
+					if(n->info.state == UNUSED || 
+							n->info.state == ZOMBIE || 
+							n->info.state == WAIT || 
+							n->info.state == CREATED)
 						continue;
-					//proc_ready(n);
 					next = n;
 					next->info.state = READY;
 					break;
