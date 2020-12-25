@@ -53,9 +53,10 @@ inline proc_t* get_current_proc(void) {
 	return _current_proc[core_id];
 }
 
-static inline void set_current_proc(proc_t* proc) {
-	if(proc->info.core == get_core_id())
-		_current_proc[proc->info.core] = proc;
+inline void set_current_proc(proc_t* proc) {
+	uint32_t core_id = get_core_id();
+	if(proc == NULL || proc->info.core == core_id)
+		_current_proc[core_id] = proc;
 }
 
 static inline uint32_t proc_get_user_stack_pages(proc_t* proc) {
@@ -258,14 +259,11 @@ proc_t* proc_get_next_ready(void) {
 			for (i = 0; i < PROC_MAX; i++) {
 				proc_t* n = &_proc_table[i];
 				if(n->info.core == core_id) {
-					if(n->info.state == UNUSED || 
-							n->info.state == ZOMBIE || 
-							n->info.state == WAIT || 
-							n->info.state == CREATED)
-						continue;
-					next = n;
-					next->info.state = READY;
-					break;
+					if(n->info.state == BLOCK) {
+						next = n;
+						next->info.state = READY;
+						break;
+					}
 				}
 			}
 		}

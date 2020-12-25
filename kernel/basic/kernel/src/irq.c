@@ -42,7 +42,8 @@ static void _irq_handler(context_t* ctx) {
 	uint32_t cid = get_core_id();
 	if(cid > 0) {
 		ipi_clear(cid);
-		schedule(ctx);
+		if(proc_num_in_core(cid) > 0)
+			schedule(ctx);
 		return;
 	}
 #endif

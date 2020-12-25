@@ -27,7 +27,6 @@ static void sys_kprint(const char* s, int32_t len) {
 static void sys_exit(context_t* ctx, int32_t res) {
 	ctx->gpr[0] = 0;
 	proc_t* cproc = get_current_proc();
-	uint32_t core = cproc->info.core;
 	proc_exit(ctx, cproc, res);
 	schedule(ctx);
 }
