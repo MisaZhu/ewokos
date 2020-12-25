@@ -12,11 +12,15 @@ int32_t schedule(context_t* ctx) {
 		memcpy(&cproc->ctx, ctx, sizeof(context_t));
 	}
 	
-	if(next == NULL)
-		return -1;
-
-	next->info.state = RUNNING;
-	proc_switch(ctx, next, false);
-	return 0;
+	if(next != NULL) {
+		next->info.state = RUNNING;
+		proc_switch(ctx, next, false);
+		return 0;
+	}
+	
+	kernel_unlock();
+	__irq_enable();
+	halt();
+	return -1;
 }
 

@@ -29,11 +29,7 @@ static void sys_exit(context_t* ctx, int32_t res) {
 	proc_t* cproc = get_current_proc();
 	uint32_t core = cproc->info.core;
 	proc_exit(ctx, cproc, res);
-	if(schedule(ctx) != 0) {
-		ctx->pc = ctx->lr = (uint32_t)halt;
-		ctx->sp = (uint32_t)_kernel_sp - (core*0x4000);
-		set_translation_table_base(V2P((uint32_t)_kernel_vm));
-	}	
+	schedule(ctx);
 }
 
 static int32_t sys_signal_setup(uint32_t entry) {
