@@ -12,6 +12,7 @@
 #include <kernel/elf.h>
 #include <kernel/core.h>
 #include <stddef.h>
+#include <dev/gic.h>
 
 static proc_t _proc_table[PROC_MAX];
 __attribute__((__aligned__(PAGE_DIR_SIZE))) 
@@ -212,6 +213,10 @@ void proc_ready(proc_t* proc) {
 	proc->info.state = READY;
 	if(queue_in(&_ready_queue[proc->info.core], proc) == NULL)
 		queue_push_head(&_ready_queue[proc->info.core], proc);
+
+#ifdef KERNEL_SMP
+	ipi_send(proc->info.core);
+#endif
 }
 
 proc_t* proc_get_core_ready(uint32_t core_id) {
