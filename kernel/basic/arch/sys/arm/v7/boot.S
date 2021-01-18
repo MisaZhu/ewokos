@@ -44,7 +44,7 @@ core0:
 
 #ifdef KERNEL_SMP
 	bl arm_smp_enable
-	//bl enable_scu
+	bl enable_scu
 	bl start_core_1
 	bl start_core_2
 	bl start_core_3
