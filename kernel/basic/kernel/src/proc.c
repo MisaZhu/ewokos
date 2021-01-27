@@ -232,6 +232,7 @@ uint32_t proc_num_in_core(uint32_t core) {
 			if(n->info.state == UNUSED || 
 					n->info.state == ZOMBIE ||
 					n->info.state == WAIT || 
+					n->info.state == SLEEPING || 
 					n->info.state == CREATED)
 				continue;
 			ret++;
@@ -253,22 +254,14 @@ proc_t* proc_get_next_ready(void) {
 	}
 
 	if(next == NULL) {
-		if(core_id == 0 && _core_proc_ready) {
-			next = &_proc_table[_core_proc_pid];
-			if(next->info.state == UNUSED || next->info.state == ZOMBIE || next->info.state == CREATED)
-				return NULL;
-			next->info.state = READY;
-		}
-		else if(core_id > 0) {
-			int32_t i;
-			for (i = 0; i < PROC_MAX; i++) {
-				proc_t* n = &_proc_table[i];
-				if(n->info.core == core_id) {
-					if(n->info.state == BLOCK) {
-						next = n;
-						next->info.state = READY;
-						break;
-					}
+		int32_t i;
+		for (i = 0; i < PROC_MAX; i++) {
+			proc_t* n = &_proc_table[i];
+			if(n->info.core == core_id) {
+				if(n->info.state == BLOCK) {
+					next = n;
+					next->info.state = READY;
+					break;
 				}
 			}
 		}
