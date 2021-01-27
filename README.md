@@ -68,7 +68,7 @@
 	
 	"cd system; make/make full(with XGUI)":
 	  build EwokOS rootfs apps and sd file system.
-	"cd kernel; make":
+	"cd kernel/build/{arch}; make":
 	  build EwokOS kernel image.
 	"make run":
 	  run EwokOS;
