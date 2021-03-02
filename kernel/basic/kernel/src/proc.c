@@ -12,6 +12,7 @@
 #include <kernel/elf.h>
 #include <kernel/core.h>
 #include <stddef.h>
+#include <dev/gic.h>
 
 static proc_t _proc_table[PROC_MAX];
 __attribute__((__aligned__(PAGE_DIR_SIZE))) 
@@ -212,6 +213,10 @@ void proc_ready(proc_t* proc) {
 	proc->info.state = READY;
 	if(queue_in(&_ready_queue[proc->info.core], proc) == NULL)
 		queue_push_head(&_ready_queue[proc->info.core], proc);
+
+#ifdef KERNEL_SMP
+	ipi_send(proc->info.core);
+#endif
 }
 
 proc_t* proc_get_core_ready(uint32_t core_id) {
@@ -227,6 +232,7 @@ uint32_t proc_num_in_core(uint32_t core) {
 			if(n->info.state == UNUSED || 
 					n->info.state == ZOMBIE ||
 					n->info.state == WAIT || 
+					n->info.state == SLEEPING || 
 					n->info.state == CREATED)
 				continue;
 			ret++;
@@ -248,22 +254,14 @@ proc_t* proc_get_next_ready(void) {
 	}
 
 	if(next == NULL) {
-		if(core_id == 0 && _core_proc_ready) {
-			next = &_proc_table[_core_proc_pid];
-			if(next->info.state == UNUSED || next->info.state == ZOMBIE || next->info.state == CREATED)
-				return NULL;
-			next->info.state = READY;
-		}
-		else if(core_id > 0) {
-			int32_t i;
-			for (i = 0; i < PROC_MAX; i++) {
-				proc_t* n = &_proc_table[i];
-				if(n->info.core == core_id) {
-					if(n->info.state == BLOCK) {
-						next = n;
-						next->info.state = READY;
-						break;
-					}
+		int32_t i;
+		for (i = 0; i < PROC_MAX; i++) {
+			proc_t* n = &_proc_table[i];
+			if(n->info.core == core_id) {
+				if(n->info.state == BLOCK) {
+					next = n;
+					next->info.state = READY;
+					break;
 				}
 			}
 		}
