@@ -152,7 +152,7 @@ arm_smp_disable:
 
 .globl arm_smp_enable
 arm_smp_enable:
-	mrc p15, 0, r0, c1, c0, 1   // clear SMP bit in ACTLR
+	mrc p15, 0, r0, c1, c0, 1   // set SMP bit in ACTLR
 	orr r0, r0, #0x40
 	mcr p15, 0, r0, c1, c0, 1
 	bx lr
@@ -239,8 +239,14 @@ cpu_icache_disable:
 
 .local enable_scu
 enable_scu:
+	mrc p15, 0, r0, c1, c0, 1   // set SMP bit in ACTLR
+	orr r0, r0, #0x01
+	mcr p15, 0, r0, c1, c0, 1
+	bx lr
+/*
 	mrc p15, 4, r0, c15, c0, 0
 	ldr r1, [r9, #0x0]
 	orr r1, r1, #0x1
 	str r1, [r0, #0x0]
 	bx lr
+	*/
