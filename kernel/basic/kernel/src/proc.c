@@ -389,6 +389,7 @@ void proc_free(void* p) {
 
 static inline void core_attach(proc_t* proc) {
 	uint32_t cores = get_cpu_cores();
+	//if(cores == 1 || proc->info.owner < 0) {
 	if(cores == 1) {
 		proc->info.core = 0;
 		return;
