@@ -388,7 +388,13 @@ void proc_free(void* p) {
 }
 
 static inline void core_attach(proc_t* proc) {
-	if((_use_core_id+1) > get_cpu_cores())
+	uint32_t cores = get_cpu_cores();
+	if(cores == 1) {
+		proc->info.core = 0;
+		return;
+	}
+
+	if(_use_core_id >= cores) 
 		_use_core_id = 0;
 	proc->info.core = _use_core_id;
 	_use_core_id++; 
