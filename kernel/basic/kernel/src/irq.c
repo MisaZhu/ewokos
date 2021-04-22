@@ -35,11 +35,8 @@ void ipi_send_all(void) {
 }
 #endif
 
-static void _irq_handler(context_t* ctx) {
-	__irq_disable();
-
+static void _irq_handler(uint32_t cid, context_t* ctx) {
 #ifdef KERNEL_SMP
-	uint32_t cid = get_core_id();
 	if(cid > 0) {
 		ipi_clear(cid);
 		if(proc_num_in_core(cid) > 0)
@@ -81,8 +78,20 @@ static void _irq_handler(context_t* ctx) {
 }
 
 inline void irq_handler(context_t* ctx) {
+	__irq_disable();
+
+	uint32_t cid = 0;
+#ifdef KERNEL_SMP
+	cid = get_core_id();
+
+	if(cid > 0 && kernel_lock_check() != 0) {
+		//printf("kernel lock reentried!\n");
+		return;
+	}
+#endif
+
 	kernel_lock();
-	_irq_handler(ctx);
+	_irq_handler(cid, ctx);
 	kernel_unlock();
 }
 

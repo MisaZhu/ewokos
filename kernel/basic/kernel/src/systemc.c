@@ -77,11 +77,18 @@ void smp_unlock(int32_t* v) {
 #endif
 
 static int32_t _spin = 0;
+static int32_t _klock = 0;
+inline int32_t kernel_lock_check(void) {
+	return _klock;
+}
+
 inline void kernel_lock(void) {
 	smp_lock(&_spin);
+	_klock = 1;
 }
 
 inline void kernel_unlock(void) {
+	_klock = 0;
 	smp_unlock(&_spin);
 }
 
