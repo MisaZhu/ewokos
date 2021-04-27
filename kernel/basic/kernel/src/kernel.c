@@ -45,6 +45,7 @@ static void set_kernel_init_vm(page_dir_entry_t* vm) {
 	map_pages(vm, KERNEL_BASE+PAGE_SIZE, PAGE_SIZE, V2P(ALLOCATABLE_PAGE_DIR_END), AP_RW_D, 0);
 
 	//map MMIO to high(virtual) mem.
+	map_pages(vm, _sys_info.mmio.phy_base, _sys_info.mmio.phy_base, _sys_info.mmio.phy_base + _sys_info.mmio.size, AP_RW_D, 1);
 	map_pages(vm, MMIO_BASE, _sys_info.mmio.phy_base, _sys_info.mmio.phy_base + _sys_info.mmio.size, AP_RW_D, 1);
 	arch_vm(vm);
 }
@@ -130,6 +131,9 @@ void _kernel_entry_c(context_t* ctx) {
 	printf("kernel: init allocable memory: %dMB\n", div_u32(get_free_mem_size(), 1*MB));
 
 #ifdef KERNEL_SMP
+	printf("kernel: enable scu for multi-cores\n");
+	__enable_scu();
+	printf("kernel: start slave cores\n");
 	_started_cores = 1;
 	uint32_t cores = get_cpu_cores();
 	start_multi_cores(cores);

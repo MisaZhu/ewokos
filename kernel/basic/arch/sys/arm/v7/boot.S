@@ -44,7 +44,6 @@ core0:
 
 #ifdef KERNEL_SMP
 	bl arm_smp_enable
-	bl enable_scu
 	bl start_core_1
 	bl start_core_2
 	bl start_core_3
@@ -237,16 +236,3 @@ cpu_icache_disable:
 	mcr     p15, #0, r0, c1, c0, #0
 	bx      lr
 
-.local enable_scu
-enable_scu:
-	mrc p15, 0, r0, c1, c0, 1   // set SMP bit in ACTLR
-	orr r0, r0, #0x01
-	mcr p15, 0, r0, c1, c0, 1
-	bx lr
-/*
-	mrc p15, 4, r0, c15, c0, 0
-	ldr r1, [r9, #0x0]
-	orr r1, r1, #0x1
-	str r1, [r0, #0x0]
-	bx lr
-	*/

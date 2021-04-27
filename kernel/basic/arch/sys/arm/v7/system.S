@@ -150,3 +150,11 @@ __smp_unlock:
 	SEV
 	bx lr
 
+.global __enable_scu
+__enable_scu:
+	//ldr	r0, =0xf8f00000
+	mrc p15, 4, r0, c15, c0, 0
+	ldr r1, [r0]
+	orr r1, r1, #0x01
+	str r1, [r0]
+	bx lr
