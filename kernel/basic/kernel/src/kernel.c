@@ -131,9 +131,6 @@ void _kernel_entry_c(context_t* ctx) {
 	printf("kernel: init allocable memory: %dMB\n", div_u32(get_free_mem_size(), 1*MB));
 
 #ifdef KERNEL_SMP
-	printf("kernel: enable scu for multi-cores\n");
-	__enable_scu();
-	printf("kernel: start slave cores\n");
 	_started_cores = 1;
 	uint32_t cores = get_cpu_cores();
 	start_multi_cores(cores);
