@@ -70,6 +70,7 @@ __flush_tlb:
 	mov r0, #0
 	mcr p15, 0, r0, c7, c5, 0   // flush icache all
 	mcr p15, 0, r0, c8, c7, 0   //I-TLB and D-TLB invalidation
+	dsb
 	isb                         // instruction sync
 	mov pc, lr
 
