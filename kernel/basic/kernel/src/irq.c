@@ -21,14 +21,14 @@ static uint32_t _timer_tic = 0;
 #ifdef KERNEL_SMP
 void ipi_enable_all(void) {
 	uint32_t i;
-	for(i=1; i<get_cpu_cores(); i++) {
+	for(i=0; i<get_cpu_cores(); i++) {
 		ipi_enable(i);
 	}
 }
 
 void ipi_send_all(void) {
 	uint32_t i;
-	for(i=1; i<get_cpu_cores(); i++) {
+	for(i=0; i<get_cpu_cores(); i++) {
 		if(proc_num_in_core(i) > 0)
 			ipi_send(i);
 	}
@@ -36,16 +36,8 @@ void ipi_send_all(void) {
 #endif
 
 static void _irq_handler(uint32_t cid, context_t* ctx) {
-#ifdef KERNEL_SMP
-	if(cid > 0) {
-		ipi_clear(cid);
-		if(proc_num_in_core(cid) > 0)
-			schedule(ctx);
-		return;
-	}
-#endif
-
 	uint32_t irqs = gic_get_irqs();
+
 	//handle irq
 	if((irqs & IRQ_TIMER0) != 0) {
 		uint64_t usec = timer_read_sys_usec();
@@ -71,25 +63,24 @@ static void _irq_handler(uint32_t cid, context_t* ctx) {
 		if(_schedule_tic == 0) {
 #ifdef KERNEL_SMP
 			ipi_send_all();
-#endif
+#else
 			schedule(ctx);
+#endif
 		}
+	}
+	else {
+#ifdef KERNEL_SMP
+		ipi_clear(cid);
+		if(proc_num_in_core(cid) > 0)
+			schedule(ctx);
+#endif
 	}
 }
 
 inline void irq_handler(context_t* ctx) {
 	__irq_disable();
 
-	uint32_t cid = 0;
-#ifdef KERNEL_SMP
-	cid = get_core_id();
-
-	if(cid > 0 && kernel_lock_check() != 0) {
-		//printf("kernel lock reentried!\n");
-		return;
-	}
-#endif
-
+	uint32_t cid = get_core_id();
 	kernel_lock();
 	_irq_handler(cid, ctx);
 	kernel_unlock();

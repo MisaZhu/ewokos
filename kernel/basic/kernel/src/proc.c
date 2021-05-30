@@ -387,18 +387,21 @@ void proc_free(void* p) {
 	trunk_free(&cproc->space->malloc_man, p);
 }
 
-static inline void core_attach(proc_t* proc) {
+static inline uint32_t core_fetch(proc_t* proc) {
 	uint32_t cores = get_cpu_cores();
 	if(cores == 1 || proc->info.owner < 0) {
-	//if(cores == 1) {
-		proc->info.core = 0;
-		return;
+		return 0;
 	}
 
 	_use_core_id++; 
 	if(_use_core_id >= cores) 
 		_use_core_id = 1;
-	proc->info.core = _use_core_id;
+	return _use_core_id;
+}
+
+static inline void core_attach(proc_t* proc) {
+	proc->info.core = 0;
+	//proc->info.core = core_fetch(proc);
 }
 
 /* proc_creates allocates a new process and returns it. */
