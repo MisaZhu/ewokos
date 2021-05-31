@@ -80,6 +80,11 @@ static void _irq_handler(uint32_t cid, context_t* ctx) {
 inline void irq_handler(context_t* ctx) {
 	__irq_disable();
 
+#ifdef KERNEL_SMP
+	if(kernel_lock_check() > 0)
+		return;
+#endif
+
 	uint32_t cid = get_core_id();
 	kernel_lock();
 	_irq_handler(cid, ctx);
