@@ -400,8 +400,8 @@ static inline uint32_t core_fetch(proc_t* proc) {
 }
 
 static inline void core_attach(proc_t* proc) {
-	proc->info.core = 0;
-	//proc->info.core = core_fetch(proc);
+	//proc->info.core = 0;
+	proc->info.core = core_fetch(proc);
 }
 
 /* proc_creates allocates a new process and returns it. */

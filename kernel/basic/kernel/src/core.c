@@ -2,6 +2,16 @@
 #include <kernel/system.h>
 
 #ifdef KERNEL_SMP
+extern uint32_t __core_id(void);
+extern uint32_t __cpu_cores(void);
+
+uint32_t get_core_id(void) {
+	return __core_id();
+}
+
+uint32_t get_cpu_cores(void) {
+	return __cpu_cores();
+}
 
 core_t _cpu_cores[CPU_MAX_CORES];
 
@@ -25,6 +35,16 @@ inline int32_t multi_cores_ready(void) {
 	if(i < CPU_MAX_CORES)
 		_cpu_cores[i].actived = 1;
 	return 0;
+}
+
+#else
+
+uint32_t get_core_id(void) {
+	return 0;
+}
+
+uint32_t get_cpu_cores(void) {
+	return 1;
 }
 
 #endif

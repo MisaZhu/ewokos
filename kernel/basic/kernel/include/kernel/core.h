@@ -3,6 +3,9 @@
 
 #include <stdint.h>
 
+extern uint32_t get_core_id(void);
+extern uint32_t get_cpu_cores(void);
+
 #ifdef KERNEL_SMP
 #define CPU_MAX_CORES 16
 #else
