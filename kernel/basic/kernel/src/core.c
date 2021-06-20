@@ -5,11 +5,11 @@
 extern uint32_t __core_id(void);
 extern uint32_t __cpu_cores(void);
 
-uint32_t get_core_id(void) {
+inline uint32_t get_core_id(void) {
 	return __core_id();
 }
 
-uint32_t get_cpu_cores(void) {
+inline uint32_t get_cpu_cores(void) {
 	return __cpu_cores();
 }
 
@@ -58,11 +58,11 @@ void mcore_unlock(int32_t* v) {
 	(void)v;
 }
 
-uint32_t get_core_id(void) {
+inline uint32_t get_core_id(void) {
 	return 0;
 }
 
-uint32_t get_cpu_cores(void) {
+inline uint32_t get_cpu_cores(void) {
 	return 1;
 }
 
