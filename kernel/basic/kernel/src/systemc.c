@@ -1,4 +1,5 @@
 #include <kernel/system.h>
+#include <kernel/core.h>
 #include <dev/timer.h>
 #include <dev/actled.h>
 
@@ -25,38 +26,15 @@ extern void __flush_tlb(void);
 extern void __cpu_dcache_clean_flush(void);
 
 
-void flush_tlb(void) {
+inline void flush_tlb(void) {
 	__cpu_dcache_clean_flush();
 	__flush_tlb();
 }
 
-void set_translation_table_base(uint32_t tlb_base) {
+inline void set_translation_table_base(uint32_t tlb_base) {
 	__set_translation_table_base(tlb_base);
 	flush_tlb();
 }
-
-#ifdef KERNEL_SMP
-extern uint32_t __smp_lock(int32_t* v);
-extern uint32_t __smp_unlock(int32_t* v);
-
-void smp_lock(int32_t* v) {
-	__smp_lock(v);
-}
-
-void smp_unlock(int32_t* v) {
-	__smp_unlock(v);
-}
-
-#else
-
-void smp_lock(int32_t* v) {
-	(void)v;
-}
-
-void smp_unlock(int32_t* v) {
-	(void)v;
-}
-#endif
 
 static int32_t _spin = 0;
 static int32_t _klock = 0;
@@ -65,13 +43,13 @@ inline int32_t kernel_lock_check(void) {
 }
 
 inline void kernel_lock(void) {
-	smp_lock(&_spin);
+	mcore_lock(&_spin);
 	_klock = 1;
 }
 
 inline void kernel_unlock(void) {
 	_klock = 0;
-	smp_unlock(&_spin);
+	mcore_unlock(&_spin);
 }
 
 inline void halt(void) {

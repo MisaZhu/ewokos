@@ -653,7 +653,11 @@ static void _svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_t arg2,
 
 inline void svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_t arg2, context_t* ctx, int32_t processor_mode) {
 	__irq_disable();
+#ifdef KERNEL_SMP
 	kernel_lock();
 	_svc_handler(code, arg0, arg1, arg2, ctx, processor_mode);
 	kernel_unlock();
+#else
+	_svc_handler(code, arg0, arg1, arg2, ctx, processor_mode);
+#endif
 }

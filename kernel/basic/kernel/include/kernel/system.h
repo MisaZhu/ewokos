@@ -16,8 +16,6 @@ extern void _delay_msec(uint32_t count);
 
 extern void set_translation_table_base(uint32_t);
 extern void flush_tlb(void);
-extern void smp_lock(int32_t* v);
-extern void smp_unlock(int32_t* v);
 
 extern int32_t kernel_lock_check(void);
 extern void kernel_lock(void);

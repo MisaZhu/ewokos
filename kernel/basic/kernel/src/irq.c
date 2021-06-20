@@ -39,7 +39,7 @@ static void _irq_handler(uint32_t cid, context_t* ctx) {
 	uint32_t irqs = gic_get_irqs();
 
 	//handle irq
-	if((irqs & IRQ_TIMER0) != 0) {
+	if(cid == 0 && (irqs & IRQ_TIMER0) != 0) {
 		uint64_t usec = timer_read_sys_usec();
 		if(_kernel_usec == 0) {
 			_kernel_usec = usec;
@@ -83,12 +83,14 @@ inline void irq_handler(context_t* ctx) {
 #ifdef KERNEL_SMP
 	if(kernel_lock_check() > 0)
 		return;
-#endif
 
 	uint32_t cid = get_core_id();
 	kernel_lock();
 	_irq_handler(cid, ctx);
 	kernel_unlock();
+#else
+	_irq_handler(0, ctx);
+#endif
 }
 
 static void dump_ctx(context_t* ctx) {
