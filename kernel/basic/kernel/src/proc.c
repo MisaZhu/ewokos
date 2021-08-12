@@ -213,10 +213,6 @@ void proc_ready(proc_t* proc) {
 	proc->info.state = READY;
 	if(queue_in(&_ready_queue[proc->info.core], proc) == NULL)
 		queue_push_head(&_ready_queue[proc->info.core], proc);
-
-#ifdef KERNEL_SMP
-	ipi_send(proc->info.core);
-#endif
 }
 
 proc_t* proc_get_core_ready(uint32_t core_id) {
