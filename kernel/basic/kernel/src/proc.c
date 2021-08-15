@@ -249,19 +249,6 @@ proc_t* proc_get_next_ready(void) {
 			return cproc;
 	}
 
-	if(next == NULL) {
-		int32_t i;
-		for (i = 0; i < PROC_MAX; i++) {
-			proc_t* n = &_proc_table[i];
-			if(n->info.core == core_id) {
-				if(n->info.state == BLOCK) {
-					next = n;
-					next->info.state = READY;
-					break;
-				}
-			}
-		}
-	}
 	return next;
 }
 

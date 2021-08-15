@@ -13,15 +13,12 @@ int32_t schedule(context_t* ctx) {
 	}
 
 	if(next != NULL) {
-		//if(next != cproc) {
-			next->info.state = RUNNING;
-			proc_switch(ctx, next, false);
-		//}
+		next->info.state = RUNNING;
+		proc_switch(ctx, next, false);
 		return 0;
 	}
 
 	set_current_proc(NULL);
-	kernel_unlock();
 	__irq_enable();
 	set_translation_table_base(V2P((uint32_t)_kernel_vm));
 	halt();
