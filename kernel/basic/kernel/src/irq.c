@@ -35,7 +35,7 @@ void ipi_send_all(void) {
 }
 #endif
 
-static void _irq_handler(uint32_t cid, context_t* ctx) {
+static inline void _irq_handler(uint32_t cid, context_t* ctx) {
 	uint32_t irqs = gic_get_irqs();
 
 	//handle irq
