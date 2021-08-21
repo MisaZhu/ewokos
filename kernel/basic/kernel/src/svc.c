@@ -502,7 +502,7 @@ static int32_t sys_romfs_get(uint32_t index, char* name, char* data) {
 }
 #endif
 
-static void _svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_t arg2, context_t* ctx, int32_t processor_mode) {
+static inline void _svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_t arg2, context_t* ctx, int32_t processor_mode) {
 	(void)processor_mode;
 	_svc_tic++;
 
