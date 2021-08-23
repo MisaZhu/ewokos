@@ -3,7 +3,6 @@
 #include <kernel/kernel.h>
 #include <kernel/hw_info.h>
 #include <dev/dev.h>
-#include <bcm283x/ipi.h>
 #include "timer_arch.h"
 
 #define CORE0_TIMER__irqCNTL 0x40000040
@@ -44,14 +43,3 @@ inline uint32_t gic_get_irqs(void) {
 	return ret;
 }
 
-void ipi_enable(uint32_t core_id) {
-	bcm283x_ipi_enable(core_id);
-}
-
-void ipi_clear(uint32_t core_id) {
-	bcm283x_ipi_clear(core_id);
-}
-
-void ipi_send(uint32_t core_id) {
-	bcm283x_ipi_send(core_id);
-}
