@@ -15,8 +15,8 @@
 
 uint32_t _kernel_sec = 0;
 uint64_t _kernel_usec = 0;
-static uint32_t _schedule_tic = 0;
-static uint32_t _timer_tic = 0;
+static uint64_t _schedule_tic = 0;
+static uint64_t _timer_tic = 0;
 
 #ifdef KERNEL_SMP
 void ipi_enable_all(void) {

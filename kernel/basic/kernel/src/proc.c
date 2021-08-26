@@ -257,7 +257,6 @@ proc_t* proc_get_next_ready(void) {
 			next->info.state = READY;
 		}
 	}
-
 	return next;
 }
 

@@ -388,7 +388,7 @@ int device_run(vdevice_t* dev, const char* mnt_point, int mnt_type) {
 			//ipc_lock();
 			dev->loop_step(dev->extra_data);
 			//ipc_unlock();
-			usleep(10000);
+			usleep(3000);
 		}
 		else {
 			proc_block(getpid(), (uint32_t)dev);
