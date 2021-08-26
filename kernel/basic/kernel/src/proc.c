@@ -249,6 +249,15 @@ proc_t* proc_get_next_ready(void) {
 			return cproc;
 	}
 
+	if(next == NULL) {
+		if(core_id == 0 && _core_proc_ready) {
+			next = &_proc_table[_core_proc_pid];
+			if(next->info.state == UNUSED || next->info.state == ZOMBIE || next->info.state == CREATED)
+				return NULL;
+			next->info.state = READY;
+		}
+	}
+
 	return next;
 }
 
