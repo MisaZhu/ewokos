@@ -42,8 +42,10 @@ static int uart_write(int fd, int from_pid, fsinfo_t* info,
 }
 
 static int uart_loop_raw(void) {
-	if(bcm283x_pl011_uart_ready_to_recv() != 0)
+	if(bcm283x_pl011_uart_ready_to_recv() != 0) {
+		usleep(3000);
 		return 0;
+	}
 
 	char c = bcm283x_pl011_uart_recv();
 	if(c == 0) 
@@ -57,7 +59,6 @@ static int uart_loop_raw(void) {
 static int uart_loop(void*p) {
 	(void)p;
 	int res = uart_loop_raw();
-	//usleep(30000);
 	return res;
 }
 
