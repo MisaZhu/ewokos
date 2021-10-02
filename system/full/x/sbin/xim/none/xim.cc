@@ -3,6 +3,7 @@
 #include <fcntl.h>
 #include <stdio.h>
 #include <sys/vdevice.h>
+#include <sys/klog.h>
 #include <x/xclient.h>
 
 class XIM {
@@ -25,7 +26,7 @@ public:
 		x_pid = -1;
 		keybFD = -1;
 		while(true) {
-			keybFD = open("/dev/keyb0", O_RDONLY);
+			keybFD = open("/dev/keyb0", O_RDONLY | O_NONBLOCK);
 			if(keybFD > 0)
 				break;
 			usleep(300000);
@@ -46,9 +47,10 @@ public:
 
 		char v;
 		int rd = ::read(keybFD, &v, 1);
-		if(rd == 1) {
+		if(rd == 1) 
 			input(v);
-		}
+		else
+			usleep(10000);
 	}
 };
 
