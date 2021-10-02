@@ -1,6 +1,6 @@
 #include <stdlib.h>
 #include <sys/ipc.h>
-#include <sys/proc.h>
+#include <sys/core.h>
 #include <string.h>
 
 const char* getenv(const char* name) {
@@ -11,7 +11,7 @@ const char* getenv(const char* name) {
 	PF->init(&out);
 	PF->init(&in)->adds(&in, name);
 
-	int res = ipc_call(get_procd_pid(), PROC_CMD_GET_ENV, &in, &out);
+	int res = ipc_call(get_cored_pid(), CORE_CMD_GET_ENV, &in, &out);
 	PF->clear(&in);
 	if(res == 0) {
 		if(proto_read_int(&out) == 0) {

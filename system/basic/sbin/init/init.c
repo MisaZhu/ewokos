@@ -197,19 +197,6 @@ static void run_vfsd(void) {
 	out("[ok]\n");
 }
 
-int procd_main(void);
-static void run_procd(void) {
-	out("run init-procd    ");
-	int pid = fork();
-	if(pid == 0) {
-		syscall1(SYS_PROC_SET_CMD, (int32_t)"init-procd");
-		procd_main();
-	}
-	else
-		proc_wait_ready(pid);
-	out("[ok]\n");
-}
-
 void romfsd_main(void);
 void sdfsd_main(void);
 static void init_rootfs(void) {
@@ -272,7 +259,6 @@ int main(int argc, char** argv) {
 	out("\n[init process started]\n");
 	syscall1(SYS_PROC_SET_CMD, (int32_t)"init");
 	run_core();
-	run_procd();
 	run_vfsd();
 
 	//load procs before file system ready

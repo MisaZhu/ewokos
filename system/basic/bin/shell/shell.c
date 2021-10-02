@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <sys/vfs.h>
+#include <sys/core.h>
 #include <sys/ipc.h>
 #include <sys/proc.h>
 #include <vprintf.h>
@@ -187,8 +188,8 @@ static int cd(const char* dir) {
 static void export_all(void) {
 	proto_t out;
 	PF->init(&out);
-	int pid =  ipc_serv_get(IPC_SERV_PROC);
-	int res = ipc_call(pid, PROC_CMD_GET_ENVS, NULL, &out);
+	int core_pid = syscall0(SYS_CORE_PID);
+	int res = ipc_call(core_pid, CORE_CMD_GET_ENVS, NULL, &out);
 	if(res != 0) {
 		PF->clear(&out);
 		return;

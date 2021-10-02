@@ -38,6 +38,7 @@ LIB_EWOKSYS_OBJS = sys/src/syscall.o \
 	sys/src/thread.o \
 	sys/src/basic_math.o \
 	sys/src/shm.o \
+	sys/src/core.o \
 	sys/src/proc.o \
 	sys/src/lockc.o \
 	sys/src/wait.o \

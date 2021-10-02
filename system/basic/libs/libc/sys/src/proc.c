@@ -7,19 +7,10 @@
 extern "C" {
 #endif
 
-
-static int _procd_pid;
 static int _vfsd_pid;
 
 void proc_init(void) {
-	_procd_pid = -1;
 	_vfsd_pid = -1;
-}
-
-inline int get_procd_pid(void) {
-	if(_procd_pid < 0)
-		_procd_pid = ipc_serv_get(IPC_SERV_PROC);
-	return _procd_pid;
 }
 
 inline int get_vfsd_pid(void) {
