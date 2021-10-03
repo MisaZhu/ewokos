@@ -944,8 +944,10 @@ static int xserver_step(void* p) {
 	if(fb_info(&x->fb, &w, &h, &bpp) != 0)
 		return -1;
 
-	if(x->g != NULL && w == x->g->w && h == x->g->h)
+	if(x->g != NULL && w == x->g->w && h == x->g->h) {
+		usleep(100000);
 		return 0;
+	}
 
 	x_reset(x);
 	x_dirty(x);

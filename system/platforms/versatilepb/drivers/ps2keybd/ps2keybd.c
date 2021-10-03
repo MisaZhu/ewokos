@@ -122,6 +122,9 @@ int keyb_step(void* p) {
 	if(c != 0) {
 		charbuf_push(&_buffer, c, true);
 	}
+	else {
+		usleep(30000);
+	}
 	return 0;
 }
 
