@@ -277,6 +277,14 @@ static void sys_ipc_call(context_t* ctx, int32_t pid, int32_t call_id, proto_t* 
 	if(proc == NULL || proc->space->ipc.entry == 0)
 		return;
 
+	ipc_t* ipc = proc_ipc_req(cproc);
+	if(ipc->uid == 0)
+		ipc->uid = proc->space->ipc.uid;
+	else if(ipc->uid != 0 &&  ipc->uid != proc->space->ipc.uid) { //server proc not exist anymore
+		proc_ipc_close(ipc);
+		return;
+	}
+
 	if(proc->info.ipc_state != IPC_IDLE) {
 		ctx->gpr[0] = -1; //busy for single task , should retry
 		proc_block_on(ctx, pid, (uint32_t)&proc->space->ipc);
@@ -285,7 +293,6 @@ static void sys_ipc_call(context_t* ctx, int32_t pid, int32_t call_id, proto_t* 
 	}
 
 	proc->info.ipc_state = IPC_BUSY;
-	ipc_t* ipc = proc_ipc_req(cproc);
 	ipc->state = IPC_BUSY;
 	ipc->call_id = call_id;
 	ipc->client_pid = cproc->info.pid;
@@ -302,8 +309,17 @@ static int32_t sys_ipc_get_return(ipc_t* ipc, proto_t* data) {
 	if(ipc == NULL ||
 			ipc->client_pid != cproc->info.pid ||
 			ipc->state == IPC_IDLE) {
+		proc_ipc_close(ipc);
 		return -2;
 	}
+
+	proc_t* serv_proc = proc_get(ipc->server_pid);
+
+	if(serv_proc == NULL || ipc->uid != serv_proc->space->ipc.uid) {
+		proc_ipc_close(ipc);
+		return -2;
+	}
+
 	
 	if(ipc->state != IPC_RETURN) {
 		return -1;
@@ -324,6 +340,7 @@ static void sys_ipc_set_return(ipc_t* ipc, proto_t* data) {
 	proc_t* cproc = get_current_proc();
 	if(cproc->info.ipc_state != IPC_BUSY ||
 			ipc == NULL || 
+			ipc->uid != cproc->space->ipc.uid ||
 			cproc->space->ipc.entry == 0 ||
 			ipc->state != IPC_BUSY) {
 		return;
@@ -356,7 +373,7 @@ static void sys_ipc_end(context_t* ctx, ipc_t* ipc) {
 	proc_wakeup(cproc->info.pid, (uint32_t)&cproc->space->ipc);
 	proc_ready(proc);
 
-	if(ipc != NULL) {
+	if(ipc != NULL) {// && ipc->uid == cproc->space->ipc.uid) {
 		ipc->state = IPC_RETURN;
 		proc_wakeup(cproc->info.pid, (uint32_t)ipc);
 		if(proc != NULL) {

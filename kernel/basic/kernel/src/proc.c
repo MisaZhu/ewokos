@@ -23,10 +23,12 @@ static uint32_t _use_core_id = 0;
 
 bool _core_proc_ready = false;
 int32_t _core_proc_pid = -1;
+uint32_t _ipc_uid = 0;
 
 /* proc_init initializes the process sub-system. */
 void procs_init(void) {
 	_use_core_id = 0;
+	_ipc_uid = 0;
 	_core_proc_ready = false;
 	int32_t i;
 	for (i = 0; i < PROC_MAX; i++) {

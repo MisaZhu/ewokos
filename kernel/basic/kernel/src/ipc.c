@@ -8,6 +8,8 @@
 int32_t proc_ipc_setup(context_t* ctx, uint32_t entry, uint32_t extra_data, uint32_t flags) {
 	(void)ctx;
 	proc_t* cproc = get_current_proc();
+	_ipc_uid++;
+	cproc->space->ipc.uid = _ipc_uid;
 	cproc->space->ipc.entry = entry;
 	cproc->space->ipc.extra_data = extra_data;
 	cproc->space->ipc.flags = flags;
@@ -40,5 +42,6 @@ ipc_t* proc_ipc_req(proc_t* proc) {
 }
 
 void proc_ipc_close(ipc_t* ipc) {
+	memset(ipc, 0, sizeof(ipc_t));
 	ipc->state = IPC_IDLE;
 }

@@ -29,6 +29,7 @@ typedef struct {
 	int32_t shms[SHM_MAX];
 
 	struct {
+		uint32_t  uid;
 		uint32_t  entry;
 		uint32_t  flags;
 	  uint32_t  ipc;
@@ -64,6 +65,7 @@ typedef struct st_proc {
 extern proc_t* get_current_proc(void);
 extern bool _core_proc_ready;
 extern int32_t _core_proc_pid;
+extern uint32_t _ipc_uid;
 
 extern void    procs_init(void);
 extern int32_t proc_load_elf(proc_t *proc, const char *proc_image, uint32_t size);
