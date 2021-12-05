@@ -311,6 +311,7 @@ static int32_t sys_ipc_get_return(ipc_t* ipc, proto_t* data) {
 			ipc->client_pid != cproc->info.pid ||
 			ipc->state == IPC_IDLE) {
 		proc_ipc_close(ipc);
+		cproc->ipc_client = NULL;
 		return -2;
 	}
 
@@ -318,6 +319,7 @@ static int32_t sys_ipc_get_return(ipc_t* ipc, proto_t* data) {
 
 	if(serv_proc == NULL || ipc->uid != serv_proc->space->ipc_server.uid) {
 		proc_ipc_close(ipc);
+		cproc->ipc_client = NULL;
 		return -2;
 	}
 
@@ -334,6 +336,7 @@ static int32_t sys_ipc_get_return(ipc_t* ipc, proto_t* data) {
 		}
 	}
 	proc_ipc_close(ipc);
+	cproc->ipc_client = NULL;
 	return 0;
 }
 
