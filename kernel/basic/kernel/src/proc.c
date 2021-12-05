@@ -108,17 +108,17 @@ void proc_switch(context_t* ctx, proc_t* to, bool quick){
 	if(to == NULL)
 		return;
 	
-	if(to->space->ipc.ipc != 0) {
-		uint32_t ipc = to->space->ipc.ipc;
-		to->space->ipc.ipc = 0;
-		to->space->ipc.state = to->info.state;
-		memcpy(&to->space->ipc.ctx, &to->ctx, sizeof(context_t));
+	if(to->space->ipc_server.ipc != 0) {
+		uint32_t ipc = to->space->ipc_server.ipc;
+		to->space->ipc_server.ipc = 0;
+		to->space->ipc_server.state = to->info.state;
+		memcpy(&to->space->ipc_server.ctx, &to->ctx, sizeof(context_t));
 		to->ctx.gpr[0] = ipc;
-		to->ctx.gpr[1] = to->space->ipc.extra_data;
-		to->ctx.pc = to->ctx.lr = to->space->ipc.entry;
+		to->ctx.gpr[1] = to->space->ipc_server.extra_data;
+		to->ctx.pc = to->ctx.lr = to->space->ipc_server.entry;
 
 		if(to == cproc) {
-			memcpy(&to->space->ipc.ctx, ctx, sizeof(context_t));
+			memcpy(&to->space->ipc_server.ctx, ctx, sizeof(context_t));
 			memcpy(ctx, &to->ctx, sizeof(context_t));
 			return;
 		}
@@ -350,7 +350,12 @@ void proc_exit(context_t* ctx, proc_t *proc, int32_t res) {
 
 	/*free user_stack*/
 	proc_free_user_stack(proc);
+
+	/*free all ipc context*/
+	if(proc->ipc_client != NULL)
+		proc_ipc_close(proc->ipc_client);
 	proto_clear(&proc->ipc_ctx.data);
+
 	proc_free_space(proc);
 	memset(proc, 0, sizeof(proc_t));
 	if(_current_proc[core] == proc)

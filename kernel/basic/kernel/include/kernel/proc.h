@@ -36,7 +36,7 @@ typedef struct {
 		uint32_t  extra_data;
 		context_t ctx;
 	  uint32_t  state;
-	} ipc;
+	} ipc_server;
 
 	struct {
 		uint32_t  entry;
@@ -60,6 +60,7 @@ typedef struct st_proc {
 
 	context_t ctx;
 	ipc_t ipc_ctx;
+	ipc_t* ipc_client;
 } proc_t;
 
 extern proc_t* get_current_proc(void);
