@@ -57,7 +57,7 @@ static inline void _irq_handler(uint32_t cid, context_t* ctx) {
 			if(_schedule_tic >= 20000) { //20 msec, 50 times scheduling per second
 				_schedule_tic = 0;
 			}
-			renew_sleep_counter(usec_gap);
+			renew_kernel_tic(usec_gap);
 		}
 		timer_clear_interrupt(0);
 		if(_schedule_tic == 0) {

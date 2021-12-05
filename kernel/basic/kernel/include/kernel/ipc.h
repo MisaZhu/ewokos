@@ -9,6 +9,7 @@ struct st_proc;
 
 typedef	struct {
 	uint32_t uid;
+	uint64_t usec;
 	uint32_t state;
 	proto_t data;
 	int32_t  server_pid;

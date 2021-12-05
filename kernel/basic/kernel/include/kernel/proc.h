@@ -95,7 +95,7 @@ extern proc_t* kfork(context_t* ctx, int32_t type);
 
 extern procinfo_t* get_procs(int32_t* num);
 
-extern void    renew_sleep_counter(uint32_t usec);
+extern void    renew_kernel_tic(uint32_t usec);
 extern void    proc_usleep(context_t* ctx, uint32_t usec);
 extern void    proc_ready(proc_t* proc);
 
