@@ -71,7 +71,7 @@
 	"cd kernel/build/{arch}; make":
 	  build EwokOS kernel image.
 	"make run":
-	  run EwokOS;
+	  run EwokOS(username: root, password: ewokos);
 	"make debug":
 	  run EwokOS at debug server-mode.
 	"make gdb":
