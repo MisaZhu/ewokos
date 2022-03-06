@@ -473,16 +473,12 @@ static void sys_get_kevent(context_t* ctx) {
 
 static void sys_proc_block(context_t* ctx, int32_t pid, uint32_t evt) {
 	proc_t* cproc = get_current_proc();
-	proc_t* proc = NULL;
-	if(pid == cproc->info.pid)
-		proc = cproc;
-	else
-		proc = proc_get_proc(proc_get(pid));
+	proc_t* proc_by = proc_get_proc(proc_get(pid));
 
-	if(proc->space->ipc_server.ipc == 0) {
-		proc->info.state = BLOCK;
-		proc->block_event = evt;
-		proc->info.block_by = cproc->info.pid;
+	if(proc_by != NULL) {
+		cproc->info.state = BLOCK;
+		cproc->block_event = evt;
+		cproc->info.block_by = proc_by->info.pid;
 	}
 	schedule(ctx);	
 }

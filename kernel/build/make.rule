@@ -22,7 +22,7 @@ BUILD_DIR = .
 # flags
 
 ifeq ($(DEBUG),yes)
-OPTM = -g
+OPTM = -g -DKDEBUG
 else
 OPTM = -O2
 endif

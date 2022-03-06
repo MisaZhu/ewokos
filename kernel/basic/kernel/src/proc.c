@@ -727,7 +727,9 @@ static void check_ipc_timeout(uint32_t usec) {
 		if(proc->ipc_client != NULL && proc->ipc_client->state != IPC_IDLE) {
 			proc->ipc_client->usec += usec;
 			if(proc->ipc_client->usec > IPC_TIMEOUT) {
+#ifdef K_DEBUG
 				printf("ipc time out: c:%d s: %d\n", proc->ipc_client->client_pid, proc->ipc_client->server_pid);
+#endif
 				proc->ipc_client->client_pid = 0; //set proc ipc terminated.
 				proc_wakeup(proc->info.pid, 0);
 			}
