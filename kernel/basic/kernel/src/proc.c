@@ -704,7 +704,7 @@ procinfo_t* get_procs(int32_t *num) {
 	return procs;
 }
 
-static void renew_sleep_counter(uint32_t usec) {
+static void renew_sleep_counter(uint64_t usec) {
 	int i;
 	for(i=0; i<PROC_MAX; i++) {
 		proc_t* proc = &_proc_table[i];
@@ -718,16 +718,16 @@ static void renew_sleep_counter(uint32_t usec) {
 	}
 }
 
-#define IPC_TIMEOUT 300000
+#define IPC_TIMEOUT 30000000u
 
-static void check_ipc_timeout(uint32_t usec) {
+static void check_ipc_timeout(uint64_t usec) {
 	int i;
 	for(i=0; i<PROC_MAX; i++) {
 		proc_t* proc = &_proc_table[i];
 		if(proc->ipc_client != NULL && proc->ipc_client->state != IPC_IDLE) {
 			proc->ipc_client->usec += usec;
 			if(proc->ipc_client->usec > IPC_TIMEOUT) {
-#ifdef K_DEBUG
+#ifdef KDEBUG
 				printf("ipc time out: c:%d s: %d\n", proc->ipc_client->client_pid, proc->ipc_client->server_pid);
 #endif
 				proc->ipc_client->client_pid = 0; //set proc ipc terminated.
@@ -737,7 +737,7 @@ static void check_ipc_timeout(uint32_t usec) {
 	}
 }
 
-void renew_kernel_tic(uint32_t usec) {
+void renew_kernel_tic(uint64_t usec) {
 	renew_sleep_counter(usec);	
 	check_ipc_timeout(usec);
 }
