@@ -102,7 +102,7 @@ protected:
 		dev_cntl_by_pid(xPid, X_DCNTL_INPUT, &in, NULL);
 		PF->clear(&in);
 	}
-
+/*
 	void keyMove(char c) {
 		if(keySelect < 0)
 			keySelect = 0;
@@ -138,6 +138,7 @@ protected:
 			keySelect = strlen(keytable)-1;
 		repaint();
 	}
+	*/
 
 public:
 	inline XIMX() {
@@ -178,7 +179,7 @@ public:
 		char v;
 		int rd = read(keybFD, &v, 1);
 		if(rd == 1) {
-			if(v == KEY_UP || v == KEY_DOWN ||
+			/*if(v == KEY_UP || v == KEY_DOWN ||
 					v == KEY_LEFT || v == KEY_RIGHT ||
 					v == KEY_ENTER) {
 				keyMove(v);
@@ -186,6 +187,7 @@ public:
 					usleep(100000);
 			}
 			else
+			*/
 				input(v);
 		}
 	}

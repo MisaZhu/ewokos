@@ -28,9 +28,6 @@ static int joystick_read(int fd, int from_pid, fsinfo_t* info,
 	(void)size;
 	(void)p;
 
-	if(bcm283x_gpio_read(KEY3_PIN) != 0)
-		return ERR_RETRY;
-
 	char* rd = (char*)buf;
 	*rd = 0;
 
@@ -45,9 +42,11 @@ static int joystick_read(int fd, int from_pid, fsinfo_t* info,
 	else if(bcm283x_gpio_read(KEY_PRESS_PIN) == 0)
 		*rd = KEY_ENTER;
 	else if(bcm283x_gpio_read(KEY1_PIN) == 0)
-		*rd = KEY_ESC;
+		*rd = KEY_ENTER;
 	else if(bcm283x_gpio_read(KEY2_PIN) == 0)
 		*rd = KEY_BACKSPACE;
+	else if(bcm283x_gpio_read(KEY3_PIN) == 0)
+		*rd = KEY_ESC;
 	return 1;
 }
 
