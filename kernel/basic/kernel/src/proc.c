@@ -727,11 +727,9 @@ static void check_ipc_timeout(uint32_t usec) {
 		if(proc->ipc_client != NULL && proc->ipc_client->state != IPC_IDLE) {
 			proc->ipc_client->usec += usec;
 			if(proc->ipc_client->usec > IPC_TIMEOUT) {
-				proc_t* server_proc = proc_get(proc->ipc_client->server_pid);
-				if(server_proc != NULL)
-					proc_wakeup(proc->ipc_client->server_pid, (uint32_t)&server_proc->space->ipc_server);
 				printf("ipc time out: c:%d s: %d\n", proc->ipc_client->client_pid, proc->ipc_client->server_pid);
-				proc_ipc_close(proc->ipc_client);
+				proc->ipc_client->client_pid = 0; //set proc ipc terminated.
+				proc_wakeup(proc->info.pid, 0);
 			}
 		}
 	}

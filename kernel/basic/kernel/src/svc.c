@@ -375,7 +375,9 @@ static void sys_ipc_end(context_t* ctx, ipc_t* ipc) {
 
 	cproc->info.ipc_state = IPC_IDLE;
 	proc_wakeup(cproc->info.pid, (uint32_t)&cproc->space->ipc_server);
-	proc_ready(proc);
+
+	if(proc != NULL)
+		proc_ready(proc);
 
 	if(ipc != NULL) {// && ipc->uid == cproc->space->ipc_server.uid) {
 		ipc->state = IPC_RETURN;
