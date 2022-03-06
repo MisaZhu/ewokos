@@ -17,6 +17,7 @@
 #define KEY3_PIN        16
 
 static bool _j_x_rev = false;
+static bool _j_arrow = true;
 static bool _j_y_rev = false;
 
 static int joystick_read(int fd, int from_pid, fsinfo_t* info,
@@ -31,17 +32,20 @@ static int joystick_read(int fd, int from_pid, fsinfo_t* info,
 	char* rd = (char*)buf;
 	*rd = 0;
 
-	if(bcm283x_gpio_read(KEY_UP_PIN) == 0)
-		*rd = _j_y_rev ? KEY_DOWN:KEY_UP;
-	else if(bcm283x_gpio_read(KEY_DOWN_PIN) == 0)
-		*rd = _j_y_rev ? KEY_UP:KEY_DOWN;
-	else if(bcm283x_gpio_read(KEY_LEFT_PIN) == 0)
-		*rd = _j_x_rev ? KEY_RIGHT:KEY_LEFT;
-	else if(bcm283x_gpio_read(KEY_RIGHT_PIN) == 0)
-		*rd = _j_x_rev ? KEY_LEFT:KEY_RIGHT;
-	else if(bcm283x_gpio_read(KEY_PRESS_PIN) == 0)
-		*rd = KEY_ENTER;
-	else if(bcm283x_gpio_read(KEY1_PIN) == 0)
+	if(_j_arrow) {
+		if(bcm283x_gpio_read(KEY_UP_PIN) == 0)
+			*rd = _j_y_rev ? KEY_DOWN:KEY_UP;
+		else if(bcm283x_gpio_read(KEY_DOWN_PIN) == 0)
+			*rd = _j_y_rev ? KEY_UP:KEY_DOWN;
+		else if(bcm283x_gpio_read(KEY_LEFT_PIN) == 0)
+			*rd = _j_x_rev ? KEY_RIGHT:KEY_LEFT;
+		else if(bcm283x_gpio_read(KEY_RIGHT_PIN) == 0)
+			*rd = _j_x_rev ? KEY_LEFT:KEY_RIGHT;
+		else if(bcm283x_gpio_read(KEY_PRESS_PIN) == 0)
+			*rd = KEY_ENTER;
+	}
+
+	if(bcm283x_gpio_read(KEY1_PIN) == 0)
 		*rd = KEY_ENTER;
 	else if(bcm283x_gpio_read(KEY2_PIN) == 0)
 		*rd = KEY_BACKSPACE;
@@ -84,7 +88,11 @@ int main(int argc, char** argv) {
 
 	_j_x_rev = false;
 	_j_y_rev = false;
-	if(argc > 2 && strstr(argv[2], "rev") != NULL) {
+	_j_arrow = true;
+	if(argc > 2 && strstr(argv[2], "no_arrow") != NULL) {
+		_j_arrow = false;
+	}
+	else if(argc > 2 && strstr(argv[2], "rev") != NULL) {
     if(strchr(argv[2], 'x') != NULL)
       _j_x_rev = true;
     if(strchr(argv[2], 'y') != NULL)
