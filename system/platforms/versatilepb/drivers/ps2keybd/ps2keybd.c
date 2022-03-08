@@ -123,7 +123,7 @@ int keyb_step(void* p) {
 		charbuf_push(&_buffer, c, true);
 	}
 	else {
-		usleep(30000);
+		usleep(50000);
 	}
 	return 0;
 }

@@ -274,7 +274,9 @@ void core(void) {
 			handle_event(kev);
 			free(kev);
 		}
-		usleep(10000);
+		else {
+			sleep(0);
+		}
 	}
 
 	hashmap_free(_ipc_servs);

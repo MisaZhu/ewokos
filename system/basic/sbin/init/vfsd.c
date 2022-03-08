@@ -1034,6 +1034,8 @@ int vfsd_main(void) {
 		//ipc_unlock();
 		if( res == 0)
 			handle_close_event(&ev);
+		else
+			usleep(50000);
 	}
 	return 0;
 }
