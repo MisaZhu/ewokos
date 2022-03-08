@@ -385,7 +385,7 @@ static void sys_ipc_end(context_t* ctx, ipc_t* ipc) {
 		proc_wakeup(cproc->info.pid, (uint32_t)ipc);
 		if(proc != NULL) {
 			if(proc->info.core == cproc->info.core) {
-				proc_switch(ctx, proc, SWITCH_NORMAL, true);
+				proc_switch(ctx, proc, true);
 				return;
 			}
 		}

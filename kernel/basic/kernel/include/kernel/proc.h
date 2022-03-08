@@ -19,13 +19,6 @@ enum {
 	SIG_STATE_BUSY
 };
 
-enum {
-	SWITCH_NORMAL = 0,
-	SWITCH_IPC,
-	SWITCH_SIG,
-	SWITCH_INT
-};
-
 typedef struct {
 	page_dir_entry_t *vm;
 	malloc_t malloc_man;
@@ -85,7 +78,7 @@ extern int32_t proc_load_elf(proc_t *proc, const char *proc_image, uint32_t size
 extern int32_t proc_start(proc_t* proc, uint32_t entry);
 extern proc_t* proc_get_next_ready(void);
 extern proc_t* proc_get_core_ready(uint32_t core_id);
-extern void    proc_switch(context_t* ctx, proc_t* to, uint32_t type,  bool quick);
+extern void    proc_switch(context_t* ctx, proc_t* to, bool quick);
 extern void    set_current_proc(proc_t* proc);
 extern void    proc_flush_tlb(proc_t *proc);
 extern int32_t proc_expand_mem(proc_t *proc, int32_t page_num);

@@ -39,7 +39,7 @@ void  interrupt_send(context_t* ctx, int32_t interrupt, uint32_t data) {
 	proc->ctx.gpr[1] = data;
 	if(proc != cproc) {
 		proc->info.state = RUNNING;
-		proc_switch(ctx, proc, SWITCH_INT, true);
+		proc_switch(ctx, proc, true);
 	}
 	else {
 		memcpy(ctx, &proc->space->interrupt.ctx, sizeof(context_t));
