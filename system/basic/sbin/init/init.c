@@ -26,6 +26,10 @@ static void out(const char *format, ...) {
   v_printf(outc, str, format, ap);
 	va_end(ap);
 	klog("%s", str->cstr);
+	if(_console_fd == -1234) //consoled inited and dup2 fd:2
+		dprintf(2, "%s", str->cstr);
+	else if(_console_fd > 0)
+		dprintf(_console_fd, "%s", str->cstr);
   str_free(str);;
 }
 
@@ -225,7 +229,7 @@ static void init_tty_stdio(void) {
 	if(_console_fd > 0) {
 		dup2(_console_fd, 2);
 		close(_console_fd);
-		_console_fd = -1;
+		_console_fd = -1234;
 	}
 	else
 		dup2(fd, 2);
