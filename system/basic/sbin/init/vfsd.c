@@ -1035,7 +1035,7 @@ int vfsd_main(void) {
 		if( res == 0)
 			handle_close_event(&ev);
 		else
-			usleep(50000);
+			sleep(0);
 	}
 	return 0;
 }

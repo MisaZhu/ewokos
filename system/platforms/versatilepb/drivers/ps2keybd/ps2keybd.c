@@ -121,9 +121,10 @@ int keyb_step(void* p) {
 	char c = keyb_handle(key_scode);
 	if(c != 0) {
 		charbuf_push(&_buffer, c, true);
+		proc_wakeup(0);
 	}
 	else {
-		usleep(50000);
+		usleep(30000);
 	}
 	return 0;
 }

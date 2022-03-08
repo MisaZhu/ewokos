@@ -38,7 +38,7 @@ void  interrupt_send(context_t* ctx, int32_t interrupt, uint32_t data) {
 	proc->ctx.gpr[0] = interrupt;
 	proc->ctx.gpr[1] = data;
 	if(proc != cproc) {
-		proc_ready(proc);
+		proc->info.state = RUNNING;
 		proc_switch(ctx, proc, SWITCH_INT, true);
 	}
 	else {

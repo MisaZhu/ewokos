@@ -26,7 +26,7 @@ public:
 		x_pid = -1;
 		keybFD = -1;
 		while(true) {
-			keybFD = open("/dev/keyb0", O_RDONLY | O_NONBLOCK);
+			keybFD = open("/dev/keyb0", O_RDONLY);
 			if(keybFD > 0)
 				break;
 			usleep(300000);
@@ -50,7 +50,7 @@ public:
 		if(rd == 1) 
 			input(v);
 		else
-			usleep(10000);
+			sleep(0);
 	}
 };
 

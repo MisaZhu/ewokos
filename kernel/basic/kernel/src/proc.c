@@ -111,7 +111,6 @@ void proc_switch(context_t* ctx, proc_t* to, uint32_t type, bool quick){
 	if(type == SWITCH_IPC && to->space->ipc_server.ipc != 0) {
 		uint32_t ipc = to->space->ipc_server.ipc;
 		to->space->ipc_server.ipc = 0;
-		to->space->ipc_server.state = to->info.state;
 		memcpy(&to->space->ipc_server.ctx, &to->ctx, sizeof(context_t));
 		to->ctx.gpr[0] = ipc;
 		to->ctx.gpr[1] = to->space->ipc_server.extra_data;

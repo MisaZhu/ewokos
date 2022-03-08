@@ -25,6 +25,7 @@ int32_t proc_ipc_call(context_t* ctx, proc_t* proc, ipc_t *ipc) {
 	cproc->block_event = (uint32_t)ipc;
 	cproc->info.block_by = proc->info.pid;
 	proc->space->ipc_server.ipc = (uint32_t)ipc;
+	proc->space->ipc_server.state = proc->info.state;
 	
 	if(proc->info.core == cproc->info.core) {
 		proc->info.state = RUNNING;

@@ -78,8 +78,8 @@ static int32_t sys_get_threadid(void) {
 }
 
 static void sys_usleep(context_t* ctx, uint32_t count) {
-	proc_t * cproc = get_current_proc();
-	if(cproc->space->ipc_server.ipc == 0)
+	//proc_t * cproc = get_current_proc();
+	//if(cproc->space->ipc_server.ipc == 0)
 		proc_usleep(ctx, count);
 }
 
@@ -362,8 +362,8 @@ static void sys_ipc_end(context_t* ctx, ipc_t* ipc) {
 	}
 
 	cproc->info.state = cproc->space->ipc_server.state;
-	if(cproc->space->ipc_server.state == READY || 
-			cproc->space->ipc_server.state == RUNNING)
+	if(cproc->info.state == READY || 
+			cproc->info.state == RUNNING)
 		proc_ready(cproc);
 
 	memcpy(ctx, &cproc->space->ipc_server.ctx, sizeof(context_t));

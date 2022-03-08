@@ -78,8 +78,10 @@ static int console_step(void* p) {
 	if(fb_info(&_console.fb, &w, &h, &bpp) != 0)
 		return -1;
 
-	if(_console.g != NULL && w == _console.g->w && h == _console.g->h)
+	if(_console.g != NULL && w == _console.g->w && h == _console.g->h) {
+		usleep(100000);
 		return 0;
+	}
 
 	if(reset_console(&_console) == 0 && _console.g != NULL) {
 		console_refresh(&_console.console, _console.g);

@@ -22,9 +22,10 @@ void  proc_signal_send(context_t* ctx, proc_t* proc, int32_t sig_no) {
 
 	proc->ctx.pc = proc->ctx.lr = proc->space->signal.entry;
 	proc->ctx.gpr[0] = sig_no;
-	proc->info.state = RUNNING;
-	if(proc != cproc)
+	if(proc != cproc) {
+		proc->info.state = RUNNING;
 		proc_switch(ctx, proc, SWITCH_SIG, true);
+	}
 	else 
 		memcpy(ctx, &proc->space->signal.ctx, sizeof(context_t));
 }
