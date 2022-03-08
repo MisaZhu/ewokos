@@ -1,4 +1,5 @@
 #include <kernel/kernel.h>
+#include <kernel/interrupt.h>
 #include <kernel/svc.h>
 #include <kernel/schedule.h>
 #include <kernel/system.h>
@@ -384,7 +385,7 @@ static void sys_ipc_end(context_t* ctx, ipc_t* ipc) {
 		proc_wakeup(cproc->info.pid, (uint32_t)ipc);
 		if(proc != NULL) {
 			if(proc->info.core == cproc->info.core) {
-				proc_switch(ctx, proc, true);
+				proc_switch(ctx, proc, SWITCH_NORMAL, true);
 				return;
 			}
 		}
@@ -520,6 +521,18 @@ static int32_t sys_romfs_get(uint32_t index, char* name, char* data) {
 	return romfs_get_by_index(index, name, data);
 }
 #endif
+
+static int32_t sys_interrupt_setup(uint32_t interrupt, uint32_t entry) {
+	proc_t * cproc = get_current_proc();
+	if(cproc->info.owner > 0)
+		return -1;
+	interrupt_setup(cproc->info.pid, interrupt, entry);
+	return 0;
+}
+
+static void sys_interrupt_end(context_t* ctx) {
+	interrupt_end(ctx);
+}
 
 static inline void _svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_t arg2, context_t* ctx, int32_t processor_mode) {
 	(void)processor_mode;
@@ -666,6 +679,12 @@ static inline void _svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_
 		return;
 	case SYS_KROMFS_GET:
 		ctx->gpr[0] = sys_romfs_get(arg0, (char*)arg1, (char*)arg2);
+		return;
+	case SYS_INTR_SETUP:
+		ctx->gpr[0] = sys_interrupt_setup((uint32_t)arg0, (uint32_t)arg1);
+		return;
+	case SYS_INTR_END:
+		sys_interrupt_end(ctx);
 		return;
 	}
 }

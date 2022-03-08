@@ -103,12 +103,12 @@ static void proc_init_space(proc_t* proc) {
 	proc->space->malloc_man.get_mem_tail = proc_get_mem_tail;
 }
 
-void proc_switch(context_t* ctx, proc_t* to, bool quick){
+void proc_switch(context_t* ctx, proc_t* to, uint32_t type, bool quick){
 	proc_t* cproc = get_current_proc();
 	if(to == NULL)
 		return;
 	
-	if(to->space->ipc_server.ipc != 0) {
+	if(type == SWITCH_IPC && to->space->ipc_server.ipc != 0) {
 		uint32_t ipc = to->space->ipc_server.ipc;
 		to->space->ipc_server.ipc = 0;
 		to->space->ipc_server.state = to->info.state;

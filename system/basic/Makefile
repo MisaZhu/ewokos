@@ -43,6 +43,7 @@ KERNEL_H = \
 	$(KERNEL_DIR)/include/proto_t.h \
 	$(KERNEL_DIR)/include/syscalls.h \
 	$(KERNEL_DIR)/include/signals.h \
+	$(KERNEL_DIR)/include/interrupt.h \
 	$(KERNEL_DIR)/include/sysinfo.h \
 	$(KERNEL_DIR)/include/kevent.h \
 	$(KERNEL_DIR)/include/procinfo.h

@@ -43,3 +43,7 @@ inline uint32_t gic_get_irqs(void) {
 	return ret;
 }
 
+void gic_get_data(uint32_t irq, uint32_t* data) {
+	(void)irq;
+	(void)data;
+}

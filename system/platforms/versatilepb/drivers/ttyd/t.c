@@ -8,7 +8,6 @@
 #include <sys/mmu.h>
 #include <sys/proc.h>
 #include <sys/ipc.h>
-#include <sys/interrupt.h>
 
 /* memory mapping for the serial port */
 #define UART0 ((volatile uint32_t*)(_mmio_base+0x001f1000))
@@ -31,6 +30,16 @@ static inline void uart_basic_trans(char c) {
   if(c == '\r')
     c = '\n';
   put8(UART0+UART_DATA, c);
+}
+
+int32_t uart_ready_to_recv(void) {
+  if((get8(UART0+UART_INT_TARGET) &  UART_RECEIVE) == 0)
+    return -1;
+  return 0;
+}
+
+int32_t uart_recv(void) {
+  return get32(UART0 + UART_DATA);
 }
 
 int32_t uart_write(const void* data, uint32_t size) {
@@ -73,11 +82,24 @@ static int tty_write(int fd, int from_pid, fsinfo_t* info,
 	return uart_write(buf, size);
 }
 
-static void interrupt_handle(uint32_t interrupt, uint32_t data) {
-	(void)interrupt;
-	charbuf_push(&_buffer, data, true);
+static int tty_loop_raw(void) {
+	if(uart_ready_to_recv() != 0)
+		return 0;
+
+	char c = uart_recv();
+	if(c == 0) 
+		return 0;
+
+	charbuf_push(&_buffer, c, true);
 	proc_wakeup(0);
-	sys_interrupt_end();
+	return 0;
+}
+
+static int tty_loop(void*p) {
+	(void)p;
+	int res = tty_loop_raw();
+	usleep(50000);
+	return res;
 }
 
 int main(int argc, char** argv) {
@@ -91,8 +113,8 @@ int main(int argc, char** argv) {
 	strcpy(dev.name, "tty");
 	dev.read = tty_read;
 	dev.write = tty_write;
+	dev.loop_step = tty_loop;
 
-	sys_interrupt_setup(SYS_INT_UART0, interrupt_handle);
 	device_run(&dev, mnt_point, FS_TYPE_CHAR);
 	return 0;
 }

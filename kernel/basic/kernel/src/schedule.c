@@ -14,7 +14,7 @@ int32_t schedule(context_t* ctx) {
 
 	if(next != NULL) {
 		next->info.state = RUNNING;
-		proc_switch(ctx, next, false);
+		proc_switch(ctx, next, SWITCH_NORMAL, false);
 		return 0;
 	}
 

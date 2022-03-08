@@ -33,6 +33,7 @@ LIB_EWOKSYS_OBJS = sys/src/syscall.o \
 	sys/src/vfs.o \
 	sys/src/ipc.o \
 	sys/src/signal.o \
+	sys/src/interrupt.o \
 	sys/src/vdevice.o \
 	sys/src/proto.o \
 	sys/src/thread.o \

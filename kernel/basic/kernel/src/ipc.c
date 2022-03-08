@@ -28,7 +28,7 @@ int32_t proc_ipc_call(context_t* ctx, proc_t* proc, ipc_t *ipc) {
 	
 	if(proc->info.core == cproc->info.core) {
 		proc->info.state = RUNNING;
-		proc_switch(ctx, proc, true);
+		proc_switch(ctx, proc, SWITCH_IPC, true);
 	}
 	else {
 		proc_ready(proc);

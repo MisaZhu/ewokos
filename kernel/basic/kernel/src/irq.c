@@ -2,11 +2,13 @@
 #include <dev/timer.h>
 #include <dev/uart.h>
 #include <kernel/irq.h>
+#include <kernel/interrupt.h>
 #include <kernel/system.h>
 #include <kernel/schedule.h>
 #include <kernel/kernel.h>
 #include <kernel/proc.h>
 #include <kernel/kevqueue.h>
+#include <kernel/interrupt.h>
 #include <string.h>
 #include <signals.h>
 #include <kernel/signal.h>
@@ -35,38 +37,51 @@ void ipi_send_all(void) {
 }
 #endif
 
+static inline void irq_do_uart0(context_t* ctx) {
+	uint32_t i;
+	gic_get_data(IRQ_UART0, &i);
+	interrupt_send(ctx, SYS_INT_UART0, i);
+}
+
+static inline void irq_do_timer0(context_t* ctx) {
+	uint64_t usec = timer_read_sys_usec();
+	if(_kernel_usec == 0) {
+		_kernel_usec = usec;
+	}
+	else {
+		uint64_t usec_gap = usec - _kernel_usec;
+		_kernel_usec = usec;
+		_schedule_tic += usec_gap;
+		_timer_tic += usec_gap;
+		if(_timer_tic >= 1000000) { //1 sec
+			_kernel_sec++;
+			_timer_tic = 0;
+		}
+
+		if(_schedule_tic >= 20000) { //20 msec, 50 times scheduling per second
+			_schedule_tic = 0;
+		}
+		renew_kernel_tic(usec_gap);
+	}
+	timer_clear_interrupt(0);
+	if(_schedule_tic == 0) {
+#ifdef KERNEL_SMP
+		ipi_send_all();
+#else
+		schedule(ctx);
+#endif
+	}
+}
+
 static inline void _irq_handler(uint32_t cid, context_t* ctx) {
 	uint32_t irqs = gic_get_irqs();
 
 	//handle irq
-	if(cid == 0 && (irqs & IRQ_TIMER0) != 0) {
-		uint64_t usec = timer_read_sys_usec();
-		if(_kernel_usec == 0) {
-			_kernel_usec = usec;
-		}
-		else {
-			uint64_t usec_gap = usec - _kernel_usec;
-			_kernel_usec = usec;
-			_schedule_tic += usec_gap;
-			_timer_tic += usec_gap;
-			if(_timer_tic >= 1000000) { //1 sec
-				_kernel_sec++;
-				_timer_tic = 0;
-			}
-
-			if(_schedule_tic >= 20000) { //20 msec, 50 times scheduling per second
-				_schedule_tic = 0;
-			}
-			renew_kernel_tic(usec_gap);
-		}
-		timer_clear_interrupt(0);
-		if(_schedule_tic == 0) {
-#ifdef KERNEL_SMP
-			ipi_send_all();
-#else
-			schedule(ctx);
-#endif
-		}
+	if((irqs & IRQ_UART0) != 0) {
+		irq_do_uart0(ctx);
+	}
+	else if(cid == 0 && (irqs & IRQ_TIMER0) != 0) {
+		irq_do_timer0(ctx);
 	}
 	else {
 #ifdef KERNEL_SMP
@@ -138,12 +153,13 @@ void data_abort_handler(context_t* ctx) {
 
 void irq_init(void) {
 	irq_arch_init();
+	interrupt_init();
 	_kernel_sec = 0;
 	_kernel_usec = 0;
 	_schedule_tic = 0;
 	_timer_tic = 0;
 	//gic_set_irqs( IRQ_UART0 | IRQ_TIMER0 | IRQ_KEY | IRQ_MOUSE | IRQ_SDC);
-	gic_set_irqs(IRQ_TIMER0);
+	gic_set_irqs(IRQ_TIMER0 | IRQ_UART0);
 
 #ifdef KERNEL_SMP
 	ipi_enable_all();
