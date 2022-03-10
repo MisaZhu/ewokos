@@ -1,4 +1,3 @@
-#include <dev/gic.h>
 #include <kernel/irq.h>
 #include <dev/uart.h>
 #include <kernel/kernel.h>
@@ -42,7 +41,7 @@ void irq_arch_init(void) {
 }
 
 
-inline void gic_set_irqs(uint32_t irqs) {
+inline void irq_enable(uint32_t irqs) {
 	(void)irqs;
   if((irqs & IRQ_TIMER0) != 0) {
   	enable_irq(64);
@@ -60,7 +59,7 @@ inline void gic_set_irqs(uint32_t irqs) {
 	*/
 }
 
-inline uint32_t gic_get_irqs(void) {
+inline uint32_t irq_gets(void) {
 	uint32_t ret = 0;
 	if(IRQ_IS_PENDING(_pic, 64)) {
 		ret |= IRQ_TIMER0;
@@ -74,7 +73,6 @@ inline uint32_t gic_get_irqs(void) {
 	return ret;
 }
 
-void gic_get_data(uint32_t irq, uint32_t* data) {
-	(void)irq;
-	(void)data;
+void irq_disable(uint32_t irqs) {
+	(void)irqs;
 }

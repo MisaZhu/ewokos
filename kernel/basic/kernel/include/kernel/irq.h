@@ -13,8 +13,6 @@
 #define IRQ_UART2  0x00000040
 #define IRQ_UART3  0x00000080
 
-#define IRQ_SIC    0x00000100
-
 #define IRQ_KEY    0x00000200
 #define IRQ_MOUSE  0x00000400
 #define IRQ_SDC    0x00000800
@@ -24,5 +22,10 @@ extern void prefetch_abort_handler(context_t* ctx);
 extern void data_abort_handler(context_t* ctx);
 extern void irq_init(void);
 extern void irq_arch_init(void);
+extern void irq_enable(uint32_t irq);
+extern void irq_disable(uint32_t irq);
+extern void irq_enable_cpsr(uint32_t* cpsr);
+extern void irq_disable_cpsr(uint32_t* cpsr);
+extern uint32_t irq_gets(void);
 
 #endif

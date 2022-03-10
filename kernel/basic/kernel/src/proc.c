@@ -12,7 +12,6 @@
 #include <kernel/elf.h>
 #include <kernel/core.h>
 #include <stddef.h>
-#include <dev/gic.h>
 
 static proc_t _proc_table[PROC_MAX];
 __attribute__((__aligned__(PAGE_DIR_SIZE))) 

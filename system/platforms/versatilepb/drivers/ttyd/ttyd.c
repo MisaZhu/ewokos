@@ -73,8 +73,9 @@ static int tty_write(int fd, int from_pid, fsinfo_t* info,
 	return uart_write(buf, size);
 }
 
-static void interrupt_handle(uint32_t interrupt, uint32_t data) {
+static void interrupt_handle(uint32_t interrupt) {
 	(void)interrupt;
+	uint32_t data = get32(UART0 + UART_DATA);
 	charbuf_push(&_buffer, data, true);
 	proc_wakeup(0);
 	sys_interrupt_end();

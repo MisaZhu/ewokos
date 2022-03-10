@@ -1,4 +1,3 @@
-#include <dev/gic.h>
 #include <kernel/irq.h>
 #include <kernel/kernel.h>
 #include <kernel/hw_info.h>
@@ -26,13 +25,9 @@ void irq_arch_init(void) {
 	routing_core0_irq();
 }
 
-inline void gic_set_irqs(uint32_t irqs) {
-	(void)irqs;
-}
-
 void __write_cntv_tval(uint32_t); 
 
-inline uint32_t gic_get_irqs(void) {
+inline uint32_t irq_gets(void) {
 	uint32_t ret = 0;
 	uint32_t pending = read_core0_pending();
 
@@ -43,7 +38,11 @@ inline uint32_t gic_get_irqs(void) {
 	return ret;
 }
 
-void gic_get_data(uint32_t irq, uint32_t* data) {
-	(void)irq;
-	(void)data;
+inline void irq_enable(uint32_t irqs) {
+	(void)irqs;
 }
+
+void irq_disable(uint32_t irqs) {
+	(void)irqs;
+}
+

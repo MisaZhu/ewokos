@@ -1,5 +1,4 @@
 #include <kernel/ipc.h>
-#include <dev/gic.h>
 #include <kernel/proc.h>
 #include <kernel/schedule.h>
 #include <stddef.h>

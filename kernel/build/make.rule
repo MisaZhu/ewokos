@@ -65,6 +65,7 @@ ARCH_OBJS = \
 	$(BSP_DIR)/$(BSP)/sd.o  \
 	$(BSP_DIR)/$(BSP)/uart.o \
 	$(ARCH_DIR)/arm/common/src/interrupt.o \
+	$(ARCH_DIR)/arm/common/src/irq.o \
 	$(ARCH_DIR)/arm/common/src/memcpy.o \
 	$(ARCH_DIR)/arm/common/src/mmu_arch.o \
 	$(BSP_DIR)/lib/bcm283x/src/gpio.o  \

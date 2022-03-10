@@ -1,4 +1,3 @@
-#include <dev/gic.h>
 #include <dev/timer.h>
 #include <dev/uart.h>
 #include <kernel/irq.h>
@@ -38,9 +37,7 @@ void ipi_send_all(void) {
 #endif
 
 static inline void irq_do_uart0(context_t* ctx) {
-	uint32_t i;
-	gic_get_data(IRQ_UART0, &i);
-	interrupt_send(ctx, SYS_INT_UART0, i);
+	interrupt_send(ctx, SYS_INT_UART0);
 }
 
 static inline void irq_do_timer0(context_t* ctx) {
@@ -74,7 +71,7 @@ static inline void irq_do_timer0(context_t* ctx) {
 }
 
 static inline void _irq_handler(uint32_t cid, context_t* ctx) {
-	uint32_t irqs = gic_get_irqs();
+	uint32_t irqs = irq_gets();
 
 	//handle irq
 	if((irqs & IRQ_UART0) != 0) {
@@ -159,7 +156,7 @@ void irq_init(void) {
 	_schedule_tic = 0;
 	_timer_tic = 0;
 	//gic_set_irqs( IRQ_UART0 | IRQ_TIMER0 | IRQ_KEY | IRQ_MOUSE | IRQ_SDC);
-	gic_set_irqs(IRQ_TIMER0 | IRQ_UART0);
+	irq_enable(IRQ_TIMER0 | IRQ_UART0);
 
 #ifdef KERNEL_SMP
 	ipi_enable_all();

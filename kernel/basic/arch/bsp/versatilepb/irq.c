@@ -1,5 +1,4 @@
 #include <dev/dev.h>
-#include <dev/gic.h>
 #include <kernel/irq.h>
 #include <mm/mmu.h>
 #include "arch.h"
@@ -21,7 +20,7 @@
 void irq_arch_init(void) {
 }
 
-void gic_set_irqs(uint32_t irqs) {
+void irq_enable(uint32_t irqs) {
 	pic_regs_t* pic = (pic_regs_t*)(PIC);
 	
   if((irqs & IRQ_TIMER0) != 0) 
@@ -30,7 +29,16 @@ void gic_set_irqs(uint32_t irqs) {
 		pic->enable |= PIC_INT_UART0;
 }
 
-uint32_t gic_get_irqs(void) {
+void irq_disable(uint32_t irqs) {
+	pic_regs_t* pic = (pic_regs_t*)(PIC);
+	
+  if((irqs & IRQ_TIMER0) != 0) 
+		pic->enable &= (~PIC_INT_TIMER0);
+  if((irqs & IRQ_UART0) != 0) 
+		pic->enable &= (~PIC_INT_UART0);
+}
+
+uint32_t irq_gets(void) {
 	uint32_t ret = 0;
 	pic_regs_t* pic = (pic_regs_t*)(PIC);
 
@@ -41,10 +49,3 @@ uint32_t gic_get_irqs(void) {
 	return ret;
 }
 
-void gic_get_data(uint32_t irq, uint32_t* data) {
-	switch(irq) {
-		case IRQ_UART0: {
-			*data =	get32(UART0 + UART_DATA);
-		}
-	}
-}
