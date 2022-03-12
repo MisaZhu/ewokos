@@ -81,6 +81,10 @@ extern proc_t* proc_get_core_ready(uint32_t core_id);
 extern void    proc_switch(context_t* ctx, proc_t* to, bool quick);
 extern void    set_current_proc(proc_t* proc);
 extern void    proc_flush_tlb(proc_t *proc);
+
+extern void    proc_map_page(page_dir_entry_t *vm, uint32_t vaddr, uint32_t paddr, uint32_t permissions);
+extern void    proc_unmap_page(page_dir_entry_t *vm, uint32_t vaddr);
+
 extern int32_t proc_expand_mem(proc_t *proc, int32_t page_num);
 extern void    proc_shrink_mem(proc_t* proc, int32_t page_num);
 extern void    proc_exit(context_t* ctx, proc_t *proc, int32_t res);

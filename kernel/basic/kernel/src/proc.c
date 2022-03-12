@@ -10,6 +10,7 @@
 #include <kprintf.h>
 #include <queue.h>
 #include <kernel/elf.h>
+#include <kernel/hw_info.h>
 #include <kernel/core.h>
 #include <stddef.h>
 
@@ -124,6 +125,25 @@ void proc_switch(context_t* ctx, proc_t* to, bool quick){
 	set_current_proc(to);
 }
 
+inline void proc_map_page(page_dir_entry_t *vm, uint32_t vaddr, uint32_t paddr, uint32_t permissions) {
+	map_page(vm, vaddr, paddr, permissions, 0);
+	uint32_t i = page_ref_index(paddr);
+	if(i < _pages_ref.max)
+		_pages_ref.refs[i]++;
+}
+
+inline void proc_unmap_page(page_dir_entry_t *vm, uint32_t virtual_addr) {
+	uint32_t paddr = resolve_phy_address(vm, virtual_addr);
+	unmap_page(vm, virtual_addr);
+
+	uint32_t i = page_ref_index(paddr);
+	if(i < _pages_ref.max) {
+		_pages_ref.refs[i]--;
+		if(_pages_ref.refs[i] <= 0)
+			kfree4k((void*)P2V(paddr));
+	}
+}
+
 /* proc_exapnad_memory expands the heap size of the given process. */
 int32_t proc_expand_mem(proc_t *proc, int32_t page_num) {
 	int32_t i;
@@ -138,10 +158,10 @@ int32_t proc_expand_mem(proc_t *proc, int32_t page_num) {
 			break;
 		}
 		memset(page, 0, PAGE_SIZE);
-		map_page(proc->space->vm,
+		proc_map_page(proc->space->vm,
 				proc->space->heap_size,
 				V2P(page),
-				AP_RW_RW, 0);
+				AP_RW_RW);
 		proc->space->heap_size += PAGE_SIZE;
 	}
 	vm_flush_tlb(proc->space->vm);
@@ -156,11 +176,7 @@ void proc_shrink_mem(proc_t* proc, int32_t page_num) {
 	int32_t i;
 	for (i = 0; i < page_num; i++) {
 		uint32_t virtual_addr = proc->space->heap_size - PAGE_SIZE;
-		uint32_t kernel_addr = resolve_kernel_address(proc->space->vm, virtual_addr);
-		//get the kernel address for kalloc4k/kfree4k
-		kfree4k((void *) kernel_addr);
-
-		unmap_page(proc->space->vm, virtual_addr);
+		proc_unmap_page(proc->space->vm, virtual_addr);
 		proc->space->heap_size -= PAGE_SIZE;
 		if (proc->space->heap_size == 0)
 			break;
@@ -297,10 +313,10 @@ static inline void proc_init_user_stack(proc_t* proc) {
 	uint32_t pages = proc_get_user_stack_pages(proc);
 	for(i=0; i<pages; i++) {
 		proc->user_stack[i] = kalloc4k();
-		map_page(proc->space->vm,
+		proc_map_page(proc->space->vm,
 			user_stack_base + PAGE_SIZE*i,
 			V2P(proc->user_stack[i]),
-			AP_RW_RW, 0);
+			AP_RW_RW);
 	}
 	proc->ctx.sp = user_stack_base + pages*PAGE_SIZE;
 }
@@ -311,8 +327,7 @@ static inline void proc_free_user_stack(proc_t* proc) {
 	uint32_t pages = proc_get_user_stack_pages(proc);
 	uint32_t i;
 	for(i=0; i<pages; i++) {
-		unmap_page(proc->space->vm, user_stack_base + PAGE_SIZE*i);
-		kfree4k(proc->user_stack[i]);
+		proc_unmap_page(proc->space->vm, user_stack_base + PAGE_SIZE*i);
 	}
 	vm_flush_tlb(proc->space->vm);
 }
@@ -326,8 +341,7 @@ void proc_exit(context_t* ctx, proc_t *proc, int32_t res) {
 
 	/*free kpage*/
 	if(proc->space->kpage != 0) {
-		unmap_page(proc->space->vm, proc->space->kpage);
-		kfree4k((char*)proc->space->kpage);
+		proc_unmap_page(proc->space->vm, proc->space->kpage);
 		proc->space->kpage = 0;
 	}
 
@@ -552,7 +566,7 @@ static void proc_page_clone(proc_t* to, uint32_t to_addr, proc_t* from, uint32_t
 	memcpy(to_ptr, from_ptr, PAGE_SIZE);
 }
 
-/*static int32_t proc_clone(proc_t* child, proc_t* parent) {
+static int32_t proc_clone(proc_t* child, proc_t* parent) {
 	uint32_t pages = parent->space->heap_size / PAGE_SIZE;
 	if((parent->space->heap_size % PAGE_SIZE) != 0)
 		pages++;
@@ -561,10 +575,10 @@ static void proc_page_clone(proc_t* to, uint32_t to_addr, proc_t* from, uint32_t
 	for(p=0; p<pages; ++p) {
 		uint32_t v_addr = (p * PAGE_SIZE);
 		uint32_t phy_page_addr = resolve_phy_address(parent->space->vm, v_addr);
-		map_page(child->space->vm, 
+		proc_map_page(child->space->vm, 
 				child->space->heap_size,
 				phy_page_addr,
-				AP_RW_R, 0);
+				AP_RW_R);
 		child->space->heap_size += PAGE_SIZE;
 	}
 
@@ -580,9 +594,8 @@ static void proc_page_clone(proc_t* to, uint32_t to_addr, proc_t* from, uint32_t
 	strcpy(child->info.cmd, parent->info.cmd);
 	return 0;
 }
-*/
 
-static int32_t proc_clone(proc_t* child, proc_t* parent) {
+/*static int32_t proc_clone(proc_t* child, proc_t* parent) {
 	uint32_t pages = parent->space->heap_size / PAGE_SIZE;
 	if((parent->space->heap_size % PAGE_SIZE) != 0)
 		pages++;
@@ -610,6 +623,7 @@ static int32_t proc_clone(proc_t* child, proc_t* parent) {
 	strcpy(child->info.cmd, parent->info.cmd);
 	return 0;
 }
+*/
 
 static inline void proc_vfork_clone(context_t* ctx, proc_t* child, proc_t* parent) {
 	uint32_t pages = proc_get_user_stack_pages(child) - 1;

@@ -3,6 +3,12 @@
 #include <mm/mmu.h>
 #include <kernel/system.h>
 
+pages_ref_t _pages_ref;
+
+inline uint32_t page_ref_index(uint32_t paddr) {
+	return ((paddr) - _pages_ref.phy_base) / PAGE_SIZE;
+}
+
 /*physical memory split to pages for paging mmu, managed by kalloc/kfree, phymem page state must be occupied or free*/
 
 /*
@@ -24,10 +30,11 @@ static page_list_t *page_list_prepend(page_list_t *page_list, char *page_address
 }
 
 /* kalloc_init adds the given address range to the free list. */
-void kalloc_init(uint32_t start, uint32_t end) {
+uint32_t kalloc_init(uint32_t start, uint32_t end) {
 	char *start_address = (char *) ALIGN_UP(start, PAGE_SIZE);
 	char *end_address = (char *) ALIGN_DOWN(end, PAGE_SIZE);
 	char *current_page = 0;
+	uint32_t num = 0;
 
 	_free_list4k = 0;
 	_free_list1k = 0;
@@ -36,7 +43,9 @@ void kalloc_init(uint32_t start, uint32_t end) {
 	for (current_page = start_address; current_page != end_address;
 			current_page += PAGE_SIZE) {
 		_free_list4k = page_list_prepend(_free_list4k, current_page);
+		num++;
 	}
+	return num;
 }
 
 /* kalloc allocates and returns a single available page. and removed from free list*/

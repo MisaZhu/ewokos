@@ -129,10 +129,11 @@ static int32_t copy_on_write(proc_t* proc, uint32_t v_addr) {
 		return -1;
 	}
 	memcpy(page, (char*)P2V(phy_addr), PAGE_SIZE);
-	map_page(proc->space->vm,
+	proc_unmap_page(proc->space->vm, v_addr);
+	proc_map_page(proc->space->vm,
 			v_addr,
 			V2P(page),
-			AP_RW_RW, 1);
+			AP_RW_RW);
 	vm_flush_tlb(proc->space->vm);
 	return 0;
 }
@@ -146,7 +147,7 @@ void prefetch_abort_handler(context_t* ctx) {
 		while(1);
 	}
 
-	if(copy_on_write(cproc, cproc->ctx.pc) != 0) {
+	if(copy_on_write(cproc, ctx->pc) != 0) {
 		printf("pid: %d(%s), prefetch abort!!\n", cproc->info.pid, cproc->info.cmd);
 		dump_ctx(&cproc->ctx);
 		proc_signal_send(ctx, cproc, SYS_SIG_STOP);

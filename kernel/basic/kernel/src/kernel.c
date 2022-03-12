@@ -81,7 +81,10 @@ static void init_allocable_mem(void) {
 			AP_RW_D, 0);
 	flush_tlb();
 	printf("kernel: kalloc init for all allocatable pages\n");
-	kalloc_init(P2V(_allocatable_mem_base), P2V(_allocatable_mem_top));
+	_pages_ref.max = kalloc_init(P2V(_allocatable_mem_base), P2V(_allocatable_mem_top));
+	_pages_ref.refs = kmalloc(_pages_ref.max * 4);	
+	_pages_ref.phy_base = _allocatable_mem_base;
+	memset(_pages_ref.refs, 0, _pages_ref.max*4);
 }
 
 #ifdef KERNEL_SMP
@@ -109,6 +112,7 @@ void _kernel_entry_c(context_t* ctx) {
 	//clear bss
 	memset(_bss_start, 0, (uint32_t)_bss_end - (uint32_t)_bss_start);
 	copy_interrupt_table();
+	_pages_ref.max = 0;
 
 	sys_info_init();
 	init_kernel_vm();  

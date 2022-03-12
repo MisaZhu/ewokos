@@ -4,6 +4,7 @@
 #include <stddef.h>
 #include <kernel/proc.h>
 #include <kernel/system.h>
+#include <kernel/hw_info.h>
 #include <kernel/kernel.h>
 
 /*
