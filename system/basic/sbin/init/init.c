@@ -62,7 +62,6 @@ static int run(const char* cmd, bool prompt, bool wait) {
 			_console_fd = -1;
 		}
 
-		proc_detach();
 		if(exec(cmd) != 0) {
 			if(prompt)
 				out("[error!]\n");
@@ -237,17 +236,13 @@ static void init_tty_stdio(void) {
 }
 
 static void switch_root(void) {
-	int pid = fork();
-	if(pid == 0) {
-		setuid(0);
-		load_arch_devs();
-		load_extra_devs();
-		load_sys_init_devs();
-		init_tty_stdio();
-		load_sys_devs();
-		run_procs();
-		exit(0);
-	}
+	setuid(0);
+	load_arch_devs();
+	load_extra_devs();
+	load_sys_init_devs();
+	init_tty_stdio();
+	load_sys_devs();
+	run_procs();
 }
 
 int main(int argc, char** argv) {

@@ -461,8 +461,6 @@ int main(int argc, char* argv[]) {
 
 		int child_pid = fork();
 		if (child_pid == 0) {
-			if(fg == 0)
-				proc_detach();
 			int res = run_cmd(cmd);
 			str_free(cmdstr);	
 			return res;
