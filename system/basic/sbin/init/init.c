@@ -62,6 +62,8 @@ static int run(const char* cmd, bool prompt, bool wait) {
 			_console_fd = -1;
 		}
 
+		proc_detach();
+
 		if(exec(cmd) != 0) {
 			if(prompt)
 				out("[error!]\n");

@@ -142,6 +142,7 @@ inline void proc_unmap_page(page_dir_entry_t *vm, uint32_t virtual_addr) {
 		if(_pages_ref.refs[i] <= 0)
 			kfree4k((void*)P2V(paddr));
 	}
+	vm_flush_tlb(vm);
 }
 
 /* proc_exapnad_memory expands the heap size of the given process. */
@@ -164,7 +165,6 @@ int32_t proc_expand_mem(proc_t *proc, int32_t page_num) {
 				AP_RW_RW);
 		proc->space->heap_size += PAGE_SIZE;
 	}
-	vm_flush_tlb(proc->space->vm);
 	return res;
 }
 
@@ -313,10 +313,10 @@ static inline void proc_init_user_stack(proc_t* proc) {
 	uint32_t pages = proc_get_user_stack_pages(proc);
 	for(i=0; i<pages; i++) {
 		proc->user_stack[i] = kalloc4k();
-		proc_map_page(proc->space->vm,
+		map_page(proc->space->vm,
 			user_stack_base + PAGE_SIZE*i,
 			V2P(proc->user_stack[i]),
-			AP_RW_RW);
+			AP_RW_RW, 0);
 	}
 	proc->ctx.sp = user_stack_base + pages*PAGE_SIZE;
 }
@@ -327,7 +327,8 @@ static inline void proc_free_user_stack(proc_t* proc) {
 	uint32_t pages = proc_get_user_stack_pages(proc);
 	uint32_t i;
 	for(i=0; i<pages; i++) {
-		proc_unmap_page(proc->space->vm, user_stack_base + PAGE_SIZE*i);
+		unmap_page(proc->space->vm, user_stack_base + PAGE_SIZE*i);
+		kfree4k(proc->user_stack[i]);
 	}
 	vm_flush_tlb(proc->space->vm);
 }
@@ -341,7 +342,8 @@ void proc_exit(context_t* ctx, proc_t *proc, int32_t res) {
 
 	/*free kpage*/
 	if(proc->space->kpage != 0) {
-		proc_unmap_page(proc->space->vm, proc->space->kpage);
+		unmap_page(proc->space->vm, proc->space->kpage);
+		kfree4k((void*)proc->space->kpage);	
 		proc->space->kpage = 0;
 	}
 
@@ -571,17 +573,22 @@ static int32_t proc_clone(proc_t* child, proc_t* parent) {
 	if((parent->space->heap_size % PAGE_SIZE) != 0)
 		pages++;
 
-	//Copy On Write, share parent page table with read only permisions
+	//Copy On Write
 	uint32_t p;
 	for(p=0; p<pages; ++p) { 
 		uint32_t v_addr = (p * PAGE_SIZE);
 		uint32_t phy_page_addr = resolve_phy_address(parent->space->vm, v_addr);
 		proc_map_page(child->space->vm, 
-				child->space->heap_size,
+				v_addr,
 				phy_page_addr,
-				AP_RW_R);
-		child->space->heap_size += PAGE_SIZE;
+				AP_RW_R); //share page table to child with read only permisions, and ref the page
+
+		map_page(parent->space->vm, 
+				v_addr,
+				phy_page_addr,
+				AP_RW_R, 0); // set parent page table with read only permisions
 	}
+	child->space->heap_size = pages * PAGE_SIZE;
 
 	//set father
 	child->info.father_pid = parent->info.pid;
