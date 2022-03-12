@@ -552,6 +552,36 @@ static void proc_page_clone(proc_t* to, uint32_t to_addr, proc_t* from, uint32_t
 	memcpy(to_ptr, from_ptr, PAGE_SIZE);
 }
 
+/*static int32_t proc_clone(proc_t* child, proc_t* parent) {
+	uint32_t pages = parent->space->heap_size / PAGE_SIZE;
+	if((parent->space->heap_size % PAGE_SIZE) != 0)
+		pages++;
+
+	uint32_t p;
+	for(p=0; p<pages; ++p) {
+		uint32_t v_addr = (p * PAGE_SIZE);
+		uint32_t phy_page_addr = resolve_phy_address(parent->space->vm, v_addr);
+		map_page(child->space->vm, 
+				child->space->heap_size,
+				phy_page_addr,
+				AP_RW_R, 0);
+		child->space->heap_size += PAGE_SIZE;
+	}
+
+	//set father
+	child->info.father_pid = parent->info.pid;
+	// copy parent's stack to child's stack
+	int32_t i;
+	for(i=0; i<STACK_PAGES; i++) {
+		proc_page_clone(child, (uint32_t)child->user_stack[i], parent, (uint32_t)parent->user_stack[i]);
+		//memcpy(child->user_stack[i], parent->user_stack[i], PAGE_SIZE);
+	}
+
+	strcpy(child->info.cmd, parent->info.cmd);
+	return 0;
+}
+*/
+
 static int32_t proc_clone(proc_t* child, proc_t* parent) {
 	uint32_t pages = parent->space->heap_size / PAGE_SIZE;
 	if((parent->space->heap_size % PAGE_SIZE) != 0)
@@ -560,31 +590,17 @@ static int32_t proc_clone(proc_t* child, proc_t* parent) {
 	uint32_t p;
 	for(p=0; p<pages; ++p) {
 		uint32_t v_addr = (p * PAGE_SIZE);
-		/*
-		page_table_entry_t * pge = get_page_table_entry(parent->space->vm, v_addr);
-		if(pge->permissions == AP_RW_R) {
-			uint32_t phy_page_addr = resolve_phy_address(parent->space->vm, v_addr);
-			map_page(child->space->vm, 
-					child->space->heap_size,
-					phy_page_addr,
-					AP_RW_R, 0);
-			child->space->heap_size += PAGE_SIZE;
+		if(proc_expand_mem(child, 1) != 0) {
+			printf("Panic: kfork expand memory failed!!(%d)\n", parent->info.pid);
+			return -1;
 		}
-		*/
-		//else {
-			if(proc_expand_mem(child, 1) != 0) {
-				printf("Panic: kfork expand memory failed!!(%d)\n", parent->info.pid);
-				return -1;
-			}
-			// copy parent's memory to child's memory
-			proc_page_clone(child, v_addr, parent, v_addr);
-		//}
+		// copy parent's memory to child's memory
+		proc_page_clone(child, v_addr, parent, v_addr);
 	}
 
-	/*set father*/
+	//set father
 	child->info.father_pid = parent->info.pid;
-	/* copy parent's stack to child's stack */
-	//proc_page_clone(child, child->user_stack, parent, parent->user_stack);
+	// copy parent's stack to child's stack
 	int32_t i;
 	for(i=0; i<STACK_PAGES; i++) {
 		proc_page_clone(child, (uint32_t)child->user_stack[i], parent, (uint32_t)parent->user_stack[i]);

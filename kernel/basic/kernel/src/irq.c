@@ -13,6 +13,7 @@
 #include <kernel/signal.h>
 #include <kernel/hw_info.h>
 #include <kprintf.h>
+#include <mm/kalloc.h>
 
 uint32_t _kernel_sec = 0;
 uint64_t _kernel_usec = 0;
@@ -120,6 +121,22 @@ static void dump_ctx(context_t* ctx) {
 		printf("  r%d: 0x%x\n", i, ctx->gpr[i]);
 }
 
+static int32_t copy_on_write(proc_t* proc, uint32_t v_addr) {
+	v_addr = ALIGN_DOWN(v_addr, PAGE_SIZE);
+	uint32_t phy_addr = resolve_phy_address(proc->space->vm, v_addr);
+	char *page = kalloc4k();
+	if(page == NULL) {
+		return -1;
+	}
+	memcpy(page, (char*)P2V(phy_addr), PAGE_SIZE);
+	map_page(proc->space->vm,
+			v_addr,
+			V2P(page),
+			AP_RW_RW, 1);
+	vm_flush_tlb(proc->space->vm);
+	return 0;
+}
+
 void prefetch_abort_handler(context_t* ctx) {
 	(void)ctx;
 	proc_t* cproc = get_current_proc();
@@ -129,12 +146,14 @@ void prefetch_abort_handler(context_t* ctx) {
 		while(1);
 	}
 
-	printf("pid: %d(%s), prefetch abort!!\n", cproc->info.pid, cproc->info.cmd);
-	dump_ctx(&cproc->ctx);
-	proc_signal_send(ctx, cproc, SYS_SIG_STOP);
+	if(copy_on_write(cproc, cproc->ctx.pc) != 0) {
+		printf("pid: %d(%s), prefetch abort!!\n", cproc->info.pid, cproc->info.cmd);
+		dump_ctx(&cproc->ctx);
+		proc_signal_send(ctx, cproc, SYS_SIG_STOP);
+	}
 }
 
-void data_abort_handler(context_t* ctx) {
+void data_abort_handler(context_t* ctx, uint32_t addr_fault) {
 	(void)ctx;
 	proc_t* cproc = get_current_proc();
 	if(cproc == NULL) {
@@ -143,9 +162,11 @@ void data_abort_handler(context_t* ctx) {
 		while(1);
 	}
 
-	printf("pid: %d(%s), core: %d, data abort!!\n", cproc->info.pid, cproc->info.cmd, cproc->info.core);
-	dump_ctx(&cproc->ctx);
-	proc_signal_send(ctx, cproc, SYS_SIG_STOP);
+	if(copy_on_write(cproc, addr_fault) != 0) {
+		printf("pid: %d(%s), core: %d, data abort!!\n", cproc->info.pid, cproc->info.cmd, cproc->info.core);
+		dump_ctx(&cproc->ctx);
+		proc_signal_send(ctx, cproc, SYS_SIG_STOP);
+	}
 }
 
 void irq_init(void) {

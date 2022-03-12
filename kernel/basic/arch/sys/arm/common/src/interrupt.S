@@ -85,6 +85,7 @@ data_abort_entry:
 	mrs   r0, spsr                @ get    USR        CPSR
 	stmdb sp!, { r0, lr }         @ store  USR PC and CPSR
 	mov   r0, sp
+	mrc   p15, #0, r1, c6, c0, #0
 
 	bl    data_abort_handler      @ invoke high-level C function
 
