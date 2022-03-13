@@ -27,6 +27,11 @@ else
 OPTM = -O2
 endif
 
+ifeq ($(COW),yes) #copy on write
+OPTM = -DCOW
+endif
+
+
 CFLAGS += $(OPTM) \
 	-I. -I$(SRC_DIR)/basic/lib/include \
 	-I$(SRC_DIR)/basic/kernel/include \
