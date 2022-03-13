@@ -134,6 +134,7 @@ static int32_t copy_on_write(proc_t* proc, uint32_t v_addr) {
 			v_addr,
 			V2P(page),
 			AP_RW_RW);
+	vm_flush_tlb(proc->space->vm);
 	return 0;
 }
 
