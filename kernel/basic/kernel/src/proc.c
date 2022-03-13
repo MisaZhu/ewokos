@@ -561,12 +561,12 @@ static int32_t proc_clone(proc_t* child, proc_t* parent) {
 		map_page_ref(child->space->vm, 
 				v_addr,
 				phy_page_addr,
-				AP_RW_R); //share page table to child with read only permisions, and ref the page
+				AP_RW_R); //share page table to child with read only permissions, and ref the page
 
 		map_page(parent->space->vm, 
 				v_addr,
 				phy_page_addr,
-				AP_RW_R, 0); // set parent page table with read only permisions
+				AP_RW_R, 0); // set parent page table with read only permissions
 	}
 	child->space->heap_size = pages * PAGE_SIZE;
 

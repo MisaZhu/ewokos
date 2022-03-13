@@ -146,7 +146,7 @@ void prefetch_abort_handler(context_t* ctx, uint32_t status) {
 		while(1);
 	}
 
-	if((status & 0xD) != 0xD || //permisions fault only
+	if((status & 0xD) != 0xD || //permissions fault only
 			ctx->pc >= cproc->space->heap_size || //in proc heap only
 			copy_on_write(cproc, ctx->pc) != 0) {
 		printf("pid: %d(%s), prefetch abort!!\n", cproc->info.pid, cproc->info.cmd);
@@ -164,7 +164,7 @@ void data_abort_handler(context_t* ctx, uint32_t addr_fault, uint32_t status) {
 		while(1);
 	}
 
-	if((status & 0xD) != 0xD || //permisions fault only
+	if((status & 0xD) != 0xD || //permissions fault only
 			addr_fault >= cproc->space->heap_size || //in proc heap only
 			copy_on_write(cproc, addr_fault) != 0) {
 		printf("pid: %d(%s), core: %d, data abort!!\n", cproc->info.pid, cproc->info.cmd, cproc->info.core);
