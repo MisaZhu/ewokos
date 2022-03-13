@@ -2,6 +2,6 @@
 #include <sys/syscall.h>
 
 int vfork(void) {
-	return syscall1(SYS_FORK, 1);
+	return syscall0(SYS_FORK);
 }
 

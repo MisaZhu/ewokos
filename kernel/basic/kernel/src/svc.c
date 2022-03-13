@@ -97,16 +97,10 @@ static void sys_free(int32_t p) {
 	proc_free((void*)p);
 }
 
-static void sys_fork(context_t* ctx, int32_t vfork) {
+static void sys_fork(context_t* ctx) {
 	proc_t *proc;
 	uint32_t psp = ctx->sp;
-	if(vfork == 0) {
-		proc = kfork(ctx, PROC_TYPE_PROC);
-	}
-	else {
-		proc = kfork(ctx, PROC_TYPE_VFORK);
-		psp = proc->ctx.sp;
-	}
+	proc = kfork(ctx, PROC_TYPE_PROC);
 	if(proc == NULL) {
 		ctx->gpr[0] = -1;
 		return;
@@ -126,12 +120,7 @@ static void sys_fork(context_t* ctx, int32_t vfork) {
 		cproc->info.state = BLOCK;
 		cproc->block_event = proc->info.pid;
 		cproc->ctx.gpr[0] = proc->info.pid;
-		if(vfork == 0) {
-			cproc->info.block_by = _core_proc_pid;
-		}
-		else {
-			cproc->info.block_by = proc->info.pid;
-		}
+		cproc->info.block_by = _core_proc_pid;
 		schedule(ctx);
 	}
 }
@@ -572,7 +561,7 @@ static inline void _svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_
 		sys_load_elf(ctx, (const char*)arg0, (void*)arg1, (uint32_t)arg2);
 		return;
 	case SYS_FORK:
-		sys_fork(ctx, arg0);
+		sys_fork(ctx);
 		return;
 	case SYS_DETACH:
 		sys_detach();

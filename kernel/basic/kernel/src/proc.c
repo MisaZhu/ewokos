@@ -431,24 +431,7 @@ int32_t proc_load_elf(proc_t *proc, const char *image, uint32_t size) {
 
 	char* proc_image = kmalloc(size);
 	memcpy(proc_image, image, size);
-
-	if(proc->info.type == PROC_TYPE_VFORK) {
-		proc_free_user_stack(proc);
-		proc->info.type = PROC_TYPE_PROC;
-		proc_init_space(proc);
-		page_dir_entry_t *vm = proc->space->vm;
-		set_translation_table_base((uint32_t) V2P(vm));
-		proc_init_user_stack(proc);
-
-		proc_t* father = proc_get(proc->info.father_pid);
-		if(father != NULL &&
-				father->info.block_by == proc->info.pid &&
-				father->block_event == (uint32_t)proc->info.pid)
-			proc_ready(father);
-	}
-	else {
-		proc_free_heap(proc);
-	}
+	proc_free_heap(proc);
 
 	/*read elf format from saved proc image*/
 	struct elf_header *header = (struct elf_header *) proc_image;
@@ -584,7 +567,7 @@ static int32_t proc_clone(proc_t* child, proc_t* parent) {
 	return 0;
 }
 
-static inline void proc_vfork_clone(context_t* ctx, proc_t* child, proc_t* parent) {
+static inline void proc_thread_clone(context_t* ctx, proc_t* child, proc_t* parent) {
 	uint32_t pages = proc_get_user_stack_pages(child) - 1;
 	uint32_t v_addr =  proc_get_user_stack_base(child) + pages*PAGE_SIZE;
 	uint32_t stack_top = v_addr + PAGE_SIZE;
@@ -618,7 +601,7 @@ proc_t* kfork_raw(context_t* ctx, int32_t type, proc_t* parent) {
 		}
 	}
 	else {
-		proc_vfork_clone(ctx, child, parent);
+		proc_thread_clone(ctx, child, parent);
 	}
 	return child;
 }
@@ -626,7 +609,7 @@ proc_t* kfork_raw(context_t* ctx, int32_t type, proc_t* parent) {
 proc_t* kfork(context_t* ctx, int32_t type) {
 	proc_t* cproc = get_current_proc();
 	proc_t* child = kfork_raw(ctx, type, cproc);
-	if(_core_proc_ready && (child->info.type == PROC_TYPE_PROC || child->info.type == PROC_TYPE_VFORK)) {
+	if(_core_proc_ready && (child->info.type == PROC_TYPE_PROC)) {
 		kev_push(KEV_PROC_CREATED, cproc->info.pid, child->info.pid, 0);
 	}
 	else
@@ -716,7 +699,7 @@ void renew_kernel_tic(uint64_t usec) {
 
 proc_t* proc_get_proc(proc_t* proc) {
 	while(proc != NULL) {
-		if(proc->info.type == PROC_TYPE_PROC || proc->info.type == PROC_TYPE_VFORK)
+		if(proc->info.type == PROC_TYPE_PROC)
 			return proc;
 		proc = proc_get(proc->info.father_pid);
 	}
