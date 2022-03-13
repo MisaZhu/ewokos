@@ -94,6 +94,12 @@ builtin_apps: $(PROGS)
 
 clean:
 	rm -f $(CLEAN)
+	cd $(ROOT_DIR)/libs/libc;make clean
+	cd $(ROOT_DIR)/libs/hash;make clean
+	cd $(ROOT_DIR)/libs/ext2;make clean
+	cd $(ROOT_DIR)/libs/arch_vpb;make clean
+	cd $(ROOT_DIR)/libs/arch_bcm283x;make clean
+	cd $(ROOT_DIR)/libs/sd;make clean
 	cd $(ROOT_DIR)/bin/echo;make clean
 	cd $(ROOT_DIR)/bin/sleep;make clean
 	cd $(ROOT_DIR)/bin/ps;make clean
