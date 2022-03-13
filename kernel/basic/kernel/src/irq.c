@@ -159,7 +159,7 @@ void data_abort_handler(context_t* ctx, uint32_t addr_fault, uint32_t status) {
 	(void)ctx;
 	proc_t* cproc = get_current_proc();
 	if(cproc == NULL) {
-		printf("_kernel, data abort!!\n");
+		printf("_kernel, data abort!! at: 0x%X\n", addr_fault);
 		dump_ctx(ctx);
 		while(1);
 	}
@@ -167,7 +167,7 @@ void data_abort_handler(context_t* ctx, uint32_t addr_fault, uint32_t status) {
 	if((status & 0xD) != 0xD || //permissions fault only
 			addr_fault >= cproc->space->heap_size || //in proc heap only
 			copy_on_write(cproc, addr_fault) != 0) {
-		printf("pid: %d(%s), core: %d, data abort!!\n", cproc->info.pid, cproc->info.cmd, cproc->info.core);
+		printf("pid: %d(%s), core: %d, data abort!! at: 0x%X, code: 0x%X\n", cproc->info.pid, cproc->info.cmd, cproc->info.core, addr_fault, status);
 		dump_ctx(&cproc->ctx);
 		proc_signal_send(ctx, cproc, SYS_SIG_STOP);
 	}
