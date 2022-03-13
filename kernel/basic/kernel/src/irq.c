@@ -129,8 +129,8 @@ static int32_t copy_on_write(proc_t* proc, uint32_t v_addr) {
 		return -1;
 	}
 	memcpy(page, (char*)P2V(phy_addr), PAGE_SIZE);
-	proc_unmap_page(proc->space->vm, v_addr);
-	proc_map_page(proc->space->vm,
+	unmap_page_ref(proc->space->vm, v_addr);
+	map_page_ref(proc->space->vm,
 			v_addr,
 			V2P(page),
 			AP_RW_RW);

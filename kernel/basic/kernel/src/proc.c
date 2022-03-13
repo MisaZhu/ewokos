@@ -125,26 +125,6 @@ void proc_switch(context_t* ctx, proc_t* to, bool quick){
 	set_current_proc(to);
 }
 
-inline void proc_map_page(page_dir_entry_t *vm, uint32_t vaddr, uint32_t paddr, uint32_t permissions) {
-	map_page(vm, vaddr, paddr, permissions, 0);
-	uint32_t i = page_ref_index(paddr);
-	if(i < _pages_ref.max)
-		_pages_ref.refs[i]++;
-}
-
-inline void proc_unmap_page(page_dir_entry_t *vm, uint32_t virtual_addr) {
-	uint32_t paddr = resolve_phy_address(vm, virtual_addr);
-	unmap_page(vm, virtual_addr);
-
-	uint32_t i = page_ref_index(paddr);
-	if(i < _pages_ref.max) {
-		_pages_ref.refs[i]--;
-		if(_pages_ref.refs[i] <= 0)
-			kfree4k((void*)P2V(paddr));
-	}
-	vm_flush_tlb(vm);
-}
-
 /* proc_exapnad_memory expands the heap size of the given process. */
 int32_t proc_expand_mem(proc_t *proc, int32_t page_num) {
 	int32_t i;
@@ -159,7 +139,7 @@ int32_t proc_expand_mem(proc_t *proc, int32_t page_num) {
 			break;
 		}
 		memset(page, 0, PAGE_SIZE);
-		proc_map_page(proc->space->vm,
+		map_page_ref(proc->space->vm,
 				proc->space->heap_size,
 				V2P(page),
 				AP_RW_RW);
@@ -176,7 +156,7 @@ void proc_shrink_mem(proc_t* proc, int32_t page_num) {
 	int32_t i;
 	for (i = 0; i < page_num; i++) {
 		uint32_t virtual_addr = proc->space->heap_size - PAGE_SIZE;
-		proc_unmap_page(proc->space->vm, virtual_addr);
+		unmap_page_ref(proc->space->vm, virtual_addr);
 		proc->space->heap_size -= PAGE_SIZE;
 		if (proc->space->heap_size == 0)
 			break;
@@ -578,7 +558,7 @@ static int32_t proc_clone(proc_t* child, proc_t* parent) {
 	for(p=0; p<pages; ++p) { 
 		uint32_t v_addr = (p * PAGE_SIZE);
 		uint32_t phy_page_addr = resolve_phy_address(parent->space->vm, v_addr);
-		proc_map_page(child->space->vm, 
+		map_page_ref(child->space->vm, 
 				v_addr,
 				phy_page_addr,
 				AP_RW_R); //share page table to child with read only permisions, and ref the page

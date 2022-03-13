@@ -11,6 +11,9 @@ void map_pages(page_dir_entry_t *vm, uint32_t vaddr,
 
 void unmap_pages(page_dir_entry_t *vm, uint32_t virtual_addr, uint32_t pages);
 
+void map_page_ref(page_dir_entry_t *vm, uint32_t vaddr, uint32_t paddr, uint32_t permissions);
+void unmap_page_ref(page_dir_entry_t *vm, uint32_t vaddr);
+
 void free_page_tables(page_dir_entry_t *vm);
 uint32_t resolve_kernel_address(page_dir_entry_t *vm, uint32_t virtual);
 void vm_flush_tlb(page_dir_entry_t* vm);

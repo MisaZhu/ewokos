@@ -65,3 +65,23 @@ inline void vm_flush_tlb(page_dir_entry_t* vm) {
 	set_translation_table_base((uint32_t)V2P(old_vm));
 }
 
+inline void map_page_ref(page_dir_entry_t *vm, uint32_t vaddr, uint32_t paddr, uint32_t permissions) {
+	map_page(vm, vaddr, paddr, permissions, 0);
+	uint32_t i = page_ref_index(paddr);
+	if(i < _pages_ref.max)
+		_pages_ref.refs[i]++;
+}
+
+inline void unmap_page_ref(page_dir_entry_t *vm, uint32_t virtual_addr) {
+	uint32_t paddr = resolve_phy_address(vm, virtual_addr);
+	unmap_page(vm, virtual_addr);
+
+	uint32_t i = page_ref_index(paddr);
+	if(i < _pages_ref.max) {
+		_pages_ref.refs[i]--;
+		if(_pages_ref.refs[i] <= 0)
+			kfree4k((void*)P2V(paddr));
+	}
+	vm_flush_tlb(vm);
+}
+
