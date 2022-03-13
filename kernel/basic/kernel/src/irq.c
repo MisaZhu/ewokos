@@ -137,7 +137,7 @@ static int32_t copy_on_write(proc_t* proc, uint32_t v_addr) {
 	return 0;
 }
 
-void prefetch_abort_handler(context_t* ctx) {
+void prefetch_abort_handler(context_t* ctx, uint32_t status) {
 	(void)ctx;
 	proc_t* cproc = get_current_proc();
 	if(cproc == NULL) {
@@ -146,7 +146,8 @@ void prefetch_abort_handler(context_t* ctx) {
 		while(1);
 	}
 
-	if(ctx->pc >= cproc->space->heap_size || 
+	if((status & 0xD) != 0xD || //permisions fault only
+			ctx->pc >= cproc->space->heap_size || //in proc heap only
 			copy_on_write(cproc, ctx->pc) != 0) {
 		printf("pid: %d(%s), prefetch abort!!\n", cproc->info.pid, cproc->info.cmd);
 		dump_ctx(&cproc->ctx);
@@ -154,7 +155,7 @@ void prefetch_abort_handler(context_t* ctx) {
 	}
 }
 
-void data_abort_handler(context_t* ctx, uint32_t addr_fault) {
+void data_abort_handler(context_t* ctx, uint32_t addr_fault, uint32_t status) {
 	(void)ctx;
 	proc_t* cproc = get_current_proc();
 	if(cproc == NULL) {
@@ -163,7 +164,8 @@ void data_abort_handler(context_t* ctx, uint32_t addr_fault) {
 		while(1);
 	}
 
-	if(addr_fault >= cproc->space->heap_size ||
+	if((status & 0xD) != 0xD || //permisions fault only
+			addr_fault >= cproc->space->heap_size || //in proc heap only
 			copy_on_write(cproc, addr_fault) != 0) {
 		printf("pid: %d(%s), core: %d, data abort!!\n", cproc->info.pid, cproc->info.cmd, cproc->info.core);
 		dump_ctx(&cproc->ctx);

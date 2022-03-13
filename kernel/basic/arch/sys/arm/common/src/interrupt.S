@@ -68,6 +68,7 @@ prefetch_abort_entry:
 	mrs   r0, spsr                @ get    USR        CPSR
 	stmdb sp!, { r0, lr }         @ store  USR PC and CPSR
 	mov   r0, sp
+	mrc   p15, #0, r1, c5, c0, #1 @ read fault status code
 
 	bl    prefetch_abort_handler  @ invoke high-level C function
 
@@ -85,7 +86,8 @@ data_abort_entry:
 	mrs   r0, spsr                @ get    USR        CPSR
 	stmdb sp!, { r0, lr }         @ store  USR PC and CPSR
 	mov   r0, sp
-	mrc   p15, #0, r1, c6, c0, #0
+	mrc   p15, #0, r1, c6, c0, #0 @read fault address
+	mrc   p15, #0, r2, c5, c0, #0 @read fault status code
 
 	bl    data_abort_handler      @ invoke high-level C function
 
