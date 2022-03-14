@@ -34,8 +34,6 @@
 		brew install gcc-arm-none-eabi-49
 		(set the right PATH environment after installed)
 		download usb to ttl driver https://www.silabs.com/products/development-tools/software/usb-to-uart-bridge-vcp-drivers
-		brew install python
-		pip install pyserial
 		
 	How to create/mount ext2 image in macosx
 		===============prepair================
@@ -61,8 +59,7 @@
  		rm -r tmp
 .tty debug
 	
-	install miniterm.py
-	miniterm.py /dev/xxxUSBTTY 115200
+	install minicom(linux/mac)
 	
 .make and run
 	
