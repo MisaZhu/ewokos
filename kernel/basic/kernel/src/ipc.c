@@ -26,7 +26,6 @@ int32_t proc_ipc_call(context_t* ctx, proc_t* proc, ipc_t *ipc) {
 	proc->space->ipc_server.ipc = (uint32_t)ipc;
 	proc->space->ipc_server.state = proc->info.state;
 	
-	proc_ready(proc);
 	uint32_t i = proc->space->ipc_server.ipc;
 	proc->space->ipc_server.ipc = 0;
 	memcpy(&proc->space->ipc_server.ctx, &proc->ctx, sizeof(context_t));
@@ -34,6 +33,7 @@ int32_t proc_ipc_call(context_t* ctx, proc_t* proc, ipc_t *ipc) {
 	proc->ctx.gpr[1] = proc->space->ipc_server.extra_data;
 	proc->ctx.pc = proc->ctx.lr = proc->space->ipc_server.entry;
 
+	proc_ready(proc);
 	if(proc->info.core == cproc->info.core) {
 		proc_switch(ctx, proc, true);
 	}
