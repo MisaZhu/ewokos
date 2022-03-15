@@ -140,6 +140,9 @@ static int32_t copy_on_write(proc_t* proc, uint32_t v_addr) {
 
 void prefetch_abort_handler(context_t* ctx, uint32_t status) {
 	(void)ctx;
+#ifdef KERNEL_SMP
+	kernel_lock();
+#endif
 	proc_t* cproc = get_current_proc();
 	if(cproc == NULL) {
 		printf("_kernel, prefetch abort!!\n");
@@ -154,10 +157,16 @@ void prefetch_abort_handler(context_t* ctx, uint32_t status) {
 		dump_ctx(&cproc->ctx);
 		proc_signal_send(ctx, cproc, SYS_SIG_STOP);
 	}
+#ifdef KERNEL_SMP
+	kernel_unlock();
+#endif
 }
 
 void data_abort_handler(context_t* ctx, uint32_t addr_fault, uint32_t status) {
 	(void)ctx;
+#ifdef KERNEL_SMP
+	kernel_lock();
+#endif
 	proc_t* cproc = get_current_proc();
 	if(cproc == NULL) {
 		printf("_kernel, data abort!! at: 0x%X\n", addr_fault);
@@ -172,6 +181,9 @@ void data_abort_handler(context_t* ctx, uint32_t addr_fault, uint32_t status) {
 		dump_ctx(&cproc->ctx);
 		proc_signal_send(ctx, cproc, SYS_SIG_STOP);
 	}
+#ifdef KERNEL_SMP
+	kernel_unlock();
+#endif
 }
 
 void irq_init(void) {
