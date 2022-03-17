@@ -152,8 +152,7 @@ void undef_abort_handler(context_t* ctx, uint32_t status) {
 		while(1);
 	}
 
-	if((status & 0xD) != 0xD || //permissions fault only
-			ctx->pc >= cproc->space->heap_size || //in proc heap only
+	if(ctx->pc >= cproc->space->heap_size || //in proc heap only
 			copy_on_write(cproc, ctx->pc) != 0) {
 		printf("pid: %d(%s), undef instrunction abort!!\n", cproc->info.pid, cproc->info.cmd);
 		dump_ctx(&cproc->ctx);
