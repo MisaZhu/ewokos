@@ -1,5 +1,5 @@
 #include <dev/timer.h>
-#include <dev/uart.h>
+#include <dev/ipi.h>
 #include <kernel/irq.h>
 #include <kernel/interrupt.h>
 #include <kernel/system.h>
@@ -28,16 +28,18 @@ void ipi_enable_all(void) {
 	}
 }
 
-void ipi_send_all(void) {
-	uint32_t i;
-	for(i=0; i<get_cpu_cores(); i++) {
-		if(proc_num_in_core(i) > 0)
-			ipi_send(i);
-	}
+static uint32_t _intr_core = 0;
+void ipi_send_core(void) {
+	if(_intr_core >= get_cpu_cores())
+		_intr_core = 0;
+		//if(proc_num_in_core(i) > 0)
+	ipi_send(_intr_core);
+	_intr_core++;
 }
 #endif
 
 static inline void irq_do_uart0(context_t* ctx) {
+	(void)ctx;
 	interrupt_send(ctx, SYS_INT_UART0);
 }
 
@@ -64,7 +66,7 @@ static inline void irq_do_timer0(context_t* ctx) {
 	timer_clear_interrupt(0);
 	if(_schedule_tic == 0) {
 #ifdef KERNEL_SMP
-		ipi_send_all();
+		ipi_send_core();
 #else
 		schedule(ctx);
 #endif
@@ -138,6 +140,30 @@ static int32_t copy_on_write(proc_t* proc, uint32_t v_addr) {
 	return 0;
 }
 
+void undef_abort_handler(context_t* ctx, uint32_t status) {
+	(void)ctx;
+#ifdef KERNEL_SMP
+	kernel_lock();
+#endif
+	proc_t* cproc = get_current_proc();
+	if(cproc == NULL) {
+		printf("_kernel, undef instrunction abort!!\n");
+		dump_ctx(ctx);
+		while(1);
+	}
+
+	if((status & 0xD) != 0xD || //permissions fault only
+			ctx->pc >= cproc->space->heap_size || //in proc heap only
+			copy_on_write(cproc, ctx->pc) != 0) {
+		printf("pid: %d(%s), undef instrunction abort!!\n", cproc->info.pid, cproc->info.cmd);
+		dump_ctx(&cproc->ctx);
+		proc_signal_send(ctx, cproc, SYS_SIG_STOP);
+	}
+#ifdef KERNEL_SMP
+	kernel_unlock();
+#endif
+}
+
 void prefetch_abort_handler(context_t* ctx, uint32_t status) {
 	(void)ctx;
 #ifdef KERNEL_SMP
@@ -197,6 +223,7 @@ void irq_init(void) {
 	irq_enable(IRQ_TIMER0 | IRQ_UART0);
 
 #ifdef KERNEL_SMP
+	_intr_core = 0;
 	ipi_enable_all();
 #endif
 }
