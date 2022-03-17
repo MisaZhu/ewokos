@@ -70,6 +70,7 @@ __flush_tlb:
 	mov r0, #0
 	mcr p15, 0, r0, c7, c5, 0   // flush icache all
 	mcr p15, 0, r0, c8, c7, 0   //I-TLB and D-TLB invalidation
+	dmb
 	dsb
 	isb                         // instruction sync
 	mov pc, lr
@@ -154,7 +155,7 @@ __smp_unlock:
 .global __enable_scu
 __enable_scu:
 	mrc p15, 4, r0, c15, c0, 0
-	ldr r1, [r0]
+	ldr r1, [r0, #0x0]
 	orr r1, r1, #0x01
-	str r1, [r0]
+	str r1, [r0, #0x0]
 	bx lr

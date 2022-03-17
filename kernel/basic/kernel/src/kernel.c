@@ -100,8 +100,8 @@ void __attribute__((optimize("O0"))) _slave_kernel_entry_c(context_t* ctx) {
 	//printf("kernel: start core %d\n", get_core_id());
 	_started_cores++;
 	kernel_unlock();
-	//halt();
-	while(1);
+	halt();
+	//while(1);
 }
 #endif
 
@@ -135,6 +135,7 @@ void _kernel_entry_c(context_t* ctx) {
 	printf("kernel: init allocable memory: %dMB\n", div_u32(get_free_mem_size(), 1*MB));
 
 #ifdef KERNEL_SMP
+	__enable_scu();
 	_started_cores = 1;
 	uint32_t cores = get_cpu_cores();
 	start_multi_cores(cores);
