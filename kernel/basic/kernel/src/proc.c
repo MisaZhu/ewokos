@@ -145,7 +145,7 @@ int32_t proc_expand_mem(proc_t *proc, int32_t page_num) {
 				AP_RW_RW);
 		proc->space->heap_size += PAGE_SIZE;
 	}
-	vm_flush_tlb(proc->space->vm);
+	flush_tlb();
 	return res;
 }
 
@@ -162,7 +162,7 @@ void proc_shrink_mem(proc_t* proc, int32_t page_num) {
 		if (proc->space->heap_size == 0)
 			break;
 	}
-	vm_flush_tlb(proc->space->vm);
+	flush_tlb();
 }
 
 static void proc_unmap_shms(proc_t *proc) {
@@ -299,7 +299,7 @@ static inline void proc_init_user_stack(proc_t* proc) {
 			V2P(proc->user_stack[i]),
 			AP_RW_RW, 0);
 	}
-	vm_flush_tlb(proc->space->vm);
+	flush_tlb();
 	proc->ctx.sp = user_stack_base + pages*PAGE_SIZE;
 }
 
@@ -312,7 +312,7 @@ static inline void proc_free_user_stack(proc_t* proc) {
 		unmap_page(proc->space->vm, user_stack_base + PAGE_SIZE*i);
 		kfree4k(proc->user_stack[i]);
 	}
-	vm_flush_tlb(proc->space->vm);
+	flush_tlb();
 }
 
 /* proc_free frees all resources allocated by proc. */

@@ -58,7 +58,7 @@ static void shm_unmap_pages(uint32_t addr, uint32_t pages) {
 		kfree((void *) kernel_addr);
 		addr += PAGE_SIZE;
 	}
-	vm_flush_tlb(_kernel_vm);
+	flush_tlb();
 }
 
 static int32_t shm_map_pages(uint32_t addr, uint32_t pages) {
@@ -79,7 +79,7 @@ static int32_t shm_map_pages(uint32_t addr, uint32_t pages) {
 				AP_RW_D, 0);
 		addr += PAGE_SIZE;
 	}
-	vm_flush_tlb(_kernel_vm);
+	flush_tlb();
 	return 1;
 }
 
@@ -261,7 +261,7 @@ void* shm_proc_map(int32_t pid, int32_t id) {
 				AP_RW_RW, 0);
 		addr += PAGE_SIZE;
 	}
-	vm_flush_tlb(proc->space->vm);
+	flush_tlb();
 	it->refs++;
 	return (void*)it->addr;
 }
@@ -292,7 +292,7 @@ int32_t shm_proc_unmap(int32_t pid, int32_t id) {
 		unmap_page(proc->space->vm, addr);
 		addr += PAGE_SIZE;
 	}
-	vm_flush_tlb(proc->space->vm);
+	flush_tlb();
 
 	it->refs--;
 	if(it->refs <= 0) {

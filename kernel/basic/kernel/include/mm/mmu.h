@@ -16,6 +16,5 @@ void unmap_page_ref(page_dir_entry_t *vm, uint32_t vaddr);
 
 void free_page_tables(page_dir_entry_t *vm);
 uint32_t resolve_kernel_address(page_dir_entry_t *vm, uint32_t virtual);
-void vm_flush_tlb(page_dir_entry_t* vm);
 
 #endif

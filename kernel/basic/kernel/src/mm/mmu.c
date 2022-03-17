@@ -53,18 +53,6 @@ void free_page_tables(page_dir_entry_t *vm) {
 	}
 }
 
-inline void vm_flush_tlb(page_dir_entry_t* vm) {
-	proc_t* cproc = get_current_proc();
-	page_dir_entry_t* old_vm = cproc == NULL ? _kernel_vm : cproc->space->vm;
-	if(old_vm == vm) {
-		flush_tlb();
-		return;
-	}
-
-	set_translation_table_base((uint32_t)V2P(vm));
-	set_translation_table_base((uint32_t)V2P(old_vm));
-}
-
 inline void map_page_ref(page_dir_entry_t *vm, uint32_t vaddr, uint32_t paddr, uint32_t permissions) {
 	map_page(vm, vaddr, paddr, permissions, 0);
 	uint32_t i = page_ref_index(paddr);
@@ -82,6 +70,6 @@ inline void unmap_page_ref(page_dir_entry_t *vm, uint32_t virtual_addr) {
 		if(_pages_ref.refs[i] <= 0)
 			kfree4k((void*)P2V(paddr));
 	}
-	vm_flush_tlb(vm);
+	flush_tlb();
 }
 
