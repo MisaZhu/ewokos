@@ -326,6 +326,7 @@ void proc_exit(context_t* ctx, proc_t *proc, int32_t res) {
 	if(proc->space->kpage != 0) {
 		unmap_page(proc->space->vm, proc->space->kpage);
 		kfree4k((void*)proc->space->kpage);	
+		flush_tlb();
 		proc->space->kpage = 0;
 	}
 
