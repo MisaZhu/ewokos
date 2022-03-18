@@ -69,6 +69,7 @@ finished:
 __flush_tlb:
 	mov r0, #0
 	dsb
+	isb
 	mcr p15, 0, r0, c7, c5, 0   // flush icache all
 	mcr p15, 0, r0, c8, c7, 0   //I-TLB and D-TLB invalidation
 	dsb
@@ -78,9 +79,11 @@ __flush_tlb:
 .global __set_translation_table_base
 __set_translation_table_base:
 	dsb
+	isb
 	mcr p15, 0, r0, c2, c0, 0  //set ttbase user
 	mcr p15, 0, r0, c2, c0, 1  //set ttbase kernel
 	dsb
+	isb
 	mov pc, lr
 
 .global __irq_enable
