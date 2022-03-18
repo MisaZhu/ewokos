@@ -142,12 +142,13 @@ static int32_t copy_on_write(proc_t* proc, uint32_t v_addr) {
 
 void undef_abort_handler(context_t* ctx, uint32_t status) {
 	(void)ctx;
+	uint32_t core = get_core_id();
 #ifdef KERNEL_SMP
 	kernel_lock();
 #endif
 	proc_t* cproc = get_current_proc();
 	if(cproc == NULL) {
-		printf("_kernel, undef instrunction abort!!\n");
+		printf("_kernel, undef instrunction abort!! (core %d)\n", core);
 		dump_ctx(ctx);
 		while(1);
 	}
@@ -155,7 +156,7 @@ void undef_abort_handler(context_t* ctx, uint32_t status) {
 	//if(ctx->pc >= cproc->space->heap_size || //in proc heap only
 	//		copy_on_write(cproc, ctx->pc) != 0) {
 	{
-		printf("pid: %d(%s), undef instrunction abort!!\n", cproc->info.pid, cproc->info.cmd);
+		printf("pid: %d(%s), undef instrunction abort!! (core %d)\n", cproc->info.pid, cproc->info.cmd, core);
 		dump_ctx(&cproc->ctx);
 		proc_signal_send(ctx, cproc, SYS_SIG_STOP);
 	}
