@@ -95,19 +95,6 @@ __irq_disable:
 	msr cpsr_c, r0
 	mov pc, lr
 
-.global __int_off // SR = int_off()
-__int_off: 
-	mrs r0, cpsr
-	mov r1, r0
-	orr r1, r1, #0x80
-	msr cpsr, r1
-  mov pc, lr
-
-.global __int_on
-__int_on:
-	msr cpsr, r0
-  mov pc, lr
-
 .global __read_current_freq
 __read_current_freq:
   mcr p15, 0, r0, c14, c0, 0
