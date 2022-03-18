@@ -32,8 +32,8 @@ static uint32_t _intr_core = 0;
 void ipi_send_core(void) {
 	if(_intr_core >= get_cpu_cores())
 		_intr_core = 0;
-		//if(proc_num_in_core(i) > 0)
-	ipi_send(_intr_core);
+	if(proc_num_in_core(_intr_core) > 0)
+		ipi_send(_intr_core);
 	_intr_core++;
 }
 #endif
@@ -153,9 +153,8 @@ void undef_abort_handler(context_t* ctx, uint32_t status) {
 		while(1);
 	}
 
-	//if(ctx->pc >= cproc->space->heap_size || //in proc heap only
-	//		copy_on_write(cproc, ctx->pc) != 0) {
-	{
+	if(ctx->pc >= cproc->space->heap_size || //in proc heap only
+			copy_on_write(cproc, ctx->pc) != 0) {
 		printf("pid: %d(%s), undef instrunction abort!! (core %d)\n", cproc->info.pid, cproc->info.cmd, core);
 		dump_ctx(&cproc->ctx);
 		proc_signal_send(ctx, cproc, SYS_SIG_STOP);
@@ -167,12 +166,13 @@ void undef_abort_handler(context_t* ctx, uint32_t status) {
 
 void prefetch_abort_handler(context_t* ctx, uint32_t status) {
 	(void)ctx;
+	uint32_t core = get_core_id();
 #ifdef KERNEL_SMP
 	kernel_lock();
 #endif
 	proc_t* cproc = get_current_proc();
 	if(cproc == NULL) {
-		printf("_kernel, prefetch abort!!\n");
+		printf("_kernel, prefetch abort!! (core %d)\n", core);
 		dump_ctx(ctx);
 		while(1);
 	}
@@ -180,7 +180,7 @@ void prefetch_abort_handler(context_t* ctx, uint32_t status) {
 	if((status & 0xD) != 0xD || //permissions fault only
 			ctx->pc >= cproc->space->heap_size || //in proc heap only
 			copy_on_write(cproc, ctx->pc) != 0) {
-		printf("pid: %d(%s), prefetch abort!!\n", cproc->info.pid, cproc->info.cmd);
+		printf("pid: %d(%s), prefetch abort!! (core %d)\n", cproc->info.pid, cproc->info.cmd, core);
 		dump_ctx(&cproc->ctx);
 		proc_signal_send(ctx, cproc, SYS_SIG_STOP);
 	}

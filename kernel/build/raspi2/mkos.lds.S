@@ -53,6 +53,9 @@ SECTIONS
 	_abt_stack = .;
 
 	. = . + 0x10000;
+	_undef_stack = .;
+
+	. = . + 0x10000;
 	_svc_stack = .;
 	PROVIDE(_kernel_sp = .);
 

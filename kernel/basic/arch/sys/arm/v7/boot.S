@@ -57,6 +57,9 @@ core0:
 	msr cpsr, #0xD7             @ enter ABT mode with IRQ and FIQ interrupts disabled
 	ldr sp, = _abt_stack        @ initialise ABT mode stack
 
+	msr cpsr, #0xDB             @ enter UND mode with IRQ and FIQ interrupts disabled
+	ldr sp, = _undef_stack      @ initialise UND mode stack
+
 	msr cpsr, #0xD3             @ enter SVC mode with IRQ and FIQ interrupts disabled
 	ldr sp, = _svc_stack        @ initialise SVC mode stack
 
@@ -99,7 +102,7 @@ start_core_3:
 
 slave_core:                   @ 1-3 cores
 	mrc p15, 0, r11, c0, c0, 5
-	and r11, r11, #3
+	and r11, r11, #3            @ get core id (1-3)
 
 	mov r0, #0x4000
 	mul r0, r0, r11
@@ -120,6 +123,10 @@ slave_core:                   @ 1-3 cores
 
 	msr cpsr, #0xD7             @ enter ABT mode with IRQ and FIQ interrupts disabled
 	ldr sp, = _abt_stack        @ initialise ABT mode stack
+	sub sp, r0
+
+	msr cpsr, #0xDB             @ enter UND mode with IRQ and FIQ interrupts disabled
+	ldr sp, = _undef_stack      @ initialise UND mode stack
 	sub sp, r0
 
 	msr cpsr, #0xD3             @ enter SVC mode with IRQ and FIQ interrupts disabled
