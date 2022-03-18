@@ -40,6 +40,7 @@ int32_t map_page(page_dir_entry_t *vm, uint32_t virtual_addr,
 	page_table[page_index].base = PAGE_TO_BASE(physical);
 	page_table[page_index].ap = permissions;
 	set_pte_flags(&page_table[page_index], no_cache);
+	__asm__ volatile("dsb");
 	return 0;
 }
 
@@ -50,6 +51,7 @@ void unmap_page(page_dir_entry_t *vm, uint32_t virtual_addr) {
 	uint32_t page_index = PAGE_INDEX(virtual_addr);
 	page_table = (void *) P2V(BASE_TO_PAGE_TABLE(vm[page_dir_index].base));
 	page_table[page_index].type = 0;
+	__asm__ volatile("dsb");
 }
 
 /*
