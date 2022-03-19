@@ -142,6 +142,7 @@ static int32_t copy_on_write(proc_t* proc, uint32_t v_addr) {
 
 void undef_abort_handler(context_t* ctx, uint32_t status) {
 	(void)ctx;
+	__irq_disable();
 	uint32_t core = get_core_id();
 #ifdef KERNEL_SMP
 	kernel_lock();
@@ -166,6 +167,7 @@ void undef_abort_handler(context_t* ctx, uint32_t status) {
 
 void prefetch_abort_handler(context_t* ctx, uint32_t status) {
 	(void)ctx;
+	__irq_disable();
 	uint32_t core = get_core_id();
 #ifdef KERNEL_SMP
 	kernel_lock();
@@ -191,6 +193,7 @@ void prefetch_abort_handler(context_t* ctx, uint32_t status) {
 
 void data_abort_handler(context_t* ctx, uint32_t addr_fault, uint32_t status) {
 	(void)ctx;
+	__irq_disable();
 #ifdef KERNEL_SMP
 	kernel_lock();
 #endif
