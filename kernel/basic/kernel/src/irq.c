@@ -28,13 +28,13 @@ void ipi_enable_all(void) {
 	}
 }
 
-static uint32_t _intr_core = 0;
-void ipi_send_core(void) {
-	if(_intr_core >= get_cpu_cores())
-		_intr_core = 0;
-	if(proc_num_in_core(_intr_core) > 0)
-		ipi_send(_intr_core);
-	_intr_core++;
+static inline void ipi_send_all(void) {
+	uint32_t i;
+	uint32_t cores = get_cpu_cores();
+	for(i=0; i< cores; i++) {
+		if(proc_num_in_core(i) > 0)
+			ipi_send(i);
+	}
 }
 #endif
 
@@ -66,7 +66,7 @@ static inline void irq_do_timer0(context_t* ctx) {
 	timer_clear_interrupt(0);
 	if(_schedule_tic == 0) {
 #ifdef KERNEL_SMP
-		ipi_send_core();
+		ipi_send_all();
 #else
 		schedule(ctx);
 #endif
@@ -227,7 +227,6 @@ void irq_init(void) {
 	irq_enable(IRQ_TIMER0 | IRQ_UART0);
 
 #ifdef KERNEL_SMP
-	_intr_core = 0;
 	ipi_enable_all();
 #endif
 }

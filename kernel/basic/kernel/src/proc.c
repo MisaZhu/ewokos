@@ -108,6 +108,9 @@ void proc_switch(context_t* ctx, proc_t* to, bool quick){
 	if(to == NULL)
 		return;
 
+	if(cproc != NULL && cproc->info.state != UNUSED)
+		memcpy(&cproc->ctx, ctx, sizeof(context_t));
+
 	if(to->space->ipc_server.ipc != 0) { //have ipc request to handle 
 		memcpy(&to->space->ipc_server.ctx, &to->ctx, sizeof(context_t)); //save "to" context to ipc ctx, will restore after ipc done.
 		to->ctx.gpr[0] = to->space->ipc_server.ipc;
@@ -115,15 +118,13 @@ void proc_switch(context_t* ctx, proc_t* to, bool quick){
 		to->ctx.pc = to->ctx.lr = to->space->ipc_server.entry;
 		to->space->ipc_server.ipc = 0; // clear ipc request mask
 
-		if(to == cproc) { //current proc switch to handle ipc request
-			memcpy(&to->space->ipc_server.ctx, ctx, sizeof(context_t)); //save current context to ipc ctx, will restore after ipc done.
+		if(cproc == to) { //current proc switch to handle ipc request
 			memcpy(ctx, &to->ctx, sizeof(context_t));
 			return;
 		}
 	}
 
 	if(cproc != NULL && cproc->info.state != UNUSED) {
-		memcpy(&cproc->ctx, ctx, sizeof(context_t));
 		if(cproc->info.state == RUNNING) {
 			cproc->info.state = READY;
 			if(quick)
@@ -241,8 +242,8 @@ proc_t* proc_get_next_ready(void) {
 
 	if(next == NULL) {
 		proc_t*	cproc = get_current_proc();
-		if(cproc->info.state == RUNNING)
-			return cproc;
+		if(cproc != NULL && cproc->info.state == RUNNING)
+			next = cproc;
 	}
 
 	if(next == NULL) {
@@ -389,7 +390,7 @@ static inline uint32_t core_fetch(proc_t* proc) {
 
 	_use_core_id++; 
 	if(_use_core_id >= cores) 
-		_use_core_id = 1;
+		_use_core_id = 0;
 	return _use_core_id;
 }
 
@@ -548,7 +549,7 @@ static void proc_page_clone(proc_t* to, uint32_t to_addr, proc_t* from, uint32_t
 	memcpy(to_ptr, from_ptr, PAGE_SIZE);
 }
 
-/*static int32_t proc_clone(proc_t* child, proc_t* parent) {
+static int32_t proc_clone(proc_t* child, proc_t* parent) {
 	uint32_t pages = parent->space->heap_size / PAGE_SIZE;
 	if((parent->space->heap_size % PAGE_SIZE) != 0)
 		pages++;
@@ -581,9 +582,8 @@ static void proc_page_clone(proc_t* to, uint32_t to_addr, proc_t* from, uint32_t
 	strcpy(child->info.cmd, parent->info.cmd);
 	return 0;
 }
-*/
 
-static int32_t proc_clone(proc_t* child, proc_t* parent) {
+/*static int32_t proc_clone(proc_t* child, proc_t* parent) {
 	uint32_t pages = parent->space->heap_size / PAGE_SIZE;
 	if((parent->space->heap_size % PAGE_SIZE) != 0)
 		pages++;
@@ -610,6 +610,7 @@ static int32_t proc_clone(proc_t* child, proc_t* parent) {
 	strcpy(child->info.cmd, parent->info.cmd);
 	return 0;
 }
+*/
 
 static inline void proc_thread_clone(context_t* ctx, proc_t* child, proc_t* parent) {
 	uint32_t pages = proc_get_user_stack_pages(child) - 1;
