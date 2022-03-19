@@ -108,6 +108,20 @@ void proc_switch(context_t* ctx, proc_t* to, bool quick){
 	if(to == NULL)
 		return;
 
+	if(to->space->ipc_server.ipc != 0) { //have ipc request to handle 
+		memcpy(&to->space->ipc_server.ctx, &to->ctx, sizeof(context_t)); //save "to" context to ipc ctx, will restore after ipc done.
+		to->ctx.gpr[0] = to->space->ipc_server.ipc;
+		to->ctx.gpr[1] = to->space->ipc_server.extra_data;
+		to->ctx.pc = to->ctx.lr = to->space->ipc_server.entry;
+		to->space->ipc_server.ipc = 0; // clear ipc request mask
+
+		if(to == cproc) { //current proc switch to handle ipc request
+			memcpy(&to->space->ipc_server.ctx, ctx, sizeof(context_t)); //save current context to ipc ctx, will restore after ipc done.
+			memcpy(ctx, &to->ctx, sizeof(context_t));
+			return;
+		}
+	}
+
 	if(cproc != NULL && cproc->info.state != UNUSED) {
 		memcpy(&cproc->ctx, ctx, sizeof(context_t));
 		if(cproc->info.state == RUNNING) {

@@ -344,32 +344,22 @@ static void sys_ipc_set_return(ipc_t* ipc, proto_t* data) {
 
 static void sys_ipc_end(context_t* ctx, ipc_t* ipc) {
 	proc_t* cproc = get_current_proc();
-	if(cproc->space->ipc_server.entry == 0) {
+	if(cproc == NULL || cproc->space->ipc_server.entry == 0)
 		return;
-	}
-
-	cproc->info.state = cproc->space->ipc_server.state;
-	if(cproc->info.state == READY || 
-			cproc->info.state == RUNNING)
-		proc_ready(cproc);
 
 	memcpy(ctx, &cproc->space->ipc_server.ctx, sizeof(context_t));
-	memcpy(&cproc->ctx, &cproc->space->ipc_server.ctx, sizeof(context_t));
+	cproc->info.state = cproc->space->ipc_server.state;
 
 	proc_t* proc = proc_get(ipc->client_pid);
-	if(cproc->info.ipc_state == IPC_RETURN) {
+	if(cproc->info.ipc_state == IPC_RETURN)
 		ipc = NULL;
-	}
 
 	cproc->info.ipc_state = IPC_IDLE;
-	proc_wakeup(cproc->info.pid, (uint32_t)&cproc->space->ipc_server);
+	proc_wakeup(cproc->info.pid, (uint32_t)&cproc->space->ipc_server); //wakeup all waiting requests
 
-	if(proc != NULL)
-		proc_ready(proc);
-
-	if(ipc != NULL) {// && ipc->uid == cproc->space->ipc_server.uid) {
+	if(ipc != NULL) {
 		ipc->state = IPC_RETURN;
-		proc_wakeup(cproc->info.pid, (uint32_t)ipc);
+		proc_wakeup(cproc->info.pid, (uint32_t)ipc); //wake up proc waiting for the return
 		if(proc != NULL) {
 			if(proc->info.core == cproc->info.core) {
 				proc_switch(ctx, proc, true);
