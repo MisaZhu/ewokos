@@ -99,7 +99,6 @@ static void sys_free(int32_t p) {
 
 static void sys_fork(context_t* ctx) {
 	proc_t *proc;
-	uint32_t psp = ctx->sp;
 	proc = kfork(ctx, PROC_TYPE_PROC);
 	if(proc == NULL) {
 		ctx->gpr[0] = -1;
@@ -107,7 +106,6 @@ static void sys_fork(context_t* ctx) {
 	}
 
 	memcpy(&proc->ctx, ctx, sizeof(context_t));
-	proc->ctx.sp = psp;
 	proc->ctx.gpr[0] = 0;
 	ctx->gpr[0] = proc->info.pid;
 

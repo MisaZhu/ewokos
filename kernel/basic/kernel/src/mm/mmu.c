@@ -70,6 +70,5 @@ inline void unmap_page_ref(page_dir_entry_t *vm, uint32_t virtual_addr) {
 		if(_pages_ref.refs[i] <= 0)
 			kfree4k((void*)P2V(paddr));
 	}
-	flush_tlb();
 }
 

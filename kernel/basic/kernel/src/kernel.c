@@ -57,6 +57,7 @@ void set_kernel_vm(page_dir_entry_t* vm) {
 		V2P(ALLOCATABLE_MEMORY_START),
 		_sys_info.phy_mem_size,
 		AP_RW_D, 0);
+	flush_tlb();
 }
 
 static void init_kernel_vm(void) {
