@@ -19,15 +19,7 @@
 .Environment & Tools
 
 	QEMU: 
-		brew install glib
-		brew install pixman
-		brew install pkg-config
-		download modified qemu-4.2.0 from https://github.com/MisaZhu/qemu_raspi
-		./configure --enable-kvm --enable-hax --target-list=arm-softmmu
-		make and make install
-	Linux:	
-		Ubuntu Linux 16.04 with "libglib2.0-dev","libpixman-1-dev","libsdl2-dev","gcc-arm-none-eabi","gdb-arm-none-eabi" or "gdb-multiarch","fuseext2"
-		installed(can install by "apt")
+		install the last version of qemu
 
 	Mac OSX(with brew installed):	
 		brew tap PX4/homebrew-px4
