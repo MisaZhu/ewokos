@@ -18,8 +18,8 @@ int32_t schedule(context_t* ctx) {
 	
 	set_current_proc(NULL);
 	set_translation_table_base(V2P((uint32_t)_kernel_vm));
-	kernel_unlock();
 	__irq_enable();
+	kernel_unlock();
 	halt();
 	return -1;
 }
