@@ -40,10 +40,13 @@ static int fb_dma_init(fb_dma_t* dma) {
 	if(_fbinfo->pointer == 0)
 		return -1;
 
-	dma->shm_id = shm_alloc(_fbinfo->size_max, 1);
+	//dma->shm_id = shm_alloc(_fbinfo->size_max, 1);
+	uint32_t sz = _fbinfo->width*_fbinfo->height*4;
+	dma->shm_id = shm_alloc(sz, 1);
 	if(dma->shm_id <= 0)
 		return -1;
-	dma->size = _fbinfo->size_max;
+	//dma->size = _fbinfo->size_max;
+	dma->size = sz;
 	dma->data = shm_map(dma->shm_id);
 	if(dma->data == NULL)
 		return -1;
