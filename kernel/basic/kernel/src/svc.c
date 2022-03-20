@@ -349,6 +349,8 @@ static void sys_ipc_end(context_t* ctx, ipc_t* ipc) {
 
 	memcpy(ctx, &cproc->space->ipc_server.ctx, sizeof(context_t));
 	cproc->info.state = cproc->space->ipc_server.state;
+	if(cproc->info.state == READY || cproc->info.state == RUNNING)
+		proc_ready(cproc);
 
 	proc_t* proc = proc_get(ipc->client_pid);
 	if(cproc->info.ipc_state == IPC_RETURN)

@@ -36,6 +36,7 @@ static inline void ipi_send_all(void) {
 			ipi_send(i);
 	}
 }
+
 #endif
 
 static inline void irq_do_uart0(context_t* ctx) {
@@ -143,10 +144,12 @@ static int32_t copy_on_write(proc_t* proc, uint32_t v_addr) {
 void undef_abort_handler(context_t* ctx, uint32_t status) {
 	(void)ctx;
 	__irq_disable();
-	uint32_t core = get_core_id();
 #ifdef KERNEL_SMP
+	if(kernel_lock_check() > 0)
+		return;
 	kernel_lock();
 #endif
+	uint32_t core = get_core_id();
 	proc_t* cproc = get_current_proc();
 	if(cproc == NULL) {
 		printf("_kernel, undef instrunction abort!! (core %d)\n", core);
@@ -170,6 +173,8 @@ void prefetch_abort_handler(context_t* ctx, uint32_t status) {
 	__irq_disable();
 	uint32_t core = get_core_id();
 #ifdef KERNEL_SMP
+	if(kernel_lock_check() > 0)
+		return;
 	kernel_lock();
 #endif
 	proc_t* cproc = get_current_proc();
@@ -195,6 +200,8 @@ void data_abort_handler(context_t* ctx, uint32_t addr_fault, uint32_t status) {
 	(void)ctx;
 	__irq_disable();
 #ifdef KERNEL_SMP
+	if(kernel_lock_check() > 0)
+		return;
 	kernel_lock();
 #endif
 	proc_t* cproc = get_current_proc();
