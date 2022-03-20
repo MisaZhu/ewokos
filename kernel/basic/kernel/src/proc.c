@@ -119,7 +119,7 @@ void proc_switch(context_t* ctx, proc_t* to, bool quick){
 		to->space->ipc_server.ipc = 0; // clear ipc request mask
 
 		if(cproc == to) { //current proc switch to handle ipc request
-			cproc->info.state = READY;
+			cproc->info.state = RUNNING;
 			memcpy(ctx, &to->ctx, sizeof(context_t));
 			return;
 		}
