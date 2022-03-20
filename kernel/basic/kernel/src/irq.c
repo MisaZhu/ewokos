@@ -32,7 +32,7 @@ static inline void ipi_send_all(void) {
 	uint32_t i;
 	uint32_t cores = get_cpu_cores();
 	for(i=0; i< cores; i++) {
-		if(proc_num_in_core(i) > 0)
+		if(proc_have_ready_task(i))
 			ipi_send(i);
 	}
 }
@@ -59,7 +59,7 @@ static inline void irq_do_timer0(context_t* ctx) {
 			_timer_tic = 0;
 		}
 
-		if(_schedule_tic >= 20000) { //20 msec, 50 times scheduling per second
+		if(_schedule_tic >= 3000) { //3 msec, 300 times scheduling per second
 			_schedule_tic = 0;
 		}
 		renew_kernel_tic(usec_gap);
@@ -87,7 +87,7 @@ static inline void _irq_handler(uint32_t cid, context_t* ctx) {
 	else {
 #ifdef KERNEL_SMP
 		ipi_clear(cid);
-		if(proc_num_in_core(cid) > 0)
+		if(proc_have_ready_task(cid))
 			schedule(ctx);
 #endif
 	}
@@ -162,8 +162,8 @@ void prefetch_abort_handler(context_t* ctx, uint32_t status) {
 	__irq_disable();
 	uint32_t core = get_core_id();
 #ifdef KERNEL_SMP
-	if(kernel_lock_check() > 0)
-		return;
+	//if(kernel_lock_check() > 0)
+	//	return;
 	kernel_lock();
 #endif
 	proc_t* cproc = get_current_proc();
@@ -189,8 +189,8 @@ void data_abort_handler(context_t* ctx, uint32_t addr_fault, uint32_t status) {
 	(void)ctx;
 	__irq_disable();
 #ifdef KERNEL_SMP
-	if(kernel_lock_check() > 0)
-		return;
+	//if(kernel_lock_check() > 0)
+	//	return;
 	kernel_lock();
 #endif
 	proc_t* cproc = get_current_proc();

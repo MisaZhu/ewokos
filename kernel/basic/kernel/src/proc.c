@@ -217,22 +217,9 @@ proc_t* proc_get_core_ready(uint32_t core_id) {
 	return (proc_t*)_ready_queue[core_id].head;
 }
 
-uint32_t proc_num_in_core(uint32_t core) {
-	uint32_t i, ret;
-	ret = 0;
-	for (i = 0; i < PROC_MAX; i++) {
-		proc_t* n = &_proc_table[i];
-		if(n->info.core == core) {
-			if(n->info.state == UNUSED || 
-					n->info.state == ZOMBIE ||
-					n->info.state == WAIT || 
-					n->info.state == SLEEPING || 
-					n->info.state == CREATED)
-				continue;
-			ret++;
-		}
-	}
-	return ret;
+bool proc_have_ready_task(uint32_t core) {
+	return !queue_is_empty(&_ready_queue[core]) ||
+			_current_proc[core] != NULL;
 }
 
 proc_t* proc_get_next_ready(void) {
@@ -247,7 +234,7 @@ proc_t* proc_get_next_ready(void) {
 			next = cproc;
 	}
 
-	if(next == NULL) {
+	/*if(next == NULL) {
 		if(core_id == 0 && _core_proc_ready) {
 			next = &_proc_table[_core_proc_pid];
 			if(next->info.state == UNUSED || next->info.state == ZOMBIE || next->info.state == CREATED)
@@ -255,6 +242,8 @@ proc_t* proc_get_next_ready(void) {
 			next->info.state = READY;
 		}
 	}
+	*/
+
 	return next;
 }
 
@@ -550,7 +539,7 @@ static void proc_page_clone(proc_t* to, uint32_t to_addr, proc_t* from, uint32_t
 	memcpy(to_ptr, from_ptr, PAGE_SIZE);
 }
 
-static int32_t proc_clone(proc_t* child, proc_t* parent) {
+/*static int32_t proc_clone(proc_t* child, proc_t* parent) {
 	uint32_t pages = parent->space->heap_size / PAGE_SIZE;
 	if((parent->space->heap_size % PAGE_SIZE) != 0)
 		pages++;
@@ -583,8 +572,9 @@ static int32_t proc_clone(proc_t* child, proc_t* parent) {
 	strcpy(child->info.cmd, parent->info.cmd);
 	return 0;
 }
+*/
 
-/*static int32_t proc_clone(proc_t* child, proc_t* parent) {
+static int32_t proc_clone(proc_t* child, proc_t* parent) {
 	uint32_t pages = parent->space->heap_size / PAGE_SIZE;
 	if((parent->space->heap_size % PAGE_SIZE) != 0)
 		pages++;
@@ -611,7 +601,6 @@ static int32_t proc_clone(proc_t* child, proc_t* parent) {
 	strcpy(child->info.cmd, parent->info.cmd);
 	return 0;
 }
-*/
 
 static inline void proc_thread_clone(context_t* ctx, proc_t* child, proc_t* parent) {
 	uint32_t pages = proc_get_user_stack_pages(child) - 1;

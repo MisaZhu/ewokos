@@ -91,3 +91,6 @@ void queue_clear(queue_t* q, free_func_t fr) {
 	q->head = q->tail = NULL;
 }
 
+bool queue_is_empty(queue_t* q) {
+	return (q->head == NULL);
+}

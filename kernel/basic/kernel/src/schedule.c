@@ -18,9 +18,9 @@ int32_t schedule(context_t* ctx) {
 	
 	set_current_proc(NULL);
 	set_translation_table_base(V2P((uint32_t)_kernel_vm));
-	__irq_enable();
-	kernel_unlock();
-	halt();
-	return -1;
+	ctx->pc = (uint32_t)halt;
+	ctx->cpsr = 0x13;
+	ctx->sp = 0x100;
+	return 0;
 }
 
