@@ -17,6 +17,7 @@ extern uint32_t get_cpu_cores(void);
 
 typedef struct {
 	uint32_t actived;
+	uint32_t halt_stack[64];
 } core_t;
 
 extern core_t _cpu_cores[CPU_MAX_CORES];

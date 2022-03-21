@@ -1,7 +1,10 @@
 #include <kernel/core.h>
 #include <kernel/system.h>
 
+core_t _cpu_cores[CPU_MAX_CORES];
+
 #ifdef KERNEL_SMP
+
 extern uint32_t __core_id(void);
 extern uint32_t __cpu_cores(void);
 
@@ -12,8 +15,6 @@ inline uint32_t get_core_id(void) {
 inline uint32_t get_cpu_cores(void) {
 	return __cpu_cores();
 }
-
-core_t _cpu_cores[CPU_MAX_CORES];
 
 static uint32_t _multi_core_flag = 0x0;
 inline void start_multi_cores(uint32_t cores) {
