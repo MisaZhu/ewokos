@@ -3,8 +3,6 @@
 #include <mm/mmu.h>
 #include <kernel/system.h>
 
-pages_ref_t _pages_ref;
-
 inline uint32_t page_ref_index(uint32_t paddr) {
 	return ((paddr) - _pages_ref.phy_base) / PAGE_SIZE;
 }

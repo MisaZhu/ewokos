@@ -22,7 +22,7 @@ int32_t schedule(context_t* ctx) {
 	set_translation_table_base(V2P((uint32_t)_kernel_vm));
 	ctx->pc = (uint32_t)halt;
 	ctx->cpsr = 0x13; //svc mode with interrupts enabled
-	ctx->sp = (uint32_t)_cpu_cores[get_core_id()].halt_stack;
+	ctx->sp = (uint32_t)_cpu_cores[get_core_id()].halt_stack + HALT_STACK_SIZE;
 	return 0;
 }
 

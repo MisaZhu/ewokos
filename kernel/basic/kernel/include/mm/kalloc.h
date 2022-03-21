@@ -14,7 +14,7 @@ typedef struct {
 	uint32_t phy_base;
 } pages_ref_t;
 
-extern pages_ref_t _pages_ref;
+static volatile pages_ref_t _pages_ref;
 uint32_t page_ref_index(uint32_t paddr);
 
 /* exported function declarations */
