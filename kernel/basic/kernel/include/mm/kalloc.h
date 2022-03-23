@@ -9,12 +9,12 @@ typedef struct PageList {
 } page_list_t;
 
 typedef struct {
-	int32_t* refs;
+	int16_t* refs;
 	uint32_t max;
 	uint32_t phy_base;
 } pages_ref_t;
 
-static volatile pages_ref_t _pages_ref;
+extern pages_ref_t _pages_ref;
 uint32_t page_ref_index(uint32_t paddr);
 
 /* exported function declarations */

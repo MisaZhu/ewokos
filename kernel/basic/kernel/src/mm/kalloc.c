@@ -3,6 +3,8 @@
 #include <mm/mmu.h>
 #include <kernel/system.h>
 
+pages_ref_t _pages_ref;
+
 inline uint32_t page_ref_index(uint32_t paddr) {
 	return ((paddr) - _pages_ref.phy_base) / PAGE_SIZE;
 }
@@ -99,11 +101,12 @@ uint32_t get_free_mem_size(void) {
 	page_list_t *current_page = 0;
 
 	// iterate over free 1k pages
-	current_page = _free_list1k;
+	/*current_page = _free_list1k;
 	while (current_page != 0) {
 		result += 1024;
 		current_page = current_page->next;
 	}
+	*/
 
 	// iterate over free 4k pages
 	current_page = _free_list4k;

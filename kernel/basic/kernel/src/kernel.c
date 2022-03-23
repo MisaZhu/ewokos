@@ -83,9 +83,9 @@ static void init_allocable_mem(void) {
 	flush_tlb();
 	printf("kernel: kalloc init for all allocatable pages\n");
 	_pages_ref.max = kalloc_init(P2V(_allocatable_mem_base), P2V(_allocatable_mem_top));
-	_pages_ref.refs = kmalloc(_pages_ref.max * 4);	
+	_pages_ref.refs = kmalloc(_pages_ref.max * sizeof(int16_t));	
 	_pages_ref.phy_base = _allocatable_mem_base;
-	memset(_pages_ref.refs, 0, _pages_ref.max*4);
+	memset(_pages_ref.refs, 0, _pages_ref.max * sizeof(int16_t));
 }
 
 #ifdef KERNEL_SMP
@@ -131,7 +131,7 @@ void _kernel_entry_c(void) {
                                                       
 	printf("kernel: kmalloc initing  [ok] : %dMB\n", div_u32(KMALLOC_END-KMALLOC_BASE, 1*MB));
 	init_allocable_mem(); //init the rest allocable memory VM
-	printf("kernel: init allocable memory: %dMB\n", div_u32(get_free_mem_size(), 1*MB));
+	printf("kernel: init allocable memory: %dMB, %d pages\n", div_u32(get_free_mem_size(), 1*MB), _pages_ref.max);
 
 #ifdef KERNEL_SMP
 	//__enable_scu();
