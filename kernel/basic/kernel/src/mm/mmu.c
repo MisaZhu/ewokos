@@ -66,11 +66,10 @@ inline void unmap_page_ref(page_dir_entry_t *vm, uint32_t virtual_addr) {
 
 	uint32_t i = page_ref_index(paddr);
 	if(i < _pages_ref.max) {
-		_pages_ref.refs[i]--;
-		if(_pages_ref.refs[i] <= 0) {
+		if(_pages_ref.refs[i] > 0)
+			_pages_ref.refs[i]--;
+		if(_pages_ref.refs[i] == 0)
 			kfree4k((void*)P2V(paddr));
-			_pages_ref.refs[i] = 0;
-		}
 	}
 }
 

@@ -8,8 +8,10 @@ typedef struct PageList {
 	struct PageList *next;
 } page_list_t;
 
+typedef uint32_t page_ref_t;
+
 typedef struct {
-	int16_t* refs;
+	page_ref_t* refs;
 	uint32_t max;
 	uint32_t phy_base;
 } pages_ref_t;
