@@ -15,11 +15,9 @@ extern uint32_t get_cpu_cores(void);
 #define CPU_MAX_CORES 1
 #endif
 
-#define HALT_STACK_SIZE 64
-
 typedef struct {
 	uint32_t actived;
-	uint32_t halt_stack[HALT_STACK_SIZE];
+	int32_t halt_pid;
 } core_t;
 
 extern core_t _cpu_cores[CPU_MAX_CORES];

@@ -101,6 +101,7 @@ extern proc_t* proc_get(int32_t pid);
 extern proc_t* proc_get_proc(proc_t* proc);
 extern proc_t* kfork_raw(context_t* ctx, int32_t type, proc_t* parent);
 extern proc_t* kfork(context_t* ctx, int32_t type);
+extern proc_t* kfork_init(uint32_t core);
 
 extern procinfo_t* get_procs(int32_t* num);
 

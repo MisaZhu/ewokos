@@ -134,7 +134,6 @@ void _kernel_entry_c(void) {
 	printf("kernel: init allocable memory: %dMB, %d pages\n", div_u32(get_free_mem_size(), 1*MB), _pages_ref.max);
 
 #ifdef KERNEL_SMP
-	//__enable_scu();
 	_started_cores = 1;
 	uint32_t cores = get_cpu_cores();
 	start_multi_cores(cores);
@@ -157,6 +156,11 @@ void _kernel_entry_c(void) {
 	printf("  [ok]\n");
 
 #ifdef KERNEL_SMP
+	for(uint32_t i=0; i<cores; i++) {
+		proc_t* p = kfork_init(i);
+		_cpu_cores[i].halt_pid = p->info.pid;
+	}
+
 	while(_started_cores < cores) {
 		printf("kernel: started: %d\n", _started_cores);
 	}

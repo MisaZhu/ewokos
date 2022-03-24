@@ -125,7 +125,8 @@ void proc_switch(context_t* ctx, proc_t* to, bool quick){
 		}
 	}
 
-	if(cproc != NULL && cproc->info.state != UNUSED) {
+	if(cproc != NULL && cproc->info.state != UNUSED && 
+			cproc->info.pid != _cpu_cores[cproc->info.core].halt_pid) {
 		if(cproc->info.state == RUNNING) {
 			cproc->info.state = READY;
 			if(quick)
@@ -230,7 +231,8 @@ proc_t* proc_get_next_ready(void) {
 
 	if(next == NULL) {
 		proc_t*	cproc = get_current_proc();
-		if(cproc != NULL && cproc->info.state == RUNNING)
+		if(cproc != NULL && cproc->info.state == RUNNING &&
+				cproc->info.pid != _cpu_cores[cproc->info.core].halt_pid)
 			next = cproc;
 	}
 
@@ -628,6 +630,7 @@ proc_t* kfork_raw(context_t* ctx, int32_t type, proc_t* parent) {
 	}
 	child->info.father_pid = parent->info.pid;
 	child->info.owner = parent->info.owner;
+	memcpy(&child->ctx, &parent->ctx, sizeof(context_t));
 
 	if(type == PROC_TYPE_PROC) {
 		if(proc_clone(child, parent) != 0) {
@@ -741,3 +744,9 @@ proc_t* proc_get_proc(proc_t* proc) {
 	return NULL;
 }
 
+proc_t* kfork_init(uint32_t core) {
+	proc_t* cproc = &_proc_table[0];
+	proc_t* child = kfork_raw(NULL, PROC_TYPE_PROC, cproc);
+	child->info.core = core;
+	return child;
+}

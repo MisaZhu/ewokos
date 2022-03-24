@@ -247,6 +247,15 @@ static void switch_root(void) {
 	run_procs();
 }
 
+static void halt(void) {
+	uint32_t i=0;
+	while(1) {
+		while(i++ < 1000000);
+		sleep(0);
+		i = 0;
+	}
+}
+
 int main(int argc, char** argv) {
 	(void)argc;
 	(void)argv;
@@ -256,6 +265,13 @@ int main(int argc, char** argv) {
 		out("process 'init' can only loaded by kernel!\n");
 		return -1;
 	}
+
+	if(getpid() != 0) { //not first proc
+		syscall1(SYS_PROC_SET_CMD, (int32_t)"cpu_core_halt");
+		halt();
+	}
+	else
+		syscall1(SYS_PROC_SET_CMD, (int32_t)"init");
 
 	out("\n[init process started]\n");
 	syscall1(SYS_PROC_SET_CMD, (int32_t)"init");
