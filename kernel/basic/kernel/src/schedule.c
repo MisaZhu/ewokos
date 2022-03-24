@@ -14,7 +14,6 @@ int32_t schedule(context_t* ctx) {
 		halt_proc->info.wait_for = 0;
 	}
 	
-	proc_get(_cpu_cores[core].halt_pid);
 	proc_t* next = proc_get_next_ready();
 	if(next == NULL && halt_proc != NULL) {
 		next = halt_proc;
