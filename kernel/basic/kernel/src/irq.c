@@ -45,6 +45,7 @@ static inline void irq_do_uart0(context_t* ctx) {
 }
 
 static inline void irq_do_timer0(context_t* ctx) {
+	(void)ctx;
 	uint64_t usec = timer_read_sys_usec();
 	if(_kernel_usec == 0) {
 		_kernel_usec = usec;
@@ -144,6 +145,7 @@ static int32_t copy_on_write(proc_t* proc, uint32_t v_addr) {
 
 void undef_abort_handler(context_t* ctx, uint32_t status) {
 	(void)ctx;
+	(void)status;
 	__irq_disable();
 	uint32_t core = get_core_id();
 	proc_t* cproc = get_current_proc();

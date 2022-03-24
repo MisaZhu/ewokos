@@ -1,5 +1,6 @@
 #include <kernel/proc.h>
 #include <kernel/kernel.h>
+#include <kprintf.h>
 #include <kernel/system.h>
 #include <kernel/core.h>
 #include <stddef.h>
@@ -25,6 +26,7 @@ int32_t schedule(context_t* ctx) {
 		return 0;
 	}
 	
+	printf("Panic: none proc to be scheduled!\n");
 	halt();
 	return 0;
 }
