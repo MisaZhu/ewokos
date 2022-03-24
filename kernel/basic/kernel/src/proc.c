@@ -744,7 +744,7 @@ proc_t* proc_get_proc(proc_t* proc) {
 	return NULL;
 }
 
-proc_t* kfork_init(uint32_t core) {
+proc_t* kfork_core_halt(uint32_t core) {
 	proc_t* cproc = &_proc_table[0];
 	proc_t* child = kfork_raw(NULL, PROC_TYPE_PROC, cproc);
 	child->info.core = core;

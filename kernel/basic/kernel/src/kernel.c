@@ -157,7 +157,7 @@ void _kernel_entry_c(void) {
 
 #ifdef KERNEL_SMP
 	for(uint32_t i=0; i<cores; i++) {
-		proc_t* p = kfork_init(i);
+		proc_t* p = kfork_core_halt(i);
 		_cpu_cores[i].halt_pid = p->info.pid;
 	}
 
