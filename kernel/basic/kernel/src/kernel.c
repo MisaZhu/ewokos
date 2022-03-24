@@ -48,6 +48,7 @@ static void set_kernel_init_vm(page_dir_entry_t* vm) {
 	map_pages(vm, _sys_info.mmio.phy_base, _sys_info.mmio.phy_base, _sys_info.mmio.phy_base + _sys_info.mmio.size, AP_RW_D, 1);
 	map_pages(vm, MMIO_BASE, _sys_info.mmio.phy_base, _sys_info.mmio.phy_base + _sys_info.mmio.size, AP_RW_D, 1);
 	arch_vm(vm);
+	flush_tlb();
 }
 
 void set_kernel_vm(page_dir_entry_t* vm) {
@@ -61,7 +62,6 @@ void set_kernel_vm(page_dir_entry_t* vm) {
 }
 
 static void init_kernel_vm(void) {
-
 	_kernel_vm = (page_dir_entry_t*)KERNEL_PAGE_DIR_BASE;
 	//get kalloc ready just for kernel page tables.
 	kalloc_init(KERNEL_PAGE_DIR_BASE+PAGE_DIR_SIZE, KERNEL_PAGE_DIR_END); 
