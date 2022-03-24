@@ -248,12 +248,7 @@ static void switch_root(void) {
 }
 
 static void halt(void) {
-	uint32_t i=0;
-	while(1) {
-		while(i++ < 1000000);
-		sleep(0);
-		i = 0;
-	}
+	while(1);
 }
 
 int main(int argc, char** argv) {
