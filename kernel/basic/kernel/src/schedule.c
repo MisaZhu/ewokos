@@ -7,9 +7,17 @@
 
 int32_t schedule(context_t* ctx) {
 	uint32_t core = get_core_id();
+	proc_t* halt_proc = NULL;
+	if(_cpu_cores[core].halt_pid != 0) {
+		halt_proc = proc_get(_cpu_cores[core].halt_pid);
+		halt_proc->info.state = WAIT;
+		halt_proc->info.wait_for = 0;
+	}
+	
+	proc_get(_cpu_cores[core].halt_pid);
 	proc_t* next = proc_get_next_ready();
-	if(next == NULL && _cpu_cores[core].halt_pid != 0) {
-		next = proc_get(_cpu_cores[core].halt_pid);
+	if(next == NULL && halt_proc != NULL) {
+		next = halt_proc;
 	}
 
 	if(next != NULL) {
