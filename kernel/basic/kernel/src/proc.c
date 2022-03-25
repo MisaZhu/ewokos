@@ -713,7 +713,7 @@ static void renew_sleep_counter(uint64_t usec) {
 	}
 }
 
-#define IPC_TIMEOUT 30000000u
+#define IPC_TIMEOUT 300000000u
 
 static void check_ipc_timeout(uint64_t usec) {
 	int i;
