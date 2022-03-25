@@ -563,6 +563,7 @@ static int32_t proc_clone(proc_t* child, proc_t* parent) {
 				phy_page_addr,
 				AP_RW_R, 0); // set parent page table with read only permissions
 	}
+	flush_tlb();
 	child->space->heap_size = pages * PAGE_SIZE;
 
 	//set father
