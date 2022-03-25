@@ -16,7 +16,7 @@ int32_t schedule(context_t* ctx) {
 	}
 	
 	proc_t* next = proc_get_next_ready();
-	if(next == NULL && halt_proc != NULL) {
+	if(next == NULL && halt_proc != NULL) { //if no proc ready, switch to halt proc
 		next = halt_proc;
 	}
 

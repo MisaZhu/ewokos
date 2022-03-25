@@ -127,6 +127,7 @@ void proc_switch(context_t* ctx, proc_t* to, bool quick){
 
 	if(cproc != NULL && cproc->info.state != UNUSED && 
 			cproc->info.pid != _cpu_cores[cproc->info.core].halt_pid) {
+			//halt proc can't be pushed into ready queue, can't be sheduled.
 		if(cproc->info.state == RUNNING) {
 			cproc->info.state = READY;
 			if(quick)
@@ -233,6 +234,7 @@ proc_t* proc_get_next_ready(void) {
 		proc_t*	cproc = get_current_proc();
 		if(cproc != NULL && cproc->info.state == RUNNING &&
 				cproc->info.pid != _cpu_cores[cproc->info.core].halt_pid)
+				//halt proc can't be sheduled.
 			next = cproc;
 	}
 
