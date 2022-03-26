@@ -303,7 +303,7 @@ static void sys_ipc_call(context_t* ctx, int32_t serv_pid, int32_t call_id, prot
 	proc_ipc_call(ctx, serv_proc, ipc);
 }
 
-static int32_t sys_ipc_get_return(ipc_t* ipc, proto_t* data) {
+static int32_t sys_ipc_get_return(context_t* ctx, ipc_t* ipc, proto_t* data) {
 	proc_t* cproc = get_current_proc();
 	if(ipc == NULL ||
 			ipc->client_pid != cproc->info.pid ||
@@ -321,7 +321,12 @@ static int32_t sys_ipc_get_return(ipc_t* ipc, proto_t* data) {
 	}
 	
 	if(ipc->state != IPC_RETURN) {
-		return -1; //retry for serv return
+		cproc->ipc_client = ipc;
+		cproc->info.state = BLOCK;
+		cproc->block_event = (uint32_t)ipc;
+		cproc->info.block_by = serv_proc->info.pid;
+		schedule(ctx);
+		return -1; //block retry for serv return
 	}
 
 	if(data != NULL) {//get return value
@@ -391,7 +396,9 @@ static void sys_ipc_end(context_t* ctx, ipc_t* ipc) {
 	if(serv_proc->info.state == READY || serv_proc->info.state == RUNNING)
 		proc_ready(serv_proc);
 
-	proc_t* proc = proc_get(ipc->client_pid);
+	//wake up request proc to get return
+	proc_wakeup(serv_proc->info.pid, (uint32_t)ipc);
+
 	if(serv_proc->info.ipc_state == IPC_RETURN) {
 		//wakeup all waiting requests
 		serv_proc->info.ipc_state = IPC_IDLE;
@@ -399,8 +406,7 @@ static void sys_ipc_end(context_t* ctx, ipc_t* ipc) {
 	}
 	else {
 		ipc->state = IPC_RETURN;
-		//wake up request proc to get return
-		proc_wakeup(serv_proc->info.pid, (uint32_t)ipc);
+		proc_t* proc = proc_get(ipc->client_pid);
 		if(proc != NULL) {
 			if(proc->info.core == serv_proc->info.core) {
 				proc_switch(ctx, proc, true);
@@ -630,7 +636,7 @@ static inline void _svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_
 		sys_ipc_call(ctx, arg0, arg1, (proto_t*)arg2);
 		return;
 	case SYS_IPC_GET_RETURN:
-		ctx->gpr[0] = sys_ipc_get_return((ipc_t*)arg0, (proto_t*)arg1);
+		ctx->gpr[0] = sys_ipc_get_return(ctx, (ipc_t*)arg0, (proto_t*)arg1);
 		return;
 	case SYS_IPC_SET_RETURN:
 		sys_ipc_set_return((ipc_t*)arg0, (proto_t*)arg1);
