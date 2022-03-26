@@ -24,13 +24,6 @@ int32_t proc_ipc_call(context_t* ctx, proc_t* proc, ipc_t *ipc) {
 	proc->space->ipc_server.state = proc->info.state;
 	proc_ready(proc);
 
-	if((ipc->call_id & IPC_NON_RETURN) == 0) {
-		cproc->info.state = BLOCK;
-		cproc->block_event = (uint32_t)ipc;
-		cproc->info.block_by = proc->info.pid;
-		return 0;
-	}
-
 	if(proc->info.core == cproc->info.core) {
 		proc_switch(ctx, proc, true);
 	}
