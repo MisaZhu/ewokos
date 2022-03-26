@@ -321,12 +321,14 @@ static int32_t sys_ipc_get_return(context_t* ctx, ipc_t* ipc, proto_t* data) {
 	}
 	
 	if(ipc->state != IPC_RETURN) {
+		//block retry for serv return
 		cproc->ipc_client = ipc;
 		cproc->info.state = BLOCK;
 		cproc->block_event = (uint32_t)ipc;
 		cproc->info.block_by = serv_proc->info.pid;
+		ctx->gpr[0] = -1;
 		schedule(ctx);
-		return -1; //block retry for serv return
+		return -1;
 	}
 
 	if(data != NULL) {//get return value
