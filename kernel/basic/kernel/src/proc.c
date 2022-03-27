@@ -249,9 +249,6 @@ static void proc_unready(context_t* ctx, proc_t* proc, int32_t state) {
 	if(get_current_proc() == proc) {
 		schedule(ctx);
 	}
-	else {
-		memcpy(&proc->ctx, ctx, sizeof(context_t));
-	}
 }
 
 static void proc_wakeup_waiting(int32_t pid) {
