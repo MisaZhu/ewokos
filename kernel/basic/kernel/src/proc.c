@@ -117,15 +117,12 @@ void proc_switch(context_t* ctx, proc_t* to, bool quick){
 		to->ctx.gpr[1] = to->space->ipc_server.extra_data;
 		to->ctx.pc = to->ctx.lr = to->space->ipc_server.entry;
 		to->space->ipc_server.ipc = 0; // clear ipc request mask
-
-		if(cproc == to) { //current proc switch to handle ipc request
-			cproc->info.state = RUNNING;
-			memcpy(ctx, &to->ctx, sizeof(context_t));
-			return;
-		}
 	}
 
-	if(cproc != NULL && cproc->info.state != UNUSED && 
+	if(cproc == to) { //current proc switch to handle ipc request
+		memcpy(ctx, &to->ctx, sizeof(context_t));
+	}
+	else if(cproc != NULL && cproc->info.state != UNUSED && 
 			cproc->info.pid != _cpu_cores[cproc->info.core].halt_pid) {
 			//halt proc can't be pushed into ready queue, can't be sheduled.
 		if(cproc->info.state == RUNNING) {
@@ -138,6 +135,7 @@ void proc_switch(context_t* ctx, proc_t* to, bool quick){
 	}
 
 	memcpy(ctx, &to->ctx, sizeof(context_t));
+	to->info.state = RUNNING;
 	page_dir_entry_t *vm = to->space->vm;
 	set_translation_table_base((uint32_t) V2P(vm));
 	set_current_proc(to);
