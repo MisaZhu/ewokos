@@ -236,15 +236,11 @@ proc_t* proc_get_next_ready(void) {
 	return next;
 }
 
-static void proc_unready(context_t* ctx, proc_t* proc, int32_t state) {
+static void proc_unready(proc_t* proc, int32_t state) {
 	queue_item_t* it = queue_in(&_ready_queue[proc->info.core], proc);	
 	if(it != NULL)
 		queue_remove(&_ready_queue[proc->info.core], it);
-
 	proc->info.state = state;
-	if(get_current_proc() == proc) {
-		schedule(ctx);
-	}
 }
 
 static void proc_wakeup_waiting(int32_t pid) {
@@ -266,7 +262,7 @@ static void proc_terminate(context_t* ctx, proc_t* proc) {
 		kev_push(KEV_PROC_EXIT, proc->info.pid, 0, 0);
 	}
 
-	proc_unready(ctx, proc, ZOMBIE);
+	proc_unready(proc, ZOMBIE);
 	int32_t i;
 	for (i = 0; i < PROC_MAX; i++) {
 		proc_t *p = &_proc_table[i];
@@ -275,7 +271,6 @@ static void proc_terminate(context_t* ctx, proc_t* proc) {
 			proc_exit(ctx, p, 0);
 		}
 	}
-
 	proc_wakeup_waiting(proc->info.pid);
 }
 
@@ -473,17 +468,18 @@ void proc_usleep(context_t* ctx, uint32_t count) {
 		return;
 
 	cproc->sleep_counter = count;
-	proc_unready(ctx, cproc, SLEEPING);
+	proc_unready(cproc, SLEEPING);
+	schedule(ctx);
 }
 
-void proc_block_on(context_t* ctx, int32_t pid_by, uint32_t event) {
+void proc_block_on(int32_t pid_by, uint32_t event) {
 	proc_t* cproc = get_current_proc();
 	if(cproc == NULL)
 		return;
 
 	cproc->block_event = event;
 	cproc->info.block_by = pid_by;
-	proc_unready(ctx, cproc, BLOCK);
+	proc_unready(cproc, BLOCK);
 }
 
 void proc_waitpid(context_t* ctx, int32_t pid) {
@@ -492,7 +488,8 @@ void proc_waitpid(context_t* ctx, int32_t pid) {
 		return;
 
 	cproc->info.wait_for = pid;
-	proc_unready(ctx, cproc, WAIT);
+	proc_unready(cproc, WAIT);
+	schedule(ctx);
 }
 
 void proc_wakeup(int32_t pid, uint32_t event) {

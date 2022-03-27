@@ -279,7 +279,7 @@ static void sys_ipc_call(context_t* ctx, int32_t serv_pid, int32_t call_id, prot
 
 	if(serv_proc->info.ipc_state != IPC_IDLE) {
 		ctx->gpr[0] = -1; //busy for single task , should retry
-		proc_block_on(ctx, serv_pid, (uint32_t)&serv_proc->space->ipc_server);
+		proc_block_on(serv_pid, (uint32_t)&serv_proc->space->ipc_server);
 		schedule(ctx);
 		return;
 	}
@@ -288,10 +288,6 @@ static void sys_ipc_call(context_t* ctx, int32_t serv_pid, int32_t call_id, prot
 
 	//block requst proc, waiting for serv proc read input args
 	cproc->ipc_client = ipc;
-	cproc->info.state = BLOCK;
-	cproc->block_event = (uint32_t)ipc;
-	cproc->info.block_by = serv_proc->info.pid;
-
 	ipc->state = IPC_BUSY;
 	ipc->call_id = call_id;
 	ipc->client_pid = cproc->info.pid;
@@ -322,11 +318,9 @@ static int32_t sys_ipc_get_return(context_t* ctx, ipc_t* ipc, proto_t* data) {
 	
 	if(ipc->state != IPC_RETURN) {
 		//block retry for serv return
-		cproc->ipc_client = ipc;
-		cproc->info.state = BLOCK;
-		cproc->block_event = (uint32_t)ipc;
-		cproc->info.block_by = serv_proc->info.pid;
 		ctx->gpr[0] = -1;
+		cproc->ipc_client = ipc;
+		proc_block_on(serv_proc->info.pid, (uint32_t)ipc);
 		schedule(ctx);
 		return -1;
 	}
@@ -465,20 +459,16 @@ static void sys_get_kevent(context_t* ctx) {
 	ctx->gpr[0] = 0;	
 	kevent_t* kev = sys_get_kevent_raw();
 	if(kev == NULL) {
-		proc_block_on(ctx, -1, (uint32_t)kev_init);
+		proc_block_on(-1, (uint32_t)kev_init);
 		return;
 	}
 	ctx->gpr[0] = (int32_t)kev;	
 }
 
 static void sys_proc_block(context_t* ctx, int32_t pid, uint32_t evt) {
-	proc_t* cproc = get_current_proc();
 	proc_t* proc_by = proc_get_proc(proc_get(pid));
-
 	if(proc_by != NULL) {
-		cproc->info.state = BLOCK;
-		cproc->block_event = evt;
-		cproc->info.block_by = proc_by->info.pid;
+		proc_block_on(proc_by->info.pid, evt);
 	}
 	schedule(ctx);	
 }

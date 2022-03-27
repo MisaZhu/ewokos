@@ -20,14 +20,16 @@ int32_t proc_ipc_call(context_t* ctx, proc_t* proc, ipc_t *ipc) {
 	if(proc == NULL || proc->space->ipc_server.entry == 0 || ipc == NULL)
 		return -1;
 
+	proc_block_on(proc->info.pid, (uint32_t)ipc);
+
 	proc->space->ipc_server.ipc = (uint32_t)ipc;
 	proc->space->ipc_server.state = proc->info.state;
-	proc_ready(proc);
 
 	if(proc->info.core == cproc->info.core) {
 		proc_switch(ctx, proc, true);
 	}
 	else {
+		proc_ready(proc);
 		schedule(ctx);
 	}
 	return 0;
