@@ -162,7 +162,7 @@ void _kernel_entry_c(void) {
 
 #ifdef KERNEL_SMP
 	while(_started_cores < cores) {
-		printf("kernel: started: %d\n", _started_cores);
+		//printf("kernel: started: %d\n", _started_cores);
 	}
 	printf("kernel: start SMP (%d cores)\n", cores);
 #endif
