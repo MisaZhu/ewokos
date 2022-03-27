@@ -119,10 +119,8 @@ void proc_switch(context_t* ctx, proc_t* to, bool quick){
 		to->space->ipc_server.ipc = 0; // clear ipc request mask
 	}
 
-	if(cproc == to) { //current proc switch to handle ipc request
-		memcpy(ctx, &to->ctx, sizeof(context_t));
-	}
-	else if(cproc != NULL && cproc->info.state != UNUSED && 
+	if(cproc != to && cproc != NULL &&
+			cproc->info.state != UNUSED && 
 			cproc->info.pid != _cpu_cores[cproc->info.core].halt_pid) {
 			//halt proc can't be pushed into ready queue, can't be sheduled.
 		if(cproc->info.state == RUNNING) {
