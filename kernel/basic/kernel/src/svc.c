@@ -79,7 +79,7 @@ static int32_t sys_get_threadid(void) {
 
 static void sys_usleep(context_t* ctx, uint32_t count) {
 	proc_t * cproc = get_current_proc();
-	if(cproc->space->ipc_server.ipc == 0) // no ipc task to handle
+	if(cproc->info.ipc_state == IPC_IDLE) // no ipc task to handle
 		proc_usleep(ctx, count);
 }
 
