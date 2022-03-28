@@ -335,9 +335,6 @@ static int32_t sys_ipc_get_return(context_t* ctx, ipc_t* ipc, proto_t* data) {
 
 	proc_ipc_close(ipc);
 	cproc->ipc_client = NULL;
-	// wake up all block requests
-	serv_proc->info.ipc_state = IPC_IDLE;
-	proc_wakeup(serv_proc->info.pid, (uint32_t)&serv_proc->space->ipc_server); 
 	return 0;
 }
 
@@ -361,9 +358,9 @@ static int32_t sys_ipc_get_info(ipc_t* ipc, int32_t* pid, int32_t* cmd) {
 	}
 
 	if((ipc->call_id & IPC_NON_RETURN) != 0) { //request proc dosen't need return
+		serv_proc->info.ipc_state = IPC_RETURN;
 		proc_ipc_close(ipc);
 		proc_wakeup(serv_proc->info.pid, (uint32_t)ipc);
-		serv_proc->info.ipc_state = IPC_RETURN;
 	}
 	return (int32_t)ret;
 }
@@ -393,15 +390,13 @@ static void sys_ipc_end(context_t* ctx, ipc_t* ipc) {
 		proc_ready(serv_proc);
 
 	//wake up request proc to get return
-	proc_wakeup(serv_proc->info.pid, (uint32_t)ipc);
+	uint32_t ipc_state = serv_proc->info.ipc_state;
+	serv_proc->info.ipc_state = IPC_IDLE;
+	proc_wakeup(serv_proc->info.pid, (uint32_t)&serv_proc->space->ipc_server); 
 
-	if(serv_proc->info.ipc_state == IPC_RETURN) {
-		//wakeup all waiting requests
-		serv_proc->info.ipc_state = IPC_IDLE;
-		proc_wakeup(serv_proc->info.pid, (uint32_t)&serv_proc->space->ipc_server); 
-	}
-	else {
+	if(ipc_state != IPC_RETURN) {
 		ipc->state = IPC_RETURN;
+		proc_wakeup(serv_proc->info.pid, (uint32_t)ipc);
 		proc_t* proc = proc_get(ipc->client_pid);
 		if(proc != NULL) {
 			if(proc->info.core == serv_proc->info.core) {
