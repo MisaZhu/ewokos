@@ -165,6 +165,8 @@ void prefetch_abort_handler(context_t* ctx, uint32_t status) {
 	__irq_disable();
 	uint32_t core = get_core_id();
 #ifdef KERNEL_SMP
+	if(kernel_lock_check() > 0)
+		return;
 	kernel_lock();
 #endif
 	proc_t* cproc = get_current_proc();
@@ -190,6 +192,8 @@ void data_abort_handler(context_t* ctx, uint32_t addr_fault, uint32_t status) {
 	(void)ctx;
 	__irq_disable();
 #ifdef KERNEL_SMP
+	if(kernel_lock_check() > 0)
+		return;
 	kernel_lock();
 #endif
 	proc_t* cproc = get_current_proc();
