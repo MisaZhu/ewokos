@@ -309,18 +309,17 @@ static int32_t sys_ipc_get_return(context_t* ctx, ipc_t* ipc, proto_t* data) {
 		return -2;
 	}
 
-	proc_t* serv_proc = proc_get(ipc->server_pid);
-	if(serv_proc == NULL || ipc->uid != serv_proc->space->ipc_server.uid) {
-		proc_ipc_close(ipc);
-		cproc->ipc_client = NULL;
-		return -2;
-	}
+	if(ipc->state != IPC_RETURN) { //block retry for serv return
+		proc_t* serv_proc = proc_get(ipc->server_pid);
+		if(serv_proc == NULL || ipc->uid != serv_proc->space->ipc_server.uid) {
+			proc_ipc_close(ipc);
+			cproc->ipc_client = NULL;
+			return -2;
+		}
 	
-	if(ipc->state != IPC_RETURN) {
-		//block retry for serv return
-		ctx->gpr[0] = -1;
 		cproc->ipc_client = ipc;
 		proc_block_on(serv_proc->info.pid, (uint32_t)ipc);
+		ctx->gpr[0] = -1;
 		schedule(ctx);
 		return -1;
 	}
