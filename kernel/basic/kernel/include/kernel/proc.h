@@ -47,6 +47,8 @@ typedef struct {
 
 	struct {
 		uint32_t proc_state;
+		uint32_t interrupt;
+		uint32_t entry;
 		context_t ctx;
 	} interrupt;
 } proc_space_t;

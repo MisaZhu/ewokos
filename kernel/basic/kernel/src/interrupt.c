@@ -35,15 +35,16 @@ void  interrupt_send(context_t* ctx, uint32_t interrupt) {
 	proc->space->interrupt.proc_state = proc->info.state;
 	memcpy(&proc->space->interrupt.ctx, &proc->ctx, sizeof(context_t));
 
-	proc->ctx.pc = _interrupts[interrupt].entry;
-	proc->ctx.gpr[0] = interrupt;
+	proc->space->interrupt.interrupt = interrupt;
+	proc->space->interrupt.entry = _interrupts[interrupt].entry;
 	irq_disable_cpsr(&proc->ctx.cpsr); //disable interrupt on proc
-	if(proc != cproc) {
+	if(proc->info.core == cproc->info.core) {
 		proc->info.state = RUNNING;
 		proc_switch(ctx, proc, true);
 	}
 	else {
-		memcpy(ctx, &proc->space->interrupt.ctx, sizeof(context_t));
+		proc_ready(proc);
+		schedule(ctx);
 	}
 }
 
