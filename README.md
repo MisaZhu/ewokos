@@ -1,4 +1,5 @@
 # EwokOS
+
 .Author
 
 	Misa.Z misa.zhu@gmail.com
@@ -7,6 +8,8 @@
 
 	A microkernel OS for learning operating system. versatilepb / raspi1,2,3 ported well, raspi4 todo....
 	-mmu
+	-smp multi-core
+	-copy on write
 	-multi processes
 	-multi thread
 	-ipc
