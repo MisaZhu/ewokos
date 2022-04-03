@@ -124,9 +124,14 @@ static void try_shrink(malloc_t* m) {
 	uint32_t block_size = sizeof(mem_block_t);
 	uint32_t addr = (uint32_t)m->tail;
 	//check if page aligned.	
-	if(m->tail == NULL || m->tail->used == 1 || (addr % PAGE_SIZE) != 0)
+	if(m->tail == NULL ||
+			m->tail->used == 1 ||
+			(addr % PAGE_SIZE) != 0)
 		return;
+
 	int pages = (m->tail->size+block_size) / PAGE_SIZE;
+	if(pages < 2) //TODO
+		return;
 
 	m->tail = m->tail->prev;
 	if(m->tail != NULL)
