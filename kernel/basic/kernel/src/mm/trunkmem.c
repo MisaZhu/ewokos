@@ -129,10 +129,7 @@ static void try_shrink(malloc_t* m) {
 			(addr % PAGE_SIZE) != 0)
 		return;
 
-	int pages = (m->tail->size+block_size) / PAGE_SIZE;
-	if(pages < 2) //TODO
-		return;
-
+	uint32_t pages = (m->tail->size+block_size) / PAGE_SIZE;
 	m->tail = m->tail->prev;
 	if(m->tail != NULL)
 		m->tail->next = NULL;
