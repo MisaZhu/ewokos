@@ -46,16 +46,16 @@ SECTIONS
 	. = ALIGN(4096);
 	_bss_end = .;
 
-	. = . + 0x10000;
+	. = . + 0x4000;
 	_irq_stack = .;
 
-	. = . + 0x10000;
+	. = . + 0x4000;
 	_abt_stack = .;
 
-	. = . + 0x10000;
+	. = . + 0x4000;
 	_undef_stack = .;
 
-	. = . + 0x10000;
+	. = . + 0x4000;
 	_svc_stack = .;
 	PROVIDE(_kernel_sp = .);
 
