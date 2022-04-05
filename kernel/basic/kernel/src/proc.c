@@ -204,6 +204,7 @@ static void proc_free_space(proc_t *proc) {
 	/*free file info*/
 	proc_shrink_mem(proc, proc->space->heap_size / PAGE_SIZE);
 
+	set_translation_table_base(V2P((uint32_t)_kernel_vm));
 	free_page_tables(proc->space->vm);
 	kfree(proc->space);
 }
