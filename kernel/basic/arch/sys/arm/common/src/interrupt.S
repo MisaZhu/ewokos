@@ -44,7 +44,7 @@ irq_entry:
 	stmdb sp!, { r0, lr }         @ store  USR PC and CPSR
 	mov   r0, sp                  @ r0 is now the context struct address
 
-	bl    irq_handler             @ invoke high-level C function
+	bl    irq_handler             @ invoke high-level C function (r0:context)
 
 	ldmia sp!, { r0, lr }         @ load   USR mode PC and CPSR
 	msr   spsr, r0                @ set    USR mode        CPSR
@@ -62,7 +62,7 @@ undef_abort_entry:
 	mov   r0, sp                  @ r0 is now the context struct address
 	mrc   p15, #0, r1, c5, c0, #1 @ read fault status code
 
-	bl    undef_abort_handler  @ invoke high-level C function
+	bl    undef_abort_handler  @ invoke high-level C function (r0:context)
 
 	ldmia sp!, { r0, lr }         @ load   USR mode PC and CPSR
 	msr   spsr, r0                @ set    USR mode        CPSR
@@ -81,7 +81,7 @@ prefetch_abort_entry:
 	mov   r0, sp                  @ r0 is now the context struct address
 	mrc   p15, #0, r1, c5, c0, #1 @ read fault status code
 
-	bl    prefetch_abort_handler  @ invoke high-level C function
+	bl    prefetch_abort_handler  @ invoke high-level C function (r0:context)
 
 	ldmia sp!, { r0, lr }         @ load   USR mode PC and CPSR
 	msr   spsr, r0                @ set    USR mode        CPSR
@@ -100,7 +100,7 @@ data_abort_entry:
 	mrc   p15, #0, r1, c6, c0, #0 @read fault address
 	mrc   p15, #0, r2, c5, c0, #0 @read fault status code
 
-	bl    data_abort_handler      @ invoke high-level C function
+	bl    data_abort_handler      @ invoke high-level C function (r0:context,r1:fault address,r2:fault code)
 
 	ldmia sp!, { r0, lr }         @ load   USR mode PC and CPSR
 	msr   spsr, r0                @ set    USR mode        CPSR
