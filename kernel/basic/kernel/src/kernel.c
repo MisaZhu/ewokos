@@ -114,6 +114,8 @@ void _kernel_entry_c(void) {
 	_pages_ref.max = 0;
 
 	sys_info_init();
+
+	//switch to two-levels 4k page_size type paging
 	init_kernel_vm();  
 	km_init();
 	kev_init();

@@ -7,7 +7,7 @@
 static __attribute__((__aligned__(PAGE_DIR_SIZE)))
 volatile uint32_t startup_page_dir[PAGE_DIR_NUM] = { 0 };
 
-// setup the boot page table: dev_mem whether it is device memory
+// setup the boot page table with one-level section type paging : is_dev whether it is device memory
 static void __attribute__((optimize("O0"))) set_boot_pgt(uint32_t virt, uint32_t phy, uint32_t len, uint8_t is_dev) {
 	(void)is_dev;
 	volatile uint32_t idx;
@@ -18,7 +18,7 @@ static void __attribute__((optimize("O0"))) set_boot_pgt(uint32_t virt, uint32_t
 	len  >>= PDE_SHIFT;
 
 	for (idx = 0; idx < len; idx++) {
-		startup_page_dir[virt] = (phy << PDE_SHIFT) | KPDE_TYPE | AP_KO<< 10;
+		startup_page_dir[virt] = (phy << PDE_SHIFT) | AP_KO<< 10 | KPDE_TYPE; //section type, system RW 
 		virt++;
 		phy++;
 	}

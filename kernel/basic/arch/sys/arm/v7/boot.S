@@ -40,7 +40,7 @@ core0:
 	bl cpu_dcache_disable
 	bl cpu_icache_disable
 
-	bl _boot_init               @ init kernel boot page tables for MMU
+	bl _boot_init               @ init kernel boot page tables for MMU (one-level section type paging for kernel init)
 
 #ifdef KERNEL_SMP
 	bl arm_smp_enable
@@ -49,7 +49,7 @@ core0:
 	bl start_core_3
 #endif
 
-	bl _boot_start              @ enable MMU for kernel
+	bl _boot_start              @ enable MMU for kernel (one-level section type paging for kernel init)
 
 	msr cpsr, #0xD2             @ enter IRQ mode with IRQ and FIQ interrupts disabled
 	ldr sp, = _irq_stack        @ initialise IRQ mode stack

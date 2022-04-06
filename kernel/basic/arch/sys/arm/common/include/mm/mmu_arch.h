@@ -31,7 +31,7 @@ typedef struct {
 	uint32_t tex        : 3; //Type Extension Field, access control work with C,B
 	uint32_t apx        : 1; //Access Permissions Extension Bit
 	uint32_t sharable   : 1;
-	uint32_t ng         : 1; //Not-Global
+	uint32_t ng         : 1; //Not-Global, 0 for global, 1 for local
 	uint32_t base       : 20;
 } page_table_entry_t; 
 
