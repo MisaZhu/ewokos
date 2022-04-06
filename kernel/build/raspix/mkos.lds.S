@@ -1,8 +1,7 @@
 ENTRY(__entry)
 
 base_address = 0x80000000;
-/*start_address = 0x8000;*/ /*for real hardware*/
-start_address = 0x10000; /*for qemu*/
+start_address = 0x8000; /*for real hardware*/
 
 PHDRS
 {
@@ -46,16 +45,16 @@ SECTIONS
 	. = ALIGN(4096);
 	_bss_end = .;
 
-	. = . + 0x10000;
+	. = . + 0x4000;
 	_irq_stack = .;
 
-	. = . + 0x10000;
+	. = . + 0x4000;
 	_abt_stack = .;
 
-	. = . + 0x10000;
+	. = . + 0x4000;
 	_undef_stack = .;
 
-	. = . + 0x10000;
+	. = . + 0x4000;
 	_svc_stack = .;
 	PROVIDE(_kernel_sp = .);
 

@@ -201,8 +201,11 @@ static void proc_free_space(proc_t *proc) {
 	/*unmap share mems*/
 	proc_unmap_shms(proc);
 
-	/*free file info*/
+	/*free proc heap*/
 	proc_shrink_mem(proc, proc->space->heap_size / PAGE_SIZE);
+
+	/*switch to kernel vm to free page tables*/
+	set_translation_table_base(V2P((uint32_t)_kernel_vm));
 
 	free_page_tables(proc->space->vm);
 	kfree(proc->space);

@@ -105,7 +105,7 @@ slave_core:                   @ 1-3 cores
 	
 	bl _boot_start
 
-	mov r0, #0x4000
+	mov r0, #0x1000
 	mul r0, r0, r11
 
 	msr cpsr, #0xD2             @ enter IRQ mode with IRQ and FIQ interrupts disabled

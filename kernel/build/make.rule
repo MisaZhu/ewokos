@@ -76,7 +76,6 @@ ARCH_OBJS = \
 	$(BSP_DIR)/lib/bcm283x/src/ipi.o \
 	$(BSP_DIR)/lib/bcm283x/src/gpio_actled.o 
 
-QEMU_CMD = qemu-system-arm
 OS_IMG = kernel7.img
 OS_ELF = kernel7.elf
 
@@ -135,7 +134,6 @@ OBJS = $(ARCH_OBJS) \
 	$(KERNEL_OBJS) \
 	$(DEV_OBJS) 
 
-LDS = mkos.lds.S
 LDFLAGS = -L $(ARCH_DIR)/$(ARCH)
 
 ASFLAGS = $(OPTM) -I. -I$(SRC_DIR)/basic/include -marm $(ARCH_CFLAGS)
