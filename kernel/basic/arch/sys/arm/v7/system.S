@@ -72,17 +72,17 @@ finished:
 .global __flush_tlb
 __flush_tlb:
 	mov r0, #0
-	mcr p15, 0, r0, c7, c5, 0   // flush icache all
+	mcr p15, 0, r0, c7, c5, 0    // flush icache all
 	//mcr p15, 0, r0, c7, c7, 0  //invalidate cache
-	mcr p15, 0, r0, c8, c7, 0   //I-TLB and D-TLB invalidation
+	mcr p15, 0, r0, c8, c7, 0    //I-TLB and D-TLB invalidation
 	dsb
-	isb                         // instruction sync
+	isb                          // instruction sync
 	mov pc, lr
 
 .global __set_translation_table_base
 __set_translation_table_base:
-	mcr p15, 0, r0, c2, c0, 0  //set ttbase user
-	mcr p15, 0, r0, c2, c0, 1  //set ttbase kernel
+	mcr p15, 0, r0, c2, c0, 0    //set ttbase user
+	mcr p15, 0, r0, c2, c0, 1    //set ttbase kernel
 	dsb
 	isb
 	mov pc, lr
