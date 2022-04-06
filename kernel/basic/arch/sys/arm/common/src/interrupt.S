@@ -44,7 +44,7 @@ irq_entry:
 	stmdb sp!, { r0, lr }         @ store  USR PC and CPSR
 	mov   r0, sp                  @ r0 is now the context struct address
 
-	bl    irq_handler             @ invoke high-level C function (r0:context)
+	bl    irq_handler             @ invoke high-level C function (r0:context)(r0:syscall_id, r1/r2/r3: args, r4:context)
 
 	ldmia sp!, { r0, lr }         @ load   USR mode PC and CPSR
 	msr   spsr, r0                @ set    USR mode        CPSR
