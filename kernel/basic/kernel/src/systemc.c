@@ -38,6 +38,11 @@ inline void set_translation_table_base(uint32_t tlb_base) {
 
 static int32_t _spin = 0;
 static int32_t _klock = 0;
+
+inline void kernel_lock_init(void) {
+	_spin = _klock = 0;
+}
+
 inline int32_t kernel_lock_check(void) {
 	return _klock;
 }

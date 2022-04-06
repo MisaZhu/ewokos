@@ -137,6 +137,7 @@ void _kernel_entry_c(void) {
 
 	uint32_t cores = get_cpu_cores();
 #ifdef KERNEL_SMP
+	kernel_lock_init();
 	_started_cores = 1;
 	start_multi_cores(cores);
 #endif
