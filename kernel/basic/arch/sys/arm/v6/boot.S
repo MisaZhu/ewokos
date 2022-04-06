@@ -5,8 +5,8 @@
 __entry:
 	msr cpsr, #0xD3             @ enter SVC mode with IRQ and FIQ interrupts disabled
 	ldr sp, = _svc_stack        @ initialise SVC mode stack
-	sub sp, #KERNEL_BASE
-	bl _boot_start
+	sub sp, #KERNEL_BASE        @ physical SP address before MMU enabled
+	bl _boot_start              @ MMU pagetable setup for kernel
 
 	msr cpsr, #0xD2             @ enter IRQ mode with IRQ and FIQ interrupts disabled
 	ldr sp, = _irq_stack        @ initialise IRQ mode stack

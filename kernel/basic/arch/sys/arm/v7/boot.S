@@ -34,7 +34,7 @@ core0:
 	//0 core
 	msr cpsr, #0xD3             @ enter SVC mode with IRQ and FIQ interrupts disabled
 	ldr sp, = _svc_stack        @ initialise SVC mode stack
-	sub sp, #KERNEL_BASE        @ physical SP address
+	sub sp, #KERNEL_BASE        @ physical SP address before MMU enabled
 
 	bl cpu_mmu_disable
 	bl cpu_dcache_disable
