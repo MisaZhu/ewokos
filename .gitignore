@@ -6,5 +6,3 @@ kernel*.img
 kernel*.elf
 kernel*.asm
 system/build
-system/kfs/build
-system/1.asm
