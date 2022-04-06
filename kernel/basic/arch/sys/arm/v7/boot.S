@@ -21,26 +21,26 @@ over_hyped: // Get out of HYP mode
 	eret
 
 continue:
-	mrc p15, 0, r11, c0, c0, 5
-	and r11, r11, #3
-	cmp r11, #0
+	mrc p15, 0, r11, c0, c0, 5  @ get core id
+	and r11, r11, #3            @ 4 cores max
+	cmp r11, #0                 @ core 0, jump to core0
 #ifdef KERNEL_SMP
-	bne slave_core
+	bne slave_core              @ init rest slave cores
 #else
-	bne halt
+	bne halt                    @ halt all the rest slave cores
 #endif
 
 core0:
 	//0 core
 	msr cpsr, #0xD3             @ enter SVC mode with IRQ and FIQ interrupts disabled
 	ldr sp, = _svc_stack        @ initialise SVC mode stack
-	sub sp, #KERNEL_BASE
+	sub sp, #KERNEL_BASE        @ physical SP address
 
 	bl cpu_mmu_disable
 	bl cpu_dcache_disable
 	bl cpu_icache_disable
 
-	bl _boot_init
+	bl _boot_init               @ init kernel boot page tables for MMU
 
 #ifdef KERNEL_SMP
 	bl arm_smp_enable
@@ -49,7 +49,7 @@ core0:
 	bl start_core_3
 #endif
 
-	bl _boot_start
+	bl _boot_start              @ enable MMU for kernel
 
 	msr cpsr, #0xD2             @ enter IRQ mode with IRQ and FIQ interrupts disabled
 	ldr sp, = _irq_stack        @ initialise IRQ mode stack
@@ -91,22 +91,22 @@ start_core_3:
 	sev
 	bx lr
 
-slave_core:                   @ 1-3 cores
+slave_core:                     @ 1-3 cores
 	mrc p15, 0, r11, c0, c0, 5
-	and r11, r11, #3            @ get core id (1-3)
+	and r11, r11, #3            @ get core id (1-3) to r11
 
-	mov r0, #0x4000
-	mul r0, r0, r11
+	mov r0, #0x1000             @ 4096 stack size for each core
+	mul r0, r0, r11             @ stack offset for current core
 
 	msr cpsr, #0xD3             @ enter SVC mode with IRQ and FIQ interrupts disabled
 	ldr sp, = _svc_stack        @ initialise SVC mode stack
 	sub sp, #KERNEL_BASE
-	sub sp, r0
+	sub sp, r0                  @ stack offset for current core
 	
-	bl _boot_start
+	bl _boot_start              @ enable MMU for kernel
 
 	mov r0, #0x1000
-	mul r0, r0, r11
+	mul r0, r0, r11             @ stack offset for current core
 
 	msr cpsr, #0xD2             @ enter IRQ mode with IRQ and FIQ interrupts disabled
 	ldr sp, = _irq_stack        @ initialise IRQ mode stack
