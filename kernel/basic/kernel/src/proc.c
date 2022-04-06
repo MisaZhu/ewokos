@@ -43,7 +43,7 @@ void procs_init(void) {
 	}
 }
 
-proc_t* proc_get(int32_t pid) {
+inline proc_t* proc_get(int32_t pid) {
 	if(pid < 0 || pid >= PROC_MAX ||
 			_proc_table[pid].info.state == UNUSED ||
 			_proc_table[pid].info.state == ZOMBIE)
@@ -74,16 +74,56 @@ static inline  uint32_t proc_get_user_stack_base(proc_t* proc) {
   return proc_stack_base - proc->info.pid*THREAD_STACK_PAGES*PAGE_SIZE;
 }
 
-static void* proc_get_mem_tail(void* p) {
+static inline void* proc_get_mem_tail(void* p) {
 	proc_t* proc = (proc_t*)p;
 	return (void*)proc->space->heap_size;
 }
 
-static int32_t proc_expand(void* p, int32_t page_num) {
+/* proc_shrink_memory shrinks the heap size of the given process. */
+static void proc_shrink_mem(proc_t* proc, int32_t page_num) {
+	if(page_num <= 0)
+		return;
+
+	int32_t i;
+	for (i = 0; i < page_num; i++) {
+		uint32_t virtual_addr = proc->space->heap_size - PAGE_SIZE;
+		unmap_page_ref(proc->space->vm, virtual_addr);
+		proc->space->heap_size -= PAGE_SIZE;
+		if (proc->space->heap_size == 0)
+			break;
+	}
+	flush_tlb();
+}
+
+/* proc_exapnad_memory expands the heap size of the given process. */
+static int32_t proc_expand_mem(proc_t *proc, int32_t page_num) {
+	int32_t i;
+	int32_t res = 0;
+
+	for (i = 0; i < page_num; i++) {
+		char *page = kalloc4k();
+		if(page == NULL) {
+			printf("proc expand failed!! free mem size: (%x), pid:%d, pages ask:%d\n", get_free_mem_size(), proc->info.pid, page_num);
+			proc_shrink_mem(proc, i);
+			res = -1;
+			break;
+		}
+		memset(page, 0, PAGE_SIZE);
+		map_page_ref(proc->space->vm,
+				proc->space->heap_size,
+				V2P(page),
+				AP_RW_RW);
+		proc->space->heap_size += PAGE_SIZE;
+	}
+	flush_tlb();
+	return res;
+}
+
+static inline int32_t proc_expand(void* p, int32_t page_num) {
 	return proc_expand_mem((proc_t*)p, page_num);
 }
 
-static void proc_shrink(void* p, int32_t page_num) {
+static inline void proc_shrink(void* p, int32_t page_num) {
 	proc_shrink_mem((proc_t*)p, page_num);
 }
 
@@ -128,7 +168,7 @@ void proc_switch(context_t* ctx, proc_t* to, bool quick){
 	if(cproc != to && cproc != NULL &&
 			cproc->info.state != UNUSED && 
 			cproc->info.pid != _cpu_cores[cproc->info.core].halt_pid) {
-			//halt proc can't be pushed into ready queue, can't be sheduled.
+			//halt proc can't be pushed into ready queue, can't be scheduled.
 		if(cproc->info.state == RUNNING) {
 			cproc->info.state = READY;
 			if(quick)
@@ -145,47 +185,7 @@ void proc_switch(context_t* ctx, proc_t* to, bool quick){
 	set_current_proc(to);
 }
 
-/* proc_exapnad_memory expands the heap size of the given process. */
-int32_t proc_expand_mem(proc_t *proc, int32_t page_num) {
-	int32_t i;
-	int32_t res = 0;
-
-	for (i = 0; i < page_num; i++) {
-		char *page = kalloc4k();
-		if(page == NULL) {
-			printf("proc expand failed!! free mem size: (%x), pid:%d, pages ask:%d\n", get_free_mem_size(), proc->info.pid, page_num);
-			proc_shrink_mem(proc, i);
-			res = -1;
-			break;
-		}
-		memset(page, 0, PAGE_SIZE);
-		map_page_ref(proc->space->vm,
-				proc->space->heap_size,
-				V2P(page),
-				AP_RW_RW);
-		proc->space->heap_size += PAGE_SIZE;
-	}
-	flush_tlb();
-	return res;
-}
-
-/* proc_shrink_memory shrinks the heap size of the given process. */
-void proc_shrink_mem(proc_t* proc, int32_t page_num) {
-	if(page_num <= 0)
-		return;
-
-	int32_t i;
-	for (i = 0; i < page_num; i++) {
-		uint32_t virtual_addr = proc->space->heap_size - PAGE_SIZE;
-		unmap_page_ref(proc->space->vm, virtual_addr);
-		proc->space->heap_size -= PAGE_SIZE;
-		if (proc->space->heap_size == 0)
-			break;
-	}
-	flush_tlb();
-}
-
-static void proc_unmap_shms(proc_t *proc) {
+static inline void proc_unmap_shms(proc_t *proc) {
 	int32_t i;
 	for(i=0; i<SHM_MAX; i++) {
 		int32_t shm = proc->space->shms[i];
@@ -194,12 +194,9 @@ static void proc_unmap_shms(proc_t *proc) {
 	}
 }
 
-static void proc_free_space(proc_t *proc) {
+static inline void proc_free_space(proc_t *proc) {
 	if(proc->info.type != PROC_TYPE_PROC)
 		return;
-
-	/*unmap share mems*/
-	proc_unmap_shms(proc);
 
 	/*free proc heap*/
 	proc_shrink_mem(proc, proc->space->heap_size / PAGE_SIZE);
@@ -207,11 +204,13 @@ static void proc_free_space(proc_t *proc) {
 	/*switch to kernel vm to free page tables*/
 	set_translation_table_base(V2P((uint32_t)_kernel_vm));
 
+	/*unmap share mems*/
+	proc_unmap_shms(proc);
 	free_page_tables(proc->space->vm);
 	kfree(proc->space);
 }
 
-void proc_ready(proc_t* proc) {
+inline void proc_ready(proc_t* proc) {
 	if(proc == NULL)
 		return;
 
@@ -220,11 +219,11 @@ void proc_ready(proc_t* proc) {
 		queue_push_head(&_ready_queue[proc->info.core], proc);
 }
 
-proc_t* proc_get_core_ready(uint32_t core_id) {
+inline proc_t* proc_get_core_ready(uint32_t core_id) {
 	return (proc_t*)_ready_queue[core_id].head;
 }
 
-bool proc_have_ready_task(uint32_t core) {
+inline bool proc_have_ready_task(uint32_t core) {
 	return !queue_is_empty(&_ready_queue[core]) ||
 			_current_proc[core] != NULL;
 }
@@ -245,7 +244,7 @@ proc_t* proc_get_next_ready(void) {
 	return next;
 }
 
-static void proc_unready(proc_t* proc, int32_t state) {
+static inline void proc_unready(proc_t* proc, int32_t state) {
 	queue_item_t* it = queue_in(&_ready_queue[proc->info.core], proc);	
 	if(it != NULL)
 		queue_remove(&_ready_queue[proc->info.core], it);
@@ -325,28 +324,27 @@ void proc_exit(context_t* ctx, proc_t *proc, int32_t res) {
 		proc->space->kpage = 0;
 	}
 
-	/*free user_stack*/
-	proc_free_user_stack(proc);
-
 	/*free all ipc context*/
 	if(proc->ipc_client != NULL)
 		proc_ipc_close(proc->ipc_client);
 	proto_clear(&proc->ipc_ctx.data);
 
+	/*free user_stack*/
+	proc_free_user_stack(proc);
 	proc_free_space(proc);
 	memset(proc, 0, sizeof(proc_t));
 	if(_current_proc[core] == proc)
 		_current_proc[core] = NULL;
 }
 
-void* proc_malloc(uint32_t size) {
+inline void* proc_malloc(uint32_t size) {
 	if(size == 0)
 		return NULL;
 	proc_t* cproc = get_current_proc();
 	return trunk_malloc(&cproc->space->malloc_man, size);
 }
 
-void* proc_realloc(void* p, uint32_t size) {
+inline void* proc_realloc(void* p, uint32_t size) {
 	if(size == 0) {
 		proc_free(p);
 		return NULL;
@@ -355,7 +353,7 @@ void* proc_realloc(void* p, uint32_t size) {
 	return trunk_realloc(&cproc->space->malloc_man, p, size);
 }
 
-void proc_free(void* p) {
+inline void proc_free(void* p) {
 	if(p == NULL)
 		return;
 	proc_t* cproc = get_current_proc();
@@ -413,7 +411,7 @@ proc_t *proc_create(int32_t type, proc_t* parent) {
 	return proc;
 }
 
-static void proc_free_heap(proc_t* proc) {
+static inline void proc_free_heap(proc_t* proc) {
 	proc_shrink_mem(proc, proc->space->heap_size/PAGE_SIZE);
 	proc->space->malloc_man.head = NULL;
 	proc->space->malloc_man.tail = NULL;
@@ -471,7 +469,7 @@ int32_t proc_load_elf(proc_t *proc, const char *image, uint32_t size) {
 	return 0;
 }
 
-void proc_usleep(context_t* ctx, uint32_t count) {
+inline void proc_usleep(context_t* ctx, uint32_t count) {
 	proc_t* cproc = get_current_proc();
 	if(cproc == NULL)
 		return;
@@ -481,7 +479,7 @@ void proc_usleep(context_t* ctx, uint32_t count) {
 	schedule(ctx);
 }
 
-void proc_block_on(int32_t pid_by, uint32_t event) {
+inline void proc_block_on(int32_t pid_by, uint32_t event) {
 	proc_t* cproc = get_current_proc();
 	if(cproc == NULL)
 		return;
@@ -491,7 +489,7 @@ void proc_block_on(int32_t pid_by, uint32_t event) {
 	proc_unready(cproc, BLOCK);
 }
 
-void proc_waitpid(context_t* ctx, int32_t pid) {
+inline void proc_waitpid(context_t* ctx, int32_t pid) {
 	proc_t* cproc = get_current_proc();
 	if(cproc == NULL || _proc_table[pid].info.state == UNUSED)
 		return;
@@ -525,7 +523,7 @@ void proc_wakeup(int32_t pid, uint32_t event) {
 	}
 }
 
-static void proc_page_clone(proc_t* to, uint32_t to_addr, proc_t* from, uint32_t from_addr) {
+static inline void proc_page_clone(proc_t* to, uint32_t to_addr, proc_t* from, uint32_t from_addr) {
 	char *to_ptr = (char*)resolve_kernel_address(to->space->vm, to_addr);
 	char *from_ptr = (char*)resolve_kernel_address(from->space->vm, from_addr);
 	memcpy(to_ptr, from_ptr, PAGE_SIZE);
@@ -721,7 +719,7 @@ static void check_ipc_timeout(uint64_t usec) {
 	}
 }
 
-void renew_kernel_tic(uint64_t usec) {
+inline void renew_kernel_tic(uint64_t usec) {
 	renew_sleep_counter(usec);	
 	check_ipc_timeout(usec);
 }
