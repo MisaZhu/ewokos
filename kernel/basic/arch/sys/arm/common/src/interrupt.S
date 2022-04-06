@@ -23,20 +23,11 @@ svc_entry:
 	mrs   r5, spsr                @ get    USR        CPSR
 	stmdb sp!, { r5, lr }         @ store  USR PC and CPSR
 	msr   cpsr, #0xD3             @ enter SVC mode with IRQ and FIQ interrupts disabled
+	mov   r4, sp                  @ r4 is now the context struct address
 
-	add   r5, sp, #68
-	ldm   r5, {r5}
-	and   r5, r5, #0x1F
-
-	mov   r4, sp
-
-	stmdb sp!, {r5}
 	stmdb sp!, {r4}
-
 	bl    svc_handler             @ invoke high-level C function
-
 	ldmia sp!, {r4}
-	ldmia sp!, {r5}
 
 	ldmia sp!, { r1, lr }         @ load   USR mode PC and CPSR
 	msr   spsr, r1                @ set    USR mode        CPSR
@@ -51,7 +42,7 @@ irq_entry:
 	stmia sp, { r0-r12, sp, lr }^ @ store  USR registers
 	mrs   r0, spsr                @ get    USR        CPSR
 	stmdb sp!, { r0, lr }         @ store  USR PC and CPSR
-	mov   r0, sp
+	mov   r0, sp                  @ r0 is now the context struct address
 
 	bl    irq_handler             @ invoke high-level C function
 
@@ -68,7 +59,7 @@ undef_abort_entry:
 	stmia sp, { r0-r12, sp, lr }^ @ store  USR registers
 	mrs   r0, spsr                @ get    USR        CPSR
 	stmdb sp!, { r0, lr }         @ store  USR PC and CPSR
-	mov   r0, sp
+	mov   r0, sp                  @ r0 is now the context struct address
 	mrc   p15, #0, r1, c5, c0, #1 @ read fault status code
 
 	bl    undef_abort_handler  @ invoke high-level C function
@@ -87,7 +78,7 @@ prefetch_abort_entry:
 	stmia sp, { r0-r12, sp, lr }^ @ store  USR registers
 	mrs   r0, spsr                @ get    USR        CPSR
 	stmdb sp!, { r0, lr }         @ store  USR PC and CPSR
-	mov   r0, sp
+	mov   r0, sp                  @ r0 is now the context struct address
 	mrc   p15, #0, r1, c5, c0, #1 @ read fault status code
 
 	bl    prefetch_abort_handler  @ invoke high-level C function

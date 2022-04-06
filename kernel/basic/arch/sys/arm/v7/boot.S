@@ -71,7 +71,7 @@ core0:
 start_core_1:
 	ldr r0, =__entry
 	mov r1, #0x40000000
-	str r0, [r1, #0x9C]
+	str r0, [r1, #0x9C]         @ set __entry to 0x4000009C to light up core 1
 	sev
 	bx lr
 
@@ -79,7 +79,7 @@ start_core_1:
 start_core_2:
 	ldr r0, =__entry
 	mov r1, #0x40000000
-	str r0, [r1, #0xAC]
+	str r0, [r1, #0xAC]         @ set __entry to 0x400000AC to light up core 2
 	sev
 	bx lr
 
@@ -87,7 +87,7 @@ start_core_2:
 start_core_3:
 	ldr r0, =__entry
 	mov r1, #0x40000000
-	str r0, [r1, #0xBC]
+	str r0, [r1, #0xBC]         @ set __entry to 0x400000BC to light up core 3
 	sev
 	bx lr
 

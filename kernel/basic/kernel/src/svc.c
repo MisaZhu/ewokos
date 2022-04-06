@@ -517,8 +517,7 @@ static void sys_interrupt_end(context_t* ctx) {
 	interrupt_end(ctx);
 }
 
-static inline void _svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_t arg2, context_t* ctx, int32_t processor_mode) {
-	(void)processor_mode;
+static inline void _svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_t arg2, context_t* ctx) {
 	_svc_tic++;
 
 	switch(code) {
@@ -672,13 +671,13 @@ static inline void _svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_
 	}
 }
 
-inline void svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_t arg2, context_t* ctx, int32_t processor_mode) {
+inline void svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_t arg2, context_t* ctx) {
 	__irq_disable();
 #ifdef KERNEL_SMP
 	kernel_lock();
-	_svc_handler(code, arg0, arg1, arg2, ctx, processor_mode);
+	_svc_handler(code, arg0, arg1, arg2, ctx);
 	kernel_unlock();
 #else
-	_svc_handler(code, arg0, arg1, arg2, ctx, processor_mode);
+	_svc_handler(code, arg0, arg1, arg2, ctx);
 #endif
 }
