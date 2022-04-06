@@ -26,7 +26,7 @@ svc_entry:
 	mov   r4, sp                  @ r4 is now the context struct address
 
 	stmdb sp!, {r4}
-	bl    svc_handler             @ invoke high-level C function
+	bl    svc_handler             @ invoke high-level C function (r0:syscall_id, r1/r2/r3: args, r4:context)
 	ldmia sp!, {r4}
 
 	ldmia sp!, { r1, lr }         @ load   USR mode PC and CPSR
