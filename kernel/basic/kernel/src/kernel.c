@@ -123,7 +123,7 @@ void _kernel_entry_c(void) {
 	sys_info_init();
 
 	init_kernel_vm();  
-	km_init();
+	kmalloc_init();
 	kev_init();
 
 	enable_vmmio_base();
