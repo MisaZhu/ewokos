@@ -40,8 +40,6 @@ core0:
 	bl cpu_dcache_disable
 	bl cpu_icache_disable
 
-	bl _boot_init               @ init kernel boot page tables for MMU (one-level section type paging for kernel init)
-
 #ifdef KERNEL_SMP
 	bl arm_smp_enable
 	bl start_core_1
