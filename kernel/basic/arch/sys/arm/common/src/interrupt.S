@@ -16,13 +16,13 @@ interrupt_table_start: /*interrupt table, with syscall and irq items*/
 	data_abort_entry_address: .word data_abort_entry
 interrupt_table_end:
 
+//context struct { uint32_t cpsr, pc, gpr[ 13 ], sp, lr; }
 svc_entry:
-	sub   lr, lr, #0              @ correct return address
+	msr   cpsr, #0xD3             @ SVC mode with IRQ and FIQ interrupts disabled
 	sub   sp, sp, #60             @ update SVC mode stack
 	stmia sp, { r0-r12, sp, lr }^ @ store  USR registers
 	mrs   r5, spsr                @ get    USR        CPSR
 	stmdb sp!, { r5, lr }         @ store  USR PC and CPSR
-	msr   cpsr, #0xD3             @ enter SVC mode with IRQ and FIQ interrupts disabled
 	mov   r4, sp                  @ r4 is now the context struct address
 
 	stmdb sp!, {r4}
@@ -37,8 +37,8 @@ svc_entry:
 
 irq_entry:
 	sub   lr, lr, #4              @ correct return address
-	msr   cpsr, #0xD2             @ enter IRQ mode with IRQ and FIQ interrupts disabled
-	sub   sp, sp, #60             @ update SVC mode stack
+	msr   cpsr, #0xD2             @ IRQ mode with IRQ and FIQ interrupts disabled
+	sub   sp, sp, #60             @ update IRQ mode stack
 	stmia sp, { r0-r12, sp, lr }^ @ store  USR registers
 	mrs   r0, spsr                @ get    USR        CPSR
 	stmdb sp!, { r0, lr }         @ store  USR PC and CPSR
@@ -49,13 +49,13 @@ irq_entry:
 	ldmia sp!, { r0, lr }         @ load   USR mode PC and CPSR
 	msr   spsr, r0                @ set    USR mode        CPSR
 	ldmia sp, { r0-r12, sp, lr }^ @ load   USR mode registers
-	add   sp, sp, #60             @ update SVC mode SP
+	add   sp, sp, #60             @ update IRQ mode SP
 	movs  pc, lr                  @ return from interrupt
 
 undef_abort_entry:
 	sub   lr, lr, #4              @ correct return address
-	msr   cpsr, #0xD7             @ enter ABT mode with IRQ and FIQ interrupts disabled
-	sub   sp, sp, #60             @ update SVC mode stack
+	msr   cpsr, #0xD7             @ ABT mode with IRQ and FIQ interrupts disabled
+	sub   sp, sp, #60             @ update ABT mode stack
 	stmia sp, { r0-r12, sp, lr }^ @ store  USR registers
 	mrs   r0, spsr                @ get    USR        CPSR
 	stmdb sp!, { r0, lr }         @ store  USR PC and CPSR
@@ -67,14 +67,14 @@ undef_abort_entry:
 	ldmia sp!, { r0, lr }         @ load   USR mode PC and CPSR
 	msr   spsr, r0                @ set    USR mode        CPSR
 	ldmia sp, { r0-r12, sp, lr }^ @ load   USR mode registers
-	add   sp, sp, #60             @ update SVC mode SP
+	add   sp, sp, #60             @ update UND mode SP
 	movs  pc, lr                  @ return from interrupt
 
 
 prefetch_abort_entry:
 	sub   lr, lr, #4              @ correct return address
-	msr   cpsr, #0xD7             @ enter ABT mode with IRQ and FIQ interrupts disabled
-	sub   sp, sp, #60             @ update SVC mode stack
+	msr   cpsr, #0xD7             @ ABT mode with IRQ and FIQ interrupts disabled
+	sub   sp, sp, #60             @ update ABT mode stack
 	stmia sp, { r0-r12, sp, lr }^ @ store  USR registers
 	mrs   r0, spsr                @ get    USR        CPSR
 	stmdb sp!, { r0, lr }         @ store  USR PC and CPSR
@@ -86,13 +86,13 @@ prefetch_abort_entry:
 	ldmia sp!, { r0, lr }         @ load   USR mode PC and CPSR
 	msr   spsr, r0                @ set    USR mode        CPSR
 	ldmia sp, { r0-r12, sp, lr }^ @ load   USR mode registers
-	add   sp, sp, #60             @ update SVC mode SP
+	add   sp, sp, #60             @ update ABT mode SP
 	movs  pc, lr                  @ return from interrupt
 
 data_abort_entry:
 	sub   lr, lr, #8              @ correct return address
-	msr   cpsr, #0xD7             @ enter ABT mode with IRQ and FIQ interrupts disabled
-	sub   sp, sp, #60             @ update SVC mode stack
+	msr   cpsr, #0xD7             @ ABT mode with IRQ and FIQ interrupts disabled
+	sub   sp, sp, #60             @ update ABT mode stack
 	stmia sp, { r0-r12, sp, lr }^ @ store  USR registers
 	mrs   r0, spsr                @ get    USR        CPSR
 	stmdb sp!, { r0, lr }         @ store  USR PC and CPSR
@@ -105,6 +105,5 @@ data_abort_entry:
 	ldmia sp!, { r0, lr }         @ load   USR mode PC and CPSR
 	msr   spsr, r0                @ set    USR mode        CPSR
 	ldmia sp, { r0-r12, sp, lr }^ @ load   USR mode registers
-	add   sp, sp, #60             @ update SVC mode SP
+	add   sp, sp, #60             @ update ABT mode SP
 	movs  pc, lr                  @ return from interrupt
-
