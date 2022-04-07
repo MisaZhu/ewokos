@@ -33,7 +33,7 @@ inline uint32_t irq_gets(void) {
 
 	if (pending & 0x08 ) {
 		ret |= IRQ_TIMER0;
-		__write_cntv_tval(_timer_frq); 
+		__write_cntv_tval(_timer_tval); 
 	}
 	return ret;
 }

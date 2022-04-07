@@ -101,12 +101,7 @@ __irq_disable:
 	msr cpsr_c, r0
 	mov pc, lr
 
-.global __read_current_freq
-__read_current_freq:
-  mcr p15, 0, r0, c14, c0, 0
-  mov pc, lr
-
-.global __write_cntv_tval
+.global __write_cntv_tval         //timer_tval = current_freq / timers_per_second
 __write_cntv_tval:
   mcr p15, 0, r0, c14, c3, 0
   mov pc, lr

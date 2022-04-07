@@ -3,6 +3,6 @@
 
 #include <stdint.h>
 
-extern uint32_t _timer_frq;
+extern uint32_t _timer_tval;
 
 #endif

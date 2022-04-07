@@ -4,7 +4,7 @@
 #include <basic_math.h>
 #include "timer_arch.h"
 
-uint32_t _timer_frq  = 0;
+uint32_t _timer_tval  = 0;
 
 /*#define ARM_TIMER_BASE (_mmio_base + 0xB400)
 #define ARM_TIMER_LOAD ARM_TIMER_BASE
@@ -31,7 +31,7 @@ void timer_set_interval(uint32_t id, uint32_t interval_microsecond) {
 void __write_cntv_tval(uint32_t);
 void __enable_cntv(void);
 
-uint32_t read_cntfrq(void) {
+inline uint32_t read_cntfrq(void) {
   uint32_t val;
   __asm__ volatile ("mrc p15, 0, %0, c14, c0, 0" : "=r"(val) );
   return val;
@@ -42,8 +42,8 @@ void timer_set_interval(uint32_t id, uint32_t times_per_sec) {
 	(void)id;
   if(times_per_sec < 512)
     times_per_sec = 512;
-  _timer_frq = div_u32(read_cntfrq() , (times_per_sec));
-  __write_cntv_tval(_timer_frq);
+  _timer_tval = div_u32(read_cntfrq() , (times_per_sec));
+  __write_cntv_tval(_timer_tval);
   __enable_cntv();
 }
 
