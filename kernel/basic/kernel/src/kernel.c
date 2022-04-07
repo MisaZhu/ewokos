@@ -117,13 +117,9 @@ void _kernel_entry_c(void) {
 	__irq_disable();
 	//clear bss
 	memset(_bss_start, 0, (uint32_t)_bss_end - (uint32_t)_bss_start);
+
 	copy_interrupt_table();
 	sys_info_init();
-
-#ifdef KERNEL_SMP
-	_started_cores = 1;
-	kernel_lock_init();
-#endif
 
 	init_kernel_vm();  
 	kmalloc_init();
@@ -163,6 +159,9 @@ void _kernel_entry_c(void) {
 	kfork_core_halt(0);
 
 #ifdef KERNEL_SMP
+	_started_cores = 1;
+	kernel_lock_init();
+
 	uint32_t cores = get_cpu_cores();
 	for(uint32_t i=1; i<cores; i++) {
 		kfork_core_halt(i);

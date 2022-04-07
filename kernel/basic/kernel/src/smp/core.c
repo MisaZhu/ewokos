@@ -51,14 +51,6 @@ void mcore_unlock(int32_t* v) {
 
 #else
 
-void mcore_lock(int32_t* v) {
-	(void)v;
-}
-
-void mcore_unlock(int32_t* v) {
-	(void)v;
-}
-
 inline uint32_t get_core_id(void) {
 	return 0;
 }
@@ -68,4 +60,3 @@ inline uint32_t get_cpu_cores(void) {
 }
 
 #endif
-

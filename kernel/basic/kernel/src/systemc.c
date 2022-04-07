@@ -36,6 +36,7 @@ inline void set_translation_table_base(uint32_t tlb_base) {
 	flush_tlb();
 }
 
+#ifdef KERNEL_SMP
 static int32_t _spin = 0;
 static int32_t _klock = 0;
 
@@ -56,6 +57,7 @@ inline void kernel_unlock(void) {
 	_klock = 0;
 	mcore_unlock(&_spin);
 }
+#endif
 
 inline void halt(void) {
 	while(1) {
