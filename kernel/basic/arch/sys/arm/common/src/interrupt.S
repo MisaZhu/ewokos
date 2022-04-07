@@ -36,8 +36,8 @@ svc_entry:
 	movs  pc, lr                  @ return from interrupt
 
 irq_entry:
-	sub   lr, lr, #4              @ correct return address
 	msr   cpsr, #0xD2             @ IRQ mode with IRQ and FIQ interrupts disabled
+	sub   lr, lr, #4              @ correct return address
 	sub   sp, sp, #60             @ update IRQ mode stack
 	stmia sp, { r0-r12, sp, lr }^ @ store  USR registers
 	mrs   r0, spsr                @ get    USR        CPSR
@@ -53,8 +53,8 @@ irq_entry:
 	movs  pc, lr                  @ return from interrupt
 
 undef_abort_entry:
-	sub   lr, lr, #4              @ correct return address
 	msr   cpsr, #0xD7             @ ABT mode with IRQ and FIQ interrupts disabled
+	sub   lr, lr, #4              @ correct return address
 	sub   sp, sp, #60             @ update ABT mode stack
 	stmia sp, { r0-r12, sp, lr }^ @ store  USR registers
 	mrs   r0, spsr                @ get    USR        CPSR
