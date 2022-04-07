@@ -101,23 +101,6 @@ __irq_disable:
 	msr cpsr_c, r0
 	mov pc, lr
 
-.global __write_cntv_tval         //timer_tval = current_freq / timers_per_second
-__write_cntv_tval:
-  mcr p15, 0, r0, c14, c3, 0
-  mov pc, lr
-
-.global __enable_cntv
-__enable_cntv:
-  mov r0, #1;
-  mcr p15, 0, r0, c14, c3, 1
-  mov pc, lr
-
-.global __disable_cntv
-__disable_cntv:
-  mov r0, #0;
-  mcr p15, 0, r0, c14, c3, 1
-  mov pc, lr
-
 .global __smp_lock
 __smp_lock:
 	ldrex r1, [r0]

@@ -5,4 +5,6 @@
 
 extern uint32_t _timer_tval;
 
+extern void write_cntv_tval(uint32_t tval);
+
 #endif

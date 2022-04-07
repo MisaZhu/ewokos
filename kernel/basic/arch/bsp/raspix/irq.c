@@ -25,15 +25,13 @@ void irq_arch_init(void) {
 	routing_core0_irq();
 }
 
-void __write_cntv_tval(uint32_t); 
-
 inline uint32_t irq_gets(void) {
 	uint32_t ret = 0;
 	uint32_t pending = read_core0_pending();
 
 	if (pending & 0x08 ) {
 		ret |= IRQ_TIMER0;
-		__write_cntv_tval(_timer_tval); 
+		write_cntv_tval(_timer_tval); 
 	}
 	return ret;
 }

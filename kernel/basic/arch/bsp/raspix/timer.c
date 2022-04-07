@@ -31,20 +31,27 @@ void timer_set_interval(uint32_t id, uint32_t interval_microsecond) {
 void __write_cntv_tval(uint32_t);
 void __enable_cntv(void);
 
-inline uint32_t read_cntfrq(void) {
+static inline uint32_t read_cntfrq(void) {
   uint32_t val;
   __asm__ volatile ("mrc p15, 0, %0, c14, c0, 0" : "=r"(val) );
   return val;
 }
 
+inline void write_cntv_tval(uint32_t tval) {
+	__asm__ volatile ("mcr p15, 0, %0, c14, c3, 0" :: "r"(tval));
+}
+
+static inline void enable_cntv(void) {
+	__asm__ volatile ("mcr p15, 0, %0, c14, c3, 1" :: "r"(1));
+}
 
 void timer_set_interval(uint32_t id, uint32_t times_per_sec) {
 	(void)id;
   if(times_per_sec < 512)
     times_per_sec = 512;
   _timer_tval = div_u32(read_cntfrq() , (times_per_sec));
-  __write_cntv_tval(_timer_tval);
-  __enable_cntv();
+  write_cntv_tval(_timer_tval);
+  enable_cntv();
 }
 
 void timer_clear_interrupt(uint32_t id) {
