@@ -14,11 +14,14 @@
 #define PAGE_DIR_SIZE (PAGE_DIR_NUM*4)
 
 #define KERNEL_BASE                    0x80000000 //=2G virtual address start base.
-#define MMIO_BASE                      (KERNEL_BASE + 1*GB)
 #define INTERRUPT_VECTOR_BASE          0xffff0000
+
+#define MMIO_BASE                      (KERNEL_BASE + 1*GB)
 #define USER_STACK_TOP                 (KERNEL_BASE - PAGE_SIZE)
 
-#define KERNEL_PAGE_DIR_BASE           ALIGN_UP((uint32_t)_kernel_end, PAGE_DIR_SIZE)
+#define KERNEL_IMAGE_END               ALIGN_UP((uint32_t)_kernel_end, PAGE_DIR_SIZE)
+
+#define KERNEL_PAGE_DIR_BASE           KERNEL_IMAGE_END
 #define KERNEL_PAGE_DIR_END            (KERNEL_PAGE_DIR_BASE + 128*KB)
 
 #define KMALLOC_BASE                   ALIGN_UP(KERNEL_PAGE_DIR_END, PAGE_SIZE)

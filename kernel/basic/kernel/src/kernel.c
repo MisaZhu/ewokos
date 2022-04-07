@@ -41,11 +41,15 @@ static void set_kernel_init_vm(page_dir_entry_t* vm) {
 	map_pages(vm, 0, 0, PAGE_SIZE, AP_RW_D, 0);
 	map_pages(vm, INTERRUPT_VECTOR_BASE, 0, PAGE_SIZE, AP_RW_D, 0);
 
-	//map kernel image, page dir, kernel malloc mem
-	map_pages(vm, KERNEL_BASE+PAGE_SIZE, PAGE_SIZE, V2P(ALLOCATABLE_PAGE_DIR_END), AP_RW_D, 0);
-
+	//map kernel image
+	map_pages(vm, KERNEL_BASE+PAGE_SIZE, PAGE_SIZE, V2P(KERNEL_IMAGE_END), AP_RW_D, 0);
+	//map kernel page dir
+	map_pages(vm, KERNEL_PAGE_DIR_BASE, V2P(KERNEL_PAGE_DIR_BASE), V2P(ALLOCATABLE_PAGE_DIR_END), AP_RW_D, 0);
+	//map kernel malloc memory
+	map_pages(vm, KMALLOC_BASE, V2P(KMALLOC_BASE), V2P(KMALLOC_END), AP_RW_D, 0);
+	//map allocatable memory page dir
+	map_pages(vm, ALLOCATABLE_PAGE_DIR_BASE, V2P(ALLOCATABLE_PAGE_DIR_BASE), V2P(ALLOCATABLE_PAGE_DIR_END), AP_RW_D, 0);
 	//map MMIO to high(virtual) mem.
-	//map_pages(vm, _sys_info.mmio.phy_base, _sys_info.mmio.phy_base, _sys_info.mmio.phy_base + _sys_info.mmio.size, AP_RW_D, 1);
 	map_pages(vm, MMIO_BASE, _sys_info.mmio.phy_base, _sys_info.mmio.phy_base + _sys_info.mmio.size, AP_RW_D, 1);
 
 	arch_vm(vm);
@@ -69,10 +73,11 @@ void set_kernel_vm(page_dir_entry_t* vm) {
 
 static void init_kernel_vm(void) {
 	_kernel_vm = (page_dir_entry_t*)KERNEL_PAGE_DIR_BASE;
-	//get kalloc ready just for kernel page tables.
+	//get kalloc(4k memblocks) ready just for kernel page tables.
 	kalloc_init(KERNEL_PAGE_DIR_BASE+PAGE_DIR_SIZE, KERNEL_PAGE_DIR_END); 
-	set_kernel_init_vm(_kernel_vm);
 
+	//switch to two-levels 4k page_size type paging
+	set_kernel_init_vm(_kernel_vm);
 	//Use physical address of kernel virtual memory as the new virtual memory page dir table base.
 	set_translation_table_base(V2P((uint32_t)_kernel_vm));
 }
@@ -117,7 +122,6 @@ void _kernel_entry_c(void) {
 
 	sys_info_init();
 
-	//switch to two-levels 4k page_size type paging
 	init_kernel_vm();  
 	km_init();
 	kev_init();
