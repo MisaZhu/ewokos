@@ -45,20 +45,26 @@ static void set_kernel_init_vm(page_dir_entry_t* vm) {
 	map_pages(vm, KERNEL_BASE+PAGE_SIZE, PAGE_SIZE, V2P(ALLOCATABLE_PAGE_DIR_END), AP_RW_D, 0);
 
 	//map MMIO to high(virtual) mem.
-	map_pages(vm, _sys_info.mmio.phy_base, _sys_info.mmio.phy_base, _sys_info.mmio.phy_base + _sys_info.mmio.size, AP_RW_D, 1);
+	//map_pages(vm, _sys_info.mmio.phy_base, _sys_info.mmio.phy_base, _sys_info.mmio.phy_base + _sys_info.mmio.size, AP_RW_D, 1);
 	map_pages(vm, MMIO_BASE, _sys_info.mmio.phy_base, _sys_info.mmio.phy_base + _sys_info.mmio.size, AP_RW_D, 1);
+
 	arch_vm(vm);
+
+	flush_tlb();
+}
+
+static void map_allocatable_pages(page_dir_entry_t* vm) {
+	map_pages(vm,
+			P2V(_allocatable_mem_base),
+			_allocatable_mem_base,
+			_allocatable_mem_top,
+			AP_RW_D, 0);
 	flush_tlb();
 }
 
 void set_kernel_vm(page_dir_entry_t* vm) {
 	set_kernel_init_vm(vm);
-	map_pages(vm, 
-		ALLOCATABLE_MEMORY_START, 
-		V2P(ALLOCATABLE_MEMORY_START),
-		_sys_info.phy_mem_size,
-		AP_RW_D, 0);
-	flush_tlb();
+	map_allocatable_pages(vm);
 }
 
 static void init_kernel_vm(void) {
@@ -75,12 +81,8 @@ static void init_allocable_mem(void) {
 	printf("kernel: kalloc init for allocatable page dir\n");
 	kalloc_init(ALLOCATABLE_PAGE_DIR_BASE, ALLOCATABLE_PAGE_DIR_END); 
 	printf("kernel: mapping allocatable pages\n");
-	map_pages(_kernel_vm,
-			P2V(_allocatable_mem_base),
-			_allocatable_mem_base,
-			_allocatable_mem_top,
-			AP_RW_D, 0);
-	flush_tlb();
+	map_allocatable_pages(_kernel_vm);
+	
 	printf("kernel: kalloc init for all allocatable pages\n");
 	_pages_ref.max = kalloc_init(P2V(_allocatable_mem_base), P2V(_allocatable_mem_top));
 	_pages_ref.refs = kmalloc(_pages_ref.max * sizeof(page_ref_t));	
