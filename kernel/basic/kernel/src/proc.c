@@ -737,5 +737,6 @@ proc_t* kfork_core_halt(uint32_t core) {
 	proc_t* cproc = &_proc_table[0];
 	proc_t* child = kfork_raw(NULL, PROC_TYPE_PROC, cproc);
 	child->info.core = core;
+	_cpu_cores[core].halt_pid = child->info.pid;
 	return child;
 }

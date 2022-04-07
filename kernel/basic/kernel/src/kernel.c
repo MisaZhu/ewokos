@@ -72,6 +72,7 @@ void set_kernel_vm(page_dir_entry_t* vm) {
 }
 
 static void init_kernel_vm(void) {
+	_pages_ref.max = 0;
 	_kernel_vm = (page_dir_entry_t*)KERNEL_PAGE_DIR_BASE;
 	//get kalloc(4k memblocks) ready just for kernel page tables.
 	kalloc_init(KERNEL_PAGE_DIR_BASE+PAGE_DIR_SIZE, KERNEL_PAGE_DIR_END); 
@@ -104,11 +105,10 @@ void __attribute__((optimize("O0"))) _slave_kernel_entry_c(void) {
 	}
 	kernel_lock();
 	set_translation_table_base(V2P((uint32_t)_kernel_vm));
-	//printf("kernel: start core %d\n", get_core_id());
+	printf("  core %d ready\n", get_core_id());
 	_started_cores++;
 	kernel_unlock();
 	halt();
-	//while(1);
 }
 #endif
 
@@ -118,9 +118,12 @@ void _kernel_entry_c(void) {
 	//clear bss
 	memset(_bss_start, 0, (uint32_t)_bss_end - (uint32_t)_bss_start);
 	copy_interrupt_table();
-	_pages_ref.max = 0;
-
 	sys_info_init();
+
+#ifdef KERNEL_SMP
+	_started_cores = 1;
+	kernel_lock_init();
+#endif
 
 	init_kernel_vm();  
 	kmalloc_init();
@@ -141,13 +144,6 @@ void _kernel_entry_c(void) {
 	init_allocable_mem(); //init the rest allocable memory VM
 	printf("kernel: init allocable memory: %dMB, %d pages\n", div_u32(get_free_mem_size(), 1*MB), _pages_ref.max);
 
-	uint32_t cores = get_cpu_cores();
-#ifdef KERNEL_SMP
-	kernel_lock_init();
-	_started_cores = 1;
-	start_multi_cores(cores);
-#endif
-
 	irq_init();
 	printf("kernel: irq inited\n");
 
@@ -164,16 +160,20 @@ void _kernel_entry_c(void) {
 	}
 	printf("  [ok]\n");
 
-	for(uint32_t i=0; i<cores; i++) {
-		proc_t* p = kfork_core_halt(i);
-		_cpu_cores[i].halt_pid = p->info.pid;
-	}
+	kfork_core_halt(0);
 
 #ifdef KERNEL_SMP
-	while(_started_cores < cores) {
-		//printf("kernel: started: %d\n", _started_cores);
+	uint32_t cores = get_cpu_cores();
+	for(uint32_t i=1; i<cores; i++) {
+		kfork_core_halt(i);
 	}
-	printf("kernel: start SMP (%d cores)\n", cores);
+
+	printf("kernel: wake up slave cores(SMP) ...\n");
+	start_multi_cores(cores);
+	while(_started_cores < cores) {
+		_delay_msec(10);
+	}
+	printf("  [all %d cores started].\n", cores);
 #endif
 
 	printf("kernel: set timer.\n");
@@ -184,4 +184,3 @@ void _kernel_entry_c(void) {
 
 	halt();
 }
-
