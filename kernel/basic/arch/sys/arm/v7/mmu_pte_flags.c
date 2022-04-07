@@ -14,5 +14,6 @@ inline void set_pte_flags(page_table_entry_t* pte, uint32_t no_cache) {
 		//pte->cacheable = 1;
 		//pte->tex = 0x7;
 	}
+	pte->sharable = 1;
 }
 
