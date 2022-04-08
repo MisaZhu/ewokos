@@ -60,7 +60,7 @@ static inline void irq_do_timer0(context_t* ctx) {
 			_timer_tic = 0;
 		}
 
-		if(_schedule_tic >= 3000) { //3 msec, 300 times scheduling per second
+		if(_schedule_tic >= 10000) { //10 msec, 100 times scheduling per second
 			_schedule_tic = 0;
 		}
 		renew_kernel_tic(usec_gap);
