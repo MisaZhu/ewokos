@@ -362,14 +362,15 @@ inline void proc_free(void* p) {
 
 static inline uint32_t core_fetch(proc_t* proc) {
 	uint32_t cores = get_cpu_cores();
-	if(cores == 1 || proc->info.owner < 0) {
+	//if(cores == 1 || proc->info.owner < 0) {
+	if(cores == 1 || proc->info.pid == 0) {
 		return 0;
 	}
 
-	_use_core_id++; 
+	uint32_t ret = _use_core_id++; 
 	if(_use_core_id >= cores) 
 		_use_core_id = 0;
-	return _use_core_id;
+	return ret;
 }
 
 static inline void core_attach(proc_t* proc) {
