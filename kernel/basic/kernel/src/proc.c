@@ -180,9 +180,11 @@ void proc_switch(context_t* ctx, proc_t* to, bool quick){
 
 	memcpy(ctx, &to->ctx, sizeof(context_t));
 	to->info.state = RUNNING;
-	page_dir_entry_t *vm = to->space->vm;
-	set_translation_table_base((uint32_t) V2P(vm));
-	set_current_proc(to);
+	if(cproc != to) {
+		page_dir_entry_t *vm = to->space->vm;
+		set_translation_table_base((uint32_t)V2P(vm));
+		set_current_proc(to);
+	}
 }
 
 static inline void proc_unmap_shms(proc_t *proc) {
