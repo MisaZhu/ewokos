@@ -389,34 +389,34 @@ static close_event_t* _event_head = NULL;
 static close_event_t* _event_tail = NULL;
 
 static void push_close_event(close_event_t* ev) {
-  close_event_t* e = (close_event_t*)malloc(sizeof(close_event_t));
-  memcpy(e, ev, sizeof(close_event_t));
-  e->next = NULL;
+	close_event_t *e = (close_event_t *)malloc(sizeof(close_event_t));
+	memcpy(e, ev, sizeof(close_event_t));
+	e->next = NULL;
 
-  if(_event_tail != NULL)
-    _event_tail->next = e;
-  else
-    _event_head = e;
-  _event_tail = e;
-	//proc_wakeup((uint32_t)_vfs_root);
+	if (_event_tail != NULL)
+		_event_tail->next = e;
+	else
+		_event_head = e;
+	_event_tail = e;
+	proc_wakeup((uint32_t)_vfs_root);
 }
 
-static int get_close_event(close_event_t* ev) {
-  close_event_t* e = _event_head;
-  if(e == NULL) {
-		//proc_block(getpid(), (uint32_t)_vfs_root);
-    return -1;
+static int get_close_event(close_event_t *ev) {
+	close_event_t *e = _event_head;
+	if (e == NULL) {
+		proc_block(getpid(), (uint32_t)_vfs_root);
+		return -1;
 	}
 
 	ipc_lock();
-  _event_head = _event_head->next;
-  if(_event_head == NULL)
-    _event_tail = NULL;
+	_event_head = _event_head->next;
+	if (_event_head == NULL)
+		_event_tail = NULL;
 	ipc_unlock();
 
-  memcpy(ev, e, sizeof(close_event_t));
-  free(e);
-  return 0;
+	memcpy(ev, e, sizeof(close_event_t));
+	free(e);
+	return 0;
 }
 
 static void proc_file_close(int pid, int fd, file_t* file, bool close_dev) {
@@ -1036,7 +1036,7 @@ int vfsd_main(void) {
 		if( res == 0)
 			handle_close_event(&ev);
 		else
-			usleep(30000);
+			sleep(0);
 	}
 	return 0;
 }
