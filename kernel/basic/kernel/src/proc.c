@@ -203,11 +203,9 @@ static inline void proc_free_space(proc_t *proc) {
 	/*free proc heap*/
 	proc_shrink_mem(proc, proc->space->heap_size / PAGE_SIZE);
 
-	/*switch to kernel vm to free page tables*/
-	set_translation_table_base(V2P((uint32_t)_kernel_vm));
-
 	/*unmap share mems*/
 	proc_unmap_shms(proc);
+
 	free_page_tables(proc->space->vm);
 	kfree(proc->space);
 }
@@ -532,7 +530,7 @@ static inline void proc_page_clone(proc_t* to, uint32_t to_addr, proc_t* from, u
 	memcpy(to_ptr, from_ptr, PAGE_SIZE);
 }
 
-static int32_t proc_clone(proc_t* child, proc_t* parent) {
+/*static int32_t proc_clone(proc_t* child, proc_t* parent) {
 	uint32_t pages = parent->space->heap_size / PAGE_SIZE;
 	if((parent->space->heap_size % PAGE_SIZE) != 0)
 		pages++;
@@ -566,8 +564,9 @@ static int32_t proc_clone(proc_t* child, proc_t* parent) {
 	strcpy(child->info.cmd, parent->info.cmd);
 	return 0;
 }
+*/
 
-/*static int32_t proc_clone(proc_t* child, proc_t* parent) {
+static int32_t proc_clone(proc_t* child, proc_t* parent) {
 	uint32_t pages = parent->space->heap_size / PAGE_SIZE;
 	if((parent->space->heap_size % PAGE_SIZE) != 0)
 		pages++;
@@ -594,7 +593,6 @@ static int32_t proc_clone(proc_t* child, proc_t* parent) {
 	strcpy(child->info.cmd, parent->info.cmd);
 	return 0;
 }
-*/
 
 static inline void proc_thread_clone(context_t* ctx, proc_t* child, proc_t* parent) {
 	uint32_t pages = proc_get_user_stack_pages(child) - 1;
