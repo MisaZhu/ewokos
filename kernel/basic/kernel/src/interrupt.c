@@ -6,6 +6,7 @@
 #include <kstring.h>
 #include <kernel/schedule.h>
 #include <kernel/irq.h>
+#include <dev/ipi.h>
 
 typedef struct {
 	int32_t pid;
@@ -44,6 +45,7 @@ void  interrupt_send(context_t* ctx, uint32_t interrupt) {
 	}
 	else {
 		proc_ready(proc);
+		ipi_send(proc->info.core);
 		schedule(ctx);
 	}
 }

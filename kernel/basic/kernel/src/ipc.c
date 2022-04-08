@@ -3,6 +3,7 @@
 #include <kernel/schedule.h>
 #include <stddef.h>
 #include <kstring.h>
+#include <dev/ipi.h>
 
 int32_t proc_ipc_setup(context_t* ctx, uint32_t entry, uint32_t extra_data, uint32_t flags) {
 	(void)ctx;
@@ -30,6 +31,7 @@ int32_t proc_ipc_call(context_t* ctx, proc_t* proc, ipc_t *ipc) {
 	}
 	else {
 		proc_ready(proc);
+		ipi_send(proc->info.core);
 		schedule(ctx);
 	}
 	return 0;
