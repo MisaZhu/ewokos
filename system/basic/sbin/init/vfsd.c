@@ -398,21 +398,19 @@ static void push_close_event(close_event_t* ev) {
 	else
 		_event_head = e;
 	_event_tail = e;
-	proc_wakeup((uint32_t)_vfs_root);
+	//proc_wakeup((uint32_t)_vfs_root);
 }
 
 static int get_close_event(close_event_t *ev) {
 	close_event_t *e = _event_head;
 	if (e == NULL) {
-		proc_block(getpid(), (uint32_t)_vfs_root);
+		//proc_block(getpid(), (uint32_t)_vfs_root);
 		return -1;
 	}
 
-	ipc_lock();
 	_event_head = _event_head->next;
 	if (_event_head == NULL)
 		_event_tail = NULL;
-	ipc_unlock();
 
 	memcpy(ev, e, sizeof(close_event_t));
 	free(e);
@@ -1030,13 +1028,17 @@ int vfsd_main(void) {
 	ipc_serv_run(handle, NULL, IPC_NON_BLOCK);
 	close_event_t ev;
 	while(true) {
-		//ipc_lock();
+		ipc_lock();
 		int res = get_close_event(&ev);
-		//ipc_unlock();
-		if( res == 0)
+		ipc_unlock();
+
+		if( res == 0) {
+			ipc_lock();
 			handle_close_event(&ev);
+			ipc_unlock();
+		}
 		else
-			sleep(0);
+			usleep(3000);
 	}
 	return 0;
 }

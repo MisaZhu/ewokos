@@ -34,6 +34,7 @@ void  interrupt_send(context_t* ctx, uint32_t interrupt) {
 		return;
 	
 	proc->space->interrupt.proc_state = proc->info.state;
+	proc->space->ipc_server.block_by = proc->info.block_by;
 	memcpy(&proc->space->interrupt.ctx, &proc->ctx, sizeof(context_t));
 
 	proc->space->interrupt.interrupt = interrupt;
@@ -45,8 +46,10 @@ void  interrupt_send(context_t* ctx, uint32_t interrupt) {
 	}
 	else {
 		proc_ready(proc);
-		ipi_send(proc->info.core);
 		schedule(ctx);
+#ifdef KERNEL_SMP
+		ipi_send(proc->info.core);
+#endif
 	}
 }
 

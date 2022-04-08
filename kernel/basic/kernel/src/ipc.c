@@ -25,14 +25,17 @@ int32_t proc_ipc_call(context_t* ctx, proc_t* proc, ipc_t *ipc) {
 
 	proc->space->ipc_server.ipc = (uint32_t)ipc;
 	proc->space->ipc_server.state = proc->info.state;
+	proc->space->ipc_server.block_by = proc->info.block_by;
 
 	if(proc->info.core == cproc->info.core) {
 		proc_switch(ctx, proc, true);
 	}
 	else {
 		proc_ready(proc);
-		ipi_send(proc->info.core);
 		schedule(ctx);
+#ifdef KERNEL_SMP
+		ipi_send(proc->info.core);
+#endif
 	}
 	return 0;
 }

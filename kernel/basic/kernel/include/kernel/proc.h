@@ -29,24 +29,26 @@ typedef struct {
 	int32_t shms[SHM_MAX];
 
 	struct {
-		uint32_t  uid;
-		uint32_t  entry;
-		uint32_t  flags;
-	  uint32_t  ipc;
-		uint32_t  extra_data;
+		uint32_t uid;
+		uint32_t entry;
+		uint32_t flags;
+		uint32_t ipc;
+		uint32_t extra_data;
 		context_t ctx;
-	  uint32_t  state;
+		uint32_t state;
+		int32_t  block_by;
 	} ipc_server;
 
 	struct {
-		uint32_t  entry;
+		uint32_t entry;
 		context_t ctx;
-	  uint32_t  state;
-	  uint32_t  proc_state;
+		uint32_t state;
+		uint32_t proc_state;
 	} signal;
 
 	struct {
 		uint32_t proc_state;
+		int32_t  block_by;
 		uint32_t interrupt;
 		uint32_t entry;
 		context_t ctx;

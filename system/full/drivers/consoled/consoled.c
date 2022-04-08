@@ -72,24 +72,6 @@ static int console_write(int fd,
 	return size;
 }
 
-static int console_step(void* p) {
-	(void)p;
-	int w, h, bpp;
-	if(fb_info(&_console.fb, &w, &h, &bpp) != 0)
-		return -1;
-
-	if(_console.g != NULL && w == _console.g->w && h == _console.g->h) {
-		usleep(100000);
-		return 0;
-	}
-
-	if(reset_console(&_console) == 0 && _console.g != NULL) {
-		console_refresh(&_console.console, _console.g);
-		fb_flush(&_console.fb);
-	}
-	return 0;
-}
-	
 int main(int argc, char** argv) {
 	const char* mnt_point = argc > 1 ? argv[1]: "/dev/console0";
 	const char* fb_dev = argc > 2 ? argv[2]: "/dev/fb0";
@@ -100,7 +82,6 @@ int main(int argc, char** argv) {
 	memset(&dev, 0, sizeof(vdevice_t));
 	strcpy(dev.name, "console");
 	dev.write = console_write;
-	dev.loop_step = console_step;
 
 	device_run(&dev, mnt_point, FS_TYPE_CHAR);
 	close_console(&_console);

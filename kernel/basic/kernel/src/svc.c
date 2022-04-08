@@ -385,6 +385,7 @@ static void sys_ipc_end(context_t* ctx, ipc_t* ipc) {
 
 	memcpy(ctx, &serv_proc->space->ipc_server.ctx, sizeof(context_t));
 	serv_proc->info.state = serv_proc->space->ipc_server.state;
+	serv_proc->info.block_by = serv_proc->space->ipc_server.block_by;
 	if(serv_proc->info.state == READY || serv_proc->info.state == RUNNING)
 		proc_ready(serv_proc);
 
