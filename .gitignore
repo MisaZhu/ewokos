@@ -6,3 +6,4 @@ kernel*.img
 kernel*.elf
 kernel*.asm
 system/build
+.vscode/settings.json
