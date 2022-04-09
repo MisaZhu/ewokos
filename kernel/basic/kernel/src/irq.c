@@ -97,18 +97,13 @@ static inline void _irq_handler(uint32_t cid, context_t* ctx) {
 inline void irq_handler(context_t* ctx) {
 	__irq_disable();
 
-#ifdef KERNEL_SMP
-	/*if(kernel_lock_check() > 0)
+	if(kernel_lock_check() > 0)
 		return;
-		*/
 
 	uint32_t cid = get_core_id();
 	kernel_lock();
 	_irq_handler(cid, ctx);
 	kernel_unlock();
-#else
-	_irq_handler(0, ctx);
-#endif
 }
 
 static void dump_ctx(context_t* ctx) {
@@ -164,11 +159,10 @@ void prefetch_abort_handler(context_t* ctx, uint32_t status) {
 	(void)ctx;
 	__irq_disable();
 	uint32_t core = get_core_id();
-#ifdef KERNEL_SMP
 	if(kernel_lock_check() > 0)
 		return;
 	kernel_lock();
-#endif
+
 	proc_t* cproc = get_current_proc();
 	if(cproc == NULL) {
 		printf("_kernel, prefetch abort!! (core %d)\n", core);
@@ -183,19 +177,16 @@ void prefetch_abort_handler(context_t* ctx, uint32_t status) {
 		dump_ctx(&cproc->ctx);
 		proc_signal_send(ctx, cproc, SYS_SIG_STOP);
 	}
-#ifdef KERNEL_SMP
 	kernel_unlock();
-#endif
 }
 
 void data_abort_handler(context_t* ctx, uint32_t addr_fault, uint32_t status) {
 	(void)ctx;
 	__irq_disable();
-#ifdef KERNEL_SMP
 	if(kernel_lock_check() > 0)
 		return;
 	kernel_lock();
-#endif
+
 	proc_t* cproc = get_current_proc();
 	if(cproc == NULL) {
 		printf("_kernel, data abort!! at: 0x%X\n", addr_fault);
@@ -210,9 +201,7 @@ void data_abort_handler(context_t* ctx, uint32_t addr_fault, uint32_t status) {
 		dump_ctx(&cproc->ctx);
 		proc_signal_send(ctx, cproc, SYS_SIG_STOP);
 	}
-#ifdef KERNEL_SMP
 	kernel_unlock();
-#endif
 }
 
 void irq_init(void) {

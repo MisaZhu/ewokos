@@ -57,6 +57,20 @@ inline void kernel_unlock(void) {
 	_klock = 0;
 	mcore_unlock(&_spin);
 }
+
+#else
+inline void kernel_lock_init(void) {
+}
+
+inline int32_t kernel_lock_check(void) {
+	return 0;
+}
+
+inline void kernel_lock(void) {
+}
+
+inline void kernel_unlock(void) {
+}
 #endif
 
 inline void halt(void) {
