@@ -49,14 +49,4 @@ void mcore_unlock(int32_t* v) {
 	__smp_unlock(v);
 }
 
-#else
-
-inline uint32_t get_core_id(void) {
-	return 0;
-}
-
-inline uint32_t get_cpu_cores(void) {
-	return 1;
-}
-
 #endif
