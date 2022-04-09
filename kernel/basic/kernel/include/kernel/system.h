@@ -17,10 +17,17 @@ extern void _delay_msec(uint32_t count);
 extern void set_translation_table_base(uint32_t);
 extern void flush_tlb(void);
 
+#ifdef KERNEL_SMP
 extern void kernel_lock_init(void);
 extern int32_t kernel_lock_check(void);
 extern void kernel_lock(void);
 extern void kernel_unlock(void);
+#else
+#define kernel_lock_init()
+#define kernel_lock_check() 0
+#define kernel_lock()
+#define kernel_unlock()
+#endif
 
 extern void halt(void);
 #endif
