@@ -47,6 +47,8 @@ typedef struct {
 	int32_t  wait_for;
 	int32_t  ipc_state;
 	uint32_t start_sec;
+	uint32_t heap_size;
+	uint32_t shm_size;
 	char     cmd[PROC_INFO_CMD_MAX];
 } procinfo_t;
 	

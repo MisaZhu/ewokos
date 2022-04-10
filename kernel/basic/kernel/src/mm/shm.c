@@ -262,6 +262,7 @@ void* shm_proc_map(int32_t pid, int32_t id) {
 		addr += PAGE_SIZE;
 	}
 	flush_tlb();
+	proc->info.shm_size += it->pages * PAGE_SIZE;
 	it->refs++;
 	return (void*)it->addr;
 }
@@ -293,6 +294,10 @@ int32_t shm_proc_unmap(int32_t pid, int32_t id) {
 		addr += PAGE_SIZE;
 	}
 	flush_tlb();
+	if(proc->info.shm_size > (it->pages*PAGE_SIZE))
+		proc->info.shm_size -= it->pages * PAGE_SIZE;
+	else
+		proc->info.shm_size = 0;
 
 	it->refs--;
 	if(it->refs <= 0) {

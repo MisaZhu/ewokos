@@ -92,6 +92,7 @@ static void proc_shrink_mem(proc_t* proc, int32_t page_num) {
 		if (proc->space->heap_size == 0)
 			break;
 	}
+	proc->info.heap_size = proc->space->heap_size;
 	flush_tlb();
 }
 
@@ -115,6 +116,7 @@ static int32_t proc_expand_mem(proc_t *proc, int32_t page_num) {
 				AP_RW_RW);
 		proc->space->heap_size += PAGE_SIZE;
 	}
+	proc->info.heap_size = proc->space->heap_size;
 	flush_tlb();
 	return res;
 }
@@ -553,6 +555,7 @@ static inline void proc_page_clone(proc_t* to, uint32_t to_addr, proc_t* from, u
 	}
 	flush_tlb();
 	child->space->heap_size = pages * PAGE_SIZE;
+	child->info.heap_size = child->space->heap_size;
 
 	//set father
 	child->info.father_pid = parent->info.pid;
@@ -582,6 +585,7 @@ static int32_t proc_clone(proc_t* child, proc_t* parent) {
 		// copy parent's memory to child's memory
 		proc_page_clone(child, v_addr, parent, v_addr);
 	}
+	child->info.heap_size =  child->space->heap_size;
 
 	//set father
 	child->info.father_pid = parent->info.pid;

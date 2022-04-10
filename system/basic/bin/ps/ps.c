@@ -80,13 +80,13 @@ int main(int argc, char* argv[]) {
 
 	procinfo_t* procs = (procinfo_t*)syscall1(SYS_GET_PROCS, (int)&num);
 	if(procs != NULL) {
-		printf("OWNER    CORE PID    FATHER  STATE       IPC_BUSY TIME       PROC\n"); 
+		printf("OWNER    CORE PID    FATHER  STATE       IPC_BUSY TIME       HEAP(K) SHM(K) PROC\n"); 
 		for(int i=0; i<num; i++) {
 			if(procs[i].type != PROC_TYPE_PROC && all == 0)
 				continue;
 
 			uint32_t sec = csec - procs[i].start_sec;
-			printf("%8s %4d %4d   %6d  %10s  %8s %02d:%02d:%02d   %s\n", 
+			printf("%8s %4d %4d   %6d  %10s  %8s %02d:%02d:%02d   %6d  %5d  %s\n", 
 				get_owner(&procs[i]),
 				procs[i].core,
 				procs[i].pid,
@@ -96,6 +96,8 @@ int main(int argc, char* argv[]) {
 				sec / (3600),
 				sec / 60,
 				sec % 60,
+				procs[i].heap_size / 1024,
+				procs[i].shm_size / 1024,
 				get_cmd(&procs[i], full));
 		}
 		free(procs);
