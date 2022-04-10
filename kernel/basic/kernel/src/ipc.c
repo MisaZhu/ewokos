@@ -38,6 +38,7 @@ int32_t proc_ipc_call(context_t* ctx, proc_t* proc, ipc_t *ipc) {
 	proc->space->ipc_server.block_by = proc->info.block_by;
 
 	if(proc->info.core == cproc->info.core) {
+		proc->info.state = RUNNING;
 		proc_switch(ctx, proc, true);
 	}
 	else {
