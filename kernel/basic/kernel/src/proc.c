@@ -157,6 +157,7 @@ void proc_switch(context_t* ctx, proc_t* to, bool quick){
 		memcpy(&to->space->interrupt.ctx, &to->ctx, sizeof(context_t)); //save "to" context to irq ctx, will restore after irq done.
 		to->ctx.gpr[0] = to->space->interrupt.interrupt;
 		to->ctx.pc = to->ctx.lr = to->space->interrupt.entry;
+		to->ctx.sp = to->space->small_stack + PAGE_SIZE;
 		to->space->interrupt.entry = 0; // clear irq request mask
 	}
 	else if(to->space->ipc_server.ipc != 0) { //have ipc request to handle 
@@ -164,6 +165,7 @@ void proc_switch(context_t* ctx, proc_t* to, bool quick){
 		to->ctx.gpr[0] = to->space->ipc_server.ipc;
 		to->ctx.gpr[1] = to->space->ipc_server.extra_data;
 		to->ctx.pc = to->ctx.lr = to->space->ipc_server.entry;
+		to->ctx.sp = to->space->small_stack + PAGE_SIZE;
 		to->space->ipc_server.ipc = 0; // clear ipc request mask
 	}
 
@@ -306,8 +308,8 @@ static inline void proc_free_user_stack(proc_t* proc) {
 	uint32_t pages = proc_get_user_stack_pages(proc);
 	uint32_t i;
 	for(i=0; i<pages; i++) {
-		unmap_page(proc->space->vm, user_stack_base + PAGE_SIZE*i);
 		kfree4k(proc->user_stack[i]);
+		unmap_page(proc->space->vm, user_stack_base + PAGE_SIZE*i);
 	}
 	flush_tlb();
 }
@@ -319,21 +321,27 @@ void proc_exit(context_t* ctx, proc_t *proc, int32_t res) {
 	proc_terminate(ctx, proc);
 	proc->info.state = UNUSED;
 
-	/*free kpage*/
-	if(proc->space->kpage != 0) {
-		unmap_page(proc->space->vm, proc->space->kpage);
-		kfree4k((void*)proc->space->kpage);	
-		flush_tlb();
-		proc->space->kpage = 0;
-	}
-
 	/*free all ipc context*/
 	if(proc->ipc_client != NULL)
 		proc_ipc_close(proc->ipc_client);
 	proto_clear(&proc->ipc_ctx.data);
 
+	/*free kpage*/
+	if(proc->space->kpage != 0) {
+		kfree4k((void*)proc->space->kpage);	
+		unmap_page(proc->space->vm, proc->space->kpage);
+		proc->space->kpage = 0;
+	}
+
+	/*free small_stack*/
+	if(proc->space->small_stack != 0) {
+		kfree4k((void*)proc->space->small_stack);	
+		unmap_page(proc->space->vm, proc->space->small_stack);
+	}
+
 	/*free user_stack*/
 	proc_free_user_stack(proc);
+
 	proc_free_space(proc);
 	memset(proc, 0, sizeof(proc_t));
 	if(_current_proc[core] == proc)

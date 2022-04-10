@@ -510,7 +510,7 @@ static int32_t sys_interrupt_setup(uint32_t interrupt, uint32_t entry) {
 	proc_t * cproc = get_current_proc();
 	if(cproc->info.owner > 0)
 		return -1;
-	interrupt_setup(cproc->info.pid, interrupt, entry);
+	interrupt_setup(cproc, interrupt, entry);
 	return 0;
 }
 

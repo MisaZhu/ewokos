@@ -54,8 +54,8 @@ static void shm_unmap_pages(uint32_t addr, uint32_t pages) {
 
 		//get the kernel address for kalloc/kfree
 		uint32_t kernel_addr = P2V(physical_addr);
+		kfree4k((void *) kernel_addr);
 		unmap_page(_kernel_vm, addr);
-		kfree((void *) kernel_addr);
 		addr += PAGE_SIZE;
 	}
 	flush_tlb();

@@ -6,7 +6,10 @@
 #include <kstring.h>
 #include <kernel/schedule.h>
 #include <kernel/irq.h>
+#include <kernel/system.h>
 #include <dev/ipi.h>
+#include <mm/mmu.h>
+#include <mm/kalloc.h>
 
 typedef struct {
 	int32_t pid;
@@ -19,9 +22,16 @@ void interrupt_init(void) {
 	memset(&_interrupts, 0, sizeof(interrupt_t)*SYS_INT_MAX);	
 }
 
-void interrupt_setup(int32_t pid, uint32_t interrupt, uint32_t entry) {
+void interrupt_setup(proc_t* cproc, uint32_t interrupt, uint32_t entry) {
 	_interrupts[interrupt].entry = entry;
-	_interrupts[interrupt].pid = pid;
+	_interrupts[interrupt].pid = cproc->info.pid;
+
+	if(cproc->space->small_stack == 0) {
+		uint32_t page = (uint32_t)kalloc4k();
+		map_page(cproc->space->vm, page, V2P(page), AP_RW_RW, 0);
+		cproc->space->small_stack = page;
+		flush_tlb();
+	}
 }
 
 void  interrupt_send(context_t* ctx, uint32_t interrupt) {
