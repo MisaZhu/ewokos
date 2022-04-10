@@ -339,8 +339,10 @@ static int32_t sys_ipc_get_return(context_t* ctx, ipc_t* ipc, proto_t* data) {
 
 static int32_t sys_ipc_get_info(ipc_t* ipc, int32_t* pid, int32_t* cmd) {
 	proc_t* serv_proc = get_current_proc();
-	if(ipc == NULL || serv_proc->space->ipc_server.entry == 0 ||
-			ipc->state != IPC_BUSY) {
+	if(ipc == NULL ||
+			ipc->uid != serv_proc->space->ipc_server.uid ||
+			ipc->state != IPC_BUSY ||
+			serv_proc->space->ipc_server.entry == 0) {
 		return 0;
 	}
 
@@ -358,8 +360,10 @@ static int32_t sys_ipc_get_info(ipc_t* ipc, int32_t* pid, int32_t* cmd) {
 
 	if((ipc->call_id & IPC_NON_RETURN) != 0) { //request proc dosen't need return
 		serv_proc->info.ipc_state = IPC_RETURN;
+		proc_t* proc = proc_get(ipc->client_pid);
+		proc_ready(proc);
+		//proc_wakeup(serv_proc->info.pid, (uint32_t)ipc);
 		proc_ipc_close(ipc);
-		proc_wakeup(serv_proc->info.pid, (uint32_t)ipc);
 	}
 	return (int32_t)ret;
 }
@@ -394,11 +398,13 @@ static void sys_ipc_end(context_t* ctx, ipc_t* ipc) {
 	serv_proc->info.ipc_state = IPC_IDLE;
 	proc_wakeup(serv_proc->info.pid, (uint32_t)&serv_proc->space->ipc_server); 
 
-	if(ipc_state != IPC_RETURN) {
+	if(ipc_state != IPC_RETURN &&
+			ipc->uid == serv_proc->space->ipc_server.uid) {
 		ipc->state = IPC_RETURN;
-		proc_wakeup(serv_proc->info.pid, (uint32_t)ipc);
+		//proc_wakeup(serv_proc->info.pid, (uint32_t)ipc);
 		proc_t* proc = proc_get(ipc->client_pid);
 		if(proc != NULL) {
+			proc_ready(proc);
 			if(proc->info.core == serv_proc->info.core) {
 				proc_switch(ctx, proc, true);
 				return;
