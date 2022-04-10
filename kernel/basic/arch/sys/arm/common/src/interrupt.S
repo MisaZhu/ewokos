@@ -79,7 +79,6 @@ prefetch_abort_entry:
 	mrs   r0, spsr                @ get    USR        CPSR
 	stmdb sp!, { r0, lr }         @ store  USR PC and CPSR
 	mov   r0, sp                  @ r0 is now the context struct address
-	mrc   p15, #0, r1, c5, c0, #1 @ read fault status code
 
 	bl    prefetch_abort_handler  @ invoke high-level C function (r0:context)
 
