@@ -408,12 +408,14 @@ static int get_close_event(close_event_t *ev) {
 		return -1;
 	}
 
+	ipc_lock();
 	_event_head = _event_head->next;
 	if (_event_head == NULL)
 		_event_tail = NULL;
 
 	memcpy(ev, e, sizeof(close_event_t));
 	free(e);
+	ipc_unlock();
 	return 0;
 }
 
@@ -1028,9 +1030,7 @@ int vfsd_main(void) {
 	ipc_serv_run(handle, NULL, IPC_NON_BLOCK);
 	close_event_t ev;
 	while(true) {
-		ipc_lock();
 		int res = get_close_event(&ev);
-		ipc_unlock();
 
 		if( res == 0) {
 			ipc_lock();

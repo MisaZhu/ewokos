@@ -23,7 +23,11 @@ static void ipc_end(uint32_t ipc_id) {
 }
 
 void ipc_lock(void) {
-	syscall0(SYS_IPC_LOCK);
+	while(1) {
+		if (syscall0(SYS_IPC_LOCK) == 0)
+			return;
+		sleep(0);
+	}	
 }
 
 void ipc_unlock(void) {

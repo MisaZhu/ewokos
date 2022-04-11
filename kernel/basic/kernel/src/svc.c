@@ -414,9 +414,12 @@ static void sys_ipc_end(context_t* ctx, ipc_t* ipc) {
 	schedule(ctx);
 }
 
-static void sys_ipc_lock(void) {
+static int32_t sys_ipc_lock(void) {
 	proc_t* cproc = get_current_proc();
+	if(cproc->info.ipc_state != IPC_IDLE)
+		return -1;
 	cproc->info.ipc_state = IPC_BUSY;
+	return 0;
 }
 
 static void sys_ipc_unlock(void) {
@@ -661,7 +664,7 @@ static inline void _svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_
 		ctx->gpr[0] = sys_core_proc_pid();
 		return;
 	case SYS_IPC_LOCK:
-		sys_ipc_lock();
+		ctx->gpr[0] = sys_ipc_lock();
 		return;
 	case SYS_IPC_UNLOCK:
 		sys_ipc_unlock();
