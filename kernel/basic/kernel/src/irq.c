@@ -156,7 +156,7 @@ void undef_abort_handler(context_t* ctx, uint32_t status) {
 	//proc_signal_send(ctx, cproc, SYS_SIG_STOP);
 }
 
-void prefetch_abort_handler(context_t* ctx) {
+void prefetch_abort_handler(context_t* ctx, uint32_t status) {
 	(void)ctx;
 	__irq_disable();
 	uint32_t core = get_core_id();
@@ -168,9 +168,13 @@ void prefetch_abort_handler(context_t* ctx) {
 		while(1);
 	}
 
-	printf("pid: %d(%s), prefetch abort!! (core %d)\n", cproc->info.pid, cproc->info.cmd, core);
-	dump_ctx(&cproc->ctx);
-	proc_exit(ctx, cproc, -1);
+	if((status & 0xD) != 0xD || //permissions fault only
+			ctx->pc >= cproc->space->heap_size || //in proc heap only
+			copy_on_write(cproc, ctx->pc) != 0) {
+		printf("pid: %d(%s), prefetch abort!! (core %d)\n", cproc->info.pid, cproc->info.cmd, core);
+		dump_ctx(&cproc->ctx);
+		proc_exit(ctx, cproc, -1);
+	}
 	//proc_signal_send(ctx, cproc, SYS_SIG_STOP);
 }
 
