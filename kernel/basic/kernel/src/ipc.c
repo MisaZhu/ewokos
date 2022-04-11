@@ -17,10 +17,10 @@ int32_t proc_ipc_setup(context_t* ctx, uint32_t entry, uint32_t extra_data, uint
 	cproc->space->ipc_server.extra_data = extra_data;
 	cproc->space->ipc_server.flags = flags;
 	
-	if(cproc->space->small_stack == 0) {
+	if(cproc->space->inter_stack == 0) {
 		uint32_t page = (uint32_t)kalloc4k();
 		map_page(cproc->space->vm, page, V2P(page), AP_RW_RW, 0);
-		cproc->space->small_stack = page;
+		cproc->space->inter_stack = page;
 		flush_tlb();
 	}
 	return 0;

@@ -24,7 +24,7 @@ typedef struct {
 	malloc_t malloc_man;
 	uint32_t heap_size;
 	uint32_t kpage; //mapped page , share same address with kernel
-	uint32_t small_stack; //mapped stack page , for ipc/interrupt 
+	uint32_t inter_stack; //mapped stack page , for ipc/interrupt 
 	bool ready_ping;
 	
 	int32_t shms[SHM_MAX];

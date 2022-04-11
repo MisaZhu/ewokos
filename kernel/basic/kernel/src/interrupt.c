@@ -26,10 +26,10 @@ void interrupt_setup(proc_t* cproc, uint32_t interrupt, uint32_t entry) {
 	_interrupts[interrupt].entry = entry;
 	_interrupts[interrupt].pid = cproc->info.pid;
 
-	if(cproc->space->small_stack == 0) {
+	if(cproc->space->inter_stack == 0) {
 		uint32_t page = (uint32_t)kalloc4k();
 		map_page(cproc->space->vm, page, V2P(page), AP_RW_RW, 0);
-		cproc->space->small_stack = page;
+		cproc->space->inter_stack = page;
 		flush_tlb();
 	}
 }
