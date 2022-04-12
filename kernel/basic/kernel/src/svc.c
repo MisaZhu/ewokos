@@ -284,9 +284,6 @@ static void sys_ipc_call(context_t* ctx, int32_t serv_pid, int32_t call_id, prot
 	if(data != NULL)
 		proto_copy(&ipc->data, data->data, data->size);
 
-	if((call_id & IPC_NON_RETURN) == 0)
-		proc_block_on(serv_pid, (uint32_t)&serv_proc->ipc_task);
-
 	proc_ipc_task(ctx, serv_proc);
 }
 

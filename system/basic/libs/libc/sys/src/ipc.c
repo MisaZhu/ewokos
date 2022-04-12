@@ -53,8 +53,10 @@ inline int ipc_call(int to_pid, int call_id, const proto_t* ipkg, proto_t* opkg)
 		if(opkg == NULL)
 			call_id |= IPC_NON_RETURN;
 		ipc_id = syscall3(SYS_IPC_CALL, (int32_t)to_pid, (int32_t)call_id, (int32_t)ipkg);
-		if(ipc_id == -1)
+		if(ipc_id == -1) {
+			sleep(0);
 			continue;
+		}
 		if(ipc_id == 0)
 			return -1;
 		break;

@@ -36,6 +36,9 @@ int32_t proc_ipc_task(context_t* ctx, proc_t* serv_proc) {
 	serv_proc->ipc_task.saved_block_by = serv_proc->info.block_by;
 	serv_proc->ipc_task.start = true;
 
+	if((serv_proc->ipc_task.call_id & IPC_NON_RETURN) == 0)
+		proc_block_on(serv_proc->info.pid, (uint32_t)&serv_proc->ipc_task);
+
 	if(serv_proc->info.core == client_proc->info.core) {
 		serv_proc->info.state = RUNNING;
 		proc_switch(ctx, serv_proc, true);
