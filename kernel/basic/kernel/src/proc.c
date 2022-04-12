@@ -145,7 +145,7 @@ static void proc_init_space(proc_t* proc) {
 	proc->space->malloc_man.get_mem_tail = proc_get_mem_tail;
 }
 
-void proc_switch(context_t* ctx, proc_t* to, bool quick){
+void __attribute__((optimize("O0"))) proc_switch(context_t* ctx, proc_t* to, bool quick){
 	proc_t* cproc = get_current_proc();
 	if(to == NULL)
 		return;

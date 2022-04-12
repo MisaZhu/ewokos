@@ -35,6 +35,7 @@ enum {
 
 typedef struct {
 	uint8_t type;
+	int32_t pid;
 	int32_t state;
 	uint32_t win;
 	union {

@@ -61,6 +61,8 @@ typedef struct {
 	char xwm[128];
 } x_conf_t;
 
+#define MAX_XEVENT 32
+
 typedef struct {
 	bool actived;
 	fb_t fb;
@@ -79,6 +81,8 @@ typedef struct {
 	x_current_t current;
 	x_conf_t config;
 
+	xevent_t xevents[MAX_XEVENT];
+	uint32_t xevent_num;
 } x_t;
 
 static int32_t read_config(x_t* x, const char* fname) {
@@ -221,17 +225,31 @@ static void remove_view(x_t* x, xview_t* view) {
 	x_dirty(x);
 }
 
-static void x_push_event(xview_t* view, xevent_t* e) {
-	if(view->from_pid <= 0)
-		return;
-	e->win = view->xinfo.win;
+static inline void send_event(xevent_t* e) {
 	proto_t in;
 	PF->init(&in)->add(&in, e, sizeof(xevent_t));
-	ipc_call(view->from_pid, X_CMD_PUSH_EVENT, &in, NULL);
+	ipc_call(e->pid, X_CMD_PUSH_EVENT, &in, NULL);
 	PF->clear(&in);
 }
 
-static void hide_view(xview_t* view) {
+static inline void send_events(x_t* x) {
+	for(uint32_t i=0; i<x->xevent_num; i++) {
+		send_event(&x->xevents[i]);
+		memset(&x->xevents[i], 0, sizeof(xevent_t));
+	}
+	x->xevent_num = 0;
+}
+
+static void x_push_event(x_t* x, xview_t* view, xevent_t* e) {
+	if(view->from_pid <= 0 || x->xevent_num >= MAX_XEVENT)
+		return;
+	e->win = view->xinfo.win;
+	e->pid = view->from_pid;
+	memcpy(&x->xevents[x->xevent_num], e, sizeof(xevent_t));
+	x->xevent_num++;
+}
+
+static void hide_view(x_t* x, xview_t* view) {
 	if(view == NULL)
 		return;
 
@@ -239,10 +257,10 @@ static void hide_view(xview_t* view) {
 	e.type = XEVT_WIN;
 	e.value.window.event = XEVT_WIN_VISIBLE;
 	e.value.window.v0 = 0;
-	x_push_event(view, &e);
+	x_push_event(x, view, &e);
 }
 
-static void show_view(xview_t* view) {
+static void show_view(x_t* x, xview_t* view) {
 	if(view == NULL)
 		return;
 
@@ -250,25 +268,25 @@ static void show_view(xview_t* view) {
 	e.type = XEVT_WIN;
 	e.value.window.event = XEVT_WIN_VISIBLE;
 	e.value.window.v0 = 1;
-	x_push_event(view, &e);
+	x_push_event(x, view, &e);
 }
 
 static void try_focus(x_t* x, xview_t* view) {
 	if(x->view_focus == view)
 		return;
 	if((view->xinfo.style & X_STYLE_NO_FOCUS) == 0) {
-		hide_view(x->view_xim);
+		hide_view(x, x->view_xim);
 		if(x->view_focus != NULL) {
 			xevent_t e;
 			e.type = XEVT_WIN;
 			e.value.window.event = XEVT_WIN_UNFOCUS;
-			x_push_event(x->view_focus, &e);
+			x_push_event(x, x->view_focus, &e);
 		}
 
 		xevent_t e;
 		e.type = XEVT_WIN;
 		e.value.window.event = XEVT_WIN_FOCUS;
-		x_push_event(view, &e);
+		x_push_event(x, view, &e);
 		x->view_focus = view;
 	}
 }
@@ -347,7 +365,7 @@ static xview_t* get_next_focus_view(x_t* x) {
 
 static void x_del_view(x_t* x, xview_t* view) {
 	if(view == x->view_focus)
-		hide_view(x->view_xim);
+		hide_view(x, x->view_xim);
 
 	remove_view(x, view);
 	free(view);
@@ -356,7 +374,7 @@ static void x_del_view(x_t* x, xview_t* view) {
 		xevent_t e;
 		e.type = XEVT_WIN;
 		e.value.window.event = XEVT_WIN_FOCUS;
-		x_push_event(x->view_focus, &e);
+		x_push_event(x, x->view_focus, &e);
 	}
 }
 
@@ -669,7 +687,7 @@ static int x_workspace(x_t* x, proto_t* in, proto_t* out) {
 }
 
 static int x_call_xim(x_t* x) {
-	show_view(x->view_xim);
+	show_view(x, x->view_xim);
 	return 0;
 }
 
@@ -874,13 +892,13 @@ static int mouse_handle(x_t* x, xevent_t* ev) {
 			x_dirty(x);
 		}
 	}
-	x_push_event(view, ev);
+	x_push_event(x, view, ev);
 	return -1;
 }
 
 static int im_handle(x_t* x, xevent_t* ev) {
 	if(x->view_focus != NULL) {
-		x_push_event(x->view_focus, ev);
+		x_push_event(x, x->view_focus, ev);
 	}
 	return 0;
 }
@@ -943,6 +961,8 @@ static int xserver_step(void* p) {
 	int w, h, bpp;
 	if(fb_info(&x->fb, &w, &h, &bpp) != 0)
 		return -1;
+
+	send_events(x);
 
 	if(x->g != NULL && w == x->g->w && h == x->g->h) {
 		usleep(100000);
