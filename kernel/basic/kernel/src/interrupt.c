@@ -45,8 +45,6 @@ void  interrupt_send(context_t* ctx, uint32_t interrupt) {
 	
 	proc->space->interrupt.proc_state = proc->info.state;
 	proc->space->ipc_server.block_by = proc->info.block_by;
-	memcpy(&proc->space->interrupt.ctx, &proc->ctx, sizeof(context_t));
-
 	proc->space->interrupt.interrupt = interrupt;
 	proc->space->interrupt.entry = _interrupts[interrupt].entry;
 	irq_disable_cpsr(&proc->ctx.cpsr); //disable interrupt on proc
