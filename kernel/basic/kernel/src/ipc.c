@@ -11,8 +11,6 @@
 int32_t proc_ipc_setup(context_t* ctx, uint32_t entry, uint32_t extra_data, uint32_t flags) {
 	(void)ctx;
 	proc_t* cproc = get_current_proc();
-	_ipc_uid++;
-	cproc->space->ipc_server.uid = _ipc_uid;
 	cproc->space->ipc_server.entry = entry;
 	cproc->space->ipc_server.extra_data = extra_data;
 	cproc->space->ipc_server.flags = flags;
@@ -26,37 +24,38 @@ int32_t proc_ipc_setup(context_t* ctx, uint32_t entry, uint32_t extra_data, uint
 	return 0;
 }
 
-int32_t proc_ipc_call(context_t* ctx, proc_t* proc, ipc_t *ipc) {
-	proc_t* cproc = get_current_proc();
-	if(proc == NULL || proc->space->ipc_server.entry == 0 || ipc == NULL)
+int32_t proc_ipc_task(context_t* ctx, proc_t* serv_proc) {
+	proc_t* client_proc = get_current_proc();
+	if(serv_proc == NULL ||
+			serv_proc->space->ipc_server.entry == 0 ||
+			serv_proc->ipc_task.state == IPC_IDLE ||
+			serv_proc->ipc_task.uid == 0)
 		return -1;
 
-	proc_block_on(proc->info.pid, (uint32_t)ipc);
+	serv_proc->ipc_task.saved_state = serv_proc->info.state;
+	serv_proc->ipc_task.saved_block_by = serv_proc->info.block_by;
+	serv_proc->ipc_task.start = true;
 
-	proc->space->ipc_server.ipc = (uint32_t)ipc;
-	proc->space->ipc_server.state = proc->info.state;
-	proc->space->ipc_server.block_by = proc->info.block_by;
-
-	if(proc->info.core == cproc->info.core) {
-		proc->info.state = RUNNING;
-		proc_switch(ctx, proc, true);
+	if(serv_proc->info.core == client_proc->info.core) {
+		serv_proc->info.state = RUNNING;
+		proc_switch(ctx, serv_proc, true);
 	}
 	else {
-		proc_ready(proc);
+		proc_ready(serv_proc);
 		schedule(ctx);
 #ifdef KERNEL_SMP
-		ipi_send(proc->info.core);
+		ipi_send(serv_proc->info.core);
 #endif
 	}
 	return 0;
 }
 
-ipc_t* proc_ipc_req(proc_t* proc) {
-	return &proc->ipc_ctx;
+uint32_t proc_ipc_req(void) {
+	return ++_ipc_uid;
 }
 
-void proc_ipc_close(ipc_t* ipc) {
+void proc_ipc_close(ipc_task_t* ipc) {
 	proto_clear(&ipc->data);
-	memset(ipc, 0, sizeof(ipc_t));
+	memset(ipc, 0, sizeof(ipc_task_t));
 	ipc->state = IPC_IDLE;
 }

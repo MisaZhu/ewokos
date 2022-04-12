@@ -160,13 +160,13 @@ void __attribute__((optimize("O0"))) proc_switch(context_t* ctx, proc_t* to, boo
 		to->ctx.sp = to->space->inter_stack + PAGE_SIZE;
 		to->space->interrupt.entry = 0; // clear irq request mask
 	}
-	else if(to->space->ipc_server.ipc != 0) { //have ipc request to handle 
-		memcpy(&to->space->ipc_server.ctx, &to->ctx, sizeof(context_t)); //save "to" context to ipc ctx, will restore after ipc done.
-		to->ctx.gpr[0] = to->space->ipc_server.ipc;
+	else if(to->ipc_task.start) { //have ipc request to handle 
+		memcpy(&to->ipc_task.saved_ctx, &to->ctx, sizeof(context_t)); //save "to" context to ipc ctx, will restore after ipc done.
+		to->ctx.gpr[0] = to->ipc_task.uid;
 		to->ctx.gpr[1] = to->space->ipc_server.extra_data;
 		to->ctx.pc = to->ctx.lr = to->space->ipc_server.entry;
 		to->ctx.sp = to->space->inter_stack + PAGE_SIZE;
-		to->space->ipc_server.ipc = 0; // clear ipc request mask
+		to->ipc_task.start = false; // clear ipc request mask
 	}
 
 	if(cproc != to && cproc != NULL &&
@@ -322,9 +322,7 @@ void proc_exit(context_t* ctx, proc_t *proc, int32_t res) {
 	proc->info.state = UNUSED;
 
 	/*free all ipc context*/
-	if(proc->ipc_client != NULL)
-		proc_ipc_close(proc->ipc_client);
-	proto_clear(&proc->ipc_ctx.data);
+	proto_clear(&proc->ipc_task.data);
 
 	/*free kpage*/
 	if(proc->space->kpage != 0) {
@@ -719,13 +717,14 @@ static void check_ipc_timeout(uint64_t usec) {
 	int i;
 	for(i=0; i<PROC_MAX; i++) {
 		proc_t* proc = &_proc_table[i];
-		if(proc->ipc_client != NULL && proc->ipc_client->state != IPC_IDLE) {
-			proc->ipc_client->usec += usec;
-			if(proc->ipc_client->usec > IPC_TIMEOUT) {
+		ipc_task_t* ipc = &proc->ipc_task;
+		if(ipc->state != IPC_IDLE) {
+			ipc->usec += usec;
+			if(ipc->usec > IPC_TIMEOUT) {
 #ifdef KDEBUG
-				printf("ipc time out: c:%d s: %d\n", proc->ipc_client->client_pid, proc->ipc_client->server_pid);
+				printf("ipc time out: c:%d s: %d\n", ipc->client_pid, proc->info.pid);
 #endif
-				proc->ipc_client->client_pid = 0; //set proc ipc terminated.
+				proc_ipc_close(ipc);//set proc ipc terminated.
 				proc_wakeup(proc->info.pid, 0);
 			}
 		}

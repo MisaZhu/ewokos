@@ -228,6 +228,7 @@ static inline void send_event(int32_t pid, xevent_t* e) {
 }
 
 static void x_push_event(x_t* x, xview_t* view, xevent_t* e) {
+	(void)x;
 	if(view->from_pid <= 0)
 		return;
 	e->win = view->xinfo.win;
