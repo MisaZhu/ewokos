@@ -61,8 +61,6 @@ typedef struct {
 	char xwm[128];
 } x_conf_t;
 
-#define MAX_XEVENT 32
-
 typedef struct {
 	bool actived;
 	fb_t fb;
@@ -80,9 +78,6 @@ typedef struct {
 
 	x_current_t current;
 	x_conf_t config;
-
-	xevent_t xevents[MAX_XEVENT];
-	uint32_t xevent_num;
 } x_t;
 
 static int32_t read_config(x_t* x, const char* fname) {
@@ -225,28 +220,18 @@ static void remove_view(x_t* x, xview_t* view) {
 	x_dirty(x);
 }
 
-static inline void send_event(xevent_t* e) {
+static inline void send_event(int32_t pid, xevent_t* e) {
 	proto_t in;
 	PF->init(&in)->add(&in, e, sizeof(xevent_t));
-	ipc_call(e->pid, X_CMD_PUSH_EVENT, &in, NULL);
+	ipc_call(pid, X_CMD_PUSH_EVENT, &in, NULL);
 	PF->clear(&in);
 }
 
-static inline void send_events(x_t* x) {
-	for(uint32_t i=0; i<x->xevent_num; i++) {
-		send_event(&x->xevents[i]);
-		memset(&x->xevents[i], 0, sizeof(xevent_t));
-	}
-	x->xevent_num = 0;
-}
-
 static void x_push_event(x_t* x, xview_t* view, xevent_t* e) {
-	if(view->from_pid <= 0 || x->xevent_num >= MAX_XEVENT)
+	if(view->from_pid <= 0)
 		return;
 	e->win = view->xinfo.win;
-	e->pid = view->from_pid;
-	memcpy(&x->xevents[x->xevent_num], e, sizeof(xevent_t));
-	x->xevent_num++;
+	send_event(view->from_pid, e);
 }
 
 static void hide_view(x_t* x, xview_t* view) {
@@ -956,25 +941,6 @@ static int xserver_close(int fd, int from_pid, fsinfo_t* info, void* p) {
 	return 0;
 }
 
-static int xserver_step(void* p) {
-	x_t* x = (x_t*)p;
-	int w, h, bpp;
-	if(fb_info(&x->fb, &w, &h, &bpp) != 0)
-		return -1;
-
-	send_events(x);
-
-	if(x->g != NULL && w == x->g->w && h == x->g->h) {
-		usleep(100000);
-		return 0;
-	}
-
-	x_reset(x);
-	x_dirty(x);
-	x_repaint(x);
-	return 0;
-}
-
 int main(int argc, char** argv) {
 	const char* mnt_point = argc > 1 ? argv[1]: "/dev/x";
 	const char* fb_dev = argc > 2 ? argv[2]: "/dev/fb0";
@@ -1002,7 +968,6 @@ int main(int argc, char** argv) {
 	dev.close = xserver_close;
 	dev.open = xserver_open;
 	dev.dev_cntl = xserver_dev_cntl;
-	dev.loop_step = xserver_step;
 
 	dev.extra_data = &x;
 	device_run(&dev, mnt_point, FS_TYPE_CHAR);
