@@ -1040,6 +1040,9 @@ int vfsd_main(void) {
 	vfs_init();
 
 	ipc_serv_run(handle, handled, NULL, IPC_DEFAULT);
-	
+
+	while(true) {
+		proc_block(getpid(), (uint32_t)vfsd_main);
+	}
 	return 0;
 }
