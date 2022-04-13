@@ -31,13 +31,17 @@ int32_t proc_ipc_task(context_t* ctx, proc_t* serv_proc) {
 			serv_proc->ipc_task.state == IPC_IDLE ||
 			serv_proc->ipc_task.uid == 0)
 		return -1;
+	
+	ipc_task_t* ipc = &serv_proc->ipc_task;
+	if(ipc->state == IPC_IDLE || ipc->uid == 0)
+		return -1;
 
-	serv_proc->ipc_task.saved_state = serv_proc->info.state;
-	serv_proc->ipc_task.saved_block_by = serv_proc->info.block_by;
-	serv_proc->ipc_task.start = true;
+	ipc->saved_state = serv_proc->info.state;
+	ipc->saved_block_by = serv_proc->info.block_by;
+	ipc->start = true;
 
-	if((serv_proc->ipc_task.call_id & IPC_NON_RETURN) == 0)
-		proc_block_on(serv_proc->info.pid, (uint32_t)&serv_proc->ipc_task);
+	if((ipc->call_id & IPC_NON_RETURN) == 0)
+		proc_block_on(serv_proc->info.pid, (uint32_t)ipc);
 
 	if(serv_proc->info.core == client_proc->info.core) {
 		serv_proc->info.state = RUNNING;

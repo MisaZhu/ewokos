@@ -296,8 +296,8 @@ static int32_t sys_ipc_get_return(context_t* ctx, int32_t pid, uint32_t uid, pro
 		proc_t* serv_proc = proc_get(pid);
 		if((serv_proc->ipc_task.call_id & IPC_NON_RETURN) == 0) {
 			ctx->gpr[0] = -1;
-			//proc_block_on(pid, (uint32_t)&serv_proc->ipc_task);
-			//schedule(ctx);
+			proc_block_on(pid, (uint32_t)&serv_proc->ipc_task);
+			schedule(ctx);
 			return -1;
 		}
 		return 0;
