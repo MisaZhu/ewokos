@@ -19,6 +19,7 @@ typedef	struct {
 	context_t saved_ctx;
 	uint32_t  saved_state;
 	int32_t   saved_block_by;
+	uint32_t   saved_block_event;
 } ipc_task_t;
 
 

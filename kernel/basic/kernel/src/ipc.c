@@ -42,6 +42,7 @@ void proc_ipc_task(context_t* ctx, proc_t* serv_proc) {
 
 	ipc->saved_state = serv_proc->info.state;
 	ipc->saved_block_by = serv_proc->info.block_by;
+	ipc->saved_block_event = serv_proc->block_event;
 	ipc->start = true;
 
 	if(serv_proc->info.core == client_proc->info.core) {

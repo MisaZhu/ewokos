@@ -39,12 +39,15 @@ typedef struct {
 		uint32_t entry;
 		context_t ctx;
 		uint32_t state;
-		uint32_t proc_state;
+		uint32_t saved_state;
+		int32_t  saved_block_by;
+		uint32_t  saved_block_event;
 	} signal;
 
 	struct {
-		uint32_t proc_state;
-		int32_t  block_by;
+		uint32_t saved_state;
+		int32_t  saved_block_by;
+		uint32_t  saved_block_event;
 		uint32_t interrupt;
 		uint32_t entry;
 		context_t ctx;
