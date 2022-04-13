@@ -432,7 +432,6 @@ static void proc_file_close(int pid, int fd, file_t* file, bool close_dev) {
 		node->refs_w--;
 
 	if(node->fsinfo.type == FS_TYPE_PIPE) {
-		proc_wakeup((int32_t)node);
 		if(node->refs <= 0) {
 			buffer_t* buffer = (buffer_t*)node->fsinfo.data;
 			if(buffer != NULL)
@@ -440,6 +439,7 @@ static void proc_file_close(int pid, int fd, file_t* file, bool close_dev) {
 			free(node);
 			file->node = 0;
 		}
+		proc_wakeup((int32_t)node);
 	}
 
 	if(!close_dev)
@@ -455,15 +455,6 @@ static void proc_file_close(int pid, int fd, file_t* file, bool close_dev) {
 	ev.dev_pid = to_pid;
 	memcpy(&ev.info, &node->fsinfo, sizeof(fsinfo_t));
 	push_close_event(&ev);
-
-	/*proto_t in;
-	PF->init(&in)->
-			addi(&in, fd)->
-			addi(&in, pid)->
-			add(&in, &node->fsinfo, sizeof(fsinfo_t));
-	ipc_call(to_pid, FS_CMD_CLOSE, &in, NULL);
-	PF->clear(&in);
-	*/
 }
 
 static void vfs_close(int32_t pid, int32_t fd) {
@@ -785,26 +776,26 @@ static void do_vfs_get_mount_by_id(proto_t* in, proto_t* out) {
 }
 
 static void do_vfs_pipe_open(int32_t pid, proto_t* out) {
-  vfs_node_t* node = vfs_new_node();
+	vfs_node_t* node = vfs_new_node();
 	PF->addi(out, -1);
-  if(node == NULL) {
-    return;
+	if(node == NULL) {
+		return;
 	}
-  node->fsinfo.type = FS_TYPE_PIPE;
-  node->fsinfo.data = 0; //buffer set as zero , waiting for other-port
+	node->fsinfo.type = FS_TYPE_PIPE;
+	node->fsinfo.data = 0; //buffer set as zero , waiting for other-port
 
-  int32_t fd0 = vfs_open(pid, node, 1);
-  if(fd0 < 0) {
-    free(node);
+	int32_t fd0 = vfs_open(pid, node, 1);
+	if(fd0 < 0) {
+		free(node);
 		return;
-  }
+	}
 
-  int32_t fd1 = vfs_open(pid, node, 1);
-  if(fd1 < 0) {
-    vfs_close(pid, fd0);
-    free(node);
+	int32_t fd1 = vfs_open(pid, node, 1);
+	if(fd1 < 0) {
+		vfs_close(pid, fd0);
+		free(node);
 		return;
-  }
+	}
 	PF->clear(out)->addi(out, 0)->addi(out, fd0)->addi(out, fd1);
 }
 
@@ -812,18 +803,16 @@ static void do_vfs_pipe_write(int pid, proto_t* in, proto_t* out) {
 	(void)pid;
 	fsinfo_t info;
 	PF->addi(out, -1);
-	if(proto_read_to(in, &info, sizeof(fsinfo_t)) != sizeof(fsinfo_t)) {
+	if(proto_read_to(in, &info, sizeof(fsinfo_t)) != sizeof(fsinfo_t))
 		return;
-	}
 
 	vfs_node_t* node = (vfs_node_t*)info.node;
 	proc_wakeup((int32_t)node); //wakeup reader
 
 	int32_t size = 0;
 	void *data = proto_read(in, &size);
-	if(data == NULL) {
+	if(data == NULL)
 		return;
-	}
 
 	buffer_t* buffer = (buffer_t*)info.data;
 	if(buffer == NULL) {
@@ -837,9 +826,8 @@ static void do_vfs_pipe_write(int pid, proto_t* in, proto_t* out) {
 		return;
 	}
 
-	if(node == NULL || node->refs < 2) {
+	if(node == NULL || node->refs < 2)
     	return;
-	}
 	PF->clear(out)->addi(out, 0); //retry
 }
 
@@ -847,17 +835,15 @@ static void do_vfs_pipe_read(int pid, proto_t* in, proto_t* out) {
 	(void)pid;
 	fsinfo_t info;
 	PF->addi(out, -1);
-	if(proto_read_to(in, &info, sizeof(fsinfo_t)) != sizeof(fsinfo_t)) {
+	if(proto_read_to(in, &info, sizeof(fsinfo_t)) != sizeof(fsinfo_t))
 		return;
-	}
 
 	vfs_node_t* node = (vfs_node_t*)info.node;
 	proc_wakeup((int32_t)node); //wakeup writer.
 
 	int32_t size = proto_read_int(in);
-	if(size < 0) {
+	if(size < 0)
 		return;
-	}
 
 	buffer_t* buffer = (buffer_t*)info.data;
 	if(buffer == NULL) {
@@ -874,9 +860,8 @@ static void do_vfs_pipe_read(int pid, proto_t* in, proto_t* out) {
 	}
 	free(data);
 
-	if(node == NULL || node->refs < 2) {
+	if(node == NULL || node->refs < 2)
     	return;
-	}
 	PF->clear(out)->addi(out, 0); //retry
 }
 
