@@ -398,20 +398,23 @@ static void push_close_event(close_event_t* ev) {
 	else
 		_event_head = e;
 	_event_tail = e;
+	proc_wakeup(-1);
 }
 
 static int get_close_event(close_event_t *ev) {
 	close_event_t *e = _event_head;
 	if (e == NULL) {
+		proc_block(getpid(), -1);
 		return -1;
 	}
 
+	ipc_lock();
 	_event_head = _event_head->next;
 	if (_event_head == NULL)
 		_event_tail = NULL;
-
 	memcpy(ev, e, sizeof(close_event_t));
 	free(e);
+	ipc_unlock();
 	return 0;
 }
 
@@ -994,24 +997,10 @@ static int handle_close_event(close_event_t* ev) {
 			addi(&in, ev->fd)->
 			addi(&in, ev->owner_pid)->
 			add(&in, &ev->info, sizeof(fsinfo_t));
-	int res = ipc_call_non_block(ev->dev_pid, FS_CMD_CLOSE, &in);
+	//int res = ipc_call_non_block(ev->dev_pid, FS_CMD_CLOSE, &in);
+	int res = ipc_call(ev->dev_pid, FS_CMD_CLOSE, &in, NULL);
 	PF->clear(&in);
 	return res;
-}
-
-void handled(void* p) {
-	(void)p;
-	close_event_t ev;
-	while(true) {
-		int res = get_close_event(&ev);
-		if(res != 0) 
-			break;
-
-		if(handle_close_event(&ev) == -1) {
-			push_close_event(&ev);
-			break;
-		}
-	}
 }
 
 int vfsd_main(void) {
@@ -1024,10 +1013,18 @@ int vfsd_main(void) {
 
 	vfs_init();
 
-	ipc_serv_run(handle, handled, NULL, IPC_DEFAULT);
+	ipc_serv_run(handle, NULL, NULL, IPC_NON_BLOCK);
 
 	while(true) {
-		proc_block(getpid(), (uint32_t)vfsd_main);
+		close_event_t ev;
+		int res = get_close_event(&ev);
+		if(res == 0) {
+			ipc_lock();
+			handle_close_event(&ev);
+			ipc_unlock();
+		}
+		else
+			sleep(0);
 	}
 	return 0;
 }

@@ -185,7 +185,6 @@ void __attribute__((optimize("O0"))) proc_switch(context_t* ctx, proc_t* to, boo
 	memcpy(ctx, &to->ctx, sizeof(context_t));
 	to->info.state = RUNNING;
 	to->info.block_by = -1;
-	to->block_event = 0;
 	if(cproc != to) {
 		page_dir_entry_t *vm = to->space->vm;
 		set_translation_table_base((uint32_t)V2P(vm));
