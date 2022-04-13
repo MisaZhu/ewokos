@@ -23,6 +23,7 @@ typedef	struct {
 
 
 typedef struct {
+	uint32_t  uid;
 	uint32_t state;
 	proto_t data;
 } ipc_req_t;
