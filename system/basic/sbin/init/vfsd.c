@@ -810,28 +810,32 @@ static void do_vfs_pipe_write(int pid, proto_t* in, proto_t* out) {
 		return;
 
 	vfs_node_t* node = (vfs_node_t*)info.node;
-	proc_wakeup((int32_t)node); //wakeup reader
 
 	int32_t size = 0;
 	void *data = proto_read(in, &size);
-	if(data == NULL)
+	if(data == NULL) { //pipe data error
+		proc_wakeup((int32_t)node); //wakeup reader
 		return;
+	}
 
 	buffer_t* buffer = (buffer_t*)info.data;
-	if(buffer == NULL) {
-		PF->clear(out)->addi(out, 0); // pipe still waiting for other-port, retry
+	if(buffer == NULL) { //pipe buffer not ready 
+		PF->clear(out)->addi(out, 0); // retry
 		return;
 	}
 
 	size = buffer_write(buffer, data, size);
 	if(size > 0) {
 		PF->clear(out)->addi(out, size);
+		proc_wakeup((int32_t)node); //wakeup reader
 		return;
 	}
 
-	if(node == NULL || node->refs < 2)
+	if(node == NULL || node->refs < 2) { //closed by other peer
+		proc_wakeup((int32_t)node); //wakeup reader
     	return;
-	PF->clear(out)->addi(out, 0); //retry
+	}
+	PF->clear(out)->addi(out, 0); //buffer full(waiting for read), retry
 }
 
 static void do_vfs_pipe_read(int pid, proto_t* in, proto_t* out) {
@@ -840,17 +844,17 @@ static void do_vfs_pipe_read(int pid, proto_t* in, proto_t* out) {
 	PF->addi(out, -1);
 	if(proto_read_to(in, &info, sizeof(fsinfo_t)) != sizeof(fsinfo_t))
 		return;
-
 	vfs_node_t* node = (vfs_node_t*)info.node;
-	proc_wakeup((int32_t)node); //wakeup writer.
-
 	int32_t size = proto_read_int(in);
-	if(size < 0)
+
+	if(size < 0 || node == NULL) {
 		return;
+	}
 
 	buffer_t* buffer = (buffer_t*)info.data;
-	if(buffer == NULL) {
-		PF->clear(out)->addi(out, 0); // pipe still waiting for other-port, retry
+	if(buffer == NULL) { //buffer not ready 
+		PF->clear(out)->addi(out, 0); // retry
+		proc_wakeup((int32_t)node); //wakeup writer.
 		return;
 	}
 
@@ -859,12 +863,15 @@ static void do_vfs_pipe_read(int pid, proto_t* in, proto_t* out) {
 	if(size > 0) {
 		PF->clear(out)->addi(out, size)->add(out, data, size);
 		free(data);
+		proc_wakeup((int32_t)node); //wakeup writer.
 		return;
 	}
 	free(data);
 
-	if(node == NULL || node->refs < 2)
+	if(node == NULL || node->refs < 2) { // close by other peer
+		proc_wakeup((int32_t)node); //wakeup writer.
     	return;
+	}
 	PF->clear(out)->addi(out, 0); //retry
 }
 

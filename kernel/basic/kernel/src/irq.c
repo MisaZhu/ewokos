@@ -174,8 +174,8 @@ void prefetch_abort_handler(context_t* ctx, uint32_t status) {
 		printf("pid: %d(%s), prefetch abort!! (core %d)\n", cproc->info.pid, cproc->info.cmd, core);
 		dump_ctx(&cproc->ctx);
 		proc_exit(ctx, cproc, -1);
+		proc_signal_send(ctx, cproc, SYS_SIG_STOP);
 	}
-	//proc_signal_send(ctx, cproc, SYS_SIG_STOP);
 }
 
 void data_abort_handler(context_t* ctx, uint32_t addr_fault, uint32_t status) {
@@ -198,7 +198,7 @@ void data_abort_handler(context_t* ctx, uint32_t addr_fault, uint32_t status) {
 		printf("pid: %d(%s), core: %d, data abort!! at: 0x%X, code: 0x%X\n", cproc->info.pid, cproc->info.cmd, cproc->info.core, addr_fault, status);
 		dump_ctx(&cproc->ctx);
 		proc_exit(ctx, cproc, -1);
-		//proc_signal_send(ctx, cproc, SYS_SIG_STOP);
+		proc_signal_send(ctx, cproc, SYS_SIG_STOP);
 	}
 	kernel_unlock();
 }

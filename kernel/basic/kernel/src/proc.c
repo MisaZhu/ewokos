@@ -570,35 +570,6 @@ static int32_t proc_clone(proc_t* child, proc_t* parent) {
 	return 0;
 }
 
-/*static int32_t proc_clone(proc_t* child, proc_t* parent) {
-	uint32_t pages = parent->space->heap_size / PAGE_SIZE;
-	if((parent->space->heap_size % PAGE_SIZE) != 0)
-		pages++;
-
-	uint32_t p;
-	for(p=0; p<pages; ++p) {
-		uint32_t v_addr = (p * PAGE_SIZE);
-		if(proc_expand_mem(child, 1) != 0) {
-			printf("Panic: kfork expand memory failed!!(%d)\n", parent->info.pid);
-			return -1;
-		}
-		// copy parent's memory to child's memory
-		proc_page_clone(child, v_addr, parent, v_addr);
-	}
-	child->info.heap_size =  child->space->heap_size;
-
-	//set father
-	child->info.father_pid = parent->info.pid;
-	// copy parent's stack to child's stack
-	int32_t i;
-	for(i=0; i<STACK_PAGES; i++) {
-		proc_page_clone(child, (uint32_t)child->user_stack[i], parent, (uint32_t)parent->user_stack[i]);
-	}
-
-	strcpy(child->info.cmd, parent->info.cmd);
-	return 0;
-}*/
-
 static inline void proc_thread_clone(context_t* ctx, proc_t* child, proc_t* parent) {
 	uint32_t pages = proc_get_user_stack_pages(child) - 1;
 	uint32_t v_addr =  proc_get_user_stack_base(child) + pages*PAGE_SIZE;
