@@ -18,8 +18,8 @@ static int ipc_set_return(uint32_t ipc_id, const proto_t* pkg) {
 	return 0;
 }
 
-static void ipc_end(void) {
-	syscall0(SYS_IPC_END);
+static void ipc_end(uint32_t ipc_id) {
+	syscall1(SYS_IPC_END, ipc_id);
 }
 
 void ipc_lock(void) {
@@ -38,13 +38,6 @@ static proto_t* ipc_get_info(uint32_t ipc_id, int32_t* pid, int32_t* call_id) {
 	return (proto_t*)syscall3(SYS_IPC_GET_ARG, ipc_id, (int32_t)pid, (int32_t)call_id);
 }
 
-inline int ipc_call_non_block(int to_pid, int call_id, const proto_t* ipkg) {
-	if(to_pid < 0)
-		return -1;
-	call_id |= IPC_NON_RETURN;
-	return syscall3(SYS_IPC_CALL, (int32_t)to_pid, (int32_t)call_id, (int32_t)ipkg);
-}
-
 inline int ipc_call(int to_pid, int call_id, const proto_t* ipkg, proto_t* opkg) {
 	if(to_pid < 0)
 		return -1;
@@ -53,9 +46,8 @@ inline int ipc_call(int to_pid, int call_id, const proto_t* ipkg, proto_t* opkg)
 		if(opkg == NULL)
 			call_id |= IPC_NON_RETURN;
 		ipc_id = syscall3(SYS_IPC_CALL, (int32_t)to_pid, (int32_t)call_id, (int32_t)ipkg);
-		if(ipc_id == -1) {
+		if(ipc_id == -1)
 			continue;
-		}
 		if(ipc_id == 0)
 			return -1;
 		break;
@@ -66,9 +58,10 @@ inline int ipc_call(int to_pid, int call_id, const proto_t* ipkg, proto_t* opkg)
 
 	PF->clear(opkg);
 	while(true) {
-		int res = syscall3(SYS_IPC_GET_RETURN, to_pid, (int32_t)ipc_id, (int32_t)opkg);
+		int res = syscall2(SYS_IPC_GET_RETURN, (int32_t)ipc_id, (int32_t)opkg);
 		if(res != -1)  //not retry
 			return res;
+		sleep(0);
 	}
 }
 
@@ -143,7 +136,6 @@ int ipc_serv_unreg(const char* ipc_serv_id) {
 }
 
 static ipc_serv_handle_t _ipc_serv_handle;
-static ipc_handled_t _ipc_handled;
 
 static void handle_ipc(uint32_t ipc_id, void* p) {
 	int32_t pid, cmd;
@@ -161,14 +153,11 @@ static void handle_ipc(uint32_t ipc_id, void* p) {
 		ipc_set_return(ipc_id, &out);
 		PF->clear(&out);
 	}
-	if(_ipc_handled != NULL)
-		_ipc_handled(p);
-	ipc_end();
+	ipc_end(ipc_id);
 }
 
-int ipc_serv_run(ipc_serv_handle_t handle, ipc_handled_t handled, void* p, int flags) {
+int ipc_serv_run(ipc_serv_handle_t handle, void* p, int flags) {
 	_ipc_serv_handle = handle;
-	_ipc_handled = handled;
 
 	proc_ready_ping();
 	return ipc_setup(handle_ipc, p, flags);

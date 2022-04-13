@@ -30,9 +30,14 @@ typedef struct {
 	int32_t shms[SHM_MAX];
 
 	struct {
+		uint32_t uid;
 		uint32_t entry;
 		uint32_t flags;
+		uint32_t ipc;
 		uint32_t extra_data;
+		context_t ctx;
+		uint32_t state;
+		int32_t  block_by;
 	} ipc_server;
 
 	struct {
@@ -64,9 +69,8 @@ typedef struct st_proc {
 	void* user_stack[STACK_PAGES];
 
 	context_t ctx;
-
-	ipc_req_t ipc_req;
-	ipc_task_t ipc_task;
+	ipc_t ipc_ctx;
+	ipc_t* ipc_client;
 } proc_t;
 
 extern proc_t* get_current_proc(void);

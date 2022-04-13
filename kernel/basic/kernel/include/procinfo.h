@@ -32,7 +32,6 @@ enum {
 };
 
 
-#define IPC_DEFAULT          0x0
 #define IPC_NON_BLOCK        0x01
 #define IPC_NON_RETURN       0x80000000
 #define IPC_NON_RETURN_MASK  0x7fffffff
@@ -46,6 +45,7 @@ typedef struct {
 	int32_t  state; 
 	int32_t  block_by;
 	int32_t  wait_for;
+	int32_t  ipc_state;
 	uint32_t start_sec;
 	uint32_t heap_size;
 	uint32_t shm_size;

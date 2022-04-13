@@ -31,7 +31,6 @@ typedef struct {
 	int (*unlink)(fsinfo_t* info, const char *fname, void* p);
 	int (*clear_buffer)(fsinfo_t* info, void* p);
 	void (*interrupt)(proto_t* in, void* p);
-	void (*handled)(void* p);
 	int (*loop_step)(void* p);
 } vdevice_t;
 

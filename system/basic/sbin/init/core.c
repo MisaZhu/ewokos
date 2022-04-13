@@ -265,7 +265,7 @@ void core(void) {
 	core_init();
 	_ipc_servs = hashmap_new();
 
-	ipc_serv_run(handle_ipc, NULL, NULL, IPC_NON_BLOCK);
+	ipc_serv_run(handle_ipc, NULL, IPC_NON_BLOCK);
 	syscall0(SYS_CORE_READY);
 
 	while(1) {
