@@ -287,10 +287,13 @@ static void sys_ipc_call(context_t* ctx, int32_t serv_pid, int32_t call_id, prot
 	proc_ipc_task(ctx, serv_proc);
 }
 
-static int32_t sys_ipc_get_return(context_t* ctx, int32_t pid, uint32_t uid, proto_t* data) {
+static void sys_ipc_get_return(context_t* ctx, int32_t pid, uint32_t uid, proto_t* data) {
+	ctx->gpr[0] = 0;
 	proc_t* client_proc = get_current_proc();
-	if(uid == 0 || client_proc == NULL)
-		return -2;
+	if(uid == 0 || client_proc == NULL) {
+		ctx->gpr[0] = -2;
+		return;
+	}
 
 	if(client_proc->ipc_req.state != IPC_RETURN) { //block retry for serv return
 		proc_t* serv_proc = proc_get(pid);
@@ -298,13 +301,15 @@ static int32_t sys_ipc_get_return(context_t* ctx, int32_t pid, uint32_t uid, pro
 			ctx->gpr[0] = -1;
 			proc_block_on(pid, (uint32_t)&serv_proc->ipc_task);
 			schedule(ctx);
-			return -1;
+			return;
 		}
-		return 0;
+		return;
 	}
 
-	if(client_proc->ipc_req.uid != uid)
-		return -2;
+	if(client_proc->ipc_req.uid != uid) {
+		ctx->gpr[0] = -2;
+		return;
+	}
 
 	if(data != NULL) {//get return value
 		data->total_size = data->size = client_proc->ipc_req.data.size;
@@ -317,7 +322,6 @@ static int32_t sys_ipc_get_return(context_t* ctx, int32_t pid, uint32_t uid, pro
 	client_proc->ipc_req.uid = 0;
 	client_proc->ipc_req.state = IPC_IDLE;
 	proto_clear(&client_proc->ipc_req.data);
-	return 0;
 }
 
 static int32_t sys_ipc_get_info(uint32_t uid, int32_t* pid, int32_t* cmd) {
@@ -393,7 +397,7 @@ static void sys_ipc_end(context_t* ctx) {
 	//wake up request proc to get return
 	proc_ipc_close(ipc);
 	proc_wakeup(serv_proc->info.pid, (uint32_t)&serv_proc->space->ipc_server); 
-	//schedule(ctx);
+	schedule(ctx);
 }
 
 static int32_t sys_ipc_lock(void) {
@@ -613,7 +617,7 @@ static inline void _svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_
 		sys_ipc_call(ctx, arg0, arg1, (proto_t*)arg2);
 		return;
 	case SYS_IPC_GET_RETURN:
-		ctx->gpr[0] = sys_ipc_get_return(ctx, arg0, (uint32_t)arg1, (proto_t*)arg2);
+		sys_ipc_get_return(ctx, arg0, (uint32_t)arg1, (proto_t*)arg2);
 		return;
 	case SYS_IPC_SET_RETURN:
 		sys_ipc_set_return(ctx, (uint32_t)arg0, (proto_t*)arg1);
