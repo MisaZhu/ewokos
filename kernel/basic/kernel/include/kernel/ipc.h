@@ -29,7 +29,7 @@ typedef struct {
 } ipc_req_t;
 
 extern int32_t  proc_ipc_setup(context_t* ctx, uint32_t entry, uint32_t extra, uint32_t flags);
-extern int32_t  proc_ipc_task(context_t* ctx, struct st_proc* proc);
+extern void     proc_ipc_task(context_t* ctx, struct st_proc* proc);
 extern uint32_t proc_ipc_req(void);
 extern void     proc_ipc_close(ipc_task_t* ipc); 
 

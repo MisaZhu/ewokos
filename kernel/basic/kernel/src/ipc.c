@@ -24,17 +24,21 @@ int32_t proc_ipc_setup(context_t* ctx, uint32_t entry, uint32_t extra_data, uint
 	return 0;
 }
 
-int32_t proc_ipc_task(context_t* ctx, proc_t* serv_proc) {
+void proc_ipc_task(context_t* ctx, proc_t* serv_proc) {
 	proc_t* client_proc = get_current_proc();
 	if(serv_proc == NULL ||
 			serv_proc->space->ipc_server.entry == 0 ||
 			serv_proc->ipc_task.state == IPC_IDLE ||
-			serv_proc->ipc_task.uid == 0)
-		return -1;
+			serv_proc->ipc_task.uid == 0) {
+		ctx->gpr[0] = 0;
+		return;
+	}
 	
 	ipc_task_t* ipc = &serv_proc->ipc_task;
-	if(ipc->state == IPC_IDLE || ipc->uid == 0)
-		return -1;
+	if(ipc->state == IPC_IDLE || ipc->uid == 0) {
+		ctx->gpr[0] = 0;
+		return;
+	}
 
 	ipc->saved_state = serv_proc->info.state;
 	ipc->saved_block_by = serv_proc->info.block_by;
@@ -51,7 +55,6 @@ int32_t proc_ipc_task(context_t* ctx, proc_t* serv_proc) {
 		ipi_send(serv_proc->info.core);
 #endif
 	}
-	return 0;
 }
 
 uint32_t proc_ipc_req(void) {
