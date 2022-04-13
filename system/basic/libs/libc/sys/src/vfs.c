@@ -96,7 +96,8 @@ static int write_pipe(fsinfo_t* info, const void* buf, uint32_t size, bool block
 	PF->clear(&out);
 
 	if(res == 0 && block == 1) {//empty , do retry
-		proc_block(vfsd_pid, info->node); 
+		//proc_block(vfsd_pid, info->node); 
+		sleep(0); //TODO
 	}
 	return res;	
 }

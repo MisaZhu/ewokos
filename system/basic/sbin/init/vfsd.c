@@ -816,7 +816,7 @@ static void do_vfs_pipe_write(int pid, proto_t* in, proto_t* out) {
 		return;
 	}
 
-  vfs_node_t* node = (vfs_node_t*)info.node;
+	vfs_node_t* node = (vfs_node_t*)info.node;
 	proc_wakeup((int32_t)node); //wakeup reader
 
 	int32_t size = 0;
@@ -838,7 +838,7 @@ static void do_vfs_pipe_write(int pid, proto_t* in, proto_t* out) {
 	}
 
 	if(node == NULL || node->refs < 2) {
-    return;
+    	return;
 	}
 	PF->clear(out)->addi(out, 0); //retry
 }
@@ -851,7 +851,7 @@ static void do_vfs_pipe_read(int pid, proto_t* in, proto_t* out) {
 		return;
 	}
 
-  vfs_node_t* node = (vfs_node_t*)info.node;
+	vfs_node_t* node = (vfs_node_t*)info.node;
 	proc_wakeup((int32_t)node); //wakeup writer.
 
 	int32_t size = proto_read_int(in);
@@ -875,7 +875,7 @@ static void do_vfs_pipe_read(int pid, proto_t* in, proto_t* out) {
 	free(data);
 
 	if(node == NULL || node->refs < 2) {
-    return;
+    	return;
 	}
 	PF->clear(out)->addi(out, 0); //retry
 }

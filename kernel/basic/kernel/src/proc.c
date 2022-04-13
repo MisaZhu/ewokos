@@ -522,12 +522,6 @@ void proc_wakeup(int32_t pid, uint32_t event) {
 			proc->info.block_by = -1;
 
 			proc_ready(proc);
-			/*
-			if(proc->sleep_counter == 0)
-				proc_ready(proc);
-			else
-				proc->info.state = SLEEPING;
-				*/
 		}
 		i++;
 	}

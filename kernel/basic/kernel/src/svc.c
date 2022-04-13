@@ -277,13 +277,13 @@ static void sys_ipc_call(context_t* ctx, int32_t serv_pid, int32_t call_id, prot
 	ipc_task_t* ipc = &serv_proc->ipc_task;
 	ipc->state = IPC_BUSY;
 	uint32_t uid = (int32_t)proc_ipc_req();
-	ctx->gpr[0] = uid;
 	ipc->client_pid = client_proc->info.pid;
 	ipc->uid = uid;
 	ipc->call_id = call_id;
 	if(data != NULL)
 		proto_copy(&ipc->data, data->data, data->size);
 
+	ctx->gpr[0] = uid;
 	proc_ipc_task(ctx, serv_proc);
 }
 
@@ -408,10 +408,11 @@ static int32_t sys_ipc_lock(void) {
 	return 0;
 }
 
-static void sys_ipc_unlock(void) {
+static void sys_ipc_unlock(context_t* ctx) {
 	proc_t* cproc = get_current_proc();
 	cproc->ipc_task.state = IPC_IDLE;
 	proc_wakeup(cproc->info.pid, (uint32_t)&cproc->space->ipc_server);
+	schedule(ctx);
 }
 
 static int32_t sys_proc_ping(int32_t pid) {
@@ -450,6 +451,7 @@ static void sys_get_kevent(context_t* ctx) {
 	kevent_t* kev = sys_get_kevent_raw();
 	if(kev == NULL) {
 		proc_block_on(-1, (uint32_t)kev_init);
+		schedule(ctx);	
 		return;
 	}
 	ctx->gpr[0] = (int32_t)kev;	
@@ -459,15 +461,16 @@ static void sys_proc_block(context_t* ctx, int32_t pid, uint32_t evt) {
 	proc_t* proc_by = proc_get_proc(proc_get(pid));
 	if(proc_by != NULL) {
 		proc_block_on(proc_by->info.pid, evt);
+		schedule(ctx);	
 	}
-	schedule(ctx);	
 }
 
-static void sys_proc_wakeup(uint32_t evt) {
+static void sys_proc_wakeup(context_t* ctx, uint32_t evt) {
 	proc_t* proc = proc_get_proc(get_current_proc());
 	if(proc->info.block_by == proc->info.pid)
 		proc->ipc_task.saved_state = READY;
 	proc_wakeup(proc->info.pid, evt);
+	schedule(ctx);
 }
 
 static void sys_core_proc_ready(void) {
@@ -638,7 +641,7 @@ static inline void _svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_
 		sys_get_kevent(ctx);
 		return;
 	case SYS_WAKEUP:
-		sys_proc_wakeup(arg0);
+		sys_proc_wakeup(ctx, arg0);
 		return;
 	case SYS_BLOCK:
 		sys_proc_block(ctx, arg0, arg1);
@@ -653,7 +656,7 @@ static inline void _svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_
 		ctx->gpr[0] = sys_ipc_lock();
 		return;
 	case SYS_IPC_UNLOCK:
-		sys_ipc_unlock();
+		sys_ipc_unlock(ctx);
 		return;
 	case SYS_KROMFS_GET:
 		ctx->gpr[0] = sys_romfs_get(arg0, (char*)arg1, (char*)arg2);
