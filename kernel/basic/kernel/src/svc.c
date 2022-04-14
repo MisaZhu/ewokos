@@ -267,10 +267,8 @@ static void sys_ipc_call(context_t* ctx, int32_t serv_pid, int32_t call_id, prot
 
 	if(serv_proc->ipc_task.state != IPC_IDLE) {
 		ctx->gpr[0] = -1; //busy for single task , should retry
-		if((call_id & IPC_NON_RETURN) == 0) { //request proc need return
-			proc_block_on(serv_pid, (uint32_t)&serv_proc->space->ipc_server);
-			schedule(ctx);
-		}
+		proc_block_on(serv_pid, (uint32_t)&serv_proc->space->ipc_server);
+		schedule(ctx);
 		return;
 	}
 
@@ -297,6 +295,11 @@ static void sys_ipc_get_return(context_t* ctx, int32_t pid, uint32_t uid, proto_
 
 	if(client_proc->ipc_req.state != IPC_RETURN) { //block retry for serv return
 		proc_t* serv_proc = proc_get(pid);
+		if(serv_proc->ipc_task.uid != uid) {
+			ctx->gpr[0] = -2;
+			return;
+		}
+
 		if((serv_proc->ipc_task.call_id & IPC_NON_RETURN) == 0) {
 			ctx->gpr[0] = -1;
 			proc_block_on(pid, (uint32_t)&serv_proc->ipc_task);

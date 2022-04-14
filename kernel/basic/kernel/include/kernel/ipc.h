@@ -19,14 +19,14 @@ typedef	struct {
 	context_t saved_ctx;
 	uint32_t  saved_state;
 	int32_t   saved_block_by;
-	uint32_t   saved_block_event;
+	uint32_t  saved_block_event;
 } ipc_task_t;
 
 
 typedef struct {
 	uint32_t  uid;
-	uint32_t state;
-	proto_t data;
+	uint32_t  state;
+	proto_t   data;
 } ipc_req_t;
 
 extern int32_t  proc_ipc_setup(context_t* ctx, uint32_t entry, uint32_t extra, uint32_t flags);
