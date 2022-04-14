@@ -474,10 +474,8 @@ static void sys_proc_wakeup(context_t* ctx, uint32_t evt) {
 	if(proc->ipc_task.saved_block_by == proc->info.pid) {
 		proc->ipc_task.saved_state = READY;
 	}
-	else {
-		proc_wakeup(proc->info.pid, evt);
-		schedule(ctx);
-	}
+	proc_wakeup(proc->info.pid, evt);
+	schedule(ctx);
 }
 
 static void sys_core_proc_ready(void) {
