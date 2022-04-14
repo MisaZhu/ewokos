@@ -272,11 +272,11 @@ static void sys_ipc_call(context_t* ctx, int32_t serv_pid, int32_t call_id, prot
 		return;
 	}
 
-	ipc_task_t* ipc = &serv_proc->ipc_task;
-	ipc->state = IPC_BUSY;
 	uint32_t uid = (int32_t)proc_ipc_req();
-	ipc->client_pid = client_proc->info.pid;
+	ipc_task_t* ipc = &serv_proc->ipc_task;
 	ipc->uid = uid;
+	ipc->state = IPC_BUSY;
+	ipc->client_pid = client_proc->info.pid;
 	ipc->call_id = call_id;
 	if(data != NULL)
 		proto_copy(&ipc->data, data->data, data->size);
