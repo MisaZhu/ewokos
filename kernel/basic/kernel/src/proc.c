@@ -677,29 +677,8 @@ static void renew_sleep_counter(uint64_t usec) {
 	}
 }
 
-#define IPC_TIMEOUT 300000000u
-
-static void check_ipc_timeout(uint64_t usec) {
-	int i;
-	for(i=0; i<PROC_MAX; i++) {
-		proc_t* proc = &_proc_table[i];
-		ipc_task_t* ipc = &proc->ipc_task;
-		if(ipc->state != IPC_IDLE) {
-			ipc->usec += usec;
-			if(ipc->usec > IPC_TIMEOUT) {
-#ifdef KDEBUG
-				printf("ipc time out: c:%d s: %d\n", ipc->client_pid, proc->info.pid);
-#endif
-				proc_ipc_close(ipc);//set proc ipc terminated.
-				proc_wakeup(proc->info.pid, 0);
-			}
-		}
-	}
-}
-
 inline void renew_kernel_tic(uint64_t usec) {
 	renew_sleep_counter(usec);	
-	check_ipc_timeout(usec);
 }
 
 proc_t* proc_get_proc(proc_t* proc) {
