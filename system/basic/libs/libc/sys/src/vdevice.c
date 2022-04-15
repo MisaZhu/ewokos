@@ -10,7 +10,6 @@
 #include <sys/shm.h>
 #include <sys/proc.h>
 #include <sys/syscall.h>
-#include <sys/lockc.h>
 #include <sys/signal.h>
 
 #ifdef __cplusplus

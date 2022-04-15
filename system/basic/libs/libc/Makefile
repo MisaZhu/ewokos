@@ -41,7 +41,6 @@ LIB_EWOKSYS_OBJS = sys/src/syscall.o \
 	sys/src/shm.o \
 	sys/src/core.o \
 	sys/src/proc.o \
-	sys/src/lockc.o \
 	sys/src/wait.o \
 	sys/src/md5.o \
 	sys/src/buffer.o \
