@@ -398,13 +398,13 @@ static void push_close_event(close_event_t* ev) {
 	else
 		_event_head = e;
 	_event_tail = e;
-	proc_wakeup(-1);
+	//proc_wakeup((uint32_t)_vfs_root);
 }
 
 static int get_close_event(close_event_t *ev) {
 	close_event_t *e = _event_head;
 	if (e == NULL) {
-		proc_block(getpid(), -1);
+		//proc_block(getpid(), (uint32_t)_vfs_root);
 		return -1;
 	}
 
@@ -1031,7 +1031,7 @@ int vfsd_main(void) {
 			ipc_unlock();
 		}
 		else
-			sleep(0);
+			usleep(30000);
 	}
 	return 0;
 }
