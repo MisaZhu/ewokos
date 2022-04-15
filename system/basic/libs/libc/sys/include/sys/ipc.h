@@ -15,8 +15,8 @@ int      ipc_call_non_block(int to_pid, int call_id, const proto_t* ipkg);
 int      ipc_call(int to_pid, int call_id, const proto_t* ipkg, proto_t* opkg);
 int      ipc_call_wait(int to_pid, int call_id, const proto_t* ipkg, proto_t* opkg);
 void     ipc_ready(void);
-void     ipc_lock(void);
-void     ipc_unlock(void);
+int      ipc_disable(void);
+void     ipc_enable(void);
 
 #define IPC_SERV_VFS      "ipc_serv.vfs"
 #define IPC_SERV_PROC     "ipc_serv.proc"

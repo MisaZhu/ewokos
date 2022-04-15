@@ -206,14 +206,14 @@ static int x_get_event(x_t* x, xevent_t* ev) {
 		return -1;
 	}
 
-	ipc_lock();
-  x->event_head = x->event_head->next;
-  if(x->event_head == NULL)
-    x->event_tail = NULL;
+	ipc_disable();
+	x->event_head = x->event_head->next;
+	if (x->event_head == NULL)
+		x->event_tail = NULL;
 
-  memcpy(ev, &e->event, sizeof(xevent_t));
-  free(e);
-	ipc_unlock();
+	memcpy(ev, &e->event, sizeof(xevent_t));
+	free(e);
+	ipc_enable();
   return 0;
 }
 

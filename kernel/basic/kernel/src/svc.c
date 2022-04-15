@@ -404,19 +404,21 @@ static void sys_ipc_end(context_t* ctx) {
 	schedule(ctx);
 }
 
-static int32_t sys_ipc_lock(void) {
+static int32_t sys_ipc_disable(void) {
 	proc_t* cproc = get_current_proc();
 	if(cproc->ipc_task.state != IPC_IDLE)
 		return -1;
-	cproc->ipc_task.state = IPC_BUSY;
+	cproc->ipc_task.state = IPC_DISABLED;
 	return 0;
 }
 
-static void sys_ipc_unlock(context_t* ctx) {
+static void sys_ipc_enable(void) {
 	proc_t* cproc = get_current_proc();
+	if(cproc->ipc_task.state != IPC_DISABLED)
+		return;
+
 	cproc->ipc_task.state = IPC_IDLE;
 	proc_wakeup(cproc->info.pid, (uint32_t)&cproc->space->ipc_server);
-	schedule(ctx);
 }
 
 static int32_t sys_proc_ping(int32_t pid) {
@@ -469,13 +471,15 @@ static void sys_proc_block(context_t* ctx, int32_t pid, uint32_t evt) {
 	}
 }
 
-static void sys_proc_wakeup(context_t* ctx, uint32_t evt) {
+static void sys_proc_wakeup(uint32_t evt) {
 	proc_t* proc = proc_get_proc(get_current_proc());
-	if(proc->ipc_task.saved_block_by == proc->info.pid) {
-		proc->ipc_task.saved_state = READY;
-	}
 	proc_wakeup(proc->info.pid, evt);
-	schedule(ctx);
+	if(proc->ipc_task.state != IPC_IDLE &&
+			proc->ipc_task.saved_block_by == proc->info.pid) {
+		proc->ipc_task.saved_state = READY;
+		proc->ipc_task.saved_block_by = -1;
+		proc->ipc_task.saved_block_event = 0;
+	}
 }
 
 static void sys_core_proc_ready(void) {
@@ -646,7 +650,7 @@ static inline void _svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_
 		sys_get_kevent(ctx);
 		return;
 	case SYS_WAKEUP:
-		sys_proc_wakeup(ctx, arg0);
+		sys_proc_wakeup(arg0);
 		return;
 	case SYS_BLOCK:
 		sys_proc_block(ctx, arg0, arg1);
@@ -657,11 +661,11 @@ static inline void _svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_
 	case SYS_CORE_PID:
 		ctx->gpr[0] = sys_core_proc_pid();
 		return;
-	case SYS_IPC_LOCK:
-		ctx->gpr[0] = sys_ipc_lock();
+	case SYS_IPC_DISABLE:
+		ctx->gpr[0] = sys_ipc_disable();
 		return;
-	case SYS_IPC_UNLOCK:
-		sys_ipc_unlock(ctx);
+	case SYS_IPC_ENABLE:
+		sys_ipc_enable();
 		return;
 	case SYS_KROMFS_GET:
 		ctx->gpr[0] = sys_romfs_get(arg0, (char*)arg1, (char*)arg2);

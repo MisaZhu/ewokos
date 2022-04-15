@@ -398,7 +398,7 @@ static void push_close_event(close_event_t* ev) {
 	else
 		_event_head = e;
 	_event_tail = e;
-	//proc_wakeup((uint32_t)_vfs_root);
+	proc_wakeup((uint32_t)_vfs_root);
 }
 
 static int get_close_event(close_event_t *ev) {
@@ -408,13 +408,11 @@ static int get_close_event(close_event_t *ev) {
 		return -1;
 	}
 
-	ipc_lock();
 	_event_head = _event_head->next;
 	if (_event_head == NULL)
 		_event_tail = NULL;
 	memcpy(ev, e, sizeof(close_event_t));
 	free(e);
-	ipc_unlock();
 	return 0;
 }
 
@@ -810,16 +808,18 @@ static void do_vfs_pipe_write(int pid, proto_t* in, proto_t* out) {
 		return;
 
 	vfs_node_t* node = (vfs_node_t*)info.node;
+	proc_wakeup((int32_t)node); //wakeup reader
 
 	int32_t size = 0;
 	void *data = proto_read(in, &size);
 	if(data == NULL) { //pipe data error
-		proc_wakeup((int32_t)node); //wakeup reader
+		//proc_wakeup((int32_t)node); //wakeup reader
 		return;
 	}
 
 	buffer_t* buffer = (buffer_t*)info.data;
 	if(buffer == NULL) { //pipe buffer not ready 
+		//proc_wakeup((int32_t)node); //wakeup reader
 		PF->clear(out)->addi(out, 0); // retry
 		return;
 	}
@@ -827,12 +827,12 @@ static void do_vfs_pipe_write(int pid, proto_t* in, proto_t* out) {
 	size = buffer_write(buffer, data, size);
 	if(size > 0) {
 		PF->clear(out)->addi(out, size);
-		proc_wakeup((int32_t)node); //wakeup reader
+		//proc_wakeup((int32_t)node); //wakeup reader
 		return;
 	}
 
 	if(node == NULL || node->refs < 2) { //closed by other peer
-		proc_wakeup((int32_t)node); //wakeup reader
+		//proc_wakeup((int32_t)node); //wakeup reader
     	return;
 	}
 	PF->clear(out)->addi(out, 0); //buffer full(waiting for read), retry
@@ -850,11 +850,12 @@ static void do_vfs_pipe_read(int pid, proto_t* in, proto_t* out) {
 	if(size < 0 || node == NULL) {
 		return;
 	}
+	proc_wakeup((int32_t)node); //wakeup writer.
 
 	buffer_t* buffer = (buffer_t*)info.data;
 	if(buffer == NULL) { //buffer not ready 
 		PF->clear(out)->addi(out, 0); // retry
-		proc_wakeup((int32_t)node); //wakeup writer.
+		//proc_wakeup((int32_t)node); //wakeup writer.
 		return;
 	}
 
@@ -863,13 +864,13 @@ static void do_vfs_pipe_read(int pid, proto_t* in, proto_t* out) {
 	if(size > 0) {
 		PF->clear(out)->addi(out, size)->add(out, data, size);
 		free(data);
-		proc_wakeup((int32_t)node); //wakeup writer.
+		//proc_wakeup((int32_t)node); //wakeup writer.
 		return;
 	}
 	free(data);
 
 	if(node == NULL || node->refs < 2) { // close by other peer
-		proc_wakeup((int32_t)node); //wakeup writer.
+		//proc_wakeup((int32_t)node); //wakeup writer.
     	return;
 	}
 	PF->clear(out)->addi(out, 0); //retry
@@ -1026,9 +1027,9 @@ int vfsd_main(void) {
 		close_event_t ev;
 		int res = get_close_event(&ev);
 		if(res == 0) {
-			ipc_lock();
+			ipc_disable();
 			handle_close_event(&ev);
-			ipc_unlock();
+			ipc_enable();
 		}
 		else
 			usleep(30000);

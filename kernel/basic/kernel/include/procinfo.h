@@ -28,7 +28,8 @@ enum {
 enum {
 	IPC_IDLE = 0,
 	IPC_BUSY,
-	IPC_RETURN
+	IPC_RETURN,
+	IPC_DISABLED
 };
 
 

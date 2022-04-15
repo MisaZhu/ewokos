@@ -22,16 +22,12 @@ static void ipc_end(void) {
 	syscall0(SYS_IPC_END);
 }
 
-void ipc_lock(void) {
-	while(1) {
-		if (syscall0(SYS_IPC_LOCK) == 0)
-			return;
-		sleep(0);
-	}	
+int ipc_disable(void) {
+	return syscall0(SYS_IPC_DISABLE);
 }
 
-void ipc_unlock(void) {
-	syscall0(SYS_IPC_UNLOCK);
+void ipc_enable(void) {
+	syscall0(SYS_IPC_ENABLE);
 }
 
 static proto_t* ipc_get_info(uint32_t ipc_id, int32_t* pid, int32_t* call_id) {

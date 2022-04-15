@@ -271,10 +271,10 @@ void core(void) {
 	while(1) {
 		kevent_t* kev = (kevent_t*)syscall0(SYS_GET_KEVENT);
 		if(kev != NULL) {
-			ipc_lock();
+			ipc_disable();
 			handle_event(kev);
 			free(kev);
-			ipc_unlock();
+			ipc_enable();
 		}
 		else {
 			sleep(0);
