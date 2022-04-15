@@ -385,12 +385,12 @@ static void sys_ipc_set_return(context_t* ctx, uint32_t uid, proto_t* data) {
 
 static void sys_ipc_end(context_t* ctx) {
 	proc_t* serv_proc = get_current_proc();
-	ipc_task_t* ipc = &serv_proc->ipc_task;
 	if(serv_proc == NULL ||
 			serv_proc->space->ipc_server.entry == 0 ||
-			ipc->state == IPC_IDLE)
+			serv_proc->ipc_task.state == IPC_IDLE)
 		return;
 
+	ipc_task_t* ipc = &serv_proc->ipc_task;
 	memcpy(ctx, &ipc->saved_ctx, sizeof(context_t));
 	serv_proc->info.state = ipc->saved_state;
 	serv_proc->info.block_by = ipc->saved_block_by;
