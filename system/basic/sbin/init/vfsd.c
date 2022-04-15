@@ -413,8 +413,8 @@ static int get_close_event(close_event_t *ev) {
 	if (_event_head == NULL)
 		_event_tail = NULL;
 	memcpy(ev, e, sizeof(close_event_t));
-	ipc_enable();
 	free(e);
+	ipc_enable();
 	return 0;
 }
 
@@ -1029,9 +1029,9 @@ int vfsd_main(void) {
 		close_event_t ev;
 		int res = get_close_event(&ev);
 		if(res == 0) {
-			ipc_disable();
+			//ipc_disable();
 			handle_close_event(&ev);
-			ipc_enable();
+			//ipc_enable();
 		}
 		else
 			usleep(30000);
