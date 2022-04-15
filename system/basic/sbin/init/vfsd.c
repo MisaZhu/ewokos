@@ -1034,7 +1034,7 @@ int vfsd_main(void) {
 			//ipc_enable();
 		}
 		else
-			usleep(30000);
+			sleep(0);
 	}
 	return 0;
 }
