@@ -471,15 +471,19 @@ static void sys_proc_block(context_t* ctx, int32_t pid, uint32_t evt) {
 	}
 }
 
-static void sys_proc_wakeup(uint32_t evt) {
+static void sys_proc_wakeup(context_t* ctx, uint32_t evt) {
+	(void)ctx;
 	proc_t* proc = proc_get_proc(get_current_proc());
 	proc_wakeup(proc->info.pid, evt);
+	/*
 	if(proc->ipc_task.state != IPC_IDLE &&
-			proc->ipc_task.saved_block_by == proc->info.pid) {
+			(proc->ipc_task.saved_block_by == proc->info.pid ||
+			proc->info.block_by == proc->info.pid)) {
 		proc->ipc_task.saved_state = READY;
 		proc->ipc_task.saved_block_by = -1;
 		proc->ipc_task.saved_block_event = 0;
 	}
+	*/
 }
 
 static void sys_core_proc_ready(void) {
@@ -650,7 +654,7 @@ static inline void _svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_
 		sys_get_kevent(ctx);
 		return;
 	case SYS_WAKEUP:
-		sys_proc_wakeup(arg0);
+		sys_proc_wakeup(ctx, arg0);
 		return;
 	case SYS_BLOCK:
 		sys_proc_block(ctx, arg0, arg1);
