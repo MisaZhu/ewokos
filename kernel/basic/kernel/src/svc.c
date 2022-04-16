@@ -477,7 +477,8 @@ static void sys_proc_wakeup(context_t* ctx, uint32_t evt) {
 	proc_wakeup(proc->info.pid, evt);
 	if(proc->ipc_task.state != IPC_IDLE &&
 			proc->ipc_task.saved_block_by == proc->info.pid &&
-			(evt == 0 || proc->ipc_task.saved_block_event == evt)) {
+			(evt == 0 || evt == (uint32_t)-1 ||
+			proc->ipc_task.saved_block_event == evt)) {
 		proc->ipc_task.saved_state = READY;
 		proc->ipc_task.saved_block_by = -1;
 		proc->ipc_task.saved_block_event = 0;
