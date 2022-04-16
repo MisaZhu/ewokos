@@ -24,29 +24,25 @@ int32_t proc_ipc_setup(context_t* ctx, uint32_t entry, uint32_t extra_data, uint
 	return 0;
 }
 
-void proc_ipc_do_task(context_t* ctx, proc_t* serv_proc) {
-	proc_t* client_proc = get_current_proc();
-	if(serv_proc == NULL ||
-			serv_proc->space->ipc_server.entry == 0 ||
-			serv_proc->space->ipc_server.task.state == IPC_IDLE ||
-			serv_proc->space->ipc_server.task.uid == 0) {
-		ctx->gpr[0] = 0;
-		return;
-	}
-	
-	ipc_context_t* ipc_ctx = &serv_proc->space->ipc_server.ctx;
-	ipc_task_t* ipc = &serv_proc->space->ipc_server.task;
-	if(ipc->state == IPC_IDLE || ipc->uid == 0) {
-		ctx->gpr[0] = 0;
+ipc_task_t* proc_ipc_fetch(struct st_proc* serv_proc) {
+	return &serv_proc->space->ipc_server.task;
+}
+
+void proc_ipc_do_task(context_t* ctx, proc_t* serv_proc, uint32_t core) {
+	ipc_task_t* ipc = proc_ipc_fetch(serv_proc);
+	if(ipc == NULL ||
+			ipc->state == IPC_IDLE ||
+			ipc->uid == 0) {
 		return;
 	}
 
+	ipc_context_t* ipc_ctx = &serv_proc->space->ipc_server.ctx;
 	ipc_ctx->saved_state = serv_proc->info.state;
 	ipc_ctx->saved_block_by = serv_proc->info.block_by;
 	ipc_ctx->saved_block_event = serv_proc->block_event;
 	serv_proc->space->ipc_server.start = true;
 
-	if(serv_proc->info.core == client_proc->info.core) {
+	if(serv_proc->info.core == core) {
 		serv_proc->info.state = RUNNING;
 		proc_switch(ctx, serv_proc, true);
 	}
@@ -59,12 +55,8 @@ void proc_ipc_do_task(context_t* ctx, proc_t* serv_proc) {
 	}
 }
 
-ipc_task_t* proc_ipc_req(int32_t serv_pid, int32_t call_id, proto_t* data) {
+uint32_t proc_ipc_req(proc_t* serv_proc, int32_t call_id, proto_t* data) {
 	proc_t* client_proc = get_current_proc();
-	proc_t* serv_proc = proc_get(serv_pid);
-	if(client_proc == NULL || serv_proc == NULL)
-		return NULL;
-
 	ipc_task_t* ipc = &serv_proc->space->ipc_server.task;
 	ipc->uid = ++_ipc_uid;
 	ipc->state = IPC_BUSY;
@@ -72,7 +64,7 @@ ipc_task_t* proc_ipc_req(int32_t serv_pid, int32_t call_id, proto_t* data) {
 	ipc->call_id = call_id;
 	if(data != NULL)
 		proto_copy(&ipc->data, data->data, data->size); 
-	return ipc;
+	return ipc->uid;
 }
 
 void proc_ipc_close(ipc_task_t* ipc) {

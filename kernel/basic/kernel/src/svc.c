@@ -272,12 +272,12 @@ static void sys_ipc_call(context_t* ctx, int32_t serv_pid, int32_t call_id, prot
 		return;
 	}
 
-	ipc_task_t* ipc = proc_ipc_req(serv_pid, call_id, data);
-	if(ipc == NULL)
+	uint32_t uid = proc_ipc_req(serv_proc, call_id, data);
+	ctx->gpr[0] = uid;
+	if(uid == 0) 
 		return;
 
-	ctx->gpr[0] = ipc->uid;
-	proc_ipc_do_task(ctx, serv_proc);
+	proc_ipc_do_task(ctx, serv_proc, client_proc->info.core);
 }
 
 static void sys_ipc_get_return(context_t* ctx, int32_t pid, uint32_t uid, proto_t* data) {

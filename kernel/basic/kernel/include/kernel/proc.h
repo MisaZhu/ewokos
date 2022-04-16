@@ -29,14 +29,7 @@ typedef struct {
 	
 	int32_t shms[SHM_MAX];
 
-	struct {
-		bool      start;
-		uint32_t      entry;
-		uint32_t      flags;
-		uint32_t      extra_data;
-		ipc_task_t    task;
-		ipc_context_t ctx;
-	} ipc_server;
+	ipc_server_t ipc_server;
 
 	struct {
 		uint32_t entry;
