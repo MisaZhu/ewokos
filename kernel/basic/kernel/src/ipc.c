@@ -28,14 +28,14 @@ void proc_ipc_do_task(context_t* ctx, proc_t* serv_proc) {
 	proc_t* client_proc = get_current_proc();
 	if(serv_proc == NULL ||
 			serv_proc->space->ipc_server.entry == 0 ||
-			serv_proc->ipc_task.state == IPC_IDLE ||
-			serv_proc->ipc_task.uid == 0) {
+			serv_proc->space->ipc_server.task.state == IPC_IDLE ||
+			serv_proc->space->ipc_server.task.uid == 0) {
 		ctx->gpr[0] = 0;
 		return;
 	}
 	
-	ipc_context_t* ipc_ctx = &serv_proc->ipc_ctx;
-	ipc_task_t* ipc = &serv_proc->ipc_task;
+	ipc_context_t* ipc_ctx = &serv_proc->space->ipc_server.ctx;
+	ipc_task_t* ipc = &serv_proc->space->ipc_server.task;
 	if(ipc->state == IPC_IDLE || ipc->uid == 0) {
 		ctx->gpr[0] = 0;
 		return;
@@ -44,7 +44,7 @@ void proc_ipc_do_task(context_t* ctx, proc_t* serv_proc) {
 	ipc_ctx->saved_state = serv_proc->info.state;
 	ipc_ctx->saved_block_by = serv_proc->info.block_by;
 	ipc_ctx->saved_block_event = serv_proc->block_event;
-	ipc_ctx->start = true;
+	serv_proc->space->ipc_server.start = true;
 
 	if(serv_proc->info.core == client_proc->info.core) {
 		serv_proc->info.state = RUNNING;
@@ -65,7 +65,7 @@ ipc_task_t* proc_ipc_req(int32_t serv_pid, int32_t call_id, proto_t* data) {
 	if(client_proc == NULL || serv_proc == NULL)
 		return NULL;
 
-	ipc_task_t* ipc = &serv_proc->ipc_task;
+	ipc_task_t* ipc = &serv_proc->space->ipc_server.task;
 	ipc->uid = ++_ipc_uid;
 	ipc->state = IPC_BUSY;
 	ipc->client_pid = client_proc->info.pid;

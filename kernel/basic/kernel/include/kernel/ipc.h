@@ -16,7 +16,6 @@ typedef	struct {
 } ipc_task_t;
 
 typedef	struct {
-	bool      start;
 	context_t saved_ctx;
 	uint32_t  saved_state;
 	int32_t   saved_block_by;
