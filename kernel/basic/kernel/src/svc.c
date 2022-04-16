@@ -390,16 +390,16 @@ static void sys_ipc_end(context_t* ctx) {
 			serv_proc->ipc_task.state == IPC_IDLE)
 		return;
 
-	ipc_task_t* ipc = &serv_proc->ipc_task;
-	memcpy(ctx, &ipc->saved_ctx, sizeof(context_t));
-	serv_proc->info.state = ipc->saved_state;
-	serv_proc->info.block_by = ipc->saved_block_by;
-	serv_proc->block_event = ipc->saved_block_event;
+	ipc_context_t* ipc_ctx = &serv_proc->ipc_ctx;
+	memcpy(ctx, &ipc_ctx->saved_ctx, sizeof(context_t));
+	serv_proc->info.state = ipc_ctx->saved_state;
+	serv_proc->info.block_by = ipc_ctx->saved_block_by;
+	serv_proc->block_event = ipc_ctx->saved_block_event;
 	if(serv_proc->info.state == READY || serv_proc->info.state == RUNNING)
 		proc_ready(serv_proc);
 
 	//wake up request proc to get return
-	proc_ipc_close(ipc);
+	proc_ipc_close(&serv_proc->ipc_task);
 	proc_wakeup(serv_proc->info.pid, (uint32_t)&serv_proc->space->ipc_server); 
 	schedule(ctx);
 }
@@ -476,12 +476,12 @@ static void sys_proc_wakeup(context_t* ctx, uint32_t evt) {
 	proc_t* proc = proc_get_proc(get_current_proc());
 	proc_wakeup(proc->info.pid, evt);
 	if(proc->ipc_task.state != IPC_IDLE &&
-			proc->ipc_task.saved_block_by == proc->info.pid &&
+			proc->ipc_ctx.saved_block_by == proc->info.pid &&
 			(evt == 0 || evt == (uint32_t)-1 ||
-			proc->ipc_task.saved_block_event == evt)) {
-		proc->ipc_task.saved_state = READY;
-		proc->ipc_task.saved_block_by = -1;
-		proc->ipc_task.saved_block_event = 0;
+			proc->ipc_ctx.saved_block_event == evt)) {
+		proc->ipc_ctx.saved_state = READY;
+		proc->ipc_ctx.saved_block_by = -1;
+		proc->ipc_ctx.saved_block_event = 0;
 	}
 }
 

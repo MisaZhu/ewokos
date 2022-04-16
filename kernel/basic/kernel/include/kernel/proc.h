@@ -70,6 +70,7 @@ typedef struct st_proc {
 
 	ipc_req_t ipc_req;
 	ipc_task_t ipc_task;
+	ipc_context_t ipc_ctx;
 } proc_t;
 
 extern proc_t* get_current_proc(void);

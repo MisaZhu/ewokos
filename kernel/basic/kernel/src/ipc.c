@@ -34,16 +34,17 @@ void proc_ipc_task(context_t* ctx, proc_t* serv_proc) {
 		return;
 	}
 	
+	ipc_context_t* ipc_ctx = &serv_proc->ipc_ctx;
 	ipc_task_t* ipc = &serv_proc->ipc_task;
 	if(ipc->state == IPC_IDLE || ipc->uid == 0) {
 		ctx->gpr[0] = 0;
 		return;
 	}
 
-	ipc->saved_state = serv_proc->info.state;
-	ipc->saved_block_by = serv_proc->info.block_by;
-	ipc->saved_block_event = serv_proc->block_event;
-	ipc->start = true;
+	ipc_ctx->saved_state = serv_proc->info.state;
+	ipc_ctx->saved_block_by = serv_proc->info.block_by;
+	ipc_ctx->saved_block_event = serv_proc->block_event;
+	ipc_ctx->start = true;
 
 	if(serv_proc->info.core == client_proc->info.core) {
 		serv_proc->info.state = RUNNING;

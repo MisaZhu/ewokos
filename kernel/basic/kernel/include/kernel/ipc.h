@@ -6,22 +6,22 @@
 #include <stdbool.h>
 
 struct st_proc;
-
 typedef	struct {
-	bool      start;
 	uint32_t  uid;
 	uint64_t  usec;
 	uint32_t  state;
 	proto_t   data;
 	int32_t   client_pid;
 	int32_t   call_id;
+} ipc_task_t;
 
+typedef	struct {
+	bool      start;
 	context_t saved_ctx;
 	uint32_t  saved_state;
 	int32_t   saved_block_by;
 	uint32_t  saved_block_event;
-} ipc_task_t;
-
+} ipc_context_t;
 
 typedef struct {
 	uint32_t  uid;
