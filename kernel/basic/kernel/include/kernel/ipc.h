@@ -30,16 +30,17 @@ typedef struct {
 
 typedef struct {
 	bool          start;
+	bool          disabled;
 	uint32_t      entry;
 	uint32_t      flags;
 	uint32_t      extra_data;
-	ipc_task_t    task;
+	ipc_task_t    task; //current_task
 	ipc_context_t ctx;
 } ipc_server_t;
 
 extern int32_t     proc_ipc_setup(context_t* ctx, uint32_t entry, uint32_t extra, uint32_t flags);
 extern void        proc_ipc_do_task(context_t* ctx, struct st_proc* proc, uint32_t core);
-extern uint32_t    proc_ipc_req(struct st_proc* serv_proc, int32_t call_id, proto_t* data);
+extern uint32_t    proc_ipc_req(struct st_proc* serv_proc, int32_t client_pid, int32_t call_id, proto_t* data);
 extern ipc_task_t* proc_ipc_fetch(struct st_proc* serv_proc);
 extern void        proc_ipc_close(ipc_task_t* ipc); 
 

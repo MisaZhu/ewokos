@@ -55,12 +55,11 @@ void proc_ipc_do_task(context_t* ctx, proc_t* serv_proc, uint32_t core) {
 	}
 }
 
-uint32_t proc_ipc_req(proc_t* serv_proc, int32_t call_id, proto_t* data) {
-	proc_t* client_proc = get_current_proc();
+uint32_t proc_ipc_req(proc_t* serv_proc, int32_t client_pid, int32_t call_id, proto_t* data) {
 	ipc_task_t* ipc = &serv_proc->space->ipc_server.task;
 	ipc->uid = ++_ipc_uid;
 	ipc->state = IPC_BUSY;
-	ipc->client_pid = client_proc->info.pid;
+	ipc->client_pid = client_pid;
 	ipc->call_id = call_id;
 	if(data != NULL)
 		proto_copy(&ipc->data, data->data, data->size); 
