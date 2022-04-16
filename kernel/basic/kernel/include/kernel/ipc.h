@@ -27,11 +27,11 @@ typedef struct {
 	uint32_t  uid;
 	uint32_t  state;
 	proto_t   data;
-} ipc_req_t;
+} ipc_res_t;
 
-extern int32_t  proc_ipc_setup(context_t* ctx, uint32_t entry, uint32_t extra, uint32_t flags);
-extern void     proc_ipc_task(context_t* ctx, struct st_proc* proc);
-extern uint32_t proc_ipc_req(void);
-extern void     proc_ipc_close(ipc_task_t* ipc); 
+extern int32_t     proc_ipc_setup(context_t* ctx, uint32_t entry, uint32_t extra, uint32_t flags);
+extern void        proc_ipc_do_task(context_t* ctx, struct st_proc* proc);
+extern ipc_task_t* proc_ipc_req(int32_t serv_pid, int32_t call_id, proto_t* data);
+extern void        proc_ipc_close(ipc_task_t* ipc); 
 
 #endif

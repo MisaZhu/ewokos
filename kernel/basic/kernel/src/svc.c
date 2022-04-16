@@ -272,17 +272,12 @@ static void sys_ipc_call(context_t* ctx, int32_t serv_pid, int32_t call_id, prot
 		return;
 	}
 
-	uint32_t uid = (int32_t)proc_ipc_req();
-	ipc_task_t* ipc = &serv_proc->ipc_task;
-	ipc->uid = uid;
-	ipc->state = IPC_BUSY;
-	ipc->client_pid = client_proc->info.pid;
-	ipc->call_id = call_id;
-	if(data != NULL)
-		proto_copy(&ipc->data, data->data, data->size);
+	ipc_task_t* ipc = proc_ipc_req(serv_pid, call_id, data);
+	if(ipc == NULL)
+		return;
 
-	ctx->gpr[0] = uid;
-	proc_ipc_task(ctx, serv_proc);
+	ctx->gpr[0] = ipc->uid;
+	proc_ipc_do_task(ctx, serv_proc);
 }
 
 static void sys_ipc_get_return(context_t* ctx, int32_t pid, uint32_t uid, proto_t* data) {
@@ -293,7 +288,7 @@ static void sys_ipc_get_return(context_t* ctx, int32_t pid, uint32_t uid, proto_
 		return;
 	}
 
-	if(client_proc->ipc_req.state != IPC_RETURN) { //block retry for serv return
+	if(client_proc->ipc_res.state != IPC_RETURN) { //block retry for serv return
 		proc_t* serv_proc = proc_get(pid);
 		if(serv_proc->ipc_task.uid != uid) {
 			ctx->gpr[0] = -2;
@@ -309,22 +304,22 @@ static void sys_ipc_get_return(context_t* ctx, int32_t pid, uint32_t uid, proto_
 		return;
 	}
 
-	if(client_proc->ipc_req.uid != uid) {
+	if(client_proc->ipc_res.uid != uid) {
 		ctx->gpr[0] = -2;
 		return;
 	}
 
 	if(data != NULL) {//get return value
-		data->total_size = data->size = client_proc->ipc_req.data.size;
+		data->total_size = data->size = client_proc->ipc_res.data.size;
 		if(data->size > 0) {
-			data->data = (proto_t*)proc_malloc(client_proc->ipc_req.data.size);
-			memcpy(data->data, client_proc->ipc_req.data.data, data->size);
+			data->data = (proto_t*)proc_malloc(client_proc->ipc_res.data.size);
+			memcpy(data->data, client_proc->ipc_res.data.data, data->size);
 		}
 	}
 
-	client_proc->ipc_req.uid = 0;
-	client_proc->ipc_req.state = IPC_IDLE;
-	proto_clear(&client_proc->ipc_req.data);
+	client_proc->ipc_res.uid = 0;
+	client_proc->ipc_res.state = IPC_IDLE;
+	proto_clear(&client_proc->ipc_res.data);
 }
 
 static int32_t sys_ipc_get_info(uint32_t uid, int32_t* pid, int32_t* cmd) {
@@ -366,10 +361,10 @@ static void sys_ipc_set_return(context_t* ctx, uint32_t uid, proto_t* data) {
 
 	proc_t* client_proc = proc_get(ipc->client_pid);
 	if(client_proc != NULL) {
-		client_proc->ipc_req.state = IPC_RETURN;
-		client_proc->ipc_req.uid = uid;
+		client_proc->ipc_res.state = IPC_RETURN;
+		client_proc->ipc_res.uid = uid;
 		if(data != NULL)
-			proto_copy(&client_proc->ipc_req.data, data->data, data->size);
+			proto_copy(&client_proc->ipc_res.data, data->data, data->size);
 
 		if(client_proc->info.core == serv_proc->info.core) {
 			client_proc->info.state = RUNNING;

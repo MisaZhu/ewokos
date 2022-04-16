@@ -24,7 +24,7 @@ int32_t proc_ipc_setup(context_t* ctx, uint32_t entry, uint32_t extra_data, uint
 	return 0;
 }
 
-void proc_ipc_task(context_t* ctx, proc_t* serv_proc) {
+void proc_ipc_do_task(context_t* ctx, proc_t* serv_proc) {
 	proc_t* client_proc = get_current_proc();
 	if(serv_proc == NULL ||
 			serv_proc->space->ipc_server.entry == 0 ||
@@ -59,8 +59,20 @@ void proc_ipc_task(context_t* ctx, proc_t* serv_proc) {
 	}
 }
 
-uint32_t proc_ipc_req(void) {
-	return ++_ipc_uid;
+ipc_task_t* proc_ipc_req(int32_t serv_pid, int32_t call_id, proto_t* data) {
+	proc_t* client_proc = get_current_proc();
+	proc_t* serv_proc = proc_get(serv_pid);
+	if(client_proc == NULL || serv_proc == NULL)
+		return NULL;
+
+	ipc_task_t* ipc = &serv_proc->ipc_task;
+	ipc->uid = ++_ipc_uid;
+	ipc->state = IPC_BUSY;
+	ipc->client_pid = client_proc->info.pid;
+	ipc->call_id = call_id;
+	if(data != NULL)
+		proto_copy(&ipc->data, data->data, data->size); 
+	return ipc;
 }
 
 void proc_ipc_close(ipc_task_t* ipc) {

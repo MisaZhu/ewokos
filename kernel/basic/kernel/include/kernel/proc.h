@@ -68,7 +68,7 @@ typedef struct st_proc {
 
 	context_t ctx;
 
-	ipc_req_t ipc_req;
+	ipc_res_t ipc_res;
 	ipc_task_t ipc_task;
 	ipc_context_t ipc_ctx;
 } proc_t;
