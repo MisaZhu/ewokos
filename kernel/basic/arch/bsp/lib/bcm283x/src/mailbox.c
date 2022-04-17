@@ -1,6 +1,5 @@
 #include <bcm283x/mailbox.h>
 
-//void __attribute__((optimize("O0"))) mailbox_read(int channel, mail_message_t *msg) {
 void mailbox_read(uint8_t channel, mail_message_t *msg) {
 	mail_status_t stat;
 
@@ -16,7 +15,6 @@ void mailbox_read(uint8_t channel, mail_message_t *msg) {
 	} while (msg->channel != channel);
 }
 
-//void __attribute__((optimize("O0"))) mailbox_send(int channel, mail_message_t* msg) {
 void  mailbox_send(uint8_t channel, mail_message_t* msg) {
 	mail_status_t stat;
 	msg->channel = channel;

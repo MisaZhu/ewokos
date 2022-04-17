@@ -79,7 +79,7 @@ int32_t pl011_uart_init(void) {
 	return 0;
 }
 
-static void __attribute__((optimize("O0")))  uart_trans(char c) {
+static void uart_trans(char c) {
 	// Wait for UART to become ready to transmit.
 	while (get32(_mmio_base+UART0_FR) & (1 << 5)) {}
 	if(c == '\r')

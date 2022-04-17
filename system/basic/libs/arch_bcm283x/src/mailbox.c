@@ -10,7 +10,6 @@ uint32_t bcm283x_mailbox_init(void) {
 	return _bcm283x_mailbox_addr;
 }
 
-//void __attribute__((optimize("O0"))) bcm283x_mailbox_read(int channel, mail_message_t *msg) {
 void bcm283x_mailbox_read(int channel, mail_message_t *msg) {
 	mail_status_t stat;
 
@@ -26,7 +25,6 @@ void bcm283x_mailbox_read(int channel, mail_message_t *msg) {
 	} while (msg->channel != channel);
 }
 
-//void __attribute__((optimize("O0"))) bcm283x_mailbox_send(int channel, mail_message_t* msg) {
 void  bcm283x_mailbox_send(int channel, mail_message_t* msg) {
 	mail_status_t stat;
 	msg->channel = channel;

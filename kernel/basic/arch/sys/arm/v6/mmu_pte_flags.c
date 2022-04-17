@@ -1,6 +1,5 @@
 #include <mm/mmu.h>
 
-//inline void __attribute__((optimize("O0"))) set_extra_flags(page_table_entry_t* pte, uint32_t no_cache) {
 inline void set_pte_flags(page_table_entry_t* pte, uint32_t no_cache) {
 	(void)no_cache;
 	pte->bufferable = 0;
