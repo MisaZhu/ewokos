@@ -77,6 +77,7 @@ int main(int argc, char** argv) {
 	const char* fb_dev = argc > 2 ? argv[2]: "/dev/fb0";
 
 	init_console(&_console, fb_dev);
+	reset_console(&_console);
 
 	vdevice_t dev;
 	memset(&dev, 0, sizeof(vdevice_t));

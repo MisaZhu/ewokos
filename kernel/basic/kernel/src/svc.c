@@ -487,7 +487,7 @@ static void sys_proc_wakeup(context_t* ctx, uint32_t evt) {
 	ipc_task_t* ipc = proc_ipc_get_task(proc);
 	if(ipc != NULL &&
 			proc->space->ipc_server.ctx.saved_block_by == proc->info.pid &&
-			(evt == 0 || evt == (uint32_t)-1 ||
+			(evt == 0 ||
 			proc->space->ipc_server.ctx.saved_block_event == evt)) {
 		proc->space->ipc_server.ctx.saved_state = READY;
 		proc->space->ipc_server.ctx.saved_block_by = -1;
