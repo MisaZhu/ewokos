@@ -56,7 +56,6 @@ void  interrupt_send(context_t* ctx, uint32_t interrupt) {
 	}
 	else {
 		proc_ready(proc);
-		schedule(ctx);
 #ifdef KERNEL_SMP
 		ipi_send(proc->info.core);
 #endif
