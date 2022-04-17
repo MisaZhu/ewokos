@@ -98,7 +98,7 @@ static void init_allocable_mem(void) {
 
 #ifdef KERNEL_SMP
 static uint32_t _started_cores = 0;
-void __attribute__((optimize("O0"))) _slave_kernel_entry_c(void) {
+void _slave_kernel_entry_c(void) {
 	while(1) {
 		if(multi_cores_ready() == 0)
 			break;

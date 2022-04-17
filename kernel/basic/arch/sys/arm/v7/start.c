@@ -8,7 +8,7 @@ static __attribute__((__aligned__(PAGE_DIR_SIZE)))
 volatile uint32_t startup_page_dir[PAGE_DIR_NUM] = { 0 };
 
 // setup the boot page table with one-level section type paging : is_dev whether it is device memory
-static void __attribute__((optimize("O0"))) set_boot_pgt(uint32_t virt, uint32_t phy, uint32_t len, uint8_t is_dev) {
+static void set_boot_pgt(uint32_t virt, uint32_t phy, uint32_t len, uint8_t is_dev) {
 	(void)is_dev;
 	volatile uint32_t idx;
 
@@ -24,7 +24,6 @@ static void __attribute__((optimize("O0"))) set_boot_pgt(uint32_t virt, uint32_t
 	}
 }
 
-//static void __attribute__((optimize("O0"))) load_boot_pgt(void) {
 static void load_boot_pgt(void) {
 	volatile uint32_t val;
 	// set domain access control: all domain will be checked for permission

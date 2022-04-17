@@ -5,7 +5,7 @@
 
 uint32_t _mmio_base = 0;
 
-void __attribute__((optimize("O0"))) dev_init(void) {
+void dev_init(void) {
 	uart_dev_init();
 }
 

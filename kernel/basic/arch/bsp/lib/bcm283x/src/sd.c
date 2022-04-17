@@ -122,7 +122,6 @@ static sd_t _sdc;
 /**
  * Wait for data or command ready
  */
-//static int32_t __attribute__((optimize("O0"))) sd_status(uint32_t mask) {
 static inline int32_t sd_status(uint32_t mask) {
 	int32_t cnt = 1000000; 
 	while((*EMMC_STATUS & mask) != 0 && (*EMMC_INTERRUPT & INT_ERROR_MASK) == 0 && cnt > 0)
@@ -133,7 +132,6 @@ static inline int32_t sd_status(uint32_t mask) {
 /**
  * Wait for interrupt
  */
-//static int32_t __attribute__((optimize("O0"))) sd_int(uint32_t mask, int32_t wait) {
 static inline int32_t sd_int(uint32_t mask, int32_t wait) {
 	uint32_t r, m = (mask | INT_ERROR_MASK);
 	int32_t cnt = 10000; 
@@ -159,7 +157,6 @@ static inline int32_t sd_int(uint32_t mask, int32_t wait) {
 /**
  * Send a command
  */
-//static int32_t __attribute__((optimize("O0"))) sd_cmd(uint32_t code, uint32_t arg) {
 static inline int32_t sd_cmd(uint32_t code, uint32_t arg) {
 	int32_t r = 0;
 	sd_err = SD_OK;
@@ -320,7 +317,6 @@ static int32_t sd_clk(uint32_t f) {
 /**
  * initialize EMMC to read SDHC card
  */
-//int32_t __attribute__((optimize("O0"))) bcm283x_sd_init(void) {
 int32_t bcm283x_sd_init(void) {
 	_sdc.rxdone = 1;
 	_sdc.txdone = 1;

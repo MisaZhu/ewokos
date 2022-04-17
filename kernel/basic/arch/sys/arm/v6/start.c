@@ -6,7 +6,6 @@ static __attribute__((__aligned__(PAGE_DIR_SIZE)))
 uint32_t startup_page_dir[PAGE_DIR_NUM] = { 0 };
 
 // setup the boot page table: dev_mem whether it is device memory
-//static void __attribute__((optimize("O0"))) set_boot_pgt(uint32_t virt, uint32_t phy, uint32_t len, uint8_t is_dev) {
 static void set_boot_pgt(uint32_t virt, uint32_t phy, uint32_t len, uint8_t is_dev) {
 	(void)is_dev;
 	volatile uint32_t idx;
