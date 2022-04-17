@@ -161,7 +161,7 @@ void __attribute__((optimize("O0"))) proc_switch(context_t* ctx, proc_t* to, boo
 		to->space->interrupt.entry = 0; // clear irq request mask
 	}
 	else if(to->space->ipc_server.start) { //have ipc request to handle
-		ipc_task_t *ipc = proc_ipc_fetch(to);
+		ipc_task_t *ipc = proc_ipc_get_task(to);
 		if (ipc != NULL && ipc->uid != 0) {
 			memcpy(&to->space->ipc_server.ctx.saved_ctx, &to->ctx, sizeof(context_t)); // save "to" context to ipc ctx, will restore after ipc done.
 			to->ctx.gpr[0] = ipc->uid;
@@ -326,7 +326,7 @@ void proc_exit(context_t* ctx, proc_t *proc, int32_t res) {
 	proc->info.state = UNUSED;
 
 	/*free all ipc context*/
-	proto_clear(&proc->space->ipc_server.task.data);
+	proc_ipc_clear(proc);
 
 	/*free kpage*/
 	if(proc->space->kpage != 0) {
