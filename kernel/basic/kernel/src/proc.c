@@ -221,7 +221,6 @@ static inline void proc_free_space(proc_t *proc) {
 	/*unmap share mems*/
 	proc_unmap_shms(proc);
 
-	set_translation_table_base(V2P(_kernel_vm));
 	free_page_tables(proc->space->vm);
 	kfree(proc->space);
 }
