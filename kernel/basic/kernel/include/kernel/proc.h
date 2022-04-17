@@ -82,6 +82,7 @@ extern void    set_current_proc(proc_t* proc);
 extern void    proc_map_page(page_dir_entry_t *vm, uint32_t vaddr, uint32_t paddr, uint32_t permissions);
 extern void    proc_unmap_page(page_dir_entry_t *vm, uint32_t vaddr);
 
+extern int32_t proc_zombie_funeral(void);
 extern void    proc_exit(context_t* ctx, proc_t *proc, int32_t res);
 extern proc_t *proc_create(int32_t type, proc_t* parent);
 

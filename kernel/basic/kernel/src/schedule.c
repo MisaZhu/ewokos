@@ -7,6 +7,8 @@
 #include <kstring.h>
 
 int32_t schedule(context_t* ctx) {
+	proc_zombie_funeral();
+
 	uint32_t core = get_core_id();
 	proc_t* halt_proc = NULL;
 	if(_cpu_cores[core].halt_pid != 0) {
