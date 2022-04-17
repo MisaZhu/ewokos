@@ -12,7 +12,7 @@
 #include <mm/kalloc.h>
 
 typedef struct {
-	int32_t pid;
+	int32_t  pid;
 	uint32_t entry;
 } interrupt_t;
 

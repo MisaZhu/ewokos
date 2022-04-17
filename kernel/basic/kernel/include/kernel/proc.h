@@ -20,51 +20,50 @@ enum {
 };
 
 typedef struct {
-	page_dir_entry_t *vm;
-	malloc_t malloc_man;
-	uint32_t heap_size;
-	uint32_t kpage; //mapped page , share same address with kernel
-	uint32_t inter_stack; //mapped stack page , for ipc/interrupt 
-	bool ready_ping;
+	bool start;
+    uint32_t  entry;
+    context_t ctx;
+    uint32_t  sig_no;
+    uint32_t  saved_state;
+    int32_t   saved_block_by;
+    uint32_t  saved_block_event;
+} signal_t;
+
+typedef struct {
+    uint32_t  entry;
+    context_t ctx;
+    uint32_t  interrupt;
+    uint32_t  saved_state;
+    int32_t   saved_block_by;
+    uint32_t  saved_block_event;
+} proc_interrupt_t;
+
+typedef struct {
+	page_dir_entry_t* vm;
+	malloc_t          malloc_man;
+	uint32_t          heap_size;
+	uint32_t          kpage; //mapped page , share same address with kernel
+	uint32_t          inter_stack; //mapped stack page , for ipc/interrupt 
+	bool              ready_ping;
 	
-	int32_t shms[SHM_MAX];
+	int32_t           shms[SHM_MAX];
 
-	ipc_server_t ipc_server;
-
-	struct {
-		uint32_t entry;
-		context_t ctx;
-		uint32_t state;
-		uint32_t saved_state;
-		int32_t  saved_block_by;
-		uint32_t  saved_block_event;
-	} signal;
-
-	struct {
-		uint32_t saved_state;
-		int32_t  saved_block_by;
-		uint32_t  saved_block_event;
-		uint32_t interrupt;
-		uint32_t entry;
-		context_t ctx;
-	} interrupt;
+	ipc_server_t      ipc_server;
+	signal_t          signal;
+	proc_interrupt_t  interrupt;
 } proc_space_t;
 
 #define STACK_PAGES 32
 #define THREAD_STACK_PAGES 4
 
 typedef struct st_proc {
-	procinfo_t info;
-
-	uint32_t block_event;
-	int64_t sleep_counter; //sleep usec
-
-	proc_space_t* space;
-	void* user_stack[STACK_PAGES];
-
-	context_t ctx;
-
-	ipc_res_t ipc_res;
+	procinfo_t        info;
+	uint32_t          block_event;
+	int64_t           sleep_counter; //sleep usec
+	proc_space_t*     space;
+	void*             user_stack[STACK_PAGES];
+	context_t         ctx;
+	ipc_res_t         ipc_res;
 } proc_t;
 
 extern proc_t* get_current_proc(void);

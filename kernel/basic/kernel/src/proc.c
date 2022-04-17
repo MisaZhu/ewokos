@@ -160,6 +160,13 @@ void __attribute__((optimize("O0"))) proc_switch(context_t* ctx, proc_t* to, boo
 		to->ctx.sp = to->space->inter_stack + PAGE_SIZE;
 		to->space->interrupt.entry = 0; // clear irq request mask
 	}
+	else if(to->space->signal.start) { //have signal request to handle
+		memcpy(&to->space->signal.ctx, &to->ctx, sizeof(context_t)); // save "to" context to ipc ctx, will restore after ipc done.
+		to->ctx.gpr[0] = to->space->signal.sig_no;
+		to->ctx.pc = to->ctx.lr = to->space->signal.entry;
+		to->ctx.sp = to->space->inter_stack + PAGE_SIZE;
+		to->space->signal.start = false; // clear ipc request mask
+	}
 	else if(to->space->ipc_server.start) { //have ipc request to handle
 		ipc_task_t *ipc = proc_ipc_get_task(to);
 		if (ipc != NULL && ipc->uid != 0) {

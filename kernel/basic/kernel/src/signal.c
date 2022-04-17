@@ -5,7 +5,6 @@
 
 int32_t  proc_signal_setup(uint32_t entry) {
 	proc_t* cproc = get_current_proc();
-	cproc->space->signal.state = SIG_STATE_IDLE;
 	cproc->space->signal.entry = entry;
 	return 0;	
 }
@@ -13,28 +12,30 @@ int32_t  proc_signal_setup(uint32_t entry) {
 void  proc_signal_send(context_t* ctx, proc_t* proc, int32_t sig_no) {
 	proc_t* cproc = get_current_proc();
 	ctx->gpr[0] = -1;
-	if(proc == NULL || proc->space->signal.entry == 0 || proc->space->signal.state != SIG_STATE_IDLE)
+	if(proc == NULL || proc->space->signal.entry == 0) 
 		return;
 	ctx->gpr[0] = 0;
 	
+	proc->space->signal.sig_no = sig_no;
 	proc->space->signal.saved_state = proc->info.state;
 	proc->space->signal.saved_block_by = proc->info.block_by;
 	proc->space->signal.saved_block_event = proc->block_event;
-	memcpy(&proc->space->signal.ctx, &proc->ctx, sizeof(context_t));
+	proc->space->signal.start = true;
 
-	proc->ctx.pc = proc->ctx.lr = proc->space->signal.entry;
-	proc->ctx.gpr[0] = sig_no;
-	if(proc != cproc) {
+	if(proc->info.core == cproc->info.core) {
 		proc->info.state = RUNNING;
 		proc_switch(ctx, proc, true);
 	}
-	else 
-		memcpy(ctx, &proc->space->signal.ctx, sizeof(context_t));
+	else {
+		proc_ready(proc);
+#ifdef KERNEL_SMP
+		ipi_send(proc->info.core);
+#endif
+	}
 }
 
 void proc_signal_end(context_t* ctx) {
 	proc_t* cproc = get_current_proc();
-	cproc->space->signal.state = SIG_STATE_IDLE;
 	if(cproc->space->signal.entry == 0)
 		return;
 
