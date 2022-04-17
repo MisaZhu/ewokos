@@ -238,13 +238,17 @@ static void init_tty_stdio(void) {
 }
 
 static void switch_root(void) {
-	setuid(0);
-	load_arch_devs();
-	load_extra_devs();
-	load_sys_init_devs();
-	init_tty_stdio();
-	load_sys_devs();
-	run_procs();
+	int pid = fork();
+	if(pid == 0) {
+		setuid(0);
+		load_arch_devs();
+		load_extra_devs();
+		load_sys_init_devs();
+		init_tty_stdio();
+		load_sys_devs();
+		run_procs();
+		exit(0);
+	}
 }
 
 static void halt(void) {
