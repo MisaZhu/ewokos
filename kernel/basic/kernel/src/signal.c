@@ -2,6 +2,7 @@
 #include <stddef.h>
 #include <kstring.h>
 #include <kernel/schedule.h>
+#include <dev/ipi.h>
 
 int32_t  proc_signal_setup(uint32_t entry) {
 	proc_t* cproc = get_current_proc();
