@@ -79,7 +79,10 @@ ipc_task_t* proc_ipc_req(proc_t* serv_proc, int32_t client_pid, int32_t call_id,
 	_ipc_uid++;
 
 	ipc_task_t* ipc = &serv_proc->space->ipc_server.task;
-	if(ipc->state != IPC_IDLE) {
+	if(ipc->state != IPC_IDLE) { //still busy on ipc, need to buffered
+		if((call_id & IPC_NON_RETURN) == 0) //only non-return ipc can be buffered.
+			return NULL;
+
 		ipc = (ipc_task_t*)kmalloc(sizeof(ipc_task_t));
 		if (ipc == NULL)
 			return NULL;

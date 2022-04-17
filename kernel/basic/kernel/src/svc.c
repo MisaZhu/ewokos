@@ -267,8 +267,9 @@ static void sys_ipc_call(context_t* ctx, int32_t serv_pid, int32_t call_id, prot
 		return;
 
 	if(serv_proc->space->ipc_server.disabled ||
-			proc_ipc_get_task(serv_proc) != NULL) {
-		ctx->gpr[0] = -1; //busy for single task , should retry
+			(proc_ipc_get_task(serv_proc) != NULL &&
+			(call_id & IPC_NON_RETURN) == 0)) {
+		ctx->gpr[0] = -1; //busy for single task for return needed ipc, should retry
 		proc_block_on(serv_pid, (uint32_t)&serv_proc->space->ipc_server);
 		schedule(ctx);
 		return;
@@ -279,7 +280,7 @@ static void sys_ipc_call(context_t* ctx, int32_t serv_pid, int32_t call_id, prot
 		return;
 
 	ctx->gpr[0] = ipc->uid;
-	if(ipc != proc_ipc_get_task(serv_proc))
+	if(ipc != proc_ipc_get_task(serv_proc)) // buffered ipc
 		return;
 	proc_ipc_do_task(ctx, serv_proc, client_proc->info.core);
 }
@@ -405,7 +406,7 @@ static void sys_ipc_end(context_t* ctx) {
 	proc_ipc_close(serv_proc, ipc);
 	proc_wakeup(serv_proc->info.pid, (uint32_t)&serv_proc->space->ipc_server); 
 
-	if(proc_ipc_fetch(serv_proc) != 0) 
+	if(proc_ipc_fetch(serv_proc) != 0)  //fetch next buffered ipc
 		proc_ipc_do_task(ctx, serv_proc, serv_proc->info.core);
 	else
 		schedule(ctx);
