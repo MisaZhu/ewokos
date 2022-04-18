@@ -26,26 +26,15 @@ int32_t proc_ipc_setup(context_t* ctx, uint32_t entry, uint32_t extra_data, uint
 }
 
 uint32_t proc_ipc_fetch(struct st_proc* serv_proc) {
-	ipc_task_t* ipc = &serv_proc->space->ipc_server.task;
-	if(ipc->state == IPC_IDLE ||
-			ipc->uid == 0) {
-		ipc = (ipc_task_t*)queue_pop(&serv_proc->space->ipc_server.tasks);
-		if(ipc == NULL) 
-			return 0;
-		memcpy(&serv_proc->space->ipc_server.task, ipc, sizeof(ipc_task_t));
-		kfree(ipc);
-		ipc = &serv_proc->space->ipc_server.task;
-	}
+	ipc_task_t* ipc = (ipc_task_t*)queue_pop(&serv_proc->space->ipc_server.tasks);
+	if(ipc == NULL) 
+		return 0;
+	serv_proc->space->ipc_server.ctask = ipc;
 	return ipc->uid;
 }
  
 inline ipc_task_t* proc_ipc_get_task(struct st_proc* serv_proc) {
-	ipc_task_t* ipc = &serv_proc->space->ipc_server.task;
-	if(ipc->state == IPC_IDLE ||
-			ipc->uid == 0) {
-		return NULL;
-	}
-	return ipc;
+	return serv_proc->space->ipc_server.ctask;
 }
 
 int32_t proc_ipc_do_task(context_t* ctx, proc_t* serv_proc, uint32_t core) {
@@ -74,25 +63,26 @@ int32_t proc_ipc_do_task(context_t* ctx, proc_t* serv_proc, uint32_t core) {
 
 ipc_task_t* proc_ipc_req(proc_t* serv_proc, int32_t client_pid, int32_t call_id, proto_t* data) {
 	_ipc_uid++;
+	if(serv_proc->space->ipc_server.ctask != NULL &&
+			(call_id & IPC_NON_RETURN) == 0) //only non-return ipc can be buffered.
+		return NULL;
 
-	ipc_task_t* ipc = &serv_proc->space->ipc_server.task;
-	if(ipc->state != IPC_IDLE) { //still busy on ipc, need to buffered
-		if((call_id & IPC_NON_RETURN) == 0) //only non-return ipc can be buffered.
-			return NULL;
+	ipc_task_t* ipc  = (ipc_task_t*)kmalloc(sizeof(ipc_task_t));
+	if(ipc == NULL)
+		return NULL;
 
-		ipc = (ipc_task_t*)kmalloc(sizeof(ipc_task_t));
-		if (ipc == NULL)
-			return NULL;
-		memset(ipc, 0, sizeof(ipc_task_t));
-		queue_push(&serv_proc->space->ipc_server.tasks, ipc);
-	}
-
+	memset(ipc, 0, sizeof(ipc_task_t));
 	ipc->uid = _ipc_uid;
 	ipc->state = IPC_BUSY;
 	ipc->client_pid = client_pid;
 	ipc->call_id = call_id;
 	if(data != NULL)
 		proto_copy(&ipc->data, data->data, data->size); 
+
+	if(serv_proc->space->ipc_server.ctask == NULL) 
+		serv_proc->space->ipc_server.ctask = ipc;
+	else
+		queue_push(&serv_proc->space->ipc_server.tasks, ipc);
 	return ipc; 
 }
 
@@ -102,12 +92,13 @@ void proc_ipc_close(proc_t* serv_proc, ipc_task_t* ipc) {
 		return;
 
 	proto_clear(&ipc->data);
-	memset(ipc, 0, sizeof(ipc_task_t));
-	ipc->state = IPC_IDLE;
+	if(serv_proc->space->ipc_server.ctask == ipc)
+		serv_proc->space->ipc_server.ctask = NULL;
+	kfree(ipc);
 }
 
 void proc_ipc_clear(proc_t* serv_proc) {
-	proc_ipc_close(serv_proc, &serv_proc->space->ipc_server.task);
+	proc_ipc_close(serv_proc, serv_proc->space->ipc_server.ctask);
 	while(true) {
 		ipc_task_t* ipc = (ipc_task_t*)queue_pop(&serv_proc->space->ipc_server.tasks);
 		if(ipc == NULL)
