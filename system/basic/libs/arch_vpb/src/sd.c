@@ -265,6 +265,7 @@ int32_t versatilepb_sd_write_sector(int32_t sector, const void* buf) {
 	while(1) {
 		if(sd_write_done() == 0)
 			break;
+		sleep(0);
 	}
 	return 0;
 }
