@@ -1,13 +1,13 @@
 #ifndef PROC_H
 #define PROC_H
 
-#include <kernel/context.h>
 #include <kernel/ipc.h>
 #include <kernel/core.h>
 #include <mm/mmu.h>
 #include <mm/trunkmem.h>
 #include <procinfo.h>
 #include <stdbool.h>
+#include <queue.h>
 
 #define PROC_FILE_MAX 128
 #define SHM_MAX 128
@@ -20,22 +20,37 @@ enum {
 };
 
 typedef struct {
-	bool start;
-    uint32_t  entry;
-    context_t ctx;
-    uint32_t  sig_no;
-    uint32_t  saved_state;
-    int32_t   saved_block_by;
-    uint32_t  saved_block_event;
+	uint32_t  uid;
+	uint32_t  state;
+	proto_t   data;
+} ipc_res_t;
+
+typedef struct {
+	bool          disabled;
+	uint32_t      entry;
+	uint32_t      flags;
+	uint32_t      extra_data;
+	queue_t       tasks;
+	ipc_task_t    task; //current_task
+
+    bool          do_switch;
+	saved_state_t saved_state;
+} ipc_server_t;
+
+typedef struct {
+    uint32_t      entry;
+    uint32_t      sig_no;
+
+    bool          do_switch;
+	saved_state_t saved_state;
 } signal_t;
 
 typedef struct {
-    uint32_t  entry;
-    context_t ctx;
-    uint32_t  interrupt;
-    uint32_t  saved_state;
-    int32_t   saved_block_by;
-    uint32_t  saved_block_event;
+    uint32_t      entry;
+    uint32_t      interrupt;
+
+    bool          do_switch;
+	saved_state_t saved_state;
 } proc_interrupt_t;
 
 typedef struct {
@@ -106,4 +121,6 @@ extern void    proc_usleep(context_t* ctx, uint32_t usec);
 extern void    proc_ready(proc_t* proc);
 
 extern bool    proc_have_ready_task(uint32_t core);
+extern void    proc_save_state(proc_t* proc, saved_state_t* saved_state);
+extern void    proc_restore_state(context_t* ctx, proc_t* proc, saved_state_t* saved_state);
 #endif

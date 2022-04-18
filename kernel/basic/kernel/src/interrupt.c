@@ -43,12 +43,11 @@ void  interrupt_send(context_t* ctx, uint32_t interrupt) {
 	if(proc == NULL)
 		return;
 	
-	proc->space->interrupt.saved_state = proc->info.state;
-	proc->space->interrupt.saved_block_by = proc->info.block_by;
-	proc->space->interrupt.saved_block_event = proc->block_event;
+	irq_disable_cpsr(&proc->ctx.cpsr); //disable interrupt on proc
+	proc_save_state(proc, &proc->space->interrupt.saved_state);
 	proc->space->interrupt.interrupt = interrupt;
 	proc->space->interrupt.entry = _interrupts[interrupt].entry;
-	irq_disable_cpsr(&proc->ctx.cpsr); //disable interrupt on proc
+	proc->space->interrupt.do_switch = true;
 
 	if(proc->info.core == cproc->info.core) {
 		proc->info.state = RUNNING;
@@ -64,10 +63,8 @@ void  interrupt_send(context_t* ctx, uint32_t interrupt) {
 
 void interrupt_end(context_t* ctx) {
 	proc_t* cproc = get_current_proc();
-	cproc->info.state = cproc->space->interrupt.saved_state;
-	cproc->info.block_by = cproc->space->interrupt.saved_block_by;
-	cproc->block_event = cproc->space->interrupt.saved_block_event;
-	memcpy(ctx, &cproc->space->interrupt.ctx, sizeof(context_t));
+
+	proc_restore_state(ctx, cproc, &cproc->space->interrupt.saved_state);
 	irq_enable_cpsr(&cproc->ctx.cpsr); //enable interrupt on proc
 	schedule(ctx);
 }

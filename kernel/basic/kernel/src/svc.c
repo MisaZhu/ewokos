@@ -397,11 +397,7 @@ static void sys_ipc_end(context_t* ctx) {
 			ipc == NULL)
 		return;
 
-	ipc_context_t* ipc_ctx = &serv_proc->space->ipc_server.ctx;
-	memcpy(ctx, &ipc_ctx->saved_ctx, sizeof(context_t));
-	serv_proc->info.state = ipc_ctx->saved_state;
-	serv_proc->info.block_by = ipc_ctx->saved_block_by;
-	serv_proc->block_event = ipc_ctx->saved_block_event;
+	proc_restore_state(ctx, serv_proc, &serv_proc->space->ipc_server.saved_state);
 	if(serv_proc->info.state == READY || serv_proc->info.state == RUNNING)
 		proc_ready(serv_proc);
 
@@ -489,12 +485,12 @@ static void sys_proc_wakeup(context_t* ctx, uint32_t evt) {
 	proc_wakeup(proc->info.pid, evt);
 	ipc_task_t* ipc = proc_ipc_get_task(proc);
 	if(ipc != NULL &&
-			proc->space->ipc_server.ctx.saved_block_by == proc->info.pid &&
+			proc->space->ipc_server.saved_state.block_by == proc->info.pid &&
 			(evt == 0 ||
-			proc->space->ipc_server.ctx.saved_block_event == evt)) {
-		proc->space->ipc_server.ctx.saved_state = READY;
-		proc->space->ipc_server.ctx.saved_block_by = -1;
-		proc->space->ipc_server.ctx.saved_block_event = 0;
+			proc->space->ipc_server.saved_state.block_event == evt)) {
+		proc->space->ipc_server.saved_state.state = READY;
+		proc->space->ipc_server.saved_state.block_by = -1;
+		proc->space->ipc_server.saved_state.block_event = 0;
 	}
 }
 

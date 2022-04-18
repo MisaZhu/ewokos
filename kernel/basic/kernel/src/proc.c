@@ -145,6 +145,19 @@ static void proc_init_space(proc_t* proc) {
 	proc->space->malloc_man.get_mem_tail = proc_get_mem_tail;
 }
 
+inline void proc_save_state(proc_t* proc, saved_state_t* saved_state) {
+	saved_state->state = proc->info.state;
+	saved_state->block_by = proc->info.block_by;
+	saved_state->block_event = proc->block_event;
+}
+
+inline void proc_restore_state(context_t* ctx, proc_t* proc, saved_state_t* saved_state) {
+	proc->info.state = saved_state->state;
+	proc->info.block_by = saved_state->block_by;
+	proc->block_event = saved_state->block_event;
+	memcpy(ctx, &saved_state->ctx, sizeof(context_t));
+}
+
 void proc_switch(context_t* ctx, proc_t* to, bool quick){
 	proc_t* cproc = get_current_proc();
 	if(to == NULL)
@@ -153,30 +166,28 @@ void proc_switch(context_t* ctx, proc_t* to, bool quick){
 	if(cproc != NULL && cproc->info.state != UNUSED)
 		memcpy(&cproc->ctx, ctx, sizeof(context_t));
 
-	if(to->space->interrupt.entry != 0) { //have irq request to handle 
-		memcpy(&to->space->interrupt.ctx, &to->ctx, sizeof(context_t)); //save "to" context to irq ctx, will restore after irq done.
+	if(to->space->interrupt.do_switch) { //have irq request to handle 
+		memcpy(&to->space->interrupt.saved_state.ctx, &to->ctx, sizeof(context_t)); //save "to" context to irq ctx, will restore after irq done.
 		to->ctx.gpr[0] = to->space->interrupt.interrupt;
 		to->ctx.pc = to->ctx.lr = to->space->interrupt.entry;
 		to->ctx.sp = to->space->inter_stack + PAGE_SIZE;
-		to->space->interrupt.entry = 0; // clear irq request mask
+		to->space->interrupt.do_switch = false; // clear irq request mask
 	}
-	else if(to->space->signal.start) { //have signal request to handle
-		memcpy(&to->space->signal.ctx, &to->ctx, sizeof(context_t)); // save "to" context to ipc ctx, will restore after ipc done.
+	else if(to->space->signal.do_switch) { //have signal request to handle
+		memcpy(&to->space->signal.saved_state.ctx, &to->ctx, sizeof(context_t)); // save "to" context to ipc ctx, will restore after ipc done.
 		to->ctx.gpr[0] = to->space->signal.sig_no;
 		to->ctx.pc = to->ctx.lr = to->space->signal.entry;
 		to->ctx.sp = to->space->inter_stack + PAGE_SIZE;
-		to->space->signal.start = false; // clear ipc request mask
+		to->space->signal.do_switch = false; // clear ipc request mask
 	}
-	else if(to->space->ipc_server.start) { //have ipc request to handle
+	else if(to->space->ipc_server.do_switch) { //have ipc request to handle
 		ipc_task_t *ipc = proc_ipc_get_task(to);
-		if (ipc != NULL && ipc->uid != 0) {
-			memcpy(&to->space->ipc_server.ctx.saved_ctx, &to->ctx, sizeof(context_t)); // save "to" context to ipc ctx, will restore after ipc done.
-			to->ctx.gpr[0] = ipc->uid;
-			to->ctx.gpr[1] = to->space->ipc_server.extra_data;
-			to->ctx.pc = to->ctx.lr = to->space->ipc_server.entry;
-			to->ctx.sp = to->space->inter_stack + PAGE_SIZE;
-		}
-		to->space->ipc_server.start = false; // clear ipc request mask
+		memcpy(&to->space->ipc_server.saved_state.ctx, &to->ctx, sizeof(context_t)); // save "to" context to ipc ctx, will restore after ipc done.
+		to->ctx.gpr[0] = ipc->uid;
+		to->ctx.gpr[1] = to->space->ipc_server.extra_data;
+		to->ctx.pc = to->ctx.lr = to->space->ipc_server.entry;
+		to->ctx.sp = to->space->inter_stack + PAGE_SIZE;
+		to->space->ipc_server.do_switch = false; // clear ipc request mask
 	}
 
 	if(cproc != to && cproc != NULL &&

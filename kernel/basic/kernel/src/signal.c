@@ -17,11 +17,9 @@ void  proc_signal_send(context_t* ctx, proc_t* proc, int32_t sig_no) {
 		return;
 	ctx->gpr[0] = 0;
 	
+	proc_save_state(proc, &proc->space->signal.saved_state);
 	proc->space->signal.sig_no = sig_no;
-	proc->space->signal.saved_state = proc->info.state;
-	proc->space->signal.saved_block_by = proc->info.block_by;
-	proc->space->signal.saved_block_event = proc->block_event;
-	proc->space->signal.start = true;
+	proc->space->signal.do_switch = true;
 
 	if(proc->info.core == cproc->info.core) {
 		proc->info.state = RUNNING;
@@ -40,10 +38,7 @@ void proc_signal_end(context_t* ctx) {
 	if(cproc->space->signal.entry == 0)
 		return;
 
-	cproc->info.state = cproc->space->signal.saved_state;
-	cproc->info.block_by = cproc->space->signal.saved_block_by;
-	cproc->block_event = cproc->space->signal.saved_block_event;
-	memcpy(ctx, &cproc->space->signal.ctx, sizeof(context_t));
+	proc_restore_state(ctx, cproc, &cproc->space->signal.saved_state);
 	schedule(ctx);
 }
 

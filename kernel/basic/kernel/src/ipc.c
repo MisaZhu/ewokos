@@ -56,11 +56,8 @@ int32_t proc_ipc_do_task(context_t* ctx, proc_t* serv_proc, uint32_t core) {
 		return -1;
 	}
 
-	ipc_context_t* ipc_ctx = &serv_proc->space->ipc_server.ctx;
-	ipc_ctx->saved_state = serv_proc->info.state;
-	ipc_ctx->saved_block_by = serv_proc->info.block_by;
-	ipc_ctx->saved_block_event = serv_proc->block_event;
-	serv_proc->space->ipc_server.start = true;
+	proc_save_state(serv_proc, &serv_proc->space->ipc_server.saved_state);
+	serv_proc->space->ipc_server.do_switch = true;
 
 	if(serv_proc->info.core == core) {
 		serv_proc->info.state = RUNNING;
