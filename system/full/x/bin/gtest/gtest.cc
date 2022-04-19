@@ -14,6 +14,7 @@ class TestX : public XWin {
 	int count, imgX, imgY;
 	bool circle;
 	graph_t* img;
+	font_t* font;
 
 	void drawImage(Graph& g) {
 		if(img == NULL)
@@ -27,6 +28,7 @@ public:
 		circle = true;
         imgX = imgY = 0;
 		img = png_image_new("/data/images/rokid.png");	
+		font = font_by_name("16x32");
 	}
 	
 	inline ~TestX() {
@@ -45,7 +47,6 @@ protected:
 
 	void onRepaint(Graph& g) {
 		char str[32];
-		font_t* font = font_by_name("16x32");
 
 		int x = random_to(g.getW());
 		int y = random_to(g.getH());
@@ -53,7 +54,7 @@ protected:
 		int h = random_to(128);
 		int c = random();
 
-		if((count % 100) == 0) {
+		if((count++ % 50) == 0) {
 			g.fill(0, 0, g.getW(), g.getH(), 0xff000000);
 			imgX = x;
 			imgY = y;
@@ -72,9 +73,9 @@ protected:
 			g.box(x, y, w, h, c);
 		}
 
-		snprintf(str, 31, "paint = %d", count++);
-		g.fill(0, 0, g.getW(), font->h, 0xff000000);
-		g.drawText(0, 0, str, font, 0xffffffff);
+		snprintf(str, 31, "EwokOS %d", count);
+		g.fill(imgX, imgY+img->h+2, img->w, font->h, 0xff000000);
+		g.drawText(imgX, imgY+img->h+2, str, font, 0xffffffff);
 		drawImage(g);
 
 		circle = !circle;	
