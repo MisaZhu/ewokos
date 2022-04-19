@@ -266,10 +266,8 @@ static void sys_ipc_call(context_t* ctx, int32_t serv_pid, int32_t call_id, prot
 			serv_proc->space->ipc_server.entry == 0) //no ipc service setup
 		return;
 
-	if(serv_proc->space->ipc_server.disabled ||
-			(proc_ipc_get_task(serv_proc) != NULL &&
-			(call_id & IPC_NON_RETURN) == 0)) {
-		ctx->gpr[0] = -1; //busy for single task for return needed ipc, should retry
+	if(serv_proc->space->ipc_server.disabled) {
+		ctx->gpr[0] = -1; // blocked if server disabled, should retry
 		proc_block_on(serv_pid, (uint32_t)&serv_proc->space->ipc_server);
 		schedule(ctx);
 		return;
@@ -296,12 +294,12 @@ static void sys_ipc_get_return(context_t* ctx, int32_t pid, uint32_t uid, proto_
 	if(client_proc->ipc_res.state != IPC_RETURN) { //block retry for serv return
 		proc_t* serv_proc = proc_get(pid);
 		ipc_task_t* ipc = proc_ipc_get_task(serv_proc);
-		if(ipc == NULL || ipc->uid != uid) {
+		if(ipc == NULL) {
 			ctx->gpr[0] = -2;
 			return;
 		}
 
-		if((ipc->call_id & IPC_NON_RETURN) == 0) {
+		if((ipc->call_id & IPC_NON_RETURN) == 0 || ipc->uid != uid) {
 			ctx->gpr[0] = -1;
 			proc_block_on(pid, (uint32_t)&serv_proc->space->ipc_server);
 			schedule(ctx);
@@ -374,18 +372,15 @@ static void sys_ipc_set_return(context_t* ctx, uint32_t uid, proto_t* data) {
 		if(data != NULL)
 			proto_copy(&client_proc->ipc_res.data, data->data, data->size);
 
-		proc_ready(client_proc);
-		schedule(ctx);
-		/*if(client_proc->info.core == serv_proc->info.core) {
-			//client_proc->info.state = RUNNING;
+		if(client_proc->info.core == serv_proc->info.core) {
+			client_proc->info.state = RUNNING;
 			proc_switch(ctx, client_proc, true);
 			return;
 		}
 		else {
-			//proc_ready(client_proc);
+			proc_ready(client_proc);
 			schedule(ctx);
 		}
-		*/
 	}
 }
 

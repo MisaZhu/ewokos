@@ -63,10 +63,6 @@ int32_t proc_ipc_do_task(context_t* ctx, proc_t* serv_proc, uint32_t core) {
 
 ipc_task_t* proc_ipc_req(proc_t* serv_proc, int32_t client_pid, int32_t call_id, proto_t* data) {
 	_ipc_uid++;
-	if(serv_proc->space->ipc_server.ctask != NULL &&
-			(call_id & IPC_NON_RETURN) == 0) //only non-return ipc can be buffered.
-		return NULL;
-
 	ipc_task_t* ipc  = (ipc_task_t*)kmalloc(sizeof(ipc_task_t));
 	if(ipc == NULL)
 		return NULL;
@@ -80,9 +76,9 @@ ipc_task_t* proc_ipc_req(proc_t* serv_proc, int32_t client_pid, int32_t call_id,
 		proto_copy(&ipc->data, data->data, data->size); 
 
 	if(serv_proc->space->ipc_server.ctask == NULL) 
-		serv_proc->space->ipc_server.ctask = ipc;
+		serv_proc->space->ipc_server.ctask = ipc; //set current task
 	else
-		queue_push(&serv_proc->space->ipc_server.tasks, ipc);
+		queue_push(&serv_proc->space->ipc_server.tasks, ipc); // buffered
 	return ipc; 
 }
 
