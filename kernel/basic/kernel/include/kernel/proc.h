@@ -34,6 +34,7 @@ typedef struct {
 	ipc_task_t*   ctask; //current_task
 
     bool          do_switch;
+	uint32_t      stack; //mapped stack page
 	saved_state_t saved_state;
 } ipc_server_t;
 
@@ -42,6 +43,7 @@ typedef struct {
     uint32_t      sig_no;
 
     bool          do_switch;
+	uint32_t      stack; //mapped stack page
 	saved_state_t saved_state;
 } signal_t;
 
@@ -50,6 +52,7 @@ typedef struct {
     uint32_t      interrupt;
 
     bool          do_switch;
+	uint32_t      stack; //mapped stack page
 	saved_state_t saved_state;
 } proc_interrupt_t;
 
@@ -58,7 +61,6 @@ typedef struct {
 	malloc_t          malloc_man;
 	uint32_t          heap_size;
 	uint32_t          kpage; //mapped page , share same address with kernel
-	uint32_t          inter_stack; //mapped stack page , for ipc/interrupt 
 	bool              ready_ping;
 	
 	int32_t           shms[SHM_MAX];

@@ -2,11 +2,19 @@
 #include <stddef.h>
 #include <kstring.h>
 #include <kernel/schedule.h>
+#include <kernel/system.h>
 #include <dev/ipi.h>
+#include <mm/mmu.h>
+#include <mm/kalloc.h>
 
 int32_t  proc_signal_setup(uint32_t entry) {
 	proc_t* cproc = get_current_proc();
 	cproc->space->signal.entry = entry;
+
+	uint32_t page = (uint32_t)kalloc4k();
+	map_page(cproc->space->vm, page, V2P(page), AP_RW_RW, 0);
+	cproc->space->signal.stack = page;
+	flush_tlb();
 	return 0;	
 }
 

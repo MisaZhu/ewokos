@@ -517,8 +517,7 @@ static int32_t sys_interrupt_setup(uint32_t interrupt, uint32_t entry) {
 	proc_t * cproc = get_current_proc();
 	if(cproc->info.owner > 0)
 		return -1;
-	interrupt_setup(cproc, interrupt, entry);
-	return 0;
+	return interrupt_setup(cproc, interrupt, entry);
 }
 
 static void sys_interrupt_end(context_t* ctx) {

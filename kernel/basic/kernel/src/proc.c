@@ -170,14 +170,14 @@ void proc_switch(context_t* ctx, proc_t* to, bool quick){
 		memcpy(&to->space->interrupt.saved_state.ctx, &to->ctx, sizeof(context_t)); //save "to" context to irq ctx, will restore after irq done.
 		to->ctx.gpr[0] = to->space->interrupt.interrupt;
 		to->ctx.pc = to->ctx.lr = to->space->interrupt.entry;
-		to->ctx.sp = to->space->inter_stack + PAGE_SIZE;
+		to->ctx.sp = to->space->interrupt.stack + PAGE_SIZE;
 		to->space->interrupt.do_switch = false; // clear irq request mask
 	}
 	else if(to->space->signal.do_switch) { //have signal request to handle
 		memcpy(&to->space->signal.saved_state.ctx, &to->ctx, sizeof(context_t)); // save "to" context to ipc ctx, will restore after ipc done.
 		to->ctx.gpr[0] = to->space->signal.sig_no;
 		to->ctx.pc = to->ctx.lr = to->space->signal.entry;
-		to->ctx.sp = to->space->inter_stack + PAGE_SIZE;
+		to->ctx.sp = to->space->signal.stack + PAGE_SIZE;
 		to->space->signal.do_switch = false; // clear ipc request mask
 	}
 	else if(to->space->ipc_server.do_switch) { //have ipc request to handle
@@ -186,7 +186,7 @@ void proc_switch(context_t* ctx, proc_t* to, bool quick){
 		to->ctx.gpr[0] = ipc->uid;
 		to->ctx.gpr[1] = to->space->ipc_server.extra_data;
 		to->ctx.pc = to->ctx.lr = to->space->ipc_server.entry;
-		to->ctx.sp = to->space->inter_stack + PAGE_SIZE;
+		to->ctx.sp = to->space->ipc_server.stack + PAGE_SIZE;
 		to->space->ipc_server.do_switch = false; // clear ipc request mask
 	}
 
@@ -346,9 +346,17 @@ static void proc_funeral(proc_t* proc) {
 	}
 
 	/*free small_stack*/
-	if(proc->space->inter_stack != 0) {
-		kfree4k((void*)proc->space->inter_stack);	
-		unmap_page(proc->space->vm, proc->space->inter_stack);
+	if(proc->space->interrupt.stack != 0) {
+		kfree4k((void*)proc->space->interrupt.stack);	
+		unmap_page(proc->space->vm, proc->space->interrupt.stack);
+	}
+	if(proc->space->signal.stack != 0) {
+		kfree4k((void*)proc->space->signal.stack);	
+		unmap_page(proc->space->vm, proc->space->signal.stack);
+	}
+	if(proc->space->ipc_server.stack != 0) {
+		kfree4k((void*)proc->space->ipc_server.stack);	
+		unmap_page(proc->space->vm, proc->space->ipc_server.stack);
 	}
 
 	/*free user_stack*/

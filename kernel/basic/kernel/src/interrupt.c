@@ -22,16 +22,15 @@ void interrupt_init(void) {
 	memset(&_interrupts, 0, sizeof(interrupt_t)*SYS_INT_MAX);	
 }
 
-void interrupt_setup(proc_t* cproc, uint32_t interrupt, uint32_t entry) {
+int32_t interrupt_setup(proc_t* cproc, uint32_t interrupt, uint32_t entry) {
 	_interrupts[interrupt].entry = entry;
 	_interrupts[interrupt].pid = cproc->info.pid;
 
-	if(cproc->space->inter_stack == 0) {
-		uint32_t page = (uint32_t)kalloc4k();
-		map_page(cproc->space->vm, page, V2P(page), AP_RW_RW, 0);
-		cproc->space->inter_stack = page;
-		flush_tlb();
-	}
+	uint32_t page = (uint32_t)kalloc4k();
+	map_page(cproc->space->vm, page, V2P(page), AP_RW_RW, 0);
+	cproc->space->interrupt.stack = page;
+	flush_tlb();
+	return 0;
 }
 
 void  interrupt_send(context_t* ctx, uint32_t interrupt) {
