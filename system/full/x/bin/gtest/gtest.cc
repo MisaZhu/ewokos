@@ -4,18 +4,34 @@
 #include <stdio.h>
 #include <string.h>
 #include <vprintf.h>
+#include <upng/upng.h>
 #include <sys/basic_math.h>
 #include <x++/X.h>
 
 using namespace Ewok;
 
 class TestX : public XWin {
-	int count;
+	int count, imgX, imgY;
 	bool circle;
+	graph_t* img;
+
+	void drawImage(Graph& g) {
+		if(img == NULL)
+			return;
+		g.blt(img, 0, 0, img->w, img->h,
+				imgX, imgY, img->w, img->h, 0xff);
+	}
 public:
 	inline TestX() {
 		count = 0;
 		circle = true;
+        imgX = imgY = 0;
+		img = png_image_new("/data/images/rokid.png");	
+	}
+	
+	inline ~TestX() {
+		if(img != NULL)
+			graph_free(img);
 	}
 protected:
 	void onEvent(xevent_t* ev) {
@@ -37,6 +53,16 @@ protected:
 		int h = random_to(128);
 		int c = random();
 
+		if((count % 100) == 0) {
+			g.fill(0, 0, g.getW(), g.getH(), 0xff000000);
+			imgX = x;
+			imgY = y;
+			if(imgX > (g.getW() - img->w))
+				imgX = g.getW() - img->w;
+			if(imgY > (g.getH() - img->h))
+				imgY = g.getH() - img->h;
+		}
+
 		if(circle) {
 			g.fillCircle(x, y, w, c);
 			g.circle(x, y, w+10, c);
@@ -49,6 +75,7 @@ protected:
 		snprintf(str, 31, "paint = %d", count++);
 		g.fill(0, 0, g.getW(), font->h, 0xff000000);
 		g.drawText(0, 0, str, font, 0xffffffff);
+		drawImage(g);
 
 		circle = !circle;	
 	}
