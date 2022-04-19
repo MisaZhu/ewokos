@@ -57,14 +57,14 @@ protected:
 		w = w < 8 ? 8 : w;
 		h = h < 8 ? 8 : h;
 
-		if((count++ % 50) == 0) {
+		if((count++ % 100) == 0) {
 			g.fill(0, 0, g.getW(), g.getH(), 0xff000000);
 			imgX = x;
 			imgY = y;
 			if(imgX > (g.getW() - img->w))
 				imgX = g.getW() - img->w;
-			if(imgY > (g.getH() - img->h))
-				imgY = g.getH() - img->h;
+			if(imgY > (g.getH() - img->h - font->h))
+				imgY = g.getH() - img->h - font->h;
 		}
 
 		if(circle) {
@@ -78,8 +78,6 @@ protected:
 
 		snprintf(str, 31, "EwokOS %d", count);
 		get_text_size(str, font, (int32_t*)&w, NULL);
-		//g.fill(imgX, imgY+img->h+2, w, font->h, 0xff000000);
-		//g.drawText(imgX, imgY+img->h+2, str, font, 0xffffffff);
 		g.fill(imgX, imgY+img->h+2, img->w, font->h, 0xffffffff);
 		g.drawText(imgX+4, imgY+img->h+2, str, font, 0xff000000);
 		drawImage(g);
