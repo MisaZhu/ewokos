@@ -28,7 +28,7 @@ public:
 		circle = true;
         imgX = imgY = 0;
 		img = png_image_new("/data/images/rokid.png");	
-		font = font_by_name("16x32");
+		font = font_by_name("8x16");
 	}
 	
 	inline ~TestX() {
@@ -54,6 +54,9 @@ protected:
 		int h = random_to(128);
 		int c = random();
 
+		w = w < 8 ? 8 : w;
+		h = h < 8 ? 8 : h;
+
 		if((count++ % 50) == 0) {
 			g.fill(0, 0, g.getW(), g.getH(), 0xff000000);
 			imgX = x;
@@ -74,8 +77,11 @@ protected:
 		}
 
 		snprintf(str, 31, "EwokOS %d", count);
-		g.fill(imgX, imgY+img->h+2, img->w, font->h, 0xff000000);
-		g.drawText(imgX, imgY+img->h+2, str, font, 0xffffffff);
+		get_text_size(str, font, (int32_t*)&w, NULL);
+		//g.fill(imgX, imgY+img->h+2, w, font->h, 0xff000000);
+		//g.drawText(imgX, imgY+img->h+2, str, font, 0xffffffff);
+		g.fill(imgX, imgY+img->h+2, img->w, font->h, 0xffffffff);
+		g.drawText(imgX+4, imgY+img->h+2, str, font, 0xff000000);
 		drawImage(g);
 
 		circle = !circle;	
