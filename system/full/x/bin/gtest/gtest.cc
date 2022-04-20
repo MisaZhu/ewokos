@@ -55,8 +55,8 @@ protected:
 		int gH = g.getH();
 		graph_t* img = gW > (img_big->w*2) ? img_big: img_small;
 
-		int x = random_to(gW-img->w);
-		int y = random_to(gH-img->h);
+		int x = random_to(gW);
+		int y = random_to(gH);
 		int w = random_to(gW/4);
 		int h = random_to(gH/4);
 		int c = random();
@@ -66,12 +66,8 @@ protected:
 
 		if((count++ % 100) == 0) {
 			g.fill(0, 0, gW, gH, 0xff000000);
-			imgX = x;
-			imgY = y;
-			if(imgX > (gW - img->w))
-				imgX = gW - img->w;
-			if(imgY > (gH - img->h - font->h))
-				imgY = gH - img->h - font->h;
+			imgX = random_to(gW - img->w);
+			imgY = random_to(gH - img->h - font->h);
 		}
 
 		if(circle) {
