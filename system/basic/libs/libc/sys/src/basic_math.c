@@ -5,6 +5,17 @@
 extern "C" {
 #endif
 
+#ifndef SOFT_DIV
+inline uint32_t div_u32(uint32_t v, uint32_t by) {
+	return v / by;
+}
+
+inline uint32_t mod_u32(uint32_t v, uint32_t by) {
+	return v % by;
+}
+
+#else
+
 inline uint32_t div_u32(uint32_t v, uint32_t by) {
 	if(by == 0)
 		return 0;
@@ -86,6 +97,8 @@ inline uint32_t mod_u32(uint32_t v, uint32_t by) {
 	return v - (div*by);
 }
 
+#endif
+
 inline uint32_t abs32(int32_t v) {
 	if(v < 0)
 		return (-v);
@@ -102,13 +115,6 @@ inline uint32_t random_u32(void) {
 
 inline uint32_t random_to(uint32_t to) {
 	uint32_t r = random_u32();	
-
-	while(1) {
-		if((r >> 1) <= to) {
-			break;
-		}
-		r = r >> 1;	
-	}
 	return mod_u32(r, to);
 }
 

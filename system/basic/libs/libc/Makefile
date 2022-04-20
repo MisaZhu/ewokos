@@ -7,16 +7,22 @@ TARGET_DIR = $(BUILD_DIR)
 
 # flags
 CFLAGS = -Wstrict-prototypes \
-				 -marm \
-				 -pedantic -Wall -Wextra -msoft-float -fPIC -mapcs-frame \
+		 -marm \
+		 -pedantic -Wall -Wextra -msoft-float -fPIC -mapcs-frame \
          -fno-builtin-printf \
          -fno-builtin-memset \
          -fno-builtin-snprintf \
          -fno-builtin-sprintf \
          -fno-builtin-fprintf \
-				 -Wno-overlength-strings \
+		 -Wno-overlength-strings \
          -fno-builtin-exit -fno-builtin-stdio \
-				 -std=c99 
+		 -std=c99 
+
+ifeq ($(SOFT_DIV),yes)
+CFLAGS += -DSOFT_DIV
+else
+CFLAGS += -mcpu=cortex-a7
+endif
 
 #CFLAGS +=  -g
 CFLAGS +=  -O2
