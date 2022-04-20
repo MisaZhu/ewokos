@@ -242,6 +242,8 @@ inline void proc_ready(proc_t* proc) {
 		return;
 
 	proc->info.state = READY;
+	proc->block_event = 0;
+	proc->info.block_by = -1;
 	if(queue_in(&_ready_queue[proc->info.core], proc) == NULL)
 		queue_push_head(&_ready_queue[proc->info.core], proc);
 }
@@ -563,9 +565,6 @@ void proc_wakeup(int32_t pid, uint32_t event) {
 		if(proc->info.state == BLOCK && 
 				(proc->block_event == event || event == 0) && 
 				proc->info.block_by == pid) {
-			proc->block_event = 0;
-			proc->info.block_by = -1;
-
 			proc_ready(proc);
 		}
 		i++;
