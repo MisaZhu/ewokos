@@ -55,8 +55,8 @@ protected:
 		int gH = g.getH();
 		graph_t* img = gW > (img_big->w*2) ? img_big: img_small;
 
-		int x = random_to(gW);
-		int y = random_to(gH);
+		int x = random_to(gW-img->w);
+		int y = random_to(gH-img->h);
 		int w = random_to(gW/4);
 		int h = random_to(gH/4);
 		int c = random();
