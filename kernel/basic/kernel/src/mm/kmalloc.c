@@ -7,6 +7,9 @@
 #include <kprintf.h>
 #include <stddef.h>
 
+/*
+kmalloc manage the memory(from KMALLOC_BASE to KMALLOC_END) for kernel.
+*/
 static malloc_t _kmalloc;
 static uint32_t _kmalloc_mem_tail;
 
@@ -18,7 +21,7 @@ static void km_shrink(void* arg, int32_t pages) {
 static int32_t km_expand(void* arg, int32_t pages) {
 	(void)arg;
 	uint32_t to = _kmalloc_mem_tail + (pages * PAGE_SIZE);
-	if(to > KMALLOC_END)
+	if(to > KMALLOC_END) //over flow
 		return -1;
 
 	_kmalloc_mem_tail = to;
