@@ -1,7 +1,6 @@
 #include <dev/dev.h>
 #include <bcm283x/gpio.h>
 #include <bcm283x/sd.h>
-#include <dev/actled.h>
 #include <kernel/system.h>
 #include <kernel/proc.h>
 #include <basic_math.h>

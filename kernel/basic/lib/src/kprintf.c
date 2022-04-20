@@ -1,7 +1,6 @@
 #include "kprintf.h"
 #include "vprintf.h"
 #include "dev/uart.h"
-#include "dev/actled.h"
 #include "kstring.h"
 #include "kernel/system.h"
 #include <stddef.h>
@@ -23,7 +22,6 @@ static void outc(char c, void* p) {
 }
 
 void printf(const char *format, ...) {
-	actled(true);
 	_delay_msec(30);
 
 	va_list ap;
@@ -31,6 +29,5 @@ void printf(const char *format, ...) {
 	_len = 0;
 	v_printf(outc, NULL, format, ap);
 	uart_out(_buf);
-	actled(false);
 }
 

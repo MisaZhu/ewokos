@@ -1,7 +1,6 @@
 #include <kernel/system.h>
 #include <kernel/core.h>
 #include <dev/timer.h>
-#include <dev/actled.h>
 
 void __attribute__((optimize("O0"))) _delay(uint32_t count) {
 	while(count > 0) {
