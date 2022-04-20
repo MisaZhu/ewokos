@@ -91,6 +91,7 @@ builtin_apps: $(PROGS)
 	cd $(ROOT_DIR)/bin/kill;make
 	cd $(ROOT_DIR)/bin/rm;make
 	cd $(ROOT_DIR)/bin/mkdir;make
+	cd $(ROOT_DIR)/bin/grep;make
 
 clean:
 	rm -f $(CLEAN)
@@ -115,3 +116,4 @@ clean:
 	cd $(ROOT_DIR)/bin/kill;make clean
 	cd $(ROOT_DIR)/bin/rm;make clean
 	cd $(ROOT_DIR)/bin/mkdir;make clean
+	cd $(ROOT_DIR)/bin/grep;make clean

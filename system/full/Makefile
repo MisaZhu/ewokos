@@ -28,7 +28,6 @@ extra_libs:
 
 EXTRA_BIN_DIR=bin
 extra_bin:
-	cd $(EXTRA_BIN_DIR)/grep;make
 	cd $(EXTRA_BIN_DIR)/fbtool;make
 
 X_DIR=x
@@ -73,5 +72,4 @@ clean:
 	cd $(X_DIR)/bin/gtest;make clean
 	cd $(X_DIR)/bin/launcher;make clean
 	cd $(X_DIR)/bin/xconsole;make clean
-	cd $(EXTRA_BIN_DIR)/grep;make clean
 	cd $(EXTRA_BIN_DIR)/fbtool;make clean
