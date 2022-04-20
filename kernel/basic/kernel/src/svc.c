@@ -508,12 +508,7 @@ static int32_t sys_romfs_get(uint32_t index, char* name, char* data) {
 #else
 int32_t romfs_get_by_index(uint32_t index, char* name, char* data);
 static int32_t sys_romfs_get(uint32_t index, char* name, char* data) {
-	return romfs_get_by_index(index, name, data);void* krealloc_raw(void* s, uint32_t old_size, uint32_t new_size) {
-	void* p = kmalloc(new_size);
-	memcpy(p, s, old_size);
-	kfree(s);
-	return p;
-}
+	return romfs_get_by_index(index, name, data);
 }
 #endif
 
