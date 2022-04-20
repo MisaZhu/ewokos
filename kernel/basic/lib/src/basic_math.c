@@ -1,5 +1,17 @@
 #include <basic_math.h>
 
+#ifdef UIDIV
+
+inline uint32_t div_u32(uint32_t v, uint32_t by) {
+	return v / by;
+}
+
+inline uint32_t mod_u32(uint32_t v, uint32_t by) {
+	return v % by;
+}
+
+#else
+
 inline uint32_t div_u32(uint32_t v, uint32_t by) {
 	if(by == 0)
 		return 0;
@@ -80,3 +92,5 @@ inline uint32_t mod_u32(uint32_t v, uint32_t by) {
 	uint32_t div = div_u32(v, by);
 	return v - (div*by);
 }
+
+#endif
