@@ -75,8 +75,8 @@ protected:
 		}
 
 		if(circle) {
-			g.fillCircle(x, y, w, c);
-			g.circle(x, y, w+10, c);
+			g.fillCircle(x, y, h, c);
+			g.circle(x, y, h+10, c);
 		}
 		else {
 			g.fill(x+5, y+5, w-10, h-10, c);
