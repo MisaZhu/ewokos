@@ -13,10 +13,11 @@ using namespace Ewok;
 class TestX : public XWin {
 	int count, imgX, imgY;
 	bool circle;
-	graph_t* img;
+	graph_t* img_big;
+	graph_t* img_small;
 	font_t* font;
 
-	void drawImage(Graph& g) {
+	void drawImage(Graph& g, graph_t* img) {
 		if(img == NULL)
 			return;
 		g.blt(img, 0, 0, img->w, img->h,
@@ -27,13 +28,16 @@ public:
 		count = 0;
 		circle = true;
         imgX = imgY = 0;
-		img = png_image_new("/data/images/rokid.png");	
+		img_big = png_image_new("/data/images/rokid.png");	
+		img_small = png_image_new("/data/images/rokid_small.png");	
 		font = font_by_name("8x16");
 	}
 	
 	inline ~TestX() {
-		if(img != NULL)
-			graph_free(img);
+		if(img_big != NULL)
+			graph_free(img_big);
+		if(img_small != NULL)
+			graph_free(img_small);
 	}
 protected:
 	void onEvent(xevent_t* ev) {
@@ -47,6 +51,7 @@ protected:
 
 	void onRepaint(Graph& g) {
 		char str[32];
+		graph_t* img = g.getW() > (img_big->w*2) ? img_big: img_small;
 
 		int x = random_to(g.getW());
 		int y = random_to(g.getH());
@@ -80,7 +85,7 @@ protected:
 		get_text_size(str, font, (int32_t*)&w, NULL);
 		g.fill(imgX, imgY+img->h+2, img->w, font->h, 0xffffffff);
 		g.drawText(imgX+4, imgY+img->h+2, str, font, 0xff000000);
-		drawImage(g);
+		drawImage(g, img);
 
 		circle = !circle;	
 	}
