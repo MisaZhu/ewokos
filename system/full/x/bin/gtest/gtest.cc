@@ -108,7 +108,7 @@ int main(int argc, char* argv[]) {
 	x.screenInfo(scr);
 
 	TestX xwin;
-	x.open(&xwin, random()%320, random()%240, scr.size.w/2-20, scr.size.h/2-20, "gtest", X_STYLE_NORMAL);
+	x.open(&xwin, 20, 40, scr.size.w/2-20, scr.size.h/2-20, "gtest", X_STYLE_NORMAL);
 
 	xwin.setVisible(true);
 
