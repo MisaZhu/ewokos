@@ -1,6 +1,6 @@
 #include <basic_math.h>
 
-#ifdef UIDIV
+#ifndef SOFT_DIV
 
 inline uint32_t div_u32(uint32_t v, uint32_t by) {
 	return v / by;
