@@ -56,21 +56,25 @@
 	
 	install minicom(linux/mac)
 	
-.make and run
+.make 
 	
 	"cd kernel/build/{arch}; make":
 	  build EwokOS kernel image.
+	
+.make rootfs (system/root.ext2)
+	
+	"cd system; make/make full(with xgui)/make extra(with xgui and extra apps"; make sd:
+	  build EwokOS rootfs apps and sd file system.
+	
+.run by qemu (raspi2)
+	
+	"cd kernel/build/raspi2"
 	"make run":
 	  run EwokOS(username: root, password: (none));
 	"make debug":
 	  run EwokOS at debug server-mode.
 	"make gdb":
 	  debug EwokOS (debug client-mode).
-	
-.make rootfs (system/root.ext2)
-	
-	"cd system; make/make full(with xgui)/make extra(with xgui and extra apps"; make sd:
-	  build EwokOS rootfs apps and sd file system.
 
 .commands 
 	
