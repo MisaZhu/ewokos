@@ -62,10 +62,3 @@ void kfree(void* p) {
 		return;
 	trunk_free(&_kmalloc, p);
 }
-
-void* krealloc_raw(void* s, uint32_t old_size, uint32_t new_size) {
-	void* p = kmalloc(new_size);
-	memcpy(p, s, old_size);
-	kfree(s);
-	return p;
-}
