@@ -51,25 +51,27 @@ protected:
 
 	void onRepaint(Graph& g) {
 		char str[32];
-		graph_t* img = g.getW() > (img_big->w*2) ? img_big: img_small;
+		int gW = g.getW();
+		int gH = g.getH();
+		graph_t* img = gW > (img_big->w*2) ? img_big: img_small;
 
-		int x = random_to(g.getW());
-		int y = random_to(g.getH());
-		int w = random_to(128);
-		int h = random_to(128);
+		int x = random_to(gW);
+		int y = random_to(gH);
+		int w = random_to(gW/4);
+		int h = random_to(gH/4);
 		int c = random();
 
 		w = w < 8 ? 8 : w;
 		h = h < 8 ? 8 : h;
 
 		if((count++ % 100) == 0) {
-			g.fill(0, 0, g.getW(), g.getH(), 0xff000000);
+			g.fill(0, 0, gW, gH, 0xff000000);
 			imgX = x;
 			imgY = y;
-			if(imgX > (g.getW() - img->w))
-				imgX = g.getW() - img->w;
-			if(imgY > (g.getH() - img->h - font->h))
-				imgY = g.getH() - img->h - font->h;
+			if(imgX > (gW - img->w))
+				imgX = gW - img->w;
+			if(imgY > (gH - img->h - font->h))
+				imgY = gH - img->h - font->h;
 		}
 
 		if(circle) {
