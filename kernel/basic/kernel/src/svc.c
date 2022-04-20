@@ -18,7 +18,6 @@
 #include <kstring.h>
 #include <kprintf.h>
 #include <stddef.h>
-#include <dev/fbinfo.h>
 
 static void sys_kprint(const char* s, int32_t len) {
 	(void)len;
