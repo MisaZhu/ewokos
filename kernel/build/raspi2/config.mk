@@ -5,5 +5,3 @@ ARCH_CFLAGS = -march=armv7ve -DKERNEL_SMP -DPI2
 #ARCH_CFLAGS = -march=armv7ve
 ARCH=arm/v7
 BSP=raspix
-#SYS_LOAD_MODE=sd
-SYS_LOAD_MODE=romfs

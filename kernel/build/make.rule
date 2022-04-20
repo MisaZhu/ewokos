@@ -88,21 +88,12 @@ LIB_OBJS = \
 	$(LIB_DIR)/queue.o \
 	$(LIB_DIR)/kprintf.o
 
-ifeq ($(SYS_LOAD_MODE), sd)
 LOAD_DIR=$(SRC_DIR)/loadinit/sd
 LOAD_OBJS = \
 	$(LOAD_DIR)/ext2read.o \
 	$(LOAD_DIR)/loadinit.o
 CFLAGS += -I$(LOAD_DIR) -DLOAD_SD
-QEMU_ARGS += -sd $(SYS_FULL_DIR)/build/sd.ext2
-else
-LOAD_DIR=$(SRC_DIR)/loadinit/romfs
-LOAD_OBJS = \
-	$(LOAD_DIR)/romfs_data.o \
-	$(LOAD_DIR)/romfs.o \
-	$(LOAD_DIR)/loadinit.o
-CFLAGS += -I$(LOAD_DIR)
-endif
+QEMU_ARGS += -sd $(SYS_FULL_DIR)/root.ext2
 
 DEV_DIR = $(SRC_DIR)/basic/dev/src
 DEV_OBJS = \

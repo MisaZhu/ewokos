@@ -4,5 +4,3 @@ ARCH_CFLAGS = -mcpu=cortex-a53 -DKERNEL_SMP -DPI3
 #ARCH_CFLAGS =  -mcpu=cortex-a53 -DPI3
 ARCH=arm/v7
 BSP=raspix
-SYS_LOAD_MODE=sd
-#SYS_LOAD_MODE=romfs

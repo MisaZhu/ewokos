@@ -1,30 +1,28 @@
 KERNEL_DIR=../kernel
 
-all: basic_sys platform rom
+all: basic_sys platform
 	@echo "all done."
 
-full: basic_sys platform full_sys rom
+full: basic_sys platform full_sys
+	@echo "all done."
+
+extra: basic_sys platform full_sys extra_sys
 	@echo "all done."
 
 basic_sys:
 	cd basic;make
 full_sys:
 	cd full;make
+extra_sys:
+	cd extra;make
 platform:
 	cd platforms;make
 
-rom:
-	cd romfs;make
-	@echo "\n====building kernel romfs  ===="
-	build/genfs build/rootfs > $(KERNEL_DIR)/loadinit/romfs/romfs_data.c
-	@echo "==== kernel romfs created ===="
-
-SD = build/sd.ext2
+SD = root.ext2
 sd: 
-	cd romfs;make
 	@echo "\n====building ext2 format sdcard image===="
-#256M ext2 sd
-	dd if=/dev/zero of=${SD} bs=1024 count=262144
+#16M ext2 sd
+	dd if=/dev/zero of=${SD} bs=1k count=16k
 	mke2fs ${SD}
 	mkdir -p tmp
 	sudo fuse-ext2 -o force,rw+ ${SD} ./tmp

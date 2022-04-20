@@ -498,20 +498,6 @@ static int32_t sys_get_kernel_tic(void) {
 	return _svc_tic;
 }
 
-#ifdef LOAD_SD
-static int32_t sys_romfs_get(uint32_t index, char* name, char* data) {
-	(void)index;
-	(void)name;
-	(void)data;
-	return -1;
-}
-#else
-int32_t romfs_get_by_index(uint32_t index, char* name, char* data);
-static int32_t sys_romfs_get(uint32_t index, char* name, char* data) {
-	return romfs_get_by_index(index, name, data);
-}
-#endif
-
 static int32_t sys_interrupt_setup(uint32_t interrupt, uint32_t entry) {
 	proc_t * cproc = get_current_proc();
 	if(cproc->info.owner > 0)
@@ -664,9 +650,6 @@ static inline void _svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_
 		return;
 	case SYS_IPC_ENABLE:
 		sys_ipc_enable();
-		return;
-	case SYS_KROMFS_GET:
-		ctx->gpr[0] = sys_romfs_get(arg0, (char*)arg1, (char*)arg2);
 		return;
 	case SYS_INTR_SETUP:
 		ctx->gpr[0] = sys_interrupt_setup((uint32_t)arg0, (uint32_t)arg1);

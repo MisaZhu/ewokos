@@ -208,15 +208,8 @@ static void init_rootfs(void) {
 	out("run init-rootfsd    ");
 	int pid = fork();
 	if(pid == 0) {
-		int32_t sz = syscall3(SYS_KROMFS_GET, 0, (int32_t)NULL, (int32_t)NULL);	
-		if(sz < 0) {
-			syscall1(SYS_PROC_SET_CMD, (int32_t)"init-sdfsd");
-			sdfsd_main();
-		}
-		else {
-			syscall1(SYS_PROC_SET_CMD, (int32_t)"init-romfsd");
-			romfsd_main();
-		}
+		syscall1(SYS_PROC_SET_CMD, (int32_t)"init-sdfsd");
+		sdfsd_main();
 	}
 	else
 		proc_wait_ready(pid);
