@@ -92,7 +92,7 @@ LOAD_DIR=$(SRC_DIR)/loadinit/sd
 LOAD_OBJS = \
 	$(LOAD_DIR)/ext2read.o \
 	$(LOAD_DIR)/loadinit.o
-CFLAGS += -I$(LOAD_DIR) -DLOAD_SD
+CFLAGS += -I$(LOAD_DIR)
 QEMU_ARGS += -sd $(SYS_FULL_DIR)/root.ext2
 
 DEV_DIR = $(SRC_DIR)/basic/dev/src
