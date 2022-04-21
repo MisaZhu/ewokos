@@ -154,7 +154,6 @@ void _kernel_entry_c(void) {
 		printf("  [failed!]\n");
 		halt();
 	}
-	printf("  [ok]\n");
 
 	kfork_core_halt(0);
 

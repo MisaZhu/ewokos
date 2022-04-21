@@ -205,10 +205,11 @@ static void run_procs(void) {
 }
 
 static void run_core(void) {
-	out("run core    ");
+	const char* fname = "/sbin/core";
+	out("init: %s    ", fname);
 	int pid = fork();
 	if(pid == 0) {
-		exec_from_sd("/sbin/core");
+		exec_from_sd(fname);
 	}
 	else
 		proc_wait_ready(pid);
@@ -216,10 +217,12 @@ static void run_core(void) {
 }
 
 static void run_vfsd(void) {
-	out("run vfsd    ");
+	const char* fname = "/sbin/vfsd";
+	out("init: %s    ", fname);
+
 	int pid = fork();
 	if(pid == 0) {
-		exec_from_sd("/sbin/vfsd");
+		exec_from_sd(fname);
 	}
 	else
 		proc_wait_ready(pid);
@@ -227,14 +230,15 @@ static void run_vfsd(void) {
 }
 
 static void run_rootfsd(void) {
-	out("run rootfsd    ");
+	const char* fname = "/sbin/sdfsd";
+	out("init: %s    ", fname);
+
 	int pid = fork();
 	if(pid == 0) {
-		exec_from_sd("/sbin/sdfsd");
+		exec_from_sd(fname);
 	}
 	else
 		proc_wait_ready(pid);
-	out("[ok]\n");
 }
 
 static void init_tty_stdio(void) {
