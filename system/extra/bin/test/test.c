@@ -2,16 +2,25 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <string.h>
-#include <signal.h>
+#include <pthread.h>
 
-void do_sig(int sig_no) {
-	printf("signal: %d\n", sig_no);
-	//exit(0);
+
+void* do_thread(void* p) {
+	(void)p;
+	while(1) {
+		printf("thread: child %d\n", pthread_self());
+		sleep(1);
+	}
+	return NULL;
 }
 
 int main(int argc, char* argv[]) {
-	signal(SIGSTOP, do_sig);
+	(void)argc;
+	(void)argv;
+
+	pthread_create(NULL, NULL, do_thread, NULL);
 	while(1) {
+		printf("parent\n");
 		sleep(1);
 	}
 	return 0;

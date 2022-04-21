@@ -63,15 +63,13 @@ inline void set_current_proc(proc_t* proc) {
 }
 
 static inline uint32_t proc_get_user_stack_pages(proc_t* proc) {
-	return proc->info.type == PROC_TYPE_PROC ? STACK_PAGES: THREAD_STACK_PAGES;
+	(void)proc;
+	return STACK_PAGES;
 }
 
 static inline  uint32_t proc_get_user_stack_base(proc_t* proc) {
 	(void)proc;
-  uint32_t proc_stack_base = USER_STACK_TOP - STACK_PAGES*PAGE_SIZE;
-	if(proc->info.type == PROC_TYPE_PROC)
-		return proc_stack_base;
-  return proc_stack_base - proc->info.pid*THREAD_STACK_PAGES*PAGE_SIZE;
+	return USER_STACK_TOP - STACK_PAGES*PAGE_SIZE;
 }
 
 static inline void* proc_get_mem_tail(void* p) {
@@ -313,28 +311,42 @@ static void proc_terminate(context_t* ctx, proc_t* proc) {
 }
 
 static inline void proc_init_user_stack(proc_t* proc) {
-	uint32_t i;
-	uint32_t user_stack_base =  proc_get_user_stack_base(proc);
-	uint32_t pages = proc_get_user_stack_pages(proc);
-	for(i=0; i<pages; i++) {
-		proc->user_stack[i] = kalloc4k();
-		map_page(proc->space->vm,
-			user_stack_base + PAGE_SIZE*i,
-			V2P(proc->user_stack[i]),
-			AP_RW_RW, 0);
+	if(proc->info.type == PROC_TYPE_THREAD) {
+		uint32_t page = (uint32_t)kalloc4k();
+		map_page(proc->space->vm, page, V2P(page), AP_RW_RW, 0);
+		proc->thread_stack = page;
+		proc->ctx.sp = page + PAGE_SIZE;
+	}
+	else {
+		uint32_t i;
+		uint32_t user_stack_base =  proc_get_user_stack_base(proc);
+		uint32_t pages = proc_get_user_stack_pages(proc);
+		for(i=0; i<pages; i++) {
+			proc->user_stack[i] = kalloc4k();
+			map_page(proc->space->vm,
+				user_stack_base + PAGE_SIZE*i,
+				V2P(proc->user_stack[i]),
+				AP_RW_RW, 0);
+		}
+		proc->ctx.sp = user_stack_base + pages*PAGE_SIZE;
 	}
 	flush_tlb();
-	proc->ctx.sp = user_stack_base + pages*PAGE_SIZE;
 }
 
 static inline void proc_free_user_stack(proc_t* proc) {
 	/*free user_stack*/
-	uint32_t user_stack_base = proc_get_user_stack_base(proc);
-	uint32_t pages = proc_get_user_stack_pages(proc);
-	uint32_t i;
-	for(i=0; i<pages; i++) {
-		kfree4k(proc->user_stack[i]);
-		unmap_page(proc->space->vm, user_stack_base + PAGE_SIZE*i);
+	if(proc->info.type == PROC_TYPE_THREAD) {
+		kfree4k((void*)proc->thread_stack);	
+		unmap_page(proc->space->vm, proc->thread_stack);
+	}
+	else {
+		uint32_t user_stack_base = proc_get_user_stack_base(proc);
+		uint32_t pages = proc_get_user_stack_pages(proc);
+		uint32_t i;
+		for(i=0; i<pages; i++) {
+			kfree4k(proc->user_stack[i]);
+			unmap_page(proc->space->vm, user_stack_base + PAGE_SIZE*i);
+		}
 	}
 	flush_tlb();
 }
@@ -359,7 +371,7 @@ static void proc_funeral(proc_t* proc) {
 	if(proc->space->ipc_server.stack != 0) {
 		kfree4k((void*)proc->space->ipc_server.stack);	
 		unmap_page(proc->space->vm, proc->space->ipc_server.stack);
-	}
+	}	
 
 	/*free user_stack*/
 	proc_free_user_stack(proc);
@@ -613,24 +625,8 @@ static int32_t proc_clone(proc_t* child, proc_t* parent) {
 	return 0;
 }
 
-static inline void proc_thread_clone(context_t* ctx, proc_t* child, proc_t* parent) {
-	uint32_t pages = proc_get_user_stack_pages(child) - 1;
-	uint32_t v_addr =  proc_get_user_stack_base(child) + pages*PAGE_SIZE;
-	uint32_t stack_top = v_addr + PAGE_SIZE;
-	uint32_t ppages = proc_get_user_stack_pages(parent) - 1;
-	uint32_t pv_addr =  proc_get_user_stack_base(parent) + ppages*PAGE_SIZE;
-	uint32_t pstack_top = pv_addr + PAGE_SIZE;
-	uint32_t i;
-
-	for(i=0; i<pages; i++) {
-		proc_page_clone(child, v_addr, parent, pv_addr);
-		v_addr -= PAGE_SIZE;
-		pv_addr -= PAGE_SIZE;
-	}
-	child->ctx.sp = stack_top - (pstack_top - ctx->sp);
-}
-
 proc_t* kfork_raw(context_t* ctx, int32_t type, proc_t* parent) {
+	(void)ctx;
 	proc_t *child = NULL;
 	child = proc_create(type, parent);
 	if(child == NULL) {
@@ -639,16 +635,13 @@ proc_t* kfork_raw(context_t* ctx, int32_t type, proc_t* parent) {
 	}
 	child->info.father_pid = parent->info.pid;
 	child->info.owner = parent->info.owner;
-	memcpy(&child->ctx, &parent->ctx, sizeof(context_t));
 
 	if(type == PROC_TYPE_PROC) {
+		memcpy(&child->ctx, &parent->ctx, sizeof(context_t));
 		if(proc_clone(child, parent) != 0) {
 			printf("panic: kfork clone failed!!(%d)\n", parent->info.pid);
 			return NULL;
 		}
-	}
-	else {
-		proc_thread_clone(ctx, child, parent);
 	}
 	return child;
 }

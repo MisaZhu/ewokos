@@ -70,8 +70,7 @@ typedef struct {
 	proc_interrupt_t  interrupt;
 } proc_space_t;
 
-#define STACK_PAGES 32
-#define THREAD_STACK_PAGES 4
+#define STACK_PAGES 4
 
 typedef struct st_proc {
 	procinfo_t        info;
@@ -79,6 +78,7 @@ typedef struct st_proc {
 	int64_t           sleep_counter; //sleep usec
 	proc_space_t*     space;
 	void*             user_stack[STACK_PAGES];
+	uint32_t          thread_stack; //mapped thread stack page
 	context_t         ctx;
 	ipc_res_t         ipc_res;
 } proc_t;

@@ -87,6 +87,7 @@ LIB_EWOKC_OBJS = src/unistd/chdir.o \
 	src/stdlib/getenv.o \
 	\
 	src/pthread/pthread_create.o \
+	src/pthread/pthread_self.o \
 	\
 	src/stdio/vprintf.o \
 	src/stdio/snprintf.o \

@@ -11,6 +11,7 @@ extern "C" {
 typedef void* (*thread_func_t)(void* p);
 
 int thread_create(thread_func_t func, void* p);
+int thread_get_id(void);
 
 #ifdef __cplusplus 
 }
