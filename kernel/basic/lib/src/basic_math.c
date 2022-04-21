@@ -59,4 +59,27 @@ uint32_t __aeabi_uidivmod(uint32_t numerator, uint32_t denominator) {
 	return numerator - (div * denominator);
 }
 
+
+int32_t __aeabi_idiv(int32_t numerator, int32_t denominator) {
+	struct qr qr = { .q_n = 0, .r_n = 0 };
+
+	if (((numerator < 0) && (denominator > 0)) ||
+	    ((numerator > 0) && (denominator < 0)))
+		qr.q_n = 1;	/* quotient shall be negate */
+	if (numerator < 0) {
+		numerator = -numerator;
+		qr.r_n = 1;	/* remainder shall be negate */
+	}
+	if (denominator < 0)
+		denominator = -denominator;
+
+	uint_div_qr(numerator, denominator, &qr);
+	return qr.q;
+}
+
+int32_t __aeabi_idivmod(int32_t numerator, int32_t denominator) {
+	int32_t div = __aeabi_idiv(numerator, denominator);
+	return numerator - (div * denominator);
+}
+
 #endif
