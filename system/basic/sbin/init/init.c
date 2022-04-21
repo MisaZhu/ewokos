@@ -11,6 +11,8 @@
 #include <sys/ipc.h>
 #include <sys/proc.h>
 #include <dirent.h>
+#include <sd/sd.h>
+#include "sd/ext2read.h"
 
 static int _console_fd = -1;
 
@@ -31,6 +33,31 @@ static void out(const char *format, ...) {
 	else if(_console_fd > 0)
 		dprintf(_console_fd, "%s", str->cstr);
   str_free(str);;
+}
+
+static int32_t run_from_sd(const char* prog) {
+	int32_t sz;
+
+	out("  sdc init .... ");
+	if(sd_init() != 0) {
+		out("[failed]!\n");
+		return -1;
+	}
+	out("[ok]\n");
+
+	out("  load /sbin/init from sdc .... ");
+	char* elf = sd_read_ext2(prog, &sz);
+	if(elf != NULL) {
+		//int32_t res = syscall3(SYS_EXEC_ELF, (int32_t)prog, (int32_t)elf, sz);
+		int32_t res = 0;
+		free(elf);
+		if(res == 0) {
+			out("[ok]\n");
+			return res;
+		}
+	}
+	out("[failed]!\n");
+	return -1;
 }
 
 static int check_file(const char* cmd_line) {
@@ -273,6 +300,7 @@ int main(int argc, char** argv) {
 	out("\n[init process started]\n");
 	syscall1(SYS_PROC_SET_CMD, (int32_t)"init");
 	run_core();
+	run_from_sd("/bin/ls");
 	run_vfsd();
 
 	//load procs before file system ready
