@@ -87,6 +87,7 @@ LIB_OBJS = \
 	$(LIB_DIR)/vprintf.o \
 	$(LIB_DIR)/proto.o \
 	$(LIB_DIR)/basic_math.o \
+	$(LIB_DIR)/basic_math_asm.o \
 	$(LIB_DIR)/queue.o \
 	$(LIB_DIR)/kprintf.o
 
