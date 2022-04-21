@@ -204,13 +204,11 @@ static void run_procs(void) {
 	close(fd);
 }
 
-void core(void);
 static void run_core(void) {
-	out("run init-core    ");
+	out("run core    ");
 	int pid = fork();
 	if(pid == 0) {
-		syscall1(SYS_PROC_SET_CMD, (int32_t)"init-core");
-		core();
+		exec_from_sd("/sbin/core");
 	}
 	else
 		proc_wait_ready(pid);
@@ -296,11 +294,9 @@ int main(int argc, char** argv) {
 	out("\n[init process started]\n");
 	run_core();
 	run_vfsd();
-
-	//load procs before file system ready
 	run_rootfsd();
-	switch_root();
 
+	switch_root();
 	while(true) {
 		proc_block(getpid(), (uint32_t)main);
 	}

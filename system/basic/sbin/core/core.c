@@ -261,7 +261,10 @@ static void handle_event(kevent_t* kev) {
 	}
 }
 
-void core(void) {
+int main(int argc, char** argv) {
+	(void)argc;
+	(void)argv;
+
 	core_init();
 	_ipc_servs = hashmap_new();
 
@@ -282,5 +285,6 @@ void core(void) {
 	}
 
 	hashmap_free(_ipc_servs);
+	return 0;
 }
 
