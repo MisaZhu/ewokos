@@ -57,6 +57,7 @@ basic_libs:
 	cd $(ROOT_DIR)/libs/sd;make
 
 include $(ROOT_DIR)/sbin/init/build.mk
+include $(ROOT_DIR)/sbin/core/build.mk
 include $(ROOT_DIR)/sbin/vfsd/build.mk
 include $(ROOT_DIR)/sbin/rootfs/sdfs/build.mk
 
