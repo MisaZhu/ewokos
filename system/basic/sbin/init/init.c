@@ -12,7 +12,7 @@
 #include <sys/proc.h>
 #include <dirent.h>
 #include <sd/sd.h>
-#include "sd/ext2read.h"
+#include <ext2/ext2fs.h>
 
 static int _console_fd = -1;
 
@@ -35,28 +35,29 @@ static void out(const char *format, ...) {
   str_free(str);;
 }
 
-static int32_t run_from_sd(const char* prog) {
+static void* sd_read_ext2(const char* fname, int32_t* size) {
+	ext2_t ext2;
+	ext2_init(&ext2, sd_read, NULL);
+	void* ret = ext2_readfile(&ext2, fname, size);
+	ext2_quit(&ext2);
+	return ret;
+}
+
+static int32_t exec_from_sd(const char* prog) {
 	int32_t sz;
 
-	out("  sdc init .... ");
 	if(sd_init() != 0) {
-		out("[failed]!\n");
 		return -1;
 	}
-	out("[ok]\n");
 
-	out("  load /sbin/init from sdc .... ");
 	char* elf = sd_read_ext2(prog, &sz);
 	if(elf != NULL) {
-		//int32_t res = syscall3(SYS_EXEC_ELF, (int32_t)prog, (int32_t)elf, sz);
-		int32_t res = 0;
+		int32_t res = syscall3(SYS_EXEC_ELF, (int32_t)prog, (int32_t)elf, sz);
 		free(elf);
 		if(res == 0) {
-			out("[ok]\n");
 			return res;
 		}
 	}
-	out("[failed]!\n");
 	return -1;
 }
 
@@ -216,27 +217,22 @@ static void run_core(void) {
 	out("[ok]\n");
 }
 
-int vfsd_main(void);
 static void run_vfsd(void) {
-	out("run init-vfsd    ");
+	out("run vfsd    ");
 	int pid = fork();
 	if(pid == 0) {
-		syscall1(SYS_PROC_SET_CMD, (int32_t)"init-vfsd");
-		vfsd_main();
+		exec_from_sd("/sbin/vfsd");
 	}
 	else
 		proc_wait_ready(pid);
 	out("[ok]\n");
 }
 
-void romfsd_main(void);
-void sdfsd_main(void);
-static void init_rootfs(void) {
-	out("run init-rootfsd    ");
+static void run_rootfsd(void) {
+	out("run rootfsd    ");
 	int pid = fork();
 	if(pid == 0) {
-		syscall1(SYS_PROC_SET_CMD, (int32_t)"init-sdfsd");
-		sdfsd_main();
+		exec_from_sd("/sbin/sdfsd");
 	}
 	else
 		proc_wait_ready(pid);
@@ -295,16 +291,14 @@ int main(int argc, char** argv) {
 		halt();
 	}
 	else
-		syscall1(SYS_PROC_SET_CMD, (int32_t)"init");
+		syscall1(SYS_PROC_SET_CMD, (int32_t)"/sbin/init");
 
 	out("\n[init process started]\n");
-	syscall1(SYS_PROC_SET_CMD, (int32_t)"init");
 	run_core();
-	run_from_sd("/bin/ls");
 	run_vfsd();
 
 	//load procs before file system ready
-	init_rootfs();
+	run_rootfsd();
 	switch_root();
 
 	while(true) {

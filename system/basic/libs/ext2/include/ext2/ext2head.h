@@ -93,7 +93,7 @@ typedef struct ext2_dir_entry_2 {
 	uint8_t	name_len;		/* Name length */
 	uint8_t	file_type;
 	char	name[255];      	/* File name */
-} DIR;
+} DIR_T;
 
 #define EXT2_BLOCK_SIZE 1024
 

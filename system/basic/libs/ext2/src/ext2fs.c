@@ -200,7 +200,7 @@ static int32_t enter_child(ext2_t* ext2, INODE* pip, int32_t ino, const char *ba
 	int32_t nlen, ideal_len, remain, i, blk;
 	char buf[EXT2_BLOCK_SIZE];
 	char *cp;
-	DIR *dp = NULL;
+	DIR_T *dp = NULL;
 	//(1)-(3)
 	nlen = need_len(strlen(base));
 	for(i=0;i<12;i++){
@@ -225,7 +225,7 @@ static int32_t enter_child(ext2_t* ext2, INODE* pip, int32_t ino, const char *ba
 		//initialize the created one
 		ext2->read_block(pip->i_block[i], buf);
 		cp = buf;
-		dp = (DIR *)cp;
+		dp = (DIR_T *)cp;
 		if(dp->inode==0){
 			dp->inode = ino;
 			dp->rec_len = EXT2_BLOCK_SIZE;
@@ -239,14 +239,14 @@ static int32_t enter_child(ext2_t* ext2, INODE* pip, int32_t ino, const char *ba
 		//(4) get last entry in block
 		while (cp + dp->rec_len < buf + EXT2_BLOCK_SIZE){
 			cp += dp->rec_len;
-			dp = (DIR *)cp;
+			dp = (DIR_T *)cp;
 		}
 		ideal_len = need_len(dp->name_len);
 		remain = dp->rec_len-ideal_len;
 		if(remain >= nlen){
 			dp->rec_len = ideal_len;
 			cp += dp->rec_len;
-			dp = (DIR *)cp;
+			dp = (DIR_T *)cp;
 			dp->inode = ino;
 			dp->rec_len = remain;
 			dp->name_len = strlen(base);
@@ -262,7 +262,7 @@ static int32_t enter_child(ext2_t* ext2, INODE* pip, int32_t ino, const char *ba
 static int32_t ext2_rm_child(ext2_t* ext2, INODE *ip, const char *name) {
 	int32_t i, rec_len, found, first_len;
 	char *cp = NULL, *precp = NULL;
-	DIR *dp = NULL;
+	DIR_T *dp = NULL;
 	char buf[EXT2_BLOCK_SIZE];
 
 	found = 0;
@@ -275,7 +275,7 @@ static int32_t ext2_rm_child(ext2_t* ext2, INODE *ip, const char *name) {
 		ext2->read_block(ip->i_block[i], buf);
 		cp = buf;
 		while(cp < buf + EXT2_BLOCK_SIZE) {
-			dp = (DIR *)cp;
+			dp = (DIR_T *)cp;
 			if(found == 0 && dp->inode!=0 && strcmp(dp->name, name)==0){
 				//(2).1. if (first and only entry in a data block){
 				if(dp->rec_len == EXT2_BLOCK_SIZE){
@@ -285,7 +285,7 @@ static int32_t ext2_rm_child(ext2_t* ext2, INODE *ip, const char *name) {
 				}
 				//(2).2. else if LAST entry in block
 				else if(precp != NULL && dp->rec_len + (cp - buf) == EXT2_BLOCK_SIZE){
-					dp = (DIR *)precp;
+					dp = (DIR_T *)precp;
 					dp->rec_len = EXT2_BLOCK_SIZE - (precp - buf);
 					ext2->write_block(ip->i_block[i], buf);
 					return 0;
@@ -546,13 +546,13 @@ int32_t ext2_write(ext2_t* ext2, INODE* node, const char *data, int32_t nbytes, 
 static int32_t search(ext2_t* ext2, INODE *ip, const char *name) {
 	int32_t i; 
 	char c, *cp;
-	DIR  *dp;
+	DIR_T  *dp;
 	char buf[EXT2_BLOCK_SIZE];
 
 	for (i=0; i<12; i++){
 		if ( ip->i_block[i] ){
 			ext2->read_block(ip->i_block[i], buf);
-			dp = (DIR *)buf;
+			dp = (DIR_T *)buf;
 			cp = buf;
 			while (cp < &buf[EXT2_BLOCK_SIZE]){
 				if(dp->name_len == 0)
@@ -564,7 +564,7 @@ static int32_t search(ext2_t* ext2, INODE *ip, const char *name) {
 				}
 				dp->name[dp->name_len] = c; // restore that last byte
 				cp += dp->rec_len;
-				dp = (DIR *)cp;
+				dp = (DIR_T *)cp;
 			}
 		}
 	}
