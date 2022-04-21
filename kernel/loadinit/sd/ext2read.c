@@ -70,11 +70,11 @@ int32_t partition_get(uint32_t id, partition_t* p) {
 #define SHORT_NAME_MAX 64
 
 static inline int32_t get_gd_index_by_ino(ext2_t* ext2, int32_t ino) {
-	return div_u32(ino, ext2->super.s_inodes_per_group);
+	return (ino / ext2->super.s_inodes_per_group);
 }
 
 static inline int32_t get_gd_index_by_block(ext2_t* ext2, int32_t block) {
-	return div_u32(block, ext2->super.s_blocks_per_group);
+	return (block / ext2->super.s_blocks_per_group);
 }
 
 static inline int32_t get_ino_in_group(ext2_t* ext2, int32_t ino, int32_t index) {
@@ -268,8 +268,8 @@ static int32_t ext2_node_by_ino(ext2_t* ext2, int32_t ino, INODE* node) {
 }
 
 static inline int32_t get_gd_num(ext2_t* ext2) {
-	int32_t ret = div_u32(ext2->super.s_blocks_count, ext2->super.s_blocks_per_group);
-	if(mod_u32(ext2->super.s_blocks_count, ext2->super.s_blocks_per_group) != 0)
+	int32_t ret = (ext2->super.s_blocks_count / ext2->super.s_blocks_per_group);
+	if((ext2->super.s_blocks_count % ext2->super.s_blocks_per_group) != 0)
 		ret++;
 	return ret;
 }
@@ -279,7 +279,7 @@ static int32_t get_gds(ext2_t* ext2) {
 	ext2->group_num = get_gd_num(ext2);
 	ext2->gds = (GD*)kmalloc(gd_size * ext2->group_num);
 
-	int32_t gd_num = div_u32(EXT2_BLOCK_SIZE, gd_size);
+	int32_t gd_num = (EXT2_BLOCK_SIZE / gd_size);
 	int32_t i = 2;
 	int32_t index = 0;
 	while(1) {

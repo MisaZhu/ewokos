@@ -136,9 +136,9 @@ void _kernel_entry_c(void) {
 			"| (___  | || || || |__| || ( \\  \\ | |__| |  ___) |\n"
 			"(______/(_______)(______)|_/  \\_/ (______)\\______)\n\n");
                                                       
-	printf("kernel: kmalloc initing  [ok] : %dMB\n", div_u32(KMALLOC_END-KMALLOC_BASE, 1*MB));
+	printf("kernel: kmalloc initing  [ok] : %dMB\n", (KMALLOC_END-KMALLOC_BASE / 1*MB));
 	init_allocable_mem(); //init the rest allocable memory VM
-	printf("kernel: init allocable memory: %dMB, %d pages\n", div_u32(get_free_mem_size(), 1*MB), _pages_ref.max);
+	printf("kernel: init allocable memory: %dMB, %d pages\n", (get_free_mem_size() / 1*MB), _pages_ref.max);
 
 	irq_init();
 	printf("kernel: irq inited\n");
