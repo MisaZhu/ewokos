@@ -1,6 +1,6 @@
 #include <basic_math.h>
 
-#ifndef SOFT_DIV
+#ifdef __aeabi_idiv
 
 inline uint32_t div_u32(uint32_t numerator, uint32_t denominator) {
 	return numerator / denominator;

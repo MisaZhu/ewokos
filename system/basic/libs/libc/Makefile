@@ -18,12 +18,6 @@ CFLAGS = -Wstrict-prototypes \
          -fno-builtin-exit -fno-builtin-stdio \
 		 -std=c99 
 
-ifeq ($(SOFT_DIV),yes)
-CFLAGS += -DSOFT_DIV
-else
-CFLAGS += -mcpu=cortex-a7
-endif
-
 #CFLAGS +=  -g
 CFLAGS +=  -O2
 
