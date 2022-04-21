@@ -19,7 +19,6 @@ inline uint32_t random_u32(void) {
 	return ret;
 }
 
-
 #ifndef SOFT_DIV
 
 inline uint32_t div_u32(uint32_t numerator, uint32_t denominator) {
@@ -146,4 +145,3 @@ inline uint32_t random_to(uint32_t to) {
 #ifdef __cplusplus
 }
 #endif
-
