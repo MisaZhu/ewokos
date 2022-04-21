@@ -5,6 +5,20 @@
 extern "C" {
 #endif
 
+inline uint32_t abs32(int32_t v) {
+	if(v < 0)
+		return (-v);
+	return v;
+}
+
+static uint32_t _r_mask = 0x13579abc;
+inline uint32_t random_u32(void) {
+	uint32_t ret = (uint32_t)syscall0(SYS_GET_KERNEL_TIC) * _r_mask;
+	_r_mask *= 0x79efd1;
+	_r_mask += 0xe1;
+	return ret;
+}
+
 #ifndef SOFT_DIV
 inline uint32_t div_u32(uint32_t v, uint32_t by) {
 	return v / by;
@@ -12,6 +26,11 @@ inline uint32_t div_u32(uint32_t v, uint32_t by) {
 
 inline uint32_t mod_u32(uint32_t v, uint32_t by) {
 	return v % by;
+}
+
+inline uint32_t random_to(uint32_t to) {
+	uint32_t r = random_u32();	
+	return mod_u32(r, to);
 }
 
 #else
@@ -97,26 +116,18 @@ inline uint32_t mod_u32(uint32_t v, uint32_t by) {
 	return v - (div*by);
 }
 
-#endif
-
-inline uint32_t abs32(int32_t v) {
-	if(v < 0)
-		return (-v);
-	return v;
-}
-
-static uint32_t _r_mask = 0x13579abc;
-inline uint32_t random_u32(void) {
-	uint32_t ret = (uint32_t)syscall0(SYS_GET_KERNEL_TIC) * _r_mask;
-	_r_mask *= 0x79efd1;
-	_r_mask += 0xe1;
-	return ret;
-}
-
 inline uint32_t random_to(uint32_t to) {
 	uint32_t r = random_u32();	
+	while(1) {
+		if((r >> 1) <= to) {
+			break;
+		}
+		r = r >> 1;	
+	}
 	return mod_u32(r, to);
 }
+
+#endif
 
 #ifdef __cplusplus
 }
