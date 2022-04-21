@@ -77,6 +77,8 @@ ARCH_OBJS = \
 
 OS_IMG = kernel7.img
 OS_ELF = kernel7.elf
+OS_QEMU_IMG = kernel.qemu.img
+OS_QEMU_ELF = kernel.qemu.elf
 
 LIB_DIR = $(SRC_DIR)/basic/lib/src
 
@@ -130,24 +132,26 @@ ASFLAGS = $(OPTM) -I. -I$(SRC_DIR)/basic/include -marm $(ARCH_CFLAGS)
 
 all: $(OS_IMG) 
 
-$(OS_IMG): $(OBJS) $(LDS)
+$(OS_IMG): $(OBJS) $(LDS) $(LDS_QEMU)
 	$(LD) $(OBJS) $(LDFLAGS) -T $(LDS) -o $(BUILD_DIR)/$(OS_ELF)
+	$(LD) $(OBJS) $(LDFLAGS) -T $(LDS_QEMU) -o $(BUILD_DIR)/$(OS_QEMU_ELF)
 	$(OBJCOPY) -O binary $(BUILD_DIR)/$(OS_ELF) $(BUILD_DIR)/$(OS_IMG)
+	$(OBJCOPY) -O binary $(BUILD_DIR)/$(OS_QEMU_ELF) $(BUILD_DIR)/$(OS_QEMU_IMG)
 
 asm:
 	$(OBJDUMP) -D $(BUILD_DIR)/$(OS_ELF) > $(BUILD_DIR)/kernel.asm
 
 run: 
-	$(QEMU_CMD) $(QEMU_FLAGS) -kernel $(BUILD_DIR)/$(OS_IMG) $(QEMU_ARGS)
+	$(QEMU_CMD) $(QEMU_FLAGS) -kernel $(BUILD_DIR)/$(OS_QEMU_IMG) $(QEMU_ARGS)
 
 runasm: 
-	$(QEMU_CMD) $(QEMU_FLAGS) -kernel $(BUILD_DIR)/$(OS_IMG) $(QEMU_ARGS) -d in_asm
+	$(QEMU_CMD) $(QEMU_FLAGS) -kernel $(BUILD_DIR)/$(OS_QEMU_IMG) $(QEMU_ARGS) -d in_asm
 
 debug:
-	$(QEMU_CMD) $(QEMU_FLAGS) -gdb tcp::26000 -S -kernel $(BUILD_DIR)/$(OS_IMG) $(QEMU_ARGS)
+	$(QEMU_CMD) $(QEMU_FLAGS) -gdb tcp::26000 -S -kernel $(BUILD_DIR)/$(OS_QEMU_IMG) $(QEMU_ARGS)
 
 debugasm:
-	$(QEMU_CMD) $(QEMU_FLAGS) -d in_asm -gdb tcp::26000 -S -kernel $(BUILD_DIR)/$(OS_IMG) $(QEMU_ARGS)
+	$(QEMU_CMD) $(QEMU_FLAGS) -d in_asm -gdb tcp::26000 -S -kernel $(BUILD_DIR)/$(OS_QEMU_IMG) $(QEMU_ARGS)
 
 gdb: 
 	echo "target remote :26000" > /tmp/gdbinit
@@ -157,3 +161,4 @@ gdb:
 clean:
 	rm -f $(OBJS)
 	rm -f $(OS_IMG) $(OS_ELF)
+	rm -f $(OS_QEMU_IMG) $(OS_QEMU_ELF)
