@@ -77,8 +77,12 @@ typedef struct st_proc {
 	uint32_t          block_event;
 	int64_t           sleep_counter; //sleep usec
 	proc_space_t*     space;
+
+	union {
 	void*             user_stack[STACK_PAGES];
 	uint32_t          thread_stack; //mapped thread stack page
+	};
+
 	context_t         ctx;
 	ipc_res_t         ipc_res;
 } proc_t;

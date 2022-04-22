@@ -138,7 +138,6 @@ int32_t mod_i32(int32_t numerator, int32_t denominator) {
 	return qr.r;
 }
 
-
 unsigned __aeabi_uidiv(unsigned numerator, unsigned denominator) {
 	return div_u32(numerator, denominator);
 }
