@@ -336,8 +336,10 @@ static inline void proc_init_user_stack(proc_t* proc) {
 static inline void proc_free_user_stack(proc_t* proc) {
 	/*free user_stack*/
 	if(proc->info.type == PROC_TYPE_THREAD) {
-		kfree4k((void*)proc->thread_stack);	
-		unmap_page(proc->space->vm, proc->thread_stack);
+		if(proc->thread_stack != 0) {
+			kfree4k((void*)proc->thread_stack);	
+			unmap_page(proc->space->vm, proc->thread_stack);
+		}
 	}
 	else {
 		uint32_t user_stack_base = proc_get_user_stack_base(proc);
