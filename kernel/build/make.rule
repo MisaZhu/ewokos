@@ -75,11 +75,6 @@ ARCH_OBJS = \
 	$(BSP_DIR)/lib/bcm283x/src/mini_uart.o \
 	$(BSP_DIR)/lib/bcm283x/src/ipi.o
 
-OS_IMG = kernel7.img
-OS_ELF = kernel7.elf
-OS_QEMU_IMG = kernel.qemu.img
-OS_QEMU_ELF = kernel.qemu.elf
-
 LIB_DIR = $(SRC_DIR)/basic/lib/src
 
 LIB_OBJS = \
