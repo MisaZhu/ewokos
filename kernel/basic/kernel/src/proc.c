@@ -352,31 +352,32 @@ static inline void proc_free_user_stack(proc_t* proc) {
 }
 
 static void proc_funeral(proc_t* proc) {
-	/*free kpage*/
-	if(proc->space->kpage != 0) {
-		kfree4k((void*)proc->space->kpage);	
-		unmap_page(proc->space->vm, proc->space->kpage);
-		proc->space->kpage = 0;
-	}
-
-	/*free small_stack*/
-	if(proc->space->interrupt.stack != 0) {
-		kfree4k((void*)proc->space->interrupt.stack);	
-		unmap_page(proc->space->vm, proc->space->interrupt.stack);
-	}
-	if(proc->space->signal.stack != 0) {
-		kfree4k((void*)proc->space->signal.stack);	
-		unmap_page(proc->space->vm, proc->space->signal.stack);
-	}
-	if(proc->space->ipc_server.stack != 0) {
-		kfree4k((void*)proc->space->ipc_server.stack);	
-		unmap_page(proc->space->vm, proc->space->ipc_server.stack);
-	}	
-
 	/*free user_stack*/
 	proc_free_user_stack(proc);
 
-	proc_free_space(proc);
+	if(proc->info.type == PROC_TYPE_PROC) {
+		/*free kpage*/
+		if (proc->space->kpage != 0) {
+			kfree4k((void *)proc->space->kpage);
+			unmap_page(proc->space->vm, proc->space->kpage);
+			proc->space->kpage = 0;
+		}
+
+		/*free small_stack*/
+		if (proc->space->interrupt.stack != 0) {
+			kfree4k((void *)proc->space->interrupt.stack);
+			unmap_page(proc->space->vm, proc->space->interrupt.stack);
+		}
+		if (proc->space->signal.stack != 0) {
+			kfree4k((void *)proc->space->signal.stack);
+			unmap_page(proc->space->vm, proc->space->signal.stack);
+		}
+		if (proc->space->ipc_server.stack != 0) {
+			kfree4k((void *)proc->space->ipc_server.stack);
+			unmap_page(proc->space->vm, proc->space->ipc_server.stack);
+		}
+		proc_free_space(proc);
+	}
 	memset(proc, 0, sizeof(proc_t));
 }
 
