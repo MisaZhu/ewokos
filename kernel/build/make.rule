@@ -117,7 +117,7 @@ KERNEL_OBJS = \
 	$(KERNEL_DIR)/signal.o \
 	$(KERNEL_DIR)/interrupt.o \
 	$(KERNEL_DIR)/schedule.o \
-	$(KERNEL_DIR)/systemc.o \
+	$(KERNEL_DIR)/system.o \
 	$(KERNEL_DIR)/kevqueue.o \
 	$(KERNEL_DIR)/kernel.o
 
