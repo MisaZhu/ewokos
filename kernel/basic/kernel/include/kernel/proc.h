@@ -71,6 +71,7 @@ typedef struct {
 } proc_space_t;
 
 #define STACK_PAGES 32 
+#define THREAD_STACK_PAGES  4
 
 typedef struct st_proc {
 	procinfo_t        info;
@@ -80,7 +81,7 @@ typedef struct st_proc {
 
 	union {
 		void*             user_stack[STACK_PAGES];
-		uint32_t          thread_stack; //mapped thread stack page
+		uint32_t          thread_stack;
 	} stack;
 
 	context_t         ctx;
@@ -107,9 +108,9 @@ extern int32_t proc_zombie_funeral(void);
 extern void    proc_exit(context_t* ctx, proc_t *proc, int32_t res);
 extern proc_t *proc_create(int32_t type, proc_t* parent);
 
-extern void*   proc_malloc(uint32_t size);
-extern void*   proc_realloc(void* p, uint32_t size);
-extern void    proc_free(void* p);
+extern void*   proc_malloc(proc_t* proc, uint32_t size);
+extern void*   proc_realloc(proc_t* proc, void* p, uint32_t size);
+extern void    proc_free(proc_t* proc, void* p);
 
 extern void    proc_block_on(int32_t pid_by, uint32_t event);
 extern void    proc_wakeup(int32_t pid, uint32_t event);

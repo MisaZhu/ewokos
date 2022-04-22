@@ -16,10 +16,7 @@ int32_t proc_ipc_setup(context_t* ctx, uint32_t entry, uint32_t extra_data, uint
 	cproc->space->ipc_server.extra_data = extra_data;
 	cproc->space->ipc_server.flags = flags;
 	
-	uint32_t page = (uint32_t)kalloc4k();
-	map_page(cproc->space->vm, page, V2P(page), AP_RW_RW, 0);
-	cproc->space->ipc_server.stack = page;
-	flush_tlb();
+	cproc->space->ipc_server.stack = (uint32_t)proc_malloc(cproc, THREAD_STACK_PAGES*PAGE_SIZE);
 	return 0;
 }
 

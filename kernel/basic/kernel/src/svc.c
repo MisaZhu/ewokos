@@ -84,17 +84,17 @@ static void sys_usleep(context_t* ctx, uint32_t count) {
 }
 
 static int32_t sys_malloc(int32_t size) {
-	return (int32_t)proc_malloc(size);
+	return (int32_t)proc_malloc(get_current_proc(), size);
 }
 
 static int32_t sys_realloc(void* p, int32_t size) {
-	return (int32_t)proc_realloc(p, size);
+	return (int32_t)proc_realloc(get_current_proc(), p, size);
 }
 
 static void sys_free(int32_t p) {
 	if(p == 0)
 		return;
-	proc_free((void*)p);
+	proc_free(get_current_proc(), (void*)p);
 }
 
 static void sys_fork(context_t* ctx) {
@@ -315,7 +315,7 @@ static void sys_ipc_get_return(context_t* ctx, int32_t pid, uint32_t uid, proto_
 	if(data != NULL) {//get return value
 		data->total_size = data->size = client_proc->ipc_res.data.size;
 		if(data->size > 0) {
-			data->data = (proto_t*)proc_malloc(client_proc->ipc_res.data.size);
+			data->data = (proto_t*)proc_malloc(client_proc, client_proc->ipc_res.data.size);
 			memcpy(data->data, client_proc->ipc_res.data.data, data->size);
 		}
 	}
@@ -341,9 +341,9 @@ static int32_t sys_ipc_get_info(uint32_t uid, int32_t* pid, int32_t* cmd) {
 
 	proto_t* ret = NULL;
 	if(ipc->data.size > 0) { //get request input args
-		ret = (proto_t*)proc_malloc(sizeof(proto_t));
+		ret = (proto_t*)proc_malloc(serv_proc, sizeof(proto_t));
 		memset(ret, 0, sizeof(proto_t));
-		ret->data = proc_malloc(ipc->data.size);
+		ret->data = proc_malloc(serv_proc, ipc->data.size);
 		ret->total_size = ret->size = ipc->data.size;
 		memcpy(ret->data, ipc->data.data, ipc->data.size);
 		proto_clear(&ipc->data);
@@ -438,7 +438,7 @@ static kevent_t* sys_get_kevent_raw(void) {
 		return NULL;
 	}
 
-	kevent_t* ret = (kevent_t*)proc_malloc(sizeof(kevent_t));
+	kevent_t* ret = (kevent_t*)proc_malloc(cproc, sizeof(kevent_t));
 	ret->type = kev->type;
 	ret->data[0] = kev->data[0];
 	ret->data[1] = kev->data[1];

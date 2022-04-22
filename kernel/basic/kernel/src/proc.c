@@ -168,14 +168,14 @@ void proc_switch(context_t* ctx, proc_t* to, bool quick){
 		memcpy(&to->space->interrupt.saved_state.ctx, &to->ctx, sizeof(context_t)); //save "to" context to irq ctx, will restore after irq done.
 		to->ctx.gpr[0] = to->space->interrupt.interrupt;
 		to->ctx.pc = to->ctx.lr = to->space->interrupt.entry;
-		to->ctx.sp = to->space->interrupt.stack + PAGE_SIZE;
+		to->ctx.sp = to->space->interrupt.stack + THREAD_STACK_PAGES*PAGE_SIZE;
 		to->space->interrupt.do_switch = false; // clear irq request mask
 	}
 	else if(to->space->signal.do_switch) { //have signal request to handle
 		memcpy(&to->space->signal.saved_state.ctx, &to->ctx, sizeof(context_t)); // save "to" context to ipc ctx, will restore after ipc done.
 		to->ctx.gpr[0] = to->space->signal.sig_no;
 		to->ctx.pc = to->ctx.lr = to->space->signal.entry;
-		to->ctx.sp = to->space->signal.stack + PAGE_SIZE;
+		to->ctx.sp = to->space->signal.stack + THREAD_STACK_PAGES*PAGE_SIZE;
 		to->space->signal.do_switch = false; // clear ipc request mask
 	}
 	else if(to->space->ipc_server.do_switch) { //have ipc request to handle
@@ -184,7 +184,7 @@ void proc_switch(context_t* ctx, proc_t* to, bool quick){
 		to->ctx.gpr[0] = ipc->uid;
 		to->ctx.gpr[1] = to->space->ipc_server.extra_data;
 		to->ctx.pc = to->ctx.lr = to->space->ipc_server.entry;
-		to->ctx.sp = to->space->ipc_server.stack + PAGE_SIZE;
+		to->ctx.sp = to->space->ipc_server.stack + THREAD_STACK_PAGES*PAGE_SIZE;
 		to->space->ipc_server.do_switch = false; // clear ipc request mask
 	}
 
@@ -312,10 +312,8 @@ static void proc_terminate(context_t* ctx, proc_t* proc) {
 
 static inline void proc_init_user_stack(proc_t* proc) {
 	if(proc->info.type == PROC_TYPE_THREAD) {
-		uint32_t page = (uint32_t)kalloc4k();
-		map_page(proc->space->vm, page, V2P(page), AP_RW_RW, 0);
-		proc->stack.thread_stack = page;
-		proc->ctx.sp = page + PAGE_SIZE;
+		proc->stack.thread_stack = (uint32_t)proc_malloc(proc, THREAD_STACK_PAGES*PAGE_SIZE);
+		proc->ctx.sp = proc->stack.thread_stack + THREAD_STACK_PAGES*PAGE_SIZE;
 	}
 	else {
 		uint32_t i;
@@ -337,8 +335,7 @@ static inline void proc_free_user_stack(proc_t* proc) {
 	/*free user_stack*/
 	if(proc->info.type == PROC_TYPE_THREAD) {
 		if(proc->stack.thread_stack != 0) {
-			kfree4k((void*)proc->stack.thread_stack);	
-			unmap_page(proc->space->vm, proc->stack.thread_stack);
+			proc_free(proc, (void*)proc->stack.thread_stack);
 		}
 	}
 	else {
@@ -349,8 +346,8 @@ static inline void proc_free_user_stack(proc_t* proc) {
 			kfree4k(proc->stack.user_stack[i]);
 			unmap_page(proc->space->vm, user_stack_base + PAGE_SIZE*i);
 		}
+		flush_tlb();
 	}
-	flush_tlb();
 }
 
 static void proc_funeral(proc_t* proc) {
@@ -367,16 +364,13 @@ static void proc_funeral(proc_t* proc) {
 
 		/*free small_stack*/
 		if (proc->space->interrupt.stack != 0) {
-			kfree4k((void *)proc->space->interrupt.stack);
-			unmap_page(proc->space->vm, proc->space->interrupt.stack);
+			proc_free(proc, (void *)proc->space->interrupt.stack);
 		}
 		if (proc->space->signal.stack != 0) {
-			kfree4k((void *)proc->space->signal.stack);
-			unmap_page(proc->space->vm, proc->space->signal.stack);
+			proc_free(proc, (void *)proc->space->signal.stack);
 		}
 		if (proc->space->ipc_server.stack != 0) {
-			kfree4k((void *)proc->space->ipc_server.stack);
-			unmap_page(proc->space->vm, proc->space->ipc_server.stack);
+			proc_free(proc, (void *)proc->space->ipc_server.stack);
 		}
 		proc_free_space(proc);
 	}
@@ -407,27 +401,24 @@ void proc_exit(context_t* ctx, proc_t *proc, int32_t res) {
 		proc_funeral(proc);
 }
 
-inline void* proc_malloc(uint32_t size) {
+inline void* proc_malloc(proc_t* proc, uint32_t size) {
 	if(size == 0)
 		return NULL;
-	proc_t* cproc = get_current_proc();
-	return trunk_malloc(&cproc->space->malloc_man, size);
+	return trunk_malloc(&proc->space->malloc_man, size);
 }
 
-inline void* proc_realloc(void* p, uint32_t size) {
+inline void* proc_realloc(proc_t* proc, void* p, uint32_t size) {
 	if(size == 0) {
-		proc_free(p);
+		proc_free(proc, p);
 		return NULL;
 	}
-	proc_t* cproc = get_current_proc();
-	return trunk_realloc(&cproc->space->malloc_man, p, size);
+	return trunk_realloc(&proc->space->malloc_man, p, size);
 }
 
-inline void proc_free(void* p) {
+inline void proc_free(proc_t* proc, void* p) {
 	if(p == NULL)
 		return;
-	proc_t* cproc = get_current_proc();
-	trunk_free(&cproc->space->malloc_man, p);
+	trunk_free(&proc->space->malloc_man, p);
 }
 
 static inline uint32_t core_fetch(proc_t* proc) {
@@ -686,7 +677,7 @@ procinfo_t* get_procs(int32_t *num) {
 		return NULL;
 
 	/*need to be freed later used!*/
-	procinfo_t* procs = (procinfo_t*)proc_malloc(sizeof(procinfo_t)*(*num));
+	procinfo_t* procs = (procinfo_t*)proc_malloc(cproc, sizeof(procinfo_t)*(*num));
 	if(procs == NULL)
 		return NULL;
 
