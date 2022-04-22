@@ -1,6 +1,4 @@
-AR = arm-none-eabi-ar
-CC = arm-none-eabi-gcc
-LD = arm-none-eabi-ld
+include ../../../../make.rule
 
 BUILD_DIR = ../../../../build
 TARGET_DIR = $(BUILD_DIR)
