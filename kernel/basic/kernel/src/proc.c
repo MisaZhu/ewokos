@@ -90,7 +90,6 @@ static void proc_shrink_mem(proc_t* proc, int32_t page_num) {
 		if (proc->space->heap_size == 0)
 			break;
 	}
-	proc->info.heap_size = proc->space->heap_size;
 	flush_tlb();
 }
 
@@ -114,7 +113,6 @@ static int32_t proc_expand_mem(proc_t *proc, int32_t page_num) {
 				AP_RW_RW);
 		proc->space->heap_size += PAGE_SIZE;
 	}
-	proc->info.heap_size = proc->space->heap_size;
 	flush_tlb();
 	return res;
 }
@@ -164,28 +162,30 @@ void proc_switch(context_t* ctx, proc_t* to, bool quick){
 	if(cproc != NULL && cproc->info.state != UNUSED)
 		memcpy(&cproc->ctx, ctx, sizeof(context_t));
 
-	if(to->space->interrupt.do_switch) { //have irq request to handle 
-		memcpy(&to->space->interrupt.saved_state.ctx, &to->ctx, sizeof(context_t)); //save "to" context to irq ctx, will restore after irq done.
-		to->ctx.gpr[0] = to->space->interrupt.interrupt;
-		to->ctx.pc = to->ctx.lr = to->space->interrupt.entry;
-		to->ctx.sp = to->space->interrupt.stack + THREAD_STACK_PAGES*PAGE_SIZE;
-		to->space->interrupt.do_switch = false; // clear irq request mask
-	}
-	else if(to->space->signal.do_switch) { //have signal request to handle
-		memcpy(&to->space->signal.saved_state.ctx, &to->ctx, sizeof(context_t)); // save "to" context to ipc ctx, will restore after ipc done.
-		to->ctx.gpr[0] = to->space->signal.sig_no;
-		to->ctx.pc = to->ctx.lr = to->space->signal.entry;
-		to->ctx.sp = to->space->signal.stack + THREAD_STACK_PAGES*PAGE_SIZE;
-		to->space->signal.do_switch = false; // clear ipc request mask
-	}
-	else if(to->space->ipc_server.do_switch) { //have ipc request to handle
-		ipc_task_t *ipc = proc_ipc_get_task(to);
-		memcpy(&to->space->ipc_server.saved_state.ctx, &to->ctx, sizeof(context_t)); // save "to" context to ipc ctx, will restore after ipc done.
-		to->ctx.gpr[0] = ipc->uid;
-		to->ctx.gpr[1] = to->space->ipc_server.extra_data;
-		to->ctx.pc = to->ctx.lr = to->space->ipc_server.entry;
-		to->ctx.sp = to->space->ipc_server.stack + THREAD_STACK_PAGES*PAGE_SIZE;
-		to->space->ipc_server.do_switch = false; // clear ipc request mask
+	if(to->info.type == PROC_TYPE_PROC) {
+		if (to->space->interrupt.do_switch) {																				// have irq request to handle
+			memcpy(&to->space->interrupt.saved_state.ctx, &to->ctx, sizeof(context_t)); // save "to" context to irq ctx, will restore after irq done.
+			to->ctx.gpr[0] = to->space->interrupt.interrupt;
+			to->ctx.pc = to->ctx.lr = to->space->interrupt.entry;
+			to->ctx.sp = ALIGN_DOWN(to->space->interrupt.stack + THREAD_STACK_PAGES * PAGE_SIZE, 4);
+			to->space->interrupt.do_switch = false; // clear irq request mask
+		}
+		else if (to->space->signal.do_switch) {																			 // have signal request to handle
+			memcpy(&to->space->signal.saved_state.ctx, &to->ctx, sizeof(context_t)); // save "to" context to ipc ctx, will restore after ipc done.
+			to->ctx.gpr[0] = to->space->signal.sig_no;
+			to->ctx.pc = to->ctx.lr = to->space->signal.entry;
+			to->ctx.sp = ALIGN_DOWN(to->space->signal.stack + THREAD_STACK_PAGES * PAGE_SIZE, 4);
+			to->space->signal.do_switch = false; // clear ipc request mask
+		}
+		else if (to->space->ipc_server.do_switch) { // have ipc request to handle
+			ipc_task_t *ipc = proc_ipc_get_task(to);
+			memcpy(&to->space->ipc_server.saved_state.ctx, &to->ctx, sizeof(context_t)); // save "to" context to ipc ctx, will restore after ipc done.
+			to->ctx.gpr[0] = ipc->uid;
+			to->ctx.gpr[1] = to->space->ipc_server.extra_data;
+			to->ctx.pc = to->ctx.lr = to->space->ipc_server.entry;
+			to->ctx.sp = ALIGN_DOWN(to->space->ipc_server.stack + THREAD_STACK_PAGES * PAGE_SIZE, 4);
+			to->space->ipc_server.do_switch = false; // clear ipc request mask
+		}
 	}
 
 	if(cproc != to && cproc != NULL &&
@@ -313,7 +313,7 @@ static void proc_terminate(context_t* ctx, proc_t* proc) {
 static inline void proc_init_user_stack(proc_t* proc) {
 	if(proc->info.type == PROC_TYPE_THREAD) {
 		proc->stack.thread_stack = (uint32_t)proc_malloc(proc, THREAD_STACK_PAGES*PAGE_SIZE);
-		proc->ctx.sp = proc->stack.thread_stack + THREAD_STACK_PAGES*PAGE_SIZE;
+		proc->ctx.sp = ALIGN_DOWN(proc->stack.thread_stack + THREAD_STACK_PAGES*PAGE_SIZE, 4);
 	}
 	else {
 		uint32_t i;
@@ -461,12 +461,13 @@ proc_t *proc_create(int32_t type, proc_t* parent) {
 	proc->info.state = CREATED;
 	if(type == PROC_TYPE_PROC) {
 		proc_init_space(proc);
-		proc->info.cmd[0] = 0;
 	}
 	else {
 		proc->space = parent->space;
-		strcpy(proc->info.cmd, parent->info.cmd);
 	}
+
+	if(parent != NULL)
+		strcpy(proc->info.cmd, parent->info.cmd);
 
 	proc_init_user_stack(proc);
 	proc->ctx.cpsr = 0x50;
@@ -605,7 +606,6 @@ static int32_t proc_clone(proc_t* child, proc_t* parent) {
 	}
 	flush_tlb();
 	child->space->heap_size = pages * PAGE_SIZE;
-	child->info.heap_size = child->space->heap_size;
 
 	//set father
 	child->info.father_pid = parent->info.pid;
@@ -617,8 +617,6 @@ static int32_t proc_clone(proc_t* child, proc_t* parent) {
 			parent,
 			(uint32_t)parent->stack.user_stack[i]);
 	}
-
-	strcpy(child->info.cmd, parent->info.cmd);
 	return 0;
 }
 
@@ -652,6 +650,11 @@ proc_t* kfork(context_t* ctx, int32_t type) {
 	else
 		proc_ready(child);
 
+	/*if(child->info.type == PROC_TYPE_PROC)
+		core_attach(child);
+	else
+		child->info.core = cproc->info.core;
+		*/
 	core_attach(child);
 	return child;
 }
@@ -687,7 +690,9 @@ procinfo_t* get_procs(int32_t *num) {
 		if(_proc_table[i].info.state != UNUSED && 
 				(cproc->info.owner == 0 ||
 				 _proc_table[i].info.owner == cproc->info.owner)) {
-			memcpy(&procs[j], &_proc_table[i].info, sizeof(procinfo_t));
+			proc_t* p = &_proc_table[i];
+			memcpy(&procs[j], &p->info, sizeof(procinfo_t));
+			procs[j].heap_size = p->space->heap_size;
 			j++;
 		}
 	}

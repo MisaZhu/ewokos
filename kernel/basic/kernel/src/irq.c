@@ -147,7 +147,7 @@ void undef_abort_handler(context_t* ctx, uint32_t status) {
 	if(cproc == NULL) {
 		printf("_kernel, undef instrunction abort!! (core %d)\n", core);
 		dump_ctx(ctx);
-		while(1);
+		halt();
 	}
 
 	printf("pid: %d(%s), undef instrunction abort!! (core %d)\n", cproc->info.pid, cproc->info.cmd, core);
@@ -165,7 +165,7 @@ void prefetch_abort_handler(context_t* ctx, uint32_t status) {
 	if(cproc == NULL) {
 		printf("_kernel, prefetch abort!! (core %d)\n", core);
 		dump_ctx(ctx);
-		while(1);
+		halt();
 	}
 
 	if((status & 0xD) != 0xD || //permissions fault only
@@ -180,25 +180,29 @@ void prefetch_abort_handler(context_t* ctx, uint32_t status) {
 void data_abort_handler(context_t* ctx, uint32_t addr_fault, uint32_t status) {
 	(void)ctx;
 	__irq_disable();
-	if(kernel_lock_check() > 0)
-		return;
-	kernel_lock();
-
 	proc_t* cproc = get_current_proc();
 	if(cproc == NULL) {
 		printf("_kernel, data abort!! at: 0x%X\n", addr_fault);
 		dump_ctx(ctx);
-		while(1);
+		halt();
 	}
 
-	if((status & 0xD) != 0xD || //permissions fault only
-			addr_fault >= cproc->space->heap_size || //in proc heap only
-			copy_on_write(cproc, addr_fault) != 0) {
-		printf("pid: %d(%s), core: %d, data abort!! at: 0x%X, code: 0x%X\n", cproc->info.pid, cproc->info.cmd, cproc->info.core, addr_fault, status);
-		dump_ctx(&cproc->ctx);
-		proc_exit(ctx, cproc, -1);
+	if((status & 0xD) == 0xD && //permissions fault only
+			addr_fault < cproc->space->heap_size) { //in proc heap only
+		if (kernel_lock_check() > 0)
+			return;
+
+		kernel_lock();
+		int32_t res = copy_on_write(cproc, addr_fault);
+		kernel_unlock();
+
+		if(res == 0) 
+			return;
 	}
-	kernel_unlock();
+
+	printf("pid: %d(%s), core: %d, data abort!! at: 0x%X, code: 0x%X\n", cproc->info.pid, cproc->info.cmd, cproc->info.core, addr_fault, status);
+	dump_ctx(&cproc->ctx);
+	proc_exit(ctx, cproc, -1);
 }
 
 void irq_init(void) {
