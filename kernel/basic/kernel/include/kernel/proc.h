@@ -79,9 +79,9 @@ typedef struct st_proc {
 	proc_space_t*     space;
 
 	union {
-	void*             user_stack[STACK_PAGES];
-	uint32_t          thread_stack; //mapped thread stack page
-	};
+		void*             user_stack[STACK_PAGES];
+		uint32_t          thread_stack; //mapped thread stack page
+	} stack;
 
 	context_t         ctx;
 	ipc_res_t         ipc_res;

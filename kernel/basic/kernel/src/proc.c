@@ -314,7 +314,7 @@ static inline void proc_init_user_stack(proc_t* proc) {
 	if(proc->info.type == PROC_TYPE_THREAD) {
 		uint32_t page = (uint32_t)kalloc4k();
 		map_page(proc->space->vm, page, V2P(page), AP_RW_RW, 0);
-		proc->thread_stack = page;
+		proc->stack.thread_stack = page;
 		proc->ctx.sp = page + PAGE_SIZE;
 	}
 	else {
@@ -322,10 +322,10 @@ static inline void proc_init_user_stack(proc_t* proc) {
 		uint32_t user_stack_base =  proc_get_user_stack_base(proc);
 		uint32_t pages = proc_get_user_stack_pages(proc);
 		for(i=0; i<pages; i++) {
-			proc->user_stack[i] = kalloc4k();
+			proc->stack.user_stack[i] = kalloc4k();
 			map_page(proc->space->vm,
 				user_stack_base + PAGE_SIZE*i,
-				V2P(proc->user_stack[i]),
+				V2P(proc->stack.user_stack[i]),
 				AP_RW_RW, 0);
 		}
 		proc->ctx.sp = user_stack_base + pages*PAGE_SIZE;
@@ -336,9 +336,9 @@ static inline void proc_init_user_stack(proc_t* proc) {
 static inline void proc_free_user_stack(proc_t* proc) {
 	/*free user_stack*/
 	if(proc->info.type == PROC_TYPE_THREAD) {
-		if(proc->thread_stack != 0) {
-			kfree4k((void*)proc->thread_stack);	
-			unmap_page(proc->space->vm, proc->thread_stack);
+		if(proc->stack.thread_stack != 0) {
+			kfree4k((void*)proc->stack.thread_stack);	
+			unmap_page(proc->space->vm, proc->stack.thread_stack);
 		}
 	}
 	else {
@@ -346,7 +346,7 @@ static inline void proc_free_user_stack(proc_t* proc) {
 		uint32_t pages = proc_get_user_stack_pages(proc);
 		uint32_t i;
 		for(i=0; i<pages; i++) {
-			kfree4k(proc->user_stack[i]);
+			kfree4k(proc->stack.user_stack[i]);
 			unmap_page(proc->space->vm, user_stack_base + PAGE_SIZE*i);
 		}
 	}
@@ -621,7 +621,10 @@ static int32_t proc_clone(proc_t* child, proc_t* parent) {
 	// copy parent's stack to child's stack
 	int32_t i;
 	for(i=0; i<STACK_PAGES; i++) {
-		proc_page_clone(child, (uint32_t)child->user_stack[i], parent, (uint32_t)parent->user_stack[i]);
+		proc_page_clone(child, 
+			(uint32_t)child->stack.user_stack[i],
+			parent,
+			(uint32_t)parent->stack.user_stack[i]);
 	}
 
 	strcpy(child->info.cmd, parent->info.cmd);
