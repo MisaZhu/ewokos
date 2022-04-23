@@ -670,7 +670,6 @@ void graph_round(graph_t* g, int32_t x, int32_t y,
 	xr = x + radius;
 	yr = y + radius;
 
-	//graph_line(g, xr-radius, yr, xr, yr, color);
 	do {
 		pixel_argb_safe(g, xr-b, yr-a, ca, cr, cg, cb);
 				pixel_argb_safe(g, xr-a, yr-b, ca, cr, cg, cb);
@@ -678,8 +677,6 @@ void graph_round(graph_t* g, int32_t x, int32_t y,
 			P += 3 + 2*a++;
 		}
 		else {
-			//if(a != b) {
-			//}
 			P += 5 + 2*(a++ - b--);
 		}
 	} while(a <= b);
@@ -691,7 +688,6 @@ void graph_round(graph_t* g, int32_t x, int32_t y,
 	xr = x + radius;
 	yr = y + h - radius-1;
 
-	//graph_line(g, xr-radius, yr, xr, yr, color);
 	do {
 		pixel_argb_safe(g, xr-b, yr+a, ca, cr, cg, cb);
 				pixel_argb_safe(g, xr-a, yr+b, ca, cr, cg, cb);
@@ -699,8 +695,6 @@ void graph_round(graph_t* g, int32_t x, int32_t y,
 			P += 3 + 2*a++;
 		}
 		else {
-			//if(a != b) {
-			//}
 			P += 5 + 2*(a++ - b--);
 		}
 	} while(a <= b);
@@ -712,7 +706,6 @@ void graph_round(graph_t* g, int32_t x, int32_t y,
 	xr = x + w - radius - 1;
 	yr = y + radius;
 
-	//graph_line(g, xr, yr, xr+radius, yr, color);
 	do {
 		pixel_argb_safe(g, xr+b, yr-a, ca, cr, cg, cb);
 				pixel_argb_safe(g, xr+a, yr-b, ca, cr, cg, cb);
@@ -720,8 +713,6 @@ void graph_round(graph_t* g, int32_t x, int32_t y,
 			P += 3 + 2*a++;
 		}
 		else {
-			//if(a != b) {
-			//}
 			P += 5 + 2*(a++ - b--);
 		}
 	} while(a <= b);
@@ -733,7 +724,6 @@ void graph_round(graph_t* g, int32_t x, int32_t y,
 	xr = x + w - radius-1;
 	yr = y + h - radius-1;
 
-	//graph_line(g, xr, yr, xr+radius, yr, color);
 	do {
 		pixel_argb_safe(g, xr+b, yr+a, ca, cr, cg, cb);
 				pixel_argb_safe(g, xr+a, yr+b, ca, cr, cg, cb);
@@ -741,14 +731,12 @@ void graph_round(graph_t* g, int32_t x, int32_t y,
 			P += 3 + 2*a++;
 		}
 		else {
-			//if(a != b) {
-			//}
 			P += 5 + 2*(a++ - b--);
 		}
 	} while(a <= b);
 
-	graph_line(g, x+radius-1, y, x+w-radius, y, color);
-	graph_line(g, x+radius-1, y+h-1, x+w-radius, y+h-1, color);
+	graph_line(g, x+radius, y, x+w-radius-1, y, color);
+	graph_line(g, x+radius, y+h-1, x+w-radius-1, y+h-1, color);
 	graph_line(g, x, y+radius, x, y+h-radius-1, color);
 	graph_line(g, x+w-1, y+radius, x+w-1, y+h-radius-1, color);
 }
