@@ -26,14 +26,7 @@ int32_t interrupt_setup(proc_t* cproc, uint32_t interrupt, uint32_t entry) {
 	_interrupts[interrupt].entry = entry;
 	_interrupts[interrupt].pid = cproc->info.pid;
 
-	/*uint32_t page = kalloc4k();
-	map_page(cproc->space->vm,
-			page,
-			V2P(page),
-			AP_RW_RW, 0);
-	cproc->space->interrupt.stack = page;
-	*/
-	cproc->space->interrupt.stack = (uint32_t)proc_malloc(cproc, THREAD_STACK_PAGES*PAGE_SIZE);
+	cproc->space->interrupt.stack = proc_stack_alloc(cproc);
 	return 0;
 }
 

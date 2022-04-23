@@ -310,18 +310,28 @@ static void proc_terminate(context_t* ctx, proc_t* proc) {
 	proc->info.father_pid = 0;
 }
 
-static inline void proc_init_user_stack(proc_t* proc) {
-	if(proc->info.type == PROC_TYPE_THREAD) {
-		proc->stack.thread_stack = (uint32_t)proc_malloc(proc, THREAD_STACK_PAGES*PAGE_SIZE);
-		proc->ctx.sp = ALIGN_DOWN(proc->stack.thread_stack + THREAD_STACK_PAGES*PAGE_SIZE, 4);
-		/*uint32_t page = (uint32_t)kalloc4k();
-		map_page(proc->space->vm,
+inline uint32_t proc_stack_alloc(proc_t* proc) {
+	/*uint32_t page = (uint32_t)kalloc4k();
+	map_page(proc->space->vm,
 			page,
 			V2P(page),
 			AP_RW_RW, 0);
-		proc->stack.thread_stack = page;
-		proc->ctx.sp = page+PAGE_SIZE;
-		*/
+	return page;
+	*/
+	return (uint32_t)proc_malloc(proc, THREAD_STACK_PAGES*PAGE_SIZE);
+}
+
+inline void proc_stack_free(proc_t* proc, uint32_t stack) {
+	/*kfree4k((void *)stack);
+	unmap_page(proc->space->vm, stack);
+	*/
+	proc_free(proc, (void *)stack);
+}
+
+static inline void proc_init_user_stack(proc_t* proc) {
+	if(proc->info.type == PROC_TYPE_THREAD) {
+		proc->stack.thread_stack = proc_stack_alloc(proc);
+		proc->ctx.sp = ALIGN_DOWN(proc->stack.thread_stack + THREAD_STACK_PAGES*PAGE_SIZE, 4);
 	}
 	else {
 		uint32_t i;
@@ -343,10 +353,7 @@ static inline void proc_free_user_stack(proc_t* proc) {
 	/*free user_stack*/
 	if(proc->info.type == PROC_TYPE_THREAD) {
 		if(proc->stack.thread_stack != 0) {
-			/*kfree4k(proc->stack.thread_stack);
-			unmap_page(proc->space->vm, proc->stack.thread_stack);
-			*/
-			proc_free(proc, (void*)proc->stack.thread_stack);
+			proc_stack_free(proc, proc->stack.thread_stack);
 		}
 	}
 	else {
@@ -378,19 +385,13 @@ static void proc_funeral(proc_t* proc) {
 
 		/*free small_stack*/
 		if (proc->space->interrupt.stack != 0) {
-			/*kfree4k((void *)proc->space->interrupt.stack);
-			unmap_page(proc->space->vm, proc->space->interrupt.stack);
-			*/
-			proc_free(proc, (void *)proc->space->interrupt.stack);
+			proc_stack_free(proc, proc->space->interrupt.stack);
 		}
 		if (proc->space->signal.stack != 0) {
-			/*kfree4k((void *)proc->space->signal.stack);
-			unmap_page(proc->space->vm, proc->space->signal.stack);
-			*/
-			proc_free(proc, (void *)proc->space->signal.stack);
+			proc_stack_free(proc, proc->space->signal.stack);
 		}
 		if (proc->space->ipc_server.stack != 0) {
-			proc_free(proc, (void *)proc->space->ipc_server.stack);
+			proc_stack_free(proc, proc->space->ipc_server.stack);
 		}
 		proc_free_space(proc);
 	}

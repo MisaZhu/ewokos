@@ -127,6 +127,8 @@ extern void    renew_kernel_tic(uint64_t usec);
 extern void    proc_usleep(context_t* ctx, uint32_t usec);
 extern void    proc_ready(proc_t* proc);
 
+extern uint32_t proc_stack_alloc(proc_t* proc);
+extern void     proc_stack_free(proc_t* proc, uint32_t stack);
 extern bool    proc_have_ready_task(uint32_t core);
 extern void    proc_save_state(proc_t* proc, saved_state_t* saved_state);
 extern void    proc_restore_state(context_t* ctx, proc_t* proc, saved_state_t* saved_state);

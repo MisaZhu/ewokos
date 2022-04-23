@@ -11,14 +11,7 @@ int32_t  proc_signal_setup(uint32_t entry) {
 	proc_t* cproc = get_current_proc();
 	cproc->space->signal.entry = entry;
 
-	/*uint32_t page = kalloc4k();
-	map_page(cproc->space->vm,
-			page,
-			V2P(page),
-			AP_RW_RW, 0);
-	cproc->space->signal.stack = page;
-	*/
-	cproc->space->signal.stack = (uint32_t)proc_malloc(cproc, THREAD_STACK_PAGES*PAGE_SIZE);
+	cproc->space->signal.stack = proc_stack_alloc(cproc);
 	return 0;	
 }
 

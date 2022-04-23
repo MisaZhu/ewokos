@@ -16,7 +16,7 @@ int32_t proc_ipc_setup(context_t* ctx, uint32_t entry, uint32_t extra_data, uint
 	cproc->space->ipc_server.extra_data = extra_data;
 	cproc->space->ipc_server.flags = flags;
 	
-	cproc->space->ipc_server.stack = (uint32_t)proc_malloc(cproc, THREAD_STACK_PAGES*PAGE_SIZE);
+	cproc->space->ipc_server.stack = proc_stack_alloc(cproc);
 	return 0;
 }
 
