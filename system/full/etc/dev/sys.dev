@@ -1,3 +1,3 @@
+/drivers/xserverd             /dev/x
 /drivers/nulld                /dev/null
 /drivers/ramfsd               /tmp
-/drivers/xserverd             /dev/x

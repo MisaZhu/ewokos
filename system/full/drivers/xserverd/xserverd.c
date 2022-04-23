@@ -971,6 +971,8 @@ int main(int argc, char** argv) {
 	dev.dev_cntl = xserver_dev_cntl;
 
 	dev.extra_data = &x;
+	x_repaint_req(&x);
+	x_repaint(&x);
 	device_run(&dev, mnt_point, FS_TYPE_CHAR);
 	x_close(&x);
 	return 0;

@@ -14,25 +14,19 @@
 #include <sd/sd.h>
 #include <ext2/ext2fs.h>
 
-static int _console_fd = -1;
-
 static void outc(char c, void* p) {
-  str_t* buf = (str_t*)p;
-  str_addc(buf, c);
+	str_t *buf = (str_t *)p;
+	str_addc(buf, c);
 }
 
 static void out(const char *format, ...) {
-  str_t* str = str_new(NULL);
-  va_list ap;
-  va_start(ap, format);
-  v_printf(outc, str, format, ap);
+	str_t *str = str_new(NULL);
+	va_list ap;
+	va_start(ap, format);
+	v_printf(outc, str, format, ap);
 	va_end(ap);
 	klog("%s", str->cstr);
-	if(_console_fd == -1234) //consoled inited and dup2 fd:2
-		dprintf(2, "%s", str->cstr);
-	else if(_console_fd > 0)
-		dprintf(_console_fd, "%s", str->cstr);
-  str_free(str);;
+	str_free(str);
 }
 
 static void* sd_read_ext2(const char* fname, int32_t* size) {
@@ -85,11 +79,6 @@ static int run(const char* cmd, bool prompt, bool wait) {
 
 	int pid = fork();
 	if(pid == 0) {
-		if(_console_fd > 0) {
-			close(_console_fd);
-			_console_fd = -1;
-		}
-
 		proc_detach();
 
 		if(exec(cmd) != 0) {
@@ -167,23 +156,6 @@ static void load_extra_devs(void) {
   closedir(dirp);
 }
 
-static void console_welcome(void) {
-	dprintf(_console_fd,
-			" ______           ______  _    _   ______  ______ \n"
-			"(  ___ \\|\\     /|(  __  )| \\  / \\ (  __  )(  ___ \\\n"
-			"| (__   | | _ | || |  | || (_/  / | |  | || (____\n"
-			"|  __)  | |( )| || |  | ||  _  (  | |  | |(____  )\n"
-			"| (___  | || || || |__| || ( \\  \\ | |__| |  ___) |\n"
-			"(______/(_______)(______)|_/  \\_/ (______)\\______)\n\n");
-}
-
-static void load_sys_init_devs(void) {
-	load_devs("/etc/dev/sys_init.dev");
-	_console_fd = open("/dev/console0", O_WRONLY);
-	if(_console_fd > 0) 
-		console_welcome();
-}
-
 static void load_sys_devs(void) {
 	load_devs("/etc/dev/sys.dev");
 }
@@ -245,13 +217,7 @@ static void init_tty_stdio(void) {
 	int fd = open("/dev/tty0", 0);
 	dup2(fd, 0);
 	dup2(fd, 1);
-	if(_console_fd > 0) {
-		dup2(_console_fd, 2);
-		close(_console_fd);
-		_console_fd = -1234;
-	}
-	else
-		dup2(fd, 2);
+	dup2(fd, 2);
 	close(fd);
 }
 
@@ -261,9 +227,8 @@ static void switch_root(void) {
 		setuid(0);
 		load_arch_devs();
 		load_extra_devs();
-		load_sys_init_devs();
-		init_tty_stdio();
 		load_sys_devs();
+		init_tty_stdio();
 		run_procs();
 		exit(0);
 	}
@@ -281,7 +246,6 @@ static void halt(void) {
 int main(int argc, char** argv) {
 	(void)argc;
 	(void)argv;
-	_console_fd = -1;
 
 	if(getuid() >= 0) {
 		out("process 'init' can only loaded by kernel!\n");
