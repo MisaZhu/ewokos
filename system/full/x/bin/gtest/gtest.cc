@@ -12,10 +12,14 @@ using namespace Ewok;
 
 class TestX : public XWin {
 	int count, imgX, imgY;
-	bool circle;
+	int mode;
 	graph_t* img_big;
 	graph_t* img_small;
 	font_t* font;
+
+	const int CIRCLE = 0;
+	const int RECT   = 1;
+	const int ROUND  = 2;
 
 	void drawImage(Graph& g, graph_t* img) {
 		if(img == NULL)
@@ -26,7 +30,7 @@ class TestX : public XWin {
 public:
 	inline TestX() {
 		count = 0;
-		circle = true;
+		mode = CIRCLE;
         imgX = imgY = 0;
 		img_big = png_image_new("/data/images/rokid.png");	
 		img_small = png_image_new("/data/images/rokid_small.png");	
@@ -61,22 +65,30 @@ protected:
 		int h = random_to(gH/4);
 		int c = random();
 
-		w = w < 32 ? 32 : w;
-		h = h < 32 ? 32 : h;
+		w = w < 48 ? 48 : w;
+		h = h < 48 ? 48 : h;
 
 		if((count++ % 100) == 0) {
+			mode++;
+			if(mode > ROUND)
+				mode = 0;
+
 			g.fill(0, 0, gW, gH, 0xff000000);
 			imgX = random_to(gW - img->w);
 			imgY = random_to(gH - img->h - font->h);
 		}
 
-		if(circle) {
+		if(mode == CIRCLE) {
 			g.fillCircle(x, y, h, c);
 			g.circle(x, y, h+10, c);
 		}
-		else {
-			g.fillRound(x+5, y+5, w-10, h-10, 10, c);
-			g.round(x, y, w, h, 15, c);
+		else if(mode == ROUND) {
+			g.fillRound(x+5, y+5, w-10, h-10, 16, c);
+			g.round(x, y, w, h, 20, c);
+		}
+		else if(mode == RECT) {
+			g.fill(x+5, y+5, w-10, h-10, c);
+			g.box(x, y, w, h, c);
 		}
 
 		snprintf(str, 31, "EwokOS %d", count);
@@ -84,8 +96,6 @@ protected:
 		g.fill(imgX, imgY+img->h+2, img->w, font->h, 0xffffffff);
 		g.drawText(imgX+4, imgY+img->h+2, str, font, 0xff000000);
 		drawImage(g, img);
-
-		circle = !circle;	
 	}
 };
 

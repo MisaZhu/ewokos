@@ -7,8 +7,14 @@ LDFLAGS = -L$(TARGET_DIR)/lib -lnosys
 
 CFLAGS += -I $(TARGET_DIR)/include -Iinclude
 
-LIB_GRAPH_OBJS = src/font.o \
-	src/graph.o
+LIB_GRAPH_OBJS = src/graph.o \
+	src/pixel.o \
+	src/line.o \
+	src/box.o \
+	src/circle.o \
+	src/round.o \
+	src/text.o \
+	src/font.o
 
 GRAPH = $(TARGET_DIR)/lib/libgraph.a
 

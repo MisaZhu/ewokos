@@ -13,11 +13,11 @@ CONSOLED = $(TARGET_DIR)/drivers/consoled
 
 $(CONSOLED): $(CONSOLED_OBJS) \
 		$(BUILD_DIR)/lib/libewokc.a \
-		$(BUILD_DIR)/lib/libgraph.a \
 		$(BUILD_DIR)/lib/libfb.a \
 		$(BUILD_DIR)/lib/libconsole.a \
+		$(BUILD_DIR)/lib/libgraph.a \
 		$(BUILD_DIR)/lib/libfonts.a 
-	$(LD) -Ttext=100 $(CONSOLED_OBJS) -o $(CONSOLED) $(LDFLAGS) -lfonts -lfb -lgraph -lconsole -lewokc -lc
+	$(LD) -Ttext=100 $(CONSOLED_OBJS) -o $(CONSOLED) $(LDFLAGS) -lfonts -lfb -lconsole -lgraph -lewokc -lc
 
 clean:
 	rm -f $(CONSOLED_OBJS)
