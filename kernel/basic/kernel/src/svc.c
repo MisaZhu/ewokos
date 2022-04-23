@@ -128,10 +128,14 @@ static void sys_detach(void) {
 	cproc->info.father_pid = 0;
 }
 
-static int32_t sys_thread(context_t* ctx, uint32_t entry, uint32_t func, int32_t arg) {
+static void sys_thread(context_t* ctx, uint32_t entry, uint32_t func, int32_t arg) {
+	ctx->gpr[0] = -1;
+	//proc_t *cproc = get_current_proc();
 	proc_t *proc = kfork(ctx, PROC_TYPE_THREAD);
 	if(proc == NULL)
-		return -1;
+		return;
+	ctx->gpr[0] = proc->info.pid;
+
 	/*uint32_t sp = proc->ctx.sp;
 	memcpy(&proc->ctx, ctx, sizeof(context_t));
 	proc->ctx.sp = sp;
@@ -140,7 +144,11 @@ static int32_t sys_thread(context_t* ctx, uint32_t entry, uint32_t func, int32_t
 	proc->ctx.lr = entry;
 	proc->ctx.gpr[0] = func;
 	proc->ctx.gpr[1] = arg;
-	return proc->info.pid;
+	/*if(cproc->info.core == proc->info.core)
+		proc_switch(ctx, proc, true);
+	else
+		schedule(ctx);
+		*/
 }
 
 static void sys_waitpid(context_t* ctx, int32_t pid) {
@@ -596,7 +604,7 @@ static inline void _svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_
 		ctx->gpr[0] = sys_shm_ref(arg0);
 		return;
 	case SYS_THREAD:
-		ctx->gpr[0] = sys_thread(ctx, (uint32_t)arg0, (uint32_t)arg1, arg2);
+		sys_thread(ctx, (uint32_t)arg0, (uint32_t)arg1, arg2);
 		return;
 	case SYS_KPRINT:
 		sys_kprint((const char*)arg0, arg1);

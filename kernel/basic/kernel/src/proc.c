@@ -191,7 +191,7 @@ void proc_switch(context_t* ctx, proc_t* to, bool quick){
 	}
 
 	if(cproc != to && cproc != NULL &&
-			cproc->info.state != UNUSED && 
+			cproc->info.state != UNUSED &&
 			cproc->info.pid != _cpu_cores[cproc->info.core].halt_pid) {
 			//halt proc can't be pushed into ready queue, can't be scheduled.
 		if(cproc->info.state == RUNNING) {
@@ -203,7 +203,6 @@ void proc_switch(context_t* ctx, proc_t* to, bool quick){
 		}	
 	}
 
-	memcpy(ctx, &to->ctx, sizeof(context_t));
 	to->info.state = RUNNING;
 	to->info.block_by = -1;
 	if(cproc != to) {
@@ -211,6 +210,7 @@ void proc_switch(context_t* ctx, proc_t* to, bool quick){
 		set_translation_table_base((uint32_t)V2P(vm));
 		set_current_proc(to);
 	}
+	memcpy(ctx, &to->ctx, sizeof(context_t));
 }
 
 static inline void proc_unmap_shms(proc_t *proc) {
