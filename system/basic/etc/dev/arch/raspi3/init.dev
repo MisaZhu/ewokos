@@ -1,4 +1,4 @@
-/drivers/raspix/mini_uartd    /dev/tty0
-/drivers/raspix/mbox_actledd  /dev/actled
-#/drivers/raspix/fbd           /dev/fb0 1280 400
 /drivers/raspix/fbd           /dev/fb0 800 480
+#/drivers/raspix/fbd           /dev/fb0 1280 400
+/drivers/raspix/mini_uartd    /dev/tty0
+#/drivers/raspix/mbox_actledd  /dev/actled
