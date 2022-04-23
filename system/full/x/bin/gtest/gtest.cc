@@ -65,8 +65,8 @@ protected:
 		int h = random_to(gH/4);
 		int c = random();
 
-		w = w < 48 ? 48 : w;
-		h = h < 48 ? 48 : h;
+		w = w < 32 ? 32 : w;
+		h = h < 32 ? 32 : h;
 
 		if((count++ % 100) == 0) {
 			mode++;
@@ -83,12 +83,12 @@ protected:
 			g.circle(x, y, h+10, c);
 		}
 		else if(mode == ROUND) {
-			g.fillRound(x+5, y+5, w-10, h-10, 16, c);
-			g.round(x, y, w, h, 20, c);
+			g.fillRound(x, y, w, h, 12, c);
+			g.round(x-4, y-4, w+8, h+8, 16, c);
 		}
 		else if(mode == RECT) {
-			g.fill(x+5, y+5, w-10, h-10, c);
-			g.box(x, y, w, h, c);
+			g.fill(x, y, w, h, c);
+			g.box(x-4, y-4, w+8, h+8, c);
 		}
 
 		snprintf(str, 31, "EwokOS %d", count);
