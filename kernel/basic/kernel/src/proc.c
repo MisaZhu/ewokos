@@ -63,13 +63,15 @@ inline void set_current_proc(proc_t* proc) {
 }
 
 static inline uint32_t proc_get_user_stack_pages(proc_t* proc) {
-	(void)proc;
-	return STACK_PAGES;
+	if(proc->info.type == PROC_TYPE_PROC)
+		return STACK_PAGES;
+	return THREAD_STACK_PAGES;
 }
 
 static inline  uint32_t proc_get_user_stack_base(proc_t* proc) {
-	(void)proc;
-	return USER_STACK_TOP - STACK_PAGES*PAGE_SIZE;
+	if(proc->info.type == PROC_TYPE_PROC)
+		return USER_STACK_TOP - STACK_PAGES*PAGE_SIZE;
+	return proc->stack.thread_stack;
 }
 
 static inline void* proc_get_mem_tail(void* p) {
@@ -331,7 +333,6 @@ inline void proc_stack_free(proc_t* proc, uint32_t stack) {
 static inline void proc_init_user_stack(proc_t* proc) {
 	if(proc->info.type == PROC_TYPE_THREAD) {
 		proc->stack.thread_stack = proc_stack_alloc(proc);
-		proc->ctx.sp = ALIGN_DOWN(proc->stack.thread_stack + THREAD_STACK_PAGES*PAGE_SIZE, 4);
 	}
 	else {
 		uint32_t i;
@@ -644,6 +645,22 @@ static int32_t proc_clone(proc_t* child, proc_t* parent) {
 	return 0;
 }
 
+/*static void proc_thread_clone(context_t* ctx, proc_t* child, proc_t* parent) {
+	uint32_t pstack_base = proc_get_user_stack_base(parent);
+	uint32_t pstack_size = proc_get_user_stack_pages(parent) * PAGE_SIZE;
+	uint32_t cstack_base = proc_get_user_stack_base(child);
+	uint32_t cstack_size = proc_get_user_stack_pages(child) * PAGE_SIZE;
+	uint32_t ptop = pstack_base + pstack_size;
+	uint32_t ctop = cstack_base + cstack_size;
+
+	uint32_t size = cstack_size < pstack_size ? cstack_size : pstack_size;
+	memcpy((void*)cstack_base, (void*)(ptop-size), size);
+
+	uint32_t offset = ptop - ctx->sp;
+	child->ctx.sp = ctop - offset;
+}
+*/
+
 proc_t* kfork_raw(context_t* ctx, int32_t type, proc_t* parent) {
 	(void)ctx;
 	proc_t *child = NULL;
@@ -654,13 +671,17 @@ proc_t* kfork_raw(context_t* ctx, int32_t type, proc_t* parent) {
 	}
 	child->info.father_pid = parent->info.pid;
 	child->info.owner = parent->info.owner;
+	memcpy(&child->ctx, &parent->ctx, sizeof(context_t));
 
 	if(type == PROC_TYPE_PROC) {
-		memcpy(&child->ctx, &parent->ctx, sizeof(context_t));
 		if(proc_clone(child, parent) != 0) {
 			printf("panic: kfork clone failed!!(%d)\n", parent->info.pid);
 			return NULL;
 		}
+	}
+	else {
+		//proc_thread_clone(ctx, child, parent);
+		child->ctx.sp = ALIGN_DOWN(child->stack.thread_stack + THREAD_STACK_PAGES*PAGE_SIZE, 4);
 	}
 	return child;
 }
