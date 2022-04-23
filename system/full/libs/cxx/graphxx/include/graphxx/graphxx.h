@@ -37,6 +37,10 @@ public:
 
 	void drawText(int32_t x, int32_t y, const char* str, font_t* font, uint32_t color);
 
+	void fillRound(int32_t x, int32_t y, int32_t w, int32_t h, uint32_t radius, uint32_t color);
+
+	void round(int32_t x, int32_t y, int32_t w, int32_t h, uint32_t radius, uint32_t color);
+
 	void blt(Graph* src,
 			int32_t sx, int32_t sy, int32_t sw, int32_t sh,
 			int32_t dx, int32_t dy, int32_t dw, int32_t dh);

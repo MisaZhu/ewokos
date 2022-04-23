@@ -50,9 +50,9 @@ protected:
 	}
 
 	void onRepaint(Graph& g) {
-		char str[32];
 		int gW = g.getW();
 		int gH = g.getH();
+		char str[32];
 		graph_t* img = gW > (img_big->w*2) ? img_big: img_small;
 
 		int x = random_to(gW);
@@ -61,8 +61,8 @@ protected:
 		int h = random_to(gH/4);
 		int c = random();
 
-		w = w < 8 ? 8 : w;
-		h = h < 8 ? 8 : h;
+		w = w < 32 ? 32 : w;
+		h = h < 32 ? 32 : h;
 
 		if((count++ % 100) == 0) {
 			g.fill(0, 0, gW, gH, 0xff000000);
@@ -75,8 +75,8 @@ protected:
 			g.circle(x, y, h+10, c);
 		}
 		else {
-			g.fill(x+5, y+5, w-10, h-10, c);
-			g.box(x, y, w, h, c);
+			g.fillRound(x+5, y+5, w-10, h-10, 10, c);
+			g.round(x, y, w, h, 15, c);
 		}
 
 		snprintf(str, 31, "EwokOS %d", count);
