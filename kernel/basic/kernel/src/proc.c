@@ -314,6 +314,14 @@ static inline void proc_init_user_stack(proc_t* proc) {
 	if(proc->info.type == PROC_TYPE_THREAD) {
 		proc->stack.thread_stack = (uint32_t)proc_malloc(proc, THREAD_STACK_PAGES*PAGE_SIZE);
 		proc->ctx.sp = ALIGN_DOWN(proc->stack.thread_stack + THREAD_STACK_PAGES*PAGE_SIZE, 4);
+		/*uint32_t page = (uint32_t)kalloc4k();
+		map_page(proc->space->vm,
+			page,
+			V2P(page),
+			AP_RW_RW, 0);
+		proc->stack.thread_stack = page;
+		proc->ctx.sp = page+PAGE_SIZE;
+		*/
 	}
 	else {
 		uint32_t i;
@@ -335,6 +343,9 @@ static inline void proc_free_user_stack(proc_t* proc) {
 	/*free user_stack*/
 	if(proc->info.type == PROC_TYPE_THREAD) {
 		if(proc->stack.thread_stack != 0) {
+			/*kfree4k(proc->stack.thread_stack);
+			unmap_page(proc->space->vm, proc->stack.thread_stack);
+			*/
 			proc_free(proc, (void*)proc->stack.thread_stack);
 		}
 	}
@@ -351,9 +362,12 @@ static inline void proc_free_user_stack(proc_t* proc) {
 }
 
 static void proc_funeral(proc_t* proc) {
-	/*free user_stack*/
-	proc_free_user_stack(proc);
+	if(proc->info.state == UNUSED)
+		return;
+	proc->info.state = UNUSED;
 
+	set_translation_table_base((uint32_t)V2P(proc->space->vm));
+	proc_free_user_stack(proc);
 	if(proc->info.type == PROC_TYPE_PROC) {
 		/*free kpage*/
 		if (proc->space->kpage != 0) {
@@ -364,9 +378,15 @@ static void proc_funeral(proc_t* proc) {
 
 		/*free small_stack*/
 		if (proc->space->interrupt.stack != 0) {
+			/*kfree4k((void *)proc->space->interrupt.stack);
+			unmap_page(proc->space->vm, proc->space->interrupt.stack);
+			*/
 			proc_free(proc, (void *)proc->space->interrupt.stack);
 		}
 		if (proc->space->signal.stack != 0) {
+			/*kfree4k((void *)proc->space->signal.stack);
+			unmap_page(proc->space->vm, proc->space->signal.stack);
+			*/
 			proc_free(proc, (void *)proc->space->signal.stack);
 		}
 		if (proc->space->ipc_server.stack != 0) {
@@ -389,6 +409,9 @@ int32_t proc_zombie_funeral(void) {
 /* proc_free frees all resources allocated by proc. */
 void proc_exit(context_t* ctx, proc_t *proc, int32_t res) {
 	(void)res;
+	if(proc->info.state == UNUSED || proc->info.state == ZOMBIE)
+		return;
+
 	uint32_t proc_core = proc->info.core;
 	proc_terminate(ctx, proc);
 
