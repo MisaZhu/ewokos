@@ -65,6 +65,9 @@ protected:
 		int h = random_to(gH/4);
 		int c = random();
 
+		if(w > h*2)
+			w = h*2;
+
 		w = w < 32 ? 32 : w;
 		h = h < 32 ? 32 : h;
 
