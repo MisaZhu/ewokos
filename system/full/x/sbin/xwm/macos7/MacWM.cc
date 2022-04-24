@@ -39,18 +39,23 @@ void MacWM::drawWelcome(graph_t* g) {
 	gsize_t sz;
 	get_text_size(welcome, font, &sz.w, &sz.h);
 
+	int x = (g->w-sz.w)/2;
+	int y = (g->h-sz.h)/2;
+
+	int m = 12;
 	graph_fill_round(g,
-		(g->w-sz.w)/2 - 12, (g->h-sz.h)/2 - 12, 
-		sz.w + 24, sz.h + 24, 
+		x - m, y - m,
+		sz.w + 2*m, sz.h + 2*m, 
 		8, 0x88ffffff);
 
+	m = 16;
 	graph_round(g,
-		(g->w-sz.w)/2 - 16, (g->h-sz.h)/2 - 16, 
-		sz.w + 32, sz.h + 32, 
+		x - m, y - m,
+		sz.w + 2*m, sz.h + 2*m, 
 		12, 0x88ffffff);
 
 	graph_draw_text(g,
-		(g->w-sz.w)/2, (g->h-sz.h)/2, 
+		x, y,
 		welcome,  font, 0xff000000);
 }
 
