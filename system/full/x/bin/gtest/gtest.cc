@@ -6,13 +6,16 @@
 #include <vprintf.h>
 #include <upng/upng.h>
 #include <sys/basic_math.h>
+#include <sys/kernel_tic.h>
+#include <sys/klog.h>
 #include <x++/X.h>
 
 using namespace Ewok;
 
 class TestX : public XWin {
-	int count, imgX, imgY;
+	int count, fps, imgX, imgY;
 	int mode;
+	uint32_t tic;
 	graph_t* img_big;
 	graph_t* img_small;
 	font_t* font;
@@ -29,6 +32,8 @@ class TestX : public XWin {
 	}
 public:
 	inline TestX() {
+		tic = 0;
+		fps = 0;
 		count = 0;
 		mode = CIRCLE;
         imgX = imgY = 0;
@@ -56,8 +61,9 @@ protected:
 	void onRepaint(Graph& g) {
 		int gW = g.getW();
 		int gH = g.getH();
-		char str[32];
 		graph_t* img = gW > (img_big->w*2) ? img_big: img_small;
+
+		count++;
 
 		int x = random_to(gW);
 		int y = random_to(gH);
@@ -65,13 +71,21 @@ protected:
 		int h = random_to(gH/4);
 		int c = random();
 
+		uint32_t low;
+		kernel_tic32(NULL, NULL, &low); 
+		if(tic == 0 || (low - tic) >= 1000000) //1 second
+			tic = low;
+
 		if(w > h*2)
 			w = h*2;
 
 		w = w < 32 ? 32 : w;
 		h = h < 32 ? 32 : h;
 
-		if((count++ % 100) == 0) {
+		if(tic == low) { //1 second
+			fps = count;
+			count = 0;
+
 			mode++;
 			if(mode > ROUND)
 				mode = 0;
@@ -94,7 +108,8 @@ protected:
 			g.box(x-4, y-4, w+8, h+8, c);
 		}
 
-		snprintf(str, 31, "EwokOS %d", count);
+		char str[32];
+		snprintf(str, 31, "EwokOS FPS: %d", fps);
 		get_text_size(str, font, (int32_t*)&w, NULL);
 		g.fill(imgX, imgY+img->h+2, img->w, font->h, 0xffffffff);
 		g.drawText(imgX+4, imgY+img->h+2, str, font, 0xff000000);
@@ -105,7 +120,7 @@ protected:
 static void loop(void* p) {
 	XWin* xwin = (XWin*)p;
 	xwin->repaint();
-	usleep(3000);
+	//usleep(3000);
 }
 
 int main(int argc, char* argv[]) {
