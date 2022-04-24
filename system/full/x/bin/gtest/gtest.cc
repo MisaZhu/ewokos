@@ -39,7 +39,7 @@ public:
         imgX = imgY = 0;
 		img_big = png_image_new("/data/images/rokid.png");	
 		img_small = png_image_new("/data/images/rokid_small.png");	
-		font = font_by_name("8x16");
+		font = font_by_name("12x16");
 	}
 	
 	inline ~TestX() {
@@ -111,8 +111,8 @@ protected:
 		char str[32];
 		snprintf(str, 31, "EwokOS FPS: %d", fps);
 		get_text_size(str, font, (int32_t*)&w, NULL);
-		g.fill(imgX, imgY+img->h+2, img->w, font->h, 0xffffffff);
-		g.drawText(imgX+4, imgY+img->h+2, str, font, 0xff000000);
+		g.fill(imgX, imgY+img->h+2, img->w, font->h+4, 0xffffffff);
+		g.drawText(imgX+4, imgY+img->h+4, str, font, 0xff000000);
 		drawImage(g, img);
 	}
 };
