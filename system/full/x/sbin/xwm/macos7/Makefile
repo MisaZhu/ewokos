@@ -5,9 +5,9 @@ TARGET_DIR = $(BUILD_DIR)/rootfs
 
 LDFLAGS = -L$(BUILD_DIR)/lib -lnosys
 
-CXXFLAGS += -I $(BUILD_DIR)/include
+CXXFLAGS += -I. -I $(BUILD_DIR)/include
 
-XWM_OBJS = xwm.o 
+XWM_OBJS = xwm.o MacWM.o
 
 XWM = $(TARGET_DIR)/sbin/x/xwm_macos7
 
