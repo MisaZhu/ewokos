@@ -21,6 +21,7 @@ LIB_EWOKSYS_OBJS = sys/src/syscall.o \
 	sys/src/thread.o \
 	sys/src/basic_math.o \
 	sys/src/basic_math_asm.o \
+	sys/src/kernel_tic.o \
 	sys/src/shm.o \
 	sys/src/core.o \
 	sys/src/proc.o \
