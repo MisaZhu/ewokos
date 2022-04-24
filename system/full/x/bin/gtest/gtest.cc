@@ -73,7 +73,7 @@ protected:
 
 		uint32_t low;
 		kernel_tic32(NULL, NULL, &low); 
-		if(tic == 0 || (low - tic) >= 1000000) //1 second
+		if(tic == 0 || (low - tic) >= 3000000) //3 second
 			tic = low;
 
 		if(w > h*2)
@@ -83,7 +83,7 @@ protected:
 		h = h < 32 ? 32 : h;
 
 		if(tic == low) { //1 second
-			fps = count;
+			fps = count/3;
 			count = 0;
 
 			mode++;
@@ -96,8 +96,8 @@ protected:
 		}
 
 		if(mode == CIRCLE) {
-			g.fillCircle(x, y, h, c);
-			g.circle(x, y, h+10, c);
+			g.fillCircle(x, y, h/2, c);
+			g.circle(x, y, h/2+4, c);
 		}
 		else if(mode == ROUND) {
 			g.fillRound(x, y, w, h, 12, c);
