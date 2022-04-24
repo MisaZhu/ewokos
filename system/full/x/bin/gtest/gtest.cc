@@ -18,7 +18,8 @@ class TestX : public XWin {
 	uint32_t tic;
 	graph_t* img_big;
 	graph_t* img_small;
-	font_t* font;
+	font_t* font_big;
+	font_t* font_small;
 
 	static const int CIRCLE = 0;
 	static const int RECT   = 1;
@@ -39,7 +40,8 @@ public:
         imgX = imgY = 0;
 		img_big = png_image_new("/data/images/rokid.png");	
 		img_small = png_image_new("/data/images/rokid_small.png");	
-		font = font_by_name("12x16");
+		font_big = font_by_name("12x16");
+		font_small = font_by_name("8x16");
 	}
 	
 	inline ~TestX() {
@@ -62,6 +64,7 @@ protected:
 		int gW = g.getW();
 		int gH = g.getH();
 		graph_t* img = gW > (img_big->w*2) ? img_big: img_small;
+		font_t* font = gW > (img_big->w*2) ? font_big: font_small;
 
 		count++;
 
