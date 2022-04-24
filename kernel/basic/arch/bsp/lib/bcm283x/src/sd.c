@@ -413,8 +413,8 @@ int32_t bcm283x_sd_init(void) {
 	if(sd_err)
 		return sd_err;
 	
-	//if((r=sd_clk(25000000)))
-	if((r=sd_clk(12500000)))
+	if((r=sd_clk(25000000)))
+	//if((r=sd_clk(12500000)))
 		return r;
 
 	if(sd_status(SR_DAT_INHIBIT))
