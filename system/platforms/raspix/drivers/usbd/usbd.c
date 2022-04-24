@@ -11,7 +11,6 @@
 void LogPrint(const char* message, uint32_t messageLength) {
   (void)messageLength;
   klog("%s", message);
-	//usleep(600000);
 }
 
 void usb_host_init(void) {
@@ -33,6 +32,7 @@ typedef struct _usbkbd_t {
     unsigned int kbd_addr;
     unsigned int keys[6];
     f_keycode2char_t keycode2char;
+
 } usbkbd_t;
 
 static usbkbd_t _usbkeyb;
@@ -149,10 +149,9 @@ static int usbkbd_getc(usbkbd_t *kbd) {
 
 static int usb_step(void* p) {
 	(void)p;	
-	//int c = usbkbd_getc(&_usbkeyb);
-	//kprintf(false, "key: %d\n", c);
-  UsbCheckForChange();
-	usleep(100000);
+	klog("detecting...\n");
+    UsbCheckForChange();
+	sleep(1);
 	return 0;
 }
 
