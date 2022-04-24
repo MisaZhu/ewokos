@@ -436,8 +436,8 @@ static int x_init(const char* fb_dev, x_t* x) {
 	x->cursor.size.h = 15;
 	x->cursor.offset.x = 8;
 	x->cursor.offset.y = 8;
-	x->cursor.cpos.x = x->g->w/2;
-	x->cursor.cpos.y = x->g->h/2; 
+	x->cursor.cpos.x = 8;//x->g->w/2;
+	x->cursor.cpos.y = 8;//x->g->h/2; 
 	x->show_cursor = true;
 
 	x->dirty = true;
