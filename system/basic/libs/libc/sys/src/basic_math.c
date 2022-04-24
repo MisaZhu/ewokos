@@ -13,7 +13,9 @@ inline uint32_t abs32(int32_t v) {
 
 static uint32_t _r_mask = 0x13579abc;
 inline uint32_t random_u32(void) {
-	uint32_t ret = (uint32_t)syscall0(SYS_GET_KERNEL_TIC) * _r_mask;
+	uint32_t hi, low;
+	syscall2(SYS_GET_KERNEL_USEC, &hi, &low);
+	uint32_t ret = low * _r_mask;
 	_r_mask *= 0x79efd1;
 	_r_mask += 0xe1;
 	return ret;

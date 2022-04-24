@@ -503,8 +503,10 @@ static int32_t sys_core_proc_pid(void) {
 }
 
 static uint32_t _svc_tic = 0;
-static int32_t sys_get_kernel_tic(void) {
-	return _svc_tic;
+static int32_t sys_get_kernel_usec(uint32_t* hi, uint32_t* low) {
+	*hi = _kernel_usec >> 32;
+	*low = _kernel_usec & 0xffffffff;
+	return 0;
 }
 
 static int32_t sys_interrupt_setup(uint32_t interrupt, uint32_t entry) {
@@ -585,8 +587,8 @@ static inline void _svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_
 	case SYS_GET_SYS_STATE:
 		sys_get_sys_state((sys_state_t*)arg0);
 		return;
-	case SYS_GET_KERNEL_TIC:
-		ctx->gpr[0] = sys_get_kernel_tic();
+	case SYS_GET_KERNEL_USEC:
+		ctx->gpr[0] = sys_get_kernel_usec((uint32_t*)arg0, (uint32_t*)arg1);
 		return;
 	case SYS_GET_PROCS: 
 		ctx->gpr[0] = (int32_t)get_procs((int32_t*)arg0);
