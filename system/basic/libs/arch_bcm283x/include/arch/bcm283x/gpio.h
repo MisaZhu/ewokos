@@ -1,5 +1,5 @@
-#ifndef GPIO_ARCH_H
-#define GPIO_ARCH_H
+#ifndef GPIO_ARCH_BCM283X_H
+#define GPIO_ARCH_BCM283X_H
 
 #include <stdint.h>
 #include <sys/mmu.h>

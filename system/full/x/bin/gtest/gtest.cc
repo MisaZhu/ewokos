@@ -20,9 +20,9 @@ class TestX : public XWin {
 	graph_t* img_small;
 	font_t* font;
 
-	const int CIRCLE = 0;
-	const int RECT   = 1;
-	const int ROUND  = 2;
+	static const int CIRCLE = 0;
+	static const int RECT   = 1;
+	static const int ROUND  = 2;
 
 	void drawImage(Graph& g, graph_t* img) {
 		if(img == NULL)
