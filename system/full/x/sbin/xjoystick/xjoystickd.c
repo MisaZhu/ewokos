@@ -20,7 +20,7 @@ static int _x_pid = -1;
 #define KEY_V_2         0x40
 #define KEY_V_3         0x80
 
-#define JOY_STEP          6
+#define JOY_STEP         4 
 
 static bool _prs_down = false;
 static bool _j_x_rev = false;
@@ -127,11 +127,12 @@ int main(int argc, char** argv) {
 			if(rd == 1) {
 				input(v);
 			}
+			usleep(20000);
 		}
 		else {
+			usleep(50000);
 			_x_pid = dev_get_pid("/dev/x");
 		}
-		usleep(50000);
 	}
 
 	close(fd);
