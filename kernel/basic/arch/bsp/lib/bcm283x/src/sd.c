@@ -124,7 +124,7 @@ static sd_t _sdc;
 static inline int32_t sd_status(uint32_t mask) {
 	int32_t cnt = 1000000; 
 	while((*EMMC_STATUS & mask) != 0 && (*EMMC_INTERRUPT & INT_ERROR_MASK) == 0 && cnt > 0)
-		_delay_msec(1);
+		_delay(1000);
 	return (cnt <= 0 || (*EMMC_INTERRUPT & INT_ERROR_MASK)) ? SD_ERROR : SD_OK;
 }
 
@@ -135,7 +135,7 @@ static inline int32_t sd_int(uint32_t mask, int32_t wait) {
 	uint32_t r, m = (mask | INT_ERROR_MASK);
 	int32_t cnt = 10000; 
 	while((*EMMC_INTERRUPT & m) == 0 && cnt--) {
-		_delay_msec(1);
+		_delay(1000);
 		if(wait == 0)
 			return -1;
 	}
@@ -175,9 +175,9 @@ static inline int32_t sd_cmd(uint32_t code, uint32_t arg) {
 	*EMMC_ARG1 = arg;
 	*EMMC_CMDTM = code;
 	if(code == CMD_SEND_OP_COND)
-		_delay_msec(1000);
+		_delay_msec(10);
 	else if(code==CMD_SEND_IF_COND || code==CMD_APP_CMD)
-		_delay_msec(100);
+		_delay_msec(10);
 
 	if((r = sd_int(INT_CMD_DONE, 1))) {
 		sd_err = r;
