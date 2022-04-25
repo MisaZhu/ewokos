@@ -248,8 +248,10 @@ static uint32_t sys_kpage_map(void) {
 		if(cproc->space->kpages[i] == 0)
 			break;
 	}
-	if(i >= PROC_KPAGE_MAX)
+	if(i >= PROC_KPAGE_MAX) {
+		printf("panic: proc kpage map failed, pid: %d!\n", cproc->info.pid);
 		return 0;
+	}
 
 	uint32_t page = (uint32_t)kalloc4k();
 	map_page(cproc->space->vm, page, V2P(page), AP_RW_RW, 0);
