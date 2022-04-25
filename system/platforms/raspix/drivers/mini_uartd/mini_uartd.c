@@ -68,6 +68,7 @@ int main(int argc, char** argv) {
 	const char* mnt_point = argc > 1 ? argv[1]: "/dev/tty1";
 	_mmio_base = mmio_map(false);
 
+	bcm283x_mini_uart_recv();
 	charbuf_init(&_buffer);
 
 	vdevice_t dev;
