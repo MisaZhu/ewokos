@@ -58,9 +58,14 @@ void MacWM::drawWelcome(graph_t* g) {
 		x, y,
 		welcome,  font, 0xff000000);
 
+	graph_t* img = png_image_new("/data/icons/starwars/yoda.png");
+	if(img == NULL)
+		return;
+
 	m = img->w;
 	graph_blt_alpha(img, 0, 0, img->w, img->h,
 			g, x-m, y-img->h/2, img->w, img->h, 0xff);
+	graph_free(img);
 }
 
 void MacWM::drawDesktop(graph_t* g) {
@@ -74,5 +79,4 @@ void MacWM::drawDesktop(graph_t* g) {
 
 MacWM::MacWM(void) {
 	doWelcome = true;
-	img = png_image_new("/data/icons/starwars/yoda.png");
 }
