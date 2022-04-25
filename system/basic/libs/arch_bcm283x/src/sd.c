@@ -199,10 +199,10 @@ static inline int32_t sd_cmd(uint32_t code, uint32_t arg) {
 	*EMMC_CMDTM = code;
 	if(code == CMD_SEND_OP_COND)
 		//delay(10000);
-		usleep(2000);
+		usleep(3000);
 	else if(code==CMD_SEND_IF_COND || code==CMD_APP_CMD)
 		//delay(10000);
-		usleep(2000);
+		usleep(3000);
 
 	if((r = sd_int(INT_CMD_DONE, 1))) {
 		sd_err = r;
