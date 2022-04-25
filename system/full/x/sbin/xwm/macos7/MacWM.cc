@@ -72,6 +72,7 @@ void MacWM::drawDesktop(graph_t* g) {
 	XWM::drawDesktop(g);
 
 	if(doWelcome)  {
+		graph_fill(g, 0, 0, g->w, g->h, 0x88000000);
 		doWelcome = false;
 		drawWelcome(g);
 	}
