@@ -115,7 +115,7 @@ static void loop(void* p) {
 	if(errno != EAGAIN) 
 		console->close();
 	else
-		usleep(10000);
+		usleep(3000);
 }
 
 static int run(int argc, char* argv[]) {
