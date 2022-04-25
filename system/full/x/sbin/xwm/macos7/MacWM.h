@@ -4,11 +4,13 @@
 #include <stdio.h>
 #include <x++/XWM.h>
 #include <sys/klog.h>
+#include <graph/graph.h>
 
 using namespace Ewok;
 
 class MacWM : public XWM {
 	bool doWelcome;
+	graph_t* img;
 	void drawWelcome(graph_t* g);
 	void drawTitlePattern(graph_t* g, int x, int y, int w, int h, uint32_t fg);
 
@@ -17,7 +19,7 @@ protected:
 	void drawDesktop(graph_t* g);
 
 public:
-	inline MacWM(void) { doWelcome = true;}
+	MacWM(void);
 };
 
 #endif

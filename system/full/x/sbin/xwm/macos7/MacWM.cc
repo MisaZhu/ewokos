@@ -1,6 +1,7 @@
 #include "MacWM.h"
 #include <sys/kernel_tic.h>
 #include <sys/klog.h>
+#include <upng/upng.h>
 
 using namespace Ewok;
 
@@ -9,8 +10,7 @@ void MacWM::drawTitlePattern(graph_t* g, int x, int y, int w, int h, uint32_t fg
 	y = y + step;
 	int steps = h / step;
 
-	for (int i = 0; i < steps; i++)
-	{
+	for (int i = 0; i < steps; i++) {
 		graph_line(g, x + 4, y, x + w - 8, y, fg);
 		y += step;
 	}
@@ -35,7 +35,7 @@ void MacWM::drawTitle(graph_t* g, xinfo_t* info, grect_t* r, bool top) {
 }
 
 void MacWM::drawWelcome(graph_t* g) {
-	const char* welcome = "EwokOS micro kernel OS";
+	const char* welcome = "Ewok Micro Kernel OS";
 	gsize_t sz;
 	get_text_size(welcome, font, &sz.w, &sz.h);
 
@@ -57,6 +57,10 @@ void MacWM::drawWelcome(graph_t* g) {
 	graph_draw_text(g,
 		x, y,
 		welcome,  font, 0xff000000);
+
+	m = img->w;
+	graph_blt_alpha(img, 0, 0, img->w, img->h,
+			g, x-m, y-img->h/2, img->w, img->h, 0xff);
 }
 
 void MacWM::drawDesktop(graph_t* g) {
@@ -66,4 +70,9 @@ void MacWM::drawDesktop(graph_t* g) {
 		doWelcome = false;
 		drawWelcome(g);
 	}
+}
+
+MacWM::MacWM(void) {
+	doWelcome = true;
+	img = png_image_new("/data/icons/starwars/yoda.png");
 }
