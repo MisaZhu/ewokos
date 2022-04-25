@@ -378,10 +378,13 @@ static void proc_funeral(proc_t* proc) {
 	proc_free_user_stack(proc);
 	if(proc->info.type == PROC_TYPE_PROC) {
 		/*free kpage*/
-		if (proc->space->kpage != 0) {
-			kfree4k((void *)proc->space->kpage);
-			unmap_page(proc->space->vm, proc->space->kpage);
-			proc->space->kpage = 0;
+		uint32_t i;
+		for(i=0; i<PROC_KPAGE_MAX; i++) {
+			if (proc->space->kpages[i] != 0) {
+				kfree4k((void *)proc->space->kpages[i]);
+				unmap_page(proc->space->vm, proc->space->kpages[i]);
+				proc->space->kpages[i] = 0;
+			}
 		}
 
 		/*free small_stack*/

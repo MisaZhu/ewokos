@@ -47,6 +47,7 @@ enum {
 
 	SYS_MEM_MAP,
 	SYS_KPAGE_MAP, //map kernel memory (just one page size) for userspace access
+	SYS_KPAGE_UNMAP, //unmap kernel memory (just one page size) for userspace access
 
 	//internal proccess communication
 	SYS_IPC_SETUP,

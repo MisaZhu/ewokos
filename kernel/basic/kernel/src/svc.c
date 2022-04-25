@@ -243,14 +243,35 @@ static uint32_t sys_mem_map(uint32_t vaddr, uint32_t paddr, uint32_t size) {
 
 static uint32_t sys_kpage_map(void) {
 	proc_t* cproc = get_current_proc();
-	if(cproc->space->kpage != 0)
-		return cproc->space->kpage;
+	uint32_t i;
+	for(i=0; i<PROC_KPAGE_MAX; i++) {
+		if(cproc->space->kpages[i] == 0)
+			break;
+	}
+	if(i >= PROC_KPAGE_MAX)
+		return 0;
 
 	uint32_t page = (uint32_t)kalloc4k();
 	map_page(cproc->space->vm, page, V2P(page), AP_RW_RW, 0);
 	flush_tlb();
-	cproc->space->kpage = page;
+	cproc->space->kpages[i] = page;
 	return page;
+}
+
+static void sys_kpage_unmap(uint32_t page) {
+	proc_t* cproc = get_current_proc();
+	uint32_t i;
+	for(i=0; i<PROC_KPAGE_MAX; i++) {
+		if(cproc->space->kpages[i] == page) {
+			cproc->space->kpages[i] = 0;
+			break;
+		}
+	}
+	if(i >= PROC_KPAGE_MAX)
+		return;
+
+	unmap_page(cproc->space->vm, page);
+	flush_tlb();
 }
 
 static void sys_ipc_setup(context_t* ctx, uint32_t entry, uint32_t extra_data, uint32_t flags) {
@@ -620,6 +641,9 @@ static inline void _svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_
 		return;
 	case SYS_KPAGE_MAP:
 		ctx->gpr[0] = sys_kpage_map();
+		return;
+	case SYS_KPAGE_UNMAP:
+		sys_kpage_unmap((uint32_t)arg0);
 		return;
 	case SYS_IPC_SETUP:
 		sys_ipc_setup(ctx, arg0, arg1, arg2);
