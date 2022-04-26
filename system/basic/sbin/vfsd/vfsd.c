@@ -1007,7 +1007,6 @@ static int handle_close_event(close_event_t* ev) {
 			addi(&in, ev->fd)->
 			addi(&in, ev->owner_pid)->
 			add(&in, &ev->info, sizeof(fsinfo_t));
-	//int res = ipc_call_non_block(ev->dev_pid, FS_CMD_CLOSE, &in);
 	int res = ipc_call(ev->dev_pid, FS_CMD_CLOSE, &in, NULL);
 	PF->clear(&in);
 	return res;
