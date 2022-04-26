@@ -128,7 +128,6 @@ static int32_t gets(str_t* buf) {
 			if(c > 27)
 				str_addc(buf, c);
 		}
-		usleep(1000);
 	}
 	str_addc(buf, 0);
 	return 0;

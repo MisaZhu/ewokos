@@ -43,7 +43,6 @@ int main(int argc, char** argv) {
 
 		if(sz > 0)
 			out(buf, sz);
-		sleep(0);
 	}
 
 	return 0;
