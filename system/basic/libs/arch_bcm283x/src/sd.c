@@ -198,11 +198,9 @@ static inline int32_t sd_cmd(uint32_t code, uint32_t arg) {
 	*EMMC_ARG1 = arg;
 	*EMMC_CMDTM = code;
 	if(code == CMD_SEND_OP_COND)
-		//delay(10000);
-		usleep(3000);
+		usleep(10000);
 	else if(code==CMD_SEND_IF_COND || code==CMD_APP_CMD)
-		//delay(10000);
-		usleep(3000);
+		usleep(10000);
 
 	if((r = sd_int(INT_CMD_DONE, 1))) {
 		sd_err = r;
@@ -440,8 +438,8 @@ int32_t bcm283x_sd_init(void) {
 	if(sd_err)
 		return sd_err;
 	
-	if((r=sd_clk(12500000)))
-	//if((r=sd_clk(25000000)))
+	//if((r=sd_clk(12500000)))
+	if((r=sd_clk(25000000)))
 		return r;
 
 	if(sd_status(SR_DAT_INHIBIT))
@@ -450,28 +448,28 @@ int32_t bcm283x_sd_init(void) {
 	*EMMC_BLKSIZECNT = (1<<16) | 8;
 
 	sd_cmd(CMD_SEND_SCR, 0);
-	if(sd_err == 0) {
-		if(sd_int(INT_READ_RDY, 1))
-			return SD_TIMEOUT;
+	usleep(10000);
+	if(sd_err) 
+		return sd_err;
+	if(sd_int(INT_READ_RDY, 1))
+		return SD_TIMEOUT;
 
-		r=0; cnt=100000; 
-		while(r<2 && cnt) {
-			if( *EMMC_STATUS & SR_READ_AVAILABLE )
-				sd_scr[r++] = *EMMC_DATA;
-			else
-				usleep(1000);
-		}
-		if(r != 2) 
-			return SD_TIMEOUT;
-
-		if(sd_scr[0] & SCR_SD_BUS_WIDTH_4) {
-			sd_cmd(CMD_SET_BUS_WIDTH, sd_rca|2);
-			if(sd_err)
-				return sd_err;
-			*EMMC_CONTROL0 |= C0_HCTL_DWITDH;
-		}
+	r=0; cnt=100000; 
+	while(r<2 && cnt) {
+		if( *EMMC_STATUS & SR_READ_AVAILABLE )
+			sd_scr[r++] = *EMMC_DATA;
+		else
+			usleep(10000);
 	}
+	if(r != 2) 
+		return SD_TIMEOUT;
 
+	if(sd_scr[0] & SCR_SD_BUS_WIDTH_4) {
+		sd_cmd(CMD_SET_BUS_WIDTH, sd_rca|2);
+		if(sd_err)
+			return sd_err;
+		*EMMC_CONTROL0 |= C0_HCTL_DWITDH;
+	}
 	// add software flag
 	sd_scr[0] &= ~SCR_SUPP_CCS;
 	sd_scr[0] |= ccs;
