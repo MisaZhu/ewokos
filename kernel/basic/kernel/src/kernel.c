@@ -13,7 +13,6 @@
 #include <kernel/kevqueue.h>
 #include <dev/timer.h>
 #include <kprintf.h>
-#include <dev/dev.h>
 #include <dev/uart.h>
 #include <basic_math.h>
 #include <stddef.h>
@@ -126,7 +125,7 @@ void _kernel_entry_c(void) {
 	kev_init();
 
 	enable_vmmio_base();
-	dev_init();
+	uart_dev_init();
 
 	printf(
 			" ______           ______  _    _   ______  ______ \n"

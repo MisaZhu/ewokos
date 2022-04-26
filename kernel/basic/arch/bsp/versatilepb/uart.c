@@ -1,5 +1,5 @@
 #include <dev/uart.h>
-#include <dev/dev.h>
+#include <dev/mmio.h>
 #include <mm/mmu.h>
 
 /* memory mapping for the serial port */
