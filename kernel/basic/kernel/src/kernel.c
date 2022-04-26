@@ -12,6 +12,7 @@
 #include <kernel/schedule.h>
 #include <kernel/kevqueue.h>
 #include <dev/timer.h>
+#include <dev/mmio.h>
 #include <kprintf.h>
 #include <dev/uart.h>
 #include <basic_math.h>
