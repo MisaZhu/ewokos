@@ -28,7 +28,7 @@ static int read_block(int fd, void* buf, uint32_t size) {
 				break;
 			if(errno != EAGAIN)
 				break;
-			sleep(0);
+			//sleep(0);
 		}
 		return res;
 	}
@@ -40,7 +40,7 @@ static int read_block(int fd, void* buf, uint32_t size) {
 		if(errno != EAGAIN)
 			break;
 		proc_block(info.mount_pid, 0);
-		sleep(0);
+		//sleep(0);
 	}
 	return res;
 }

@@ -184,7 +184,7 @@ public:
 					v == KEY_ENTER) {
 				keyMove(v);
 				if(v == KEY_ENTER)
-					usleep(100000);
+					usleep(10000);
 			}
 			else
 			*/
@@ -196,7 +196,7 @@ public:
 static void loop(void* p) {
 	XIMX* xwin = (XIMX*)p;
 	xwin->doRead();
-	usleep(100000);
+	usleep(10000);
 }
 
 int main(int argc, char* argv[]) {

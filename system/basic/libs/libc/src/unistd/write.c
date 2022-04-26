@@ -27,7 +27,7 @@ static int write_block(int fd, const void* buf, uint32_t size) {
 				break;
 			if(errno != EAGAIN)
 				break;
-			sleep(0);
+			//sleep(0);
 		}
 		return res;
 	}
@@ -38,7 +38,7 @@ static int write_block(int fd, const void* buf, uint32_t size) {
 			break;
 		if(errno != EAGAIN)
 			break;
-		sleep(0);
+		//sleep(0);
 	}
 	return res;
 }
