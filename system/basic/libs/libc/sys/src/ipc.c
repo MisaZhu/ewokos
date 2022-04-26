@@ -62,28 +62,6 @@ inline int ipc_call(int to_pid, int call_id, const proto_t* ipkg, proto_t* opkg)
 	return 0;
 }
 
-inline int ipc_call_simple(int to_pid, int call_id, 
-		int arg0, int arg1, int arg2, int arg3, int* ret) {
-	proto_t in, out;
-	int res;
-	PF->init(&in)->
-		addi(&in, arg0)->
-		addi(&in, arg1)->
-		addi(&in, arg2)->
-		addi(&in, arg3);
-	if(ret == NULL)
-		res = ipc_call(to_pid, call_id, &in, NULL);
-	else {
-		PF->init(&out);
-		res = ipc_call(to_pid, call_id, &in, &out);
-		if(res == 0)
-			*ret = proto_read_int(&out);
-		PF->clear(&out);
-	}
-	PF->clear(&in);
-	return res;
-}
-
 inline int ipc_call_wait(int to_pid, int call_id, const proto_t* ipkg, proto_t* opkg) {
 	if(opkg != NULL)
 		return ipc_call(to_pid, call_id, ipkg, opkg);
