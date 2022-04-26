@@ -102,39 +102,20 @@ static int write_pipe(fsinfo_t* info, const void* buf, uint32_t size, bool block
 }
 
 int vfs_dup(int fd) {
-	proto_t in, out;
-	PF->init(&in)->addi(&in, fd);
-	PF->init(&out);
-
-	int res = ipc_call(get_vfsd_pid(), VFS_DUP, &in, &out);
-	PF->clear(&in);
-	if(res == 0) {
-		res = proto_read_int(&out);
-	}
-	PF->clear(&out);
+	int res = -1;
+	ipc_call_simple(get_vfsd_pid(), VFS_DUP, fd, 0, 0, 0, &res);
 	return res;
 }
 
 int vfs_close(int fd) {
-	proto_t in;
-	PF->init(&in)->addi(&in, fd);
-
-	int res = ipc_call(get_vfsd_pid(), VFS_CLOSE, &in, NULL);
-	PF->clear(&in);
+	int res = -1;
+	ipc_call_simple(get_vfsd_pid(), VFS_CLOSE, fd, 0, 0, 0, &res);
 	return res;
 }
 
 int vfs_dup2(int fd, int to) {
-	proto_t in, out;
-	PF->init(&in)->addi(&in, fd)->addi(&in, to);
-	PF->init(&out);
-
-	int res = ipc_call(get_vfsd_pid(), VFS_DUP2, &in, &out);
-	PF->clear(&in);
-	if(res == 0) {
-		res = proto_read_int(&out);
-	}
-	PF->clear(&out);
+	int res = -1;
+	ipc_call_simple(get_vfsd_pid(), VFS_DUP2, fd, to, 0, 0, &res);
 	return res;
 }
 
@@ -321,30 +302,14 @@ int vfs_get_by_fd(int fd, fsinfo_t* info) {
 }
 
 int vfs_tell(int fd) {
-	proto_t in, out;
-	PF->init(&in)->addi(&in, fd);
-	PF->init(&out);
-	int res = ipc_call(get_vfsd_pid(), VFS_TELL, &in, &out);
-	PF->clear(&in);
-
-	if(res == 0) {
-		res = proto_read_int(&out);
-	}
-	PF->clear(&out);
+	int res = -1;
+	ipc_call_simple(get_vfsd_pid(), VFS_TELL, fd, 0, 0, 0, &res);
 	return res;
 }
 
 int vfs_seek(int fd, int offset) {
-	proto_t in, out;
-	PF->init(&in)->addi(&in, fd)->addi(&in, offset);
-	PF->init(&out);
-	int res = ipc_call(get_vfsd_pid(), VFS_SEEK, &in, &out);
-	PF->clear(&in);
-
-	if(res == 0) {
-		res = proto_read_int(&out);
-	}
-	PF->clear(&out);
+	int res = -1;
+	ipc_call_simple(get_vfsd_pid(), VFS_SEEK, fd, offset, 0, 0,  &res);
 	return res;
 }
 
@@ -577,28 +542,16 @@ int vfs_read_block(int pid, void* buf, uint32_t size, int32_t index) {
 	if(shm == NULL) 
 		return -1;
 
-	proto_t in, out;
-	PF->init(&out);
-
-	PF->init(&in)->
-		addi(&in, size)->
-		addi(&in, index)->
-		addi(&in, shm_id);
-
 	int res = -1;
-	if(ipc_call(pid, FS_CMD_READ_BLOCK, &in, &out) == 0) {
-		int rd = proto_read_int(&out);
-		res = rd;
-		if(rd > 0) {
-			memcpy(buf, shm, rd);
+	if(ipc_call_simple(pid, FS_CMD_READ_BLOCK, size, index, shm_id, 0, &res) == 0) {
+		if(res > 0) {
+			memcpy(buf, shm, res);
 		}
-		if(res == ERR_RETRY) {
+		else if(res == ERR_RETRY) {
 			errno = EAGAIN;
 			res = -1;
 		}
 	}
-	PF->clear(&in);
-	PF->clear(&out);
 	shm_unmap(shm_id);
 	return res;
 }
