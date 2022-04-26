@@ -20,6 +20,9 @@ BUILD_DIR = .
 
 
 # flags
+ifeq ($(SMP),yes)
+CFLAGS += -DKERNEL_SMP
+endif
 
 ifeq ($(DEBUG),yes)
 OPTM = -g -DKDEBUG
@@ -60,7 +63,6 @@ ARCH_OBJS = \
 	$(ARCH_DIR)/$(ARCH)/mmu_pte_flags.o \
 	$(BSP_DIR)/$(BSP)/hw_info.o \
 	$(BSP_DIR)/$(BSP)/irq.o \
-	$(BSP_DIR)/$(BSP)/ipi.o \
 	$(BSP_DIR)/$(BSP)/timer.o \
 	$(BSP_DIR)/$(BSP)/sd.o  \
 	$(BSP_DIR)/$(BSP)/uart.o \
@@ -74,6 +76,10 @@ ARCH_OBJS = \
 	$(BSP_DIR)/lib/bcm283x/src/pl011_uart.o \
 	$(BSP_DIR)/lib/bcm283x/src/mini_uart.o \
 	$(BSP_DIR)/lib/bcm283x/src/ipi.o
+
+ifeq ($(SMP),yes)
+ARCH_OBJS += $(BSP_DIR)/$(BSP)/ipi.o
+endif
 
 LIB_DIR = $(SRC_DIR)/basic/lib/src
 

@@ -1,5 +1,4 @@
 #include <dev/timer.h>
-#include <dev/ipi.h>
 #include <kernel/irq.h>
 #include <kernel/interrupt.h>
 #include <kernel/system.h>
@@ -21,6 +20,7 @@ static uint64_t _schedule_tic = 0;
 static uint64_t _timer_tic = 0;
 
 #ifdef KERNEL_SMP
+
 void ipi_enable_all(void) {
 	uint32_t i;
 	for(i=0; i<get_cpu_cores(); i++) {

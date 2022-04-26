@@ -1,4 +1,4 @@
-#include <dev/ipi.h>
+#include <kernel/smp/ipi.h>
 #include <bcm283x/ipi.h>
 
 #ifdef KERNEL_SMP

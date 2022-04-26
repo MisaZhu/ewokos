@@ -7,7 +7,6 @@
 #include <kernel/schedule.h>
 #include <kernel/irq.h>
 #include <kernel/system.h>
-#include <dev/ipi.h>
 #include <mm/mmu.h>
 #include <mm/kalloc.h>
 
