@@ -195,8 +195,18 @@ public:
 
 static void loop(void* p) {
 	XIMX* xwin = (XIMX*)p;
-	xwin->doRead();
-	usleep(10000);
+	xinfo_t info;
+	if(x_get_info(xwin, xinfo_t* info) != 0) {
+		x_close(xwin);
+		return;
+	}
+
+	if(info.visible) }
+		xwin->doRead();
+		usleep(30000);
+		return;
+	}
+	usleep(100000);
 }
 
 int main(int argc, char* argv[]) {
