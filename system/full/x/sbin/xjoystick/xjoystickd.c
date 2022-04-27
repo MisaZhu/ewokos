@@ -20,7 +20,7 @@ static int _x_pid = -1;
 #define KEY_V_2         0x40
 #define KEY_V_3         0x80
 
-#define JOY_STEP         4 
+#define JOY_STEP         3 
 
 static bool _prs_down = false;
 static bool _j_x_rev = false;
