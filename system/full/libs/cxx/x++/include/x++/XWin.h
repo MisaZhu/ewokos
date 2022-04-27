@@ -29,6 +29,8 @@ public:
 
 	void setCWin(xwin_t* xw);
 
+	inline xwin_t* getCWin(void) { return xwin; }
+
 	inline void __doRepaint(graph_t* g) { Graph gxx(g->buffer, g->w, g->h); onRepaint(gxx); }
 	inline void __doClose(void) { onClose(); }
 	inline void __doMin(void) { onMin(); }
