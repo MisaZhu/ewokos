@@ -34,11 +34,13 @@ static int read_block(int fd, void* buf, uint32_t size) {
 
 	while(1) {
 		res = vfs_read(fd, &info, buf, size);
-		if(res >= 0)
+		if(res >= 0 || (errno != EAGAIN && errno != EAGAIN_NON_BLOCK))
 			break;
-		if(errno != EAGAIN)
-			break;
-		proc_block(info.mount_pid, 0);
+
+		if(errno == EAGAIN_NON_BLOCK)
+			sleep(0);
+		else
+			proc_block(info.mount_pid, 0);
 	}
 	return res;
 }

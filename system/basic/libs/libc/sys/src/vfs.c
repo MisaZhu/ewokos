@@ -663,6 +663,10 @@ int vfs_read(int fd, fsinfo_t *info, void* buf, uint32_t size) {
 			errno = EAGAIN;
 			res = -1;
 		}
+		else if(res == ERR_RETRY_NON_BLOCK) {
+			errno = EAGAIN_NON_BLOCK;
+			res = -1;
+		}
 	}
 	PF->clear(&in);
 	PF->clear(&out);

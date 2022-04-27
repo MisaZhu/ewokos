@@ -11,6 +11,7 @@ extern "C" {
 
 
 #define ERR_RETRY -2
+#define ERR_RETRY_NON_BLOCK -3
 
 int getuid(void);
 int setuid(int uid);

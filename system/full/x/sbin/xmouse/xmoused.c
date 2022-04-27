@@ -36,24 +36,21 @@ int main(int argc, char** argv) {
 	const char* dev_name = argc < 2 ? "/dev/mouse0":argv[1];
 	_x_pid = -1;
 
-	int fd = open(dev_name, O_RDONLY | O_NONBLOCK);
+	int fd = open(dev_name, O_RDONLY);
 	if(fd < 0) {
 		fprintf(stderr, "xmoused error: open [%s] failed!\n", dev_name);
 		return -1;
 	}
 
+	while(_x_pid < 0) {
+		_x_pid = dev_get_pid("/dev/x");
+		usleep(100000);
+	}
+
 	while(true) {
-		if(_x_pid > 0) {
-			int8_t mv[4];
-			if(read(fd, mv, 4) == 4)
-				input(mv[0], mv[1], mv[2]);
-			else
-				usleep(5000);
-		}
-		else {
-			_x_pid = dev_get_pid("/dev/x");
-			usleep(100000);
-		}
+		int8_t mv[4];
+		if(read(fd, mv, 4) == 4)
+			input(mv[0], mv[1], mv[2]);
 	}
 
 	close(fd);

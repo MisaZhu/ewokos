@@ -6,6 +6,7 @@ extern int errno;
 enum {
 	ENONE = 0,
 	EAGAIN,
+	EAGAIN_NON_BLOCK,
 	ENOTEMPTY
 };
 
