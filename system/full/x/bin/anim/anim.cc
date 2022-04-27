@@ -58,12 +58,12 @@ protected:
 
 		uint32_t low;
 		kernel_tic32(NULL, NULL, &low); 
-		if(tic == 0 || (low - tic) >= 3000000) //3 second
+		if(tic == 0 || (low - tic) >= 1000000) //1 second
 			tic = low;
 
-		g.fill(0, 0, gW, gH, 0xff000000);
+		g.clear(0x0);
 		if(tic == low) { //1 second
-			fps = fps_counter/3;
+			fps = fps_counter;
 			fps_counter = 0;
 		}
 
@@ -96,7 +96,8 @@ int main(int argc, char* argv[]) {
 	x.screenInfo(scr);
 
 	TestX xwin;
-	x.open(&xwin, 60, 40, 200, 200, "anim", X_STYLE_NORMAL);
+	x.open(&xwin, scr.size.w-160, scr.size.h-160,
+			160, 160, "anim", X_STYLE_NO_FRAME | X_STYLE_ALPHA | X_STYLE_NO_FOCUS);
 
 	xwin.setVisible(true);
 
