@@ -142,18 +142,19 @@ static void load_arch_devs(void) {
 
 static void load_extra_devs(void) {
 	const char* dirn = "/etc/dev/extra";
-  DIR* dirp = opendir(dirn);
-  if(dirp == NULL)
-    return;
-  while(1) {
-    struct dirent* it = readdir(dirp);
-    if(it == NULL)
-      break;
+	DIR* dirp = opendir(dirn);
+	if(dirp == NULL)
+		return;
+
+	while(1) {
+		struct dirent* it = readdir(dirp);
+		if(it == NULL)
+			break;
 		char fn[FS_FULL_NAME_MAX];
-    snprintf(fn, FS_FULL_NAME_MAX-1, "%s/%s", dirn, it->d_name);
+		snprintf(fn, FS_FULL_NAME_MAX-1, "%s/%s", dirn, it->d_name);
 		load_devs(fn);
-  }
-  closedir(dirp);
+	}
+	closedir(dirp);
 }
 
 static void load_sys_devs(void) {
