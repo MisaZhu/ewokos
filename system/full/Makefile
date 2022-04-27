@@ -33,6 +33,7 @@ extra_bin:
 X_DIR=x
 x_bin:
 	cd $(X_DIR)/bin/gtest;make
+	cd $(X_DIR)/bin/png;make
 	cd $(X_DIR)/bin/launcher;make
 	cd $(X_DIR)/bin/xconsole;make
 
@@ -70,6 +71,7 @@ clean:
 	cd $(X_DIR)/sbin/xim/vkey;make clean
 	cd $(X_DIR)/sbin/xwm/macos7;make clean
 	cd $(X_DIR)/bin/gtest;make clean
+	cd $(X_DIR)/bin/png;make clean
 	cd $(X_DIR)/bin/launcher;make clean
 	cd $(X_DIR)/bin/xconsole;make clean
 	cd $(EXTRA_BIN_DIR)/fbtool;make clean
