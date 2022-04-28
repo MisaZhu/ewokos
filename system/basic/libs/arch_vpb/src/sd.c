@@ -219,7 +219,7 @@ static void sd_dev_handle(void) {
 		}
 	}
 	else {
-		sleep(0);
+		//sleep(0);
 		return;
 	}
 	//printf("write to clear register\n");

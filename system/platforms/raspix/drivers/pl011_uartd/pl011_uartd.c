@@ -22,13 +22,13 @@ static int uart_read(int fd, int from_pid, fsinfo_t* info,
 	(void)p;
 
 	char c;
-  int res = charbuf_pop(&_buffer, &c);
+	if(bcm283x_pl011_uart_ready_to_recv() != 0) {
+		return ERR_RETRY_NON_BLOCK;
+	}
 
-  if(res != 0 || c == 0)
-    return ERR_RETRY;
-
-  ((char*)buf)[0] = c;
-  return 1;
+	c = bcm283x_pl011_uart_recv();
+	((char*)buf)[0] = c;
+	return 1;
 }
 
 static int uart_write(int fd, int from_pid, fsinfo_t* info,
@@ -39,27 +39,6 @@ static int uart_write(int fd, int from_pid, fsinfo_t* info,
 	(void)offset;
 	(void)p;
 	return bcm283x_pl011_uart_write(buf, size);
-}
-
-static int uart_loop_raw(void) {
-	if(bcm283x_pl011_uart_ready_to_recv() != 0) {
-		return 0;
-	}
-
-	char c = bcm283x_pl011_uart_recv();
-	if(c == 0) 
-		return 0;
-
-	charbuf_push(&_buffer, c, true);
-	proc_wakeup(0);
-	return 0;
-}
-
-static int uart_loop(void*p) {
-	(void)p;
-	int res = uart_loop_raw();
-	usleep(10000);
-	return res;
 }
 
 int main(int argc, char** argv) {
@@ -73,8 +52,6 @@ int main(int argc, char** argv) {
 	strcpy(dev.name, "pl011_uart");
 	dev.read = uart_read;
 	dev.write = uart_write;
-	dev.loop_step = uart_loop;
-
 	device_run(&dev, mnt_point, FS_TYPE_CHAR);
 	return 0;
 }
