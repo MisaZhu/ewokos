@@ -38,11 +38,13 @@ int main(int argc, char** argv) {
 	while(1) {
 		char buf[1024];
 		int sz = read(fd, buf, 1024);
-		if(sz <= 0 && errno != EAGAIN)
-			break;
-
-		if(sz > 0)
+		if(sz > 0) {
 			out(buf, sz);
+		}
+		else {
+			if(sz == 0 || errno != EAGAIN)
+				break;
+		}
 	}
 
 	return 0;
