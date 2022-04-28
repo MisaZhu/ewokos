@@ -42,11 +42,8 @@ public:
 	}
 protected:
 	void onEvent(xevent_t* ev) {
-		int key = 0;
-		if(ev->type == XEVT_IM) {
-			key = ev->value.im.value;
-			if(key == 27) //esc
-				this->close();
+		if(ev->type == XEVT_MOUSE && ev->state == XEVT_MOUSE_UP) {
+			this->close();
 		}
 	}
 
@@ -74,7 +71,11 @@ protected:
 		g.drawText(10, gH-font->h, str, font, 0xffffffff);
 		drawFitgher(g);
 
-		if(mod_u32(fps_counter, 5) == 0) {
+		int i = fps / 14;
+		if(i == 0)
+			i = 1;
+
+		if(mod_u32(fps_counter, i) == 0) {
 			fighter_step++;
 			if (fighter_step >= 7)
 				fighter_step = 0;
