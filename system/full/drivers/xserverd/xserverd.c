@@ -912,6 +912,7 @@ static int xserver_dev_cntl(int from_pid, int cmd, proto_t* in, proto_t* ret, vo
 	if(cmd == X_DCNTL_GET_INFO) {
 		xscreen_t scr;	
 		scr.id = 0;
+		scr.fps = x->config.fps;
 		scr.size.w = x->g->w;
 		scr.size.h = x->g->h;
 		PF->add(ret, &scr, sizeof(xscreen_t));

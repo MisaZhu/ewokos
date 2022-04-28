@@ -48,7 +48,7 @@ protected:
 	}
 
 	void onRepaint(Graph& g) {
-		int gW = g.getW();
+		//int gW = g.getW();
 		int gH = g.getH();
 
 		fps_counter++;
@@ -83,9 +83,12 @@ protected:
 	}
 };
 
+static int scrFPS = 0;
 static void loop(void* p) {
 	XWin* xwin = (XWin*)p;
 	xwin->repaint();
+	if(scrFPS > 0)
+		usleep(1000000 / scrFPS);
 }
 
 int main(int argc, char* argv[]) {
@@ -95,6 +98,7 @@ int main(int argc, char* argv[]) {
 
 	X x;
 	x.screenInfo(scr);
+	scrFPS = scr.fps;
 
 	TestX xwin;
 	x.open(&xwin, scr.size.w-160, scr.size.h-160,

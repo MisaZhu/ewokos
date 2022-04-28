@@ -6,8 +6,11 @@
 
 namespace Ewok {
 
+class X;
+
 class XWin {
 protected:
+	X* x;
 	xwin_t* xwin;
 	virtual void onRepaint(Graph& g) = 0;
 
@@ -26,6 +29,10 @@ public:
 	inline virtual ~XWin(void) {
 		this->close();
 	}
+
+	inline X* getX(void) {return x;}
+
+	inline void setX(X* x) { this->x = x;}
 
 	void setCWin(xwin_t* xw);
 
