@@ -98,7 +98,7 @@ int main(int argc, char* argv[]) {
 
 	TestX xwin;
 	x.open(&xwin, scr.size.w-160, scr.size.h-160,
-			160, 160, "anim", X_STYLE_NO_FRAME | X_STYLE_ALPHA | X_STYLE_NO_FOCUS);
+			160, 160, "anim", X_STYLE_NO_FRAME | X_STYLE_ALPHA | X_STYLE_NO_FOCUS | X_STYLE_SYSTOP);
 
 	xwin.setVisible(true);
 

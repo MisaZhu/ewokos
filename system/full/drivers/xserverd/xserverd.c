@@ -702,7 +702,6 @@ static int xserver_fcntl(int fd, int from_pid, fsinfo_t* info,
 	else if(cmd == X_CNTL_CALL_XIM) {
 		res = x_call_xim(x);
 	}
-	x_repaint(x);
 	return res;
 }
 
@@ -924,8 +923,6 @@ static int xserver_dev_cntl(int from_pid, int cmd, proto_t* in, proto_t* ret, vo
     proto_read_to(in, &ev, sizeof(xevent_t));
 		handle_input(x, &ev);
 	}
-
-	x_repaint(x);
 	return 0;
 }
 
@@ -938,7 +935,15 @@ static int xserver_close(int fd, int from_pid, fsinfo_t* info, void* p) {
 		return -1;
 	}
 	x_del_view(x, view);	
+	return 0;
+}
+
+int xserver_step(void* p) {
+	x_t* x = (x_t*)p;
+	ipc_disable();
 	x_repaint(x);
+	ipc_enable();
+	usleep(20000);
 	return 0;
 }
 
@@ -969,6 +974,7 @@ int main(int argc, char** argv) {
 	dev.close = xserver_close;
 	dev.open = xserver_open;
 	dev.dev_cntl = xserver_dev_cntl;
+	dev.loop_step = xserver_step;
 
 	dev.extra_data = &x;
 	x_repaint_req(&x);
