@@ -57,7 +57,8 @@ typedef struct {
 } x_current_t;
 
 typedef struct {
-	int win_move_alpha;
+	uint32_t win_move_alpha;
+	uint32_t fps;
 	char xwm[128];
 } x_conf_t;
 
@@ -82,6 +83,7 @@ typedef struct {
 
 static int32_t read_config(x_t* x, const char* fname) {
 	x->config.win_move_alpha = 0x88;
+	x->config.fps = 60;
 	x->config.xwm[0] = 0;
 
 	sconf_t *conf = sconf_load(fname);	
@@ -91,6 +93,10 @@ static int32_t read_config(x_t* x, const char* fname) {
 	const char* v = sconf_get(conf, "win_move_alpha");
 	if(v[0] != 0) 
 		x->config.win_move_alpha = atoi_base(v, 16);
+
+	v = sconf_get(conf, "fps");
+	if(v[0] != 0) 
+		x->config.fps = atoi(v);
 
 	v = sconf_get(conf, "xwm");
 	if(v[0] != 0) 
@@ -943,7 +949,7 @@ int xserver_step(void* p) {
 	ipc_disable();
 	x_repaint(x);
 	ipc_enable();
-	usleep(20000);
+	usleep(1000000/x->config.fps);
 	return 0;
 }
 
