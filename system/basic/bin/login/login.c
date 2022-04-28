@@ -106,9 +106,13 @@ static void input(str_t* s, bool show) {
 	str_reset(s);
 	char c;
 	while(true) {
-		c = getch();
-		if(c == 0)
-			break;
+		int i = read(0, &c, 1);
+		if(i <= 0 || c == 0) {
+		 	if(errno != EAGAIN)
+			 	break;
+			usleep(30000);
+			continue;
+		}	
 
 		if (c == KEY_BACKSPACE) {
 			if (s->len > 0) {

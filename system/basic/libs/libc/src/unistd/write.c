@@ -23,25 +23,20 @@ static int write_block(int fd, const void* buf, uint32_t size) {
 	if(info.type == FS_TYPE_PIPE) {
 		while(1) {
 			res = vfs_write_pipe(&info, buf, size, true);
-			if(res >= 0 || (errno != EAGAIN && errno != EAGAIN_NON_BLOCK))
+			if(res >= 0 || errno != EAGAIN)
 				break;
-
-			if(errno == EAGAIN_NON_BLOCK)
-				sleep(0);
-			else
-				proc_block(info.mount_pid, 0);
 		}
 		return res;
 	}
 
 	while(1) {
 		res = vfs_write(fd, &info, buf, size);
-		if(res >= 0 || (errno != EAGAIN && errno != EAGAIN_NON_BLOCK))
+		if(res >= 0 || errno == EAGAIN_NON_BLOCK) {
+			errno = EAGAIN;
 			break;
+		}
 
-		if(errno == EAGAIN_NON_BLOCK)
-			sleep(0);
-		else
+		if(errno == EAGAIN)
 			proc_block(info.mount_pid, 0);
 	}
 	return res;
