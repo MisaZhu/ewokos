@@ -24,7 +24,7 @@ class TestX : public XWin {
 		if(img == NULL)
 			return;
 		g.blt(img_fighter, fighter_step*(img->w/7), 0, img->w/7, img->h,
-				10, 10, img->w, img->h, 0xff);
+				10, 10, img->w, img->h);
 	}
 public:
 	inline TestX() {
