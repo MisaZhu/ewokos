@@ -162,6 +162,15 @@ static void load_extra_devs(void) {
 
 static void load_console(void) {
 	load_devs("/etc/dev/console.dev");
+	fd_console = open("/dev/console0", 0);
+	if(fd_console < 0)
+		return;
+
+	const char* s = ""
+			"+-----Ewok micro-kernel OS-----------------------+\n"
+			"| https://github.com/MisaZhu/EwokOS.git          |\n"
+			"+------------------------------------------------+\n";
+	dprintf(fd_console, "%s", s);
 }
 static void load_sys_devs(void) {
 	load_devs("/etc/dev/sys.dev");
@@ -222,7 +231,6 @@ static void run_rootfsd(void) {
 
 static void init_tty_stdio(void) {
 	int fd = open("/dev/tty0", 0);
-	fd_console = open("/dev/console0", 0);
 	if(fd > 0) {
 		dup2(fd, 0);
 		dup2(fd, 1);
