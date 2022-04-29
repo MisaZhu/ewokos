@@ -65,7 +65,9 @@ enum {
 	SYS_GET_KERNEL_TIC,
 
 	SYS_INTR_SETUP,
-	SYS_INTR_END
+	SYS_INTR_END,
+
+	SYS_SAFE_SET
 };
 
 #endif

@@ -3,13 +3,17 @@
 #include <stdlib.h>
 #include <string.h>
 #include <pthread.h>
+#include <sys/thread.h>
 
+static uint32_t _v;
 
 void* do_thread(void* p) {
 	(void)p;
 	while(1) {
-		printf("child: %d\n", pthread_self());
-		sleep(1);
+		thread_lock();
+		_v++;
+		printf("c: v= %d\n", _v);
+		thread_unlock();
 	}
 	return NULL;
 }
@@ -17,11 +21,14 @@ void* do_thread(void* p) {
 int main(int argc, char* argv[]) {
 	(void)argc;
 	(void)argv;
+	_v = 0;
 
 	pthread_create(NULL, NULL, do_thread, NULL);
 	while(1) {
-		printf("parent: %d\n", getpid());
-		sleep(1);
+		thread_lock();
+		_v++;
+		printf("p: v= %d\n", _v);
+		thread_unlock();
 	}
 	return 0;
 }

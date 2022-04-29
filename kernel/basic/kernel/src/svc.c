@@ -537,6 +537,20 @@ static void sys_interrupt_end(context_t* ctx) {
 	interrupt_end(ctx);
 }
 
+static inline void sys_safe_set(context_t* ctx, int32_t* to, int32_t v) {
+	ctx->gpr[0] = -1;
+	proc_t* proc = proc_get_proc(get_current_proc());
+	if(*to != 0 && v != 0) {
+		proc_block_on(proc->info.pid, (uint32_t)to);
+		schedule(ctx);
+		return;
+	}
+
+	*to = v;
+	ctx->gpr[0] = 0;
+	proc_wakeup(proc->info.pid, (uint32_t)to);
+}
+
 static inline void _svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_t arg2, context_t* ctx) {
 	_svc_tic++;
 
@@ -687,6 +701,9 @@ static inline void _svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_
 		return;
 	case SYS_INTR_END:
 		sys_interrupt_end(ctx);
+		return;
+	case SYS_SAFE_SET:
+		sys_safe_set(ctx, (int32_t*)arg0, arg1);
 		return;
 	}
 }
