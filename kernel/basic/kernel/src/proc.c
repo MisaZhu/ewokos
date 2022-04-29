@@ -691,18 +691,12 @@ proc_t* kfork_raw(context_t* ctx, int32_t type, proc_t* parent) {
 proc_t* kfork(context_t* ctx, int32_t type) {
 	proc_t* cproc = get_current_proc();
 	proc_t* child = kfork_raw(ctx, type, cproc);
-	if(_core_proc_ready && child->info.type == PROC_TYPE_PROC) {
+	core_attach(child);
+
+	if(_core_proc_ready && child->info.type == PROC_TYPE_PROC)
 		kev_push(KEV_PROC_CREATED, cproc->info.pid, child->info.pid, 0);
-	}
 	else
 		proc_ready(child);
-
-	/*if(child->info.type == PROC_TYPE_PROC)
-		core_attach(child);
-	else
-		child->info.core = cproc->info.core;
-		*/
-	core_attach(child);
 	return child;
 }
 

@@ -130,25 +130,15 @@ static void sys_detach(void) {
 
 static void sys_thread(context_t* ctx, uint32_t entry, uint32_t func, int32_t arg) {
 	ctx->gpr[0] = -1;
-	//proc_t *cproc = get_current_proc();
 	proc_t *proc = kfork(ctx, PROC_TYPE_THREAD);
 	if(proc == NULL)
 		return;
 	ctx->gpr[0] = proc->info.pid;
 
-	/*uint32_t sp = proc->ctx.sp;
-	memcpy(&proc->ctx, ctx, sizeof(context_t));
-	proc->ctx.sp = sp;
-	*/
 	proc->ctx.pc = entry;
 	proc->ctx.lr = entry;
 	proc->ctx.gpr[0] = func;
 	proc->ctx.gpr[1] = arg;
-	/*if(cproc->info.core == proc->info.core)
-		proc_switch(ctx, proc, true);
-	else
-		schedule(ctx);
-		*/
 }
 
 static void sys_waitpid(context_t* ctx, int32_t pid) {
