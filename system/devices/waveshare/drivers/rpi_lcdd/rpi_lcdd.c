@@ -79,9 +79,9 @@ static int tp_read(int fd, int from_pid, fsinfo_t* info,
 int main(int argc, char** argv) {
 	const int lcd_dc = 24;
 	const int lcd_cs = 8;
-  const int lcd_rst = 25;
-  const int tp_cs = 7;
-  const int tp_irq = 17;
+	const int lcd_rst = 25;
+	const int tp_cs = 7;
+	const int tp_irq = 17;
 
 	const char* mnt_point = argc > 1 ? argv[1]: "/dev/rpi_lcd";
 
