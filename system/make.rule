@@ -15,7 +15,8 @@ CFLAGS = -Wstrict-prototypes \
         -fno-builtin-sprintf \
         -fno-builtin-fprintf \
         -Wno-overlength-strings \
-        -fno-builtin-exit -fno-builtin-stdio
+        -fno-builtin-exit -fno-builtin-stdio \
+        -std=c99
 
 CXXFLAGS = -marm \
         -pedantic -Wall -Wextra -msoft-float -fPIC -mapcs-frame \
