@@ -28,7 +28,7 @@ static void out(const char *format, ...) {
 	va_end(ap);
 	klog("%s", str->cstr);
 	if(fd_console > 0)
-		dprintf(fd_console, "%s", str->cstr);
+		dprintf(2, "%s", str->cstr);
 	str_free(str);
 }
 
@@ -160,6 +160,9 @@ static void load_extra_devs(void) {
 	closedir(dirp);
 }
 
+static void load_console(void) {
+	load_devs("/etc/dev/console.dev");
+}
 static void load_sys_devs(void) {
 	load_devs("/etc/dev/sys.dev");
 }
@@ -223,7 +226,7 @@ static void init_tty_stdio(void) {
 	if(fd > 0) {
 		dup2(fd, 0);
 		dup2(fd, 1);
-		//dup2(fd, 2);
+		dup2(fd, 2);
 		close(fd);
 	}
 
@@ -238,9 +241,10 @@ static void switch_root(void) {
 	if(pid == 0) {
 		setuid(0);
 		load_arch_devs();
+		load_console();
+		init_tty_stdio();
 		load_extra_devs();
 		load_sys_devs();
-		init_tty_stdio();
 		run_procs();
 		exit(0);
 	}
