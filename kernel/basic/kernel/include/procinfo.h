@@ -21,7 +21,6 @@ enum {
 enum {
 	PROC_TYPE_PROC = 0,
 	PROC_TYPE_THREAD,
-	PROC_TYPE_IPC,
 	PROC_TYPE_VFORK
 };
 

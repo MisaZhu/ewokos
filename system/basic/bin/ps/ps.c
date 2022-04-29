@@ -86,7 +86,7 @@ int main(int argc, char* argv[]) {
 				continue;
 
 			uint32_t sec = csec - procs[i].start_sec;
-			printf("%8s %4d %4d   %6d  %10s  %02d:%02d:%02d   %6d  %5d  %s\n", 
+			printf("%8s %4d %4d   %6d  %10s  %02d:%02d:%02d   %6d  %5d  %s",
 				get_owner(&procs[i]),
 				procs[i].core,
 				procs[i].pid,
@@ -98,6 +98,11 @@ int main(int argc, char* argv[]) {
 				procs[i].heap_size / 1024,
 				procs[i].shm_size / 1024,
 				get_cmd(&procs[i], full));
+
+			if(procs[i].type == PROC_TYPE_THREAD)
+				printf(" [THRD:%d]\n", procs[i].father_pid);
+			else
+				printf("\n");
 		}
 		free(procs);
 	}
