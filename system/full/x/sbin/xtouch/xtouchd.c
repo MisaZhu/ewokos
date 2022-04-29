@@ -4,6 +4,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <sys/vdevice.h>
+#include <sconf.h>
 #include <sys/proto.h>
 #include <x/xcntl.h>
 #include <x/xevent.h>
@@ -13,23 +14,32 @@
 static int _x_pid = -1;
 static int _scr_w = 0;
 static int _scr_h = 0;
-static bool _x_rev = false;
-static bool _y_rev = false;
 
-static void input(uint16_t state, int16_t x, int16_t y) {
+typedef struct {
+	bool x_rev;
+	bool y_rev;
+	int  x_offset;
+	int  y_offset;
+	int  x_max;
+	int  y_max;
+} xtouch_t;
+
+static xtouch_t _xtouch;
+
+static void input(uint16_t state, int16_t tx, int16_t ty) {
 	xevent_t ev;
 	ev.type = XEVT_MOUSE;
 	ev.state = XEVT_MOUSE_MOVE;
 	ev.value.mouse.relative = 0;
-	if(_x_rev)
-		ev.value.mouse.x = _scr_w - x*_scr_w/2000;
+	if(_xtouch.x_rev)
+		ev.value.mouse.x = _scr_w - (tx*_scr_w / _xtouch.x_max);
 	else
-		ev.value.mouse.x = (x-20)*_scr_w/2000;
+		ev.value.mouse.x = (tx*_scr_w / _xtouch.x_max);
 
-	if(_y_rev)
-		ev.value.mouse.y = y*_scr_h/1920;
+	if(_xtouch.y_rev)
+		ev.value.mouse.y = (ty*_scr_h / _xtouch.y_max);
 	else
-		ev.value.mouse.y = _scr_h - y*_scr_h/1920;
+		ev.value.mouse.y = _scr_h - (ty*_scr_h / _xtouch.y_max);
 	ev.value.mouse.rx = 0;
 	ev.value.mouse.ry = 0;
 
@@ -43,23 +53,50 @@ static void input(uint16_t state, int16_t x, int16_t y) {
 	PF->clear(&in);
 }
 
+static int32_t read_config(const char* fname) {
+	memset(&_xtouch, 0, sizeof(xtouch_t));
+	_xtouch.x_max = 100;
+	_xtouch.y_max = 100;
+
+	sconf_t *conf = sconf_load(fname);	
+	if(conf == NULL)
+		return -1;
+
+	const char* v = sconf_get(conf, "x_rev");
+	if(v[0] == '1') 
+		_xtouch.x_rev = true;
+
+	v = sconf_get(conf, "y_rev");
+	if(v[0] == '1') 
+		_xtouch.y_rev = true;
+
+	v = sconf_get(conf, "x_max");
+	if(v[0] != 0) 
+		_xtouch.x_max = atoi(v);
+
+	v = sconf_get(conf, "y_max");
+	if(v[0] != 0) 
+		_xtouch.y_max = atoi(v);
+
+	v = sconf_get(conf, "x_offset");
+	if(v[0] != 0) 
+		_xtouch.x_offset = atoi(v);
+
+	v = sconf_get(conf, "y_offset");
+	if(v[0] != 0) 
+		_xtouch.y_offset = atoi(v);
+	sconf_free(conf);
+	return 0;
+}
+
 int main(int argc, char** argv) {
 	(void)argc;
 	(void)argv;
 
-	_x_rev = false;
-	_y_rev = false;
 	_x_pid = -1;
+	read_config("/etc/x/xtouch.conf");
 
 	const char* touch_dev = argc > 1 ? argv[1]:"/dev/touch0";
-
-	if(argc > 2 && strstr(argv[2], "rev") != NULL) {
-		if(strchr(argv[2], 'x') != NULL)
-			_x_rev = true;
-		if(strchr(argv[2], 'y') != NULL)
-			_y_rev = true;
-	}
-
 	int fd = open(touch_dev, O_RDONLY | O_NONBLOCK);
 	if(fd < 0) {
 		fprintf(stderr, "xtouchd error: open [%s] failed!\n", touch_dev);
@@ -67,25 +104,30 @@ int main(int argc, char** argv) {
 	}
 
 	while(true) {
+		_x_pid = dev_get_pid("/dev/x");
 		if(_x_pid > 0) {
-			int8_t buf[6];
-			if(read(fd, buf, 6) == 6) {
-				uint16_t* mv = (uint16_t*)buf;
-				input(mv[0], mv[1], mv[2]);
-			}
-			else
-				usleep(3000);
+			xscreen_t scr;
+			x_screen_info(&scr);
+			_scr_w = scr.size.w;
+			_scr_h = scr.size.h;
+			break;
 		}
-		else {
-			usleep(100000);
-			_x_pid = dev_get_pid("/dev/x");
-			if(_x_pid > 0) {
-				xscreen_t scr;
-				x_screen_info(&scr);
-				_scr_w = scr.size.w;
-				_scr_h = scr.size.h;
-			}
+		usleep(100000);
+	}
+
+	while(true) {
+		int8_t buf[6];
+		if(read(fd, buf, 6) == 6) {
+			uint16_t* mv = (uint16_t*)buf;
+			int16_t tx = mv[1] - _xtouch.x_offset;
+			int16_t ty = mv[2] - _xtouch.y_offset;
+			tx = tx < 0 ? 0 : tx;
+			ty = ty < 0 ? 0 : ty;
+
+			input(mv[0], tx, ty);
 		}
+		else
+			usleep(3000);
 	}
 
 	close(fd);
