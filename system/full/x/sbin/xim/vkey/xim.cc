@@ -69,11 +69,15 @@ protected:
 				int at = i+j*col;
 				if(at >= (int)strlen(keytable))
 					break;
+				char c = keytable[at];
+				if(c >= 'a' && c <= 'z') {
+					c += ('A' - 'a');
+					g.fill(i*keyw, j*keyh, keyw, keyh, 0xffcccccc);
+				}
 
 				if(keySelect == at)
 					g.fill(i*keyw, j*keyh, keyw, keyh, 0xffffffff);
 
-				char c = keytable[at];
 				if(c == '\n')
 					g.drawText(i*keyw + 2, 
 							j*keyh + (keyh - font->h)/2,
@@ -82,11 +86,12 @@ protected:
 					g.drawText(i*keyw + 2, 
 							j*keyh + (keyh - font->h)/2,
 							"<-", font, 0xff000000);
-				else
+				else {
 					g.drawChar(i*keyw + (keyw - font->w)/2,
 							j*keyh + (keyh - font->h)/2,
 							c, font, 0xff000000);
-				g.box(i*keyw, j*keyh, keyw, keyh, 0xffcccccc);
+				}
+				g.box(i*keyw, j*keyh, keyw, keyh, 0xffdddddd);
 			}
 		}
 	}
@@ -101,51 +106,15 @@ protected:
 		dev_cntl_by_pid(xPid, X_DCNTL_INPUT, &in, NULL);
 		PF->clear(&in);
 	}
-/*
-	void keyMove(char c) {
-		if(keySelect < 0)
-			keySelect = 0;
-		else if(keySelect >= (int)strlen(keytable))
-			keySelect = strlen(keytable)-1;
-
-		if(c == KEY_ENTER) {
-			char v = keytable[keySelect];
-			if(v == '\b')
-				v = KEY_BACKSPACE;
-			input(v);
-			return;
-		}
-
-		switch(c) {
-		case KEY_UP:
-			keySelect -= col;
-			break;
-		case KEY_DOWN:
-			keySelect += col;
-			break;
-		case KEY_LEFT:
-			keySelect--;
-			break;
-		case KEY_RIGHT:
-			keySelect++;
-			break;
-		}
-		
-		if(keySelect < 0)
-			keySelect = 0;
-		else if(keySelect >= (int)strlen(keytable))
-			keySelect = strlen(keytable)-1;
-		repaint();
-	}
-	*/
 
 public:
 	inline XIMX() {
-		font = font_by_name("8x16");
-		keytable = "abcdefghijklm/\\{}"
-							 "nopqrstuvwxyz<>[]"
-							 "1234567890-+.,'\" "
-							 "`~!@#$%^&*()|_=\b\n";
+		font = font_by_name("9x16");
+		keytable = ""
+			"`~1234567890-+%@\b"
+			"'\"qwertyuiop{}[]\n"
+			"*_|asdfghjkl()=/\\"
+			"#$^zxcvbnm  <>.,&";
 		col = 17;
 		row = 4;
 		keyh = font->h + 8;
