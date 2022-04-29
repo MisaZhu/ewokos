@@ -1,0 +1,4 @@
+#waveshare 3.5 inch
+int TP_CS = 7;
+int TP_IRQ = 25;
+spi cdiv 256
