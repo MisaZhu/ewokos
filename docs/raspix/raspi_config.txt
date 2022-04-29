@@ -39,3 +39,11 @@ hdmi_mode=87
 hdmi_force_hotplug=1
 #-------------------------------------------
 
+#-----waveshare 3.5 inchs hdmi_lcd------------
+hdmi_cvt=480 320 60 1 0 0 0
+hdmi_group=2
+hdmi_mode=87
+hdmi_force_hotplug=1
+#-------------------------------------------
+
+

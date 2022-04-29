@@ -24,8 +24,10 @@ static int tp_read(int fd, int from_pid, fsinfo_t* info,
 }
 
 int main(int argc, char** argv) {
+	//GPIO ports for waveshare 3.5 inch
 	int TP_CS = 7;
 	int TP_IRQ = 25;
+
 	const char* mnt_point = argc > 1 ? argv[1]: "/dev/touch0";
 
 	if(argc > 3) {

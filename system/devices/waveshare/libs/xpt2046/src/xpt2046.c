@@ -6,6 +6,7 @@
 #include <string.h>
 #include <sys/vfs.h>
 
+//GPIO ports for waveshare 3.5 inch
 static int TP_CS = 7;
 static int TP_IRQ = 25;
 
