@@ -14,6 +14,7 @@
 #include <sd/sd.h>
 #include <ext2/ext2fs.h>
 
+static int32_t fd_console = -1;
 static void outc(char c, void* p) {
 	str_t *buf = (str_t *)p;
 	str_addc(buf, c);
@@ -26,6 +27,8 @@ static void out(const char *format, ...) {
 	v_printf(outc, str, format, ap);
 	va_end(ap);
 	klog("%s", str->cstr);
+	if(fd_console > 0)
+		dprintf(fd_console, "%s", str->cstr);
 	str_free(str);
 }
 
@@ -216,10 +219,18 @@ static void run_rootfsd(void) {
 
 static void init_tty_stdio(void) {
 	int fd = open("/dev/tty0", 0);
-	dup2(fd, 0);
-	dup2(fd, 1);
-	dup2(fd, 2);
-	close(fd);
+	fd_console = open("/dev/console0", 0);
+	if(fd > 0) {
+		dup2(fd, 0);
+		dup2(fd, 1);
+		//dup2(fd, 2);
+		close(fd);
+	}
+
+	if(fd_console > 0) {
+		dup2(fd_console, 2);
+		close(fd_console);
+	}
 }
 
 static void switch_root(void) {
@@ -247,6 +258,8 @@ static void halt(void) {
 int main(int argc, char** argv) {
 	(void)argc;
 	(void)argv;
+
+	fd_console = -1;
 
 	if(getuid() >= 0) {
 		out("process 'init' can only loaded by kernel!\n");

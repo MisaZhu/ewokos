@@ -9,7 +9,7 @@
 static int TP_CS = 7;
 static int TP_IRQ = 25;
 
-#define SPI_CLK_DIVIDE_TEST 2
+#define SPI_CLK_DIVIDE_TEST 256
 
 static bool _down = false;
 static int32_t _x, _y;
@@ -74,6 +74,8 @@ int xpt2046_read(uint16_t* press,  uint16_t* x, uint16_t* y) {
 	else {  //release
 		_down = false;
 		*press = 0;
+		*x = _x;
+		*y = _y;
 	}
 	return 0;	
 }
