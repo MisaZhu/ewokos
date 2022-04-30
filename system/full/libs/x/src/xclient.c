@@ -142,10 +142,8 @@ static void x_push_event(x_t* x, xevent_t* ev) {
 
 static int x_get_event(x_t* x, xevent_t* ev) {
 	ipc_disable();
-	//thread_lock();
 	x_event_t* e = x->event_head;
 	if(e == NULL) {
-		//thread_unlock();
 		ipc_enable();
 		if(x->on_loop == NULL)
 			proc_block(getpid(), (uint32_t)x);
@@ -157,7 +155,6 @@ static int x_get_event(x_t* x, xevent_t* ev) {
 
 	memcpy(ev, &e->event, sizeof(xevent_t));
 	free(e);
-	//thread_unlock();
 	ipc_enable();
 	return 0;
 }
@@ -229,7 +226,9 @@ static int win_event_handle(xwin_t* xwin, xevent_t* ev) {
 		x_set_visible(xwin, ev->value.window.v0 == 1);
 	}
 	else if(ev->value.window.event == XEVT_WIN_REPAINT) {
+		thread_lock();
 		x_repaint_raw(xwin);
+		thread_unlock();
 	}
 	else if(ev->value.window.event == XEVT_WIN_MAX) {
 		if(xinfo.state == X_STATE_MAX) {
@@ -312,9 +311,7 @@ void  x_run(x_t* x, void* loop_data) {
 			xwin_t* xwin = (xwin_t*)xev.win;
 			if(xwin != NULL) {
 				if(xev.type == XEVT_WIN) {
-					thread_lock();
 					win_event_handle(xwin, &xev);
-					thread_unlock();
 				}
 				if(xwin->on_event != NULL)
 					xwin->on_event(xwin, &xev);
