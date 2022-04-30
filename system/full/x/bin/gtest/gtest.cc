@@ -86,7 +86,7 @@ protected:
 		w = w < 32 ? 32 : w;
 		h = h < 32 ? 32 : h;
 
-		if(tic == low) { //1 second
+		if(tic == low) { //3 second
 			fps = count/3;
 			count = 0;
 
