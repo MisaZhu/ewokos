@@ -59,10 +59,10 @@ protected:
 		}
 	}
 
-	void onRepaint(Graph& g) {
-		keyw = div_u32(g.getW(), col);
-		g.fill(0, 0, g.getW(), g.getH(), 0xffaaaaaa);
-		keyw = div_u32(g.getW(), col);
+	void onRepaint(graph_t* g) {
+		keyw = div_u32(g->w, col);
+		graph_fill(g, 0, 0, g->w, g->w, 0xffaaaaaa);
+		keyw = div_u32(g->w, col);
 
 		for(int j=0; j<row; j++) {
 			for(int i=0; i<col; i++) {
@@ -72,26 +72,26 @@ protected:
 				char c = keytable[at];
 				if(c >= 'a' && c <= 'z') {
 					c += ('A' - 'a');
-					g.fill(i*keyw, j*keyh, keyw, keyh, 0xffcccccc);
+					graph_fill(g, i*keyw, j*keyh, keyw, keyh, 0xffcccccc);
 				}
 
 				if(keySelect == at)
-					g.fill(i*keyw, j*keyh, keyw, keyh, 0xffffffff);
+					graph_fill(g, i*keyw, j*keyh, keyw, keyh, 0xffffffff);
 
 				if(c == '\n')
-					g.drawText(i*keyw + 2, 
+					graph_draw_text(g, i*keyw + 2, 
 							j*keyh + (keyh - font->h)/2,
 							"En", font, 0xff000000);
 				else if(c == '\b')
-					g.drawText(i*keyw + 2, 
+					graph_draw_text(g, i*keyw + 2, 
 							j*keyh + (keyh - font->h)/2,
 							"<-", font, 0xff000000);
 				else {
-					g.drawChar(i*keyw + (keyw - font->w)/2,
+					graph_draw_char(g, i*keyw + (keyw - font->w)/2,
 							j*keyh + (keyh - font->h)/2,
 							c, font, 0xff000000);
 				}
-				g.box(i*keyw, j*keyh, keyw, keyh, 0xffdddddd);
+				graph_box(g, i*keyw, j*keyh, keyw, keyh, 0xffdddddd);
 			}
 		}
 	}

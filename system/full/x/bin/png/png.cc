@@ -13,14 +13,14 @@ class Png : public XWin {
 	graph_t* img;
 
 protected:
-	void onRepaint(Graph& g) {
-		g.clear(0xffffff | (alpha << 24));
+	void onRepaint(graph_t* g) {
+		graph_clear(g, 0xffffff | (alpha << 24));
 		if(img != NULL) {
-			g.blt(img, 0, 0, img->w, img->h,
-					0, 0, img->w, img->h, 0xff);
+			graph_blt_alpha(img, 0, 0, img->w, img->h,
+					g, 0, 0, img->w, img->h, 0xff);
 		}
 
-		g.drawText(10, img->h+10,
+		graph_draw_text(g, 10, img->h+10,
 			"Press Up/Down to\nchange transparency\nof background.", 
 			font_by_name("7x9"), 0xff000000);
 	}

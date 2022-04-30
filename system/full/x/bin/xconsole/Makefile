@@ -15,7 +15,7 @@ $(XCONSOLE): $(XCONSOLE_OBJS) \
 		$(BUILD_DIR)/lib/libewokc.a \
 		$(BUILD_DIR)/lib/libx++.a \
 		$(BUILD_DIR)/lib/libcxx.a 
-	$(LD) -Ttext=100 $(XCONSOLE_OBJS) -o $(XCONSOLE) $(LDFLAGS) -lsconf -lx++ -lgraphxx -lewokc -lc -lcxx -lconsole
+	$(LD) -Ttext=100 $(XCONSOLE_OBJS) -o $(XCONSOLE) $(LDFLAGS) -lsconf -lx++ -lewokc -lc -lcxx -lconsole -lgraph -lfonts
 
 clean:
 	rm -f $(XCONSOLE_OBJS)

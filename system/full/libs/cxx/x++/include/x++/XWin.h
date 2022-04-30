@@ -2,7 +2,7 @@
 #define XWIN_H
 
 #include <x/xclient.h>
-#include <graphxx/graphxx.h>
+#include <graph/graph.h>
 
 namespace Ewok {
 
@@ -12,7 +12,7 @@ class XWin {
 protected:
 	X* x;
 	xwin_t* xwin;
-	virtual void onRepaint(Graph& g) = 0;
+	virtual void onRepaint(graph_t* g) = 0;
 
 	inline virtual void onClose(void)   { }
 	inline virtual void onMin(void)     { }
@@ -38,7 +38,7 @@ public:
 
 	inline xwin_t* getCWin(void) { return xwin; }
 
-	inline void __doRepaint(graph_t* g) { Graph gxx(g->buffer, g->w, g->h); onRepaint(gxx); }
+	inline void __doRepaint(graph_t* g) { onRepaint(g); }
 	inline void __doClose(void) { onClose(); }
 	inline void __doMin(void) { onMin(); }
 	inline void __doResize(void) { onResize(); }

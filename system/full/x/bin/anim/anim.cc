@@ -19,12 +19,12 @@ class TestX : public XWin {
 	graph_t* img_fighter;
 	font_t* font;
 
-	void drawFitgher(Graph& g) {
+	void drawFitgher(graph_t* g) {
 		graph_t* img = img_fighter;
 		if(img == NULL)
 			return;
-		g.blt(img_fighter, fighter_step*(img->w/7), 0, img->w/7, img->h,
-				10, 10, img->w, img->h);
+		graph_blt(img_fighter, fighter_step*(img->w/7), 0, img->w/7, img->h,
+				g, 10, 10, img->w, img->h);
 	}
 public:
 	inline TestX() {
@@ -47,9 +47,9 @@ protected:
 		}
 	}
 
-	void onRepaint(Graph& g) {
+	void onRepaint(graph_t* g) {
 		//int gW = g.getW();
-		int gH = g.getH();
+		int gH = g->h;
 
 		fps_counter++;
 
@@ -58,7 +58,7 @@ protected:
 		if(tic == 0 || (low - tic) >= 1000000) //1 second
 			tic = low;
 
-		g.clear(0x0);
+		graph_clear(g, 0x0);
 		if(tic == low) { //1 second
 			fps = fps_counter;
 			fps_counter = 0;
@@ -68,7 +68,7 @@ protected:
 		snprintf(str, 31, "EwokOS FPS: %d", fps);
 		int w;
 		get_text_size(str, font, (int32_t*)&w, NULL);
-		g.drawText(10, gH-font->h, str, font, 0xffffffff);
+		graph_draw_text(g, 10, gH-font->h, str, font, 0xffffffff);
 		drawFitgher(g);
 
 		int i = fps / 14;

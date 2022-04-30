@@ -140,6 +140,25 @@ static void x_push_event(x_t* x, xevent_t* ev) {
 		proc_wakeup((uint32_t)x);
 }
 
+static int x_get_event(x_t* x, xevent_t* ev) {
+	ipc_disable();
+	x_event_t* e = x->event_head;
+	if(e == NULL) {
+		ipc_enable();
+		if(x->on_loop == NULL)
+			proc_block(getpid(), (uint32_t)x);
+		return -1;
+	}
+	x->event_head = x->event_head->next;
+	if (x->event_head == NULL)
+		x->event_tail = NULL;
+
+	memcpy(ev, &e->event, sizeof(xevent_t));
+	free(e);
+	ipc_enable();
+	return 0;
+}
+
 static void x_repaint_raw(xwin_t* xwin) {
 	if(xwin->on_repaint == NULL) {
 		vfs_fcntl(xwin->fd, X_CNTL_UPDATE, NULL, NULL);
@@ -159,15 +178,16 @@ void x_repaint(xwin_t* xwin) {
 		x_repaint_raw(xwin);
 		return;
 	}
-//TODO
-/*	x_t* x = xwin->x;
+
+	x_t* x = xwin->x;
 	xevent_t ev;
 	memset(&ev, 0, sizeof(xevent_t));
 	ev.win = (uint32_t)xwin;
 	ev.value.window.event = XEVT_WIN_REPAINT;
 	ev.type = XEVT_WIN;
+	ipc_disable();
 	x_push_event(x, &ev);
-	*/
+	ipc_enable();
 }
 
 static int win_event_handle(xwin_t* xwin, xevent_t* ev) {
@@ -232,24 +252,6 @@ static int win_event_handle(xwin_t* xwin, xevent_t* ev) {
 	return 0;
 }
 
-static int x_get_event(x_t* x, xevent_t* ev) {
-  x_event_t* e = x->event_head;
-	if(e == NULL) {
-		if(x->on_loop == NULL)
-			proc_block(getpid(), (uint32_t)x);
-		return -1;
-	}
-	ipc_disable();
-	x->event_head = x->event_head->next;
-	if (x->event_head == NULL)
-		x->event_tail = NULL;
-
-	memcpy(ev, &e->event, sizeof(xevent_t));
-	free(e);
-	ipc_enable();
-	return 0;
-}
-
 int x_screen_info(xscreen_t* scr) {
 	proto_t out;
 	PF->init(&out);
@@ -303,14 +305,12 @@ void  x_run(x_t* x, void* loop_data) {
 	xevent_t xev;
 	while(!x->terminated) {
 		int res = x_get_event(x, &xev);
-
 		if(res == 0) {
 			xwin_t* xwin = (xwin_t*)xev.win;
 			if(xwin != NULL) {
 				if(xev.type == XEVT_WIN) {
 					win_event_handle(xwin, &xev);
 				}
-
 				if(xwin->on_event != NULL)
 					xwin->on_event(xwin, &xev);
 			}
