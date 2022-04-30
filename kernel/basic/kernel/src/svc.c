@@ -69,9 +69,9 @@ static int32_t sys_getpid(int32_t pid) {
 	return -1;
 }
 
-static int32_t sys_get_threadid(void) {
+static int32_t sys_get_thread_id(void) {
 	proc_t * cproc = get_current_proc();
-	if(cproc == NULL || cproc->info.type != PROC_TYPE_THREAD)
+	if(cproc == NULL)
 		return -1;
 	return cproc->info.pid; 
 }
@@ -421,7 +421,7 @@ static void sys_ipc_end(context_t* ctx) {
 }
 
 static int32_t sys_ipc_disable(void) {
-	proc_t* cproc = get_current_proc();
+	proc_t* cproc = proc_get_proc(get_current_proc());
 	ipc_task_t* ipc = proc_ipc_get_task(cproc);
 	if(ipc != NULL && ipc->state != IPC_IDLE)
 		return -1;
@@ -430,7 +430,7 @@ static int32_t sys_ipc_disable(void) {
 }
 
 static void sys_ipc_enable(void) {
-	proc_t* cproc = get_current_proc();
+	proc_t* cproc = proc_get_proc(get_current_proc());
 	if(!cproc->space->ipc_server.disabled)
 		return;
 
@@ -580,7 +580,7 @@ static inline void _svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_
 		ctx->gpr[0] = sys_getpid(arg0);
 		return;
 	case SYS_GET_THREAD_ID:
-		ctx->gpr[0] = sys_get_threadid();
+		ctx->gpr[0] = sys_get_thread_id();
 		return;
 	case SYS_USLEEP:
 		sys_usleep(ctx, (uint32_t)arg0);

@@ -3,6 +3,7 @@
 #include <sys/ipc.h>
 #include <sys/vfs.h>
 #include <sys/syscall.h>
+#include <sys/thread.h>
 #include <sys/proc.h>
 #include <sys/vdevice.h>
 #include <fcntl.h>
@@ -125,6 +126,50 @@ void x_close(xwin_t* xwin) {
 	free(xwin);
 }
 
+static void x_push_event(x_t* x, xevent_t* ev) {
+	x_event_t* e = (x_event_t*)malloc(sizeof(x_event_t));
+	e->next = NULL;
+	memcpy(&e->event, ev, sizeof(xevent_t));
+
+	if(x->event_tail != NULL)
+		x->event_tail->next = e;
+	else
+		x->event_head = e;
+	x->event_tail = e;
+	if(x->on_loop == NULL)
+		proc_wakeup((uint32_t)x);
+}
+
+static void x_repaint_raw(xwin_t* xwin) {
+	if(xwin->on_repaint == NULL) {
+		vfs_fcntl(xwin->fd, X_CNTL_UPDATE, NULL, NULL);
+		return;
+	}
+
+	graph_t* g = x_get_graph(xwin);
+	xwin->on_repaint(xwin, g);
+	vfs_fcntl(xwin->fd, X_CNTL_UPDATE, NULL, NULL);
+	x_release_graph(xwin, g);
+}
+
+void x_repaint(xwin_t* xwin) {
+	int tid = thread_get_id();
+	int pid = getpid();
+	if(tid == pid) {
+		x_repaint_raw(xwin);
+		return;
+	}
+//TODO
+/*	x_t* x = xwin->x;
+	xevent_t ev;
+	memset(&ev, 0, sizeof(xevent_t));
+	ev.win = (uint32_t)xwin;
+	ev.value.window.event = XEVT_WIN_REPAINT;
+	ev.type = XEVT_WIN;
+	x_push_event(x, &ev);
+	*/
+}
+
 static int win_event_handle(xwin_t* xwin, xevent_t* ev) {
 	xinfo_t xinfo;
 	x_get_info(xwin, &xinfo);
@@ -150,7 +195,7 @@ static int win_event_handle(xwin_t* xwin, xevent_t* ev) {
 		if(xwin->on_resize) {
 			xwin->on_resize(xwin);
 		}
-		x_repaint(xwin);
+		x_repaint_raw(xwin);
 	}
 	else if(ev->value.window.event == XEVT_WIN_MOVE) {
 		xinfo.wsr.x += ev->value.window.v0;
@@ -159,6 +204,9 @@ static int win_event_handle(xwin_t* xwin, xevent_t* ev) {
 	}
 	else if(ev->value.window.event == XEVT_WIN_VISIBLE) {
 		x_set_visible(xwin, ev->value.window.v0 == 1);
+	}
+	else if(ev->value.window.event == XEVT_WIN_REPAINT) {
+		x_repaint_raw(xwin);
 	}
 	else if(ev->value.window.event == XEVT_WIN_MAX) {
 		if(xinfo.state == X_STATE_MAX) {
@@ -179,23 +227,9 @@ static int win_event_handle(xwin_t* xwin, xevent_t* ev) {
 		if(xwin->on_resize) {
 			xwin->on_resize(xwin);
 		}
-		x_repaint(xwin);
+		x_repaint_raw(xwin);
 	}
 	return 0;
-}
-
-static void x_push_event(x_t* x, xevent_t* ev) {
-	x_event_t* e = (x_event_t*)malloc(sizeof(x_event_t));
-	e->next = NULL;
-	memcpy(&e->event, ev, sizeof(xevent_t));
-
-  if(x->event_tail != NULL)
-    x->event_tail->next = e;
-  else
-    x->event_head = e;
-  x->event_tail = e;
-	if(x->on_loop == NULL)
-		proc_wakeup((uint32_t)x);
 }
 
 static int x_get_event(x_t* x, xevent_t* ev) {
@@ -205,7 +239,6 @@ static int x_get_event(x_t* x, xevent_t* ev) {
 			proc_block(getpid(), (uint32_t)x);
 		return -1;
 	}
-
 	ipc_disable();
 	x->event_head = x->event_head->next;
 	if (x->event_head == NULL)
@@ -214,7 +247,7 @@ static int x_get_event(x_t* x, xevent_t* ev) {
 	memcpy(ev, &e->event, sizeof(xevent_t));
 	free(e);
 	ipc_enable();
-  return 0;
+	return 0;
 }
 
 int x_screen_info(xscreen_t* scr) {
@@ -236,20 +269,8 @@ int x_set_visible(xwin_t* xwin, bool visible) {
 	PF->clear(&in);
 	if(xwin->on_focus)
 		xwin->on_focus(xwin);
-	x_repaint(xwin);
+	x_repaint_raw(xwin);
 	return res;
-}
-
-void x_repaint(xwin_t* xwin) {
-	if(xwin->on_repaint == NULL) {
-		vfs_fcntl(xwin->fd, X_CNTL_UPDATE, NULL, NULL);
-		return;
-	}
-
-	graph_t* g = x_get_graph(xwin);
-	xwin->on_repaint(xwin, g);
-	vfs_fcntl(xwin->fd, X_CNTL_UPDATE, NULL, NULL);
-	x_release_graph(xwin, g);
 }
 
 static void handle(int from_pid, int cmd, proto_t* in, proto_t* out, void* p) {
@@ -286,7 +307,6 @@ void  x_run(x_t* x, void* loop_data) {
 		if(res == 0) {
 			xwin_t* xwin = (xwin_t*)xev.win;
 			if(xwin != NULL) {
-
 				if(xev.type == XEVT_WIN) {
 					win_event_handle(xwin, &xev);
 				}
