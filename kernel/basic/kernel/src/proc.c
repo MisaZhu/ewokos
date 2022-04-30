@@ -313,20 +313,10 @@ static void proc_terminate(context_t* ctx, proc_t* proc) {
 }
 
 inline uint32_t proc_stack_alloc(proc_t* proc) {
-	/*uint32_t page = (uint32_t)kalloc4k();
-	map_page(proc->space->vm,
-			page,
-			V2P(page),
-			AP_RW_RW, 0);
-	return page;
-	*/
 	return (uint32_t)proc_malloc(proc, THREAD_STACK_PAGES*PAGE_SIZE);
 }
 
 inline void proc_stack_free(proc_t* proc, uint32_t stack) {
-	/*kfree4k((void *)stack);
-	unmap_page(proc->space->vm, stack);
-	*/
 	proc_free(proc, (void *)stack);
 }
 
@@ -647,22 +637,6 @@ static int32_t proc_clone(proc_t* child, proc_t* parent) {
 	return 0;
 }
 
-/*static void proc_thread_clone(context_t* ctx, proc_t* child, proc_t* parent) {
-	uint32_t pstack_base = proc_get_user_stack_base(parent);
-	uint32_t pstack_size = proc_get_user_stack_pages(parent) * PAGE_SIZE;
-	uint32_t cstack_base = proc_get_user_stack_base(child);
-	uint32_t cstack_size = proc_get_user_stack_pages(child) * PAGE_SIZE;
-	uint32_t ptop = pstack_base + pstack_size;
-	uint32_t ctop = cstack_base + cstack_size;
-
-	uint32_t size = cstack_size < pstack_size ? cstack_size : pstack_size;
-	memcpy((void*)cstack_base, (void*)(ptop-size), size);
-
-	uint32_t offset = ptop - ctx->sp;
-	child->ctx.sp = ctop - offset;
-}
-*/
-
 proc_t* kfork_raw(context_t* ctx, int32_t type, proc_t* parent) {
 	(void)ctx;
 	proc_t *child = NULL;
@@ -682,7 +656,6 @@ proc_t* kfork_raw(context_t* ctx, int32_t type, proc_t* parent) {
 		}
 	}
 	else {
-		//proc_thread_clone(ctx, child, parent);
 		child->ctx.sp = ALIGN_DOWN(child->stack.thread_stack + THREAD_STACK_PAGES*PAGE_SIZE, 4);
 	}
 	return child;
