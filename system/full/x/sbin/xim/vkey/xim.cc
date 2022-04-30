@@ -117,8 +117,8 @@ public:
 			"#$^zxcvbnm  <>.,&";
 		col = 17;
 		row = 4;
-		keyh = font->h + 8;
-		keyw = font->w*2 + 8;
+		keyh = font->h + 12;
+		keyw = font->w*2 + 12;
 		xPid = dev_get_pid("/dev/x");
 		keySelect = -1;
 	}
