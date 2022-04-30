@@ -179,7 +179,7 @@ void x_repaint(xwin_t* xwin) {
 		return;
 	}
 
-	x_t* x = xwin->x;
+/*	x_t* x = xwin->x;
 	xevent_t ev;
 	memset(&ev, 0, sizeof(xevent_t));
 	ev.win = (uint32_t)xwin;
@@ -188,6 +188,7 @@ void x_repaint(xwin_t* xwin) {
 	thread_lock();
 	x_push_event(x, &ev);
 	thread_unlock();
+	*/
 }
 
 static int win_event_handle(xwin_t* xwin, xevent_t* ev) {
@@ -226,9 +227,7 @@ static int win_event_handle(xwin_t* xwin, xevent_t* ev) {
 		x_set_visible(xwin, ev->value.window.v0 == 1);
 	}
 	else if(ev->value.window.event == XEVT_WIN_REPAINT) {
-		thread_lock();
 		x_repaint_raw(xwin);
-		thread_unlock();
 	}
 	else if(ev->value.window.event == XEVT_WIN_MAX) {
 		if(xinfo.state == X_STATE_MAX) {
