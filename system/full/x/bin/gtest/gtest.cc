@@ -121,7 +121,7 @@ protected:
 	}
 };
 
-static void* do_thread(void* p) {
+/*static void* do_thread(void* p) {
 	XWin* xwin = (XWin*)p;
 	while(1) {
 		xwin->repaint();
@@ -129,6 +129,7 @@ static void* do_thread(void* p) {
 	}
 	return NULL;
 }
+*/
 
 static void loop(void* p) {
 	XWin* xwin = (XWin*)p;
