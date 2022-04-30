@@ -8,3 +8,4 @@ kernel*.asm
 system/build
 .vscode/settings.json
 system/root.ext2
+system/tmp
