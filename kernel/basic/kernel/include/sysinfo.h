@@ -20,13 +20,13 @@ typedef struct {
 
 /*static attr*/
 typedef struct {
-	char machine[32];
-	uint32_t phy_mem_size;
-	uint32_t kernel_base;
+	char        machine[32];
+	uint32_t    phy_mem_size;
+	uint32_t    kernel_base;
 
 	mmio_info_t mmio;
-	fb_info_t fb;
-
+	fb_info_t   fb;
+	uint32_t    cores;
 } sys_info_t;
 
 /*dynamic attr*/

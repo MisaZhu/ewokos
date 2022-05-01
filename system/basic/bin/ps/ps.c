@@ -69,6 +69,7 @@ int main(int argc, char* argv[]) {
 	}
 
 	int num = 0;
+	uint32_t core_idle[16]; //max 16 cores;
 	sys_info_t sys_info;
 	sys_state_t sys_state;
 	syscall1(SYS_GET_SYS_INFO, (int32_t)&sys_info);
@@ -83,9 +84,13 @@ int main(int argc, char* argv[]) {
 		printf("OWNER   CORE PID  FATH CPU%% STATE       TIME     HEAP(K) SHM(K) PROC\n"); 
 		for(int i=0; i<num; i++) {
 			procinfo_t* proc = &procs[i];
-			if(proc->type != PROC_TYPE_PROC && all == 0)
-				continue;
-			if(all == 0 && strcmp(proc->cmd, "cpu_core_halt") == 0)
+			if(strcmp(proc->cmd, "cpu_core_halt") == 0) {
+				core_idle[proc->core] = proc->run_usec;
+				if(all == 0)
+					continue;
+			}
+
+			if(proc->type != PROC_TYPE_PROC && all == 0) //for thread 
 				continue;
 
 			uint32_t sec = csec - proc->start_sec;
@@ -111,6 +116,10 @@ int main(int argc, char* argv[]) {
 		free(procs);
 	}
 	printf("\nmemory: total %d MB, free %d MB, shm %d MB\n", t_mem, fr_mem, shm_mem);
-	printf("processes: %d\n", num);
+
+	printf("cpu idle:");
+	for(int i=0; i<sys_info.cores; i++)
+		printf("  %d%%", core_idle[i]/10000);
+	printf("\n");
 	return 0;
 }
