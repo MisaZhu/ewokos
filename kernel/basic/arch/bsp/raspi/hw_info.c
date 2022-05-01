@@ -19,7 +19,7 @@ void sys_info_init(void) {
 
 	_allocatable_mem_base = V2P(ALLOCATABLE_MEMORY_START);
 	_allocatable_mem_top = _sys_info.phy_mem_size - 64*MB; //the top 64MB will used by raspi framebuffer
-	_sys_info.cores = get_cpu_cores();
+	_sys_info.cores = 1;
 }
 
 #define AUX_OFFSET 0x00215000

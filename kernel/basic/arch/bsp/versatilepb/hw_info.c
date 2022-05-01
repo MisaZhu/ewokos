@@ -27,7 +27,7 @@ void sys_info_init(void) {
 	_allocatable_mem_top = 
 			_sys_info.phy_mem_size < _sys_info.mmio.phy_base ?
 			_sys_info.phy_mem_size : _sys_info.mmio.phy_base;
-	_sys_info.cores = get_cpu_cores();
+	_sys_info.cores = 1;
 }
 
 void arch_vm(page_dir_entry_t* vm) {
