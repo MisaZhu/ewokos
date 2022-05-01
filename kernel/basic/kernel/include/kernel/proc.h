@@ -78,6 +78,7 @@ typedef struct st_proc {
 	procinfo_t        info;
 	uint32_t          block_event;
 	int64_t           sleep_counter; //sleep usec
+	uint32_t          run_usec_counter; //run time usec
 	proc_space_t*     space;
 
 	union {
@@ -125,6 +126,7 @@ extern proc_t* kfork_core_halt(uint32_t core);
 extern procinfo_t* get_procs(int32_t* num);
 
 extern void    renew_kernel_tic(uint64_t usec);
+extern void    renew_kernel_sec(void);
 extern void    proc_usleep(context_t* ctx, uint32_t usec);
 extern void    proc_ready(proc_t* proc);
 

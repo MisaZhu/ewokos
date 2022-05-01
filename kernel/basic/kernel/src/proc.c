@@ -719,7 +719,10 @@ static void renew_sleep_counter(uint64_t usec) {
 	int i;
 	for(i=0; i<PROC_MAX; i++) {
 		proc_t* proc = &_proc_table[i];
-		if(proc->info.state == SLEEPING) {
+		if(proc->info.state == RUNNING) {
+			proc->run_usec_counter += usec;
+		}
+		else if(proc->info.state == SLEEPING) {
 			proc->sleep_counter -= usec;
 			if(proc->sleep_counter <= 0) {
 				proc->sleep_counter = 0;
@@ -731,6 +734,18 @@ static void renew_sleep_counter(uint64_t usec) {
 
 inline void renew_kernel_tic(uint64_t usec) {
 	renew_sleep_counter(usec);	
+}
+
+inline void renew_kernel_sec(void) {
+	int i;
+	for(i=0; i<PROC_MAX; i++) {
+		proc_t* proc = &_proc_table[i];
+		if(proc->info.state != UNUSED && 
+				proc->info.state != ZOMBIE) {
+			proc->info.run_usec = proc->run_usec_counter;
+			proc->run_usec_counter = 0;
+		}
+	}
 }
 
 proc_t* proc_get_proc(proc_t* proc) {

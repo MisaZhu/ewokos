@@ -80,27 +80,31 @@ int main(int argc, char* argv[]) {
 
 	procinfo_t* procs = (procinfo_t*)syscall1(SYS_GET_PROCS, (int)&num);
 	if(procs != NULL) {
-		printf("OWNER   CORE PID  FATH STATE       TIME     HEAP(K) SHM(K) PROC\n"); 
+		printf("OWNER   CORE PID  FATH CPU%% STATE       TIME     HEAP(K) SHM(K) PROC\n"); 
 		for(int i=0; i<num; i++) {
-			if(procs[i].type != PROC_TYPE_PROC && all == 0)
+			procinfo_t* proc = &procs[i];
+			if(proc->type != PROC_TYPE_PROC && all == 0)
+				continue;
+			if(all == 0 && strcmp(proc->cmd, "cpu_core_halt") == 0)
 				continue;
 
-			uint32_t sec = csec - procs[i].start_sec;
-			printf("%8s%4d %4d %4d %10s  %02d:%02d:%02d %6d  %5d  %s",
-				get_owner(&procs[i]),
-				procs[i].core,
-				procs[i].pid,
-				procs[i].father_pid,
-				get_state(&procs[i]),
+			uint32_t sec = csec - proc->start_sec;
+			printf("%8s%4d %4d %4d %4d %10s  %02d:%02d:%02d %6d  %5d  %s",
+				get_owner(proc),
+				proc->core,
+				proc->pid,
+				proc->father_pid,
+				proc->run_usec/10000,
+				get_state(proc),
 				sec / (3600),
 				sec / 60,
 				sec % 60,
-				procs[i].heap_size / 1024,
-				procs[i].shm_size / 1024,
-				get_cmd(&procs[i], full));
+				proc->heap_size / 1024,
+				proc->shm_size / 1024,
+				get_cmd(proc, full));
 
-			if(procs[i].type == PROC_TYPE_THREAD)
-				printf(" [THRD:%d]\n", procs[i].father_pid);
+			if(proc->type == PROC_TYPE_THREAD)
+				printf(" [THRD:%d]\n", proc->father_pid);
 			else
 				printf("\n");
 		}

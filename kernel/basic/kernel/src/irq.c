@@ -58,6 +58,7 @@ static inline void irq_do_timer0(context_t* ctx) {
 		if(_timer_tic >= 1000000) { //1 sec
 			_kernel_sec++;
 			_timer_tic = 0;
+			renew_kernel_sec();
 		}
 
 		if(_schedule_tic >= 1000) { //1 msec, 1000 times scheduling per second
