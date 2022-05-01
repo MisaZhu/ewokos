@@ -86,8 +86,7 @@ int main(int argc, char* argv[]) {
 			procinfo_t* proc = &procs[i];
 			if(strcmp(proc->cmd, "cpu_core_halt") == 0) {
 				core_idle[proc->core] = proc->run_usec;
-				if(all == 0)
-					continue;
+				continue;
 			}
 
 			if(proc->type != PROC_TYPE_PROC && all == 0) //for thread 
