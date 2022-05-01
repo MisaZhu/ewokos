@@ -125,8 +125,10 @@ int main(int argc, char* argv[]) {
 	printf("\nmemory: total %d MB, free %d MB, shm %d MB\n", t_mem, fr_mem, shm_mem);
 
 	printf("cpu idle:");
-	for(int i=0; i<sys_info.cores; i++)
-		printf("  %d%%", core_idle[i]/10000);
+	for(int i=0; i<sys_info.cores; i++) {
+		int idle = core_idle[i]/10000;
+		printf("  %d%%", idle > 100 ? 100 : idle);
+	}
 	printf("\n");
 	return 0;
 }
