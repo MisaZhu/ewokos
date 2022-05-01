@@ -2,7 +2,7 @@
 #define PROC_H
 
 #include <kernel/ipc.h>
-#include <kernel/core.h>
+//#include <kernel/core.h>
 #include <mm/mmu.h>
 #include <mm/trunkmem.h>
 #include <procinfo.h>

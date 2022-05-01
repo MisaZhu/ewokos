@@ -23,14 +23,14 @@ static uint64_t _timer_tic = 0;
 
 void ipi_enable_all(void) {
 	uint32_t i;
-	for(i=0; i<get_cpu_cores(); i++) {
+	for(i=0; i<_sys_info.cores; i++) {
 		ipi_enable(i);
 	}
 }
 
 static inline void ipi_send_all(void) {
 	uint32_t i;
-	uint32_t cores = get_cpu_cores();
+	uint32_t cores = _sys_info.cores;
 	for(i=0; i< cores; i++) {
 		if(proc_have_ready_task(i))
 			ipi_send(i);

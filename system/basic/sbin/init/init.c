@@ -119,10 +119,10 @@ static const char* read_line(int fd) {
 	return line;
 }
 
-static void load_devs(const char* cfg) {
+static int load_devs(const char* cfg) {
 	int fd = open(cfg, O_RDONLY);
 	if(fd < 0)
-		return;
+		return -1;
 
 	while(true) {
 		const char* ln = read_line(fd);
@@ -133,6 +133,7 @@ static void load_devs(const char* cfg) {
 		run(ln, true, true);
 	}
 	close(fd);
+	return 0;
 }
 
 static void load_arch_devs(void) {
@@ -161,7 +162,9 @@ static void load_extra_devs(void) {
 }
 
 static void load_console(void) {
-	load_devs("/etc/dev/console.dev");
+	if(load_devs("/etc/dev/console.dev") != 0)
+		return;
+
 	fd_console = open("/dev/console0", 0);
 	if(fd_console < 0)
 		return;
@@ -278,10 +281,8 @@ int main(int argc, char** argv) {
 		return -1;
 	}
 
-	if(getpid() != 0) { //not first proc
-		syscall1(SYS_PROC_SET_CMD, (int32_t)"cpu_core_halt");
+	if(getpid() != 0) //not first proc, must be cpu core idle
 		halt();
-	}
 	else
 		syscall1(SYS_PROC_SET_CMD, (int32_t)"/sbin/init");
 

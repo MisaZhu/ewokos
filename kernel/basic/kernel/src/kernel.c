@@ -161,17 +161,16 @@ void _kernel_entry_c(void) {
 	_started_cores = 1;
 	kernel_lock_init();
 
-	uint32_t cores = get_cpu_cores();
-	for(uint32_t i=1; i<cores; i++) {
+	for(uint32_t i=1; i<_sys_info.cores; i++) {
 		kfork_core_halt(i);
 	}
 
 	printf("kernel: wake up slave cores(SMP) ...\n");
-	start_multi_cores(cores);
-	while(_started_cores < cores) {
+	start_multi_cores(_sys_info.cores);
+	while(_started_cores < _sys_info.cores) {
 		_delay_msec(10);
 	}
-	printf("  [all %d cores started].\n", cores);
+	printf("  [all %d cores started].\n", _sys_info.cores);
 #endif
 
 	printf("kernel: set timer.\n");

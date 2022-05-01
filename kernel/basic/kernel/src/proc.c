@@ -192,7 +192,7 @@ void proc_switch(context_t* ctx, proc_t* to, bool quick){
 
 	if(cproc != to && cproc != NULL &&
 			cproc->info.state != UNUSED &&
-			cproc->info.pid != _cpu_cores[cproc->info.core].halt_pid) {
+			cproc != _cpu_cores[cproc->info.core].halt_proc) {
 			//halt proc can't be pushed into ready queue, can't be scheduled.
 		if(cproc->info.state == RUNNING) {
 			cproc->info.state = READY;
@@ -266,7 +266,7 @@ proc_t* proc_get_next_ready(void) {
 	if(next == NULL) {
 		proc_t*	cproc = get_current_proc();
 		if(cproc != NULL && cproc->info.state == RUNNING &&
-				cproc->info.pid != _cpu_cores[cproc->info.core].halt_pid)
+				cproc != _cpu_cores[cproc->info.core].halt_proc)
 				//halt proc can't be sheduled.
 			next = cproc;
 	}
@@ -441,14 +441,18 @@ inline void proc_free(proc_t* proc, void* p) {
 
 static inline uint32_t core_fetch(proc_t* proc) {
 	(void)proc;
-	uint32_t cores = get_cpu_cores();
-	if(cores == 1 || proc->info.owner < 0) {
+	if(_sys_info.cores == 1 || proc->info.owner < 0)
 		return 0;
-	}
 
-	uint32_t ret = _use_core_id++; 
-	if(_use_core_id >= cores) 
-		_use_core_id = 1;
+	//fetch the most idle core.
+	uint32_t ret = 0;
+	for(uint32_t i = 0; i < _sys_info.cores; i++) {
+		if(_cpu_cores[i].halt_proc->info.state == CREATED)
+			return i;
+		if(_cpu_cores[i].halt_proc->info.run_usec >
+				_cpu_cores[ret].halt_proc->info.run_usec)
+			ret = i;
+	}
 	return ret;
 }
 
@@ -761,6 +765,8 @@ proc_t* kfork_core_halt(uint32_t core) {
 	proc_t* cproc = &_proc_table[0];
 	proc_t* child = kfork_raw(NULL, PROC_TYPE_PROC, cproc);
 	child->info.core = core;
-	_cpu_cores[core].halt_pid = child->info.pid;
+	strcpy(child->info.cmd, "cpu_core_halt");
+	_cpu_cores[core].halt_proc = child;
+
 	return child;
 }
