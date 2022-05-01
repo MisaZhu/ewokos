@@ -7,6 +7,7 @@
 #include <kernel/proc.h>
 #include <kernel/kevqueue.h>
 #include <kernel/interrupt.h>
+#include <kernel/core.h>
 #include <string.h>
 #include <signals.h>
 #include <kernel/signal.h>

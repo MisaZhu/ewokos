@@ -58,9 +58,12 @@ static const char* get_cmd(procinfo_t* proc, int full) {
 	return proc->cmd;
 }
 
-static const char* get_core_loading(procinfo_t* proc) {
+static const char* get_core_loading(sys_info_t* sys_info, procinfo_t* proc) {
 	static char ret[8];
-	snprintf(ret, 7, "%d:%d%%", proc->core, proc->run_usec/10000);
+	if(sys_info->cores > 1)
+		snprintf(ret, 7, "%d:%d%%", proc->core, proc->run_usec/10000);
+	else
+		snprintf(ret, 7, "%d%%", proc->run_usec/10000);
 	return ret;
 }
 
@@ -87,7 +90,7 @@ int main(int argc, char* argv[]) {
 
 	procinfo_t* procs = (procinfo_t*)syscall1(SYS_GET_PROCS, (int)&num);
 	if(procs != NULL) {
-		printf("OWNER   PID  FATH CORE   STATE       TIME     HEAP(K) SHM(K) PROC\n"); 
+		printf("OWNER   PID  FATH CPU    STATE       TIME     HEAP(K) SHM(K) PROC\n"); 
 		for(int i=0; i<num; i++) {
 			procinfo_t* proc = &procs[i];
 			if(strcmp(proc->cmd, "cpu_core_halt") == 0) {
@@ -103,7 +106,7 @@ int main(int argc, char* argv[]) {
 				get_owner(proc),
 				proc->pid,
 				proc->father_pid,
-				get_core_loading(proc),
+				get_core_loading(&sys_info, proc),
 				get_state(proc),
 				sec / (3600),
 				sec / 60,
