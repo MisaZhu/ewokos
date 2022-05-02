@@ -257,10 +257,10 @@ static void switch_root(void) {
 	if(pid == 0) {
 		setuid(0);
 		load_arch_devs();
-		load_extra_devs();
 		load_console();
 		init_tty_stdio();
 		load_proc_devs();
+		load_extra_devs();
 		load_sys_devs();
 		run_procs();
 		exit(0);
