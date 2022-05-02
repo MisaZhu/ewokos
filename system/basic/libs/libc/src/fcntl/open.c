@@ -12,7 +12,7 @@ int open(const char* fname, int oflag) {
 
 	if(vfs_get(fname, &info) != 0) {
 		if((oflag & O_CREAT) != 0) {
-			if(vfs_create(fname, &info, FS_TYPE_FILE, false) != 0)
+			if(vfs_create(fname, &info, FS_TYPE_FILE, false, false) != 0)
 				return -1;
 			created = true;
 		}
