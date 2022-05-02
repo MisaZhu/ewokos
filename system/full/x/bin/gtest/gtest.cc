@@ -134,7 +134,7 @@ protected:
 static void loop(void* p) {
 	XWin* xwin = (XWin*)p;
 	xwin->repaint();
-	usleep(30000);
+	//usleep(30000);
 }
 
 int main(int argc, char* argv[]) {
