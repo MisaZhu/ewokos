@@ -47,6 +47,8 @@ include $(ROOT_DIR)/drivers/proc/state/build.mk
 mkdirs:
 	@mkdir -p ${TARGET_DIR}/$(ROOT_DIR)/sbin
 	@mkdir -p ${TARGET_DIR}/$(ROOT_DIR)/bin
+	@mkdir -p ${TARGET_DIR}/$(ROOT_DIR)/dev
+	@mkdir -p ${TARGET_DIR}/$(ROOT_DIR)/proc
 	@mkdir -p ${TARGET_DIR}/$(ROOT_DIR)/drivers/proc
 	@mkdir -p ${TARGET_DIR}/$(ROOT_DIR)/home/root
 	@mkdir -p ${TARGET_DIR}/$(ROOT_DIR)/home/guest

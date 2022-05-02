@@ -445,13 +445,13 @@ static inline uint32_t core_fetch(proc_t* proc) {
 		return 0;
 
 	//fetch the next core.
-	uint32_t ret = _use_core_id++; 
-	if(_use_core_id >= cores) 
+	/*uint32_t ret = _use_core_id++; 
+	if(_use_core_id >= _sys_info.cores) 
 		_use_core_id = 1;
 	return ret;
+	*/
 
 	//fetch the most idle core.
-	/*
 	uint32_t ret = 0;
 	for(uint32_t i = 0; i < _sys_info.cores; i++) {
 		if(_cpu_cores[i].halt_proc->info.state == CREATED)
@@ -461,7 +461,6 @@ static inline uint32_t core_fetch(proc_t* proc) {
 			ret = i;
 	}
 	return ret;
-	*/
 }
 
 static inline void core_attach(proc_t* proc) {
