@@ -175,6 +175,11 @@ static void load_console(void) {
 			"+------------------------------------------------+\n";
 	dprintf(fd_console, "%s", s);
 }
+
+static void load_proc_devs(void) {
+	load_devs("/etc/dev/proc.dev");
+}
+
 static void load_sys_devs(void) {
 	load_devs("/etc/dev/sys.dev");
 }
@@ -252,6 +257,7 @@ static void switch_root(void) {
 	if(pid == 0) {
 		setuid(0);
 		load_arch_devs();
+		load_proc_devs();
 		load_console();
 		init_tty_stdio();
 		load_extra_devs();

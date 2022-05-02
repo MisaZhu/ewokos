@@ -41,12 +41,15 @@ include $(ROOT_DIR)/sbin/rootfs/sdfs/build.mk
 include $(ROOT_DIR)/drivers/nulld/build.mk
 include $(ROOT_DIR)/drivers/dupd/build.mk
 include $(ROOT_DIR)/drivers/ramfsd/build.mk
+include $(ROOT_DIR)/drivers/proc/sysinfo/build.mk
+include $(ROOT_DIR)/drivers/proc/state/build.mk
 
 mkdirs:
 	@mkdir -p ${TARGET_DIR}/$(ROOT_DIR)/sbin
 	@mkdir -p ${TARGET_DIR}/$(ROOT_DIR)/bin
 	@mkdir -p ${TARGET_DIR}/$(ROOT_DIR)/dev
-	@mkdir -p ${TARGET_DIR}/$(ROOT_DIR)/drivers
+	@mkdir -p ${TARGET_DIR}/$(ROOT_DIR)/proc
+	@mkdir -p ${TARGET_DIR}/$(ROOT_DIR)/drivers/proc
 	@mkdir -p ${TARGET_DIR}/$(ROOT_DIR)/home/root
 	@mkdir -p ${TARGET_DIR}/$(ROOT_DIR)/home/guest
 	@mkdir -p ${BUILD_DIR}/asm
