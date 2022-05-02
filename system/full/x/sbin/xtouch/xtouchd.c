@@ -97,10 +97,13 @@ int main(int argc, char** argv) {
 	read_config("/etc/x/xtouch.conf");
 
 	const char* touch_dev = argc > 1 ? argv[1]:"/dev/touch0";
-	int fd = open(touch_dev, O_RDONLY | O_NONBLOCK);
-	if(fd < 0) {
-		fprintf(stderr, "xtouchd error: open [%s] failed!\n", touch_dev);
-		return -1;
+	int fd = -1;
+	while(true) {
+		fd = open(touch_dev, O_RDONLY | O_NONBLOCK);
+		//fd = open(touch_dev, O_RDONLY);
+		if(fd > 0)
+			break;
+		usleep(100000);
 	}
 
 	while(true) {
@@ -127,7 +130,7 @@ int main(int argc, char** argv) {
 			input(mv[0], tx, ty);
 		}
 		else
-			usleep(3000);
+			usleep(20000);
 	}
 
 	close(fd);
