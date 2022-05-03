@@ -985,7 +985,7 @@ int xserver_step(void* p) {
 
 int main(int argc, char** argv) {
 	const char* mnt_point = argc > 1 ? argv[1]: "/dev/x";
-	const char* scr_dev = argc > 2 ? argv[2]: "/dev/screen0";
+	const char* scr_dev = argc > 2 ? argv[2]: "/dev/scr0";
 
 	x_t x;
 	if(x_init(scr_dev, &x) != 0)

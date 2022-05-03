@@ -64,7 +64,8 @@ static bool is_scr_top(fb_console_t* console) {
 	PF->init(&out);
 	if(dev_cntl(console->scr_dev, SCR_GET_TOP, NULL, &out) != 0)
 		return true; //scr read failed , top by default
-	bool ret = proto_read_int(&out) == getpid();
+	int pid = proto_read_int(&out);
+	bool ret = pid == getpid();
 	PF->clear(&out);
 	return ret;
 }
@@ -82,7 +83,7 @@ static int console_write(int fd,
 	(void)offset;
 
 	fb_console_t* console = (fb_console_t*)p;
-	if(size <= 0 || console->g == NULL)
+	if(size <= 0 || console->g == NULL || !is_scr_top(console))
 		return 0;
 
 	console_refresh(&console->console, console->g);
@@ -92,15 +93,13 @@ static int console_write(int fd,
 		char c = pb[i];
 		console_put_char(&console->console, c);
 	}
-
-	if(is_scr_top(console))
-		fb_flush(&console->fb);
+	fb_flush(&console->fb);
 	return size;
 }
 
 int main(int argc, char** argv) {
 	const char* mnt_point = argc > 1 ? argv[1]: "/dev/console0";
-	const char* scr_dev = argc > 2 ? argv[2]: "/dev/screen0";
+	const char* scr_dev = argc > 2 ? argv[2]: "/dev/scr0";
 
 	fb_console_t _console;
 	init_console(&_console, scr_dev);

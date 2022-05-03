@@ -13,11 +13,12 @@ typedef struct screen_st {
 } screen_t;
 
 static int scr_dev_cntl(int from_pid, int cmd, proto_t* in, proto_t* ret, void* p) {
-	(void)in;
 	screen_t* scr = (screen_t*)p;
 
 	if(cmd == SCR_SET_TOP) {
-		scr->top_pid = from_pid;
+		scr->top_pid = proto_read_int(in);
+		if(scr->top_pid == 0)
+			scr->top_pid = from_pid;
 	}
 	else if(cmd == SCR_GET_TOP) {
 		PF->init(ret)->addi(ret, scr->top_pid);
@@ -29,7 +30,7 @@ static int scr_dev_cntl(int from_pid, int cmd, proto_t* in, proto_t* ret, void* 
 }
 
 int main(int argc, char** argv) {
-	const char* mnt_point = argc > 1 ? argv[1]: "/dev/screen0";
+	const char* mnt_point = argc > 1 ? argv[1]: "/dev/scr0";
 	const char* fb_dev = argc > 2 ? argv[2]: "/dev/fb0";
 
 	screen_t scr;
