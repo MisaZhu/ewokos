@@ -2,7 +2,7 @@
 #define SPI_ARCH_H
 
 #include <stdint.h>
-#include <sys/mmu.h>
+#include <sys/mmio.h>
 
 #define SPI0_OFFSET 0x00204000
 #define SPI1_OFFSET 0x00215080

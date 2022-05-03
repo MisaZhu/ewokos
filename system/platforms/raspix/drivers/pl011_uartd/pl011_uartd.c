@@ -5,7 +5,7 @@
 #include <sys/vfs.h>
 #include <sys/vdevice.h>
 #include <sys/charbuf.h>
-#include <sys/mmu.h>
+#include <sys/mmio.h>
 #include <sys/proc.h>
 #include <sys/ipc.h>
 #include <arch/bcm283x/pl011_uart.h>

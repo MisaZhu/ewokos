@@ -6,7 +6,7 @@
 #include <sys/klog.h>
 #include <sys/ipc.h>
 #include <sys/vdevice.h>
-#include <sys/mmu.h>
+#include <sys/mmio.h>
 #include <sys/charbuf.h>
 #include <sys/syscall.h>
 #include <sys/proc.h>

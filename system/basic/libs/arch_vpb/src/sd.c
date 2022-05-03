@@ -3,7 +3,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <sys/syscall.h>
-#include <sys/mmu.h>
+#include <sys/mmio.h>
 
 #define SECTOR_SIZE 512
 

@@ -1,7 +1,7 @@
 #include <string.h>
 #include <arch/vpb/framebuffer.h>
 #include <sys/syscall.h>
-#include <sys/mmu.h>
+#include <sys/mmio.h>
 #include <sysinfo.h>
 
 #define KERNEL_BASE 0x80000000

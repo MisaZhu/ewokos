@@ -1,5 +1,5 @@
-#ifndef MMU_H
-#define MMU_H
+#ifndef MMIO_H
+#define MMIO_H
 
 #include <sys/ewokdef.h>
 
@@ -14,6 +14,7 @@ extern "C" {
 
 extern uint32_t _mmio_base;
 uint32_t mmio_map(bool cache);
+uint32_t mmio_map_offset(uint32_t offset, uint32_t size, bool cache);
 
 #ifdef __cplusplus
 }

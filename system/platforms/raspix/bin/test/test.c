@@ -2,7 +2,7 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/mmu.h>
+#include <sys/mmio.h>
 #include <uspi.h>
 #include <uspios.h>
 

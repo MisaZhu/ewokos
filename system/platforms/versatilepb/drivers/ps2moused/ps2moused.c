@@ -4,7 +4,7 @@
 #include <string.h>
 #include <sys/vfs.h>
 #include <sys/vdevice.h>
-#include <sys/mmu.h>
+#include <sys/mmio.h>
 
 
 #define MOUSE_CR 0x00
