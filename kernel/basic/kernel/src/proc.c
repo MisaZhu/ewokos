@@ -147,12 +147,14 @@ inline void proc_save_state(proc_t* proc, saved_state_t* saved_state) {
 	saved_state->state = proc->info.state;
 	saved_state->block_by = proc->info.block_by;
 	saved_state->block_event = proc->block_event;
+	saved_state->sleep_counter = proc->sleep_counter;
 }
 
 inline void proc_restore_state(context_t* ctx, proc_t* proc, saved_state_t* saved_state) {
 	proc->info.state = saved_state->state;
 	proc->info.block_by = saved_state->block_by;
 	proc->block_event = saved_state->block_event;
+	proc->sleep_counter = saved_state->sleep_counter;
 	memcpy(ctx, &saved_state->ctx, sizeof(context_t));
 }
 
