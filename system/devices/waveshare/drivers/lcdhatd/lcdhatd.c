@@ -303,7 +303,7 @@ int  do_flush(const void* buf, uint32_t size) {
 
 	if(LCD.ROT == ROT_0 || LCD.ROT == ROT_90) {
 		for (i = 0; i <sz; i++) {
-			register uint32_t s = src[i-1];
+			register uint32_t s = src[i];
 			register uint8_t r = (s >> 16) & 0xff;
 			register uint8_t g = (s >> 8)  & 0xff;
 			register uint8_t b = s & 0xff;
