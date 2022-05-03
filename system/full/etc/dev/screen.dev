@@ -1,0 +1,2 @@
+/drivers/screend              /dev/screen0 /dev/fb0
+/drivers/consoled             /dev/console0 /dev/screen0

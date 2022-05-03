@@ -47,6 +47,7 @@ x_sbin:
 
 EXTRA_DRIVERS_DIR=drivers
 extra_driver:
+	cd $(EXTRA_DRIVERS_DIR)/screend;make
 	cd $(EXTRA_DRIVERS_DIR)/consoled;make
 	cd $(EXTRA_DRIVERS_DIR)/xserverd;make
 
@@ -61,6 +62,7 @@ clean:
 	cd $(EXTRA_LIBS_DIR)/tiny-json; make clean
 	cd $(EXTRA_LIBXX_DIR)/cxx; make clean
 	cd $(EXTRA_LIBXX_DIR)/x++; make clean
+	cd $(EXTRA_DRIVERS_DIR)/screend;make clean
 	cd $(EXTRA_DRIVERS_DIR)/consoled;make clean
 	cd $(EXTRA_DRIVERS_DIR)/xserverd;make clean
 	cd $(X_DIR)/sbin/xmouse;make clean

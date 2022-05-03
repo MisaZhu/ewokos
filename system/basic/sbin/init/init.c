@@ -161,8 +161,8 @@ static void load_extra_devs(void) {
 	closedir(dirp);
 }
 
-static void load_console(void) {
-	if(load_devs("/etc/dev/console.dev") != 0)
+static void load_screen(void) {
+	if(load_devs("/etc/dev/screen.dev") != 0)
 		return;
 
 	fd_console = open("/dev/console0", 0);
@@ -257,7 +257,7 @@ static void switch_root(void) {
 	if(pid == 0) {
 		setuid(0);
 		load_arch_devs();
-		load_console();
+		load_screen();
 		init_tty_stdio();
 		load_proc_devs();
 		load_extra_devs();

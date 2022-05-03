@@ -15,6 +15,7 @@
 #include <x/xwm.h>
 #include <sys/proc.h>
 #include <sconf.h>
+#include <screen/screen.h>
 
 #define X_EVENT_MAX 16
 
@@ -64,6 +65,7 @@ typedef struct {
 
 typedef struct {
 	bool actived;
+	const char* scr_dev;
 	fb_t fb;
 	graph_t* g;
 	int xwm_pid;
@@ -429,8 +431,24 @@ static void x_reset(x_t* x) {
 	x->g = fb_fetch_graph(&x->fb);
 }
 
-static int x_init(const char* fb_dev, x_t* x) {
+static const char* get_scr_fb_dev(const char* scr_dev) {
+	static char ret[128];
+	proto_t out;
+	PF->init(&out);
+
+	if(dev_cntl(scr_dev, SCR_GET_FBDEV, NULL, &out) == 0)
+		strncpy(ret, proto_read_str(&out), 127);
+	else
+		strncpy(ret, "/dev/fb0", 127);
+
+	PF->clear(&out);
+	return ret;
+}
+
+static int x_init(const char* scr_dev, x_t* x) {
 	memset(x, 0, sizeof(x_t));
+	x->scr_dev = scr_dev;
+	const char* fb_dev = get_scr_fb_dev(scr_dev);
 	x->xwm_pid = -1;
 
 	if(fb_open(fb_dev, &x->fb) != 0)
@@ -456,10 +474,21 @@ static void x_close(x_t* x) {
 	fb_close(&x->fb);
 }
 
+static bool is_scr_top(x_t* x) {
+	proto_t out;
+	PF->init(&out);
+	if(dev_cntl(x->scr_dev, SCR_GET_TOP, NULL, &out) != 0)
+		return true; //scr read failed , top by default
+	bool ret = proto_read_int(&out) == getpid();
+	PF->clear(&out);
+	return ret;
+}
+
 static void x_repaint(x_t* x) {
 	if(x->g == NULL ||
 			!x->actived ||
-			(!x->need_repaint))
+			(!x->need_repaint) ||
+			!is_scr_top(x))
 		return;
 	x->need_repaint = false;
 	hide_cursor(x);
@@ -926,8 +955,8 @@ static int xserver_dev_cntl(int from_pid, int cmd, proto_t* in, proto_t* ret, vo
 		x_dirty(x);
 	}
 	else if(cmd == X_DCNTL_INPUT) {
-    xevent_t ev;
-    proto_read_to(in, &ev, sizeof(xevent_t));
+		xevent_t ev;
+		proto_read_to(in, &ev, sizeof(xevent_t));
 		handle_input(x, &ev);
 	}
 	return 0;
@@ -956,12 +985,11 @@ int xserver_step(void* p) {
 
 int main(int argc, char** argv) {
 	const char* mnt_point = argc > 1 ? argv[1]: "/dev/x";
-	const char* fb_dev = argc > 2 ? argv[2]: "/dev/fb0";
+	const char* scr_dev = argc > 2 ? argv[2]: "/dev/screen0";
 
 	x_t x;
-	if(x_init(fb_dev, &x) != 0) {
+	if(x_init(scr_dev, &x) != 0)
 		return -1;
-	}
 	read_config(&x, "/etc/x/x.conf");
 
 	int pid = -1;
@@ -982,8 +1010,10 @@ int main(int argc, char** argv) {
 	dev.open = xserver_open;
 	dev.dev_cntl = xserver_dev_cntl;
 	dev.loop_step = xserver_step;
-
 	dev.extra_data = &x;
+
+	dev_cntl(x.scr_dev, SCR_SET_TOP, NULL, NULL);
+
 	x_repaint_req(&x);
 	x_repaint(&x);
 	device_run(&dev, mnt_point, FS_TYPE_CHAR);

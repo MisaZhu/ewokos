@@ -9,17 +9,34 @@
 #include <fonts/fonts.h>
 #include <sys/shm.h>
 #include <sys/vdevice.h>
+#include <screen/screen.h>
 
 typedef struct {
 	const char* id;
+	const char* scr_dev;
 	fb_t fb;
 	graph_t* g;
 	console_t console;
 } fb_console_t;
 
-static int init_console(fb_console_t* console, const char* fb_dev) {
-	memset(console, 0, sizeof(fb_console_t));
+static const char* get_scr_fb_dev(const char* scr_dev) {
+	static char ret[128];
+	proto_t out;
+	PF->init(&out);
 
+	if(dev_cntl(scr_dev, SCR_GET_FBDEV, NULL, &out) == 0)
+		strncpy(ret, proto_read_str(&out), 127);
+	else
+		strncpy(ret, "/dev/fb0", 127);
+
+	PF->clear(&out);
+	return ret;
+}
+
+static int init_console(fb_console_t* console, const char* scr_dev) {
+	memset(console, 0, sizeof(fb_console_t));
+	console->scr_dev = scr_dev;
+	const char* fb_dev = get_scr_fb_dev(scr_dev);
 	if(fb_open(fb_dev, &console->fb) != 0)
 		return -1;
 
@@ -42,7 +59,15 @@ static int reset_console(fb_console_t* console) {
 	return 0;
 }
 
-static fb_console_t _console;
+static bool is_scr_top(fb_console_t* console) {
+	proto_t out;
+	PF->init(&out);
+	if(dev_cntl(console->scr_dev, SCR_GET_TOP, NULL, &out) != 0)
+		return true; //scr read failed , top by default
+	bool ret = proto_read_int(&out) == getpid();
+	PF->clear(&out);
+	return ret;
+}
 
 static int console_write(int fd, 
 		int from_pid,
@@ -55,34 +80,39 @@ static int console_write(int fd,
 	(void)from_pid;
 	(void)info;
 	(void)offset;
-	(void)p;
 
-	if(size <= 0 || _console.g == NULL)
+	fb_console_t* console = (fb_console_t*)p;
+	if(size <= 0 || console->g == NULL)
 		return 0;
 
-	console_refresh(&_console.console, _console.g);
+	console_refresh(&console->console, console->g);
 	const char* pb = (const char*)buf;
 	int i;
 	for(i=0; i<size; i++) {
 		char c = pb[i];
-		console_put_char(&_console.console, c);
+		console_put_char(&console->console, c);
 	}
 
-	fb_flush(&_console.fb);
+	if(is_scr_top(console))
+		fb_flush(&console->fb);
 	return size;
 }
 
 int main(int argc, char** argv) {
 	const char* mnt_point = argc > 1 ? argv[1]: "/dev/console0";
-	const char* fb_dev = argc > 2 ? argv[2]: "/dev/fb0";
+	const char* scr_dev = argc > 2 ? argv[2]: "/dev/screen0";
 
-	init_console(&_console, fb_dev);
+	fb_console_t _console;
+	init_console(&_console, scr_dev);
 	reset_console(&_console);
 
 	vdevice_t dev;
 	memset(&dev, 0, sizeof(vdevice_t));
 	strcpy(dev.name, "console");
 	dev.write = console_write;
+	dev.extra_data = &_console;
+
+	dev_cntl(_console.scr_dev, SCR_SET_TOP, NULL, NULL);
 
 	device_run(&dev, mnt_point, FS_TYPE_CHAR);
 	close_console(&_console);
