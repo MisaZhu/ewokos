@@ -39,7 +39,7 @@ void proc_wait_ready(int pid) {
 	while(1) {
 		if(proc_ping(pid) == 0)
 			break;
-		usleep(10000);
+		usleep(100000);
 	}
 }
 

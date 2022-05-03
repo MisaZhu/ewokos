@@ -1,4 +1,5 @@
 #include <kernel/signal.h>
+#include <signals.h>
 #include <stddef.h>
 #include <kstring.h>
 #include <kernel/schedule.h>
@@ -42,7 +43,14 @@ void proc_signal_end(context_t* ctx) {
 	if(cproc->space->signal.entry == 0)
 		return;
 
+	if(cproc->info.state == UNUSED || cproc->info.state == ZOMBIE)
+		return;
+
 	proc_restore_state(ctx, cproc, &cproc->space->signal.saved_state);
+	if(cproc->space->signal.sig_no == SYS_SIG_STOP ||
+			cproc->space->signal.sig_no == SYS_SIG_KILL) {
+		proc_ready(cproc);
+	}
 	schedule(ctx);
 }
 

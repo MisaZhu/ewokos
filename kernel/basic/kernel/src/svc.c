@@ -243,8 +243,9 @@ static uint32_t sys_kpage_map(void) {
 		return 0;
 	}
 
+	uint32_t no_cache = 1;
 	uint32_t page = (uint32_t)kalloc4k();
-	map_page(cproc->space->vm, page, V2P(page), AP_RW_RW, 0);
+	map_page(cproc->space->vm, page, V2P(page), AP_RW_RW, no_cache);
 	flush_tlb();
 	cproc->space->kpages[i] = page;
 	return page;

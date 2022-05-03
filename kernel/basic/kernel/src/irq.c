@@ -169,14 +169,22 @@ void prefetch_abort_handler(context_t* ctx, uint32_t status) {
 		dump_ctx(ctx);
 		halt();
 	}
+	
+	if((status & 0xD) == 0xD && //permissions fault only
+			ctx->pc < cproc->space->heap_size) { //in proc heap only
+		if (kernel_lock_check() > 0)
+			return;
 
-	if((status & 0xD) != 0xD || //permissions fault only
-			ctx->pc >= cproc->space->heap_size || //in proc heap only
-			copy_on_write(cproc, ctx->pc) != 0) {
-		printf("pid: %d(%s), prefetch abort!! (core %d)\n", cproc->info.pid, cproc->info.cmd, core);
-		dump_ctx(&cproc->ctx);
-		proc_exit(ctx, cproc, -1);
+		kernel_lock();
+		int32_t res = copy_on_write(cproc, ctx->pc);
+		kernel_unlock();
+		if(res == 0)
+			return;
 	}
+
+	printf("pid: %d(%s), prefetch abort!! (core %d)\n", cproc->info.pid, cproc->info.cmd, core);
+	dump_ctx(&cproc->ctx);
+	proc_exit(ctx, cproc, -1);
 }
 
 void data_abort_handler(context_t* ctx, uint32_t addr_fault, uint32_t status) {
@@ -197,7 +205,6 @@ void data_abort_handler(context_t* ctx, uint32_t addr_fault, uint32_t status) {
 		kernel_lock();
 		int32_t res = copy_on_write(cproc, addr_fault);
 		kernel_unlock();
-
 		if(res == 0) 
 			return;
 	}
