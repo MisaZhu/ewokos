@@ -96,6 +96,10 @@ LIB_GRAPH_OBJS = $(LIB_GRAPH_DIR)/src/graph.o \
 	$(LIB_GRAPH_DIR)/src/font.o
 CFLAGS += -I$(LIB_GRAPH_DIR)/include
 
+LIB_CONSOLE_DIR=$(SRC_DIR)/basic/lib/console
+LIB_CONSOLE_OBJS = $(LIB_CONSOLE_DIR)/src/console.o 
+CFLAGS += -I$(LIB_CONSOLE_DIR)/include
+
 LIB_DIR = $(SRC_DIR)/basic/lib/src
 LIB_OBJS = \
 	$(LIB_DIR)/kstring.o \
@@ -105,7 +109,8 @@ LIB_OBJS = \
 	$(LIB_DIR)/basic_math_asm.o \
 	$(LIB_DIR)/queue.o \
 	$(LIB_DIR)/kprintf.o \
-	$(LIB_GRAPH_OBJS)
+	$(LIB_GRAPH_OBJS) \
+	$(LIB_CONSOLE_OBJS)
 
 LOAD_DIR=$(SRC_DIR)/loadinit/sd
 LOAD_OBJS = \
@@ -126,6 +131,7 @@ KERNEL_OBJS = \
 	$(KERNEL_DIR)/mm/shm.o \
 	$(KERNEL_DIR)/mm/mmu.o \
 	$(KERNEL_DIR)/smp/core.o \
+	$(KERNEL_DIR)/kconsole.o \
 	$(KERNEL_DIR)/irq.o \
 	$(KERNEL_DIR)/svc.o \
 	$(KERNEL_DIR)/proc.o \
