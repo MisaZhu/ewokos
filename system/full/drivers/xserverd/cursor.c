@@ -12,8 +12,8 @@ static inline void draw_cursor_mouse(graph_t* g, int mx, int my, int mw, int mh)
 
 static inline void draw_cursor_touch(graph_t* g, int mx, int my, int mw, int mh) {
 	int r = mw/2 <= mh/2 ? mw/2 : mh/2;
-	graph_fill_circle(g, mx+r, my+r, r, 0x88ffffff);
-	graph_fill_circle(g, mx+r, my+r, r*2/3, 0x88000000);
+	graph_fill_circle(g, mx+r, my+r, r, 0xaaffffff);
+	graph_fill_circle(g, mx+r, my+r, r*2/3, 0xaa000000);
 }
 
 void draw_cursor(graph_t* g, int mx, int my, int mw, int mh, int type) {

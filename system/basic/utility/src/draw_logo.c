@@ -19,11 +19,11 @@ void draw_logo(graph_t* g) {
 	int y = (g->h - sz.h) / 2;
 	int m = 12;
 
-	graph_clear(g, 0xff000000);
+	graph_clear(g, 0xff444444);
 	int32_t i, j;
 	for(j=10; j<(int32_t)g->h; j+=10) {
 		for(i=0; i<(int32_t)g->w; i+=10) {
-			graph_pixel(g, i, j, 0xff444444);
+			graph_pixel(g, i, j, 0xff888888);
 		}
 	}
 
