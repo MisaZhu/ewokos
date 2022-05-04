@@ -16,6 +16,7 @@
 #include <sys/proc.h>
 #include <sconf.h>
 #include <screen/screen.h>
+#include "cursor.h"
 
 #define X_EVENT_MAX 16
 
@@ -40,15 +41,6 @@ typedef struct st_xview {
 	struct st_xview *next;
 	struct st_xview *prev;
 } xview_t;
-
-typedef struct {
-	gpos_t old_pos;
-	gpos_t cpos;
-	gpos_t offset;
-	gsize_t size;
-	graph_t* g;
-	bool drop;
-} cursor_t;
 
 typedef struct {
 	xview_t* view; //moving or resizing;
@@ -103,6 +95,12 @@ static int32_t read_config(x_t* x, const char* fname) {
 	v = sconf_get(conf, "xwm");
 	if(v[0] != 0) 
 		strncpy(x->config.xwm, v, 127);
+	
+	v = sconf_get(conf, "cursor");
+	if(strcmp(v, "touch") == 0)
+		x->cursor.type = CURSOR_TOUCH;
+	else
+		x->cursor.type = CURSOR_MOUSE;
 
 	sconf_free(conf);
 	return 0;
@@ -403,10 +401,9 @@ static void hide_cursor(x_t* x) {
 	}
 }
 
-static inline void draw_cursor(x_t* x) {
+static inline void refresh_cursor(x_t* x) {
 	if(x->g == NULL || x->cursor.g == NULL)
 		return;
-
 	int32_t mx = x->cursor.cpos.x - x->cursor.offset.x;
 	int32_t my = x->cursor.cpos.y - x->cursor.offset.y;
 	int32_t mw = x->cursor.size.w;
@@ -415,13 +412,8 @@ static inline void draw_cursor(x_t* x) {
 	graph_blt(x->g, mx, my, mw, mh,
 			x->cursor.g, 0, 0, mw, mh);
 
-	graph_line(x->g, mx+1, my, mx+mw-1, my+mh-2, 0xffffffff);
-	graph_line(x->g, mx, my, mx+mw-1, my+mh-1, 0xff000000);
-	graph_line(x->g, mx, my+1, mx+mw-2, my+mh-1, 0xffffffff);
+	draw_cursor(x->g, mx, my, mw, mh, x->cursor.type);
 
-	graph_line(x->g, mx, my+mh-2, mx+mw-2, my, 0xffffffff);
-	graph_line(x->g, mx, my+mh-1, mx+mw-1, my, 0xff000000);
-	graph_line(x->g, mx+1, my+mh-1, mx+mw-1, my+1, 0xffffffff);
 	x->cursor.old_pos.x = x->cursor.cpos.x;
 	x->cursor.old_pos.y = x->cursor.cpos.y;
 	x->cursor.drop = false;
@@ -442,10 +434,10 @@ static int x_init(const char* scr_dev, x_t* x) {
 
 	x_reset(x);
 	x_dirty(x);
-	x->cursor.size.w = 15;
-	x->cursor.size.h = 15;
-	x->cursor.offset.x = 8;
-	x->cursor.offset.y = 8;
+	x->cursor.size.w = 19;
+	x->cursor.size.h = 19;
+	x->cursor.offset.x = x->cursor.size.w/2;
+	x->cursor.offset.y = x->cursor.size.h/2;
 	x->cursor.cpos.x = x->g->w/2;
 	x->cursor.cpos.y = x->g->h/2; 
 	x->show_cursor = true;
@@ -482,7 +474,7 @@ static void x_repaint(x_t* x) {
 	}
 
 	if(x->show_cursor)
-		draw_cursor(x);
+		refresh_cursor(x);
 
 	fb_flush(&x->fb);
 

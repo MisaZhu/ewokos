@@ -5,9 +5,9 @@ TARGET_DIR = $(BUILD_DIR)/rootfs
 
 LDFLAGS = -L$(BUILD_DIR)/lib -lnosys
 
-CFLAGS += -I $(BUILD_DIR)/include
+CFLAGS += -I $(BUILD_DIR)/include -I./
 
-XSERVERD_OBJS = xserverd.o 
+XSERVERD_OBJS = xserverd.o  cursor.o
 
 XSERVERD = $(TARGET_DIR)/drivers/xserverd
 
