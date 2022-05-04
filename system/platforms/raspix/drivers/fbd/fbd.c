@@ -75,30 +75,11 @@ static int fb_dev_cntl(int from_pid, int cmd, proto_t* in, proto_t* ret, void* p
 	return 0;
 }
 
-static inline void dup16(uint16_t* dst, uint32_t* src, uint32_t w, uint32_t h) {
-	register int32_t i, size;
-	size = w * h;
-	for(i=0; i < size; i++) {
-		register uint32_t s = src[i];
-		register uint8_t r = (s >> 16) & 0xff;
-		register uint8_t g = (s >> 8)  & 0xff;
-		register uint8_t b = s & 0xff;
-		dst[i] = ((r >> 3) <<11) | ((g >> 3) << 6) | (b >> 3);
-	}
-}
-
 static uint32_t flush_buf(const void* buf, uint32_t size) {
 	uint32_t sz = 4 * _fbinfo->width * _fbinfo->height;
-	if(size < sz) {
+	if(size < sz || _fbinfo->depth != 32)
 		return -1;
-	}
-
-	if(_fbinfo->depth == 32)
-		memcpy((void*)_fbinfo->pointer, buf, sz);
-	else if(_fbinfo->depth == 16)
-		dup16((uint16_t*)_fbinfo->pointer, (uint32_t*)buf,  _fbinfo->width, _fbinfo->height);
-	else 
-		size = 0;
+	memcpy((void*)_fbinfo->pointer, buf, sz);
 	return size;
 }
 
