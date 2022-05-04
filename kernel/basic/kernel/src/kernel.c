@@ -15,8 +15,10 @@
 #include <dev/mmio.h>
 #include <kprintf.h>
 #include <dev/uart.h>
+#include <dev/fb.h>
 #include <basic_math.h>
 #include <stddef.h>
+#include <graph/graph.h>
 
 page_dir_entry_t* _kernel_vm = NULL;
 
@@ -96,6 +98,15 @@ static void init_allocable_mem(void) {
 	memset(_pages_ref.refs, 0, _pages_ref.max * sizeof(page_ref_t));
 }
 
+static void start_fb(void) {
+	fbinfo_t fbinfo;
+	fb_init(800, 600, &fbinfo);
+	graph_t* g = graph_new(fbinfo.pointer, fbinfo.width, fbinfo.height);
+	graph_clear(g, 0xff000000);
+	graph_draw_text(g, 10, 10, "EwokOS loading......", &font_8x16, 0xffffffff);
+	graph_free(g);
+}
+
 #ifdef KERNEL_SMP
 static uint32_t _started_cores = 0;
 void __attribute__((optimize("O0"))) _slave_kernel_entry_c(void) {
@@ -123,9 +134,11 @@ void _kernel_entry_c(void) {
 
 	init_kernel_vm();  
 	kmalloc_init();
-	kev_init();
-
 	enable_vmmio_base();
+
+	start_fb();
+
+	kev_init();
 	uart_dev_init();
 
 	printf(

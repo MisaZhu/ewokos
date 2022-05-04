@@ -67,6 +67,7 @@ ARCH_OBJS = \
 	$(BSP_DIR)/$(BSP)/irq.o \
 	$(BSP_DIR)/$(BSP)/timer.o \
 	$(BSP_DIR)/$(BSP)/sd.o  \
+	$(BSP_DIR)/$(BSP)/fb.o  \
 	$(BSP_DIR)/$(BSP)/uart.o \
 	$(ARCH_DIR)/arm/common/src/interrupt.o \
 	$(ARCH_DIR)/arm/common/src/irq.o \
@@ -77,14 +78,25 @@ ARCH_OBJS = \
 	$(BSP_DIR)/lib/bcm283x/src/mailbox.o \
 	$(BSP_DIR)/lib/bcm283x/src/pl011_uart.o \
 	$(BSP_DIR)/lib/bcm283x/src/mini_uart.o \
+	$(BSP_DIR)/lib/bcm283x/src/framebuffer.o  \
 	$(BSP_DIR)/lib/bcm283x/src/ipi.o
 
 ifeq ($(SMP),yes)
 ARCH_OBJS += $(BSP_DIR)/$(BSP)/ipi.o
 endif
 
-LIB_DIR = $(SRC_DIR)/basic/lib/src
+LIB_GRAPH_DIR=$(SRC_DIR)/basic/lib/graph
+LIB_GRAPH_OBJS = $(LIB_GRAPH_DIR)/src/graph.o \
+	$(LIB_GRAPH_DIR)/src/blt.o \
+	$(LIB_GRAPH_DIR)/src/pixel.o \
+	$(LIB_GRAPH_DIR)/src/line.o \
+	$(LIB_GRAPH_DIR)/src/box.o \
+	$(LIB_GRAPH_DIR)/src/text.o \
+	$(LIB_GRAPH_DIR)/src/font8x16.o \
+	$(LIB_GRAPH_DIR)/src/font.o
+CFLAGS += -I$(LIB_GRAPH_DIR)/include
 
+LIB_DIR = $(SRC_DIR)/basic/lib/src
 LIB_OBJS = \
 	$(LIB_DIR)/kstring.o \
 	$(LIB_DIR)/vprintf.o \
@@ -92,7 +104,8 @@ LIB_OBJS = \
 	$(LIB_DIR)/basic_math.o \
 	$(LIB_DIR)/basic_math_asm.o \
 	$(LIB_DIR)/queue.o \
-	$(LIB_DIR)/kprintf.o
+	$(LIB_DIR)/kprintf.o \
+	$(LIB_GRAPH_OBJS)
 
 LOAD_DIR=$(SRC_DIR)/loadinit/sd
 LOAD_OBJS = \
