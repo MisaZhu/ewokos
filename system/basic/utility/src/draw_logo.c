@@ -10,7 +10,7 @@ void draw_logo(graph_t* g) {
 	if(g == NULL)
 		return;
 
-	const char* welcome = "Ewok Micro Kernel OS(Pi)";
+	const char* welcome = "Ewok Micro Kernel OS";
 	gsize_t sz;
 	font_t* font = font_by_name("8x16");
 	get_text_size(welcome, font, &sz.w, &sz.h);
