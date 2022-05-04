@@ -7,7 +7,7 @@ LDFLAGS = -L$(BUILD_DIR)/lib -lnosys
 
 CFLAGS += -I $(BUILD_DIR)/include
 
-LCDHATD_OBJS = lcdhatd.o fbd.o ../../../../platforms/utility/src/draw_logo.o
+LCDHATD_OBJS = lcdhatd.o fbd.o ../../../../basic/utility/src/draw_logo.o
 
 LCDHATD = $(TARGET_DIR)/drivers/raspix/lcdhatd
 

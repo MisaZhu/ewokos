@@ -7,7 +7,7 @@ LDFLAGS = -L$(BUILD_DIR)/lib -lnosys
 
 CFLAGS += -I $(BUILD_DIR)/include
 
-FBD_OBJS = fbd.o ../../../utility/src/draw_logo.o
+FBD_OBJS = fbd.o ../../../../basic/utility/src/draw_logo.o
 
 FBD = $(TARGET_DIR)/drivers/versatilepb/fbd
 
