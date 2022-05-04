@@ -19,20 +19,6 @@ typedef struct {
 	console_t console;
 } fb_console_t;
 
-static const char* get_scr_fb_dev(const char* scr_dev) {
-	static char ret[128];
-	proto_t out;
-	PF->init(&out);
-
-	if(dev_cntl(scr_dev, SCR_GET_FBDEV, NULL, &out) == 0)
-		strncpy(ret, proto_read_str(&out), 127);
-	else
-		strncpy(ret, "/dev/fb0", 127);
-
-	PF->clear(&out);
-	return ret;
-}
-
 static int init_console(fb_console_t* console, const char* scr_dev) {
 	memset(console, 0, sizeof(fb_console_t));
 	console->scr_dev = scr_dev;
@@ -59,17 +45,6 @@ static int reset_console(fb_console_t* console) {
 	return 0;
 }
 
-static bool is_scr_top(fb_console_t* console) {
-	proto_t out;
-	PF->init(&out);
-	if(dev_cntl(console->scr_dev, SCR_GET_TOP, NULL, &out) != 0)
-		return true; //scr read failed , top by default
-	int pid = proto_read_int(&out);
-	bool ret = pid == getpid();
-	PF->clear(&out);
-	return ret;
-}
-
 static int console_write(int fd, 
 		int from_pid,
 		fsinfo_t* info,
@@ -83,7 +58,7 @@ static int console_write(int fd,
 	(void)offset;
 
 	fb_console_t* console = (fb_console_t*)p;
-	if(size <= 0 || console->g == NULL || !is_scr_top(console))
+	if(size <= 0 || console->g == NULL || !is_scr_top(console->scr_dev))
 		return 0;
 
 	console_refresh(&console->console, console->g);

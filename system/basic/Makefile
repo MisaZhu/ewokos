@@ -13,7 +13,7 @@ LDFLAGS = -L$(BUILD_DIR)/lib -lnosys
 LIB_INC = -I$(BUILD_DIR)/include
 CFLAGS += $(LIB_INC)
 
-all: mkdirs basic_libs builtin_apps
+all: mkdirs basic_libs builtin_apps basic_drivers
 	@echo "all done."
 
 KERNEL_H = \
@@ -32,6 +32,15 @@ basic_libs:
 	cd $(ROOT_DIR)/libs/arch_vpb;make
 	cd $(ROOT_DIR)/libs/arch_bcm283x;make
 	cd $(ROOT_DIR)/libs/sd;make
+	cd $(ROOT_DIR)/libs/screen;make
+	cd $(ROOT_DIR)/libs/graph;make
+	cd $(ROOT_DIR)/libs/fb;make
+	cd $(ROOT_DIR)/libs/fonts;make
+	cd $(ROOT_DIR)/libs/console;make
+
+basic_drivers:
+	cd $(ROOT_DIR)/drivers/screend;make
+	cd $(ROOT_DIR)/drivers/consoled;make
 
 include $(ROOT_DIR)/sbin/init/build.mk
 include $(ROOT_DIR)/sbin/core/build.mk
@@ -84,6 +93,11 @@ clean:
 	cd $(ROOT_DIR)/libs/arch_vpb;make clean
 	cd $(ROOT_DIR)/libs/arch_bcm283x;make clean
 	cd $(ROOT_DIR)/libs/sd;make clean
+	cd $(ROOT_DIR)/libs/fb;make clean
+	cd $(ROOT_DIR)/libs/graph;make clean
+	cd $(ROOT_DIR)/libs/fonts;make clean
+	cd $(ROOT_DIR)/libs/console;make clean
+	cd $(ROOT_DIR)/libs/screen;make clean
 	cd $(ROOT_DIR)/bin/echo;make clean
 	cd $(ROOT_DIR)/bin/sleep;make clean
 	cd $(ROOT_DIR)/bin/ps;make clean
@@ -100,3 +114,5 @@ clean:
 	cd $(ROOT_DIR)/bin/rm;make clean
 	cd $(ROOT_DIR)/bin/mkdir;make clean
 	cd $(ROOT_DIR)/bin/grep;make clean
+	cd $(ROOT_DIR)/drivers/screend;make clean
+	cd $(ROOT_DIR)/drivers/consoled;make clean

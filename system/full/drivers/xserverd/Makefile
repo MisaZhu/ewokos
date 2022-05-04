@@ -16,7 +16,7 @@ $(XSERVERD): $(XSERVERD_OBJS) \
 		$(BUILD_DIR)/lib/libsconf.a  \
 		$(BUILD_DIR)/lib/libfb.a  \
 		$(BUILD_DIR)/lib/libgraph.a 
-	$(LD) -Ttext=100 $(XSERVERD_OBJS) -o $(XSERVERD) $(LDFLAGS) -lgraph -lfb -lsconf -lewokc -lc
+	$(LD) -Ttext=100 $(XSERVERD_OBJS) -o $(XSERVERD) $(LDFLAGS) -lgraph -lfb -lscreen -lsconf -lewokc -lc
 
 clean:
 	rm -f $(XSERVERD_OBJS)

@@ -431,20 +431,6 @@ static void x_reset(x_t* x) {
 	x->g = fb_fetch_graph(&x->fb);
 }
 
-static const char* get_scr_fb_dev(const char* scr_dev) {
-	static char ret[128];
-	proto_t out;
-	PF->init(&out);
-
-	if(dev_cntl(scr_dev, SCR_GET_FBDEV, NULL, &out) == 0)
-		strncpy(ret, proto_read_str(&out), 127);
-	else
-		strncpy(ret, "/dev/fb0", 127);
-
-	PF->clear(&out);
-	return ret;
-}
-
 static int x_init(const char* scr_dev, x_t* x) {
 	memset(x, 0, sizeof(x_t));
 	x->scr_dev = scr_dev;
@@ -474,21 +460,11 @@ static void x_close(x_t* x) {
 	fb_close(&x->fb);
 }
 
-static bool is_scr_top(x_t* x) {
-	proto_t out;
-	PF->init(&out);
-	if(dev_cntl(x->scr_dev, SCR_GET_TOP, NULL, &out) != 0)
-		return true; //scr read failed , top by default
-	bool ret = proto_read_int(&out) == getpid();
-	PF->clear(&out);
-	return ret;
-}
-
 static void x_repaint(x_t* x) {
 	if(x->g == NULL ||
 			!x->actived ||
 			(!x->need_repaint) ||
-			!is_scr_top(x))
+			!is_scr_top(x->scr_dev))
 		return;
 	x->need_repaint = false;
 	hide_cursor(x);
