@@ -9,6 +9,7 @@
 #include <graph/graph.h>
 #include <fonts/fonts.h>
 #include <upng/upng.h>
+#include <fb/fb.h>
 #include <arch/vpb/framebuffer.h>
 
 typedef struct {
@@ -32,7 +33,7 @@ static int fb_fcntl(int fd,
 	(void)info;
 	(void)in;
 	(void)p;
-	if(cmd == 0) { //get fb size
+	if(cmd == FB_CNTL_GET_INFO) { //get fb size
 		PF->addi(out, _fbinfo->width)->addi(out, _fbinfo->height)->addi(out, _fbinfo->depth);
 	}
 	return 0;
@@ -58,7 +59,7 @@ static int fb_dev_cntl(int from_pid, int cmd, proto_t* in, proto_t* ret, void* p
 	(void)ret;
 	(void)p;
 
-	if(cmd == 0) { //set fb size and bpp
+	if(cmd == FB_DEV_CNTL_SET_INFO) { //set fb size and bpp
 		int w = proto_read_int(in);
 		int h = proto_read_int(in);
 		int bpp = proto_read_int(in);
@@ -66,7 +67,7 @@ static int fb_dev_cntl(int from_pid, int cmd, proto_t* in, proto_t* ret, void* p
 			return -1;
 		_fbinfo = vpb_get_fbinfo();
 	}
-	else {
+	else if(cmd == FB_DEV_CNTL_GET_INFO) {
 		PF->addi(ret, _fbinfo->width)->addi(ret, _fbinfo->height)->addi(ret, _fbinfo->depth);
 	}	
 	return 0;
@@ -90,7 +91,7 @@ static int32_t do_flush(fb_dma_t* dma) {
 0: error;
 -1: resized;
 >0: size flushed*/
-static int fb_flush(int fd, int from_pid, fsinfo_t* info, void* p) {
+static int do_fb_flush(int fd, int from_pid, fsinfo_t* info, void* p) {
 	(void)fd;
 	(void)from_pid;
 	(void)info;
@@ -144,7 +145,7 @@ int main(int argc, char** argv) {
 	memset(&dev, 0, sizeof(vdevice_t));
 	strcpy(dev.name, "framebuffer");
 	dev.dma = fb_dma;
-	dev.flush = fb_flush;
+	dev.flush = do_fb_flush;
 	dev.fcntl = fb_fcntl;
 	dev.dev_cntl = fb_dev_cntl;
 

@@ -13,6 +13,15 @@ typedef struct {
 	graph_t* g;
 } fb_t;
 
+enum {
+	FB_CNTL_GET_INFO = 0
+};
+
+enum {
+	FB_DEV_CNTL_SET_INFO = 0,
+	FB_DEV_CNTL_GET_INFO
+};
+
 int      fb_set(const char *dev, int w, int h, int bpp);
 int      fb_open(const char *dev, fb_t* fb);
 int      fb_dev_info(const char *dev, int* w, int* h, int* bpp);
