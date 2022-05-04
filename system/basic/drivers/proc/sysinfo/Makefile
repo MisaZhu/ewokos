@@ -9,7 +9,7 @@ CFLAGS += -I $(BUILD_DIR)/include
 
 SYSINFOD_OBJS = sysinfod.o
 
-SYSINFOD = $(TARGET_DIR)/drivers/sysinfod
+SYSINFOD = $(TARGET_DIR)/drivers/proc/sysinfod
 
 $(SYSINFOD): $(SYSINFOD_OBJS) \
 		$(BUILD_DIR)/lib/libewokc.a

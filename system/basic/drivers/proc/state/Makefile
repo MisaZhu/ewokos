@@ -9,7 +9,7 @@ CFLAGS += -I $(BUILD_DIR)/include
 
 STATED_OBJS = stated.o
 
-STATED = $(TARGET_DIR)/drivers/stated
+STATED = $(TARGET_DIR)/drivers/proc/stated
 
 $(STATED): $(STATED_OBJS) \
 		$(BUILD_DIR)/lib/libewokc.a
