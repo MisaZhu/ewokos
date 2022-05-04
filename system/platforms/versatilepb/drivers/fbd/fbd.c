@@ -6,6 +6,9 @@
 #include <sys/syscall.h>
 #include <sys/vdevice.h>
 #include <sys/shm.h>
+#include <graph/graph.h>
+#include <fonts/fonts.h>
+#include <upng/upng.h>
 #include <arch/vpb/framebuffer.h>
 
 typedef struct {
@@ -83,32 +86,36 @@ static inline void argb2abgr(uint32_t* dst, const uint32_t* src, uint32_t size) 
 }
 
 static inline void dup16(uint16_t* dst, uint32_t* src, uint32_t w, uint32_t h) {
-  register int32_t i, size;
-  size = w * h;
-  for(i=0; i < size; i++) {
-    register uint32_t s = src[i];
-    register uint8_t r = (s >> 16) & 0xff;
-    register uint8_t g = (s >> 8)  & 0xff;
-    register uint8_t b = s & 0xff;
-    dst[i] = ((r >> 3) <<11) | ((g >> 3) << 6) | (b >> 3);
-  }
+	register int32_t i, size;
+	size = w * h;
+	for(i=0; i < size; i++) {
+		register uint32_t s = src[i];
+		register uint8_t r = (s >> 16) & 0xff;
+		register uint8_t g = (s >> 8)  & 0xff;
+		register uint8_t b = s & 0xff;
+		dst[i] = ((r >> 3) <<11) | ((g >> 3) << 6) | (b >> 3);
+	}
+}
+
+static uint32_t flush_buf(const void* buf, uint32_t size) {
+	uint32_t sz = 4 * _fbinfo->width * _fbinfo->height;
+	if(size < sz) {
+		return -1;
+	}
+
+	if(_fbinfo->depth == 32)
+		memcpy((void*)_fbinfo->pointer, buf, sz);
+	else if(_fbinfo->depth == 16)
+		dup16((uint16_t*)_fbinfo->pointer, (uint32_t*)buf,  _fbinfo->width, _fbinfo->height);
+	else 
+		size = 0;
+	return size;
 }
 
 static int32_t do_flush(fb_dma_t* dma) {
 	const void* buf = dma->data;
 	uint32_t size = dma->size;
-  uint32_t sz = 4 * _fbinfo->width * _fbinfo->height;
-  if(size < sz) {
-		return -1;
-	}
-
-  if(_fbinfo->depth == 32)
-    argb2abgr((uint32_t*)_fbinfo->pointer, (const uint32_t*)buf, size/4);
-  else if(_fbinfo->depth == 16)
-    dup16((uint16_t*)_fbinfo->pointer, (uint32_t*)buf,  _fbinfo->width, _fbinfo->height);
-	else 
-		size = 0;
-  return (int32_t)size;
+	return (int32_t)flush_buf(buf, size);
 }
 
 /*return
@@ -135,6 +142,16 @@ static int fb_dma(int fd, int from_pid, fsinfo_t* info, int* size, void* p) {
 	return dma->shm_id;
 }
 
+void draw_logo(graph_t* g);
+static void show_logo(void) {
+	graph_t* g = graph_new(NULL, _fbinfo->width, _fbinfo->height);
+	if(g == NULL)
+		return;
+	draw_logo(g);
+	flush_buf(g->buffer, g->w * g->h * 4);
+	graph_free(g);
+}
+
 int main(int argc, char** argv) {
 	const char* mnt_name = argc > 1 ? argv[1]: "/dev/fb0";
 	int w = 1024;
@@ -153,6 +170,7 @@ int main(int argc, char** argv) {
 	if(fb_dma_init(&dma) != 0) {
 		return -1;
 	}
+	show_logo();
 
 	vdevice_t dev;
 	memset(&dev, 0, sizeof(vdevice_t));

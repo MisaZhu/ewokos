@@ -12,7 +12,10 @@ LIB_X_OBJS = src/xclient.o \
 
 X = $(TARGET_DIR)/lib/libx.a
 
-$(X): $(LIB_X_OBJS)
+$(X): $(LIB_X_OBJS) \
+		$(TARGET_DIR)/lib/libgraph.a \
+		$(TARGET_DIR)/lib/libupng.a \
+		$(TARGET_DIR)/lib/libfonts.a
 	$(AR) rT $(X) $(LIB_X_OBJS)
 	cp -r include/* $(TARGET_DIR)/include
 

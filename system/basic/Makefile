@@ -36,6 +36,7 @@ basic_libs:
 	cd $(ROOT_DIR)/libs/graph;make
 	cd $(ROOT_DIR)/libs/fb;make
 	cd $(ROOT_DIR)/libs/fonts;make
+	cd $(ROOT_DIR)/libs/upng; make
 	cd $(ROOT_DIR)/libs/console;make
 
 basic_drivers:
@@ -98,6 +99,7 @@ clean:
 	cd $(ROOT_DIR)/libs/fonts;make clean
 	cd $(ROOT_DIR)/libs/console;make clean
 	cd $(ROOT_DIR)/libs/screen;make clean
+	cd $(ROOT_DIR)/libs/upng; make clean
 	cd $(ROOT_DIR)/bin/echo;make clean
 	cd $(ROOT_DIR)/bin/sleep;make clean
 	cd $(ROOT_DIR)/bin/ps;make clean

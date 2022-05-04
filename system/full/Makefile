@@ -14,7 +14,6 @@ mkdirs:
 EXTRA_LIBS_DIR=libs
 EXTRA_LIBXX_DIR=libs/cxx
 extra_libs:
-	cd $(EXTRA_LIBS_DIR)/upng; make
 	cd $(EXTRA_LIBS_DIR)/sconf; make
 	cd $(EXTRA_LIBS_DIR)/tiny-json; make
 	cd $(EXTRA_LIBS_DIR)/x; make
@@ -47,7 +46,6 @@ extra_driver:
 
 clean:
 	cd $(EXTRA_LIBS_DIR)/x; make clean
-	cd $(EXTRA_LIBS_DIR)/upng; make clean
 	cd $(EXTRA_LIBS_DIR)/sconf; make clean
 	cd $(EXTRA_LIBS_DIR)/tiny-json; make clean
 	cd $(EXTRA_LIBXX_DIR)/cxx; make clean

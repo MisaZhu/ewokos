@@ -121,7 +121,7 @@ protected:
 	}
 };
 
-/*static void* do_thread(void* p) {
+static void* do_thread(void* p) {
 	XWin* xwin = (XWin*)p;
 	while(1) {
 		xwin->repaint();
@@ -129,13 +129,13 @@ protected:
 	}
 	return NULL;
 }
-*/
 
-static void loop(void* p) {
+/*static void loop(void* p) {
 	XWin* xwin = (XWin*)p;
 	xwin->repaint();
 	//usleep(30000);
 }
+*/
 
 int main(int argc, char* argv[]) {
 	(void)argc;
@@ -149,8 +149,8 @@ int main(int argc, char* argv[]) {
 	x.open(&xwin, 60, 40, scr.size.w-120, scr.size.h-80, "gtest", X_STYLE_NORMAL);
 	xwin.setVisible(true);
 
-	//pthread_create(NULL, NULL, do_thread, &xwin);
+	pthread_create(NULL, NULL, do_thread, &xwin);
+	x.run(NULL, &xwin);
 	//x.run(loop, &xwin);
-	x.run(loop, &xwin);
 	return 0;
 } 

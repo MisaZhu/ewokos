@@ -1181,7 +1181,8 @@ upng_t* upng_new_from_file(const char *filename)
 	file = fopen(filename, "rb");
 	if (file == NULL) {
 		SET_ERROR(upng, UPNG_ENOTFOUND);
-		return upng;
+		upng_free(upng);
+		return NULL;
 	}
 
 	/* get filesize */
@@ -1194,7 +1195,8 @@ upng_t* upng_new_from_file(const char *filename)
 	if (buffer == NULL) {
 		fclose(file);
 		SET_ERROR(upng, UPNG_ENOMEM);
-		return upng;
+		upng_free(upng);
+		return NULL;
 	}
 	fread(buffer, 1, (unsigned long)size, file);
 	fclose(file);
@@ -1307,22 +1309,21 @@ graph_t* png_image_new(const char* filename) {
 		return NULL;
 	}
 	
-	uint32_t* buffer = (uint32_t*)upng_get_buffer(png);
+	uint32_t* src_buffer = (uint32_t*)upng_get_buffer(png);
 	uint32_t w = upng_get_width(png);
 	uint32_t h = upng_get_height(png);
+	graph_t* img = graph_new(NULL, w, h);
 
 	uint32_t i = 0;
 	while(i < w * h) {
-		uint32_t oc = buffer[i];
+		uint32_t oc = src_buffer[i];
 		uint8_t oa = ((oc >> 24) & 0xff);
 		uint8_t or = (oc & 0xff);
 		uint8_t og = ((oc >> 8)  & 0xff);
 		uint8_t ob = ((oc >> 16) & 0xff);
-		buffer[i] = argb(oa, or, og, ob);
+		img->buffer[i] = argb(oa, or, og, ob);
 		i++;
 	}
-
-	graph_t* img = graph_new(buffer, w, h);
 	upng_free(png);
 	return img;
 }

@@ -179,16 +179,15 @@ void x_repaint(xwin_t* xwin) {
 		return;
 	}
 
-/*	x_t* x = xwin->x;
+	x_t* x = xwin->x;
 	xevent_t ev;
 	memset(&ev, 0, sizeof(xevent_t));
 	ev.win = (uint32_t)xwin;
 	ev.value.window.event = XEVT_WIN_REPAINT;
 	ev.type = XEVT_WIN;
-	thread_lock();
+	ipc_disable();
 	x_push_event(x, &ev);
-	thread_unlock();
-	*/
+	ipc_enable();
 }
 
 static int win_event_handle(xwin_t* xwin, xevent_t* ev) {

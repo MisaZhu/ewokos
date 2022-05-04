@@ -34,50 +34,5 @@ void MacWM::drawTitle(graph_t* g, xinfo_t* info, grect_t* r, bool top) {
 	graph_draw_text(g, r->x+pw, r->y+2, info->title, font, fg);//title
 }
 
-void MacWM::drawWelcome(graph_t* g) {
-	const char* welcome = "Ewok Micro Kernel OS";
-	gsize_t sz;
-	get_text_size(welcome, font, &sz.w, &sz.h);
-
-	int x = (g->w-sz.w)/2;
-	int y = (g->h-sz.h)/2;
-
-	int m = 12;
-	graph_fill_round(g,
-		x - m, y - m,
-		sz.w + 2*m, sz.h + 2*m, 
-		8, 0x88ffffff);
-
-	m = 16;
-	graph_round(g,
-		x - m, y - m,
-		sz.w + 2*m, sz.h + 2*m, 
-		12, 0x88ffffff);
-
-	graph_draw_text(g,
-		x, y,
-		welcome,  font, 0xff000000);
-
-	graph_t* img = png_image_new("/data/icons/starwars/yoda.png");
-	if(img == NULL)
-		return;
-
-	m = img->w;
-	graph_blt_alpha(img, 0, 0, img->w, img->h,
-			g, x-m, y-img->h/2, img->w, img->h, 0xff);
-	graph_free(img);
-}
-
-void MacWM::drawDesktop(graph_t* g) {
-	XWM::drawDesktop(g);
-
-	if(doWelcome)  {
-		graph_fill(g, 0, 0, g->w, g->h, 0x88000000);
-		doWelcome = false;
-		drawWelcome(g);
-	}
-}
-
 MacWM::MacWM(void) {
-	doWelcome = true;
 }

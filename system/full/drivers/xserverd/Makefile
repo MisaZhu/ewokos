@@ -15,6 +15,8 @@ $(XSERVERD): $(XSERVERD_OBJS) \
 		$(BUILD_DIR)/lib/libewokc.a \
 		$(BUILD_DIR)/lib/libsconf.a  \
 		$(BUILD_DIR)/lib/libfb.a  \
+		$(BUILD_DIR)/lib/libfonts.a  \
+		$(BUILD_DIR)/lib/libupng.a  \
 		$(BUILD_DIR)/lib/libgraph.a 
 	$(LD) -Ttext=100 $(XSERVERD_OBJS) -o $(XSERVERD) $(LDFLAGS) -lgraph -lfb -lscreen -lsconf -lewokc -lc
 
