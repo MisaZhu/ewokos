@@ -1,4 +1,3 @@
-/drivers/raspix/pl011_uartd   /dev/tty0
 /drivers/raspix/fbd           /dev/fb0 800 600
-#/drivers/raspix/usbd          /dev/usb0
+/drivers/raspix/pl011_uartd   /dev/tty0
 #/drivers/raspix/mbox_actledd  /dev/actled
