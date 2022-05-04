@@ -67,6 +67,7 @@ mkdirs:
 	@mkdir -p ${BUILD_DIR}/lib
 	@cp -r $(KERNEL_H) $(BUILD_DIR)/include/
 	@cp -r ${ROOT_DIR}/etc ${TARGET_DIR}/$(ROOT_DIR)
+	@cp -r ${ROOT_DIR}/data ${TARGET_DIR}/$(ROOT_DIR)
 
 builtin_apps: $(PROGS)
 	cd $(ROOT_DIR)/bin/echo;make
