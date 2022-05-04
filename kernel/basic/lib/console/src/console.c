@@ -1,6 +1,7 @@
 #include <basic_math.h>
 #include <kstring.h>
 #include <console/console.h>
+#include <mm/kmalloc.h>
 
 #define T_W 2 /*tab width*/
 

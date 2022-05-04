@@ -8,12 +8,13 @@
 #include <kernel/kevqueue.h>
 #include <kernel/interrupt.h>
 #include <kernel/core.h>
-#include <string.h>
+#include <kstring.h>
 #include <signals.h>
 #include <kernel/signal.h>
 #include <kernel/hw_info.h>
 #include <kprintf.h>
 #include <mm/kalloc.h>
+#include <stddef.h>
 
 uint32_t _kernel_sec = 0;
 uint64_t _kernel_usec = 0;

@@ -157,8 +157,8 @@ void _kernel_entry_c(void) {
 		printf("  [failed!]\n");
 		halt();
 	}
-	kfork_core_halt(0);
 
+	kfork_core_halt(0);
 #ifdef KERNEL_SMP
 	_started_cores = 1;
 	kernel_lock_init();
