@@ -15,9 +15,12 @@ typedef struct {
 	gsize_t size;
 	graph_t* g;
 	uint32_t type;
+	bool down;
 	bool drop;
 } cursor_t;
 
-void draw_cursor(graph_t* g, int mx, int my, int mw, int mh, int type);
+void cursor_init(cursor_t* cursor);
+
+void draw_cursor(graph_t* g, cursor_t* cursor, int mx, int my);
 
 #endif

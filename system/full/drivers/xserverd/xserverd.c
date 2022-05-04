@@ -412,7 +412,7 @@ static inline void refresh_cursor(x_t* x) {
 	graph_blt(x->g, mx, my, mw, mh,
 			x->cursor.g, 0, 0, mw, mh);
 
-	draw_cursor(x->g, mx, my, mw, mh, x->cursor.type);
+	draw_cursor(x->g, &x->cursor, mx, my);
 
 	x->cursor.old_pos.x = x->cursor.cpos.x;
 	x->cursor.old_pos.y = x->cursor.cpos.y;
@@ -434,10 +434,7 @@ static int x_init(const char* scr_dev, x_t* x) {
 
 	x_reset(x);
 	x_dirty(x);
-	x->cursor.size.w = 19;
-	x->cursor.size.h = 19;
-	x->cursor.offset.x = x->cursor.size.w/2;
-	x->cursor.offset.y = x->cursor.size.h/2;
+
 	x->cursor.cpos.x = x->g->w/2;
 	x->cursor.cpos.y = x->g->h/2; 
 	x->show_cursor = true;
@@ -807,6 +804,12 @@ static int mouse_handle(x_t* x, xevent_t* ev) {
 		x->cursor.cpos.y = ev->value.mouse.y;
 	}
 
+	if(ev->state ==  XEVT_MOUSE_DOWN)
+		x->cursor.down = true;
+	else if(ev->state ==  XEVT_MOUSE_UP)
+		x->cursor.down = false;
+	
+
 	int pos = -1;
 	xview_t* view = NULL;
 	if(x->current.view != NULL)
@@ -962,6 +965,7 @@ int main(int argc, char** argv) {
 	if(x_init(scr_dev, &x) != 0)
 		return -1;
 	read_config(&x, "/etc/x/x.conf");
+	cursor_init(&x.cursor);
 
 	int pid = -1;
 	if(x.config.xwm[0] != 0) {
