@@ -3,6 +3,8 @@
 #include <bcm283x/framebuffer.h>
 #include <mm/mmu.h>
 #include <kernel/kernel.h>
+#include <kernel/hw_info.h>
+#include <kernel/system.h>
 
 #define KERNEL_BASE 0x80000000
 
@@ -22,7 +24,7 @@ typedef struct {
 static __attribute__((__aligned__(PAGE_SIZE))) fb_init_t _fbinit;
 static fbinfo_t _fb_info;
 
-int32_t bcm283x_fb_init(uint32_t w, uint32_t h, uint32_t dep) {
+int32_t __attribute__((optimize("O0"))) bcm283x_fb_init(uint32_t w, uint32_t h, uint32_t dep) {
 	fb_init_t* fbinit = &_fbinit;
 
 	memset(&_fb_info, 0, sizeof(fbinfo_t));
@@ -54,12 +56,13 @@ int32_t bcm283x_fb_init(uint32_t w, uint32_t h, uint32_t dep) {
 	_fb_info.size = fbinit->size;
 	_fb_info.xoffset = 0;
 	_fb_info.yoffset = 0;
-
+	_fb_info.size_max = _sys_info.phy_mem_size - (_fb_info.pointer-KERNEL_BASE);
 	map_pages(_kernel_vm, 
 		_fb_info.pointer,
 		V2P(_fb_info.pointer),
-		V2P(_fb_info.pointer) + w*h*4,
+		V2P(_fb_info.pointer) + _fb_info.size_max,
 		AP_RW_D, 1);
+	flush_tlb();
 	return 0;
 }
 

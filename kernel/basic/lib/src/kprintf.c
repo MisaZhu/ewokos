@@ -29,3 +29,10 @@ void printf(const char *format, ...) {
 	uart_out(_buf);
 }
 
+const char* format(const char *format, ...) {
+	va_list ap;
+	va_start(ap, format);
+	_len = 0;
+	v_printf(outc, NULL, format, ap);
+	return _buf;
+}

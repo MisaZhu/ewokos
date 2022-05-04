@@ -98,13 +98,24 @@ static void init_allocable_mem(void) {
 	memset(_pages_ref.refs, 0, _pages_ref.max * sizeof(page_ref_t));
 }
 
+
+static graph_t* _fb_g;
+static uint32_t _fb_text_line;
 static void start_fb(void) {
+	_fb_g = NULL;
+	_fb_text_line = 0;
 	fbinfo_t fbinfo;
-	fb_init(800, 600, &fbinfo);
-	graph_t* g = graph_new(fbinfo.pointer, fbinfo.width, fbinfo.height);
-	graph_clear(g, 0xff000000);
-	graph_draw_text(g, 10, 10, "EwokOS loading......", &font_8x16, 0xffffffff);
-	graph_free(g);
+	if(fb_init(640, 480, &fbinfo) == 0) {
+		_fb_g = graph_new((uint32_t*)fbinfo.pointer, fbinfo.width, fbinfo.height);
+		graph_clear(_fb_g, 0xff000000);
+	}
+}
+
+static void fb_text(const char* s) {
+	if(_fb_g == NULL)
+		return;
+	graph_draw_text(_fb_g, 10, 10+_fb_text_line*font_8x16.h, s, &font_8x16, 0xffffffff);
+	_fb_text_line++;
 }
 
 #ifdef KERNEL_SMP
@@ -137,10 +148,10 @@ void _kernel_entry_c(void) {
 	enable_vmmio_base();
 
 	start_fb();
+	fb_text("kernel started.");
 
 	kev_init();
 	uart_dev_init();
-
 	printf(
 			" ______           ______  _    _   ______  ______ \n"
 			"(  ___ \\|\\     /|(  __  )| \\  / \\ (  __  )(  ___ \\\n"
@@ -148,10 +159,13 @@ void _kernel_entry_c(void) {
 			"|  __)  | |( )| || |  | ||  _  (  | |  | |(____  )\n"
 			"| (___  | || || || |__| || ( \\  \\ | |__| |  ___) |\n"
 			"(______/(_______)(______)|_/  \\_/ (______)\\______)\n\n");
+
                                                       
 	printf("kernel: kmalloc initing  [ok] : %dMB\n", div_u32(KMALLOC_END-KMALLOC_BASE , 1*MB));
+	fb_text(format("kernel: kmalloc initing  [ok] : %dMB\n", div_u32(KMALLOC_END-KMALLOC_BASE , 1*MB)));
 	init_allocable_mem(); //init the rest allocable memory VM
 	printf("kernel: init allocable memory: %dMB, %d pages\n", div_u32(get_free_mem_size() , 1*MB), _pages_ref.max);
+	fb_text(format("kernel: init allocable memory: %dMB, %d pages\n", div_u32(get_free_mem_size() , 1*MB), _pages_ref.max));
 
 	irq_init();
 	printf("kernel: irq inited\n");
@@ -163,11 +177,12 @@ void _kernel_entry_c(void) {
 	printf("kernel: processes inited.\n");
 
 	printf("kernel: loading init process\n");
+	fb_text("kernel: loading init process\n");
 	if(load_init_proc() != 0)  {
 		printf("  [failed!]\n");
+		fb_text("  [failed!]\n");
 		halt();
 	}
-
 	kfork_core_halt(0);
 
 #ifdef KERNEL_SMP
@@ -179,18 +194,20 @@ void _kernel_entry_c(void) {
 	}
 
 	printf("kernel: wake up slave cores(SMP) ...\n");
+	fb_text("kernel: wake up slave cores(SMP) ...\n");
 	start_multi_cores(_sys_info.cores);
 	while(_started_cores < _sys_info.cores) {
 		_delay_msec(10);
 	}
 	printf("  [all %d cores started].\n", _sys_info.cores);
+	fb_text(format("  [all %d cores started].\n", _sys_info.cores));
 #endif
+	graph_free(_fb_g);
 
 	printf("kernel: set timer.\n");
 	timer_set_interval(0, 512); 
 
 	printf("kernel: enable irq.\n");
 	__irq_enable();
-
 	halt();
 }
