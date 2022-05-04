@@ -12,7 +12,7 @@ void draw_logo(graph_t* g) {
 
 	const char* welcome = "Ewok Micro Kernel OS(Pi)";
 	gsize_t sz;
-	font_t* font = font_by_name("10x20");
+	font_t* font = font_by_name("8x16");
 	get_text_size(welcome, font, &sz.w, &sz.h);
 
 	int x = (g->w - sz.w) / 2;
