@@ -19,6 +19,7 @@ static int scr_dev_cntl(int from_pid, int cmd, proto_t* in, proto_t* ret, void* 
 		scr->top_pid = proto_read_int(in);
 		if(scr->top_pid == 0)
 			scr->top_pid = from_pid;
+		dev_cntl_by_pid(scr->top_pid, DEV_CNTL_REFRESH, NULL, NULL);
 	}
 	else if(cmd == SCR_GET_TOP) {
 		PF->init(ret)->addi(ret, scr->top_pid);

@@ -938,7 +938,10 @@ static int xserver_dev_cntl(int from_pid, int cmd, proto_t* in, proto_t* ret, vo
 	(void)in;
 	x_t* x = (x_t*)p;
 
-	if(cmd == X_DCNTL_GET_INFO) {
+	if(cmd == DEV_CNTL_REFRESH) {
+		x_dirty(x);
+	}
+	else if(cmd == X_DCNTL_GET_INFO) {
 		xscreen_t scr;	
 		scr.id = 0;
 		scr.fps = x->config.fps;

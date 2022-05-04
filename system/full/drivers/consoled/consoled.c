@@ -97,6 +97,19 @@ static int console_write(int fd,
 	return size;
 }
 
+static int console_dev_cntl(int from_pid, int cmd, proto_t* in, proto_t* ret, void* p) {
+	(void)from_pid;
+	(void)in;
+	(void)ret;
+	fb_console_t* console = (fb_console_t*)p;
+
+	if(cmd == DEV_CNTL_REFRESH) {
+		console_refresh(&console->console, console->g);
+		fb_flush(&console->fb);
+	}
+	return 0;
+}
+
 int main(int argc, char** argv) {
 	const char* mnt_point = argc > 1 ? argv[1]: "/dev/console0";
 	const char* scr_dev = argc > 2 ? argv[2]: "/dev/scr0";
@@ -109,6 +122,7 @@ int main(int argc, char** argv) {
 	memset(&dev, 0, sizeof(vdevice_t));
 	strcpy(dev.name, "console");
 	dev.write = console_write;
+	dev.dev_cntl = console_dev_cntl;
 	dev.extra_data = &_console;
 
 	dev_cntl(_console.scr_dev, SCR_SET_TOP, NULL, NULL);
