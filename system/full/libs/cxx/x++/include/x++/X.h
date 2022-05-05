@@ -2,7 +2,7 @@
 #define X_H
 
 #include <x/xclient.h>
-#include <graphxx/graphxx.h>
+#include <graph/graph.h>
 #include <x++/XWin.h>
 
 namespace Ewok {

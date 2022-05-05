@@ -3,7 +3,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <sys/syscall.h>
-#include <sys/mmu.h>
+#include <sys/mmio.h>
 #include <sys/basic_math.h>
 
 #define SD_OK                0
@@ -136,13 +136,17 @@ typedef struct {
 
 static sd_t _sdc;
 
+static inline void delay(int32_t n) {
+	while(n > 0) n--;
+}
+
 /**
  * Wait for data or command ready
  */
 static inline int32_t sd_status(uint32_t mask) {
 	int32_t cnt = 1000000; 
 	while((*EMMC_STATUS & mask) != 0 && (*EMMC_INTERRUPT & INT_ERROR_MASK) == 0 && cnt-- > 0) {
-		usleep(0);
+		delay(1000);
 	}
 	return (cnt <= 0 || (*EMMC_INTERRUPT & INT_ERROR_MASK)) ? SD_ERROR : SD_OK;
 }
@@ -154,7 +158,7 @@ static inline int32_t sd_int(uint32_t mask, int32_t wait) {
 	uint32_t r, m = (mask | INT_ERROR_MASK);
 	int32_t cnt = 10000; 
 	while((*EMMC_INTERRUPT & m) == 0 && cnt--) {
-		usleep(0);
+		delay(1000);
 		if(wait == 0)
 			return -1;
 	}
@@ -194,9 +198,9 @@ static inline int32_t sd_cmd(uint32_t code, uint32_t arg) {
 	*EMMC_ARG1 = arg;
 	*EMMC_CMDTM = code;
 	if(code == CMD_SEND_OP_COND)
-		usleep(100000);
+		usleep(10000);
 	else if(code==CMD_SEND_IF_COND || code==CMD_APP_CMD)
-		usleep(100000);
+		usleep(10000);
 
 	if((r = sd_int(INT_CMD_DONE, 1))) {
 		sd_err = r;
@@ -288,13 +292,12 @@ static int32_t sd_clk(uint32_t f) {
 	uint32_t d, c=div_u32(41666666,f), x , s=32, h=0;
 	int32_t cnt = 100000;
 	while((*EMMC_STATUS & (SR_CMD_INHIBIT|SR_DAT_INHIBIT)) && cnt--) 
-		usleep(1000);
-	if(cnt<=0) {
+		delay(1000);
+	if(cnt<=0)
 		return SD_ERROR;
-	}
 
 	*EMMC_CONTROL1 &= ~C1_CLK_EN;
-	usleep(10000);
+	usleep(1000);
 	x=c-1;
 	if(!x)
 		s=0; 
@@ -320,20 +323,15 @@ static int32_t sd_clk(uint32_t f) {
 
 	d = (((d&0x0ff)<<8)|h);
 	*EMMC_CONTROL1 = (*EMMC_CONTROL1&0xffff003f) | d;
-	usleep(10000);
+	usleep(1000);
 	*EMMC_CONTROL1 |= C1_CLK_EN;
-	usleep(10000);
+	usleep(1000);
 	cnt=10000; 
 	while(!(*EMMC_CONTROL1 & C1_CLK_STABLE) && cnt--)
-		usleep(10000);
-	if(cnt<=0) {
+		delay(1000);
+	if(cnt<=0) 
 		return SD_ERROR;
-	}
 	return SD_OK;
-}
-
-static inline void delay(int32_t n) {
-	while(n > 0) n--;
 }
 
 /**
@@ -440,8 +438,8 @@ int32_t bcm283x_sd_init(void) {
 	if(sd_err)
 		return sd_err;
 	
-	//if((r=sd_clk(12500000)))
-	if((r=sd_clk(25000000)))
+	if((r=sd_clk(12500000)))
+	//if((r=sd_clk(25000000)))
 		return r;
 
 	if(sd_status(SR_DAT_INHIBIT))
@@ -450,28 +448,28 @@ int32_t bcm283x_sd_init(void) {
 	*EMMC_BLKSIZECNT = (1<<16) | 8;
 
 	sd_cmd(CMD_SEND_SCR, 0);
-	if(sd_err == 0) {
-		if(sd_int(INT_READ_RDY, 1))
-			return SD_TIMEOUT;
+	usleep(10000);
+	if(sd_err) 
+		return sd_err;
+	if(sd_int(INT_READ_RDY, 1))
+		return SD_TIMEOUT;
 
-		r=0; cnt=100000; 
-		while(r<2 && cnt) {
-			if( *EMMC_STATUS & SR_READ_AVAILABLE )
-				sd_scr[r++] = *EMMC_DATA;
-			else
-				usleep(1000);
-		}
-		if(r != 2) 
-			return SD_TIMEOUT;
-
-		if(sd_scr[0] & SCR_SD_BUS_WIDTH_4) {
-			sd_cmd(CMD_SET_BUS_WIDTH, sd_rca|2);
-			if(sd_err)
-				return sd_err;
-			*EMMC_CONTROL0 |= C0_HCTL_DWITDH;
-		}
+	r=0; cnt=100000; 
+	while(r<2 && cnt) {
+		if( *EMMC_STATUS & SR_READ_AVAILABLE )
+			sd_scr[r++] = *EMMC_DATA;
+		else
+			usleep(10000);
 	}
+	if(r != 2) 
+		return SD_TIMEOUT;
 
+	if(sd_scr[0] & SCR_SD_BUS_WIDTH_4) {
+		sd_cmd(CMD_SET_BUS_WIDTH, sd_rca|2);
+		if(sd_err)
+			return sd_err;
+		*EMMC_CONTROL0 |= C0_HCTL_DWITDH;
+	}
 	// add software flag
 	sd_scr[0] &= ~SCR_SUPP_CCS;
 	sd_scr[0] |= ccs;

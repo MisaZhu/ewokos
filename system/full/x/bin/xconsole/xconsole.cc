@@ -82,11 +82,11 @@ protected:
 		repaint();
 	}
 
-	void onRepaint(Graph& g) {
-		if(console.w != g.getW() || console.h != g.getH()) {
-			console_reset(&console, g.getW(), g.getH());
+	void onRepaint(graph_t* g) {
+		if(console.w != g->w || console.h != g->h) {
+			console_reset(&console, g->w, g->h);
 		}
-		console_refresh(&console, g.cgraph());
+		console_refresh(&console, g);
 	}
 
 	void onEvent(xevent_t* ev) {
@@ -115,7 +115,7 @@ static void loop(void* p) {
 	if(errno != EAGAIN) 
 		console->close();
 	else
-		usleep(10000);
+		usleep(3000);
 }
 
 static int run(int argc, char* argv[]) {

@@ -61,6 +61,7 @@ typedef struct {
 
 typedef struct {
 	int id;
+	int fps;
 	gsize_t size;
 } xscreen_t;
 

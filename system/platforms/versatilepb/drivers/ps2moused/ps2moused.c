@@ -4,7 +4,7 @@
 #include <string.h>
 #include <sys/vfs.h>
 #include <sys/vdevice.h>
-#include <sys/mmu.h>
+#include <sys/mmio.h>
 
 
 #define MOUSE_CR 0x00
@@ -171,8 +171,9 @@ static int mouse_read(int fd, int from_pid, fsinfo_t* info,
 	(void)info;
 
 	mouse_info_t minfo;
-	if(size < 4 || mouse_handler(&minfo) != 0)
-		return ERR_RETRY;
+	if(size < 4 || mouse_handler(&minfo) != 0) {
+		return ERR_RETRY_NON_BLOCK;
+	}
 
 	uint8_t* d = (uint8_t*)buf;
 	d[0] = minfo.btn;

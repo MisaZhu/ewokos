@@ -2,6 +2,7 @@
 #define CPU_CORE_H
 
 #include <stdint.h>
+#include <kernel/proc.h>
 
 #ifdef KERNEL_SMP
 
@@ -23,7 +24,7 @@ extern uint32_t get_cpu_cores(void);
 
 typedef struct {
 	uint32_t actived;
-	int32_t halt_pid;
+	proc_t* halt_proc;
 } core_t;
 
 extern core_t _cpu_cores[CPU_MAX_CORES];

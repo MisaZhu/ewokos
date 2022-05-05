@@ -72,7 +72,6 @@ int main(int argc, char* argv[]) {
 		while(1) { 
 			sz = read(0, buf, 128);
 			if(sz < 0 && errno == EAGAIN) {
-				sleep(0);
 				continue;
 			}
 			break;

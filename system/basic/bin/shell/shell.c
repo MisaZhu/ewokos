@@ -68,9 +68,14 @@ static int32_t gets(str_t* buf) {
 	bool first_up = true;
 
 	while(1) {
-		int c = getch();
-		if(c == 0)
-			return -1;
+		char c;
+		int i = read(0, &c, 1);
+		if(i <= 0 || c == 0) {
+		 	if(errno != EAGAIN)
+			 	return -1;
+			usleep(30000);
+			continue;
+		}
 
 		if (c == KEY_BACKSPACE) {
 			if (buf->len > 0) {
@@ -128,7 +133,6 @@ static int32_t gets(str_t* buf) {
 			if(c > 27)
 				str_addc(buf, c);
 		}
-		usleep(10000);
 	}
 	str_addc(buf, 0);
 	return 0;

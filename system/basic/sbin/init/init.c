@@ -14,6 +14,7 @@
 #include <sd/sd.h>
 #include <ext2/ext2fs.h>
 
+static int32_t fd_console = -1;
 static void outc(char c, void* p) {
 	str_t *buf = (str_t *)p;
 	str_addc(buf, c);
@@ -26,6 +27,8 @@ static void out(const char *format, ...) {
 	v_printf(outc, str, format, ap);
 	va_end(ap);
 	klog("%s", str->cstr);
+	if(fd_console > 0)
+		dprintf(2, "%s", str->cstr);
 	str_free(str);
 }
 
@@ -116,10 +119,10 @@ static const char* read_line(int fd) {
 	return line;
 }
 
-static void load_devs(const char* cfg) {
+static int load_devs(const char* cfg) {
 	int fd = open(cfg, O_RDONLY);
 	if(fd < 0)
-		return;
+		return -1;
 
 	while(true) {
 		const char* ln = read_line(fd);
@@ -130,6 +133,7 @@ static void load_devs(const char* cfg) {
 		run(ln, true, true);
 	}
 	close(fd);
+	return 0;
 }
 
 static void load_arch_devs(void) {
@@ -142,18 +146,38 @@ static void load_arch_devs(void) {
 
 static void load_extra_devs(void) {
 	const char* dirn = "/etc/dev/extra";
-  DIR* dirp = opendir(dirn);
-  if(dirp == NULL)
-    return;
-  while(1) {
-    struct dirent* it = readdir(dirp);
-    if(it == NULL)
-      break;
+	DIR* dirp = opendir(dirn);
+	if(dirp == NULL)
+		return;
+
+	while(1) {
+		struct dirent* it = readdir(dirp);
+		if(it == NULL)
+			break;
 		char fn[FS_FULL_NAME_MAX];
-    snprintf(fn, FS_FULL_NAME_MAX-1, "%s/%s", dirn, it->d_name);
+		snprintf(fn, FS_FULL_NAME_MAX-1, "%s/%s", dirn, it->d_name);
 		load_devs(fn);
-  }
-  closedir(dirp);
+	}
+	closedir(dirp);
+}
+
+static void load_screen(void) {
+	if(load_devs("/etc/dev/screen.dev") != 0)
+		return;
+
+	fd_console = open("/dev/console0", 0);
+	if(fd_console < 0)
+		return;
+
+	const char* s = ""
+			"+-----Ewok micro-kernel OS-----------------------+\n"
+			"| https://github.com/MisaZhu/EwokOS.git          |\n"
+			"+------------------------------------------------+\n";
+	dprintf(fd_console, "%s", s);
+}
+
+static void load_proc_devs(void) {
+	load_devs("/etc/dev/proc.dev");
 }
 
 static void load_sys_devs(void) {
@@ -215,10 +239,17 @@ static void run_rootfsd(void) {
 
 static void init_tty_stdio(void) {
 	int fd = open("/dev/tty0", 0);
-	dup2(fd, 0);
-	dup2(fd, 1);
-	dup2(fd, 2);
-	close(fd);
+	if(fd > 0) {
+		dup2(fd, 0);
+		dup2(fd, 1);
+		dup2(fd, 2);
+		close(fd);
+	}
+
+	if(fd_console > 0) {
+		dup2(fd_console, 2);
+		close(fd_console);
+	}
 }
 
 static void switch_root(void) {
@@ -226,9 +257,11 @@ static void switch_root(void) {
 	if(pid == 0) {
 		setuid(0);
 		load_arch_devs();
+		load_screen();
+		init_tty_stdio();
+		load_proc_devs();
 		load_extra_devs();
 		load_sys_devs();
-		init_tty_stdio();
 		run_procs();
 		exit(0);
 	}
@@ -247,15 +280,15 @@ int main(int argc, char** argv) {
 	(void)argc;
 	(void)argv;
 
+	fd_console = -1;
+
 	if(getuid() >= 0) {
 		out("process 'init' can only loaded by kernel!\n");
 		return -1;
 	}
 
-	if(getpid() != 0) { //not first proc
-		syscall1(SYS_PROC_SET_CMD, (int32_t)"cpu_core_halt");
+	if(getpid() != 0) //not first proc, must be cpu core idle
 		halt();
-	}
 	else
 		syscall1(SYS_PROC_SET_CMD, (int32_t)"/sbin/init");
 

@@ -21,7 +21,6 @@ enum {
 enum {
 	PROC_TYPE_PROC = 0,
 	PROC_TYPE_THREAD,
-	PROC_TYPE_IPC,
 	PROC_TYPE_VFORK
 };
 
@@ -40,7 +39,7 @@ enum {
 
 typedef struct {
 	int32_t  type; 
-	uint32_t  core;
+	uint32_t core;
 	int32_t  pid; 
 	int32_t  father_pid;
 	int32_t  owner; 
@@ -48,6 +47,7 @@ typedef struct {
 	int32_t  block_by;
 	int32_t  wait_for;
 	uint32_t start_sec;
+	uint32_t run_usec;
 	uint32_t heap_size;
 	uint32_t shm_size;
 	char     cmd[PROC_INFO_CMD_MAX];

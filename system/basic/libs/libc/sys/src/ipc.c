@@ -23,7 +23,13 @@ static void ipc_end(void) {
 }
 
 int ipc_disable(void) {
-	return syscall0(SYS_IPC_DISABLE);
+	while(true) {
+		int res = syscall0(SYS_IPC_DISABLE);
+		if(res == 0)
+			break;
+		sleep(0);
+	}
+	return 0;
 }
 
 void ipc_enable(void) {

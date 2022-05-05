@@ -32,8 +32,8 @@
 		
 	How to create/mount ext2 image in macosx
 		===============prepair================
+		install macFUSE from official website(https://osxfuse.github.io/)
 		brew install e2fsprogs
-		brew cask install osxfuse
 		brew install libtool 
 		brew install autoconf
 		brew install automake
@@ -45,8 +45,8 @@
 		make
 		sudo make install
 		=================example==============
-		dd if=/dev/zero of=img bs=1024 count=16384
- 		mke2fs img
+		dd if=/dev/zero of=root.ext2 bs=1024 count=16384
+ 		mke2fs -b 1024 -I 128 root.ext2 (make ext2 fs with: block_size=1024 inode_size=128)
  		mkdir -p tmp
 		fuse-ext2 -o force,rw+ img tmp
  		(copy files)

@@ -402,13 +402,14 @@ static void push_close_event(close_event_t* ev) {
 }
 
 static int get_close_event(close_event_t *ev) {
+	ipc_disable();
 	close_event_t *e = _event_head;
 	if (e == NULL) {
+		ipc_enable();
 		proc_block(getpid(), (uint32_t)_vfs_root);
 		return -1;
 	}
 
-	ipc_disable();
 	_event_head = _event_head->next;
 	if (_event_head == NULL)
 		_event_tail = NULL;
@@ -1007,7 +1008,6 @@ static int handle_close_event(close_event_t* ev) {
 			addi(&in, ev->fd)->
 			addi(&in, ev->owner_pid)->
 			add(&in, &ev->info, sizeof(fsinfo_t));
-	//int res = ipc_call_non_block(ev->dev_pid, FS_CMD_CLOSE, &in);
 	int res = ipc_call(ev->dev_pid, FS_CMD_CLOSE, &in, NULL);
 	PF->clear(&in);
 	return res;
@@ -1031,9 +1031,9 @@ int main(int argc, char** argv) {
 		close_event_t ev;
 		int res = get_close_event(&ev);
 		if(res == 0) {
-			//ipc_disable();
+			ipc_disable();
 			handle_close_event(&ev);
-			//ipc_enable();
+			ipc_enable();
 		}
 		else
 			sleep(0);

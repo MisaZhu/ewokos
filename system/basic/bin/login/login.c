@@ -106,9 +106,13 @@ static void input(str_t* s, bool show) {
 	str_reset(s);
 	char c;
 	while(true) {
-		c = getch();
-		if(c == 0)
-			break;
+		int i = read(0, &c, 1);
+		if(i <= 0 || c == 0) {
+		 	if(errno != EAGAIN)
+			 	break;
+			usleep(30000);
+			continue;
+		}	
 
 		if (c == KEY_BACKSPACE) {
 			if (s->len > 0) {
@@ -158,26 +162,28 @@ int main(int argc, char* argv[]) {
 	if(read_user_info() != 0)
 		return -1;
 
-	str_t* user = str_new("");
-	str_t* password = str_new("");
+	user_info_t* info = check("root", ""); 
+	//if root have no password, run shell directly
+	if(info == NULL || info->cmd[0] == 0) {
+		str_t* user = str_new("root");
+		str_t* password = str_new("");
+		printf("login: ");
+		input(user, true);
+		if(user->len > 0) {
+			printf("password: ");
+			input(password, false);
+		}
 
-	printf("login: ");
-	input(user, true);
-	if(user->len > 0) {
-		printf("password: ");
-		input(password, false);
-	}
+		str_free(user);
+		str_free(password);
 
-	user_info_t* info = check(user->cstr, password->cstr);
-	str_free(user);
-	str_free(password);
+		if(info == NULL || info->cmd[0] == 0)
+			return -1;
 
-	if(info == NULL || info->cmd[0] == 0)
-		return -1;
-
-	if(setuid(info->uid) != 0) {
-		dprintf(3, "Error, setuid failed!\n");
-		return -1;
+		if(setuid(info->uid) != 0) {
+			dprintf(3, "Error, setuid failed!\n");
+			return -1;
+		}
 	}
 
 	setenv("HOME", info->home);

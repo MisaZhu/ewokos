@@ -1,5 +1,5 @@
 #include <sys/basic_math.h>
-#include <sys/syscall.h>
+#include <sys/kernel_tic.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -13,7 +13,9 @@ inline uint32_t abs32(int32_t v) {
 
 static uint32_t _r_mask = 0x13579abc;
 inline uint32_t random_u32(void) {
-	uint32_t ret = (uint32_t)syscall0(SYS_GET_KERNEL_TIC) * _r_mask;
+	uint64_t usec;
+	kernel_tic(NULL, &usec);
+	uint32_t ret = (uint32_t)(usec&0xffffffff) * _r_mask;
 	_r_mask *= 0x79efd1;
 	_r_mask += 0xe1;
 	return ret;

@@ -1,5 +1,4 @@
 #include <dev/timer.h>
-#include <dev/ipi.h>
 #include <kernel/irq.h>
 #include <kernel/interrupt.h>
 #include <kernel/system.h>
@@ -8,12 +7,14 @@
 #include <kernel/proc.h>
 #include <kernel/kevqueue.h>
 #include <kernel/interrupt.h>
-#include <string.h>
+#include <kernel/core.h>
+#include <kstring.h>
 #include <signals.h>
 #include <kernel/signal.h>
 #include <kernel/hw_info.h>
 #include <kprintf.h>
 #include <mm/kalloc.h>
+#include <stddef.h>
 
 uint32_t _kernel_sec = 0;
 uint64_t _kernel_usec = 0;
@@ -21,16 +22,17 @@ static uint64_t _schedule_tic = 0;
 static uint64_t _timer_tic = 0;
 
 #ifdef KERNEL_SMP
+
 void ipi_enable_all(void) {
 	uint32_t i;
-	for(i=0; i<get_cpu_cores(); i++) {
+	for(i=0; i<_sys_info.cores; i++) {
 		ipi_enable(i);
 	}
 }
 
 static inline void ipi_send_all(void) {
 	uint32_t i;
-	uint32_t cores = get_cpu_cores();
+	uint32_t cores = _sys_info.cores;
 	for(i=0; i< cores; i++) {
 		if(proc_have_ready_task(i))
 			ipi_send(i);
@@ -58,9 +60,10 @@ static inline void irq_do_timer0(context_t* ctx) {
 		if(_timer_tic >= 1000000) { //1 sec
 			_kernel_sec++;
 			_timer_tic = 0;
+			renew_kernel_sec();
 		}
 
-		if(_schedule_tic >= 10000) { //10 msec, 100 times scheduling per second
+		if(_schedule_tic >= 1000) { //1 msec, 1000 times scheduling per second
 			_schedule_tic = 0;
 		}
 		renew_kernel_tic(usec_gap);
@@ -167,14 +170,22 @@ void prefetch_abort_handler(context_t* ctx, uint32_t status) {
 		dump_ctx(ctx);
 		halt();
 	}
+	
+	if((status & 0xD) == 0xD && //permissions fault only
+			ctx->pc < cproc->space->heap_size) { //in proc heap only
+		if (kernel_lock_check() > 0)
+			return;
 
-	if((status & 0xD) != 0xD || //permissions fault only
-			ctx->pc >= cproc->space->heap_size || //in proc heap only
-			copy_on_write(cproc, ctx->pc) != 0) {
-		printf("pid: %d(%s), prefetch abort!! (core %d)\n", cproc->info.pid, cproc->info.cmd, core);
-		dump_ctx(&cproc->ctx);
-		proc_exit(ctx, cproc, -1);
+		kernel_lock();
+		int32_t res = copy_on_write(cproc, ctx->pc);
+		kernel_unlock();
+		if(res == 0)
+			return;
 	}
+
+	printf("pid: %d(%s), prefetch abort!! (core %d)\n", cproc->info.pid, cproc->info.cmd, core);
+	dump_ctx(&cproc->ctx);
+	proc_exit(ctx, cproc, -1);
 }
 
 void data_abort_handler(context_t* ctx, uint32_t addr_fault, uint32_t status) {
@@ -195,7 +206,6 @@ void data_abort_handler(context_t* ctx, uint32_t addr_fault, uint32_t status) {
 		kernel_lock();
 		int32_t res = copy_on_write(cproc, addr_fault);
 		kernel_unlock();
-
 		if(res == 0) 
 			return;
 	}

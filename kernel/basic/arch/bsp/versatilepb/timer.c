@@ -1,5 +1,5 @@
 #include <mm/mmu.h>
-#include <dev/dev.h>
+#include <dev/mmio.h>
 #include <dev/timer.h>
 #include <kernel/irq.h>
 #include <basic_math.h>
@@ -56,25 +56,20 @@ void timer_set_interval(uint32_t id, uint32_t times_per_sec) {
 	_sys_usec_tic = 0;
 	_times_per_sec = 512;
 	volatile uint32_t* t = timer_addr_by_id(id);
-  /*put8(t + TIMER_CTRL, 0);
-  put8(t + TIMER_BGLOAD, 0);
-  put8(t + TIMER_LOAD, times_per_sec);
-  put8(t + TIMER_CTRL, 0xe2);
-	*/
 	if(times_per_sec > 0)
 		_times_per_sec = times_per_sec/4;
-  put32(t + TIMER_LOAD, _times_per_sec);
+	put32(t + TIMER_LOAD, _times_per_sec);
 	uint8_t reg = TIMER_CTRL_32BIT | TIMER_CTRL_INTREN |
 		TIMER_CTRL_PERIODIC | DEFAULT_CTRL_DIV | TIMER_CTRL_EN;
-  put8(t + TIMER_CTRL, reg);
+	put8(t + TIMER_CTRL, reg);
 }
 
 void timer_clear_interrupt(uint32_t id) {
 	volatile uint32_t* t = timer_addr_by_id(id);
-  put32(t + TIMER_INTCTRL, 0xFFFFFFFF);
+	put32(t + TIMER_INTCTRL, 0xFFFFFFFF);
 }
 
 uint64_t timer_read_sys_usec(void) { //read microsec
-	_sys_usec_tic += div_u32(DEFAULT_FREQUENCY, _times_per_sec);
+	_sys_usec_tic += div_u32(DEFAULT_FREQUENCY, _times_per_sec*4);
 	return _sys_usec_tic;
 }

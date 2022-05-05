@@ -2,7 +2,7 @@
 #define PROC_H
 
 #include <kernel/ipc.h>
-#include <kernel/core.h>
+//#include <kernel/core.h>
 #include <mm/mmu.h>
 #include <mm/trunkmem.h>
 #include <procinfo.h>
@@ -13,6 +13,7 @@
 #define SHM_MAX 128
 #define LOCK_MAX 64
 #define IPC_CTX_MAX 8
+#define PROC_KPAGE_MAX 8
 
 enum {
 	SIG_STATE_IDLE = 0,
@@ -60,7 +61,7 @@ typedef struct {
 	page_dir_entry_t* vm;
 	malloc_t          malloc_man;
 	uint32_t          heap_size;
-	uint32_t          kpage; //mapped page , share same address with kernel
+	uint32_t          kpages[PROC_KPAGE_MAX]; //mapped pages , share same address with kernel
 	bool              ready_ping;
 	
 	int32_t           shms[SHM_MAX];
@@ -77,6 +78,7 @@ typedef struct st_proc {
 	procinfo_t        info;
 	uint32_t          block_event;
 	int64_t           sleep_counter; //sleep usec
+	uint32_t          run_usec_counter; //run time usec
 	proc_space_t*     space;
 
 	union {
@@ -124,6 +126,7 @@ extern proc_t* kfork_core_halt(uint32_t core);
 extern procinfo_t* get_procs(int32_t* num);
 
 extern void    renew_kernel_tic(uint64_t usec);
+extern void    renew_kernel_sec(void);
 extern void    proc_usleep(context_t* ctx, uint32_t usec);
 extern void    proc_ready(proc_t* proc);
 

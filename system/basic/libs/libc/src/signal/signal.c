@@ -7,5 +7,5 @@ void do_sys_signal(int signum, void* p) {
 }
 
 sighandler_t signal(int signum, sighandler_t handler) {
-	return sys_signal(signum, do_sys_signal, handler );
+	return (sighandler_t)sys_signal(signum, do_sys_signal, handler );
 }

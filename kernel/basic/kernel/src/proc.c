@@ -147,12 +147,14 @@ inline void proc_save_state(proc_t* proc, saved_state_t* saved_state) {
 	saved_state->state = proc->info.state;
 	saved_state->block_by = proc->info.block_by;
 	saved_state->block_event = proc->block_event;
+	saved_state->sleep_counter = proc->sleep_counter;
 }
 
 inline void proc_restore_state(context_t* ctx, proc_t* proc, saved_state_t* saved_state) {
 	proc->info.state = saved_state->state;
 	proc->info.block_by = saved_state->block_by;
 	proc->block_event = saved_state->block_event;
+	proc->sleep_counter = saved_state->sleep_counter;
 	memcpy(ctx, &saved_state->ctx, sizeof(context_t));
 }
 
@@ -192,7 +194,7 @@ void proc_switch(context_t* ctx, proc_t* to, bool quick){
 
 	if(cproc != to && cproc != NULL &&
 			cproc->info.state != UNUSED &&
-			cproc->info.pid != _cpu_cores[cproc->info.core].halt_pid) {
+			cproc != _cpu_cores[cproc->info.core].halt_proc) {
 			//halt proc can't be pushed into ready queue, can't be scheduled.
 		if(cproc->info.state == RUNNING) {
 			cproc->info.state = READY;
@@ -266,7 +268,7 @@ proc_t* proc_get_next_ready(void) {
 	if(next == NULL) {
 		proc_t*	cproc = get_current_proc();
 		if(cproc != NULL && cproc->info.state == RUNNING &&
-				cproc->info.pid != _cpu_cores[cproc->info.core].halt_pid)
+				cproc != _cpu_cores[cproc->info.core].halt_proc)
 				//halt proc can't be sheduled.
 			next = cproc;
 	}
@@ -313,20 +315,10 @@ static void proc_terminate(context_t* ctx, proc_t* proc) {
 }
 
 inline uint32_t proc_stack_alloc(proc_t* proc) {
-	/*uint32_t page = (uint32_t)kalloc4k();
-	map_page(proc->space->vm,
-			page,
-			V2P(page),
-			AP_RW_RW, 0);
-	return page;
-	*/
 	return (uint32_t)proc_malloc(proc, THREAD_STACK_PAGES*PAGE_SIZE);
 }
 
 inline void proc_stack_free(proc_t* proc, uint32_t stack) {
-	/*kfree4k((void *)stack);
-	unmap_page(proc->space->vm, stack);
-	*/
 	proc_free(proc, (void *)stack);
 }
 
@@ -378,10 +370,13 @@ static void proc_funeral(proc_t* proc) {
 	proc_free_user_stack(proc);
 	if(proc->info.type == PROC_TYPE_PROC) {
 		/*free kpage*/
-		if (proc->space->kpage != 0) {
-			kfree4k((void *)proc->space->kpage);
-			unmap_page(proc->space->vm, proc->space->kpage);
-			proc->space->kpage = 0;
+		uint32_t i;
+		for(i=0; i<PROC_KPAGE_MAX; i++) {
+			if (proc->space->kpages[i] != 0) {
+				kfree4k((void *)proc->space->kpages[i]);
+				unmap_page(proc->space->vm, proc->space->kpages[i]);
+				proc->space->kpages[i] = 0;
+			}
 		}
 
 		/*free small_stack*/
@@ -448,14 +443,25 @@ inline void proc_free(proc_t* proc, void* p) {
 
 static inline uint32_t core_fetch(proc_t* proc) {
 	(void)proc;
-	uint32_t cores = get_cpu_cores();
-	if(cores == 1 || proc->info.owner < 0) {
+	if(_sys_info.cores == 1 || proc->info.owner < 0)
 		return 0;
-	}
 
-	uint32_t ret = _use_core_id++; 
-	if(_use_core_id >= cores) 
+	//fetch the next core.
+	/*uint32_t ret = _use_core_id++; 
+	if(_use_core_id >= _sys_info.cores) 
 		_use_core_id = 1;
+	return ret;
+	*/
+
+	//fetch the most idle core.
+	uint32_t ret = 0;
+	for(uint32_t i = 0; i < _sys_info.cores; i++) {
+		if(_cpu_cores[i].halt_proc->info.state == CREATED)
+			return i;
+		if(_cpu_cores[i].halt_proc->info.run_usec >
+				_cpu_cores[ret].halt_proc->info.run_usec)
+			ret = i;
+	}
 	return ret;
 }
 
@@ -644,22 +650,6 @@ static int32_t proc_clone(proc_t* child, proc_t* parent) {
 	return 0;
 }
 
-/*static void proc_thread_clone(context_t* ctx, proc_t* child, proc_t* parent) {
-	uint32_t pstack_base = proc_get_user_stack_base(parent);
-	uint32_t pstack_size = proc_get_user_stack_pages(parent) * PAGE_SIZE;
-	uint32_t cstack_base = proc_get_user_stack_base(child);
-	uint32_t cstack_size = proc_get_user_stack_pages(child) * PAGE_SIZE;
-	uint32_t ptop = pstack_base + pstack_size;
-	uint32_t ctop = cstack_base + cstack_size;
-
-	uint32_t size = cstack_size < pstack_size ? cstack_size : pstack_size;
-	memcpy((void*)cstack_base, (void*)(ptop-size), size);
-
-	uint32_t offset = ptop - ctx->sp;
-	child->ctx.sp = ctop - offset;
-}
-*/
-
 proc_t* kfork_raw(context_t* ctx, int32_t type, proc_t* parent) {
 	(void)ctx;
 	proc_t *child = NULL;
@@ -679,7 +669,6 @@ proc_t* kfork_raw(context_t* ctx, int32_t type, proc_t* parent) {
 		}
 	}
 	else {
-		//proc_thread_clone(ctx, child, parent);
 		child->ctx.sp = ALIGN_DOWN(child->stack.thread_stack + THREAD_STACK_PAGES*PAGE_SIZE, 4);
 	}
 	return child;
@@ -688,18 +677,12 @@ proc_t* kfork_raw(context_t* ctx, int32_t type, proc_t* parent) {
 proc_t* kfork(context_t* ctx, int32_t type) {
 	proc_t* cproc = get_current_proc();
 	proc_t* child = kfork_raw(ctx, type, cproc);
-	if(_core_proc_ready && child->info.type == PROC_TYPE_PROC) {
+	core_attach(child);
+
+	if(_core_proc_ready && child->info.type == PROC_TYPE_PROC)
 		kev_push(KEV_PROC_CREATED, cproc->info.pid, child->info.pid, 0);
-	}
 	else
 		proc_ready(child);
-
-	/*if(child->info.type == PROC_TYPE_PROC)
-		core_attach(child);
-	else
-		child->info.core = cproc->info.core;
-		*/
-	core_attach(child);
 	return child;
 }
 
@@ -749,7 +732,10 @@ static void renew_sleep_counter(uint64_t usec) {
 	int i;
 	for(i=0; i<PROC_MAX; i++) {
 		proc_t* proc = &_proc_table[i];
-		if(proc->info.state == SLEEPING) {
+		if(proc->info.state == RUNNING) {
+			proc->run_usec_counter += usec;
+		}
+		else if(proc->info.state == SLEEPING) {
 			proc->sleep_counter -= usec;
 			if(proc->sleep_counter <= 0) {
 				proc->sleep_counter = 0;
@@ -761,6 +747,18 @@ static void renew_sleep_counter(uint64_t usec) {
 
 inline void renew_kernel_tic(uint64_t usec) {
 	renew_sleep_counter(usec);	
+}
+
+inline void renew_kernel_sec(void) {
+	int i;
+	for(i=0; i<PROC_MAX; i++) {
+		proc_t* proc = &_proc_table[i];
+		if(proc->info.state != UNUSED && 
+				proc->info.state != ZOMBIE) {
+			proc->info.run_usec = proc->run_usec_counter;
+			proc->run_usec_counter = 0;
+		}
+	}
 }
 
 proc_t* proc_get_proc(proc_t* proc) {
@@ -776,6 +774,8 @@ proc_t* kfork_core_halt(uint32_t core) {
 	proc_t* cproc = &_proc_table[0];
 	proc_t* child = kfork_raw(NULL, PROC_TYPE_PROC, cproc);
 	child->info.core = core;
-	_cpu_cores[core].halt_pid = child->info.pid;
+	strcpy(child->info.cmd, "cpu_core_halt");
+	_cpu_cores[core].halt_proc = child;
+
 	return child;
 }

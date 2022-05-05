@@ -40,6 +40,10 @@ enum {
 	FS_CMD_DEV_CNTL
 };
 
+enum {
+	DEV_CNTL_REFRESH = 0x10000
+};
+
 typedef struct {
 	int32_t pid;
 	uint32_t org_node;

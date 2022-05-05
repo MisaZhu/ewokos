@@ -3,7 +3,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <sys/syscall.h>
-#include <sys/mmu.h>
+#include <sys/mmio.h>
 
 #define SECTOR_SIZE 512
 
@@ -219,7 +219,7 @@ static void sd_dev_handle(void) {
 		}
 	}
 	else {
-		sleep(0);
+		//sleep(0);
 		return;
 	}
 	//printf("write to clear register\n");

@@ -1,7 +1,7 @@
 #include <kernel/irq.h>
 #include <kernel/kernel.h>
 #include <kernel/hw_info.h>
-#include <dev/dev.h>
+#include <dev/mmio.h>
 #include "timer_arch.h"
 
 #define CORE0_TIMER__irqCNTL 0x40000040

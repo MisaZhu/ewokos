@@ -38,8 +38,13 @@ void sys_info_init(void) {
 	_sys_info.mmio.v_base = MMIO_BASE;
 	_sys_info.mmio.size = 16*MB;
 
-  _allocatable_mem_base = V2P(ALLOCATABLE_MEMORY_START);
+	_allocatable_mem_base = V2P(ALLOCATABLE_MEMORY_START);
 	_allocatable_mem_top = _sys_info.phy_mem_size - 64*MB; //bcm283x framebuffer mem base
+#ifdef KERNEL_SMP
+	_sys_info.cores = get_cpu_cores();
+#else
+	_sys_info.cores = 1;
+#endif
 }
 
 #ifdef PI4

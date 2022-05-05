@@ -105,6 +105,12 @@ void v_printf(outc_func_t outc, void* p, const char *format, va_list ap) {
 			break;
 
 		format_index++;
+		if(format[format_index] == '%') {
+			outc(format[format_index], p);
+			format_index++;
+			continue;
+		}
+
 		uint8_t zero = 0;
 		if(format[format_index] == '0') {
 			format_index++;

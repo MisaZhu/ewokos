@@ -13,7 +13,6 @@ using namespace Ewok;
 
 class XIMX : public XWin {
  	int xPid;
- 	int keybFD;
 	const char* keytable;
 	font_t* font;
 
@@ -60,34 +59,39 @@ protected:
 		}
 	}
 
-	void onRepaint(Graph& g) {
-		keyw = div_u32(g.getW(), col);
-		g.fill(0, 0, g.getW(), g.getH(), 0xffaaaaaa);
-		keyw = div_u32(g.getW(), col);
+	void onRepaint(graph_t* g) {
+		keyw = div_u32(g->w, col);
+		graph_fill(g, 0, 0, g->w, g->w, 0xffaaaaaa);
+		keyw = div_u32(g->w, col);
 
 		for(int j=0; j<row; j++) {
 			for(int i=0; i<col; i++) {
 				int at = i+j*col;
 				if(at >= (int)strlen(keytable))
 					break;
+				char c = keytable[at];
+				if(c >= 'a' && c <= 'z') {
+					c += ('A' - 'a');
+					graph_fill(g, i*keyw, j*keyh, keyw, keyh, 0xffcccccc);
+				}
 
 				if(keySelect == at)
-					g.fill(i*keyw, j*keyh, keyw, keyh, 0xffffffff);
+					graph_fill(g, i*keyw, j*keyh, keyw, keyh, 0xffffffff);
 
-				char c = keytable[at];
 				if(c == '\n')
-					g.drawText(i*keyw + 2, 
+					graph_draw_text(g, i*keyw + 2, 
 							j*keyh + (keyh - font->h)/2,
 							"En", font, 0xff000000);
 				else if(c == '\b')
-					g.drawText(i*keyw + 2, 
+					graph_draw_text(g, i*keyw + 2, 
 							j*keyh + (keyh - font->h)/2,
 							"<-", font, 0xff000000);
-				else
-					g.drawChar(i*keyw + (keyw - font->w)/2,
+				else {
+					graph_draw_char(g, i*keyw + (keyw - font->w)/2,
 							j*keyh + (keyh - font->h)/2,
 							c, font, 0xff000000);
-				g.box(i*keyw, j*keyh, keyw, keyh, 0xffcccccc);
+				}
+				graph_box(g, i*keyw, j*keyh, keyw, keyh, 0xffdddddd);
 			}
 		}
 	}
@@ -102,64 +106,25 @@ protected:
 		dev_cntl_by_pid(xPid, X_DCNTL_INPUT, &in, NULL);
 		PF->clear(&in);
 	}
-/*
-	void keyMove(char c) {
-		if(keySelect < 0)
-			keySelect = 0;
-		else if(keySelect >= (int)strlen(keytable))
-			keySelect = strlen(keytable)-1;
-
-		if(c == KEY_ENTER) {
-			char v = keytable[keySelect];
-			if(v == '\b')
-				v = KEY_BACKSPACE;
-			input(v);
-			return;
-		}
-
-		switch(c) {
-		case KEY_UP:
-			keySelect -= col;
-			break;
-		case KEY_DOWN:
-			keySelect += col;
-			break;
-		case KEY_LEFT:
-			keySelect--;
-			break;
-		case KEY_RIGHT:
-			keySelect++;
-			break;
-		}
-		
-		if(keySelect < 0)
-			keySelect = 0;
-		else if(keySelect >= (int)strlen(keytable))
-			keySelect = strlen(keytable)-1;
-		repaint();
-	}
-	*/
 
 public:
 	inline XIMX() {
-		font = font_by_name("8x16");
-		keytable = "abcdefghijklm/\\{}"
-							 "nopqrstuvwxyz<>[]"
-							 "1234567890-+.,'\" "
-							 "`~!@#$%^&*()|_=\b\n";
+		font = font_by_name("9x16");
+		keytable = ""
+			"`~1234567890-+%@\b"
+			"'\"qwertyuiop{}[]\n"
+			"*_|asdfghjkl()=/\\"
+			"#$^zxcvbnm  <>.,&";
 		col = 17;
 		row = 4;
-		keyh = font->h + 8;
-		keyw = font->w*2 + 8;
-		keybFD = open("/dev/keyb0", O_RDONLY | O_NONBLOCK);
-		xPid = -1;
+		keyh = font->h + 12;
+		keyw = font->w*2 + 12;
+		xPid = dev_get_pid("/dev/x");
 		keySelect = -1;
 	}
 
 	inline ~XIMX() {
-		if(keybFD < 0)
-			return;
-		::close(keybFD);
+		::close(xPid);
 	}
 
 	int getFixH(void) {
@@ -169,35 +134,7 @@ public:
 	int getFixW(void) {
 		return keyw * col;
 	}
-
-	void doRead(void) {
-		if(xPid < 0)
-			xPid = dev_get_pid("/dev/x");
-		if(xPid <= 0 || keybFD < 0)
-			return;
-
-		char v;
-		int rd = read(keybFD, &v, 1);
-		if(rd == 1) {
-			/*if(v == KEY_UP || v == KEY_DOWN ||
-					v == KEY_LEFT || v == KEY_RIGHT ||
-					v == KEY_ENTER) {
-				keyMove(v);
-				if(v == KEY_ENTER)
-					usleep(100000);
-			}
-			else
-			*/
-				input(v);
-		}
-	}
 };
-
-static void loop(void* p) {
-	XIMX* xwin = (XIMX*)p;
-	xwin->doRead();
-	usleep(100000);
-}
 
 int main(int argc, char* argv[]) {
 	(void)argc;
@@ -210,6 +147,6 @@ int main(int argc, char* argv[]) {
 	//x.open(&xwin, scr.size.w - xwin.getFixW(), scr.size.h-xwin.getFixH(), xwin.getFixW(), xwin.getFixH(), "xim",
 	x.open(&xwin, 0, scr.size.h-xwin.getFixH(), scr.size.w, xwin.getFixH(), "xim",
 			X_STYLE_NO_FRAME | X_STYLE_NO_FOCUS | X_STYLE_SYSTOP | X_STYLE_XIM);
-	x.run(loop, &xwin);
+	x.run(NULL, &xwin);
 	return 0;
 }

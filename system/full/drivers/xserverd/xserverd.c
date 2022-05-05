@@ -15,6 +15,8 @@
 #include <x/xwm.h>
 #include <sys/proc.h>
 #include <sconf.h>
+#include <screen/screen.h>
+#include "cursor.h"
 
 #define X_EVENT_MAX 16
 
@@ -41,15 +43,6 @@ typedef struct st_xview {
 } xview_t;
 
 typedef struct {
-	gpos_t old_pos;
-	gpos_t cpos;
-	gpos_t offset;
-	gsize_t size;
-	graph_t* g;
-	bool drop;
-} cursor_t;
-
-typedef struct {
 	xview_t* view; //moving or resizing;
 	gpos_t old_pos;
 	gpos_t pos_delta;
@@ -57,12 +50,14 @@ typedef struct {
 } x_current_t;
 
 typedef struct {
-	int win_move_alpha;
+	uint32_t win_move_alpha;
+	uint32_t fps;
 	char xwm[128];
 } x_conf_t;
 
 typedef struct {
 	bool actived;
+	const char* scr_dev;
 	fb_t fb;
 	graph_t* g;
 	int xwm_pid;
@@ -82,6 +77,7 @@ typedef struct {
 
 static int32_t read_config(x_t* x, const char* fname) {
 	x->config.win_move_alpha = 0x88;
+	x->config.fps = 60;
 	x->config.xwm[0] = 0;
 
 	sconf_t *conf = sconf_load(fname);	
@@ -92,9 +88,19 @@ static int32_t read_config(x_t* x, const char* fname) {
 	if(v[0] != 0) 
 		x->config.win_move_alpha = atoi_base(v, 16);
 
+	v = sconf_get(conf, "fps");
+	if(v[0] != 0) 
+		x->config.fps = atoi(v);
+
 	v = sconf_get(conf, "xwm");
 	if(v[0] != 0) 
 		strncpy(x->config.xwm, v, 127);
+	
+	v = sconf_get(conf, "cursor");
+	if(strcmp(v, "touch") == 0)
+		x->cursor.type = CURSOR_TOUCH;
+	else
+		x->cursor.type = CURSOR_MOUSE;
 
 	sconf_free(conf);
 	return 0;
@@ -395,10 +401,9 @@ static void hide_cursor(x_t* x) {
 	}
 }
 
-static inline void draw_cursor(x_t* x) {
+static inline void refresh_cursor(x_t* x) {
 	if(x->g == NULL || x->cursor.g == NULL)
 		return;
-
 	int32_t mx = x->cursor.cpos.x - x->cursor.offset.x;
 	int32_t my = x->cursor.cpos.y - x->cursor.offset.y;
 	int32_t mw = x->cursor.size.w;
@@ -407,13 +412,8 @@ static inline void draw_cursor(x_t* x) {
 	graph_blt(x->g, mx, my, mw, mh,
 			x->cursor.g, 0, 0, mw, mh);
 
-	graph_line(x->g, mx+1, my, mx+mw-1, my+mh-2, 0xffffffff);
-	graph_line(x->g, mx, my, mx+mw-1, my+mh-1, 0xff000000);
-	graph_line(x->g, mx, my+1, mx+mw-2, my+mh-1, 0xffffffff);
+	draw_cursor(x->g, &x->cursor, mx, my);
 
-	graph_line(x->g, mx, my+mh-2, mx+mw-2, my, 0xffffffff);
-	graph_line(x->g, mx, my+mh-1, mx+mw-1, my, 0xff000000);
-	graph_line(x->g, mx+1, my+mh-1, mx+mw-1, my+1, 0xffffffff);
 	x->cursor.old_pos.x = x->cursor.cpos.x;
 	x->cursor.old_pos.y = x->cursor.cpos.y;
 	x->cursor.drop = false;
@@ -423,8 +423,10 @@ static void x_reset(x_t* x) {
 	x->g = fb_fetch_graph(&x->fb);
 }
 
-static int x_init(const char* fb_dev, x_t* x) {
+static int x_init(const char* scr_dev, x_t* x) {
 	memset(x, 0, sizeof(x_t));
+	x->scr_dev = scr_dev;
+	const char* fb_dev = get_scr_fb_dev(scr_dev);
 	x->xwm_pid = -1;
 
 	if(fb_open(fb_dev, &x->fb) != 0)
@@ -432,10 +434,7 @@ static int x_init(const char* fb_dev, x_t* x) {
 
 	x_reset(x);
 	x_dirty(x);
-	x->cursor.size.w = 15;
-	x->cursor.size.h = 15;
-	x->cursor.offset.x = 8;
-	x->cursor.offset.y = 8;
+
 	x->cursor.cpos.x = x->g->w/2;
 	x->cursor.cpos.y = x->g->h/2; 
 	x->show_cursor = true;
@@ -453,7 +452,8 @@ static void x_close(x_t* x) {
 static void x_repaint(x_t* x) {
 	if(x->g == NULL ||
 			!x->actived ||
-			(!x->need_repaint))
+			(!x->need_repaint) ||
+			!is_scr_top(x->scr_dev))
 		return;
 	x->need_repaint = false;
 	hide_cursor(x);
@@ -471,7 +471,7 @@ static void x_repaint(x_t* x) {
 	}
 
 	if(x->show_cursor)
-		draw_cursor(x);
+		refresh_cursor(x);
 
 	fb_flush(&x->fb);
 
@@ -702,7 +702,6 @@ static int xserver_fcntl(int fd, int from_pid, fsinfo_t* info,
 	else if(cmd == X_CNTL_CALL_XIM) {
 		res = x_call_xim(x);
 	}
-	x_repaint(x);
 	return res;
 }
 
@@ -805,6 +804,12 @@ static int mouse_handle(x_t* x, xevent_t* ev) {
 		x->cursor.cpos.y = ev->value.mouse.y;
 	}
 
+	if(ev->state ==  XEVT_MOUSE_DOWN)
+		x->cursor.down = true;
+	else if(ev->state ==  XEVT_MOUSE_UP)
+		x->cursor.down = false;
+	
+
 	int pos = -1;
 	xview_t* view = NULL;
 	if(x->current.view != NULL)
@@ -904,9 +909,13 @@ static int xserver_dev_cntl(int from_pid, int cmd, proto_t* in, proto_t* ret, vo
 	(void)in;
 	x_t* x = (x_t*)p;
 
-	if(cmd == X_DCNTL_GET_INFO) {
+	if(cmd == DEV_CNTL_REFRESH) {
+		x_dirty(x);
+	}
+	else if(cmd == X_DCNTL_GET_INFO) {
 		xscreen_t scr;	
 		scr.id = 0;
+		scr.fps = x->config.fps;
 		scr.size.w = x->g->w;
 		scr.size.h = x->g->h;
 		PF->add(ret, &scr, sizeof(xscreen_t));
@@ -920,12 +929,10 @@ static int xserver_dev_cntl(int from_pid, int cmd, proto_t* in, proto_t* ret, vo
 		x_dirty(x);
 	}
 	else if(cmd == X_DCNTL_INPUT) {
-    xevent_t ev;
-    proto_read_to(in, &ev, sizeof(xevent_t));
+		xevent_t ev;
+		proto_read_to(in, &ev, sizeof(xevent_t));
 		handle_input(x, &ev);
 	}
-
-	x_repaint(x);
 	return 0;
 }
 
@@ -938,19 +945,27 @@ static int xserver_close(int fd, int from_pid, fsinfo_t* info, void* p) {
 		return -1;
 	}
 	x_del_view(x, view);	
+	return 0;
+}
+
+int xserver_step(void* p) {
+	x_t* x = (x_t*)p;
+	ipc_disable();
 	x_repaint(x);
+	ipc_enable();
+	usleep(1000000/x->config.fps);
 	return 0;
 }
 
 int main(int argc, char** argv) {
 	const char* mnt_point = argc > 1 ? argv[1]: "/dev/x";
-	const char* fb_dev = argc > 2 ? argv[2]: "/dev/fb0";
+	const char* scr_dev = argc > 2 ? argv[2]: "/dev/scr0";
 
 	x_t x;
-	if(x_init(fb_dev, &x) != 0) {
+	if(x_init(scr_dev, &x) != 0)
 		return -1;
-	}
 	read_config(&x, "/etc/x/x.conf");
+	cursor_init(&x.cursor);
 
 	int pid = -1;
 	if(x.config.xwm[0] != 0) {
@@ -969,8 +984,11 @@ int main(int argc, char** argv) {
 	dev.close = xserver_close;
 	dev.open = xserver_open;
 	dev.dev_cntl = xserver_dev_cntl;
-
+	dev.loop_step = xserver_step;
 	dev.extra_data = &x;
+
+	dev_cntl(x.scr_dev, SCR_SET_TOP, NULL, NULL);
+
 	x_repaint_req(&x);
 	x_repaint(&x);
 	device_run(&dev, mnt_point, FS_TYPE_CHAR);

@@ -3,7 +3,7 @@
 #include <arch/bcm283x/framebuffer.h>
 #include <sys/syscall.h>
 #include <sysinfo.h>
-#include <sys/mmu.h>
+#include <sys/mmio.h>
 
 #define KERNEL_BASE 0x80000000
 

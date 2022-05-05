@@ -19,7 +19,7 @@ typedef struct {
 class Launcher: public XWin {
 	items_t items;
 
-	void drawIcon(Graph& g, const char* item, int icon_size, int i) {
+	void drawIcon(graph_t* g, const char* item, int icon_size, int i) {
 		str_t* s = str_new("");	
 		int at = str_to(item, ',', NULL, 1);
 		str_to(item + at + 1, ',', s, 1);
@@ -32,8 +32,8 @@ class Launcher: public XWin {
 		int dx = (icon_size - img->w)/2;
 		int dy = (icon_size - img->h)/2;
 
-		g.blt(img, 0, 0, img->w, img->h,
-				dx, dy+i*icon_size, img->w, img->h);
+		graph_blt(img, 0, 0, img->w, img->h,
+				g, dx, dy+i*icon_size, img->w, img->h);
 		graph_free(img);
 	}
 
@@ -45,9 +45,9 @@ class Launcher: public XWin {
 	}
 
 protected:
-	void onRepaint(Graph& g) {
+	void onRepaint(graph_t* g) {
 		//font_t* font = get_font_by_name("8x16");
-		g.clear(0x0);
+		graph_clear(g, 0x0);
 		int i;
 		for(i=0; i<items.num; i++) {
 			drawIcon(g, items.items[i]->cstr, items.icon_size, i);

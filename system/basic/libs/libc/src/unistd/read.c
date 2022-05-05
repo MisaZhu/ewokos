@@ -24,23 +24,21 @@ static int read_block(int fd, void* buf, uint32_t size) {
 	if(info.type == FS_TYPE_PIPE) {
 		while(1) {
 			res = vfs_read_pipe(&info, buf, size, true);
-			if(res >= 0)
+			if(res >= 0 || errno != EAGAIN)
 				break;
-			if(errno != EAGAIN)
-				break;
-			sleep(0);
 		}
 		return res;
 	}
 
 	while(1) {
 		res = vfs_read(fd, &info, buf, size);
-		if(res >= 0)
+		if(res >= 0 || errno == EAGAIN_NON_BLOCK) {
+			errno = EAGAIN;
 			break;
-		if(errno != EAGAIN)
-			break;
-		proc_block(info.mount_pid, 0);
-		sleep(0);
+		}
+
+		if(errno == EAGAIN)
+			proc_block(info.mount_pid, 0);
 	}
 	return res;
 }

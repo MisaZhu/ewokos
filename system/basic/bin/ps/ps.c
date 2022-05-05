@@ -58,6 +58,15 @@ static const char* get_cmd(procinfo_t* proc, int full) {
 	return proc->cmd;
 }
 
+static const char* get_core_loading(sys_info_t* sys_info, procinfo_t* proc) {
+	static char ret[8];
+	if(sys_info->cores > 1)
+		snprintf(ret, 7, "%d:%d%%", proc->core, proc->run_usec/10000);
+	else
+		snprintf(ret, 7, "%d%%", proc->run_usec/10000);
+	return ret;
+}
+
 int main(int argc, char* argv[]) {
 	int full = 0;
 	int all = 0;
@@ -69,6 +78,7 @@ int main(int argc, char* argv[]) {
 	}
 
 	int num = 0;
+	uint32_t core_idle[16]; //max 16 cores;
 	sys_info_t sys_info;
 	sys_state_t sys_state;
 	syscall1(SYS_GET_SYS_INFO, (int32_t)&sys_info);
@@ -80,28 +90,45 @@ int main(int argc, char* argv[]) {
 
 	procinfo_t* procs = (procinfo_t*)syscall1(SYS_GET_PROCS, (int)&num);
 	if(procs != NULL) {
-		printf("OWNER    CORE PID    FATHER  STATE       TIME       HEAP(K) SHM(K) PROC\n"); 
+		printf("OWNER   PID  FATH CPU    STATE       TIME     HEAP(K) SHM(K) PROC\n"); 
 		for(int i=0; i<num; i++) {
-			if(procs[i].type != PROC_TYPE_PROC && all == 0)
+			procinfo_t* proc = &procs[i];
+			if(strcmp(proc->cmd, "cpu_core_halt") == 0) {
+				core_idle[proc->core] = proc->run_usec;
+				continue;
+			}
+
+			if(proc->type != PROC_TYPE_PROC && all == 0) //for thread 
 				continue;
 
-			uint32_t sec = csec - procs[i].start_sec;
-			printf("%8s %4d %4d   %6d  %10s  %02d:%02d:%02d   %6d  %5d  %s\n", 
-				get_owner(&procs[i]),
-				procs[i].core,
-				procs[i].pid,
-				procs[i].father_pid,
-				get_state(&procs[i]),
+			uint32_t sec = csec - proc->start_sec;
+			printf("%8s%4d %4d %6s %10s  %02d:%02d:%02d %6d  %5d  %s",
+				get_owner(proc),
+				proc->pid,
+				proc->father_pid,
+				get_core_loading(&sys_info, proc),
+				get_state(proc),
 				sec / (3600),
 				sec / 60,
 				sec % 60,
-				procs[i].heap_size / 1024,
-				procs[i].shm_size / 1024,
-				get_cmd(&procs[i], full));
+				proc->heap_size / 1024,
+				proc->shm_size / 1024,
+				get_cmd(proc, full));
+
+			if(proc->type == PROC_TYPE_THREAD)
+				printf(" [THRD:%d]\n", proc->father_pid);
+			else
+				printf("\n");
 		}
 		free(procs);
 	}
 	printf("\nmemory: total %d MB, free %d MB, shm %d MB\n", t_mem, fr_mem, shm_mem);
-	printf("processes: %d\n", num);
+
+	printf("cpu idle:");
+	for(int i=0; i<sys_info.cores; i++) {
+		int idle = core_idle[i]/10000;
+		printf("  %d%%", idle > 100 ? 100 : idle);
+	}
+	printf("\n");
 	return 0;
 }

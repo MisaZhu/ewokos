@@ -59,7 +59,6 @@ int main(int argc, char* argv[]) {
 				}
 				break;
 			}
-			sleep(0);
 		}
 	}
 	printf("\n");

@@ -11,11 +11,11 @@ int32_t schedule(context_t* ctx) {
 
 	uint32_t core = get_core_id();
 	proc_t* halt_proc = NULL;
-	if(_cpu_cores[core].halt_pid != 0) {
+	if(_cpu_cores[core].halt_proc != NULL) {
 		/*halt proc supposed to be suspended with WAIT status.
 			until there is no proc ready to run.
 		*/
-		halt_proc = proc_get(_cpu_cores[core].halt_pid);
+		halt_proc = _cpu_cores[core].halt_proc;
 		halt_proc->info.state = WAIT;
 		halt_proc->info.wait_for = 0;
 	}

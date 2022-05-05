@@ -12,11 +12,12 @@
 #include <kernel/schedule.h>
 #include <kernel/kevqueue.h>
 #include <dev/timer.h>
+#include <dev/mmio.h>
 #include <kprintf.h>
-#include <dev/dev.h>
 #include <dev/uart.h>
 #include <basic_math.h>
 #include <stddef.h>
+#include <kernel/kconsole.h>
 
 page_dir_entry_t* _kernel_vm = NULL;
 
@@ -123,11 +124,12 @@ void _kernel_entry_c(void) {
 
 	init_kernel_vm();  
 	kmalloc_init();
-	kev_init();
-
 	enable_vmmio_base();
-	dev_init();
 
+	kconsole_init();
+
+	kev_init();
+	uart_dev_init();
 	printf(
 			" ______           ______  _    _   ______  ______ \n"
 			"(  ___ \\|\\     /|(  __  )| \\  / \\ (  __  )(  ___ \\\n"
@@ -135,6 +137,7 @@ void _kernel_entry_c(void) {
 			"|  __)  | |( )| || |  | ||  _  (  | |  | |(____  )\n"
 			"| (___  | || || || |__| || ( \\  \\ | |__| |  ___) |\n"
 			"(______/(_______)(______)|_/  \\_/ (______)\\______)\n\n");
+
                                                       
 	printf("kernel: kmalloc initing  [ok] : %dMB\n", div_u32(KMALLOC_END-KMALLOC_BASE , 1*MB));
 	init_allocable_mem(); //init the rest allocable memory VM
@@ -156,29 +159,27 @@ void _kernel_entry_c(void) {
 	}
 
 	kfork_core_halt(0);
-
 #ifdef KERNEL_SMP
+	printf("kernel: wake up slave cores(SMP) ...\n");
 	_started_cores = 1;
 	kernel_lock_init();
 
-	uint32_t cores = get_cpu_cores();
-	for(uint32_t i=1; i<cores; i++) {
+	for(uint32_t i=1; i<_sys_info.cores; i++) {
 		kfork_core_halt(i);
 	}
 
-	printf("kernel: wake up slave cores(SMP) ...\n");
-	start_multi_cores(cores);
-	while(_started_cores < cores) {
+	start_multi_cores(_sys_info.cores);
+	while(_started_cores < _sys_info.cores) {
 		_delay_msec(10);
 	}
-	printf("  [all %d cores started].\n", cores);
+	printf("[all %d cores started].\n", _sys_info.cores);
 #endif
 
 	printf("kernel: set timer.\n");
 	timer_set_interval(0, 512); 
 
-	printf("kernel: enable irq.\n");
+	printf("kernel: enable irq and start init...\n");
+	kconsole_close();
 	__irq_enable();
-
 	halt();
 }

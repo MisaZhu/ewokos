@@ -6,35 +6,42 @@
 #include <vprintf.h>
 #include <upng/upng.h>
 #include <sys/basic_math.h>
+#include <sys/kernel_tic.h>
+#include <sys/klog.h>
 #include <x++/X.h>
 
 using namespace Ewok;
 
 class TestX : public XWin {
-	int count, imgX, imgY;
+	int count, fps, imgX, imgY;
 	int mode;
+	uint32_t tic;
 	graph_t* img_big;
 	graph_t* img_small;
-	font_t* font;
+	font_t* font_big;
+	font_t* font_small;
 
-	const int CIRCLE = 0;
-	const int RECT   = 1;
-	const int ROUND  = 2;
+	static const int CIRCLE = 0;
+	static const int RECT   = 1;
+	static const int ROUND  = 2;
 
-	void drawImage(Graph& g, graph_t* img) {
+	void drawImage(graph_t* g, graph_t* img) {
 		if(img == NULL)
 			return;
-		g.blt(img, 0, 0, img->w, img->h,
-				imgX, imgY, img->w, img->h, 0xff);
+		graph_blt_alpha(img, 0, 0, img->w, img->h,
+				g, imgX, imgY, img->w, img->h, 0xff);
 	}
 public:
 	inline TestX() {
+		tic = 0;
+		fps = 0;
 		count = 0;
 		mode = CIRCLE;
         imgX = imgY = 0;
 		img_big = png_image_new("/data/images/rokid.png");	
 		img_small = png_image_new("/data/images/rokid_small.png");	
-		font = font_by_name("8x16");
+		font_big = font_by_name("12x16");
+		font_small = font_by_name("8x16");
 	}
 	
 	inline ~TestX() {
@@ -53,11 +60,13 @@ protected:
 		}
 	}
 
-	void onRepaint(Graph& g) {
-		int gW = g.getW();
-		int gH = g.getH();
-		char str[32];
+	void onRepaint(graph_t* g) {
+		int gW = g->w;
+		int gH = g->h;
 		graph_t* img = gW > (img_big->w*2) ? img_big: img_small;
+		font_t* font = gW > (img_big->w*2) ? font_big: font_small;
+
+		count++;
 
 		int x = random_to(gW);
 		int y = random_to(gH);
@@ -65,39 +74,48 @@ protected:
 		int h = random_to(gH/4);
 		int c = random();
 
+		uint32_t low;
+		kernel_tic32(NULL, NULL, &low); 
+		if(tic == 0 || (low - tic) >= 3000000) //3 second
+			tic = low;
+
 		if(w > h*2)
 			w = h*2;
 
 		w = w < 32 ? 32 : w;
 		h = h < 32 ? 32 : h;
 
-		if((count++ % 100) == 0) {
+		if(tic == low) { //3 second
+			fps = count/3;
+			count = 0;
+
 			mode++;
 			if(mode > ROUND)
 				mode = 0;
 
-			g.fill(0, 0, gW, gH, 0xff000000);
+			graph_fill(g, 0, 0, gW, gH, 0xff000000);
 			imgX = random_to(gW - img->w);
 			imgY = random_to(gH - img->h - font->h);
 		}
 
 		if(mode == CIRCLE) {
-			g.fillCircle(x, y, h, c);
-			g.circle(x, y, h+10, c);
+			graph_fill_circle(g, x, y, h/2, c);
+			graph_circle(g, x, y, h/2+4, c);
 		}
 		else if(mode == ROUND) {
-			g.fillRound(x, y, w, h, 12, c);
-			g.round(x-4, y-4, w+8, h+8, 16, c);
+			graph_fill_round(g, x, y, w, h, 12, c);
+			graph_round(g, x-4, y-4, w+8, h+8, 16, c);
 		}
 		else if(mode == RECT) {
-			g.fill(x, y, w, h, c);
-			g.box(x-4, y-4, w+8, h+8, c);
+			graph_fill(g, x, y, w, h, c);
+			graph_box(g, x-4, y-4, w+8, h+8, c);
 		}
 
-		snprintf(str, 31, "EwokOS %d", count);
+		char str[32];
+		snprintf(str, 31, "EwokOS FPS: %d", fps);
 		get_text_size(str, font, (int32_t*)&w, NULL);
-		g.fill(imgX, imgY+img->h+2, img->w, font->h, 0xffffffff);
-		g.drawText(imgX+4, imgY+img->h+2, str, font, 0xff000000);
+		graph_fill(g, imgX, imgY+img->h+2, img->w, font->h+4, 0xffffffff);
+		graph_draw_text(g, imgX+4, imgY+img->h+4, str, font, 0xff000000);
 		drawImage(g, img);
 	}
 };
@@ -105,7 +123,7 @@ protected:
 static void loop(void* p) {
 	XWin* xwin = (XWin*)p;
 	xwin->repaint();
-	usleep(3000);
+	//usleep(30000);
 }
 
 int main(int argc, char* argv[]) {
@@ -118,7 +136,6 @@ int main(int argc, char* argv[]) {
 
 	TestX xwin;
 	x.open(&xwin, 60, 40, scr.size.w-120, scr.size.h-80, "gtest", X_STYLE_NORMAL);
-
 	xwin.setVisible(true);
 
 	x.run(loop, &xwin);

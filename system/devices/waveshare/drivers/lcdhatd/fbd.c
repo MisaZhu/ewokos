@@ -7,6 +7,9 @@
 #include <sys/shm.h>
 #include <sys/vdevice.h>
 #include <sys/vfs.h>
+#include <graph/graph.h>
+#include <fonts/fonts.h>
+#include <upng/upng.h>
 
 static uint32_t LCD_HEIGHT = 240;
 static uint32_t LCD_WIDTH = 240;
@@ -61,6 +64,16 @@ static int lcd_dev_cntl(int from_pid, int cmd, proto_t* in, proto_t* ret, void* 
 	return 0;
 }
 
+void draw_logo(graph_t* g);
+static void show_logo(void) {
+	graph_t* g = graph_new(NULL, LCD_WIDTH, LCD_HEIGHT);
+	if(g == NULL)
+		return;
+	draw_logo(g);
+	do_flush(g->buffer, LCD_WIDTH * LCD_HEIGHT * 4);
+	graph_free(g);
+}
+
 void lcd_init(uint32_t w, uint32_t h, uint32_t rot);
 int main(int argc, char** argv) {
 	uint32_t w=240, h=240, rot=0;
@@ -84,6 +97,8 @@ int main(int argc, char** argv) {
 	dma.data = shm_map(dma.shm_id);
 	if(dma.data == NULL)
 		return -1;
+	
+	show_logo();
 
 	vdevice_t dev;
 	memset(&dev, 0, sizeof(vdevice_t));

@@ -369,8 +369,10 @@ int device_run(vdevice_t* dev, const char* mnt_point, int mnt_type) {
 	
 	fsinfo_t mnt_point_info;
 	if(mnt_point != NULL) {
-		if(vfs_get(mnt_point, &mnt_point_info) != 0)
-			vfs_create(mnt_point, &mnt_point_info, mnt_type, true);
+		if(vfs_get(mnt_point, &mnt_point_info) != 0) {
+			if(vfs_create(mnt_point, &mnt_point_info, mnt_type, true, true) != 0)
+				return -1;
+		}
 
 		if(do_mount(dev, &mnt_point_info, mnt_type) != 0)
 			return -1;
@@ -384,10 +386,7 @@ int device_run(vdevice_t* dev, const char* mnt_point, int mnt_type) {
 
 	while(!dev->terminated) {
 		if(dev->loop_step != NULL) {
-			//ipc_lock();
 			dev->loop_step(dev->extra_data);
-			//ipc_unlock();
-			usleep(3000);
 		}
 		else {
 			proc_block(getpid(), (uint32_t)dev);

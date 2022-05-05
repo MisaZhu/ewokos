@@ -14,25 +14,21 @@ mkdirs:
 EXTRA_LIBS_DIR=libs
 EXTRA_LIBXX_DIR=libs/cxx
 extra_libs:
-	cd $(EXTRA_LIBS_DIR)/graph; make
-	cd $(EXTRA_LIBS_DIR)/fonts; make
-	cd $(EXTRA_LIBS_DIR)/fb; make
-	cd $(EXTRA_LIBS_DIR)/console; make
-	cd $(EXTRA_LIBS_DIR)/upng; make
 	cd $(EXTRA_LIBS_DIR)/sconf; make
 	cd $(EXTRA_LIBS_DIR)/tiny-json; make
 	cd $(EXTRA_LIBS_DIR)/x; make
 	cd $(EXTRA_LIBXX_DIR)/cxx; make
-	cd $(EXTRA_LIBXX_DIR)/graphxx; make
 	cd $(EXTRA_LIBXX_DIR)/x++; make
 
 EXTRA_BIN_DIR=bin
 extra_bin:
-	cd $(EXTRA_BIN_DIR)/fbtool;make
+	cd $(EXTRA_BIN_DIR)/screen;make
 
 X_DIR=x
 x_bin:
 	cd $(X_DIR)/bin/gtest;make
+	cd $(X_DIR)/bin/anim;make
+	cd $(X_DIR)/bin/png;make
 	cd $(X_DIR)/bin/launcher;make
 	cd $(X_DIR)/bin/xconsole;make
 
@@ -46,22 +42,14 @@ x_sbin:
 
 EXTRA_DRIVERS_DIR=drivers
 extra_driver:
-	cd $(EXTRA_DRIVERS_DIR)/consoled;make
 	cd $(EXTRA_DRIVERS_DIR)/xserverd;make
 
 clean:
-	cd $(EXTRA_LIBS_DIR)/graph; make clean
-	cd $(EXTRA_LIBS_DIR)/fb; make clean
-	cd $(EXTRA_LIBS_DIR)/console; make clean
-	cd $(EXTRA_LIBS_DIR)/fonts; make clean
 	cd $(EXTRA_LIBS_DIR)/x; make clean
-	cd $(EXTRA_LIBS_DIR)/upng; make clean
 	cd $(EXTRA_LIBS_DIR)/sconf; make clean
 	cd $(EXTRA_LIBS_DIR)/tiny-json; make clean
 	cd $(EXTRA_LIBXX_DIR)/cxx; make clean
-	cd $(EXTRA_LIBXX_DIR)/graphxx; make clean
 	cd $(EXTRA_LIBXX_DIR)/x++; make clean
-	cd $(EXTRA_DRIVERS_DIR)/consoled;make clean
 	cd $(EXTRA_DRIVERS_DIR)/xserverd;make clean
 	cd $(X_DIR)/sbin/xmouse;make clean
 	cd $(X_DIR)/sbin/xjoystick;make clean
@@ -70,6 +58,8 @@ clean:
 	cd $(X_DIR)/sbin/xim/vkey;make clean
 	cd $(X_DIR)/sbin/xwm/macos7;make clean
 	cd $(X_DIR)/bin/gtest;make clean
+	cd $(X_DIR)/bin/anim;make clean
+	cd $(X_DIR)/bin/png;make clean
 	cd $(X_DIR)/bin/launcher;make clean
 	cd $(X_DIR)/bin/xconsole;make clean
-	cd $(EXTRA_BIN_DIR)/fbtool;make clean
+	cd $(EXTRA_BIN_DIR)/screen;make clean

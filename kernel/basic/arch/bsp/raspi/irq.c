@@ -2,7 +2,7 @@
 #include <dev/uart.h>
 #include <kernel/kernel.h>
 #include <kernel/hw_info.h>
-#include <dev/dev.h>
+#include <dev/mmio.h>
 #include <kstring.h>
 #include "arch.h"
 

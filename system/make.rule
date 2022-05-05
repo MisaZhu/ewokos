@@ -5,29 +5,29 @@ LD = arm-none-eabi-ld
 OBJDUMP = arm-none-eabi-objdump
 
 CFLAGS = -Wstrict-prototypes \
-		 -marm \
-		 -pedantic -Wall -Wextra -msoft-float -fPIC -mapcs-frame \
-         -fno-builtin-printf \
-         -fno-builtin-stat \
-         -fno-builtin-memset \
-         -fno-builtin-calloc \
-         -fno-builtin-snprintf \
-         -fno-builtin-sprintf \
-         -fno-builtin-fprintf \
-		 -Wno-overlength-strings \
-         -fno-builtin-exit -fno-builtin-stdio \
-		 -std=c99 
+        -marm \
+         -Wall -Wextra -msoft-float -fPIC -mapcs-frame \
+        -fno-builtin-printf \
+        -fno-builtin-stat \
+        -fno-builtin-memset \
+        -fno-builtin-calloc \
+        -fno-builtin-snprintf \
+        -fno-builtin-sprintf \
+        -fno-builtin-fprintf \
+        -Wno-overlength-strings \
+        -fno-builtin-exit -fno-builtin-stdio \
+        -std=c99
 
 CXXFLAGS = -marm \
-		 -pedantic -Wall -Wextra -msoft-float -fPIC -mapcs-frame \
-         -fno-builtin-printf \
-         -fno-builtin-memset \
-         -fno-builtin-snprintf \
-         -fno-builtin-sprintf \
-         -fno-builtin-fprintf \
-		 -Wno-overlength-strings \
-         -fno-builtin-exit -fno-builtin-stdio \
-		 -fno-rtti -fno-exceptions
+        -pedantic -Wall -Wextra -msoft-float -fPIC -mapcs-frame \
+        -fno-builtin-printf \
+        -fno-builtin-memset \
+        -fno-builtin-snprintf \
+        -fno-builtin-sprintf \
+        -fno-builtin-fprintf \
+        -Wno-overlength-strings \
+        -fno-builtin-exit -fno-builtin-stdio \
+        -fno-rtti -fno-exceptions
 
 #CFLAGS +=  -g
 CFLAGS +=  -O2

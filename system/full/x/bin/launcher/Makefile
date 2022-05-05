@@ -15,7 +15,7 @@ $(LAUNCHER): $(LAUNCHER_OBJS) \
 		$(BUILD_DIR)/lib/libewokc.a \
 		$(BUILD_DIR)/lib/libx++.a \
 		$(BUILD_DIR)/lib/libcxx.a 
-	$(LD) -Ttext=100 $(LAUNCHER_OBJS) -o $(LAUNCHER) $(LDFLAGS)  -lgraphxx -lupng -lx++ -lsconf -lewokc -lc -lcxx
+	$(LD) -Ttext=100 $(LAUNCHER_OBJS) -o $(LAUNCHER) $(LDFLAGS)  -lgraph -lupng -lx++ -lsconf -lewokc -lc -lcxx
 
 clean:
 	rm -f $(LAUNCHER_OBJS)

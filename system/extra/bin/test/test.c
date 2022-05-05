@@ -4,12 +4,16 @@
 #include <string.h>
 #include <pthread.h>
 
+static pthread_mutex_t _lock;
+static uint32_t _v;
 
 void* do_thread(void* p) {
 	(void)p;
 	while(1) {
-		printf("child: %d\n", pthread_self());
-		sleep(1);
+		pthread_mutex_lock(&_lock);
+		_v++;
+		printf("c: v= %d\n", _v);
+		pthread_mutex_unlock(&_lock);
 	}
 	return NULL;
 }
@@ -17,11 +21,16 @@ void* do_thread(void* p) {
 int main(int argc, char* argv[]) {
 	(void)argc;
 	(void)argv;
+	_v = 0;
+
+	pthread_mutex_init(&_lock, NULL);
 
 	pthread_create(NULL, NULL, do_thread, NULL);
 	while(1) {
-		printf("parent: %d\n", getpid());
-		sleep(1);
+		pthread_mutex_lock(&_lock);
+		_v++;
+		printf("p: v= %d\n", _v);
+		pthread_mutex_unlock(&_lock);
 	}
 	return 0;
 }

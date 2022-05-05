@@ -1,8 +1,8 @@
-#ifndef GPIO_ARCH_H
-#define GPIO_ARCH_H
+#ifndef GPIO_ARCH_BCM283X_H
+#define GPIO_ARCH_BCM283X_H
 
 #include <stdint.h>
-#include <sys/mmu.h>
+#include <sys/mmio.h>
 
 #define GPIO_FSEL0         ((volatile uint32_t*)(_mmio_base+0x00200000))
 #define GPIO_FSEL1         ((volatile uint32_t*)(_mmio_base+0x00200004))

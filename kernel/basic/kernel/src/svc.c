@@ -21,7 +21,7 @@
 
 static void sys_kprint(const char* s, int32_t len) {
 	(void)len;
-	printf(s);
+	uart_out(s);
 }
 
 static void sys_exit(context_t* ctx, int32_t res) {
@@ -69,9 +69,9 @@ static int32_t sys_getpid(int32_t pid) {
 	return -1;
 }
 
-static int32_t sys_get_threadid(void) {
+static int32_t sys_get_thread_id(void) {
 	proc_t * cproc = get_current_proc();
-	if(cproc == NULL || cproc->info.type != PROC_TYPE_THREAD)
+	if(cproc == NULL)
 		return -1;
 	return cproc->info.pid; 
 }
@@ -130,25 +130,15 @@ static void sys_detach(void) {
 
 static void sys_thread(context_t* ctx, uint32_t entry, uint32_t func, int32_t arg) {
 	ctx->gpr[0] = -1;
-	//proc_t *cproc = get_current_proc();
 	proc_t *proc = kfork(ctx, PROC_TYPE_THREAD);
 	if(proc == NULL)
 		return;
 	ctx->gpr[0] = proc->info.pid;
 
-	/*uint32_t sp = proc->ctx.sp;
-	memcpy(&proc->ctx, ctx, sizeof(context_t));
-	proc->ctx.sp = sp;
-	*/
 	proc->ctx.pc = entry;
 	proc->ctx.lr = entry;
 	proc->ctx.gpr[0] = func;
 	proc->ctx.gpr[1] = arg;
-	/*if(cproc->info.core == proc->info.core)
-		proc_switch(ctx, proc, true);
-	else
-		schedule(ctx);
-		*/
 }
 
 static void sys_waitpid(context_t* ctx, int32_t pid) {
@@ -243,14 +233,38 @@ static uint32_t sys_mem_map(uint32_t vaddr, uint32_t paddr, uint32_t size) {
 
 static uint32_t sys_kpage_map(void) {
 	proc_t* cproc = get_current_proc();
-	if(cproc->space->kpage != 0)
-		return cproc->space->kpage;
+	uint32_t i;
+	for(i=0; i<PROC_KPAGE_MAX; i++) {
+		if(cproc->space->kpages[i] == 0)
+			break;
+	}
+	if(i >= PROC_KPAGE_MAX) {
+		printf("panic: proc kpage map failed, pid: %d!\n", cproc->info.pid);
+		return 0;
+	}
 
+	uint32_t no_cache = 1;
 	uint32_t page = (uint32_t)kalloc4k();
-	map_page(cproc->space->vm, page, V2P(page), AP_RW_RW, 0);
+	map_page(cproc->space->vm, page, V2P(page), AP_RW_RW, no_cache);
 	flush_tlb();
-	cproc->space->kpage = page;
+	cproc->space->kpages[i] = page;
 	return page;
+}
+
+static void sys_kpage_unmap(uint32_t page) {
+	proc_t* cproc = get_current_proc();
+	uint32_t i;
+	for(i=0; i<PROC_KPAGE_MAX; i++) {
+		if(cproc->space->kpages[i] == page) {
+			cproc->space->kpages[i] = 0;
+			break;
+		}
+	}
+	if(i >= PROC_KPAGE_MAX)
+		return;
+
+	unmap_page(cproc->space->vm, page);
+	flush_tlb();
 }
 
 static void sys_ipc_setup(context_t* ctx, uint32_t entry, uint32_t extra_data, uint32_t flags) {
@@ -408,7 +422,7 @@ static void sys_ipc_end(context_t* ctx) {
 }
 
 static int32_t sys_ipc_disable(void) {
-	proc_t* cproc = get_current_proc();
+	proc_t* cproc = proc_get_proc(get_current_proc());
 	ipc_task_t* ipc = proc_ipc_get_task(cproc);
 	if(ipc != NULL && ipc->state != IPC_IDLE)
 		return -1;
@@ -417,7 +431,7 @@ static int32_t sys_ipc_disable(void) {
 }
 
 static void sys_ipc_enable(void) {
-	proc_t* cproc = get_current_proc();
+	proc_t* cproc = proc_get_proc(get_current_proc());
 	if(!cproc->space->ipc_server.disabled)
 		return;
 
@@ -503,8 +517,14 @@ static int32_t sys_core_proc_pid(void) {
 }
 
 static uint32_t _svc_tic = 0;
-static int32_t sys_get_kernel_tic(void) {
-	return _svc_tic;
+static int32_t sys_get_kernel_tic(uint32_t* sec, uint32_t* hi, uint32_t* low) {
+	if(sec != NULL)
+		*sec = _kernel_sec;
+	if(hi != NULL) 
+		*hi = _kernel_usec >> 32;
+	if(low != NULL)
+		*low = _kernel_usec & 0xffffffff;
+	return 0;
 }
 
 static int32_t sys_interrupt_setup(uint32_t interrupt, uint32_t entry) {
@@ -516,6 +536,20 @@ static int32_t sys_interrupt_setup(uint32_t interrupt, uint32_t entry) {
 
 static void sys_interrupt_end(context_t* ctx) {
 	interrupt_end(ctx);
+}
+
+static inline void sys_safe_set(context_t* ctx, int32_t* to, int32_t v) {
+	ctx->gpr[0] = -1;
+	proc_t* proc = proc_get_proc(get_current_proc());
+	if(*to != 0 && v != 0) {
+		proc_block_on(proc->info.pid, (uint32_t)to);
+		schedule(ctx);
+		return;
+	}
+
+	*to = v;
+	ctx->gpr[0] = 0;
+	proc_wakeup(proc->info.pid, (uint32_t)to);
 }
 
 static inline void _svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_t arg2, context_t* ctx) {
@@ -547,7 +581,7 @@ static inline void _svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_
 		ctx->gpr[0] = sys_getpid(arg0);
 		return;
 	case SYS_GET_THREAD_ID:
-		ctx->gpr[0] = sys_get_threadid();
+		ctx->gpr[0] = sys_get_thread_id();
 		return;
 	case SYS_USLEEP:
 		sys_usleep(ctx, (uint32_t)arg0);
@@ -586,7 +620,7 @@ static inline void _svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_
 		sys_get_sys_state((sys_state_t*)arg0);
 		return;
 	case SYS_GET_KERNEL_TIC:
-		ctx->gpr[0] = sys_get_kernel_tic();
+		ctx->gpr[0] = sys_get_kernel_tic((uint32_t*)arg0, (uint32_t*)arg1, (uint32_t*)arg2);
 		return;
 	case SYS_GET_PROCS: 
 		ctx->gpr[0] = (int32_t)get_procs((int32_t*)arg0);
@@ -614,6 +648,9 @@ static inline void _svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_
 		return;
 	case SYS_KPAGE_MAP:
 		ctx->gpr[0] = sys_kpage_map();
+		return;
+	case SYS_KPAGE_UNMAP:
+		sys_kpage_unmap((uint32_t)arg0);
 		return;
 	case SYS_IPC_SETUP:
 		sys_ipc_setup(ctx, arg0, arg1, arg2);
@@ -665,6 +702,9 @@ static inline void _svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_
 		return;
 	case SYS_INTR_END:
 		sys_interrupt_end(ctx);
+		return;
+	case SYS_SAFE_SET:
+		sys_safe_set(ctx, (int32_t*)arg0, arg1);
 		return;
 	}
 }

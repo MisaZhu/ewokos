@@ -383,16 +383,21 @@ void* vfs_readfile(const char* fname, int* rsz) {
 	return buf;
 }
 
-int vfs_create(const char* fname, fsinfo_t* ret, int type, bool vfs_node_only) {
+int vfs_create(const char* fname, fsinfo_t* ret, int type, bool vfs_node_only, bool autodir) {
 	str_t *dir = str_new("");
 	str_t *name = str_new("");
 	vfs_parse_name(fname, dir, name);
 
 	fsinfo_t info_to;
 	if(vfs_get(CS(dir), &info_to) != 0) {
-		str_free(dir);
-		str_free(name);
-		return -1;
+		int res_dir = -1;
+		if(autodir)
+			res_dir = vfs_create(CS(dir), &info_to, FS_TYPE_DIR, false, autodir);
+		if(res_dir != 0) {
+			str_free(dir);
+			str_free(name);
+			return -1;
+		}
 	}
 	
 	/*mount_t mount;
@@ -661,6 +666,10 @@ int vfs_read(int fd, fsinfo_t *info, void* buf, uint32_t size) {
 		}
 		if(res == ERR_RETRY) {
 			errno = EAGAIN;
+			res = -1;
+		}
+		else if(res == ERR_RETRY_NON_BLOCK) {
+			errno = EAGAIN_NON_BLOCK;
 			res = -1;
 		}
 	}

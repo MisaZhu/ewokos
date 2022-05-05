@@ -6,6 +6,10 @@
 #include <sys/syscall.h>
 #include <sys/vdevice.h>
 #include <sys/shm.h>
+#include <graph/graph.h>
+#include <fonts/fonts.h>
+#include <upng/upng.h>
+#include <fb/fb.h>
 #include <arch/bcm283x/framebuffer.h>
 
 typedef struct {
@@ -29,7 +33,7 @@ static int fb_fcntl(int fd,
 	(void)info;
 	(void)in;
 	(void)p;
-	if(cmd == 0) { //get fb size
+	if(cmd == FB_CNTL_GET_INFO) { //get fb size
 		PF->addi(out, _fbinfo->width)->addi(out, _fbinfo->height)->addi(out, _fbinfo->depth);
 	}
 	return 0;
@@ -58,7 +62,7 @@ static int fb_dev_cntl(int from_pid, int cmd, proto_t* in, proto_t* ret, void* p
 	(void)ret;
 	(void)p;
 
-	if(cmd == 0) { //set fb size and bpp
+	if(cmd == FB_DEV_CNTL_SET_INFO) { //set fb size and bpp
 		int w = proto_read_int(in);
 		int h = proto_read_int(in);
 		int bpp = proto_read_int(in);
@@ -66,46 +70,31 @@ static int fb_dev_cntl(int from_pid, int cmd, proto_t* in, proto_t* ret, void* p
 			return -1;
 		_fbinfo = bcm283x_get_fbinfo();
 	}
-	else {
+	else if(cmd == FB_DEV_CNTL_GET_INFO) {
 		PF->addi(ret, _fbinfo->width)->addi(ret, _fbinfo->height)->addi(ret, _fbinfo->depth);
 	}	
 	return 0;
 }
 
-static inline void dup16(uint16_t* dst, uint32_t* src, uint32_t w, uint32_t h) {
-  register int32_t i, size;
-  size = w * h;
-  for(i=0; i < size; i++) {
-    register uint32_t s = src[i];
-    register uint8_t r = (s >> 16) & 0xff;
-    register uint8_t g = (s >> 8)  & 0xff;
-    register uint8_t b = s & 0xff;
-    dst[i] = ((r >> 3) <<11) | ((g >> 3) << 6) | (b >> 3);
-  }
+static uint32_t flush_buf(const void* buf, uint32_t size) {
+	uint32_t sz = 4 * _fbinfo->width * _fbinfo->height;
+	if(size < sz || _fbinfo->depth != 32)
+		return -1;
+	memcpy((void*)_fbinfo->pointer, buf, sz);
+	return size;
 }
 
 static int32_t do_flush(fb_dma_t* dma) {
 	const void* buf = dma->data;
 	uint32_t size = dma->size;
-  uint32_t sz = 4 * _fbinfo->width * _fbinfo->height;
-  if(size < sz) {
-		return -1;
-	}
-
-  if(_fbinfo->depth == 32)
-    memcpy((void*)_fbinfo->pointer, buf, sz);
-  else if(_fbinfo->depth == 16)
-    dup16((uint16_t*)_fbinfo->pointer, (uint32_t*)buf,  _fbinfo->width, _fbinfo->height);
-	else 
-		size = 0;
-  return (int32_t)size;
+	return (int32_t)flush_buf(buf, size);
 }
 
 /*return
 0: error;
 -1: resized;
 >0: size flushed*/
-static int fb_flush(int fd, int from_pid, fsinfo_t* info, void* p) {
+static int do_fb_flush(int fd, int from_pid, fsinfo_t* info, void* p) {
 	(void)fd;
 	(void)from_pid;
 	(void)info;
@@ -123,6 +112,16 @@ static int fb_dma(int fd, int from_pid, fsinfo_t* info, int* size, void* p) {
 	fb_dma_t* dma = (fb_dma_t*)p;
 	*size = dma->size;
 	return dma->shm_id;
+}
+
+void draw_logo(graph_t* g);
+static void show_logo(void) {
+	graph_t* g = graph_new(NULL, _fbinfo->width, _fbinfo->height);
+	if(g == NULL)
+		return;
+	draw_logo(g);
+	flush_buf(g->buffer, g->w * g->h * 4);
+	graph_free(g);
 }
 
 int main(int argc, char** argv) {
@@ -143,12 +142,13 @@ int main(int argc, char** argv) {
 	if(fb_dma_init(&dma) != 0) {
 		return -1;
 	}
+	show_logo();
 
 	vdevice_t dev;
 	memset(&dev, 0, sizeof(vdevice_t));
 	strcpy(dev.name, "framebuffer");
 	dev.dma = fb_dma;
-	dev.flush = fb_flush;
+	dev.flush = do_fb_flush;
 	dev.fcntl = fb_fcntl;
 	dev.dev_cntl = fb_dev_cntl;
 

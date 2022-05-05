@@ -3,6 +3,7 @@
 #include "dev/uart.h"
 #include "kstring.h"
 #include "kernel/system.h"
+#include "kernel/kconsole.h"
 #include <stddef.h>
 
 void uart_out(const char* s) {
@@ -27,5 +28,6 @@ void printf(const char *format, ...) {
 	_len = 0;
 	v_printf(outc, NULL, format, ap);
 	uart_out(_buf);
+	kconsole_input(_buf);
 }
 
