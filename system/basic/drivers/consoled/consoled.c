@@ -11,6 +11,8 @@
 #include <sys/vdevice.h>
 #include <screen/screen.h>
 #include <upng/upng.h>
+#include <sys/syscall.h>
+#include <sysinfo.h>
 
 typedef struct {
 	const char* id;
@@ -53,13 +55,17 @@ static int reset_console(fb_console_t* console) {
 static void flush(fb_console_t* console) {
 	console_refresh(&console->console, console->g);
 	if(console->icon != NULL) {
-		graph_blt_alpha(console->icon, 
-				0, 0, console->icon->w, console->icon->w,
-				console->g,
-				console->g->w - console->icon->w,
-				console->g->h - console->icon->h,
-				console->icon->w, console->icon->h, 
-				0xff);
+		sys_info_t sys_info;
+		syscall1(SYS_GET_SYS_INFO, (int32_t)&sys_info);
+		for(int i=0; i<sys_info.cores; i++) {
+			graph_blt_alpha(console->icon, 
+					0, 0, console->icon->w, console->icon->w,
+					console->g,
+					console->g->w - console->icon->w * (i+1),
+					console->g->h - console->icon->h,
+					console->icon->w, console->icon->h, 
+					0xff);
+		}	
 	}
 	fb_flush(&console->fb);
 }
