@@ -178,7 +178,7 @@ void _kernel_entry_c(void) {
 	printf("kernel: set timer.\n");
 	timer_set_interval(0, 512); 
 
-	printf("kernel: enable irq.\n");
+	printf("kernel: enable irq and start init...\n");
 	kconsole_close();
 	__irq_enable();
 	halt();
