@@ -51,7 +51,7 @@ static int usb_step(void* p) {
 	struct TouchEvent event;
 	int ret = TouchGetEvent(&event);
 	if(ret == 0){
-		printf("e:%d x:%d y:%d\n", event.event, event.x, event.y);
+		//printf("e:%d x:%d y:%d\n", event.event, event.x, event.y);
         _buf[0] = event.event;
         _buf[1] = event.x;
         _buf[2] = event.y; 
