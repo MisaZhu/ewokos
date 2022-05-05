@@ -10,3 +10,8 @@ int32_t get_text_size(const char* s, font_t* font, int32_t* w, int32_t* h) {
 		*h = font->h;
 	return 0;
 }
+
+extern font_t font_8x16;
+font_t* get_font(void) {
+	return &font_8x16;
+}

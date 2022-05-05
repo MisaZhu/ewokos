@@ -16,8 +16,8 @@ typedef struct {
 	font_t* font;
 } font_item_t;
 
-font_t font_8x16;
 
 int32_t get_text_size(const char* s, font_t* font, int32_t *w, int32_t* h);
+font_t* get_font(void);
 
 #endif

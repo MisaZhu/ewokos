@@ -21,7 +21,7 @@
 
 static void sys_kprint(const char* s, int32_t len) {
 	(void)len;
-	printf(s);
+	uart_out(s);
 }
 
 static void sys_exit(context_t* ctx, int32_t res) {
