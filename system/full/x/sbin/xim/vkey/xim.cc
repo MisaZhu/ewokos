@@ -15,6 +15,8 @@ class XIMX : public XWin {
  	int xPid;
 	const char* keytable;
 	font_t* font;
+	gsize_t scrSize;
+	bool hideMode;
 
 	int col, row, keyw, keyh, keySelect;
 protected:
@@ -25,6 +27,19 @@ protected:
 		if(at >= (int)strlen(keytable))
 			return -1;
 		return at;
+	}
+
+	void changeMode(bool hide) {
+		hideMode = hide;
+		if(hideMode) {
+			int w = 42
+			resizeTo(w, w);
+			moveTo(scrSize.w - w, scrSize.h - w);
+		}
+		else {
+			resizeTo(scrSize.w, scrSize.h/2);
+			moveTo(0, scrSize.h/2);
+		}
 	}
 
 	void onEvent(xevent_t* ev) {
@@ -50,7 +65,16 @@ protected:
 			}
 			else if(ev->state == XEVT_MOUSE_UP) {
 				keySelect = -1;
+				if(hideMode) {
+					changeMode(false);
+					return;
+				}
+
 				char c = keytable[at];
+				if(c == '\1') {
+					changeMode(true);
+					return;
+				}
 				if(c == '\b')
 					c = KEY_BACKSPACE;
 				input(c);
@@ -60,11 +84,19 @@ protected:
 	}
 
 	void onRepaint(graph_t* g) {
-		keyh = g->h / row;
-		keyw = div_u32(g->w, col);
-		graph_fill(g, 0, 0, g->w, g->w, 0xffaaaaaa);
-		keyw = div_u32(g->w, col);
+		if(hideMode) {
+			graph_clear(g, 0xffaaaaaa);
+			graph_draw_text(g,  2, 
+					(g->h - font->h)/2,
+					"^^", font, 0xff000000);
+			graph_box(g, 0, 0, g->w, g->h, 0xffdddddd);
+			return;
+		}
 
+		keyh = g->h / row;
+		keyw = g->w / col;
+
+		graph_fill(g, 0, 0, g->w, g->w, 0xffaaaaaa);
 		for(int j=0; j<row; j++) {
 			for(int i=0; i<col; i++) {
 				int at = i+j*col;
@@ -87,11 +119,15 @@ protected:
 					graph_draw_text(g, i*keyw + 2, 
 							j*keyh + (keyh - font->h)/2,
 							"<-", font, 0xff000000);
-				else {
+				else if(c == '\1')
+					graph_draw_text(g, i*keyw + 2, 
+							j*keyh + (keyh - font->h)/2,
+							"VV", font, 0xff000000);
+				else 
 					graph_draw_char(g, i*keyw + (keyw - font->w)/2,
 							j*keyh + (keyh - font->h)/2,
 							c, font, 0xff000000);
-				}
+
 				graph_box(g, i*keyw, j*keyh, keyw, keyh, 0xffdddddd);
 			}
 		}
@@ -109,19 +145,22 @@ protected:
 	}
 
 public:
-	inline XIMX() {
+	inline XIMX(int fw, int fh) {
+		scrSize.w = fw;
+		scrSize.h = fh;
 		font = font_by_name("9x16");
 		keytable = ""
 			"`~1234567890-+%@\b"
 			"'\"qwertyuiop{}[]\n"
 			"*_|asdfghjkl()=/\\"
-			"#$^zxcvbnm  <>.,&";
+			"#$^zxcvbnm &<>.,\1";
 		col = 17;
 		row = 4;
 		keyh = font->h + 12;
 		keyw = font->w*2 + 12;
 		xPid = dev_get_pid("/dev/x");
 		keySelect = -1;
+		hideMode = false;
 	}
 
 	inline ~XIMX() {
@@ -144,7 +183,7 @@ int main(int argc, char* argv[]) {
 	xscreen_t scr;
 	x.screenInfo(scr);
 
-	XIMX xwin;
+	XIMX xwin(scr.size.w, scr.size.h);
 	//x.open(&xwin, scr.size.w - xwin.getFixW(), scr.size.h-xwin.getFixH(), xwin.getFixW(), xwin.getFixH(), "xim",
 	//x.open(&xwin, 0, scr.size.h-xwin.getFixH(), scr.size.w, xwin.getFixH(), "xim",
 	x.open(&xwin, 0, scr.size.h/2, scr.size.w, scr.size.h/2, "xim",

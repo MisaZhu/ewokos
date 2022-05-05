@@ -53,6 +53,10 @@ public:
 	bool updateInfo(const xinfo_t& xinfo);
 	bool getInfo(xinfo_t& xinfo);
 	void repaint(void);
+	void resizeTo(int w, int h);
+	void resize(int dw, int dh);
+	void moveTo(int x, int y);
+	void move(int dx, int dy);
 };
 
 }
