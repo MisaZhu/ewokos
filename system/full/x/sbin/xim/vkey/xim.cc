@@ -32,7 +32,7 @@ protected:
 	void changeMode(bool hide) {
 		hideMode = hide;
 		if(hideMode) {
-			int w = 42
+			int w = 42;
 			resizeTo(w, w);
 			moveTo(scrSize.w - w, scrSize.h - w);
 		}
