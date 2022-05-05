@@ -2,6 +2,7 @@
 #include <bcm283x/mailbox.h>
 #include <bcm283x/framebuffer.h>
 #include <mm/mmu.h>
+#include <mm/kalloc.h>
 #include <kernel/kernel.h>
 #include <kernel/hw_info.h>
 #include <kernel/system.h>
