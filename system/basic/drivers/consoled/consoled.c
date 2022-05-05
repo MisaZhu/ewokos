@@ -13,6 +13,7 @@
 #include <upng/upng.h>
 #include <sys/syscall.h>
 #include <sysinfo.h>
+#include <sconf/sconf.h>
 
 typedef struct {
 	const char* id;
@@ -23,6 +24,41 @@ typedef struct {
 	graph_t* icon;
 } fb_console_t;
 
+static int32_t read_config(fb_console_t* console, const char* fname) {
+	console->console.font = font_by_name("8x16");
+	console->console.fg_color = 0xffcccccc;
+	console->console.bg_color = 0xff000000;
+	const char* icon_fn = "/data/icons/starwars/yoda.png";
+
+	sconf_t *conf = sconf_load(fname);	
+	if(conf == NULL) {
+		console->icon = png_image_new(icon_fn);
+		return -1;
+	}
+
+	const char* v = sconf_get(conf, "font");
+	if(v[0] != 0) 
+		console->console.font = font_by_name(v);
+
+	v = sconf_get(conf, "icon");
+	klog("[%s]\n", v);
+	if(v[0] != 0) 
+		console->icon = png_image_new(v);
+	else
+		console->icon = png_image_new(icon_fn);
+
+	v = sconf_get(conf, "bg_color");
+	if(v[0] != 0) 
+		console->console.bg_color = atoi_base(v, 16);
+
+	v = sconf_get(conf, "fg_color");
+	if(v[0] != 0) 
+		console->console.fg_color = atoi_base(v, 16);
+
+	sconf_free(conf);
+	return 0;
+}
+
 static int init_console(fb_console_t* console, const char* scr_dev) {
 	memset(console, 0, sizeof(fb_console_t));
 	console->scr_dev = scr_dev;
@@ -31,10 +67,7 @@ static int init_console(fb_console_t* console, const char* scr_dev) {
 		return -1;
 
 	console_init(&console->console);
-	console->console.font = font_by_name("8x16");
-	console->console.fg_color = 0xffcccccc;
-	console->console.bg_color = 0xff000000;
-	console->icon = png_image_new("/data/icons/starwars/yoda.png");
+	read_config(console, "/etc/console.conf");
 	return 0;
 }
 

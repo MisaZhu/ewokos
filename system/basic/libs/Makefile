@@ -3,6 +3,7 @@ all: basic_libs
 
 basic_libs:
 	cd libc;make
+	cd sconf; make
 	cd hash;make
 	cd ext2;make
 	cd arch_vpb;make
@@ -17,6 +18,7 @@ basic_libs:
 
 clean:
 	cd libc;make clean
+	cd sconf; make clean
 	cd hash;make clean
 	cd ext2;make clean
 	cd arch_vpb;make clean

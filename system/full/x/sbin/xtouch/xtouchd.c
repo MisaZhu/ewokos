@@ -4,7 +4,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <sys/vdevice.h>
-#include <sconf.h>
+#include <sconf/sconf.h>
 #include <sys/proto.h>
 #include <x/xcntl.h>
 #include <x/xevent.h>

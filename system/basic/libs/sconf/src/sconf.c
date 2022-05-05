@@ -1,4 +1,4 @@
-#include <sconf.h>
+#include <sconf/sconf.h>
 #include <sys/vfs.h>
 #include <stdlib.h>
 #include <fcntl.h>
@@ -153,6 +153,7 @@ sconf_t* sconf_load(const char* fname) {
 	char* str = vfs_readfile(fname, &size);
 	if(str == NULL || size == 0)
 		return NULL;
+	str[size] = 0;
 	sconf_t* ret = sconf_parse(str);
 	free(str);
 	return ret;

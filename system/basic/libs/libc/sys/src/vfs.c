@@ -353,7 +353,7 @@ void* vfs_readfile(const char* fname, int* rsz) {
 	fsinfo_t info;
 	if(vfs_get(fname, &info) != 0 || info.size <= 0)
 		return NULL;
-	void* buf = malloc(info.size);
+	void* buf = malloc(info.size+1); //one more char for string end.
 	if(buf == NULL)
 		return NULL;
 
