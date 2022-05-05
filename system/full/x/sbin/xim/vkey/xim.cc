@@ -60,6 +60,7 @@ protected:
 	}
 
 	void onRepaint(graph_t* g) {
+		keyh = g->h / row;
 		keyw = div_u32(g->w, col);
 		graph_fill(g, 0, 0, g->w, g->w, 0xffaaaaaa);
 		keyw = div_u32(g->w, col);
@@ -145,7 +146,8 @@ int main(int argc, char* argv[]) {
 
 	XIMX xwin;
 	//x.open(&xwin, scr.size.w - xwin.getFixW(), scr.size.h-xwin.getFixH(), xwin.getFixW(), xwin.getFixH(), "xim",
-	x.open(&xwin, 0, scr.size.h-xwin.getFixH(), scr.size.w, xwin.getFixH(), "xim",
+	//x.open(&xwin, 0, scr.size.h-xwin.getFixH(), scr.size.w, xwin.getFixH(), "xim",
+	x.open(&xwin, 0, scr.size.h/2, scr.size.w, scr.size.h/2, "xim",
 			X_STYLE_NO_FRAME | X_STYLE_NO_FOCUS | X_STYLE_SYSTOP | X_STYLE_XIM);
 	x.run(NULL, &xwin);
 	return 0;
