@@ -67,9 +67,8 @@ int32_t __attribute__((optimize("O0"))) bcm283x_fb_init(uint32_t w, uint32_t h, 
 	map_pages(_kernel_vm, 
 		_fb_info.pointer,
 		V2P(_fb_info.pointer),
-		//V2P(_fb_info.pointer) + _fb_info.size_max,
-		V2P(_fb_info.pointer) + w*h*4,
-		AP_RW_D, 1);
+		V2P(_fb_info.pointer) + _fb_info.size_max,
+		AP_RW_D, 0);
 	flush_tlb();
 	return 0;
 }
