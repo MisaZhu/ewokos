@@ -123,10 +123,15 @@ int main(int argc, char** argv) {
 		usleep(100000);
 	}
 
+	uint16_t prev_ev = 0;
 	while(true) {
 		int8_t buf[6];
 		if(read(fd, buf, 6) == 6) {
 			uint16_t* mv = (uint16_t*)buf;
+			if(mv[0] == 0 && prev_ev == 0)
+				continue;
+			prev_ev = mv[0];
+
 			uint16_t xraw = mv[1];
 			uint16_t yraw = mv[2];
 			if(_xtouch.xy_switch) {

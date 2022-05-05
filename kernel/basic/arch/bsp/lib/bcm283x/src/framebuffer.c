@@ -25,7 +25,7 @@ typedef struct {
 static __attribute__((__aligned__(PAGE_SIZE))) fb_init_t _fbinit;
 static fbinfo_t _fb_info;
 
-int32_t bcm283x_fb_init(uint32_t w, uint32_t h, uint32_t dep) {
+int32_t __attribute__((optimize("O0"))) bcm283x_fb_init(uint32_t w, uint32_t h, uint32_t dep) {
 	fb_init_t* fbinit = &_fbinit;
 	//fb_init_t* fbinit = (fb_init_t*)kalloc4k();
 	memset(&_fb_info, 0, sizeof(fbinfo_t));
