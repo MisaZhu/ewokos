@@ -3,6 +3,10 @@
 #include <mm/mmu.h>
 #include <kstring.h>
 
+#ifdef KERNEL_SMP
+#include <kernel/core.h>
+#endif
+
 sys_info_t _sys_info;
 uint32_t _allocatable_mem_top = 0;
 uint32_t _allocatable_mem_base = 0;
