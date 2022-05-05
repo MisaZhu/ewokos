@@ -10,6 +10,7 @@
 #include <sys/shm.h>
 #include <sys/vdevice.h>
 #include <screen/screen.h>
+#include <upng/upng.h>
 
 typedef struct {
 	const char* id;
@@ -17,6 +18,7 @@ typedef struct {
 	fb_t fb;
 	graph_t* g;
 	console_t console;
+	graph_t* icon;
 } fb_console_t;
 
 static int init_console(fb_console_t* console, const char* scr_dev) {
@@ -30,11 +32,14 @@ static int init_console(fb_console_t* console, const char* scr_dev) {
 	console->console.font = font_by_name("8x16");
 	console->console.fg_color = 0xffcccccc;
 	console->console.bg_color = 0xff000000;
+	console->icon = png_image_new("/data/icons/starwars/yoda.png");
 	return 0;
 }
 
 static void close_console(fb_console_t* console) {
 	fb_close(&console->fb);
+	if(console->icon != NULL)
+		graph_free(console->icon);
 }
 
 static int reset_console(fb_console_t* console) {
@@ -43,6 +48,20 @@ static int reset_console(fb_console_t* console) {
 		return -1;
 	console_reset(&console->console, console->g->w, console->g->h);
 	return 0;
+}
+
+static void flush(fb_console_t* console) {
+	console_refresh(&console->console, console->g);
+	if(console->icon != NULL) {
+		graph_blt_alpha(console->icon, 
+				0, 0, console->icon->w, console->icon->w,
+				console->g,
+				console->g->w - console->icon->w,
+				console->g->h - console->icon->h,
+				console->icon->w, console->icon->h, 
+				0xff);
+	}
+	fb_flush(&console->fb);
 }
 
 static int console_write(int fd, 
@@ -61,14 +80,13 @@ static int console_write(int fd,
 	if(size <= 0 || console->g == NULL || !is_scr_top(console->scr_dev))
 		return 0;
 
-	console_refresh(&console->console, console->g);
 	const char* pb = (const char*)buf;
 	int i;
 	for(i=0; i<size; i++) {
 		char c = pb[i];
 		console_put_char(&console->console, c);
 	}
-	fb_flush(&console->fb);
+	flush(console);
 	return size;
 }
 
@@ -79,8 +97,7 @@ static int console_dev_cntl(int from_pid, int cmd, proto_t* in, proto_t* ret, vo
 	fb_console_t* console = (fb_console_t*)p;
 
 	if(cmd == DEV_CNTL_REFRESH) {
-		console_refresh(&console->console, console->g);
-		fb_flush(&console->fb);
+		flush(console);
 	}
 	return 0;
 }

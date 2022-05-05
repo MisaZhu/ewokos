@@ -111,13 +111,11 @@ static int fb_dma(int fd, int from_pid, fsinfo_t* info, int* size, void* p) {
 	return dma->shm_id;
 }
 
-void draw_logo(graph_t* g);
-static void show_logo(void) {
-	graph_t* g = graph_new(NULL, _fbinfo->width, _fbinfo->height);
+static void clear(void) {
+	graph_t* g = graph_new((uint32_t*)_fbinfo->pointer, _fbinfo->width, _fbinfo->height);
 	if(g == NULL)
 		return;
-	draw_logo(g);
-	flush_buf(g->buffer, g->w * g->h * 4);
+	graph_clear(g, 0xff000000);
 	graph_free(g);
 }
 
@@ -139,7 +137,7 @@ int main(int argc, char** argv) {
 	if(fb_dma_init(&dma) != 0) {
 		return -1;
 	}
-	show_logo();
+	clear();
 
 	vdevice_t dev;
 	memset(&dev, 0, sizeof(vdevice_t));

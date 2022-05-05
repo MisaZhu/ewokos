@@ -16,8 +16,9 @@ $(CONSOLED): $(CONSOLED_OBJS) \
 		$(BUILD_DIR)/lib/libfb.a \
 		$(BUILD_DIR)/lib/libconsole.a \
 		$(BUILD_DIR)/lib/libgraph.a \
+		$(BUILD_DIR)/lib/libupng.a \
 		$(BUILD_DIR)/lib/libfonts.a 
-	$(LD) -Ttext=100 $(CONSOLED_OBJS) -o $(CONSOLED) $(LDFLAGS) -lfonts -lfb -lscreen -lconsole -lgraph -lewokc -lc
+	$(LD) -Ttext=100 $(CONSOLED_OBJS) -o $(CONSOLED) $(LDFLAGS) -lfonts -lfb -lscreen -lconsole -lgraph -lupng -lewokc -lc
 
 clean:
 	rm -f $(CONSOLED_OBJS)
