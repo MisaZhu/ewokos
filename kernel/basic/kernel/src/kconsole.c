@@ -1,24 +1,23 @@
 #include <dev/fb.h>
 #include <basic_math.h>
 #include <stddef.h>
-#include <graph/graph.h>
 #include <console/console.h>
 
-static graph_t* _fb_g = NULL;
+graph_t* _fb_g = NULL;
 static console_t _console;
+static uint32_t _line;
 
 void kconsole_init(void) {
 	_fb_g = NULL;
 	fbinfo_t fbinfo;
+	_line = 0;
 
 	console_init(&_console);
 	if(fb_init(640, 480, &fbinfo) == 0) {
 		_fb_g = graph_new((uint32_t*)fbinfo.pointer, fbinfo.width, fbinfo.height);
-		graph_clear(_fb_g, 0xff000000);
-
 		_console.font = &font_8x16;
-		_console.fg_color = 0xffcccccc;
-		_console.bg_color = 0xff000000;
+		_console.fg_color = 0xff000000;
+		_console.bg_color = 0xff888888;
 		console_reset(&_console, _fb_g->w, _fb_g->h);
 	}
 }

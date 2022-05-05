@@ -160,6 +160,7 @@ void _kernel_entry_c(void) {
 
 	kfork_core_halt(0);
 #ifdef KERNEL_SMP
+	printf("kernel: wake up slave cores(SMP) ...\n");
 	_started_cores = 1;
 	kernel_lock_init();
 
@@ -167,7 +168,6 @@ void _kernel_entry_c(void) {
 		kfork_core_halt(i);
 	}
 
-	printf("kernel: wake up slave cores(SMP) ...\n");
 	start_multi_cores(_sys_info.cores);
 	while(_started_cores < _sys_info.cores) {
 		_delay_msec(10);
