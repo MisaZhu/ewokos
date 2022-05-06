@@ -1,3 +1,4 @@
+!/drivers/xserverd             /dev/x
 /bin/session
 
 /sbin/x/xmoused /dev/mouse0

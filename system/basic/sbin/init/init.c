@@ -195,7 +195,10 @@ static void run_procs(void) {
 			break;
 		if(ln[0] == 0 || ln[0] == '#')
 			continue;
-		run(ln, false, false);
+		if(ln[0] == '!') //need wait for ready
+			run(ln+1, false, true);
+		else
+			run(ln, false, false);
 	}
 	close(fd);
 }
