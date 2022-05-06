@@ -14,6 +14,6 @@ $
 !/drivers/xserverd             /dev/x
 
 /bin/session
-/sbin/x/xjoystickd /dev/joystick revx
+/sbin/x/xjoystickd /dev/joystick
 /sbin/x/xim_vkey
 /bin/x/launcher
