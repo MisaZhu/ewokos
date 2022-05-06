@@ -120,6 +120,7 @@ static const char* read_line(int fd) {
 }
 
 static int load_devs(const char* cfg) {
+	out("\nload  => [%s]\n", cfg);
 	int fd = open(cfg, O_RDONLY);
 	if(fd < 0)
 		return -1;
@@ -144,47 +145,30 @@ static void load_arch_devs(void) {
 	load_devs(fn);
 }
 
-static void load_extra_devs(void) {
-	const char* dirn = "/etc/dev/extra";
-	DIR* dirp = opendir(dirn);
-	if(dirp == NULL)
-		return;
-
-	while(1) {
-		struct dirent* it = readdir(dirp);
-		if(it == NULL)
-			break;
-		char fn[FS_FULL_NAME_MAX];
-		snprintf(fn, FS_FULL_NAME_MAX-1, "%s/%s", dirn, it->d_name);
-		load_devs(fn);
-	}
-	closedir(dirp);
-}
-
-static void load_screen(void) {
-	if(load_devs("/etc/dev/screen.dev") != 0)
-		return;
-
+static void init_tty_stdio(void) {
+	int fd = open("/dev/tty0", 0);
 	fd_console = open("/dev/console0", 0);
-	if(fd_console < 0)
-		return;
 
-	const char* s = ""
-			"+-----Ewok micro-kernel OS-----------------------+\n"
-			"| https://github.com/MisaZhu/EwokOS.git          |\n"
-			"+------------------------------------------------+\n";
-	dprintf(fd_console, "%s", s);
+	if(fd > 0) {
+		dup2(fd, 0);
+		dup2(fd, 1);
+		dup2(fd, 2);
+		close(fd);
+	}
+
+	if(fd_console > 0) {
+		const char* s = ""
+				"+-----Ewok micro-kernel OS-----------------------+\n"
+				"| https://github.com/MisaZhu/EwokOS.git          |\n"
+				"+------------------------------------------------+\n";
+		dprintf(fd_console, "%s", s);
+		dup2(fd_console, 2);
+		close(fd_console);
+	}
 }
 
-static void load_proc_devs(void) {
-	load_devs("/etc/dev/proc.dev");
-}
-
-static void load_sys_devs(void) {
-	load_devs("/etc/dev/sys.dev");
-}
-
-static void run_procs(void) {
+static void run_initrd(void) {
+	out("\nload  => [/etc/init.rd]\n");
 	int fd = open("/etc/init.rd", O_RDONLY);
 	if(fd < 0)
 		return;
@@ -195,7 +179,9 @@ static void run_procs(void) {
 			break;
 		if(ln[0] == 0 || ln[0] == '#')
 			continue;
-		if(ln[0] == '!') //need wait for ready
+		if(ln[0] == '$') //init stdios
+			init_tty_stdio();
+		else if(ln[0] == '!') //need wait for ready
 			run(ln+1, true, true);
 		else
 			run(ln, false, false);
@@ -203,56 +189,16 @@ static void run_procs(void) {
 	close(fd);
 }
 
-static void run_core(void) {
-	const char* fname = "/sbin/core";
-	out("init: %s    ", fname);
+static void run_before_vfs(const char* cmd) {
+	out("init: %s    ", cmd);
+
 	int pid = fork();
 	if(pid == 0) {
-		exec_from_sd(fname);
+		exec_from_sd(cmd);
 	}
 	else
 		proc_wait_ready(pid);
 	out("[ok]\n");
-}
-
-static void run_vfsd(void) {
-	const char* fname = "/sbin/vfsd";
-	out("init: %s    ", fname);
-
-	int pid = fork();
-	if(pid == 0) {
-		exec_from_sd(fname);
-	}
-	else
-		proc_wait_ready(pid);
-	out("[ok]\n");
-}
-
-static void run_rootfsd(void) {
-	const char* fname = "/sbin/sdfsd";
-	out("init: %s    ", fname);
-
-	int pid = fork();
-	if(pid == 0) {
-		exec_from_sd(fname);
-	}
-	else
-		proc_wait_ready(pid);
-}
-
-static void init_tty_stdio(void) {
-	int fd = open("/dev/tty0", 0);
-	if(fd > 0) {
-		dup2(fd, 0);
-		dup2(fd, 1);
-		dup2(fd, 2);
-		close(fd);
-	}
-
-	if(fd_console > 0) {
-		dup2(fd_console, 2);
-		close(fd_console);
-	}
 }
 
 static void switch_root(void) {
@@ -260,12 +206,7 @@ static void switch_root(void) {
 	if(pid == 0) {
 		setuid(0);
 		load_arch_devs();
-		load_screen();
-		init_tty_stdio();
-		load_proc_devs();
-		load_extra_devs();
-		load_sys_devs();
-		run_procs();
+		run_initrd();
 		exit(0);
 	}
 }
@@ -296,9 +237,9 @@ int main(int argc, char** argv) {
 		syscall1(SYS_PROC_SET_CMD, (int32_t)"/sbin/init");
 
 	out("\n[init process started]\n");
-	run_core();
-	run_vfsd();
-	run_rootfsd();
+	run_before_vfs("/sbin/core");
+	run_before_vfs("/sbin/vfsd");
+	run_before_vfs("/sbin/sdfsd");
 
 	switch_root();
 	while(true) {

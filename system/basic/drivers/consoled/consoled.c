@@ -41,7 +41,6 @@ static int32_t read_config(fb_console_t* console, const char* fname) {
 		console->console.font = font_by_name(v);
 
 	v = sconf_get(conf, "icon");
-	klog("[%s]\n", v);
 	if(v[0] != 0) 
 		console->icon = png_image_new(v);
 	else
