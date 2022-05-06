@@ -196,7 +196,7 @@ static void run_procs(void) {
 		if(ln[0] == 0 || ln[0] == '#')
 			continue;
 		if(ln[0] == '!') //need wait for ready
-			run(ln+1, false, true);
+			run(ln+1, true, true);
 		else
 			run(ln, false, false);
 	}
