@@ -9,7 +9,6 @@ mkdirs:
 	@mkdir -p ${TARGET_DIR}/sbin/x
 	@mkdir -p ${TARGET_DIR}/bin/x
 	@cp -r ${ROOT_DIR}/etcs/qemu/full/* ${TARGET_DIR}/etc
-	@cp -r data ${TARGET_DIR}
 
 EXTRA_LIBS_DIR=libs
 EXTRA_LIBXX_DIR=libs/cxx
