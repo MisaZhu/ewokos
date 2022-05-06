@@ -12,6 +12,7 @@
 #include <signals.h>
 #include <kernel/signal.h>
 #include <kernel/hw_info.h>
+#include <kernel/svc.h>
 #include <kprintf.h>
 #include <mm/kalloc.h>
 #include <stddef.h>
@@ -119,9 +120,18 @@ static void dump_ctx(context_t* ctx) {
 		ctx->pc,
 		ctx->sp,
 		ctx->lr);
+
 	uint32_t i;
 	for(i=0; i<13; i++) 
 		printf("  r%d: 0x%x\n", i, ctx->gpr[i]);
+}
+
+static void dump_last_svc(void) {
+	printf("last svc: pid=%d, code=%d, arg0=0x%x, arg1=0x%x, arg2=0x%x\n",
+			_last_svc.pid, _last_svc.code,
+			_last_svc.arg0,
+			_last_svc.arg1,
+			_last_svc.arg2);
 }
 
 static int32_t copy_on_write(proc_t* proc, uint32_t v_addr) {
@@ -154,6 +164,7 @@ void undef_abort_handler(context_t* ctx, uint32_t status) {
 	}
 
 	printf("pid: %d(%s), undef instrunction abort!! (core %d)\n", cproc->info.pid, cproc->info.cmd, core);
+	dump_last_svc();
 	dump_ctx(&cproc->ctx);
 	proc_exit(ctx, cproc, -1);
 	//proc_signal_send(ctx, cproc, SYS_SIG_STOP);
@@ -184,6 +195,7 @@ void prefetch_abort_handler(context_t* ctx, uint32_t status) {
 	}
 
 	printf("pid: %d(%s), prefetch abort!! (core %d)\n", cproc->info.pid, cproc->info.cmd, core);
+	dump_last_svc();
 	dump_ctx(&cproc->ctx);
 	proc_exit(ctx, cproc, -1);
 }
@@ -211,6 +223,7 @@ void data_abort_handler(context_t* ctx, uint32_t addr_fault, uint32_t status) {
 	}
 
 	printf("pid: %d(%s), core: %d, data abort!! at: 0x%X, code: 0x%X\n", cproc->info.pid, cproc->info.cmd, cproc->info.core, addr_fault, status);
+	dump_last_svc();
 	dump_ctx(&cproc->ctx);
 	proc_exit(ctx, cproc, -1);
 	schedule(ctx);

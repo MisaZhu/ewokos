@@ -714,9 +714,17 @@ static inline void _svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_
 	}
 }
 
+svc_t _last_svc;
 inline void svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_t arg2, context_t* ctx) {
 	__irq_disable();
+
 	kernel_lock();
+	_last_svc.pid  = get_current_proc()->info.pid;
+	_last_svc.code = code;
+	_last_svc.arg0 = arg0;
+	_last_svc.arg1 = arg1;
+	_last_svc.arg2 = arg2;
+
 	if(proc_zombie_funeral() == 0)
 		schedule(ctx);
 	else
