@@ -27,8 +27,8 @@ enum {
 	SYS_GET_PID,          //18
 	SYS_GET_THREAD_ID,    //19
 
-	SYS_PROC_PING,        //20
-	SYS_PROC_READY_PING,  //21
+	SYS_IPC_PING,        //20
+	SYS_IPC_READY,  //21
 
 	SYS_PROC_GET_CMD,     //22
 	SYS_PROC_SET_CMD,     //23
@@ -69,7 +69,8 @@ enum {
 	SYS_INTR_SETUP,       //48
 	SYS_INTR_END,         //49
 
-	SYS_SAFE_SET          //50
+	SYS_SAFE_SET,         //50
+	SYS_CALL_NUM          //51
 };
 
 #endif

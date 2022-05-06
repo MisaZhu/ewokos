@@ -5,6 +5,7 @@ builtin_apps:
 	cd echo;make
 	cd sleep;make
 	cd ps;make
+	cd svcinfo;make
 	cd cat;make
 	cd shell;make
 	cd ls;make
@@ -23,6 +24,7 @@ clean:
 	cd echo;make clean
 	cd sleep;make clean
 	cd ps;make clean
+	cd svcinfo;make clean
 	cd cat;make clean
 	cd shell;make clean
 	cd ls;make clean
