@@ -9,7 +9,8 @@ $
 !/drivers/proc/sysinfod        /proc/sysinfo
 !/drivers/proc/stated          /proc/state
 
-!/drivers/raspix/usbd     /dev/touch0
+!/drivers/raspix/hat13_joystickd     /dev/joystick
+!/drivers/raspix/hat13_joykeybd      /dev/keyb0 revx
 !/drivers/xserverd             /dev/x
 
 /bin/session

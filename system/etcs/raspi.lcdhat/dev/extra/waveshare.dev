@@ -1,2 +1,0 @@
-/drivers/raspix/hat13_joystickd     /dev/joystick
-/drivers/raspix/hat13_joykeybd      /dev/keyb0 revx
