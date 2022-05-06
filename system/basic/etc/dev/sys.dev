@@ -1,3 +1,0 @@
-/drivers/proc/sysinfod        /proc/sysinfo
-/drivers/nulld                /dev/null
-/drivers/ramfsd               /tmp

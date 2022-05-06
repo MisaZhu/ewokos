@@ -1,15 +1,15 @@
 BUILD_DIR = ../build
 TARGET_DIR = $(BUILD_DIR)/rootfs
-ROOT_DIR = .
+ROOT_DIR = ..
 
 all: mkdirs extra_libs extra_driver extra_bin x_sbin x_bin
 	@echo "all done."
 
 mkdirs:
-	@mkdir -p ${TARGET_DIR}/$(ROOT_DIR)/sbin/x
-	@mkdir -p ${TARGET_DIR}/$(ROOT_DIR)/bin/x
-	@cp -r ${ROOT_DIR}/etc ${TARGET_DIR}/$(ROOT_DIR)
-	@cp -r ${ROOT_DIR}/data ${TARGET_DIR}/$(ROOT_DIR)
+	@mkdir -p ${TARGET_DIR}/sbin/x
+	@mkdir -p ${TARGET_DIR}/bin/x
+	@cp -r ${ROOT_DIR}/etcs/qemu/full/* ${TARGET_DIR}/etc
+	@cp -r data ${TARGET_DIR}
 
 EXTRA_LIBS_DIR=libs
 EXTRA_LIBXX_DIR=libs/cxx
