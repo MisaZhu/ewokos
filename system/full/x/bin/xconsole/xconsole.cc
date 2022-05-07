@@ -4,7 +4,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <console/console.h>
-#include <sconf.h>
+#include <sconf/sconf.h>
 #include <sys/vfs.h>
 #include <x++/X.h>
 

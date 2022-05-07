@@ -1,4 +1,5 @@
 KERNEL_DIR=../kernel
+TARGET_DIR = build/rootfs
 
 all: basic_sys platform
 	@echo "all done."

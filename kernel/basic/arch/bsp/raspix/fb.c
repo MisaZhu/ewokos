@@ -1,5 +1,6 @@
 #include <dev/fb.h>
 #include <bcm283x/framebuffer.h>
+#include <kstring.h>
 
 int32_t fb_init(uint32_t w, uint32_t h, fbinfo_t* fbinfo) {
 	if(bcm283x_fb_init(w, h, 32) != 0)

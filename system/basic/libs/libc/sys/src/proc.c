@@ -28,11 +28,11 @@ inline void proc_detach(void) {
 }
 
 inline int proc_ping(int pid) {
-	return syscall1(SYS_PROC_PING, (int32_t)pid);
+	return syscall1(SYS_IPC_PING, (int32_t)pid);
 }
 
 inline void proc_ready_ping(void) {
-	syscall0(SYS_PROC_READY_PING);
+	syscall0(SYS_IPC_READY);
 }
 
 void proc_wait_ready(int pid) {

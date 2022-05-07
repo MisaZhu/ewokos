@@ -22,11 +22,11 @@ class XIM {
 	}
 
 public:
-	inline XIM() {
+	inline XIM(const char* keyb_dev) {
 		x_pid = -1;
 		keybFD = -1;
 		while(true) {
-			keybFD = open("/dev/keyb0", O_RDONLY);
+			keybFD = open(keyb_dev, O_RDONLY);
 			if(keybFD > 0)
 				break;
 			usleep(300000);
@@ -55,10 +55,12 @@ public:
 };
 
 int main(int argc, char* argv[]) {
-	(void)argc;
-	(void)argv;
+	const char* keyb_dev = "/dev/keyb0";
+	if(argc > 1)
+		keyb_dev = argv[1];
 
-	XIM xim;
+
+	XIM xim(keyb_dev);
 	while(true) {
 		xim.read();
 	}

@@ -190,6 +190,40 @@ void x_repaint(xwin_t* xwin) {
 	ipc_enable();
 }
 
+int x_resize_to(xwin_t* xwin, int w, int h) {
+	xinfo_t xinfo;
+	x_get_info(xwin, &xinfo);
+	xinfo.wsr.w = w;
+	xinfo.wsr.h = h;
+	x_update_info(xwin, &xinfo);
+	if(xwin->on_resize) {
+		xwin->on_resize(xwin);
+	}
+	x_repaint_raw(xwin);
+	return 0;
+}
+
+int x_resize(xwin_t* xwin, int dw, int dh) {
+	xinfo_t xinfo;
+	x_get_info(xwin, &xinfo);
+	return x_resize_to(xwin, xinfo.wsr.w+dw, xinfo.wsr.h+dh);
+}
+
+int x_move_to(xwin_t* xwin, int x, int y) {
+	xinfo_t xinfo;
+	x_get_info(xwin, &xinfo);
+	xinfo.wsr.x = x;
+	xinfo.wsr.y = y;
+	x_update_info(xwin, &xinfo);
+	return 0;
+}
+
+int x_move(xwin_t* xwin, int dx, int dy) {
+	xinfo_t xinfo;
+	x_get_info(xwin, &xinfo);
+	return x_move_to(xwin, xinfo.wsr.x+dx, xinfo.wsr.y+dy);
+}
+
 static int win_event_handle(xwin_t* xwin, xevent_t* ev) {
 	xinfo_t xinfo;
 	x_get_info(xwin, &xinfo);

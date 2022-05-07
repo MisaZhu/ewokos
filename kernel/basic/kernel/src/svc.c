@@ -19,6 +19,9 @@
 #include <kprintf.h>
 #include <stddef.h>
 
+static uint32_t _svc_counter[SYS_CALL_NUM];
+static uint32_t _svc_total;
+
 static void sys_kprint(const char* s, int32_t len) {
 	(void)len;
 	uart_out(s);
@@ -195,6 +198,8 @@ static void	sys_get_sys_state(sys_state_t* info) {
 	info->mem.free = get_free_mem_size();
 	info->mem.shared = shm_alloced_size();
 	info->kernel_sec = _kernel_sec;
+	info->svc_total = _svc_total;
+	memcpy(info->svc_counter, _svc_counter, SYS_CALL_NUM*4);
 }
 
 static int32_t sys_shm_alloc(uint32_t size, int32_t flag) {
@@ -516,7 +521,6 @@ static int32_t sys_core_proc_pid(void) {
 	return _core_proc_pid;
 }
 
-static uint32_t _svc_tic = 0;
 static int32_t sys_get_kernel_tic(uint32_t* sec, uint32_t* hi, uint32_t* low) {
 	if(sec != NULL)
 		*sec = _kernel_sec;
@@ -553,7 +557,8 @@ static inline void sys_safe_set(context_t* ctx, int32_t* to, int32_t v) {
 }
 
 static inline void _svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_t arg2, context_t* ctx) {
-	_svc_tic++;
+	_svc_total++;
+	_svc_counter[code]++;
 
 	switch(code) {
 	case SYS_EXIT:
@@ -670,10 +675,10 @@ static inline void _svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_
 	case SYS_IPC_GET_ARG:
 		ctx->gpr[0] = sys_ipc_get_info((uint32_t)arg0, (int32_t*)arg1, (int32_t*)arg2);
 		return;
-	case SYS_PROC_PING:
+	case SYS_IPC_PING:
 		ctx->gpr[0] = sys_proc_ping(arg0);
 		return;
-	case SYS_PROC_READY_PING:
+	case SYS_IPC_READY:
 		sys_proc_ready_ping();
 		return;
 	case SYS_GET_KEVENT:
@@ -709,9 +714,17 @@ static inline void _svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_
 	}
 }
 
+svc_t _last_svc;
 inline void svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_t arg2, context_t* ctx) {
 	__irq_disable();
+
 	kernel_lock();
+	_last_svc.pid  = get_current_proc()->info.pid;
+	_last_svc.code = code;
+	_last_svc.arg0 = arg0;
+	_last_svc.arg1 = arg1;
+	_last_svc.arg2 = arg2;
+
 	if(proc_zombie_funeral() == 0)
 		schedule(ctx);
 	else

@@ -4,7 +4,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <sys/vdevice.h>
-#include <sconf.h>
+#include <sconf/sconf.h>
 #include <sys/proto.h>
 #include <x/xcntl.h>
 #include <x/xevent.h>
@@ -18,6 +18,7 @@ static int _scr_h = 0;
 typedef struct {
 	bool x_rev;
 	bool y_rev;
+	bool xy_switch;
 	int  x_offset;
 	int  y_offset;
 	int  x_max;
@@ -70,6 +71,10 @@ static int32_t read_config(const char* fname) {
 	if(v[0] == '1') 
 		_xtouch.y_rev = true;
 
+	v = sconf_get(conf, "xy_switch");
+	if(v[0] == '1') 
+		_xtouch.xy_switch = true;
+
 	v = sconf_get(conf, "x_max");
 	if(v[0] != 0) 
 		_xtouch.x_max = atoi(v);
@@ -118,12 +123,24 @@ int main(int argc, char** argv) {
 		usleep(100000);
 	}
 
+	uint16_t prev_ev = 0;
 	while(true) {
 		int8_t buf[6];
 		if(read(fd, buf, 6) == 6) {
 			uint16_t* mv = (uint16_t*)buf;
-			int16_t tx = mv[1] - _xtouch.x_offset;
-			int16_t ty = mv[2] - _xtouch.y_offset;
+			if(mv[0] == 0 && prev_ev == 0)
+				continue;
+			prev_ev = mv[0];
+
+			uint16_t xraw = mv[1];
+			uint16_t yraw = mv[2];
+			if(_xtouch.xy_switch) {
+				xraw = mv[2];
+				yraw = mv[1];
+			}
+
+			int16_t tx = xraw - _xtouch.x_offset;
+			int16_t ty = yraw - _xtouch.y_offset;
 			tx = tx < 0 ? 0 : tx;
 			ty = ty < 0 ? 0 : ty;
 

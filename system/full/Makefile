@@ -1,20 +1,18 @@
 BUILD_DIR = ../build
 TARGET_DIR = $(BUILD_DIR)/rootfs
-ROOT_DIR = .
+ROOT_DIR = ..
 
 all: mkdirs extra_libs extra_driver extra_bin x_sbin x_bin
 	@echo "all done."
 
 mkdirs:
-	@mkdir -p ${TARGET_DIR}/$(ROOT_DIR)/sbin/x
-	@mkdir -p ${TARGET_DIR}/$(ROOT_DIR)/bin/x
-	@cp -r ${ROOT_DIR}/etc ${TARGET_DIR}/$(ROOT_DIR)
-	@cp -r ${ROOT_DIR}/data ${TARGET_DIR}/$(ROOT_DIR)
+	@mkdir -p ${TARGET_DIR}/sbin/x
+	@mkdir -p ${TARGET_DIR}/bin/x
+	@cp -r ${ROOT_DIR}/etcs/qemu/full/* ${TARGET_DIR}/etc
 
 EXTRA_LIBS_DIR=libs
 EXTRA_LIBXX_DIR=libs/cxx
 extra_libs:
-	cd $(EXTRA_LIBS_DIR)/sconf; make
 	cd $(EXTRA_LIBS_DIR)/tiny-json; make
 	cd $(EXTRA_LIBS_DIR)/x; make
 	cd $(EXTRA_LIBXX_DIR)/cxx; make
@@ -46,7 +44,6 @@ extra_driver:
 
 clean:
 	cd $(EXTRA_LIBS_DIR)/x; make clean
-	cd $(EXTRA_LIBS_DIR)/sconf; make clean
 	cd $(EXTRA_LIBS_DIR)/tiny-json; make clean
 	cd $(EXTRA_LIBXX_DIR)/cxx; make clean
 	cd $(EXTRA_LIBXX_DIR)/x++; make clean

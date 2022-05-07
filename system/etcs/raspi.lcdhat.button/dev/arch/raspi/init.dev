@@ -1,0 +1,2 @@
+/drivers/raspix/lcdhatd       /dev/fb0 240 240 3
+/drivers/raspix/mini_uartd    /dev/tty0

@@ -14,7 +14,7 @@
 #include <x/xevent.h>
 #include <x/xwm.h>
 #include <sys/proc.h>
-#include <sconf.h>
+#include <sconf/sconf.h>
 #include <screen/screen.h>
 #include "cursor.h"
 

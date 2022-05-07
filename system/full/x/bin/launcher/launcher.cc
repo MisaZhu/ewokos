@@ -1,7 +1,7 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sconf.h>
+#include <sconf/sconf.h>
 #include <upng/upng.h>
 #include <x++/X.h>
 #include <sys/basic_math.h>

@@ -109,6 +109,30 @@ void XWin::repaint() {
 	x_repaint(xwin);
 }
 
+void XWin::resize(int dw, int dh) {
+	if(xwin == NULL)	
+		return;
+	x_resize(xwin, dw, dh);
+}
+
+void XWin::resizeTo(int w, int h) {
+	if(xwin == NULL)	
+		return;
+	x_resize_to(xwin, w, h);
+}
+
+void XWin::move(int dx, int dy) {
+	if(xwin == NULL)	
+		return;
+	x_move(xwin, dx, dy);
+}
+
+void XWin::moveTo(int x, int y) {
+	if(xwin == NULL)	
+		return;
+	x_move_to(xwin, x, y);
+}
+
 void XWin::setCWin(xwin_t* xw) {
 	xwin = xw;
 	xwin->on_close = _on_close;

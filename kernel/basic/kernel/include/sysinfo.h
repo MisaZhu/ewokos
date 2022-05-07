@@ -1,6 +1,8 @@
 #ifndef SYSINFO_H
 #define SYSINFO_H
 
+#include <syscalls.h>
+
 typedef struct {
 	uint32_t phy_base;
 	uint32_t v_base;
@@ -33,6 +35,8 @@ typedef struct {
 typedef struct {
 	mem_info_t mem;
 	uint32_t kernel_sec;
+	uint32_t svc_total;
+	uint32_t svc_counter[SYS_CALL_NUM];
 } sys_state_t;
 
 
