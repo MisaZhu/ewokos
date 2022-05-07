@@ -127,7 +127,7 @@ int main(int argc, char** argv) {
 			if(rd == 1) {
 				input(v);
 			}
-			usleep(30000);
+			usleep(20000);
 		}
 		else {
 			usleep(50000);
