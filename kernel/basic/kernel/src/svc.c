@@ -341,10 +341,16 @@ static void sys_ipc_get_return(context_t* ctx, int32_t pid, uint32_t uid, proto_
 	}
 
 	if(data != NULL) {//get return value
-		data->total_size = data->size = client_proc->ipc_res.data.size;
-		if(data->size > 0) {
-			data->data = (proto_t*)proc_malloc(client_proc, client_proc->ipc_res.data.size);
-			memcpy(data->data, client_proc->ipc_res.data.data, data->size);
+		data->type  = client_proc->ipc_res.data.type;
+		if(data->type == PROTO_INT) {
+			data->offset = client_proc->ipc_res.data.offset;
+		}
+		else {
+			data->total_size = data->size = client_proc->ipc_res.data.size;
+			if(data->size > 0) {
+				data->data = (proto_t*)proc_malloc(client_proc, client_proc->ipc_res.data.size);
+				memcpy(data->data, client_proc->ipc_res.data.data, data->size);
+			}
 		}
 	}
 
@@ -368,6 +374,12 @@ static int32_t sys_ipc_get_info(uint32_t uid, int32_t* pid, int32_t* cmd) {
 	*cmd = ipc->call_id;
 
 	proto_t* ret = NULL;
+	if(ipc->data.type == PROTO_INT) {
+		ret = (proto_t*)proc_malloc(serv_proc, sizeof(proto_t));
+		memset(ret, 0, sizeof(proto_t));
+		ret->type = ipc->data.type;
+		ret->offset = ipc->data.offset;
+	}
 	if(ipc->data.size > 0) { //get request input args
 		ret = (proto_t*)proc_malloc(serv_proc, sizeof(proto_t));
 		memset(ret, 0, sizeof(proto_t));
@@ -396,8 +408,13 @@ static void sys_ipc_set_return(context_t* ctx, uint32_t uid, proto_t* data) {
 	if(client_proc != NULL) {
 		client_proc->ipc_res.state = IPC_RETURN;
 		client_proc->ipc_res.uid = uid;
-		if(data != NULL)
-			proto_copy(&client_proc->ipc_res.data, data->data, data->size);
+		if(data != NULL) {
+			if(data->type == PROTO_INT)
+				client_proc->ipc_res.data.offset = data->offset;
+			else
+				proto_copy(&client_proc->ipc_res.data, data->data, data->size);
+			client_proc->ipc_res.data.type = data->type;
+		}
 
 		proc_ready(client_proc);
 		schedule(ctx);

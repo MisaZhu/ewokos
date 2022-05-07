@@ -65,8 +65,13 @@ ipc_task_t* proc_ipc_req(proc_t* serv_proc, int32_t client_pid, int32_t call_id,
 	ipc->state = IPC_BUSY;
 	ipc->client_pid = client_pid;
 	ipc->call_id = call_id;
-	if(data != NULL)
-		proto_copy(&ipc->data, data->data, data->size); 
+	if(data != NULL) {
+		if(data->type == PROTO_INT)
+			ipc->data.offset = data->offset;
+		else
+			proto_copy(&ipc->data, data->data, data->size); 
+		ipc->data.type = data->type;
+	}
 
 	if(serv_proc->space->ipc_server.ctask == NULL) 
 		serv_proc->space->ipc_server.ctask = ipc; //set current task

@@ -50,7 +50,7 @@ const char* vfs_fullname(const char* fname) {
 int vfs_open(fsinfo_t* info, int oflag) {
 	proto_t in, out;
 	PF->init(&in)->add(&in, info, sizeof(fsinfo_t))->addi(&in, oflag);
-	PF->init(&out);
+	PF->init_type(&out, PROTO_INT);
 
 	int res = ipc_call(get_vfsd_pid(), VFS_OPEN, &in, &out);
 	PF->clear(&in);
