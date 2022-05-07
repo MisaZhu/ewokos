@@ -94,8 +94,10 @@ protected:
 				mode = 0;
 
 			graph_fill(g, 0, 0, gW, gH, 0xff000000);
-			imgX = random_to(gW - img->w);
-			imgY = random_to(gH - img->h - font->h);
+			if(gW > img->w)
+				imgX = random_to(gW - img->w);
+			if(gH > (img->h+font->h))
+				imgY = random_to(gH - img->h - font->h);
 		}
 
 		if(mode == CIRCLE) {
