@@ -24,7 +24,6 @@ static void try_break(malloc_t* m, mem_block_t* block, uint32_t size) {
 		return;
 	
 	//do break;
-	size = ALIGN_UP(size, 4);
 	char* p = block->mem + size;
 	mem_block_t* newBlock = gen_block(p, block->size - size);
 	newBlock->used = 0; //break a new free block.
@@ -42,6 +41,7 @@ static void try_break(malloc_t* m, mem_block_t* block, uint32_t size) {
 }
 
 char* trunk_malloc(malloc_t* m, uint32_t size) {
+	size = ALIGN_UP(size, 8);
 	mem_block_t* block = m->head;
 	while(block != NULL) {
 		if(block->used || block->size < size) {

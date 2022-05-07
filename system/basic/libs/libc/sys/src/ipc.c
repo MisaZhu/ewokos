@@ -36,8 +36,13 @@ void ipc_enable(void) {
 	syscall0(SYS_IPC_ENABLE);
 }
 
-static proto_t* ipc_get_info(uint32_t ipc_id, int32_t* pid, int32_t* call_id) {
-	return (proto_t*)syscall3(SYS_IPC_GET_ARG, ipc_id, (int32_t)pid, (int32_t)call_id);
+static int32_t ipc_get_info(uint32_t ipc_id, int32_t* pid, int32_t* call_id, proto_t* arg) {
+	int32_t ipc_info[2];
+	if(syscall3(SYS_IPC_GET_ARG, ipc_id, (int32_t)ipc_info, (int32_t)arg) != 0)
+		return -1;
+	*pid = ipc_info[0];
+	*call_id = ipc_info[1];
+	return 0;
 }
 
 inline int ipc_call(int to_pid, int call_id, const proto_t* ipkg, proto_t* opkg) {
@@ -143,17 +148,24 @@ static ipc_handled_t _ipc_handled;
 
 static void handle_ipc(uint32_t ipc_id, void* p) {
 	int32_t pid, cmd;
+	proto_t in;
+	PF->init(&in);
 
-	proto_t* in = ipc_get_info(ipc_id, &pid, &cmd);
+	if(ipc_get_info(ipc_id, &pid, &cmd, &in) != 0) {
+		PF->clear(&in);
+		ipc_end();
+		return;
+	}
+
 	if((cmd & IPC_NON_RETURN) != 0) { //no return
-		_ipc_serv_handle(pid, (cmd & IPC_NON_RETURN_MASK), in, NULL, p);
-		proto_free(in);
+		_ipc_serv_handle(pid, (cmd & IPC_NON_RETURN_MASK), &in, NULL, p);
+		PF->clear(&in);
 	}
 	else {
 		proto_t out;
 		PF->init(&out);
-		_ipc_serv_handle(pid, cmd, in, &out, p);
-		proto_free(in);
+		_ipc_serv_handle(pid, cmd, &in, &out, p);
+		PF->clear(&in);
 		ipc_set_return(ipc_id, &out);
 		PF->clear(&out);
 	}
