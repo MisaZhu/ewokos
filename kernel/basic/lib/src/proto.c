@@ -8,25 +8,35 @@ extern "C" {
 #endif
 
 void proto_init(proto_t* proto) {
-	memset(proto, 0, sizeof(proto_t));
+	proto->type = PROTO_PKG;
+	proto->data = proto->buffer;
+	proto->total_size = PROTO_BUFFER;
+	proto->size = 0;
+	proto->pre_alloc = 0;
+	proto->offset = 0;
 }
 
 void proto_copy(proto_t* proto, const void* data, uint32_t size) {
+	proto->type = PROTO_PKG;
 	if(proto->total_size < size) {
-		if(proto->data != NULL)
+		if(proto->data != NULL && proto->data != proto->buffer) 
 			kfree(proto->data);
 		proto->data = kmalloc(size);
 		proto->total_size = size;
 	}
-
 	memcpy(proto->data, data, size);
 	proto->size = size;
+	proto->offset = 0;
+	proto->pre_alloc = false;
 }
 
 void proto_clear(proto_t* proto) {
-	if(proto->data != NULL)
+	proto->size = 0;
+	proto->offset = 0;
+	if(proto->data != NULL && proto->data != proto->buffer)
 		kfree(proto->data);
-	memset(proto, 0, sizeof(proto_t));
+	proto->data = proto->buffer;
+	proto->total_size = PROTO_BUFFER;
 }
 
 #ifdef __cplusplus

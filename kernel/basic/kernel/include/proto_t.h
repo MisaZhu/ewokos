@@ -8,12 +8,13 @@ enum {
 	PROTO_INT
 };
 
-#define PROTO_INT_NUM 4
+#define PROTO_BUFFER  128
 
 typedef struct {
 	uint32_t type;
-	int32_t  ints[PROTO_INT_NUM];
+	int32_t  int_v;
 
+	char     buffer[PROTO_BUFFER];
 	void*    data;
 	uint32_t size;
 	uint32_t total_size;

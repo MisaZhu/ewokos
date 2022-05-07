@@ -8,8 +8,6 @@
 extern "C" {
 #endif
 
-#define PROTO_BUFFER 128
-
 typedef struct proto_factor {
 	struct proto_factor* (*init_data)(proto_t* proto, void* data, uint32_t size);
 	struct proto_factor* (*init)(proto_t* proto);

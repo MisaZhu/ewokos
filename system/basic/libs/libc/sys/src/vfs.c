@@ -103,7 +103,7 @@ static int write_pipe(fsinfo_t* info, const void* buf, uint32_t size, bool block
 
 int vfs_dup(int fd) {
 	proto_t in, out;
-	PF->init(&in)->addi(&in, fd);
+	PF->init_type(&in, PROTO_INT)->addi(&in, fd);
 	PF->init(&out);
 
 	int res = ipc_call(get_vfsd_pid(), VFS_DUP, &in, &out);
@@ -117,7 +117,7 @@ int vfs_dup(int fd) {
 
 int vfs_close(int fd) {
 	proto_t in;
-	PF->init(&in)->addi(&in, fd);
+	PF->init_type(&in, PROTO_INT)->addi(&in, fd);
 
 	int res = ipc_call(get_vfsd_pid(), VFS_CLOSE, &in, NULL);
 	PF->clear(&in);
@@ -261,7 +261,7 @@ int vfs_get_mount(fsinfo_t* info, mount_t* mount) {
 
 int vfs_get_mount_by_id(int id, mount_t* mount) {
 	proto_t in, out;
-	PF->init(&in)->addi(&in, id);
+	PF->init_type(&in, PROTO_INT)->addi(&in, id);
 	PF->init(&out);
 	int res = ipc_call(get_vfsd_pid(), VFS_GET_MOUNT_BY_ID, &in, &out);
 	PF->clear(&in);
@@ -307,7 +307,7 @@ int vfs_umount(fsinfo_t* info) {
 
 int vfs_get_by_fd(int fd, fsinfo_t* info) {
 	proto_t in, out;
-	PF->init(&in)->addi(&in, fd);
+	PF->init_type(&in, PROTO_INT)->addi(&in, fd);
 	PF->init(&out);
 	int res = ipc_call(get_vfsd_pid(), VFS_GET_BY_FD, &in, &out);
 	PF->clear(&in);
@@ -322,7 +322,7 @@ int vfs_get_by_fd(int fd, fsinfo_t* info) {
 
 int vfs_tell(int fd) {
 	proto_t in, out;
-	PF->init(&in)->addi(&in, fd);
+	PF->init_type(&in, PROTO_INT)->addi(&in, fd);
 	PF->init(&out);
 	int res = ipc_call(get_vfsd_pid(), VFS_TELL, &in, &out);
 	PF->clear(&in);

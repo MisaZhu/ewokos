@@ -343,12 +343,15 @@ static void sys_ipc_get_return(context_t* ctx, int32_t pid, uint32_t uid, proto_
 	if(data != NULL) {//get return value
 		data->type  = client_proc->ipc_res.data.type;
 		if(data->type == PROTO_INT) {
-			memcpy(data->ints, client_proc->ipc_res.data.ints, PROTO_INT_NUM*4);
+			data->int_v = client_proc->ipc_res.data.int_v;
 		}
 		else {
-			data->total_size = data->size = client_proc->ipc_res.data.size;
-			if(data->size > 0) {
-				data->data = (proto_t*)proc_malloc(client_proc, client_proc->ipc_res.data.size);
+			if(client_proc->ipc_res.data.size > 0) {
+				if(data->total_size < client_proc->ipc_res.data.size) {
+					data->data = (proto_t*)proc_malloc(client_proc, client_proc->ipc_res.data.size);
+					data->total_size = client_proc->ipc_res.data.size;
+				}
+				data->size = client_proc->ipc_res.data.size;
 				memcpy(data->data, client_proc->ipc_res.data.data, data->size);
 			}
 		}
@@ -375,11 +378,14 @@ static int32_t sys_ipc_get_info(uint32_t uid, int32_t* ipc_info, proto_t* ipc_ar
 
 	if(ipc->data.type == PROTO_INT) {
 		ipc_arg->type = ipc->data.type;
-		memcpy(ipc_arg->ints, ipc->data.ints, PROTO_INT_NUM*4);
+		ipc_arg->int_v = ipc->data.int_v;
 	}
 	if(ipc->data.size > 0) { //get request input args
-		ipc_arg->data = proc_malloc(serv_proc, ipc->data.size);
-		ipc_arg->total_size = ipc_arg->size = ipc->data.size;
+		ipc_arg->size = ipc->data.size;
+		if(ipc_arg->total_size < ipc->data.size) {
+			ipc_arg->data = proc_malloc(serv_proc, ipc->data.size);
+			ipc_arg->total_size = ipc->data.size;
+		}
 		memcpy(ipc_arg->data, ipc->data.data, ipc->data.size);
 		proto_clear(&ipc->data);
 	}
@@ -405,7 +411,7 @@ static void sys_ipc_set_return(context_t* ctx, uint32_t uid, proto_t* data) {
 		client_proc->ipc_res.uid = uid;
 		if(data != NULL) {
 			if(data->type == PROTO_INT)
-				memcpy(client_proc->ipc_res.data.ints, data->ints, PROTO_INT_NUM*4);
+				client_proc->ipc_res.data.int_v = data->int_v;
 			else
 				proto_copy(&client_proc->ipc_res.data, data->data, data->size);
 			client_proc->ipc_res.data.type = data->type;

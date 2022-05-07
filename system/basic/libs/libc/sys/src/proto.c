@@ -11,11 +11,19 @@ static proto_factor_t _proto_factor;
 
 inline static proto_factor_t* proto_init_data(proto_t* proto, void* data, uint32_t size) {
 	proto->type = PROTO_PKG;
-	proto->data = data;
-	proto->size = size;
-	proto->total_size = size;
+	if(data != NULL) {
+		proto->data = data;
+		proto->size = size;
+		proto->total_size = size;
+		proto->pre_alloc = 1;
+	}
+	else {
+		proto->data = proto->buffer;
+		proto->total_size = PROTO_BUFFER;
+		proto->size = 0;
+		proto->pre_alloc = 0;
+	}
 	proto->offset = 0;
-	proto->pre_alloc = (data != NULL);
 	return &_proto_factor;
 }
 
@@ -32,10 +40,18 @@ inline static proto_factor_t* proto_init_type(proto_t* proto, uint32_t type) {
 inline static proto_factor_t* proto_copy(proto_t* proto, const void* data, uint32_t size) {
 	proto->type = PROTO_PKG;
 	if(proto->pre_alloc || proto->total_size < size) {
-		if(!proto->pre_alloc && proto->data != NULL)
+		if(!proto->pre_alloc && 
+				proto->data != NULL &&
+				proto->data != proto->buffer)
 			free(proto->data);
-		proto->data = malloc(size);
-		proto->total_size = size;
+
+		proto->total_size = PROTO_BUFFER;
+		if(proto->total_size < size) {
+			proto->data = malloc(size);
+			proto->total_size = size;
+		}
+		else
+			proto->data = proto->buffer;
 	}
 
 	memcpy(proto->data, data, size);
@@ -53,7 +69,14 @@ inline static proto_factor_t* proto_add(proto_t* proto, const void* item, uint32
 			return &_proto_factor;
 		new_size +=  PROTO_BUFFER;
 		proto->total_size = new_size;
-		proto->data = realloc(proto->data, new_size);
+		if(proto->data == proto->buffer) {
+			void* tmp = malloc(new_size);
+			memcpy(tmp, proto->data, proto->size);
+			proto->data = tmp;
+		}
+		else {
+			proto->data = realloc(proto->data, new_size);
+		}
 		p = (char*)proto->data;
 	} 
 	memcpy(p+proto->size, &size, 4);
@@ -65,10 +88,7 @@ inline static proto_factor_t* proto_add(proto_t* proto, const void* item, uint32
 
 inline static proto_factor_t* proto_add_int(proto_t* proto, int32_t v) {
 	if(proto->type == PROTO_INT) {
-		if(proto->offset < PROTO_INT_NUM-1) {
-			proto->ints[proto->offset] = v;
-			proto->offset++;
-		}
+		proto->int_v = v;
 	}
 	else
 		proto_add(proto, (void*)&v, 4);
@@ -83,14 +103,14 @@ inline static proto_factor_t* proto_add_str(proto_t* proto, const char* v) {
 inline static proto_factor_t* proto_clear(proto_t* proto) {
 	if(proto->pre_alloc)
 		return &_proto_factor;
+	proto->pre_alloc = false;
 
 	proto->size = 0;
-	proto->total_size = 0;
 	proto->offset = 0;
-	proto->pre_alloc = false;
-	if(proto->data != NULL)
+	if(proto->data != NULL && proto->data != proto->buffer)
 		free(proto->data);
-	proto->data = NULL;
+	proto->data = proto->buffer;
+	proto->total_size = PROTO_BUFFER;
 	return &_proto_factor;
 }
 
@@ -158,11 +178,7 @@ inline int32_t proto_read_proto(proto_t* proto, proto_t* to) {
 
 inline int32_t proto_read_int(proto_t* proto) {
 	if(proto != NULL && proto->type == PROTO_INT) {
-		if(proto->offset >= PROTO_INT_NUM)
-			return 0;
-		int32_t ret = proto->ints[proto->offset];
-		proto->offset++;
-		return ret;
+		return proto->int_v;
 	}
 
 	void *p = proto_read(proto, NULL);
