@@ -1,0 +1,17 @@
+target := emu 
+library :=
+objects += debug.o nes/cpu.o nes/ppu.o nes/cartridge.o nes/controller.o nes/memory_controller.o   
+includes := -I nes
+
+.PHONY:all
+all:$(target) 
+
+%.o : %.c
+	gcc $(includes) -c -o $@ $<
+
+$(target) : $(objects)
+	gcc $^ $(library)  -o $@
+
+clean:
+	rm -f $(objects)
+
