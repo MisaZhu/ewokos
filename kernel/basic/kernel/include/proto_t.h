@@ -12,8 +12,8 @@ enum {
 
 typedef struct {
 	uint32_t type;
-	int32_t ints[PROTO_INT_NUM];
 	void *data;
+	int32_t ints[PROTO_INT_NUM];
 	uint32_t size;
 	uint32_t total_size;
 	uint32_t offset;
