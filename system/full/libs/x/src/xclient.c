@@ -91,7 +91,7 @@ int x_get_info(xwin_t* xwin, xinfo_t* info) {
 	return 0;
 }
 
-static graph_t* x_get_graph(xwin_t* xwin) {
+static graph_t* x_get_graph(xwin_t* xwin, graph_t* g) {
 	if(xwin == NULL)
 		return NULL;
 
@@ -101,14 +101,18 @@ static graph_t* x_get_graph(xwin_t* xwin) {
 	void* gbuf = shm_map(info.shm_id);
 	if(gbuf == NULL)
 		return NULL;
-	return graph_new(gbuf, info.wsr.w, info.wsr.h);
+
+	g->buffer = gbuf;
+	g->w = info.wsr.w;
+	g->h = info.wsr.h;
+	g->need_free = false;
+	return g;
 }
 
-static void x_release_graph(xwin_t* xwin, graph_t* g) {
+static void x_release_graph(xwin_t* xwin) {
 	xinfo_t info;
 	if(x_get_info(xwin, &info) != 0)
 		return;
-	graph_free(g);
 	shm_unmap(info.shm_id);
 }
 
@@ -165,10 +169,12 @@ static void x_repaint_raw(xwin_t* xwin) {
 		return;
 	}
 
-	graph_t* g = x_get_graph(xwin);
-	xwin->on_repaint(xwin, g);
-	vfs_fcntl(xwin->fd, X_CNTL_UPDATE, NULL, NULL);
-	x_release_graph(xwin, g);
+	graph_t g;
+	if(x_get_graph(xwin, &g) != NULL) {
+		xwin->on_repaint(xwin, &g);
+		vfs_fcntl(xwin->fd, X_CNTL_UPDATE, NULL, NULL);
+		x_release_graph(xwin);
+	}
 }
 
 void x_repaint(xwin_t* xwin) {
