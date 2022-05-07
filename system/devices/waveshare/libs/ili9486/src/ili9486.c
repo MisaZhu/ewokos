@@ -148,8 +148,8 @@ void ili9486_flush(const void* buf, uint32_t size) {
 	lcd_end();
 }
 
-void ili9486_init(int pin_dc, int pin_cs, int pin_rst, int cdiv) {
-	LCD_DC = pin_dc;
+void ili9486_init(int pin_rs, int pin_cs, int pin_rst, int cdiv) {
+	LCD_DC = pin_rs;
 	LCD_CS = pin_cs;
 	LCD_RST = pin_rst;
 	bcm283x_gpio_init();

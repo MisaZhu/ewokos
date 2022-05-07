@@ -57,19 +57,23 @@ static int lcd_dev_cntl(int from_pid, int cmd, proto_t* in, proto_t* ret, void* 
 	return 0;
 }
 
+/*LCD_RS	Instruction/Data Register selection
+  LCD_CS    LCD chip selection, low active
+  LCD_RST   LCD reset
+  */
 int main(int argc, char** argv) {
-	int lcd_dc = 24;
+	int lcd_rs = 24;
 	int lcd_cs = 8;
-  int lcd_rst = 25;
+	int lcd_rst = 25;
 
 	const char* mnt_point = argc > 1 ? argv[1]: "/dev/rpi_lcd";
 	if(argc > 4) {
-		lcd_dc = atoi(argv[2]);
+		lcd_rs = atoi(argv[2]);
 		lcd_cs = atoi(argv[3]);
 		lcd_rst = atoi(argv[4]);
 	}
 
-	ili9486_init(lcd_dc, lcd_cs, lcd_rst, 128);
+	ili9486_init(lcd_rs, lcd_cs, lcd_rst, 128);
 
 	uint32_t sz = LCD_HEIGHT*LCD_WIDTH*4;
 	fb_dma_t dma;

@@ -76,8 +76,12 @@ static int tp_read(int fd, int from_pid, fsinfo_t* info,
 	return 6;	
 }
 
+/*LCD_RS	Instruction/Data Register selection
+  LCD_CS    LCD chip selection, low active
+  LCD_RST   LCD reset
+  */
 int main(int argc, char** argv) {
-	const int lcd_dc = 24;
+	const int lcd_rs = 24;
 	const int lcd_cs = 8;
 	const int lcd_rst = 25;
 	const int tp_cs = 7;
@@ -85,7 +89,7 @@ int main(int argc, char** argv) {
 
 	const char* mnt_point = argc > 1 ? argv[1]: "/dev/rpi_lcd";
 
-	ili9486_init(lcd_dc, lcd_cs, lcd_rst, 2);
+	ili9486_init(lcd_rs, lcd_cs, lcd_rst, 2);
 	xpt2046_init(tp_cs, tp_irq);
 
 	uint32_t sz = LCD_HEIGHT*LCD_WIDTH*4;
