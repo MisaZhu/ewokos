@@ -69,7 +69,7 @@ int main(int argc, char** argv) {
 		lcd_rst = atoi(argv[4]);
 	}
 
-	ili9486_init(lcd_dc, lcd_cs, lcd_rst);
+	ili9486_init(lcd_dc, lcd_cs, lcd_rst, 128);
 
 	uint32_t sz = LCD_HEIGHT*LCD_WIDTH*4;
 	fb_dma_t dma;
