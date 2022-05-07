@@ -343,7 +343,7 @@ static void sys_ipc_get_return(context_t* ctx, int32_t pid, uint32_t uid, proto_
 	if(data != NULL) {//get return value
 		data->type  = client_proc->ipc_res.data.type;
 		if(data->type == PROTO_INT) {
-			data->offset = client_proc->ipc_res.data.offset;
+			memcpy(data->ints, client_proc->ipc_res.data.ints, PROTO_INT_NUM*4);
 		}
 		else {
 			data->total_size = data->size = client_proc->ipc_res.data.size;
@@ -378,7 +378,7 @@ static int32_t sys_ipc_get_info(uint32_t uid, int32_t* pid, int32_t* cmd) {
 		ret = (proto_t*)proc_malloc(serv_proc, sizeof(proto_t));
 		memset(ret, 0, sizeof(proto_t));
 		ret->type = ipc->data.type;
-		ret->offset = ipc->data.offset;
+		memcpy(ret->ints, ipc->data.ints, PROTO_INT_NUM*4);
 	}
 	if(ipc->data.size > 0) { //get request input args
 		ret = (proto_t*)proc_malloc(serv_proc, sizeof(proto_t));
@@ -410,7 +410,7 @@ static void sys_ipc_set_return(context_t* ctx, uint32_t uid, proto_t* data) {
 		client_proc->ipc_res.uid = uid;
 		if(data != NULL) {
 			if(data->type == PROTO_INT)
-				client_proc->ipc_res.data.offset = data->offset;
+				memcpy(client_proc->ipc_res.data.ints, data->ints, PROTO_INT_NUM*4);
 			else
 				proto_copy(&client_proc->ipc_res.data, data->data, data->size);
 			client_proc->ipc_res.data.type = data->type;

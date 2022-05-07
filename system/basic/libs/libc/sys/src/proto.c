@@ -64,8 +64,12 @@ inline static proto_factor_t* proto_add(proto_t* proto, const void* item, uint32
 }
 
 inline static proto_factor_t* proto_add_int(proto_t* proto, int32_t v) {
-	if(proto->type == PROTO_INT)
-		proto->offset = v;
+	if(proto->type == PROTO_INT) {
+		if(proto->offset < PROTO_INT_NUM-1) {
+			proto->ints[proto->offset] = v;
+			proto->offset++;
+		}
+	}
 	else
 		proto_add(proto, (void*)&v, 4);
 	return &_proto_factor;
@@ -153,8 +157,13 @@ inline int32_t proto_read_proto(proto_t* proto, proto_t* to) {
 }
 
 inline int32_t proto_read_int(proto_t* proto) {
-	if(proto != NULL && proto->type == PROTO_INT)
-		return (int32_t)proto->offset;
+	if(proto != NULL && proto->type == PROTO_INT) {
+		if(proto->offset >= PROTO_INT_NUM)
+			return 0;
+		int32_t ret = proto->ints[proto->offset];
+		proto->offset++;
+		return ret;
+	}
 
 	void *p = proto_read(proto, NULL);
 	if(p == NULL)
