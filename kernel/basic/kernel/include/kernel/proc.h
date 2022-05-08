@@ -71,8 +71,8 @@ typedef struct {
 	proc_interrupt_t  interrupt;
 } proc_space_t;
 
-#define STACK_PAGES 32 
-#define THREAD_STACK_PAGES  4
+#define STACK_PAGES 32
+#define THREAD_STACK_PAGES 16 
 
 typedef struct st_proc {
 	procinfo_t        info;

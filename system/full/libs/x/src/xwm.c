@@ -22,12 +22,12 @@ static void draw_drag_frame(xwm_t* xwm, proto_t* in) {
 	proto_read_to(in, &r, sizeof(grect_t));
 	void* gbuf = shm_map(shm_id);
 	if(gbuf != NULL) {
-		graph_t* g = graph_new(gbuf, xw, xh);
+		graph_t g;
+		graph_init(&g, gbuf, xw, xh);
 		if(xwm->draw_drag_frame != NULL)
-			xwm->draw_drag_frame(g, &r, xwm->data);
+			xwm->draw_drag_frame(&g, &r, xwm->data);
 		else
-			graph_box(g, r.x, r.y, r.w, r.h, 0xffffffff);
-		graph_free(g);
+			graph_box(&g, r.x, r.y, r.w, r.h, 0xffffffff);
 		shm_unmap(shm_id);
 	}
 }
@@ -63,27 +63,27 @@ static void draw_frame(xwm_t* xwm, proto_t* in) {
 		if(xwm->get_resize != NULL)
 			xwm->get_resize(&info, &rresize, xwm->data);
 
-		graph_t* g = graph_new(gbuf, xw, xh);
+		graph_t g;
+		graph_init(&g, gbuf, xw, xh);
 
 		if((info.style & X_STYLE_NO_TITLE) == 0) {
 			if(xwm->draw_title != NULL && rtitle.w > 0 && rtitle.h > 0)
-				xwm->draw_title(g, &info, &rtitle, top, xwm->data);
+				xwm->draw_title(&g, &info, &rtitle, top, xwm->data);
 
 			if((info.style & X_STYLE_NO_RESIZE) == 0) {
 				if(xwm->draw_min != NULL && rmin.w > 0 && rmin.h > 0)
-					xwm->draw_min(g, &info, &rmin, top, xwm->data);
+					xwm->draw_min(&g, &info, &rmin, top, xwm->data);
 				if(xwm->draw_max != NULL && rmax.w > 0 && rmax.h > 0)
-					xwm->draw_max(g, &info, &rmax, top, xwm->data);
+					xwm->draw_max(&g, &info, &rmax, top, xwm->data);
 				if(xwm->draw_resize != NULL && rresize.w > 0 && rresize.h > 0)
-					xwm->draw_resize(g, &info, &rresize, top, xwm->data);
+					xwm->draw_resize(&g, &info, &rresize, top, xwm->data);
 			}
 			if(xwm->draw_close != NULL && rclose.w > 0 && rclose.h > 0)
-				xwm->draw_close(g, &info, &rclose, top, xwm->data);
+				xwm->draw_close(&g, &info, &rclose, top, xwm->data);
 		}
 		if(xwm->draw_frame != NULL)
-			xwm->draw_frame(g, &info, top, xwm->data);
+			xwm->draw_frame(&g, &info, top, xwm->data);
 
-		graph_free(g);
 		shm_unmap(shm_id);
 	}
 }
@@ -130,10 +130,10 @@ static void draw_desktop(xwm_t* xwm, proto_t* in) {
 
 	void* gbuf = shm_map(shm_id);
 	if(gbuf != NULL) {
-		graph_t* g = graph_new(gbuf, xw, xh);
+		graph_t g;
+		graph_init(&g, gbuf, xw, xh);
 		if(xwm->draw_desktop != NULL)
-			xwm->draw_desktop(g, xwm->data);
-		graph_free(g);
+			xwm->draw_desktop(&g, xwm->data);
 		shm_unmap(shm_id);
 	}
 }

@@ -47,6 +47,7 @@ static void do_close(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, vo
 	}
 }
 
+#define READ_BUF_SIZE 32
 static void do_read(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, void* p) {
 	int size, offset, shm_id;
 	fsinfo_t info;
@@ -55,11 +56,16 @@ static void do_read(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, voi
 	size = proto_read_int(in);
 	offset = proto_read_int(in);
 	shm_id = proto_read_int(in);
+	char buffer[READ_BUF_SIZE];
 
 	if(dev != NULL && dev->read != NULL) {
 		void* buf;
-		if(shm_id < 0)
-			buf = malloc(size);
+		if(shm_id < 0) {
+			if(size > READ_BUF_SIZE)
+				buf = malloc(size);
+			else
+				buf = buffer;
+		}
 		else
 			buf = shm_map(shm_id);
 
@@ -77,7 +83,7 @@ static void do_read(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, voi
 
 			if(shm_id >= 0)
 				shm_unmap(shm_id);
-			else
+			else if(buf != buffer)
 				free(buf);
 		}
 	}

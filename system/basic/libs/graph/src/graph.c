@@ -17,21 +17,29 @@ inline int32_t has_alpha(uint32_t c) {
 	return 0;
 }
 
+inline void graph_init(graph_t* g, uint32_t* buffer, int32_t w, int32_t h) {
+	if(w <= 0 || h <= 0)
+		return NULL;
+
+	g->w = w;
+	g->h = h;
+	if(buffer != NULL) {
+		g->buffer = buffer;
+		g->need_free = false;
+	}
+	else {
+		g->buffer = (uint32_t*)malloc(w*h*4);
+		g->need_free = true;
+	}
+}
+
 graph_t* graph_new(uint32_t* buffer, int32_t w, int32_t h) {
 	if(w <= 0 || h <= 0)
 		return NULL;
 
 	graph_t* ret = (graph_t*)malloc(sizeof(graph_t));
-	ret->w = w;
-	ret->h = h;
-	if(buffer != NULL) {
-		ret->buffer = buffer;
-		ret->need_free = false;
-	}
-	else {
-		ret->buffer = (uint32_t*)malloc(w*h*4);
-		ret->need_free = true;
-	}
+	if(ret != NULL)
+		graph_init(ret, buffer, w, h);
 	return ret;
 }
 

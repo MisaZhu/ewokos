@@ -113,11 +113,9 @@ static int fb_dma(int fd, int from_pid, fsinfo_t* info, int* size, void* p) {
 }
 
 static void clear(void) {
-	graph_t* g = graph_new((uint32_t*)_fbinfo->pointer, _fbinfo->width, _fbinfo->height);
-	if(g == NULL)
-		return;
-	graph_clear(g, 0xff000000);
-	graph_free(g);
+	graph_t g;
+	graph_init(&g, (uint32_t*)_fbinfo->pointer, _fbinfo->width, _fbinfo->height);
+	graph_clear(&g, 0xff000000);
 }
 
 int main(int argc, char** argv) {
