@@ -148,14 +148,14 @@ static void x_push_event(x_t* x, xevent_t* ev) {
 }
 
 static int x_get_event(x_t* x, xevent_t* ev) {
-	ipc_disable();
 	x_event_t* e = x->event_head;
 	if(e == NULL) {
-		ipc_enable();
 		if(x->on_loop == NULL)
 			proc_block(getpid(), (uint32_t)x);
 		return -1;
 	}
+
+	ipc_disable();
 	x->event_head = x->event_head->next;
 	if (x->event_head == NULL)
 		x->event_tail = NULL;
