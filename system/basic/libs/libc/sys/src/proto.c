@@ -88,7 +88,7 @@ inline static proto_factor_t* proto_add(proto_t* proto, const void* item, uint32
 
 inline static proto_factor_t* proto_add_int(proto_t* proto, int32_t v) {
 	if(proto->type == PROTO_INT) {
-		proto->int_v = v;
+		*((int32_t*)proto->buffer) = v;
 	}
 	else
 		proto_add(proto, (void*)&v, 4);
@@ -178,7 +178,7 @@ inline int32_t proto_read_proto(proto_t* proto, proto_t* to) {
 
 inline int32_t proto_read_int(proto_t* proto) {
 	if(proto != NULL && proto->type == PROTO_INT) {
-		return proto->int_v;
+		return *(int32_t*)proto->buffer;
 	}
 
 	void *p = proto_read(proto, NULL);

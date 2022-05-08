@@ -171,14 +171,14 @@ void proc_switch(context_t* ctx, proc_t* to, bool quick){
 			memcpy(&to->space->interrupt.saved_state.ctx, &to->ctx, sizeof(context_t)); // save "to" context to irq ctx, will restore after irq done.
 			to->ctx.gpr[0] = to->space->interrupt.interrupt;
 			to->ctx.pc = to->ctx.lr = to->space->interrupt.entry;
-			to->ctx.sp = ALIGN_DOWN(to->space->interrupt.stack + THREAD_STACK_PAGES * PAGE_SIZE, 4);
+			to->ctx.sp = ALIGN_DOWN(to->space->interrupt.stack + THREAD_STACK_PAGES * PAGE_SIZE, 8);
 			to->space->interrupt.do_switch = false; // clear irq request mask
 		}
 		else if (to->space->signal.do_switch) {																			 // have signal request to handle
 			memcpy(&to->space->signal.saved_state.ctx, &to->ctx, sizeof(context_t)); // save "to" context to ipc ctx, will restore after ipc done.
 			to->ctx.gpr[0] = to->space->signal.sig_no;
 			to->ctx.pc = to->ctx.lr = to->space->signal.entry;
-			to->ctx.sp = ALIGN_DOWN(to->space->signal.stack + THREAD_STACK_PAGES * PAGE_SIZE, 4);
+			to->ctx.sp = ALIGN_DOWN(to->space->signal.stack + THREAD_STACK_PAGES * PAGE_SIZE, 8);
 			to->space->signal.do_switch = false; // clear ipc request mask
 		}
 		else if (to->space->ipc_server.do_switch) { // have ipc request to handle
@@ -187,7 +187,7 @@ void proc_switch(context_t* ctx, proc_t* to, bool quick){
 			to->ctx.gpr[0] = ipc->uid;
 			to->ctx.gpr[1] = to->space->ipc_server.extra_data;
 			to->ctx.pc = to->ctx.lr = to->space->ipc_server.entry;
-			to->ctx.sp = ALIGN_DOWN(to->space->ipc_server.stack + THREAD_STACK_PAGES * PAGE_SIZE, 4);
+			to->ctx.sp = ALIGN_DOWN(to->space->ipc_server.stack + THREAD_STACK_PAGES * PAGE_SIZE, 8);
 			to->space->ipc_server.do_switch = false; // clear ipc request mask
 		}
 	}
@@ -669,7 +669,7 @@ proc_t* kfork_raw(context_t* ctx, int32_t type, proc_t* parent) {
 		}
 	}
 	else {
-		child->ctx.sp = ALIGN_DOWN(child->stack.thread_stack + THREAD_STACK_PAGES*PAGE_SIZE, 4);
+		child->ctx.sp = ALIGN_DOWN(child->stack.thread_stack + THREAD_STACK_PAGES*PAGE_SIZE, 8);
 	}
 	return child;
 }

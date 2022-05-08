@@ -67,7 +67,7 @@ ipc_task_t* proc_ipc_req(proc_t* serv_proc, int32_t client_pid, int32_t call_id,
 	ipc->call_id = call_id;
 	if(data != NULL) {
 		if(data->type == PROTO_INT)
-			ipc->data.int_v = data->int_v;
+			*(int32_t*)ipc->data.buffer = *(int32_t*)data->buffer;
 		else
 			proto_copy(&ipc->data, data->data, data->size); 
 		ipc->data.type = data->type;

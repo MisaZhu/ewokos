@@ -12,10 +12,10 @@ enum {
 
 typedef struct {
 	uint32_t type;
-	int32_t  int_v;
 
 	char     buffer[PROTO_BUFFER];
 	void*    data;
+
 	uint32_t size;
 	uint32_t total_size;
 	uint32_t offset;
