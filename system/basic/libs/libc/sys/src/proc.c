@@ -9,9 +9,11 @@ extern "C" {
 #endif
 
 static int _vfsd_pid;
+static int _cpid;
 
 void proc_init(void) {
 	_vfsd_pid = -1;
+	_cpid = -1;
 	vfs_init();
 }
 
@@ -22,7 +24,13 @@ inline int get_vfsd_pid(void) {
 }
 
 inline int proc_getpid(int pid) {
-  return syscall1(SYS_GET_PID, pid);
+	if(pid < 0) {
+		if(_cpid < 0) {
+ 	 		_cpid = syscall1(SYS_GET_PID, pid);
+		}
+		return _cpid;
+	}
+ 	return syscall1(SYS_GET_PID, pid);
 }
 
 inline void proc_detach(void) {

@@ -22,7 +22,7 @@ typedef struct st_x {
 	void* data;
 	bool terminated;
 	x_event_t* event_head;
-  x_event_t* event_tail;
+	x_event_t* event_tail;
 
 	void (*on_loop)(void* p);
 } x_t;
@@ -31,6 +31,8 @@ typedef struct st_xwin {
 	x_t* x;
 	int fd;
 	void* data;
+	void* g_buf;
+	int   g_shmid;
 	xinfo_t xinfo_prev; //for backup the state before fullscreen/min/max.
 
 	void (*on_close)(struct st_xwin* xwin);

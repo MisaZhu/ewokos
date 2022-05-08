@@ -20,6 +20,12 @@ extern "C" {
 
 int x_update_info(xwin_t* xwin, const xinfo_t* info) {
 	proto_t in;
+	if(xwin->g_buf != NULL) {
+		xwin->g_buf = NULL;
+		shm_unmap(xwin->g_shmid);
+		xwin->g_shmid = -1;
+	}
+
 	PF->init(&in)->add(&in, info, sizeof(xinfo_t));
 	int ret = vfs_fcntl(xwin->fd, X_CNTL_UPDATE_INFO, &in, NULL);
 	PF->clear(&in);
@@ -98,33 +104,30 @@ static graph_t* x_get_graph(xwin_t* xwin, graph_t* g) {
 	xinfo_t info;
 	if(x_get_info(xwin, &info) != 0)
 		return NULL;
-	void* gbuf = shm_map(info.shm_id);
-	if(gbuf == NULL)
-		return NULL;
+	if(xwin->g_buf == NULL) {
+		xwin->g_buf = shm_map(info.shm_id);
+		if(xwin->g_buf == NULL)
+			return NULL;
+		xwin->g_shmid = info.shm_id;
+	}
 
-	g->buffer = gbuf;
+	g->buffer = xwin->g_buf;
 	g->w = info.wsr.w;
 	g->h = info.wsr.h;
 	g->need_free = false;
 	return g;
 }
 
-static void x_release_graph(xwin_t* xwin) {
-	xinfo_t info;
-	if(x_get_info(xwin, &info) != 0)
-		return;
-	shm_unmap(info.shm_id);
-}
-
 void x_close(xwin_t* xwin) {
 	if(xwin == NULL)
 		return;
-	if(xwin->on_close) {
+	if(xwin->on_close)
 		xwin->on_close(xwin);
-	}
+
+	if(xwin->g_buf != NULL)
+		shm_unmap(xwin->g_shmid);
 
 	close(xwin->fd);
-
 	if(xwin->x->main_win == xwin)
 		xwin->x->terminated = true;
 	free(xwin);
@@ -145,13 +148,14 @@ static void x_push_event(x_t* x, xevent_t* ev) {
 }
 
 static int x_get_event(x_t* x, xevent_t* ev) {
+	ipc_disable();
 	x_event_t* e = x->event_head;
 	if(e == NULL) {
+		ipc_enable();
 		if(x->on_loop == NULL)
 			proc_block(getpid(), (uint32_t)x);
 		return -1;
 	}
-	ipc_disable();
 	x->event_head = x->event_head->next;
 	if (x->event_head == NULL)
 		x->event_tail = NULL;
@@ -172,7 +176,6 @@ static void x_repaint_raw(xwin_t* xwin) {
 	if(x_get_graph(xwin, &g) != NULL) {
 		xwin->on_repaint(xwin, &g);
 		vfs_fcntl(xwin->fd, X_CNTL_UPDATE, NULL, NULL);
-		x_release_graph(xwin);
 	}
 }
 
