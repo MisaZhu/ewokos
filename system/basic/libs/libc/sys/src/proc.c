@@ -1,5 +1,6 @@
 #include <sys/proc.h>
 #include <sys/ipc.h>
+#include <sys/vfs.h>
 #include <sys/syscall.h>
 #include <unistd.h>
 
@@ -11,6 +12,7 @@ static int _vfsd_pid;
 
 void proc_init(void) {
 	_vfsd_pid = -1;
+	vfs_init();
 }
 
 inline int get_vfsd_pid(void) {

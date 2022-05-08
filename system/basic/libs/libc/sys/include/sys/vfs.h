@@ -12,6 +12,7 @@ extern "C" {
 
 const char* vfs_fullname(const char* fname);
 
+void      vfs_init(void);
 int       vfs_read_pipe(fsinfo_t* info, void* buf, uint32_t size, bool block);
 int       vfs_write_pipe(fsinfo_t* info, const void* buf, uint32_t size, bool block);
 int       vfs_open(fsinfo_t* info, int wr);

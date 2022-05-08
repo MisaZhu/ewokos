@@ -15,6 +15,60 @@
 extern "C" {
 #endif
 
+typedef struct {
+	int fd;
+	fsinfo_t info;
+} fsinfo_buffer_t;
+static fsinfo_buffer_t _fsinfo_buffer;
+
+void  vfs_init(void) {
+	_fsinfo_buffer.fd = -1;
+}
+
+static int vfs_get_by_fd_raw(int fd, fsinfo_t* info) {
+	proto_t in, out;
+	PF->init_type(&in, PROTO_INT)->addi(&in, fd);
+	PF->init(&out);
+	int res = ipc_call(get_vfsd_pid(), VFS_GET_BY_FD, &in, &out);
+	PF->clear(&in);
+
+	if(res == 0) {
+		if(info != NULL)
+			proto_read_to(&out, info, sizeof(fsinfo_t));
+	}
+	PF->clear(&out);
+	return res;
+}
+
+static inline void vfs_set_info_buffer(int fd, fsinfo_t* info) {
+	_fsinfo_buffer.fd = fd;
+	memcpy(&_fsinfo_buffer.info, info, sizeof(fsinfo_t));
+}
+
+static inline void vfs_clear_info_buffer(int fd) {
+	if(fd != _fsinfo_buffer.fd)
+		_fsinfo_buffer.fd = -1;
+}
+
+static inline int vfs_fetch_info_buffer(int fd, fsinfo_t* info) {
+	if(fd != _fsinfo_buffer.fd)
+		return -1;
+	memcpy(info, &_fsinfo_buffer.info, sizeof(fsinfo_t));
+	return 0;
+}
+
+int vfs_get_by_fd(int fd, fsinfo_t* info) {
+	if(vfs_fetch_info_buffer(fd, info) == 0)
+		return 0;
+
+	int res = vfs_get_by_fd_raw(fd, info);
+	if(res == 0 && fd > 3) {
+		_fsinfo_buffer.fd = fd;
+		memcpy(&_fsinfo_buffer.info, info, sizeof(fsinfo_t));
+	}
+	return res;
+}
+
 int vfs_new_node(fsinfo_t* info) {
 	proto_t in, out;
 	PF->init(&in)->add(&in, info, sizeof(fsinfo_t));
@@ -56,6 +110,7 @@ int vfs_open(fsinfo_t* info, int oflag) {
 	PF->clear(&in);
 	if(res == 0) {
 		res = proto_read_int(&out);
+		vfs_set_info_buffer(res, info);
 	}
 	PF->clear(&out);
 	return res;	
@@ -118,9 +173,9 @@ int vfs_dup(int fd) {
 int vfs_close(int fd) {
 	proto_t in;
 	PF->init_type(&in, PROTO_INT)->addi(&in, fd);
-
 	int res = ipc_call(get_vfsd_pid(), VFS_CLOSE, &in, NULL);
 	PF->clear(&in);
+	vfs_clear_info_buffer(fd);
 	return res;
 }
 
@@ -300,21 +355,6 @@ int vfs_umount(fsinfo_t* info) {
 
 	if(res == 0) {
 		res = proto_read_int(&out);
-	}
-	PF->clear(&out);
-	return res;
-}
-
-int vfs_get_by_fd(int fd, fsinfo_t* info) {
-	proto_t in, out;
-	PF->init_type(&in, PROTO_INT)->addi(&in, fd);
-	PF->init(&out);
-	int res = ipc_call(get_vfsd_pid(), VFS_GET_BY_FD, &in, &out);
-	PF->clear(&in);
-
-	if(res == 0) {
-		if(info != NULL)
-			proto_read_to(&out, info, sizeof(fsinfo_t));
 	}
 	PF->clear(&out);
 	return res;
