@@ -50,7 +50,7 @@ int      x_get_info(xwin_t* x, xinfo_t* xinfo);
 void     x_close(xwin_t* x);
 int      x_screen_info(xscreen_t* scr);
 int      x_set_visible(xwin_t* x, bool visible);
-void     x_repaint(xwin_t* x);
+void     x_repaint(xwin_t* x, bool thread);
 int      x_resize(xwin_t* x, int dw, int dh);
 int      x_resize_to(xwin_t* x, int w, int h);
 int      x_move(xwin_t* xwin, int dx, int dy);

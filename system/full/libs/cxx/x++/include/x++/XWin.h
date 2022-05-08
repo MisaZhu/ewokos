@@ -52,7 +52,7 @@ public:
 
 	bool updateInfo(const xinfo_t& xinfo);
 	bool getInfo(xinfo_t& xinfo);
-	void repaint(void);
+	void repaint(bool thread = false);
 	void resizeTo(int w, int h);
 	void resize(int dw, int dh);
 	void moveTo(int x, int y);

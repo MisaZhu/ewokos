@@ -179,10 +179,8 @@ static void x_repaint_raw(xwin_t* xwin) {
 	}
 }
 
-void x_repaint(xwin_t* xwin) {
-	int tid = thread_get_id();
-	int pid = getpid();
-	if(tid == pid) {
+void x_repaint(xwin_t* xwin, bool thread) {
+	if(!thread) {
 		x_repaint_raw(xwin);
 		return;
 	}

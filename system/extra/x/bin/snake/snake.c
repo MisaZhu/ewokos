@@ -214,7 +214,7 @@ static void loop(void* p) {
 		else
 			snprintf(info, sizeof(info), "BEST:%d  SCORE:%d", record, s.score);
 	}
-	x_repaint(xwin);
+	x_repaint(xwin, false);
 	usleep(10000);
 }
 

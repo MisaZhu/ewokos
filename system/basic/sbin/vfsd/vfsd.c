@@ -42,6 +42,7 @@ static mount_t _vfs_mounts[FS_MOUNT_MAX];
 
 typedef struct {
 	file_t fds[PROC_FILE_MAX];
+	uint32_t state;
 } proc_fds_t;
 
 static proc_fds_t _proc_fds_table[PROC_MAX];
@@ -885,6 +886,7 @@ static void do_vfs_proc_clone(int32_t pid, proto_t* in) {
 	int cpid = proto_read_int(in);
 	if(fpid < 0 || cpid < 0)
 		return;
+	_proc_fds_table[cpid].state = RUNNING;
 	
 	int32_t i;
 	for(i=0; i<PROC_FILE_MAX; i++) {
@@ -914,7 +916,6 @@ static void do_vfs_proc_exit(int32_t pid, proto_t* in) {
 	int cpid = proto_read_int(in);
 	if(cpid < 0)
 		return;
-	
 	int32_t i;
 	for(i=0; i<PROC_FILE_MAX; i++) {
 		file_t *f = &_proc_fds_table[cpid].fds[i];
@@ -923,11 +924,13 @@ static void do_vfs_proc_exit(int32_t pid, proto_t* in) {
 		}
 		memset(f, 0, sizeof(file_t));
 	}
+	_proc_fds_table[cpid].state = UNUSED;
 }
 
 static void handle(int pid, int cmd, proto_t* in, proto_t* out, void* p) {
 	(void)p;
-	pid = proc_getpid(pid);
+	if(_proc_fds_table[pid].state == UNUSED) //maybe thread 
+		pid = proc_getpid(pid); //get the main proc pid
 
 	switch(cmd) {
 	case VFS_NEW_NODE:
