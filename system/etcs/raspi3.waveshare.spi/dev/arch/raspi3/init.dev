@@ -1,0 +1,2 @@
+/drivers/raspix/rpi_lcdd      /dev/fb0
+/drivers/raspix/mini_uartd    /dev/tty0
