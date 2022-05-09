@@ -78,7 +78,7 @@ inline int ipc_call_wait(int to_pid, int call_id, const proto_t* ipkg, proto_t* 
 		return ipc_call(to_pid, call_id, ipkg, opkg);
 	
 	proto_t out;
-	PF->init(&out);
+	PF->init_type(&out, PROTO_INT);
 	int res = ipc_call(to_pid, call_id, ipkg, &out);
 	PF->clear(&out);
 	return res;
