@@ -103,7 +103,7 @@ static inline void lcd_brightness(uint8_t brightness) {
 }
 
 static inline void lcd_show(void) {
-	int i, j;
+	int i, j, m = 0;
 	lcd_write_commmand(0x2B);
 	lcd_write_data(0x00);
 	lcd_write_data(0x00);
@@ -118,11 +118,20 @@ static inline void lcd_show(void) {
 
 	lcd_write_commmand(0x2C); // Memory write?
 
+#define SPI_FIFO_SIZE  64
+	uint8_t c8[SPI_FIFO_SIZE];
+
 	for ( i = 0 ; i < 30  ; i ++ ) {
 		uint16_t *tx_data = (uint16_t*)&_lcd_buffer[5120*i];
 		int32_t data_sz = 5120;
 		for( j=0; j<data_sz; j++)  {
-			bcm283x_spi_transfer16(tx_data[j]);
+			uint16_t color = tx_data[j];
+			c8[m++] = (color >> 8) & 0xff;
+			c8[m++] = (color) & 0xff;
+			if(m >= SPI_FIFO_SIZE) {
+				m = 0;
+				bcm283x_spi_send_recv(c8, NULL, SPI_FIFO_SIZE);
+			}
 		}
 	}
 }

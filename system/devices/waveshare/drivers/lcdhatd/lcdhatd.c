@@ -299,7 +299,10 @@ int  do_flush(const void* buf, uint32_t size) {
 
 	uint32_t *src = (uint32_t*)buf;
 	uint32_t sz = LCD.HEIGHT*LCD.WIDTH;
-	UWORD i;
+	uint32_t i, j = 0;
+
+#define SPI_FIFO_SIZE  64
+	uint8_t c8[SPI_FIFO_SIZE];
 
 	if(LCD.ROT == ROT_0 || LCD.ROT == ROT_90) {
 		for (i = 0; i <sz; i++) {
@@ -308,7 +311,12 @@ int  do_flush(const void* buf, uint32_t size) {
 			register uint8_t g = (s >> 8)  & 0xff;
 			register uint8_t b = s & 0xff;
 			UWORD color = ((r >> 3) <<11) | ((g >> 3) << 6) | (b >> 3);
-			bcm283x_spi_transfer16(color);
+			c8[j++] = (color >> 8) & 0xff;
+			c8[j++] = (color) & 0xff;
+			if(j >= SPI_FIFO_SIZE) {
+				j = 0;
+				bcm283x_spi_send_recv(c8, NULL, SPI_FIFO_SIZE);
+			}
 		}
 	}
 	else {
@@ -318,7 +326,12 @@ int  do_flush(const void* buf, uint32_t size) {
 			register uint8_t g = (s >> 8)  & 0xff;
 			register uint8_t b = s & 0xff;
 			UWORD color = ((r >> 3) <<11) | ((g >> 3) << 6) | (b >> 3);
-			bcm283x_spi_transfer16(color);
+			c8[j++] = (color >> 8) & 0xff;
+			c8[j++] = (color) & 0xff;
+			if(j >= SPI_FIFO_SIZE) {
+				j = 0;
+				bcm283x_spi_send_recv(c8, NULL, SPI_FIFO_SIZE);
+			}
 		}
 	}
 	bcm283x_spi_activate(0);

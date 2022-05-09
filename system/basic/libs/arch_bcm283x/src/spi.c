@@ -63,10 +63,6 @@
 #define SPI_CLK_DIVIDE_MASK 0xFFFF
 #define SPI_CLK_DIVIDE_DEFAULT 0
 
-#define SPI_SELECT_0 0x01
-#define SPI_SELECT_1 0x02
-#define SPI_SELECT_DEFAULT SPI_SELECT_0
-
 #define SPI_ACTIVATE 1
 #define SPI_DEACTIVATE 0
 
@@ -104,18 +100,6 @@ void bcm283x_spi_select(uint32_t which) {
 	}
 }
 
-inline void bcm283x_spi_activate(uint8_t enable) {
-	uint32_t data = SPI_CNTL_TRXACT;
-	if (enable) {
-		/* activate transfer on selected channel 0 or 1 */
-		put32(SPI_CS_REG,data|(bcm283x_spi_which>>1));
-	}
-	else {
-		/* de-activate transfer */
-		put32(SPI_CS_REG,get32(SPI_CS_REG)&~SPI_CNTL_TRXACT);
-	}
-}
-
 struct SPI0_regs {
     volatile uint32_t cs;
     volatile uint32_t fifo;
@@ -124,9 +108,25 @@ struct SPI0_regs {
 };
 #define _spi0_regs ((struct SPI0_regs *)(SPI_BASE))
 
-inline void bcm283x_spi_send_recv(const uint8_t* send, uint32_t* recv, uint32_t size) {
+inline void bcm283x_spi_activate(uint8_t enable) {
+	uint32_t data = SPI_CNTL_TRXACT;
+	if (enable) {
+		/*
+		_spi0_regs->cs = _spi0_regs->cs |
+				 SPI_CNTL_TRXACT |
+				 SPI_CNTL_CLR_RX |
+				 SPI_CNTL_CLR_TX |
+				(bcm283x_spi_which>>1);
+				*/
+		_spi0_regs->cs = SPI_CNTL_TRXACT | (bcm283x_spi_which>>1);
+	}
+	else {
+		_spi0_regs->cs = (_spi0_regs->cs & ~SPI_CNTL_TRXACT);
+	}
+}
+
+inline void bcm283x_spi_send_recv(const uint8_t* send, uint8_t* recv, uint32_t size) {
 	_spi0_regs->size = size;
-	_spi0_regs->cs = _spi0_regs->cs | SPI_CNTL_TRXACT | SPI_CNTL_CLR_RX | SPI_CNTL_CLR_TX;
 	uint32_t read_count = 0;
 	uint32_t write_count = 0;
 
@@ -147,56 +147,33 @@ inline void bcm283x_spi_send_recv(const uint8_t* send, uint32_t* recv, uint32_t 
 		}
 	}
 
-	while(!(_spi0_regs->cs & SPI_STAT_TXDONE)) {
+	/*while(!(_spi0_regs->cs & SPI_STAT_TXDONE)) {
 		while(_spi0_regs->cs & SPI_STAT_RXDATA) {
 			read_count = _spi0_regs->fifo;
 		}
 	}
-	_spi0_regs->cs = (_spi0_regs->cs & ~SPI_CNTL_TRXACT);
+	*/
 }
 
 inline void bcm283x_spi_write(uint8_t data) {
 	/* wait if fifo is full */
-	while (!(get32(SPI_CS_REG)&SPI_STAT_TXDATA));
+	while (!(_spi0_regs->cs & SPI_STAT_TXDATA));
 	/* write a byte */
-	put32(SPI_FIFO_REG,data&0xff);
+	_spi0_regs->fifo = data;
 	/* wait until done */
-	while (!(get32(SPI_CS_REG)&SPI_STAT_TXDONE));
+	while (!(_spi0_regs->cs & SPI_STAT_TXDONE));
 }
 
 inline uint8_t bcm283x_spi_transfer(uint8_t data) {
-	// wait if fifo is full
-	while (!(get32(SPI_CS_REG)&SPI_STAT_TXDATA));
-	// write a byte
-	put32(SPI_FIFO_REG,data&0xff);
-	// wait until done 
-	//while (!(get32(SPI_CS_REG)&SPI_STAT_TXDONE));
-	// should get a byte? 
-	while (!(get32(SPI_CS_REG)&SPI_STAT_RXDATA));
-	// read a byte
-	return get32(SPI_FIFO_REG)&0xff;
+	//write
+	while (!(_spi0_regs->cs & SPI_STAT_TXDATA));
+	_spi0_regs->fifo = data;
+
+	//read
+	while (!(_spi0_regs->cs & SPI_STAT_RXDATA));
+	data  = _spi0_regs->fifo;
+	return data;
 }
-
-/*inline uint16_t bcm283x_spi_transfer16_fast(uint16_t data) {
-	uint8_t hi, low;
-	hi = ((data >> 8) & 0xff); 
-
-	while (!(get32(SPI_CS_REG)&SPI_STAT_TXDATA));
-	put32(SPI_FIFO_REG,hi);
-
-	if(get32(SPI_CS_REG)&SPI_STAT_RXDATA)
-		hi =  get32(SPI_FIFO_REG); 
-
-	low = data & 0xff; 
-
-	while (!(get32(SPI_CS_REG)&SPI_STAT_TXDATA));
-	put32(SPI_FIFO_REG,low);
-
-	if(get32(SPI_CS_REG)&SPI_STAT_RXDATA)
-		low =  get32(SPI_FIFO_REG); 	
-	return (hi << 8) | low;
-} 
-*/
 
 inline uint16_t bcm283x_spi_transfer16(uint16_t data) {
 	uint8_t hi = bcm283x_spi_transfer((data >> 8) & 0xff);
