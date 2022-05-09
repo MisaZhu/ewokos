@@ -73,6 +73,26 @@ inline uint8_t bcm283x_spi_transfer(uint8_t data) {
 	return get32(SPI_FIFO_REG)&0xff;
 }
 
+inline void bcm283x_spi_burst_write(uint16_t data){	
+
+	uint8_t hi, low;
+	hi = ((data >> 8) & 0xff); 
+
+	while (!(get32(SPI_CS_REG)&SPI_STAT_TXDATA));
+	put32(SPI_FIFO_REG,hi);
+
+	if(get32(SPI_CS_REG)&SPI_STAT_RXDATA)
+		hi =  get32(SPI_FIFO_REG); 
+
+	low = data & 0xff; 
+
+	while (!(get32(SPI_CS_REG)&SPI_STAT_TXDATA));
+	put32(SPI_FIFO_REG,low);
+
+	if(get32(SPI_CS_REG)&SPI_STAT_RXDATA)
+		low =  get32(SPI_FIFO_REG); 	
+} 
+
 inline uint16_t bcm283x_spi_transfer16(uint16_t data) {
 	uint8_t hi = bcm283x_spi_transfer((data >> 8) & 0xff);
 	uint8_t low = bcm283x_spi_transfer(data & 0xff);
