@@ -25,6 +25,9 @@ CXXFLAGS = -marm \
         -fno-builtin-snprintf \
         -fno-builtin-sprintf \
         -fno-builtin-fprintf \
+        -fno-builtin-fread \
+        -fno-builtin-fwrite \
+        -fno-builtin-realloc \
         -Wno-overlength-strings \
         -fno-builtin-exit -fno-builtin-stdio \
         -fno-rtti -fno-exceptions
