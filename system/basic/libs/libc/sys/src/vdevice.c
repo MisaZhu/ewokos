@@ -298,6 +298,7 @@ static void handle(int from_pid, int cmd, proto_t* in, proto_t* out, void* p) {
 	vdevice_t* dev = (vdevice_t*)p;
 	if(dev == NULL)
 		return;
+	PF->clear(out);
 
 	p = dev->extra_data;
 	switch(cmd) {
