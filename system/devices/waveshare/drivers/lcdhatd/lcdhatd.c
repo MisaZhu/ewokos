@@ -308,7 +308,7 @@ int  do_flush(const void* buf, uint32_t size) {
 			register uint8_t g = (s >> 8)  & 0xff;
 			register uint8_t b = s & 0xff;
 			UWORD color = ((r >> 3) <<11) | ((g >> 3) << 6) | (b >> 3);
-			bcm283x_spi_transfer16_fast(color);
+			bcm283x_spi_transfer16(color);
 		}
 	}
 	else {
@@ -318,7 +318,7 @@ int  do_flush(const void* buf, uint32_t size) {
 			register uint8_t g = (s >> 8)  & 0xff;
 			register uint8_t b = s & 0xff;
 			UWORD color = ((r >> 3) <<11) | ((g >> 3) << 6) | (b >> 3);
-			bcm283x_spi_transfer16_fast(color);
+			bcm283x_spi_transfer16(color);
 		}
 	}
 	bcm283x_spi_activate(0);

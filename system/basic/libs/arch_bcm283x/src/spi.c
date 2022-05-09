@@ -66,14 +66,14 @@ inline uint8_t bcm283x_spi_transfer(uint8_t data) {
 	// write a byte
 	put32(SPI_FIFO_REG,data&0xff);
 	// wait until done 
-	while (!(get32(SPI_CS_REG)&SPI_STAT_TXDONE));
+	//while (!(get32(SPI_CS_REG)&SPI_STAT_TXDONE));
 	// should get a byte? 
 	while (!(get32(SPI_CS_REG)&SPI_STAT_RXDATA));
 	// read a byte
 	return get32(SPI_FIFO_REG)&0xff;
 }
 
-inline uint16_t bcm283x_spi_transfer16_fast(uint16_t data) {
+/*inline uint16_t bcm283x_spi_transfer16_fast(uint16_t data) {
 	uint8_t hi, low;
 	hi = ((data >> 8) & 0xff); 
 
@@ -92,6 +92,7 @@ inline uint16_t bcm283x_spi_transfer16_fast(uint16_t data) {
 		low =  get32(SPI_FIFO_REG); 	
 	return (hi << 8) | low;
 } 
+*/
 
 inline uint16_t bcm283x_spi_transfer16(uint16_t data) {
 	uint8_t hi = bcm283x_spi_transfer((data >> 8) & 0xff);

@@ -87,8 +87,7 @@ static int scrFPS = 0;
 static void loop(void* p) {
 	XWin* xwin = (XWin*)p;
 	xwin->repaint();
-	if(scrFPS > 0)
-		usleep(1000000 / scrFPS);
+	usleep(30000);
 }
 
 int main(int argc, char* argv[]) {

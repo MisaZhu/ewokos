@@ -122,7 +122,7 @@ static inline void lcd_show(void) {
 		uint16_t *tx_data = (uint16_t*)&_lcd_buffer[5120*i];
 		int32_t data_sz = 5120;
 		for( j=0; j<data_sz; j++)  {
-			bcm283x_spi_transfer16_fast(tx_data[j]);
+			bcm283x_spi_transfer16(tx_data[j]);
 		}
 	}
 }
