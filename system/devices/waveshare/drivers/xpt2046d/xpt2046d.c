@@ -35,7 +35,7 @@ int main(int argc, char** argv) {
 		TP_IRQ = atoi(argv[3]);
 	}
 
-	xpt2046_init(TP_CS, TP_IRQ);
+	xpt2046_init(TP_CS, TP_IRQ, 256);
 
 	vdevice_t dev;
 	memset(&dev, 0, sizeof(vdevice_t));

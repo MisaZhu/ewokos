@@ -61,20 +61,19 @@ inline void bcm283x_spi_write(uint8_t data) {
 }
 
 inline uint8_t bcm283x_spi_transfer(uint8_t data) {
-	/* wait if fifo is full */
+	// wait if fifo is full
 	while (!(get32(SPI_CS_REG)&SPI_STAT_TXDATA));
-	/* write a byte */
+	// write a byte
 	put32(SPI_FIFO_REG,data&0xff);
-	/* wait until done */
+	// wait until done 
 	while (!(get32(SPI_CS_REG)&SPI_STAT_TXDONE));
-	/* should get a byte? */
+	// should get a byte? 
 	while (!(get32(SPI_CS_REG)&SPI_STAT_RXDATA));
-	/* read a byte */
+	// read a byte
 	return get32(SPI_FIFO_REG)&0xff;
 }
 
-inline void bcm283x_spi_burst_write(uint16_t data){	
-
+inline uint16_t bcm283x_spi_transfer16_fast(uint16_t data) {
 	uint8_t hi, low;
 	hi = ((data >> 8) & 0xff); 
 
@@ -91,6 +90,7 @@ inline void bcm283x_spi_burst_write(uint16_t data){
 
 	if(get32(SPI_CS_REG)&SPI_STAT_RXDATA)
 		low =  get32(SPI_FIFO_REG); 	
+	return (hi << 8) | low;
 } 
 
 inline uint16_t bcm283x_spi_transfer16(uint16_t data) {

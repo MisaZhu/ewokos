@@ -10,15 +10,13 @@
 static int TP_CS = 7;
 static int TP_IRQ = 25;
 
-#define SPI_CLK_DIVIDE_TEST 2 
-
 static bool _down = false;
 static int32_t _x, _y;
 
-static void TP_init(void) {
+static void TP_init(int cdiv) {
 	_down = false;
 	_x = _y = 0;
-	bcm283x_spi_init(SPI_CLK_DIVIDE_TEST);
+	bcm283x_spi_init(cdiv);
 	bcm283x_spi_select(SPI_SELECT_0);
 
 	bcm283x_gpio_config(TP_CS, GPIO_OUTPUT);
@@ -81,9 +79,9 @@ int xpt2046_read(uint16_t* press,  uint16_t* x, uint16_t* y) {
 	return 0;	
 }
 
-void xpt2046_init(int pin_cs, int pin_irq) {
+void xpt2046_init(int pin_cs, int pin_irq, int cdiv) {
 	TP_CS = pin_cs;
 	TP_IRQ = pin_irq;
-	TP_init();
+	TP_init(cdiv);
 }
 
