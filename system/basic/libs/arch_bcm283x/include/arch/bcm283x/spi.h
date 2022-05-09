@@ -73,5 +73,5 @@ uint16_t bcm283x_spi_transfer16(uint16_t data);
 void     bcm283x_spi_write(uint8_t data);
 void     bcm283x_spi_activate(uint8_t enable);
 void     bcm283x_spi_select(uint32_t which); 
-
+void     bcm283x_spi_burst_write(uint16_t data);
 #endif
