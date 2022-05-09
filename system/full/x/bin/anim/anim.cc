@@ -71,15 +71,9 @@ protected:
 		graph_draw_text(g, 10, gH-font->h, str, font, 0xffffffff);
 		drawFitgher(g);
 
-		int i = fps / 14;
-		if(i == 0)
-			i = 1;
-
-		if(mod_u32(fps_counter, i) == 0) {
-			fighter_step++;
-			if (fighter_step >= 7)
-				fighter_step = 0;
-		}
+		fighter_step++;
+		if (fighter_step >= 7)
+			fighter_step = 0;
 	}
 };
 
@@ -87,7 +81,7 @@ static int scrFPS = 0;
 static void loop(void* p) {
 	XWin* xwin = (XWin*)p;
 	xwin->repaint();
-	usleep(30000);
+	usleep(50000);
 }
 
 int main(int argc, char* argv[]) {
