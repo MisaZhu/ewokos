@@ -48,7 +48,7 @@ enum {
 #define X_STYLE_SYSBOTTOM 0x40
 #define X_STYLE_XIM       0x80
 
-#define X_TITLE_MAX 64
+#define X_TITLE_MAX 32
 typedef struct {
 	uint32_t win;
 	int      shm_id;

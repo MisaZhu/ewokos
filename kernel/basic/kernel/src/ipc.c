@@ -61,6 +61,7 @@ ipc_task_t* proc_ipc_req(proc_t* serv_proc, int32_t client_pid, int32_t call_id,
 		return NULL;
 
 	memset(ipc, 0, sizeof(ipc_task_t));
+	proto_init(&ipc->data);
 	ipc->uid = _ipc_uid;
 	ipc->state = IPC_BUSY;
 	ipc->client_pid = client_pid;

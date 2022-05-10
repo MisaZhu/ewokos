@@ -489,6 +489,8 @@ proc_t *proc_create(int32_t type, proc_t* parent) {
 	proc->info.type = type;
 	proc->info.father_pid = -1;
 	proc->info.state = CREATED;
+	proto_init(&proc->ipc_res.data);
+
 	if(type == PROC_TYPE_PROC) {
 		proc_init_space(proc);
 	}
