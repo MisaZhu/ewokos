@@ -476,7 +476,7 @@ static void sys_proc_ready_ping(void) {
 
 static kevent_t* sys_get_kevent_raw(void) {
 	proc_t* cproc = get_current_proc();
-	if(cproc->info.owner > 0)	
+	if(cproc->info.pid != _core_proc_pid)	 //only core proc access allowed.
 		return NULL;
 
 	kevent_t* kev = kev_pop();
