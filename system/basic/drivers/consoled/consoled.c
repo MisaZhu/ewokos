@@ -9,7 +9,7 @@
 #include <fonts/fonts.h>
 #include <sys/shm.h>
 #include <sys/vdevice.h>
-#include <disp/disp.h>
+#include <display/display.h>
 #include <upng/upng.h>
 #include <sys/syscall.h>
 #include <sysinfo.h>
@@ -17,8 +17,8 @@
 
 typedef struct {
 	const char* id;
-	const char* disp_dev;
-	uint32_t    disp_index;
+	const char* display_dev;
+	uint32_t    display_index;
 	fb_t        fb;
 	graph_t*    g;
 	console_t   console;
@@ -59,11 +59,11 @@ static int32_t read_config(fb_console_t* console, const char* fname) {
 	return 0;
 }
 
-static int init_console(fb_console_t* console, const char* disp_dev, const uint32_t disp_index) {
+static int init_console(fb_console_t* console, const char* display_dev, const uint32_t display_index) {
 	memset(console, 0, sizeof(fb_console_t));
-	console->disp_dev = disp_dev;
-	console->disp_index = disp_index;
-	const char* fb_dev = get_disp_fb_dev(disp_dev, console->disp_index);
+	console->display_dev = display_dev;
+	console->display_index = display_index;
+	const char* fb_dev = get_display_fb_dev(display_dev, console->display_index);
 	if(fb_open(fb_dev, &console->fb) != 0)
 		return -1;
 
@@ -144,11 +144,11 @@ static int console_dev_cntl(int from_pid, int cmd, proto_t* in, proto_t* ret, vo
 
 int main(int argc, char** argv) {
 	const char* mnt_point = argc > 1 ? argv[1]: "/dev/console0";
-	const char* disp_dev = argc > 2 ? argv[2]: "/dev/dispman";
-	const uint32_t disp_index = argc > 3 ? atoi(argv[3]): 0;
+	const char* display_dev = argc > 2 ? argv[2]: "/dev/displayman";
+	const uint32_t display_index = argc > 3 ? atoi(argv[3]): 0;
 
 	fb_console_t _console;
-	init_console(&_console, disp_dev, disp_index);
+	init_console(&_console, display_dev, display_index);
 	reset_console(&_console);
 
 	vdevice_t dev;

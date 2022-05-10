@@ -15,7 +15,7 @@ typedef struct {
 	gsize_t size;
 	graph_t* g;
 	uint32_t type;
-	uint32_t disp_index;
+	uint32_t display_index;
 	bool down;
 	bool drop;
 } cursor_t;

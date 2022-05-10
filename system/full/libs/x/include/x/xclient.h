@@ -56,7 +56,7 @@ int      x_resize_to(xwin_t* x, int w, int h);
 int      x_move(xwin_t* xwin, int dx, int dy);
 int      x_move_to(xwin_t* xwin, int x, int y);
 int      x_call_xim(xwin_t* xwin);
-int      x_set_disp(xwin_t* xwin, uint32_t disp_index);
+int      x_set_display(xwin_t* xwin, uint32_t display_index);
 
 void     x_init(x_t* x, void* data);
 void     x_run(x_t* x, void* loop_data);

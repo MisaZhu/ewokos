@@ -52,7 +52,7 @@ enum {
 typedef struct {
 	uint32_t win;
 	int      shm_id;
-	uint32_t disp_index;
+	uint32_t display_index;
 	uint32_t style;
 	uint32_t state;
 	bool visible;

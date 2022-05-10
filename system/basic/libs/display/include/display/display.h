@@ -11,7 +11,7 @@ enum {
 
 #define DISP_MAX  4
 
-const char* get_disp_fb_dev(const char* disp_man_dev, uint32_t disp_index);
-uint32_t    get_disp_num(const char* disp_man_dev);
+const char* get_display_fb_dev(const char* display_man_dev, uint32_t display_index);
+uint32_t    get_display_num(const char* display_man_dev);
 
 #endif

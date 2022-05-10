@@ -72,7 +72,7 @@ static void init(void) {
 }
 
 static int _nums[] = { 0x3f, 0x06, 0x5b, 0x4f, 0x66, 0x6d, 0x7d, 0x07, 0x7f, 0x6f, 0x40 };
-static int disp_write(int fd, int from_pid, fsinfo_t* info,
+static int display_write(int fd, int from_pid, fsinfo_t* info,
 		const void* buf, int size, int offset, void* p) {
 	(void)fd;
 	(void)info;
@@ -107,13 +107,13 @@ static int disp_write(int fd, int from_pid, fsinfo_t* info,
 }
 
 int main(int argc, char** argv) {
-	const char* mnt_point = argc > 1 ? argv[1]: "/dev/disp";
+	const char* mnt_point = argc > 1 ? argv[1]: "/dev/display";
 	init();
 
 	vdevice_t dev;
 	memset(&dev, 0, sizeof(vdevice_t));
-	strcpy(dev.name, "nxez_disp");
-	dev.write = disp_write;
+	strcpy(dev.name, "nxez_display");
+	dev.write = display_write;
 	device_run(&dev, mnt_point, FS_TYPE_CHAR);
 	return 0;
 }

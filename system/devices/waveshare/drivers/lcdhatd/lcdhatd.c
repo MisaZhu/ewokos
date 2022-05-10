@@ -230,7 +230,7 @@ static void LCD_1in3_Init(UBYTE rot, uint32_t w, uint32_t h) {
 }
 
 /********************************************************************************
-function:	Sets the start position and size of the display area
+function:	Sets the start position and size of the displaylay area
 parameter:
 		Xstart 	:   X direction Start coordinates
 		Ystart  :   Y direction Start coordinates
