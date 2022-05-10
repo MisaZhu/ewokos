@@ -7,13 +7,13 @@ LDFLAGS = -L$(BUILD_DIR)/lib -lnosys
 
 CFLAGS += -Iinclude -I $(BUILD_DIR)/include
 
-DISPMAND_OBJS = dispmand.o
+DISPLAYD_OBJS = displayd.o
 
-DISPMAND = $(TARGET_DIR)/drivers/dispmand
+DISPLAYD = $(TARGET_DIR)/drivers/displayd
 
-$(DISPMAND): $(DISPMAND_OBJS) \
+$(DISPLAYD): $(DISPLAYD_OBJS) \
 		$(BUILD_DIR)/lib/libewokc.a 
-	$(LD) -Ttext=100 $(DISPMAND_OBJS) -o $(DISPMAND) $(LDFLAGS) -lewokc -lc
+	$(LD) -Ttext=100 $(DISPLAYD_OBJS) -o $(DISPLAYD) $(LDFLAGS) -lewokc -lc
 
 clean:
-	rm -f $(DISPMAND_OBJS)
+	rm -f $(DISPLAYD_OBJS)

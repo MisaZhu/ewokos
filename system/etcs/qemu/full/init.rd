@@ -1,5 +1,5 @@
-!/drivers/dispmand              /dev/dispman /dev/fb0
-!/drivers/consoled             /dev/console0 /dev/dispman
+!/drivers/displayd              /dev/display /dev/fb0
+!/drivers/consoled             /dev/console0 /dev/display
 $
 
 !/drivers/nulld                /dev/null

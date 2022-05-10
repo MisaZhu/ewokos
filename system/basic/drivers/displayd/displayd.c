@@ -34,7 +34,7 @@ static int DISP_dev_cntl(int from_pid, int cmd, proto_t* in, proto_t* ret, void*
 }
 
 int main(int argc, char** argv) {
-	const char* mnt_point = argc > 1 ? argv[1]: "/dev/displayman";
+	const char* mnt_point = argc > 1 ? argv[1]: "/dev/display";
 
 	display_man_t display_man;
 	memset(&display_man, 0, sizeof(display_man_t));
@@ -52,7 +52,7 @@ int main(int argc, char** argv) {
 
 	vdevice_t dev;
 	memset(&dev, 0, sizeof(vdevice_t));
-	strcpy(dev.name, "displayman");
+	strcpy(dev.name, "display");
 	dev.dev_cntl = DISP_dev_cntl;
 	dev.extra_data = &display_man;
 

@@ -2,7 +2,7 @@ all: basic_drivers
 	@echo "all done."
 
 basic_drivers:
-	cd dispmand;make
+	cd displayd;make
 	cd consoled;make
 	cd dupd;make
 	cd nulld;make
@@ -11,7 +11,7 @@ basic_drivers:
 	cd proc/sysinfo;make
 
 clean:
-	cd dispmand;make clean
+	cd displayd;make clean
 	cd consoled;make clean
 	cd dupd;make clean
 	cd nulld;make clean
