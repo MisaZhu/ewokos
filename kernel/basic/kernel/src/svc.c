@@ -341,19 +341,13 @@ static void sys_ipc_get_return(context_t* ctx, int32_t pid, uint32_t uid, proto_
 	}
 
 	if(data != NULL) {//get return value
-		data->type  = client_proc->ipc_res.data.type;
-		if(data->type == PROTO_INT) {
-			*(int32_t*)data->buffer = *(int32_t*)client_proc->ipc_res.data.buffer;
-		}
-		else {
-			if(client_proc->ipc_res.data.size > 0) {
-				if(data->total_size < client_proc->ipc_res.data.size) {
-					data->data = (proto_t*)proc_malloc(client_proc, client_proc->ipc_res.data.size);
-					data->total_size = client_proc->ipc_res.data.size;
-				}
-				data->size = client_proc->ipc_res.data.size;
-				memcpy(data->data, client_proc->ipc_res.data.data, data->size);
+		if(client_proc->ipc_res.data.size > 0) {
+			if(data->total_size < client_proc->ipc_res.data.size) {
+				data->data = (proto_t*)proc_malloc(client_proc, client_proc->ipc_res.data.size);
+				data->total_size = client_proc->ipc_res.data.size;
 			}
+			data->size = client_proc->ipc_res.data.size;
+			memcpy(data->data, client_proc->ipc_res.data.data, data->size);
 		}
 	}
 
@@ -376,10 +370,6 @@ static int32_t sys_ipc_get_info(uint32_t uid, int32_t* ipc_info, proto_t* ipc_ar
 	ipc_info[0] = ipc->client_pid;
 	ipc_info[1] = ipc->call_id;
 
-	if(ipc->data.type == PROTO_INT) {
-		ipc_arg->type = ipc->data.type;
-		*(int32_t*)ipc_arg->buffer = *(int32_t*)ipc->data.buffer;
-	}
 	if(ipc->data.size > 0) { //get request input args
 		ipc_arg->size = ipc->data.size;
 		if(ipc_arg->total_size < ipc->data.size) {
@@ -410,11 +400,7 @@ static void sys_ipc_set_return(context_t* ctx, uint32_t uid, proto_t* data) {
 		client_proc->ipc_res.state = IPC_RETURN;
 		client_proc->ipc_res.uid = uid;
 		if(data != NULL) {
-			if(data->type == PROTO_INT)
-				*(int32_t*)client_proc->ipc_res.data.buffer = *(int32_t*)data->buffer;
-			else
-				proto_copy(&client_proc->ipc_res.data, data->data, data->size);
-			client_proc->ipc_res.data.type = data->type;
+			proto_copy(&client_proc->ipc_res.data, data->data, data->size);
 		}
 
 		proc_ready(client_proc);

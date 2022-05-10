@@ -14,7 +14,7 @@ int fcntl(int fd, int cmd, int data) {
 	PF->init(&out);
 
 	if(cmd == F_GETFL) {
-		PF->init_type(&in, PROTO_INT)->addi(&in, fd);
+		PF->init(&in)->addi(&in, fd);
 		if(ipc_call(get_vfsd_pid(), VFS_GET_FLAGS, &in, &out) == 0) {
 			if(proto_read_int(&out) == 0)
 				res = proto_read_int(&out);

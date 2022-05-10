@@ -10,7 +10,6 @@ extern "C" {
 static proto_factor_t _proto_factor;
 
 inline static proto_factor_t* proto_init_data(proto_t* proto, void* data, uint32_t size) {
-	proto->type = PROTO_PKG;
 	if(data != NULL) {
 		proto->data = data;
 		proto->size = size;
@@ -31,14 +30,7 @@ inline static proto_factor_t* proto_init(proto_t* proto) {
 	return proto_init_data(proto, NULL, 0);
 }
 
-inline static proto_factor_t* proto_init_type(proto_t* proto, uint32_t type) {
-	proto_factor_t* ret = proto_init_data(proto, NULL, 0);
-	proto->type = type;
-	return ret;
-}
-
 inline static proto_factor_t* proto_copy(proto_t* proto, const void* data, uint32_t size) {
-	proto->type = PROTO_PKG;
 	if(proto->pre_alloc || proto->total_size < size) {
 		if(!proto->pre_alloc && 
 				proto->data != NULL &&
@@ -87,11 +79,7 @@ inline static proto_factor_t* proto_add(proto_t* proto, const void* item, uint32
 }
 
 inline static proto_factor_t* proto_add_int(proto_t* proto, int32_t v) {
-	if(proto->type == PROTO_INT) {
-		*((int32_t*)proto->buffer) = v;
-	}
-	else
-		proto_add(proto, (void*)&v, 4);
+	proto_add(proto, (void*)&v, 4);
 	return &_proto_factor;
 }
 
@@ -117,7 +105,6 @@ inline static proto_factor_t* proto_clear(proto_t* proto) {
 inline proto_factor_t* get_proto_factor() {
 	_proto_factor.init_data = proto_init_data;
 	_proto_factor.init = proto_init;
-	_proto_factor.init_type = proto_init_type;
 	_proto_factor.copy = proto_copy;
 	_proto_factor.clear = proto_clear;
 	_proto_factor.add = proto_add;
@@ -177,10 +164,6 @@ inline int32_t proto_read_proto(proto_t* proto, proto_t* to) {
 }
 
 inline int32_t proto_read_int(proto_t* proto) {
-	if(proto != NULL && proto->type == PROTO_INT) {
-		return *(int32_t*)proto->buffer;
-	}
-
 	void *p = proto_read(proto, NULL);
 	if(p == NULL)
 		return 0;
@@ -189,11 +172,6 @@ inline int32_t proto_read_int(proto_t* proto) {
 
 inline const char* proto_read_str(proto_t* proto) {
 	return (const char*)proto_read(proto, NULL);
-}
-
-void proto_set_type(proto_t* proto, uint32_t type) {
-	proto_clear(proto);
-	proto->type = type;
 }
 
 void proto_free(proto_t* proto) {

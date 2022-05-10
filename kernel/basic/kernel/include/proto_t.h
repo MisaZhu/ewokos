@@ -3,16 +3,10 @@
 
 #include <stdint.h>
 #include <stdbool.h>
-enum {
-	PROTO_PKG = 0,
-	PROTO_INT
-};
 
 #define PROTO_BUFFER  128
 
 typedef struct {
-	uint32_t type;
-
 	char     buffer[PROTO_BUFFER];
 	void*    data;
 

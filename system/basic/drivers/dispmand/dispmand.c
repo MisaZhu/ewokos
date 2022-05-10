@@ -20,8 +20,8 @@ typedef struct DISP_st {
 static int DISP_dev_cntl(int from_pid, int cmd, proto_t* in, proto_t* ret, void* p) {
 	disp_man_t* disp_man = (disp_man_t*)p;
 	uint32_t disp_index = 0;
-	if(in != NULL) 
-		proto_read_int(in);
+	if(in != NULL)
+		disp_index = proto_read_int(in);
 	if(disp_index >= disp_man->disp_num)
 		return -1;
 

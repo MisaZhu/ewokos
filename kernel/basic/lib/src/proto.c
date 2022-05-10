@@ -8,7 +8,6 @@ extern "C" {
 #endif
 
 void proto_init(proto_t* proto) {
-	proto->type = PROTO_PKG;
 	proto->data = proto->buffer;
 	proto->total_size = PROTO_BUFFER;
 	proto->size = 0;
@@ -17,7 +16,6 @@ void proto_init(proto_t* proto) {
 }
 
 void proto_copy(proto_t* proto, const void* data, uint32_t size) {
-	proto->type = PROTO_PKG;
 	if(proto->total_size < size) {
 		if(proto->data != NULL && proto->data != proto->buffer) 
 			kfree(proto->data);

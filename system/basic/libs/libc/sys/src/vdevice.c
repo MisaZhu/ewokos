@@ -22,7 +22,6 @@ static void do_open(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, voi
 	int fd = proto_read_int(in);
 	proto_read_to(in, &info, sizeof(fsinfo_t));
 	oflag = proto_read_int(in);
-	proto_set_type(out, PROTO_INT);
 	
 	int res = 0;
 	if(fd >= 0 && dev != NULL && dev->open != NULL) {
@@ -99,7 +98,6 @@ static void do_write(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, vo
 	memcpy(&info, proto_read(in, NULL), sizeof(fsinfo_t));
 	offset = proto_read_int(in);
 	shm_id = proto_read_int(in);
-	proto_set_type(out, PROTO_INT);
 	
 	if(dev != NULL && dev->write != NULL) {
 		void* data;
@@ -164,7 +162,6 @@ static void do_write_block(vdevice_t* dev, int from_pid, proto_t *in, proto_t* o
 	int32_t size, index;
 	void* data = proto_read(in, &size);
 	index = proto_read_int(in);
-	proto_set_type(out, PROTO_INT);
 
 	if(dev != NULL && dev->write_block != NULL) {
 		size = dev->write_block(from_pid, data, size, index, p);
@@ -216,7 +213,6 @@ static void do_flush(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, vo
 	fsinfo_t info;
 	int fd = proto_read_int(in);
 	memcpy(&info, proto_read(in, NULL), sizeof(fsinfo_t));
-	proto_set_type(out, PROTO_INT);
 
 	int ret = 0;
 	if(dev != NULL && dev->flush != NULL) {
@@ -244,7 +240,6 @@ static void do_unlink(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, v
 	fsinfo_t info_to, info;
 	proto_read_to(in, &info_to, sizeof(fsinfo_t));
 	const char* fname = proto_read_str(in);
-	proto_set_type(out, PROTO_INT);
 
 	int res = 0;
 	if(dev != NULL && dev->unlink != NULL) {
@@ -257,7 +252,6 @@ static void do_clear_buffer(vdevice_t* dev, int from_pid, proto_t *in, proto_t* 
 	(void)from_pid;
 	fsinfo_t info;
 	proto_read_to(in, &info, sizeof(fsinfo_t));
-	proto_set_type(out, PROTO_INT);
 
 	int res = -1;
 	if(dev != NULL && dev->clear_buffer != NULL) {
