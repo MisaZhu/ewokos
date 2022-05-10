@@ -15,14 +15,10 @@ extern "C" {
 #endif
 
 static int fetch_graph(xwm_t* xwm, int shmid, int w, int h, graph_t* g) {
-	if(xwm->g_buf == NULL) {
-		xwm->g_buf = shm_map(shmid);
-		if(xwm->g_buf == NULL)
-			return -1;
-		xwm->g_shmid = shmid;
-	}
-
-	graph_init(g, xwm->g_buf, w, h);
+	void* g_buf = shm_map(shmid);
+	if(g_buf == NULL)
+		return -1;
+	graph_init(g, g_buf, w, h);
 	return 0;
 }
 
@@ -39,6 +35,7 @@ static void draw_drag_frame(xwm_t* xwm, proto_t* in) {
 			xwm->draw_drag_frame(&g, &r, xwm->data);
 		else
 			graph_box(&g, r.x, r.y, r.w, r.h, 0xffffffff);
+		shm_unmap(shm_id);
 	}
 }
 
@@ -90,6 +87,8 @@ static void draw_frame(xwm_t* xwm, proto_t* in) {
 		}
 		if(xwm->draw_frame != NULL)
 			xwm->draw_frame(&g, &info, top, xwm->data);
+
+		shm_unmap(shm_id);
 	}
 }
 
@@ -137,6 +136,7 @@ static void draw_desktop(xwm_t* xwm, proto_t* in) {
 	if(fetch_graph(xwm, shm_id, xw, xh, &g) == 0) {
 		if(xwm->draw_desktop != NULL)
 			xwm->draw_desktop(&g, xwm->data);
+		shm_unmap(shm_id);
 	}
 }
 
@@ -195,8 +195,6 @@ void xwm_run(xwm_t* xwm) {
 	while(true) {
 		sleep(1);
 	}
-	if(xwm->g_shmid > 0)
-		shm_unmap(xwm->g_shmid);
 }
 
 #ifdef __cplusplus

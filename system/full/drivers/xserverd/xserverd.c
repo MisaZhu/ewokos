@@ -147,7 +147,7 @@ static void draw_desktop(x_t* x, uint32_t disp_index) {
 	int res = ipc_call_wait(x->xwm_pid, XWM_CNTL_DRAW_DESKTOP, &in, NULL);
 	PF->clear(&in);
 	if(res != 0)
-	 graph_fill(disp->g, 0, 0, disp->g->w, disp->g->h, 0xff000000);
+		graph_fill(disp->g, 0, 0, disp->g->w, disp->g->h, 0xff000000);
 }
 
 static void draw_drag_frame(x_t* xp, uint32_t disp_index) {
@@ -449,7 +449,6 @@ static int x_init_disp(x_t* x) {
 			return -1;
 		x->disps[i].g = fb_fetch_graph(&x->disps[i].fb);
 		x_dirty(x, i);
-		set_disp_top(x->disp_man, i);
 	}
 	x->disp_num = disp_num;
 	return 0;
@@ -481,8 +480,7 @@ static void x_close(x_t* x) {
 static void x_repaint(x_t* x, uint32_t disp_index) {
 	x_disp_t* disp = &x->disps[disp_index];
 	if(disp->g == NULL ||
-			(!disp->need_repaint) ||
-			!is_disp_top(x->disp_man, disp_index))
+			(!disp->need_repaint))
 		return;
 	disp->need_repaint = false;
 

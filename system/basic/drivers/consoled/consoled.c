@@ -117,8 +117,7 @@ static int console_write(int fd,
 	(void)offset;
 
 	fb_console_t* console = (fb_console_t*)p;
-	if(size <= 0 || console->g == NULL ||
-			!is_disp_top(console->disp_dev, console->disp_index))
+	if(size <= 0 || console->g == NULL)
 		return 0;
 
 	const char* pb = (const char*)buf;
@@ -158,8 +157,6 @@ int main(int argc, char** argv) {
 	dev.write = console_write;
 	dev.dev_cntl = console_dev_cntl;
 	dev.extra_data = &_console;
-
-	set_disp_top(_console.disp_dev, _console.disp_index);
 
 	device_run(&dev, mnt_point, FS_TYPE_CHAR);
 	close_console(&_console);

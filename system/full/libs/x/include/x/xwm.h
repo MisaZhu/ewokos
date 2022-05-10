@@ -21,8 +21,6 @@ enum {
 
 typedef struct {
 	void* data;
-	void* g_buf;
-	int   g_shmid;
 
 	void (*get_workspace)(int style, grect_t* xr, grect_t* wsr, void* p);
 	void (*get_close)(xinfo_t* info, grect_t* r, void* p);

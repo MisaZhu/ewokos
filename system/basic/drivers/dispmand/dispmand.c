@@ -8,7 +8,6 @@
 #include <disp/disp.h>
 
 typedef struct disp_st {
-	int top_pid;
 	const char *fb_dev;
 } disp_t;
 
@@ -25,16 +24,7 @@ static int DISP_dev_cntl(int from_pid, int cmd, proto_t* in, proto_t* ret, void*
 	if(disp_index >= disp_man->disp_num)
 		return -1;
 
-	if(cmd == DISP_SET_TOP) {
-		disp_man->disps[disp_index].top_pid = proto_read_int(in);
-		if(disp_man->disps[disp_index].top_pid == 0)
-			disp_man->disps[disp_index].top_pid = from_pid;
-		dev_cntl_by_pid(disp_man->disps[disp_index].top_pid, DEV_CNTL_REFRESH, NULL, NULL);
-	}
-	else if(cmd == DISP_GET_TOP) {
-		PF->init(ret)->addi(ret, disp_man->disps[disp_index].top_pid);
-	}
-	else if(cmd == DISP_GET_DISP_NUM) {
+	if(cmd == DISP_GET_DISP_NUM) {
 		PF->init(ret)->addi(ret, disp_man->disp_num);
 	}
 	else if(cmd == DISP_GET_DISP_DEV) {
