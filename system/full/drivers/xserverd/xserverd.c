@@ -56,14 +56,18 @@ typedef struct {
 } x_conf_t;
 
 typedef struct {
-	bool actived;
-	const char* disp_man_dev;
-	uint32_t    disp_index;
 	fb_t fb;
 	graph_t* g;
-	int xwm_pid;
 	bool dirty;
 	bool need_repaint;
+} x_disp_t;
+
+typedef struct {
+	const char* disp_man;
+	x_disp_t disps[DISP_MAX];
+	uint32_t disp_num;
+
+	int xwm_pid;
 	bool show_cursor;
 	cursor_t cursor;
 
@@ -108,15 +112,17 @@ static int32_t read_config(x_t* x, const char* fname) {
 }
 
 static void draw_win_frame(x_t* x, xview_t* view) {
-	if((view->xinfo.style & X_STYLE_NO_FRAME) != 0 || x->g == NULL)
+	x_disp_t *disp = &x->disps[view->xinfo.disp_index];
+	if((view->xinfo.style & X_STYLE_NO_FRAME) != 0 ||
+			disp->g == NULL)
 		return;
 
 	proto_t in;
 
 	PF->init(&in)->
-		addi(&in, x->fb.dma_id)->
-		addi(&in, x->g->w)->
-		addi(&in, x->g->h)->
+		addi(&in, disp->fb.dma_id)->
+		addi(&in, disp->g->w)->
+		addi(&in, disp->g->h)->
 		add(&in, &view->xinfo, sizeof(xinfo_t));
 	if(view == x->view_focus)
 		PF->addi(&in, 1); //top win
@@ -127,24 +133,26 @@ static void draw_win_frame(x_t* x, xview_t* view) {
 	PF->clear(&in);
 }
 
-static void draw_desktop(x_t* x) {
-	if(x->g == NULL)
+static void draw_desktop(x_t* x, uint32_t disp_index) {
+	x_disp_t *disp = &x->disps[disp_index];
+	if(disp->g == NULL)
 		return;
 
 	proto_t in;
 	PF->init(&in)->
-		addi(&in, x->fb.dma_id)->
-		addi(&in, x->g->w)->
-		addi(&in, x->g->h);
+		addi(&in, disp->fb.dma_id)->
+		addi(&in, disp->g->w)->
+		addi(&in, disp->g->h);
 
 	int res = ipc_call_wait(x->xwm_pid, XWM_CNTL_DRAW_DESKTOP, &in, NULL);
 	PF->clear(&in);
 	if(res != 0)
-	 graph_fill(x->g, 0, 0, x->g->w, x->g->h, 0xff000000);
+	 graph_fill(disp->g, 0, 0, disp->g->w, disp->g->h, 0xff000000);
 }
 
-static void draw_drag_frame(x_t* xp) {
-	if(xp->g == NULL)
+static void draw_drag_frame(x_t* xp, uint32_t disp_index) {
+	x_disp_t *disp = &xp->disps[disp_index];
+	if(disp->g == NULL)
 		return;
 
 	int x = xp->current.view->xinfo.wsr.x;
@@ -165,9 +173,9 @@ static void draw_drag_frame(x_t* xp) {
 
 	proto_t in;
 	PF->init(&in)->
-		addi(&in, xp->fb.dma_id)->
-		addi(&in, xp->g->w)->
-		addi(&in, xp->g->h)->
+		addi(&in, disp->fb.dma_id)->
+		addi(&in, disp->g->w)->
+		addi(&in, disp->g->h)->
 		add(&in, &r, sizeof(grect_t));
 
 	ipc_call_wait(xp->xwm_pid, XWM_CNTL_DRAW_DRAG_FRAME, &in, NULL);
@@ -175,7 +183,8 @@ static void draw_drag_frame(x_t* xp) {
 }
 
 static int draw_view(x_t* xp, xview_t* view) {
-	if(!xp->dirty && !view->dirty)
+	x_disp_t *disp = &xp->disps[view->xinfo.disp_index];
+	if(!disp->dirty && !view->dirty)
 		return 0;
 
 	if(view->g != NULL) {
@@ -183,7 +192,7 @@ static int draw_view(x_t* xp, xview_t* view) {
 			graph_blt_alpha(view->g, 0, 0, 
 					view->xinfo.wsr.w,
 					view->xinfo.wsr.h,
-					xp->g,
+					disp->g,
 					view->xinfo.wsr.x,
 					view->xinfo.wsr.y,
 					view->xinfo.wsr.w,
@@ -193,7 +202,7 @@ static int draw_view(x_t* xp, xview_t* view) {
 			graph_blt(view->g, 0, 0, 
 						view->xinfo.wsr.w,
 						view->xinfo.wsr.h,
-						xp->g,
+						disp->g,
 						view->xinfo.wsr.x,
 						view->xinfo.wsr.y,
 						view->xinfo.wsr.w,
@@ -204,14 +213,24 @@ static int draw_view(x_t* xp, xview_t* view) {
 
 	draw_win_frame(xp, view);
 	if(xp->current.view == view && xp->config.win_move_alpha < 0xff) //drag and moving
-		draw_drag_frame(xp);
+		draw_drag_frame(xp, view->xinfo.disp_index);
 	view->dirty = false;
 	return 0;
 }
 
-static inline void x_dirty(x_t* x) {
-	x->dirty = true;
-	x->need_repaint = true;
+static inline void x_dirty(x_t* x, int32_t disp_index) {
+	if(disp_index >= 0) {
+		x_disp_t *disp = &x->disps[disp_index];
+		disp->dirty = true;
+		disp->need_repaint = true;
+		return;
+	}
+
+	for(uint32_t i=0; i<x->disp_num; i++) {
+		x_disp_t *disp = &x->disps[i];
+		disp->dirty = true;
+		disp->need_repaint = true;
+	}
 }
 
 static void remove_view(x_t* x, xview_t* view) {
@@ -224,7 +243,7 @@ static void remove_view(x_t* x, xview_t* view) {
 	if(x->view_head == view)
 		x->view_head = view->next;
 	view->next = view->prev = NULL;
-	x_dirty(x);
+	x_dirty(x, view->xinfo.disp_index);
 }
 
 static inline void send_event(int32_t pid, xevent_t* e) {
@@ -343,7 +362,7 @@ static void push_view(x_t* x, xview_t* view) {
 
 	try_focus(x, view);
 	if(view->xinfo.visible)
-		x_dirty(x);
+		x_dirty(x, view->xinfo.disp_index);
 }
 
 static xview_t* get_next_focus_view(x_t* x) {
@@ -372,12 +391,13 @@ static void x_del_view(x_t* x, xview_t* view) {
 }
 
 static void hide_cursor(x_t* x) {
-	if(x->cursor.drop || x->g == NULL)
+	x_disp_t* disp = &x->disps[x->cursor.disp_index];
+	if(x->cursor.drop || disp->g == NULL)
 		return;
 
 	if(x->cursor.g == NULL) {
 		x->cursor.g = graph_new(NULL, x->cursor.size.w, x->cursor.size.h);
-		graph_blt(x->g,
+		graph_blt(disp->g,
 				x->cursor.old_pos.x - x->cursor.offset.x,
 				x->cursor.old_pos.y - x->cursor.offset.y,
 				x->cursor.size.w,
@@ -394,7 +414,7 @@ static void hide_cursor(x_t* x) {
 				0,
 				x->cursor.size.w,
 				x->cursor.size.h,
-				x->g,
+				disp->g,
 				x->cursor.old_pos.x - x->cursor.offset.x,
 				x->cursor.old_pos.y - x->cursor.offset.x,
 				x->cursor.size.w,
@@ -403,87 +423,107 @@ static void hide_cursor(x_t* x) {
 }
 
 static inline void refresh_cursor(x_t* x) {
-	if(x->g == NULL || x->cursor.g == NULL)
+	x_disp_t* disp = &x->disps[x->cursor.disp_index];
+	if(disp->g == NULL || x->cursor.g == NULL)
 		return;
 	int32_t mx = x->cursor.cpos.x - x->cursor.offset.x;
 	int32_t my = x->cursor.cpos.y - x->cursor.offset.y;
 	int32_t mw = x->cursor.size.w;
 	int32_t mh = x->cursor.size.h;
 
-	graph_blt(x->g, mx, my, mw, mh,
+	graph_blt(disp->g, mx, my, mw, mh,
 			x->cursor.g, 0, 0, mw, mh);
 
-	draw_cursor(x->g, &x->cursor, mx, my);
+	draw_cursor(disp->g, &x->cursor, mx, my);
 
 	x->cursor.old_pos.x = x->cursor.cpos.x;
 	x->cursor.old_pos.y = x->cursor.cpos.y;
 	x->cursor.drop = false;
 }
 
-static void x_reset(x_t* x) {
-	x->g = fb_fetch_graph(&x->fb);
+static int x_init_disp(x_t* x) {
+	uint32_t disp_num = get_disp_num(x->disp_man);
+	for(uint32_t i=0; i<disp_num; i++) {
+		const char* fb_dev = get_disp_fb_dev(x->disp_man, i);
+		if(fb_open(fb_dev, &x->disps[i].fb) != 0)
+			return -1;
+		x->disps[i].g = fb_fetch_graph(&x->disps[i].fb);
+		x_dirty(x, i);
+		set_disp_top(x->disp_man, i);
+	}
+	x->disp_num = disp_num;
+	return 0;
 }
 
-static int x_init(x_t* x, const char* disp_man_dev, const uint32_t disp_index) {
+static int x_init(x_t* x, const char* disp_man) {
 	memset(x, 0, sizeof(x_t));
-	x->disp_man_dev = disp_man_dev;
-	x->disp_index = disp_index;
-	const char* fb_dev = get_disp_fb_dev(disp_man_dev, disp_index);
 	x->xwm_pid = -1;
 
-	if(fb_open(fb_dev, &x->fb) != 0)
+	x->disp_man = disp_man;
+	if(x_init_disp(x) != 0)
 		return -1;
 
-	x_reset(x);
-	x_dirty(x);
-
-	x->cursor.cpos.x = x->g->w/2;
-	x->cursor.cpos.y = x->g->h/2; 
+	x_disp_t* disp = &x->disps[0];
+	x->cursor.cpos.x = disp->g->w/2;
+	x->cursor.cpos.y = disp->g->h/2; 
 	x->show_cursor = true;
-
-	x->dirty = true;
-	x->actived = true;
 	return 0;
 }	
 
 
 static void x_close(x_t* x) {
-	fb_close(&x->fb);
+	for(uint32_t i=0; i<x->disp_num; i++) {
+		x_disp_t* disp = &x->disps[i];
+		fb_close(&disp->fb);
+	}
 }
 
-static void x_repaint(x_t* x) {
-	if(x->g == NULL ||
-			!x->actived ||
-			(!x->need_repaint) ||
-			!is_disp_top(x->disp_man_dev, x->disp_index))
+static void x_repaint(x_t* x, uint32_t disp_index) {
+	x_disp_t* disp = &x->disps[disp_index];
+	if(disp->g == NULL ||
+			(!disp->need_repaint) ||
+			!is_disp_top(x->disp_man, disp_index))
 		return;
-	x->need_repaint = false;
-	hide_cursor(x);
+	disp->need_repaint = false;
+
+	if(x->cursor.disp_index == disp_index)
+		hide_cursor(x);
+
 	bool undirty = false;
-	if(x->dirty) {
-		draw_desktop(x);
+	if(disp->dirty) {
+		draw_desktop(x, disp_index);
 		undirty = true;
 	}
 
 	xview_t* view = x->view_head;
 	while(view != NULL) {
-		if(view->xinfo.visible)
+		if(view->xinfo.visible && view->xinfo.disp_index == disp_index)
 			draw_view(x, view);
 		view = view->next;
 	}
 
-	if(x->show_cursor)
-		refresh_cursor(x);
-
-	fb_flush(&x->fb);
-
-	if(undirty) {
-		x->dirty = false;
+	if(x->cursor.disp_index == disp_index) {
+		if(x->show_cursor)
+			refresh_cursor(x);
 	}
+
+	fb_flush(&disp->fb);
+
+	if(undirty)
+		disp->dirty = false;
 }
 
-static inline void x_repaint_req(x_t* x) {
-	x->need_repaint = true;
+static inline void x_repaint_req(x_t* x, int32_t disp_index) {
+	if(disp_index >= 0) {
+		x_disp_t *disp = &x->disps[disp_index];
+		disp->need_repaint = true;
+		return;
+	}
+
+	for(uint32_t i=0; i<x->disp_num; i++) {
+		x_disp_t *disp = &x->disps[i];
+		disp->need_repaint = true;
+	}
 }
 
 static xview_t* x_get_view(x_t* x, int fd, int from_pid) {
@@ -519,9 +559,9 @@ static int x_update(int fd, int from_pid, x_t* x) {
 	view->dirty = true;
 	if(view != get_first_visible_view(x) ||
 			(view->xinfo.style & X_STYLE_ALPHA) != 0) {
-		x_dirty(x);
+		x_dirty(x, view->xinfo.disp_index);
 	}
-	x_repaint_req(x);
+	x_repaint_req(x, view->xinfo.disp_index);
 	return 0;
 }
 
@@ -535,7 +575,7 @@ static int x_set_visible(int fd, int from_pid, proto_t* in, x_t* x) {
 
 	view->xinfo.visible = proto_read_int(in);
 	view->dirty = true;
-	x_dirty(x);
+	x_dirty(x, view->xinfo.disp_index);
 	return 0;
 }
 
@@ -617,7 +657,7 @@ static int x_update_info_raw(int fd, int from_pid, proto_t* in, x_t* x) {
 		graph_clear(view->g, 0x0);
 	}
 	view->dirty = true;
-	x_repaint_req(x);
+	x_repaint_req(x, view->xinfo.disp_index);
 
 	if(view != x->view_tail ||
 			view->xinfo.wsr.x != xinfo.wsr.x ||
@@ -626,12 +666,11 @@ static int x_update_info_raw(int fd, int from_pid, proto_t* in, x_t* x) {
 			view->xinfo.wsr.h != xinfo.wsr.h ||
 			view->xinfo.visible != xinfo.visible ||
 			(view->xinfo.style & X_STYLE_ALPHA) != 0) {
-		x_dirty(x);
+		x_dirty(x, view->xinfo.disp_index);
 	}
 	memcpy(&view->xinfo, &xinfo, sizeof(xinfo_t));
 	view->xinfo.shm_id = shm_id;
 	x_update_frame_areas(x, view);
-
 	return 0;
 }
 
@@ -725,25 +764,22 @@ static int xserver_open(int fd, int from_pid, fsinfo_t* info, int oflag, void* p
 	return 0;
 }
 
-static void mouse_cxy(x_t* x, int32_t rx, int32_t ry) {
+static void mouse_cxy(x_t* x, uint32_t disp_index, int32_t rx, int32_t ry) {
+	x_disp_t* disp = &x->disps[disp_index];
 	x->cursor.cpos.x += rx;
 	x->cursor.cpos.y += ry;
 
 	if(x->cursor.cpos.x < 0)
-		//x->cursor.cpos.x += x->g->w;
 		x->cursor.cpos.x = 0;
 
-	if(x->cursor.cpos.x > (int32_t)x->g->w)
-		//x->cursor.cpos.x = x->g->w - x->cursor.cpos.x;
-		x->cursor.cpos.x = x->g->w;
+	if(x->cursor.cpos.x > (int32_t)disp->g->w)
+		x->cursor.cpos.x = disp->g->w;
 
 	if(x->cursor.cpos.y < 0)
-		//x->cursor.cpos.y += x->g->h;
 		x->cursor.cpos.y = 0;
 
-	if(x->cursor.cpos.y >= (int32_t)x->g->h)
-		//x->cursor.cpos.y = x->g->h - x->cursor.cpos.y;
-		x->cursor.cpos.y = x->g->h;
+	if(x->cursor.cpos.y >= (int32_t)disp->g->h)
+		x->cursor.cpos.y = disp->g->h;
 }
 
 enum {
@@ -797,7 +833,7 @@ static xview_t* get_mouse_owner(x_t* x, int* win_frame_pos) {
 
 static int mouse_handle(x_t* x, xevent_t* ev) {
 	if(ev->value.mouse.relative != 0) {
-		mouse_cxy(x, ev->value.mouse.rx, ev->value.mouse.ry);
+		mouse_cxy(x, x->cursor.disp_index, ev->value.mouse.rx, ev->value.mouse.ry);
 		ev->value.mouse.x = x->cursor.cpos.x;
 		ev->value.mouse.y = x->cursor.cpos.y;
 	}
@@ -838,14 +874,14 @@ static int mouse_handle(x_t* x, xevent_t* ev) {
 			x->current.old_pos.x = x->cursor.cpos.x;
 			x->current.old_pos.y = x->cursor.cpos.y;
 			x->current.drag_state = X_VIEW_DRAG_MOVE;
-			x_dirty(x);
+			x_dirty(x, x->cursor.disp_index);
 		}
 		else if(pos == FRAME_R_RESIZE) {//window resize
 			x->current.view = view;
 			x->current.old_pos.x = x->cursor.cpos.x;
 			x->current.old_pos.y = x->cursor.cpos.y;
 			x->current.drag_state = X_VIEW_DRAG_RESIZE;
-			x_dirty(x);
+			x_dirty(x, x->cursor.disp_index);
 		}
 		ev->state = XEVT_MOUSE_DOWN;
 	}
@@ -882,7 +918,7 @@ static int mouse_handle(x_t* x, xevent_t* ev) {
 		if(abs32(mrx) > 15 || abs32(mry) > 15) {
 			x->current.pos_delta.x = mrx;
 			x->current.pos_delta.y = mry;
-			x_dirty(x);
+			x_dirty(x, x->cursor.disp_index);
 		}
 	}
 	x_push_event(x, view, ev);
@@ -903,7 +939,7 @@ static void handle_input(x_t* x, xevent_t* ev) {
 	else if(ev->type == XEVT_MOUSE) {
 		mouse_handle(x, ev);
 	}
-	x_repaint_req(x);
+	x_repaint_req(x, -1);
 }
 
 static int xserver_dev_cntl(int from_pid, int cmd, proto_t* in, proto_t* ret, void* p) {
@@ -912,23 +948,24 @@ static int xserver_dev_cntl(int from_pid, int cmd, proto_t* in, proto_t* ret, vo
 	x_t* x = (x_t*)p;
 
 	if(cmd == DEV_CNTL_REFRESH) {
-		x_dirty(x);
+		x_dirty(x, -1);
 	}
 	else if(cmd == X_DCNTL_GET_INFO) {
+		x_disp_t* disp = &x->disps[0]; //TODO
 		xscreen_t scr;	
 		scr.id = 0;
 		scr.fps = x->config.fps;
-		scr.size.w = x->g->w;
-		scr.size.h = x->g->h;
+		scr.size.w = disp->g->w;
+		scr.size.h = disp->g->h;
 		PF->add(ret, &scr, sizeof(xscreen_t));
 	}
 	else if(cmd == X_DCNTL_SET_XWM) {
 		x->xwm_pid = from_pid;
-		x_dirty(x);
+		x_dirty(x, -1);
 	}
 	else if(cmd == X_DCNTL_UNSET_XWM) {
 		x->xwm_pid = -1;
-		x_dirty(x);
+		x_dirty(x, -1);
 	}
 	else if(cmd == X_DCNTL_INPUT) {
 		xevent_t ev;
@@ -953,7 +990,9 @@ static int xserver_close(int fd, int from_pid, fsinfo_t* info, void* p) {
 int xserver_step(void* p) {
 	x_t* x = (x_t*)p;
 	ipc_disable();
-	x_repaint(x);
+	for(uint32_t i=0; i<x->disp_num; i++) {
+		x_repaint(x, i);
+	}
 	ipc_enable();
 	usleep(1000000/x->config.fps);
 	return 0;
@@ -961,12 +1000,12 @@ int xserver_step(void* p) {
 
 int main(int argc, char** argv) {
 	const char* mnt_point = argc > 1 ? argv[1]: "/dev/x";
-	const char* disp_man_dev = argc > 2 ? argv[2]: "/dev/dispman";
-	const uint32_t disp_index = argc > 3 ? atoi(argv[3]): 0;
+	const char* disp_man = argc > 2 ? argv[2]: "/dev/dispman";
 
 	x_t x;
-	if(x_init(&x, disp_man_dev, disp_index) != 0)
+	if(x_init(&x, disp_man) != 0)
 		return -1;
+
 	read_config(&x, "/etc/x/x.conf");
 	cursor_init(&x.cursor);
 
@@ -990,10 +1029,8 @@ int main(int argc, char** argv) {
 	dev.loop_step = xserver_step;
 	dev.extra_data = &x;
 
-	set_disp_top(x.disp_man_dev, disp_index);
-
-	x_repaint_req(&x);
-	x_repaint(&x);
+	x_repaint_req(&x, -1);
+	x_repaint(&x, -1);
 	device_run(&dev, mnt_point, FS_TYPE_CHAR);
 	x_close(&x);
 	return 0;

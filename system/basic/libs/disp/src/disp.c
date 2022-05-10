@@ -24,7 +24,7 @@ uint32_t get_disp_num(const char* disp_man_dev) {
 	PF->init(&out);
 	uint32_t ret = 0;
 
-	if(dev_cntl(disp_man_dev, DISP_GET_DISP_NUM, NULL, &out) != 0)
+	if(dev_cntl(disp_man_dev, DISP_GET_DISP_NUM, NULL, &out) == 0)
 		ret = proto_read_int(&out);
 	PF->clear(&out);
 	return ret;
