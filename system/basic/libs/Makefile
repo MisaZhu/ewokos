@@ -9,7 +9,7 @@ basic_libs:
 	cd arch_vpb;make
 	cd arch_bcm283x;make
 	cd sd;make
-	cd screen;make
+	cd disp;make
 	cd graph;make
 	cd fb;make
 	cd fonts;make
@@ -28,5 +28,5 @@ clean:
 	cd graph;make clean
 	cd fonts;make clean
 	cd console;make clean
-	cd screen;make clean
+	cd disp;make clean
 	cd upng; make clean

@@ -15,7 +15,7 @@
 #include <x/xwm.h>
 #include <sys/proc.h>
 #include <sconf/sconf.h>
-#include <screen/screen.h>
+#include <disp/disp.h>
 #include "cursor.h"
 
 #define X_EVENT_MAX 16
@@ -57,7 +57,7 @@ typedef struct {
 
 typedef struct {
 	bool actived;
-	const char* scr_dev;
+	const char* disp_dev;
 	fb_t fb;
 	graph_t* g;
 	int xwm_pid;
@@ -423,10 +423,10 @@ static void x_reset(x_t* x) {
 	x->g = fb_fetch_graph(&x->fb);
 }
 
-static int x_init(const char* scr_dev, x_t* x) {
+static int x_init(const char* disp_dev, x_t* x) {
 	memset(x, 0, sizeof(x_t));
-	x->scr_dev = scr_dev;
-	const char* fb_dev = get_scr_fb_dev(scr_dev);
+	x->disp_dev = disp_dev;
+	const char* fb_dev = get_disp_fb_dev(disp_dev, 0);
 	x->xwm_pid = -1;
 
 	if(fb_open(fb_dev, &x->fb) != 0)
@@ -453,7 +453,7 @@ static void x_repaint(x_t* x) {
 	if(x->g == NULL ||
 			!x->actived ||
 			(!x->need_repaint) ||
-			!is_scr_top(x->scr_dev))
+			!is_disp_top(x->disp_dev, 0))
 		return;
 	x->need_repaint = false;
 	hide_cursor(x);
@@ -959,10 +959,10 @@ int xserver_step(void* p) {
 
 int main(int argc, char** argv) {
 	const char* mnt_point = argc > 1 ? argv[1]: "/dev/x";
-	const char* scr_dev = argc > 2 ? argv[2]: "/dev/scr0";
+	const char* disp_dev = argc > 2 ? argv[2]: "/dev/dispman";
 
 	x_t x;
-	if(x_init(scr_dev, &x) != 0)
+	if(x_init(disp_dev, &x) != 0)
 		return -1;
 	read_config(&x, "/etc/x/x.conf");
 	cursor_init(&x.cursor);
@@ -987,7 +987,7 @@ int main(int argc, char** argv) {
 	dev.loop_step = xserver_step;
 	dev.extra_data = &x;
 
-	dev_cntl(x.scr_dev, SCR_SET_TOP, NULL, NULL);
+	set_disp_top(x.disp_dev, 0);
 
 	x_repaint_req(&x);
 	x_repaint(&x);

@@ -9,7 +9,7 @@
 #include <fonts/fonts.h>
 #include <sys/shm.h>
 #include <sys/vdevice.h>
-#include <screen/screen.h>
+#include <disp/disp.h>
 #include <upng/upng.h>
 #include <sys/syscall.h>
 #include <sysinfo.h>
@@ -17,11 +17,12 @@
 
 typedef struct {
 	const char* id;
-	const char* scr_dev;
-	fb_t fb;
-	graph_t* g;
-	console_t console;
-	graph_t* icon;
+	const char* disp_dev;
+	uint32_t    disp_disp_index;
+	fb_t        fb;
+	graph_t*    g;
+	console_t   console;
+	graph_t*    icon;
 } fb_console_t;
 
 static int32_t read_config(fb_console_t* console, const char* fname) {
@@ -58,10 +59,11 @@ static int32_t read_config(fb_console_t* console, const char* fname) {
 	return 0;
 }
 
-static int init_console(fb_console_t* console, const char* scr_dev) {
+static int init_console(fb_console_t* console, const char* disp_dev, const uint32_t disp_index) {
 	memset(console, 0, sizeof(fb_console_t));
-	console->scr_dev = scr_dev;
-	const char* fb_dev = get_scr_fb_dev(scr_dev);
+	console->disp_dev = disp_dev;
+	console->disp_disp_index = disp_index;
+	const char* fb_dev = get_disp_fb_dev(disp_dev, console->disp_disp_index);
 	if(fb_open(fb_dev, &console->fb) != 0)
 		return -1;
 
@@ -89,7 +91,7 @@ static void flush(fb_console_t* console) {
 	if(console->icon != NULL) {
 		sys_info_t sys_info;
 		syscall1(SYS_GET_SYS_INFO, (int32_t)&sys_info);
-		for(int i=0; i<sys_info.cores; i++) {
+		for(uint32_t i=0; i<sys_info.cores; i++) {
 			graph_blt_alpha(console->icon, 
 					0, 0, console->icon->w, console->icon->w,
 					console->g,
@@ -115,7 +117,8 @@ static int console_write(int fd,
 	(void)offset;
 
 	fb_console_t* console = (fb_console_t*)p;
-	if(size <= 0 || console->g == NULL || !is_scr_top(console->scr_dev))
+	if(size <= 0 || console->g == NULL ||
+			!is_disp_top(console->disp_dev, console->disp_disp_index))
 		return 0;
 
 	const char* pb = (const char*)buf;
@@ -142,10 +145,11 @@ static int console_dev_cntl(int from_pid, int cmd, proto_t* in, proto_t* ret, vo
 
 int main(int argc, char** argv) {
 	const char* mnt_point = argc > 1 ? argv[1]: "/dev/console0";
-	const char* scr_dev = argc > 2 ? argv[2]: "/dev/scr0";
+	const char* disp_dev = argc > 2 ? argv[2]: "/dev/dispman";
+	const uint32_t disp_disp_index = argc > 3 ? atoi(argv[3]): 0;
 
 	fb_console_t _console;
-	init_console(&_console, scr_dev);
+	init_console(&_console, disp_dev, disp_disp_index);
 	reset_console(&_console);
 
 	vdevice_t dev;
@@ -155,7 +159,7 @@ int main(int argc, char** argv) {
 	dev.dev_cntl = console_dev_cntl;
 	dev.extra_data = &_console;
 
-	dev_cntl(_console.scr_dev, SCR_SET_TOP, NULL, NULL);
+	set_disp_top(_console.disp_dev, _console.disp_disp_index);
 
 	device_run(&dev, mnt_point, FS_TYPE_CHAR);
 	close_console(&_console);
