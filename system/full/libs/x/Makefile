@@ -7,7 +7,8 @@ LDFLAGS = -L$(TARGET_DIR)/lib -lnosys
 
 CFLAGS += -I $(TARGET_DIR)/include -Iinclude
 
-LIB_X_OBJS = src/xclient.o \
+LIB_X_OBJS = \
+	src/xclient.o \
 	src/xwm.o
 
 X = $(TARGET_DIR)/lib/libx.a

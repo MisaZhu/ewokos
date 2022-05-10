@@ -5,7 +5,7 @@
 using namespace Ewok;
 
 bool X::open(XWin* xwin, int x, int y, uint32_t w, uint32_t h, const char* title, uint32_t style) {
-	xwin_t* xw = x_open(&this->x, x, y, w, h, title, style);
+	xwin_t* xw = xwin_open(&this->x, x, y, w, h, title, style);
 	if(xw == NULL)
 		return false;
 	xw->data = xwin;

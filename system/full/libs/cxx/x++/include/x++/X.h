@@ -1,5 +1,5 @@
-#ifndef X_H
-#define X_H
+#ifndef X_HH
+#define X_HH
 
 #include <x/xclient.h>
 #include <graph/graph.h>
@@ -15,7 +15,7 @@ public:
 	void run(void (*loop)(void*), void* p = NULL);
 	void terminate(void);
 	bool open(XWin* xwin, int x, int y, uint32_t w, uint32_t h, const char* title, uint32_t style);
-	bool screenInfo(xscreen_t& scr, int index);
+	bool screenInfo(xscreen_t& scr, int index = 0);
 };
 
 }

@@ -44,20 +44,21 @@ typedef struct st_xwin {
 	void (*on_event)(struct st_xwin* xwin, xevent_t* ev);
 } xwin_t;
 
-xwin_t*  x_open(x_t* xp, int x, int y, int w, int h, const char* title, int style);
-int      x_update_info(xwin_t* x, const xinfo_t* xinfo);
-int      x_get_info(xwin_t* x, xinfo_t* xinfo);
-void     x_close(xwin_t* x);
-int      x_screen_info(xscreen_t* scr, uint32_t index);
-int      x_set_visible(xwin_t* x, bool visible);
-void     x_repaint(xwin_t* x, bool thread);
-int      x_resize(xwin_t* x, int dw, int dh);
-int      x_resize_to(xwin_t* x, int w, int h);
-int      x_move(xwin_t* xwin, int dx, int dy);
-int      x_move_to(xwin_t* xwin, int x, int y);
-int      x_call_xim(xwin_t* xwin);
-int      x_set_display(xwin_t* xwin, uint32_t display_index);
+xwin_t*  xwin_open(x_t* xp, int x, int y, int w, int h, const char* title, int style);
+int      xwin_update_info(xwin_t* x, const xinfo_t* xinfo);
+int      xwin_get_info(xwin_t* x, xinfo_t* xinfo);
+void     xwin_close(xwin_t* x);
+int      xwin_set_visible(xwin_t* x, bool visible);
+void     xwin_repaint(xwin_t* x);
+void     xwin_repaint_req(xwin_t* x);
+int      xwin_resize(xwin_t* x, int dw, int dh);
+int      xwin_resize_to(xwin_t* x, int w, int h);
+int      xwin_move(xwin_t* xwin, int dx, int dy);
+int      xwin_move_to(xwin_t* xwin, int x, int y);
+int      xwin_set_display(xwin_t* xwin, uint32_t display_index);
+int      xwin_call_xim(xwin_t* xwin);
 
+int      x_screen_info(xscreen_t* scr, uint32_t index);
 void     x_init(x_t* x, void* data);
 void     x_run(x_t* x, void* loop_data);
 

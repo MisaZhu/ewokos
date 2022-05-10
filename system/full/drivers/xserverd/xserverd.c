@@ -66,6 +66,7 @@ typedef struct {
 	const char* display_man;
 	x_display_t displays[DISP_MAX];
 	uint32_t display_num;
+	uint32_t current_display;
 
 	int xwm_pid;
 	bool show_cursor;
@@ -391,7 +392,7 @@ static void x_del_view(x_t* x, xview_t* view) {
 }
 
 static void hide_cursor(x_t* x) {
-	x_display_t* display = &x->displays[x->cursor.display_index];
+	x_display_t* display = &x->displays[x->current_display];
 	if(x->cursor.drop || display->g == NULL)
 		return;
 
@@ -423,7 +424,7 @@ static void hide_cursor(x_t* x) {
 }
 
 static inline void refresh_cursor(x_t* x) {
-	x_display_t* display = &x->displays[x->cursor.display_index];
+	x_display_t* display = &x->displays[x->current_display];
 	if(display->g == NULL || x->cursor.g == NULL)
 		return;
 	int32_t mx = x->cursor.cpos.x - x->cursor.offset.x;
@@ -470,21 +471,21 @@ static int x_init(x_t* x, const char* display_man) {
 }	
 
 
-static void x_close(x_t* x) {
+static void xwin_close(x_t* x) {
 	for(uint32_t i=0; i<x->display_num; i++) {
 		x_display_t* display = &x->displays[i];
 		fb_close(&display->fb);
 	}
 }
 
-static void x_repaint(x_t* x, uint32_t display_index) {
+static void xwin_repaint(x_t* x, uint32_t display_index) {
 	x_display_t* display = &x->displays[display_index];
 	if(display->g == NULL ||
 			(!display->need_repaint))
 		return;
 	display->need_repaint = false;
 
-	if(x->cursor.display_index == display_index)
+	if(x->current_display == display_index)
 		hide_cursor(x);
 
 	bool undirty = false;
@@ -500,7 +501,7 @@ static void x_repaint(x_t* x, uint32_t display_index) {
 		view = view->next;
 	}
 
-	if(x->cursor.display_index == display_index) {
+	if(x->current_display == display_index) {
 		if(x->show_cursor)
 			refresh_cursor(x);
 	}
@@ -511,7 +512,7 @@ static void x_repaint(x_t* x, uint32_t display_index) {
 		display->dirty = false;
 }
 
-static inline void x_repaint_req(x_t* x, int32_t display_index) {
+static inline void xwin_repaint_req(x_t* x, int32_t display_index) {
 	if(display_index >= 0) {
 		x_display_t *display = &x->displays[display_index];
 		display->need_repaint = true;
@@ -559,11 +560,11 @@ static int x_update(int fd, int from_pid, x_t* x) {
 			(view->xinfo.style & X_STYLE_ALPHA) != 0) {
 		x_dirty(x, view->xinfo.display_index);
 	}
-	x_repaint_req(x, view->xinfo.display_index);
+	xwin_repaint_req(x, view->xinfo.display_index);
 	return 0;
 }
 
-static int x_set_visible(int fd, int from_pid, proto_t* in, x_t* x) {
+static int xwin_set_visible(int fd, int from_pid, proto_t* in, x_t* x) {
 	if(fd < 0)
 		return -1;
 	
@@ -611,7 +612,7 @@ static void x_get_min_size(x_t* x, xview_t* view, int *w, int* h) {
 	PF->clear(&out);
 }
 
-static int x_update_info_raw(int fd, int from_pid, proto_t* in, x_t* x) {
+static int xwin_update_info_raw(int fd, int from_pid, proto_t* in, x_t* x) {
 	xinfo_t xinfo;
 	int sz = sizeof(xinfo_t);
 	if(fd < 0 || proto_read_to(in, &xinfo, sz) != sz)
@@ -655,7 +656,7 @@ static int x_update_info_raw(int fd, int from_pid, proto_t* in, x_t* x) {
 		graph_clear(view->g, 0x0);
 	}
 	view->dirty = true;
-	x_repaint_req(x, view->xinfo.display_index);
+	xwin_repaint_req(x, view->xinfo.display_index);
 
 	if(view != x->view_tail ||
 			view->xinfo.wsr.x != xinfo.wsr.x ||
@@ -672,12 +673,12 @@ static int x_update_info_raw(int fd, int from_pid, proto_t* in, x_t* x) {
 	return 0;
 }
 
-static int x_update_info(int fd, int from_pid, proto_t* in, x_t* x) {
-	int res = x_update_info_raw(fd, from_pid, in, x);
+static int xwin_update_info(int fd, int from_pid, proto_t* in, x_t* x) {
+	int res = xwin_update_info_raw(fd, from_pid, in, x);
 	return res;
 }
 
-static int x_get_info(int fd, int from_pid, x_t* x, proto_t* out) {
+static int xwin_get_info(int fd, int from_pid, x_t* x, proto_t* out) {
 	xview_t* view = x_get_view(x, fd, from_pid);
 	if(view == NULL)
 		return -1;
@@ -711,7 +712,7 @@ static int x_workspace(x_t* x, proto_t* in, proto_t* out) {
 	return 0;
 }
 
-static int x_call_xim(x_t* x) {
+static int xwin_call_xim(x_t* x) {
 	show_view(x, x->view_xim);
 	return 0;
 }
@@ -727,19 +728,19 @@ static int xserver_fcntl(int fd, int from_pid, fsinfo_t* info,
 		res = x_update(fd, from_pid, x);
 	}	
 	else if(cmd == X_CNTL_UPDATE_INFO) {
-		res = x_update_info(fd, from_pid, in, x);
+		res = xwin_update_info(fd, from_pid, in, x);
 	}
 	else if(cmd == X_CNTL_SET_VISIBLE) {
-		res = x_set_visible(fd, from_pid, in, x);
+		res = xwin_set_visible(fd, from_pid, in, x);
 	}
 	else if(cmd == X_CNTL_GET_INFO) {
-		res = x_get_info(fd, from_pid, x, out);
+		res = xwin_get_info(fd, from_pid, x, out);
 	}
 	else if(cmd == X_CNTL_WORKSPACE) {
 		res = x_workspace(x, in, out);
 	}
 	else if(cmd == X_CNTL_CALL_XIM) {
-		res = x_call_xim(x);
+		res = xwin_call_xim(x);
 	}
 	return res;
 }
@@ -812,7 +813,7 @@ static xview_t* get_mouse_owner(x_t* x, int* win_frame_pos) {
 		*win_frame_pos = -1;
 
 	while(view != NULL) {
-		if(!view->xinfo.visible || view->xinfo.display_index != x->cursor.display_index) {
+		if(!view->xinfo.visible || view->xinfo.display_index != x->current_display) {
 			view = view->prev;
 			continue;
 		}
@@ -831,7 +832,7 @@ static xview_t* get_mouse_owner(x_t* x, int* win_frame_pos) {
 
 static int mouse_handle(x_t* x, xevent_t* ev) {
 	if(ev->value.mouse.relative != 0) {
-		mouse_cxy(x, x->cursor.display_index, ev->value.mouse.rx, ev->value.mouse.ry);
+		mouse_cxy(x, x->current_display, ev->value.mouse.rx, ev->value.mouse.ry);
 		ev->value.mouse.x = x->cursor.cpos.x;
 		ev->value.mouse.y = x->cursor.cpos.y;
 	}
@@ -872,14 +873,14 @@ static int mouse_handle(x_t* x, xevent_t* ev) {
 			x->current.old_pos.x = x->cursor.cpos.x;
 			x->current.old_pos.y = x->cursor.cpos.y;
 			x->current.drag_state = X_VIEW_DRAG_MOVE;
-			x_dirty(x, x->cursor.display_index);
+			x_dirty(x, x->current_display);
 		}
 		else if(pos == FRAME_R_RESIZE) {//window resize
 			x->current.view = view;
 			x->current.old_pos.x = x->cursor.cpos.x;
 			x->current.old_pos.y = x->cursor.cpos.y;
 			x->current.drag_state = X_VIEW_DRAG_RESIZE;
-			x_dirty(x, x->cursor.display_index);
+			x_dirty(x, x->current_display);
 		}
 		ev->state = XEVT_MOUSE_DOWN;
 	}
@@ -916,7 +917,7 @@ static int mouse_handle(x_t* x, xevent_t* ev) {
 		if(abs32(mrx) > 15 || abs32(mry) > 15) {
 			x->current.pos_delta.x = mrx;
 			x->current.pos_delta.y = mry;
-			x_dirty(x, x->cursor.display_index);
+			x_dirty(x, x->current_display);
 		}
 	}
 	x_push_event(x, view, ev);
@@ -937,7 +938,7 @@ static void handle_input(x_t* x, xevent_t* ev) {
 	else if(ev->type == XEVT_MOUSE) {
 		mouse_handle(x, ev);
 	}
-	x_repaint_req(x, -1);
+	xwin_repaint_req(x, -1);
 }
 
 static int xserver_dev_cntl(int from_pid, int cmd, proto_t* in, proto_t* ret, void* p) {
@@ -992,7 +993,7 @@ int xserver_step(void* p) {
 	x_t* x = (x_t*)p;
 	ipc_disable();
 	for(uint32_t i=0; i<x->display_num; i++) {
-		x_repaint(x, i);
+		xwin_repaint(x, i);
 	}
 	ipc_enable();
 	usleep(1000000/x->config.fps);
@@ -1030,9 +1031,9 @@ int main(int argc, char** argv) {
 	dev.loop_step = xserver_step;
 	dev.extra_data = &x;
 
-	x_repaint_req(&x, -1);
-	x_repaint(&x, -1);
+	xwin_repaint_req(&x, -1);
+	xwin_repaint(&x, -1);
 	device_run(&dev, mnt_point, FS_TYPE_CHAR);
-	x_close(&x);
+	xwin_close(&x);
 	return 0;
 }

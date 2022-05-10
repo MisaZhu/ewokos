@@ -214,7 +214,7 @@ static void loop(void* p) {
 		else
 			snprintf(info, sizeof(info), "BEST:%d  SCORE:%d", record, s.score);
 	}
-	x_repaint(xwin, false);
+	xwin_repaint(xwin, false);
 	usleep(10000);
 }
 
@@ -229,7 +229,7 @@ int main(int argc, char* argv[]) {
 	x_t x;
 	x_init(&x, NULL);
 
-	xwin_t* xwin = x_open(&x, 10, 10, WIN_WIDTH*SCALE_FACTOR, WIN_HEIGHT*SCALE_FACTOR + 20, "snake", X_STYLE_NORMAL | X_STYLE_NO_RESIZE);
+	xwin_t* xwin = xwin_open(&x, 10, 10, WIN_WIDTH*SCALE_FACTOR, WIN_HEIGHT*SCALE_FACTOR + 20, "snake", X_STYLE_NORMAL | X_STYLE_NO_RESIZE);
 	xwin->on_focus = on_focus;
 	xwin->on_unfocus = on_unfocus;
 	xwin->on_event = event_handle;
@@ -243,11 +243,11 @@ int main(int argc, char* argv[]) {
 	snprintf(info, sizeof(info),  "Press to Start...");
 	snake_init(&s, &f);
 
-	x_set_visible(xwin, true);
+	xwin_set_visible(xwin, true);
 
 	x.on_loop = loop;
 	x_run(&x, xwin);
 
-	x_close(xwin);
+	xwin_close(xwin);
 	return 0;
 } 
