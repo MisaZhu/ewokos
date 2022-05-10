@@ -224,7 +224,7 @@ int main(int argc, char* argv[]) {
 
 	top = false;
 	xscreen_t scr;
-	x_screen_info(&scr);
+	x_screen_info(&scr, 0);
 
 	x_t x;
 	x_init(&x, NULL);

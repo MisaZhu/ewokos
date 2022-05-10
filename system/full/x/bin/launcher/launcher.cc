@@ -119,7 +119,7 @@ int main(int argc, char* argv[]) {
 	uint32_t is = xwin.getIconSize();
 
 	X x;
-	x.screenInfo(scr);
+	x.screenInfo(scr, 0);
 	x.open(&xwin, 10,
 			10,
 			is, 

@@ -57,7 +57,7 @@ public:
 	void resize(int dw, int dh);
 	void moveTo(int x, int y);
 	void move(int dx, int dy);
-	void setDisp(int index);
+	void setDisplay(int index);
 };
 
 }

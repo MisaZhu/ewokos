@@ -48,7 +48,7 @@ xwin_t*  x_open(x_t* xp, int x, int y, int w, int h, const char* title, int styl
 int      x_update_info(xwin_t* x, const xinfo_t* xinfo);
 int      x_get_info(xwin_t* x, xinfo_t* xinfo);
 void     x_close(xwin_t* x);
-int      x_screen_info(xscreen_t* scr);
+int      x_screen_info(xscreen_t* scr, uint32_t index);
 int      x_set_visible(xwin_t* x, bool visible);
 void     x_repaint(xwin_t* x, bool thread);
 int      x_resize(xwin_t* x, int dw, int dh);

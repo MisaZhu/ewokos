@@ -133,7 +133,7 @@ void XWin::moveTo(int x, int y) {
 	x_move_to(xwin, x, y);
 }
 
-void XWin::setDisp(int index) {
+void XWin::setDisplay(int index) {
 	if(xwin == NULL)	
 		return;
 	x_set_display(xwin, index);

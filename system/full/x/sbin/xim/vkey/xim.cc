@@ -181,7 +181,7 @@ int main(int argc, char* argv[]) {
 	(void)argv;
 	X x;
 	xscreen_t scr;
-	x.screenInfo(scr);
+	x.screenInfo(scr, 0);
 
 	XIMX xwin(scr.size.w, scr.size.h);
 	//x.open(&xwin, scr.size.w - xwin.getFixW(), scr.size.h-xwin.getFixH(), xwin.getFixW(), xwin.getFixH(), "xim",

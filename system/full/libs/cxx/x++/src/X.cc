@@ -27,7 +27,7 @@ void X::terminate(void) {
 	x.terminated = true;
 }
 
-bool X::screenInfo(xscreen_t& scr) {
-	return (x_screen_info(&scr) == 0);
+bool X::screenInfo(xscreen_t& scr, int index) {
+	return (x_screen_info(&scr, index) == 0);
 }
 

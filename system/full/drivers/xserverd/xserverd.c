@@ -812,7 +812,7 @@ static xview_t* get_mouse_owner(x_t* x, int* win_frame_pos) {
 		*win_frame_pos = -1;
 
 	while(view != NULL) {
-		if(!view->xinfo.visible) {
+		if(!view->xinfo.visible || view->xinfo.display_index != x->cursor.display_index) {
 			view = view->prev;
 			continue;
 		}
@@ -942,14 +942,17 @@ static void handle_input(x_t* x, xevent_t* ev) {
 
 static int xserver_dev_cntl(int from_pid, int cmd, proto_t* in, proto_t* ret, void* p) {
 	(void)from_pid;
-	(void)in;
 	x_t* x = (x_t*)p;
 
 	if(cmd == DEV_CNTL_REFRESH) {
 		x_dirty(x, -1);
 	}
 	else if(cmd == X_DCNTL_GET_INFO) {
-		x_display_t* display = &x->displays[0]; //TODO
+		uint32_t i = 0;
+		if(in != NULL)
+			i = proto_read_int(in);
+
+		x_display_t* display = &x->displays[i]; //TODO
 		xscreen_t scr;	
 		scr.id = 0;
 		scr.fps = x->config.fps;

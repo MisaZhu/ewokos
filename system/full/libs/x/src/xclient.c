@@ -283,7 +283,7 @@ static int win_event_handle(xwin_t* xwin, xevent_t* ev) {
 		}
 		else {
 			xscreen_t scr;
-			if(x_screen_info(&scr) == 0) {
+			if(x_screen_info(&scr, xinfo.display_index) == 0) {
 				memcpy(&xwin->xinfo_prev, &xinfo, sizeof(xinfo_t));
 				grect_t r = {0, 0, scr.size.w, scr.size.h};
 				x_get_workspace(xwin->fd, xinfo.style, &r, &r);
@@ -300,13 +300,16 @@ static int win_event_handle(xwin_t* xwin, xevent_t* ev) {
 	return 0;
 }
 
-int x_screen_info(xscreen_t* scr) {
-	proto_t out;
+int x_screen_info(xscreen_t* scr, uint32_t index) {
+	proto_t in, out;
 	PF->init(&out);
+	PF->init(&in)->addi(&in, index);
 
-	int ret = dev_cntl("/dev/x", X_DCNTL_GET_INFO, NULL, &out);
+	int ret = dev_cntl("/dev/x", X_DCNTL_GET_INFO, &in, &out);
 	if(ret == 0)
 		proto_read_to(&out, scr, sizeof(xscreen_t));
+
+	PF->clear(&in);
 	PF->clear(&out);
 	return ret;
 }
