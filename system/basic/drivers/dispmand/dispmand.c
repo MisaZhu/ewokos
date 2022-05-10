@@ -12,7 +12,6 @@ typedef struct disp_st {
 	const char *fb_dev;
 } disp_t;
 
-#define DISP_MAX  4
 typedef struct DISP_st {
 	uint32_t disp_num;
 	disp_t   disps[DISP_MAX];

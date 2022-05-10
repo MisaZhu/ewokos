@@ -11,8 +11,11 @@ enum {
     DISP_GET_DISP_DEV
 };
 
-const char* get_disp_fb_dev(const char* disp_dev, uint32_t disp_index);
-bool        is_disp_top(const char* disp_dev, uint32_t disp_index);
-bool        set_disp_top(const char* disp_dev, uint32_t disp_index);
+#define DISP_MAX  4
+
+const char* get_disp_fb_dev(const char* disp_man_dev, uint32_t disp_index);
+bool        is_disp_top(const char* disp_man_dev, uint32_t disp_index);
+bool        set_disp_top(const char* disp_man_dev, uint32_t disp_index);
+uint32_t    get_disp_num(const char* disp_man_dev);
 
 #endif

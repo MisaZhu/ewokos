@@ -196,6 +196,14 @@ void x_repaint(xwin_t* xwin, bool thread) {
 	ipc_enable();
 }
 
+int x_set_disp(xwin_t* xwin, uint32_t disp_index) {
+	xinfo_t xinfo;
+	x_get_info(xwin, &xinfo);
+	xinfo.disp_index = disp_index;
+	x_update_info(xwin, &xinfo);
+	return 0;
+}
+
 int x_resize_to(xwin_t* xwin, int w, int h) {
 	xinfo_t xinfo;
 	x_get_info(xwin, &xinfo);

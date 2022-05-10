@@ -133,6 +133,12 @@ void XWin::moveTo(int x, int y) {
 	x_move_to(xwin, x, y);
 }
 
+void XWin::setDisp(int index) {
+	if(xwin == NULL)	
+		return;
+	x_set_disp(xwin, index);
+}
+
 void XWin::setCWin(xwin_t* xw) {
 	xwin = xw;
 	xwin->on_close = _on_close;

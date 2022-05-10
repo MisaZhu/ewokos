@@ -57,7 +57,8 @@ typedef struct {
 
 typedef struct {
 	bool actived;
-	const char* disp_dev;
+	const char* disp_man_dev;
+	uint32_t    disp_index;
 	fb_t fb;
 	graph_t* g;
 	int xwm_pid;
@@ -423,10 +424,11 @@ static void x_reset(x_t* x) {
 	x->g = fb_fetch_graph(&x->fb);
 }
 
-static int x_init(const char* disp_dev, x_t* x) {
+static int x_init(x_t* x, const char* disp_man_dev, const uint32_t disp_index) {
 	memset(x, 0, sizeof(x_t));
-	x->disp_dev = disp_dev;
-	const char* fb_dev = get_disp_fb_dev(disp_dev, 0);
+	x->disp_man_dev = disp_man_dev;
+	x->disp_index = disp_index;
+	const char* fb_dev = get_disp_fb_dev(disp_man_dev, disp_index);
 	x->xwm_pid = -1;
 
 	if(fb_open(fb_dev, &x->fb) != 0)
@@ -453,7 +455,7 @@ static void x_repaint(x_t* x) {
 	if(x->g == NULL ||
 			!x->actived ||
 			(!x->need_repaint) ||
-			!is_disp_top(x->disp_dev, 0))
+			!is_disp_top(x->disp_man_dev, x->disp_index))
 		return;
 	x->need_repaint = false;
 	hide_cursor(x);
@@ -959,10 +961,11 @@ int xserver_step(void* p) {
 
 int main(int argc, char** argv) {
 	const char* mnt_point = argc > 1 ? argv[1]: "/dev/x";
-	const char* disp_dev = argc > 2 ? argv[2]: "/dev/dispman";
+	const char* disp_man_dev = argc > 2 ? argv[2]: "/dev/dispman";
+	const uint32_t disp_index = argc > 3 ? atoi(argv[3]): 0;
 
 	x_t x;
-	if(x_init(disp_dev, &x) != 0)
+	if(x_init(&x, disp_man_dev, disp_index) != 0)
 		return -1;
 	read_config(&x, "/etc/x/x.conf");
 	cursor_init(&x.cursor);
@@ -987,7 +990,7 @@ int main(int argc, char** argv) {
 	dev.loop_step = xserver_step;
 	dev.extra_data = &x;
 
-	set_disp_top(x.disp_dev, 0);
+	set_disp_top(x.disp_man_dev, disp_index);
 
 	x_repaint_req(&x);
 	x_repaint(&x);

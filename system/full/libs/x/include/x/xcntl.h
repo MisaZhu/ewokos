@@ -51,9 +51,10 @@ enum {
 #define X_TITLE_MAX 64
 typedef struct {
 	uint32_t win;
-	int shm_id;
-	int style;
-	int state;
+	int      shm_id;
+	uint32_t disp_index;
+	uint32_t style;
+	uint32_t state;
 	bool visible;
 	grect_t wsr; //workspace rect
 	char title[X_TITLE_MAX];
