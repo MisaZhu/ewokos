@@ -3,7 +3,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <vprintf.h>
-#include <x/xclient.h>
+#include <x/xwin.h>
 #include <sys/keydef.h>
 
 #define WIN_WIDTH		55

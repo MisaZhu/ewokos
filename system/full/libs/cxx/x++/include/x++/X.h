@@ -1,7 +1,7 @@
 #ifndef X_HH
 #define X_HH
 
-#include <x/xclient.h>
+#include <x/xwin.h>
 #include <graph/graph.h>
 #include <x++/XWin.h>
 

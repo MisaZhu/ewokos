@@ -1,4 +1,4 @@
-#include <x/xclient.h>
+#include <x/xwin.h>
 #include <sys/shm.h>
 #include <sys/ipc.h>
 #include <sys/vfs.h>
@@ -233,7 +233,7 @@ int xwin_move(xwin_t* xwin, int dx, int dy) {
 	return xwin_move_to(xwin, xinfo.wsr.x+dx, xinfo.wsr.y+dy);
 }
 
-static int win_event_handle(xwin_t* xwin, xevent_t* ev) {
+int xwin_event_handle(xwin_t* xwin, xevent_t* ev) {
 	xinfo_t xinfo;
 	xwin_get_info(xwin, &xinfo);
 
@@ -295,20 +295,6 @@ static int win_event_handle(xwin_t* xwin, xevent_t* ev) {
 	return 0;
 }
 
-int x_screen_info(xscreen_t* scr, uint32_t index) {
-	proto_t in, out;
-	PF->init(&out);
-	PF->init(&in)->addi(&in, index);
-
-	int ret = dev_cntl("/dev/x", X_DCNTL_GET_INFO, &in, &out);
-	if(ret == 0)
-		proto_read_to(&out, scr, sizeof(xscreen_t));
-
-	PF->clear(&in);
-	PF->clear(&out);
-	return ret;
-}
-
 int xwin_set_visible(xwin_t* xwin, bool visible) {
 	proto_t in;
 	PF->init(&in)->addi(&in, visible);
@@ -319,53 +305,6 @@ int xwin_set_visible(xwin_t* xwin, bool visible) {
 		xwin->on_focus(xwin);
 	xwin_repaint(xwin);
 	return res;
-}
-
-static void handle(int from_pid, int cmd, proto_t* in, proto_t* out, void* p) {
-	(void)from_pid;
-	(void)out;
-	x_t* x = (x_t*)p;
-
-	if(cmd == X_CMD_PUSH_EVENT) {
-		xevent_t ev;
-		proto_read_to(in, &ev, sizeof(xevent_t));
-		x_push_event(x, &ev);
-	}
-}
-
-static void sig_stop(int sig_no, void* p) {
-	(void)sig_no;
-	x_t* x = (x_t*)p;
-	x->terminated = true;
-}
-
-void  x_init(x_t* x, void* data) {
-	memset(x, 0, sizeof(x_t));
-	x->data = data;
-	sys_signal(SYS_SIG_STOP, sig_stop, x);
-}
-
-void  x_run(x_t* x, void* loop_data) {
-	ipc_serv_run(handle, NULL, x, IPC_NON_BLOCK);
-
-	xevent_t xev;
-	while(!x->terminated) {
-		int res = x_get_event(x, &xev);
-		if(res == 0) {
-			xwin_t* xwin = (xwin_t*)xev.win;
-			if(xwin != NULL) {
-				if(xev.type == XEVT_WIN) {
-					win_event_handle(xwin, &xev);
-				}
-				if(xwin->on_event != NULL)
-					xwin->on_event(xwin, &xev);
-			}
-		}
-		else {
-			if(x->on_loop != NULL)
-				x->on_loop(loop_data);
-		}
-	}
 }
 
 #ifdef __cplusplus

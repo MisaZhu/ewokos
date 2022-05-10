@@ -1,7 +1,7 @@
-#ifndef XWIN_H
-#define XWIN_H
+#ifndef XWIN_HH
+#define XWIN_HH
 
-#include <x/xclient.h>
+#include <x/xwin.h>
 #include <graph/graph.h>
 
 namespace Ewok {

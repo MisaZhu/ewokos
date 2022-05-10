@@ -4,7 +4,7 @@
 #include <stdio.h>
 #include <sys/vdevice.h>
 #include <sys/klog.h>
-#include <x/xclient.h>
+#include <x/xwin.h>
 
 class XIM {
  	int x_pid;
