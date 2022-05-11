@@ -38,6 +38,7 @@ void  interrupt_send(context_t* ctx, uint32_t interrupt) {
 	if(proc == NULL)
 		return;
 	
+	proc->info.state = RUNNING; //TODO
 	proc_save_state(proc, &proc->space->interrupt.saved_state);
 	proc->space->interrupt.interrupt = interrupt;
 	proc->space->interrupt.entry = _interrupts[interrupt].entry;
