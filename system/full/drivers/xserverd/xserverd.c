@@ -961,6 +961,9 @@ static int xserver_dev_cntl(int from_pid, int cmd, proto_t* in, proto_t* ret, vo
 		scr.size.h = display->g->h;
 		PF->add(ret, &scr, sizeof(xscreen_t));
 	}
+	else if(cmd == X_DCNTL_GET_DISP_NUM) {
+		PF->addi(ret, x->display_num);
+	}
 	else if(cmd == X_DCNTL_SET_XWM) {
 		x->xwm_pid = from_pid;
 		x_dirty(x, -1);

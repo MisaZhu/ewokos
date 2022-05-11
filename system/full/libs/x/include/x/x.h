@@ -28,6 +28,7 @@ typedef struct st_x {
 } x_t;
 
 int      x_screen_info(xscreen_t* scr, uint32_t index);
+int      x_get_display_num(void);
 void     x_init(x_t* x, void* data);
 void     x_run(x_t* x, void* loop_data);
 

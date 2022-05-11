@@ -65,6 +65,16 @@ int x_screen_info(xscreen_t* scr, uint32_t index) {
 	return ret;
 }
 
+int x_get_display_num(void) {
+	proto_t out;
+	PF->init(&out);
+
+	int ret = 0;
+	if(dev_cntl("/dev/x", X_DCNTL_GET_DISP_NUM, NULL, &out) == 0)
+		ret = proto_read_int(&out);
+	return ret;
+}
+
 static void handle(int from_pid, int cmd, proto_t* in, proto_t* out, void* p) {
 	(void)from_pid;
 	(void)out;
