@@ -43,8 +43,11 @@ static inline void ipi_send_all(void) {
 #endif
 
 static inline void irq_do_uart0(context_t* ctx) {
-	(void)ctx;
 	interrupt_send(ctx, SYS_INT_UART0);
+}
+
+static inline void irq_do_timer0_interrupt(context_t* ctx) {
+	interrupt_send(ctx, SYS_INT_TIMER0);
 }
 
 static inline void irq_do_timer0(context_t* ctx) {
@@ -76,6 +79,9 @@ static inline void irq_do_timer0(context_t* ctx) {
 #else
 		schedule(ctx);
 #endif
+	}
+	else {
+		irq_do_timer0_interrupt(ctx);
 	}
 }
 

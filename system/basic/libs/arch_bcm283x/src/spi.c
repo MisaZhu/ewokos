@@ -109,7 +109,7 @@ struct SPI0_regs {
 #define _spi0_regs ((struct SPI0_regs *)(SPI_BASE))
 
 inline void bcm283x_spi_activate(uint8_t enable) {
-	uint32_t data = SPI_CNTL_TRXACT;
+	//uint32_t data = SPI_CNTL_TRXACT;
 	if (enable) {
 		/*
 		_spi0_regs->cs = _spi0_regs->cs |
