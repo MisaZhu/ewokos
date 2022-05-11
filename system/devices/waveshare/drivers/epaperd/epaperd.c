@@ -1,6 +1,7 @@
 #include <arch/bcm283x/gpio.h>
 #include <arch/bcm283x/spi.h>
 #include <unistd.h>
+#include <graph/graph.h>
 
 #define EPD_RST_PIN      17
 #define EPD_DC_PIN       25
@@ -10,18 +11,16 @@
 #define EPD_WIDTH       104
 #define EPD_HEIGHT      212
 
-static inline void wait_msec(uint32_t n) {
-	usleep(n*1000);
-}
+#define SPI_CLK_DIVIDE_TEST  16
 
 //bc
 static void epaper_reset(void) {
 	bcm283x_gpio_write(EPD_RST_PIN, 1);
-	wait_msec(200);
+	usleep(100000);
 	bcm283x_gpio_write(EPD_RST_PIN, 0);
-	wait_msec(200);
+	usleep(100000);
 	bcm283x_gpio_write(EPD_RST_PIN, 1);
-	wait_msec(200);
+	usleep(100000);
 }
 
 static void epaper_cmd_raw(uint8_t reg) {
@@ -52,7 +51,7 @@ static void epaper_write(uint8_t data) {
 
 static void epaper_wait(void) {
 	while(bcm283x_gpio_read(EPD_BUSY_PIN) == 0) {
-		wait_msec(5);
+		usleep(1000);
 	}
 }
 
@@ -69,7 +68,7 @@ static void epaper_on(void) {
 }
 */
 
-static void epaper_init(void) {
+static void epaper_init_raw(void) {
 	epaper_reset();
 
 	epaper_cmd(0x06); // BOOSTER_SOFT_START
@@ -119,11 +118,63 @@ static void epaper_clear(void) {
 	epaper_on();
 }
 
-#define SPI_CLK_DIVIDE_TEST 64
+static void epaper_flush(uint8_t* buf, bool red, bool revert) {
+	uint32_t w = (EPD_WIDTH % 8 == 0)? (EPD_WIDTH / 8 ): (EPD_WIDTH / 8 + 1);
+	uint32_t h = EPD_HEIGHT;
 
-int main(int argc, char** argv) {
-	(void)argc;
-	(void)argv;
+	bcm283x_spi_activate(1);
+	uint8_t bgCmd, fgCmd;
+
+	if(red) { //red image
+		bgCmd = 0x10; //clear black
+		fgCmd = 0x13; //draw red
+	}
+	else {
+		bgCmd = 0x13; //clear red
+		fgCmd = 0x10; //draw black
+	}
+
+	//clear bg
+	epaper_cmd_raw(bgCmd);
+	for (uint32_t j = 0; j < h; j++) {
+		for (uint32_t i = 0; i < w; i++) {
+			epaper_write_raw(0xff);
+		}
+	}
+	epaper_cmd_raw(0x92);
+
+	//draw fg
+	epaper_cmd_raw(fgCmd);
+	for (uint32_t j = 0; j < h; j++) {
+		for (uint32_t i = 0; i < w; i++) {
+			uint8_t b = buf[j*w+i];
+			if(revert)
+				epaper_write_raw(~b);
+			else
+				epaper_write_raw(b);
+		}
+	}
+	epaper_cmd_raw(0x92);
+
+	bcm283x_spi_activate(0);
+}
+
+int do_flush(const void* buf, uint32_t size) {
+	if(size < EPD_WIDTH * EPD_HEIGHT* 4)
+		return -1;
+	graph_t g;
+	graph_init(&g, buf, EPD_WIDTH, EPD_HEIGHT);
+	bitmap_t* b = graph_to_bitmap(&g);
+	if(b == NULL)
+		return -1;
+	epaper_flush(b->buffer, false, true);
+	bitmap_free(b);
+	epaper_on();
+	return 0;
+}
+
+
+void epaper_init(void) {
 	bcm283x_gpio_init();
 	bcm283x_gpio_config(EPD_RST_PIN, GPIO_OUTPUT);
 	bcm283x_gpio_config(EPD_DC_PIN, GPIO_OUTPUT);
@@ -133,7 +184,5 @@ int main(int argc, char** argv) {
 
 	bcm283x_spi_init(SPI_CLK_DIVIDE_TEST);
 	bcm283x_spi_select(SPI_SELECT_0);
-	epaper_init();
-	epaper_clear();
-	return 0;
+	epaper_init_raw();
 }
