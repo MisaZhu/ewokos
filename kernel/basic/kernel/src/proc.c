@@ -12,6 +12,7 @@
 #include <kernel/elf.h>
 #include <kernel/hw_info.h>
 #include <kernel/core.h>
+#include <kernel/irq.h>
 #include <stddef.h>
 
 static proc_t _proc_table[PROC_MAX];

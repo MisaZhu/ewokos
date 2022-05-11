@@ -8,6 +8,7 @@
 #include <sys/mmio.h>
 #include <sys/proc.h>
 #include <sys/ipc.h>
+#include <sys/interrupt.h>
 #include <arch/bcm283x/pl011_uart.h>
 
 static charbuf_t _buffer;
@@ -22,11 +23,19 @@ static int uart_read(int fd, int from_pid, fsinfo_t* info,
 	(void)p;
 
 	char c;
+	int res = charbuf_pop(&_buffer, &c);
+
+	if(res != 0 || c == 0)
+		return ERR_RETRY;
+
+	/*((char*)buf)[0] = c;
+	char c;
 	if(bcm283x_pl011_uart_ready_to_recv() != 0) {
 		return ERR_RETRY_NON_BLOCK;
 	}
 
 	c = bcm283x_pl011_uart_recv();
+	*/
 	((char*)buf)[0] = c;
 	return 1;
 }
@@ -41,6 +50,22 @@ static int uart_write(int fd, int from_pid, fsinfo_t* info,
 	return bcm283x_pl011_uart_write(buf, size);
 }
 
+static void interrupt_handle(uint32_t interrupt) {
+	(void)interrupt;
+
+	char c;
+	bool wake = false;
+	while(bcm283x_pl011_uart_ready_to_recv() == 0) {
+		c = bcm283x_pl011_uart_recv();
+		charbuf_push(&_buffer, c, true);
+		wake = true;
+	}
+	if(wake)
+		proc_wakeup(0);
+
+	sys_interrupt_end();
+}
+
 int main(int argc, char** argv) {
 	const char* mnt_point = argc > 1 ? argv[1]: "/dev/tty0";
 	_mmio_base = mmio_map(false);
@@ -52,6 +77,8 @@ int main(int argc, char** argv) {
 	strcpy(dev.name, "pl011_uart");
 	dev.read = uart_read;
 	dev.write = uart_write;
+
+	sys_interrupt_setup(SYS_INT_TIMER0, interrupt_handle);
 	device_run(&dev, mnt_point, FS_TYPE_CHAR);
 	return 0;
 }
