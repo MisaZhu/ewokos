@@ -19,6 +19,7 @@ builtin_apps:
 	cd rm;make
 	cd mkdir;make
 	cd grep;make
+	cd rx;make
 
 clean:
 	cd echo;make clean
@@ -38,3 +39,4 @@ clean:
 	cd rm;make clean
 	cd mkdir;make clean
 	cd grep;make clean
+	cd rx;make clean
