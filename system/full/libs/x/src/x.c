@@ -18,7 +18,7 @@
 extern "C" {
 #endif
 
-static void x_push_event(x_t* x, xevent_t* ev) {
+void x_push_event(x_t* x, xevent_t* ev) {
 	x_event_t* e = (x_event_t*)malloc(sizeof(x_event_t));
 	e->next = NULL;
 	memcpy(&e->event, ev, sizeof(xevent_t));
@@ -28,15 +28,15 @@ static void x_push_event(x_t* x, xevent_t* ev) {
 	else
 		x->event_head = e;
 	x->event_tail = e;
-	if(x->on_loop == NULL)
-		proc_wakeup((uint32_t)x);
+	//if(x->on_loop == NULL)
+	//	proc_wakeup((uint32_t)x);
 }
 
 static int x_get_event(x_t* x, xevent_t* ev) {
 	x_event_t* e = x->event_head;
 	if(e == NULL) {
-		if(x->on_loop == NULL)
-			proc_block(getpid(), (uint32_t)x);
+		//if(x->on_loop == NULL)
+		//	proc_block(getpid(), (uint32_t)x);
 		return -1;
 	}
 
@@ -115,9 +115,11 @@ void  x_run(x_t* x, void* loop_data) {
 					xwin->on_event(xwin, &xev);
 			}
 		}
+		else if(x->on_loop != NULL) {
+			x->on_loop(loop_data);
+		}
 		else {
-			if(x->on_loop != NULL)
-				x->on_loop(loop_data);
+			usleep(20000);
 		}
 	}
 }
@@ -125,4 +127,3 @@ void  x_run(x_t* x, void* loop_data) {
 #ifdef __cplusplus
 }
 #endif
-

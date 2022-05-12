@@ -133,39 +133,6 @@ void xwin_close(xwin_t* xwin) {
 	free(xwin);
 }
 
-static void x_push_event(x_t* x, xevent_t* ev) {
-	x_event_t* e = (x_event_t*)malloc(sizeof(x_event_t));
-	e->next = NULL;
-	memcpy(&e->event, ev, sizeof(xevent_t));
-
-	if(x->event_tail != NULL)
-		x->event_tail->next = e;
-	else
-		x->event_head = e;
-	x->event_tail = e;
-	if(x->on_loop == NULL)
-		proc_wakeup((uint32_t)x);
-}
-
-static int x_get_event(x_t* x, xevent_t* ev) {
-	x_event_t* e = x->event_head;
-	if(e == NULL) {
-		if(x->on_loop == NULL)
-			proc_block(getpid(), (uint32_t)x);
-		return -1;
-	}
-
-	ipc_disable();
-	x->event_head = x->event_head->next;
-	if (x->event_head == NULL)
-		x->event_tail = NULL;
-
-	memcpy(ev, &e->event, sizeof(xevent_t));
-	free(e);
-	ipc_enable();
-	return 0;
-}
-
 void xwin_repaint(xwin_t* xwin) {
 	if(xwin->on_repaint == NULL) {
 		vfs_fcntl(xwin->fd, X_CNTL_UPDATE, NULL, NULL);

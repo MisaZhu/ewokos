@@ -13,7 +13,12 @@ using namespace Ewok;
 
 class XIMX : public XWin {
  	int xPid;
-	const char* keytable;
+
+	static const int TYPE_KEYB = 0;
+	static const int TYPE_OTHER = 1;
+	const char* keytable[2];
+	int keytableType;
+
 	font_t* font;
 	gsize_t scrSize;
 	bool hideMode;
@@ -24,14 +29,24 @@ class XIMX : public XWin {
 	int col, row, keyw, keyh, keySelect;
 protected:
 	int get_at(int x, int y) {
-		int input_h = font->h + 4;
-		y -= input_h;
+		if(!hideMode) {
+			int input_h = font->h + 4;
+			y -= input_h;
+		}
 		int i = div_u32(x, keyw);
 		int j = div_u32(y, keyh);
 		int at = i+j*col;
-		if(at >= (int)strlen(keytable))
+		if(at >= (int)strlen(keytable[keytableType]))
 			return -1;
 		return at;
+	}
+
+	void changeKeyTable(void) {
+		if(keytableType == 0)
+			keytableType = 1;
+		else
+			keytableType = 0;
+		repaint();
 	}
 
 	void changeMode(bool hide) {
@@ -75,12 +90,18 @@ protected:
 					return;
 				}
 
-				char c = keytable[at];
+				char c = keytable[keytableType][at];
 				if(c == '\1') {
 					changeMode(true);
 					return;
 				}
-				if(c == '\b')
+				else if(c == '\2') {
+					changeKeyTable();
+					return;
+				}
+				else if(c == '\3')
+					c = keytable[keytableType][at-1];
+				else if(c == '\b')
 					c = KEY_BACKSPACE;
 
 				input(c);
@@ -101,7 +122,7 @@ protected:
 			graph_clear(g, 0xffaaaaaa);
 			graph_draw_text(g,  2, 
 					(g->h - font->h)/2,
-					"^^", font, 0xff000000);
+					"..^^", font, 0xff000000);
 			graph_box(g, 0, 0, g->w, g->h, 0xffdddddd);
 			return;
 		}
@@ -113,38 +134,59 @@ protected:
 		keyw = g->w / col;
 
 		draw_input(g, input_h);
-
 		for(int j=0; j<row; j++) {
 			for(int i=0; i<col; i++) {
 				int at = i+j*col;
-				if(at >= (int)strlen(keytable))
+				if(at >= (int)strlen(keytable[keytableType]))
 					break;
-				char c = keytable[at];
+				char c = keytable[keytableType][at];
 				if(c >= 'a' && c <= 'z') {
 					c += ('A' - 'a');
 					graph_fill(g, i*keyw, j*keyh+input_h, keyw, keyh, 0xffcccccc);
 				}
 
-				if(keySelect == at)
-					graph_fill(g, i*keyw, j*keyh+input_h, keyw, keyh, 0xffffffff);
+				if(keySelect == at) {
+					if(c == ' ' || c == '\n')
+						graph_fill(g, i*keyw, j*keyh+input_h, keyw*2, keyh, 0xffffffff);
+					else if(c == '\3')
+						graph_fill(g, (i-1)*keyw, j*keyh+input_h, keyw*2, keyh, 0xffffffff);
+					else
+						graph_fill(g, i*keyw, j*keyh+input_h, keyw, keyh, 0xffffffff);
+				}
 
-				if(c == '\n')
-					graph_draw_text(g, i*keyw + 2, 
+				if(c == '\3') {
+					continue;
+				}
+				if(c == '\n') {
+					graph_draw_text(g, i*keyw + keyw/2, 
 							j*keyh + (keyh - font->h)/2 + input_h,
-							"En", font, 0xff000000);
+							"Enter", font, 0xff000000);
+					graph_box(g, i*keyw, j*keyh+input_h, keyw*2, keyh, 0xffdddddd);
+					continue;
+				}
+				else if(c == ' ') {
+					graph_draw_text(g, i*keyw + keyw/2, 
+							j*keyh + (keyh - font->h)/2 + input_h,
+							"space", font, 0xff000000);
+					graph_box(g, i*keyw, j*keyh+input_h, keyw*2, keyh, 0xffdddddd);
+					continue;
+				}
 				else if(c == '\b')
 					graph_draw_text(g, i*keyw + 2, 
 							j*keyh + (keyh - font->h)/2 + input_h,
-							"<-", font, 0xff000000);
+							" <-", font, 0xff000000);
 				else if(c == '\1')
 					graph_draw_text(g, i*keyw + 2, 
 							j*keyh + (keyh - font->h)/2 + input_h,
-							"VV", font, 0xff000000);
+							" VV", font, 0xff000000);
+				else if(c == '\2')
+					graph_draw_text(g, i*keyw + 2, 
+							j*keyh + (keyh - font->h)/2 + input_h,
+							" C/#", font, 0xff000000);
 				else 
 					graph_draw_char(g, i*keyw + (keyw - font->w)/2,
 							j*keyh + (keyh - font->h)/2 + input_h,
 							c, font, 0xff000000);
-
 				graph_box(g, i*keyw, j*keyh+input_h, keyw, keyh, 0xffdddddd);
 			}
 		}
@@ -174,18 +216,27 @@ protected:
 		PF->clear(&in);
 	}
 
+	void onFocus(void) {
+		changeMode(false);
+	}
+
 public:
 	inline XIMX(int fw, int fh) {
 		scrSize.w = fw;
 		scrSize.h = fh;
-		font = font_by_name("9x16");
-		keytable = ""
-			"`~1234567890-+%@\b"
-			"'\"qwertyuiop{}[]\n"
-			"*_|asdfghjkl()=/\\"
-			"#$^zxcvbnm &<>.,\1";
-		col = 17;
-		row = 4;
+		font = font_by_name("10x20");
+		keytable[1] = ""
+			"1234567890%!\b"
+			"\\#$&*(){}[]\n\3"
+			"\2:;\"'<>% \3+|\1";
+		keytable[0] = ""
+			"qwertyuiop/?\b"
+			"~asdfghjkl@\n\3"
+			"\2zxcvbnm \3,.\1";
+		keytableType = 0;
+
+		col = 13;
+		row = 3;
 		keyh = font->h + 12;
 		keyw = font->w*2 + 12;
 		xPid = dev_get_pid("/dev/x");
