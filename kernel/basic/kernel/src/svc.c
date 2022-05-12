@@ -560,6 +560,13 @@ static inline void sys_safe_set(context_t* ctx, int32_t* to, int32_t v) {
 	proc_wakeup(proc->info.pid, (uint32_t)to);
 }
 
+static inline void sys_soft_int(context_t* ctx, int32_t to_pid, uint32_t entry) {
+	proc_t* proc = proc_get_proc(get_current_proc());
+	if(proc->info.owner > 0)
+		return;
+	interrupt_soft_send(ctx, to_pid, SYS_INT_SOFT, entry);
+}
+
 static inline void _svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_t arg2, context_t* ctx) {
 	_svc_total++;
 	_svc_counter[code]++;
@@ -714,6 +721,9 @@ static inline void _svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_
 		return;
 	case SYS_SAFE_SET:
 		sys_safe_set(ctx, (int32_t*)arg0, arg1);
+		return;
+	case SYS_SOFT_INT:
+		sys_soft_int(ctx, arg0, arg1);
 		return;
 	}
 }

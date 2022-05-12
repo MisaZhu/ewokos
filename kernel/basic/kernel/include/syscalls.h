@@ -70,7 +70,8 @@ enum {
 	SYS_INTR_END,         //49
 
 	SYS_SAFE_SET,         //50
-	SYS_CALL_NUM          //51
+	SYS_SOFT_INT,         //51
+	SYS_CALL_NUM          //52
 };
 
 #endif

@@ -71,6 +71,7 @@ static int32_t interrupt_send_raw(context_t* ctx, uint32_t interrupt,  interrupt
 		ipi_send(proc->info.core);
 #endif
 	}
+	return 0;
 }
 
 static interrupt_t* fetch_next(uint32_t interrupt) {
@@ -90,6 +91,15 @@ int32_t  interrupt_send(context_t* ctx, uint32_t interrupt) {
 	return interrupt_send_raw(ctx, interrupt, intr);
 }
 
+int32_t  interrupt_soft_send(context_t* ctx, int32_t to_pid, uint32_t interrupt, uint32_t entry) {
+	if(interrupt != SYS_INT_SOFT)
+		return -1;
+	interrupt_t intr;
+	intr.entry = entry;
+	intr.pid = to_pid;
+	return interrupt_send_raw(ctx, interrupt, &intr);
+}
+
 void interrupt_end(context_t* ctx) {
 	proc_t* cproc = get_current_proc();
 
@@ -98,11 +108,11 @@ void interrupt_end(context_t* ctx) {
 	if(cproc->info.state != SLEEPING)
 		proc_ready(cproc);
 
-	if(interrupt != SYS_INT_SOFT)
+	if(interrupt != SYS_INT_SOFT) {
 		irq_enable_cpsr(&cproc->ctx.cpsr); //enable interrupt on proc
-
-	interrupt_t* intr = fetch_next(interrupt);
-	if(intr != NULL && interrupt_send_raw(ctx, interrupt, intr) == 0)
-		return;
+		interrupt_t* intr = fetch_next(interrupt);
+		if(intr != NULL && interrupt_send_raw(ctx, interrupt, intr) == 0)
+			return;
+	}
 	schedule(ctx);
 }

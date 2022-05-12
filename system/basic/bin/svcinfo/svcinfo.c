@@ -108,6 +108,8 @@ static inline const char* svc_name(int32_t code) {
 		return "intr_end";
 	case SYS_SAFE_SET:
 		return "safe_set";
+	case SYS_SOFT_INT:
+		return "soft_int";
 	}
 	return "unknown";
 }
