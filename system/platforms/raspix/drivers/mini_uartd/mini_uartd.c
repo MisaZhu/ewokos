@@ -9,8 +9,10 @@
 #include <sys/proc.h>
 #include <sys/ipc.h>
 #include <arch/bcm283x/mini_uart.h>
+#include <sys/interrupt.h>
 
-static charbuf_t _buffer;
+static charbuf_t _TxBuf;
+static charbuf_t _RxBuf;
 
 static int uart_read(int fd, int from_pid, fsinfo_t* info, 
 		void* buf, int size, int offset, void* p) {
@@ -21,14 +23,13 @@ static int uart_read(int fd, int from_pid, fsinfo_t* info,
 	(void)size;
 	(void)p;
 
-	char c;
-	if(bcm283x_mini_uart_ready_to_recv() != 0) {
-		return ERR_RETRY_NON_BLOCK;
+	int i;
+	for(i = 0; i < size; i++){
+	int res = charbuf_pop(&_RxBuf, buf + i);
+	if(res != 0)
+		break;
 	}
-
-	c = bcm283x_mini_uart_recv();
-	((char*)buf)[0] = c;
-	return 1;
+	return (i==0)?ERR_RETRY_NON_BLOCK:i;
 }
 
 static int uart_write(int fd, int from_pid, fsinfo_t* info,
@@ -39,15 +40,46 @@ static int uart_write(int fd, int from_pid, fsinfo_t* info,
 	(void)offset;
 	(void)p;
 
-	int ret = bcm283x_mini_uart_write(buf, size);
-	return ret;
+	int i;
+	for(i = 0; i < size; i++){
+		char ch = ((char*)buf)[i];
+		if(ch == '\r')
+			ch = '\n';
+
+		while(true){
+			if(charbuf_push(&_TxBuf, ch, false) == 0){
+				break;
+			} 
+			usleep(100);
+		};
+	}
+	return size;
 }
+
+static void interrupt_handle(uint32_t interrupt) {
+	(void)interrupt;
+	char c;
+
+	while(bcm283x_mini_uart_ready_to_recv() == 0){
+		c = bcm283x_mini_uart_recv();
+		charbuf_push(&_RxBuf, c, true);
+	}
+
+	if(bcm283x_mini_uart_ready_to_send() == 0){
+		if( charbuf_pop(&_TxBuf, &c) == 0){
+			bcm283x_mini_uart_send(c);
+		}
+	}
+
+	sys_interrupt_end();
+}
+
 
 int main(int argc, char** argv) {
 	const char* mnt_point = argc > 1 ? argv[1]: "/dev/tty1";
 	_mmio_base = mmio_map(false);
-
-	charbuf_init(&_buffer);
+	charbuf_init(&_TxBuf);
+	charbuf_init(&_RxBuf);
 
 	vdevice_t dev;
 	memset(&dev, 0, sizeof(vdevice_t));
@@ -55,6 +87,7 @@ int main(int argc, char** argv) {
 	dev.read = uart_read;
 	dev.write = uart_write;
 
+	sys_interrupt_setup(SYS_INT_TIMER0, interrupt_handle);
 	device_run(&dev, mnt_point, FS_TYPE_CHAR);
 	return 0;
 }
