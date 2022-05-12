@@ -226,16 +226,16 @@ public:
 		scrSize.h = fh;
 		font = font_by_name("10x20");
 		keytable[1] = ""
-			"1234567890%!\b"
-			"\\#$&*(){}[]\n\3"
-			"\2:;\"'<>% \3+|\1";
+			"1234567890%-+\b"
+			"\\#$&*(){}[]!\n\3"
+			"\2:;\"'<>. \3`|^\1";
 		keytable[0] = ""
-			"qwertyuiop/?\b"
-			"~asdfghjkl@\n\3"
-			"\2zxcvbnm \3,.\1";
+			"qwertyuiop-/?\b"
+			"~asdfghjkl@_\n\3"
+			"\2zxcvbnm \3!,.\1";
 		keytableType = 0;
 
-		col = 13;
+		col = 14;
 		row = 3;
 		keyh = font->h + 12;
 		keyw = font->w*2 + 12;
