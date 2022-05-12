@@ -9,6 +9,7 @@
 #include <sys/kernel_tic.h>
 
 typedef struct interrupt_st {
+	uint32_t id;
 	int32_t  pid;
 	uint32_t entry;
 	uint32_t timer_usec;
@@ -16,51 +17,61 @@ typedef struct interrupt_st {
 	struct   interrupt_st* next;
 } interrupt_t;
 static interrupt_t* _intr_list = NULL;
+static uint32_t _id = 0;
 
-static int32_t interrupt_setup(int32_t pid, uint32_t timer_usec, uint32_t entry) {
-	if(timer_usec == 0 || entry == 0) { //remove pid
-		interrupt_t* p = _intr_list;
-		interrupt_t* prev = NULL;
-		while(p != NULL) {
-			interrupt_t* next = p->next;
-			if(p->pid == pid) {
+static int32_t interrupt_remove(int32_t pid, uint32_t id) {
+	interrupt_t* p = _intr_list;
+	interrupt_t* prev = NULL;
+	while(p != NULL) {
+		interrupt_t* next = p->next;
+		if(p->pid == pid) {
+			if(id == 0 || p->id == id) {
 				if(p == _intr_list)	
 					_intr_list = next;
 				if(prev != NULL)
 					prev->next = next;
 				free(p);
 			}
-			else {
+			else 
 				prev = p;
-			}
-			p = next;
 		}
-		return 0;
+		else {
+			prev = p;
+		}
+		p = next;
 	}
+	return 0;
+}
 
+static int32_t interrupt_setup(int32_t pid, uint32_t timer_usec, uint32_t entry) {
 	interrupt_t* intr = (interrupt_t*)malloc(sizeof(interrupt_t));
 	intr->pid = pid;
 	intr->entry = entry;
 	intr->timer_usec = timer_usec;
 	intr->timer_last = 0;
 	intr->next = NULL;
+	intr->id = _id++;
 
 	if(_intr_list != NULL) {
 		intr->next = _intr_list;
 	}
 	_intr_list = intr;
-	return 0;
+	return intr->id;
 }
 
 static int timer_dcntl(int from_pid, int cmd, proto_t* in, proto_t* ret, void* p) {
-	(void)ret;
 	(void)p;
 
 	if(cmd == 0) { 
 		uint32_t usec = (uint32_t)proto_read_int(in);
 		uint32_t entry = (uint32_t)proto_read_int(in);
-		interrupt_setup(from_pid, usec, entry);
+		uint32_t id = interrupt_setup(from_pid, usec, entry);
+		PF->addi(ret, id);
 	}	
+	else if(cmd == 1) { 
+		uint32_t id = (uint32_t)proto_read_int(in);
+		interrupt_remove(from_pid, id);
+	}
 	return 0;
 }
 
@@ -84,6 +95,7 @@ static void interrupt_handle(uint32_t interrupt) {
 int main(int argc, char** argv) {
 	const char* mnt_point = argc > 1 ? argv[1]: "/dev/timer";
 	_intr_list = NULL;
+	_id = 1;
 
 	vdevice_t dev;
 	memset(&dev, 0, sizeof(vdevice_t));

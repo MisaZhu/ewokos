@@ -3,8 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/interrupt.h>
-#include <sys/vdevice.h>
-#include <sys/proto.h>
+#include <sys/timer.h>
 
 static uint32_t _v;
 
@@ -17,21 +16,15 @@ int main(int argc, char* argv[]) {
 	(void)argc;
 	(void)argv;
 	_v = 0;
-
-	proto_t in;
-	PF->init(&in)->addi(&in, 1000000)->addi(&in, (uint32_t)interrupt_handle);
-	dev_cntl("/dev/timer", 0, &in, NULL);
-	PF->clear(&in);
+	
+	uint32_t id = timer_set(1000000, interrupt_handle);
 
 	while(1) {
 		printf("pid: %d, v: %d\n", getpid(), _v);
 		sleep(1);
 
 		if(_v > 10)  {
-			proto_t in;
-			PF->init(&in)->addi(&in, 0)->addi(&in, 0);
-			dev_cntl("/dev/timer", 0, &in, NULL);
-			PF->clear(&in);
+			timer_remove(id);
 		}
 	}
 	return 0;
