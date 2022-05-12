@@ -18,6 +18,9 @@ class XIMX : public XWin {
 	gsize_t scrSize;
 	bool hideMode;
 
+	static const int INPUT_MAX = 128;
+	char inputS[INPUT_MAX];
+
 	int col, row, keyw, keyh, keySelect;
 protected:
 	int get_at(int x, int y) {
@@ -77,10 +80,23 @@ protected:
 				}
 				if(c == '\b')
 					c = KEY_BACKSPACE;
+
 				input(c);
+
+				if(c == '\n') {
+					changeMode(true);
+					return;
+				}
 				repaint();
 			}
 		}
+	}
+
+	void draw_input(graph_t* g, int input_h) {
+		int32_t w;
+		graph_fill(g, 0, 0, g->w, input_h, 0xffaaaa88);
+		get_text_size(inputS, font, &w, NULL);
+		graph_draw_text(g, (g->w-w)/2, 2, inputS, font, 0xff000000);
 	}
 
 	void onRepaint(graph_t* g) {
@@ -93,10 +109,14 @@ protected:
 			return;
 		}
 
-		keyh = g->h / row;
+		graph_fill(g, 0, 0, g->w, g->w, 0xffaaaaaa);
+
+		int input_h = font->h + 4;
+		keyh = (g->h - input_h) / row;
 		keyw = g->w / col;
 
-		graph_fill(g, 0, 0, g->w, g->w, 0xffaaaaaa);
+		draw_input(g, input_h);
+
 		for(int j=0; j<row; j++) {
 			for(int i=0; i<col; i++) {
 				int at = i+j*col;
@@ -105,30 +125,30 @@ protected:
 				char c = keytable[at];
 				if(c >= 'a' && c <= 'z') {
 					c += ('A' - 'a');
-					graph_fill(g, i*keyw, j*keyh, keyw, keyh, 0xffcccccc);
+					graph_fill(g, i*keyw, j*keyh+input_h, keyw, keyh, 0xffcccccc);
 				}
 
 				if(keySelect == at)
-					graph_fill(g, i*keyw, j*keyh, keyw, keyh, 0xffffffff);
+					graph_fill(g, i*keyw, j*keyh+input_h, keyw, keyh, 0xffffffff);
 
 				if(c == '\n')
 					graph_draw_text(g, i*keyw + 2, 
-							j*keyh + (keyh - font->h)/2,
+							j*keyh + (keyh - font->h)/2 + input_h,
 							"En", font, 0xff000000);
 				else if(c == '\b')
 					graph_draw_text(g, i*keyw + 2, 
-							j*keyh + (keyh - font->h)/2,
+							j*keyh + (keyh - font->h)/2 + input_h,
 							"<-", font, 0xff000000);
 				else if(c == '\1')
 					graph_draw_text(g, i*keyw + 2, 
-							j*keyh + (keyh - font->h)/2,
+							j*keyh + (keyh - font->h)/2 + input_h,
 							"VV", font, 0xff000000);
 				else 
 					graph_draw_char(g, i*keyw + (keyw - font->w)/2,
-							j*keyh + (keyh - font->h)/2,
+							j*keyh + (keyh - font->h)/2 + input_h,
 							c, font, 0xff000000);
 
-				graph_box(g, i*keyw, j*keyh, keyw, keyh, 0xffdddddd);
+				graph_box(g, i*keyw, j*keyh+input_h, keyw, keyh, 0xffdddddd);
 			}
 		}
 	}
@@ -137,6 +157,19 @@ protected:
 		xevent_t ev;
 		ev.type = XEVT_IM;
 		ev.value.im.value = c;
+
+		int len = strlen(inputS);
+		if(c == KEY_BACKSPACE) {
+			if(len > 0)
+				inputS[len-1] = 0;
+		}
+		else if(c == '\n') {
+			inputS[0] = 0;
+		}
+		else if(len < INPUT_MAX-1) {
+			inputS[len] = c;
+			inputS[len+1] = 0;
+		}
 
 		proto_t in;
 		PF->init(&in)->add(&in, &ev, sizeof(xevent_t));
@@ -161,6 +194,7 @@ public:
 		xPid = dev_get_pid("/dev/x");
 		keySelect = -1;
 		hideMode = false;
+		inputS[0] = 0;
 	}
 
 	inline ~XIMX() {

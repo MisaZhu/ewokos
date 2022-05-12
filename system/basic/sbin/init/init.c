@@ -207,6 +207,7 @@ static void switch_root(void) {
 		setuid(0);
 		load_arch_devs();
 		run_initrd();
+		sleep(3);
 		exit(0);
 	}
 }
