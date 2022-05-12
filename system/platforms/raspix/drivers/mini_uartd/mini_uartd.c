@@ -87,7 +87,7 @@ int main(int argc, char** argv) {
 	dev.read = uart_read;
 	dev.write = uart_write;
 
-	sys_interrupt_setup(SYS_INT_TIMER0, interrupt_handle);
+	sys_interrupt_setup(SYS_INT_TIMER0, interrupt_handle, 0);
 	device_run(&dev, mnt_point, FS_TYPE_CHAR);
 	return 0;
 }

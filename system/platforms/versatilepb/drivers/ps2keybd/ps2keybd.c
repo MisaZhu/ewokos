@@ -10,6 +10,8 @@
 #include <sys/charbuf.h>
 #include <sys/syscall.h>
 #include <sys/proc.h>
+#include <sys/interrupt.h>
+#include <sys/timer.h>
 
 #define KCNTL 0x00
 #define KSTAT 0x04
@@ -115,18 +117,14 @@ static int keyb_read(int fd, int from_pid, fsinfo_t* info,
 	return 1;
 }
 
-int keyb_step(void* p) {
-	(void)p;
+static void interrupt_handle(void) {
 	uint8_t key_scode = get8(KEYBOARD_BASE+KDATA);
 	char c = keyb_handle(key_scode);
 	if(c != 0) {
 		charbuf_push(&_buffer, c, true);
 		proc_wakeup(0);
 	}
-	else {
-		usleep(30000);
-	}
-	return 0;
+	sys_interrupt_end();
 }
 
 int main(int argc, char** argv) {
@@ -139,8 +137,8 @@ int main(int argc, char** argv) {
 	memset(&dev, 0, sizeof(vdevice_t));
 	strcpy(dev.name, "keyb");
 	dev.read = keyb_read;
-	dev.loop_step = keyb_step;
 
+	timer_set(10000, interrupt_handle);
 	device_run(&dev, mnt_point, FS_TYPE_CHAR);
 	return 0;
 }

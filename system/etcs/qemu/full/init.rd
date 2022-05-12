@@ -8,7 +8,6 @@ $
 !/drivers/proc/sysinfod        /proc/sysinfo
 !/drivers/proc/stated          /proc/state
 
-
 !/drivers/xserverd             /dev/x
 
 /bin/session

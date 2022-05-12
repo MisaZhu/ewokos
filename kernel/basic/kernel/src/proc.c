@@ -171,6 +171,7 @@ void proc_switch(context_t* ctx, proc_t* to, bool quick){
 		if (to->space->interrupt.do_switch) {																				// have irq request to handle
 			memcpy(&to->space->interrupt.saved_state.ctx, &to->ctx, sizeof(context_t)); // save "to" context to irq ctx, will restore after irq done.
 			to->ctx.gpr[0] = to->space->interrupt.interrupt;
+			to->ctx.gpr[1] = to->space->interrupt.data;
 			to->ctx.pc = to->ctx.lr = to->space->interrupt.entry;
 			to->ctx.sp = ALIGN_DOWN(to->space->interrupt.stack + THREAD_STACK_PAGES * PAGE_SIZE, 8);
 			to->space->interrupt.do_switch = false; // clear irq request mask

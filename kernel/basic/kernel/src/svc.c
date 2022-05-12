@@ -535,11 +535,11 @@ static int32_t sys_get_kernel_tic(uint32_t* sec, uint32_t* hi, uint32_t* low) {
 	return 0;
 }
 
-static int32_t sys_interrupt_setup(uint32_t interrupt, uint32_t entry) {
+static int32_t sys_interrupt_setup(uint32_t interrupt, uint32_t entry, uint32_t data) {
 	proc_t * cproc = get_current_proc();
 	if(cproc->info.owner > 0)
 		return -1;
-	return interrupt_setup(cproc, interrupt, entry);
+	return interrupt_setup(cproc, interrupt, entry, data);
 }
 
 static void sys_interrupt_end(context_t* ctx) {
@@ -560,11 +560,11 @@ static inline void sys_safe_set(context_t* ctx, int32_t* to, int32_t v) {
 	proc_wakeup(proc->info.pid, (uint32_t)to);
 }
 
-static inline void sys_soft_int(context_t* ctx, int32_t to_pid, uint32_t entry) {
+static inline void sys_soft_int(context_t* ctx, int32_t to_pid, uint32_t entry, uint32_t data) {
 	proc_t* proc = proc_get_proc(get_current_proc());
 	if(proc->info.owner > 0)
 		return;
-	interrupt_soft_send(ctx, to_pid, SYS_INT_SOFT, entry);
+	interrupt_soft_send(ctx, to_pid, entry, data);
 }
 
 static inline void _svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_t arg2, context_t* ctx) {
@@ -714,7 +714,7 @@ static inline void _svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_
 		sys_ipc_enable();
 		return;
 	case SYS_INTR_SETUP:
-		ctx->gpr[0] = sys_interrupt_setup((uint32_t)arg0, (uint32_t)arg1);
+		ctx->gpr[0] = sys_interrupt_setup((uint32_t)arg0, (uint32_t)arg1, (uint32_t)arg2);
 		return;
 	case SYS_INTR_END:
 		sys_interrupt_end(ctx);
@@ -723,7 +723,7 @@ static inline void _svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_
 		sys_safe_set(ctx, (int32_t*)arg0, arg1);
 		return;
 	case SYS_SOFT_INT:
-		sys_soft_int(ctx, arg0, arg1);
+		sys_soft_int(ctx, arg0, arg1, arg2);
 		return;
 	}
 }

@@ -1,4 +1,3 @@
 /drivers/versatilepb/fbd       /dev/fb0
 /drivers/versatilepb/ttyd      /dev/tty0
-/drivers/versatilepb/ps2keybd  /dev/keyb0
 /drivers/versatilepb/ps2moused /dev/mouse0

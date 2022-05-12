@@ -1,12 +1,23 @@
 #include <sys/timer.h>
 #include <sys/vdevice.h>
+#include <sys/interrupt.h>
 #include <sys/proto.h>
+
+static void _timer_handle(uint32_t intr, uint32_t data) {
+	(void)intr;
+	timer_handle_t handle = (timer_handle_t)data;
+	if(handle != NULL)
+		handle();
+	sys_interrupt_end();
+}
 
 uint32_t timer_set(uint32_t usec, timer_handle_t handle) {
 	uint32_t id = 0;
 	proto_t in, out;
 	PF->init(&out);
-	PF->init(&in)->addi(&in, 1000000)->addi(&in, (uint32_t)handle);
+	PF->init(&in)->addi(&in, usec)->
+			addi(&in, (uint32_t)_timer_handle)->
+			addi(&in, (uint32_t)handle);
 	if(dev_cntl("/dev/timer", 0, &in, &out) == 0)
 		id = (uint32_t)proto_read_int(&out);
 	PF->clear(&in);

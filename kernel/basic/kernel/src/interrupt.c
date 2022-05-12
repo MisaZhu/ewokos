@@ -13,6 +13,7 @@
 typedef struct interrupt_st {
 	int32_t  pid;
 	uint32_t entry;
+	uint32_t data;
 	struct   interrupt_st* next;
 } interrupt_t;
 
@@ -27,13 +28,14 @@ void interrupt_init(void) {
 	memset(&_interrupts, 0, sizeof(interrupt_item_t)*SYS_INT_MAX);	
 }
 
-int32_t interrupt_setup(proc_t* cproc, uint32_t interrupt, uint32_t entry) {
+int32_t interrupt_setup(proc_t* cproc, uint32_t interrupt, uint32_t entry, uint32_t data) {
 	if(interrupt >= SYS_INT_MAX)
 		return -1;
 
 	interrupt_t* intr = (interrupt_t*)kmalloc(sizeof(interrupt_t));
 	intr->pid = cproc->info.pid;
 	intr->entry = entry;
+	intr->data = data;
 	intr->next = NULL;
 
 	if(_interrupts[interrupt].head != NULL) {
@@ -57,6 +59,7 @@ static int32_t interrupt_send_raw(context_t* ctx, uint32_t interrupt,  interrupt
 	proc_save_state(proc, &proc->space->interrupt.saved_state);
 	proc->space->interrupt.interrupt = interrupt;
 	proc->space->interrupt.entry = intr->entry;
+	proc->space->interrupt.data = intr->data;
 	proc->space->interrupt.do_switch = true;
 	if(interrupt != SYS_INT_SOFT)
 		irq_disable_cpsr(&proc->ctx.cpsr); //disable interrupt on proc
@@ -91,13 +94,12 @@ int32_t  interrupt_send(context_t* ctx, uint32_t interrupt) {
 	return interrupt_send_raw(ctx, interrupt, intr);
 }
 
-int32_t  interrupt_soft_send(context_t* ctx, int32_t to_pid, uint32_t interrupt, uint32_t entry) {
-	if(interrupt != SYS_INT_SOFT)
-		return -1;
+int32_t  interrupt_soft_send(context_t* ctx, int32_t to_pid, uint32_t entry, uint32_t data) {
 	interrupt_t intr;
 	intr.entry = entry;
 	intr.pid = to_pid;
-	return interrupt_send_raw(ctx, interrupt, &intr);
+	intr.data = data;
+	return interrupt_send_raw(ctx, SYS_INT_SOFT, &intr);
 }
 
 void interrupt_end(context_t* ctx) {

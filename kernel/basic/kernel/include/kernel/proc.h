@@ -51,6 +51,7 @@ typedef struct {
 typedef struct {
     uint32_t      entry;
     uint32_t      interrupt;
+    uint32_t      data;
 
     bool          do_switch;
 	uint32_t      stack; //mapped stack page
