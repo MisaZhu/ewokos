@@ -8,6 +8,7 @@
 #include <sys/mmio.h>
 #include <sys/proc.h>
 #include <sys/ipc.h>
+#include <sys/interrupt.h>
 #include <arch/bcm283x/mini_uart.h>
 #include <sys/interrupt.h>
 
@@ -73,7 +74,6 @@ static void interrupt_handle(uint32_t interrupt) {
 
 	sys_interrupt_end();
 }
-
 
 int main(int argc, char** argv) {
 	const char* mnt_point = argc > 1 ? argv[1]: "/dev/tty1";

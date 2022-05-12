@@ -174,7 +174,6 @@ void proc_switch(context_t* ctx, proc_t* to, bool quick){
 			to->ctx.pc = to->ctx.lr = to->space->interrupt.entry;
 			to->ctx.sp = ALIGN_DOWN(to->space->interrupt.stack + THREAD_STACK_PAGES * PAGE_SIZE, 8);
 			to->space->interrupt.do_switch = false; // clear irq request mask
-			irq_disable_cpsr(&to->ctx.cpsr); //disable interrupt on proc
 		}
 		else if (to->space->signal.do_switch) {																			 // have signal request to handle
 			memcpy(&to->space->signal.saved_state.ctx, &to->ctx, sizeof(context_t)); // save "to" context to ipc ctx, will restore after ipc done.

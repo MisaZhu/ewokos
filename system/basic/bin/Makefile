@@ -2,6 +2,7 @@ all: builtin_apps
 	@echo "all done."
 
 builtin_apps:
+	cd test;make
 	cd echo;make
 	cd sleep;make
 	cd ps;make
@@ -22,6 +23,7 @@ builtin_apps:
 	cd rx;make
 
 clean:
+	cd test;make clean
 	cd echo;make clean
 	cd sleep;make clean
 	cd ps;make clean
