@@ -82,11 +82,6 @@ protected:
 					c = KEY_BACKSPACE;
 
 				input(c);
-
-				if(c == '\n') {
-					changeMode(true);
-					return;
-				}
 				repaint();
 			}
 		}
