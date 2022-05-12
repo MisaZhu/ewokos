@@ -54,11 +54,12 @@ static void  interrupt_send_raw(context_t* ctx, uint32_t interrupt,  interrupt_t
 	if(proc == NULL)
 		return;
 	
-	proc->info.state = RUNNING; //TODO
 	proc_save_state(proc, &proc->space->interrupt.saved_state);
 	proc->space->interrupt.interrupt = interrupt;
 	proc->space->interrupt.entry = intr->entry;
 	proc->space->interrupt.do_switch = true;
+	if(interrupt != SYS_INT_SOFT)
+		irq_disable_cpsr(&proc->ctx.cpsr); //disable interrupt on proc
 
 	if(proc->info.core == cproc->info.core) {
 		proc->info.state = RUNNING;
@@ -94,7 +95,12 @@ void interrupt_end(context_t* ctx) {
 
 	uint32_t interrupt = cproc->space->interrupt.interrupt;
 	proc_restore_state(ctx, cproc, &cproc->space->interrupt.saved_state);
-	irq_enable_cpsr(&cproc->ctx.cpsr); //enable interrupt on proc
+	if(cproc->info.state == READY)
+		proc_ready(cproc);
+
+	if(interrupt != SYS_INT_SOFT)
+		irq_enable_cpsr(&cproc->ctx.cpsr); //enable interrupt on proc
+
 	interrupt_t* intr = fetch_next(interrupt);
 	if(intr != NULL)
 		interrupt_send_raw(ctx, interrupt, intr);
