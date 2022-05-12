@@ -45,14 +45,14 @@ int32_t interrupt_setup(proc_t* cproc, uint32_t interrupt, uint32_t entry) {
 	return 0;
 }
 
-static void  interrupt_send_raw(context_t* ctx, uint32_t interrupt,  interrupt_t* intr) {
+static int32_t interrupt_send_raw(context_t* ctx, uint32_t interrupt,  interrupt_t* intr) {
 	if(intr->pid <= 0 || intr->entry == 0)
-		return;
+		return -1;
 
 	proc_t* proc = proc_get(intr->pid);
 	proc_t* cproc = get_current_proc();
 	if(proc == NULL)
-		return;
+		return -1;
 	
 	proc_save_state(proc, &proc->space->interrupt.saved_state);
 	proc->space->interrupt.interrupt = interrupt;
@@ -80,14 +80,14 @@ static interrupt_t* fetch_next(uint32_t interrupt) {
 	return intr;
 }
 
-void  interrupt_send(context_t* ctx, uint32_t interrupt) {
+int32_t  interrupt_send(context_t* ctx, uint32_t interrupt) {
 	if(interrupt >= SYS_INT_MAX)
-		return;
+		return -1;
 	_interrupts[interrupt].it = _interrupts[interrupt].head;
 	interrupt_t* intr = fetch_next(interrupt);
 	if(intr == NULL)
-		return;
-	interrupt_send_raw(ctx, interrupt, intr);
+		return -1;
+	return interrupt_send_raw(ctx, interrupt, intr);
 }
 
 void interrupt_end(context_t* ctx) {
@@ -102,8 +102,7 @@ void interrupt_end(context_t* ctx) {
 		irq_enable_cpsr(&cproc->ctx.cpsr); //enable interrupt on proc
 
 	interrupt_t* intr = fetch_next(interrupt);
-	if(intr != NULL)
-		interrupt_send_raw(ctx, interrupt, intr);
-	else
-		schedule(ctx);
+	if(intr != NULL && interrupt_send_raw(ctx, interrupt, intr) == 0)
+		return;
+	schedule(ctx);
 }

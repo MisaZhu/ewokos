@@ -47,13 +47,13 @@ static inline void irq_do_uart0(context_t* ctx) {
 	interrupt_send(ctx, SYS_INT_UART0);
 }
 
-static inline void irq_do_timer0_interrupt(context_t* ctx) {
-	interrupt_send(ctx, SYS_INT_TIMER0);
+static inline int32_t irq_do_timer0_interrupt(context_t* ctx) {
+	return interrupt_send(ctx, SYS_INT_TIMER0);
 }
 
 #define SEC_TIC       1000000
 #define SCHEDULE_TIC  3000
-#define TIMER_TIC     1000
+#define TIMER_TIC     500
 
 static inline void irq_do_timer0(context_t* ctx) {
 	(void)ctx;
