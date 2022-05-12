@@ -24,6 +24,8 @@ class XIMX : public XWin {
 	int col, row, keyw, keyh, keySelect;
 protected:
 	int get_at(int x, int y) {
+		int input_h = font->h + 4;
+		y -= input_h;
 		int i = div_u32(x, keyw);
 		int j = div_u32(y, keyh);
 		int at = i+j*col;
