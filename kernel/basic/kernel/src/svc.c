@@ -502,15 +502,6 @@ static void sys_proc_wakeup(context_t* ctx, uint32_t evt) {
 	(void)ctx;
 	proc_t* proc = proc_get_proc(get_current_proc());
 	proc_wakeup(proc->info.pid, evt);
-	ipc_task_t* ipc = proc_ipc_get_task(proc);
-	if(ipc != NULL &&
-			proc->space->ipc_server.saved_state.block_by == proc->info.pid &&
-			(evt == 0 ||
-			proc->space->ipc_server.saved_state.block_event == evt)) {
-		proc->space->ipc_server.saved_state.state = READY;
-		proc->space->ipc_server.saved_state.block_by = -1;
-		proc->space->ipc_server.saved_state.block_event = 0;
-	}
 }
 
 static void sys_core_proc_ready(void) {

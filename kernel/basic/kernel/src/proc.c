@@ -157,6 +157,7 @@ inline void proc_restore_state(context_t* ctx, proc_t* proc, saved_state_t* save
 	proc->block_event = saved_state->block_event;
 	proc->sleep_counter = saved_state->sleep_counter;
 	memcpy(ctx, &saved_state->ctx, sizeof(context_t));
+	memset(saved_state, 0, sizeof(saved_state_t));
 }
 
 void proc_switch(context_t* ctx, proc_t* to, bool quick){
@@ -597,6 +598,34 @@ inline void proc_waitpid(context_t* ctx, int32_t pid) {
 	schedule(ctx);
 }
 
+static void proc_wakeup_saved_state(int32_t pid, uint32_t event, proc_t* proc) {
+	ipc_task_t* ipc = proc_ipc_get_task(proc);
+	if(ipc != NULL &&
+			proc->space->ipc_server.saved_state.block_by == pid &&
+			(event == 0 ||
+			proc->space->ipc_server.saved_state.block_event == event)) {
+		proc->space->ipc_server.saved_state.state = READY;
+		proc->space->ipc_server.saved_state.block_by = -1;
+		proc->space->ipc_server.saved_state.block_event = 0;
+	}	
+
+	if(proc->space->signal.saved_state.block_by == pid &&
+			(event == 0 ||
+			proc->space->signal.saved_state.block_event == event)) {
+		proc->space->signal.saved_state.state = READY;
+		proc->space->signal.saved_state.block_by = -1;
+		proc->space->signal.saved_state.block_event = 0;
+	}
+
+	if(proc->space->interrupt.saved_state.block_by == pid &&
+			(event == 0 ||
+			proc->space->interrupt.saved_state.block_event == event)) {
+		proc->space->interrupt.saved_state.state = READY;
+		proc->space->interrupt.saved_state.block_by = -1;
+		proc->space->interrupt.saved_state.block_event = 0;
+	}
+}
+
 void proc_wakeup(int32_t pid, uint32_t event) {
 	int32_t i = 0;	
 	while(1) {
@@ -608,6 +637,8 @@ void proc_wakeup(int32_t pid, uint32_t event) {
 				proc->info.block_by == pid) {
 			proc_ready(proc);
 		}
+		if(proc->info.state != UNUSED && proc->info.state != ZOMBIE)
+			proc_wakeup_saved_state(pid, event, proc);
 		i++;
 	}
 }
