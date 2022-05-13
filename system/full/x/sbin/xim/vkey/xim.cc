@@ -176,7 +176,7 @@ protected:
 					kw = keyw * 2;
 
 				if(keySelect == at) { //hot key
-					ky -= input_h;
+					ky -= j == 0 ? input_h : keyh+6;
 					graph_fill(g, kx, ky, kw, keyh, 0xffffffff);
 				}
 
