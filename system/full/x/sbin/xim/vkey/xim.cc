@@ -30,7 +30,7 @@ class XIMX : public XWin {
 protected:
 	int get_at(int x, int y) {
 		if(!hideMode) {
-			int input_h = font->h + 4;
+			int input_h = font->h + 8;
 			y -= input_h;
 		}
 		int i = div_u32(x, keyw);
@@ -117,77 +117,83 @@ protected:
 		graph_draw_text(g, (g->w-w)/2, 2, inputS, font, 0xff000000);
 	}
 
+	const char* getKeyTitle(char c) {
+		static char s[16];
+		s[0] = c;
+		s[1] = 0;
+
+		if(c == ' ')
+			strcpy(s, "SPACE");
+		else if(c == '\n')
+			strcpy(s, "ENTER");
+		else if(c == '\b')
+			strcpy(s, "Back");
+		else if(c == '\2')
+			strcpy(s, "C/#");
+		else if(c == '\1')
+			strcpy(s, "|||");
+
+		return s;
+	}
+
 	void onRepaint(graph_t* g) {
 		if(hideMode) {
 			graph_clear(g, 0xffaaaaaa);
 			graph_draw_text(g,  2, 
 					(g->h - font->h)/2,
-					"..^^", font, 0xff000000);
+					"|||", font, 0xff000000);
 			graph_box(g, 0, 0, g->w, g->h, 0xffdddddd);
 			return;
 		}
 
 		graph_fill(g, 0, 0, g->w, g->w, 0xffaaaaaa);
 
-		int input_h = font->h + 4;
+		int input_h = font->h + 8;
 		keyh = (g->h - input_h) / row;
 		keyw = g->w / col;
 
 		draw_input(g, input_h);
+		const char* t = "";
 		for(int j=0; j<row; j++) {
 			for(int i=0; i<col; i++) {
 				int at = i+j*col;
 				if(at >= (int)strlen(keytable[keytableType]))
 					break;
 				char c = keytable[keytableType][at];
+				int kx, ky, kw;
+				kx = i * keyw;
+				ky = j * keyh+input_h;
+				kw = keyw;
+
 				if(c >= 'a' && c <= 'z') {
 					c += ('A' - 'a');
-					graph_fill(g, i*keyw, j*keyh+input_h, keyw, keyh, 0xffcccccc);
+					graph_fill(g, kx, ky, kw, keyh, 0xffcccccc);
+				}
+				
+				if(c == '\3') //two key size
+					kx -= keyw;
+				if(c == ' ' || c == '\n' || c == '\3') //two key size
+					kw = keyw * 2;
+
+				if(keySelect == at) { //hot key
+					ky -= input_h;
+					graph_fill(g, kx, ky, kw, keyh, 0xffffffff);
 				}
 
-				if(keySelect == at) {
-					if(c == ' ' || c == '\n')
-						graph_fill(g, i*keyw, j*keyh+input_h, keyw*2, keyh, 0xffffffff);
-					else if(c == '\3')
-						graph_fill(g, (i-1)*keyw, j*keyh+input_h, keyw*2, keyh, 0xffffffff);
-					else
-						graph_fill(g, i*keyw, j*keyh+input_h, keyw, keyh, 0xffffffff);
-				}
+				if(c != '\3')
+					t = getKeyTitle(c);
 
-				if(c == '\3') {
-					continue;
-				}
-				if(c == '\n') {
-					graph_draw_text(g, i*keyw + keyw/2, 
-							j*keyh + (keyh - font->h)/2 + input_h,
-							"Enter", font, 0xff000000);
-					graph_box(g, i*keyw, j*keyh+input_h, keyw*2, keyh, 0xffdddddd);
-					continue;
-				}
-				else if(c == ' ') {
-					graph_draw_text(g, i*keyw + keyw/2, 
-							j*keyh + (keyh - font->h)/2 + input_h,
-							"space", font, 0xff000000);
-					graph_box(g, i*keyw, j*keyh+input_h, keyw*2, keyh, 0xffdddddd);
-					continue;
-				}
-				else if(c == '\b')
-					graph_draw_text(g, i*keyw + 2, 
-							j*keyh + (keyh - font->h)/2 + input_h,
-							" <-", font, 0xff000000);
-				else if(c == '\1')
-					graph_draw_text(g, i*keyw + 2, 
-							j*keyh + (keyh - font->h)/2 + input_h,
-							" VV", font, 0xff000000);
-				else if(c == '\2')
-					graph_draw_text(g, i*keyw + 2, 
-							j*keyh + (keyh - font->h)/2 + input_h,
-							" C/#", font, 0xff000000);
-				else 
-					graph_draw_char(g, i*keyw + (keyw - font->w)/2,
-							j*keyh + (keyh - font->h)/2 + input_h,
-							c, font, 0xff000000);
-				graph_box(g, i*keyw, j*keyh+input_h, keyw, keyh, 0xffdddddd);
+				int32_t tw;
+				get_text_size(t, font, &tw, NULL);
+				if(keySelect == at) //hot key
+					graph_draw_text(g, kx + (kw-tw)/2, 
+							ky + 2,
+							t, font, 0xff000000);
+				else
+					graph_draw_text(g, kx + (kw-tw)/2, 
+							ky + (keyh - font->h)/2,
+							t, font, 0xff000000);
+				graph_box(g, kx, ky, kw, keyh, 0xffdddddd);
 			}
 		}
 	}
