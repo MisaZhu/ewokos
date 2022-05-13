@@ -471,14 +471,14 @@ static int x_init(x_t* x, const char* display_man) {
 }	
 
 
-static void xwin_close(x_t* x) {
+static void x_close(x_t* x) {
 	for(uint32_t i=0; i<x->display_num; i++) {
 		x_display_t* display = &x->displays[i];
 		fb_close(&display->fb);
 	}
 }
 
-static void xwin_repaint(x_t* x, uint32_t display_index) {
+static void x_repaint(x_t* x, uint32_t display_index) {
 	x_display_t* display = &x->displays[display_index];
 	if(display->g == NULL ||
 			(!display->need_repaint))
@@ -498,6 +498,7 @@ static void xwin_repaint(x_t* x, uint32_t display_index) {
 	while(view != NULL) {
 		if(view->xinfo.visible && view->xinfo.display_index == display_index)
 			draw_view(x, view);
+		view->dirty = false;
 		view = view->next;
 	}
 
@@ -512,7 +513,7 @@ static void xwin_repaint(x_t* x, uint32_t display_index) {
 		display->dirty = false;
 }
 
-static inline void xwin_repaint_req(x_t* x, int32_t display_index) {
+static inline void x_repaint_req(x_t* x, int32_t display_index) {
 	if(display_index >= 0) {
 		x_display_t *display = &x->displays[display_index];
 		display->need_repaint = true;
@@ -560,7 +561,7 @@ static int x_update(int fd, int from_pid, x_t* x) {
 			(view->xinfo.style & X_STYLE_ALPHA) != 0) {
 		x_dirty(x, view->xinfo.display_index);
 	}
-	xwin_repaint_req(x, view->xinfo.display_index);
+	x_repaint_req(x, view->xinfo.display_index);
 	return 0;
 }
 
@@ -656,7 +657,7 @@ static int xwin_update_info_raw(int fd, int from_pid, proto_t* in, x_t* x) {
 		graph_clear(view->g, 0x0);
 	}
 	view->dirty = true;
-	xwin_repaint_req(x, view->xinfo.display_index);
+	x_repaint_req(x, view->xinfo.display_index);
 
 	if(view != x->view_tail ||
 			view->xinfo.wsr.x != xinfo.wsr.x ||
@@ -683,6 +684,17 @@ static int xwin_get_info(int fd, int from_pid, x_t* x, proto_t* out) {
 	if(view == NULL)
 		return -1;
 	PF->add(out, &view->xinfo, sizeof(xinfo_t));
+	return 0;
+}
+
+static int xwin_is_ready(int fd, int from_pid, x_t* x, proto_t* out) {
+	xview_t* view = x_get_view(x, fd, from_pid);
+	if(view == NULL)
+		return -1;
+	if(!view->dirty)
+		PF->addi(out, 1);
+	else
+		PF->addi(out, 0);
 	return 0;
 }
 
@@ -738,6 +750,9 @@ static int xserver_fcntl(int fd, int from_pid, fsinfo_t* info,
 	}
 	else if(cmd == X_CNTL_WORKSPACE) {
 		res = x_workspace(x, in, out);
+	}
+	else if(cmd == X_CNTL_IS_READY) {
+		res = xwin_is_ready(fd, from_pid, x, out);
 	}
 	else if(cmd == X_CNTL_CALL_XIM) {
 		res = xwin_call_xim(x);
@@ -938,7 +953,7 @@ static void handle_input(x_t* x, xevent_t* ev) {
 	else if(ev->type == XEVT_MOUSE) {
 		mouse_handle(x, ev);
 	}
-	xwin_repaint_req(x, -1);
+	x_repaint_req(x, -1);
 }
 
 static int xserver_dev_cntl(int from_pid, int cmd, proto_t* in, proto_t* ret, void* p) {
@@ -996,7 +1011,7 @@ int xserver_step(void* p) {
 	x_t* x = (x_t*)p;
 	ipc_disable();
 	for(uint32_t i=0; i<x->display_num; i++) {
-		xwin_repaint(x, i);
+		x_repaint(x, i);
 	}
 	ipc_enable();
 	usleep(1000000/x->config.fps);
@@ -1034,9 +1049,9 @@ int main(int argc, char** argv) {
 	dev.loop_step = xserver_step;
 	dev.extra_data = &x;
 
-	xwin_repaint_req(&x, -1);
-	xwin_repaint(&x, -1);
+	x_repaint_req(&x, -1);
+	x_repaint(&x, -1);
 	device_run(&dev, mnt_point, FS_TYPE_CHAR);
-	xwin_close(&x);
+	x_close(&x);
 	return 0;
 }

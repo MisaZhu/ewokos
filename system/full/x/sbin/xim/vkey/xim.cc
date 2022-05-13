@@ -176,12 +176,14 @@ protected:
 					kw = keyw * 2;
 
 				if(keySelect == at) { //hot key
-					ky -= j == 0 ? input_h : keyh+6;
+					ky -= (j == 0 ? input_h : keyh/2);
 					graph_fill(g, kx, ky, kw, keyh, 0xffffffff);
 				}
 
 				if(c != '\3')
 					t = getKeyTitle(c);
+				else if(keySelect != at)
+					continue;
 
 				int32_t tw;
 				get_text_size(t, font, &tw, NULL);

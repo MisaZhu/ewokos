@@ -133,11 +133,30 @@ void xwin_close(xwin_t* xwin) {
 	free(xwin);
 }
 
-void xwin_repaint(xwin_t* xwin) {
-	if(xwin->on_repaint == NULL) {
-		vfs_fcntl(xwin->fd, X_CNTL_UPDATE, NULL, NULL);
-		return;
+static bool ready_to_paint(xwin_t* xwin) {
+	uint32_t i = 1000;
+	proto_t res;	
+	PF->init(&res);
+	bool ready = false;
+	while(i > 0) {
+		if(vfs_fcntl(xwin->fd, X_CNTL_IS_READY, NULL, &res) == 0) {
+			ready = proto_read_int(&res);
+			if(ready)
+				break;
+		}
+		PF->clear(&res);
+		usleep(1000);
+		i--;
 	}
+	PF->clear(&res);
+	return ready;
+}
+
+void xwin_repaint(xwin_t* xwin) {
+	if(xwin->on_repaint == NULL)
+		return;
+	if(!ready_to_paint(xwin))
+		return;
 
 	graph_t g;
 	if(x_get_graph(xwin, &g) != NULL) {
