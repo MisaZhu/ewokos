@@ -46,7 +46,7 @@ protected:
 			keytableType = 1;
 		else
 			keytableType = 0;
-		repaint();
+		repaint(true);
 	}
 
 	void changeMode(bool hide) {
@@ -75,12 +75,12 @@ protected:
 
 			if(ev->state == XEVT_MOUSE_DOWN) {
 				keySelect = at;
-				repaint();
+				repaint(true);
 			}
 			else if(ev->state == XEVT_MOUSE_MOVE) {
 				if(keySelect >= 0 && keySelect != at) {
 					keySelect = at;
-					repaint();
+					repaint(true);
 				}
 			}
 			else if(ev->state == XEVT_MOUSE_UP) {
@@ -105,7 +105,7 @@ protected:
 					c = KEY_BACKSPACE;
 
 				input(c);
-				repaint();
+				repaint(true);
 			}
 		}
 	}

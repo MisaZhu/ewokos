@@ -103,10 +103,10 @@ bool XWin::getInfo(xinfo_t& xinfo) {
 	return (xwin_get_info(xwin, &xinfo) == 0);
 }
 
-void XWin::repaint(bool thread) {
+void XWin::repaint(bool sync) {
 	if(xwin == NULL)	
 		return;
-	xwin_repaint(xwin);
+	xwin_repaint(xwin, sync);
 }
 
 void XWin::resize(int dw, int dh) {

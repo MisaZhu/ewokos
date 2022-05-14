@@ -33,7 +33,7 @@ int      xwin_update_info(xwin_t* x, const xinfo_t* xinfo);
 int      xwin_get_info(xwin_t* x, xinfo_t* xinfo);
 void     xwin_close(xwin_t* x);
 int      xwin_set_visible(xwin_t* x, bool visible);
-void     xwin_repaint(xwin_t* x);
+void     xwin_repaint(xwin_t* x, bool sync);
 void     xwin_repaint_req(xwin_t* x);
 int      xwin_resize(xwin_t* x, int dw, int dh);
 int      xwin_resize_to(xwin_t* x, int w, int h);
