@@ -160,10 +160,11 @@ protected:
 				if(at >= (int)strlen(keytable[keytableType]))
 					break;
 				char c = keytable[keytableType][at];
-				int kx, ky, kw;
+				int kx, ky, kw, kh;
 				kx = i * keyw;
 				ky = j * keyh+input_h;
 				kw = keyw;
+				kh = keyh;
 
 				if(c >= 'a' && c <= 'z') {
 					c += ('A' - 'a');
@@ -177,7 +178,8 @@ protected:
 
 				if(keySelect == at) { //hot key
 					ky -= (j == 0 ? input_h : keyh/2);
-					graph_fill(g, kx, ky, kw, keyh, 0xffffffff);
+					kh = keyh + keyh/2;
+					graph_fill(g, kx, ky, kw, kh, 0xffffffff);
 				}
 
 				if(c != '\3')
@@ -193,9 +195,9 @@ protected:
 							t, font, 0xff000000);
 				else
 					graph_draw_text(g, kx + (kw-tw)/2, 
-							ky + (keyh - font->h)/2,
+							ky + (kh - font->h)/2,
 							t, font, 0xff000000);
-				graph_box(g, kx, ky, kw, keyh, 0xffdddddd);
+				graph_box(g, kx, ky, kw, kh, 0xffdddddd);
 			}
 		}
 	}

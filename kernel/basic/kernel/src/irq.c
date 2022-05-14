@@ -53,7 +53,7 @@ static inline int32_t irq_do_timer0_interrupt(context_t* ctx) {
 
 #define SEC_TIC       1000000
 #define SCHEDULE_TIC  3000
-#define TIMER_TIC     500
+#define TIMER_TIC     1000
 
 static inline void irq_do_timer0(context_t* ctx) {
 	(void)ctx;
