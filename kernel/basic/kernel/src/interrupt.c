@@ -55,6 +55,10 @@ static int32_t interrupt_send_raw(context_t* ctx, uint32_t interrupt,  interrupt
 	proc_t* cproc = get_current_proc();
 	if(proc == NULL || proc->space->interrupt.state != INTR_STATE_IDLE)
 		return -1;
+	ipc_task_t* ipc = proc_ipc_get_task(proc);
+	if(ipc != NULL)
+		return -1;
+	
 	
 	proc_save_state(proc, &proc->space->interrupt.saved_state);
 	proc->space->interrupt.interrupt = interrupt;
@@ -107,6 +111,7 @@ void interrupt_end(context_t* ctx) {
 	uint32_t interrupt = cproc->space->interrupt.interrupt;
 	proc_restore_state(ctx, cproc, &cproc->space->interrupt.saved_state);
 	cproc->space->interrupt.state = INTR_STATE_IDLE;
+	proc_wakeup(cproc->info.pid, (uint32_t)&cproc->space->interrupt);
 
 	if(cproc->info.state == READY || cproc->info.state == RUNNING)
 		proc_ready(cproc);

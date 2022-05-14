@@ -293,6 +293,13 @@ static void sys_ipc_call(context_t* ctx, int32_t serv_pid, int32_t call_id, prot
 			serv_proc->space->ipc_server.entry == 0) //no ipc service setup
 		return;
 
+	if(serv_proc->space->interrupt.state != INTR_STATE_IDLE) {
+		ctx->gpr[0] = -1; // blocked if proc is on interrupt task, should retry
+		proc_block_on(serv_pid, (uint32_t)&serv_proc->space->interrupt);
+		schedule(ctx);
+		return;
+	}
+
 	if(serv_proc->space->ipc_server.disabled) {
 		ctx->gpr[0] = -1; // blocked if server disabled, should retry
 		proc_block_on(serv_pid, (uint32_t)&serv_proc->space->ipc_server);

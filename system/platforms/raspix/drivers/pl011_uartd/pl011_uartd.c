@@ -22,22 +22,21 @@ static int uart_read(int fd, int from_pid, fsinfo_t* info,
 	(void)size;
 	(void)p;
 
-	char c;
+	/*char c;
 	int res = charbuf_pop(&_buffer, &c);
-
 	if(res != 0 || c == 0)
 		return ERR_RETRY;
-
-	/*((char*)buf)[0] = c;
-	char c;
-	if(bcm283x_pl011_uart_ready_to_recv() != 0) {
-		return ERR_RETRY_NON_BLOCK;
-	}
-
-	c = bcm283x_pl011_uart_recv();
-	*/
 	((char*)buf)[0] = c;
 	return 1;
+	*/
+
+	int i;
+	for(i = 0; i < size; i++){
+	int res = charbuf_pop(&_buffer, buf + i);
+	if(res != 0)
+		break;
+	}
+	return (i==0)?ERR_RETRY_NON_BLOCK:i;
 }
 
 static int uart_write(int fd, int from_pid, fsinfo_t* info,
@@ -54,15 +53,10 @@ static void interrupt_handle(uint32_t interrupt) {
 	(void)interrupt;
 
 	char c;
-	bool wake = false;
 	while(bcm283x_pl011_uart_ready_to_recv() == 0) {
 		c = bcm283x_pl011_uart_recv();
 		charbuf_push(&_buffer, c, true);
-		wake = true;
 	}
-	if(wake)
-		proc_wakeup(0);
-
 	sys_interrupt_end();
 }
 
