@@ -53,14 +53,14 @@ static int32_t interrupt_send_raw(context_t* ctx, uint32_t interrupt,  interrupt
 
 	proc_t* proc = proc_get(intr->pid);
 	proc_t* cproc = get_current_proc();
-	if(proc == NULL)
+	if(proc == NULL || proc->space->interrupt.state != INTR_STATE_IDLE)
 		return -1;
 	
 	proc_save_state(proc, &proc->space->interrupt.saved_state);
 	proc->space->interrupt.interrupt = interrupt;
 	proc->space->interrupt.entry = intr->entry;
 	proc->space->interrupt.data = intr->data;
-	proc->space->interrupt.do_switch = true;
+	proc->space->interrupt.state = INTR_STATE_START;
 	if(interrupt != SYS_INT_SOFT)
 		irq_disable_cpsr(&proc->ctx.cpsr); //disable interrupt on proc
 
@@ -104,10 +104,11 @@ int32_t  interrupt_soft_send(context_t* ctx, int32_t to_pid, uint32_t entry, uin
 
 void interrupt_end(context_t* ctx) {
 	proc_t* cproc = get_current_proc();
-
 	uint32_t interrupt = cproc->space->interrupt.interrupt;
 	proc_restore_state(ctx, cproc, &cproc->space->interrupt.saved_state);
-	if(cproc->info.state != SLEEPING)
+	cproc->space->interrupt.state = INTR_STATE_IDLE;
+
+	if(cproc->info.state == READY || cproc->info.state == RUNNING)
 		proc_ready(cproc);
 
 	if(interrupt != SYS_INT_SOFT) {

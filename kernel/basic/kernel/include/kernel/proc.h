@@ -48,12 +48,18 @@ typedef struct {
 	saved_state_t saved_state;
 } signal_t;
 
+enum {
+	INTR_STATE_IDLE = 0,
+	INTR_STATE_START,
+	INTR_STATE_WORKING
+};
+
 typedef struct {
     uint32_t      entry;
     uint32_t      interrupt;
     uint32_t      data;
 
-    bool          do_switch;
+    uint32_t      state;
 	uint32_t      stack; //mapped stack page
 	saved_state_t saved_state;
 } proc_interrupt_t;
