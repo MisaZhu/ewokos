@@ -119,8 +119,8 @@ void interrupt_end(context_t* ctx) {
 	if(interrupt != SYS_INT_SOFT) {
 		irq_enable_cpsr(&cproc->ctx.cpsr); //enable interrupt on proc
 		interrupt_t* intr = fetch_next(interrupt);
-		if(intr != NULL && interrupt_send_raw(ctx, interrupt, intr) == 0)
-			return;
+		if(intr != NULL)
+			interrupt_send_raw(ctx, interrupt, intr);
 	}
 	schedule(ctx);
 }
