@@ -5,6 +5,14 @@
 
 using namespace Ewok;
 
+void MacWM::drawDesktop(graph_t* g) {
+	if(bgImg == NULL)
+		return;
+	graph_clear(g, 0xffeeeeee);
+	graph_blt(bgImg, 0, 0, bgImg->w, bgImg->h,
+			g, (g->w - bgImg->w)/2, (g->h - bgImg->h)/2, bgImg->w, bgImg->h);
+}
+
 void MacWM::drawTitlePattern(graph_t* g, int x, int y, int w, int h, uint32_t fg) {
 	int step = 3;
 	y = y + step;
@@ -34,5 +42,12 @@ void MacWM::drawTitle(graph_t* g, xinfo_t* info, grect_t* r, bool top) {
 	graph_draw_text(g, r->x+pw, r->y+2, info->title, font, fg);//title
 }
 
+MacWM::~MacWM(void) {
+	if(bgImg == NULL)
+		return;
+	graph_free(bgImg);
+}
+
 MacWM::MacWM(void) {
+	bgImg = png_image_new("/data/images/rokid_bg_800.png");
 }
