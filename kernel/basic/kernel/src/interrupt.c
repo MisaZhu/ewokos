@@ -11,7 +11,7 @@
 #include <mm/kmalloc.h>
 
 typedef struct interrupt_st {
-	int32_t  pid;
+	int32_t  uuid;
 	uint32_t entry;
 	uint32_t data;
 	struct   interrupt_st* next;
@@ -33,7 +33,7 @@ int32_t interrupt_setup(proc_t* cproc, uint32_t interrupt, uint32_t entry, uint3
 		return -1;
 
 	interrupt_t* intr = (interrupt_t*)kmalloc(sizeof(interrupt_t));
-	intr->pid = cproc->info.pid;
+	intr->uuid = cproc->info.uuid;
 	intr->entry = entry;
 	intr->data = data;
 	intr->next = NULL;
@@ -48,17 +48,16 @@ int32_t interrupt_setup(proc_t* cproc, uint32_t interrupt, uint32_t entry, uint3
 }
 
 static int32_t interrupt_send_raw(context_t* ctx, uint32_t interrupt,  interrupt_t* intr) {
-	if(intr->pid <= 0 || intr->entry == 0)
+	if(intr->uuid <= 0 || intr->entry == 0)
 		return -1;
 
-	proc_t* proc = proc_get(intr->pid);
+	proc_t* proc = proc_get_by_uuid(intr->uuid);
 	proc_t* cproc = get_current_proc();
 	if(proc == NULL || proc->space->interrupt.state != INTR_STATE_IDLE)
 		return -1;
 	ipc_task_t* ipc = proc_ipc_get_task(proc);
 	if(ipc != NULL && ipc->state == IPC_BUSY)
 		return -1;
-	
 	
 	proc_save_state(proc, &proc->space->interrupt.saved_state);
 	proc->space->interrupt.interrupt = interrupt;
@@ -100,8 +99,9 @@ int32_t  interrupt_send(context_t* ctx, uint32_t interrupt) {
 
 int32_t  interrupt_soft_send(context_t* ctx, int32_t to_pid, uint32_t entry, uint32_t data) {
 	interrupt_t intr;
+	proc_t* proc = proc_get(to_pid);
 	intr.entry = entry;
-	intr.pid = to_pid;
+	intr.uuid = proc->info.uuid;
 	intr.data = data;
 	return interrupt_send_raw(ctx, SYS_INT_SOFT, &intr);
 }

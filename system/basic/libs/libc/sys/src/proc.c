@@ -65,6 +65,13 @@ inline void proc_exec_elf(const char* cmd_line, const char* elf, int32_t size) {
 	syscall3(SYS_EXEC_ELF, (int32_t)cmd_line, (int32_t)elf, size);
 }
 
+inline uint32_t proc_check_uuid(int32_t pid, uint32_t uuid) {
+	uint32_t ret = syscall1(SYS_PROC_UUID, pid);
+	if(ret == uuid)
+		return ret;
+	return 0;
+}
+
 #ifdef __cplusplus
 }
 #endif

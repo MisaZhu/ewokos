@@ -10,6 +10,7 @@
 
 typedef struct interrupt_st {
 	uint32_t id;
+	uint32_t proc_uuid;
 	int32_t  pid;
 	uint32_t entry;
 	uint32_t data;
@@ -47,6 +48,7 @@ static int32_t interrupt_remove(int32_t pid, uint32_t id) {
 static int32_t interrupt_setup(int32_t pid, uint32_t timer_usec, uint32_t entry, uint32_t data) {
 	interrupt_t* intr = (interrupt_t*)malloc(sizeof(interrupt_t));
 	intr->pid = pid;
+	intr->proc_uuid = syscall1(SYS_PROC_UUID, pid);
 	intr->entry = entry;
 	intr->data = data;
 	intr->timer_usec = timer_usec;
@@ -78,19 +80,31 @@ static int timer_dcntl(int from_pid, int cmd, proto_t* in, proto_t* ret, void* p
 	return 0;
 }
 
-static void interrupt_handle(uint32_t interrupt) {
+static void interrupt_handle(uint32_t interrupt, uint32_t data) {
 	(void)interrupt;
+	(void)data;
 	uint64_t usec;
 	kernel_tic(NULL, &usec);
 	interrupt_t* intr = _intr_list;
+	interrupt_t* prev = NULL;
 	while(intr != NULL) {
-		if(intr->timer_last == 0)
-			intr->timer_last = usec;
-		else if((usec - intr->timer_last) >= intr->timer_usec) {
-			intr->timer_last = usec;
-			syscall3(SYS_SOFT_INT, intr->pid, intr->entry, intr->data);
+		interrupt_t* next = intr->next;
+		if(proc_check_uuid(intr->pid, intr->proc_uuid) == intr->proc_uuid) {
+			if(intr->timer_last == 0)
+				intr->timer_last = usec;
+			else if((usec - intr->timer_last) >= intr->timer_usec) {
+				intr->timer_last = usec;
+				syscall3(SYS_SOFT_INT, intr->pid, intr->entry, intr->data);
+			}
 		}
-		intr = intr->next;
+		else { //remove unavailable proc
+			if(intr == _intr_list)
+				_intr_list = next;
+			else if(prev != NULL)
+				prev->next = next;
+		}
+		prev = intr;
+		intr = next;
 	}
 	sys_interrupt_end();
 }

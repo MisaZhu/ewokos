@@ -21,6 +21,7 @@ static page_dir_entry_t _proc_vm[PROC_MAX][PAGE_DIR_NUM];
 static queue_t _ready_queue[CPU_MAX_CORES];
 static proc_t* _current_proc[CPU_MAX_CORES];
 static uint32_t _use_core_id = 0;
+static uint32_t _proc_uuid = 0;
 
 bool _core_proc_ready = false;
 int32_t _core_proc_pid = -1;
@@ -30,6 +31,7 @@ uint32_t _ipc_uid = 0;
 void procs_init(void) {
 	_use_core_id = 0;
 	_ipc_uid = 0;
+	_proc_uuid = 0;
 	_core_proc_ready = false;
 	int32_t i;
 	for (i = 0; i < PROC_MAX; i++) {
@@ -50,6 +52,19 @@ inline proc_t* proc_get(int32_t pid) {
 			_proc_table[pid].info.state == ZOMBIE)
 		return NULL;
 	return &_proc_table[pid];
+}
+
+inline proc_t* proc_get_by_uuid(uint32_t uuid) {
+	proc_t* proc = NULL;
+	for (uint32_t i = 0; i < PROC_MAX; i++) {
+		if(_proc_table[i].info.uuid == uuid) {
+			proc = &_proc_table[i];
+			break;
+		}
+	}
+	if(proc->info.state == UNUSED || proc->info.state == ZOMBIE)
+		return NULL;
+	return proc;
 }
 
 inline proc_t* get_current_proc(void) {
@@ -488,6 +503,7 @@ proc_t *proc_create(int32_t type, proc_t* parent) {
 
 	proc_t *proc = &_proc_table[index];
 	memset(proc, 0, sizeof(proc_t));
+	proc->info.uuid = ++_proc_uuid;
 	proc->info.pid = index;
 	proc->info.type = type;
 	proc->info.father_pid = -1;

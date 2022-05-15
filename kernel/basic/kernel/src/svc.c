@@ -565,6 +565,13 @@ static inline void sys_soft_int(context_t* ctx, int32_t to_pid, uint32_t entry, 
 	interrupt_soft_send(ctx, to_pid, entry, data);
 }
 
+static inline int32_t sys_proc_uuid(int32_t pid) {
+	proc_t* proc = proc_get(pid);
+	if(proc == NULL)
+		return 0;
+	return proc->info.uuid;
+}
+
 static inline void _svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_t arg2, context_t* ctx) {
 	_svc_total++;
 	_svc_counter[code]++;
@@ -722,6 +729,9 @@ static inline void _svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_
 		return;
 	case SYS_SOFT_INT:
 		sys_soft_int(ctx, arg0, arg1, arg2);
+		return;
+	case SYS_PROC_UUID:
+		ctx->gpr[0] = sys_proc_uuid(arg0);
 		return;
 	}
 }

@@ -38,6 +38,7 @@ enum {
 #define IPC_NON_RETURN_MASK  0x7fffffff
 
 typedef struct {
+	uint32_t uuid;
 	int32_t  type; 
 	uint32_t core;
 	int32_t  pid; 
