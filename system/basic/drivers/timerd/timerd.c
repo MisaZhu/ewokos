@@ -3,6 +3,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <sys/vfs.h>
+#include <sys/proc.h>
 #include <sys/vdevice.h>
 #include <sys/syscall.h>
 #include <sys/interrupt.h>
