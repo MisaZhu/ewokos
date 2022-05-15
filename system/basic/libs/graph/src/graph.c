@@ -118,6 +118,37 @@ graph_t* graph_rotate(graph_t* g, int rot) {
 	return NULL;
 }
 
+graph_t* graph_scale(graph_t* g, int scale) {
+	graph_t* ret = NULL;
+	if(scale == 0)
+		return NULL;
+	
+	if(scale > 0) { //bigger
+		ret = graph_new(NULL, g->w*scale, g->h*scale);
+		for(int i=0; i<ret->h; i++) {
+			int gi = i / scale;
+			for(int j=0; j<ret->w; j++) {
+				int gj = j / scale;
+				ret->buffer[i*ret->w + j] = g->buffer[(gi*g->w + gj)];
+			}
+		}
+		return ret;
+	}
+	//smaller
+	scale = abs(scale);
+	ret = graph_new(NULL, g->w/scale, g->h/scale);
+	if(ret == NULL)
+		return NULL;
+	for(int i=0; i<ret->h; i++) {
+		int gi = i * scale;
+		for(int j=0; j<ret->w; j++) {
+			int gj = j * scale;
+			ret->buffer[i*ret->w + j] = g->buffer[(gi*g->w + gj)];
+		}
+	}
+	return ret;
+}
+
 #ifdef __cplusplus
 }
 #endif

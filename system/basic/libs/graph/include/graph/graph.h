@@ -65,6 +65,7 @@ void     graph_clear(graph_t* g, uint32_t color);
 
 void     graph_reverse(graph_t* g);
 graph_t* graph_rotate(graph_t* g, int rot);
+graph_t* graph_scale(graph_t* g, int scale);
 
 void     graph_box(graph_t* g, int32_t x, int32_t y, int32_t w, int32_t h, uint32_t color);
 void     graph_fill(graph_t* g, int32_t x, int32_t y, int32_t w, int32_t h, uint32_t color);
