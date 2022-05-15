@@ -84,6 +84,40 @@ void graph_reverse(graph_t* g) {
 	}
 }
 
+graph_t* graph_rotate(graph_t* g, int rot) {
+	if(g == NULL)
+		return NULL;
+
+	if(rot == G_ROTATE_90) {
+		graph_t* ret = graph_new(NULL, g->h, g->w);
+		for(int i=0; i<g->w; i++) {
+			for(int j=0; j<g->h; j++) {
+				ret->buffer[(ret->h-i)*ret->w + (ret->w-j)] = g->buffer[j*g->w + (g->w-i)];
+			}
+		}
+		return ret;
+	}
+	else if(rot == G_ROTATE_N90) {
+		graph_t* ret = graph_new(NULL, g->h, g->w);
+		for(int i=0; i<g->w; i++) {
+			for(int j=0; j<g->h; j++) {
+				ret->buffer[i*ret->w + j] = g->buffer[j*g->w + (g->w-i)];
+			}
+		}
+		return ret;
+	}
+	else if(rot == G_ROTATE_180) {
+		graph_t* ret = graph_new(NULL, g->w, g->h);
+		for(int i=0; i<g->h; i++) {
+			for(int j=0; j<g->w; j++) {
+				ret->buffer[i*g->w + j] = g->buffer[(g->h-i)*g->w + (g->w-j)];
+			}
+		}
+		return ret;
+	}
+	return NULL;
+}
+
 #ifdef __cplusplus
 }
 #endif

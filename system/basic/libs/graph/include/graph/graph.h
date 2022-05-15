@@ -8,6 +8,12 @@
 extern "C" {
 #endif
 
+enum {
+	G_ROTATE_90 = 0,
+	G_ROTATE_N90,
+	G_ROTATE_180
+};
+
 typedef struct {
 	uint8_t *buffer;
 	int32_t w;
@@ -58,6 +64,7 @@ void     graph_pixel(graph_t* g, int32_t x, int32_t y, uint32_t color);
 void     graph_clear(graph_t* g, uint32_t color);
 
 void     graph_reverse(graph_t* g);
+graph_t* graph_rotate(graph_t* g, int rot);
 
 void     graph_box(graph_t* g, int32_t x, int32_t y, int32_t w, int32_t h, uint32_t color);
 void     graph_fill(graph_t* g, int32_t x, int32_t y, int32_t w, int32_t h, uint32_t color);
