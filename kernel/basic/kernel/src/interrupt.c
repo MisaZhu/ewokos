@@ -108,12 +108,17 @@ int32_t  interrupt_soft_send(context_t* ctx, int32_t to_pid, uint32_t entry, uin
 
 void interrupt_end(context_t* ctx) {
 	proc_t* cproc = get_current_proc();
+	if(cproc->info.state == UNUSED || cproc->info.state == ZOMBIE) {
+		schedule(ctx);
+		return;
+	}
+
 	uint32_t interrupt = cproc->space->interrupt.interrupt;
 	proc_restore_state(ctx, cproc, &cproc->space->interrupt.saved_state);
 	cproc->space->interrupt.state = INTR_STATE_IDLE;
 	proc_wakeup(cproc->info.pid, (uint32_t)&cproc->space->interrupt);
 
-	if(cproc->info.state == READY || cproc->info.state == RUNNING)
+	if(cproc->info.state == READY)
 		proc_ready(cproc);
 
 	if(interrupt != SYS_INT_SOFT) {

@@ -293,16 +293,16 @@ static void sys_ipc_call(context_t* ctx, int32_t serv_pid, int32_t call_id, prot
 			serv_proc->space->ipc_server.entry == 0) //no ipc service setup
 		return;
 
-	if(serv_proc->space->interrupt.state != INTR_STATE_IDLE) {
-		ctx->gpr[0] = -1; // blocked if proc is on interrupt task, should retry
-		proc_block_on(serv_pid, (uint32_t)&serv_proc->space->interrupt);
+	if(serv_proc->space->ipc_server.disabled) {
+		ctx->gpr[0] = -1; // blocked if server disabled, should retry
+		proc_block_on(serv_pid, (uint32_t)&serv_proc->space->ipc_server);
 		schedule(ctx);
 		return;
 	}
 
-	if(serv_proc->space->ipc_server.disabled) {
-		ctx->gpr[0] = -1; // blocked if server disabled, should retry
-		proc_block_on(serv_pid, (uint32_t)&serv_proc->space->ipc_server);
+	if(serv_proc->space->interrupt.state != INTR_STATE_IDLE) {
+		ctx->gpr[0] = -1; // blocked if proc is on interrupt task, should retry
+		proc_block_on(serv_pid, (uint32_t)&serv_proc->space->interrupt);
 		schedule(ctx);
 		return;
 	}
@@ -424,7 +424,7 @@ static void sys_ipc_end(context_t* ctx) {
 		return;
 
 	proc_restore_state(ctx, serv_proc, &serv_proc->space->ipc_server.saved_state);
-	if(serv_proc->info.state == READY || serv_proc->info.state == RUNNING)
+	if(serv_proc->info.state == READY)
 		proc_ready(serv_proc);
 
 	//wake up request proc to get return

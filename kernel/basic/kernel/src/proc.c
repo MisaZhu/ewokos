@@ -626,16 +626,14 @@ static void proc_wakeup_saved_state(int32_t pid, uint32_t event, proc_t* proc) {
 	}	
 
 	if(proc->space->signal.saved_state.block_by == pid &&
-			(event == 0 ||
-			proc->space->signal.saved_state.block_event == event)) {
+			proc->space->signal.saved_state.block_event == event) {
 		proc->space->signal.saved_state.state = READY;
 		proc->space->signal.saved_state.block_by = -1;
 		proc->space->signal.saved_state.block_event = 0;
 	}
 
 	if(proc->space->interrupt.saved_state.block_by == pid &&
-			(event == 0 ||
-			proc->space->interrupt.saved_state.block_event == event)) {
+			proc->space->interrupt.saved_state.block_event == event) {
 		proc->space->interrupt.saved_state.state = READY;
 		proc->space->interrupt.saved_state.block_by = -1;
 		proc->space->interrupt.saved_state.block_event = 0;

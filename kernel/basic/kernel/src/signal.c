@@ -40,11 +40,13 @@ void  proc_signal_send(context_t* ctx, proc_t* proc, int32_t sig_no) {
 
 void proc_signal_end(context_t* ctx) {
 	proc_t* cproc = get_current_proc();
-	if(cproc->space->signal.entry == 0)
-		return;
 
-	if(cproc->info.state == UNUSED || cproc->info.state == ZOMBIE)
+	if(cproc->info.state == UNUSED ||
+			cproc->info.state == ZOMBIE ||
+			cproc->space->signal.entry == 0) {
+		schedule(ctx);
 		return;
+	}
 
 	proc_restore_state(ctx, cproc, &cproc->space->signal.saved_state);
 	if(cproc->space->signal.sig_no == SYS_SIG_STOP ||
