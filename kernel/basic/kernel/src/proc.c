@@ -594,6 +594,21 @@ inline void proc_usleep(context_t* ctx, uint32_t count) {
 	schedule(ctx);
 }
 
+static void proc_block_saved_state(int32_t pid_by, uint32_t event, proc_t* proc) {
+	ipc_task_t* ipc = proc_ipc_get_task(proc);
+	if(ipc != NULL && ipc->state == IPC_BUSY) {
+		proc->space->ipc_server.saved_state.state = BLOCK;
+		proc->space->ipc_server.saved_state.block_by = pid_by;
+		proc->space->ipc_server.saved_state.block_event = event;
+	}	
+
+	if(proc->space->interrupt.state == INTR_STATE_WORKING) {
+		proc->space->interrupt.saved_state.state = BLOCK;
+		proc->space->interrupt.saved_state.block_by = pid_by;
+		proc->space->interrupt.saved_state.block_event = event;
+	}
+}
+
 inline void proc_block_on(int32_t pid_by, uint32_t event) {
 	proc_t* cproc = get_current_proc();
 	if(cproc == NULL)
@@ -602,6 +617,7 @@ inline void proc_block_on(int32_t pid_by, uint32_t event) {
 	cproc->block_event = event;
 	cproc->info.block_by = pid_by;
 	proc_unready(cproc, BLOCK);
+	proc_block_saved_state(pid_by, event, cproc);
 }
 
 inline void proc_waitpid(context_t* ctx, int32_t pid) {
@@ -617,6 +633,7 @@ inline void proc_waitpid(context_t* ctx, int32_t pid) {
 static void proc_wakeup_saved_state(int32_t pid, uint32_t event, proc_t* proc) {
 	ipc_task_t* ipc = proc_ipc_get_task(proc);
 	if(ipc != NULL &&
+			ipc->state == IPC_BUSY &&
 			proc->space->ipc_server.saved_state.block_by == pid &&
 			(event == 0 ||
 			proc->space->ipc_server.saved_state.block_event == event)) {
@@ -633,6 +650,8 @@ static void proc_wakeup_saved_state(int32_t pid, uint32_t event, proc_t* proc) {
 	}
 
 	if(proc->space->interrupt.saved_state.block_by == pid &&
+			proc->space->interrupt.state == INTR_STATE_WORKING &&
+			proc->space->interrupt.saved_state.block_by == pid &&
 			proc->space->interrupt.saved_state.block_event == event) {
 		proc->space->interrupt.saved_state.state = READY;
 		proc->space->interrupt.saved_state.block_by = -1;
