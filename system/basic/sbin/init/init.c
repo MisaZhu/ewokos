@@ -145,50 +145,6 @@ static void load_arch_devs(void) {
 	load_devs(fn);
 }
 
-static void init_tty_stdio(void) {
-	int fd = open("/dev/tty0", 0);
-	fd_console = open("/dev/console0", 0);
-
-	if(fd > 0) {
-		dup2(fd, 0);
-		dup2(fd, 1);
-		dup2(fd, 2);
-		close(fd);
-	}
-
-	if(fd_console > 0) {
-		const char* s = ""
-				"+-----Ewok micro-kernel OS-----------------------+\n"
-				"| https://github.com/MisaZhu/EwokOS.git          |\n"
-				"+------------------------------------------------+\n";
-		dprintf(fd_console, "%s", s);
-		dup2(fd_console, 2);
-		close(fd_console);
-	}
-}
-
-static void run_initrd(void) {
-	out("\nload  => [/etc/init.rd]\n");
-	int fd = open("/etc/init.rd", O_RDONLY);
-	if(fd < 0)
-		return;
-
-	while(true) {
-		const char* ln = read_line(fd);
-		if(ln == NULL)
-			break;
-		if(ln[0] == 0 || ln[0] == '#')
-			continue;
-		if(ln[0] == '$') //init stdios
-			init_tty_stdio();
-		else if(ln[0] == '!') //need wait for ready
-			run(ln+1, true, true);
-		else
-			run(ln, false, false);
-	}
-	close(fd);
-}
-
 static void run_before_vfs(const char* cmd) {
 	out("init: %s    ", cmd);
 
@@ -206,9 +162,7 @@ static void switch_root(void) {
 	if(pid == 0) {
 		setuid(0);
 		load_arch_devs();
-		run_initrd();
-		sleep(3);
-		exit(0);
+		exec("/bin/shell /etc/init.rd");
 	}
 }
 

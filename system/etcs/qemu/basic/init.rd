@@ -1,11 +1,12 @@
-!/drivers/displayd              /dev/display /dev/fb0
-!/drivers/consoled             /dev/console0 /dev/display
+/bin/rundev /drivers/displayd              /dev/display /dev/fb0
+/bin/rundev /drivers/consoled             /dev/console0 /dev/display
+
 $
 
-!/drivers/timerd               /dev/timer
-!/drivers/nulld                /dev/null
-!/drivers/ramfsd               /tmp
-!/drivers/proc/sysinfod        /proc/sysinfo
-!/drivers/proc/stated          /proc/state
+/bin/rundev /drivers/timerd               /dev/timer
+/bin/rundev /drivers/nulld                /dev/null
+/bin/rundev /drivers/ramfsd               /tmp
+/bin/rundev /drivers/proc/sysinfod        /proc/sysinfo
+/bin/rundev /drivers/proc/stated          /proc/state
 
-/bin/session
+@/bin/session &

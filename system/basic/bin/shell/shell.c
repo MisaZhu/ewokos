@@ -61,17 +61,21 @@ static void clear_buf(str_t* buf) {
 	buf->len = 0;
 }
 
-static int32_t gets(str_t* buf) {
+static bool _stdio_inited = false;
+static bool _console_inited = false;
+static bool _initrd = false;
+static int32_t gets(int fd, str_t* buf) {
 	str_reset(buf);	
 	old_cmd_t* head = NULL;
 	old_cmd_t* tail = NULL;
 	bool first_up = true;
+	bool echo = true;
 
 	while(1) {
 		char c;
-		int i = read(0, &c, 1);
-		if(i <= 0 || c == 0) {
-		 	if(errno != EAGAIN)
+		int i = read(fd, &c, 1);
+		if(i <= 0) {
+		 	if(i == 0)
 			 	return -1;
 			usleep(30000);
 			continue;
@@ -127,7 +131,10 @@ static int32_t gets(str_t* buf) {
 			}
 		}
 		else {
-			putch(c);
+			if(buf->len == 0 && (c == '@' || c == '#'))
+				echo = false;
+			if(echo && _stdio_inited) 
+				putch(c);
 			if(c == '\r' || c == '\n')
 				break;
 			if(c > 27)
@@ -244,6 +251,29 @@ static int history(void) {
 	return 0;
 }
 
+static void init_stdio(void) {
+	int fd = open("/dev/tty0", 0);
+	int fd_console = open("/dev/console0", 0);
+
+	if(fd > 0) {
+		dup2(fd, 0);
+		dup2(fd, 1);
+		dup2(fd, 2);
+		close(fd);
+	}
+	if(fd_console > 0) {
+		_console_inited = true;
+		const char* s = ""
+				"+-----Ewok micro-kernel OS-----------------------+\n"
+				"| https://github.com/MisaZhu/EwokOS.git          |\n"
+				"+------------------------------------------------+\n";
+		dprintf(fd_console, "%s", s);
+		dup2(fd_console, 2);
+		close(fd_console);
+	}
+	_stdio_inited = true;
+}
+
 static int _terminated = 0;
 
 static int handle(const char* cmd) {
@@ -269,6 +299,10 @@ static int handle(const char* cmd) {
 	}
 	else if(strcmp(cmd, "history") == 0) {
 		return history();
+	}
+	else if(strcmp(cmd, "$") == 0) {
+		init_stdio();
+		return 0;
 	}
 	return -1; /*not shell internal command*/
 }
@@ -418,39 +452,62 @@ static int run_cmd(char* cmd) {
 	return 0;
 }
 
-int main(int argc, char* argv[]) {
-	(void)argc;
-	(void)argv;
-
-	setenv("PATH", "/sbin:/bin:/bin/x");
-
+static void prompt(void) {
+	int uid = getuid();
 	const char* cid = getenv("CONSOLE_ID");
 	if(cid[0] == 0)
 		cid = "0";
+	char cwd[FS_FULL_NAME_MAX+1];
+	if(uid == 0)
+		printf("ewok(%s):%s# ", cid, getcwd(cwd, FS_FULL_NAME_MAX));
+	else
+		printf("ewok(%s):%s$ ", cid, getcwd(cwd, FS_FULL_NAME_MAX));
+}
+
+int main(int argc, char* argv[]) {
+	_stdio_inited = true;
+	_console_inited = false;
+	_initrd = false;
+	_history = NULL;
+	_terminated = 0;
+
+	int fd_in = 0;
+	if(argc > 1) {
+		if(strcmp(argv[1], "/etc/init.rd") == 0) {
+			_initrd = true;
+			_stdio_inited = false;
+		}
+		fd_in = open(argv[1], O_RDONLY);
+		if(fd_in < 0)
+			fd_in = 0;
+	}
+
+	setenv("PATH", "/sbin:/bin:/bin/x");
 
 	const char* home = getenv("HOME");
 	if(home[0] == 0)
 		home = "/";
 	cd(home);
 
-	_history = NULL;
 	str_t* cmdstr = str_new("");
-	_terminated = 0;
-	int uid = getuid();
 	while(_terminated == 0) {
-		char cwd[FS_FULL_NAME_MAX+1];
-		if(uid == 0)
-			printf("ewok(%s):%s# ", cid, getcwd(cwd, FS_FULL_NAME_MAX));
-		else
-			printf("ewok(%s):%s$ ", cid, getcwd(cwd, FS_FULL_NAME_MAX));
+		if(fd_in == 0)
+			prompt();
 
-		if(gets(cmdstr) != 0)
+		if(gets(fd_in, cmdstr) != 0 && cmdstr->len == 0)
 			break;
 
-
 		char* cmd = cmdstr->cstr;
-		if(cmd[0] == 0)
+		if(cmd[0] == 0 || cmd[0] == '#')
 			continue;
+
+		if(_initrd && _console_inited && cmd[0] != '@') {
+			write(2, cmd, strlen(cmd));
+			write(2, "\n", 1);
+		}
+		if(cmd[0] == '@')
+			cmd++;
+
 		add_history(cmdstr->cstr);
 
 		if(handle(cmd) == 0)
@@ -476,6 +533,8 @@ int main(int argc, char* argv[]) {
 		}
 	}
 
+	if(fd_in > 0)
+		close(fd_in);
 	str_free(cmdstr);	
 	free_history();
 	return 0;
