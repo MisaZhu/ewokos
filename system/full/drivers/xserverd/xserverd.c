@@ -442,8 +442,18 @@ static inline void refresh_cursor(x_t* x) {
 	x->cursor.drop = false;
 }
 
-static int x_init_display(x_t* x) {
+static int x_init_display(x_t* x, int32_t display_index) {
 	uint32_t display_num = get_display_num(x->display_man);
+	if(display_index >= 0) {
+		const char* fb_dev = get_display_fb_dev(x->display_man, display_index);
+		if(fb_open(fb_dev, &x->displays[0].fb) != 0)
+			return -1;
+		x->displays[0].g = fb_fetch_graph(&x->displays[0].fb);
+		x_dirty(x, 0);
+		x->display_num = 1;
+		return 0;
+	}
+
 	for(uint32_t i=0; i<display_num; i++) {
 		const char* fb_dev = get_display_fb_dev(x->display_man, i);
 		if(fb_open(fb_dev, &x->displays[i].fb) != 0)
@@ -455,12 +465,12 @@ static int x_init_display(x_t* x) {
 	return 0;
 }
 
-static int x_init(x_t* x, const char* display_man) {
+static int x_init(x_t* x, const char* display_man, int32_t display_index) {
 	memset(x, 0, sizeof(x_t));
 	x->xwm_pid = -1;
 
 	x->display_man = display_man;
-	if(x_init_display(x) != 0)
+	if(x_init_display(x, display_index) != 0)
 		return -1;
 
 	x_display_t* display = &x->displays[0];
@@ -1021,9 +1031,10 @@ int xserver_step(void* p) {
 int main(int argc, char** argv) {
 	const char* mnt_point = argc > 1 ? argv[1]: "/dev/x";
 	const char* display_man = argc > 2 ? argv[2]: "/dev/display";
+	const int32_t display_index = argc > 3 ? atoi(argv[3]): -1;
 
 	x_t x;
-	if(x_init(&x, display_man) != 0)
+	if(x_init(&x, display_man, display_index) != 0)
 		return -1;
 
 	read_config(&x, "/etc/x/x.conf");

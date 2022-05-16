@@ -88,7 +88,7 @@ static int reset_console(fb_console_t* console) {
 
 static void flush(fb_console_t* console) {
 	console_refresh(&console->console, console->g);
-	if(console->icon != NULL) {
+	if(console->display_index == 0 && console->icon != NULL) {
 		sys_info_t sys_info;
 		syscall1(SYS_GET_SYS_INFO, (int32_t)&sys_info);
 		for(uint32_t i=0; i<sys_info.cores; i++) {
