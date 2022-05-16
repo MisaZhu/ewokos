@@ -6,10 +6,11 @@
 #include <sys/shm.h>
 #include <sys/shm.h>
 #include <sys/vdevice.h>
+#include <graph/graph.h>
 #include <sys/vfs.h>
 
-static uint32_t LCD_HEIGHT = 212;
-static uint32_t LCD_WIDTH = 104;
+static uint32_t LCD_HEIGHT;
+static uint32_t LCD_WIDTH;
 
 typedef struct {
 	void* data;
@@ -23,8 +24,12 @@ static int lcd_flush(int fd, int from_pid, fsinfo_t* info, void* p) {
 	(void)from_pid;
 	(void)info;
 	fb_dma_t* dma = (fb_dma_t*)p;
-
-	return do_flush(dma->data, dma->size);
+	graph_t g;
+	graph_init(&g, dma->data, LCD_WIDTH, LCD_HEIGHT);
+	graph_t* fbg = graph_rotate(&g, G_ROTATE_90);
+	int ret = do_flush(fbg->buffer, dma->size);
+	graph_free(fbg);
+	return ret;
 }
 
 static int lcd_dma(int fd, int from_pid, fsinfo_t* info, int* size, void* p) {
@@ -61,18 +66,17 @@ static int lcd_dev_cntl(int from_pid, int cmd, proto_t* in, proto_t* ret, void* 
 	return 0;
 }
 
-void lcd_init(uint32_t w, uint32_t h, uint32_t rot);
 int main(int argc, char** argv) {
-	uint32_t w=104, h=212, rot=0;
+	uint32_t rot=0;
+	LCD_HEIGHT = 104;
+	LCD_WIDTH = 212;
 	const char* mnt_point = argc > 1 ? argv[1]: "/dev/epaper";
 
 	if(argc >=5) {
-		w = atoi(argv[2]);
-		h = atoi(argv[3]);
+		LCD_WIDTH = atoi(argv[2]);
+		LCD_HEIGHT = atoi(argv[3]);
 		rot = atoi(argv[4]);
 	}
-	LCD_HEIGHT = h;
-	LCD_WIDTH = w;
 	epaper_init();
 
 	uint32_t sz = LCD_HEIGHT*LCD_WIDTH*4;
