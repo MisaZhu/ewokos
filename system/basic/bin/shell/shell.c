@@ -13,300 +13,16 @@
 #include <sys/wait.h>
 #include <sys/keydef.h>
 #include <sys/klog.h>
+#include "shell.h"
 
-typedef struct st_old_cmd {
-	str_t* cmd;
-	struct st_old_cmd* next;
-	struct st_old_cmd* prev;
-} old_cmd_t;
+bool _stdio_inited = false;
+bool _console_inited = false;
+bool _initrd = false;
+bool _terminated = false;
 
-static old_cmd_t* _history = NULL;
-static old_cmd_t* _history_tail = NULL;
+old_cmd_t* _history = NULL;
+old_cmd_t* _history_tail = NULL;
 
-static void add_history(const char* cmd) {
-	if(_history != NULL && strcmp(cmd, _history->cmd->cstr) == 0)
-		return;
-
-	old_cmd_t* oc = (old_cmd_t*)malloc(sizeof(old_cmd_t));	
-	oc->cmd = str_new(cmd);
-	oc->prev = NULL;
-	oc->next = _history;
-	if(_history != NULL)
-		_history->prev = oc;
-	else
-		_history_tail = oc;
-	_history = oc;
-}
-
-static void free_history(void) {
-	old_cmd_t* oc = _history_tail;
-	while(oc != NULL) {
-		old_cmd_t* prev = oc->prev;
-		str_free(oc->cmd);
-		free(oc);
-		oc = prev;
-	}
-}
-
-static void clear_buf(str_t* buf) {
-	if(buf->len == 0)
-		return;
-
-	uint32_t i = 0;
-	while(i < buf->len) {
-		buf->cstr[i] = CONSOLE_LEFT; 
-		i++;
-	}
-	if(buf->len > 0)
-		puts(buf->cstr);
-	buf->len = 0;
-}
-
-static bool _stdio_inited = false;
-static bool _console_inited = false;
-static bool _initrd = false;
-static int32_t gets(int fd, str_t* buf) {
-	str_reset(buf);	
-	old_cmd_t* head = NULL;
-	old_cmd_t* tail = NULL;
-	bool first_up = true;
-	bool echo = true;
-
-	while(1) {
-		char c;
-		int i = read(fd, &c, 1);
-		if(i <= 0) {
-		 	if(i == 0)
-			 	return -1;
-			usleep(30000);
-			continue;
-		}
-
-		if (c == KEY_BACKSPACE) {
-			if (buf->len > 0) {
-				//delete last char
-				putch(CONSOLE_LEFT); 
-				putch(' ');
-				putch(CONSOLE_LEFT); 
-				buf->len--;
-			}
-		}
-		else if (c == CONSOLE_LEFT) {
-			if (buf->len > 0) {
-				//delete last char
-				putch(c); 
-				buf->len--;
-			}
-		}
-		else if (c == KEY_UP) { //prev command
-			if(first_up) {
-				head = _history;
-				first_up = false;
-			}
-			else if(head != NULL) {
-				head = head->next;
-			}
-
-			if(head != NULL) {
-				tail = head;
-				clear_buf(buf);
-				str_cpy(buf, head->cmd->cstr);
-				if(buf->len > 0)
-					puts(buf->cstr);
-			}
-		}
-		else if (c == KEY_DOWN) { //next command
-			if(tail != NULL)
-				tail = tail->prev;
-			clear_buf(buf);
-
-			if(tail != NULL) {
-				head = tail;
-				str_cpy(buf, tail->cmd->cstr);
-				if(buf->len > 0)
-					puts(buf->cstr);
-			}
-			else {
-				head = _history;
-				first_up = true;
-			}
-		}
-		else {
-			if(buf->len == 0 && (c == '@' || c == '#'))
-				echo = false;
-			if(echo && !_initrd && _stdio_inited) 
-				putch(c);
-			if(c == '\r' || c == '\n')
-				break;
-			if(c > 27)
-				str_addc(buf, c);
-		}
-	}
-	str_addc(buf, 0);
-	return 0;
-}
-
-static int cd(const char* dir) {
-	char cwd[FS_FULL_NAME_MAX];
-	if(getcwd(cwd, FS_FULL_NAME_MAX-1) == NULL)
-		return -1;
-	if(strcmp(dir, ".") == 0)
-		return 0;
-	while(*dir == ' ') /*skip all space*/
-		dir++;
-	if(dir[0] == 0) {
-		chdir("/");
-		return 0;
-	}
-
-	if(strcmp(dir, "..") == 0) {
-		if(strcmp(cwd, "/") == 0)
-			return 0;
-
-		int len = strlen(cwd)  - 1;
-		for(int i=len; i>=0; i--) {
-			if(cwd[i] == '/') {
-				cwd[i] = 0;
-				break;
-			}
-		}
-		if(cwd[0] == 0) {
-			chdir("/");
-			return 0;
-		}
-	}
-	else if(dir[0] == '/') {
-		strcpy(cwd, dir);
-	}
-	else {
-		int len = strlen(cwd);
-		if(cwd[len-1] != '/') {
-			cwd[len] = '/';
-			len++;
-		}
-		strcpy(cwd+len, dir);
-	}
-
-	fsinfo_t info;
-	if(vfs_get(cwd, &info) != 0)
-		printf("[%s] not exist!\n", dir);	
-	else if(info.type != FS_TYPE_DIR)
-		printf("[%s] is not a directory!\n", dir);	
-	else 
-		chdir(cwd);
-	return 0;
-}
-
-static void export_all(void) {
-	proto_t out;
-	PF->init(&out);
-	int core_pid = syscall0(SYS_CORE_PID);
-	int res = ipc_call(core_pid, CORE_CMD_GET_ENVS, NULL, &out);
-	if(res != 0) {
-		PF->clear(&out);
-		return;
-	}
-		
-	int n = proto_read_int(&out);
-	if(n > 0) {
-		for(int i=0; i<n; i++) {
-			const char* name = proto_read_str(&out);
-			const char* value = proto_read_str(&out);
-			printf("declare -x %s=%s\n", name, value);
-		}
-	}
-	PF->clear(&out);
-}
-
-static void export_get(const char* arg) {
-	const char* value = getenv(arg);
-	printf("%s=%s\n", arg, value);
-}
-
-static void export_set(const char* arg) {
-	char name[64];
-	char* v = strchr(arg, '=');
-	if(v == NULL)
-		return;
-	strncpy(name, arg, v-arg);
-	name[v-arg] = 0;
-
-	setenv(name, (v+1));
-}
-
-static int export(const char* arg) {
-	char* v = strchr(arg, '=');
-	if(v == NULL)
-		export_get(arg);
-	else
-		export_set(arg);
-	return 0;
-}
-
-static int history(void) {
-	old_cmd_t* oc = _history_tail;
-	while(oc != NULL) {
-		printf("%s\n", oc->cmd->cstr);
-		oc = oc->prev;
-	}
-	return 0;
-}
-
-static void init_stdio(void) {
-	int fd = open("/dev/tty0", 0);
-	int fd_console = open("/dev/console0", 0);
-
-	if(fd > 0) {
-		dup2(fd, 0);
-		dup2(fd, 1);
-		dup2(fd, 2);
-		close(fd);
-	}
-	if(fd_console > 0) {
-		_console_inited = true;
-		const char* s = ""
-				"+-----Ewok micro-kernel OS-----------------------+\n"
-				"| https://github.com/MisaZhu/EwokOS.git          |\n"
-				"+------------------------------------------------+\n";
-		dprintf(fd_console, "%s", s);
-		dup2(fd_console, 2);
-		close(fd_console);
-	}
-	_stdio_inited = true;
-}
-
-static int _terminated = 0;
-
-static int handle(const char* cmd) {
-	if(strcmp(cmd, "exit") == 0) {
-		_terminated = 1;
-		return 0;
-	}
-	else if(strcmp(cmd, "cd") == 0) {
-		const char* home = getenv("HOME");
-		if(home[0] == 0)
-			home = "/";
-		return cd(home);
-	}
-	else if(strncmp(cmd, "cd ", 3) == 0) {
-		return cd(cmd + 3);
-	}
-	else if(strcmp(cmd, "export") == 0) {
-		export_all();
-		return 0;
-	}
-	else if(strncmp(cmd, "export ", 7) == 0) {
-		return export(cmd+7);
-	}
-	else if(strcmp(cmd, "history") == 0) {
-		return history();
-	}
-	else if(strcmp(cmd, "$") == 0) {
-		init_stdio();
-		return 0;
-	}
-	return -1; /*not shell internal command*/
-}
 
 #define ENV_PATH "PATH"
 
@@ -506,7 +222,7 @@ int main(int argc, char* argv[]) {
 	const char* home = getenv("HOME");
 	if(home[0] == 0)
 		home = "/";
-	cd(home);
+	chdir(home);
 
 	str_t* cmdstr = str_new("");
 	while(_terminated == 0) {
@@ -526,7 +242,7 @@ int main(int argc, char* argv[]) {
 
 		add_history(cmdstr->cstr);
 
-		if(handle(cmd) == 0)
+		if(handle_shell_cmd(cmd) == 0)
 			continue;
 
 		int len = strlen(cmd)-1;
