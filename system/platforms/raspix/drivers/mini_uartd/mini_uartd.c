@@ -41,7 +41,7 @@ static int uart_write(int fd, int from_pid, fsinfo_t* info,
 	(void)offset;
 	(void)p;
 
-	int i;
+	/*int i;
 	for(i = 0; i < size; i++){
 		char ch = ((char*)buf)[i];
 		if(ch == '\r')
@@ -55,10 +55,13 @@ static int uart_write(int fd, int from_pid, fsinfo_t* info,
 		};
 	}
 	return size;
+	*/
+	return bcm283x_mini_uart_write(buf, size);
 }
 
-static void interrupt_handle(uint32_t interrupt) {
+static void interrupt_handle(uint32_t interrupt, uint32_t data) {
 	(void)interrupt;
+	(void)data;
 	char c;
 
 	while(bcm283x_mini_uart_ready_to_recv() == 0){
@@ -66,11 +69,12 @@ static void interrupt_handle(uint32_t interrupt) {
 		charbuf_push(&_RxBuf, c, true);
 	}
 
-	if(bcm283x_mini_uart_ready_to_send() == 0){
+	/*if(bcm283x_mini_uart_ready_to_send() == 0){
 		if( charbuf_pop(&_TxBuf, &c) == 0){
 			bcm283x_mini_uart_send(c);
 		}
 	}
+	*/
 
 	sys_interrupt_end();
 }
