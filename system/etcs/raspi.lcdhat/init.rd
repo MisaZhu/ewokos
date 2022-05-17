@@ -15,7 +15,8 @@ $
 /bin/rundev /drivers/raspix/hat13_joykeybd      /dev/keyb0 revx
 /bin/rundev /drivers/xserverd             /dev/x
 
-@/bin/session &
 @/sbin/x/xjoystickd /dev/joystick &
 @/sbin/x/xim_vkey &
 @/bin/x/launcher &
+
+@/bin/session &

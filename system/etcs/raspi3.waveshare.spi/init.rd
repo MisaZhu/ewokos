@@ -13,6 +13,7 @@ $
 
 /bin/rundev /drivers/xserverd             /dev/x
 
-@/bin/session &
 @/sbin/x/xim_vkey &
 @/bin/x/launcher &
+
+@/bin/session &

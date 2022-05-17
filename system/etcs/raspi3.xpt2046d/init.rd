@@ -14,7 +14,8 @@ $
 /bin/rundev /drivers/raspix/xpt2046d      /dev/touch0
 /bin/rundev /drivers/xserverd             /dev/x
 
-@/bin/session &
 @/sbin/x/xtouchd &
 @/sbin/x/xim_vkey &
 @/bin/x/launcher &
+
+@/bin/session &
