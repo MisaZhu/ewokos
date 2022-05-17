@@ -14,7 +14,6 @@
 #include <sd/sd.h>
 #include <ext2/ext2fs.h>
 
-static int32_t fd_console = -1;
 static void outc(char c, void* p) {
 	str_t *buf = (str_t *)p;
 	str_addc(buf, c);
@@ -27,8 +26,6 @@ static void out(const char *format, ...) {
 	v_printf(outc, str, format, ap);
 	va_end(ap);
 	klog("%s", str->cstr);
-	if(fd_console > 0)
-		dprintf(2, "%s", str->cstr);
 	str_free(str);
 }
 
@@ -58,93 +55,6 @@ static int32_t exec_from_sd(const char* prog) {
 	return -1;
 }
 
-static int check_file(const char* cmd_line) {
-  str_t* cmd = str_new("");
-  const char *p = cmd_line;
-  while(*p != 0 && *p != ' ') {
-    str_addc(cmd, *p);
-    p++;
-  }
-  str_addc(cmd, 0);
-	int res = vfs_access(cmd->cstr);
-  str_free(cmd);
-	return res;
-}
-
-static int run(const char* cmd, bool prompt, bool wait) {
-	if(check_file(cmd) != 0) {
-		out("init: file not found! [%s]\n", cmd);
-		return -1;
-	}
-
-	if(prompt)
-		out("init: %s ", cmd);
-
-	int pid = fork();
-	if(pid == 0) {
-		proc_detach();
-
-		if(exec(cmd) != 0) {
-			if(prompt)
-				out("[error!]\n");
-			exit(-1);
-		}
-	}
-	else if(wait)
-		proc_wait_ready(pid);
-
-	if(prompt)
-		out("[ok]\n");
-	return 0;
-}
-
-static const char* read_line(int fd) {
-	static char line[256];
-	int i = 0;
-	while(i < 255) {
-		char c;
-		if(read(fd, &c, 1) <= 0) {
-			if(i == 0)
-				return NULL;
-			else
-				break;
-		}	
-
-		if(c == '\n')
-			break;
-		line[i] = c;
-		i++;
-	}
-	line[i] = 0;
-	return line;
-}
-
-static int load_devs(const char* cfg) {
-	out("\nload  => [%s]\n", cfg);
-	int fd = open(cfg, O_RDONLY);
-	if(fd < 0)
-		return -1;
-
-	while(true) {
-		const char* ln = read_line(fd);
-		if(ln == NULL)
-			break;
-		if(ln[0] == 0 || ln[0] == '#')
-			continue;
-		run(ln, true, true);
-	}
-	close(fd);
-	return 0;
-}
-
-static void load_arch_devs(void) {
-	sys_info_t sysinfo;
-	syscall1(SYS_GET_SYS_INFO, (int32_t)&sysinfo);
-	char fn[FS_FULL_NAME_MAX];
-	snprintf(fn, FS_FULL_NAME_MAX-1, "/etc/dev/arch/%s/init.dev", sysinfo.machine);
-	load_devs(fn);
-}
-
 static void run_before_vfs(const char* cmd) {
 	out("init: %s    ", cmd);
 
@@ -161,7 +71,8 @@ static void switch_root(void) {
 	int pid = fork();
 	if(pid == 0) {
 		setuid(0);
-		load_arch_devs();
+		//load_arch_devs();
+		out("\ninit: loading init.rd\n");
 		exec("/bin/shell /etc/init.rd");
 	}
 }
@@ -173,8 +84,6 @@ static void halt(void) {
 int main(int argc, char** argv) {
 	(void)argc;
 	(void)argv;
-
-	fd_console = -1;
 
 	if(getuid() >= 0) {
 		out("process 'init' can only loaded by kernel!\n");

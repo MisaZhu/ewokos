@@ -1,4 +1,6 @@
-/bin/rundev /drivers/displayd              /dev/display /dev/fb0
+/bin/rundev /drivers/raspix/lcdhatd       /dev/fb0 240 240 3
+/bin/rundev /drivers/raspix/mini_uartd    /dev/tty0
+/bin/rundev /drivers/displayd             /dev/display /dev/fb0
 /bin/rundev /drivers/consoled             /dev/console0 /dev/display
 $
 

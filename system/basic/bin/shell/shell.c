@@ -12,6 +12,7 @@
 #include <sys/syscall.h>
 #include <sys/wait.h>
 #include <sys/keydef.h>
+#include <sys/klog.h>
 
 typedef struct st_old_cmd {
 	str_t* cmd;
@@ -133,7 +134,7 @@ static int32_t gets(int fd, str_t* buf) {
 		else {
 			if(buf->len == 0 && (c == '@' || c == '#'))
 				echo = false;
-			if(echo && _stdio_inited) 
+			if(echo && !_initrd && _stdio_inited) 
 				putch(c);
 			if(c == '\r' || c == '\n')
 				break;
@@ -464,6 +465,24 @@ static void prompt(void) {
 		printf("ewok(%s):%s$ ", cid, getcwd(cwd, FS_FULL_NAME_MAX));
 }
 
+static void initrd_out(const char* cmd) {
+	if(!_initrd || cmd[0] == '@' || cmd[0] == '$')
+		return;
+
+	if(_stdio_inited) {
+		write(0, cmd, strlen(cmd));
+		write(0, "\n", 1);
+	}
+	else {
+		klog("%s\n", cmd);
+	}
+
+	if(_console_inited) {
+		write(2, cmd, strlen(cmd));
+		write(2, "\n", 1);
+	}
+}
+
 int main(int argc, char* argv[]) {
 	_stdio_inited = true;
 	_console_inited = false;
@@ -500,11 +519,8 @@ int main(int argc, char* argv[]) {
 		char* cmd = cmdstr->cstr;
 		if(cmd[0] == 0 || cmd[0] == '#')
 			continue;
-
-		if(_initrd && _console_inited && cmd[0] != '@') {
-			write(2, cmd, strlen(cmd));
-			write(2, "\n", 1);
-		}
+		initrd_out(cmd);
+		
 		if(cmd[0] == '@')
 			cmd++;
 

@@ -1,2 +1,0 @@
-/drivers/raspix/fbd           /dev/fb0 800 600
-/drivers/raspix/pl011_uartd   /dev/tty0

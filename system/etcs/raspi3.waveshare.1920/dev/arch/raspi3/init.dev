@@ -1,2 +1,0 @@
-/drivers/raspix/fbd           /dev/fb0 960 540
-/drivers/raspix/mini_uartd    /dev/tty0
