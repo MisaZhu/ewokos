@@ -4,20 +4,11 @@
 #include <string.h>
 #include <sys/wait.h>
 
-static void welcome(void) {
-	const char* s = "\n"
-			"+-----Ewok micro-kernel OS-----------------------+\n"
-			"| https://github.com/MisaZhu/EwokOS.git          |\n"
-			"+------------------------------------------------+\n";
-	printf("%s", s);
-}
-
 int main(int argc, char* argv[]) {
 	(void)argc;
 	(void)argv;
 
 	while(1) {
-		welcome();
 		int pid = fork();
 		if(pid == 0) {
 			if(exec("/bin/login") < 0) {

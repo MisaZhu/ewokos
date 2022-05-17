@@ -470,8 +470,8 @@ static void initrd_out(const char* cmd) {
 		return;
 
 	if(_stdio_inited) {
-		write(0, cmd, strlen(cmd));
-		write(0, "\n", 1);
+		write(1, cmd, strlen(cmd));
+		write(1, "\n", 1);
 	}
 	else {
 		klog("%s\n", cmd);
@@ -553,5 +553,6 @@ int main(int argc, char* argv[]) {
 		close(fd_in);
 	str_free(cmdstr);	
 	free_history();
+	sleep(5);
 	return 0;
 }
