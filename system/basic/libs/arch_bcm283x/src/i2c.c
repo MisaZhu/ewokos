@@ -44,7 +44,7 @@ void i2c_do_stop(void) {
 }
 /*----------------------------------------------------------------------------*/
 /** routine i2c to write 1 bit */
-void i2c_do_write_bit(int32_t data) {
+void i2c_do_write_bit(uint8_t data) {
 	if (data) bcm283x_gpio_set(i2c_sda);
 	else bcm283x_gpio_clr(i2c_sda);
 	usleep(i2c_wait);
@@ -55,8 +55,8 @@ void i2c_do_write_bit(int32_t data) {
 }
 /*----------------------------------------------------------------------------*/
 /** routine i2c to read 1 bit */
-int32_t i2c_do_read_bit(void) {
-	int32_t data = 0;
+uint8_t i2c_do_read_bit(void) {
+	uint8_t data = 0;
 	/* release the line for slave */
 	bcm283x_gpio_set(i2c_sda);
 	bcm283x_gpio_config(i2c_sda,GPIO_INPUT);
@@ -72,8 +72,8 @@ int32_t i2c_do_read_bit(void) {
 }
 /*----------------------------------------------------------------------------*/
 /** routine i2c to write 1 byte out */
-int32_t i2c_do_write_byte(int32_t data) {
-	int32_t loop, mask = 0x80;
+uint32_t i2c_do_write_byte(uint8_t data) {
+	uint32_t loop, mask = 0x80;
 	for (loop=0;loop<8;loop++) {
 		i2c_do_write_bit(data&mask);
 		mask >>= 1;
@@ -82,7 +82,7 @@ int32_t i2c_do_write_byte(int32_t data) {
 }
 /*----------------------------------------------------------------------------*/
 /** routine i2c to read 1 byte in (acknowledge optional) */
-int32_t i2c_do_read_byte(int32_t ack) {
+uint8_t i2c_do_read_byte(int32_t ack) {
 	int32_t loop, mask = 0x80, data = 0x0;
 	for (loop=0;loop<8;loop++) {
 		if (i2c_do_read_bit())
@@ -120,7 +120,7 @@ void i2c_set_stop_read(int32_t enable) {
 	i2c_stop = enable ? 1 : 0;
 }
 /*----------------------------------------------------------------------------*/
-void i2c_putb(int32_t addr, int32_t regs, int32_t data) {
+void i2c_putb(uint32_t addr, uint32_t regs, uint8_t data) {
 	addr <<= 1;
 	i2c_do_start();
 	i2c_do_write_byte(addr);
@@ -129,8 +129,8 @@ void i2c_putb(int32_t addr, int32_t regs, int32_t data) {
 	i2c_do_stop();
 }
 /*----------------------------------------------------------------------------*/
-int32_t i2c_getb(int32_t addr, int32_t regs) {
-	int32_t data;
+uint8_t i2c_getb(uint32_t addr, uint32_t regs) {
+	uint32_t data;
 	addr <<= 1;
 	i2c_do_start();
 	i2c_do_write_byte(addr);
@@ -143,8 +143,8 @@ int32_t i2c_getb(int32_t addr, int32_t regs) {
 	return data & 0xff;
 }
 /*----------------------------------------------------------------------------*/
-int32_t i2c_puts(int32_t addr, int32_t regs, uint8_t* pdat, int32_t size) {
-	int32_t loop, test = 0;
+uint32_t i2c_puts(uint32_t addr, uint32_t regs, uint8_t* pdat, uint32_t size) {
+	uint32_t loop, test = 0;
 	addr <<= 1;
 	i2c_do_start();
 	test |= i2c_do_write_byte(addr);
@@ -155,8 +155,8 @@ int32_t i2c_puts(int32_t addr, int32_t regs, uint8_t* pdat, int32_t size) {
 	return test;
 }
 /*----------------------------------------------------------------------------*/
-int32_t i2c_gets(int32_t addr, int32_t regs, uint8_t* pdat, int32_t size) {
-	int32_t loop, test = 0;
+uint32_t i2c_gets(uint32_t addr, uint32_t regs, uint8_t* pdat, uint32_t size) {
+	uint32_t loop, test = 0;
 	addr <<= 1;
 	i2c_do_start();
 	test |= i2c_do_write_byte(addr);

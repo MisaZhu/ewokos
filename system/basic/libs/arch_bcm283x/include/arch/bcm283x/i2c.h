@@ -14,10 +14,10 @@
 void     i2c_init(int32_t sda_gpio, int32_t scl_gpio);
 void     i2c_set_wait_time(uint32_t wait_time);
 void     i2c_set_stop_read(int32_t enable);
-void     i2c_putb(int32_t addr, int32_t regs, int32_t data);
-int32_t  i2c_getb(int32_t addr, int32_t regs);
-int32_t  i2c_puts(int32_t addr, int32_t regs, uint8_t* pdat, int32_t size);
-int32_t  i2c_gets(int32_t addr, int32_t regs, uint8_t* pdat, int32_t size);
+void     i2c_putb(uint32_t addr, uint32_t regs, uint8_t data);
+uint8_t  i2c_getb(uint32_t addr, uint32_t regs);
+uint32_t  i2c_puts(uint32_t addr, uint32_t regs, uint8_t* pdat, uint32_t size);
+uint32_t  i2c_gets(uint32_t addr, uint32_t regs, uint8_t* pdat, uint32_t size);
 /*----------------------------------------------------------------------------*/
 #endif
 /*----------------------------------------------------------------------------*/
