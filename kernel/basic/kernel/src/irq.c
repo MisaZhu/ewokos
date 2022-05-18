@@ -52,8 +52,8 @@ static inline int32_t irq_do_timer0_interrupt(context_t* ctx) {
 }
 
 #define SEC_TIC       1000000
-#define SCHEDULE_TIC  3000
-#define TIMER_TIC     1000
+#define SCHEDULE_TIC  1000
+#define TIMER_TIC     3000
 
 static inline void irq_do_timer0(context_t* ctx) {
 	(void)ctx;
@@ -72,25 +72,21 @@ static inline void irq_do_timer0(context_t* ctx) {
 			_sec_tic = 0;
 			renew_kernel_sec();
 		}
-
-		if(_schedule_tic >= SCHEDULE_TIC) { //3 msec, 300 times scheduling per second
-			_schedule_tic = 0;
-		}
-		
-		if(_timer_tic >= TIMER_TIC) { //1msec
-			_timer_tic = 0;
-		}
+	
 		renew_kernel_tic(usec_gap);
 	}
 	timer_clear_interrupt(0);
-	if(_schedule_tic == 0) {
+
+	if(_schedule_tic >= SCHEDULE_TIC) { 
+		_schedule_tic = 0;
 #ifdef KERNEL_SMP
 		ipi_send_all();
 #else
 		schedule(ctx);
 #endif
 	}
-	else if(_timer_tic == 0) {
+	else if(_timer_tic >= TIMER_TIC) {
+		_timer_tic = 0;
 		irq_do_timer0_interrupt(ctx);
 	}
 }
