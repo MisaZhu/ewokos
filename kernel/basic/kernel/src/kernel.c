@@ -126,10 +126,10 @@ void _kernel_entry_c(void) {
 	kmalloc_init();
 	enable_vmmio_base();
 
+	uart_dev_init();
 	kconsole_init();
 
 	kev_init();
-	uart_dev_init();
 	printf(
 			" ______           ______  _    _   ______  ______ \n"
 			"(  ___ \\|\\     /|(  __  )| \\  / \\ (  __  )(  ___ \\\n"
