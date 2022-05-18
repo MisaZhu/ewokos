@@ -135,7 +135,8 @@ graph_t* graph_scale(graph_t* g, int scale) {
 		return ret;
 	}
 	//smaller
-	scale = abs(scale);
+	if(scale < 0)
+		scale = -scale;
 	ret = graph_new(NULL, g->w/scale, g->h/scale);
 	if(ret == NULL)
 		return NULL;

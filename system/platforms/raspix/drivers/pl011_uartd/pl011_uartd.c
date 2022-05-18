@@ -49,8 +49,9 @@ static int uart_write(int fd, int from_pid, fsinfo_t* info,
 	return bcm283x_pl011_uart_write(buf, size);
 }
 
-static void interrupt_handle(uint32_t interrupt) {
+static void interrupt_handle(uint32_t interrupt, uint32_t data) {
 	(void)interrupt;
+	(void)data;
 
 	char c;
 	while(bcm283x_pl011_uart_ready_to_recv() == 0) {

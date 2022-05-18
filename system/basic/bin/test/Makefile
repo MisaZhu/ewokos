@@ -13,7 +13,7 @@ TEST = $(TARGET_DIR)/bin/test
 
 $(TEST): $(TEST_OBJS) \
 		$(BUILD_DIR)/lib/libewokc.a 
-	$(LD) -Ttext=100 $(TEST_OBJS) -o $(TEST) $(LDFLAGS) -lewokc -lc
+	$(LD) -Ttext=100 $(TEST_OBJS) -o $(TEST) $(LDFLAGS) -larch_bcm283x -lewokc -lc
 
 clean:
 	rm -f $(TEST_OBJS)
