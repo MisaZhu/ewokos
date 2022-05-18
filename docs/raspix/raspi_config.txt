@@ -48,10 +48,13 @@ hdmi_force_hotplug=1
 
 
 #-----waveshare 3.5 inchs usb touch hdmi_lcd------------
-hdmi_cvt=640 480 60 6 0 0 0
 hdmi_group=2
 hdmi_mode=87
-hdmi_force_hotplug=1
+hdmi_cvt 640 480 75 6 0 0 0
+hdmi_drive=2
+dtparam=i2c_arm=on
+dtoverlay=waveshare-35dpi-3b
+dtoverlay=waveshare-35dpi-4b
 #-------------------------------------------
 
 #-----waveshare 4 inchs usb touch hdmi_lcd------------
