@@ -30,8 +30,6 @@ typedef struct {
 
 uint32_t argb(uint32_t a, uint32_t r, uint32_t g, uint32_t b);
 
-int32_t has_alpha(uint32_t c);
-
 uint32_t argb_int(uint32_t c);
 
 graph_t* graph_new(uint32_t* buffer, int32_t w, int32_t h);
