@@ -143,7 +143,7 @@ int32_t i2c_getb(int32_t addr, int32_t regs) {
 	return data & 0xff;
 }
 /*----------------------------------------------------------------------------*/
-int32_t i2c_puts(int32_t addr, int32_t regs, int32_t* pdat, int32_t size) {
+int32_t i2c_puts(int32_t addr, int32_t regs, uint8_t* pdat, int32_t size) {
 	int32_t loop, test = 0;
 	addr <<= 1;
 	i2c_do_start();
@@ -155,7 +155,7 @@ int32_t i2c_puts(int32_t addr, int32_t regs, int32_t* pdat, int32_t size) {
 	return test;
 }
 /*----------------------------------------------------------------------------*/
-int32_t i2c_gets(int32_t addr, int32_t regs, int32_t* pdat, int32_t size) {
+int32_t i2c_gets(int32_t addr, int32_t regs, uint8_t* pdat, int32_t size) {
 	int32_t loop, test = 0;
 	addr <<= 1;
 	i2c_do_start();
