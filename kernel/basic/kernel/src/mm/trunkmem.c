@@ -42,10 +42,7 @@ static void try_break(malloc_t* m, mem_block_t* block, uint32_t size) {
 
 char* trunk_malloc(malloc_t* m, uint32_t size) {
 	size = ALIGN_UP(size, 8);
-	mem_block_t* block = m->head;
-	if(m->start != NULL)
-		block = m->start;
-
+	mem_block_t* block = m->start == NULL ? m->head : m->start;
 	while(block != NULL) {
 		if(block->used || block->size < size) {
 			block = block->next;
@@ -156,7 +153,7 @@ void trunk_free(malloc_t* m, char* p) {
 	mem_block_t* block = (mem_block_t*)(p - block_size);
 	block->used = 0; //mark as free.
 	block = try_merge(m, block);
-	if(m->start == 0 || m->start > block->prev)
+	if(m->start == 0 || m->start >= block)
 		m->start = block->prev;
 	if(m->shrink != NULL)
 		try_shrink(m);
