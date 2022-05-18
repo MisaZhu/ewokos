@@ -87,10 +87,7 @@ endif
 
 LIB_GRAPH_DIR=$(SRC_DIR)/basic/lib/graph
 LIB_GRAPH_OBJS = $(LIB_GRAPH_DIR)/src/graph.o \
-	$(LIB_GRAPH_DIR)/src/blt.o \
 	$(LIB_GRAPH_DIR)/src/pixel.o \
-	$(LIB_GRAPH_DIR)/src/line.o \
-	$(LIB_GRAPH_DIR)/src/box.o \
 	$(LIB_GRAPH_DIR)/src/text.o \
 	$(LIB_GRAPH_DIR)/src/font8x16.o \
 	$(LIB_GRAPH_DIR)/src/font.o

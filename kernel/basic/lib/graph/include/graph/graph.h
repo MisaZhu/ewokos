@@ -52,24 +52,8 @@ void graph_clear(graph_t* g, uint32_t color);
 
 void graph_reverse(graph_t* g);
 
-void graph_box(graph_t* g, int32_t x, int32_t y, int32_t w, int32_t h, uint32_t color);
-
-void graph_fill(graph_t* g, int32_t x, int32_t y, int32_t w, int32_t h, uint32_t color);
-
-void graph_line(graph_t* g, int32_t x1, int32_t y1, int32_t x2, int32_t y2, uint32_t color);
-
 void graph_draw_char(graph_t* g, int32_t x, int32_t y, char c, font_t* font, uint32_t color);
 
 void graph_draw_text(graph_t* g, int32_t x, int32_t y, const char* str, font_t* font, uint32_t color);
-
-void graph_blt(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_t sh,
-		graph_t* dst, int32_t dx, int32_t dy, int32_t dw, int32_t dh);
-
-void graph_blt_alpha(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_t sh,
-		graph_t* dst, int32_t dx, int32_t dy, int32_t dw, int32_t dh, uint8_t alpha);
-	
-bool check_in_rect(int32_t x, int32_t y, grect_t* rect);
-
-graph_t* graph_from_fb(int fd, int *dma_id);
 
 #endif
