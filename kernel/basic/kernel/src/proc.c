@@ -410,7 +410,7 @@ static void proc_funeral(proc_t* proc) {
 	memset(proc, 0, sizeof(proc_t));
 }
 
-int32_t proc_zombie_funeral(void) {
+inline int32_t proc_zombie_funeral(void) {
 	proc_t*	cproc = get_current_proc();
 	if(cproc != NULL && cproc->info.state == ZOMBIE) {
 		proc_funeral(cproc);
