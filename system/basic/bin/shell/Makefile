@@ -5,9 +5,9 @@ TARGET_DIR = $(BUILD_DIR)/rootfs
 
 LDFLAGS = -L$(BUILD_DIR)/lib -lnosys
 
-CFLAGS += -I $(BUILD_DIR)/include
+CFLAGS += -I $(BUILD_DIR)/include -I./
 
-SHELL_OBJS = shell.o
+SHELL_OBJS = shell.o gets.o cmd.o
 
 SHELL_PROC = $(TARGET_DIR)/bin/shell
 
