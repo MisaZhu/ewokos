@@ -6,6 +6,7 @@
 #include <kernel/kernel.h>
 #include <kernel/hw_info.h>
 #include <kernel/system.h>
+#include <bcm283x/gpio.h>
 
 #define KERNEL_BASE 0x80000000
 
@@ -70,6 +71,19 @@ int32_t __attribute__((optimize("O0"))) bcm283x_fb_init(uint32_t w, uint32_t h, 
 		V2P(_fb_info.pointer) + _fb_info.size_max,
 		AP_RW_D, 0);
 	flush_tlb();
+
+#ifdef ENABLE_DPI
+	const char pins[] = {0,1,2,3,4,5,6,7,8,9,10,11,
+                    	12, 13, 14, 15, 16, 17, 18, 19, 20,
+                    	21, 22, 23, 24, 25, 26, 27};
+
+
+	for(int i = 0; i < sizeof(pins); i++){
+		printf("set pin %d to %d\n", pins[i], GPIO_ALTF2);
+		gpio_config(pins[i], GPIO_ALTF2);
+	}
+#endif
+
 	return 0;
 }
 
