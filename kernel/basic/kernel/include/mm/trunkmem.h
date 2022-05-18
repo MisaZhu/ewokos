@@ -21,10 +21,11 @@ typedef struct {
 
 	mem_block_t* head;
 	mem_block_t* tail;
+	mem_block_t* start;
 } malloc_t;
 
 char* trunk_malloc(malloc_t* m, uint32_t size);
 char* trunk_realloc(malloc_t* m, char* p, uint32_t size);
-void trunk_free(malloc_t* m, char* p);
+void  trunk_free(malloc_t* m, char* p);
 
 #endif

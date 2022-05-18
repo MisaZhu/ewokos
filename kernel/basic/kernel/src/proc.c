@@ -152,8 +152,6 @@ static void proc_init_space(proc_t* proc) {
 	proc->space->vm = vm;
 	proc->space->heap_size = 0;
 	proc->space->malloc_man.arg = (void*)proc;
-	proc->space->malloc_man.head = NULL;
-	proc->space->malloc_man.tail = NULL;
 	proc->space->malloc_man.expand = proc_expand;
 	proc->space->malloc_man.shrink = proc_shrink;
 	proc->space->malloc_man.get_mem_tail = proc_get_mem_tail;
@@ -530,6 +528,7 @@ static inline void proc_free_heap(proc_t* proc) {
 	proc_shrink_mem(proc, proc->space->heap_size/PAGE_SIZE);
 	proc->space->malloc_man.head = NULL;
 	proc->space->malloc_man.tail = NULL;
+	proc->space->malloc_man.start = NULL;
 }
 
 /* proc_load loads the given ELF process image into the given process. */

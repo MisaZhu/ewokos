@@ -43,6 +43,9 @@ static void try_break(malloc_t* m, mem_block_t* block, uint32_t size) {
 char* trunk_malloc(malloc_t* m, uint32_t size) {
 	size = ALIGN_UP(size, 8);
 	mem_block_t* block = m->head;
+	if(m->start != NULL)
+		block = m->start;
+
 	while(block != NULL) {
 		if(block->used || block->size < size) {
 			block = block->next;
@@ -54,6 +57,7 @@ char* trunk_malloc(malloc_t* m, uint32_t size) {
 		}
 	}
 	if(block != NULL) {
+		m->start = block->next;
 		return block->mem;
 	}
 
@@ -86,13 +90,15 @@ char* trunk_malloc(malloc_t* m, uint32_t size) {
 	}
 
 	try_break(m, block, size);
+	m->start = block->next;
 	return block->mem;
 }
 
 /*
 try to merge around free blocks.
 */
-static void try_merge(malloc_t* m, mem_block_t* block) {
+static mem_block_t* try_merge(malloc_t* m, mem_block_t* block) {
+	mem_block_t* ret = block;
 	uint32_t block_size = sizeof(mem_block_t);
 	//try next block	
 	mem_block_t* b = block->next;
@@ -114,7 +120,9 @@ static void try_merge(malloc_t* m, mem_block_t* block) {
 			b->next->prev = b;
 		else
 			m->tail = b;
+		ret = b;
 	}
+	return ret;
 }
 
 /*
@@ -147,8 +155,9 @@ void trunk_free(malloc_t* m, char* p) {
 		return;
 	mem_block_t* block = (mem_block_t*)(p - block_size);
 	block->used = 0; //mark as free.
-	try_merge(m, block);
-	
+	block = try_merge(m, block);
+	if(m->start == 0 || m->start > block->prev)
+		m->start = block->prev;
 	if(m->shrink != NULL)
 		try_shrink(m);
 }
