@@ -27,11 +27,11 @@ void bcm283x_gpio_pull(int32_t no, int32_t pull_dir) {
 	put32((uint32_t)GPIO_PUD+(index<<2), 0); /* disable ppud clock */
 }
 
-static inline void bcm283x_gpio_set(int32_t no) {
+inline void bcm283x_gpio_set(int32_t no) {
 	put32((uint32_t)GPIO_SET0 + ((no/32)<<2), 1<<(no%32));
 }
 
-static inline void bcm283x_gpio_clr(int32_t no) {
+inline void bcm283x_gpio_clr(int32_t no) {
 	put32((uint32_t)GPIO_CLR0+((no/32)<<2), 1<<(no%32));
 }
 

@@ -47,5 +47,7 @@ void     bcm283x_gpio_config(int32_t gpio_no, int32_t gpio_sel);
 void     bcm283x_gpio_pull(int32_t gpio_no, int32_t pull_dir);
 void     bcm283x_gpio_write(int32_t gpio_no, int32_t value);
 uint32_t bcm283x_gpio_read(int32_t gpio_no);
+void     bcm283x_gpio_set(int32_t no);
+void     bcm283x_gpio_clr(int32_t no);
 
 #endif
