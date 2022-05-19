@@ -15,10 +15,10 @@ SECTIONS
 	.init start_address : AT(start_address) ALIGN(4096)
   {
     KEEP(*(.init .init.*))
-		../../basic/arch/sys/arm/v6/start.o(.text .text.*)
-		../../basic/arch/sys/arm/v6/start.o(.rodata .rodata.*)
-		../../basic/arch/sys/arm/v6/start.o(.data .data.*)
-		../../basic/arch/sys/arm/v6/start.o(.bss .bss.*)
+		../../basic/arch/bsp/miyoo/start.o(.text .text.*)
+		../../basic/arch/bsp/miyoo/start.o(.rodata .rodata.*)
+		../../basic/arch/bsp/miyoo/start.o(.data .data.*)
+		../../basic/arch/bsp/miyoo/start.o(.bss .bss.*)
   } : init
   _init_end = ALIGN(4096);
 
@@ -45,16 +45,16 @@ SECTIONS
 	. = ALIGN(4096);
 	_bss_end = .;
 
-	. = . + 0x1000;
+	. = . + 0x4000;
 	_irq_stack = .;
 
-	. = . + 0x1000;
+	. = . + 0x4000;
 	_abt_stack = .;
 
-	. = . + 0x1000;
+	. = . + 0x4000;
 	_undef_stack = .;
 
-	. = . + 0x1000;
+	. = . + 0x4000;
 	_svc_stack = .;
 	PROVIDE(_kernel_sp = .);
 

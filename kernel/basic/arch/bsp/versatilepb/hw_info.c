@@ -15,7 +15,7 @@ void sys_info_init(void) {
 	strcpy(_sys_info.machine, "versatilepb");
 	_sys_info.phy_mem_size = 256*MB;
 	_sys_info.kernel_base = KERNEL_BASE;
-	_sys_info.phy_mem_start = _phy_mem_start;
+	_sys_info.phy_mem_start = 0;
 	_sys_info.mmio.phy_base = 0x10000000;
 	_sys_info.mmio.v_base = MMIO_BASE;
 	_sys_info.mmio.size = 4*MB;

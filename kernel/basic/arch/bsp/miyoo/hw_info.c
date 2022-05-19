@@ -14,29 +14,9 @@ uint32_t _allocatable_mem_base = 0;
 void sys_info_init(void) {
 	memset(&_sys_info, 0, sizeof(sys_info_t));
 
-#ifdef PI2
-	strcpy(_sys_info.machine, "raspi2");
-	_sys_info.phy_mem_size = 1024*MB;
-	_sys_info.mmio.phy_base = 0x3f000000;
-#endif
-
-#ifdef PI3A
-	strcpy(_sys_info.machine, "raspi3");
-	_sys_info.phy_mem_size = 512*MB;
-	_sys_info.mmio.phy_base = 0x3f000000;
-#endif
-
-#ifdef PI3
-	strcpy(_sys_info.machine, "raspi3");
-	_sys_info.phy_mem_size = 1024*MB;
-	_sys_info.mmio.phy_base = 0x3f000000;
-#endif
-
-#ifdef PI4
-	strcpy(_sys_info.machine, "raspi4");
-	_sys_info.phy_mem_size = 1024*MB;
-	_sys_info.mmio.phy_base = 0xfe000000;
-#endif
+	strcpy(_sys_info.machine, "miyoo");
+	_sys_info.phy_mem_size = 128*MB;
+	_sys_info.mmio.phy_base = 0x1f000000;
 
 	_sys_info.phy_mem_start = 0;
 	_sys_info.kernel_base = KERNEL_BASE;
@@ -44,7 +24,7 @@ void sys_info_init(void) {
 	_sys_info.mmio.size = 16*MB;
 
 	_allocatable_mem_base = V2P(ALLOCATABLE_MEMORY_START);
-	_allocatable_mem_top = _sys_info.phy_mem_size - 64*MB; //bcm283x framebuffer mem base
+	_allocatable_mem_top = _sys_info.phy_mem_size;
 #ifdef KERNEL_SMP
 	_sys_info.cores = get_cpu_cores();
 #else

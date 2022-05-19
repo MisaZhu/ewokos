@@ -58,9 +58,15 @@ CFLAGS += $(OPTM) \
 	-fno-builtin-strncmp \
 	-std=c99
 
+ifeq ($(BSP_START),yes)
+START_C = $(BSP_DIR)/$(BSP)/start.o
+else
+START_C = $(ARCH_DIR)/$(ARCH)/start.o
+endif
+
 ARCH_OBJS = \
 	$(ARCH_DIR)/$(ARCH)/boot.o \
-	$(ARCH_DIR)/$(ARCH)/start.o \
+	$(START_C) \
 	$(ARCH_DIR)/$(ARCH)/system.o \
 	$(ARCH_DIR)/$(ARCH)/mmu_pte_flags.o \
 	$(BSP_DIR)/$(BSP)/hw_info.o \
@@ -78,11 +84,10 @@ ARCH_OBJS = \
 	$(BSP_DIR)/lib/bcm283x/src/mailbox.o \
 	$(BSP_DIR)/lib/bcm283x/src/pl011_uart.o \
 	$(BSP_DIR)/lib/bcm283x/src/mini_uart.o \
-	$(BSP_DIR)/lib/bcm283x/src/framebuffer.o  \
-	$(BSP_DIR)/lib/bcm283x/src/ipi.o
+	$(BSP_DIR)/lib/bcm283x/src/framebuffer.o 
 
 ifeq ($(SMP),yes)
-ARCH_OBJS += $(BSP_DIR)/$(BSP)/ipi.o
+ARCH_OBJS += $(ARCH_DIR)/$(ARCH)/ipi.o
 endif
 
 LIB_GRAPH_DIR=$(SRC_DIR)/basic/lib/graph

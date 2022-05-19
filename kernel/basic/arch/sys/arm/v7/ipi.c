@@ -1,8 +1,9 @@
-#include <bcm283x/ipi.h>
+#include <kernel/smp/ipi.h>
 #include <kernel/hw_info.h>
 
 #ifdef KERNEL_SMP
-void bcm283x_ipi_enable(uint32_t core_id) {
+
+void ipi_enable(uint32_t core_id) {
 	uint32_t reg = 0;
 	switch(core_id) {
 	case 0:
@@ -26,7 +27,7 @@ void bcm283x_ipi_enable(uint32_t core_id) {
 	put32(reg, 1);
 }
 
-void bcm283x_ipi_send(uint32_t core_id) {
+void ipi_send(uint32_t core_id) {
 	uint32_t reg = 0;
 	switch(core_id) {
 	case 0:
@@ -50,7 +51,7 @@ void bcm283x_ipi_send(uint32_t core_id) {
 	put32(reg, 1);
 }
 
-void bcm283x_ipi_clear(uint32_t core_id) {
+void ipi_clear(uint32_t core_id) {
 	uint32_t reg = 0;
 	switch(core_id) {
 	case 0:
@@ -73,19 +74,5 @@ void bcm283x_ipi_clear(uint32_t core_id) {
 	reg = reg - _sys_info.mmio.phy_base + MMIO_BASE;
 	uint32_t v = get32(reg);
 	put32(reg, v);
-}
-
-#else
-
-void bcm283x_ipi_enable(uint32_t core_id) {
-	(void)core_id;
-}
-
-void bcm283x_ipi_send(uint32_t core_id) {
-	(void)core_id;
-}
-
-void bcm283x_ipi_clear(uint32_t core_id) {
-	(void)core_id;
 }
 #endif
