@@ -1,9 +1,13 @@
+#include <kernel/kconsole.h>
+
+graph_t* _fb_g = NULL;
+
+#ifdef KCONSOLE
 #include <dev/fb.h>
 #include <basic_math.h>
 #include <stddef.h>
 #include <console/console.h>
 
-graph_t* _fb_g = NULL;
 static console_t _console;
 static uint32_t _line;
 
@@ -35,3 +39,10 @@ void kconsole_close(void) {
 		graph_free(_fb_g);
 	_fb_g = NULL;
 }
+#else
+
+void kconsole_close(void) { }
+void kconsole_input(const char* s) { (void)s;}
+void kconsole_init(void) { }
+
+#endif
