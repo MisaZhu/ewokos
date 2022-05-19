@@ -335,7 +335,8 @@ static void sys_ipc_get_return(context_t* ctx, int32_t pid, uint32_t uid, proto_
 
 		if((ipc->call_id & IPC_NON_RETURN) == 0 || ipc->uid != uid) {
 			ctx->gpr[0] = -1;
-			proc_block_on(pid, (uint32_t)&serv_proc->space->ipc_server);
+			//proc_block_on(pid, (uint32_t)&serv_proc->space->ipc_server);
+			proc_block_on(pid, (uint32_t)&client_proc->ipc_res);
 			schedule(ctx);
 			return;
 		}
@@ -409,6 +410,7 @@ static void sys_ipc_set_return(context_t* ctx, uint32_t uid, proto_t* data) {
 		if(data != NULL) {
 			proto_copy(&client_proc->ipc_res.data, data->data, data->size);
 		}
+		proc_wakeup(serv_proc->info.pid, (uint32_t)&client_proc->ipc_res);
 		proc_switch_multi_core(ctx, client_proc, serv_proc->info.core);
 	}
 }
