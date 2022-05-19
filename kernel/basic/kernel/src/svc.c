@@ -409,9 +409,7 @@ static void sys_ipc_set_return(context_t* ctx, uint32_t uid, proto_t* data) {
 		if(data != NULL) {
 			proto_copy(&client_proc->ipc_res.data, data->data, data->size);
 		}
-
-		proc_ready(client_proc);
-		schedule(ctx);
+		proc_switch_multi_core(ctx, client_proc, serv_proc->info.core);
 	}
 }
 

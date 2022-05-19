@@ -67,16 +67,7 @@ static int32_t interrupt_send_raw(context_t* ctx, uint32_t interrupt,  interrupt
 	if(interrupt != SYS_INT_SOFT)
 		irq_disable_cpsr(&proc->ctx.cpsr); //disable interrupt on proc
 
-	if(proc->info.core == cproc->info.core) {
-		proc->info.state = RUNNING;
-		proc_switch(ctx, proc, true);
-	}
-	else {
-		proc_ready(proc);
-#ifdef KERNEL_SMP
-		ipi_send(proc->info.core);
-#endif
-	}
+	proc_switch_multi_core(ctx, proc, cproc->info.core);
 	return 0;
 }
 

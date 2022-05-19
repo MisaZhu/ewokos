@@ -173,6 +173,19 @@ inline void proc_restore_state(context_t* ctx, proc_t* proc, saved_state_t* save
 	memset(saved_state, 0, sizeof(saved_state_t));
 }
 
+void proc_switch_multi_core(context_t* ctx, proc_t* to, uint32_t core) {
+	if(to->info.core == core) {
+		to->info.state = RUNNING;
+		proc_switch(ctx, to, true);
+	}
+	else {
+#ifdef KERNEL_SMP
+		proc_ready(to);
+		ipi_send(to->info.core);
+#endif
+	}
+}
+
 void proc_switch(context_t* ctx, proc_t* to, bool quick){
 	proc_t* cproc = get_current_proc();
 	if(to == NULL)

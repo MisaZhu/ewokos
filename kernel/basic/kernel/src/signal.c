@@ -26,16 +26,7 @@ void  proc_signal_send(context_t* ctx, proc_t* proc, int32_t sig_no) {
 	proc->space->signal.sig_no = sig_no;
 	proc->space->signal.do_switch = true;
 
-	if(proc->info.core == cproc->info.core) {
-		proc->info.state = RUNNING;
-		proc_switch(ctx, proc, true);
-	}
-	else {
-		proc_ready(proc);
-#ifdef KERNEL_SMP
-		ipi_send(proc->info.core);
-#endif
-	}
+	proc_switch_multi_core(ctx, proc, cproc->info.core);
 }
 
 void proc_signal_end(context_t* ctx) {

@@ -107,6 +107,7 @@ extern int32_t proc_load_elf(proc_t *proc, const char *proc_image, uint32_t size
 extern int32_t proc_start(proc_t* proc, uint32_t entry);
 extern proc_t* proc_get_next_ready(void);
 extern proc_t* proc_get_core_ready(uint32_t core_id);
+extern void    proc_switch_multi_core(context_t* ctx, proc_t* to, uint32_t core);
 extern void    proc_switch(context_t* ctx, proc_t* to, bool quick);
 extern void    set_current_proc(proc_t* proc);
 
