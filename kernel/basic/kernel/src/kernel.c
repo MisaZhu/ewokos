@@ -39,7 +39,7 @@ static void set_kernel_init_vm(page_dir_entry_t* vm) {
 	memset(vm, 0, PAGE_DIR_SIZE);
 
 	//map interrupt vector to high(virtual) mem
-	map_pages(vm, 0, 0, PAGE_SIZE, AP_RW_D, 0);
+	//map_pages(vm, 0, 0, PAGE_SIZE, AP_RW_D, 0);
 	map_pages(vm, INTERRUPT_VECTOR_BASE, 0, PAGE_SIZE, AP_RW_D, 0);
 
 	//map kernel image

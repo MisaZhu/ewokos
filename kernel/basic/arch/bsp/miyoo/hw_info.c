@@ -15,6 +15,7 @@ void sys_info_init(void) {
 	memset(&_sys_info, 0, sizeof(sys_info_t));
 
 	strcpy(_sys_info.machine, "miyoo");
+	_sys_info.phy_offset = 0x20000000;
 	_sys_info.phy_mem_size = 128*MB;
 	_sys_info.mmio.phy_base = 0x1f000000;
 	_sys_info.kernel_base = KERNEL_BASE;
@@ -22,7 +23,7 @@ void sys_info_init(void) {
 	_sys_info.mmio.size = 16*MB;
 
 	_allocatable_mem_base = V2P(ALLOCATABLE_MEMORY_START);
-	_allocatable_mem_top = _sys_info.phy_mem_size;
+	_allocatable_mem_top = _sys_info.phy_offset + _sys_info.phy_mem_size;
 #ifdef KERNEL_SMP
 	_sys_info.cores = get_cpu_cores();
 #else

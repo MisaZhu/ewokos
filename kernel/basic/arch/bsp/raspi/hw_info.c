@@ -11,6 +11,7 @@ void sys_info_init(void) {
 	memset(&_sys_info, 0, sizeof(sys_info_t));
 
 	strcpy(_sys_info.machine, "raspi");
+	_sys_info.phy_offset = 0;
 	_sys_info.phy_mem_size = 512*MB;
 	_sys_info.kernel_base = KERNEL_BASE;
 	_sys_info.mmio.phy_base = 0x20000000;
@@ -18,7 +19,7 @@ void sys_info_init(void) {
 	_sys_info.mmio.size = 16*MB;
 
 	_allocatable_mem_base = V2P(ALLOCATABLE_MEMORY_START);
-	_allocatable_mem_top = _sys_info.phy_mem_size - 64*MB; //the top 64MB will used by raspi framebuffer
+	_allocatable_mem_top = _sys_info.phy_offset + _sys_info.phy_mem_size - 64*MB; //the top 64MB will used by raspi framebuffer
 	_sys_info.cores = 1;
 }
 

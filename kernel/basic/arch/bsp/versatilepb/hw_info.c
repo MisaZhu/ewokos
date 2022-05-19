@@ -13,6 +13,7 @@ void sys_info_init(void) {
 	memset(&_sys_info, 0, sizeof(sys_info_t));
 
 	strcpy(_sys_info.machine, "versatilepb");
+	_sys_info.phy_offset = 0;
 	_sys_info.phy_mem_size = 256*MB;
 	_sys_info.kernel_base = KERNEL_BASE;
 	_sys_info.mmio.phy_base = 0x10000000;
@@ -24,7 +25,7 @@ void sys_info_init(void) {
 	_sys_info.fb.size = _framebuffer_end_raw - _framebuffer_base_raw;
 
 	_allocatable_mem_base = V2P(ALLOCATABLE_MEMORY_START);
-	_allocatable_mem_top = 
+	_allocatable_mem_top = _sys_info.phy_offset +  
 			_sys_info.phy_mem_size < _sys_info.mmio.phy_base ?
 			_sys_info.phy_mem_size : _sys_info.mmio.phy_base;
 	_sys_info.cores = 1;

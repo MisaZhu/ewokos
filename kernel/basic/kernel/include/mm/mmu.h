@@ -2,6 +2,10 @@
 #define MMU_H
 
 #include <mm/mmu_arch.h>
+#include <kernel/hw_info.h>
+
+#define V2P(V) ((uint32_t)V - KERNEL_BASE + _sys_info.phy_offset)
+#define P2V(P) ((uint32_t)P + KERNEL_BASE - _sys_info.phy_offset)
 
 void map_pages(page_dir_entry_t *vm, uint32_t vaddr, 
 	uint32_t pstart, 
