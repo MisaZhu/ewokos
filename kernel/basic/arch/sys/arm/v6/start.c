@@ -1,4 +1,5 @@
 #include <mm/mmudef.h>
+#include <kernel/hw_info.h>
 
 #define PDE_SHIFT     20   // shift how many bits to get PDE index
 
@@ -51,8 +52,8 @@ static void load_boot_pgt(void) {
 }
 
 void _boot_start(void) {
-	set_boot_pgt(0, 0, 1024*1024*32, 0);
-	set_boot_pgt(KERNEL_BASE, 0, 1024*1024*32, 0);
+	set_boot_pgt(0, _phy_mem_start, 1024*1024*32, 0);
+	set_boot_pgt(KERNEL_BASE, _phy_mem_start, 1024*1024*32, 0);
 
 	load_boot_pgt();
 }

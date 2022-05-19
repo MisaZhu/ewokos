@@ -38,7 +38,7 @@ void sys_info_init(void) {
 	_sys_info.mmio.phy_base = 0xfe000000;
 #endif
 
-	_sys_info.phy_mem_start = 0;
+	_sys_info.phy_mem_start = _phy_mem_start;
 	_sys_info.kernel_base = KERNEL_BASE;
 	_sys_info.mmio.v_base = MMIO_BASE;
 	_sys_info.mmio.size = 16*MB;

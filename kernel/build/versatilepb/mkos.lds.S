@@ -3,6 +3,7 @@ ENTRY(__entry)
 base_address = 0x80000000;
 start_address = 0x8000; /*for real HW*/
 framebuffer_size = 0x400000;
+phy_mem_start = 0x0;
 
 PHDRS
 {
@@ -23,6 +24,7 @@ SECTIONS
   } : init
   _init_end = ALIGN(4096);
 
+	PROVIDE(_phy_mem_start = phy_mem_start);
 	/*kernel will be compiled with virtual address base at 2GB*/
 	PROVIDE(_kernel_start = base_address + _init_end);
 
