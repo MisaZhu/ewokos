@@ -24,6 +24,7 @@ typedef struct {
 typedef struct {
 	char        machine[32];
 	uint32_t    phy_mem_size;
+	uint32_t    phy_mem_start;
 	uint32_t    kernel_base;
 
 	mmio_info_t mmio;
