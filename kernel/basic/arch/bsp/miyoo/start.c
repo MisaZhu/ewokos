@@ -52,9 +52,11 @@ static void load_boot_pgt(void) {
 	__asm("MCR p15, 0, r0, c7, c10, 4");     //DSB
 }
 
+#define PHY_OFFSET 0x20000000
+
 void _boot_start(void) {
-	set_boot_pgt(0, 0x20000000, 1024*1024*32, 0);
+	set_boot_pgt(PHY_OFFSET, PHY_OFFSET, 32*MB, 0);
+	set_boot_pgt(KERNEL_BASE, PHY_OFFSET, 32*MB, 0);
 	set_boot_pgt(0x1f000000, 0x1f000000, 8*MB, 0);
-	set_boot_pgt(KERNEL_BASE, 0x20000000, 1024*1024*32, 0);
 	load_boot_pgt();
 }

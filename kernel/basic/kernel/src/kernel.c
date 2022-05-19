@@ -29,7 +29,7 @@ static void __attribute__((optimize("O0"))) copy_interrupt_table(void) {
 	extern uint32_t  interrupt_table_start, interrupt_table_end;
 	uint32_t *vsrc = &interrupt_table_start;
 	//uint32_t *vdst = (uint32_t*)INTERRUPT_VECTOR_BASE;
-	uint32_t *vdst = (uint32_t*)0x0;
+	uint32_t *vdst = (uint32_t*)_sys_info.phy_offset;
 	while(vsrc < &interrupt_table_end) {
 		*vdst++ = *vsrc++;
 	}
@@ -39,8 +39,7 @@ static void set_kernel_init_vm(page_dir_entry_t* vm) {
 	memset(vm, 0, PAGE_DIR_SIZE);
 
 	//map interrupt vector to high(virtual) mem
-	//map_pages(vm, 0, 0, PAGE_SIZE, AP_RW_D, 0);
-	map_pages(vm, INTERRUPT_VECTOR_BASE, 0, PAGE_SIZE, AP_RW_D, 0);
+	map_pages(vm, INTERRUPT_VECTOR_BASE, _sys_info.phy_offset, PAGE_SIZE, AP_RW_D, 0);
 
 	//map kernel image
 	map_pages(vm, KERNEL_BASE, _sys_info.phy_offset, V2P(KERNEL_IMAGE_END), AP_RW_D, 0);
@@ -118,9 +117,9 @@ void _kernel_entry_c(void) {
 	__irq_disable();
 	//clear bss
 	memset(_bss_start, 0, (uint32_t)_bss_end - (uint32_t)_bss_start);
+	sys_info_init();
 
 	copy_interrupt_table();
-	sys_info_init();
 
 	init_kernel_vm();  
 	kmalloc_init();
