@@ -17,7 +17,7 @@ void map_pages(page_dir_entry_t *vm, uint32_t vaddr, uint32_t pstart, uint32_t p
 
 	uint32_t virtual_start = ALIGN_DOWN(vaddr, PAGE_SIZE);
 	uint32_t physical_start = ALIGN_DOWN(pstart + _sys_info.phy_mem_start, PAGE_SIZE);
-	uint32_t physical_end = ALIGN_UP(pend + _sys_info.phy_mem_start, PAGE_SIZE);
+	uint32_t physical_end = ALIGN_UP( pend + _sys_info.phy_mem_start, PAGE_SIZE);
 
 	/* iterate over pages and map each page */
 	virtual_current = virtual_start;
@@ -27,6 +27,10 @@ void map_pages(page_dir_entry_t *vm, uint32_t vaddr, uint32_t pstart, uint32_t p
 		map_page(vm,  virtual_current, physical_current, permissions, no_cache);
 		virtual_current += PAGE_SIZE;
 	}
+}
+
+void map_pages_size(page_dir_entry_t *vm, uint32_t vaddr, uint32_t pstart, uint32_t size, uint32_t permissions, uint32_t no_cache) {
+	map_pages(vm, vaddr, pstart, pstart + size, permissions, no_cache);
 }
 
 void unmap_pages(page_dir_entry_t *vm, uint32_t virtual_addr, uint32_t pages) {

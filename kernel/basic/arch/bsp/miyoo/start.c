@@ -53,7 +53,8 @@ static void load_boot_pgt(void) {
 }
 
 void _boot_start(void) {
-	set_boot_pgt(0, 0, 1024*1024*32, 0);
-	set_boot_pgt(KERNEL_BASE, 0, 1024*1024*32, 0);
+	set_boot_pgt(0, 0x20000000, 1024*1024*32, 0);
+	set_boot_pgt(0x1f000000, 0x1f000000, 8*MB, 0);
+	set_boot_pgt(KERNEL_BASE, 0x20000000, 1024*1024*32, 0);
 	load_boot_pgt();
 }

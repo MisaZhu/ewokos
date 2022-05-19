@@ -65,10 +65,10 @@ int32_t __attribute__((optimize("O0"))) bcm283x_fb_init(uint32_t w, uint32_t h, 
 	_fb_info.size_max = _sys_info.phy_mem_size - (_fb_info.pointer-KERNEL_BASE);
 
 	//kfree4k(fbinit);
-	map_pages(_kernel_vm, 
+	map_pages_size(_kernel_vm, 
 		_fb_info.pointer,
 		V2P(_fb_info.pointer),
-		V2P(_fb_info.pointer) + _fb_info.size_max,
+		_fb_info.size_max,
 		AP_RW_D, 0);
 	flush_tlb();
 

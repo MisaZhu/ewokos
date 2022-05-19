@@ -62,7 +62,7 @@ void arch_vm(page_dir_entry_t* vm) {
 	uint32_t offset = CORE0_BASE - _sys_info.mmio.phy_base; //CORE0_ROUTING
 	uint32_t vbase = MMIO_BASE + offset;
 	uint32_t pbase = _sys_info.mmio.phy_base + offset;
-	map_pages(vm, vbase, pbase, pbase+16*KB, AP_RW_D, 1);
+	map_pages_size(vm, vbase, pbase, 16*KB, AP_RW_D, 1);
 
 #ifdef PI2
 	offset = 0x00201000; //UART_OFFSET

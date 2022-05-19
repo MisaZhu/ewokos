@@ -231,7 +231,7 @@ static uint32_t sys_mem_map(uint32_t vaddr, uint32_t paddr, uint32_t size) {
 		return 0;
 	uint32_t no_cache = (size & 0x80000000) == 0 ? 1:0;
 	size &= 0x7fffffff;
-	map_pages(cproc->space->vm, vaddr, paddr, paddr+size, AP_RW_RW, no_cache);
+	map_pages_size(cproc->space->vm, vaddr, paddr, size, AP_RW_RW, no_cache);
 	flush_tlb();
 	return vaddr;
 }

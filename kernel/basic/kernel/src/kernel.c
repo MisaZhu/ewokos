@@ -51,7 +51,7 @@ static void set_kernel_init_vm(page_dir_entry_t* vm) {
 	//map allocatable memory page dir
 	map_pages(vm, ALLOCATABLE_PAGE_DIR_BASE, V2P(ALLOCATABLE_PAGE_DIR_BASE), V2P(ALLOCATABLE_PAGE_DIR_END), AP_RW_D, 0);
 	//map MMIO to high(virtual) mem.
-	map_pages(vm, MMIO_BASE, _sys_info.mmio.phy_base, _sys_info.mmio.phy_base + _sys_info.mmio.size, AP_RW_D, 1);
+	map_pages_size(vm, MMIO_BASE, _sys_info.mmio.phy_base, _sys_info.mmio.size, AP_RW_D, 1);
 
 	arch_vm(vm);
 
