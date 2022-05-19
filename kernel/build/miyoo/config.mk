@@ -4,4 +4,3 @@ ARCH_CFLAGS = -march=armv7ve
 ARCH=arm/v7
 BSP=miyoo
 SMP=yes
-BSP_START=yes

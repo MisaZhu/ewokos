@@ -1,7 +1,7 @@
 ENTRY(__entry)
 
 base_address = 0x80000000;
-start_address = 0x8000; /*for real hardware*/
+start_address = 0x10000; /*for qemu*/
 
 PHDRS
 {
@@ -15,10 +15,10 @@ SECTIONS
 	.init start_address : AT(start_address) ALIGN(4096)
   {
     KEEP(*(.init .init.*))
-		../../basic/arch/sys/arm/v6/start.o(.text .text.*)
-		../../basic/arch/sys/arm/v6/start.o(.rodata .rodata.*)
-		../../basic/arch/sys/arm/v6/start.o(.data .data.*)
-		../../basic/arch/sys/arm/v6/start.o(.bss .bss.*)
+		../../basic/arch/bsp/raspi/start.o(.text .text.*)
+		../../basic/arch/bsp/raspi/start.o(.rodata .rodata.*)
+		../../basic/arch/bsp/raspi/start.o(.data .data.*)
+		../../basic/arch/bsp/raspi/start.o(.bss .bss.*)
   } : init
   _init_end = ALIGN(4096);
 

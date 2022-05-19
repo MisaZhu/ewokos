@@ -1,7 +1,7 @@
 include config.mk
 
-LDS_QEMU = ../raspix/mkos.lds.raspi1.qemu.S
-LDS = ../raspix/mkos.lds.raspi1.S
+LDS_QEMU = mkos.lds.qemu.S
+LDS = mkos.lds.S
 
 OS_IMG = kernel.img
 OS_ELF = kernel.elf
