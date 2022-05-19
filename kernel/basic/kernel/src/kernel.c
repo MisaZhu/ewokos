@@ -43,7 +43,7 @@ static void set_kernel_init_vm(page_dir_entry_t* vm) {
 	map_pages(vm, INTERRUPT_VECTOR_BASE, 0, PAGE_SIZE, AP_RW_D, 0);
 
 	//map kernel image
-	map_pages(vm, KERNEL_BASE+PAGE_SIZE, PAGE_SIZE, V2P(KERNEL_IMAGE_END), AP_RW_D, 0);
+	map_pages(vm, KERNEL_BASE, _sys_info.phy_offset, V2P(KERNEL_IMAGE_END), AP_RW_D, 0);
 	//map kernel page dir
 	map_pages(vm, KERNEL_PAGE_DIR_BASE, V2P(KERNEL_PAGE_DIR_BASE), V2P(ALLOCATABLE_PAGE_DIR_END), AP_RW_D, 0);
 	//map kernel malloc memory
