@@ -16,10 +16,10 @@ SECTIONS
 	.init start_address : AT(start_address) ALIGN(4096)
   {
     KEEP(*(.init .init.*))
-		../../basic/arch/bsp/versatilepb/start.o(.text .text.*)
-		../../basic/arch/bsp/versatilepb/start.o(.rodata .rodata.*)
-		../../basic/arch/bsp/versatilepb/start.o(.data .data.*)
-		../../basic/arch/bsp/versatilepb/start.o(.bss .bss.*)
+		../../basic/arch/sys/arm/v6/start.o(.text .text.*)
+		../../basic/arch/sys/arm/v6/start.o(.rodata .rodata.*)
+		../../basic/arch/sys/arm/v6/start.o(.data .data.*)
+		../../basic/arch/sys/arm/v6/start.o(.bss .bss.*)
   } : init
   _init_end = ALIGN(4096);
 

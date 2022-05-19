@@ -60,7 +60,7 @@ CFLAGS += $(OPTM) \
 
 ARCH_OBJS = \
 	$(ARCH_DIR)/$(ARCH)/boot.o \
-	$(BSP_DIR)/$(BSP)/start.o \
+	$(ARCH_DIR)/$(ARCH)/start.o \
 	$(ARCH_DIR)/$(ARCH)/system.o \
 	$(ARCH_DIR)/$(ARCH)/mmu_pte_flags.o \
 	$(BSP_DIR)/$(BSP)/hw_info.o \
