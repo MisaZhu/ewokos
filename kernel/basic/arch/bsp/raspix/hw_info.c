@@ -24,6 +24,10 @@ static bool isPi3A(uint32_t revision) {
 	return (revision == 0x9020e0);
 }
 
+static bool isPi2W(uint32_t revision) {
+	return (revision == 0x902120);
+}
+
 static bool isPi3B(uint32_t revision) {
 	return (revision == 0xa020a0 ||
 			revision == 0xa02082 ||
@@ -47,6 +51,11 @@ void sys_info_init(void) {
 	}
 	else if(isPi3A(pix_revision)) {
 		strcpy(_sys_info.machine, "raspi3");
+		_sys_info.phy_mem_size = 512*MB;
+		_sys_info.mmio.phy_base = 0x3f000000;
+	}
+	else if(isPi2W(pix_revision)) {
+		strcpy(_sys_info.machine, "raspi2w");
 		_sys_info.phy_mem_size = 512*MB;
 		_sys_info.mmio.phy_base = 0x3f000000;
 	}
