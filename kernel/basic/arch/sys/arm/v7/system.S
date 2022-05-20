@@ -6,7 +6,11 @@ __core_id:
 
 .global __cpu_cores
 __cpu_cores:
+#ifdef DUAL_CORE
+	mov r0, #2
+#else
 	mov r0, #4
+#endif
 	mov pc, lr
 
 /*

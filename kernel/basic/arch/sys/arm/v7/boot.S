@@ -1,6 +1,7 @@
 .section ".init"
 .global __entry
 __entry:
+#ifndef SKIP_HYP
 	// Check for HYP mode
 	mrs r0, cpsr_all
 	and r0, r0, #0x1F
@@ -17,6 +18,7 @@ over_hyped: // Get out of HYP mode
 	orr r1, r1, #0x13	 //CPSR_MODE_SUPERVISOR
 	msr SPSR_hyp, r1
 	eret
+#endif
 
 continue:
 	mrc p15, 0, r11, c0, c0, 5  @ get core id
@@ -40,8 +42,10 @@ core0:
 #ifdef KERNEL_SMP
 	bl arm_smp_enable
 	bl start_core_1
+#ifndef DUAL_CORE
 	bl start_core_2
 	bl start_core_3
+#endif
 #endif
 
 	bl _boot_start              @ enable MMU for kernel (one-level section type paging for kernel init)
@@ -70,6 +74,7 @@ start_core_1:
 	sev
 	bx lr
 
+#ifndef DUAL_CORE
 .local start_core_2
 start_core_2:
 	ldr r0, =__entry
@@ -85,6 +90,7 @@ start_core_3:
 	str r0, [r1, #0xBC]         @ set __entry to 0x400000BC to light up core 3
 	sev
 	bx lr
+#endif
 
 slave_core:                     @ 1-3 cores
 	mrc p15, 0, r11, c0, c0, 5
