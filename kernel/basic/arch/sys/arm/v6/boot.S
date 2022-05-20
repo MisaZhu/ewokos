@@ -1,11 +1,9 @@
-#define KERNEL_BASE 0x80000000
 
 .section ".init"
 .global __entry
 __entry:
 	msr cpsr, #0xD3             @ enter SVC mode with IRQ and FIQ interrupts disabled
-	ldr sp, = _svc_stack        @ initialise SVC mode stack
-	sub sp, #KERNEL_BASE        @ physical SP address before MMU enabled
+	ldr sp, = _svc_start_stack        @ initialise SVC mode stack
 	bl _boot_start              @ MMU pagetable setup for kernel
 
 	msr cpsr, #0xD2             @ enter IRQ mode with IRQ and FIQ interrupts disabled
