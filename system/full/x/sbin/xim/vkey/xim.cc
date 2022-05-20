@@ -52,13 +52,17 @@ protected:
 	void changeMode(bool hide) {
 		hideMode = hide;
 		if(hideMode) {
-			int w = 42;
-			resizeTo(w, w);
-			moveTo(scrSize.w - w, scrSize.h - w);
+			int kw = 42;
+			resizeTo(kw, kw);
+			moveTo(scrSize.w - kw, scrSize.h - kw);
 		}
 		else {
-			resizeTo(scrSize.w, scrSize.h/2);
-			moveTo(0, scrSize.h/2);
+			int w = scrSize.w;
+			if(scrSize.w > scrSize.h*2)
+				w = scrSize.w / 2;
+
+			resizeTo(w, scrSize.h/2);
+			moveTo(scrSize.w-w, scrSize.h/2);
 		}
 	}
 

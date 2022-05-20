@@ -81,6 +81,8 @@ protected:
 
 		if(w > h*2)
 			w = h*2;
+		if(h > w*2)
+			h = w*2;
 
 		w = w < 32 ? 32 : w;
 		h = h < 32 ? 32 : h;

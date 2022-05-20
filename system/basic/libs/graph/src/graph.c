@@ -92,7 +92,7 @@ graph_t* graph_rotate(graph_t* g, int rot) {
 		graph_t* ret = graph_new(NULL, g->h, g->w);
 		for(int i=0; i<g->w; i++) {
 			for(int j=0; j<g->h; j++) {
-				ret->buffer[(ret->h-i)*ret->w + (ret->w-j)] = g->buffer[j*g->w + (g->w-i)];
+				ret->buffer[(ret->h-i-1)*ret->w + (ret->w-j)] = g->buffer[j*g->w + (g->w-i-1)];
 			}
 		}
 		return ret;
@@ -101,7 +101,7 @@ graph_t* graph_rotate(graph_t* g, int rot) {
 		graph_t* ret = graph_new(NULL, g->h, g->w);
 		for(int i=0; i<g->w; i++) {
 			for(int j=0; j<g->h; j++) {
-				ret->buffer[i*ret->w + j] = g->buffer[j*g->w + (g->w-i)];
+				ret->buffer[i*ret->w + j] = g->buffer[j*g->w + (g->w-i-1)];
 			}
 		}
 		return ret;
@@ -110,7 +110,7 @@ graph_t* graph_rotate(graph_t* g, int rot) {
 		graph_t* ret = graph_new(NULL, g->w, g->h);
 		for(int i=0; i<g->h; i++) {
 			for(int j=0; j<g->w; j++) {
-				ret->buffer[i*g->w + j] = g->buffer[(g->h-i)*g->w + (g->w-j)];
+				ret->buffer[i*g->w + j] = g->buffer[(g->h-i-1)*g->w + (g->w-j-1)];
 			}
 		}
 		return ret;

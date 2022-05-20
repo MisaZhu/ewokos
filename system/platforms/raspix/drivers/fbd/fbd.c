@@ -17,6 +17,7 @@ typedef struct {
 } fb_dma_t;
 
 static fbinfo_t* _fbinfo;
+static int32_t _rotate = 0;
 
 static int fb_fcntl(int fd, 
 		int from_pid,
@@ -32,7 +33,10 @@ static int fb_fcntl(int fd,
 	(void)in;
 	(void)p;
 	if(cmd == FB_CNTL_GET_INFO) { //get fb size
-		PF->addi(out, _fbinfo->width)->addi(out, _fbinfo->height)->addi(out, _fbinfo->depth);
+		if(_rotate == G_ROTATE_N90 || _rotate == G_ROTATE_90)
+			PF->addi(out, _fbinfo->height)->addi(out, _fbinfo->width)->addi(out, _fbinfo->depth);
+		else
+			PF->addi(out, _fbinfo->width)->addi(out, _fbinfo->height)->addi(out, _fbinfo->depth);
 	}
 	return 0;
 }
@@ -69,7 +73,10 @@ static int fb_dev_cntl(int from_pid, int cmd, proto_t* in, proto_t* ret, void* p
 		_fbinfo = bcm283x_get_fbinfo();
 	}
 	else if(cmd == FB_DEV_CNTL_GET_INFO) {
-		PF->addi(ret, _fbinfo->width)->addi(ret, _fbinfo->height)->addi(ret, _fbinfo->depth);
+		if(_rotate == G_ROTATE_N90 || _rotate == G_ROTATE_90)
+			PF->addi(ret, _fbinfo->height)->addi(ret, _fbinfo->width)->addi(ret, _fbinfo->depth);
+		else
+			PF->addi(ret, _fbinfo->width)->addi(ret, _fbinfo->height)->addi(ret, _fbinfo->depth);
 	}	
 	return 0;
 }
@@ -78,7 +85,21 @@ static uint32_t flush_buf(const void* buf, uint32_t size) {
 	uint32_t sz = 4 * _fbinfo->width * _fbinfo->height;
 	if(size < sz || _fbinfo->depth != 32)
 		return -1;
-	memcpy((void*)_fbinfo->pointer, buf, sz);
+
+	graph_t g;
+	if(_rotate == G_ROTATE_N90 || _rotate == G_ROTATE_90)
+		graph_init(&g, buf, _fbinfo->height, _fbinfo->width);
+	else
+		graph_init(&g, buf, _fbinfo->width, _fbinfo->height);
+
+	graph_t *rg = graph_rotate(&g, _rotate);
+	if(rg != NULL) {
+		memcpy((void*)_fbinfo->pointer, rg->buffer, sz);
+		graph_free(rg);
+	}
+	else  {
+		memcpy((void*)_fbinfo->pointer, buf, sz);
+	}
 	return size;
 }
 
@@ -119,12 +140,18 @@ static void clear(void) {
 }
 
 int main(int argc, char** argv) {
+	_rotate = 0;
 	const char* mnt_name = argc > 1 ? argv[1]: "/dev/fb0";
 	int w = 640;
 	int h = 480;
+
 	if(argc > 3) {
 		w = atoi(argv[2]);
 		h = atoi(argv[3]);
+	}
+
+	if(argc > 4) {
+		_rotate = atoi(argv[4]);
 	}
 
 	fb_dma_t dma;

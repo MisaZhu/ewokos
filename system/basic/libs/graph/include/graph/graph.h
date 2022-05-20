@@ -9,9 +9,10 @@ extern "C" {
 #endif
 
 enum {
-	G_ROTATE_90 = 0,
-	G_ROTATE_N90,
-	G_ROTATE_180
+	G_ROTATE_NONE = 0,
+	G_ROTATE_90,
+	G_ROTATE_180,
+	G_ROTATE_N90
 };
 
 typedef struct {
