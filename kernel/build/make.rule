@@ -116,8 +116,7 @@ CFLAGS += -I$(LOAD_DIR)
 QEMU_ARGS += -sd $(SYS_FULL_DIR)/root.ext2
 
 DEV_DIR = $(SRC_DIR)/basic/dev/src
-DEV_OBJS = \
-	$(DEV_DIR)/mmio.o 
+DEV_OBJS = 
 
 KERNEL_DIR = $(SRC_DIR)/basic/kernel/src
 KERNEL_OBJS = \

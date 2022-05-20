@@ -12,7 +12,6 @@
 #include <kernel/schedule.h>
 #include <kernel/kevqueue.h>
 #include <dev/timer.h>
-#include <dev/mmio.h>
 #include <kprintf.h>
 #include <dev/uart.h>
 #include <basic_math.h>
@@ -50,7 +49,7 @@ static void set_kernel_init_vm(page_dir_entry_t* vm) {
 	//map allocatable memory page dir
 	map_pages(vm, ALLOCATABLE_PAGE_DIR_BASE, V2P(ALLOCATABLE_PAGE_DIR_BASE), V2P(ALLOCATABLE_PAGE_DIR_END), AP_RW_D, 0);
 	//map MMIO to high(virtual) mem.
-	map_pages_size(vm, MMIO_BASE, _sys_info.mmio.phy_base, _sys_info.mmio.size, AP_RW_D, 1);
+	map_pages_size(vm, _sys_info.mmio.v_base, _sys_info.mmio.phy_base, _sys_info.mmio.size, AP_RW_D, 1);
 
 	arch_vm(vm);
 
@@ -123,7 +122,6 @@ void _kernel_entry_c(void) {
 
 	init_kernel_vm();  
 	kmalloc_init();
-	enable_vmmio_base();
 
 	uart_dev_init();
 	kconsole_init();
@@ -164,6 +162,7 @@ void _kernel_entry_c(void) {
 	kernel_lock_init();
 
 	for(uint32_t i=1; i<_sys_info.cores; i++) {
+		__start_core(i);
 		kfork_core_halt(i);
 	}
 

@@ -3,7 +3,7 @@
 #include <mm/kmalloc.h>
 #include <kstring.h>
 #include <kernel/proc.h>
-#include <dev/mmio.h>
+#include <kernel/hw_info.h>
 #include <dev/sd.h>
 
 #define CONFIG_ARM_PL180_MMCI_CLOCK_FREQ 6250000
@@ -78,7 +78,7 @@
 #define FIFO          0x80
 
 #define SD_RCA  0x45670000 // QEMU's hard-coded RCA
-#define SD_BASE (_mmio_base + 0x5000) // PL180 SD_BASE address
+#define SD_BASE (_sys_info.mmio.v_base + 0x5000) // PL180 SD_BASE address
 
 #define SECTOR_SIZE   512
 

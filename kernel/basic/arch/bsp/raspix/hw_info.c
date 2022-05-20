@@ -55,20 +55,13 @@ void sys_info_init(void) {
 #ifdef PI4
 #define CORE0_BASE 0xff800000
 #else
-#define CORE0_BASE 0x40000000
+#define CORE0_BASE_OFFSET 0x01000000
 #endif
 
 void arch_vm(page_dir_entry_t* vm) {
-	uint32_t offset = CORE0_BASE - _sys_info.mmio.phy_base; //CORE0_ROUTING
-	uint32_t vbase = MMIO_BASE + offset;
-	uint32_t pbase = _sys_info.mmio.phy_base + offset;
-	map_pages_size(vm, vbase, pbase, 16*KB, AP_RW_D, 1);
-
-#ifdef PI2
-	offset = 0x00201000; //UART_OFFSET
-	vbase = MMIO_BASE + offset;
-	pbase = _sys_info.mmio.phy_base + offset;
-	map_page(vm, vbase, pbase, AP_RW_D, 0);
-#endif
+	uint32_t vbase = _sys_info.mmio.v_base + CORE0_BASE_OFFSET;
+	uint32_t pbase = _sys_info.mmio.phy_base + CORE0_BASE_OFFSET;
+	map_page(vm, vbase, pbase, AP_RW_D, 1);
+	map_page(vm, pbase, pbase, AP_RW_D, 1);
 }
 

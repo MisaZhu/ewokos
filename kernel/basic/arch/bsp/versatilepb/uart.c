@@ -1,9 +1,9 @@
 #include <dev/uart.h>
-#include <dev/mmio.h>
+#include <kernel/hw_info.h>
 #include <mm/mmu.h>
 
 /* memory mapping for the serial port */
-#define UART0 ((volatile uint32_t*)(_mmio_base+0x001f1000))
+#define UART0 ((volatile uint32_t*)(_sys_info.mmio.v_base+0x001f1000))
 /* serial port register offsets */
 #define UART_DATA        0x00 
 #define UART_FLAGS       0x18

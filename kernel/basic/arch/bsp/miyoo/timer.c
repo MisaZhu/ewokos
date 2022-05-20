@@ -1,7 +1,7 @@
-#include <dev/mmio.h>
 #include <dev/timer.h>
 #include <kernel/irq.h>
 #include <basic_math.h>
+#include <mm/mmu.h>
 #include "timer_arch.h"
 
 uint32_t _timer_tval  = 0;
@@ -59,7 +59,7 @@ void timer_clear_interrupt(uint32_t id) {
 	(void)id;
 }
 
-#define SYSTEM_TIMER_BASE (_mmio_base+0x3000)
+#define SYSTEM_TIMER_BASE (_sys_info.mmio.v_base+0x3000)
 #define SYSTEM_TIMER_LOW  0x0004 // System Timer Counter Upper 32 bits
 #define SYSTEM_TIMER_HI   0x0008 // System Timer Counter Upper 32 bits
 

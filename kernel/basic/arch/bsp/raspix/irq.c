@@ -1,24 +1,19 @@
 #include <kernel/irq.h>
 #include <kernel/kernel.h>
 #include <kernel/hw_info.h>
-#include <dev/mmio.h>
 #include "timer_arch.h"
 
-#define CORE0_TIMER__irqCNTL 0x40000040
-#define CORE0__irq_SOURCE    0x40000060
+#define CORE0_IRQ_CNTL_OFFSET    0x01000040
+#define CORE0_IRQ_SOURCE_OFFSET  0x01000060
 
 static void routing_core0_irq(void) {
-  uint32_t offset = CORE0_TIMER__irqCNTL - _sys_info.mmio.phy_base;
-  uint32_t vbase = _mmio_base+offset;
+  uint32_t vbase = _sys_info.mmio.v_base+CORE0_IRQ_CNTL_OFFSET;
   put32(vbase, 0x08);
 }
 
 static uint32_t read_core0_pending(void) {
-  uint32_t tmp;
-  uint32_t offset = CORE0__irq_SOURCE -  _sys_info.mmio.phy_base;
-  uint32_t vbase = _mmio_base+offset;
-  tmp = get32(vbase);
-  return tmp;
+  uint32_t vbase = _sys_info.mmio.v_base+CORE0_IRQ_SOURCE_OFFSET;
+  return get32(vbase);
 }
 
 void irq_arch_init(void) {

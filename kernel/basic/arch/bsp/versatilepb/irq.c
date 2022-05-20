@@ -1,9 +1,9 @@
 #include <kernel/irq.h>
-#include <dev/mmio.h>
+#include <kernel/hw_info.h>
 #include <mm/mmu.h>
 #include "arch.h"
 
-#define UART0 ((volatile uint32_t*)(_mmio_base+0x001f1000))
+#define UART0 ((volatile uint32_t*)(_sys_info.mmio.v_base+0x001f1000))
 /* serial port register offsets */
 #define UART_DATA        0x00
 #define UART_FLAGS       0x18
@@ -12,7 +12,7 @@
 #define UART_INT_CLEAR   0x11
 
 /* memory mapping for the prime interrupt controller */
-#define PIC (_mmio_base + 0x00140000)
+#define PIC (_sys_info.mmio.v_base + 0x00140000)
 #define PIC_INT_TIMER0 (1 << 4)
 #define PIC_INT_UART0  (1 << 12)
 

@@ -2,12 +2,11 @@
 #include <dev/uart.h>
 #include <kernel/kernel.h>
 #include <kernel/hw_info.h>
-#include <dev/mmio.h>
 #include <kstring.h>
 #include "arch.h"
 
 /* memory mapping for the prime interrupt controller */
-#define PIC (_mmio_base + 0xB200)
+#define PIC (_sys_info.mmio.v_base + 0xB200)
 #define PIC_INT_UART0 (25+64)
 #define PIC_INT_SDC (30)
 
@@ -50,8 +49,8 @@ inline void irq_enable(uint32_t irqs) {
 	/*
   if((irqs & IRQ_SDC) != 0) {
 		enable_irq((PIC_INT_SDC + 32)); //pic->irq_enable2 EMMC int routing enabled.
-		uint32_t offset = GPU_INTERRUPTS_ROUTING - get_hw_info()->phy_mmio_base;
-		uint32_t vbase = _mmio_base+offset;
+		uint32_t offset = GPU_INTERRUPTS_ROUTING - get_hw_info()->phy_sys_info.mmio.v_base;
+		uint32_t vbase = _sys_info.mmio.v_base+offset;
 		put32(vbase, 0x00);
 	}
   if((irqs & IRQ_UART0) != 0)  

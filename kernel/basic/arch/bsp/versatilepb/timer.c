@@ -1,7 +1,7 @@
 #include <mm/mmu.h>
-#include <dev/mmio.h>
 #include <dev/timer.h>
 #include <kernel/irq.h>
+#include <kernel/hw_info.h>
 #include <basic_math.h>
 
 /*
@@ -9,10 +9,10 @@ The ARM Versatile 926EJS board contains two ARM SB804 dual timer modules [ARM Ti
   Timer0: 0x101E2000, Timer1: 0x101E2020
   Timer2: 0x101E3000, Timer3: 0x101E3020
 */
-#define TIMER0 ((volatile uint32_t*)(_mmio_base+0x001e2000))
-#define TIMER1 ((volatile uint32_t*)(_mmio_base+0x001e2020))
-#define TIMER2 ((volatile uint32_t*)(_mmio_base+0x001e3000))
-#define TIMER3 ((volatile uint32_t*)(_mmio_base+0x001e3020))
+#define TIMER0 ((volatile uint32_t*)(_sys_info.mmio.v_base+0x001e2000))
+#define TIMER1 ((volatile uint32_t*)(_sys_info.mmio.v_base+0x001e2020))
+#define TIMER2 ((volatile uint32_t*)(_sys_info.mmio.v_base+0x001e3000))
+#define TIMER3 ((volatile uint32_t*)(_sys_info.mmio.v_base+0x001e3020))
 
 #define TIMER_LOAD    0x00
 #define TIMER_VALUE   0x01

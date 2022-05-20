@@ -1,12 +1,13 @@
 #include <mm/mmu.h>
 #include <bcm283x/gpio.h>
 #include <bcm283x/mini_uart.h>
+#include <kernel/hw_info.h>
 
 #define AUX_OFFSET 0x00215000
 #define UART_OFFSET 0x00215040
 
-#define AUX_BASE (_mmio_base | AUX_OFFSET)
-#define UART_BASE (_mmio_base | UART_OFFSET)
+#define AUX_BASE (_sys_info.mmio.v_base | AUX_OFFSET)
+#define UART_BASE (_sys_info.mmio.v_base | UART_OFFSET)
 
 #define AUX_ENABLES (AUX_BASE+0x04)
 #define UART_AUX_ENABLE 0x01

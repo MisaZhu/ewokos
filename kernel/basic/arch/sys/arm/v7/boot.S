@@ -41,11 +41,6 @@ core0:
 
 #ifdef KERNEL_SMP
 	bl arm_smp_enable
-	bl start_core_1
-#ifndef DUAL_CORE
-	bl start_core_2
-	bl start_core_3
-#endif
 #endif
 
 	bl _boot_start              @ enable MMU for kernel (one-level section type paging for kernel init)
@@ -66,32 +61,6 @@ core0:
 	bl halt
 
 #ifdef KERNEL_SMP
-.local start_core_1
-start_core_1:
-	ldr r0, =__entry
-	mov r1, #0x40000000
-	str r0, [r1, #0x9C]         @ set __entry to 0x4000009C to light up core 1
-	sev
-	bx lr
-
-#ifndef DUAL_CORE
-.local start_core_2
-start_core_2:
-	ldr r0, =__entry
-	mov r1, #0x40000000
-	str r0, [r1, #0xAC]         @ set __entry to 0x400000AC to light up core 2
-	sev
-	bx lr
-
-.local start_core_3
-start_core_3:
-	ldr r0, =__entry
-	mov r1, #0x40000000
-	str r0, [r1, #0xBC]         @ set __entry to 0x400000BC to light up core 3
-	sev
-	bx lr
-#endif
-
 slave_core:                     @ 1-3 cores
 	mrc p15, 0, r11, c0, c0, 5
 	and r11, r11, #3            @ get core id (1-3) to r11

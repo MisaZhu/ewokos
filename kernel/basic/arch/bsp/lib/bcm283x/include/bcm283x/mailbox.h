@@ -2,9 +2,9 @@
 #define MAILBOX_H
 
 #include <stdint.h>
-#include <dev/mmio.h>
+#include <kernel/hw_info.h>
 
-#define MAILBOX_BASE (_mmio_base+0xB880)
+#define MAILBOX_BASE (_sys_info.mmio.v_base+0xB880)
 #define MAIL0_READ (((volatile mail_message_t *)(0x00 + MAILBOX_BASE)))
 #define MAIL0_STATUS (((volatile mail_status_t *)(0x18 + MAILBOX_BASE)))
 #define MAIL0_WRITE (((volatile mail_message_t *)(0x20 + MAILBOX_BASE)))

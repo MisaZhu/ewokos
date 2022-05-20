@@ -132,3 +132,14 @@ __enable_scu:
 	orr r1, r1, #0x01
 	str r1, [r0, #0x0]
 	bx lr
+
+.global __start_core
+__start_core:
+	mov r3, #0x10
+	mul r3, r3, r0
+	add r3, r3, #0x8C
+	ldr r1, =__entry
+	mov r2, #0x40000000
+	str r1, [r2, r3]         @ set __entry to 0x400000XX to light up core 
+	sev
+	bx lr

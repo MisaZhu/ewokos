@@ -2,7 +2,6 @@
 #include <kernel/hw_info.h>
 #include <kernel/kernel.h>
 #include <mm/mmu.h>
-#include <dev/mmio.h>
 #include <kstring.h>
 
 static fbinfo_t _fb_info;
@@ -21,16 +20,16 @@ int32_t vpb_fb_init(uint32_t w, uint32_t h, uint32_t dep) {
 	_fb_info.pointer = _sys_info.fb.v_base;
 
 	if(w == 640 && h == 480) {
-		put32((_mmio_base | 0x1c), 0x2c77);
-		put32((_mmio_base | 0x00120000), 0x3f1f3f9c);
-		put32((_mmio_base | 0x00120004), 0x090b61df);
-		put32((_mmio_base | 0x00120008), 0x067f1800);
+		put32((_sys_info.mmio.v_base | 0x1c), 0x2c77);
+		put32((_sys_info.mmio.v_base | 0x00120000), 0x3f1f3f9c);
+		put32((_sys_info.mmio.v_base | 0x00120004), 0x090b61df);
+		put32((_sys_info.mmio.v_base | 0x00120008), 0x067f1800);
 	}
 	else if(w == 800 && h == 600) {
-		put32((_mmio_base | 0x1c), 0x2cac);
-		put32((_mmio_base | 0x00120000), 0x1313a4c4);
-		put32((_mmio_base | 0x00120004), 0x0505f6f7);
-		put32((_mmio_base | 0x00120008), 0x071f1800);
+		put32((_sys_info.mmio.v_base | 0x1c), 0x2cac);
+		put32((_sys_info.mmio.v_base | 0x00120000), 0x1313a4c4);
+		put32((_sys_info.mmio.v_base | 0x00120004), 0x0505f6f7);
+		put32((_sys_info.mmio.v_base | 0x00120008), 0x071f1800);
 	}
 	else {
 		//1024x768
@@ -40,11 +39,11 @@ int32_t vpb_fb_init(uint32_t w, uint32_t h, uint32_t dep) {
 		_fb_info.height = h;
 		_fb_info.vwidth = w;
 		_fb_info.vheight = h;
-		put32((_mmio_base | 0x00120000), 0x3F << 2);
-		put32((_mmio_base | 0x00120004), 767);
+		put32((_sys_info.mmio.v_base | 0x00120000), 0x3F << 2);
+		put32((_sys_info.mmio.v_base | 0x00120004), 767);
 	}
-	put32((_mmio_base | 0x00120010), _fb_info.pointer - _sys_info.kernel_base);
-	put32((_mmio_base | 0x00120018), 0x082b);
+	put32((_sys_info.mmio.v_base | 0x00120010), _fb_info.pointer - _sys_info.kernel_base);
+	put32((_sys_info.mmio.v_base | 0x00120018), 0x082b);
 
 	_fb_info.size = _fb_info.width * _fb_info.height * (_fb_info.depth/8);
 	_fb_info.size_max = 4*1024*768;
