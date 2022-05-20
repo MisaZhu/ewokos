@@ -52,8 +52,12 @@ static void load_boot_pgt(void) {
 	__asm("MCR p15, 0, r0, c7, c10, 4");     //DSB
 }
 
+#define PIX_MMIO_PHY  0x3f000000
+#define PIX_MMIO_SIZE 16*MB
+
 void _boot_start(void) {
 	set_boot_pgt(0, 0, 32*MB, 0);
 	set_boot_pgt(KERNEL_BASE, 0, 32*MB, 0);
+	set_boot_pgt(MMIO_BASE, PIX_MMIO_PHY, PIX_MMIO_SIZE, 1);
 	load_boot_pgt();
 }
