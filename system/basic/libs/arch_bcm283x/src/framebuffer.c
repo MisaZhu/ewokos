@@ -5,8 +5,6 @@
 #include <sysinfo.h>
 #include <sys/mmio.h>
 
-#define KERNEL_BASE 0x80000000
-
 typedef struct {
 	uint32_t width;
 	uint32_t height;
@@ -58,15 +56,16 @@ int32_t bcm283x_fb_init(uint32_t w, uint32_t h, uint32_t dep) {
 	_fb_info.xoffset = 0;
 	_fb_info.yoffset = 0;
 
-	if(_fb_info.pointer < KERNEL_BASE) {
-		_fb_info.pointer += KERNEL_BASE;
-	}
-
 	sys_info_t sysinfo;
 	syscall1(SYS_GET_SYS_INFO, (int32_t)&sysinfo);
-	_fb_info.size_max = sysinfo.phy_mem_size - (_fb_info.pointer-KERNEL_BASE);
+
+	if(_fb_info.pointer < sysinfo.kernel_base) {
+		_fb_info.pointer += sysinfo.kernel_base;
+	}
+
+	_fb_info.size_max = sysinfo.phy_mem_size - (_fb_info.pointer-sysinfo.kernel_base);
 	
-	syscall3(SYS_MEM_MAP, _fb_info.pointer, _fb_info.pointer-KERNEL_BASE, _fb_info.size_max);
+	syscall3(SYS_MEM_MAP, _fb_info.pointer, _fb_info.pointer-sysinfo.kernel_base, _fb_info.size_max);
 	return 0;
 }
 

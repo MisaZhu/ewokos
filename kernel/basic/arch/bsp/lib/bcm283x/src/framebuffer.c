@@ -8,8 +8,6 @@
 #include <kernel/system.h>
 #include <bcm283x/gpio.h>
 
-#define KERNEL_BASE 0x80000000
-
 typedef struct {
 	uint32_t width;
 	uint32_t height;
@@ -62,7 +60,7 @@ int32_t __attribute__((optimize("O0"))) bcm283x_fb_init(uint32_t w, uint32_t h, 
 	_fb_info.size = fbinit->size;
 	_fb_info.xoffset = 0;
 	_fb_info.yoffset = 0;
-	_fb_info.size_max = _sys_info.phy_mem_size - (_fb_info.pointer-KERNEL_BASE);
+	_fb_info.size_max = _sys_info.phy_mem_size - (_fb_info.pointer-_sys_info.kernel_base);
 
 	//kfree4k(fbinit);
 	map_pages_size(_kernel_vm, 
