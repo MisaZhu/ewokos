@@ -1,5 +1,3 @@
-#define KERNEL_BASE 0x80000000
-
 .global __core_id
 __core_id:
 	mrc p15, 0, r0, c0, c0, 5

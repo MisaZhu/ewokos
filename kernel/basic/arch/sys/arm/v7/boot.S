@@ -1,5 +1,3 @@
-#define KERNEL_BASE 0x80000000
-
 .section ".init"
 .global __entry
 __entry:
@@ -33,8 +31,7 @@ continue:
 core0:
 	//0 core
 	msr cpsr, #0xD3             @ enter SVC mode with IRQ and FIQ interrupts disabled
-	ldr sp, = _svc_stack        @ initialise SVC mode stack
-	sub sp, #KERNEL_BASE        @ physical SP address before MMU enabled
+	ldr sp, = _svc_start_stack  @ initialise SVC mode stack
 
 	bl cpu_mmu_disable
 	bl cpu_dcache_disable
@@ -97,8 +94,7 @@ slave_core:                     @ 1-3 cores
 	mul r0, r0, r11             @ stack offset for current core
 
 	msr cpsr, #0xD3             @ enter SVC mode with IRQ and FIQ interrupts disabled
-	ldr sp, = _svc_stack        @ initialise SVC mode stack
-	sub sp, #KERNEL_BASE
+	ldr sp, = _svc_start_stack        @ initialise SVC mode stack
 	sub sp, r0                  @ stack offset for current core
 	
 	bl _boot_start              @ enable MMU for kernel

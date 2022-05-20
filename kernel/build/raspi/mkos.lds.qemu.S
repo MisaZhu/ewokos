@@ -13,14 +13,16 @@ SECTIONS
 {
 	/*bootloader will be compiled with phy address base at 0x8000*/
 	.init start_address : AT(start_address) ALIGN(4096)
-  {
+	{
     KEEP(*(.init .init.*))
 		../../basic/arch/bsp/raspi/start.o(.text .text.*)
 		../../basic/arch/bsp/raspi/start.o(.rodata .rodata.*)
 		../../basic/arch/bsp/raspi/start.o(.data .data.*)
 		../../basic/arch/bsp/raspi/start.o(.bss .bss.*)
-  } : init
-  _init_end = ALIGN(4096);
+	} : init
+	. = . + 0x1000;
+	_svc_start_stack = .;
+	_init_end = ALIGN(4096);
 
 	/*kernel will be compiled with virtual address base at 2GB*/
 	PROVIDE(_kernel_start = base_address + _init_end);
