@@ -77,16 +77,14 @@ __flush_tlb:
 	mcr p15, 0, r0, c7, c5, 0    // flush icache all
 	//mcr p15, 0, r0, c7, c7, 0  //invalidate cache
 	mcr p15, 0, r0, c8, c7, 0    //I-TLB and D-TLB invalidation
-	dsb
-	isb                          // instruction sync
+	dmb
 	mov pc, lr
 
 .global __set_translation_table_base
 __set_translation_table_base:
 	mcr p15, 0, r0, c2, c0, 0    //set ttbase user
 	mcr p15, 0, r0, c2, c0, 1    //set ttbase kernel
-	dsb
-	isb
+	dmb
 	mov pc, lr
 
 .global __irq_enable
