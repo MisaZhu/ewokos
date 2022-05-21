@@ -1,8 +1,14 @@
 enable_uart=1
 force_turbo=1
+
 dtparam=spi=on
 dtparam=i2c_arm=on
 dtparam=i2c=on
+
+max_usb_current=1
+current_limit_override=0x5A000020
+avoid_warnings=2
+
 
 #-----waveshare 7 inchs 1280x400 hdmi_lcd---
 hdmi_timings=400 0 100 10 140 1280 10 20 20 2 0 0 0 60 0 43000000 3
@@ -15,7 +21,6 @@ hdmi_force_hotplug=1
 
 #-----waveshare 4 inchs hdmi_lcd------------
 max_framebuffer_height=1920
-max_usb_current=1
 config_hdmi_boost=10
 hdmi_timings=1080 1 26 4 50 1920 1 8 2 6 0 0 0 60 0 135580000 3
 dtoverlay=vc4-fkms-v3d
