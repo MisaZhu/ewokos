@@ -2,6 +2,7 @@
 #include <kernel/kernel.h>
 #include <mm/mmu.h>
 #include <kstring.h>
+#include <stdbool.h>
 #include <bcm283x/board.h>
 
 #ifdef KERNEL_SMP
