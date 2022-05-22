@@ -43,6 +43,7 @@ static void load_boot_pgt(void) {
 	__asm("MRC p15, 0, r0, c1, c0, 0");      // Read CP15 System Control register
 	__asm("ORR r0,  r0, #0x00002000");       // high int vector
 	__asm("ORR r0,  r0, #0x00001000");       // cpu_icache_enable
+	__asm("ORR r0,  r0, #0x00000800");       // cpu_branck prediction
 	__asm("ORR r0,  r0, #0x004");            // cpu_dcache_enable
 	__asm("MCR p15, 0, r0, c1, c0, 0");      // Write CP15 System Control register
 
