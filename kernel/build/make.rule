@@ -15,7 +15,7 @@ ARCH_DIR=$(SRC_DIR)/basic/arch/sys
 BSP_DIR=$(SRC_DIR)/basic/arch/bsp
 
 SYS_FULL_DIR = ../../../system
-SRC_DIR=../..
+SRC_DIR=../../..
 BUILD_DIR = .
 
 # flags

@@ -1,7 +1,7 @@
 ENTRY(__entry)
 
 base_address = 0x80000000;
-start_address = 0x8000; /*for real hardware*/
+start_address = 0x10000; /*for qemu*/
 
 PHDRS
 {
@@ -15,12 +15,12 @@ SECTIONS
 	.init start_address : AT(start_address) ALIGN(4096)
 	{
     KEEP(*(.init .init.*))
-		../../basic/arch/bsp/raspi/start.o(.text .text.*)
-		../../basic/arch/bsp/raspi/start.o(.rodata .rodata.*)
-		../../basic/arch/bsp/raspi/start.o(.data .data.*)
-		../../basic/arch/bsp/raspi/start.o(.bss .bss.*)
+		../../../basic/arch/bsp/raspi/pix/start.o(.text .text.*)
+		../../../basic/arch/bsp/raspi/pix/start.o(.rodata .rodata.*)
+		../../../basic/arch/bsp/raspi/pix/start.o(.data .data.*)
+		../../../basic/arch/bsp/raspi/pix/start.o(.bss .bss.*)
 	} : init
-	. = . + 0x1000;
+	. = . + 0x4000;
 	_svc_start_stack = .;
 	_init_end = ALIGN(4096);
 
@@ -47,16 +47,16 @@ SECTIONS
 	. = ALIGN(4096);
 	_bss_end = .;
 
-	. = . + 0x1000;
+	. = . + 0x4000;
 	_irq_stack = .;
 
-	. = . + 0x1000;
+	. = . + 0x4000;
 	_abt_stack = .;
 
-	. = . + 0x1000;
+	. = . + 0x4000;
 	_undef_stack = .;
 
-	. = . + 0x1000;
+	. = . + 0x4000;
 	_svc_stack = .;
 	PROVIDE(_kernel_sp = .);
 
