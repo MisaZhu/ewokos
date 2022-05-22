@@ -26,6 +26,14 @@ CFLAGS += -DKERNEL_SMP
 ASFLAGS += -DKERNEL_SMP
 endif
 
+ifeq ($(DPI),yes)
+CFLAGS +=  -DENABLE_DPI
+endif
+
+ifeq ($(KERNEL_CONSOLE),yes)
+CFLAGS +=  -DKCONSOLE
+endif
+
 ifeq ($(DEBUG),yes)
 OPTM = -g -DKDEBUG
 else
