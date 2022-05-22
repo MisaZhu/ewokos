@@ -47,7 +47,7 @@ CFLAGS += $(OPTM) \
 	-I$(SRC_DIR)/extra/dev/include \
 	-I$(SRC_DIR)/extra/lib/include \
 	-I$(ARCH_DIR)/$(ARCH) \
-	-I$(BSP_DIR)/lib/bcm283x/include \
+	-I$(BSP_DIR)/raspi/lib/bcm283x/include \
 	-I$(ARCH_DIR)/arm/common/include \
 	-marm $(ARCH_CFLAGS) \
 	-Wstrict-prototypes \
@@ -80,13 +80,13 @@ ARCH_OBJS = \
 	$(ARCH_DIR)/arm/common/src/irq.o \
 	$(ARCH_DIR)/arm/common/src/memcpy.o \
 	$(ARCH_DIR)/arm/common/src/mmu_arch.o \
-	$(BSP_DIR)/lib/bcm283x/src/gpio.o  \
-	$(BSP_DIR)/lib/bcm283x/src/sd.o  \
-	$(BSP_DIR)/lib/bcm283x/src/mailbox.o \
-	$(BSP_DIR)/lib/bcm283x/src/pl011_uart.o \
-	$(BSP_DIR)/lib/bcm283x/src/mini_uart.o \
-	$(BSP_DIR)/lib/bcm283x/src/board.o \
-	$(BSP_DIR)/lib/bcm283x/src/framebuffer.o 
+	$(BSP_DIR)/raspi/lib/bcm283x/src/gpio.o  \
+	$(BSP_DIR)/raspi/lib/bcm283x/src/sd.o  \
+	$(BSP_DIR)/raspi/lib/bcm283x/src/mailbox.o \
+	$(BSP_DIR)/raspi/lib/bcm283x/src/pl011_uart.o \
+	$(BSP_DIR)/raspi/lib/bcm283x/src/mini_uart.o \
+	$(BSP_DIR)/raspi/lib/bcm283x/src/board.o \
+	$(BSP_DIR)/raspi/lib/bcm283x/src/framebuffer.o 
 
 ifeq ($(CORTEX_A7),yes)
 ARCH_OBJS += $(ARCH_DIR)/$(ARCH)/a7/mmu_pte_flags.o
