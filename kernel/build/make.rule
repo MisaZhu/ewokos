@@ -62,7 +62,6 @@ ARCH_OBJS = \
 	$(ARCH_DIR)/$(ARCH)/boot.o \
 	$(BSP_DIR)/$(BSP)/start.o \
 	$(ARCH_DIR)/$(ARCH)/system.o \
-	$(ARCH_DIR)/$(ARCH)/mmu_pte_flags.o \
 	$(BSP_DIR)/$(BSP)/hw_info.o \
 	$(BSP_DIR)/$(BSP)/irq.o \
 	$(BSP_DIR)/$(BSP)/timer.o \
@@ -80,6 +79,12 @@ ARCH_OBJS = \
 	$(BSP_DIR)/lib/bcm283x/src/mini_uart.o \
 	$(BSP_DIR)/lib/bcm283x/src/board.o \
 	$(BSP_DIR)/lib/bcm283x/src/framebuffer.o 
+
+ifeq ($(CORTEX_A7),yes)
+ARCH_OBJS += $(ARCH_DIR)/$(ARCH)/a7/mmu_pte_flags.o
+else
+ARCH_OBJS += $(ARCH_DIR)/$(ARCH)/mmu_pte_flags.o
+endif
 
 ifeq ($(SMP),yes)
 ARCH_OBJS += $(ARCH_DIR)/$(ARCH)/ipi.o
