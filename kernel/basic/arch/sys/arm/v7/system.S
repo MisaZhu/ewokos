@@ -76,8 +76,6 @@ __flush_tlb:
 	mov r0, #0
 	mcr p15, 0, r0, c7, c5, 0    // flush icache all
 	mcr p15, 0, r0, c7, c5, 6    // flush branch prediction
-	dsb
-	isb
 	mcr p15, 0, r0, c8, c7, 0    //unified tlb invalidation
 	mcr p15, 0, r0, c8, c6, 0    //data tlb invalidation
 	mcr p15, 0, r0, c8, c5, 0    //instruction tlb invalidation
