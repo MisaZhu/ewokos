@@ -7,7 +7,6 @@ basic_libs:
 	cd sconf; make
 	cd hash;make
 	cd ext2;make
-	cd arch_vpb;make
 	cd arch_bcm283x;make
 	cd sd;make
 	cd display;make
@@ -23,7 +22,6 @@ clean:
 	cd sconf; make clean
 	cd hash;make clean
 	cd ext2;make clean
-	cd arch_vpb;make clean
 	cd arch_bcm283x;make clean
 	cd sd;make clean
 	cd fb;make clean
