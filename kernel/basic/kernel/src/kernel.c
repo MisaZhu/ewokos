@@ -125,7 +125,10 @@ void _kernel_entry_c(void) {
 
 
 	uart_dev_init();
+
+#ifdef KCONSOLE
 	kconsole_init();
+#endif
 
 	kev_init();
 	printf(
@@ -178,7 +181,10 @@ void _kernel_entry_c(void) {
 	timer_set_interval(0, 512); 
 
 	printf("kernel: enable irq and start init...\n");
+
+#ifdef KCONSOLE
 	kconsole_close();
+#endif
 	__irq_enable();
 	halt();
 }

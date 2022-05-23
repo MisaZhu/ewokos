@@ -28,6 +28,8 @@ void printf(const char *format, ...) {
 	_len = 0;
 	v_printf(outc, NULL, format, ap);
 	uart_out(_buf);
+#ifdef KCONSOLE
 	kconsole_input(_buf);
+#endif
 }
 
