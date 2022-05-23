@@ -12,4 +12,4 @@ BSP=raspi/pi2.3
 #----multi core(SMP)------
 SMP=yes
 #----kernel console-------
-#KERNEL_CONSOLE=yes
+KERNEL_CONSOLE=yes
