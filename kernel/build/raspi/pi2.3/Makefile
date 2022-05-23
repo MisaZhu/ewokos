@@ -9,4 +9,6 @@ OS_QEMU_IMG = kernel7.qemu.img
 OS_QEMU_ELF = kernel7.qemu.elf
 
 QEMU_CMD = qemu-system-aarch64
+SRC_DIR=../../..
+
 include ../../make.rule
