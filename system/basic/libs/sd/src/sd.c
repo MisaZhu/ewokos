@@ -6,7 +6,6 @@
 #include <unistd.h>
 #include <sysinfo.h>
 #include <arch/bcm283x/sd.h>
-#include <arch/vpb/sd.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -165,11 +164,6 @@ int32_t sd_init(void) {
 		sd_init_arch = bcm283x_sd_init;
 		sd_read_sector_arch = bcm283x_sd_read_sector;
 		sd_write_sector_arch = bcm283x_sd_write_sector;
-	}
-	else {
-		sd_init_arch = versatilepb_sd_init;
-		sd_read_sector_arch = versatilepb_sd_read_sector;
-		sd_write_sector_arch = versatilepb_sd_write_sector;
 	}
 
 	if(sd_init_arch() != 0)
