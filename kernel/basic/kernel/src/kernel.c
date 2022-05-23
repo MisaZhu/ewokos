@@ -170,7 +170,6 @@ void _kernel_entry_c(void) {
 		kfork_core_halt(i);
 	}
 
-	start_multi_cores(_sys_info.cores);
 	while(_started_cores < _sys_info.cores) {
 		_delay_msec(10);
 	}
