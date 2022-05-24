@@ -12,6 +12,7 @@
 sys_info_t _sys_info;
 uint32_t _allocatable_phy_mem_top = 0;
 uint32_t _allocatable_phy_mem_base = 0;
+static uint32_t _core_base_offset = 0;
 
 static bool isPi2B(uint32_t revision) {
 	return (revision == 0xa01040 ||
@@ -41,7 +42,12 @@ static bool isPi3B(uint32_t revision) {
 			revision == 0xa22083);
 }
 
+static bool isPi4B1G(uint32_t revision) {
+	return (revision == 0xa03111);
+}
+	
 void sys_info_init(void) {
+	_core_base_offset =  0x01000000;
 	memset(&_sys_info, 0, sizeof(sys_info_t));
 	uint32_t pix_revision = bcm283x_board();
 
@@ -65,6 +71,12 @@ void sys_info_init(void) {
 		_sys_info.phy_mem_size = 1024*MB;
 		_sys_info.mmio.phy_base = 0x3f000000;
 	}
+	else if(isPi4B1G(pix_revision)) {
+		strcpy(_sys_info.machine, "raspi4B1G");
+		_sys_info.phy_mem_size = 1024*MB;
+		_sys_info.mmio.phy_base = 0xfe000000;
+		_core_base_offset =  0x01800000;
+	}
 
 	_sys_info.phy_offset = 0;
 	_sys_info.kernel_base = KERNEL_BASE;
@@ -80,15 +92,9 @@ void sys_info_init(void) {
 #endif
 }
 
-#ifdef PI4
-#define CORE0_BASE 0xff800000
-#else
-#define CORE0_BASE_OFFSET 0x01000000
-#endif
-
 void arch_vm(page_dir_entry_t* vm) {
-	uint32_t vbase = _sys_info.mmio.v_base + CORE0_BASE_OFFSET;
-	uint32_t pbase = _sys_info.mmio.phy_base + CORE0_BASE_OFFSET;
+	uint32_t vbase = _sys_info.mmio.v_base + _core_base_offset;
+	uint32_t pbase = _sys_info.mmio.phy_base + _core_base_offset;
 	map_page(vm, vbase, pbase, AP_RW_D, 1);
 	map_page(vm, pbase, pbase, AP_RW_D, 1);
 }
