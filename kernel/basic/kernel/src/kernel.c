@@ -96,17 +96,15 @@ static void init_allocable_mem(void) {
 }
 
 #ifdef KERNEL_SMP
-static uint32_t _started_cores = 0;
 void __attribute__((optimize("O0"))) _slave_kernel_entry_c(void) {
-	while(1) {
+	/*while(1) {
 		if(multi_cores_ready() == 0)
 			break;
 	}
+	*/
 	set_translation_table_base(V2P((uint32_t)_kernel_vm));
-	kernel_lock();
-	printf("  core %d ready\n", get_core_id());
-	_started_cores++;
-	kernel_unlock();
+	printf("[ok]\n");
+	_cpu_cores[get_core_id()].actived = true;
 	halt();
 }
 #endif
@@ -159,19 +157,16 @@ void _kernel_entry_c(void) {
 
 	kfork_core_halt(0);
 #ifdef KERNEL_SMP
-	printf("kernel: wake up slave cores(SMP) ...\n");
-	_started_cores = 1;
 	kernel_lock_init();
 
 	for(uint32_t i=1; i<_sys_info.cores; i++) {
-		__start_core(i);
+		_cpu_cores[i].actived = false;
+		printf("kernel: start core %d ... ", i);
 		kfork_core_halt(i);
+		__start_core(i);
+		while(!_cpu_cores[i].actived)
+			_delay_msec(10);
 	}
-
-	while(_started_cores < _sys_info.cores) {
-		_delay_msec(10);
-	}
-	printf("[all %d cores started].\n", _sys_info.cores);
 #endif
 
 	printf("kernel: set timer.\n");

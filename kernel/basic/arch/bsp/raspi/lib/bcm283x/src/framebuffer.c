@@ -63,13 +63,25 @@ int32_t fb_init_raw(uint32_t w, uint32_t h, uint32_t dep) {
 	mailbox_send(PROPERTY_CHANNEL, &msg);
 	mailbox_read(PROPERTY_CHANNEL, &msg);
 
-    if(mbox[20]==32 && mbox[28]!=0) {
-		_fb_info.pointer = P2V(mbox[28]) - 0xc0000000; //GPU addr to ARM addr
-        _fb_info.width=mbox[5];
-        _fb_info.height=mbox[6];
-        _fb_info.pitch=mbox[33];
-    }
- 
+    if(mbox[28] == 0)
+		return -1;
+		
+	_fb_info.pointer = P2V(mbox[28]) - 0xc0000000; //GPU addr to ARM addr
+	_fb_info.width = mbox[5];
+	_fb_info.height = mbox[6];
+	_fb_info.pitch = mbox[33];
+	_fb_info.size = mbox[29];
+	_fb_info.xoffset = 0;
+	_fb_info.yoffset = 0;
+	_fb_info.size_max = _sys_info.phy_mem_size - (_fb_info.pointer-_sys_info.kernel_base);
+ 	
+	 map_pages_size(_kernel_vm, 
+		_fb_info.pointer,
+		V2P(_fb_info.pointer),
+		_fb_info.size_max,
+		AP_RW_D, 0);
+	flush_tlb();
+
 	return 0;
 }
 

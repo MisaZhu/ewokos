@@ -9,8 +9,6 @@
 #define CPU_MAX_CORES 16
 extern void mcore_lock(int32_t* v);
 extern void mcore_unlock(int32_t* v);
-extern void start_multi_cores(uint32_t cores);
-extern int32_t multi_cores_ready(void);
 extern uint32_t get_core_id(void);
 extern uint32_t get_cpu_cores(void);
 extern void     __start_core(uint32_t coreid);
