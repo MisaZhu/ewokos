@@ -14,6 +14,11 @@ uint32_t _allocatable_phy_mem_top = 0;
 uint32_t _allocatable_phy_mem_base = 0;
 uint32_t _core_base_offset = 0;
 
+#ifdef PI4
+static bool isPi4B1G(uint32_t revision) {
+	return (revision == 0xa03111);
+}
+#else
 static bool isPi2B(uint32_t revision) {
 	return (revision == 0xa01040 ||
 			revision == 0xa01041 ||
@@ -41,10 +46,7 @@ static bool isPi3B(uint32_t revision) {
 			revision == 0xa52082 ||
 			revision == 0xa22083);
 }
-
-static bool isPi4B1G(uint32_t revision) {
-	return (revision == 0xa03111);
-}
+#endif
 	
 void sys_info_init(void) {
 	memset(&_sys_info, 0, sizeof(sys_info_t));

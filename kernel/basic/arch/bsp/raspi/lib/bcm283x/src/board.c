@@ -9,7 +9,7 @@
 
 #define GET_BOARD_REVISION  0x00010002
 
-static __attribute__((__aligned__(PAGE_SIZE))) uint32_t data[6];
+static __attribute__((__aligned__(16))) uint32_t data[6];
 uint32_t bcm283x_board(void) {
 	memset(data, 0, 6*4);
 	data[0] = 6*4;

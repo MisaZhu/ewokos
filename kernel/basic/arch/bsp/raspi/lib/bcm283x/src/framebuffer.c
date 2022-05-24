@@ -8,6 +8,73 @@
 #include <kernel/system.h>
 #include <bcm283x/gpio.h>
 
+static fbinfo_t _fb_info;
+
+#ifdef PI4
+volatile uint32_t  __attribute__((aligned(16))) mbox[36];
+int32_t fb_init_raw(uint32_t w, uint32_t h, uint32_t dep) {
+    mbox[0] = 35*4;
+    mbox[1] = 0; //request
+
+    mbox[2] = 0x48003;  //set phy wh
+    mbox[3] = 8;
+    mbox[4] = 8;
+    mbox[5] = w;
+    mbox[6] = h;
+
+    mbox[7] = 0x48004;  //set virt wh
+    mbox[8] = 8;
+    mbox[9] = 8;
+    mbox[10] = w;
+    mbox[11] = h;
+
+    mbox[12] = 0x48009; //set virt offset
+    mbox[13] = 8;
+    mbox[14] = 8;
+    mbox[15] = 0;       //FrameBufferInfo.x_offset
+    mbox[16] = 0;       //FrameBufferInfo.y.offset
+
+    mbox[17] = 0x48005; //set depth
+    mbox[18] = 4;
+    mbox[19] = 4;
+    mbox[20] = 32;      //FrameBufferInfo.depth
+
+    mbox[21] = 0x48006; //set pixel order
+    mbox[22] = 4;
+    mbox[23] = 4;
+    mbox[24] = 1;      //RGB, not BGR preferably
+
+    mbox[25] = 0x40001; //get framebuffer, gets alignment on request
+    mbox[26] = 8;
+    mbox[27] = 8;
+    mbox[28] = 4096;    //FrameBufferInfo.pointer
+    mbox[29] = 0;       //FrameBufferInfo.size
+
+    mbox[30] = 0x40008; //get pitch
+    mbox[31] = 4;
+    mbox[32] = 4;
+    mbox[33] = 0;       //FrameBufferInfo.pitch
+
+    mbox[34] = 0;
+
+	mail_message_t msg;
+	memset(&msg, 0, sizeof(mail_message_t));
+	msg.data = (V2P((uint32_t)&mbox + 0xC0000000)) >> 4; // ARM addr to GPU addr
+	mailbox_send(PROPERTY_CHANNEL, &msg);
+	mailbox_read(PROPERTY_CHANNEL, &msg);
+
+    if(mbox[20]==32 && mbox[28]!=0) {
+		_fb_info.pointer = P2V(mbox[28]) - 0xc0000000; //GPU addr to ARM addr
+        _fb_info.width=mbox[5];
+        _fb_info.height=mbox[6];
+        _fb_info.pitch=mbox[33];
+    }
+ 
+	return 0;
+}
+
+#else
+
 typedef struct {
 	uint32_t width;
 	uint32_t height;
@@ -21,10 +88,9 @@ typedef struct {
 	uint32_t size;
 } fb_init_t;
 
-static __attribute__((__aligned__(PAGE_SIZE))) fb_init_t _fbinit;
-static fbinfo_t _fb_info;
+static __attribute__((__aligned__(16))) fb_init_t _fbinit;
 
-int32_t __attribute__((optimize("O0"))) bcm283x_fb_init(uint32_t w, uint32_t h, uint32_t dep) {
+int32_t fb_init_raw(uint32_t w, uint32_t h, uint32_t dep) {
 	fb_init_t* fbinit = &_fbinit;
 	//fb_init_t* fbinit = (fb_init_t*)kalloc4k();
 	memset(&_fb_info, 0, sizeof(fbinfo_t));
@@ -67,6 +133,13 @@ int32_t __attribute__((optimize("O0"))) bcm283x_fb_init(uint32_t w, uint32_t h, 
 		_fb_info.size_max,
 		AP_RW_D, 0);
 	flush_tlb();
+	return 0;
+}
+#endif
+
+int32_t bcm283x_fb_init(uint32_t w, uint32_t h, uint32_t dep) {
+	if(fb_init_raw(w, h, dep) != 0)
+		return -1;
 
 #ifdef ENABLE_DPI
 	const char pins[] = {0,1,2,3,4,5,6,7,8,9,10,11,
