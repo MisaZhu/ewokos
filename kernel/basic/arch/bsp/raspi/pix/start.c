@@ -53,7 +53,11 @@ static void load_boot_pgt(void) {
 	__asm("MCR p15, 0, r0, c7, c10, 4");     //DSB
 }
 
+#ifdef PI4
+#define PIX_MMIO_PHY  0xfe000000
+#else
 #define PIX_MMIO_PHY  0x3f000000
+#endif
 #define PIX_MMIO_SIZE 16*MB
 
 void _boot_start(void) {

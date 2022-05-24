@@ -72,7 +72,9 @@ enum {
 	SYS_SAFE_SET,         //50
 	SYS_SOFT_INT,         //51
 	SYS_PROC_UUID,        //52
-	SYS_CALL_NUM          //53
+	SYS_V2P,              //53
+	SYS_P2V,              //54
+	SYS_CALL_NUM          //55
 };
 
 #endif

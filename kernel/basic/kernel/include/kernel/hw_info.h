@@ -8,6 +8,7 @@
 extern sys_info_t _sys_info;
 extern uint32_t   _allocatable_phy_mem_top;
 extern uint32_t   _allocatable_phy_mem_base;
+extern uint32_t   _core_base_offset;
 
 extern void       sys_info_init(void);
 extern void       arch_vm(page_dir_entry_t* vm);

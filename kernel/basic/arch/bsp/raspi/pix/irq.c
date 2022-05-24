@@ -3,16 +3,16 @@
 #include <kernel/hw_info.h>
 #include "timer_arch.h"
 
-#define CORE0_IRQ_CNTL_OFFSET    0x01000040
-#define CORE0_IRQ_SOURCE_OFFSET  0x01000060
+#define CORE0_IRQ_CNTL_OFFSET    0x40
+#define CORE0_IRQ_SOURCE_OFFSET  0x60
 
 static void routing_core0_irq(void) {
-  uint32_t vbase = _sys_info.mmio.v_base+CORE0_IRQ_CNTL_OFFSET;
+  uint32_t vbase = _sys_info.mmio.v_base + _core_base_offset + CORE0_IRQ_CNTL_OFFSET;
   put32(vbase, 0x08);
 }
 
 static uint32_t read_core0_pending(void) {
-  uint32_t vbase = _sys_info.mmio.v_base+CORE0_IRQ_SOURCE_OFFSET;
+  uint32_t vbase = _sys_info.mmio.v_base + _core_base_offset + CORE0_IRQ_SOURCE_OFFSET;
   return get32(vbase);
 }
 

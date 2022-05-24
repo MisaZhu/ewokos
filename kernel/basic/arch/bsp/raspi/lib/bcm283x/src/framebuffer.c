@@ -39,8 +39,7 @@ int32_t __attribute__((optimize("O0"))) bcm283x_fb_init(uint32_t w, uint32_t h, 
 	fbinit->vheight = fbinit->height;
 	fbinit->depth = dep;
 
-	msg.data = ((uint32_t)fbinit + 0x40000000) >> 4;//gpu address add 0x40000000 with l2 cache enabled.
-	//msg.data = ((uint32_t)&fbinit + 0xC0000000) >> 4;//gpu address add 0xc0000000 with l2 cache disabled.
+	msg.data = (V2P((uint32_t)fbinit + 0xC0000000)) >> 4; // DMA offset
 	mailbox_send(FRAMEBUFFER_CHANNEL, &msg);
 	mailbox_read(FRAMEBUFFER_CHANNEL, &msg);
 	if(fbinit->pointer == 0) {
@@ -55,8 +54,7 @@ int32_t __attribute__((optimize("O0"))) bcm283x_fb_init(uint32_t w, uint32_t h, 
 	_fb_info.depth = fbinit->depth;
 	_fb_info.pitch = _fb_info.width*(_fb_info.depth/8);
 
-	_fb_info.pointer = (uint32_t)fbinit->pointer - 0x40000000; //gpu address sub 0x40000000 with l2 cache enabled
-	//_fb_info.pointer = (uint32_t)fbinit.pointer - 0xc0000000; //gpu address sub 0xc0000000 with l2 cache disabled
+	_fb_info.pointer = P2V((uint32_t)fbinit->pointer) - 0xc0000000; //DMA offset
 	_fb_info.size = fbinit->size;
 	_fb_info.xoffset = 0;
 	_fb_info.yoffset = 0;

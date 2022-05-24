@@ -123,14 +123,9 @@ void _kernel_entry_c(void) {
 	init_kernel_vm();  
 	kmalloc_init();
 
-
 	uart_dev_init();
-
-#ifdef KCONSOLE
-	kconsole_init();
-#endif
-
 	kev_init();
+
 	printf(
 			" ______           ______  _    _   ______  ______ \n"
 			"(  ___ \\|\\     /|(  __  )| \\  / \\ (  __  )(  ___ \\\n"
@@ -139,6 +134,9 @@ void _kernel_entry_c(void) {
 			"| (___  | || || || |__| || ( \\  \\ | |__| |  ___) |\n"
 			"(______/(_______)(______)|_/  \\_/ (______)\\______)\n\n");
 
+#ifdef KCONSOLE
+	kconsole_init();
+#endif
                                                       
 	printf("kernel: kmalloc initing  [ok] : %dMB\n", div_u32(KMALLOC_END-KMALLOC_BASE , 1*MB));
 	init_allocable_mem(); //init the rest allocable memory VM

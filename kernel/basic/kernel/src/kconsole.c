@@ -2,6 +2,7 @@
 #include <kernel/kconsole.h>
 #include <dev/fb.h>
 #include <basic_math.h>
+#include <kprintf.h>
 #include <stddef.h>
 #include <console/console.h>
 
@@ -15,6 +16,7 @@ void kconsole_init(void) {
 	_line = 0;
 
 	console_init(&_console);
+	printf("kernel: init framebuffer.....\n");
 	if(fb_init(640, 480, &fbinfo) == 0) {
 		_fb_g = graph_new((uint32_t*)fbinfo.pointer, fbinfo.width, fbinfo.height);
 		_console.font = get_font();
@@ -22,6 +24,7 @@ void kconsole_init(void) {
 		_console.bg_color = 0xff888888;
 		console_reset(&_console, _fb_g->w, _fb_g->h);
 	}
+	printf("kernel: FB-base: 0x%x, w:%d, h:%d\n", fbinfo.pointer, fbinfo.width, fbinfo.height);
 }
 
 void kconsole_input(const char* s) {

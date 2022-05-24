@@ -7,23 +7,23 @@ void ipi_enable(uint32_t core_id) {
 	uint32_t reg = 0;
 	switch(core_id) {
 	case 0:
-		reg = 0x40000050;
+		reg = 0x50;
 		break;
 	case 1:
-		reg = 0x40000054;
+		reg = 0x54;
 		break;
 	case 2:
-		reg = 0x40000058;
+		reg = 0x58;
 		break;
 	case 3:
-		reg = 0x4000005c;
+		reg = 0x5c;
 		break;
 	}
 
 	if(reg == 0)
 		return;
 
-	reg = reg - _sys_info.mmio.phy_base + MMIO_BASE;
+	reg += _sys_info.mmio.v_base + _core_base_offset;
 	put32(reg, 1);
 }
 
@@ -31,23 +31,23 @@ void ipi_send(uint32_t core_id) {
 	uint32_t reg = 0;
 	switch(core_id) {
 	case 0:
-		reg = 0x40000080;
+		reg = 0x80;
 		break;
 	case 1:
-		reg = 0x40000090;
+		reg = 0x90;
 		break;
 	case 2:
-		reg = 0x400000a0;
+		reg = 0xa0;
 		break;
 	case 3:
-		reg = 0x400000b0;
+		reg = 0xb0;
 		break;
 	}
 
 	if(reg == 0)
 		return;
 
-	reg = reg - _sys_info.mmio.phy_base + MMIO_BASE;
+	reg += _sys_info.mmio.v_base + _core_base_offset;
 	put32(reg, 1);
 }
 
@@ -55,23 +55,23 @@ void ipi_clear(uint32_t core_id) {
 	uint32_t reg = 0;
 	switch(core_id) {
 	case 0:
-		reg = 0x400000c0;
+		reg = 0xc0;
 		break;
 	case 1:
-		reg = 0x400000d0;
+		reg = 0xd0;
 		break;
 	case 2:
-		reg = 0x400000e0;
+		reg = 0xe0;
 		break;
 	case 3:
-		reg = 0x400000f0;
+		reg = 0xf0;
 		break;
 	}
 
 	if(reg == 0)
 		return;
 
-	reg = reg - _sys_info.mmio.phy_base + MMIO_BASE;
+	reg += _sys_info.mmio.v_base + _core_base_offset;
 	uint32_t v = get32(reg);
 	put32(reg, v);
 }

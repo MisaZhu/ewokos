@@ -12,7 +12,7 @@
 sys_info_t _sys_info;
 uint32_t _allocatable_phy_mem_top = 0;
 uint32_t _allocatable_phy_mem_base = 0;
-static uint32_t _core_base_offset = 0;
+uint32_t _core_base_offset = 0;
 
 static bool isPi2B(uint32_t revision) {
 	return (revision == 0xa01040 ||
@@ -47,10 +47,16 @@ static bool isPi4B1G(uint32_t revision) {
 }
 	
 void sys_info_init(void) {
-	_core_base_offset =  0x01000000;
 	memset(&_sys_info, 0, sizeof(sys_info_t));
 	uint32_t pix_revision = bcm283x_board();
 
+#ifdef PI4
+	strcpy(_sys_info.machine, "raspi4B1G");
+	_sys_info.phy_mem_size = 1024*MB;
+	_sys_info.mmio.phy_base = 0xfe000000;
+	_core_base_offset =  0x01800000;
+#else
+	_core_base_offset =  0x01000000;
 	if(isPi2B(pix_revision)) {
 		strcpy(_sys_info.machine, "raspi2");
 		_sys_info.phy_mem_size = 1024*MB;
@@ -71,12 +77,7 @@ void sys_info_init(void) {
 		_sys_info.phy_mem_size = 1024*MB;
 		_sys_info.mmio.phy_base = 0x3f000000;
 	}
-	else if(isPi4B1G(pix_revision)) {
-		strcpy(_sys_info.machine, "raspi4B1G");
-		_sys_info.phy_mem_size = 1024*MB;
-		_sys_info.mmio.phy_base = 0xfe000000;
-		_core_base_offset =  0x01800000;
-	}
+#endif
 
 	_sys_info.phy_offset = 0;
 	_sys_info.kernel_base = KERNEL_BASE;
