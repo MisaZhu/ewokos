@@ -38,7 +38,7 @@ int32_t bcm283x_fb_init(uint32_t w, uint32_t h, uint32_t dep) {
 	fbinit->vheight = fbinit->height;
 	fbinit->depth = dep;
 
-	msg.data = (syscall1(SYS_V2P, (uint32_t)fbinit + 0xC0000000)) >> 4; // ARM addr to GPU addr
+	msg.data = (syscall1(SYS_V2P, (uint32_t)fbinit | 0xC0000000)) >> 4; // ARM addr to GPU addr
 	bcm283x_mailbox_send(FRAMEBUFFER_CHANNEL, &msg);
 	bcm283x_mailbox_read(FRAMEBUFFER_CHANNEL, &msg);
 
@@ -49,7 +49,7 @@ int32_t bcm283x_fb_init(uint32_t w, uint32_t h, uint32_t dep) {
 	_fb_info.depth = fbinit->depth;
 	_fb_info.pitch = _fb_info.width*(_fb_info.depth/8);
 
-	_fb_info.pointer = syscall1(SYS_P2V, (uint32_t)fbinit->pointer) - 0xc0000000; //GPU addr to ARM addr
+	_fb_info.pointer = syscall1(SYS_P2V, (uint32_t)fbinit->pointer & 0x3fffffff); //GPU addr to ARM addr
 	_fb_info.size = fbinit->size;
 	_fb_info.xoffset = 0;
 	_fb_info.yoffset = 0;
