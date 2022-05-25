@@ -21,7 +21,7 @@ void kconsole_init(void) {
 		printf("[failed]\n");
 		return;
 	}
-	printf("[ok] FB-base: 0x%x, w:%d, h:%d\n", fbinfo.pointer, fbinfo.width, fbinfo.height);
+	printf("[ok] base: 0x%x, w:%d, h:%d, sz:%d\n", fbinfo.pointer, fbinfo.width, fbinfo.height, fbinfo.size);
 	_fb_g = graph_new((uint32_t*)fbinfo.pointer, fbinfo.width, fbinfo.height);
 	_console.font = get_font();
 	_console.fg_color = 0xff000000;
