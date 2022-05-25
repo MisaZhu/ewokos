@@ -58,17 +58,14 @@ int32_t fb_init_raw(uint32_t w, uint32_t h, uint32_t dep) {
 
 	mail_message_t msg;
 	memset(&msg, 0, sizeof(mail_message_t));
-	msg.data = (V2P((uint32_t)&mbox) + 0xc0000000) >> 4; // ARM addr to GPU addr
+	msg.data = (V2P((uint32_t)&mbox + 0xC0000000)) >> 4; // ARM addr to GPU addr
 	mailbox_send(PROPERTY_CHANNEL, &msg);
 	mailbox_read(PROPERTY_CHANNEL, &msg);
 
     if(mbox[28] == 0 || mbox[29] == 0)
 		return -1;
 		
-	_fb_info.pointer = P2V(mbox[28]);
-    if(_fb_info.pointer > 0xc0000000)
-	    _fb_info.pointer -= 0xc0000000; //GPU addr to ARM addr
-
+	_fb_info.pointer = P2V(mbox[28]) - 0xc0000000; //GPU addr to ARM addr
 	_fb_info.width = mbox[5];
 	_fb_info.height = mbox[6];
 	_fb_info.pitch = mbox[33];
