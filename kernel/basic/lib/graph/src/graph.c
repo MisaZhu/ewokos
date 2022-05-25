@@ -64,3 +64,17 @@ void graph_reverse(graph_t* g) {
 		i++;
 	}
 }
+
+void blt16(uint32_t* src, uint16_t* dst, uint32_t w, uint32_t h) {
+	uint32_t sz = w * h;
+	uint32_t i;
+
+	for (i = 0; i < sz; i++) {
+		uint32_t s = src[i];
+		uint8_t r = (s >> 16) & 0xff;
+		uint8_t g = (s >> 8)  & 0xff;
+		uint8_t b = s & 0xff;
+		dst[i] = ((r >> 3) <<11) | ((g >> 3) << 6) | (b >> 3);
+	}
+}
+

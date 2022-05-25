@@ -69,6 +69,7 @@ int32_t fb_init_raw(uint32_t w, uint32_t h, uint32_t dep) {
 	_fb_info.width = mbox[5];
 	_fb_info.height = mbox[6];
 	_fb_info.pitch = mbox[33];
+	_fb_info.depth = mbox[20];
 	_fb_info.size = mbox[29];
 	_fb_info.xoffset = 0;
 	_fb_info.yoffset = 0;

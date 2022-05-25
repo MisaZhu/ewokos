@@ -54,4 +54,6 @@ void graph_draw_char(graph_t* g, int32_t x, int32_t y, char c, font_t* font, uin
 
 void graph_draw_text(graph_t* g, int32_t x, int32_t y, const char* str, font_t* font, uint32_t color);
 
+void blt16(uint32_t* src, uint16_t* dst, uint32_t w, uint32_t h);
+
 #endif
