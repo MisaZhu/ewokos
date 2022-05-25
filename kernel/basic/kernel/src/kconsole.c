@@ -16,15 +16,17 @@ void kconsole_init(void) {
 	_line = 0;
 
 	console_init(&_console);
-	printf("kernel: init framebuffer.....\n");
-	if(fb_init(640, 480, &fbinfo) == 0) {
-		_fb_g = graph_new((uint32_t*)fbinfo.pointer, fbinfo.width, fbinfo.height);
-		_console.font = get_font();
-		_console.fg_color = 0xff000000;
-		_console.bg_color = 0xff888888;
-		console_reset(&_console, _fb_g->w, _fb_g->h);
+	printf("kernel: init framebuffer ... ");
+	if(fb_init(640, 480, &fbinfo) != 0) {
+		printf("[failed]\n");
+		return;
 	}
-	printf("kernel: FB-base: 0x%x, w:%d, h:%d\n", fbinfo.pointer, fbinfo.width, fbinfo.height);
+	printf("[ok] FB-base: 0x%x, w:%d, h:%d\n", fbinfo.pointer, fbinfo.width, fbinfo.height);
+	_fb_g = graph_new((uint32_t*)fbinfo.pointer, fbinfo.width, fbinfo.height);
+	_console.font = get_font();
+	_console.fg_color = 0xff000000;
+	_console.bg_color = 0xff888888;
+	console_reset(&_console, _fb_g->w, _fb_g->h);
 }
 
 void kconsole_input(const char* s) {

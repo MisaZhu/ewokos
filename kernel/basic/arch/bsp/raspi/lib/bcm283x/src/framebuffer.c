@@ -36,7 +36,7 @@ int32_t fb_init_raw(uint32_t w, uint32_t h, uint32_t dep) {
     mbox[17] = 0x48005; //set depth
     mbox[18] = 4;
     mbox[19] = 4;
-    mbox[20] = 32;      //FrameBufferInfo.depth
+    mbox[20] = dep;      //FrameBufferInfo.depth
 
     mbox[21] = 0x48006; //set pixel order
     mbox[22] = 4;
@@ -62,7 +62,7 @@ int32_t fb_init_raw(uint32_t w, uint32_t h, uint32_t dep) {
 	mailbox_send(PROPERTY_CHANNEL, &msg);
 	mailbox_read(PROPERTY_CHANNEL, &msg);
 
-    if(mbox[28] == 0)
+    if(mbox[28] == 0 || mbox[29] == 0)
 		return -1;
 		
 	_fb_info.pointer = P2V(mbox[28]) - 0xc0000000; //GPU addr to ARM addr
