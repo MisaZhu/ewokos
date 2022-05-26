@@ -1,4 +1,5 @@
 .section ".init"
+
 .global __entry
 __entry:
 #ifndef SKIP_HYP
@@ -34,7 +35,7 @@ core0:
 	//0 core
 	msr cpsr, #0xD3             @ enter SVC mode with IRQ and FIQ interrupts disabled
 	ldr sp,  = _svc_start_stack @ initialise SVC mode stack
-	ldr r0, = #0xFFFF0000
+	ldr r0, = kernel_base
 	and r0, r0, pc
 	add sp, sp, r0
 
@@ -142,3 +143,4 @@ cpu_icache_disable:
 	mcr     p15, #0, r0, c1, c0, #0
 	bx      lr
 
+kernel_base: .word 0xffff0000
