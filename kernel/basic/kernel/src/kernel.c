@@ -107,6 +107,27 @@ void __attribute__((optimize("O0"))) _slave_kernel_entry_c(void) {
 }
 #endif
 
+static void welcome(void) {
+	printf( "\n"
+			"---------------------------------------------------\n"
+			" ______           ______  _    _   ______  ______ \n"
+			"(  ___ \\|\\     /|(  __  )| \\  / \\ (  __  )(  ___ \\\n"
+			"| (__   | | _ | || |  | || (_/  / | |  | || (____\n"
+			"|  __)  | |( )| || |  | ||  _  (  | |  | |(____  )\n"
+			"| (___  | || || || |__| || ( \\  \\ | |__| |  ___) |\n"
+			"(______/(_______)(______)|_/  \\_/ (______)\\______)\n\n");
+                                                      
+	printf("machine        %s\n" 
+		   "mem_size       %d MB\n"
+		   "mem_offset     0x%x\n"
+		   "mmio_base      0x%x\n"
+		   "---------------------------------------------------\n\n",
+			_sys_info.machine,
+			_sys_info.phy_mem_size/1024/1024,
+			_sys_info.phy_offset,
+			_sys_info.mmio.phy_base);
+}
+
 int32_t load_init_proc(void);
 void _kernel_entry_c(void) {
 	__irq_disable();
@@ -125,15 +146,8 @@ void _kernel_entry_c(void) {
 #ifdef KCONSOLE
 	kconsole_init();
 #endif
+	welcome();
 
-	printf( "\n"
-			" ______           ______  _    _   ______  ______ \n"
-			"(  ___ \\|\\     /|(  __  )| \\  / \\ (  __  )(  ___ \\\n"
-			"| (__   | | _ | || |  | || (_/  / | |  | || (____\n"
-			"|  __)  | |( )| || |  | ||  _  (  | |  | |(____  )\n"
-			"| (___  | || || || |__| || ( \\  \\ | |__| |  ___) |\n"
-			"(______/(_______)(______)|_/  \\_/ (______)\\______)\n\n");
-                                                      
 	printf("kernel: kmalloc initing  [ok] : %dMB\n", div_u32(KMALLOC_END-KMALLOC_BASE , 1*MB));
 	init_allocable_mem(); //init the rest allocable memory VM
 	printf("kernel: init allocable memory: %dMB, %d pages\n", div_u32(get_free_mem_size() , 1*MB), _pages_ref.max);

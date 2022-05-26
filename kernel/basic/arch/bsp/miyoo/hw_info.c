@@ -16,7 +16,7 @@ void sys_info_init(void) {
 	memset(&_sys_info, 0, sizeof(sys_info_t));
 	_core_base_offset =  0x01000000;
 
-	strcpy(_sys_info.machine, "miyoo");
+	strcpy(_sys_info.machine, "miyoo-mini");
 	_sys_info.phy_offset = 0x20000000;
 	_sys_info.phy_mem_size = 128*MB;
 	_sys_info.mmio.phy_base = 0x1f000000;

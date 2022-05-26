@@ -16,12 +16,12 @@ void kconsole_init(void) {
 	_line = 0;
 
 	console_init(&_console);
-	printf("kernel: init framebuffer ... ");
+	//printf("\nkernel: init framebuffer ... ");
 	if(fb_init(640, 480, &fbinfo) != 0) {
-		printf("[failed]\n");
+		//printf("[failed]\n");
 		return;
 	}
-	printf("[ok] base: 0x%x, w:%d, h:%d, dep:%d\n", fbinfo.pointer, fbinfo.width, fbinfo.height, fbinfo.depth);
+	//printf("[ok] base: 0x%x, w:%d, h:%d, dep:%d\n", fbinfo.pointer, fbinfo.width, fbinfo.height, fbinfo.depth);
 	if(fbinfo.depth == 32)
 		_fb_g = graph_new((uint32_t*)fbinfo.pointer, fbinfo.width, fbinfo.height);
 	else {

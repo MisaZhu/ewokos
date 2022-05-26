@@ -10,7 +10,7 @@ uint32_t _allocatable_phy_mem_base = 0;
 void sys_info_init(void) {
 	memset(&_sys_info, 0, sizeof(sys_info_t));
 
-	strcpy(_sys_info.machine, "raspi");
+	strcpy(_sys_info.machine, "raspi1");
 	_sys_info.phy_offset = 0;
 	_sys_info.phy_mem_size = 512*MB;
 	_sys_info.kernel_base = KERNEL_BASE;
