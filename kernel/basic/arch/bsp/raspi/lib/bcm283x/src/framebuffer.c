@@ -9,7 +9,7 @@
 #include <bcm283x/gpio.h>
 
 static fbinfo_t _fb_info;
-/*
+
 typedef struct {
 	uint32_t width;
 	uint32_t height;
@@ -40,12 +40,13 @@ int32_t fb_init_raw(uint32_t w, uint32_t h, uint32_t dep) {
 	fbinit->depth = dep;
 
 	msg.data = (V2P((uint32_t)fbinit) | 0xC0000000) >> 4; // ARM addr to GPU addr
+	flush_dcache();
+
 	mailbox_send(FRAMEBUFFER_CHANNEL, &msg);
 	mailbox_read(FRAMEBUFFER_CHANNEL, &msg);
-	if(fbinit->pointer == 0) {
-		kfree4k(fbinit);
+
+	if(fbinit->pointer == 0)
 		return -1;
-	}
 
 	_fb_info.width = fbinit->width;
 	_fb_info.height = fbinit->height;
@@ -69,8 +70,8 @@ int32_t fb_init_raw(uint32_t w, uint32_t h, uint32_t dep) {
 	flush_tlb();
 	return 0;
 }
-*/
 
+/*
 volatile uint32_t  __attribute__((aligned(16))) mbox[36];
 int32_t fb_init_raw(uint32_t w, uint32_t h, uint32_t dep) {
     mbox[0] = 35*4;
@@ -120,6 +121,8 @@ int32_t fb_init_raw(uint32_t w, uint32_t h, uint32_t dep) {
 	mail_message_t msg;
 	memset(&msg, 0, sizeof(mail_message_t));
 	msg.data = (V2P((uint32_t)&mbox | 0xC0000000)) >> 4; // ARM addr to GPU addr
+	flush_dcache();
+
 	mailbox_send(PROPERTY_CHANNEL, &msg);
 	mailbox_read(PROPERTY_CHANNEL, &msg);
 
@@ -145,6 +148,7 @@ int32_t fb_init_raw(uint32_t w, uint32_t h, uint32_t dep) {
 
 	return 0;
 }
+*/
 
 int32_t bcm283x_fb_init(uint32_t w, uint32_t h, uint32_t dep) {
 	if(fb_init_raw(w, h, dep) != 0)
