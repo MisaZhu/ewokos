@@ -26,7 +26,9 @@ extern void __cpu_dcache_clean_flush(void);
 
 
 inline void flush_tlb(void) {
-	__cpu_dcache_clean_flush();
+	__flush_dcache_all();
+	__invalidate_dcache_all();
+	//__cpu_dcache_clean_flush();
 	__flush_tlb();
 }
 

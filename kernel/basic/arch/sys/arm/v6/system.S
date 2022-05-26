@@ -2,6 +2,14 @@
 __cpu_dcache_clean_flush:
 	bx lr
 
+.global	__flush_dcache_all
+__flush_dcache_all:
+	bx lr
+
+.global	__invalidate_dcache_all
+__invalidate_dcache_all:
+	bx lr
+
 .global __flush_tlb
 __flush_tlb:
 	mov r0, #0
