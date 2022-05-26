@@ -55,8 +55,8 @@ static void load_boot_pgt(void) {
 #define PHY_OFFSET 0x20000000
 
 void _boot_start(void) {
-	set_boot_pgt(PHY_OFFSET, PHY_OFFSET, 32*MB, 0);
-	set_boot_pgt(KERNEL_BASE, PHY_OFFSET, 32*MB, 0);
-	set_boot_pgt(0x1f000000, 0x1f000000, 8*MB, 0);
+	set_boot_pgt(PHY_OFFSET, PHY_OFFSET, 8*MB, 0);
+	set_boot_pgt(KERNEL_BASE, PHY_OFFSET, 8*MB, 0);
+	set_boot_pgt(INTERRUPT_VECTOR_BASE, PHY_OFFSET, 1*MB, 0);
 	load_boot_pgt();
 }

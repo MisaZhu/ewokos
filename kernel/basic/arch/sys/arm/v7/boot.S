@@ -33,7 +33,10 @@ continue:
 core0:
 	//0 core
 	msr cpsr, #0xD3             @ enter SVC mode with IRQ and FIQ interrupts disabled
-	ldr sp, = _svc_start_stack  @ initialise SVC mode stack
+	ldr sp,  = _svc_start_stack @ initialise SVC mode stack
+	ldr r0, = #0xFFFF0000
+	and r0, r0, pc
+	add sp, sp, r0
 
 	bl cpu_mmu_disable
 	bl cpu_dcache_disable

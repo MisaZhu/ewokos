@@ -23,7 +23,7 @@ void sys_info_init(void) {
 	_sys_info.mmio.size = 16*MB;
 
 	_allocatable_phy_mem_base = V2P(ALLOCATABLE_MEMORY_START);
-	_allocatable_phy_mem_top = _sys_info.phy_offset + _sys_info.phy_mem_size;
+	_allocatable_phy_mem_top = _sys_info.phy_offset + _sys_info.phy_mem_size - 4*MB;
 #ifdef KERNEL_SMP
 	_sys_info.cores = get_cpu_cores();
 #else
@@ -31,10 +31,17 @@ void sys_info_init(void) {
 #endif
 }
 
-#define CORE0_BASE_OFFSET 0x01000000
 void arch_vm(page_dir_entry_t* vm) {
-	uint32_t vbase = _sys_info.mmio.v_base + CORE0_BASE_OFFSET;
-	uint32_t pbase = _sys_info.mmio.phy_base + CORE0_BASE_OFFSET;
-	map_page(vm, vbase, pbase, AP_RW_D, 1);
-	map_page(vm, pbase, pbase, AP_RW_D, 1);
+	//map frame buffer
+	uint32_t pfb = 0x27c00000;
+	uint32_t vfb = 0x87c00000;
+	map_pages_size(vm, vfb, pfb, 4*MB, AP_RW_D, 1);
+
+	//map gic controller
+	uint32_t pgic = 0x16000000;
+	uint32_t vgic = 0x16000000;
+	map_pages_size(vm, vgic, pgic, 4*MB, AP_RW_D, 1);
+
+
 }
+
