@@ -78,7 +78,6 @@ int32_t bcm283x_fb_init(uint32_t w, uint32_t h, uint32_t dep) {
 		return -1;
 
 	uint32_t* mbox = (uint32_t*)_bcm283x_mailbox_addr;
-	klog("mbox: 0x%x\n", mbox);
     mbox[0] = 35*4;
     mbox[1] = 0; //request
 
@@ -108,7 +107,7 @@ int32_t bcm283x_fb_init(uint32_t w, uint32_t h, uint32_t dep) {
     mbox[21] = 0x48006; //set pixel order
     mbox[22] = 4;
     mbox[23] = 4;
-    mbox[24] = 1;      //RGB, not BGR preferably
+    mbox[24] = 0;      //RGB, not BGR preferably
 
     mbox[25] = 0x40001; //get framebuffer, gets alignment on request
     mbox[26] = 8;
@@ -134,24 +133,19 @@ int32_t bcm283x_fb_init(uint32_t w, uint32_t h, uint32_t dep) {
 		return -1;
 		
 	_fb_info.pointer = syscall1(SYS_P2V, mbox[28] & 0x3fffffff); //GPU addr to ARM addr
+	_fb_info.size = mbox[29];
 	_fb_info.width = mbox[5];
 	_fb_info.height = mbox[6];
 	_fb_info.pitch = mbox[33];
 	_fb_info.depth = mbox[20];
-	_fb_info.size = mbox[29];
 	_fb_info.xoffset = 0;
 	_fb_info.yoffset = 0;
 
 	sys_info_t sysinfo;
 	syscall1(SYS_GET_SYS_INFO, (int32_t)&sysinfo);
 
-	if(_fb_info.pointer < sysinfo.kernel_base) {
-		_fb_info.pointer += sysinfo.kernel_base;
-	}
-
 	_fb_info.size_max = sysinfo.phy_mem_size - (_fb_info.pointer-sysinfo.kernel_base);
 	syscall3(SYS_MEM_MAP, _fb_info.pointer, _fb_info.pointer-sysinfo.kernel_base, _fb_info.size_max);
-	
 	return 0;
 }
 
