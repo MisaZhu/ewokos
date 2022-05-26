@@ -10,7 +10,67 @@
 
 static fbinfo_t _fb_info;
 
-volatile uint32_t  __attribute__((aligned(16))) mbox[36];
+typedef struct {
+	uint32_t width;
+	uint32_t height;
+	uint32_t vwidth;
+	uint32_t vheight;
+	uint32_t bytes;
+	uint32_t depth;
+	uint32_t ignorex;
+	uint32_t ignorey;
+	void * pointer;
+	uint32_t size;
+} fb_init_t;
+
+static __attribute__((__aligned__(16))) fb_init_t _fbinit;
+int32_t fb_init_raw(uint32_t w, uint32_t h, uint32_t dep) {
+	fb_init_t* fbinit = &_fbinit;
+	//fb_init_t* fbinit = (fb_init_t*)kalloc4k();
+	memset(&_fb_info, 0, sizeof(fbinfo_t));
+	memset(fbinit, 0, sizeof(fb_init_t));
+	
+	mail_message_t msg;
+	memset(&msg, 0, sizeof(mail_message_t));
+
+	fbinit->width = w;
+	fbinit->height = h;
+	fbinit->vwidth = fbinit->width;
+	fbinit->vheight = fbinit->height;
+	fbinit->depth = dep;
+
+	msg.data = (V2P((uint32_t)fbinit + 0xC0000000)) >> 4; // ARM addr to GPU addr
+	mailbox_send(FRAMEBUFFER_CHANNEL, &msg);
+	mailbox_read(FRAMEBUFFER_CHANNEL, &msg);
+	if(fbinit->pointer == 0) {
+		kfree4k(fbinit);
+		return -1;
+	}
+
+	_fb_info.width = fbinit->width;
+	_fb_info.height = fbinit->height;
+	_fb_info.vwidth = fbinit->width;
+	_fb_info.vheight = fbinit->height;
+	_fb_info.depth = fbinit->depth;
+	_fb_info.pitch = _fb_info.width*(_fb_info.depth/8);
+
+	_fb_info.pointer = P2V((uint32_t)fbinit->pointer) - 0xc0000000; //GPU addr to ARM addr
+	_fb_info.size = fbinit->size;
+	_fb_info.xoffset = 0;
+	_fb_info.yoffset = 0;
+	_fb_info.size_max = _sys_info.phy_mem_size - (_fb_info.pointer-_sys_info.kernel_base);
+
+	//kfree4k(fbinit);
+	map_pages_size(_kernel_vm, 
+		_fb_info.pointer,
+		V2P(_fb_info.pointer),
+		_fb_info.size_max,
+		AP_RW_D, 0);
+	flush_tlb();
+	return 0;
+}
+
+/*volatile uint32_t  __attribute__((aligned(16))) mbox[36];
 int32_t fb_init_raw(uint32_t w, uint32_t h, uint32_t dep) {
     mbox[0] = 35*4;
     mbox[1] = 0; //request
@@ -84,6 +144,7 @@ int32_t fb_init_raw(uint32_t w, uint32_t h, uint32_t dep) {
 
 	return 0;
 }
+*/
 
 int32_t bcm283x_fb_init(uint32_t w, uint32_t h, uint32_t dep) {
 	if(fb_init_raw(w, h, dep) != 0)

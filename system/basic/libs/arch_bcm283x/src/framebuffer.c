@@ -6,7 +6,7 @@
 #include <sys/mmio.h>
 
 static fbinfo_t _fb_info;
-/*
+
 typedef struct {
 	uint32_t width;
 	uint32_t height;
@@ -42,7 +42,6 @@ int32_t bcm283x_fb_init(uint32_t w, uint32_t h, uint32_t dep) {
 	bcm283x_mailbox_send(FRAMEBUFFER_CHANNEL, &msg);
 	bcm283x_mailbox_read(FRAMEBUFFER_CHANNEL, &msg);
 
-	klog("0x%x, %d\n", fbinit->pointer, fbinit->size);
     if(fbinit->pointer == NULL)
 		return -1;
 
@@ -69,15 +68,15 @@ int32_t bcm283x_fb_init(uint32_t w, uint32_t h, uint32_t dep) {
 	syscall3(SYS_MEM_MAP, _fb_info.pointer, _fb_info.pointer-sysinfo.kernel_base, _fb_info.size_max);
 	return 0;
 }
-*/
 
+/*
 int32_t bcm283x_fb_init(uint32_t w, uint32_t h, uint32_t dep) {
 	memset(&_fb_info, 0, sizeof(fbinfo_t));
 	bcm283x_mailbox_init();
 	if(_bcm283x_mailbox_addr == 0) //mailbox not inited!
 		return -1;
 
-	uint32_t* mbox = (uint32_t*)_bcm283x_mailbox_addr;
+	uint32_t* mbox = (uint32_t*)(_bcm283x_mailbox_addr);
     mbox[0] = 35*4;
     mbox[1] = 0; //request
 
@@ -148,6 +147,7 @@ int32_t bcm283x_fb_init(uint32_t w, uint32_t h, uint32_t dep) {
 	syscall3(SYS_MEM_MAP, _fb_info.pointer, _fb_info.pointer-sysinfo.kernel_base, _fb_info.size_max);
 	return 0;
 }
+*/
 
 fbinfo_t* bcm283x_get_fbinfo(void) {
 	return &_fb_info;
