@@ -9,7 +9,7 @@
 #include <bcm283x/gpio.h>
 
 static fbinfo_t _fb_info;
-
+/*
 typedef struct {
 	uint32_t width;
 	uint32_t height;
@@ -23,7 +23,7 @@ typedef struct {
 	uint32_t size;
 } fb_init_t;
 
-static __attribute__((__aligned__(16))) fb_init_t _fbinit;
+static __attribute__((__aligned__(PAGE_SIZE))) fb_init_t _fbinit;
 int32_t fb_init_raw(uint32_t w, uint32_t h, uint32_t dep) {
 	fb_init_t* fbinit = &_fbinit;
 	//fb_init_t* fbinit = (fb_init_t*)kalloc4k();
@@ -39,7 +39,7 @@ int32_t fb_init_raw(uint32_t w, uint32_t h, uint32_t dep) {
 	fbinit->vheight = fbinit->height;
 	fbinit->depth = dep;
 
-	msg.data = (V2P((uint32_t)fbinit + 0xC0000000)) >> 4; // ARM addr to GPU addr
+	msg.data = (V2P((uint32_t)fbinit) | 0xC0000000) >> 4; // ARM addr to GPU addr
 	mailbox_send(FRAMEBUFFER_CHANNEL, &msg);
 	mailbox_read(FRAMEBUFFER_CHANNEL, &msg);
 	if(fbinit->pointer == 0) {
@@ -54,7 +54,7 @@ int32_t fb_init_raw(uint32_t w, uint32_t h, uint32_t dep) {
 	_fb_info.depth = fbinit->depth;
 	_fb_info.pitch = _fb_info.width*(_fb_info.depth/8);
 
-	_fb_info.pointer = P2V((uint32_t)fbinit->pointer) - 0xc0000000; //GPU addr to ARM addr
+	_fb_info.pointer = P2V(((uint32_t)fbinit->pointer) & 0x3fffffff); //GPU addr to ARM addr
 	_fb_info.size = fbinit->size;
 	_fb_info.xoffset = 0;
 	_fb_info.yoffset = 0;
@@ -69,8 +69,9 @@ int32_t fb_init_raw(uint32_t w, uint32_t h, uint32_t dep) {
 	flush_tlb();
 	return 0;
 }
+*/
 
-/*volatile uint32_t  __attribute__((aligned(16))) mbox[36];
+volatile uint32_t  __attribute__((aligned(16))) mbox[36];
 int32_t fb_init_raw(uint32_t w, uint32_t h, uint32_t dep) {
     mbox[0] = 35*4;
     mbox[1] = 0; //request
@@ -144,7 +145,6 @@ int32_t fb_init_raw(uint32_t w, uint32_t h, uint32_t dep) {
 
 	return 0;
 }
-*/
 
 int32_t bcm283x_fb_init(uint32_t w, uint32_t h, uint32_t dep) {
 	if(fb_init_raw(w, h, dep) != 0)
