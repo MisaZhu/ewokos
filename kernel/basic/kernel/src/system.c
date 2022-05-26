@@ -23,13 +23,19 @@ inline void _delay_msec(uint32_t count) {
 extern void __set_translation_table_base(uint32_t);
 extern void __flush_tlb(void);
 extern void __cpu_dcache_clean_flush(void);
+extern void __invalidate_dcache_all(void);
+extern void __flush_dcache_all(void);
 
 
 inline void flush_tlb(void) {
-	__flush_dcache_all();
-	__invalidate_dcache_all();
 	//__cpu_dcache_clean_flush();
+	__invalidate_dcache_all();
+	__flush_dcache_all();
 	__flush_tlb();
+}
+
+inline void flush_dcache(void) {
+	__flush_dcache_all();
 }
 
 inline void set_translation_table_base(uint32_t tlb_base) {

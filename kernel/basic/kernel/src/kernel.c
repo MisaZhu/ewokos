@@ -36,10 +36,10 @@ static void __attribute__((optimize("O0"))) copy_interrupt_table(void) {
 
 static void set_kernel_init_vm(page_dir_entry_t* vm) {
 	memset(vm, 0, PAGE_DIR_SIZE);
+	flush_dcache();
 
 	//map interrupt vector to high(virtual) mem
 	map_pages_size(vm, INTERRUPT_VECTOR_BASE, _sys_info.phy_offset, PAGE_SIZE, AP_RW_D, 0);
-
 	//map kernel image
 	map_pages(vm, KERNEL_BASE, _sys_info.phy_offset, V2P(KERNEL_IMAGE_END), AP_RW_D, 0);
 	//map kernel page dir
@@ -62,7 +62,8 @@ static void map_allocatable_pages(page_dir_entry_t* vm) {
 			_allocatable_phy_mem_base,
 			_allocatable_phy_mem_top,
 			AP_RW_D, 0);
-	flush_tlb();
+	flush_dcache();
+	//flush_tlb();
 }
 
 void set_kernel_vm(page_dir_entry_t* vm) {
