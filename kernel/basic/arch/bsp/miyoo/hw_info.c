@@ -10,9 +10,11 @@
 sys_info_t _sys_info;
 uint32_t _allocatable_phy_mem_top = 0;
 uint32_t _allocatable_phy_mem_base = 0;
+uint32_t _core_base_offset = 0;
 
 void sys_info_init(void) {
 	memset(&_sys_info, 0, sizeof(sys_info_t));
+	_core_base_offset =  0x01000000;
 
 	strcpy(_sys_info.machine, "miyoo");
 	_sys_info.phy_offset = 0x20000000;
@@ -42,6 +44,9 @@ void arch_vm(page_dir_entry_t* vm) {
 	uint32_t vgic = 0x16000000;
 	map_pages_size(vm, vgic, pgic, 4*MB, AP_RW_D, 1);
 
-
+	uint32_t vbase = _sys_info.mmio.v_base + _core_base_offset;
+	uint32_t pbase = _sys_info.mmio.phy_base + _core_base_offset;
+	map_page(vm, vbase, pbase, AP_RW_D, 1);
+	map_page(vm, pbase, pbase, AP_RW_D, 1);
 }
 

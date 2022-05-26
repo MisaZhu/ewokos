@@ -164,7 +164,7 @@ void _kernel_entry_c(void) {
 		_cpu_cores[i].actived = false;
 		printf("kernel: start core %d ... ", i);
 		kfork_core_halt(i);
-		__start_core(i);
+		__start_core(i, _sys_info.mmio.phy_base + _core_base_offset);
 		while(!_cpu_cores[i].actived)
 			_delay_msec(10);
 	}

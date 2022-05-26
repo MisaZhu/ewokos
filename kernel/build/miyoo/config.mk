@@ -7,6 +7,6 @@ BSP=miyoo
 #----enable DPI display---
 #DPI=yes
 #----multi core(SMP)------
-SMP=no
+SMP=yes
 #----kernel console-------
 KERNEL_CONSOLE=yes
