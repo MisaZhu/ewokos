@@ -1,25 +1,28 @@
 #include <dev/uart.h>
+#include <mm/mmu.h>
+#include "ms_serial.h"
 
-#ifdef PI2
-#include <bcm283x/pl011_uart.h>
+
+uint32_t uart_base = MMIO_BASE;
+
+#define BASE (uart_base + 0x221000)
+#define UART_MULTI_REG8(_x_)  ((uint8_t volatile *)(BASE))[((_x_) * 4) - ((_x_) & 1)]
+
 
 int32_t uart_dev_init(void) {
-	return pl011_uart_init();
+	//return mini_uart_init();
+	return 0;
 }
 
 int32_t uart_write(const void* data, uint32_t size) {
-	return pl011_uart_write(data, size);
+	char c;
+
+	for(int i = 0; i <  (int)size; i++){
+		c = ((char*)data)[i];
+    	    while (!(UART_MULTI_REG8(UART_LSR) & UART_LSR_THRE));
+    	    UART_MULTI_REG8(UART_TX) = c;
+	}
+    while (!(UART_MULTI_REG8(UART_LSR) & UART_LSR_THRE));
+	return 0;
 }
 
-#else
-#include "bcm283x/mini_uart.h"
-
-int32_t uart_dev_init(void) {
-	return mini_uart_init();
-}
-
-int32_t uart_write(const void* data, uint32_t size) {
-	return mini_uart_write(data, size);
-}
-
-#endif
