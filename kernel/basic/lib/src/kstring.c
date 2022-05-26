@@ -25,7 +25,7 @@ inline void *memcpy(void *target, const void *source, uint32_t n) {
 }
 
 /* memset fills the given target with given length with the given character. */
-void* memset(void *target, int32_t c, uint32_t size) {
+void* memset(void *target, int32_t c,volatile uint32_t size) {
 	if(target == 0)
 		return 0;
 
