@@ -6,8 +6,6 @@ BSP=miyoo
 
 #----enable DPI display---
 #DPI=yes
-#----cortex-a7 cpu--------
-CORTEX_A7=no
 #----multi core(SMP)------
 SMP=no
 #----kernel console-------

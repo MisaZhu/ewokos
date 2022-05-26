@@ -7,8 +7,6 @@ BSP=raspi/pix
 
 #----enable DPI display---
 #DPI=yes
-#----cortex-a7 cpu--------
-#CORTEX_A7=yes
 #----multi core(SMP)------
 SMP=yes
 #----kernel console-------
