@@ -35,7 +35,7 @@ core0:
 	//0 core
 	msr cpsr, #0xD3             @ enter SVC mode with IRQ and FIQ interrupts disabled
 	ldr sp,  = _svc_start_stack @ initialise SVC mode stack
-	ldr r0, = kernel_base
+	mov r0, #0xFF000000 
 	and r0, r0, pc
 	add sp, sp, r0
 
