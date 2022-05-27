@@ -14,7 +14,7 @@ include config.mk
 ARCH_DIR=$(SRC_DIR)/basic/arch/sys
 BSP_DIR=$(SRC_DIR)/basic/arch/bsp
 
-SYS_FULL_DIR = ../../../../system
+SYS_FULL_DIR = $(ROOT_DIR)/system
 BUILD_DIR = .
 
 # flags
