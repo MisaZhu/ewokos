@@ -124,7 +124,6 @@ static void interrupt_handle(void) {
 		charbuf_push(&_buffer, c, true);
 		proc_wakeup(0);
 	}
-	sys_interrupt_end();
 }
 
 int main(int argc, char** argv) {
