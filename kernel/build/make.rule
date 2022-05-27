@@ -9,7 +9,7 @@ OBJDUMP = arm-none-eabi-objdump
 
 export QEMU_AUDIO_DRV=none
 
-include config.mk
+SRC_DIR=$(ROOT_DIR)/kernel
 
 ARCH_DIR=$(SRC_DIR)/basic/arch/sys
 BSP_DIR=$(SRC_DIR)/basic/arch/bsp
@@ -63,9 +63,10 @@ CFLAGS += $(OPTM) \
 	-fno-builtin-strncmp \
 	-std=c99
 
+START_OBJ=$(BSP_DIR)/$(BSP)/start.o 
+
 ARCH_OBJS = \
 	$(ARCH_DIR)/$(ARCH)/boot.o \
-	$(BSP_DIR)/$(BSP)/start.o \
 	$(ARCH_DIR)/$(ARCH)/system.o \
 	$(ARCH_DIR)/$(ARCH)/mmu_pte_flags.o \
 	$(BSP_DIR)/$(BSP)/hw_info.o \
@@ -155,7 +156,7 @@ LDFLAGS = -L $(ARCH_DIR)/$(ARCH)
 
 all: $(OS_IMG) 
 
-$(OS_IMG): $(OBJS) $(LDS) $(LDS_QEMU)
+$(OS_IMG): $(OBJS) $(LDS) $(LDS_QEMU) $(START_OBJ)
 	$(LD) $(OBJS) $(LDFLAGS) -T $(LDS) -o $(BUILD_DIR)/$(OS_ELF)
 	$(LD) $(OBJS) $(LDFLAGS) -T $(LDS_QEMU) -o $(BUILD_DIR)/$(OS_QEMU_ELF)
 	$(OBJCOPY) -O binary $(BUILD_DIR)/$(OS_ELF) $(BUILD_DIR)/$(OS_IMG)
@@ -182,6 +183,6 @@ gdb:
 	#gdb-multiarch $(BUILD_DIR)/$(OS_ELF) -x /tmp/gdbinit #for ubuntu 18.04 without arm-none-eabi-gdb
 
 clean:
-	rm -f $(OBJS)
+	rm -f $(OBJS) $(START_OBJ)
 	rm -f $(OS_IMG) $(OS_ELF)
 	rm -f $(OS_QEMU_IMG) $(OS_QEMU_ELF)

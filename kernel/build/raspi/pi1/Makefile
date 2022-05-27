@@ -9,6 +9,6 @@ OS_QEMU_IMG = kernel.qemu.img
 OS_QEMU_ELF = kernel.qemu.elf
 
 QEMU_CMD = qemu-system-arm
-SRC_DIR=../../..
 
+ROOT_DIR = ../../../..
 include ../../make.rule
