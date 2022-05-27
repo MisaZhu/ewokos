@@ -43,9 +43,6 @@ static int fb_fcntl(int fd,
 
 static int fb_dma_init(fb_dma_t* dma) {
 	memset(dma, 0, sizeof(fb_dma_t));
-	if(_fbinfo->pointer == 0)
-		return -1;
-
 	//dma->shm_id = shm_alloc(_fbinfo->size_max, 1);
 	uint32_t sz = _fbinfo->width*_fbinfo->height*4;
 	dma->shm_id = shm_alloc(sz, 1);
@@ -96,9 +93,6 @@ static int do_fb_flush(int fd, int from_pid, fsinfo_t* info, void* p) {
 	(void)from_pid;
 	(void)info;
 	fb_dma_t* dma = (fb_dma_t*)p;
-	if(_fbinfo->pointer == 0)
-		return 0;
-
 	return do_flush(dma);
 }
 
@@ -109,12 +103,6 @@ static int fb_dma(int fd, int from_pid, fsinfo_t* info, int* size, void* p) {
 	fb_dma_t* dma = (fb_dma_t*)p;
 	*size = dma->size;
 	return dma->shm_id;
-}
-
-static void clear(void) {
-	graph_t g;
-	graph_init(&g, (uint32_t*)_fbinfo->pointer, _fbinfo->width, _fbinfo->height);
-	graph_clear(&g, 0xff000000);
 }
 
 int fbd_run(fbd_t* fbd, int argc, char** argv) {
@@ -141,7 +129,6 @@ int fbd_run(fbd_t* fbd, int argc, char** argv) {
 	
 	if(fb_dma_init(&dma) != 0)
 		return -1;
-	clear();
 
 	vdevice_t dev;
 	memset(&dev, 0, sizeof(vdevice_t));
