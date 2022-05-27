@@ -51,7 +51,7 @@ int32_t has_alpha(uint32_t c);
 
 uint32_t argb_int(uint32_t c);
 
-void     graph_init(graph_t* g, uint32_t* buffer, int32_t w, int32_t h);
+void     graph_init(graph_t* g, const uint32_t* buffer, int32_t w, int32_t h);
 graph_t* graph_new(uint32_t* buffer, int32_t w, int32_t h);
 void     graph_free(graph_t* g);
 

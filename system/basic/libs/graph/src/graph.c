@@ -17,7 +17,7 @@ inline int32_t has_alpha(uint32_t c) {
 	return 0;
 }
 
-inline void graph_init(graph_t* g, uint32_t* buffer, int32_t w, int32_t h) {
+inline void graph_init(graph_t* g, const uint32_t* buffer, int32_t w, int32_t h) {
 	if(w <= 0 || h <= 0)
 		return;
 
