@@ -13,7 +13,6 @@ mkdirs:
 EXTRA_LIBS_DIR=libs
 EXTRA_LIBXX_DIR=libs/cxx
 extra_libs:
-	cd $(EXTRA_LIBS_DIR)/tiny-json; make
 	cd $(EXTRA_LIBS_DIR)/x; make
 	cd $(EXTRA_LIBXX_DIR)/cxx; make
 	cd $(EXTRA_LIBXX_DIR)/x++; make
@@ -43,7 +42,6 @@ extra_driver:
 
 clean:
 	cd $(EXTRA_LIBS_DIR)/x; make clean
-	cd $(EXTRA_LIBS_DIR)/tiny-json; make clean
 	cd $(EXTRA_LIBXX_DIR)/cxx; make clean
 	cd $(EXTRA_LIBXX_DIR)/x++; make clean
 	cd $(EXTRA_DRIVERS_DIR)/xserverd;make clean
