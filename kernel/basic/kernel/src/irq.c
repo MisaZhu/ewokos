@@ -19,9 +19,9 @@
 
 uint32_t _kernel_sec = 0;
 uint64_t _kernel_usec = 0;
-static uint64_t _schedule_tic = 0;
-static uint64_t _sec_tic = 0;
-static uint64_t _timer_tic = 0;
+static uint32_t _schedule = 0;
+static uint32_t _sec_tic = 0;
+static uint32_t _timer_tic = 0;
 
 #ifdef KERNEL_SMP
 
@@ -52,8 +52,7 @@ static inline int32_t irq_do_timer0_interrupt(context_t* ctx) {
 }
 
 #define SEC_TIC       1000000
-#define SCHEDULE_TIC  1000
-#define TIMER_TIC     3000
+#define TIMER_TIC     1000
 
 static inline void irq_do_timer0(context_t* ctx) {
 	(void)ctx;
@@ -64,7 +63,6 @@ static inline void irq_do_timer0(context_t* ctx) {
 	else {
 		uint64_t usec_gap = usec - _kernel_usec;
 		_kernel_usec = usec;
-		_schedule_tic += usec_gap;
 		_sec_tic += usec_gap;
 		_timer_tic += usec_gap;
 		if(_sec_tic >= SEC_TIC) { //1 sec
@@ -72,22 +70,24 @@ static inline void irq_do_timer0(context_t* ctx) {
 			_sec_tic = 0;
 			renew_kernel_sec();
 		}
-	
 		renew_kernel_tic(usec_gap);
 	}
 	timer_clear_interrupt(0);
 
-	if(_schedule_tic >= SCHEDULE_TIC) { 
-		_schedule_tic = 0;
-#ifdef KERNEL_SMP
-		ipi_send_all();
-#else
-		schedule(ctx);
-#endif
-	}
-	else if(_timer_tic >= TIMER_TIC) {
+	if(_timer_tic >= TIMER_TIC) {
 		_timer_tic = 0;
-		irq_do_timer0_interrupt(ctx);
+		if(_schedule == 0) {
+			_schedule = 1;
+#ifdef KERNEL_SMP
+			ipi_send_all();
+#else
+			schedule(ctx);
+#endif
+		}
+		else {
+			_schedule = 0;
+			irq_do_timer0_interrupt(ctx);
+		}
 	}
 }
 
@@ -246,7 +246,7 @@ void irq_init(void) {
 	interrupt_init();
 	_kernel_sec = 0;
 	_kernel_usec = 0;
-	_schedule_tic = 0;
+	_schedule = 0;
 	_timer_tic = 0;
 	_sec_tic = 0;
 	//gic_set_irqs( IRQ_UART0 | IRQ_TIMER0 | IRQ_KEY | IRQ_MOUSE | IRQ_SDC);

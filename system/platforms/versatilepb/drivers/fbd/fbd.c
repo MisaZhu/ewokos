@@ -119,8 +119,8 @@ static void clear(void) {
 
 int main(int argc, char** argv) {
 	const char* mnt_name = argc > 1 ? argv[1]: "/dev/fb0";
-	int w = 1024;
-	int h = 768;
+	int w = 640;
+	int h = 480;
 	if(argc > 3) {
 		w = atoi(argv[2]);
 		h = atoi(argv[3]);
