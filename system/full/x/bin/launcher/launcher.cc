@@ -20,6 +20,7 @@ typedef struct {
 class Launcher: public XWin {
 	items_t items;
 	int selected;
+	bool focused;
 
 	void drawIcon(graph_t* g, const char* item, int icon_size, int x, int y) {
 		str_t* s = str_new("");	
@@ -64,7 +65,7 @@ protected:
 
 				int x = i*items.icon_size;
 				int y = j*items.icon_size;
-				if(selected == at) {
+				if(focused && selected == at) {
 					graph_fill_round(g, 
 						x, y, items.icon_size, items.icon_size, 
 						8, 0x88000000);
@@ -126,10 +127,21 @@ protected:
 			repaint();
 		}
 	}
+	
+	void onFocus(void) {
+		focused = true;
+		repaint();
+	}
+
+	void onUnfocus(void) {
+		focused = false;
+		repaint();
+	}
 
 public:
 	inline Launcher() {
 		selected = 0;
+		focused = true;
 		memset(&items, 0, sizeof(items_t));
 	}
 
