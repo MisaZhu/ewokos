@@ -6,9 +6,9 @@
 using namespace Ewok;
 
 void MacWM::drawDesktop(graph_t* g) {
+	XWM::drawDesktop(g);
 	if(bgImg == NULL)
 		return;
-	graph_clear(g, 0xffeeeeee);
 	graph_blt(bgImg, 0, 0, bgImg->w, bgImg->h,
 			g, (g->w - bgImg->w)/2, (g->h - bgImg->h)/2, bgImg->w, bgImg->h);
 }
