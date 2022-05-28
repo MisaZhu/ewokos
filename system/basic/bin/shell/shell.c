@@ -207,12 +207,12 @@ int main(int argc, char* argv[]) {
 	_terminated = 0;
 
 	int fd_in = 0;
-	if(argc > 1) {
-		if(strcmp(argv[1], "/etc/init.rd") == 0) {
+	if(argc > 2) {
+		if(strcmp(argv[1], "-initrd") == 0) {
 			_initrd = true;
 			_stdio_inited = false;
 		}
-		fd_in = open(argv[1], O_RDONLY);
+		fd_in = open(argv[2], O_RDONLY);
 		if(fd_in < 0)
 			fd_in = 0;
 	}

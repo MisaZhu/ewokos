@@ -70,13 +70,29 @@ static void run_before_vfs(const char* cmd) {
 	out("[ok]\n");
 }
 
+static const char* get_initrd(void) {
+	static char rd[FS_FULL_NAME_MAX] = "";
+	sys_info_t sysinfo;
+	syscall1(SYS_GET_SYS_INFO, (int32_t)&sysinfo);
+	snprintf(rd, FS_FULL_NAME_MAX-1, "/etc/arch/%s/init.rd", sysinfo.machine);
+	out("\ninit: loading '%s' ... \n", rd);
+	if(vfs_access(rd) != 0) {
+		out("'%s' not exist, try '/etc/init.rd' ... \n", rd);
+		strcpy(rd, "/etc/init.rd");
+	}
+	return rd;
+}
+
 static void switch_root(void) {
 	int pid = fork();
 	if(pid == 0) {
 		setuid(0);
-		//load_arch_devs();
-		out("\ninit: loading init.rd\n");
-		exec("/bin/shell /etc/init.rd");
+		char cmd[FS_FULL_NAME_MAX];
+		snprintf(cmd, FS_FULL_NAME_MAX-1, "/bin/shell -initrd %s", get_initrd());
+		if(exec(cmd) != 0) {
+			out("[failed]!\n");
+			exit(-1);
+		}
 	}
 }
 
