@@ -32,7 +32,7 @@ public:
 		graph_box(g, x, y, w, h, 0xff000000);
 
 		char s[8];
-		snprintf(s, 7, "%d", gpio+1);
+		snprintf(s, 7, "%d", gpio);
 
 		int r = font->h/2;
 		x += 4;
