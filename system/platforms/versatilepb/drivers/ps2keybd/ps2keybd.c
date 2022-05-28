@@ -137,7 +137,7 @@ int main(int argc, char** argv) {
 	strcpy(dev.name, "keyb");
 	dev.read = keyb_read;
 
-	timer_set(10000, interrupt_handle);
+	timer_set(5000, interrupt_handle);
 	device_run(&dev, mnt_point, FS_TYPE_CHAR);
 	return 0;
 }
