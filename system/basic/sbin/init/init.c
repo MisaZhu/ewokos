@@ -60,7 +60,10 @@ static void run_before_vfs(const char* cmd) {
 
 	int pid = fork();
 	if(pid == 0) {
-		exec_from_sd(cmd);
+		if(exec_from_sd(cmd) != 0) {
+			out("[failed]!\n");
+			exit(-1);
+		}
 	}
 	else
 		proc_wait_ready(pid);
