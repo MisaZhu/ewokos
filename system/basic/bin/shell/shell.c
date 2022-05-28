@@ -269,6 +269,5 @@ int main(int argc, char* argv[]) {
 		close(fd_in);
 	str_free(cmdstr);	
 	free_history();
-	sleep(5);
 	return 0;
 }

@@ -8,6 +8,8 @@
 #include <sys/basic_math.h>
 #include <sys/kernel_tic.h>
 #include <sys/klog.h>
+#include <sys/syscall.h>
+#include <sysinfo.h>
 #include <x++/X.h>
 
 extern "C" {
@@ -17,7 +19,7 @@ extern "C" {
 using namespace Ewok;
 
 class GPIOMonitorX : public XWin {
-	uint32_t gpioNum;
+	int gpioNum;
 	int cols;
 	font_t*  font;
 	static const int margin = 8;
@@ -104,6 +106,12 @@ int main(int argc, char* argv[]) {
 	xscreen_t scr;
 	X x;
 	GPIOMonitorX xwin;
+
+	sys_info_t sysinfo;
+	syscall1(SYS_GET_SYS_INFO, (int32_t)&sysinfo);
+	if(strncmp(sysinfo.machine, "raspi", 5) != 0) {
+		return -1;	
+	}
 
 	bcm283x_gpio_init();
 
