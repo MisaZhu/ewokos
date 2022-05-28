@@ -90,8 +90,10 @@ protected:
 				return;
 
 			if(ev->state == XEVT_MOUSE_DOWN) {
-				selected = at;
-				repaint();
+				if(selected != at) {
+					selected = at;
+					repaint();
+				}
 			}
 			else if(ev->state == XEVT_MOUSE_UP) {
 				int pid = fork();
