@@ -61,13 +61,14 @@ void timer_set_interval(uint32_t id, uint32_t times_per_sec) {
 }
 
 void timer_clear_interrupt(uint32_t id) {
+	write_cntv_tval(_timer_tval);
 	(void)id;
 }
 
 
 
 uint64_t timer_read_sys_usec(void) { //read microsec
-	return read_cntvct();///(_cntfrq/100000);
+	return read_cntvct() >>  2;///(_cntfrq/100000);
 	//return read_cntctl();
 	//return read_cntv_tval();
 }
