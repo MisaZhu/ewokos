@@ -185,7 +185,6 @@ int main(int argc, char* argv[]) {
 	(void)argc;
 	(void)argv;
 
-
 	xscreen_t scr;
 	Launcher xwin;
 	xwin.readConfig("/etc/x/launcher.conf");
