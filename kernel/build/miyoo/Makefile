@@ -11,4 +11,5 @@ OS_QEMU_ELF = kernel7.qemu.elf
 QEMU_CMD = qemu-system-aarch64
 
 ROOT_DIR = ../../..
+ARCH_OBJS += $(BSP_DIR)/$(BSP)/sdmmc.o
 include ../make.rule

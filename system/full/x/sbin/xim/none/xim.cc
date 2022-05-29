@@ -45,12 +45,18 @@ public:
 		if(x_pid <= 0 || keybFD < 0)
 			return;
 
+		static char last_v;
 		char v;
 		int rd = ::read(keybFD, &v, 1);
-		if(rd == 1) 
-			input(v);
-		else
-			sleep(0);
+		if(rd == 1){ 
+			if(last_v != v){
+				input(v);
+				last_v = v;
+			}
+		}else{
+			last_v = 0;
+		}
+		sleep(0);
 	}
 };
 

@@ -9,6 +9,7 @@ basic_libs:
 	cd ext2;make
 	cd arch_bcm283x;make
 	cd arch_vpb;make
+	cd arch_miyoo;make
 	cd sd;make
 	cd display;make
 	cd graph;make
@@ -26,6 +27,7 @@ clean:
 	cd ext2;make clean
 	cd arch_bcm283x;make clean
 	cd arch_vpb;make clean
+	cd arch_miyoo;make clean
 	cd sd;make clean
 	cd fb;make clean
 	cd fbd;make clean
