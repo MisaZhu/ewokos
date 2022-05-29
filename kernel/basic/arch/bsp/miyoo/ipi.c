@@ -1,8 +1,6 @@
 #include <kernel/smp/ipi.h>
 #include <kernel/hw_info.h>
 
-#ifdef KERNEL_SMP
-
 void ipi_enable(uint32_t core_id) {
 	uint32_t reg = 0;
 	switch(core_id) {
@@ -75,4 +73,3 @@ void ipi_clear(uint32_t core_id) {
 	uint32_t v = get32(reg);
 	put32(reg, v);
 }
-#endif

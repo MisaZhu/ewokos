@@ -89,7 +89,7 @@ ARCH_OBJS += \
 	$(BSP_DIR)/raspi/lib/bcm283x/src/framebuffer.o 
 
 ifeq ($(SMP),yes)
-ARCH_OBJS += $(ARCH_DIR)/$(ARCH)/ipi.o
+ARCH_OBJS += $(BSP_DIR)/$(BSP)/ipi.o 
 endif
 
 LIB_GRAPH_DIR=$(SRC_DIR)/basic/lib/graph
