@@ -970,7 +970,7 @@ static int mouse_handle(x_t* x, xevent_t* ev) {
 }
 
 static void xwin_bg(x_t* x, xview_t* view) {
-	if(!x->config.bg_run) {
+	if(!x->config.bg_run && view != x->view_launcher) {
 		xevent_t ev;
 		ev.type = XEVT_WIN;
 		ev.value.window.event = XEVT_WIN_CLOSE;

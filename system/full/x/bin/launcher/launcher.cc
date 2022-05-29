@@ -196,7 +196,7 @@ int main(int argc, char* argv[]) {
 			scr.size.w, 
 			scr.size.h, 
 			"launcher",
-			X_STYLE_NO_FRAME | X_STYLE_ALPHA | X_STYLE_LAUNCHER);
+			X_STYLE_NO_FRAME | X_STYLE_ALPHA | X_STYLE_LAUNCHER | X_STYLE_SYSBOTTOM);
 
 	xwin.setVisible(true);
 
