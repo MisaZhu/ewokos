@@ -53,6 +53,7 @@ typedef struct {
 typedef struct {
 	uint32_t win_move_alpha;
 	uint32_t fps;
+	bool bg_run;
 	char xwm[128];
 } x_conf_t;
 
@@ -78,6 +79,7 @@ typedef struct {
 	xview_t* view_focus;
 	xview_t* view_xim;
 	xview_t* view_launcher;
+	xview_t* view_last;
 
 	x_current_t current;
 	x_conf_t config;
@@ -86,6 +88,7 @@ typedef struct {
 static int32_t read_config(x_t* x, const char* fname) {
 	x->config.win_move_alpha = 0x88;
 	x->config.fps = 60;
+	x->config.bg_run = 0;
 	x->config.xwm[0] = 0;
 
 	sconf_t *conf = sconf_load(fname);	
@@ -99,6 +102,10 @@ static int32_t read_config(x_t* x, const char* fname) {
 	v = sconf_get(conf, "fps");
 	if(v[0] != 0) 
 		x->config.fps = atoi(v);
+	
+	v = sconf_get(conf, "bg_run");
+	if(v[0] != 0) 
+		x->config.bg_run = atoi(v);
 
 	v = sconf_get(conf, "xwm");
 	if(v[0] != 0) 
@@ -368,10 +375,12 @@ static void push_view(x_t* x, xview_t* view) {
 		x_dirty(x, view->xinfo.display_index);
 }
 
-static xview_t* get_next_focus_view(x_t* x) {
+static xview_t* get_next_focus_view(x_t* x, bool skip_launcher) {
 	xview_t* ret = x->view_tail; 
 	while(ret != NULL) {
-		if(ret->xinfo.visible && (ret->xinfo.style & X_STYLE_NO_FOCUS) == 0)
+		if(ret->xinfo.visible &&
+				(ret->xinfo.style & X_STYLE_NO_FOCUS) == 0 &&
+				(!skip_launcher || ret != x->view_launcher))
 			return ret;
 		ret = ret->prev;
 	}
@@ -381,10 +390,13 @@ static xview_t* get_next_focus_view(x_t* x) {
 static void x_del_view(x_t* x, xview_t* view) {
 	if(view == x->view_focus)
 		hide_view(x, x->view_xim);
+	if(view == x->view_last)
+		x->view_last = NULL;
 
 	remove_view(x, view);
 	free(view);
-	x->view_focus = get_next_focus_view(x);
+	x->view_focus = get_next_focus_view(x, false);
+	x->view_last = get_next_focus_view(x, true);
 	if(x->view_focus != NULL) {
 		xevent_t e;
 		e.type = XEVT_WIN;
@@ -957,13 +969,27 @@ static int mouse_handle(x_t* x, xevent_t* ev) {
 	return -1;
 }
 
+static void xwin_bg(x_t* x, xview_t* view) {
+	if(!x->config.bg_run) {
+		xevent_t ev;
+		ev.type = XEVT_WIN;
+		ev.value.window.event = XEVT_WIN_CLOSE;
+		x_push_event(x, view, &ev);
+		return;
+	}
+
+	if(x->view_focus != x->view_launcher) {
+		x->view_last = x->view_focus;
+		xwin_top(x, x->view_launcher);
+	}
+	else if(x->view_last != NULL) {
+		xwin_top(x, x->view_last);
+	}
+}
+
 static int im_handle(x_t* x, xevent_t* ev) {
 	if(ev->value.im.value == KEY_HOME) {
-		if(x->view_focus != x->view_launcher) {
-			ev->type = XEVT_WIN;
-			ev->value.window.event = XEVT_WIN_CLOSE;
-			x_push_event(x, x->view_focus, ev);
-		}
+		xwin_bg(x, x->view_focus);
 		return 0;
 	}
 	if(x->view_focus != NULL) {
