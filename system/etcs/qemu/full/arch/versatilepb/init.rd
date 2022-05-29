@@ -18,7 +18,7 @@ $
 /bin/rundev /drivers/xserverd             /dev/x
 
 @/sbin/x/xmoused /dev/mouse0 &
-@/sbin/x/xim_none &
+@/sbin/x/xim_none /dev/keyb0 esc_home &
 #@/sbin/x/xim_vkey &
 @/bin/x/launcher &
 

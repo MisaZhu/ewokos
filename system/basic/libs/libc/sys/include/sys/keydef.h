@@ -5,7 +5,7 @@
 extern "C" {
 #endif
 
-
+static const int KEY_HOME      = 1;
 static const int KEY_UP        = 5;
 static const int KEY_DOWN      = 24;
 static const int KEY_LEFT      = 19;

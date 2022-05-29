@@ -14,6 +14,7 @@
 #include <x/xevent.h>
 #include <x/xwm.h>
 #include <sys/proc.h>
+#include <sys/keydef.h>
 #include <sconf/sconf.h>
 #include <display/display.h>
 #include "cursor.h"
@@ -76,6 +77,7 @@ typedef struct {
 	xview_t* view_tail;
 	xview_t* view_focus;
 	xview_t* view_xim;
+	xview_t* view_launcher;
 
 	x_current_t current;
 	x_conf_t config;
@@ -635,6 +637,8 @@ static int xwin_update_info_raw(int fd, int from_pid, proto_t* in, x_t* x) {
 
 	if((xinfo.style & X_STYLE_XIM) != 0)
 		x->view_xim = view;
+	if((xinfo.style & X_STYLE_LAUNCHER) != 0)
+		x->view_launcher = view;
 	
 	if((xinfo.style & X_STYLE_NO_FRAME) == 0 &&
       (xinfo.style & X_STYLE_NO_TITLE) == 0) {
@@ -855,6 +859,11 @@ static xview_t* get_mouse_owner(x_t* x, int* win_frame_pos) {
 	return NULL;
 }
 
+static void xwin_top(x_t* x, xview_t* view) {
+	remove_view(x, view);
+	push_view(x, view);
+}
+
 static int mouse_handle(x_t* x, xevent_t* ev) {
 	if(ev->value.mouse.relative != 0) {
 		mouse_cxy(x, x->current_display, ev->value.mouse.rx, ev->value.mouse.ry);
@@ -886,8 +895,7 @@ static int mouse_handle(x_t* x, xevent_t* ev) {
 
 	if(ev->state ==  XEVT_MOUSE_DOWN) {
 		if(view != x->view_tail) {
-			remove_view(x, view);
-			push_view(x, view);
+			xwin_top(x, view);
 		}
 		else {
 			try_focus(x, view);
@@ -950,6 +958,14 @@ static int mouse_handle(x_t* x, xevent_t* ev) {
 }
 
 static int im_handle(x_t* x, xevent_t* ev) {
+	if(ev->value.im.value == KEY_HOME) {
+		if(x->view_focus != x->view_launcher) {
+			ev->type = XEVT_WIN;
+			ev->value.window.event = XEVT_WIN_CLOSE;
+			x_push_event(x, x->view_focus, ev);
+		}
+		return 0;
+	}
 	if(x->view_focus != NULL) {
 		x_push_event(x, x->view_focus, ev);
 	}

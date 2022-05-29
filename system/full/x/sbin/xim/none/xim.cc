@@ -4,15 +4,20 @@
 #include <stdio.h>
 #include <sys/vdevice.h>
 #include <sys/klog.h>
+#include <sys/keydef.h>
 #include <x/xwin.h>
+#include <string.h>
 
 class XIM {
- 	int x_pid;
- 	int keybFD;
+	int x_pid;
+	int keybFD;
+	bool escHome;
 
 	void input(char c) {
 		xevent_t ev;
 		ev.type = XEVT_IM;
+		if(c == KEY_ESC && escHome)
+			c = KEY_HOME;
 		ev.value.im.value = c;
 
 		proto_t in;
@@ -22,9 +27,10 @@ class XIM {
 	}
 
 public:
-	inline XIM(const char* keyb_dev) {
+	inline XIM(const char* keyb_dev, bool escHome) {
 		x_pid = -1;
 		keybFD = -1;
+		this->escHome = escHome;
 		while(true) {
 			keybFD = open(keyb_dev, O_RDONLY);
 			if(keybFD > 0)
@@ -49,14 +55,9 @@ public:
 		char v;
 		int rd = ::read(keybFD, &v, 1);
 		if(rd == 1){ 
-			if(last_v != v){
-				input(v);
-				last_v = v;
-			}
-		}else{
-			last_v = 0;
+			input(v);
+			usleep(30000);
 		}
-		sleep(0);
 	}
 };
 
@@ -65,8 +66,12 @@ int main(int argc, char* argv[]) {
 	if(argc > 1)
 		keyb_dev = argv[1];
 
+	bool escHome = false;
+	if(argc > 2 && strcmp(argv[2], "esc_home") == 0) {
+		escHome = true;
+	}
 
-	XIM xim(keyb_dev);
+	XIM xim(keyb_dev, escHome);
 	while(true) {
 		xim.read();
 	}
