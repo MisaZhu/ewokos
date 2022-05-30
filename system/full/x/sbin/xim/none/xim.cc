@@ -12,6 +12,7 @@ class XIM {
 	int x_pid;
 	int keybFD;
 	bool escHome;
+	bool release;
 
 	void input(char c) {
 		xevent_t ev;
@@ -31,6 +32,7 @@ public:
 		x_pid = -1;
 		keybFD = -1;
 		this->escHome = escHome;
+		release = false;
 		while(true) {
 			keybFD = open(keyb_dev, O_RDONLY);
 			if(keybFD > 0)
@@ -57,8 +59,10 @@ public:
 			for(int i = 0; i < rd; i++){ 
 				input(v[i]);
 			}
+			release = true;
 		}
-		else {
+		else if(release) {
+			release = false;
 			input(0);
 		}
 		usleep(100000);
