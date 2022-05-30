@@ -19,6 +19,8 @@ namespace sn
 		bool loadGame(char* rom_path);
 		void setFrameBuffer(int w, int h, void* buf);
         void run(int cycle);
+        void setKey(uint32_t key);
+
     private:
         void DMA(Byte page);
 
