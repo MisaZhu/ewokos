@@ -33,6 +33,29 @@ void sys_info_init(void) {
 #endif
 }
 
+#ifdef KERNEL_SMP
+#define SECOND_START_ADDR_HI      0x1F20404C
+#define SECOND_START_ADDR_LO      0x1F204050
+extern char __entry[];
+inline void __attribute__((optimize("O0"))) start_core(uint32_t core_id) { //TODO
+    if(core_id >= _sys_info.cores)
+        return;
+	//uint32_t entry = V2P(entry);
+	uint32_t entry = (uint32_t)(entry);
+	do {
+ 	   put32(SECOND_START_ADDR_HI, (entry >> 16));
+	} while(get32(SECOND_START_ADDR_HI) != (entry >> 16));
+	printf("hi set\n");
+
+	do {
+   		put32(SECOND_START_ADDR_LO, (entry & 0xffff));
+	} while(get32(SECOND_START_ADDR_LO) != (entry & 0xffff));
+	printf("lo set\n");
+    __asm__("sev");
+	printf("seved\n");
+}
+#endif
+
 void arch_vm(page_dir_entry_t* vm) {
 	//map frame buffer
 	uint32_t pfb = 0x27c00000;
@@ -48,5 +71,7 @@ void arch_vm(page_dir_entry_t* vm) {
 	uint32_t pbase = _sys_info.mmio.phy_base + _core_base_offset;
 	map_page(vm, vbase, pbase, AP_RW_D, 1);
 	map_page(vm, pbase, pbase, AP_RW_D, 1);
+#ifdef KERNEL_SMP
+	map_page(vm, SECOND_START_ADDR_HI , SECOND_START_ADDR_HI, AP_RW_D, 1);
+#endif
 }
-

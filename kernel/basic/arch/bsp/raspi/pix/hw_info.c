@@ -102,3 +102,18 @@ void arch_vm(page_dir_entry_t* vm) {
 	map_page(vm, pbase, pbase, AP_RW_D, 1);
 }
 
+
+#ifdef KERNEL_SMP
+extern char __entry[];
+void start_core(uint32_t core_id) {
+    if(core_id >= _sys_info.cores)
+        return;
+
+    uint32_t core_start_addr = (core_id * 0x10 + 0x8c) + 
+       _sys_info.mmio.phy_base + 
+       _core_base_offset;
+
+    put32(core_start_addr, __entry);
+    __asm__("sev");
+}
+#endif
