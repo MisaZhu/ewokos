@@ -153,6 +153,11 @@ protected:
 			repaint(true);
 			return;
 		}
+		else if(c == KEY_BUTTON_START) {
+			doKeyIn('\n');
+			changeMode(true);
+			return;
+		}
 		else if(c == KEY_ENTER) {
 			c = keytable[keytableType][keySelect];
 			doKeyIn(c);
