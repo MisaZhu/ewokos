@@ -2,6 +2,7 @@
 #include <dev/timer.h>
 #include <kernel/irq.h>
 #include <basic_math.h>
+#include <kprintf.h>
 #include "timer_arch.h"
 
 uint32_t _timer_tval  = 0;
@@ -38,14 +39,16 @@ static inline void enable_cntv(void) {
 	__asm__ volatile ("mcr p15, 0, %0, c14, c3, 1" :: "r"(1));
 }
 
-static inline uint32_t read_cntvct(void) {
+static inline uint32_t  read_cntvct(void) {
 	uint32_t val;
 	__asm__ volatile("mrrc p15, 1, %Q0, %R0, c14" : "=r" (val));
+	return val;
 }
 
 static inline uint32_t read_cntctl(void) {
 	uint32_t val;
 	__asm__ volatile("mrc p15, 0, %0, c14, C3, 1" : "=r" (val));
+	return val;
 }
 
 #define MIN_FREQ 4096 
@@ -64,8 +67,6 @@ void timer_clear_interrupt(uint32_t id) {
 	write_cntv_tval(_timer_tval);
 	(void)id;
 }
-
-
 
 uint64_t timer_read_sys_usec(void) { //read microsec
 	return read_cntvct() >>  2;///(_cntfrq/100000);

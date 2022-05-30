@@ -11,7 +11,7 @@ void irq_arch_init(void) {
 }
 
 inline uint32_t irq_gets(void) {
-	uint32_t ret = 0;
+	//uint32_t ret = 0;
 	return IRQ_TIMER0;
 }
 
