@@ -54,6 +54,7 @@ typedef struct {
 	uint32_t win_move_alpha;
 	uint32_t fps;
 	bool bg_run;
+	bool force_fullscreen;
 	char xwm[128];
 } x_conf_t;
 
@@ -107,6 +108,10 @@ static int32_t read_config(x_t* x, const char* fname) {
 	v = sconf_get(conf, "bg_run");
 	if(v[0] != 0) 
 		x->config.bg_run = atoi(v);
+	
+	v = sconf_get(conf, "force_fullscreen");
+	if(v[0] != 0) 
+		x->config.force_fullscreen = atoi(v);
 
 	v = sconf_get(conf, "xwm");
 	if(v[0] != 0) 
@@ -120,7 +125,6 @@ static int32_t read_config(x_t* x, const char* fname) {
 		if(strcmp(v, "none") == 0)
 			x->show_cursor = false;
 	}
-
 
 	sconf_free(conf);
 	return 0;
@@ -644,7 +648,22 @@ static void x_get_min_size(x_t* x, xview_t* view, int *w, int* h) {
 	PF->clear(&out);
 }
 
-static int xwin_update_info_raw(int fd, int from_pid, proto_t* in, x_t* x) {
+static void xwin_force_fullscreen(x_t* x, xinfo_t* xinfo) {
+	if(!x->config.force_fullscreen)
+		return;
+
+	if((xinfo->style & X_STYLE_XIM) != 0 || 
+			(xinfo->style & X_STYLE_SYSTOP) != 0)
+		return;
+
+	xinfo->wsr.x = 0;
+	xinfo->wsr.y = 0;
+	xinfo->wsr.w = x->displays[x->current_display].g->w;
+	xinfo->wsr.h = x->displays[x->current_display].g->h;
+	xinfo->style |= X_STYLE_NO_FRAME;
+}
+
+static int xwin_update_info(int fd, int from_pid, proto_t* in, x_t* x) {
 	xinfo_t xinfo;
 	int sz = sizeof(xinfo_t);
 	if(fd < 0 || proto_read_to(in, &xinfo, sz) != sz)
@@ -654,10 +673,12 @@ static int xwin_update_info_raw(int fd, int from_pid, proto_t* in, x_t* x) {
 	if(view == NULL)
 		return -1;
 
-	if((xinfo.style & X_STYLE_XIM) != 0)
-		x->view_xim = view;
 	if((xinfo.style & X_STYLE_LAUNCHER) != 0)
 		x->view_launcher = view;
+	if((xinfo.style & X_STYLE_XIM) != 0)
+		x->view_xim = view;
+
+	xwin_force_fullscreen(x, &xinfo);
 	
 	if((xinfo.style & X_STYLE_NO_FRAME) == 0 &&
       (xinfo.style & X_STYLE_NO_TITLE) == 0) {
@@ -705,11 +726,6 @@ static int xwin_update_info_raw(int fd, int from_pid, proto_t* in, x_t* x) {
 	view->xinfo.shm_id = shm_id;
 	x_update_frame_areas(x, view);
 	return 0;
-}
-
-static int xwin_update_info(int fd, int from_pid, proto_t* in, x_t* x) {
-	int res = xwin_update_info_raw(fd, from_pid, in, x);
-	return res;
 }
 
 static int xwin_get_info(int fd, int from_pid, x_t* x, proto_t* out) {
