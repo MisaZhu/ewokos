@@ -149,12 +149,14 @@ static int power_button(void* p) {
 	}
 
 	if(count >= 10){
+		//close screnn
+		miyoo_gpio_set(4, 0);
 		printf("power down!\n");
 		usleep(1000);
 		miyoo_gpio_set(85, 0);
 	}
 
-	usleep(300000);
+	usleep(200000);
 }
 
 int main(int argc, char** argv) {
