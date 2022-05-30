@@ -5,9 +5,9 @@
 #include <kprintf.h>
 #include "timer_arch.h"
 
+#define GIC_DEFAULT_FREQ	6000000
 uint32_t _timer_tval  = 0;
-
-uint32_t _cntfrq = 5000000;
+uint32_t _cntfrq = GIC_DEFAULT_FREQ;
 
 void __write_cntv_tval(uint32_t);
 void __enable_cntv(void);
@@ -56,9 +56,11 @@ void timer_set_interval(uint32_t id, uint32_t times_per_sec) {
 	(void)id;
 	if (times_per_sec < MIN_FREQ)
 		times_per_sec = MIN_FREQ;
-	printf("counter freq: %d\n", read_cntfrq());
-	//_timer_tval = read_cntfrq() / times_per_sec /20;
-	_timer_tval = _cntfrq/times_per_sec/20;
+	_cntfrq = read_cntfrq(); 
+	if(_cntfrq < 1000000 || _cntfrq > 50000000)
+		_cntfrq = GIC_DEFAULT_FREQ;
+	printf("sys counter freq: %d\n", _cntfrq);
+	_timer_tval = _cntfrq/times_per_sec;
 	write_cntv_tval(_timer_tval);
 	enable_cntv();
 }
@@ -69,7 +71,5 @@ void timer_clear_interrupt(uint32_t id) {
 }
 
 uint64_t timer_read_sys_usec(void) { //read microsec
-	return read_cntvct() >>  2;///(_cntfrq/100000);
-	//return read_cntctl();
-	//return read_cntv_tval();
+	return read_cntvct() / (_cntfrq / 1000000);
 }
