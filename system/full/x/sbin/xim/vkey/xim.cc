@@ -127,7 +127,7 @@ protected:
 			inputC = 0;
 		}
 
-		if(hideMode) {
+		if(hideMode && c != KEY_BUTTON_START && c != KEY_BUTTON_B) {
 			changeMode(false);
 			return;
 		}
@@ -356,7 +356,7 @@ int main(int argc, char* argv[]) {
 	//x.open(&xwin, scr.size.w - xwin.getFixW(), scr.size.h-xwin.getFixH(), xwin.getFixW(), xwin.getFixH(), "xim",
 	//x.open(&xwin, 0, scr.size.h-xwin.getFixH(), scr.size.w, xwin.getFixH(), "xim",
 	x.open(&xwin, 0, scr.size.h/2, scr.size.w, scr.size.h/2, "xim",
-			X_STYLE_NO_FRAME | X_STYLE_NO_FOCUS | X_STYLE_SYSTOP | X_STYLE_XIM);
+			X_STYLE_NO_FRAME | X_STYLE_NO_FOCUS | X_STYLE_SYSTOP | X_STYLE_XIM | X_STYLE_ANTI_FSCR);
 	x.run(NULL, &xwin);
 	return 0;
 }

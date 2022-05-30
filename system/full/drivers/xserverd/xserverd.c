@@ -649,11 +649,8 @@ static void x_get_min_size(x_t* x, xview_t* view, int *w, int* h) {
 }
 
 static void xwin_force_fullscreen(x_t* x, xinfo_t* xinfo) {
-	if(!x->config.force_fullscreen)
-		return;
-
-	if((xinfo->style & X_STYLE_XIM) != 0 || 
-			(xinfo->style & X_STYLE_SYSTOP) != 0)
+	if(!x->config.force_fullscreen ||
+			(xinfo->style & X_STYLE_ANTI_FSCR) != 0)
 		return;
 
 	xinfo->wsr.x = 0;

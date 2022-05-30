@@ -50,6 +50,7 @@ enum {
 #define X_STYLE_SYSBOTTOM 0x40
 #define X_STYLE_XIM       0x80
 #define X_STYLE_LAUNCHER  0x100
+#define X_STYLE_ANTI_FSCR 0x200 //anti full screen
 
 #define X_TITLE_MAX 32
 typedef struct {
