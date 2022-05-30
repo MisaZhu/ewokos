@@ -23,6 +23,7 @@ class XIMX : public XWin {
 	font_t* font;
 	gsize_t scrSize;
 	bool hideMode;
+	char inputC;
 
 	static const int INPUT_MAX = 128;
 	char inputS[INPUT_MAX];
@@ -113,12 +114,24 @@ protected:
 	}
 
 	void doIMEvent(xevent_t* ev) {
+		uint8_t c = ev->value.im.value;
+		if(c != KEY_LEFT && c != KEY_RIGHT) {
+			if(c != 0) {
+				inputC = c;
+				return;
+			}
+
+			if(inputC == 0)
+				return;
+			c = inputC;
+			inputC = 0;
+		}
+
 		if(hideMode) {
 			changeMode(false);
 			return;
 		}
 
-		uint8_t c = ev->value.im.value;
 		if(c == KEY_BUTTON_X) {
 			changeMode(true);
 			return;
@@ -135,9 +148,15 @@ protected:
 		else if(c == KEY_DOWN) {
 			keySelect += col;
 		}
-		else if(c == KEY_ENTER || c == KEY_BACKSPACE) {
+		else if(c == KEY_BUTTON_B) {
+			doKeyIn('\b');
+			repaint(true);
+			return;
+		}
+		else if(c == KEY_ENTER) {
 			c = keytable[keytableType][keySelect];
 			doKeyIn(c);
+			repaint(true);
 			return;
 		}
 
@@ -282,15 +301,16 @@ protected:
 
 public:
 	inline XIMX(int fw, int fh) {
+		inputC = 0;
 		scrSize.w = fw;
 		scrSize.h = fh;
 		font = font_by_name("10x20");
 		keytable[1] = ""
 			"1234567890%-+\b"
 			"\\#$&*(){}[]!\n\3"
-			"\2:;\"'<>. \3`|^\1";
+			"\2:;\"'<>. \3`?^\1";
 		keytable[0] = ""
-			"qwertyuiop-/?\b"
+			"qwertyuiop-/|\b"
 			"~asdfghjkl@_\n\3"
 			"\2zxcvbnm \3!,.\1";
 		keytableType = 0;

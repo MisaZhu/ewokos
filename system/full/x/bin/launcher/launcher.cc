@@ -21,6 +21,7 @@ class Launcher: public XWin {
 	items_t items;
 	int selected;
 	bool focused;
+	bool enter;
 
 	void drawIcon(graph_t* g, const char* item, int icon_size, int x, int y) {
 		str_t* s = str_new("");	
@@ -113,9 +114,17 @@ protected:
 			else if(key == KEY_DOWN)
 				selected += cols;
 			else if(key == KEY_ENTER) {
-				int pid = fork();
-				if(pid == 0)
-					runProc(items.items[selected]->cstr);
+				enter = true;
+				return;
+			}
+			else if(key == 0) {
+				if(enter) {
+					enter = false;
+					int pid = fork();
+					if(pid == 0)
+						runProc(items.items[selected]->cstr);
+					return;
+				}
 			}
 			else
 				return;
@@ -142,6 +151,7 @@ public:
 	inline Launcher() {
 		selected = 0;
 		focused = true;
+		enter = false;
 		memset(&items, 0, sizeof(items_t));
 	}
 
