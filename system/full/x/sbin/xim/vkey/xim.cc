@@ -120,14 +120,13 @@ protected:
 				inputC = c;
 				return;
 			}
-
 			if(inputC == 0)
 				return;
 			c = inputC;
 			inputC = 0;
 		}
 
-		if(hideMode && c != KEY_BUTTON_START && c != KEY_BUTTON_B) {
+		if(hideMode && c != KEY_BUTTON_Y && c != KEY_BUTTON_B) {
 			changeMode(false);
 			return;
 		}
@@ -150,10 +149,10 @@ protected:
 		}
 		else if(c == KEY_BUTTON_B) {
 			doKeyIn('\b');
-			repaint(true);
+			changeMode(true);
 			return;
 		}
-		else if(c == KEY_BUTTON_START) {
+		else if(c == KEY_BUTTON_Y) {
 			doKeyIn('\n');
 			changeMode(true);
 			return;
