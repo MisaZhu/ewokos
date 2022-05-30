@@ -113,8 +113,17 @@ protected:
 	}
 
 	void doIMEvent(xevent_t* ev) {
+		if(hideMode) {
+			changeMode(false);
+			return;
+		}
+
 		uint8_t c = ev->value.im.value;
-		if(c == KEY_LEFT) {
+		if(c == KEY_BUTTON_X) {
+			changeMode(true);
+			return;
+		}
+		else if(c == KEY_LEFT) {
 			keySelect--;
 		}
 		else if(c == KEY_RIGHT) {
@@ -126,7 +135,7 @@ protected:
 		else if(c == KEY_DOWN) {
 			keySelect += col;
 		}
-		else if(c == KEY_ENTER) {
+		else if(c == KEY_ENTER || c == KEY_BACKSPACE) {
 			c = keytable[keytableType][keySelect];
 			doKeyIn(c);
 			return;
