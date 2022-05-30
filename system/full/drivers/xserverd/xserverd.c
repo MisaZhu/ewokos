@@ -115,8 +115,12 @@ static int32_t read_config(x_t* x, const char* fname) {
 	v = sconf_get(conf, "cursor");
 	if(strcmp(v, "touch") == 0)
 		x->cursor.type = CURSOR_TOUCH;
-	else
+	else {
 		x->cursor.type = CURSOR_MOUSE;
+		if(strcmp(v, "none") == 0)
+			x->show_cursor = false;
+	}
+
 
 	sconf_free(conf);
 	return 0;
@@ -512,7 +516,7 @@ static void x_repaint(x_t* x, uint32_t display_index) {
 		return;
 	display->need_repaint = false;
 
-	if(x->current_display == display_index)
+	if(x->show_cursor && x->current_display == display_index)
 		hide_cursor(x);
 
 	bool undirty = false;
