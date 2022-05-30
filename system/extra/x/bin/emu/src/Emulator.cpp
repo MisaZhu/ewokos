@@ -83,4 +83,8 @@ namespace sn
         m_ppu.doDMA(page_ptr);
     }
 
+    void Emulator::setKey(uint32_t key){
+        m_controller1.setKeyStatus(key);
+    }
+
 }

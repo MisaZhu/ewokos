@@ -15,7 +15,7 @@ $(EMU): $(EMU_OBJS) \
 		$(BUILD_DIR)/lib/libewokc.a \
 		$(BUILD_DIR)/lib/libx++.a \
 		$(BUILD_DIR)/lib/libcxx.a  
-	$(LD) -Ttext=100 $(EMU_OBJS) -o $(EMU) $(LDFLAGS) -lx++  -lgraph -lewokc -lcxx -lc
+	$(LD) -Ttext=100 $(EMU_OBJS) -o $(EMU) $(LDFLAGS) -lfonts -lgraph -lx++ -lx -lewokc -lc -lcxx
 
 $(ROM): mario.nes
 	mkdir -p $(TARGET_DIR)/data/roms/
