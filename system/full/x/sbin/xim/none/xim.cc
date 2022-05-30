@@ -51,11 +51,10 @@ public:
 		if(x_pid <= 0 || keybFD < 0)
 			return;
 
-		static char last_v;
-		char v;
-		int rd = ::read(keybFD, &v, 1);
-		if(rd == 1){ 
-			input(v);
+		char v[6];
+		int rd = ::read(keybFD, &v, 6);
+		for(int i = 0; i < rd; i++){ 
+			input(v[i]);
 		}
 		usleep(100000);
 	}
