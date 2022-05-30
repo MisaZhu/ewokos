@@ -77,10 +77,11 @@ typedef struct {
 	xview_t* view_head;
 	xview_t* view_tail;
 	xview_t* view_focus;
-	xview_t* view_xim;
 	xview_t* view_launcher;
 	xview_t* view_last;
 
+	xview_t* view_xim;
+	bool     view_xim_actived;
 	x_current_t current;
 	x_conf_t config;
 } x_t;
@@ -272,6 +273,7 @@ static void x_push_event(x_t* x, xview_t* view, xevent_t* e) {
 }
 
 static void hide_view(x_t* x, xview_t* view) {
+	x->view_xim_actived = false;
 	if(view == NULL)
 		return;
 
@@ -286,6 +288,7 @@ static void show_view(x_t* x, xview_t* view) {
 	if(view == NULL)
 		return;
 
+	x->view_xim_actived = true;
 	xevent_t e;
 	e.type = XEVT_WIN;
 	e.value.window.event = XEVT_WIN_VISIBLE;
@@ -987,20 +990,24 @@ static void xwin_bg(x_t* x, xview_t* view) {
 	}
 }
 
-static int im_handle(x_t* x, xevent_t* ev) {
+static int im_handle(x_t* x, int32_t from_pid, xevent_t* ev) {
 	if(ev->value.im.value == KEY_HOME) {
 		xwin_bg(x, x->view_focus);
 		return 0;
 	}
-	if(x->view_focus != NULL) {
+
+	if(x->view_xim_actived && x->view_xim != NULL && from_pid != x->view_xim->from_pid) {
+		x_push_event(x, x->view_xim, ev);
+	}
+	else if(x->view_focus != NULL) {
 		x_push_event(x, x->view_focus, ev);
 	}
 	return 0;
 }
 
-static void handle_input(x_t* x, xevent_t* ev) {
+static void handle_input(x_t* x, int32_t from_pid, xevent_t* ev) {
 	if(ev->type == XEVT_IM) {
-		im_handle(x, ev);
+		im_handle(x, from_pid, ev);
 	}
 	else if(ev->type == XEVT_MOUSE) {
 		mouse_handle(x, ev);
@@ -1042,7 +1049,7 @@ static int xserver_dev_cntl(int from_pid, int cmd, proto_t* in, proto_t* ret, vo
 	else if(cmd == X_DCNTL_INPUT) {
 		xevent_t ev;
 		proto_read_to(in, &ev, sizeof(xevent_t));
-		handle_input(x, &ev);
+		handle_input(x, from_pid, &ev);
 	}
 	return 0;
 }

@@ -19,6 +19,7 @@ class XIMX : public XWin {
 	const char* keytable[2];
 	int keytableType;
 
+	int kbFD;
 	font_t* font;
 	gsize_t scrSize;
 	bool hideMode;
@@ -66,51 +67,87 @@ protected:
 		}
 	}
 
+	void doKeyIn(char c) {
+		if(c == '\1') {
+			changeMode(true);
+			return;
+		}
+		else if(c == '\2') {
+			changeKeyTable();
+			return;
+		}
+		else if(c == '\3')
+			c = keytable[keytableType][keySelect-1];
+		else if(c == '\b')
+			c = KEY_BACKSPACE;
+		input(c);
+	}
+
+	void doMouseEvent(xevent_t* ev) {
+		int x = ev->value.mouse.winx;
+		int y = ev->value.mouse.winy;
+		int at = get_at(x, y);
+		if(at < 0)
+			return;
+
+		if(ev->state == XEVT_MOUSE_DOWN) {
+			keySelect = at;
+			repaint(true);
+		}
+		else if(ev->state == XEVT_MOUSE_MOVE) {
+			if(keySelect >= 0 && keySelect != at) {
+				keySelect = at;
+				repaint(true);
+			}
+		}
+		else if(ev->state == XEVT_MOUSE_UP) {
+			if(hideMode) {
+				changeMode(false);
+				return;
+			}
+
+			char c = keytable[keytableType][keySelect];
+			doKeyIn(c);	
+			repaint(true);
+		}
+	}
+
+	void doIMEvent(xevent_t* ev) {
+		uint8_t c = ev->value.im.value;
+		if(c == KEY_LEFT) {
+			keySelect--;
+		}
+		else if(c == KEY_RIGHT) {
+			keySelect++;
+		}
+		else if(c == KEY_UP) {
+			keySelect -= col;
+		}
+		else if(c == KEY_DOWN) {
+			keySelect += col;
+		}
+		else if(c == KEY_ENTER) {
+			c = keytable[keytableType][keySelect];
+			doKeyIn(c);
+			return;
+		}
+
+		if(keySelect < 0)
+			keySelect = 0;
+		else if(keySelect >= strlen(keytable[keytableType]))
+			keySelect = strlen(keytable[keytableType]) - 1;
+		repaint(true);
+	}
+
 	void onEvent(xevent_t* ev) {
 		if(keyw == 0 || keyh == 0)
 			return;
 
 		if(ev->type == XEVT_MOUSE) {
-			int x = ev->value.mouse.winx;
-			int y = ev->value.mouse.winy;
-			int at = get_at(x, y);
-			if(at < 0)
-				return;
-
-			if(ev->state == XEVT_MOUSE_DOWN) {
-				keySelect = at;
-				repaint(true);
-			}
-			else if(ev->state == XEVT_MOUSE_MOVE) {
-				if(keySelect >= 0 && keySelect != at) {
-					keySelect = at;
-					repaint(true);
-				}
-			}
-			else if(ev->state == XEVT_MOUSE_UP) {
-				keySelect = -1;
-				if(hideMode) {
-					changeMode(false);
-					return;
-				}
-
-				char c = keytable[keytableType][at];
-				if(c == '\1') {
-					changeMode(true);
-					return;
-				}
-				else if(c == '\2') {
-					changeKeyTable();
-					return;
-				}
-				else if(c == '\3')
-					c = keytable[keytableType][at-1];
-				else if(c == '\b')
-					c = KEY_BACKSPACE;
-
-				input(c);
-				repaint(true);
-			}
+			doMouseEvent(ev);
+		}
+		else if(ev->type == XEVT_IM) {
+			doIMEvent(ev);
 		}
 	}
 
@@ -260,6 +297,8 @@ public:
 	}
 
 	inline ~XIMX() {
+		if(kbFD > 0)
+			::close(kbFD);
 		::close(xPid);
 	}
 
