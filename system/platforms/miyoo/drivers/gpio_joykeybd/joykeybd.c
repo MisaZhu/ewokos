@@ -15,6 +15,7 @@ static uint32_t KEY_LEFT_PIN;
 static uint32_t KEY_RIGHT_PIN;
 static uint32_t KEY_PRESS_PIN;
 static uint32_t KEY_BACK_PIN;
+static uint32_t KEY_HOME_PIN;
 
 static bool _j_x_rev = false;
 static bool _j_y_rev = false;
@@ -59,6 +60,8 @@ static int joystick_read(int fd, int from_pid, fsinfo_t* info,
 		*rd = KEY_ENTER;
 	else if(miyoo_gpio_read(KEY_BACK_PIN) == 0)
 		*rd = KEY_BACKSPACE;
+	else if(miyoo_gpio_read(KEY_HOME_PIN) == 0)
+		*rd = KEY_HOME;
 	else{
 		return ERR_RETRY_NON_BLOCK;
 	}
@@ -77,15 +80,9 @@ int main(int argc, char** argv) {
 	KEY_RIGHT_PIN = 5;
 	KEY_PRESS_PIN = 7;
 	KEY_BACK_PIN = 6;
+	KEY_HOME_PIN = 12;
 
 	const char* mnt_point = argc > 1 ? argv[1]: "/dev/joykeyb";
-	if(argc >= 7) {
-		KEY_UP_PIN = atoi(argv[2]);
-		KEY_DOWN_PIN = atoi(argv[3]);
-		KEY_LEFT_PIN = atoi(argv[4]);
-		KEY_RIGHT_PIN = atoi(argv[5]);
-		KEY_PRESS_PIN = atoi(argv[6]);
-	}
 	init_gpio();
 
 	_j_x_rev = false;

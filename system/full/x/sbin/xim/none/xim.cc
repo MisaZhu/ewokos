@@ -56,8 +56,8 @@ public:
 		int rd = ::read(keybFD, &v, 1);
 		if(rd == 1){ 
 			input(v);
-			usleep(30000);
 		}
+		usleep(100000);
 	}
 };
 
