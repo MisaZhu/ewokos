@@ -154,7 +154,8 @@ protected:
 		}
 		else if(c == KEY_BUTTON_Y) {
 			doKeyIn('\b');
-			changeMode(true);
+			//changeMode(true);
+			repaint(true);
 			return;
 		}
 		else if(c == KEY_ENTER) {

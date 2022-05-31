@@ -65,7 +65,7 @@ public:
 			release = false;
 			input(0);
 		}
-		usleep(100000);
+		usleep(60000);
 	}
 };
 
