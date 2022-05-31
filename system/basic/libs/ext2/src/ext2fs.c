@@ -37,12 +37,12 @@ static inline int32_t set_bit(char *buf, int32_t bit) {
 
 /*get group descriptor index by inode*/
 static inline int32_t get_gd_index_by_ino(ext2_t* ext2, int32_t ino) {
-	return div_u32(ino, ext2->super.s_inodes_per_group);
+	return (ino / ext2->super.s_inodes_per_group);
 }
 
 /*get group descriptor index by block*/
 static inline int32_t get_gd_index_by_block(ext2_t* ext2, int32_t block) {
-	return div_u32(block, ext2->super.s_blocks_per_group);
+	return (block / ext2->super.s_blocks_per_group);
 }
 
 /*get inode index in group*/
@@ -58,9 +58,9 @@ static inline int32_t get_block_in_group(ext2_t* ext2, int32_t block, int32_t in
 /*write back group descriptor by index*/
 static int32_t set_gd(ext2_t* ext2, int32_t index) {
 	int32_t gd_size = sizeof(GD);
-  int32_t gd_num = div_u32(EXT2_BLOCK_SIZE, gd_size);
+  int32_t gd_num = (EXT2_BLOCK_SIZE / gd_size);
 
-	int32_t blk_index = div_u32(index, gd_num);
+	int32_t blk_index = (index / gd_num);
 	index = blk_index * gd_num;
   
 	const char* p = (const char*)&ext2->gds[index];
@@ -152,7 +152,7 @@ static uint32_t ext2_ialloc(ext2_t* ext2) {
 	int32_t index = 0;
 	uint32_t i;
 	for (i=0; i < ext2->super.s_inodes_count; i++){
-		if(mod_u32(i, ext2->super.s_inodes_per_group) == 0) {
+		if((i % ext2->super.s_inodes_per_group) == 0) {
 			index = get_gd_index_by_ino(ext2, i);
 			ext2->read_block(ext2->gds[index].bg_inode_bitmap, buf);
 		}
@@ -176,7 +176,7 @@ static int32_t ext2_balloc(ext2_t* ext2) {
 
 	ext2->read_block(ext2->gds[0].bg_block_bitmap, buf);
 	for (i = 0; i < ext2->super.s_blocks_count; i++) {
-		if(mod_u32(i, ext2->super.s_blocks_per_group) == 0) {
+		if((i % ext2->super.s_blocks_per_group) == 0) {
 			index = get_gd_index_by_block(ext2, i);
 			ext2->read_block(ext2->gds[index].bg_block_bitmap, buf);
 		}
@@ -707,8 +707,8 @@ int32_t ext2_rmdir(ext2_t* ext2, const char *fname) {
 }
 
 static inline int32_t get_gd_num(ext2_t* ext2) {
-	int32_t ret = div_u32(ext2->super.s_blocks_count, ext2->super.s_blocks_per_group);
-	if(mod_u32(ext2->super.s_blocks_count, ext2->super.s_blocks_per_group) != 0)
+	int32_t ret = (ext2->super.s_blocks_count / ext2->super.s_blocks_per_group);
+	if((ext2->super.s_blocks_count % ext2->super.s_blocks_per_group) != 0)
 		ret++;
 	return ret;
 }
@@ -718,7 +718,7 @@ static int32_t get_gds(ext2_t* ext2) {
   ext2->group_num = get_gd_num(ext2);
   ext2->gds = (GD*)malloc(gd_size * ext2->group_num);
 
-  int32_t gd_num = div_u32(EXT2_BLOCK_SIZE, gd_size);
+  int32_t gd_num = (EXT2_BLOCK_SIZE / gd_size);
   int32_t i = 2;
   int32_t index = 0;
   while(true) {

@@ -11,6 +11,6 @@ uint32_t fwrite(const void* ptr, uint32_t size, uint32_t nmemb, FILE* fp) {
 	int32_t rd = write(fp->fd, ptr, size*nmemb);
 	if(rd < 0)
 		rd = 0;
-	return div_u32(rd, size);
+	return (rd / size);
 }
 

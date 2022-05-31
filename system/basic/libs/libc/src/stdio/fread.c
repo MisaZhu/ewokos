@@ -9,6 +9,6 @@ uint32_t fread(void* ptr, uint32_t size, uint32_t nmemb, FILE* fp) {
 	int32_t rd = read(fp->fd, ptr, size*nmemb);
 	if(rd < 0)
 		rd = 0;
-	return div_u32(rd, size);
+	return (rd / size);
 }
 

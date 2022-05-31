@@ -187,7 +187,7 @@ unsigned int hashmap_hash_int(hashmap_map * m, const char* keystring){
 	/* Knuth's Multiplicative Method */
 	key = (key >> 3) * 2654435761;
 
-	return mod_u32(key, m->table_size);
+	return (key % m->table_size);
 }
 
 /*
@@ -215,7 +215,7 @@ int hashmap_hash(map_t in, const char* key){
 		if(m->data[curr].in_use == 1 && (strcmp(m->data[curr].key,key)==0))
 			return curr;
 
-		curr = mod_u32(curr + 1,  m->table_size);
+		curr = (curr + 1) %  m->table_size;
 	}
 
 	return MAP_FULL;
@@ -315,7 +315,7 @@ int hashmap_get(map_t in, const char* key, any_t *arg){
             }
 		}
 
-		curr = mod_u32(curr + 1, m->table_size);
+		curr = (curr + 1) % m->table_size;
 	}
 
 	*arg = NULL;
@@ -385,7 +385,7 @@ int hashmap_remove(map_t in, const char* key){
                 return MAP_OK;
             }
 		}
-		curr = mod_u32(curr + 1,  m->table_size);
+		curr = (curr + 1) %  m->table_size;
 	}
 
 	/* Data not found */

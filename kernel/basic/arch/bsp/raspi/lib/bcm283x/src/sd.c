@@ -265,7 +265,7 @@ static int32_t sd_write_sector(uint32_t sector, unsigned char *buffer) {
  * set SD clock to frequency in Hz
  */
 static int32_t sd_clk(uint32_t f) {
-	uint32_t d, c=div_u32(41666666 , f), x , s=32, h=0;
+	uint32_t d, c=(41666666 / f), x , s=32, h=0;
 	int32_t cnt = 100000;
 	while((*EMMC_STATUS & (SR_CMD_INHIBIT|SR_DAT_INHIBIT)) && cnt--) 
 		_delay_msec(1);
