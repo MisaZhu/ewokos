@@ -148,12 +148,12 @@ protected:
 			keySelect += col;
 		}
 		else if(c == KEY_BUTTON_B) {
-			doKeyIn('\b');
+			doKeyIn('\n');
 			changeMode(true);
 			return;
 		}
 		else if(c == KEY_BUTTON_Y) {
-			doKeyIn('\n');
+			doKeyIn('\b');
 			changeMode(true);
 			return;
 		}
