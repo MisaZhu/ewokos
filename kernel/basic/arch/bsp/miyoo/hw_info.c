@@ -47,7 +47,7 @@ inline void __attribute__((optimize("O0"))) start_core(uint32_t core_id) { //TOD
 	printf("entry: 0x%x\n", entry);
 	do {
  	   put32(SECOND_MAGIC_NUMBER_ADDR, 0xBABE);
-	} while(get32(SECOND_START_ADDR_HI) != 0XBABE);
+	} while(get32(SECOND_MAGIC_NUMBER_ADDR) != 0XBABE);
 
 	do {
  	   put32(SECOND_START_ADDR_HI, (entry >> 16));
