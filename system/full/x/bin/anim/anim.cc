@@ -24,7 +24,7 @@ class TestX : public XWin {
 		if(img == NULL)
 			return;
 		graph_blt(img_fighter, fighter_step*(img->w/7), 0, img->w/7, img->h,
-				g, 10, 10, img->w, img->h);
+				g, g->w-img->w/7-10, g->h-img->h-10, img->w, img->h);
 	}
 public:
 	inline TestX() {
