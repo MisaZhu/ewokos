@@ -324,6 +324,19 @@ static void try_focus(x_t* x, xview_t* view) {
 	}
 }
 
+static inline void x_repaint_req(x_t* x, int32_t display_index) {
+	if(display_index >= 0) {
+		x_display_t *display = &x->displays[display_index];
+		display->need_repaint = true;
+		return;
+	}
+
+	for(uint32_t i=0; i<x->display_num; i++) {
+		x_display_t *display = &x->displays[i];
+		display->need_repaint = true;
+	}
+}
+
 static void push_view(x_t* x, xview_t* view) {
 	if((view->xinfo.style & X_STYLE_SYSBOTTOM) != 0) { //push head if sysbottom style
 		if(x->view_head != NULL) {
@@ -383,7 +396,7 @@ static void push_view(x_t* x, xview_t* view) {
 
 	try_focus(x, view);
 	if(view->xinfo.visible)
-		x_dirty(x, view->xinfo.display_index);
+		x_repaint_req(x, view->xinfo.display_index);
 }
 
 static xview_t* get_next_focus_view(x_t* x, bool skip_launcher) {
@@ -546,19 +559,6 @@ static void x_repaint(x_t* x, uint32_t display_index) {
 
 	if(undirty)
 		display->dirty = false;
-}
-
-static inline void x_repaint_req(x_t* x, int32_t display_index) {
-	if(display_index >= 0) {
-		x_display_t *display = &x->displays[display_index];
-		display->need_repaint = true;
-		return;
-	}
-
-	for(uint32_t i=0; i<x->display_num; i++) {
-		x_display_t *display = &x->displays[i];
-		display->need_repaint = true;
-	}
 }
 
 static xview_t* x_get_view(x_t* x, int fd, int from_pid) {
