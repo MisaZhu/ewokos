@@ -75,6 +75,10 @@ slave_core:                     @ 1-3 cores
 	msr cpsr, #0xD3             @ enter SVC mode with IRQ and FIQ interrupts disabled
 	ldr sp, = _svc_start_stack        @ initialise SVC mode stack
 	sub sp, r0                  @ stack offset for current core
+
+	mov r0, #0xFF000000 
+	and r0, r0, pc
+	add sp, sp, r0
 	
 	bl _boot_start              @ enable MMU for kernel
 
