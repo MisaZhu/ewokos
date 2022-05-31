@@ -1,5 +1,5 @@
 #include <stdint.h>
-#include "gic.h"
+#include <gic.h>
 
 #define mmio_read32(addr)         (*((volatile unsigned long  *)(addr)))
 #define mmio_write32(addr, v)     (*((volatile unsigned long  *)(addr)) = (unsigned long)(v))
