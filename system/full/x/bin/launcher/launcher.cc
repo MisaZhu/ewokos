@@ -94,13 +94,14 @@ protected:
 			if(ev->state == XEVT_MOUSE_DOWN) {
 				if(selected != at) {
 					selected = at;
-					repaint();
+					repaint(true);
 				}
 			}
 			else if(ev->state == XEVT_MOUSE_UP) {
 				int pid = fork();
 				if(pid == 0)
 					runProc(items.items[at]->cstr);
+				return;
 			}
 		}
 		else if(ev->type == XEVT_IM) {
@@ -133,7 +134,7 @@ protected:
 				selected = items.num-1;
 			if(selected < 0)
 				selected = 0;
-			repaint();
+			repaint(true);
 		}
 	}
 	
