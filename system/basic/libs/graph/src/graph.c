@@ -24,7 +24,7 @@ inline void graph_init(graph_t* g, const uint32_t* buffer, int32_t w, int32_t h)
 	g->w = w;
 	g->h = h;
 	if(buffer != NULL) {
-		g->buffer = buffer;
+		g->buffer = (uint32_t*)buffer;
 		g->need_free = false;
 	}
 	else {
@@ -118,6 +118,32 @@ graph_t* graph_rotate(graph_t* g, int rot) {
 	return NULL;
 }
 
+void graph_scale_to(graph_t* g, graph_t* dst, int scale) {
+	if(scale == 0 || dst->w < g->w*scale || dst->h < g->h*scale)
+		return;
+	
+	if(scale > 0) { //bigger
+		for(int i=0; i<dst->h; i++) {
+			int gi = i / scale;
+			for(int j=0; j<dst->w; j++) {
+				int gj = j / scale;
+				dst->buffer[i*dst->w + j] = g->buffer[(gi*g->w + gj)];
+			}
+		}
+		return;
+	}
+	//smaller
+	if(scale < 0)
+		scale = -scale;
+	for(int i=0; i<dst->h; i++) {
+		int gi = i * scale;
+		for(int j=0; j<dst->w; j++) {
+			int gj = j * scale;
+			dst->buffer[i*dst->w + j] = g->buffer[(gi*g->w + gj)];
+		}
+	}
+}
+
 graph_t* graph_scale(graph_t* g, int scale) {
 	graph_t* ret = NULL;
 	if(scale == 0)
@@ -125,28 +151,14 @@ graph_t* graph_scale(graph_t* g, int scale) {
 	
 	if(scale > 0) { //bigger
 		ret = graph_new(NULL, g->w*scale, g->h*scale);
-		for(int i=0; i<ret->h; i++) {
-			int gi = i / scale;
-			for(int j=0; j<ret->w; j++) {
-				int gj = j / scale;
-				ret->buffer[i*ret->w + j] = g->buffer[(gi*g->w + gj)];
-			}
-		}
-		return ret;
 	}
-	//smaller
-	if(scale < 0)
-		scale = -scale;
-	ret = graph_new(NULL, g->w/scale, g->h/scale);
+	if(scale < 0) {//smaller
+		int sc = -scale;
+		ret = graph_new(NULL, g->w/sc, g->h/sc);
+	}
 	if(ret == NULL)
 		return NULL;
-	for(int i=0; i<ret->h; i++) {
-		int gi = i * scale;
-		for(int j=0; j<ret->w; j++) {
-			int gj = j * scale;
-			ret->buffer[i*ret->w + j] = g->buffer[(gi*g->w + gj)];
-		}
-	}
+	graph_scale_to(g, ret, scale);
 	return ret;
 }
 
