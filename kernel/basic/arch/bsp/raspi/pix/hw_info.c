@@ -60,12 +60,12 @@ void sys_info_init(void) {
 #else
 	_core_base_offset =  0x01000000;
 	if(isPi2B(pix_revision)) {
-		strcpy(_sys_info.machine, "raspi2");
+		strcpy(_sys_info.machine, "raspi2B");
 		_sys_info.phy_mem_size = 1024*MB;
 		_sys_info.mmio.phy_base = 0x3f000000;
 	}
 	else if(isPi3A(pix_revision)) {
-		strcpy(_sys_info.machine, "raspi3");
+		strcpy(_sys_info.machine, "raspi3A");
 		_sys_info.phy_mem_size = 512*MB;
 		_sys_info.mmio.phy_base = 0x3f000000;
 	}
@@ -75,7 +75,7 @@ void sys_info_init(void) {
 		_sys_info.mmio.phy_base = 0x3f000000;
 	}
 	else if(isPi3B(pix_revision)) {
-		strcpy(_sys_info.machine, "raspi3");
+		strcpy(_sys_info.machine, "raspi3B");
 		_sys_info.phy_mem_size = 1024*MB;
 		_sys_info.mmio.phy_base = 0x3f000000;
 	}

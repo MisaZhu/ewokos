@@ -148,9 +148,9 @@ void _kernel_entry_c(void) {
 #endif
 	welcome();
 
-	printf("kernel: kmalloc initing  [ok] : %dMB\n", (KMALLOC_END-KMALLOC_BASE / 1*MB));
+	printf("kernel: kmalloc initing  [ok] : %dMB\n", (KMALLOC_END-KMALLOC_BASE) / (1*MB));
 	init_allocable_mem(); //init the rest allocable memory VM
-	printf("kernel: init allocable memory: %dMB, %d pages\n", (get_free_mem_size() / 1*MB), _pages_ref.max);
+	printf("kernel: init allocable memory: %dMB, %d pages\n", (get_free_mem_size() / (1*MB)), _pages_ref.max);
 
 	irq_init();
 	printf("kernel: irq inited\n");

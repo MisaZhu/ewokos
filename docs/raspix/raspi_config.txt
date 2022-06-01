@@ -98,3 +98,10 @@ hdmi_mode=87
 hdmi_timings=320 0 80 16 32 1480 0 16 4 12 0 0 0 60 0 42000000 3
 display_hdmi_rotate=3
 
+#-----waveshare mirror hdmi_lcd------------
+#dtoverlay=vc4-fkms-v3d
+hdmi_group=2
+hdmi_mode=82
+hdmi_cvt 1920 1080 60 6 0 0 0
+dtoverlay=i2s-mmap
+dtoverlay=wm8960-soundcard
