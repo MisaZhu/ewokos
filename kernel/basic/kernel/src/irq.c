@@ -79,16 +79,15 @@ static inline void irq_do_timer0(context_t* ctx) {
 		_timer_tic = 0;
 		if(_schedule > TIMER_CNT) {
 			_schedule = 0;
-			irq_do_timer0_interrupt(ctx);
+			if(irq_do_timer0_interrupt(ctx) == 0)
+				return;
 		}
-		else {
-			_schedule++;
+		_schedule++;
 #ifdef KERNEL_SMP
-			ipi_send_all();
+		ipi_send_all();
 #else
-			schedule(ctx);
+		schedule(ctx);
 #endif
-		}
 	}
 }
 
