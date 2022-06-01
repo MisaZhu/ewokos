@@ -23,13 +23,13 @@ int main(int argc, char* argv[]) {
 		}
 		else {
 			v = atoi(argv[2]);
-			bcm283x_gpio_pull(pin, GPIO_PULL_DOWN);
+			//bcm283x_gpio_pull(pin, GPIO_PULL_DOWN);
 			bcm283x_gpio_config(pin, GPIO_OUTPUT);
 			bcm283x_gpio_write(pin, v);
 		}
 	}
 	else {
-		bcm283x_gpio_config(pin, GPIO_INPUT);
+		//bcm283x_gpio_config(pin, GPIO_INPUT);
 		v = bcm283x_gpio_read(pin);
 		printf("%d\n", v);
 	}
