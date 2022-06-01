@@ -19,6 +19,9 @@ namespace sn
 		size_t width;
 		size_t height;
 		uint32_t *frameBuffer;
+    int scale;
+    int offset_x;
+    int offset_y;
     };
 }
 #endif // VIRTUALSCREEN_H

@@ -125,7 +125,7 @@ protected:
 		emulator->setKey(keyStatus);	
 		emulator->setFrameBuffer(g->w, g->h, g->buffer);
 		emulator->run(29815);
-		waitForNextFrame();
+		//waitForNextFrame();
 	}
 };
 
@@ -156,7 +156,8 @@ int main(int argc, char *argv[])
 	X x;
 	x.screenInfo(scr, 0);
 
-	x.open(&emu, scr.size.w /2  - 128 , scr.size.h /2 - 128, 256, 256, "NesEmu", X_STYLE_NO_RESIZE);
+	//x.open(&emu, scr.size.w /2  - 128 , scr.size.h /2 - 128, 256, 256, "NesEmu", X_STYLE_NO_RESIZE);
+	x.open(&emu, 0 , 0, 640, 480, "NesEmu", X_STYLE_NO_RESIZE);
 	emu.setVisible(true);
 
 	x.run(loop, &emu);

@@ -29,13 +29,6 @@
 #include <sys/mmio.h>
 #include "sdmmc.h"
 
-void __attribute__((optimize("O0"))) delayLoop(uint32_t count) {
-	while(count > 0) {
-		__asm("NOP ;");
-		count--;
-	}
-}
-
 
 #define prtstring(s)	klog(s)
 #define prtUInt(v) 		klog("%u", v)
@@ -44,8 +37,8 @@ void __attribute__((optimize("O0"))) delayLoop(uint32_t count) {
 #define prtU16Hex(v)	klog("0x%04X", v)
 #define prtU32Hex(v)	klog("0x%08X", v)
 
-#define Hal_Timer_mDelay(x)     delayLoop(x*800)
-#define Hal_Timer_uDelay(x)     delayLoop(x)
+#define Hal_Timer_mDelay(x)     usleep(x*1000)
+#define Hal_Timer_uDelay(x)     usleep(x)
 
 #define TR_H_SDMMC(p) 
 //***********************************************************************************************************
