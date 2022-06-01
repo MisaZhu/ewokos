@@ -138,14 +138,6 @@ static void dump_ctx(context_t* ctx) {
 		printf("  r%d: 0x%x\n", i, ctx->gpr[i]);
 }
 
-static void dump_last_svc(void) {
-	printf("last svc: pid=%d, code=%d, arg0=0x%x, arg1=0x%x, arg2=0x%x\n",
-			_last_svc.pid, _last_svc.code,
-			_last_svc.arg0,
-			_last_svc.arg1,
-			_last_svc.arg2);
-}
-
 static int32_t copy_on_write(proc_t* proc, uint32_t v_addr) {
 	v_addr = ALIGN_DOWN(v_addr, PAGE_SIZE);
 	uint32_t phy_addr = resolve_phy_address(proc->space->vm, v_addr);
@@ -176,7 +168,6 @@ void undef_abort_handler(context_t* ctx, uint32_t status) {
 	}
 
 	printf("pid: %d(%s), undef instrunction abort!! (core %d)\n", cproc->info.pid, cproc->info.cmd, core);
-	dump_last_svc();
 	dump_ctx(&cproc->ctx);
 	proc_exit(ctx, cproc, -1);
 	//proc_signal_send(ctx, cproc, SYS_SIG_STOP);
@@ -207,7 +198,6 @@ void prefetch_abort_handler(context_t* ctx, uint32_t status) {
 	}
 
 	printf("pid: %d(%s), prefetch abort!! (core %d)\n", cproc->info.pid, cproc->info.cmd, core);
-	dump_last_svc();
 	dump_ctx(&cproc->ctx);
 	proc_exit(ctx, cproc, -1);
 }
@@ -235,7 +225,6 @@ void data_abort_handler(context_t* ctx, uint32_t addr_fault, uint32_t status) {
 	}
 
 	printf("pid: %d(%s), core: %d, data abort!! at: 0x%X, code: 0x%X\n", cproc->info.pid, cproc->info.cmd, cproc->info.core, addr_fault, status);
-	dump_last_svc();
 	dump_ctx(&cproc->ctx);
 	proc_exit(ctx, cproc, -1);
 	schedule(ctx);
