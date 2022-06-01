@@ -126,13 +126,8 @@ protected:
 			inputC = 0;
 		}
 
-		if(hideMode && c != KEY_BUTTON_Y && c != KEY_BUTTON_B) {
-			changeMode(false);
-			return;
-		}
-
 		if(c == KEY_BUTTON_X) {
-			changeMode(true);
+			changeMode(!hideMode);
 			return;
 		}
 		else if(c == KEY_LEFT) {
@@ -142,10 +137,16 @@ protected:
 			keySelect++;
 		}
 		else if(c == KEY_UP) {
-			keySelect -= col;
+			if(hideMode)
+				doKeyIn(c);
+			else
+				keySelect -= col;
 		}
 		else if(c == KEY_DOWN) {
-			keySelect += col;
+			if(hideMode)
+				doKeyIn(c);
+			else
+				keySelect += col;
 		}
 		else if(c == KEY_BUTTON_B) {
 			doKeyIn('\n');
@@ -159,10 +160,16 @@ protected:
 			return;
 		}
 		else if(c == KEY_ENTER) {
-			c = keytable[keytableType][keySelect];
-			doKeyIn(c);
-			repaint(true);
-			return;
+			if(hideMode) {
+				changeMode(false);
+				return;
+			}
+			else {
+				c = keytable[keytableType][keySelect];
+				doKeyIn(c);
+				repaint(true);
+				return;
+			}
 		}
 
 		if(keySelect < 0)
@@ -290,8 +297,10 @@ protected:
 			inputS[0] = 0;
 		}
 		else if(len < INPUT_MAX-1) {
-			inputS[len] = c;
-			inputS[len+1] = 0;
+			if(!hideMode) {
+				inputS[len] = c;
+				inputS[len+1] = 0;
+			}	
 		}
 
 		proto_t in;
