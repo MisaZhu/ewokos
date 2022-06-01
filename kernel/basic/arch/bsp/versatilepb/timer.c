@@ -70,6 +70,6 @@ void timer_clear_interrupt(uint32_t id) {
 }
 
 uint64_t timer_read_sys_usec(void) { //read microsec
-	_sys_usec_tic += div_u32(DEFAULT_FREQUENCY, _times_per_sec*4);
+	_sys_usec_tic += (DEFAULT_FREQUENCY / _times_per_sec*4);
 	return _sys_usec_tic;
 }

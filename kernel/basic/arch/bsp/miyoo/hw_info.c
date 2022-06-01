@@ -36,14 +36,13 @@ void sys_info_init(void) {
 #ifdef KERNEL_SMP
 #define SECOND_START_ADDR_HI      0x1F20404C
 #define SECOND_START_ADDR_LO      0x1F204050
+#define SECOND_MAGIC_NUMBER_ADDR  0x1F204058
 extern char __entry[];
 inline void __attribute__((optimize("O0"))) start_core(uint32_t core_id) { //TODO
     if(core_id >= _sys_info.cores)
         return;
-	//uint32_t entry = (uint32_t)(__entry);
-	//uint32_t entry = (uint32_t)(__entry) + _sys_info.kernel_base;
 	uint32_t entry = V2P((uint32_t)(__entry) + _sys_info.kernel_base);
-	printf("entry: 0x%x\n", entry);
+
 	do {
  	   put32(SECOND_START_ADDR_HI, (entry >> 16));
 	} while(get32(SECOND_START_ADDR_HI) != (entry >> 16));
@@ -51,6 +50,10 @@ inline void __attribute__((optimize("O0"))) start_core(uint32_t core_id) { //TOD
 	do {
    		put32(SECOND_START_ADDR_LO, (entry & 0xffff));
 	} while(get32(SECOND_START_ADDR_LO) != (entry & 0xffff));
+
+	do {
+ 	   put32(SECOND_MAGIC_NUMBER_ADDR, 0xBABE);
+	} while(get32(SECOND_MAGIC_NUMBER_ADDR) != 0XBABE);
     __asm__("sev");
 }
 #endif

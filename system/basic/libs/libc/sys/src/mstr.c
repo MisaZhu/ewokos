@@ -139,7 +139,7 @@ const char* str_from_int(int value, int base) {
 
     do {
         tmp_value = value;
-        value = div_u32(value, base);
+        value = (value / base);
         *ptr++ = "zyxwvutsrqponmlkjihgfedcba9876543210123456789abcdefghijklmnopqrstuvwxyz" [35 + (tmp_value - value * base)];
     } while ( value );
 

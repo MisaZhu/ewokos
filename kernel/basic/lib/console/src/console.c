@@ -27,8 +27,8 @@ int32_t console_reset(console_t* console, uint32_t w, uint32_t h) {
 	console->state.size = 0;
 	console->state.start_row = 0;
 	console->state.current_row = 0;
-	console->content.cols = div_u32(w, console->font->w)-1;
-	console->content.rows = div_u32(h, console->font->h);
+	console->content.cols = (w / console->font->w)-1;
+	console->content.rows = (h / console->font->h);
 	uint32_t data_size = console->content.rows*console->content.cols;
 	if(console->content.data != NULL) {
 		kfree(console->content.data);

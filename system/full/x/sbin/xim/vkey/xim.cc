@@ -35,8 +35,8 @@ protected:
 			int input_h = font->h + 8;
 			y -= input_h;
 		}
-		int i = div_u32(x, keyw);
-		int j = div_u32(y, keyh);
+		int i = (x / keyw);
+		int j = (y / keyh);
 		int at = i+j*col;
 		if(at >= (int)strlen(keytable[keytableType]))
 			return -1;
