@@ -52,9 +52,34 @@ static void load_boot_pgt(void) {
 	__asm("MCR p15, 0, r0, c7, c10, 4");     //DSB
 }
 
-#define PHY_OFFSET 0x20000000
+#define PHY_OFFSET 		0x20000000
+#define MMIO_OFFSET     0x1F000000
+#define REGW16(a,v) 	(*(volatile unsigned short *)(a) = (v))
+#define REGR16(a) 		(*(volatile unsigned short *)(a))
+
+void init_cpu_clock(void){
+
+        REGW16(MMIO_OFFSET + (0x1032A4 << 1), 0x78D4); //set target freq to LPF high
+        REGW16(MMIO_OFFSET + (0x1032A6 << 1), 0x0029);
+        REGW16(MMIO_OFFSET + (0x1032B0 << 1), 0x0001); //switch to LPF control
+        REGW16(MMIO_OFFSET + (0x1032AA << 1), 0x0006); //mu[2:0]
+        REGW16(MMIO_OFFSET + (0x1032AE << 1), 0x0008); //lpf_update_cnt[7:0]
+        REGW16(MMIO_OFFSET + (0x1032B2 << 1), 0x1000);  //from low to high
+        REGW16(MMIO_OFFSET + (0x1032A8 << 1), 0x0000); //toggle LPF enable
+        REGW16(MMIO_OFFSET + (0x1032A8 << 1), 0x0001);
+
+        while( !(REGR16(MMIO_OFFSET + (0x1032BA << 1))) ); //polling done
+
+        REGW16(MMIO_OFFSET + (0x1032A8 << 1), 0x0000);
+        REGW16(MMIO_OFFSET + (0x1032A0 << 1), 0x78D4);  //store freq to LPF low
+        REGW16(MMIO_OFFSET + (0x1032A2 << 1), 0x0029);
+}
+
 
 void _boot_start(void) {
+
+	init_cpu_clock();
+
 	set_boot_pgt(PHY_OFFSET, PHY_OFFSET, 8*MB, 0);
 	set_boot_pgt(KERNEL_BASE, PHY_OFFSET, 8*MB, 0);
 	set_boot_pgt(INTERRUPT_VECTOR_BASE, PHY_OFFSET, 1*MB, 0);

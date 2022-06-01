@@ -83,20 +83,31 @@ namespace sn
     void VirtualScreen::update(void* buf, unsigned int w, unsigned int h)
     {
 		//only support rgb888
-
 		width = w;
 		height = h;
-
-		if(!buf)
-			frameBuffer = (uint32_t*)malloc(width*height*4);
-		else 
-			frameBuffer = (uint32_t*)buf;
+		if(w >= 512 && h >= 480){
+			scale = 2;
+			offset_x = (width - 512)/2;
+			offset_y = (height - 480)/2;
+		}else{
+			scale = 1;
+			offset_x = (width - 256)/2;
+			offset_y = (height - 240)/2;
+		}
+		frameBuffer = (uint32_t*)buf;
     }
 
     void VirtualScreen::setPixel(size_t x, size_t y, uint32_t color)
     {
+		x = x*scale + offset_x;
+		y = y*scale + offset_y;
 		if(x < width && y < height){
 			frameBuffer[y*width + x] = color;
+			if(scale == 2){
+				frameBuffer[y*width + x + 1] = color;
+				frameBuffer[(y + 1)*width + x + 1] = color;
+				frameBuffer[(y + 1)*width + x] = color;
+			}
 		}
     }
 
