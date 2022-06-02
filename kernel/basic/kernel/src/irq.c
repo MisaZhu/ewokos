@@ -207,7 +207,7 @@ void data_abort_handler(context_t* ctx, uint32_t addr_fault, uint32_t status) {
 	__irq_disable();
 	proc_t* cproc = get_current_proc();
 	if(cproc == NULL) {
-		printf("_kernel, data abort!! at: 0x%X\n", addr_fault);
+		printf("_kernel, data abort!! at: 0x%X 0x%X\n", addr_fault, status);
 		dump_ctx(ctx);
 		halt();
 	}

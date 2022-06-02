@@ -26,6 +26,7 @@
 #define GICD_IPRIORITYR     0x0400
 #define GICD_ITARGETSR      0x0800
 #define GICD_ICFG			0xC00
+#define GICD_SGIR           0xF00
 
 #define GICC_CTLR       0x0000
 #define GICC_CTLR_GRPEN1  (1 << 0)
@@ -45,6 +46,7 @@
 
 
 void gic_init(void);
-void gic_irq_enable(int irqno);
-uint32_t gic_get_irq(int irqn);
+void gic_irq_enable(int core_id, int irqno);
+int gic_get_irq(void);
+void gic_gen_soft_irq(int core, int irq);
 #endif

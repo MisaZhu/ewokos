@@ -17,6 +17,8 @@
 #define IRQ_MOUSE  0x00000400
 #define IRQ_SDC    0x00000800
 
+#define IRQ_IPI    0x00001000
+
 extern void irq_handler(context_t* ctx);
 extern void prefetch_abort_handler(context_t* ctx, uint32_t status);
 extern void data_abort_handler(context_t* ctx, uint32_t addr_fault, uint32_t status);

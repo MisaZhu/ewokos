@@ -9,11 +9,20 @@ void irq_arch_init(void) {
 }
 
 inline uint32_t irq_gets(void) {
-	return IRQ_TIMER0;
+	int ack = gic_get_irq();
+	int irqno = ack & 0x3FF;
+	//int core = get_core_id();//ack & (~0x3FF);
+
+	if(irqno == 27){
+		return IRQ_TIMER0;
+	}else if(irqno == 0){
+		return IRQ_IPI;
+	}
+	return 0;
 }
 
 inline void irq_enable(uint32_t irqs) {
-	gic_irq_enable(27);
+	gic_irq_enable(0, 27);
 	(void)irqs;
 }
 
