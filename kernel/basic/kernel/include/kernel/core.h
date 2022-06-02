@@ -12,7 +12,7 @@ extern void     mcore_unlock(int32_t* v);
 extern uint32_t get_core_id(void);
 extern uint32_t get_cpu_cores(void);
 extern void     start_core(uint32_t core_id);
-extern void     core_ready(uint32_t core_id);
+extern void     cpu_core_ready(uint32_t core_id);
 #else
 
 #define CPU_MAX_CORES 1

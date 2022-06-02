@@ -105,7 +105,7 @@ void __attribute__((optimize("O0"))) _slave_kernel_entry_c(void) {
 	printf("[ok]\n");
 
 	uint32_t cid = get_core_id();
-	core_ready(cid);
+	cpu_core_ready(cid);
 	_cpu_cores[cid].actived = true;
 
 	halt();
