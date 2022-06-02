@@ -2,7 +2,6 @@
 
 .global __entry
 __entry:
-#ifndef SKIP_HYP
 	// Check for HYP mode
 	mrs r0, cpsr_all
 	and r0, r0, #0x1F
@@ -19,7 +18,6 @@ over_hyped: // Get out of HYP mode
 	orr r1, r1, #0x13	 //CPSR_MODE_SUPERVISOR
 	msr SPSR_hyp, r1
 	eret
-#endif
 
 continue:
 	mrc p15, 0, r11, c0, c0, 5  @ get core id
