@@ -60,10 +60,10 @@ int32_t gets(int fd, str_t* buf) {
 	while(1) {
 		char c;
 		int i = read(fd, &c, 1);
-		if(i <= 0) {
+		if(i <= 0 || c == 0) {
 		 	if(i == 0)
 			 	return -1;
-			usleep(30000);
+			usleep(10000);
 			continue;
 		}
 
