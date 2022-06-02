@@ -1,7 +1,9 @@
 #include <stdint.h>
 #include <gic.h>
 
+#define mmio_read8(addr)         (*((volatile unsigned char  *)(addr)))
 #define mmio_read32(addr)         (*((volatile unsigned long  *)(addr)))
+#define mmio_write8(addr, v)     (*((volatile unsigned char  *)(addr)) = (unsigned char)(v))
 #define mmio_write32(addr, v)     (*((volatile unsigned long  *)(addr)) = (unsigned long)(v))
 
 #define NUM_INTSRC    128 // numbers of interrupt source supported
@@ -80,29 +82,34 @@ void gic_v2_irq_set_prio(int irqno, int prio)
     gicd[offset] = prio << 4;  
 }
 
-void gic_irq_enable(int irqno)
+void gic_irq_enable(int core_id, int irqno)
 {
     volatile uint8_t *gicd = gic_v2_gicd_get_address() + GICD_ITARGETSR;
+    volatile uint8_t mask = 0x1 << core_id;
     int n, m, offset;
     m = irqno;
     n = m / 4;
     offset = 4*n;
     offset += m % 4;
 
-    gicd[offset] |= gicd[0];
-    
+    mask |= mmio_read8(gicd + offset);
+    mmio_write8(gicd + offset,  mask);
     gic_v2_irq_set_prio(irqno, LOWEST_INTERRUPT_PRIORITY);  
     gic_v2_irq_enable(irqno);  
 }
 
-uint32_t gic_get_irq(int irqn){
-    unsigned m ,n, val;
-    void *address;
-    m = irqn;
-    n = m / 32;
-    address = gicd_base + GICD_ISACTIVE + 4*n;
-    val = mmio_read32(address);
-    return val;
+int gic_get_irq(void){
+    int irq = mmio_read32(gicc_base + GICC_IAR);
+    gic_eoi(irq);
+    return irq;
+}
+
+void gic_gen_soft_irq(int core_id, int irq){
+    unsigned long flags;
+    uint8_t cpu_mask = 0x1 << core_id;
+
+    /* this always happens on GIC0 */
+    mmio_write32(gicd_base + GICD_SGIR, cpu_mask << 16 | irq);
 }
 
 void gic_eoi(int intn)
