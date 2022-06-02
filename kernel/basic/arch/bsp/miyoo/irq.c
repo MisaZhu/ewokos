@@ -30,3 +30,11 @@ void irq_disable(uint32_t irqs) {
 	(void)irqs;
 }
 
+
+#ifdef KERNEL_SMP
+void core_ready(uint32_t core_id) {
+	gic_init();
+	gic_irq_enable(core_id, 0);
+	__irq_enable();
+}
+#endif

@@ -101,13 +101,13 @@ void __attribute__((optimize("O0"))) _slave_kernel_entry_c(void) {
 			break;
 	}
 	*/
-	flush_tlb();
 	set_translation_table_base(V2P((uint32_t)_kernel_vm));
 	printf("[ok]\n");
-	_cpu_cores[get_core_id()].actived = true;
-	gic_init();
-	gic_irq_enable(1, 0);
-	__irq_enable();
+
+	uint32_t cid = get_core_id();
+	core_ready(cid);
+	_cpu_cores[cid].actived = true;
+
 	halt();
 }
 #endif
@@ -143,13 +143,6 @@ void _kernel_entry_c(void) {
 	copy_interrupt_table();
 
 	init_kernel_vm();  
-
-	/*
-	*fix me: try to enable scu, but it's seem not work?
-	*/
-	put32(0x16000000, 0x1);
-	flush_tlb();
-
 	kmalloc_init();
 
 	uart_dev_init();

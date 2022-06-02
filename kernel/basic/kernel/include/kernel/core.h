@@ -7,11 +7,12 @@
 #ifdef KERNEL_SMP
 
 #define CPU_MAX_CORES 16
-extern void mcore_lock(int32_t* v);
-extern void mcore_unlock(int32_t* v);
+extern void     mcore_lock(int32_t* v);
+extern void     mcore_unlock(int32_t* v);
 extern uint32_t get_core_id(void);
 extern uint32_t get_cpu_cores(void);
 extern void     start_core(uint32_t core_id);
+extern void     core_ready(uint32_t core_id);
 #else
 
 #define CPU_MAX_CORES 1
