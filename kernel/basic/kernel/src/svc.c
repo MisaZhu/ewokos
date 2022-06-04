@@ -744,16 +744,8 @@ static inline void _svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_
 
 inline void svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_t arg2, context_t* ctx) {
 	__irq_disable();
-	//if(_in_critical != 0 || kernel_lock_check() > 0) {
-	if(_in_critical != 0) {
-		ctx->pc -= 4;
-		ctx->lr = ctx->pc;
-		return;
-	}
-	_in_critical = 1;
 
 	kernel_lock();
 	_svc_handler(code, arg0, arg1, arg2, ctx);
 	kernel_unlock();
-	_in_critical = 0;
 }

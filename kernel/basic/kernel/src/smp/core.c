@@ -20,14 +20,11 @@ extern uint32_t __smp_lock(int32_t* v);
 extern uint32_t __smp_unlock(int32_t* v);
 
 void mcore_lock(int32_t* v) {
-	//__smp_lock(v);
-	while(*v != 0) _delay(1);
-	*v = 1;
+	__smp_lock(v);
 }
 
 void mcore_unlock(int32_t* v) {
-	//__smp_unlock(v);
-	*v = 0;
+	__smp_unlock(v);
 }
 
 #endif
