@@ -19,9 +19,11 @@
 
 uint32_t _kernel_sec = 0;
 uint64_t _kernel_usec = 0;
+uint32_t _in_critical = 0;
 static uint32_t _schedule = 0;
 static uint32_t _sec_tic = 0;
 static uint32_t _timer_tic = 0;
+uint32_t _core_ring = 0;
 
 #ifdef KERNEL_SMP
 
@@ -33,6 +35,11 @@ void ipi_enable_all(void) {
 }
 
 static inline void ipi_send_all(void) {
+	if(proc_have_ready_task(_core_ring))
+		ipi_send(_core_ring);
+}
+
+/*static inline void ipi_send_all(void) {
 	uint32_t i;
 	uint32_t cores = _sys_info.cores;
 	for(i=0; i< cores; i++) {
@@ -40,7 +47,7 @@ static inline void ipi_send_all(void) {
 			ipi_send(i);
 	}
 }
-
+*/
 #endif
 
 static inline void irq_do_uart0(context_t* ctx) {
@@ -99,6 +106,9 @@ static inline void _irq_handler(uint32_t cid, context_t* ctx) {
 		irq_do_uart0(ctx);
 	}
 	else if(cid == 0 && (irqs & IRQ_TIMER0) != 0) {
+		_core_ring++;
+		if(_core_ring >= _sys_info.cores)
+			_core_ring = 0;
 		irq_do_timer0(ctx);
 	}
 	else {
@@ -112,14 +122,15 @@ static inline void _irq_handler(uint32_t cid, context_t* ctx) {
 
 inline void irq_handler(context_t* ctx) {
 	__irq_disable();
-
-	if(kernel_lock_check() > 0)
+	if(_in_critical != 0 || kernel_lock_check() > 0)
 		return;
+	_in_critical = 1;
 
 	uint32_t cid = get_core_id();
 	kernel_lock();
 	_irq_handler(cid, ctx);
 	kernel_unlock();
+	_in_critical = 0;
 }
 
 static void dump_ctx(context_t* ctx) {
@@ -204,31 +215,42 @@ void prefetch_abort_handler(context_t* ctx, uint32_t status) {
 
 void data_abort_handler(context_t* ctx, uint32_t addr_fault, uint32_t status) {
 	(void)ctx;
+	if(_in_critical != 0 || kernel_lock_check() > 0)
+		return;
+	_in_critical = 1;
+
 	__irq_disable();
+	uint32_t cid = get_core_id();
 	proc_t* cproc = get_current_proc();
 	if(cproc == NULL) {
 		printf("_kernel, data abort!! core: %d, at: 0x%X status: 0x%X\n", 
-			get_core_id(), addr_fault, status);
+			cid, addr_fault, status);
 		dump_ctx(ctx);
 		halt();
 	}
 
 	if((status & 0xD) == 0xD && //permissions fault only
 			addr_fault < cproc->space->heap_size) { //in proc heap only
-		if (kernel_lock_check() > 0)
+
+		if (kernel_lock_check() > 0) {
+			_in_critical = 0;
 			return;
+		}
 
 		kernel_lock();
 		int32_t res = copy_on_write(cproc, addr_fault);
 		kernel_unlock();
-		if(res == 0) 
+		if(res == 0)  {
+			_in_critical = 0;
 			return;
+		}
 	}
 
 	printf("pid: %d(%s), core: %d, data abort!! at: 0x%X, code: 0x%X\n", cproc->info.pid, cproc->info.cmd, cproc->info.core, addr_fault, status);
 	dump_ctx(&cproc->ctx);
 	proc_exit(ctx, cproc, -1);
 	schedule(ctx);
+	_in_critical = 0;
 }
 
 void irq_init(void) {
@@ -239,6 +261,8 @@ void irq_init(void) {
 	_schedule = 0;
 	_timer_tic = 0;
 	_sec_tic = 0;
+	_in_critical = 0;
+	_core_ring = 0;
 	//gic_set_irqs( IRQ_UART0 | IRQ_TIMER0 | IRQ_KEY | IRQ_MOUSE | IRQ_SDC);
 	irq_enable(IRQ_TIMER0 | IRQ_UART0);
 

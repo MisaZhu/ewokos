@@ -13,6 +13,8 @@ extern char _bss_start[];
 extern char _bss_end[];
 
 extern page_dir_entry_t* _kernel_vm;
+extern uint32_t _in_critical;
+extern uint32_t _core_ring;
 extern void set_kernel_vm(page_dir_entry_t* vm);
 
 #endif
