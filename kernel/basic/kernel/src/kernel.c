@@ -61,7 +61,7 @@ static void map_allocatable_pages(page_dir_entry_t* vm) {
 			_allocatable_phy_mem_base,
 			_allocatable_phy_mem_top,
 			AP_RW_D, 0);
-	flush_dcache();
+	flush_tlb();
 }
 
 void set_kernel_vm(page_dir_entry_t* vm) {
@@ -192,7 +192,7 @@ void _kernel_entry_c(void) {
 	printf("kernel: enable irq and start init...\n");
 
 #ifdef KCONSOLE
-	kconsole_close();
+	//kconsole_close();
 #endif
 	__irq_enable();
 	halt();
