@@ -68,7 +68,7 @@
 	
 .run by qemu (raspi2)
 	
-	"cd kernel/build/raspi2"
+	"cd kernel/build/raspi/pi2.3"
 	"make run":
 	  run EwokOS(username: root, password: (none));
 	"make debug":
