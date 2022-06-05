@@ -66,7 +66,7 @@ int32_t fb_init_raw(uint32_t w, uint32_t h, uint32_t dep) {
 		_fb_info.pointer,
 		V2P(_fb_info.pointer),
 		_fb_info.size_max,
-		AP_RW_D, 0);
+		AP_RW_D, PTE_ATTR_DEV);
 	flush_tlb();
 	return 0;
 }

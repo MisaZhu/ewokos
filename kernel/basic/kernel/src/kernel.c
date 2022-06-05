@@ -40,17 +40,17 @@ static void set_kernel_init_vm(page_dir_entry_t* vm) {
 	flush_dcache();
 
 	//map interrupt vector to high(virtual) mem
-	map_pages_size(vm, INTERRUPT_VECTOR_BASE, _sys_info.phy_offset, PAGE_SIZE, AP_RW_D, 0);
+	map_pages_size(vm, INTERRUPT_VECTOR_BASE, _sys_info.phy_offset, PAGE_SIZE, AP_RW_D, PTE_ATTR_WRBACK);
 	//map kernel image
-	map_pages(vm, KERNEL_BASE, _sys_info.phy_offset, V2P(KERNEL_IMAGE_END), AP_RW_D, 0);
+	map_pages(vm, KERNEL_BASE, _sys_info.phy_offset, V2P(KERNEL_IMAGE_END), AP_RW_D, PTE_ATTR_KIMG);
 	//map kernel page dir
-	map_pages(vm, KERNEL_PAGE_DIR_BASE, V2P(KERNEL_PAGE_DIR_BASE), V2P(ALLOCATABLE_PAGE_DIR_END), AP_RW_D, 0);
+	map_pages(vm, KERNEL_PAGE_DIR_BASE, V2P(KERNEL_PAGE_DIR_BASE), V2P(ALLOCATABLE_PAGE_DIR_END), AP_RW_D, PTE_ATTR_WRBACK);
 	//map kernel malloc memory
-	map_pages(vm, KMALLOC_BASE, V2P(KMALLOC_BASE), V2P(KMALLOC_END), AP_RW_D, 0);
+	map_pages(vm, KMALLOC_BASE, V2P(KMALLOC_BASE), V2P(KMALLOC_END), AP_RW_D, PTE_ATTR_WRBACK);
 	//map allocatable memory page dir
-	map_pages(vm, ALLOCATABLE_PAGE_DIR_BASE, V2P(ALLOCATABLE_PAGE_DIR_BASE), V2P(ALLOCATABLE_PAGE_DIR_END), AP_RW_D, 0);
+	map_pages(vm, ALLOCATABLE_PAGE_DIR_BASE, V2P(ALLOCATABLE_PAGE_DIR_BASE), V2P(ALLOCATABLE_PAGE_DIR_END), AP_RW_D, PTE_ATTR_WRBACK);
 	//map MMIO to high(virtual) mem.
-	map_pages_size(vm, _sys_info.mmio.v_base, _sys_info.mmio.phy_base, _sys_info.mmio.size, AP_RW_D, 1);
+	map_pages_size(vm, _sys_info.mmio.v_base, _sys_info.mmio.phy_base, _sys_info.mmio.size, AP_RW_D, PTE_ATTR_DEV);
 
 	arch_vm(vm);
 }
@@ -60,7 +60,7 @@ static void map_allocatable_pages(page_dir_entry_t* vm) {
 			P2V(_allocatable_phy_mem_base),
 			_allocatable_phy_mem_base,
 			_allocatable_phy_mem_top,
-			AP_RW_D, 0);
+			AP_RW_D, PTE_ATTR_WRBACK);
 	flush_tlb();
 }
 

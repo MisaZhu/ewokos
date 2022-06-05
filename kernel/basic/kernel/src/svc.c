@@ -229,9 +229,9 @@ static uint32_t sys_mem_map(uint32_t vaddr, uint32_t paddr, uint32_t size) {
 	userspace can map upper address such as MMIO/FRAMEBUFFER... */
 	if(paddr > _allocatable_phy_mem_base && paddr < _allocatable_phy_mem_top)
 		return 0;
-	uint32_t no_cache = (size & 0x80000000) == 0 ? 1:0;
+	uint32_t pte_attr = (size & 0x80000000) == 0 ? PTE_ATTR_DEV:PTE_ATTR_WRBACK;
 	size &= 0x7fffffff;
-	map_pages_size(cproc->space->vm, vaddr, paddr, size, AP_RW_RW, no_cache);
+	map_pages_size(cproc->space->vm, vaddr, paddr, size, AP_RW_RW, pte_attr);
 	flush_tlb();
 	return vaddr;
 }
@@ -248,9 +248,9 @@ static uint32_t sys_kpage_map(void) {
 		return 0;
 	}
 
-	uint32_t no_cache = 1;
+	uint32_t pte_attr = PTE_ATTR_DEV;
 	uint32_t page = (uint32_t)kalloc4k();
-	map_page(cproc->space->vm, page, V2P(page), AP_RW_RW, no_cache);
+	map_page(cproc->space->vm, page, V2P(page), AP_RW_RW, pte_attr);
 	flush_tlb();
 	cproc->space->kpages[i] = page;
 	return page;

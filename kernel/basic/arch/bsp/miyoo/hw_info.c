@@ -62,18 +62,18 @@ void arch_vm(page_dir_entry_t* vm) {
 	//map frame buffer
 	uint32_t pfb = 0x27c00000;
 	uint32_t vfb = 0x87c00000;
-	map_pages_size(vm, vfb, pfb, 4*MB, AP_RW_D, 1);
+	map_pages_size(vm, vfb, pfb, 4*MB, AP_RW_D, PTE_ATTR_DEV);
 
 	//map gic controller
 	uint32_t pgic = 0x16000000;
 	uint32_t vgic = 0x16000000;
-	map_pages_size(vm, vgic, pgic, 4*MB, AP_RW_D, 1);
+	map_pages_size(vm, vgic, pgic, 4*MB, AP_RW_D, PTE_ATTR_DEV);
 
 	uint32_t vbase = _sys_info.mmio.v_base + _core_base_offset;
 	uint32_t pbase = _sys_info.mmio.phy_base + _core_base_offset;
-	map_page(vm, vbase, pbase, AP_RW_D, 1);
-	map_page(vm, pbase, pbase, AP_RW_D, 1);
+	map_page(vm, vbase, pbase, AP_RW_D, PTE_ATTR_DEV);
+	map_page(vm, pbase, pbase, AP_RW_D, PTE_ATTR_DEV);
 #ifdef KERNEL_SMP
-	map_page(vm, SECOND_START_ADDR_HI , SECOND_START_ADDR_HI, AP_RW_D, 1);
+	map_page(vm, SECOND_START_ADDR_HI , SECOND_START_ADDR_HI, AP_RW_D, PTE_ATTR_DEV);
 #endif
 }

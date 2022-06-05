@@ -11,7 +11,7 @@
  * Notice: virtual and physical address inputed must be all aliend by PAGE_SIZE !
  */
 int32_t map_page(page_dir_entry_t *vm, uint32_t virtual_addr,
-		     uint32_t physical, uint32_t permissions, uint32_t no_cache) {
+		     uint32_t physical, uint32_t permissions, uint32_t pte_attr) {
 	page_table_entry_t *page_table = 0;
 
 	uint32_t page_dir_index = PAGE_DIR_INDEX(virtual_addr);
@@ -38,7 +38,7 @@ int32_t map_page(page_dir_entry_t *vm, uint32_t virtual_addr,
 	page_table[page_index].type = SMALL_PAGE_TYPE,
 	page_table[page_index].base = PAGE_TO_BASE(physical);
 	page_table[page_index].ap = permissions;
-	set_pte_flags(&page_table[page_index], no_cache);
+	set_pte_flags(&page_table[page_index], pte_attr);
 	return 0;
 }
 

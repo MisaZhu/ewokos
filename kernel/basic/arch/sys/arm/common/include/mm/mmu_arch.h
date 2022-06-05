@@ -35,13 +35,18 @@ typedef struct {
 	uint32_t base       : 20;
 } page_table_entry_t; 
 
-void set_pte_flags(page_table_entry_t* pte, uint32_t no_cache);
+void set_pte_flags(page_table_entry_t* pte, uint32_t pte_attr);
+
+#define PTE_ATTR_WRBACK      0
+#define PTE_ATTR_DEV         1
+#define PTE_ATTR_WRTHR       2
+#define PTE_ATTR_KIMG        3
 
 int32_t  map_page(page_dir_entry_t *vm, 
   uint32_t virtual_addr, 
 	uint32_t physical,
 	uint32_t access_permissions, 
-	uint32_t no_cache);
+	uint32_t pte_attr);
 
 void unmap_page(page_dir_entry_t *vm, uint32_t virtual_addr);
 

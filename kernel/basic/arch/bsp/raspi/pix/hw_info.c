@@ -98,8 +98,8 @@ void sys_info_init(void) {
 void arch_vm(page_dir_entry_t* vm) {
 	uint32_t vbase = _sys_info.mmio.v_base + _core_base_offset;
 	uint32_t pbase = _sys_info.mmio.phy_base + _core_base_offset;
-	map_page(vm, vbase, pbase, AP_RW_D, 1);
-	map_page(vm, pbase, pbase, AP_RW_D, 1);
+	map_page(vm, vbase, pbase, AP_RW_D, PTE_ATTR_DEV);
+	map_page(vm, pbase, pbase, AP_RW_D, PTE_ATTR_DEV);
 }
 
 
