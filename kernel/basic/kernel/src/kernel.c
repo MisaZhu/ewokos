@@ -42,7 +42,7 @@ static void set_kernel_init_vm(page_dir_entry_t* vm) {
 	//map interrupt vector to high(virtual) mem
 	map_pages_size(vm, INTERRUPT_VECTOR_BASE, _sys_info.phy_offset, PAGE_SIZE, AP_RW_D, PTE_ATTR_WRBACK);
 	//map kernel image
-	map_pages(vm, KERNEL_BASE, _sys_info.phy_offset, V2P(KERNEL_IMAGE_END), AP_RW_D, PTE_ATTR_WRBACK_ALLOCE);
+	map_pages(vm, KERNEL_BASE, _sys_info.phy_offset, V2P(KERNEL_IMAGE_END), AP_RW_D, PTE_ATTR_WRBACK_ALLOCATE);
 	//map kernel page dir
 	map_pages(vm, KERNEL_PAGE_DIR_BASE, V2P(KERNEL_PAGE_DIR_BASE), V2P(ALLOCATABLE_PAGE_DIR_END), AP_RW_D, PTE_ATTR_WRBACK);
 	//map kernel malloc memory
