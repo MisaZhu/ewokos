@@ -37,10 +37,11 @@ typedef struct {
 
 void set_pte_flags(page_table_entry_t* pte, uint32_t pte_attr);
 
-#define PTE_ATTR_WRBACK        0
-#define PTE_ATTR_DEV           1
-#define PTE_ATTR_WRTHR         2
+#define PTE_ATTR_WRBACK          0
+#define PTE_ATTR_DEV             1
+#define PTE_ATTR_WRTHR           2
 #define PTE_ATTR_WRBACK_ALLOCATE 3
+#define PTE_ATTR_STRONG_ORDER    4
 
 int32_t  map_page(page_dir_entry_t *vm, 
   uint32_t virtual_addr, 
