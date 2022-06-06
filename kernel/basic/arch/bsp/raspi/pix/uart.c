@@ -5,13 +5,13 @@
 #include <kstring.h>
 
 int32_t uart_dev_init(void) {
-	if(strncmp(_sys_info.machine, "raspi2", 6) == 0)
+	if(strcmp(_sys_info.machine, "raspi2B") == 0)
 		return pl011_uart_init();
 	return mini_uart_init();
 }
 
 int32_t uart_write(const void* data, uint32_t size) {
-	if(strncmp(_sys_info.machine, "raspi2", 6) == 0)
+	if(strcmp(_sys_info.machine, "raspi2B") == 0)
 		return pl011_uart_write(data, size);
 	return mini_uart_write(data, size);
 }
