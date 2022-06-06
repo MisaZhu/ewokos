@@ -76,6 +76,10 @@ public:
 		console_put_char(&console, c);
 	}
 
+	void rollEnd(void) {
+		console_roll(&console, 0x0fffffff); //roll forward to the last row
+	}
+
 protected:
 	void onFocus(void) {
 		console.fg_color = conf.fg_color;
@@ -121,7 +125,6 @@ protected:
 			}
 
 			if(c != 0) {
-				console_roll(&console, 0x0fffffff); //roll forward to the last row
 				write(1, &c, 1);
 			}
 		}
@@ -139,6 +142,7 @@ static void loop(void* p) {
 			char c = buf[i];
 			console->putChar(c);
 		}
+		console->rollEnd();
 		console->repaint();
 		return;
 	}

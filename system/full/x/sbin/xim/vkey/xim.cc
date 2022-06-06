@@ -213,6 +213,8 @@ protected:
 			strcpy(s, "C/#");
 		else if(c == '\1')
 			strcpy(s, "|||");
+		else if(c == '\4')
+			strcpy(s, "RB");
 
 		return s;
 	}
@@ -296,6 +298,9 @@ protected:
 		else if(c == '\n') {
 			inputS[0] = 0;
 		}
+		else if(c == '\4') {
+			ev.value.im.value = KEY_ROLL_BACK;
+		}
 		else if(len < INPUT_MAX-1) {
 			if(!hideMode) {
 				inputS[len] = c;
@@ -326,7 +331,7 @@ public:
 		keytable[0] = ""
 			"qwertyuiop-/|\b"
 			"~asdfghjkl@_\n\3"
-			"\2zxcvbnm \3!,.\1";
+			"\2zxcvbnm \3\4,.\1";
 		keytableType = 0;
 
 		col = 14;
