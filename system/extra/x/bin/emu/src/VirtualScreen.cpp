@@ -97,11 +97,11 @@ namespace sn
 		frameBuffer = (uint32_t*)buf;
     }
 
-    void VirtualScreen::setPixel(size_t x, size_t y, uint32_t color)
+    void VirtualScreen::setPixel(int x, int y, uint32_t color)
     {
 		x = x*scale + offset_x;
 		y = y*scale + offset_y;
-		if(x < width && y < height){
+		if(x > 0 && x < width && y > 0 && y < height){
 			frameBuffer[y*width + x] = color;
 			if(scale == 2){
 				frameBuffer[y*width + x + 1] = color;
