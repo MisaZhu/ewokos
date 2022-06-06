@@ -10,7 +10,6 @@ CFLAGS += -I $(TARGET_DIR)/include -Iinclude
 LIB_FONTS_OBJS = src/fonts.o \
 	src/font10x20.o \
 	src/font12x24.o \
-	src/font4x6.o \
 	src/font6x8.o \
 	src/font8x10.o \
 	src/font8x16.o \

@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <sys/basic_math.h>
 #include <sys/keydef.h>
+#include <sys/klog.h>
 #include <string.h>
 #include <console/console.h>
 
@@ -17,10 +18,17 @@ static void cons_draw_char(console_t* console, graph_t* g, int32_t x, int32_t y,
 	graph_draw_char(g, x, y, c, console->font, console->fg_color);
 }
 
-int32_t console_reset(console_t* console, uint32_t w, uint32_t h) {
+static uint32_t get_data_rows(console_t* console) {
+	if(console->state.current_row >= console->state.start_row)
+		return console->state.current_row - console->state.start_row + 1;
+	return console->content.rows - (console->state.start_row - console->state.current_row) + 1;
+}
+
+int32_t console_reset(console_t* console, uint32_t w, uint32_t h, uint32_t total_rows) {
 	if(console->font == NULL)
 		return -1;
-
+	console->w = w;
+	console->h = h;
 	//save content data
 	int old_size = console->state.size;
 	int old_total = console->content.cols* console->content.rows;
@@ -34,9 +42,14 @@ int32_t console_reset(console_t* console, uint32_t w, uint32_t h) {
 
 	console->state.size = 0;
 	console->state.start_row = 0;
+	console->state.back_offset_rows = 0;
 	console->state.current_row = 0;
 	console->content.cols = (w / console->font->w) - 1;
-	console->content.rows = h / console->font->h;
+
+	uint32_t min_rows = h / console->font->h;
+	if(total_rows < min_rows)
+		total_rows = min_rows;
+	console->content.rows = total_rows;
 	uint32_t data_size = console->content.rows*console->content.cols;
 	if(console->content.data != NULL) {
 		free(console->content.data);
@@ -94,12 +107,31 @@ static inline uint32_t get_at(console_t* console, uint32_t i) {
 	return at;
 }
 
+void console_roll(console_t* console, int32_t rows) {
+	if(rows > 0) {//forward
+		if(console->state.back_offset_rows > rows)
+			console->state.back_offset_rows -= rows;
+		else
+			console->state.back_offset_rows = 0;
+		return;
+	}
+	rows = -rows;
+	console->state.back_offset_rows += rows;
+	uint32_t total = get_data_rows(console);
+	if(console->state.back_offset_rows > total)
+		console->state.back_offset_rows = total;
+}
+
 void console_refresh(console_t* console, graph_t* g) {
 	if(console->font == NULL)
 		return;
+	uint32_t g_rows = g->h / console->font->h;
+	int32_t start_row = get_data_rows(console) - g_rows - console->state.back_offset_rows;
+	if(start_row < 0)
+		start_row = 0;
 
 	graph_clear(g, console->bg_color);
-	uint32_t i=0;
+	uint32_t i = start_row * console->content.cols;
 	uint32_t x = 0;
 	uint32_t y = 0;
 	while(i < console->state.size) {
@@ -120,6 +152,7 @@ void console_refresh(console_t* console, graph_t* g) {
 void console_clear(console_t* console) {
 	console->state.size = 0;
 	console->state.start_row = 0;
+	console->state.back_offset_rows = 0;
 	console->state.current_row = 0;
 }
 

@@ -6,6 +6,8 @@
 #include <console/console.h>
 #include <sconf/sconf.h>
 #include <sys/vfs.h>
+#include <sys/keydef.h>
+#include <sys/klog.h>
 #include <x++/X.h>
 
 using namespace Ewok;
@@ -16,11 +18,13 @@ typedef struct {
 	uint32_t bg_color;
 	uint32_t unfocus_fg_color;
 	uint32_t unfocus_bg_color;
+	uint32_t buffer_rows;
 } conf_t;
 
 class XConsole : public XWin {
 	conf_t conf;
 	console_t console;
+	int32_t rollStepRows;
 public:
 	XConsole() {
 		console_init(&console);
@@ -51,6 +55,10 @@ public:
 		v = sconf_get(sconf, "unfocus_bg_color");
 		if(v[0] != 0) 
 			conf.unfocus_bg_color = atoi_base(v, 16);
+
+		v = sconf_get(sconf, "buffer_rows");
+		if(v[0] != 0) 
+			conf.buffer_rows = atoi(v);
 
 		v = sconf_get(sconf, "font");
 		if(v[0] != 0) 
@@ -84,7 +92,16 @@ protected:
 
 	void onRepaint(graph_t* g) {
 		if(console.w != g->w || console.h != g->h) {
-			console_reset(&console, g->w, g->h);
+			uint32_t buffer_rows = 0;
+			if(console.font != NULL) {
+				buffer_rows = (g->h / console.font->h)*2;
+				rollStepRows = (g->h / console.font->h) / 2;
+			}
+			if(conf.buffer_rows > buffer_rows) {
+				buffer_rows = conf.buffer_rows;
+				rollStepRows = 8;
+			}
+			console_reset(&console, g->w, g->h, buffer_rows);
 		}
 		console_refresh(&console, g);
 	}
@@ -92,8 +109,21 @@ protected:
 	void onEvent(xevent_t* ev) {
 		if(ev->type == XEVT_IM) {
 			int c = ev->value.im.value;
-			if(c != 0)
+			if(c == KEY_ROLL_BACK) {
+				console_roll(&console, -(rollStepRows));
+				repaint();
+				return;
+			}
+			else if(c == KEY_ROLL_FORWARD) {
+				console_roll(&console, (rollStepRows));
+				repaint();
+				return;
+			}
+
+			if(c != 0) {
+				console_roll(&console, 0x0fffffff); //roll forward to the last row
 				write(1, &c, 1);
+			}
 		}
 	}
 };

@@ -6,10 +6,14 @@ extern "C" {
 #endif
 
 #define KEY_HOME            1
+#define KEY_ROLL_BACK       2
+#define KEY_ROLL_FORWARD    3
+
 #define KEY_UP              5
 #define KEY_DOWN            24
 #define KEY_LEFT            19
 #define KEY_RIGHT           4
+
 #define KEY_ESC             27
 #define KEY_ENTER           13
 #define KEY_BACKSPACE       127

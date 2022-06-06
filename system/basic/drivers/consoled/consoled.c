@@ -82,7 +82,7 @@ static int reset_console(fb_console_t* console) {
 	console->g = fb_fetch_graph(&console->fb);
 	if(console->g == NULL)
 		return -1;
-	console_reset(&console->console, console->g->w, console->g->h);
+	console_reset(&console->console, console->g->w, console->g->h, 0);
 	return 0;
 }
 
