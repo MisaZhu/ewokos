@@ -17,7 +17,7 @@ class XIM {
 	void input(char c) {
 		xevent_t ev;
 		ev.type = XEVT_IM;
-		if(c == KEY_ESC && escHome)
+		if((c == KEY_ESC || c == KEY_BUTTON_SELECT) && escHome)
 			c = KEY_HOME;
 		ev.value.im.value = c;
 

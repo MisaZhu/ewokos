@@ -17,7 +17,6 @@ extern font_t font_8x8;
 extern font_t font_7x9;
 extern font_t font_6x8;
 extern font_t font_5x12;
-extern font_t font_4x6;
 
 static font_item_t _fonts[] ={
 	{"16x32", &font_16x32},
@@ -32,7 +31,6 @@ static font_item_t _fonts[] ={
 	{"7x9", &font_7x9},
 	{"6x8", &font_6x8},
 	{"5x12", &font_5x12},
-	{"4x6", &font_4x6},
 	{"", NULL}
 };
 

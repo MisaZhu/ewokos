@@ -114,7 +114,7 @@ protected:
 				selected -= cols;
 			else if(key == KEY_DOWN)
 				selected += cols;
-			else if(key == KEY_ENTER) {
+			else if(key == KEY_ENTER || key == KEY_BUTTON_START) {
 				enter = true;
 				return;
 			}

@@ -159,7 +159,7 @@ protected:
 			repaint(true);
 			return;
 		}
-		else if(c == KEY_ENTER) {
+		else if(c == KEY_ENTER || c == KEY_BUTTON_A) {
 			if(hideMode) {
 				changeMode(false);
 				return;
@@ -204,11 +204,11 @@ protected:
 		s[1] = 0;
 
 		if(c == ' ')
-			strcpy(s, "SPACE");
+			strcpy(s, "SPC");
 		else if(c == '\n')
-			strcpy(s, "ENTER");
+			strcpy(s, "ENT");
 		else if(c == '\b')
-			strcpy(s, "Back");
+			strcpy(s, "BK");
 		else if(c == '\2')
 			strcpy(s, "C/#");
 		else if(c == '\1')
@@ -259,7 +259,7 @@ protected:
 
 				if(keySelect == at) { //hot key
 					ky -= (j == 0 ? input_h : keyh/2);
-					kh = keyh + keyh/2;
+					kh = keyh + (j == 0 ? input_h : keyh/2);
 					graph_fill(g, kx, ky, kw, kh, 0xffffffff);
 				}
 
