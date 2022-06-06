@@ -12,12 +12,12 @@ namespace sn
     {
     public:
         void update(void* buf, unsigned int width, unsigned int height);
-        void setPixel (size_t x, size_t y, uint32_t color);
+        void setPixel (int  x, int y, uint32_t color);
         void draw();
 
     private:
-		size_t width;
-		size_t height;
+		int width;
+		int height;
 		uint32_t *frameBuffer;
     int scale;
     int offset_x;
