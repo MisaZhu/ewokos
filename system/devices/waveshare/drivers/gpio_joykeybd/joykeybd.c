@@ -33,34 +33,38 @@ static int joykeyb_read(int fd, int from_pid, fsinfo_t* info,
 
 	char* rd = (char*)buf;
 	*rd = 0;
+	int i;
 
-	if(bcm283x_gpio_read(KEY_X_PIN) == 0)
-		*rd = KEY_BUTTON_X;
-	else if(bcm283x_gpio_read(KEY_B_PIN) == 0)
-		*rd = KEY_BUTTON_B;
-	else if(bcm283x_gpio_read(KEY_A_PIN) == 0)
-		*rd = KEY_BUTTON_A;
-	else if(bcm283x_gpio_read(KEY_Y_PIN) == 0)
-		*rd = KEY_BUTTON_Y;
-	else if(bcm283x_gpio_read(KEY_START_PIN) == 0)
-		*rd = KEY_BUTTON_START;
-	else if(bcm283x_gpio_read(KEY_L1_PIN) == 0)
-		*rd = KEY_BUTTON_L1;
-	else if(bcm283x_gpio_read(KEY_R1_PIN) == 0)
-		*rd = KEY_BUTTON_R1;
-	else if(bcm283x_gpio_read(KEY_UP_PIN) == 0)
-		*rd = KEY_UP;
-	else if(bcm283x_gpio_read(KEY_DOWN_PIN) == 0)
-		*rd = KEY_DOWN;
-	else if(bcm283x_gpio_read(KEY_LEFT_PIN) == 0)
-		*rd = KEY_LEFT;
-	else if(bcm283x_gpio_read(KEY_RIGHT_PIN) == 0)
-		*rd = KEY_RIGHT;
-	else if(bcm283x_gpio_read(KEY_SELECT_PIN) == 0)
-		*rd = KEY_BUTTON_SELECT;
-	else
-		return ERR_RETRY_NON_BLOCK;
-	return 1;
+	for(i = 0; i < size; i++){
+		if(bcm283x_gpio_read(KEY_X_PIN) == 0)
+			*rd = KEY_BUTTON_X;
+		else if(bcm283x_gpio_read(KEY_B_PIN) == 0)
+			*rd = KEY_BUTTON_B;
+		else if(bcm283x_gpio_read(KEY_A_PIN) == 0)
+			*rd = KEY_BUTTON_A;
+		else if(bcm283x_gpio_read(KEY_Y_PIN) == 0)
+			*rd = KEY_BUTTON_Y;
+		else if(bcm283x_gpio_read(KEY_START_PIN) == 0)
+			*rd = KEY_BUTTON_START;
+		else if(bcm283x_gpio_read(KEY_L1_PIN) == 0)
+			*rd = KEY_BUTTON_L1;
+		else if(bcm283x_gpio_read(KEY_R1_PIN) == 0)
+			*rd = KEY_BUTTON_R1;
+		else if(bcm283x_gpio_read(KEY_UP_PIN) == 0)
+			*rd = KEY_UP;
+		else if(bcm283x_gpio_read(KEY_DOWN_PIN) == 0)
+			*rd = KEY_DOWN;
+		else if(bcm283x_gpio_read(KEY_LEFT_PIN) == 0)
+			*rd = KEY_LEFT;
+		else if(bcm283x_gpio_read(KEY_RIGHT_PIN) == 0)
+			*rd = KEY_RIGHT;
+		else if(bcm283x_gpio_read(KEY_SELECT_PIN) == 0)
+			*rd = KEY_BUTTON_SELECT;
+		else
+			break;
+		rd++;
+	}
+	return (i>0)?i:ERR_RETRY_NON_BLOCK;
 }
 
 static void init_gpio(void) {
