@@ -7,20 +7,43 @@
 #include <sys/keydef.h>
 #include <arch/bcm283x/gpio.h>
 
-static uint32_t KEY_X_PIN = 13;
-static uint32_t KEY_B_PIN = 22;
-static uint32_t KEY_Y_PIN = 16;
-static uint32_t KEY_A_PIN = 21;
-static uint32_t KEY_START_PIN = 27;
-static uint32_t KEY_L1_PIN = 24;
-static uint32_t KEY_R1_PIN = 15;
+#define KEY_BUTTON_X_PIN  		12
+#define KEY_BUTTON_B_PIN  		21
+#define KEY_BUTTON_Y_PIN  		15
+#define KEY_BUTTON_A_PIN  		20
+#define KEY_BUTTON_START_PIN  	26
+#define KEY_BUTTON_L1_PIN  		23
+#define KEY_BUTTON_R1_PIN  		14
+#define KEY_UP_PIN  			5
+#define KEY_DOWN_PIN  			6
+#define KEY_LEFT_PIN  			16
+#define KEY_RIGHT_PIN 			13
+#define KEY_BUTTON_SELECT_PIN  	19
 
+#define GPIO_HIGH				1
+#define GPIO_LOW				0
 
-static uint32_t KEY_UP_PIN = 6;
-static uint32_t KEY_DOWN_PIN = 7;
-static uint32_t KEY_LEFT_PIN = 17;
-static uint32_t KEY_RIGHT_PIN = 14;
-static uint32_t KEY_SELECT_PIN = 20;
+#define DECLARE_GPIO_KEY(name, level)	{name, name##_PIN, level, !level}
+
+struct gpio_pins{
+	int key;
+	int pin;
+	int active;
+	int status;
+}_pins[] = {
+	DECLARE_GPIO_KEY(KEY_UP, GPIO_LOW),
+	DECLARE_GPIO_KEY(KEY_DOWN, GPIO_LOW),
+	DECLARE_GPIO_KEY(KEY_LEFT, GPIO_LOW),
+	DECLARE_GPIO_KEY(KEY_RIGHT, GPIO_LOW),
+	DECLARE_GPIO_KEY(KEY_BUTTON_A, GPIO_LOW),
+	DECLARE_GPIO_KEY(KEY_BUTTON_B, GPIO_LOW),
+	DECLARE_GPIO_KEY(KEY_BUTTON_X, GPIO_LOW),
+	DECLARE_GPIO_KEY(KEY_BUTTON_Y, GPIO_LOW),
+	DECLARE_GPIO_KEY(KEY_BUTTON_SELECT, GPIO_LOW),
+	DECLARE_GPIO_KEY(KEY_BUTTON_START, GPIO_LOW),
+	DECLARE_GPIO_KEY(KEY_BUTTON_L1, GPIO_LOW),
+	DECLARE_GPIO_KEY(KEY_BUTTON_R1, GPIO_LOW),
+};
 
 static int joykeyb_read(int fd, int from_pid, fsinfo_t* info,
 		void* buf, int size, int offset, void* p) {
@@ -33,94 +56,32 @@ static int joykeyb_read(int fd, int from_pid, fsinfo_t* info,
 
 	char* rd = (char*)buf;
 	*rd = 0;
-	int i;
+	int cnt = 0;
 
-	for(i = 0; i < size; i++){
-		if(bcm283x_gpio_read(KEY_X_PIN) == 0)
-			*rd = KEY_BUTTON_X;
-		else if(bcm283x_gpio_read(KEY_B_PIN) == 0)
-			*rd = KEY_BUTTON_B;
-		else if(bcm283x_gpio_read(KEY_A_PIN) == 0)
-			*rd = KEY_BUTTON_A;
-		else if(bcm283x_gpio_read(KEY_Y_PIN) == 0)
-			*rd = KEY_BUTTON_Y;
-		else if(bcm283x_gpio_read(KEY_START_PIN) == 0)
-			*rd = KEY_BUTTON_START;
-		else if(bcm283x_gpio_read(KEY_L1_PIN) == 0)
-			*rd = KEY_BUTTON_L1;
-		else if(bcm283x_gpio_read(KEY_R1_PIN) == 0)
-			*rd = KEY_BUTTON_R1;
-		else if(bcm283x_gpio_read(KEY_UP_PIN) == 0)
-			*rd = KEY_UP;
-		else if(bcm283x_gpio_read(KEY_DOWN_PIN) == 0)
-			*rd = KEY_DOWN;
-		else if(bcm283x_gpio_read(KEY_LEFT_PIN) == 0)
-			*rd = KEY_LEFT;
-		else if(bcm283x_gpio_read(KEY_RIGHT_PIN) == 0)
-			*rd = KEY_RIGHT;
-		else if(bcm283x_gpio_read(KEY_SELECT_PIN) == 0)
-			*rd = KEY_BUTTON_SELECT;
-		else
-			break;
-		rd++;
+	for(int i = 0; i < sizeof(_pins)/sizeof(struct gpio_pins);  i++){
+		if(bcm283x_gpio_read(_pins[i].pin) == _pins[i].active){
+			*rd = _pins[i].key;
+			rd++;
+			cnt++;
+			if(cnt >= size)
+				break;
+		}
 	}
-	return (i>0)?i:ERR_RETRY_NON_BLOCK;
+	return (cnt>0)?cnt:ERR_RETRY_NON_BLOCK;
 }
 
 static void init_gpio(void) {
-	bcm283x_gpio_config(KEY_X_PIN, GPIO_INPUT);//input	
-	bcm283x_gpio_pull(KEY_X_PIN, GPIO_PULL_UP); //pull up
-
-	bcm283x_gpio_config(KEY_B_PIN, GPIO_INPUT);//input	
-	bcm283x_gpio_pull(KEY_B_PIN, GPIO_PULL_UP); //pull up
-
-	bcm283x_gpio_config(KEY_Y_PIN, GPIO_INPUT);//input	
-	bcm283x_gpio_pull(KEY_Y_PIN, GPIO_PULL_UP); //pull up
-
-	bcm283x_gpio_config(KEY_A_PIN, GPIO_INPUT);//input	
-	bcm283x_gpio_pull(KEY_A_PIN, GPIO_PULL_UP); //pull up
-
-	bcm283x_gpio_config(KEY_START_PIN, GPIO_INPUT);//input	
-	bcm283x_gpio_pull(KEY_START_PIN, GPIO_PULL_UP); //pull up
-
-	bcm283x_gpio_config(KEY_L1_PIN, GPIO_INPUT);//input	
-	bcm283x_gpio_pull(KEY_L1_PIN, GPIO_PULL_UP); //pull up
-
-	bcm283x_gpio_config(KEY_R1_PIN, GPIO_INPUT);//input	
-	bcm283x_gpio_pull(KEY_R1_PIN, GPIO_PULL_UP); //pull up
-
-	bcm283x_gpio_config(KEY_UP_PIN, GPIO_INPUT);//input	
-	bcm283x_gpio_pull(KEY_UP_PIN, GPIO_PULL_UP); //pull up
-
-	bcm283x_gpio_config(KEY_DOWN_PIN, GPIO_INPUT);//input	
-	bcm283x_gpio_pull(KEY_DOWN_PIN, GPIO_PULL_UP); //pull up
-
-	bcm283x_gpio_config(KEY_LEFT_PIN, GPIO_INPUT);//input	
-	bcm283x_gpio_pull(KEY_LEFT_PIN, GPIO_PULL_UP); //pull up
-
-	bcm283x_gpio_config(KEY_RIGHT_PIN, GPIO_INPUT);//input	
-	bcm283x_gpio_pull(KEY_RIGHT_PIN, GPIO_PULL_UP); //pull up
-
-	bcm283x_gpio_config(KEY_SELECT_PIN, GPIO_INPUT);//input	
-	bcm283x_gpio_pull(KEY_SELECT_PIN, GPIO_PULL_UP); //pull up
+	for(int i = 0; i < sizeof(_pins)/sizeof(struct gpio_pins);  i++){
+		bcm283x_gpio_config(_pins[i].pin, GPIO_INPUT); 
+		if(_pins[i].active == GPIO_LOW)
+			bcm283x_gpio_pull(_pins[i].pin, GPIO_PULL_UP);
+		else
+			bcm283x_gpio_pull(_pins[i].pin, GPIO_PULL_DOWN);
+	}
 }
 
 int main(int argc, char** argv) {
 	bcm283x_gpio_init();
-	KEY_X_PIN = 12;
-	KEY_B_PIN = 21;
-	KEY_Y_PIN = 15;
-	KEY_A_PIN = 20;
-	KEY_START_PIN = 26;
-	KEY_L1_PIN = 23;
-	KEY_R1_PIN = 14;
-
-	KEY_UP_PIN = 5;
-	KEY_DOWN_PIN = 6;
-	KEY_LEFT_PIN = 16;
-	KEY_RIGHT_PIN = 13;
-	KEY_SELECT_PIN = 19;
-
 	const char* mnt_point = argc > 1 ? argv[1]: "/dev/keyb0";
 	init_gpio();
 
