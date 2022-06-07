@@ -17,7 +17,7 @@ $(XCONSOLE): $(XCONSOLE_OBJS) \
 		$(BUILD_DIR)/lib/libx.a \
 		$(BUILD_DIR)/lib/libconsole.a \
 		$(BUILD_DIR)/lib/libcxx.a 
-	$(LD) -Ttext=100 $(XCONSOLE_OBJS) -o $(XCONSOLE) $(LDFLAGS) -lsconf -lx++ -lx -lewokc -lc -lcxx -lconsole -lgraph -lfonts
+	$(LD) -Ttext=100 $(XCONSOLE_OBJS) -o $(XCONSOLE) $(LDFLAGS) -lsconf -lx++ -lx -lcxx -lconsole -lgraph -lfonts -lewokc -lc
 
 clean:
 	rm -f $(XCONSOLE_OBJS)

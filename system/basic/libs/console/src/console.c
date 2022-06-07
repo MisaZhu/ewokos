@@ -19,9 +19,9 @@ static void cons_draw_char(console_t* console, graph_t* g, int32_t x, int32_t y,
 }
 
 static uint32_t get_data_rows(console_t* console) {
-	if(console->state.current_row >= console->state.start_row)
-		return console->state.current_row - console->state.start_row + 1;
-	return console->content.rows - (console->state.start_row - console->state.current_row) + 1;
+	if(console->state.start_row != 0)
+		return console->content.rows;
+	return console->state.current_row;
 }
 
 int32_t console_reset(console_t* console, uint32_t w, uint32_t h, uint32_t total_rows) {
@@ -126,9 +126,12 @@ void console_refresh(console_t* console, graph_t* g) {
 	if(console->font == NULL)
 		return;
 	uint32_t g_rows = g->h / console->font->h;
-	int32_t start_row = get_data_rows(console) - g_rows - console->state.back_offset_rows;
+	uint32_t total_rows = get_data_rows(console);
+	int32_t start_row = total_rows - g_rows - console->state.back_offset_rows;
 	if(start_row < 0)
 		start_row = 0;
+	if((g->h % console->font->h) != 0 && start_row != 0)
+		start_row++;
 
 	graph_clear(g, console->bg_color);
 	uint32_t i = start_row * console->content.cols;

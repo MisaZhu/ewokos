@@ -98,7 +98,7 @@ protected:
 		if(console.w != g->w || console.h != g->h) {
 			uint32_t buffer_rows = 0;
 			if(console.font != NULL) {
-				buffer_rows = (g->h / console.font->h)*2;
+				buffer_rows = (g->h / console.font->h)*4;
 				rollStepRows = (g->h / console.font->h) / 2;
 			}
 			if(conf.buffer_rows > buffer_rows) {
