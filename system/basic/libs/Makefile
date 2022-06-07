@@ -6,6 +6,7 @@ basic_libs:
 	cd zlib;make
 	cd sconf; make
 	cd hash;make
+	cd crc32;make
 	cd ext2;make
 	cd arch_bcm283x;make
 	cd arch_vpb;make
@@ -24,6 +25,7 @@ clean:
 	cd zlib;make clean
 	cd sconf; make clean
 	cd hash;make clean
+	cd crc32;make clean
 	cd ext2;make clean
 	cd arch_bcm283x;make clean
 	cd arch_vpb;make clean
