@@ -32,7 +32,7 @@ extern void __flush_dcache_all(void);
 
 inline void flush_dcache(void) {
 #ifdef KERNEL_SMP
-	arm_invalidate_data_l2_caches();
+	//arm_invalidate_data_l2_caches();
 	arm_clear_data_l2_caches();
 #endif
 	__flush_dcache_all();
