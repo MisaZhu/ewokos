@@ -9,7 +9,7 @@ inline void set_pte_flags(page_table_entry_t* pte, uint32_t pte_attr) {
 		pte->cacheable = 1;
 		pte->bufferable = 1;
 	}
-	else if(pte_attr == PTE_ATTR_WRBACK_ALLOCATE) { //kernel image mem
+	else if(pte_attr == PTE_ATTR_WRBACK_ALLOCATE) { //write back allocate mem
 		pte->tex = 0x1;
 		pte->cacheable = 1;
 		pte->bufferable = 1;
