@@ -130,7 +130,7 @@ void console_refresh(console_t* console, graph_t* g) {
 	int32_t start_row = total_rows - g_rows - console->state.back_offset_rows;
 	if(start_row < 0)
 		start_row = 0;
-	if((g->h % console->font->h) != 0 && start_row != 0)
+	if(start_row != 0)
 		start_row++;
 
 	graph_clear(g, console->bg_color);
