@@ -58,19 +58,21 @@ static void load_boot_pgt(void) {
 #define REGW16(a,v) 	(*(volatile unsigned short *)(a) = (v))
 #define REGR16(a) 		(*(volatile unsigned short *)(a))
 
-void init_cpu_clock(void)
-{
-    REGW16(MMIO_BASE + (0x1032A8 << 1), 0x0000);            //reg_lpf_enable = 0
-    REGW16(MMIO_BASE + (0x1032AE << 1), 0x000F);            //reg_lpf_update_cnt = 32
-    REGW16(MMIO_BASE + (0x1032A4 << 1), 0x1470);			//set target freq to LPF low
-    REGW16(MMIO_BASE + (0x1032A6 << 1), 0x002e);			//set target freq to LPF high
-    REGW16(MMIO_BASE + (0x1032B0 << 1), 0x0001);            //switch to LPF control
-    REGW16(MMIO_BASE + (0x1032B2 << 1), 0x1<<12);           //from low to high
-    REGW16(MMIO_BASE + (0x1032A8 << 1), 0x0001);            //reg_lpf_enable = 1
-	//fix me: will block boot process?
-    //while( !(REGR16(MMIO_BASE + (0x1032BA << 1))&(0x1)) ); 	//polling done
-    REGW16(MMIO_BASE + (0x1032A0 << 1), 0x1470);       		//store freq to LPF low
-    REGW16(MMIO_BASE + (0x1032A2 << 1), 0x002e); 			//store freq to LPF high
+void init_cpu_clock(void) {
+	REGW16(MMIO_OFFSET + (0x1032A4 << 1), 0x78D4); //set target freq to LPF high
+	REGW16(MMIO_OFFSET + (0x1032A6 << 1), 0x0029);
+	REGW16(MMIO_OFFSET + (0x1032B0 << 1), 0x0001); //switch to LPF control
+	REGW16(MMIO_OFFSET + (0x1032AA << 1), 0x0006); //mu[2:0]
+	REGW16(MMIO_OFFSET + (0x1032AE << 1), 0x0008); //lpf_update_cnt[7:0]
+	REGW16(MMIO_OFFSET + (0x1032B2 << 1), 0x1000);  //from low to high
+	REGW16(MMIO_OFFSET + (0x1032A8 << 1), 0x0000); //toggle LPF enable
+	REGW16(MMIO_OFFSET + (0x1032A8 << 1), 0x0001);
+
+	while( !(REGR16(MMIO_OFFSET + (0x1032BA << 1))) ); //polling done
+
+	REGW16(MMIO_OFFSET + (0x1032A8 << 1), 0x0000);
+	REGW16(MMIO_OFFSET + (0x1032A0 << 1), 0x78D4);  //store freq to LPF low
+	REGW16(MMIO_OFFSET + (0x1032A2 << 1), 0x0029);
 }
 
 
