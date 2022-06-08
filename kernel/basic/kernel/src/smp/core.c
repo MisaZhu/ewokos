@@ -19,16 +19,12 @@ inline uint32_t get_cpu_cores(void) {
 extern uint32_t __smp_lock(int32_t* v);
 extern uint32_t __smp_unlock(int32_t* v);
 
-void mcore_lock(int32_t* v) {
-	__asm__ volatile("dsb");
+inline void mcore_lock(int32_t* v) {
 	__smp_lock(v);
-	__asm__ volatile("dmb");
 }
 
-void mcore_unlock(int32_t* v) {
-	__asm__ volatile("dmb");
+inline void mcore_unlock(int32_t* v) {
 	__smp_unlock(v);
-	__asm__ volatile("dsb");
 }
 
 #endif

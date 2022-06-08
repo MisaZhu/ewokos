@@ -78,6 +78,8 @@ slave_core:                     @ 1-3 cores
 	and r0, r0, pc
 	add sp, sp, r0
 	
+	bl arm_smp_enable
+
 	bl _boot_start              @ enable MMU for kernel
 
 	mov r0, #0x1000
