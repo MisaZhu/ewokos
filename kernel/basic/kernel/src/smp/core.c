@@ -20,11 +20,15 @@ extern uint32_t __smp_lock(int32_t* v);
 extern uint32_t __smp_unlock(int32_t* v);
 
 void mcore_lock(int32_t* v) {
+	__asm__ volatile("dsb");
 	__smp_lock(v);
+	__asm__ volatile("dmb");
 }
 
 void mcore_unlock(int32_t* v) {
+	__asm__ volatile("dmb");
 	__smp_unlock(v);
+	__asm__ volatile("dsb");
 }
 
 #endif
