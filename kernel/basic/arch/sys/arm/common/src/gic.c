@@ -98,6 +98,10 @@ void gic_irq_enable(int core_id, int irqno)
     gic_v2_irq_enable(irqno);  
 }
 
+void gic_eoi(int intn) {
+    mmio_write32(gicc_base + GICC_EOIR, intn); 
+}
+
 int gic_get_irq(void){
     int irq = mmio_read32(gicc_base + GICC_IAR);
     gic_eoi(irq);
@@ -105,20 +109,14 @@ int gic_get_irq(void){
 }
 
 void gic_gen_soft_irq(int core_id, int irq){
-    unsigned long flags;
+    //unsigned long flags;
     uint8_t cpu_mask = 0x1 << core_id;
 
     /* this always happens on GIC0 */
     mmio_write32(gicd_base + GICD_SGIR, cpu_mask << 16 | irq);
 }
 
-void gic_eoi(int intn)
-{
-    mmio_write32(gicc_base + GICC_EOIR, intn); 
-}
-
-int gic_getack( void )
-{
+int gic_getack( void ) {
     return mmio_read32(gicc_base + GICC_IAR);
 }
 
