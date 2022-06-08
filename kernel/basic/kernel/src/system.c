@@ -2,10 +2,6 @@
 #include <kernel/core.h>
 #include <dev/timer.h>
 
-#ifdef KERNEL_SMP
-#include <kernel/smp/cache.h>
-#endif
-
 void __attribute__((optimize("O0"))) _delay(uint32_t count) {
 	while(count > 0) {
 		count--;
@@ -31,10 +27,6 @@ extern void __flush_dcache_all(void);
 
 
 inline void flush_dcache(void) {
-#ifdef KERNEL_SMP
-	//arm_clear_data_l2_caches();
-	//arm_invalidate_data_l2_caches();
-#endif
 	__flush_dcache_all();
 }
 
