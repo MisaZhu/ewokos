@@ -36,9 +36,9 @@
 #define ALIGN_UP(x, alignment) (((x) + alignment - 1) & ~(alignment - 1))
 
 #define get32(addr) (*((volatile uint32_t *)(addr)))
-#define put32(addr, val) (*((volatile uint32_t *)(addr)) = (val))
+#define put32(addr, val) (*((volatile uint32_t *)(addr)) = (uint32_t)(val))
 #define get8(addr) (*((volatile uint8_t *)(addr)))
-#define put8(addr, val) (*((volatile uint8_t *)(addr)) = (val))
+#define put8(addr, val) (*((volatile uint8_t *)(addr)) = (uint8_t)(val))
 
 /* descriptor types */
 #define SMALL_PAGE_TYPE 2

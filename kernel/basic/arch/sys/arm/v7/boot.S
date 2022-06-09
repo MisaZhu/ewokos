@@ -146,5 +146,3 @@ cpu_icache_disable:
 	bic     r0,  r0, #0x00001000
 	mcr     p15, #0, r0, c1, c0, #0
 	bx      lr
-
-kernel_base: .word 0xffff0000
