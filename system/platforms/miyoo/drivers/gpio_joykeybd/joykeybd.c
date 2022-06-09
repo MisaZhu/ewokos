@@ -6,6 +6,7 @@
 #include <sys/vdevice.h>
 #include <sys/syscall.h>
 #include <sys/keydef.h>
+#include <sys/ipc.h>
 #include <sys/mmio.h>
 #include "gpio_table.h"
 
@@ -57,10 +58,6 @@ struct gpio_pins{
 	DECLARE_GPIO_KEY(KEY_POWER, GPIO_HIGH),
 	DECLARE_GPIO_KEY(KEY_HOME, GPIO_LOW),
 };
-
-
-static bool _j_x_rev = false;
-static bool _j_y_rev = false;
 
 #define GPIO_NUMBER                         91
 #define REG8(addr)                 (*(volatile uint8_t*)(_mmio_base + (((addr) & ~1)<<1) + (addr & 1)))
@@ -141,12 +138,13 @@ static void init_gpio(void) {
 }
 
 static int power_button(void* p) {
+	(void)p;
 	static int count = 0;
-	if(miyoo_gpio_read(86) != 0){
+	ipc_disable();
+	if(miyoo_gpio_read(86) != 0)
 		count++;
-	}else{
+	else
 		count = 0;
-	}
 
 	if(count >= 10){
 		//close screnn
@@ -155,7 +153,7 @@ static int power_button(void* p) {
 		usleep(1000);
 		miyoo_gpio_set(85, 0);
 	}
-
+	ipc_enable();
 	usleep(200000);
 }
 
@@ -164,15 +162,6 @@ int main(int argc, char** argv) {
 
 	const char* mnt_point = argc > 1 ? argv[1]: "/dev/joykeyb";
 	init_gpio();
-
-	_j_x_rev = false;
-	_j_y_rev = false;
-	if(argc > 7 && strstr(argv[7], "rev") != NULL) {
-    if(strchr(argv[7], 'x') != NULL)
-      _j_x_rev = true;
-    if(strchr(argv[7], 'y') != NULL)
-      _j_y_rev = true;
-  }
 
 	vdevice_t dev;
 	memset(&dev, 0, sizeof(vdevice_t));
