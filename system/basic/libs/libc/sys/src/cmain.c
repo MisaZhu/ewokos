@@ -50,6 +50,7 @@ static char* read_cmain_arg(void) {
 static void close_stdio(void) {
 	close(0);
 	close(1);
+	close(2);
 }
 
 static void init_cmd(void) {
