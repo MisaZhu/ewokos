@@ -71,5 +71,7 @@ void timer_clear_interrupt(uint32_t id) {
 }
 
 uint64_t timer_read_sys_usec(void) { //read microsec
-	return read_cntvct() / (_cntfrq / 1000000);
+	uint64_t now;
+	__asm__ volatile("mrrc p15, 0, %Q0, %R0, c14" : "=r" (now));
+	return now >> 3;
 }
