@@ -71,10 +71,6 @@ int rgb2nv12(uint8_t  *out,  uint32_t *in , int w, int h)
 	for(int i = 0; i < w; i++){
 		for( int j = 0; j < h; j++){
 			*y = rgb2y((uint8_t*)rgb); 
-			if((i%2 & j%2) == 0){
-				rgb2uv(rgb, uv);
-				uv+=2;		
-			}
 			y++;
 			rgb--;
 		}
