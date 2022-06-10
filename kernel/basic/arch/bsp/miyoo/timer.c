@@ -39,8 +39,8 @@ static inline void enable_cntv(void) {
 	__asm__ volatile ("mcr p15, 0, %0, c14, c3, 1" :: "r"(1));
 }
 
-static inline uint32_t  read_cntvct(void) {
-	uint32_t val;
+static inline uint64_t  read_cntvct(void) {
+	uint64_t val;
 	__asm__ volatile("mrrc p15, 1, %Q0, %R0, c14" : "=r" (val));
 	return val;
 }
@@ -70,8 +70,16 @@ void timer_clear_interrupt(uint32_t id) {
 	(void)id;
 }
 
-uint64_t timer_read_sys_usec(void) { //read usec 
-	uint64_t now;
-	__asm__ volatile("mrrc p15, 0, %Q0, %R0, c14" : "=r" (now));
-	return now >> 3;
+/*do fast 64bit div constant
+*	because 52 bit timer can provide 23 years cycle loop
+* 	we can do 64bit divided as below：
+* 	x / 6 = x / (4096/682) = x * 682 / 4096 = (x * 682) >> 12
+*   it will save hundreds of cpu cycle
+*/
+static __inline uint64_t fast_div64_6(uint64_t x){
+	return (x*682)>>12;
+}
+
+uint64_t timer_read_sys_usec(void) { //read microsec
+	return fast_div64_6(read_cntvct());
 }
