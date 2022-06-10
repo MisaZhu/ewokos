@@ -70,7 +70,7 @@ void timer_clear_interrupt(uint32_t id) {
 	(void)id;
 }
 
-uint64_t timer_read_sys_usec(void) { //read microsec
+uint64_t timer_read_sys_usec(void) { //read usec 
 	uint64_t now;
 	__asm__ volatile("mrrc p15, 0, %Q0, %R0, c14" : "=r" (now));
 	return now >> 3;
