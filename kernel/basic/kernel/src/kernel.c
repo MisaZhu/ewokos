@@ -96,11 +96,6 @@ static void init_allocable_mem(void) {
 
 #ifdef KERNEL_SMP
 void __attribute__((optimize("O0"))) _slave_kernel_entry_c(void) {
-	/*while(1) {
-		if(multi_cores_ready() == 0)
-			break;
-	}
-	*/
 	set_translation_table_base(V2P((uint32_t)_kernel_vm));
 	printf("[ok]\n");
 
