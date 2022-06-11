@@ -162,7 +162,7 @@ __flush_tlb:
 .global __set_translation_table_base
 __set_translation_table_base:
 	mcr p15, 0, r0, c2, c0, 0    //set ttbase user
-	mcr p15, 0, r0, c2, c0, 1    //set ttbase kernel
+	//mcr p15, 0, r0, c2, c0, 1    //set ttbase kernel
 	dmb
 	mov pc, lr
 
@@ -200,12 +200,4 @@ __smp_unlock:
 	str r1, [r0]
 	DSB
 	SEV
-	bx lr
-
-.global __enable_scu
-__enable_scu:
-	mrc p15, 4, r0, c15, c0, 0
-	ldr r1, [r0, #0x0]
-	orr r1, r1, #0x01
-	str r1, [r0, #0x0]
 	bx lr
