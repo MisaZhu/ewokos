@@ -150,12 +150,12 @@ protected:
 			else if((keySelect+col) < keyNum)
 				keySelect += col;
 		}
-		else if(c == KEY_BUTTON_B) {
+		else if(c == KEY_BUTTON_Y) {
 			doKeyIn('\n');
 			changeMode(true);
 			return;
 		}
-		else if(c == KEY_BUTTON_Y) {
+		else if(c == KEY_BUTTON_B) {
 			if(hideMode) {
 				doKeyIn('\4');
 			}

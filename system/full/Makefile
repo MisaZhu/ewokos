@@ -23,6 +23,7 @@ extra_bin:
 X_DIR=x
 x_bin:
 	cd $(X_DIR)/bin/gtest;make
+	cd $(X_DIR)/bin/ttyjoy;make
 	cd $(X_DIR)/bin/gpiomonitor;make
 	cd $(X_DIR)/bin/anim;make
 	cd $(X_DIR)/bin/png;make
@@ -58,3 +59,4 @@ clean:
 	cd $(X_DIR)/bin/png;make clean
 	cd $(X_DIR)/bin/launcher;make clean
 	cd $(X_DIR)/bin/xconsole;make clean
+	cd $(X_DIR)/bin/ttyjoy;make clean
