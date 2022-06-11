@@ -22,9 +22,9 @@ inline void _delay_msec(uint32_t count) {
 
 extern void __set_translation_table_base(uint32_t);
 extern void __flush_tlb(void);
-extern void __invalidate_dcache_all(void);
-extern void __flush_dcache_all(void);
 
+#ifdef KERNEL_SMP
+extern void __flush_dcache_all(void);
 
 inline void flush_dcache(void) {
 	__flush_dcache_all();
@@ -35,6 +35,13 @@ inline void flush_tlb(void) {
 	__flush_tlb();
 }
 
+#else
+
+inline void flush_dcache(void) { }
+inline void flush_tlb(void) {
+	__flush_tlb();
+}
+#endif
 
 inline void set_translation_table_base(uint32_t tlb_base) {
 	__set_translation_table_base(tlb_base);
