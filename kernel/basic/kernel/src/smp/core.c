@@ -12,10 +12,6 @@ inline uint32_t get_core_id(void) {
 	return __core_id();
 }
 
-inline uint32_t get_cpu_cores(void) {
-	return __cpu_cores();
-}
-
 extern uint32_t __smp_lock(int32_t* v);
 extern uint32_t __smp_unlock(int32_t* v);
 

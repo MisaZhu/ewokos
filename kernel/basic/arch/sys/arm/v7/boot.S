@@ -80,7 +80,7 @@ slave_core:                     @ 1-3 cores
 	
 	bl arm_smp_enable
 
-	bl _boot_start              @ enable MMU for kernel
+	bl _boot_start              @ enable MMU for kernel init only
 
 	mov r0, #0x1000
 	mul r0, r0, r11             @ stack offset for current core

@@ -1,18 +1,8 @@
 .global __core_id
 __core_id:
 	mrc p15, 0, r0, c0, c0, 5
-	and r0, r0, #3
+	and r0, r0, #0xff
 	mov pc, lr
-
-.global __cpu_cores
-__cpu_cores:
-#ifdef DUAL_CORE
-	mov r0, #2
-#else
-	mov r0, #4
-#endif
-	mov pc, lr
-
 
 #define ENTRY(symbol)                    \
         .globl  symbol;                  \
