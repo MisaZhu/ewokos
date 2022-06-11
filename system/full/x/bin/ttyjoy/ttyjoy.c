@@ -77,6 +77,7 @@ int main(int argc, char* argv[]) {
 			input(x_pid, c);
 			input(x_pid, 0);
 		}
+		usleep(100000);
 	}
 	close(x_pid);
 	return 0;
