@@ -80,6 +80,5 @@ void _boot_start(void) {
 	init_cpu_clock();
 	set_boot_pgt(PHY_OFFSET, PHY_OFFSET, 8*MB, 0);
 	set_boot_pgt(KERNEL_BASE, PHY_OFFSET, 8*MB, 0);
-	set_boot_pgt(INTERRUPT_VECTOR_BASE, PHY_OFFSET, 1*MB, 0);
 	load_boot_pgt();
 }
