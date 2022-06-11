@@ -18,6 +18,19 @@ static void input(int32_t x_pid, char c) {
 	PF->clear(&in);
 }
 
+static void prompt(void) {
+	printf( "type '~' to exit. 'ESC' as HOME.\n"
+			"+----------------------------------------+\n"
+			"|                                        |\n"
+			"|        [up]                   [x]      |\n"
+			"|                                        |\n"
+			"|  [left]    [right]        [y]     [a]  |\n"
+			"|                                        |\n"
+			"|       [down]                  [b]      |\n"
+			"|                                        |\n"
+			"+----------------------------------------+\n");
+}
+
 int main(int argc, char* argv[]) {
 	(void)argc;
 	(void)argv;
@@ -27,7 +40,7 @@ int main(int argc, char* argv[]) {
 		printf("Error: no X found!\n");
 		return -1;
 	}
-	printf("type '~' to exit. 'ESC' as HOME.\n");
+	prompt();
 
 	while(1) {
 		uint8_t ks[3];
