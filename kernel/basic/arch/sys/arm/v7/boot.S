@@ -21,7 +21,7 @@ over_hyped: // Get out of HYP mode
 
 continue:
 	mrc p15, 0, r11, c0, c0, 5  @ get core id
-	and r11, r11, #3            @ 4 cores max
+	and r11, r11, #0xff         @ 0xff cores max
 	cmp r11, #0                 @ core 0, jump to core0
 #ifdef KERNEL_SMP
 	bne slave_core              @ init rest slave cores
@@ -63,9 +63,9 @@ core0:
 	bl halt
 
 #ifdef KERNEL_SMP
-slave_core:                     @ 1-3 cores
+slave_core:                     @ 1-0xff cores
 	mrc p15, 0, r11, c0, c0, 5
-	and r11, r11, #3            @ get core id (1-3) to r11
+	and r11, r11, #0xff            @ get core id (1-0xff) to r11
 
 	mov r0, #0x1000             @ 4096 stack size for each core
 	mul r0, r0, r11             @ stack offset for current core
