@@ -19,7 +19,7 @@ int main(int argc, char* argv[]) {
 	uint32_t id = timer_set(1000000, timer_handle);
 
 	while(1) {
-		dprintf(2, "pid: %d, v: %d\n", getpid(), _v);
+		printf("pid: %d, v: %d\n", getpid(), _v);
 		sleep(1);
 
 		/*if(_v > 10)  {

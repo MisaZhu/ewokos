@@ -115,7 +115,9 @@ protected:
 
 	void doIMEvent(xevent_t* ev) {
 		uint8_t c = ev->value.im.value;
-		if(c != KEY_LEFT && c != KEY_RIGHT) {
+		int32_t keyNum = strlen(keytable[keytableType]);
+
+		if(c != KEY_LEFT && c != KEY_RIGHT && c != KEY_UP && c != KEY_DOWN) {
 			if(c != 0) {
 				inputC = c;
 				return;
@@ -139,13 +141,13 @@ protected:
 		else if(c == KEY_UP) {
 			if(hideMode)
 				doKeyIn(c);
-			else
+			else if(keySelect > col)
 				keySelect -= col;
 		}
 		else if(c == KEY_DOWN) {
 			if(hideMode)
 				doKeyIn(c);
-			else
+			else if((keySelect+col) < keyNum)
 				keySelect += col;
 		}
 		else if(c == KEY_BUTTON_B) {
@@ -179,8 +181,8 @@ protected:
 
 		if(keySelect < 0)
 			keySelect = 0;
-		else if(keySelect >= strlen(keytable[keytableType]))
-			keySelect = strlen(keytable[keytableType]) - 1;
+		else if(keySelect >= keyNum)
+			keySelect = keyNum - 1;
 		repaint(true);
 	}
 
