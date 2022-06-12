@@ -22,7 +22,18 @@
 .Environment & Tools
 
 	QEMU: 
-		install the last version of qemu
+		modified qemu file: hw/sd/sd.c and recompile
+		......
+		if(req.arg & ACMD41_ENQUIRY_MASK) { //modified by Misa.Z 
+		/*if (FIELD_EX32(sd->ocr & req.arg, OCR, VDD_VOLTAGE_WINDOW)) {*/
+			/* We accept any voltage.  10000 V is nothing.
+			*
+			* Once we're powered up, we advance straight to ready state
+			* unless it's an enquiry ACMD41 (bits 23:0 == 0).
+			*/
+			sd->state = sd_ready_state;
+		}
+		......
 
 	Mac OSX(with brew installed):	
 		brew tap PX4/homebrew-px4
