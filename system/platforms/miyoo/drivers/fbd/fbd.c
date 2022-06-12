@@ -19,19 +19,18 @@
 */
 static inline uint8_t rgb2y(uint8_t *rgb){
 	//return(((257 * rgb[0])/1000) + ((504 * rgb[1])/1000) + ((98 * rgb[2])/1000) + 16);
-	uint32_t b = rgb[0];
-	uint32_t g = rgb[1];
-	uint32_t r = rgb[2];
+	register uint32_t b = rgb[0];
+	register uint32_t g = rgb[1];
+	register uint32_t r = rgb[2];
 	return ((306*r + 601*g + 117*b) >> 10) ;
 }
 
 static inline void rgb2uv(uint8_t *rgb, uint8_t *uv){
-	uint32_t b = rgb[0];
-	uint32_t g = rgb[1];
-	uint32_t r = rgb[2];
+	register uint32_t b = rgb[0];
+	register uint32_t g = rgb[1];
+	register uint32_t r = rgb[2];
 	uv[0] = ((446*b - 150*r - 296*g) >> 10) + 128;
 	uv[1] = ((630*r - 527*g - 102*b) >> 10) + 128;
-
 }
 
 int rgb2nv12(uint8_t  *out,  uint32_t *in , int w, int h)

@@ -72,10 +72,10 @@ void graph_line(graph_t* g, int32_t x1, int32_t y1, int32_t x2, int32_t y2, uint
 		}
 	}
 	else {
-		uint8_t ca = (color >> 24) & 0xff;
-		uint8_t cr = (color >> 16) & 0xff;
-		uint8_t cg = (color >> 8) & 0xff;
-		uint8_t cb = (color) & 0xff;
+		register uint8_t ca = (color >> 24) & 0xff;
+		register uint8_t cr = (color >> 16) & 0xff;
+		register uint8_t cg = (color >> 8) & 0xff;
+		register uint8_t cb = (color) & 0xff;
 	
 		for (i=0; i<=dx; i++) {
 			graph_pixel_argb_safe(g, x, y, ca, cr, cg, cb);
