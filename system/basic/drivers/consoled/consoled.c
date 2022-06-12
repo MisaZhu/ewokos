@@ -29,7 +29,7 @@ static int32_t read_config(fb_console_t* console, const char* fname) {
 	console->console.font = font_by_name("8x16");
 	console->console.fg_color = 0xffcccccc;
 	console->console.bg_color = 0xff000000;
-	const char* icon_fn = "/data/icons/starwars/yoda.png";
+	const char* icon_fn = "/data/icons/starwars/ewok.png";
 
 	sconf_t *conf = sconf_load(fname);	
 	if(conf == NULL) {
