@@ -5,7 +5,7 @@ TARGET_DIR = $(BUILD_DIR)
 
 LDFLAGS = -L$(TARGET_DIR)/lib -lnosys
 
-CFLAGS += -I $(TARGET_DIR)/include -Iinclude
+CFLAGS += -Iinclude -I $(TARGET_DIR)/include
 
 LIB_XPT2046_OBJS = src/xpt2046.o 
 

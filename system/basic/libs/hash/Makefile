@@ -5,7 +5,7 @@ TARGET_DIR = $(BUILD_DIR)
 
 LDFLAGS = -L$(TARGET_DIR)/lib -lnosys
 
-CFLAGS += -I $(TARGET_DIR)/include -Iinclude
+CFLAGS += -Iinclude -I $(TARGET_DIR)/include
 
 LIB_HASH_OBJS = src/hashmap.o
 

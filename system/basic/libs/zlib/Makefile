@@ -5,7 +5,7 @@ TARGET_DIR = $(BUILD_DIR)
 
 LDFLAGS = -L$(TARGET_DIR)/lib -lnosys
 
-CFLAGS += -I $(TARGET_DIR)/include -Iinclude
+CFLAGS += -Iinclude -I $(TARGET_DIR)/include
 
 LIB_Z_OBJS = src/adler32.o \
 	src/crc32.o \

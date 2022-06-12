@@ -5,7 +5,7 @@ TARGET_DIR = $(BUILD_DIR)
 
 LDFLAGS = -L$(TARGET_DIR)/lib -lnosys
 
-CXXFLAGS += -I $(TARGET_DIR)/include -Iinclude
+CXXFLAGS += -Iinclude -I $(TARGET_DIR)/include
 
 LIB_CXX_OBJS = src/cxx.o
 

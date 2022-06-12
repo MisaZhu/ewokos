@@ -15,6 +15,7 @@ extern "C" {
 #endif
 
 static int fetch_graph(xwm_t* xwm, int shmid, int w, int h, graph_t* g) {
+	(void)xwm;
 	void* g_buf = shm_map(shmid);
 	if(g_buf == NULL)
 		return -1;

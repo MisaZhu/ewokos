@@ -5,7 +5,7 @@ TARGET_DIR = $(BUILD_DIR)
 
 LDFLAGS = -L$(TARGET_DIR)/lib -lnosys
 
-CFLAGS += -I $(TARGET_DIR)/include -Iinclude -Isys/include
+CFLAGS += -Isys/include -Iinclude -I $(TARGET_DIR)/include
 
 LIB_EWOKSYS_OBJS = sys/src/syscall.o \
 	sys/src/mstr.o \

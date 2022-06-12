@@ -5,7 +5,7 @@ TARGET_DIR = $(BUILD_DIR)
 
 LDFLAGS = -L$(TARGET_DIR)/lib -lnosys
 
-CFLAGS += -I $(TARGET_DIR)/include -Iinclude
+CFLAGS += -Iinclude -I$(TARGET_DIR)/include
 
 LIB_X_OBJS = src/x.o \
 	src/xwin.o \
@@ -19,7 +19,6 @@ $(X): $(LIB_X_OBJS) \
 		$(TARGET_DIR)/lib/libfonts.a
 	$(AR) rT $(X) $(LIB_X_OBJS)
 	cp -r include/* $(TARGET_DIR)/include
-
 
 clean:
 	rm -f $(LIB_X_OBJS)
