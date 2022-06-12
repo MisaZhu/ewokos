@@ -19,10 +19,13 @@ typedef struct {
 	int fd;
 	fsinfo_t info;
 } fsinfo_buffer_t;
-static fsinfo_buffer_t _fsinfo_buffer;
+
+#define MAX_FINFO_BUFFER  8
+static fsinfo_buffer_t _fsinfo_buffers[MAX_FINFO_BUFFER];
 
 void  vfs_init(void) {
-	_fsinfo_buffer.fd = -1;
+	for(uint32_t i=0; i<MAX_FINFO_BUFFER; i++)
+		_fsinfo_buffers[i].fd = -1;
 }
 
 static int vfs_get_by_fd_raw(int fd, fsinfo_t* info) {
@@ -41,20 +44,32 @@ static int vfs_get_by_fd_raw(int fd, fsinfo_t* info) {
 }
 
 static inline void vfs_set_info_buffer(int fd, fsinfo_t* info) {
-	_fsinfo_buffer.fd = fd;
-	memcpy(&_fsinfo_buffer.info, info, sizeof(fsinfo_t));
+	for(uint32_t i=0; i<MAX_FINFO_BUFFER; i++) {
+		if(_fsinfo_buffers[i].fd < 0) {
+			_fsinfo_buffers[i].fd = fd;
+			memcpy(&_fsinfo_buffers[i].info, info, sizeof(fsinfo_t));
+			return;
+		}
+	}
 }
 
 static inline void vfs_clear_info_buffer(int fd) {
-	if(fd != _fsinfo_buffer.fd)
-		_fsinfo_buffer.fd = -1;
+	for(uint32_t i=0; i<MAX_FINFO_BUFFER; i++) {
+		if(_fsinfo_buffers[i].fd == fd) {
+			_fsinfo_buffers[i].fd = -1;
+			return;
+		}
+	}
 }
 
 static inline int vfs_fetch_info_buffer(int fd, fsinfo_t* info) {
-	if(fd != _fsinfo_buffer.fd)
-		return -1;
-	memcpy(info, &_fsinfo_buffer.info, sizeof(fsinfo_t));
-	return 0;
+	for(uint32_t i=0; i<MAX_FINFO_BUFFER; i++) {
+		if(_fsinfo_buffers[i].fd == fd) {
+			memcpy(info, &_fsinfo_buffers[i].info, sizeof(fsinfo_t));
+			return 0;
+		}
+	}
+	return -1;
 }
 
 int vfs_get_by_fd(int fd, fsinfo_t* info) {
@@ -63,8 +78,7 @@ int vfs_get_by_fd(int fd, fsinfo_t* info) {
 
 	int res = vfs_get_by_fd_raw(fd, info);
 	if(res == 0 && fd > 3) {
-		_fsinfo_buffer.fd = fd;
-		memcpy(&_fsinfo_buffer.info, info, sizeof(fsinfo_t));
+		vfs_set_info_buffer(fd, info);
 	}
 	return res;
 }
