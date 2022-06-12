@@ -31,7 +31,6 @@ int xwin_update_info(xwin_t* xwin, xinfo_t* info) {
 	PF->clear(&in);
 	if(ret == 0) {
 		proto_read_to(&out, info, sizeof(xinfo_t));
-
 		if(&xwin->xinfo != info)
 			memcpy(&xwin->xinfo, info, sizeof(xinfo_t));
 	}
@@ -261,13 +260,10 @@ int xwin_event_handle(xwin_t* xwin, xevent_t* ev) {
 }
 
 int xwin_set_visible(xwin_t* xwin, bool visible) {
-	proto_t in;
-	PF->init(&in)->addi(&in, visible);
-
-	int res = vfs_fcntl(xwin->fd, X_CNTL_SET_VISIBLE, &in, NULL);
-	PF->clear(&in);
 	if(xwin->on_focus)
 		xwin->on_focus(xwin);
+	xwin->xinfo.visible = visible;
+	int res = xwin_update_info(xwin, &xwin->xinfo);
 	xwin_repaint(xwin, true);
 	return res;
 }

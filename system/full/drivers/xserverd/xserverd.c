@@ -781,9 +781,6 @@ static int xserver_fcntl(int fd, int from_pid, fsinfo_t* info,
 	else if(cmd == X_CNTL_UPDATE_INFO) {
 		res = xwin_update_info(fd, from_pid, in, out, x);
 	}
-	else if(cmd == X_CNTL_SET_VISIBLE) {
-		res = xwin_set_visible(fd, from_pid, in, x);
-	}
 	else if(cmd == X_CNTL_WORKSPACE) {
 		res = x_workspace(x, in, out);
 	}
