@@ -660,7 +660,7 @@ static void xwin_force_fullscreen(x_t* x, xinfo_t* xinfo) {
 	xinfo->style |= X_STYLE_NO_FRAME;
 }
 
-static int xwin_update_info(int fd, int from_pid, proto_t* in, x_t* x) {
+static int xwin_update_info(int fd, int from_pid, proto_t* in, proto_t* out, x_t* x) {
 	xinfo_t xinfo;
 	int sz = sizeof(xinfo_t);
 	if(fd < 0 || proto_read_to(in, &xinfo, sz) != sz)
@@ -722,13 +722,6 @@ static int xwin_update_info(int fd, int from_pid, proto_t* in, x_t* x) {
 	memcpy(&view->xinfo, &xinfo, sizeof(xinfo_t));
 	view->xinfo.shm_id = shm_id;
 	x_update_frame_areas(x, view);
-	return 0;
-}
-
-static int xwin_get_info(int fd, int from_pid, x_t* x, proto_t* out) {
-	xview_t* view = x_get_view(x, fd, from_pid);
-	if(view == NULL)
-		return -1;
 	PF->add(out, &view->xinfo, sizeof(xinfo_t));
 	return 0;
 }
@@ -786,13 +779,10 @@ static int xserver_fcntl(int fd, int from_pid, fsinfo_t* info,
 		res = x_update(fd, from_pid, x);
 	}	
 	else if(cmd == X_CNTL_UPDATE_INFO) {
-		res = xwin_update_info(fd, from_pid, in, x);
+		res = xwin_update_info(fd, from_pid, in, out, x);
 	}
 	else if(cmd == X_CNTL_SET_VISIBLE) {
 		res = xwin_set_visible(fd, from_pid, in, x);
-	}
-	else if(cmd == X_CNTL_GET_INFO) {
-		res = xwin_get_info(fd, from_pid, x, out);
 	}
 	else if(cmd == X_CNTL_WORKSPACE) {
 		res = x_workspace(x, in, out);

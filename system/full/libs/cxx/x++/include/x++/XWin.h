@@ -50,7 +50,7 @@ public:
 	bool setVisible(bool visible);
 	bool callXIM(void);
 
-	bool updateInfo(const xinfo_t& xinfo);
+	bool updateInfo(xinfo_t& xinfo);
 	bool getInfo(xinfo_t& xinfo);
 	void repaint(bool sync = false);
 	void resizeTo(int w, int h);

@@ -17,18 +17,25 @@
 extern "C" {
 #endif
 
-
-int xwin_update_info(xwin_t* xwin, const xinfo_t* info) {
-	proto_t in;
+int xwin_update_info(xwin_t* xwin, xinfo_t* info) {
 	if(xwin->g_buf != NULL) {
 		xwin->g_buf = NULL;
 		shm_unmap(xwin->g_shmid);
 		xwin->g_shmid = -1;
 	}
 
+	proto_t in, out;
+	PF->init(&out);
 	PF->init(&in)->add(&in, info, sizeof(xinfo_t));
-	int ret = vfs_fcntl(xwin->fd, X_CNTL_UPDATE_INFO, &in, NULL);
+	int ret = vfs_fcntl(xwin->fd, X_CNTL_UPDATE_INFO, &in, &out);
 	PF->clear(&in);
+	if(ret == 0) {
+		proto_read_to(&out, info, sizeof(xinfo_t));
+
+		if(&xwin->xinfo != info)
+			memcpy(&xwin->xinfo, info, sizeof(xinfo_t));
+	}
+	PF->clear(&out);
 	return ret;
 }
 
@@ -84,36 +91,20 @@ xwin_t* xwin_open(x_t* xp, int x, int y, int w, int h, const char* title, int st
 	return ret;
 }
 
-int xwin_get_info(xwin_t* xwin, xinfo_t* info) {
-	if(xwin == NULL || info == NULL)
-		return -1;
-	
-	proto_t out;
-	PF->init(&out);
-	if(vfs_fcntl(xwin->fd, X_CNTL_GET_INFO, NULL, &out) != 0)
-		return -1;
-	proto_read_to(&out, info, sizeof(xinfo_t));
-	PF->clear(&out);
-	return 0;
-}
-
 static graph_t* x_get_graph(xwin_t* xwin, graph_t* g) {
 	if(xwin == NULL)
 		return NULL;
 
-	xinfo_t info;
-	if(xwin_get_info(xwin, &info) != 0)
-		return NULL;
 	if(xwin->g_buf == NULL) {
-		xwin->g_buf = shm_map(info.shm_id);
+		xwin->g_buf = shm_map(xwin->xinfo.shm_id);
 		if(xwin->g_buf == NULL)
 			return NULL;
-		xwin->g_shmid = info.shm_id;
+		xwin->g_shmid = xwin->xinfo.shm_id;
 	}
 
 	g->buffer = xwin->g_buf;
-	g->w = info.wsr.w;
-	g->h = info.wsr.h;
+	g->w = xwin->xinfo.wsr.w;
+	g->h = xwin->xinfo.wsr.h;
 	g->need_free = false;
 	return g;
 }
@@ -179,19 +170,15 @@ void xwin_repaint_req(xwin_t* xwin) {
 }
 
 int xwin_set_display(xwin_t* xwin, uint32_t display_index) {
-	xinfo_t xinfo;
-	xwin_get_info(xwin, &xinfo);
-	xinfo.display_index = display_index;
-	xwin_update_info(xwin, &xinfo);
+	xwin->xinfo.display_index = display_index;
+	xwin_update_info(xwin, &xwin->xinfo);
 	return 0;
 }
 
 int xwin_resize_to(xwin_t* xwin, int w, int h) {
-	xinfo_t xinfo;
-	xwin_get_info(xwin, &xinfo);
-	xinfo.wsr.w = w;
-	xinfo.wsr.h = h;
-	xwin_update_info(xwin, &xinfo);
+	xwin->xinfo.wsr.w = w;
+	xwin->xinfo.wsr.h = h;
+	xwin_update_info(xwin, &xwin->xinfo);
 	if(xwin->on_resize) {
 		xwin->on_resize(xwin);
 	}
@@ -200,30 +187,21 @@ int xwin_resize_to(xwin_t* xwin, int w, int h) {
 }
 
 int xwin_resize(xwin_t* xwin, int dw, int dh) {
-	xinfo_t xinfo;
-	xwin_get_info(xwin, &xinfo);
-	return xwin_resize_to(xwin, xinfo.wsr.w+dw, xinfo.wsr.h+dh);
+	return xwin_resize_to(xwin, xwin->xinfo.wsr.w+dw, xwin->xinfo.wsr.h+dh);
 }
 
 int xwin_move_to(xwin_t* xwin, int x, int y) {
-	xinfo_t xinfo;
-	xwin_get_info(xwin, &xinfo);
-	xinfo.wsr.x = x;
-	xinfo.wsr.y = y;
-	xwin_update_info(xwin, &xinfo);
+	xwin->xinfo.wsr.x = x;
+	xwin->xinfo.wsr.y = y;
+	xwin_update_info(xwin, &xwin->xinfo);
 	return 0;
 }
 
 int xwin_move(xwin_t* xwin, int dx, int dy) {
-	xinfo_t xinfo;
-	xwin_get_info(xwin, &xinfo);
-	return xwin_move_to(xwin, xinfo.wsr.x+dx, xinfo.wsr.y+dy);
+	return xwin_move_to(xwin, xwin->xinfo.wsr.x+dx, xwin->xinfo.wsr.y+dy);
 }
 
 int xwin_event_handle(xwin_t* xwin, xevent_t* ev) {
-	xinfo_t xinfo;
-	xwin_get_info(xwin, &xinfo);
-
 	if(ev->value.window.event == XEVT_WIN_CLOSE) {
 		if(xwin->x->main_win == xwin)
 			xwin->x->terminated = true;
@@ -239,18 +217,18 @@ int xwin_event_handle(xwin_t* xwin, xevent_t* ev) {
 		}
 	}
 	else if(ev->value.window.event == XEVT_WIN_RESIZE) {
-		xinfo.wsr.w += ev->value.window.v0;
-		xinfo.wsr.h += ev->value.window.v1;
-		xwin_update_info(xwin, &xinfo);
+		xwin->xinfo.wsr.w += ev->value.window.v0;
+		xwin->xinfo.wsr.h += ev->value.window.v1;
+		xwin_update_info(xwin, &xwin->xinfo);
 		if(xwin->on_resize) {
 			xwin->on_resize(xwin);
 		}
 		xwin_repaint(xwin, true);
 	}
 	else if(ev->value.window.event == XEVT_WIN_MOVE) {
-		xinfo.wsr.x += ev->value.window.v0;
-		xinfo.wsr.y += ev->value.window.v1;
-		xwin_update_info(xwin, &xinfo);
+		xwin->xinfo.wsr.x += ev->value.window.v0;
+		xwin->xinfo.wsr.y += ev->value.window.v1;
+		xwin_update_info(xwin, &xwin->xinfo);
 	}
 	else if(ev->value.window.event == XEVT_WIN_VISIBLE) {
 		xwin_set_visible(xwin, ev->value.window.v0 == 1);
@@ -259,21 +237,21 @@ int xwin_event_handle(xwin_t* xwin, xevent_t* ev) {
 		xwin_repaint(xwin, true);
 	}
 	else if(ev->value.window.event == XEVT_WIN_MAX) {
-		if(xinfo.state == X_STATE_MAX) {
-			memcpy(&xinfo.wsr, &xwin->xinfo_prev.wsr, sizeof(grect_t));
-			xinfo.state = xwin->xinfo_prev.state;
+		if(xwin->xinfo.state == X_STATE_MAX) {
+			memcpy(&xwin->xinfo.wsr, &xwin->xinfo_prev.wsr, sizeof(grect_t));
+			xwin->xinfo.state = xwin->xinfo_prev.state;
 		}
 		else {
 			xscreen_t scr;
-			if(x_screen_info(&scr, xinfo.display_index) == 0) {
-				memcpy(&xwin->xinfo_prev, &xinfo, sizeof(xinfo_t));
+			if(x_screen_info(&scr, xwin->xinfo.display_index) == 0) {
+				memcpy(&xwin->xinfo_prev, &xwin->xinfo, sizeof(xinfo_t));
 				grect_t r = {0, 0, scr.size.w, scr.size.h};
-				x_get_workspace(xwin->fd, xinfo.style, &r, &r);
-				memcpy(&xinfo.wsr, &r, sizeof(grect_t));
-				xinfo.state = X_STATE_MAX;
+				x_get_workspace(xwin->fd, xwin->xinfo.style, &r, &r);
+				memcpy(&xwin->xinfo.wsr, &r, sizeof(grect_t));
+				xwin->xinfo.state = X_STATE_MAX;
 			}
 		}
-		xwin_update_info(xwin, &xinfo);
+		xwin_update_info(xwin, &xwin->xinfo);
 		if(xwin->on_resize) {
 			xwin->on_resize(xwin);
 		}

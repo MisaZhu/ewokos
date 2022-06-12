@@ -1,5 +1,6 @@
 #include "x++/XWin.h"
 #include <stdio.h>
+#include <string.h>
 
 using namespace Ewok;
 
@@ -91,7 +92,7 @@ bool XWin::callXIM(void) {
 	return true;
 }
 
-bool XWin::updateInfo(const xinfo_t& xinfo) {
+bool XWin::updateInfo(xinfo_t& xinfo) {
 	if(xwin == NULL)	
 		return false;
 	return (xwin_update_info(xwin, &xinfo) == 0);
@@ -100,7 +101,8 @@ bool XWin::updateInfo(const xinfo_t& xinfo) {
 bool XWin::getInfo(xinfo_t& xinfo) {
 	if(xwin == NULL)	
 		return false;
-	return (xwin_get_info(xwin, &xinfo) == 0);
+	memcpy(&xinfo, &xwin->xinfo, sizeof(xinfo_t));
+	return true;
 }
 
 void XWin::repaint(bool sync) {
