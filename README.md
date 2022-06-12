@@ -104,8 +104,8 @@
 	***           ***          (_init_stack, _irq_stack, _startup_page_dir)
 	***           ***          Kernel end, Kernel PageDir Table start
 	+16KB         +16KB        Kernel PageDir Table end.
-	+128KB        +128KB        kernel malloc base
-	+32M           +32M          kernel malloc end (size=2M).
+	+128KB        +128KB       kernel malloc base
+	+32M           +32M        kernel malloc end (size=2M).
 	......
 	physical ram top           Share memory start base               
 	......
