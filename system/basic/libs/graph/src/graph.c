@@ -84,38 +84,48 @@ void graph_reverse(graph_t* g) {
 	}
 }
 
-graph_t* graph_rotate(graph_t* g, int rot) {
-	if(g == NULL)
-		return NULL;
+void graph_rotate_to(graph_t* g, graph_t* ret, int rot) {
+	if(g == NULL || ret == NULL)
+		return;
 
 	if(rot == G_ROTATE_90) {
-		graph_t* ret = graph_new(NULL, g->h, g->w);
 		for(int i=0; i<g->w; i++) {
 			for(int j=0; j<g->h; j++) {
 				ret->buffer[(ret->h-i-1)*ret->w + (ret->w-j)] = g->buffer[j*g->w + (g->w-i-1)];
 			}
 		}
-		return ret;
 	}
 	else if(rot == G_ROTATE_N90) {
-		graph_t* ret = graph_new(NULL, g->h, g->w);
 		for(int i=0; i<g->w; i++) {
 			for(int j=0; j<g->h; j++) {
 				ret->buffer[i*ret->w + j] = g->buffer[j*g->w + (g->w-i-1)];
 			}
 		}
-		return ret;
 	}
 	else if(rot == G_ROTATE_180) {
-		graph_t* ret = graph_new(NULL, g->w, g->h);
 		for(int i=0; i<g->h; i++) {
 			for(int j=0; j<g->w; j++) {
 				ret->buffer[i*g->w + j] = g->buffer[(g->h-i-1)*g->w + (g->w-j-1)];
 			}
 		}
-		return ret;
 	}
-	return NULL;
+}
+
+inline graph_t* graph_rotate(graph_t* g, int rot) {
+	if(g == NULL)
+		return NULL;
+	graph_t* ret = NULL;
+
+	if(rot == G_ROTATE_90 || rot == G_ROTATE_N90) {
+		ret = graph_new(NULL, g->h, g->w);
+	}
+	else if(rot == G_ROTATE_180) {
+		ret = graph_new(NULL, g->w, g->h);
+	}
+	else 
+		return NULL;
+	graph_rotate_to(g, ret, rot);
+	return ret;
 }
 
 void graph_scale_to(graph_t* g, graph_t* dst, int scale) {
