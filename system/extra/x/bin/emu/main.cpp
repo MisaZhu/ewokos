@@ -32,7 +32,7 @@
 using namespace Ewok;
    /* NES part */
 
-#define KEY_TIMEOUT	5
+#define KEY_TIMEOUT 2	
 
 class NesEmu : public XWin {
 private:
