@@ -8,6 +8,7 @@ extern "C" {
 #endif
 
 int      get_vfsd_pid(void);
+int      get_cored_pid(void);
 
 void     proc_exec_elf(const char* cmd_line, const char* elf, int32_t size);
 int      proc_getpid(int pid);

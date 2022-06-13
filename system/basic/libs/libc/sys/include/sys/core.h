@@ -18,8 +18,6 @@ enum {
 	CORE_CMD_CLONE
 };
 
-int get_cored_pid(void);
-
 #ifdef __cplusplus
 }
 #endif

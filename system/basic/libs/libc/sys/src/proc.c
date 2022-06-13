@@ -9,10 +9,12 @@ extern "C" {
 #endif
 
 static int _vfsd_pid;
+static int _cored_pid;
 static int _cpid;
 
 void proc_init(void) {
 	_vfsd_pid = -1;
+	_cored_pid = -1;
 	_cpid = -1;
 	vfs_init();
 }
@@ -21,6 +23,12 @@ inline int get_vfsd_pid(void) {
 	if(_vfsd_pid < 0)
 		_vfsd_pid = ipc_serv_get(IPC_SERV_VFS);
 	return _vfsd_pid;
+}
+
+inline int get_cored_pid(void) {
+	if(_cored_pid < 0)
+		_cored_pid = syscall0(SYS_CORE_PID);
+	return _cored_pid;
 }
 
 inline int proc_getpid(int pid) {
