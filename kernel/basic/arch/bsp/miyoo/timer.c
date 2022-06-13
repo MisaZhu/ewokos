@@ -65,7 +65,7 @@ void timer_set_interval(uint32_t id, uint32_t times_per_sec) {
 	enable_cntv();
 }
 
-void timer_clear_interrupt(uint32_t id) {
+inline void timer_clear_interrupt(uint32_t id) {
 	write_cntv_tval(_timer_tval);
 	(void)id;
 }
@@ -80,6 +80,6 @@ static __inline uint64_t fast_div64_6(uint64_t x){
 	return (x*682)>>12;
 }
 
-uint64_t timer_read_sys_usec(void) { //read microsec
+inline uint64_t timer_read_sys_usec(void) { //read microsec
 	return fast_div64_6(read_cntvct());
 }
