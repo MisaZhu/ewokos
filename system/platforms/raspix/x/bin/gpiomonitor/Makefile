@@ -1,6 +1,6 @@
-include ../../../../make.rule
+include ../../../../../make.rule
 
-BUILD_DIR = ../../../../build
+BUILD_DIR = ../../../../../build
 TARGET_DIR = $(BUILD_DIR)/rootfs
 
 LDFLAGS = -L$(BUILD_DIR)/lib -lnosys

@@ -8,6 +8,7 @@ all:
 	cd drivers/usbd; make
 	cd bin/actled; make
 	cd bin/gpio; make
+	cd x/bin/gpiomonitor; make
 
 clean:	
 	cd drivers/mini_uartd; make clean
@@ -18,3 +19,4 @@ clean:
 	cd drivers/usbd; make clean
 	cd bin/actled; make clean
 	cd bin/gpio; make clean
+	cd x/bin/gpiomonitor; make clean
