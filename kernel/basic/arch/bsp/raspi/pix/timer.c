@@ -45,7 +45,7 @@ static inline void enable_cntv(void) {
 	__asm__ volatile ("mcr p15, 0, %0, c14, c3, 1" :: "r"(1));
 }
 
-#define MIN_FREQ 4096 
+#define MIN_FREQ  1024
 void timer_set_interval(uint32_t id, uint32_t times_per_sec) {
 	(void)id;
 	if (times_per_sec < MIN_FREQ)
