@@ -12,8 +12,8 @@ namespace sn
     {
     public:
         void update(void* buf, unsigned int width, unsigned int height);
-        void setPixel (int  x, int y, uint32_t color);
-        void draw();
+
+        void draw(uint32_t picData[256][261]);
 
     private:
 		int width;

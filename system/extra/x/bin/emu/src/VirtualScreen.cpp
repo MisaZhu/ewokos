@@ -97,24 +97,48 @@ namespace sn
 		frameBuffer = (uint32_t*)buf;
     }
 
-    void VirtualScreen::setPixel(int x, int y, uint32_t color)
+
+    void VirtualScreen::draw(uint32_t picData[256][261])
     {
-		x = x*scale + offset_x;
-		y = y*scale + offset_y;
-		if(x > 0 && x < width && y > 0 && y < height){
-			frameBuffer[y*width + x] = color;
-			if(scale == 2){
-				frameBuffer[y*width + x + 1] = color;
-				frameBuffer[(y + 1)*width + x + 1] = color;
-				frameBuffer[(y + 1)*width + x] = color;
+		register uint32_t color;
+
+		if(scale == 2) {
+			int w = width / 2;
+			if(w > 256)
+				w = 256;
+			int h = height / 2;
+			if(h > 261)
+				h = 261;
+
+			for (int x = 0; x < w; ++x) {
+				for (int y = 0; y < h; ++y) {
+					color = picData[x][y];
+					register int fbx = x*scale + offset_x;
+					register int fby = y*scale + offset_y;
+					register int tmp = fby*width;
+					frameBuffer[tmp + fbx] = color;
+					frameBuffer[tmp + fbx + 1] = color;
+
+					tmp = (fby+1)*width;
+					frameBuffer[tmp + fbx + 1] = color;
+					frameBuffer[tmp + fbx] = color;
+				}
 			}
 		}
-    }
+		else if(scale == 1) {
+			int w = width;
+			if(w > 256)
+				w = 256;
+			int h = height;
+			if(h > 261)
+				h = 261;
 
-    void VirtualScreen::draw() 
-    {
-		//saveAsBitmap(width, height, frameBuffer);		
-    }
-
-
+			for (int x = 0; x < w; ++x) {
+				for (int y = 0; y < h; ++y) {
+					color = picData[x][y];
+					frameBuffer[(y + offset_y)*width + x + offset_x] = color;
+				}
+			}
+		}
+	}
 }
