@@ -31,8 +31,11 @@ CXXFLAGS = -marm \
         -fno-builtin-fwrite \
         -fno-builtin-realloc \
         -Wno-overlength-strings \
-        -fno-builtin-exit -fno-builtin-stdio \
-        -fno-rtti -fno-exceptions
+        -fno-builtin-exit \
+        -fno-builtin-stdio \
+        -fno-rtti \
+        -fno-exceptions \
+        -std=c++11
 
 #CFLAGS +=  -g
 CFLAGS +=  -O2
