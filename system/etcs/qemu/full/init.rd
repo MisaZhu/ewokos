@@ -1,4 +1,4 @@
-/bin/rundev /drivers/raspix/fbd           /dev/fb0 800 600
+/bin/rundev /drivers/raspix/fbd           /dev/fb0 640 480
 /bin/rundev /drivers/raspix/pl011_uartd   /dev/tty0
 #/bin/rundev /drivers/raspix/mini_uartd    /dev/tty0
 

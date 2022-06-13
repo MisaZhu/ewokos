@@ -34,6 +34,11 @@ enum {
 	XEVT_WIN_REPAINT
 };
 
+enum {
+	XIM_STATE_PRESS = 0,
+	XIM_STATE_RELEASE
+};
+
 typedef struct {
 	uint8_t type;
 	int32_t state;

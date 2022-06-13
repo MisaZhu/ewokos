@@ -55,7 +55,11 @@ public:
 
 		char v[6];
 		int rd = ::read(keybFD, &v, 6);
-		if(rd > 0) {
+		if(rd == 1 && v[0] == KEY_HOME) {
+			input(v[0]);
+			usleep(200000);
+		}
+		else if(rd > 0) {
 			for(int i = 0; i < rd; i++){ 
 				input(v[i]);
 			}
