@@ -9,46 +9,49 @@
 using namespace Ewok;
 
 class Png : public XWin {
-	int alpha;
 	graph_t* img;
 
 protected:
 	void onRepaint(graph_t* g) {
-		graph_clear(g, 0xffffff | (alpha << 24));
-		if(img != NULL) {
-			graph_blt_alpha(img, 0, 0, img->w, img->h,
-					g, 0, 0, img->w, img->h, 0xff);
+		if(img == NULL)
+			return;
+
+		int sz = 32;
+		if(img->w <= sz)
+			sz = img->w/2;
+
+		int x = 0;
+		int y = 0;
+		uint32_t c1;
+		uint32_t c2;
+		for(int i=0; ;i++) {
+			if((i%2) == 0) {
+				c1 = 0xff888888;
+				c2 = 0xff444444;
+			}
+			else {
+				c2 = 0xff888888;
+				c1 = 0xff444444;
+			}
+
+			for(int j=0; ;j++) {
+				graph_fill(g, x, y, sz, sz, (j%2)==0? c1:c2);
+				x += sz;
+				if(x >= g->w)
+					break;
+			}
+			x = 0;
+			y += sz;
+			if(y >= g->h)
+				break;
 		}
 
-		graph_draw_text(g, 10, img->h+10,
-			"Press Up/Down to\nchange transparency\nof background.", 
-			font_by_name("7x9"), 0xff000000);
-	}
-
-	void onEvent(xevent_t* ev) {
-		int key = 0;
-		if(ev->type == XEVT_IM) {
-			key = ev->value.im.value;
-			if(key == KEY_ESC)
-				close();
-			else if(key == KEY_UP) {
-				alpha += 0x22;
-				if(alpha > 0xff)
-					alpha = 0xff;
-				repaint();
-			}
-			else if(key == KEY_DOWN) {
-				alpha -= 0x22;
-				if(alpha < 0)
-					alpha = 0x0;
-				repaint();
-			}
-		}
+		graph_blt_alpha(img, 0, 0, img->w, img->h,
+				g, (g->w - img->w)/2, (g->h - img->h)/2, img->w, img->h, 0xff);
 	}
 
 public:
 	Png() {
-		alpha = 0x22;
 		img = NULL;
 	}
 

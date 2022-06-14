@@ -7,10 +7,11 @@
 #include <sys/vdevice.h>
 #include <x/xwin.h>
 
-static void input(int32_t x_pid, char c) {
+static void input(int32_t x_pid, char c, int state) {
 	xevent_t ev;
 	ev.type = XEVT_IM;
 	ev.value.im.value = c;
+	ev.state = state;
 
 	proto_t in;
 	PF->init(&in)->add(&in, &ev, sizeof(xevent_t));
@@ -50,13 +51,13 @@ int main(int argc, char* argv[]) {
 			if(sz == 3) {
 				c = ks[2];
 				if(c == 65)
-					input(x_pid, KEY_UP);
+					input(x_pid, KEY_UP, XIM_STATE_PRESS);
 				else if(c == 66)
-					input(x_pid, KEY_DOWN);
+					input(x_pid, KEY_DOWN, XIM_STATE_PRESS);
 				else if(c == 68)
-					input(x_pid, KEY_LEFT);
+					input(x_pid, KEY_LEFT, XIM_STATE_PRESS);
 				else if(c == 67)
-					input(x_pid, KEY_RIGHT);
+					input(x_pid, KEY_RIGHT, XIM_STATE_PRESS);
 				continue;
 			}
 
@@ -74,8 +75,7 @@ int main(int argc, char* argv[]) {
 			else if(c == 'y')
 				c = KEY_BUTTON_Y;
 
-			input(x_pid, c);
-			input(x_pid, 0);
+			input(x_pid, c, XIM_STATE_RELEASE);
 		}
 		usleep(100000);
 	}
