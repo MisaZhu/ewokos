@@ -120,8 +120,7 @@ static void flush(fb_console_t* console) {
 						0, 0, console->icon->w, console->icon->w,
 						console->g,
 						console->g->w - console->icon->w * (i+1),
-						//console->g->h - console->icon->h,
-						8,
+						console->g->h - console->icon->h,
 						console->icon->w, console->icon->h, 
 						0xff);
 			}	
