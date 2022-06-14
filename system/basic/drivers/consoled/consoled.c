@@ -23,13 +23,15 @@ typedef struct {
 	graph_t*    g;
 	console_t   console;
 	graph_t*    icon;
+	graph_t*    bg_image;
 } fb_console_t;
 
 static int32_t read_config(fb_console_t* console, const char* fname) {
 	console->console.font = font_by_name("8x16");
 	console->console.fg_color = 0xffcccccc;
 	console->console.bg_color = 0xff000000;
-	const char* icon_fn = "/data/icons/starwars/ewok.png";
+	const char* icon_fn = "/data/icons/starwars/yoda.png";
+	const char* bg_fn = "/data/images/ewok.png";
 
 	sconf_t *conf = sconf_load(fname);	
 	if(conf == NULL) {
@@ -46,6 +48,12 @@ static int32_t read_config(fb_console_t* console, const char* fname) {
 		console->icon = png_image_new(v);
 	else
 		console->icon = png_image_new(icon_fn);
+
+	v = sconf_get(conf, "bg_image");
+	if(v[0] != 0) 
+		console->bg_image = png_image_new(v);
+	else
+		console->bg_image = png_image_new(bg_fn);
 
 	v = sconf_get(conf, "bg_color");
 	if(v[0] != 0) 
@@ -76,6 +84,8 @@ static void close_console(fb_console_t* console) {
 	fb_close(&console->fb);
 	if(console->icon != NULL)
 		graph_free(console->icon);
+	if(console->bg_image != NULL)
+		graph_free(console->bg_image);
 }
 
 static int reset_console(fb_console_t* console) {
@@ -87,20 +97,35 @@ static int reset_console(fb_console_t* console) {
 }
 
 static void flush(fb_console_t* console) {
-	console_refresh(&console->console, console->g);
-	if(console->display_index == 0 && console->icon != NULL) {
-		sys_info_t sys_info;
-		syscall1(SYS_GET_SYS_INFO, (int32_t)&sys_info);
-		for(uint32_t i=0; i<sys_info.cores; i++) {
-			graph_blt_alpha(console->icon, 
-					0, 0, console->icon->w, console->icon->w,
+	graph_clear(console->g, console->console.bg_color);
+	if(console->display_index == 0) {
+		//draw bgImage
+		if(console->bg_image != NULL) {
+			graph_blt_alpha(console->bg_image, 
+					0, 0, console->bg_image->w, console->bg_image->w,
 					console->g,
-					console->g->w - console->icon->w * (i+1),
-					console->g->h - console->icon->h,
-					console->icon->w, console->icon->h, 
+					(console->g->w - console->bg_image->w) / 2,
+					(console->g->h - console->bg_image->h) / 2,
+					console->bg_image->w, console->bg_image->h, 
 					0xff);
-		}	
+		}
+		//draw cores
+		if(console->icon != NULL) {
+			sys_info_t sys_info;
+			syscall1(SYS_GET_SYS_INFO, (int32_t)&sys_info);
+			for(uint32_t i=0; i<sys_info.cores; i++) {
+				graph_blt_alpha(console->icon, 
+						0, 0, console->icon->w, console->icon->w,
+						console->g,
+						console->g->w - console->icon->w * (i+1),
+						console->g->h - console->icon->h,
+						console->icon->w, console->icon->h, 
+						0xff);
+			}	
+		}
 	}
+
+	console_refresh_content(&console->console, console->g);
 	fb_flush(&console->fb);
 }
 

@@ -122,7 +122,7 @@ void console_roll(console_t* console, int32_t rows) {
 		console->state.back_offset_rows = total;
 }
 
-void console_refresh(console_t* console, graph_t* g) {
+void console_refresh_content(console_t* console, graph_t* g) {
 	if(console->font == NULL)
 		return;
 	uint32_t g_rows = g->h / console->font->h;
@@ -133,7 +133,6 @@ void console_refresh(console_t* console, graph_t* g) {
 	if(start_row != 0)
 		start_row++;
 
-	graph_clear(g, console->bg_color);
 	uint32_t i = start_row * console->content.cols;
 	uint32_t x = 0;
 	uint32_t y = 0;
@@ -150,6 +149,11 @@ void console_refresh(console_t* console, graph_t* g) {
 		}
 		i++;
 	}	
+}
+
+void console_refresh(console_t* console, graph_t* g) {
+	graph_clear(g, console->bg_color);
+	console_refresh_content(console, g);
 }
 
 void console_clear(console_t* console) {
