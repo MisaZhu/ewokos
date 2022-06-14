@@ -90,7 +90,7 @@ public:
 		keyState.num = rd;
 		for(int i = 0; i < rd; i++)
 			keyState.keys[i] = v[i];
-		usleep(60000);
+		usleep(50000);
 	}
 };
 
