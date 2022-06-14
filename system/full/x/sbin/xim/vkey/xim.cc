@@ -23,7 +23,6 @@ class XIMX : public XWin {
 	font_t* font;
 	gsize_t scrSize;
 	bool hideMode;
-	char inputC;
 
 	static const int INPUT_MAX = 128;
 	char inputS[INPUT_MAX];
@@ -117,65 +116,60 @@ protected:
 		uint8_t c = ev->value.im.value;
 		int32_t keyNum = strlen(keytable[keytableType]);
 
-		if(c != KEY_LEFT && c != KEY_RIGHT && c != KEY_UP && c != KEY_DOWN) {
-			if(c != 0) {
-				inputC = c;
+		if(ev->state == XIM_STATE_PRESS) {
+			if(c == KEY_LEFT) {
+				keySelect--;
+			}
+			else if(c == KEY_RIGHT) {
+				keySelect++;
+			}
+			else if(c == KEY_UP) {
+				if(hideMode)
+					doKeyIn(c);
+				else if(keySelect > col)
+					keySelect -= col;
+			}
+			else if(c == KEY_DOWN) {
+				if(hideMode)
+					doKeyIn(c);
+				else if((keySelect+col) < keyNum)
+					keySelect += col;
+			}
+			else
+				return;
+		}
+		else { //RELEASE
+			if(c == KEY_BUTTON_X) {
+				changeMode(!hideMode);
 				return;
 			}
-			if(inputC == 0)
-				return;
-			c = inputC;
-			inputC = 0;
-		}
-
-		if(c == KEY_BUTTON_X) {
-			changeMode(!hideMode);
-			return;
-		}
-		else if(c == KEY_LEFT) {
-			keySelect--;
-		}
-		else if(c == KEY_RIGHT) {
-			keySelect++;
-		}
-		else if(c == KEY_UP) {
-			if(hideMode)
-				doKeyIn(c);
-			else if(keySelect > col)
-				keySelect -= col;
-		}
-		else if(c == KEY_DOWN) {
-			if(hideMode)
-				doKeyIn(c);
-			else if((keySelect+col) < keyNum)
-				keySelect += col;
-		}
-		else if(c == KEY_BUTTON_Y) {
-			doKeyIn('\n');
-			changeMode(true);
-			return;
-		}
-		else if(c == KEY_BUTTON_B) {
-			if(hideMode) {
-				doKeyIn('\4');
-			}
-			else {
-				doKeyIn('\b');
-				//changeMode(true);
-				repaint(true);
-			}
-			return;
-		}
-		else if(c == KEY_ENTER || c == KEY_BUTTON_A) {
-			if(hideMode) {
-				changeMode(false);
+			else if(c == KEY_BUTTON_Y) {
+				doKeyIn('\n');
+				changeMode(true);
 				return;
 			}
-			else {
-				c = keytable[keytableType][keySelect];
-				doKeyIn(c);
-				repaint(true);
+			else if(c == KEY_BUTTON_B) {
+				if(hideMode) {
+					doKeyIn('\4');
+				}
+				else {
+					doKeyIn('\b');
+					//changeMode(true);
+					repaint(true);
+				}
 				return;
+			}
+			else if(c == KEY_ENTER || c == KEY_BUTTON_A) {
+				if(hideMode) {
+					changeMode(false);
+					return;
+				}
+				else {
+					c = keytable[keytableType][keySelect];
+					doKeyIn(c);
+					repaint(true);
+					return;
+				}
 			}
 		}
 
@@ -327,7 +321,6 @@ protected:
 
 public:
 	inline XIMX(int fw, int fh) {
-		inputC = 0;
 		scrSize.w = fw;
 		scrSize.h = fh;
 		font = font_by_name("10x20");

@@ -16,7 +16,6 @@ class Finder: public XWin {
 	font_t* font;
 	int     selected;
 	int     start;
-	bool    enter;
 	static const int MAX_FILES = 256;
 
 	char cwd[FS_FULL_NAME_MAX+1];
@@ -143,27 +142,24 @@ protected:
 		
 		if(ev->type == XEVT_IM) {
 			int key = ev->value.im.value;
-			if(key == KEY_LEFT) {
-				upBack();
-				return;
+			if(ev->state == XIM_STATE_PRESS) {
+				if(key == KEY_UP)
+					selected--;
+				else if(key == KEY_DOWN)
+					selected++;
+				else
+					return;
 			}
-			else if(key == KEY_UP)
-				selected--;
-			else if(key == KEY_DOWN)
-				selected++;
-			else if(key == KEY_ENTER) {
-				enter = true;
-				return;
-			}
-			else if(key == 0) {
-				if(enter) {
-					enter = false;
+			else {//RELEASE
+				if(key == KEY_LEFT || key == KEY_BUTTON_B) {
+					upBack();
+					return;
+				}
+				else if(key == KEY_ENTER) {
 					runProc(selected);
 					return;
 				}
 			}
-			else
-				return;
 
 			if(selected >= nums)
 				selected = nums-1;
@@ -184,7 +180,6 @@ public:
 	inline Finder() {
 		selected = 0;
 		start = 0;
-		enter = false;
 		font = font_by_name("8x16");
 		readDir("/");
 	}

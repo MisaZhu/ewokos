@@ -8,18 +8,26 @@
 #include <x/xwin.h>
 #include <string.h>
 
+typedef struct {
+	uint8_t keys[6];
+	uint8_t num;
+}KeyState;
+
 class XIM {
 	int x_pid;
 	int keybFD;
 	bool escHome;
 	bool release;
+	KeyState keyState;
 
-	void input(char c) {
+	void input(char c, int state = XIM_STATE_PRESS) {
+		klog("k: %d, st: %d\n", c, state);
 		xevent_t ev;
 		ev.type = XEVT_IM;
 		if((c == KEY_ESC || c == KEY_BUTTON_SELECT) && escHome)
 			c = KEY_HOME;
 		ev.value.im.value = c;
+		ev.state = state;
 
 		proto_t in;
 		PF->init(&in)->add(&in, &ev, sizeof(xevent_t));
@@ -27,8 +35,27 @@ class XIM {
 		PF->clear(&in);
 	}
 
+	void checkRelease(char* rd, uint8_t num) {
+		bool released = true;
+		for(int i=0;i <keyState.num; i++) {
+			release = true;
+			char key = keyState.keys[i];
+			for(int j=0;j <num; j++) {
+				if(key == rd[j]) {// still pressed
+					released = false;
+					break;
+				}
+			}
+			if(released)
+				input(key, XIM_STATE_RELEASE);
+			keyState.keys[i] = 0;
+		}
+		keyState.num = 0;
+	}
+
 public:
 	inline XIM(const char* keyb_dev, bool escHome) {
+		keyState.num = 0;
 		x_pid = -1;
 		keybFD = -1;
 		this->escHome = escHome;
@@ -55,20 +82,16 @@ public:
 
 		char v[6];
 		int rd = ::read(keybFD, &v, 6);
-		if(rd == 1 && v[0] == KEY_HOME) {
-			input(v[0]);
-			usleep(200000);
+		if(rd > 0) {
+			for(int i = 0; i < rd; i++)
+				input(v[i], XIM_STATE_PRESS);
 		}
-		else if(rd > 0) {
-			for(int i = 0; i < rd; i++){ 
-				input(v[i]);
-			}
-			release = true;
-		}
-		else if(release) {
-			release = false;
-			input(0);
-		}
+		if(rd < 0)
+			rd = 0;
+		checkRelease(v, rd);
+		keyState.num = rd;
+		for(int i = 0; i < rd; i++)
+			keyState.keys[i] = v[i];
 		usleep(60000);
 	}
 };

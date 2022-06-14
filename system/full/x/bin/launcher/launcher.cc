@@ -21,7 +21,6 @@ class Launcher: public XWin {
 	items_t items;
 	int selected;
 	bool focused;
-	bool enter;
 
 	void drawIcon(graph_t* g, const char* item, int icon_size, int x, int y) {
 		str_t* s = str_new("");	
@@ -106,29 +105,28 @@ protected:
 		}
 		else if(ev->type == XEVT_IM) {
 			int key = ev->value.im.value;
-			if(key == KEY_LEFT)
-				selected--;
-			else if(key == KEY_RIGHT)
-				selected++;
-			else if(key == KEY_UP)
-				selected -= cols;
-			else if(key == KEY_DOWN)
-				selected += cols;
-			else if(key == KEY_ENTER || key == KEY_BUTTON_START) {
-				enter = true;
-				return;
-			}
-			else if(key == 0) {
-				if(enter) {
-					enter = false;
-					int pid = fork();
-					if(pid == 0)
-						runProc(items.items[selected]->cstr);
+			if(ev->state == XIM_STATE_PRESS) {
+				if(key == KEY_LEFT)
+					selected--;
+				else if(key == KEY_RIGHT)
+					selected++;
+				else if(key == KEY_UP)
+					selected -= cols;
+				else if(key == KEY_DOWN)
+					selected += cols;
+				else
 					return;
-				}
 			}
-			else
+			else {//XIM_STATE_RELEASE
+				if(key == KEY_ENTER || key == KEY_BUTTON_START) {
+					int pid = fork();
+					if(pid == 0) {
+						runProc(items.items[selected]->cstr);
+						exit(0);
+					}
+				}
 				return;
+			}
 
 			if(selected >= (items.num-1))
 				selected = items.num-1;
@@ -152,7 +150,6 @@ public:
 	inline Launcher() {
 		selected = 0;
 		focused = true;
-		enter = false;
 		memset(&items, 0, sizeof(items_t));
 	}
 
