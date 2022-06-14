@@ -17,11 +17,9 @@ class XIM {
 	int x_pid;
 	int keybFD;
 	bool escHome;
-	bool release;
 	KeyState keyState;
 
 	void input(char c, int state = XIM_STATE_PRESS) {
-		klog("k: %d, st: %d\n", c, state);
 		xevent_t ev;
 		ev.type = XEVT_IM;
 		if((c == KEY_ESC || c == KEY_BUTTON_SELECT) && escHome)
@@ -38,7 +36,7 @@ class XIM {
 	void checkRelease(char* rd, uint8_t num) {
 		bool released = true;
 		for(int i=0;i <keyState.num; i++) {
-			release = true;
+			released = true;
 			char key = keyState.keys[i];
 			for(int j=0;j <num; j++) {
 				if(key == rd[j]) {// still pressed
@@ -60,7 +58,6 @@ public:
 		x_pid = -1;
 		keybFD = -1;
 		this->escHome = escHome;
-		release = false;
 		while(true) {
 			keybFD = open(keyb_dev, O_RDONLY);
 			if(keybFD > 0)
