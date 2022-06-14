@@ -995,7 +995,7 @@ static void xwin_bg(x_t* x, xview_t* view) {
 }
 
 static int im_handle(x_t* x, int32_t from_pid, xevent_t* ev) {
-	if(ev->value.im.value == KEY_HOME) {
+	if(ev->value.im.value == KEY_HOME && ev->state == XIM_STATE_RELEASE) {
 		xwin_bg(x, x->view_focus);
 		return 0;
 	}

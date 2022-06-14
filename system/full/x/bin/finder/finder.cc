@@ -155,7 +155,7 @@ protected:
 					upBack();
 					return;
 				}
-				else if(key == KEY_ENTER) {
+				else if(key == KEY_RIGHT || key == KEY_ENTER) {
 					runProc(selected);
 					return;
 				}
