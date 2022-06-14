@@ -106,6 +106,7 @@ class Finder: public XWin {
 			strcpy(cwd, r);
 		selected = 0;
 		nums = 0;
+		start = 0;
 
 		int i;
 		for(i=0; i<MAX_FILES; i++) {
