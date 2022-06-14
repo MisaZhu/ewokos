@@ -46,9 +46,10 @@ class XIM {
 					break;
 				}
 			}
-			if(released)
+			if(released) {
 				input(key, XIM_STATE_RELEASE);
-			keyState.keys[i] = 0;
+				keyState.keys[i] = 0;
+			}
 		}
 		keyState.num = 0;
 	}
