@@ -40,13 +40,11 @@ private:
 	 uint32_t lastSec;
 	 uint64_t lastUsec;
 	 uint32_t keyStatus;
-	 uint8_t keyTimeout[8]; 
 
 public:
 	inline NesEmu() {
 		emulator = new sn::Emulator();
 		keyStatus = 0;
-		memset(keyTimeout, 0, 8);
  	}
 	
 	inline ~NesEmu() {
@@ -73,55 +71,69 @@ protected:
 
 	void onEvent(xevent_t* ev) {
 		if(ev->type == XEVT_IM){	
-			switch(ev->value.im.value){
-				case KEY_BUTTON_A:
-					keyStatus|=0x1;
-					keyTimeout[0] = KEY_TIMEOUT;
-					break;
-				case KEY_BUTTON_B:
-					keyStatus|=0x2;
-					keyTimeout[1] = KEY_TIMEOUT;
-					break;
-				case KEY_BUTTON_SELECT:
-					keyStatus|=0x4;
-					keyTimeout[2] = KEY_TIMEOUT;
-					break;
-				case KEY_BUTTON_START:
-					keyStatus|=0x8;
-					keyTimeout[3] = KEY_TIMEOUT;
-					break;
-				case KEY_UP:
-					keyStatus |= 0x10;
-					keyTimeout[4] = KEY_TIMEOUT;
-					break;
-				case KEY_DOWN:
-					keyStatus |= 0x20;
-					keyTimeout[5] = KEY_TIMEOUT;
-					break;
-				case KEY_LEFT:
-					keyStatus |= 0x40;
-					keyTimeout[6] = KEY_TIMEOUT;
-					break;
-				case KEY_RIGHT:
-					keyStatus |= 0x80;
-					keyTimeout[7] = KEY_TIMEOUT;
-					break;
-				default:
-					break;
+			if(ev->state == XIM_STATE_PRESS){
+				switch(ev->value.im.value){
+					case KEY_BUTTON_A:
+						keyStatus |= 0x1;
+						break;
+					case KEY_BUTTON_B:
+						keyStatus |= 0x2;
+						break;
+					case KEY_BUTTON_SELECT:
+						keyStatus |= 0x4;
+						break;
+					case KEY_BUTTON_START:
+						keyStatus |= 0x8;
+						break;
+					case KEY_UP:
+						keyStatus |= 0x10;
+						break;
+					case KEY_DOWN:
+						keyStatus |= 0x20;
+						break;
+					case KEY_LEFT:
+						keyStatus |= 0x40;
+						break;
+					case KEY_RIGHT:
+						keyStatus |= 0x80;
+						break;
+					default:
+						break;
+				}
+			}else{
+				switch(ev->value.im.value){
+					case KEY_BUTTON_A:
+						keyStatus &= ~0x1;
+						break;
+					case KEY_BUTTON_B:
+						keyStatus &= ~0x2;
+						break;
+					case KEY_BUTTON_SELECT:
+						keyStatus &= ~0x4;
+						break;
+					case KEY_BUTTON_START:
+						keyStatus &= ~0x8;
+						break;
+					case KEY_UP:
+						keyStatus &= ~0x10;
+						break;
+					case KEY_DOWN:
+						keyStatus &= ~0x20;
+						break;
+					case KEY_LEFT:
+						keyStatus &= ~0x40;
+						break;
+					case KEY_RIGHT:
+						keyStatus &= ~0x80;
+						break;
+					default:
+						break;
+				}
 			}
 		}
-		//emulator->setKey(keyStatus);	
-		(void)ev;
 	}
 
 	void onRepaint(graph_t* g) {
-		for(int i = 0; i < 8; i++){
-			if(keyTimeout[i])
-				keyTimeout[i]--;
-			else{
-				keyStatus &= ~(0x1<<i);	
-			}
-		}
 		emulator->setKey(keyStatus);	
 		emulator->setFrameBuffer(g->w, g->h, g->buffer);
 		emulator->run(29815);
