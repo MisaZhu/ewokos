@@ -1,0 +1,7 @@
+build:202506150728
+
+#boot ewokos
+setenv ewokos 'dcache off; icache off; fatload mmc 0:1 20008000 kernel7.img; mssdmmc init 0;mssdmmc clk 0 48000000;go 20008000'
+setenv sys_init 'gpio output 1 1; gpio output 85 1; bootlogo 0 0 0 0 0; mw.l 27c00000 00 12c00; mw.l 27c4b000 7f7f7f7f 9600; gpio output 4 1; mw 1f001cc0 11'
+setenv bootcmd 'run sys_init; run ewokos'
+saveenv
