@@ -172,6 +172,33 @@ graph_t* graph_scale(graph_t* g, int scale) {
 	return ret;
 }
 
+void graph_scale_tof(graph_t* g, graph_t* dst, float scale) {
+	if(scale <= 0.0 ||
+			dst->w < (int)(g->w*scale) ||
+			dst->h < (int)(g->h*scale))
+		return;
+	
+	for(int i=0; i<dst->h; i++) {
+		int gi = i / scale;
+		for(int j=0; j<dst->w; j++) {
+			int gj = j / scale;
+			dst->buffer[i*dst->w + j] = g->buffer[(gi*g->w + gj)];
+		}
+	}
+}
+
+graph_t* graph_scalef(graph_t* g, float scale) {
+	graph_t* ret = NULL;
+	if(scale <= 0.0)
+		return NULL;
+	
+	ret = graph_new(NULL, g->w*scale, g->h*scale);
+	if(ret == NULL)
+		return NULL;
+	graph_scale_tof(g, ret, scale);
+	return ret;
+}
+
 #ifdef __cplusplus
 }
 #endif

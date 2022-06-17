@@ -69,6 +69,8 @@ void     graph_rotate_to(graph_t* g, graph_t* dst, int rot);
 graph_t* graph_rotate(graph_t* g, int rot);
 void     graph_scale_to(graph_t* src, graph_t* dst, int scale);
 graph_t* graph_scale(graph_t* g, int scale);
+void     graph_scale_tof(graph_t* src, graph_t* dst, float scale);
+graph_t* graph_scalef(graph_t* g, float scale);
 
 void     graph_box(graph_t* g, int32_t x, int32_t y, int32_t w, int32_t h, uint32_t color);
 void     graph_fill(graph_t* g, int32_t x, int32_t y, int32_t w, int32_t h, uint32_t color);
