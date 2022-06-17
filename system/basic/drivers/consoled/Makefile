@@ -20,7 +20,7 @@ $(CONSOLED): $(CONSOLED_OBJS) \
 		$(BUILD_DIR)/lib/libupng.a \
 		$(BUILD_DIR)/lib/libfonts.a  \
 		$(BUILD_DIR)/lib/libdisplay.a 
-	$(LD) -Ttext=100 $(CONSOLED_OBJS) -o $(CONSOLED) $(LDFLAGS) -lfonts -lfb -ldisplay -lconsole -lgraph -lupng -lsconf -lewokc -lc
+	$(LD) -Ttext=100 $(CONSOLED_OBJS) -o $(CONSOLED) $(LDFLAGS) -lfonts -lfb -ldisplay -lconsole -lgraph -lupng -lsconf -lewokc -lsoftfloat -lc
 
 clean:
 	rm -f $(CONSOLED_OBJS)

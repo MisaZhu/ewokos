@@ -2,6 +2,7 @@ all: basic_libs
 	@echo "all done."
 
 basic_libs:
+	cd softfloat;make
 	cd libc;make
 	cd zlib;make
 	cd sconf; make
@@ -21,6 +22,7 @@ basic_libs:
 	cd console;make
 
 clean:
+	cd softfloat;make clean
 	cd libc;make clean
 	cd zlib;make clean
 	cd sconf; make clean

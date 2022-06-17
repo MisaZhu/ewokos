@@ -101,8 +101,9 @@ LIB_EWOKC_OBJS = src/unistd/chdir.o \
 
 EWOKC = $(TARGET_DIR)/lib/libewokc.a
 
-$(EWOKC): $(LIB_EWOKSYS_OBJS) $(LIB_EWOKC_OBJS)
-	$(AR) rT $(EWOKC) $(LIB_EWOKSYS_OBJS) $(LIB_EWOKC_OBJS)
+$(EWOKC): $(LIB_EWOKSYS_OBJS) $(LIB_EWOKC_OBJS)  \
+		$(TARGET_DIR)/lib/libsoftfloat.a
+	$(AR) rT $(EWOKC) $(LIB_EWOKSYS_OBJS) $(LIB_EWOKC_OBJS) $(TARGET_DIR)/lib/libsoftfloat.a
 	cp -r sys/include/* include/* $(TARGET_DIR)/include
 
 clean:
