@@ -6,7 +6,6 @@
 #include <unistd.h>
 #include <sysinfo.h>
 #include <arch/bcm283x/sd.h>
-#include <arch/vpb/sd.h>
 #include <arch/miyoo/sd.h>
 
 #ifdef __cplusplus
@@ -170,11 +169,6 @@ int32_t sd_init(void) {
 		sd_init_arch = miyoo_sd_init;
 		sd_read_sector_arch = miyoo_sd_read_sector;
 		sd_write_sector_arch = miyoo_sd_write_sector;
-	}
-	else if(strcmp(sysinfo.machine, "versatilepb") == 0) {
-		sd_init_arch = versatilepb_sd_init;
-		sd_read_sector_arch = versatilepb_sd_read_sector;
-		sd_write_sector_arch = versatilepb_sd_write_sector;
 	}
 
 	if(sd_init_arch() != 0)

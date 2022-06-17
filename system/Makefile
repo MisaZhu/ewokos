@@ -1,23 +1,23 @@
 KERNEL_DIR=../kernel
 TARGET_DIR = build/rootfs
 
-all: basic_sys platform
+all: basic_sys
 	@echo "all done."
 
-full: basic_sys platform full_sys
+full: basic_sys full_sys
 	@echo "all done."
 
-extra: basic_sys platform full_sys extra_sys
+extra: basic_sys full_sys extra_sys
 	@echo "all done."
 
 basic_sys:
 	cd basic;make
+	cd bsp/basic;make
 full_sys:
 	cd full;make
+	cd bsp/full;make
 extra_sys:
 	cd extra;make
-platform:
-	cd platforms;make
 
 SD = root.ext2
 sd: 
@@ -41,6 +41,7 @@ sd:
 
 clean:
 	cd basic;make clean
-	cd platforms;make clean
+	cd bsp/basic;make clean
 	cd full;make clean
+	cd bsp/full;make clean
 	rm -fr build

@@ -23,7 +23,6 @@ basic_libs:
 basic_drivers:
 	cd drivers;make
 
-
 mkdirs:
 	@mkdir -p ${TARGET_DIR}/sbin
 	@mkdir -p ${TARGET_DIR}/etc
@@ -38,7 +37,6 @@ mkdirs:
 	@mkdir -p ${BUILD_DIR}/lib
 	@cp -r $(KERNEL_H) $(BUILD_DIR)/include/
 	@cp -r ${ROOT_DIR}/etcs/qemu/basic/* ${TARGET_DIR}/etc
-	@cp -r data ${TARGET_DIR}
 
 builtin_apps: 
 	cd sbin;make
