@@ -18,7 +18,6 @@ $(INIT): $(INIT_OBJS) \
 		$(BUILD_DIR)/lib/libbsp.a \
 		$(BUILD_DIR)/lib/libext2.a 
 	$(LD) -Ttext=100 $(INIT_OBJS) -o $(INIT) $(LDFLAGS) -lbsp -lsd -lext2  -lhash -lewokc -lc -lnosys
-	$(OBJDUMP) -D $(INIT) > $(BUILD_DIR)/asm/init.asm
 
 clean:
 	rm -fr $(INIT) $(INIT_OBJS)

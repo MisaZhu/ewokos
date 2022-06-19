@@ -18,7 +18,6 @@ $(SDFSD): $(SDFSD_OBJS) \
 		$(BUILD_DIR)/lib/libbsp.a \
 		$(BUILD_DIR)/lib/libext2.a 
 	$(LD) -Ttext=100 $(SDFSD_OBJS) -o $(SDFSD) $(LDFLAGS) -lbsp -lsd -lext2 -lhash -lewokc -lc -lnosys
-	$(OBJDUMP) -D $(SDFSD) > $(BUILD_DIR)/asm/sdfsd.asm
 
 clean:
 	rm -fr $(SDFSD) $(SDFSD_OBJS)

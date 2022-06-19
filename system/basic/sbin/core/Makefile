@@ -15,7 +15,6 @@ $(CORE): $(CORE_OBJS) \
 		$(BUILD_DIR)/lib/libhash.a \
 		$(BUILD_DIR)/lib/libewokc.a
 	$(LD) -Ttext=100 $(CORE_OBJS) -o $(CORE) $(LDFLAGS) -lhash -lewokc -lc -lnosys
-	$(OBJDUMP) -D $(CORE) > $(BUILD_DIR)/asm/core.asm
 
 clean:
 	rm -fr $(CORE) $(CORE_OBJS)

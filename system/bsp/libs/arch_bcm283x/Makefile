@@ -1,11 +1,12 @@
-include ../../../make.rule
+SYS_DIR=../../..
+include $(SYS_DIR)/make.rule
 
-BUILD_DIR = ../../../build
+BUILD_DIR = $(SYS_DIR)/build
 TARGET_DIR = $(BUILD_DIR)
 
 LDFLAGS = -L$(TARGET_DIR)/lib -lnosys
 
-CFLAGS += -Iinclude -I $(TARGET_DIR)/include
+CFLAGS += -I$(SYS_DIR)/basic/libs/libc/sys/include -Iinclude -I $(TARGET_DIR)/include
 
 LIB_ARCH_BCM283X_OBJS = src/framebuffer.o \
 	src/gpio_actled.o \

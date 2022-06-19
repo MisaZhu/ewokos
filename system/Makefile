@@ -1,8 +1,23 @@
-KERNEL_DIR=../kernel
+KERNEL_DIR=../kernel/basic/kernel
+BUILD_DIR = build
 TARGET_DIR = build/rootfs
+
+KERNEL_H = \
+	$(KERNEL_DIR)/include/proto_t.h \
+	$(KERNEL_DIR)/include/syscalls.h \
+	$(KERNEL_DIR)/include/signals.h \
+	$(KERNEL_DIR)/include/interrupt.h \
+	$(KERNEL_DIR)/include/sysinfo.h \
+	$(KERNEL_DIR)/include/kevent.h \
+	$(KERNEL_DIR)/include/procinfo.h
 
 all: basic_sys
 	@echo "all done."
+
+kernel_heads:
+	@mkdir -p ${BUILD_DIR}/include
+	@mkdir -p ${BUILD_DIR}/lib
+	cp -r $(KERNEL_H) $(BUILD_DIR)/include/
 
 full: basic_sys full_sys
 	@echo "all done."
@@ -10,7 +25,7 @@ full: basic_sys full_sys
 extra: basic_sys full_sys extra_sys
 	@echo "all done."
 
-basic_sys:
+basic_sys: kernel_heads 
 	cd bsp/libs;make
 	cd basic;make
 	cd bsp/basic;make

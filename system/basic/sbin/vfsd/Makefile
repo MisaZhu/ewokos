@@ -14,7 +14,6 @@ VFSD = $(TARGET_DIR)/$(ROOT_DIR)/sbin/vfsd
 $(VFSD): $(VFSD_OBJS) \
 		$(BUILD_DIR)/lib/libewokc.a
 	$(LD) -Ttext=100 $(VFSD_OBJS) -o $(VFSD) $(LDFLAGS) -lewokc -lc -lnosys
-	$(OBJDUMP) -D $(VFSD) > $(BUILD_DIR)/asm/vfsd.asm
 
 clean:
 	rm -fr $(VFSD) $(VFSD_OBJS)
