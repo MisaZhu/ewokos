@@ -5,16 +5,22 @@
 #include <upng/upng.h>
 #include <x++/X.h>
 #include <sys/keydef.h>
+#include <sys/klog.h>
 #include <sys/basic_math.h>
+#include <dirent.h>
 
-#define ITEM_MAX 16
-
+#define ITEM_MAX 128
 using namespace Ewok;
+
+typedef struct {
+	str_t* app;
+	str_t* icon;
+} item_t;
 
 typedef struct {
 	int icon_size;
 	int num;
-	str_t* items[ITEM_MAX];	
+	item_t items[ITEM_MAX];	
 } items_t;
 
 class Launcher: public XWin {
@@ -22,15 +28,15 @@ class Launcher: public XWin {
 	int selected;
 	bool focused;
 
-	void drawIcon(graph_t* g, const char* item, int icon_size, int x, int y) {
-		str_t* s = str_new("");	
-		int at = str_to(item, ',', NULL, 1);
-		str_to(item + at + 1, ',', s, 1);
-
-		graph_t* img = png_image_new(s->cstr);
-		str_free(s);
-		if(img == NULL)
+	void drawIcon(graph_t* g, const char* icon, int icon_size, int x, int y) {
+		graph_t* i = png_image_new(icon);
+		if(i == NULL)
 			return;
+		graph_t* img = i;
+		if(i->w != icon_size) {
+			img = graph_scalef(i, ((float)icon_size) / ((float)i->w));
+			graph_free(i);
+		}
 
 		int dx = (icon_size - img->w)/2;
 		int dy = (icon_size - img->h)/2;
@@ -40,11 +46,8 @@ class Launcher: public XWin {
 		graph_free(img);
 	}
 
-	void runProc(const char* item) {
-		str_t* s = str_new("");	
-		str_to(item, ',', s, 1);
-		exec(s->cstr);
-		str_free(s);
+	void runProc(const char* app) {
+		exec(app);
 	}
 
 protected:
@@ -74,7 +77,7 @@ protected:
 						8, 0xffffffff);
 				}
 
-				drawIcon(g, items.items[at]->cstr, items.icon_size, x, y);
+				drawIcon(g, items.items[at].icon->cstr, items.icon_size, x, y);
 			}
 		}
 	}
@@ -99,7 +102,7 @@ protected:
 			else if(ev->state == XEVT_MOUSE_UP) {
 				int pid = fork();
 				if(pid == 0)
-					runProc(items.items[at]->cstr);
+					runProc(items.items[at].app->cstr);
 				return;
 			}
 		}
@@ -121,7 +124,7 @@ protected:
 				if(key == KEY_ENTER || key == KEY_BUTTON_START) {
 					int pid = fork();
 					if(pid == 0) {
-						runProc(items.items[selected]->cstr);
+						runProc(items.items[selected].app->cstr);
 						exit(0);
 					}
 				}
@@ -155,7 +158,8 @@ public:
 
 	inline ~Launcher() {
 		for(int i=0; i<items.num; i++) {
-			str_free(items.items[i]);
+			str_free(items.items[i].app);
+			str_free(items.items[i].icon);
 		}
 	}
 
@@ -171,20 +175,34 @@ public:
 		if(conf == NULL)
 			return false;
 		items.icon_size = atoi(sconf_get(conf, "icon_size"));
+		sconf_free(conf);
+		return true;
+	}
 
+	bool loadApps(void) {
+		DIR* dirp = opendir("/apps");
+		if(dirp == NULL)
+			return false;
 		int i = 0;
 		while(1) {
-			sconf_item_t* it = sconf_get_at(conf, i++);
-			if(it == NULL || it->name == NULL || it->value == NULL)
+			struct dirent* it = readdir(dirp);
+			if(it == NULL || i >= ITEM_MAX)
 				break;
-			if(strcmp(it->name->cstr, "item") == 0) {
-				items.items[items.num] = str_new(it->value->cstr);
-				items.num++;
-				if(items.num >= ITEM_MAX)
-					break;
-			}
+
+			if(it->d_name[0] == '.')
+				continue;
+			items.items[i].app = str_new("/apps/");
+			str_add(items.items[i].app, it->d_name);
+			str_add(items.items[i].app, "/");
+			str_add(items.items[i].app, it->d_name);
+
+			items.items[i].icon = str_new("/apps/");
+			str_add(items.items[i].icon, it->d_name);
+			str_add(items.items[i].icon, "/res/icon.png");
+			i++;
 		}
-		sconf_free(conf);
+		items.num = i;
+		closedir(dirp);
 		return true;
 	}
 };
@@ -196,6 +214,7 @@ int main(int argc, char* argv[]) {
 	xscreen_t scr;
 	Launcher xwin;
 	xwin.readConfig("/etc/x/launcher.conf");
+	xwin.loadApps();
 
 	X x;
 	x.screenInfo(scr, 0);

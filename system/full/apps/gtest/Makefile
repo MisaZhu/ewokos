@@ -13,14 +13,20 @@ GTEST_OBJS = gtest.o
 GTEST_DIR = $(TARGET_DIR)/apps/gtest
 GTEST = $(GTEST_DIR)/gtest
 
+all: $(GTEST_DIR) $(GTEST)
+
 $(GTEST): $(GTEST_OBJS) \
 		$(BUILD_DIR)/lib/libewokc.a \
 		$(BUILD_DIR)/lib/libx++.a \
 		$(BUILD_DIR)/lib/libx.a \
 		$(BUILD_DIR)/lib/libcxx.a 
 	$(LD) -Ttext=100 $(GTEST_OBJS) -o $(GTEST) $(LDFLAGS) -lfonts -lgraph -lx++ -lx -lupng -lewokc -lc -lcxx
-	cp -r data $(GTEST_DIR)
+
+$(GTEST_DIR):
+	mkdir -p $(GTEST_DIR)
+	cp -r res $(GTEST_DIR)
 
 clean:
 	rm -f $(GTEST_OBJS)
+	rm -fr $(GTEST_DIR)
 

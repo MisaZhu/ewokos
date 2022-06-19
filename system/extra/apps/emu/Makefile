@@ -1,15 +1,16 @@
-include ../../../../make.rule
+SYS_DIR=../../..
+include $(SYS_DIR)/make.rule
 
-BUILD_DIR = ../../../../build
+BUILD_DIR = $(SYS_DIR)/build
 TARGET_DIR = $(BUILD_DIR)/rootfs
 LDFLAGS = -L$(BUILD_DIR)/lib -lnosys
 CFLAGS += -I include -I $(BUILD_DIR)/include
 CXXFLAGS += -I include -I $(BUILD_DIR)/include
 EMU_OBJS = main.o src/MapperUxROM.o src/PPU.o src/Mapper.o src/PictureBus.o src/Cartridge.o src/Emulator.o src/MapperNROM.o src/MapperCNROM.o src/MainBus.o src/MapperSxROM.o src/VirtualScreen.o src/Controller.o src/CPU.o 
-EMU = $(TARGET_DIR)/bin/x/emu
-ROM = $(TARGET_DIR)/data/roms/mario.nes
+EMU_DIR = $(TARGET_DIR)/apps/emu
+EMU = $(EMU_DIR)/emu
 
-all: $(EMU) $(ROM)
+all: $(EMU_DIR) $(EMU)
 
 $(EMU): $(EMU_OBJS) \
 		$(BUILD_DIR)/lib/libewokc.a \
@@ -17,11 +18,10 @@ $(EMU): $(EMU_OBJS) \
 		$(BUILD_DIR)/lib/libcxx.a  
 	$(LD) -Ttext=100 $(EMU_OBJS) -o $(EMU) $(LDFLAGS) -lfonts -lgraph -lx++ -lx -lewokc -lc -lcxx
 
-$(ROM): mario.nes
-	mkdir -p $(TARGET_DIR)/data/roms/
-	cp mario.nes $(ROM)
+$(EMU_DIR):
+	mkdir -p $(EMU_DIR)
+	cp -r res $(EMU_DIR)
 
 clean:
 	rm -f $(EMU_OBJS)
-	rm -rf $(ROM)
-
+	rm -fr $(EMU_DIR)

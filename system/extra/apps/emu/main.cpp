@@ -148,19 +148,19 @@ static void loop(void* p) {
 
 int main(int argc, char *argv[])
 {
-	char* path;
+	const char* path;
 	NesEmu emu;
 
     /*init window*/
     xscreen_t scr;
 
     if(argc < 2){
-		path = (char*)"/data/roms/mario.nes";
+		path = X::getResName("roms/mario.nes");
     }else{
 		path = argv[1];
 	}
 
-    if(emu.loadGame(path) != true){
+    if(emu.loadGame((char*)path) != true){
         printf("Error load rom file:%s\n", argv[1]);
         return -1;
     }
