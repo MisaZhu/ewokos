@@ -11,15 +11,7 @@ using namespace Ewok;
 class Png : public XWin {
 	graph_t* img;
 
-protected:
-	void onRepaint(graph_t* g) {
-		if(img == NULL)
-			return;
-
-		int sz = 32;
-		if(img->w <= sz)
-			sz = img->w/2;
-
+	void background(graph_t* g, int sz) {
 		int x = 0;
 		int y = 0;
 		uint32_t c1;
@@ -45,7 +37,17 @@ protected:
 			if(y >= g->h)
 				break;
 		}
+	}
+protected:
+	void onRepaint(graph_t* g) {
+		if(img == NULL)
+			return;
 
+		int sz = 32;
+		if(img->w <= sz)
+			sz = img->w/2;
+
+		background(g, sz);
 		graph_blt_alpha(img, 0, 0, img->w, img->h,
 				g, (g->w - img->w)/2, (g->h - img->h)/2, img->w, img->h, 0xff);
 	}
