@@ -6,7 +6,8 @@ extern "C" {
 #endif
 
 
-extern int main(int argc, char* argv[]);
+extern int  main(int argc, char* argv[]);
+const char* cmain_get_work_dir(void);
 
 #ifdef __cplusplus
 }

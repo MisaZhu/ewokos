@@ -31,3 +31,12 @@ bool X::screenInfo(xscreen_t& scr, int index) {
 	return (x_screen_info(&scr, index) == 0);
 }
 
+const char* X::getResName(const char* name) {
+	static char ret[FS_FULL_NAME_MAX];
+	const char* wkdir = x_get_work_dir();
+	if(wkdir[1] == 0 && wkdir[0] == '/')
+		snprintf(ret, FS_FULL_NAME_MAX-1, "/%s", name);
+	else
+		snprintf(ret, FS_FULL_NAME_MAX-1, "%s/%s", wkdir, name);
+	return ret;
+}

@@ -38,8 +38,8 @@ public:
 		count = 0;
 		mode = CIRCLE;
         imgX = imgY = 0;
-		img_big = png_image_new("/data/images/rokid.png");	
-		img_small = png_image_new("/data/images/rokid_small.png");	
+		img_big = png_image_new(X::getResName("data/rokid.png"));	
+		img_small = png_image_new(X::getResName("data/rokid_small.png"));	
 		font_big = font_by_name("12x16");
 		font_small = font_by_name("8x16");
 	}

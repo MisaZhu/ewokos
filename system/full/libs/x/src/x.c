@@ -7,6 +7,7 @@
 #include <sys/thread.h>
 #include <sys/proc.h>
 #include <sys/vdevice.h>
+#include <sys/cmain.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <stdlib.h>
@@ -122,6 +123,10 @@ void  x_run(x_t* x, void* loop_data) {
 			usleep(20000);
 		}
 	}
+}
+
+const char* x_get_work_dir(void) {
+	return cmain_get_work_dir();
 }
 
 #ifdef __cplusplus

@@ -15,6 +15,7 @@ extern "C" {
 
 static char _cmd[1024];
 static int _off_cmd;
+static const char* _argv0;
 
 static char* read_cmain_arg(void) {
 	char* p = NULL;
@@ -47,6 +48,20 @@ static char* read_cmain_arg(void) {
 	return p;
 }
 
+const char* cmain_get_work_dir(void) {
+	static char ret[1024];
+	int i = strlen(_argv0) - 1;
+	while(i >= 0) {
+		if(_argv0[i] == '/') {
+			strncpy(ret, _argv0, i);
+			ret[i] = 0;
+			return ret;
+		}
+		i--;
+	}
+	return "";
+}
+
 static void close_stdio(void) {
 	close(0);
 	close(1);
@@ -56,6 +71,7 @@ static void close_stdio(void) {
 static void init_cmd(void) {
 	_cmd[0] = 0;
 	_off_cmd = 0;
+	_argv0 = "";
 	syscall3(SYS_PROC_GET_CMD, getpid(), (int32_t)_cmd, 1023);
 }
 
@@ -96,6 +112,8 @@ void _start(void) {
 		char* arg = read_cmain_arg(); 
 		if(arg == NULL || arg[0] == 0)
 			break;
+		if(argc == 0)
+			_argv0 = arg;
 		argv[argc++] = arg;
 	}
 

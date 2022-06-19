@@ -32,7 +32,7 @@ public:
 		fps = 0;
 		fps_counter = 0;
 		fighter_step = 0;
-		img_fighter = png_image_new("/data/images/fighter.png");	
+		img_fighter = png_image_new(X::getResName("data/fighter.png"));
 		font = font_by_name("8x16");
 	}
 	
