@@ -1,4 +1,0 @@
-/drivers/raspix/nxez_ledsd    /dev/leds
-/drivers/raspix/nxez_beepd    /dev/beep
-/drivers/raspix/nxez_keysd    /dev/keys
-/drivers/raspix/nxez_dispd    /dev/disp
