@@ -1,12 +1,8 @@
 #include <sd/sd.h>
 #include <sd/partition.h>
-#include <sys/syscall.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include <sysinfo.h>
-#include <arch/bcm283x/sd.h>
-#include <arch/miyoo/sd.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -153,23 +149,14 @@ int32_t sd_quit(void) {
 	return 0;
 }
 
-int32_t sd_init(void) {
+int32_t sd_init(sd_init_func init, sd_read_sector_func rd, sd_write_sector_func wr) {
 	_sector_buf = NULL;
 	_sector_buf_num = 0;
 	memset(&_partition, 0, sizeof(partition_t));
 
-	sys_info_t sysinfo;
-	syscall1(SYS_GET_SYS_INFO, (int32_t)&sysinfo);
-
-	if(strncmp(sysinfo.machine, "raspi", 5) == 0) {
-		sd_init_arch = bcm283x_sd_init;
-		sd_read_sector_arch = bcm283x_sd_read_sector;
-		sd_write_sector_arch = bcm283x_sd_write_sector;
-	}else if(strncmp(sysinfo.machine, "miyoo-mini", 10) == 0){
-		sd_init_arch = miyoo_sd_init;
-		sd_read_sector_arch = miyoo_sd_read_sector;
-		sd_write_sector_arch = miyoo_sd_write_sector;
-	}
+	sd_init_arch = init;
+	sd_read_sector_arch = rd;
+	sd_write_sector_arch = wr;
 
 	if(sd_init_arch() != 0)
 		return -1;

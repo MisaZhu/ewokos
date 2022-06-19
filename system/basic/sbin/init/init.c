@@ -13,6 +13,7 @@
 #include <dirent.h>
 #include <sd/sd.h>
 #include <ext2/ext2fs.h>
+#include <bsp/bsp_sd.h>
 
 static void outc(char c, void* p) {
 	str_t *buf = (str_t *)p;
@@ -39,14 +40,12 @@ static void* sd_read_ext2(const char* fname, int32_t* size) {
 
 static int32_t exec_from_sd(const char* prog) {
 	int32_t sz;
-
-	if(sd_init() != 0) {
+	if(bsp_sd_init() != 0)
 		return -1;
-	}
 
 	char* elf = sd_read_ext2(prog, &sz);
 	if(elf != NULL) {
-		int32_t res = syscall3(SYS_EXEC_ELF, (int32_t)prog, (int32_t)elf, sz);
+		int res = syscall3(SYS_EXEC_ELF, (int32_t)prog, (int32_t)elf, sz);
 		free(elf);
 		if(res == 0) {
 			return res;

@@ -11,6 +11,7 @@ extra: basic_sys full_sys extra_sys
 	@echo "all done."
 
 basic_sys:
+	cd bsp/libs;make
 	cd basic;make
 	cd bsp/basic;make
 full_sys:
@@ -40,6 +41,7 @@ sd:
 	rm -r tmp
 
 clean:
+	cd bsp/libs;make clean
 	cd basic;make clean
 	cd bsp/basic;make clean
 	cd full;make clean

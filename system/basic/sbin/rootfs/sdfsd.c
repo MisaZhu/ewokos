@@ -7,9 +7,11 @@
 #include <sys/vdevice.h>
 #include <sys/syscall.h>
 #include <sys/klog.h>
+#include <sysinfo.h>
 #include <sd/sd.h>
 #include <ext2/ext2fs.h>
 #include <stdio.h>
+#include <bsp/bsp_sd.h>
 
 static void add_file(fsinfo_t* node_to, const char* name, INODE* inode, int32_t ino) {
 	fsinfo_t f;
@@ -174,7 +176,7 @@ int main(int argc, char** argv) {
 	}
 
 	klog("\n    init sdc ... ");
-	if(sd_init() != 0) {
+	if(bsp_sd_init() != 0) {
 		klog("failed!\n");
 		return -1;
 	}

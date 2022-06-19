@@ -9,8 +9,6 @@ basic_libs:
 	cd hash;make
 	cd crc32;make
 	cd ext2;make
-	cd arch_bcm283x;make
-	cd arch_miyoo;make
 	cd sd;make
 
 clean:
@@ -21,6 +19,4 @@ clean:
 	cd hash;make clean
 	cd crc32;make clean
 	cd ext2;make clean
-	cd arch_bcm283x;make clean
-	cd arch_miyoo;make clean
 	cd sd;make clean

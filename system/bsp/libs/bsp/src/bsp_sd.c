@@ -1,0 +1,19 @@
+#include <bsp/bsp_sd.h>
+#include <stdint.h>
+#include <sysinfo.h>
+#include <string.h>
+#include <sys/syscall.h>
+#include <sd/sd.h>
+#include <arch/bcm283x/sd.h>
+#include <arch/miyoo/sd.h>
+
+int bsp_sd_init(void) {
+    int res = -1;
+	sys_info_t sysinfo;
+	syscall1(SYS_GET_SYS_INFO, (int32_t)&sysinfo);
+	if(strncmp(sysinfo.machine, "raspi", 5) == 0)
+		res = sd_init(bcm283x_sd_init, bcm283x_sd_read_sector, bcm283x_sd_write_sector);
+	else if(strncmp(sysinfo.machine, "miyoo-mini", 10) == 0)
+		res = sd_init(miyoo_sd_init, miyoo_sd_read_sector, miyoo_sd_write_sector);
+    return res;
+}

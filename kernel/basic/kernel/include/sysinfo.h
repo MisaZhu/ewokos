@@ -2,6 +2,7 @@
 #define SYSINFO_H
 
 #include <syscalls.h>
+#include <stdint.h>
 
 typedef struct {
 	uint32_t phy_base;
