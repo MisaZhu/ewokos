@@ -14,6 +14,7 @@ using namespace Ewok;
 
 typedef struct {
 	str_t* app;
+	str_t* fname;
 	str_t* icon;
 	graph_t* iconImg;
 } item_t;
@@ -29,6 +30,8 @@ class Launcher: public XWin {
 	items_t items;
 	int selected;
 	bool focused;
+	font_t* font;
+	uint32_t titleColor;
 
 	void drawIcon(graph_t* g, int at, int x, int y) {
 		const char* icon = items.items[at].icon->cstr;
@@ -52,6 +55,16 @@ class Launcher: public XWin {
 		int dy = (item_size - img->h)/2;
 		graph_blt_alpha(img, 0, 0, img->w, img->h,
 				g, x+dx, y+dy, img->w, img->h, 0xff);
+	}
+
+	void drawTitle(graph_t* g, int at, int x, int y) {
+		const char* title = items.items[at].app->cstr;
+		int item_size = items.item_size;
+		int32_t w;
+		get_text_size(title, font, &w, NULL);
+		int dx = (item_size - w)/2;
+		int dy = (item_size - font->h);
+		graph_draw_text(g, x+dx, y+dy, title, font, titleColor);
 	}
 
 	void runProc(const char* app) {
@@ -86,6 +99,7 @@ protected:
 				}
 
 				drawIcon(g, at, x, y);
+				drawTitle(g, at, x, y);
 			}
 		}
 	}
@@ -110,7 +124,7 @@ protected:
 			else if(ev->state == XEVT_MOUSE_UP) {
 				int pid = fork();
 				if(pid == 0)
-					runProc(items.items[at].app->cstr);
+					runProc(items.items[at].fname->cstr);
 				return;
 			}
 		}
@@ -132,7 +146,7 @@ protected:
 				if(key == KEY_ENTER || key == KEY_BUTTON_START) {
 					int pid = fork();
 					if(pid == 0) {
-						runProc(items.items[selected].app->cstr);
+						runProc(items.items[selected].fname->cstr);
 						exit(0);
 					}
 				}
@@ -162,11 +176,13 @@ public:
 		selected = 0;
 		focused = true;
 		memset(&items, 0, sizeof(items_t));
+		font = font_by_name("8x16");
 	}
 
 	inline ~Launcher() {
 		for(int i=0; i<items.num; i++) {
 			str_free(items.items[i].app);
+			str_free(items.items[i].fname);
 			str_free(items.items[i].icon);
 			if(items.items[i].iconImg)
 				graph_free(items.items[i].iconImg);
@@ -176,6 +192,7 @@ public:
 	bool readConfig(const char* fname) {
 		items.item_size = 96;
 		items.icon_size = 64;
+		titleColor = 0xffffffff;
 		sconf_t *conf = sconf_load(fname);	
 		if(conf == NULL)
 			return false;
@@ -185,6 +202,12 @@ public:
 		v = sconf_get(conf, "item_size");
 		if(v[0] != 0)
 			items.item_size = atoi(v);
+		v = sconf_get(conf, "font");
+		if(v[0] != 0)
+			font = font_by_name(v);
+		v = sconf_get(conf, "title_color");
+		if(v[0] != 0)
+			titleColor = atoi_base(v, 16);
 		sconf_free(conf);
 		return true;
 	}
@@ -201,10 +224,12 @@ public:
 
 			if(it->d_name[0] == '.')
 				continue;
-			items.items[i].app = str_new("/apps/");
-			str_add(items.items[i].app, it->d_name);
-			str_add(items.items[i].app, "/");
-			str_add(items.items[i].app, it->d_name);
+			items.items[i].app = str_new(it->d_name);
+
+			items.items[i].fname = str_new("/apps/");
+			str_add(items.items[i].fname, it->d_name);
+			str_add(items.items[i].fname, "/");
+			str_add(items.items[i].fname, it->d_name);
 
 			items.items[i].icon = str_new("/apps/");
 			str_add(items.items[i].icon, it->d_name);
