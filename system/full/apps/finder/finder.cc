@@ -59,7 +59,7 @@ class Finder: public XWin {
 	void load(const char* fname) {
 		char cmd[FS_FULL_NAME_MAX+1] = "";
 		if(check(fname, ".nes")) {
-			snprintf(cmd, FS_FULL_NAME_MAX, "/bin/x/emu %s", fname);
+			snprintf(cmd, FS_FULL_NAME_MAX, "/apps/emu/emu %s", fname);
 		}
 		else if(check(fname, ".png")) {
 			snprintf(cmd, FS_FULL_NAME_MAX, "/bin/x/png %s", fname);
