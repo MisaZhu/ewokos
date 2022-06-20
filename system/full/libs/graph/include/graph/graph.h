@@ -22,13 +22,6 @@ typedef struct {
 } bitmap_t;
 
 typedef struct {
-	uint32_t *buffer;
-	int32_t w;
-	int32_t h;
-	bool need_free;
-} graph_t;
-
-typedef struct {
 	int32_t w;	
 	int32_t h;	
 } gsize_t;
@@ -45,6 +38,14 @@ typedef struct {
 	int32_t h;	
 } grect_t;
 
+typedef struct {
+	uint32_t *buffer;
+	int32_t w;
+	int32_t h;
+	grect_t clip;
+	bool need_free;
+} graph_t;
+
 uint32_t argb(uint32_t a, uint32_t r, uint32_t g, uint32_t b);
 
 int32_t has_alpha(uint32_t c);
@@ -54,6 +55,10 @@ uint32_t argb_int(uint32_t c);
 void     graph_init(graph_t* g, const uint32_t* buffer, int32_t w, int32_t h);
 graph_t* graph_new(uint32_t* buffer, int32_t w, int32_t h);
 void     graph_free(graph_t* g);
+
+int32_t  graph_insect(graph_t* g, grect_t* r);
+void     graph_set_clip(graph_t* g, int x, int y, int w, int h);
+void     graph_unset_clip(graph_t* g);
 
 void     graph_pixel_safe(graph_t* g, int32_t x, int32_t y, uint32_t color);
 void     graph_pixel_argb(graph_t* graph, int32_t x, int32_t y,

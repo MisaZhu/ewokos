@@ -31,6 +31,19 @@ inline void graph_init(graph_t* g, const uint32_t* buffer, int32_t w, int32_t h)
 		g->buffer = (uint32_t*)malloc(w*h*4);
 		g->need_free = true;
 	}
+	memset(&g->clip, 0, sizeof(grect_t));
+}
+
+void graph_set_clip(graph_t* g, int x, int y, int w, int h) {
+	g->clip.x = x;
+	g->clip.y = y;
+	g->clip.w = w;
+	g->clip.h = h;
+	graph_insect(g, &g->clip);
+}
+
+void graph_unset_clip(graph_t* g) {
+	memset(&g->clip, 0, sizeof(grect_t));
 }
 
 graph_t* graph_new(uint32_t* buffer, int32_t w, int32_t h) {

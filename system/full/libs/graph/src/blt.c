@@ -7,35 +7,42 @@
 extern "C" { 
 #endif
 
-/*will change the value of sr, dr.
-	return 0 for none-insection-area.
-*/
-static int32_t graph_insect(graph_t* g, grect_t* r) {
+static int32_t grect_insect(grect_t* src, grect_t* r) {
 	//insect src;
-	if(g == NULL || r->x >= (int32_t)g->w || r->y >= (int32_t)g->h) //check x, y
+	if(r->x >= (int32_t)(src->x+src->w) || r->y >= (int32_t)(src->y+src->h)) //check x, y
 		return 0;
 
 	int32_t rx, ry;  //chehck w, h
 	rx = r->x + r->w;
 	ry = r->y + r->h;
-	if(rx >= (int32_t)g->w)
-		r->w -= rx - g->w;
-	if(ry >= (int32_t)g->h)
-		r->h -= ry - g->h;
+	if(rx >= (int32_t)(src->x+src->w))
+		r->w -= (rx - (src->x+src->w));
+	if(ry >= (int32_t)(src->y+src->h))
+		r->h -= (ry - (src->y+src->h));
 
-	if(r->x < 0) {
-		r->w += r->x;
-		r->x = 0;
+	if(r->x < src->x) {
+		r->w -= (src->x - r->x);
+		r->x = src->x;
 	}
 
-	if(r->y < 0) {
-		r->h += r->y;
-		r->y = 0;
+	if(r->y < src->y) {
+		r->h -= (src->y - r->y);
+		r->y = src->y;
 	}
-
 	if(r->w <= 0 || r->h <= 0)
 		return 0;
 	return 1;
+}
+
+/*will change the value of sr, dr.
+	return 0 for none-insection-area.
+*/
+int32_t graph_insect(graph_t* g, grect_t* r) {
+	if(g->clip.w == 0 || g->clip.h == 0) {
+		grect_t gr = {0, 0, g->w, g->h};
+		return grect_insect(&gr, r);
+	}
+	return grect_insect(&g->clip, r);
 }
 
 /*will change the value of sr, dr.
@@ -131,6 +138,7 @@ inline void graph_blt(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_t 
 
 	grect_t sr = {sx, sy, sw, sh};
 	grect_t dr = {dx, dy, dw, dh};
+	graph_insect(dst, &dr);
 	if(!insect(src, &sr, dst, &dr))
 		return;
 
@@ -156,6 +164,7 @@ inline void graph_blt_alpha(graph_t* src, int32_t sx, int32_t sy, int32_t sw, in
 
 	grect_t sr = {sx, sy, sw, sh};
 	grect_t dr = {dx, dy, dw, dh};
+	graph_insect(dst, &dr);
 	if(!insect(src, &sr, dst, &dr))
 		return;
 	register int32_t ex, ey;

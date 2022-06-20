@@ -14,8 +14,15 @@ inline void graph_pixel(graph_t* g, int32_t x, int32_t y, uint32_t color) {
 inline void graph_pixel_safe(graph_t* g, int32_t x, int32_t y, uint32_t color) {
 	if(g == NULL)
 		return;
-	if(x < 0 || x >= g->w || y < 0 || y >= g->h)
-		return;
+	if(g->clip.w == 0 || g->clip.h == 0) {
+		if(x < 0 || x >= g->w || y < 0 || y >= g->h)
+			return;
+	}
+	else {
+		if(x < g->clip.x || x >= (g->clip.x + g->clip.w) ||
+				y < g->clip.y || y >= (g->clip.y + g->clip.h))
+			return;
+	}
 	graph_pixel(g, x, y, color);
 }
 
@@ -39,8 +46,15 @@ inline void graph_pixel_argb_safe(graph_t* graph, int32_t x, int32_t y,
 		uint8_t a, uint8_t r, uint8_t g, uint8_t b) {
 	if(graph == NULL)
 		return;
-	if(x < 0 || x >= graph->w || y < 0 || y >= graph->h)
-		return;
+	if(graph->clip.w == 0 || graph->clip.h == 0) {
+		if(x < 0 || x >= graph->w || y < 0 || y >= graph->h)
+			return;
+	}
+	else {
+		if(x < graph->clip.x || x >= (graph->clip.x + graph->clip.w) ||
+				y < graph->clip.y || y >= (graph->clip.y + graph->clip.h))
+			return;
+	}
 	graph_pixel_argb(graph, x, y, a, r, g, b);
 }
 

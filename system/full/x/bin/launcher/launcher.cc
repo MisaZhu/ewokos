@@ -89,6 +89,7 @@ protected:
 
 				int x = i*items.item_size;
 				int y = j*items.item_size;
+				graph_set_clip(g, x, y, items.item_size, items.item_size);
 				if(focused && selected == at) {
 					graph_fill_round(g, 
 						x, y, items.item_size, items.item_size, 
