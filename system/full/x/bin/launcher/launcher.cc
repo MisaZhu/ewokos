@@ -15,6 +15,7 @@ using namespace Ewok;
 typedef struct {
 	str_t* app;
 	str_t* icon;
+	graph_t* iconImg;
 } item_t;
 
 typedef struct {
@@ -29,22 +30,28 @@ class Launcher: public XWin {
 	int selected;
 	bool focused;
 
-	void drawIcon(graph_t* g, const char* icon, int item_size, int icon_size, int x, int y) {
-		graph_t* i = png_image_new(icon);
-		if(i == NULL)
-			return;
-		graph_t* img = i;
-		if(i->w != icon_size) {
-			img = graph_scalef(i, ((float)icon_size) / ((float)i->w));
-			graph_free(i);
+	void drawIcon(graph_t* g, int at, int x, int y) {
+		const char* icon = items.items[at].icon->cstr;
+		int item_size = items.item_size;
+		int icon_size = items.icon_size;
+		graph_t* img = items.items[at].iconImg;
+		if(img == NULL) {
+			graph_t* i = png_image_new(icon);
+			if(i == NULL)
+				return;
+			if(i->w != icon_size) {
+				img = graph_scalef(i, ((float)icon_size) / ((float)i->w));
+				graph_free(i);
+			}
+			else 
+				img = i;
+			items.items[at].iconImg = img;
 		}
 
 		int dx = (item_size - img->w)/2;
 		int dy = (item_size - img->h)/2;
-
 		graph_blt_alpha(img, 0, 0, img->w, img->h,
 				g, x+dx, y+dy, img->w, img->h, 0xff);
-		graph_free(img);
 	}
 
 	void runProc(const char* app) {
@@ -78,7 +85,7 @@ protected:
 						8, 0xffffffff);
 				}
 
-				drawIcon(g, items.items[at].icon->cstr, items.item_size, items.icon_size, x, y);
+				drawIcon(g, at, x, y);
 			}
 		}
 	}
@@ -161,6 +168,8 @@ public:
 		for(int i=0; i<items.num; i++) {
 			str_free(items.items[i].app);
 			str_free(items.items[i].icon);
+			if(items.items[i].iconImg)
+				graph_free(items.items[i].iconImg);
 		}
 	}
 
