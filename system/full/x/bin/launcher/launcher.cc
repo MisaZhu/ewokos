@@ -19,6 +19,7 @@ typedef struct {
 
 typedef struct {
 	int icon_size;
+	int item_size;
 	int num;
 	item_t items[ITEM_MAX];	
 } items_t;
@@ -28,7 +29,7 @@ class Launcher: public XWin {
 	int selected;
 	bool focused;
 
-	void drawIcon(graph_t* g, const char* icon, int icon_size, int x, int y) {
+	void drawIcon(graph_t* g, const char* icon, int item_size, int icon_size, int x, int y) {
 		graph_t* i = png_image_new(icon);
 		if(i == NULL)
 			return;
@@ -38,8 +39,8 @@ class Launcher: public XWin {
 			graph_free(i);
 		}
 
-		int dx = (icon_size - img->w)/2;
-		int dy = (icon_size - img->h)/2;
+		int dx = (item_size - img->w)/2;
+		int dy = (item_size - img->h)/2;
 
 		graph_blt_alpha(img, 0, 0, img->w, img->h,
 				g, x+dx, y+dy, img->w, img->h, 0xff);
@@ -66,18 +67,18 @@ protected:
 				if(at >= items.num)
 					return;
 
-				int x = i*items.icon_size;
-				int y = j*items.icon_size;
+				int x = i*items.item_size;
+				int y = j*items.item_size;
 				if(focused && selected == at) {
 					graph_fill_round(g, 
-						x, y, items.icon_size, items.icon_size, 
+						x, y, items.item_size, items.item_size, 
 						8, 0x88000000);
 					graph_round(g, 
-						x, y, items.icon_size, items.icon_size, 
+						x, y, items.item_size, items.item_size, 
 						8, 0xffffffff);
 				}
 
-				drawIcon(g, items.items[at].icon->cstr, items.icon_size, x, y);
+				drawIcon(g, items.items[at].icon->cstr, items.item_size, items.icon_size, x, y);
 			}
 		}
 	}
@@ -85,7 +86,7 @@ protected:
 	void onEvent(xevent_t* ev) {
 		xinfo_t xinfo;
 		getInfo(xinfo);
-		int cols = xinfo.wsr.w / items.icon_size;
+		int cols = xinfo.wsr.w / items.item_size;
 		if(ev->type == XEVT_MOUSE) {
 			int col = ev->value.mouse.x / items.icon_size;
 			int row = ev->value.mouse.y / items.icon_size;
@@ -171,10 +172,17 @@ public:
 	}
 
 	bool readConfig(const char* fname) {
+		items.item_size = 96;
+		items.icon_size = 64;
 		sconf_t *conf = sconf_load(fname);	
 		if(conf == NULL)
 			return false;
-		items.icon_size = atoi(sconf_get(conf, "icon_size"));
+		const char* v = sconf_get(conf, "icon_size");
+		if(v[0] == 0)
+			items.icon_size = atoi(v);
+		v = sconf_get(conf, "item_size");
+		if(v[0] == 0)
+			items.item_size = atoi(v);
 		sconf_free(conf);
 		return true;
 	}
