@@ -3,10 +3,11 @@
 #include <stdlib.h>
 #include <fcntl.h>
 
-void fclose(FILE* fp) {
+int fclose(FILE* fp) {
 	if(fp == NULL)
-		return;
+		return -1;
 	close(fp->fd);
 	free(fp);
+	return 0;
 }
 
