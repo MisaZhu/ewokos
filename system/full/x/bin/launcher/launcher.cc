@@ -63,7 +63,7 @@ protected:
 		//font_t* font = get_font_by_name("8x16");
 		graph_clear(g, 0x0);
 		int i, j, cols, rows;
-		cols = g->w / items.icon_size;
+		cols = g->w / items.item_size;
 		rows = items.num / cols;
 		if((items.num % cols) != 0)
 			rows++;
@@ -95,8 +95,8 @@ protected:
 		getInfo(xinfo);
 		int cols = xinfo.wsr.w / items.item_size;
 		if(ev->type == XEVT_MOUSE) {
-			int col = ev->value.mouse.x / items.icon_size;
-			int row = ev->value.mouse.y / items.icon_size;
+			int col = ev->value.mouse.x / items.item_size;
+			int row = ev->value.mouse.y / items.item_size;
 			int at = row*cols + col;
 			if(at >= items.num)
 				return;
@@ -173,13 +173,6 @@ public:
 		}
 	}
 
-	inline uint32_t getIconSize(void) {
-		return items.icon_size;
-	}
-	inline uint32_t getItemNum(void) {
-		return items.num;
-	}
-
 	bool readConfig(const char* fname) {
 		items.item_size = 96;
 		items.icon_size = 64;
@@ -187,10 +180,10 @@ public:
 		if(conf == NULL)
 			return false;
 		const char* v = sconf_get(conf, "icon_size");
-		if(v[0] == 0)
+		if(v[0] != 0)
 			items.icon_size = atoi(v);
 		v = sconf_get(conf, "item_size");
-		if(v[0] == 0)
+		if(v[0] != 0)
 			items.item_size = atoi(v);
 		sconf_free(conf);
 		return true;
