@@ -213,37 +213,6 @@ typedef struct {
     TTY_S16  numContours; /* Equals -1 if the glyph is a composite glyph */
 } TTY_Glyph;
 
-typedef struct {
-    TTY_U8*     pixels;
-    TTY_U32_V2  size;
-} TTY_Image;
-
-typedef struct {
-    TTY_Glyph   glyph;
-    TTY_U32_V2  atlasPos;
-} TTY_Atlas_Cache_Entry;
-
-typedef struct TTY_Atlas_Cache_Node {
-    TTY_U32                       codePoint;
-    TTY_Atlas_Cache_Entry         entry;
-    struct TTY_Atlas_Cache_Node*  lruPrev;
-    struct TTY_Atlas_Cache_Node*  lruNext;
-    struct TTY_Atlas_Cache_Node*  next;
-} TTY_Atlas_Cache_Node;
-
-typedef struct {
-    TTY_U8*                mem;
-    TTY_Atlas_Cache_Node*  nodes;
-    TTY_Atlas_Cache_Node** chainHeads;
-    TTY_Atlas_Cache_Node*  lruHead;
-    TTY_Atlas_Cache_Node*  lruTail;
-    TTY_Image              atlas;
-    TTY_U32_V2             slotSize;
-    TTY_U32_V2             nextAtlasPos;
-    TTY_U32                numGlyphs;
-    TTY_U32                maxGlyphs;
-} TTY_Atlas_Cache;
-
 
 /* 
  * Creates a `TTY_Font` using the TTF file specified by `path`.
@@ -296,56 +265,6 @@ TTY_Error tty_get_glyph_index(TTY_Font* font, TTY_U32 codePoint, TTY_U32* idx);
  *     TTY_ERROR_NONE - The glyph was successfully loaded.
  */
 TTY_Error tty_glyph_init(TTY_Font* font, TTY_Glyph* glyph, TTY_U32 idx);
-
-
-/*
- * Returns one of the following:
- *     TTY_ERROR_NONE          - The image was successfully created.
- *     TTY_ERROR_OUT_OF_MEMORY - If `pixels` is NULL and `w * h` bytes could not be allocated.
- */
-TTY_Error tty_image_init(TTY_Image* image, TTY_U8* pixels, TTY_U32 w, TTY_U32 h);
-
-void tty_image_free(TTY_Image* image);
-
-
-/* 
- * Returns one of the following:
- *    TTY_ERROR_NONE                - The glyph was rendered successfully.
- *    TTY_ERROR_OUT_OF_MEMORY       - Not enough memory could be allocated to render the glyph.
- *    TTY_ERROR_UNSUPPORTED_FEATURE - The glyph is a composite glyph that uses point matching.
- *    TTY_ERROR_UNKNOWN_INSTRUCTION - The instance uses hinting and the glyph program has an instruction that is not yet handled.
- */
-TTY_Error tty_render_glyph(TTY_Font* font, TTY_Instance* instance, TTY_Glyph* glyph, TTY_Image* image);
-
-/* 
- * Returns one of the following:
- *    TTY_ERROR_NONE                        - The glyph was rendered successfully.
- *    TTY_ERROR_OUT_OF_MEMORY               - Not enough memory could be allocated to render the glyph.
- *    TTY_ERROR_UNSUPPORTED_FEATURE         - The glyph is a composite glyph that uses point matching.
- *    TTY_ERROR_UNKNOWN_INSTRUCTION         - The instance uses hinting and the glyph program has an instruction that is not yet handled.
- *    TTY_ERROR_GLYPH_DOES_NOT_FIT_IN_IMAGE - The provided image is not large enough to contain the rasterized glyph.
- */
-TTY_Error tty_render_glyph_to_existing_image(TTY_Font* font, TTY_Instance* instance, TTY_Glyph* glyph, TTY_Image* image, TTY_U32 x, TTY_U32 y);
-
-/*
- * Returns one of the following:
- *     TTY_ERROR_NONE          - The cache was successfully created.
- *     TTY_ERROR_OUT_OF_MEMORY - Not enough memory could be allocated for the cache.
- */
-TTY_Error tty_atlas_cache_init(TTY_Instance* instance, TTY_Atlas_Cache* cache, TTY_U32 w, TTY_U32 h);
-
-void tty_atlas_cache_free(TTY_Atlas_Cache* cache);
-
-/*
- * Returns TTY_ERROR_NONE on success. If the entry was not already cached, then
- * this function may return any error produced by `tty_render_glyph_to_existing_image`.
- */
-TTY_Error tty_atlas_cache_get_entry(TTY_Font* font, TTY_Instance* instance, TTY_Atlas_Cache* cache, TTY_Atlas_Cache_Entry* entry, TTY_U32 codePoint);
-
-/* Note: This does not update the cache */
-TTY_Bool tty_atlas_cache_contains(TTY_Atlas_Cache* cache, TTY_U32 codePoint);
-
-TTY_Bool tty_atlas_cache_is_full(TTY_Atlas_Cache* cache);
 
 #ifdef __cplusplus
 }
