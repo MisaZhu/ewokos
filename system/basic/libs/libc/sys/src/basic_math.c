@@ -5,14 +5,6 @@
 extern "C" {
 #endif
 
-inline uint32_t abs(int32_t v) {
-	return v < 0 ? (-v): v;
-}
-
-inline uint64_t labs(int64_t v) {
-	return v < 0 ? (-v): v;
-}
-
 static uint32_t _r_mask = 0x13579abc;
 inline uint32_t random_u32(void) {
 	uint64_t usec;

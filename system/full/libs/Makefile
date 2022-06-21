@@ -4,6 +4,7 @@ all: basic_libs
 basic_libs:
 	cd display;make
 	cd graph;make
+	cd ttf;make
 	cd fb;make
 	cd fbd;make
 	cd fonts;make
@@ -17,6 +18,7 @@ clean:
 	cd fb;make clean
 	cd fbd;make clean
 	cd graph;make clean
+	cd ttf;make clean
 	cd fonts;make clean
 	cd console;make clean
 	cd display;make clean

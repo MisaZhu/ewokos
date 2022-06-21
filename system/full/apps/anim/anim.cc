@@ -8,6 +8,7 @@
 #include <sys/kernel_tic.h>
 #include <sys/klog.h>
 #include <x++/X.h>
+#include <ttf/ttf.h>
 
 using namespace Ewok;
 
@@ -16,7 +17,8 @@ class TestX : public XWin {
 	int fighter_step;
 	uint32_t tic;
 	graph_t* img_fighter;
-	font_t* font;
+	TTY_Font font;
+	TTY_Instance inst;
 
 	void drawFitgher(graph_t* g) {
 		graph_t* img = img_fighter;
@@ -32,12 +34,15 @@ public:
 		fps_counter = 0;
 		fighter_step = 0;
 		img_fighter = png_image_new(X::getResName("data/fighter.png"));
-		font = font_by_name("8x16");
+    	tty_font_init(&font, "/data/fonts/system.ttf");
+    	tty_instance_init(&font, &inst, 32, TTY_INSTANCE_DEFAULT);
 	}
 	
 	inline ~TestX() {
 		if(img_fighter != NULL)
 			graph_free(img_fighter);
+		tty_font_free(&font);
+		tty_instance_free(&inst);
 	}
 protected:
 	void onEvent(xevent_t* ev) {
@@ -65,9 +70,7 @@ protected:
 
 		char str[32];
 		snprintf(str, 31, "EwokOS FPS: %d", fps);
-		int w;
-		get_text_size(str, font, (int32_t*)&w, NULL);
-		graph_draw_text(g, 10, gH-font->h, str, font, 0xffffffff);
+		graph_draw_text_ttf(g, 10, gH-inst.maxGlyphSize.y, str, &font, &inst, 0xffffffff);
 		drawFitgher(g);
 
 		fighter_step++;

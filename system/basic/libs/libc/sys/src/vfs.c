@@ -399,7 +399,9 @@ int vfs_seek(int fd, int offset) {
 		res = proto_read_int(&out);
 	}
 	PF->clear(&out);
-	return res;
+	if(res >= 0)
+		return 0;
+	return -1;
 }
 
 void* vfs_readfile(const char* fname, int* rsz) {
