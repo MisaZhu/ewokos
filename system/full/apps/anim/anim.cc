@@ -70,7 +70,7 @@ protected:
 
 		char str[32];
 		snprintf(str, 31, "EwokOS FPS: %d", fps);
-		graph_draw_text_ttf(g, 10, gH-inst.maxGlyphSize.y, str, &font, &inst, 0xffffffff);
+		graph_draw_text_ttf(g, 10, gH-inst.maxGlyphSize.y, str, &font, &inst, 2, 0xffffffff);
 		drawFitgher(g);
 
 		fighter_step++;

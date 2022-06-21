@@ -9,6 +9,7 @@ CFLAGS += -Isys/include -Iinclude -I $(TARGET_DIR)/include
 
 LIB_EWOKSYS_OBJS = sys/src/syscall.o \
 	sys/src/mstr.o \
+	sys/src/utf8unicode.o \
 	sys/src/klog.o \
 	sys/src/cmain.o \
 	sys/src/charbuf.o \
