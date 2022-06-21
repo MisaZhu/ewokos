@@ -2,7 +2,6 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <fcntl.h>
-#include <sys/basic_math.h>
 
 uint32_t fwrite(const void* ptr, uint32_t size, uint32_t nmemb, FILE* fp) {
 	if(size == 0)

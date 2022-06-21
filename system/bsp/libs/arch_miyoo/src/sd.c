@@ -4,7 +4,6 @@
 #include <string.h>
 #include <sys/syscall.h>
 #include <sys/mmio.h>
-#include <sys/basic_math.h>
 #include <sysinfo.h>
 
 #include "sdmmc.h"

@@ -2,7 +2,6 @@
 #include <bcm283x/sd.h>
 #include <kernel/system.h>
 #include <kernel/proc.h>
-#include <basic_math.h>
 #include <mm/mmu.h>
 #include <kstring.h>
 

@@ -3,7 +3,6 @@
 #include <stdlib.h>
 #include <vprintf.h>
 #include <stdarg.h>
-#include <sys/basic_math.h>
 
 #ifdef __cplusplus
 extern "C" {

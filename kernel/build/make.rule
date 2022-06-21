@@ -110,8 +110,10 @@ LIB_OBJS = \
 	$(LIB_DIR)/kstring.o \
 	$(LIB_DIR)/vprintf.o \
 	$(LIB_DIR)/proto.o \
-	$(LIB_DIR)/basic_math.o \
-	$(LIB_DIR)/basic_math_asm.o \
+	$(LIB_DIR)/arm32_aeabi_divmod_a32.o \
+	$(LIB_DIR)/arm32_aeabi_ldivmod_a32.o \
+	$(LIB_DIR)/arm32_aeabi_divmod.o \
+	$(LIB_DIR)/arm32_aeabi_ldivmod.o \
 	$(LIB_DIR)/queue.o \
 	$(LIB_DIR)/kprintf.o \
 	$(LIB_GRAPH_OBJS) \

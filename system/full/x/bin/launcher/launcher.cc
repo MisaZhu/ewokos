@@ -6,7 +6,6 @@
 #include <x++/X.h>
 #include <sys/keydef.h>
 #include <sys/klog.h>
-#include <sys/basic_math.h>
 #include <dirent.h>
 
 #define ITEM_MAX 128

@@ -22,7 +22,6 @@
 #include <fcntl.h>
 #include <string.h>
 #include <vprintf.h>
-#include <sys/basic_math.h>
 #include <sys/kernel_tic.h>
 #include <sys/keydef.h>
 #include <sys/klog.h>

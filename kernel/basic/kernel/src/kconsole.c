@@ -1,7 +1,6 @@
 #ifdef KCONSOLE
 #include <kernel/kconsole.h>
 #include <dev/fb.h>
-#include <basic_math.h>
 #include <kprintf.h>
 #include <stddef.h>
 #include <console/console.h>

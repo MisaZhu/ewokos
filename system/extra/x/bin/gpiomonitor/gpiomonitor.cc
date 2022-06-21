@@ -5,7 +5,6 @@
 #include <string.h>
 #include <vprintf.h>
 #include <upng/upng.h>
-#include <sys/basic_math.h>
 #include <sys/kernel_tic.h>
 #include <sys/klog.h>
 #include <sys/syscall.h>

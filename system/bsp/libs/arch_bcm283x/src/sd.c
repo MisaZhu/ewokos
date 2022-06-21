@@ -4,7 +4,6 @@
 #include <string.h>
 #include <sys/syscall.h>
 #include <sys/mmio.h>
-#include <sys/basic_math.h>
 
 #define SD_OK                0
 #define SD_TIMEOUT          -1

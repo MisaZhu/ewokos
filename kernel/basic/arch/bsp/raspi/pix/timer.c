@@ -1,6 +1,5 @@
 #include <dev/timer.h>
 #include <kernel/irq.h>
-#include <basic_math.h>
 #include <mm/mmu.h>
 #include "timer_arch.h"
 

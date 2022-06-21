@@ -1,7 +1,6 @@
 #include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <sys/basic_math.h>
 #include <sys/keydef.h>
 #include <sys/klog.h>
 #include <string.h>

@@ -1,6 +1,5 @@
 #include <stdio.h>
 #include <unistd.h>
-#include <sys/basic_math.h>
 
 uint32_t fread(void* ptr, uint32_t size, uint32_t nmemb, FILE* fp) {
 	if(size == 0 || fp == NULL)

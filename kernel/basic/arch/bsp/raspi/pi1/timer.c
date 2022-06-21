@@ -1,7 +1,6 @@
 #include <dev/timer.h>
 #include <kernel/irq.h>
 #include <kernel/hw_info.h>
-#include <basic_math.h>
 
 #define SYSTEM_TIMER_BASE (_sys_info.mmio.v_base+0x3000)
 #define SYSTEM_TIMER_LOW  0x0004 // System Timer Counter Upper 32 bits

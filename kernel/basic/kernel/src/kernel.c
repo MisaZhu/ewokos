@@ -14,7 +14,6 @@
 #include <dev/timer.h>
 #include <kprintf.h>
 #include <dev/uart.h>
-#include <basic_math.h>
 #include <stddef.h>
 #include <kernel/kconsole.h>
 #include <gic.h>

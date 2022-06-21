@@ -3,7 +3,6 @@
 #include <fcntl.h>
 #include <stdio.h>
 #include <string.h>
-#include <sys/basic_math.h>
 #include <sys/vfs.h>
 #include <sys/vdevice.h>
 #include <sys/keydef.h>
