@@ -966,7 +966,7 @@ static int mouse_handle(x_t* x, xevent_t* ev) {
 	if(x->current.view == view) {
 		int mrx = x->cursor.cpos.x - x->current.old_pos.x;
 		int mry = x->cursor.cpos.y - x->current.old_pos.y;
-		if(abs32(mrx) > 15 || abs32(mry) > 15) {
+		if(abs(mrx) > 15 || abs(mry) > 15) {
 			x->current.pos_delta.x = mrx;
 			x->current.pos_delta.y = mry;
 			x_dirty(x, x->current_display);

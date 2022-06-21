@@ -20,7 +20,10 @@ LIB_EWOKSYS_OBJS = sys/src/syscall.o \
 	sys/src/proto.o \
 	sys/src/thread.o \
 	sys/src/basic_math.o \
-	sys/src/basic_math_asm.o \
+	sys/src/arm32_aeabi_divmod_a32.o \
+	sys/src/arm32_aeabi_ldivmod_a32.o \
+	sys/src/arm32_aeabi_divmod.o \
+	sys/src/arm32_aeabi_ldivmod.o \
 	sys/src/kernel_tic.o \
 	sys/src/shm.o \
 	sys/src/proc.o \
