@@ -4328,6 +4328,93 @@ TTY_Error tty_render_glyph_to_existing_graph(TTY_Font* font, TTY_Instance* insta
     tty_active_edge_list_free(&activeEdges);
     return TTY_ERROR_NONE;
 }
+
+TTY_Error tty_glyph_fetch(TTY_Font* font, TTY_Instance* instance, TTY_Glyph* glyph) {
+    if (glyph->glyfBlock == NULL) {
+        // The glyph is an empty glyph (i.e. space)
+        glyph->advance.x = tty_get_unhinted_glyph_x_advance(font, glyph->idx, instance->scale);
+        glyph->advance.y = tty_get_unhinted_glyph_y_advance(font, instance->scale);
+        return TTY_ERROR_NONE;
+    }
+
+
+    // The glyph's points are converted into curves and the curves are 
+    // approximated by edges.
+    TTY_Edges edges = {0};
+
+    // An active edge is an edge that is intersected by the current scanline.
+    TTY_Active_Edge_List activeEdges = {0};
+
+    // The minimum and maximum points of the glyph.
+    TTY_F26Dot6_V2 min = {0};
+    TTY_F26Dot6_V2 max = {0};
+
+    // The y-coordinates corresponding to the scanline.
+    TTY_F26Dot6 scanlineStart = 0;
+    TTY_F26Dot6 scanlineEnd   = 0;
+    TTY_F26Dot6 scanline      = 0;
+
+    // This will be applied to x-intersections to prevent negative values which
+    // will allow for easier calculations during rasterization.
+    TTY_F26Dot6 xIntersectionOff = 0;
+
+    // An intermediate buffer is rendered to before the image. This is because
+    // using the image's pixels directly would result in a loss of precision
+    // since each pixel is only one byte.
+    TTY_F26Dot6* pixelBuff    = NULL;
+    TTY_U32      pixelBuffLen = 0;
+
+    // If the image's pixels were allocated by this function, this function
+    // needs to free them if an error occurs.
+    TTY_Bool imagePixelsWereAllocated = TTY_FALSE;
+
+
+    {
+        // Get the glyph's points, convert them into curves, and then
+        // approximate the curves using edges
+
+        TTY_Curves curves = {0};
+
+        TTY_Error error =
+            tty_add_glyph_points_to_zone_1(font, instance, glyph) ||
+            tty_convert_zone1_points_into_curves(font, &curves)   ||
+            tty_subdivide_curves_into_edges(&curves, &edges, font->startingEdgeCap);
+
+        if (instance->useHinting) {
+            // Touch flags need to be cleared here (Everything else in zone1 is 
+            // cleared elsewhere)
+            memset(font->hint.zone1.touchFlags, TTY_UNTOUCHED, sizeof(TTY_U8) * font->hint.zone1.numOutlinePoints);
+        }
+        free(curves.buff);
+
+        if (error) {
+            return error;
+        }
+    }
+
+
+    // Edges are sorted from largest to smallest y-coordinate
+    qsort(edges.buff, edges.count, sizeof(TTY_Edge), tty_compare_edges);
+
+    if (edges.count > font->startingEdgeCap) {
+        // Increase the starting edge capacity to potentially prevent a realloc
+        // of the edge buffer when rasterizing future glyphs
+        font->startingEdgeCap = edges.count;
+    }
+
+
+    tty_get_min_and_max_zone1_points(&font->hint.zone1, &min, &max);
+    TTY_ASSERT(max.x >= 0 && max.y >= 0); // TODO: Are negative maximum coordinates allowed?
+    
+    tty_set_glyph_metrics(font, instance, glyph, min, max);
+    TTY_ASSERT(glyph->size.x > 0 && glyph->size.y > 0);
+
+    free(edges.buff);
+    tty_active_edge_list_free(&activeEdges);
+    return TTY_ERROR_NONE;
+}
+
+
 #ifdef __cplusplus
 }
 #endif
