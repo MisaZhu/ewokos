@@ -2,17 +2,23 @@
 #include <sys/utf8unicode.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-int  ttf_font_load(ttf_font_t* font, const char* fname, uint16_t ppm) {
-   	if(tty_font_init(&font->font, fname))
-		return -1;
-   	if(tty_instance_init(&font->font, &font->inst, ppm, TTY_INSTANCE_DEFAULT))
-		return -1;
-	return 0;
+ttf_font_t*  ttf_font_load(const char* fname, uint16_t ppm) {
+	ttf_font_t* font = (ttf_font_t*)malloc(sizeof(ttf_font_t));
+   	if(tty_font_init(&font->font, fname)) {
+		free(font);
+		return NULL;
+	}
+   	if(tty_instance_init(&font->font, &font->inst, ppm, TTY_INSTANCE_DEFAULT)) {
+		free(font);
+		return NULL;
+	}
+	return font;
 }
 
 int  ttf_font_resize(ttf_font_t* font, uint16_t ppm) {
@@ -28,13 +34,14 @@ void  ttf_font_free(ttf_font_t* font) {
 		return;
 	tty_instance_free(&font->inst);
 	tty_font_free(&font->font);
+	free(font);
 }
 
-int  ttf_font_hight(ttf_font_t* font) {
+inline int  ttf_font_hight(ttf_font_t* font) {
 	return font->inst.maxGlyphSize.y;
 }
 
-int  ttf_font_width(ttf_font_t* font) {
+inline int  ttf_font_width(ttf_font_t* font) {
 	return font->inst.maxGlyphSize.x;
 }
 
