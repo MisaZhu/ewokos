@@ -4,6 +4,7 @@
 #include <string.h>
 #include <vprintf.h>
 #include <x/xwin.h>
+#include <ttf/ttf.h>
 #include <sys/keydef.h>
 
 #define WIN_WIDTH		55
@@ -158,7 +159,7 @@ bool snake_eat_self(snake *s){
 static snake s;
 static food f;
 static char info[32];
-font_t* font;
+ttf_font_t* font;
 static int record = 0;
 static bool dead = true;
 static int dir = LEFT;
@@ -190,7 +191,7 @@ static void event_handle(xwin_t* x, xevent_t* xev) {
 static void repaint(xwin_t* x, graph_t* g) {
 	(void)x;
 	graph_clear(g, BG_COLOR);
-	graph_draw_text(g, 0, 0, info, font, TEXT_COLOR);
+	graph_draw_text_ttf(g, 0, 0, info, font, TEXT_COLOR);
 	snake_draw(g, &s, &f);
 }
 
@@ -235,7 +236,7 @@ int main(int argc, char* argv[]) {
 	xwin->on_event = event_handle;
 	xwin->on_repaint = repaint;
 
-	font = font_by_name("7x9");
+	font = ttf_font_load("/data/fonts/system.ttf", 14, 2);
 	dead = true;
 	record = 0;
 	dir = LEFT;
@@ -249,5 +250,6 @@ int main(int argc, char* argv[]) {
 	x_run(&x, xwin);
 
 	xwin_close(xwin);
+	ttf_font_free(font);
 	return 0;
 } 
