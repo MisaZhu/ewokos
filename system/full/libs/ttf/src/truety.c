@@ -4274,7 +4274,7 @@ TTY_Error tty_render_glyph_to_existing_graph(TTY_Font* font, TTY_Instance* insta
     scanlineEnd   = tty_f26dot6_floor(min.y);
     scanline      = scanlineStart;
 
-
+    y += instance->maxGlyphSize.y - glyph->offset.y;
     while (scanline >= scanlineEnd) {
         tty_update_or_remove_active_edges(&activeEdges, scanline, xIntersectionOff);
         tty_sort_active_edges(&activeEdges);
@@ -4307,14 +4307,12 @@ TTY_Error tty_render_glyph_to_existing_graph(TTY_Font* font, TTY_Instance* insta
                 TTY_ASSERT(pixelValue <= 255);
 
                 if(pixelValue != 0) {
-                    if(has_alpha(color))
-                        graph_pixel_argb_safe(g, x+i, y+(instance->maxGlyphSize.y - glyph->size.y),
-                            (color >> 24) & 0xff,
+                    graph_pixel_argb_safe(g, x+i, y,//+(instance->maxGlyphSize.y - glyph->size.y),
+                            (color >> 24) & pixelValue & 0xff,
                             (color >> 16) & 0xff,
                             (color >> 8) & 0xff,
                             color & 0xff);
-                    else
-                        graph_pixel_safe(g, x+i, y+(instance->maxGlyphSize.y - glyph->size.y), color);
+                    //graph_pixel_safe(g, x+i, y+(instance->maxGlyphSize.y - glyph->size.y), color);
                 }
             }
             

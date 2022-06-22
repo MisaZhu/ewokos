@@ -28,6 +28,11 @@ inline void graph_pixel_safe(graph_t* g, int32_t x, int32_t y, uint32_t color) {
 
 inline void graph_pixel_argb(graph_t* graph, int32_t x, int32_t y,
 		uint8_t a, uint8_t r, uint8_t g, uint8_t b) {
+	if(a == 0xff) {
+		graph->buffer[y * graph->w + x] = argb(a, r, g, b);
+		return;
+	}
+	
 	register uint32_t oc = graph->buffer[y * graph->w + x];
 	register uint8_t oa = (oc >> 24) & 0xff;
 	register uint8_t or = (oc >> 16) & 0xff;
