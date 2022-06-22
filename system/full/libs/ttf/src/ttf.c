@@ -154,8 +154,8 @@ void graph_draw_char_ttf_align(graph_t* g, int32_t x, int32_t y, TTY_U32 c,
 		do_cache = 1;
 	}
 
-	if(aw != 0) {
-		x += (aw-glyph.size.x)/2;
+	if(glyph.size.x > 0 && aw > glyph.size.x) {
+		x += ((TTY_S32)aw-glyph.size.x)/2;
 	}
 
 	if(tty_render_glyph_to_existing_graph(&font->font, &font->inst, &glyph, g, x, y, color))

@@ -18,7 +18,7 @@ static uint32_t font_width(ttf_font_t* font) {
 	if(_fontw != 0)
 		return _fontw;
 
-	ttf_text_size("a", font, &_fontw, NULL);
+	ttf_text_size("o", font, &_fontw, NULL);
 	if(_fontw == 0)
 		_fontw = ttf_font_width(font);
 	return _fontw;
