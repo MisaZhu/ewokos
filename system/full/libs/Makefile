@@ -7,7 +7,6 @@ basic_libs:
 	cd ttf;make
 	cd fb;make
 	cd fbd;make
-	cd fonts;make
 	cd upng; make
 	cd console;make
 	cd x;make
@@ -19,7 +18,6 @@ clean:
 	cd fbd;make clean
 	cd graph;make clean
 	cd ttf;make clean
-	cd fonts;make clean
 	cd console;make clean
 	cd display;make clean
 	cd upng; make clean

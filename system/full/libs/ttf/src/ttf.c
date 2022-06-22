@@ -18,7 +18,37 @@ ttf_font_t*  ttf_font_load(const char* fname, uint16_t ppm) {
 		free(font);
 		return NULL;
 	}
+	font->cache = hashmap_new();
 	return font;
+}
+
+static void ttf_cache(ttf_font_t* font, uint16_t c, TTY_Glyph* glyph) {
+	TTY_Glyph* p = (TTY_Glyph*)malloc(sizeof(TTY_Glyph));
+	if(p == NULL)
+		return;
+	memcpy(p, glyph, sizeof(TTY_Glyph));
+	hashmap_put(font->cache, (const char*)&c, p);
+}
+
+static int free_cache(const char* key, any_t data, any_t arg) {
+	map_t* map = (map_t*)arg;
+	TTY_Glyph* v = (TTY_Glyph*)data;
+	hashmap_remove(map, key);
+	free(v);
+	return MAP_OK;
+}
+
+static void ttf_clear_cache(ttf_font_t* font) {
+	hashmap_iterate(font->cache, free_cache, font->cache);	
+}
+
+static int ttf_fetch_cache(ttf_font_t* font, uint16_t c, TTY_Glyph* glyph) {
+	TTY_Glyph* p;
+	if(hashmap_get(font->cache, (const char*)&c, (void**)&p) == 0) {
+		memcpy(glyph, p, sizeof(TTY_Glyph));
+		return 0;
+	}
+	return -1;
 }
 
 int  ttf_font_resize(ttf_font_t* font, uint16_t ppm) {
@@ -32,6 +62,8 @@ int  ttf_font_resize(ttf_font_t* font, uint16_t ppm) {
 void  ttf_font_free(ttf_font_t* font) {
 	if(font == NULL)
 		return;
+	ttf_clear_cache(font);
+	hashmap_free(font->cache);
 	tty_instance_free(&font->inst);
 	tty_font_free(&font->font);
 	free(font);
@@ -54,21 +86,26 @@ void ttf_char_size(uint16_t c, ttf_font_t* font, uint16_t *w, uint16_t* h) {
 	if(h != NULL)
 		*h = 0;
 
-	TTY_U32 glyphIdx;
-	if (tty_get_glyph_index(&font->font, c, &glyphIdx))
-		return;
-
+	int do_cache = 0;
 	TTY_Glyph glyph;
-	if (tty_glyph_init(&font->font, &glyph, glyphIdx))
-		return;
-
-	if(tty_glyph_fetch(&font->font, &font->inst, &glyph))
-		return;
+	if(ttf_fetch_cache(font, c, &glyph) != 0) {
+		TTY_U32 glyphIdx;
+		if (tty_get_glyph_index(&font->font, c, &glyphIdx))
+			return;
+		if (tty_glyph_init(&font->font, &glyph, glyphIdx))
+			return;
+		if(tty_glyph_fetch(&font->font, &font->inst, &glyph))
+			return;
+		do_cache = 1;
+	}
 	if(w != NULL)
-		*w = glyph.size.x == 0 ?  font->inst.maxGlyphSize.x : glyph.size.x;
+		*w = glyph.size.x == 0 ?  font->inst.maxGlyphSize.y/2 : glyph.size.x;
 
 	if(h != NULL)
 		*h = glyph.size.y == 0 ?  font->inst.maxGlyphSize.y : glyph.size.y;
+
+	if(do_cache)
+		ttf_cache(font, c, &glyph);
 }
 
 void ttf_text_size(const char* str,
@@ -105,21 +142,26 @@ void graph_draw_char_ttf(graph_t* g, int32_t x, int32_t y, TTY_U32 c,
 	if(h != NULL)
 		*h = 0;
 
-	TTY_U32 glyphIdx;
-	if (tty_get_glyph_index(&font->font, c, &glyphIdx))
-		return;
-
 	TTY_Glyph glyph;
-	if (tty_glyph_init(&font->font, &glyph, glyphIdx))
-		return;
+	int do_cache = 0;
+	if(ttf_fetch_cache(font, c, &glyph) != 0) {
+		TTY_U32 glyphIdx;
+		if (tty_get_glyph_index(&font->font, c, &glyphIdx))
+			return;
+		if (tty_glyph_init(&font->font, &glyph, glyphIdx))
+			return;
+		do_cache = 1;
+	}
 
 	if(tty_render_glyph_to_existing_graph(&font->font, &font->inst, &glyph, g, x, y, color))
 		return;
 	if(w != NULL)
-		*w = glyph.size.x == 0 ?  font->inst.maxGlyphSize.x : glyph.size.x;
+		*w = glyph.size.x == 0 ?  font->inst.maxGlyphSize.y/2 : glyph.size.x;
 
 	if(h != NULL)
 		*h = glyph.size.y == 0 ?  font->inst.maxGlyphSize.y : glyph.size.y;
+	if(do_cache)
+		ttf_cache(font, c, &glyph);
 }
 
 void graph_draw_text_ttf(graph_t* g, int32_t x, int32_t y, const char* str,

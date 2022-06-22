@@ -8,12 +8,13 @@
 #include <sys/vfs.h>
 #include <sys/keydef.h>
 #include <sys/klog.h>
+#include <ttf/ttf.h>
 #include <x++/X.h>
 
 using namespace Ewok;
 
 typedef struct {
-	font_t* font;
+	ttf_font_t* font;
 	uint32_t fg_color;
 	uint32_t bg_color;
 	uint32_t unfocus_fg_color;
@@ -31,6 +32,8 @@ public:
 	}
 
 	~XConsole() {
+		if(conf.font != NULL)
+			ttf_font_free(conf.font);
 		console_close(&console);
 	}
 
@@ -60,9 +63,16 @@ public:
 		if(v[0] != 0) 
 			conf.buffer_rows = atoi(v);
 
+		uint32_t font_size = 16;
+		v = sconf_get(sconf, "font_size");
+		if(v[0] != 0) 
+			font_size = atoi(v);
+
 		v = sconf_get(sconf, "font");
 		if(v[0] != 0) 
-			conf.font = font_by_name(v);
+			conf.font = ttf_font_load(v, font_size);
+		else
+			conf.font = ttf_font_load("/data/fonts/system.ttf", font_size);
 
 		sconf_free(sconf);
 
@@ -98,8 +108,8 @@ protected:
 		if(console.w != g->w || console.h != g->h) {
 			uint32_t buffer_rows = 0;
 			if(console.font != NULL) {
-				buffer_rows = (g->h / console.font->h)*4;
-				rollStepRows = (g->h / console.font->h) / 2;
+				buffer_rows = (g->h / ttf_font_hight(console.font))*4;
+				rollStepRows = (g->h / ttf_font_hight(console.font)) / 2;
 			}
 			if(conf.buffer_rows > buffer_rows) {
 				buffer_rows = conf.buffer_rows;

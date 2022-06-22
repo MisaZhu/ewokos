@@ -6,6 +6,7 @@
 #include <sys/vfs.h>
 #include <sys/vdevice.h>
 #include <sys/keydef.h>
+#include <ttf/ttf.h>
 #include <x++/X.h>
 
 using namespace Ewok;
@@ -19,7 +20,7 @@ class XIMX : public XWin {
 	int keytableType;
 
 	int kbFD;
-	font_t* font;
+	ttf_font_t* font;
 	gsize_t scrSize;
 	bool hideMode;
 
@@ -30,7 +31,7 @@ class XIMX : public XWin {
 protected:
 	int get_at(int x, int y) {
 		if(!hideMode) {
-			int input_h = font->h + 8;
+			int input_h = ttf_font_hight(font) + 8;
 			y -= input_h;
 		}
 		int i = (x / keyw);
@@ -192,10 +193,10 @@ protected:
 	}
 
 	void draw_input(graph_t* g, int input_h) {
-		int32_t w;
+		uint32_t w;
 		graph_fill(g, 0, 0, g->w, input_h, 0xffaaaa88);
-		get_text_size(inputS, font, &w, NULL);
-		graph_draw_text(g, (g->w-w)/2, 2, inputS, font, 0xff000000);
+		ttf_text_size(inputS, font, 0, &w, NULL);
+		graph_draw_text_ttf(g, (g->w-w)/2, 2, inputS, font, 0, 0xff000000);
 	}
 
 	const char* getKeyTitle(char c) {
@@ -220,18 +221,19 @@ protected:
 	}
 
 	void onRepaint(graph_t* g) {
+		uint32_t font_h = ttf_font_hight(font);
 		if(hideMode) {
 			graph_clear(g, 0xffaaaaaa);
-			graph_draw_text(g,  2, 
-					(g->h - font->h)/2,
-					"|||", font, 0xff000000);
+			graph_draw_text_ttf(g,  2, 
+					(g->h - font_h)/2,
+					"|||", font, 0, 0xff000000);
 			graph_box(g, 0, 0, g->w, g->h, 0xffdddddd);
 			return;
 		}
 
 		graph_fill(g, 0, 0, g->w, g->w, 0xffaaaaaa);
 
-		int input_h = font->h + 8;
+		int input_h = font_h + 8;
 		keyh = (g->h - input_h) / row;
 		keyw = g->w / col;
 
@@ -270,16 +272,16 @@ protected:
 				else if(keySelect != at)
 					continue;
 
-				int32_t tw;
-				get_text_size(t, font, &tw, NULL);
+				uint32_t tw;
+				ttf_text_size(t, font, 0, &tw, NULL);
 				if(keySelect == at) //hot key
-					graph_draw_text(g, kx + (kw-tw)/2, 
+					graph_draw_text_ttf(g, kx + (kw-tw)/2, 
 							ky + 2,
-							t, font, 0xff000000);
+							t, font, 0, 0xff000000);
 				else
-					graph_draw_text(g, kx + (kw-tw)/2, 
-							ky + (kh - font->h)/2,
-							t, font, 0xff000000);
+					graph_draw_text_ttf(g, kx + (kw-tw)/2, 
+							ky + (kh - font_h)/2,
+							t, font, 0, 0xff000000);
 				graph_box(g, kx, ky, kw, kh, 0xffdddddd);
 			}
 		}
@@ -322,7 +324,7 @@ public:
 	inline XIMX(int fw, int fh) {
 		scrSize.w = fw;
 		scrSize.h = fh;
-		font = font_by_name("10x20");
+		font = ttf_font_load("/data/fonts/system.ttf", 14);
 		keytable[1] = ""
 			"1234567890%-+\b"
 			"\\#$&*(){}[]!\n\3"
@@ -335,8 +337,8 @@ public:
 
 		col = 14;
 		row = 3;
-		keyh = font->h + 12;
-		keyw = font->w*2 + 12;
+		keyh = ttf_font_hight(font) + 12;
+		keyw = ttf_font_width(font)*2 + 12;
 		xPid = dev_get_pid("/dev/x");
 		keySelect = -1;
 		hideMode = false;
@@ -347,6 +349,8 @@ public:
 		if(kbFD > 0)
 			::close(kbFD);
 		::close(xPid);
+		if(font != NULL)
+			ttf_font_free(font);
 	}
 
 	int getFixH(void) {

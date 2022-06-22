@@ -7,7 +7,7 @@
 #include <upng/upng.h>
 #include <sys/basic_math.h>
 #include <sys/kernel_tic.h>
-#include <sys/klog.h>
+#include <ttf/ttf.h>
 #include <x++/X.h>
 
 using namespace Ewok;
@@ -18,8 +18,7 @@ class TestX : public XWin {
 	uint32_t tic;
 	graph_t* img_big;
 	graph_t* img_small;
-	font_t* font_big;
-	font_t* font_small;
+	ttf_font_t* font;
 
 	static const int CIRCLE = 0;
 	static const int RECT   = 1;
@@ -40,8 +39,7 @@ public:
         imgX = imgY = 0;
 		img_big = png_image_new(X::getResName("data/rokid.png"));	
 		img_small = png_image_new(X::getResName("data/rokid_small.png"));	
-		font_big = font_by_name("12x16");
-		font_small = font_by_name("8x16");
+		font = ttf_font_load("/data/fonts/system.ttf", 12);
 	}
 	
 	inline ~TestX() {
@@ -49,6 +47,8 @@ public:
 			graph_free(img_big);
 		if(img_small != NULL)
 			graph_free(img_small);
+		if(font != NULL)
+			ttf_font_free(font);
 	}
 protected:
 	void onEvent(xevent_t* ev) {
@@ -64,7 +64,7 @@ protected:
 		int gW = g->w;
 		int gH = g->h;
 		graph_t* img = gW > (img_big->w*2) ? img_big: img_small;
-		font_t* font = gW > (img_big->w*2) ? font_big: font_small;
+		uint32_t font_h = ttf_font_hight(font);
 
 		count++;
 
@@ -98,8 +98,8 @@ protected:
 			graph_fill(g, 0, 0, gW, gH, 0xff000000);
 			if(gW > img->w)
 				imgX = random_to(gW - img->w);
-			if(gH > (img->h+font->h))
-				imgY = random_to(gH - img->h - font->h);
+			if(gH > (img->h+font_h))
+				imgY = random_to(gH - img->h - font_h);
 		}
 
 		if(mode == CIRCLE) {
@@ -117,9 +117,9 @@ protected:
 
 		char str[32];
 		snprintf(str, 31, "EwokOS FPS: %d", fps);
-		get_text_size(str, font, (int32_t*)&w, NULL);
-		graph_fill(g, imgX, imgY+img->h+2, img->w, font->h+4, 0xffffffff);
-		graph_draw_text(g, imgX+4, imgY+img->h+4, str, font, 0xff000000);
+		ttf_text_size(str, font, 0, (uint32_t*)&w, NULL);
+		graph_fill(g, imgX, imgY+img->h+2, img->w, font_h+4, 0xffffffff);
+		graph_draw_text_ttf(g, imgX+4, imgY+img->h+4, str, font, 0, 0xff000000);
 		drawImage(g, img);
 	}
 };

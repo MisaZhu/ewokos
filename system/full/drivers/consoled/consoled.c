@@ -6,7 +6,7 @@
 #include <sys/vfs.h>
 #include <console/console.h>
 #include <fb/fb.h>
-#include <fonts/fonts.h>
+#include <ttf/ttf.h>
 #include <sys/shm.h>
 #include <sys/vdevice.h>
 #include <display/display.h>
@@ -27,7 +27,8 @@ typedef struct {
 } fb_console_t;
 
 static int32_t read_config(fb_console_t* console, const char* fname) {
-	console->console.font = font_by_name("8x16");
+	const char* font_fname =  "/data/fonts/system.ttf";
+	uint32_t font_size = 16;
 	console->console.fg_color = 0xffcccccc;
 	console->console.bg_color = 0xff000000;
 	const char* icon_fn = "/data/icons/starwars/ewok.png";
@@ -39,11 +40,7 @@ static int32_t read_config(fb_console_t* console, const char* fname) {
 		return -1;
 	}
 
-	const char* v = sconf_get(conf, "font");
-	if(v[0] != 0) 
-		console->console.font = font_by_name(v);
-
-	v = sconf_get(conf, "icon");
+	const char* v = sconf_get(conf, "icon");
 	if(v[0] != 0) 
 		console->icon = png_image_new(v);
 	else
@@ -63,8 +60,18 @@ static int32_t read_config(fb_console_t* console, const char* fname) {
 	v = sconf_get(conf, "fg_color");
 	if(v[0] != 0) 
 		console->console.fg_color = atoi_base(v, 16);
+	
+	v = sconf_get(conf, "font_size");
+	if(v[0] != 0) 
+		font_size = atoi(v);
 
+	v = sconf_get(conf, "font");
+	if(v[0] != 0) 
+		font_fname = v;
+	console->console.font = ttf_font_load(font_fname, font_size);
 	sconf_free(conf);
+	if(console->console.font == NULL)
+		return -1;
 	return 0;
 }
 
@@ -85,6 +92,8 @@ static void close_console(fb_console_t* console) {
 	fb_close(&console->fb);
 	if(console->icon != NULL)
 		graph_free(console->icon);
+	if(console->console.font != NULL)
+		ttf_font_free(console->console.font);
 	//if(console->bg_image != NULL)
 		//graph_free(console->bg_image);
 }

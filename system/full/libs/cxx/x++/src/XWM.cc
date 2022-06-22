@@ -146,11 +146,11 @@ void XWM::drawTitle(graph_t* g, xinfo_t* info, grect_t* r, bool top) {
 	uint32_t fg, bg;
 	getColor(&fg, &bg, top);
 	gsize_t sz;
-	get_text_size(info->title, font, &sz.w, &sz.h);
+	ttf_text_size(info->title, font, 0, (uint32_t*)&sz.w, (uint32_t*)&sz.h);
 
 	int pw = (r->w-sz.w)/2;
 	graph_fill(g, r->x, r->y, r->w, TITLE_H, bg);//title box
-	graph_draw_text(g, r->x+pw, r->y+2, info->title, font, fg);//title
+	graph_draw_text_ttf(g, r->x+pw, r->y+2, info->title, font, 0, fg);//title
 }
 
 static void draw_title(graph_t* g, xinfo_t* info, grect_t* r, bool top, void* p) {
@@ -250,7 +250,7 @@ XWM::XWM(void) {
 	xwm.draw_resize = draw_resize;
 	xwm.draw_desktop = draw_desktop;
 
-	font = font_by_name("8x16");
+	font = ttf_font_load("/data/fonts/system.ttf", 12);
 }
 
 void XWM::run(void) {

@@ -14,7 +14,7 @@ extern "C" {
 #define T_W 2 /*tab width*/
 
 static void cons_draw_char(console_t* console, graph_t* g, int32_t x, int32_t y, char c) {
-	graph_draw_char(g, x, y, c, console->font, console->fg_color);
+	graph_draw_char_ttf(g, x, y, c, console->font, console->fg_color, NULL, NULL);
 }
 
 static uint32_t get_data_rows(console_t* console) {
@@ -43,9 +43,9 @@ int32_t console_reset(console_t* console, uint32_t w, uint32_t h, uint32_t total
 	console->state.start_row = 0;
 	console->state.back_offset_rows = 0;
 	console->state.current_row = 0;
-	console->content.cols = (w / console->font->w) - 1;
+	console->content.cols = (w / ttf_font_width(console->font)) - 1;
 
-	uint32_t min_rows = h / console->font->h;
+	uint32_t min_rows = h / ttf_font_hight(console->font);
 	if(total_rows < min_rows)
 		total_rows = min_rows;
 	console->content.rows = total_rows;
@@ -124,7 +124,7 @@ void console_roll(console_t* console, int32_t rows) {
 void console_refresh_content(console_t* console, graph_t* g) {
 	if(console->font == NULL)
 		return;
-	uint32_t g_rows = g->h / console->font->h;
+	uint32_t g_rows = g->h / ttf_font_hight(console->font);
 	uint32_t total_rows = get_data_rows(console);
 	int32_t start_row = total_rows - g_rows - console->state.back_offset_rows;
 	if(start_row < 0)
@@ -135,11 +135,13 @@ void console_refresh_content(console_t* console, graph_t* g) {
 	uint32_t i = start_row * console->content.cols;
 	uint32_t x = 0;
 	uint32_t y = 0;
+	uint32_t w = ttf_font_width(console->font);
+	uint32_t h = ttf_font_hight(console->font);
 	while(i < console->state.size) {
 		uint32_t at = get_at(console, i);
 		char c = console->content.data[at];
 		if(c != 0 && c != '\n') {
-			cons_draw_char(console, g, x*console->font->w, y*console->font->h, console->content.data[at]);
+			cons_draw_char(console, g, x*w, y*h, console->content.data[at]);
 		}
 		x++;
 		if(x >= console->content.cols) {

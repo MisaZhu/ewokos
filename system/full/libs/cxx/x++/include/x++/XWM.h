@@ -2,7 +2,7 @@
 #define XWM_HH
 
 #include <x/xwm.h>
-#include <graph/font.h>
+#include <ttf/ttf.h>
 #include <graph/graph.h>
 
 namespace Ewok {
@@ -10,7 +10,7 @@ namespace Ewok {
 class XWM {
 protected:
 	xwm_t xwm;
-	font_t*  font;
+	ttf_font_t*  font;
 
 	virtual void getColor(uint32_t *fg, uint32_t* bg, bool top);
 	virtual void getWorkspace(int style, grect_t* xr, grect_t* wsr);
@@ -47,7 +47,10 @@ public:
 	inline void __drawDragFrame(graph_t* g, grect_t* r) {drawDragFrame(g, r); }
 
 	XWM(void);
-	virtual ~XWM(void) {}
+	virtual ~XWM(void) {
+		if(font != NULL)
+			ttf_font_free(font);
+	}
 
 	void run(void);
 };

@@ -2,7 +2,6 @@
 #define X_H
 
 #include <graph/graph.h>
-#include <fonts/fonts.h>
 #include <x/xcntl.h>
 #include <x/xevent.h>
 

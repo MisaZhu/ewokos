@@ -3,6 +3,7 @@
 
 #include <ttf/truety.h>
 #include <graph/graph.h>
+#include <hashmap.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -11,6 +12,7 @@ extern "C" {
 typedef struct {
 	TTY_Font font;
 	TTY_Instance inst;
+	map_t *cache;
 } ttf_font_t;
 
 ttf_font_t* ttf_font_load(const char* fname, uint16_t ppm);

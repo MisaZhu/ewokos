@@ -5,7 +5,7 @@
 #include <upng/upng.h>
 #include <x++/X.h>
 #include <sys/keydef.h>
-#include <sys/klog.h>
+#include <ttf/ttf.h>
 #include <dirent.h>
 
 #define ITEM_MAX 128
@@ -29,7 +29,7 @@ class Launcher: public XWin {
 	items_t items;
 	int selected;
 	bool focused;
-	font_t* font;
+	ttf_font_t* font;
 	uint32_t titleColor;
 
 	void drawIcon(graph_t* g, int at, int x, int y) {
@@ -59,11 +59,11 @@ class Launcher: public XWin {
 	void drawTitle(graph_t* g, int at, int x, int y) {
 		const char* title = items.items[at].app->cstr;
 		int item_size = items.item_size;
-		int32_t w;
-		get_text_size(title, font, &w, NULL);
+		uint32_t w;
+		ttf_text_size(title, font, 0, &w, NULL);
 		int dx = (item_size - w)/2;
-		int dy = (item_size - font->h);
-		graph_draw_text(g, x+dx, y+dy, title, font, titleColor);
+		int dy = (item_size - ttf_font_hight(font));
+		graph_draw_text_ttf(g, x+dx, y+dy, title, font, 0, titleColor);
 	}
 
 	void runProc(const char* app) {
@@ -176,7 +176,7 @@ public:
 		selected = 0;
 		focused = true;
 		memset(&items, 0, sizeof(items_t));
-		font = font_by_name("8x16");
+		font = NULL;
 	}
 
 	inline ~Launcher() {
@@ -187,6 +187,8 @@ public:
 			if(items.items[i].iconImg)
 				graph_free(items.items[i].iconImg);
 		}
+		if(font != NULL)
+			ttf_font_free(font);
 	}
 
 	bool readConfig(const char* fname) {
@@ -202,9 +204,18 @@ public:
 		v = sconf_get(conf, "item_size");
 		if(v[0] != 0)
 			items.item_size = atoi(v);
+
+		uint32_t font_size = 16;
+		v = sconf_get(conf, "font_size");
+		if(v[0] != 0)
+			font_size = atoi(v);
+
 		v = sconf_get(conf, "font");
 		if(v[0] != 0)
-			font = font_by_name(v);
+			font = ttf_font_load(v, font_size);
+		else
+			font = ttf_font_load("/data/fonts/system.ttf", font_size);
+
 		v = sconf_get(conf, "title_color");
 		if(v[0] != 0)
 			titleColor = atoi_base(v, 16);

@@ -15,8 +15,9 @@ $(PNG): $(PNG_OBJS) \
 		$(BUILD_DIR)/lib/libewokc.a \
 		$(BUILD_DIR)/lib/libx++.a \
 		$(BUILD_DIR)/lib/libx.a \
+		$(BUILD_DIR)/lib/libupng.a \
 		$(BUILD_DIR)/lib/libcxx.a 
-	$(LD) -Ttext=100 $(PNG_OBJS) -o $(PNG) $(LDFLAGS)  -lgraph -lfonts -lupng -lx++ -lx -lewokc -lc -lcxx
+	$(LD) -Ttext=100 $(PNG_OBJS) -o $(PNG) $(LDFLAGS)  -lgraph -lupng -lx++ -lx -lewokc -lc -lcxx
 
 clean:
 	rm -f $(PNG_OBJS)
