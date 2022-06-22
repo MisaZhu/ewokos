@@ -78,7 +78,7 @@ inline int  ttf_font_width(ttf_font_t* font) {
 	return font->inst.maxGlyphSize.x;
 }
 
-TTY_Error tty_render_glyph_to_existing_graph(TTY_Font* font, TTY_Instance* instance, TTY_Glyph* glyph, graph_t* g, TTY_U32 x, TTY_U32 y, uint32_t color);
+TTY_Error tty_render_glyph_to_existing_graph(TTY_Font* font, TTY_Instance* instance, TTY_Glyph* glyph, TTY_U16 alignw, graph_t* g, TTY_U32 x, TTY_U32 y, uint32_t color);
 TTY_Error tty_glyph_fetch(TTY_Font* font, TTY_Instance* instance, TTY_Glyph* glyph);
 
 void ttf_char_size(uint16_t c, ttf_font_t* font, uint16_t *w, uint16_t* h) {
@@ -154,11 +154,7 @@ void graph_draw_char_ttf_align(graph_t* g, int32_t x, int32_t y, TTY_U32 c,
 		do_cache = 1;
 	}
 
-	if(glyph.size.x > 0 && aw > glyph.size.x) {
-		x += ((TTY_S32)aw-glyph.size.x)/2;
-	}
-
-	if(tty_render_glyph_to_existing_graph(&font->font, &font->inst, &glyph, g, x, y, color))
+	if(tty_render_glyph_to_existing_graph(&font->font, &font->inst, &glyph, aw, g, x, y, color))
 		return;
 	if(w != NULL) {
 		if(aw > 0)

@@ -33,7 +33,7 @@ public:
 		fps_counter = 0;
 		fighter_step = 0;
 		img_fighter = png_image_new(X::getResName("data/fighter.png"));
-    	font = ttf_font_load("/data/fonts/system.ttf", 48, 2);
+    	font = ttf_font_load("/data/fonts/system.ttf", 42, 2);
 	}
 	
 	inline ~TestX() {

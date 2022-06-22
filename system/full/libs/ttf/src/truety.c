@@ -4168,7 +4168,7 @@ static void tty_rasterize_using_active_edges(TTY_Active_Edge_List* activeEdges, 
     }
 }
 
-TTY_Error tty_render_glyph_to_existing_graph(TTY_Font* font, TTY_Instance* instance, TTY_Glyph* glyph, graph_t* g, TTY_U32 x, TTY_U32 y, uint32_t color) {
+TTY_Error tty_render_glyph_to_existing_graph(TTY_Font* font, TTY_Instance* instance, TTY_Glyph* glyph, TTY_U16 alignw, graph_t* g, TTY_U32 x, TTY_U32 y, uint32_t color) {
     if (glyph->glyfBlock == NULL) {
         // The glyph is an empty glyph (i.e. space)
         glyph->advance.x = tty_get_unhinted_glyph_x_advance(font, glyph->idx, instance->scale);
@@ -4274,7 +4274,9 @@ TTY_Error tty_render_glyph_to_existing_graph(TTY_Font* font, TTY_Instance* insta
     scanlineEnd   = tty_f26dot6_floor(min.y);
     scanline      = scanlineStart;
 
-    y += instance->maxGlyphSize.y - glyph->offset.y;
+    y += instance->maxGlyphSize.y - glyph->offset.y - instance->maxGlyphSize.y /4;
+    if(alignw > glyph->size.x)
+    	x += ((TTY_S32)alignw-glyph->size.x)/2;
     while (scanline >= scanlineEnd) {
         tty_update_or_remove_active_edges(&activeEdges, scanline, xIntersectionOff);
         tty_sort_active_edges(&activeEdges);
