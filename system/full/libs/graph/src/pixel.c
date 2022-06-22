@@ -28,6 +28,8 @@ inline void graph_pixel_safe(graph_t* g, int32_t x, int32_t y, uint32_t color) {
 
 inline void graph_pixel_argb(graph_t* graph, int32_t x, int32_t y,
 		uint8_t a, uint8_t r, uint8_t g, uint8_t b) {
+	if(a == 0)
+		return;
 	if(a == 0xff) {
 		graph->buffer[y * graph->w + x] = argb(a, r, g, b);
 		return;
@@ -49,7 +51,7 @@ inline void graph_pixel_argb(graph_t* graph, int32_t x, int32_t y,
 
 inline void graph_pixel_argb_safe(graph_t* graph, int32_t x, int32_t y,
 		uint8_t a, uint8_t r, uint8_t g, uint8_t b) {
-	if(graph == NULL)
+	if(graph == NULL || a == 0)
 		return;
 	if(graph->clip.w == 0 || graph->clip.h == 0) {
 		if(x < 0 || x >= graph->w || y < 0 || y >= graph->h)

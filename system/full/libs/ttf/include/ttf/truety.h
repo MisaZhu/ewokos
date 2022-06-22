@@ -211,6 +211,7 @@ typedef struct {
     TTY_V2   offset;
     TTY_V2   size;
     TTY_S16  numContours; /* Equals -1 if the glyph is a composite glyph */
+    TTY_U8*  cache;
 } TTY_Glyph;
 
 

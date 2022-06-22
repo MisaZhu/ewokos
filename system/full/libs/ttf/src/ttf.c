@@ -35,6 +35,8 @@ static int free_cache(const char* key, any_t data, any_t arg) {
 	map_t* map = (map_t*)arg;
 	TTY_Glyph* v = (TTY_Glyph*)data;
 	hashmap_remove(map, key);
+	if(v->cache != NULL)
+		free(v->cache);
 	free(v);
 	return MAP_OK;
 }
@@ -78,7 +80,7 @@ inline int  ttf_font_width(ttf_font_t* font) {
 	return font->inst.maxGlyphSize.x;
 }
 
-TTY_Error tty_render_glyph_to_existing_graph(TTY_Font* font, TTY_Instance* instance, TTY_Glyph* glyph, TTY_U16 alignw, graph_t* g, TTY_U32 x, TTY_U32 y, uint32_t color);
+TTY_Error tty_render_glyph_to_existing_graph(TTY_Font* font, TTY_Instance* instance, TTY_Glyph* glyph, TTY_U16 alignw);
 TTY_Error tty_glyph_fetch(TTY_Font* font, TTY_Instance* instance, TTY_Glyph* glyph);
 
 void ttf_char_size(uint16_t c, ttf_font_t* font, uint16_t *w, uint16_t* h) {
@@ -153,18 +155,31 @@ void graph_draw_char_ttf_align(graph_t* g, int32_t x, int32_t y, TTY_U32 c,
 			return;
 		do_cache = 1;
 	}
-
-	if(tty_render_glyph_to_existing_graph(&font->font, &font->inst, &glyph, aw, g, x, y, color))
-		return;
+	if(glyph.cache == NULL) {
+		if(tty_render_glyph_to_existing_graph(&font->font, &font->inst, &glyph, aw))
+			return;
+	}
+	if(glyph.cache != NULL) {
+		for (TTY_S32 j = 0; j < font->inst.maxGlyphSize.y; j++) {
+			for (TTY_S32 i = 0; i < font->inst.maxGlyphSize.x; i++) {
+				TTY_U8 pv = glyph.cache[j*font->inst.maxGlyphSize.x+i];
+				graph_pixel_argb_safe(g, x+i, y+j,
+						(color >> 24) & pv & 0xff,
+						(color >> 16) & 0xff,
+						(color >> 8) & 0xff,
+						color & 0xff);
+			}
+		}
+	}
 	if(w != NULL) {
 		if(aw > 0)
 			*w = aw;
 		else
-			*w = glyph.size.x == 0 ?  font->inst.maxGlyphSize.y/2 : glyph.size.x;
+			*w = glyph.size.x == 0 ?  glyph.advance.x : glyph.size.x;
 	}
 
 	if(h != NULL)
-		*h = glyph.size.y == 0 ?  font->inst.maxGlyphSize.y : glyph.size.y;
+		*h = glyph.size.y == 0 ?  glyph.advance.y : glyph.size.y;
 	if(do_cache)
 		ttf_cache(font, c, &glyph);
 }
