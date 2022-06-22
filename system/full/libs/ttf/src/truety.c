@@ -4169,7 +4169,7 @@ static void tty_rasterize_using_active_edges(TTY_Active_Edge_List* activeEdges, 
     }
 }
 
-TTY_Error tty_render_glyph_to_existing_graph(TTY_Font* font, TTY_Instance* instance, TTY_Glyph* glyph, TTY_U16 alignw) {
+TTY_Error tty_render_glyph_cache(TTY_Font* font, TTY_Instance* instance, TTY_Glyph* glyph, TTY_U16 alignw) {
     if (glyph->glyfBlock == NULL) {
         // The glyph is an empty glyph (i.e. space)
         glyph->advance.x = tty_get_unhinted_glyph_x_advance(font, glyph->idx, instance->scale);
