@@ -23,6 +23,14 @@ static uint32_t get_data_rows(console_t* console) {
 	return console->state.current_row;
 }
 
+static uint32_t font_width(ttf_font_t* font) {
+	uint32_t w;
+	ttf_text_size("a", font, &w, NULL);
+	if(w == 0)
+		w = ttf_font_width(font);
+	return w;
+}
+
 int32_t console_reset(console_t* console, uint32_t w, uint32_t h, uint32_t total_rows) {
 	if(console->font == NULL)
 		return -1;
@@ -43,7 +51,7 @@ int32_t console_reset(console_t* console, uint32_t w, uint32_t h, uint32_t total
 	console->state.start_row = 0;
 	console->state.back_offset_rows = 0;
 	console->state.current_row = 0;
-	console->content.cols = (w / ttf_font_width(console->font)) - 1;
+	console->content.cols = (w / font_width(console->font)) - 1;
 
 	uint32_t min_rows = h / ttf_font_hight(console->font);
 	if(total_rows < min_rows)
@@ -135,7 +143,7 @@ void console_refresh_content(console_t* console, graph_t* g) {
 	uint32_t i = start_row * console->content.cols;
 	uint32_t x = 0;
 	uint32_t y = 0;
-	uint32_t w = ttf_font_width(console->font);
+	uint32_t w = font_width(console->font);
 	uint32_t h = ttf_font_hight(console->font);
 	while(i < console->state.size) {
 		uint32_t at = get_at(console, i);
