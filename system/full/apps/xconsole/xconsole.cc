@@ -94,14 +94,14 @@ protected:
 	void onFocus(void) {
 		console.fg_color = conf.fg_color;
 		console.bg_color = conf.bg_color;
-		repaint();
+		repaint(true);
 		callXIM();
 	}
 
 	void onUnfocus(void) {
 		console.fg_color = conf.unfocus_fg_color;
 		console.bg_color = conf.unfocus_bg_color;
-		repaint();
+		repaint(true);
 	}
 
 	void onRepaint(graph_t* g) {
@@ -125,12 +125,12 @@ protected:
 			int c = ev->value.im.value;
 			if(c == KEY_ROLL_BACK) {
 				console_roll(&console, -(rollStepRows));
-				repaint();
+				repaint(true);
 				return;
 			}
 			else if(c == KEY_ROLL_FORWARD) {
 				console_roll(&console, (rollStepRows));
-				repaint();
+				repaint(true);
 				return;
 			}
 
@@ -153,7 +153,7 @@ static void loop(void* p) {
 			console->putChar(c);
 		}
 		console->rollEnd();
-		console->repaint();
+		console->repaint(true);
 		return;
 	}
 	if(errno != EAGAIN) 

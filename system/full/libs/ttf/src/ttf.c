@@ -136,8 +136,8 @@ void ttf_text_size(const char* str,
 	free(unicode);
 }
 
-void graph_draw_char_ttf(graph_t* g, int32_t x, int32_t y, TTY_U32 c,
-		ttf_font_t* font, uint32_t color, TTY_U16* w, TTY_U16* h) {
+void graph_draw_char_ttf_align(graph_t* g, int32_t x, int32_t y, TTY_U32 c,
+		ttf_font_t* font, uint32_t color, TTY_U16 aw, TTY_U16* w, TTY_U16* h) {
 	if(w != NULL)
 		*w = 0;
 	if(h != NULL)
@@ -154,15 +154,29 @@ void graph_draw_char_ttf(graph_t* g, int32_t x, int32_t y, TTY_U32 c,
 		do_cache = 1;
 	}
 
+	if(aw != 0) {
+		x += (aw-glyph.size.x)/2;
+	}
+
 	if(tty_render_glyph_to_existing_graph(&font->font, &font->inst, &glyph, g, x, y, color))
 		return;
-	if(w != NULL)
-		*w = glyph.size.x == 0 ?  font->inst.maxGlyphSize.y/2 : glyph.size.x;
+	if(w != NULL) {
+		if(aw > 0)
+			*w = aw;
+		else
+			*w = glyph.size.x == 0 ?  font->inst.maxGlyphSize.y/2 : glyph.size.x;
+	}
 
 	if(h != NULL)
 		*h = glyph.size.y == 0 ?  font->inst.maxGlyphSize.y : glyph.size.y;
 	if(do_cache)
 		ttf_cache(font, c, &glyph);
+}
+
+inline void graph_draw_char_ttf(graph_t* g, int32_t x, int32_t y, TTY_U32 c,
+		ttf_font_t* font, uint32_t color, TTY_U16* w, TTY_U16* h) {
+	graph_draw_char_ttf_align(g, x, y, c,
+		font, color, 0, w, h);
 }
 
 void graph_draw_text_ttf(graph_t* g, int32_t x, int32_t y, const char* str,

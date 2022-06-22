@@ -13,16 +13,6 @@ extern "C" {
 
 #define T_W 2 /*tab width*/
 
-static void cons_draw_char(console_t* console, graph_t* g, int32_t x, int32_t y, char c) {
-	graph_draw_char_ttf(g, x, y, c, console->font, console->fg_color, NULL, NULL);
-}
-
-static uint32_t get_data_rows(console_t* console) {
-	if(console->state.start_row != 0)
-		return console->content.rows;
-	return console->state.current_row;
-}
-
 static uint32_t _fontw = 0;
 static uint32_t font_width(ttf_font_t* font) {
 	if(_fontw != 0)
@@ -32,6 +22,16 @@ static uint32_t font_width(ttf_font_t* font) {
 	if(_fontw == 0)
 		_fontw = ttf_font_width(font);
 	return _fontw;
+}
+
+static void cons_draw_char(console_t* console, graph_t* g, int32_t x, int32_t y, char c) {
+	graph_draw_char_ttf_align(g, x, y, c, console->font, console->fg_color, _fontw, NULL, NULL);
+}
+
+static uint32_t get_data_rows(console_t* console) {
+	if(console->state.start_row != 0)
+		return console->content.rows;
+	return console->state.current_row;
 }
 
 int32_t console_reset(console_t* console, uint32_t w, uint32_t h, uint32_t total_rows) {
