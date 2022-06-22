@@ -23,12 +23,15 @@ static uint32_t get_data_rows(console_t* console) {
 	return console->state.current_row;
 }
 
+static uint32_t _fontw = 0;
 static uint32_t font_width(ttf_font_t* font) {
-	uint32_t w;
-	ttf_text_size("a", font, &w, NULL);
-	if(w == 0)
-		w = ttf_font_width(font);
-	return w;
+	if(_fontw != 0)
+		return _fontw;
+
+	ttf_text_size("a", font, &_fontw, NULL);
+	if(_fontw == 0)
+		_fontw = ttf_font_width(font);
+	return _fontw;
 }
 
 int32_t console_reset(console_t* console, uint32_t w, uint32_t h, uint32_t total_rows) {
@@ -96,6 +99,7 @@ int32_t console_init(console_t* console) {
 	console->bg_color = argb(0xff, 0x0, 0x0, 0x0);
 	console->fg_color = argb(0xff, 0xaa, 0xaa, 0xaa);
 	console->font = NULL;
+	_fontw = 0;
 	memset(&console->content, 0, sizeof(content_t));
 	return 0;
 }
