@@ -33,7 +33,7 @@ public:
 		fps_counter = 0;
 		fighter_step = 0;
 		img_fighter = png_image_new(X::getResName("data/fighter.png"));
-    	font = ttf_font_load("/data/fonts/system.ttf", 14);
+    	font = ttf_font_load("/data/fonts/system.ttf", 48, 2);
 	}
 	
 	inline ~TestX() {
@@ -67,7 +67,7 @@ protected:
 
 		char str[32];
 		snprintf(str, 31, "EwokOS platform FPS: %d", fps);
-		graph_draw_text_ttf(g, 10, gH-ttf_font_hight(font), str, font, 2, 0xffffffff);
+		graph_draw_text_ttf(g, 10, gH-ttf_font_hight(font), str, font, 0xffffffff);
 		drawFitgher(g);
 
 		fighter_step++;

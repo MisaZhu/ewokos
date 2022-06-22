@@ -60,10 +60,10 @@ class Launcher: public XWin {
 		const char* title = items.items[at].app->cstr;
 		int item_size = items.item_size;
 		uint32_t w;
-		ttf_text_size(title, font, 0, &w, NULL);
+		ttf_text_size(title, font, &w, NULL);
 		int dx = (item_size - w)/2;
 		int dy = (item_size - ttf_font_hight(font));
-		graph_draw_text_ttf(g, x+dx, y+dy, title, font, 0, titleColor);
+		graph_draw_text_ttf(g, x+dx, y+dy, title, font, titleColor);
 	}
 
 	void runProc(const char* app) {
@@ -212,9 +212,9 @@ public:
 
 		v = sconf_get(conf, "font");
 		if(v[0] != 0)
-			font = ttf_font_load(v, font_size);
+			font = ttf_font_load(v, font_size, 2);
 		else
-			font = ttf_font_load("/data/fonts/system.ttf", font_size);
+			font = ttf_font_load("/data/fonts/system.ttf", font_size, 2);
 
 		v = sconf_get(conf, "title_color");
 		if(v[0] != 0)

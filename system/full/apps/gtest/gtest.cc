@@ -39,7 +39,7 @@ public:
         imgX = imgY = 0;
 		img_big = png_image_new(X::getResName("data/rokid.png"));	
 		img_small = png_image_new(X::getResName("data/rokid_small.png"));	
-		font = ttf_font_load("/data/fonts/system.ttf", 12);
+		font = ttf_font_load("/data/fonts/system.ttf", 14, 2);
 	}
 	
 	inline ~TestX() {
@@ -117,9 +117,9 @@ protected:
 
 		char str[32];
 		snprintf(str, 31, "EwokOS FPS: %d", fps);
-		ttf_text_size(str, font, 0, (uint32_t*)&w, NULL);
+		ttf_text_size(str, font, (uint32_t*)&w, NULL);
 		graph_fill(g, imgX, imgY+img->h+2, img->w, font_h+4, 0xffffffff);
-		graph_draw_text_ttf(g, imgX+4, imgY+img->h+4, str, font, 0, 0xff000000);
+		graph_draw_text_ttf(g, imgX+4, imgY+img->h+4, str, font, 0xff000000);
 		drawImage(g, img);
 	}
 };

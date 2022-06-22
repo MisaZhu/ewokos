@@ -70,9 +70,9 @@ public:
 
 		v = sconf_get(sconf, "font");
 		if(v[0] != 0) 
-			conf.font = ttf_font_load(v, font_size);
+			conf.font = ttf_font_load(v, font_size, 2);
 		else
-			conf.font = ttf_font_load("/data/fonts/system.ttf", font_size);
+			conf.font = ttf_font_load("/data/fonts/system.ttf", font_size, 2);
 
 		sconf_free(sconf);
 

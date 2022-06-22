@@ -16,7 +16,7 @@ X = $(TARGET_DIR)/lib/libx.a
 $(X): $(LIB_X_OBJS) \
 		$(TARGET_DIR)/lib/libgraph.a \
 		$(TARGET_DIR)/lib/libttf.a
-	$(AR) rT $(X) $(LIB_X_OBJS) -lttf
+	$(AR) rT $(X) $(LIB_X_OBJS) $(TARGET_DIR)/lib/libttf.a
 	cp -r include/* $(TARGET_DIR)/include
 
 clean:

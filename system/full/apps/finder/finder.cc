@@ -134,7 +134,7 @@ protected:
 					g, xMargin, iconMargin, dirIcon->w, dirIcon->h, 0xff);
 			xMargin += dirIcon->w + 4;
 		}
-		graph_draw_text_ttf(g, xMargin, yMargin, name, font, 0, titleColor);
+		graph_draw_text_ttf(g, xMargin, yMargin, name, font, titleColor);
 
 		for(int i=start; i<nums; i++) {
 			struct dirent* it = &files[i];
@@ -158,7 +158,7 @@ protected:
 						g, xMargin, (i+1-start)*h+iconMargin, icon->w, icon->h, 0xff);
 				xMargin += icon->w + 4;
 			}
-			graph_draw_text_ttf(g, xMargin, (i+1-start)*h+yMargin, it->d_name, font, 0, color);
+			graph_draw_text_ttf(g, xMargin, (i+1-start)*h+yMargin, it->d_name, font, color);
 		}
 	}
 
@@ -235,11 +235,16 @@ public:
 		if(conf == NULL)
 			return false;
 
-		const char* v = sconf_get(conf, "font");
+		uint32_t font_size = 14;
+		const char* v = sconf_get(conf, "font_size");
 		if(v[0] != 0)
-			font = ttf_font_load(v, 12);
+			font_size = atoi(v);
+
+		v = sconf_get(conf, "font");
+		if(v[0] != 0)
+			font = ttf_font_load(v, font_size, 2);
 		else
-			font = ttf_font_load("/data/fonts/system.ttf", 12);
+			font = ttf_font_load("/data/fonts/system.ttf", font_size, 2);
 
 		v = sconf_get(conf, "item_size");
 		if(v[0] != 0)

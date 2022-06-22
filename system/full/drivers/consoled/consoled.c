@@ -68,7 +68,7 @@ static int32_t read_config(fb_console_t* console, const char* fname) {
 	v = sconf_get(conf, "font");
 	if(v[0] != 0) 
 		font_fname = v;
-	console->console.font = ttf_font_load(font_fname, font_size);
+	console->console.font = ttf_font_load(font_fname, font_size, 2);
 	sconf_free(conf);
 	if(console->console.font == NULL)
 		return -1;

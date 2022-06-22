@@ -195,8 +195,8 @@ protected:
 	void draw_input(graph_t* g, int input_h) {
 		uint32_t w;
 		graph_fill(g, 0, 0, g->w, input_h, 0xffaaaa88);
-		ttf_text_size(inputS, font, 0, &w, NULL);
-		graph_draw_text_ttf(g, (g->w-w)/2, 2, inputS, font, 0, 0xff000000);
+		ttf_text_size(inputS, font, &w, NULL);
+		graph_draw_text_ttf(g, (g->w-w)/2, 2, inputS, font, 0xff000000);
 	}
 
 	const char* getKeyTitle(char c) {
@@ -226,7 +226,7 @@ protected:
 			graph_clear(g, 0xffaaaaaa);
 			graph_draw_text_ttf(g,  2, 
 					(g->h - font_h)/2,
-					"|||", font, 0, 0xff000000);
+					"|||", font, 0xff000000);
 			graph_box(g, 0, 0, g->w, g->h, 0xffdddddd);
 			return;
 		}
@@ -273,15 +273,15 @@ protected:
 					continue;
 
 				uint32_t tw;
-				ttf_text_size(t, font, 0, &tw, NULL);
+				ttf_text_size(t, font, &tw, NULL);
 				if(keySelect == at) //hot key
 					graph_draw_text_ttf(g, kx + (kw-tw)/2, 
 							ky + 2,
-							t, font, 0, 0xff000000);
+							t, font, 0xff000000);
 				else
 					graph_draw_text_ttf(g, kx + (kw-tw)/2, 
 							ky + (kh - font_h)/2,
-							t, font, 0, 0xff000000);
+							t, font, 0xff000000);
 				graph_box(g, kx, ky, kw, kh, 0xffdddddd);
 			}
 		}
@@ -324,7 +324,7 @@ public:
 	inline XIMX(int fw, int fh) {
 		scrSize.w = fw;
 		scrSize.h = fh;
-		font = ttf_font_load("/data/fonts/system.ttf", 14);
+		font = ttf_font_load("/data/fonts/system.ttf", 14, 2);
 		keytable[1] = ""
 			"1234567890%-+\b"
 			"\\#$&*(){}[]!\n\3"
