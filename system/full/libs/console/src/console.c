@@ -13,13 +13,16 @@ extern "C" {
 
 #define T_W 2 /*tab width*/
 
-static uint32_t _fontw = 0;
+static int32_t _fontw = 0;
 static uint32_t font_width(ttf_font_t* font) {
 	if(_fontw != 0)
 		return _fontw;
 
-	ttf_text_size("o", font, &_fontw, NULL);
+	ttf_char_size('w', font, &_fontw, NULL);
 	if(_fontw == 0)
+		_fontw = ttf_font_width(font);
+	_fontw += font->margin;
+	if(_fontw <= 0)
 		_fontw = ttf_font_width(font);
 	return _fontw;
 }

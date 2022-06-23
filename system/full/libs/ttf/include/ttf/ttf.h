@@ -12,11 +12,11 @@ extern "C" {
 typedef struct {
 	TTY_Font font;
 	TTY_Instance inst;
-	uint16_t margin;
+	int16_t margin;
 	map_t *cache;
 } ttf_font_t;
 
-ttf_font_t* ttf_font_load(const char* fname, uint16_t ppm, uint16_t margin);
+ttf_font_t* ttf_font_load(const char* fname, uint16_t ppm, int16_t margin);
 
 void ttf_font_free(ttf_font_t* font);
 

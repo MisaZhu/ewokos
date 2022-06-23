@@ -68,11 +68,20 @@ public:
 		if(v[0] != 0) 
 			font_size = atoi(v);
 
+		int32_t font_margin = 1;
+		v = sconf_get(sconf, "font_margin");
+		if(v[0] != 0) {
+			if(v[0] == '-')
+				font_margin = -atoi(v+1);
+			else
+				font_margin = atoi(v);
+		}
+
 		v = sconf_get(sconf, "font");
 		if(v[0] != 0) 
-			conf.font = ttf_font_load(v, font_size, 1);
+			conf.font = ttf_font_load(v, font_size, font_margin);
 		else
-			conf.font = ttf_font_load("/data/fonts/system.ttf", font_size, 1);
+			conf.font = ttf_font_load("/data/fonts/system.ttf", font_size, font_margin);
 
 		sconf_free(sconf);
 
