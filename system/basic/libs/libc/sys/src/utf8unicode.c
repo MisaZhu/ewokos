@@ -1,5 +1,9 @@
 #include <stddef.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 int utf82unicode_char (unsigned char *ch, int *unicode) {
 	unsigned char *p = NULL;
 	int e = 0, n = 0;
@@ -88,3 +92,7 @@ int utf82unicode (unsigned char * utf8_str,
 
 	return count;
 }
+
+#ifdef __cplusplus
+}
+#endif
