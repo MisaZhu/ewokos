@@ -2,6 +2,7 @@
 #include <sys/utf8unicode.h>
 #include <stdlib.h>
 #include <string.h>
+#include <graph/graph.h>
 #include <unistd.h>
 
 #ifdef __cplusplus

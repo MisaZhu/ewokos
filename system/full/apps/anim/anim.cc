@@ -17,7 +17,6 @@ class TestX : public XWin {
 	int fighter_step;
 	uint32_t tic;
 	graph_t* img_fighter;
-	ttf_font_t* font;
 
 	void drawFitgher(graph_t* g) {
 		graph_t* img = img_fighter;
@@ -33,13 +32,11 @@ public:
 		fps_counter = 0;
 		fighter_step = 0;
 		img_fighter = png_image_new(X::getResName("data/fighter.png"));
-    	font = ttf_font_load("/data/fonts/system.ttf", 32, 2);
 	}
 	
 	inline ~TestX() {
 		if(img_fighter != NULL)
 			graph_free(img_fighter);
-		ttf_font_free(font);
 	}
 protected:
 	void onEvent(xevent_t* ev) {
@@ -65,9 +62,6 @@ protected:
 			fps_counter = 0;
 		}
 
-		char str[128];
-		snprintf(str, 127, "EwokOS 微内核操作系统 FPS: %d", fps);
-		graph_draw_text_ttf(g, 10, gH-ttf_font_hight(font), str, font, 0xffffffff);
 		drawFitgher(g);
 
 		fighter_step++;

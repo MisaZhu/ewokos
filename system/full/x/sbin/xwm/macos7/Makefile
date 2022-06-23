@@ -17,6 +17,7 @@ $(XWM): $(XWM_OBJS) \
 		$(BUILD_DIR)/lib/libx.a \
 		$(BUILD_DIR)/lib/libsconf.a \
 		$(BUILD_DIR)/lib/libttf.a \
+		$(BUILD_DIR)/lib/libgraph.a \
 		$(BUILD_DIR)/lib/libcxx.a 
 	$(LD) -Ttext=100 $(XWM_OBJS) -o $(XWM) $(LDFLAGS) -lx++ -lx -lgraph -lttf -lupng -lsconf -lewokc -lc -lcxx
 

@@ -17,10 +17,11 @@ void MacWM::drawDesktop(graph_t* g) {
 		}
 	}
 
-	if(bgImg == NULL)
-		return;
-	graph_blt(bgImg, 0, 0, bgImg->w, bgImg->h,
-			g, (g->w - bgImg->w)/2, (g->h - bgImg->h)/2, bgImg->w, bgImg->h);
+	if(bgImg != NULL)
+		graph_blt(bgImg, 0, 0, bgImg->w, bgImg->h,
+				g, (g->w - bgImg->w)/2, (g->h - bgImg->h)/2, bgImg->w, bgImg->h);
+	const char* s = "EwokOS 微内核操作系统 V1.0";
+	graph_draw_text_ttf(g, 10, g->h-ttf_font_hight(font), s, font, 0xffffffff);
 }
 
 void MacWM::drawTitlePattern(graph_t* g, int x, int y, int w, int h, uint32_t fg) {
@@ -100,6 +101,7 @@ void MacWM::getColor(uint32_t *fg, uint32_t* bg, bool top) {
 }
 
 MacWM::~MacWM(void) {
+	ttf_font_free(font);
 	if(bgImg == NULL)
 		return;
 	graph_free(bgImg);
@@ -113,4 +115,5 @@ MacWM::MacWM(void) {
 	bgTopColor = 0xffaaaaaa;
 	fgTopColor = 0xff222222;
 	bgImg = NULL;
+    font = ttf_font_load("/data/fonts/system.ttf", 48, 2);
 }
