@@ -43,7 +43,7 @@ protected:
 				break;
 			}
 			i+=n;
-			if(unicode == 0xd){
+			if(unicode == 0xd || unicode == 0xa){
 				y+=h;
 				x = 0;
 				if((y + h) >= g->h){

@@ -115,5 +115,5 @@ MacWM::MacWM(void) {
 	bgTopColor = 0xffaaaaaa;
 	fgTopColor = 0xff222222;
 	bgImg = NULL;
-    font = ttf_font_load("/data/fonts/system.ttf", 48, 2);
+    font = ttf_font_load("/data/fonts/system.ttf", 16, 2);
 }

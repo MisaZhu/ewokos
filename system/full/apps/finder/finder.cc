@@ -64,7 +64,7 @@ class Finder: public XWin {
 		else if(check(fname, ".png")) {
 			snprintf(cmd, FS_FULL_NAME_MAX, "/bin/x/png %s", fname);
 		}
-		else if(check(fname, ".txt")) {
+		else {//if(check(fname, ".txt")) {
 			snprintf(cmd, FS_FULL_NAME_MAX, "/apps/book/book %s", fname);
 		}
 		if(cmd[0] == 0)
@@ -89,13 +89,6 @@ class Finder: public XWin {
 			readDir(fname);
 			repaint(true);
 			return;
-		}
-		else if(strncmp(fname, "/bin/x/", 7) == 0) {
-			int pid = fork();
-			if(pid == 0)  {
-				exec(fname);
-				exit(0);
-			}
 		}
 		else 
 			load(fname);
