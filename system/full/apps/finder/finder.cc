@@ -64,6 +64,9 @@ class Finder: public XWin {
 		else if(check(fname, ".png")) {
 			snprintf(cmd, FS_FULL_NAME_MAX, "/bin/x/png %s", fname);
 		}
+		else if(check(fname, ".txt")) {
+			snprintf(cmd, FS_FULL_NAME_MAX, "/apps/book/book %s", fname);
+		}
 		if(cmd[0] == 0)
 			return;
 
