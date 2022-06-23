@@ -31,8 +31,6 @@ int  ttf_font_width(ttf_font_t* font);
 
 void graph_draw_char_ttf(graph_t* g, int32_t x, int32_t y, TTY_U32 c,
 		ttf_font_t* font, uint32_t color, TTY_U16* w, TTY_U16* h);
-void graph_draw_char_ttf_align(graph_t* g, int32_t x, int32_t y, TTY_U32 c,
-		ttf_font_t* font, uint32_t color, TTY_U16 aw, TTY_U16* w, TTY_U16* h);
 void graph_draw_text_ttf(graph_t* g, int32_t x, int32_t y, const char* str,
 		ttf_font_t* font, uint32_t color);
 

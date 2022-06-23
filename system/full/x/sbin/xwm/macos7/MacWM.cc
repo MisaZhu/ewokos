@@ -20,7 +20,7 @@ void MacWM::drawDesktop(graph_t* g) {
 	if(bgImg != NULL)
 		graph_blt(bgImg, 0, 0, bgImg->w, bgImg->h,
 				g, (g->w - bgImg->w)/2, (g->h - bgImg->h)/2, bgImg->w, bgImg->h);
-	const char* s = "EwokOS 微内核操作系统 V1.0";
+	const char* s = "EwokOS 微内核操作系统(V1.0)";
 	graph_draw_text_ttf(g, 10, g->h-ttf_font_hight(font), s, font, 0xffffffff);
 }
 
