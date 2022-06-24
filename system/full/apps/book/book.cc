@@ -49,7 +49,6 @@ protected:
 				if((y + h) >= g->h){
 					break;
 				}
-				next_page = current_page + i;
 				continue;
 			}
 
@@ -60,12 +59,11 @@ protected:
 				if((y + h) >= g->h){
 					break;
 				}
-				next_page = current_page + i;
 			}
 			graph_draw_char_ttf(g, x, y, unicode, font, fgColor, &w, NULL);
 			x += w + font->margin;
 		}
-		printf("c:%d n:%d\n", current_page, next_page);
+		next_page = current_page + i;
 	}
 
 
@@ -83,6 +81,8 @@ protected:
 					for(int i = 0; i < HISTORY_PAGE_SIZE - 1; i++){
 						history_page[i]	= history_page[i+1];
 					}
+					readPage();
+					repaint();
 				}else if(key == KEY_DOWN){
 					if(current_page == next_page)
 						return;
@@ -92,18 +92,19 @@ protected:
 					}
 					history_page[0] = current_page;
 					current_page = next_page;
+					readPage();
+					repaint();
 				}else
 					return;
 			}
 		}
-		readPage();
-		repaint(true);
 	}
 public:
 	inline Book() {
 		bgColor = 0xffDDC090;
 		fgColor = 0xff3E3422;
 		font = NULL;
+		read_len = 0;
 	}
 
 	inline ~Book() {
@@ -157,6 +158,14 @@ public:
 	}
 };
 
+static void loop(void* p) {
+	(void)p;
+	//Book* xwin = (Book*)p;
+	// xwin->readPage();
+	// xwin->repaint(true);
+	usleep(100000);
+}
+
 int main(int argc, char* argv[]) {
 	(void)argc;
 	(void)argv;
@@ -177,6 +186,6 @@ int main(int argc, char* argv[]) {
 			X_STYLE_NORMAL);
 
 	xwin.setVisible(true);
-	x.run(NULL);
+	x.run(loop, &xwin);
 	return 0;
 }
