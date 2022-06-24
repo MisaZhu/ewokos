@@ -5,19 +5,100 @@
 #include <sys/vdevice.h>
 #include <sys/klog.h>
 #include <sys/keydef.h>
+#include <sys/kernel_tic.h>
 #include <x/xwin.h>
 #include <string.h>
 
+#define KEY_REPEAT_TIMEOUT	100
+#define KEY_HOLD_TIMEOUT	500
+
 typedef struct {
-	uint8_t keys[6];
-	uint8_t num;
-}KeyState;
+	uint8_t key;
+	int state;
+	int sm;
+	uint64_t timer;
+}KeyState_t;
+
+enum {
+	KS_IDLE = 0,
+	KS_HOLD,
+	KS_REPEAT,
+	KS_RELEASE
+};
 
 class XIM {
 	int x_pid;
 	int keybFD;
 	bool escHome;
-	KeyState keyState;
+	KeyState_t keyState[6];
+
+	KeyState_t* match_key(uint8_t key){
+		for(size_t i = 0; i < sizeof(keyState)/sizeof(KeyState_t); i++){
+			if(keyState[i].key == key){
+				return &keyState[i];
+			}
+		}
+
+		for(size_t i = 0; i < sizeof(keyState)/sizeof(KeyState_t); i++){
+			if(keyState[i].key == 0){
+				keyState[i].key = key;
+				keyState[i].sm = KS_IDLE;
+				keyState[i].timer = 0;
+				keyState[i].state = XIM_STATE_RELEASE;
+				return &keyState[i]; 
+			}
+		}
+		return NULL;
+	}
+
+	void update_key_state(char *keys, int size){
+		for(int i = 0; i < size ; i++){
+			KeyState_t *ks = match_key(keys[i]);
+			if(ks){
+				ks->state = XIM_STATE_PRESS; 
+			}
+		}		
+	}
+
+	void key_state_machine(){
+		for(size_t i = 0; i < sizeof(keyState)/sizeof(KeyState_t); i++){
+			KeyState_t *ks = &keyState[i];
+			
+			if(ks->key == 0)
+				continue;
+
+			if(ks->state == XIM_STATE_RELEASE){
+				input(ks->key, XIM_STATE_RELEASE);	
+				ks->key = 0;
+				ks->sm = KS_RELEASE;
+				continue;
+			}
+
+			switch(ks->sm){
+				case KS_IDLE:
+					input(ks->key, XIM_STATE_PRESS);
+					ks->sm = KS_HOLD;
+					ks->timer = kernel_tic_ms(0);
+					break;
+				case KS_HOLD:
+					if(kernel_tic_ms(0) - ks->timer > KEY_HOLD_TIMEOUT){
+						ks->timer = kernel_tic_ms(0);
+						ks->sm = KS_REPEAT;	
+					}
+					break;
+				case KS_REPEAT:
+					if(kernel_tic_ms(0) - ks->timer > KEY_REPEAT_TIMEOUT){
+						ks->timer = kernel_tic_ms(0);
+						input(ks->key, XIM_STATE_PRESS);	
+					}
+					break;
+				default:
+					ks->sm = KS_IDLE;
+					break;
+			}
+			ks->state = XIM_STATE_RELEASE;
+		}	
+	}
 
 	void input(char c, int state = XIM_STATE_PRESS) {
 		xevent_t ev;
@@ -33,28 +114,9 @@ class XIM {
 		PF->clear(&in);
 	}
 
-	void checkRelease(char* rd, uint8_t num) {
-		bool released = true;
-		for(int i=0;i <keyState.num; i++) {
-			released = true;
-			char key = keyState.keys[i];
-			for(int j=0;j <num; j++) {
-				if(key == rd[j]) {// still pressed
-					released = false;
-					break;
-				}
-			}
-			if(released) {
-				input(key, XIM_STATE_RELEASE);
-				keyState.keys[i] = 0;
-			}
-		}
-		keyState.num = 0;
-	}
 
 public:
 	inline XIM(const char* keyb_dev, bool escHome) {
-		keyState.num = 0;
 		x_pid = -1;
 		keybFD = -1;
 		this->escHome = escHome;
@@ -80,16 +142,8 @@ public:
 
 		char v[6];
 		int rd = ::read(keybFD, &v, 6);
-		if(rd > 0) {
-			for(int i = 0; i < rd; i++)
-				input(v[i], XIM_STATE_PRESS);
-		}
-		if(rd < 0)
-			rd = 0;
-		checkRelease(v, rd);
-		keyState.num = rd;
-		for(int i = 0; i < rd; i++)
-			keyState.keys[i] = v[i];
+		update_key_state(v, rd);
+		key_state_machine();
 		usleep(50000);
 	}
 };
