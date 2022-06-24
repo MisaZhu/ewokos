@@ -17,6 +17,12 @@ inline int32_t kernel_tic(uint32_t* sec, uint64_t* usec) {
 	return ret;
 }
 
+uint64_t kernel_tic_ms(int zone){
+	uint64_t sec,  usec;
+	kernel_tic(&sec, &usec);
+	return (sec*1000 + usec/1000);
+}
+
 #ifdef __cplusplus
 }
 #endif
