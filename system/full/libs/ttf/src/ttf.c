@@ -123,13 +123,13 @@ void ttf_text_size(const char* str,
 		*w = 0;
 	if(h != NULL)
 		*h = 0;
-
-	int sz = strlen(str)+1;
-	uint16_t* unicode = (uint16_t*)malloc(sz*2);
+	
+	int sz = strlen(str);
+	uint16_t* unicode = (uint16_t*)malloc((sz+1)*2);
 	if(unicode == NULL)
 		return;
 
-	int n = utf82unicode((uint8_t*)str, unicode, sz);
+	int n = utf82unicode((uint8_t*)str, sz, unicode);
 
 	int32_t x = 0;
 	for(int i=0;i <n; i++) {
@@ -203,12 +203,12 @@ void graph_draw_char_ttf_fixed(graph_t* g, int32_t x, int32_t y, TTY_U32 c,
 
 void graph_draw_text_ttf(graph_t* g, int32_t x, int32_t y, const char* str,
 		ttf_font_t* font, uint32_t color) {
-	if(g == NULL)
+	if(g == NULL || str[0] == 0)
 		return;
 	
-	uint16_t out[128];
-	int n = utf82unicode((uint8_t*)str, out, 128);
-
+	int len = strlen(str);
+	uint16_t* out = (uint16_t*)malloc((len+1)*2);
+	int n = utf82unicode((uint8_t*)str, len, out);
 	for(int i=0;i <n; i++) {
 		TTY_U16 w = 0;
 		graph_draw_char_ttf(g, x, y, out[i], font, color, &w, NULL);
@@ -217,6 +217,7 @@ void graph_draw_text_ttf(graph_t* g, int32_t x, int32_t y, const char* str,
 			dx = w/2;
 		x += dx;
 	}
+	free(out);
 }
 
 #ifdef __cplusplus

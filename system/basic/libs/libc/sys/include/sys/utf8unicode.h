@@ -7,8 +7,8 @@ extern "C" {
 
 int utf82unicode_char (unsigned char *ch, int *unicode);
 int utf82unicode (unsigned char * utf8_str,
-		unsigned short * unicode_str,
-		int unicode_str_size);
+		int str_len,
+		unsigned short * unicode_str);
 
 #ifdef __cplusplus
 }

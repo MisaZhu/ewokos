@@ -166,11 +166,13 @@ static int console_write(int fd,
 		return 0;
 
 	const char* pb = (const char*)buf;
-	int i;
+	/*int i;
 	for(i=0; i<size; i++) {
 		char c = pb[i];
 		console_put_char(&console->console, c);
 	}
+	*/
+	console_put_string(&console->console, pb, size);
 	flush(console);
 	return size;
 }

@@ -91,8 +91,8 @@ public:
 		return true;
 	}
 
-	void putChar(char c) {
-		console_put_char(&console, c);
+	void put(const char* buf, int size) {
+		console_put_string(&console, buf, size);
 	}
 
 	void rollEnd(void) {
@@ -154,13 +154,9 @@ static void loop(void* p) {
 	XConsole* console = (XConsole*)p;
 
 	char buf[512];
-	int32_t size = read(0, buf, 512);
+	int size = read(0, buf, 512);
 	if(size > 0) {
-		buf[size] = 0;
-		for(int32_t i=0; i<size; i++) {
-			char c = buf[i];
-			console->putChar(c);
-		}
+		console->put(buf, size);
 		console->rollEnd();
 		console->repaint(true);
 		return;

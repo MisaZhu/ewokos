@@ -57,11 +57,11 @@ int utf82unicode_char (unsigned char *ch, int *unicode) {
 }
 
 int utf82unicode (unsigned char * utf8_str,
-		unsigned short * unicode_str,
-		int unicode_str_size)
+		int str_len,
+		unsigned short * unicode_str)
 {
 	int unicode = 0;
-	int n = 0;
+	int i = 0, n = 0;
 	int count = 0;
 	unsigned char *s = NULL;
 	unsigned short *e = NULL;
@@ -72,24 +72,19 @@ int utf82unicode (unsigned char * utf8_str,
 	if (!utf8_str || !unicode_str)
 		return 0;
 
-	while (*s) {
-		if ((n = utf82unicode_char (s, &unicode)) > 0) {
-			if (++count  >= unicode_str_size)
-				return count;
-			else {
-				*e = (unsigned short) unicode;
-				e++;
-				*e = 0;
-
-				/* Step to next utf-8 character */
-				s += n;
-			}
+	while (i<str_len) {
+		if ((n = utf82unicode_char (s+i, &unicode)) > 0) {
+			++count;
+			*e = (unsigned short) unicode;
+			e++;
+			*e = 0;
+			/* Step to next utf-8 character */
+			i += n;
 		} else {
 			/* Converting error occurs */
 			return count;
 		}
 	}
-
 	return count;
 }
 

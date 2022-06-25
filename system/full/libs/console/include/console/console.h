@@ -7,6 +7,7 @@
 extern "C" {
 #endif
 
+typedef uint16_t UNICODE16;
 
 typedef struct {
 	uint32_t start_row;
@@ -18,7 +19,7 @@ typedef struct {
 typedef struct {
 	uint32_t cols;
 	uint32_t rows;
-	char* data;
+	UNICODE16* data;
 } content_t;
 
 typedef struct {
@@ -38,8 +39,8 @@ void console_refresh_content(console_t* console, graph_t* g);
 void console_refresh(console_t* console, graph_t* g);
 int32_t console_reset(console_t* console, uint32_t w, uint32_t h, uint32_t total_rows);
 void console_roll(console_t* console, int32_t rows);
-void console_put_char(console_t* console, char c);
-void console_put_string(console_t* console, const char* s);
+void console_put_char(console_t* console, UNICODE16 c);
+void console_put_string(console_t* console, const char* s, int len);
 
 #ifdef __cplusplus
 }

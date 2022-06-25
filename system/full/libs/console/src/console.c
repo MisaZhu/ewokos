@@ -27,7 +27,7 @@ static uint32_t font_width(ttf_font_t* font) {
 	return _fontw;
 }
 
-static void cons_draw_char(console_t* console, graph_t* g, int32_t x, int32_t y, char c) {
+static void cons_draw_char(console_t* console, graph_t* g, int32_t x, int32_t y, UNICODE16 c) {
 	graph_draw_char_ttf_fixed(g, x, y, c, console->font, console->fg_color, font_width(console->font), 0);
 }
 
@@ -70,8 +70,8 @@ int32_t console_reset(console_t* console, uint32_t w, uint32_t h, uint32_t total
 	}
 
 	if(data_size > 0) {
-		console->content.data = (char*)malloc(data_size);
-		memset(console->content.data, 0, data_size);
+		console->content.data = (char*)malloc(data_size*2);
+		memset(console->content.data, 0, data_size*2);
 	}
 
 	if(old_data == NULL)
@@ -88,7 +88,7 @@ int32_t console_reset(console_t* console, uint32_t w, uint32_t h, uint32_t total
 		int at = (old_cols * old_start_row) + (i++);
 		if(at >= old_total)
 			at -= old_total;
-		char c = old_data[at];
+		UNICODE16 c = old_data[at];
 		if(c != 0)
 			console_put_char(console, c);
 	}
@@ -154,7 +154,7 @@ void console_refresh_content(console_t* console, graph_t* g) {
 	uint32_t h = ttf_font_hight(console->font);
 	while(i < console->state.size) {
 		uint32_t at = get_at(console, i);
-		char c = console->content.data[at];
+		UNICODE16 c = console->content.data[at];
 		if(c != 0 && c != '\n') {
 			cons_draw_char(console, g, x*w, y*h, console->content.data[at]);
 		}
@@ -187,7 +187,7 @@ static void move_line(console_t* console) {
 	console->state.size -= console->content.cols;
 }
 
-void console_put_char(console_t* console, char c) {
+void console_put_char(console_t* console, UNICODE16 c) {
 	if(c == '\r')
 		c = '\n';
 
@@ -237,11 +237,13 @@ void console_put_char(console_t* console, char c) {
 	}
 }
 
-void console_put_string(console_t* console, const char* s) {
-	while(*s != 0) {
-		console_put_char(console, *s);
-		s++;
+void console_put_string(console_t* console, const char* str, int len) {
+	uint16_t* out = (uint16_t*)malloc((len+1)*2);
+	int n = utf82unicode((uint8_t*)str, len, out);
+	for(int i=0;i <n; i++) {
+		console_put_char(console, out[i]);
 	}
+	free(out);
 }
 
 #ifdef __cplusplus
