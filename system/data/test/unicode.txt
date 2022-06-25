@@ -1,5 +1,24 @@
-Chinese 中文ABC abc测试
+EwokOS 微内核操作系统(V1.0)
 
+using namespace Ewok;
+void MacWM::drawDesktop(graph_t* g) {
+	graph_clear(g, desktopBGColor);
+	//background pattern
+	int32_t x, y;
+	for(y=10; y<(int32_t)g->h; y+=10) {
+		for(x=0; x<(int32_t)g->w; x+=10) {
+			graph_pixel(g, x, y, desktopFGColor);
+		}
+	}
+
+	if(bgImg != NULL)
+		graph_blt(bgImg, 0, 0, bgImg->w, bgImg->h,
+				g, (g->w - bgImg->w)/2, (g->h - bgImg->h)/2, bgImg->w, bgImg->h);
+	const char* s = "";
+	graph_draw_text_ttf(g, 10, g->h-ttf_font_hight(font), s, font, 0xffffffff);
+}
+
+Chinese 中文ABC abc测试
 6月24日，第六届世界智能大会在天津以线上形式召开。通过虚拟与现实相结合等多种技术手段，云智能科技展、云赛事、云智能体验等活动如期与广大观众见面。
 
 2019年，国家主席习近平向第三届世界智能大会发来贺信，指出“中国高度重视创新发展，把新一代人工智能作为推动科技跨越发展、产业优化升级、生产力整体跃升的驱动力量，努力实现高质量发展。”牢记嘱托，砥砺奋进，天津已连续成功举办五届世界智能大会，并以此为契机全面构建智能科技产业生态体系，加快更高水平创新型城市建设，一张以智能制造引领城市高质量发展的崭新名片被擦拭得越来越亮。
