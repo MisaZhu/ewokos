@@ -176,6 +176,29 @@ void graph_draw_char_ttf(graph_t* g, int32_t x, int32_t y, TTY_U32 c,
 		*h = glyph.offset.y + (glyph.size.y == 0 ?  glyph.advance.y : glyph.size.y);
 }
 
+void graph_draw_char_ttf_fixed(graph_t* g, int32_t x, int32_t y, TTY_U32 c,
+		ttf_font_t* font, uint32_t color, TTY_U16 w, TTY_U16 h) {
+	TTY_Glyph glyph;
+	if(ttf_render_glyph_cache(c, font, &glyph) != 0)
+		return;
+
+	x += (((TTY_S32)w) - glyph.size.x)/2;
+	y += (((TTY_S32)h) - glyph.size.y)/2;
+	
+	if(glyph.cache != NULL) {
+		for (TTY_S32 j = 0; j < font->inst.maxGlyphSize.y; j++) {
+			for (TTY_S32 i = 0; i < font->inst.maxGlyphSize.x; i++) {
+				TTY_U8 pv = glyph.cache[j*font->inst.maxGlyphSize.x+i];
+				graph_pixel_argb_safe(g, x+i, y+j,
+						(color >> 24) & pv & 0xff,
+						(color >> 16) & 0xff,
+						(color >> 8) & 0xff,
+						color & 0xff);
+			}
+		}
+	}
+}
+
 void graph_draw_text_ttf(graph_t* g, int32_t x, int32_t y, const char* str,
 		ttf_font_t* font, uint32_t color) {
 	if(g == NULL)

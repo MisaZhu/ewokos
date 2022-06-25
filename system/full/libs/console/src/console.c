@@ -28,7 +28,8 @@ static uint32_t font_width(ttf_font_t* font) {
 }
 
 static void cons_draw_char(console_t* console, graph_t* g, int32_t x, int32_t y, char c) {
-	graph_draw_char_ttf(g, x, y, c, console->font, console->fg_color, NULL, NULL);
+	graph_draw_char_ttf_fixed(g, x, y, c, console->font, console->fg_color,
+			font_width(console->font), ttf_font_hight(console->font));
 }
 
 static uint32_t get_data_rows(console_t* console) {
