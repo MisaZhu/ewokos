@@ -29,6 +29,7 @@ typedef struct {
 static int32_t read_config(fb_console_t* console, const char* fname) {
 	const char* font_fname =  "/data/fonts/system.ttf";
 	uint32_t font_size = 16;
+	int32_t font_margin = 0;
 	console->console.fg_color = 0xffcccccc;
 	console->console.bg_color = 0xff000000;
 	const char* icon_fn = "/data/icons/starwars/ewok.png";
@@ -65,10 +66,18 @@ static int32_t read_config(fb_console_t* console, const char* fname) {
 	if(v[0] != 0) 
 		font_size = atoi(v);
 
+	v = sconf_get(conf, "font_margin");
+	if(v[0] != 0) {
+		if(v[0] == '-')
+			font_margin = -atoi(v+1);
+		else
+			font_margin = atoi(v);
+	}
+
 	v = sconf_get(conf, "font");
 	if(v[0] != 0) 
 		font_fname = v;
-	console->console.font = ttf_font_load(font_fname, font_size, 2);
+	console->console.font = ttf_font_load(font_fname, font_size, font_margin);
 	sconf_free(conf);
 	if(console->console.font == NULL)
 		return -1;
