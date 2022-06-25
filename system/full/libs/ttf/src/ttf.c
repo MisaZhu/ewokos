@@ -182,8 +182,10 @@ void graph_draw_char_ttf_fixed(graph_t* g, int32_t x, int32_t y, TTY_U32 c,
 	if(ttf_render_glyph_cache(c, font, &glyph) != 0)
 		return;
 
-	x += (((TTY_S32)w) - glyph.size.x)/2;
-	y += (((TTY_S32)h) - glyph.size.y)/2;
+	if(w > 0)
+		x += (((TTY_S32)w) - glyph.size.x)/2;
+	if(h > 0)
+		y += (((TTY_S32)h) - glyph.size.y)/2;
 	
 	if(glyph.cache != NULL) {
 		for (TTY_S32 j = 0; j < font->inst.maxGlyphSize.y; j++) {
