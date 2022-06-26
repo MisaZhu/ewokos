@@ -68,10 +68,6 @@ static inline const char* svc_name(int32_t code) {
 		return "kprintf";
 	case SYS_MEM_MAP:
 		return "mem_map";
-	case SYS_KPAGE_MAP:
-		return "kpage_map";
-	case SYS_KPAGE_UNMAP:
-		return "kpage_unmap";
 	case SYS_IPC_SETUP:
 		return "ipc_setup";
 	case SYS_IPC_CALL:

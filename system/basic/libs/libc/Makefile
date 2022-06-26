@@ -32,6 +32,7 @@ LIB_EWOKSYS_OBJS = sys/src/syscall.o \
 	sys/src/md5.o \
 	sys/src/buffer.o \
 	sys/src/mmio.o  \
+	sys/src/dma.o  \
 	sys/src/timer.o 
 
 LIB_EWOKC_OBJS = src/unistd/chdir.o \

@@ -13,7 +13,6 @@
 #define SHM_MAX 128
 #define LOCK_MAX 64
 #define IPC_CTX_MAX 8
-#define PROC_KPAGE_MAX 8
 
 enum {
 	SIG_STATE_IDLE = 0,
@@ -68,7 +67,6 @@ typedef struct {
 	page_dir_entry_t* vm;
 	malloc_t          malloc_man;
 	uint32_t          heap_size;
-	uint32_t          kpages[PROC_KPAGE_MAX]; //mapped pages , share same address with kernel
 	bool              ready_ping;
 	
 	int32_t           shms[SHM_MAX];

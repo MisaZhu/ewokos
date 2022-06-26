@@ -21,6 +21,11 @@ typedef struct {
 	uint32_t shared;
 } mem_info_t;
 
+typedef struct {
+	uint32_t size;
+	uint32_t phy_base;
+} dma_info_t;
+
 /*static attr*/
 typedef struct {
 	char        machine[32];
@@ -29,6 +34,7 @@ typedef struct {
 	uint32_t    kernel_base;
 
 	mmio_info_t mmio;
+	dma_info_t  dma;
 	fb_info_t   fb;
 	uint32_t    cores;
 } sys_info_t;

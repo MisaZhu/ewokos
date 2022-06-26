@@ -13,8 +13,8 @@ extern "C" {
 #define put8(addr, val) (*((volatile uint8_t *)(addr)) = (val))
 
 extern uint32_t _mmio_base;
-uint32_t mmio_map(bool cache);
-uint32_t mmio_map_offset(uint32_t offset, uint32_t size, bool cache);
+uint32_t mmio_map(void);
+uint32_t mmio_map_offset(uint32_t offset, uint32_t size);
 
 #ifdef __cplusplus
 }

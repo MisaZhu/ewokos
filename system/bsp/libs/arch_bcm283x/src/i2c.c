@@ -94,7 +94,7 @@ uint8_t i2c_do_read_byte(int32_t ack) {
 }
 /*----------------------------------------------------------------------------*/
 void i2c_init(int32_t sda_gpio, int32_t scl_gpio) {
-	_mmio_base = mmio_map(false);
+	_mmio_base = mmio_map();
 	/* assign gpio */
 	i2c_sda = sda_gpio;
 	i2c_scl = scl_gpio;

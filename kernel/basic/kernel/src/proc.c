@@ -398,16 +398,6 @@ static void proc_funeral(proc_t* proc) {
 	set_translation_table_base((uint32_t)V2P(proc->space->vm));
 	proc_free_user_stack(proc);
 	if(proc->info.type == PROC_TYPE_PROC) {
-		/*free kpage*/
-		uint32_t i;
-		for(i=0; i<PROC_KPAGE_MAX; i++) {
-			if (proc->space->kpages[i] != 0) {
-				kfree4k((void *)proc->space->kpages[i]);
-				unmap_page(proc->space->vm, proc->space->kpages[i]);
-				proc->space->kpages[i] = 0;
-			}
-		}
-
 		/*free small_stack*/
 		if (proc->space->interrupt.stack != 0) {
 			proc_stack_free(proc, proc->space->interrupt.stack);

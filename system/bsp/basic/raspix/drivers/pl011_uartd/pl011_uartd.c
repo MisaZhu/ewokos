@@ -63,7 +63,7 @@ static void interrupt_handle(uint32_t interrupt, uint32_t data) {
 
 int main(int argc, char** argv) {
 	const char* mnt_point = argc > 1 ? argv[1]: "/dev/tty0";
-	_mmio_base = mmio_map(false);
+	_mmio_base = mmio_map();
 
 	charbuf_init(&_buffer);
 

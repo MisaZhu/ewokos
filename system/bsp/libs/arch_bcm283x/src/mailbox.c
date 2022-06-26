@@ -1,12 +1,13 @@
 #include <sys/syscall.h>
+#include <sys/dma.h>
 #include <arch/bcm283x/mailbox.h>
 
 uint32_t _bcm283x_mailbox_addr = 0;
 uint32_t bcm283x_mailbox_init(void) {
-	if(mmio_map(false) == 0)
+	if(mmio_map() == 0)
 		return 0;
 
-	_bcm283x_mailbox_addr = syscall0(SYS_KPAGE_MAP);
+	_bcm283x_mailbox_addr = dma_map(4096);
 	return _bcm283x_mailbox_addr;
 }
 

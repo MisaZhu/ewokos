@@ -158,7 +158,7 @@ static int power_button(void* p) {
 }
 
 int main(int argc, char** argv) {
-	 _mmio_base = mmio_map(false);
+	 _mmio_base = mmio_map();
 
 	const char* mnt_point = argc > 1 ? argv[1]: "/dev/joykeyb";
 	init_gpio();

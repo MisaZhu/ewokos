@@ -5,6 +5,7 @@
 #include <sys/vdevice.h>
 #include <sys/syscall.h>
 #include <sys/mmio.h>
+#include <sys/dma.h>
 #include <usbd/usbd.h>
 #include <device/hid/keyboard.h>
 #include <device/hid/touch.h>
@@ -13,7 +14,7 @@ void* PlatformAllocateDMA(u32 size){
     if(size > 4096)
         return NULL;
 
-    void* ret =  syscall0(SYS_KPAGE_MAP);
+    void* ret =  dma_map(4096);
     printf("DMA: address: %08x\n", ret);
     return ret;
 }
@@ -82,7 +83,7 @@ static int touch_read(int fd, int from_pid, fsinfo_t* info,
 }
 
 int main(int argc, char** argv) {
-	uint32_t _mmio_base = mmio_map(false);
+	uint32_t _mmio_base = mmio_map();
 	if(_mmio_base == 0)
 		return -1;
 

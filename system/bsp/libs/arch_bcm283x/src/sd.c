@@ -337,8 +337,7 @@ static int32_t sd_clk(uint32_t f) {
  * initialize EMMC to read SDHC card
  */
 int32_t bcm283x_sd_init(void) {
-	_mmio_base = mmio_map(false);
-	//_mmio_base = mmio_map(true);
+	_mmio_base = mmio_map();
 
 	_sdc.rxdone = 1;
 	_sdc.txdone = 1;

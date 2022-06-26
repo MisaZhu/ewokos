@@ -47,9 +47,8 @@ enum {
 
 	//map mmio memory for userspace access
 	SYS_MEM_MAP,          //33
-	//map kernel memory (just one page size) for userspace access
-	SYS_KPAGE_MAP,        //34
-	SYS_KPAGE_UNMAP,      //35
+	SYS_V2P,              //34
+	SYS_P2V,              //35
 
 	//internal proccess communication
 	SYS_IPC_SETUP,        //36
@@ -72,9 +71,7 @@ enum {
 	SYS_SAFE_SET,         //50
 	SYS_SOFT_INT,         //51
 	SYS_PROC_UUID,        //52
-	SYS_V2P,              //53
-	SYS_P2V,              //54
-	SYS_CALL_NUM          //55
+	SYS_CALL_NUM          //53
 };
 
 #endif

@@ -43,8 +43,7 @@ static RspStruct *_SDMMC_DATAReq(uint8_t u8Slot, uint8_t u8Cmd, uint32_t u32Arg,
  * initialize EMMC to read SDHC card
  */
 int32_t miyoo_sd_init(void) {
-	_mmio_base = mmio_map(false);
-	//_mmio_base = mmio_map(true);
+	_mmio_base = mmio_map();
 	_sector_buf = 0x87e00000;
 	syscall3(SYS_MEM_MAP, _sector_buf, 0x27e00000, 4096);
 	sdmmc_init();
@@ -54,10 +53,8 @@ int32_t miyoo_sd_init(void) {
 
 int32_t miyoo_sd_read_sector(int32_t sector, void* buf) {
 	static RspStruct * pstRsp;
-	//_sector_buf = syscall0(SYS_KPAGE_MAP);
 	pstRsp = _SDMMC_DATAReq(0, 17, sector, 1, 512, EV_DMA, _sector_buf);  //CMD17
 	memcpy(buf, _sector_buf, 512);
-	//syscall1(SYS_KPAGE_UNMAP, _sector_buf);
 	return pstRsp->eErrCode;
 }
 
