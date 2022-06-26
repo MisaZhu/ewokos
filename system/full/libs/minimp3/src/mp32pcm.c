@@ -27,13 +27,11 @@ int main(int argc, char **argv) {
 		printf("Error: read MP3 audio file failed!\n");
 		return 1;
 	}
-	printf("read MP3 audio file size: %d.\n", bytes_left);
 
 	stream_pos = (unsigned char *) file_data;
-	//bytes_left -= 100;
-
 	mp3dec_init(&mp3);
 	mp3dec_decode_frame(&mp3, stream_pos, bytes_left, sample_buf, &info);
+
 	if (info.frame_bytes == 0) {
 		printf("Error: not a valid MP3 audio file!\n");
 		free(file_data);
