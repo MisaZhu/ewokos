@@ -44,6 +44,7 @@ sd:
 	mke2fs -b 1024 -I 128 ${SD}
 
 #mkdir tmp dir and mount sdimage to tmp
+	sudo rm -fr tmp
 	mkdir -p tmp
 	sudo fuse-ext2 -o force,rw+ ${SD} ./tmp
 
