@@ -1,21 +1,22 @@
 include ../../../make.rule
 
 BUILD_DIR = ../../../build
-TARGET_DIR = $(BUILD_DIR)
+TARGET_DIR = $(BUILD_DIR)/rootfs
 
-LDFLAGS = -L$(TARGET_DIR)/lib -lnosys
+LDFLAGS = -L$(BUILD_DIR)/lib -lnosys
 
-CFLAGS += -Iinclude -I $(TARGET_DIR)/include
+CFLAGS += -Iinclude -I $(BUILD_DIR)/include
 
-LIB_MINIMP3_OBJS = src/minimp3.o
+MP32PCM_OBJS = src/mp32pcm.o
 
-MINIMP3 = $(TARGET_DIR)/lib/libminimp3.a
+MP32PCM = $(TARGET_DIR)/bin/mp32pcm
 
-$(MINIMP3): $(LIB_MINIMP3_OBJS)
-	$(AR) rT $(MINIMP3) $(LIB_MINIMP3_OBJS)
+$(MP32PCM): $(MP32PCM_OBJS) \
+		$(BUILD_DIR)/lib/libsoftfloat.a \
+		$(BUILD_DIR)/lib/libewokc.a 
+	$(LD) -Ttext=100 $(MP32PCM_OBJS) -o $(MP32PCM) $(LDFLAGS) -lsoftfloat -lewokc -lm -lc
 	cp -r include/* $(TARGET_DIR)/include
 
 clean:
-	rm -f $(LIB_MINIMP3_OBJS)
-	rm -f $(MINIMP3)
+	rm -f $(MP32PCM_OBJS)
 

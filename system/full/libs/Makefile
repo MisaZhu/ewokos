@@ -19,7 +19,6 @@ clean:
 	cd fbd;make clean
 	cd graph;make clean
 	cd ttf;make clean
-	cd minimp3;make clean
 	cd console;make clean
 	cd display;make clean
 	cd upng; make clean
