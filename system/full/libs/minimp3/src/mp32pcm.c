@@ -27,22 +27,22 @@ int main(int argc, char **argv) {
 		printf("Error: read MP3 audio file failed!\n");
 		return 1;
 	}
-
 	stream_pos = (unsigned char *) file_data;
-	mp3dec_init(&mp3);
-	mp3dec_decode_frame(&mp3, stream_pos, bytes_left, sample_buf, &info);
 
-	if (info.frame_bytes == 0) {
+	mp3dec_init(&mp3);
+	int size = mp3dec_decode_frame(&mp3, stream_pos, bytes_left, sample_buf, &info);
+
+	if (size == 0) {
 		printf("Error: not a valid MP3 audio file!\n");
 		free(file_data);
 		return 1;
 	}
 
-	while ((bytes_left >= 0) && (info.frame_bytes > 0)) {
+	while ((bytes_left >= 0) && (size > 0)) {
 		stream_pos += info.frame_bytes;
 		bytes_left -= info.frame_bytes;
-		write(1, (const void *) sample_buf, info.frame_bytes);
-		mp3dec_decode_frame(&mp3, stream_pos, bytes_left, sample_buf, &info);
+		write(1, (const void *) sample_buf, size);
+		size = mp3dec_decode_frame(&mp3, stream_pos, bytes_left, sample_buf, &info);
 	}
 	free(file_data);
 	return 0;
