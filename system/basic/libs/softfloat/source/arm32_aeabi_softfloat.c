@@ -132,6 +132,18 @@ int __aeabi_dcmpgt(aeabi_double_t a, aeabi_double_t b)
 	return f64_lt(f64_from_d(b), f64_from_d(a));
 }
 
+int __aeabi_dcmpun(aeabi_double_t a, aeabi_double_t b)
+{
+	/*
+	 * The comparison is unordered if either input is a NaN.
+	 * Test for this by comparing each operand with itself.
+	 * We must perform both comparisons to correctly check for
+	 * signalling NaNs.
+	 */
+	return !f64_eq(f64_from_d(a), f64_from_d(a)) ||
+			!f64_eq(f64_from_d(b), f64_from_d(b));
+}
+
 /*
  * Table 4, Standard single precision floating-point arithmetic helper
  * functions

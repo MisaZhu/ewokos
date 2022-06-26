@@ -10,6 +10,8 @@ extern "C" {
 uint32_t random_u32(void);
 uint32_t random_to(uint32_t to);
 
+#define M_PI 3.14159265358979323846264338327950288
+
 #ifdef __cplusplus
 } 
 #endif
