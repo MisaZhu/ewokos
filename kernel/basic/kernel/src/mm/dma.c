@@ -43,17 +43,16 @@ uint32_t dma_alloc(int32_t pid, uint32_t size) {
         }
 
         d->pid = pid;
-        if(d->size == size) {
-            return d->base;
+        if(d->size > size) {
+            dma_t* n = dma_new(d->base + size, d->size - size);
+            d->size = size;
+            n->prev = d;
+            n->next = d->next;
+            if(d->next != NULL)
+                d->next->prev = n;
+            d->next = n;
         }
-
-        dma_t* n = dma_new(d->base + size, d->size - size);
-        d->size = size;
-        n->prev = d;
-        n->next = d->next;
-        if(d->next != NULL)
-            d->next->prev = n;
-        d->next = n;
+        return d->base;
     }
     return 0;
 }
