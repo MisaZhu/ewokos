@@ -8,6 +8,7 @@
 #include <x++/X.h>
 #include <sys/keydef.h>
 #include <dirent.h>
+#include <math.h>
 
 
 using namespace Ewok;
@@ -23,6 +24,7 @@ class Finder: public XWin {
 	graph_t* fileIcon;
 	uint32_t itemSize;
 
+	int     mouse_down_y;
 	int     selected;
 	int     start;
 	static const int MAX_FILES = 256;
@@ -163,8 +165,36 @@ protected:
 		getInfo(xinfo);
 		int h = itemSize;
 		int lines = xinfo.wsr.h/h - 1;
-		
-		if(ev->type == XEVT_IM) {
+
+		if(ev->type == XEVT_MOUSE) {
+			if(ev->state == XEVT_MOUSE_DOWN) {
+				if(mouse_down_y == 0)
+					mouse_down_y = ev->value.mouse.y;
+			}
+			else if(ev->state == XEVT_MOUSE_UP) {
+				int old_y = mouse_down_y;
+				mouse_down_y = 0;
+				if(abs(old_y-ev->value.mouse.y) < 6) { //click
+					int at = ev->value.mouse.winy / itemSize;
+					if(at == 0) {
+						upBack();
+						return;
+					}
+					at = (at-1) + start;
+					if(at < nums) 
+						runProc(at);
+					return;
+				}
+				//drag release
+				start -= (ev->value.mouse.y - old_y)/ h;
+				if(start < 0)
+					start = 0;
+				else if(start >= nums)
+					start = nums - 1;
+				repaint(true);
+			}
+		}
+		else if(ev->type == XEVT_IM) {
 			int key = ev->value.im.value;
 			if(ev->state == XIM_STATE_PRESS) {
 				if(key == KEY_UP)
@@ -214,6 +244,7 @@ public:
 		selected = 0;
 		start = 0;
 		font = NULL;
+		mouse_down_y = 0;
 		readDir("/");
 	}
 
