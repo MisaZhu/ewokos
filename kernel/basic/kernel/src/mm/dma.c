@@ -27,9 +27,18 @@ void dma_init(void) {
 void dma_release(int32_t pid) {
     dma_t* d = _dma_head;
     while(d != NULL) {
+        dma_t* next = d->next;
         if(d->pid == pid)
             d->pid = 0;
-        d = d->next;
+
+        if(d->prev != NULL && d->prev->pid == 0) { //merge
+            d->prev->next = next; 
+            if(next != NULL)
+               next->prev = d->prev;
+            d->prev->size += d->size;
+            kfree(d);
+        }
+        d = next;
     }
 }
 
