@@ -10,6 +10,7 @@
 #include <kernel/signal.h>
 #include <mm/kalloc.h>
 #include <mm/shm.h>
+#include <mm/dma.h>
 #include <mm/kmalloc.h>
 #include <sysinfo.h>
 #include <dev/uart.h>
@@ -225,13 +226,13 @@ static uint32_t sys_dma_map(uint32_t size) {
 	proc_t* cproc = get_current_proc();
 	if(cproc->info.owner > 0)
 		return 0;
-	size = ALIGN_UP(size, PAGE_SIZE);
-	if((_dma_offset + size) > _sys_info.dma.size)
+
+	uint32_t paddr = dma_alloc(cproc->info.pid, size);
+	if(paddr == 0)
 		return 0;
-	uint32_t paddr = _sys_info.dma.phy_base + _dma_offset;
+
 	map_pages_size(cproc->space->vm, paddr, paddr, size, AP_RW_RW, PTE_ATTR_DEV);
 	flush_tlb();
-	_dma_offset += size;
 	return paddr;
 }
 

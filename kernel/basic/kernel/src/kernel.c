@@ -138,6 +138,7 @@ void _kernel_entry_c(void) {
 
 	init_kernel_vm();  
 	kmalloc_init();
+	dma_init();
 
 	uart_dev_init();
 	kev_init();

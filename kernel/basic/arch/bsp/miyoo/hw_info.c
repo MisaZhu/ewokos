@@ -11,7 +11,6 @@ sys_info_t _sys_info;
 uint32_t _allocatable_phy_mem_top = 0;
 uint32_t _allocatable_phy_mem_base = 0;
 uint32_t _core_base_offset = 0;
-uint32_t _dma_offset = 0;
 
 #define FB_SIZE 4*MB;
 #define DMA_SIZE 256*KB;
@@ -36,7 +35,6 @@ void sys_info_init(void) {
 			FB_SIZE - 
 			_sys_info.dma.size;
 	_sys_info.dma.phy_base = _allocatable_phy_mem_top;
-	_dma_offset = 0;
 
 #ifdef KERNEL_SMP
 	_sys_info.cores = get_cpu_cores();

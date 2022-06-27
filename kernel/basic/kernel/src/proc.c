@@ -4,6 +4,7 @@
 #include <kernel/schedule.h>
 #include <mm/kalloc.h>
 #include <mm/kmalloc.h>
+#include <mm/dma.h>
 #include <mm/shm.h>
 #include <kernel/kevqueue.h>
 #include <kstring.h>
@@ -393,8 +394,9 @@ static inline void proc_free_user_stack(proc_t* proc) {
 static void proc_funeral(proc_t* proc) {
 	if(proc->info.state == UNUSED)
 		return;
-	proc->info.state = UNUSED;
 
+	dma_release(proc->info.pid);
+	proc->info.state = UNUSED;
 	set_translation_table_base((uint32_t)V2P(proc->space->vm));
 	proc_free_user_stack(proc);
 	if(proc->info.type == PROC_TYPE_PROC) {
