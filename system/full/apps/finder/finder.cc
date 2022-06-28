@@ -171,6 +171,9 @@ protected:
 				if(mouse_down_y == 0) {
 					mouse_down_y = ev->value.mouse.y;
 					mouse_last_y = ev->value.mouse.y;
+					int at = ev->value.mouse.winy / itemSize;
+					selected = at-1 + start;
+					repaint(true);
 					return;
 				}
 				int mv = (ev->value.mouse.y - mouse_last_y)/ h;
