@@ -8,8 +8,6 @@
 #include <x++/X.h>
 #include <sys/keydef.h>
 #include <dirent.h>
-#include <math.h>
-
 
 using namespace Ewok;
 
@@ -174,7 +172,7 @@ protected:
 			else if(ev->state == XEVT_MOUSE_UP) {
 				int old_y = mouse_down_y;
 				mouse_down_y = 0;
-				if(abs(old_y-ev->value.mouse.y) < 6) { //click
+				if(old_y == ev->value.mouse.y) { //click
 					int at = ev->value.mouse.winy / itemSize;
 					if(at == 0) {
 						upBack();
