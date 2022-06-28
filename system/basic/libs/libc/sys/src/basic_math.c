@@ -20,6 +20,10 @@ inline uint32_t random_to(uint32_t to) {
 	return r % to;
 }
 
+inline uint32_t abs_32(int32_t v) {
+	return v < 0 ? -v:v;
+}
+
 #ifdef __cplusplus
 }
 #endif

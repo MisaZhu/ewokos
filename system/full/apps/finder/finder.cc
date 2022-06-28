@@ -8,6 +8,7 @@
 #include <x++/X.h>
 #include <sys/keydef.h>
 #include <dirent.h>
+#include <sys/basic_math.h>
 
 using namespace Ewok;
 
@@ -23,6 +24,7 @@ class Finder: public XWin {
 	uint32_t itemSize;
 
 	int     mouse_down_y;
+	int     mouse_last_y;
 	int     selected;
 	int     start;
 	static const int MAX_FILES = 256;
@@ -166,8 +168,22 @@ protected:
 
 		if(ev->type == XEVT_MOUSE) {
 			if(ev->state == XEVT_MOUSE_DOWN) {
-				if(mouse_down_y == 0)
+				if(mouse_down_y == 0) {
 					mouse_down_y = ev->value.mouse.y;
+					mouse_last_y = ev->value.mouse.y;
+					return;
+				}
+				int mv = (ev->value.mouse.y - mouse_last_y)/ h;
+				if(abs_32(mv) > 0) {
+					mouse_last_y = ev->value.mouse.y;
+					//drag release
+					start -= mv;
+					if(start < 0)
+						start = 0;
+					else if(start >= nums)
+						start = nums - 1;
+					repaint(true);
+				}
 			}
 			else if(ev->state == XEVT_MOUSE_UP) {
 				int old_y = mouse_down_y;
@@ -183,13 +199,6 @@ protected:
 						runProc(at);
 					return;
 				}
-				//drag release
-				start -= (ev->value.mouse.y - old_y)/ h;
-				if(start < 0)
-					start = 0;
-				else if(start >= nums)
-					start = nums - 1;
-				repaint(true);
 			}
 		}
 		else if(ev->type == XEVT_IM) {
