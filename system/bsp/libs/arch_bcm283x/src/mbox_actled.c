@@ -1,13 +1,11 @@
 #include <arch/bcm283x/mailbox.h>
+#include <sys/dma.h>
 
 void bcm283x_mbox_actled(bool on) {
-	if(_bcm283x_mailbox_addr == 0) //mailbox not inited!
-		return;
-
 	mail_message_t msg;
 	/*message head + tag head + property*/
 	uint32_t size = 12 + 12 + 8;
-	uint32_t* buf = (uint32_t*)_bcm283x_mailbox_addr;
+	uint32_t* buf = (uint32_t*)dma_map(size);
 
 	/*message head*/
 	buf[0] = size;

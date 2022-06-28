@@ -4,6 +4,7 @@
 #include <sys/syscall.h>
 #include <sysinfo.h>
 #include <sys/mmio.h>
+#include <sys/dma.h>
 
 static fbinfo_t _fb_info;
 
@@ -23,10 +24,7 @@ typedef struct {
 int32_t bcm283x_fb_init(uint32_t w, uint32_t h, uint32_t dep) {
 	memset(&_fb_info, 0, sizeof(fbinfo_t));
 	bcm283x_mailbox_init();
-	if(_bcm283x_mailbox_addr == 0) //mailbox not inited!
-		return -1;
-
-	fb_init_t* fbinit = (fb_init_t*)_bcm283x_mailbox_addr;
+	fb_init_t* fbinit = (fb_init_t*)dma_map(sizeof(fb_init_t));
 	
 	mail_message_t msg;
 	memset(&msg, 0, sizeof(mail_message_t));
@@ -73,10 +71,8 @@ int32_t bcm283x_fb_init(uint32_t w, uint32_t h, uint32_t dep) {
 int32_t bcm283x_fb_init(uint32_t w, uint32_t h, uint32_t dep) {
 	memset(&_fb_info, 0, sizeof(fbinfo_t));
 	bcm283x_mailbox_init();
-	if(_bcm283x_mailbox_addr == 0) //mailbox not inited!
-		return -1;
 
-	uint32_t* mbox = (uint32_t*)(_bcm283x_mailbox_addr);
+	uint32_t* mbox = (uint32_t*)dma_map(36);
     mbox[0] = 35*4;
     mbox[1] = 0; //request
 

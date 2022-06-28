@@ -1,14 +1,8 @@
 #include <sys/syscall.h>
-#include <sys/dma.h>
 #include <arch/bcm283x/mailbox.h>
 
-uint32_t _bcm283x_mailbox_addr = 0;
 uint32_t bcm283x_mailbox_init(void) {
-	if(mmio_map() == 0)
-		return 0;
-
-	_bcm283x_mailbox_addr = dma_map(4096);
-	return _bcm283x_mailbox_addr;
+	return mmio_map();
 }
 
 void bcm283x_mailbox_read(int channel, mail_message_t *msg) {
