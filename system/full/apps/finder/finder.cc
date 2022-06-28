@@ -160,86 +160,97 @@ protected:
 		}
 	}
 
-	void onEvent(xevent_t* ev) {
+	void mouseHandle(xevent_t* ev) {
+		int h = itemSize;
+		if(ev->state == XEVT_MOUSE_DOWN) {
+			if(mouse_down_y == 0) {
+				mouse_down_y = ev->value.mouse.y;
+				mouse_last_y = ev->value.mouse.y;
+				int at = ev->value.mouse.winy / itemSize;
+				selected = at-1 + start;
+				repaint(true);
+				return;
+			}
+			int mv = (ev->value.mouse.y - mouse_last_y)/ h;
+			if(abs_32(mv) > 0) {
+				mouse_last_y = ev->value.mouse.y;
+				//drag release
+				start -= mv;
+				if(start < 0)
+					start = 0;
+				else if(start >= nums)
+					start = nums - 1;
+				repaint(true);
+			}
+		}
+		else if(ev->state == XEVT_MOUSE_UP) {
+			int old_y = mouse_down_y;
+			mouse_down_y = 0;
+			if(old_y == ev->value.mouse.y) { //click
+				int at = ev->value.mouse.winy / itemSize;
+				if(at == 0) {
+					upBack();
+					return;
+				}
+				at = (at-1) + start;
+				if(at < nums) 
+					runProc(at);
+				return;
+			}
+		}
+	}
+
+	void imHandle(xevent_t* ev) {
 		xinfo_t xinfo;
 		getInfo(xinfo);
 		int h = itemSize;
 		int lines = xinfo.wsr.h/h - 1;
 
+		int key = ev->value.im.value;
+		if(ev->state == XIM_STATE_PRESS) {
+			if(key == KEY_UP)
+				selected--;
+			else if(key == KEY_DOWN)
+				selected++;
+			else
+				return;
+		}
+		else {//RELEASE
+			if(key == KEY_LEFT || key == KEY_BUTTON_B) {
+				upBack();
+				return;
+			}
+			else if(key == KEY_RIGHT || key == KEY_ENTER) {
+				runProc(selected);
+				return;
+			}
+		}
+
+		if(selected >= nums)
+			selected = nums-1;
+		if(selected < 0)
+			selected = 0;
+
+		if(selected < start) {
+			start -= lines;
+			if(start < 0)
+				start = 0;
+		}
+		else if((selected - start) >= lines) 
+			start += lines - 1;
+		repaint(true);
+	}
+
+	void onEvent(xevent_t* ev) {
 		if(ev->type == XEVT_MOUSE) {
-			if(ev->state == XEVT_MOUSE_DOWN) {
-				if(mouse_down_y == 0) {
-					mouse_down_y = ev->value.mouse.y;
-					mouse_last_y = ev->value.mouse.y;
-					int at = ev->value.mouse.winy / itemSize;
-					selected = at-1 + start;
-					repaint(true);
-					return;
-				}
-				int mv = (ev->value.mouse.y - mouse_last_y)/ h;
-				if(abs_32(mv) > 0) {
-					mouse_last_y = ev->value.mouse.y;
-					//drag release
-					start -= mv;
-					if(start < 0)
-						start = 0;
-					else if(start >= nums)
-						start = nums - 1;
-					repaint(true);
-				}
-			}
-			else if(ev->state == XEVT_MOUSE_UP) {
-				int old_y = mouse_down_y;
-				mouse_down_y = 0;
-				if(old_y == ev->value.mouse.y) { //click
-					int at = ev->value.mouse.winy / itemSize;
-					if(at == 0) {
-						upBack();
-						return;
-					}
-					at = (at-1) + start;
-					if(at < nums) 
-						runProc(at);
-					return;
-				}
-			}
+			mouseHandle(ev);
+			return;	
 		}
 		else if(ev->type == XEVT_IM) {
-			int key = ev->value.im.value;
-			if(ev->state == XIM_STATE_PRESS) {
-				if(key == KEY_UP)
-					selected--;
-				else if(key == KEY_DOWN)
-					selected++;
-				else
-					return;
-			}
-			else {//RELEASE
-				if(key == KEY_LEFT || key == KEY_BUTTON_B) {
-					upBack();
-					return;
-				}
-				else if(key == KEY_RIGHT || key == KEY_ENTER) {
-					runProc(selected);
-					return;
-				}
-			}
-
-			if(selected >= nums)
-				selected = nums-1;
-			if(selected < 0)
-				selected = 0;
-
-			if(selected < start) {
-				start -= lines;
-				if(start < 0)
-					start = 0;
-			}
-			else if((selected - start) >= lines) 
-				start += lines - 1;
-			repaint(true);
+			imHandle(ev);	
 		}
 	}
+
 public:
 	inline Finder() {
 		bgColor = 0xff000000;
