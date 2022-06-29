@@ -20,7 +20,9 @@ typedef struct {
 
 typedef struct {
 	int icon_size;
-	int item_size;
+	int rows;
+	int cols;
+	int margin;
 	int num;
 	item_t items[ITEM_MAX];	
 } items_t;
@@ -32,10 +34,9 @@ class Launcher: public XWin {
 	ttf_font_t* font;
 	uint32_t titleColor;
 
-	void drawIcon(graph_t* g, int at, int x, int y) {
+	void drawIcon(graph_t* g, int at, int x, int y, int w, int h) {
 		const char* icon = items.items[at].icon->cstr;
-		int item_size = items.item_size;
-		int icon_size = items.icon_size;
+		int icon_size = items.icon_size < w ? items.icon_size : w;
 		graph_t* img = items.items[at].iconImg;
 		if(img == NULL) {
 			graph_t* i = png_image_new(icon);
@@ -50,19 +51,18 @@ class Launcher: public XWin {
 			items.items[at].iconImg = img;
 		}
 
-		int dx = (item_size - img->w)/2;
-		int dy = (item_size - img->h)/2;
+		int dx = (w - img->w)/2;
+		int dy = (h - img->h)/2;
 		graph_blt_alpha(img, 0, 0, img->w, img->h,
 				g, x+dx, y+dy, img->w, img->h, 0xff);
 	}
 
-	void drawTitle(graph_t* g, int at, int x, int y) {
+	void drawTitle(graph_t* g, int at, int x, int y, int w, int h) {
 		const char* title = items.items[at].app->cstr;
-		int item_size = items.item_size;
-		uint32_t w;
-		ttf_text_size(title, font, &w, NULL);
-		int dx = (item_size - w)/2;
-		int dy = (item_size - ttf_font_hight(font));
+		uint32_t tw;
+		ttf_text_size(title, font, &tw, NULL);
+		int dx = (w - tw)/2;
+		int dy = (h - items.icon_size)/2 + items.icon_size + 8;
 		graph_draw_text_ttf(g, x+dx, y+dy, title, font, titleColor);
 	}
 
@@ -74,32 +74,41 @@ protected:
 	void onRepaint(graph_t* g) {
 		//font_t* font = get_font_by_name("8x16");
 		graph_clear(g, 0x0);
-		int i, j, cols, rows;
-		cols = g->w / items.item_size;
-		rows = items.num / cols;
-		if((items.num % cols) != 0)
-			rows++;
+		int i, j, itemH, itemW;
+		//cols = g->w / items.item_size;
+		//rows = items.num / cols;
+		itemH = g->h / items.rows;
+		itemW = g->w / items.cols;
+		//if((items.num % cols) != 0)
+		//	rows++;
 			
-		for(j=0; j<rows; j++) {
-			for(i=0; i<cols; i++) {
-				int at = j*cols + i;
+		for(j=0; j<items.rows; j++) {
+			for(i=0; i<items.cols; i++) {
+				int at = j*items.cols + i;
 				if(at >= items.num)
 					return;
 
-				int x = i*items.item_size;
-				int y = j*items.item_size;
-				graph_set_clip(g, x, y, items.item_size, items.item_size);
-				if(focused && selected == at) {
-					graph_fill_round(g, 
-						x, y, items.item_size, items.item_size, 
-						8, 0x88000000);
-					graph_round(g, 
-						x, y, items.item_size, items.item_size, 
-						8, 0xffffffff);
+				int x = i*itemW + items.margin;
+				int y = j*itemH + items.margin;
+				graph_set_clip(g, x, y, itemW-items.margin*2, itemH-items.margin*2);
+				if(focused) {
+					if(selected == at) {
+						graph_fill_round(g, 
+							x, y, itemW-items.margin*2, itemH-items.margin*2, 
+							8, 0x88aaaaaa);
+						graph_round(g, 
+							x, y, itemW-items.margin*2, itemH-items.margin*2, 
+							8, 0x88ffffff);
+					}
+					else {
+						graph_fill_round(g, 
+							x, y, itemW-items.margin*2, itemH-items.margin*2, 
+							8, 0x88444444);
+					}
 				}
 
-				drawIcon(g, at, x, y);
-				drawTitle(g, at, x, y);
+				drawIcon(g, at, x, y, itemW-items.margin*2, itemH-items.margin*2);
+				drawTitle(g, at, x, y, itemW-items.margin*2, itemH-items.margin*2);
 			}
 		}
 	}
@@ -107,11 +116,12 @@ protected:
 	void onEvent(xevent_t* ev) {
 		xinfo_t xinfo;
 		getInfo(xinfo);
-		int cols = xinfo.wsr.w / items.item_size;
 		if(ev->type == XEVT_MOUSE) {
-			int col = ev->value.mouse.x / items.item_size;
-			int row = ev->value.mouse.y / items.item_size;
-			int at = row*cols + col;
+			int itemW = xinfo.wsr.w / items.cols;
+			int itemH = xinfo.wsr.h / items.rows;
+			int col = ev->value.mouse.x / itemW;
+			int row = ev->value.mouse.y / itemH;
+			int at = row*items.cols + col;
 			if(at >= items.num)
 				return;
 
@@ -136,9 +146,9 @@ protected:
 				else if(key == KEY_RIGHT)
 					selected++;
 				else if(key == KEY_UP)
-					selected -= cols;
+					selected -= items.cols;
 				else if(key == KEY_DOWN)
-					selected += cols;
+					selected += items.cols;
 				else
 					return;
 			}
@@ -192,7 +202,9 @@ public:
 	}
 
 	bool readConfig(const char* fname) {
-		items.item_size = 96;
+		items.cols = 4;
+		items.rows = 2;
+		items.margin = 6;
 		items.icon_size = 64;
 		titleColor = 0xffffffff;
 		sconf_t *conf = sconf_load(fname);	
@@ -201,9 +213,17 @@ public:
 		const char* v = sconf_get(conf, "icon_size");
 		if(v[0] != 0)
 			items.icon_size = atoi(v);
-		v = sconf_get(conf, "item_size");
+		v = sconf_get(conf, "rows");
 		if(v[0] != 0)
-			items.item_size = atoi(v);
+			items.rows = atoi(v);
+
+		v = sconf_get(conf, "cols");
+		if(v[0] != 0)
+			items.cols = atoi(v);
+
+		v = sconf_get(conf, "margin");
+		if(v[0] != 0)
+			items.margin = atoi(v);
 
 		uint32_t font_size = 16;
 		v = sconf_get(conf, "font_size");
