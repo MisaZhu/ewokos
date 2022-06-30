@@ -30,6 +30,7 @@ typedef struct {
 class Launcher: public XWin {
 	items_t items;
 	int selected;
+	int start;
 	bool focused;
 	ttf_font_t* font;
 	uint32_t titleColor;
@@ -84,7 +85,7 @@ protected:
 			
 		for(j=0; j<items.rows; j++) {
 			for(i=0; i<items.cols; i++) {
-				int at = j*items.cols + i;
+				int at = j*items.cols + i + start;
 				if(at >= items.num)
 					return;
 
@@ -167,6 +168,14 @@ protected:
 				selected = items.num-1;
 			if(selected < 0)
 				selected = 0;
+			
+			if(selected < start) {
+				start -= items.cols*items.rows;
+				if(start < 0)
+					start = 0;
+			}
+			else if((selected - start) >= items.cols*items.rows) 
+				start += items.cols*items.rows;
 			repaint(true);
 		}
 	}
@@ -184,6 +193,7 @@ protected:
 public:
 	inline Launcher() {
 		selected = 0;
+		start = 0;
 		focused = true;
 		memset(&items, 0, sizeof(items_t));
 		font = NULL;
