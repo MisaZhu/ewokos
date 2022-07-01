@@ -8,6 +8,14 @@
 #include <arch/bcm283x/i2c.h>
 #include <unistd.h>
 
+//#define I2C_BIT_DELAY() usleep(i2c_wait) 
+
+static inline udelay(volatile uint32_t loop){
+	while(loop--){
+
+	}
+}
+#define I2C_BIT_DELAY() udelay(10000);
 /*----------------------------------------------------------------------------*/
 static int32_t i2c_sda, i2c_scl, i2c_stop;
 static uint32_t i2c_wait;
@@ -15,41 +23,41 @@ static uint32_t i2c_wait;
 /** routine i2c to write out start marker */
 void i2c_do_start(void) {
 	/* enforce bus free time */
-	usleep(i2c_wait);
+	I2C_BIT_DELAY();
 	/* now we are driving! master! */
 	bcm283x_gpio_config(i2c_scl,GPIO_OUTPUT);
 	bcm283x_gpio_config(i2c_sda,GPIO_OUTPUT);
 	bcm283x_gpio_set(i2c_sda);
-	usleep(i2c_wait);
+	I2C_BIT_DELAY();
 	bcm283x_gpio_set(i2c_scl);
-	usleep(i2c_wait); /* start condition setup time */
+	I2C_BIT_DELAY(); /* start condition setup time */
 	bcm283x_gpio_clr(i2c_sda);
-	usleep(i2c_wait); /* start condition hold time */
+	I2C_BIT_DELAY(); /* start condition hold time */
 	bcm283x_gpio_clr(i2c_scl);
 }
 /*----------------------------------------------------------------------------*/
 /** routine i2c to write out stop marker */
 void i2c_do_stop(void) {
 	bcm283x_gpio_clr(i2c_sda);
-	usleep(i2c_wait);
+	I2C_BIT_DELAY();
 	bcm283x_gpio_set(i2c_scl);
 	/* should check clock stretching? in case slave pull scl low! */
-	usleep(i2c_wait); /* stop condition setup time */
+	I2C_BIT_DELAY(); /* stop condition setup time */
 	bcm283x_gpio_set(i2c_sda);
 	/* no hold time for stop condition? :p */
-	usleep(i2c_wait);
+	I2C_BIT_DELAY();
 	/* stop driving! release lines */
 	bcm283x_gpio_config(i2c_sda,GPIO_INPUT);
-	bcm283x_gpio_config(i2c_scl,GPIO_INPUT);
+	//bcm283x_gpio_config(i2c_scl,GPIO_INPUT);
 }
 /*----------------------------------------------------------------------------*/
 /** routine i2c to write 1 bit */
 void i2c_do_write_bit(uint8_t data) {
 	if (data) bcm283x_gpio_set(i2c_sda);
 	else bcm283x_gpio_clr(i2c_sda);
-	usleep(i2c_wait);
+	I2C_BIT_DELAY();
 	bcm283x_gpio_set(i2c_scl);
-	usleep(i2c_wait);
+	I2C_BIT_DELAY();
 	/* should check clock stretching? in case slave pull scl low! */
 	bcm283x_gpio_clr(i2c_scl);
 }
@@ -60,10 +68,10 @@ uint8_t i2c_do_read_bit(void) {
 	/* release the line for slave */
 	bcm283x_gpio_set(i2c_sda);
 	bcm283x_gpio_config(i2c_sda,GPIO_INPUT);
-	usleep(i2c_wait);
+	I2C_BIT_DELAY();
 	bcm283x_gpio_set(i2c_scl);
 	/* should check clock stretching? in case slave pull scl low! */
-	usleep(i2c_wait);
+	I2C_BIT_DELAY();
 	if (bcm283x_gpio_read(i2c_sda)) data = 1;
 	bcm283x_gpio_clr(i2c_scl);
 	/* retake the line */
@@ -108,7 +116,7 @@ void i2c_init(int32_t sda_gpio, int32_t scl_gpio) {
 	bcm283x_gpio_set(i2c_sda);
 	bcm283x_gpio_set(i2c_scl);
 	/* default parameters */
-	i2c_wait = 1000; /*1 msec*/
+	i2c_wait = 1; /*1 msec*/
 	i2c_stop = 0;
 }
 /*----------------------------------------------------------------------------*/
@@ -171,3 +179,26 @@ uint32_t i2c_gets(uint32_t addr, uint32_t regs, uint8_t* pdat, uint32_t size) {
 	return test;
 }
 /*----------------------------------------------------------------------------*/
+uint32_t i2c_puts_raw(uint32_t addr, uint8_t* pdat, uint32_t size) {
+	uint32_t loop, test = 0;
+	addr <<= 1;
+	i2c_do_start();
+	test |= i2c_do_write_byte(addr);
+	for (loop=0;loop<size;loop++){
+		test |= i2c_do_write_byte(pdat[loop]);
+	}
+	i2c_do_stop();
+	return test;
+}
+/*----------------------------------------------------------------------------*/
+uint32_t i2c_gets_raw(uint32_t addr, uint8_t* pdat, uint32_t size) {
+	uint32_t loop, test = 0;
+	addr <<= 1;
+	i2c_do_start();
+	test |= i2c_do_write_byte(addr|0x01); /* activate read bit */
+	for (loop=0;loop<size-1;loop++)
+		pdat[loop] = i2c_do_read_byte(1);
+	pdat[loop] = i2c_do_read_byte(0);
+	i2c_do_stop();
+	return test;
+}
