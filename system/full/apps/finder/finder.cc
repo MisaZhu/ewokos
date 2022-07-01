@@ -220,7 +220,7 @@ protected:
 				upBack();
 				return;
 			}
-			else if(key == KEY_RIGHT || key == KEY_ENTER || KEY_BUTTON_A) {
+			else if(key == KEY_RIGHT || key == KEY_ENTER || key == KEY_BUTTON_A) {
 				runProc(selected);
 				return;
 			}
