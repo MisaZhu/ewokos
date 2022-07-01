@@ -65,6 +65,11 @@ typedef struct {
 } x_display_t;
 
 typedef struct {
+	gpos_t down_pos;
+	bool pressed; //true for down
+} x_mouse_state_t;
+
+typedef struct {
 	const char* display_man;
 	x_display_t displays[DISP_MAX];
 	uint32_t display_num;
@@ -82,6 +87,7 @@ typedef struct {
 
 	xview_t* view_xim;
 	bool     view_xim_actived;
+	x_mouse_state_t mouse_state;
 	x_current_t current;
 	x_conf_t config;
 } x_t;
@@ -882,32 +888,27 @@ static void xwin_top(x_t* x, xview_t* view) {
 	push_view(x, view);
 }
 
-static int mouse_handle(x_t* x, xevent_t* ev) {
-	if(ev->value.mouse.relative != 0) {
-		mouse_cxy(x, x->current_display, ev->value.mouse.rx, ev->value.mouse.ry);
-		ev->value.mouse.x = x->cursor.cpos.x;
-		ev->value.mouse.y = x->cursor.cpos.y;
-	}
-	else {
-		x->cursor.cpos.x = ev->value.mouse.x;
-		x->cursor.cpos.y = ev->value.mouse.y;
-	}
-
-	if(ev->state ==  XEVT_MOUSE_DOWN)
-		x->cursor.down = true;
-	else if(ev->state ==  XEVT_MOUSE_UP)
-		x->cursor.down = false;
-	
-
-	int pos = -1;
-	xview_t* view = NULL;
-	if(x->current.view != NULL)
-		view = x->current.view;
-	else
-		view = get_mouse_owner(x, &pos);
-
+static void xwin_bg(x_t* x, xview_t* view) {
 	if(view == NULL)
-		return -1;
+		return;
+	if(!x->config.bg_run && view != x->view_launcher) {
+		xevent_t ev;
+		ev.type = XEVT_WIN;
+		ev.value.window.event = XEVT_WIN_CLOSE;
+		x_push_event(x, view, &ev);
+		return;
+	}
+
+	if(x->view_focus != x->view_launcher) {
+		x->view_last = x->view_focus;
+		xwin_top(x, x->view_launcher);
+	}
+	else if(x->view_last != NULL) {
+		xwin_top(x, x->view_last);
+	}
+}
+
+static void mouse_xwin_handle(x_t* x, xview_t* view, int pos, xevent_t* ev) {
 	ev->value.mouse.winx = ev->value.mouse.x - view->xinfo.wsr.x;
 	ev->value.mouse.winy = ev->value.mouse.y - view->xinfo.wsr.y;
 
@@ -972,25 +973,50 @@ static int mouse_handle(x_t* x, xevent_t* ev) {
 		}
 	}
 	x_push_event(x, view, ev);
-	return -1;
 }
 
-static void xwin_bg(x_t* x, xview_t* view) {
-	if(!x->config.bg_run && view != x->view_launcher) {
-		xevent_t ev;
-		ev.type = XEVT_WIN;
-		ev.value.window.event = XEVT_WIN_CLOSE;
-		x_push_event(x, view, &ev);
-		return;
+static int mouse_handle(x_t* x, xevent_t* ev) {
+	if(ev->value.mouse.relative != 0) {
+		mouse_cxy(x, x->current_display, ev->value.mouse.rx, ev->value.mouse.ry);
+		ev->value.mouse.x = x->cursor.cpos.x;
+		ev->value.mouse.y = x->cursor.cpos.y;
+	}
+	else {
+		x->cursor.cpos.x = ev->value.mouse.x;
+		x->cursor.cpos.y = ev->value.mouse.y;
 	}
 
-	if(x->view_focus != x->view_launcher) {
-		x->view_last = x->view_focus;
-		xwin_top(x, x->view_launcher);
+	x_display_t *display = &x->displays[x->current_display];
+	if(ev->state ==  XEVT_MOUSE_DOWN) {
+		x->cursor.down = true;
+		if(!x->mouse_state.pressed) {
+			x->mouse_state.pressed = true;
+			x->mouse_state.down_pos.x = ev->value.mouse.x;
+			x->mouse_state.down_pos.y = ev->value.mouse.y;
+		}
+		if(x->mouse_state.down_pos.y >= (display->g->h-16))
+			return;
 	}
-	else if(x->view_last != NULL) {
-		xwin_top(x, x->view_last);
+	else if(ev->state ==  XEVT_MOUSE_UP) {
+		x->cursor.down = false;
+		x->mouse_state.pressed = false;
+		if(x->mouse_state.down_pos.y >= (display->g->h-16)&&
+				x->mouse_state.down_pos.y > ev->value.mouse.y)  { //swap up from bottom
+			xwin_bg(x, x->view_focus);
+			return 0;
+		}
 	}
+
+	int pos = -1;
+	xview_t* view = NULL;
+	if(x->current.view != NULL)
+		view = x->current.view;
+	else
+		view = get_mouse_owner(x, &pos);
+
+	if(view != NULL)
+		mouse_xwin_handle(x, view, pos, ev);
+	return 0;
 }
 
 static int im_handle(x_t* x, int32_t from_pid, xevent_t* ev) {
