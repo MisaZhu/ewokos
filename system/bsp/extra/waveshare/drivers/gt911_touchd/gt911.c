@@ -4,7 +4,7 @@
 #include <unistd.h>
 #include <arch/bcm283x/gpio.h>
 #include <arch/bcm283x/i2c.h>
-#include "GT911.h"
+#include "gt911.h"
 
 static GT911_Status_t CommunicationResult;
 static uint8_t TxBuffer[200];
