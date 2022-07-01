@@ -159,7 +159,7 @@ protected:
 				}
 				return;
 			}
-			else if(c == KEY_ENTER) {//} || c == KEY_BUTTON_A) {
+			else if(c == KEY_ENTER || c == KEY_BUTTON_A) {
 				if(hideMode) {
 					changeMode(false);
 					return;

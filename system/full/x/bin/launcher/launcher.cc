@@ -154,7 +154,7 @@ protected:
 					return;
 			}
 			else {//XIM_STATE_RELEASE
-				if(key == KEY_ENTER || key == KEY_BUTTON_START) {
+				if(key == KEY_ENTER || key == KEY_BUTTON_START || key == KEY_BUTTON_A) {
 					int pid = fork();
 					if(pid == 0) {
 						runProc(items.items[selected].fname->cstr);
