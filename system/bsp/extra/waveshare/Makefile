@@ -11,6 +11,7 @@ all:
 	cd drivers/gpio_joystickd; make
 	cd drivers/gpio_joykeybd; make
 	cd drivers/lcdhatd; make
+	cd drivers/gt911_touchd; make
 
 clean:	
 	cd libs/xpt2046; make clean
@@ -24,3 +25,4 @@ clean:
 	cd drivers/gpio_joystickd; make clean
 	cd drivers/gpio_joykeybd; make clean
 	cd drivers/lcdhatd; make clean
+	cd drivers/gt911_touchd; make clean
