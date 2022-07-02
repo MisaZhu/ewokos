@@ -66,6 +66,7 @@ typedef struct {
 
 typedef struct {
 	gpos_t down_pos;
+	gpos_t last_pos;
 	bool pressed; //true for down
 } x_mouse_state_t;
 
@@ -919,7 +920,8 @@ static void mouse_xwin_handle(x_t* x, xview_t* view, int pos, xevent_t* ev) {
 		else {
 			try_focus(x, view);
 		}
-
+	}
+	else if(ev->state ==  XEVT_MOUSE_DRAG) {
 		if(pos == FRAME_R_TITLE) {//window title 
 			x->current.view = view;
 			x->current.old_pos.x = x->cursor.cpos.x;
@@ -934,7 +936,6 @@ static void mouse_xwin_handle(x_t* x, xview_t* view, int pos, xevent_t* ev) {
 			x->current.drag_state = X_VIEW_DRAG_RESIZE;
 			x_dirty(x, x->current_display);
 		}
-		ev->state = XEVT_MOUSE_DOWN;
 	}
 	else if(ev->state == XEVT_MOUSE_UP) {
 		if(x->current.view == view) {
@@ -993,15 +994,36 @@ static int mouse_handle(x_t* x, xevent_t* ev) {
 			x->mouse_state.pressed = true;
 			x->mouse_state.down_pos.x = ev->value.mouse.x;
 			x->mouse_state.down_pos.y = ev->value.mouse.y;
+			x->mouse_state.last_pos.x = ev->value.mouse.x;
+			x->mouse_state.last_pos.y = ev->value.mouse.y;
+			ev->value.mouse.rx = 0;
+			ev->value.mouse.ry = 0;
 		}
-		if(x->mouse_state.down_pos.y >= (display->g->h-16))
+		else if(ev->value.mouse.from_x != ev->value.mouse.x ||
+					ev->value.mouse.from_y != ev->value.mouse.y) {
+			ev->state = XEVT_MOUSE_DRAG;
+			ev->value.mouse.from_x = x->mouse_state.down_pos.x;
+			ev->value.mouse.from_y = x->mouse_state.down_pos.y;
+			ev->value.mouse.rx = ev->value.mouse.x - x->mouse_state.last_pos.x;
+			ev->value.mouse.ry = ev->value.mouse.y - x->mouse_state.last_pos.y;
+			x->mouse_state.last_pos.x = ev->value.mouse.x;
+			x->mouse_state.last_pos.y = ev->value.mouse.y;
+		}
+		if(ev->value.mouse.from_y >= (display->g->h-16)) //from bottom
 			return;
 	}
 	else if(ev->state ==  XEVT_MOUSE_UP) {
 		x->cursor.down = false;
 		x->mouse_state.pressed = false;
-		if(x->mouse_state.down_pos.y >= (display->g->h-16)&&
-				x->mouse_state.down_pos.y > ev->value.mouse.y)  { //swap up from bottom
+		ev->value.mouse.from_x = x->mouse_state.down_pos.x;
+		ev->value.mouse.from_y = x->mouse_state.down_pos.y;
+		ev->value.mouse.rx = ev->value.mouse.x - x->mouse_state.last_pos.x;
+		ev->value.mouse.ry = ev->value.mouse.y - x->mouse_state.last_pos.y;
+		x->mouse_state.last_pos.x = ev->value.mouse.x;
+		x->mouse_state.last_pos.y = ev->value.mouse.y;
+
+		if(ev->value.mouse.from_y >= (display->g->h-16) && //from bottom
+				ev->value.mouse.from_y > ev->value.mouse.y)  { //swap up from bottom
 			xwin_bg(x, x->view_focus);
 			return 0;
 		}

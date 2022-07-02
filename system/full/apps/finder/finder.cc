@@ -23,7 +23,6 @@ class Finder: public XWin {
 	graph_t* fileIcon;
 	uint32_t itemSize;
 
-	int     mouse_down_y;
 	int     mouse_last_y;
 	int     selected;
 	int     start;
@@ -163,14 +162,13 @@ protected:
 	void mouseHandle(xevent_t* ev) {
 		int h = itemSize;
 		if(ev->state == XEVT_MOUSE_DOWN) {
-			if(mouse_down_y == 0) {
-				mouse_down_y = ev->value.mouse.y;
-				mouse_last_y = ev->value.mouse.y;
-				int at = ev->value.mouse.winy / itemSize;
-				selected = at-1 + start;
-				repaint(true);
-				return;
-			}
+			mouse_last_y = ev->value.mouse.y;
+			int at = ev->value.mouse.winy / itemSize;
+			selected = at-1 + start;
+			repaint(true);
+			return;
+		}
+		else if(ev->state == XEVT_MOUSE_DRAG) {
 			int mv = (ev->value.mouse.y - mouse_last_y)/ h;
 			if(abs_32(mv) > 0) {
 				mouse_last_y = ev->value.mouse.y;
@@ -184,9 +182,7 @@ protected:
 			}
 		}
 		else if(ev->state == XEVT_MOUSE_UP) {
-			int old_y = mouse_down_y;
-			mouse_down_y = 0;
-			if(old_y == ev->value.mouse.y) { //click
+			if(ev->value.mouse.from_y == ev->value.mouse.y) { //click
 				int at = ev->value.mouse.winy / itemSize;
 				if(at == 0) {
 					upBack();
@@ -265,7 +261,7 @@ public:
 		selected = 0;
 		start = 0;
 		font = NULL;
-		mouse_down_y = 0;
+		mouse_last_y = 0;
 		readDir("/");
 	}
 

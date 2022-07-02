@@ -50,6 +50,7 @@ typedef struct {
 			int32_t x, y;
 			int32_t winx, winy;
 			int32_t rx, ry;
+			int32_t from_x, from_y; //drag from(first press down position)
 			int32_t button;
 		} mouse;
 
