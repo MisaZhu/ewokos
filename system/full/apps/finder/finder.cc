@@ -181,18 +181,16 @@ protected:
 				repaint(true);
 			}
 		}
-		else if(ev->state == XEVT_MOUSE_UP) {
-			if(ev->value.mouse.from_y == ev->value.mouse.y) { //click
-				int at = ev->value.mouse.winy / itemSize;
-				if(at == 0) {
-					upBack();
-					return;
-				}
-				at = (at-1) + start;
-				if(at < nums) 
-					runProc(at);
+		else if(xevent_is_mouse_click(ev)) {
+			int at = ev->value.mouse.winy / itemSize;
+			if(at == 0) {
+				upBack();
 				return;
 			}
+			at = (at-1) + start;
+			if(at < nums) 
+				runProc(at);
+			return;
 		}
 	}
 

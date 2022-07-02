@@ -132,7 +132,7 @@ protected:
 					repaint(true);
 				}
 			}
-			else if(ev->state == XEVT_MOUSE_UP) {
+			else if(xevent_is_mouse_click(ev)) {
 				int pid = fork();
 				if(pid == 0)
 					runProc(items.items[at].fname->cstr);

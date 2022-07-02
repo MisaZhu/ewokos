@@ -66,6 +66,8 @@ typedef struct {
 	} value;
 } xevent_t;
 
+bool xevent_is_mouse_click(xevent_t* ev);
+
 #ifdef __cplusplus
 }
 #endif

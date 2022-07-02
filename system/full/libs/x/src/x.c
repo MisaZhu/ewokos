@@ -8,6 +8,7 @@
 #include <sys/proc.h>
 #include <sys/vdevice.h>
 #include <sys/cmain.h>
+#include <sys/basic_math.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <stdlib.h>
@@ -18,6 +19,15 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+bool xevent_is_mouse_click(xevent_t* ev) {
+	if(ev->type != XEVT_MOUSE || ev->state != XEVT_MOUSE_UP)
+		return false;
+	if(abs_32(ev->value.mouse.from_x - ev->value.mouse.x) > 4 ||
+			abs_32(ev->value.mouse.from_y - ev->value.mouse.y) > 4)
+		return false;
+	return true;
+}
 
 void x_push_event(x_t* x, xevent_t* ev) {
 	x_event_t* e = (x_event_t*)malloc(sizeof(x_event_t));
