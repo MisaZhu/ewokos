@@ -13,7 +13,6 @@ $
 /bin/rundev /drivers/proc/stated          /proc/state
 /bin/rundev /drivers/timerd               /dev/timer
 
-
 /bin/rundev /drivers/xserverd             /dev/x
 
 #@/sbin/x/xmoused /dev/mouse0 &

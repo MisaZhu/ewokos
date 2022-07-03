@@ -13,6 +13,7 @@ basic_libs:
 	cd x;make
 	cd cxx/cxx;make
 	cd cxx/x++;make
+	cd cxx/widget;make
 
 clean:
 	cd fb;make clean
@@ -25,3 +26,4 @@ clean:
 	cd console;make clean
 	cd x;make clean
 	cd cxx/cxx;make clean
+	cd cxx/widget;make clean

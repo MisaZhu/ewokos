@@ -99,6 +99,8 @@ static graph_t* x_get_graph(xwin_t* xwin, graph_t* g) {
 		if(xwin->g_buf == NULL)
 			return NULL;
 		xwin->g_shmid = xwin->xinfo.shm_id;
+		if(xwin->on_resize != NULL)
+			xwin->on_resize(xwin);
 	}
 
 	g->buffer = xwin->g_buf;
@@ -179,9 +181,6 @@ int xwin_resize_to(xwin_t* xwin, int w, int h) {
 	xwin->xinfo.wsr.w = w;
 	xwin->xinfo.wsr.h = h;
 	xwin_update_info(xwin, &xwin->xinfo);
-	if(xwin->on_resize) {
-		xwin->on_resize(xwin);
-	}
 	xwin_repaint(xwin, true);
 	return 0;
 }
@@ -220,9 +219,6 @@ int xwin_event_handle(xwin_t* xwin, xevent_t* ev) {
 		xwin->xinfo.wsr.w += ev->value.window.v0;
 		xwin->xinfo.wsr.h += ev->value.window.v1;
 		xwin_update_info(xwin, &xwin->xinfo);
-		if(xwin->on_resize) {
-			xwin->on_resize(xwin);
-		}
 		xwin_repaint(xwin, true);
 	}
 	else if(ev->value.window.event == XEVT_WIN_MOVE) {
@@ -252,9 +248,6 @@ int xwin_event_handle(xwin_t* xwin, xevent_t* ev) {
 			}
 		}
 		xwin_update_info(xwin, &xwin->xinfo);
-		if(xwin->on_resize) {
-			xwin->on_resize(xwin);
-		}
 		xwin_repaint(xwin, true);
 	}
 	return 0;

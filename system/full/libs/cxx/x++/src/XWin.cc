@@ -142,6 +142,7 @@ void XWin::setDisplay(int index) {
 }
 
 void XWin::setCWin(xwin_t* xw) {
+	xw->data = this;
 	xwin = xw;
 	xwin->on_close = _on_close;
 	xwin->on_repaint = _on_repaint;

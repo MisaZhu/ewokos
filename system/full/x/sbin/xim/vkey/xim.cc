@@ -94,7 +94,7 @@ protected:
 			keySelect = at;
 			repaint(true);
 		}
-		else if(ev->state == XEVT_MOUSE_MOVE) {
+		else if(ev->state == XEVT_MOUSE_DRAG) {
 			if(keySelect >= 0 && keySelect != at) {
 				keySelect = at;
 				repaint(true);
@@ -103,10 +103,12 @@ protected:
 		else if(ev->state == XEVT_MOUSE_UP) {
 			if(hideMode) {
 				changeMode(false);
+				keySelect = -1;
 				return;
 			}
 
 			char c = keytable[keytableType][keySelect];
+			keySelect = -1;
 			doKeyIn(c);	
 			repaint(true);
 		}
