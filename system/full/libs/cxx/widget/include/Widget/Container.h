@@ -93,8 +93,10 @@ public:
 
 	void add(Widget* child) {
 		child->father = this;
-		if(childrenEnd != NULL)
+		if(childrenEnd != NULL) {
 			childrenEnd->next = child;
+			child->prev = childrenEnd;
+		}
 		else
 			children = child;
 		childrenEnd = child;

@@ -9,6 +9,7 @@ class Container;
 class Widget {
 	friend Container;
 	Widget* next;
+	Widget* prev;
 protected:
 	Widget* father;
 	bool dirty;
@@ -25,6 +26,7 @@ public:
 		fixed = false;
 		father = NULL;
 		next = NULL;
+		prev = NULL;
 		rect = {0, 0, 0, 0};
 	}
 
