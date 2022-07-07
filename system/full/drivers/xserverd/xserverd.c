@@ -972,6 +972,13 @@ static void mouse_xwin_handle(x_t* x, xview_t* view, int pos, xevent_t* ev) {
 		}
 	}
 	x_push_event(x, view, ev);
+	if(ev->state == XEVT_MOUSE_UP) {
+		if(abs_32(ev->value.mouse.from_x - ev->value.mouse.x) < 6 &&
+				abs_32(ev->value.mouse.from_y - ev->value.mouse.y) < 6) {
+			ev->state = XEVT_MOUSE_CLICK;
+			x_push_event(x, view, ev);
+		}
+	}
 }
 
 static int mouse_handle(x_t* x, xevent_t* ev) {

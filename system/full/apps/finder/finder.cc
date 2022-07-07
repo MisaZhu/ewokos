@@ -181,7 +181,7 @@ protected:
 				repaint(true);
 			}
 		}
-		else if(xevent_is_mouse_click(ev)) {
+		else if(ev->state == XEVT_MOUSE_CLICK) {
 			int at = ev->value.mouse.winy / itemSize;
 			if(at == 0) {
 				upBack();

@@ -86,6 +86,17 @@ protected:
 		layout();
 	}
 
+	bool onEvent(x_event_t* ev) final {
+		Widget* wd = childrenEnd;
+		while(wd != NULL) {
+			if(wd->onEvent(ev)) {
+				return true;
+			}
+			wd = wd->prev;
+		}
+		return false;
+	}
+
 public:
 	static const int FIXED = 0;
 	static const int VERTICLE = 1;
