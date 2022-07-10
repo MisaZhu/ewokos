@@ -2,6 +2,7 @@
 #define WIDGET_HH
 
 #include <x++/XWin.h>
+#include <string.h>
 
 namespace Ewok {
 
@@ -9,6 +10,7 @@ class Container;
 class Widget {
 	friend Container;
 	Widget* next;
+	Widget* prev;
 protected:
 	Widget* father;
 	bool dirty;
@@ -16,15 +18,25 @@ protected:
 	bool fixed;
 	grect_t rect;
 
-	virtual void onRepaint(graph_t* g, grect_t* grect) { }
+	virtual void onRepaint(graph_t* g, grect_t* grect) {
+		(void)g;
+		(void)grect;
+	}
+
 	virtual void onResize() { }
 	virtual void onMove() { }
+
+	virtual bool onEvent(x_event_t* ev) { 
+		(void)ev;
+		return false; 
+	}
 public:
 	inline Widget(void)  { 
 		dirty = true;
 		fixed = false;
 		father = NULL;
 		next = NULL;
+		prev = NULL;
 		rect = {0, 0, 0, 0};
 	}
 
@@ -91,7 +103,17 @@ public:
 		moveTo(x, y);
 	}
 	
-	inline grect_t* getRect() { return &rect; }
+	inline void getRect(grect_t* r) { memcpy(r, &rect, sizeof(grect_t)); }
+
+	inline void getAbsRect(grect_t* r) {
+		getRect(r);
+		Widget* wd = father;
+		while(wd != NULL) {
+			r->x += wd->rect.x;
+			r->y += wd->rect.y;
+			wd = wd->father;
+		}
+	}
 };
 
 }

@@ -21,6 +21,10 @@ public:
 		if(xwin != NULL)
 			xwin->repaint();
 	}
+
+	void sendEvent(x_event_t* ev) {
+		onEvent(ev);
+	}
 };
 
 class WidgetWin: public XWin {
