@@ -92,7 +92,7 @@ static void audio_init(void) {
 static void playaudio_dma(uint8_t* data, uint32_t size) {
     // Convert data
 	uint32_t* pdata = (uint32_t*)_dma_data_addr;
-    for (int i=0;i<size;i++) 
+    for (uint32_t i=0; i<size; i++) 
 		*(pdata+i) = *(data+i);
 	usleep(2000);
 
@@ -125,6 +125,7 @@ static void playaudio_dma(uint8_t* data, uint32_t size) {
 		usleep(2000);
 }
 
+/*
 static void playaudio_cpu(uint8_t* data, uint32_t size) {
 	volatile unsigned* pwm = (void*)PWM_BASE;
 	uint32_t i=0;
@@ -145,6 +146,7 @@ static void playaudio_cpu(uint8_t* data, uint32_t size) {
 		}
 	}
 }
+*/
 
 static int sound_write(int fd, int from_pid, fsinfo_t* info,
 		const void* buf, int size, int offset, void* p) {
