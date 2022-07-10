@@ -34,7 +34,7 @@
 
 #define DMA_CS        0       /* Control/status register offset for DMA channel 0 */
 #define DMA_CONBLK_AD 1
-#define DMA_EN1       1 << 0  /* Enable DMA engine 0 */
+#define DMA_EN0       1 << 0  /* Enable DMA engine 0 */
 //#define DMA_EN1       1 << 1  /* Enable DMA engine 1 */
 #define DMA_ACTIVE    1       /* Active bit set */
 #define DMA_DEST_DREQ 0x40    /* Use DREQ to pace peripheral writes */
@@ -116,7 +116,7 @@ static void playaudio_dma(uint8_t* data, uint32_t size) {
 
     *(pwm+BCM283x_PWM_DMAC) = 
           BCM283x_PWM_ENAB + 0x0707; // Bits 0-7 Threshold For DREQ Signal = 1, Bits 8-15 Threshold For PANIC Signal = 0
-    *dmae = DMA_EN1;
+    *dmae = DMA_EN0;
     *(dma+DMA_CONBLK_AD) = (long)_dma_cb; // checked and correct
 	usleep(2000);
     *(dma+DMA_CS) = DMA_ACTIVE;
