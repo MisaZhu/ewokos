@@ -1,10 +1,14 @@
 #include <arch/bcm283x/gpio.h>
 #include <sys/vdevice.h>
+#include <sys/syscall.h>
 #include <string.h>
 #include <unistd.h>
+#include <sys/dma.h>
 
 #define PWM_BASE        (_mmio_base + 0x20C000) /* PWM0 register base address on RPi */
 #define CLOCK_BASE      (_mmio_base + 0x101000)
+#define DMA_BASE        (_mmio_base + 0x007100)         /* DMA register base address */
+#define DMA_ENABLE      (DMA_BASE + 0xFF0)                   /* DMA global enable bits */
 
 #define BCM283x_PWMCLK_CNTL 40
 #define BCM283x_PWMCLK_DIV  41
@@ -30,11 +34,28 @@
 
 #define DMA_CS        0       /* Control/status register offset for DMA channel 0 */
 #define DMA_CONBLK_AD 1
-#define DMA_EN1       1 << 1  /* Enable DMA engine 1 */
+#define DMA_EN1       1 << 0  /* Enable DMA engine 0 */
+//#define DMA_EN1       1 << 1  /* Enable DMA engine 1 */
 #define DMA_ACTIVE    1       /* Active bit set */
 #define DMA_DEST_DREQ 0x40    /* Use DREQ to pace peripheral writes */
 #define DMA_SRC_INC   0x100   /* Increment source address */
+#define DMA_PERMAP_0  0x0     /* PWM0 peripheral for DREQ */
+//#define DMA_PERMAP_1  0x10000 /* PWM1 peripheral for DREQ */
 
+
+typedef struct dma_cb {
+   unsigned int ti;
+   unsigned int source_ad;
+   unsigned int dest_ad;
+   unsigned int txfr_len;
+   unsigned int stride;
+   unsigned int nextconbk;
+   unsigned int null1;
+   unsigned int null2;
+} dma_cb_t;
+
+static dma_cb_t* _dma_cb = NULL;
+static uint32_t _dma_data_addr = 0;
 
 static void audio_init(void) {   
 	volatile unsigned* clk = (void*)CLOCK_BASE;
@@ -62,6 +83,46 @@ static void audio_init(void) {
 	*(pwm+BCM283x_PWM_CONTROL) =
 			BCM283x_PWM0_USEFIFO | 
 			BCM283x_PWM0_ENABLE | 1<<6;
+	
+	_dma_cb = (dma_cb_t*)dma_map(sizeof(dma_cb_t));
+	_dma_data_addr = dma_map(4096); //4k dma buffer
+}
+
+
+static void playaudio_dma(uint8_t* data, uint32_t size) {
+    // Convert data
+	uint32_t* pdata = (uint32_t*)_dma_data_addr;
+    for (int i=0;i<size;i++) 
+		*(pdata+i) = *(data+i);
+	usleep(2000);
+
+    // Set up control block
+	uint32_t phy_pwm_base =  syscall1(SYS_V2P, PWM_BASE);
+
+    _dma_cb->ti = DMA_DEST_DREQ + DMA_PERMAP_0 + DMA_SRC_INC;
+    _dma_cb->source_ad = _dma_data_addr;
+    _dma_cb->dest_ad = phy_pwm_base + 0x18; // Points to PWM_FIFO
+    _dma_cb->txfr_len = size * 4; // They're unsigned ints now, not unsigned chars
+    _dma_cb->stride = 0x00;
+    _dma_cb->nextconbk = 0x00; // Don't loop
+    _dma_cb->null1 = 0x00;
+    _dma_cb->null2 = 0x00;
+	usleep(2000);
+
+    // Enable DMA
+	volatile uint32_t* pwm = (uint32_t*)PWM_BASE;
+	volatile uint32_t* dma = (uint32_t*)DMA_BASE;
+	volatile uint32_t* dmae = (uint32_t*)DMA_ENABLE;
+
+    *(pwm+BCM283x_PWM_DMAC) = 
+          BCM283x_PWM_ENAB + 0x0707; // Bits 0-7 Threshold For DREQ Signal = 1, Bits 8-15 Threshold For PANIC Signal = 0
+    *dmae = DMA_EN1;
+    *(dma+DMA_CONBLK_AD) = (long)_dma_cb; // checked and correct
+	usleep(2000);
+    *(dma+DMA_CS) = DMA_ACTIVE;
+
+	while (*(dma+DMA_CS) & 0x1) // Wait for DMA transfer to finish - we could do anything here instead!
+		usleep(2000);
 }
 
 static void playaudio_cpu(uint8_t* data, uint32_t size) {
@@ -93,7 +154,8 @@ static int sound_write(int fd, int from_pid, fsinfo_t* info,
 	(void)offset;
 	(void)p;
 
-	playaudio_cpu((uint8_t*)buf, size);
+	//playaudio_cpu((uint8_t*)buf, size);
+	playaudio_dma((uint8_t*)buf, size);
 	return size;
 }
 
