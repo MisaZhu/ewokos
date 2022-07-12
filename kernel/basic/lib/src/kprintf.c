@@ -6,8 +6,11 @@
 #include "kernel/kconsole.h"
 #include <stddef.h>
 
-void uart_out(const char* s) {
+void kout(const char* s) {
 	uart_write(s, strlen(s));
+#ifdef KCONSOLE
+	kconsole_input(s);
+#endif
 }
 
 #define PRINTF_BUF_MAX 512
@@ -27,9 +30,6 @@ void printf(const char *format, ...) {
 	va_start(ap, format);
 	_len = 0;
 	v_printf(outc, NULL, format, ap);
-	uart_out(_buf);
-#ifdef KCONSOLE
-	kconsole_input(_buf);
-#endif
+	kout(_buf);
 }
 

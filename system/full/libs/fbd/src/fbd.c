@@ -130,6 +130,8 @@ int fbd_run(fbd_t* fbd, int argc, char** argv) {
 	if(fb_dma_init(&dma) != 0)
 		return -1;
 
+	syscall0(SYS_CLOSE_KCONSOLE);
+
 	vdevice_t dev;
 	memset(&dev, 0, sizeof(vdevice_t));
 	strcpy(dev.name, "framebuffer");

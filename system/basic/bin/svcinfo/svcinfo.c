@@ -112,6 +112,8 @@ static inline const char* svc_name(int32_t code) {
 		return "sys_v2p";
 	case SYS_P2V:
 		return "sys_p2v";
+	case SYS_CLOSE_KCONSOLE:
+		return "sys_root";
 	}
 	return "unknown";
 }

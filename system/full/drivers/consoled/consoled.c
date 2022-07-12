@@ -14,6 +14,7 @@
 #include <sys/syscall.h>
 #include <sysinfo.h>
 #include <sconf/sconf.h>
+#include <sys/klog.h>
 
 typedef struct {
 	const char* id;
@@ -77,11 +78,29 @@ static int32_t read_config(fb_console_t* console, const char* fname) {
 	v = sconf_get(conf, "font");
 	if(v[0] != 0) 
 		font_fname = v;
+	klog("    load ttf font: %s ... ", font_fname);
 	console->console.font = ttf_font_load(font_fname, font_size, font_margin);
+	klog("[ok]\n");
+
 	sconf_free(conf);
 	if(console->console.font == NULL)
 		return -1;
 	return 0;
+}
+
+static void init_graph(fb_console_t* console) {
+	console->g = fb_fetch_graph(&console->fb);
+	graph_clear(console->g, 0xff000000);
+	int w = 32, h = 32;
+	int x = (console->g->w - w*2) / 2;
+	int y = (console->g->h - h*2) / 2;
+
+	graph_fill_round(console->g, x, y, w-2, h-2, 6, 0xffff0000);
+	graph_fill_round(console->g, x+w, y, w-2, h-2, 6, 0xff00ff00);
+	graph_fill_round(console->g, x, y+h, w-2, h-2, 6, 0xff0000ff);
+	graph_fill_round(console->g, x+w, y+h, w-2, h-2, 6, 0xffffffff);
+
+	fb_flush(&console->fb);
 }
 
 static int init_console(fb_console_t* console, const char* display_dev, const uint32_t display_index) {
@@ -91,13 +110,16 @@ static int init_console(fb_console_t* console, const char* display_dev, const ui
 	const char* fb_dev = get_display_fb_dev(display_dev, console->display_index);
 	if(fb_open(fb_dev, &console->fb) != 0)
 		return -1;
-
+	init_graph(console);
 	console_init(&console->console);
 	read_config(console, "/etc/console.conf");
 	return 0;
 }
 
 static void close_console(fb_console_t* console) {
+	if(console->g != NULL)
+		graph_free(console->g);
+
 	fb_close(&console->fb);
 	if(console->icon != NULL)
 		graph_free(console->icon);
@@ -108,9 +130,6 @@ static void close_console(fb_console_t* console) {
 }
 
 static int reset_console(fb_console_t* console) {
-	console->g = fb_fetch_graph(&console->fb);
-	if(console->g == NULL)
-		return -1;
 	console_reset(&console->console, console->g->w, console->g->h, 0);
 	return 0;
 }

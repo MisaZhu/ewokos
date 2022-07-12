@@ -187,9 +187,6 @@ void _kernel_entry_c(void) {
 
 	printf("kernel: enable irq and start init...\n");
 
-#ifdef KCONSOLE
-	kconsole_close();
-#endif
 	__irq_enable();
 	halt();
 }

@@ -71,7 +71,8 @@ enum {
 	SYS_SAFE_SET,         //50
 	SYS_SOFT_INT,         //51
 	SYS_PROC_UUID,        //52
-	SYS_CALL_NUM          //53
+	SYS_CLOSE_KCONSOLE,             //53
+	SYS_CALL_NUM          //54
 };
 
 #endif
