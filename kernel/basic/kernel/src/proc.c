@@ -125,7 +125,7 @@ static int32_t proc_expand_mem(proc_t *proc, int32_t page_num) {
 			res = -1;
 			break;
 		}
-		memset(page, 0, PAGE_SIZE);
+		//memset(page, 0, PAGE_SIZE);
 		map_page_ref(proc->space->vm,
 				proc->space->heap_size,
 				V2P(page),
