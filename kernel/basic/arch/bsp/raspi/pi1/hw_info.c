@@ -7,8 +7,8 @@ sys_info_t _sys_info;
 uint32_t _allocatable_phy_mem_top = 0;
 uint32_t _allocatable_phy_mem_base = 0;
 
-#define FB_SIZE 64*MB;
-#define DMA_SIZE 256*KB;
+#define FB_SIZE 64*MB
+#define DMA_SIZE 256*KB
 
 void sys_info_init(void) {
 	memset(&_sys_info, 0, sizeof(sys_info_t));

@@ -48,8 +48,8 @@ static bool isPi3B(uint32_t revision) {
 }
 #endif
 	
-#define FB_SIZE 64*MB;
-#define DMA_SIZE 256*KB;
+#define FB_SIZE 64*MB
+#define DMA_SIZE 256*KB
 
 void sys_info_init(void) {
 	memset(&_sys_info, 0, sizeof(sys_info_t));
