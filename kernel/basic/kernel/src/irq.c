@@ -150,7 +150,7 @@ static int32_t copy_on_write(proc_t* proc, uint32_t v_addr) {
 	map_page_ref(proc->space->vm,
 			v_addr,
 			V2P(page),
-			AP_RW_RW);
+			AP_RW_RW, PTE_ATTR_WRBACK);
 	flush_tlb();
 	return 0;
 }

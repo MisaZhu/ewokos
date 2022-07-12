@@ -129,7 +129,7 @@ static int32_t proc_expand_mem(proc_t *proc, int32_t page_num) {
 		map_page_ref(proc->space->vm,
 				proc->space->heap_size,
 				V2P(page),
-				AP_RW_RW);
+				AP_RW_RW, PTE_ATTR_WRBACK);
 		proc->space->heap_size += PAGE_SIZE;
 	}
 	flush_tlb();
@@ -365,7 +365,7 @@ static inline void proc_init_user_stack(proc_t* proc) {
 			map_page(proc->space->vm,
 				user_stack_base + PAGE_SIZE*i,
 				V2P(proc->stack.user_stack[i]),
-				AP_RW_RW, 0);
+				AP_RW_RW, PTE_ATTR_WRBACK);
 		}
 		proc->ctx.sp = user_stack_base + pages*PAGE_SIZE;
 	}
@@ -699,12 +699,12 @@ static int32_t proc_clone(proc_t* child, proc_t* parent) {
 		map_page_ref(child->space->vm, 
 				v_addr,
 				phy_page_addr,
-				AP_RW_R); //share page table to child with read only permissions, and ref the page
+				AP_RW_R, PTE_ATTR_WRBACK); //share page table to child with read only permissions, and ref the page
 
 		map_page(parent->space->vm, 
 				v_addr,
 				phy_page_addr,
-				AP_RW_R, 0); // set parent page table with read only permissions
+				AP_RW_R, PTE_ATTR_WRBACK); // set parent page table with read only permissions
 	}
 	flush_tlb();
 	child->space->heap_size = pages * PAGE_SIZE;

@@ -56,8 +56,8 @@ void free_page_tables(page_dir_entry_t *vm) {
 	}
 }
 
-inline void map_page_ref(page_dir_entry_t *vm, uint32_t vaddr, uint32_t paddr, uint32_t permissions) {
-	map_page(vm, vaddr, paddr, permissions, 0);
+inline void map_page_ref(page_dir_entry_t *vm, uint32_t vaddr, uint32_t paddr, uint32_t permissions, uint32_t pte_attr) {
+	map_page(vm, vaddr, paddr, permissions, pte_attr);
 	uint32_t i = page_ref_index(paddr);
 	if(i < _pages_ref.max)
 		_pages_ref.refs[i]++;

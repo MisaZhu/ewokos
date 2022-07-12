@@ -76,7 +76,7 @@ static int32_t shm_map_pages(uint32_t addr, uint32_t pages) {
 		map_page(_kernel_vm,
 				addr,
 				V2P(page),
-				AP_RW_D, 0);
+				AP_RW_D, PTE_ATTR_WRBACK);
 		addr += PAGE_SIZE;
 	}
 	flush_tlb();
@@ -258,7 +258,7 @@ void* shm_proc_map(int32_t pid, int32_t id) {
 		map_page(proc->space->vm,
 				addr,
 				physical_addr,
-				AP_RW_RW, 0);
+				AP_RW_RW, PTE_ATTR_WRBACK);
 		addr += PAGE_SIZE;
 	}
 	flush_tlb();
