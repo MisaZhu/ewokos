@@ -2,6 +2,7 @@
 #include <mm/kalloc.h>
 #include <mm/kmalloc.h>
 #include <mm/shm.h>
+#include <mm/dma.h>
 #include <kstring.h>
 #include <kernel/core.h>
 #include <kernel/kernel.h>
