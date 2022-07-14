@@ -951,15 +951,23 @@ static void mouse_xwin_handle(x_t* x, xview_t* view, int pos, xevent_t* ev) {
 			x->current.pos_delta.x = 0;
 			x->current.pos_delta.y = 0;
 		}
-		else if(pos == FRAME_R_CLOSE) { //window close
-			ev->type = XEVT_WIN;
-			ev->value.window.event = XEVT_WIN_CLOSE;
-			//view->xinfo.visible = false;
-			//x_dirty(x);
+		else if(abs_32(ev->value.mouse.from_x - ev->value.mouse.x) < 6 &&
+				abs_32(ev->value.mouse.from_y - ev->value.mouse.y) < 6) {
+			x_push_event(x, view, ev);
+			ev->state = XEVT_MOUSE_CLICK;
 		}
-		else if(pos == FRAME_R_MAX) {
-			ev->type = XEVT_WIN;
-			ev->value.window.event = XEVT_WIN_MAX;
+
+		if(ev->state == XEVT_MOUSE_CLICK) {
+			if(pos == FRAME_R_CLOSE) { //window close
+				ev->type = XEVT_WIN;
+				ev->value.window.event = XEVT_WIN_CLOSE;
+				//view->xinfo.visible = false;
+				//x_dirty(x);
+			}
+			else if(pos == FRAME_R_MAX) {
+				ev->type = XEVT_WIN;
+				ev->value.window.event = XEVT_WIN_MAX;
+			}
 		}
 		x->current.view = NULL;
 	}
@@ -974,13 +982,7 @@ static void mouse_xwin_handle(x_t* x, xview_t* view, int pos, xevent_t* ev) {
 		}
 	}
 	x_push_event(x, view, ev);
-	if(ev->state == XEVT_MOUSE_UP) {
-		if(abs_32(ev->value.mouse.from_x - ev->value.mouse.x) < 6 &&
-				abs_32(ev->value.mouse.from_y - ev->value.mouse.y) < 6) {
-			ev->state = XEVT_MOUSE_CLICK;
-			x_push_event(x, view, ev);
-		}
-	}
+	
 }
 
 static int mouse_handle(x_t* x, xevent_t* ev) {
