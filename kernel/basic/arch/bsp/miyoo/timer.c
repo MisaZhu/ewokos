@@ -50,7 +50,7 @@ static inline uint32_t read_cntctl(void) {
 	return val;
 }
 
-#define MIN_FREQ 1024
+#define MIN_FREQ 4096 
 void timer_set_interval(uint32_t id, uint32_t times_per_sec) {
 	(void)id;
 	if (times_per_sec < MIN_FREQ)

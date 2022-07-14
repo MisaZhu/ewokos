@@ -920,6 +920,8 @@ static void mouse_xwin_handle(x_t* x, xview_t* view, int pos, xevent_t* ev) {
 		else {
 			try_focus(x, view);
 		}
+	}
+	else if(ev->state ==  XEVT_MOUSE_DRAG) {
 		if(pos == FRAME_R_TITLE) {//window title 
 			x->current.view = view;
 			x->current.old_pos.x = x->cursor.cpos.x;
