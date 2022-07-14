@@ -37,8 +37,13 @@
 #define prtU16Hex(v)	klog("0x%04X", v)
 #define prtU32Hex(v)	klog("0x%08X", v)
 
-#define Hal_Timer_mDelay(x)     usleep(x*1000)
-#define Hal_Timer_uDelay(x)     usleep(x)
+static inline void __attribute__((optimize("O0"))) delay(uint32_t count) {
+	uint32_t c = count*100;
+	while(c > 0) c--;
+}
+
+#define Hal_Timer_mDelay(x)     delay(x*1000)
+#define Hal_Timer_uDelay(x)     delay(x)
 
 #define TR_H_SDMMC(p) 
 //***********************************************************************************************************
