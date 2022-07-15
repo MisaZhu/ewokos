@@ -184,7 +184,7 @@ void prefetch_abort_handler(context_t* ctx, uint32_t status) {
 		halt();
 	}
 	
-	if(((status & 0x1F) == 0xD || //permissions fault only
+	if(((status & 0x1D) == 0xD || //permissions fault only
 		(status & 0x1F) == 0x6) && 
 			ctx->pc < cproc->space->heap_size) { //in proc heap only
 		if (kernel_lock_check() > 0)
@@ -213,7 +213,7 @@ void data_abort_handler(context_t* ctx, uint32_t addr_fault, uint32_t status) {
 		halt();
 	}
 
-	if(((status & 0x1F) == 0xD || //permissions fault only
+	if(((status & 0x1D) == 0xD || //permissions fault only
 		(status & 0x1F) == 0x6) && 
 			addr_fault < cproc->space->heap_size) { //in proc heap only
 		if (kernel_lock_check() > 0)
