@@ -6,6 +6,7 @@
 #include <sd/sd.h>
 #include <arch/bcm283x/sd.h>
 #include <arch/miyoo/sd.h>
+#include <arch/rk3326/sd.h>
 
 int bsp_sd_init(void) {
     int res = -1;
@@ -15,5 +16,7 @@ int bsp_sd_init(void) {
 		res = sd_init(bcm283x_sd_init, bcm283x_sd_read_sector, bcm283x_sd_write_sector);
 	else if(strncmp(sysinfo.machine, "miyoo-mini", 10) == 0)
 		res = sd_init(miyoo_sd_init, miyoo_sd_read_sector, miyoo_sd_write_sector);
+	else if(strncmp(sysinfo.machine, "rk3326", 6) == 0)
+		res = sd_init(rk3326_sd_init, rk3326_sd_read_sector, rk3326_sd_write_sector);
     return res;
 }

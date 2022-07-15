@@ -248,7 +248,7 @@ static uint32_t sys_mem_map(uint32_t vaddr, uint32_t paddr, uint32_t size) {
 	userspace can map upper address such as MMIO/FRAMEBUFFER... */
 	if(paddr > _allocatable_phy_mem_base && paddr < _allocatable_phy_mem_top)
 		return 0;
-	map_pages_size(cproc->space->vm, vaddr, paddr, size, AP_RW_RW, PTE_ATTR_DEV);
+	map_pages_size(cproc->space->vm, vaddr, paddr, size, AP_RW_RW, PTE_ATTR_WRBACK);
 	flush_tlb();
 	return vaddr;
 }

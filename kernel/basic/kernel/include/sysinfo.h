@@ -32,6 +32,7 @@ typedef struct {
 	uint32_t    phy_mem_size;
 	uint32_t    phy_offset;
 	uint32_t    kernel_base;
+	uint32_t    vector_base;
 
 	mmio_info_t mmio;
 	dma_info_t  dma;

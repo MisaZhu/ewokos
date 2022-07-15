@@ -29,7 +29,7 @@ static void __attribute__((optimize("O0"))) copy_interrupt_table(void) {
 	extern uint32_t  interrupt_table_start, interrupt_table_end;
 	uint32_t *vsrc = &interrupt_table_start;
 	//uint32_t *vdst = (uint32_t*)INTERRUPT_VECTOR_BASE;
-	uint32_t *vdst = (uint32_t*)_sys_info.phy_offset;
+	uint32_t *vdst = (uint32_t*)(_sys_info.vector_base);
 	while(vsrc < &interrupt_table_end) {
 		*vdst++ = *vsrc++;
 	}
@@ -40,7 +40,7 @@ static void set_kernel_init_vm(page_dir_entry_t* vm) {
 	flush_dcache();
 
 	//map interrupt vector to high(virtual) mem
-	map_pages_size(vm, INTERRUPT_VECTOR_BASE, _sys_info.phy_offset, PAGE_SIZE, AP_RW_D, PTE_ATTR_WRBACK);
+	map_pages_size(vm, INTERRUPT_VECTOR_BASE, _sys_info.vector_base, PAGE_SIZE, AP_RW_D, PTE_ATTR_WRBACK);
 	//map kernel image
 	map_pages(vm, KERNEL_BASE, _sys_info.phy_offset, V2P(KERNEL_IMAGE_END), AP_RW_D, PTE_ATTR_WRBACK_ALLOCATE);
 	//map kernel page dir
@@ -148,7 +148,6 @@ void _kernel_entry_c(void) {
 	kconsole_init();
 #endif
 	welcome();
-
 	printf("kernel: kmalloc initing  [ok] : %dMB\n", (KMALLOC_END-KMALLOC_BASE) / (1*MB));
 	init_allocable_mem(); //init the rest allocable memory VM
 	printf("kernel: init allocable memory: %dMB, %d pages\n", (get_free_mem_size() / (1*MB)), _pages_ref.max);

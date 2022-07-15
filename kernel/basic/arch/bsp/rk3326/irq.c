@@ -5,14 +5,13 @@
 #include <gic.h>
 
 void irq_arch_init(void) {
-	gic_init(0);
+	gic_init((uint8_t*) MMIO_BASE + 0x130000);
 }
 
 inline uint32_t irq_gets(void) {
 	int ack = gic_get_irq();
 	int irqno = ack & 0x3FF;
 	//int core = get_core_id();//ack & (~0x3FF);
-
 	if(irqno == 27){
 		return IRQ_TIMER0;
 	}else if(irqno == 0){

@@ -40,8 +40,10 @@ static void* sd_read_ext2(const char* fname, int32_t* size) {
 
 static int32_t exec_from_sd(const char* prog) {
 	int32_t sz;
-	if(bsp_sd_init() != 0)
+	if(bsp_sd_init() != 0){
+		printf("bsp init failed\n");
 		return -1;
+	}
 
 	char* elf = sd_read_ext2(prog, &sz);
 	if(elf != NULL) {
