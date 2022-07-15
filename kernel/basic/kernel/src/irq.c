@@ -112,7 +112,6 @@ static inline void _irq_handler(uint32_t cid, context_t* ctx) {
 
 inline void irq_handler(context_t* ctx) {
 	__irq_disable();
-
 	if(kernel_lock_check() > 0)
 		return;
 
@@ -185,7 +184,8 @@ void prefetch_abort_handler(context_t* ctx, uint32_t status) {
 		halt();
 	}
 	
-	if((status & 0xD) == 0xD && //permissions fault only
+	if(((status & 0x1F) == 0xD || //permissions fault only
+		(status & 0x1F) == 0x6) && 
 			ctx->pc < cproc->space->heap_size) { //in proc heap only
 		if (kernel_lock_check() > 0)
 			return;
@@ -197,7 +197,7 @@ void prefetch_abort_handler(context_t* ctx, uint32_t status) {
 			return;
 	}
 
-	printf("pid: %d(%s), prefetch abort!! (core %d)\n", cproc->info.pid, cproc->info.cmd, core);
+	printf("pid: %d(%s), prefetch abort!! (core %d) code:0x%x\n", cproc->info.pid, cproc->info.cmd, core, status);
 	dump_ctx(&cproc->ctx);
 	proc_exit(ctx, cproc, -1);
 }
@@ -213,7 +213,8 @@ void data_abort_handler(context_t* ctx, uint32_t addr_fault, uint32_t status) {
 		halt();
 	}
 
-	if((status & 0xD) == 0xD && //permissions fault only
+	if(((status & 0x1F) == 0xD || //permissions fault only
+		(status & 0x1F) == 0x6) && 
 			addr_fault < cproc->space->heap_size) { //in proc heap only
 		if (kernel_lock_check() > 0)
 			return;

@@ -2669,21 +2669,21 @@ static TTY_Error tty_alloc_font_hinting_data(TTY_Font* font) {
         font->hint.zone1.maxPoints = TTY_MAX(maxPoints, maxCompositePoints) + TTY_NUM_PHANTOM_POINTS;
     }
 
-    size_t stackSize             = tty_add_padding_to_align_u8_ptr(font->hint.stack.cap * sizeof(TTY_U32));
-    size_t funcInsPtrsSize       = tty_add_padding_to_align_u32   (font->hint.funcs.cap * sizeof(TTY_U8*));
-    size_t funcSizesSize         = tty_add_padding_to_align_v2    (font->hint.funcs.cap * sizeof(TTY_U32));
-    size_t z1OrgSize             = font->hint.zone1.maxPoints * sizeof(TTY_V2);
-    size_t z1OrgScaledSize       = z1OrgSize;
-    size_t z1CurSize             = tty_add_padding_to_align_u8 (z1OrgSize);
-    size_t z1TouchTypesSize      = tty_add_padding_to_align_u8 (font->hint.zone1.maxPoints * sizeof(TTY_U8));
-    size_t z1PointTypesSize      = tty_add_padding_to_align_u16(font->hint.zone1.maxPoints * sizeof(TTY_U8));
-    size_t z1EndPointIndicesSize = font->hint.zone1.maxEndPoints * sizeof(TTY_U16);
+    #define ALIGN(x) (x - (x % 4) + 4)
+    size_t stackSize             = ALIGN(tty_add_padding_to_align_u8_ptr(font->hint.stack.cap * sizeof(TTY_U32)));
+    size_t funcInsPtrsSize       = ALIGN(tty_add_padding_to_align_u32   (font->hint.funcs.cap * sizeof(TTY_U8*)));
+    size_t funcSizesSize         = ALIGN(tty_add_padding_to_align_v2    (font->hint.funcs.cap * sizeof(TTY_U32)));
+    size_t z1OrgSize             = ALIGN(font->hint.zone1.maxPoints * sizeof(TTY_V2));
+    size_t z1OrgScaledSize       = ALIGN(z1OrgSize);
+    size_t z1CurSize             = ALIGN(tty_add_padding_to_align_u8 (z1OrgSize));
+    size_t z1TouchTypesSize      = ALIGN(tty_add_padding_to_align_u8 (font->hint.zone1.maxPoints * sizeof(TTY_U8)));
+    size_t z1PointTypesSize      = ALIGN(tty_add_padding_to_align_u16(font->hint.zone1.maxPoints * sizeof(TTY_U8)));
+    size_t z1EndPointIndicesSize = ALIGN(font->hint.zone1.maxEndPoints * sizeof(TTY_U16));
 
-    font->hint.mem = (TTY_U8*)malloc(stackSize + funcInsPtrsSize + funcSizesSize + z1OrgSize + z1OrgScaledSize + z1CurSize + z1TouchTypesSize + z1PointTypesSize + z1EndPointIndicesSize);
+    font->hint.mem = (TTY_U8*)malloc(stackSize + funcInsPtrsSize + funcSizesSize + z1OrgSize + z1OrgScaledSize + z1CurSize + z1TouchTypesSize + z1PointTypesSize + z1EndPointIndicesSize + 9*4);
     if (font->hint.mem == NULL) {
         return TTY_ERROR_OUT_OF_MEMORY;
     }
-    
     size_t off = 0;
     font->hint.stack.buff            = (TTY_U32*)(font->hint.mem);
     font->hint.funcs.insPtrs         = (TTY_U8**)(font->hint.mem + (off += stackSize));

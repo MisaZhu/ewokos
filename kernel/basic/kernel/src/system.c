@@ -73,10 +73,7 @@ inline void kernel_unlock(void) {
 
 inline void halt(void) {
 	while(1) {
-#ifdef KERNEL_SMP
 		__asm__("WFI");
-#else
-		__asm__("MOV r0, #0; MCR p15,0,R0,c7,c0,4"); // CPU enter WFI state
-#endif
+		//__asm__("MOV r0, #0; MCR p15,0,R0,c7,c0,4"); // CPU enter WFI state
 	}
 }
