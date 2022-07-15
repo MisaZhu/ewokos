@@ -11,10 +11,12 @@ $
 /bin/rundev /drivers/proc/sysinfod        /proc/sysinfo
 /bin/rundev /drivers/proc/stated          /proc/state
 /bin/rundev /drivers/timerd               /dev/timer
+
+/bin/rundev /drivers/rk3326/gpio_joykeybd  /dev/joykeyb
 /bin/rundev /drivers/xserverd             /dev/x
 
 #@/sbin/x/xmoused /dev/mouse0 &
-/sbin/x/xim_none &
-/sbin/x/xim_vkey &
-/bin/x/launcher &
-/bin/session &
+@/sbin/x/xim_none               /dev/joykeyb &
+@/sbin/x/xim_vkey &
+@/bin/session &
+@/bin/x/launcher & 

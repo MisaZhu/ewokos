@@ -9,7 +9,7 @@ CFLAGS += -I $(BUILD_DIR)/include
 
 JOYKEYBD_OBJS = joykeybd.o
 
-JOYKEYBD = $(TARGET_DIR)/drivers/miyoo/gpio_joykeybd
+JOYKEYBD = $(TARGET_DIR)/drivers/rk3326/gpio_joykeybd
 
 $(JOYKEYBD): $(JOYKEYBD_OBJS) \
 		$(BUILD_DIR)/lib/libewokc.a 
