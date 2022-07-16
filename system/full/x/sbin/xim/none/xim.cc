@@ -44,7 +44,7 @@ class XIM {
 				keyState[i].key = key;
 				keyState[i].sm = KS_IDLE;
 				keyState[i].timer = 0;
-				keyState[i].state = XIM_STATE_RELEASE;
+				keyState[i].state = XIM_STATE_PRESS;
 				return &keyState[i]; 
 			}
 		}
