@@ -733,6 +733,12 @@ static int xwin_update_info(int fd, int from_pid, proto_t* in, proto_t* out, x_t
 }
 
 static int xwin_is_ready(int fd, int from_pid, x_t* x, proto_t* out) {
+	x_display_t* display = &x->displays[x->current_display];
+	if(!display->need_repaint) {
+		PF->addi(out, 1);
+		return 0;
+	}
+
 	xview_t* view = x_get_view(x, fd, from_pid);
 	if(view == NULL)
 		return -1;

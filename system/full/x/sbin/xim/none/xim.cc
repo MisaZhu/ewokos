@@ -9,8 +9,8 @@
 #include <x/xwin.h>
 #include <string.h>
 
-#define KEY_REPEAT_TIMEOUT	100
-#define KEY_HOLD_TIMEOUT	500
+#define KEY_REPEAT_TIMEOUT	80
+#define KEY_HOLD_TIMEOUT	200
 
 typedef struct {
 	uint8_t key;
