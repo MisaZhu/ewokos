@@ -179,7 +179,8 @@ inline void graph_blt_alpha(graph_t* src, int32_t sx, int32_t sy, int32_t sw, in
 		for(; sx < ex; sx++, dx++) {
 			register uint32_t color = src->buffer[sy * src->w + sx];
 			graph_pixel_argb(dst, dx, dy,
-					(((color >> 24) & 0xff) * alpha)/0xff,
+					//(((color >> 24) & 0xff) * alpha)/0xff,
+					(((color >> 24) & 0xff) * alpha)>>8,
 					(color >> 16) & 0xff,
 					(color >> 8) & 0xff,
 					color & 0xff);
