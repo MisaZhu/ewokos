@@ -8,33 +8,34 @@
 #include <sys/keydef.h>
 #include <sys/ipc.h>
 #include <sys/mmio.h>
-#include "gpio_table.h"
+
+#define GPIO_PIN(bank, pin)		((bank << 5) | (pin & 0x1F))
 
 #define GPIO_HIGH				1
 #define GPIO_LOW				0
 
-#define  KEY_UP_PIN				1
-#define  KEY_DOWN_PIN			69
-#define  KEY_LEFT_PIN			70
-#define  KEY_RIGHT_PIN			5
-#define  KEY_ENTER_PIN			7
-#define  KEY_BACK_PIN			6
-#define  KEY_HOME_PIN			12
-#define  KEY_BUTTON_A_PIN		7
-#define  KEY_BUTTON_B_PIN		6
-#define  KEY_BUTTON_X_PIN		9
-#define  KEY_BUTTON_Y_PIN		8
-#define  KEY_BUTTON_SELECT_PIN	11
-#define  KEY_BUTTON_START_PIN	10
-#define  KEY_BUTTON_L1_PIN		14
-#define  KEY_BUTTON_L2_PIN		13
-#define  KEY_BUTTON_R1_PIN		47
-#define  KEY_BUTTON_R2_PIN		90
-#define  KEY_POWER_PIN			86
+#define  KEY_UP_PIN				GPIO_PIN(1,12)
+#define  KEY_DOWN_PIN			GPIO_PIN(1,13)
+#define  KEY_LEFT_PIN			GPIO_PIN(1,14)
+#define  KEY_RIGHT_PIN			GPIO_PIN(1,15)
+#define  KEY_ENTER_PIN			GPIO_PIN(1,2)
+#define  KEY_BACK_PIN			GPIO_PIN(1,5)
+#define  KEY_HOME_PIN			GPIO_PIN(2,4)
+#define  KEY_BUTTON_A_PIN		GPIO_PIN(1,2)
+#define  KEY_BUTTON_B_PIN		GPIO_PIN(1,5)
+#define  KEY_BUTTON_X_PIN		GPIO_PIN(1,7)
+#define  KEY_BUTTON_Y_PIN		GPIO_PIN(1,6)
+#define  KEY_BUTTON_SELECT_PIN	GPIO_PIN(3,9)
+#define  KEY_BUTTON_START_PIN	GPIO_PIN(3,12)
+#define  KEY_BUTTON_L1_PIN		GPIO_PIN(2,6)
+#define  KEY_BUTTON_L2_PIN		GPIO_PIN(3,10)
+#define  KEY_BUTTON_R1_PIN		GPIO_PIN(2,7)
+#define  KEY_BUTTON_R2_PIN		GPIO_PIN(3,15)
 
-#define DECLARE_GPIO_KEY(name, level)	{name, name##_PIN, level, !level}
+#define DECLARE_GPIO_KEY(name, level)	{#name, name, name##_PIN, level, !level}
 
 struct gpio_pins{
+	char* name;
 	int key;
 	int pin;
 	int active;
@@ -55,56 +56,41 @@ struct gpio_pins{
 	DECLARE_GPIO_KEY(KEY_BUTTON_R1, GPIO_LOW),
 	DECLARE_GPIO_KEY(KEY_BUTTON_R2, GPIO_LOW),
 	DECLARE_GPIO_KEY(KEY_ENTER, GPIO_LOW),
-	DECLARE_GPIO_KEY(KEY_POWER, GPIO_HIGH),
 	DECLARE_GPIO_KEY(KEY_HOME, GPIO_LOW),
 };
 
 #define GPIO_NUMBER                         91
 #define REG8(addr)                 (*(volatile uint8_t*)(_mmio_base + (((addr) & ~1)<<1) + (addr & 1)))
 
-void miyoo_gpio_set(int pin, int level){
-    if (pin >= 0 && pin < GPIO_NUMBER)
-    {
-		REG8(gpio_table[pin].r_oen) &= (~gpio_table[pin].m_oen);
-		if(level){
-			REG8(gpio_table[pin].r_out) |= gpio_table[pin].m_out;
-		}else{
-			REG8(gpio_table[pin].r_out) &= ~gpio_table[pin].m_out;
-		}
-    }
-}
+struct rockchip_gpio_regs {
+    uint32_t swport_dr;
+    uint32_t swport_ddr;
+    uint32_t reserved0[(0x30 - 0x08) / 4];
+    uint32_t inten;
+    uint32_t intmask;
+    uint32_t inttype_level;
+    uint32_t int_polarity;
+    uint32_t int_status;
+    uint32_t int_rawstatus;
+    uint32_t debounce;
+    uint32_t porta_eoi;
+    uint32_t ext_port;
+    uint32_t reserved1[(0x60 - 0x54) / 4];
+    uint32_t ls_sync;
+};
 
-void miyoo_gpio_pull(int  pin, int level)
+struct rockchip_gpio_regs *gpio[4];
+
+
+
+static int rockchip_gpio_get_value(struct gpio_pins* pin)
 {
-    if (pin >= 0 && pin < GPIO_NUMBER)
-    {
-		if(level)
-        	REG8(gpio_table[pin].r_out) |= gpio_table[pin].m_out;
-		else
-        	REG8(gpio_table[pin].r_out) &= ~gpio_table[pin].m_out;
-    }
+	int bank = pin->pin>>5;
+	if(bank > 3)
+		return 0;
+	uint32_t  pin_mask = 0x1 << (pin->pin & 0x1f);
+    return (!!(gpio[bank]->ext_port & pin_mask) == pin->active) ? 1 : 0;
 }
-
-void miyoo_gpio_init(int pin)
-{
-    if (pin >= 0 && pin < GPIO_NUMBER)
-    {
-        REG8(gpio_table[pin].r_oen) |= (gpio_table[pin].m_oen);
-    }
-}
-
-int miyoo_gpio_read(int pin)
-{
-    if (pin >= 0 && pin < GPIO_NUMBER)
-    {
-        return ((REG8(gpio_table[pin].r_in)&gpio_table[pin].m_in)? 1 : 0);
-    }
-    else
-    {
-        return 0;
-    }
-}
-
 
 static int joystick_read(int fd, int from_pid, fsinfo_t* info,
 		void* buf, int size, int offset, void* p) {
@@ -118,8 +104,8 @@ static int joystick_read(int fd, int from_pid, fsinfo_t* info,
 	char* keys = (char*)buf;
 	int key_cnt = 0;
 
-	for(int i = 0; i < sizeof(_pins)/sizeof(struct gpio_pins);  i++){
-		if(miyoo_gpio_read(_pins[i].pin) == _pins[i].active){
+	for(uint32_t i = 0; i < sizeof(_pins)/sizeof(struct gpio_pins);  i++){
+		if(rockchip_gpio_get_value(&_pins[i])){
 			*keys = _pins[i].key;
 			keys++;
 			key_cnt++;
@@ -131,30 +117,16 @@ static int joystick_read(int fd, int from_pid, fsinfo_t* info,
 }
 
 static void init_gpio(void) {
-	for(int i = 0; i < sizeof(_pins)/sizeof(struct gpio_pins);  i++){
-		miyoo_gpio_init(_pins[i].pin);
-		miyoo_gpio_pull(_pins[i].pin, !_pins[i].active);
-	}
+	gpio[0] = (struct rockchip_gpio_regs *)(_mmio_base + 0x040000);
+	gpio[1] = (struct rockchip_gpio_regs *)(_mmio_base + 0x250000);
+	gpio[2] = (struct rockchip_gpio_regs *)(_mmio_base + 0x260000);
+	gpio[3] = (struct rockchip_gpio_regs *)(_mmio_base + 0x270000);
 }
 
 static int power_button(void* p) {
 	(void)p;
-	static int count = 0;
-	ipc_disable();
-	if(miyoo_gpio_read(86) != 0)
-		count++;
-	else
-		count = 0;
-
-	if(count >= 10){
-		//close screnn
-		miyoo_gpio_set(4, 0);
-		printf("power down!\n");
-		usleep(1000);
-		miyoo_gpio_set(85, 0);
-	}
-	ipc_enable();
-	usleep(200000);
+	usleep(1000000);
+	return 0;
 }
 
 int main(int argc, char** argv) {
