@@ -41,10 +41,15 @@ inline void graph_pixel_argb(graph_t* graph, int32_t x, int32_t y,
 	register uint8_t og = (oc >> 8)  & 0xff;
 	register uint8_t ob = oc & 0xff;
 
-	oa = oa + (255 - oa) * a / 255;
+	/*oa = oa + (255 - oa) * a / 255;
 	or = r*a/255 + or*(255-a)/255;
 	og = g*a/255 + og*(255-a)/255;
 	ob = b*a/255 + ob*(255-a)/255;
+	*/
+	oa = oa + ((255 - oa) * a >> 8);
+	or = ((r*a)>>8) + (or*(255-a)>>8);
+	og = ((g*a)>>8) + (og*(255-a)>>8);
+	ob = ((b*a)>>8) + (ob*(255-a)>>8);
 
 	graph->buffer[y * graph->w + x] = argb(oa, or, og, ob);
 }
