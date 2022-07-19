@@ -31,19 +31,45 @@ void interrupt_init(void) {
 int32_t interrupt_setup(proc_t* cproc, uint32_t interrupt, uint32_t entry, uint32_t data) {
 	if(interrupt >= SYS_INT_MAX)
 		return -1;
-
-	interrupt_t* intr = (interrupt_t*)kmalloc(sizeof(interrupt_t));
-	intr->uuid = cproc->info.uuid;
-	intr->entry = entry;
-	intr->data = data;
-	intr->next = NULL;
-
-	if(_interrupts[interrupt].head != NULL) {
-		intr->next = _interrupts[interrupt].head;
+	
+	if(entry == 0) {//unregister interrupt
+		interrupt_t * intr = _interrupts[interrupt].head;
+		interrupt_t * prev = NULL;
+		while(intr != NULL) {
+			if(intr->uuid != (int32_t)cproc->info.uuid) {
+				prev = intr;
+				intr = intr->next;
+				continue;
+			}
+			if(intr == _interrupts[interrupt].head) {
+				_interrupts[interrupt].head = intr->next;	
+				kfree(intr);
+				intr = _interrupts[interrupt].head; 
+			}
+			else if(prev != NULL) {
+				prev->next = intr->next;
+				kfree(intr);
+				intr = prev->next;
+			}
+			else {
+				break;
+			}
+		}
 	}
-	_interrupts[interrupt].head = intr;
+	else { //register interrupt
+		interrupt_t* intr = (interrupt_t*)kmalloc(sizeof(interrupt_t));
+		intr->uuid = cproc->info.uuid;
+		intr->entry = entry;
+		intr->data = data;
+		intr->next = NULL;
 
-	cproc->space->interrupt.stack = proc_stack_alloc(cproc);
+		if(_interrupts[interrupt].head != NULL) {
+			intr->next = _interrupts[interrupt].head;
+		}
+		_interrupts[interrupt].head = intr;
+		if(cproc->space->interrupt.stack == 0)
+			cproc->space->interrupt.stack = proc_stack_alloc(cproc);
+	}
 	return 0;
 }
 
