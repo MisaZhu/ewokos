@@ -50,8 +50,7 @@ void sys_signal_init(void) {
 signal_handler_t sys_signal(int sig_no, signal_handler_t handler, void* p) {
 	if(sig_no < 0 || sig_no >= SYS_SIG_NUM)
 		return NULL;
-	signal_handler_t ret = _signals[sig_no].func;
 	_signals[sig_no].func = handler;
 	_signals[sig_no].data = p;
-	return ret;
+	return handler;
 }
