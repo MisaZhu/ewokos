@@ -1,11 +1,12 @@
-include ../../../make.rule
+SYS_DIR=../../..
+include $(SYS_DIR)/make.rule
 
-BUILD_DIR = ../../../build
+BUILD_DIR = $(SYS_DIR)/build
 TARGET_DIR = $(BUILD_DIR)
 
 LDFLAGS = -L$(TARGET_DIR)/lib -lnosys
 
-CFLAGS += -I $(TARGET_DIR)/include -Iinclude
+CFLAGS += -I$(SYS_DIR)/basic/libs/libc/sys/include -Iinclude -I $(TARGET_DIR)/include
 
 LIB_ARCH_VPB_OBJS = src/framebuffer.o src/sd.o
 
