@@ -64,23 +64,6 @@ static int32_t interrupt_setup(int32_t pid, uint32_t timer_usec, uint32_t entry,
 	return intr->id;
 }
 
-static int timer_dcntl(int from_pid, int cmd, proto_t* in, proto_t* ret, void* p) {
-	(void)p;
-
-	if(cmd == 0) { 
-		uint32_t usec = (uint32_t)proto_read_int(in);
-		uint32_t entry = (uint32_t)proto_read_int(in);
-		uint32_t data = (uint32_t)proto_read_int(in);
-		uint32_t id = interrupt_setup(from_pid, usec, entry, data);
-		PF->addi(ret, id);
-	}	
-	else if(cmd == 1) { 
-		uint32_t id = (uint32_t)proto_read_int(in);
-		interrupt_remove(from_pid, id);
-	}
-	return 0;
-}
-
 static void interrupt_handle(uint32_t interrupt, uint32_t data) {
 	(void)interrupt;
 	(void)data;
@@ -110,6 +93,28 @@ static void interrupt_handle(uint32_t interrupt, uint32_t data) {
 	sys_interrupt_end();
 }
 
+static int timer_dcntl(int from_pid, int cmd, proto_t* in, proto_t* ret, void* p) {
+	(void)p;
+
+	if(cmd == 0) { 
+		if(_intr_list == NULL)
+			sys_interrupt_setup(SYS_INT_TIMER0, interrupt_handle, 0);
+		uint32_t usec = (uint32_t)proto_read_int(in);
+		uint32_t entry = (uint32_t)proto_read_int(in);
+		uint32_t data = (uint32_t)proto_read_int(in);
+		uint32_t id = interrupt_setup(from_pid, usec, entry, data);
+		PF->addi(ret, id);
+	}	
+	else if(cmd == 1) { 
+		uint32_t id = (uint32_t)proto_read_int(in);
+		interrupt_remove(from_pid, id);
+		if(_intr_list == NULL)
+			sys_interrupt_setup(SYS_INT_TIMER0, 0, 0);
+	}
+	return 0;
+}
+
+
 int main(int argc, char** argv) {
 	const char* mnt_point = argc > 1 ? argv[1]: "/dev/timer";
 	_intr_list = NULL;
@@ -120,7 +125,6 @@ int main(int argc, char** argv) {
 	strcpy(dev.name, "timer");
 	dev.dev_cntl = timer_dcntl;
 
-	sys_interrupt_setup(SYS_INT_TIMER0, interrupt_handle, 0);
 	device_run(&dev, mnt_point, FS_TYPE_CHAR);
 	return 0;
 }

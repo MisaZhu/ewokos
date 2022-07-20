@@ -22,10 +22,9 @@ int main(int argc, char* argv[]) {
 		printf("pid: %d, v: %d\n", getpid(), _v);
 		sleep(1);
 
-		/*if(_v > 10)  {
+		if(_v > 10)  {
 			timer_remove(id);
 		}
-		*/
 	}
 	return 0;
 }
