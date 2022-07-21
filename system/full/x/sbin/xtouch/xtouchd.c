@@ -29,6 +29,7 @@ static xtouch_t _xtouch;
 
 static void input(uint16_t state, int16_t tx, int16_t ty) {
 	xevent_t ev;
+	memset(&ev, 0, sizeof(xevent_t));
 	ev.type = XEVT_MOUSE;
 	ev.state = XEVT_MOUSE_MOVE;
 	ev.value.mouse.relative = 0;
@@ -41,8 +42,6 @@ static void input(uint16_t state, int16_t tx, int16_t ty) {
 		ev.value.mouse.y = (ty*_scr_h / _xtouch.y_max);
 	else
 		ev.value.mouse.y = _scr_h - (ty*_scr_h / _xtouch.y_max);
-	ev.value.mouse.rx = 0;
-	ev.value.mouse.ry = 0;
 
 	if(state == 1) //down
 		ev.state = XEVT_MOUSE_DOWN;
