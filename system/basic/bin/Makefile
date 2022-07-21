@@ -22,6 +22,7 @@ builtin_apps:
 	cd mkdir;make
 	cd grep;make
 	cd rx;make
+	cd aplay;make
 
 clean:
 	cd rundev;make clean
@@ -44,3 +45,4 @@ clean:
 	cd mkdir;make clean
 	cd grep;make clean
 	cd rx;make clean
+	cd aplay;make clean

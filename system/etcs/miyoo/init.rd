@@ -13,6 +13,7 @@ $
 
 /bin/rundev /drivers/miyoo/gpio_joykeybd  /dev/joykeyb
 /bin/rundev /drivers/xserverd             /dev/x
+/bin/rundev /drivers/miyoo/audctrl        /dev/pcmp0
 
 @/sbin/x/xim_none               /dev/joykeyb &
 @/sbin/x/xim_vkey &

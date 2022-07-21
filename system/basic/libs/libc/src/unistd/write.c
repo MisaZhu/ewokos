@@ -38,6 +38,9 @@ static int write_block(int fd, const void* buf, uint32_t size) {
 
 		if(errno == EAGAIN)
 			proc_block(info.mount_pid, 0);
+
+		if (res < 0) /* let user handle those erro id*/
+			break;
 	}
 	return res;
 }
