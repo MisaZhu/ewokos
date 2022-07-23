@@ -16,4 +16,4 @@ $(CAT): $(CAT_OBJS) \
 	$(LD) -Ttext=100 $(CAT_OBJS) -o $(CAT) $(LDFLAGS) -lewokc -lc
 
 clean:
-	rm -f $(CAT_OBJS)
+	rm -f $(CAT_OBJS) $(CAT)
