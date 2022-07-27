@@ -9,6 +9,7 @@
 #include <sys/keydef.h>
 #include <dirent.h>
 #include <sys/basic_math.h>
+#include <sys/proc.h>
 
 using namespace Ewok;
 
@@ -76,6 +77,7 @@ class Finder: public XWin {
 
 		int pid = fork();
 		if(pid == 0)  {
+			proc_detach();
 			exec(cmd);
 			exit(0);
 		}

@@ -20,4 +20,4 @@ $
 @/sbin/x/xim_vkey &
 @/bin/x/launcher &
 
-@/bin/session
+@/bin/session &
