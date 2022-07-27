@@ -15,7 +15,7 @@ int32_t  proc_signal_setup(uint32_t entry) {
 	return 0;	
 }
 
-void  proc_signal_send(context_t* ctx, proc_t* proc, int32_t sig_no) {
+void  proc_signal_send(context_t* ctx, proc_t* proc, int32_t sig_no, bool quick) {
 	proc_t* cproc = get_current_proc();
 	ctx->gpr[0] = -1;
 	if(proc == NULL || proc->space->signal.entry == 0) 
@@ -26,7 +26,10 @@ void  proc_signal_send(context_t* ctx, proc_t* proc, int32_t sig_no) {
 	proc->space->signal.sig_no = sig_no;
 	proc->space->signal.do_switch = true;
 
-	proc_switch_multi_core(ctx, proc, cproc->info.core);
+	if(quick)
+		proc_switch_multi_core(ctx, proc, cproc->info.core);
+	else
+		proc_ready(proc);
 }
 
 void proc_signal_end(context_t* ctx) {

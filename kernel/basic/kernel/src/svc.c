@@ -49,7 +49,7 @@ static void sys_signal(context_t* ctx, int32_t pid, int32_t sig) {
 			proc->info.owner < 0) {
 		return;
 	}
-	proc_signal_send(ctx, proc, sig);
+	proc_signal_send(ctx, proc, sig, true);
 }
 
 static void sys_signal_end(context_t* ctx) {

@@ -15,6 +15,7 @@
 #include <kernel/core.h>
 #include <kernel/irq.h>
 #include <stddef.h>
+#include <signals.h>
 
 static proc_t _proc_table[PROC_MAX];
 __attribute__((__aligned__(PAGE_DIR_SIZE))) 
@@ -337,7 +338,8 @@ static void proc_terminate(context_t* ctx, proc_t* proc) {
 		proc_t *p = &_proc_table[i];
 		/*terminate forked from this proc*/
 		if(p->info.father_pid == proc->info.pid) { //terminate forked children, skip reloaded ones
-			proc_exit(ctx, p, 0);
+			//proc_exit(ctx, p, 0);
+			proc_signal_send(ctx, p, SYS_SIG_STOP, false);
 		}
 	}
 	proc_wakeup_waiting(proc->info.pid);
