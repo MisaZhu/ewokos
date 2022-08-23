@@ -28,6 +28,7 @@ struct rockchip_saradc_regs* saradc;
 #define GPIO_HIGH				1
 #define GPIO_LOW				0
 
+#define  KEY_POWER_PIN			GPIO_PIN(3,17)
 #define  KEY_UP_PIN				GPIO_PIN(2,22)
 #define  KEY_DOWN_PIN			GPIO_PIN(2,23)
 #define  KEY_LEFT_PIN			GPIO_PIN(2,24)
@@ -53,6 +54,7 @@ struct gpio_pins{
 	int active;
 	int status;
 }_pins[] = {
+	DECLARE_GPIO_KEY(KEY_POWER, GPIO_LOW),
 	DECLARE_GPIO_KEY(KEY_UP, GPIO_LOW),
 	DECLARE_GPIO_KEY(KEY_DOWN, GPIO_LOW),
 	DECLARE_GPIO_KEY(KEY_LEFT, GPIO_LOW),
@@ -122,13 +124,32 @@ static uint32_t rockchip_saradc_get_value(int chn){
 	 return data;
 }
 
-static int rockchip_gpio_get_value(struct gpio_pins* pin)
-{
-	int bank = pin->pin>>5;
+static int rockchip_gpio_get(int pin_num){
+	int bank = pin_num >> 5;
+	uint32_t  pin_mask = 0x1 << (pin_num & 0x1f);
+
 	if(bank > 3)
-		return 0;
-	uint32_t  pin_mask = 0x1 << (pin->pin & 0x1f);
-    return (!!(gpio[bank]->ext_port & pin_mask) == pin->active) ? 1 : 0;
+		return -1;	
+	return !!(gpio[bank]->ext_port & pin_mask);
+}
+
+static void rockchip_gpio_set(int pin_num, int value){
+	int bank = pin_num >> 5;
+	uint32_t  pin_mask = 0x1 << (pin_num & 0x1f);
+	if(bank > 3)
+		return;	
+	gpio[bank]->swport_ddr |= pin_mask;
+	if(value)
+		gpio[bank]->swport_dr |= pin_mask;
+	else
+		gpio[bank]->swport_dr &= ~pin_mask;
+}
+
+static int rockchip_gpio_get_value(struct gpio_pins* pins)
+{
+	int pin_num = pins->pin;
+	int value = rockchip_gpio_get(pin_num);	
+    return (value == pins->active) ? 1 : 0;
 }
 
 static int joystick_read(int fd, int from_pid, fsinfo_t* info,
@@ -165,9 +186,24 @@ static void init_gpio(void) {
 
 static int power_button(void* p) {
 	(void)p;
-	usleep(1000000);
-	return 0;
+	static int count = 0;
+	ipc_disable();
+	if(rockchip_gpio_get(113) == 0)
+		count++;
+	else
+		count = 0;
+
+	if(count >= 10){
+		//close screnn
+		rockchip_gpio_set(44, 1);
+		printf("power down!\n");
+		usleep(1000);
+		rockchip_gpio_set(122, 0);
+	}
+	ipc_enable();
+	usleep(200000);
 }
+
 
 int main(int argc, char** argv) {
 	 _mmio_base = mmio_map_offset(0x10000000, 8*1024*1024);
