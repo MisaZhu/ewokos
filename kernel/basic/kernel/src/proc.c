@@ -393,7 +393,7 @@ static inline void proc_free_user_stack(proc_t* proc) {
 	}
 }
 
-static void proc_funeral(proc_t* proc) {
+void proc_funeral(proc_t* proc) {
 	if(proc->info.state == UNUSED)
 		return;
 
