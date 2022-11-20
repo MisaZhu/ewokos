@@ -8,6 +8,7 @@ LDFLAGS = -L$(TARGET_DIR)/lib -lnosys
 CFLAGS += -Isys/include -Iinclude -I $(TARGET_DIR)/include
 
 LIB_EWOKSYS_OBJS = sys/src/syscall.o \
+	sys/src/syscall_${ARCH}.o \
 	sys/src/mstr.o \
 	sys/src/utf8unicode.o \
 	sys/src/klog.o \
@@ -21,10 +22,6 @@ LIB_EWOKSYS_OBJS = sys/src/syscall.o \
 	sys/src/proto.o \
 	sys/src/thread.o \
 	sys/src/basic_math.o \
-	sys/src/arm32_aeabi_divmod_a32.o \
-	sys/src/arm32_aeabi_ldivmod_a32.o \
-	sys/src/arm32_aeabi_divmod.o \
-	sys/src/arm32_aeabi_ldivmod.o \
 	sys/src/kernel_tic.o \
 	sys/src/shm.o \
 	sys/src/proc.o \
@@ -103,6 +100,14 @@ LIB_EWOKC_OBJS = src/unistd/chdir.o \
 	\
 	src/signal/signal.o \
 	src/signal/kill.o
+
+ifeq (${ARCH},arm)
+LIB_EWOKSYS_OBJS += \
+     sys/src/arm32_aeabi_divmod_a32.o \
+     sys/src/arm32_aeabi_ldivmod_a32.o \
+     sys/src/arm32_aeabi_divmod.o \
+     sys/src/arm32_aeabi_ldivmod.o 
+endif
 
 EWOKC = $(TARGET_DIR)/lib/libewokc.a
 

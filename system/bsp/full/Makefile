@@ -1,3 +1,4 @@
+ifeq (${ARCH},arm)
 all:
 	cd versatilepb; make
 	cd raspix; make
@@ -11,3 +12,8 @@ clean:
 	cd miyoo; make clean
 	cd rk3326; make clean
 	cd rk3128; make clean
+else
+all:
+clean:
+endif
+

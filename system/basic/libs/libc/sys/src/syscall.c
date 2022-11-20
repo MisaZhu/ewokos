@@ -4,10 +4,26 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-
+/*
 int32_t syscall3_raw(int32_t code, int32_t arg0, int32_t arg1, int32_t arg2) {
+
+#ifdef __RISCV__
 	volatile int32_t r;
-  __asm__ volatile(
+	  __asm__ volatile(
+			"mv t3, %1 \n"
+			"mv t4, %2 \n"
+			"mv t5, %3 \n"
+			"mv t6, %4 \n" 
+			"mv a0, t3 \n"
+			"mv a1, t4 \n"
+			"mv a2, t5 \n"
+			"mv a3, t6 \n" 
+			"ecall \n"
+			"mv %0, a0 \n" 
+			: "=r" (r) : "r" (code), "r" (arg0), "r" (arg1), "r" (arg2)
+	  );
+#elsf 
+ __asm__ volatile(
 			"stmdb sp!, {lr}\n"
 			"mrs   r0,  cpsr\n"
 			"stmdb sp!, {r0}\n"
@@ -22,9 +38,10 @@ int32_t syscall3_raw(int32_t code, int32_t arg0, int32_t arg1, int32_t arg2) {
 			: "=r" (r) 
 			: "r" (code), "r" (arg0), "r" (arg1), "r" (arg2)
 			: "r0", "r1", "r2", "r3" );
+#endif
 	return r;
 }
-
+*/
 inline int32_t syscall3(int32_t code, int32_t arg0, int32_t arg1, int32_t arg2) {
 	int32_t res = syscall3_raw(code, arg0, arg1, arg2);
 	return res;

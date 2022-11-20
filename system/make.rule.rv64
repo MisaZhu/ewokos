@@ -1,0 +1,55 @@
+AR = riscv64-unknown-elf-ar
+CC = riscv64-unknown-elf-gcc
+CXX = riscv64-unknown-elf-c++
+LD = riscv64-unknown-elf-ld
+OBJDUMP = riscv64-unknown-elf-objdump
+
+ARCH = riscv
+
+CFLAGS = -mlittle-endian \
+		-msmall-data-limit=1 \
+		-mno-relax \
+		-Wstrict-prototypes \
+        -Wall -Wextra -fPIC \
+        -fno-builtin-printf \
+        -fno-builtin-stat \
+        -fno-builtin-memset \
+        -fno-builtin-calloc \
+        -fno-builtin-snprintf \
+        -fno-builtin-sprintf \
+        -fno-builtin-fprintf \
+        -fno-builtin-fwrite \
+        -fno-builtin-fclose \
+        -fno-builtin-realloc \
+        -Wno-overlength-strings \
+        -fno-builtin-exit \
+        -fno-builtin-stdio \
+        -fno-builtin-unistd \
+        -std=c99
+
+CXXFLAGS = \
+        -pedantic -Wall -Wextra -fPIC  \
+		-msmall-data-limit=1 \
+		-mno-relax \
+        -fno-builtin-printf \
+        -fno-builtin-memset \
+        -fno-builtin-snprintf \
+        -fno-builtin-sprintf \
+        -fno-builtin-fprintf \
+        -fno-builtin-fread \
+        -fno-builtin-fwrite \
+        -fno-builtin-fclose \
+        -fno-builtin-realloc \
+        -Wno-overlength-strings \
+        -fno-builtin-exit \
+        -fno-builtin-stdio \
+        -fno-builtin-unistd \
+        -fno-rtti \
+        -fno-exceptions \
+        -std=c++11
+
+CFLAGS +=  -g
+#CFLAGS +=  -O2
+CXXFLAGS +=  -g
+#CXXFLAGS +=  -O2
+

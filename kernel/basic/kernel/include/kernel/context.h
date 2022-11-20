@@ -3,10 +3,7 @@
 
 #include <stdint.h>
 #include <stdbool.h>
-
-typedef struct {
-  uint32_t cpsr, pc, gpr[ 13 ], sp, lr;
-} context_t;
+#include <arch_context.h>
 
 typedef struct {
     uint32_t  state;

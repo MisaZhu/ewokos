@@ -17,7 +17,7 @@
 #include <dev/uart.h>
 #include <stddef.h>
 #include <kernel/kconsole.h>
-#include <gic.h>
+//`#include <gic.h>
 
 page_dir_entry_t* _kernel_vm = NULL;
 
@@ -118,11 +118,13 @@ static void welcome(void) {
 			"(______/(_______)(______)|_/  \\_/ (______)\\______)\n\n");
                                                       
 	printf("machine        %s\n" 
+		   "arch           %s\n"
 		   "mem_size       %d MB\n"
 		   "mem_offset     0x%x\n"
 		   "mmio_base      0x%x\n"
 		   "---------------------------------------------------\n\n",
 			_sys_info.machine,
+			_sys_info.arch,
 			_sys_info.phy_mem_size/1024/1024,
 			_sys_info.phy_offset,
 			_sys_info.mmio.phy_base);
@@ -160,7 +162,6 @@ void _kernel_entry_c(void) {
 
 	procs_init();
 	printf("kernel: processes inited.\n");
-
 	printf("kernel: loading init process\n");
 	if(load_init_proc() != 0)  {
 		printf("  [failed!]\n");

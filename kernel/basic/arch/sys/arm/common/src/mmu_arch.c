@@ -84,3 +84,15 @@ page_table_entry_t* get_page_table_entry(page_dir_entry_t *vm, uint32_t virtual)
 	page = (page_table_entry_t*)P2V(page);
 	return page;
 }
+
+
+void free_page_tables(page_dir_entry_t *vm) {
+	int i;
+	for (i = 0; i < PAGE_DIR_NUM; i++) {
+		if (vm[i].type != 0) {
+			void *page_table = (void *) P2V(BASE_TO_PAGE_TABLE(vm[i].base));
+			if(page_table != NULL)
+				kfree1k(page_table);
+		}
+	}
+}

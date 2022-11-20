@@ -45,17 +45,6 @@ inline uint32_t resolve_kernel_address(page_dir_entry_t *vm, uint32_t virtual) {
 	return P2V(phy);
 }
 
-void free_page_tables(page_dir_entry_t *vm) {
-	int i;
-	for (i = 0; i < PAGE_DIR_NUM; i++) {
-		if (vm[i].type != 0) {
-			void *page_table = (void *) P2V(BASE_TO_PAGE_TABLE(vm[i].base));
-			if(page_table != NULL)
-				kfree1k(page_table);
-		}
-	}
-}
-
 inline void map_page_ref(page_dir_entry_t *vm, uint32_t vaddr, uint32_t paddr, uint32_t permissions, uint32_t pte_attr) {
 	map_page(vm, vaddr, paddr, permissions, pte_attr);
 	uint32_t i = page_ref_index(paddr);
