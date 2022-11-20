@@ -35,8 +35,12 @@
 #define ALIGN_DOWN(x, alignment) ((x) & ~(alignment - 1))
 #define ALIGN_UP(x, alignment) (((x) + alignment - 1) & ~(alignment - 1))
 
+#define get64(addr) (*((volatile uint64_t *)(addr)))
+#define put64(addr, val) (*((volatile uint64_t *)(addr)) = (uint64_t)(val))
 #define get32(addr) (*((volatile uint32_t *)(addr)))
 #define put32(addr, val) (*((volatile uint32_t *)(addr)) = (uint32_t)(val))
+#define get16(addr) (*((volatile uint16_t *)(addr)))
+#define put16(addr, val) (*((volatile uint16_t *)(addr)) = (uint16_t)(val))
 #define get8(addr) (*((volatile uint8_t *)(addr)))
 #define put8(addr, val) (*((volatile uint8_t *)(addr)) = (uint8_t)(val))
 

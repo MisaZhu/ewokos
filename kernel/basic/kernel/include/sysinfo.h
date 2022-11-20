@@ -29,6 +29,7 @@ typedef struct {
 /*static attr*/
 typedef struct {
 	char        machine[32];
+	char        arch[16];
 	uint32_t    phy_mem_size;
 	uint32_t    phy_offset;
 	uint32_t    kernel_base;

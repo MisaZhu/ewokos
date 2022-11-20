@@ -26,8 +26,8 @@ extern void irq_init(void);
 extern void irq_arch_init(void);
 extern void irq_enable(uint32_t irq);
 extern void irq_disable(uint32_t irq);
-extern void irq_enable_cpsr(uint32_t* cpsr);
-extern void irq_disable_cpsr(uint32_t* cpsr);
+extern void irq_enable_cpsr(context_t* ctx);
+extern void irq_disable_cpsr(context_t* ctx);
 extern uint32_t irq_gets(void);
 
 #endif

@@ -8,6 +8,7 @@
 #include <arch/miyoo/sd.h>
 #include <arch/rk3326/sd.h>
 #include <arch/rk3128/sd.h>
+#include <arch/virt/sd.h>
 #include <arch/vpb/sd.h>
 
 int bsp_sd_init(void) {
@@ -24,6 +25,9 @@ int bsp_sd_init(void) {
 		res = sd_init(rk3326_sd_init, rk3326_sd_read_sector, rk3326_sd_write_sector);
 	else if(strncmp(sysinfo.machine, "rk3128", 6) == 0)
 		res = sd_init(rk3128_sd_init, rk3128_sd_read_sector, rk3128_sd_write_sector);
+	else if(strncmp(sysinfo.machine, "virt", 4) == 0){
+		res = sd_init(virt_sd_init, virt_sd_read_sector, virt_sd_write_sector);
+	}
     
     return res;
 }

@@ -7,6 +7,7 @@ basic_libs:
 	cd arch_miyoo;make
 	cd arch_rk3326;make
 	cd arch_rk3128;make
+	cd arch_virt;make
 	cd bsp;make
 
 clean:
@@ -15,4 +16,5 @@ clean:
 	cd arch_miyoo;make clean
 	cd arch_rk3326;make clean
 	cd arch_rk3128;make clean
+	cd arch_virt;make clean
 	cd bsp;make clean

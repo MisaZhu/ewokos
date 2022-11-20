@@ -526,8 +526,8 @@ proc_t *proc_create(int32_t type, proc_t* parent) {
 		strcpy(proc->info.cmd, parent->info.cmd);
 
 	proc_init_user_stack(proc);
-	proc->ctx.cpsr = 0x50;
 	proc->info.start_sec = _kernel_sec;
+	CONTEXT_INIT(proc->ctx);
 	return proc;
 }
 
@@ -549,27 +549,29 @@ int32_t proc_load_elf(proc_t *proc, const char *image, uint32_t size) {
 	proc_free_heap(proc);
 
 	/*read elf format from saved proc image*/
-	struct elf_header *header = (struct elf_header *) proc_image;
-	if (header->type != ELFTYPE_EXECUTABLE)
+	if (ELF_TYPE(proc_image) != ELFTYPE_EXECUTABLE)
 		return -1;
 
-	prog_header_offset = header->phoff;
-	prog_header_count = header->phnum;
+	prog_header_count = ELF_PHNUM(proc_image);
 
+	uint32_t *debug = 0;
 	for (i = 0; i < prog_header_count; i++) {
 		uint32_t j = 0;
-		struct elf_program_header *header = (void *) (proc_image + prog_header_offset);
 		/* make enough room for this section */
-		while (proc->space->heap_size < header->vaddr + header->memsz) {
+		uint32_t vaddr = ELF_PVADDR(proc_image, i);
+		uint32_t memsz = ELF_PSIZE(proc_image, i);
+		uint32_t offset = ELF_POFFSET(proc_image, i);
+
+		while (proc->space->heap_size < vaddr + memsz) {
 			if(proc_expand_mem(proc, 1) != 0){ 
 				kfree(proc_image);
 				return -1;
 			}
 		}
 		/* copy the section from kernel to proc mem space*/
-		uint32_t hvaddr = header->vaddr;
-		uint32_t hoff = header->off;
-		for (j = 0; j < header->memsz; j++) {
+		uint32_t hvaddr = vaddr;
+		uint32_t hoff = offset;
+		for (j = 0; j < memsz; j++) {
 			uint32_t vaddr = hvaddr + j; /*vaddr in elf (proc vaddr)*/
 			uint32_t vkaddr = resolve_kernel_address(proc->space->vm, vaddr); /*trans to phyaddr by proc's page dir*/
 			/*copy from elf to vaddrKernel(=phyaddr=vaddrProc=vaddrElf)*/
@@ -583,8 +585,8 @@ int32_t proc_load_elf(proc_t *proc, const char *image, uint32_t size) {
 	uint32_t user_stack_base =  proc_get_user_stack_base(proc);
 	uint32_t pages = proc_get_user_stack_pages(proc);
 	proc->ctx.sp = user_stack_base + pages*PAGE_SIZE;
-	proc->ctx.pc = header->entry;
-	proc->ctx.lr = header->entry;
+	proc->ctx.pc = ELF_ENTRY(proc_image);
+	proc->ctx.lr = ELF_ENTRY(proc_image);
 	proc_ready(proc);
 	kfree(proc_image);
 	return 0;

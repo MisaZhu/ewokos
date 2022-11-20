@@ -20,9 +20,6 @@ inline void _delay_msec(uint32_t count) {
 	_delay_usec(count*1000);
 }
 
-extern void __set_translation_table_base(uint32_t);
-extern void __flush_tlb(void);
-
 #ifdef KERNEL_SMP
 extern void __flush_dcache_all(void);
 
