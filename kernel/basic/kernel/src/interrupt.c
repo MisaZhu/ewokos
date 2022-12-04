@@ -55,6 +55,9 @@ int32_t interrupt_setup(proc_t* cproc, uint32_t interrupt, uint32_t entry, uint3
 				break;
 			}
 		}
+		if(_interrupts[interrupt].head == NULL) { //no more interrupt handler, disable this one.
+			irq_disable(interrupt);
+		}
 	}
 	else { //register interrupt
 		interrupt_t* intr = (interrupt_t*)kmalloc(sizeof(interrupt_t));
@@ -69,6 +72,7 @@ int32_t interrupt_setup(proc_t* cproc, uint32_t interrupt, uint32_t entry, uint3
 		_interrupts[interrupt].head = intr;
 		if(cproc->space->interrupt.stack == 0)
 			cproc->space->interrupt.stack = proc_stack_alloc(cproc);
+		irq_enable(interrupt);
 	}
 	return 0;
 }
