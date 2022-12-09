@@ -10,7 +10,7 @@
 #define PAGE_INDEX(x) (((uint32_t)x >> 12) & 255)
 
 #define PAGE_TABLE_TO_BASE(x) ((uint32_t)x >> 12)
-#define BASE_TO_PAGE_TABLE(x) ((void *) ((uint32_t)x << 12))
+#define BASE_TO_PAGE_TABLE(x) (((uint32_t)x << 12))
 #define PAGE_TO_BASE(x) ((uint32_t)x >> 12)
 
 #pragma pack(1)
@@ -37,7 +37,11 @@ typedef struct {
 	uint8_t dirty 			: 1;
 	uint8_t software      	: 2;
 	uint64_t ppn			: 44;
-    uint32_t reserved  		: 10;
+    uint32_t reserved  		: 7;
+	/*c906 extend*/
+	uint8_t  bufferable         : 1;
+	uint8_t  cacheable          : 1;
+	uint8_t  strongorder		: 1;
 } page_table_entry_t; 
 #pragma pack()
 

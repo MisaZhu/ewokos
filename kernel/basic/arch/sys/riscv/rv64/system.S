@@ -10,6 +10,11 @@ __core_id:
 symbol:
 #define ENDPROC(x)
 
+.global __flush_dcache_all
+__flush_dcache_all:
+	fence.i
+	ret
+
 .global __flush_tlb
 __flush_tlb:
 	sfence.vma
@@ -17,12 +22,13 @@ __flush_tlb:
 
 .global __set_translation_table_base
 __set_translation_table_base:
-	sfence.vma
+	fence.i
 	lui a5,0x8ffff
 	slli    a5,a5,0x20
 	srli    a0,a0,0xc
 	or  a0,a0,a5
 	csrw    satp,a0
+	sfence.vma
 	ret
 
 .global __irq_enable
