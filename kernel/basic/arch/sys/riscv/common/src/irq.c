@@ -4,6 +4,7 @@
 #include <kernel/svc.h>
 #include <kernel/proc.h>
 #include <arch_context.h>
+#include <dev/timer.h>
 
 inline void irq_enable_cpsr(context_t* ctx) {
 
@@ -101,28 +102,21 @@ void panic(uint32_t code, uint64_t epc, uint64_t tval,  context_t *ctx)
 
 uint64_t handle_trap(uint32_t cause, uint64_t epc, uint64_t tval,  context_t *ctx)
 {
-    int ts = csr_read(CSR_TIME); 
-    //proc_t *proc = get_current_proc();
-    //if(proc)
-    //printf("befor pid:%d pc:%08x ss:%08x sp:%08x stack:%08x\n", proc->info.pid, ctx->pc, ctx->sstatus, ctx->sp, &i);
     switch(cause){
        case 5:
+              timer_clear_interrupt(0);
               irq_handler(ctx);
-              sbi_set_timer(ts + 40000); 
            break;
        case 8:
               ctx->pc += 4;
               svc_handler(ctx->gpr[0], ctx->gpr[1], ctx->gpr[2], ctx->gpr[3], ctx); 
               break;
         case 15:
-            data_abort_handler(ctx, tval, 0x6);
-            break;
+              data_abort_handler(ctx, tval, 0x6);
+              break;
        default:
-           panic(cause, epc, tval, ctx);
-         break;
+              panic(cause, epc, tval, ctx);
+              break;
     }
-    //proc = get_current_proc();
-    //if(proc)
-    //printf("after pid:%d pc:%08x ss:%08x sp:%08x stack:%08x\n\n", proc->info.pid, ctx->pc, ctx->sstatus, ctx->sp, &i);
     return epc;
 }

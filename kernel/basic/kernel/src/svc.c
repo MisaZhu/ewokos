@@ -241,8 +241,8 @@ static uint32_t sys_mem_map(uint32_t vaddr, uint32_t paddr, uint32_t size) {
 	proc_t* cproc = get_current_proc();
 	if(cproc->info.owner > 0)
 		return 0;
-	if(paddr == 0)
-		return sys_dma_map(size);
+	//if(paddr == 0)
+		//return sys_dma_map(size);
 
 	/*allocatable memory can only mapped by kernel,
 	userspace can map upper address such as MMIO/FRAMEBUFFER... */

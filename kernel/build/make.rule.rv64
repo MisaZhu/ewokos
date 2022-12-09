@@ -34,6 +34,10 @@ ifeq ($(KERNEL_CONSOLE),yes)
 CFLAGS +=  -DKCONSOLE
 endif
 
+ifeq ($(C906_EXTEND),yes)
+CFLAGS +=  -DC906_EXTEND
+endif
+
 ifeq ($(DEBUG),yes)
 OPTM = -g -DKDEBUG
 else

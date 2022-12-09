@@ -19,11 +19,12 @@ $(BSP): $(LIB_BSP_OBJS) \
 		$(BUILD_DIR)/lib/libarch_bcm283x.a \
 		$(BUILD_DIR)/lib/libarch_miyoo.a \
 		$(BUILD_DIR)/lib/libarch_virt.a \
+		$(BUILD_DIR)/lib/libarch_nezha.a \
 		$(BUILD_DIR)/lib/libarch_rk3326.a \
 		$(BUILD_DIR)/lib/libarch_rk3128.a
 	$(AR) rT $(BSP) $(LIB_BSP_OBJS)  $(BUILD_DIR)/lib/libarch_vpb.a $(BUILD_DIR)/lib/libarch_bcm283x.a \
 	$(BUILD_DIR)/lib/libarch_miyoo.a $(BUILD_DIR)/lib/libarch_rk3326.a $(BUILD_DIR)/lib/libarch_rk3128.a \
-	$(BUILD_DIR)/lib/libarch_virt.a	
+	$(BUILD_DIR)/lib/libarch_virt.a	$(BUILD_DIR)/lib/libarch_nezha.a	
 	cp -r include/* $(TARGET_DIR)/include
 
 

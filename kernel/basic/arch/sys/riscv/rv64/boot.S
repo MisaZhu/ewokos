@@ -49,6 +49,8 @@ clear_bss_done:
     csrs sstatus,t0 
 
 	call   _boot_start
+
+    lla  sp, _svc_stack
     call _kernel_entry_c
 
 .global _panic

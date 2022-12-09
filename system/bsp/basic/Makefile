@@ -5,6 +5,7 @@ all:
 	cd rk3326; make
 	cd rk3128; make
 	cd virt; make
+	cd nezha; make
 
 clean:
 	cd versatilepb; make clean
@@ -12,4 +13,4 @@ clean:
 	cd miyoo; make clean
 	cd rk3326; make clean
 	cd rk3128; make clean
-	cd virt; make clean
+	cd nezha; make clean

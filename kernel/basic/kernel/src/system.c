@@ -34,7 +34,10 @@ inline void flush_tlb(void) {
 
 #else
 
-inline void flush_dcache(void) { }
+inline void flush_dcache(void) { 
+	__flush_dcache_all();
+}
+
 inline void flush_tlb(void) {
 	__flush_tlb();
 }

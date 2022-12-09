@@ -18,6 +18,7 @@ void timer_set_interval(uint32_t id, uint32_t times_per_sec) {
 
 void timer_clear_interrupt(uint32_t id) {
     //csr_clear(sie, SIE_STIE);
+    sbi_set_timer(csr_read(CSR_TIME) + 40000);  
 }
 
 uint64_t timer_read_sys_usec(void) { //read microsec
