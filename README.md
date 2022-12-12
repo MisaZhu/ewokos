@@ -34,6 +34,9 @@
 			sd->state = sd_ready_state;
 		}
 		......
+	
+	risc-v toolchains:
+		https://github.com/riscv-software-src/homebrew-riscv
 
 	Mac OSX(with brew installed):	
 		brew tap PX4/homebrew-px4
