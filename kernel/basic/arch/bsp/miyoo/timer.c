@@ -58,7 +58,7 @@ void timer_set_interval(uint32_t id, uint32_t times_per_sec) {
 	_cntfrq = read_cntfrq(); 
 	if(_cntfrq < 1000000 || _cntfrq > 50000000)
 		_cntfrq = GIC_DEFAULT_FREQ;
-	printf("sys counter freq: %d\n", _cntfrq);
+
 	_timer_tval = _cntfrq/times_per_sec;
 	write_cntv_tval(_timer_tval);
 	enable_cntv();
