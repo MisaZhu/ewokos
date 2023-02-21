@@ -1,5 +1,6 @@
 #include <mm/mmu.h>
 #include <kernel/hw_info.h>
+#include <kernel/kernel.h>
 #include <dev/timer.h>
 #include <kernel/irq.h>
 

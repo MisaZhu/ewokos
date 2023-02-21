@@ -1,6 +1,7 @@
 #include <mm/mmu.h>
 #include <dev/timer.h>
 #include <kernel/irq.h>
+#include <kernel/kernel.h>
 #include <kprintf.h>
 #include "timer_arch.h"
 
@@ -54,11 +55,10 @@ static inline uint32_t read_cntctl(void) {
 	return val;
 }
 
-#define MIN_FREQ 4096
 void timer_set_interval(uint32_t id, uint32_t times_per_sec) {
 	(void)id;
-	if (times_per_sec < MIN_FREQ)
-		times_per_sec = MIN_FREQ;
+	if (times_per_sec < MIN_SCHD_FREQ)
+		times_per_sec = MIN_SCHD_FREQ;
 	_cntfrq = read_cntfrq(); 
 	if(_cntfrq < 1000000 || _cntfrq > 50000000)
 		_cntfrq = GIC_DEFAULT_FREQ;

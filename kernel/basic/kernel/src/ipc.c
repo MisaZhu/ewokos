@@ -4,6 +4,7 @@
 #include <mm/kalloc.h>
 #include <mm/kmalloc.h>
 #include <mm/mmu.h>
+#include <kernel/kernel.h>
 #include <stddef.h>
 #include <kstring.h>
 
@@ -41,6 +42,7 @@ int32_t proc_ipc_do_task(context_t* ctx, proc_t* serv_proc, uint32_t core) {
 	proc_save_state(serv_proc, &serv_proc->space->ipc_server.saved_state);
 	serv_proc->space->ipc_server.do_switch = true;
 
+	timer_set_interval(0, MIN_SCHD_FREQ); 
 	proc_switch_multi_core(ctx, serv_proc, core);
 	return 0;
 }
@@ -77,6 +79,7 @@ void proc_ipc_close(proc_t* serv_proc, ipc_task_t* ipc) {
 	if(serv_proc->space->ipc_server.ctask == ipc)
 		serv_proc->space->ipc_server.ctask = NULL;
 	kfree(ipc);
+	timer_set_interval(0, KERNEL_SCHD_FREQ); 
 }
 
 void proc_ipc_clear(proc_t* serv_proc) {

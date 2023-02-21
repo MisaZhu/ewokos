@@ -1,5 +1,6 @@
 #include <dev/timer.h>
 #include <kernel/irq.h>
+#include <kernel/kernel.h>
 #include <mm/mmu.h>
 #include "timer_arch.h"
 
@@ -44,11 +45,10 @@ static inline void enable_cntv(void) {
 	__asm__ volatile ("mcr p15, 0, %0, c14, c3, 1" :: "r"(1));
 }
 
-#define MIN_FREQ 4096
 void timer_set_interval(uint32_t id, uint32_t times_per_sec) {
 	(void)id;
-	if (times_per_sec < MIN_FREQ)
-		times_per_sec = MIN_FREQ;
+	if (times_per_sec < MIN_SCHD_FREQ)
+		times_per_sec = MIN_SCHD_FREQ;
 	_timer_tval = read_cntfrq() / times_per_sec /20;
 	write_cntv_tval(_timer_tval);
 	enable_cntv();

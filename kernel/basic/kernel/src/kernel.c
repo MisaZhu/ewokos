@@ -183,7 +183,7 @@ void _kernel_entry_c(void) {
 #endif
 
 	printf("kernel: set timer.\n");
-	timer_set_interval(0, 512); 
+	timer_set_interval(0, KERNEL_SCHD_FREQ); 
 
 	printf("kernel: enable irq and start init...\n");
 

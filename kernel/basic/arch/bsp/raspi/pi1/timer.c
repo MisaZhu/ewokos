@@ -1,6 +1,7 @@
 #include <dev/timer.h>
 #include <kernel/irq.h>
 #include <kernel/hw_info.h>
+#include <kernel/kernel.h>
 
 #define SYSTEM_TIMER_BASE (_sys_info.mmio.v_base+0x3000)
 #define SYSTEM_TIMER_LOW  0x0004 // System Timer Counter Upper 32 bits
@@ -18,12 +19,15 @@
 
 void timer_set_interval(uint32_t id, uint32_t times_per_sec) {
 	(void)id;
-  put32(ARM_TIMER_CTL,0x003E0000);
-	put32(ARM_TIMER_LOD,times_per_sec*10-1);
-	put32(ARM_TIMER_RLD,times_per_sec*10-1);
-  put32(ARM_TIMER_CLI,0);
-  put32(ARM_TIMER_CTL,0x003E00A2);
-  put32(ARM_TIMER_CLI,0);
+
+	if (times_per_sec < MIN_SCHD_FREQ)
+		times_per_sec = MIN_SCHD_FREQ;
+	put32(ARM_TIMER_CTL, 0x003E0000);
+	put32(ARM_TIMER_LOD, times_per_sec * 10 - 1);
+	put32(ARM_TIMER_RLD, times_per_sec * 10 - 1);
+	put32(ARM_TIMER_CLI, 0);
+	put32(ARM_TIMER_CTL, 0x003E00A2);
+	put32(ARM_TIMER_CLI, 0);
 }
 
 void timer_clear_interrupt(uint32_t id) {
