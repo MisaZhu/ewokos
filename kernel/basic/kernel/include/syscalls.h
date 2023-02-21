@@ -1,6 +1,8 @@
 #ifndef SYSCALLS_H
 #define SYSCALLS_H
 
+#define DMA_MAGIC   0xCAFECAFF
+
 enum {
 	SYS_NONE = 0,
 	SYS_KPRINT,           //1
