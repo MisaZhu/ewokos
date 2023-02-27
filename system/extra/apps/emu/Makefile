@@ -6,7 +6,12 @@ TARGET_DIR = $(BUILD_DIR)/rootfs
 LDFLAGS = -L$(BUILD_DIR)/lib -lnosys
 CFLAGS += -I include -I $(BUILD_DIR)/include
 CXXFLAGS += -I include -I $(BUILD_DIR)/include
-EMU_OBJS = main.o src/MapperUxROM.o src/PPU.o src/Mapper.o src/PictureBus.o src/Cartridge.o src/Emulator.o src/MapperNROM.o src/MapperCNROM.o src/MainBus.o src/MapperSxROM.o src/VirtualScreen.o src/Controller.o src/CPU.o 
+EMU_OBJS = main.o \
+		src/InfoNES.o \
+		src/InfoNES_Mapper.o \
+		src/InfoNES_pAPU.o  \
+		src/K6502.o
+
 EMU_DIR = $(TARGET_DIR)/apps/emu
 EMU = $(EMU_DIR)/emu
 
