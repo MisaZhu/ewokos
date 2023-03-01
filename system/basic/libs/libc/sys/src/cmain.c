@@ -98,15 +98,25 @@ static void init_stdio(void) {
 }
 
 #define ARG_MAX 16
+extern int __bss_start__;
+extern int __bss_end__;
 
 void _start(void) {
 	char* argv[ARG_MAX];
 	int32_t argc = 0;
 
+	//clean bss befor cmain
+	int *p = &__bss_start__;
+	while(p < &__bss_end__){
+		*p++ = 0;
+	}
+
+
 	sys_signal_init();
 	proc_init();
 	init_stdio();
 	init_cmd();
+
 
 	while(argc < ARG_MAX) {
 		char* arg = read_cmain_arg(); 
