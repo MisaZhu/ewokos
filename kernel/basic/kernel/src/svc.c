@@ -413,10 +413,14 @@ static void sys_ipc_end(context_t* ctx) {
 	proc_ipc_close(serv_proc, ipc);
 	proc_wakeup(serv_proc->info.pid, (uint32_t)&serv_proc->space->ipc_server); 
 
-	if(proc_ipc_fetch(serv_proc) != 0)  //fetch next buffered ipc
-		proc_ipc_do_task(ctx, serv_proc, serv_proc->info.core);
-	else
-		schedule(ctx);
+	if(proc_ipc_fetch(serv_proc) != 0)  {//fetch next buffered ipc
+		proc_save_state(serv_proc, &serv_proc->space->ipc_server.saved_state);
+		serv_proc->space->ipc_server.do_switch = true;
+		proc_ready(serv_proc);
+		//proc_ipc_do_task(ctx, serv_proc, serv_proc->info.core);
+	}
+	//else
+	schedule(ctx);
 }
 
 static int32_t sys_ipc_disable(void) {
