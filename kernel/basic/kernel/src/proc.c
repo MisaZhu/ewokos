@@ -278,7 +278,8 @@ inline void proc_ready(proc_t* proc) {
 	proc->block_event = 0;
 	proc->info.block_by = -1;
 	if(queue_in(&_ready_queue[proc->info.core], proc) == NULL)
-		queue_push_head(&_ready_queue[proc->info.core], proc);
+		//queue_push_head(&_ready_queue[proc->info.core], proc);
+		queue_push(&_ready_queue[proc->info.core], proc);
 }
 
 inline proc_t* proc_get_core_ready(uint32_t core_id) {
