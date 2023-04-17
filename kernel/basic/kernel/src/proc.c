@@ -220,6 +220,7 @@ void proc_switch(context_t* ctx, proc_t* to, bool quick){
 			to->ctx.pc = to->ctx.lr = to->space->ipc_server.entry;
 			to->ctx.sp = ALIGN_DOWN(to->space->ipc_server.stack + THREAD_STACK_PAGES * PAGE_SIZE, 8);
 			to->space->ipc_server.do_switch = false; // clear ipc request mask
+			timer_set_interval(0, MIN_SCHD_FREQ); 
 		}
 	}
 
@@ -278,7 +279,8 @@ inline void proc_ready(proc_t* proc) {
 	proc->block_event = 0;
 	proc->info.block_by = -1;
 	if(queue_in(&_ready_queue[proc->info.core], proc) == NULL)
-		queue_push_head(&_ready_queue[proc->info.core], proc);
+		//queue_push_head(&_ready_queue[proc->info.core], proc);
+		queue_push(&_ready_queue[proc->info.core], proc);
 }
 
 inline proc_t* proc_get_core_ready(uint32_t core_id) {
