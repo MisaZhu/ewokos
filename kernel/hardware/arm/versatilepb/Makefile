@@ -11,4 +11,6 @@ OS_QEMU_ELF = kernel.qemu.elf
 QEMU_CMD = qemu-system-arm
 
 ROOT_DIR = ../../../..
+
+include make.bsp
 include ../make.rule

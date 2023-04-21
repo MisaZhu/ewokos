@@ -62,28 +62,16 @@ CFLAGS += $(OPTM) \
 	-fno-builtin-strncmp \
 	-std=c99
 
-START_OBJ=$(BSP_DIR)/start.o 
 
 ARCH_OBJS += \
 	$(ARCH_DIR)/$(ARCH)/boot.o \
 	$(ARCH_DIR)/$(ARCH)/system.o \
 	$(ARCH_DIR)/$(ARCH)/mmu_pte_flags.o \
-	$(BSP_DIR)/hw_info.o \
-	$(BSP_DIR)/irq.o \
-	$(BSP_DIR)/timer.o \
-	$(BSP_DIR)/sd.o  \
-	$(BSP_DIR)/fb.o  \
-	$(BSP_DIR)/uart.o \
 	$(ARCH_DIR)/common/src/interrupt.o \
 	$(ARCH_DIR)/common/src/gic.o \
 	$(ARCH_DIR)/common/src/irq.o \
 	$(ARCH_DIR)/common/src/memcpy.o \
 	$(ARCH_DIR)/common/src/mmu_arch.o
-
-ifeq ($(SMP),yes)
-ARCH_OBJS += $(BSP_DIR)/ipi.o \
-	$(BSP_DIR)/core.o
-endif
 
 LIB_GRAPH_DIR=$(SRC_DIR)/lib/graph
 LIB_GRAPH_OBJS = $(LIB_GRAPH_DIR)/src/graph.o \
@@ -152,7 +140,7 @@ LDFLAGS = -L $(ARCH_DIR)/$(ARCH)
 
 all: $(OS_IMG) 
 
-$(OS_IMG): $(OBJS) $(LDS) $(LDS_QEMU) $(START_OBJ)
+$(OS_IMG): $(OBJS) $(LDS) $(LDS_QEMU)
 	$(LD) $(OBJS) $(LDFLAGS) -T $(LDS) -o $(BUILD_DIR)/$(OS_ELF)
 	$(LD) $(OBJS) $(LDFLAGS) -T $(LDS_QEMU) -o $(BUILD_DIR)/$(OS_QEMU_ELF)
 	$(OBJCOPY) -O binary $(BUILD_DIR)/$(OS_ELF) $(BUILD_DIR)/$(OS_IMG)
@@ -179,6 +167,6 @@ gdb:
 	#gdb-multiarch $(BUILD_DIR)/$(OS_ELF) -x /tmp/gdbinit #for ubuntu 18.04 without arm-none-eabi-gdb
 
 clean:
-	rm -f $(OBJS) $(START_OBJ)
+	rm -f $(OBJS)
 	rm -f $(OS_IMG) $(OS_ELF)
 	rm -f $(OS_QEMU_IMG) $(OS_QEMU_ELF)
