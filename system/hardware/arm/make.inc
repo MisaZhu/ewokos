@@ -12,7 +12,7 @@ kernel_heads:
 	@mkdir -p ${BUILD_DIR}/include
 	@mkdir -p ${BUILD_DIR}/lib
 	cp -r $(KERNEL_H) $(BUILD_DIR)/include/
-	rm $(ROOT_DIR)/make.rule; ln -s hardware/arm/make.rule $(ROOT_DIR)/make.rule
+	cp $(ROOT_DIR)/hardware/arm/make.rule $(ROOT_DIR)/make.rule
 
 SD = $(ROOT_DIR)/root.ext2
 sd: 
