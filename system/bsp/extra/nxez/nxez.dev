@@ -1,4 +1,0 @@
-/bin/rundev /drivers/raspix/nxez_ledsd    /dev/leds
-/bin/rundev /drivers/raspix/nxez_beepd    /dev/beep
-/bin/rundev /drivers/raspix/nxez_keysd    /dev/keys
-/bin/rundev /drivers/raspix/nxez_dispd    /dev/disp
