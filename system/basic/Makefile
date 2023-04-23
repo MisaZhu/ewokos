@@ -20,7 +20,6 @@ mkdirs:
 	@mkdir -p ${TARGET_DIR}/drivers/proc
 	@mkdir -p ${TARGET_DIR}/home/root
 	@mkdir -p ${TARGET_DIR}/home/guest
-	@cp -r ${ROOT_DIR}/etcs/qemu/basic/* ${TARGET_DIR}/etc
 
 builtin_apps: 
 	cd sbin;make

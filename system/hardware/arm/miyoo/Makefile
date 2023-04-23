@@ -17,6 +17,7 @@ basic_sys: kernel_heads
 	cd $(ROOT_DIR)/basic;make
 	cd $(ROOT_DIR)/full;make
 	cd drivers;make
+	cp -r etc $(TARGET_DIR)/
 
 extra_sys:
 	cd $(ROOT_DIR)/extra;make
