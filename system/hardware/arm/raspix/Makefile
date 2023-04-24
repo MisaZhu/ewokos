@@ -17,7 +17,7 @@ basic_sys: kernel_heads
 	cd $(ROOT_DIR)/basic;make
 	cd $(ROOT_DIR)/full;make
 	cd drivers;make
-	@cp -r ${ROOT_DIR}/etcs/qemu/full/* ${TARGET_DIR}/etc
+	@cp -r etcs/qemu/full/* ${TARGET_DIR}/etc
 
 extra_sys:
 	cd $(ROOT_DIR)/extra;make
