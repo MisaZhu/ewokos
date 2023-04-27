@@ -48,6 +48,8 @@ CXXFLAGS = \
         -fno-exceptions \
         -std=c++11
 
+CFLAGS += -D __bss_start__=__bss_start -D __bss_end__=__BSS_END__
+CXXFLAGS += -D __bss_start__=__bss_start -D __bss_end__=__BSS_END__
 CFLAGS +=  -g
 #CFLAGS +=  -O2
 CXXFLAGS +=  -g

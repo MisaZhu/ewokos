@@ -13,7 +13,7 @@ The ARM Versatile 926EJS board contains two ARM SB804 dual timer modules [ARM Ti
 */
 #define DEFAULT_TIM_FREQ 23000000 
 
-static uint32_t timer_interval  = DEFAULT_TIM_FREQ/DEFALT_TICK;
+static uint32_t timer_interval;
 
 void timer_set_interval(uint32_t id, uint32_t times_per_sec) {
   csr_set(sie, SIE_STIE);

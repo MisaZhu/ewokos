@@ -73,18 +73,18 @@ CFLAGS += $(OPTM) \
 START_OBJ=$(BSP_DIR)/start.o 
 
 ARCH_OBJS += \
-	$(ARCH_DIR)/riscv/common/src/irq.o \
-	$(ARCH_DIR)/riscv/common/src/interrupt.o \
-	$(ARCH_DIR)/riscv/common/src/sbi.o \
+	$(ARCH_DIR)/common/src/irq.o \
+	$(ARCH_DIR)/common/src/interrupt.o \
+	$(ARCH_DIR)/common/src/sbi.o \
 	$(BSP_DIR)/$(BSP)/sd.o  \
 	$(BSP_DIR)/$(BSP)/cfi.o  \
 	$(BSP_DIR)/$(BSP)/timer.o \
 	$(BSP_DIR)/$(BSP)/irq.o \
 	$(ARCH_DIR)/$(ARCH)/system.o \
 	$(BSP_DIR)/$(BSP)/fb.o  \
-	$(ARCH_DIR)/riscv/common/src/mmu_pte_flags.o \
-	$(ARCH_DIR)/riscv/common/src/mmu_arch.o \
-	$(ARCH_DIR)/riscv/common/src/memcpy.o \
+	$(ARCH_DIR)/common/src/mmu_pte_flags.o \
+	$(ARCH_DIR)/common/src/mmu_arch.o \
+	$(ARCH_DIR)/common/src/memcpy.o \
 	$(BSP_DIR)/$(BSP)/uart.o \
 	$(BSP_DIR)/$(BSP)/hw_info.o \
 	$(ARCH_DIR)/$(ARCH)/boot.o 

@@ -11,7 +11,7 @@
  */
 int32_t virt_sd_init(void) {
 	_mmio_base = mmio_map();
-	syscall3(SYS_MEM_MAP, _mmio_base + 0x8000, 0xe0000000, 16*1024*1024);
+	syscall3(SYS_MEM_MAP, _mmio_base + 0x8000, 0xe0000000, 256*1024*1024);
 	return 0;
 }
 
