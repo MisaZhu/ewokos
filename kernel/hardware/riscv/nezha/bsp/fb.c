@@ -1,5 +1,4 @@
 #include <dev/fb.h>
-#include <bcm283x/framebuffer.h>
 #include <kstring.h>
 #include <graph/graph.h>
 #include <stddef.h>

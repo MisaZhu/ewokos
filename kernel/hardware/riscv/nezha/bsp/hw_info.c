@@ -26,12 +26,12 @@ void sys_info_init(void) {
 	_sys_info.mmio.phy_base = 0x0;
 	_sys_info.mmio.v_base = MMIO_BASE;
 	_sys_info.mmio.size = 128*MB;
-	_sys_info.dma.size = 256*1024;
+	_sys_info.dma.size = 256*KB;
 
 	_allocatable_phy_mem_base = V2P(ALLOCATABLE_MEMORY_START);
 	_allocatable_phy_mem_top = _sys_info.phy_offset +
 			_sys_info.phy_mem_size -
-			_sys_info.dma.size;
+			_sys_info.dma.size - 32*MB;
 	_sys_info.dma.phy_base = _allocatable_phy_mem_top;
 
 #ifdef KERNEL_SMP
