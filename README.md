@@ -72,17 +72,17 @@
 	
 .make 
 	
-	"cd kernel/build/{arch}; make":
+	"cd kernel/hardware/{arch}; make":
 	  build EwokOS kernel image.
 	
 .make rootfs (system/root.ext2)
 	
-	"cd system; make/make full(with xgui)/make extra(with xgui and extra apps"; make sd:
+	"cd system/hardware/{arch}; make(with xgui)/make extra(with xgui and extra apps"; make sd:
 	  build EwokOS rootfs apps and sd file system.
 	
 .run by qemu (raspi2)
 	
-	"cd kernel/build/raspi/pi2.3"
+	"cd kernel/hardware/arm/raspi/pi2.3"
 	"make run":
 	  run EwokOS(username: root, password: (none));
 	"make debug":
