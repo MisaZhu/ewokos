@@ -23,7 +23,9 @@ extra_sys:
 	cd $(ROOT_DIR)/extra;make
 
 clean:
-	cd drivers;make clean
 	cd libs;make clean
-	cd $(ROOT_DIR)/basic;make clean
+	cd drivers;make clean
 	cd $(ROOT_DIR)/full;make clean
+	cd $(ROOT_DIR)/basic;make clean
+	cd $(ROOT_DIR)/extra;make clean
+	rm -fr $(ROOT_DIR)/build
