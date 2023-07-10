@@ -26,4 +26,6 @@ clean:
 	cd console;make clean
 	cd x;make clean
 	cd cxx/cxx;make clean
+	cd cxx/x++;make clean
 	cd cxx/widget;make clean
+	cd minimp3;make clean
