@@ -335,7 +335,7 @@ int32_t ext2_read_block(ext2_t* ext2, INODE* node, char *buf, int32_t nbytes, in
 	//(5).2 Indirect blocks contains 256 block number 
 	else if(lbk>=12 && lbk < 256 +12){
 		int32_t indirect_buf[256];
-		ext2->read_block(node->i_block[12], (char*)indirect_buf, 1);
+		ext2->read_block(node->i_block[12], (char*)indirect_buf, 0);
 		blk = indirect_buf[lbk-12];
 	}
 	//(5).3 Double indiirect blocks
@@ -346,10 +346,10 @@ int32_t ext2_read_block(ext2_t* ext2, INODE* node, char *buf, int32_t nbytes, in
 		int32_t num = count / 256;
 		int32_t pos_offset = count % 256;
 		int32_t double_buf1[256];
-		if(ext2->read_block(node->i_block[13], (char*)double_buf1, 1) != 0)
+		if(ext2->read_block(node->i_block[13], (char*)double_buf1, 0) != 0)
 			return -1;
 		int32_t double_buf2[256];
-		if(ext2->read_block(double_buf1[num], (char*)double_buf2, 1) != 0)
+		if(ext2->read_block(double_buf1[num], (char*)double_buf2, 0) != 0)
 			return -1;
 		blk = double_buf2[pos_offset];
 	}

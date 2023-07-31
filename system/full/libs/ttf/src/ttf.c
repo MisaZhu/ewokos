@@ -84,7 +84,7 @@ inline int  ttf_font_width(ttf_font_t* font) {
 
 TTY_Error tty_render_glyph_cache(TTY_Font* font, TTY_Instance* instance, TTY_Glyph* glyph);
 
-static int ttf_render_glyph_cache(TTY_U32 c, ttf_font_t* font, TTY_Glyph* glyph) {
+int ttf_render_glyph_cache(TTY_U32 c, ttf_font_t* font, TTY_Glyph* glyph) {
 	int do_cache = 0;
 	memset(glyph, 0, sizeof(TTY_Glyph));
 	if(ttf_fetch_cache(font, c, glyph) != 0) {

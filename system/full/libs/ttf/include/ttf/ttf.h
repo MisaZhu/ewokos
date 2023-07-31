@@ -18,6 +18,8 @@ typedef struct {
 
 ttf_font_t* ttf_font_load(const char* fname, uint16_t ppm, int16_t margin);
 
+int ttf_render_glyph_cache(TTY_U32 c, ttf_font_t* font, TTY_Glyph* glyph);
+
 void ttf_font_free(ttf_font_t* font);
 
 int  ttf_font_resize(ttf_font_t* font, uint16_t ppm);
