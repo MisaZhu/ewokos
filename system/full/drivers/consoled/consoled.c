@@ -78,14 +78,9 @@ static int32_t read_config(fb_console_t* console, const char* fname) {
 	v = sconf_get(conf, "font");
 	if(v[0] != 0) 
 		font_fname = v;
-	klog("    load ttf font: %s ... ", font_fname);
 	console->console.font = ttf_font_load(font_fname, font_size, font_margin);
 	sconf_free(conf);
 
-	if(console->console.font != NULL)
-		klog("[ok]\n");
-	else
-		klog("[failed]!\n");
 	return 0;
 }
 
