@@ -452,12 +452,8 @@ inline void* proc_malloc(proc_t* proc, uint32_t size) {
 	return trunk_malloc(&proc->space->malloc_man, size);
 }
 
-inline void* proc_realloc(proc_t* proc, void* p, uint32_t size) {
-	if(size == 0) {
-		proc_free(proc, p);
-		return NULL;
-	}
-	return trunk_realloc(&proc->space->malloc_man, p, size);
+inline uint32_t proc_msize(proc_t* proc, void* p) {
+	return trunk_msize(&proc->space->malloc_man, p);
 }
 
 inline void proc_free(proc_t* proc, void* p) {

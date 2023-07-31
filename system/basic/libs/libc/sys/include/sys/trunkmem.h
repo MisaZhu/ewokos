@@ -1,6 +1,10 @@
 #ifndef TRKMALLOC_H
 #define TRKMALLOC_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include <stdint.h>
 
 typedef struct mem_block {
@@ -13,6 +17,7 @@ typedef struct mem_block {
 } mem_block_t;
 
 typedef struct {
+	uint32_t seg_size;
 	void* arg;
 
 	int32_t (*expand)(void* arg, int32_t pages);
@@ -25,7 +30,11 @@ typedef struct {
 } malloc_t;
 
 char* trunk_malloc(malloc_t* m, uint32_t size);
-uint32_t trunk_msize(malloc_t* m, char* p);
 void  trunk_free(malloc_t* m, char* p);
+uint32_t  trunk_msize(malloc_t* m, char* p);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

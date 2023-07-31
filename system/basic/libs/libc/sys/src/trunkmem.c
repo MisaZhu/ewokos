@@ -1,8 +1,10 @@
-#include <mm/trunkmem.h>
-#include <mm/mmu.h>
-#include <kstring.h>
 #include <stddef.h>
+#include <string.h>
+#include <sys/trunkmem.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
 /*
 malloc for memory trunk management
 */
@@ -40,6 +42,8 @@ static void try_break(malloc_t* m, mem_block_t* block, uint32_t size) {
 		m->tail = newBlock;
 }
 
+#define ALIGN_UP(x, alignment) (((x) + alignment - 1) & ~(alignment - 1))
+
 char* trunk_malloc(malloc_t* m, uint32_t size) {
 	size = ALIGN_UP(size, 8);
 	mem_block_t* block = m->start == NULL ? m->head : m->start;
@@ -62,15 +66,15 @@ char* trunk_malloc(malloc_t* m, uint32_t size) {
 	uint32_t block_size = sizeof(mem_block_t);
 	uint32_t expand_size = size + block_size;
 
-	uint32_t pages = expand_size / PAGE_SIZE;	
-	if((expand_size % PAGE_SIZE) > 0)
+	uint32_t pages = expand_size / m->seg_size;	
+	if((expand_size % m->seg_size) > 0)
 		pages++;
 
 	char* p = (char*)m->get_mem_tail(m->arg);
 	if(m->expand(m->arg, pages) != 0)
 		return NULL;
 
-	block = gen_block(p, pages*PAGE_SIZE);
+	block = gen_block(p, pages*m->seg_size);
 	block->used = 1;
 
 	if(m->head == NULL) {
@@ -131,10 +135,10 @@ static void try_shrink(malloc_t* m) {
 	//check if page aligned.	
 	if(m->tail == NULL ||
 			m->tail->used == 1 ||
-			(addr % PAGE_SIZE) != 0)
+			(addr % m->seg_size) != 0)
 		return;
 
-	uint32_t pages = (m->tail->size+block_size) / PAGE_SIZE;
+	uint32_t pages = (m->tail->size+block_size) / m->seg_size;
 	m->tail = m->tail->prev;
 	if(m->tail != NULL)
 		m->tail->next = NULL;
@@ -168,3 +172,8 @@ uint32_t trunk_msize(malloc_t* m, char* p) {
 	mem_block_t* block = (mem_block_t*)(p - block_size);
 	return block->size;
 }
+
+
+#ifdef __cplusplus
+}
+#endif

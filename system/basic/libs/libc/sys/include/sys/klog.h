@@ -5,6 +5,7 @@
 extern "C" {
 #endif
 
+void kout(const char *str, int len);
 void klog(const char *format, ...);
 
 #ifdef __cplusplus

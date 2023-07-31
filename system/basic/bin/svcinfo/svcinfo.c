@@ -18,8 +18,8 @@ static inline const char* svc_name(int32_t code) {
 		return "signal_end";
 	case SYS_MALLOC:
 		return "malloc";
-	case SYS_REALLOC:
-		return "realloc";
+	case SYS_MSIZE:
+		return "msize";
 	case SYS_FREE:
 		return "free";
 	case SYS_GET_PID:

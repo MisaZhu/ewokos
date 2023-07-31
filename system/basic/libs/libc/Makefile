@@ -24,6 +24,7 @@ LIB_EWOKSYS_OBJS = sys/src/syscall.o \
 	sys/src/basic_math.o \
 	sys/src/kernel_tic.o \
 	sys/src/shm.o \
+	sys/src/trunkmem.o \
 	sys/src/proc.o \
 	sys/src/wait.o \
 	sys/src/md5.o \
@@ -64,9 +65,7 @@ LIB_EWOKC_OBJS = src/unistd/chdir.o \
 	src/stdlib/calloc.o \
 	src/stdlib/execl.o \
 	src/stdlib/exit.o \
-	src/stdlib/free.o \
-	src/stdlib/malloc.o \
-	src/stdlib/realloc.o \
+	src/stdlib/malloc_free.o \
 	src/stdlib/random.o \
 	src/stdlib/setenv.o \
 	src/stdlib/getenv.o \

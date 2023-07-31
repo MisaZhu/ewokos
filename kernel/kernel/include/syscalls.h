@@ -9,7 +9,7 @@ enum {
 
 	//proccess memory manage
 	SYS_MALLOC,           //2
-	SYS_REALLOC,          //3
+	SYS_MSIZE,            //3
 	SYS_FREE,             //4
 
 	SYS_EXEC_ELF,         //5

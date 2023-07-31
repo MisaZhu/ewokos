@@ -7,11 +7,11 @@
 extern "C" {
 #endif
 
-
 void *malloc(size_t size);
 void *calloc(size_t nmemb, size_t size);
 void free(void* ptr);
 void* realloc(void* s, uint32_t new_size);
+
 void exit(int status);
 int execl(const char* fname, const char* arg, ...);
 const char* getenv(const char* name);
