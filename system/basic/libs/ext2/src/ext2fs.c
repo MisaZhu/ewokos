@@ -118,7 +118,7 @@ static int32_t ext2_idealloc(ext2_t* ext2, int32_t ino) {
 
 	// get inode bitmap block
 	int32_t index = get_gd_index_by_ino(ext2, ino);
-	if(ext2->read_block(ext2->gds[index].bg_inode_bitmap, buf) != 0)
+	if(ext2->read_block(ext2->gds[index].bg_inode_bitmap, buf, 0) != 0)
 		return -1;
 
 	clr_bit(buf, ino-1);
@@ -135,7 +135,7 @@ static int32_t ext2_bdealloc(ext2_t* ext2, int32_t block) {
 		return -1;
 
 	int32_t index = get_gd_index_by_block(ext2, block);
-	if(ext2->read_block(ext2->gds[index].bg_block_bitmap, buf) != 0)
+	if(ext2->read_block(ext2->gds[index].bg_block_bitmap, buf, 0) != 0)
 		return -1;
 	clr_bit(buf, block-1);
 	// write buf back
@@ -153,7 +153,7 @@ static uint32_t ext2_ialloc(ext2_t* ext2) {
 	for (i=0; i < ext2->super.s_inodes_count; i++){
 		if((i % ext2->super.s_inodes_per_group) == 0) {
 			index = get_gd_index_by_ino(ext2, i);
-			ext2->read_block(ext2->gds[index].bg_inode_bitmap, buf);
+			ext2->read_block(ext2->gds[index].bg_inode_bitmap, buf, 0);
 		}
 	
 		uint32_t ino = get_ino_in_group(ext2, i, index);
@@ -173,11 +173,11 @@ static int32_t ext2_balloc(ext2_t* ext2) {
 	int32_t index = 0;
 	uint32_t i;
 
-	ext2->read_block(ext2->gds[0].bg_block_bitmap, buf);
+	ext2->read_block(ext2->gds[0].bg_block_bitmap, buf, 0);
 	for (i = 0; i < ext2->super.s_blocks_count; i++) {
 		if((i % ext2->super.s_blocks_per_group) == 0) {
 			index = get_gd_index_by_block(ext2, i);
-			ext2->read_block(ext2->gds[index].bg_block_bitmap, buf);
+			ext2->read_block(ext2->gds[index].bg_block_bitmap, buf, 0);
 		}
 
 		uint32_t block = get_block_in_group(ext2, i, index);
@@ -212,7 +212,7 @@ static int32_t enter_child(ext2_t* ext2, INODE* pip, int32_t ino, const char *ba
 			pip->i_block[i] = blk;
 			pip->i_size += EXT2_BLOCK_SIZE;
 			//pmip->dirty = 1;
-			ext2->read_block(pip->i_block[i], buf);
+			ext2->read_block(pip->i_block[i], buf, 1);
 			dp->inode = ino;
 			dp->rec_len = EXT2_BLOCK_SIZE;
 			dp->name_len = strlen(base);
@@ -222,7 +222,7 @@ static int32_t enter_child(ext2_t* ext2, INODE* pip, int32_t ino, const char *ba
 			return 0;
 		}		
 		//initialize the created one
-		ext2->read_block(pip->i_block[i], buf);
+		ext2->read_block(pip->i_block[i], buf, 1);
 		cp = buf;
 		dp = (DIR_T *)cp;
 		if(dp->inode==0){
@@ -271,7 +271,7 @@ static int32_t ext2_rm_child(ext2_t* ext2, INODE *ip, const char *name) {
 		if(ip->i_block[i] == 0) { //cannot find .
 			return -1;
 		}
-		ext2->read_block(ip->i_block[i], buf);
+		ext2->read_block(ip->i_block[i], buf, 0);
 		cp = buf;
 		while(cp < buf + EXT2_BLOCK_SIZE) {
 			dp = (DIR_T *)cp;
@@ -335,7 +335,7 @@ int32_t ext2_read_block(ext2_t* ext2, INODE* node, char *buf, int32_t nbytes, in
 	//(5).2 Indirect blocks contains 256 block number 
 	else if(lbk>=12 && lbk < 256 +12){
 		int32_t indirect_buf[256];
-		ext2->read_block(node->i_block[12], (char*)indirect_buf);
+		ext2->read_block(node->i_block[12], (char*)indirect_buf, 1);
 		blk = indirect_buf[lbk-12];
 	}
 	//(5).3 Double indiirect blocks
@@ -346,16 +346,16 @@ int32_t ext2_read_block(ext2_t* ext2, INODE* node, char *buf, int32_t nbytes, in
 		int32_t num = count / 256;
 		int32_t pos_offset = count % 256;
 		int32_t double_buf1[256];
-		if(ext2->read_block(node->i_block[13], (char*)double_buf1) != 0)
+		if(ext2->read_block(node->i_block[13], (char*)double_buf1, 1) != 0)
 			return -1;
 		int32_t double_buf2[256];
-		if(ext2->read_block(double_buf1[num], (char*)double_buf2) != 0)
+		if(ext2->read_block(double_buf1[num], (char*)double_buf2, 1) != 0)
 			return -1;
 		blk = double_buf2[pos_offset];
 	}
 
 	char readbuf[EXT2_BLOCK_SIZE];
-	if(ext2->read_block(blk, readbuf) != 0)
+	if(ext2->read_block(blk, readbuf, 0) != 0)
 		return -1;
 	char *cp = readbuf + start_byte;
 	remain = EXT2_BLOCK_SIZE - start_byte;
@@ -401,7 +401,7 @@ static INODE* get_node_by_ino(ext2_t* ext2, int32_t ino, char* buf) {
 	int32_t offset = (ino-1)%8;
 
 	int32_t blk = ext2->gds[bgid].bg_inode_table + 	((ino-1)/8);
-	ext2->read_block(blk, buf);
+	ext2->read_block(blk, buf, 1);
 	return ((INODE *)buf) + offset;
 }
 
@@ -413,7 +413,7 @@ void put_node(ext2_t* ext2, int32_t ino, INODE *node) {
 	//int32_t blk = bgid*ext2->super.s_blocks_per_group + ext2->gds[bgid].bg_inode_table + 	((ino-1)/8);
 	int32_t blk = ext2->gds[bgid].bg_inode_table + 	((ino-1)/8);
 	char buf[EXT2_BLOCK_SIZE];
-	ext2->read_block(blk, buf);
+	ext2->read_block(blk, buf, 0);
 	INODE *ip = ((INODE *)buf) + offset;
 	*ip = *node;
 	ext2->write_block(blk, buf);	
@@ -504,7 +504,7 @@ int32_t ext2_write(ext2_t* ext2, INODE* node, const char *data, int32_t nbytes, 
 			memset(indirect_buf, 0, EXT2_BLOCK_SIZE);
 			ext2->write_block(node->i_block[12], (char*)indirect_buf);
 		}
-		ext2->read_block(node->i_block[12], (char*)indirect_buf);
+		ext2->read_block(node->i_block[12], (char*)indirect_buf, 0);
 		if(indirect_buf[lbk-12] == 0){
 			indirect_buf[lbk-12] = ext2_balloc(ext2);
 			ext2->write_block(node->i_block[12], (char*)indirect_buf);
@@ -515,7 +515,7 @@ int32_t ext2_write(ext2_t* ext2, INODE* node, const char *data, int32_t nbytes, 
 		return nbytes_copy;
 	}
 
-	ext2->read_block(blk, buf);
+	ext2->read_block(blk, buf, 0);
 	cp = buf + start_byte;
 	remain = EXT2_BLOCK_SIZE - start_byte;
 	while(remain > 0){
@@ -550,7 +550,7 @@ static int32_t search(ext2_t* ext2, INODE *ip, const char *name) {
 
 	for (i=0; i<12; i++){
 		if ( ip->i_block[i] ){
-			ext2->read_block(ip->i_block[i], buf);
+			ext2->read_block(ip->i_block[i], buf, 1);
 			dp = (DIR_T *)buf;
 			cp = buf;
 			while (cp < &buf[EXT2_BLOCK_SIZE]){
@@ -612,7 +612,7 @@ int32_t ext2_ino_by_fname(ext2_t* ext2, const char* filename) {
 
 	ino = -1;
 	for (int32_t j=0; j<ext2->group_num; j++) {
-		if(ext2->read_block(ext2->gds[j].bg_inode_table, buf) == 0) {// read first inode block
+		if(ext2->read_block(ext2->gds[j].bg_inode_table, buf, 1) == 0) {// read first inode block
 			ip = ((INODE *)buf) + 1;   // ip->root inode #2
 			/* serach for system name */
 			for (i=0; i<depth; i++) {
@@ -722,7 +722,7 @@ static int32_t get_gds(ext2_t* ext2) {
   int32_t index = 0;
   while(true) {
     char buf[EXT2_BLOCK_SIZE];
-    ext2->read_block(i, buf);
+    ext2->read_block(i, buf, 1);
     for(int32_t j=0; j<gd_num; j++) {
       memcpy(&ext2->gds[index], buf+(j*gd_size), gd_size);
       index++;
@@ -740,7 +740,7 @@ int32_t ext2_init(ext2_t* ext2, read_block_func_t read_block, write_block_func_t
 	ext2->write_block = write_block;
 
 	//read super block
-	if(ext2->read_block(1, buf) != 0)
+	if(ext2->read_block(1, buf, 1) != 0)
 		return -1;
 	memcpy(&ext2->super, buf, sizeof(SUPER));
 	get_gds(ext2);
