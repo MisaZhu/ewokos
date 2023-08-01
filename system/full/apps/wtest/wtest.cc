@@ -17,7 +17,7 @@ protected:
 	}
 public:
 	MyWidget() {
-		font = ttf_font_load("/data/fonts/system.ttf", 14, 2);
+		font = ttf_font_load("/data/fonts/system.ttf", 14);
 	}
 };
 

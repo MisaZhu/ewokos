@@ -9,7 +9,7 @@
 extern "C" {
 #endif
 
-ttf_font_t*  ttf_font_load(const char* fname, uint16_t ppm, int16_t margin) {
+ttf_font_t*  ttf_font_load(const char* fname, uint16_t ppm) {
 	ttf_font_t* font = (ttf_font_t*)malloc(sizeof(ttf_font_t));
    	if(tty_font_init(&font->font, fname)) {
 		free(font);
@@ -19,7 +19,6 @@ ttf_font_t*  ttf_font_load(const char* fname, uint16_t ppm, int16_t margin) {
 		free(font);
 		return NULL;
 	}
-	font->margin = margin;
 	font->cache = hashmap_new();
 	return font;
 }
@@ -143,7 +142,7 @@ void ttf_text_size(const char* str,
 	for(int i=0;i <n; i++) {
 		TTY_U16 cw = 0;
 		ttf_char_size(unicode[i], font, &cw, NULL);
-		int dx = cw + font->margin;
+		int dx = cw;
 		if(dx <= 0)
 			dx = cw/2;
 		x += dx;
@@ -226,7 +225,7 @@ void graph_draw_text_ttf(graph_t* g, int32_t x, int32_t y, const char* str,
 	for(int i=0;i <n; i++) {
 		TTY_U16 w = 0;
 		graph_draw_char_ttf(g, x, y, out[i], font, color, &w, NULL);
-		int dx = w + font->margin;
+		int dx = w;
 		if(dx <= 0)
 			dx = w/2;
 		x += dx;

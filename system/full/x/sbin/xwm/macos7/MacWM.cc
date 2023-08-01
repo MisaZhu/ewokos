@@ -37,7 +37,7 @@ void MacWM::drawTitle(graph_t* g, xinfo_t* info, grect_t* r, bool top) {
 	uint32_t fg, bg;
 	getColor(&fg, &bg, top);
 	gsize_t sz;
-	ttf_text_size(info->title, font, (uint32_t*)&sz.w, (uint32_t*)&sz.h);
+	font_text_size(info->title, &font, (uint32_t*)&sz.w, (uint32_t*)&sz.h);
 	
 	grect_t rect;
 	getTitle(info, &rect);
@@ -48,7 +48,7 @@ void MacWM::drawTitle(graph_t* g, xinfo_t* info, grect_t* r, bool top) {
 		drawTitlePattern(g, r->x, r->y, pw, r->h, fg);
 		drawTitlePattern(g, r->x+pw+sz.w, r->y, pw, r->h, fg);
 	}
-	graph_draw_text_ttf(g, r->x+pw, r->y+2, info->title, font, fg);//title
+	graph_draw_text_font(g, r->x+pw, r->y+2, info->title, &font, fg);//title
 }
 
 void MacWM::readConfig(void) {
@@ -99,7 +99,7 @@ void MacWM::getColor(uint32_t *fg, uint32_t* bg, bool top) {
 }
 
 MacWM::~MacWM(void) {
-	ttf_font_free(font);
+	font_close(&font);
 	if(bgImg == NULL)
 		return;
 	graph_free(bgImg);
@@ -113,5 +113,6 @@ MacWM::MacWM(void) {
 	bgTopColor = 0xffaaaaaa;
 	fgTopColor = 0xff222222;
 	bgImg = NULL;
-    font = ttf_font_load("/data/fonts/system.ttf", 16, 2);
+	font_init();
+    font_load("/data/fonts/system.ttf", 13, &font);
 }

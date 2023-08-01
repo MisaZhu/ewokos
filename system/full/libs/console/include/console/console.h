@@ -2,7 +2,7 @@
 #define CONSOLE_H
 
 #include <graph/graph.h>
-#include <ttf/ttf.h>
+#include <font/font.h>
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -27,7 +27,7 @@ typedef struct {
 	uint32_t h;
 	uint32_t bg_color;
 	uint32_t fg_color;
-	ttf_font_t* font;
+	font_t font;
 	content_t content;
 	state_t state;
 } console_t;

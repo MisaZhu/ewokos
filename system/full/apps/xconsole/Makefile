@@ -21,8 +21,9 @@ $(XCONSOLE): $(XCONSOLE_OBJS) \
 		$(BUILD_DIR)/lib/libx.a \
 		$(BUILD_DIR)/lib/libconsole.a \
 		$(BUILD_DIR)/lib/libttf.a \
+		$(BUILD_DIR)/lib/libfont.a \
 		$(BUILD_DIR)/lib/libcxx.a 
-	$(LD) -Ttext=100 $(XCONSOLE_OBJS) -o $(XCONSOLE) $(LDFLAGS) -lsconf -lx++ -lx -lcxx -lconsole -lgraph -lttf -lewokc -lc
+	$(LD) -Ttext=100 $(XCONSOLE_OBJS) -o $(XCONSOLE) $(LDFLAGS) -lsconf -lx++ -lx -lcxx -lttf  -lconsole -lfont -lgraph -lewokc -lc
 
 $(XCONSOLE_DIR):
 	mkdir -p $(XCONSOLE_DIR)

@@ -289,9 +289,9 @@ public:
 
 		v = sconf_get(conf, "font");
 		if(v[0] != 0)
-			font = ttf_font_load(v, font_size, 2);
+			font = ttf_font_load(v, font_size);
 		else
-			font = ttf_font_load("/data/fonts/system.ttf", font_size, 2);
+			font = ttf_font_load("/data/fonts/system.ttf", font_size);
 
 		v = sconf_get(conf, "item_size");
 		if(v[0] != 0)

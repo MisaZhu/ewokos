@@ -53,7 +53,7 @@ protected:
 			}
 
 			ttf_char_size(unicode, font, &w, &tmp);
-			if((x + w + font->margin) >= g->w){
+			if((x + w) >= g->w){
 				x = 0;
 				y += h;
 				if((y + h) >= g->h){
@@ -61,7 +61,7 @@ protected:
 				}
 			}
 			graph_draw_char_ttf(g, x, y, unicode, font, fgColor, &w, NULL);
-			x += w + font->margin;
+			x += w;
 		}
 		next_page = current_page + i;
 	}
@@ -130,7 +130,7 @@ public:
 	bool readConfig(const char* fname) {
 		sconf_t *conf = sconf_load(fname);	
 		if(conf == NULL){
-			font = ttf_font_load("/data/fonts/system.ttf", 24, 2);
+			font = ttf_font_load("/data/fonts/system.ttf", 24);
 			printf("%08x\n", font);
 			return false;
 		}
@@ -142,9 +142,9 @@ public:
 
 		v = sconf_get(conf, "font");
 		if(v[0] != 0)
-			font = ttf_font_load(v, font_size, 2);
+			font = ttf_font_load(v, font_size);
 		else
-			font = ttf_font_load("/data/fonts/system.ttf", font_size, 2);
+			font = ttf_font_load("/data/fonts/system.ttf", font_size);
 
 		v = sconf_get(conf, "bg_color");
 		if(v[0] != 0)

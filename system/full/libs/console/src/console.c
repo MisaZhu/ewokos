@@ -13,22 +13,19 @@ extern "C" {
 
 #define T_W 2 /*tab width*/
 
-static int32_t _fontw = 0;
-static uint32_t font_width(ttf_font_t* font) {
+static uint16_t _fontw = 0;
+static uint32_t font_width(font_t* font) {
 	if(_fontw != 0)
 		return _fontw;
 
-	ttf_char_size('w', font, &_fontw, NULL);
+	font_char_size('w', font, &_fontw, NULL);
 	if(_fontw == 0)
-		_fontw = ttf_font_width(font);
-	_fontw += font->margin;
-	if(_fontw <= 0)
-		_fontw = ttf_font_width(font);
+		_fontw = font->max_size.x;
 	return _fontw;
 }
 
 static void cons_draw_char(console_t* console, graph_t* g, int32_t x, int32_t y, UNICODE16 c) {
-	graph_draw_char_ttf_fixed(g, x, y, c, console->font, console->fg_color, font_width(console->font), 0);
+	graph_draw_char_font_fixed(g, x, y, c, &console->font, console->fg_color, console->font.max_size.x, 0);
 }
 
 static uint32_t get_data_rows(console_t* console) {
@@ -38,7 +35,7 @@ static uint32_t get_data_rows(console_t* console) {
 }
 
 int32_t console_reset(console_t* console, uint32_t w, uint32_t h, uint32_t total_rows) {
-	if(console->font == NULL)
+	if(console->font.id < 0)
 		return -1;
 	console->w = w;
 	console->h = h;
@@ -57,9 +54,9 @@ int32_t console_reset(console_t* console, uint32_t w, uint32_t h, uint32_t total
 	console->state.start_row = 0;
 	console->state.back_offset_rows = 0;
 	console->state.current_row = 0;
-	console->content.cols = (w / font_width(console->font)) - 1;
+	console->content.cols = w / console->font.max_size.x - 1;
 
-	uint32_t min_rows = h / ttf_font_hight(console->font);
+	uint32_t min_rows = h / console->font.max_size.y;
 	if(total_rows < min_rows)
 		total_rows = min_rows;
 	console->content.rows = total_rows;
@@ -101,7 +98,7 @@ int32_t console_init(console_t* console) {
 	console->h = 0;
 	console->bg_color = argb(0xff, 0x0, 0x0, 0x0);
 	console->fg_color = argb(0xff, 0xaa, 0xaa, 0xaa);
-	console->font = NULL;
+	console->font.id = -1;
 	_fontw = 0;
 	memset(&console->content, 0, sizeof(content_t));
 	return 0;
@@ -137,9 +134,9 @@ void console_roll(console_t* console, int32_t rows) {
 }
 
 void console_refresh_content(console_t* console, graph_t* g) {
-	if(console->font == NULL)
+	if(console->font.id < 0)
 		return;
-	uint32_t g_rows = g->h / ttf_font_hight(console->font);
+	uint32_t g_rows = g->h / console->font.max_size.y;
 	uint32_t total_rows = get_data_rows(console);
 	int32_t start_row = total_rows - g_rows - console->state.back_offset_rows;
 	if(start_row < 0)
@@ -150,8 +147,8 @@ void console_refresh_content(console_t* console, graph_t* g) {
 	uint32_t i = start_row * console->content.cols;
 	uint32_t x = 0;
 	uint32_t y = 0;
-	uint32_t w = font_width(console->font);
-	uint32_t h = ttf_font_hight(console->font);
+	uint32_t w = console->font.max_size.x;
+	uint32_t h = console->font.max_size.y;
 	while(i < console->state.size) {
 		uint32_t at = get_at(console, i);
 		UNICODE16 c = console->content.data[at];

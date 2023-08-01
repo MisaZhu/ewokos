@@ -3,6 +3,7 @@
 #/bin/rundev /drivers/raspix/mini_uartd    /dev/tty0
 
 /bin/rundev /drivers/displayd             /dev/display /dev/fb0
+/bin/rundev /drivers/fontd                /dev/font
 /bin/rundev /drivers/consoled             /dev/console0 /dev/display
 
 $

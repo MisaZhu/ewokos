@@ -16,8 +16,9 @@ $(LAUNCHER): $(LAUNCHER_OBJS) \
 		$(BUILD_DIR)/lib/libx++.a \
 		$(BUILD_DIR)/lib/libx.a \
 		$(BUILD_DIR)/lib/libttf.a \
+		$(BUILD_DIR)/lib/libfont.a \
 		$(BUILD_DIR)/lib/libcxx.a 
-	$(LD) -Ttext=100 $(LAUNCHER_OBJS) -o $(LAUNCHER) $(LDFLAGS)  -lgraph -lttf -lupng -lx++ -lx -lsconf -lewokc -lc -lcxx
+	$(LD) -Ttext=100 $(LAUNCHER_OBJS) -o $(LAUNCHER) $(LDFLAGS)  -lgraph -lttf -lfont -lupng -lx++ -lx -lsconf -lewokc -lc -lcxx
 
 clean:
 	rm -f $(LAUNCHER_OBJS)
