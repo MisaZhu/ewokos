@@ -76,13 +76,14 @@ int font_get_glyph(font_t* font, uint16_t c, TTY_Glyph* glyph) {
 		proto_read_to(&out, glyph, sizeof(TTY_Glyph));
 		int32_t sz;
 		void* p = proto_read(&out, &sz);
-		if(p == NULL || sz <= 0)
-			ret = -1;
+		if(p == NULL || sz <= 0) {
+			glyph->cache = NULL;
+		}
 		else {
 			glyph->cache = malloc(sz);
 			memcpy(glyph->cache, p, sz);
-			ret = 0;
 		}
+		ret = 0;
 	}
 
 	PF->clear(&in);

@@ -112,8 +112,9 @@ static int font_dev_get(proto_t* in, proto_t* ret) {
 		return -1;
 	}
 	PF->init(ret)->
-			add(ret, &glyph, sizeof(TTY_Glyph))->
-			add(ret, glyph.cache,
+			add(ret, &glyph, sizeof(TTY_Glyph));
+	if(glyph.cache != NULL)
+		PF->add(ret, glyph.cache,
 					_fonts[i].font->inst.maxGlyphSize.x*
 					_fonts[i].font->inst.maxGlyphSize.y);
 	return 0;
