@@ -56,6 +56,8 @@ int atoi_base(const char *s, int b) {
 }
 
 int atoi(const char *str) {
+	if(str[0] == '-')
+		return -atoi_base(str+1, 10);
 	return atoi_base(str, 10);
 }
 
