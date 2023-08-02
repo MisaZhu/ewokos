@@ -515,7 +515,7 @@ int32_t ext2_write(ext2_t* ext2, INODE* node, const char *data, int32_t nbytes, 
 		return nbytes_copy;
 	}
 
-	ext2->read_block(blk, buf, 0);
+	ext2->read_block(blk, buf, 1);
 	cp = buf + start_byte;
 	remain = EXT2_BLOCK_SIZE - start_byte;
 	while(remain > 0){
