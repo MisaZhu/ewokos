@@ -20,8 +20,9 @@ $(BOOK): $(BOOK_OBJS) \
 		$(BUILD_DIR)/lib/libx++.a \
 		$(BUILD_DIR)/lib/libx.a \
 		$(BUILD_DIR)/lib/libttf.a \
+		$(BUILD_DIR)/lib/libhash.a \
 		$(BUILD_DIR)/lib/libcxx.a 
-	$(LD) -Ttext=100 $(BOOK_OBJS) -o $(BOOK) $(LDFLAGS) -lttf -lgraph -lupng -lx++ -lx -lsconf -lewokc -lc -lcxx
+	$(LD) -Ttext=100 $(BOOK_OBJS) -o $(BOOK) $(LDFLAGS) -lttf -lhash -lgraph -lupng -lx++ -lx -lsconf -lewokc -lc -lcxx
 
 $(BOOK_DIR):
 	mkdir -p $(BOOK_DIR)
