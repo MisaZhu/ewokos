@@ -1,23 +1,27 @@
 #include <Widget/WidgetWin.h>
 #include <x++/X.h>
 #include <unistd.h>
-#include <ttf/ttf.h>
+#include <font/font.h>
 #include <sys/basic_math.h>
 
 using namespace Ewok;
 
 class MyWidget: public Widget {
-	ttf_font_t* font;
+	font_t font;
 
 protected:
 	void onRepaint(graph_t* g, grect_t* rect) {
 		graph_fill(g, rect->x, rect->y, rect->w, rect->h, 0xffff0000);
 		graph_box(g, rect->x, rect->y, rect->w, rect->h, 0xffffffff);
-		graph_draw_text_ttf(g, rect->x, rect->y, "widget", font, 0xff0000ff);
+		graph_draw_text_font(g, rect->x, rect->y, "widget", &font, 0xff0000ff);
 	}
 public:
 	MyWidget() {
-		font = ttf_font_load("/data/fonts/system.ttf", 14);
+		font_load("/data/fonts/system.ttf", 14, &font);
+	}
+
+	~MyWidget() {
+		font_close(&font);
 	}
 };
 
