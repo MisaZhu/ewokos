@@ -180,6 +180,8 @@ int main(int argc, char** argv) {
 	strcpy(dev.name, "font");
 	dev.dev_cntl = font_dev_cntl;
 
+	font_open("/data/fonts/system.ttf", 13, -1);
+
 	device_run(&dev, mnt_point, FS_TYPE_CHAR);
 	font_dev_quit();
 	return 0;
