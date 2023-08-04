@@ -49,7 +49,7 @@ void timer_set_interval(uint32_t id, uint32_t times_per_sec) {
 	(void)id;
 	if (times_per_sec < MIN_SCHD_FREQ)
 		times_per_sec = MIN_SCHD_FREQ;
-	_timer_tval = read_cntfrq() / times_per_sec /20;
+	_timer_tval = read_cntfrq() / times_per_sec /60;
 	write_cntv_tval(_timer_tval);
 	enable_cntv();
 }
