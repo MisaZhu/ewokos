@@ -41,7 +41,7 @@ static void* m_get_mem_tail(void* arg) {
 	return (void*)_malloc_mem_tail;
 }
 
-void malloc_init() {
+void __malloc_init() {
 	memset(&__malloc_info__, 0, sizeof(malloc_t));
 	_malloc_buf = NULL;
 	_malloc_buf_size = MALLOC_BUF_SIZE_DEF;
@@ -71,7 +71,7 @@ static void malloc_setup() {
 	__malloc_info__.arg = NULL;
 }
 
-void malloc_close() {
+void __malloc_close() {
 	if(_malloc_buf != NULL)
 		free_raw(_malloc_buf);
 }

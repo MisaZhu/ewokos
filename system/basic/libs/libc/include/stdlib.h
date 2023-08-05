@@ -8,6 +8,9 @@ extern "C" {
 #endif
 
 void __malloc_buf_set(uint32_t buf_size, uint32_t seg_size);
+void __malloc_init(void);
+void __malloc_close(void);
+
 void *malloc(size_t size);
 void *calloc(size_t nmemb, size_t size);
 void free(void* ptr);
