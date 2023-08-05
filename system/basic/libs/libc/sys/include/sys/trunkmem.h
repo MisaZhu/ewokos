@@ -33,6 +33,8 @@ char* trunk_malloc(malloc_t* m, uint32_t size);
 void  trunk_free(malloc_t* m, char* p);
 uint32_t  trunk_msize(malloc_t* m, char* p);
 
+#define ALIGN_UP(x, alignment) (((x) + alignment - 1) & ~(alignment - 1))
+
 #ifdef __cplusplus
 }
 #endif

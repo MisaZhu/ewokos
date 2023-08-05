@@ -42,8 +42,6 @@ static void try_break(malloc_t* m, mem_block_t* block, uint32_t size) {
 		m->tail = newBlock;
 }
 
-#define ALIGN_UP(x, alignment) (((x) + alignment - 1) & ~(alignment - 1))
-
 char* trunk_malloc(malloc_t* m, uint32_t size) {
 	size = ALIGN_UP(size, 8);
 	mem_block_t* block = m->start == NULL ? m->head : m->start;
