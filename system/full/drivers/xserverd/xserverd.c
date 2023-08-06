@@ -424,6 +424,7 @@ static void x_del_view(x_t* x, xview_t* view) {
 		x->view_last = NULL;
 
 	remove_view(x, view);
+	shm_unmap(view->xinfo.shm_id);
 	free(view);
 	x->view_focus = get_next_focus_view(x, false);
 	x->view_last = get_next_focus_view(x, true);
