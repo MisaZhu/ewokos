@@ -4,7 +4,7 @@
 #include <string.h>
 #include <fcntl.h>
 #include <sconf/sconf.h>
-#include <ttf/ttf.h>
+#include <font/font.h>
 #include <x++/X.h>
 #include <sys/keydef.h>
 #include <string.h>
@@ -15,7 +15,7 @@
 using namespace Ewok;
 
 class Book: public XWin {
-	ttf_font_t* font;
+	font_t font;
 	uint32_t bgColor;
 	uint32_t fgColor;
 	char text[1280];
@@ -33,7 +33,7 @@ protected:
 		int x = 0;
 		int y = 0;
 		TTY_U16 w = 0;
-		TTY_U16 h = ttf_font_hight(font);
+		TTY_U16 h = font.max_size.y;
 		TTY_U16 tmp;
 		int i = 0;
 		while(i < read_len) {
@@ -52,16 +52,16 @@ protected:
 				continue;
 			}
 
-			ttf_char_size(unicode, font, &w, &tmp);
-			if((x + w + font->margin) >= g->w){
+			font_char_size(unicode, &font, &w, &tmp);
+			if((x + w) >= g->w){
 				x = 0;
 				y += h;
 				if((y + h) >= g->h){
 					break;
 				}
 			}
-			graph_draw_char_ttf(g, x, y, unicode, font, fgColor, &w, NULL);
-			x += w + font->margin;
+			graph_draw_char_font(g, x, y, unicode, &font, fgColor, &w, NULL);
+			x += w;
 		}
 		next_page = current_page + i;
 	}
@@ -103,13 +103,11 @@ public:
 	inline Book() {
 		bgColor = 0xffDDC090;
 		fgColor = 0xff3E3422;
-		font = NULL;
 		read_len = 0;
 	}
 
 	inline ~Book() {
-		if(font != NULL)
-			ttf_font_free(font);
+		font_close(&font);
 	}
 
 	void readPage(void){
@@ -130,7 +128,7 @@ public:
 	bool readConfig(const char* fname) {
 		sconf_t *conf = sconf_load(fname);	
 		if(conf == NULL){
-			font = ttf_font_load("/data/fonts/system.ttf", 24, 2);
+			font_load("/data/fonts/system.ttf", 24, &font);
 			printf("%08x\n", font);
 			return false;
 		}
@@ -141,10 +139,9 @@ public:
 			font_size = atoi(v);
 
 		v = sconf_get(conf, "font");
-		if(v[0] != 0)
-			font = ttf_font_load(v, font_size, 2);
-		else
-			font = ttf_font_load("/data/fonts/system.ttf", font_size, 2);
+		if(v[0] == 0)
+			v = "/data/fonts/system.ttf";
+		font_load(v, font_size, &font);
 
 		v = sconf_get(conf, "bg_color");
 		if(v[0] != 0)

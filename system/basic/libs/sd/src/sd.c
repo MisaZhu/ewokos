@@ -41,9 +41,10 @@ static inline void sector_buf_set(uint32_t index, const void* data) {
 	index -= _partition.start_sector;
 	if(_sector_buf == NULL || index >= _sector_buf_num)
 		return;
-	if(_sector_buf[index].data != NULL)
-		free(_sector_buf[index].data);
-	_sector_buf[index].data = malloc(SECTOR_SIZE);
+	//if(_sector_buf[index].data != NULL)
+	//	free(_sector_buf[index].data);
+	if(_sector_buf[index].data == NULL)
+		_sector_buf[index].data = malloc(SECTOR_SIZE);
 	memcpy(_sector_buf[index].data, data, SECTOR_SIZE);
 }
 
@@ -60,7 +61,7 @@ static int32_t (*sd_init_arch)(void);
 static int32_t (*sd_read_sector_arch)(int32_t sector, void* buf);
 static int32_t (*sd_write_sector_arch)(int32_t sector, const void* buf);
 
-int32_t sd_read_sector(int32_t sector, void* buf) {
+int32_t sd_read_sector(int32_t sector, void* buf, uint32_t cache) {
 	void* b = sector_buf_get(sector);
 	if(b != NULL) {
 		memcpy(buf, b, SECTOR_SIZE);
@@ -68,7 +69,8 @@ int32_t sd_read_sector(int32_t sector, void* buf) {
 	}	
 	//if(read_block(SD_DEV_PID, buf, SECTOR_SIZE, sector) == SECTOR_SIZE) {
 	if(sd_read_sector_arch(sector, buf) == 0) {
-		sector_buf_set(sector, buf);
+		if(cache != 0)
+			sector_buf_set(sector, buf);
 		return SECTOR_SIZE;
 	}
 	return 0;
@@ -83,13 +85,13 @@ int32_t sd_write_sector(int32_t sector, const void* buf) {
 	//return write_block(SD_DEV_PID, buf, SECTOR_SIZE, sector);
 }
 
-int32_t sd_read(int32_t block, void* buf) {
+int32_t sd_read(int32_t block, void* buf, uint32_t cache) {
 	int32_t n = EXT2_BLOCK_SIZE/512;
 	int32_t sector = block * n + _partition.start_sector;
 	char* p = (char*)buf;
 
 	while(n > 0) {
-		if(sd_read_sector(sector, p) != SECTOR_SIZE) {
+		if(sd_read_sector(sector, p, cache) != SECTOR_SIZE) {
 			return -1;
 		}
 		sector++;
@@ -119,7 +121,7 @@ static partition_t _partitions[PARTITION_MAX];
 
 int32_t read_partition(void) {
 	uint8_t sector[512];
-	if(sd_read_sector(0, sector) != SECTOR_SIZE)
+	if(sd_read_sector(0, sector, true) != SECTOR_SIZE)
 		return -1;
 	//check magic 
 	if(sector[510] != 0x55 || sector[511] != 0xAA) 

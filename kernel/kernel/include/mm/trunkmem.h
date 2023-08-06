@@ -25,7 +25,7 @@ typedef struct {
 } malloc_t;
 
 char* trunk_malloc(malloc_t* m, uint32_t size);
-char* trunk_realloc(malloc_t* m, char* p, uint32_t size);
+uint32_t trunk_msize(malloc_t* m, char* p);
 void  trunk_free(malloc_t* m, char* p);
 
 #endif

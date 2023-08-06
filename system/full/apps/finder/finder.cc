@@ -4,7 +4,7 @@
 #include <string.h>
 #include <sconf/sconf.h>
 #include <upng/upng.h>
-#include <ttf/ttf.h>
+#include <font/font.h>
 #include <x++/X.h>
 #include <sys/keydef.h>
 #include <dirent.h>
@@ -14,7 +14,7 @@
 using namespace Ewok;
 
 class Finder: public XWin {
-	ttf_font_t* font;
+	font_t font;
 	uint32_t bgColor;
 	uint32_t fgColor;
 	uint32_t hideColor;
@@ -125,7 +125,7 @@ protected:
 	void onRepaint(graph_t* g) {
 		char name[FS_FULL_NAME_MAX+1];
 		int h = itemSize;
-		int yMargin = (itemSize - ttf_font_hight(font))/2;
+		int yMargin = (itemSize - font.max_size.y)/2;
 		int xMargin = 8;
 
 		graph_clear(g, bgColor);
@@ -136,7 +136,7 @@ protected:
 					g, xMargin, iconMargin, dirIcon->w, dirIcon->h, 0xff);
 			xMargin += dirIcon->w + 4;
 		}
-		graph_draw_text_ttf(g, xMargin, yMargin, name, font, titleColor);
+		graph_draw_text_font(g, xMargin, yMargin, name, &font, titleColor);
 
 		for(int i=start; i<nums; i++) {
 			struct dirent* it = &files[i];
@@ -160,7 +160,7 @@ protected:
 						g, xMargin, (i+1-start)*h+iconMargin, icon->w, icon->h, 0xff);
 				xMargin += icon->w + 4;
 			}
-			graph_draw_text_ttf(g, xMargin, (i+1-start)*h+yMargin, it->d_name, font, color);
+			graph_draw_text_font(g, xMargin, (i+1-start)*h+yMargin, it->d_name, &font, color);
 		}
 	}
 
@@ -263,7 +263,6 @@ public:
 
 		selected = 0;
 		start = 0;
-		font = NULL;
 		mouse_last_y = 0;
 		readDir("/");
 	}
@@ -273,8 +272,7 @@ public:
 			graph_free(fileIcon);
 		if(dirIcon != NULL)
 			graph_free(dirIcon);
-		if(font != NULL)
-			ttf_font_free(font);
+		font_close(&font);
 	}
 
 	bool readConfig(const char* fname) {
@@ -288,10 +286,9 @@ public:
 			font_size = atoi(v);
 
 		v = sconf_get(conf, "font");
-		if(v[0] != 0)
-			font = ttf_font_load(v, font_size, 2);
-		else
-			font = ttf_font_load("/data/fonts/system.ttf", font_size, 2);
+		if(v[0] == 0) 
+			v = "/data/fonts/system.ttf";
+		font_load(v, font_size, &font);
 
 		v = sconf_get(conf, "item_size");
 		if(v[0] != 0)

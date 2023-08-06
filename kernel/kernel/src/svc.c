@@ -92,8 +92,8 @@ static int32_t sys_malloc(int32_t size) {
 	return (int32_t)proc_malloc(get_current_proc(), size);
 }
 
-static int32_t sys_realloc(void* p, int32_t size) {
-	return (int32_t)proc_realloc(get_current_proc(), p, size);
+static int32_t sys_msize(void* p) {
+	return (int32_t)proc_msize(get_current_proc(), p);
 }
 
 static void sys_free(int32_t p) {
@@ -584,8 +584,8 @@ static inline void _svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_
 	case SYS_MALLOC:
 		ctx->gpr[0] = sys_malloc(arg0);
 		return;
-	case SYS_REALLOC:
-		ctx->gpr[0] = sys_realloc((void*)arg0, arg1);
+	case SYS_MSIZE:
+		ctx->gpr[0] = sys_msize((void*)arg0);
 		return;
 	case SYS_FREE:
 		sys_free(arg0);

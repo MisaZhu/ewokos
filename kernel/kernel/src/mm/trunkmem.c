@@ -159,27 +159,12 @@ void trunk_free(malloc_t* m, char* p) {
 		try_shrink(m);
 }
 
-char* trunk_realloc(malloc_t* m, char* p, uint32_t size) {
-	if(size == 0) {
-		trunk_free(m, p);
-		return NULL;
+uint32_t trunk_msize(malloc_t* m, char* p) {
+	if(p == NULL) {
+		return 0;
 	}
-
-	char* ret = trunk_malloc(m, size);
-	if(ret == NULL) {
-		trunk_free(m, p);
-		return NULL;
-	}
-
-	if(p == NULL)
-		return ret;
 
 	uint32_t block_size = sizeof(mem_block_t);
 	mem_block_t* block = (mem_block_t*)(p - block_size);
-	if(size > block->size)
-		size = block->size;
-
-	memcpy(ret, block->mem, size);
-	trunk_free(m, p);
-	return ret;
+	return block->size;
 }

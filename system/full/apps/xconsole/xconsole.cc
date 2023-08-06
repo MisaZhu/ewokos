@@ -14,7 +14,6 @@
 using namespace Ewok;
 
 typedef struct {
-	ttf_font_t* font;
 	uint32_t fg_color;
 	uint32_t bg_color;
 	uint32_t unfocus_fg_color;
@@ -32,8 +31,6 @@ public:
 	}
 
 	~XConsole() {
-		if(conf.font != NULL)
-			ttf_font_free(conf.font);
 		console_close(&console);
 	}
 
@@ -68,24 +65,18 @@ public:
 		if(v[0] != 0) 
 			font_size = atoi(v);
 
-		int32_t font_margin = 1;
-		v = sconf_get(sconf, "font_margin");
-		if(v[0] != 0) {
-			if(v[0] == '-')
-				font_margin = -atoi(v+1);
-			else
-				font_margin = atoi(v);
-		}
-
 		v = sconf_get(sconf, "font");
+		if(v[0] == 0) 
+			v = "/data/fonts/system.ttf";
+		
+		font_load(v, font_size, &console.font);
+
+		v = sconf_get(sconf, "font_margin");
 		if(v[0] != 0) 
-			conf.font = ttf_font_load(v, font_size, font_margin);
-		else
-			conf.font = ttf_font_load("/data/fonts/system.ttf", font_size, font_margin);
+			console.font_margin = atoi(v);
 
 		sconf_free(sconf);
 
-		console.font = conf.font;
 		console.fg_color = conf.fg_color;
 		console.bg_color = conf.bg_color;
 		return true;
@@ -116,9 +107,9 @@ protected:
 	void onRepaint(graph_t* g) {
 		if(console.w != g->w || console.h != g->h) {
 			uint32_t buffer_rows = 0;
-			if(console.font != NULL) {
-				buffer_rows = (g->h / ttf_font_hight(console.font))*4;
-				rollStepRows = (g->h / ttf_font_hight(console.font)) / 2;
+			if(console.font.id >=0) {
+				buffer_rows = (g->h / console.font.max_size.y)*4;
+				rollStepRows = (g->h / console.font.max_size.y) / 2;
 			}
 			if(conf.buffer_rows > buffer_rows) {
 				buffer_rows = conf.buffer_rows;

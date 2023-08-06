@@ -6,7 +6,7 @@
 #include <sys/vfs.h>
 #include <sys/vdevice.h>
 #include <sys/keydef.h>
-#include <ttf/ttf.h>
+#include <font/font.h>
 #include <x++/X.h>
 
 using namespace Ewok;
@@ -20,7 +20,7 @@ class XIMX : public XWin {
 	int keytableType;
 
 	int kbFD;
-	ttf_font_t* font;
+	font_t font;
 	gsize_t scrSize;
 	bool hideMode;
 
@@ -31,7 +31,7 @@ class XIMX : public XWin {
 protected:
 	int get_at(int x, int y) {
 		if(!hideMode) {
-			int input_h = ttf_font_hight(font) + 8;
+			int input_h = font.max_size.y + 8;
 			y -= input_h;
 		}
 		int i = (x / keyw);
@@ -197,8 +197,8 @@ protected:
 	void draw_input(graph_t* g, int input_h) {
 		uint32_t w;
 		graph_fill(g, 0, 0, g->w, input_h, 0xffaaaa88);
-		ttf_text_size(inputS, font, &w, NULL);
-		graph_draw_text_ttf(g, (g->w-w)/2, 2, inputS, font, 0xff000000);
+		font_text_size(inputS, &font, &w, NULL);
+		graph_draw_text_font(g, (g->w-w)/2, 2, inputS, &font, 0xff000000);
 	}
 
 	const char* getKeyTitle(char c) {
@@ -223,12 +223,12 @@ protected:
 	}
 
 	void onRepaint(graph_t* g) {
-		uint32_t font_h = ttf_font_hight(font);
+		uint32_t font_h = font.max_size.y;
 		if(hideMode) {
 			graph_clear(g, 0xffaaaaaa);
-			graph_draw_text_ttf(g,  2, 
+			graph_draw_text_font(g,  2, 
 					(g->h - font_h)/2,
-					"|||", font, 0xff000000);
+					"|||", &font, 0xff000000);
 			graph_box(g, 0, 0, g->w, g->h, 0xffdddddd);
 			return;
 		}
@@ -275,15 +275,15 @@ protected:
 					continue;
 
 				uint32_t tw;
-				ttf_text_size(t, font, &tw, NULL);
+				font_text_size(t, &font, &tw, NULL);
 				if(keySelect == at) //hot key
-					graph_draw_text_ttf(g, kx + (kw-tw)/2, 
+					graph_draw_text_font(g, kx + (kw-tw)/2, 
 							ky + 2,
-							t, font, 0xff000000);
+							t, &font, 0xff000000);
 				else
-					graph_draw_text_ttf(g, kx + (kw-tw)/2, 
+					graph_draw_text_font(g, kx + (kw-tw)/2, 
 							ky + (kh - font_h)/2,
-							t, font, 0xff000000);
+							t, &font, 0xff000000);
 				graph_box(g, kx, ky, kw, kh, 0xffdddddd);
 			}
 		}
@@ -326,7 +326,7 @@ public:
 	inline XIMX(int fw, int fh) {
 		scrSize.w = fw;
 		scrSize.h = fh;
-		font = ttf_font_load("/data/fonts/system.ttf", 14, 2);
+		font_load("/data/fonts/system.ttf", 13, &font);
 		keytable[1] = ""
 			"1234567890%-+\b"
 			"\\#$&*(){}[]!\n\3"
@@ -339,8 +339,8 @@ public:
 
 		col = 14;
 		row = 3;
-		keyh = ttf_font_hight(font) + 12;
-		keyw = ttf_font_width(font)*2 + 12;
+		keyh = font.max_size.y + 12;
+		keyw = font.max_size.x*2 + 12;
 		xPid = dev_get_pid("/dev/x");
 		keySelect = -1;
 		hideMode = false;
@@ -351,8 +351,8 @@ public:
 		if(kbFD > 0)
 			::close(kbFD);
 		::close(xPid);
-		if(font != NULL)
-			ttf_font_free(font);
+		if(font.id >= 0)
+			font_close(&font);
 	}
 
 	int getFixH(void) {

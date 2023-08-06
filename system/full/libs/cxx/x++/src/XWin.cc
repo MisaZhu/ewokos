@@ -1,6 +1,7 @@
 #include "x++/XWin.h"
 #include <stdio.h>
 #include <string.h>
+#include <font/font.h>
 
 using namespace Ewok;
 
@@ -68,6 +69,7 @@ static void _on_event(xwin_t* xw, xevent_t* ev) {
 }
 
 XWin::XWin(void) {
+	font_init();
 	this->xwin = NULL;
 }
 

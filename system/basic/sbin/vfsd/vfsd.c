@@ -1038,8 +1038,9 @@ int main(int argc, char** argv) {
 			handle_close_event(&ev);
 			ipc_enable();
 		}
-		else
+		else {
 			sleep(0);
+		}
 	}
 	return 0;
 }

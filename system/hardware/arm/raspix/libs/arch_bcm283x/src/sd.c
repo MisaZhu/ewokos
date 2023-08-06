@@ -509,7 +509,7 @@ int32_t bcm283x_sd_read_sector(int32_t sector, void* buf) {
 	while(1) {
 		if(sd_read_done(buf) == 0)
 			break;
-		sleep(0);
+		//sleep(0);
 	}
 	return 0;
 }

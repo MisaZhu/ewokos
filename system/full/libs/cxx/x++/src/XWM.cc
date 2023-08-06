@@ -1,6 +1,7 @@
 #include "x++/XWM.h"
 #include <stdio.h>
 #include <string.h>
+#include <font/font.h>
 
 using namespace Ewok;
 
@@ -146,11 +147,9 @@ void XWM::drawTitle(graph_t* g, xinfo_t* info, grect_t* r, bool top) {
 	uint32_t fg, bg;
 	getColor(&fg, &bg, top);
 	gsize_t sz;
-	ttf_text_size(info->title, font, (uint32_t*)&sz.w, (uint32_t*)&sz.h);
 
 	int pw = (r->w-sz.w)/2;
 	graph_fill(g, r->x, r->y, r->w, TITLE_H, bg);//title box
-	graph_draw_text_ttf(g, r->x+pw, r->y+2, info->title, font, fg);//title
 }
 
 static void draw_title(graph_t* g, xinfo_t* info, grect_t* r, bool top, void* p) {
@@ -231,6 +230,7 @@ static void draw_desktop(graph_t* g, void* p) {
 }
 
 XWM::XWM(void) {
+	font_init();
 	memset(&xwm, 0, sizeof(xwm_t));
 	xwm.data = this;
 	xwm.get_workspace = get_workspace;
@@ -249,8 +249,6 @@ XWM::XWM(void) {
 	xwm.draw_max = draw_max;
 	xwm.draw_resize = draw_resize;
 	xwm.draw_desktop = draw_desktop;
-
-	font = ttf_font_load("/data/fonts/system.ttf", 14, 2);
 }
 
 void XWM::run(void) {

@@ -30,7 +30,6 @@ typedef struct {
 static int32_t read_config(fb_console_t* console, const char* fname) {
 	const char* font_fname =  "/data/fonts/system.ttf";
 	uint32_t font_size = 16;
-	int32_t font_margin = 0;
 	console->console.fg_color = 0xffcccccc;
 	console->console.bg_color = 0xff000000;
 	const char* icon_fn = "/data/icons/starwars/ewok.png";
@@ -66,26 +65,17 @@ static int32_t read_config(fb_console_t* console, const char* fname) {
 	v = sconf_get(conf, "font_size");
 	if(v[0] != 0) 
 		font_size = atoi(v);
-
+	
 	v = sconf_get(conf, "font_margin");
-	if(v[0] != 0) {
-		if(v[0] == '-')
-			font_margin = -atoi(v+1);
-		else
-			font_margin = atoi(v);
-	}
+	if(v[0] != 0) 
+		console->console.font_margin = atoi(v);
 
 	v = sconf_get(conf, "font");
 	if(v[0] != 0) 
 		font_fname = v;
-	klog("    load ttf font: %s ... ", font_fname);
-	console->console.font = ttf_font_load(font_fname, font_size, font_margin);
+	font_load(font_fname, font_size, &console->console.font);
 	sconf_free(conf);
 
-	if(console->console.font != NULL)
-		klog("[ok]\n");
-	else
-		klog("[failed]!\n");
 	return 0;
 }
 
@@ -106,6 +96,8 @@ static void init_graph(fb_console_t* console) {
 
 static int init_console(fb_console_t* console, const char* display_dev, const uint32_t display_index) {
 	memset(console, 0, sizeof(fb_console_t));
+	font_init();
+
 	console->display_dev = display_dev;
 	console->display_index = display_index;
 	const char* fb_dev = get_display_fb_dev(display_dev, console->display_index);
@@ -124,8 +116,8 @@ static void close_console(fb_console_t* console) {
 	fb_close(&console->fb);
 	if(console->icon != NULL)
 		graph_free(console->icon);
-	if(console->console.font != NULL)
-		ttf_font_free(console->console.font);
+	if(console->console.font.id >= 0)
+		font_close(&console->console.font);
 	//if(console->bg_image != NULL)
 		//graph_free(console->bg_image);
 }
