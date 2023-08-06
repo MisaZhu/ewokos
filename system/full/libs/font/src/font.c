@@ -27,10 +27,12 @@ int font_load(const char* fname, uint16_t ppm, font_t* font) {
 
 	int ret = -1;
 	font->id = -1;
+	font->cache = NULL;
 	if(dev_cntl_by_pid(_font_dev_pid, FONT_DEV_LOAD, &in, &out) == 0) {
 		font->id = proto_read_int(&out);
 		font->max_size.x = proto_read_int(&out);
 		font->max_size.y = proto_read_int(&out);
+		font->cache = hashmap_new();
 		ret = 0;
 	}
 
@@ -39,9 +41,45 @@ int font_load(const char* fname, uint16_t ppm, font_t* font) {
 	return ret;
 }
 
+static int free_cache(const char* key, any_t data, any_t arg) {
+	map_t* map = (map_t*)arg;
+	TTY_Glyph* v = (TTY_Glyph*)data;
+	hashmap_remove(map, key);
+	if(v->cache != NULL)
+		free(v->cache);
+	free(v);
+	return MAP_OK;
+}
+
+static void font_clear_cache(font_t* font) {
+	hashmap_iterate(font->cache, free_cache, font->cache);	
+}
+
+static int font_fetch_cache(font_t* font, uint16_t c, TTY_Glyph* glyph) {
+	TTY_Glyph* p;
+	if(hashmap_get(font->cache, (const char*)&c, (void**)&p) == 0) {
+		memcpy(glyph, p, sizeof(TTY_Glyph));
+		return 0;
+	}
+	return -1;
+}
+
+static void font_cache(font_t* font, uint16_t c, TTY_Glyph* glyph) {
+	TTY_Glyph* p = (TTY_Glyph*)malloc(sizeof(TTY_Glyph));
+	if(p == NULL)
+		return;
+	memcpy(p, glyph, sizeof(TTY_Glyph));
+	hashmap_put(font->cache, (const char*)&c, p);
+}
+
 int font_close(font_t* font) {
 	if(_font_dev_pid < 0 || font == NULL)
 		return -1;
+	
+	if(font->cache != NULL) {
+		font_clear_cache(font);
+		hashmap_free(font->cache);
+	}
 
 	proto_t in;
 	PF->init(&in)->addi(&in, font->id);
@@ -56,37 +94,43 @@ TTY_Glyph* font_init_glyph(TTY_Glyph* glyph) {
 	return glyph;
 }
 
-TTY_Glyph* font_clear_glyph(TTY_Glyph* glyph) {
-	if(glyph->cache != NULL)	
-		free(glyph->cache);
-	return font_init_glyph(glyph);
-}
-
 int font_get_glyph(font_t* font, uint16_t c, TTY_Glyph* glyph) {
 	if(_font_dev_pid < 0 || font == NULL)
 		return -1;
 	font_init_glyph(glyph);
 
-	proto_t in, out;
-	PF->init(&out);
-	PF->init(&in)->addi(&in, font->id)->addi(&in, c);
-
 	int ret = -1;
-	if(dev_cntl_by_pid(_font_dev_pid, FONT_DEV_GET, &in, &out) == 0) {
-		proto_read_to(&out, glyph, sizeof(TTY_Glyph));
-		int32_t sz;
-		void* p = proto_read(&out, &sz);
-		if(p == NULL || sz <= 0)
-			ret = -1;
-		else {
-			glyph->cache = malloc(sz);
-			memcpy(glyph->cache, p, sz);
+	int do_cache = 0;
+	if(font_fetch_cache(font, c, glyph) != 0) {
+		proto_t in, out;
+		PF->init(&out);
+		PF->init(&in)->addi(&in, font->id)->addi(&in, c);
+
+		if(dev_cntl_by_pid(_font_dev_pid, FONT_DEV_GET, &in, &out) == 0) {
+			proto_read_to(&out, glyph, sizeof(TTY_Glyph));
+			int32_t sz;
+			void* p = proto_read(&out, &sz);
+			if(p == NULL || sz <= 0) {
+				glyph->cache = NULL;
+			}
+			else {
+				glyph->cache = malloc(sz);
+				memcpy(glyph->cache, p, sz);
+			}
 			ret = 0;
+			do_cache = 1;
 		}
+		PF->clear(&in);
+		PF->clear(&out);
+	}
+	else {
+		ret = 0;
 	}
 
-	PF->clear(&in);
-	PF->clear(&out);
+	if(do_cache) {
+		font_cache(font, c, glyph);
+	}
+
 	return ret;
 }
 
@@ -113,7 +157,6 @@ void font_char_size(uint16_t c, font_t* font,
 		if(*h < 0)
 			*h = 0;
 	}
-	font_clear_glyph(&glyph);
 }
 
 void font_text_size(const char* str,
@@ -182,7 +225,6 @@ void graph_draw_char_font(graph_t* g, int32_t x, int32_t y, TTY_U32 c,
 		if(*h < 0)
 			*h = 0;
 	}
-	font_clear_glyph(&glyph);
 }
 
 void graph_draw_char_font_fixed(graph_t* g, int32_t x, int32_t y, TTY_U32 c,
@@ -208,7 +250,6 @@ void graph_draw_char_font_fixed(graph_t* g, int32_t x, int32_t y, TTY_U32 c,
 			}
 		}
 	}
-	font_clear_glyph(&glyph);
 }
 
 void graph_draw_text_font(graph_t* g, int32_t x, int32_t y, const char* str,

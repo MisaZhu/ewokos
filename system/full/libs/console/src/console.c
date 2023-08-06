@@ -54,7 +54,10 @@ int32_t console_reset(console_t* console, uint32_t w, uint32_t h, uint32_t total
 	console->state.start_row = 0;
 	console->state.back_offset_rows = 0;
 	console->state.current_row = 0;
-	console->content.cols = w / console->font.max_size.x - 1;
+	int32_t font_w = (console->font.max_size.x + console->font_margin*2);
+	if(font_w <= 0)
+		font_w = 1;
+	console->content.cols = w / font_w - 1;
 
 	uint32_t min_rows = h / console->font.max_size.y;
 	if(total_rows < min_rows)
@@ -96,6 +99,7 @@ int32_t console_reset(console_t* console, uint32_t w, uint32_t h, uint32_t total
 int32_t console_init(console_t* console) {
 	console->w = 0;
 	console->h = 0;
+	console->font_margin = 0;
 	console->bg_color = argb(0xff, 0x0, 0x0, 0x0);
 	console->fg_color = argb(0xff, 0xaa, 0xaa, 0xaa);
 	console->font.id = -1;
@@ -147,7 +151,9 @@ void console_refresh_content(console_t* console, graph_t* g) {
 	uint32_t i = start_row * console->content.cols;
 	uint32_t x = 0;
 	uint32_t y = 0;
-	uint32_t w = console->font.max_size.x;
+	int32_t w = console->font.max_size.x + console->font_margin*2;
+	if(w <= 0)
+		w = 1;
 	uint32_t h = console->font.max_size.y;
 	while(i < console->state.size) {
 		uint32_t at = get_at(console, i);

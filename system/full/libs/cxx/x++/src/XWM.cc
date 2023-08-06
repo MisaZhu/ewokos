@@ -1,6 +1,7 @@
 #include "x++/XWM.h"
 #include <stdio.h>
 #include <string.h>
+#include <font/font.h>
 
 using namespace Ewok;
 
@@ -229,6 +230,7 @@ static void draw_desktop(graph_t* g, void* p) {
 }
 
 XWM::XWM(void) {
+	font_init();
 	memset(&xwm, 0, sizeof(xwm_t));
 	xwm.data = this;
 	xwm.get_workspace = get_workspace;

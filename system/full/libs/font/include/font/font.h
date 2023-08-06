@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include <ttf/ttf.h>
+#include <hashmap.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -17,6 +18,7 @@ enum {
 typedef struct {
     int id;
     TTY_V2 max_size;
+	map_t *cache;
 } font_t;
 
 
@@ -25,7 +27,6 @@ int font_load(const char* fname, uint16_t ppm, font_t* font);
 int font_close(font_t* font);
 int font_get_glyph(font_t* font, uint16_t c, TTY_Glyph* glyph); 
 
-TTY_Glyph* font_clear_glyph(TTY_Glyph* glyph); 
 TTY_Glyph* font_init_glyph(TTY_Glyph* glyph); 
 
 void font_char_size(uint16_t c, font_t* font,

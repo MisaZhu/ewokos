@@ -241,7 +241,6 @@ public:
 		v = sconf_get(conf, "font");
 		if(v[0] == 0)
 			v = "/data/fonts/system.ttf";
-		font_init();
 		font_load(v, font_size, &font);
 
 		v = sconf_get(conf, "title_color");

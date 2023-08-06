@@ -39,7 +39,6 @@ public:
         imgX = imgY = 0;
 		img_big = png_image_new(X::getResName("data/rokid.png"));	
 		img_small = png_image_new(X::getResName("data/rokid_small.png"));	
-		font_init();
 		font_load("/data/fonts/system.ttf", 13, &font);
 	}
 	

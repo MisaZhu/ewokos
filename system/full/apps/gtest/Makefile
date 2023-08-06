@@ -21,8 +21,9 @@ $(GTEST): $(GTEST_OBJS) \
 		$(BUILD_DIR)/lib/libx.a \
 		$(BUILD_DIR)/lib/libttf.a \
 		$(BUILD_DIR)/lib/libfont.a \
+		$(BUILD_DIR)/lib/libhash.a \
 		$(BUILD_DIR)/lib/libcxx.a 
-	$(LD) -Ttext=100 $(GTEST_OBJS) -o $(GTEST) $(LDFLAGS) -lgraph -lttf -lfont -lx++ -lx -lupng -lewokc -lc -lcxx
+	$(LD) -Ttext=100 $(GTEST_OBJS) -o $(GTEST) $(LDFLAGS) -lgraph -lttf -lfont -lhash -lx++ -lx -lupng -lewokc -lc -lcxx
 
 $(GTEST_DIR):
 	mkdir -p $(GTEST_DIR)

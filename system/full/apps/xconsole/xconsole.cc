@@ -68,8 +68,12 @@ public:
 		v = sconf_get(sconf, "font");
 		if(v[0] == 0) 
 			v = "/data/fonts/system.ttf";
-		font_init();
+		
 		font_load(v, font_size, &console.font);
+
+		v = sconf_get(sconf, "font_margin");
+		if(v[0] != 0) 
+			console.font_margin = atoi(v);
 
 		sconf_free(sconf);
 

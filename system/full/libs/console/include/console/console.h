@@ -23,6 +23,7 @@ typedef struct {
 } content_t;
 
 typedef struct {
+	int32_t  font_margin;
 	uint32_t w;
 	uint32_t h;
 	uint32_t bg_color;

@@ -326,7 +326,6 @@ public:
 	inline XIMX(int fw, int fh) {
 		scrSize.w = fw;
 		scrSize.h = fh;
-		font_init();
 		font_load("/data/fonts/system.ttf", 13, &font);
 		keytable[1] = ""
 			"1234567890%-+\b"
