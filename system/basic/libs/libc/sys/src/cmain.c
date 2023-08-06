@@ -101,9 +101,6 @@ static void init_stdio(void) {
 extern int __bss_start__;
 extern int __bss_end__;
 
-void malloc_init();
-void malloc_close();
-
 void _start(void) {
 	char* argv[ARG_MAX];
 	int32_t argc = 0;
@@ -114,7 +111,7 @@ void _start(void) {
 		*p++ = 0;
 	}
 
-	malloc_init();
+	__malloc_init();
 	sys_signal_init();
 	proc_init();
 	init_stdio();
@@ -132,7 +129,7 @@ void _start(void) {
 
 	int ret = main(argc, argv);
 	close_stdio();
-	malloc_close();
+	__malloc_close();
 	exit(ret);
 }
 

@@ -133,8 +133,10 @@ protected:
 			}
 			else if(ev->state == XEVT_MOUSE_CLICK) {
 				int pid = fork();
-				if(pid == 0)
+				if(pid == 0) {
 					runProc(items.items[at].fname->cstr);
+					exit(0);
+				}
 				return;
 			}
 		}

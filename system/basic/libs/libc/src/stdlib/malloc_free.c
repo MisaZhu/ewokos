@@ -1,13 +1,16 @@
 #include <stdlib.h>
+#include <string.h>
 #include <sys/syscall.h>
 #include <sys/trunkmem.h>
 
-#define MALLOC_BUF_SIZE  (4*1024)
-#define MALLOC_SEG_SIZE  128
+#define MALLOC_BUF_SIZE_DEF  (4*1024)
+#define MALLOC_SEG_SIZE_DEF  128
 
 static malloc_t __malloc_info__;
 static char* _malloc_buf;
 static uint32_t _malloc_mem_tail;
+static uint32_t _malloc_buf_size;
+static uint32_t _malloc_seg_size;
 
 static void *malloc_raw(size_t size) {
 	return (void*)syscall1(SYS_MALLOC, (int32_t)size);
@@ -25,7 +28,7 @@ static void m_shrink(void* arg, int32_t pages) {
 static int32_t m_expand(void* arg, int32_t pages) {
 	(void)arg;
 	uint32_t to = _malloc_mem_tail + (pages * __malloc_info__.seg_size);
-	if(to > ((uint32_t)(_malloc_buf) + MALLOC_BUF_SIZE)) //over flow
+	if(to > ((uint32_t)(_malloc_buf) + _malloc_buf_size)) //over flow
 		return -1;
 
 	_malloc_mem_tail = to;
@@ -38,23 +41,44 @@ static void* m_get_mem_tail(void* arg) {
 	return (void*)_malloc_mem_tail;
 }
 
-void malloc_init() {
+void __malloc_init() {
 	memset(&__malloc_info__, 0, sizeof(malloc_t));
-	_malloc_buf = malloc_raw(MALLOC_BUF_SIZE);
+	_malloc_buf = NULL;
+	_malloc_buf_size = MALLOC_BUF_SIZE_DEF;
+	_malloc_seg_size = MALLOC_SEG_SIZE_DEF;
+}
+
+void __malloc_buf_set(uint32_t buf_size, uint32_t seg_size) {
+	_malloc_seg_size = ALIGN_UP(seg_size, 8);
+	_malloc_buf_size = ALIGN_UP(buf_size, 8);
+
+	if(_malloc_seg_size > 0 && _malloc_buf_size <= _malloc_seg_size)
+		_malloc_buf_size = _malloc_seg_size * 16;
+}
+
+static void malloc_setup() {
+	if(_malloc_buf != NULL ||
+			_malloc_buf_size == 0 ||
+			_malloc_seg_size == 0)
+		return;
+
+	_malloc_buf = malloc_raw(_malloc_buf_size);
 	_malloc_mem_tail = (uint32_t)_malloc_buf;
 	__malloc_info__.expand = m_expand;
 	__malloc_info__.shrink = m_shrink;
 	__malloc_info__.get_mem_tail = m_get_mem_tail;
-	__malloc_info__.seg_size = MALLOC_SEG_SIZE;
+	__malloc_info__.seg_size = _malloc_seg_size;
 	__malloc_info__.arg = NULL;
 }
 
-void malloc_close() {
+void __malloc_close() {
 	if(_malloc_buf != NULL)
 		free_raw(_malloc_buf);
 }
 
 static void *m_malloc(uint32_t size) {
+	if(_malloc_buf == NULL) //malloc buf not setup
+		malloc_setup();
 	if(_malloc_buf == NULL)
 		return NULL;
 	return trunk_malloc(&__malloc_info__, size);
