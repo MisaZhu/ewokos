@@ -1,0 +1,1173 @@
+From 990d9fd0853cf54f22138ee54ecdd39bd8661657 Mon Sep 17 00:00:00 2001
+From: tony <tao.zeng@rokid.com>
+Date: Sun, 6 Aug 2023 22:29:38 +0800
+Subject: [PATCH] rewrite kernel build system
+
+---
+ .gitignore                                    |  2 +
+ .../arm/arch/common}/src/arm32_aeabi_divmod.c |  0
+ .../arch/common}/src/arm32_aeabi_divmod_a32.S |  0
+ .../arch/common}/src/arm32_aeabi_ldivmod.c    |  0
+ .../common}/src/arm32_aeabi_ldivmod_a32.S     |  0
+ kernel/hardware/arm/make.rule                 | 11 +--
+ kernel/hardware/arm/miyoo/bsp/core.c          |  4 +-
+ kernel/hardware/arm/miyoo/config.mk           |  2 +-
+ kernel/hardware/arm/miyoo/mkos.lds.S          |  6 +-
+ kernel/hardware/arm/miyoo/mkos.lds.qemu.S     |  8 +--
+ kernel/hardware/arm/miyoo/xmake.lua           | 45 ++++++++++++
+ kernel/hardware/arm/raspi/pi1/mkos.lds.S      |  8 +--
+ kernel/hardware/arm/raspi/pi1/mkos.lds.qemu.S |  8 +--
+ kernel/hardware/arm/raspi/pi1/xmake.lua       | 51 +++++++++++++
+ kernel/hardware/arm/raspi/pi2.3/bsp/core.c    |  4 +-
+ kernel/hardware/arm/raspi/pi2.3/mkos.lds.S    |  8 +--
+ .../hardware/arm/raspi/pi2.3/mkos.lds.qemu.S  |  8 +--
+ kernel/hardware/arm/raspi/pi2.3/xmake.lua     | 50 +++++++++++++
+ kernel/hardware/arm/raspi/pi4/bsp/core.c      |  5 +-
+ kernel/hardware/arm/raspi/pi4/mkos.lds.S      |  8 +--
+ kernel/hardware/arm/raspi/pi4/mkos.lds.qemu.S |  8 +--
+ kernel/hardware/arm/raspi/pi4/xmake.lua       | 51 +++++++++++++
+ kernel/hardware/arm/rk3128/bsp/core.c         |  5 +-
+ kernel/hardware/arm/rk3128/bsp/irq.c          |  1 +
+ kernel/hardware/arm/rk3128/mkos.lds.S         |  8 +--
+ kernel/hardware/arm/rk3128/mkos.lds.qemu.S    |  8 +--
+ kernel/hardware/arm/rk3128/xmake.lua          | 45 ++++++++++++
+ kernel/hardware/arm/versatilepb/mkos.lds.S    |  8 +--
+ .../hardware/arm/versatilepb/mkos.lds.qemu.S  |  8 +--
+ kernel/hardware/arm/versatilepb/xmake.lua     | 45 ++++++++++++
+ .../hardware/riscv/arch/common/src/sbi_ipi.c  | 42 -----------
+ kernel/hardware/riscv/arch/rv64/dummy.c       |  0
+ kernel/hardware/riscv/nezha/config.mk         |  2 +-
+ kernel/hardware/riscv/nezha/mkos.lds.S        |  8 +--
+ kernel/hardware/riscv/nezha/mkos.lds.qemu.S   |  8 +--
+ kernel/hardware/riscv/nezha/xmake.lua         | 45 ++++++++++++
+ kernel/hardware/riscv/virt/mkos.lds.S         |  8 +--
+ kernel/hardware/riscv/virt/mkos.lds.qemu.S    |  8 +--
+ kernel/hardware/riscv/virt/xmake.lua          | 44 ++++++++++++
+ kernel/loadinit/sd/ext2read.c                 |  6 +-
+ kernel/loadinit/sd/ext2read.h                 |  2 +-
+ kernel/loadinit/sd/loadinit.c                 |  2 +-
+ kernel/xmake.lua                              | 71 +++++++++++++++++++
+ xmake.lua                                     | 34 +++++++++
+ 44 files changed, 570 insertions(+), 125 deletions(-)
+ rename kernel/{lib => hardware/arm/arch/common}/src/arm32_aeabi_divmod.c (100%)
+ rename kernel/{lib => hardware/arm/arch/common}/src/arm32_aeabi_divmod_a32.S (100%)
+ rename kernel/{lib => hardware/arm/arch/common}/src/arm32_aeabi_ldivmod.c (100%)
+ rename kernel/{lib => hardware/arm/arch/common}/src/arm32_aeabi_ldivmod_a32.S (100%)
+ create mode 100644 kernel/hardware/arm/miyoo/xmake.lua
+ create mode 100644 kernel/hardware/arm/raspi/pi1/xmake.lua
+ create mode 100644 kernel/hardware/arm/raspi/pi2.3/xmake.lua
+ create mode 100644 kernel/hardware/arm/raspi/pi4/xmake.lua
+ create mode 100644 kernel/hardware/arm/rk3128/xmake.lua
+ create mode 100644 kernel/hardware/arm/versatilepb/xmake.lua
+ delete mode 100644 kernel/hardware/riscv/arch/common/src/sbi_ipi.c
+ create mode 100644 kernel/hardware/riscv/arch/rv64/dummy.c
+ create mode 100644 kernel/hardware/riscv/nezha/xmake.lua
+ create mode 100644 kernel/hardware/riscv/virt/xmake.lua
+ create mode 100644 kernel/xmake.lua
+ create mode 100644 xmake.lua
+
+diff --git a/.gitignore b/.gitignore
+index 953b746b..2ceb35ea 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -13,3 +13,5 @@ system/tmp
+ .vscode/dryrun.log
+ .vscode/targets.log
+ system/make.rule
++build
++.xmake
+diff --git a/kernel/lib/src/arm32_aeabi_divmod.c b/kernel/hardware/arm/arch/common/src/arm32_aeabi_divmod.c
+similarity index 100%
+rename from kernel/lib/src/arm32_aeabi_divmod.c
+rename to kernel/hardware/arm/arch/common/src/arm32_aeabi_divmod.c
+diff --git a/kernel/lib/src/arm32_aeabi_divmod_a32.S b/kernel/hardware/arm/arch/common/src/arm32_aeabi_divmod_a32.S
+similarity index 100%
+rename from kernel/lib/src/arm32_aeabi_divmod_a32.S
+rename to kernel/hardware/arm/arch/common/src/arm32_aeabi_divmod_a32.S
+diff --git a/kernel/lib/src/arm32_aeabi_ldivmod.c b/kernel/hardware/arm/arch/common/src/arm32_aeabi_ldivmod.c
+similarity index 100%
+rename from kernel/lib/src/arm32_aeabi_ldivmod.c
+rename to kernel/hardware/arm/arch/common/src/arm32_aeabi_ldivmod.c
+diff --git a/kernel/lib/src/arm32_aeabi_ldivmod_a32.S b/kernel/hardware/arm/arch/common/src/arm32_aeabi_ldivmod_a32.S
+similarity index 100%
+rename from kernel/lib/src/arm32_aeabi_ldivmod_a32.S
+rename to kernel/hardware/arm/arch/common/src/arm32_aeabi_ldivmod_a32.S
+diff --git a/kernel/hardware/arm/make.rule b/kernel/hardware/arm/make.rule
+index 95d20471..cd5f28f4 100644
+--- a/kernel/hardware/arm/make.rule
++++ b/kernel/hardware/arm/make.rule
+@@ -71,7 +71,12 @@ ARCH_OBJS += \
+ 	$(ARCH_DIR)/common/src/gic.o \
+ 	$(ARCH_DIR)/common/src/irq.o \
+ 	$(ARCH_DIR)/common/src/memcpy.o \
+-	$(ARCH_DIR)/common/src/mmu_arch.o
++	$(ARCH_DIR)/common/src/mmu_arch.o \
++	$(ARCH_DIR)/common/src/arm32_aeabi_divmod_a32.o \
++	$(ARCH_DIR)/common/src/arm32_aeabi_ldivmod_a32.o \
++	$(ARCH_DIR)/common/src/arm32_aeabi_divmod.o \
++	$(ARCH_DIR)/common/src/arm32_aeabi_ldivmod.o
++
+ 
+ LIB_GRAPH_DIR=$(SRC_DIR)/lib/graph
+ LIB_GRAPH_OBJS = $(LIB_GRAPH_DIR)/src/graph.o \
+@@ -90,10 +95,6 @@ LIB_OBJS = \
+ 	$(LIB_DIR)/kstring.o \
+ 	$(LIB_DIR)/vprintf.o \
+ 	$(LIB_DIR)/proto.o \
+-	$(LIB_DIR)/arm32_aeabi_divmod_a32.o \
+-	$(LIB_DIR)/arm32_aeabi_ldivmod_a32.o \
+-	$(LIB_DIR)/arm32_aeabi_divmod.o \
+-	$(LIB_DIR)/arm32_aeabi_ldivmod.o \
+ 	$(LIB_DIR)/queue.o \
+ 	$(LIB_DIR)/kprintf.o \
+ 	$(LIB_GRAPH_OBJS) \
+diff --git a/kernel/hardware/arm/miyoo/bsp/core.c b/kernel/hardware/arm/miyoo/bsp/core.c
+index 8ed70f46..1142a569 100644
+--- a/kernel/hardware/arm/miyoo/bsp/core.c
++++ b/kernel/hardware/arm/miyoo/bsp/core.c
+@@ -1,6 +1,7 @@
+ #include <kernel/core.h>
+ #include <gic.h>
+ 
++#ifdef KERNEL_SMP
+ void cpu_core_ready(uint32_t core_id) {
+ 	gic_init(0);
+ 	gic_irq_enable(core_id, 0);
+@@ -9,4 +10,5 @@ void cpu_core_ready(uint32_t core_id) {
+ 
+ inline uint32_t get_cpu_cores(void) {
+ 	return 2;
+-}
+\ No newline at end of file
++}
++#endif
+diff --git a/kernel/hardware/arm/miyoo/config.mk b/kernel/hardware/arm/miyoo/config.mk
+index 7d5b9e5d..4f760ffb 100644
+--- a/kernel/hardware/arm/miyoo/config.mk
++++ b/kernel/hardware/arm/miyoo/config.mk
+@@ -1,5 +1,5 @@
+ CPU = cortex-a7
+-QEMU_FLAGS = -cpu $(CPU) -M raspi2b -m 128M -serial mon:stdio
++QEMU_FLAGS = -cpu $(CPU) -M raspi2b -m 1G -serial mon:stdio
+ ARCH_CFLAGS = -march=armv7ve
+ ARCH=v7
+ 
+diff --git a/kernel/hardware/arm/miyoo/mkos.lds.S b/kernel/hardware/arm/miyoo/mkos.lds.S
+index 0848c6ee..b7f1fd91 100644
+--- a/kernel/hardware/arm/miyoo/mkos.lds.S
++++ b/kernel/hardware/arm/miyoo/mkos.lds.S
+@@ -14,11 +14,7 @@ SECTIONS
+ 	/*bootloader will be compiled with phy address base at 0x8000*/
+ 	.init start_address : AT(start_address) ALIGN(4096)
+ 	{
+-	KEEP(*(.init .init.*))
+-		bsp/start.o(.text .text.*)
+-		bsp/start.o(.rodata .rodata.*)
+-		bsp/start.o(.data .data.*)
+-		bsp/start.o(.bss .bss.*)
++	    KEEP(*(.init .init.*))
+ 	} : init
+ 	. = . + 0x2000;
+ 	_svc_start_stack = .;
+diff --git a/kernel/hardware/arm/miyoo/mkos.lds.qemu.S b/kernel/hardware/arm/miyoo/mkos.lds.qemu.S
+index 3c829e59..9d0483e8 100644
+--- a/kernel/hardware/arm/miyoo/mkos.lds.qemu.S
++++ b/kernel/hardware/arm/miyoo/mkos.lds.qemu.S
+@@ -15,10 +15,10 @@ SECTIONS
+ 	.init start_address : AT(start_address) ALIGN(4096)
+ 	{
+ 	KEEP(*(.init .init.*))
+-		bsp/start.o(.text .text.*)
+-		bsp/start.o(.rodata .rodata.*)
+-		bsp/start.o(.data .data.*)
+-		bsp/start.o(.bss .bss.*)
++		*/start*.o(.text .text.*)
++		*/start*.o(.rodata .rodata.*)
++		*/start*.o(.data .data.*)
++		*/start*.o(.bss .bss.*)
+ 	} : init
+ 	. = . + 0x2000;
+ 	_svc_start_stack = .;
+diff --git a/kernel/hardware/arm/miyoo/xmake.lua b/kernel/hardware/arm/miyoo/xmake.lua
+new file mode 100644
+index 00000000..452f3527
+--- /dev/null
++++ b/kernel/hardware/arm/miyoo/xmake.lua
+@@ -0,0 +1,45 @@
++
++local target_dir = os.scriptdir().."/"
++
++function build()
++    set_toolchain("arm")
++    set_kind("binary")
++
++    add_kernel_src()
++    add_arch_src("arm", "v7")
++
++    add_defines("KERNEL_SMP", "KCONSOLE")
++
++    add_files(
++        "bsp/*.c"
++    )
++     add_cflags("-march=armv7ve")
++     add_asflags("-march=armv7ve")
++end
++
++target("miyoo")
++    build()
++
++    add_ldflags("-T "..os.scriptdir().."/mkos.lds.S",  {force = true})
++
++    after_build(function (target)
++        os.run("arm-none-eabi-objcopy -O binary "..target:targetfile().." "..target_dir.."kernel7.img")
++    end)
++target_end()
++
++target("miyoo.qemu")
++    build()
++
++    add_ldflags("-T "..os.scriptdir().."/mkos.lds.qemu.S",  {force = true})
++
++    after_build(function (target)
++        os.run("arm-none-eabi-objcopy -O binary "..target:targetfile().." "..target_dir.."kernel7.qemu.img")
++    end)
++
++    on_run(function (target)
++        os.run("qemu-system-arm -cpu cortex-a7 -M raspi2b -m 1024M -serial mon:stdio -sd system/root.ext2 -kernel "..target_dir.."kernel7.qemu.img")
++    end)
++target_end()
++
++
++
+diff --git a/kernel/hardware/arm/raspi/pi1/mkos.lds.S b/kernel/hardware/arm/raspi/pi1/mkos.lds.S
+index 63e4e117..b825ef9f 100644
+--- a/kernel/hardware/arm/raspi/pi1/mkos.lds.S
++++ b/kernel/hardware/arm/raspi/pi1/mkos.lds.S
+@@ -15,10 +15,10 @@ SECTIONS
+ 	.init start_address : AT(start_address) ALIGN(4096)
+ 	{
+     KEEP(*(.init .init.*))
+-		bsp/start.o(.text .text.*)
+-		bsp/start.o(.rodata .rodata.*)
+-		bsp/start.o(.data .data.*)
+-		bsp/start.o(.bss .bss.*)
++		*/start*.o(.text .text.*)
++		*/start*.o(.rodata .rodata.*)
++		*/start*.o(.data .data.*)
++		*/start*.o(.bss .bss.*)
+ 	} : init
+ 	. = . + 0x1000;
+ 	_svc_start_stack = .;
+diff --git a/kernel/hardware/arm/raspi/pi1/mkos.lds.qemu.S b/kernel/hardware/arm/raspi/pi1/mkos.lds.qemu.S
+index 459f5f78..0ff0b556 100644
+--- a/kernel/hardware/arm/raspi/pi1/mkos.lds.qemu.S
++++ b/kernel/hardware/arm/raspi/pi1/mkos.lds.qemu.S
+@@ -15,10 +15,10 @@ SECTIONS
+ 	.init start_address : AT(start_address) ALIGN(4096)
+ 	{
+     KEEP(*(.init .init.*))
+-		bsp/start.o(.text .text.*)
+-		bsp/start.o(.rodata .rodata.*)
+-		bsp/start.o(.data .data.*)
+-		bsp/start.o(.bss .bss.*)
++		*/start*.o(.text .text.*)
++		*/start*.o(.rodata .rodata.*)
++		*/start*.o(.data .data.*)
++		*/start*.o(.bss .bss.*)
+ 	} : init
+ 	. = . + 0x1000;
+ 	_svc_start_stack = .;
+diff --git a/kernel/hardware/arm/raspi/pi1/xmake.lua b/kernel/hardware/arm/raspi/pi1/xmake.lua
+new file mode 100644
+index 00000000..5cea8d7e
+--- /dev/null
++++ b/kernel/hardware/arm/raspi/pi1/xmake.lua
+@@ -0,0 +1,51 @@
++
++local target_dir = os.scriptdir().."/"
++
++function build()
++    set_toolchain("arm")
++    set_kind("binary")
++
++    add_kernel_src()
++    add_arch_src("arm", "v6")
++
++    add_defines("KCONSOLE")
++
++    add_includedirs(
++        "../lib/bcm283x/include"
++    )
++
++    add_files(
++        "bsp/*.c",
++        "../lib/bcm283x/**.c"
++    )
++
++     add_cflags("-mcpu=arm1176jzf-s")
++     add_asflags("-mcpu=arm1176jzf-s")
++end
++
++target("pi1")
++    build()
++
++    add_ldflags("-T "..os.scriptdir().."/mkos.lds.S",  {force = true})
++
++    after_build(function (target)
++        os.run("arm-none-eabi-objcopy -O binary "..target:targetfile().." "..target_dir.."kernel.img")
++    end)
++target_end()
++
++target("pi1.qemu")
++    build()
++
++    add_ldflags("-T "..os.scriptdir().."/mkos.lds.qemu.S",  {force = true})
++
++    after_build(function (target)
++        os.run("arm-none-eabi-objcopy -O binary "..target:targetfile().." "..target_dir.."kernel.qemu.img")
++    end)
++
++    on_run(function (target)
++        os.run("qemu-system-arm -cpu arm1176 -M raspi0 -m 512M -serial mon:stdio -sd system/root.ext2 -kernel "..target_dir.."kernel.qemu.img")
++    end)
++target_end()
++
++
++
+diff --git a/kernel/hardware/arm/raspi/pi2.3/bsp/core.c b/kernel/hardware/arm/raspi/pi2.3/bsp/core.c
+index bb863a14..e1c63c07 100644
+--- a/kernel/hardware/arm/raspi/pi2.3/bsp/core.c
++++ b/kernel/hardware/arm/raspi/pi2.3/bsp/core.c
+@@ -1,9 +1,11 @@
+ #include <kernel/core.h>
+ 
++#ifdef KERNEL_SMP
+ void cpu_core_ready(uint32_t core_id) {
+ 	(void)core_id;
+ }
+ 
+ inline uint32_t get_cpu_cores(void) {
+ 	return 4;
+-}
+\ No newline at end of file
++}
++#endif
+diff --git a/kernel/hardware/arm/raspi/pi2.3/mkos.lds.S b/kernel/hardware/arm/raspi/pi2.3/mkos.lds.S
+index 29275967..87b04d02 100644
+--- a/kernel/hardware/arm/raspi/pi2.3/mkos.lds.S
++++ b/kernel/hardware/arm/raspi/pi2.3/mkos.lds.S
+@@ -15,10 +15,10 @@ SECTIONS
+ 	.init start_address : AT(start_address) ALIGN(4096)
+ 	{
+     KEEP(*(.init .init.*))
+-		bsp/start.o(.text .text.*)
+-		bsp/start.o(.rodata .rodata.*)
+-		bsp/start.o(.data .data.*)
+-		bsp/start.o(.bss .bss.*)
++		*/start.o(.text .text.*)
++		*/start.o(.rodata .rodata.*)
++		*/start.o(.data .data.*)
++		*/start.o(.bss .bss.*)
+ 	} : init
+ 	. = . + 0x4000;
+ 	_svc_start_stack = .;
+diff --git a/kernel/hardware/arm/raspi/pi2.3/mkos.lds.qemu.S b/kernel/hardware/arm/raspi/pi2.3/mkos.lds.qemu.S
+index d3c4b631..f06c86cc 100644
+--- a/kernel/hardware/arm/raspi/pi2.3/mkos.lds.qemu.S
++++ b/kernel/hardware/arm/raspi/pi2.3/mkos.lds.qemu.S
+@@ -15,10 +15,10 @@ SECTIONS
+ 	.init start_address : AT(start_address) ALIGN(4096)
+ 	{
+     KEEP(*(.init .init.*))
+-		bsp/start.o(.text .text.*)
+-		bsp/start.o(.rodata .rodata.*)
+-		bsp/start.o(.data .data.*)
+-		bsp/start.o(.bss .bss.*)
++		*/start*.o(.text .text.*)
++		*/start*.o(.rodata .rodata.*)
++		*/start*.o(.data .data.*)
++		*/start*.o(.bss .bss.*)
+ 	} : init
+ 	. = . + 0x4000;
+ 	_svc_start_stack = .;
+diff --git a/kernel/hardware/arm/raspi/pi2.3/xmake.lua b/kernel/hardware/arm/raspi/pi2.3/xmake.lua
+new file mode 100644
+index 00000000..cfd2d8de
+--- /dev/null
++++ b/kernel/hardware/arm/raspi/pi2.3/xmake.lua
+@@ -0,0 +1,50 @@
++
++local target_dir = os.scriptdir().."/"
++
++function build()
++    set_toolchain("arm")
++    set_kind("binary")
++
++    add_kernel_src()
++    add_arch_src("arm", "v7")
++
++    add_defines("KERNEL_SMP", "KCONSOLE")
++
++    add_includedirs(
++        "../lib/bcm283x/include"
++    )
++
++    add_files(
++        "bsp/*.c",
++        "../lib/bcm283x/**.c"
++    )
++     add_cflags("-march=armv7ve")
++     add_asflags("-march=armv7ve")
++end
++
++target("pi2.3")
++    build()
++
++    add_ldflags("-T "..os.scriptdir().."/mkos.lds.S",  {force = true})
++
++    after_build(function (target)
++        os.run("arm-none-eabi-objcopy -O binary "..target:targetfile().." "..target_dir.."kernel7.img")
++    end)
++target_end()
++
++target("pi2.3.qemu")
++    build()
++
++    add_ldflags("-T "..os.scriptdir().."/mkos.lds.qemu.S",  {force = true})
++
++    after_build(function (target)
++        os.run("arm-none-eabi-objcopy -O binary "..target:targetfile().." "..target_dir.."kernel7.qemu.img")
++    end)
++
++    on_run(function (target)
++        os.run("qemu-system-arm -M raspi2b -m 1024M -serial mon:stdio -sd system/root.ext2 -kernel "..target_dir.."kernel7.qemu.img")
++    end)
++target_end()
++
++
++
+diff --git a/kernel/hardware/arm/raspi/pi4/bsp/core.c b/kernel/hardware/arm/raspi/pi4/bsp/core.c
+index bb863a14..13a0cc8f 100644
+--- a/kernel/hardware/arm/raspi/pi4/bsp/core.c
++++ b/kernel/hardware/arm/raspi/pi4/bsp/core.c
+@@ -1,9 +1,10 @@
+ #include <kernel/core.h>
+-
++#ifdef KERNEL_SMP
+ void cpu_core_ready(uint32_t core_id) {
+ 	(void)core_id;
+ }
+ 
+ inline uint32_t get_cpu_cores(void) {
+ 	return 4;
+-}
+\ No newline at end of file
++}
++#endif
+diff --git a/kernel/hardware/arm/raspi/pi4/mkos.lds.S b/kernel/hardware/arm/raspi/pi4/mkos.lds.S
+index 29275967..5ac91981 100644
+--- a/kernel/hardware/arm/raspi/pi4/mkos.lds.S
++++ b/kernel/hardware/arm/raspi/pi4/mkos.lds.S
+@@ -15,10 +15,10 @@ SECTIONS
+ 	.init start_address : AT(start_address) ALIGN(4096)
+ 	{
+     KEEP(*(.init .init.*))
+-		bsp/start.o(.text .text.*)
+-		bsp/start.o(.rodata .rodata.*)
+-		bsp/start.o(.data .data.*)
+-		bsp/start.o(.bss .bss.*)
++		*/start*.o(.text .text.*)
++		*/start*.o(.rodata .rodata.*)
++		*/start*.o(.data .data.*)
++		*/start*.o(.bss .bss.*)
+ 	} : init
+ 	. = . + 0x4000;
+ 	_svc_start_stack = .;
+diff --git a/kernel/hardware/arm/raspi/pi4/mkos.lds.qemu.S b/kernel/hardware/arm/raspi/pi4/mkos.lds.qemu.S
+index d3c4b631..f06c86cc 100644
+--- a/kernel/hardware/arm/raspi/pi4/mkos.lds.qemu.S
++++ b/kernel/hardware/arm/raspi/pi4/mkos.lds.qemu.S
+@@ -15,10 +15,10 @@ SECTIONS
+ 	.init start_address : AT(start_address) ALIGN(4096)
+ 	{
+     KEEP(*(.init .init.*))
+-		bsp/start.o(.text .text.*)
+-		bsp/start.o(.rodata .rodata.*)
+-		bsp/start.o(.data .data.*)
+-		bsp/start.o(.bss .bss.*)
++		*/start*.o(.text .text.*)
++		*/start*.o(.rodata .rodata.*)
++		*/start*.o(.data .data.*)
++		*/start*.o(.bss .bss.*)
+ 	} : init
+ 	. = . + 0x4000;
+ 	_svc_start_stack = .;
+diff --git a/kernel/hardware/arm/raspi/pi4/xmake.lua b/kernel/hardware/arm/raspi/pi4/xmake.lua
+new file mode 100644
+index 00000000..55344fe6
+--- /dev/null
++++ b/kernel/hardware/arm/raspi/pi4/xmake.lua
+@@ -0,0 +1,51 @@
++
++local target_dir = os.scriptdir().."/"
++
++function build()
++    set_toolchain("arm")
++    set_kind("binary")
++
++    add_kernel_src()
++    add_arch_src("arm", "v7")
++
++    add_defines("KERNEL_SMP", "KCONSOLE")
++
++    add_includedirs(
++        "../lib/bcm283x/include"
++    )
++
++    add_files(
++        "bsp/*.c",
++        "../lib/bcm283x/**.c"
++    )
++
++     add_cflags("-march=armv7ve")
++     add_asflags("-march=armv7ve")
++end
++
++target("pi4")
++    build()
++
++    add_ldflags("-T "..os.scriptdir().."/mkos.lds.S",  {force = true})
++
++    after_build(function (target)
++        os.run("arm-none-eabi-objcopy -O binary "..target:targetfile().." "..target_dir.."kernel7.img")
++    end)
++target_end()
++
++target("pi4.qemu")
++    build()
++
++    add_ldflags("-T "..os.scriptdir().."/mkos.lds.qemu.S",  {force = true})
++
++    after_build(function (target)
++        os.run("arm-none-eabi-objcopy -O binary "..target:targetfile().." "..target_dir.."kernel7.qemu.img")
++    end)
++
++    on_run(function (target)
++        os.run("qemu-system-arm -M raspi2b -m 1024M -serial mon:stdio -sd system/root.ext2 -kernel "..target_dir.."kernel7.qemu.img")
++    end)
++target_end()
++
++
++
+diff --git a/kernel/hardware/arm/rk3128/bsp/core.c b/kernel/hardware/arm/rk3128/bsp/core.c
+index 1ce6385b..485550ac 100644
+--- a/kernel/hardware/arm/rk3128/bsp/core.c
++++ b/kernel/hardware/arm/rk3128/bsp/core.c
+@@ -1,6 +1,6 @@
+ #include <kernel/core.h>
+ #include <gic.h>
+-
++#ifdef KERNEL_SMP
+ void cpu_core_ready(uint32_t core_id) {
+ 	gic_init(MMIO_BASE + 0x138000);
+ 	ipi_enable(core_id);
+@@ -9,4 +9,5 @@ void cpu_core_ready(uint32_t core_id) {
+ 
+ inline uint32_t get_cpu_cores(void) {
+ 	return 4;
+-}
+\ No newline at end of file
++}
++#endif
+diff --git a/kernel/hardware/arm/rk3128/bsp/irq.c b/kernel/hardware/arm/rk3128/bsp/irq.c
+index b75dd3af..e12ad821 100644
+--- a/kernel/hardware/arm/rk3128/bsp/irq.c
++++ b/kernel/hardware/arm/rk3128/bsp/irq.c
+@@ -1,6 +1,7 @@
+ #include <kernel/irq.h>
+ #include <kernel/kernel.h>
+ #include <kernel/hw_info.h>
++#include <kernel/core.h>
+ #include "timer_arch.h"
+ #include <gic.h>
+ 
+diff --git a/kernel/hardware/arm/rk3128/mkos.lds.S b/kernel/hardware/arm/rk3128/mkos.lds.S
+index 5a62d50d..32d95c34 100644
+--- a/kernel/hardware/arm/rk3128/mkos.lds.S
++++ b/kernel/hardware/arm/rk3128/mkos.lds.S
+@@ -15,10 +15,10 @@ SECTIONS
+ 	.init start_address : AT(start_address) ALIGN(4096)
+ 	{
+     KEEP(*(.init .init.*))
+-		bsp/start.o(.text .text.*)
+-		bsp/start.o(.rodata .rodata.*)
+-		bsp/start.o(.data .data.*)
+-		bsp/start.o(.bss .bss.*)
++		*/start*.o(.text .text.*)
++		*/start*.o(.rodata .rodata.*)
++		*/start*.o(.data .data.*)
++		*/start*.o(.bss .bss.*)
+ 	} : init
+ 	. = . + 0x4000;
+ 	_svc_start_stack = .;
+diff --git a/kernel/hardware/arm/rk3128/mkos.lds.qemu.S b/kernel/hardware/arm/rk3128/mkos.lds.qemu.S
+index 813e7941..c2919ae6 100644
+--- a/kernel/hardware/arm/rk3128/mkos.lds.qemu.S
++++ b/kernel/hardware/arm/rk3128/mkos.lds.qemu.S
+@@ -15,10 +15,10 @@ SECTIONS
+ 	.init start_address : AT(start_address) ALIGN(4096)
+ 	{
+     KEEP(*(.init .init.*))
+-		bsp/start.o(.text .text.*)
+-		bsp/start.o(.rodata .rodata.*)
+-		bsp/start.o(.data .data.*)
+-		bsp/start.o(.bss .bss.*)
++		*/start*.o(.text .text.*)
++		*/start*.o(.rodata .rodata.*)
++		*/start*.o(.data .data.*)
++		*/start*.o(.bss .bss.*)
+ 	} : init
+ 	. = . + 0x4000;
+ 	_svc_start_stack = .;
+diff --git a/kernel/hardware/arm/rk3128/xmake.lua b/kernel/hardware/arm/rk3128/xmake.lua
+new file mode 100644
+index 00000000..8d261e40
+--- /dev/null
++++ b/kernel/hardware/arm/rk3128/xmake.lua
+@@ -0,0 +1,45 @@
++
++local target_dir = os.scriptdir().."/"
++
++function build()
++    set_toolchain("arm")
++    set_kind("binary")
++
++    add_kernel_src()
++    add_arch_src("arm", "v7")
++
++    add_defines("KERNEL_SMP", "KCONSOLE")
++
++    add_files(
++        "bsp/*.c"
++    )
++     add_cflags("-march=armv7ve")
++     add_asflags("-march=armv7ve")
++end
++
++target("rk3128")
++    build()
++
++    add_ldflags("-T "..os.scriptdir().."/mkos.lds.S",  {force = true})
++
++    after_build(function (target)
++        os.run("arm-none-eabi-objcopy -O binary "..target:targetfile().." "..target_dir.."kernel7.img")
++    end)
++target_end()
++
++target("rk3128.qemu")
++    build()
++
++    add_ldflags("-T "..os.scriptdir().."/mkos.lds.qemu.S",  {force = true})
++
++    after_build(function (target)
++        os.run("arm-none-eabi-objcopy -O binary "..target:targetfile().." "..target_dir.."kernel7.qemu.img")
++    end)
++
++    on_run(function (target)
++        os.run("qemu-system-arm -M raspi2b -m 1024M -serial mon:stdio -sd system/root.ext2 -kernel "..target_dir.."kernel7.qemu.img")
++    end)
++target_end()
++
++
++
+diff --git a/kernel/hardware/arm/versatilepb/mkos.lds.S b/kernel/hardware/arm/versatilepb/mkos.lds.S
+index 06cb0c77..c76def01 100644
+--- a/kernel/hardware/arm/versatilepb/mkos.lds.S
++++ b/kernel/hardware/arm/versatilepb/mkos.lds.S
+@@ -16,10 +16,10 @@ SECTIONS
+ 	.init start_address : AT(start_address) ALIGN(4096)
+ 	{
+ 	KEEP(*(.init .init.*))
+-		bsp/start.o(.text .text.*)
+-		bsp/start.o(.rodata .rodata.*)
+-		bsp/start.o(.data .data.*)
+-		bsp/start.o(.bss .bss.*)
++		*/start*.o(.text .text.*)
++		*/start*.o(.rodata .rodata.*)
++		*/start*.o(.data .data.*)
++		*/start*.o(.bss .bss.*)
+ 	} : init
+ 	. = . + 0x1000;
+ 	_svc_start_stack = .;
+diff --git a/kernel/hardware/arm/versatilepb/mkos.lds.qemu.S b/kernel/hardware/arm/versatilepb/mkos.lds.qemu.S
+index 30db1b7a..1ed52ee0 100644
+--- a/kernel/hardware/arm/versatilepb/mkos.lds.qemu.S
++++ b/kernel/hardware/arm/versatilepb/mkos.lds.qemu.S
+@@ -16,10 +16,10 @@ SECTIONS
+ 	.init start_address : AT(start_address) ALIGN(4096)
+ 	{
+ 	KEEP(*(.init .init.*))
+-		bsp/start.o(.text .text.*)
+-		bsp/start.o(.rodata .rodata.*)
+-		bsp/start.o(.data .data.*)
+-		bsp/start.o(.bss .bss.*)
++		*/start*.o(.text .text.*)
++		*/start*.o(.rodata .rodata.*)
++		*/start*.o(.data .data.*)
++		*/start*.o(.bss .bss.*)
+ 	} : init
+ 	. = . + 0x1000;
+ 	_svc_start_stack = .;
+diff --git a/kernel/hardware/arm/versatilepb/xmake.lua b/kernel/hardware/arm/versatilepb/xmake.lua
+new file mode 100644
+index 00000000..b789b149
+--- /dev/null
++++ b/kernel/hardware/arm/versatilepb/xmake.lua
+@@ -0,0 +1,45 @@
++
++local target_dir = os.scriptdir().."/"
++
++function build()
++    set_toolchain("arm")
++    set_kind("binary")
++
++    add_kernel_src()
++    add_arch_src("arm", "v6")
++
++    add_defines("KCONSOLE", "ARM_V6")
++
++    add_files(
++        "bsp/*.c"
++    )
++    add_cflags("-mcpu=arm926ej-s")
++    add_asflags("-mcpu=arm926ej-s")
++end
++
++target("versatilepb")
++    build()
++
++    add_ldflags("-T "..os.scriptdir().."/mkos.lds.S",  {force = true})
++
++    after_build(function (target)
++        os.run("arm-none-eabi-objcopy -O binary "..target:targetfile().." "..target_dir.."kernel7.img")
++    end)
++target_end()
++
++target("versatilepb.qemu")
++    build()
++
++    add_ldflags("-T "..os.scriptdir().."/mkos.lds.qemu.S",  {force = true})
++
++    after_build(function (target)
++        os.run("arm-none-eabi-objcopy -O binary "..target:targetfile().." "..target_dir.."kernel7.qemu.img")
++    end)
++
++    on_run(function (target)
++        os.run("qemu-system-arm -cpu arm926 -M versatilepb -m 256M -serial mon:stdio -sd system/root.ext2 -kernel "..target_dir.."kernel7.qemu.img")
++    end)
++target_end()
++
++
++
+diff --git a/kernel/hardware/riscv/arch/common/src/sbi_ipi.c b/kernel/hardware/riscv/arch/common/src/sbi_ipi.c
+deleted file mode 100644
+index d02e2b4c..00000000
+--- a/kernel/hardware/riscv/arch/common/src/sbi_ipi.c
++++ /dev/null
+@@ -1,42 +0,0 @@
+-// SPDX-License-Identifier: GPL-2.0+
+-/*
+- * Copyright (C) 2019 Fraunhofer AISEC,
+- * Lukas Auer <lukas.auer@aisec.fraunhofer.de>
+- */
+-
+-#include <common.h>
+-#include <asm/encoding.h>
+-#include <asm/sbi.h>
+-
+-int riscv_init_ipi(void)
+-{
+-	return 0;
+-}
+-
+-int riscv_send_ipi(int hart)
+-{
+-	ulong mask;
+-
+-	mask = 1UL << hart;
+-	sbi_send_ipi(&mask);
+-
+-	return 0;
+-}
+-
+-int riscv_clear_ipi(int hart)
+-{
+-	csr_clear(CSR_SIP, SIP_SSIP);
+-
+-	return 0;
+-}
+-
+-int riscv_get_ipi(int hart, int *pending)
+-{
+-	/*
+-	 * The SBI does not support reading the IPI status. We always return 0
+-	 * to indicate that no IPI is pending.
+-	 */
+-	*pending = 0;
+-
+-	return 0;
+-}
+diff --git a/kernel/hardware/riscv/arch/rv64/dummy.c b/kernel/hardware/riscv/arch/rv64/dummy.c
+new file mode 100644
+index 00000000..e69de29b
+diff --git a/kernel/hardware/riscv/nezha/config.mk b/kernel/hardware/riscv/nezha/config.mk
+index 79123646..b7bb6294 100644
+--- a/kernel/hardware/riscv/nezha/config.mk
++++ b/kernel/hardware/riscv/nezha/config.mk
+@@ -1,7 +1,7 @@
+ CPU = rv64
+ QEMU_FLAGS = -cpu $(CPU) -nographic -M virt -smp 1 -m 2G -bios default -serial mon:stdio
+ QEMU_FLAGS += -device loader,file=../../../../system/root.ext2,addr=0xe0000000 
+-ARCH_CFLAGS = -I ../arch/common/include  
++ARCH_CFLAGS = -I ../arch/common/include -march=rv64g_zifencei 
+ ARCH=rv64
+ 
+ #----enable DPI display---
+diff --git a/kernel/hardware/riscv/nezha/mkos.lds.S b/kernel/hardware/riscv/nezha/mkos.lds.S
+index 29badc28..fa6c8951 100644
+--- a/kernel/hardware/riscv/nezha/mkos.lds.S
++++ b/kernel/hardware/riscv/nezha/mkos.lds.S
+@@ -15,10 +15,10 @@ SECTIONS
+ 	.init start_address : AT(start_address) ALIGN(4096)
+ 	{
+ 	KEEP(*(.init .init.*))
+-		bsp/start.o(.text .text.*)
+-		bsp/start.o(.rodata .rodata.*)
+-		bsp/start.o(.data .data.*)
+-		bsp/start.o(.bss .bss.*)
++		*/start*.o(.text .text.*)
++		*/start*.o(.rodata .rodata.*)
++		*/start*.o(.data .data.*)
++		*/start*.o(.bss .bss.*)
+ 	} : init
+ 	. = . + 0x2000;
+ 	_svc_start_stack = .;
+diff --git a/kernel/hardware/riscv/nezha/mkos.lds.qemu.S b/kernel/hardware/riscv/nezha/mkos.lds.qemu.S
+index 1ffc1509..e3ef066a 100644
+--- a/kernel/hardware/riscv/nezha/mkos.lds.qemu.S
++++ b/kernel/hardware/riscv/nezha/mkos.lds.qemu.S
+@@ -15,10 +15,10 @@ SECTIONS
+ 	.init start_address : AT(start_address) ALIGN(4096)
+ 	{
+ 	KEEP(*(.init .init.*))
+-		bsp/start.o(.text .text.*)
+-		bsp/start.o(.rodata .rodata.*)
+-		bsp/start.o(.data .data.*)
+-		bsp/start.o(.bss .bss.*)
++		*/start*.o(.text .text.*)
++		*/start*.o(.rodata .rodata.*)
++		*/start*.o(.data .data.*)
++		*/start*.o(.bss .bss.*)
+ 	} : init
+ 	. = . + 0x2000;
+ 	_svc_start_stack = .;
+diff --git a/kernel/hardware/riscv/nezha/xmake.lua b/kernel/hardware/riscv/nezha/xmake.lua
+new file mode 100644
+index 00000000..16870fd9
+--- /dev/null
++++ b/kernel/hardware/riscv/nezha/xmake.lua
+@@ -0,0 +1,45 @@
++
++local target_dir = os.scriptdir().."/"
++
++function build()
++    set_toolchain("riscv")
++    set_kind("binary")
++
++    add_kernel_src()
++    add_arch_src("riscv", "rv64")
++
++    add_files(
++        "bsp/*.c"
++    )
++    
++    add_defines("C906_EXTEND")
++    add_cflags("-march=rv64g_zifencei")
++    add_asflags("-march=rv64g_zifencei")
++end
++
++target("nezha")
++    build()
++
++    add_ldflags("-T "..os.scriptdir().."/mkos.lds.S",  {force = true})
++
++    after_build(function (target)
++        os.run("riscv64-unknown-elf-objcopy -O binary "..target:targetfile().." "..target_dir.."kernel7.img")
++    end)
++target_end()
++
++target("enzha.qemu")
++    build()
++
++    add_ldflags("-T "..os.scriptdir().."/mkos.lds.qemu.S",  {force = true})
++
++    after_build(function (target)
++        os.run("riscv64-unknown-elf-objcopy -O binary "..target:targetfile().." "..target_dir.."kernel7.qemu.img")
++    end)
++
++    on_run(function (target)
++        os.run("qemu-system-riscv64 -cpu rv64 -nographic -M virt -smp 1 -m 2G -bios default -serial mon:stdio -device loader,file=system/root.ext2,addr=0xe0000000 -kernel "..target_dir.."kernel7.qemu.img")
++    end)
++target_end()
++
++
++
+diff --git a/kernel/hardware/riscv/virt/mkos.lds.S b/kernel/hardware/riscv/virt/mkos.lds.S
+index 5b8ba05a..1d12a239 100644
+--- a/kernel/hardware/riscv/virt/mkos.lds.S
++++ b/kernel/hardware/riscv/virt/mkos.lds.S
+@@ -15,10 +15,10 @@ SECTIONS
+ 	.init start_address : AT(start_address) ALIGN(4096)
+ 	{
+ 	KEEP(*(.init .init.*))
+-		bsp/start.o(.text .text.*)
+-		bsp/start.o(.rodata .rodata.*)
+-		bsp/start.o(.data .data.*)
+-		bsp/start.o(.bss .bss.*)
++		*/start*.o(.text .text.*)
++		*/start*.o(.rodata .rodata.*)
++		*/start*.o(.data .data.*)
++		*/start*.o(.bss .bss.*)
+ 	} : init
+ 	. = . + 0x2000;
+ 	_svc_start_stack = .;
+diff --git a/kernel/hardware/riscv/virt/mkos.lds.qemu.S b/kernel/hardware/riscv/virt/mkos.lds.qemu.S
+index 1ffc1509..e3ef066a 100644
+--- a/kernel/hardware/riscv/virt/mkos.lds.qemu.S
++++ b/kernel/hardware/riscv/virt/mkos.lds.qemu.S
+@@ -15,10 +15,10 @@ SECTIONS
+ 	.init start_address : AT(start_address) ALIGN(4096)
+ 	{
+ 	KEEP(*(.init .init.*))
+-		bsp/start.o(.text .text.*)
+-		bsp/start.o(.rodata .rodata.*)
+-		bsp/start.o(.data .data.*)
+-		bsp/start.o(.bss .bss.*)
++		*/start*.o(.text .text.*)
++		*/start*.o(.rodata .rodata.*)
++		*/start*.o(.data .data.*)
++		*/start*.o(.bss .bss.*)
+ 	} : init
+ 	. = . + 0x2000;
+ 	_svc_start_stack = .;
+diff --git a/kernel/hardware/riscv/virt/xmake.lua b/kernel/hardware/riscv/virt/xmake.lua
+new file mode 100644
+index 00000000..14f13cbe
+--- /dev/null
++++ b/kernel/hardware/riscv/virt/xmake.lua
+@@ -0,0 +1,44 @@
++
++local target_dir = os.scriptdir().."/"
++
++function build()
++    set_toolchain("riscv")
++    set_kind("binary")
++
++    add_kernel_src()
++    add_arch_src("riscv", "rv64")
++
++    add_files(
++        "bsp/*.c"
++    )
++    
++    add_cflags("-march=rv64g_zifencei") 
++    add_asflags("-march=rv64g_zifencei") 
++end
++
++target("virt")
++    build()
++
++    add_ldflags("-T "..os.scriptdir().."/mkos.lds.S",  {force = true})
++
++    after_build(function (target)
++        os.run("riscv64-unknown-elf-objcopy -O binary "..target:targetfile().." "..target_dir.."kernel7.img")
++    end)
++target_end()
++
++target("virt.qemu")
++    build()
++
++    add_ldflags("-T "..os.scriptdir().."/mkos.lds.qemu.S",  {force = true})
++
++    after_build(function (target)
++        os.run("riscv64-unknown-elf-objcopy -O binary "..target:targetfile().." "..target_dir.."kernel7.qemu.img")
++    end)
++
++    on_run(function (target)
++        os.run("qemu-system-riscv64 -cpu rv64 -nographic -M virt -smp 1 -m 2G -bios default -serial mon:stdio -device loader,file=system/root.ext2,addr=0xe0000000 -kernel "..target_dir.."kernel7.qemu.img")
++    end)
++target_end()
++
++
++
+diff --git a/kernel/loadinit/sd/ext2read.c b/kernel/loadinit/sd/ext2read.c
+index 23298dd0..27369838 100644
+--- a/kernel/loadinit/sd/ext2read.c
++++ b/kernel/loadinit/sd/ext2read.c
+@@ -1,10 +1,10 @@
+-#include <ext2head.h>
+-#include <ext2read.h>
++#include "ext2head.h"
++#include "ext2read.h"
+ #include <kstring.h>
+ #include <mm/kmalloc.h>
+ #include <dev/sd.h>
+ #include <stddef.h>
+-#include <partition.h>
++#include "partition.h"
+ 
+ #define EXT2_BLOCK_SIZE 1024
+ #define SECTOR_SIZE     512
+diff --git a/kernel/loadinit/sd/ext2read.h b/kernel/loadinit/sd/ext2read.h
+index 5c10705e..a94ae609 100644
+--- a/kernel/loadinit/sd/ext2read.h
++++ b/kernel/loadinit/sd/ext2read.h
+@@ -2,7 +2,7 @@
+ #define EXT2_FS_READ_H
+ 
+ #include <stdint.h>
+-#include <partition.h>
++#include "partition.h"
+ 
+ void* sd_read_ext2(const char* fname, int32_t* sz); 
+ 
+diff --git a/kernel/loadinit/sd/loadinit.c b/kernel/loadinit/sd/loadinit.c
+index 33b9a0bb..6871b3b0 100644
+--- a/kernel/loadinit/sd/loadinit.c
++++ b/kernel/loadinit/sd/loadinit.c
+@@ -1,4 +1,4 @@
+-#include <ext2read.h>
++#include "ext2read.h"
+ #include <stddef.h>
+ #include <kprintf.h>
+ #include <kernel/proc.h>
+diff --git a/kernel/xmake.lua b/kernel/xmake.lua
+new file mode 100644
+index 00000000..5019b5d0
+--- /dev/null
++++ b/kernel/xmake.lua
+@@ -0,0 +1,71 @@
++local kernel_dir = os.scriptdir().."/"
++
++function set_toolchain(arch)
++    if arch == "riscv" then
++        set_toolchains("riscv64-unknown-elf")
++        add_cflags("-mcmodel=medany -fno-optimize-sibling-calls -mstrict-align  -fpie -fno-stack-protector")
++    else
++        set_toolchains("arm-none-eabi")
++        add_cflags("-msoft-float -mapcs-frame -std=c99")
++    end
++        
++    add_cflags(
++        "-Wall -Wextra -fPIC -pedantic",
++        "-Wstrict-prototypes",
++        "-fno-builtin-printf",
++        "-fno-builtin-strcpy",
++        "-Wno-overlength-strings",
++        "-fno-builtin-exit",
++        "-fno-builtin-stdio",
++        "-fno-builtin-memset",
++        "-fno-builtin-memcpy",
++        "-fno-builtin-strchr",
++        "-fno-builtin-strcmp",
++        "-fno-builtin-strlen",
++        "-fno-builtin-strncpy",
++        "-fno-builtin-strncmp"
++    )
++
++end
++
++function add_kernel_src(arch)
++    add_includedirs(
++        kernel_dir.."dev/include",
++        kernel_dir.."kernel/include",
++        kernel_dir.."lib/include",
++        kernel_dir.."lib/graph/include",
++        kernel_dir.."lib/console/include"
++    )
++    add_files(
++       kernel_dir.."kernel/**.c",
++       kernel_dir.."lib/**.c", 
++       kernel_dir.."loadinit/**.c"
++    )
++end
++
++
++function add_arch_src(arch, v)
++    add_includedirs(
++        kernel_dir.."hardware/"..arch.."/arch/common/include"
++    )
++
++    add_files(
++        kernel_dir.."hardware/"..arch.."/arch/common/src/*.c",
++        kernel_dir.."hardware/"..arch.."/arch/common/src/*.S",
++        kernel_dir.."hardware/"..arch.."/arch/"..v.."/*.c",
++        kernel_dir.."hardware/"..arch.."/arch/"..v.."/*.S"
++    )
++end
++
++function object_copy(src, dst)
++
++end
++
++includes("hardware/arm/miyoo/xmake.lua")
++includes("hardware/arm/rk3128/xmake.lua")
++includes("hardware/arm/versatilepb/xmake.lua")
++includes("hardware/arm/raspi/pi1/xmake.lua")
++includes("hardware/arm/raspi/pi2.3/xmake.lua")
++includes("hardware/arm/raspi/pi4/xmake.lua")
++includes("hardware/riscv/virt/xmake.lua")
++includes("hardware/riscv/nezha/xmake.lua")
+diff --git a/xmake.lua b/xmake.lua
+new file mode 100644
+index 00000000..92aee3b9
+--- /dev/null
++++ b/xmake.lua
+@@ -0,0 +1,34 @@
++base_dir = os.scriptdir().."/"
++
++toolchain("arm-none-eabi")
++    -- mark as standalone toolchain
++    set_kind("standalone")
++
++    -- set toolset
++    set_toolset("cc", "arm-none-eabi-gcc")
++    set_toolset("cxx","arm-none-eabi-c++")
++    set_toolset("ld", "arm-none-eabi-ld")
++    set_toolset("ar", "arm-none-eabi-ar")
++    set_toolset("ex", "arm-none-eabi-ar")
++    set_toolset("strip", "arm-none-eabi-strip")
++    set_toolset("as", "arm-none-eabi-gcc")
++    set_toolset("objcopy", "arm-none-eabi-objcopy")
++toolchain_end()
++
++toolchain("riscv64-unknown-elf")
++    -- mark as standalone toolchain
++    set_kind("standalone")
++
++    -- set toolset
++    set_toolset("cc", "riscv64-unknown-elf-gcc")
++    set_toolset("cxx","riscv64-unknown-elf-c++")
++    set_toolset("ld", "riscv64-unknown-elf-ld")
++    set_toolset("ar", "riscv64-unknown-elf--ar")
++    set_toolset("ex", "riscv64-unknown-elf-ar")
++    set_toolset("strip", "riscv64-unknown-elf-strip")
++    set_toolset("as", "riscv64-unknown-elf-gcc")
++    set_toolset("objcopy", "riscv64-unknown-elf-objcopy")
++toolchain_end()
++
++
++includes("kernel/xmake.lua")
+-- 
+2.40.1
+

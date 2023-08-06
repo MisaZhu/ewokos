@@ -13,3 +13,5 @@ system/tmp
 .vscode/dryrun.log
 .vscode/targets.log
 system/make.rule
+build
+.xmake

@@ -1,6 +1,7 @@
 #include <kernel/irq.h>
 #include <kernel/kernel.h>
 #include <kernel/hw_info.h>
+#include <kernel/core.h>
 #include "timer_arch.h"
 #include <gic.h>
 
