@@ -42,7 +42,8 @@ int32_t proc_ipc_do_task(context_t* ctx, proc_t* serv_proc, uint32_t core) {
 	proc_save_state(serv_proc, &serv_proc->space->ipc_server.saved_state);
 	serv_proc->space->ipc_server.do_switch = true;
 
-	proc_switch_multi_core(ctx, serv_proc, core);
+	if((ipc->call_id & IPC_LAZY) == 0)
+		proc_switch_multi_core(ctx, serv_proc, core);
 	return 0;
 }
 
