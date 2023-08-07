@@ -126,8 +126,8 @@ void xwin_close(xwin_t* xwin) {
 }
 
 static bool ready_to_paint(xwin_t* xwin) {
-	return true;
-	/*uint32_t i = 1000;
+	//return true;
+	uint32_t i = 1000;
 	proto_t res;	
 	PF->init(&res);
 	bool ready = false;
@@ -143,7 +143,6 @@ static bool ready_to_paint(xwin_t* xwin) {
 	}
 	PF->clear(&res);
 	return ready;
-	*/
 }
 
 void xwin_repaint(xwin_t* xwin, bool sync) {
