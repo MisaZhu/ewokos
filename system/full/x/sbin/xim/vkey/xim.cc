@@ -108,8 +108,8 @@ protected:
 			}
 
 			char c = keytable[keytableType][keySelect];
-			keySelect = -1;
 			doKeyIn(c);	
+			keySelect = -1;
 			repaint(true);
 		}
 	}
