@@ -47,7 +47,7 @@ protected:
 			keytableType = 1;
 		else
 			keytableType = 0;
-		repaint(true);
+		repaint();
 	}
 
 	void changeMode(bool hide) {
@@ -92,12 +92,12 @@ protected:
 
 		if(ev->state == XEVT_MOUSE_DOWN) {
 			keySelect = at;
-			repaint(true);
+			repaint();
 		}
 		else if(ev->state == XEVT_MOUSE_DRAG) {
 			if(keySelect >= 0 && keySelect != at) {
 				keySelect = at;
-				repaint(true);
+				repaint();
 			}
 		}
 		else if(ev->state == XEVT_MOUSE_UP) {
@@ -110,7 +110,7 @@ protected:
 			char c = keytable[keytableType][keySelect];
 			doKeyIn(c);	
 			keySelect = -1;
-			repaint(true);
+			repaint();
 		}
 	}
 
@@ -157,7 +157,7 @@ protected:
 				else {
 					doKeyIn('\b');
 					//changeMode(true);
-					repaint(true);
+					repaint();
 				}
 				return;
 			}
@@ -169,7 +169,7 @@ protected:
 				else {
 					c = keytable[keytableType][keySelect];
 					doKeyIn(c);
-					repaint(true);
+					repaint();
 					return;
 				}
 			}
@@ -179,7 +179,7 @@ protected:
 			keySelect = 0;
 		else if(keySelect >= keyNum)
 			keySelect = keyNum - 1;
-		repaint(true);
+		repaint();
 	}
 
 	void onEvent(xevent_t* ev) {

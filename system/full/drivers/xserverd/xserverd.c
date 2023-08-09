@@ -733,23 +733,6 @@ static int xwin_update_info(int fd, int from_pid, proto_t* in, proto_t* out, x_t
 	return 0;
 }
 
-static int xwin_is_ready(int fd, int from_pid, x_t* x, proto_t* out) {
-	x_display_t* display = &x->displays[x->current_display];
-	if(!display->need_repaint) {
-		PF->addi(out, 1);
-		return 0;
-	}
-
-	xview_t* view = x_get_view(x, fd, from_pid);
-	if(view == NULL)
-		return -1;
-	if(!view->dirty)
-		PF->addi(out, 1);
-	else
-		PF->addi(out, 0);
-	return 0;
-}
-
 static int get_xwm_workspace(x_t* x, int style, grect_t* rin, grect_t* rout) {
 	proto_t in, out;
 	PF->init(&out);
@@ -796,9 +779,6 @@ static int xserver_fcntl(int fd, int from_pid, fsinfo_t* info,
 	}
 	else if(cmd == X_CNTL_WORKSPACE) {
 		res = x_workspace(x, in, out);
-	}
-	else if(cmd == X_CNTL_IS_READY) {
-		res = xwin_is_ready(fd, from_pid, x, out);
 	}
 	else if(cmd == X_CNTL_CALL_XIM) {
 		res = xwin_call_xim(x);

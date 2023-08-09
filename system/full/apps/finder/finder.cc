@@ -48,7 +48,7 @@ class Finder: public XWin {
 			strcpy(cwd, "/");
 
 		readDir(cwd);
-		repaint(true);
+		repaint();
 	}
 
 	bool check(const char* fname, const char* ext) {
@@ -93,7 +93,7 @@ class Finder: public XWin {
 
 		if(it->d_type == DT_DIR) {
 			readDir(fname);
-			repaint(true);
+			repaint();
 			return;
 		}
 		else 
@@ -170,7 +170,7 @@ protected:
 			mouse_last_y = ev->value.mouse.y;
 			int at = ev->value.mouse.winy / itemSize;
 			selected = at-1 + start;
-			repaint(true);
+			repaint();
 			return;
 		}
 		else if(ev->state == XEVT_MOUSE_DRAG) {
@@ -183,7 +183,7 @@ protected:
 					start = 0;
 				else if(start >= nums)
 					start = nums - 1;
-				repaint(true);
+				repaint();
 			}
 		}
 		else if(ev->state == XEVT_MOUSE_CLICK) {
@@ -237,7 +237,7 @@ protected:
 		}
 		else if((selected - start) >= lines) 
 			start += lines - 1;
-		repaint(true);
+		repaint();
 	}
 
 	void onEvent(xevent_t* ev) {
