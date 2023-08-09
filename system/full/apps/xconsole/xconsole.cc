@@ -149,7 +149,7 @@ static void loop(void* p) {
 	if(size > 0) {
 		console->put(buf, size);
 		console->rollEnd();
-		console->repaint(true);
+		console->repaint(false);
 		return;
 	}
 	if(errno != EAGAIN) 
