@@ -79,10 +79,7 @@ target("rootfs")
     end)
 
     on_build(function (target)
-        os.run("rm -f %s/root.ext2", system_dir)
-        os.run("dd if=/dev/null of=%s/root.ext2 bs=1 count=1 seek=256M", system_dir)
-        os.run("mke2fs  -b 1024 -I 128  %s/root.ext2", system_dir)
-        os.run("%s../script/mkrootfs %s/build/rootfs %s/root.ext2", system_dir, system_dir, system_dir)
+        os.iorun("%s../script/mkrootfs %s/build/rootfs %s/root.ext2", system_dir, system_dir, system_dir)
     end)
 
     -- baseic system
