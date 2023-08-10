@@ -57,15 +57,12 @@ function add_arch_src(arch, v)
     )
 end
 
-function object_copy(src, dst)
-
+if is_plat("raspi2", "raspi3") then
+    includes("hardware/arm/raspi/pi2.3/xmake.lua")
+elseif is_plat("raspi1") then
+    includes("hardware/arm/raspi/pi1/xmake.lua")
+elseif is_plat("raspi4") then
+    includes("hardware/arm/raspi/pi4/xmake.lua")
+elseif is_plat("miyoo") then
+    includes("hardware/arm/miyoo/xmake.lua")
 end
-
-includes("hardware/arm/miyoo/xmake.lua")
-includes("hardware/arm/rk3128/xmake.lua")
-includes("hardware/arm/versatilepb/xmake.lua")
-includes("hardware/arm/raspi/pi1/xmake.lua")
-includes("hardware/arm/raspi/pi2.3/xmake.lua")
-includes("hardware/arm/raspi/pi4/xmake.lua")
-includes("hardware/riscv/virt/xmake.lua")
-includes("hardware/riscv/nezha/xmake.lua")

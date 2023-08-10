@@ -17,7 +17,7 @@ function build()
     add_asflags("-march=rv64g_zifencei")
 end
 
-target("nezha")
+target("kernel")
     build()
 
     add_ldflags("-T "..os.scriptdir().."/mkos.lds.S",  {force = true})
@@ -27,7 +27,7 @@ target("nezha")
     end)
 target_end()
 
-target("enzha.qemu")
+target("qemu")
     build()
 
     add_ldflags("-T "..os.scriptdir().."/mkos.lds.qemu.S",  {force = true})

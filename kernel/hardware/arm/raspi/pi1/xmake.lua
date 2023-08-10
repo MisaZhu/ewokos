@@ -23,7 +23,7 @@ function build()
      add_asflags("-mcpu=arm1176jzf-s")
 end
 
-target("pi1")
+target("kernel")
     build()
 
     add_ldflags("-T "..os.scriptdir().."/mkos.lds.S",  {force = true})
@@ -33,7 +33,7 @@ target("pi1")
     end)
 target_end()
 
-target("pi1.qemu")
+target("qemu")
     build()
 
     add_ldflags("-T "..os.scriptdir().."/mkos.lds.qemu.S",  {force = true})

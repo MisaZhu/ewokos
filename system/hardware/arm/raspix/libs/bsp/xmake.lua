@@ -1,0 +1,6 @@
+target("libbsp")
+    set_type("library")
+    add_deps("libarch_bcm283x")
+    add_files("**.c")        
+    add_includedirs("include", {public=true})
+target_end()

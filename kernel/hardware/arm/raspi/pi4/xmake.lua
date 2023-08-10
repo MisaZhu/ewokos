@@ -23,7 +23,7 @@ function build()
      add_asflags("-march=armv7ve")
 end
 
-target("pi4")
+target("kernel")
     build()
 
     add_ldflags("-T "..os.scriptdir().."/mkos.lds.S",  {force = true})
@@ -33,7 +33,7 @@ target("pi4")
     end)
 target_end()
 
-target("pi4.qemu")
+target("qemu")
     build()
 
     add_ldflags("-T "..os.scriptdir().."/mkos.lds.qemu.S",  {force = true})

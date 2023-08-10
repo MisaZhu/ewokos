@@ -1,0 +1,6 @@
+target("libttf")
+    set_type("library")
+    add_deps("libgraph","libhash")
+    add_files("**.c")        
+    add_includedirs("include", {public = true})
+target_end()

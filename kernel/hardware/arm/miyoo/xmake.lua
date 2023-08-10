@@ -17,9 +17,8 @@ function build()
      add_asflags("-march=armv7ve")
 end
 
-target("miyoo")
+target("kernel")
     build()
-
     add_ldflags("-T "..os.scriptdir().."/mkos.lds.S",  {force = true})
 
     after_build(function (target)
@@ -27,7 +26,7 @@ target("miyoo")
     end)
 target_end()
 
-target("miyoo.qemu")
+target("qemu")
     build()
 
     add_ldflags("-T "..os.scriptdir().."/mkos.lds.qemu.S",  {force = true})
@@ -39,6 +38,8 @@ target("miyoo.qemu")
     on_run(function (target)
         os.run("qemu-system-arm -cpu cortex-a7 -M raspi2b -m 1024M -serial mon:stdio -sd system/root.ext2 -kernel "..target_dir.."kernel7.qemu.img")
     end)
+
+    add_deps("rootfs")
 target_end()
 
 

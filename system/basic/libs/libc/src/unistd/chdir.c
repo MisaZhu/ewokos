@@ -2,6 +2,7 @@
 #include <unistd.h>
 #include <sys/syscall.h>
 #include <sys/ipc.h>
+#include <sys/proc.h>
 #include <sys/core.h>
 
 int chdir(const char* path) {

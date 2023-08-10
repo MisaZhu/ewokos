@@ -1,4 +1,5 @@
 base_dir = os.scriptdir().."/"
+set_defaultplat("miyoo")
 
 toolchain("arm-none-eabi")
     -- mark as standalone toolchain
@@ -30,5 +31,5 @@ toolchain("riscv64-unknown-elf")
     set_toolset("objcopy", "riscv64-unknown-elf-objcopy")
 toolchain_end()
 
-
 includes("kernel/xmake.lua")
+includes("system/xmake.lua")

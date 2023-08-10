@@ -1,0 +1,6 @@
+target("ttyjoy")
+    set_type("application")
+    add_files("*.c")        
+    add_deps("libx++")
+    install_dir("bin/x")
+target_end()
