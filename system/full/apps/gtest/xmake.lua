@@ -1,0 +1,6 @@
+target("gtest")
+    set_type("application")
+    add_deps("libx", "libx++", "libupng", "libcxx")
+    add_files("**.cc")        
+    install_dir("apps/gtest")
+target_end()

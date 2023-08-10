@@ -1,0 +1,6 @@
+target("libgraph")
+    set_type("library")
+    add_files("**.c")        
+    add_deps("libsoftfloat", "libewokc")
+    add_includedirs("include",  {public = true})
+target_end()

@@ -90,6 +90,35 @@
 	"make gdb":
 	  debug EwokOS (debug client-mode).
 
+.xmake build system
+
+    "xmake":
+        build kernel && system
+
+    "xmake b xxx":
+        only build package xxx
+        package list:
+           kernel
+           system
+           rootfs
+           ...
+
+    "xmake f -p xxx"
+        switch platform to "xxx", defalut is miyoo
+        platform list:
+            miyoo
+            raspi1
+            raspi2
+            raspi3
+            raspi4
+            
+      "xmake c"
+         clean project
+
+      "xmake run qemu"
+         run ewokos in qemu
+         
+
 .commands 
 	
 	Most of commands are in 'rootfs/sbin' directory, like:
@@ -97,3 +126,4 @@
 
 .Source code read-guide
 	Tips: Don't fall in love with assembly too much;).
+

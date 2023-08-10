@@ -17,7 +17,7 @@ function build()
     add_asflags("-mcpu=arm926ej-s")
 end
 
-target("versatilepb")
+target("kernel")
     build()
 
     add_ldflags("-T "..os.scriptdir().."/mkos.lds.S",  {force = true})
@@ -27,7 +27,7 @@ target("versatilepb")
     end)
 target_end()
 
-target("versatilepb.qemu")
+target("qemu")
     build()
 
     add_ldflags("-T "..os.scriptdir().."/mkos.lds.qemu.S",  {force = true})

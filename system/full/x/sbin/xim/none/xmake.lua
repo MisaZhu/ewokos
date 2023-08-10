@@ -1,0 +1,6 @@
+target("xim_none")
+    set_type("application")
+    add_files("**.cc")        
+    add_deps("libx")
+    install_dir("sbin/x")
+target_end()
