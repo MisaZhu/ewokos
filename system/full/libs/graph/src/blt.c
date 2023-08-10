@@ -37,7 +37,7 @@ static int32_t grect_insect(grect_t* src, grect_t* r) {
 /*will change the value of sr, dr.
 	return 0 for none-insection-area.
 */
-int32_t graph_insect(graph_t* g, grect_t* r) {
+inline int32_t graph_insect(graph_t* g, grect_t* r) {
 	if(g->clip.w == 0 || g->clip.h == 0) {
 		grect_t gr = {0, 0, g->w, g->h};
 		return grect_insect(&gr, r);
@@ -96,7 +96,7 @@ void graph_fill(graph_t* g, int32_t x, int32_t y, int32_t w, int32_t h, uint32_t
 	if(!graph_insect(g, &r))
 		return;
 
-	int32_t ex, ey;
+	register int32_t ex, ey;
 	y = r.y;
 	ex = r.x + r.w;
 	ey = r.y + r.h;
@@ -110,10 +110,10 @@ void graph_fill(graph_t* g, int32_t x, int32_t y, int32_t w, int32_t h, uint32_t
 		}
 	}
 	else {
-		uint8_t ca = (color >> 24) & 0xff;
-		uint8_t cr = (color >> 16) & 0xff;
-		uint8_t cg = (color >> 8) & 0xff;
-		uint8_t cb = (color) & 0xff;
+		register uint8_t ca = (color >> 24) & 0xff;
+		register uint8_t cr = (color >> 16) & 0xff;
+		register uint8_t cg = (color >> 8) & 0xff;
+		register uint8_t cb = (color) & 0xff;
 		for(; y < ey; y++) {
 			x = r.x;
 			for(; x < ex; x++) {
@@ -142,7 +142,7 @@ inline void graph_blt(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_t 
 	if(!insect(src, &sr, dst, &dr))
 		return;
 
-	register int32_t ex, ey;
+	register int32_t ex, ey, offset_d, offset_r;
 	sy = sr.y;
 	dy = dr.y;
 	ex = sr.x + sr.w;
@@ -151,8 +151,10 @@ inline void graph_blt(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_t 
 	for(; sy < ey; sy++, dy++) {
 		sx = sr.x;
 		dx = dr.x;
+		offset_d = dy * dst->w;
+		offset_r = sy * src->w;
 		for(; sx < ex; sx++, dx++) {
-			dst->buffer[dy * dst->w + dx] = src->buffer[sy * src->w + sx];
+			dst->buffer[offset_d + dx] = src->buffer[offset_r + sx];
 		}
 	}
 }
@@ -176,8 +178,9 @@ inline void graph_blt_alpha(graph_t* src, int32_t sx, int32_t sy, int32_t sw, in
 	for(; sy < ey; sy++, dy++) {
 		register int32_t sx = sr.x;
 		register int32_t dx = dr.x;
+		register int32_t offset = sy * src->w;
 		for(; sx < ex; sx++, dx++) {
-			register uint32_t color = src->buffer[sy * src->w + sx];
+			register uint32_t color = src->buffer[offset + sx];
 			graph_pixel_argb(dst, dx, dy,
 					//(((color >> 24) & 0xff) * alpha)/0xff,
 					(((color >> 24) & 0xff) * alpha)>>8,
@@ -188,7 +191,7 @@ inline void graph_blt_alpha(graph_t* src, int32_t sx, int32_t sy, int32_t sw, in
 	}
 }
 
-bool check_in_rect(int32_t x, int32_t y, grect_t* rect) {
+inline bool check_in_rect(int32_t x, int32_t y, grect_t* rect) {
 	if(x >= rect->x && x < (rect->x+rect->w) && 
 			y >= rect->y && y < (rect->y+rect->h))
 		return true;
