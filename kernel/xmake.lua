@@ -34,11 +34,9 @@ toolchain_end()
 
 function set_toolchain(arch)
     if arch == "riscv" then
-        set_plat("riscv")
         set_toolchains("riscv64-unknown-elf")
         add_cflags("-mcmodel=medany -fno-optimize-sibling-calls -mstrict-align  -fpie -fno-stack-protector")
     else
-        set_plat("arm")
         set_toolchains("arm-none-eabi")
         add_cflags("-msoft-float -mapcs-frame -std=c99")
     end
@@ -94,21 +92,21 @@ end
 function qemu(args, kernel)
     on_run(function (target)
         if is_plat("raspi1", "raspi2", "raspi3", "raspi2.3", "raspi4") then
-            os.run("qemu-system-arm %s -kernel %s -sd ../system/root.raspix.ext2", args, kernel)
+            os.run("qemu-system-arm %s -kernel %s -sd ../system/build/raspix/root.ext2", args, kernel)
         elseif is_plat("miyoo") then
-            os.run("qemu-system-arm %s -kernel %s -sd ../system/root.miyoo.ext2", args, kernel)
+            os.run("qemu-system-arm %s -kernel %s -sd ../system/build/miyoo/root.ext2", args, kernel)
         elseif is_plat("rk3128") then
-            os.run("qemu-system-arm %s -kernel %s -sd ../system/root.rk3128.ext2", args, kernel)
+            os.run("qemu-system-arm %s -kernel %s -sd ../system/build/rk3128/root.ext2", args, kernel)
          elseif is_plat("versatilepb") then
-            os.run("qemu-system-arm %s -kernel %s -sd ../system/root.versatilepb.ext2", args, kernel)
+            os.run("qemu-system-arm %s -kernel %s -sd ../system/build/versatilepb/root.ext2", args, kernel)
         elseif is_plat("nezha") then
-            os.run("qemu-system-riscv64 %s -kernel %s  -device loader,file=../system/root.nezha.ext2,addr=0xe0000000", args, kernel)
+            os.run("qemu-system-riscv64 %s -kernel %s  -device loader,file=../system/build/nezha/root.ext2,addr=0xe0000000", args, kernel)
         elseif is_plat("virt") then
-            os.run("qemu-system-riscv64 %s -kernel %s  -device loader,file=../system/root.virt.ext2,addr=0xe0000000", args, kernel)
+            os.run("qemu-system-riscv64 %s -kernel %s  -device loader,file=../system/build/virt/root.ext2,addr=0xe0000000", args, kernel)
         end
     end)
 end
-
+set_arch("")
 if is_plat("raspi2", "raspi3", "raspi2.3") then
     includes("hardware/arm/raspi/pi2.3/xmake.lua")
 elseif is_plat("raspi1") then
