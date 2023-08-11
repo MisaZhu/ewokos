@@ -111,7 +111,7 @@ function rootfs_common(image)
     set_type("phony")
 
     on_build(function (target)
-        os.iorun("%s/script/mkrootfs %s %s/../%s", system_dir, rootfs_dir, rootfs_dir, image)
+        os.iorun("%s/script/mkrootfs %s %s/../root.ext2", system_dir, rootfs_dir, rootfs_dir)
     end)
 
     -- baseic system
@@ -126,7 +126,7 @@ function rootfs_common(image)
 
     after_clean(function (target)
         os.rm(system_dir.."build/")
-        os.rm(rootfs_dir.."../"..image)
+        os.rm(rootfs_dir.."../root.ext2")
     end)
 end
 
@@ -172,13 +172,13 @@ includes("basic/**/xmake.lua")
 includes("full/**/xmake.lua")
 
 if is_plat("raspix","raspi1", "raspi2", "raspi3", "raspi4") then
-    set_arch("arm")
-    rootfs_dir =  os.scriptdir().."/build/raspix/arm/rootfs/" 
+    set_arch("")
+    rootfs_dir =  os.scriptdir().."/build/raspix/rootfs/" 
     includes("hardware/arm/raspix/xmake.lua")
     system_common()
 elseif is_plat("miyoo") then
-    set_arch("arm")
-    rootfs_dir =  os.scriptdir().."/build/miyoo/arm/rootfs/" 
+    set_arch("")
+    rootfs_dir =  os.scriptdir().."/build/miyoo/rootfs/" 
     includes("hardware/arm/miyoo/xmake.lua")
     system_common()
 end
