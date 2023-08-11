@@ -276,6 +276,7 @@ static inline void send_event(int32_t pid, xevent_t* e) {
 	PF->init(&in)->add(&in, e, sizeof(xevent_t));
 	ipc_call(pid, X_CMD_PUSH_EVENT, &in, NULL);
 	PF->clear(&in);
+	proc_wakeup(pid);
 }
 
 static void x_push_event(x_t* x, xview_t* view, xevent_t* e) {

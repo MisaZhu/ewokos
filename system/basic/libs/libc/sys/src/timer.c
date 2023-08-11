@@ -3,6 +3,10 @@
 #include <sys/interrupt.h>
 #include <sys/proto.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 static void _timer_handle(uint32_t intr, uint32_t data) {
 	(void)intr;
 	timer_handle_t handle = (timer_handle_t)data;
@@ -31,3 +35,7 @@ void timer_remove(uint32_t id) {
 	dev_cntl("/dev/timer", 1, &in, NULL);
 	PF->clear(&in);
 }
+
+#ifdef __cplusplus
+}
+#endif
