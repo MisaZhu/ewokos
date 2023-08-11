@@ -31,6 +31,12 @@ target("kernel")
     after_build(function (target)
         os.run("arm-none-eabi-objcopy -O binary "..target:targetfile().." "..target_dir.."kernel.img")
     end)
+
+    after_clean(function (target)
+        os.rm(target_dir.."kernel.img")
+    end)
+
+    on_run(function(target)end)
 target_end()
 
 target("qemu")
@@ -42,9 +48,11 @@ target("qemu")
         os.run("arm-none-eabi-objcopy -O binary "..target:targetfile().." "..target_dir.."kernel.qemu.img")
     end)
 
-    on_run(function (target)
-        os.run("qemu-system-arm -cpu arm1176 -M raspi0 -m 512M -serial mon:stdio -sd system/root.ext2 -kernel "..target_dir.."kernel.qemu.img")
+    after_clean(function (target)
+        os.rm(target_dir.."kernel.qemu.img")
     end)
+
+    qemu("-cpu arm1176 -M raspi0 -m 512M -serial mon:stdio", target_dir.."kernel.qemu.img")
 target_end()
 
 

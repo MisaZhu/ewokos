@@ -1,5 +1,38 @@
 local system_dir = os.scriptdir().."/"
+local rootfs_dir =  os.scriptdir().."/build/rootfs/"
+
 set_policy("check.auto_ignore_flags", false)
+set_defaultplat("miyoo")
+
+toolchain("arm-none-eabi")
+    -- mark as standalone toolchain
+    set_kind("standalone")
+
+    -- set toolset
+    set_toolset("cc", "arm-none-eabi-gcc")
+    set_toolset("cxx","arm-none-eabi-c++")
+    set_toolset("ld", "arm-none-eabi-ld")
+    set_toolset("ar", "arm-none-eabi-ar")
+    set_toolset("ex", "arm-none-eabi-ar")
+    set_toolset("strip", "arm-none-eabi-strip")
+    set_toolset("as", "arm-none-eabi-gcc")
+    set_toolset("objcopy", "arm-none-eabi-objcopy")
+toolchain_end()
+
+toolchain("riscv64-unknown-elf")
+    -- mark as standalone toolchain
+    set_kind("standalone")
+
+    -- set toolset
+    set_toolset("cc", "riscv64-unknown-elf-gcc")
+    set_toolset("cxx","riscv64-unknown-elf-c++")
+    set_toolset("ld", "riscv64-unknown-elf-ld")
+    set_toolset("ar", "riscv64-unknown-elf--ar")
+    set_toolset("ex", "riscv64-unknown-elf-ar")
+    set_toolset("strip", "riscv64-unknown-elf-strip")
+    set_toolset("as", "riscv64-unknown-elf-gcc")
+    set_toolset("objcopy", "riscv64-unknown-elf-objcopy")
+toolchain_end()
 
 function set_toolchain(arch)
     if arch == "riscv" then
@@ -30,6 +63,7 @@ end
 
 function set_type(type)
     set_toolchain("arm")
+
     if type == "library" then
         set_kind("static")
         add_includedirs(system_dir.."build/include")
@@ -43,43 +77,41 @@ function set_type(type)
         set_kind("phony")
     end
     add_cflags("-O2")
+    add_deps("system")
+
     on_run(function (target)end)
+
 end
 
 
 function install_dir(path)
-    set_targetdir(system_dir.."build/rootfs/"..path)
     before_build(function (target)
-        if not os.exists(system_dir.."/build/rootfs/"..path) then
-            os.run("mkdir -p %s/build/rootfs/%s", system_dir, path)
+        if not os.exists(rootfs_dir..path) then
+            os.run("mkdir -p %s", rootfs_dir..path)
         end
         if os.exists(target:scriptdir().."/res") then
-            os.run("cp -rf %s/res %s/build/rootfs/%s", target:scriptdir(), system_dir, path)
+            os.cp(target:scriptdir().."/res", rootfs_dir..path)
         end
     end)
 
-    --after_build(function (target)
-        -- os.run("cp %s %s/build/rootfs/%s", target:targetfile(), system_dir, path)
-    --end)
-end 
+
+    after_link(function (target)
+        os.cp(target:targetfile(), rootfs_dir..path)
+    end)
+
+    after_clean(function(target)
+        os.rm(rootfs_dir..path.."/"..target:name())
+    end)
+end
 
 function build_system()
 end
 
-target("rootfs")
+function rootfs_common(image)
     set_type("phony")
-    before_build(function (target)
-        if not os.exists(system_dir.."build/include") then
-            os.run("mkdir -p %s/build/include", system_dir)
-        end
-        os.run("cp -rf %s../kernel/kernel/include %s/build/", system_dir,system_dir)
-        os.run("cp -rf %s/data %s/build/rootfs/", system_dir, system_dir)
-        os.run("mkdir -p %s/build/rootfs/dev", system_dir)
-        os.run("mkdir -p %s/build/rootfs/home/root", system_dir)
-    end)
 
     on_build(function (target)
-        os.iorun("%s../script/mkrootfs %s/build/rootfs %s/root.ext2", system_dir, system_dir, system_dir)
+        os.iorun("%s/script/mkrootfs %s %s/%s", system_dir, rootfs_dir, system_dir, image)
     end)
 
     -- baseic system
@@ -91,21 +123,64 @@ target("rootfs")
             "sleep","shell","uname","grep","kill","ps","mkdir","mount","rundev","ls",
             "rm","rx","login","session","init","sdfsd","core","vfsd"
     )
+
+    after_clean(function (target)
+        os.rm(system_dir.."build/")
+        os.rm(system_dir..image)
+    end)
+end
+
+function system_common()
+target("system")
+    set_kind("phony")
+
+    on_load(function (target)
+        print(rootfs_dir) 
+
+        if not os.exists(system_dir.."build/include") then
+            os.run("mkdir -p %s/build/include", system_dir)
+        end
+        os.run("cp -rf %s../kernel/kernel/include %s/build/", system_dir,system_dir)
+
+        if not os.exists(target:targetdir()) then
+            os.mkdir(target:targetdir())
+        end
+
+        if not os.exists(rootfs_dir) then
+            os.mkdir(rootfs_dir)
+            os.run("cp -rf %s/data %s", system_dir, rootfs_dir)
+            os.run("mkdir -p %s/dev", rootfs_dir)
+            os.run("mkdir -p %s/home/root", rootfs_dir)
+        end
+    end)
+
+    on_build(function (target)
+        printf(rootfs_dir)
+    end)
+
+    after_clean(function (target)
+    end)
 target_end()
+end
+
+function get_rootfsdir()
+    return rootfs_dir
+end
+
 
 includes("basic/**/xmake.lua")
 includes("full/**/xmake.lua")
 
-if is_plat("raspi1", "raspi2", "raspi3", "raspi4") then
-    includes("hardware/arm/raspix/**/xmake.lua")
-    target("system")
-        set_type("phony")
-        add_deps("rootfs")
-    target_end()
+if is_plat("raspix","raspi1", "raspi2", "raspi3", "raspi4") then
+    set_arch("arm")
+    rootfs_dir =  os.scriptdir().."/build/raspix/arm/rootfs/" 
+    includes("hardware/arm/raspix/xmake.lua")
+    system_common()
 elseif is_plat("miyoo") then
-    includes("hardware/arm/miyoo/**/xmake.lua")
-     target("system")
-        set_type("phony")
-        add_deps("rootfs")
-    target_end()
+    set_arch("arm")
+    rootfs_dir =  os.scriptdir().."/build/miyoo/arm/rootfs/" 
+    includes("hardware/arm/miyoo/xmake.lua")
+    system_common()
 end
+
+
