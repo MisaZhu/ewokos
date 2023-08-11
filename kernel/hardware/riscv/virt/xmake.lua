@@ -24,6 +24,12 @@ target("kernel")
     after_build(function (target)
         os.run("riscv64-unknown-elf-objcopy -O binary "..target:targetfile().." "..target_dir.."kernel7.img")
     end)
+
+    after_clean(function (target)
+        os.rm(target_dir.."kernel7.img")
+    end)
+
+    on_run(function(target)end)
 target_end()
 
 target("qemu")
@@ -38,6 +44,12 @@ target("qemu")
     on_run(function (target)
         os.run("qemu-system-riscv64 -cpu rv64 -nographic -M virt -smp 1 -m 2G -bios default -serial mon:stdio -device loader,file=system/root.ext2,addr=0xe0000000 -kernel "..target_dir.."kernel7.qemu.img")
     end)
+
+    after_clean(function (target)
+        os.rm(target_dir.."kernel7.qemu.img")
+    end)
+
+    qemu("-cpu rv64 -nographic -M virt -smp 1 -m 2G -bios default -serial mon:stdio", target_dir.."kernel7.qemu.img")
 target_end()
 
 

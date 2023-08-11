@@ -108,8 +108,7 @@
         platform list:
             miyoo
             raspi1
-            raspi2
-            raspi3
+            raspi2.3
             raspi4
             
       "xmake c"
@@ -118,6 +117,8 @@
       "xmake run qemu"
          run ewokos in qemu
          
+      "xmake show"
+         show current project infomation      
 
 .commands 
 	
