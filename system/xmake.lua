@@ -111,7 +111,7 @@ function rootfs_common(image)
     set_type("phony")
 
     on_build(function (target)
-        os.iorun("%s/script/mkrootfs %s %s/%s", system_dir, rootfs_dir, system_dir, image)
+        os.iorun("%s/script/mkrootfs %s %s/../%s", system_dir, rootfs_dir, rootfs_dir, image)
     end)
 
     -- baseic system
@@ -126,7 +126,7 @@ function rootfs_common(image)
 
     after_clean(function (target)
         os.rm(system_dir.."build/")
-        os.rm(system_dir..image)
+        os.rm(rootfs_dir.."../"..image)
     end)
 end
 
