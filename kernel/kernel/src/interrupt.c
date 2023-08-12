@@ -140,8 +140,9 @@ void interrupt_end(context_t* ctx) {
 	uint32_t interrupt = cproc->space->interrupt.interrupt;
 	proc_restore_state(ctx, cproc, &cproc->space->interrupt.saved_state);
 
-	if(cproc->info.state == READY)
+	if(cproc->info.state == READY || cproc->info.state == RUNNING) {
 		proc_ready(cproc);
+	}
 
 	if(interrupt != SYS_INT_SOFT) {
 		irq_enable_cpsr(&cproc->ctx); //enable interrupt on proc
