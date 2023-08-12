@@ -354,7 +354,8 @@ int main(int argc, char *argv[])
 	x.screenInfo(scr, 0);
 
 	//x.open(&emu, scr.size.w /2  - 128 , scr.size.h /2 - 128, 256, 256, "NesEmu", X_STYLE_NO_RESIZE);
-	x.open(&emu, 10, 10, scr.size.w-20, scr.size.h-20, "NesEmu", X_STYLE_NORMAL);
+	//x.open(&emu, 10, 10, scr.size.w-20, scr.size.h-20, "NesEmu", X_STYLE_NORMAL);
+	x.open(&emu, 10, 10, 270, 270, "NesEmu", X_STYLE_NO_RESIZE);
 	emu.setVisible(true);
 
 	x.run(loop, &emu);
