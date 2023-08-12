@@ -52,8 +52,7 @@ static inline int32_t irq_do_timer0_interrupt(context_t* ctx) {
 }
 
 #define SEC_TIC       1000000
-#define TIMER_TIC     5000
-#define TIMER_CNT     2 
+#define TIMER_TIC     3000 //333 ps (timer/schedule)
 
 static inline void irq_do_timer0(context_t* ctx) {
 	(void)ctx;
@@ -77,17 +76,19 @@ static inline void irq_do_timer0(context_t* ctx) {
 
 	if(_timer_tic >= TIMER_TIC) {
 		_timer_tic = 0;
-		if(_schedule > TIMER_CNT) {
-			_schedule = 0;
+		if(_schedule == 0) { //not for schedule, do timer interrupt.
+			_schedule = 1;
 			if(irq_do_timer0_interrupt(ctx) == 0)
 				return;
 		}
-		_schedule++;
+		else { //do schedule
+			_schedule = 0;
 #ifdef KERNEL_SMP
-		ipi_send_all();
+			ipi_send_all();
 #else
-		schedule(ctx);
+			schedule(ctx);
 #endif
+		}
 	}
 }
 

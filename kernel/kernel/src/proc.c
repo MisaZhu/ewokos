@@ -220,7 +220,7 @@ void proc_switch(context_t* ctx, proc_t* to, bool quick){
 			to->ctx.pc = to->ctx.lr = to->space->ipc_server.entry;
 			to->ctx.sp = ALIGN_DOWN(to->space->ipc_server.stack + THREAD_STACK_PAGES * PAGE_SIZE, 8);
 			to->space->ipc_server.do_switch = false; // clear ipc request mask
-			timer_set_interval(0, MIN_SCHD_FREQ); 
+			//timer_set_interval(0, MIN_SCHD_FREQ); 
 		}
 	}
 

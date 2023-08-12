@@ -79,7 +79,7 @@ void proc_ipc_close(proc_t* serv_proc, ipc_task_t* ipc) {
 	if(serv_proc->space->ipc_server.ctask == ipc)
 		serv_proc->space->ipc_server.ctask = NULL;
 	kfree(ipc);
-	timer_set_interval(0, KERNEL_SCHD_FREQ); 
+	//timer_set_interval(0, KERNEL_SCHD_FREQ); 
 }
 
 void proc_ipc_clear(proc_t* serv_proc) {

@@ -7,7 +7,8 @@
 #include <sys/charbuf.h>
 #include <sys/mmio.h>
 #include <sys/proc.h>
-#include <sys/ipc.h>
+#include <sys/klog.h>
+#include <sys/timer.h>
 #include <sys/interrupt.h>
 #include <arch/bcm283x/pl011_uart.h>
 
@@ -49,6 +50,7 @@ static int uart_write(int fd, int from_pid, fsinfo_t* info,
 	return bcm283x_pl011_uart_write(buf, size);
 }
 
+/*
 static void interrupt_handle(uint32_t interrupt, uint32_t data) {
 	(void)interrupt;
 	(void)data;
@@ -59,6 +61,15 @@ static void interrupt_handle(uint32_t interrupt, uint32_t data) {
 		charbuf_push(&_buffer, c, true);
 	}
 	sys_interrupt_end();
+}
+*/
+
+static void interrupt_handle(void) {
+	char c;
+	while(bcm283x_pl011_uart_ready_to_recv() == 0) {
+		c = bcm283x_pl011_uart_recv();
+		charbuf_push(&_buffer, c, true);
+	}
 }
 
 int main(int argc, char** argv) {
@@ -73,8 +84,17 @@ int main(int argc, char** argv) {
 	dev.read = uart_read;
 	dev.write = uart_write;
 
-	sys_interrupt_setup(SYS_INT_TIMER0, interrupt_handle, 0);
+	//sys_interrupt_setup(SYS_INT_TIMER0, interrupt_handle, 0);
+	uint32_t tid = timer_set(10000, interrupt_handle);
+	if(tid == 0) {
+		klog("Error: can't set timer\n");
+		return -1;
+	}
+
 	device_run(&dev, mnt_point, FS_TYPE_CHAR);
+
+	if(tid > 0)
+		timer_remove(tid);
 	return 0;
 }
 

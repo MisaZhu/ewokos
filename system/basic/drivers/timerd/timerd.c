@@ -5,6 +5,7 @@
 #include <sys/vfs.h>
 #include <sys/proc.h>
 #include <sys/vdevice.h>
+#include <sys/timer.h>
 #include <sys/syscall.h>
 #include <sys/interrupt.h>
 #include <sys/kernel_tic.h>
@@ -96,7 +97,7 @@ static void interrupt_handle(uint32_t interrupt, uint32_t data) {
 static int timer_dcntl(int from_pid, int cmd, proto_t* in, proto_t* ret, void* p) {
 	(void)p;
 
-	if(cmd == 0) { 
+	if(cmd == TIMER_SET) { 
 		if(_intr_list == NULL)
 			sys_interrupt_setup(SYS_INT_TIMER0, interrupt_handle, 0);
 		uint32_t usec = (uint32_t)proto_read_int(in);
@@ -105,7 +106,7 @@ static int timer_dcntl(int from_pid, int cmd, proto_t* in, proto_t* ret, void* p
 		uint32_t id = interrupt_setup(from_pid, usec, entry, data);
 		PF->addi(ret, id);
 	}	
-	else if(cmd == 1) { 
+	else if(cmd == TIMER_REMOVE) { 
 		uint32_t id = (uint32_t)proto_read_int(in);
 		interrupt_remove(from_pid, id);
 		if(_intr_list == NULL)

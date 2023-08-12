@@ -4,13 +4,16 @@
 #include <stdio.h>
 #include <sys/vdevice.h>
 #include <sys/klog.h>
+#include <sys/proc.h>
 #include <sys/keydef.h>
 #include <sys/kernel_tic.h>
 #include <x/xwin.h>
 #include <string.h>
+#include <sys/timer.h>
 
 #define KEY_REPEAT_TIMEOUT	80
 #define KEY_HOLD_TIMEOUT	200
+#define KEY_TIMER	        20000 //50 ps
 
 typedef struct {
 	uint8_t key;
@@ -144,9 +147,15 @@ public:
 		int rd = ::read(keybFD, &v, 6);
 		update_key_state(v, rd);
 		key_state_machine();
-		usleep(50000);
+		//usleep(50000);
 	}
 };
+
+static XIM* _xim = NULL;
+
+static void timer_handler(void) {
+	_xim->read();
+}
 
 int main(int argc, char* argv[]) {
 	const char* keyb_dev = "/dev/keyb0";
@@ -159,8 +168,14 @@ int main(int argc, char* argv[]) {
 	}
 
 	XIM xim(keyb_dev, escHome);
+	_xim = &xim;
+	
+	uint32_t tid = timer_set(KEY_TIMER, timer_handler);
+
 	while(true) {
-		xim.read();
+		proc_block(getpid(), (uint32_t) main);
 	}
+
+	timer_remove(tid);
 	return 0;
 }

@@ -22,7 +22,7 @@ uint32_t timer_set(uint32_t usec, timer_handle_t handle) {
 	PF->init(&in)->addi(&in, usec)->
 			addi(&in, (uint32_t)_timer_handle)->
 			addi(&in, (uint32_t)handle);
-	if(dev_cntl("/dev/timer", 0, &in, &out) == 0)
+	if(dev_cntl("/dev/timer", TIMER_SET, &in, &out) == 0)
 		id = (uint32_t)proto_read_int(&out);
 	PF->clear(&in);
 	PF->clear(&out);
@@ -32,7 +32,7 @@ uint32_t timer_set(uint32_t usec, timer_handle_t handle) {
 void timer_remove(uint32_t id) {
 	proto_t in;
 	PF->init(&in)->addi(&in, id);
-	dev_cntl("/dev/timer", 1, &in, NULL);
+	dev_cntl("/dev/timer", TIMER_REMOVE, &in, NULL);
 	PF->clear(&in);
 }
 
