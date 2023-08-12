@@ -22,8 +22,9 @@ inline uint32_t irq_gets(void) {
 }
 
 inline void irq_enable(uint32_t irqs) {
-	gic_irq_enable(0, 27);
-	(void)irqs;
+	if((irqs & IRQ_TIMER0) != 0) {
+		gic_irq_enable(0, 27);
+	}
 }
 
 void irq_disable(uint32_t irqs) {
