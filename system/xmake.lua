@@ -121,7 +121,7 @@ function rootfs_common(image)
             "xmoused","xwm_macos7","xjoystickd","xtouchd","fbd","etc","fbd","stated",
             "sysinfod","timerd","nulld","ramfsd","cat","svcinfo","dump","echo","pwd",
             "sleep","shell","uname","grep","kill","ps","mkdir","mount","rundev","ls",
-            "rm","rx","login","session","init","sdfsd","core","vfsd"
+            "rm","rx","login","session","init","sdfsd","core","vfsd", "emu", "snake"
     )
 
     after_clean(function (target)
@@ -170,6 +170,7 @@ end
 
 includes("basic/**/xmake.lua")
 includes("full/**/xmake.lua")
+includes("extra/**/xmake.lua")
 
 if is_plat("raspix","raspi1", "raspi2", "raspi3", "raspi4") then
     set_arch("")
