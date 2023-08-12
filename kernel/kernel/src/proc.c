@@ -802,8 +802,9 @@ procinfo_t* get_procs(int32_t *num) {
 	return procs;
 }
 
-static void renew_sleep_counter(uint64_t usec) {
+static int32_t renew_sleep_counter(uint64_t usec) {
 	int i;
+	int32_t res = -1;
 	for(i=0; i<PROC_MAX; i++) {
 		proc_t* proc = &_proc_table[i];
 		if(proc->info.state == RUNNING) {
@@ -814,13 +815,15 @@ static void renew_sleep_counter(uint64_t usec) {
 			if(proc->sleep_counter <= 0) {
 				proc->sleep_counter = 0;
 				proc_ready(proc);
+				res = 0;
 			}
 		}
 	}
+	return res;
 }
 
-inline void renew_kernel_tic(uint64_t usec) {
-	renew_sleep_counter(usec);	
+inline int32_t renew_kernel_tic(uint64_t usec) {
+	return renew_sleep_counter(usec);	
 }
 
 inline void renew_kernel_sec(void) {

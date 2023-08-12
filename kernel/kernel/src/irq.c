@@ -57,6 +57,8 @@ static inline int32_t irq_do_timer0_interrupt(context_t* ctx) {
 static inline void irq_do_timer0(context_t* ctx) {
 	(void)ctx;
 	uint64_t usec = timer_read_sys_usec();
+	int32_t do_schedule = 0;
+
 	if(_kernel_usec == 0) {
 		_kernel_usec = usec;
 	}
@@ -70,25 +72,28 @@ static inline void irq_do_timer0(context_t* ctx) {
 			_sec_tic = 0;
 			renew_kernel_sec();
 		}
-		renew_kernel_tic(usec_gap);
+		if(renew_kernel_tic(usec_gap) == 0)
+			do_schedule = 1;
 	}
 	timer_clear_interrupt(0);
 
 	if(_timer_tic >= TIMER_TIC) {
 		_timer_tic = 0;
-		if(_schedule == 0) { //not for schedule, do timer interrupt.
-			_schedule = 1;
-			if(irq_do_timer0_interrupt(ctx) == 0)
+		if(_schedule == 0) { //this tic not for schedule, do timer interrupt.
+			_schedule = 1; //next tic for schedule
+			if(irq_do_timer0_interrupt(ctx) == 0) //if timer set, don't do schedule
 				return;
 		}
-		else { //do schedule
-			_schedule = 0;
+		do_schedule = 1;
+	}
+	
+	if(do_schedule) {
+		_schedule = 0;
 #ifdef KERNEL_SMP
-			ipi_send_all();
+		ipi_send_all();
 #else
-			schedule(ctx);
+		schedule(ctx);
 #endif
-		}
 	}
 }
 
