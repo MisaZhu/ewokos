@@ -194,7 +194,7 @@ void xwm_run(xwm_t* xwm) {
 	dev_cntl("/dev/x", X_DCNTL_SET_XWM, NULL, NULL);
 	ipc_serv_run(handle, NULL, xwm, 0);
 	while(true) {
-		sleep(1);
+		proc_block(getpid(), (uint32_t)xwm_run);
 	}
 }
 
