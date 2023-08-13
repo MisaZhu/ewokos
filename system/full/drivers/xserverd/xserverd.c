@@ -932,6 +932,10 @@ static void mouse_xwin_handle(x_t* x, xview_t* view, int pos, xevent_t* ev) {
 			ev->value.window.v1 =  x->current.pos_delta.y;
 			if(x->current.drag_state == X_VIEW_DRAG_RESIZE) {
 				ev->value.window.event = XEVT_WIN_RESIZE;
+				graph_free(view->g);
+				shm_unmap(view->xinfo.shm_id);
+				view->g = NULL;
+				view->xinfo.shm_id = 0;
 			}
 			else if(x->current.drag_state == X_VIEW_DRAG_MOVE) {
 				ev->value.window.event = XEVT_WIN_MOVE;
