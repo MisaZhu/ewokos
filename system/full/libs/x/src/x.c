@@ -128,8 +128,8 @@ void  x_run(x_t* x, void* loop_data) {
 			x->on_loop(loop_data);
 		}
 		else {
-			//usleep(20000);
-			proc_block(xserv_pid, cpid);
+			usleep(20000);
+			//proc_block(xserv_pid, cpid);
 		}
 	}
 }
