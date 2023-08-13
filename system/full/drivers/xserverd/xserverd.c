@@ -599,11 +599,17 @@ static int x_update(int fd, int from_pid, x_t* x) {
 	if(!view->xinfo.visible)
 		return 0;
 
-	view->dirty = true;
-	if(view != get_first_visible_view(x) ||
-			(view->xinfo.style & X_STYLE_ALPHA) != 0) {
-		x_dirty(x, view->xinfo.display_index);
+	xview_t* v = view;
+
+	while(v != NULL) {
+		if(v->xinfo.visible)
+			v->dirty = true;
+		v = v->next;
 	}
+
+	if((view->xinfo.style & X_STYLE_ALPHA) != 0)
+		x_dirty(x, view->xinfo.display_index);
+
 	x_repaint_req(x, view->xinfo.display_index);
 	return 0;
 }
