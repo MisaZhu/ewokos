@@ -589,6 +589,32 @@ static xview_t* get_first_visible_view(x_t* x) {
 	return NULL;
 }
 
+static void mark_dirty(x_t* x, xview_t* view) {
+	xview_t* view_next = view->next;
+
+	if(view->xinfo.visible && view->dirty) {
+		if((view->xinfo.style & X_STYLE_ALPHA) != 0) {
+			x_dirty(x, view->xinfo.display_index);
+			return;
+		}
+
+		xview_t* v = view->next;
+		while(v != NULL) {
+			if(v->xinfo.visible && !v->dirty) {
+				if(check_in_rect(v->xinfo.winr.x, v->xinfo.winr.y, &view->xinfo.winr) ||
+						check_in_rect(v->xinfo.winr.x+v->xinfo.winr.w, v->xinfo.winr.y, &view->xinfo.winr) ||
+						check_in_rect(v->xinfo.winr.x, v->xinfo.winr.y+v->xinfo.winr.h, &view->xinfo.winr) ||
+						check_in_rect(v->xinfo.winr.x+v->xinfo.winr.w, v->xinfo.winr.y+v->xinfo.winr.h, &view->xinfo.winr))
+					v->dirty = true;
+			}
+			v = v->next;
+		}
+	}
+
+	if(view_next != NULL)
+		mark_dirty(x, view_next);
+}
+
 static int x_update(int fd, int from_pid, x_t* x) {
 	if(fd < 0)
 		return -1;
@@ -599,17 +625,8 @@ static int x_update(int fd, int from_pid, x_t* x) {
 	if(!view->xinfo.visible)
 		return 0;
 
-	xview_t* v = view;
-
-	while(v != NULL) {
-		if(v->xinfo.visible)
-			v->dirty = true;
-		v = v->next;
-	}
-
-	if((view->xinfo.style & X_STYLE_ALPHA) != 0)
-		x_dirty(x, view->xinfo.display_index);
-
+	view->dirty = true;
+	mark_dirty(x, view);
 	x_repaint_req(x, view->xinfo.display_index);
 	return 0;
 }
