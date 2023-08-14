@@ -328,8 +328,8 @@ int main(int argc, char* argv[]) {
 	xwin.readConfig("/etc/x/finder.conf");
 
 	X x;
-	x.open(&xwin, 0,
-			0,
+	x.open(&xwin, 10,
+			30,
 			300,
 			200,
 			"finder",

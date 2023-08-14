@@ -674,6 +674,23 @@ static void xwin_force_fullscreen(x_t* x, xinfo_t* xinfo) {
 	xinfo->style |= X_STYLE_NO_FRAME;
 }
 
+static int get_xwm_win_space(x_t* x, int style, grect_t* rin, grect_t* rout) {
+	proto_t in, out;
+	PF->init(&out);
+
+	PF->init(&in)->
+		addi(&in, style)->
+		add(&in, rin, sizeof(grect_t));
+
+	int res = ipc_call(x->xwm_pid, XWM_CNTL_GET_WIN_SPACE, &in, &out);
+	PF->clear(&in);
+	if(res == 0)
+		proto_read_to(&out, rout, sizeof(grect_t));
+	PF->clear(&out);
+
+	return res;
+}
+
 static int xwin_update_info(int fd, int from_pid, proto_t* in, proto_t* out, x_t* x) {
 	xinfo_t xinfo;
 	int sz = sizeof(xinfo_t);
@@ -702,6 +719,9 @@ static int xwin_update_info(int fd, int from_pid, proto_t* in, proto_t* out, x_t
 	}
 
 	if(xinfo.wsr.w <= 0 || xinfo.wsr.h <= 0)
+		return -1;
+	
+	if(get_xwm_win_space(x, (int)xinfo.style, &xinfo.wsr, &xinfo.winr) != 0)	
 		return -1;
 	
 	int shm_id = view->xinfo.shm_id;
@@ -740,28 +760,11 @@ static int xwin_update_info(int fd, int from_pid, proto_t* in, proto_t* out, x_t
 	return 0;
 }
 
-static int get_xwm_workspace(x_t* x, int style, grect_t* rin, grect_t* rout) {
-	proto_t in, out;
-	PF->init(&out);
-
-	PF->init(&in)->
-		addi(&in, style)->
-		add(&in, rin, sizeof(grect_t));
-
-	int res = ipc_call(x->xwm_pid, XWM_CNTL_GET_WORKSPACE, &in, &out);
-	PF->clear(&in);
-	if(res == 0)
-		proto_read_to(&out, rout, sizeof(grect_t));
-	PF->clear(&out);
-
-	return res;
-}
-
-static int x_workspace(x_t* x, proto_t* in, proto_t* out) {
+static int x_win_space(x_t* x, proto_t* in, proto_t* out) {
 	grect_t r;
 	int style = proto_read_int(in);
 	proto_read_to(in, &r, sizeof(grect_t));
-	get_xwm_workspace(x, style, &r, &r); 
+	get_xwm_win_space(x, style, &r, &r); 
 	PF->add(out, &r, sizeof(grect_t));
 	return 0;
 }
@@ -784,8 +787,8 @@ static int xserver_fcntl(int fd, int from_pid, fsinfo_t* info,
 	else if(cmd == X_CNTL_UPDATE_INFO) {
 		res = xwin_update_info(fd, from_pid, in, out, x);
 	}
-	else if(cmd == X_CNTL_WORKSPACE) {
-		res = x_workspace(x, in, out);
+	else if(cmd == X_CNTL_WIN_SPACE) {
+		res = x_win_space(x, in, out);
 	}
 	else if(cmd == X_CNTL_CALL_XIM) {
 		res = xwin_call_xim(x);
@@ -980,7 +983,6 @@ static void mouse_xwin_handle(x_t* x, xview_t* view, int pos, xevent_t* ev) {
 		}
 	}
 	x_push_event(x, view, ev);
-	
 }
 
 static int mouse_handle(x_t* x, xevent_t* ev) {
@@ -1017,7 +1019,7 @@ static int mouse_handle(x_t* x, xevent_t* ev) {
 			x->mouse_state.last_pos.y = ev->value.mouse.y;
 		}
 		if(ev->value.mouse.from_y >= (display->g->h-16)) //from bottom
-			return;
+			return 0;
 	}
 	else if(ev->state ==  XEVT_MOUSE_UP) {
 		x->cursor.down = false;

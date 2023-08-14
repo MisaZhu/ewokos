@@ -14,7 +14,7 @@ enum {
 	X_CNTL_NEW,
 	X_CNTL_UPDATE,
 	X_CNTL_UPDATE_INFO,
-	X_CNTL_WORKSPACE,
+	X_CNTL_WIN_SPACE,
 	X_CNTL_CALL_XIM
 };
 
@@ -58,6 +58,7 @@ typedef struct {
 	uint32_t state;
 	bool visible;
 	grect_t wsr; //workspace rect
+	grect_t winr; //window rect
 	char title[X_TITLE_MAX];
 } xinfo_t;
 

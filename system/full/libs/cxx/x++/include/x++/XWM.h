@@ -9,9 +9,10 @@ namespace Ewok {
 class XWM {
 protected:
 	xwm_t xwm;
+	uint32_t titleH;
 
 	virtual void getColor(uint32_t *fg, uint32_t* bg, bool top);
-	virtual void getWorkspace(int style, grect_t* xr, grect_t* wsr);
+	virtual void getWinSpace(int style, grect_t* xr, grect_t* wsr);
 	virtual void getClose(xinfo_t* info, grect_t* r);
 	virtual void getMin(xinfo_t* info, grect_t* r);
 	virtual void getMinSize(xinfo_t* info, int* w, int* h);
@@ -28,7 +29,7 @@ protected:
 	virtual void drawFrame(graph_t* g, xinfo_t* info, bool top);
 	virtual void drawDragFrame(graph_t* g, grect_t* r);
 public:
-	inline void __getWorkspace(int style, grect_t* xr, grect_t* wsr) {getWorkspace(style, xr, wsr);}
+	inline void __getWinSpace(int style, grect_t* xr, grect_t* wsr) {getWinSpace(style, xr, wsr);}
 	inline void __getClose(xinfo_t* info, grect_t* r) { getClose(info, r); }
 	inline void __getMin(xinfo_t* info, grect_t* r) { getMin(info, r); }
 	inline void __getMinSize(xinfo_t* info, int* w, int* h) { getMinSize(info, w, h); }

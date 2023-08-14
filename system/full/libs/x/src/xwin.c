@@ -43,12 +43,12 @@ int xwin_call_xim(xwin_t* xwin) {
 	return ret;
 }
 
-static int  x_get_workspace(int xfd, int style, grect_t* frame, grect_t* workspace) {
+static int  x_get_win_rect(int xfd, int style, grect_t* frame, grect_t* workspace) {
 	proto_t in, out;
 	PF->init(&out);
 
 	PF->init(&in)->addi(&in, style)->add(&in, frame, sizeof(grect_t));
-	int ret = vfs_fcntl(xfd, X_CNTL_WORKSPACE, &in, &out);
+	int ret = vfs_fcntl(xfd, X_CNTL_WIN_SPACE, &in, &out);
 	PF->clear(&in);
 	if(ret == 0) 
 		proto_read_to(&out, workspace, sizeof(grect_t));
@@ -69,7 +69,6 @@ xwin_t* xwin_open(x_t* xp, int x, int y, int w, int h, const char* title, int st
 	r.y = y;
 	r.w = w;
 	r.h = h;
-	x_get_workspace(fd, style, &r, &r);
 
 	xwin_t* ret = (xwin_t*)malloc(sizeof(xwin_t));
 	memset(ret, 0, sizeof(xwin_t));
@@ -219,8 +218,8 @@ int xwin_event_handle(xwin_t* xwin, xevent_t* ev) {
 			xscreen_t scr;
 			if(x_screen_info(&scr, xwin->xinfo.display_index) == 0) {
 				memcpy(&xwin->xinfo_prev, &xwin->xinfo, sizeof(xinfo_t));
-				grect_t r = {0, 0, scr.size.w, scr.size.h};
-				x_get_workspace(xwin->fd, xwin->xinfo.style, &r, &r);
+				int32_t dh = xwin->xinfo.winr.h - xwin->xinfo.wsr.h;
+				grect_t r = {0, 0, scr.size.w, scr.size.h-dh};
 				memcpy(&xwin->xinfo.wsr, &r, sizeof(grect_t));
 				xwin->xinfo.state = X_STATE_MAX;
 			}

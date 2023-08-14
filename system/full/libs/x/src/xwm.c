@@ -141,16 +141,16 @@ static void draw_desktop(xwm_t* xwm, proto_t* in) {
 	}
 }
 
-static void get_workspace(xwm_t* xwm, proto_t* in, proto_t* out) {
-	grect_t r, wsr;
+static void get_win_space(xwm_t* xwm, proto_t* in, proto_t* out) {
+	grect_t r, winr;
 	int style = proto_read_int(in);
 	proto_read_to(in, &r, sizeof(grect_t));
-	memcpy(&wsr, &r, sizeof(grect_t));
+	memcpy(&winr, &r, sizeof(grect_t));
 	
-	if(xwm->get_workspace != NULL)
-		xwm->get_workspace(style, &r, &wsr, xwm->data);
+	if(xwm->get_win_space != NULL)
+		xwm->get_win_space(style, &r, &winr, xwm->data);
 
-	PF->add(out, &wsr, sizeof(grect_t));
+	PF->add(out, &winr, sizeof(grect_t));
 }
 
 static void get_min_size(xwm_t* xwm, proto_t* in, proto_t* out) {
@@ -181,8 +181,8 @@ static void handle(int from_pid, int cmd, proto_t* in, proto_t* out, void* p) {
 	else if(cmd == XWM_CNTL_GET_FRAME_AREAS) {
 		get_frame_areas(xwm, in, out);
 	}
-	else if(cmd == XWM_CNTL_GET_WORKSPACE) { //get workspace
-		get_workspace(xwm, in, out);
+	else if(cmd == XWM_CNTL_GET_WIN_SPACE) { //get workspace
+		get_win_space(xwm, in, out);
 	}
 	else if(cmd == XWM_CNTL_GET_MIN_SIZE) {
 		get_min_size(xwm, in, out);
