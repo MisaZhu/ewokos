@@ -7,7 +7,7 @@
 extern "C" { 
 #endif
 
-static int32_t grect_insect(grect_t* src, grect_t* r) {
+int32_t grect_insect(grect_t* src, grect_t* r) {
 	//insect src;
 	if(r->x >= (int32_t)(src->x+src->w) || r->y >= (int32_t)(src->y+src->h)) //check x, y
 		return 0;

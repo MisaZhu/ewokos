@@ -600,11 +600,11 @@ static void mark_dirty(x_t* x, xview_t* view) {
 
 		xview_t* v = view->next;
 		while(v != NULL) {
+			grect_t r;
 			if(v->xinfo.visible && !v->dirty) {
-				if(check_in_rect(v->xinfo.winr.x, v->xinfo.winr.y, &view->xinfo.winr) ||
-						check_in_rect(v->xinfo.winr.x+v->xinfo.winr.w, v->xinfo.winr.y, &view->xinfo.winr) ||
-						check_in_rect(v->xinfo.winr.x, v->xinfo.winr.y+v->xinfo.winr.h, &view->xinfo.winr) ||
-						check_in_rect(v->xinfo.winr.x+v->xinfo.winr.w, v->xinfo.winr.y+v->xinfo.winr.h, &view->xinfo.winr))
+				memcpy(&r, &v->xinfo.winr, sizeof(grect_t));
+				grect_insect(&view->xinfo.winr, &r);
+				if(r.w != 0 || r.h != 0)
 					v->dirty = true;
 			}
 			v = v->next;
