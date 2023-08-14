@@ -1,0 +1,6 @@
+target("libarch_bcm283x")
+    set_type("library")
+    add_deps("libsd")
+    add_files("**.c")        
+    add_includedirs("include", {public=true})
+target_end()

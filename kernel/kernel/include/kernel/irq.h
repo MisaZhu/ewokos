@@ -19,6 +19,7 @@
 
 #define IRQ_IPI    0x00001000
 
+extern void dump_ctx(context_t *ctx);
 extern void irq_handler(context_t* ctx);
 extern void prefetch_abort_handler(context_t* ctx, uint32_t status);
 extern void data_abort_handler(context_t* ctx, uint32_t addr_fault, uint32_t status);

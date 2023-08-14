@@ -35,7 +35,8 @@ enum {
 #define IPC_DEFAULT          0x0
 #define IPC_NON_BLOCK        0x01
 #define IPC_NON_RETURN       0x80000000
-#define IPC_NON_RETURN_MASK  0x7fffffff
+#define IPC_LAZY             0x40000000
+#define IPC_NON_RETURN_MASK  0x3fffffff
 
 typedef struct {
 	uint32_t uuid;

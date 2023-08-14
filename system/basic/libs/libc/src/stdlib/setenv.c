@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include <sys/ipc.h>
+#include <sys/proc.h>
 #include <sys/core.h>
 #include <string.h>
 

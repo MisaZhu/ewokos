@@ -59,6 +59,7 @@ static int usb_step(void* p) {
         _hasData = 1;
         proc_wakeup(0);
 	}
+    usleep(20000);
 	return 0;
 }
 

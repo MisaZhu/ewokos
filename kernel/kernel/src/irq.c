@@ -52,12 +52,13 @@ static inline int32_t irq_do_timer0_interrupt(context_t* ctx) {
 }
 
 #define SEC_TIC       1000000
-#define TIMER_TIC     5000
-#define TIMER_CNT     2 
+#define TIMER_TIC     3000 //333 ps (timer/schedule)
 
 static inline void irq_do_timer0(context_t* ctx) {
 	(void)ctx;
 	uint64_t usec = timer_read_sys_usec();
+	int32_t do_schedule = 0;
+
 	if(_kernel_usec == 0) {
 		_kernel_usec = usec;
 	}
@@ -71,18 +72,23 @@ static inline void irq_do_timer0(context_t* ctx) {
 			_sec_tic = 0;
 			renew_kernel_sec();
 		}
-		renew_kernel_tic(usec_gap);
+		if(renew_kernel_tic(usec_gap) == 0)
+			do_schedule = 1;
 	}
 	timer_clear_interrupt(0);
 
 	if(_timer_tic >= TIMER_TIC) {
 		_timer_tic = 0;
-		if(_schedule > TIMER_CNT) {
-			_schedule = 0;
-			if(irq_do_timer0_interrupt(ctx) == 0)
+		if(_schedule == 0) { //this tic not for schedule, do timer interrupt.
+			_schedule = 1; //next tic for schedule
+			if(irq_do_timer0_interrupt(ctx) == 0) //if timer set, don't do schedule
 				return;
 		}
-		_schedule++;
+		do_schedule = 1;
+	}
+	
+	if(do_schedule) {
+		_schedule = 0;
 #ifdef KERNEL_SMP
 		ipi_send_all();
 #else
@@ -214,7 +220,6 @@ void data_abort_handler(context_t* ctx, uint32_t addr_fault, uint32_t status) {
 
 	printf("pid: %d(%s), core: %d, data abort!! at: 0x%X, code: 0x%X\n", cproc->info.pid, cproc->info.cmd, cproc->info.core, addr_fault, status);
 	dump_ctx(&cproc->ctx);
-	while(1);
 	if(cproc->info.state == ZOMBIE) {
 		proc_funeral(cproc);
 	}

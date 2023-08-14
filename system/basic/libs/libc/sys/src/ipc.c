@@ -157,18 +157,16 @@ static void handle_ipc(uint32_t ipc_id, void* p) {
 		return;
 	}
 
-	if((cmd & IPC_NON_RETURN) != 0) { //no return
-		_ipc_serv_handle(pid, (cmd & IPC_NON_RETURN_MASK), &in, NULL, p);
-		PF->clear(&in);
-	}
-	else {
-		proto_t out;
-		PF->init(&out);
-		_ipc_serv_handle(pid, cmd, &in, &out, p);
-		PF->clear(&in);
+	proto_t out;
+	PF->init(&out);
+	_ipc_serv_handle(pid, (cmd & IPC_NON_RETURN_MASK), &in, &out, p);
+	PF->clear(&in);
+
+	if((cmd & IPC_NON_RETURN) == 0) { //need return
 		ipc_set_return(ipc_id, &out);
-		PF->clear(&out);
 	}
+	PF->clear(&out);
+
 	if(_ipc_handled != NULL)
 		_ipc_handled(p);
 	ipc_end();

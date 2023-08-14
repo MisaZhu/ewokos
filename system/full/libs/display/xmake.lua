@@ -1,0 +1,6 @@
+target("libdisplay")
+    set_type("library")
+    add_files("**.c")        
+    add_deps("libfb")
+    add_includedirs("include",  {public = true})
+target_end()

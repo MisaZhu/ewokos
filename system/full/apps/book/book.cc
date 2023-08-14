@@ -159,7 +159,7 @@ static void loop(void* p) {
 	(void)p;
 	//Book* xwin = (Book*)p;
 	// xwin->readPage();
-	// xwin->repaint(true);
+	// xwin->repaint();
 	usleep(100000);
 }
 

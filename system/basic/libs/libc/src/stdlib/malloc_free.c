@@ -128,9 +128,12 @@ void* realloc(void* s, uint32_t new_size) {
 	else
 		old_size = syscall1(SYS_MSIZE, (int32_t)s); 
 	
+	if(old_size >= new_size)
+		return s;
+
 	void* n = malloc(new_size);
-	if(old_size > 0)
-		memcpy(n, s, old_size < new_size ? old_size:new_size);
+	if(n != NULL)
+		memcpy(n, s, old_size);
 	free(s);
 	return n;
 }

@@ -56,7 +56,7 @@ int32_t interrupt_setup(proc_t* cproc, uint32_t interrupt, uint32_t entry, uint3
 			}
 		}
 		if(_interrupts[interrupt].head == NULL) { //no more interrupt handler, disable this one.
-			irq_disable(interrupt);
+			//irq_disable(interrupt); //TODO
 		}
 	}
 	else { //register interrupt
@@ -72,7 +72,8 @@ int32_t interrupt_setup(proc_t* cproc, uint32_t interrupt, uint32_t entry, uint3
 		_interrupts[interrupt].head = intr;
 		if(cproc->space->interrupt.stack == 0)
 			cproc->space->interrupt.stack = proc_stack_alloc(cproc);
-		irq_enable(interrupt);
+
+		//irq_enable(interrupt); //TODO
 	}
 	return 0;
 }
@@ -140,8 +141,10 @@ void interrupt_end(context_t* ctx) {
 	uint32_t interrupt = cproc->space->interrupt.interrupt;
 	proc_restore_state(ctx, cproc, &cproc->space->interrupt.saved_state);
 
-	if(cproc->info.state == READY)
+	if(cproc->info.state == READY || cproc->info.state == RUNNING) {
+	//if(cproc->info.state == READY) {
 		proc_ready(cproc);
+	}
 
 	if(interrupt != SYS_INT_SOFT) {
 		irq_enable_cpsr(&cproc->ctx); //enable interrupt on proc

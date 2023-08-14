@@ -6,33 +6,31 @@
 using namespace Ewok;
 
 /*-------get area functions.----------*/
-static const int TITLE_H = 20;
-
-void XWM::getWorkspace(int style, grect_t* xr, grect_t* wsr) {
-	wsr->x = xr->x;
-	wsr->w = xr->w;
+void XWM::getWinSpace(int style, grect_t* xr, grect_t* winr) {
+	winr->x = xr->x;
+	winr->w = xr->w;
 
 	if((style & X_STYLE_NO_TITLE) == 0 &&
 			(style & X_STYLE_NO_FRAME) == 0) {
-		wsr->y = xr->y + TITLE_H;
-		wsr->h = xr->h - TITLE_H;
+		winr->y = xr->y - titleH;
+		winr->h = xr->h + titleH;
 	}
 }
 
-static void get_workspace(int style, grect_t* xr, grect_t* wsr, void* p) {
-	((XWM*)p)->__getWorkspace(style, xr, wsr);
+static void get_win_space(int style, grect_t* xr, grect_t* winr, void* p) {
+	((XWM*)p)->__getWinSpace(style, xr, winr);
 }
 
 void XWM::getTitle(xinfo_t* info, grect_t* rect) {
-	rect->x = info->wsr.x + TITLE_H;
-	rect->y = info->wsr.y - TITLE_H;
+	rect->x = info->winr.x + titleH;
+	rect->y = info->winr.y;// - titleH;
 
 	if((info->style & X_STYLE_NO_RESIZE) == 0)
-		rect->w = info->wsr.w - TITLE_H*3;
+		rect->w = info->winr.w - titleH*3;
 	else
-		rect->w = info->wsr.w - TITLE_H;
+		rect->w = info->winr.w - titleH;
 
-	rect->h = TITLE_H;
+	rect->h = titleH;
 }
 
 static void get_title(xinfo_t* info, grect_t* rect, void* p) {
@@ -40,10 +38,10 @@ static void get_title(xinfo_t* info, grect_t* rect, void* p) {
 }
 
 void XWM::getMin(xinfo_t* info, grect_t* rect) {
-	rect->x = info->wsr.x+info->wsr.w-TITLE_H*2;
-	rect->y = info->wsr.y - TITLE_H;
-	rect->w = TITLE_H;
-	rect->h = TITLE_H;
+	rect->x = info->winr.x+info->winr.w-titleH*2;
+	rect->y = info->winr.y;// - titleH;
+	rect->w = titleH;
+	rect->h = titleH;
 }
 
 static void get_min(xinfo_t* info, grect_t* rect, void* p) {
@@ -51,10 +49,10 @@ static void get_min(xinfo_t* info, grect_t* rect, void* p) {
 }
 
 void XWM::getMax(xinfo_t* info, grect_t* rect) {
-	rect->x = info->wsr.x+info->wsr.w-TITLE_H*1;
-	rect->y = info->wsr.y - TITLE_H;
-	rect->w = TITLE_H;
-	rect->h = TITLE_H;
+	rect->x = info->winr.x+info->winr.w-titleH*1;
+	rect->y = info->winr.y;// - titleH;
+	rect->w = titleH;
+	rect->h = titleH;
 }
 
 static void get_max(xinfo_t* info, grect_t* rect, void* p) {
@@ -62,10 +60,10 @@ static void get_max(xinfo_t* info, grect_t* rect, void* p) {
 }
 
 void XWM::getClose(xinfo_t* info, grect_t* rect) {
-	rect->x = info->wsr.x;
-	rect->y = info->wsr.y - TITLE_H;
-	rect->w = TITLE_H;
-	rect->h = TITLE_H;
+	rect->x = info->winr.x;
+	rect->y = info->winr.y;// - titleH;
+	rect->w = titleH;
+	rect->h = titleH;
 }
 
 static void get_close(xinfo_t* info, grect_t* rect, void* p) {
@@ -85,8 +83,8 @@ static void get_resize(xinfo_t* info, grect_t* rect, void* p) {
 
 void XWM::getMinSize(xinfo_t* info, int* w, int* h) {
 	(void)info;
-	*w = TITLE_H*5;
-	*h = TITLE_H*2;
+	*w = titleH*5;
+	*h = titleH*2;
 }
 
 static void get_min_size(xinfo_t* info, int* w, int* h, void* p) {
@@ -106,10 +104,10 @@ void XWM::getColor(uint32_t *fg, uint32_t* bg, bool top) {
 }
 
 void XWM::drawDragFrame(graph_t* g, grect_t* r) {
-	graph_box(g, r->x+1, r->y - TITLE_H+1,
-		r->w, r->h + TITLE_H, 0x88000000);
-	graph_box(g, r->x, r->y - TITLE_H,
-		r->w, r->h + TITLE_H, 0x88ffffff);
+	graph_box(g, r->x+1, r->y - titleH+1,
+		r->w, r->h + titleH, 0x88000000);
+	graph_box(g, r->x, r->y - titleH,
+		r->w, r->h + titleH, 0x88ffffff);
 }
 
 static void draw_drag_frame(graph_t* g, grect_t* r, void* p) {
@@ -127,9 +125,9 @@ void XWM::drawFrame(graph_t* g, xinfo_t* info, bool top) {
 	//int h = 0;
 
 	if((info->style & X_STYLE_NO_TITLE) == 0) {
-		h += TITLE_H;
-		//h = TITLE_H;
-		y -= TITLE_H;
+		h += titleH;
+		//h = titleH;
+		y -= titleH;
 	}
 	graph_box(g, x, y, w, h, bg);//win box
 	//shadow
@@ -149,7 +147,7 @@ void XWM::drawTitle(graph_t* g, xinfo_t* info, grect_t* r, bool top) {
 	gsize_t sz;
 
 	int pw = (r->w-sz.w)/2;
-	graph_fill(g, r->x, r->y, r->w, TITLE_H, bg);//title box
+	graph_fill(g, r->x, r->y, r->w, titleH, bg);//title box
 }
 
 static void draw_title(graph_t* g, xinfo_t* info, grect_t* r, bool top, void* p) {
@@ -232,8 +230,9 @@ static void draw_desktop(graph_t* g, void* p) {
 XWM::XWM(void) {
 	font_init();
 	memset(&xwm, 0, sizeof(xwm_t));
+	titleH = 20;
 	xwm.data = this;
-	xwm.get_workspace = get_workspace;
+	xwm.get_win_space = get_win_space;
 	xwm.get_close = get_close;
 	xwm.get_max = get_max;
 	xwm.get_min = get_min;

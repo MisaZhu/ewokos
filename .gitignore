@@ -8,8 +8,11 @@ kernel*.asm
 system/build
 .vscode/settings.json
 system/root.ext2
+system/root.*.ext2
 system/tmp
 .vscode/configurationCache.log
 .vscode/dryrun.log
 .vscode/targets.log
 system/make.rule
+build
+.xmake

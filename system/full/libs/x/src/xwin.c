@@ -43,12 +43,12 @@ int xwin_call_xim(xwin_t* xwin) {
 	return ret;
 }
 
-static int  x_get_workspace(int xfd, int style, grect_t* frame, grect_t* workspace) {
+static int  x_get_win_rect(int xfd, int style, grect_t* frame, grect_t* workspace) {
 	proto_t in, out;
 	PF->init(&out);
 
 	PF->init(&in)->addi(&in, style)->add(&in, frame, sizeof(grect_t));
-	int ret = vfs_fcntl(xfd, X_CNTL_WORKSPACE, &in, &out);
+	int ret = vfs_fcntl(xfd, X_CNTL_WIN_SPACE, &in, &out);
 	PF->clear(&in);
 	if(ret == 0) 
 		proto_read_to(&out, workspace, sizeof(grect_t));
@@ -69,7 +69,6 @@ xwin_t* xwin_open(x_t* xp, int x, int y, int w, int h, const char* title, int st
 	r.y = y;
 	r.w = w;
 	r.h = h;
-	x_get_workspace(fd, style, &r, &r);
 
 	xwin_t* ret = (xwin_t*)malloc(sizeof(xwin_t));
 	memset(ret, 0, sizeof(xwin_t));
@@ -125,30 +124,8 @@ void xwin_close(xwin_t* xwin) {
 	free(xwin);
 }
 
-static bool ready_to_paint(xwin_t* xwin) {
-	uint32_t i = 1000;
-	proto_t res;	
-	PF->init(&res);
-	bool ready = false;
-	while(i > 0) {
-		if(vfs_fcntl(xwin->fd, X_CNTL_IS_READY, NULL, &res) == 0) {
-			ready = proto_read_int(&res);
-			if(ready)
-				break;
-		}
-		PF->clear(&res);
-		usleep(1000);
-		i--;
-	}
-	PF->clear(&res);
-	return ready;
-}
-
-void xwin_repaint(xwin_t* xwin, bool sync) {
+void xwin_repaint(xwin_t* xwin) {
 	if(xwin->on_repaint == NULL)
-		return;
-
-	if(sync && !ready_to_paint(xwin))
 		return;
 
 	graph_t g;
@@ -181,7 +158,7 @@ int xwin_resize_to(xwin_t* xwin, int w, int h) {
 	xwin->xinfo.wsr.w = w;
 	xwin->xinfo.wsr.h = h;
 	xwin_update_info(xwin, &xwin->xinfo);
-	xwin_repaint(xwin, true);
+	xwin_repaint(xwin);
 	return 0;
 }
 
@@ -219,7 +196,7 @@ int xwin_event_handle(xwin_t* xwin, xevent_t* ev) {
 		xwin->xinfo.wsr.w += ev->value.window.v0;
 		xwin->xinfo.wsr.h += ev->value.window.v1;
 		xwin_update_info(xwin, &xwin->xinfo);
-		xwin_repaint(xwin, true);
+		xwin_repaint(xwin);
 	}
 	else if(ev->value.window.event == XEVT_WIN_MOVE) {
 		xwin->xinfo.wsr.x += ev->value.window.v0;
@@ -230,7 +207,7 @@ int xwin_event_handle(xwin_t* xwin, xevent_t* ev) {
 		xwin_set_visible(xwin, ev->value.window.v0 == 1);
 	}
 	else if(ev->value.window.event == XEVT_WIN_REPAINT) {
-		xwin_repaint(xwin, true);
+		xwin_repaint(xwin);
 	}
 	else if(ev->value.window.event == XEVT_WIN_MAX) {
 		if(xwin->xinfo.state == X_STATE_MAX) {
@@ -241,14 +218,14 @@ int xwin_event_handle(xwin_t* xwin, xevent_t* ev) {
 			xscreen_t scr;
 			if(x_screen_info(&scr, xwin->xinfo.display_index) == 0) {
 				memcpy(&xwin->xinfo_prev, &xwin->xinfo, sizeof(xinfo_t));
-				grect_t r = {0, 0, scr.size.w, scr.size.h};
-				x_get_workspace(xwin->fd, xwin->xinfo.style, &r, &r);
+				int32_t dh = xwin->xinfo.winr.h - xwin->xinfo.wsr.h;
+				grect_t r = {0, 0, scr.size.w, scr.size.h-dh};
 				memcpy(&xwin->xinfo.wsr, &r, sizeof(grect_t));
 				xwin->xinfo.state = X_STATE_MAX;
 			}
 		}
 		xwin_update_info(xwin, &xwin->xinfo);
-		xwin_repaint(xwin, true);
+		xwin_repaint(xwin);
 	}
 	return 0;
 }
@@ -258,7 +235,7 @@ int xwin_set_visible(xwin_t* xwin, bool visible) {
 		xwin->on_focus(xwin);
 	xwin->xinfo.visible = visible;
 	int res = xwin_update_info(xwin, &xwin->xinfo);
-	xwin_repaint(xwin, true);
+	xwin_repaint(xwin);
 	return res;
 }
 

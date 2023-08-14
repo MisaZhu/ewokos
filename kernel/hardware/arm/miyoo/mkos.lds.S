@@ -14,11 +14,11 @@ SECTIONS
 	/*bootloader will be compiled with phy address base at 0x8000*/
 	.init start_address : AT(start_address) ALIGN(4096)
 	{
-	KEEP(*(.init .init.*))
-		bsp/start.o(.text .text.*)
-		bsp/start.o(.rodata .rodata.*)
-		bsp/start.o(.data .data.*)
-		bsp/start.o(.bss .bss.*)
+	    KEEP(*(.init .init.*))
+        */start*.o(.text .text.*)
+        */start*.o(.rodata .rodata.*)
+        */start*.o(.data .data.*)
+        */start*.o(.bss .bss.*)
 	} : init
 	. = . + 0x2000;
 	_svc_start_stack = .;

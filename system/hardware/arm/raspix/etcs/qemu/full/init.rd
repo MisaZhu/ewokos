@@ -1,3 +1,4 @@
+/bin/rundev /drivers/timerd               /dev/timer
 #/bin/rundev /drivers/raspix/mini_uartd    /dev/tty0
 /bin/rundev /drivers/raspix/pl011_uartd   /dev/tty0
 
@@ -13,13 +14,12 @@ $
 /bin/rundev /drivers/ramfsd               /tmp
 /bin/rundev /drivers/proc/sysinfod        /proc/sysinfo
 /bin/rundev /drivers/proc/stated          /proc/state
-/bin/rundev /drivers/timerd               /dev/timer
 
 /bin/rundev /drivers/xserverd             /dev/x
+
+@/bin/session &
 
 #@/sbin/x/xmoused /dev/mouse0 &
 @/sbin/x/xim_none &
 @/sbin/x/xim_vkey &
 @/bin/x/launcher &
-
-@/bin/session &

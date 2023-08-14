@@ -135,23 +135,35 @@ static int font_dev_close(proto_t* in, proto_t* ret) {
 
 static int font_dev_get(proto_t* in, proto_t* ret) {
 	int i = proto_read_int(in);
-	if(i >= FONT_MAX || _fonts[i].font == NULL) {
+	ttf_t* ttf;
+	ttf_font_t* font;
+	if(i >= FONT_MAX || _fonts[i].font == NULL ||
+			_fonts[i].ttf_index >= TTF_MAX) {
 		PF->init(ret)->addi(ret, -1);
 		return -1;
 	}
 
+	ttf = _ttfs[_fonts[i].ttf_index].ttf;
+	font = _fonts[i].font;
+
 	TTY_U32 c = (TTY_U32)proto_read_int(in);
 	TTY_Glyph glyph;
-	if(ttf_render_glyph_cache(_ttfs[_fonts[i].ttf_index].ttf, _fonts[i].font, c, &glyph) != 0) {
+	if(ttf == NULL || font == NULL ||
+			ttf_render_glyph_cache(ttf, font, c, &glyph) != 0) {
 		PF->init(ret)->addi(ret, -1);
 		return -1;
 	}
-	PF->init(ret)->
+	if(glyph.cache != NULL) {
+		PF->init(ret)->
+			add(ret, &glyph, sizeof(TTY_Glyph))->
+			add(ret, glyph.cache,
+					font->inst.maxGlyphSize.x*
+					font->inst.maxGlyphSize.y);
+	}
+	else {
+		PF->init(ret)->
 			add(ret, &glyph, sizeof(TTY_Glyph));
-	if(glyph.cache != NULL)
-		PF->add(ret, glyph.cache,
-					_fonts[i].font->inst.maxGlyphSize.x*
-					_fonts[i].font->inst.maxGlyphSize.y);
+	}
 	return 0;
 }
 

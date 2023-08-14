@@ -1,6 +1,7 @@
 #include <stddef.h>
 #include <unistd.h>
 #include <string.h>
+#include <sys/proc.h>
 #include <sys/ipc.h>
 #include <sys/core.h>
 

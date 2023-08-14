@@ -276,6 +276,7 @@ static inline void send_event(int32_t pid, xevent_t* e) {
 	PF->init(&in)->add(&in, e, sizeof(xevent_t));
 	ipc_call(pid, X_CMD_PUSH_EVENT, &in, NULL);
 	PF->clear(&in);
+	//proc_wakeup(pid);
 }
 
 static void x_push_event(x_t* x, xview_t* view, xevent_t* e) {
@@ -424,6 +425,7 @@ static void x_del_view(x_t* x, xview_t* view) {
 		x->view_last = NULL;
 
 	remove_view(x, view);
+	shm_unmap(view->xinfo.shm_id);
 	free(view);
 	x->view_focus = get_next_focus_view(x, false);
 	x->view_last = get_next_focus_view(x, true);
@@ -587,6 +589,32 @@ static xview_t* get_first_visible_view(x_t* x) {
 	return NULL;
 }
 
+static void mark_dirty(x_t* x, xview_t* view) {
+	xview_t* view_next = view->next;
+
+	if(view->xinfo.visible && view->dirty) {
+		if((view->xinfo.style & X_STYLE_ALPHA) != 0) {
+			x_dirty(x, view->xinfo.display_index);
+			return;
+		}
+
+		xview_t* v = view->next;
+		while(v != NULL) {
+			grect_t r;
+			if(v->xinfo.visible && !v->dirty) {
+				memcpy(&r, &v->xinfo.winr, sizeof(grect_t));
+				grect_insect(&view->xinfo.winr, &r);
+				if(r.w != 0 || r.h != 0)
+					v->dirty = true;
+			}
+			v = v->next;
+		}
+	}
+
+	if(view_next != NULL)
+		mark_dirty(x, view_next);
+}
+
 static int x_update(int fd, int from_pid, x_t* x) {
 	if(fd < 0)
 		return -1;
@@ -598,10 +626,7 @@ static int x_update(int fd, int from_pid, x_t* x) {
 		return 0;
 
 	view->dirty = true;
-	if(view != get_first_visible_view(x) ||
-			(view->xinfo.style & X_STYLE_ALPHA) != 0) {
-		x_dirty(x, view->xinfo.display_index);
-	}
+	mark_dirty(x, view);
 	x_repaint_req(x, view->xinfo.display_index);
 	return 0;
 }
@@ -666,6 +691,23 @@ static void xwin_force_fullscreen(x_t* x, xinfo_t* xinfo) {
 	xinfo->style |= X_STYLE_NO_FRAME;
 }
 
+static int get_xwm_win_space(x_t* x, int style, grect_t* rin, grect_t* rout) {
+	proto_t in, out;
+	PF->init(&out);
+
+	PF->init(&in)->
+		addi(&in, style)->
+		add(&in, rin, sizeof(grect_t));
+
+	int res = ipc_call(x->xwm_pid, XWM_CNTL_GET_WIN_SPACE, &in, &out);
+	PF->clear(&in);
+	if(res == 0)
+		proto_read_to(&out, rout, sizeof(grect_t));
+	PF->clear(&out);
+
+	return res;
+}
+
 static int xwin_update_info(int fd, int from_pid, proto_t* in, proto_t* out, x_t* x) {
 	xinfo_t xinfo;
 	int sz = sizeof(xinfo_t);
@@ -694,6 +736,9 @@ static int xwin_update_info(int fd, int from_pid, proto_t* in, proto_t* out, x_t
 	}
 
 	if(xinfo.wsr.w <= 0 || xinfo.wsr.h <= 0)
+		return -1;
+	
+	if(get_xwm_win_space(x, (int)xinfo.style, &xinfo.wsr, &xinfo.winr) != 0)	
 		return -1;
 	
 	int shm_id = view->xinfo.shm_id;
@@ -732,45 +777,11 @@ static int xwin_update_info(int fd, int from_pid, proto_t* in, proto_t* out, x_t
 	return 0;
 }
 
-static int xwin_is_ready(int fd, int from_pid, x_t* x, proto_t* out) {
-	x_display_t* display = &x->displays[x->current_display];
-	if(!display->need_repaint) {
-		PF->addi(out, 1);
-		return 0;
-	}
-
-	xview_t* view = x_get_view(x, fd, from_pid);
-	if(view == NULL)
-		return -1;
-	if(!view->dirty)
-		PF->addi(out, 1);
-	else
-		PF->addi(out, 0);
-	return 0;
-}
-
-static int get_xwm_workspace(x_t* x, int style, grect_t* rin, grect_t* rout) {
-	proto_t in, out;
-	PF->init(&out);
-
-	PF->init(&in)->
-		addi(&in, style)->
-		add(&in, rin, sizeof(grect_t));
-
-	int res = ipc_call(x->xwm_pid, XWM_CNTL_GET_WORKSPACE, &in, &out);
-	PF->clear(&in);
-	if(res == 0)
-		proto_read_to(&out, rout, sizeof(grect_t));
-	PF->clear(&out);
-
-	return res;
-}
-
-static int x_workspace(x_t* x, proto_t* in, proto_t* out) {
+static int x_win_space(x_t* x, proto_t* in, proto_t* out) {
 	grect_t r;
 	int style = proto_read_int(in);
 	proto_read_to(in, &r, sizeof(grect_t));
-	get_xwm_workspace(x, style, &r, &r); 
+	get_xwm_win_space(x, style, &r, &r); 
 	PF->add(out, &r, sizeof(grect_t));
 	return 0;
 }
@@ -793,11 +804,8 @@ static int xserver_fcntl(int fd, int from_pid, fsinfo_t* info,
 	else if(cmd == X_CNTL_UPDATE_INFO) {
 		res = xwin_update_info(fd, from_pid, in, out, x);
 	}
-	else if(cmd == X_CNTL_WORKSPACE) {
-		res = x_workspace(x, in, out);
-	}
-	else if(cmd == X_CNTL_IS_READY) {
-		res = xwin_is_ready(fd, from_pid, x, out);
+	else if(cmd == X_CNTL_WIN_SPACE) {
+		res = x_win_space(x, in, out);
 	}
 	else if(cmd == X_CNTL_CALL_XIM) {
 		res = xwin_call_xim(x);
@@ -950,6 +958,10 @@ static void mouse_xwin_handle(x_t* x, xview_t* view, int pos, xevent_t* ev) {
 			ev->value.window.v1 =  x->current.pos_delta.y;
 			if(x->current.drag_state == X_VIEW_DRAG_RESIZE) {
 				ev->value.window.event = XEVT_WIN_RESIZE;
+				graph_free(view->g);
+				shm_unmap(view->xinfo.shm_id);
+				view->g = NULL;
+				view->xinfo.shm_id = 0;
 			}
 			else if(x->current.drag_state == X_VIEW_DRAG_MOVE) {
 				ev->value.window.event = XEVT_WIN_MOVE;
@@ -988,7 +1000,6 @@ static void mouse_xwin_handle(x_t* x, xview_t* view, int pos, xevent_t* ev) {
 		}
 	}
 	x_push_event(x, view, ev);
-	
 }
 
 static int mouse_handle(x_t* x, xevent_t* ev) {
@@ -1025,7 +1036,7 @@ static int mouse_handle(x_t* x, xevent_t* ev) {
 			x->mouse_state.last_pos.y = ev->value.mouse.y;
 		}
 		if(ev->value.mouse.from_y >= (display->g->h-16)) //from bottom
-			return;
+			return 0;
 	}
 	else if(ev->state ==  XEVT_MOUSE_UP) {
 		x->cursor.down = false;

@@ -1,10 +1,10 @@
-#include <ext2head.h>
-#include <ext2read.h>
+#include "ext2head.h"
+#include "ext2read.h"
 #include <kstring.h>
 #include <mm/kmalloc.h>
 #include <dev/sd.h>
 #include <stddef.h>
-#include <partition.h>
+#include "partition.h"
 
 #define EXT2_BLOCK_SIZE 1024
 #define SECTOR_SIZE     512

@@ -128,7 +128,7 @@ protected:
 			if(ev->state == XEVT_MOUSE_DOWN) {
 				if(selected != at) {
 					selected = at;
-					repaint(true);
+					repaint();
 				}
 			}
 			else if(ev->state == XEVT_MOUSE_CLICK) {
@@ -177,7 +177,7 @@ protected:
 			}
 			else if((selected - start) >= items.cols*items.rows) 
 				start += items.cols*items.rows;
-			repaint(true);
+			repaint();
 		}
 	}
 	

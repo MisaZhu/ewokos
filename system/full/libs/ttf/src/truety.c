@@ -4244,10 +4244,11 @@ TTY_Error tty_render_glyph_cache(TTY_Font* font, TTY_Instance* instance, TTY_Gly
 
 
     tty_get_min_and_max_zone1_points(&font->hint.zone1, &min, &max);
-    if(max.x < 0 || max.y < 0) { // TODO: Are negative maximum coordinates allowed?
+    /*if(max.x < 0 || max.y < 0) { // TODO: Are negative maximum coordinates allowed?
         free(edges.buff);
         return TTY_ERROR_GLYPH_DOES_NOT_FIT_IN_IMAGE;
     }
+    */
     
     tty_set_glyph_metrics(font, instance, glyph, min, max);
     if(glyph->size.x <= 0 || glyph->size.y <= 0) {

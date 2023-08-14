@@ -262,6 +262,10 @@ static void do_clear_buffer(vdevice_t* dev, int from_pid, proto_t *in, proto_t* 
 }
 
 static void do_dev_cntl(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, void* p) {
+	PF->addi(out, -1);
+	if(dev == NULL || dev->dev_cntl == NULL)
+		return;
+
 	int cmd = proto_read_int(in);
 	int32_t  sz;
 	void* data = proto_read(in, &sz);
@@ -269,17 +273,14 @@ static void do_dev_cntl(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out,
 	proto_t in_arg, ret;
 	PF->init(&in_arg);
 	PF->init(&ret);
-	PF->addi(out, -1);
-
-	if(data != NULL) 
+	if(data != NULL && sz > 0) 
 		PF->copy(&in_arg, data, sz);
 
-	if(dev != NULL && dev->dev_cntl != NULL) {
-		if(dev->dev_cntl(from_pid, cmd, &in_arg, &ret, p) == 0) {
-			PF->clear(out)->addi(out, 0)->add(out, ret.data, ret.size);
-		}
+	if(dev->dev_cntl(from_pid, cmd, &in_arg, &ret, p) == 0) {
+		PF->clear(out)->addi(out, 0)->add(out, ret.data, ret.size);
 	}
 	PF->clear(&in_arg);
+	PF->clear(&ret);
 }
 
 static void do_interrupt(vdevice_t* dev, proto_t *in, void* p) {

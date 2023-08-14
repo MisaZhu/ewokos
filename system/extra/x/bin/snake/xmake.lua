@@ -1,0 +1,6 @@
+target("snake")
+    set_type("application")
+    add_files("*.c")        
+	add_deps("libx", "libfont")
+    install_dir("bin/x")
+target_end()

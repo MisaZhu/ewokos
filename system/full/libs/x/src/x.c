@@ -102,8 +102,15 @@ void  x_init(x_t* x, void* data) {
 }
 
 void  x_run(x_t* x, void* loop_data) {
+	int xserv_pid = dev_get_pid("/dev/x");
+	if(xserv_pid < 0) {
+		klog("Error: xserver not running!\n");
+		return;
+	}
+
 	ipc_serv_run(handle, NULL, x, IPC_NON_BLOCK);
 
+	int cpid = getpid();
 	xevent_t xev;
 	while(!x->terminated) {
 		int res = x_get_event(x, &xev);
@@ -122,6 +129,7 @@ void  x_run(x_t* x, void* loop_data) {
 		}
 		else {
 			usleep(20000);
+			//proc_block(xserv_pid, cpid);
 		}
 	}
 }

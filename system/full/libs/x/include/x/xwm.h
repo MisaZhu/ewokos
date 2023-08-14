@@ -13,7 +13,7 @@ enum {
 	XWM_CNTL_DRAW_FRAME = 0,
 	XWM_CNTL_DRAW_DRAG_FRAME,
 	XWM_CNTL_DRAW_DESKTOP,
-	XWM_CNTL_GET_WORKSPACE,
+	XWM_CNTL_GET_WIN_SPACE,
 	XWM_CNTL_GET_MIN_SIZE,
 	XWM_CNTL_GET_FRAME_AREAS
 };
@@ -21,7 +21,7 @@ enum {
 typedef struct {
 	void* data;
 
-	void (*get_workspace)(int style, grect_t* xr, grect_t* wsr, void* p);
+	void (*get_win_space)(int style, grect_t* xr, grect_t* wsr, void* p);
 	void (*get_close)(xinfo_t* info, grect_t* r, void* p);
 	void (*get_min)(xinfo_t* info, grect_t* r, void* p);
 	void (*get_min_size)(xinfo_t* info, int* w, int* h, void* p);
