@@ -4,7 +4,7 @@ SRC_DIR=$1
 IMG_FILE=$2
 
 if [ ! -e ${IMG_FILE} ];then
-    dd if=/dev/zero of=${IMG_FILE} bs=1 count=0 seek=256M
+    dd if=/dev/zero of=${IMG_FILE} bs=1024 count=1 seek=262143
 fi
 mke2fs -q -b 1024 -I 128 ${IMG_FILE}
 cd ${SRC_DIR}
