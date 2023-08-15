@@ -145,8 +145,8 @@ int main(int argc, char** argv) {
 
 			input(mv[0], tx, ty);
 		}
-		//else
-			//usleep(20000);
+		else
+			usleep(2000);
 	}
 
 	close(fd);

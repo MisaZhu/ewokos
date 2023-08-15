@@ -57,7 +57,7 @@ int main(int argc, char** argv) {
 		if(read(fd, mv, 4) == 4)
 			input(mv[0], mv[1], mv[2]);
 		else
-			usleep(10000);
+			usleep(2000);
 	}
 
 	close(fd);
