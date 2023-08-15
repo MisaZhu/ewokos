@@ -593,26 +593,44 @@ static void mark_dirty(x_t* x, xview_t* view) {
 	xview_t* view_next = view->next;
 
 	if(view->xinfo.visible && view->dirty) {
-		if((view->xinfo.style & X_STYLE_ALPHA) != 0) {
-			x_dirty(x, view->xinfo.display_index);
-			return;
-		}
-
 		xview_t* v = view->next;
 		while(v != NULL) {
 			grect_t r;
 			if(v->xinfo.visible && !v->dirty) {
 				memcpy(&r, &v->xinfo.winr, sizeof(grect_t));
 				grect_insect(&view->xinfo.winr, &r);
-				if(r.w != 0 || r.h != 0)
+				if(r.x == view->xinfo.winr.x &&
+						r.y == view->xinfo.winr.y &&
+						r.w == view->xinfo.winr.w &&
+						r.h == view->xinfo.winr.h &&
+						(v->xinfo.style & X_STYLE_ALPHA) == 0) { 
+					//covered by upon window. don't have to repaint.
+					view->dirty = false;
+					break;
+				}
+				else if(r.w != 0 || r.h != 0) {
 					v->dirty = true;
+				}
 			}
 			v = v->next;
+		}
+
+		if(view->dirty && (view->xinfo.style & X_STYLE_ALPHA) != 0) {
+			x_dirty(x, view->xinfo.display_index);
+			return;
 		}
 	}
 
 	if(view_next != NULL)
 		mark_dirty(x, view_next);
+}
+
+static void unmark_dirty(x_t* x, xview_t* view) {
+	xview_t* v = view->next;
+	while(v != NULL) {
+		v->dirty = false;
+		v = v->next;
+	}
 }
 
 static int x_update(int fd, int from_pid, x_t* x) {
@@ -627,7 +645,11 @@ static int x_update(int fd, int from_pid, x_t* x) {
 
 	view->dirty = true;
 	mark_dirty(x, view);
-	x_repaint_req(x, view->xinfo.display_index);
+
+	if(!view->dirty)
+		unmark_dirty(x, view);
+	else
+		x_repaint_req(x, view->xinfo.display_index);
 	return 0;
 }
 
@@ -813,7 +835,7 @@ static int xserver_fcntl(int fd, int from_pid, fsinfo_t* info,
 	return res;
 }
 
-static int xserver_open(int fd, int from_pid, fsinfo_t* info, int oflag, void* p) {
+static int xserver_view_open(int fd, int from_pid, fsinfo_t* info, int oflag, void* p) {
 	(void)oflag;
 	(void)info;
 	if(fd < 0)
@@ -1131,7 +1153,7 @@ static int xserver_dev_cntl(int from_pid, int cmd, proto_t* in, proto_t* ret, vo
 	return 0;
 }
 
-static int xserver_close(int fd, int from_pid, fsinfo_t* info, void* p) {
+static int xserver_view_close(int fd, int from_pid, fsinfo_t* info, void* p) {
 	(void)info;
 	(void)fd;
 	x_t* x = (x_t*)p;
@@ -1139,7 +1161,11 @@ static int xserver_close(int fd, int from_pid, fsinfo_t* info, void* p) {
 	if(view == NULL) {
 		return -1;
 	}
+	int disp_index = view->xinfo.display_index;
 	x_del_view(x, view);	
+
+	x_dirty(x, disp_index);
+	x_repaint_req(x, disp_index);
 	return 0;
 }
 
@@ -1180,8 +1206,8 @@ int main(int argc, char** argv) {
 	memset(&dev, 0, sizeof(vdevice_t));
 	strcpy(dev.name, "xserver");
 	dev.fcntl = xserver_fcntl;
-	dev.close = xserver_close;
-	dev.open = xserver_open;
+	dev.close = xserver_view_close;
+	dev.open = xserver_view_open;
 	dev.dev_cntl = xserver_dev_cntl;
 	dev.loop_step = xserver_step;
 	dev.extra_data = &x;
