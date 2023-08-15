@@ -10,6 +10,7 @@
 #include <sys/vfs.h>
 
 static int _x_pid = -1;
+static int8_t _mouse_down = 0;
 
 static void input(int8_t state, int8_t rx, int8_t ry) {
 	xevent_t ev;
@@ -20,10 +21,14 @@ static void input(int8_t state, int8_t rx, int8_t ry) {
 	ev.value.mouse.rx = rx;
 	ev.value.mouse.ry = ry;
 
-	if(state == 2) //down
+	if(state == 2 || (state == 0 && _mouse_down == 1)) {//down
 		ev.state = XEVT_MOUSE_DOWN;
-	else if(state == 1) //up
+		_mouse_down = 1;
+	}
+	else if(state == 1) {//up
 		ev.state = XEVT_MOUSE_UP;
+		_mouse_down = 0;
+	}
 
 	proto_t in;
 	PF->init(&in)->add(&in, &ev, sizeof(xevent_t));
@@ -34,6 +39,7 @@ static void input(int8_t state, int8_t rx, int8_t ry) {
 int main(int argc, char** argv) {
 	const char* dev_name = argc < 2 ? "/dev/mouse0":argv[1];
 	_x_pid = -1;
+	_mouse_down = 0;
 
 	int fd = open(dev_name, O_RDONLY);
 	if(fd < 0) {
@@ -51,7 +57,7 @@ int main(int argc, char** argv) {
 		if(read(fd, mv, 4) == 4)
 			input(mv[0], mv[1], mv[2]);
 		else
-			usleep(3000);
+			usleep(10000);
 	}
 
 	close(fd);

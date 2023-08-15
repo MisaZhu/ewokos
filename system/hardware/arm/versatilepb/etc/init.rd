@@ -15,9 +15,9 @@ $
 /bin/rundev /drivers/versatilepb/ps2keybd   /dev/keyb0
 /bin/rundev /drivers/versatilepb/ps2moused  /dev/mouse0
 
-@/bin/session &
-
 /bin/rundev /drivers/xserverd             /dev/x
+
+@/bin/session &
 
 @/sbin/x/xmoused /dev/mouse0 &
 @/sbin/x/xim_none /dev/keyb0 esc_home &
