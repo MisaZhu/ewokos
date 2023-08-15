@@ -1,0 +1,6 @@
+target("xpt2046d")
+    set_type("application")
+    add_deps("libxpt2046", "libbsp")
+    add_files("**.c")        
+    install_dir("drivers/raspix")
+target_end()

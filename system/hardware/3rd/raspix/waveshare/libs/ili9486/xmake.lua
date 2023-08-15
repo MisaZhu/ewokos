@@ -1,0 +1,6 @@
+target("libili9486")
+    set_type("library")
+	add_deps("libbsp")
+    add_files("src/**.c")
+    add_includedirs("include", {public = true})
+target_end()

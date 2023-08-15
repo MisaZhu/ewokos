@@ -10,7 +10,7 @@
 static bool press = false;
 static	TouchCordinate_t cordinate[5];
 static 	uint8_t  number_of_cordinate = 0;
-static 	uint32_t last_ts = 0;	
+static 	uint64_t last_ts = 0;	
 
 static int tp_read(int fd, int from_pid, fsinfo_t* info,
 		void* buf, int size, int offset, void* p) {
@@ -21,9 +21,9 @@ static int tp_read(int fd, int from_pid, fsinfo_t* info,
 	(void)p;
 	(void)size;
 
-uint16_t* d = (uint16_t*)buf;
-number_of_cordinate = 0;
-GT911_Status_t ret = GT911_ReadTouch(cordinate, &number_of_cordinate);
+	uint16_t* d = (uint16_t*)buf;
+	number_of_cordinate = 0;
+	GT911_Status_t ret = GT911_ReadTouch(cordinate, &number_of_cordinate);
 	if (ret != GT911_OK || !number_of_cordinate)
 	{
 		if (press && kernel_tic_ms(0) - last_ts > 100)
@@ -33,10 +33,11 @@ GT911_Status_t ret = GT911_ReadTouch(cordinate, &number_of_cordinate);
 			d[1] = cordinate[0].x;
 			d[2] = cordinate[0].y;
 			return 6;
-		}else
-			return ERR_RETRY;
+		}else{
+			usleep(25000);
+			return ERR_RETRY_NON_BLOCK;
+		}
 	}
-	//printf("%d %d\n", cordinate[0].x, cordinate[0].y);
 	last_ts = kernel_tic_ms(0);
 	press = true;
 	d[0] = press;
