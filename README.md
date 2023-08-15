@@ -41,6 +41,7 @@
 	Mac OSX(with brew installed):	
 		brew tap PX4/homebrew-px4
 		brew install gcc-arm-none-eabi-49
+		brew install e2tools
 		(set the right PATH environment after installed)
 		download usb to ttl driver https://www.silabs.com/products/development-tools/software/usb-to-uart-bridge-vcp-drivers
 		
