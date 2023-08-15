@@ -30,10 +30,9 @@ The ARM Versatile 926EJS board contains two ARM SB804 dual timer modules [ARM Ti
 #define TIMER_CTRL_32BIT	(1 << 1)
 #define TIMER_CTRL_ONESHOT	(1 << 0)
 
-#define	DEFAULT_FREQUENCY	1000000
+#define ONE_SECOND          1000000
+
 /* QEMU seems to have problem with full frequency */
-#define	DEFAULT_DIVISOR		16
-#define	DEFAULT_CTRL_DIV	TIMER_CTRL_DIV16
 
 static volatile uint32_t* timer_addr_by_id(uint32_t id) {
 	switch(id) {
@@ -49,18 +48,32 @@ static volatile uint32_t* timer_addr_by_id(uint32_t id) {
 	return TIMER0;
 }
 
-static uint32_t _sys_usec_tic = 0;
-static uint32_t _times_per_sec = 256;
+static uint64_t _sys_usec_tic = 0;
+static uint32_t _sys_usec_tic_tmp = 0;
 
 void timer_set_interval(uint32_t id, uint32_t times_per_sec) {
 	_sys_usec_tic = 0;
-	_times_per_sec = 512;
+	_sys_usec_tic_tmp = 0;
+
 	volatile uint32_t* t = timer_addr_by_id(id);
-	if(times_per_sec > 0)
-		_times_per_sec = times_per_sec/4;
-	put32(t + TIMER_LOAD, _times_per_sec);
-	uint8_t reg = TIMER_CTRL_32BIT | TIMER_CTRL_INTREN |
-		TIMER_CTRL_PERIODIC | DEFAULT_CTRL_DIV | TIMER_CTRL_EN;
+
+	if(times_per_sec  == 0)
+		times_per_sec = KERNEL_SCHD_FREQ;
+
+	put32(t + TIMER_LOAD, ONE_SECOND/times_per_sec); 
+	uint8_t reg = TIMER_CTRL_32BIT |
+			TIMER_CTRL_INTREN |
+			TIMER_CTRL_PERIODIC |
+			TIMER_CTRL_DIV1 |
+			TIMER_CTRL_EN;
+	put8(t + TIMER_CTRL, reg);
+
+	t = timer_addr_by_id(3);
+	put32(t + TIMER_LOAD, ONE_SECOND);
+	reg = TIMER_CTRL_32BIT |
+			TIMER_CTRL_PERIODIC |
+			TIMER_CTRL_DIV1 |
+			TIMER_CTRL_EN;
 	put8(t + TIMER_CTRL, reg);
 }
 
@@ -69,7 +82,11 @@ void timer_clear_interrupt(uint32_t id) {
 	put32(t + TIMER_INTCTRL, 0xFFFFFFFF);
 }
 
-uint64_t timer_read_sys_usec(void) { //read microsec
-	_sys_usec_tic += DEFAULT_FREQUENCY * 32 / _times_per_sec;
+uint64_t timer_read_sys_usec(void) { //read usec
+	volatile uint32_t* t = timer_addr_by_id(3);
+	uint32_t usec = ONE_SECOND - get32(t+TIMER_VALUE);
+	if(_sys_usec_tic_tmp < usec)
+		_sys_usec_tic += usec - _sys_usec_tic_tmp;
+	_sys_usec_tic_tmp = usec;
 	return _sys_usec_tic;
 }
