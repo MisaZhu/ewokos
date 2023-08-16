@@ -180,6 +180,13 @@ elseif is_plat("miyoo") then
     rootfs_dir =  os.scriptdir().."/build/miyoo/rootfs/" 
     includes("hardware/arm/miyoo/xmake.lua")
     system_common()
+elseif is_plat("rk3128") then
+    set_arch("")
+    rootfs_dir =  os.scriptdir().."/build/rk3128/rootfs/" 
+    includes("hardware/arm/rk3128/xmake.lua")
+    system_common()
 end
+
+
 
 
