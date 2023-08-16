@@ -21,5 +21,5 @@ $
 
 @/sbin/x/xmoused /dev/mouse0 &
 @/sbin/x/xim_none /dev/keyb0 esc_home &
-@/sbin/x/xim_vkey &
+@/sbin/x/xim_vkey 600 160&
 @/bin/x/launcher &

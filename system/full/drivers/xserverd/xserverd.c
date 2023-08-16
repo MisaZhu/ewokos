@@ -963,14 +963,14 @@ static void mouse_xwin_handle(x_t* x, xview_t* view, int pos, xevent_t* ev) {
 			x->current.old_pos.x = x->cursor.cpos.x;
 			x->current.old_pos.y = x->cursor.cpos.y;
 			x->current.drag_state = X_VIEW_DRAG_MOVE;
-			x_dirty(x, x->current_display);
+			//x_dirty(x, x->current_display);
 		}
 		else if(pos == FRAME_R_RESIZE) {//window resize
 			x->current.view = view;
 			x->current.old_pos.x = x->cursor.cpos.x;
 			x->current.old_pos.y = x->cursor.cpos.y;
 			x->current.drag_state = X_VIEW_DRAG_RESIZE;
-			x_dirty(x, x->current_display);
+			//x_dirty(x, x->current_display);
 		}
 	}
 	else if(ev->state == XEVT_MOUSE_UP) {
@@ -1020,7 +1020,9 @@ static void mouse_xwin_handle(x_t* x, xview_t* view, int pos, xevent_t* ev) {
 			x->current.pos_delta.y = mry;
 			x_dirty(x, x->current_display);
 		}
+		return; //drag win frame, don't push xwin event.
 	}
+
 	x_push_event(x, view, ev);
 }
 

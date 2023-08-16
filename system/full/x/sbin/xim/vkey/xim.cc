@@ -22,6 +22,7 @@ class XIMX : public XWin {
 	int kbFD;
 	font_t font;
 	gsize_t scrSize;
+	gsize_t panelSize;
 	bool hideMode;
 
 	static const int INPUT_MAX = 128;
@@ -57,13 +58,17 @@ protected:
 			resizeTo(kw, kw);
 			moveTo(scrSize.w - kw, scrSize.h - kw);
 		}
-		else {
+		else { //show panel and repos
 			int w = scrSize.w;
-			if(scrSize.w > scrSize.h*2)
-				w = scrSize.w / 2;
+			int h = scrSize.h / 2;
 
-			resizeTo(w, scrSize.h/2);
-			moveTo(scrSize.w-w, scrSize.h/2);
+			if(panelSize.w > 0)
+				w = panelSize.w;
+			if(panelSize.h > 0)
+				h = panelSize.h;
+
+			resizeTo(w, h);
+			moveTo(scrSize.w-w, scrSize.h-h);
 		}
 	}
 
@@ -323,9 +328,11 @@ protected:
 	}
 
 public:
-	inline XIMX(int fw, int fh) {
+	inline XIMX(int fw, int fh, int pw, int ph) {
 		scrSize.w = fw;
 		scrSize.h = fh;
+		panelSize.w = pw;
+		panelSize.h = ph;
 		font_load("/data/fonts/system.ttf", 13, &font);
 		keytable[1] = ""
 			"1234567890%-+\b"
@@ -365,13 +372,17 @@ public:
 };
 
 int main(int argc, char* argv[]) {
-	(void)argc;
-	(void)argv;
 	X x;
 	xscreen_t scr;
 	x.screenInfo(scr, 0);
 
-	XIMX xwin(scr.size.w, scr.size.h);
+	int pw = 0, ph = 0;
+	if(argc > 1)
+		pw = atoi(argv[1]);
+	if(argc > 2)
+		ph = atoi(argv[2]);
+
+	XIMX xwin(scr.size.w, scr.size.h, pw, ph);
 	//x.open(&xwin, scr.size.w - xwin.getFixW(), scr.size.h-xwin.getFixH(), xwin.getFixW(), xwin.getFixH(), "xim",
 	//x.open(&xwin, 0, scr.size.h-xwin.getFixH(), scr.size.w, xwin.getFixH(), "xim",
 	x.open(&xwin, 0, scr.size.h/2, scr.size.w, scr.size.h/2, "xim",
