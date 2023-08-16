@@ -1024,6 +1024,20 @@ static void mouse_xwin_handle(x_t* x, xview_t* view, int pos, xevent_t* ev) {
 	x_push_event(x, view, ev);
 }
 
+static void cursor_safe(x_t* x, x_display_t* display) {
+	int margin = x->cursor.size.w - x->cursor.offset.x;
+	if(x->cursor.cpos.x < x->cursor.offset.x)
+		x->cursor.cpos.x = x->cursor.offset.x;
+	else if(x->cursor.cpos.x > (display->g->w - margin))
+		x->cursor.cpos.x = display->g->w - margin;
+
+	margin = x->cursor.size.h - x->cursor.offset.y;
+	if(x->cursor.cpos.y < x->cursor.offset.y)
+		x->cursor.cpos.y = x->cursor.offset.y;
+	else if(x->cursor.cpos.y > (display->g->h - margin))
+		x->cursor.cpos.y = display->g->h - margin;
+}
+
 static int mouse_handle(x_t* x, xevent_t* ev) {
 	if(ev->value.mouse.relative != 0) {
 		mouse_cxy(x, x->current_display, ev->value.mouse.rx, ev->value.mouse.ry);
@@ -1036,6 +1050,7 @@ static int mouse_handle(x_t* x, xevent_t* ev) {
 	}
 
 	x_display_t *display = &x->displays[x->current_display];
+	cursor_safe(x, display);
 	if(ev->state ==  XEVT_MOUSE_DOWN) {
 		x->cursor.down = true;
 		if(!x->mouse_state.pressed) {
@@ -1076,6 +1091,7 @@ static int mouse_handle(x_t* x, xevent_t* ev) {
 			return 0;
 		}
 	}
+	
 
 	int pos = -1;
 	xview_t* view = NULL;

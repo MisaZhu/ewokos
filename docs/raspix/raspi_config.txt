@@ -19,6 +19,13 @@ hdmi_mode=87
 hdmi_force_hotplug=1
 #-------------------------------------------
 
+#-----waveshare 11.9 inchs usb touch hdmi_lcd------------
+max_framebuffer_height=1480
+hdmi_group=2
+hdmi_mode=87
+hdmi_timings=320 0 80 16 32 1480 0 16 4 12 0 0 0 60 0 42000000 3
+#display_hdmi_rotate=3
+
 #-----waveshare 4 inchs hdmi_lcd------------
 max_framebuffer_height=1920
 config_hdmi_boost=10
@@ -91,12 +98,6 @@ hdmi_timings=720 0 100 20 100 720 0 20 8 20 0 0 0 60 0 48000000 6
 start_x=0
 gpu_mem=128
 
-#-----waveshare 11.9 inchs usb touch hdmi_lcd------------
-max_framebuffer_height=1480
-hdmi_group=2
-hdmi_mode=87
-hdmi_timings=320 0 80 16 32 1480 0 16 4 12 0 0 0 60 0 42000000 3
-#display_hdmi_rotate=3
 
 #-----waveshare mirror hdmi_lcd------------
 #dtoverlay=vc4-fkms-v3d
