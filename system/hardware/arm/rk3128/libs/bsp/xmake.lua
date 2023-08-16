@@ -1,0 +1,6 @@
+target("libbsp")
+    set_type("library")
+    add_deps("libsd", "libarch_rk3128", "libewokc")
+    add_files("**.c")        
+    add_includedirs("include", {public=true})
+target_end()

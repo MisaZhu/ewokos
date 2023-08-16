@@ -1,6 +1,6 @@
 all:arm riscv
 
-arm:miyoo raspi1 raspi2.3 raspi4 versatilepb
+arm:miyoo rk3128 raspi1 raspi2.3 raspi4 versatilepb
 
 riscv:virt nezha
 

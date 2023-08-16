@@ -1,6 +1,6 @@
 all:arm riscv
 
-arm:miyoo raspix
+arm:miyoo raspix rk3128
 
 riscv:
 
@@ -10,6 +10,10 @@ miyoo:
 
 raspix:
 	xmake f -p raspix
+	xmake
+
+rk3128:
+	xmake f -p rk3128
 	xmake
 
 clean:

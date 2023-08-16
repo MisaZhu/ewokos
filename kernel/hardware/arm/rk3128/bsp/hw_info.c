@@ -135,6 +135,6 @@ void sys_info_init(void) {
 
 void arch_vm(page_dir_entry_t* vm) {
 	//map framebuffer
-	map_pages_size(vm, 0x6dd00000, 0x6dd00000, 1024*600*4, AP_RW_D, PTE_ATTR_WRBACK);	
+	map_pages_size(vm, 0x6dd00000, 0x6dd00000, 1024*600*4, AP_RW_D, PTE_ATTR_DEV);	
 	map_pages_size(vm, 0x20000000, 0x20000000, 8*MB, AP_RW_D, PTE_ATTR_DEV);	
 }

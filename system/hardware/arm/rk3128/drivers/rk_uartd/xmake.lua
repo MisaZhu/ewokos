@@ -1,0 +1,6 @@
+target("rk_uartd")
+    set_type("application")
+    add_deps("libbsp")
+    add_files("**.c")        
+    install_dir("drivers/rk3128")
+target_end()
