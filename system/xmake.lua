@@ -70,14 +70,12 @@ function set_type(type)
     elseif type == "application" then
         set_kind("binary")
         add_includedirs(system_dir.."build/include")
-        add_cflags("-Isystem/basic/libs/libc/include -Isystem/basic/libs/libc/sys/includ")
         add_ldflags("-Ttext=100 -lc -lnosys", {force=true})
-        add_deps("libewokc")
     else
         set_kind("phony")
     end
     add_cflags("-O2")
-    add_deps("system")
+    add_deps("libewokc", "system")
 
     on_run(function (target)end)
 
@@ -115,7 +113,6 @@ function rootfs_common(image)
     end)
 
     -- baseic system
-    add_deps("libewokc")
     add_deps("xserverd","consoled","fontd","displayd","anim","gtest","xconsole",
             "finder","book","wtest","launcher","png","ttyjoy","xim_vkey","xim_none",
             "xmoused","xwm_macos7","xjoystickd","xtouchd","fbd","etc","fbd","stated",
