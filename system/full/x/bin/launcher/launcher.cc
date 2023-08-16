@@ -5,6 +5,7 @@
 #include <upng/upng.h>
 #include <x++/X.h>
 #include <sys/keydef.h>
+#include <sys/klog.h>
 #include <font/font.h>
 #include <dirent.h>
 
@@ -34,6 +35,12 @@ class Launcher: public XWin {
 	bool focused;
 	font_t font;
 	uint32_t titleColor;
+	uint32_t bgColor;
+	uint32_t iconBGColor;
+	uint32_t selectedColor;
+	uint32_t fontSize;
+	uint32_t titleMargin;
+	uint32_t height;
 
 	void drawIcon(graph_t* g, int at, int x, int y, int w, int h) {
 		const char* icon = items.items[at].icon->cstr;
@@ -53,17 +60,18 @@ class Launcher: public XWin {
 		}
 
 		int dx = (w - img->w)/2;
-		int dy = (h - img->h)/2;
+		int dy = (h - (int)(items.icon_size + titleMargin + fontSize)) / 2;
 		graph_blt_alpha(img, 0, 0, img->w, img->h,
 				g, x+dx, y+dy, img->w, img->h, 0xff);
 	}
 
 	void drawTitle(graph_t* g, int at, int x, int y, int w, int h) {
 		const char* title = items.items[at].app->cstr;
-		uint32_t tw;
-		font_text_size(title, &font, &tw, NULL);
+		uint32_t tw, th;
+		font_text_size(title, &font, &tw, &th);
 		int dx = (w - tw)/2;
-		int dy = (h - items.icon_size)/2 + items.icon_size + 8;
+		int dy = (h - (int)(items.icon_size + titleMargin + th)) /2 +
+				items.icon_size + titleMargin;
 		graph_draw_text_font(g, x+dx, y+dy, title, &font, titleColor);
 	}
 
@@ -73,12 +81,12 @@ class Launcher: public XWin {
 
 protected:
 	void onRepaint(graph_t* g) {
-		graph_clear(g, 0x0);
+		graph_clear(g, bgColor);
 		int i, j, itemH, itemW;
 		//cols = g->w / items.item_size;
 		//rows = items.num / cols;
-		itemH = g->h / items.rows;
-		itemW = g->w / items.cols;
+		itemH = (g->h - items.margin) / items.rows;
+		itemW = (g->w - items.margin) / items.cols;
 		//if((items.num % cols) != 0)
 		//	rows++;
 			
@@ -90,25 +98,20 @@ protected:
 
 				int x = i*itemW + items.margin;
 				int y = j*itemH + items.margin;
-				graph_set_clip(g, x, y, itemW-items.margin*2, itemH-items.margin*2);
-				if(focused) {
-					if(selected == at) {
-						graph_fill_round(g, 
-							x, y, itemW-items.margin*2, itemH-items.margin*2, 
-							8, 0x88aaaaaa);
-						graph_round(g, 
-							x, y, itemW-items.margin*2, itemH-items.margin*2, 
-							8, 0x88ffffff);
-					}
-					else {
-						graph_fill_round(g, 
-							x, y, itemW-items.margin*2, itemH-items.margin*2, 
-							8, 0x88444444);
-					}
+				graph_set_clip(g, x, y, itemW-items.margin, itemH-items.margin);
+				if(selected == at && focused) {
+					graph_fill_round(g, 
+							x, y, itemW-items.margin, itemH-items.margin, 
+							8, selectedColor);
+				}
+				else {
+					graph_fill_round(g, 
+							x, y, itemW-items.margin, itemH-items.margin, 
+							8, iconBGColor);
 				}
 
-				drawIcon(g, at, x, y, itemW-items.margin*2, itemH-items.margin*2);
-				drawTitle(g, at, x, y, itemW-items.margin*2, itemH-items.margin*2);
+				drawIcon(g, at, x, y, itemW-items.margin, itemH-items.margin-titleMargin);
+				drawTitle(g, at, x, y, itemW-items.margin, itemH-items.margin);
 			}
 		}
 	}
@@ -119,9 +122,9 @@ protected:
 		if(ev->type == XEVT_MOUSE) {
 			int itemW = xinfo.wsr.w / items.cols;
 			int itemH = xinfo.wsr.h / items.rows;
-			int col = ev->value.mouse.x / itemW;
-			int row = ev->value.mouse.y / itemH;
-			int at = row*items.cols + col;
+			int col = (ev->value.mouse.x - xinfo.wsr.x) / itemW;
+			int row = (ev->value.mouse.y - xinfo.wsr.y) / itemH;
+			int at = row*items.cols + col + start;
 			if(at >= items.num)
 				return;
 
@@ -193,6 +196,8 @@ protected:
 
 public:
 	inline Launcher() {
+		height = 0;
+		titleMargin = 2;
 		selected = 0;
 		start = 0;
 		focused = true;
@@ -217,6 +222,12 @@ public:
 		items.margin = 6;
 		items.icon_size = 64;
 		titleColor = 0xffffffff;
+		bgColor = 0xff000000;
+		iconBGColor = 0x88aaaaaa;
+		selectedColor = 0x88444444;
+		height = 0;
+		fontSize = 14;
+
 		sconf_t *conf = sconf_load(fname);	
 		if(conf == NULL)
 			return false;
@@ -235,21 +246,44 @@ public:
 		if(v[0] != 0)
 			items.margin = atoi(v);
 
-		uint32_t font_size = 16;
 		v = sconf_get(conf, "font_size");
 		if(v[0] != 0)
-			font_size = atoi(v);
+			fontSize = atoi(v);
 
 		v = sconf_get(conf, "font");
 		if(v[0] == 0)
 			v = "/data/fonts/system.ttf";
-		font_load(v, font_size, &font);
+		font_load(v, fontSize, &font);
 
 		v = sconf_get(conf, "title_color");
 		if(v[0] != 0)
 			titleColor = atoi_base(v, 16);
+
+		v = sconf_get(conf, "bg_color");
+		if(v[0] != 0)
+			bgColor = atoi_base(v, 16);
+
+		v = sconf_get(conf, "icon_bg_color");
+		if(v[0] != 0)
+			iconBGColor = atoi_base(v, 16);
+
+		v = sconf_get(conf, "icon_selected_color");
+		if(v[0] != 0)
+			selectedColor = atoi_base(v, 16);
+
+		v = sconf_get(conf, "height");
+		if(v[0] != 0)
+			height = atoi(v);
+		else	
+			height = (fontSize + items.icon_size + titleMargin + items.margin) *
+					items.rows + items.margin + 6;
+
 		sconf_free(conf);
 		return true;
+	}
+
+	inline uint32_t getHeight() {
+		return height;
 	}
 
 	bool loadApps(void) {
@@ -293,10 +327,14 @@ int main(int argc, char* argv[]) {
 
 	X x;
 	x.screenInfo(scr, 0);
+
+	uint32_t h = xwin.getHeight();
+	if(h == 0)
+		h = scr.size.h;
 	x.open(&xwin, 0,
-			0,
+			scr.size.h - h,
 			scr.size.w, 
-			scr.size.h, 
+			h,
 			"launcher",
 			X_STYLE_NO_FRAME | X_STYLE_ALPHA | X_STYLE_LAUNCHER | X_STYLE_SYSBOTTOM);
 
