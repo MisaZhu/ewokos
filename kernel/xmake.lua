@@ -92,17 +92,17 @@ end
 function qemu(args, kernel)
     on_run(function (target)
         if is_plat("raspi1", "raspi2", "raspi3", "raspi2.3", "raspi4") then
-            os.run("qemu-system-arm %s -kernel %s -sd ../system/build/raspix/root.ext2", args, kernel)
+            os.exec("qemu-system-arm %s -kernel %s -sd ../system/build/raspix/root.ext2", args, kernel)
         elseif is_plat("miyoo") then
-            os.run("qemu-system-arm %s -kernel %s -sd ../system/build/miyoo/root.ext2", args, kernel)
+            os.exec("qemu-system-arm %s -kernel %s -sd ../system/build/miyoo/root.ext2", args, kernel)
         elseif is_plat("rk3128") then
-            os.run("qemu-system-arm %s -kernel %s -sd ../system/build/rk3128/root.ext2", args, kernel)
+            os.exec("qemu-system-arm %s -kernel %s -sd ../system/build/rk3128/root.ext2", args, kernel)
          elseif is_plat("versatilepb") then
-            os.run("qemu-system-arm %s -kernel %s -sd ../system/build/versatilepb/root.ext2", args, kernel)
+            os.exec("qemu-system-arm %s -kernel %s -sd ../system/build/versatilepb/root.ext2", args, kernel)
         elseif is_plat("nezha") then
-            os.run("qemu-system-riscv64 %s -kernel %s  -device loader,file=../system/build/nezha/root.ext2,addr=0xe0000000", args, kernel)
+            os.exec("qemu-system-riscv64 %s -kernel %s  -device loader,file=../system/build/nezha/root.ext2,addr=0xe0000000", args, kernel)
         elseif is_plat("virt") then
-            os.run("qemu-system-riscv64 %s -kernel %s  -device loader,file=../system/build/virt/root.ext2,addr=0xe0000000", args, kernel)
+            os.exec("qemu-system-riscv64 %s -kernel %s  -device loader,file=../system/build/virt/root.ext2,addr=0xe0000000", args, kernel)
         end
     end)
 end
