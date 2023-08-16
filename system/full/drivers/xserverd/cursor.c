@@ -33,8 +33,8 @@ void draw_cursor(graph_t* g, cursor_t* cursor, int mx, int my) {
 
 void cursor_init(cursor_t* cursor) {
 	if(cursor->type == CURSOR_TOUCH) {
-		cursor->size.w = 65; 
-		cursor->size.h = 65;
+		cursor->size.w = 49; 
+		cursor->size.h = 49;
 		cursor->offset.x = cursor->size.w/2;
 		cursor->offset.y = cursor->size.h/2;
 	}
