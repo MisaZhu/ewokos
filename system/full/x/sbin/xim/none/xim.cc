@@ -11,9 +11,9 @@
 #include <string.h>
 #include <sys/timer.h>
 
-#define KEY_REPEAT_TIMEOUT	80
-#define KEY_HOLD_TIMEOUT	200
-#define KEY_TIMER	        20000 //50 ps
+#define KEY_REPEAT_TIMEOUT	60
+#define KEY_HOLD_TIMEOUT	100
+#define KEY_TIMER	        5000 //100 ps
 
 typedef struct {
 	uint8_t key;
@@ -123,6 +123,11 @@ public:
 		x_pid = -1;
 		keybFD = -1;
 		this->escHome = escHome;
+
+		for(size_t i = 0; i < sizeof(keyState)/sizeof(KeyState_t); i++){
+			memset(&keyState[i], 0, sizeof(KeyState_t));
+		}
+
 		while(true) {
 			keybFD = open(keyb_dev, O_RDONLY);
 			if(keybFD > 0)
@@ -147,7 +152,8 @@ public:
 		int rd = ::read(keybFD, &v, 6);
 		update_key_state(v, rd);
 		key_state_machine();
-		//usleep(50000);
+		if(rd <= 0)
+			usleep(20000);
 	}
 };
 

@@ -121,7 +121,7 @@ protected:
 	}
 
 	void onEvent(xevent_t* ev) {
-		if(ev->type == XEVT_IM) {
+		if(ev->type == XEVT_IM && ev->state == XIM_STATE_PRESS) {
 			int c = ev->value.im.value;
 			if(c == KEY_ROLL_BACK) {
 				console_roll(&console, -(rollStepRows));

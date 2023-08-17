@@ -956,6 +956,9 @@ static void mouse_xwin_handle(x_t* x, xview_t* view, int pos, xevent_t* ev) {
 		else {
 			try_focus(x, view);
 		}
+
+		if(pos == FRAME_R_RESIZE) //window resize
+			return;
 	}
 	else if(ev->state ==  XEVT_MOUSE_DRAG) {
 		if(pos == FRAME_R_TITLE) {//window title 
@@ -974,6 +977,9 @@ static void mouse_xwin_handle(x_t* x, xview_t* view, int pos, xevent_t* ev) {
 		}
 	}
 	else if(ev->state == XEVT_MOUSE_UP) {
+		if(pos == FRAME_R_RESIZE) //window resize
+				return;
+
 		if(x->current.view == view) {
 			ev->type = XEVT_WIN;
 			ev->value.window.v0 =  x->current.pos_delta.x;
