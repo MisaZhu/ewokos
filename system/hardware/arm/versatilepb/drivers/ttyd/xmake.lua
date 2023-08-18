@@ -1,0 +1,6 @@
+target("ttyd")
+    set_type("application")
+    add_deps("libgraph")
+    add_files("**.c")        
+    install_dir("drivers/versatilepb")
+target_end()
