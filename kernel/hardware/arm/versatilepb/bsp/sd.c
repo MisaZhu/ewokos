@@ -110,7 +110,7 @@ int32_t sd_init(void) {
 	// send init command sequence
 	do_command(0, 0, MMC_RSP_NONE);// idle state
 	do_command(55, 0, MMC_RSP_R1);  // ready state  
-	do_command(41, 1, MMC_RSP_R3);  // argument must not be zero
+	do_command(41, 0x10000, MMC_RSP_R3);  // argument must not be zero
 	do_command(2, 0, MMC_RSP_R2);  // ask card CID
 	do_command(3, SD_RCA, MMC_RSP_R1);  // assign RCA
 	do_command(7, SD_RCA, MMC_RSP_R1);  // transfer state: must use RCA

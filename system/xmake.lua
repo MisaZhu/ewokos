@@ -185,6 +185,11 @@ elseif is_plat("rk3128") then
     rootfs_dir =  os.scriptdir().."/build/rk3128/rootfs/" 
     includes("hardware/arm/rk3128/xmake.lua")
     system_common()
+elseif is_plat("versatilepb") then
+    set_arch("")
+    rootfs_dir =  os.scriptdir().."/build/versatilepb/rootfs/" 
+    includes("hardware/arm/versatilepb/xmake.lua")
+    system_common()
 end
 
 
