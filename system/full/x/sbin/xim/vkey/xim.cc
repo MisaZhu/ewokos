@@ -298,6 +298,7 @@ protected:
 		xevent_t ev;
 		ev.type = XEVT_IM;
 		ev.value.im.value = c;
+		ev.state = XIM_STATE_PRESS;
 
 		int len = strlen(inputS);
 		if(c == KEY_BACKSPACE) {
