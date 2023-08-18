@@ -11,7 +11,6 @@
 typedef struct {
 	void* data;
 	uint32_t size;
-	int32_t shm_id;
 } fb_dma_t;
 
 static int lcd_flush(int fd, int from_pid, fsinfo_t* info, void* p) {
@@ -23,13 +22,13 @@ static int lcd_flush(int fd, int from_pid, fsinfo_t* info, void* p) {
 	return 0;
 }
 
-static int lcd_dma(int fd, int from_pid, fsinfo_t* info, int* size, void* p) {
+static void* lcd_dma(int fd, int from_pid, fsinfo_t* info, int* size, void* p) {
 	(void)fd;
 	(void)from_pid;
 	(void)info;
 	fb_dma_t* dma = (fb_dma_t*)p;
 	*size = dma->size;
-	return dma->shm_id;
+	return dma->data;
 }
 
 static int lcd_fcntl(int fd, int from_pid, fsinfo_t* info, 
@@ -77,13 +76,10 @@ int main(int argc, char** argv) {
 
 	uint32_t sz = LCD_HEIGHT*LCD_WIDTH*4;
 	fb_dma_t dma;
-	dma.shm_id = shm_alloc(sz, 1);
-	if(dma.shm_id <= 0)
-		return -1;
-	dma.size = sz;
-	dma.data = shm_map(dma.shm_id);
+	dma.data = shm_alloc(sz, 1);
 	if(dma.data == NULL)
 		return -1;
+	dma.size = sz;
 
 	vdevice_t dev;
 	memset(&dev, 0, sizeof(vdevice_t));
@@ -96,6 +92,6 @@ int main(int argc, char** argv) {
 	dev.extra_data = &dma;
 	device_run(&dev, mnt_point, FS_TYPE_CHAR);
 
-	shm_unmap(dma.shm_id);
+	shm_unmap(dma.data);
 	return 0;
 }

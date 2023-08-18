@@ -40,7 +40,7 @@ int       vfs_dup(int fd);
 int       vfs_dup2(int fd, int to);
 int       vfs_open_pipe(int fd[2]);
 int       vfs_flush(int fd, bool wait);
-int       vfs_dma(int fd, int* size); 
+void*     vfs_dma(int fd, int* size); 
 
 int       vfs_read_block(int pid, void* buf, uint32_t size, int32_t index);
 int       vfs_write_block(int pid, const void* buf, uint32_t size, int32_t index);

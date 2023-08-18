@@ -9,7 +9,7 @@ extern "C" {
 
 typedef struct {
 	int fd;
-	int dma_id;
+	void* dma;
 	graph_t* g;
 } fb_t;
 

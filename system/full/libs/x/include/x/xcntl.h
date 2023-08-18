@@ -37,6 +37,9 @@ enum {
 	X_CMD_PUSH_EVENT = 0
 };
 
+#define X_UPDATE_REBUILD 0x1
+#define X_UPDATE_REFRESH 0x2
+
 #define X_STYLE_NORMAL    0x0
 #define X_STYLE_NO_FRAME  0x1
 #define X_STYLE_NO_TITLE  0x2
@@ -52,7 +55,7 @@ enum {
 #define X_TITLE_MAX 32
 typedef struct {
 	uint32_t win;
-	int      shm_id;
+	void*    g_shm;
 	uint32_t display_index;
 	uint32_t style;
 	uint32_t state;

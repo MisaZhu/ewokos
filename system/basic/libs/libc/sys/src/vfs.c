@@ -564,10 +564,10 @@ int vfs_fcntl(int fd, int cmd, proto_t* arg_in, proto_t* arg_out) {
 	return res;
 }
 
-int vfs_dma(int fd, int* size) {
+void* vfs_dma(int fd, int* size) {
 	fsinfo_t info;
 	if(vfs_get_by_fd(fd, &info) != 0)
-		return -1;
+		return NULL;
 	
 	proto_t in, out;
 	PF->init(&out);
@@ -576,15 +576,15 @@ int vfs_dma(int fd, int* size) {
 		addi(&in, fd)->
 		add(&in, &info, sizeof(fsinfo_t));
 
-	int shm_id = -1;
+	void* shm = NULL;
 	if(ipc_call(info.mount_pid, FS_CMD_DMA, &in, &out) == 0) {
-		shm_id = proto_read_int(&out);
+		shm = (void*)proto_read_int(&out);
 		if(size != NULL)
 			*size = proto_read_int(&out);
 	}
 	PF->clear(&in);
 	PF->clear(&out);
-	return shm_id;
+	return shm;
 }
 
 int vfs_flush(int fd, bool wait) {
@@ -628,13 +628,7 @@ int vfs_write_block(int pid, const void* buf, uint32_t size, int32_t index) {
 }
 
 int vfs_read_block(int pid, void* buf, uint32_t size, int32_t index) {
-	int32_t shm_id = -1;
-	void* shm = NULL;
-	shm_id = shm_alloc(size, SHM_PUBLIC);
-	if(shm_id < 0)
-		return -1;
-
-	shm = shm_map(shm_id);
+	void* shm = shm_alloc(size, SHM_PUBLIC);
 	if(shm == NULL) 
 		return -1;
 
@@ -644,7 +638,7 @@ int vfs_read_block(int pid, void* buf, uint32_t size, int32_t index) {
 	PF->init(&in)->
 		addi(&in, size)->
 		addi(&in, index)->
-		addi(&in, shm_id);
+		addi(&in, (uint32_t)shm);
 
 	int res = -1;
 	if(ipc_call(pid, FS_CMD_READ_BLOCK, &in, &out) == 0) {
@@ -660,7 +654,7 @@ int vfs_read_block(int pid, void* buf, uint32_t size, int32_t index) {
 	}
 	PF->clear(&in);
 	PF->clear(&out);
-	shm_unmap(shm_id);
+	shm_unmap(shm);
 	return res;
 }
 
@@ -690,14 +684,9 @@ int vfs_read(int fd, fsinfo_t *info, void* buf, uint32_t size) {
 			offset = 0;
 	}
 
-	int32_t shm_id = -1;
 	void* shm = NULL;
 	if(size >= SHM_ON) {
-		shm_id = shm_alloc(size, SHM_PUBLIC);
-		if(shm_id < 0)
-			return -1;
-
-		shm = shm_map(shm_id);
+		shm = shm_alloc(size, SHM_PUBLIC);
 		if(shm == NULL) 
 			return -1;
 	}
@@ -705,7 +694,7 @@ int vfs_read(int fd, fsinfo_t *info, void* buf, uint32_t size) {
 	proto_t in, out;
 	PF->init(&out);
 
-	PF->init(&in)->addi(&in, fd)->add(&in, info, sizeof(fsinfo_t))->addi(&in, size)->addi(&in, offset)->addi(&in, shm_id);
+	PF->init(&in)->addi(&in, fd)->add(&in, info, sizeof(fsinfo_t))->addi(&in, size)->addi(&in, offset)->addi(&in, (uint32_t)shm);
 
 	int res = -1;
 	if(ipc_call(info->mount_pid, FS_CMD_READ, &in, &out) == 0) {
@@ -732,7 +721,7 @@ int vfs_read(int fd, fsinfo_t *info, void* buf, uint32_t size) {
 	PF->clear(&in);
 	PF->clear(&out);
 	if(shm != NULL)
-		shm_unmap(shm_id);
+		shm_unmap(shm);
 	return res;
 }
 
@@ -763,14 +752,9 @@ int vfs_write(int fd, fsinfo_t* info, const void* buf, uint32_t size) {
 			offset = 0;
 	}
 		
-	int32_t shm_id = -1;
 	void* shm = NULL;
 	if(size >= SHM_ON) {
-		shm_id = shm_alloc(size, SHM_PUBLIC);
-		if(shm_id < 0)
-			return -1;
-
-		shm = shm_map(shm_id);
+		shm = shm_alloc(size, SHM_PUBLIC);
 		if(shm == NULL) 
 			return -1;
 		memcpy(shm, buf, size);
@@ -783,8 +767,8 @@ int vfs_write(int fd, fsinfo_t* info, const void* buf, uint32_t size) {
 		addi(&in, fd)->
 		add(&in, info, sizeof(fsinfo_t))->
 		addi(&in, offset)->
-		addi(&in, shm_id);
-	if(shm_id < 0)
+		addi(&in, (uint32_t)shm);
+	if(shm == NULL)
 		PF->add(&in, buf, size);
 	else
 		PF->addi(&in, size);
@@ -806,7 +790,7 @@ int vfs_write(int fd, fsinfo_t* info, const void* buf, uint32_t size) {
 	PF->clear(&in);
 	PF->clear(&out);
 	if(shm != NULL)
-		shm_unmap(shm_id);
+		shm_unmap(shm);
 	return res;
 }
 

@@ -14,9 +14,10 @@ typedef struct st_xwin {
 	x_t* x;
 	int fd;
 	void* data;
-	void* g_buf;
-	int   g_shmid;
-	xinfo_t xinfo;
+
+	void* g_shm;
+	xinfo_t *xinfo;
+
 	xinfo_t xinfo_prev; //for backup the state before fullscreen/min/max.
 
 	void (*on_close)(struct st_xwin* xwin);
@@ -29,7 +30,6 @@ typedef struct st_xwin {
 } xwin_t;
 
 xwin_t*  xwin_open(x_t* xp, int x, int y, int w, int h, const char* title, int style);
-int      xwin_update_info(xwin_t* x, xinfo_t* xinfo);
 void     xwin_close(xwin_t* x);
 int      xwin_set_visible(xwin_t* x, bool visible);
 void     xwin_repaint(xwin_t* x);

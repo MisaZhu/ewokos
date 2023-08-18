@@ -94,16 +94,10 @@ bool XWin::callXIM(void) {
 	return true;
 }
 
-bool XWin::updateInfo(xinfo_t& xinfo) {
-	if(xwin == NULL)	
-		return false;
-	return (xwin_update_info(xwin, &xinfo) == 0);
-}
-
 bool XWin::getInfo(xinfo_t& xinfo) {
-	if(xwin == NULL)	
+	if(xwin == NULL || xwin->xinfo == NULL)	
 		return false;
-	memcpy(&xinfo, &xwin->xinfo, sizeof(xinfo_t));
+	memcpy(&xinfo, xwin->xinfo, sizeof(xinfo_t));
 	return true;
 }
 

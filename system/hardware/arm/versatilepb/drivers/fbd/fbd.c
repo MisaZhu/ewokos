@@ -13,7 +13,6 @@
 typedef struct {
 	void* data;
 	uint32_t size;
-	int32_t shm_id;
 } fb_dma_t;
 
 static fbinfo_t* _fbinfo;
@@ -42,13 +41,10 @@ static int fb_dma_init(fb_dma_t* dma) {
 	if(_fbinfo->pointer == 0)
 		return -1;
 
-	dma->shm_id = shm_alloc(_fbinfo->size_max, 1);
-	if(dma->shm_id <= 0)
-		return -1;
-	dma->size = _fbinfo->size_max;
-	dma->data = shm_map(dma->shm_id);
+	dma->data = shm_alloc(_fbinfo->size_max, 1);
 	if(dma->data == NULL)
 		return -1;
+	dma->size = _fbinfo->size_max;
 	return 0;
 }
 
@@ -100,13 +96,13 @@ static int do_fb_flush(int fd, int from_pid, fsinfo_t* info, void* p) {
 	return do_flush(dma);
 }
 
-static int fb_dma(int fd, int from_pid, fsinfo_t* info, int* size, void* p) {
+static void* fb_dma(int fd, int from_pid, fsinfo_t* info, int* size, void* p) {
 	(void)fd;
 	(void)from_pid;
 	(void)info;
 	fb_dma_t* dma = (fb_dma_t*)p;
 	*size = dma->size;
-	return dma->shm_id;
+	return dma->data;
 }
 
 static void clear(void) {
@@ -125,7 +121,7 @@ int main(int argc, char** argv) {
 	}
 
 	fb_dma_t dma;
-	dma.shm_id = 0;
+	dma.data = NULL;
 	if(vpb_fb_init(w, h, 32) != 0)
 		return -1;
 	_fbinfo = vpb_get_fbinfo();
@@ -145,6 +141,6 @@ int main(int argc, char** argv) {
 
 	dev.extra_data = &dma;
 	device_run(&dev, mnt_name, FS_TYPE_CHAR);
-	shm_unmap(dma.shm_id);
+	shm_unmap(dma.data);
 	return 0;
 }

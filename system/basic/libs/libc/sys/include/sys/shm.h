@@ -11,9 +11,9 @@ enum {
 	SHM_PUBLIC
 };
 
-int   shm_alloc(unsigned int size, int flag);
-void* shm_map(int shmid);
-int   shm_unmap(int shmid);
+void* shm_alloc(unsigned int size, int flag);
+void* shm_map(void* p);
+int   shm_unmap(void* p);
 
 #ifdef __cplusplus
 }

@@ -81,7 +81,7 @@ int fb_close(fb_t* fb) {
 		return -1;
 	if(fb->g != NULL) {
 		graph_free(fb->g);
-		shm_unmap(fb->dma_id);
+		shm_unmap(fb->dma);
 	}
 	close(fb->fd);
 	return 0;
@@ -91,8 +91,8 @@ graph_t* fb_fetch_graph(fb_t* fb) {
 	if(fb == NULL || fb->fd < 0)
 		return NULL;
 
-	int id, w, h, bpp;
-	void* gbuf;
+	int w, h, bpp;
+	void* dma;
 	graph_t* g;
 
 	if(fb_info(fb, &w, &h, &bpp) != 0 ||
@@ -104,22 +104,21 @@ graph_t* fb_fetch_graph(fb_t* fb) {
 
 	if(fb->g != NULL) {
 		graph_free(fb->g);
-		shm_unmap(fb->dma_id);
+		shm_unmap(fb->dma);
 		fb->g = NULL;
-		fb->dma_id = 0;
+		fb->dma = NULL;
 	}
 
-	id = vfs_dma(fb->fd, NULL);
-	if(id <= 0) {
+	dma = vfs_dma(fb->fd, NULL);
+	if(dma == NULL) {
 		return NULL;
 	}
-
-	gbuf = shm_map(id);
-	if(gbuf == NULL) {
+	dma = shm_map(dma);
+	if(dma == NULL) {
 		return NULL;
 	}
-	g = graph_new(gbuf, w, h);
-	fb->dma_id = id;
+	g = graph_new(dma, w, h);
+	fb->dma = dma;
 	fb->g = g;
 	return g;
 }

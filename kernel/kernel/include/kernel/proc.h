@@ -69,7 +69,7 @@ typedef struct {
 	uint32_t          heap_size;
 	bool              ready_ping;
 	
-	int32_t           shms[SHM_MAX];
+	uint32_t           shms[SHM_MAX];
 
 	ipc_server_t      ipc_server;
 	signal_t          signal;

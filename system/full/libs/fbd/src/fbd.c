@@ -10,9 +10,8 @@
 #include <fbd/fbd.h>
 
 typedef struct {
-	void* data;
 	uint32_t size;
-	int32_t shm_id;
+	void* shm;
 } fb_dma_t;
 
 static fbinfo_t* _fbinfo = NULL;
@@ -43,16 +42,12 @@ static int fb_fcntl(int fd,
 
 static int fb_dma_init(fb_dma_t* dma) {
 	memset(dma, 0, sizeof(fb_dma_t));
-	//dma->shm_id = shm_alloc(_fbinfo->size_max, 1);
 	uint32_t sz = _fbinfo->width*_fbinfo->height*4;
-	dma->shm_id = shm_alloc(sz, 1);
-	if(dma->shm_id <= 0)
+	dma->shm = (void*)shm_alloc(sz, SHM_PUBLIC);
+	if(dma->shm == NULL)
 		return -1;
 	//dma->size = _fbinfo->size_max;
 	dma->size = sz;
-	dma->data = shm_map(dma->shm_id);
-	if(dma->data == NULL)
-		return -1;
 	return 0;
 }
 
@@ -79,7 +74,7 @@ static int fb_dev_cntl(int from_pid, int cmd, proto_t* in, proto_t* ret, void* p
 }
 
 static int32_t do_flush(fb_dma_t* dma) {
-	const void* buf = dma->data;
+	const void* buf = dma->shm;
 	uint32_t size = dma->size;
 	return (int32_t)_fbd->flush(_fbinfo, buf, size, _rotate);
 }
@@ -96,13 +91,13 @@ static int do_fb_flush(int fd, int from_pid, fsinfo_t* info, void* p) {
 	return do_flush(dma);
 }
 
-static int fb_dma(int fd, int from_pid, fsinfo_t* info, int* size, void* p) {
+static void* fb_dma(int fd, int from_pid, fsinfo_t* info, int* size, void* p) {
 	(void)fd;
 	(void)from_pid;
 	(void)info;
 	fb_dma_t* dma = (fb_dma_t*)p;
 	*size = dma->size;
-	return dma->shm_id;
+	return dma->shm;
 }
 
 int fbd_run(fbd_t* fbd, int argc, char** argv) {
@@ -122,7 +117,7 @@ int fbd_run(fbd_t* fbd, int argc, char** argv) {
 	}
 
 	fb_dma_t dma;
-	dma.shm_id = 0;
+	dma.shm = NULL;
 	if(fbd->init(w, h, 32) != 0)
 		return -1;
 	_fbinfo = fbd->get_info();
@@ -142,6 +137,6 @@ int fbd_run(fbd_t* fbd, int argc, char** argv) {
 
 	dev.extra_data = &dma;
 	device_run(&dev, mnt_name, FS_TYPE_CHAR);
-	shm_unmap(dma.shm_id);
+	shm_unmap(dma.shm);
 	return 0;
 }

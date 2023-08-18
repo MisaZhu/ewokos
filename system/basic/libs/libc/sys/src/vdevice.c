@@ -48,25 +48,25 @@ static void do_close(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, vo
 
 #define READ_BUF_SIZE 32
 static void do_read(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, void* p) {
-	int size, offset, shm_id;
+	int size, offset;
 	fsinfo_t info;
 	int fd = proto_read_int(in);
 	proto_read_to(in, &info, sizeof(fsinfo_t));
 	size = proto_read_int(in);
 	offset = proto_read_int(in);
-	shm_id = proto_read_int(in);
+	void* shm = (void*)proto_read_int(in);
 	char buffer[READ_BUF_SIZE];
 
 	if(dev != NULL && dev->read != NULL) {
 		void* buf;
-		if(shm_id < 0) {
+		if(shm == NULL) {
 			if(size > READ_BUF_SIZE)
 				buf = malloc(size);
 			else
 				buf = buffer;
 		}
 		else
-			buf = shm_map(shm_id);
+			buf = shm_map(shm);
 
 		if(buf == NULL) {
 			PF->addi(out, -1);
@@ -75,13 +75,13 @@ static void do_read(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, voi
 			size = dev->read(fd, from_pid, &info, buf, size, offset, p);
 			PF->addi(out, size);
 			if(size > 0) {
-				if(shm_id < 0) {
+				if(shm == NULL) {
 					PF->add(out, buf, size);
 				}
 			}
 
-			if(shm_id >= 0)
-				shm_unmap(shm_id);
+			if(shm != NULL)
+				shm_unmap(shm);
 			else if(buf != buffer)
 				free(buf);
 		}
@@ -92,20 +92,20 @@ static void do_read(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, voi
 }
 
 static void do_write(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, void* p) {
-	int32_t size, offset, shm_id;
+	int32_t size, offset;
 	fsinfo_t info;
 	int fd = proto_read_int(in);
 	memcpy(&info, proto_read(in, NULL), sizeof(fsinfo_t));
 	offset = proto_read_int(in);
-	shm_id = proto_read_int(in);
+	void *shm = (void*)proto_read_int(in);
 	
 	if(dev != NULL && dev->write != NULL) {
 		void* data;
-		if(shm_id < 0)
+		if(shm == NULL)
 			data = proto_read(in, &size);
 		else {
 			size = proto_read_int(in);
-			data = shm_map(shm_id);
+			data = shm_map(shm);
 		}
 
 		if(data == NULL) {
@@ -115,8 +115,8 @@ static void do_write(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, vo
 			size = dev->write(fd, from_pid, &info, data, size, offset, p);
 			PF->addi(out, size);
 		}
-		if(shm_id >= 0)
-			shm_unmap(shm_id);
+		if(shm != NULL)
+			shm_unmap(shm);
 	}
 	else {
 		PF->addi(out, -1);
@@ -124,17 +124,17 @@ static void do_write(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, vo
 }
 
 static void do_read_block(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, void* p) {
-	int size, index, shm_id;
+	int size, index;
 	size = proto_read_int(in);
 	index = proto_read_int(in);
-	shm_id = proto_read_int(in);
+	void* shm = (void*)proto_read_int(in);
 
 	if(dev != NULL && dev->read_block != NULL) {
 		void* buf;
-		if(shm_id < 0)
+		if(shm == NULL)
 			buf = malloc(size);
 		else
-			buf = shm_map(shm_id);
+			buf = shm_map(shm);
 		if(buf == NULL) {
 			PF->addi(out, -1);
 		}
@@ -142,13 +142,13 @@ static void do_read_block(vdevice_t* dev, int from_pid, proto_t *in, proto_t* ou
 			size = dev->read_block(from_pid, buf, size, index, p);
 			PF->addi(out, size);
 			if(size > 0) {
-				if(shm_id < 0) {
+				if(shm == NULL) {
 					PF->add(out, buf, size);
 				}
 			}
 
-			if(shm_id >= 0)
-				shm_unmap(shm_id);
+			if(shm != NULL)
+				shm_unmap(shm);
 			else
 				free(buf);
 		}
