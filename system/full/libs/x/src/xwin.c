@@ -135,6 +135,7 @@ void xwin_repaint(xwin_t* xwin) {
 	}
 }
 
+/*
 void xwin_repaint_req(xwin_t* xwin) {
 	x_t* x = xwin->x;
 	xevent_t ev;
@@ -146,6 +147,7 @@ void xwin_repaint_req(xwin_t* xwin) {
 	x_push_event(x, &ev);
 	ipc_enable();
 }
+*/
 
 int xwin_set_display(xwin_t* xwin, uint32_t display_index) {
 	xwin->xinfo->display_index = display_index;
