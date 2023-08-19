@@ -212,6 +212,7 @@ static int draw_view(x_t* xp, xview_t* view) {
 		return 0;
 
 	if(view->g != NULL) {
+		view->xinfo->painting = true;
 		if((view->xinfo->style & X_STYLE_ALPHA) != 0) {
 			graph_blt_alpha(view->g, 0, 0, 
 					view->xinfo->wsr.w,
@@ -232,7 +233,7 @@ static int draw_view(x_t* xp, xview_t* view) {
 						view->xinfo->wsr.w,
 						view->xinfo->wsr.h);
 		}
-
+		view->xinfo->painting = false;
 	}
 
 	draw_win_frame(xp, view);
@@ -399,10 +400,7 @@ static void push_view(x_t* x, xview_t* view) {
 			}
 		}
 	}
-
 	try_focus(x, view);
-	//if(view->xinfo->visible)
-		//x_repaint_req(x, view->xinfo->display_index);
 }
 
 static xview_t* get_next_focus_view(x_t* x, bool skip_launcher) {
@@ -553,9 +551,7 @@ static void x_repaint(x_t* x, uint32_t display_index) {
 	xview_t* view = x->view_head;
 	while(view != NULL) {
 		if(view->xinfo->visible && view->xinfo->display_index == display_index) {
-			view->xinfo->painting = true;
 			draw_view(x, view);
-			view->xinfo->painting = false;
 		}
 		view->dirty = false;
 		view = view->next;
@@ -652,8 +648,6 @@ static int x_update(int fd, int from_pid, x_t* x) {
 
 	if(!view->dirty)
 		unmark_dirty(x, view);
-	//else
-		//x_repaint_req(x, view->xinfo->display_index);
 	return 0;
 }
 
@@ -801,7 +795,6 @@ static int xwin_update_info(int fd, int from_pid, proto_t* in, proto_t* out, x_t
 	if((type & X_UPDATE_REFRESH) != 0 ||
 			(view->xinfo->style & X_STYLE_ALPHA) != 0) {
 		x_dirty(x, view->xinfo->display_index);
-		//x_repaint_req(x, view->xinfo->display_index);
 	}
 	return 0;
 }
@@ -1142,7 +1135,6 @@ static void handle_input(x_t* x, int32_t from_pid, xevent_t* ev) {
 	else if(ev->type == XEVT_MOUSE) {
 		mouse_handle(x, ev);
 	}
-	//x_repaint_req(x, -1);
 }
 
 static int xserver_dev_cntl(int from_pid, int cmd, proto_t* in, proto_t* ret, void* p) {
@@ -1196,7 +1188,6 @@ static int xserver_view_close(int fd, int from_pid, fsinfo_t* info, void* p) {
 	x_del_view(x, view);	
 
 	x_dirty(x, disp_index);
-	//x_repaint_req(x, disp_index);
 	return 0;
 }
 
@@ -1244,8 +1235,6 @@ int main(int argc, char** argv) {
 	dev.loop_step = xserver_step;
 	dev.extra_data = &x;
 
-	x_repaint_req(&x, -1);
-	x_repaint(&x, -1);
 	device_run(&dev, mnt_point, FS_TYPE_CHAR);
 	x_close(&x);
 	return 0;

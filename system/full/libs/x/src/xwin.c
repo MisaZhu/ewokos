@@ -124,7 +124,7 @@ void xwin_close(xwin_t* xwin) {
 }
 
 void xwin_repaint(xwin_t* xwin) {
-	if(xwin->on_repaint == NULL)// || xwin->xinfo->painting)
+	if(xwin->on_repaint == NULL || xwin->xinfo->painting)
 		return;
 
 	graph_t g;
