@@ -124,11 +124,12 @@ void xwin_close(xwin_t* xwin) {
 }
 
 void xwin_repaint(xwin_t* xwin) {
-	if(xwin->on_repaint == NULL)
+	if(xwin->on_repaint == NULL)// || xwin->xinfo->painting)
 		return;
 
 	graph_t g;
 	memset(&g, 0, sizeof(graph_t));
+
 	if(x_get_graph(xwin, &g) != NULL) {
 		xwin->on_repaint(xwin, &g);
 		vfs_fcntl(xwin->fd, X_CNTL_UPDATE, NULL, NULL);
