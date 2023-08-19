@@ -27,7 +27,7 @@ void MacWM::drawTitlePattern(graph_t* g, int x, int y, int w, int h, uint32_t fg
 	y = y + step;
 	int steps = h / step;
 
-	for (int i = 0; i < steps; i++) {
+	for (int i = 1; i < steps; i++) {
 		graph_line(g, x + 4, y, x + w - 8, y, fg);
 		y += step;
 	}
@@ -84,6 +84,16 @@ void MacWM::readConfig(void) {
 	if(v[0] != 0) 
 		desktopBGColor = atoi_base(v, 16);
 
+	v = sconf_get(sconf, "title_h");
+	if(v[0] != 0) 
+		titleH = atoi(v);
+
+	int font_size = 14;
+	v = sconf_get(sconf, "font_size");
+	if(v[0] != 0) 
+		font_size = atoi(v);
+ 	font_load("/data/fonts/system.ttf", font_size, &font);
+
 	sconf_free(sconf);
 }
 
@@ -113,6 +123,5 @@ MacWM::MacWM(void) {
 	bgTopColor = 0xffaaaaaa;
 	fgTopColor = 0xff222222;
 	bgImg = NULL;
-    font_load("/data/fonts/system.ttf", 13, &font);
 	titleH = 32;
 }
