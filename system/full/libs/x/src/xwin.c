@@ -28,6 +28,7 @@ static int xwin_update_info(xwin_t* xwin, uint8_t type) {
 	}
 
 	proto_t in, out;
+	PF->init(&out);
 	PF->init(&in)->addi(&in, (uint32_t)xwin->xinfo)->addi(&in, type);
 	int ret = vfs_fcntl(xwin->fd, X_CNTL_UPDATE_INFO, &in, &out);
 	PF->clear(&in);
