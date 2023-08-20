@@ -21,14 +21,14 @@ static const char* get_state(procinfo_t* proc) {
 	static char ret[16];
 	if(proc->state == 4) {
 		if(proc->pid == proc->block_by)
-			strcpy(ret, "blk [ipc]");
+			strcpy(ret, "blk[ipc]");
 		else if(proc->block_by < 0)
-			strcpy(ret, "blk [kev]");
+			strcpy(ret, "blk[kev]");
 		else 
-			snprintf(ret, 15, "blk [%d]", proc->block_by);
+			snprintf(ret, 13, "blk[%d]", proc->block_by);
 	}
 	else if(proc->state == 3)
-		snprintf(ret, 15, "wat [%d]", proc->wait_for);
+		snprintf(ret, 13, "wat[%d]", proc->wait_for);
 	else 
 		strcpy(ret, _states[proc->state]);
 	return ret;
@@ -91,9 +91,9 @@ int main(int argc, char* argv[]) {
 	procinfo_t* procs = (procinfo_t*)syscall1(SYS_GET_PROCS, (int)&num);
 	if(procs != NULL) {
 		if(full)
-			printf("OWNER   PID  FATH CPU    STATE       TIME     HEAP(K) SHM(K) PROC\n"); 
+			printf("OWNER   PID  FATH CORE   STATE     TIME     HEAP(K) SHM(K) PROC\n"); 
 		else
-			printf("OWNER   PID  FATH STATE      PROC\n"); 
+			printf("OWNER   PID  FATH CORE   STATE     PROC\n"); 
 		for(int i=0; i<num; i++) {
 			procinfo_t* proc = &procs[i];
 			if(strcmp(proc->cmd, "cpu_core_halt") == 0) {
@@ -106,7 +106,7 @@ int main(int argc, char* argv[]) {
 
 			if(full) {
 				uint32_t sec = csec - proc->start_sec;
-				printf("%8s%4d %4d %6s %10s  %02d:%02d:%02d %6d  %5d  %s",
+				printf("%8s%4d %4d %6s %9s %02d:%02d:%02d %6d  %5d  %s",
 					get_owner(proc),
 					proc->pid,
 					proc->father_pid,
@@ -120,10 +120,11 @@ int main(int argc, char* argv[]) {
 					get_cmd(proc, full));
 			}
 			else {
-				printf("%8s%4d %4d %10s %s",
+				printf("%8s%4d %4d %6s %9s %s",
 					get_owner(proc),
 					proc->pid,
 					proc->father_pid,
+					get_core_loading(&sys_info, proc),
 					get_state(proc),
 					get_cmd(proc, full));
 
