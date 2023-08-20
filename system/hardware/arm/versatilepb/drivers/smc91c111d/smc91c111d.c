@@ -249,6 +249,6 @@ int main(int argc, char** argv) {
 	dev.read = eth_read;
 	dev.write = eth_write;
 
-	device_run(&dev, mnt_point, FS_TYPE_BLOCK);
+	device_run(&dev, mnt_point, FS_TYPE_CHAR);
 	return 0;
 }
