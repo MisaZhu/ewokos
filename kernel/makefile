@@ -43,3 +43,6 @@ clean:
 
 run:raspi2.3
 	xmake run
+
+net_debug:versatilepb
+	sudo qemu-system-arm  -cpu arm926 -M versatilepb -m 256M -serial mon:stdio -nic vmnet-bridged,ifname=en0 -kernel hardware/arm/versatilepb/kernel7.qemu.img -sd ../system/build/versatilepb/root.ext2	
