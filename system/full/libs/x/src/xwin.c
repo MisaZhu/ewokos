@@ -222,7 +222,7 @@ int xwin_event_handle(xwin_t* xwin, xevent_t* ev) {
 		else {
 			xscreen_t scr;
 			if(x_screen_info(&scr, xwin->xinfo->display_index) == 0) {
-				memcpy(&xwin->xinfo_prev, &xwin->xinfo, sizeof(xinfo_t));
+				memcpy(&xwin->xinfo_prev, xwin->xinfo, sizeof(xinfo_t));
 				int32_t dh = xwin->xinfo->winr.h - xwin->xinfo->wsr.h;
 				grect_t r = {0, dh, scr.size.w, scr.size.h-dh};
 				memcpy(&xwin->xinfo->wsr, &r, sizeof(grect_t));
