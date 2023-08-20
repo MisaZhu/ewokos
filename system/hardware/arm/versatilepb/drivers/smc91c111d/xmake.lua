@@ -1,0 +1,5 @@
+target("smc91c111d")
+    set_type("application")
+    add_files("**.c")        
+    install_dir("drivers/versatilepb")
+target_end()
