@@ -42,15 +42,15 @@ static int joystick_read(int fd, int from_pid, fsinfo_t* info,
 		else if(bcm283x_gpio_read(KEY_RIGHT_PIN) == 0)
 			*rd = _j_x_rev ? KEY_LEFT:KEY_RIGHT;
 		else if(bcm283x_gpio_read(KEY_PRESS_PIN) == 0)
-			*rd = KEY_ENTER;
+			*rd = KEY_BUTTON_START;
 	}
 
 	if(bcm283x_gpio_read(KEY1_PIN) == 0)
-		*rd = KEY_ENTER;
+		*rd = KEY_BUTTON_A;
 	else if(bcm283x_gpio_read(KEY2_PIN) == 0)
-		*rd = KEY_BACKSPACE;
+		*rd = KEY_BUTTON_B;
 	else if(bcm283x_gpio_read(KEY3_PIN) == 0)
-		*rd = KEY_ESC;
+		*rd = KEY_HOME;
 	return 1;
 }
 
