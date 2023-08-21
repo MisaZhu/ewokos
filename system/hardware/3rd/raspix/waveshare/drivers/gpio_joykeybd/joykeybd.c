@@ -7,6 +7,7 @@
 #include <sys/keydef.h>
 #include <arch/bcm283x/gpio.h>
 
+/*default gpio for waveshare GamePi15 Hat*/
 #define KEY_BUTTON_X_PIN  		12
 #define KEY_BUTTON_B_PIN  		21
 #define KEY_BUTTON_Y_PIN  		15

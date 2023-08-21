@@ -6,6 +6,7 @@
 #include <sys/syscall.h>
 #include <arch/bcm283x/gpio.h>
 
+/*default gpio for waveshare GamePi15 Hat*/
 static uint32_t KEY_UP_PIN = 5;
 static uint32_t KEY_DOWN_PIN = 6;
 static uint32_t KEY_LEFT_PIN = 16;
