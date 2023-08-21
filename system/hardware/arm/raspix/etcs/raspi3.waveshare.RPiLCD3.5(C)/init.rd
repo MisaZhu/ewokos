@@ -13,8 +13,10 @@ $
 /bin/rundev /drivers/proc/sysinfod        /proc/sysinfo
 /bin/rundev /drivers/proc/stated          /proc/state
 
+/bin/rundev /drivers/raspix/xpt2046d      /dev/touch0
 /bin/rundev /drivers/xserverd             /dev/x
 
+@/sbin/x/xtouchd &
 @/sbin/x/xim_vkey &
 @/bin/x/launcher &
 

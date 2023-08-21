@@ -14,7 +14,7 @@ static int tp_read(int fd, int from_pid, fsinfo_t* info,
 	(void)p;
 
 	if(size < 6)
-    return ERR_RETRY;
+		return ERR_RETRY_NON_BLOCK;
 
 	uint16_t* d = (uint16_t*)buf;
 
