@@ -61,6 +61,7 @@ typedef struct {
 	fb_t fb;
 	graph_t* g;
 	bool dirty;
+	bool curcor_task;
 	bool need_repaint;
 } x_display_t;
 
@@ -209,7 +210,7 @@ static void draw_drag_frame(x_t* xp, uint32_t display_index) {
 static int draw_view(x_t* xp, xview_t* view) {
 	x_display_t *display = &xp->displays[view->xinfo->display_index];
 	if(!display->dirty && !view->dirty)
-		return 0;
+		return -1;
 
 	if(view->g != NULL) {
 		view->xinfo->painting = true;
@@ -538,6 +539,10 @@ static void x_repaint(x_t* x, uint32_t display_index) {
 			(!display->need_repaint))
 		return;
 	display->need_repaint = false;
+	bool do_flush = false;
+
+	if(display->curcor_task)
+		do_flush = true;
 
 	if(x->show_cursor && x->current_display == display_index)
 		hide_cursor(x);
@@ -546,12 +551,14 @@ static void x_repaint(x_t* x, uint32_t display_index) {
 	if(display->dirty) {
 		draw_desktop(x, display_index);
 		undirty = true;
+		do_flush = true;
 	}
 
 	xview_t* view = x->view_head;
 	while(view != NULL) {
 		if(view->xinfo->visible && view->xinfo->display_index == display_index) {
-			draw_view(x, view);
+			if(draw_view(x, view) == 0)
+				do_flush = true;
 		}
 		view->dirty = false;
 		view = view->next;
@@ -562,10 +569,10 @@ static void x_repaint(x_t* x, uint32_t display_index) {
 			refresh_cursor(x);
 	}
 
-	fb_flush(&display->fb);
-
 	if(undirty)
 		display->dirty = false;
+	if(do_flush)
+		fb_flush(&display->fb);
 }
 
 static xview_t* x_get_view(x_t* x, int fd, int from_pid) {
@@ -1058,6 +1065,7 @@ static int mouse_handle(x_t* x, xevent_t* ev) {
 	}
 
 	x_display_t *display = &x->displays[x->current_display];
+	display->curcor_task = true;
 	cursor_safe(x, display);
 	if(ev->state ==  XEVT_MOUSE_DOWN) {
 		x->cursor.down = true;
