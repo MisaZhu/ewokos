@@ -36,7 +36,7 @@ protected:
 	}
 
 	void onResize(void) override {
-		widget.resizeTo(xwin->xinfo.wsr.w, xwin->xinfo.wsr.h);
+		widget.resizeTo(xwin->xinfo->wsr.w, xwin->xinfo->wsr.h);
 	}	
 public:
 	inline WidgetWin(void) {
