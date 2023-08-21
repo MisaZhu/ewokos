@@ -42,6 +42,7 @@
 #define DMA_PERMAP_0  0x0     /* PWM0 peripheral for DREQ */
 //#define DMA_PERMAP_1  0x10000 /* PWM1 peripheral for DREQ */
 
+#define DMA_BUF_SIZE  1024
 
 typedef struct dma_cb {
    unsigned int ti;
@@ -85,44 +86,57 @@ static void audio_init(void) {
 			BCM283x_PWM0_ENABLE | 1<<6;
 	
 	_dma_cb = (dma_cb_t*)dma_map(sizeof(dma_cb_t));
-	_dma_data_addr = dma_map(4096); //4k dma buffer
+	_dma_data_addr = dma_map(DMA_BUF_SIZE); //4k dma buffer
 }
 
 
 static void playaudio_dma(uint8_t* data, uint32_t size) {
-    // Convert data
-	uint32_t* pdata = (uint32_t*)_dma_data_addr;
-    for (uint32_t i=0; i<size; i++) 
-		*(pdata+i) = *(data+i);
-	usleep(2000);
+	// Convert data
+	klog("sound: set data %d\n", size);
+	if(size > DMA_BUF_SIZE)
+		size = DMA_BUF_SIZE;
 
-    // Set up control block
-	uint32_t phy_pwm_base =  syscall1(SYS_V2P, PWM_BASE);
+	uint32_t *pdata = (uint32_t *)_dma_data_addr;
+	for (uint32_t i = 0; i < size; i++)
+		*(pdata + i) = *(data + i);
+	usleep(200);
+	klog("sound: data ready\n");
 
-    _dma_cb->ti = DMA_DEST_DREQ + DMA_PERMAP_0 + DMA_SRC_INC;
-    _dma_cb->source_ad = _dma_data_addr;
-    _dma_cb->dest_ad = phy_pwm_base + 0x18; // Points to PWM_FIFO
-    _dma_cb->txfr_len = size * 4; // They're unsigned ints now, not unsigned chars
-    _dma_cb->stride = 0x00;
-    _dma_cb->nextconbk = 0x00; // Don't loop
-    _dma_cb->null1 = 0x00;
-    _dma_cb->null2 = 0x00;
-	usleep(2000);
+	// Set up control block
+	uint32_t phy_pwm_base = syscall1(SYS_V2P, PWM_BASE);
+	klog("sound: pwd base 0x%x\n", phy_pwm_base);
 
-    // Enable DMA
-	volatile uint32_t* pwm = (uint32_t*)PWM_BASE;
-	volatile uint32_t* dma = (uint32_t*)DMA_BASE;
-	volatile uint32_t* dmae = (uint32_t*)DMA_ENABLE;
+	_dma_cb->ti = DMA_DEST_DREQ + DMA_PERMAP_0 + DMA_SRC_INC;
+	_dma_cb->source_ad = _dma_data_addr;
+	_dma_cb->dest_ad = phy_pwm_base + 0x18; // Points to PWM_FIFO
+	_dma_cb->txfr_len = size * 4;						// They're unsigned ints now, not unsigned chars
+	_dma_cb->stride = 0x00;
+	_dma_cb->nextconbk = 0x00; // Don't loop
+	_dma_cb->null1 = 0x00;
+	_dma_cb->null2 = 0x00;
+	usleep(200);
 
-    *(pwm+BCM283x_PWM_DMAC) = 
-          BCM283x_PWM_ENAB + 0x0707; // Bits 0-7 Threshold For DREQ Signal = 1, Bits 8-15 Threshold For PANIC Signal = 0
-    *dmae = DMA_EN0;
-    *(dma+DMA_CONBLK_AD) = (long)_dma_cb; // checked and correct
-	usleep(2000);
-    *(dma+DMA_CS) = DMA_ACTIVE;
+	klog("sound: setup done\n");
 
-	while (*(dma+DMA_CS) & 0x1) // Wait for DMA transfer to finish - we could do anything here instead!
-		usleep(2000);
+	// Enable DMA
+	volatile uint32_t *pwm = (uint32_t *)PWM_BASE;
+	volatile uint32_t *dma = (uint32_t *)DMA_BASE;
+	volatile uint32_t *dmae = (uint32_t *)DMA_ENABLE;
+
+	klog("sound: dma enabled\n");
+
+	*(pwm + BCM283x_PWM_DMAC) =
+			BCM283x_PWM_ENAB + 0x0707; // Bits 0-7 Threshold For DREQ Signal = 1, Bits 8-15 Threshold For PANIC Signal = 0
+	*dmae = DMA_EN0;
+	*(dma + DMA_CONBLK_AD) = (long)_dma_cb; // checked and correct
+	usleep(200);
+	*(dma + DMA_CS) = DMA_ACTIVE;
+
+	klog("sound: play\n");
+
+	while (*(dma + DMA_CS) & 0x1) // Wait for DMA transfer to finish - we could do anything here instead!
+		usleep(200);
+	klog("sound: %d\n", size);
 }
 
 /*

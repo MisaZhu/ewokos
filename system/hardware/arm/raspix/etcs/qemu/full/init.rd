@@ -15,6 +15,8 @@ $
 /bin/rundev /drivers/proc/sysinfod        /proc/sysinfo
 /bin/rundev /drivers/proc/stated          /proc/state
 
+/bin/rundev /drivers/raspix/soundd        /dev/sound
+
 /bin/rundev /drivers/xserverd             /dev/x
 
 @/bin/session &
