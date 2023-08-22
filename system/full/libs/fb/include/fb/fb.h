@@ -18,8 +18,8 @@ enum {
 };
 
 enum {
-	FB_DEV_CNTL_SET_INFO = 0,
-	FB_DEV_CNTL_GET_INFO
+	FB_DEV_CNTL_GET_INFO = 0,
+	FB_DEV_CNTL_SET_INFO
 };
 
 int      fb_set(const char *dev, int w, int h, int bpp);

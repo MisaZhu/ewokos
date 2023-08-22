@@ -4,6 +4,7 @@
 #include <fcntl.h>
 #include <string.h>
 #include <sys/shm.h>
+#include <fb/fb.h>
 #include <sys/shm.h>
 #include <sys/vdevice.h>
 #include <ili9486/ili9486.h>
@@ -39,7 +40,7 @@ static int lcd_fcntl(int fd, int from_pid, fsinfo_t* info,
 	(void)in;
 	(void)p;
 
-	if(cmd == 0) { //get lcd size
+	if(cmd == FB_CNTL_GET_INFO) { //get lcd size
 		PF->addi(out, LCD_WIDTH)->addi(out, LCD_HEIGHT)->addi(out, 16);
 	}
 	return 0;
@@ -50,7 +51,7 @@ static int lcd_dev_cntl(int from_pid, int cmd, proto_t* in, proto_t* ret, void* 
 	(void)in;
 	(void)p;
 
-	if(cmd != 0) { //get fb size and bpp
+	if(cmd == FB_DEV_CNTL_GET_INFO) { //get fb size and bpp
 		PF->addi(ret, LCD_WIDTH)->addi(ret, LCD_HEIGHT)->addi(ret, 16);
 	}	
 	return 0;
