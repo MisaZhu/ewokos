@@ -32,20 +32,19 @@ static int32_t read_config(fb_console_t* console, const char* fname) {
 	uint32_t font_size = 16;
 	console->console.fg_color = 0xffcccccc;
 	console->console.bg_color = 0xff000000;
-	const char* icon_fn = "/data/icons/starwars/ewok.png";
+	//const char* icon_fn = "/data/icons/starwars/ewok.png";
 	//const char* bg_fn = "/data/images/ewok.png";
 
 	sconf_t *conf = sconf_load(fname);	
 	if(conf == NULL) {
-		console->icon = png_image_new(icon_fn);
 		return -1;
 	}
 
 	const char* v = sconf_get(conf, "icon");
 	if(v[0] != 0) 
 		console->icon = png_image_new(v);
-	else
-		console->icon = png_image_new(icon_fn);
+	//else
+		//console->icon = png_image_new(icon_fn);
 
 	/*v = sconf_get(conf, "bg_image");
 	if(v[0] != 0) 
