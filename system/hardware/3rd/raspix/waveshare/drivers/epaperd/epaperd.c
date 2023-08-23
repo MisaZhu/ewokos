@@ -122,6 +122,7 @@ static void epaper_flush(uint8_t* buf, bool red, bool revert) {
 	uint32_t w = (EPD_WIDTH % 8 == 0)? (EPD_WIDTH / 8 ): (EPD_WIDTH / 8 + 1);
 	uint32_t h = EPD_HEIGHT;
 
+	bcm283x_spi_set_div(SPI_CLK_DIVIDE_TEST);
 	bcm283x_spi_activate(1);
 	uint8_t bgCmd, fgCmd;
 
@@ -182,7 +183,7 @@ void epaper_init(void) {
 	bcm283x_gpio_config(EPD_BUSY_PIN, GPIO_INPUT);
 	bcm283x_gpio_write(EPD_CS_PIN, 1);
 
-	bcm283x_spi_init(SPI_CLK_DIVIDE_TEST);
+	bcm283x_spi_init();
 	bcm283x_spi_select(SPI_SELECT_0);
 	epaper_init_raw();
 }

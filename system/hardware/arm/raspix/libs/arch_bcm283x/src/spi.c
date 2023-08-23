@@ -72,15 +72,18 @@
 
 static uint32_t bcm283x_spi_which = SPI_SELECT_DEFAULT;
 
-void bcm283x_spi_init(int32_t clk_divide) {
+void bcm283x_spi_set_div(int32_t clk_divide) {
+	/* set largest clock divider */
+	clk_divide &= SPI_CLK_DIVIDE_MASK; /* 16-bit value */
+	put32(SPI_CLK_REG,clk_divide); /** 0=65536, power of 2, rounded down */
+}
+
+void bcm283x_spi_init(void) {
 	bcm283x_gpio_init();
 
 	uint32_t data = SPI_CNTL_CLMASK; /* clear both rx/tx fifo */
 	/* clear spi fifo */
 	put32(SPI_CS_REG,data);
-	/* set largest clock divider */
-	clk_divide &= SPI_CLK_DIVIDE_MASK; /* 16-bit value */
-	put32(SPI_CLK_REG,clk_divide); /** 0=65536, power of 2, rounded down */
 	/* setup spi pins (ALTF0) */
 	bcm283x_gpio_config(SPI_SCLK, GPIO_ALTF0);
 	bcm283x_gpio_config(SPI_MOSI, GPIO_ALTF0);

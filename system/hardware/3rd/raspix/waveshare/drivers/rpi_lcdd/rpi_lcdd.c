@@ -86,9 +86,9 @@ int main(int argc, char** argv) {
 
 	const char* mnt_point = argc > 1 ? argv[1]: "/dev/rpi_lcd";
 
-	bcm283x_spi_init(4);
-	xpt2046_init(tp_cs, tp_irq, 0);
-	ili9486_init(lcd_dc, lcd_cs, lcd_rst, 0);
+	bcm283x_spi_init();
+	xpt2046_init(tp_cs, tp_irq, 128);
+	ili9486_init(lcd_dc, lcd_cs, lcd_rst, 2);
 
 	uint32_t sz = LCD_HEIGHT*LCD_WIDTH*4;
 	fb_dma_t dma;

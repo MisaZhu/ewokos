@@ -7,7 +7,8 @@
 #define SPI_SELECT_1 0x02
 #define SPI_SELECT_DEFAULT SPI_SELECT_0
 
-void     bcm283x_spi_init(int32_t clk_divide);
+void     bcm283x_spi_init(void);
+void     bcm283x_spi_set_div(int32_t clk_divide);
 uint8_t  bcm283x_spi_transfer(uint8_t data);
 uint16_t bcm283x_spi_transfer16(uint16_t data);
 void     bcm283x_spi_write(uint8_t data);

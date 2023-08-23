@@ -10,6 +10,7 @@
 static int LCD_DC =	24;
 static int LCD_CS	= 8;
 static int LCD_RST = 25;
+static int SPI_DIV = 2;
 
 // Screen settings
 #define LCD_SCREEN_WIDTH 		480
@@ -152,6 +153,7 @@ void ili9486_flush(const void* buf, uint32_t size) {
 		_lcd_buffer[i] = ((r >> 3) <<11) | ((g >> 3) << 6) | (b >> 3);
 	}
 
+	bcm283x_spi_set_div(SPI_DIV);
 	lcd_start();
 	lcd_show();
 	lcd_end();
@@ -167,8 +169,9 @@ void ili9486_init(int pin_rs, int pin_cs, int pin_rst, int cdiv) {
 	bcm283x_gpio_config(LCD_RST, GPIO_OUTPUT);
 
 	lcd_reset();
-	if(cdiv != 0)
-		bcm283x_spi_init(cdiv);
+	if(cdiv > 0)
+		SPI_DIV = cdiv;
+	bcm283x_spi_set_div(SPI_DIV);
 	bcm283x_spi_select(SPI_SELECT_0);
 
 	lcd_start();
@@ -234,4 +237,3 @@ void ili9486_init(int pin_rs, int pin_cs, int pin_rst, int cdiv) {
 	delay(150000);
 	lcd_end();
 }
-

@@ -9,16 +9,16 @@
 //GPIO ports for waveshare 3.5 inch
 static int TP_CS = 7;
 static int TP_IRQ = 25;
+static int SPI_DIV = 64;
 
 static bool _down = false;
 static int32_t _x, _y;
 
-static void TP_init(int cdiv) {
+static void TP_init(void) {
 	_down = false;
 	_x = _y = 0;
 	//klog("tp_init\n");
-	if(cdiv != 0)
-		bcm283x_spi_init(cdiv);
+	bcm283x_spi_set_div(SPI_DIV);
 	bcm283x_spi_select(SPI_SELECT_0);
 
 	bcm283x_gpio_config(TP_CS, GPIO_OUTPUT);
@@ -42,6 +42,7 @@ static bool do_read(uint16_t* x, uint16_t* y){
 	uint16_t tx=0, ty=0;
 	uint16_t i=0;
 
+	bcm283x_spi_set_div(SPI_DIV);
 	bcm283x_gpio_write(TP_CS, 0);
 	bcm283x_spi_activate(1);
 
@@ -64,7 +65,6 @@ int xpt2046_read(uint16_t* press,  uint16_t* x, uint16_t* y) {
 	if(press == NULL || x == NULL || y == NULL)
 		return -1;
 
-	bcm283x_gpio_write(TP_CS, 0);
 	uint32_t t = bcm283x_gpio_read(TP_IRQ);
 	if(t == 1 && !_down)
  	   return -1;
@@ -90,6 +90,8 @@ int xpt2046_read(uint16_t* press,  uint16_t* x, uint16_t* y) {
 void xpt2046_init(int pin_cs, int pin_irq, int cdiv) {
 	TP_CS = pin_cs;
 	TP_IRQ = pin_irq;
-	TP_init(cdiv);
+	if(cdiv > 0)
+		SPI_DIV = cdiv;
+	TP_init();
 }
 
