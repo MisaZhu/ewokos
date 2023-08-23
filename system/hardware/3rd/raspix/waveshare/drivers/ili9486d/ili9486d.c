@@ -73,6 +73,7 @@ int main(int argc, char** argv) {
 		lcd_rst = atoi(argv[4]);
 	}
 
+	bcm283x_spi_init();
 	ili9486_init(lcd_rs, lcd_cs, lcd_rst, 128);
 
 	uint32_t sz = LCD_HEIGHT*LCD_WIDTH*4;

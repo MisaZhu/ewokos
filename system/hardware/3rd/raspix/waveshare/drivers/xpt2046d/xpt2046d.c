@@ -35,6 +35,7 @@ int main(int argc, char** argv) {
 		TP_IRQ = atoi(argv[3]);
 	}
 
+	bcm283x_spi_init();
 	xpt2046_init(TP_CS, TP_IRQ, 256);
 
 	vdevice_t dev;
