@@ -167,7 +167,8 @@ void ili9486_init(int pin_rs, int pin_cs, int pin_rst, int cdiv) {
 	bcm283x_gpio_config(LCD_RST, GPIO_OUTPUT);
 
 	lcd_reset();
-	bcm283x_spi_init(cdiv);
+	if(cdiv != 0)
+		bcm283x_spi_init(cdiv);
 	bcm283x_spi_select(SPI_SELECT_0);
 
 	lcd_start();

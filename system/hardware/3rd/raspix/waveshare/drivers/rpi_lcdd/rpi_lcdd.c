@@ -7,6 +7,7 @@
 #include <sys/shm.h>
 #include <sys/shm.h>
 #include <sys/vdevice.h>
+#include <arch/bcm283x/spi.h>
 #include <ili9486/ili9486.h>
 #include <xpt2046/xpt2046.h>
 
@@ -85,8 +86,9 @@ int main(int argc, char** argv) {
 
 	const char* mnt_point = argc > 1 ? argv[1]: "/dev/rpi_lcd";
 
-	ili9486_init(lcd_dc, lcd_cs, lcd_rst, 32);
-	xpt2046_init(tp_cs, tp_irq, 32);
+	bcm283x_spi_init(4);
+	xpt2046_init(tp_cs, tp_irq, 0);
+	ili9486_init(lcd_dc, lcd_cs, lcd_rst, 0);
 
 	uint32_t sz = LCD_HEIGHT*LCD_WIDTH*4;
 	fb_dma_t dma;

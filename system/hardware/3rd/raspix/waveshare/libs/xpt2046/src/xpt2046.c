@@ -17,7 +17,8 @@ static void TP_init(int cdiv) {
 	_down = false;
 	_x = _y = 0;
 	//klog("tp_init\n");
-	bcm283x_spi_init(cdiv);
+	if(cdiv != 0)
+		bcm283x_spi_init(cdiv);
 	bcm283x_spi_select(SPI_SELECT_0);
 
 	bcm283x_gpio_config(TP_CS, GPIO_OUTPUT);
