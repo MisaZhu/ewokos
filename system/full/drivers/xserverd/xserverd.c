@@ -60,6 +60,7 @@ typedef struct {
 typedef struct {
 	fb_t fb;
 	graph_t* g;
+	graph_t* g_fb;
 	bool dirty;
 	bool curcor_task;
 	bool need_repaint;
@@ -145,7 +146,7 @@ static void draw_win_frame(x_t* x, xview_t* view) {
 
 	proto_t in;
 	PF->init(&in)->
-		addi(&in, (uint32_t)display->fb.dma)->
+		addi(&in, (uint32_t)display->g->buffer)->
 		addi(&in, display->g->w)->
 		addi(&in, display->g->h)->
 		add(&in, view->xinfo, sizeof(xinfo_t));
@@ -165,7 +166,7 @@ static void draw_desktop(x_t* x, uint32_t display_index) {
 
 	proto_t in;
 	PF->init(&in)->
-		addi(&in, (uint32_t)display->fb.dma)->
+		addi(&in, (uint32_t)display->g->buffer)->
 		addi(&in, display->g->w)->
 		addi(&in, display->g->h);
 
@@ -198,7 +199,7 @@ static void draw_drag_frame(x_t* xp, uint32_t display_index) {
 
 	proto_t in;
 	PF->init(&in)->
-		addi(&in, (uint32_t)display->fb.dma)->
+		addi(&in, (uint32_t)display->g->buffer)->
 		addi(&in, display->g->w)->
 		addi(&in, display->g->h)->
 		add(&in, &r, sizeof(grect_t));
@@ -493,7 +494,11 @@ static int x_init_display(x_t* x, int32_t display_index) {
 		const char* fb_dev = get_display_fb_dev(x->display_man, display_index);
 		if(fb_open(fb_dev, &x->displays[0].fb) != 0)
 			return -1;
-		x->displays[0].g = fb_fetch_graph(&x->displays[0].fb);
+		graph_t *g_fb = fb_fetch_graph(&x->displays[0].fb);
+		x->displays[0].g_fb = g_fb;
+		void* p = shm_alloc(g_fb->w * g_fb->h * 4, SHM_PUBLIC);
+		x->displays[0].g = graph_new(p, g_fb->w, g_fb->h);
+		
 		x_dirty(x, 0);
 		x->display_num = 1;
 		return 0;
@@ -503,7 +508,10 @@ static int x_init_display(x_t* x, int32_t display_index) {
 		const char* fb_dev = get_display_fb_dev(x->display_man, i);
 		if(fb_open(fb_dev, &x->displays[i].fb) != 0)
 			return -1;
-		x->displays[i].g = fb_fetch_graph(&x->displays[i].fb);
+		graph_t *g_fb = fb_fetch_graph(&x->displays[i].fb);
+		x->displays[i].g_fb = g_fb;
+		void* p = shm_alloc(g_fb->w * g_fb->h * 4, SHM_PUBLIC);
+		x->displays[i].g = graph_new(p, g_fb->w, g_fb->h);
 		x_dirty(x, i);
 	}
 	x->display_num = display_num;
@@ -530,6 +538,14 @@ static void x_close(x_t* x) {
 	for(uint32_t i=0; i<x->display_num; i++) {
 		x_display_t* display = &x->displays[i];
 		fb_close(&display->fb);
+		if(display->g != NULL) {
+			shm_unmap(display->g->buffer);
+			graph_free(display->g);
+		}
+		if(display->g_fb != NULL) {
+			shm_unmap(display->g_fb->buffer);
+			graph_free(display->g_fb);
+		}
 	}
 }
 
@@ -572,6 +588,9 @@ static void x_repaint(x_t* x, uint32_t display_index) {
 		display->dirty = false;
 	if(do_flush) {
 		if(!fb_busy(&display->fb)) {
+			memcpy(display->g_fb->buffer,
+					display->g->buffer,
+					display->g->w * display->g->h * 4);
 			fb_flush(&display->fb, false);
 			display->need_repaint = false;
 		}
