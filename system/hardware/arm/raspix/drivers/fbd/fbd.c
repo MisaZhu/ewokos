@@ -47,11 +47,21 @@ int main(int argc, char** argv) {
 	fbd_t fbd;
 	_g = NULL;
 
+	const char* mnt_point = argc > 1 ? argv[1]: "/dev/fb0";
+	uint32_t rotate = argc > 4 ? atoi(argv[4]): G_ROTATE_NONE;
+	uint32_t w = 640;
+	uint32_t h = 480;
+
+	if(argc > 3) {
+		w = atoi(argv[2]);
+		h = atoi(argv[3]);
+	}
+
 	fbd.flush = flush;
 	fbd.init = init;
 	fbd.get_info = get_info;
 
-	int res = fbd_run(&fbd, argc, argv);
+	int res = fbd_run(&fbd, mnt_point, w, h, rotate);
 	if(_g != NULL)
 		graph_free(_g);
 	return res;

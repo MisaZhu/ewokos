@@ -103,21 +103,10 @@ static void* fb_dma(int fd, int from_pid, fsinfo_t* info, int* size, void* p) {
 	return dma->shm;
 }
 
-int fbd_run(fbd_t* fbd, int argc, char** argv) {
+int fbd_run(fbd_t* fbd, const char* mnt_name, uint32_t w, uint32_t h, uint32_t rotate) {
 	_fbd = fbd;
 	_rotate = 0;
-	const char* mnt_name = argc > 1 ? argv[1]: "/dev/fb0";
-	int w = 640;
-	int h = 480;
-
-	if(argc > 3) {
-		w = atoi(argv[2]);
-		h = atoi(argv[3]);
-	}
-
-	if(argc > 4) {
-		_rotate = atoi(argv[4]);
-	}
+	_rotate = rotate;
 
 	fb_dma_t dma;
 	dma.shm = NULL;

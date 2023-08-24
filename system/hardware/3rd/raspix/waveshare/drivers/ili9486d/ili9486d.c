@@ -44,7 +44,9 @@ int main(int argc, char** argv) {
 	int lcd_cs = 8;
 	int lcd_rst = 25;
 
-	const char* mnt_point = argc > 1 ? argv[1]: "/dev/rpi_lcd";
+	const char* mnt_point = argc > 1 ? argv[1]: "/dev/fb0";
+	uint32_t rotate = argc > 5 ? atoi(argv[5]): G_ROTATE_NONE;
+
 	if(argc > 4) {
 		lcd_rs = atoi(argv[2]);
 		lcd_cs = atoi(argv[3]);
@@ -58,5 +60,5 @@ int main(int argc, char** argv) {
 	fbd.flush = flush;
 	fbd.init = init;
 	fbd.get_info = get_info;
-	return fbd_run(&fbd, argc, argv);
+	return fbd_run(&fbd, mnt_point, LCD_HEIGHT, LCD_WIDTH, rotate);
 }
