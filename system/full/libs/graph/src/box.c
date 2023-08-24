@@ -17,6 +17,15 @@ void graph_box(graph_t* g, int32_t x, int32_t y, int32_t w, int32_t h, uint32_t 
 	graph_line(g, x+w-1, y+1, x+w-1, y+h-2, color);
 }
 
+void graph_box_3d(graph_t* g,
+		int x, int y, int w, int h,
+		uint32_t bright_color, uint32_t dark_color) {
+	graph_line(g, x, y, x+w-1, y, bright_color);
+	graph_line(g, x, y+1, x, y+h-1, bright_color);
+	graph_line(g, x+w-1, y, x+w-1, y+h-1, dark_color);
+	graph_line(g, x, y+h-1, x+w-1, y+h-1, dark_color);
+}
+
 #ifdef __cplusplus
 }
 #endif

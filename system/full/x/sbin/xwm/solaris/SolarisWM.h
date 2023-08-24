@@ -17,9 +17,6 @@ class SolarisWM : public XWM {
 
 	font_t font;
 	graph_t* bgImg;
-	void drawBox3D(graph_t* g,
-			int x, int y, int w, int h,
-			uint32_t brightColor, uint32_t darkColor);
 
 protected:
 	void drawResize(graph_t* g, xinfo_t* info, grect_t* r, bool top);
