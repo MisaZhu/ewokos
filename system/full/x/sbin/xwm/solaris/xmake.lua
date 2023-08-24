@@ -1,0 +1,6 @@
+target("xwm_solaris")
+    set_type("application")
+    add_files("*.cc")        
+    add_deps("libx++", "libx", "libgraph", "libttf", "libfont" ,"libhash", "libupng","libsconf", "libcxx")
+    install_dir("sbin/x")
+target_end()
