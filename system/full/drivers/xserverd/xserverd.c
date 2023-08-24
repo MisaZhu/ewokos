@@ -538,7 +538,6 @@ static void x_repaint(x_t* x, uint32_t display_index) {
 	if(display->g == NULL ||
 			(!display->need_repaint))
 		return;
-	display->need_repaint = false;
 	bool do_flush = false;
 
 	if(display->curcor_task)
@@ -571,8 +570,12 @@ static void x_repaint(x_t* x, uint32_t display_index) {
 
 	if(undirty)
 		display->dirty = false;
-	if(do_flush)
-		fb_flush(&display->fb);
+	if(do_flush) {
+		if(!fb_busy(&display->fb)) {
+			fb_flush(&display->fb, false);
+			display->need_repaint = false;
+		}
+	}
 }
 
 static xview_t* x_get_view(x_t* x, int fd, int from_pid) {

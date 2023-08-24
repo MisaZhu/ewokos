@@ -43,7 +43,7 @@ static int fb_fcntl(int fd,
 static int fb_dma_init(fb_dma_t* dma) {
 	memset(dma, 0, sizeof(fb_dma_t));
 	uint32_t sz = _fbinfo->width*_fbinfo->height*4;
-	dma->shm = (void*)shm_alloc(sz, SHM_PUBLIC);
+	dma->shm = (void*)shm_alloc(sz + 1, SHM_PUBLIC); //one more byte (head) for busy flag 
 	if(dma->shm == NULL)
 		return -1;
 	//dma->size = _fbinfo->size_max;
@@ -74,9 +74,12 @@ static int fb_dev_cntl(int from_pid, int cmd, proto_t* in, proto_t* ret, void* p
 }
 
 static int32_t do_flush(fb_dma_t* dma) {
-	const void* buf = dma->shm;
+	uint8_t* buf = (uint8_t*)dma->shm;
 	uint32_t size = dma->size;
-	return (int32_t)_fbd->flush(_fbinfo, buf, size, _rotate);
+	buf[0] = 1; //busy
+	int32_t res = (int32_t)_fbd->flush(_fbinfo, buf+1, size, _rotate);
+	buf[0] = 0; //done
+	return res;
 }
 
 /*return

@@ -21,7 +21,12 @@ static int lcd_flush(int fd, int from_pid, fsinfo_t* info, void* p) {
 	(void)from_pid;
 	(void)info;
 	fb_dma_t* dma = (fb_dma_t*)p;
-	ili9486_flush(dma->shm, dma->size);
+
+	uint8_t* data = (uint8_t*)dma->shm;
+	data[0] = 1;
+	ili9486_flush(data+1, dma->size);
+	data[0] = 0;
+
 	return 0;
 }
 
@@ -87,12 +92,12 @@ int main(int argc, char** argv) {
 	const char* mnt_point = argc > 1 ? argv[1]: "/dev/rpi_lcd";
 
 	bcm283x_spi_init();
-	xpt2046_init(tp_cs, tp_irq, 128);
+	xpt2046_init(tp_cs, tp_irq, 64);
 	ili9486_init(lcd_dc, lcd_cs, lcd_rst, 2);
 
 	uint32_t sz = LCD_HEIGHT*LCD_WIDTH*4;
 	fb_dma_t dma;
-	dma.shm = shm_alloc(sz, SHM_PUBLIC);
+	dma.shm = shm_alloc(sz+1, SHM_PUBLIC);
 	if(dma.shm == NULL)
 		return -1;
 	dma.size = sz;

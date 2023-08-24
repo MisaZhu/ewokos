@@ -90,7 +90,7 @@ static void init_graph(fb_console_t* console) {
 	graph_fill_round(console->g, x, y+h, w-2, h-2, 6, 0xff0000ff);
 	graph_fill_round(console->g, x+w, y+h, w-2, h-2, 6, 0xffffffff);
 
-	fb_flush(&console->fb);
+	fb_flush(&console->fb, true);
 }
 
 static int init_console(fb_console_t* console, const char* display_dev, const uint32_t display_index) {
@@ -157,7 +157,7 @@ static void flush(fb_console_t* console) {
 	}
 
 	console_refresh_content(&console->console, console->g);
-	fb_flush(&console->fb);
+	fb_flush(&console->fb, true);
 }
 
 static int console_write(int fd, 

@@ -16,10 +16,10 @@ extern "C" {
 
 static int fetch_graph(xwm_t* xwm, void* shm, int w, int h, graph_t* g) {
 	(void)xwm;
-	void* g_buf = shm_map(shm);
+	uint8_t* g_buf = shm_map(shm);
 	if(g_buf == NULL)
 		return -1;
-	graph_init(g, g_buf, w, h);
+	graph_init(g, g_buf+1, w, h);
 	return 0;
 }
 

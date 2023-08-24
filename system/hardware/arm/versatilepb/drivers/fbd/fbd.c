@@ -41,7 +41,7 @@ static int fb_dma_init(fb_dma_t* dma) {
 	if(_fbinfo->pointer == 0)
 		return -1;
 
-	dma->data = shm_alloc(_fbinfo->size_max, 1);
+	dma->data = shm_alloc(_fbinfo->size_max+1, 1);
 	if(dma->data == NULL)
 		return -1;
 	dma->size = _fbinfo->size_max;
@@ -76,9 +76,12 @@ static uint32_t flush_buf(const void* buf, uint32_t size) {
 }
 
 static int32_t do_flush(fb_dma_t* dma) {
-	const void* buf = dma->data;
+	uint8_t* buf = dma->data;
 	uint32_t size = dma->size;
-	return (int32_t)flush_buf(buf, size);
+	buf[0] = 1;
+	int32_t res = (int32_t)flush_buf(buf+1, size);
+	buf[0] = 0;
+	return res;
 }
 
 /*return

@@ -70,10 +70,10 @@ int fb_info(fb_t* fb, int* w, int* h, int* bpp) {
 	return 0;
 }
 
-int fb_flush(fb_t* fb) {
+int fb_flush(fb_t* fb, bool waiting) {
 	if(fb == NULL || fb->fd < 0)
 		return -1;
-	return vfs_flush(fb->fd, true);
+	return vfs_flush(fb->fd, waiting);
 }
 
 int fb_close(fb_t* fb) {
@@ -87,12 +87,19 @@ int fb_close(fb_t* fb) {
 	return 0;
 }
 
+bool fb_busy(fb_t* fb) {
+	if(fb == NULL || fb->fd < 0 || fb->dma == NULL)
+		return false;
+	uint8_t* p = (uint8_t*)fb->dma;
+	return p[0] != 0;
+}
+
 graph_t* fb_fetch_graph(fb_t* fb) {
 	if(fb == NULL || fb->fd < 0)
 		return NULL;
 
 	int w, h, bpp;
-	void* dma;
+	uint8_t* dma;
 	graph_t* g;
 
 	if(fb_info(fb, &w, &h, &bpp) != 0 ||
@@ -109,15 +116,15 @@ graph_t* fb_fetch_graph(fb_t* fb) {
 		fb->dma = NULL;
 	}
 
-	dma = vfs_dma(fb->fd, NULL);
-	if(dma == NULL) {
+	dma = (uint8_t*)vfs_dma(fb->fd, NULL);
+	if(dma == NULL) 
 		return NULL;
-	}
+	
 	dma = shm_map(dma);
-	if(dma == NULL) {
+	if(dma == NULL) 
 		return NULL;
-	}
-	g = graph_new(dma, w, h);
+	
+	g = graph_new(dma+1, w, h);
 	fb->dma = dma;
 	fb->g = g;
 	return g;

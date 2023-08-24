@@ -27,8 +27,9 @@ int      fb_open(const char *dev, fb_t* fb);
 int      fb_dev_info(const char *dev, int* w, int* h, int* bpp);
 int      fb_info(fb_t* fb, int* w, int* h, int* bpp);
 graph_t* fb_fetch_graph(fb_t* fb);
-int      fb_flush(fb_t* fb);
+int      fb_flush(fb_t* fb, bool waiting);
 int      fb_close(fb_t* fb);
+bool     fb_busy(fb_t* fb);
 
 #ifdef __cplusplus
 }
