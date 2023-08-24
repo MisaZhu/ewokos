@@ -554,6 +554,8 @@ static void x_repaint(x_t* x, uint32_t display_index) {
 	if(display->g == NULL ||
 			(!display->need_repaint))
 		return;
+
+	display->need_repaint = false;
 	bool do_flush = false;
 
 	if(display->curcor_task)
@@ -583,16 +585,17 @@ static void x_repaint(x_t* x, uint32_t display_index) {
 		if(x->show_cursor)
 			refresh_cursor(x);
 	}
+	display->dirty = false;
 
-	if(undirty)
-		display->dirty = false;
 	if(do_flush) {
 		if(!fb_busy(&display->fb)) {
 			memcpy(display->g_fb->buffer,
 					display->g->buffer,
 					display->g->w * display->g->h * 4);
 			fb_flush(&display->fb, false);
-			display->need_repaint = false;
+		}
+		else {
+			display->need_repaint = true;
 		}
 	}
 }
