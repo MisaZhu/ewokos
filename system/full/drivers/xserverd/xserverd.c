@@ -552,7 +552,8 @@ static void x_close(x_t* x) {
 static void x_repaint(x_t* x, uint32_t display_index) {
 	x_display_t* display = &x->displays[display_index];
 	if(display->g == NULL ||
-			(!display->need_repaint))
+			!display->need_repaint ||
+			fb_busy(&display->fb))
 		return;
 
 	display->need_repaint = false;
@@ -588,15 +589,10 @@ static void x_repaint(x_t* x, uint32_t display_index) {
 	display->dirty = false;
 
 	if(do_flush) {
-		if(!fb_busy(&display->fb)) {
-			memcpy(display->g_fb->buffer,
-					display->g->buffer,
-					display->g->w * display->g->h * 4);
-			fb_flush(&display->fb, false);
-		}
-		else {
-			display->need_repaint = true;
-		}
+		memcpy(display->g_fb->buffer,
+				display->g->buffer,
+				display->g->w * display->g->h * 4);
+		fb_flush(&display->fb, false);
 	}
 }
 
