@@ -10,7 +10,6 @@
 
 #define SMC_BASE  (_mmio_base+0x10000)
 #define MII_DELAY		1
-static uint8_t mac_addr[6] = {0x10, 0x7B, 0x44, 0x80, 0xF4, 0x6A};
 
 void udelay(volatile int x){
     x*=50;
@@ -37,7 +36,7 @@ uint8_t rx_buf[2048];
 
 static void dump_hex(char* lable, char* buf, int size){
 	int i;
-	klog("lable:\n");
+	klog("%s:\n", lable);
 	for(int i = 0; i < size; i++){
 		klog("%02x ", buf[i]);
 		if(i%4 == 3)
@@ -45,6 +44,7 @@ static void dump_hex(char* lable, char* buf, int size){
 		if(i%16 == 15)
 			klog("\n");
 	}
+	klog("\n");
 }
 
 static void smc_reset()
@@ -87,7 +87,7 @@ static void smc_reset()
 	SMC_SET_RCR(RCR_DEFAULT);
 
 	SMC_SELECT_BANK(1);
-	SMC_SET_MAC_ADDR(mac_addr);
+	//SMC_SET_MAC_ADDR(mac_addr);
 
 	/* now, enable interrupts */
 	mask = IM_EPH_INT|IM_RX_OVRN_INT|IM_RCV_INT;
@@ -102,7 +102,6 @@ static  int  smc_recv(char* buf, int size)
 
 	packet_number = SMC_GET_RXFIFO();
 	if (packet_number & RXFIFO_REMPTY) {
-		//printf("smc_rcv with nothing on FIFO.\n");
 		return 0;
 	}
 
@@ -112,8 +111,6 @@ static  int  smc_recv(char* buf, int size)
 	/* First two words are status and packet length */
 	SMC_GET_PKT_HDR(status, packet_len);
 	packet_len &= 0x07ff;  /* mask off top bits */
-	//printf("RX PNR 0x%x STATUS 0x%04x LENGTH 0x%04x (%d)\n",
-	//    packet_number, status, packet_len, packet_len);
 
 	back:
 	if (packet_len < 6 || status & RS_ERRORS) {
@@ -124,7 +121,6 @@ static  int  smc_recv(char* buf, int size)
 		}
 		if (packet_len < 6) {
 			/* bloody hardware */
-			//printf("fubar (rxlen %u status %x\n",packet_len, status);
 			status |= RS_TOOSHORT;
 		}
 		SMC_WAIT_MMU_BUSY();
@@ -158,7 +154,7 @@ static  int  smc_recv(char* buf, int size)
 
 		SMC_WAIT_MMU_BUSY();
 		SMC_SET_MMU_CMD(MC_RELEASE);
-		//dump_hex("rx", data, packet_len);
+
 		rx_packets++;
 		rx_bytes += data_len;
 		return data_len;
@@ -168,14 +164,25 @@ static  int  smc_recv(char* buf, int size)
 /*
  * This is called to actually send a packet to the chip.
  */
-static int smc_send(char *buf, int size)
+static int smc_send(uint8_t *buf, int size)
 {
 	unsigned int packet_no;
 	unsigned long flags;
+	
+	/* now, try to allocate the memory */
+	SMC_SET_MMU_CMD( MC_ALLOC | (((size & ~1) + 5) >> 8));
+
+	while(true){
+		uint8_t status = SMC_GET_INT();
+		if (status & IM_ALLOC_INT) {
+			SMC_ACK_INT(IM_ALLOC_INT);
+  			break;
+		}
+   	} 
 
 	packet_no = SMC_GET_AR();
+
 	if (packet_no & AR_FAILED) {
-		//printf("Memory allocation failed.\n");
 		tx_errors++;
 		tx_fifo_errors++;
 		return ERR_RETRY_NON_BLOCK;
@@ -184,9 +191,6 @@ static int smc_send(char *buf, int size)
 	/* point to the beginning of the packet */
 	SMC_SET_PN(packet_no);
 	SMC_SET_PTR(PTR_AUTOINC);
-
-	//printf("TX PNR 0x%x LENGTH 0x%04x (%d) BUF 0x%p\n",
-	//    packet_no, size, size, buf);
 
 	/*
 	 * Send the packet length (+6 for status words, length, and ctl.
@@ -207,7 +211,6 @@ static int smc_send(char *buf, int size)
 	tx_bytes += size;
 
 	SMC_ENABLE_INT(IM_TX_INT | IM_TX_EMPTY_INT);
-
 	return size;
 }
 
@@ -240,6 +243,22 @@ static int eth_write(int fd, int from_pid, fsinfo_t* info,
 	return smc_send(buf + offset, size);
 }
 
+static int eth_dcntl(int from_pid, int cmd, proto_t* in, proto_t* ret, void* p) {
+	uint8_t buf[6];
+	switch(cmd){
+		case 0:	//get mac
+			int bank = SMC_CURRENT_BANK();
+			SMC_SELECT_BANK(1);	
+			SMC_GET_MAC_ADDR(buf);
+			SMC_SELECT_BANK(bank);
+			PF->add(ret, buf, 6);
+			break;
+		default:
+			break;
+	}
+	return 0;
+}
+
 int main(int argc, char** argv) {
 	const char* mnt_point = argc > 1 ? argv[1]: "/dev/eth0";
 	eth_init();
@@ -248,6 +267,7 @@ int main(int argc, char** argv) {
 	strcpy(dev.name, "eth");
 	dev.read = eth_read;
 	dev.write = eth_write;
+	dev.dev_cntl = eth_dcntl;
 
 	device_run(&dev, mnt_point, FS_TYPE_CHAR);
 	return 0;

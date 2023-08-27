@@ -1,6 +1,5 @@
 #ifndef _SMC91X_H_
 #define _SMC91X_H_
-int32_t __loop;
 
 #define writel(v,a) 	(*(volatile uint32_t *)(a) = (v))
 #define readl(a) 	(*(volatile uint32_t *)(a))
@@ -411,15 +410,15 @@ int32_t __loop;
 
 #define SMC_PUSH_DATA(p, l)					\
 	do {								\
-        for(__loop = 0; __loop < l; __loop++){    \
-		    SMC_outb(SMC_BASE, DATA_REG, p[__loop]);	\
+        for(int _i = 0; _i < (l); _i++){    \
+		    SMC_outb((p)[_i], SMC_BASE, DATA_REG);	\
         } \
 	} while (0)
 
 #define SMC_PULL_DATA(p, l)					\
 	do {								\
-        for(__loop = 0; __loop < l; __loop++){    \
-		    p[__loop] = SMC_inb(SMC_BASE, DATA_REG);		\
+        for(int _i = 0; _i < (l); _i++){    \
+		    (p)[_i] = SMC_inb(SMC_BASE, DATA_REG);		\
         } \
 	} while (0)
 
