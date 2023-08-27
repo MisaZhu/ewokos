@@ -118,7 +118,7 @@ function rootfs_common(image)
             "xmoused","xwm_macos7","xjoystickd","xtouchd","fbd","etc","fbd","stated",
             "sysinfod","timerd","nulld","ramfsd","cat","svcinfo","dump","echo","pwd",
             "sleep","shell","uname","grep","kill","ps","mkdir","mount","rundev","ls",
-            "rm","rx","login","session","init","sdfsd","core","vfsd", "emu", "snake"
+            "rm","rx","login","session","init","sdfsd","core","vfsd", "emu"
     )
 
     after_clean(function (target)
