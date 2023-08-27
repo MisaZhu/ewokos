@@ -14,25 +14,34 @@ extern "C" {
 
 static partition_t _partition;
 
-typedef struct {
-	uint32_t index;
-	uint32_t* data;
-} sector_buf_t;
+#define BUF_BLOCK_SIZE 1024
 
-static sector_buf_t* _sector_buf = NULL;
+typedef struct {
+	addr_t* data;
+	uint32_t refs;
+} sector_buf_block_t;
+
+static sector_buf_block_t* _sector_buf = NULL;
 static uint32_t _sector_buf_num = 0;
 
-static sector_buf_t* sector_buf_new(uint32_t num) {
-	sector_buf_t* ret = (sector_buf_t*)malloc(sizeof(sector_buf_t)*num);
-	memset(ret, 0, sizeof(sector_buf_t)*num);
+static sector_buf_block_t* sector_buf_new(uint32_t num) {
+	uint32_t block_num = num / BUF_BLOCK_SIZE;
+	sector_buf_block_t* ret = (sector_buf_block_t*)malloc(sizeof(sector_buf_block_t)*block_num);
+	memset(ret, 0, sizeof(sector_buf_block_t)*block_num);
 	return ret;
 }
 
-static void sector_buf_free(sector_buf_t* buffer, uint32_t num) {
-	while(num > 0) {
-		if(buffer[num-1].data != NULL)
-			free(buffer[num-1].data);
-		num--;
+static void sector_buf_free(sector_buf_block_t* buffer, uint32_t num) {
+	uint32_t block_num = num / BUF_BLOCK_SIZE;
+	while(block_num > 0) {
+		if(buffer[block_num-1].data != NULL) {
+			for(uint32_t i=0; i<BUF_BLOCK_SIZE; i++) {
+				if(buffer[block_num-1].data[i] != NULL)
+					free(buffer[block_num-1].data[i]);
+			}
+			free(buffer[block_num-1].data);
+		}
+		block_num--;
 	}
 	free(buffer);
 }
@@ -41,11 +50,20 @@ static inline void sector_buf_set(uint32_t index, const void* data) {
 	index -= _partition.start_sector;
 	if(_sector_buf == NULL || index >= _sector_buf_num)
 		return;
-	//if(_sector_buf[index].data != NULL)
-	//	free(_sector_buf[index].data);
-	if(_sector_buf[index].data == NULL)
-		_sector_buf[index].data = malloc(SECTOR_SIZE);
-	memcpy(_sector_buf[index].data, data, SECTOR_SIZE);
+
+	uint32_t block_index = index / BUF_BLOCK_SIZE;
+	index = index % BUF_BLOCK_SIZE;
+	if(_sector_buf[block_index].data == NULL) {
+		uint32_t sz = sizeof(addr_t) * BUF_BLOCK_SIZE;
+		_sector_buf[block_index].data = (addr_t*)malloc(sz);
+		if(_sector_buf[block_index].data == NULL)
+			return;
+		memset(_sector_buf[block_index].data, 0, sz);
+	}
+
+	_sector_buf[block_index].data[index] = malloc(SECTOR_SIZE);
+	memcpy(_sector_buf[block_index].data[index], data, SECTOR_SIZE);
+	_sector_buf[block_index].refs++;
 }
 
 static inline void* sector_buf_get(uint32_t index) {
@@ -53,7 +71,13 @@ static inline void* sector_buf_get(uint32_t index) {
 	if(_sector_buf == NULL || index >= _sector_buf_num) {
 		return NULL;
 	}
-	return _sector_buf[index].data;
+
+	uint32_t block_index = index / BUF_BLOCK_SIZE;
+	index = index % BUF_BLOCK_SIZE;
+	if(_sector_buf[block_index].data == NULL)
+		return NULL;
+
+	return _sector_buf[block_index].data[index];
 }
 
 //sd arch functions 

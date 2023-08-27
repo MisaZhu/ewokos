@@ -212,7 +212,7 @@ static int32_t enter_child(ext2_t* ext2, INODE* pip, int32_t ino, const char *ba
 			pip->i_block[i] = blk;
 			pip->i_size += EXT2_BLOCK_SIZE;
 			//pmip->dirty = 1;
-			ext2->read_block(pip->i_block[i], buf, 1);
+			ext2->read_block(pip->i_block[i], buf, 0);
 			dp->inode = ino;
 			dp->rec_len = EXT2_BLOCK_SIZE;
 			dp->name_len = strlen(base);
@@ -222,7 +222,7 @@ static int32_t enter_child(ext2_t* ext2, INODE* pip, int32_t ino, const char *ba
 			return 0;
 		}		
 		//initialize the created one
-		ext2->read_block(pip->i_block[i], buf, 1);
+		ext2->read_block(pip->i_block[i], buf, 0);
 		cp = buf;
 		dp = (DIR_T *)cp;
 		if(dp->inode==0){
@@ -413,7 +413,7 @@ void put_node(ext2_t* ext2, int32_t ino, INODE *node) {
 	//int32_t blk = bgid*ext2->super.s_blocks_per_group + ext2->gds[bgid].bg_inode_table + 	((ino-1)/8);
 	int32_t blk = ext2->gds[bgid].bg_inode_table + 	((ino-1)/8);
 	char buf[EXT2_BLOCK_SIZE];
-	ext2->read_block(blk, buf, 0);
+	ext2->read_block(blk, buf, 1);
 	INODE *ip = ((INODE *)buf) + offset;
 	*ip = *node;
 	ext2->write_block(blk, buf);	
@@ -515,7 +515,7 @@ int32_t ext2_write(ext2_t* ext2, INODE* node, const char *data, int32_t nbytes, 
 		return nbytes_copy;
 	}
 
-	ext2->read_block(blk, buf, 1);
+	ext2->read_block(blk, buf, 0);
 	cp = buf + start_byte;
 	remain = EXT2_BLOCK_SIZE - start_byte;
 	while(remain > 0){
