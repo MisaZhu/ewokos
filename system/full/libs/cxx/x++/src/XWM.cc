@@ -73,8 +73,8 @@ static void get_close(xinfo_t* info, grect_t* rect, void* p) {
 void XWM::getResize(xinfo_t* info, grect_t* rect) {
 	rect->x = info->wsr.x + info-> wsr.w - 16;
 	rect->y = info->wsr.y + info-> wsr.h - 16;
-	rect->w = 16;
-	rect->h = 16;
+	rect->w = 16 + frameW;
+	rect->h = 16 + frameW;
 }
 
 static void get_resize(xinfo_t* info, grect_t* rect, void* p) {
@@ -129,11 +129,10 @@ void XWM::drawFrame(graph_t* g, xinfo_t* info, bool top) {
 		//h = titleH;
 		y -= titleH;
 	}
-	graph_box(g, x, y, w, h, bg);//win box
-	//shadow
-	if(top) {
-		graph_fill(g, x+w, y+2, 2, h, 0x88000000);
-		graph_fill(g, x+2, y+h, w-2, 2, 0x88000000);
+
+	//win box
+	for(uint32_t i=0; i<frameW; i++) {
+		graph_box(g, x-(frameW-i), y-(frameW-i), w+(frameW-i)*2, h+(frameW-i)*2, bg);
 	}
 }
 
@@ -196,6 +195,8 @@ static void draw_close(graph_t* g, xinfo_t* info, grect_t* r, bool top, void* p)
 
 void XWM::drawResize(graph_t* g, xinfo_t* info, grect_t* r, bool top) {
 	(void)info;
+	if(!top)
+		return;
 	uint32_t fg, bg;
 	getColor(&fg, &bg, top);
 
@@ -231,6 +232,7 @@ XWM::XWM(void) {
 	font_init();
 	memset(&xwm, 0, sizeof(xwm_t));
 	titleH = 20;
+	frameW = 1;
 	xwm.data = this;
 	xwm.get_win_space = get_win_space;
 	xwm.get_close = get_close;

@@ -12,7 +12,6 @@ class SolarisWM : public XWM {
 	uint32_t fgColor;
 	uint32_t bgTopColor;
 	uint32_t fgTopColor;
-	uint32_t frameW;
 	uint32_t desktopFGColor;
 	uint32_t desktopBGColor;
 

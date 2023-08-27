@@ -10,6 +10,7 @@ class XWM {
 protected:
 	xwm_t xwm;
 	uint32_t titleH;
+	uint32_t frameW;
 
 	virtual void getColor(uint32_t *fg, uint32_t* bg, bool top);
 	virtual void getWinSpace(int style, grect_t* xr, grect_t* wsr);
