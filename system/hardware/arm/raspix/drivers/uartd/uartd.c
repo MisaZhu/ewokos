@@ -3,6 +3,8 @@
 #include <unistd.h>
 #include <string.h>
 #include <sys/vfs.h>
+#include <sysinfo.h>
+#include <sys/syscall.h>
 #include <sys/vdevice.h>
 #include <sys/charbuf.h>
 #include <sys/mmio.h>
@@ -10,10 +12,12 @@
 #include <sys/ipc.h>
 #include <sys/interrupt.h>
 #include <arch/bcm283x/mini_uart.h>
+#include <arch/bcm283x/pl011_uart.h>
 #include <sys/interrupt.h>
 
 static charbuf_t _TxBuf;
 static charbuf_t _RxBuf;
+static bool _mini_uart;
 
 static int uart_read(int fd, int from_pid, fsinfo_t* info, 
 		void* buf, int size, int offset, void* p) {
@@ -56,7 +60,10 @@ static int uart_write(int fd, int from_pid, fsinfo_t* info,
 	}
 	return size;
 	*/
-	return bcm283x_mini_uart_write(buf, size);
+	if(_mini_uart)
+		return bcm283x_mini_uart_write(buf, size);
+	else
+		return bcm283x_pl011_uart_write(buf, size);
 }
 
 static void interrupt_handle(uint32_t interrupt, uint32_t data) {
@@ -64,9 +71,17 @@ static void interrupt_handle(uint32_t interrupt, uint32_t data) {
 	(void)data;
 	char c;
 
-	while(bcm283x_mini_uart_ready_to_recv() == 0){
-		c = bcm283x_mini_uart_recv();
-		charbuf_push(&_RxBuf, c, true);
+	if(_mini_uart) {
+		while(bcm283x_mini_uart_ready_to_recv() == 0){
+			c = bcm283x_mini_uart_recv();
+			charbuf_push(&_RxBuf, c, true);
+		}
+	}
+	else {
+		while(bcm283x_pl011_uart_ready_to_recv() == 0){
+			c = bcm283x_pl011_uart_recv();
+			charbuf_push(&_RxBuf, c, true);
+		}
 	}
 
 	/*if(bcm283x_mini_uart_ready_to_send() == 0){
@@ -75,15 +90,22 @@ static void interrupt_handle(uint32_t interrupt, uint32_t data) {
 		}
 	}
 	*/
-
 	sys_interrupt_end();
 }
 
 int main(int argc, char** argv) {
-	const char* mnt_point = argc > 1 ? argv[1]: "/dev/tty1";
+	const char* mnt_point = argc > 1 ? argv[1]: "/dev/tty0";
 	_mmio_base = mmio_map();
+	_mini_uart = true;
 	charbuf_init(&_TxBuf);
 	charbuf_init(&_RxBuf);
+
+	sys_info_t sysinfo;
+	syscall1(SYS_GET_SYS_INFO, (int32_t)&sysinfo);
+	if(strcmp(sysinfo.machine, "raspi1") == 0 ||
+			strcmp(sysinfo.machine, "raspi2B") == 0)  {
+		_mini_uart = false;
+	}
 
 	vdevice_t dev;
 	memset(&dev, 0, sizeof(vdevice_t));

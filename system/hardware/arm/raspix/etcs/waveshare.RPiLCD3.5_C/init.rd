@@ -1,5 +1,5 @@
 /bin/rundev /drivers/timerd               /dev/timer
-#/bin/rundev /drivers/raspix/mini_uartd    /dev/tty0
+#/bin/rundev /drivers/raspix/uartd        /dev/tty0
 /bin/rundev /drivers/fontd                /dev/font
 /bin/rundev /drivers/raspix/rpi_lcdd      /dev/rpi_lcd
 /bin/rundev /drivers/displayd             /dev/display /dev/rpi_lcd

@@ -7,14 +7,14 @@ LDFLAGS = -L$(BUILD_DIR)/lib -lnosys
 
 CFLAGS += -I $(BUILD_DIR)/include
 
-MINI_UARTD_OBJS = mini_uartd.o
+UARTD_OBJS = uartd.o
 
-MINI_UARTD = $(TARGET_DIR)/drivers/raspix/mini_uartd
+UARTD = $(TARGET_DIR)/drivers/raspix/uartd
 
-$(MINI_UARTD): $(MINI_UARTD_OBJS) \
+$(UARTD): $(UARTD_OBJS) \
 		$(BUILD_DIR)/lib/libarch_bcm283x.a \
 		$(BUILD_DIR)/lib/libewokc.a
-	$(LD) -Ttext=100 $(MINI_UARTD_OBJS) -o $(MINI_UARTD) $(LDFLAGS) -larch_bcm283x -lewokc -lc
+	$(LD) -Ttext=100 $(UARTD_OBJS) -o $(UARTD) $(LDFLAGS) -larch_bcm283x -lewokc -lc
 
 clean:
-	rm -f $(MINI_UARTD_OBJS) $(MINI_UARTD)
+	rm -f $(UARTD_OBJS) $(UARTD)

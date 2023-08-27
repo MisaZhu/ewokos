@@ -1,6 +1,5 @@
 /bin/rundev /drivers/timerd               /dev/timer
-#/bin/rundev /drivers/raspix/mini_uartd    /dev/tty0
-/bin/rundev /drivers/raspix/pl011_uartd   /dev/tty0
+/bin/rundev /drivers/raspix/uartd         /dev/tty0
 
 $
 

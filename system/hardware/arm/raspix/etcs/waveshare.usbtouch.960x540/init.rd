@@ -1,11 +1,11 @@
 rundev /drivers/timerd                /dev/timer
-#rundev /drivers/raspix/mini_uartd    /dev/tty0
-rundev /drivers/fontd                /dev/font
-rundev /drivers/raspix/fbd           /dev/fb0 960 540
+#rundev /drivers/raspix/uartd         /dev/tty0
+rundev /drivers/fontd                 /dev/font
+rundev /drivers/raspix/fbd            /dev/fb0 960 540
 #rundev /drivers/raspix/fbd           /dev/fb0 1920 1080
 #/drivers/raspix/fbd                  /dev/fb0 1920 1080
-rundev /drivers/displayd             /dev/display /dev/fb0
-rundev /drivers/consoled             /dev/console0 /dev/display 0
+rundev /drivers/displayd              /dev/display /dev/fb0
+rundev /drivers/consoled              /dev/console0 /dev/display 0
 $
 
 #rundev /drivers/raspix/mbox_actledd  /dev/actled

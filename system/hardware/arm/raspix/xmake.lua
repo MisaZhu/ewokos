@@ -3,7 +3,7 @@ includes("**/xmake.lua")
 target("rootfs")
     rootfs_common("root.raspix.ext2")
     add_deps("soundd", "mbox_actledd", "gpio_actledd", "gpio_actledd", 
-             "mini_uartd", "usbd", "pl011_uartd","hat13_joystickd","epaperd",
+             "uartd", "usbd", "hat13_joystickd","epaperd",
 			 "hat13_joykeybd","gpio_joystickd","lcdhatd","rpi_lcdd","ili9486d",
 			"gt911_touchd","xpt2046d","gpio_joykeybd"
 			)

@@ -1,4 +1,4 @@
-target("mini_uartd")
+target("uartd")
     set_type("application")
     add_deps("libbsp")
     add_files("**.c")        
