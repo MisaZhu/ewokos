@@ -26,11 +26,12 @@ public:
 };
 
 
-static void loop(void* p) {
+/*static void loop(void* p) {
 	WidgetWin* xwin = (WidgetWin*)p;
 	xwin->repaint();
 	usleep(1000000);
 }
+*/
 
 int main(int argc, char** argv) {
 	X x;
@@ -59,6 +60,7 @@ int main(int argc, char** argv) {
 
 	x.open(&win, 20, 20, 200, 200, "widgetTest", X_STYLE_NORMAL);
 	win.setVisible(true);
-	x.run(loop, &win);
+	//x.run(loop, &win);
+	x.run(NULL, &win);
 	return 0;
 }
