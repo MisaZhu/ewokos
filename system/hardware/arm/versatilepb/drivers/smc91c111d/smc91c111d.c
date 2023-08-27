@@ -246,13 +246,14 @@ static int eth_write(int fd, int from_pid, fsinfo_t* info,
 static int eth_dcntl(int from_pid, int cmd, proto_t* in, proto_t* ret, void* p) {
 	uint8_t buf[6];
 	switch(cmd){
-		case 0:	//get mac
+		case 0:	{//get mac
 			int bank = SMC_CURRENT_BANK();
 			SMC_SELECT_BANK(1);	
 			SMC_GET_MAC_ADDR(buf);
 			SMC_SELECT_BANK(bank);
 			PF->add(ret, buf, 6);
 			break;
+		}
 		default:
 			break;
 	}
