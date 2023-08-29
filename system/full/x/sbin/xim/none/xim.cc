@@ -152,8 +152,6 @@ public:
 		int rd = ::read(keybFD, &v, 6);
 		update_key_state(v, rd);
 		key_state_machine();
-		if(rd <= 0)
-			usleep(20000);
 	}
 };
 
