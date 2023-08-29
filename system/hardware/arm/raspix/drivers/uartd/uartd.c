@@ -100,16 +100,19 @@ int main(int argc, char** argv) {
 	charbuf_init(&_TxBuf);
 	charbuf_init(&_RxBuf);
 
+	vdevice_t dev;
+	memset(&dev, 0, sizeof(vdevice_t));
+
 	sys_info_t sysinfo;
 	syscall1(SYS_GET_SYS_INFO, (int32_t)&sysinfo);
 	if(strcmp(sysinfo.machine, "raspi1") == 0 ||
 			strcmp(sysinfo.machine, "raspi2B") == 0)  {
+		strcpy(dev.name, "pl011_uart");
 		_mini_uart = false;
 	}
+	else
+		strcpy(dev.name, "mini_uart");
 
-	vdevice_t dev;
-	memset(&dev, 0, sizeof(vdevice_t));
-	strcpy(dev.name, "mini_uart");
 	dev.read = uart_read;
 	dev.write = uart_write;
 
