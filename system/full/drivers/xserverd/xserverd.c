@@ -212,8 +212,9 @@ static int draw_win(x_t* xp, xwin_t* win) {
 	x_display_t *display = &xp->displays[win->xinfo->display_index];
 	if(!display->dirty && !win->dirty)
 		return -1;
-	//waiting for client to finish drawing.
-	while(win->xinfo->painting)
+	//waiting for client to finish drawing. timeout with 100ms
+	uint32_t to = 0;
+	while(win->xinfo->painting && (to++) < 100)
 		usleep(1000);
 
 	if(win->g != NULL) {
