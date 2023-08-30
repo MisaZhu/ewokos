@@ -131,9 +131,7 @@ void xwin_repaint(xwin_t* xwin) {
 	memset(&g, 0, sizeof(graph_t));
 
 	if(x_get_graph(xwin, &g) != NULL) {
-	 	xwin->xinfo->painting = true;
 		xwin->on_repaint(xwin, &g);
-	 	xwin->xinfo->painting = false;
 		vfs_fcntl(xwin->fd, X_CNTL_UPDATE, NULL, NULL);
 	}
 }

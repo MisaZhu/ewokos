@@ -25,13 +25,11 @@ enum {
 	X_win_DRAG_RESIZE
 };
 
-#define X_WIN_FORCE_FLUSH_COUNT 16
 typedef struct st_xwin {
 	int fd;
 	int from_pid;
 	graph_t* g;
 	graph_t* g_buf;
-	uint32_t g_buf_count;
 	xinfo_t* xinfo;
 	bool dirty;
 
@@ -217,14 +215,7 @@ static int draw_win(x_t* xp, xwin_t* win) {
 		return -1;
 	uint32_t to = 0;
 
-	graph_t* g = win->g;
-	if(win->xinfo->painting && 
-			win->g_buf != NULL &&
-			win->g_buf_count < X_WIN_FORCE_FLUSH_COUNT) {//use last buffer when client is still drawing. 
-		g = win->g_buf;
-		win->g_buf_count++;
-	}
-
+	graph_t* g = win->g_buf;
 	if(g != NULL) {
 		if((win->xinfo->style & X_STYLE_ALPHA) != 0) {
 			graph_blt_alpha(g, 0, 0, 
@@ -252,14 +243,7 @@ static int draw_win(x_t* xp, xwin_t* win) {
 	if(xp->current.win == win && xp->config.win_move_alpha < 0xff) //drag and moving
 		draw_drag_frame(xp, win->xinfo->display_index);
 
-	//do buffer
-	if(g == win->g) {
-		win->g_buf_count = 0;
-		win->dirty = false;
-		if(win->g_buf == NULL)
-			win->g_buf = graph_new(NULL, g->w, g->h);
-		memcpy(win->g_buf->buffer, win->g->buffer, g->w * g->h * 4);
-	}
+	win->dirty = false;
 	return 0;
 }
 
@@ -690,7 +674,11 @@ static int x_update(int fd, int from_pid, x_t* x) {
 	if(!win->xinfo->visible)
 		return 0;
 
+	if(win->g_buf == NULL)
+		win->g_buf = graph_new(NULL, win->g->w, win->g->h);
+	memcpy(win->g_buf->buffer, win->g->buffer, win->g->w * win->g->h * 4);
 	win->dirty = true;
+
 	mark_dirty(x, win);
 
 	if(!win->dirty)

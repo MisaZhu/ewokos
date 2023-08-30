@@ -60,7 +60,6 @@ typedef struct {
 	uint32_t style;
 	uint32_t state;
 	bool visible;
-	bool painting;
 	grect_t wsr; //workspace rect
 	grect_t winr; //window rect
 	char title[X_TITLE_MAX];
