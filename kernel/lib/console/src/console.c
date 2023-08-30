@@ -62,12 +62,9 @@ int32_t console_reset(console_t* console, uint32_t w, uint32_t h) {
 }
 
 int32_t console_init(console_t* console) {
-	console->w = 0;
-	console->h = 0;
+	memset(console, 0, sizeof(console_t));
 	console->bg_color = argb(0xff, 0x0, 0x0, 0x0);
 	console->fg_color = argb(0xff, 0xaa, 0xaa, 0xaa);
-	console->font = NULL;
-	memset(&console->content, 0, sizeof(content_t));
 	return 0;
 }
 
