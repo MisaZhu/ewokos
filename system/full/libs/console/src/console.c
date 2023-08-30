@@ -45,10 +45,10 @@ int32_t console_reset(console_t* console, uint32_t w, uint32_t h, uint32_t total
 	int old_total = console->content.cols* console->content.rows;
 	int old_cols = console->content.cols;
 	int old_start_row = console->state.start_row;
-	char* old_data = NULL;
+	UNICODE16* old_data = NULL;
 	if(old_total > 0 && console->content.data != NULL) {
-		old_data = (char*)malloc(old_total);
-		memcpy(old_data, console->content.data, old_total);
+		old_data = (char*)malloc(old_total*2);
+		memcpy(old_data, console->content.data, old_total*2);
 	}
 
 	console->state.size = 0;
@@ -90,8 +90,9 @@ int32_t console_reset(console_t* console, uint32_t w, uint32_t h, uint32_t total
 		if(at >= old_total)
 			at -= old_total;
 		UNICODE16 c = old_data[at];
-		if(c != 0)
+		if(c != 0) {
 			console_put_char(console, c);
+		}
 	}
 	free(old_data);
 	return 0;
