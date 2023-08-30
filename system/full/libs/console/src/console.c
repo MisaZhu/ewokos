@@ -14,18 +14,19 @@ extern "C" {
 #define T_W 2 /*tab width*/
 
 static uint16_t _fontw = 0;
-static uint32_t font_width(font_t* font) {
+static uint32_t font_width(console_t* console) {
 	if(_fontw != 0)
 		return _fontw;
 
-	font_char_size('w', font, &_fontw, NULL);
+	font_char_size('M', &console->font, &_fontw, NULL);
 	if(_fontw == 0)
-		_fontw = font->max_size.x;
+		_fontw = console->font.max_size.x;
+	_fontw += console->font_margin;
 	return _fontw;
 }
 
-static void cons_draw_char(console_t* console, graph_t* g, int32_t x, int32_t y, UNICODE16 c) {
-	graph_draw_char_font_fixed(g, x, y, c, &console->font, console->fg_color, console->font.max_size.x, 0);
+static void cons_draw_char(console_t* console, graph_t* g, int32_t x, int32_t y, UNICODE16 c, int32_t w) {
+	graph_draw_char_font_fixed(g, x, y, c, &console->font, console->fg_color, w, 0);
 }
 
 static uint32_t get_data_rows(console_t* console) {
@@ -55,7 +56,7 @@ int32_t console_reset(console_t* console, uint32_t w, uint32_t h, uint32_t total
 	console->state.start_row = 0;
 	console->state.back_offset_rows = 0;
 	console->state.current_row = 0;
-	int32_t font_w = (console->font.max_size.x + console->font_margin*2);
+	int32_t font_w = font_width(console);
 	if(font_w <= 0)
 		font_w = 1;
 	console->content.cols = w / font_w - 1;
@@ -156,7 +157,7 @@ void console_refresh_content(console_t* console, graph_t* g) {
 	uint32_t i = start_row * console->content.cols;
 	uint32_t x = 0;
 	uint32_t y = 0;
-	int32_t w = console->font.max_size.x + console->font_margin*2;
+	int32_t w = font_width(console);
 	if(w <= 0)
 		w = 1;
 	uint32_t h = console->font.max_size.y;
@@ -164,7 +165,7 @@ void console_refresh_content(console_t* console, graph_t* g) {
 		uint32_t at = get_at(console, i);
 		UNICODE16 c = console->content.data[at];
 		if(c != 0 && c != '\n') {
-			cons_draw_char(console, g, x*w, y*h, console->content.data[at]);
+			cons_draw_char(console, g, x*w, y*h, console->content.data[at], w);
 		}
 		x++;
 		if(x >= console->content.cols) {
