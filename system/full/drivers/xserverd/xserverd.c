@@ -212,9 +212,11 @@ static int draw_win(x_t* xp, xwin_t* win) {
 	x_display_t *display = &xp->displays[win->xinfo->display_index];
 	if(!display->dirty && !win->dirty)
 		return -1;
+	//waiting for client to finish drawing.
+	while(win->xinfo->painting)
+		usleep(1000);
 
 	if(win->g != NULL) {
-		win->xinfo->painting = true;
 		if((win->xinfo->style & X_STYLE_ALPHA) != 0) {
 			graph_blt_alpha(win->g, 0, 0, 
 					win->xinfo->wsr.w,
@@ -235,7 +237,6 @@ static int draw_win(x_t* xp, xwin_t* win) {
 						win->xinfo->wsr.w,
 						win->xinfo->wsr.h);
 		}
-		win->xinfo->painting = false;
 	}
 
 	draw_win_frame(xp, win);
@@ -578,7 +579,6 @@ static void x_repaint(x_t* x, uint32_t display_index) {
 			if(draw_win(x, win) == 0)
 				do_flush = true;
 		}
-		win->dirty = false;
 		win = win->next;
 	}
 
