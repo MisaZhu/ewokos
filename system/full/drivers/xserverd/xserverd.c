@@ -25,10 +25,13 @@ enum {
 	X_win_DRAG_RESIZE
 };
 
+#define X_WIN_FORCE_FLUSH_COUNT 16
 typedef struct st_xwin {
 	int fd;
 	int from_pid;
 	graph_t* g;
+	graph_t* g_buf;
+	uint32_t g_buf_count;
 	xinfo_t* xinfo;
 	bool dirty;
 
@@ -212,14 +215,19 @@ static int draw_win(x_t* xp, xwin_t* win) {
 	x_display_t *display = &xp->displays[win->xinfo->display_index];
 	if(!display->dirty && !win->dirty)
 		return -1;
-	//waiting for client to finish drawing. timeout with 100ms
 	uint32_t to = 0;
-	while(win->xinfo->painting && (to++) < 100)
-		usleep(1000);
 
-	if(win->g != NULL) {
+	graph_t* g = win->g;
+	if(win->xinfo->painting && 
+			win->g_buf != NULL &&
+			win->g_buf_count < X_WIN_FORCE_FLUSH_COUNT) {//use last buffer when client is still drawing. 
+		g = win->g_buf;
+		win->g_buf_count++;
+	}
+
+	if(g != NULL) {
 		if((win->xinfo->style & X_STYLE_ALPHA) != 0) {
-			graph_blt_alpha(win->g, 0, 0, 
+			graph_blt_alpha(g, 0, 0, 
 					win->xinfo->wsr.w,
 					win->xinfo->wsr.h,
 					display->g,
@@ -229,7 +237,7 @@ static int draw_win(x_t* xp, xwin_t* win) {
 					win->xinfo->wsr.h, 0xff);
 		}
 		else {
-			graph_blt(win->g, 0, 0, 
+			graph_blt(g, 0, 0, 
 						win->xinfo->wsr.w,
 						win->xinfo->wsr.h,
 						display->g,
@@ -243,7 +251,15 @@ static int draw_win(x_t* xp, xwin_t* win) {
 	draw_win_frame(xp, win);
 	if(xp->current.win == win && xp->config.win_move_alpha < 0xff) //drag and moving
 		draw_drag_frame(xp, win->xinfo->display_index);
-	win->dirty = false;
+
+	//do buffer
+	if(g == win->g) {
+		win->g_buf_count = 0;
+		win->dirty = false;
+		if(win->g_buf == NULL)
+			win->g_buf = graph_new(NULL, g->w, g->h);
+		memcpy(win->g_buf->buffer, win->g->buffer, g->w * g->h * 4);
+	}
 	return 0;
 }
 
@@ -428,6 +444,8 @@ static void x_del_win(x_t* x, xwin_t* win) {
 	remove_win(x, win);
 	shm_unmap(win->xinfo->g_shm);
 	shm_unmap(win->xinfo);
+	if(win->g_buf != NULL)
+		graph_free(win->g_buf);
 	free(win);
 	x->win_focus = get_next_focus_win(x, false);
 	x->win_last = get_next_focus_win(x, true);
@@ -817,7 +835,11 @@ static int xwin_update_info(int fd, int from_pid, proto_t* in, proto_t* out, x_t
 		win->xinfo->g_shm = g_shm;
 		win->g = graph_new(g_shm, win->xinfo->wsr.w, win->xinfo->wsr.h);
 		graph_clear(win->g, 0x0);
-		//win->dirty = true;
+
+		if(win->g_buf != NULL) {
+			graph_free(win->g_buf);
+			win->g_buf = NULL;
+		}
 	}
 	x_update_frame_areas(x, win);
 
