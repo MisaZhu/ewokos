@@ -214,7 +214,6 @@ static int draw_win(x_t* xp, xwin_t* win) {
 	if(!display->dirty && !win->dirty)
 		return -1;
 	uint32_t to = 0;
-
 	graph_t* g = win->g_buf;
 	if(g != NULL) {
 		if((win->xinfo->style & X_STYLE_ALPHA) != 0) {
@@ -674,7 +673,7 @@ static int x_update(int fd, int from_pid, x_t* x) {
 		return -1;
 	
 	xwin_t* win = x_get_win(x, fd, from_pid);
-	if(win == NULL)
+	if(win == NULL || win->xinfo == NULL)
 		return -1;
 	if(!win->xinfo->visible)
 		return 0;
