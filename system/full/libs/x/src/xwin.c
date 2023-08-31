@@ -132,10 +132,7 @@ void xwin_repaint(xwin_t* xwin) {
 
 	if(x_get_graph(xwin, &g) != NULL) {
 		xwin->on_repaint(xwin, &g);
-		proto_t out;
-		PF->init(&out);
-		vfs_fcntl(xwin->fd, X_CNTL_UPDATE, NULL, &out);
-		PF->clear(&out);
+		vfs_fcntl_wait(xwin->fd, X_CNTL_UPDATE, NULL);
 	}
 }
 

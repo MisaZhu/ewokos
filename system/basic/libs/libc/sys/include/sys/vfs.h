@@ -49,6 +49,7 @@ int       vfs_read(int fd, fsinfo_t *info, void* buf, uint32_t size);
 int       vfs_write(int fd, fsinfo_t *info, const void* buf, uint32_t size);
 
 int       vfs_fcntl(int fd, int cmd, proto_t* in, proto_t* out);
+int       vfs_fcntl_wait(int fd, int cmd, proto_t* in);
 
 #ifdef __cplusplus
 }
