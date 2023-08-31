@@ -146,16 +146,20 @@ protected:
 				return;
 		}
 		else { //RELEASE
-			if(c == KEY_BUTTON_X) {
+			if(c == KEY_BUTTON_SELECT) {
 				changeMode(!hideMode);
 				return;
 			}
 			else if(c == KEY_BUTTON_Y) {
+				doKeyIn(' ');
+				return;
+			}
+			else if(c == KEY_BUTTON_START) {
 				doKeyIn('\n');
 				changeMode(true);
 				return;
 			}
-			else if(c == KEY_BUTTON_B) {
+			else if(c == KEY_BUTTON_X) {
 				if(hideMode) {
 					doKeyIn('\4');
 				}
@@ -164,6 +168,12 @@ protected:
 					//changeMode(true);
 					repaint();
 				}
+				return;
+			}
+			else if(c == KEY_BUTTON_B) {
+				doKeyIn(KEY_ROLL_FORWARD);
+				//changeMode(true);
+				repaint();
 				return;
 			}
 			else if(c == KEY_ENTER || c == KEY_BUTTON_A) {

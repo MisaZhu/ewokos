@@ -7,18 +7,18 @@ extern "C" {
 
 #define KEY_HOME            1
 #define KEY_ROLL_BACK       2
-#define KEY_ROLL_FORWARD    3
+#define KEY_ROLL_FORWARD    9
 
-#define KEY_UP              5
-#define KEY_DOWN            24
-#define KEY_LEFT            19
 #define KEY_RIGHT           4
-
-#define KEY_ESC             27
-#define KEY_ENTER           13
-#define KEY_BACKSPACE       127
-#define KEY_POWER           26
+#define KEY_UP              5
 #define CONSOLE_LEFT        8
+#define KEY_ENTER           13
+#define KEY_LEFT            19
+#define KEY_DOWN            24
+
+#define KEY_POWER           26
+#define KEY_ESC             27
+#define KEY_BACKSPACE       127
 #define KEY_BUTTON_A        96
 #define KEY_BUTTON_B        97
 #define KEY_BUTTON_C        98
@@ -31,6 +31,7 @@ extern "C" {
 #define KEY_BUTTON_START    108
 #define KEY_BUTTON_THUMBL   106
 #define KEY_BUTTON_THUMBR   107
+
 #define KEY_BUTTON_X        99
 #define KEY_BUTTON_Y        100
 #define KEY_BUTTON_Z        101
