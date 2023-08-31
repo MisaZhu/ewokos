@@ -315,7 +315,7 @@ protected:
 		else if(c == '\4') {
 			ev.value.im.value = KEY_ROLL_BACK;
 		}
-		else if(len < INPUT_MAX-1) {
+		else if(c < 0xF0 && len < INPUT_MAX-1) {
 			if(!hideMode) {
 				inputS[len] = c;
 				inputS[len+1] = 0;
