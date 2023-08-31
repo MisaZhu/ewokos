@@ -426,10 +426,15 @@ static void x_del_win(x_t* x, xwin_t* win) {
 		x->win_last = NULL;
 
 	remove_win(x, win);
-	shm_unmap(win->xinfo->g_shm);
-	shm_unmap(win->xinfo);
+
+	if(win->xinfo->g_shm != NULL) {
+		shm_unmap(win->xinfo->g_shm);
+		shm_unmap(win->xinfo);
+	}
+
 	if(win->g_buf != NULL)
 		graph_free(win->g_buf);
+
 	free(win);
 	x->win_focus = get_next_focus_win(x, false);
 	x->win_last = get_next_focus_win(x, true);
