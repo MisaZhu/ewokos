@@ -18,6 +18,7 @@ class SolarisWM : public XWM {
 	font_t font;
 	graph_t* bgImg;
 
+	void getBorderColor(uint32_t bg, uint32_t *dark, uint32_t *bright);
 protected:
 	void drawResize(graph_t* g, xinfo_t* info, grect_t* r, bool top);
 	void drawMax(graph_t* g, xinfo_t* info, grect_t* r, bool top);
