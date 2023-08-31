@@ -12,7 +12,7 @@ extern "C" {
 typedef void (*ipc_handle_t)(uint32_t ipc_id, void* p);
 typedef void (*ipc_handled_t)(void* p);
 int      ipc_call(int to_pid, int call_id, const proto_t* ipkg, proto_t* opkg);
-int      ipc_call_wait(int to_pid, int call_id, const proto_t* ipkg, proto_t* opkg);
+int      ipc_call_wait(int to_pid, int call_id, const proto_t* ipkg);
 void     ipc_ready(void);
 int      ipc_disable(void);
 void     ipc_enable(void);

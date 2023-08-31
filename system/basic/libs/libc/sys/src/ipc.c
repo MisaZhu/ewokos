@@ -73,10 +73,7 @@ inline int ipc_call(int to_pid, int call_id, const proto_t* ipkg, proto_t* opkg)
 	return 0;
 }
 
-inline int ipc_call_wait(int to_pid, int call_id, const proto_t* ipkg, proto_t* opkg) {
-	if(opkg != NULL)
-		return ipc_call(to_pid, call_id, ipkg, opkg);
-	
+inline int ipc_call_wait(int to_pid, int call_id, const proto_t* ipkg) {
 	proto_t out;
 	PF->init(&out);
 	int res = ipc_call(to_pid, call_id, ipkg, &out);

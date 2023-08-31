@@ -156,7 +156,7 @@ static void draw_win_frame(x_t* x, xwin_t* win) {
 	else
 		PF->addi(&in, 0);
 
-	ipc_call_wait(x->xwm_pid, XWM_CNTL_DRAW_FRAME, &in, NULL);
+	ipc_call_wait(x->xwm_pid, XWM_CNTL_DRAW_FRAME, &in);
 	PF->clear(&in);
 }
 
@@ -171,7 +171,7 @@ static void draw_desktop(x_t* x, uint32_t display_index) {
 		addi(&in, display->g->w)->
 		addi(&in, display->g->h);
 
-	int res = ipc_call_wait(x->xwm_pid, XWM_CNTL_DRAW_DESKTOP, &in, NULL);
+	int res = ipc_call_wait(x->xwm_pid, XWM_CNTL_DRAW_DESKTOP, &in);
 	PF->clear(&in);
 	if(res != 0)
 		graph_fill(display->g, 0, 0, display->g->w, display->g->h, 0xff000000);
@@ -205,7 +205,7 @@ static void draw_drag_frame(x_t* xp, uint32_t display_index) {
 		addi(&in, display->g->h)->
 		add(&in, &r, sizeof(grect_t));
 
-	ipc_call_wait(xp->xwm_pid, XWM_CNTL_DRAW_DRAG_FRAME, &in, NULL);
+	ipc_call_wait(xp->xwm_pid, XWM_CNTL_DRAW_DRAG_FRAME, &in);
 	PF->clear(&in);
 }
 

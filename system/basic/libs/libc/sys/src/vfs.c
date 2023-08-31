@@ -606,7 +606,7 @@ int vfs_flush(int fd, bool wait) {
 		add(&in, &info, sizeof(fsinfo_t));
 	int res = -1;
 	if(wait)
-		ipc_call_wait(info.mount_pid, FS_CMD_FLUSH, &in, NULL);
+		ipc_call_wait(info.mount_pid, FS_CMD_FLUSH, &in);
 	else
 		ipc_call(info.mount_pid, FS_CMD_FLUSH, &in, NULL);
 	PF->clear(&in);
