@@ -151,7 +151,8 @@ protected:
 				return;
 			}
 			else if(c == KEY_BUTTON_Y) {
-				doKeyIn(' ');
+				doKeyIn('\b');
+				repaint();
 				return;
 			}
 			else if(c == KEY_BUTTON_START) {
@@ -160,19 +161,12 @@ protected:
 				return;
 			}
 			else if(c == KEY_BUTTON_X) {
-				if(hideMode) {
-					doKeyIn('\4');
-				}
-				else {
-					doKeyIn('\b');
-					//changeMode(true);
-					repaint();
-				}
+				doKeyIn(KEY_ROLL_BACK);
+				repaint();
 				return;
 			}
 			else if(c == KEY_BUTTON_B) {
 				doKeyIn(KEY_ROLL_FORWARD);
-				//changeMode(true);
 				repaint();
 				return;
 			}

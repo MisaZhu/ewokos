@@ -5,9 +5,9 @@
 extern "C" {
 #endif
 
-#define KEY_HOME            1
-#define KEY_ROLL_BACK       2
-#define KEY_ROLL_FORWARD    9
+#define KEY_HOME            0xF0 
+#define KEY_ROLL_BACK       0xF1 
+#define KEY_ROLL_FORWARD    0xF2
 
 #define KEY_RIGHT           4
 #define KEY_UP              5
