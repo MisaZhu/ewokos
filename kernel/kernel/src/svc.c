@@ -293,6 +293,7 @@ static void sys_ipc_call(context_t* ctx, int32_t serv_pid, int32_t call_id, prot
 			return;
 		}
 		call_id = call_id | IPC_LAZY; //not do task immediately
+		serv_proc->space->interrupt.state = READY;
 	}
 
 	ipc_task_t* ipc = proc_ipc_req(serv_proc, client_proc->info.pid, call_id, data);
