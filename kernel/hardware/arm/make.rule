@@ -14,7 +14,7 @@ SRC_DIR=$(ROOT_DIR)/kernel
 ARCH_DIR=$(SRC_DIR)/hardware/arm/arch
 BSP_DIR=bsp
 
-SYS_FULL_DIR = $(ROOT_DIR)/system
+SYS_FULL_DIR = $(ROOT_DIR)/system/hardware/$(MACHINE)
 BUILD_DIR = .
 
 # flags
@@ -105,7 +105,7 @@ LOAD_OBJS = \
 	$(LOAD_DIR)/ext2read.o \
 	$(LOAD_DIR)/loadinit.o
 CFLAGS += -I$(LOAD_DIR)
-QEMU_ARGS += -sd $(SYS_FULL_DIR)/root.ext2
+QEMU_ARGS += -sd $(SYS_FULL_DIR)/build/root.ext2
 
 DEV_DIR = $(SRC_DIR)/dev/src
 DEV_OBJS = 

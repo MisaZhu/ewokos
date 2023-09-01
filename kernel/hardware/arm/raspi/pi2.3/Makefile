@@ -11,5 +11,6 @@ OS_QEMU_ELF = kernel7.qemu.elf
 QEMU_CMD = qemu-system-arm
 
 ROOT_DIR = ../../../../..
+MACHINE = arm/raspix
 include make.bsp
 include ../../make.rule
