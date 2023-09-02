@@ -197,6 +197,14 @@ void graph_draw_char_font(graph_t* g, int32_t x, int32_t y, TTY_U32 c,
 	if(h != NULL)
 		*h = 0;
 
+	if(c == '\t') {
+		if(w != NULL)
+			*w = font->max_size.x;
+		if(h != NULL)
+			*h = font->max_size.y;
+		return;
+	}
+
 	TTY_Glyph glyph;
 	if(font_get_glyph(font, c, &glyph) != 0)
 		return;
@@ -264,7 +272,7 @@ void graph_draw_text_font(graph_t* g, int32_t x, int32_t y, const char* str,
 		TTY_U16 w = 0;
 		graph_draw_char_font(g, x, y, out[i], font, color, &w, NULL);
 		int dx = w;
-		if(dx <= 0)
+		if(dx < 0)
 			dx = w/2;
 		x += dx;
 	}
