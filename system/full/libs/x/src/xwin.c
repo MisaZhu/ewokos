@@ -234,8 +234,13 @@ int xwin_event_handle(xwin_t* xwin, xevent_t* ev) {
 }
 
 int xwin_set_visible(xwin_t* xwin, bool visible) {
-	if(xwin->on_focus)
-		xwin->on_focus(xwin);
+	if(xwin->xinfo == NULL || xwin->xinfo->visible == visible)
+		return 0;
+
+	if(visible) {
+		if(xwin->on_focus)
+			xwin->on_focus(xwin);
+	}
 	xwin->xinfo->visible = visible;
 	int res = xwin_update_info(xwin, X_UPDATE_REBUILD | X_UPDATE_REFRESH);
 	xwin_repaint(xwin);
