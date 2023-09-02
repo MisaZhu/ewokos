@@ -133,7 +133,10 @@ protected:
 
 		graph_fill_3d(g, 0, 0, g->w, h, titleBGColor, false);
 
-		snprintf(name, FS_FULL_NAME_MAX, "[%s]", cwd);
+		if(strcmp(cwd, "/") == 0)
+			snprintf(name, FS_FULL_NAME_MAX, "[%s]", cwd);
+		else
+			snprintf(name, FS_FULL_NAME_MAX, ".. [%s]", cwd);
 		if(dirIcon != NULL) {
 			int iconMargin = (itemSize - dirIcon->h)/2;
 			graph_blt_alpha(dirIcon, 0, 0, dirIcon->w, dirIcon->h,

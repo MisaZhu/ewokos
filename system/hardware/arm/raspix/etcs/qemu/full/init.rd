@@ -17,6 +17,7 @@ $
 /bin/rundev /drivers/raspix/soundd        /dev/sound
 
 /bin/rundev /drivers/xserverd             /dev/x
+#/bin/rundev /drivers/xconsoled             /dev/xconsole
 
 @/bin/session &
 

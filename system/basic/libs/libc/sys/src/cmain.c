@@ -95,6 +95,12 @@ static void init_stdio(void) {
 	_stderr.fd = 2;
 	_stderr.oflags = O_WRONLY;
 	stderr = &_stderr;
+
+	int fd_xconsole = open("/dev/xconsole", 0);
+	if(fd_xconsole > 0) {
+		dup2(fd_xconsole, 2);
+		close(fd_xconsole);
+	}
 }
 
 #define ARG_MAX 16

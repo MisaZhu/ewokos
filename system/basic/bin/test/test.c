@@ -8,7 +8,7 @@
 static uint32_t _v;
 
 static void timer_handle(void) {
-	printf("timer test: pid: %d, v: %d\n", getpid(), _v);
+	fprintf(stderr, "timer test: pid: %d, v: %d\n", getpid(), _v);
 	_v++;
 }
 

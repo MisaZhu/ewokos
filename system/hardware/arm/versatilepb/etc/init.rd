@@ -17,6 +17,7 @@ $
 #/bin/rundev /drivers/versatilepb/smc91c111d /dev/eth0
 
 /bin/rundev /drivers/xserverd             /dev/x
+/bin/rundev /drivers/xconsoled             /dev/xconsole
 
 @/bin/session &
 

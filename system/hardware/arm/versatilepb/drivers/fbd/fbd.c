@@ -11,7 +11,7 @@
 #include <arch/vpb/framebuffer.h>
 
 typedef struct {
-	void* data;
+	uint8_t* data;
 	uint32_t size;
 } fb_dma_t;
 
@@ -44,6 +44,7 @@ static int fb_dma_init(fb_dma_t* dma) {
 	dma->data = shm_alloc(_fbinfo->size_max+1, 1);
 	if(dma->data == NULL)
 		return -1;
+	memset(dma->data, 0, _fbinfo->size_max+1);
 	dma->size = _fbinfo->size_max;
 	return 0;
 }

@@ -113,7 +113,7 @@ function rootfs_common(image)
     end)
 
     -- baseic system
-    add_deps("xserverd","consoled","fontd","displayd","anim","gtest","xconsole",
+    add_deps("xserverd","consoled","xconsoled","fontd","displayd","anim","gtest","xconsole",
             "finder","book","wtest","launcher","png","ttyjoy","xim_vkey","xim_none",
             "xmoused","xwm_macos7","xjoystickd","xtouchd","fbd","etc","fbd","stated",
             "sysinfod","timerd","nulld","ramfsd","cat","svcinfo","dump","echo","pwd",
