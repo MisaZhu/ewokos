@@ -31,7 +31,7 @@ typedef struct {
 	font_t font;
 	content_t content;
 	state_t state;
-	bool bg_clear;
+	bool show_cursor;
 } console_t;
 
 int32_t console_init(console_t* console);

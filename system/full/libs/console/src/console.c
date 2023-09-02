@@ -40,7 +40,6 @@ int32_t console_reset(console_t* console, uint32_t w, uint32_t h, uint32_t total
 		return -1;
 	console->w = w;
 	console->h = h;
-	console->bg_clear = true;
 	//save content data
 	int old_size = console->state.size;
 	int old_total = console->content.cols* console->content.rows;
@@ -126,9 +125,6 @@ static inline uint32_t get_at(console_t* console, uint32_t i) {
 }
 
 void console_roll(console_t* console, int32_t rows) {
-	if(rows != 0)
-		console->bg_clear = true;
-
 	if(rows > 0) {//forward
 		if(console->state.back_offset_rows > rows)
 			console->state.back_offset_rows -= rows;
@@ -174,13 +170,13 @@ void console_refresh_content(console_t* console, graph_t* g) {
 		}
 		i++;
 	}	
+	//draw cursor
+	if(console->show_cursor)
+		graph_fill(g, x*w, y*h, w, h, console->fg_color);
 }
 
 void console_refresh(console_t* console, graph_t* g) {
-	if(console->bg_clear) {
-		graph_clear(g, console->bg_color);
-		console->bg_clear = false;
-	}
+	graph_clear(g, console->bg_color);
 	console_refresh_content(console, g);
 }
 
@@ -197,7 +193,6 @@ static void move_line(console_t* console) {
 	if(console->state.start_row >= console->content.rows)
 		console->state.start_row = 0;
 	console->state.size -= console->content.cols;
-	console->bg_clear = true;
 }
 
 void console_put_char(console_t* console, UNICODE16 c) {

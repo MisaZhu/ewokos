@@ -96,6 +96,7 @@ protected:
 	void onFocus(void) {
 		console.fg_color = conf.fg_color;
 		console.bg_color = conf.bg_color;
+		console.show_cursor = true;
 		repaint();
 		callXIM();
 	}
@@ -103,6 +104,7 @@ protected:
 	void onUnfocus(void) {
 		console.fg_color = conf.unfocus_fg_color;
 		console.bg_color = conf.unfocus_bg_color;
+		console.show_cursor = false;
 		repaint();
 	}
 
