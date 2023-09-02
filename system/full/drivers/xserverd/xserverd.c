@@ -129,8 +129,11 @@ static int32_t read_config(x_t* x, const char* fname) {
 	v = sconf_get(conf, "cursor");
 	if(strcmp(v, "touch") == 0)
 		x->cursor.type = CURSOR_TOUCH;
-	else {
+	else if(strcmp(v, "mouse") == 0)
 		x->cursor.type = CURSOR_MOUSE;
+	else if(strcmp(v, "x") == 0)
+		x->cursor.type = CURSOR_X;
+	else {
 		if(strcmp(v, "none") == 0)
 			x->show_cursor = false;
 	}

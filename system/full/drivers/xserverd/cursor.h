@@ -5,6 +5,7 @@
 
 enum {
 	CURSOR_MOUSE=0,
+	CURSOR_X,
 	CURSOR_TOUCH
 };
 
