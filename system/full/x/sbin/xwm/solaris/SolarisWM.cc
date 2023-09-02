@@ -27,27 +27,16 @@ void SolarisWM::drawMin(graph_t* g, xinfo_t* info, grect_t* r, bool top) {
 	uint32_t fg, bg;
 	getColor(&fg, &bg, top);
 
-	uint32_t dark, bright;
-	graph_get_3d_color(bg, &dark, &bright);
-
-	graph_fill(g, r->x, r->y, r->w, r->h, bg);
-	graph_box_3d(g, r->x, r->y, r->w, r->h, bright, dark);
-	graph_box_3d(g, r->x+(r->w/2)-3, r->y+(r->h/2)-3,
-			6, 6, bright, dark);
+	graph_fill_3d(g, r->x, r->y, r->w, r->h, bg, false);
+	graph_fill_3d(g, r->x+(r->w/2)-3, r->y+(r->h/2)-3, 6, 6, bg, false);
 }
 
 void SolarisWM::drawMax(graph_t* g, xinfo_t* info, grect_t* r, bool top) {
 	(void)info;
 	uint32_t fg, bg;
 	getColor(&fg, &bg, top);
-
-	uint32_t dark, bright;
-	graph_get_3d_color(bg, &dark, &bright);
-
-	graph_fill(g, r->x, r->y, r->w, r->h, bg);
-	graph_box_3d(g, r->x, r->y, r->w, r->h, bright, dark);
-	graph_box_3d(g, r->x+3, r->y+3,
-			r->w-6, r->h-6, bright, dark);
+	graph_fill_3d(g, r->x, r->y, r->w, r->h, bg, false);
+	graph_fill_3d(g, r->x+2, r->y+2, r->w-4, r->h-4, bg, false);
 }
 
 void SolarisWM::drawClose(graph_t* g, xinfo_t* info, grect_t* r, bool top) {
@@ -55,13 +44,9 @@ void SolarisWM::drawClose(graph_t* g, xinfo_t* info, grect_t* r, bool top) {
 	uint32_t fg, bg;
 	getColor(&fg, &bg, top);
 
-	uint32_t dark, bright;
-	graph_get_3d_color(bg, &dark, &bright);
-
-	graph_fill(g, r->x, r->y, r->w, r->h, bg);
-	graph_box_3d(g, r->x, r->y, r->w, r->h, bright, dark);
-	graph_box_3d(g, r->x+5, r->y+(r->h/2)-2,
-			r->w-10, 4, bright, dark);
+	graph_fill_3d(g, r->x, r->y, r->w, r->h, bg, false);
+	graph_fill_3d(g, r->x+5, r->y+(r->h/2)-2,
+			r->w-10, 4, bg, false);
 }
 
 void SolarisWM::drawResize(graph_t* g, xinfo_t* info, grect_t* r, bool top) {
