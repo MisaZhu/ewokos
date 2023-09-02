@@ -47,6 +47,7 @@ static int fb_dma_init(fb_dma_t* dma) {
 	if(dma->shm == NULL)
 		return -1;
 	//dma->size = _fbinfo->size_max;
+	memset(dma->shm, 0, sz+1);
 	dma->size = sz;
 	return 0;
 }

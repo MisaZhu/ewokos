@@ -131,11 +131,6 @@ static void init_stdio(void) {
 	}
 	if(fd_console > 0) {
 		_console_inited = true;
-		const char* s = ""
-				"+-----Ewok micro-kernel OS-----------------------+\n"
-				"| https://github.com/MisaZhu/EwokOS.git          |\n"
-				"+------------------------------------------------+\n";
-		dprintf(fd_console, "%s", s);
 		dup2(fd_console, 2);
 		close(fd_console);
 	}

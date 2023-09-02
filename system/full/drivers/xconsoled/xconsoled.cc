@@ -25,14 +25,35 @@ class XConsoled : public XWin {
 	conf_t conf;
 	console_t console;
 	int32_t mouse_last_y;
+	uint32_t hide_count;
+	uint32_t auto_hide;
 public:
 	XConsoled() {
+		hide_count = 0;
+		auto_hide = 6; //auto hide after 6 sec
 		console_init(&console);
 		console.show_cursor = false;
 	}
 
 	~XConsoled() {
 		console_close(&console);
+	}
+
+	void tryHide() {
+		usleep(100000); //count every 100 ms
+		if(auto_hide == 0) //never hide
+			return;
+			
+		hide_count++;
+		if(hide_count > (auto_hide*10)) { //after 6 sec
+			hide_count = 0;
+			setVisible(false);
+		}
+	}
+
+	void show() {
+		hide_count = 0;
+		setVisible(true);
 	}
 
 	bool readConfig(const char* fname) {
@@ -57,6 +78,10 @@ public:
 		v = sconf_get(sconf, "font_size");
 		if(v[0] != 0) 
 			font_size = atoi(v);
+		
+		v = sconf_get(sconf, "auto_hide");
+		if(v[0] != 0) 
+			auto_hide = atoi(v);
 
 		v = sconf_get(sconf, "font");
 		if(v[0] == 0) 
@@ -119,7 +144,14 @@ static int console_write(int fd,
 	}
 	*/
 	xwin->put(pb, size);
+	xwin->show();
 	return size;
+}
+
+int try_hide(void* p) {
+	XConsoled* xwin = (XConsoled*)p;
+	xwin->tryHide();
+	return 0;
 }
 
 int main(int argc, char** argv) {
@@ -132,14 +164,15 @@ int main(int argc, char** argv) {
 	xscreen_t scr;
  	x.screenInfo(scr, 0);
 	x.open(&xwin, 0, 0, scr.size.w, scr.size.h, "xconsole",
-			X_STYLE_NO_FRAME | X_STYLE_NO_FOCUS | X_STYLE_SYSBOTTOM | X_STYLE_ALPHA);
-	xwin.setVisible(true);
+			X_STYLE_NO_FRAME | X_STYLE_NO_FOCUS | X_STYLE_SYSTOP | X_STYLE_ALPHA | X_STYLE_LAZY);
+	xwin.setVisible(false);
 
 	vdevice_t dev;
 	memset(&dev, 0, sizeof(vdevice_t));
 	strcpy(dev.name, "xconsole");
 	dev.write = console_write;
 	dev.extra_data = &xwin;
+	dev.loop_step = try_hide;
 
 	device_run(&dev, mnt_point, FS_TYPE_CHAR);
 	xwin.close();

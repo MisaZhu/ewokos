@@ -949,7 +949,9 @@ static xwin_t* get_mouse_owner(x_t* x, int* win_frame_pos) {
 		*win_frame_pos = -1;
 
 	while(win != NULL) {
-		if(!win->xinfo->visible || win->xinfo->display_index != x->current_display) {
+		if(!win->xinfo->visible ||
+				(win->xinfo->style & X_STYLE_LAZY) != 0 ||
+				win->xinfo->display_index != x->current_display) {
 			win = win->prev;
 			continue;
 		}
