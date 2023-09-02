@@ -1,7 +1,7 @@
 /bin/rundev /drivers/timerd               /dev/timer
 /bin/rundev /drivers/versatilepb/ttyd     /dev/tty0
 /bin/rundev /drivers/fontd                /dev/font
-/bin/rundev /drivers/versatilepb/fbd      /dev/fb0 1024 768
+/bin/rundev /drivers/versatilepb/fbd      /dev/fb0 640 480
 /bin/rundev /drivers/displayd             /dev/display /dev/fb0
 /bin/rundev /drivers/consoled             /dev/console0 /dev/display
 
