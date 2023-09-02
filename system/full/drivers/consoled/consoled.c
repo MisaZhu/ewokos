@@ -202,7 +202,7 @@ static int console_dev_cntl(int from_pid, int cmd, proto_t* in, proto_t* ret, vo
 
 int main(int argc, char** argv) {
 	const char* mnt_point = argc > 1 ? argv[1]: "/dev/console0";
-	const char* display_dev = argc > 2 ? argv[2]: "/dev/displayman";
+	const char* display_dev = argc > 2 ? argv[2]: "/dev/display";
 	const uint32_t display_index = argc > 3 ? atoi(argv[3]): 0;
 
 	fb_console_t _console;
