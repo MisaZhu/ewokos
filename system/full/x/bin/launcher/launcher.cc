@@ -288,7 +288,7 @@ public:
 		return height;
 	}
 
-	inline uint32_t getWide() {
+	inline uint32_t getWidth() {
 		return (items.icon_size + items.marginH) * items.num;
 	}
  
@@ -339,7 +339,7 @@ int main(int argc, char* argv[]) {
 	uint32_t h = xwin.getHeight();
 	if(h == 0)
 		h = scr.size.h;
-	uint32_t w = xwin.getWide();
+	uint32_t w = xwin.getWidth();
 	if(w == 0)
 		w = scr.size.w;
 	x.open(&xwin, (scr.size.w-w)/2,

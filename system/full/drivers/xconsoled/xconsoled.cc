@@ -27,10 +27,14 @@ class XConsoled : public XWin {
 	int32_t mouse_last_y;
 	uint32_t hide_count;
 	uint32_t auto_hide;
+	uint32_t height;
+	uint32_t width;
 public:
 	XConsoled() {
 		hide_count = 0;
 		auto_hide = 6; //auto hide after 6 sec
+		height = 0;
+		width = 0;
 		console_init(&console);
 		console.show_cursor = false;
 	}
@@ -49,6 +53,14 @@ public:
 			hide_count = 0;
 			setVisible(false);
 		}
+	}
+
+	uint32_t getHeight() {
+			return height;
+	}
+
+	uint32_t getWidth() {
+			return width;
 	}
 
 	void show() {
@@ -92,6 +104,13 @@ public:
 		v = sconf_get(sconf, "font_margin");
 		if(v[0] != 0) 
 			console.font_margin = atoi(v);
+
+		v = sconf_get(sconf, "height");
+		if(v[0] != 0) 
+			height = atoi(v);
+		v = sconf_get(sconf, "width");
+		if(v[0] != 0) 
+			width = atoi(v);
 
 		sconf_free(sconf);
 
@@ -163,8 +182,15 @@ int main(int argc, char** argv) {
 	X x;
 	xscreen_t scr;
  	x.screenInfo(scr, 0);
-	x.open(&xwin, 0, 0, scr.size.w, scr.size.h, "xconsole",
-			X_STYLE_NO_FRAME | X_STYLE_NO_FOCUS | X_STYLE_SYSTOP | X_STYLE_ALPHA | X_STYLE_LAZY);
+
+	uint32_t w = xwin.getWidth();
+	uint32_t h = xwin.getHeight();
+
+	w = w==0 ? scr.size.w:w;
+	h = h==0 ? scr.size.h:h;
+
+	x.open(&xwin, (scr.size.w-w)/2, 0, w, h, "xconsole",
+			X_STYLE_NO_TITLE | X_STYLE_NO_FOCUS | X_STYLE_SYSTOP | X_STYLE_ALPHA | X_STYLE_LAZY);
 	xwin.setVisible(false);
 
 	vdevice_t dev;

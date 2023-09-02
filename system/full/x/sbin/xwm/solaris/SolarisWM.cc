@@ -145,7 +145,7 @@ void SolarisWM::readConfig(void) {
 	if(v[0] != 0) 
 		desktopBGColor = atoi_base(v, 16);
 
-	v = sconf_get(sconf, "frame_wide");
+	v = sconf_get(sconf, "frame_width");
 	if(v[0] != 0) 
 		frameW = atoi(v);
 

@@ -320,7 +320,8 @@ static void show_win(x_t* x, xwin_t* win) {
 static void try_focus(x_t* x, xwin_t* win) {
 	if(x->win_focus == win)
 		return;
-	if((win->xinfo->style & X_STYLE_NO_FOCUS) == 0) {
+	if((win->xinfo->style & X_STYLE_NO_FOCUS) == 0 && 
+			(win->xinfo->style & X_STYLE_LAZY) == 0) {
 		hide_win(x, x->win_xim);
 		if(x->win_focus != NULL) {
 			xevent_t e;

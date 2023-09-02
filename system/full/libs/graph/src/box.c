@@ -47,7 +47,7 @@ void graph_box_3d(graph_t* g,
 	graph_line(g, x, y+h-1, x+w-1, y+h-1, dark_color);
 }
 
-void graph_frame(graph_t* g, int x, int y, int w, int h, int wide, uint32_t base_color, bool rev) {
+void graph_frame(graph_t* g, int x, int y, int w, int h, int width, uint32_t base_color, bool rev) {
 	uint32_t dark, bright;
 	if(rev)
 		graph_get_3d_color(base_color, &bright, &dark);
@@ -55,10 +55,10 @@ void graph_frame(graph_t* g, int x, int y, int w, int h, int wide, uint32_t base
 		graph_get_3d_color(base_color, &dark, &bright);
 
 	graph_box_3d(g, x, y, w, h, bright, dark);
-	for(int i=1; i<(wide-1); i++) {
+	for(int i=1; i<(width-1); i++) {
 		graph_box(g, x+i, y+i, w-i*2, h-i*2, base_color);
 	}
-	graph_box_3d(g, x+wide-1, y+wide-1, w-wide-2, h-wide-2, dark, bright);
+	graph_box_3d(g, x+width-1, y+width-1, w-width-2, h-width-2, dark, bright);
 }
 
 #ifdef __cplusplus
