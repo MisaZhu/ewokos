@@ -80,7 +80,10 @@ void     graph_scale_tof(graph_t* src, graph_t* dst, float scale);
 graph_t* graph_scalef(graph_t* g, float scale);
 
 void     graph_box(graph_t* g, int32_t x, int32_t y, int32_t w, int32_t h, uint32_t color);
+void     graph_get_3d_color(uint32_t base, uint32_t *dark, uint32_t *bright);
 void     graph_box_3d(graph_t* g, int x, int y, int w, int h, uint32_t bright_color, uint32_t dark_color);
+void     graph_framgraph_framee(graph_t* g, int x, int y, int w, int h, int wide, uint32_t base_color, bool rev);
+void     graph_fill_3d(graph_t* g, int x, int y, int w, int h, uint32_t color, bool rev);
 void     graph_fill(graph_t* g, int32_t x, int32_t y, int32_t w, int32_t h, uint32_t color);
 
 void     graph_line(graph_t* g, int32_t x1, int32_t y1, int32_t x2, int32_t y2, uint32_t color);

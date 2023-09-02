@@ -130,7 +130,9 @@ protected:
 		int xMargin = 8;
 
 		graph_clear(g, bgColor);
-		graph_fill(g, 0, 0, g->w, h, titleBGColor);
+
+		graph_fill_3d(g, 0, 0, g->w, h, titleBGColor, false);
+
 		snprintf(name, FS_FULL_NAME_MAX, "[%s]", cwd);
 		if(dirIcon != NULL) {
 			int iconMargin = (itemSize - dirIcon->h)/2;
