@@ -197,18 +197,18 @@ void graph_draw_char_font(graph_t* g, int32_t x, int32_t y, TTY_U32 c,
 	if(h != NULL)
 		*h = 0;
 
-	if(c == '\t') {
-		if(w != NULL)
-			*w = font->max_size.x;
-		if(h != NULL)
-			*h = font->max_size.y;
-		return;
-	}
-
 	TTY_Glyph glyph;
 	if(font_get_glyph(font, c, &glyph) != 0)
 		return;
 	
+	if(c == '\t') {
+		if(w != NULL)
+			*w = glyph.size.x*2;
+		if(h != NULL)
+			*h = glyph.size.y;
+		return;
+	}
+
 	if(glyph.cache != NULL) {
 		for (TTY_S32 j = 0; j < font->max_size.y; j++) {
 			for (TTY_S32 i = 0; i < font->max_size.x; i++) {
