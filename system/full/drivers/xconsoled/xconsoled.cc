@@ -189,7 +189,7 @@ int main(int argc, char** argv) {
 	w = w==0 ? scr.size.w:w;
 	h = h==0 ? scr.size.h:h;
 
-	x.open(&xwin, (scr.size.w-w)/2, 0, w, h, "xconsole",
+	x.open(&xwin, (scr.size.w-w)/2, scr.size.h-h, w, h, "xconsole",
 			X_STYLE_NO_TITLE | X_STYLE_NO_FOCUS | X_STYLE_SYSTOP | X_STYLE_ALPHA | X_STYLE_LAZY);
 	xwin.setVisible(false);
 
