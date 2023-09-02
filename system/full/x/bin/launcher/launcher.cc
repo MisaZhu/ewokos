@@ -23,7 +23,8 @@ typedef struct {
 	int icon_size;
 	int rows;
 	int cols;
-	int margin;
+	int marginH;
+	int marginV;
 	int num;
 	item_t items[ITEM_MAX];	
 } items_t;
@@ -39,7 +40,7 @@ class Launcher: public XWin {
 	uint32_t iconBGColor;
 	uint32_t selectedColor;
 	uint32_t fontSize;
-	uint32_t titleMargin;
+	int32_t titleMargin;
 	uint32_t height;
 
 	void drawIcon(graph_t* g, int at, int x, int y, int w, int h) {
@@ -69,10 +70,10 @@ class Launcher: public XWin {
 		const char* title = items.items[at].app->cstr;
 		uint32_t tw, th;
 		font_text_size(title, &font, &tw, &th);
-		int dx = (w - tw)/2;
-		int dy = (h - (int)(items.icon_size + titleMargin + th)) /2 +
+		x += (w - (int32_t)tw)/2;
+		y += (h - (int)(items.icon_size + titleMargin + (int32_t)th)) /2 +
 				items.icon_size + titleMargin;
-		graph_draw_text_font(g, x+dx, y+dy, title, &font, titleColor);
+		graph_draw_text_font(g, x, y, title, &font, titleColor);
 	}
 
 	void runProc(const char* app) {
@@ -85,8 +86,8 @@ protected:
 		int i, j, itemH, itemW;
 		//cols = g->w / items.item_size;
 		//rows = items.num / cols;
-		itemH = (g->h - items.margin) / items.rows;
-		itemW = (g->w - items.margin) / items.cols;
+		itemH = (g->h - items.marginV) / items.rows;
+		itemW = (g->w - items.marginH) / items.cols;
 		//if((items.num % cols) != 0)
 		//	rows++;
 			
@@ -96,22 +97,22 @@ protected:
 				if(at >= items.num)
 					return;
 
-				int x = i*itemW + items.margin;
-				int y = j*itemH + items.margin;
-				graph_set_clip(g, x, y, itemW-items.margin, itemH-items.margin);
+				int x = i*itemW + items.marginH;
+				int y = j*itemH + items.marginV;
+				graph_set_clip(g,x-items.marginH/2, y-items.marginV/2, itemW, itemH);
 				if(selected == at && focused) {
 					graph_fill_round(g, 
-							x, y, itemW-items.margin, itemH-items.margin, 
+							x-items.marginH/2, y-items.marginV/2, itemW, itemH, 
 							8, selectedColor);
 				}
 				else {
 					graph_fill_round(g, 
-							x, y, itemW-items.margin, itemH-items.margin, 
+							x-items.marginH/2, y-items.marginV/2, itemW, itemH, 
 							8, iconBGColor);
 				}
 
-				drawIcon(g, at, x, y, itemW-items.margin, itemH-items.margin-titleMargin);
-				drawTitle(g, at, x, y, itemW-items.margin, itemH-items.margin);
+				drawIcon(g, at, x, y, itemW-items.marginH, itemH-items.marginV-titleMargin);
+				drawTitle(g, at, x, y, itemW-items.marginH, itemH-items.marginV);
 			}
 		}
 	}
@@ -219,7 +220,8 @@ public:
 	bool readConfig(const char* fname) {
 		items.cols = 4;
 		items.rows = 2;
-		items.margin = 6;
+		items.marginH = 6;
+		items.marginV = 2;
 		items.icon_size = 64;
 		titleColor = 0xffffffff;
 		bgColor = 0xff000000;
@@ -242,9 +244,9 @@ public:
 		if(v[0] != 0)
 			items.cols = atoi(v);
 
-		v = sconf_get(conf, "margin");
+		v = sconf_get(conf, "marginH");
 		if(v[0] != 0)
-			items.margin = atoi(v);
+			items.marginH = atoi(v);
 
 		v = sconf_get(conf, "font_size");
 		if(v[0] != 0)
@@ -275,8 +277,8 @@ public:
 		if(v[0] != 0)
 			height = atoi(v);
 		else	
-			height = (fontSize + items.icon_size + titleMargin + items.margin) *
-					items.rows + items.margin + 6;
+			height = (fontSize + items.icon_size + titleMargin + items.marginV) *
+					items.rows + items.marginV + 6;
 
 		sconf_free(conf);
 		return true;
@@ -286,6 +288,10 @@ public:
 		return height;
 	}
 
+	inline uint32_t getWide() {
+		return (items.icon_size + items.marginH) * items.num;
+	}
+ 
 	bool loadApps(void) {
 		DIR* dirp = opendir("/apps");
 		if(dirp == NULL)
@@ -312,6 +318,8 @@ public:
 		}
 		items.num = i;
 		closedir(dirp);
+		if(items.cols == 0)
+			items.cols = i;
 		return true;
 	}
 };
@@ -331,12 +339,16 @@ int main(int argc, char* argv[]) {
 	uint32_t h = xwin.getHeight();
 	if(h == 0)
 		h = scr.size.h;
-	x.open(&xwin, 0,
+	uint32_t w = xwin.getWide();
+	if(w == 0)
+		w = scr.size.w;
+	x.open(&xwin, (scr.size.w-w)/2,
 			scr.size.h - h,
-			scr.size.w, 
+			w, 
 			h,
 			"launcher",
-			X_STYLE_NO_FRAME | X_STYLE_ALPHA | X_STYLE_LAUNCHER | X_STYLE_SYSBOTTOM);
+			X_STYLE_NO_TITLE | X_STYLE_NO_RESIZE | X_STYLE_LAUNCHER | X_STYLE_SYSBOTTOM);
+			//X_STYLE_NO_FRAME | X_STYLE_ALPHA | X_STYLE_LAUNCHER | X_STYLE_SYSBOTTOM);
 
 	xwin.setVisible(true);
 

@@ -20,6 +20,7 @@ class Finder: public XWin {
 	uint32_t hideColor;
 	uint32_t selectColor;
 	uint32_t titleColor;
+	uint32_t titleBGColor;
 	graph_t* dirIcon;
 	graph_t* fileIcon;
 	uint32_t itemSize;
@@ -129,6 +130,7 @@ protected:
 		int xMargin = 8;
 
 		graph_clear(g, bgColor);
+		graph_fill(g, 0, 0, g->w, h, titleBGColor);
 		snprintf(name, FS_FULL_NAME_MAX, "[%s]", cwd);
 		if(dirIcon != NULL) {
 			int iconMargin = (itemSize - dirIcon->h)/2;
@@ -141,7 +143,7 @@ protected:
 		for(int i=start; i<nums; i++) {
 			struct dirent* it = &files[i];
 			if(i == selected)
-				graph_fill(g, 2, (i+1-start)*h, g->w-2, h, selectColor);
+				graph_fill(g, 0, (i+1-start)*h, g->w, h, selectColor);
 
 			uint32_t color = fgColor;
 			if(it->d_name[0] == '.')
@@ -257,6 +259,7 @@ public:
 		hideColor = 0xff888888;
 		selectColor = 0xff444444;
 		titleColor = 0xffffff00;
+		titleBGColor = 0xffaaaaaa;
 		fileIcon = png_image_new("/data/icons/system/32/file.png");
 		dirIcon = png_image_new("/data/icons/system/32/dir.png");
 		itemSize = 36;
@@ -308,6 +311,9 @@ public:
 		v = sconf_get(conf, "title_color");
 		if(v[0] != 0)
 			titleColor = atoi_base(v, 16);
+		v = sconf_get(conf, "title_bg_color");
+		if(v[0] != 0)
+			titleBGColor = atoi_base(v, 16);
 		v = sconf_get(conf, "file_icon");
 		if(v[0] != 0)
 			fileIcon = png_image_new(v);
