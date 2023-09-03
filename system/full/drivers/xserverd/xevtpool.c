@@ -87,8 +87,8 @@ void xevent_remove(int pid) {
 		return;
 	
 	xevt_item_t* item = pool->head;
-	while(item) {
-		xevt_item_t* it = it;
+	while(item != NULL) {
+		xevt_item_t* it = item;
 		item = item->next;
 		free(it);
 	}
