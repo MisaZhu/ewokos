@@ -106,3 +106,13 @@ hdmi_mode=82
 hdmi_cvt 1920 1080 60 6 0 0 0
 dtoverlay=i2s-mmap
 dtoverlay=wm8960-soundcard
+
+#-----waveshare 9.3 hdmi_lcd------------
+hdmi_group=2
+hdmi_mode=87
+hdmi_cvt=1600 600 60 6 0 0 0
+
+#-----waveshare 10.4 hdmi_lcd------------
+hdmi_group=2
+hdmi_mode=87
+hdmi_timings=1600 0 80 32 112 720 0 30 3 33 0 0 0 60 0 87000000 0
