@@ -154,16 +154,10 @@ static int console_write(int fd,
 	XConsoled *xwin = (XConsoled*)p;
 	if(size <= 0 || xwin == NULL)
 		return 0;
-
 	const char* pb = (const char*)buf;
-	/*int i;
-	for(i=0; i<size; i++) {
-		char c = pb[i];
-		console_put_char(&console->console, c);
-	}
-	*/
-	xwin->put(pb, size);
+
 	xwin->show();
+	xwin->put(pb, size);
 	return size;
 }
 
@@ -189,7 +183,7 @@ int main(int argc, char** argv) {
 	w = w==0 ? scr.size.w:w;
 	h = h==0 ? scr.size.h:h;
 
-	x.open(&xwin, (scr.size.w-w)/2, scr.size.h-h, w, h, "xconsole",
+	x.open(&xwin, (scr.size.w-w)/2, scr.size.h-h, w, h, "xconsoled",
 			X_STYLE_NO_TITLE | X_STYLE_NO_FOCUS | X_STYLE_SYSTOP | X_STYLE_ALPHA | X_STYLE_LAZY);
 	xwin.setVisible(false);
 

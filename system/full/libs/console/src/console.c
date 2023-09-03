@@ -196,6 +196,9 @@ static void move_line(console_t* console) {
 }
 
 void console_put_char(console_t* console, UNICODE16 c) {
+	if(console->content.data == NULL)
+		return;
+
 	if(c == '\r')
 		c = '\n';
 

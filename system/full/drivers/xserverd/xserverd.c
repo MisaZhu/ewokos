@@ -17,6 +17,7 @@
 #include <sconf/sconf.h>
 #include <display/display.h>
 #include "cursor.h"
+#include "xevtpool.h"
 
 #define X_EVENT_MAX 16
 
@@ -277,20 +278,25 @@ static void remove_win(x_t* x, xwin_t* win) {
 	x_dirty(x, win->xinfo->display_index);
 }
 
-static inline void send_event(int32_t pid, xevent_t* e) {
-	proto_t in;
-	PF->init(&in)->add(&in, e, sizeof(xevent_t));
-	ipc_call(pid, X_CMD_PUSH_EVENT, &in, NULL);
-	PF->clear(&in);
-	//proc_wakeup(pid);
+static void x_quit(int from_pid) {
+	xevent_remove(from_pid);
+}
+
+static void x_get_event(int from_pid, proto_t* out) {
+	xevent_t evt;
+	if(!xevent_pop(from_pid, &evt)) {
+		PF->addi(out, -1);
+		return;
+	}
+	PF->addi(out, 0)->add(out, &evt, sizeof(xevent_t));
 }
 
 static void x_push_event(x_t* x, xwin_t* win, xevent_t* e) {
 	(void)x;
-	if(win->from_pid <= 0)
+	if(win->from_pid <= 0 || win->xinfo == NULL)
 		return;
 	e->win = win->xinfo->win;
-	send_event(win->from_pid, e);
+	xevent_push(win->from_pid, e);
 }
 
 static void hide_win(x_t* x, xwin_t* win) {
@@ -542,6 +548,8 @@ static int x_init(x_t* x, const char* display_man, int32_t display_index) {
 	x->cursor.cpos.x = display->g->w/2;
 	x->cursor.cpos.y = display->g->h/2; 
 	x->show_cursor = true;
+
+	xevent_pool_init();
 	return 0;
 }	
 
@@ -1222,6 +1230,12 @@ static int xserver_dev_cntl(int from_pid, int cmd, proto_t* in, proto_t* ret, vo
 		xevent_t ev;
 		proto_read_to(in, &ev, sizeof(xevent_t));
 		handle_input(x, from_pid, &ev);
+	}
+	else if(cmd == X_DCNTL_GET_EVT) {
+		x_get_event(from_pid, ret);
+	}
+	else if(cmd == X_DCNTL_QUIT) {
+		x_quit(from_pid);
 	}
 	return 0;
 }

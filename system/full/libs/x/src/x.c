@@ -34,7 +34,7 @@ void x_push_event(x_t* x, xevent_t* ev) {
 	//	proc_wakeup((uint32_t)x);
 }
 
-static int x_get_event(x_t* x, xevent_t* ev) {
+/*static int x_get_event(x_t* x, xevent_t* ev) {
 	x_event_t* e = x->event_head;
 	if(e == NULL) {
 		//if(x->on_loop == NULL)
@@ -51,6 +51,21 @@ static int x_get_event(x_t* x, xevent_t* ev) {
 	free(e);
 	ipc_enable();
 	return 0;
+}
+*/
+
+static int x_get_event(int xserv_pid, xevent_t* ev) {
+	proto_t out;
+	PF->init(&out);
+	if(dev_cntl_by_pid(xserv_pid, X_DCNTL_GET_EVT, NULL, &out) != 0)
+		return -1;
+
+	int res =  proto_read_int(&out);
+	if(res == 0) {
+		proto_read_to(&out, ev, sizeof(xevent_t));
+	}
+	PF->clear(&out);
+	return res;
 }
 
 int x_screen_info(xscreen_t* scr, uint32_t index) {
@@ -108,12 +123,11 @@ void  x_run(x_t* x, void* loop_data) {
 		return;
 	}
 
-	ipc_serv_run(handle, NULL, x, IPC_NON_BLOCK);
+	//ipc_serv_run(handle, NULL, x, IPC_NON_BLOCK);
 
-	int cpid = getpid();
 	xevent_t xev;
 	while(!x->terminated) {
-		int res = x_get_event(x, &xev);
+		int res = x_get_event(xserv_pid, &xev);
 		if(res == 0) {
 			xwin_t* xwin = (xwin_t*)xev.win;
 			if(xwin != NULL) {
@@ -128,10 +142,11 @@ void  x_run(x_t* x, void* loop_data) {
 			x->on_loop(loop_data);
 		}
 		else {
-			usleep(20000);
-			//proc_block(xserv_pid, cpid);
+			usleep(10000);
 		}
 	}
+
+	dev_cntl_by_pid(xserv_pid, X_DCNTL_QUIT, NULL, NULL);
 }
 
 const char* x_get_work_dir(void) {
