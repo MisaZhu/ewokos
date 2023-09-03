@@ -20,40 +20,6 @@
 extern "C" {
 #endif
 
-void x_push_event(x_t* x, xevent_t* ev) {
-	x_event_t* e = (x_event_t*)malloc(sizeof(x_event_t));
-	e->next = NULL;
-	memcpy(&e->event, ev, sizeof(xevent_t));
-
-	if(x->event_tail != NULL)
-		x->event_tail->next = e;
-	else
-		x->event_head = e;
-	x->event_tail = e;
-	//if(x->on_loop == NULL)
-	//	proc_wakeup((uint32_t)x);
-}
-
-/*static int x_get_event(x_t* x, xevent_t* ev) {
-	x_event_t* e = x->event_head;
-	if(e == NULL) {
-		//if(x->on_loop == NULL)
-		//	proc_block(getpid(), (uint32_t)x);
-		return -1;
-	}
-
-	ipc_disable();
-	x->event_head = x->event_head->next;
-	if (x->event_head == NULL)
-		x->event_tail = NULL;
-
-	memcpy(ev, &e->event, sizeof(xevent_t));
-	free(e);
-	ipc_enable();
-	return 0;
-}
-*/
-
 static int x_get_event(int xserv_pid, xevent_t* ev) {
 	proto_t out;
 	PF->init(&out);
@@ -92,18 +58,6 @@ int x_get_display_num(void) {
 	return ret;
 }
 
-static void handle(int from_pid, int cmd, proto_t* in, proto_t* out, void* p) {
-	(void)from_pid;
-	(void)out;
-	x_t* x = (x_t*)p;
-
-	if(cmd == X_CMD_PUSH_EVENT) {
-		xevent_t ev;
-		proto_read_to(in, &ev, sizeof(xevent_t));
-		x_push_event(x, &ev);
-	}
-}
-
 static void sig_stop(int sig_no, void* p) {
 	(void)sig_no;
 	x_t* x = (x_t*)p;
@@ -116,11 +70,10 @@ void  x_init(x_t* x, void* data) {
 	sys_signal(SYS_SIG_STOP, sig_stop, x);
 }
 
-void  x_run(x_t* x, void* loop_data) {
+int  x_run(x_t* x, void* loop_data) {
 	int xserv_pid = dev_get_pid("/dev/x");
 	if(xserv_pid < 0) {
-		klog("Error: xserver not running!\n");
-		return;
+		return -1;
 	}
 
 	//ipc_serv_run(handle, NULL, x, IPC_NON_BLOCK);
@@ -145,8 +98,8 @@ void  x_run(x_t* x, void* loop_data) {
 			usleep(10000);
 		}
 	}
-
 	dev_cntl_by_pid(xserv_pid, X_DCNTL_QUIT, NULL, NULL);
+	return 0;
 }
 
 const char* x_get_work_dir(void) {

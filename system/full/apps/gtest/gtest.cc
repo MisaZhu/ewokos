@@ -125,17 +125,17 @@ protected:
 	}
 };
 
-/*static void loop(void* p) {
+static void loop(void* p) {
 	XWin* xwin = (XWin*)p;
 	xwin->repaint();
 	usleep(5000);
 }
-*/
 
-static XWin* _xwin = NULL;
+/*static XWin* _xwin = NULL;
 static void timer_handler(void) {
 	_xwin->repaint();
 }
+*/
 
 int main(int argc, char* argv[]) {
 	(void)argc;
@@ -149,10 +149,11 @@ int main(int argc, char* argv[]) {
 	x.open(&xwin, 60, 40, scr.size.w-120, scr.size.h-80, "gtest", X_STYLE_NORMAL);
 	xwin.setVisible(true);
 
-	_xwin = &xwin;
+	/*_xwin = &xwin;
 	uint32_t tid = timer_set(10000, timer_handler);
-	//x.run(loop, &xwin);
 	x.run(NULL, &xwin);
 	timer_remove(tid);
+	*/
+	x.run(loop, &xwin);
 	return 0;
 } 
