@@ -5,7 +5,7 @@
 /bin/rundev /drivers/proc/sysinfod        /proc/sysinfo
 /bin/rundev /drivers/proc/stated          /proc/state
 #/bin/rundev /drivers/miyoo/audctrl        /dev/pcmp0
-bin/rundev /drivers/miyoo/gpio_joykeybd   /dev/joykeyb
+/bin/rundev /drivers/miyoo/gpio_joykeybd   /dev/joykeyb
 
 /bin/rundev /drivers/fontd                /dev/font
 /bin/rundev /drivers/miyoo/fbd            /dev/fb0 640 480
