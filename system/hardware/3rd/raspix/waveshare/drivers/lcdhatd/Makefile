@@ -14,8 +14,9 @@ LCDHATD = $(TARGET_DIR)/drivers/raspix/lcdhatd
 $(LCDHATD): $(LCDHATD_OBJS) \
 		$(BUILD_DIR)/lib/libewokc.a \
 		$(BUILD_DIR)/lib/libfbd.a \
+		$(BUILD_DIR)/lib/libgraph.a \
 		$(BUILD_DIR)/lib/libarch_bcm283x.a 
-	$(LD) -Ttext=100 $(LCDHATD_OBJS) -o $(LCDHATD) $(LDFLAGS) -larch_bcm283x -lfbd -lewokc -lc
+	$(LD) -Ttext=100 $(LCDHATD_OBJS) -o $(LCDHATD) $(LDFLAGS) -larch_bcm283x -lfbd -lgraph -lewokc -lc
 
 clean:
 	rm -f $(LCDHATD_OBJS)

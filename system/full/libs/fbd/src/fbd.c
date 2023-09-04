@@ -11,7 +11,7 @@
 
 typedef struct {
 	uint32_t size;
-	void* shm;
+	uint8_t* shm;
 } fb_dma_t;
 
 static fbinfo_t* _fbinfo = NULL;
@@ -40,6 +40,22 @@ static int fb_fcntl(int fd,
 	return 0;
 }
 
+static void init_graph(fb_dma_t* dma) {
+	graph_t g;
+	graph_init(&g, dma->shm+1, _fbinfo->width, _fbinfo->height);
+	graph_clear(&g, 0xff000000);
+	int w = 32, h = 32;
+	int x = (g.w - w*2) / 2;
+	int y = (g.h - h*2) / 2;
+
+	graph_fill_round(&g, x, y, w-2, h-2, 6, 0xffff0000);
+	graph_fill_round(&g, x+w, y, w-2, h-2, 6, 0xff00ff00);
+	graph_fill_round(&g, x, y+h, w-2, h-2, 6, 0xff0000ff);
+	graph_fill_round(&g, x+w, y+h, w-2, h-2, 6, 0xffffffff);
+
+	_fbd->flush(_fbinfo, dma->shm+1, dma->size, 0);//_rotate);
+}
+
 static int fb_dma_init(fb_dma_t* dma) {
 	memset(dma, 0, sizeof(fb_dma_t));
 	uint32_t sz = _fbinfo->width*_fbinfo->height*4;
@@ -49,6 +65,7 @@ static int fb_dma_init(fb_dma_t* dma) {
 	//dma->size = _fbinfo->size_max;
 	memset(dma->shm, 0, sz+1);
 	dma->size = sz;
+	init_graph(dma);
 	return 0;
 }
 

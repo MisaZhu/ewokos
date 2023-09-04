@@ -81,6 +81,7 @@ static int32_t read_config(fb_console_t* console, const char* fname) {
 static void init_graph(fb_console_t* console) {
 	console->g = fb_fetch_graph(&console->fb);
 	graph_clear(console->g, 0xff000000);
+	/*
 	int w = 32, h = 32;
 	int x = (console->g->w - w*2) / 2;
 	int y = (console->g->h - h*2) / 2;
@@ -91,6 +92,7 @@ static void init_graph(fb_console_t* console) {
 	graph_fill_round(console->g, x+w, y+h, w-2, h-2, 6, 0xffffffff);
 
 	fb_flush(&console->fb, true);
+	*/
 }
 
 static int init_console(fb_console_t* console, const char* display_dev, const uint32_t display_index) {

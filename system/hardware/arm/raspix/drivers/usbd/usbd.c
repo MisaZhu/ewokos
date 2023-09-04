@@ -39,6 +39,9 @@ void usb_host_init(void) {
 
 static u16 _buf[3] = {0};
 static int _hasData = 0;
+static int _release_count = 0;
+static int _last_x = 0;
+static int _last_y = 0;
 
 static int usb_step(void* p) {
 	(void)p;	
@@ -51,15 +54,29 @@ static int usb_step(void* p) {
 
 	struct TouchEvent event;
 	int ret = TouchGetEvent(&event);
-	if(ret == 0){
-		//printf("e:%d x:%d y:%d\n", event.event, event.x, event.y);
+	if(ret == 0 && event.event == 1){
+		//fprintf(stderr, "e:%d x:%d y:%d\n", event.event, event.x, event.y);
         _buf[0] = event.event;
         _buf[1] = event.x;
         _buf[2] = event.y; 
         _hasData = 1;
+        _release_count = 3;
+        _last_x = event.x;
+        _last_y = event.y;
         proc_wakeup(0);
 	}
-    usleep(20000);
+    else if(_release_count > 0) {
+        _release_count--;
+        if(_release_count == 0) {
+            _buf[0] = 0;
+            _buf[1] = _last_x;
+            _buf[2] = _last_y;
+            //fprintf(stderr, "e:%d x:%d y:%d\n", _buf[0], _buf[1], _buf[2]);
+            _hasData = 1;
+            proc_wakeup(0);
+        }
+    }
+    usleep(10000);
 	return 0;
 }
 
