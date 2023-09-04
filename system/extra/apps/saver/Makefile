@@ -3,34 +3,32 @@ include $(SYS_DIR)/make.rule
 
 BUILD_DIR = $(SYS_DIR)/build
 TARGET_DIR = $(BUILD_DIR)/rootfs
-LDFLAGS = -L$(BUILD_DIR)/lib -lnosys
+LDFLAGS = -L$(BUILD_DIR)/lib
 CFLAGS += -I include -I $(BUILD_DIR)/include
 CXXFLAGS += -I include -I $(BUILD_DIR)/include
-EMU_OBJS = main.o \
-		src/InfoNES.o \
-		src/InfoNES_Mapper.o \
-		src/InfoNES_pAPU.o  \
-		src/K6502.o
+SAVER_OBJS = main.o
 
-EMU_DIR = $(TARGET_DIR)/apps/emu
-EMU = $(EMU_DIR)/emu
+SAVER_DIR = $(TARGET_DIR)/apps/saver
+SAVER = $(SAVER_DIR)/saver
 
-all: $(EMU_DIR) $(EMU)
+all: $(SAVER_DIR) $(SAVER)
 
-$(EMU): $(EMU_OBJS) \
+$(SAVER): $(SAVER_OBJS) \
 		$(BUILD_DIR)/lib/libewokc.a \
 		$(BUILD_DIR)/lib/libx++.a \
 		$(BUILD_DIR)/lib/libttf.a \
 		$(BUILD_DIR)/lib/libfont.a \
 		$(BUILD_DIR)/lib/libhash.a \
 		$(BUILD_DIR)/lib/libgraph.a \
+		$(BUILD_DIR)/lib/libopenlibm.a \
+		$(BUILD_DIR)/lib/libferox.a \
 		$(BUILD_DIR)/lib/libcxx.a  
-	$(LD) -Ttext=100 $(EMU_OBJS) -o $(EMU) $(LDFLAGS) -lx++ -lttf -lfont -lgraph -lhash -lx -lewokc -lc -lcxx
+	$(LD) -Ttext=100 $(SAVER_OBJS) -o $(SAVER) $(LDFLAGS) -lx++ -lttf -lfont -lgraph -lhash -lx -lferox -lopenlibm -lewokc -lc -lcxx -lnosys
 
-$(EMU_DIR):
-	mkdir -p $(EMU_DIR)
-	cp -r res $(EMU_DIR)
+$(SAVER_DIR):
+	mkdir -p $(SAVER_DIR)
+	cp -r res $(SAVER_DIR)
 
 clean:
-	rm -f $(EMU_OBJS)
-	rm -fr $(EMU_DIR)
+	rm -f $(SAVER_OBJS)
+	rm -fr $(SAVER_DIR)

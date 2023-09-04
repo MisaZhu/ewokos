@@ -4,6 +4,7 @@ all: basic_libs
 basic_libs:
 	cd softfloat;make
 	cd libc;make
+	cd openlibm;make
 	cd zlib;make
 	cd sconf; make
 	cd hash;make
@@ -14,6 +15,7 @@ basic_libs:
 clean:
 	cd softfloat;make clean
 	cd libc;make clean
+	cd openlibm;make clean
 	cd zlib;make clean
 	cd sconf; make clean
 	cd hash;make clean
