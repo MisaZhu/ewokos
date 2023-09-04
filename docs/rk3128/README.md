@@ -51,8 +51,8 @@ rockchip bootable sdcard is  organized as：
 
 use below commond to write idbloader.img & uboot.img:
 
-	sudo sudo dd if=idbloader.img of=/dev/disk? seek=64 bs=512
-	sudo sudo dd if=uboot.img of=/dev/disk? seek=16384 bs=512
+	sudo dd if=idbloader.img of=/dev/disk? seek=64 bs=512
+	sudo dd if=uboot.img of=/dev/disk? seek=16384 bs=512
 
 IMPOTENT: pleace replace "disk?" to your own device name.
 
