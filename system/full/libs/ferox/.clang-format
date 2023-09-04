@@ -1,0 +1,54 @@
+﻿# https://releases.llvm.org/6.0.0/tools/clang/docs/ClangFormatStyleOptions.html
+
+# LLVM 스타일을 기반으로 한 C++ 코딩 스타일.
+BasedOnStyle: LLVM
+Language: Cpp
+
+# 공백 설정
+SpaceAfterCStyleCast: true
+SpaceAfterTemplateKeyword: false
+SpaceBeforeAssignmentOperators: true
+SpaceBeforeParens: ControlStatements
+SpaceInEmptyParentheses: false
+SpacesBeforeTrailingComments: 1
+SpacesInAngles: false
+SpacesInCStyleCastParentheses: false
+SpacesInContainerLiterals: false
+SpacesInParentheses: false
+SpacesInSquareBrackets: false
+
+# 들여쓰기 설정
+IndentCaseLabels: true
+IndentWidth: 4
+IndentWrappedFunctionNames: false
+TabWidth: 4
+UseTab: false
+
+# 코드 정렬 설정
+AlignAfterOpenBracket: Align
+# AlignConsecutiveAssignments: false
+# AlignConsecutiveDeclarations: false
+AlignEscapedNewlines: Left
+AlignTrailingComments: true
+AlwaysBreakAfterReturnType: None
+AlwaysBreakBeforeMultilineStrings: false
+AlwaysBreakTemplateDeclarations: false
+# BinPackArguments: false
+# BinPackParameters: false
+# BreakBeforeBraces: Attach
+BreakBeforeInheritanceComma: false
+SortIncludes: true
+SortUsingDeclarations: true
+
+# 포인터 변수 스타일 설정
+DerivePointerAlignment: false
+PointerAlignment: Right
+
+# 나머지 스타일 설정
+AllowShortBlocksOnASingleLine: false
+AllowShortCaseLabelsOnASingleLine: false
+AllowShortFunctionsOnASingleLine: None
+AllowShortIfStatementsOnASingleLine: false
+AllowShortLoopsOnASingleLine: false
+ColumnLimit: 0
+MaxEmptyLinesToKeep: 1
