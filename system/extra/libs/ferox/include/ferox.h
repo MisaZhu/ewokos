@@ -101,7 +101,8 @@ extern "C" {
 #define FR_GLOBAL_PIXELS_PER_METER                16.0f
 
 #define FR_WORLD_ACCUMULATOR_LIMIT                200.0
-#define FR_WORLD_DEFAULT_GRAVITY                  ((Vector2) { .y = 9.8f })
+//#define FR_WORLD_DEFAULT_GRAVITY                  ((Vector2) { .y = 9.8f })
+#define FR_WORLD_DEFAULT_GRAVITY                  ((Vector2) { 0, 9.8f })
 #define FR_WORLD_MAX_BODY_COUNT                   288
 #define FR_WORLD_MAX_ITERATIONS                   12
 
