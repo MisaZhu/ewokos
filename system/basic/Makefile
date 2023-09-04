@@ -17,6 +17,7 @@ mkdirs:
 	@mkdir -p ${TARGET_DIR}/bin
 	@mkdir -p ${TARGET_DIR}/dev
 	@mkdir -p ${TARGET_DIR}/proc
+	@mkdir -p ${TARGET_DIR}/tmp
 	@mkdir -p ${TARGET_DIR}/drivers/proc
 	@mkdir -p ${TARGET_DIR}/home/root
 	@mkdir -p ${TARGET_DIR}/home/guest
