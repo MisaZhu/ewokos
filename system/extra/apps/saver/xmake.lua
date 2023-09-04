@@ -1,0 +1,6 @@
+target("saver")
+    set_type("application")
+    add_deps("libx", "libx++", "libferox", "libcxx")
+    add_files("main.cpp")
+    install_dir("apps/saver")
+target_end()
