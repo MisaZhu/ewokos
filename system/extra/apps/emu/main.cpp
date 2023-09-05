@@ -216,9 +216,8 @@ void InfoNES_MessageBox( char *pszMsg, ... ){
 
 class NesEmu : public XWin {
 private:
-     uint32_t lastSec;
-     uint64_t lastUsec;
-	 int frameCnt;
+     uint32_t lastSec = 0;
+     uint64_t lastUsec = 0;
 
 public:
 	inline NesEmu() {
