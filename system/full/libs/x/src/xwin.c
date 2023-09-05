@@ -22,7 +22,7 @@ static int xwin_update_info(xwin_t* xwin, uint8_t type) {
 	if(xwin->xinfo == NULL)
 		return -1;
 
-	if(xwin->g_shm != NULL) {
+	if(xwin->g_shm != NULL && (type & X_UPDATE_REBUILD) != 0) {
 		shm_unmap(xwin->g_shm);
 		xwin->g_shm = NULL;
 	}
@@ -242,7 +242,7 @@ int xwin_set_visible(xwin_t* xwin, bool visible) {
 			xwin->on_focus(xwin);
 	}
 	xwin->xinfo->visible = visible;
-	int res = xwin_update_info(xwin, X_UPDATE_REBUILD | X_UPDATE_REFRESH);
+	int res = xwin_update_info(xwin, X_UPDATE_REFRESH);
 	xwin_repaint(xwin);
 	return res;
 }
