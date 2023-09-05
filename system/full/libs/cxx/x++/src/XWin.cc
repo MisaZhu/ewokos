@@ -32,6 +32,15 @@ static void _on_resize(xwin_t* xw) {
 	xwin->__doResize();
 }
 
+static void _on_move(xwin_t* xw) {
+	if(xw == NULL)
+		return;
+	XWin* xwin = (XWin*)xw->data;
+	if(xwin == NULL)
+		return;
+	xwin->__doMove();
+}
+
 static void _on_close(xwin_t* xw) {
 	if(xw == NULL)
 		return;
@@ -144,6 +153,7 @@ void XWin::setCWin(xwin_t* xw) {
 	xwin->on_repaint = _on_repaint;
 	xwin->on_min = _on_min;
 	xwin->on_resize = _on_resize;
+	xwin->on_move = _on_move;
 	xwin->on_focus = _on_focus;
 	xwin->on_unfocus = _on_unfocus;
 	xwin->on_event = _on_event;

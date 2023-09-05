@@ -23,6 +23,7 @@ typedef struct st_xwin {
 	void (*on_close)(struct st_xwin* xwin);
 	void (*on_min)(struct st_xwin* xwin);
 	void (*on_resize)(struct st_xwin* xwin);
+	void (*on_move)(struct st_xwin* xwin);
 	void (*on_focus)(struct st_xwin* xwin);
 	void (*on_unfocus)(struct st_xwin* xwin);
 	void (*on_repaint)(struct st_xwin* xwin, graph_t* g);

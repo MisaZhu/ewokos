@@ -170,6 +170,7 @@ int xwin_move_to(xwin_t* xwin, int x, int y) {
 	xwin->xinfo->wsr.x = x;
 	xwin->xinfo->wsr.y = y;
 	xwin_update_info(xwin, X_UPDATE_REFRESH);
+	xwin->on_move(xwin);
 	return 0;
 }
 
@@ -205,6 +206,7 @@ int xwin_event_handle(xwin_t* xwin, xevent_t* ev) {
 		xwin->xinfo->wsr.x += ev->value.window.v0;
 		xwin->xinfo->wsr.y += ev->value.window.v1;
 		xwin_update_info(xwin, X_UPDATE_REFRESH);
+		xwin->on_move(xwin);
 	}
 	else if(ev->value.window.event == XEVT_WIN_VISIBLE) {
 		xwin_set_visible(xwin, ev->value.window.v0 == 1);

@@ -17,6 +17,7 @@ protected:
 	inline virtual void onClose(void)   { }
 	inline virtual void onMin(void)     { }
 	inline virtual void onResize(void)  { }
+	inline virtual void onMove(void)  { }
 	inline virtual void onFocus(void)   { }
 	inline virtual void onUnfocus(void) { }
 	inline virtual void onEvent(xevent_t* ev)  {
@@ -42,6 +43,7 @@ public:
 	inline void __doClose(void) { onClose(); }
 	inline void __doMin(void) { onMin(); }
 	inline void __doResize(void) { onResize(); }
+	inline void __doMove(void) { onMove(); }
 	inline void __doFocus(void) { onFocus(); }
 	inline void __doUnfocus(void) { onUnfocus(); }
 	inline void __doEvent(xevent_t* ev) { onEvent(ev); }
