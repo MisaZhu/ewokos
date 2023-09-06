@@ -42,18 +42,35 @@ static int fb_fcntl(int fd,
 
 static void init_graph(fb_dma_t* dma) {
 	graph_t g;
-	graph_init(&g, dma->shm+1, _fbinfo->width, _fbinfo->height);
-	graph_clear(&g, 0xff000000);
-	int w = 32, h = 32;
-	int x = (g.w - w*2) / 2;
-	int y = (g.h - h*2) / 2;
+	if(_rotate == G_ROTATE_N90 || _rotate == G_ROTATE_90)
+		graph_init(&g, dma->shm+1, _fbinfo->height, _fbinfo->width);
+	else
+		graph_init(&g, dma->shm+1, _fbinfo->width, _fbinfo->height);
+
+	int x, y, w, h, l;
+	uint32_t c, bc;
+
+	l = g.h/2;
+	h = (g.h / l);
+	h = (h==0 ? 1:h); 
+
+	bc = 0xff / l;
+	bc = (bc==0 ? 1:bc); 
+	for(y=0; y<l; y++) {
+		c = (l-1-y) * bc;
+		graph_fill(&g, 0, y*h, g.w, h, (c | c<<8 | c<<16 | 0xff000000));
+	}
+
+	w = 32, h = 32;
+	x = (g.w - w*2) / 2;
+	y = (g.h - h*2) / 2;
 
 	graph_fill_round(&g, x, y, w-2, h-2, 6, 0xffff0000);
 	graph_fill_round(&g, x+w, y, w-2, h-2, 6, 0xff00ff00);
 	graph_fill_round(&g, x, y+h, w-2, h-2, 6, 0xff0000ff);
 	graph_fill_round(&g, x+w, y+h, w-2, h-2, 6, 0xffffffff);
 
-	_fbd->flush(_fbinfo, dma->shm+1, dma->size, 0);//_rotate);
+	_fbd->flush(_fbinfo, dma->shm+1, dma->size, _rotate);
 }
 
 static int fb_dma_init(fb_dma_t* dma) {
