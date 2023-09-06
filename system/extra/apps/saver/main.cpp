@@ -35,7 +35,7 @@ using namespace Ewok;
 
 #define MAX_WALL_COUNT  5
 #define BALL_RADIUS     16
-#define BALL_COUNT	6
+#define BALL_COUNT	16
 
 xscreen_t scr;
 
@@ -200,7 +200,7 @@ protected:
             int x = (int)frNumberMetersToPixels(bodyPos.x);
             int y = (int)frNumberMetersToPixels(bodyPos.y);
             if(y >= g->h + 200 || y <= -200 || x <= -200 || x > g->w + 200){
-				printf("%d %d\n", x, y);
+				//printf("%d %d\n", x, y);
 				InitBody(body);
            }
 			graph_blt_alpha(particle, 0, 0, 2*BALL_RADIUS, 2*BALL_RADIUS, 
