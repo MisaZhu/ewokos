@@ -82,7 +82,7 @@ protected:
 		posx += BALL_RADIUS;
 		frSetBodyPosition(body, frVec2PixelsToMeters((Vector2){ posx, BALL_RADIUS}));
 		frSetBodyVelocity(body, (Vector2){(random()&10 - 5)/1000.0, 0});
-		frSetBodyGravityScale(body, 0.2);
+		//frSetBodyGravityScale(body, 0.2);
         frAddToWorld(world, body);
 	}
 
@@ -200,6 +200,7 @@ protected:
             int x = (int)frNumberMetersToPixels(bodyPos.x);
             int y = (int)frNumberMetersToPixels(bodyPos.y);
             if(y >= g->h + 200 || y <= -200 || x <= -200 || x > g->w + 200){
+				printf("%d %d\n", x, y);
 				InitBody(body);
            }
 			graph_blt_alpha(particle, 0, 0, 2*BALL_RADIUS, 2*BALL_RADIUS, 
