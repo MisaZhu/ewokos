@@ -34,7 +34,7 @@ using namespace Ewok;
 
 #define KEY_TIMEOUT 2	
 
-#define MAX_WALL_COUNT  4
+#define MAX_WALL_COUNT  5
 #define BALL_RADIUS     16
 
 xscreen_t scr;
@@ -77,10 +77,10 @@ public:
 protected:
 	void Init(int w, int h) {
 		 const Rectangle bounds = {
-   		     .x = -0.05f * frNumberPixelsToMeters(w),
-   		     .y = -0.05f * frNumberPixelsToMeters(h),
-   		     .width = 1.1f * frNumberPixelsToMeters(w),
-   		     .height = 1.1f * frNumberPixelsToMeters(h)
+   		     .x = -frNumberPixelsToMeters(100),
+   		     .y = -frNumberPixelsToMeters(100),
+   		     .width = frNumberPixelsToMeters(w + 100),
+   		     .height = frNumberPixelsToMeters(h + 100)
    		 };
 
    		 world = frCreateWorld(frVec2ScalarMultiply(FR_WORLD_DEFAULT_GRAVITY, 0.000005f), bounds);
@@ -88,32 +88,32 @@ protected:
    		 walls[0] = frCreateBodyFromShape(
    		     FR_BODY_STATIC,
    		     FR_FLAG_NONE,
-   		     frVec2PixelsToMeters((Vector2) { -0.05f * w, 0.5f * h }),
+   		     frVec2PixelsToMeters((Vector2) { -50, 0.5f * h }),
    		     frCreateRectangle(
    		         MATERIAL_WALL,
-   		         frNumberPixelsToMeters(0.1f * w),
-   		         frNumberPixelsToMeters(1.1f * h)
+   		         frNumberPixelsToMeters(100),
+   		         frNumberPixelsToMeters(h)
    		     )
    		 );
-		//down
+		//up
    		 walls[1] = frCreateBodyFromShape(
    		     FR_BODY_STATIC,
    		     FR_FLAG_NONE,
-   		     frVec2PixelsToMeters((Vector2) { 0.5f * w,  h + 25 }),
+   		     frVec2PixelsToMeters((Vector2) { 0.5f * w,  -50 }),
    		     frCreateRectangle(
    		         MATERIAL_WALL,
-   		         frNumberPixelsToMeters(1.1f * w),
-   		         frNumberPixelsToMeters(50)
+   		         frNumberPixelsToMeters(w),
+   		         frNumberPixelsToMeters(100)
    		     )
    		 );
 		//right
    		 walls[2] = frCreateBodyFromShape(
    		     FR_BODY_STATIC,
    		     FR_FLAG_NONE,
-   		     frVec2PixelsToMeters((Vector2) { 1.05f * w, 0.5f * (h  - 3*BALL_RADIUS)}),
+   		     frVec2PixelsToMeters((Vector2) { w + 50, 0.5f * (h  - 3*BALL_RADIUS)}),
    		     frCreateRectangle(
    		         MATERIAL_WALL,
-   		         frNumberPixelsToMeters(0.1f * w),
+   		         frNumberPixelsToMeters(100),
    		         frNumberPixelsToMeters(h - 3*BALL_RADIUS)
    		     )
    		 );
@@ -122,13 +122,26 @@ protected:
    		 walls[3] = frCreateBodyFromShape(
    		     FR_BODY_STATIC,
    		     FR_FLAG_NONE,
-   		     frVec2PixelsToMeters((Vector2) { 0.5f * w, h + 50 }),
+   		     frVec2PixelsToMeters((Vector2) { 0.5f * w, h + 50}),
    		     frCreateRectangle(
    		         MATERIAL_WALL,
-   		         frNumberPixelsToMeters(1.1f * w),
+   		         frNumberPixelsToMeters(w),
    		         frNumberPixelsToMeters(100)
    		     )
    		 );
+
+		//down2
+   		 walls[4] = frCreateBodyFromShape(
+   		     FR_BODY_STATIC,
+   		     FR_FLAG_NONE,
+   		     frVec2PixelsToMeters((Vector2) { 0.5f * w, h + 25 }),
+   		     frCreateRectangle(
+   		         MATERIAL_WALL,
+   		         frNumberPixelsToMeters(w),
+   		         frNumberPixelsToMeters(50)
+   		     )
+   		 );
+
 
    		 for (int i = 0; i < MAX_WALL_COUNT; i++)
    		     frAddToWorld(world, walls[i]);
@@ -176,7 +189,7 @@ protected:
             const Vector2 bodyPos = frGetBodyPosition(body);
             int x = (int)frNumberMetersToPixels(bodyPos.x);
             int y = (int)frNumberMetersToPixels(bodyPos.y);
-            if(y > g->h * 1.2f){
+            if(y > g->h + 25 || y < -25 || x < -25 || x > g->w + 25){
                 frSetBodyPosition(body, frVec2PixelsToMeters((Vector2){ random()%g->w, 0}));
 				frSetBodyVelocity(body, (Vector2){(random()%10 -5)/1000.0f, 0});
             }
