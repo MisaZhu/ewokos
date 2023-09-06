@@ -60,7 +60,7 @@ static int usb_step(void* p) {
         _buf[1] = event.x;
         _buf[2] = event.y; 
         _hasData = 1;
-        _release_count = 3;
+        _release_count = 2;
         _last_x = event.x;
         _last_y = event.y;
         proc_wakeup(0);
