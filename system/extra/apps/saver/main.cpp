@@ -25,7 +25,6 @@
 #include <sys/kernel_tic.h>
 #include <sys/klog.h>
 #include <x++/X.h>
-
 #include <ferox.h>
 #include "pic.h"
 
@@ -36,6 +35,7 @@ using namespace Ewok;
 
 #define MAX_WALL_COUNT  5
 #define BALL_RADIUS     16
+#define BALL_COUNT	6
 
 xscreen_t scr;
 
@@ -46,8 +46,8 @@ private:
 	uint32_t lastSec;
     uint64_t lastUsec;
 	graph_t  *particle;
-	int width = 0;
-	int height = 0;
+	int width = 640;
+	int height = 480;
 	
 	const frMaterial MATERIAL_BRICK = {
 	    1.0f,		//density        
@@ -75,12 +75,23 @@ public:
 	}
 
 protected:
+	void InitBody(frBody *body){
+		static int posx = 0;
+		frRemoveFromWorld(world, body);
+		posx %=(width - 2*BALL_RADIUS);
+		posx += BALL_RADIUS;
+		frSetBodyPosition(body, frVec2PixelsToMeters((Vector2){ posx, BALL_RADIUS}));
+		frSetBodyVelocity(body, (Vector2){(random()&10 - 5)/1000.0, 0});
+		frSetBodyGravityScale(body, 0.2);
+        frAddToWorld(world, body);
+	}
+
 	void Init(int w, int h) {
 		 const Rectangle bounds = {
-   		     .x = -frNumberPixelsToMeters(100),
-   		     .y = -frNumberPixelsToMeters(100),
-   		     .width = frNumberPixelsToMeters(w + 100),
-   		     .height = frNumberPixelsToMeters(h + 100)
+   		     .x = -frNumberPixelsToMeters(200),
+   		     .y = -frNumberPixelsToMeters(200),
+   		     .width = frNumberPixelsToMeters(w + 200),
+   		     .height = frNumberPixelsToMeters(h + 200)
    		 };
 
    		 world = frCreateWorld(frVec2ScalarMultiply(FR_WORLD_DEFAULT_GRAVITY, 0.000005f), bounds);
@@ -146,15 +157,13 @@ protected:
    		 for (int i = 0; i < MAX_WALL_COUNT; i++)
    		     frAddToWorld(world, walls[i]);
 		
-		for(int i = 0; i < 6; i++){
+		for(int i = 0; i < BALL_COUNT; i++){
               frBody *body = frCreateBodyFromShape(FR_BODY_DYNAMIC,FR_FLAG_NONE,
-                 frVec2PixelsToMeters((Vector2) { random()%w, 0 }),
+                 frVec2PixelsToMeters((Vector2) { 0, 0}),
                  frCreateCircle(MATERIAL_BRICK, frNumberPixelsToMeters(BALL_RADIUS))
              );
-             frSetBodyVelocity(body, (Vector2){(random()%10 -5)/1000.0f, 0});
-			 frSetBodyGravityScale(body, 0.2);
-             frAddToWorld(world, body);
-		}
+			InitBody(body);
+   		}
 	}
 
     void waitForNextFrame(){
@@ -170,6 +179,7 @@ protected:
 
         kernel_tic(&lastSec, &lastUsec);
     }
+
 
 	void onRepaint(graph_t* g) {
 		if(width != g->w || height != g->h){
@@ -189,10 +199,9 @@ protected:
             const Vector2 bodyPos = frGetBodyPosition(body);
             int x = (int)frNumberMetersToPixels(bodyPos.x);
             int y = (int)frNumberMetersToPixels(bodyPos.y);
-            if(y > g->h + 25 || y < -25 || x < -25 || x > g->w + 25){
-                frSetBodyPosition(body, frVec2PixelsToMeters((Vector2){ random()%g->w, 0}));
-				frSetBodyVelocity(body, (Vector2){(random()%10 -5)/1000.0f, 0});
-            }
+            if(y >= g->h + 200 || y <= -200 || x <= -200 || x > g->w + 200){
+				InitBody(body);
+           }
 			graph_blt_alpha(particle, 0, 0, 2*BALL_RADIUS, 2*BALL_RADIUS, 
 							 g, x, y, 2*BALL_RADIUS, 2*BALL_RADIUS, 0xff);	
         }	
