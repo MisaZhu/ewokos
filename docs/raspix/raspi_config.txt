@@ -27,14 +27,14 @@ hdmi_timings=320 0 80 16 32 1480 0 16 4 12 0 0 0 60 0 42000000 3
 #display_hdmi_rotate=3
 
 #-----waveshare 4 inchs hdmi_lcd------------
+#make sure dtoverlay=vc4-kms-v3d or dtoverlay=vc4-fkms-v3d is turned off
 max_framebuffer_height=1920
 config_hdmi_boost=10
 hdmi_timings=1080 1 26 4 50 1920 1 8 2 6 0 0 0 60 0 135580000 3
-dtoverlay=vc4-fkms-v3d
-display_hdmi_rotate=3
 hdmi_group=2
 hdmi_mode=87
 hdmi_force_hotplug=1
+display_rotate=1
 #-------------------------------------------
 
 #-----waveshare 10 inchs hdmi_lcd-----------
