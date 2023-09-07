@@ -46,8 +46,8 @@ private:
 	uint32_t lastSec;
     uint64_t lastUsec;
 	graph_t  *particle;
-	int width = 640;
-	int height = 480;
+	int width = 0;
+	int height = 0;
 	
 	const frMaterial MATERIAL_BRICK = {
 	    1.0f,		//density        
