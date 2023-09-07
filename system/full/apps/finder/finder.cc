@@ -339,12 +339,9 @@ int main(int argc, char* argv[]) {
 	xwin.readConfig("/etc/x/finder.conf");
 
 	X x;
-	x.open(&xwin, 10,
-			30,
-			300,
-			200,
-			"finder",
-			X_STYLE_NORMAL);
+	xscreen_t scr;
+	x.screenInfo(scr, 0);
+	x.open(&scr, &xwin, 300, 200, "finder", X_STYLE_NORMAL);
 
 	xwin.setVisible(true);
 	x.run(NULL);

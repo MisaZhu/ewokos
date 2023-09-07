@@ -1,6 +1,7 @@
 #include "x++/X.h"
 #include "x++/XWin.h"
 #include <stdio.h>
+#include <sys/basic_math.h>
 
 using namespace Ewok;
 
@@ -11,6 +12,20 @@ bool X::open(XWin* xwin, int x, int y, uint32_t w, uint32_t h, const char* title
 	xwin->setX(this);
 	xwin->setCWin(xw);
 	return true;
+}
+
+bool X::open(xscreen_t* scr, XWin* xwin, uint32_t w, uint32_t h, const char* title, uint32_t style) {
+	int32_t x = 20 + random_to(scr->size.w - w);
+	int32_t y = 20 + random_to(scr->size.h - h);
+	return open(xwin, x, y, w, h, title, style);
+}
+
+bool X::open(xscreen_t* scr, XWin* xwin, const char* title, uint32_t style) {
+	uint32_t w = random_to(scr->size.w);
+	uint32_t h = random_to(scr->size.h-20);
+	int32_t x = random_to(scr->size.w - w);
+	int32_t y = 20 + random_to(scr->size.h - h);
+	return open(xwin, x, y, w, h, title, style);
 }
 
 X::X(void) {

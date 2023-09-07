@@ -146,7 +146,7 @@ int main(int argc, char* argv[]) {
 	x.screenInfo(scr, 0);
 
 	TestX xwin;
-	x.open(&xwin, 60, 40, scr.size.w-120, scr.size.h-80, "gtest", X_STYLE_NORMAL);
+	x.open(&scr, &xwin, scr.size.w/2, scr.size.h/2, "gtest", X_STYLE_NORMAL);
 	xwin.setVisible(true);
 
 	/*_xwin = &xwin;

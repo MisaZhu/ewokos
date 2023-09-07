@@ -39,15 +39,15 @@ int xwin_call_xim(xwin_t* xwin) {
 	return ret;
 }
 
-static int  x_get_win_rect(int xfd, int style, grect_t* frame, grect_t* workspace) {
+static int  x_get_win_rect(int xfd, int style, grect_t* wsr, grect_t* win_space) {
 	proto_t in, out;
 	PF->init(&out);
 
-	PF->init(&in)->addi(&in, style)->add(&in, frame, sizeof(grect_t));
+	PF->init(&in)->addi(&in, style)->add(&in, wsr, sizeof(grect_t));
 	int ret = vfs_fcntl(xfd, X_CNTL_WIN_SPACE, &in, &out);
 	PF->clear(&in);
 	if(ret == 0) 
-		proto_read_to(&out, workspace, sizeof(grect_t));
+		proto_read_to(&out, win_space, sizeof(grect_t));
 	PF->clear(&out);
 	return ret;
 }
