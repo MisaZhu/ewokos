@@ -50,7 +50,7 @@ static void init_graph(fb_dma_t* dma) {
 	int x, y, w, h, l;
 	uint32_t c, bc;
 
-	l = g.h/2;
+	l = g.h/8;
 	h = (g.h / l);
 	h = (h==0 ? 1:h); 
 
