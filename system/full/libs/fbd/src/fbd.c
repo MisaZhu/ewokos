@@ -43,9 +43,9 @@ static int fb_fcntl(int fd,
 static void init_graph(fb_dma_t* dma) {
 	graph_t g;
 	if(_rotate == G_ROTATE_N90 || _rotate == G_ROTATE_90)
-		graph_init(&g, dma->shm+1, _fbinfo->height, _fbinfo->width);
+		graph_init(&g, dma->shm, _fbinfo->height, _fbinfo->width);
 	else
-		graph_init(&g, dma->shm+1, _fbinfo->width, _fbinfo->height);
+		graph_init(&g, dma->shm, _fbinfo->width, _fbinfo->height);
 
 	int x, y, w, h, l;
 	uint32_t c, bc;
@@ -70,7 +70,7 @@ static void init_graph(fb_dma_t* dma) {
 	graph_fill_round(&g, x, y+h, w-2, h-2, 6, 0xff0000ff);
 	graph_fill_round(&g, x+w, y+h, w-2, h-2, 6, 0xffffffff);
 
-	_fbd->flush(_fbinfo, dma->shm+1, dma->size, _rotate);
+	_fbd->flush(_fbinfo, dma->shm, dma->size, _rotate);
 }
 
 static int fb_dma_init(fb_dma_t* dma) {
@@ -110,10 +110,13 @@ static int fb_dev_cntl(int from_pid, int cmd, proto_t* in, proto_t* ret, void* p
 
 static int32_t do_flush(fb_dma_t* dma) {
 	uint8_t* buf = (uint8_t*)dma->shm;
+	if(buf == NULL)
+		return -1;
+
 	uint32_t size = dma->size;
-	buf[0] = 1; //busy
-	int32_t res = (int32_t)_fbd->flush(_fbinfo, buf+1, size, _rotate);
-	buf[0] = 0; //done
+	buf[size] = 1; //busy
+	int32_t res = (int32_t)_fbd->flush(_fbinfo, buf, size, _rotate);
+	buf[size] = 0; //done
 	return res;
 }
 

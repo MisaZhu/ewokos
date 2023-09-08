@@ -88,10 +88,11 @@ int fb_close(fb_t* fb) {
 }
 
 bool fb_busy(fb_t* fb) {
-	if(fb == NULL || fb->fd < 0 || fb->dma == NULL)
+	if(fb == NULL || fb->fd < 0 || fb->dma == NULL || fb->g == NULL)
 		return false;
 	uint8_t* p = (uint8_t*)fb->dma;
-	return p[0] != 0;
+	uint32_t size = fb->g->w * fb->g->h * 4;
+	return p[size] != 0;
 }
 
 graph_t* fb_fetch_graph(fb_t* fb) {
@@ -124,7 +125,7 @@ graph_t* fb_fetch_graph(fb_t* fb) {
 	if(dma == NULL) 
 		return NULL;
 	
-	g = graph_new(dma+1, w, h);
+	g = graph_new(dma, w, h);
 	fb->dma = dma;
 	fb->g = g;
 	return g;
