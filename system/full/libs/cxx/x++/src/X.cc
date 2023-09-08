@@ -15,14 +15,12 @@ bool X::open(XWin* xwin, int x, int y, uint32_t w, uint32_t h, const char* title
 }
 
 bool X::open(xscreen_t* scr, XWin* xwin, uint32_t w, uint32_t h, const char* title, uint32_t style) {
-	int32_t x = 20 + random_to(scr->size.w - w);
-	int32_t y = 20 + random_to(scr->size.h - h);
-	return open(xwin, x, y, w, h, title, style);
-}
-
-bool X::open(xscreen_t* scr, XWin* xwin, const char* title, uint32_t style) {
-	uint32_t w = random_to(scr->size.w);
-	uint32_t h = random_to(scr->size.h-20);
+	uint32_t minW = scr->size.w/3;
+	uint32_t minH = scr->size.h/3;
+	if(w == 0)
+		w = minW + random_to(scr->size.w - minW);
+	if(h == 0)
+		h = minH + random_to(scr->size.h - minH - 20);
 	int32_t x = random_to(scr->size.w - w);
 	int32_t y = 20 + random_to(scr->size.h - h);
 	return open(xwin, x, y, w, h, title, style);
