@@ -51,7 +51,6 @@ static inline int32_t irq_do_timer0_interrupt(context_t* ctx) {
 	return interrupt_send(ctx, SYS_INT_TIMER0);
 }
 
-#define SEC_TIC       1000000
 #define TIMER_TIC     3000 //333 ps (timer/schedule)
 
 static inline void irq_do_timer0(context_t* ctx) {
@@ -67,7 +66,7 @@ static inline void irq_do_timer0(context_t* ctx) {
 		_kernel_usec = usec;
 		_sec_tic += usec_gap;
 		_timer_tic += usec_gap;
-		if(_sec_tic >= SEC_TIC) { //1 sec
+		if(_sec_tic >= (KERNEL_TIC_SEC*1000000)) { //SEC_TIC sec
 			_kernel_sec++;
 			_sec_tic = 0;
 			renew_kernel_sec();

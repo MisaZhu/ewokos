@@ -3,6 +3,7 @@
 
 #include <mm/mmu.h>
 
+#define KERNEL_TIC_SEC   3
 #define MIN_SCHD_FREQ      256
 #define KERNEL_SCHD_FREQ   4096
 

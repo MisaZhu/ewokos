@@ -832,7 +832,7 @@ inline void renew_kernel_sec(void) {
 		proc_t* proc = &_proc_table[i];
 		if(proc->info.state != UNUSED && 
 				proc->info.state != ZOMBIE) {
-			proc->info.run_usec = proc->run_usec_counter;
+			proc->info.run_usec = proc->run_usec_counter/KERNEL_TIC_SEC;
 			proc->run_usec_counter = 0;
 		}
 	}
