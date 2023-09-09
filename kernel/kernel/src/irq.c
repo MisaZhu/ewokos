@@ -66,7 +66,7 @@ static inline void irq_do_timer0(context_t* ctx) {
 		_kernel_usec = usec;
 		_sec_tic += usec_gap;
 		_timer_tic += usec_gap;
-		if(_sec_tic >= (KERNEL_TIC_SEC*1000000)) { //SEC_TIC sec
+		if(_sec_tic >= 1000000) { //SEC_TIC sec
 			_kernel_sec++;
 			_sec_tic = 0;
 			renew_kernel_sec();

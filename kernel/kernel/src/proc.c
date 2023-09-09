@@ -826,16 +826,23 @@ inline int32_t renew_kernel_tic(uint64_t usec) {
 	return renew_sleep_counter(usec);	
 }
 
+static uint32_t _k_sec_counter = 0;
 inline void renew_kernel_sec(void) {
 	int i;
+	_k_sec_counter++;
 	for(i=0; i<PROC_MAX; i++) {
 		proc_t* proc = &_proc_table[i];
 		if(proc->info.state != UNUSED && 
 				proc->info.state != ZOMBIE) {
-			proc->info.run_usec = proc->run_usec_counter/KERNEL_TIC_SEC;
-			proc->run_usec_counter = 0;
+
+			proc->info.run_usec = proc->run_usec_counter/_k_sec_counter;
+			if(_k_sec_counter >= KERNEL_TIC_SEC)
+				proc->run_usec_counter = 0;
 		}
 	}
+
+	if(_k_sec_counter >= KERNEL_TIC_SEC)
+		_k_sec_counter = 0;
 }
 
 proc_t* proc_get_proc(proc_t* proc) {
