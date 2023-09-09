@@ -128,10 +128,12 @@ void xwin_repaint(xwin_t* xwin) {
 	graph_t g;
 	memset(&g, 0, sizeof(graph_t));
 
-	if(x_get_graph(xwin, &g) != NULL) {
-		xwin->on_repaint(xwin, &g);
-		vfs_fcntl_wait(xwin->fd, X_CNTL_UPDATE, NULL);
-	}
+	if(!xwin->xinfo->repaint_lazy) {
+		if(x_get_graph(xwin, &g) != NULL) {
+			xwin->on_repaint(xwin, &g);
+		}
+	}	
+	vfs_fcntl_wait(xwin->fd, X_CNTL_UPDATE, NULL);
 }
 
 /*

@@ -24,6 +24,9 @@ protected:
 		(void)ev;
 	}
 
+	inline bool repaintLazy(void)  {
+		return xwin->xinfo->repaint_lazy;
+	}
 public:
 	XWin(void);
 

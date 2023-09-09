@@ -235,7 +235,6 @@ public:
 		return true;
     } 
 
-protected:
 	void waitForNextFrame(){
 		uint32_t sec;
 		uint64_t usec;
@@ -246,10 +245,10 @@ protected:
 		if(wait > 0)
 			usleep(wait);
 
-		
 		kernel_tic(&lastSec, &lastUsec);
 	}
 
+protected:
 	void onEvent(xevent_t* ev) {
 		if(ev->type == XEVT_IM){	
 			if(ev->state == XIM_STATE_PRESS){
@@ -319,13 +318,13 @@ protected:
 		screen = g;
 		InfoNES_Cycle();
 		//printf("wait\n");
-		waitForNextFrame();
 	}
 };
 
 static void loop(void* p) {
-	XWin* xwin = (XWin*)p;
+	NesEmu* xwin = (NesEmu*)p;
 	xwin->repaint();
+	xwin->waitForNextFrame();
 }
 
 int main(int argc, char *argv[])

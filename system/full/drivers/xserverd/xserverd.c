@@ -637,6 +637,7 @@ static xwin_t* get_first_visible_win(x_t* x) {
 
 static void mark_dirty(x_t* x, xwin_t* win) {
 	xwin_t* win_next = win->next;
+	win->xinfo->repaint_lazy = false;
 
 	if(win->xinfo->visible && win->dirty) {
 		xwin_t* top = win->next;
@@ -652,6 +653,7 @@ static void mark_dirty(x_t* x, xwin_t* win) {
 						(top->xinfo->style & X_STYLE_ALPHA) == 0) { 
 					//covered by upon window. don't have to repaint.
 					win->dirty = false;
+					win->xinfo->repaint_lazy = true;
 					break;
 				}
 				else if(r.w != 0 || r.h != 0) {

@@ -166,21 +166,6 @@ protected:
    		}
 	}
 
-    void waitForNextFrame(){
-        uint32_t sec;
-        uint64_t usec;
-        int wait;
-
-        kernel_tic(&sec, &usec);
-        wait = 1000000/60 - ((sec - lastSec) * 1000000 + (usec - lastUsec));
-        if(wait > 0)
-            usleep(wait);
-
-
-        kernel_tic(&lastSec, &lastUsec);
-    }
-
-
 	void onRepaint(graph_t* g) {
 		if(width != g->w || height != g->h){
 			if(world)
@@ -206,13 +191,27 @@ protected:
 			graph_blt_alpha(particle, 0, 0, 2*BALL_RADIUS, 2*BALL_RADIUS, 
 							 g, x, y, 2*BALL_RADIUS, 2*BALL_RADIUS, 0xff);	
         }	
-		waitForNextFrame();
 	}
+
+public:
+    void waitForNextFrame(){
+        uint32_t sec;
+        uint64_t usec;
+        int wait;
+
+        kernel_tic(&sec, &usec);
+        wait = 1000000/60 - ((sec - lastSec) * 1000000 + (usec - lastUsec));
+        if(wait > 0)
+            usleep(wait);
+
+        kernel_tic(&lastSec, &lastUsec);
+    }
 };
 
 static void loop(void* p) {
-	XWin* xwin = (XWin*)p;
+	ScreenSaver* xwin = (ScreenSaver*)p;
 	xwin->repaint();
+	xwin->waitForNextFrame();
 }
 
 int main(int argc, char *argv[])
