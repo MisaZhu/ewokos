@@ -22,8 +22,8 @@ class TestX : public XWin {
 		graph_t* img = img_fighter;
 		if(img == NULL)
 			return;
-		graph_blt(img_fighter, fighter_step*(img->w/7), 0, img->w/7, img->h,
-				g, g->w-img->w/7-10, g->h-img->h-10, img->w, img->h);
+		graph_blt(img, fighter_step*(img->w/7), 0, img->w/7, img->h,
+				g, g->w-img->w/7, g->h-img->h, img->w, img->h);
 	}
 public:
 	inline TestX() {
@@ -38,6 +38,15 @@ public:
 		if(img_fighter != NULL)
 			graph_free(img_fighter);
 	}
+
+	bool getSize(int32_t& w, int32_t& h) {
+		if(img_fighter == NULL)
+			return false;
+		w = img_fighter->w / 7;
+		h = img_fighter->h;
+		return true;
+	}
+
 protected:
 	void onEvent(xevent_t* ev) {
 		if(ev->type == XEVT_MOUSE && ev->state == XEVT_MOUSE_UP) {
@@ -90,7 +99,9 @@ int main(int argc, char* argv[]) {
 	x.screenInfo(scr, displayNum-1);
 
 	TestX xwin;
-	x.open(&xwin, 0, 0, scr.size.w, scr.size.h,
+	int32_t w, h;
+	xwin.getSize(w, h);
+	x.open(&scr, &xwin, w, h,
 			"anim", X_STYLE_NO_FRAME | X_STYLE_ALPHA | X_STYLE_NO_FOCUS | X_STYLE_SYSTOP);
 
 	xwin.setDisplay(displayNum-1);
