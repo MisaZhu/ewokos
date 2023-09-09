@@ -639,26 +639,26 @@ static void mark_dirty(x_t* x, xwin_t* win) {
 	xwin_t* win_next = win->next;
 
 	if(win->xinfo->visible && win->dirty) {
-		xwin_t* v = win->next;
-		while(v != NULL) {
+		xwin_t* top = win->next;
+		while(top != NULL) {
 			grect_t r;
-			if(v->xinfo->visible && !v->dirty) {
-				memcpy(&r, &v->xinfo->winr, sizeof(grect_t));
-				grect_insect(&win->xinfo->winr, &r);
-				if(r.x == win->xinfo->winr.x &&
-						r.y == win->xinfo->winr.y &&
-						r.w == win->xinfo->winr.w &&
-						r.h == win->xinfo->winr.h &&
-						(v->xinfo->style & X_STYLE_ALPHA) == 0) { 
+			if(top->xinfo->visible && !top->dirty) {
+				memcpy(&r, &top->xinfo->winr, sizeof(grect_t));
+				grect_insect(&win->xinfo->wsr, &r);
+				if(r.x == win->xinfo->wsr.x &&
+						r.y == win->xinfo->wsr.y &&
+						r.w == win->xinfo->wsr.w &&
+						r.h == win->xinfo->wsr.h &&
+						(top->xinfo->style & X_STYLE_ALPHA) == 0) { 
 					//covered by upon window. don't have to repaint.
 					win->dirty = false;
 					break;
 				}
 				else if(r.w != 0 || r.h != 0) {
-					v->dirty = true;
+					top->dirty = true;
 				}
 			}
-			v = v->next;
+			top = top->next;
 		}
 
 		if(win->dirty && (win->xinfo->style & X_STYLE_ALPHA) != 0) {
