@@ -836,12 +836,12 @@ inline void renew_kernel_sec(void) {
 				proc->info.state != ZOMBIE) {
 
 			proc->info.run_usec = proc->run_usec_counter/_k_sec_counter;
-			if(_k_sec_counter >= KERNEL_TIC_SEC)
+			if(_k_sec_counter >= KERNEL_PROC_RUN_RECOUNT_SEC)
 				proc->run_usec_counter = 0;
 		}
 	}
 
-	if(_k_sec_counter >= KERNEL_TIC_SEC)
+	if(_k_sec_counter >= KERNEL_PROC_RUN_RECOUNT_SEC)
 		_k_sec_counter = 0;
 }
 
