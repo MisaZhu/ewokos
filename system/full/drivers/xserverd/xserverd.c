@@ -33,6 +33,7 @@ typedef struct st_xwin {
 	graph_t* g_buf;
 	xinfo_t* xinfo;
 	bool dirty;
+	bool dirty_mark;
 
 	grect_t r_title;
 	grect_t r_close;
@@ -635,6 +636,27 @@ static xwin_t* get_first_visible_win(x_t* x) {
 	return NULL;
 }
 
+static void unmark_dirty(x_t* x, xwin_t* win) {
+	(void)x;
+	xwin_t* v = win->next;
+	while(v != NULL) {
+		v->dirty_mark = false;
+		v = v->next;
+	}
+}
+
+static void mark_dirty_confirm(x_t* x, xwin_t* win) {
+	(void)x;
+	xwin_t* v = win->next;
+	while(v != NULL) {
+		if(v->dirty_mark) {
+			v->dirty = true;
+			v->dirty_mark = false;
+		}
+		v = v->next;
+	}
+}
+
 static void mark_dirty(x_t* x, xwin_t* win) {
 	xwin_t* win_next = win->next;
 	win->xinfo->repaint_lazy = false;
@@ -643,7 +665,7 @@ static void mark_dirty(x_t* x, xwin_t* win) {
 		xwin_t* top = win->next;
 		while(top != NULL) {
 			grect_t r;
-			if(top->xinfo->visible && !top->dirty) {
+			if(top->xinfo->visible) {
 				memcpy(&r, &top->xinfo->winr, sizeof(grect_t));
 				grect_insect(&win->xinfo->wsr, &r);
 				if(r.x == win->xinfo->wsr.x &&
@@ -654,32 +676,24 @@ static void mark_dirty(x_t* x, xwin_t* win) {
 					//covered by upon window. don't have to repaint.
 					win->dirty = false;
 					win->xinfo->repaint_lazy = true;
-					break;
+					unmark_dirty(x, win);//unmark temporary dirty top win
+					return;
 				}
 				else if(r.w != 0 || r.h != 0) {
-					top->dirty = true;
+					top->dirty_mark = true; //mark top win dirty temporary
 				}
 			}
 			top = top->next;
 		}
-
-		if(win->dirty && (win->xinfo->style & X_STYLE_ALPHA) != 0) {
-			x_dirty(x, win->xinfo->display_index);
-			return;
-		}
 	}
 
+
+	if((win->xinfo->style & X_STYLE_ALPHA) != 0)
+		x_dirty(x, win->xinfo->display_index);
+
+	mark_dirty_confirm(x, win);
 	if(win_next != NULL)
 		mark_dirty(x, win_next);
-}
-
-static void unmark_dirty(x_t* x, xwin_t* win) {
-	(void)x;
-	xwin_t* v = win->next;
-	while(v != NULL) {
-		v->dirty = false;
-		v = v->next;
-	}
 }
 
 static int x_update(int fd, int from_pid, x_t* x) {
@@ -698,9 +712,6 @@ static int x_update(int fd, int from_pid, x_t* x) {
 	win->dirty = true;
 
 	mark_dirty(x, win);
-
-	if(!win->dirty)
-		unmark_dirty(x, win);
 	return 0;
 }
 
