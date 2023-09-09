@@ -1151,7 +1151,8 @@ static int mouse_handle(x_t* x, xevent_t* ev) {
 			x->mouse_state.last_pos.x = ev->value.mouse.x;
 			x->mouse_state.last_pos.y = ev->value.mouse.y;
 		}
-		if(ev->value.mouse.from_y >= (display->g->h-16)) //from bottom
+		if(x->config.force_fullscreen &&
+				ev->value.mouse.from_y >= (display->g->h-16)) //from bottom
 			return 0;
 	}
 	else if(ev->state ==  XEVT_MOUSE_UP) {
@@ -1164,13 +1165,13 @@ static int mouse_handle(x_t* x, xevent_t* ev) {
 		x->mouse_state.last_pos.x = ev->value.mouse.x;
 		x->mouse_state.last_pos.y = ev->value.mouse.y;
 
-		if(ev->value.mouse.from_y >= (display->g->h-16) && //from bottom
+		if(x->config.force_fullscreen && 
+				ev->value.mouse.from_y >= (display->g->h-16) && //from bottom
 				ev->value.mouse.from_y > ev->value.mouse.y)  { //swap up from bottom
 			xwin_bg(x, x->win_focus);
 			return 0;
 		}
 	}
-	
 
 	int pos = -1;
 	xwin_t* win = NULL;
