@@ -57,6 +57,7 @@ int main(int argc, char** argv) {
 	ili9486_init(lcd_rs, lcd_cs, lcd_rst, 2);
 
 	fbd_t fbd;
+	fbd.splash = NULL;
 	fbd.flush = flush;
 	fbd.init = init;
 	fbd.get_info = get_info;

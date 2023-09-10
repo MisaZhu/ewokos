@@ -49,6 +49,7 @@ int main(int argc, char** argv) {
 	lcd_init(w, h, rot);
 
 	fbd_t fbd;
+	fbd.splash = NULL;
 	fbd.flush = flush;
 	fbd.init = init;
 	fbd.get_info = get_info;

@@ -52,6 +52,7 @@ int main(int argc, char** argv) {
 		h = atoi(argv[3]);
 	}
 
+	fbd.splash = NULL;
 	fbd.flush = flush;
 	fbd.init = init;
 	fbd.get_info = get_info;
