@@ -15,7 +15,7 @@ $(MP3PLAY): $(MP3PLAY_OBJS) \
 		$(BUILD_DIR)/lib/libsoftfloat.a \
 		$(BUILD_DIR)/lib/libewokc.a 
 	$(LD) -Ttext=100 $(MP3PLAY_OBJS) -o $(MP3PLAY) $(LDFLAGS) -lsoftfloat -lewokc -lm -lc
-	cp -r include/* $(TARGET_DIR)/include
+	cp -r include/* $(BUILD_DIR)/include
 
 clean:
 	rm -f $(MP3PLAY_OBJS)
