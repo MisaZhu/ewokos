@@ -65,7 +65,7 @@ int play_with_file(const char *fileName)
 		.stop_threshold = 0,
 	};
 
-	struct pcm *pcm = pcm_open("/dev/pcmp0", &config);
+	struct pcm *pcm = pcm_open("/dev/sound", &config);
 	if (pcm == NULL) {
 		LOGD("pcm_open() fail, return!");
 		return -1;
@@ -198,7 +198,7 @@ int play_with_stdin(int bit_depth, int rate, int channels)
 		.stop_threshold = 0,
 	};
 
-	struct pcm *pcm = pcm_open("/dev/pcmp0", &config);
+	struct pcm *pcm = pcm_open("/dev/sound", &config);
 	if (!pcm) {
 		LOGD("pcm_open() fail, return!");
 		return -1;

@@ -13,22 +13,21 @@
 
 static struct snd_card *sound_card = 0;
 
-static void enter_pcm_device_loop(struct snd_pcm *pcm)
+static void enter_pcm_device_loop(struct snd_pcm *pcm, const char* dev_name)
 {
 	if (pcm == NULL) {
 		return;
 	}
 
 	vdevice_t *vdev = (vdevice_t*)pcm->private_data;
-	char mount_point[32] = {0};
-	snprintf(mount_point, 32, "/dev/%s", pcm->name);
+	char mount_point[33] = {0};
+	strncpy(mount_point, dev_name, 32);
 	device_run(vdev, mount_point, FS_TYPE_CHAR);
 }
 
 int main(int argc, char *argv[])
 {
-	UNUSED(argc);
-	UNUSED(argv);
+	const char* dev_name = argc < 2 ? "/dev/sound":argv[1];
 	int ret = 0;
 	ret = snd_card_new(&sound_card, "ewokos sound card");
 	if (ret != 0 || !sound_card) {
@@ -56,7 +55,7 @@ int main(int argc, char *argv[])
 
 	snd_card_info_print(sound_card);
 
-	enter_pcm_device_loop(pcm_playback);
+	enter_pcm_device_loop(pcm_playback, dev_name);
 
 	return 0;
 }

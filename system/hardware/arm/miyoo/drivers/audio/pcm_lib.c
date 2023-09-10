@@ -971,7 +971,7 @@ static int snd_pcm_device_create(struct snd_device *device)
 
 	memset(vdev, 0, sizeof(vdevice_t));
 
-	strcpy(vdev->name, "pcmp0");
+	strcpy(vdev->name, "sound");
 	vdev->open = fops->open;
 	vdev->close = fops->close;
 	vdev->dev_cntl = fops->dev_cntl;
