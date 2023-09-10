@@ -23,9 +23,9 @@ static int lcd_flush(int fd, int from_pid, fsinfo_t* info, void* p) {
 	fb_dma_t* dma = (fb_dma_t*)p;
 
 	uint8_t* data = (uint8_t*)dma->shm;
-	data[0] = 1;
-	ili9486_flush(data+1, dma->size);
-	data[0] = 0;
+	data[dma->size] = 1;
+	ili9486_flush(data, dma->size);
+	data[dma->size] = 0;
 
 	return 0;
 }
