@@ -65,7 +65,7 @@ typedef struct {
 	graph_t* g;
 	graph_t* g_fb;
 	bool dirty;
-	bool curcor_task;
+	bool cursor_task;
 	bool need_repaint;
 } x_display_t;
 
@@ -580,8 +580,10 @@ static void x_repaint(x_t* x, uint32_t display_index) {
 	display->need_repaint = false;
 	bool do_flush = false;
 
-	if(display->curcor_task)
+	if(display->cursor_task) {
+		display->cursor_task = false;
 		do_flush = true;
+	}	
 
 	if(x->show_cursor && x->current_display == display_index)
 		hide_cursor(x);
@@ -1128,7 +1130,7 @@ static int mouse_handle(x_t* x, xevent_t* ev) {
 	}
 
 	x_display_t *display = &x->displays[x->current_display];
-	display->curcor_task = true;
+	display->cursor_task = true;
 	cursor_safe(x, display);
 	if(ev->state ==  XEVT_MOUSE_DOWN) {
 		x->cursor.down = true;
