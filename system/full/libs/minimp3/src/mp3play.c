@@ -3,6 +3,7 @@
 #include <unistd.h>
 #include <sys/vfs.h>
 #include <stdio.h>
+#include <fcntl.h>
 #include <stdlib.h>
 #include <unistd.h>
 
@@ -18,13 +19,19 @@ int main(int argc, char **argv) {
 	int bytes_left;
 
 	if(argc < 2) {
-		printf("Usage: %s [mp3_fname]\n", argv[0]);
+		fprintf(stderr, "Usage: %s [mp3_fname]\n", argv[0]);
+		return 1;
+	}
+
+	int fd = open("/dev/sound", O_WRONLY);
+	if(fd < 0) {
+		fprintf(stderr, "/dev/sound device not ready!\n");
 		return 1;
 	}
 
 	file_data = vfs_readfile(argv[1], &bytes_left);
 	if(file_data == NULL) {
-		printf("Error: read MP3 audio file failed!\n");
+		fprintf(stderr, "Error: read MP3 audio file failed!\n");
 		return 1;
 	}
 	stream_pos = (unsigned char *) file_data;
@@ -33,17 +40,21 @@ int main(int argc, char **argv) {
 	int size = mp3dec_decode_frame(&mp3, stream_pos, bytes_left, sample_buf, &info);
 
 	if (size == 0) {
-		printf("Error: not a valid MP3 audio file!\n");
+		fprintf(stderr, "Error: not a valid MP3 audio file!\n");
 		free(file_data);
 		return 1;
 	}
 
+	fprintf(stderr, "sound write: %d ... \n", bytes_left);
 	while ((bytes_left >= 0) && (size > 0)) {
 		stream_pos += info.frame_bytes;
 		bytes_left -= info.frame_bytes;
-		write(1, (const void *) sample_buf, size);
+		int sz = write(fd, (const void *) sample_buf, size);
+		//fprintf(stderr, "sound write: %d on %d, left: %d\n", sz, size, bytes_left);
 		size = mp3dec_decode_frame(&mp3, stream_pos, bytes_left, sample_buf, &info);
 	}
+	fprintf(stderr, "done.\n");
 	free(file_data);
+	close(fd);
 	return 0;
 }

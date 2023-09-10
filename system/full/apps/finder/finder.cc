@@ -67,6 +67,9 @@ class Finder: public XWin {
 		else if(check(fname, ".png")) {
 			snprintf(cmd, FS_FULL_NAME_MAX, "/bin/x/png %s", fname);
 		}
+		else if(check(fname, ".mp3")) {
+			snprintf(cmd, FS_FULL_NAME_MAX, "/bin/mp3play %s", fname);
+		}
 		else if(check(fname, ".wav")) {
 			snprintf(cmd, FS_FULL_NAME_MAX, "/bin/aplay -f %s", fname);
 		}
