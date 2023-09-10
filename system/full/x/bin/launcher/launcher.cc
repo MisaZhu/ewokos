@@ -336,10 +336,10 @@ int main(int argc, char* argv[]) {
 	X x;
 	x.screenInfo(scr, 0);
 
-	uint32_t h = xwin.getHeight();
+	int32_t h = xwin.getHeight();
 	if(h == 0)
 		h = scr.size.h;
-	uint32_t w = xwin.getWidth();
+	int32_t w = xwin.getWidth();
 	if(w == 0)
 		w = scr.size.w;
 	x.open(&xwin, (scr.size.w-w)/2,
