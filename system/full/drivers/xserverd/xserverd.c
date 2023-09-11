@@ -661,9 +661,9 @@ static void mark_dirty_confirm(x_t* x, xwin_t* win) {
 
 static void mark_dirty(x_t* x, xwin_t* win) {
 	xwin_t* win_next = win->next;
-	win->xinfo->repaint_lazy = false;
 
 	if(win->xinfo->visible && win->dirty) {
+		win->xinfo->repaint_lazy = false;
 		xwin_t* top = win->next;
 		while(top != NULL) {
 			grect_t r;
@@ -687,11 +687,9 @@ static void mark_dirty(x_t* x, xwin_t* win) {
 			}
 			top = top->next;
 		}
+		if((win->xinfo->style & X_STYLE_ALPHA) != 0)
+			x_dirty(x, win->xinfo->display_index);
 	}
-
-
-	if((win->xinfo->style & X_STYLE_ALPHA) != 0)
-		x_dirty(x, win->xinfo->display_index);
 
 	mark_dirty_confirm(x, win);
 	if(win_next != NULL)
