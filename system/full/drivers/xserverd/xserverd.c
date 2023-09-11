@@ -187,10 +187,10 @@ static void draw_drag_frame(x_t* xp, uint32_t display_index) {
 	if(display->g == NULL)
 		return;
 
-	int x = xp->current.win->xinfo->wsr.x;
-	int y = xp->current.win->xinfo->wsr.y;
-	int w = xp->current.win->xinfo->wsr.w;
-	int h = xp->current.win->xinfo->wsr.h;
+	int x = xp->current.win->xinfo->winr.x;
+	int y = xp->current.win->xinfo->winr.y;
+	int w = xp->current.win->xinfo->winr.w;
+	int h = xp->current.win->xinfo->winr.h;
 
 	if(xp->current.drag_state == X_win_DRAG_MOVE)  {
 		x += xp->current.pos_delta.x;

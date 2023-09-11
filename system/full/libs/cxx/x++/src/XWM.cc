@@ -104,10 +104,8 @@ void XWM::getColor(uint32_t *fg, uint32_t* bg, bool top) {
 }
 
 void XWM::drawDragFrame(graph_t* g, grect_t* r) {
-	graph_box(g, r->x+1, r->y - titleH+1,
-		r->w, r->h + titleH, 0x88000000);
-	graph_box(g, r->x, r->y - titleH,
-		r->w, r->h + titleH, 0x88ffffff);
+	graph_box(g, r->x+1, r->y+1, r->w, r->h, 0x88000000);
+	graph_box(g, r->x, r->y, r->w, r->h, 0x88ffffff);
 }
 
 static void draw_drag_frame(graph_t* g, grect_t* r, void* p) {
