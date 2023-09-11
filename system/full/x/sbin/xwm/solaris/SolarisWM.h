@@ -20,6 +20,7 @@ class SolarisWM : public XWM {
 
 	void getBorderColor(uint32_t bg, uint32_t *dark, uint32_t *bright);
 protected:
+	void drawDragFrame(graph_t* g, grect_t* r);
 	void drawResize(graph_t* g, xinfo_t* info, grect_t* r, bool top);
 	void drawMax(graph_t* g, xinfo_t* info, grect_t* r, bool top);
 	void drawMin(graph_t* g, xinfo_t* info, grect_t* r, bool top);

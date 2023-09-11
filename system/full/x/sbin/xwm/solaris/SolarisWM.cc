@@ -49,6 +49,12 @@ void SolarisWM::drawClose(graph_t* g, xinfo_t* info, grect_t* r, bool top) {
 			r->w-10, 4, bg, false);
 }
 
+void SolarisWM::drawDragFrame(graph_t* g, grect_t* r) {
+	uint32_t fg, bg;
+	getColor(&fg, &bg, true);
+	graph_frame(g, r->x, r->y, r->w, r->h, frameW, 0x88ffffff, false);
+}
+
 void SolarisWM::drawResize(graph_t* g, xinfo_t* info, grect_t* r, bool top) {
 	(void)info;
 	if(!top)
