@@ -67,6 +67,10 @@ public:
 		if(v[0] != 0) 
 			font_size = atoi(v);
 		console.font_size = font_size;
+		
+		v = sconf_get(sconf, "font_fixed");
+		if(v[0] != 0) 
+			console.font_fixed = atoi(v);
 
 		v = sconf_get(sconf, "font");
 		if(v[0] == 0) 

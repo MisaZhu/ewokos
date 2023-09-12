@@ -26,7 +26,13 @@ static uint32_t font_width(console_t* console) {
 }
 
 static void cons_draw_char(console_t* console, graph_t* g, int32_t x, int32_t y, UNICODE16 c, int32_t *w) {
-	graph_draw_char_font(g, x, y, c, &console->font, console->fg_color, w, NULL);
+	if(console->font_fixed > 0) {
+		graph_draw_char_font_fixed(g, x, y, c, &console->font, console->fg_color, console->font_fixed, 0);
+		*w = console->font_fixed;
+	}
+	else {
+		graph_draw_char_font(g, x, y, c, &console->font, console->fg_color, w, NULL); 
+	}
 }
 
 static void clear_lines(line_t* head) {
