@@ -64,10 +64,7 @@ static int32_t read_config(fb_console_t* console, const char* fname) {
 	v = sconf_get(conf, "font_size");
 	if(v[0] != 0) 
 		font_size = atoi(v);
-	
-	v = sconf_get(conf, "font_margin");
-	if(v[0] != 0) 
-		console->console.font_margin = atoi(v);
+	console->console.font_size = font_size;
 
 	v = sconf_get(conf, "font");
 	if(v[0] != 0) 

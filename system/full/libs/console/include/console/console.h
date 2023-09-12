@@ -9,28 +9,30 @@ extern "C" {
 
 typedef uint16_t UNICODE16;
 
-typedef struct {
-	uint32_t start_row;
-	uint32_t current_row;
-	uint32_t back_offset_rows;
+typedef struct st_line {
+	UNICODE16 *line;
 	uint32_t size;
-} state_t;
+	uint32_t last_x;
+	struct st_line *next;
+	struct st_line *prev;
+} line_t;
 
 typedef struct {
 	uint32_t cols;
 	uint32_t rows;
-	UNICODE16* data;
+	line_t*  head;
+	line_t*  tail;
+	line_t*  start;
 } content_t;
 
 typedef struct {
-	int32_t  font_margin;
+	int32_t  font_size;
 	uint32_t w;
 	uint32_t h;
 	uint32_t bg_color;
 	uint32_t fg_color;
 	font_t font;
 	content_t content;
-	state_t state;
 	bool show_cursor;
 } console_t;
 
