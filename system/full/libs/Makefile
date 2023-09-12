@@ -10,6 +10,7 @@ basic_libs:
 	cd fb;make
 	cd fbd;make
 	cd upng; make
+	cd textview;make
 	cd console;make
 	cd x;make
 	cd cxx/cxx;make
@@ -21,6 +22,7 @@ clean:
 	cd fbd;make clean
 	cd graph;make clean
 	cd ttf;make clean
+	cd textview;make clean
 	cd console;make clean
 	cd display;make clean
 	cd font;make clean

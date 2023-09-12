@@ -121,7 +121,7 @@ static void close_console(fb_console_t* console) {
 }
 
 static int reset_console(fb_console_t* console) {
-	console_reset(&console->console, console->g->w, console->g->h, 0);
+	console_reset(&console->console, console->g->w, console->g->h);
 	return 0;
 }
 

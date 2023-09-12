@@ -42,7 +42,7 @@ void console_close(console_t* console);
 void console_clear(console_t* console);
 void console_refresh_content(console_t* console, graph_t* g);
 void console_refresh(console_t* console, graph_t* g);
-int32_t console_reset(console_t* console, uint32_t w, uint32_t h, uint32_t total_rows);
+int32_t console_reset(console_t* console, uint32_t w, uint32_t h);
 void console_roll(console_t* console, int32_t rows);
 void console_put_char(console_t* console, UNICODE16 c);
 void console_put_string(console_t* console, const char* s, int len);

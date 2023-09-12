@@ -111,16 +111,8 @@ protected:
 
 	void onRepaint(graph_t* g) {
 		if(console.w != g->w || console.h != g->h) {
-			uint32_t buffer_rows = 0;
-			if(console.font.id >=0) {
-				buffer_rows = (g->h / console.font.max_size.y)*4;
-				rollStepRows = (g->h / console.font.max_size.y) / 2;
-			}
-			if(conf.buffer_rows > buffer_rows) {
-				buffer_rows = conf.buffer_rows;
-				rollStepRows = 8;
-			}
-			console_reset(&console, g->w, g->h, buffer_rows);
+			rollStepRows = (g->h / console.font.max_size.y) / 2;
+			console_reset(&console, g->w, g->h);
 		}
 		console_refresh(&console, g);
 	}

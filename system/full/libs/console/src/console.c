@@ -47,7 +47,7 @@ static void clear_lines(line_t* head) {
 	}
 }
 
-int32_t console_reset(console_t* console, uint32_t w, uint32_t h, uint32_t total_rows) {
+int32_t console_reset(console_t* console, uint32_t w, uint32_t h) {
 	if(console->font.id < 0)
 		return -1;
 	console->w = w;
