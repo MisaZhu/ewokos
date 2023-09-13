@@ -192,7 +192,7 @@ int main(int argc, char** argv) {
 	strcpy(dev.name, "font");
 	dev.dev_cntl = font_dev_cntl;
 
-	klog("    pre-load system font ... ");
+	klog("    pre-load system font ... \n");
 	for(int i=2; i<argc; i++) {
 		klog("    %s ... \n", argv[i]);
 		font_open(argv[i], 12, -1);
