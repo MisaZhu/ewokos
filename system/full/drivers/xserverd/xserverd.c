@@ -267,6 +267,12 @@ static inline void x_dirty(x_t* x, int32_t display_index) {
 }
 
 static void remove_win(x_t* x, xwin_t* win) {
+	xwin_t* prev = win->prev;
+	while(prev != NULL) {
+		prev->xinfo->repaint_lazy = false;
+		prev = prev->prev;
+	}
+
 	if(win->prev != NULL)
 		win->prev->next = win->next;
 	if(win->next != NULL)
@@ -276,6 +282,7 @@ static void remove_win(x_t* x, xwin_t* win) {
 	if(x->win_head == win)
 		x->win_head = win->next;
 	win->next = win->prev = NULL;
+
 	x_dirty(x, win->xinfo->display_index);
 }
 
