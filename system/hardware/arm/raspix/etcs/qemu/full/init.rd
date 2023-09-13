@@ -4,7 +4,7 @@
 /bin/rundev /drivers/raspix/fbd           /dev/fb0 1024 768
 /bin/rundev /drivers/displayd             /dev/display /dev/fb0
 
-/bin/rundev /drivers/fontd                /dev/font
+/bin/rundev /drivers/fontd                /dev/font /data/fonts/system.ttf /data/fonts/system_cn.ttf 
 /bin/rundev /drivers/consoled             /dev/console0 /dev/display
 
 $

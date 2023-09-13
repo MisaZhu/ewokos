@@ -193,7 +193,10 @@ int main(int argc, char** argv) {
 	dev.dev_cntl = font_dev_cntl;
 
 	klog("    pre-load system font ... ");
-	font_open("/data/fonts/system.ttf", 13, -1);
+	for(int i=2; i<argc; i++) {
+		klog("    %s ... \n", argv[i]);
+		font_open(argv[i], 12, -1);
+	}
 	klog("ok\n");
 
 	device_run(&dev, mnt_point, FS_TYPE_CHAR);
