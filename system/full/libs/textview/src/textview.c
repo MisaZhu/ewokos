@@ -43,7 +43,7 @@ static void clear_lines(line_t* head) {
 	}
 }
 
-int32_t textview_reset(textview_t* textview, uint32_t w, uint32_t h) {
+int32_t textview_reset(textview_t* textview, uint32_t w, uint32_t h, bool to_last) {
 	if(textview->font.id < 0)
 		return -1;
 	textview->w = w;
@@ -60,7 +60,7 @@ int32_t textview_reset(textview_t* textview, uint32_t w, uint32_t h) {
 			for(int i=0; i<l->size; i++) {	
 				UNICODE16 c = l->line[i];
 				if(c != 0) {
-					textview_put_char(textview, c);
+					textview_put_char(textview, c, to_last);
 				}
 			}
 		}
@@ -176,7 +176,7 @@ static line_t* new_line(textview_t* textview) {
 	return line;
 }
 
-static void move_line(textview_t* textview) {
+static void move_line(textview_t* textview, bool to_last) {
 	line_t* nline = new_line(textview);
 	if(textview->content.tail == NULL)
 		textview->content.head = textview->content.start = nline;
@@ -185,21 +185,31 @@ static void move_line(textview_t* textview) {
 
 	nline->prev = textview->content.tail;
 	textview->content.tail = nline;
+
+	if(to_last)
+		to_last_line(textview);
 }
 
-void textview_put_char(textview_t* textview, UNICODE16 c) {
+void textview_put_char(textview_t* textview, UNICODE16 c, bool to_last) {
 	if(textview->content.tail == NULL)
-		move_line(textview);
+		move_line(textview, to_last);
 	if(textview->content.tail == NULL)
 		return;
 
 	if(c == '\r')
 		c = '\n';
 
-	if(c == '\t') {
+	if(c == CONSOLE_LEFT) { //backspace
+		if(textview->content.tail->size > 0) {
+			textview->content.tail->size--;
+			textview->content.tail->line[textview->content.tail->size] = 0;
+		}
+		return;
+	}
+	else if(c == '\t') {
 		uint32_t x = 0;
 		while(x < T_W) {
-			textview_put_char(textview, ' ');
+			textview_put_char(textview, ' ', to_last);
 			x++;
 		}
 		return;
@@ -210,21 +220,21 @@ void textview_put_char(textview_t* textview, UNICODE16 c) {
 
 	if((textview->content.tail->size+2) >= textview->content.cols || 
 			(textview->content.tail->last_x+cw) >= textview->w)
-		move_line(textview);
+		move_line(textview, to_last);
 
 	textview->content.tail->line[textview->content.tail->size] = c;
 	textview->content.tail->size++;
-	textview->content.tail->last_x += cw;
+	//textview->content.tail->last_x += cw;
 	if(c == '\n') {
-		move_line(textview);
+		move_line(textview, to_last);
 	}
 }
 
-void textview_put_string(textview_t* textview, const char* str, int len) {
+void textview_put_string(textview_t* textview, const char* str, int len, bool to_last) {
 	uint16_t* out = (uint16_t*)malloc((len+1)*2);
 	int n = utf82unicode((uint8_t*)str, len, out);
 	for(int i=0;i <n; i++) {
-		textview_put_char(textview, out[i]);
+		textview_put_char(textview, out[i], to_last);
 	}
 	free(out);
 }

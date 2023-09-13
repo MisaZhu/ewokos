@@ -45,10 +45,10 @@ void textview_close(textview_t* textview);
 void textview_clear(textview_t* textview);
 void textview_refresh_content(textview_t* textview, graph_t* g);
 void textview_refresh(textview_t* textview, graph_t* g);
-int32_t textview_reset(textview_t* textview, uint32_t w, uint32_t h);
+int32_t textview_reset(textview_t* textview, uint32_t w, uint32_t h, bool to_last);
 void textview_roll(textview_t* textview, int32_t rows);
-void textview_put_char(textview_t* textview, UNICODE16 c);
-void textview_put_string(textview_t* textview, const char* s, int len);
+void textview_put_char(textview_t* textview, UNICODE16 c, bool to_last);
+void textview_put_string(textview_t* textview, const char* s, int len, bool to_last);
 
 #ifdef __cplusplus
 }

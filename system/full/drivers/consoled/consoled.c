@@ -30,8 +30,8 @@ typedef struct {
 static int32_t read_config(fb_console_t* console, const char* fname) {
 	const char* font_fname =  "/data/fonts/system.ttf";
 	uint32_t font_size = 16;
-	console->console.fg_color = 0xffcccccc;
-	console->console.bg_color = 0xff000000;
+	console->console.textview.fg_color = 0xffcccccc;
+	console->console.textview.bg_color = 0xff000000;
 	//const char* icon_fn = "/data/icons/starwars/ewok.png";
 	//const char* bg_fn = "/data/images/ewok.png";
 
@@ -55,21 +55,21 @@ static int32_t read_config(fb_console_t* console, const char* fname) {
 
 	v = sconf_get(conf, "bg_color");
 	if(v[0] != 0) 
-		console->console.bg_color = atoi_base(v, 16);
+		console->console.textview.bg_color = atoi_base(v, 16);
 
 	v = sconf_get(conf, "fg_color");
 	if(v[0] != 0) 
-		console->console.fg_color = atoi_base(v, 16);
+		console->console.textview.fg_color = atoi_base(v, 16);
 	
 	v = sconf_get(conf, "font_size");
 	if(v[0] != 0) 
 		font_size = atoi(v);
-	console->console.font_size = font_size;
+	console->console.textview.font_size = font_size;
 
 	v = sconf_get(conf, "font");
 	if(v[0] != 0) 
 		font_fname = v;
-	font_load(font_fname, font_size, &console->console.font);
+	font_load(font_fname, font_size, &console->console.textview.font);
 	sconf_free(conf);
 
 	return 0;
@@ -114,8 +114,8 @@ static void close_console(fb_console_t* console) {
 	fb_close(&console->fb);
 	if(console->icon != NULL)
 		graph_free(console->icon);
-	if(console->console.font.id >= 0)
-		font_close(&console->console.font);
+	if(console->console.textview.font.id >= 0)
+		font_close(&console->console.textview.font);
 	//if(console->bg_image != NULL)
 		//graph_free(console->bg_image);
 }
@@ -126,7 +126,7 @@ static int reset_console(fb_console_t* console) {
 }
 
 static void flush(fb_console_t* console) {
-	graph_clear(console->g, console->console.bg_color);
+	graph_clear(console->g, console->console.textview.bg_color);
 	if(console->display_index == 0) {
 		//draw bgImage
 		/*if(console->bg_image != NULL) {

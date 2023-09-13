@@ -18,7 +18,6 @@ using namespace Ewok;
 typedef struct {
 	uint32_t fg_color;
 	uint32_t bg_color;
-	uint32_t buffer_rows;
 } conf_t;
 
 class XConsoled : public XWin {
@@ -36,7 +35,6 @@ public:
 		height = 0;
 		width = 0;
 		console_init(&console);
-		console.show_cursor = false;
 	}
 
 	~XConsoled() {
@@ -82,15 +80,11 @@ public:
 		if(v[0] != 0) 
 			conf.fg_color = atoi_base(v, 16);
 
-		v = sconf_get(sconf, "buffer_rows");
-		if(v[0] != 0) 
-			conf.buffer_rows = atoi(v);
-
 		uint32_t font_size = 16;
 		v = sconf_get(sconf, "font_size");
 		if(v[0] != 0) 
 			font_size = atoi(v);
-		console.font_size = font_size;
+		console.textview.font_size = font_size;
 		
 		v = sconf_get(sconf, "auto_hide");
 		if(v[0] != 0) 
@@ -100,7 +94,7 @@ public:
 		if(v[0] == 0) 
 			v = "/data/fonts/system.ttf";
 		
-		font_load(v, font_size, &console.font);
+		font_load(v, font_size, &console.textview.font);
 
 		v = sconf_get(sconf, "height");
 		if(v[0] != 0) 
@@ -111,8 +105,8 @@ public:
 
 		sconf_free(sconf);
 
-		console.fg_color = conf.fg_color;
-		console.bg_color = conf.bg_color;
+		console.textview.fg_color = conf.fg_color;
+		console.textview.bg_color = conf.bg_color;
 		return true;
 	}
 
@@ -122,7 +116,7 @@ public:
 	}
 protected:
 	void onRepaint(graph_t* g) {
-		if(console.w != g->w || console.h != g->h) {
+		if(console.textview.w != g->w || console.textview.h != g->h) {
 			console_reset(&console, g->w, g->h);
 		}
 		console_refresh(&console, g);

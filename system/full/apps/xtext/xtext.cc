@@ -89,7 +89,7 @@ public:
 	}
 
 	void put(const char* buf, int size) {
-		textview_put_string(&textview, buf, size);
+		textview_put_string(&textview, buf, size, false);
 		repaint();
 	}
 
@@ -113,7 +113,7 @@ protected:
 	void onRepaint(graph_t* g) {
 		if(textview.w != g->w || textview.h != g->h) {
 			rollStepRows = (g->h / textview.font.max_size.y) / 2;
-			textview_reset(&textview, g->w, g->h);
+			textview_reset(&textview, g->w, g->h, false);
 		}
 		textview_refresh(&textview, g);
 	}
