@@ -13,14 +13,11 @@ extern "C" {
 #define T_W 2 /*tab width*/
 
 static uint32_t font_width(console_t* console) {
-	if(console->font_fixed == 0)
-		console->font_fixed = console->font_size/2;
 	uint16_t fontw = console->font_fixed;
 	if(fontw == 0)
 		font_char_size('i', &console->font, &fontw, NULL);
 	if(fontw == 0)
 		fontw = 8; //minimize width 
-	console->font_fixed = fontw;
 	return fontw;
 }
 

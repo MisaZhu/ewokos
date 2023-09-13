@@ -137,12 +137,12 @@ protected:
 	void onEvent(xevent_t* ev) {
 		if(ev->type == XEVT_IM && ev->state == XIM_STATE_PRESS) {
 			int c = ev->value.im.value;
-			if(c == KEY_ROLL_BACK) {
+			if(c == KEY_ROLL_BACK || c == KEY_UP) {
 				textview_roll(&textview, -(rollStepRows));
 				repaint();
 				return;
 			}
-			else if(c == KEY_ROLL_FORWARD) {
+			else if(c == KEY_ROLL_FORWARD || c == KEY_DOWN) {
 				textview_roll(&textview, (rollStepRows));
 				repaint();
 				return;

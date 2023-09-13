@@ -13,15 +13,12 @@ extern "C" {
 #define T_W 2 /*tab width*/
 
 static uint32_t font_width(textview_t* textview) {
-	if(textview->font_fixed == 0)
-		textview->font_fixed = textview->font_size/2;
 	uint16_t fontw = textview->font_fixed;
 	if(fontw == 0)
 		font_char_size('i', &textview->font, &fontw, NULL);
 	if(fontw == 0)
 		fontw = 8; //minimize width 
-	textview->font_fixed = fontw;
-	return textview->font_fixed;
+	return fontw;
 }
 
 static void tv_draw_char(textview_t* textview, graph_t* g, int32_t x, int32_t y, UNICODE16 c, int32_t *w) {
