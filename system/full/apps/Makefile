@@ -1,4 +1,5 @@
 all:
+	cd xtext; make
 	cd xconsole; make
 	cd finder; make
 	cd gtest; make
@@ -7,6 +8,7 @@ all:
 	cd book; make
 
 clean:
+	cd xtext; make clean
 	cd xconsole; make clean
 	cd finder; make clean
 	cd gtest; make clean

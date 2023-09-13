@@ -74,7 +74,8 @@ class Finder: public XWin {
 			snprintf(cmd, FS_FULL_NAME_MAX, "/bin/aplay -f %s", fname);
 		}
 		else {//if(check(fname, ".txt")) {
-			snprintf(cmd, FS_FULL_NAME_MAX, "/apps/book/book %s", fname);
+			//snprintf(cmd, FS_FULL_NAME_MAX, "/apps/book/book %s", fname);
+			snprintf(cmd, FS_FULL_NAME_MAX, "/apps/xtext/xtext %s", fname);
 		}
 		if(cmd[0] == 0)
 			return;

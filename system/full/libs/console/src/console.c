@@ -20,6 +20,7 @@ static uint32_t font_width(console_t* console) {
 		font_char_size('i', &console->font, &fontw, NULL);
 	if(fontw == 0)
 		fontw = 8; //minimize width 
+	console->font_fixed = fontw;
 	return fontw;
 }
 

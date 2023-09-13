@@ -20,7 +20,8 @@ static uint32_t font_width(textview_t* textview) {
 		font_char_size('i', &textview->font, &fontw, NULL);
 	if(fontw == 0)
 		fontw = 8; //minimize width 
-	return fontw;
+	textview->font_fixed = fontw;
+	return textview->font_fixed;
 }
 
 static void tv_draw_char(textview_t* textview, graph_t* g, int32_t x, int32_t y, UNICODE16 c, int32_t *w) {
@@ -187,8 +188,6 @@ static void move_line(textview_t* textview) {
 
 	nline->prev = textview->content.tail;
 	textview->content.tail = nline;
-
-	to_last_line(textview);	
 }
 
 void textview_put_char(textview_t* textview, UNICODE16 c) {
