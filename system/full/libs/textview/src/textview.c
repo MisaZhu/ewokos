@@ -86,6 +86,7 @@ int32_t textview_init(textview_t* textview) {
 
 void textview_close(textview_t* textview) {
 	textview_clear(textview);
+	font_close(&textview->font);
 }
 
 static void to_last_line(textview_t* textview) {

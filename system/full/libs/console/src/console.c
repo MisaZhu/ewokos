@@ -21,7 +21,7 @@ int32_t console_init(console_t* console) {
 }
 
 void console_close(console_t* console) {
-	textview_clear(&console->textview);
+	textview_close(&console->textview);
 }
 
 void console_roll(console_t* console, int32_t rows) {
