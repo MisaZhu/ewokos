@@ -12,21 +12,19 @@ extern "C" {
 
 #define T_W 2 /*tab width*/
 
-static uint16_t _fontw = 0;
 static uint32_t font_width(textview_t* textview) {
-	if(_fontw != 0)
-		return _fontw;
-
-	font_char_size('i', &textview->font, &_fontw, NULL);
-	if(_fontw == 0)
-		_fontw = textview->font_size;
-	if(_fontw == 0)
-		_fontw = 8;
-	return _fontw;
+	if(textview->font_fixed == 0)
+		textview->font_fixed = textview->font_size/2;
+	uint16_t fontw = textview->font_fixed;
+	if(fontw == 0)
+		font_char_size('i', &textview->font, &fontw, NULL);
+	if(fontw == 0)
+		fontw = 8; //minimize width 
+	return fontw;
 }
 
 static void tv_draw_char(textview_t* textview, graph_t* g, int32_t x, int32_t y, UNICODE16 c, int32_t *w) {
-	if(textview->font_fixed > 0) {
+	if(textview->font_fixed > 0 && c < 128) {
 		graph_draw_char_font_fixed(g, x, y, c, &textview->font, textview->fg_color, textview->font_fixed, 0);
 		*w = textview->font_fixed;
 	}
@@ -84,7 +82,6 @@ int32_t textview_init(textview_t* textview) {
 	textview->bg_color = argb(0xff, 0x0, 0x0, 0x0);
 	textview->fg_color = argb(0xff, 0xaa, 0xaa, 0xaa);
 	textview->font.id = -1;
-	_fontw = 0;
 	memset(&textview->content, 0, sizeof(content_t));
 	return 0;
 }

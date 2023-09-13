@@ -12,21 +12,19 @@ extern "C" {
 
 #define T_W 2 /*tab width*/
 
-static uint16_t _fontw = 0;
 static uint32_t font_width(console_t* console) {
-	if(_fontw != 0)
-		return _fontw;
-
-	font_char_size('i', &console->font, &_fontw, NULL);
-	if(_fontw == 0)
-		_fontw = console->font_size;
-	if(_fontw == 0)
-		_fontw = 8;
-	return _fontw;
+	if(console->font_fixed == 0)
+		console->font_fixed = console->font_size/2;
+	uint16_t fontw = console->font_fixed;
+	if(fontw == 0)
+		font_char_size('i', &console->font, &fontw, NULL);
+	if(fontw == 0)
+		fontw = 8; //minimize width 
+	return fontw;
 }
 
 static void cons_draw_char(console_t* console, graph_t* g, int32_t x, int32_t y, UNICODE16 c, int32_t *w) {
-	if(console->font_fixed > 0) {
+	if(console->font_fixed > 0 && c < 128) {
 		graph_draw_char_font_fixed(g, x, y, c, &console->font, console->fg_color, console->font_fixed, 0);
 		*w = console->font_fixed;
 	}
@@ -82,7 +80,6 @@ int32_t console_init(console_t* console) {
 	console->bg_color = argb(0xff, 0x0, 0x0, 0x0);
 	console->fg_color = argb(0xff, 0xaa, 0xaa, 0xaa);
 	console->font.id = -1;
-	_fontw = 0;
 	memset(&console->content, 0, sizeof(content_t));
 	return 0;
 }
