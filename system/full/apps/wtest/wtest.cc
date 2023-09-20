@@ -8,15 +8,37 @@ using namespace Ewok;
 
 class MyWidget: public Widget {
 	font_t font;
+	bool down;
 
 protected:
 	void onRepaint(graph_t* g, grect_t* rect) {
-		graph_fill(g, rect->x, rect->y, rect->w, rect->h, 0xffff0000);
+		if(down)
+			graph_fill(g, rect->x, rect->y, rect->w, rect->h, 0xff222222);
+		else
+			graph_fill(g, rect->x, rect->y, rect->w, rect->h, 0xffdddddd);
+
 		graph_box(g, rect->x, rect->y, rect->w, rect->h, 0xffffffff);
-		graph_draw_text_font(g, rect->x, rect->y, "widget", &font, 0xff0000ff);
+
+		if(down)
+			graph_draw_text_font_align(g, rect->x, rect->y, rect->w, rect->h,
+					"Down!", &font, 0xffdddddd, FONT_ALIGN_CENTER);
+		else
+			graph_draw_text_font_align(g, rect->x, rect->y, rect->w, rect->h,
+					"Widget", &font, 0xff222222, FONT_ALIGN_CENTER);
 	}
+
+	bool onMouse(xevent_t* ev) {
+		if(ev->state == XEVT_MOUSE_DOWN)
+			down = true;
+		else if(ev->state == XEVT_MOUSE_UP)
+			down = false;
+		update();
+		return true;
+	}
+
 public:
 	MyWidget() {
+		down = false;
 		font_load("/data/fonts/system.ttf", 14, &font);
 	}
 

@@ -9,20 +9,19 @@ namespace Ewok {
 class WidgetWin;
 class WinWidget: public Container {
 	friend WidgetWin;
-protected:
 	XWin* xwin;
+protected:
 	void onRepaint(graph_t* g, grect_t* rect) {
 		(void)g;
 		(void)rect;
 		//graph_fill(g, rect->x, rect->y, rect->w, rect->h, 0xffffffff);
 	}
-public:
-	void repaintWin(void) {
-		if(xwin != NULL)
-			xwin->repaint();
+
+	XWin* getWin() {
+		return xwin;
 	}
 
-	void sendEvent(x_event_t* ev) {
+	void sendEvent(xevent_t* ev) {
 		onEvent(ev);
 	}
 };
@@ -38,6 +37,10 @@ protected:
 	void onResize(void) override {
 		widget.resizeTo(xwin->xinfo->wsr.w, xwin->xinfo->wsr.h);
 	}	
+
+	void onEvent(xevent_t* ev) {
+		widget.sendEvent(ev);
+	}
 public:
 	inline WidgetWin(void) {
 		widget.xwin = this;

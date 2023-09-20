@@ -281,6 +281,17 @@ void graph_draw_text_font(graph_t* g, int32_t x, int32_t y, const char* str,
 	free(out);
 }
 
+void graph_draw_text_font_align(graph_t* g, int32_t x, int32_t y, int32_t w, int32_t h,
+		const char* str, font_t* font, uint32_t color, uint32_t align) {
+	int32_t fw, fh;
+	font_text_size(str, font, &fw, &fh);
+	if((align & FONT_ALIGN_CENTER) != 0) {
+		x = x + (w-fw)/2;
+		y = y + (h-fh)/2;
+	}
+	graph_draw_text_font(g, x, y, str, font, color);
+}
+
 #ifdef __cplusplus
 }
 #endif

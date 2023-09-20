@@ -3,6 +3,7 @@
 
 #include <x++/XWin.h>
 #include <string.h>
+#include <sys/klog.h>
 
 namespace Ewok {
 
@@ -26,10 +27,25 @@ protected:
 	virtual void onResize() { }
 	virtual void onMove() { }
 
-	virtual bool onEvent(x_event_t* ev) { 
-		(void)ev;
+	virtual bool onMouse(xevent_t* ev) {  return false; }
+	virtual bool onKey(xevent_t* ev) {  return false; }
+	virtual bool onEvent(xevent_t* ev) { 
+		if(ev->type == XEVT_MOUSE) {
+			grect_t r;
+			getAbsRect(&r);
+			if(ev->value.mouse.x > r.x && ev->value.mouse.x < (r.x+r.w) &&
+					ev->value.mouse.y > r.y && ev->value.mouse.y < (r.y+r.h))
+				return onMouse(ev);
+		}
 		return false; 
 	}
+
+	virtual XWin* getWin() {
+		if(father == NULL)
+			return NULL;
+		return father->getWin();
+	}
+
 public:
 	inline Widget(void)  { 
 		dirty = true;
@@ -51,12 +67,11 @@ public:
 
 	inline void update() {
 		dirty = true;
-		Widget* ff = getForeFather();
-		if(ff != NULL)
-			ff->repaintWin();
+		XWin* win = getWin();
+		if(win != NULL)
+			win->repaint();
 	}
 
-	virtual void repaintWin(void) {};
 	virtual void repaint(graph_t* g, grect_t* grect) {
 		if(!dirty)
 			return;
@@ -113,6 +128,12 @@ public:
 			r->y += wd->rect.y;
 			wd = wd->father;
 		}
+
+		XWin* win = getWin();
+		if(win == NULL)
+			return;
+		r->x += win->getCWin()->xinfo->wsr.x;
+		r->y += win->getCWin()->xinfo->wsr.y;
 	}
 };
 

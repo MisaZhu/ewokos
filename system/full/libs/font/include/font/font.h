@@ -15,6 +15,9 @@ enum {
     FONT_DEV_GET
 };
 
+#define FONT_ALIGN_NONE    0x00
+#define FONT_ALIGN_CENTER  0x01
+
 typedef struct {
     int id;
     TTY_V2 max_size;
@@ -39,6 +42,8 @@ void graph_draw_char_font_fixed(graph_t* g, int32_t x, int32_t y, TTY_U32 c,
 		font_t* font, uint32_t color, TTY_U16 w, TTY_U16 h);
 void graph_draw_text_font(graph_t* g, int32_t x, int32_t y, const char* str,
 		font_t* font, uint32_t color);
+void graph_draw_text_font_align(graph_t* g, int32_t x, int32_t y, int32_t w, int32_t h,
+        const char* str, font_t* font, uint32_t color, uint32_t align);
 
 
 #ifdef __cplusplus
