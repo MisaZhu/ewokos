@@ -244,7 +244,8 @@ static void do_proc_exit(kevent_t* kev) {
 	PF->init(&data)->addi(&data, kev->data[0]);
 	int pid = get_ipc_serv(IPC_SERV_VFS);
 	if(pid > 0) {
-		ipc_call_wait(pid, VFS_PROC_EXIT, &data);
+		//ipc_call_wait(pid, VFS_PROC_EXIT, &data);
+		ipc_call(pid, VFS_PROC_EXIT, &data, NULL);
 	}
 
 	PF->clear(&data);
