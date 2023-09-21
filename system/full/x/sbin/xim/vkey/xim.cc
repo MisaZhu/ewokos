@@ -89,8 +89,9 @@ protected:
 	}
 
 	void doMouseEvent(xevent_t* ev) {
-		int x = ev->value.mouse.winx;
-		int y = ev->value.mouse.winy;
+		gpos_t pos = getInsidePos(ev->value.mouse.x, ev->value.mouse.y);
+		int x = pos.x;
+		int y = pos.y;
 		int at = get_at(x, y);
 		if(at < 0)
 			return;

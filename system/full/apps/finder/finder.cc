@@ -176,10 +176,11 @@ protected:
 	}
 
 	void mouseHandle(xevent_t* ev) {
+		gpos_t pos = getInsidePos(ev->value.mouse.x, ev->value.mouse.y);
 		int h = itemSize;
 		if(ev->state == XEVT_MOUSE_DOWN) {
 			mouse_last_y = ev->value.mouse.y;
-			int at = ev->value.mouse.winy / itemSize;
+			int at = pos.y / itemSize;
 			selected = at-1 + start;
 			repaint();
 			return;
@@ -198,7 +199,7 @@ protected:
 			}
 		}
 		else if(ev->state == XEVT_MOUSE_CLICK) {
-			int at = ev->value.mouse.winy / itemSize;
+			int at = pos.y / itemSize;
 			if(at == 0) {
 				upBack();
 				return;

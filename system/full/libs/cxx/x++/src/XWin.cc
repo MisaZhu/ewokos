@@ -146,6 +146,20 @@ void XWin::setDisplay(int index) {
 	xwin_set_display(xwin, index);
 }
 
+gpos_t XWin::getInsidePos(int32_t x, int32_t y) {
+	gpos_t pos;
+	pos.x = x - xwin->xinfo->wsr.x;
+	pos.y = y - xwin->xinfo->wsr.y;
+	return pos;
+}
+
+gpos_t XWin::getAbsPos(int32_t x, int32_t y) {
+	gpos_t pos;
+	pos.x = x + xwin->xinfo->wsr.x;
+	pos.y = y + xwin->xinfo->wsr.y;
+	return pos;
+}
+
 void XWin::setCWin(xwin_t* xw) {
 	xw->data = this;
 	xwin = xw;

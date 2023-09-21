@@ -62,6 +62,8 @@ public:
 	void moveTo(int x, int y);
 	void move(int dx, int dy);
 	void setDisplay(int index);
+	gpos_t getInsidePos(int32_t x, int32_t y);
+	gpos_t getAbsPos(int32_t x, int32_t y);
 };
 
 }

@@ -31,8 +31,7 @@ protected:
 	virtual bool onKey(xevent_t* ev) {  return false; }
 	virtual bool onEvent(xevent_t* ev) { 
 		if(ev->type == XEVT_MOUSE) {
-			grect_t r;
-			getAbsRect(&r);
+			grect_t r = getAbsRect();
 			if(ev->value.mouse.x > r.x && ev->value.mouse.x < (r.x+r.w) &&
 					ev->value.mouse.y > r.y && ev->value.mouse.y < (r.y+r.h))
 				return onMouse(ev);
@@ -85,9 +84,6 @@ public:
 		rect.w = w;
 		rect.h = h;
 		onResize();
-		update();
-		if(father)
-			father->update();
 	}
 
 	inline void resize(int dw, int dh) {
@@ -100,9 +96,6 @@ public:
 		rect.x = x;
 		rect.y = y;
 		onMove();
-		update();
-		if(father)
-			father->update();
 	}
 
 	inline void move(int dx, int dy) {
@@ -120,20 +113,38 @@ public:
 	
 	inline void getRect(grect_t* r) { memcpy(r, &rect, sizeof(grect_t)); }
 
-	inline void getAbsRect(grect_t* r) {
-		getRect(r);
+	inline grect_t getAbsRect() {
+		grect_t r;
+		getRect(&r);
 		Widget* wd = father;
 		while(wd != NULL) {
-			r->x += wd->rect.x;
-			r->y += wd->rect.y;
+			r.x += wd->rect.x;
+			r.y += wd->rect.y;
 			wd = wd->father;
 		}
 
 		XWin* win = getWin();
 		if(win == NULL)
-			return;
-		r->x += win->getCWin()->xinfo->wsr.x;
-		r->y += win->getCWin()->xinfo->wsr.y;
+			return r;
+		r.x += win->getCWin()->xinfo->wsr.x;
+		r.y += win->getCWin()->xinfo->wsr.y;
+		return r;
+	}
+
+	inline gpos_t getAbsPos(int32_t x, int32_t y) {
+		gpos_t ret;
+		grect_t r = getAbsRect();
+		ret.x = r.x + x;
+		ret.y = r.y + y;
+		return ret;
+	}
+
+	inline gpos_t getInsidePos(int32_t x, int32_t y) {
+		gpos_t ret;
+		grect_t r = getAbsRect();
+		ret.x = x - r.x;
+		ret.y = y - r.y;
+		return ret;
 	}
 };
 

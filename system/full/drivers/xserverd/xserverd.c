@@ -1023,9 +1023,6 @@ static void xwin_bg(x_t* x, xwin_t* win) {
 }
 
 static void mouse_xwin_handle(x_t* x, xwin_t* win, int pos, xevent_t* ev) {
-	ev->value.mouse.winx = ev->value.mouse.x - win->xinfo->wsr.x;
-	ev->value.mouse.winy = ev->value.mouse.y - win->xinfo->wsr.y;
-
 	if(ev->state ==  XEVT_MOUSE_DOWN) {
 		if(win != x->win_tail) {
 			xwin_top(x, win);
