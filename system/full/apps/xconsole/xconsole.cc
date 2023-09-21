@@ -167,7 +167,7 @@ static void loop(void* p) {
 	if(errno != EAGAIN) 
 		console->close();
 	else
-		usleep(3000);
+		usleep(5000);
 }
 
 static int run(int argc, char* argv[]) {
@@ -176,8 +176,8 @@ static int run(int argc, char* argv[]) {
 
 	int flags = fcntl(0, F_GETFL, 0);
 	fcntl(0, F_SETFL, flags | O_NONBLOCK);
-	flags = fcntl(1, F_GETFL, 0);
-	fcntl(1, F_SETFL, flags | O_NONBLOCK);
+	//flags = fcntl(1, F_GETFL, 0);
+	//fcntl(1, F_SETFL, flags | O_NONBLOCK);
 
 	XConsole xwin;
 	xwin.readConfig("/etc/x/xconsole.conf");
