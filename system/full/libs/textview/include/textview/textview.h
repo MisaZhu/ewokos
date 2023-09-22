@@ -28,6 +28,7 @@ typedef struct {
 typedef struct {
 	int32_t  font_size;
 	int32_t  font_fixed;
+	bool shadow;
 	font_t font;
 
 	uint32_t w;
@@ -37,6 +38,7 @@ typedef struct {
 
 	uint32_t bg_color;
 	uint32_t fg_color;
+	uint32_t shadow_color;
 	content_t content;
 } textview_t;
 

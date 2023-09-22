@@ -43,12 +43,13 @@ void MacWM::drawTitle(graph_t* g, xinfo_t* info, grect_t* r, bool top) {
 	getTitle(info, &rect);
 
 	int pw = (r->w-sz.w)/2;
+	int ph = (r->h-sz.h)/2;
 	graph_fill(g, r->x, r->y, r->w, rect.h, bg);//title box
 	if(top) {
 		drawTitlePattern(g, r->x, r->y, pw, r->h, fg);
 		drawTitlePattern(g, r->x+pw+sz.w, r->y, pw, r->h, fg);
 	}
-	graph_draw_text_font(g, r->x+pw, r->y+2, info->title, &font, fg);//title
+	graph_draw_text_font(g, r->x+pw, r->y+ph, info->title, &font, fg);//title
 }
 
 void MacWM::readConfig(void) {
