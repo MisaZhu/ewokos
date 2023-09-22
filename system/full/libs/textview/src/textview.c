@@ -217,7 +217,10 @@ void textview_put_char(textview_t* textview, UNICODE16 c, bool to_last) {
 	}
 
 	uint16_t cw;
-	font_char_size(c, &textview->font, &cw, NULL);
+	if(textview->font_fixed > 0 && c < 128)
+		cw = textview->font_fixed;
+	else
+		font_char_size(c, &textview->font, &cw, NULL);
 
 	if((textview->content.tail->size+2) >= textview->content.cols || 
 			(textview->content.tail->last_x+cw) >= textview->w)
@@ -225,7 +228,7 @@ void textview_put_char(textview_t* textview, UNICODE16 c, bool to_last) {
 
 	textview->content.tail->line[textview->content.tail->size] = c;
 	textview->content.tail->size++;
-	//textview->content.tail->last_x += cw;
+	textview->content.tail->last_x += cw;
 	if(c == '\n') {
 		move_line(textview, to_last);
 	}
