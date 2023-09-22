@@ -8,6 +8,8 @@
 #include <stddef.h>
 #include <kstring.h>
 
+#define IPC_BUFFER_SIZE 128
+
 int32_t proc_ipc_setup(context_t* ctx, uint32_t entry, uint32_t extra_data, uint32_t flags) {
 	(void)ctx;
 	proc_t* cproc = get_current_proc();
@@ -48,6 +50,11 @@ int32_t proc_ipc_do_task(context_t* ctx, proc_t* serv_proc, uint32_t core) {
 }
 
 ipc_task_t* proc_ipc_req(proc_t* serv_proc, int32_t client_pid, int32_t call_id, proto_t* data) {
+	if(queue_num(&serv_proc->space->ipc_server.tasks) >= IPC_BUFFER_SIZE) {
+		//printf("ipc server request buffer overflowed!\n");
+		return NULL;
+	}
+
 	_ipc_uid++;
 	ipc_task_t* ipc  = (ipc_task_t*)kmalloc(sizeof(ipc_task_t));
 	if(ipc == NULL)
@@ -65,7 +72,7 @@ ipc_task_t* proc_ipc_req(proc_t* serv_proc, int32_t client_pid, int32_t call_id,
 
 	if(serv_proc->space->ipc_server.ctask == NULL) 
 		serv_proc->space->ipc_server.ctask = ipc; //set current task
-	else
+	else 
 		queue_push(&serv_proc->space->ipc_server.tasks, ipc); // buffered
 	return ipc; 
 }

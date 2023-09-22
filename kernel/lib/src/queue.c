@@ -5,6 +5,7 @@
 
 void queue_init(queue_t* q) {
 	q->head = q->tail = NULL;
+	q->num = 0;
 }
 
 void queue_push(queue_t* q, void* data) {
@@ -20,6 +21,7 @@ void queue_push(queue_t* q, void* data) {
 		it->prev = q->tail;
 		q->tail = it;
 	}
+	q->num++;
 }
 
 void queue_push_head(queue_t* q, void* data) {
@@ -35,6 +37,7 @@ void queue_push_head(queue_t* q, void* data) {
 		it->next = q->head;
 		q->head = it;
 	}
+	q->num++;
 }
 
 void* queue_pop(queue_t* q) {
@@ -50,6 +53,8 @@ void* queue_pop(queue_t* q) {
 
 	void* ret = it->data;
 	kfree(it);
+	if(q->num > 0)
+		q->num--;
 	return ret;
 }
 
@@ -77,6 +82,8 @@ void queue_remove(queue_t* q, queue_item_t* it) {
 	if(it == q->tail)
 		q->tail = it->prev;
 	kfree(it);
+	if(q->num > 0)
+		q->num--;
 }
 
 void queue_clear(queue_t* q, free_func_t fr) {
@@ -89,8 +96,15 @@ void queue_clear(queue_t* q, free_func_t fr) {
 		it = next;
 	}
 	q->head = q->tail = NULL;
+	q->num = 0;
+}
+
+uint32_t queue_num(queue_t* q) {
+	if(q->head == NULL)
+		return 0;
+	return  q->num;
 }
 
 bool queue_is_empty(queue_t* q) {
-	return (q->head == NULL);
+	return (q->head == NULL || q->num == 0);
 }
