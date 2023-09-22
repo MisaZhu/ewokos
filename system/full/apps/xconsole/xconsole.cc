@@ -11,6 +11,7 @@
 #include <ttf/ttf.h>
 #include <sys/basic_math.h>
 #include <x++/X.h>
+#include <pthread.h>
 
 using namespace Ewok;
 
@@ -153,31 +154,29 @@ protected:
 	}
 };
 
-static void loop(void* p) {
+static bool _termniated = false;
+static void* thread_loop(void* p) {
 	XConsole* console = (XConsole*)p;
 
-	char buf[512];
-	int size = read(0, buf, 512);
-	if(size > 0) {
-		console->put(buf, size);
-		console->rollEnd();
-		console->repaint();
-		return;
+	while(!_termniated) {
+		char buf[512];
+		int size = read(0, buf, 512);
+		if(size > 0) {
+			console->put(buf, size);
+			console->rollEnd();
+			console->repaint();
+		}
+		else if(errno != EAGAIN) {
+			console->close();
+			break;
+		}
 	}
-	if(errno != EAGAIN) 
-		console->close();
-	else
-		usleep(5000);
+	return NULL;
 }
 
 static int run(int argc, char* argv[]) {
 	(void)argc;
 	(void)argv;
-
-	int flags = fcntl(0, F_GETFL, 0);
-	fcntl(0, F_SETFL, flags | O_NONBLOCK);
-	//flags = fcntl(1, F_GETFL, 0);
-	//fcntl(1, F_SETFL, flags | O_NONBLOCK);
 
 	XConsole xwin;
 	xwin.readConfig("/etc/x/xconsole.conf");
@@ -188,7 +187,13 @@ static int run(int argc, char* argv[]) {
 	x.open(&xwin, 64, 40, scr.size.w*3/4, scr.size.h*3/4, "xconsole", 0);
 	xwin.setVisible(true);
 
-	x.run(loop, &xwin);
+	pthread_t tid;
+	_termniated = false;
+	pthread_create(&tid, NULL, thread_loop, &xwin);
+
+	x.run(NULL, &xwin);
+	close(0);
+	_termniated = true;
 	return 0;
 }
 
