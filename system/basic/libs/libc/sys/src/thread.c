@@ -27,7 +27,7 @@ inline void thread_safe_set(int32_t* to, int32_t v) {
 	while(true) {
 		if(syscall2(SYS_SAFE_SET, (int32_t)to, v) == 0)
 			break;
-		sleep(0);
+		//sleep(0);
 	}
 }
 
