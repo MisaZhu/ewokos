@@ -57,9 +57,15 @@ int32_t proc_ipc_do_task(context_t* ctx, proc_t* serv_proc, uint32_t core) {
 	return 0;
 }
 
+static void ipc_free(ipc_task_t* ipc) {
+	proto_clear(&ipc->data);
+	kfree(ipc);
+}
+
 ipc_task_t* proc_ipc_req(proc_t* serv_proc, proc_t* client_proc, int32_t call_id, proto_t* data) {
 	if(queue_num(&serv_proc->space->ipc_server.tasks) >= IPC_BUFFER_SIZE) {
 		//printf("ipc server request buffer overflowed!\n");
+		//queue_clear(&serv_proc->space->ipc_server.tasks, ipc_free);
 		return NULL;
 	}
 
@@ -91,10 +97,9 @@ void proc_ipc_close(proc_t* serv_proc, ipc_task_t* ipc) {
 	if(ipc == NULL)
 		return;
 
-	proto_clear(&ipc->data);
 	if(serv_proc->space->ipc_server.ctask == ipc)
 		serv_proc->space->ipc_server.ctask = NULL;
-	kfree(ipc);
+	ipc_free(ipc);
 }
 
 void proc_ipc_clear(proc_t* serv_proc) {
@@ -103,7 +108,6 @@ void proc_ipc_clear(proc_t* serv_proc) {
 		ipc_task_t* ipc = (ipc_task_t*)queue_pop(&serv_proc->space->ipc_server.tasks);
 		if(ipc == NULL)
 			break;
-		proto_clear(&ipc->data);
-		kfree(ipc);
+		ipc_free(ipc);
 	}
 }
