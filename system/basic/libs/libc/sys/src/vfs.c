@@ -36,8 +36,14 @@ static int vfs_get_by_fd_raw(int fd, fsinfo_t* info) {
 	PF->clear(&in);
 
 	if(res == 0) {
-		if(info != NULL)
-			proto_read_to(&out, info, sizeof(fsinfo_t));
+		res = proto_read_int(&out); //res = node
+		if(res != 0) {
+			if(info != NULL)
+				proto_read_to(&out, info, sizeof(fsinfo_t));
+			res = 0;
+		}
+		else
+			res = -1;
 	}
 	PF->clear(&out);
 	return res;

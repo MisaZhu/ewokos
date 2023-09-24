@@ -585,7 +585,7 @@ static void do_vfs_get_by_fd(int pid, proto_t* in, proto_t* out) {
 		PF->addi(out, 0);
     return;
 	}
-	PF->add(out, gen_fsinfo(node), sizeof(fsinfo_t));
+	PF->addi(out, (int32_t)node)->add(out, gen_fsinfo(node), sizeof(fsinfo_t));
 }
 
 static void do_vfs_get_flags(int pid, proto_t* in, proto_t* out) {
