@@ -273,10 +273,16 @@ static void sys_ipc_call(context_t* ctx, int32_t serv_pid, int32_t call_id, prot
 	proc_t* client_proc = get_current_proc();
 	proc_t* serv_proc = proc_get(serv_pid);
 
-	if(serv_proc == NULL ||
-			client_proc->info.pid == serv_pid || //can't do self ipc
-			serv_proc->space->ipc_server.entry == 0) //no ipc service setup
+	if(client_proc->info.pid == serv_pid) { //can't do self ipc
+		//printf("ipc can't call self service (client: %d, server: %d, call: 0x%x\n", client_proc->info.pid, serv_pid, call_id);
 		return;
+	}
+
+	if(serv_proc == NULL ||
+			serv_proc->space->ipc_server.entry == 0) {//no ipc service setup
+		//printf("ipc not ready (client: %d, server: %d, call: 0x%x\n", client_proc->info.pid, serv_pid, call_id);
+		return;
+	}
 
 	if(serv_proc->space->ipc_server.disabled) {
 		ctx->gpr[0] = -1; // blocked if server disabled, should retry
@@ -296,7 +302,7 @@ static void sys_ipc_call(context_t* ctx, int32_t serv_pid, int32_t call_id, prot
 		serv_proc->space->interrupt.state = READY;
 	}
 
-	ipc_task_t* ipc = proc_ipc_req(serv_proc, client_proc->info.pid, call_id, data);
+	ipc_task_t* ipc = proc_ipc_req(serv_proc, client_proc, call_id, data);
 	if(ipc == NULL)
 		return;
 
