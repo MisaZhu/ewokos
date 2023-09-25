@@ -23,12 +23,25 @@ static uint32_t font_width(textview_t* textview) {
 
 static void tv_draw_char(textview_t* textview, graph_t* g, int32_t x, int32_t y, UNICODE16 c, int32_t *w) {
 	if(textview->font_fixed > 0 && c < 128) {
+		if(textview->shadow)
+			graph_draw_char_font_fixed(g, x+1, y+1, c, &textview->font, textview->shadow_color, textview->font_fixed, 0);
 		graph_draw_char_font_fixed(g, x, y, c, &textview->font, textview->fg_color, textview->font_fixed, 0);
 		*w = textview->font_fixed;
 	}
 	else {
+		if(textview->shadow)
+			graph_draw_char_font(g, x+1, y+1, c, &textview->font, textview->shadow_color, w, NULL); 
 		graph_draw_char_font(g, x, y, c, &textview->font, textview->fg_color, w, NULL); 
 	}
+}
+
+static uint16_t tv_char_width(textview_t* textview, UNICODE16 c) {
+	uint16_t cw;
+	if(textview->font_fixed > 0 && c < 128)
+		cw = textview->font_fixed;
+	else
+		font_char_size(c, &textview->font, &cw, NULL);
+	return cw;
 }
 
 static void clear_lines(line_t* head) {
@@ -74,6 +87,7 @@ int32_t textview_reset(textview_t* textview, uint32_t w, uint32_t h, bool to_las
 int32_t textview_init(textview_t* textview) {
 	textview->w = 0;
 	textview->h = 0;
+	textview->shadow = false;
 	textview->last_x = 0;
 	textview->last_y = 0;
 	textview->font_size = 8;
@@ -216,16 +230,14 @@ void textview_put_char(textview_t* textview, UNICODE16 c, bool to_last) {
 		return;
 	}
 
-	uint16_t cw;
-	font_char_size(c, &textview->font, &cw, NULL);
-
+	uint16_t cw = tv_char_width(textview, c);
 	if((textview->content.tail->size+2) >= textview->content.cols || 
 			(textview->content.tail->last_x+cw) >= textview->w)
 		move_line(textview, to_last);
 
 	textview->content.tail->line[textview->content.tail->size] = c;
 	textview->content.tail->size++;
-	//textview->content.tail->last_x += cw;
+	textview->content.tail->last_x += cw;
 	if(c == '\n') {
 		move_line(textview, to_last);
 	}

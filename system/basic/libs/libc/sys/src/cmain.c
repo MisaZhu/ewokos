@@ -6,6 +6,7 @@
 #include <sys/syscall.h>
 #include <sys/signal.h>
 #include <sys/proc.h>
+#include <procinfo.h>
 #include <unistd.h>
 
 #ifdef __cplusplus
@@ -13,7 +14,7 @@ extern "C" {
 #endif
 
 
-static char _cmd[1024];
+static char _cmd[PROC_INFO_CMD_MAX];
 static int _off_cmd;
 static const char* _argv0;
 
@@ -49,7 +50,7 @@ static char* read_cmain_arg(void) {
 }
 
 const char* cmain_get_work_dir(void) {
-	static char ret[1024];
+	static char ret[PROC_INFO_CMD_MAX];
 	int i = strlen(_argv0) - 1;
 	while(i >= 0) {
 		if(_argv0[i] == '/') {
@@ -72,7 +73,7 @@ static void init_cmd(void) {
 	_cmd[0] = 0;
 	_off_cmd = 0;
 	_argv0 = "";
-	syscall3(SYS_PROC_GET_CMD, getpid(), (int32_t)_cmd, 1023);
+	syscall3(SYS_PROC_GET_CMD, getpid(), (int32_t)_cmd, PROC_INFO_CMD_MAX);
 }
 
 FILE* stdin = NULL;
@@ -102,7 +103,7 @@ extern int __bss_start__;
 extern int __bss_end__;
 
 void _start(void) {
-	char* argv[ARG_MAX];
+	const char* argv[ARG_MAX];
 	int32_t argc = 0;
 
 	//clean bss befor cmain

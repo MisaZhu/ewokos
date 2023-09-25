@@ -36,8 +36,14 @@ static int vfs_get_by_fd_raw(int fd, fsinfo_t* info) {
 	PF->clear(&in);
 
 	if(res == 0) {
-		if(info != NULL)
-			proto_read_to(&out, info, sizeof(fsinfo_t));
+		res = proto_read_int(&out); //res = node
+		if(res != 0) {
+			if(info != NULL)
+				proto_read_to(&out, info, sizeof(fsinfo_t));
+			res = 0;
+		}
+		else
+			res = -1;
 	}
 	PF->clear(&out);
 	return res;
@@ -89,8 +95,13 @@ int vfs_new_node(fsinfo_t* info) {
 	PF->init(&out);
 	int res = ipc_call(get_vfsd_pid(), VFS_NEW_NODE, &in, &out);
 	PF->clear(&in);
-	if(res == 0)
-		proto_read_to(&out, info, sizeof(fsinfo_t));
+	if(res == 0) {
+		res = proto_read_int(&out); //res = node
+		if(res == 0)
+			proto_read_to(&out, info, sizeof(fsinfo_t));
+		else
+			res = -1;
+	}
 	PF->clear(&out);
 	return res;	
 }

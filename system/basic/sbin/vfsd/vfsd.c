@@ -585,7 +585,7 @@ static void do_vfs_get_by_fd(int pid, proto_t* in, proto_t* out) {
 		PF->addi(out, 0);
     return;
 	}
-	PF->add(out, gen_fsinfo(node), sizeof(fsinfo_t));
+	PF->addi(out, (int32_t)node)->add(out, gen_fsinfo(node), sizeof(fsinfo_t));
 }
 
 static void do_vfs_get_flags(int pid, proto_t* in, proto_t* out) {
@@ -611,6 +611,7 @@ static void do_vfs_set_flags(int pid, proto_t* in, proto_t* out) {
 }
 
 static void do_vfs_new_node(proto_t* in, proto_t* out) {
+	PF->addi(out, -1);
 	fsinfo_t info;
 	if(proto_read_to(in, &info, sizeof(fsinfo_t)) != sizeof(fsinfo_t))
 		return;
@@ -620,7 +621,7 @@ static void do_vfs_new_node(proto_t* in, proto_t* out) {
 	info.node = (uint32_t)node;
 	info.mount_pid = -1;
 	memcpy(&node->fsinfo, &info, sizeof(fsinfo_t));
-	PF->add(out, &info, sizeof(fsinfo_t));
+	PF->clear(out)->addi(out, 0)->add(out, &info, sizeof(fsinfo_t));
 }
 
 static void do_vfs_open(int32_t pid, proto_t* in, proto_t* out) {

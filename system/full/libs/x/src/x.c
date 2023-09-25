@@ -9,6 +9,7 @@
 #include <sys/vdevice.h>
 #include <sys/cmain.h>
 #include <sys/basic_math.h>
+#include <sys/proc.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <stdlib.h>
@@ -20,17 +21,23 @@
 extern "C" {
 #endif
 
-static int x_get_event(int xserv_pid, xevent_t* ev) {
+static int x_get_event(int xserv_pid, xevent_t* ev, bool block) {
 	proto_t out;
 	PF->init(&out);
-	if(dev_cntl_by_pid(xserv_pid, X_DCNTL_GET_EVT, NULL, &out) != 0)
+	if(dev_cntl_by_pid(xserv_pid, X_DCNTL_GET_EVT, NULL, &out) != 0) {
 		return -1;
+	}	
 
 	int res =  proto_read_int(&out);
 	if(res == 0) {
 		proto_read_to(&out, ev, sizeof(xevent_t));
 	}
 	PF->clear(&out);
+
+	if(res != 0 && block) {
+		proc_block(xserv_pid, 0);
+	}
+
 	return res;
 }
 
@@ -78,9 +85,10 @@ int  x_run(x_t* x, void* loop_data) {
 
 	//ipc_serv_run(handle, NULL, x, IPC_NON_BLOCK);
 
+	bool block = x->on_loop==NULL ? true:false;
 	xevent_t xev;
 	while(!x->terminated) {
-		int res = x_get_event(xserv_pid, &xev);
+		int res = x_get_event(xserv_pid, &xev, block);
 		if(res == 0) {
 			xwin_t* xwin = (xwin_t*)xev.win;
 			if(xwin != NULL) {
@@ -94,9 +102,10 @@ int  x_run(x_t* x, void* loop_data) {
 		else if(x->on_loop != NULL) {
 			x->on_loop(loop_data);
 		}
-		else {
+		/*else {
 			usleep(10000);
 		}
+		*/
 	}
 	dev_cntl_by_pid(xserv_pid, X_DCNTL_QUIT, NULL, NULL);
 	return 0;

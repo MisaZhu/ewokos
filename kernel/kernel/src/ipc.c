@@ -8,6 +8,8 @@
 #include <stddef.h>
 #include <kstring.h>
 
+#define IPC_BUFFER_SIZE 128
+
 int32_t proc_ipc_setup(context_t* ctx, uint32_t entry, uint32_t extra_data, uint32_t flags) {
 	(void)ctx;
 	proc_t* cproc = get_current_proc();
@@ -20,9 +22,17 @@ int32_t proc_ipc_setup(context_t* ctx, uint32_t entry, uint32_t extra_data, uint
 }
 
 uint32_t proc_ipc_fetch(struct st_proc* serv_proc) {
-	ipc_task_t* ipc = (ipc_task_t*)queue_pop(&serv_proc->space->ipc_server.tasks);
-	if(ipc == NULL) 
-		return 0;
+	ipc_task_t* ipc = NULL;
+	while(true) {
+		ipc = (ipc_task_t*)queue_pop(&serv_proc->space->ipc_server.tasks);
+		if(ipc == NULL) 
+			return 0;
+		proc_t* client_proc = proc_get(ipc->client_pid);
+		if(client_proc != NULL && ipc->client_uuid == client_proc->info.uuid) //available ipc
+			break;
+		kfree(ipc); //drop unvailable ipc
+	}
+
 	serv_proc->space->ipc_server.ctask = ipc;
 	return ipc->uid;
 }
@@ -47,7 +57,18 @@ int32_t proc_ipc_do_task(context_t* ctx, proc_t* serv_proc, uint32_t core) {
 	return 0;
 }
 
-ipc_task_t* proc_ipc_req(proc_t* serv_proc, int32_t client_pid, int32_t call_id, proto_t* data) {
+static void ipc_free(ipc_task_t* ipc) {
+	proto_clear(&ipc->data);
+	kfree(ipc);
+}
+
+ipc_task_t* proc_ipc_req(proc_t* serv_proc, proc_t* client_proc, int32_t call_id, proto_t* data) {
+	if(queue_num(&serv_proc->space->ipc_server.tasks) >= IPC_BUFFER_SIZE) {
+		//printf("ipc server request buffer overflowed!\n");
+		//queue_clear(&serv_proc->space->ipc_server.tasks, ipc_free);
+		return NULL;
+	}
+
 	_ipc_uid++;
 	ipc_task_t* ipc  = (ipc_task_t*)kmalloc(sizeof(ipc_task_t));
 	if(ipc == NULL)
@@ -57,7 +78,8 @@ ipc_task_t* proc_ipc_req(proc_t* serv_proc, int32_t client_pid, int32_t call_id,
 	proto_init(&ipc->data);
 	ipc->uid = _ipc_uid;
 	ipc->state = IPC_BUSY;
-	ipc->client_pid = client_pid;
+	ipc->client_pid = client_proc->info.pid;
+	ipc->client_uuid = client_proc->info.uuid;
 	ipc->call_id = call_id;
 	if(data != NULL) {
 		proto_copy(&ipc->data, data->data, data->size); 
@@ -65,7 +87,7 @@ ipc_task_t* proc_ipc_req(proc_t* serv_proc, int32_t client_pid, int32_t call_id,
 
 	if(serv_proc->space->ipc_server.ctask == NULL) 
 		serv_proc->space->ipc_server.ctask = ipc; //set current task
-	else
+	else 
 		queue_push(&serv_proc->space->ipc_server.tasks, ipc); // buffered
 	return ipc; 
 }
@@ -75,10 +97,9 @@ void proc_ipc_close(proc_t* serv_proc, ipc_task_t* ipc) {
 	if(ipc == NULL)
 		return;
 
-	proto_clear(&ipc->data);
 	if(serv_proc->space->ipc_server.ctask == ipc)
 		serv_proc->space->ipc_server.ctask = NULL;
-	kfree(ipc);
+	ipc_free(ipc);
 }
 
 void proc_ipc_clear(proc_t* serv_proc) {
@@ -87,7 +108,6 @@ void proc_ipc_clear(proc_t* serv_proc) {
 		ipc_task_t* ipc = (ipc_task_t*)queue_pop(&serv_proc->space->ipc_server.tasks);
 		if(ipc == NULL)
 			break;
-		proto_clear(&ipc->data);
-		kfree(ipc);
+		ipc_free(ipc);
 	}
 }

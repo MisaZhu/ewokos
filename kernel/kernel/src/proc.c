@@ -854,6 +854,13 @@ proc_t* proc_get_proc(proc_t* proc) {
 	return NULL;
 }
 
+int32_t get_proc_pid(int32_t pid) {
+	proc_t* p = proc_get_proc(proc_get(pid));
+	if(p == NULL)
+		return pid;
+	return p->info.pid;
+}
+
 proc_t* kfork_core_halt(uint32_t core) {
 	proc_t* cproc = &_proc_table[0];
 	proc_t* child = kfork_raw(NULL, PROC_TYPE_PROC, cproc);
