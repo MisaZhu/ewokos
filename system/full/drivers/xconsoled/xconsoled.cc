@@ -85,6 +85,10 @@ public:
 		if(v[0] != 0) 
 			font_size = atoi(v);
 		console.textview.font_size = font_size;
+
+		v = sconf_get(sconf, "font_fixed");
+		if(v[0] != 0) 
+			console.textview.font_fixed = atoi(v);
 		
 		v = sconf_get(sconf, "auto_hide");
 		if(v[0] != 0) 
