@@ -11,15 +11,6 @@
 
 static int _x_pid = -1;
 
-#define KEY_V_UP        0x1
-#define KEY_V_DOWN      0x2
-#define KEY_V_LEFT      0x4
-#define KEY_V_RIGHT     0x8
-#define KEY_V_PRESS     0x10
-#define KEY_V_1         0x20
-#define KEY_V_2         0x40
-#define KEY_V_3         0x80
-
 #define JOY_STEP         3 
 
 static bool _prs_down = false;
@@ -39,23 +30,23 @@ static void joy_2_mouse(int key, int8_t* mv) {
 		
 	mv[0] = mv[1] = mv[2] = 0;
 	switch(key) {
-	case KEY_V_UP:
+	case JOYSTICK_UP:
 		mv[2] -= (_j_y_rev ? -JOY_STEP:JOY_STEP) * j_times;
 		return;
-	case KEY_V_DOWN:
+	case JOYSTICK_DOWN:
 		mv[2] += (_j_y_rev ? -JOY_STEP:JOY_STEP) * j_times;
 		return;
-	case KEY_V_LEFT:
+	case JOYSTICK_LEFT:
 		mv[1] -= (_j_x_rev ? -JOY_STEP:JOY_STEP) * j_times;
 		return;
-	case KEY_V_RIGHT:
+	case JOYSTICK_RIGHT:
 		mv[1] += (_j_x_rev ? -JOY_STEP:JOY_STEP) * j_times;
 		return;
-	case KEY_V_PRESS:
-		if(!_prs_down) {
+	case JOYSTICK_PRESS:
+		//if(!_prs_down) {
 			mv[0] = 2;
 			_prs_down = true;
-		}
+		//}
 		return;
 	}	
 }
@@ -123,10 +114,14 @@ int main(int argc, char** argv) {
 
 	while(true) {
 		if(_x_pid > 0) {
-			char v;
-			int rd = read(fd, &v, 1);
-			if(rd == 1) {
-				input(v);
+			char v[4];
+			int rd = read(fd, &v, 4);
+			if(rd > 0) {
+				for(int i=0;i < rd; i++)
+					input(v[i]);
+			}
+			else {
+				input(0);
 			}
 			usleep(10000);
 		}

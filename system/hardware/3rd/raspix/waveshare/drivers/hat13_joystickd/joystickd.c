@@ -4,6 +4,7 @@
 #include <string.h>
 #include <sys/vdevice.h>
 #include <sys/syscall.h>
+#include <sys/keydef.h>
 #include <arch/bcm283x/gpio.h>
 
 #define KEY_UP_PIN      6
@@ -15,14 +16,9 @@
 #define KEY2_PIN        20
 #define KEY3_PIN        16
 
-#define KEY_V_UP        0x1
-#define KEY_V_DOWN      0x2
-#define KEY_V_LEFT      0x4
-#define KEY_V_RIGHT     0x8
-#define KEY_V_PRESS     0x10
-#define KEY_V_1         0x20
-#define KEY_V_2         0x40
-#define KEY_V_3         0x80
+#define JOYSTICK_1         0x20
+#define JOYSTICK_2         0x40
+#define JOYSTICK_3         0x80
 
 static int joystick_read(int fd, int from_pid, fsinfo_t* info,
 		void* buf, int size, int offset, void* p) {
@@ -41,19 +37,19 @@ static int joystick_read(int fd, int from_pid, fsinfo_t* info,
 		return 1;
 
 	if(bcm283x_gpio_read(KEY_UP_PIN) == 0)
-		*rd |= KEY_V_UP;
+		*rd |= JOYSTICK_UP;
 	if(bcm283x_gpio_read(KEY_DOWN_PIN) == 0)
-		*rd |= KEY_V_DOWN;
+		*rd |= JOYSTICK_DOWN;
 	if(bcm283x_gpio_read(KEY_LEFT_PIN) == 0)
-		*rd |= KEY_V_LEFT;
+		*rd |= JOYSTICK_LEFT;
 	if(bcm283x_gpio_read(KEY_RIGHT_PIN) == 0)
-		*rd |= KEY_V_RIGHT;
+		*rd |= JOYSTICK_RIGHT;
 	if(bcm283x_gpio_read(KEY_PRESS_PIN) == 0)
-		*rd |= KEY_V_PRESS;
+		*rd |= JOYSTICK_PRESS;
 	if(bcm283x_gpio_read(KEY1_PIN) == 0)
-		*rd |= KEY_V_1;
+		*rd |= JOYSTICK_1;
 	if(bcm283x_gpio_read(KEY2_PIN) == 0)
-		*rd |= KEY_V_2;
+		*rd |= JOYSTICK_2;
 	return 1;
 }
 
