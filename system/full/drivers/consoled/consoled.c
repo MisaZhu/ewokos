@@ -66,6 +66,10 @@ static int32_t read_config(fb_console_t* console, const char* fname) {
 		font_size = atoi(v);
 	console->console.textview.font_size = font_size;
 
+	v = sconf_get(conf, "font_fixed");
+	if(v[0] != 0) 
+		console->console.textview.font_fixed = atoi(v);
+
 	v = sconf_get(conf, "font");
 	if(v[0] != 0) 
 		font_fname = v;
