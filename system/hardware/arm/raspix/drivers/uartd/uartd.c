@@ -10,10 +10,8 @@
 #include <sys/mmio.h>
 #include <sys/proc.h>
 #include <sys/ipc.h>
-#include <sys/interrupt.h>
 #include <arch/bcm283x/mini_uart.h>
 #include <arch/bcm283x/pl011_uart.h>
-#include <sys/interrupt.h>
 
 static charbuf_t _TxBuf;
 static charbuf_t _RxBuf;
@@ -66,11 +64,10 @@ static int uart_write(int fd, int from_pid, fsinfo_t* info,
 		return bcm283x_pl011_uart_write(buf, size);
 }
 
-static void interrupt_handle(uint32_t interrupt, uint32_t data) {
-	(void)interrupt;
-	(void)data;
+static int loop(void* p) {
+	(void)p;
 	char c;
-
+	ipc_disable();
 	if(_mini_uart) {
 		while(bcm283x_mini_uart_ready_to_recv() == 0){
 			c = bcm283x_mini_uart_recv();
@@ -83,14 +80,9 @@ static void interrupt_handle(uint32_t interrupt, uint32_t data) {
 			charbuf_push(&_RxBuf, c, true);
 		}
 	}
-
-	/*if(bcm283x_mini_uart_ready_to_send() == 0){
-		if( charbuf_pop(&_TxBuf, &c) == 0){
-			bcm283x_mini_uart_send(c);
-		}
-	}
-	*/
-	sys_interrupt_end();
+	ipc_enable();
+	usleep(10000);
+	return 0;
 }
 
 int main(int argc, char** argv) {
@@ -115,8 +107,8 @@ int main(int argc, char** argv) {
 
 	dev.read = uart_read;
 	dev.write = uart_write;
+	dev.loop_step = loop;
 
-	sys_interrupt_setup(SYS_INT_TIMER0, interrupt_handle, 0);
 	device_run(&dev, mnt_point, FS_TYPE_CHAR);
 	return 0;
 }
