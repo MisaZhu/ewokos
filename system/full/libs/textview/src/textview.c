@@ -103,27 +103,28 @@ void textview_close(textview_t* textview) {
 	font_close(&textview->font);
 }
 
-static void to_last_line(textview_t* textview) {
+static line_t* to_last_start(textview_t* textview) {
 	line_t* l = textview->content.tail;
 	for(int i=1; i<textview->content.rows; i++) {
 		if(l->prev == NULL)
 			break;
 		l = l->prev;
 	}
-	textview->content.start = l;
+	return l;
 }
 
 void textview_roll(textview_t* textview, int32_t rows) {
 	if(rows > 0) {//forward
+		line_t* stop = to_last_start(textview);
 		line_t* l = textview->content.start;
 		while(rows >= 0) {
-			if(l == NULL)
+			if(l == NULL || l == stop)
 				break;
 			l = l->next;
 			rows--;
 		}
 		if(l == NULL)
-			to_last_line(textview);
+			textview->content.start = stop;
 		else
 			textview->content.start = l;
 		return;
@@ -202,7 +203,7 @@ static void move_line(textview_t* textview, bool to_last) {
 	textview->content.tail = nline;
 
 	if(to_last)
-		to_last_line(textview);
+		textview->content.start = to_last_start(textview);
 }
 
 void textview_put_char(textview_t* textview, UNICODE16 c, bool to_last) {
