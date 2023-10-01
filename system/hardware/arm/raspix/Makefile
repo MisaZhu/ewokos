@@ -8,18 +8,25 @@ all: basic_sys
 
 include ../make.inc
 
-extra: basic_sys extra_sys
+extra: extra_sys
+	@echo "all done."
+
+full: full_sys
 	@echo "all done."
 
 basic_sys: kernel_heads 
 	mkdir -p $(TARGET_DIR)/drivers/raspix
 	cd libs;make
 	cd $(ROOT_DIR)/basic;make
+	cd drivers;make basic_sys
+	@cp -r etcs/qemu/basic/* ${TARGET_DIR}/etc
+
+full_sys: basic_sys 
 	cd $(ROOT_DIR)/full;make
-	cd drivers;make
+	cd drivers;make full_sys
 	@cp -r etcs/qemu/full/* ${TARGET_DIR}/etc
 
-extra_sys:
+extra_sys: full_sys
 	cd $(ROOT_DIR)/extra;make
 
 clean:

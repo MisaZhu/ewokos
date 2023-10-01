@@ -8,24 +8,33 @@ all: basic_sys
 
 include ../make.inc
 
-extra: basic_sys extra_sys
+extra: extra_sys
+	@echo "all done."
+
+full: full_sys
 	@echo "all done."
 
 basic_sys: kernel_heads 
 	mkdir -p $(TARGET_DIR)/drivers/versatilepb
 	cd libs;make
 	cd $(ROOT_DIR)/basic;make
-	cd $(ROOT_DIR)/full;make
-	cd drivers;make
-	cp -r etc $(TARGET_DIR)/
+	cd drivers;make basic_sys
+	@cp -r etc/basic/* ${TARGET_DIR}/etc
 
-extra_sys:
+full_sys: basic_sys 
+	cd $(ROOT_DIR)/full;make
+	cd drivers;make full_sys
+	@cp -r etc/full/* ${TARGET_DIR}/etc
+
+extra_sys: full_sys
 	cd $(ROOT_DIR)/extra;make
 
 clean:
 	cd libs;make clean
 	cd drivers;make clean
 	cd $(ROOT_DIR)/full;make clean
+	cd $(ROOT_DIR)/basic;make clean
+	cd $(ROOT_DIR)/extra;make clean
 	rm -fr $(ROOT_DIR)/build
 
 run:
