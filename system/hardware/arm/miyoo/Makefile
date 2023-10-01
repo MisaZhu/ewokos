@@ -13,7 +13,7 @@ extra: basic_sys extra_sys
 
 basic_sys: kernel_heads 
 	mkdir -p $(TARGET_DIR)/drivers/miyoo
-	cd libs;make
+	cd libs;make clean;make
 	cd $(ROOT_DIR)/basic;make
 	cd $(ROOT_DIR)/full;make
 	cd drivers;make

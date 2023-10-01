@@ -19,7 +19,7 @@ full: full_sys
 
 basic_sys: kernel_heads 
 	mkdir -p $(TARGET_DIR)/drivers/versatilepb
-	cd libs;make
+	cd libs;make clean;make
 	cd $(ROOT_DIR)/basic;make
 	cd drivers;make basic_sys
 	@cp -r etc/basic/* ${TARGET_DIR}/etc
