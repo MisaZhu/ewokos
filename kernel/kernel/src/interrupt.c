@@ -78,7 +78,7 @@ int32_t interrupt_setup(proc_t* cproc, uint32_t interrupt, uint32_t entry, uint3
 	return 0;
 }
 
-static int32_t interrupt_send_raw(context_t* ctx, uint32_t interrupt,  interrupt_t* intr) {
+static int32_t interrupt_send_raw(context_t* ctx, uint32_t interrupt,  interrupt_t* intr, bool disable_intr) {
 	if(intr->uuid <= 0 || intr->entry == 0)
 		return -1;
 
@@ -95,7 +95,7 @@ static int32_t interrupt_send_raw(context_t* ctx, uint32_t interrupt,  interrupt
 	proc->space->interrupt.entry = intr->entry;
 	proc->space->interrupt.data = intr->data;
 	proc->space->interrupt.state = INTR_STATE_START;
-	if(interrupt != SYS_INT_SOFT)
+	if(disable_intr)
 		irq_disable_cpsr(&proc->ctx); //disable interrupt on proc
 
 	proc_switch_multi_core(ctx, proc, cproc->info.core);
@@ -116,7 +116,7 @@ int32_t  interrupt_send(context_t* ctx, uint32_t interrupt) {
 	interrupt_t* intr = fetch_next(interrupt);
 	if(intr == NULL)
 		return -1;
-	return interrupt_send_raw(ctx, interrupt, intr);
+	return interrupt_send_raw(ctx, interrupt, intr, true);
 }
 
 int32_t  interrupt_soft_send(context_t* ctx, int32_t to_pid, uint32_t entry, uint32_t data) {
@@ -125,7 +125,7 @@ int32_t  interrupt_soft_send(context_t* ctx, int32_t to_pid, uint32_t entry, uin
 	intr.entry = entry;
 	intr.uuid = proc->info.uuid;
 	intr.data = data;
-	return interrupt_send_raw(ctx, SYS_INT_SOFT, &intr);
+	return interrupt_send_raw(ctx, SYS_INT_SOFT, &intr, false);
 }
 
 void interrupt_end(context_t* ctx) {
@@ -134,6 +134,7 @@ void interrupt_end(context_t* ctx) {
 	proc_wakeup(cproc->info.pid, (uint32_t)&cproc->space->interrupt);
 
 	if(cproc->info.state == UNUSED || cproc->info.state == ZOMBIE) {
+		irq_enable_cpsr(&cproc->ctx); //enable interrupt on proc
 		schedule(ctx);
 		return;
 	}
@@ -147,10 +148,10 @@ void interrupt_end(context_t* ctx) {
 	}
 
 	if(interrupt != SYS_INT_SOFT) {
-		irq_enable_cpsr(&cproc->ctx); //enable interrupt on proc
 		interrupt_t* intr = fetch_next(interrupt);
 		if(intr != NULL)
-			interrupt_send_raw(ctx, interrupt, intr);
+			interrupt_send_raw(ctx, interrupt, intr, false);
 	}
+	irq_enable_cpsr(&cproc->ctx); //enable interrupt on proc
 	schedule(ctx);
 }
