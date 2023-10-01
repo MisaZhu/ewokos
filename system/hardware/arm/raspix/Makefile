@@ -3,10 +3,13 @@ BUILD_DIR = $(ROOT_DIR)/build
 TARGET_DIR = $(BUILD_DIR)/rootfs
 
 
-all: basic_sys
+all: full
 	@echo "all done."
 
 include ../make.inc
+
+basic: basic_sys
+	@echo "all done."
 
 extra: extra_sys
 	@echo "all done."
