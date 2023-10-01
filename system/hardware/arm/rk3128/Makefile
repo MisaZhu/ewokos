@@ -13,7 +13,8 @@ extra: basic_sys extra_sys
 
 basic_sys: kernel_heads 
 	mkdir -p $(TARGET_DIR)/drivers/rk3128
-	cd libs;make clean;make
+	rm -f $(BUILD_DIR)/lib/libbsp.a
+	cd libs;make
 	cd $(ROOT_DIR)/basic;make
 	cd $(ROOT_DIR)/full;make
 	cd drivers;make

@@ -19,7 +19,8 @@ full: full_sys
 
 basic_sys: kernel_heads 
 	mkdir -p $(TARGET_DIR)/drivers/raspix
-	cd libs;make clean;make
+	rm -f $(BUILD_DIR)/lib/libbsp.a
+	cd libs;make
 	cd $(ROOT_DIR)/basic;make
 	cd drivers;make basic_sys
 	@cp -r etcs/qemu/basic/* ${TARGET_DIR}/etc
