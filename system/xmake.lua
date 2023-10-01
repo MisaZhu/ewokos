@@ -145,7 +145,7 @@ target("system")
 
         if not os.exists(rootfs_dir) then
             os.mkdir(rootfs_dir)
-            os.run("cp -rf %s/data %s", system_dir, rootfs_dir)
+            os.run("cp -rf %s/full/data %s", system_dir, rootfs_dir)
             os.run("mkdir -p %s/dev", rootfs_dir)
             os.run("mkdir -p %s/home/root", rootfs_dir)
         end
