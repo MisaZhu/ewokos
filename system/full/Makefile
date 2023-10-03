@@ -10,6 +10,7 @@ mkdirs:
 	@mkdir -p ${TARGET_DIR}/sbin/x
 	@mkdir -p ${TARGET_DIR}/bin/x
 	@cp -r data ${TARGET_DIR}
+	@cp -r etc ${TARGET_DIR}
 
 extra_libs:
 	cd libs; make
