@@ -12,8 +12,8 @@ $
 /bin/rundev /drivers/ramfsd               /tmp
 /bin/rundev /drivers/proc/sysinfod        /proc/sysinfo
 /bin/rundev /drivers/proc/stated          /proc/state
-#/bin/rundev /drivers/miyoo/gpio_joykeybd   /dev/joykeyb
-/bin/rundev /drivers/miyoo/gpio_joystickd   /dev/joystick
+/bin/rundev /drivers/miyoo/gpio_joykeybd   /dev/joykeyb
+#/bin/rundev /drivers/miyoo/gpio_joystickd   /dev/joystick
 /bin/rundev /drivers/miyoo/audctrl        /dev/sound
 
 /bin/rundev /drivers/xserverd             /dev/x
@@ -22,8 +22,8 @@ $
 #$
 
 
-#@/sbin/x/xim_none               /dev/joykeyb &
-@/sbin/x/xjoystickd /dev/joystick &
+@/sbin/x/xim_none               /dev/joykeyb &
+#@/sbin/x/xjoystickd /dev/joystick &
 @/sbin/x/xim_vkey 400 120&
 @/bin/x/launcher &
 @/bin/session &
