@@ -117,13 +117,16 @@ static int keyb_read(int fd, int from_pid, fsinfo_t* info,
 	return 1;
 }
 
-static void interrupt_handle(void) {
+static int loop(void* p) {
+	(void)p;
 	uint8_t key_scode = get8(KEYBOARD_BASE+KDATA);
 	char c = keyb_handle(key_scode);
 	if(c != 0) {
 		charbuf_push(&_buffer, c, true);
 		proc_wakeup(0);
 	}
+	usleep(10000);
+	return 0;
 }
 
 int main(int argc, char** argv) {
@@ -136,8 +139,8 @@ int main(int argc, char** argv) {
 	memset(&dev, 0, sizeof(vdevice_t));
 	strcpy(dev.name, "keyb");
 	dev.read = keyb_read;
+	dev.loop_step = loop;
 
-	timer_set(5000, interrupt_handle);
 	device_run(&dev, mnt_point, FS_TYPE_CHAR);
 	return 0;
 }

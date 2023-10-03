@@ -116,11 +116,10 @@ static void init_stdio(void) {
 }
 
 static void switch_root(void) {
-	run_init("/etc/init.rd");
 	run_init("/etc/arch.rd");
-	run_init("/etc/system.rd");
+	run_init("/etc/init.rd");
 	init_stdio();
-	run_init("/etc/profile.rd");
+	run_init("/etc/system.rd");
 }
 
 static void halt(void) {
