@@ -119,7 +119,7 @@ int32_t gets(int fd, str_t* buf) {
 		else {
 			if(buf->len == 0 && (c == '@' || c == '#'))
 				echo = false;
-			if(echo && !_initrd && _stdio_inited) 
+			if(echo && !_initrd) 
 				putch(c);
 			if(c == '\r' || c == '\n')
 				break;

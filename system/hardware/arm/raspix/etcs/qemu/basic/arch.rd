@@ -1,0 +1,1 @@
+/bin/rundev /drivers/raspix/uartd         /dev/tty0

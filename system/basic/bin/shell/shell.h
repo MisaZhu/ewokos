@@ -3,8 +3,6 @@
 
 #include <sys/mstr.h>
 
-extern bool _stdio_inited;
-extern bool _console_inited;
 extern bool _initrd;
 extern bool _terminated;
 
