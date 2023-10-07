@@ -1,10 +1,5 @@
 include ../../../../make.rule
 
-ifeq ($(NEON),yes)
-CFLAGS += -DNEON_ENABLE
-CXXFLAGS += -DNEON_ENABLE
-endif
-
 BUILD_DIR = ../../../../build
 TARGET_DIR = $(BUILD_DIR)/rootfs
 
