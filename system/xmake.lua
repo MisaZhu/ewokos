@@ -40,8 +40,8 @@ function set_toolchain(arch)
         add_cflags("-mcmodel=medany -fno-optimize-sibling-calls -mstrict-align  -fpie -fno-stack-protector")
     else
         set_toolchains("arm-none-eabi")
-        add_cflags(  "-marm -msoft-float -mapcs-frame -std=c99")
-        add_cxxflags("-marm -msoft-float -mapcs-frame -std=c++11")
+        add_cflags(  "-marm -mfloat-abi=softfp  -mapcs-frame -std=c99")
+        add_cxxflags("-marm -mfloat-abi=softfp  -mapcs-frame -std=c++11")
     end
 
     add_cflags(

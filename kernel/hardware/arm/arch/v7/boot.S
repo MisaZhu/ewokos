@@ -59,6 +59,7 @@ core0:
 	msr cpsr, #0xD3             @ enter SVC mode with IRQ and FIQ interrupts disabled
 	ldr sp, = _svc_stack        @ initialise SVC mode stack
 
+	bl _enable_neon
 	bl _kernel_entry_c
 	bl halt
 
@@ -101,6 +102,7 @@ slave_core:                     @ 1-0xff cores
 	ldr sp, = _svc_stack        @ initialise SVC mode stack
 	sub sp, r0
 	
+	bl _enable_neon
 	bl _slave_kernel_entry_c
 	bl halt
 #endif
