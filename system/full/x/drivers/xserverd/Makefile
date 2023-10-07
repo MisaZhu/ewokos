@@ -1,8 +1,8 @@
 include ../../../../make.rule
 
 ifeq ($(NEON),yes)
-CFLAGS += -DNEON_ENABLE -mfpu=neon-vfpv4
-CXXFLAGS += -DNEON_ENABLE -mfpu=neon-vfpv4
+CFLAGS += -DNEON_ENABLE
+CXXFLAGS += -DNEON_ENABLE
 endif
 
 BUILD_DIR = ../../../../build
