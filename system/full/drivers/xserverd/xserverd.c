@@ -222,7 +222,7 @@ static int draw_win(x_t* xp, xwin_t* win) {
 	graph_t* g = win->g_buf;
 	if(g != NULL) {
 		if((win->xinfo->style & X_STYLE_ALPHA) != 0) {
-			graph_blt_alpha(g, 0, 0, 
+			graph_blt_alpha_neon(g, 0, 0, 
 					win->xinfo->wsr.w,
 					win->xinfo->wsr.h,
 					display->g,
@@ -232,7 +232,7 @@ static int draw_win(x_t* xp, xwin_t* win) {
 					win->xinfo->wsr.h, 0xff);
 		}
 		else {
-			graph_blt(g, 0, 0, 
+			graph_blt_neon(g, 0, 0, 
 						win->xinfo->wsr.w,
 						win->xinfo->wsr.h,
 						display->g,

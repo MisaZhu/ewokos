@@ -77,6 +77,11 @@ ARCH_OBJS += \
 	$(ARCH_DIR)/common/src/arm32_aeabi_divmod.o \
 	$(ARCH_DIR)/common/src/arm32_aeabi_ldivmod.o
 
+ifeq ($(ARCH),v7)
+	ARCH_OBJS += $(ARCH_DIR)/$(ARCH)/neon.o
+endif
+
+
 
 LIB_GRAPH_DIR=$(SRC_DIR)/lib/graph
 LIB_GRAPH_OBJS = $(LIB_GRAPH_DIR)/src/graph.o \

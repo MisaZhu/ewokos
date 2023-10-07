@@ -102,7 +102,12 @@ void     graph_blt(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_t sh,
 			graph_t* dst, int32_t dx, int32_t dy, int32_t dw, int32_t dh);
 void     graph_blt_alpha(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_t sh,
 			graph_t* dst, int32_t dx, int32_t dy, int32_t dw, int32_t dh, uint8_t alpha);
-	
+
+void     graph_blt_neon(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_t sh,
+			graph_t* dst, int32_t dx, int32_t dy, int32_t dw, int32_t dh);
+void     graph_blt_alpha_neon(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_t sh,
+			graph_t* dst, int32_t dx, int32_t dy, int32_t dw, int32_t dh, uint8_t alpha);	
+			
 bool     check_in_rect(int32_t x, int32_t y, grect_t* rect);
 
 graph_t* graph_from_fb(int fd, int *dma_id);

@@ -8,7 +8,8 @@ ARCH=arm
 
 CFLAGS = -Wstrict-prototypes \
         -marm \
-         -Wall -Wextra -msoft-float -fPIC -mapcs-frame \
+		-mfloat-abi=softfp -mfpu=neon-vfpv4 \
+         -Wall -Wextra -fPIC -mapcs-frame \
         -fno-builtin-printf \
         -fno-builtin-stat \
         -fno-builtin-memset \
@@ -26,7 +27,8 @@ CFLAGS = -Wstrict-prototypes \
         -std=c99
 
 CXXFLAGS = -marm \
-        -pedantic -Wall -Wextra -msoft-float -fPIC -mapcs-frame \
+		-mfloat-abi=softfp -mfpu=neon-vfpv4 \
+        -pedantic -Wall -Wextra -fPIC -mapcs-frame \
         -fno-builtin-printf \
         -fno-builtin-memset \
         -fno-builtin-snprintf \
