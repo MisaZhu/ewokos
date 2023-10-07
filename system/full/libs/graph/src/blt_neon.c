@@ -195,7 +195,7 @@ inline void graph_blt_neon(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int
 		// for(; sx < ex; sx++, dx++) {
 		// 	dst->buffer[offset_d + dx] = src->buffer[offset_r + sx];
 		// }
-		memcpy(dst->buffer[offset_d], src->buffer[offset_r], (ex-sx)*4);
+		memcpy(&dst->buffer[offset_d]+dx, &src->buffer[offset_r], (ex-sx)*4);
 	}
 }
 

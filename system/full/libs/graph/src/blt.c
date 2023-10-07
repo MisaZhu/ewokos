@@ -164,9 +164,11 @@ inline void graph_blt(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_t 
 		dx = dr.x;
 		offset_d = dy * dst->w;
 		offset_r = sy * src->w;
-		for(; sx < ex; sx++, dx++) {
+		/*for(; sx < ex; sx++, dx++) {
 			dst->buffer[offset_d + dx] = src->buffer[offset_r + sx];
 		}
+		*/
+		memcpy(&dst->buffer[offset_d]+dx, &src->buffer[offset_r], (ex-sx)*4);
 	}
 }
 

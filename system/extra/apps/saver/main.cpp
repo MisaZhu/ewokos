@@ -177,7 +177,7 @@ protected:
 		}
 
 	    frSimulateWorld(world, (1.0f / 60.0f) * 100.0f);
-		graph_clear(g, 0);
+		graph_clear(g, 0xff000000);
         const int bodyCount = frGetWorldBodyCount(world);
         for (int i = MAX_WALL_COUNT; i < bodyCount; i++) {
             frBody *body = frGetWorldBody(world, i);
