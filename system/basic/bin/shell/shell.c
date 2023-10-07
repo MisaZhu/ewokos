@@ -15,8 +15,6 @@
 #include <sys/klog.h>
 #include "shell.h"
 
-bool _stdio_inited = false;
-bool _console_inited = false;
 bool _initrd = false;
 bool _terminated = false;
 
@@ -182,26 +180,19 @@ static void prompt(void) {
 }
 
 static void initrd_out(const char* cmd) {
-	if(!_initrd || cmd[0] == '@' || cmd[0] == '$')
+	if(!_initrd || cmd[0] == '@')
 		return;
 
-	if(_stdio_inited) {
-		write(1, cmd, strlen(cmd));
+	if(write(1, cmd, strlen(cmd)) > 0)
 		write(1, "\n", 1);
-	}
-	else {
+	else
 		klog("%s\n", cmd);
-	}
 
-	if(_console_inited) {
-		write(2, cmd, strlen(cmd));
+	if(write(2, cmd, strlen(cmd)) > 0)
 		write(2, "\n", 1);
-	}
 }
 
 int main(int argc, char* argv[]) {
-	_stdio_inited = true;
-	_console_inited = false;
 	_initrd = false;
 	_history = NULL;
 	_terminated = 0;
@@ -210,7 +201,6 @@ int main(int argc, char* argv[]) {
 	if(argc > 2) {
 		if(strcmp(argv[1], "-initrd") == 0) {
 			_initrd = true;
-			_stdio_inited = false;
 		}
 		fd_in = open(argv[2], O_RDONLY);
 		if(fd_in < 0)

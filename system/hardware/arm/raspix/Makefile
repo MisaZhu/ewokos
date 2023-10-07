@@ -3,23 +3,34 @@ BUILD_DIR = $(ROOT_DIR)/build
 TARGET_DIR = $(BUILD_DIR)/rootfs
 
 
-all: basic_sys
+all: full
 	@echo "all done."
 
 include ../make.inc
 
-extra: basic_sys extra_sys
+basic: basic_sys
+	@echo "all done."
+
+extra: extra_sys
+	@echo "all done."
+
+full: full_sys
 	@echo "all done."
 
 basic_sys: kernel_heads 
 	mkdir -p $(TARGET_DIR)/drivers/raspix
+	rm -f $(BUILD_DIR)/lib/libbsp.a
 	cd libs;make
 	cd $(ROOT_DIR)/basic;make
+	cd drivers;make basic_sys
+	@cp -r etcs/qemu/basic/* ${TARGET_DIR}/etc
+
+full_sys: basic_sys 
 	cd $(ROOT_DIR)/full;make
-	cd drivers;make
+	cd drivers;make full_sys
 	@cp -r etcs/qemu/full/* ${TARGET_DIR}/etc
 
-extra_sys:
+extra_sys: full_sys
 	cd $(ROOT_DIR)/extra;make
 
 clean:

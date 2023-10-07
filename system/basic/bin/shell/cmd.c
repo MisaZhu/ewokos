@@ -119,24 +119,6 @@ static int history(void) {
 	return 0;
 }
 
-static void init_stdio(void) {
-	int fd = open("/dev/tty0", 0);
-	int fd_console = open("/dev/console0", 0);
-
-	if(fd > 0) {
-		dup2(fd, 0);
-		dup2(fd, 1);
-		dup2(fd, 2);
-		close(fd);
-	}
-	if(fd_console > 0) {
-		_console_inited = true;
-		dup2(fd_console, 2);
-		close(fd_console);
-	}
-	_stdio_inited = true;
-}
-
 int32_t handle_shell_cmd(const char* cmd) {
 	if(strcmp(cmd, "exit") == 0) {
 		_terminated = true;
@@ -160,10 +142,6 @@ int32_t handle_shell_cmd(const char* cmd) {
 	}
 	else if(strcmp(cmd, "history") == 0) {
 		return history();
-	}
-	else if(strcmp(cmd, "$") == 0) {
-		init_stdio();
-		return 0;
 	}
 	return -1; /*not shell internal command*/
 }

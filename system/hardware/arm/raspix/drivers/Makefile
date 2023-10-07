@@ -1,10 +1,12 @@
-all: 
+basic_sys:
 	cd uartd; make
 	cd gpio_actledd; make
 	cd mbox_actledd; make
-	cd fbd; make
 	cd soundd; make
 	cd usbd; make
+
+full_sys:
+	cd fbd; make
 
 clean:	
 	cd uartd; make clean

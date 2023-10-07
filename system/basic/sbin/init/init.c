@@ -71,30 +71,55 @@ static void run_before_vfs(const char* cmd) {
 	out("[ok]\n");
 }
 
-static const char* get_initrd(void) {
+static const char* get_arch_initrd(void) {
 	static char rd[FS_FULL_NAME_MAX] = "";
 	sys_info_t sysinfo;
 	syscall1(SYS_GET_SYS_INFO, (int32_t)&sysinfo);
 	snprintf(rd, FS_FULL_NAME_MAX-1, "/etc/arch/%s/init.rd", sysinfo.machine);
-	out("\ninit: loading '%s' ... \n", rd);
-	if(vfs_access(rd) != 0) {
-		out("'%s' not exist, try '/etc/init.rd' ... \n", rd);
-		strcpy(rd, "/etc/init.rd");
-	}
 	return rd;
 }
 
-static void switch_root(void) {
+static void run_init(const char* init_file) {
+	if(vfs_access(init_file) != 0) {
+		out("init: init file '%s' missed! \n", init_file);
+		return;
+	}
+
 	int pid = fork();
 	if(pid == 0) {
 		setuid(0);
 		char cmd[FS_FULL_NAME_MAX];
-		snprintf(cmd, FS_FULL_NAME_MAX-1, "/bin/shell -initrd %s", get_initrd());
+		snprintf(cmd, FS_FULL_NAME_MAX-1, "/bin/shell -initrd %s", init_file);
+		out("\ninit: loading '%s' ... \n", init_file);
 		if(exec(cmd) != 0) {
 			out("[failed]!\n");
 			exit(-1);
 		}
 	}
+	else 
+		waitpid(pid);
+}
+
+static void init_stdio(void) {
+	int fd = open("/dev/tty0", 0);
+	int fd_console = open("/dev/console0", 0);
+
+	if(fd > 0) {
+		dup2(fd, 0);
+		dup2(fd, 1);
+		close(fd);
+	}
+	if(fd_console > 0) {
+		dup2(fd_console, 2);
+		close(fd_console);
+	}
+}
+
+static void switch_root(void) {
+	run_init("/etc/arch.rd");
+	run_init("/etc/init.rd");
+	init_stdio();
+	run_init("/etc/system.rd");
 }
 
 static void halt(void) {
