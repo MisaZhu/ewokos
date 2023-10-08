@@ -2,6 +2,8 @@ ROOT_DIR = ../../..
 BUILD_DIR = $(ROOT_DIR)/build
 TARGET_DIR = $(BUILD_DIR)/rootfs
 
+export ARCH=arm
+export NEON=yes
 
 all: basic_sys
 	@echo "all done."

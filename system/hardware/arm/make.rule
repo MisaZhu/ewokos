@@ -4,12 +4,10 @@ CXX = arm-none-eabi-c++
 LD = arm-none-eabi-ld
 OBJDUMP = arm-none-eabi-objdump
 
-ARCH=arm
-
 CFLAGS = -Wstrict-prototypes \
         -marm \
-		-mfloat-abi=softfp -mfpu=neon-vfpv4 \
-         -Wall -Wextra -fPIC -mapcs-frame \
+	-mfloat-abi=softfp \
+        -Wall -Wextra -fPIC -mapcs-frame \
         -fno-builtin-printf \
         -fno-builtin-stat \
         -fno-builtin-memset \
@@ -27,7 +25,7 @@ CFLAGS = -Wstrict-prototypes \
         -std=c99
 
 CXXFLAGS = -marm \
-		-mfloat-abi=softfp -mfpu=neon-vfpv4 \
+	-mfloat-abi=softfp \
         -pedantic -Wall -Wextra -fPIC -mapcs-frame \
         -fno-builtin-printf \
         -fno-builtin-memset \
@@ -45,6 +43,11 @@ CXXFLAGS = -marm \
         -fno-rtti \
         -fno-exceptions \
         -std=c++11
+
+ifeq ($(NEON),yes)
+CFLAGS += -mfpu=neon-vfpv4 -DNEON_ENABLE
+CXXFLAGS += -mfpu=neon-vfpv4 -DNEON_ENABLE
+endif
 
 #CFLAGS +=  -g
 CFLAGS +=  -O2

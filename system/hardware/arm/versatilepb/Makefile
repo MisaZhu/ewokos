@@ -2,6 +2,7 @@ ROOT_DIR = ../../..
 BUILD_DIR = $(ROOT_DIR)/build
 TARGET_DIR = $(BUILD_DIR)/rootfs
 
+export ARCH=arm
 
 all: full 
 	@echo "all done."

@@ -1,4 +1,4 @@
-include ../../../../make.rule
+include ../../../../hardware/$(ARCH)/make.rule
 
 BUILD_DIR = ../../../../build
 TARGET_DIR = $(BUILD_DIR)/rootfs

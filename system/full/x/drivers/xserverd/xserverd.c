@@ -57,7 +57,6 @@ typedef struct {
 	uint32_t fps;
 	bool bg_run;
 	bool force_fullscreen;
-	bool neon_enable;
 	char xwm[128];
 } x_conf_t;
 
@@ -125,11 +124,6 @@ static int32_t read_config(x_t* x, const char* fname) {
 	if(v[0] != 0) 
 		x->config.force_fullscreen = atoi(v);
 	
-	v = sconf_get(conf, "neon_enable");
-	if(v[0] != 0) 
-		x->config.neon_enable = atoi(v);
-
-
 	v = sconf_get(conf, "xwm");
 	if(v[0] != 0) 
 		strncpy(x->config.xwm, v, 127);
@@ -227,52 +221,51 @@ static int draw_win(x_t* xp, xwin_t* win) {
 	uint32_t to = 0;
 	graph_t* g = win->g_buf;
 	if(g != NULL) {
-		if(xp->config.neon_enable) {
-			if((win->xinfo->style & X_STYLE_ALPHA) != 0) {
-				graph_blt_alpha_neon(g, 0, 0, 
-						win->xinfo->wsr.w,
-						win->xinfo->wsr.h,
-						display->g,
-						win->xinfo->wsr.x,
-						win->xinfo->wsr.y,
-						win->xinfo->wsr.w,
-						win->xinfo->wsr.h, 0xff);
+#ifdef NEON_ENABLE
+		if((win->xinfo->style & X_STYLE_ALPHA) != 0) {
+			graph_blt_alpha_neon(g, 0, 0, 
+					win->xinfo->wsr.w,
+					win->xinfo->wsr.h,
+					display->g,
+					win->xinfo->wsr.x,
+					win->xinfo->wsr.y,
+					win->xinfo->wsr.w,
+					win->xinfo->wsr.h, 0xff);
 
-			}
-			else {
-				graph_blt_neon(g, 0, 0, 
-							win->xinfo->wsr.w,
-							win->xinfo->wsr.h,
-							display->g,
-							win->xinfo->wsr.x,
-							win->xinfo->wsr.y,
-							win->xinfo->wsr.w,
-							win->xinfo->wsr.h);
-			}
 		}
 		else {
-			if((win->xinfo->style & X_STYLE_ALPHA) != 0) {
-				graph_blt_alpha(g, 0, 0, 
+			graph_blt_neon(g, 0, 0, 
 						win->xinfo->wsr.w,
 						win->xinfo->wsr.h,
 						display->g,
 						win->xinfo->wsr.x,
 						win->xinfo->wsr.y,
 						win->xinfo->wsr.w,
-						win->xinfo->wsr.h, 0xff);
-
-			}
-			else {
-				graph_blt(g, 0, 0, 
-							win->xinfo->wsr.w,
-							win->xinfo->wsr.h,
-							display->g,
-							win->xinfo->wsr.x,
-							win->xinfo->wsr.y,
-							win->xinfo->wsr.w,
-							win->xinfo->wsr.h);
-			}
+						win->xinfo->wsr.h);
 		}
+#else
+		if((win->xinfo->style & X_STYLE_ALPHA) != 0) {
+			graph_blt_alpha(g, 0, 0, 
+					win->xinfo->wsr.w,
+					win->xinfo->wsr.h,
+					display->g,
+					win->xinfo->wsr.x,
+					win->xinfo->wsr.y,
+					win->xinfo->wsr.w,
+					win->xinfo->wsr.h, 0xff);
+
+		}
+		else {
+			graph_blt(g, 0, 0, 
+						win->xinfo->wsr.w,
+						win->xinfo->wsr.h,
+						display->g,
+						win->xinfo->wsr.x,
+						win->xinfo->wsr.y,
+						win->xinfo->wsr.w,
+						win->xinfo->wsr.h);
+		}
+#endif
 	}
 
 	draw_win_frame(xp, win);
