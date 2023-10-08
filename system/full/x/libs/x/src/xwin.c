@@ -237,6 +237,12 @@ int xwin_event_handle(xwin_t* xwin, xevent_t* ev) {
 	return 0;
 }
 
+void xwin_set_alpha(xwin_t* xwin, bool alpha) {
+	if(xwin->xinfo == NULL)
+		return;
+	xwin->xinfo->alpha = alpha;
+}
+
 int xwin_set_visible(xwin_t* xwin, bool visible) {
 	if(xwin->xinfo == NULL || xwin->xinfo->visible == visible)
 		return 0;

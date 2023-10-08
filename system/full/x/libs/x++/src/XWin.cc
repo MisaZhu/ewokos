@@ -96,6 +96,12 @@ bool XWin::setVisible(bool visible) {
 	return true;
 }
 
+void XWin::setAlpha(bool alpha) {
+	if(xwin == NULL)
+		return;
+	xwin_set_alpha(xwin, alpha);
+}
+
 bool XWin::callXIM(void) {
 	if(xwin == NULL)
 		return false;

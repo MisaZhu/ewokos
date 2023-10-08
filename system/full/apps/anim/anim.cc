@@ -102,9 +102,10 @@ int main(int argc, char* argv[]) {
 	int32_t w, h;
 	xwin.getSize(w, h);
 	x.open(&scr, &xwin, w, h,
-			"anim", X_STYLE_NO_FRAME | X_STYLE_ALPHA | X_STYLE_NO_FOCUS | X_STYLE_SYSTOP);
+			"anim", X_STYLE_NO_FRAME | X_STYLE_NO_FOCUS | X_STYLE_SYSTOP);
 
 	xwin.setDisplay(displayNum-1);
+	xwin.setAlpha(true);
 	xwin.setVisible(true);
 	x.run(loop, &xwin);
 	return 0;

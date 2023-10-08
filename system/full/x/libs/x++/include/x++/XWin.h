@@ -53,6 +53,7 @@ public:
 
 	void close(void);
 	bool setVisible(bool visible);
+	void setAlpha(bool alpha);
 	bool callXIM(void);
 
 	bool getInfo(xinfo_t& xinfo);

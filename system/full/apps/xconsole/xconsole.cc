@@ -117,6 +117,10 @@ protected:
 			console_reset(&console, g->w, g->h);
 		}
 		console_refresh(&console, g);
+		if(has_alpha(console.textview.bg_color))
+			setAlpha(true);
+		else
+			setAlpha(false);
 	}
 	
 	void mouseHandle(xevent_t* ev) {
@@ -190,7 +194,7 @@ static int run(int argc, char* argv[]) {
 	X x;
 	xscreen_t scr;
  	x.screenInfo(scr, 0);
-	x.open(&xwin, 64, 40, scr.size.w*3/4, scr.size.h*3/4, "xconsole", X_STYLE_ALPHA);
+	x.open(&xwin, 64, 40, scr.size.w*3/4, scr.size.h*3/4, "xconsole", 0);
 	xwin.setVisible(true);
 
 	pthread_t tid;

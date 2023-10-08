@@ -222,7 +222,7 @@ static int draw_win(x_t* xp, xwin_t* win) {
 	graph_t* g = win->g_buf;
 	if(g != NULL) {
 #ifdef NEON_ENABLE
-		if((win->xinfo->style & X_STYLE_ALPHA) != 0) {
+		if(win->xinfo->alpha) {
 			graph_blt_alpha_neon(g, 0, 0, 
 					win->xinfo->wsr.w,
 					win->xinfo->wsr.h,
@@ -244,7 +244,7 @@ static int draw_win(x_t* xp, xwin_t* win) {
 						win->xinfo->wsr.h);
 		}
 #else
-		if((win->xinfo->style & X_STYLE_ALPHA) != 0) {
+		if(win->xinfo->alpha) {
 			graph_blt_alpha(g, 0, 0, 
 					win->xinfo->wsr.w,
 					win->xinfo->wsr.h,
@@ -707,7 +707,7 @@ static void mark_dirty(x_t* x, xwin_t* win) {
 						r.y == win->xinfo->wsr.y &&
 						r.w == win->xinfo->wsr.w &&
 						r.h == win->xinfo->wsr.h &&
-						(top->xinfo->style & X_STYLE_ALPHA) == 0) { 
+						top->xinfo->alpha) { 
 					//covered by upon window. don't have to repaint.
 					win->dirty = false;
 					win->xinfo->repaint_lazy = true;
@@ -720,7 +720,7 @@ static void mark_dirty(x_t* x, xwin_t* win) {
 			}
 			top = top->next;
 		}
-		if((win->xinfo->style & X_STYLE_ALPHA) != 0)
+		if(win->xinfo->alpha)
 			x_dirty(x, win->xinfo->display_index);
 	}
 
@@ -893,8 +893,7 @@ static int xwin_update_info(int fd, int from_pid, proto_t* in, proto_t* out, x_t
 	}
 	x_update_frame_areas(x, win);
 
-	if((type & X_UPDATE_REFRESH) != 0 ||
-			(win->xinfo->style & X_STYLE_ALPHA) != 0) {
+	if((type & X_UPDATE_REFRESH) != 0 || win->xinfo->alpha) {
 		x_dirty(x, win->xinfo->display_index);
 	}
 	return 0;

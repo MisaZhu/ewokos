@@ -46,14 +46,13 @@ enum {
 #define X_STYLE_NO_FRAME  0x1
 #define X_STYLE_NO_TITLE  0x2
 #define X_STYLE_NO_RESIZE 0x4
-#define X_STYLE_ALPHA     0x8
+#define X_STYLE_LAZY      0x8 //ignore all event
 #define X_STYLE_NO_FOCUS  0x10
 #define X_STYLE_SYSTOP    0x20
 #define X_STYLE_SYSBOTTOM 0x40
 #define X_STYLE_XIM       0x80
 #define X_STYLE_LAUNCHER  0x100
 #define X_STYLE_ANTI_FSCR 0x200 //anti full screen
-#define X_STYLE_LAZY      0x400 //ignore all event
 
 #define X_TITLE_MAX 32
 typedef struct {
@@ -64,6 +63,7 @@ typedef struct {
 	uint32_t state;
 	bool visible;
 	bool repaint_lazy;
+	bool alpha;
 	grect_t wsr; //workspace rect
 	grect_t winr; //window rect
 	char title[X_TITLE_MAX];

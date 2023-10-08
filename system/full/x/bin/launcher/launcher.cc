@@ -83,6 +83,11 @@ class Launcher: public XWin {
 protected:
 	void onRepaint(graph_t* g) {
 		graph_clear(g, bgColor);
+		if(has_alpha(bgColor))
+			setAlpha(true);
+		else
+			setAlpha(false);
+
 		int i, j, itemH, itemW;
 		//cols = g->w / items.item_size;
 		//rows = items.num / cols;
@@ -347,8 +352,8 @@ int main(int argc, char* argv[]) {
 			w, 
 			h,
 			"launcher",
-			X_STYLE_ALPHA | X_STYLE_NO_TITLE | X_STYLE_NO_RESIZE | X_STYLE_LAUNCHER | X_STYLE_SYSBOTTOM);
-			//X_STYLE_NO_FRAME | X_STYLE_ALPHA | X_STYLE_LAUNCHER | X_STYLE_SYSBOTTOM);
+			X_STYLE_NO_TITLE | X_STYLE_NO_RESIZE | X_STYLE_LAUNCHER | X_STYLE_SYSBOTTOM);
+			//X_STYLE_NO_FRAME | X_STYLE_LAUNCHER | X_STYLE_SYSBOTTOM);
 
 	xwin.setVisible(true);
 

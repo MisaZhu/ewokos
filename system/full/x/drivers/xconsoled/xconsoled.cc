@@ -172,8 +172,9 @@ int main(int argc, char** argv) {
 	h = h==0 ? scr.size.h:h;
 
 	x.open(&xwin, (scr.size.w-w)/2, scr.size.h-h, w, h, "xconsoled",
-			X_STYLE_NO_TITLE | X_STYLE_NO_FOCUS | X_STYLE_SYSTOP | X_STYLE_ALPHA | X_STYLE_LAZY);
+			X_STYLE_NO_TITLE | X_STYLE_NO_FOCUS | X_STYLE_SYSTOP | X_STYLE_LAZY);
 	xwin.setVisible(false);
+	xwin.setAlpha(true);
 
 	vdevice_t dev;
 	memset(&dev, 0, sizeof(vdevice_t));

@@ -11,10 +11,10 @@ inline uint32_t argb(uint32_t a, uint32_t r, uint32_t g, uint32_t b) {
 	return a << 24 | r << 16 | g << 8 | b;
 }
 
-inline int32_t has_alpha(uint32_t c) {
+inline bool has_alpha(uint32_t c) {
 	if(((c >> 24) & 0xff) != 0xff)
-		return 1;
-	return 0;
+		return true;
+	return false;
 }
 
 inline void graph_init(graph_t* g, const uint32_t* buffer, int32_t w, int32_t h) {
