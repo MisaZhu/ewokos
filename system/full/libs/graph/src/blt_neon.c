@@ -7,22 +7,19 @@
 extern "C" { 
 #endif
 
+#define MIN(a, b) (((a) > (b))?(b):(a))
 
 inline void neon_alpha_8(uint32_t *b, uint32_t *f, uint32_t *d)
 {
 	__asm volatile(
-		"movs      r4,%0\n\t" // background
-		"movs      r5,%1\n\t" // foreground
-		"movs      r6,%2\n\t" // dist
-
-		"vld4.8    {d20-d23},[r5]!\n\t" // load foreground
+		"vld4.8    {d20-d23},[%1]\n\t" // load foreground
 		"vmov.u8	d28, 0xff\n\t"
 		"vsub.u8	d28, d28, d23\n\t"
 		"vmull.u8  q1,d20,d23\n\t"
 		"vmull.u8  q3,d21,d23\n\t"
 		"vmull.u8  q5,d22,d23\n\t"
 
-		"vld4.8    {d24-d27},[r4]!\n\t" // load background
+		"vld4.8    {d24-d27},[%0]\n\t" // load background
 		"vmov.u8	d29, 0xff\n\t"
 		"vsub.u8	d29, d29, d27\n\t"
 		"vmull.u8  q2,d24,d28\n\t"
@@ -49,12 +46,45 @@ inline void neon_alpha_8(uint32_t *b, uint32_t *f, uint32_t *d)
 		"vmovn.u16 d22,q5\n\t"
 		"vmovn.u16   d23,q7\n\t"
 
-		"vst4.8   {d20-d23},[r6]!\n\t"
+		"vst4.8   {d20-d23},[%2]\n\t"
 		:
 		: "r"(b), "r"(f), "r"(d)
-		: "r4", "r5", "r6", "memory");
+		: "memory");
 	return;
 }
+
+inline void neon_8(uint32_t *s, uint32_t *d)
+{
+	__asm volatile(
+		"vld4.8    {d20-d23},[%0]\n\t" // load foreground
+		"vst4.8   {d20-d23},[%1]\n\t"
+		:
+		: "r"(s), "r"(d)
+		: "memory");
+	return;
+}
+
+inline void neon_fill_load(uint32_t *s)
+{
+	__asm volatile(
+		"vld4.8    {d20-d23},[%0]\n\t" // load foreground
+		:
+		: "r"(s)
+		: "memory");
+	return;
+}
+
+
+inline void neon_fill_store(uint32_t *d)
+{
+	__asm volatile(
+		"vst4.8   {d20-d23},[%0]\n\t"
+		:
+		: "r"(d)
+		: "memory");
+	return;
+}
+
 
 inline void graph_pixel_argb_neon(graph_t *graph, int32_t x, int32_t y,
 								  uint32_t *src, int size)
@@ -73,6 +103,21 @@ inline void graph_pixel_argb_neon(graph_t *graph, int32_t x, int32_t y,
 		memcpy(bg, dst, 4 * size);
 		neon_alpha_8(bg, fg, bg);
 		memcpy(dst, bg, 4 * size);
+	}
+}
+
+inline void graph_pixel_neon(graph_t *graph, int32_t x, int32_t y,
+								  uint32_t *src, int size)
+{
+	uint32_t *dst = &graph->buffer[y * graph->w + x];
+
+	if (size == 8)
+	{
+		neon_8(src, dst);
+	}
+	else
+	{
+		memcpy(dst, src, 4 * size);
 	}
 }
 
@@ -117,6 +162,8 @@ static int32_t insect(graph_t* src, grect_t* sr, graph_t* dst, grect_t* dr) {
 }
 
 void graph_fill_neon(graph_t* g, int32_t x, int32_t y, int32_t w, int32_t h, uint32_t color) {
+	uint32_t buf[8];
+
 	if(g == NULL || w <= 0 || h <= 0)
 		return;
 	grect_t r = {x, y, w, h};
@@ -128,23 +175,24 @@ void graph_fill_neon(graph_t* g, int32_t x, int32_t y, int32_t w, int32_t h, uin
 	ex = r.x + r.w;
 	ey = r.y + r.h;
 
+	for(int i = 0; i < 8; i++)
+		buf[i] = color;
+
 	if(!has_alpha(color)) {
+		neon_fill_load(buf);
 		for(; y < ey; y++) {
 			x = r.x;
-			for(; x < ex; x++) {
-				graph_pixel(g, x, y, color);
+			for(; x < ex; x+=8) {
+				uint32_t *dst = &g->buffer[y * g->w + x];
+				neon_fill_store(dst);
 			}
 		}
 	}
 	else {
-		register uint8_t ca = (color >> 24) & 0xff;
-		register uint8_t cr = (color >> 16) & 0xff;
-		register uint8_t cg = (color >> 8) & 0xff;
-		register uint8_t cb = (color) & 0xff;
 		for(; y < ey; y++) {
 			x = r.x;
-			for(; x < ex; x++) {
-				graph_pixel_argb(g, x, y, ca, cr, cg, cb);
+			for(; x < ex; x+=8) {
+				graph_pixel_argb_neon(g, x, y, buf, MIN(ex-x, 8));
 			}
 		}
 	}
@@ -168,34 +216,25 @@ inline void graph_blt_neon(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int
 	if(sw <= 0 || sh <= 0 || dw <= 0 || dh <= 0)
 		return;
 
-	if(sx == 0 && sy == 0 && dx == 0 && dy == 0 &&
-			sw == dw && sh == dh && src->w == sw && src->h == sh &&
-				dst->w == dw && dst->h == dh) {
-		memcpy(dst->buffer, src->buffer, 4*sw*sh);	
-		return;
-	}
-
 	grect_t sr = {sx, sy, sw, sh};
 	grect_t dr = {dx, dy, dw, dh};
 	graph_insect(dst, &dr);
 	if(!insect(src, &sr, dst, &dr))
 		return;
 
-	register int32_t ex, ey, offset_d, offset_r;
+	register int32_t ex, ey;
 	sy = sr.y;
 	dy = dr.y;
 	ex = sr.x + sr.w;
 	ey = sr.y + sr.h;
 
 	for(; sy < ey; sy++, dy++) {
-		sx = sr.x;
-		dx = dr.x;
-		offset_d = dy * dst->w;
-		offset_r = sy * src->w;
-		// for(; sx < ex; sx++, dx++) {
-		// 	dst->buffer[offset_d + dx] = src->buffer[offset_r + sx];
-		// }
-		memcpy(&dst->buffer[offset_d]+dx, &src->buffer[offset_r], (ex-sx)*4);
+		register int32_t sx = sr.x;
+		register int32_t dx = dr.x;
+		register int32_t offset = sy * src->w;
+		for(; sx < ex; sx+=8, dx+=8) {
+			graph_pixel_neon(dst, dx, dy, &src->buffer[offset + sx], MIN(ex-sx, 8));	
+		}
 	}
 }
 
@@ -220,10 +259,7 @@ inline void graph_blt_alpha_neon(graph_t* src, int32_t sx, int32_t sy, int32_t s
 		register int32_t dx = dr.x;
 		register int32_t offset = sy * src->w;
 		for(; sx < ex; sx+=8, dx+=8) {
-			int pixels = ex - sx;
-			if(pixels > 8)
-				pixels = 8;
-			graph_pixel_argb_neon(dst, dx, dy, &src->buffer[offset + sx], pixels);	
+			graph_pixel_argb_neon(dst, dx, dy, &src->buffer[offset + sx], MIN(ex-sx, 8));	
 		}
 	}
 }
