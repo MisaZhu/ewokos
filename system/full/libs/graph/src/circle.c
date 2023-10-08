@@ -41,7 +41,7 @@ void graph_circle(graph_t* g, int32_t x, int32_t y, int32_t radius, uint32_t col
 	b = radius;
 	P = 1 - radius;
 
-	if(has_alpha(color)) {
+	if(color_a(color) != 0xff) {
 		uint8_t ca = (color >> 24) & 0xff;
 		uint8_t cr = (color >> 16) & 0xff;
 		uint8_t cg = (color >> 8) & 0xff;

@@ -178,7 +178,7 @@ void graph_fill_neon(graph_t* g, int32_t x, int32_t y, int32_t w, int32_t h, uin
 	for(int i = 0; i < 8; i++)
 		buf[i] = color;
 
-	if(!has_alpha(color)) {
+	if(color_a(color) == 0xff) {
 		neon_fill_load(buf);
 		for(; y < ey; y++) {
 			x = r.x;

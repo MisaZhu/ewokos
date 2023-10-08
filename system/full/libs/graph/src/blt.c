@@ -101,7 +101,7 @@ void graph_fill_cpu(graph_t* g, int32_t x, int32_t y, int32_t w, int32_t h, uint
 	ex = r.x + r.w;
 	ey = r.y + r.h;
 
-	if(!has_alpha(color)) {
+	if(color_a(color) == 0xff) {
 		for(; y < ey; y++) {
 			x = r.x;
 			for(; x < ex; x++) {

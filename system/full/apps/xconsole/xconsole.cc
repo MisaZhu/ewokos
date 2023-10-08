@@ -117,7 +117,7 @@ protected:
 			console_reset(&console, g->w, g->h);
 		}
 		console_refresh(&console, g);
-		if(has_alpha(console.textview.bg_color))
+		if(color_a(console.textview.bg_color) != 0xff)
 			setAlpha(true);
 		else
 			setAlpha(false);

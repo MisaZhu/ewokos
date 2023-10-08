@@ -83,7 +83,7 @@ class Launcher: public XWin {
 protected:
 	void onRepaint(graph_t* g) {
 		graph_clear(g, bgColor);
-		if(has_alpha(bgColor))
+		if(color_a(bgColor) != 0xff)
 			setAlpha(true);
 		else
 			setAlpha(false);

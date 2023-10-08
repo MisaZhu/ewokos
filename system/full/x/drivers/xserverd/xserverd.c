@@ -707,7 +707,7 @@ static void mark_dirty(x_t* x, xwin_t* win) {
 						r.y == win->xinfo->wsr.y &&
 						r.w == win->xinfo->wsr.w &&
 						r.h == win->xinfo->wsr.h &&
-						top->xinfo->alpha) { 
+						!top->xinfo->alpha) { 
 					//covered by upon window. don't have to repaint.
 					win->dirty = false;
 					win->xinfo->repaint_lazy = true;
