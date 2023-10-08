@@ -4,6 +4,7 @@
 #include <string.h>
 #include <fbd/fbd.h>
 #include <graph/graph.h>
+#include <upng/upng.h>
 #include <arch/bcm283x/framebuffer.h>
 
 static graph_t* _g = NULL;
@@ -57,7 +58,11 @@ static void splash(graph_t* g) {
 		graph_fill(g, 0, y*h, g->w, h, (c | c<<8 | c<<16 | 0xff000000));
 	}
 
+#ifdef NEON_ENABLE
+	graph_t* logo = png_image_new("/data/images/vadar.png");
+#else
 	graph_t* logo = png_image_new("/data/images/ewok.png");
+#endif
 	graph_blt_alpha(logo, 0, 0, logo->w, logo->h,
 			g, (g->w-logo->w)/2, (g->h-logo->h)/2, logo->w, logo->h, 0xff);
 	graph_free(logo);
