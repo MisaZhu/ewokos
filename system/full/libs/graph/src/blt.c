@@ -124,13 +124,11 @@ void graph_fill_cpu(graph_t* g, int32_t x, int32_t y, int32_t w, int32_t h, uint
 }
 
 inline void graph_fill(graph_t* g, int32_t x, int32_t y, int32_t w, int32_t h, uint32_t color) {
-/*#ifdef NEON_ENABLE
+#ifdef NEON_ENABLE
 	graph_fill_neon(g, x, y, w, h, color);
 #else
 	graph_fill_cpu(g, x, y, w, h, color);
 #endif
-*/
-	graph_fill_cpu(g, x, y, w, h, color);
 }
 
 void graph_fill_3d(graph_t* g, int x, int y, int w, int h, uint32_t color, bool rev) {
@@ -188,7 +186,6 @@ inline void graph_blt(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_t 
 #else
 	graph_blt_cpu(src, sx, sy, sw, sh, dst, dx, dy, dw, dh);
 #endif
-	//graph_blt_cpu(src, sx, sy, sw, sh, dst, dx, dy, dw, dh);
 }
 
 void graph_blt_alpha_cpu(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_t sh,
@@ -230,7 +227,6 @@ inline void graph_blt_alpha(graph_t* src, int32_t sx, int32_t sy, int32_t sw, in
 #else
 	graph_blt_alpha_cpu(src, sx, sy, sw, sh, dst, dx, dy, dw, dh, alpha);
 #endif
-	//graph_blt_alpha_cpu(src, sx, sy, sw, sh, dst, dx, dy, dw, dh, alpha);
 }
 
 inline bool check_in_rect(int32_t x, int32_t y, grect_t* rect) {
