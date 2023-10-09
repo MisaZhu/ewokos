@@ -10,6 +10,9 @@ extern "C" {
 
 #define MIN(a, b) (((a) > (b))?(b):(a))
 
+#define neon_lock schd_core_lock
+#define neon_unlock schd_core_unlock
+
 static inline void neon_alpha_8(uint32_t *b, uint32_t *f, uint32_t *d)
 {
 	__asm volatile(
@@ -138,7 +141,7 @@ void graph_fill_neon(graph_t* g, int32_t x, int32_t y, int32_t w, int32_t h, uin
 	for(int i = 0; i < 8; i++)
 		buf[i] = color;
 	
-	schd_core_lock();
+	neon_lock();
 	if(color_a(color) == 0xff) {
 		neon_fill_load(buf);
 		for(; y < ey; y++) {
@@ -161,7 +164,7 @@ void graph_fill_neon(graph_t* g, int32_t x, int32_t y, int32_t w, int32_t h, uin
 			}
 		}
 	}
-	schd_core_unlock();
+	neon_unlock();
 }
 
 void graph_fill_3d_neon(graph_t* g, int x, int y, int w, int h, uint32_t color, bool rev) {
@@ -194,7 +197,7 @@ inline void graph_blt_neon(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int
 	ex = sr.x + sr.w;
 	ey = sr.y + sr.h;
 
-	schd_core_lock();
+	neon_lock();
 	for(; sy < ey; sy++, dy++) {
 		register int32_t sx = sr.x;
 		register int32_t dx = dr.x;
@@ -203,7 +206,7 @@ inline void graph_blt_neon(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int
 			graph_pixel_neon(dst, dx, dy, &src->buffer[offset + sx], MIN(ex-sx, 8));	
 		}
 	}
-	schd_core_unlock();
+	neon_unlock();
 }
 
 inline void graph_blt_alpha_neon(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_t sh,
@@ -222,7 +225,7 @@ inline void graph_blt_alpha_neon(graph_t* src, int32_t sx, int32_t sy, int32_t s
 	ex = sr.x + sr.w;
 	ey = sr.y + sr.h;
 
-	schd_core_lock();
+	neon_lock();
 	for(; sy < ey; sy++, dy++) {
 		register int32_t sx = sr.x;
 		register int32_t dx = dr.x;
@@ -231,7 +234,7 @@ inline void graph_blt_alpha_neon(graph_t* src, int32_t sx, int32_t sy, int32_t s
 			graph_pixel_argb_neon(dst, dx, dy, &src->buffer[offset + sx], MIN(ex-sx, 8));	
 		}
 	}
-	schd_core_unlock();
+	neon_unlock();
 }
 
 
