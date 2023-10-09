@@ -745,6 +745,7 @@ static int x_update(int fd, int from_pid, x_t* x) {
 	win->dirty = true;
 
 	mark_dirty(x, win);
+	x_repaint_req(x, win->xinfo->display_index);
 	return 0;
 }
 
@@ -1235,6 +1236,7 @@ static void handle_input(x_t* x, int32_t from_pid, xevent_t* ev) {
 	}
 	else if(ev->type == XEVT_MOUSE) {
 		mouse_handle(x, ev);
+		x_repaint_req(x, x->current_display);
 	}
 }
 
@@ -1301,7 +1303,6 @@ static int xserver_win_close(int fd, int from_pid, fsinfo_t* info, void* p) {
 int xserver_step(void* p) {
 	x_t* x = (x_t*)p;
 	ipc_disable();
-	x_repaint_req(x, -1);
 	for(uint32_t i=0; i<x->display_num; i++) {
 		x_repaint(x, i);
 	}
