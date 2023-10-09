@@ -185,7 +185,11 @@ void graph_fill_neon(graph_t* g, int32_t x, int32_t y, int32_t w, int32_t h, uin
 			x = r.x;
 			for(; x < ex; x+=8) {
 				uint32_t *dst = &g->buffer[y * g->w + x];
-				neon_fill_store(dst);
+				int pixels = ex -x;
+				if(pixels >= 8)
+					neon_fill_store(dst);
+				else
+					memcpy(dst, buf, pixels * 4);
 			}
 		}
 	}
