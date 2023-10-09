@@ -49,7 +49,7 @@ inline int32_t graph_insect(graph_t* g, grect_t* r) {
 	return 0 for none-insection-area.
 */
 
-static int32_t insect(graph_t* src, grect_t* sr, graph_t* dst, grect_t* dr) {
+int32_t graph_insect_with(graph_t* src, grect_t* sr, graph_t* dst, grect_t* dr) {
 	int32_t dx = sr->x < dr->x ? sr->x:dr->x;
 	int32_t dy = sr->y < dr->y ? sr->y:dr->y;
 
@@ -158,7 +158,7 @@ void graph_blt_cpu(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_t sh,
 	grect_t sr = {sx, sy, sw, sh};
 	grect_t dr = {dx, dy, dw, dh};
 	graph_insect(dst, &dr);
-	if(!insect(src, &sr, dst, &dr))
+	if(!graph_insect_with(src, &sr, dst, &dr))
 		return;
 
 	register int32_t ex, ey, offset_d, offset_r;
@@ -196,7 +196,7 @@ void graph_blt_alpha_cpu(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32
 	grect_t sr = {sx, sy, sw, sh};
 	grect_t dr = {dx, dy, dw, dh};
 	graph_insect(dst, &dr);
-	if(!insect(src, &sr, dst, &dr))
+	if(!graph_insect_with(src, &sr, dst, &dr))
 		return;
 	register int32_t ex, ey;
 	sy = sr.y;
