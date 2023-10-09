@@ -12,6 +12,7 @@ LIB_EWOKSYS_OBJS = sys/src/syscall.o \
 	sys/src/mstr.o \
 	sys/src/utf8unicode.o \
 	sys/src/klog.o \
+	sys/src/core.o \
 	sys/src/cmain.o \
 	sys/src/charbuf.o \
 	sys/src/vfs.o \

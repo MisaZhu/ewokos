@@ -1,5 +1,5 @@
 #include <graph/graph.h>
-#include <sys/proc.h>
+#include <sys/core.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
@@ -9,9 +9,6 @@ extern "C" {
 #endif
 
 #define MIN(a, b) (((a) > (b))?(b):(a))
-
-#define neon_lock schd_core_lock
-#define neon_unlock schd_core_unlock
 
 static inline void neon_alpha_8(uint32_t *b, uint32_t *f, uint32_t *d)
 {
