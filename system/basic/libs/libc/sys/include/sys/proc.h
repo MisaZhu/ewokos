@@ -7,6 +7,8 @@
 extern "C" {
 #endif
 
+void     schd_lock(); 
+void     schd_unlock(); 
 int      get_vfsd_pid(void);
 int      get_cored_pid(void);
 

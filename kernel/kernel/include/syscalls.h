@@ -74,7 +74,9 @@ enum {
 	SYS_SOFT_INT,         //51
 	SYS_PROC_UUID,        //52
 	SYS_CLOSE_KCONSOLE,             //53
-	SYS_CALL_NUM          //54
+	SYS_SCHD_LOCK,             //54
+	SYS_SCHD_UNLOCK,             //55
+	SYS_CALL_NUM          //56
 };
 
 #endif

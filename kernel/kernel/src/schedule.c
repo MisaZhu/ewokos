@@ -8,6 +8,10 @@
 
 int32_t schedule(context_t* ctx) {
 	proc_zombie_funeral();
+	proc_t* cproc = get_current_proc();
+	if(cproc != NULL && cproc->schd_lock_counter > 0) {
+		return -1;
+	}
 
 	uint32_t core = get_core_id();
 	proc_t* halt_proc = NULL;

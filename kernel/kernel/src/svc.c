@@ -572,6 +572,16 @@ static inline int32_t sys_proc_uuid(int32_t pid) {
 	return proc->info.uuid;
 }
 
+static inline void sys_schd_lock(void) {
+	proc_t* cproc = get_current_proc();
+	cproc->schd_lock_counter = SCHD_LOCK_LIMIT;
+}
+
+static inline void sys_schd_unlock(context_t* ctx) {
+	proc_t* cproc = get_current_proc();
+	cproc->schd_lock_counter = 0;
+}
+
 static inline void sys_root(void) {
 #ifdef KCONSOLE
 	kconsole_close();
@@ -739,6 +749,12 @@ static inline void _svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_
 	case SYS_P2V:
 		ctx->gpr[0] = P2V(arg0);
 		return;
+	case SYS_SCHD_LOCK:	
+		sys_schd_lock();
+		return;	
+	case SYS_SCHD_UNLOCK:	
+		sys_schd_unlock(ctx);
+		return;	
 	case SYS_CLOSE_KCONSOLE:	
 		sys_root();
 		return;	

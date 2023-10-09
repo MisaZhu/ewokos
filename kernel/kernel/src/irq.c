@@ -62,7 +62,7 @@ static inline void irq_do_timer0(context_t* ctx) {
 		_kernel_usec = usec;
 	}
 	else {
-		uint64_t usec_gap = usec - _kernel_usec;
+		uint32_t usec_gap = usec - _kernel_usec;
 		_kernel_usec = usec;
 		_sec_tic += usec_gap;
 		_timer_tic += usec_gap;

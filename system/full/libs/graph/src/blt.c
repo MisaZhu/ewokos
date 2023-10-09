@@ -183,13 +183,12 @@ void graph_blt_cpu(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_t sh,
 
 inline void graph_blt(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_t sh,
 		graph_t* dst, int32_t dx, int32_t dy, int32_t dw, int32_t dh) {
-/*#ifdef NEON_ENABLE
+#ifdef NEON_ENABLE
 	graph_blt_neon(src, sx, sy, sw, sh, dst, dx, dy, dw, dh);
 #else
 	graph_blt_cpu(src, sx, sy, sw, sh, dst, dx, dy, dw, dh);
 #endif
-*/
-	graph_blt_cpu(src, sx, sy, sw, sh, dst, dx, dy, dw, dh);
+	//graph_blt_cpu(src, sx, sy, sw, sh, dst, dx, dy, dw, dh);
 }
 
 void graph_blt_alpha_cpu(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_t sh,
@@ -226,13 +225,12 @@ void graph_blt_alpha_cpu(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32
 
 inline void graph_blt_alpha(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_t sh,
 		graph_t* dst, int32_t dx, int32_t dy, int32_t dw, int32_t dh, uint8_t alpha) {
-/*#ifdef NEON_ENABLE
+#ifdef NEON_ENABLE
 	graph_blt_alpha_neon(src, sx, sy, sw, sh, dst, dx, dy, dw, dh, alpha);
 #else
 	graph_blt_alpha_cpu(src, sx, sy, sw, sh, dst, dx, dy, dw, dh, alpha);
 #endif
-*/
-	graph_blt_alpha_cpu(src, sx, sy, sw, sh, dst, dx, dy, dw, dh, alpha);
+	//graph_blt_alpha_cpu(src, sx, sy, sw, sh, dst, dx, dy, dw, dh, alpha);
 }
 
 inline bool check_in_rect(int32_t x, int32_t y, grect_t* rect) {

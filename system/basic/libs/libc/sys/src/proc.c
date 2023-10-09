@@ -41,6 +41,14 @@ inline int proc_getpid(int pid) {
  	return syscall1(SYS_GET_PID, pid);
 }
 
+inline void schd_lock() {
+	syscall0(SYS_SCHD_LOCK);
+}
+
+inline void schd_unlock() {
+	syscall0(SYS_SCHD_UNLOCK);
+}
+
 inline void proc_detach(void) {
 	syscall0(SYS_DETACH);
 }
