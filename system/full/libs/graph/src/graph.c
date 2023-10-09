@@ -79,7 +79,16 @@ void graph_clear(graph_t* g, uint32_t color) {
 		return;
 	if(g->w == 0 || g->w == 0)
 		return;
-	graph_fill(g, 0, 0, g->w, g->h, color);
+	int32_t i = 0;
+	int32_t sz = g->w * 4;
+	while(i<g->w) {
+		g->buffer[i] = color;
+		++i;
+	}
+	char* p = (char*)g->buffer;
+	for(i=1; i<g->h; ++i) {
+		memcpy(p+(i*sz), p, sz);
+	}
 }
 
 void graph_reverse(graph_t* g) {
