@@ -354,8 +354,8 @@ int main(int argc, char *argv[])
 	//x.open(&emu, scr.size.w /2  - 128 , scr.size.h /2 - 128, 256, 256, "NesEmu", X_STYLE_NO_RESIZE);
 	//x.open(&emu, 10, 10, scr.size.w-20, scr.size.h-20, "NesEmu", X_STYLE_NORMAL);
 	uint32_t zoom = 1;
-	if(scr.size.h > 241)
-		zoom = scr.size.h / 241;
+	if(scr.size.h >= 480)
+		zoom = 2;
 	x.open(&scr, &emu, 256*zoom, 241*zoom, "NesEmu", X_STYLE_NO_RESIZE);
 	emu.setVisible(true);
 
