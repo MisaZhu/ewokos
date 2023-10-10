@@ -23,7 +23,7 @@ class Finder: public XWin {
 	uint32_t titleBGColor;
 	graph_t* dirIcon;
 	graph_t* fileIcon;
-	uint32_t itemSize;
+	int itemSize;
 
 	int     mouse_last_y;
 	int     selected;
