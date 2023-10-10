@@ -36,6 +36,8 @@ using namespace Ewok;
    /* NES part */
 
 #define KEY_TIMEOUT 2	
+#define MIN(a, b) (((a)<(b))?(a):(b))
+#define MAX(a, b) (((a)>(b))?(a):(b))
 
 WORD padState;
 
@@ -59,6 +61,8 @@ WORD NesPalette[ 64 ] =
 };
 
 graph_t *screen;
+graph_t *paint;
+
 /* Menu screen */
 int InfoNES_Menu(){
 	return 0;
@@ -114,53 +118,49 @@ void InfoNES_ReleaseRom(){
 
 }
 
-/* Transfer the contents of work frame on the screen */
-inline void InfoNes_LoadLineScale2(uint32_t *fb, WORD* frame, int width){
-	do{
-		int i = *frame++ % 64;
-		*fb++ = *fb++ = RGBPalette[i];
-	}while(width--);
-}
+void graph_scale_fix_center(graph_t *src, graph_t *dst){
+	static int dstW,dstH;
+	static int scale;
+	static int sx;
+	static int sy; 
+	static int ex;
+	static int ey;
 
-inline void InfoNES_LoadFrameScale2(void){
-  int offX = (screen->w - NES_DISP_WIDTH*2)/2;
-  int offY =(screen->h - NES_DISP_HEIGHT*2)/2; 
-  uint32_t* d=(uint32_t *)screen->buffer + offY*screen->w + offX; 
-  WORD* s = WorkFrame;
-  for(int y=0; y<NES_DISP_HEIGHT; y++){
-	InfoNes_LoadLineScale2(d, s, NES_DISP_WIDTH);
-	d+=screen->w;
-	InfoNes_LoadLineScale2(d, s, NES_DISP_WIDTH);
-    d+=screen->w; 
-	s+=NES_DISP_WIDTH;
-  }
-}
+	if(dstW != dst->w || dstH!= dst->h){
+		dstW = dst->w;
+		dstH = dst->h;
+		scale = MAX(dstW/src->w, dstH/src->h);
+		scale = MAX(scale, 1);
+		sx = MAX((dstW- src->w * scale)/2, 0);
+		ex = MIN(sx + (src->w * scale), dst->w);
+		sy = MAX((dstH - src->h * scale)/2, 0);
+		ey = MIN(sy + (src->h * scale), dst->h);
+	}
 
-inline void InfoNes_LoadLineScale1(uint32_t *fb, WORD* frame, int width){
-	do{
-		int i = *frame++ % 64;
-		*fb++ = RGBPalette[i];
-	}while(width--);
+	int dstY = sy;
+	int srcY = 0;
+	for(; dstY < ey; dstY++){
+		int dstX = sx;
+		int srcX = 0;
+		uint32_t *d = dst->buffer + dstY * dst->w;
+		uint32_t *s = src->buffer + srcY/scale*src->w;
+		for(; dstX < ex; dstX++){
+			d[dstX] = s[srcX/scale];
+			srcX++;
+		}
+		srcY++;
+	}
 }
-
-inline void InfoNES_LoadFrameScale1(void){
-  int offX = (screen->w - NES_DISP_WIDTH)/2;
-  int offY =(screen->h - NES_DISP_HEIGHT)/2; 
-  uint32_t* d=(uint32_t *)screen->buffer + offY*screen->w + offX; 
-  WORD* s = WorkFrame;
-  for(int y=0; y<NES_DISP_HEIGHT; y++){
-	InfoNes_LoadLineScale1(d, s, NES_DISP_WIDTH);
-	d+=screen->w;
-	s+=NES_DISP_WIDTH;
-  }
-}
-
 
 void InfoNES_LoadFrame(){
-	if(screen->w >= NES_DISP_WIDTH * 2 && screen->h >= NES_DISP_HEIGHT * 2)
-		InfoNES_LoadFrameScale2();
-	else
-		InfoNES_LoadFrameScale1();	
+	WORD* s = WorkFrame;
+	uint32_t* d=(uint32_t *)paint->buffer;  
+	for(int i= 0; i < NES_DISP_WIDTH*NES_DISP_HEIGHT; i++ ){
+		int idx = *s++ % 64;
+		d[i] = RGBPalette[idx];
+	};
+
+	graph_scale_fix_center(paint, screen);
 }
 
 /* Get a joypad state */
@@ -222,9 +222,11 @@ private:
 public:
 	inline NesEmu() {
 		padState = 0;
- 	}
+		paint = graph_new(NULL, 256, 240);
+	}
 	
 	inline ~NesEmu() {
+		graph_free(paint);
 	}
 
     bool loadGame(char* path){
@@ -319,6 +321,7 @@ protected:
 		InfoNES_Cycle();
 		//printf("wait\n");
 	}
+
 };
 
 static void loop(void* p) {
@@ -353,10 +356,7 @@ int main(int argc, char *argv[])
 
 	//x.open(&emu, scr.size.w /2  - 128 , scr.size.h /2 - 128, 256, 256, "NesEmu", X_STYLE_NO_RESIZE);
 	//x.open(&emu, 10, 10, scr.size.w-20, scr.size.h-20, "NesEmu", X_STYLE_NORMAL);
-	uint32_t zoom = 1;
-	if(scr.size.h >= 480)
-		zoom = 2;
-	x.open(&scr, &emu, 256*zoom, 241*zoom, "NesEmu", X_STYLE_NO_RESIZE);
+	x.open(&scr, &emu, 256, 240, "NesEmu", X_STYLE_NORMAL);
 	emu.setVisible(true);
 
 	x.run(loop, &emu);

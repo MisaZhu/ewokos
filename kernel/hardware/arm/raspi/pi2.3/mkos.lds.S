@@ -15,10 +15,10 @@ SECTIONS
 	.init start_address : AT(start_address) ALIGN(4096)
 	{
     KEEP(*(.init .init.*))
-		*/start.o(.text .text.*)
-		*/start.o(.rodata .rodata.*)
-		*/start.o(.data .data.*)
-		*/start.o(.bss .bss.*)
+		*/start*.o(.text .text.*)
+		*/start*.o(.rodata .rodata.*)
+		*/start*.o(.data .data.*)
+		*/start*.o(.bss .bss.*)
 	} : init
 	. = . + 0x4000;
 	_svc_start_stack = .;
