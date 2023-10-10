@@ -61,6 +61,7 @@ void     graph_init(graph_t* g, const uint32_t* buffer, int32_t w, int32_t h);
 graph_t* graph_new(uint32_t* buffer, int32_t w, int32_t h);
 void     graph_free(graph_t* g);
 
+int32_t  graph_insect_with(graph_t* src, grect_t* sr, graph_t* dst, grect_t* dr);
 int32_t  graph_insect(graph_t* g, grect_t* r);
 void     graph_set_clip(graph_t* g, int x, int y, int w, int h);
 void     graph_unset_clip(graph_t* g);

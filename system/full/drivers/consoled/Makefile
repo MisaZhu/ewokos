@@ -23,7 +23,7 @@ $(CONSOLED): $(CONSOLED_OBJS) \
 		$(BUILD_DIR)/lib/libhash.a  \
 		$(BUILD_DIR)/lib/libfont.a  \
 		$(BUILD_DIR)/lib/libdisplay.a 
-	$(LD) -Ttext=100 $(CONSOLED_OBJS) -o $(CONSOLED) $(LDFLAGS) -lfb -ldisplay -lconsole -ltextview -lgraph -lttf  -lfont -lhash -lupng -lsconf -lewokc -lsoftfloat -lc
+	$(LD) -Ttext=100 $(CONSOLED_OBJS) -o $(CONSOLED) $(LDFLAGS) -lfb -ldisplay -lconsole -ltextview -lgraph -lttf  -lfont -lhash -lupng -lsconf -lewokc -lc
 
 clean:
 	rm -f $(CONSOLED_OBJS)

@@ -9,7 +9,7 @@
 int32_t schedule(context_t* ctx) {
 	proc_zombie_funeral();
 	proc_t* cproc = get_current_proc();
-	if(cproc != NULL && cproc->schd_lock_counter > 0) {
+	if(cproc != NULL && cproc->schd_core_lock_counter > 0) {
 		return -1;
 	}
 

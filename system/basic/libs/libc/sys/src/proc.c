@@ -41,14 +41,6 @@ inline int proc_getpid(int pid) {
  	return syscall1(SYS_GET_PID, pid);
 }
 
-inline void schd_lock() {
-	syscall0(SYS_SCHD_LOCK);
-}
-
-inline void schd_unlock() {
-	syscall0(SYS_SCHD_UNLOCK);
-}
-
 inline void proc_detach(void) {
 	syscall0(SYS_DETACH);
 }
@@ -86,6 +78,10 @@ inline uint32_t proc_check_uuid(int32_t pid, uint32_t uuid) {
 	if(ret == uuid)
 		return ret;
 	return 0;
+}
+
+inline uint32_t proc_get_uuid(int32_t pid) {
+	return syscall1(SYS_PROC_UUID, pid);
 }
 
 #ifdef __cplusplus

@@ -79,7 +79,6 @@ void graph_clear(graph_t* g, uint32_t color) {
 		return;
 	if(g->w == 0 || g->w == 0)
 		return;
-
 	int32_t i = 0;
 	int32_t sz = g->w * 4;
 	while(i<g->w) {

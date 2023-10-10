@@ -7,8 +7,6 @@
 extern "C" {
 #endif
 
-void     schd_lock(); 
-void     schd_unlock(); 
 int      get_vfsd_pid(void);
 int      get_cored_pid(void);
 
@@ -23,6 +21,7 @@ void     proc_block(int by_pid, uint32_t evt);
 void     proc_wakeup(uint32_t evt);
 void     proc_init(void);
 uint32_t proc_check_uuid(int32_t pid, uint32_t uuid);
+uint32_t proc_get_uuid(int32_t pid);
 
 #ifdef __cplusplus
 }

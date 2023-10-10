@@ -1,5 +1,5 @@
 #include <graph/graph.h>
-#include <sys/proc.h>
+#include <sys/core.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
@@ -121,46 +121,6 @@ static inline void graph_pixel_neon(graph_t *graph, int32_t x, int32_t y,
 	}
 }
 
-static int32_t insect(graph_t* src, grect_t* sr, graph_t* dst, grect_t* dr) {
-	int32_t dx = sr->x < dr->x ? sr->x:dr->x;
-	int32_t dy = sr->y < dr->y ? sr->y:dr->y;
-
-	if(dx < 0) {
-		sr->x -= dx;
-		dr->x -= dx;
-		sr->w += dx;
-		dr->w += dx;
-	}
-
-	if(dy < 0) {
-		sr->y -= dy;
-		dr->y -= dy;
-		sr->h += dy;
-		dr->h += dy;
-	}
-
-	//insect src;
-	if(!graph_insect(src, sr))
-		return 0;
-	if(!graph_insect(dst, dr))
-		return 0;
-
-	if(sr->w <= 0 || sr->h <= 0 ||
-			dr->w <= 0 || dr->h <= 0)
-		return 0;
-
-	if(sr->w > dr->w)
-		sr->w = dr->w;
-	else
-		dr->w = sr->w;
-	
-	if(sr->h > dr->h)
-		sr->h = dr->h;
-	else
-		dr->h = sr->h;
-	return 1;
-}
-
 void graph_fill_neon(graph_t* g, int32_t x, int32_t y, int32_t w, int32_t h, uint32_t color) {
 	uint32_t buf[8];
 
@@ -178,7 +138,7 @@ void graph_fill_neon(graph_t* g, int32_t x, int32_t y, int32_t w, int32_t h, uin
 	for(int i = 0; i < 8; i++)
 		buf[i] = color;
 	
-	schd_lock();
+	neon_lock();
 	if(color_a(color) == 0xff) {
 		neon_fill_load(buf);
 		for(; y < ey; y++) {
@@ -201,7 +161,7 @@ void graph_fill_neon(graph_t* g, int32_t x, int32_t y, int32_t w, int32_t h, uin
 			}
 		}
 	}
-	schd_unlock();
+	neon_unlock();
 }
 
 void graph_fill_3d_neon(graph_t* g, int x, int y, int w, int h, uint32_t color, bool rev) {
@@ -225,7 +185,7 @@ inline void graph_blt_neon(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int
 	grect_t sr = {sx, sy, sw, sh};
 	grect_t dr = {dx, dy, dw, dh};
 	graph_insect(dst, &dr);
-	if(!insect(src, &sr, dst, &dr))
+	if(!graph_insect_with(src, &sr, dst, &dr))
 		return;
 
 	register int32_t ex, ey;
@@ -234,7 +194,7 @@ inline void graph_blt_neon(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int
 	ex = sr.x + sr.w;
 	ey = sr.y + sr.h;
 
-	schd_lock();
+	neon_lock();
 	for(; sy < ey; sy++, dy++) {
 		register int32_t sx = sr.x;
 		register int32_t dx = dr.x;
@@ -243,7 +203,7 @@ inline void graph_blt_neon(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int
 			graph_pixel_neon(dst, dx, dy, &src->buffer[offset + sx], MIN(ex-sx, 8));	
 		}
 	}
-	schd_unlock();
+	neon_unlock();
 }
 
 inline void graph_blt_alpha_neon(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_t sh,
@@ -254,7 +214,7 @@ inline void graph_blt_alpha_neon(graph_t* src, int32_t sx, int32_t sy, int32_t s
 	grect_t sr = {sx, sy, sw, sh};
 	grect_t dr = {dx, dy, dw, dh};
 	graph_insect(dst, &dr);
-	if(!insect(src, &sr, dst, &dr))
+	if(!graph_insect_with(src, &sr, dst, &dr))
 		return;
 	register int32_t ex, ey;
 	sy = sr.y;
@@ -262,7 +222,7 @@ inline void graph_blt_alpha_neon(graph_t* src, int32_t sx, int32_t sy, int32_t s
 	ex = sr.x + sr.w;
 	ey = sr.y + sr.h;
 
-	schd_lock();
+	neon_lock();
 	for(; sy < ey; sy++, dy++) {
 		register int32_t sx = sr.x;
 		register int32_t dx = dr.x;
@@ -271,7 +231,7 @@ inline void graph_blt_alpha_neon(graph_t* src, int32_t sx, int32_t sy, int32_t s
 			graph_pixel_argb_neon(dst, dx, dy, &src->buffer[offset + sx], MIN(ex-sx, 8));	
 		}
 	}
-	schd_unlock();
+	neon_unlock();
 }
 
 

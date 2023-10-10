@@ -12,6 +12,7 @@ LIB_EWOKSYS_OBJS = sys/src/syscall.o \
 	sys/src/mstr.o \
 	sys/src/utf8unicode.o \
 	sys/src/klog.o \
+	sys/src/core.o \
 	sys/src/cmain.o \
 	sys/src/charbuf.o \
 	sys/src/vfs.o \
@@ -111,7 +112,7 @@ endif
 EWOKC = $(TARGET_DIR)/lib/libewokc.a
 
 $(EWOKC): $(LIB_EWOKSYS_OBJS) $(LIB_EWOKC_OBJS)  \
-		$(TARGET_DIR)/lib/libsoftfloat.a
+	$(TARGET_DIR)/lib/libsoftfloat.a
 	$(AR) rT $(EWOKC) $(LIB_EWOKSYS_OBJS) $(LIB_EWOKC_OBJS) $(TARGET_DIR)/lib/libsoftfloat.a
 	cp -r sys/include/* include/* $(TARGET_DIR)/include
 
