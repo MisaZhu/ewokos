@@ -306,6 +306,9 @@ public:
 		v = sconf_get(conf, "item_size");
 		if(v[0] != 0)
 			itemSize = atoi(v);
+		if(font.max_size.y > itemSize)
+			itemSize = font.max_size.y;
+
 		v = sconf_get(conf, "bg_color");
 		if(v[0] != 0)
 			bgColor = atoi_base(v, 16);
