@@ -1,4 +1,6 @@
 
+export ARCH=arm
+
 all: 
 	cd libs/xpt2046; make
 	cd libs/ili9486; make
