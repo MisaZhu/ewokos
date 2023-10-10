@@ -16,8 +16,9 @@ $(FBD): $(FBD_OBJS) \
 		$(BUILD_DIR)/lib/libgraph.a \
 		$(BUILD_DIR)/lib/libfbd.a \
 		$(BUILD_DIR)/lib/libgraph.a \
+		$(BUILD_DIR)/lib/libupng.a \
 		$(BUILD_DIR)/lib/libarch_rk3128.a
-	$(LD) -Ttext=100 $(FBD_OBJS) -o $(FBD) $(LDFLAGS) -larch_rk3128 -lfbd  -lgraph -lewokc -lc
+	$(LD) -Ttext=100 $(FBD_OBJS) -o $(FBD) $(LDFLAGS) -larch_rk3128 -lfbd -lupng -lgraph -lewokc -lc
 
 clean:
 	rm -f $(FBD_OBJS)
