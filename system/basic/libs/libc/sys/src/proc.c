@@ -80,6 +80,10 @@ inline uint32_t proc_check_uuid(int32_t pid, uint32_t uuid) {
 	return 0;
 }
 
+inline uint32_t proc_get_uuid(int32_t pid) {
+	return syscall1(SYS_PROC_UUID, pid);
+}
+
 #ifdef __cplusplus
 }
 #endif

@@ -29,6 +29,7 @@ enum {
 typedef struct st_xwin {
 	int fd;
 	int from_pid;
+	uint32_t from_pid_uuid;
 	graph_t* g;
 	graph_t* g_buf;
 	xinfo_t* xinfo;
@@ -729,6 +730,17 @@ static void mark_dirty(x_t* x, xwin_t* win) {
 		mark_dirty(x, win_next);
 }
 
+static void check_wins(x_t* x) {
+	xwin_t* w = x->win_tail; 
+	while(w != NULL) {
+		xwin_t* p = w->prev;
+		if(proc_check_uuid(w->from_pid, w->from_pid_uuid) != w->from_pid_uuid) {
+			x_del_win(x, w);
+		}
+		w = p;
+	}
+}
+
 static int x_update(int fd, int from_pid, x_t* x) {
 	if(fd < 0)
 		return -1;
@@ -950,6 +962,7 @@ static int xserver_win_open(int fd, int from_pid, fsinfo_t* info, int oflag, voi
 	memset(win, 0, sizeof(xwin_t));
 	win->fd = fd;
 	win->from_pid = from_pid;
+	win->from_pid_uuid = proc_get_uuid(from_pid);
 	push_win(x, win);
 	return 0;
 }
@@ -1303,6 +1316,7 @@ static int xserver_win_close(int fd, int from_pid, fsinfo_t* info, void* p) {
 int xserver_step(void* p) {
 	x_t* x = (x_t*)p;
 	ipc_disable();
+	check_wins(x);
 	for(uint32_t i=0; i<x->display_num; i++) {
 		x_repaint(x, i);
 	}
