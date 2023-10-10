@@ -272,6 +272,7 @@ public:
 		titleBGColor = 0xffaaaaaa;
 		fileIcon = png_image_new("/data/icons/system/32/file.png");
 		dirIcon = png_image_new("/data/icons/system/32/dir.png");
+		font_load("/data/fonts/system.ttf", 14, &font);
 		itemSize = 36;
 
 		selected = 0;
@@ -301,6 +302,7 @@ public:
 		v = sconf_get(conf, "font");
 		if(v[0] == 0) 
 			v = "/data/fonts/system.ttf";
+		font_close(&font);
 		font_load(v, font_size, &font);
 
 		v = sconf_get(conf, "item_size");
@@ -312,27 +314,38 @@ public:
 		v = sconf_get(conf, "bg_color");
 		if(v[0] != 0)
 			bgColor = atoi_base(v, 16);
+
 		v = sconf_get(conf, "fg_color");
 		if(v[0] != 0)
 			fgColor = atoi_base(v, 16);
+
 		v = sconf_get(conf, "select_color");
 		if(v[0] != 0)
 			selectColor = atoi_base(v, 16);
+
 		v = sconf_get(conf, "hide_color");
 		if(v[0] != 0)
 			hideColor = atoi_base(v, 16);
+
 		v = sconf_get(conf, "title_color");
 		if(v[0] != 0)
 			titleColor = atoi_base(v, 16);
+
 		v = sconf_get(conf, "title_bg_color");
 		if(v[0] != 0)
 			titleBGColor = atoi_base(v, 16);
+
 		v = sconf_get(conf, "file_icon");
-		if(v[0] != 0)
+		if(v[0] != 0) {
+			graph_free(fileIcon);
 			fileIcon = png_image_new(v);
+		}
+
 		v = sconf_get(conf, "dir_icon");
-		if(v[0] != 0)
+		if(v[0] != 0) {
+			graph_free(dirIcon);
 			dirIcon = png_image_new(v);
+		}
 
 		sconf_free(conf);
 		return true;
