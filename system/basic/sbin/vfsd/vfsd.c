@@ -399,7 +399,7 @@ static void push_close_event(close_event_t* ev) {
 	else
 		_event_head = e;
 	_event_tail = e;
-	//proc_wakeup((uint32_t)_vfs_root);
+	proc_wakeup((uint32_t)_vfs_root);
 }
 
 static int get_close_event(close_event_t *ev) {
@@ -407,7 +407,7 @@ static int get_close_event(close_event_t *ev) {
 	close_event_t *e = _event_head;
 	if (e == NULL) {
 		ipc_enable();
-		//proc_block(getpid(), (uint32_t)_vfs_root);
+		proc_block(getpid(), (uint32_t)_vfs_root);
 		return -1;
 	}
 
@@ -852,10 +852,10 @@ static void do_vfs_pipe_read(int pid, proto_t* in, proto_t* out) {
 	vfs_node_t* node = (vfs_node_t*)info.node;
 	int32_t size = proto_read_int(in);
 
+	proc_wakeup((int32_t)node); //wakeup writer.
 	if(size < 0 || node == NULL) {
 		return;
 	}
-	proc_wakeup((int32_t)node); //wakeup writer.
 
 	buffer_t* buffer = (buffer_t*)info.data;
 	if(buffer == NULL) { //buffer not ready 
@@ -931,6 +931,7 @@ static void do_vfs_proc_clone(int32_t pid, proto_t* in) {
 	}
 }
 
+/*
 static void check_procs(void) {
 	int32_t i;
 	for(i = 0; i<PROC_MAX; i++) {
@@ -941,6 +942,7 @@ static void check_procs(void) {
 		}
 	}
 }
+*/
 
 static void do_vfs_proc_exit(int32_t pid, proto_t* in) {
 	(void)pid;
@@ -1061,10 +1063,14 @@ int main(int argc, char** argv) {
 			handle_close_event(&ev);
 			ipc_enable();
 		}
+		/*
 		else {
+			ipc_disable();
 			check_procs();
+			ipc_enable();
 			usleep(3000);
 		}
+		*/
 	}
 	return 0;
 }
