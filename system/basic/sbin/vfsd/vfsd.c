@@ -43,6 +43,7 @@ static mount_t _vfs_mounts[FS_MOUNT_MAX];
 typedef struct {
 	file_t fds[PROC_FILE_MAX];
 	uint32_t state;
+	uint32_t uuid;
 } proc_fds_t;
 
 static proc_fds_t _proc_fds_table[PROC_MAX];
@@ -66,8 +67,7 @@ static void vfs_init(void) {
 	}
 
 	for(i = 0; i<PROC_MAX; i++) {
-		for(int j = 0; j<PROC_FILE_MAX; j++)
-			memset(&_proc_fds_table[i].fds[j], 0, sizeof(file_t));
+		memset(&_proc_fds_table[i], 0, sizeof(proc_fds_t));
 	}
 
 	_vfs_root = vfs_new_node();
@@ -399,7 +399,7 @@ static void push_close_event(close_event_t* ev) {
 	else
 		_event_head = e;
 	_event_tail = e;
-	proc_wakeup((uint32_t)_vfs_root);
+	//proc_wakeup((uint32_t)_vfs_root);
 }
 
 static int get_close_event(close_event_t *ev) {
@@ -407,7 +407,7 @@ static int get_close_event(close_event_t *ev) {
 	close_event_t *e = _event_head;
 	if (e == NULL) {
 		ipc_enable();
-		proc_block(getpid(), (uint32_t)_vfs_root);
+		//proc_block(getpid(), (uint32_t)_vfs_root);
 		return -1;
 	}
 
@@ -881,13 +881,32 @@ static void do_vfs_pipe_read(int pid, proto_t* in, proto_t* out) {
 	PF->clear(out)->addi(out, 0); //retry
 }
 
+static void vfs_proc_exit(int32_t cpid) {
+	if(cpid < 0)
+		return;
+	int32_t i;
+	for(i=0; i<PROC_FILE_MAX; i++) {
+		file_t *f = &_proc_fds_table[cpid].fds[i];
+		if(f->node != NULL) {
+			proc_file_close(cpid, i, f, true);
+		}
+		memset(f, 0, sizeof(file_t));
+	}
+	_proc_fds_table[cpid].state = UNUSED;
+	_proc_fds_table[cpid].uuid = 0;
+}
+
 static void do_vfs_proc_clone(int32_t pid, proto_t* in) {
 	(void)pid;
 	int fpid = proto_read_int(in);
 	int cpid = proto_read_int(in);
 	if(fpid < 0 || cpid < 0)
 		return;
+
+	if(_proc_fds_table[cpid].state == RUNNING)
+		vfs_proc_exit(cpid);
 	_proc_fds_table[cpid].state = RUNNING;
+	_proc_fds_table[cpid].uuid = proc_get_uuid(cpid);
 	
 	int32_t i;
 	for(i=0; i<PROC_FILE_MAX; i++) {
@@ -912,20 +931,23 @@ static void do_vfs_proc_clone(int32_t pid, proto_t* in) {
 	}
 }
 
+static void check_procs(void) {
+	int32_t i;
+	for(i = 0; i<PROC_MAX; i++) {
+		if(_proc_fds_table[i].state != UNUSED) {
+			if(proc_get_uuid(i) != _proc_fds_table[i].uuid) {
+				vfs_proc_exit(i);
+			}
+		}
+	}
+}
+
 static void do_vfs_proc_exit(int32_t pid, proto_t* in) {
 	(void)pid;
 	int cpid = proto_read_int(in);
 	if(cpid < 0)
 		return;
-	int32_t i;
-	for(i=0; i<PROC_FILE_MAX; i++) {
-		file_t *f = &_proc_fds_table[cpid].fds[i];
-		if(f->node != NULL) {
-			proc_file_close(cpid, i, f, true);
-		}
-		memset(f, 0, sizeof(file_t));
-	}
-	_proc_fds_table[cpid].state = UNUSED;
+	vfs_proc_exit(cpid);
 }
 
 static void handle(int pid, int cmd, proto_t* in, proto_t* out, void* p) {
@@ -1039,10 +1061,10 @@ int main(int argc, char** argv) {
 			handle_close_event(&ev);
 			ipc_enable();
 		}
-		/*else {
-			sleep(0);
+		else {
+			check_procs();
+			usleep(3000);
 		}
-		*/
 	}
 	return 0;
 }
