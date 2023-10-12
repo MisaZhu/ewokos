@@ -202,7 +202,6 @@ static int run(int argc, char* argv[]) {
 	pthread_create(&tid, NULL, thread_loop, &xwin);
 
 	x.run(NULL, &xwin);
-	close(0);
 	_termniated = true;
 	return 0;
 }
