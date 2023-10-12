@@ -279,10 +279,9 @@ int main(int argc, char** argv) {
 			free(kev);
 			ipc_enable();
 		}
-		/*else {
-			sleep(0);
+		else {
+			usleep(2000);
 		}
-		*/
 	}
 
 	hashmap_free(_ipc_servs);

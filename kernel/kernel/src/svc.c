@@ -489,8 +489,8 @@ static void sys_get_kevent(context_t* ctx) {
 	ctx->gpr[0] = 0;	
 	kevent_t* kev = sys_get_kevent_raw();
 	if(kev == NULL) {
-		proc_block_on(-1, (uint32_t)kev_init);
-		schedule(ctx);	
+		//proc_block_on(-1, (uint32_t)kev_init);
+		//schedule(ctx);	
 		return;
 	}
 	ctx->gpr[0] = (int32_t)kev;	
