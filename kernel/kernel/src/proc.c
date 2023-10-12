@@ -400,7 +400,6 @@ void proc_funeral(proc_t* proc) {
 		return;
 
 	dma_release(proc->info.pid);
-	proc->info.state = UNUSED;
 	set_translation_table_base((uint32_t)V2P(proc->space->vm));
 	proc_free_user_stack(proc);
 	if(proc->info.type == PROC_TYPE_PROC) {
@@ -417,6 +416,8 @@ void proc_funeral(proc_t* proc) {
 		proc_free_space(proc);
 	}
 	memset(proc, 0, sizeof(proc_t));
+	proc->info.state = UNUSED;
+	proc->info.wait_for = -1;
 }
 
 inline int32_t proc_zombie_funeral(void) {
