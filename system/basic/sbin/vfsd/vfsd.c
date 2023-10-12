@@ -852,7 +852,6 @@ static void do_vfs_pipe_read(int pid, proto_t* in, proto_t* out) {
 	vfs_node_t* node = (vfs_node_t*)info.node;
 	int32_t size = proto_read_int(in);
 
-	proc_wakeup((int32_t)node); //wakeup writer.
 	if(size < 0 || node == NULL) {
 		return;
 	}
@@ -860,7 +859,6 @@ static void do_vfs_pipe_read(int pid, proto_t* in, proto_t* out) {
 	buffer_t* buffer = (buffer_t*)info.data;
 	if(buffer == NULL) { //buffer not ready 
 		PF->clear(out)->addi(out, 0); // retry
-		//proc_wakeup((int32_t)node); //wakeup writer.
 		return;
 	}
 
@@ -869,14 +867,14 @@ static void do_vfs_pipe_read(int pid, proto_t* in, proto_t* out) {
 	if(size > 0) {
 		PF->clear(out)->addi(out, size)->add(out, data, size);
 		free(data);
-		//proc_wakeup((int32_t)node); //wakeup writer.
+		proc_wakeup((int32_t)node); //wakeup writer.
 		return;
 	}
 	free(data);
 
 	if(node == NULL || node->refs < 2) { // close by other peer
-		//proc_wakeup((int32_t)node); //wakeup writer.
-    	return;
+		proc_wakeup((int32_t)node); //wakeup writer.
+   	return;
 	}
 	PF->clear(out)->addi(out, 0); //retry
 }
