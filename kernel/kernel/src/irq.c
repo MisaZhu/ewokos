@@ -221,11 +221,11 @@ void data_abort_handler(context_t* ctx, uint32_t addr_fault, uint32_t status) {
 	dump_ctx(&cproc->ctx);
 	if(cproc->info.state == ZOMBIE) {
 		proc_funeral(cproc);
+		schedule(ctx);
 	}
 	else {
 		proc_exit(ctx, cproc, -1);
 	}
-	schedule(ctx);
 }
 
 void irq_init(void) {

@@ -445,6 +445,7 @@ void proc_exit(context_t* ctx, proc_t *proc, int32_t res) {
 	if(proc_core == get_core_id() ||
 			_current_proc[proc_core] != proc)
 		proc_funeral(proc);
+	schedule(ctx);
 }
 
 inline void* proc_malloc(proc_t* proc, uint32_t size) {

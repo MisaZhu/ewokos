@@ -33,7 +33,6 @@ static void sys_exit(context_t* ctx, int32_t res) {
 	ctx->gpr[0] = 0;
 	proc_t* cproc = get_current_proc();
 	proc_exit(ctx, cproc, res);
-	schedule(ctx);
 }
 
 static int32_t sys_signal_setup(uint32_t entry) {
