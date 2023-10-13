@@ -165,12 +165,15 @@ protected:
 };
 
 static bool _termniated = false;
+static bool _thread_done = false;
 static void* thread_loop(void* p) {
 	XConsole* console = (XConsole*)p;
 
 	while(!_termniated) {
 		char buf[512];
 		int size = read(0, buf, 512);
+		if(_termniated)
+			break;
 		if(size > 0) {
 			console->put(buf, size);
 			console->rollEnd();
@@ -181,6 +184,7 @@ static void* thread_loop(void* p) {
 			break;
 		}
 	}
+	_thread_done = true;
 	return NULL;
 }
 
@@ -199,10 +203,14 @@ static int run(int argc, char* argv[]) {
 
 	pthread_t tid;
 	_termniated = false;
+	_thread_done = false;
 	pthread_create(&tid, NULL, thread_loop, &xwin);
 
 	x.run(NULL, &xwin);
 	_termniated = true;
+	close(0);
+	while(!_thread_done)
+		usleep(2000);
 	return 0;
 }
 

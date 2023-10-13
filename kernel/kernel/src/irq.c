@@ -217,7 +217,7 @@ void data_abort_handler(context_t* ctx, uint32_t addr_fault, uint32_t status) {
 			return;
 	}
 
-	printf("pid: %d(%s), core: %d, data abort!! at: 0x%X, code: 0x%X\n", cproc->info.pid, cproc->info.cmd, cproc->info.core, addr_fault, status);
+	printf("\npid: %d(%s), core: %d, data abort!! at: 0x%X, code: 0x%X\n", cproc->info.pid, cproc->info.cmd, cproc->info.core, addr_fault, status);
 	dump_ctx(&cproc->ctx);
 	proc_exit(ctx, cproc, -1);
 }

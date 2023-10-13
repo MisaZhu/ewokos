@@ -336,21 +336,23 @@ static void proc_terminate(context_t* ctx, proc_t* proc) {
 	if(proc->info.state == ZOMBIE || proc->info.state == UNUSED)
 		return;
 
+	proc_unready(proc, ZOMBIE);
 	if(proc->info.type == PROC_TYPE_PROC) {
 		kev_push(KEV_PROC_EXIT, proc->info.pid, 0, 0);
-	}
-
-	proc_unready(proc, ZOMBIE);
-	int32_t i;
-	for (i = 0; i < PROC_MAX; i++) {
-		proc_t *p = &_proc_table[i];
-		/*terminate forked from this proc*/
-		if(p->info.father_pid == proc->info.pid) { //terminate forked children, skip reloaded ones
-			//proc_exit(ctx, p, 0);
-			proc_signal_send(ctx, p, SYS_SIG_STOP, false);
+		int32_t i;
+		for (i = 0; i < PROC_MAX; i++) {
+			proc_t *p = &_proc_table[i];
+			/*terminate forked from this proc*/
+			if(p->info.father_pid == proc->info.pid) { //terminate forked children, skip reloaded ones
+				//proc_exit(ctx, p, 0);
+				proc_signal_send(ctx, p, SYS_SIG_STOP, false);
+			}
 		}
+
+		/*free all ipc context*/
+		proc_ipc_clear(proc);
+		proc_wakeup_waiting(proc->info.pid);
 	}
-	proc_wakeup_waiting(proc->info.pid);
 	proc->info.father_pid = 0;
 }
 
@@ -362,9 +364,17 @@ inline void proc_stack_free(proc_t* proc, uint32_t stack) {
 	proc_free(proc, (void *)stack);
 }
 
+static inline uint32_t thread_stack_alloc(proc_t* proc) {
+	return (uint32_t)proc_malloc(proc, THREAD_STACK_PAGES*PAGE_SIZE);
+}
+
+static inline void thread_stack_free(proc_t* proc, uint32_t stack) {
+	proc_free(proc, (void *)stack);
+}
+
 static inline void proc_init_user_stack(proc_t* proc) {
 	if(proc->info.type == PROC_TYPE_THREAD) {
-		proc->stack.thread_stack = proc_stack_alloc(proc);
+		proc->stack.thread_stack = thread_stack_alloc(proc);
 	}
 	else {
 		uint32_t i;
@@ -377,7 +387,6 @@ static inline void proc_init_user_stack(proc_t* proc) {
 				V2P(proc->stack.user_stack[i]),
 				AP_RW_RW, PTE_ATTR_WRBACK);
 		}
-		proc->ctx.sp = user_stack_base + pages*PAGE_SIZE;
 	}
 	flush_tlb();
 }
@@ -386,7 +395,7 @@ static inline void proc_free_user_stack(proc_t* proc) {
 	/*free user_stack*/
 	if(proc->info.type == PROC_TYPE_THREAD) {
 		if(proc->stack.thread_stack != 0) {
-			proc_stack_free(proc, proc->stack.thread_stack);
+			thread_stack_free(proc, proc->stack.thread_stack);
 		}
 	}
 	else {
@@ -403,12 +412,19 @@ static inline void proc_free_user_stack(proc_t* proc) {
 
 void proc_funeral(proc_t* proc) {
 	proc_t* cproc = get_current_proc();
-	if(cproc == proc || proc->info.state == UNUSED)
+	if(cproc == NULL || cproc == proc || proc->info.state == UNUSED)
 		return;
+	if(proc->info.type == PROC_TYPE_PROC) {
+		if(proc->space->refs > 0) //keep it still got child thread running.
+			return;
+	}
+	else {
+		if(proc->space->refs > 0)
+			proc->space->refs--;
+	}
 
-	dma_release(proc->info.pid);
 	set_translation_table_base((uint32_t)V2P(proc->space->vm));
-	proc_free_user_stack(proc);
+	dma_release(proc->info.pid);
 
 	if(proc->info.type == PROC_TYPE_PROC) {
 		/*free small_stack*/
@@ -421,22 +437,22 @@ void proc_funeral(proc_t* proc) {
 		if (proc->space->ipc_server.stack != 0) {
 			proc_stack_free(proc, proc->space->ipc_server.stack);
 		}
+		proc_free_user_stack(proc);
 		proc_free_space(proc, cproc->space->vm);
 	}
-	else 
-		set_translation_table_base((uint32_t)V2P(cproc->space->vm));
-
+	else {
+		proc_free_user_stack(proc);
+	}
 	memset(proc, 0, sizeof(proc_t));
 	proc->info.state = UNUSED;
 	proc->info.wait_for = -1;
 }
 
 inline void proc_zombie_funeral(void) {
-	uint32_t core_id = get_core_id();
 	int32_t i;
 	for (i = 0; i < PROC_MAX; i++) {
 		proc_t *p = &_proc_table[i];
-		if(p->info.state == ZOMBIE && _current_proc[core_id] != p)
+		if(p->info.state == ZOMBIE)
 			proc_funeral(p);
 	}
 }
@@ -446,12 +462,7 @@ void proc_exit(context_t* ctx, proc_t *proc, int32_t res) {
 	(void)res;
 	if(proc->info.state == UNUSED || proc->info.state == ZOMBIE)
 		return;
-
 	proc_terminate(ctx, proc);
-
-	/*free all ipc context*/
-	proc_ipc_clear(proc);
-
 	schedule(ctx);
 }
 
@@ -527,6 +538,7 @@ proc_t *proc_create(int32_t type, proc_t* parent) {
 	}
 	else {
 		proc->space = parent->space;
+		proc->space->refs++;
 	}
 
 	if(parent != NULL)

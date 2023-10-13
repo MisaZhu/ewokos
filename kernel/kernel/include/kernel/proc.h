@@ -67,9 +67,10 @@ typedef struct {
 	page_dir_entry_t* vm;
 	malloc_t          malloc_man;
 	uint32_t          heap_size;
+	int32_t           refs;
 	bool              ready_ping;
 	
-	uint32_t           shms[SHM_MAX];
+	uint32_t          shms[SHM_MAX];
 
 	ipc_server_t      ipc_server;
 	signal_t          signal;
@@ -77,7 +78,7 @@ typedef struct {
 } proc_space_t;
 
 #define STACK_PAGES 32
-#define THREAD_STACK_PAGES 16 
+#define THREAD_STACK_PAGES 16
 
 typedef struct st_proc {
 	procinfo_t        info;
