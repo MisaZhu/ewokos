@@ -71,7 +71,10 @@ inline proc_t* proc_get_by_uuid(uint32_t uuid) {
 
 inline proc_t* get_current_proc(void) {
 	uint32_t core_id = get_core_id();
-	return _current_proc[core_id];
+	proc_t* cproc = _current_proc[core_id];
+	if(cproc == NULL || cproc->info.state == UNUSED || cproc->info.state == ZOMBIE)
+		return NULL;
+	return cproc;
 }
 
 inline void set_current_proc(proc_t* proc) {
