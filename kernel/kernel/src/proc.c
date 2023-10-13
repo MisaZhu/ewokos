@@ -423,35 +423,26 @@ void proc_funeral(proc_t* proc) {
 	proc->info.wait_for = -1;
 }
 
-inline int32_t proc_zombie_funeral(void) {
-	proc_t*	cproc = get_current_proc();
-	if(cproc != NULL && cproc->info.state == ZOMBIE) {
-		proc_funeral(cproc);
-		return 0;
+inline void proc_zombie_funeral(void) {
+	int32_t i;
+	for (i = 0; i < PROC_MAX; i++) {
+		proc_t *p = &_proc_table[i];
+		if(p->info.state == ZOMBIE && get_current_proc() != p)
+			proc_funeral(p);
 	}
-	return -1;
 }
 
 /* proc_free frees all resources allocated by proc. */
 void proc_exit(context_t* ctx, proc_t *proc, int32_t res) {
 	(void)res;
-	if(proc->info.state == UNUSED)
+	if(proc->info.state == UNUSED || proc->info.state == ZOMBIE)
 		return;
 
-	if(proc->info.state == ZOMBIE) {
-		proc_funeral(proc);
-	}
-	else {
-		uint32_t proc_core = proc->info.core;
-		proc_terminate(ctx, proc);
+	proc_terminate(ctx, proc);
 
-		/*free all ipc context*/
-		proc_ipc_clear(proc);
-
-		if(proc_core == get_core_id() ||
-				_current_proc[proc_core] != proc)
-			proc_funeral(proc);
-	}
+	/*free all ipc context*/
+	proc_ipc_clear(proc);
+	
 	schedule(ctx);
 }
 
