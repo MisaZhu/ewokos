@@ -259,7 +259,7 @@ static inline void proc_unmap_shms(proc_t *proc) {
 	}
 }
 
-static inline void proc_free_space(proc_t *proc) {
+static inline void proc_free_space(proc_t *proc, page_dir_entry_t* vm) {
 	if(proc->info.type != PROC_TYPE_PROC)
 		return;
 
@@ -269,7 +269,7 @@ static inline void proc_free_space(proc_t *proc) {
 	/*unmap share mems*/
 	proc_unmap_shms(proc);
 
-	set_translation_table_base(V2P(_kernel_vm));
+	set_translation_table_base(V2P(vm));
 	free_page_tables(proc->space->vm);
 	kfree(proc->space);
 }
@@ -399,12 +399,14 @@ static inline void proc_free_user_stack(proc_t* proc) {
 }
 
 void proc_funeral(proc_t* proc) {
-	if(proc->info.state == UNUSED)
+	proc_t* cproc = get_current_proc();
+	if(cproc == proc || proc->info.state == UNUSED)
 		return;
 
 	dma_release(proc->info.pid);
 	set_translation_table_base((uint32_t)V2P(proc->space->vm));
 	proc_free_user_stack(proc);
+
 	if(proc->info.type == PROC_TYPE_PROC) {
 		/*free small_stack*/
 		if (proc->space->interrupt.stack != 0) {
@@ -416,18 +418,22 @@ void proc_funeral(proc_t* proc) {
 		if (proc->space->ipc_server.stack != 0) {
 			proc_stack_free(proc, proc->space->ipc_server.stack);
 		}
-		proc_free_space(proc);
+		proc_free_space(proc, cproc->space->vm);
 	}
+	else 
+		set_translation_table_base((uint32_t)V2P(cproc->space->vm));
+
 	memset(proc, 0, sizeof(proc_t));
 	proc->info.state = UNUSED;
 	proc->info.wait_for = -1;
 }
 
 inline void proc_zombie_funeral(void) {
+	uint32_t core_id = get_core_id();
 	int32_t i;
 	for (i = 0; i < PROC_MAX; i++) {
 		proc_t *p = &_proc_table[i];
-		if(p->info.state == ZOMBIE && get_current_proc() != p)
+		if(p->info.state == ZOMBIE && _current_proc[core_id] != p)
 			proc_funeral(p);
 	}
 }
@@ -442,7 +448,7 @@ void proc_exit(context_t* ctx, proc_t *proc, int32_t res) {
 
 	/*free all ipc context*/
 	proc_ipc_clear(proc);
-	
+
 	schedule(ctx);
 }
 
