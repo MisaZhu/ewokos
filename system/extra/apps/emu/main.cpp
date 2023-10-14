@@ -139,16 +139,39 @@ void graph_scale_fix_center(graph_t *src, graph_t *dst){
 
 	int dstY = sy;
 	int srcY = 0;
-	for(; dstY < ey; dstY++){
-		int dstX = sx;
-		int srcX = 0;
-		uint32_t *d = dst->buffer + dstY * dst->w;
-		uint32_t *s = src->buffer + srcY/scale*src->w;
-		for(; dstX < ex; dstX++){
-			d[dstX] = s[srcX/scale];
-			srcX++;
+
+	if(scale == 2 || scale == 4) {
+		int shift = scale / 2;
+		for(; dstY < ey; dstY++){
+			int dstX = sx;
+			int srcX = 0;
+			uint32_t *d = dst->buffer + dstY * dst->w;
+			uint32_t *s = src->buffer + (srcY/scale)*src->w;
+			for(; dstX < ex; dstX++){
+				d[dstX] = s[srcX/shift];
+				srcX++;
+				if(srcX == 4)
+					break;
+			}
+			for(; dstX < ex; dstX++){
+				d[dstX] = s[srcX>>shift];
+				srcX++;
+			}
+			srcY++;
 		}
-		srcY++;
+	}
+	else {
+		for(; dstY < ey; dstY++){
+			int dstX = sx;
+			int srcX = 0;
+			uint32_t *d = dst->buffer + dstY * dst->w;
+			uint32_t *s = src->buffer + srcY/scale*src->w;
+			for(; dstX < ex; dstX++){
+				d[dstX] = s[srcX/scale];
+				srcX++;
+			}
+			srcY++;
+		}
 	}
 }
 
@@ -356,7 +379,17 @@ int main(int argc, char *argv[])
 
 	//x.open(&emu, scr.size.w /2  - 128 , scr.size.h /2 - 128, 256, 256, "NesEmu", X_STYLE_NO_RESIZE);
 	//x.open(&emu, 10, 10, scr.size.w-20, scr.size.h-20, "NesEmu", X_STYLE_NORMAL);
-	x.open(&scr, &emu, 256, 240, "NesEmu", X_STYLE_NORMAL);
+	int zoom;
+	if(scr.size.h > 240)
+		zoom = scr.size.h / 240;
+	if(zoom >= 4)
+		zoom = 4;
+	else if(zoom >= 2)
+		zoom = 2;
+	else 
+		zoom = 1;
+
+	x.open(&scr, &emu, 256*zoom, 240*zoom, "NesEmu", X_STYLE_NO_RESIZE);
 	emu.setVisible(true);
 
 	x.run(loop, &emu);
