@@ -11,6 +11,7 @@ void MacWM::drawDesktop(graph_t* g) {
 	int sz = 2; 
 	int x = 0;
 	int y = 0;
+	bool shift = false;
 
 	graph_clear(g, desktopBGColor);
 
@@ -19,10 +20,8 @@ void MacWM::drawDesktop(graph_t* g) {
 			graph_fill(g, x, y, sz, sz, desktopFGColor);
 			x += sz*2;
 		}
-		if((i%2) != 0)
-			x = 0;
-		else
-			x = sz;
+		x = shift ? 0:sz;
+		shift = !shift;
 		y += sz;
 	}
 }
