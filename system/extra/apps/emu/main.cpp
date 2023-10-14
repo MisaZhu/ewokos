@@ -158,6 +158,25 @@ void graph_scale_fix_center(graph_t *src, graph_t *dst){
 				srcX++;
 			}
 			srcY++;
+			if(srcY >= 4)
+				break;
+		}
+		for(; dstY < ey; dstY++){
+			int dstX = sx;
+			int srcX = 0;
+			uint32_t *d = dst->buffer + dstY * dst->w;
+			uint32_t *s = src->buffer + (srcY>>shift)*src->w;
+			for(; dstX < ex; dstX++){
+				d[dstX] = s[srcX/shift];
+				srcX++;
+				if(srcX == 4)
+					break;
+			}
+			for(; dstX < ex; dstX++){
+				d[dstX] = s[srcX>>shift];
+				srcX++;
+			}
+			srcY++;
 		}
 	}
 	else {
