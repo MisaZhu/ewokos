@@ -82,13 +82,17 @@ static void draw_frame(xwm_t* xwm, proto_t* in) {
 				xwm->draw_title(&g, &info, &rtitle, top, xwm->data);
 
 			if((info.style & X_STYLE_NO_RESIZE) == 0) {
-				if(xwm->draw_min != NULL && rmin.w > 0 && rmin.h > 0)
-					xwm->draw_min(&g, &info, &rmin, top, xwm->data);
 				if(xwm->draw_max != NULL && rmax.w > 0 && rmax.h > 0)
 					xwm->draw_max(&g, &info, &rmax, top, xwm->data);
-				if(xwm->draw_resize != NULL && rresize.w > 0 && rresize.h > 0)
-					xwm->draw_resize(&g, &info, &rresize, top, xwm->data);
+				if(xwm->draw_min != NULL && rmin.w > 0 && rmin.h > 0)
+					xwm->draw_min(&g, &info, &rmin, top, xwm->data);
+
+				if(info.state != X_STATE_MAX) {
+					if(xwm->draw_resize != NULL && rresize.w > 0 && rresize.h > 0)
+						xwm->draw_resize(&g, &info, &rresize, top, xwm->data);
+				}
 			}
+
 			if(xwm->draw_close != NULL && rclose.w > 0 && rclose.h > 0)
 				xwm->draw_close(&g, &info, &rclose, top, xwm->data);
 		}
