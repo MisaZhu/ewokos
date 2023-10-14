@@ -2,6 +2,9 @@
 #include <stdio.h>
 #include <string.h>
 #include <font/font.h>
+#include <sconf/sconf.h>
+#include <upng/upng.h>
+#include <stdlib.h>
 
 using namespace Ewok;
 
@@ -92,16 +95,6 @@ static void get_min_size(xinfo_t* info, int* w, int* h, void* p) {
 }
 
 /*-------draw functions.----------*/
-void XWM::getColor(uint32_t *fg, uint32_t* bg, bool top) {
-	if(!top) {
-		*fg = 0xff888888;
-		*bg = 0xff222222;
-	}
-	else {
-		*fg = 0xff222222;
-		*bg = 0xffaaaaaa;
-	}
-}
 
 void XWM::drawDragFrame(graph_t* g, grect_t* r) {
 	graph_box(g, r->x+1, r->y+1, r->w, r->h, 0x88000000);
@@ -126,11 +119,12 @@ void XWM::drawFrame(graph_t* g, xinfo_t* info, bool top) {
 		h += titleH;
 		//h = titleH;
 		y -= titleH;
+		graph_box(g, x-frameW, y-frameW, w+frameW*2, titleH+frameW, fg);
 	}
 
 	//win box
 	for(uint32_t i=0; i<frameW; i++) {
-		graph_box(g, x-(frameW-i), y-(frameW-i), w+(frameW-i)*2, h+(frameW-i)*2, bg);
+		graph_box(g, x-(frameW-i), y-(frameW-i), w+(frameW-i)*2, h+(frameW-i)*2, fg);
 	}
 }
 
@@ -145,6 +139,7 @@ void XWM::drawTitle(graph_t* g, xinfo_t* info, grect_t* r, bool top) {
 
 	int pw = (r->w-sz.w)/2;
 	graph_fill(g, r->x, r->y, r->w, titleH, bg);//title box
+	graph_box(g, r->x, r->y, r->w, titleH, fg);//title box
 }
 
 static void draw_title(graph_t* g, xinfo_t* info, grect_t* r, bool top, void* p) {
@@ -157,7 +152,7 @@ void XWM::drawMin(graph_t* g, xinfo_t* info, grect_t* r, bool top) {
 	getColor(&fg, &bg, top);
 
 	graph_fill(g, r->x, r->y, r->w, r->h, bg);
-	graph_box(g, r->x+2, r->y+r->h-6, r->w-4, 4, fg);
+	graph_box(g, r->x+4, r->y+r->h-8, r->w-8, 4, fg);
 }
 
 static void draw_min(graph_t* g, xinfo_t* info, grect_t* r, bool top, void* p) {
@@ -170,8 +165,8 @@ void XWM::drawMax(graph_t* g, xinfo_t* info, grect_t* r, bool top) {
 	getColor(&fg, &bg, top);
 
 	graph_fill(g, r->x, r->y, r->w, r->h, bg);
-	graph_box(g, r->x+2, r->y+2, r->w-4, r->h-4, fg);
-	graph_box(g, r->x+2, r->y+2, r->w-8, r->h-8, fg);
+	graph_box(g, r->x+4, r->y+4, r->w-8, r->h-8, fg);
+	graph_box(g, r->x+4, r->y+4, r->w-10, r->h-10, fg);
 }
 
 static void draw_max(graph_t* g, xinfo_t* info, grect_t* r, bool top, void* p) {
@@ -184,7 +179,7 @@ void XWM::drawClose(graph_t* g, xinfo_t* info, grect_t* r, bool top) {
 	getColor(&fg, &bg, top);
 
 	graph_fill(g, r->x, r->y, r->w, r->h, bg);
-	graph_box(g, r->x+2, r->y+2, r->w-4, r->h-4, fg);
+	graph_box(g, r->x+4, r->y+4, r->w-8, r->h-8, fg);
 }
 
 static void draw_close(graph_t* g, xinfo_t* info, grect_t* r, bool top, void* p) {
@@ -200,6 +195,7 @@ void XWM::drawResize(graph_t* g, xinfo_t* info, grect_t* r, bool top) {
 
 	graph_fill(g, r->x, r->y, r->w, r->h, bg);
 	graph_box(g, r->x+2, r->y+2, r->w-4, r->h-4, fg);
+	graph_box(g, r->x, r->y, r->w, r->h, fg);
 }
 
 static void draw_resize(graph_t* g, xinfo_t* info, grect_t* r, bool top, void* p) {
@@ -226,11 +222,86 @@ static void draw_desktop(graph_t* g, void* p) {
 	((XWM*)p)->__drawDesktop(g);
 }
 
+void XWM::getColor(uint32_t *fg, uint32_t* bg, bool top) {
+	if(top) {
+		*fg = fgTopColor;
+		*bg = bgTopColor;
+	}
+	else {
+		*fg = fgColor;
+		*bg = bgColor;
+	}
+}
+
+void XWM::readConfig(const char* fname) {
+	sconf_t *sconf = sconf_load(fname);	
+	if(sconf == NULL)
+		return;
+
+	const char* v = sconf_get(sconf, "bg_image");
+	if(v[0] != 0) 
+		bgImg = png_image_new(v);
+
+	v = sconf_get(sconf, "fg_color");
+	if(v[0] != 0) 
+		fgColor = atoi_base(v, 16);
+
+	v = sconf_get(sconf, "bg_color");
+	if(v[0] != 0) 
+		bgColor = atoi_base(v, 16);
+
+	v = sconf_get(sconf, "fg_top_color");
+	if(v[0] != 0) 
+		fgTopColor = atoi_base(v, 16);
+
+	v = sconf_get(sconf, "bg_top_color");
+	if(v[0] != 0) 
+		bgTopColor = atoi_base(v, 16);
+
+	v = sconf_get(sconf, "desktop_fg_color");
+	if(v[0] != 0) 
+		desktopFGColor = atoi_base(v, 16);
+
+	v = sconf_get(sconf, "desktop_bg_color");
+	if(v[0] != 0) 
+		desktopBGColor = atoi_base(v, 16);
+
+	v = sconf_get(sconf, "frame_width");
+	if(v[0] != 0) 
+		frameW = atoi(v);
+
+	v = sconf_get(sconf, "title_h");
+	if(v[0] != 0) 
+		titleH = atoi(v);
+
+	int font_size = 14;
+	v = sconf_get(sconf, "font_size");
+	if(v[0] != 0) 
+		font_size = atoi(v);
+
+	v = sconf_get(sconf, "font");
+	if(v[0] != 0) 
+ 		font_load(v, font_size, &font);
+	else
+ 		font_load("/data/fonts/system.ttf", font_size, &font);
+
+	sconf_free(sconf);
+}
+
 XWM::XWM(void) {
 	font_init();
 	memset(&xwm, 0, sizeof(xwm_t));
-	titleH = 20;
-	frameW = 1;
+
+	bgImg = NULL;
+	desktopBGColor = 0xff555588;
+	desktopFGColor = 0xff8888aa;
+	bgColor = 0xff666666;
+	fgColor = 0xff888888;
+	bgTopColor = 0xffaaaaaa;
+	fgTopColor = 0xff222222;
+	frameW = 2;
+	titleH = 24;
+
 	xwm.data = this;
 	xwm.get_win_space = get_win_space;
 	xwm.get_close = get_close;

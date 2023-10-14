@@ -4,7 +4,7 @@ all:
 	cd xjoystick; make
 	cd xmouse; make
 	cd xtouch; make
-	cd xwm/macos7; make
+	cd xwm/mac1984; make
 	cd xwm/solaris; make
 
 clean:
@@ -13,5 +13,5 @@ clean:
 	cd xjoystick; make clean
 	cd xmouse; make clean
 	cd xtouch; make clean
-	cd xwm/macos7; make clean
+	cd xwm/mac1984; make clean
 	cd xwm/solaris; make clean

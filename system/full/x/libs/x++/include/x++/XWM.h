@@ -3,6 +3,7 @@
 
 #include <x/xwm.h>
 #include <graph/graph.h>
+#include <font/font.h>
 
 namespace Ewok {
 
@@ -11,6 +12,15 @@ protected:
 	xwm_t xwm;
 	uint32_t titleH;
 	uint32_t frameW;
+
+	font_t font;
+	graph_t* bgImg;
+	uint32_t bgColor;
+	uint32_t fgColor;
+	uint32_t bgTopColor;
+	uint32_t fgTopColor;
+	uint32_t desktopFGColor;
+	uint32_t desktopBGColor;
 
 	virtual void getColor(uint32_t *fg, uint32_t* bg, bool top);
 	virtual void getWinSpace(int style, grect_t* xr, grect_t* wsr);
@@ -47,9 +57,9 @@ public:
 	inline void __drawDragFrame(graph_t* g, grect_t* r) {drawDragFrame(g, r); }
 
 	XWM(void);
-	virtual ~XWM(void) {
-	}
+	virtual ~XWM(void) { }
 
+	void readConfig(const char* fname);
 	void run(void);
 };
 

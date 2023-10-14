@@ -119,72 +119,6 @@ void SolarisWM::drawTitle(graph_t* g, xinfo_t* info, grect_t* r, bool top) {
 	graph_box_3d(g, r->x, r->y, r->w, r->h, bright, dark);
 }
 
-void SolarisWM::readConfig(void) {
-	sconf_t *sconf = sconf_load("/etc/x/xwm_solaris.conf");	
-	if(sconf == NULL)
-		return;
-
-	const char* v = sconf_get(sconf, "bg_image");
-	if(v[0] != 0) 
-		bgImg = png_image_new(v);
-
-	v = sconf_get(sconf, "fg_color");
-	if(v[0] != 0) 
-		fgColor = atoi_base(v, 16);
-
-	v = sconf_get(sconf, "bg_color");
-	if(v[0] != 0) 
-		bgColor = atoi_base(v, 16);
-
-	v = sconf_get(sconf, "fg_top_color");
-	if(v[0] != 0) 
-		fgTopColor = atoi_base(v, 16);
-
-	v = sconf_get(sconf, "bg_top_color");
-	if(v[0] != 0) 
-		bgTopColor = atoi_base(v, 16);
-
-	v = sconf_get(sconf, "desktop_fg_color");
-	if(v[0] != 0) 
-		desktopFGColor = atoi_base(v, 16);
-
-	v = sconf_get(sconf, "desktop_bg_color");
-	if(v[0] != 0) 
-		desktopBGColor = atoi_base(v, 16);
-
-	v = sconf_get(sconf, "frame_width");
-	if(v[0] != 0) 
-		frameW = atoi(v);
-
-	v = sconf_get(sconf, "title_h");
-	if(v[0] != 0) 
-		titleH = atoi(v);
-
-	int font_size = 14;
-	v = sconf_get(sconf, "font_size");
-	if(v[0] != 0) 
-		font_size = atoi(v);
-
-	v = sconf_get(sconf, "font");
-	if(v[0] != 0) 
- 		font_load(v, font_size, &font);
-	else
- 		font_load("/data/fonts/system.ttf", font_size, &font);
-
-	sconf_free(sconf);
-}
-
-void SolarisWM::getColor(uint32_t *fg, uint32_t* bg, bool top) {
-	if(top) {
-		*fg = fgTopColor;
-		*bg = bgTopColor;
-	}
-	else {
-		*fg = fgColor;
-		*bg = bgColor;
-	}
-}
-
 SolarisWM::~SolarisWM(void) {
 	font_close(&font);
 	if(bgImg == NULL)
@@ -193,13 +127,4 @@ SolarisWM::~SolarisWM(void) {
 }
 
 SolarisWM::SolarisWM(void) {
-	desktopBGColor = 0xff555588;
-	desktopFGColor = 0xff8888aa;
-	bgColor = 0xff666666;
-	fgColor = 0xff888888;
-	bgTopColor = 0xffaaaaaa;
-	fgTopColor = 0xff222222;
-	frameW = 4;
-	bgImg = NULL;
-	titleH = 24;
 }

@@ -8,16 +8,6 @@
 using namespace Ewok;
 
 class SolarisWM : public XWM {
-	uint32_t bgColor;
-	uint32_t fgColor;
-	uint32_t bgTopColor;
-	uint32_t fgTopColor;
-	uint32_t desktopFGColor;
-	uint32_t desktopBGColor;
-
-	font_t font;
-	graph_t* bgImg;
-
 	void getBorderColor(uint32_t bg, uint32_t *dark, uint32_t *bright);
 protected:
 	void drawDragFrame(graph_t* g, grect_t* r);
@@ -26,11 +16,9 @@ protected:
 	void drawMin(graph_t* g, xinfo_t* info, grect_t* r, bool top);
 	void drawClose(graph_t* g, xinfo_t* info, grect_t* r, bool top);
 	void drawFrame(graph_t* g, xinfo_t* info, bool top);
-	void getColor(uint32_t *fg, uint32_t* bg, bool top);
 	void drawDesktop(graph_t* g);
 	void drawTitle(graph_t* g, xinfo_t* info, grect_t* r, bool top);
 public:
-	void readConfig(void);
 	SolarisWM(void);
 	~SolarisWM(void);
 };

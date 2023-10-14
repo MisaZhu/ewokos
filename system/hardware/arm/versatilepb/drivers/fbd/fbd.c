@@ -26,21 +26,34 @@ static int32_t init(uint32_t w, uint32_t h, uint32_t dep) {
 }
 
 static void splash(graph_t* g) {
-	int y, h, l;
-	uint32_t c, bc;
+	int sz = 2; 
+	int x = 0;
+	int y = 0;
+	uint32_t c1;
+	uint32_t c2;
+	for(int i=0; ;i++) {
+		if((i%2) == 0) {
+			c1 = 0xffdddddd;
+			c2 = 0xff555555;
+		}
+		else {
+			c2 = 0xffdddddd;
+			c1 = 0xff555555;
+		}
 
-	l = g->h/8;
-	h = (g->h / l);
-	h = (h==0 ? 1:h); 
-
-	bc = 0xff / l;
-	bc = (bc==0 ? 1:bc); 
-	for(y=0; y<l; y++) {
-		c = (l-1-y) * bc;
-		graph_fill(g, 0, y*h, g->w, h, (c | c<<8 | c<<16 | 0xff000000));
+		for(int j=0; ;j++) {
+			graph_fill(g, x, y, sz, sz, (j%2)==0? c1:c2);
+			x += sz;
+			if(x >= g->w)
+				break;
+		}
+		x = 0;
+		y += sz;
+		if(y >= g->h)
+			break;
 	}
 
-	graph_t* logo = png_image_new("/data/images/ewok.png");
+	graph_t* logo = png_image_new("/data/icons/mac1984/mac_face.png");
 	graph_blt_alpha(logo, 0, 0, logo->w, logo->h,
 			g, (g->w-logo->w)/2, (g->h-logo->h)/2, logo->w, logo->h, 0xff);
 	graph_free(logo);
