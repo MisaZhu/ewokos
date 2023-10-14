@@ -466,28 +466,9 @@ static void sys_proc_ready_ping(void) {
 	cproc->space->ready_ping = true;
 }
 
-static kevent_t* sys_get_kevent_raw(void) {
-	proc_t* cproc = get_current_proc();
-	if(cproc->info.pid != _core_proc_pid)	 //only core proc access allowed.
-		return NULL;
-
-	kevent_t* kev = kev_pop();
-	if(kev == NULL) {
-		return NULL;
-	}
-
-	kevent_t* ret = (kevent_t*)proc_malloc(cproc, sizeof(kevent_t));
-	ret->type = kev->type;
-	ret->data[0] = kev->data[0];
-	ret->data[1] = kev->data[1];
-	ret->data[2] = kev->data[2];
-	kfree(kev);
-	return ret;
-}
-
 static void sys_get_kevent(context_t* ctx) {
 	ctx->gpr[0] = 0;	
-	kevent_t* kev = sys_get_kevent_raw();
+	kevent_t* kev = kev_pop();
 	if(kev == NULL) {
 		proc_block_on(-1, (uint32_t)kev_init);
 		schedule(ctx);	
