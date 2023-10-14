@@ -97,8 +97,14 @@ static void get_min_size(xinfo_t* info, int* w, int* h, void* p) {
 /*-------draw functions.----------*/
 
 void XWM::drawDragFrame(graph_t* g, grect_t* r) {
-	graph_box(g, r->x+1, r->y+1, r->w, r->h, 0x88000000);
-	graph_box(g, r->x, r->y, r->w, r->h, 0x88ffffff);
+	int x = r->x;
+	int y = r->y;
+	int w = r->w;
+	int h = r->h;
+
+	for(uint32_t i=0; i<frameW; i++) {
+		graph_box(g, x-(frameW-i), y-(frameW-i), w+(frameW-i)*2, h+(frameW-i)*2, 0x88000000);
+	}
 }
 
 static void draw_drag_frame(graph_t* g, grect_t* r, void* p) {

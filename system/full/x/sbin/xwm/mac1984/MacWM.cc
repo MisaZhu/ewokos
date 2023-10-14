@@ -11,28 +11,26 @@ void MacWM::drawDesktop(graph_t* g) {
 	int sz = 2; 
 	int x = 0;
 	int y = 0;
-	uint32_t c1;
-	uint32_t c2;
-	for(int i=0; ;i++) {
-		if((i%2) == 0) {
-			c1 = desktopFGColor;
-			c2 = desktopBGColor;
-		}
-		else {
-			c2 = desktopFGColor;
-			c1 = desktopBGColor;
-		}
 
-		for(int j=0; ;j++) {
-			graph_fill(g, x, y, sz, sz, (j%2)==0? c1:c2);
+	uint32_t c1, c2, cm;
+	c1 = desktopFGColor;
+	c2 = desktopBGColor;
+
+	for(int i=0; y<g->h; i++) {
+		for(int j=0; x<g->w;j++) {
+			graph_fill(g, x, y, sz, sz, c1);
 			x += sz;
-			if(x >= g->w)
-				break;
+
+			cm = c1;
+			c1 = c2;
+			c2 = cm;
 		}
 		x = 0;
 		y += sz;
-		if(y >= g->h)
-			break;
+
+		cm = c1;
+		c1 = c2;
+		c2 = cm;
 	}
 }
 

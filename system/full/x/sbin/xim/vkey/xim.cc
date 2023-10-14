@@ -206,9 +206,10 @@ protected:
 
 	void draw_input(graph_t* g, int input_h) {
 		uint32_t w;
-		graph_fill(g, 0, 0, g->w, input_h, 0xffaaaa88);
+		graph_fill(g, 0, 0, g->w, input_h, 0xffffffff);
 		font_text_size(inputS, &font, &w, NULL);
 		graph_draw_text_font(g, (g->w-w)/2, 2, inputS, &font, 0xff000000);
+		graph_box(g, 0, 0, g->w, input_h, 0xff000000);
 	}
 
 	const char* getKeyTitle(char c) {
@@ -243,7 +244,7 @@ protected:
 			return;
 		}
 
-		graph_fill(g, 0, 0, g->w, g->w, 0xffaaaaaa);
+		graph_fill(g, 0, 0, g->w, g->w, 0xffcccccc);
 
 		int input_h = font_h + 8;
 		keyh = (g->h - input_h) / row;
@@ -265,7 +266,7 @@ protected:
 
 				if(c >= 'a' && c <= 'z') {
 					c += ('A' - 'a');
-					graph_fill(g, kx, ky, kw, keyh, 0xffcccccc);
+					graph_fill(g, kx, ky, kw, keyh, 0xffeeeeee);
 				}
 				
 				if(c == '\3') //two key size
@@ -294,7 +295,7 @@ protected:
 					graph_draw_text_font(g, kx + (kw-tw)/2, 
 							ky + (kh - font_h)/2,
 							t, &font, 0xff000000);
-				graph_box(g, kx, ky, kw, kh, 0xffdddddd);
+				graph_box(g, kx, ky, kw, kh, 0xffaaaaaa);
 			}
 		}
 	}
