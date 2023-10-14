@@ -11,8 +11,8 @@ basic_libs:
 	cd font;make
 	cd minimp3;make
 	cd fb;make
-	cd fbd;make
 	cd upng; make
+	cd fbd;make
 	cd textview;make
 	cd console;make
 	cd c++/c++;make

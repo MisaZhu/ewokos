@@ -8,6 +8,7 @@
 #include <sys/shm.h>
 #include <fb/fb.h>
 #include <fbd/fbd.h>
+#include <upng/upng.h>
 
 typedef struct {
 	uint32_t size;
@@ -40,8 +41,8 @@ static int fb_fcntl(int fd,
 	return 0;
 }
 
-static void default_splash(graph_t* g) {
-	int x, y, w, h, l;
+/*static void draw_bg(graph_t* g) {
+	int y, h, l;
 	uint32_t c, bc;
 
 	l = g->h/8;
@@ -54,15 +55,46 @@ static void default_splash(graph_t* g) {
 		c = (l-1-y) * bc;
 		graph_fill(g, 0, y*h, g->w, h, (c | c<<8 | c<<16 | 0xff000000));
 	}
+}
+*/
 
-	w = 32, h = 32;
-	x = (g->w - w*2) / 2;
-	y = (g->h - h*2) / 2;
+static void draw_bg(graph_t* g) {
+	int sz = 2; 
+	int x = 0;
+	int y = 0;
+	uint32_t c1;
+	uint32_t c2;
+	for(int i=0; ;i++) {
+		if((i%2) == 0) {
+			c1 = 0xffdddddd;
+			c2 = 0xff555555;
+		}
+		else {
+			c2 = 0xffdddddd;
+			c1 = 0xff555555;
+		}
 
-	graph_fill_round(g, x, y, w-2, h-2, 6, 0xffff0000);
-	graph_fill_round(g, x+w, y, w-2, h-2, 6, 0xff00ff00);
-	graph_fill_round(g, x, y+h, w-2, h-2, 6, 0xff0000ff);
-	graph_fill_round(g, x+w, y+h, w-2, h-2, 6, 0xffffffff);
+		for(int j=0; ;j++) {
+			graph_fill(g, x, y, sz, sz, (j%2)==0? c1:c2);
+			x += sz;
+			if(x >= g->w)
+				break;
+		}
+		x = 0;
+		y += sz;
+		if(y >= g->h)
+			break;
+	}
+}
+
+static void default_splash(graph_t* g) {
+	draw_bg(g);
+	graph_t* logo = png_image_new("/data/images/splash.png");
+	if(logo != NULL) {
+		graph_blt_alpha(logo, 0, 0, logo->w, logo->h,
+				g, (g->w-logo->w)/2, (g->h-logo->h)/2, logo->w, logo->h, 0xff);
+		graph_free(logo);
+	}
 }
 
 static void init_graph(fb_dma_t* dma) {

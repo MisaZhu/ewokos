@@ -335,7 +335,8 @@ int main(int argc, char* argv[]) {
 
 	xscreen_t scr;
 	Launcher xwin;
-	xwin.readConfig("/etc/x/launcher.conf");
+	const char* cfg = x_get_theme_fname("launcher.conf");
+	xwin.readConfig(cfg);
 	xwin.loadApps();
 
 	X x;

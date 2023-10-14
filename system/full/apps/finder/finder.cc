@@ -357,7 +357,7 @@ int main(int argc, char* argv[]) {
 	(void)argv;
 
 	Finder xwin;
-	xwin.readConfig("/etc/x/finder.conf");
+	xwin.readConfig(x_get_theme_fname("finder.conf"));
 
 	X x;
 	xscreen_t scr;

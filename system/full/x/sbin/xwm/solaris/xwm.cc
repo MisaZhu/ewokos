@@ -1,4 +1,5 @@
 #include "SolarisWM.h"
+#include <x/x.h>
 using namespace Ewok;
 
 int main(int argc, char** argv) {
@@ -6,7 +7,7 @@ int main(int argc, char** argv) {
 	(void)argv;
 
 	SolarisWM xwm;
-	xwm.readConfig("/etc/x/xwm_solaris.conf");	
+	xwm.readConfig(x_get_theme_fname("xwm.conf"));	
 	xwm.run();
 	return 0;
 }

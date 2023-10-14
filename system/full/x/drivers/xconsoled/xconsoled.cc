@@ -159,7 +159,7 @@ int main(int argc, char** argv) {
 	const char* mnt_point = argc > 1 ? argv[1]: "/dev/xconsole";
 
 	XConsoled xwin;
-	xwin.readConfig("/etc/x/xconsoled.conf");
+	xwin.readConfig(x_get_theme_fname("xconsoled.conf"));
 
 	X x;
 	xscreen_t scr;

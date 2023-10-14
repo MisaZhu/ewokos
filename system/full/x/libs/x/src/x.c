@@ -16,6 +16,7 @@
 #include <fcntl.h>
 #include <string.h>
 #include <signal.h>
+#include <stdio.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -114,6 +115,32 @@ int  x_run(x_t* x, void* loop_data) {
 const char* x_get_work_dir(void) {
 	return cmain_get_work_dir();
 }
+
+const char* x_get_theme(void) {
+	static char theme[128];
+	theme[0] = 0;
+	proto_t out;
+	PF->init(&out);
+
+	if(dev_cntl("/dev/x", X_DCNTL_GET_THEME, NULL, &out) == 0) {
+		const char* t = proto_read_str(&out);
+		if(t != NULL)
+			strncpy(theme, t, 127);
+	}
+	return theme;
+}
+
+const char* x_get_theme_fname(const char* fname) {
+	static char ret[256];
+	const char* theme = getenv("XTHEME");
+	if(theme[0] == 0) 
+		theme = x_get_theme();
+	if(theme[0] == 0) 
+		theme = "default";
+	snprintf(ret, 255, "/etc/x/themes/%s/%s", theme, fname);
+	return ret;
+}
+
 
 #ifdef __cplusplus
 }

@@ -168,7 +168,7 @@ int main(int argc, char* argv[]) {
 	(void)argv;
 
 	Book xwin;
-	xwin.readConfig("/etc/x/book.conf");
+	xwin.readConfig(x_get_theme_fname("book.conf"));
 	if(argc == 2){
 		xwin.openBook(argv[1]);
 	}else{

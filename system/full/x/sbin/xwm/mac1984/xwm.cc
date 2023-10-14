@@ -1,4 +1,6 @@
 #include "MacWM.h"
+#include <x/x.h>
+#include <sys/klog.h>
 using namespace Ewok;
 
 int main(int argc, char** argv) {
@@ -6,7 +8,8 @@ int main(int argc, char** argv) {
 	(void)argv;
 
 	MacWM xwm;
-	xwm.readConfig("/etc/x/xwm_mac1984.conf");	
+	klog("%s\n", x_get_theme_fname("xwm.conf"));	
+	xwm.readConfig(x_get_theme_fname("xwm.conf"));	
 	xwm.run();
 	return 0;
 }
