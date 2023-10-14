@@ -62,28 +62,19 @@ static void draw_bg(graph_t* g) {
 	int sz = 2; 
 	int x = 0;
 	int y = 0;
-	uint32_t c1;
-	uint32_t c2;
-	for(int i=0; ;i++) {
-		if((i%2) == 0) {
-			c1 = 0xffdddddd;
-			c2 = 0xff555555;
-		}
-		else {
-			c2 = 0xffdddddd;
-			c1 = 0xff555555;
-		}
 
-		for(int j=0; ;j++) {
-			graph_fill(g, x, y, sz, sz, (j%2)==0? c1:c2);
-			x += sz;
-			if(x >= g->w)
-				break;
+	graph_clear(g, 0xffdddddd);
+
+	for(int i=0; y<g->h; i++) {
+		for(int j=0; x<g->w;j++) {
+			graph_fill(g, x, y, sz, sz, 0xff555555);
+			x += sz*2;
 		}
-		x = 0;
+		if((i%2) != 0)
+			x = 0;
+		else
+			x = sz;
 		y += sz;
-		if(y >= g->h)
-			break;
 	}
 }
 
