@@ -7,12 +7,12 @@
 
 using namespace Ewok;
 
-void MacWM::drawDesktop(graph_t* g) {
+graph_t* MacWM::genPattern(void) {
 	int sz = 2; 
 	int x = 0;
 	int y = 0;
 	bool shift = false;
-
+	graph_t* g = graph_new(NULL, 64, 64);
 	graph_clear(g, desktopBGColor);
 
 	for(int i=0; y<g->h; i++) {
@@ -23,6 +23,24 @@ void MacWM::drawDesktop(graph_t* g) {
 		x = shift ? 0:sz;
 		shift = !shift;
 		y += sz;
+	}
+	return g;
+}
+
+void MacWM::drawDesktop(graph_t* g) {
+	if(pattern == NULL)
+		pattern = genPattern();
+
+	int x = 0;
+	int y = 0;
+	for(int i=0; y<g->h; i++) {
+		for(int j=0; x<g->w;j++) {
+			graph_blt(pattern, 0, 0, pattern->w, pattern->h,
+					g, x, y, pattern->w, pattern->h);
+			x += pattern->w;
+		}
+		x = 0;
+		y += pattern->h;
 	}
 }
 
@@ -58,6 +76,8 @@ void MacWM::drawTitle(graph_t* g, xinfo_t* info, grect_t* r, bool top) {
 
 
 MacWM::~MacWM(void) {
+	if(pattern != NULL)
+		graph_free(pattern);
 	font_close(&font);
 }
 
@@ -69,4 +89,5 @@ MacWM::MacWM(void) {
 	bgTopColor = 0xffaaaaaa;
 	fgTopColor = 0xff222222;
 	titleH = 32;
+	pattern = NULL;
 }
