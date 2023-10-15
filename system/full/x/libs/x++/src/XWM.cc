@@ -244,11 +244,7 @@ void XWM::readConfig(const char* fname) {
 	if(sconf == NULL)
 		return;
 
-	const char* v = sconf_get(sconf, "bg_image");
-	if(v[0] != 0) 
-		bgImg = png_image_new(v);
-
-	v = sconf_get(sconf, "fg_color");
+	const char* v = sconf_get(sconf, "fg_color");
 	if(v[0] != 0) 
 		fgColor = atoi_base(v, 16);
 
@@ -298,7 +294,6 @@ XWM::XWM(void) {
 	font_init();
 	memset(&xwm, 0, sizeof(xwm_t));
 
-	bgImg = NULL;
 	desktopBGColor = 0xff555588;
 	desktopFGColor = 0xff8888aa;
 	bgColor = 0xff666666;

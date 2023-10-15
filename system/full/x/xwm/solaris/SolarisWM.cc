@@ -143,8 +143,6 @@ void SolarisWM::drawTitle(graph_t* g, xinfo_t* info, grect_t* r, bool top) {
 
 SolarisWM::~SolarisWM(void) {
 	font_close(&font);
-	if(bgImg != NULL)
-		graph_free(bgImg);
 	if(pattern != NULL)
 		graph_free(pattern);
 }

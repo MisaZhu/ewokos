@@ -14,7 +14,6 @@ protected:
 	uint32_t frameW;
 
 	font_t font;
-	graph_t* bgImg;
 	uint32_t bgColor;
 	uint32_t fgColor;
 	uint32_t bgTopColor;
