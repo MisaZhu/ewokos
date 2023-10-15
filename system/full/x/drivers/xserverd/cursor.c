@@ -21,7 +21,7 @@ void draw_cursor(graph_t* g, cursor_t* cursor, int mx, int my) {
 }
 
 void cursor_init(const char* theme, cursor_t* cursor) {
-	char fname[256];
+	char fname[256] = "";
 	if(cursor->type == CURSOR_TOUCH) {
 		if(theme == NULL || theme[0] == 0)
 			theme = "default";
@@ -32,10 +32,7 @@ void cursor_init(const char* theme, cursor_t* cursor) {
 			theme = "default";
 		snprintf(fname, 255, "/user/x/themes/%s/xwm/cursors/mouse.png", theme);
 	}
-	else {
-		fname[0] == 0;
-	}
-	klog("[%s]\n", fname);
+
 	if(fname[0] != 0)
 		cursor->img = png_image_new(fname);
 

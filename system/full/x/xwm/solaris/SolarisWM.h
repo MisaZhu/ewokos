@@ -8,6 +8,8 @@
 using namespace Ewok;
 
 class SolarisWM : public XWM {
+	graph_t* pattern;
+	graph_t* genPattern(void);
 	void getBorderColor(uint32_t bg, uint32_t *dark, uint32_t *bright);
 protected:
 	void drawDragFrame(graph_t* g, grect_t* r);

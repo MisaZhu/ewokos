@@ -1,15 +1,15 @@
-include ../../../../../hardware/$(ARCH)/make.rule
+include ../../../../hardware/$(ARCH)/make.rule
 
-BUILD_DIR = ../../../../../build
+BUILD_DIR = ../../../../build
 TARGET_DIR = $(BUILD_DIR)/rootfs
 
 LDFLAGS = -L$(BUILD_DIR)/lib -lnosys
 
 CXXFLAGS += -I. -I $(BUILD_DIR)/include
 
-XWM_OBJS = xwm.o SolarisWM.o
+XWM_OBJS = xwm.o MacWM.o
 
-XWM = $(TARGET_DIR)/sbin/x/xwm_solaris
+XWM = $(TARGET_DIR)/sbin/x/xwm_mac1984
 
 $(XWM): $(XWM_OBJS) \
 		$(BUILD_DIR)/lib/libewokc.a \

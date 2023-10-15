@@ -7,19 +7,41 @@
 
 using namespace Ewok;
 
-void SolarisWM::drawDesktop(graph_t* g) {
+graph_t* SolarisWM::genPattern(void) {
+	int sz = 2; 
+	int x = 0;
+	int y = 0;
+	bool shift = false;
+	graph_t* g = graph_new(NULL, 64, 64);
 	graph_clear(g, desktopBGColor);
-	//background pattern
-	int32_t x, y;
-	for(y=10; y<(int32_t)g->h; y+=10) {
-		for(x=0; x<(int32_t)g->w; x+=10) {
-			graph_pixel(g, x, y, desktopFGColor);
-		}
-	}
 
-	if(bgImg != NULL)
-		graph_blt(bgImg, 0, 0, bgImg->w, bgImg->h,
-				g, (g->w - bgImg->w)/2, (g->h - bgImg->h)/2, bgImg->w, bgImg->h);
+	for(int i=0; y<g->h; i++) {
+		for(int j=0; x<g->w;j++) {
+			graph_fill(g, x, y, sz, sz, desktopFGColor);
+			x += sz*2;
+		}
+		x = shift ? 0:sz;
+		shift = !shift;
+		y += sz;
+	}
+	return g;
+}
+
+void SolarisWM::drawDesktop(graph_t* g) {
+	if(pattern == NULL)
+		pattern = genPattern();
+
+	int x = 0;
+	int y = 0;
+	for(int i=0; y<g->h; i++) {
+		for(int j=0; x<g->w;j++) {
+			graph_blt(pattern, 0, 0, pattern->w, pattern->h,
+					g, x, y, pattern->w, pattern->h);
+			x += pattern->w;
+		}
+		x = 0;
+		y += pattern->h;
+	}
 }
 
 void SolarisWM::drawMin(graph_t* g, xinfo_t* info, grect_t* r, bool top) {
@@ -121,10 +143,12 @@ void SolarisWM::drawTitle(graph_t* g, xinfo_t* info, grect_t* r, bool top) {
 
 SolarisWM::~SolarisWM(void) {
 	font_close(&font);
-	if(bgImg == NULL)
-		return;
-	graph_free(bgImg);
+	if(bgImg != NULL)
+		graph_free(bgImg);
+	if(pattern != NULL)
+		graph_free(pattern);
 }
 
 SolarisWM::SolarisWM(void) {
+	pattern = NULL;
 }
