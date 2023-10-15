@@ -33,7 +33,7 @@ void     x_init(x_t* x, void* data);
 int      x_run(x_t* x, void* loop_data);
 const char* x_get_work_dir(void);
 const char* x_get_theme(void);
-const char* x_get_theme_fname(const char* fname);
+const char* x_get_theme_fname(const char* prefix, const char* app_name, const char* fname);
 
 #ifdef __cplusplus
 }

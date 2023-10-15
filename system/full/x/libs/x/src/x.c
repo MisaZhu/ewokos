@@ -130,17 +130,20 @@ const char* x_get_theme(void) {
 	return theme;
 }
 
-const char* x_get_theme_fname(const char* fname) {
+const char* x_get_theme_fname(const char* prefix, const char* app_name, const char* fname) {
 	static char ret[256];
 	const char* theme = getenv("XTHEME");
 	if(theme[0] == 0) 
 		theme = x_get_theme();
 	if(theme[0] == 0) 
 		theme = "default";
-	snprintf(ret, 255, "/etc/x/themes/%s/%s", theme, fname);
+
+	if(app_name == NULL || app_name[0] == 0)
+		snprintf(ret, 255, "%s/%s/%s", prefix, theme, fname);
+	else
+		snprintf(ret, 255, "%s/%s/%s/%s", prefix, theme, app_name, fname);
 	return ret;
 }
-
 
 #ifdef __cplusplus
 }

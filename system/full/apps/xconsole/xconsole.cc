@@ -193,7 +193,7 @@ static int run(int argc, char* argv[]) {
 	(void)argv;
 
 	XConsole xwin;
-	xwin.readConfig(x_get_theme_fname("xconsole.conf"));
+	xwin.readConfig(x_get_theme_fname("/etc/x/themes", "", "xconsole.conf"));
 
 	X x;
 	xscreen_t scr;

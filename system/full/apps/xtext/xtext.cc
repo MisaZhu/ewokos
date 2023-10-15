@@ -167,7 +167,7 @@ int main(int argc, char* argv[]) {
 	}
 
 	XText xwin;
-	xwin.readConfig(x_get_theme_fname("xtext.conf"));
+	xwin.readConfig(x_get_theme_fname("/etc/x/themes", "", "xtext.conf"));
 
 	X x;
 	xscreen_t scr;

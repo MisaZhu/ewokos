@@ -8,7 +8,7 @@ int main(int argc, char** argv) {
 	(void)argv;
 
 	MacWM xwm;
-	xwm.readConfig(x_get_theme_fname("xwm.conf"));	
+	xwm.readConfig(x_get_theme_fname("/etc/x/themes", "", "xwm.conf"));	
 	xwm.run();
 	return 0;
 }

@@ -296,6 +296,23 @@ public:
 	inline uint32_t getWidth() {
 		return (items.icon_size + items.marginH) * items.num;
 	}
+
+	str_t* getIconFname(const char* appName) {
+		//try theme icon first
+		const char* theme = x_get_theme();
+		str_t* ret = NULL;
+		if(theme[0] != 0) {
+			ret = str_new(x_get_theme_fname("/data/x/themes", appName, "icon.png"));
+			if(vfs_access(ret->cstr) == 0)
+				return ret;
+			str_free(ret);
+		}
+
+		ret = str_new("/apps/");
+		str_add(ret, appName);
+		str_add(ret, "/res/icon.png");
+		return ret;
+	}
  
 	bool loadApps(void) {
 		DIR* dirp = opendir("/apps");
@@ -316,9 +333,7 @@ public:
 			str_add(items.items[i].fname, "/");
 			str_add(items.items[i].fname, it->d_name);
 
-			items.items[i].icon = str_new("/apps/");
-			str_add(items.items[i].icon, it->d_name);
-			str_add(items.items[i].icon, "/res/icon.png");
+			items.items[i].icon = getIconFname(it->d_name);
 			i++;
 		}
 		items.num = i;
@@ -335,7 +350,7 @@ int main(int argc, char* argv[]) {
 
 	xscreen_t scr;
 	Launcher xwin;
-	const char* cfg = x_get_theme_fname("launcher.conf");
+	const char* cfg = x_get_theme_fname("/etc/x/themes", "", "launcher.conf");
 	xwin.readConfig(cfg);
 	xwin.loadApps();
 
