@@ -7,7 +7,7 @@ int main(int argc, char** argv) {
 	(void)argv;
 
 	SolarisWM xwm;
-	xwm.readConfig(x_get_theme_fname("/user/x/themes", "xwm", "theme.conf"));
+	xwm.readConfig(x_get_theme_fname(X_THEME_ROOT, "xwm", "theme.conf"));
 	xwm.run();
 	return 0;
 }

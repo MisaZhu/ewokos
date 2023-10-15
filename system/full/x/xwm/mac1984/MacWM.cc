@@ -2,27 +2,44 @@
 #include <sys/kernel_tic.h>
 #include <sys/klog.h>
 #include <upng/upng.h>
+#include <x/x.h>
 #include <sconf/sconf.h>
 #include <stdlib.h>
 
 using namespace Ewok;
 
 graph_t* MacWM::genPattern(void) {
-	int sz = 2; 
+	int sz = 1; 
 	int x = 0;
 	int y = 0;
 	bool shift = false;
 	graph_t* g = graph_new(NULL, 64, 64);
 	graph_clear(g, desktopBGColor);
 
-	for(int i=0; y<g->h; i++) {
-		for(int j=0; x<g->w;j++) {
-			graph_fill(g, x, y, sz, sz, desktopFGColor);
-			x += sz*2;
+	if(sz <= 1)
+		sz = 1;
+
+	if(sz > 1) {
+		for(int i=0; y<g->h; i++) {
+			for(int j=0; x<g->w;j++) {
+				graph_fill(g, x, y, sz, sz, desktopFGColor);
+				x += sz*2;
+			}
+			x = shift ? 0:sz;
+			shift = !shift;
+			y += sz;
 		}
-		x = shift ? 0:sz;
-		shift = !shift;
-		y += sz;
+	}
+	else {
+		for(int i=0; y<g->h; i++) {
+			for(int j=0; x<g->w;j++) {
+				graph_pixel(g, x, y, desktopFGColor);
+				x += 2;
+			}
+			x = shift ? 0:sz;
+			shift = !shift;
+			y += sz;
+		}
 	}
 	return g;
 }
@@ -30,6 +47,8 @@ graph_t* MacWM::genPattern(void) {
 void MacWM::drawDesktop(graph_t* g) {
 	if(pattern == NULL)
 		pattern = genPattern();
+	if(logo == NULL)
+		logo = png_image_new(x_get_theme_fname(X_THEME_ROOT, "xwm", "logo.png"));
 
 	int x = 0;
 	int y = 0;
@@ -42,6 +61,10 @@ void MacWM::drawDesktop(graph_t* g) {
 		x = 0;
 		y += pattern->h;
 	}
+
+	if(logo != NULL)
+		graph_blt_alpha(logo, 0, 0, logo->w, logo->h,
+				g, 10, 10, logo->w, logo->h, 0xff);
 }
 
 void MacWM::drawTitlePattern(graph_t* g, int x, int y, int w, int h, uint32_t fg) {
@@ -78,6 +101,8 @@ void MacWM::drawTitle(graph_t* g, xinfo_t* info, grect_t* r, bool top) {
 MacWM::~MacWM(void) {
 	if(pattern != NULL)
 		graph_free(pattern);
+	if(logo != NULL)
+		graph_free(logo);
 	font_close(&font);
 }
 
@@ -90,4 +115,5 @@ MacWM::MacWM(void) {
 	fgTopColor = 0xff222222;
 	titleH = 32;
 	pattern = NULL;
+	logo = NULL;
 }

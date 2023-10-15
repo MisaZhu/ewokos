@@ -9,6 +9,9 @@
 extern "C" {
 #endif
 
+#define X_THEME_ROOT        "/user/x/themes"
+#define X_SYSTEM_PATH       "/user/system"
+
 typedef struct st_xevent {
   xevent_t event;
   struct st_xevent* next;

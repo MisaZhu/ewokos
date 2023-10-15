@@ -340,7 +340,7 @@ public:
 		scrSize.h = fh;
 		panelSize.w = pw;
 		panelSize.h = ph;
-		font_load("/user/system/fonts/system.ttf", 13, &font);
+		font_load(X_SYSTEM_FONT, 13, &font);
 		keytable[1] = ""
 			"1234567890%-+\b"
 			"\\#$&*(){}[]!\n\3"

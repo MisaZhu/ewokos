@@ -8,21 +8,37 @@
 using namespace Ewok;
 
 graph_t* SolarisWM::genPattern(void) {
-	int sz = 2; 
+	int sz = 1; 
 	int x = 0;
 	int y = 0;
 	bool shift = false;
 	graph_t* g = graph_new(NULL, 64, 64);
 	graph_clear(g, desktopBGColor);
 
-	for(int i=0; y<g->h; i++) {
-		for(int j=0; x<g->w;j++) {
-			graph_fill(g, x, y, sz, sz, desktopFGColor);
-			x += sz*2;
+	if(sz <= 1)
+		sz = 1;
+
+	if(sz > 1) {
+		for(int i=0; y<g->h; i++) {
+			for(int j=0; x<g->w;j++) {
+				graph_fill(g, x, y, sz, sz, desktopFGColor);
+				x += sz*2;
+			}
+			x = shift ? 0:sz;
+			shift = !shift;
+			y += sz;
 		}
-		x = shift ? 0:sz;
-		shift = !shift;
-		y += sz;
+	}
+	else {
+		for(int i=0; y<g->h; i++) {
+			for(int j=0; x<g->w;j++) {
+				graph_pixel(g, x, y, desktopFGColor);
+				x += 2;
+			}
+			x = shift ? 0:sz;
+			shift = !shift;
+			y += sz;
+		}
 	}
 	return g;
 }

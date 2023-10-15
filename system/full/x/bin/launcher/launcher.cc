@@ -259,7 +259,7 @@ public:
 
 		v = sconf_get(conf, "font");
 		if(v[0] == 0)
-			v = "/user/system/fonts/system.ttf";
+			v = X_SYSTEM_FONT;
 		font_load(v, fontSize, &font);
 
 		v = sconf_get(conf, "title_color");
@@ -302,7 +302,7 @@ public:
 		const char* theme = x_get_theme();
 		str_t* ret = NULL;
 		if(theme[0] != 0) {
-			ret = str_new(x_get_theme_fname("/user/x/themes", appName, "icon.png"));
+			ret = str_new(x_get_theme_fname(X_THEME_ROOT, appName, "icon.png"));
 			if(vfs_access(ret->cstr) == 0)
 				return ret;
 			str_free(ret);
@@ -350,7 +350,7 @@ int main(int argc, char* argv[]) {
 
 	xscreen_t scr;
 	Launcher xwin;
-	const char* cfg = x_get_theme_fname("/user/x/themes", "launcher", "theme.conf");
+	const char* cfg = x_get_theme_fname(X_THEME_ROOT, "launcher", "theme.conf");
 	xwin.readConfig(cfg);
 	xwin.loadApps();
 

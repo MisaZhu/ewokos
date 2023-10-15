@@ -59,21 +59,20 @@ static int fb_fcntl(int fd,
 */
 
 static void draw_bg(graph_t* g) {
-	int sz = 2; 
 	int x = 0;
 	int y = 0;
 	bool shift = false;
 
-	graph_clear(g, 0xffdddddd);
+	graph_clear(g, 0xffffffff);
 
 	for(int i=0; y<g->h; i++) {
 		for(int j=0; x<g->w;j++) {
-			graph_fill(g, x, y, sz, sz, 0xff555555);
-			x += sz*2;
+			graph_pixel(g, x, y, 0xff555555);
+			x += 2;
 		}
-		x = shift ? 0:sz;
+		x = shift ? 0:1;
 		shift = !shift;
-		y += sz;
+		y += 1;
 	}
 }
 

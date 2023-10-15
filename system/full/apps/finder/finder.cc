@@ -270,9 +270,9 @@ public:
 		selectColor = 0xff444444;
 		titleColor = 0xffffff00;
 		titleBGColor = 0xffaaaaaa;
-		fileIcon = png_image_new(x_get_theme_fname("/user/x/themes", "finder", "icons/file.png"));
-		dirIcon = png_image_new(x_get_theme_fname("/user/x/themes", "finder", "icons/folder.png"));
-		font_load("/user/system/fonts/system.ttf", 14, &font);
+		fileIcon = png_image_new(x_get_theme_fname(X_THEME_ROOT, "finder", "icons/file.png"));
+		dirIcon = png_image_new(x_get_theme_fname(X_THEME_ROOT, "finder", "icons/folder.png"));
+		font_load(X_SYSTEM_FONT, 14, &font);
 		itemSize = 36;
 
 		selected = 0;
@@ -301,7 +301,7 @@ public:
 
 		v = sconf_get(conf, "font");
 		if(v[0] == 0) 
-			v = "/user/system/fonts/system.ttf";
+			v = X_SYSTEM_FONT;
 		font_close(&font);
 		font_load(v, font_size, &font);
 
@@ -357,7 +357,7 @@ int main(int argc, char* argv[]) {
 	(void)argv;
 
 	Finder xwin;
-	xwin.readConfig(x_get_theme_fname("/user/x/themes", "finder", "theme.conf"));
+	xwin.readConfig(x_get_theme_fname(X_THEME_ROOT, "finder", "theme.conf"));
 
 	X x;
 	xscreen_t scr;
