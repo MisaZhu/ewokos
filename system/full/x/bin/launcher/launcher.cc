@@ -259,7 +259,7 @@ public:
 
 		v = sconf_get(conf, "font");
 		if(v[0] == 0)
-			v = "/user/fonts/system.ttf";
+			v = "/user/system/fonts/system.ttf";
 		font_load(v, fontSize, &font);
 
 		v = sconf_get(conf, "title_color");

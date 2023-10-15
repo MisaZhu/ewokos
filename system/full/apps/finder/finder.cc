@@ -272,7 +272,7 @@ public:
 		titleBGColor = 0xffaaaaaa;
 		fileIcon = png_image_new(x_get_theme_fname("/user/x/themes", "finder", "icons/file.png"));
 		dirIcon = png_image_new(x_get_theme_fname("/user/x/themes", "finder", "icons/folder.png"));
-		font_load("/user/fonts/system.ttf", 14, &font);
+		font_load("/user/system/fonts/system.ttf", 14, &font);
 		itemSize = 36;
 
 		selected = 0;
@@ -301,7 +301,7 @@ public:
 
 		v = sconf_get(conf, "font");
 		if(v[0] == 0) 
-			v = "/user/fonts/system.ttf";
+			v = "/user/system/fonts/system.ttf";
 		font_close(&font);
 		font_load(v, font_size, &font);
 

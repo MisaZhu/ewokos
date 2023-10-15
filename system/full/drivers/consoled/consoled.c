@@ -28,7 +28,7 @@ typedef struct {
 } fb_console_t;
 
 static int32_t read_config(fb_console_t* console, const char* fname) {
-	const char* font_fname =  "/user/fonts/system.ttf";
+	const char* font_fname =  "/user/system/fonts/system.ttf";
 	uint32_t font_size = 16;
 	console->console.textview.fg_color = 0xffcccccc;
 	console->console.textview.bg_color = 0xff000000;

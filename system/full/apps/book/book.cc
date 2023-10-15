@@ -128,7 +128,7 @@ public:
 	bool readConfig(const char* fname) {
 		sconf_t *conf = sconf_load(fname);	
 		if(conf == NULL){
-			font_load("/user/fonts/system.ttf", 14, &font);
+			font_load("/user/system/fonts/system.ttf", 14, &font);
 			printf("%08x\n", font);
 			return false;
 		}
@@ -140,7 +140,7 @@ public:
 
 		v = sconf_get(conf, "font");
 		if(v[0] == 0)
-			v = "/user/fonts/system.ttf";
+			v = "/user/system/fonts/system.ttf";
 		font_load(v, font_size, &font);
 
 		v = sconf_get(conf, "bg_color");

@@ -44,7 +44,7 @@ public:
 
 		sconf_t *sconf = sconf_load(fname);	
 		if(sconf == NULL) {
-			font_load("/user/fonts/system.ttf", 12, &textview.font);
+			font_load("/user/system/fonts/system.ttf", 12, &textview.font);
 			textview.font_size = 12;
 			return false;
 		}
@@ -77,7 +77,7 @@ public:
 
 		v = sconf_get(sconf, "font");
 		if(v[0] == 0) 
-			v = "/user/fonts/system.ttf";
+			v = "/user/system/fonts/system.ttf";
 		
 		font_load(v, font_size, &textview.font);
 
