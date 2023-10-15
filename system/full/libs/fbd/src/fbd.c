@@ -79,7 +79,7 @@ static void draw_bg(graph_t* g) {
 
 static void default_splash(graph_t* g) {
 	draw_bg(g);
-	graph_t* logo = png_image_new("/data/images/splash.png");
+	graph_t* logo = png_image_new("/user/system/images/splash.png");
 	if(logo != NULL) {
 		graph_blt_alpha(logo, 0, 0, logo->w, logo->h,
 				g, (g->w-logo->w)/2, (g->h-logo->h)/2, logo->w, logo->h, 0xff);
