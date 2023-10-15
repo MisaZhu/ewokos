@@ -76,7 +76,7 @@ public:
 
 		v = sconf_get(sconf, "font");
 		if(v[0] == 0) 
-			v = "/data/fonts/system.ttf";
+			v = "/user/fonts/system.ttf";
 		
 		font_load(v, font_size, &console.textview.font);
 
@@ -193,7 +193,8 @@ static int run(int argc, char* argv[]) {
 	(void)argv;
 
 	XConsole xwin;
-	xwin.readConfig(x_get_theme_fname("/etc/x/themes", "", "xconsole.conf"));
+	xwin.readConfig(x_get_theme_fname("/user/x/themes", "xconsole", "theme.conf"));
+
 
 	X x;
 	xscreen_t scr;

@@ -44,7 +44,7 @@ public:
 
 		sconf_t *sconf = sconf_load(fname);	
 		if(sconf == NULL) {
-			font_load("/data/fonts/system.ttf", 12, &textview.font);
+			font_load("/user/fonts/system.ttf", 12, &textview.font);
 			textview.font_size = 12;
 			return false;
 		}
@@ -77,7 +77,7 @@ public:
 
 		v = sconf_get(sconf, "font");
 		if(v[0] == 0) 
-			v = "/data/fonts/system.ttf";
+			v = "/user/fonts/system.ttf";
 		
 		font_load(v, font_size, &textview.font);
 
@@ -167,7 +167,7 @@ int main(int argc, char* argv[]) {
 	}
 
 	XText xwin;
-	xwin.readConfig(x_get_theme_fname("/etc/x/themes", "", "xtext.conf"));
+	xwin.readConfig(x_get_theme_fname("/user/x/themes", "xtext", "theme.conf"));
 
 	X x;
 	xscreen_t scr;
