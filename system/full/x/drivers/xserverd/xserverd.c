@@ -139,8 +139,6 @@ static int32_t read_config(x_t* x, const char* fname) {
 		x->cursor.type = CURSOR_TOUCH;
 	else if(strcmp(v, "mouse") == 0)
 		x->cursor.type = CURSOR_MOUSE;
-	else if(strcmp(v, "x") == 0)
-		x->cursor.type = CURSOR_X;
 	else {
 		if(strcmp(v, "none") == 0)
 			x->show_cursor = false;
@@ -500,21 +498,21 @@ static void hide_cursor(x_t* x) {
 	if(x->cursor.drop || display->g == NULL)
 		return;
 
-	if(x->cursor.g == NULL) {
-		x->cursor.g = graph_new(NULL, x->cursor.size.w, x->cursor.size.h);
+	if(x->cursor.saved == NULL) {
+		x->cursor.saved = graph_new(NULL, x->cursor.size.w, x->cursor.size.h);
 		graph_blt(display->g,
 				x->cursor.old_pos.x - x->cursor.offset.x,
 				x->cursor.old_pos.y - x->cursor.offset.y,
 				x->cursor.size.w,
 				x->cursor.size.h,
-				x->cursor.g,
+				x->cursor.saved,
 				0,
 				0, 
 				x->cursor.size.w,
 				x->cursor.size.h);
 	}
 	else  {
-		graph_blt(x->cursor.g,
+		graph_blt(x->cursor.saved,
 				0,
 				0,
 				x->cursor.size.w,
@@ -529,7 +527,7 @@ static void hide_cursor(x_t* x) {
 
 static inline void refresh_cursor(x_t* x) {
 	x_display_t* display = &x->displays[x->current_display];
-	if(display->g == NULL || x->cursor.g == NULL)
+	if(display->g == NULL || x->cursor.saved == NULL)
 		return;
 	int32_t mx = x->cursor.cpos.x - x->cursor.offset.x;
 	int32_t my = x->cursor.cpos.y - x->cursor.offset.y;
@@ -537,7 +535,7 @@ static inline void refresh_cursor(x_t* x) {
 	int32_t mh = x->cursor.size.h;
 
 	graph_blt(display->g, mx, my, mw, mh,
-			x->cursor.g, 0, 0, mw, mh);
+			x->cursor.saved, 0, 0, mw, mh);
 
 	draw_cursor(display->g, &x->cursor, mx, my);
 
@@ -1348,7 +1346,7 @@ int main(int argc, char** argv) {
 		return -1;
 
 	read_config(&x, "/etc/x/x.conf");
-	cursor_init(&x.cursor);
+	cursor_init(x.config.theme, &x.cursor);
 
 	int pid = -1;
 	if(x.config.xwm[0] != 0) {

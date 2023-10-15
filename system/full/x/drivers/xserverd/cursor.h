@@ -5,7 +5,6 @@
 
 enum {
 	CURSOR_MOUSE=0,
-	CURSOR_X,
 	CURSOR_TOUCH
 };
 
@@ -14,13 +13,14 @@ typedef struct {
 	gpos_t cpos;
 	gpos_t offset;
 	gsize_t size;
-	graph_t* g;
+	graph_t* saved;
+	graph_t* img;
 	uint32_t type;
 	bool down;
 	bool drop;
 } cursor_t;
 
-void cursor_init(cursor_t* cursor);
+void cursor_init(const char* theme, cursor_t* cursor);
 
 void draw_cursor(graph_t* g, cursor_t* cursor, int mx, int my);
 
