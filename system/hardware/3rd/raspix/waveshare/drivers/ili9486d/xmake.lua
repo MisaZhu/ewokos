@@ -1,6 +1,6 @@
 target("ili9486d")
     set_type("application")
-    add_deps("libfbd", "libili9486","libbsp")
+    add_deps("libfbd", "libili9486","libbsp", "libsconf")
     add_files("**.c")        
     install_dir("drivers/raspix")
 target_end()

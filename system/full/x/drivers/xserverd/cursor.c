@@ -25,12 +25,12 @@ void cursor_init(const char* theme, cursor_t* cursor) {
 	if(cursor->type == CURSOR_TOUCH) {
 		if(theme == NULL || theme[0] == 0)
 			theme = "default";
-		snprintf(fname, 255, "/user/x/themes/%s/xwm/cursors/touch.png", theme);
+		snprintf(fname, 255, "/usr/x/themes/%s/xwm/cursors/touch.png", theme);
 	}
 	else if(cursor->type == CURSOR_MOUSE) {
 		if(theme == NULL || theme[0] == 0)
 			theme = "default";
-		snprintf(fname, 255, "/user/x/themes/%s/xwm/cursors/mouse.png", theme);
+		snprintf(fname, 255, "/usr/x/themes/%s/xwm/cursors/mouse.png", theme);
 	}
 
 	if(fname[0] != 0)

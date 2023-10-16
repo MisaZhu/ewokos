@@ -9,7 +9,7 @@
 extern "C" {
 #endif
 
-#define X_SYSTEM_FONT       "/user/system/fonts/system.ttf"
+#define X_SYSTEM_FONT       "/usr/system/fonts/system.ttf"
 
 enum {
     FONT_DEV_LOAD = 0,

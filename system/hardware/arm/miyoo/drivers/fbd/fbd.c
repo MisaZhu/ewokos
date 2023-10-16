@@ -81,20 +81,11 @@ static int32_t init(uint32_t w, uint32_t h, uint32_t dep) {
 
 int main(int argc, char** argv) {
 	fbd_t fbd;
-
 	const char* mnt_point = argc > 1 ? argv[1]: "/dev/fb0";
-	uint32_t rotate = argc > 4 ? atoi(argv[4]): G_ROTATE_NONE;
-	uint32_t w = 640;
-	uint32_t h = 480;
 
-	if(argc > 3) {
-		w = atoi(argv[2]);
-		h = atoi(argv[3]);
-	}
-	
 	fbd.splash = NULL;
 	fbd.flush = flush;
 	fbd.init = init;
 	fbd.get_info = get_info;
-	return fbd_run(&fbd, mnt_point, w, h, rotate);
+	return fbd_run(&fbd, mnt_point, 640, 480, G_ROTATE_NONE);
 }
