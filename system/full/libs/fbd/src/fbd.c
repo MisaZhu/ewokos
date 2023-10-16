@@ -171,7 +171,7 @@ static void* fb_dma(int fd, int from_pid, fsinfo_t* info, int* size, void* p) {
 }
 
 static void read_config(uint32_t* w, uint32_t* h, int32_t* rotate) {
-	strncpy(_logo, "/usr/system/images/splash.png", 255);
+	strncpy(_logo, "/usr/system/images/logos/logo.png", 255);
 
 	sconf_t *conf = sconf_load("/etc/framebuffer.conf");	
 	if(conf == NULL)

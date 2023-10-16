@@ -1,4 +1,4 @@
-/bin/rundev /drivers/raspix/lcdhatd       /dev/fb0 240 240 3
+/bin/rundev /drivers/raspix/lcdhatd       /dev/fb0
 /bin/rundev /drivers/raspix/uartd         /dev/tty0
 #/bin/rundev /drivers/raspix/mbox_actledd  /dev/actled
 
