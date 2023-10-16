@@ -39,11 +39,8 @@ static int32_t init(uint32_t w, uint32_t h, uint32_t dep) {
 }
 
 int main(int argc, char** argv) {
-	uint32_t w=240, h=240, rot=0;
+	uint32_t w=240, h=240;
 	const char* mnt_point = argc > 1 ? argv[1]: "/dev/fb0";
-	if(argc > 2) {
-		rot = atoi(argv[2]);
-	}
 	LCD_HEIGHT = h;
 	LCD_WIDTH = w;
 	lcd_init(w, h, rot);
@@ -53,5 +50,5 @@ int main(int argc, char** argv) {
 	fbd.flush = flush;
 	fbd.init = init;
 	fbd.get_info = get_info;
-	return fbd_run(&fbd, mnt_point, LCD_WIDTH, LCD_HEIGHT, rot);
+	return fbd_run(&fbd, mnt_point, LCD_WIDTH, LCD_HEIGHT, G_ROTATE_NONE);
 }

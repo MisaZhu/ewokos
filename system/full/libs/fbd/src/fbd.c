@@ -9,6 +9,7 @@
 #include <fb/fb.h>
 #include <fbd/fbd.h>
 #include <upng/upng.h>
+#include <sconf/sconf.h>
 
 typedef struct {
 	uint32_t size;
@@ -18,6 +19,7 @@ typedef struct {
 static fbinfo_t* _fbinfo = NULL;
 static int32_t _rotate = 0;
 static fbd_t* _fbd = NULL;
+static char _logo[256];
 
 static int fb_fcntl(int fd, 
 		int from_pid,
@@ -78,7 +80,7 @@ static void draw_bg(graph_t* g) {
 
 static void default_splash(graph_t* g) {
 	draw_bg(g);
-	graph_t* logo = png_image_new("/user/system/images/splash.png");
+	graph_t* logo = png_image_new(_logo);
 	if(logo != NULL) {
 		graph_blt_alpha(logo, 0, 0, logo->w, logo->h,
 				g, (g->w-logo->w)/2, (g->h-logo->h)/2, logo->w, logo->h, 0xff);
@@ -168,10 +170,38 @@ static void* fb_dma(int fd, int from_pid, fsinfo_t* info, int* size, void* p) {
 	return dma->shm;
 }
 
-int fbd_run(fbd_t* fbd, const char* mnt_name, uint32_t w, uint32_t h, uint32_t rotate) {
+static void read_config(uint32_t* w, uint32_t* h, int32_t* rotate) {
+	strncpy(_logo, "/usr/system/images/splash.png", 255);
+
+	sconf_t *conf = sconf_load("/etc/framebuffer.conf");	
+	if(conf == NULL)
+		return;
+
+	const char* v = sconf_get(conf, "width");
+	if(v[0] != 0)
+		*w = atoi(v);
+
+	v = sconf_get(conf, "height");
+	if(v[0] != 0)
+		*h = atoi(v);
+
+	v = sconf_get(conf, "rotate");
+	if(v[0] != 0) 
+		*rotate = atoi(v);
+
+	v = sconf_get(conf, "logo");
+	if(v[0] != 0) 
+		strncpy(_logo, v, 255);
+
+	sconf_free(conf);
+}
+
+int fbd_run(fbd_t* fbd, const char* mnt_name,
+		uint32_t def_w, uint32_t def_h, int32_t def_rotate) {
 	_fbd = fbd;
-	_rotate = 0;
-	_rotate = rotate;
+	uint32_t w = def_w, h = def_h;
+	_rotate = def_rotate;
+	read_config(&w, &h, &_rotate);
 
 	fb_dma_t dma;
 	dma.shm = NULL;
