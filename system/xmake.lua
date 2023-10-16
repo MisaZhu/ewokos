@@ -146,11 +146,14 @@ target("system")
         if not os.exists(rootfs_dir) then
             os.mkdir(rootfs_dir)
             os.run("cp -rf %s/full/data %s", system_dir, rootfs_dir)
-            os.run("cp -rf %s/basic/etc %s", system_dir, rootfs_dir)
-            os.run("cp -rf %s/full/etc %s", system_dir, rootfs_dir)
-            os.run("mkdir -p %s/dev", rootfs_dir)
+			os.run("mkdir -p %s/dev", rootfs_dir)
             os.run("mkdir -p %s/home/root", rootfs_dir)
         end
+		os.run("cp -rf %s/basic/etc %s", system_dir, rootfs_dir)
+        os.run("cp -rf %s/full/etc %s", system_dir, rootfs_dir)
+        os.run("cp -rf %s/full/user %s", system_dir, rootfs_dir)
+        os.run("cp -rf %s/full/user/x/themes/solaris %s/user/x/themes/default", system_dir, rootfs_dir)
+        
     end)
 
     on_build(function (target)
