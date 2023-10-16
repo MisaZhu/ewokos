@@ -3,4 +3,4 @@
 /bin/rundev /drivers/miyoo/gpio_joykeyb_minid   /dev/joykeyb
 /bin/rundev /drivers/miyoo/gpio_joystickd   /dev/joystick
 /bin/rundev /drivers/miyoo/audctrl        /dev/sound
-/bin/rundev /drivers/miyoo/fbd            /dev/fb0 640 480
+/bin/rundev /drivers/miyoo/fbd            /dev/fb0
