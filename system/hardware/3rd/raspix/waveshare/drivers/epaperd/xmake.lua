@@ -1,6 +1,6 @@
 target("epaperd")
     set_type("application")
-    add_deps("libfbd", "libgraph", "libbsp", "libsconf")
+    add_deps("libfbd", "libupng", "libgraph", "libbsp", "libsconf")
     add_files("**.c")        
     install_dir("drivers/raspix")
 target_end()

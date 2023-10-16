@@ -1,6 +1,6 @@
 target("rpi_lcdd")
     set_type("application")
-    add_deps("libfbd", "libili9486", "libxpt2046", "libbsp", "libsconf")
+    add_deps("libfbd", "libupng", "libgraph", "libili9486", "libxpt2046", "libbsp", "libsconf")
     add_files("**.c")        
     install_dir("drivers/raspix")
 target_end()

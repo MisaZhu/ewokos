@@ -43,7 +43,7 @@ int main(int argc, char** argv) {
 	const char* mnt_point = argc > 1 ? argv[1]: "/dev/fb0";
 	LCD_HEIGHT = h;
 	LCD_WIDTH = w;
-	lcd_init(w, h, rot);
+	lcd_init(w, h, G_ROTATE_NONE);
 
 	fbd_t fbd;
 	fbd.splash = NULL;

@@ -17,8 +17,9 @@ $(ILI9486D): $(ILI9486D_OBJS) \
 		$(BUILD_DIR)/lib/libfbd.a \
 		$(BUILD_DIR)/lib/libgraph.a \
 		$(BUILD_DIR)/lib/libsconf.a \
+		$(BUILD_DIR)/lib/libupng.a \
 		$(BUILD_DIR)/lib/libili9486.a 
-	$(LD) -Ttext=100 $(ILI9486D_OBJS) -o $(ILI9486D) $(LDFLAGS) -lili9486 -larch_bcm283x -lfbd -lgraph -lsconf -lewokc -lc
+	$(LD) -Ttext=100 $(ILI9486D_OBJS) -o $(ILI9486D) $(LDFLAGS) -lili9486 -larch_bcm283x -lfbd -lupng -lgraph -lsconf -lewokc -lc
 
 clean:
 	rm -f $(ILI9486D_OBJS)

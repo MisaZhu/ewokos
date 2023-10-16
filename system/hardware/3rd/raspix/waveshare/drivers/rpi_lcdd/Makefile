@@ -18,8 +18,9 @@ $(RPI_LCDD): $(RPI_LCDD_OBJS) \
 		$(BUILD_DIR)/lib/libgraph.a \
 		$(BUILD_DIR)/lib/libsconf.a \
 		$(BUILD_DIR)/lib/libili9486.a  \
+		$(BUILD_DIR)/lib/libupng.a \
 		$(BUILD_DIR)/lib/libxpt2046.a 
-	$(LD) -Ttext=100 $(RPI_LCDD_OBJS) -o $(RPI_LCDD) $(LDFLAGS) -lxpt2046 -lili9486 -larch_bcm283x -lfbd -lgraph -lsconf -lewokc -lc
+	$(LD) -Ttext=100 $(RPI_LCDD_OBJS) -o $(RPI_LCDD) $(LDFLAGS) -lxpt2046 -lili9486 -larch_bcm283x -lfbd -lupng -lgraph -lsconf -lewokc -lc
 
 clean:
 	rm -f $(RPI_LCDD_OBJS)
