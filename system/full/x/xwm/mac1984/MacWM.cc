@@ -8,6 +8,12 @@
 
 using namespace Ewok;
 
+void MacWM::loadConfig(sconf_t* sconf) {
+	XWM::loadConfig(sconf);
+	const char* v = sconf_get(sconf, "pattern");
+	pattern = png_image_new(x_get_theme_fname(X_THEME_ROOT, "xwm", v));
+}
+
 graph_t* MacWM::genPattern(void) {
 	int sz = 1; 
 	int x = 0;
@@ -50,12 +56,13 @@ void MacWM::drawDesktop(graph_t* g) {
 	if(logo == NULL)
 		logo = png_image_new(x_get_theme_fname(X_THEME_ROOT, "xwm", "logo.png"));
 
+	graph_clear(g, 0xffffffff);
 	int x = 0;
 	int y = 0;
 	for(int i=0; y<g->h; i++) {
 		for(int j=0; x<g->w;j++) {
-			graph_blt(pattern, 0, 0, pattern->w, pattern->h,
-					g, x, y, pattern->w, pattern->h);
+			graph_blt_alpha(pattern, 0, 0, pattern->w, pattern->h,
+					g, x, y, pattern->w, pattern->h, 0xff);
 			x += pattern->w;
 		}
 		x = 0;

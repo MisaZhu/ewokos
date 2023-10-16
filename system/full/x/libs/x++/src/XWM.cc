@@ -239,11 +239,7 @@ void XWM::getColor(uint32_t *fg, uint32_t* bg, bool top) {
 	}
 }
 
-void XWM::readConfig(const char* fname) {
-	sconf_t *sconf = sconf_load(fname);	
-	if(sconf == NULL)
-		return;
-
+void XWM::loadConfig(sconf_t* sconf) {
 	const char* v = sconf_get(sconf, "fg_color");
 	if(v[0] != 0) 
 		fgColor = atoi_base(v, 16);
@@ -285,8 +281,14 @@ void XWM::readConfig(const char* fname) {
 	if(v[0] != 0) 
  		font_load(v, font_size, &font);
 	else
- 		font_load(X_SYSTEM_FONT, font_size, &font);
+ 		font_load("/user/system/fonts/system.ttf", font_size, &font);
+}
 
+void XWM::readConfig(const char* fname) {
+	sconf_t *sconf = sconf_load(fname);	
+	if(sconf == NULL)
+		return;
+	loadConfig(sconf);
 	sconf_free(sconf);
 }
 

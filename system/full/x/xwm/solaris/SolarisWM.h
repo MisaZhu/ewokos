@@ -20,6 +20,7 @@ protected:
 	void drawFrame(graph_t* g, xinfo_t* info, bool top);
 	void drawDesktop(graph_t* g);
 	void drawTitle(graph_t* g, xinfo_t* info, grect_t* r, bool top);
+	void loadConfig(sconf_t* sconf);
 public:
 	SolarisWM(void);
 	~SolarisWM(void);

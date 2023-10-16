@@ -3,15 +3,23 @@
 #include <sys/klog.h>
 #include <upng/upng.h>
 #include <sconf/sconf.h>
+#include <x/x.h>
 #include <stdlib.h>
 
 using namespace Ewok;
+
+void SolarisWM::loadConfig(sconf_t* sconf) {
+	XWM::loadConfig(sconf);
+	const char* v = sconf_get(sconf, "pattern");
+	pattern = png_image_new(x_get_theme_fname(X_THEME_ROOT, "xwm", v));
+}
 
 graph_t* SolarisWM::genPattern(void) {
 	int sz = 1; 
 	int x = 0;
 	int y = 0;
 	bool shift = false;
+
 	graph_t* g = graph_new(NULL, 64, 64);
 	graph_clear(g, desktopBGColor);
 
@@ -46,13 +54,14 @@ graph_t* SolarisWM::genPattern(void) {
 void SolarisWM::drawDesktop(graph_t* g) {
 	if(pattern == NULL)
 		pattern = genPattern();
+	graph_clear(g, 0xffffffff);
 
 	int x = 0;
 	int y = 0;
 	for(int i=0; y<g->h; i++) {
 		for(int j=0; x<g->w;j++) {
-			graph_blt(pattern, 0, 0, pattern->w, pattern->h,
-					g, x, y, pattern->w, pattern->h);
+			graph_blt_alpha(pattern, 0, 0, pattern->w, pattern->h,
+					g, x, y, pattern->w, pattern->h, 0xff);
 			x += pattern->w;
 		}
 		x = 0;
