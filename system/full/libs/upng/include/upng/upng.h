@@ -85,6 +85,7 @@ const unsigned char*	upng_get_buffer		(const upng_t* upng);
 unsigned				upng_get_size		(const upng_t* upng);
 
 graph_t* png_image_new(const char* filename);
+graph_t* png_image_new_bg(const char* filename, uint32_t bg_color);
 
 #ifdef __cplusplus
 }

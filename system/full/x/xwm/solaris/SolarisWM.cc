@@ -11,7 +11,7 @@ using namespace Ewok;
 void SolarisWM::loadConfig(sconf_t* sconf) {
 	XWM::loadConfig(sconf);
 	const char* v = sconf_get(sconf, "pattern");
-	pattern = png_image_new(x_get_theme_fname(X_THEME_ROOT, "xwm", v));
+	pattern = png_image_new_bg(x_get_theme_fname(X_THEME_ROOT, "xwm", v), desktopBGColor);
 }
 
 graph_t* SolarisWM::genPattern(void) {
@@ -60,8 +60,8 @@ void SolarisWM::drawDesktop(graph_t* g) {
 	int y = 0;
 	for(int i=0; y<g->h; i++) {
 		for(int j=0; x<g->w;j++) {
-			graph_blt_alpha(pattern, 0, 0, pattern->w, pattern->h,
-					g, x, y, pattern->w, pattern->h, 0xff);
+			graph_blt(pattern, 0, 0, pattern->w, pattern->h,
+					g, x, y, pattern->w, pattern->h);
 			x += pattern->w;
 		}
 		x = 0;

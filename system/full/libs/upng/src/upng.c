@@ -1328,6 +1328,18 @@ graph_t* png_image_new(const char* filename) {
 	return img;
 }
 
+graph_t* png_image_new_bg(const char* filename, uint32_t bg_color) {
+	graph_t* png = png_image_new(filename);
+	if(png == NULL)
+		return NULL;
+	graph_t* ret = graph_new(NULL, png->w, png->h);
+	graph_clear(ret, bg_color);
+	graph_blt_alpha(png, 0, 0, png->w, png->h, ret, 0, 0, png->w, png->h, 0xff);
+	graph_free(png);
+	return ret;
+
+}
+
 #ifdef __cplusplus
 }
 #endif
