@@ -8,7 +8,6 @@
 using namespace Ewok;
 
 class MacWM : public XWM {
-	graph_t* logo;
 	graph_t* pattern;
 	graph_t* genPattern(void);
 	void drawTitlePattern(graph_t* g, int x, int y, int w, int h, uint32_t fg);

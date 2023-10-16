@@ -53,8 +53,6 @@ graph_t* MacWM::genPattern(void) {
 void MacWM::drawDesktop(graph_t* g) {
 	if(pattern == NULL)
 		pattern = genPattern();
-	if(logo == NULL)
-		logo = png_image_new(x_get_theme_fname(X_THEME_ROOT, "xwm", "logo.png"));
 
 	graph_clear(g, 0xffffffff);
 	int x = 0;
@@ -68,10 +66,6 @@ void MacWM::drawDesktop(graph_t* g) {
 		x = 0;
 		y += pattern->h;
 	}
-
-	if(logo != NULL)
-		graph_blt_alpha(logo, 0, 0, logo->w, logo->h,
-				g, 10, 10, logo->w, logo->h, 0xff);
 }
 
 void MacWM::drawTitlePattern(graph_t* g, int x, int y, int w, int h, uint32_t fg) {
@@ -108,8 +102,6 @@ void MacWM::drawTitle(graph_t* g, xinfo_t* info, grect_t* r, bool top) {
 MacWM::~MacWM(void) {
 	if(pattern != NULL)
 		graph_free(pattern);
-	if(logo != NULL)
-		graph_free(logo);
 	font_close(&font);
 }
 
@@ -122,5 +114,4 @@ MacWM::MacWM(void) {
 	fgTopColor = 0xff222222;
 	titleH = 32;
 	pattern = NULL;
-	logo = NULL;
 }
