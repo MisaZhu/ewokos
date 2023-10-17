@@ -7,8 +7,8 @@ extern "C" {
 #endif
 
 #define FS_MOUNT_MAX 32
-#define FS_NODE_NAME_MAX 63
-#define FS_FULL_NAME_MAX 511
+#define FS_NODE_NAME_MAX 64
+#define FS_FULL_NAME_MAX 512
 
 enum {
 	FS_TYPE_DIR = 0,
@@ -47,22 +47,19 @@ enum {
 typedef struct {
 	int32_t pid;
 	uint32_t org_node;
-	char org_name[FS_FULL_NAME_MAX+1];
+	char org_name[FS_FULL_NAME_MAX];
 } mount_t;
 
 typedef struct {
-	char     name[FS_NODE_NAME_MAX+1];
+	uint32_t node;
+	char     name[FS_NODE_NAME_MAX];
 	uint32_t type;
 	uint32_t size;
 	uint32_t uid;
 	uint32_t gid;
-	uint32_t data;
-} fsnode_t;
-
-typedef struct {
-	uint32_t node_addr;
 	int32_t  mount_pid;
-	fsnode_t* node;
+
+	uint32_t data;
 } fsinfo_t;
 
 #ifdef __cplusplus 

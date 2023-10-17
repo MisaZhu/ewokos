@@ -6,7 +6,7 @@ int unlink(const char* fname) {
 	fsinfo_t info;
 	if(vfs_get(fname, &info) != 0)
 		return -1;
-	if(info.node->type != FS_TYPE_FILE) 
+	if(info.type != FS_TYPE_FILE) 
 		return -1;
 	
 	/*mount_t mount;

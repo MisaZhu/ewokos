@@ -344,13 +344,10 @@ static void handle(int from_pid, int cmd, proto_t* in, proto_t* out, void* p) {
 
 static int do_mount(vdevice_t* dev, fsinfo_t* mnt_point, int type) {
 	fsinfo_t info;
-	fsnode_t node;
 	memset(&info, 0, sizeof(fsinfo_t));
-	memset(&node, 0, sizeof(fsinfo_t));
-
-	strncpy(node.name, mnt_point->node->name, FS_NODE_NAME_MAX);
-	node.type = type;
-	vfs_new_node(&node, &info);
+	strcpy(info.name, mnt_point->name);
+	info.type = type;
+	vfs_new_node(&info);
 
 	if(dev->mount != NULL) {
 		if(dev->mount(&info, dev->extra_data) != 0) {
