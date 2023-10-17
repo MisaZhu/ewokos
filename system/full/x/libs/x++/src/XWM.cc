@@ -281,7 +281,7 @@ void XWM::loadConfig(sconf_t* sconf) {
 	if(v[0] != 0) 
  		font_load(v, font_size, &font);
 	else
- 		font_load("/user/system/fonts/system.ttf", font_size, &font);
+ 		font_load("/usr/system/fonts/system.ttf", font_size, &font);
 }
 
 void XWM::readConfig(const char* fname) {
