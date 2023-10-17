@@ -5,13 +5,15 @@
 #include <sconf/sconf.h>
 #include <x/x.h>
 #include <stdlib.h>
+#include <string.h>
 
 using namespace Ewok;
 
 void SolarisWM::loadConfig(sconf_t* sconf) {
 	XWM::loadConfig(sconf);
 	const char* v = sconf_get(sconf, "pattern");
-	pattern = png_image_new_bg(x_get_theme_fname(X_THEME_ROOT, "xwm", v), desktopBGColor);
+	if(v[0] != 0 && strcmp(v, "none") != 0)
+		pattern = png_image_new_bg(x_get_theme_fname(X_THEME_ROOT, "xwm", v), desktopBGColor);
 }
 
 graph_t* SolarisWM::genPattern(void) {
