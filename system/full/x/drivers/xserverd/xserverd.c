@@ -1345,7 +1345,7 @@ int main(int argc, char** argv) {
 	if(x_init(&x, display_man, display_index) != 0)
 		return -1;
 
-	read_config(&x, "/etc/x/x.conf");
+	read_config(&x, "/usr/x/x.conf");
 	cursor_init(x.config.theme, &x.cursor);
 
 	int pid = -1;
