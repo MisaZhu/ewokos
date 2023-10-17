@@ -2,6 +2,7 @@
 #include <mm/kalloc.h>
 #include <mm/kmalloc.h>
 #include <mm/mmu.h>
+#include <shmflag.h>
 #include <kernel/kernel.h>
 #include <kernel/hw_info.h>
 #include <kernel/proc.h>
@@ -203,7 +204,7 @@ static share_mem_t* free_item(share_mem_t* it) {
 }*/
 
 static int32_t check_owner(proc_t* proc, share_mem_t* it) {
-	if(it->flag != 0)  //1 for public, 0 for family only
+	if(it->flag != SHM_FAMILY)  //1 for public, 0 for family only
 		return 0;
 
 	while(proc != NULL) {
@@ -247,13 +248,19 @@ void* shm_proc_map(int32_t pid, void* p) {
 	if(i >= SHM_MAX)
 		return NULL;
 
+	uint32_t access;
+	if(it->flag == SHM_RDONLY && pid != it->owner)
+		access = AP_RW_R;
+	else
+		access = AP_RW_RW;
+
 	uint32_t addr = it->addr;
 	for (i = 0; i < it->pages; i++) {
 		uint32_t physical_addr = resolve_phy_address(_kernel_vm, addr);
 		map_page(proc->space->vm,
 				addr,
 				physical_addr,
-				AP_RW_RW, PTE_ATTR_WRBACK);
+				access, PTE_ATTR_WRBACK);
 		addr += PAGE_SIZE;
 	}
 	flush_tlb();
