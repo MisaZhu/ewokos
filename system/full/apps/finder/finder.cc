@@ -23,6 +23,9 @@ class Finder: public XWin {
 	uint32_t titleBGColor;
 	graph_t* dirIcon;
 	graph_t* fileIcon;
+	graph_t* devIcon;
+
+	sconf_t* fileTypes;
 	int itemSize;
 
 	int     mouse_last_y;
@@ -59,27 +62,27 @@ class Finder: public XWin {
 		return false;
 	}
 
+	const char* fileType(const char* fname) {
+		if(fileTypes == NULL)
+			return "";
+		for(int i=0; i<fileTypes->num;i++) {
+			sconf_item_t* it = sconf_get_at(fileTypes, i);
+			if(it == NULL || it->name->cstr[0] == 0)
+				break;
+			if(check(fname, it->name->cstr))
+				return it->value->cstr;
+		}
+		return "";
+	}
+
 	void load(const char* fname) {
 		char cmd[FS_FULL_NAME_MAX+1] = "";
-		if(check(fname, ".nes")) {
-			snprintf(cmd, FS_FULL_NAME_MAX, "/apps/emu/emu %s", fname);
-		}
-		else if(check(fname, ".png")) {
-			snprintf(cmd, FS_FULL_NAME_MAX, "/bin/x/png %s", fname);
-		}
-		else if(check(fname, ".mp3")) {
-			snprintf(cmd, FS_FULL_NAME_MAX, "/bin/mp3play %s", fname);
-		}
-		else if(check(fname, ".wav")) {
-			snprintf(cmd, FS_FULL_NAME_MAX, "/bin/aplay -f %s", fname);
-		}
-		else {//if(check(fname, ".txt")) {
-			//snprintf(cmd, FS_FULL_NAME_MAX, "/apps/book/book %s", fname);
-			snprintf(cmd, FS_FULL_NAME_MAX, "/apps/xtext/xtext %s", fname);
-		}
-		if(cmd[0] == 0)
+		const char* prog = fileType(fname);
+
+		if(prog[0] == 0)
 			return;
 
+		snprintf(cmd, FS_FULL_NAME_MAX, "%s %s", prog, fname);
 		int pid = fork();
 		if(pid == 0)  {
 			proc_detach();
@@ -161,8 +164,10 @@ protected:
 			graph_t* icon = NULL;
 			if(it->d_type == DT_DIR)
 				icon = dirIcon;
-			else
+			else if(it->d_type == DT_REG || it->d_type == DT_BLK)
 				icon = fileIcon;
+			else
+				icon = devIcon;
 
 			xMargin = 8;
 			if(icon != NULL) {
@@ -272,12 +277,14 @@ public:
 		titleBGColor = 0xffaaaaaa;
 		fileIcon = png_image_new(x_get_theme_fname(X_THEME_ROOT, "finder", "icons/file.png"));
 		dirIcon = png_image_new(x_get_theme_fname(X_THEME_ROOT, "finder", "icons/folder.png"));
+		devIcon = png_image_new(x_get_theme_fname(X_THEME_ROOT, "finder", "icons/device.png"));
 		font_load(X_SYSTEM_FONT, 14, &font);
 		itemSize = 36;
 
 		selected = 0;
 		start = 0;
 		mouse_last_y = 0;
+		fileTypes = sconf_load("/usr/system/filetypes.conf");
 		readDir("/");
 	}
 
@@ -286,7 +293,11 @@ public:
 			graph_free(fileIcon);
 		if(dirIcon != NULL)
 			graph_free(dirIcon);
+		if(devIcon != NULL)
+			graph_free(devIcon);
 		font_close(&font);
+		if(fileTypes != NULL)
+			sconf_free(fileTypes);
 	}
 
 	bool readConfig(const char* fname) {

@@ -106,6 +106,7 @@ sconf_t* sconf_parse(const char* str) {
 			i++;
 		}
 	}
+	conf->num = it;
 	return conf;
 }
 

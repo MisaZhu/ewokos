@@ -17,6 +17,7 @@ typedef struct {
 
 typedef struct {
 	sconf_item_t items[S_CONF_ITEM_MAX];
+	uint32_t num;
 } sconf_t;
 
 sconf_t* sconf_parse(const char* str);
