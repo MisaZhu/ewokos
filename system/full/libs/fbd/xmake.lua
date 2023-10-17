@@ -1,6 +1,6 @@
 target("libfbd")
     set_type("library")
     add_files("**.c")        
-    add_deps("libfb", "libupng")
+    add_deps("libfb", "libsconf", "libupng")
     add_includedirs("include",  {public = true})
 target_end()
