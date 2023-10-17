@@ -38,9 +38,11 @@ static int vfs_get_by_fd_raw(int fd, fsinfo_t* info) {
 	if(res == 0) {
 		res = proto_read_int(&out); //res = node
 		if(res != 0) {
-			if(info != NULL)
+			if(info != NULL) {
 				proto_read_to(&out, info, sizeof(fsinfo_t));
-			res = 0;
+				info->node = (fsnode_t*)shm_map(info->node);
+			}
+			res = info->node==NULL ? -1:0;
 		}
 		else
 			res = -1;
@@ -59,9 +61,15 @@ static inline void vfs_set_info_buffer(int fd, fsinfo_t* info) {
 	}
 }
 
+static inline void vfs_close_info(fsinfo_t* info) {
+	if(info != NULL && info->node != NULL)
+		shm_unmap(info->node);
+}
+
 static inline void vfs_clear_info_buffer(int fd) {
 	for(uint32_t i=0; i<MAX_FINFO_BUFFER; i++) {
 		if(_fsinfo_buffers[i].fd == fd) {
+			vfs_close_info(&_fsinfo_buffers[i].info);
 			_fsinfo_buffers[i].fd = -1;
 			return;
 		}
@@ -89,16 +97,20 @@ int vfs_get_by_fd(int fd, fsinfo_t* info) {
 	return res;
 }
 
-int vfs_new_node(fsinfo_t* info) {
+int vfs_new_node(const fsnode_t* node, fsinfo_t* info) {
 	proto_t in, out;
-	PF->init(&in)->add(&in, info, sizeof(fsinfo_t));
+	PF->init(&in)->add(&in, node, sizeof(fsnode_t));
 	PF->init(&out);
 	int res = ipc_call(get_vfsd_pid(), VFS_NEW_NODE, &in, &out);
 	PF->clear(&in);
 	if(res == 0) {
 		res = proto_read_int(&out); //res = node
-		if(res == 0)
+		if(res == 0) {
 			proto_read_to(&out, info, sizeof(fsinfo_t));
+			info->node = (fsnode_t*)shm_map(info->node);
+			if(info->node == NULL)
+				res = -1;
+		}
 		else
 			res = -1;
 	}
@@ -245,9 +257,11 @@ int vfs_get(const char* fname, fsinfo_t* info) {
 	if(res == 0) {
 		res = proto_read_int(&out); //res = node
 		if(res != 0) {
-			if(info != NULL)
+			if(info != NULL) {
 				proto_read_to(&out, info, sizeof(fsinfo_t));
-			res = 0;
+				info->node = (fsnode_t*)shm_map(info->node);
+			}
+			res = info->node==NULL ? -1:0;
 		}
 		else
 			res = -1;
@@ -418,15 +432,15 @@ int vfs_seek(int fd, int offset) {
 void* vfs_readfile(const char* fname, int* rsz) {
 	fname = vfs_fullname(fname);
 	fsinfo_t info;
-	if(vfs_get(fname, &info) != 0 || info.size <= 0)
+	if(vfs_get(fname, &info) != 0 || info.node->size <= 0)
 		return NULL;
-	void* buf = malloc(info.size+1); //one more char for string end.
+	void* buf = malloc(info.node->size+1); //one more char for string end.
 	if(buf == NULL)
 		return NULL;
 
 	char* p = (char*)buf;
 	int fd = open(fname, O_RDONLY);
-	int fsize = info.size;
+	int fsize = info.node->size;
 	if(fd >= 0) {
 		while(fsize > 0) {
 			int sz = read(fd, p, fsize);
@@ -446,7 +460,7 @@ void* vfs_readfile(const char* fname, int* rsz) {
 	}
 
 	if(rsz != NULL)
-		*rsz = info.size;
+		*rsz = info.node->size;
 	return buf;
 }
 
@@ -474,14 +488,17 @@ int vfs_create(const char* fname, fsinfo_t* ret, int type, bool vfs_node_only, b
 		return -1;
 	}
 	*/
-
-	memset(ret, 0, sizeof(fsinfo_t));
-	strcpy(ret->name, CS(name));
-	ret->type = type;
-	str_free(name);
 	str_free(dir);
 
-	vfs_new_node(ret);
+	fsnode_t node_new;
+	memset(ret, 0, sizeof(fsinfo_t));
+	memset(&node_new, 0, sizeof(fsnode_t));
+	strncpy(node_new.name, CS(name), FS_NODE_NAME_MAX);
+	node_new.type = type;
+	str_free(name);
+
+	vfs_new_node(&node_new, ret);
+
 	if(vfs_add(&info_to, ret) != 0) {
 		vfs_del(ret);
 		return -1;
@@ -490,7 +507,7 @@ int vfs_create(const char* fname, fsinfo_t* ret, int type, bool vfs_node_only, b
 		return 0;
 
 	if(type == FS_TYPE_DIR)
-		ret->size = 1024;
+		ret->node->size = 1024;
 	ret->mount_pid = info_to.mount_pid;
 
 	proto_t in, out;
@@ -697,7 +714,7 @@ int vfs_read(int fd, fsinfo_t *info, void* buf, uint32_t size) {
 		*/
 
 	int offset = 0;
-	if(info->type == FS_TYPE_FILE) {
+	if(info->node->type == FS_TYPE_FILE) {
 		offset = vfs_tell(fd);
 		if(offset < 0)
 			offset = 0;
@@ -725,7 +742,7 @@ int vfs_read(int fd, fsinfo_t *info, void* buf, uint32_t size) {
 			else
 				proto_read_to(&out, buf, size);
 			offset += rd;
-			if(info->type == FS_TYPE_FILE)
+			if(info->node->type == FS_TYPE_FILE)
 				vfs_seek(fd, offset);
 		}
 		if(res == ERR_RETRY) {
@@ -756,7 +773,7 @@ int vfs_write_pipe(fsinfo_t* info, const void* buf, uint32_t size, bool block) {
 }
 
 int vfs_write(int fd, fsinfo_t* info, const void* buf, uint32_t size) {
-	if(info->type == FS_TYPE_DIR) 
+	if(info->node->type == FS_TYPE_DIR) 
 		return -1;
 
 	/*mount_t mount;
@@ -765,7 +782,7 @@ int vfs_write(int fd, fsinfo_t* info, const void* buf, uint32_t size) {
 		*/
 
 	int offset = 0;
-	if(info->type == FS_TYPE_FILE) {
+	if(info->node->type == FS_TYPE_FILE) {
 		offset = vfs_tell(fd);
 		if(offset < 0)
 			offset = 0;
@@ -798,7 +815,7 @@ int vfs_write(int fd, fsinfo_t* info, const void* buf, uint32_t size) {
 		res = r;
 		if(r > 0) {
 			offset += r;
-			if(info->type == FS_TYPE_FILE)
+			if(info->node->type == FS_TYPE_FILE)
 				vfs_seek(fd, offset);
 		}
 		if(res == -2) {

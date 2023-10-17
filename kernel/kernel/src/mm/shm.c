@@ -239,6 +239,13 @@ void* shm_proc_map(int32_t pid, void* p) {
 		return NULL;
 
 	uint32_t i;
+	//check if mapped , keep it and return
+	for (i = 0; i < SHM_MAX; i++) {
+		if(proc->space->shms[i] == (uint32_t)p)
+			return p;
+	}
+
+	//do real map
 	for (i = 0; i < SHM_MAX; i++) {
 		if(proc->space->shms[i] == 0) {
 			proc->space->shms[i] = (uint32_t)p;

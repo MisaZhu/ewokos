@@ -43,7 +43,7 @@ static int32_t find_exec(char* fname, char* cmd) {
 	//if cmd file is fullpath.
 	if(cmd[0] == '/') {
 		strcpy(fname, cmd);
-		if(vfs_get(fname, &info) == 0 && info.type == FS_TYPE_FILE) {
+		if(vfs_get(fname, &info) == 0 && info.node->type == FS_TYPE_FILE) {
 			cmd[at] = c;
 			strcpy(fname, cmd);
 			return 0;
@@ -59,7 +59,7 @@ static int32_t find_exec(char* fname, char* cmd) {
 			path[i] = 0;
 			if(path[0] != 0) {
 				snprintf(fname, FS_FULL_NAME_MAX-1, "%s/%s", path, cmd);
-				if(vfs_get(fname, &info) == 0 && info.type == FS_TYPE_FILE) {
+				if(vfs_get(fname, &info) == 0 && info.node->type == FS_TYPE_FILE) {
 					cmd[at] = c;
 					snprintf(fname, FS_FULL_NAME_MAX-1, "%s/%s", path, cmd);
 					return 0;

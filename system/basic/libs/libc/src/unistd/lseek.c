@@ -14,7 +14,7 @@ int lseek(int fd, uint32_t offset, int whence) {
 		fsinfo_t info;
 		int cur = 0;
 		if(vfs_get_by_fd(fd, &info) == 0)
-			cur = info.size;
+			cur = info.node->size;
 		offset += cur;
 	}
 	return vfs_seek(fd, offset);
