@@ -824,7 +824,7 @@ int vfs_write(int fd, fsinfo_t* info, const void* buf, uint32_t size) {
 	PF->clear(&out);
 	if(shm != NULL)
 		shm_unmap(shm);
-	//vfs_renew_info(fd, NULL);
+	vfs_renew_info(fd, NULL);
 	return res;
 }
 
