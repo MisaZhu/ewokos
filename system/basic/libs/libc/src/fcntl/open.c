@@ -10,7 +10,7 @@ int open(const char* fname, int oflag) {
 	bool created = false;
 	fsinfo_t info;
 
-	if(vfs_get(fname, &info) != 0) {
+	if(vfs_get_by_name(fname, &info) != 0) {
 		if((oflag & O_CREAT) != 0) {
 			if(vfs_create(fname, &info, FS_TYPE_FILE, false, false) != 0)
 				return -1;

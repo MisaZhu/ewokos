@@ -4,7 +4,7 @@
 
 int unlink(const char* fname) {
 	fsinfo_t info;
-	if(vfs_get(fname, &info) != 0)
+	if(vfs_get_by_name(fname, &info) != 0)
 		return -1;
 	if(info.type != FS_TYPE_FILE) 
 		return -1;

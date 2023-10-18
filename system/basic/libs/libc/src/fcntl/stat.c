@@ -3,7 +3,7 @@
 
 int stat(const char* name, struct stat* buf) {
 	fsinfo_t info;
-	if(vfs_get(name, &info) != 0)
+	if(vfs_get_by_name(name, &info) != 0)
 		return -1;
 	
 	buf->st_uid = info.uid;

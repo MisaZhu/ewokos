@@ -6,7 +6,7 @@
 static int write_nblock(int fd, const void* buf, uint32_t size) {
   errno = ENONE;
   fsinfo_t info;
-  if(vfs_get_by_fd(fd, &info) != 0)
+  if(vfs_get_by_fd(fd, &info, false) != 0)
     return -1;
   if(info.type == FS_TYPE_PIPE)
     return vfs_write_pipe(&info, buf, size, 0);
@@ -16,7 +16,7 @@ static int write_nblock(int fd, const void* buf, uint32_t size) {
 static int write_block(int fd, const void* buf, uint32_t size) {
 	errno = ENONE;
 	fsinfo_t info;
-	if(vfs_get_by_fd(fd, &info) != 0)
+	if(vfs_get_by_fd(fd, &info, false) != 0)
 		return -1;
 
 	int res = -1;

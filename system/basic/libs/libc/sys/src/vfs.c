@@ -50,7 +50,15 @@ static int vfs_get_by_fd_raw(int fd, fsinfo_t* info) {
 }
 
 static inline void vfs_set_info_buffer(int fd, fsinfo_t* info) {
-	for(uint32_t i=0; i<MAX_FINFO_BUFFER; i++) {
+	uint32_t i;
+	for(i=0; i<MAX_FINFO_BUFFER; i++) {
+		if(_fsinfo_buffers[i].fd == fd) {
+			memcpy(&_fsinfo_buffers[i].info, info, sizeof(fsinfo_t));
+			return;
+		}
+	}
+
+	for(i=0; i<MAX_FINFO_BUFFER; i++) {
 		if(_fsinfo_buffers[i].fd < 0) {
 			_fsinfo_buffers[i].fd = fd;
 			memcpy(&_fsinfo_buffers[i].info, info, sizeof(fsinfo_t));
@@ -78,9 +86,11 @@ static inline int vfs_fetch_info_buffer(int fd, fsinfo_t* info) {
 	return -1;
 }
 
-int vfs_get_by_fd(int fd, fsinfo_t* info) {
-	if(vfs_fetch_info_buffer(fd, info) == 0)
-		return 0;
+int vfs_get_by_fd(int fd, fsinfo_t* info, bool cache) {
+	if(cache) {
+		if(vfs_fetch_info_buffer(fd, info) == 0)
+			return 0;
+	}
 
 	int res = vfs_get_by_fd_raw(fd, info);
 	if(res == 0 && fd > 3) {
@@ -235,7 +245,7 @@ int vfs_open_pipe(int fd[2]) {
 	return res;
 }
 
-int vfs_get(const char* fname, fsinfo_t* info) {
+int vfs_get_by_name(const char* fname, fsinfo_t* info) {
 	fname = vfs_fullname(fname);
 	proto_t in, out;
 	PF->init(&in)->adds(&in, fname);
@@ -257,7 +267,7 @@ int vfs_get(const char* fname, fsinfo_t* info) {
 }
 
 int  vfs_access(const char* fname) {
-	return vfs_get(fname, NULL);
+	return vfs_get_by_name(fname, NULL);
 }
 
 fsinfo_t* vfs_kids(fsinfo_t* info, uint32_t *num) {
@@ -418,7 +428,7 @@ int vfs_seek(int fd, int offset) {
 void* vfs_readfile(const char* fname, int* rsz) {
 	fname = vfs_fullname(fname);
 	fsinfo_t info;
-	if(vfs_get(fname, &info) != 0 || info.size <= 0)
+	if(vfs_get_by_name(fname, &info) != 0 || info.size <= 0)
 		return NULL;
 	void* buf = malloc(info.size+1); //one more char for string end.
 	if(buf == NULL)
@@ -456,7 +466,7 @@ int vfs_create(const char* fname, fsinfo_t* ret, int type, bool vfs_node_only, b
 	vfs_parse_name(fname, dir, name);
 
 	fsinfo_t info_to;
-	if(vfs_get(CS(dir), &info_to) != 0) {
+	if(vfs_get_by_name(CS(dir), &info_to) != 0) {
 		int res_dir = -1;
 		if(autodir)
 			res_dir = vfs_create(CS(dir), &info_to, FS_TYPE_DIR, false, autodir);
@@ -539,7 +549,7 @@ int vfs_parse_name(const char* fname, str_t* dir, str_t* name) {
 
 int vfs_fcntl(int fd, int cmd, proto_t* arg_in, proto_t* arg_out) {
 	fsinfo_t info;
-	if(vfs_get_by_fd(fd, &info) != 0)
+	if(vfs_get_by_fd(fd, &info, true) != 0)
 		return -1;
 	
 	proto_t in;
@@ -585,7 +595,7 @@ inline int  vfs_fcntl_wait(int fd, int cmd, proto_t* in) {
 
 void* vfs_dma(int fd, int* size) {
 	fsinfo_t info;
-	if(vfs_get_by_fd(fd, &info) != 0)
+	if(vfs_get_by_fd(fd, &info, true) != 0)
 		return NULL;
 	
 	proto_t in, out;
@@ -608,7 +618,7 @@ void* vfs_dma(int fd, int* size) {
 
 int vfs_flush(int fd, bool wait) {
 	fsinfo_t info;
-	if(vfs_get_by_fd(fd, &info) != 0)
+	if(vfs_get_by_fd(fd, &info, true) != 0)
 		return 0; //error
 	
 	proto_t in;
