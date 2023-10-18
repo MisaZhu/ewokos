@@ -86,21 +86,17 @@ static inline int vfs_fetch_info_buffer(int fd, fsinfo_t* info) {
 	return -1;
 }
 
-int vfs_renew_info(int fd, fsinfo_t* fsinfo) {
-	fsinfo_t info;
-	int res = vfs_get_by_fd_raw(fd, &info);
-	if(res == 0 && fd > 3) {
-		vfs_set_info_buffer(fd, &info);
+int vfs_get_by_fd(int fd, fsinfo_t* info, bool cache) {
+	if(cache) {
+		if(vfs_fetch_info_buffer(fd, info) == 0)
+			return 0;
 	}
-	if(res == 0 & fsinfo != NULL)
-		memcpy(fsinfo, &info, sizeof(fsinfo_t));
-	return res;
-}
 
-int vfs_get_by_fd(int fd, fsinfo_t* info) {
-	if(vfs_fetch_info_buffer(fd, info) == 0)
-		return 0;
-	return vfs_renew_info(fd, info);
+	int res = vfs_get_by_fd_raw(fd, info);
+	if(res == 0 && fd > 3) {
+		vfs_set_info_buffer(fd, info);
+	}
+	return res;
 }
 
 int vfs_new_node(fsinfo_t* info) {
@@ -553,7 +549,7 @@ int vfs_parse_name(const char* fname, str_t* dir, str_t* name) {
 
 int vfs_fcntl(int fd, int cmd, proto_t* arg_in, proto_t* arg_out) {
 	fsinfo_t info;
-	if(vfs_get_by_fd(fd, &info) != 0)
+	if(vfs_get_by_fd(fd, &info, true) != 0)
 		return -1;
 	
 	proto_t in;
@@ -599,7 +595,7 @@ inline int  vfs_fcntl_wait(int fd, int cmd, proto_t* in) {
 
 void* vfs_dma(int fd, int* size) {
 	fsinfo_t info;
-	if(vfs_get_by_fd(fd, &info) != 0)
+	if(vfs_get_by_fd(fd, &info, true) != 0)
 		return NULL;
 	
 	proto_t in, out;
@@ -622,7 +618,7 @@ void* vfs_dma(int fd, int* size) {
 
 int vfs_flush(int fd, bool wait) {
 	fsinfo_t info;
-	if(vfs_get_by_fd(fd, &info) != 0)
+	if(vfs_get_by_fd(fd, &info, true) != 0)
 		return 0; //error
 	
 	proto_t in;
@@ -772,7 +768,6 @@ int vfs_write_pipe(fsinfo_t* info, const void* buf, uint32_t size, bool block) {
 int vfs_write(int fd, fsinfo_t* info, const void* buf, uint32_t size) {
 	if(info->type == FS_TYPE_DIR) 
 		return -1;
-	//vfs_renew_info(fd, info);
 
 	/*mount_t mount;
 	if(vfs_get_mount(info, &mount) != 0)
@@ -825,7 +820,6 @@ int vfs_write(int fd, fsinfo_t* info, const void* buf, uint32_t size) {
 	PF->clear(&out);
 	if(shm != NULL)
 		shm_unmap(shm);
-	vfs_renew_info(fd, info);
 	return res;
 }
 

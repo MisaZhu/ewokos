@@ -13,9 +13,8 @@ int lseek(int fd, uint32_t offset, int whence) {
 	else if(whence == SEEK_END) {
 		fsinfo_t info;
 		int cur = 0;
-		if(vfs_renew_info(fd, &info) == 0) {
+		if(vfs_get_by_fd(fd, &info, true) == 0)
 			cur = info.size;
-		}
 		offset += cur;
 	}
 	return vfs_seek(fd, offset);

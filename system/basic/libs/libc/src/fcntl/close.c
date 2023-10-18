@@ -7,7 +7,7 @@
 
 void close(int fd) {
 	fsinfo_t info;
-	if(vfs_get_by_fd(fd, &info) != 0)
+	if(vfs_get_by_fd(fd, &info, true) != 0)
 		return;
 
 	proto_t in;
