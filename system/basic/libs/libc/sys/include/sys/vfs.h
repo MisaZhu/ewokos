@@ -21,6 +21,7 @@ int       vfs_new_node(fsinfo_t* info);
 int       vfs_add(fsinfo_t* to, fsinfo_t* info);
 int       vfs_del(fsinfo_t* info);
 int       vfs_access(const char* fname);
+int       vfs_renew_info(int fd, fsinfo_t* fsinfo);
 int       vfs_get_by_name(const char* fname, fsinfo_t* info);
 int       vfs_get_by_fd(int fd, fsinfo_t* info);
 int       vfs_tell(int fd);

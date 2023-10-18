@@ -86,7 +86,7 @@ static inline int vfs_fetch_info_buffer(int fd, fsinfo_t* info) {
 	return -1;
 }
 
-static int vfs_renew_info(int fd, fsinfo_t* fsinfo) {
+int vfs_renew_info(int fd, fsinfo_t* fsinfo) {
 	fsinfo_t info;
 	int res = vfs_get_by_fd_raw(fd, &info);
 	if(res == 0 && fd > 3) {
