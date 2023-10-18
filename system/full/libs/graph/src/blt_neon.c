@@ -4,6 +4,8 @@
 #include <string.h>
 #include <unistd.h>
 
+#ifdef NEON_ENABLE
+
 #ifdef __cplusplus 
 extern "C" { 
 #endif
@@ -237,4 +239,5 @@ inline void graph_blt_alpha_neon(graph_t* src, int32_t sx, int32_t sy, int32_t s
 
 #ifdef __cplusplus
 }
+#endif
 #endif

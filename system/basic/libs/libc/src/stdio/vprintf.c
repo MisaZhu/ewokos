@@ -117,6 +117,7 @@ void v_printf(outc_func_t outc, void* p, const char *format, va_list ap) {
 			zero = 1;
 		}
 		format_index = v_width(format, format_index, &width);
+next:
 		format_flag = format[format_index];
 		switch (format_flag) {
 		/* string */
@@ -152,6 +153,10 @@ void v_printf(outc_func_t outc, void* p, const char *format, va_list ap) {
 			int32_t uint_arg = va_arg(ap, uint32_t);
 			print_uint_in_base(outc, p, uint_arg, 16, width, zero, 1);
 			break;
+		}
+		case 'l':{
+			format_index += 1;
+			goto next;
 		}
 		}
 		/* skip % and format_flag */

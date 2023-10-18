@@ -74,7 +74,7 @@ int main(int argc, char* argv[]) {
 				c = KEY_BUTTON_X;
 			else if(c == 'y')
 				c = KEY_BUTTON_Y;
-
+			input(x_pid, c, XIM_STATE_PRESS);
 			input(x_pid, c, XIM_STATE_RELEASE);
 		}
 		usleep(100000);
