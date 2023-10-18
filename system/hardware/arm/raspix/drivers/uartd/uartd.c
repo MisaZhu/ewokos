@@ -17,12 +17,12 @@ static charbuf_t _TxBuf;
 static charbuf_t _RxBuf;
 static bool _mini_uart;
 
-static int uart_read(int fd, int from_pid, fsinfo_t* info, 
+static int uart_read(int fd, int from_pid, uint32_t node, 
 		void* buf, int size, int offset, void* p) {
 	(void)fd;
 	(void)from_pid;
 	(void)offset;
-	(void)info;
+	(void)node;
 	(void)size;
 	(void)p;
 
@@ -35,10 +35,10 @@ static int uart_read(int fd, int from_pid, fsinfo_t* info,
 	return (i==0)?ERR_RETRY_NON_BLOCK:i;
 }
 
-static int uart_write(int fd, int from_pid, fsinfo_t* info,
+static int uart_write(int fd, int from_pid, uint32_t node,
 		const void* buf, int size, int offset, void* p) {
 	(void)fd;
-	(void)info;
+	(void)node;
 	(void)from_pid;
 	(void)offset;
 	(void)p;

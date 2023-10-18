@@ -7,10 +7,10 @@ static void actled(bool on) {
 	bcm283x_gpio_actled(on);
 }
 
-static int actled_write(int fd, int from_pid, fsinfo_t* info,
+static int actled_write(int fd, int from_pid, uint32_t node,
 		const void* buf, int size, int offset, void* p) {
 	(void)fd;
-	(void)info;
+	(void)node;
 	(void)from_pid;
 	(void)offset;
 	(void)p;

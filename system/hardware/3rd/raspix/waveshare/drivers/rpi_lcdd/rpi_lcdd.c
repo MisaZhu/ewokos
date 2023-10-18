@@ -16,10 +16,10 @@ typedef struct {
 	uint32_t size;
 } fb_dma_t;
 
-static int lcd_flush(int fd, int from_pid, fsinfo_t* info, void* p) {
+static int lcd_flush(int fd, int from_pid, uint32_t node, void* p) {
 	(void)fd;
 	(void)from_pid;
-	(void)info;
+	(void)node;
 	fb_dma_t* dma = (fb_dma_t*)p;
 
 	uint8_t* data = (uint8_t*)dma->shm;

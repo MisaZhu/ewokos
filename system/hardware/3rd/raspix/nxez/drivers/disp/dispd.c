@@ -72,10 +72,10 @@ static void init(void) {
 }
 
 static int _nums[] = { 0x3f, 0x06, 0x5b, 0x4f, 0x66, 0x6d, 0x7d, 0x07, 0x7f, 0x6f, 0x40 };
-static int display_write(int fd, int from_pid, fsinfo_t* info,
+static int display_write(int fd, int from_pid, uint32_t node,
 		const void* buf, int size, int offset, void* p) {
 	(void)fd;
-	(void)info;
+	(void)node;
 	(void)from_pid;
 	(void)offset;
 	(void)p;
