@@ -1,0 +1,8 @@
+target("macintosh")
+    set_type("application")
+    add_deps("libm","libx", "libx++", "libupng", "libconsole", "libtextview", "libsconf", "libcxx")
+    add_files("main.cpp", "pce/**.c")        
+	add_includedirs("pce")
+	add_defines("EOF=0", "M_PI=3.1415926", "SEEK_SET=0")
+    install_dir("apps/macintosh")
+target_end()

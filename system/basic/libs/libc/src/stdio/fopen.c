@@ -10,13 +10,13 @@ FILE* fopen(const char* fname, const char* mode) {
 	if(fp == NULL)
 		return NULL;
 	int oflags = 0;
-	if(strcmp(mode, "r") == 0)
+	if(strncmp(mode, "r", 1) == 0)
 		oflags = O_RDONLY;
-	else if(strcmp(mode, "r+") == 0)
+	else if(strncmp(mode, "r+", 2) == 0)
 		oflags = O_RDWR;
-	else if(strcmp(mode, "w") == 0)
+	else if(strncmp(mode, "w", 1) == 0)
 		oflags = O_WRONLY;
-	else if(strcmp(mode, "w+") == 0)
+	else if(strncmp(mode, "w+", 2) == 0)
 		oflags = O_WRONLY | O_CREAT;
 
 	fp->fd = open(fname, oflags);
