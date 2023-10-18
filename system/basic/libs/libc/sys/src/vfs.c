@@ -91,9 +91,9 @@ static int vfs_renew_info(int fd, fsinfo_t* fsinfo) {
 	int res = vfs_get_by_fd_raw(fd, &info);
 	if(res == 0 && fd > 3) {
 		vfs_set_info_buffer(fd, &info);
-		if(fsinfo != NULL)
-			memcpy(fsinfo, &info, sizeof(fsinfo_t));
 	}
+	if(res == 0 & fsinfo != NULL)
+		memcpy(fsinfo, &info, sizeof(fsinfo_t));
 	return res;
 }
 
@@ -824,7 +824,7 @@ int vfs_write(int fd, fsinfo_t* info, const void* buf, uint32_t size) {
 	PF->clear(&out);
 	if(shm != NULL)
 		shm_unmap(shm);
-	vfs_renew_info(fd, NULL);
+	//vfs_renew_info(fd, NULL);
 	return res;
 }
 
