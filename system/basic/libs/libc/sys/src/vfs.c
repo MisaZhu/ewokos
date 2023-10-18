@@ -518,7 +518,6 @@ int vfs_create(const char* fname, fsinfo_t* ret, int type, bool vfs_node_only, b
 		res = proto_read_int(&out);
 		if(res == 0) {
 			proto_read_to(&out, ret, sizeof(fsinfo_t));
-			res = vfs_set(ret);
 		}
 		else 
 			vfs_del(ret);
