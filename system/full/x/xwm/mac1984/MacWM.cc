@@ -72,11 +72,11 @@ void MacWM::drawDesktop(graph_t* g) {
 
 void MacWM::drawTitlePattern(graph_t* g, int x, int y, int w, int h, uint32_t fg) {
 	int step = 3;
-	y = y + step;
-	int steps = h / step;
+	y = y + step+2;
+	int steps = (h-2) / step;
 
 	for (int i = 1; i < steps-1; i++) {
-		graph_line(g, x + 4, y, x + w - 8, y, fg);
+		graph_line(g, x + 2, y, x + w - 4, y, fg);
 		y += step;
 	}
 }
@@ -87,19 +87,48 @@ void MacWM::drawTitle(graph_t* g, xinfo_t* info, grect_t* r, bool top) {
 	gsize_t sz;
 	font_text_size(info->title, &font, (uint32_t*)&sz.w, (uint32_t*)&sz.h);
 	
-	grect_t rect;
+	/*grect_t rect;
 	getTitle(info, &rect);
+	*/
 
 	int pw = (r->w-sz.w)/2;
 	int ph = (r->h-sz.h)/2;
-	graph_fill(g, r->x, r->y, r->w, rect.h, bg);//title box
+	graph_fill(g, r->x, r->y, r->w, r->h, bg);//title box
 	if(top) {
-		drawTitlePattern(g, r->x, r->y, pw, r->h, fg);
-		drawTitlePattern(g, r->x+pw+sz.w, r->y, pw, r->h, fg);
+		drawTitlePattern(g, r->x, r->y, r->w, r->h, fg);
 	}
+	graph_fill(g, r->x+pw-2, r->y, sz.w+4, r->h, bg);//title box
 	graph_draw_text_font(g, r->x+pw, r->y+ph, info->title, &font, fg);//title
+	graph_line(g, r->x, r->y+r->h, r->x+r->w, r->y+r->h, fg);//title box
 }
 
+void MacWM::getTitle(xinfo_t* info, grect_t* rect) {
+	rect->x = info->winr.x;
+	rect->y = info->winr.y;
+	rect->w = info->winr.w;
+	rect->h = titleH;
+}
+
+void MacWM::getClose(xinfo_t* info, grect_t* rect) {
+	rect->x = info->winr.x + 8;
+	rect->y = info->winr.y;// - titleH;
+	rect->w = titleH;
+	rect->h = titleH-1;
+}
+
+void MacWM::getMin(xinfo_t* info, grect_t* rect) {
+	rect->x = info->winr.x + info->winr.w - titleH*2 - 8;
+	rect->y = info->winr.y;// - titleH;
+	rect->w = titleH;
+	rect->h = titleH-1;
+}
+
+void MacWM::getMax(xinfo_t* info, grect_t* rect) {
+	rect->x = info->winr.x + info->winr.w- titleH - 8;
+	rect->y = info->winr.y;// - titleH;
+	rect->w = titleH;
+	rect->h = titleH-1;
+}
 
 MacWM::~MacWM(void) {
 	if(pattern != NULL)

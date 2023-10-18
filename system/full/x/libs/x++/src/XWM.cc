@@ -25,14 +25,9 @@ static void get_win_space(int style, grect_t* xr, grect_t* winr, void* p) {
 }
 
 void XWM::getTitle(xinfo_t* info, grect_t* rect) {
-	rect->x = info->winr.x + titleH;
-	rect->y = info->winr.y;// - titleH;
-
-	if((info->style & X_STYLE_NO_RESIZE) == 0)
-		rect->w = info->winr.w - titleH*3;
-	else
-		rect->w = info->winr.w - titleH;
-
+	rect->x = info->winr.x;
+	rect->y = info->winr.y;
+	rect->w = info->winr.w;
 	rect->h = titleH;
 }
 
@@ -41,7 +36,7 @@ static void get_title(xinfo_t* info, grect_t* rect, void* p) {
 }
 
 void XWM::getMin(xinfo_t* info, grect_t* rect) {
-	rect->x = info->winr.x+info->winr.w-titleH*2;
+	rect->x = info->winr.x + info->winr.w - titleH*2;
 	rect->y = info->winr.y;// - titleH;
 	rect->w = titleH;
 	rect->h = titleH;
@@ -52,7 +47,7 @@ static void get_min(xinfo_t* info, grect_t* rect, void* p) {
 }
 
 void XWM::getMax(xinfo_t* info, grect_t* rect) {
-	rect->x = info->winr.x+info->winr.w-titleH*1;
+	rect->x = info->winr.x + info->winr.w- titleH;
 	rect->y = info->winr.y;// - titleH;
 	rect->w = titleH;
 	rect->h = titleH;
@@ -76,8 +71,8 @@ static void get_close(xinfo_t* info, grect_t* rect, void* p) {
 void XWM::getResize(xinfo_t* info, grect_t* rect) {
 	rect->x = info->wsr.x + info-> wsr.w - 16;
 	rect->y = info->wsr.y + info-> wsr.h - 16;
-	rect->w = 16 + frameW;
-	rect->h = 16 + frameW;
+	rect->w = 16 + frameW - 1;
+	rect->h = 16 + frameW - 1;
 }
 
 static void get_resize(xinfo_t* info, grect_t* rect, void* p) {

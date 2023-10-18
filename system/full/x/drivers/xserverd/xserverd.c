@@ -1006,14 +1006,14 @@ static int get_win_frame_pos(x_t* x, xwin_t* win) {
 		return -1;
 
 	int res = -1;
-	if(check_in_rect(x->cursor.cpos.x, x->cursor.cpos.y, &win->r_title))
-		res = FRAME_R_TITLE;
-	else if(check_in_rect(x->cursor.cpos.x, x->cursor.cpos.y, &win->r_close))
+	if(check_in_rect(x->cursor.cpos.x, x->cursor.cpos.y, &win->r_close))
 		res = FRAME_R_CLOSE;
 	else if(check_in_rect(x->cursor.cpos.x, x->cursor.cpos.y, &win->r_min))
 		res = FRAME_R_MIN;
 	else if(check_in_rect(x->cursor.cpos.x, x->cursor.cpos.y, &win->r_max))
 		res = FRAME_R_MAX;
+	else if(check_in_rect(x->cursor.cpos.x, x->cursor.cpos.y, &win->r_title))
+		res = FRAME_R_TITLE;
 	else if(check_in_rect(x->cursor.cpos.x, x->cursor.cpos.y, &win->r_resize))
 		res = FRAME_R_RESIZE;
 	return res;
