@@ -657,13 +657,12 @@ static void do_vfs_new_node(proto_t* in, proto_t* out) {
 }
 
 static void do_vfs_open(int32_t pid, proto_t* in, proto_t* out) {
-	fsinfo_t info;
 	PF->addi(out, -1);
-
-	if(proto_read_to(in, &info, sizeof(fsinfo_t)) != sizeof(fsinfo_t))
+	uint32_t node_id = proto_read_int(in);
+	if(node_id == 0)
 		return;
 	int32_t flags = proto_read_int(in);
- 	vfs_node_t* node = vfs_get_node_by_id(info.node);
+ 	vfs_node_t* node = vfs_get_node_by_id(node_id);
  	if(node == NULL)
 		return;
 
@@ -716,12 +715,12 @@ static void do_vfs_set_fsinfo(int32_t pid, proto_t* in, proto_t* out) {
 }
 
 static void do_vfs_get_kids(proto_t* in, proto_t* out) {
-	fsinfo_t info;
 	PF->addi(out, 0);
-	if(proto_read_to(in, &info, sizeof(fsinfo_t)) != sizeof(fsinfo_t))
+	uint32_t node_id = (uint32_t)proto_read_int(in);
+	if(node_id == 0)
 		return;
 
-  vfs_node_t* node = vfs_get_node_by_id(info.node);
+  vfs_node_t* node = vfs_get_node_by_id(node_id);
   if(node == NULL)
     return;
 	

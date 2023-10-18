@@ -16,7 +16,6 @@ void proc_init(void) {
 	_vfsd_pid = -1;
 	_cored_pid = -1;
 	_cpid = -1;
-	vfs_init();
 }
 
 inline int get_vfsd_pid(void) {

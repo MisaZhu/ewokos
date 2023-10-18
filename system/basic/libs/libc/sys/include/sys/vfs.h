@@ -12,10 +12,9 @@ extern "C" {
 
 const char* vfs_fullname(const char* fname);
 
-void      vfs_init(void);
 int       vfs_read_pipe(fsinfo_t* info, void* buf, uint32_t size, bool block);
 int       vfs_write_pipe(fsinfo_t* info, const void* buf, uint32_t size, bool block);
-int       vfs_open(fsinfo_t* info, int wr);
+int       vfs_open(uint32_t node, int wr);
 int       vfs_close(int fd);
 int       vfs_new_node(fsinfo_t* info);
 int       vfs_add(fsinfo_t* to, fsinfo_t* info);
@@ -23,13 +22,13 @@ int       vfs_del(fsinfo_t* info);
 int       vfs_access(const char* fname);
 int       vfs_get_by_name(const char* fname, fsinfo_t* info);
 int       vfs_get_by_node(uint32_t node, fsinfo_t* info);
-int       vfs_get_by_fd(int fd, fsinfo_t* info, bool cache);
+int       vfs_get_by_fd(int fd, fsinfo_t* info);
 int       vfs_tell(int fd);
 int       vfs_seek(int fd, int offset);
 int       vfs_set(fsinfo_t* info);
 int       vfs_get_mount_by_id(int id, mount_t* mount);
 
-fsinfo_t* vfs_kids(fsinfo_t* info, uint32_t* num);
+fsinfo_t* vfs_kids(uint32_t node, uint32_t* num);
 
 int       vfs_mount(uint32_t mount_node_to, uint32_t node);
 int       vfs_umount(uint32_t node);

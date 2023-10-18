@@ -9,7 +9,7 @@ DIR* opendir(const char* name) {
 		return NULL;
 	
 	uint32_t num = 0;
-	fsinfo_t* kids = vfs_kids(&info, &num);
+	fsinfo_t* kids = vfs_kids(info.node, &num);
 	if(kids == NULL || num == 0)
 		return NULL;
 

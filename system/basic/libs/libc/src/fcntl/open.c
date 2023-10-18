@@ -21,7 +21,7 @@ int open(const char* fname, int oflag) {
 		}	
 	}
 
-	fd = vfs_open(&info, oflag);
+	fd = vfs_open(info.node, oflag);
 	if(fd < 0) {
 		if(created)
 			vfs_del(&info);

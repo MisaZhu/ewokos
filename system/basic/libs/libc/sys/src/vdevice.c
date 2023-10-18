@@ -17,15 +17,14 @@ extern "C" {
 #endif
 
 static void do_open(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, void* p) {
-	fsinfo_t info;
 	int oflag;
 	int fd = proto_read_int(in);
-	proto_read_to(in, &info, sizeof(fsinfo_t));
+	uint32_t node = proto_read_int(in);
 	oflag = proto_read_int(in);
 	
 	int res = 0;
 	if(fd >= 0 && dev != NULL && dev->open != NULL) {
-		if(dev->open(fd, from_pid, &info, oflag, p) != 0) {
+		if(dev->open(fd, from_pid, node, oflag, p) != 0) {
 			res = -1;
 		}
 	}
@@ -34,7 +33,6 @@ static void do_open(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, voi
 
 static void do_close(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, void* p) {
 	(void)out;
-	fsinfo_t info;
 	int fd = proto_read_int(in);
 	int pid = proto_read_int(in);
 	if(pid < 0)
@@ -49,7 +47,6 @@ static void do_close(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, vo
 #define READ_BUF_SIZE 32
 static void do_read(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, void* p) {
 	int size, offset;
-	fsinfo_t info;
 	int fd = proto_read_int(in);
 	uint32_t node = (uint32_t)proto_read_int(in);
 	size = proto_read_int(in);
@@ -93,7 +90,6 @@ static void do_read(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, voi
 
 static void do_write(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, void* p) {
 	int32_t size, offset;
-	fsinfo_t info;
 	int fd = proto_read_int(in);
 	uint32_t node = (uint32_t)proto_read_int(in);
 	offset = proto_read_int(in);
