@@ -772,7 +772,7 @@ int vfs_write_pipe(fsinfo_t* info, const void* buf, uint32_t size, bool block) {
 int vfs_write(int fd, fsinfo_t* info, const void* buf, uint32_t size) {
 	if(info->type == FS_TYPE_DIR) 
 		return -1;
-	vfs_renew_info(fd, info);
+	//vfs_renew_info(fd, info);
 
 	/*mount_t mount;
 	if(vfs_get_mount(info, &mount) != 0)
@@ -825,7 +825,7 @@ int vfs_write(int fd, fsinfo_t* info, const void* buf, uint32_t size) {
 	PF->clear(&out);
 	if(shm != NULL)
 		shm_unmap(shm);
-	vfs_renew_info(fd, NULL);
+	vfs_renew_info(fd, info);
 	return res;
 }
 
