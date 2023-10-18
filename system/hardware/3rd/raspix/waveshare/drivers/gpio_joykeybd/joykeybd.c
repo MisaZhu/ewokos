@@ -46,11 +46,11 @@ struct gpio_pins{
 	DECLARE_GPIO_KEY(KEY_BUTTON_R1, GPIO_LOW),
 };
 
-static int joykeyb_read(int fd, int from_pid, fsinfo_t* info,
+static int joykeyb_read(int fd, int from_pid, uint32_t node,
 		void* buf, int size, int offset, void* p) {
 	(void)fd;
 	(void)from_pid;
-	(void)info;
+	(void)node;
 	(void)offset;
 	(void)size;
 	(void)p;

@@ -91,9 +91,15 @@ static int sdext2_mount(fsinfo_t* info, void* p) {
 	return 0;
 }
 
-static int sdext2_create(fsinfo_t* info_to, fsinfo_t* info, void* p) {
+static int sdext2_create(uint32_t node_to, uint32_t node, void* p, fsinfo_t* info) {
+	fsinfo_t info_to;
+	if(vfs_get_by_node(node_to, &info_to) != 0)
+		return -1;
+	if(vfs_get_by_node(node, info) != 0)
+		return -1;
+
 	ext2_t* ext2 = (ext2_t*)p;
-	int32_t ino_to = (int32_t)info_to->data;
+	int32_t ino_to = (int32_t)info_to.data;
 	if(ino_to == 0) ino_to = 2;
 
 	INODE inode_to;
@@ -115,20 +121,24 @@ static int sdext2_create(fsinfo_t* info_to, fsinfo_t* info, void* p) {
 	return 0;
 }
 
-static int sdext2_read(int fd, int from_pid, fsinfo_t* info, 
+static int sdext2_read(int fd, int from_pid, uint32_t node, 
 		void* buf, int size, int offset, void* p) {
 	(void)fd;
 	(void)from_pid;
 
+	fsinfo_t info;
+	if(vfs_get_by_node(node, &info) != 0)
+		return -1;
+
 	ext2_t* ext2 = (ext2_t*)p;
-	int32_t ino = (int32_t)info->data;
+	int32_t ino = (int32_t)info.data;
 	if(ino == 0) ino = 2;
 	INODE inode;
 	if(ext2_node_by_ino(ext2, ino, &inode) != 0) {
 		return -1;
 	}
 
-	int rsize = info->size - offset;
+	int rsize = info.size - offset;
 	if(rsize < size)
 		size = rsize;
 	if(size < 0)
@@ -139,13 +149,17 @@ static int sdext2_read(int fd, int from_pid, fsinfo_t* info,
 	return size;	
 }
 
-static int sdext2_write(int fd, int from_pid, fsinfo_t* info,
+static int sdext2_write(int fd, int from_pid, uint32_t node,
 		const void* buf, int size, int offset, void* p) {
 	(void)fd;
 	(void)from_pid;
 
+	fsinfo_t info;
+	if(vfs_get_by_node(node, &info) != 0)
+		return -1;
+
 	ext2_t* ext2 = (ext2_t*)p;
-	int32_t ino = (int32_t)info->data;
+	int32_t ino = (int32_t)info.data;
 	if(ino == 0) ino = 2;
 	INODE inode;
 	if(ext2_node_by_ino(ext2, ino, &inode) != 0) {
@@ -154,15 +168,15 @@ static int sdext2_write(int fd, int from_pid, fsinfo_t* info,
 	size = ext2_write(ext2, &inode, buf, size, offset);
 	if(size >= 0) {
 		inode.i_size += size;
-		info->size += size;
+		info.size += size;
 		put_node(ext2, ino, &inode);
-		vfs_set(info);
+		vfs_set(&info);
 	}
 	return size;	
 }
 
-static int sdext2_unlink(fsinfo_t* info, const char* fname, void* p) {
-	(void)info;
+static int sdext2_unlink(uint32_t node, const char* fname, void* p) {
+	(void)node;
 	ext2_t* ext2 = (ext2_t*)p;
 	return ext2_unlink(ext2, fname);
 }

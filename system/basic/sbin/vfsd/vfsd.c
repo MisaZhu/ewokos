@@ -125,15 +125,18 @@ static inline int32_t get_mount_pid(vfs_node_t* node) {
 	return -1;
 }
 
-static inline int32_t check_mount(int32_t pid, vfs_node_t* node) {
-	/*int32_t owner = syscall0(SYS_PROC_GET_UID);
-	if(owner <= 0)
+static inline int32_t check_mount(int32_t pid, vfs_node_t* node, bool owner_only) {
+	int32_t mnt_pid = get_mount_pid(node);
+	/*int32_t owner_uid = syscall0(SYS_PROC_GET_UID);
+	if(owner_uid <= 0)
 		return 0;
 	*/
-	int32_t mnt_pid = get_mount_pid(node);
-	if(mnt_pid != pid) { //current proc not the mounting one.
-		klog("%d, %d\n", mnt_pid, pid);
-		return -1;
+	
+	if(owner_only) {
+		if(mnt_pid != pid) { //current proc not the mounting one.
+			klog("%d, %d\n", mnt_pid, pid);
+			return -1;
+		}
 	}
 	return 0;
 }
@@ -297,7 +300,7 @@ static int32_t vfs_mount(int32_t pid, vfs_node_t* org, vfs_node_t* node) {
 }
 
 static void vfs_umount(int32_t pid, vfs_node_t* node) {
-	if(node == NULL || node->mount_id < 0 || check_mount(pid, node) != 0)
+	if(node == NULL || node->mount_id < 0 || check_mount(pid, node, true) != 0)
 		return;
 
 	vfs_node_t* org = vfs_get_node_by_id(_vfs_mounts[node->mount_id].org_node);
@@ -320,7 +323,7 @@ static void vfs_umount(int32_t pid, vfs_node_t* node) {
 }
 
 static int32_t vfs_del(int32_t pid, vfs_node_t* node) {
-	if(node == NULL || node->refs > 0 ||  check_mount(pid, node) != 0)
+	if(node == NULL || node->refs > 0 ||  check_mount(pid, node, false) != 0)
 		return -1;
 	/*free children*/
 	vfs_node_t* c = node->first_kid;
@@ -349,7 +352,7 @@ static int32_t vfs_del(int32_t pid, vfs_node_t* node) {
 
 static int32_t vfs_set(int32_t pid, vfs_node_t* node, fsinfo_t* info) {
 	if(node == NULL ||
-			info == NULL || check_mount(pid, node) != 0)
+			info == NULL || check_mount(pid, node, true) != 0)
 		return -1;
 	memcpy(&node->fsinfo, info, sizeof(fsinfo_t));
 	return 0;
@@ -369,8 +372,7 @@ static int32_t get_free_fd(int32_t pid) {
 }
 
 static int32_t vfs_open(int32_t pid, vfs_node_t* node, int32_t flags) {
-	//if(node == NULL || check_mount(pid, node) != 0)
-	if(node == NULL)
+	if(node == NULL || check_mount(pid, node, false) != 0)
 		return -1;
 
 	int32_t fd = get_free_fd(pid);
@@ -605,6 +607,19 @@ static void do_vfs_get_by_fd(int pid, proto_t* in, proto_t* out) {
 	PF->addi(out, (int32_t)node)->add(out, gen_fsinfo(node), sizeof(fsinfo_t));
 }
 
+static void do_vfs_get_by_node(proto_t* in, proto_t* out) {
+	PF->addi(out, 0);
+	uint32_t node_id = (uint32_t)proto_read_int(in);
+	if(node_id == 0)
+		return;
+
+  vfs_node_t* node = vfs_get_node_by_id(node_id);
+  if(node == NULL)
+    return;
+
+	PF->clear(out)->addi(out, (int32_t)node)->add(out, gen_fsinfo(node), sizeof(fsinfo_t));
+}
+
 static void do_vfs_get_flags(int pid, proto_t* in, proto_t* out) {
 	int fd = proto_read_int(in);
 	file_t* file = vfs_get_file(pid, fd);
@@ -759,17 +774,19 @@ static void do_vfs_del(int32_t pid, proto_t* in, proto_t* out) {
 }
 
 static void do_vfs_mount(int32_t pid, proto_t* in, proto_t* out) {
-	fsinfo_t info_to;
-	fsinfo_t info;
+	uint32_t node_to_id;
+	uint32_t node_id;
 
 	PF->addi(out, -1);
-	if(proto_read_to(in, &info_to, sizeof(fsinfo_t)) != sizeof(fsinfo_t))
+	node_to_id = (uint32_t)proto_read_int(in);
+	if(node_to_id == 0)
 		return;
-	if(proto_read_to(in, &info, sizeof(fsinfo_t)) != sizeof(fsinfo_t))
+	node_id = (uint32_t)proto_read_int(in);
+	if(node_id == 0)
 		return;
 
-	vfs_node_t* node_to = vfs_get_node_by_id(info_to.node);
-	vfs_node_t* node = vfs_get_node_by_id(info.node);
+	vfs_node_t* node_to = vfs_get_node_by_id(node_to_id);
+	vfs_node_t* node = vfs_get_node_by_id(node_id);
 	if(node_to == NULL || node == NULL)
     return;
 
@@ -778,11 +795,11 @@ static void do_vfs_mount(int32_t pid, proto_t* in, proto_t* out) {
 }
 
 static void do_vfs_umount(int32_t pid, proto_t* in) {
-	fsinfo_t info;
-	if(proto_read_to(in, &info, sizeof(fsinfo_t)) != sizeof(fsinfo_t))
+	uint32_t node_id = (uint32_t)proto_read_int(in);
+	if(node_id == 0)
 		return;
 
-  vfs_node_t* node = vfs_get_node_by_id(info.node);
+  vfs_node_t* node = vfs_get_node_by_id(node_id);
 	if(node == NULL)
     return;
 
@@ -1005,6 +1022,9 @@ static void handle(int pid, int cmd, proto_t* in, proto_t* out, void* p) {
 		break;
 	case VFS_GET_BY_NAME:
 		do_vfs_get_by_name(in, out);
+		break;
+	case VFS_GET_BY_NODE:
+		do_vfs_get_by_node(in, out);
 		break;
 	case VFS_GET_BY_FD:
 		do_vfs_get_by_fd(pid, in, out);

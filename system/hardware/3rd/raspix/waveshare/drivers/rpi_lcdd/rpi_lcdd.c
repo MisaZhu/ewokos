@@ -30,20 +30,20 @@ static int lcd_flush(int fd, int from_pid, fsinfo_t* info, void* p) {
 	return 0;
 }
 
-static void* lcd_dma(int fd, int from_pid, fsinfo_t* info, int* size, void* p) {
+static void* lcd_dma(int fd, int from_pid, uint32_t node, int* size, void* p) {
 	(void)fd;
 	(void)from_pid;
-	(void)info;
+	(void)node;
 	fb_dma_t* dma = (fb_dma_t*)p;
 	*size = dma->size;
 	return dma->shm;
 }
 
-static int lcd_fcntl(int fd, int from_pid, fsinfo_t* info, 
+static int lcd_fcntl(int fd, int from_pid, uint32_t node, 
 		int cmd, proto_t* in, proto_t* out, void* p) {
 	(void)fd;
 	(void)from_pid;
-	(void)info;
+	(void)node;
 	(void)in;
 	(void)p;
 
@@ -64,11 +64,11 @@ static int lcd_dev_cntl(int from_pid, int cmd, proto_t* in, proto_t* ret, void* 
 	return 0;
 }
 
-static int tp_read(int fd, int from_pid, fsinfo_t* info,
+static int tp_read(int fd, int from_pid, uint32_t node,
 		void* buf, int size, int offset, void* p) {
 	(void)fd;
 	(void)from_pid;
-	(void)info;
+	(void)node;
 	(void)offset;
 	(void)p;
 

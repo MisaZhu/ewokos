@@ -9,7 +9,7 @@
 
 static int sysinfo_read(int fd,
 		int from_pid,
-		fsinfo_t* info,
+		uint32_t node,
 		void* buf,
 		int size,
 		int offset,
@@ -17,7 +17,7 @@ static int sysinfo_read(int fd,
 
 	(void)fd;
 	(void)from_pid;
-	(void)info;
+	(void)node;
 	(void)offset;
 	(void)p;
 

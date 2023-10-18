@@ -49,6 +49,27 @@ static int vfs_get_by_fd_raw(int fd, fsinfo_t* info) {
 	return res;
 }
 
+int vfs_get_by_node(uint32_t node, fsinfo_t* info) {
+	proto_t in, out;
+	PF->init(&in)->addi(&in, node);
+	PF->init(&out);
+	int res = ipc_call(get_vfsd_pid(), VFS_GET_BY_NODE, &in, &out);
+	PF->clear(&in);
+
+	if(res == 0) {
+		res = proto_read_int(&out); //res = node
+		if(res != 0) {
+			if(info != NULL)
+				proto_read_to(&out, info, sizeof(fsinfo_t));
+			res = 0;
+		}
+		else
+			res = -1;
+	}
+	PF->clear(&out);
+	return res;
+}
+
 static inline void vfs_set_info_buffer(int fd, fsinfo_t* info) {
 	uint32_t i;
 	for(i=0; i<MAX_FINFO_BUFFER; i++) {
@@ -365,11 +386,11 @@ int vfs_get_mount_by_id(int id, mount_t* mount) {
 	return res;
 }
 
-int vfs_mount(fsinfo_t* mount_to, fsinfo_t* info) {
+int vfs_mount(uint32_t mount_node_to, uint32_t node) {
 	proto_t in, out;
 	PF->init(&in)->
-		add(&in, mount_to, sizeof(fsinfo_t))->
-		add(&in, info, sizeof(fsinfo_t));
+		addi(&in, mount_node_to)->
+		addi(&in, node);
 	PF->init(&out);
 	int res = ipc_call(get_vfsd_pid(), VFS_MOUNT, &in, &out);
 	PF->clear(&in);
@@ -381,9 +402,9 @@ int vfs_mount(fsinfo_t* mount_to, fsinfo_t* info) {
 	return res;
 }
 
-int vfs_umount(fsinfo_t* info) {
+int vfs_umount(uint32_t node) {
 	proto_t in, out;
-	PF->init(&in)->add(&in, info, sizeof(fsinfo_t));
+	PF->init(&in)->addi(&in, node);
 	PF->init(&out);
 	int res = ipc_call(get_vfsd_pid(), VFS_UMOUNT, &in, &out);
 	PF->clear(&in);
@@ -507,8 +528,8 @@ int vfs_create(const char* fname, fsinfo_t* ret, int type, bool vfs_node_only, b
 	PF->init(&out);
 
 	PF->init(&in)->
-		add(&in, &info_to, sizeof(fsinfo_t))->
-		add(&in, ret, sizeof(fsinfo_t));
+		addi(&in, info_to.node)->
+		addi(&in, ret->node);
 
 	int res = -1;
 	if(ipc_call(info_to.mount_pid, FS_CMD_CREATE, &in, &out) != 0) {
@@ -602,7 +623,7 @@ void* vfs_dma(int fd, int* size) {
 
 	PF->init(&in)->
 		addi(&in, fd)->
-		add(&in, &info, sizeof(fsinfo_t));
+		addi(&in, info.node);
 
 	void* shm = NULL;
 	if(ipc_call(info.mount_pid, FS_CMD_DMA, &in, &out) == 0) {
@@ -623,7 +644,8 @@ int vfs_flush(int fd, bool wait) {
 	proto_t in;
 	PF->init(&in)->
 		addi(&in, fd)->
-		add(&in, &info, sizeof(fsinfo_t));
+		addi(&in, info.node);
+
 	int res = -1;
 	if(wait)
 		ipc_call_wait(info.mount_pid, FS_CMD_FLUSH, &in);
@@ -793,7 +815,7 @@ int vfs_write(int fd, fsinfo_t* info, const void* buf, uint32_t size) {
 
 	PF->init(&in)->
 		addi(&in, fd)->
-		add(&in, info, sizeof(fsinfo_t))->
+		addi(&in, info->node)->
 		addi(&in, offset)->
 		addi(&in, (uint32_t)shm);
 	if(shm == NULL)

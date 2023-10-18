@@ -22,6 +22,7 @@ int       vfs_add(fsinfo_t* to, fsinfo_t* info);
 int       vfs_del(fsinfo_t* info);
 int       vfs_access(const char* fname);
 int       vfs_get_by_name(const char* fname, fsinfo_t* info);
+int       vfs_get_by_node(uint32_t node, fsinfo_t* info);
 int       vfs_get_by_fd(int fd, fsinfo_t* info, bool cache);
 int       vfs_tell(int fd);
 int       vfs_seek(int fd, int offset);
@@ -30,8 +31,8 @@ int       vfs_get_mount_by_id(int id, mount_t* mount);
 
 fsinfo_t* vfs_kids(fsinfo_t* info, uint32_t* num);
 
-int       vfs_mount(fsinfo_t* mount_to, fsinfo_t* info);
-int       vfs_umount(fsinfo_t* info);
+int       vfs_mount(uint32_t mount_node_to, uint32_t node);
+int       vfs_umount(uint32_t node);
 
 int       vfs_create(const char* fname, fsinfo_t* ret, int type, bool vfs_node_only, bool autodir);
 void*     vfs_readfile(const char* fname, int* sz);

@@ -162,13 +162,13 @@ int32_t mouse_handler(mouse_info_t *info) {
 	return -1;
 }
 
-static int mouse_read(int fd, int from_pid, fsinfo_t* info,
+static int mouse_read(int fd, int from_pid, uint32_t node,
 		void* buf, int size, int offset, void* p) {
 	(void)fd;
 	(void)from_pid;
 	(void)offset;
 	(void)p;
-	(void)info;
+	(void)node;
 
 	mouse_info_t minfo;
 	if(size < 4 || mouse_handler(&minfo) != 0) {

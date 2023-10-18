@@ -34,7 +34,8 @@ LIB_EWOKSYS_OBJS = sys/src/syscall.o \
 	sys/src/dma.o  \
 	sys/src/timer.o 
 
-LIB_EWOKC_OBJS = src/unistd/chdir.o \
+LIB_EWOKC_OBJS = \
+	src/unistd/chdir.o \
 	src/unistd/dup.o \
 	src/unistd/dup2.o \
 	src/unistd/errno.o \

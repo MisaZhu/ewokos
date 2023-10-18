@@ -9,6 +9,7 @@ extern "C" {
 
 enum {
 	VFS_GET_BY_NAME = 0,
+	VFS_GET_BY_NODE,
 	VFS_GET_BY_FD,
 	VFS_SET_FSINFO,
 	VFS_NEW_NODE,

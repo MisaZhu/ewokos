@@ -20,11 +20,11 @@
 #define JOYSTICK_2         0x40
 #define JOYSTICK_3         0x80
 
-static int joystick_read(int fd, int from_pid, fsinfo_t* info,
+static int joystick_read(int fd, int from_pid, uint32_t node,
 		void* buf, int size, int offset, void* p) {
 	(void)fd;
 	(void)from_pid;
-	(void)info;
+	(void)node;
 	(void)offset;
 	(void)size;
 	(void)p;

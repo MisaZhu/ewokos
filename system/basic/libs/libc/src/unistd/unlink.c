@@ -18,7 +18,7 @@ int unlink(const char* fname) {
 	PF->init(&out);
 
 	PF->init(&in)->
-		add(&in, &info, sizeof(fsinfo_t))->
+		addi(&in, info.node)->
 		adds(&in, fname);
 
 	ipc_call(info.mount_pid, FS_CMD_UNLINK, &in, &out);

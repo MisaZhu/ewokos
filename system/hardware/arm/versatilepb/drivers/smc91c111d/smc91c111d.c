@@ -221,24 +221,24 @@ int32_t eth_init(void) {
 	return 0;
 }
 
-static int eth_read(int fd, int from_pid, fsinfo_t* info,
+static int eth_read(int fd, int from_pid, uint32_t node,
 		void* buf, int size, int offset, void* p) {
 	(void)fd;
 	(void)from_pid;
 	(void)p;
-	(void)info;
+	(void)node;
 	int len = smc_recv(buf + offset, size);
 
 	return (len > 0) ? len : ERR_RETRY_NON_BLOCK;
 }
 
-static int eth_write(int fd, int from_pid, fsinfo_t* info,
+static int eth_write(int fd, int from_pid, uint32_t node,
 		void* buf, int size, int offset, void* p) {
 	(void)fd;
 	(void)from_pid;
 	(void)offset;
 	(void)p;
-	(void)info;
+	(void)node;
 
 	return smc_send(buf + offset, size);
 }
