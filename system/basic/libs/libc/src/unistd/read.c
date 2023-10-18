@@ -7,7 +7,7 @@
 static int read_nblock(int fd, void* buf, uint32_t size) {
   errno = ENONE;
   fsinfo_t info;
-  if(vfs_get_by_fd(fd, &info, true) != 0)
+  if(vfs_get_by_fd(fd, &info) != 0)
     return -1;
   if(info.type == FS_TYPE_PIPE)
     return vfs_read_pipe(&info, buf, size, 0);
@@ -17,7 +17,7 @@ static int read_nblock(int fd, void* buf, uint32_t size) {
 static int read_block(int fd, void* buf, uint32_t size) {
 	errno = ENONE;
 	fsinfo_t info;
-	if(vfs_get_by_fd(fd, &info, true) != 0)
+	if(vfs_get_by_fd(fd, &info) != 0)
 		return -1;
 
 	int res = -1;
