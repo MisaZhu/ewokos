@@ -763,9 +763,9 @@ static void do_vfs_del(int32_t pid, proto_t* in, proto_t* out) {
 	if(node_id == 0)
 		return;
 
-  vfs_node_t* node = vfs_get_node_by_id(node_id);
-  if(node == NULL)
-    return;
+	vfs_node_t *node = vfs_get_node_by_id(node_id);
+	if (node == NULL)
+		return;
 
 	int res = vfs_del(pid, node);
 	PF->clear(out)->addi(out, res);
