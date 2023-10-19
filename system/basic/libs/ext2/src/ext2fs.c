@@ -415,7 +415,7 @@ void put_node(ext2_t* ext2, int32_t ino, INODE *node) {
 	char buf[EXT2_BLOCK_SIZE];
 	ext2->read_block(blk, buf, 1);
 	INODE *ip = ((INODE *)buf) + offset;
-	*ip = *node;
+	memcpy(ip, node, sizeof(INODE));
 	ext2->write_block(blk, buf);	
 }
 
@@ -436,7 +436,7 @@ int32_t ext2_create_dir(ext2_t* ext2, INODE* father_inp, const char *base, int32
 	inp->i_ctime = 0;         // TODO  Set creation to current time
 	inp->i_mtime = 0;         // TODO Set last modified to current time
 	inp->i_blocks = EXT2_BLOCK_SIZE / 512; // # of 512-byte blocks reserved for this inode 
-  inp->i_block[0] = blk;
+	inp->i_block[0] = blk;
 	for(i=1; i<15; i++){
 		inp->i_block[i] = 0;
 	}

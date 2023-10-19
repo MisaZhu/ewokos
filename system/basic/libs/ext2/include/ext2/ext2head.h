@@ -80,9 +80,9 @@ typedef struct ext2_inode {
 	uint16_t	i_links_count;	/* Links count */
 	uint32_t	i_blocks;	/* Blocks count */
 	uint32_t	i_flags;	/* File flags */
-	uint32_t  dummy;
+	uint32_t	dummy;
 	uint32_t	i_block[15];    /* Pointers to blocks */
-	uint32_t  pad[5];         /* inode size MUST be 128 bytes */
+	uint32_t	pad[5];         /* inode size MUST be 128 bytes */
 	uint32_t	i_date;         /* MTX date */
 	uint32_t	i_time;         /* MTX time */
 } INODE;
@@ -90,9 +90,9 @@ typedef struct ext2_inode {
 typedef struct ext2_dir_entry_2 {
 	uint32_t	inode;			/* Inode number */
 	uint16_t	rec_len;		/* Directory entry length */
-	uint8_t	name_len;		/* Name length */
-	uint8_t	file_type;
-	char	name[255];      	/* File name */
+	uint8_t		name_len;		/* Name length */
+	uint8_t		file_type;
+	char		name[255];      	/* File name */
 } DIR_T;
 
 #define EXT2_BLOCK_SIZE 1024
