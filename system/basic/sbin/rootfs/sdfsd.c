@@ -21,8 +21,7 @@ static void add_file(fsinfo_t* node_to, const char* name, INODE* inode, int32_t 
 	f.size = inode->i_size;
 	f.data = (uint32_t)ino;
 
-	vfs_new_node(&f);
-	vfs_add_node(node_to->node, &f);
+	vfs_new_node(&f, node_to->node);
 }
 
 static int add_dir(fsinfo_t* info_to, fsinfo_t* ret, const char* dn, INODE* inode, int ino) {
@@ -31,11 +30,8 @@ static int add_dir(fsinfo_t* info_to, fsinfo_t* ret, const char* dn, INODE* inod
 	ret->type = FS_TYPE_DIR;
 	ret->data = (uint32_t)ino;
 	ret->size = inode->i_size;
-	vfs_new_node(ret);
-	if(vfs_add_node(info_to->node, ret) != 0) {
-		vfs_del_node(ret);
+	if(vfs_new_node(ret, info_to->node) != 0)
 		return -1;
-	}
 	return 0;
 }
 

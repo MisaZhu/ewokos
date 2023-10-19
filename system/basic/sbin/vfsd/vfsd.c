@@ -642,17 +642,33 @@ static void do_vfs_set_flags(int pid, proto_t* in, proto_t* out) {
 	PF->addi(out, 0);
 }
 
-static void do_vfs_new_node(proto_t* in, proto_t* out) {
+static void do_vfs_new_node(int pid, proto_t* in, proto_t* out) {
 	PF->addi(out, -1);
 	fsinfo_t info;
 	if(proto_read_to(in, &info, sizeof(fsinfo_t)) != sizeof(fsinfo_t))
 		return;
+	uint32_t node_to_id = (uint32_t)proto_read_int(in);
+
  	vfs_node_t* node = vfs_new_node();
  	if(node == NULL)
 		return;
 	info.node = (uint32_t)node;
 	info.mount_pid = -1;
 	memcpy(&node->fsinfo, &info, sizeof(fsinfo_t));
+
+	if(node_to_id > 0) {
+		vfs_node_t *node_to = vfs_get_node_by_id(node_to_id);
+		if (node_to == NULL) {
+			vfs_del_node(pid, node);
+			return;
+		}
+		if(vfs_get_by_name(node_to, info.name) != NULL) {//existed ! 
+			vfs_del_node(pid, node);
+			return;
+		}
+		vfs_add_node(pid, node_to, node);
+	}
+
 	PF->clear(out)->addi(out, 0)->add(out, &info, sizeof(fsinfo_t));
 }
 
@@ -729,32 +745,6 @@ static void do_vfs_get_kids(proto_t* in, proto_t* out) {
 	if(kids == NULL || num == 0)
 		return;
 	PF->clear(out)->addi(out, num)->add(out, kids, sizeof(fsinfo_t)*num);
-}
-
-static void do_vfs_add_node(int32_t pid, proto_t* in, proto_t* out) {
-	fsinfo_t info;
-
-	PF->addi(out, -1);
-	uint32_t node_to_id = proto_read_int(in);
-	if(node_to_id == 0)
-		return;
-	if(proto_read_to(in, &info, sizeof(fsinfo_t)) != sizeof(fsinfo_t))
-		return;
-
-	vfs_node_t *node_to = vfs_get_node_by_id(node_to_id);
-	if (node_to == NULL)
-		return;
-
-	vfs_node_t *node = vfs_get_by_name(node_to, info.name);
-	if (node != NULL)
-		return;
-
-	node = vfs_get_node_by_id(info.node);
-	if (node == NULL)
-		return;
-
-	vfs_add_node(pid, node_to, node);
-	PF->clear(out)->addi(out, 0);
 }
 
 static void do_vfs_del_node(int32_t pid, proto_t* in, proto_t* out) {
@@ -991,7 +981,7 @@ static void handle(int pid, int cmd, proto_t* in, proto_t* out, void* p) {
 
 	switch(cmd) {
 	case VFS_NEW_NODE:
-		do_vfs_new_node(in, out);
+		do_vfs_new_node(pid, in, out);
 		break;
 	case VFS_OPEN:
 		do_vfs_open(pid, in, out);
@@ -1037,9 +1027,6 @@ static void handle(int pid, int cmd, proto_t* in, proto_t* out, void* p) {
 		break;
 	case VFS_SET_FSINFO:
 		do_vfs_set_fsinfo(pid, in, out);
-		break;
-	case VFS_ADD_NODE:
-		do_vfs_add_node(pid, in, out);
 		break;
 	case VFS_DEL_NODE:
 		do_vfs_del_node(pid, in, out);

@@ -340,7 +340,7 @@ static int do_mount(vdevice_t* dev, fsinfo_t* mnt_point, int type) {
 	memset(&info, 0, sizeof(fsinfo_t));
 	strcpy(info.name, mnt_point->name);
 	info.type = type;
-	vfs_new_node(&info);
+	vfs_new_node(&info, 0);
 
 	if(dev->mount != NULL) {
 		if(dev->mount(&info, dev->extra_data) != 0) {

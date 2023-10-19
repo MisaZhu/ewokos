@@ -57,9 +57,9 @@ int vfs_get_by_node(uint32_t node, fsinfo_t* info) {
 	return res;
 }
 
-int vfs_new_node(fsinfo_t* info) {
+int vfs_new_node(fsinfo_t* info, uint32_t node_to) {
 	proto_t in, out;
-	PF->init(&in)->add(&in, info, sizeof(fsinfo_t));
+	PF->init(&in)->add(&in, info, sizeof(fsinfo_t))->addi(&in, node_to);
 	PF->init(&out);
 	int res = ipc_call(get_vfsd_pid(), VFS_NEW_NODE, &in, &out);
 	PF->clear(&in);
@@ -260,22 +260,6 @@ int vfs_set(fsinfo_t* info) {
 	return res;
 }
 
-int vfs_add_node(uint32_t node_to, fsinfo_t* info) {
-	proto_t in, out;
-	PF->init(&in)->
-		addi(&in, node_to)->
-		add(&in, info, sizeof(fsinfo_t));
-	PF->init(&out);
-	int res = ipc_call(get_vfsd_pid(), VFS_ADD_NODE, &in, &out);
-	PF->clear(&in);
-
-	if(res == 0) {
-		res = proto_read_int(&out);
-	}
-	PF->clear(&out);
-	return res;
-}
-
 int vfs_del_node(uint32_t node) {
 	proto_t in, out;
 	PF->init(&in)->addi(&in, node);
@@ -447,11 +431,14 @@ int vfs_create(const char* fname, fsinfo_t* ret, int type, bool vfs_node_only, b
 	str_free(name);
 	str_free(dir);
 
-	vfs_new_node(ret);
-	if(vfs_add_node(info_to.node, ret) != 0) {
+	if(vfs_new_node(ret, info_to.node) != 0)
+		return -1;
+
+	/*if(vfs_add_node(info_to.node, ret) != 0) {
 		vfs_del_node(ret);
 		return -1;
 	}
+	*/
 	if(vfs_node_only)
 		return 0;
 
