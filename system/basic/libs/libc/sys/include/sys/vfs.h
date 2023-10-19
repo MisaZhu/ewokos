@@ -17,7 +17,7 @@ int       vfs_write_pipe(uint32_t node, const void* buf, uint32_t size, bool blo
 int       vfs_open(uint32_t node, int wr);
 int       vfs_close(int fd);
 int       vfs_new_node(fsinfo_t* info);
-int       vfs_add(fsinfo_t* to, fsinfo_t* info);
+int       vfs_add_node(uint32_t node_to, fsinfo_t* info);
 int       vfs_del_node(uint32_t node);
 int       vfs_access(const char* fname);
 int       vfs_get_by_name(const char* fname, fsinfo_t* info);

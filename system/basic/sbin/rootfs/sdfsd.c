@@ -22,17 +22,17 @@ static void add_file(fsinfo_t* node_to, const char* name, INODE* inode, int32_t 
 	f.data = (uint32_t)ino;
 
 	vfs_new_node(&f);
-	vfs_add(node_to, &f);
+	vfs_add_node(node_to->node, &f);
 }
 
-static int add_dir(fsinfo_t* node_to, fsinfo_t* ret, const char* dn, INODE* inode, int ino) {
+static int add_dir(fsinfo_t* info_to, fsinfo_t* ret, const char* dn, INODE* inode, int ino) {
 	memset(ret, 0, sizeof(fsinfo_t));
 	strcpy(ret->name, dn);
 	ret->type = FS_TYPE_DIR;
 	ret->data = (uint32_t)ino;
 	ret->size = inode->i_size;
 	vfs_new_node(ret);
-	if(vfs_add(node_to, ret) != 0) {
+	if(vfs_add_node(info_to->node, ret) != 0) {
 		vfs_del_node(ret);
 		return -1;
 	}
