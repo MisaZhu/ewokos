@@ -338,17 +338,20 @@ static void handle(int from_pid, int cmd, proto_t* in, proto_t* out, void* p) {
 static int do_mount(vdevice_t* dev, fsinfo_t* mnt_point, int type) {
 	fsinfo_t info;
 	memset(&info, 0, sizeof(fsinfo_t));
+
+	//create a non-father node 
 	strcpy(info.name, mnt_point->name);
 	info.type = type;
-	vfs_new_node(&info, 0);
+	vfs_new_node(&info, 0); // 0 means no father node
 
-	if(dev->mount != NULL) {
+	if(dev->mount != NULL) { //do device mount precess
 		if(dev->mount(&info, dev->extra_data) != 0) {
 			vfs_del_node(&info);
 			return -1;
 		}
 	}
 
+	//mount the new node to mnt_point, previous node will be saved as well
 	if(vfs_mount(mnt_point->node, info.node) != 0) {
 		vfs_del_node(&info);
 		return -1;

@@ -409,7 +409,7 @@ int vfs_create(const char* fname, fsinfo_t* ret, int type, bool vfs_node_only, b
 	if(vfs_get_by_name(CS(dir), &info_to) != 0) {
 		int res_dir = -1;
 		if(autodir)
-			res_dir = vfs_create(CS(dir), &info_to, FS_TYPE_DIR, false, autodir);
+			res_dir = vfs_create(CS(dir), &info_to, FS_TYPE_DIR, true, autodir);
 		if(res_dir != 0) {
 			str_free(dir);
 			str_free(name);
@@ -430,6 +430,8 @@ int vfs_create(const char* fname, fsinfo_t* ret, int type, bool vfs_node_only, b
 	ret->type = type;
 	str_free(name);
 	str_free(dir);
+	if(type == FS_TYPE_DIR)
+		ret->size = 1024;
 
 	if(vfs_new_node(ret, info_to.node) != 0)
 		return -1;
@@ -439,11 +441,9 @@ int vfs_create(const char* fname, fsinfo_t* ret, int type, bool vfs_node_only, b
 		return -1;
 	}
 	*/
-	if(vfs_node_only)
+	if(vfs_node_only) //only create in vfs service, not existed in storage. 
 		return 0;
 
-	if(type == FS_TYPE_DIR)
-		ret->size = 1024;
 	ret->mount_pid = info_to.mount_pid;
 
 	proto_t in, out;
