@@ -146,7 +146,7 @@ static int32_t ext2_bdealloc(ext2_t* ext2, int32_t block) {
 	return 0;
 }
 
-static uint32_t ext2_ialloc(ext2_t* ext2) {
+static uint32_t ext2_ialloc(ext2_t* ext2) {  //alloc a node
 	char buf[EXT2_BLOCK_SIZE];
 	int32_t index = 0;
 	uint32_t i;
@@ -168,7 +168,7 @@ static uint32_t ext2_ialloc(ext2_t* ext2) {
 	return 0;
 } 
 
-static int32_t ext2_balloc(ext2_t* ext2) {
+static int32_t ext2_balloc(ext2_t* ext2) { //alloc a block
  	char buf[EXT2_BLOCK_SIZE];
 	int32_t index = 0;
 	uint32_t i;
@@ -195,16 +195,16 @@ static int32_t need_len(int32_t len) {
 	return 4 * ((8 + len + 3) / 4);
 }
 
-static int32_t enter_child(ext2_t* ext2, INODE* pip, int32_t ino, const char *base, int32_t ftype) {
+static int32_t write_child(ext2_t* ext2, INODE* pip, int32_t ino, const char *name, int32_t ftype) {
 	int32_t nlen, ideal_len, remain, i, blk;
 	char buf[EXT2_BLOCK_SIZE];
 	char *cp;
 	DIR_T *dp = NULL;
 	//(1)-(3)
-	nlen = need_len(strlen(base));
+	nlen = need_len(strlen(name));
 	for(i=0;i<12;i++){
-		//(5) first one creat 
-		if(dp != NULL && pip->i_block[i]==0){
+		//(5) if no block alloced
+		if(pip->i_block[i]==0){ 
 			blk = ext2_balloc(ext2);
 			if(blk<=0){
 				return -1;
@@ -215,28 +215,29 @@ static int32_t enter_child(ext2_t* ext2, INODE* pip, int32_t ino, const char *ba
 			ext2->read_block(pip->i_block[i], buf, 0);
 			dp->inode = ino;
 			dp->rec_len = EXT2_BLOCK_SIZE;
-			dp->name_len = strlen(base);
+			dp->name_len = strlen(name);
 			dp->file_type = (uint8_t)ftype;
-			strcpy(dp->name, base);
+			strcpy(dp->name, name);
 			ext2->write_block(pip->i_block[i], buf);
 			return 0;
 		}		
-		//initialize the created one
+
+		//if block alloced , initialize it
 		ext2->read_block(pip->i_block[i], buf, 0);
 		cp = buf;
 		dp = (DIR_T *)cp;
 		if(dp->inode==0){
 			dp->inode = ino;
 			dp->rec_len = EXT2_BLOCK_SIZE;
-			dp->name_len = strlen(base);
+			dp->name_len = strlen(name);
 			dp->file_type = (uint8_t)ftype;
-			strcpy(dp->name, base);
+			strcpy(dp->name, name);
 			ext2->write_block(pip->i_block[i], buf);
 			return 0;
 		}
 
 		//(4) get last entry in block
-		while (cp + dp->rec_len < buf + EXT2_BLOCK_SIZE){
+		while ((cp + dp->rec_len) < (buf + EXT2_BLOCK_SIZE)){
 			cp += dp->rec_len;
 			dp = (DIR_T *)cp;
 		}
@@ -248,9 +249,9 @@ static int32_t enter_child(ext2_t* ext2, INODE* pip, int32_t ino, const char *ba
 			dp = (DIR_T *)cp;
 			dp->inode = ino;
 			dp->rec_len = remain;
-			dp->name_len = strlen(base);
+			dp->name_len = strlen(name);
 			dp->file_type = (uint8_t)ftype;
-			strcpy(dp->name, base);
+			strcpy(dp->name, name);
 			ext2->write_block(pip->i_block[i], buf);
 			return 0;
 		}
@@ -419,14 +420,15 @@ void put_node(ext2_t* ext2, int32_t ino, INODE *node) {
 	ext2->write_block(blk, buf);	
 }
 
-int32_t ext2_create_dir(ext2_t* ext2, INODE* father_inp, const char *base, int32_t owner) { //mode file or dir
+int32_t ext2_create_dir(ext2_t* ext2, INODE* father_inp, const char *name, int32_t owner) { //mode file or dir
 	int32_t ino, i, blk;
 	char buf[EXT2_BLOCK_SIZE];
 
-	ino = ext2_ialloc(ext2);
-	blk = ext2_balloc(ext2);
+	ino = ext2_ialloc(ext2); //alloc a node id from table
+	blk = ext2_balloc(ext2); //alloc a block
 
-	INODE* inp = get_node_by_ino(ext2, ino, buf);
+	INODE* inp = get_node_by_ino(ext2, ino, buf); //read inode from block
+	//set inode info
 	inp->i_mode = 0;//TODO EXT2_DIR_MODE;
 	inp->i_uid  = owner & 0xffff;
 	inp->i_gid  = (owner >> 16) & 0xffff;
@@ -441,13 +443,14 @@ int32_t ext2_create_dir(ext2_t* ext2, INODE* father_inp, const char *base, int32
 		inp->i_block[i] = 0;
 	}
 	//mip->dirty = 1;
-	put_node(ext2, ino, inp);
-	if(enter_child(ext2, father_inp, ino, base, EXT2_FT_DIR) < 0)
+	put_node(ext2, ino, inp); //write inode back to block
+
+	if(write_child(ext2, father_inp, ino, name, EXT2_FT_DIR) < 0) //write dir info (name, type)
 		return -1;
 	return ino;
 }
 
-int32_t ext2_create_file(ext2_t* ext2, INODE* father_inp, const char *base, int32_t owner) { //mode file or dir
+int32_t ext2_create_file(ext2_t* ext2, INODE* father_inp, const char *name, int32_t owner) { //mode file or dir
 	int32_t ino, i;
 	char buf[EXT2_BLOCK_SIZE];
 
@@ -469,7 +472,7 @@ int32_t ext2_create_file(ext2_t* ext2, INODE* father_inp, const char *base, int3
 	//mip->dirty = 1;
 	put_node(ext2, ino, inp);
 
-	if(enter_child(ext2, father_inp, ino, base, EXT2_FT_FILE) < 0)
+	if(write_child(ext2, father_inp, ino, name, EXT2_FT_FILE) < 0)
 		return -1;
 	return ino;
 }
