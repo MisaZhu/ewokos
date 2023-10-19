@@ -15,6 +15,7 @@ mkdirs:
 	@mkdir -p ${TARGET_DIR}/sbin
 	@mkdir -p ${TARGET_DIR}/etc
 	@mkdir -p ${TARGET_DIR}/bin
+	@mkdir -p ${TARGET_DIR}/drivers/proc
 	@mkdir -p ${TARGET_DIR}/home/root
 	@mkdir -p ${TARGET_DIR}/home/guest
 	@cp -r etc ${TARGET_DIR}
