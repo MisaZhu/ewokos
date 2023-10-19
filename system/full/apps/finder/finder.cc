@@ -278,7 +278,7 @@ public:
 		fileIcon = png_image_new(x_get_theme_fname(X_THEME_ROOT, "finder", "icons/file.png"));
 		dirIcon = png_image_new(x_get_theme_fname(X_THEME_ROOT, "finder", "icons/folder.png"));
 		devIcon = png_image_new(x_get_theme_fname(X_THEME_ROOT, "finder", "icons/device.png"));
-		font_load(X_SYSTEM_FONT, 14, &font);
+		font_load(DEFAULT_SYSTEM_FONT, 14, &font, true);
 		itemSize = 36;
 
 		selected = 0;
@@ -312,9 +312,9 @@ public:
 
 		v = sconf_get(conf, "font");
 		if(v[0] == 0) 
-			v = X_SYSTEM_FONT;
+			v = DEFAULT_SYSTEM_FONT;
 		font_close(&font);
-		font_load(v, font_size, &font);
+		font_load(v, font_size, &font, true);
 
 		v = sconf_get(conf, "item_size");
 		if(v[0] != 0)

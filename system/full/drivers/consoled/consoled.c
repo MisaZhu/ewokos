@@ -15,6 +15,7 @@
 #include <sysinfo.h>
 #include <sconf/sconf.h>
 #include <sys/klog.h>
+#include <font/font.h>
 
 typedef struct {
 	const char* id;
@@ -27,7 +28,7 @@ typedef struct {
 } fb_console_t;
 
 static int32_t read_config(fb_console_t* console, const char* fname) {
-	const char* font_fname =  "/usr/system/fonts/system.ttf";
+	const char* font_fname =  DEFAULT_SYSTEM_FONT;
 	uint32_t font_size = 16;
 	console->console.textview.fg_color = 0xffcccccc;
 	console->console.textview.bg_color = 0xff000000;
@@ -58,10 +59,10 @@ static int32_t read_config(fb_console_t* console, const char* fname) {
 		console->console.textview.font_fixed = atoi(v);
 
 	v = sconf_get(conf, "font");
-	if(v[0] != 0) 
+	if(v[0] != 0)
 		font_fname = v;
 
-	font_load(font_fname, font_size, &console->console.textview.font);
+	font_load(font_fname, font_size, &console->console.textview.font, true);
 	sconf_free(conf);
 	return 0;
 }

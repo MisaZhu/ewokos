@@ -9,7 +9,7 @@
 extern "C" {
 #endif
 
-#define X_SYSTEM_FONT       "/usr/system/fonts/system.ttf"
+#define DEFAULT_SYSTEM_FONT       "/usr/system/fonts/system.ttf"
 
 enum {
     FONT_DEV_LOAD = 0,
@@ -28,7 +28,7 @@ typedef struct {
 
 
 int font_init(void);
-int font_load(const char* fname, uint16_t ppm, font_t* font);
+int font_load(const char* fname, uint16_t ppm, font_t* font, bool safe);
 int font_close(font_t* font);
 int font_get_glyph(font_t* font, uint16_t c, TTY_Glyph* glyph); 
 

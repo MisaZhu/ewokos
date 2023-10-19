@@ -17,7 +17,7 @@ int font_init(void) {
 	return 0;
 }
 
-int font_load(const char* fname, uint16_t ppm, font_t* font) {
+static int font_load_raw(const char* fname, uint16_t ppm, font_t* font) {
 	if(_font_dev_pid < 0)
 		return -1;
 
@@ -39,6 +39,17 @@ int font_load(const char* fname, uint16_t ppm, font_t* font) {
 	PF->clear(&in);
 	PF->clear(&out);
 	return ret;
+}
+
+int font_load(const char* fname, uint16_t ppm, font_t* font, bool safe) {
+	if(_font_dev_pid < 0)
+		return -1;
+	
+	if(font_load_raw(fname, ppm, font) == 0)
+		return 0;
+	if(safe)
+		return font_load_raw(DEFAULT_SYSTEM_FONT, ppm, font);
+	return -1;
 }
 
 static int free_cache(const char* key, any_t data, any_t arg) {

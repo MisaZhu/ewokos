@@ -39,7 +39,7 @@ protected:
 public:
 	MyWidget() {
 		down = false;
-		font_load(X_SYSTEM_FONT, 14, &font);
+		font_load(DEFAULT_SYSTEM_FONT, 14, &font);
 	}
 
 	~MyWidget() {

@@ -259,8 +259,8 @@ public:
 
 		v = sconf_get(conf, "font");
 		if(v[0] == 0)
-			v = X_SYSTEM_FONT;
-		font_load(v, fontSize, &font);
+			v = DEFAULT_SYSTEM_FONT;
+		font_load(v, fontSize, &font, true);
 
 		v = sconf_get(conf, "title_color");
 		if(v[0] != 0)

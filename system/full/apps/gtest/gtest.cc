@@ -40,7 +40,7 @@ public:
         imgX = imgY = 0;
 		img_big = png_image_new(X::getResName("data/rokid.png"));	
 		img_small = png_image_new(X::getResName("data/rokid_small.png"));	
-		font_load(X_SYSTEM_FONT, 13, &font);
+		font_load(DEFAULT_SYSTEM_FONT, 13, &font);
 	}
 	
 	inline ~TestX() {

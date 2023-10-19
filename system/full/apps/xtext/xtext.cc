@@ -44,7 +44,7 @@ public:
 
 		sconf_t *sconf = sconf_load(fname);	
 		if(sconf == NULL) {
-			font_load(X_SYSTEM_FONT, 12, &textview.font);
+			font_load(DEFAULT_SYSTEM_FONT, 12, &textview.font, true);
 			textview.font_size = 12;
 			return false;
 		}
@@ -77,9 +77,9 @@ public:
 
 		v = sconf_get(sconf, "font");
 		if(v[0] == 0) 
-			v = X_SYSTEM_FONT;
+			v = DEFAULT_SYSTEM_FONT;
 		
-		font_load(v, font_size, &textview.font);
+		font_load(v, font_size, &textview.font, true);
 
 		sconf_free(sconf);
 

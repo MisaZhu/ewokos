@@ -76,9 +76,9 @@ public:
 
 		v = sconf_get(sconf, "font");
 		if(v[0] == 0) 
-			v = X_SYSTEM_FONT;
+			v = DEFAULT_SYSTEM_FONT;
 		
-		font_load(v, font_size, &console.textview.font);
+		font_load(v, font_size, &console.textview.font, true);
 
 		sconf_free(sconf);
 
