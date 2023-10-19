@@ -166,8 +166,8 @@ void XWM::drawMax(graph_t* g, xinfo_t* info, grect_t* r, bool top) {
 	getColor(&fg, &bg, top);
 
 	graph_fill(g, r->x, r->y, r->w, r->h, bg);
+	graph_box(g, r->x+4, r->y+4, r->w-12, r->h-12, fg);
 	graph_box(g, r->x+4, r->y+4, r->w-8, r->h-8, fg);
-	graph_box(g, r->x+4, r->y+4, r->w-10, r->h-10, fg);
 }
 
 static void draw_max(graph_t* g, xinfo_t* info, grect_t* r, bool top, void* p) {
@@ -195,7 +195,7 @@ void XWM::drawResize(graph_t* g, xinfo_t* info, grect_t* r, bool top) {
 	getColor(&fg, &bg, top);
 
 	graph_fill(g, r->x, r->y, r->w, r->h, bg);
-	graph_box(g, r->x+2, r->y+2, r->w-4, r->h-4, fg);
+	graph_box(g, r->x+3, r->y+3, r->w-6, r->h-6, fg);
 	graph_box(g, r->x, r->y, r->w, r->h, fg);
 }
 
