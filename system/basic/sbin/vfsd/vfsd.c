@@ -322,14 +322,14 @@ static void vfs_umount(int32_t pid, vfs_node_t* node) {
 	memset(&_vfs_mounts[node->mount_id], 0, sizeof(mount_t));
 }
 
-static int32_t vfs_del(int32_t pid, vfs_node_t* node) {
+static int32_t vfs_del_node(int32_t pid, vfs_node_t* node) {
 	if(node == NULL || node->refs > 0 ||  check_mount(pid, node, false) != 0)
 		return -1;
 	/*free children*/
 	vfs_node_t* c = node->first_kid;
 	while(c != NULL) {
 		vfs_node_t* next = c->next;
-		vfs_del(pid, c);
+		vfs_del_node(pid, c);
 		c = next;
 	}
 
@@ -757,7 +757,7 @@ static void do_vfs_add(int32_t pid, proto_t* in, proto_t* out) {
 	PF->clear(out)->addi(out, 0);
 }
 
-static void do_vfs_del(int32_t pid, proto_t* in, proto_t* out) {
+static void do_vfs_del_node(int32_t pid, proto_t* in, proto_t* out) {
 	PF->addi(out, -1);
 	uint32_t node_id = proto_read_int(in);
 	if(node_id == 0)
@@ -767,7 +767,7 @@ static void do_vfs_del(int32_t pid, proto_t* in, proto_t* out) {
 	if (node == NULL)
 		return;
 
-	int res = vfs_del(pid, node);
+	int res = vfs_del_node(pid, node);
 	PF->clear(out)->addi(out, res);
 }
 
@@ -1042,7 +1042,7 @@ static void handle(int pid, int cmd, proto_t* in, proto_t* out, void* p) {
 		do_vfs_add(pid, in, out);
 		break;
 	case VFS_DEL:
-		do_vfs_del(pid, in, out);
+		do_vfs_del_node(pid, in, out);
 		break;
 	case VFS_MOUNT:
 		do_vfs_mount(pid, in, out);

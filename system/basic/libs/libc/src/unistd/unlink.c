@@ -26,6 +26,6 @@ int unlink(const char* fname) {
 	int res = proto_read_int(&out);
 	PF->clear(&out);
 	if(res == 0)
-		return vfs_del(info.node);
+		return vfs_del_node(info.node);
 	return -1;
 }

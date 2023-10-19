@@ -24,7 +24,7 @@ int open(const char* fname, int oflag) {
 	fd = vfs_open(info.node, oflag);
 	if(fd < 0) {
 		if(created)
-			vfs_del(&info);
+			vfs_del_node(&info);
 		return -1;
 	}
 	
@@ -40,7 +40,7 @@ int open(const char* fname, int oflag) {
 			proto_read_int(&out) != 0) {
 		vfs_close(fd);
 		if(created)
-			vfs_del(&info);
+			vfs_del_node(&info);
 		fd = -1;
 	}
 

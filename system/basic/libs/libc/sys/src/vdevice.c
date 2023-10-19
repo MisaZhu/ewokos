@@ -344,13 +344,13 @@ static int do_mount(vdevice_t* dev, fsinfo_t* mnt_point, int type) {
 
 	if(dev->mount != NULL) {
 		if(dev->mount(&info, dev->extra_data) != 0) {
-			vfs_del(&info);
+			vfs_del_node(&info);
 			return -1;
 		}
 	}
 
 	if(vfs_mount(mnt_point->node, info.node) != 0) {
-		vfs_del(&info);
+		vfs_del_node(&info);
 		return -1;
 	}
 	memcpy(mnt_point, &info, sizeof(fsinfo_t));

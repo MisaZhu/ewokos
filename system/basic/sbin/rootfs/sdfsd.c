@@ -33,7 +33,7 @@ static int add_dir(fsinfo_t* node_to, fsinfo_t* ret, const char* dn, INODE* inod
 	ret->size = inode->i_size;
 	vfs_new_node(ret);
 	if(vfs_add(node_to, ret) != 0) {
-		vfs_del(ret);
+		vfs_del_node(ret);
 		return -1;
 	}
 	return 0;

@@ -276,7 +276,7 @@ int vfs_add(fsinfo_t* to, fsinfo_t* info) {
 	return res;
 }
 
-int vfs_del(uint32_t node) {
+int vfs_del_node(uint32_t node) {
 	proto_t in, out;
 	PF->init(&in)->addi(&in, node);
 	PF->init(&out);
@@ -449,7 +449,7 @@ int vfs_create(const char* fname, fsinfo_t* ret, int type, bool vfs_node_only, b
 
 	vfs_new_node(ret);
 	if(vfs_add(&info_to, ret) != 0) {
-		vfs_del(ret);
+		vfs_del_node(ret);
 		return -1;
 	}
 	if(vfs_node_only)
@@ -468,7 +468,7 @@ int vfs_create(const char* fname, fsinfo_t* ret, int type, bool vfs_node_only, b
 
 	int res = -1;
 	if(ipc_call(info_to.mount_pid, FS_CMD_CREATE, &in, &out) != 0) {
-		vfs_del(ret);
+		vfs_del_node(ret);
 	}
 	else {
 		res = proto_read_int(&out);
@@ -476,7 +476,7 @@ int vfs_create(const char* fname, fsinfo_t* ret, int type, bool vfs_node_only, b
 			proto_read_to(&out, ret, sizeof(fsinfo_t));
 		}
 		else 
-			vfs_del(ret);
+			vfs_del_node(ret);
 	}
 	PF->clear(&in);
 	PF->clear(&out);
