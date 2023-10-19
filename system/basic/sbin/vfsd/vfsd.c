@@ -346,6 +346,7 @@ static int32_t vfs_del_node(int32_t pid, vfs_node_t* node) {
 		node->next->prev = node->prev;
 	if(node->prev != NULL)
 		node->prev->next = node->next;
+	hashmap_remove(_nodes_hash, node_hash_key(node));
 	free(node);
 	return 0;
 }
