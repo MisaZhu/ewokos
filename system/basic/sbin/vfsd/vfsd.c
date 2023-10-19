@@ -1041,7 +1041,7 @@ static void handle(int pid, int cmd, proto_t* in, proto_t* out, void* p) {
 	case VFS_ADD:
 		do_vfs_add(pid, in, out);
 		break;
-	case VFS_DEL:
+	case VFS_DEL_NODE:
 		do_vfs_del_node(pid, in, out);
 		break;
 	case VFS_MOUNT:

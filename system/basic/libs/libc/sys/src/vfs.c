@@ -280,7 +280,7 @@ int vfs_del_node(uint32_t node) {
 	proto_t in, out;
 	PF->init(&in)->addi(&in, node);
 	PF->init(&out);
-	int res = ipc_call(get_vfsd_pid(), VFS_DEL, &in, &out);
+	int res = ipc_call(get_vfsd_pid(), VFS_DEL_NODE, &in, &out);
 	PF->clear(&in);
 
 	if(res == 0) {
