@@ -1154,17 +1154,18 @@ static void mouse_xwin_handle(x_t* x, xwin_t* win, int pos, xevent_t* ev) {
 }
 
 static void cursor_safe(x_t* x, x_display_t* display) {
-	int margin = x->cursor.size.w - x->cursor.offset.x;
+	int margin_x = (x->cursor.size.w - x->cursor.offset.x) / 4;
+	int margin_y = (x->cursor.size.h - x->cursor.offset.y) / 4;
+
 	if(x->cursor.cpos.x < x->cursor.offset.x)
 		x->cursor.cpos.x = x->cursor.offset.x;
-	else if(x->cursor.cpos.x > (display->g->w - margin))
-		x->cursor.cpos.x = display->g->w - margin;
+	else if(x->cursor.cpos.x > (display->g->w - margin_x))
+		x->cursor.cpos.x = display->g->w - margin_x;
 
-	margin = x->cursor.size.h - x->cursor.offset.y;
 	if(x->cursor.cpos.y < x->cursor.offset.y)
 		x->cursor.cpos.y = x->cursor.offset.y;
-	else if(x->cursor.cpos.y > (display->g->h - margin))
-		x->cursor.cpos.y = display->g->h - margin;
+	else if(x->cursor.cpos.y > (display->g->h - margin_y))
+		x->cursor.cpos.y = display->g->h - margin_y;
 }
 
 static int mouse_handle(x_t* x, xevent_t* ev) {

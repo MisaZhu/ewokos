@@ -35,6 +35,12 @@ protected:
 			int input_h = font.max_size.y + 8;
 			y -= input_h;
 		}
+
+		if(x > col * keyw) 
+			return -1;
+		if(y > row * keyh) 
+			return -1;
+
 		int i = (x / keyw);
 		int j = (y / keyh);
 		int at = i+j*col;
