@@ -758,13 +758,12 @@ static void do_vfs_add(int32_t pid, proto_t* in, proto_t* out) {
 }
 
 static void do_vfs_del(int32_t pid, proto_t* in, proto_t* out) {
-	fsinfo_t info;
-
 	PF->addi(out, -1);
-	if(proto_read_to(in, &info, sizeof(fsinfo_t)) != sizeof(fsinfo_t))
+	uint32_t node_id = proto_read_int(in);
+	if(node_id == 0)
 		return;
 
-  vfs_node_t* node = vfs_get_node_by_id(info.node);
+  vfs_node_t* node = vfs_get_node_by_id(node_id);
   if(node == NULL)
     return;
 
@@ -840,12 +839,13 @@ static void do_vfs_pipe_open(int32_t pid, proto_t* out) {
 
 static void do_vfs_pipe_write(int pid, proto_t* in, proto_t* out) {
 	(void)pid;
-	fsinfo_t info;
 	PF->addi(out, -1);
-	if(proto_read_to(in, &info, sizeof(fsinfo_t)) != sizeof(fsinfo_t))
+
+	uint32_t node_id = proto_read_int(in);
+	if(node_id == 0)
 		return;
 
-	vfs_node_t* node = vfs_get_node_by_id(info.node);
+	vfs_node_t* node = vfs_get_node_by_id(node_id);
 	proc_wakeup((int32_t)node); //wakeup reader
 
 	int32_t size = 0;
@@ -855,7 +855,7 @@ static void do_vfs_pipe_write(int pid, proto_t* in, proto_t* out) {
 		return;
 	}
 
-	buffer_t* buffer = (buffer_t*)info.data;
+	buffer_t* buffer = (buffer_t*)node->fsinfo.data;
 	if(buffer == NULL) { //pipe buffer not ready 
 		//proc_wakeup((int32_t)node); //wakeup reader
 		PF->clear(out)->addi(out, 0); // retry
@@ -878,18 +878,19 @@ static void do_vfs_pipe_write(int pid, proto_t* in, proto_t* out) {
 
 static void do_vfs_pipe_read(int pid, proto_t* in, proto_t* out) {
 	(void)pid;
-	fsinfo_t info;
 	PF->addi(out, -1);
-	if(proto_read_to(in, &info, sizeof(fsinfo_t)) != sizeof(fsinfo_t))
+	uint32_t node_id = proto_read_int(in);
+	if(node_id == 0)
 		return;
-	vfs_node_t* node = vfs_get_node_by_id(info.node);
+
+	vfs_node_t* node = vfs_get_node_by_id(node_id);
 	int32_t size = proto_read_int(in);
 
 	if(size < 0 || node == NULL) {
 		return;
 	}
 
-	buffer_t* buffer = (buffer_t*)info.data;
+	buffer_t* buffer = (buffer_t*)node->fsinfo.data;
 	if(buffer == NULL) { //buffer not ready 
 		PF->clear(out)->addi(out, 0); // retry
 		return;

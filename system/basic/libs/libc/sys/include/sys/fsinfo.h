@@ -51,13 +51,13 @@ typedef struct {
 } mount_t;
 
 typedef struct {
-	uint32_t node;
-	char     name[FS_NODE_NAME_MAX];
 	uint32_t type;
+	uint32_t node;
 	uint32_t size;
 	uint32_t uid;
 	uint32_t gid;
 	int32_t  mount_pid;
+	char     name[FS_NODE_NAME_MAX];
 
 	uint32_t data;
 } fsinfo_t;

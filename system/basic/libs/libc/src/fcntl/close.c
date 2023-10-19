@@ -14,7 +14,7 @@ void close(int fd) {
 	PF->init(&in)->
 		addi(&in, fd)->
 		addi(&in, -1)->
-		add(&in, &info, sizeof(fsinfo_t));
+		addi(&in, info.node);
 
 	ipc_call(info.mount_pid, FS_CMD_CLOSE, &in, NULL);
 	PF->clear(&in);

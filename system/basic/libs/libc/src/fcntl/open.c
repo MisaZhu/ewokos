@@ -33,7 +33,7 @@ int open(const char* fname, int oflag) {
 
 	PF->init(&in)->
 		addi(&in, fd)->
-		add(&in, &info, sizeof(fsinfo_t))->
+		addi(&in, info.node)->
 		addi(&in, oflag);
 
 	if(ipc_call(info.mount_pid, FS_CMD_OPEN, &in, &out) != 0 ||

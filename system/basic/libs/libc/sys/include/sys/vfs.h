@@ -12,13 +12,13 @@ extern "C" {
 
 const char* vfs_fullname(const char* fname);
 
-int       vfs_read_pipe(fsinfo_t* info, void* buf, uint32_t size, bool block);
-int       vfs_write_pipe(fsinfo_t* info, const void* buf, uint32_t size, bool block);
+int       vfs_read_pipe(uint32_t node, void* buf, uint32_t size, bool block);
+int       vfs_write_pipe(uint32_t node, const void* buf, uint32_t size, bool block);
 int       vfs_open(uint32_t node, int wr);
 int       vfs_close(int fd);
 int       vfs_new_node(fsinfo_t* info);
 int       vfs_add(fsinfo_t* to, fsinfo_t* info);
-int       vfs_del(fsinfo_t* info);
+int       vfs_del(uint32_t node);
 int       vfs_access(const char* fname);
 int       vfs_get_by_name(const char* fname, fsinfo_t* info);
 int       vfs_get_by_node(uint32_t node, fsinfo_t* info);
@@ -45,8 +45,8 @@ void*     vfs_dma(int fd, int* size);
 int       vfs_read_block(int pid, void* buf, uint32_t size, int32_t index);
 int       vfs_write_block(int pid, const void* buf, uint32_t size, int32_t index);
 
-int       vfs_read(int fd, fsinfo_t *info, void* buf, uint32_t size);
-int       vfs_write(int fd, fsinfo_t *info, const void* buf, uint32_t size);
+int       vfs_read(int fd, fsinfo_t* info, void* buf, uint32_t size);
+int       vfs_write(int fd, fsinfo_t* info, const void* buf, uint32_t size);
 
 int       vfs_fcntl(int fd, int cmd, proto_t* in, proto_t* out);
 int       vfs_fcntl_wait(int fd, int cmd, proto_t* in);
