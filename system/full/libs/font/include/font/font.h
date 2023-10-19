@@ -27,10 +27,14 @@ typedef struct {
 } font_t;
 
 
-int font_init(void);
-int font_load(const char* fname, uint16_t ppm, font_t* font, bool safe);
-int font_close(font_t* font);
-int font_get_glyph(font_t* font, uint16_t c, TTY_Glyph* glyph); 
+int     font_init(void);
+int     font_load(const char* fname, uint16_t ppm, font_t* font, bool safe);
+int     font_close(font_t* font);
+
+font_t* font_new(const char* fname, uint16_t ppm, bool safe);
+int     font_free(font_t* font);
+
+int     font_get_glyph(font_t* font, uint16_t c, TTY_Glyph* glyph); 
 
 TTY_Glyph* font_init_glyph(TTY_Glyph* glyph); 
 

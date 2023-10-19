@@ -62,6 +62,21 @@ static int free_cache(const char* key, any_t data, any_t arg) {
 	return MAP_OK;
 }
 
+font_t* font_new(const char* fname, uint16_t ppm, bool safe) {
+	font_t* font = (font_t*)calloc(sizeof(font_t), 1);
+	if(font_load(fname, ppm, font, safe) == 0)
+		return font;
+	free(font);
+	return NULL;
+}
+
+int font_free(font_t* font) {
+	if(font == NULL)
+		return -1;
+	font_close(font);
+	free(font);
+}
+
 static void font_clear_cache(font_t* font) {
 	hashmap_iterate(font->cache, free_cache, font->cache);	
 }
