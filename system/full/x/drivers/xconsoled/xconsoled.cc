@@ -68,6 +68,7 @@ public:
 
 	bool readConfig(const char* fname) {
 		memset(&conf, 0, sizeof(conf_t));
+		klog("%s\n", fname);
 		sconf_t *sconf = sconf_load(fname);	
 		if(sconf == NULL)
 			return false;
@@ -159,7 +160,7 @@ int main(int argc, char** argv) {
 	const char* mnt_point = argc > 1 ? argv[1]: "/dev/xconsole";
 
 	XConsoled xwin;
-	xwin.readConfig(x_get_theme_fname("/etc/x/themes", "", "xconsoled.conf"));
+	xwin.readConfig(x_get_theme_fname(X_THEME_ROOT, "xconsoled", "theme.conf"));
 
 	X x;
 	xscreen_t scr;

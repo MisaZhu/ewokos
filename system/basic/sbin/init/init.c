@@ -100,26 +100,8 @@ static void run_init(const char* init_file) {
 		waitpid(pid);
 }
 
-static void init_stdio(void) {
-	int fd = open("/dev/tty0", 0);
-	int fd_console = open("/dev/console0", 0);
-
-	if(fd > 0) {
-		dup2(fd, 0);
-		dup2(fd, 1);
-		close(fd);
-	}
-	if(fd_console > 0) {
-		dup2(fd_console, 2);
-		close(fd_console);
-	}
-}
-
 static void switch_root(void) {
-	run_init("/etc/arch.rd");
 	run_init("/etc/init.rd");
-	init_stdio();
-	run_init("/etc/system.rd");
 }
 
 static void halt(void) {

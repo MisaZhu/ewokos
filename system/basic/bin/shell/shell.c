@@ -16,6 +16,8 @@
 #include "shell.h"
 
 bool _initrd = false;
+bool _stdio_inited = false;
+bool _stderr_inited = false;
 bool _terminated = false;
 
 old_cmd_t* _history = NULL;
@@ -179,10 +181,32 @@ static void prompt(void) {
 		printf("ewok(%s):%s$ ", cid, getcwd(cwd, FS_FULL_NAME_MAX));
 }
 
+static void try_init_stdio(void) {
+	if(!_stdio_inited) {
+		int fd = open("/dev/tty0", 0);
+		if(fd > 0) {
+			dup2(fd, 0);
+			dup2(fd, 1);
+			close(fd);
+			_stdio_inited = true;
+		}
+	}
+
+	if(!_stderr_inited) {
+		int fd_console = open("/dev/console0", 0);
+		if(fd_console > 0) {
+			dup2(fd_console, 2);
+			close(fd_console);
+			_stderr_inited = true;
+		}
+	}
+}
+
 static void initrd_out(const char* cmd) {
 	if(!_initrd || cmd[0] == '@')
 		return;
 
+	try_init_stdio();
 	if(write(1, cmd, strlen(cmd)) > 0)
 		write(1, "\n", 1);
 	else
@@ -194,6 +218,8 @@ static void initrd_out(const char* cmd) {
 
 int main(int argc, char* argv[]) {
 	_initrd = false;
+	_stdio_inited = false;
+	_stderr_inited = false;
 	_history = NULL;
 	_terminated = 0;
 

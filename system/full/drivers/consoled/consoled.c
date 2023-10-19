@@ -24,7 +24,6 @@ typedef struct {
 	graph_t*    g;
 	console_t   console;
 	graph_t*    icon;
-	//graph_t*    bg_image;
 } fb_console_t;
 
 static int32_t read_config(fb_console_t* console, const char* fname) {
@@ -32,26 +31,14 @@ static int32_t read_config(fb_console_t* console, const char* fname) {
 	uint32_t font_size = 16;
 	console->console.textview.fg_color = 0xffcccccc;
 	console->console.textview.bg_color = 0xff000000;
-	//const char* icon_fn = "/data/icons/starwars/ewok.png";
-	//const char* bg_fn = "/data/images/ewok.png";
 
 	sconf_t *conf = sconf_load(fname);	
-	if(conf == NULL) {
+	if(conf == NULL)
 		return -1;
-	}
 
 	const char* v = sconf_get(conf, "icon");
 	if(v[0] != 0) 
 		console->icon = png_image_new(v);
-	//else
-		//console->icon = png_image_new(icon_fn);
-
-	/*v = sconf_get(conf, "bg_image");
-	if(v[0] != 0) 
-		console->bg_image = png_image_new(v);
-	else
-		console->bg_image = png_image_new(bg_fn);
-		*/
 
 	v = sconf_get(conf, "bg_color");
 	if(v[0] != 0) 
@@ -73,27 +60,15 @@ static int32_t read_config(fb_console_t* console, const char* fname) {
 	v = sconf_get(conf, "font");
 	if(v[0] != 0) 
 		font_fname = v;
+
 	font_load(font_fname, font_size, &console->console.textview.font);
 	sconf_free(conf);
-
 	return 0;
 }
 
 static void init_graph(fb_console_t* console) {
 	console->g = fb_fetch_graph(&console->fb);
 	graph_clear(console->g, 0xff000000);
-	/*
-	int w = 32, h = 32;
-	int x = (console->g->w - w*2) / 2;
-	int y = (console->g->h - h*2) / 2;
-
-	graph_fill_round(console->g, x, y, w-2, h-2, 6, 0xffff0000);
-	graph_fill_round(console->g, x+w, y, w-2, h-2, 6, 0xff00ff00);
-	graph_fill_round(console->g, x, y+h, w-2, h-2, 6, 0xff0000ff);
-	graph_fill_round(console->g, x+w, y+h, w-2, h-2, 6, 0xffffffff);
-
-	fb_flush(&console->fb, true);
-	*/
 }
 
 static int init_console(fb_console_t* console, const char* display_dev, const uint32_t display_index) {
@@ -120,8 +95,6 @@ static void close_console(fb_console_t* console) {
 		graph_free(console->icon);
 	if(console->console.textview.font.id >= 0)
 		font_close(&console->console.textview.font);
-	//if(console->bg_image != NULL)
-		//graph_free(console->bg_image);
 }
 
 static int reset_console(fb_console_t* console) {
@@ -132,17 +105,6 @@ static int reset_console(fb_console_t* console) {
 static void flush(fb_console_t* console) {
 	graph_clear(console->g, console->console.textview.bg_color);
 	if(console->display_index == 0) {
-		//draw bgImage
-		/*if(console->bg_image != NULL) {
-			graph_blt_alpha(console->bg_image, 
-					0, 0, console->bg_image->w, console->bg_image->w,
-					console->g,
-					(console->g->w - console->bg_image->w) / 2,
-					(console->g->h - console->bg_image->h) / 2,
-					console->bg_image->w, console->bg_image->h, 
-					0xff);
-		}
-		*/
 		//draw cores
 		if(console->icon != NULL) {
 			sys_info_t sys_info;
@@ -180,12 +142,6 @@ static int console_write(int fd,
 		return 0;
 
 	const char* pb = (const char*)buf;
-	/*int i;
-	for(i=0; i<size; i++) {
-		char c = pb[i];
-		console_put_char(&console->console, c);
-	}
-	*/
 	console_put_string(&console->console, pb, size);
 	flush(console);
 	return size;

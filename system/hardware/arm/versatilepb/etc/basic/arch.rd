@@ -1,1 +1,0 @@
-/bin/rundev /drivers/versatilepb/ttyd     /dev/tty0
