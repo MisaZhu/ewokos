@@ -16,7 +16,7 @@ void kconsole_init(void) {
 
 	console_init(&_console);
 	//printf("\nkernel: init framebuffer ... ");
-	if(fb_init(640, 480, &fbinfo) != 0) {
+	if(fb_init(&fbinfo) != 0) {
 		//printf("[failed]\n");
 		return;
 	}
