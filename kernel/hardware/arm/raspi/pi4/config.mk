@@ -1,4 +1,4 @@
-QEMU_FLAGS = -M raspi2b -m 1024M -serial mon:stdio
+QEMU_FLAGS = -M raspi4 -m 1024M -serial mon:stdio
 
 ARCH_CFLAGS = -march=armv7ve -DPI4
 

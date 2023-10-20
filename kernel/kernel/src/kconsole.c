@@ -40,10 +40,10 @@ void kconsole_init(void) {
 	_fb_g = NULL;
 	fbinfo_t fbinfo;
 	_line = 0;
-	uint32_t w, h;
+	uint32_t w = 640, h = 480;
 
 	console_init(&_console);
-	read_config(&w, &h);
+	//read_config(&w, &h);
 	//printf("\nkernel: init framebuffer ... ");
 	if(fb_init(w, h, &fbinfo) != 0) {
 		//printf("[failed]\n");
