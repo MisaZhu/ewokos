@@ -519,7 +519,7 @@ static void hide_cursor(x_t* x) {
 				x->cursor.size.h,
 				display->g,
 				x->cursor.old_pos.x - x->cursor.offset.x,
-				x->cursor.old_pos.y - x->cursor.offset.x,
+				x->cursor.old_pos.y - x->cursor.offset.y,
 				x->cursor.size.w,
 				x->cursor.size.h);
 	}
