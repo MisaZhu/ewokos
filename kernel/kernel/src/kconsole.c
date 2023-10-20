@@ -12,22 +12,22 @@ static uint32_t _line;
 static graph_t* _fb_g = NULL;
 
 static void read_config(uint32_t *w, uint32_t *h) {
-	*w = 640;
-	*h = 480;
-
 	sconf_t* sconf = sconf_load("/etc/kernel/framebuffer.conf");
 	if(sconf == NULL)
 		return;
 	const char* v = sconf_get(sconf, "width");
-	printf("%s\n", v);
 	if(v[0] != 0)
 		*w = atoi(v);
 
 	v = sconf_get(sconf, "height");
-	printf("%s\n", v);
 	if(v[0] != 0)
 		*h = atoi(v);
 	sconf_free(sconf);
+
+	if(*w == 0)
+		*w = 640;
+	if(*h == 0)
+		*h = 480;
 }
 
 void kconsole_init(void) {
