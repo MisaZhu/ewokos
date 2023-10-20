@@ -82,7 +82,6 @@ ifeq ($(ARCH),v7)
 endif
 
 
-
 LIB_GRAPH_DIR=$(SRC_DIR)/lib/graph
 LIB_GRAPH_OBJS = $(LIB_GRAPH_DIR)/src/graph.o \
 	$(LIB_GRAPH_DIR)/src/pixel.o \
@@ -95,19 +94,24 @@ LIB_CONSOLE_DIR=$(SRC_DIR)/lib/console
 LIB_CONSOLE_OBJS = $(LIB_CONSOLE_DIR)/src/console.o 
 CFLAGS += -I$(LIB_CONSOLE_DIR)/include
 
+LIB_EXT2_DIR=$(SRC_DIR)/lib/ext2
+LIB_EXT2_OBJS = $(LIB_EXT2_DIR)/src/ext2read.o 
+CFLAGS += -I$(LIB_EXT2_DIR)/include
+
 LIB_DIR = $(SRC_DIR)/lib/src
 LIB_OBJS = \
 	$(LIB_DIR)/kstring.o \
+	$(LIB_DIR)/atoi.o \
 	$(LIB_DIR)/vprintf.o \
 	$(LIB_DIR)/proto.o \
 	$(LIB_DIR)/queue.o \
 	$(LIB_DIR)/kprintf.o \
 	$(LIB_GRAPH_OBJS) \
+	$(LIB_EXT2_OBJS) \
 	$(LIB_CONSOLE_OBJS)
 
 LOAD_DIR=$(SRC_DIR)/loadinit/sd
 LOAD_OBJS = \
-	$(LOAD_DIR)/ext2read.o \
 	$(LOAD_DIR)/loadinit.o
 CFLAGS += -I$(LOAD_DIR)
 QEMU_ARGS += -sd $(SYS_FULL_DIR)/build/root.ext2

@@ -4,19 +4,49 @@
 #include <kprintf.h>
 #include <stddef.h>
 #include <console/console.h>
+#include <ext2read.h>
+#include <atoi.h>
 
 static console_t _console;
 static uint32_t _line;
 static graph_t* _fb_g = NULL;
 
+static void read_config(uint32_t *w, uint32_t *h) {
+	*w = 0;
+	*h = 0;
+	int32_t sz;
+	char* line = sd_read_ext2("/etc/kernel/framebuffer.conf", &sz);
+	if(line != NULL) {
+		line[sz] = 0;
+		for(int32_t i=0;i < sz; i++) {
+			if(line[i] == 'x') {
+				char* p = line + i + 1;
+				line[i] = 0;
+				*w = atoi(line);
+				*h = atoi(p);
+				printf("conf3 %s, %s, %d, %d\n", line, p, *w, *h);
+				break;
+			}
+		}
+		kfree(line);
+	}
+
+	if(*w == 0)
+		*w = 640;
+	if(*h == 0)
+		*h = 480;
+}
+
 void kconsole_init(void) {
 	_fb_g = NULL;
 	fbinfo_t fbinfo;
 	_line = 0;
+	uint32_t w, h;
 
 	console_init(&_console);
+	read_config(&w, &h);
 	//printf("\nkernel: init framebuffer ... ");
-	if(fb_init(&fbinfo) != 0) {
+	if(fb_init(w, h, &fbinfo) != 0) {
 		//printf("[failed]\n");
 		return;
 	}

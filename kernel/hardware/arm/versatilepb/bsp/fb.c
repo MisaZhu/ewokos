@@ -53,8 +53,8 @@ int32_t vpb_fb_init(uint32_t w, uint32_t h, uint32_t dep) {
 	return 0;
 }
 
-int32_t fb_init(fbinfo_t* fbinfo) {
-	if(vpb_fb_init(FB_DEF_W, FB_DEF_H, 32) != 0)
+int32_t fb_init(uint32_t w, uint32_t h, fbinfo_t* fbinfo) {
+	if(vpb_fb_init(w, h, 32) != 0)
 		return -1;
 	memcpy(fbinfo, &_fb_info, sizeof(fbinfo_t));
 	return 0;

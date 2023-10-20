@@ -65,6 +65,7 @@ function add_kernel_src(arch)
         kernel_dir.."dev/include",
         kernel_dir.."kernel/include",
         kernel_dir.."lib/include",
+        kernel_dir.."lib/ext2/include",
         kernel_dir.."lib/graph/include",
         kernel_dir.."lib/console/include"
     )

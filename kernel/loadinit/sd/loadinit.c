@@ -10,13 +10,6 @@ int32_t load_init_proc(void) {
 	const char* prog = "/sbin/init";
 	int32_t sz;
 
-	printf("  sdc init .... ");
-	if(sd_init() != 0) {
-		printf("[failed]!\n");
-		return -1;
-	}
-	printf("[ok]\n");
-
 	printf("  load /sbin/init from sdc .... ");
 	char* elf = sd_read_ext2(prog, &sz);
 	if(elf != NULL) {

@@ -766,7 +766,7 @@ void* ext2_readfile(ext2_t* ext2, const char* fname, int32_t* size) {
       return ret;
     }
 
-    char *data = (char*)malloc(inode.i_size);
+    char *data = (char*)malloc(inode.i_size+1);
     if(data != NULL) {
       ret = data;
       uint32_t rd = 0;
