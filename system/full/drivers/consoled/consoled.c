@@ -104,15 +104,14 @@ static int reset_console(fb_console_t* console) {
 }
 
 static void draw_bg(fb_console_t* console) {
-	int x = 0;
-	int y = 0;
-	bool shift = false;
-
 	graph_t* g = console->g;
 	graph_clear(g, console->console.textview.bg_color);
 
-	for(int i=0; y<g->h; i++) {
-		for(int j=0; x<g->w;j++) {
+	/*int x = 0;
+	int y = 0;
+	bool shift = false;
+	while(y < g->h) {
+		while(x < g->w) {
 			graph_pixel(g, x, y, 0xff555555);
 			x += 2;
 		}
@@ -120,11 +119,12 @@ static void draw_bg(fb_console_t* console) {
 		shift = !shift;
 		y += 1;
 	}
+	*/
 }
 
 static void flush(fb_console_t* console) {
-	//graph_clear(console->g, console->console.textview.bg_color);
 	draw_bg(console);
+
 	if(console->display_index == 0) {
 		//draw cores
 		if(console->icon != NULL) {

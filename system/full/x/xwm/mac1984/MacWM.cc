@@ -28,8 +28,8 @@ graph_t* MacWM::genPattern(void) {
 		sz = 1;
 
 	if(sz > 1) {
-		for(int i=0; y<g->h; i++) {
-			for(int j=0; x<g->w;j++) {
+		while(y < g->h) {
+			while(x < g->w) {
 				graph_fill(g, x, y, sz, sz, desktopFGColor);
 				x += sz*2;
 			}
@@ -39,8 +39,8 @@ graph_t* MacWM::genPattern(void) {
 		}
 	}
 	else {
-		for(int i=0; y<g->h; i++) {
-			for(int j=0; x<g->w;j++) {
+		while(y < g->h) {
+			while(x < g->w) {
 				graph_pixel(g, x, y, desktopFGColor);
 				x += 2;
 			}
