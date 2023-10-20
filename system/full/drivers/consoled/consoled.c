@@ -29,13 +29,15 @@ typedef struct {
 
 static int32_t read_config(fb_console_t* console, const char* fname) {
 	const char* font_fname =  DEFAULT_SYSTEM_FONT;
-	uint32_t font_size = 16;
+	uint32_t font_size = 12;
 	console->console.textview.fg_color = 0xffcccccc;
 	console->console.textview.bg_color = 0xff000000;
 
 	sconf_t *conf = sconf_load(fname);	
-	if(conf == NULL)
+	if(conf == NULL) {
+		font_load(font_fname, font_size, &console->console.textview.font, true);
 		return -1;
+	}	
 
 	const char* v = sconf_get(conf, "icon");
 	if(v[0] != 0) 
