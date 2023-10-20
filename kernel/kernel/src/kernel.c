@@ -145,6 +145,7 @@ void _kernel_entry_c(void) {
 
 	uart_dev_init();
 	kev_init();
+
 	sd_init();
 
 #ifdef KCONSOLE

@@ -170,7 +170,7 @@ static int32_t search(ext2_t* ext2, INODE *ip, const char *name) {
 			dp = (DIR *)buf;
 			cp = buf;
 			while (cp < &buf[EXT2_BLOCK_SIZE]){
-				if(dp->name_len == 0)
+				if(dp->name_len == 0 || dp->rec_len == 0)
 					break;
 				c = dp->name[dp->name_len];  // save last byte
 				dp->name[dp->name_len] = 0;   

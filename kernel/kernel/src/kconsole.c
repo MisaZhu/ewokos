@@ -16,7 +16,7 @@ static void read_config(uint32_t *w, uint32_t *h) {
 	*h = 0;
 	int32_t sz;
 	char* line = sd_read_ext2("/etc/kernel/framebuffer.conf", &sz);
-	if(line != NULL) {
+	if(line != NULL && sz > 0) {
 		line[sz] = 0;
 		for(int32_t i=0;i < sz; i++) {
 			if(line[i] == 'x') {
@@ -24,7 +24,6 @@ static void read_config(uint32_t *w, uint32_t *h) {
 				line[i] = 0;
 				*w = atoi(line);
 				*h = atoi(p);
-				printf("conf3 %s, %s, %d, %d\n", line, p, *w, *h);
 				break;
 			}
 		}
