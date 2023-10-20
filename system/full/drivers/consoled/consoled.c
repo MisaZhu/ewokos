@@ -103,8 +103,28 @@ static int reset_console(fb_console_t* console) {
 	return 0;
 }
 
+static void draw_bg(fb_console_t* console) {
+	int x = 0;
+	int y = 0;
+	bool shift = false;
+
+	graph_t* g = console->g;
+	graph_clear(g, console->console.textview.bg_color);
+
+	for(int i=0; y<g->h; i++) {
+		for(int j=0; x<g->w;j++) {
+			graph_pixel(g, x, y, 0xff555555);
+			x += 2;
+		}
+		x = shift ? 0:1;
+		shift = !shift;
+		y += 1;
+	}
+}
+
 static void flush(fb_console_t* console) {
-	graph_clear(console->g, console->console.textview.bg_color);
+	//graph_clear(console->g, console->console.textview.bg_color);
+	draw_bg(console);
 	if(console->display_index == 0) {
 		//draw cores
 		if(console->icon != NULL) {
