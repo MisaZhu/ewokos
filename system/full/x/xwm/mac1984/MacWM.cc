@@ -109,10 +109,10 @@ void MacWM::drawResize(graph_t* g, xinfo_t* info, grect_t* r, bool top) {
 	uint32_t fg, bg;
 	getColor(&fg, &bg, top);
 
-	graph_fill(g, r->x, r->y, r->w, r->h, bg);
-	graph_fill(g, r->x+3, r->y+3, r->w-6, r->h-6, 0xffaaaaaa);
-	graph_line(g, r->x+3, r->y+r->h-4, r->x+r->w-4, r->y+3, bg);
-	graph_box(g, r->x, r->y, r->w, r->h, fg);
+	graph_fill(g, r->x, r->y, r->w, r->h, bg & 0x88ffffff);
+	graph_fill(g, r->x+3, r->y+3, r->w-6, r->h-6, 0x88aaaaaa);
+	graph_line(g, r->x+3, r->y+r->h-4, r->x+r->w-4, r->y+3, bg & 0x88ffffff);
+	graph_box(g, r->x, r->y, r->w, r->h, fg & 0x88ffffff);
 }
 
 void MacWM::getTitle(xinfo_t* info, grect_t* rect) {
