@@ -328,7 +328,7 @@ static void* ext2_readfile(ext2_t* ext2, const char* fname, int32_t* size) {
 			return ret;
 		}
 
-		char *data = (char*)kmalloc(inode.i_size);
+		char *data = (char*)kmalloc(inode.i_size+1); //one more byte for string end.
 		if(data != NULL) {
 			ret = data;
 			uint32_t rd = 0;
@@ -339,8 +339,10 @@ static void* ext2_readfile(ext2_t* ext2, const char* fname, int32_t* size) {
 				data += sz;
 				rd += sz;
 			}
-			if(size != NULL)
+			if(size != NULL) {
+				((char*)ret)[rd] = 0;
 				*size = rd;
+			}
 		}
 	}
 	return ret;
