@@ -650,21 +650,21 @@ inline void proc_waitpid(context_t* ctx, int32_t pid) {
 }
 
 static void proc_wakeup_saved_state(int32_t pid, uint32_t event, proc_t* proc) {
-	if(proc->space->ipc_server.saved_state.block_by == pid &&
+	if((pid < 0 || proc->space->ipc_server.saved_state.block_by == pid) &&
 			(event == 0 || proc->space->ipc_server.saved_state.block_event == event)) {
 		proc->space->ipc_server.saved_state.state = READY;
 		proc->space->ipc_server.saved_state.block_by = -1;
 		proc->space->ipc_server.saved_state.block_event = 0;
 	}	
 
-	if(proc->space->signal.saved_state.block_by == pid &&
+	if((pid < 0 || proc->space->signal.saved_state.block_by == pid) &&
 			(event == 0 || proc->space->signal.saved_state.block_event == event)) {
 		proc->space->signal.saved_state.state = READY;
 		proc->space->signal.saved_state.block_by = -1;
 		proc->space->signal.saved_state.block_event = 0;
 	}
 
-	if(proc->space->interrupt.saved_state.block_by == pid &&
+	if((pid < 0 || proc->space->interrupt.saved_state.block_by == pid) &&
 			(event == 0 || proc->space->interrupt.saved_state.block_event == event)) {
 		proc->space->interrupt.saved_state.state = READY;
 		proc->space->interrupt.saved_state.block_by = -1;
@@ -683,8 +683,8 @@ void proc_wakeup(int32_t pid, uint32_t event) {
 				proc->info.state == ZOMBIE)
 			continue;
 
-		if((proc->block_event == event || event == 0) && 
-				proc->info.block_by == pid) {
+		if((event == 0 || proc->block_event == event) && 
+				(pid < 0 || proc->info.block_by == pid )) {
 			proc_ready(proc);
 			proc_wakeup_saved_state(pid, event, proc);
 		}
