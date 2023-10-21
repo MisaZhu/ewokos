@@ -652,26 +652,22 @@ inline void proc_waitpid(context_t* ctx, int32_t pid) {
 static void proc_wakeup_saved_state(int32_t pid, uint32_t event, proc_t* proc) {
 	ipc_task_t* ipc = proc_ipc_get_task(proc);
 	if(ipc != NULL &&
-			ipc->state != IPC_IDLE &&
 			proc->space->ipc_server.saved_state.block_by == pid &&
-			(event == 0 ||
-			proc->space->ipc_server.saved_state.block_event == event)) {
+			(event == 0 || proc->space->ipc_server.saved_state.block_event == event)) {
 		proc->space->ipc_server.saved_state.state = READY;
 		proc->space->ipc_server.saved_state.block_by = -1;
 		proc->space->ipc_server.saved_state.block_event = 0;
 	}	
 
 	if(proc->space->signal.saved_state.block_by == pid &&
-			proc->space->signal.saved_state.block_event == event) {
+			(event == 0 || proc->space->signal.saved_state.block_event == event)) {
 		proc->space->signal.saved_state.state = READY;
 		proc->space->signal.saved_state.block_by = -1;
 		proc->space->signal.saved_state.block_event = 0;
 	}
 
 	if(proc->space->interrupt.saved_state.block_by == pid &&
-			proc->space->interrupt.state != INTR_STATE_IDLE &&
-			proc->space->interrupt.saved_state.block_by == pid &&
-			proc->space->interrupt.saved_state.block_event == event) {
+			(event == 0 || proc->space->interrupt.saved_state.block_event == event) {
 		proc->space->interrupt.saved_state.state = READY;
 		proc->space->interrupt.saved_state.block_by = -1;
 		proc->space->interrupt.saved_state.block_event = 0;
