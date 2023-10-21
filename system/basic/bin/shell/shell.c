@@ -230,7 +230,7 @@ int main(int argc, char* argv[]) {
 		}
 		fd_in = open(argv[2], O_RDONLY);
 		if(fd_in < 0)
-			fd_in = 0;
+			return -1;
 	}
 
 	setenv("PATH", "/sbin:/bin:/bin/x");
@@ -249,15 +249,18 @@ int main(int argc, char* argv[]) {
 			break;
 
 		char* cmd = cmdstr->cstr;
-		if(cmd[0] == 0 || cmd[0] == '#')
+		if(cmd[0] == 0)
 			continue;
-		initrd_out(cmd);
-		
-		if(cmd[0] == '@')
-			cmd++;
+
+		if(_initrd) {
+			if(cmd[0] == '#')
+				continue;
+			initrd_out(cmd);
+			if(cmd[0] == '@')
+				cmd++;
+		}
 
 		add_history(cmdstr->cstr);
-
 		if(handle_shell_cmd(cmd) == 0)
 			continue;
 
@@ -270,7 +273,7 @@ int main(int argc, char* argv[]) {
 
 		int child_pid = fork();
 		if (child_pid == 0) {
-			if(fg == 0)
+			if(fg == 0 || _initrd)
 				proc_detach();
 			int res = run_cmd(cmd);
 			str_free(cmdstr);	
@@ -281,7 +284,7 @@ int main(int argc, char* argv[]) {
 		}
 	}
 
-	if(fd_in > 0)
+	if(fd_in > 0) //close initrd file
 		close(fd_in);
 	str_free(cmdstr);	
 	free_history();

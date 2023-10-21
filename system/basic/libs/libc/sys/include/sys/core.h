@@ -18,8 +18,8 @@ enum {
 	CORE_CMD_CLONE
 };
 
-void     schd_core_lock(); 
-void     schd_core_unlock(); 
+void     schd_core_lock(void); 
+void     schd_core_unlock(void); 
 
 #define neon_lock schd_core_lock
 #define neon_unlock schd_core_unlock

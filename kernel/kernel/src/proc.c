@@ -650,9 +650,7 @@ inline void proc_waitpid(context_t* ctx, int32_t pid) {
 }
 
 static void proc_wakeup_saved_state(int32_t pid, uint32_t event, proc_t* proc) {
-	ipc_task_t* ipc = proc_ipc_get_task(proc);
-	if(ipc != NULL &&
-			proc->space->ipc_server.saved_state.block_by == pid &&
+	if(proc->space->ipc_server.saved_state.block_by == pid &&
 			(event == 0 || proc->space->ipc_server.saved_state.block_event == event)) {
 		proc->space->ipc_server.saved_state.state = READY;
 		proc->space->ipc_server.saved_state.block_by = -1;
@@ -667,7 +665,7 @@ static void proc_wakeup_saved_state(int32_t pid, uint32_t event, proc_t* proc) {
 	}
 
 	if(proc->space->interrupt.saved_state.block_by == pid &&
-			(event == 0 || proc->space->interrupt.saved_state.block_event == event) {
+			(event == 0 || proc->space->interrupt.saved_state.block_event == event)) {
 		proc->space->interrupt.saved_state.state = READY;
 		proc->space->interrupt.saved_state.block_by = -1;
 		proc->space->interrupt.saved_state.block_event = 0;
@@ -680,14 +678,18 @@ void proc_wakeup(int32_t pid, uint32_t event) {
 		if(i >= PROC_MAX)
 			break;
 		proc_t* proc = &_proc_table[i];	
-		if(proc->info.state == BLOCK && 
-				(proc->block_event == event || event == 0) && 
+		i++;
+		if(proc->info.state == UNUSED ||
+				proc->info.state == ZOMBIE ||
+				proc->info.state == READY ||
+				proc->info.state == RUNNING)
+			continue;
+
+		if((proc->block_event == event || event == 0) && 
 				proc->info.block_by == pid) {
 			proc_ready(proc);
-		}
-		if(proc->info.state != UNUSED && proc->info.state != ZOMBIE)
 			proc_wakeup_saved_state(pid, event, proc);
-		i++;
+		}
 	}
 }
 
