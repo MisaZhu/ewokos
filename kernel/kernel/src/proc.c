@@ -680,9 +680,7 @@ void proc_wakeup(int32_t pid, uint32_t event) {
 		proc_t* proc = &_proc_table[i];	
 		i++;
 		if(proc->info.state == UNUSED ||
-				proc->info.state == ZOMBIE ||
-				proc->info.state == READY ||
-				proc->info.state == RUNNING)
+				proc->info.state == ZOMBIE)
 			continue;
 
 		if((proc->block_event == event || event == 0) && 
