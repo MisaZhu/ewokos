@@ -125,6 +125,7 @@ static void welcome(void) {
 		  "mem_size           %d MB\n"
 		  "mem_offset         0x%x\n"
 		  "mmio_base          0x%x\n"
+		  "schedule_freq      %d\n"
 		  "---------------------------------------------------\n\n",
 			_sys_info.machine,
 			_sys_info.arch,
@@ -132,7 +133,8 @@ static void welcome(void) {
 			_kernel_config.timer_freq,
 			_sys_info.phy_mem_size/1024/1024,
 			_sys_info.phy_offset,
-			_sys_info.mmio.phy_base);
+			_sys_info.mmio.phy_base,
+			_kernel_config.schedule_freq);
 }
 
 int32_t load_init_proc(void);
