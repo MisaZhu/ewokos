@@ -84,7 +84,7 @@ void sys_info_init(void) {
 		_sys_info.mmio.phy_base = 0x3f000000;
 	}
 #endif
-
+	strcpy(_sys_info.arch, "armv7");
 	_sys_info.phy_offset = 0;
 	_sys_info.kernel_base = KERNEL_BASE;
 	_sys_info.mmio.v_base = MMIO_BASE;

@@ -13,6 +13,8 @@ void sys_info_init(void) {
 	memset(&_sys_info, 0, sizeof(sys_info_t));
 
 	strcpy(_sys_info.machine, "versatilepb");
+	strcpy(_sys_info.arch, "armv6");
+
 	_sys_info.phy_offset = 0;
 	_sys_info.phy_mem_size = 256*MB;
 	_sys_info.kernel_base = KERNEL_BASE;
