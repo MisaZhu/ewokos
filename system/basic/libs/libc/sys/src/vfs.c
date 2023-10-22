@@ -124,7 +124,9 @@ static int read_pipe(uint32_t node, void* buf, uint32_t size, bool block) {
 	PF->clear(&out);
 
 	if(res == 0 && block == 1) {//empty , do retry
+		klog("pipe blocked %d\n", getpid());
 		proc_block(vfsd_pid, node);
+		klog("pipe free\n");
 	}
 	return res;	
 }
@@ -143,7 +145,8 @@ static int write_pipe(uint32_t node, const void* buf, uint32_t size, bool block)
 	PF->clear(&out);
 
 	if(res == 0 && block == 1) {//empty , do retry
-		proc_block(vfsd_pid, node); 
+		//proc_block(vfsd_pid, node); 
+		usleep(0);
 	}
 	return res;	
 }
