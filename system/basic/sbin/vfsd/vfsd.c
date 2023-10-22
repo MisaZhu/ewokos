@@ -840,10 +840,9 @@ static void do_vfs_pipe_write(int pid, proto_t* in, proto_t* out) {
 	int32_t size = 0;
 	void *data = proto_read(in, &size);
 	vfs_node_t* node = vfs_get_node_by_id(node_id);
-	proc_wakeup(node_id); //wakeup reader
 
 	if(size < 0 || data == NULL || node == NULL || node->refs < 2) { //closed by other peer
-		//proc_wakeup(node_id); //wakeup reader
+		proc_wakeup(node_id); //wakeup reader
 		return;
 	}
 
@@ -856,7 +855,7 @@ static void do_vfs_pipe_write(int pid, proto_t* in, proto_t* out) {
 	size = buffer_write(buffer, data, size);
 	if(size > 0) {
 		PF->clear(out)->addi(out, size);
-		//proc_wakeup(node_id); //wakeup reader
+		proc_wakeup(node_id); //wakeup reader
 		return;
 	}
 
