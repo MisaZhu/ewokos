@@ -58,7 +58,7 @@ void timer_set_interval(uint32_t id, uint32_t times_per_sec) {
 	volatile uint32_t* t = timer_addr_by_id(id);
 
 	if(times_per_sec  == 0)
-		times_per_sec = KERNEL_TIMER0_FREQ;
+		times_per_sec = MIN_SCHD_FREQ;
 
 	put32(t + TIMER_LOAD, ONE_SECOND/times_per_sec); 
 	uint8_t reg = TIMER_CTRL_32BIT |
