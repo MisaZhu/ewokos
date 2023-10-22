@@ -466,7 +466,6 @@ static void proc_file_close(int pid, int fd, file_t* file, bool close_dev) {
 			file->node = 0;
 		}
 		proc_wakeup(node_id);
-		klog("pipe closed done: %d\n", pid);
 	}
 
 	if(!close_dev)
