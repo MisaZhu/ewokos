@@ -10,7 +10,7 @@ kernel_conf_t _kernel_config;
 
 void load_kernel_config(void) {
 	uint32_t cores_max = get_cpu_cores();
-	_kernel_config.timer_freq = MIN_SCHD_FREQ;
+	_kernel_config.timer_freq = MIN_TIMER_FREQ;
 	_kernel_config.cores = cores_max; 
 	_kernel_config.schedule_freq = SCHEDULE_FREQ;
 
@@ -27,8 +27,8 @@ void load_kernel_config(void) {
 	v = sconf_get(sconf, "timer_freq");
 	if(v[0] != 0)
 		_kernel_config.timer_freq = atoi(v);
-	if(_kernel_config.timer_freq < MIN_SCHD_FREQ)
-		_kernel_config.timer_freq = MIN_SCHD_FREQ;
+	if(_kernel_config.timer_freq < MIN_TIMER_FREQ)
+		_kernel_config.timer_freq = MIN_TIMER_FREQ;
 
 	v = sconf_get(sconf, "schedule_freq");
 	if(v[0] != 0)

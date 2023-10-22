@@ -20,8 +20,8 @@
 void timer_set_interval(uint32_t id, uint32_t times_per_sec) {
 	(void)id;
 
-	if (times_per_sec < MIN_SCHD_FREQ)
-		times_per_sec = MIN_SCHD_FREQ;
+	if (times_per_sec < MIN_TIMER_FREQ)
+		times_per_sec = MIN_TIMER_FREQ;
 	put32(ARM_TIMER_CTL, 0x003E0000);
 	put32(ARM_TIMER_LOD, times_per_sec * 10 - 1);
 	put32(ARM_TIMER_RLD, times_per_sec * 10 - 1);

@@ -18,8 +18,8 @@ static uint32_t timer_interval;
 void timer_set_interval(uint32_t id, uint32_t times_per_sec) {
   csr_set(sie, SIE_STIE);
 
-  if (times_per_sec < MIN_SCHD_FREQ)
-    times_per_sec = MIN_SCHD_FREQ;
+  if (times_per_sec < MIN_TIMER_FREQ)
+    times_per_sec = MIN_TIMER_FREQ;
   timer_interval = DEFAULT_TIM_FREQ / times_per_sec;
 
   sbi_set_timer(csr_read(CSR_TIME) + timer_interval);

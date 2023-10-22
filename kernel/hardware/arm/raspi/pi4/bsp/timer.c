@@ -47,8 +47,8 @@ static inline void enable_cntv(void) {
 
 void timer_set_interval(uint32_t id, uint32_t times_per_sec) {
 	(void)id;
-	if (times_per_sec < MIN_SCHD_FREQ)
-		times_per_sec = MIN_SCHD_FREQ;
+	if (times_per_sec < MIN_TIMER_FREQ)
+		times_per_sec = MIN_TIMER_FREQ;
 	_timer_tval = read_cntfrq() / times_per_sec /20;
 	write_cntv_tval(_timer_tval);
 	enable_cntv();
