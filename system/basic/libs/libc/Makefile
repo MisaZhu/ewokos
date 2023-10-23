@@ -34,6 +34,28 @@ LIB_EWOKSYS_OBJS = sys/src/syscall.o \
 	sys/src/dma.o  \
 	sys/src/timer.o 
 
+#LIB_EWOKC_OBJS = \
+	src/string/ctype_.o  \
+	src/string/isctype.o  \
+	src/string/memchr.o  \
+	src/string/memcmp.o  \
+	src/string/memcpy.o  \
+	src/string/memmove.o  \
+	src/string/memset.o  \
+	src/string/strcasecmp.o  \
+	src/string/strcat.o  \
+	src/string/strchr.o  \
+	src/string/strcmp.o  \
+	src/string/strcpy.o  \
+	src/string/strdup.o  \
+	src/string/strlen.o  \
+	src/string/strncmp.o  \
+	src/string/strncpy.o  \
+	src/string/strstr.o  \
+	src/string/strtol.o  \
+	src/string/strtoul.o \
+	\
+
 LIB_EWOKC_OBJS = \
 	src/unistd/chdir.o \
 	src/unistd/dup.o \
