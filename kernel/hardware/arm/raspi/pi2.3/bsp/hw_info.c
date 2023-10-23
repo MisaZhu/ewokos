@@ -15,11 +15,31 @@ uint32_t _allocatable_phy_mem_top = 0;
 uint32_t _allocatable_phy_mem_base = 0;
 uint32_t _core_base_offset = 0;
 
-#ifdef PI4
 static bool isPi4B1G(uint32_t revision) {
-	return (revision == 0xa03111);
+	return (revision == 0xa03111 ||
+			revision == 0xa03112 ||
+			revision == 0xa03115);
 }
-#else
+
+static bool isPi4B2G(uint32_t revision) {
+	return (revision == 0xb03111 ||
+			revision == 0xb03112 ||
+			revision == 0xb03114 ||
+			revision == 0xa03115);
+}
+
+static bool isPi4B4G(uint32_t revision) {
+	return (revision == 0xc03111 ||
+			revision == 0xc03112 ||
+			revision == 0xc03114 ||
+			revision == 0xc03115);
+}
+
+static bool isPi4B8G(uint32_t revision) {
+	return (revision == 0xd03114 ||
+			revision == 0xd03115);
+}
+
 static bool isPi2B(uint32_t revision) {
 	return (revision == 0xa01040 ||
 			revision == 0xa01041 ||
@@ -47,7 +67,6 @@ static bool isPi3B(uint32_t revision) {
 			revision == 0xa52082 ||
 			revision == 0xa22083);
 }
-#endif
 	
 #define FB_SIZE 64*MB
 #define DMA_SIZE 256*KB
@@ -55,15 +74,27 @@ static bool isPi3B(uint32_t revision) {
 void sys_info_init(void) {
 	memset(&_sys_info, 0, sizeof(sys_info_t));
 	uint32_t pix_revision = bcm283x_board();
-
-#ifdef PI4
-	strcpy(_sys_info.machine, "raspi4B1G");
-	_sys_info.phy_mem_size = 1024*MB;
-	_sys_info.mmio.phy_base = 0xfe000000;
-	_core_base_offset =  0x01800000;
-#else
 	_core_base_offset =  0x01000000;
-	if(isPi2B(pix_revision)) {
+
+	if(isPi4B1G(pix_revision)) {
+		strcpy(_sys_info.machine, "raspi4B1G");
+		_sys_info.phy_mem_size = 1024*MB;
+		_sys_info.mmio.phy_base = 0xfe000000;
+		_core_base_offset =  0x01800000;
+	}
+	else if(isPi4B2G(pix_revision)) {
+		strcpy(_sys_info.machine, "raspi4B2G");
+		_sys_info.phy_mem_size = 2048*MB;
+		_sys_info.mmio.phy_base = 0xfe000000;
+		_core_base_offset =  0x01800000;
+	}
+	else if(isPi4B4G(pix_revision) || isPi4B8G(pix_revision)) {
+		strcpy(_sys_info.machine, "raspi4B4G");
+		_sys_info.phy_mem_size = 4096*MB;
+		_sys_info.mmio.phy_base = 0xfe000000;
+		_core_base_offset =  0x01800000;
+	}
+	else if(isPi2B(pix_revision)) {
 		strcpy(_sys_info.machine, "raspi2B");
 		_sys_info.phy_mem_size = 1024*MB;
 		_sys_info.mmio.phy_base = 0x3f000000;
@@ -83,7 +114,7 @@ void sys_info_init(void) {
 		_sys_info.phy_mem_size = 1024*MB;
 		_sys_info.mmio.phy_base = 0x3f000000;
 	}
-#endif
+
 	strcpy(_sys_info.arch, "armv7");
 	_sys_info.phy_offset = 0;
 	_sys_info.kernel_base = KERNEL_BASE;
