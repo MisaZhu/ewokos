@@ -1,0 +1,23 @@
+CFLAGS = -I../lib/bcm283x/include
+
+ARCH_OBJS += $(BSP_DIR)/hw_info.o \
+	$(BSP_DIR)/irq_pi4.o \
+	$(BSP_DIR)/timer_pi4.o \
+	$(BSP_DIR)/sd.o  \
+	$(BSP_DIR)/fb.o  \
+	$(BSP_DIR)/uart.o \
+	$(BSP_DIR)/start.o
+
+ARCH_OBJS += ../lib/bcm283x/src/gpio.o \
+	../lib/bcm283x/src/sd.o \
+	../lib/bcm283x/src/mailbox.o \
+	../lib/bcm283x/src/pl011_uart.o \
+	../lib/bcm283x/src/mini_uart.o \
+	../lib/bcm283x/src/board.o \
+	../lib/bcm283x/src/framebuffer.o
+
+ifeq ($(SMP),yes)
+ARCH_OBJS += $(BSP_DIR)/ipi_pi4.o \
+	$(BSP_DIR)/core_pi4.o
+endif
+
