@@ -2,7 +2,8 @@
 #include <dev/sd.h>
 #include <bcm283x/gpio.h>
 
-void sd_init_gpio(void){
+/*
+static void sd_init_gpio(void){
 	int64_t r;
 	
 	// GPIO_IO_CD
@@ -43,8 +44,12 @@ void sd_init_gpio(void){
 	*GPIO_PUD = 0;
 	*GPIO_PUDCLK1 = 0;
 }
+*/
 
 int32_t sd_init(void) {
+#ifdef PI4
+	 *(uint32_t*)(MMIO_BASE + 0x2000d0) |= 0x2;
+#endif
 	return bcm283x_sd_init();
 }
 
