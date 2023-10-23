@@ -5,9 +5,10 @@
 /bin/rundev /drivers/fontd           /dev/font /usr/system/fonts/system.ttf
 /bin/rundev /drivers/consoled        /dev/console0
 
-#/bin/rundev /drivers/timerd               /dev/timer
+/bin/rundev /drivers/timerd               /dev/timer
+/bin/rundev /drivers/ramfsd               /tmp
+
 #/bin/rundev /drivers/nulld                /dev/null
-#/bin/rundev /drivers/ramfsd               /tmp
 #/bin/rundev /drivers/proc/sysinfod        /proc/sysinfo
 #/bin/rundev /drivers/proc/stated          /proc/state
 
