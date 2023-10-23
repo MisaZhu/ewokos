@@ -187,6 +187,7 @@ static void try_init_stdio(void) {
 		if(fd > 0) {
 			dup2(fd, 0);
 			dup2(fd, 1);
+			dup2(fd, 2);
 			close(fd);
 			_stdio_inited = true;
 		}
