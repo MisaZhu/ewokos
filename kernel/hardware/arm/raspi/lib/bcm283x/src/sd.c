@@ -319,48 +319,11 @@ int32_t bcm283x_sd_init(void) {
 	_sdc.txdone = 1;
 
 	int64_t r, cnt, ccs = 0;
-	// GPIO_IO_CD
-	r = *GPIO_FSEL4;
-	r &= ~(7<<(7*3));
-	*GPIO_FSEL4 = r;
-	*GPIO_PUD=2;
-	_delay(150);
 	
-	*GPIO_PUDCLK1 = (1<<15);
-	_delay(150);
-	
-	*GPIO_PUD = 0;
-	*GPIO_PUDCLK1 = 0;
-	r = *GPIO_HEN1;
-	r |= 1<<15;
-	*GPIO_HEN1 = r;
-
-	// GPIO_IO_CLK, GPIO_IO_CMD
-	r = *GPIO_FSEL4;
-	r |= (7<<(8*3)) | (7<<(9*3));
-	*GPIO_FSEL4 = r;
-	*GPIO_PUD=2;
-	_delay(150);
-	*GPIO_PUDCLK1 = (1<<16)|(1<<17); 
-	_delay(150);
-	*GPIO_PUD = 0; 
-	*GPIO_PUDCLK1 = 0;
-
-	// GPIO_IO_DAT0, GPIO_IO_DAT1, GPIO_IO_DAT2, GPIO_IO_DAT3
-	r = *GPIO_FSEL5;
-	r |= (7<<(0*3)) | (7<<(1*3)) | (7<<(2*3)) | (7<<(3*3));
-	*GPIO_FSEL5 = r;
-	*GPIO_PUD = 2; 
-	_delay(150);
-	*GPIO_PUDCLK1 = (1<<18) | (1<<19) | (1<<20) | (1<<21);
-	_delay(150);
-	*GPIO_PUD = 0;
-	*GPIO_PUDCLK1 = 0;
-
 	sd_hv = (*EMMC_SLOTISR_VER & HOST_SPEC_NUM) >> HOST_SPEC_NUM_SHIFT;
 	// Reset the card.
 	*EMMC_CONTROL0 = 0;
-	*EMMC_CONTROL1 |= C1_SRST_HC;
+	*EMMC_CONTROL1 |= C1_SRST_HC|C1_SRST_DATA|C1_SRST_CMD;;
 	cnt = 10000;
 	do{
 		_delay_msec(10);
