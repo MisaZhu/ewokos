@@ -89,7 +89,7 @@ void sys_info_init(void) {
 	_sys_info.phy_offset = 0;
 	_sys_info.kernel_base = KERNEL_BASE;
 	_sys_info.mmio.v_base = MMIO_BASE;
-	_sys_info.mmio.size = 16*MB;
+	_sys_info.mmio.size = 30*MB;
 
 	_sys_info.dma.size = DMA_SIZE;
 	_allocatable_phy_mem_base = V2P(ALLOCATABLE_MEMORY_START);
