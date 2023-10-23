@@ -77,40 +77,40 @@ void sys_info_init(void) {
 	_core_base_offset =  0x01000000;
 
 	if(isPi4B1G(pix_revision)) {
-		strcpy(_sys_info.machine, "raspi4B1G");
+		strcpy(_sys_info.machine, "raspberry-pi4b-1g");
 		_sys_info.phy_mem_size = 1024*MB;
 		_sys_info.mmio.phy_base = 0xfe000000;
 		_core_base_offset =  0x01800000;
 	}
 	else if(isPi4B2G(pix_revision)) {
-		strcpy(_sys_info.machine, "raspi4B2G");
+		strcpy(_sys_info.machine, "raspberry-pi4b-2G");
 		_sys_info.phy_mem_size = 2048*MB;
 		_sys_info.mmio.phy_base = 0xfe000000;
 		_core_base_offset =  0x01800000;
 	}
 	else if(isPi4B4G(pix_revision) || isPi4B8G(pix_revision)) {
-		strcpy(_sys_info.machine, "raspi4B4G");
+		strcpy(_sys_info.machine, "raspberry-pi4b-4G");
 		_sys_info.phy_mem_size = 4096*MB;
 		_sys_info.mmio.phy_base = 0xfe000000;
 		_core_base_offset =  0x01800000;
 	}
 	else if(isPi2B(pix_revision)) {
-		strcpy(_sys_info.machine, "raspi2B");
+		strcpy(_sys_info.machine, "raspberry-pi2b");
 		_sys_info.phy_mem_size = 1024*MB;
 		_sys_info.mmio.phy_base = 0x3f000000;
 	}
 	else if(isPi3A(pix_revision)) {
-		strcpy(_sys_info.machine, "raspi3A");
+		strcpy(_sys_info.machine, "raspberry-pi3a");
 		_sys_info.phy_mem_size = 512*MB;
 		_sys_info.mmio.phy_base = 0x3f000000;
 	}
 	else if(isPi2W(pix_revision)) {
-		strcpy(_sys_info.machine, "raspi2w");
+		strcpy(_sys_info.machine, "raspberry-pi2w");
 		_sys_info.phy_mem_size = 512*MB;
 		_sys_info.mmio.phy_base = 0x3f000000;
 	}
 	else if(isPi3B(pix_revision)) {
-		strcpy(_sys_info.machine, "raspi3B");
+		strcpy(_sys_info.machine, "raspberry-pi3b");
 		_sys_info.phy_mem_size = 1024*MB;
 		_sys_info.mmio.phy_base = 0x3f000000;
 	}

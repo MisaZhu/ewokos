@@ -97,8 +97,8 @@ int main(int argc, char** argv) {
 
 	sys_info_t sysinfo;
 	syscall1(SYS_GET_SYS_INFO, (int32_t)&sysinfo);
-	if(strcmp(sysinfo.machine, "raspi1") == 0 ||
-			strcmp(sysinfo.machine, "raspi2B") == 0)  {
+	if(strcmp(sysinfo.machine, "raspberry-pi1") == 0 ||
+			strcmp(sysinfo.machine, "raspberry-pi2b") == 0)  {
 		strcpy(dev.name, "pl011_uart");
 		_mini_uart = false;
 	}
