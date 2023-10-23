@@ -1,7 +1,14 @@
 #include <bcm283x/sd.h>
 #include <dev/sd.h>
+#include <mm/mmu.h>
 
 int32_t sd_init(void) {
+	/*
+	* https://forums.raspberrypi.com/viewtopic.php?p=1953489
+	* raspberry-pi's official github repo has some commentary on 
+	* switching to the old EMMC controller 
+	*/
+	 *(uint32_t*)(MMIO_BASE + 0x2000d0) |= 0x2;
 	return bcm283x_sd_init();
 }
 
