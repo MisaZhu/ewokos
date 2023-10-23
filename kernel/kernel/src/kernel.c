@@ -117,17 +117,24 @@ static void welcome(void) {
 			"| (___  | || || || |__| || ( \\  \\ | |__| |  ___) |\n"
 			"(______/(_______)(______)|_/  \\_/ (______)\\______)\n\n");
                                                       
-	printf("machine        %s\n" 
-		   "arch           %s\n"
-		   "mem_size       %d MB\n"
-		   "mem_offset     0x%x\n"
-		   "mmio_base      0x%x\n"
-		   "---------------------------------------------------\n\n",
+	printf(
+			"machine            %s\n" 
+		  "arch               %s\n"
+		  "cores              %d\n"
+		  "kernel_timer_freq  %d\n"
+		  "mem_size           %d MB\n"
+		  "mem_offset         0x%x\n"
+		  "mmio_base          0x%x\n"
+		  "schedule_freq      %d\n"
+		  "---------------------------------------------------\n\n",
 			_sys_info.machine,
 			_sys_info.arch,
+			_kernel_config.cores,
+			_kernel_config.timer_freq,
 			_sys_info.phy_mem_size/1024/1024,
 			_sys_info.phy_offset,
-			_sys_info.mmio.phy_base);
+			_sys_info.mmio.phy_base,
+			_kernel_config.schedule_freq);
 }
 
 int32_t load_init_proc(void);
@@ -147,6 +154,8 @@ void _kernel_entry_c(void) {
 	kev_init();
 
 	sd_init();
+
+	load_kernel_config();
 
 #ifdef KCONSOLE
 	kconsole_init();
@@ -185,7 +194,7 @@ void _kernel_entry_c(void) {
 #endif
 
 	printf("kernel: set timer.\n");
-	timer_set_interval(0, KERNEL_TIMER0_FREQ); 
+	timer_set_interval(0, _kernel_config.timer_freq); 
 
 	printf("kernel: enable irq and start init...\n");
 

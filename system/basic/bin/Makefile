@@ -2,6 +2,7 @@ all: builtin_apps
 	@echo "all done."
 
 builtin_apps:
+	cd cp;make
 	cd rundev;make
 	cd test;make
 	cd echo;make
@@ -24,6 +25,7 @@ builtin_apps:
 	cd rx;make
 
 clean:
+	cd cp;make clean
 	cd rundev;make clean
 	cd test;make clean
 	cd echo;make clean

@@ -323,7 +323,7 @@ int32_t bcm283x_sd_init(void) {
 	sd_hv = (*EMMC_SLOTISR_VER & HOST_SPEC_NUM) >> HOST_SPEC_NUM_SHIFT;
 	// Reset the card.
 	*EMMC_CONTROL0 = 0;
-	*EMMC_CONTROL1 |= C1_SRST_HC|C1_SRST_DATA|C1_SRST_CMD;;
+	*EMMC_CONTROL1 |= C1_SRST_HC|C1_SRST_DATA|C1_SRST_CMD;
 	cnt = 10000;
 	do{
 		_delay_msec(10);

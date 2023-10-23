@@ -66,9 +66,8 @@ static void draw_bg(graph_t* g) {
 	bool shift = false;
 
 	graph_clear(g, 0xffffffff);
-
-	for(int i=0; y<g->h; i++) {
-		for(int j=0; x<g->w;j++) {
+	while(y < g->h) {
+		while(x < g->w) {
 			graph_pixel(g, x, y, 0xff555555);
 			x += 2;
 		}

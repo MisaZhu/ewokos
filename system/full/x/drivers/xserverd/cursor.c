@@ -1,6 +1,10 @@
 #include "cursor.h"
 #include <string.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <sconf/sconf.h>
 #include <upng/upng.h>
+#include <x/x.h>
 
 static inline void draw_cursor_raw(graph_t* g, int mx, int my, int mw, int mh, bool down) {
 	(void)down;
@@ -21,29 +25,43 @@ void draw_cursor(graph_t* g, cursor_t* cursor, int mx, int my) {
 }
 
 void cursor_init(const char* theme, cursor_t* cursor) {
+	cursor->img = NULL;
+	cursor->size.w = 21;
+	cursor->size.h = 21;
+	cursor->offset.x = cursor->size.w/2;
+	cursor->offset.y = cursor->size.h/2;
+
 	char fname[256] = "";
-	if(cursor->type == CURSOR_TOUCH) {
-		if(theme == NULL || theme[0] == 0)
-			theme = "default";
-		snprintf(fname, 255, "/usr/x/themes/%s/xwm/cursors/touch.png", theme);
-	}
-	else if(cursor->type == CURSOR_MOUSE) {
-		if(theme == NULL || theme[0] == 0)
-			theme = "default";
-		snprintf(fname, 255, "/usr/x/themes/%s/xwm/cursors/mouse.png", theme);
-	}
+	snprintf(fname, 255, "%s/%s/xwm/cursors/%s.conf", X_THEME_ROOT, theme,
+			cursor->type == CURSOR_MOUSE ? "mouse":"touch");
+	sconf_t* sconf = sconf_load(fname);
+	if(sconf == NULL)
+		return;
 
-	if(fname[0] != 0)
-		cursor->img = png_image_new(fname);
+	const char* v = sconf_get(sconf, "x_offset");
+	if(v[0] != 0)
+		cursor->offset.x = atoi(v);
 
-	if(cursor->img == NULL) {
-		cursor->size.w = 21;
-		cursor->size.h = 21;
-		cursor->offset.x = cursor->size.w/2;
-		cursor->offset.y = cursor->size.h/2;
+	v = sconf_get(sconf, "y_offset");
+	if(v[0] != 0)
+		cursor->offset.y = atoi(v);
+	
+	v = sconf_get(sconf, "cursor");
+	if(v[0] != 0) {
+		if(v[0] != '/')
+			snprintf(fname, 255, "%s/%s/xwm/%s", X_THEME_ROOT, theme, v);
+		else
+			strncpy(fname, v, 255);
 	}
-	else {
+	cursor->img = png_image_new(fname);
+
+	if(cursor->img != NULL) { 
 		cursor->size.w = cursor->img->w; 
 		cursor->size.h = cursor->img->h; 
+		if(cursor->offset.x >= cursor->size.w)
+			cursor->offset.x = cursor->size.w - 1;
+		if(cursor->offset.y >= cursor->size.h)
+			cursor->offset.y = cursor->size.h - 1;
 	}
+	sconf_free(sconf);
 }

@@ -116,6 +116,7 @@ inline void __attribute__((optimize("O0"))) start_core(uint32_t core_id) { //TOD
 void sys_info_init(void) {
 	memset(&_sys_info, 0, sizeof(sys_info_t));
 	strcpy(_sys_info.machine, "rk3128");
+	strcpy(_sys_info.arch, "armv7");
 	_sys_info.phy_offset = 0x60000000;
 	_sys_info.vector_base = _sys_info.phy_offset;
 	_sys_info.phy_mem_size = 256*MB;

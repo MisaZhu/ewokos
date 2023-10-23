@@ -51,8 +51,6 @@ static inline int32_t irq_do_timer0_interrupt(context_t* ctx) {
 	return interrupt_send(ctx, SYS_INT_TIMER0);
 }
 
-#define SCHEDULE_TIC     600 // usecs (timer/schedule)
-
 static inline void irq_do_timer0(context_t* ctx) {
 	(void)ctx;
 	uint64_t usec = timer_read_sys_usec();
@@ -76,7 +74,7 @@ static inline void irq_do_timer0(context_t* ctx) {
 	}
 	timer_clear_interrupt(0);
 
-	if(_timer_tic >= SCHEDULE_TIC) {
+	if(_timer_tic >= _kernel_config.schedule_freq) {
 		_timer_tic = 0;
 		if(_schedule == 0) { //this tic not for schedule, do timer interrupt.
 			_schedule = 1; //next tic for schedule

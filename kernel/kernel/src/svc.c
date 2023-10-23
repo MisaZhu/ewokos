@@ -467,27 +467,31 @@ static void sys_proc_ready_ping(void) {
 }
 
 static void sys_get_kevent(context_t* ctx) {
-	ctx->gpr[0] = 0;	
 	kevent_t* kev = kev_pop();
+	ctx->gpr[0] = (int32_t)kev;	
+
 	if(kev == NULL) {
 		proc_block_on(-1, (uint32_t)kev_init);
 		schedule(ctx);	
-		return;
 	}
-	ctx->gpr[0] = (int32_t)kev;	
 }
 
-static void sys_proc_block(context_t* ctx, int32_t pid, uint32_t evt) {
-	proc_t* proc_by = proc_get_proc(proc_get(pid));
+static void sys_proc_block(context_t* ctx, int32_t pid_by, uint32_t evt) {
+	proc_t* proc_by = proc_get_proc(proc_get(pid_by));
 	if(proc_by != NULL) {
-		proc_block_on(proc_by->info.pid, evt);
-		schedule(ctx);	
+		if(proc_by->block_refs > 0)
+			proc_by->block_refs--;
+		else {
+			proc_block_on(proc_by->info.pid, evt);
+			schedule(ctx);	
+		}
 	}
 }
 
 static void sys_proc_wakeup(context_t* ctx, uint32_t evt) {
 	(void)ctx;
 	proc_t* proc = proc_get_proc(get_current_proc());
+	proc->block_refs++;
 	proc_wakeup(proc->info.pid, evt);
 }
 
@@ -557,7 +561,7 @@ static inline void sys_schd_core_lock(void) {
 	cproc->schd_core_lock_counter = SCHD_CORE_LOCK_LIMIT;
 }
 
-static inline void sys_schd_core_unlock(context_t* ctx) {
+static inline void sys_schd_core_unlock(void) {
 	proc_t* cproc = get_current_proc();
 	cproc->schd_core_lock_counter = 0;
 }
@@ -733,7 +737,7 @@ static inline void _svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_
 		sys_schd_core_lock();
 		return;	
 	case SYS_SCHD_CORE_UNLOCK:	
-		sys_schd_core_unlock(ctx);
+		sys_schd_core_unlock();
 		return;	
 	case SYS_CLOSE_KCONSOLE:	
 		sys_root();

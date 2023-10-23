@@ -69,10 +69,10 @@ static void get_close(xinfo_t* info, grect_t* rect, void* p) {
 }
 
 void XWM::getResize(xinfo_t* info, grect_t* rect) {
-	rect->x = info->wsr.x + info-> wsr.w - 16;
-	rect->y = info->wsr.y + info-> wsr.h - 16;
-	rect->w = 16 + frameW - 1;
-	rect->h = 16 + frameW - 1;
+	rect->x = info->wsr.x + info-> wsr.w - 20;
+	rect->y = info->wsr.y + info-> wsr.h - 20;
+	rect->w = 20 + frameW - 1;
+	rect->h = 20 + frameW - 1;
 }
 
 static void get_resize(xinfo_t* info, grect_t* rect, void* p) {

@@ -4,7 +4,7 @@
 #include <kprintf.h>
 #include <stddef.h>
 #include <console/console.h>
-#include <ext2read.h>
+#include <sconf.h>
 #include <atoi.h>
 
 static console_t _console;
@@ -12,23 +12,17 @@ static uint32_t _line;
 static graph_t* _fb_g = NULL;
 
 static void read_config(uint32_t *w, uint32_t *h) {
-	*w = 0;
-	*h = 0;
-	int32_t sz;
-	char* line = sd_read_ext2("/etc/kernel/framebuffer.conf", &sz);
-	if(line != NULL && sz > 0) {
-		line[sz] = 0;
-		for(int32_t i=0;i < sz; i++) {
-			if(line[i] == 'x') {
-				char* p = line + i + 1;
-				line[i] = 0;
-				*w = atoi(line);
-				*h = atoi(p);
-				break;
-			}
-		}
-		kfree(line);
-	}
+	sconf_t* sconf = sconf_load("/etc/kernel/framebuffer.conf");
+	if(sconf == NULL)
+		return;
+	const char* v = sconf_get(sconf, "width");
+	if(v[0] != 0)
+		*w = atoi(v);
+
+	v = sconf_get(sconf, "height");
+	if(v[0] != 0)
+		*h = atoi(v);
+	sconf_free(sconf);
 
 	if(*w == 0)
 		*w = 640;
@@ -43,7 +37,7 @@ void kconsole_init(void) {
 	uint32_t w = 640, h = 480;
 
 	console_init(&_console);
-	//read_config(&w, &h);
+	read_config(&w, &h);
 	//printf("\nkernel: init framebuffer ... ");
 	if(fb_init(w, h, &fbinfo) != 0) {
 		//printf("[failed]\n");

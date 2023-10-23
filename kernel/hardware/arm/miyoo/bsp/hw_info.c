@@ -20,6 +20,7 @@ void sys_info_init(void) {
 	_core_base_offset =  0x01000000;
 
 	strcpy(_sys_info.machine, "miyoo-mini");
+	strcpy(_sys_info.arch, "armv7");
 	_sys_info.phy_offset = 0x20000000;
 	_sys_info.vector_base = 0x20000000;
 	_sys_info.phy_mem_size = 128*MB;

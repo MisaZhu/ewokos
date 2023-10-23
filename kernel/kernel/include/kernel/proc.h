@@ -86,6 +86,7 @@ typedef struct st_proc {
 	int64_t           sleep_counter; //sleep usec
 	uint32_t          schd_core_lock_counter; //schd_core_lock usec
 	uint32_t          run_usec_counter; //run time usec
+	uint32_t          block_refs;
 	proc_space_t*     space;
 
 	union {

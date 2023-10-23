@@ -29,13 +29,15 @@ typedef struct {
 
 static int32_t read_config(fb_console_t* console, const char* fname) {
 	const char* font_fname =  DEFAULT_SYSTEM_FONT;
-	uint32_t font_size = 16;
+	uint32_t font_size = 12;
 	console->console.textview.fg_color = 0xffcccccc;
 	console->console.textview.bg_color = 0xff000000;
 
 	sconf_t *conf = sconf_load(fname);	
-	if(conf == NULL)
+	if(conf == NULL) {
+		font_load(font_fname, font_size, &console->console.textview.font, true);
 		return -1;
+	}	
 
 	const char* v = sconf_get(conf, "icon");
 	if(v[0] != 0) 
@@ -104,15 +106,14 @@ static int reset_console(fb_console_t* console) {
 }
 
 static void draw_bg(fb_console_t* console) {
-	int x = 0;
-	int y = 0;
-	bool shift = false;
-
 	graph_t* g = console->g;
 	graph_clear(g, console->console.textview.bg_color);
 
-	for(int i=0; y<g->h; i++) {
-		for(int j=0; x<g->w;j++) {
+	/*int x = 0;
+	int y = 0;
+	bool shift = false;
+	while(y < g->h) {
+		while(x < g->w) {
 			graph_pixel(g, x, y, 0xff555555);
 			x += 2;
 		}
@@ -120,11 +121,12 @@ static void draw_bg(fb_console_t* console) {
 		shift = !shift;
 		y += 1;
 	}
+	*/
 }
 
 static void flush(fb_console_t* console) {
-	//graph_clear(console->g, console->console.textview.bg_color);
 	draw_bg(console);
+
 	if(console->display_index == 0) {
 		//draw cores
 		if(console->icon != NULL) {
