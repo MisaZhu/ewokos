@@ -2,7 +2,7 @@
 #include <kernel/irq.h>
 #include <kernel/kernel.h>
 #include <mm/mmu.h>
-#include "timer_arch.h"
+#include "../timer_arch.h"
 
 #define GIC_DEFAULT_FREQ	6000000
 uint32_t _timer_tval  = 0;

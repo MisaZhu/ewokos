@@ -5,6 +5,7 @@
 #include <stdbool.h>
 #include <bcm283x/board.h>
 #include <bcm283x/framebuffer.h>
+#include "uart_arch.h"
 
 #ifdef KERNEL_SMP
 #include <kernel/core.h>
@@ -14,6 +15,7 @@ sys_info_t _sys_info;
 uint32_t _allocatable_phy_mem_top = 0;
 uint32_t _allocatable_phy_mem_base = 0;
 uint32_t _core_base_offset = 0;
+uint32_t _uart_type = UART_MINI;
 
 static bool isPi4B1G(uint32_t revision) {
 	return (revision == 0xa03111 ||
@@ -98,6 +100,7 @@ void sys_info_init(void) {
 		strcpy(_sys_info.machine, "raspberry-pi2b");
 		_sys_info.phy_mem_size = 1024*MB;
 		_sys_info.mmio.phy_base = 0x3f000000;
+		_uart_type = UART_PL011;
 	}
 	else if(isPi3A(pix_revision)) {
 		strcpy(_sys_info.machine, "raspberry-pi3a");

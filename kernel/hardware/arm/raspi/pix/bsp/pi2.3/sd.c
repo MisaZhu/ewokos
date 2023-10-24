@@ -47,9 +47,6 @@ static void sd_init_gpio(void){
 */
 
 int32_t sd_init(void) {
-#ifdef PI4
-	 *(uint32_t*)(MMIO_BASE + 0x2000d0) |= 0x2;
-#endif
 	return bcm283x_sd_init();
 }
 

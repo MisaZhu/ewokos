@@ -1,7 +1,7 @@
 #include <kernel/irq.h>
 #include <kernel/kernel.h>
 #include <kernel/hw_info.h>
-#include "timer_arch.h"
+#include "../timer_arch.h"
 
 #define CORE0_IRQ_CNTL_OFFSET    0x40
 #define CORE0_IRQ_SOURCE_OFFSET  0x60

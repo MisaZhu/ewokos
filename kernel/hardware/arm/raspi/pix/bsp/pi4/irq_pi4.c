@@ -1,7 +1,7 @@
 #include <kernel/irq.h>
 #include <kernel/kernel.h>
 #include <kernel/hw_info.h>
-#include "timer_arch.h"
+#include "../timer_arch.h"
 
 void irq_arch_init(void) {
 	//routing_core0_irq();
