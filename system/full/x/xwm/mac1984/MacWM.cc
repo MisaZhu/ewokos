@@ -71,7 +71,7 @@ void MacWM::drawDesktop(graph_t* g) {
 }
 
 void MacWM::drawTitlePattern(graph_t* g, int x, int y, int w, int h, uint32_t fg) {
-	int step = 3;
+	int step = 2;
 	y = y + step+2;
 	int steps = (h-2) / step;
 
