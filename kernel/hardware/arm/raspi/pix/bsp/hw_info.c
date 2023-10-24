@@ -5,7 +5,7 @@
 #include <stdbool.h>
 #include <bcm283x/board.h>
 #include <bcm283x/framebuffer.h>
-#include "uart_arch.h"
+#include "hw_arch.h"
 
 #ifdef KERNEL_SMP
 #include <kernel/core.h>
@@ -16,6 +16,7 @@ uint32_t _allocatable_phy_mem_top = 0;
 uint32_t _allocatable_phy_mem_base = 0;
 uint32_t _core_base_offset = 0;
 uint32_t _uart_type = UART_MINI;
+uint32_t _pi4 = 0;
 
 static bool isPi4B1G(uint32_t revision) {
 	return (revision == 0xa03111 ||
@@ -77,24 +78,28 @@ void sys_info_init(void) {
 	memset(&_sys_info, 0, sizeof(sys_info_t));
 	uint32_t pix_revision = bcm283x_board();
 	_core_base_offset =  0x01000000;
+	_pi4 = 0;
 
 	if(isPi4B1G(pix_revision)) {
 		strcpy(_sys_info.machine, "raspberry-pi4b-1g");
 		_sys_info.phy_mem_size = 1024*MB;
 		_sys_info.mmio.phy_base = 0xfe000000;
 		_core_base_offset =  0x01800000;
+		_pi4 = 1;
 	}
 	else if(isPi4B2G(pix_revision)) {
 		strcpy(_sys_info.machine, "raspberry-pi4b-2G");
 		_sys_info.phy_mem_size = 2048*MB;
 		_sys_info.mmio.phy_base = 0xfe000000;
 		_core_base_offset =  0x01800000;
+		_pi4 = 1;
 	}
 	else if(isPi4B4G(pix_revision) || isPi4B8G(pix_revision)) {
 		strcpy(_sys_info.machine, "raspberry-pi4b-4G");
 		_sys_info.phy_mem_size = 4096*MB;
 		_sys_info.mmio.phy_base = 0xfe000000;
 		_core_base_offset =  0x01800000;
+		_pi4 = 1;
 	}
 	else if(isPi2B(pix_revision)) {
 		strcpy(_sys_info.machine, "raspberry-pi2b");
@@ -154,6 +159,9 @@ void arch_vm(page_dir_entry_t* vm) {
 			AP_RW_D, PTE_ATTR_DEV);
 	}
 #endif
+
+	if(_pi4)
+	 	*(uint32_t*)(MMIO_BASE + 0x2000d0) |= 0x2;
 }
 
 

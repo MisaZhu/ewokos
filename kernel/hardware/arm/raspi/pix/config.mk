@@ -4,7 +4,7 @@ ARCH_CFLAGS = -march=armv7ve
 ARCH=v7
 
 #----PI4-------
-PI4=yes
+#PI4=yes
 #----enable DPI display---
 #DPI=yes
 #----multi core(SMP)------

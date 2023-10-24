@@ -1,5 +1,5 @@
-#ifndef UART_ARCH_H
-#define UART_ARCH_H
+#ifndef HW_ARCH_H
+#define HW_ARCH_H
 
 #include <stdint.h>
 
@@ -9,5 +9,6 @@ enum {
 };
 
 extern uint32_t _uart_type;
+extern uint32_t _pi4;
 
 #endif

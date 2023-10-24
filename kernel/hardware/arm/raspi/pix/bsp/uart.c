@@ -3,7 +3,7 @@
 #include <bcm283x/mini_uart.h>
 #include <kernel/hw_info.h>
 #include <kstring.h>
-#include "uart_arch.h"
+#include "hw_arch.h"
 
 int32_t uart_dev_init(void) {
 	if(_uart_type == UART_PL011)

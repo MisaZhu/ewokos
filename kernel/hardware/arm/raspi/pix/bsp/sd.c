@@ -1,9 +1,11 @@
 #include <bcm283x/sd.h>
 #include <dev/sd.h>
 #include <bcm283x/gpio.h>
+#include "hw_arch.h"
 
 int32_t sd_init(void) {
-	 *(uint32_t*)(MMIO_BASE + 0x2000d0) |= 0x2;
+	if(_pi4)
+		 *(uint32_t*)(MMIO_BASE + 0x2000d0) |= 0x2;
 	return bcm283x_sd_init();
 }
 
