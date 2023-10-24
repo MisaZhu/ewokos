@@ -145,6 +145,7 @@ KERNEL_OBJS = \
 	$(KERNEL_DIR)/system.o \
 	$(KERNEL_DIR)/kevqueue.o \
 	$(KERNEL_DIR)/kernel_config.o \
+	$(KERNEL_DIR)/hw_info.o \
 	$(KERNEL_DIR)/kernel.o
 
 OBJS = $(ARCH_OBJS) \

@@ -11,7 +11,7 @@
 #include <kernel/core.h>
 #endif
 
-sys_info_t _sys_info;
+
 uint32_t _allocatable_phy_mem_top = 0;
 uint32_t _allocatable_phy_mem_base = 0;
 uint32_t _core_base_offset = 0;
@@ -100,7 +100,7 @@ static bool isPi3B(uint32_t revision) {
 #define FB_SIZE 64*MB
 #define DMA_SIZE 256*KB
 
-void sys_info_init(void) {
+void sys_info_init_arch(void) {
 	memset(&_sys_info, 0, sizeof(sys_info_t));
 	uint32_t pix_revision = bcm283x_board();
 	_core_base_offset =  0x01000000;
@@ -177,6 +177,9 @@ void sys_info_init(void) {
 		_sys_info.phy_mem_size = 1024*MB;
 		_sys_info.mmio.phy_base = 0x3f000000;
 	}
+
+	if(_sys_info.phy_mem_size > MAX_MEM_SIZE)
+		_sys_info.phy_mem_size = MAX_MEM_SIZE;
 
 	strcpy(_sys_info.arch, "armv7");
 	_sys_info.phy_offset = 0;

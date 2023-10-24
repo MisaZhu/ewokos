@@ -1,6 +1,6 @@
 CFLAGS = -I../lib/bcm283x/include
 
-ARCH_OBJS += $(BSP_DIR)/hw_info.o \
+ARCH_OBJS += $(BSP_DIR)/hw_info_arch.o \
 	$(BSP_DIR)/irq.o \
 	$(BSP_DIR)/timer.o \
 	$(BSP_DIR)/sd.o  \

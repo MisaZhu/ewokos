@@ -4,14 +4,14 @@
 #include <bcm283x/framebuffer.h>
 #include <kstring.h>
 
-sys_info_t _sys_info;
+
 uint32_t _allocatable_phy_mem_top = 0;
 uint32_t _allocatable_phy_mem_base = 0;
 
 #define FB_SIZE 64*MB
 #define DMA_SIZE 256*KB
 
-void sys_info_init(void) {
+void sys_info_init_arch(void) {
 	memset(&_sys_info, 0, sizeof(sys_info_t));
 
 	strcpy(_sys_info.machine, "raspberry-pi1");

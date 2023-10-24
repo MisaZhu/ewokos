@@ -86,7 +86,7 @@ ARCH_OBJS += \
 	$(ARCH_DIR)/common/src/mmu_arch.o \
 	$(ARCH_DIR)/common/src/memcpy.o \
 	$(BSP_DIR)/$(BSP)/uart.o \
-	$(BSP_DIR)/$(BSP)/hw_info.o \
+	$(BSP_DIR)/$(BSP)/hw_info_arch.o \
 	$(ARCH_DIR)/$(ARCH)/boot.o 
 
 ifeq ($(SMP),yes)
@@ -152,6 +152,7 @@ KERNEL_OBJS = \
 	$(KERNEL_DIR)/system.o \
 	$(KERNEL_DIR)/kevqueue.o \
 	$(KERNEL_DIR)/kernel_config.o \
+	$(KERNEL_DIR)/hw_info.o \
 	$(KERNEL_DIR)/kernel.o
 
 OBJS = $(ARCH_OBJS) \

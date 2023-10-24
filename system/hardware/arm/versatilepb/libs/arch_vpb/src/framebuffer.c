@@ -4,8 +4,6 @@
 #include <sys/mmio.h>
 #include <sysinfo.h>
 
-#define KERNEL_BASE 0x80000000
-
 static fbinfo_t _fb_info;
 int32_t vpb_fb_init(uint32_t w, uint32_t h, uint32_t dep) {
 	memset(&_fb_info, 0, sizeof(fbinfo_t));
