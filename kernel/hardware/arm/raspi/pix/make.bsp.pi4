@@ -3,7 +3,7 @@ CFLAGS = -I../lib/bcm283x/include
 ARCH_OBJS += $(BSP_DIR)/hw_info_arch.o \
 	$(BSP_DIR)/pi4/irq_pi4.o \
 	$(BSP_DIR)/pi4/timer_pi4.o \
-	$(BSP_DIR)/pi4/start_pi4.o  \
+	$(BSP_DIR)/start.o  \
 	$(BSP_DIR)/fb.o  \
 	$(BSP_DIR)/sd.o  \
 	$(BSP_DIR)/uart.o
