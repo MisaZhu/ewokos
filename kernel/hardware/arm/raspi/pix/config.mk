@@ -13,6 +13,7 @@ SMP=yes
 KERNEL_CONSOLE=yes
 
 ifeq ($(PI4),yes)
+ARCH_CFLAGS += -DPI4
 QEMU_FLAGS = -M raspi4 -m 1024M -serial mon:stdio
 else
 QEMU_FLAGS = -M raspi2b -m 1024M -serial mon:stdio
