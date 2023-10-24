@@ -43,6 +43,32 @@ static bool isPi4B8G(uint32_t revision) {
 			revision == 0xd03115);
 }
 
+static bool isPiCM41G(uint32_t revision) {
+	return (revision == 0xa03140 ||
+			revision == 0xa03141);
+}
+
+static bool isPiCM42G(uint32_t revision) {
+	return (revision == 0xb03140 ||
+			revision == 0xb03141);
+}
+
+static bool isPiCM44G(uint32_t revision) {
+	return (revision == 0xc03140 ||
+			revision == 0xc03141);
+}
+
+static bool isPiCM48G(uint32_t revision) {
+	return (revision == 0xd03140 ||
+			revision == 0xd03141);
+}
+
+static bool isPiCM31G(uint32_t revision) {
+	return (revision == 0xa020a0 ||
+			revision == 0xa02100 ||
+			revision == 0xa220a0);
+}
+
 static bool isPi2B(uint32_t revision) {
 	return (revision == 0xa01040 ||
 			revision == 0xa01041 ||
@@ -97,6 +123,34 @@ void sys_info_init(void) {
 	else if(isPi4B4G(pix_revision) || isPi4B8G(pix_revision)) {
 		strcpy(_sys_info.machine, "raspberry-pi4b-4G");
 		_sys_info.phy_mem_size = 4096*MB;
+		_sys_info.mmio.phy_base = 0xfe000000;
+		_core_base_offset =  0x01800000;
+		_pi4 = 1;
+	}
+	else if(isPiCM41G(pix_revision)) {
+		strcpy(_sys_info.machine, "raspberry-cm4-1g");
+		_sys_info.phy_mem_size = 1024*MB;
+		_sys_info.mmio.phy_base = 0xfe000000;
+		_core_base_offset =  0x01800000;
+		_pi4 = 1;
+	}
+	else if(isPiCM42G(pix_revision)) {
+		strcpy(_sys_info.machine, "raspberry-cm4-2G");
+		_sys_info.phy_mem_size = 2048*MB;
+		_sys_info.mmio.phy_base = 0xfe000000;
+		_core_base_offset =  0x01800000;
+		_pi4 = 1;
+	}
+	else if(isPiCM44G(pix_revision) || isPiCM48G(pix_revision)) {
+		strcpy(_sys_info.machine, "raspberry-cm4-4G");
+		_sys_info.phy_mem_size = 4096*MB;
+		_sys_info.mmio.phy_base = 0xfe000000;
+		_core_base_offset =  0x01800000;
+		_pi4 = 1;
+	}
+	else if(isPiCM31G(pix_revision)) {
+		strcpy(_sys_info.machine, "raspberry-cm3-1G");
+		_sys_info.phy_mem_size = 1024*MB;
 		_sys_info.mmio.phy_base = 0xfe000000;
 		_core_base_offset =  0x01800000;
 		_pi4 = 1;
