@@ -18,6 +18,7 @@
 
 #define MMIO_BASE                      (KERNEL_BASE + 1*GB)
 #define USER_STACK_TOP                 (KERNEL_BASE - PAGE_SIZE)
+#define SHM_BASE                       (1*GB)
 
 #define KERNEL_IMAGE_END               ALIGN_UP((uint32_t)_kernel_end, PAGE_DIR_SIZE)
 

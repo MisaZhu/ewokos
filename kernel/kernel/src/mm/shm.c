@@ -29,7 +29,7 @@ static share_mem_t* _shm_tail = NULL;
 
 void shm_init() {
 	//share memory base address at virtual address 1GB
-	shmem_tail = (uint32_t)ALIGN_UP(1*GB, PAGE_SIZE);
+	shmem_tail = (uint32_t)ALIGN_UP(SHM_BASE, PAGE_SIZE);
 	_shm_head = NULL;
 	_shm_tail = NULL;
 }
