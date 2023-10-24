@@ -113,6 +113,9 @@ void* shm_alloc(uint32_t size, int32_t flag) {
 		}
 	}
 	else { // not found, need to expand pages for new block.
+		if((shmem_tail + size) >= (SHM_BASE + SHM_MAX_SIZE))
+			return -1;
+
 		i = shm_new();
 		if(i == NULL) {
 			return -1;
