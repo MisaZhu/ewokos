@@ -122,7 +122,8 @@ void sys_info_init(void) {
 	}
 	else if(isPi4B4G(pix_revision) || isPi4B8G(pix_revision)) {
 		strcpy(_sys_info.machine, "raspberry-pi4b-4G");
-		_sys_info.phy_mem_size = 4090*MB;
+		//_sys_info.phy_mem_size = 4096*MB;
+		_sys_info.phy_mem_size = 1024*MB;
 		_sys_info.mmio.phy_base = 0xfe000000;
 		_core_base_offset =  0x01800000;
 		_pi4 = 1;
