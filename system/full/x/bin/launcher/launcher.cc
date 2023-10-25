@@ -357,12 +357,13 @@ int main(int argc, char* argv[]) {
 	X x;
 	x.screenInfo(scr, 0);
 
+	int32_t w = scr.size.w;
 	int32_t h = xwin.getHeight();
 	if(h == 0)
 		h = scr.size.h;
-	int32_t w = xwin.getWidth();
-	if(w == 0)
-		w = scr.size.w;
+	else
+		w = xwin.getWidth();
+
 	x.open(&xwin, (scr.size.w-w)/2,
 			scr.size.h - h,
 			w, 
