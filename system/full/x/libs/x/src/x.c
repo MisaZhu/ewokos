@@ -130,6 +130,14 @@ const char* x_get_theme(void) {
 	return theme;
 }
 
+void x_set_top(int pid) {
+	proto_t in;
+	PF->init(&in)->addi(&in, pid);
+
+	dev_cntl("/dev/x", X_DCNTL_SET_TOP, &in, NULL);
+	PF->clear(&in);
+}
+
 const char* x_get_theme_fname(const char* prefix, const char* app_name, const char* fname) {
 	static char ret[256];
 	const char* theme = getenv("XTHEME");

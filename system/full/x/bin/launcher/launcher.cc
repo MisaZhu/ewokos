@@ -6,6 +6,7 @@
 #include <x++/X.h>
 #include <sys/keydef.h>
 #include <sys/klog.h>
+#include <sys/proc.h>
 #include <font/font.h>
 #include <dirent.h>
 
@@ -17,6 +18,8 @@ typedef struct {
 	str_t* fname;
 	str_t* icon;
 	graph_t* iconImg;
+	int runPid;
+	uint32_t runPidUUID;
 } item_t;
 
 typedef struct {
@@ -41,12 +44,14 @@ class Launcher: public XWin {
 	uint32_t selectedColor;
 	uint32_t fontSize;
 	int32_t titleMargin;
-	uint32_t height;
+	int32_t height;
+	int32_t width;
 
 	void drawIcon(graph_t* g, int at, int x, int y, int w, int h) {
-		const char* icon = items.items[at].icon->cstr;
+		item_t* item = &items.items[at];
+		const char* icon = item->icon->cstr;
 		int icon_size = items.icon_size < w ? items.icon_size : w;
-		graph_t* img = items.items[at].iconImg;
+		graph_t* img = item->iconImg;
 		if(img == NULL) {
 			graph_t* i = png_image_new(icon);
 			if(i == NULL)
@@ -57,13 +62,23 @@ class Launcher: public XWin {
 			}
 			else 
 				img = i;
-			items.items[at].iconImg = img;
+			item->iconImg = img;
 		}
 
 		int dx = (w - img->w)/2;
 		int dy = (h - (int)(items.icon_size + titleMargin + fontSize)) / 2;
 		graph_blt_alpha(img, 0, 0, img->w, img->h,
 				g, x+dx, y+dy, img->w, img->h, 0xff);
+		
+		if(item->runPid > 0)  {
+			if(proc_check_uuid(item->runPid, item->runPidUUID) == item->runPidUUID) {
+				graph_fill_circle(g, x+dx, y+dy, 8, bgColor);
+				graph_fill_circle(g, x+dx, y+dy, 6, titleColor);
+			}
+			else {
+				item->runPid = 0;
+			}
+		}
 	}
 
 	void drawTitle(graph_t* g, int at, int x, int y, int w, int h) {
@@ -76,8 +91,21 @@ class Launcher: public XWin {
 		graph_draw_text_font(g, x, y, title, &font, titleColor);
 	}
 
-	void runProc(const char* app) {
-		exec(app);
+	void runProc(item_t* item) {
+		if(item->runPid > 0) {
+			if(proc_check_uuid(item->runPid, item->runPidUUID) == item->runPidUUID) {
+				x_set_top(item->runPid);
+				return;
+			}
+		}
+
+		int pid = fork();
+		if(pid == 0)
+			exec(item->fname->cstr);
+		else {
+			item->runPid = pid;
+			item->runPidUUID = proc_get_uuid(pid);
+		}
 	}
 
 protected:
@@ -141,11 +169,7 @@ protected:
 				}
 			}
 			else if(ev->state == XEVT_MOUSE_CLICK) {
-				int pid = fork();
-				if(pid == 0) {
-					runProc(items.items[at].fname->cstr);
-					exit(0);
-				}
+				runProc(&items.items[at]);
 				return;
 			}
 		}
@@ -165,11 +189,7 @@ protected:
 			}
 			else {//XIM_STATE_RELEASE
 				if(key == KEY_ENTER || key == KEY_BUTTON_START || key == KEY_BUTTON_A) {
-					int pid = fork();
-					if(pid == 0) {
-						runProc(items.items[selected].fname->cstr);
-						exit(0);
-					}
+					runProc(&items.items[selected]);
 				}
 				return;
 			}
@@ -233,6 +253,7 @@ public:
 		iconBGColor = 0x88aaaaaa;
 		selectedColor = 0x88444444;
 		height = 0;
+		width = 0;
 		fontSize = 14;
 
 		sconf_t *conf = sconf_load(fname);	
@@ -252,6 +273,10 @@ public:
 		v = sconf_get(conf, "marginH");
 		if(v[0] != 0)
 			items.marginH = atoi(v);
+
+		v = sconf_get(conf, "marginV");
+		if(v[0] != 0)
+			items.marginV = atoi(v);
 
 		v = sconf_get(conf, "font_size");
 		if(v[0] != 0)
@@ -281,20 +306,30 @@ public:
 		v = sconf_get(conf, "height");
 		if(v[0] != 0)
 			height = atoi(v);
-		else	
-			height = (fontSize + items.icon_size + titleMargin + items.marginV) *
-					items.rows + items.marginV + 6;
+		
+		v = sconf_get(conf, "width");
+		if(v[0] != 0)
+			width = atoi(v);
 
 		sconf_free(conf);
 		return true;
 	}
 
-	inline uint32_t getHeight() {
+	inline uint32_t getHeight(const xscreen_t& scr) {
+		if(height < 0)
+			height = scr.size.h;	
+		else
+			height = (fontSize + items.icon_size + titleMargin + items.marginV) *
+					items.rows + items.marginV + 6;
 		return height;
 	}
 
-	inline uint32_t getWidth() {
-		return (items.icon_size + items.marginH) * items.num;
+	inline uint32_t getWidth(const xscreen_t& scr) {
+		if(width < 0)
+			width = scr.size.w;	
+		else
+			width = (items.icon_size + items.marginH) * items.cols;
+		return width;
 	}
 
 	str_t* getIconFname(const char* appName) {
@@ -340,6 +375,12 @@ public:
 		closedir(dirp);
 		if(items.cols == 0)
 			items.cols = i;
+		if(items.rows == 0) {
+			if(items.cols > 0)
+				items.rows = items.num / items.cols;
+			if((items.cols*items.rows) != items.num)
+				items.rows++;
+		}
 		return true;
 	}
 };
@@ -357,12 +398,8 @@ int main(int argc, char* argv[]) {
 	X x;
 	x.screenInfo(scr, 0);
 
-	int32_t w = scr.size.w;
-	int32_t h = xwin.getHeight();
-	if(h == 0)
-		h = scr.size.h;
-	else
-		w = xwin.getWidth();
+	int32_t h = xwin.getHeight(scr);
+	int32_t w = xwin.getWidth(scr);
 
 	x.open(&xwin, (scr.size.w-w)/2,
 			scr.size.h - h,

@@ -658,7 +658,9 @@ static void x_repaint(x_t* x, uint32_t display_index) {
 static xwin_t* x_get_win(x_t* x, int fd, int from_pid) {
 	xwin_t* win = x->win_head;
 	while(win != NULL) {
-		if(win->fd == fd && win->from_pid == from_pid)
+		if((win->fd == fd || fd < 0) &&
+				win->from_pid == from_pid &&
+				proc_check_uuid(from_pid, win->from_pid_uuid) == win->from_pid_uuid)
 			return win;
 		win = win->next;
 	}
@@ -1262,6 +1264,13 @@ static void handle_input(x_t* x, int32_t from_pid, xevent_t* ev) {
 	}
 }
 
+static int x_set_top(x_t* x, int pid) {
+	xwin_t* win = x_get_win(x, -1, pid);
+	if(win != NULL)
+		xwin_top(x, win);
+	return 0;
+}
+
 static int xserver_dev_cntl(int from_pid, int cmd, proto_t* in, proto_t* ret, void* p) {
 	(void)from_pid;
 	x_t* x = (x_t*)p;
@@ -1303,6 +1312,10 @@ static int xserver_dev_cntl(int from_pid, int cmd, proto_t* in, proto_t* ret, vo
 	}
 	else if(cmd == X_DCNTL_GET_THEME) {
 		x_get_theme(x, ret);
+	}
+	else if(cmd == X_DCNTL_SET_TOP) {
+		int pid = proto_read_int(in);
+		x_set_top(x, pid);
 	}
 	else if(cmd == X_DCNTL_QUIT) {
 		x_quit(from_pid);
