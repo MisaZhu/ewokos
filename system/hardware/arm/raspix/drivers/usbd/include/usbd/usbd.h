@@ -31,7 +31,7 @@ extern u32 _v_mmio_base;
 	Initialises the USB driver by performing necessary interfactions with the
 	host controller driver, and enumerating the device tree.
 */
-Result UsbInitialise();
+Result UsbInitialise(u32 v_mmio_base);
 
 /**
 	\brief Gets the descriptor for a given device.

@@ -23,8 +23,8 @@ void LogPrint(const char* message, uint32_t messageLength) {
   klog("%s", message);
 }
 
-void usb_host_init(void) {
-  UsbInitialise();
+static void usb_host_init(uint32_t v_mmio_base) {
+  UsbInitialise(v_mmio_base);
   usleep(100000);
   UsbCheckForChange();
   usleep(100000);
@@ -105,8 +105,7 @@ int main(int argc, char** argv) {
 	if(_mmio_base == 0)
 		return -1;
 
-    _v_mmio_base = _mmio_base;
-	usb_host_init();
+	usb_host_init(_mmio_base);
 
 	const char* mnt_point = argc > 1 ? argv[1]: "/dev/touch0";
 
