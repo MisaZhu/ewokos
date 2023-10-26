@@ -51,7 +51,7 @@
 #	define BROADCOM_2835
 #	define HCD_DESIGNWARE_20
 #	define _RASPI_MMIO_BASE 0xc0000000
-#	define HCD_DESIGNWARE_BASE ((void*)(_RASPI_MMIO_BASE + 0x0980000))
+#	define HCD_DESIGNWARE_BASE ((void*)(_pi_mmio_base + 0x0980000))
 #elif defined TARGET_NONE
 	// Compiling for no target architecture. This will rapidly run into errors.
 #elif defined TARGET_ERROR

@@ -124,7 +124,7 @@ static void welcome(void) {
 		  "kernel_timer_freq  %d\n"
 		  "mem_size           %d MB\n"
 		  "mem_offset         0x%x\n"
-		  "mmio_base          0x%x\n"
+		  "mmio_base          Phy:0x%x, V: 0x%x\n"
 		  "schedule_freq      %d\n"
 		  "---------------------------------------------------\n\n",
 			_sys_info.machine,
@@ -133,7 +133,7 @@ static void welcome(void) {
 			_kernel_config.timer_freq,
 			_sys_info.phy_mem_size/1024/1024,
 			_sys_info.phy_offset,
-			_sys_info.mmio.phy_base,
+			_sys_info.mmio.phy_base, _sys_info.mmio.v_base,
 			_kernel_config.schedule_freq);
 }
 

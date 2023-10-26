@@ -105,6 +105,7 @@ int main(int argc, char** argv) {
 	if(_mmio_base == 0)
 		return -1;
 
+    _pi_mmio_base = _mmio_base;
 	usb_host_init();
 
 	const char* mnt_point = argc > 1 ? argv[1]: "/dev/touch0";
