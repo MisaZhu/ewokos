@@ -77,8 +77,8 @@ class Launcher: public XWin {
 				g, x+dx, y+dy, img->w, img->h, 0xff);
 		
 		if(item->runPid > 0)  {
-			graph_fill_circle(g, x+dx, y+dy, 8, bgColor);
-			graph_fill_circle(g, x+dx, y+dy, 6, titleColor);
+			graph_fill_circle(g, x+dx+8, y+dy+8, 8, bgColor);
+			graph_fill_circle(g, x+dx+8, y+dy+8, 6, titleColor);
 		}
 	}
 
@@ -348,7 +348,7 @@ public:
 			height = scr.size.h;	
 		else
 			height = (fontSize + items.icon_size + titleMargin + items.marginV) *
-					items.rows + items.marginV + 6;
+					items.rows + items.marginV;
 		return height;
 	}
 
@@ -356,7 +356,7 @@ public:
 		if(width < 0)
 			width = scr.size.w;	
 		else
-			width = (items.icon_size + items.marginH) * items.cols;
+			width = (items.icon_size + items.marginH) * items.cols + items.marginH;
 		return width;
 	}
 
