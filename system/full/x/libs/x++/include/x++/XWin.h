@@ -2,7 +2,7 @@
 #define XWIN_HH
 
 #include <x/xwin.h>
-#include <graph/graph.h>
+#include <graph/graph_ex.h>
 
 namespace Ewok {
 

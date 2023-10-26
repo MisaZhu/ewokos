@@ -1,7 +1,7 @@
 #ifndef X_H
 #define X_H
 
-#include <graph/graph.h>
+#include <graph/graph_ex.h>
 #include <x/xcntl.h>
 #include <x/xevent.h>
 

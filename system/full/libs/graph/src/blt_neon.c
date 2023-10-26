@@ -166,18 +166,6 @@ void graph_fill_neon(graph_t* g, int32_t x, int32_t y, int32_t w, int32_t h, uin
 	neon_unlock();
 }
 
-void graph_fill_3d_neon(graph_t* g, int x, int y, int w, int h, uint32_t color, bool rev) {
-	uint32_t dark, bright;
-	if(rev)
-		graph_get_3d_color(color, &bright, &dark);
-	else
-		graph_get_3d_color(color, &dark, &bright);
-
-	graph_fill_neon(g, x+1, y+1, w-2, h-2, color);
-	graph_box_3d(g, x, y, w, h, bright, dark);
-}
-
-
 inline void graph_blt_neon(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_t sh,
 		graph_t* dst, int32_t dx, int32_t dy, int32_t dw, int32_t dh) {
 	

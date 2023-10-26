@@ -1,7 +1,7 @@
 #ifndef XWM_H
 #define XWM_H
 
-#include <graph/graph.h>
+#include <graph/graph_ex.h>
 #include <x/xcntl.h>
 
 #ifdef __cplusplus

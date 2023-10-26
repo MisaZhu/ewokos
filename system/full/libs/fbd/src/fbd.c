@@ -61,20 +61,7 @@ static int fb_fcntl(int fd,
 */
 
 static void draw_bg(graph_t* g) {
-	int x = 0;
-	int y = 0;
-	bool shift = false;
-
-	graph_clear(g, 0xffffffff);
-	while(y < g->h) {
-		while(x < g->w) {
-			graph_pixel(g, x, y, 0xff555555);
-			x += 2;
-		}
-		x = shift ? 0:1;
-		shift = !shift;
-		y += 1;
-	}
+	graph_draw_dot_pattern(g, 0, 0, g->w, g->h, 0xffffffff, 0xff555555);
 }
 
 static void default_splash(graph_t* g) {

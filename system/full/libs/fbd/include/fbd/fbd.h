@@ -4,7 +4,7 @@
 #include <stdint.h>
 #include <stddef.h>
 #include <sys/fbinfo.h>
-#include <graph/graph.h>
+#include <graph/graph_ex.h>
 
 
 #ifdef __cplusplus

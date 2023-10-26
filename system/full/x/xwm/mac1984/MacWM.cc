@@ -17,38 +17,8 @@ void MacWM::loadConfig(sconf_t* sconf) {
 }
 
 graph_t* MacWM::genPattern(void) {
-	int sz = 1; 
-	int x = 0;
-	int y = 0;
-	bool shift = false;
 	graph_t* g = graph_new(NULL, 64, 64);
-	graph_clear(g, desktopBGColor);
-
-	if(sz <= 1)
-		sz = 1;
-
-	if(sz > 1) {
-		while(y < g->h) {
-			while(x < g->w) {
-				graph_fill(g, x, y, sz, sz, desktopFGColor);
-				x += sz*2;
-			}
-			x = shift ? 0:sz;
-			shift = !shift;
-			y += sz;
-		}
-	}
-	else {
-		while(y < g->h) {
-			while(x < g->w) {
-				graph_pixel(g, x, y, desktopFGColor);
-				x += 2;
-			}
-			x = shift ? 0:sz;
-			shift = !shift;
-			y += sz;
-		}
-	}
+	graph_draw_dot_pattern(g, 0, 0, g->w, g->h, desktopBGColor, desktopFGColor);
 	return g;
 }
 
@@ -94,9 +64,9 @@ void MacWM::drawTitle(graph_t* g, xinfo_t* info, grect_t* r, bool top) {
 	int pw = (r->w-sz.w)/2;
 	int ph = (r->h-sz.h)/2;
 	graph_fill(g, r->x, r->y, r->w, r->h, bg);//title box
-	if(top) {
+	if(top)
 		drawTitlePattern(g, r->x, r->y, r->w, r->h, fg);
-	}
+
 	graph_fill(g, r->x+pw-2, r->y, sz.w+4, r->h, bg);//title box
 	graph_draw_text_font(g, r->x+pw, r->y+ph, info->title, &font, fg);//title
 	graph_line(g, r->x, r->y+r->h, r->x+r->w, r->y+r->h, fg);//title box

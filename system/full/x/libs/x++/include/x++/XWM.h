@@ -2,7 +2,7 @@
 #define XWM_HH
 
 #include <x/xwm.h>
-#include <graph/graph.h>
+#include <graph/graph_ex.h>
 #include <font/font.h>
 #include <sconf/sconf.h>
 
