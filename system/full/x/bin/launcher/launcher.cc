@@ -33,6 +33,11 @@ typedef struct {
 } items_t;
 
 class Launcher: public XWin {
+	const uint8_t POS_BOTTOM = 0;
+	const uint8_t POS_TOP = 1;
+	const uint8_t POS_LEFT = 2;
+	const uint8_t POS_RIGHT = 3;
+
 	items_t items;
 	int selected;
 	int start;
@@ -46,6 +51,7 @@ class Launcher: public XWin {
 	int32_t titleMargin;
 	int32_t height;
 	int32_t width;
+	uint8_t position;
 
 	void drawIcon(graph_t* g, int at, int x, int y, int w, int h) {
 		item_t* item = &items.items[at];
@@ -266,6 +272,7 @@ public:
 		height = 0;
 		width = 0;
 		fontSize = 14;
+		position = POS_BOTTOM;
 
 		sconf_t *conf = sconf_load(fname);	
 		if(conf == NULL)
@@ -280,6 +287,16 @@ public:
 		v = sconf_get(conf, "cols");
 		if(v[0] != 0)
 			items.cols = atoi(v);
+
+		v = sconf_get(conf, "position");
+		if(v[0] == 'b')
+			position = POS_BOTTOM;
+		else if(v[0] == 't')
+			position = POS_TOP;
+		else if(v[0] == 'l')
+			position = POS_LEFT;
+		else if(v[0] == 'r')
+			position = POS_RIGHT;
 
 		v = sconf_get(conf, "marginH");
 		if(v[0] != 0)
@@ -341,6 +358,27 @@ public:
 		else
 			width = (items.icon_size + items.marginH) * items.cols;
 		return width;
+	}
+
+	inline gpos_t getPos(const xscreen_t& scr) {
+		gpos_t pos;
+		if(position == POS_BOTTOM) {
+			pos.x = (scr.size.w-width)/2;
+			pos.y = scr.size.h - height;
+		}
+		else if(position == POS_TOP) {
+			pos.x = (scr.size.w-width)/2;
+			pos.y = 0;
+		}
+		else if(position == POS_LEFT) {
+			pos.x = 0;
+			pos.y = (scr.size.h-height)/2;
+		}
+		else if(position == POS_RIGHT) {
+			pos.x = scr.size.w - width;
+			pos.y = (scr.size.h-height)/2;
+		}
+		return pos;
 	}
 
 	str_t* getIconFname(const char* appName) {
@@ -417,12 +455,9 @@ int main(int argc, char* argv[]) {
 
 	int32_t h = xwin.getHeight(scr);
 	int32_t w = xwin.getWidth(scr);
+	gpos_t pos = xwin.getPos(scr);
 
-	x.open(&xwin, (scr.size.w-w)/2,
-			scr.size.h - h,
-			w, 
-			h,
-			"launcher",
+	x.open(&xwin, pos.x, pos.y, w, h, "launcher",
 			X_STYLE_NO_TITLE | X_STYLE_NO_RESIZE | X_STYLE_LAUNCHER | X_STYLE_SYSBOTTOM);
 			//X_STYLE_NO_FRAME | X_STYLE_LAUNCHER | X_STYLE_SYSBOTTOM);
 
