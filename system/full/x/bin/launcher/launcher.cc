@@ -135,13 +135,13 @@ protected:
 				int y = j*itemH + items.marginV;
 				graph_set_clip(g,x-items.marginH/2, y-items.marginV/2, itemW, itemH);
 				if(selected == at && focused) {
-					/*graph_fill_round(g, 
+					graph_fill_round(g, 
 							x-items.marginH/2, y-items.marginV/2, itemW, itemH, 
 							8, selectedColor);
-							*/
-					graph_draw_dot_pattern(g, 
+					/*graph_draw_dot_pattern(g, 
 							x-items.marginH/2, y-items.marginV/2, itemW, itemH, 
 							bgColor, selectedColor);
+							*/
 				}
 				else {
 					graph_fill_round(g, 
