@@ -71,13 +71,8 @@ class Launcher: public XWin {
 				g, x+dx, y+dy, img->w, img->h, 0xff);
 		
 		if(item->runPid > 0)  {
-			if(proc_check_uuid(item->runPid, item->runPidUUID) == item->runPidUUID) {
-				graph_fill_circle(g, x+dx, y+dy, 8, bgColor);
-				graph_fill_circle(g, x+dx, y+dy, 6, titleColor);
-			}
-			else {
-				item->runPid = 0;
-			}
+			graph_fill_circle(g, x+dx, y+dy, 8, bgColor);
+			graph_fill_circle(g, x+dx, y+dy, 6, titleColor);
 		}
 	}
 
@@ -242,6 +237,22 @@ public:
 			font_close(&font);
 	}
 
+	void checkProc(void) {
+		bool doRepaint = false;
+		for(int i=0; i<items.num; i++) {
+			item_t* item = &items.items[i];
+
+			if(item->runPid > 0)  {
+				if(proc_check_uuid(item->runPid, item->runPidUUID) != item->runPidUUID) {
+					item->runPid = 0;
+					doRepaint = true;
+				}
+			}
+		}
+		if(doRepaint)
+			repaint();
+	}
+
 	bool readConfig(const char* fname) {
 		items.cols = 4;
 		items.rows = 2;
@@ -385,6 +396,12 @@ public:
 	}
 };
 
+static void check_proc(void* p) {
+	Launcher* xwin = (Launcher*)p;
+	xwin->checkProc();
+	usleep(2000);
+}
+
 int main(int argc, char* argv[]) {
 	(void)argc;
 	(void)argv;
@@ -411,6 +428,6 @@ int main(int argc, char* argv[]) {
 
 	xwin.setVisible(true);
 
-	x.run(NULL);
+	x.run(check_proc, &xwin);
 	return 0;
 }
