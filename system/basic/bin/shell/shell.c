@@ -17,7 +17,7 @@
 
 bool _initrd = false;
 bool _stdio_inited = false;
-bool _stderr_inited = false;
+bool _stderr_console_inited = false;
 bool _terminated = false;
 
 old_cmd_t* _history = NULL;
@@ -187,17 +187,18 @@ static void try_init_stdio(void) {
 		if(fd > 0) {
 			dup2(fd, 0);
 			dup2(fd, 1);
+			dup2(fd, 2);
 			close(fd);
 			_stdio_inited = true;
 		}
 	}
 
-	if(!_stderr_inited) {
+	if(!_stderr_console_inited) {
 		int fd_console = open("/dev/console0", 0);
 		if(fd_console > 0) {
 			dup2(fd_console, 2);
 			close(fd_console);
-			_stderr_inited = true;
+			_stderr_console_inited = true;
 		}
 	}
 }
@@ -207,10 +208,16 @@ static void initrd_out(const char* cmd) {
 		return;
 
 	try_init_stdio();
-	if(write(1, cmd, strlen(cmd)) > 0)
-		write(1, "\n", 1);
-	else
+
+	if(!_stdio_inited) {
 		klog("%s\n", cmd);
+		return;
+	}
+
+	if(_stderr_console_inited) {
+		if(write(1, cmd, strlen(cmd)) > 0)
+			write(1, "\n", 1);
+	}
 
 	if(write(2, cmd, strlen(cmd)) > 0)
 		write(2, "\n", 1);
@@ -219,7 +226,7 @@ static void initrd_out(const char* cmd) {
 int main(int argc, char* argv[]) {
 	_initrd = false;
 	_stdio_inited = false;
-	_stderr_inited = false;
+	_stderr_console_inited = false;
 	_history = NULL;
 	_terminated = 0;
 
