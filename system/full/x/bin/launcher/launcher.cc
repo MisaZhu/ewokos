@@ -379,14 +379,20 @@ public:
 	}
 
 	inline uint32_t getHeight(const xscreen_t& scr) {
-		height = (fontSize + items.icon_size + titleMargin + items.marginV) *
-				items.rows + items.marginV;
+		if((position == POS_LEFT || position == POS_RIGHT) && items.cols > 1)
+			height = scr.size.h;
+		else
+			height = (fontSize + items.icon_size + titleMargin + items.marginV) *
+					items.rows + items.marginV;
 		return height;
 	}
 
 	inline uint32_t getWidth(const xscreen_t& scr) {
-		width = (items.icon_size + items.marginH) *
-				items.cols + items.marginH;
+		if((position == POS_TOP || position == POS_BOTTOM) && items.rows > 1)
+			width = scr.size.w;
+		else 
+			width = (items.icon_size + items.marginH) *
+					items.cols + items.marginH;
 		return width;
 	}
 
