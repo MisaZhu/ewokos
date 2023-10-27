@@ -45,7 +45,6 @@ class Launcher: public XWin {
 	font_t font;
 	uint32_t titleColor;
 	uint32_t bgColor;
-	uint32_t iconBGColor;
 	uint32_t selectedColor;
 	uint32_t fontSize;
 	int32_t titleMargin;
@@ -110,6 +109,19 @@ class Launcher: public XWin {
 	}
 
 protected:
+	void drawItem(graph_t* g, int at, int x, int y, int w, int h) {
+		graph_set_clip(g, x - items.marginH / 2, y - items.marginV / 2,
+				w+items.marginH, h+items.marginV);
+
+		if (selected == at && focused) {
+			graph_fill_round(g, x - items.marginH / 2, y - items.marginV / 2,
+							w+items.marginH, h+items.marginV,
+							8, selectedColor);
+		}
+		drawIcon(g, at, x, y, w, h);
+		drawTitle(g, at, x, y, w, h);
+	}
+
 	void onRepaint(graph_t* g) {
 		graph_clear(g, bgColor);
 		if(color_a(bgColor) != 0xff)
@@ -125,62 +137,40 @@ protected:
 		//if((items.num % cols) != 0)
 		//	rows++;
 			
-		for(j=0; j<items.rows; j++) {
+		if(position == POS_TOP || position == POS_BOTTOM) {
+			for(j=0; j<items.rows; j++) {
+				for(i=0; i<items.cols; i++) {
+					int at = j*items.cols + i + start;
+					if(at >= items.num)
+						return;
+					int x = i*itemW + items.marginH;
+					int y = j*itemH + items.marginV;
+					drawItem(g, at, x, y, itemW-items.marginH, itemH-items.marginV);
+				}
+			}
+		}
+		else {
 			for(i=0; i<items.cols; i++) {
-				int at = j*items.cols + i + start;
-				if(at >= items.num)
-					return;
-
-				int x = i*itemW + items.marginH;
-				int y = j*itemH + items.marginV;
-				graph_set_clip(g,x-items.marginH/2, y-items.marginV/2, itemW, itemH);
-				if(selected == at && focused) {
-					graph_fill_round(g, 
-							x-items.marginH/2, y-items.marginV/2, itemW, itemH, 
-							8, selectedColor);
-					/*graph_draw_dot_pattern(g, 
-							x-items.marginH/2, y-items.marginV/2, itemW, itemH, 
-							bgColor, selectedColor);
-							*/
+				for(j=0; j<items.rows; j++) {
+					int at = i*items.rows + j + start;
+					if(at >= items.num)
+						return;
+					int x;
+					if(position == POS_RIGHT)
+						x  = (items.cols-i-1)*itemW + items.marginH;
+					else
+						x  = i*itemW + items.marginH;
+					int y = j*itemH + items.marginV;
+					drawItem(g, at, x, y, itemW-items.marginH, itemH-items.marginV);
 				}
-				else {
-					graph_fill_round(g, 
-							x-items.marginH/2, y-items.marginV/2, itemW, itemH, 
-							8, iconBGColor);
-				}
-
-				drawIcon(g, at, x, y, itemW-items.marginH, itemH-items.marginV-titleMargin);
-				drawTitle(g, at, x, y, itemW-items.marginH, itemH-items.marginV);
 			}
 		}
 	}
 
-	void onEvent(xevent_t* ev) {
-		xinfo_t xinfo;
-		getInfo(xinfo);
-		if(ev->type == XEVT_MOUSE) {
-			int itemW = xinfo.wsr.w / items.cols;
-			int itemH = xinfo.wsr.h / items.rows;
-			int col = (ev->value.mouse.x - xinfo.wsr.x) / itemW;
-			int row = (ev->value.mouse.y - xinfo.wsr.y) / itemH;
-			int at = row*items.cols + col + start;
-			if(at >= items.num)
-				return;
-
-			if(ev->state == XEVT_MOUSE_DOWN) {
-				if(selected != at) {
-					selected = at;
-					repaint();
-				}
-			}
-			else if(ev->state == XEVT_MOUSE_CLICK) {
-				runProc(&items.items[at]);
-				return;
-			}
-		}
-		else if(ev->type == XEVT_IM) {
-			int key = ev->value.im.value;
-			if(ev->state == XIM_STATE_PRESS) {
+	void onIM(xevent_t* ev) {
+		int key = ev->value.im.value;
+		if(ev->state == XIM_STATE_PRESS) {
+			if(position == POS_TOP || position == POS_BOTTOM) {
 				if(key == KEY_LEFT)
 					selected--;
 				else if(key == KEY_RIGHT)
@@ -192,26 +182,77 @@ protected:
 				else
 					return;
 			}
-			else {//XIM_STATE_RELEASE
-				if(key == KEY_ENTER || key == KEY_BUTTON_START || key == KEY_BUTTON_A) {
-					runProc(&items.items[selected]);
-				}
-				return;
+			else {
+				if(key == KEY_LEFT)
+					selected -= items.rows;
+				else if(key == KEY_RIGHT)
+					selected += items.rows;
+				else if(key == KEY_UP)
+					selected--;
+				else if(key == KEY_DOWN)
+					selected++;
+				else
+					return;
 			}
+		}
+		else {//XIM_STATE_RELEASE
+			if(key == KEY_ENTER || key == KEY_BUTTON_START || key == KEY_BUTTON_A) {
+				runProc(&items.items[selected]);
+			}
+			return;
+		}
 
-			if(selected >= (items.num-1))
-				selected = items.num-1;
-			if(selected < 0)
-				selected = 0;
-			
-			if(selected < start) {
-				start -= items.cols*items.rows;
-				if(start < 0)
-					start = 0;
+		if(selected >= (items.num-1))
+			selected = items.num-1;
+		if(selected < 0)
+			selected = 0;
+		
+		if(selected < start) {
+			start -= items.cols*items.rows;
+			if(start < 0)
+				start = 0;
+		}
+		else if((selected - start) >= items.cols*items.rows) 
+			start += items.cols*items.rows;
+		repaint();
+	}
+
+	void onMouse(xevent_t* ev) {
+		xinfo_t xinfo;
+		getInfo(xinfo);
+
+		int itemW = xinfo.wsr.w / items.cols;
+		int itemH = xinfo.wsr.h / items.rows;
+		int col = (ev->value.mouse.x - xinfo.wsr.x) / itemW;
+		int row = (ev->value.mouse.y - xinfo.wsr.y) / itemH;
+		int at;
+		if(position == POS_TOP || position == POS_BOTTOM) 
+			at = row*items.cols + col + start;
+		else if(position == POS_LEFT) 
+			at = col*items.rows + row + start;
+		else
+			at = (items.cols-col-1)*items.rows + row + start;
+		if(at >= items.num)
+			return;
+
+		if(ev->state == XEVT_MOUSE_DOWN) {
+			if(selected != at) {
+				selected = at;
+				repaint();
 			}
-			else if((selected - start) >= items.cols*items.rows) 
-				start += items.cols*items.rows;
-			repaint();
+		}
+		else if(ev->state == XEVT_MOUSE_CLICK) {
+			runProc(&items.items[at]);
+			return;
+		}
+	}
+
+	void onEvent(xevent_t* ev) {
+		if(ev->type == XEVT_MOUSE) {
+			onMouse(ev);
+		}
+		else if(ev->type == XEVT_IM) {
+			onIM(ev);
 		}
 	}
 	
@@ -264,14 +305,11 @@ public:
 	}
 
 	bool readConfig(const char* fname) {
-		items.cols = 4;
-		items.rows = 2;
 		items.marginH = 6;
 		items.marginV = 2;
 		items.icon_size = 64;
 		titleColor = 0xffffffff;
 		bgColor = 0xff000000;
-		iconBGColor = 0x88aaaaaa;
 		selectedColor = 0x88444444;
 		height = 0;
 		width = 0;
@@ -284,13 +322,6 @@ public:
 		const char* v = sconf_get(conf, "icon_size");
 		if(v[0] != 0)
 			items.icon_size = atoi(v);
-		v = sconf_get(conf, "rows");
-		if(v[0] != 0)
-			items.rows = atoi(v);
-
-		v = sconf_get(conf, "cols");
-		if(v[0] != 0)
-			items.cols = atoi(v);
 
 		v = sconf_get(conf, "position");
 		if(v[0] == 'b')
@@ -327,40 +358,23 @@ public:
 		if(v[0] != 0)
 			bgColor = atoi_base(v, 16);
 
-		v = sconf_get(conf, "icon_bg_color");
-		if(v[0] != 0)
-			iconBGColor = atoi_base(v, 16);
-
 		v = sconf_get(conf, "icon_selected_color");
 		if(v[0] != 0)
 			selectedColor = atoi_base(v, 16);
-
-		v = sconf_get(conf, "height");
-		if(v[0] != 0)
-			height = atoi(v);
-		
-		v = sconf_get(conf, "width");
-		if(v[0] != 0)
-			width = atoi(v);
 
 		sconf_free(conf);
 		return true;
 	}
 
 	inline uint32_t getHeight(const xscreen_t& scr) {
-		if(height < 0)
-			height = scr.size.h;	
-		else
-			height = (fontSize + items.icon_size + titleMargin + items.marginV) *
-					items.rows + items.marginV;
+		height = (fontSize + items.icon_size + titleMargin + items.marginV) *
+				items.rows + items.marginV;
 		return height;
 	}
 
 	inline uint32_t getWidth(const xscreen_t& scr) {
-		if(width < 0)
-			width = scr.size.w;	
-		else
-			width = (items.icon_size + items.marginH) * items.cols + items.marginH;
+		width = (items.icon_size + items.marginH) *
+				items.cols + items.marginH;
 		return width;
 	}
 
@@ -371,16 +385,19 @@ public:
 			pos.y = scr.size.h - height;
 		}
 		else if(position == POS_TOP) {
-			pos.x = (scr.size.w-width)/2;
+			//pos.x = (scr.size.w-width)/2;
+			pos.x = 0;
 			pos.y = 0;
 		}
 		else if(position == POS_LEFT) {
 			pos.x = 0;
+			pos.y = 0;
 			pos.y = (scr.size.h-height)/2;
 		}
 		else if(position == POS_RIGHT) {
 			pos.x = scr.size.w - width;
-			pos.y = (scr.size.h-height)/2;
+			pos.y = 0;
+			//pos.y = (scr.size.h-height)/2;
 		}
 		return pos;
 	}
@@ -426,15 +443,34 @@ public:
 		}
 		items.num = i;
 		closedir(dirp);
-		if(items.cols == 0)
-			items.cols = i;
-		if(items.rows == 0) {
+		return true;
+	}
+
+	void layout(const xscreen_t& scr) {
+		int max = 0;
+		if(position == POS_TOP || position == POS_BOTTOM) {
+			int max = (scr.size.w - items.marginH) / (items.icon_size + items.marginH);
+			if(items.num > max)
+				items.cols = max;
+			else
+				items.cols = items.num;
 			if(items.cols > 0)
 				items.rows = items.num / items.cols;
 			if((items.cols*items.rows) != items.num)
 				items.rows++;
+			return;
 		}
-		return true;
+
+		max = (scr.size.h - items.marginV) /
+				(fontSize + items.icon_size + titleMargin + items.marginV);
+		if(items.num > max)
+			items.rows = max;
+		else
+			items.rows = items.num;
+		if(items.rows > 0)
+			items.cols = items.num / items.rows;
+		if((items.cols*items.rows) != items.num)
+			items.cols++;
 	}
 };
 
@@ -448,22 +484,22 @@ int main(int argc, char* argv[]) {
 	(void)argc;
 	(void)argv;
 
+	X x;
 	xscreen_t scr;
+	x.screenInfo(scr, 0);
+
 	Launcher xwin;
 	const char* cfg = x_get_theme_fname(X_THEME_ROOT, "launcher", "theme.conf");
 	xwin.readConfig(cfg);
 	xwin.loadApps();
-
-	X x;
-	x.screenInfo(scr, 0);
+	xwin.layout(scr);
 
 	int32_t h = xwin.getHeight(scr);
 	int32_t w = xwin.getWidth(scr);
 	gpos_t pos = xwin.getPos(scr);
 
 	x.open(&xwin, pos.x, pos.y, w, h, "launcher",
-			X_STYLE_NO_TITLE | X_STYLE_NO_RESIZE | X_STYLE_LAUNCHER | X_STYLE_SYSBOTTOM);
-			//X_STYLE_NO_FRAME | X_STYLE_LAUNCHER | X_STYLE_SYSBOTTOM);
+			X_STYLE_NO_FRAME | X_STYLE_LAUNCHER | X_STYLE_SYSBOTTOM);
 
 	xwin.setVisible(true);
 
