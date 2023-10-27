@@ -182,11 +182,23 @@ protected:
 				else
 					return;
 			}
-			else {
+			else if(position == POS_LEFT) {
 				if(key == KEY_LEFT)
 					selected -= items.rows;
 				else if(key == KEY_RIGHT)
 					selected += items.rows;
+				else if(key == KEY_UP)
+					selected--;
+				else if(key == KEY_DOWN)
+					selected++;
+				else
+					return;
+			}
+			else {
+				if(key == KEY_LEFT)
+					selected += items.rows;
+				else if(key == KEY_RIGHT)
+					selected -= items.rows;
 				else if(key == KEY_UP)
 					selected--;
 				else if(key == KEY_DOWN)
