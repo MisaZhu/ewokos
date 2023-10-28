@@ -632,11 +632,7 @@ inline void proc_block_on(context_t* ctx, int32_t pid_by, uint32_t event) {
 	proc_t* cproc = get_current_proc();
 	if(cproc == NULL)
 		return;
-	if(cproc->block_refs > 0) {
-		cproc->block_refs--;
-		return;
-	}
-
+	
 	cproc->block_event = event;
 	cproc->info.block_by = pid_by;
 	proc_unready(cproc, BLOCK);
