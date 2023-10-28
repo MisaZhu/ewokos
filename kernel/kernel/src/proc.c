@@ -628,15 +628,20 @@ static void proc_block_saved_state(int32_t pid_by, uint32_t event, proc_t* proc)
 	}
 }
 
-inline void proc_block_on(int32_t pid_by, uint32_t event) {
+inline void proc_block_on(context_t* ctx, int32_t pid_by, uint32_t event) {
 	proc_t* cproc = get_current_proc();
 	if(cproc == NULL)
 		return;
+	if(cproc->block_refs > 0) {
+		cproc->block_refs--;
+		return;
+	}
 
 	cproc->block_event = event;
 	cproc->info.block_by = pid_by;
 	proc_unready(cproc, BLOCK);
-	proc_block_saved_state(pid_by, event, cproc);
+	//proc_block_saved_state(pid_by, event, cproc);
+	schedule(ctx);
 }
 
 inline void proc_waitpid(context_t* ctx, int32_t pid) {

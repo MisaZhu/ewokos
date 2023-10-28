@@ -285,16 +285,14 @@ static void sys_ipc_call(context_t* ctx, int32_t serv_pid, int32_t call_id, prot
 
 	if(serv_proc->space->ipc_server.disabled) {
 		ctx->gpr[0] = -1; // blocked if server disabled, should retry
-		proc_block_on(serv_pid, (uint32_t)&serv_proc->space->ipc_server);
-		schedule(ctx);
+		proc_block_on(ctx, serv_pid, (uint32_t)&serv_proc->space->ipc_server);
 		return;
 	}
 
 	if(serv_proc->space->interrupt.state != INTR_STATE_IDLE) {
 		if((call_id & IPC_NON_RETURN) == 0) {
 			ctx->gpr[0] = -1; // blocked if proc is on interrupt task, should retry
-			proc_block_on(serv_pid, (uint32_t)&serv_proc->space->interrupt);
-			schedule(ctx);
+			proc_block_on(ctx, serv_pid, (uint32_t)&serv_proc->space->interrupt);
 			return;
 		}
 		call_id = call_id | IPC_LAZY; //not do task immediately
@@ -329,9 +327,8 @@ static void sys_ipc_get_return(context_t* ctx, int32_t pid, uint32_t uid, proto_
 
 		if((ipc->call_id & IPC_NON_RETURN) == 0 || ipc->uid != uid) {
 			ctx->gpr[0] = -1;
-			//proc_block_on(pid, (uint32_t)&serv_proc->space->ipc_server);
-			proc_block_on(pid, (uint32_t)&client_proc->ipc_res);
-			schedule(ctx);
+			//proc_block_on(ctx, pid, (uint32_t)&serv_proc->space->ipc_server);
+			proc_block_on(ctx, pid, (uint32_t)&client_proc->ipc_res);
 			return;
 		}
 		return;
@@ -471,8 +468,7 @@ static void sys_get_kevent(context_t* ctx) {
 	ctx->gpr[0] = (int32_t)kev;	
 
 	if(kev == NULL) {
-		proc_block_on(-1, (uint32_t)kev_init);
-		schedule(ctx);	
+		proc_block_on(ctx, -1, (uint32_t)kev_init);
 	}
 }
 
@@ -482,8 +478,7 @@ static void sys_proc_block(context_t* ctx, int32_t pid_by, uint32_t evt) {
 		if(proc_by->block_refs > 0)
 			proc_by->block_refs--;
 		else {
-			proc_block_on(proc_by->info.pid, evt);
-			schedule(ctx);	
+			proc_block_on(ctx, proc_by->info.pid, evt);
 		}
 	}
 }
@@ -532,8 +527,7 @@ static inline void sys_safe_set(context_t* ctx, int32_t* to, int32_t v) {
 	ctx->gpr[0] = -1;
 	proc_t* proc = proc_get_proc(get_current_proc());
 	if(*to != 0 && v != 0) {
-		proc_block_on(proc->info.pid, (uint32_t)to);
-		schedule(ctx);
+		proc_block_on(ctx, proc->info.pid, (uint32_t)to);
 		return;
 	}
 
