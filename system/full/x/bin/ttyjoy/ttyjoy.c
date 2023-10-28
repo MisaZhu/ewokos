@@ -68,12 +68,16 @@ int main(int argc, char* argv[]) {
 				c = KEY_HOME;
 			else if(c == 'a')
 				c = KEY_BUTTON_A;
-			else if(c == 127)
+			else if(c == 'b')
 				c = KEY_BUTTON_B;
 			else if(c == 'x')
 				c = KEY_BUTTON_X;
 			else if(c == 'y')
 				c = KEY_BUTTON_Y;
+			else if(c == 's')
+				c = KEY_BUTTON_START;
+			else if(c == 'l')
+				c = KEY_BUTTON_SELECT;
 			input(x_pid, c, XIM_STATE_PRESS);
 			input(x_pid, c, XIM_STATE_RELEASE);
 		}
