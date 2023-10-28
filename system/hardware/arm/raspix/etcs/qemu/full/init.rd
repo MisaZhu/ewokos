@@ -20,7 +20,7 @@
 
 #@/sbin/x/xmoused /dev/mouse0 &
 @/sbin/x/xim_none &
-@/sbin/x/xim_vkey 600 160&
+@/sbin/x/xim_vkey 600 168&
 
 @/bin/session &
 @/bin/x/launcher &

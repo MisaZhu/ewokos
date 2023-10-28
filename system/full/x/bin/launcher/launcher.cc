@@ -313,7 +313,6 @@ public:
 			}
 		}
 		if(doRepaint) {
-			klog("repaint xxx\n");
 			repaint();
 		}
 	}
