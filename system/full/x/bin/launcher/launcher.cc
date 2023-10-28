@@ -312,8 +312,10 @@ public:
 				}
 			}
 		}
-		if(doRepaint)
+		if(doRepaint) {
+			klog("repaint xxx\n");
 			repaint();
+		}
 	}
 
 	bool readConfig(const char* fname) {
@@ -495,7 +497,7 @@ public:
 static void check_proc(void* p) {
 	Launcher* xwin = (Launcher*)p;
 	xwin->checkProc();
-	usleep(2000);
+	usleep(20000);
 }
 
 int main(int argc, char* argv[]) {
