@@ -482,6 +482,7 @@ static void sys_proc_block(context_t* ctx, int32_t pid_by, uint32_t evt) {
 static void sys_proc_wakeup(context_t* ctx, uint32_t evt) {
 	(void)ctx;
 	proc_t* proc = proc_get_proc(get_current_proc());
+	proc->block_refs++;
 	proc_wakeup(proc->info.pid, evt);
 }
 
