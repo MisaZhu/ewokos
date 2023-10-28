@@ -23,14 +23,10 @@ static uint32_t font_width(textview_t* textview) {
 
 static void tv_draw_char(textview_t* textview, graph_t* g, int32_t x, int32_t y, UNICODE16 c, int32_t *w) {
 	if(textview->font_fixed > 0 && c < 128) {
-		if(textview->shadow)
-			graph_draw_char_font_fixed(g, x+1, y+1, c, &textview->font, textview->shadow_color, textview->font_fixed, 0);
 		graph_draw_char_font_fixed(g, x, y, c, &textview->font, textview->fg_color, textview->font_fixed, 0);
 		*w = textview->font_fixed;
 	}
 	else {
-		if(textview->shadow)
-			graph_draw_char_font(g, x+1, y+1, c, &textview->font, textview->shadow_color, w, NULL); 
 		graph_draw_char_font(g, x, y, c, &textview->font, textview->fg_color, w, NULL); 
 	}
 }

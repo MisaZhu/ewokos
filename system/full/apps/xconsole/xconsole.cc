@@ -68,12 +68,6 @@ public:
 		if(v[0] != 0) 
 			console.textview.font_fixed = atoi(v);
 
-		v = sconf_get(sconf, "font_shadow");
-		if(v[0] != 0) {
-			console.textview.shadow = true;
-			console.textview.shadow_color = atoi_base(v, 16);
-		}
-
 		v = sconf_get(sconf, "font");
 		if(v[0] == 0) 
 			v = DEFAULT_SYSTEM_FONT;

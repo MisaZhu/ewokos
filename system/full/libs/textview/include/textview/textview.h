@@ -38,7 +38,6 @@ typedef struct {
 
 	uint32_t bg_color;
 	uint32_t fg_color;
-	uint32_t shadow_color;
 	content_t content;
 } textview_t;
 

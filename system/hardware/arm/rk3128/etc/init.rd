@@ -20,7 +20,7 @@
 
 @/sbin/x/xim_none                          /dev/joykeyb &
 @/sbin/x/xjoystickd /dev/joystick &
-@/sbin/x/xim_vkey 480 168&
+@/sbin/x/xim_vkey 560 168&
 
 @/bin/x/launcher &
 @/bin/session &
