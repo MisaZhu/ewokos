@@ -17,7 +17,7 @@
 #/bin/rundev /drivers/xconsoled           /dev/console0
 
 @/sbin/x/xtouchd &
-@/sbin/x/xim_vkey 480 168&
+@/sbin/x/xim_vkey 560 168&
 
 @/bin/x/launcher &
 @/bin/session &
