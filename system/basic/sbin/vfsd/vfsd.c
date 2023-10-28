@@ -418,7 +418,7 @@ static void push_close_event(close_event_t* ev) {
 	else
 		_event_head = e;
 	_event_tail = e;
-	proc_wakeup((uint32_t)_vfs_root);
+	//proc_wakeup((uint32_t)_vfs_root);
 }
 
 static int get_close_event(close_event_t *ev) {
@@ -426,7 +426,7 @@ static int get_close_event(close_event_t *ev) {
 	close_event_t *e = _event_head;
 	if (e == NULL) {
 		ipc_enable();
-		proc_block(getpid(), (uint32_t)_vfs_root);
+		//proc_block(getpid(), (uint32_t)_vfs_root);
 		return -1;
 	}
 
@@ -1078,14 +1078,12 @@ int main(int argc, char** argv) {
 			handle_close_event(&ev);
 			ipc_enable();
 		}
-		/*
 		else {
 			//ipc_disable();
 			//check_procs();
 			//ipc_enable();
 			usleep(3000);
 		}
-		*/
 	}
 	return 0;
 }

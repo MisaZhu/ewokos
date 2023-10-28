@@ -678,6 +678,10 @@ static void proc_wakeup_saved_state(int32_t pid, uint32_t event, proc_t* proc) {
 }
 
 void proc_wakeup(int32_t pid, uint32_t event) {
+	proc_t* proc_by = proc_get(pid);
+	if(proc_by != NULL)
+		proc_by->block_refs++;
+
 	int32_t i = 0;	
 	while(1) {
 		if(i >= PROC_MAX)
