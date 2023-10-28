@@ -475,17 +475,13 @@ static void sys_get_kevent(context_t* ctx) {
 static void sys_proc_block(context_t* ctx, int32_t pid_by, uint32_t evt) {
 	proc_t* proc_by = proc_get_proc(proc_get(pid_by));
 	if(proc_by != NULL) {
-		if(proc_by->block_refs > 0)
-			proc_by->block_refs--;
-		else
-			proc_block_on(ctx, proc_by->info.pid, evt);
+		proc_block_on(ctx, proc_by->info.pid, evt);
 	}
 }
 
 static void sys_proc_wakeup(context_t* ctx, uint32_t evt) {
 	(void)ctx;
 	proc_t* proc = proc_get_proc(get_current_proc());
-	proc->block_refs++;
 	proc_wakeup(proc->info.pid, evt);
 }
 

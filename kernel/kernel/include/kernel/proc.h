@@ -2,6 +2,8 @@
 #define PROC_H
 
 #include <kernel/ipc.h>
+#include <kernel/signal.h>
+#include <kernel/interrupt.h>
 //#include <kernel/core.h>
 #include <mm/mmu.h>
 #include <mm/trunkmem.h>
@@ -11,57 +13,12 @@
 
 #define PROC_FILE_MAX 128
 #define SHM_MAX 128
-#define LOCK_MAX 64
-#define IPC_CTX_MAX 8
-
-enum {
-	SIG_STATE_IDLE = 0,
-	SIG_STATE_BUSY
-};
+#define BLOCK_EVT_MAX 16
 
 typedef struct {
-	uint32_t  uid;
-	uint32_t  state;
-	proto_t   data;
-} ipc_res_t;
-
-typedef struct {
-	bool          disabled;
-	uint32_t      entry;
-	uint32_t      flags;
-	uint32_t      extra_data;
-	queue_t       tasks;
-	ipc_task_t*   ctask; //current_task
-
-    bool          do_switch;
-	uint32_t      stack; //mapped stack page
-	saved_state_t saved_state;
-} ipc_server_t;
-
-typedef struct {
-    uint32_t      entry;
-    uint32_t      sig_no;
-
-    bool          do_switch;
-	uint32_t      stack; //mapped stack page
-	saved_state_t saved_state;
-} signal_t;
-
-enum {
-	INTR_STATE_IDLE = 0,
-	INTR_STATE_START,
-	INTR_STATE_WORKING
-};
-
-typedef struct {
-    uint32_t      entry;
-    uint32_t      interrupt;
-    uint32_t      data;
-
-    uint32_t      state;
-	uint32_t      stack; //mapped stack page
-	saved_state_t saved_state;
-} proc_interrupt_t;
+	uint32_t event;
+	uint32_t refs;
+} proc_block_event_t;
 
 typedef struct {
 	page_dir_entry_t* vm;
@@ -71,6 +28,7 @@ typedef struct {
 	bool              ready_ping;
 	
 	uint32_t          shms[SHM_MAX];
+	proc_block_event_t block_events[BLOCK_EVT_MAX];
 
 	ipc_server_t      ipc_server;
 	signal_t          signal;
@@ -86,7 +44,6 @@ typedef struct st_proc {
 	int64_t           sleep_counter; //sleep usec
 	uint32_t          schd_core_lock_counter; //schd_core_lock usec
 	uint32_t          run_usec_counter; //run time usec
-	uint32_t          block_refs;
 	proc_space_t*     space;
 
 	union {

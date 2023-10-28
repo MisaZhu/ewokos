@@ -4,6 +4,7 @@
 #include <kstring.h>
 #include <kernel/schedule.h>
 #include <kernel/system.h>
+#include <kernel/proc.h>
 #include <mm/mmu.h>
 #include <mm/kalloc.h>
 
