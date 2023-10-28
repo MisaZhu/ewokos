@@ -78,7 +78,7 @@ static void interrupt_handle(uint32_t interrupt, uint32_t p) {
 	(void)p;
 	uint32_t data = get32(UART0 + UART_DATA);
 	charbuf_push(&_buffer, data, true);
-	proc_wakeup(0);
+	proc_wakeup(RW_BLOCK_EVT);
 	sys_interrupt_end();
 }
 

@@ -123,7 +123,7 @@ static int loop(void* p) {
 	char c = keyb_handle(key_scode);
 	if(c != 0) {
 		charbuf_push(&_buffer, c, true);
-		proc_wakeup(0);
+		proc_wakeup(RW_BLOCK_EVT);
 	}
 	usleep(10000);
 	return 0;

@@ -7,6 +7,7 @@
 extern "C" {
 #endif
 
+#define X_EVT_BLOCK_EVT			128
 
 enum {
 	XEVT_NONE = 0,

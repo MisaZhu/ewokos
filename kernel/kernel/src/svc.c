@@ -285,14 +285,14 @@ static void sys_ipc_call(context_t* ctx, int32_t serv_pid, int32_t call_id, prot
 
 	if(serv_proc->space->ipc_server.disabled) {
 		ctx->gpr[0] = -1; // blocked if server disabled, should retry
-		proc_block_on(ctx, serv_pid, (uint32_t)&serv_proc->space->ipc_server);
+		proc_block_on(ctx, serv_pid, (uint32_t)&serv_proc->space->ipc_server, 0);
 		return;
 	}
 
 	if(serv_proc->space->interrupt.state != INTR_STATE_IDLE) {
 		if((call_id & IPC_NON_RETURN) == 0) {
 			ctx->gpr[0] = -1; // blocked if proc is on interrupt task, should retry
-			proc_block_on(ctx, serv_pid, (uint32_t)&serv_proc->space->interrupt);
+			proc_block_on(ctx, serv_pid, (uint32_t)&serv_proc->space->interrupt, 0);
 			return;
 		}
 		call_id = call_id | IPC_LAZY; //not do task immediately
@@ -327,8 +327,8 @@ static void sys_ipc_get_return(context_t* ctx, int32_t pid, uint32_t uid, proto_
 
 		if((ipc->call_id & IPC_NON_RETURN) == 0 || ipc->uid != uid) {
 			ctx->gpr[0] = -1;
-			//proc_block_on(ctx, pid, (uint32_t)&serv_proc->space->ipc_server);
-			proc_block_on(ctx, pid, (uint32_t)&client_proc->ipc_res);
+			//proc_block_on(ctx, pid, (uint32_t)&serv_proc->space->ipc_server, 0);
+			proc_block_on(ctx, pid, (uint32_t)&client_proc->ipc_res, 0);
 			return;
 		}
 		return;
@@ -401,7 +401,7 @@ static void sys_ipc_set_return(context_t* ctx, uint32_t uid, proto_t* data) {
 		if(data != NULL) {
 			proto_copy(&client_proc->ipc_res.data, data->data, data->size);
 		}
-		proc_wakeup(serv_proc->info.pid, (uint32_t)&client_proc->ipc_res);
+		proc_wakeup(serv_proc->info.pid, (uint32_t)&client_proc->ipc_res, 0);
 		proc_switch_multi_core(ctx, client_proc, serv_proc->info.core);
 	}
 }
@@ -421,7 +421,7 @@ static void sys_ipc_end(context_t* ctx) {
 
 	//wake up request proc to get return
 	proc_ipc_close(serv_proc, ipc);
-	proc_wakeup(serv_proc->info.pid, (uint32_t)&serv_proc->space->ipc_server); 
+	proc_wakeup(serv_proc->info.pid, (uint32_t)&serv_proc->space->ipc_server, 0); 
 
 	if(proc_ipc_fetch(serv_proc) != 0)  {//fetch next buffered ipc
 		proc_save_state(serv_proc, &serv_proc->space->ipc_server.saved_state);
@@ -448,7 +448,7 @@ static void sys_ipc_enable(void) {
 		return;
 
 	cproc->space->ipc_server.disabled = false;
-	proc_wakeup(cproc->info.pid, (uint32_t)&cproc->space->ipc_server);
+	proc_wakeup(cproc->info.pid, (uint32_t)&cproc->space->ipc_server, 0);
 }
 
 static int32_t sys_proc_ping(int32_t pid) {
@@ -468,21 +468,21 @@ static void sys_get_kevent(context_t* ctx) {
 	ctx->gpr[0] = (int32_t)kev;	
 
 	if(kev == NULL) {
-		proc_block_on(ctx, -1, (uint32_t)kev_init);
+		proc_block_on(ctx, -1, (uint32_t)kev_init, 0);
 	}
 }
 
 static void sys_proc_block(context_t* ctx, int32_t pid_by, uint32_t evt) {
 	proc_t* proc_by = proc_get_proc(proc_get(pid_by));
 	if(proc_by != NULL) {
-		proc_block_on(ctx, proc_by->info.pid, evt);
+		proc_block_on(ctx, proc_by->info.pid, evt, 1);
 	}
 }
 
 static void sys_proc_wakeup(context_t* ctx, uint32_t evt) {
 	(void)ctx;
 	proc_t* proc = proc_get_proc(get_current_proc());
-	proc_wakeup(proc->info.pid, evt);
+	proc_wakeup(proc->info.pid, evt, 1);
 }
 
 static void sys_core_proc_ready(void) {
@@ -522,13 +522,13 @@ static inline void sys_safe_set(context_t* ctx, int32_t* to, int32_t v) {
 	ctx->gpr[0] = -1;
 	proc_t* proc = proc_get_proc(get_current_proc());
 	if(*to != 0 && v != 0) {
-		proc_block_on(ctx, proc->info.pid, (uint32_t)to);
+		proc_block_on(ctx, proc->info.pid, (uint32_t)to, 0);
 		return;
 	}
 
 	*to = v;
 	ctx->gpr[0] = 0;
-	proc_wakeup(proc->info.pid, (uint32_t)to);
+	proc_wakeup(proc->info.pid, (uint32_t)to, 0);
 }
 
 static inline void sys_soft_int(context_t* ctx, int32_t to_pid, uint32_t entry, uint32_t data) {

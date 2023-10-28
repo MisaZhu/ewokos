@@ -334,7 +334,7 @@ static void x_push_event(x_t* x, xwin_t* win, xevent_t* e) {
 		return;
 	e->win = win->xinfo->win;
 	xevent_push(win->from_pid, e);
-	proc_wakeup(0);
+	proc_wakeup(X_EVT_BLOCK_EVT);
 }
 
 static void hide_win(x_t* x, xwin_t* win) {

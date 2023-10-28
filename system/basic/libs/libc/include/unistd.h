@@ -13,6 +13,8 @@ extern "C" {
 #define ERR_RETRY -2
 #define ERR_RETRY_NON_BLOCK -3
 
+#define RW_BLOCK_EVT	1
+
 int getuid(void);
 int setuid(int uid);
 int getpid(void);

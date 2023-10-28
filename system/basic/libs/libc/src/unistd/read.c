@@ -38,7 +38,7 @@ static int read_block(int fd, void* buf, uint32_t size) {
 		}
 
 		if(errno == EAGAIN)
-			proc_block(info.mount_pid, 0);
+			proc_block(info.mount_pid, RW_BLOCK_EVT);
 	}
 	return res;
 }

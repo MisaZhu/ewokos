@@ -63,7 +63,7 @@ static int usb_step(void* p) {
         _release_count = 2;
         _last_x = event.x;
         _last_y = event.y;
-        proc_wakeup(0);
+        proc_wakeup(RW_BLOCK_EVT);
 	}
     else if(_release_count > 0) {
         _release_count--;
@@ -73,7 +73,7 @@ static int usb_step(void* p) {
             _buf[2] = _last_y;
             //fprintf(stderr, "e:%d x:%d y:%d\n", _buf[0], _buf[1], _buf[2]);
             _hasData = 1;
-            proc_wakeup(0);
+            proc_wakeup(RW_BLOCK_EVT);
         }
     }
     usleep(15000);

@@ -131,7 +131,7 @@ int32_t  interrupt_soft_send(context_t* ctx, int32_t to_pid, uint32_t entry, uin
 void interrupt_end(context_t* ctx) {
 	proc_t* cproc = get_current_proc();
 	cproc->space->interrupt.state = INTR_STATE_IDLE;
-	proc_wakeup(cproc->info.pid, (uint32_t)&cproc->space->interrupt);
+	proc_wakeup(cproc->info.pid, (uint32_t)&cproc->space->interrupt, 0);
 
 	if(cproc->info.state == UNUSED || cproc->info.state == ZOMBIE) {
 		irq_enable_cpsr(&cproc->ctx); //enable interrupt on proc
