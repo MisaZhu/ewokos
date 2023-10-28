@@ -19,7 +19,7 @@ int argv2rgb(uint8_t  *out,  uint32_t *in , int w, int h)
 	return 0;
 }
 
-static void splash(graph_t* g) {
+/*static void splash(graph_t* g) {
 	int y, h, l;
 	uint32_t c, bc;
 
@@ -43,6 +43,7 @@ static void splash(graph_t* g) {
 			g, (g->w-logo->w)/2, (g->h-logo->h)/2, logo->w, logo->h, 0xff);
 	graph_free(logo);
 }
+*/
 
 static uint32_t flush(const fbinfo_t* fbinfo, const void* buf, uint32_t size, int rotate) {
 	(void)size;
@@ -64,7 +65,7 @@ int main(int argc, char** argv) {
 	fbd_t fbd;
 	const char* mnt_point = argc > 1 ? argv[1]: "/dev/fb0";
 
-	fbd.splash = splash;
+	fbd.splash = NULL;
 	fbd.flush = flush;
 	fbd.init = init;
 	fbd.get_info = get_info;

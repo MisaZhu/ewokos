@@ -1,5 +1,6 @@
 /bin/rundev /drivers/rk3128/rk_uartd       /dev/tty0
 #/bin/rundev /drivers/rk3128/gpio_joykeybd  /dev/joykeyb
+/bin/rundev /drivers/rk3128/gpio_joykeyb_minid  /dev/joykeyb
 /bin/rundev /drivers/rk3128/gpio_joystickd  /dev/joystick
 /bin/rundev /drivers/rk3128/fbd            /dev/fb0
 
@@ -17,7 +18,7 @@
 
 #/bin/rundev /drivers/xconsoled           /dev/console0
 
-#@/sbin/x/xim_none                          /dev/joykeyb &
+@/sbin/x/xim_none                          /dev/joykeyb &
 @/sbin/x/xjoystickd /dev/joystick &
 @/sbin/x/xim_vkey 480 160&
 
