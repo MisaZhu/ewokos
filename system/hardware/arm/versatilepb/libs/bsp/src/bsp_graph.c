@@ -1,8 +1,6 @@
 #include <graph/graph.h>
 #include <bsp/bsp_graph.h>
 
-#ifdef GRAPH_2D_BOOST
-
 #ifdef __cplusplus 
 extern "C" { 
 #endif
@@ -21,7 +19,10 @@ inline void graph_blt_alpha_bsp(graph_t* src, int32_t sx, int32_t sy, int32_t sw
 	graph_blt_alpha_cpu(src, sx, sy, sw, sh, dst, dx, dy, dw, dh, alpha);
 }
 
+bool  graph_2d_boosted_bsp(void) {
+	return false;
+}
+
 #ifdef __cplusplus
 }
-#endif
 #endif

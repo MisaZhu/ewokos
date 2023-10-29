@@ -24,7 +24,6 @@ extra: basic_sys extra_sys
 
 basic_sys: kernel_heads 
 	rm -f $(BUILD_DIR)/lib/libbsp.a
-	cd $(ROOT_DIR)/full/libs/graph;make clean
 
 	mkdir -p $(TARGET_DIR)/drivers/$(HW)
 	cd libs;make

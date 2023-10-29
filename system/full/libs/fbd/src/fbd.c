@@ -73,7 +73,7 @@ static void default_splash(graph_t* g) {
 		graph_free(logo);
 	}
 
-	if(graph_2d_boosted()) {
+	if(graph_2d_boosted_bsp()) {
 		graph_fill_circle(g, (g->w-logo->w)/2+2, (g->h-logo->h)/2+2, 10, 0x88000000);
 		graph_fill_circle(g, (g->w-logo->w)/2, (g->h-logo->h)/2, 10, 0xffffffff);
 		graph_fill_circle(g, (g->w-logo->w)/2, (g->h-logo->h)/2, 6, 0xff00ff00);

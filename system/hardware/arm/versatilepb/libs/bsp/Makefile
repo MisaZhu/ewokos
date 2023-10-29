@@ -11,7 +11,7 @@ CFLAGS += -I$(SYS_DIR)/basic/libs/libc/sys/include \
 	-I$(SYS_DIR)/full/libs/graph/include \
 	-Iinclude -I $(TARGET_DIR)/include
 
-LIB_BSP_OBJS = src/bsp_sd.o 
+LIB_BSP_OBJS = src/bsp_sd.o src/bsp_graph.o
 
 BSP = $(TARGET_DIR)/lib/libbsp.a
 
