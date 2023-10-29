@@ -52,6 +52,15 @@ class Launcher: public XWin {
 	int32_t width;
 	uint8_t position;
 
+	void drawRunning(graph_t* g, int x, int y) {
+		uint32_t mV = items.marginV/2;
+		uint32_t mH = items.marginH/2;
+		uint32_t r = mV>mH ? mH:mV;
+		graph_fill_circle(g, x+2, y+2, r, 0x88000000);
+		graph_fill_circle(g, x, y, r-1, 0xff000000);
+		graph_circle(g, x, y, r, 0xffffffff);
+	}
+
 	void drawIcon(graph_t* g, int at, int x, int y, int w, int h) {
 		item_t* item = &items.items[at];
 		const char* icon = item->icon->cstr;
@@ -75,10 +84,8 @@ class Launcher: public XWin {
 		graph_blt_alpha(img, 0, 0, img->w, img->h,
 				g, x+dx, y+dy, img->w, img->h, 0xff);
 		
-		if(item->runPid > 0)  {
-			graph_fill_circle(g, x+dx+8, y+dy+8, 8, bgColor);
-			graph_fill_circle(g, x+dx+8, y+dy+8, 6, titleColor);
-		}
+		if(item->runPid > 0)
+			drawRunning(g, x+dx, y+dy);
 	}
 
 	void drawTitle(graph_t* g, int at, int x, int y, int w, int h) {
