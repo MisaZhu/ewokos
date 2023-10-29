@@ -33,7 +33,6 @@ basic_sys: kernel_heads
 
 	mkdir -p $(TARGET_DIR)/drivers/$(HW)
 	cd libs;make
-	cd libs;make
 	cd $(ROOT_DIR)/basic;make
 	cd drivers;make basic_sys
 	@cp -r etcs/qemu/basic/* ${TARGET_DIR}/etc
@@ -52,7 +51,7 @@ clean:
 	cd $(ROOT_DIR)/full;make clean
 	cd $(ROOT_DIR)/basic;make clean
 	cd $(ROOT_DIR)/extra;make clean
-	rm -fr $(ROOT_DIR)/build
+	rm -fr $(ROOT_DIR)/build/$(HW)
 
 run:
 	qemu-system-arm -M raspi2b -m 1024M -serial mon:stdio -kernel $(ROOT_DIR)/../kernel/hardware/arm/raspi/pix/kernel7.qemu.img -sd build/root.ext2
