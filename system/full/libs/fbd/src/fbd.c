@@ -72,6 +72,12 @@ static void default_splash(graph_t* g) {
 				g, (g->w-logo->w)/2, (g->h-logo->h)/2, logo->w, logo->h, 0xff);
 		graph_free(logo);
 	}
+
+	if(graph_2d_boosted()) {
+		graph_fill_circle(g, (g->w-logo->w)/2+2, (g->h-logo->h)/2+2, 10, 0x88000000);
+		graph_fill_circle(g, (g->w-logo->w)/2, (g->h-logo->h)/2, 10, 0xffffffff);
+		graph_fill_circle(g, (g->w-logo->w)/2, (g->h-logo->h)/2, 6, 0xff00ff00);
+	}
 }
 
 static void init_graph(fb_dma_t* dma) {
@@ -184,11 +190,6 @@ static void read_config(uint32_t* w, uint32_t* h, int32_t* rotate) {
 
 int fbd_run(fbd_t* fbd, const char* mnt_name,
 		uint32_t def_w, uint32_t def_h, int32_t def_rotate) {
-	if(graph_2d_boosted())
-		klog("    check hardware 2D graph boosted ... YES.\n");
-	else
-		klog("    check hardware 2D graph boosted ... NO.\n");
-
 	_fbd = fbd;
 	uint32_t w = def_w, h = def_h;
 	_rotate = def_rotate;
