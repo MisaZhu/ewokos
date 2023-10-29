@@ -3,7 +3,7 @@
 #include <kernel/kernel.h>
 #include <kernel/hw_info.h>
 #include <kstring.h>
-#include "arch.h"
+#include "hw_arch.h"
 
 /* memory mapping for the prime interrupt controller */
 #define PIC (_sys_info.mmio.v_base + 0xB200)
