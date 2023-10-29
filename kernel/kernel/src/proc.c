@@ -659,16 +659,18 @@ inline void proc_block_on(context_t* ctx, int32_t pid_by, uint32_t event, uint8_
 	if(cproc == NULL)
 		return;
 
-	proc_t* proc_by = proc_get(pid_by);
-	if(proc_by != NULL && event != 0 && sys_call != 0) {
-		proc_block_event_t* block_evt = get_block_evt(proc_by, event);
-		if(block_evt != NULL) {
-			if(block_evt->refs > 0) {
-				block_evt->refs--;
-				return;
+	if(event != 0 && sys_call != 0) {
+		proc_t* proc_by = proc_get(pid_by);
+		if(proc_by != NULL && event != 0 && sys_call != 0) {
+			proc_block_event_t* block_evt = get_block_evt(proc_by, event);
+			if(block_evt != NULL) {
+				if(block_evt->refs > 0) {
+					block_evt->refs--;
+					return;
+				}
+				else
+					block_evt->event = 0;
 			}
-			else
-				block_evt->event = 0;
 		}
 	}
 	
@@ -713,13 +715,15 @@ static void proc_wakeup_saved_state(int32_t pid, uint32_t event, proc_t* proc) {
 }
 
 void proc_wakeup(int32_t pid, uint32_t event, uint8_t sys_call) {
-	proc_t* proc_by = proc_get(pid);
-	if(proc_by != NULL && event != 0 && sys_call != 0) {
-		proc_block_event_t* block_evt = get_block_evt(proc_by, event);
-		if(block_evt != NULL)
-			block_evt->refs++;
-		else
-			set_block_evt(proc_by, event);
+	if(event != 0 && sys_call != 0) {
+		proc_t* proc_by = proc_get(pid);
+		if(proc_by != NULL) {
+			proc_block_event_t* block_evt = get_block_evt(proc_by, event);
+			if(block_evt != NULL)
+				block_evt->refs++;
+			else
+				set_block_evt(proc_by, event);
+		}
 	}
 
 	int32_t i = 0;	
