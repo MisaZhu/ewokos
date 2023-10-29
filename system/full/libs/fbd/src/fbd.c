@@ -184,9 +184,16 @@ static void read_config(uint32_t* w, uint32_t* h, int32_t* rotate) {
 
 int fbd_run(fbd_t* fbd, const char* mnt_name,
 		uint32_t def_w, uint32_t def_h, int32_t def_rotate) {
+	if(graph_2d_boosted())
+		klog("    check hardware 2D graph boosted ... YES.\n");
+	else
+		klog("    check hardware 2D graph boosted ... NO.\n");
+
 	_fbd = fbd;
 	uint32_t w = def_w, h = def_h;
 	_rotate = def_rotate;
+
+
 	read_config(&w, &h, &_rotate);
 
 	fb_dma_t dma;

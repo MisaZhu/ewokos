@@ -1,8 +1,11 @@
 #include <graph/graph.h>
-#include <bsp/bsp_graph.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+
+#ifdef GRAPH_2D_BOOST
+#include <bsp/bsp_graph.h>
+#endif
 
 #ifdef __cplusplus 
 extern "C" { 

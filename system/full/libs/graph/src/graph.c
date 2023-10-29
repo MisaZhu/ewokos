@@ -221,6 +221,14 @@ graph_t* graph_scalef(graph_t* g, float scale) {
 	return ret;
 }
 
+bool graph_2d_boosted(void) {
+#ifdef GRAPH_2D_BOOST
+	return true;
+#else
+	return false;
+#endif
+}
+
 #ifdef __cplusplus
 }
 #endif
