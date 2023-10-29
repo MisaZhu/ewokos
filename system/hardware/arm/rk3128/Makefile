@@ -3,7 +3,7 @@ BUILD_DIR = $(ROOT_DIR)/build
 TARGET_DIR = $(BUILD_DIR)/rootfs
 
 export ARCH=arm
-export NEON=yes
+export 2D_BOOST=yes
 
 all: basic_sys
 	@echo "all done."
@@ -16,6 +16,7 @@ extra: basic_sys extra_sys
 basic_sys: kernel_heads 
 	mkdir -p $(TARGET_DIR)/drivers/rk3128
 	rm -f $(BUILD_DIR)/lib/libbsp.a
+	rm -f $(BUILD_DIR)/lib/libgraph.a
 	cd libs;make
 	cd $(ROOT_DIR)/basic;make
 	cd $(ROOT_DIR)/full;make

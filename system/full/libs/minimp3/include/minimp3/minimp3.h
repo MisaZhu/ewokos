@@ -161,7 +161,7 @@ end:
     return g_have_simd - 1;
 #endif /* MINIMP3_ONLY_SIMD */
 }
-#elif defined(__ARM_NEON) || defined(__aarch64__) || defined(_M_ARM64)
+#elif defined(__ARM_2D_BOOST) || defined(__aarch64__) || defined(_M_ARM64)
 #include <arm_neon.h>
 #define HAVE_SSE 0
 #define HAVE_SIMD 1
@@ -184,7 +184,7 @@ static int have_simd()
 #define HAVE_SSE 0
 #define HAVE_SIMD 0
 #ifdef MINIMP3_ONLY_SIMD
-#error MINIMP3_ONLY_SIMD used, but SSE/NEON not enabled
+#error MINIMP3_ONLY_SIMD used, but SSE/2D_BOOST not enabled
 #endif /* MINIMP3_ONLY_SIMD */
 #endif /* SIMD checks... */
 #else /* !defined(MINIMP3_NO_SIMD) */

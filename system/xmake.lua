@@ -176,7 +176,7 @@ includes("extra/**/xmake.lua")
 
 if is_plat("raspix","raspi1", "raspi2", "raspi3", "raspi4") then
     set_arch("")
-	add_defines("NEON_ENABLE")
+	add_defines("GRAPH_2D_BOOST")
     rootfs_dir =  os.scriptdir().."/build/raspix/rootfs/" 
     includes("hardware/arm/raspix/xmake.lua")
 	includes("hardware/3rd/raspix/xmake.lua")

@@ -225,29 +225,6 @@ static int draw_win(x_t* xp, xwin_t* win) {
 	uint32_t to = 0;
 	graph_t* g = win->g_buf;
 	if(g != NULL) {
-#ifdef NEON_ENABLE
-		if(win->xinfo->alpha) {
-			graph_blt_alpha_neon(g, 0, 0, 
-					win->xinfo->wsr.w,
-					win->xinfo->wsr.h,
-					display->g,
-					win->xinfo->wsr.x,
-					win->xinfo->wsr.y,
-					win->xinfo->wsr.w,
-					win->xinfo->wsr.h, 0xff);
-
-		}
-		else {
-			graph_blt_neon(g, 0, 0, 
-						win->xinfo->wsr.w,
-						win->xinfo->wsr.h,
-						display->g,
-						win->xinfo->wsr.x,
-						win->xinfo->wsr.y,
-						win->xinfo->wsr.w,
-						win->xinfo->wsr.h);
-		}
-#else
 		if(win->xinfo->alpha) {
 			graph_blt_alpha(g, 0, 0, 
 					win->xinfo->wsr.w,
@@ -257,19 +234,17 @@ static int draw_win(x_t* xp, xwin_t* win) {
 					win->xinfo->wsr.y,
 					win->xinfo->wsr.w,
 					win->xinfo->wsr.h, 0xff);
-
 		}
 		else {
 			graph_blt(g, 0, 0, 
-						win->xinfo->wsr.w,
-						win->xinfo->wsr.h,
-						display->g,
-						win->xinfo->wsr.x,
-						win->xinfo->wsr.y,
-						win->xinfo->wsr.w,
-						win->xinfo->wsr.h);
+					win->xinfo->wsr.w,
+					win->xinfo->wsr.h,
+					display->g,
+					win->xinfo->wsr.x,
+					win->xinfo->wsr.y,
+					win->xinfo->wsr.w,
+					win->xinfo->wsr.h);
 		}
-#endif
 	}
 
 	draw_win_frame(xp, win);

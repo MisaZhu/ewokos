@@ -3,6 +3,7 @@ BUILD_DIR = $(ROOT_DIR)/build
 TARGET_DIR = $(BUILD_DIR)/rootfs
 
 export ARCH=arm
+export NEON=yes
 
 all: full 
 	@echo "all done."
@@ -21,6 +22,7 @@ full: full_sys
 basic_sys: kernel_heads 
 	mkdir -p $(TARGET_DIR)/drivers/versatilepb
 	rm -f $(BUILD_DIR)/lib/libbsp.a
+	rm -f $(BUILD_DIR)/lib/libgraph.a
 	cd libs;make
 	cd $(ROOT_DIR)/basic;make
 	cd drivers;make basic_sys

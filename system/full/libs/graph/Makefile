@@ -17,14 +17,10 @@ LIB_GRAPH_OBJS = src/graph.o \
 	src/round.o \
 	src/bitmap.o
 
-ifeq ($(NEON),yes)
-LIB_GRAPH_OBJS += src/blt_neon.o
-endif
-
 GRAPH = $(TARGET_DIR)/lib/libgraph.a
 
-$(GRAPH): $(LIB_GRAPH_OBJS)
-	$(AR) rT $(GRAPH) $(LIB_GRAPH_OBJS)
+$(GRAPH): $(LIB_GRAPH_OBJS) $(TARGET_DIR)/lib/libbsp.a
+	$(AR) rT $(GRAPH) $(LIB_GRAPH_OBJS) $(TARGET_DIR)/lib/libbsp.a
 	cp -r include/* $(TARGET_DIR)/include
 
 

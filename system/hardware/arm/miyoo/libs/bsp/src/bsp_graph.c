@@ -1,10 +1,11 @@
 #include <graph/graph.h>
+#include <bsp/bsp_graph.h>
 #include <sys/core.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 
-#ifdef NEON_ENABLE
+#ifdef GRAPH_2D_BOOST
 
 #ifdef __cplusplus 
 extern "C" { 
@@ -123,7 +124,7 @@ static inline void graph_pixel_neon(graph_t *graph, int32_t x, int32_t y,
 	}
 }
 
-void graph_fill_neon(graph_t* g, int32_t x, int32_t y, int32_t w, int32_t h, uint32_t color) {
+void graph_fill_bsp(graph_t* g, int32_t x, int32_t y, int32_t w, int32_t h, uint32_t color) {
 	uint32_t buf[8];
 
 	if(g == NULL || w <= 0 || h <= 0)
@@ -166,7 +167,7 @@ void graph_fill_neon(graph_t* g, int32_t x, int32_t y, int32_t w, int32_t h, uin
 	neon_unlock();
 }
 
-inline void graph_blt_neon(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_t sh,
+inline void graph_blt_bsp(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_t sh,
 		graph_t* dst, int32_t dx, int32_t dy, int32_t dw, int32_t dh) {
 	
 	if(sw <= 0 || sh <= 0 || dw <= 0 || dh <= 0)
@@ -196,7 +197,7 @@ inline void graph_blt_neon(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int
 	neon_unlock();
 }
 
-inline void graph_blt_alpha_neon(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_t sh,
+inline void graph_blt_alpha_bsp(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_t sh,
 		graph_t* dst, int32_t dx, int32_t dy, int32_t dw, int32_t dh, uint8_t alpha) {
 	if(sw <= 0 || sh <= 0 || dw <= 0 || dh <= 0)
 		return;
