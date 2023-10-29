@@ -4,7 +4,7 @@ TARGET_DIR = $(BUILD_DIR)/rootfs
 HW=versatilepb
 
 export ARCH=arm
-#export 2D_BOOST=yes
+#export G_2D_BOOST=yes
 
 all: full
 	@echo "all done."
@@ -30,6 +30,7 @@ full: full_sys
 
 basic_sys: kernel_heads 
 	rm -f $(BUILD_DIR)/lib/libbsp.a
+	cd $(ROOT_DIR)/full/libs/graph;make clean
 
 	mkdir -p $(TARGET_DIR)/drivers/$(HW)
 	cd libs;make

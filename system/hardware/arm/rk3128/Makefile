@@ -4,7 +4,7 @@ TARGET_DIR = $(BUILD_DIR)/rootfs
 HW=rk3128
 
 export ARCH=arm
-export 2D_BOOST=yes
+export G_2D_BOOST=yes
 
 all: basic_sys
 	@echo "all done."
@@ -24,6 +24,7 @@ extra: basic_sys extra_sys
 
 basic_sys: kernel_heads 
 	rm -f $(BUILD_DIR)/lib/libbsp.a
+	cd $(ROOT_DIR)/full/libs/graph;make clean
 
 	mkdir -p $(TARGET_DIR)/drivers/$(HW)
 	cd libs;make

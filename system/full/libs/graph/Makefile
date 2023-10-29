@@ -7,6 +7,11 @@ LDFLAGS = -L$(TARGET_DIR)/lib -lnosys
 
 CFLAGS += -Iinclude -I $(TARGET_DIR)/include
 
+ifeq ($(G_2D_BOOST),yes)
+CFLAGS += -mfpu=neon-vfpv4 -DGRAPH_2D_BOOST
+CXXFLAGS += -mfpu=neon-vfpv4 -DGRAPH_2D_BOOST
+endif
+
 LIB_GRAPH_OBJS = src/graph.o \
 	src/graph_ex.o \
 	src/blt.o \
@@ -22,6 +27,7 @@ GRAPH = $(TARGET_DIR)/lib/libgraph.a
 $(GRAPH): $(LIB_GRAPH_OBJS) $(TARGET_DIR)/lib/libbsp.a
 	$(AR) rT $(GRAPH) $(LIB_GRAPH_OBJS) $(TARGET_DIR)/lib/libbsp.a
 	cp -r include/* $(TARGET_DIR)/include
+
 
 clean:
 	rm -f $(LIB_GRAPH_OBJS)

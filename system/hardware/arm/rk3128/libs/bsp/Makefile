@@ -11,6 +11,11 @@ CFLAGS += -I$(SYS_DIR)/basic/libs/libc/sys/include \
 	-I$(SYS_DIR)/full/libs/graph/include \
 	-Iinclude -I $(TARGET_DIR)/include
 
+ifeq ($(G_2D_BOOST),yes)
+CFLAGS += -mfpu=neon-vfpv4 -DGRAPH_2D_BOOST
+CXXFLAGS += -mfpu=neon-vfpv4 -DGRAPH_2D_BOOST
+endif
+
 LIB_BSP_OBJS = src/bsp_sd.o src/bsp_graph.o
 
 BSP = $(TARGET_DIR)/lib/libbsp.a
