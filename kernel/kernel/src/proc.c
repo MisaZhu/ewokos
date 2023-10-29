@@ -613,7 +613,7 @@ inline void proc_usleep(context_t* ctx, uint32_t count) {
 	schedule(ctx);
 }
 
-static void proc_block_saved_state(int32_t pid_by, uint32_t event, proc_t* proc) {
+/*static void proc_block_saved_state(int32_t pid_by, uint32_t event, proc_t* proc) {
 	ipc_task_t* ipc = proc_ipc_get_task(proc);
 	if(ipc != NULL && ipc->state != IPC_IDLE) {
 		proc->space->ipc_server.saved_state.state = BLOCK;
@@ -627,6 +627,7 @@ static void proc_block_saved_state(int32_t pid_by, uint32_t event, proc_t* proc)
 		proc->space->interrupt.saved_state.block_event = event;
 	}
 }
+*/
 
 static proc_block_event_t* get_block_evt(proc_t* proc, uint32_t event) {
 	if(proc == NULL || event == 0)
