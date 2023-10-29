@@ -2,19 +2,46 @@
 #include <kernel/system.h>
 #include <kernel/kernel.h>
 #include <bcm283x/framebuffer.h>
+#include <bcm283x/board.h>
 #include <kstring.h>
-
+#include <stdbool.h>
+#include "hw_arch.h"
 
 uint32_t _allocatable_phy_mem_top = 0;
 uint32_t _allocatable_phy_mem_base = 0;
+uint32_t _uart_type = UART_MINI;
 
 #define FB_SIZE 64*MB
 #define DMA_SIZE 256*KB
 
+static bool isPi0W(uint32_t revision) {
+	return (revision == 0x9200c1 ||
+			revision == 0x9000c1); 
+}
+
+static bool isPiA(uint32_t revision) {
+	return (revision == 0x900021 ||
+			revision == 0x12 ||
+			revision == 0x15);
+}
+
 void sys_info_init_arch(void) {
 	memset(&_sys_info, 0, sizeof(sys_info_t));
+	uint32_t pix_revision = bcm283x_board();
 
-	strcpy(_sys_info.machine, "raspberry-pi1");
+	if(isPi0W(pix_revision)) {
+		strcpy(_sys_info.machine, "raspberry-pi0-w");
+		_uart_type = UART_MINI;
+	}
+	else if(isPiA(pix_revision)) {
+		strcpy(_sys_info.machine, "raspberry-pi1a");
+		_uart_type = UART_PL011;
+	}
+	else {
+		strcpy(_sys_info.machine, "raspberry-pi0");
+		_uart_type = UART_PL011;
+	}
+
 	strcpy(_sys_info.arch, "armv6");
 	_sys_info.phy_offset = 0;
 	_sys_info.phy_mem_size = 512*MB;

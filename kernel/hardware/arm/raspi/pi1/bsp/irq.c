@@ -10,7 +10,6 @@
 #define PIC_INT_UART0 (25+64)
 #define PIC_INT_SDC (30)
 
-
 #define IRQ_IS_BASIC(x) ((x) >= 64 )
 #define IRQ_IS_GPU2(x) ((x) >= 32 && (x) < 64 )
 #define IRQ_IS_GPU1(x) ((x) < 32 )
@@ -41,7 +40,6 @@ void irq_arch_init(void) {
 
 
 inline void irq_enable(uint32_t irqs) {
-	(void)irqs;
   if((irqs & IRQ_TIMER0) != 0) {
   	enable_irq(64);
 	}
