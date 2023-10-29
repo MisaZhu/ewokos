@@ -14,27 +14,20 @@ uint32_t _uart_type = UART_MINI;
 #define FB_SIZE 64*MB
 #define DMA_SIZE 256*KB
 
-static bool isPi0W(uint32_t revision) {
-	return (revision == 0x9200c1 ||
-			revision == 0x9000c1); 
-}
-
-static bool isPiA(uint32_t revision) {
-	return (revision == 0x900021 ||
-			revision == 0x12 ||
-			revision == 0x15);
-}
-
 void sys_info_init_arch(void) {
 	memset(&_sys_info, 0, sizeof(sys_info_t));
 	uint32_t pix_revision = bcm283x_board();
 
-	if(isPi0W(pix_revision)) {
+	if(pix_revision == PI_0_W) {
 		strcpy(_sys_info.machine, "raspberry-pi0-w");
 		_uart_type = UART_MINI;
 	}
-	else if(isPiA(pix_revision)) {
+	else if(pix_revision == PI_1A) {
 		strcpy(_sys_info.machine, "raspberry-pi1a");
+		_uart_type = UART_PL011;
+	}
+	else if(pix_revision == PI_1B) {
+		strcpy(_sys_info.machine, "raspberry-pi1b");
 		_uart_type = UART_PL011;
 	}
 	else {
