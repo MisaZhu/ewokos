@@ -29,9 +29,11 @@ full: full_sys
 	@echo "all done."
 
 basic_sys: kernel_heads 
-	mkdir -p $(TARGET_DIR)/drivers/$(HW)
 	rm -f $(BUILD_DIR)/lib/libbsp.a
-	rm -f $(BUILD_DIR)/lib/libgraph.a
+	cd $(ROOT_DIR)/full/libs/graph;make clean
+
+	mkdir -p $(TARGET_DIR)/drivers/$(HW)
+	cd libs;make
 	cd libs;make
 	cd $(ROOT_DIR)/basic;make
 	cd drivers;make basic_sys

@@ -23,9 +23,10 @@ extra: basic_sys extra_sys
 	mv $(BUILD_DIR)/lib $(BUILD_DIR)/$(HW)
 
 basic_sys: kernel_heads 
-	mkdir -p $(TARGET_DIR)/drivers/$(HW)
 	rm -f $(BUILD_DIR)/lib/libbsp.a
-	rm -f $(BUILD_DIR)/lib/libgraph.a
+	cd $(ROOT_DIR)/full/libs/graph;make clean
+
+	mkdir -p $(TARGET_DIR)/drivers/$(HW)
 	cd libs;make
 	cd $(ROOT_DIR)/basic;make
 	cd $(ROOT_DIR)/full;make

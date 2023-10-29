@@ -7,6 +7,11 @@ LDFLAGS = -L$(TARGET_DIR)/lib -lnosys
 
 CFLAGS += -Iinclude -I $(TARGET_DIR)/include
 
+ifeq ($(2D_BOOST),yes)
+CFLAGS += -mfpu=neon-vfpv4 -DGRAPH_2D_BOOST
+CXXFLAGS += -mfpu=neon-vfpv4 -DGRAPH_2D_BOOST
+endif
+
 LIB_GRAPH_OBJS = src/graph.o \
 	src/graph_ex.o \
 	src/blt.o \
