@@ -1,7 +1,7 @@
 include ../../make.rule
 
 BUILD_DIR = $(SYS_DIR)/build
-TARGET_DIR = $(BUILD_DIR)/rootfs
+TARGET_DIR = $(BUILD_DIR)/$(HW)
 
 LDFLAGS = -L$(BUILD_DIR)/lib -lnosys
 
@@ -18,7 +18,7 @@ $(EPAPERD): $(EPAPERD_OBJS) \
 		$(BUILD_DIR)/lib/libsconf.a \
 		$(BUILD_DIR)/lib/libupng.a \
 		$(BUILD_DIR)/lib/libarch_bcm283x.a 
-	$(LD) -Ttext=100 $(EPAPERD_OBJS) -o $(EPAPERD) $(LDFLAGS) -larch_bcm283x -lfbd -lupng -lgraph -lsconf -lewokc -lc
+	$(LD) -Ttext=100 $(EPAPERD_OBJS) -o $(EPAPERD) $(LDFLAGS) -lfbd -lupng -lgraph -lsconf  -larch_bcm283x -lewokc -lc
 
 clean:
 	rm -f $(EPAPERD_OBJS)

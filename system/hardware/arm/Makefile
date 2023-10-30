@@ -1,20 +1,20 @@
 all:
-	cd raspix;make
+	cd versatilepb;make
 	cd miyoo;make
 	cd rk3128;make
-	cd versatilepb;make
+	cd raspix;make
 
 extra:
-	cd raspix;make extra
+	cd versatilepb;make extra
 	cd miyoo;make extra
 	cd rk3128;make extra
-	cd versatilepb;make extra
+	cd raspix;make extra
 
 sd:
-	cd raspix;make sd
+	cd versatilepb;make sd
 	cd miyoo;make sd
 	cd rk3128;make sd
-	cd versatilepb;make sd
+	cd raspix;make sd
 
 clean:
 	cd raspix;make clean

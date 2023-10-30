@@ -10,8 +10,8 @@ all: basic_sys
 	@echo "all done."
 	rm -fr $(BUILD_DIR)/$(HW)
 	mv $(TARGET_DIR) $(BUILD_DIR)/$(HW)
-	mv $(BUILD_DIR)/include $(BUILD_DIR)/$(HW)
-	mv $(BUILD_DIR)/lib $(BUILD_DIR)/$(HW)
+	cp -r $(BUILD_DIR)/include $(BUILD_DIR)/$(HW)
+	cp -r $(BUILD_DIR)/lib $(BUILD_DIR)/$(HW)
 
 include ../make.inc
 
@@ -19,8 +19,8 @@ extra: basic_sys extra_sys
 	@echo "all done."
 	rm -fr $(BUILD_DIR)/$(HW)
 	mv $(TARGET_DIR) $(BUILD_DIR)/$(HW)
-	mv $(BUILD_DIR)/include $(BUILD_DIR)/$(HW)
-	mv $(BUILD_DIR)/lib $(BUILD_DIR)/$(HW)
+	cp -r $(BUILD_DIR)/include $(BUILD_DIR)/$(HW)
+	cp -r $(BUILD_DIR)/lib $(BUILD_DIR)/$(HW)
 
 basic_sys: kernel_heads 
 	rm -f $(BUILD_DIR)/lib/libbsp.a

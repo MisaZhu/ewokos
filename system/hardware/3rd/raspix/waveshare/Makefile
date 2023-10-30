@@ -1,5 +1,6 @@
 
 export ARCH=arm
+export HW=raspix
 
 all: 
 	cd libs/xpt2046; make
