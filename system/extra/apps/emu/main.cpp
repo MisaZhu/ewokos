@@ -286,7 +286,7 @@ public:
 
 		kernel_tic(&sec, &usec);
 		wait = 1000000/60 - ((sec - lastSec) * 1000000 + (usec - lastUsec)); 
-		if(wait > 0)
+		if(wait > 0 && wait < (1000000/60))
 			usleep(wait);
 
 		kernel_tic(&lastSec, &lastUsec);
