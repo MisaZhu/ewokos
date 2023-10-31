@@ -80,7 +80,7 @@ int main(int argc, char** argv) {
 
 	win.getWidget()->setType(Container::VERTICLE);
 
-	x.open(&win, 20, 20, 200, 200, "widgetTest", X_STYLE_NORMAL);
+	x.open(&win, 20, 20, 200, 200, "widgetTest", XWIN_STYLE_NORMAL);
 	win.setVisible(true);
 	//x.run(loop, &win);
 	x.run(NULL, &win);

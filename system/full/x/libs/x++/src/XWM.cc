@@ -13,8 +13,8 @@ void XWM::getWinSpace(int style, grect_t* xr, grect_t* winr) {
 	winr->x = xr->x;
 	winr->w = xr->w;
 
-	if((style & X_STYLE_NO_TITLE) == 0 &&
-			(style & X_STYLE_NO_FRAME) == 0) {
+	if((style & XWIN_STYLE_NO_TITLE) == 0 &&
+			(style & XWIN_STYLE_NO_FRAME) == 0) {
 		winr->y = xr->y - titleH;
 		winr->h = xr->h + titleH;
 	}
@@ -116,7 +116,7 @@ void XWM::drawFrame(graph_t* g, xinfo_t* info, bool top) {
 	int h = info->wsr.h;
 	//int h = 0;
 
-	if((info->style & X_STYLE_NO_TITLE) == 0) {
+	if((info->style & XWIN_STYLE_NO_TITLE) == 0) {
 		h += titleH;
 		//h = titleH;
 		y -= titleH;

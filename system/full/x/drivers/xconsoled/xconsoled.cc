@@ -164,7 +164,7 @@ int main(int argc, char** argv) {
 
 	X x;
 	xscreen_t scr;
- 	x.screenInfo(scr, 0);
+ 	x.getScreenInfo(scr, 0);
 
 	uint32_t w = xwin.getWidth();
 	uint32_t h = xwin.getHeight();
@@ -173,7 +173,7 @@ int main(int argc, char** argv) {
 	h = h==0 ? scr.size.h:h;
 
 	x.open(&xwin, (scr.size.w-w)/2, scr.size.h-h, w, h, "xconsoled",
-			X_STYLE_NO_TITLE | X_STYLE_NO_FOCUS | X_STYLE_SYSTOP | X_STYLE_LAZY);
+			XWIN_STYLE_NO_TITLE | XWIN_STYLE_NO_FOCUS | XWIN_STYLE_SYSTOP | XWIN_STYLE_LAZY);
 	xwin.setVisible(false);
 	xwin.setAlpha(true);
 

@@ -96,13 +96,13 @@ int main(int argc, char* argv[]) {
 	if(displayNum == 0)
 		return -1;
 
-	x.screenInfo(scr, displayNum-1);
+	x.getScreenInfo(scr, displayNum-1);
 
 	TestX xwin;
 	int32_t w, h;
 	xwin.getSize(w, h);
 	x.open(&scr, &xwin, w, h,
-			"anim", X_STYLE_NO_FRAME | X_STYLE_NO_FOCUS | X_STYLE_SYSTOP);
+			"anim", XWIN_STYLE_NO_FRAME | XWIN_STYLE_NO_FOCUS | XWIN_STYLE_SYSTOP);
 
 	xwin.setDisplay(displayNum-1);
 	xwin.setAlpha(true);

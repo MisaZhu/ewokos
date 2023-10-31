@@ -179,7 +179,7 @@ int main(int argc, char* argv[]) {
 			300,
 			200,
 			"book",
-			X_STYLE_NORMAL);
+			XWIN_STYLE_NORMAL);
 
 	xwin.setVisible(true);
 	x.run(loop, &xwin);

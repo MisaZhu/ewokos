@@ -10,12 +10,12 @@ extern "C" {
 
 
 enum {
-	X_CNTL_NONE = 0,
-	X_CNTL_NEW,
-	X_CNTL_UPDATE,
-	X_CNTL_UPDATE_INFO,
-	X_CNTL_WIN_SPACE,
-	X_CNTL_CALL_XIM
+	XWIN_CNTL_NONE = 0,
+	XWIN_CNTL_NEW,
+	XWIN_CNTL_UPDATE,
+	XWIN_CNTL_UPDATE_INFO,
+	XWIN_CNTL_WORK_SPACE,
+	XWIN_CNTL_CALL_XIM
 };
 
 enum {
@@ -28,35 +28,33 @@ enum {
 	X_DCNTL_QUIT,
 	X_DCNTL_GET_THEME,
 	X_DCNTL_SET_TOP,
+	X_DCNTL_GET_DESKTOP_SPACE,
+	X_DCNTL_SET_DESKTOP_SPACE
 };
 
 enum {
-	X_STATE_NORMAL = 0,
-	X_STATE_MAX,
-	X_STATE_MIN,
-	X_STATE_FULL_SCREEN
-};
-
-enum {
-	X_CMD_PUSH_EVENT = 0
+	XWIN_STATE_NORMAL = 0,
+	XWIN_STATE_MAX,
+	XWIN_STATE_MIN,
+	XWIN_STATE_FULL_SCREEN
 };
 
 #define X_UPDATE_REBUILD 0x1
 #define X_UPDATE_REFRESH 0x2
 
-#define X_STYLE_NORMAL    0x0
-#define X_STYLE_NO_FRAME  0x1
-#define X_STYLE_NO_TITLE  0x2
-#define X_STYLE_NO_RESIZE 0x4
-#define X_STYLE_LAZY      0x8 //ignore all event
-#define X_STYLE_NO_FOCUS  0x10
-#define X_STYLE_SYSTOP    0x20
-#define X_STYLE_SYSBOTTOM 0x40
-#define X_STYLE_XIM       0x80
-#define X_STYLE_LAUNCHER  0x100
-#define X_STYLE_ANTI_FSCR 0x200 //anti full screen
+#define XWIN_STYLE_NORMAL    0x0
+#define XWIN_STYLE_NO_FRAME  0x1
+#define XWIN_STYLE_NO_TITLE  0x2
+#define XWIN_STYLE_NO_RESIZE 0x4
+#define XWIN_STYLE_LAZY      0x8 //ignore all event
+#define XWIN_STYLE_NO_FOCUS  0x10
+#define XWIN_STYLE_SYSTOP    0x20
+#define XWIN_STYLE_SYSBOTTOM 0x40
+#define XWIN_STYLE_XIM       0x80
+#define XWIN_STYLE_LAUNCHER  0x100
+#define XWIN_STYLE_ANTI_FSCR 0x200 //anti full screen
 
-#define X_TITLE_MAX 32
+#define XWIN_TITLE_MAX 32
 typedef struct {
 	uint32_t win;
 	void*    g_shm;
@@ -68,7 +66,7 @@ typedef struct {
 	bool alpha;
 	grect_t wsr; //workspace rect
 	grect_t winr; //window rect
-	char title[X_TITLE_MAX];
+	char title[XWIN_TITLE_MAX];
 } xinfo_t;
 
 typedef struct {

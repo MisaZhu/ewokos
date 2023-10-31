@@ -79,17 +79,17 @@ static void draw_frame(xwm_t* xwm, proto_t* in) {
 
 		if(xwm->draw_frame != NULL)
 			xwm->draw_frame(&g, &info, top, xwm->data);
-		if((info.style & X_STYLE_NO_TITLE) == 0) {
+		if((info.style & XWIN_STYLE_NO_TITLE) == 0) {
 			if(xwm->draw_title != NULL && rtitle.w > 0 && rtitle.h > 0)
 				xwm->draw_title(&g, &info, &rtitle, top, xwm->data);
 
-			if((info.style & X_STYLE_NO_RESIZE) == 0) {
+			if((info.style & XWIN_STYLE_NO_RESIZE) == 0) {
 				if(xwm->draw_max != NULL && rmax.w > 0 && rmax.h > 0)
 					xwm->draw_max(&g, &info, &rmax, top, xwm->data);
 				if(xwm->draw_min != NULL && rmin.w > 0 && rmin.h > 0)
 					xwm->draw_min(&g, &info, &rmin, top, xwm->data);
 
-				if(info.state != X_STATE_MAX) {
+				if(info.state != XWIN_STATE_MAX) {
 					if(xwm->draw_resize != NULL && rresize.w > 0 && rresize.h > 0)
 						xwm->draw_resize(&g, &info, &rresize, top, xwm->data);
 				}
@@ -113,8 +113,8 @@ static void get_frame_areas(xwm_t* xwm, proto_t* in, proto_t* out) {
 	memset(&rmin, 0, sizeof(grect_t));
 	memset(&rresize, 0, sizeof(grect_t));
 
-	if((info.style & X_STYLE_NO_TITLE) == 0 &&
-			(info.style & X_STYLE_NO_FRAME) == 0) {
+	if((info.style & XWIN_STYLE_NO_TITLE) == 0 &&
+			(info.style & XWIN_STYLE_NO_FRAME) == 0) {
 
 		if(xwm->get_title != NULL)
 			xwm->get_title(&info, &rtitle, xwm->data);
@@ -123,7 +123,7 @@ static void get_frame_areas(xwm_t* xwm, proto_t* in, proto_t* out) {
 		if(xwm->get_min != NULL)
 			xwm->get_min(&info, &rmin, xwm->data);
 
-		if((info.style & X_STYLE_NO_RESIZE) == 0) {
+		if((info.style & XWIN_STYLE_NO_RESIZE) == 0) {
 			if(xwm->get_max != NULL)
 				xwm->get_max(&info, &rmax, xwm->data);
 			if(xwm->get_resize != NULL)

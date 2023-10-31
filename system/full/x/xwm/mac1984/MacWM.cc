@@ -2,7 +2,7 @@
 #include <sys/kernel_tic.h>
 #include <sys/klog.h>
 #include <upng/upng.h>
-#include <x/x.h>
+#include <x++/X.h>
 #include <sconf/sconf.h>
 #include <stdlib.h>
 #include <string.h>

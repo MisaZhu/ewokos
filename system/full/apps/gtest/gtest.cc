@@ -143,10 +143,10 @@ int main(int argc, char* argv[]) {
 	xscreen_t scr;
 
 	X x;
-	x.screenInfo(scr, 0);
+	x.getScreenInfo(scr, 0);
 
 	TestX xwin;
-	x.open(&scr, &xwin, 0, 0, "gtest", X_STYLE_NORMAL);
+	x.open(&scr, &xwin, 0, 0, "gtest", XWIN_STYLE_NORMAL);
 	xwin.setVisible(true);
 
 	/*_xwin = &xwin;

@@ -66,6 +66,7 @@ typedef struct {
 	fb_t fb;
 	graph_t* g;
 	graph_t* g_fb;
+	grect_t desktop_rect;
 	bool dirty;
 	bool cursor_task;
 	bool need_repaint;
@@ -150,7 +151,7 @@ static int32_t read_config(x_t* x, const char* fname) {
 
 static void draw_win_frame(x_t* x, xwin_t* win) {
 	x_display_t *display = &x->displays[win->xinfo->display_index];
-	if((win->xinfo->style & X_STYLE_NO_FRAME) != 0 ||
+	if((win->xinfo->style & XWIN_STYLE_NO_FRAME) != 0 ||
 			display->g == NULL)
 		return;
 
@@ -339,8 +340,8 @@ static void show_win(x_t* x, xwin_t* win) {
 static void try_focus(x_t* x, xwin_t* win) {
 	if(x->win_focus == win)
 		return;
-	if((win->xinfo->style & X_STYLE_NO_FOCUS) == 0 && 
-			(win->xinfo->style & X_STYLE_LAZY) == 0) {
+	if((win->xinfo->style & XWIN_STYLE_NO_FOCUS) == 0 && 
+			(win->xinfo->style & XWIN_STYLE_LAZY) == 0) {
 		hide_win(x, x->win_xim);
 		if(x->win_focus != NULL) {
 			xevent_t e;
@@ -371,7 +372,7 @@ static inline void x_repaint_req(x_t* x, int32_t display_index) {
 }
 
 static void push_win(x_t* x, xwin_t* win) {
-	if((win->xinfo->style & X_STYLE_SYSBOTTOM) != 0) { //push head if sysbottom style
+	if((win->xinfo->style & XWIN_STYLE_SYSBOTTOM) != 0) { //push head if sysbottom style
 		if(x->win_head != NULL) {
 			x->win_head->prev = win;
 			win->next = x->win_head;
@@ -381,7 +382,7 @@ static void push_win(x_t* x, xwin_t* win) {
 			x->win_tail = x->win_head = win;
 		}
 	}
-	else if((win->xinfo->style & X_STYLE_SYSTOP) != 0) { //push tail if systop style
+	else if((win->xinfo->style & XWIN_STYLE_SYSTOP) != 0) { //push tail if systop style
 		if(x->win_tail != NULL) {
 			x->win_tail->next = win;
 			win->prev = x->win_tail;
@@ -395,7 +396,7 @@ static void push_win(x_t* x, xwin_t* win) {
 		xwin_t* win_top = x->win_tail;
 		xwin_t* win_systop = NULL;
 		while(win_top != NULL) {
-			if((win_top->xinfo->style & X_STYLE_SYSTOP) == 0)
+			if((win_top->xinfo->style & XWIN_STYLE_SYSTOP) == 0)
 				break;
 			win_systop = win_top;
 			win_top = win_top->prev;
@@ -433,7 +434,7 @@ static xwin_t* get_next_focus_win(x_t* x, bool skip_launcher) {
 	xwin_t* ret = x->win_tail; 
 	while(ret != NULL) {
 		if(ret->xinfo->visible &&
-				(ret->xinfo->style & X_STYLE_NO_FOCUS) == 0 &&
+				(ret->xinfo->style & XWIN_STYLE_NO_FOCUS) == 0 &&
 				(!skip_launcher || ret != x->win_launcher))
 			return ret;
 		ret = ret->prev;
@@ -521,14 +522,18 @@ static inline void refresh_cursor(x_t* x) {
 
 static int x_init_display(x_t* x, int32_t display_index) {
 	uint32_t display_num = get_display_num(x->display_man);
-	if(display_index >= 0) {
+	if(display_index >= 0 && display_index < display_num) {
 		const char* fb_dev = get_display_fb_dev(x->display_man, display_index);
-		if(fb_open(fb_dev, &x->displays[0].fb) != 0)
+		if(fb_open(fb_dev, &x->displays[display_index].fb) != 0)
 			return -1;
-		graph_t *g_fb = fb_fetch_graph(&x->displays[0].fb);
-		x->displays[0].g_fb = g_fb;
+		graph_t *g_fb = fb_fetch_graph(&x->displays[display_index].fb);
+		x->displays[display_index].g_fb = g_fb;
 		void* p = shm_alloc(g_fb->w * g_fb->h * 4, SHM_PUBLIC);
-		x->displays[0].g = graph_new(p, g_fb->w, g_fb->h);
+		x->displays[display_index].g = graph_new(p, g_fb->w, g_fb->h);
+		x->displays[display_index].desktop_rect.x = 0;
+		x->displays[display_index].desktop_rect.y = 0;
+		x->displays[display_index].desktop_rect.w = g_fb->w;
+		x->displays[display_index].desktop_rect.h = g_fb->h;
 		
 		x_dirty(x, 0);
 		x->display_num = 1;
@@ -543,6 +548,10 @@ static int x_init_display(x_t* x, int32_t display_index) {
 		x->displays[i].g_fb = g_fb;
 		void* p = shm_alloc(g_fb->w * g_fb->h * 4, SHM_PUBLIC);
 		x->displays[i].g = graph_new(p, g_fb->w, g_fb->h);
+		x->displays[i].desktop_rect.x = 0;
+		x->displays[i].desktop_rect.y = 0;
+		x->displays[i].desktop_rect.w = g_fb->w;
+		x->displays[i].desktop_rect.h = g_fb->h;
 		x_dirty(x, i);
 	}
 	x->display_num = display_num;
@@ -756,7 +765,7 @@ static int xwin_set_visible(int fd, int from_pid, proto_t* in, x_t* x) {
 }
 
 static int x_update_frame_areas(x_t* x, xwin_t* win) {
-	if((win->xinfo->style & X_STYLE_NO_FRAME) != 0)
+	if((win->xinfo->style & XWIN_STYLE_NO_FRAME) != 0)
 		return -1;
 
 	proto_t in, out;
@@ -791,14 +800,14 @@ static void x_get_min_size(x_t* x, xwin_t* win, int *w, int* h) {
 
 static void xwin_force_fullscreen(x_t* x, xinfo_t* xinfo) {
 	if(!x->config.force_fullscreen ||
-			(xinfo->style & X_STYLE_ANTI_FSCR) != 0)
+			(xinfo->style & XWIN_STYLE_ANTI_FSCR) != 0)
 		return;
 
 	xinfo->wsr.x = 0;
 	xinfo->wsr.y = 0;
 	xinfo->wsr.w = x->displays[x->current_display].g->w;
 	xinfo->wsr.h = x->displays[x->current_display].g->h;
-	xinfo->style |= X_STYLE_NO_FRAME;
+	xinfo->style |= XWIN_STYLE_NO_FRAME;
 }
 
 static int get_xwm_win_space(x_t* x, int style, grect_t* rin, grect_t* rout) {
@@ -837,17 +846,17 @@ static int xwin_update_info(int fd, int from_pid, proto_t* in, proto_t* out, x_t
 		return -1;
 
 
-	if((win->xinfo->style & X_STYLE_LAUNCHER) != 0)
+	if((win->xinfo->style & XWIN_STYLE_LAUNCHER) != 0)
 		x->win_launcher = win;
-	if((win->xinfo->style & X_STYLE_XIM) != 0)
+	if((win->xinfo->style & XWIN_STYLE_XIM) != 0)
 		x->win_xim = win;
 
 	int wsr_w = win->xinfo->wsr.w;
 	int wsr_h = win->xinfo->wsr.h;
 	xwin_force_fullscreen(x, win->xinfo);
 	
-	if((win->xinfo->style & X_STYLE_NO_FRAME) == 0 &&
-      (win->xinfo->style & X_STYLE_NO_TITLE) == 0) {
+	if((win->xinfo->style & XWIN_STYLE_NO_FRAME) == 0 &&
+      (win->xinfo->style & XWIN_STYLE_NO_TITLE) == 0) {
 		int minw = 0, minh = 0;
 		x_get_min_size(x, win, &minw, &minh);
 		if(win->xinfo->wsr.w < minw)
@@ -906,6 +915,36 @@ static int x_get_theme(x_t* x, proto_t* out) {
 	return 0;
 }
 
+static int x_get_desktop_space(x_t* x, proto_t* in, proto_t* out) {
+	uint8_t disp_index = proto_read_int(in);
+
+	PF->clear(out);
+	if(disp_index >= DISP_MAX) {
+		PF->addi(out, -1);
+		return -1;
+	}
+
+	x_display_t* disp = &x->displays[disp_index];
+	PF->addi(out, 0);
+	PF->add(out, &disp->desktop_rect, sizeof(grect_t));
+	return 0;
+}
+
+static int x_set_desktop_space(x_t* x, proto_t* in, proto_t* out) {
+	uint8_t disp_index = proto_read_int(in);
+
+	PF->clear(out);
+	if(disp_index >= DISP_MAX) {
+		PF->addi(out, -1);
+		return -1;
+	}
+
+	x_display_t* disp = &x->displays[disp_index];
+	proto_read_to(in, &disp->desktop_rect, sizeof(grect_t));
+	PF->addi(out, 0);
+	return 0;
+}
+
 static int xwin_call_xim(x_t* x) {
 	show_win(x, x->win_xim);
 	return 0;
@@ -918,16 +957,16 @@ static int xserver_fcntl(int fd, int from_pid, uint32_t node,
 	x_t* x = (x_t*)p;
 
 	int res = -1;
-	if(cmd == X_CNTL_UPDATE) {
+	if(cmd == XWIN_CNTL_UPDATE) {
 		res = x_update(fd, from_pid, x);
 	}	
-	else if(cmd == X_CNTL_UPDATE_INFO) {
+	else if(cmd == XWIN_CNTL_UPDATE_INFO) {
 		res = xwin_update_info(fd, from_pid, in, out, x);
 	}
-	else if(cmd == X_CNTL_WIN_SPACE) {
+	else if(cmd == XWIN_CNTL_WORK_SPACE) {
 		res = x_win_space(x, in, out);
 	}
-	else if(cmd == X_CNTL_CALL_XIM) {
+	else if(cmd == XWIN_CNTL_CALL_XIM) {
 		res = xwin_call_xim(x);
 	}
 	return res;
@@ -979,7 +1018,7 @@ enum {
 };
 
 static int get_win_frame_pos(x_t* x, xwin_t* win) {
-	if((win->xinfo->style & X_STYLE_NO_FRAME) != 0)
+	if((win->xinfo->style & XWIN_STYLE_NO_FRAME) != 0)
 		return -1;
 
 	int res = -1;
@@ -1003,7 +1042,7 @@ static xwin_t* get_mouse_owner(x_t* x, int* win_frame_pos) {
 
 	while(win != NULL) {
 		if(!win->xinfo->visible ||
-				(win->xinfo->style & X_STYLE_LAZY) != 0 ||
+				(win->xinfo->style & XWIN_STYLE_LAZY) != 0 ||
 				win->xinfo->display_index != x->current_display) {
 			win = win->prev;
 			continue;
@@ -1059,7 +1098,7 @@ static void mouse_xwin_handle(x_t* x, xwin_t* win, int pos, xevent_t* ev) {
 			return;
 	}
 	else if(ev->state ==  XEVT_MOUSE_DRAG) {
-		if(win->xinfo->state != X_STATE_MAX) {
+		if(win->xinfo->state != XWIN_STATE_MAX) {
 			if(pos == FRAME_R_TITLE) {//window title 
 				x->current.win = win;
 				x->current.old_pos.x = x->cursor.cpos.x;
@@ -1287,6 +1326,12 @@ static int xserver_dev_cntl(int from_pid, int cmd, proto_t* in, proto_t* ret, vo
 	}
 	else if(cmd == X_DCNTL_GET_THEME) {
 		x_get_theme(x, ret);
+	}
+	else if(cmd == X_DCNTL_GET_DESKTOP_SPACE) {
+		x_get_desktop_space(x, in, ret);
+	}
+	else if(cmd == X_DCNTL_SET_DESKTOP_SPACE) {
+		x_set_desktop_space(x, in, ret);
 	}
 	else if(cmd == X_DCNTL_SET_TOP) {
 		int pid = proto_read_int(in);

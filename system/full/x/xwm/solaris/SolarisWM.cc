@@ -105,7 +105,7 @@ void SolarisWM::drawFrame(graph_t* graph, xinfo_t* info, bool top) {
 	int w = info->wsr.w;
 	int h = info->wsr.h;
 
-	if((info->style & X_STYLE_NO_TITLE) == 0) {
+	if((info->style & XWIN_STYLE_NO_TITLE) == 0) {
 		h += titleH;
 		y -= titleH;
 	}

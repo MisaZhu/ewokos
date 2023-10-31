@@ -394,10 +394,10 @@ int main(int argc, char *argv[])
     }
 
 	X x;
-	x.screenInfo(scr, 0);
+	x.getScreenInfo(scr, 0);
 
-	//x.open(&emu, scr.size.w /2  - 128 , scr.size.h /2 - 128, 256, 256, "NesEmu", X_STYLE_NO_RESIZE);
-	//x.open(&emu, 10, 10, scr.size.w-20, scr.size.h-20, "NesEmu", X_STYLE_NORMAL);
+	//x.open(&emu, scr.size.w /2  - 128 , scr.size.h /2 - 128, 256, 256, "NesEmu", XWIN_STYLE_NO_RESIZE);
+	//x.open(&emu, 10, 10, scr.size.w-20, scr.size.h-20, "NesEmu", XWIN_STYLE_NORMAL);
 	int zoom;
 	if(scr.size.h > 240)
 		zoom = scr.size.h / 240;
@@ -408,7 +408,7 @@ int main(int argc, char *argv[])
 	else 
 		zoom = 1;
 
-	x.open(&scr, &emu, 256*zoom, 240*zoom, "NesEmu", X_STYLE_NO_RESIZE);
+	x.open(&scr, &emu, 256*zoom, 240*zoom, "NesEmu", XWIN_STYLE_NO_RESIZE);
 	emu.setVisible(true);
 
 	x.run(loop, &emu);

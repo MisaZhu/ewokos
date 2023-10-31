@@ -386,44 +386,41 @@ public:
 		return true;
 	}
 
-	inline uint32_t getHeight(const xscreen_t& scr) {
+	inline uint32_t getHeight(const grect_t& scr) {
 		if((position == POS_LEFT || position == POS_RIGHT) && items.cols > 1)
-			height = scr.size.h;
+			height = scr.h;
 		else
 			height = (fontSize + items.icon_size + titleMargin + items.marginV) *
 					items.rows + items.marginV;
 		return height;
 	}
 
-	inline uint32_t getWidth(const xscreen_t& scr) {
+	inline uint32_t getWidth(const grect_t& scr) {
 		if((position == POS_TOP || position == POS_BOTTOM) && items.rows > 1)
-			width = scr.size.w;
+			width = scr.w;
 		else 
 			width = (items.icon_size + items.marginH) *
 					items.cols + items.marginH;
 		return width;
 	}
 
-	inline gpos_t getPos(const xscreen_t& scr) {
+	inline gpos_t getPos(const grect_t& scr) {
 		gpos_t pos;
 		if(position == POS_BOTTOM) {
-			pos.x = (scr.size.w-width)/2;
-			pos.y = scr.size.h - height;
+			pos.x = scr.x + (scr.w-width)/2;
+			pos.y = scr.y + scr.h - height;
 		}
 		else if(position == POS_TOP) {
-			//pos.x = (scr.size.w-width)/2;
-			pos.x = 0;
-			pos.y = 0;
+			pos.x = scr.x;
+			pos.y = scr.y;
 		}
 		else if(position == POS_LEFT) {
-			pos.x = 0;
-			pos.y = 0;
-			pos.y = (scr.size.h-height)/2;
+			pos.x = scr.x;
+			pos.y = scr.y;
 		}
 		else if(position == POS_RIGHT) {
-			pos.x = scr.size.w - width;
-			pos.y = 0;
-			//pos.y = (scr.size.h-height)/2;
+			pos.x = scr.x + scr.w - width;
+			pos.y = scr.y;
 		}
 		return pos;
 	}
@@ -472,10 +469,10 @@ public:
 		return true;
 	}
 
-	void layout(const xscreen_t& scr) {
+	void layout(const grect_t& scr) {
 		int max = 0;
 		if(position == POS_TOP || position == POS_BOTTOM) {
-			int max = (scr.size.w - items.marginH) / (items.icon_size + items.marginH);
+			int max = (scr.w - items.marginH) / (items.icon_size + items.marginH);
 			if(items.num > max)
 				items.cols = max;
 			else
@@ -487,7 +484,7 @@ public:
 			return;
 		}
 
-		max = (scr.size.h - items.marginV) /
+		max = (scr.h - items.marginV) /
 				(fontSize + items.icon_size + titleMargin + items.marginV);
 		if(items.num > max)
 			items.rows = max;
@@ -511,21 +508,21 @@ int main(int argc, char* argv[]) {
 	(void)argv;
 
 	X x;
-	xscreen_t scr;
-	x.screenInfo(scr, 0);
+	grect_t desktop_space;
+	x.getDesktopSpace(desktop_space, 0);
 
 	Launcher xwin;
 	const char* cfg = x_get_theme_fname(X_THEME_ROOT, "launcher", "theme.conf");
 	xwin.readConfig(cfg);
 	xwin.loadApps();
-	xwin.layout(scr);
+	xwin.layout(desktop_space);
 
-	int32_t h = xwin.getHeight(scr);
-	int32_t w = xwin.getWidth(scr);
-	gpos_t pos = xwin.getPos(scr);
+	int32_t h = xwin.getHeight(desktop_space);
+	int32_t w = xwin.getWidth(desktop_space);
+	gpos_t pos = xwin.getPos(desktop_space);
 
 	x.open(&xwin, pos.x, pos.y, w, h, "launcher",
-			X_STYLE_NO_FRAME | X_STYLE_LAUNCHER | X_STYLE_SYSBOTTOM);
+			XWIN_STYLE_NO_FRAME | XWIN_STYLE_LAUNCHER | XWIN_STYLE_SYSBOTTOM);
 
 	xwin.setVisible(true);
 

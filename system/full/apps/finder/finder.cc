@@ -372,8 +372,8 @@ int main(int argc, char* argv[]) {
 
 	X x;
 	xscreen_t scr;
-	x.screenInfo(scr, 0);
-	x.open(&scr, &xwin, 300, 0, "finder", X_STYLE_NORMAL);
+	x.getScreenInfo(scr, 0);
+	x.open(&scr, &xwin, 300, 0, "finder", XWIN_STYLE_NORMAL);
 
 	xwin.setVisible(true);
 	x.run(NULL);

@@ -82,11 +82,11 @@ int main(int argc, char* argv[]) {
 
 	X x;
 	xscreen_t scr;
-	x.screenInfo(scr, 0);
+	x.getScreenInfo(scr, 0);
 	Png xwin;
 	x.open(&scr, &xwin, img->w, img->h, "png",
-			X_STYLE_NORMAL | X_STYLE_NO_RESIZE);
-			//X_STYLE_NO_FRAME | X_STYLE_NO_FOCUS);
+			XWIN_STYLE_NORMAL | XWIN_STYLE_NO_RESIZE);
+			//XWIN_STYLE_NO_FRAME | XWIN_STYLE_NO_FOCUS);
 	xwin.setImage(img);
 	xwin.setAlpha(true);
 	xwin.setVisible(true);

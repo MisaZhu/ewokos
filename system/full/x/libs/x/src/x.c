@@ -130,6 +130,37 @@ const char* x_get_theme(void) {
 	return theme;
 }
 
+int x_get_desktop_space(int disp_index, grect_t* r) {
+	int res = -1;
+	proto_t out, in;
+	PF->init(&in)->addi(&in, disp_index);
+	PF->init(&out);
+
+	if(dev_cntl("/dev/x", X_DCNTL_GET_DESKTOP_SPACE, &in, &out) == 0) {
+		if(proto_read_int(&out) == 0) {
+			proto_read_to(&out, r, sizeof(grect_t));
+			res = 0;
+		}
+	}
+	PF->clear(&in);
+	PF->clear(&out);
+	return res;
+}
+
+int x_set_desktop_space(int disp_index, const grect_t* r) {
+	int res = -1;
+	proto_t out, in;
+	PF->init(&in)->addi(&in, disp_index)->add(&in, r, sizeof(grect_t));
+	PF->init(&out);
+
+	if(dev_cntl("/dev/x", X_DCNTL_SET_DESKTOP_SPACE, &in, &out) == 0) {
+		res = proto_read_int(&out);
+	}
+	PF->clear(&in);
+	PF->clear(&out);
+	return res;
+}
+
 void x_set_top(int pid) {
 	proto_t in;
 	PF->init(&in)->addi(&in, pid);

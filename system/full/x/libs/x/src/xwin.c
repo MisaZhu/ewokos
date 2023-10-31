@@ -29,13 +29,13 @@ static int xwin_update_info(xwin_t* xwin, uint8_t type) {
 
 	proto_t in;
 	PF->init(&in)->addi(&in, (uint32_t)xwin->xinfo)->addi(&in, type);
-	int ret = vfs_fcntl_wait(xwin->fd, X_CNTL_UPDATE_INFO, &in);
+	int ret = vfs_fcntl_wait(xwin->fd, XWIN_CNTL_UPDATE_INFO, &in);
 	PF->clear(&in);
 	return ret;
 }
 
 int xwin_call_xim(xwin_t* xwin) {
-	int ret = vfs_fcntl(xwin->fd, X_CNTL_CALL_XIM, NULL, NULL);
+	int ret = vfs_fcntl(xwin->fd, XWIN_CNTL_CALL_XIM, NULL, NULL);
 	return ret;
 }
 
@@ -44,7 +44,7 @@ static int  x_get_win_rect(int xfd, int style, grect_t* wsr, grect_t* win_space)
 	PF->init(&out);
 
 	PF->init(&in)->addi(&in, style)->add(&in, wsr, sizeof(grect_t));
-	int ret = vfs_fcntl(xfd, X_CNTL_WIN_SPACE, &in, &out);
+	int ret = vfs_fcntl(xfd, XWIN_CNTL_WORK_SPACE, &in, &out);
 	PF->clear(&in);
 	if(ret == 0) 
 		proto_read_to(&out, win_space, sizeof(grect_t));
@@ -79,7 +79,7 @@ xwin_t* xwin_open(x_t* xp, int x, int y, int w, int h, const char* title, int st
 	ret->xinfo->win = (uint32_t)ret;
 	ret->xinfo->style = style;
 	memcpy(&ret->xinfo->wsr, &r, sizeof(grect_t));
-	strncpy(ret->xinfo->title, title, X_TITLE_MAX-1);
+	strncpy(ret->xinfo->title, title, XWIN_TITLE_MAX-1);
 	xwin_update_info(ret, X_UPDATE_REBUILD | X_UPDATE_REFRESH);
 	return ret;
 }
@@ -133,7 +133,7 @@ void xwin_repaint(xwin_t* xwin) {
 			xwin->on_repaint(xwin, &g);
 		}
 	}	
-	vfs_fcntl_wait(xwin->fd, X_CNTL_UPDATE, NULL);
+	vfs_fcntl_wait(xwin->fd, XWIN_CNTL_UPDATE, NULL);
 }
 
 /*
@@ -217,7 +217,7 @@ int xwin_event_handle(xwin_t* xwin, xevent_t* ev) {
 		xwin_repaint(xwin);
 	}
 	else if(ev->value.window.event == XEVT_WIN_MAX) {
-		if(xwin->xinfo->state == X_STATE_MAX) {
+		if(xwin->xinfo->state == XWIN_STATE_MAX) {
 			memcpy(&xwin->xinfo->wsr, &xwin->xinfo_prev.wsr, sizeof(grect_t));
 			xwin->xinfo->state = xwin->xinfo_prev.state;
 		}
@@ -228,7 +228,7 @@ int xwin_event_handle(xwin_t* xwin, xevent_t* ev) {
 				int32_t dh = xwin->xinfo->winr.h - xwin->xinfo->wsr.h;
 				grect_t r = {0, dh, scr.size.w, scr.size.h-dh};
 				memcpy(&xwin->xinfo->wsr, &r, sizeof(grect_t));
-				xwin->xinfo->state = X_STATE_MAX;
+				xwin->xinfo->state = XWIN_STATE_MAX;
 			}
 		}
 		xwin_update_info(xwin, X_UPDATE_REBUILD | X_UPDATE_REFRESH);
