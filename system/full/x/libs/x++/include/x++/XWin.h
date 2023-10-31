@@ -20,9 +20,8 @@ protected:
 	inline virtual void onMove(void)  { }
 	inline virtual void onFocus(void)   { }
 	inline virtual void onUnfocus(void) { }
-	inline virtual void onEvent(xevent_t* ev)  {
-		(void)ev;
-	}
+	inline virtual void onReorg(void)   { }
+	inline virtual void onEvent(xevent_t* ev)  { (void)ev; }
 
 	inline bool repaintLazy(void)  {
 		return xwin->xinfo->repaint_lazy;
@@ -49,6 +48,7 @@ public:
 	inline void __doMove(void) { onMove(); }
 	inline void __doFocus(void) { onFocus(); }
 	inline void __doUnfocus(void) { onUnfocus(); }
+	inline void __doReorg(void) { onReorg(); }
 	inline void __doEvent(xevent_t* ev) { onEvent(ev); }
 
 	void close(void);

@@ -371,9 +371,9 @@ int main(int argc, char* argv[]) {
 	xwin.readConfig(x_get_theme_fname(X_THEME_ROOT, "finder", "theme.conf"));
 
 	X x;
-	xscreen_t scr;
-	x.getScreenInfo(scr, 0);
-	x.open(&scr, &xwin, 300, 0, "finder", XWIN_STYLE_NORMAL);
+	grect_t desk;
+	x.getDesktopSpace(desk, 0);
+	x.open(&desk, &xwin, 300, 0, "finder", XWIN_STYLE_NORMAL);
 
 	xwin.setVisible(true);
 	x.run(NULL);

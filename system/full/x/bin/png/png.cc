@@ -81,10 +81,10 @@ int main(int argc, char* argv[]) {
 	}
 
 	X x;
-	xscreen_t scr;
-	x.getScreenInfo(scr, 0);
+	grect_t desk;
+	x.getDesktopSpace(desk, 0);
 	Png xwin;
-	x.open(&scr, &xwin, img->w, img->h, "png",
+	x.open(&desk, &xwin, img->w, img->h, "png",
 			XWIN_STYLE_NORMAL | XWIN_STYLE_NO_RESIZE);
 			//XWIN_STYLE_NO_FRAME | XWIN_STYLE_NO_FOCUS);
 	xwin.setImage(img);

@@ -198,6 +198,11 @@ int xwin_event_handle(xwin_t* xwin, xevent_t* ev) {
 			xwin->on_unfocus(xwin);
 		}
 	}
+	else if(ev->value.window.event == XEVT_WIN_REORG) {
+		if(xwin->on_reorg) {
+			xwin->on_reorg(xwin);
+		}
+	}
 	else if(ev->value.window.event == XEVT_WIN_RESIZE) {
 		xwin->xinfo->wsr.w += ev->value.window.v0;
 		xwin->xinfo->wsr.h += ev->value.window.v1;

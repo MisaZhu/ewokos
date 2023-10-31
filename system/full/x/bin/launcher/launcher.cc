@@ -285,6 +285,15 @@ protected:
 		repaint();
 	}
 
+	void onReorg(void) {
+		grect_t desk;
+		X::getDesktopSpace(desk, 0);
+		layout(desk);
+		gpos_t pos = getPos(desk);
+		moveTo(pos.x, pos.y);
+		resizeTo(width, height);
+	}
+
 public:
 	inline Launcher() {
 		height = 0;
@@ -386,22 +395,12 @@ public:
 		return true;
 	}
 
-	inline uint32_t getHeight(const grect_t& scr) {
-		if((position == POS_LEFT || position == POS_RIGHT) && items.cols > 1)
-			height = scr.h;
-		else
-			height = (fontSize + items.icon_size + titleMargin + items.marginV) *
-					items.rows + items.marginV;
-		return height;
+	inline uint32_t getWidth(void) {
+		return width;
 	}
 
-	inline uint32_t getWidth(const grect_t& scr) {
-		if((position == POS_TOP || position == POS_BOTTOM) && items.rows > 1)
-			width = scr.w;
-		else 
-			width = (items.icon_size + items.marginH) *
-					items.cols + items.marginH;
-		return width;
+	inline uint32_t getHeight(void) {
+		return height;
 	}
 
 	inline gpos_t getPos(const grect_t& scr) {
@@ -481,6 +480,9 @@ public:
 				items.rows = items.num / items.cols;
 			if((items.cols*items.rows) != items.num)
 				items.rows++;
+
+			height = scr.h;
+			width = scr.w;
 			return;
 		}
 
@@ -494,6 +496,11 @@ public:
 			items.cols = items.num / items.rows;
 		if((items.cols*items.rows) != items.num)
 			items.cols++;
+
+		height = (fontSize + items.icon_size + titleMargin + items.marginV) *
+				items.rows + items.marginV;
+		width = (items.icon_size + items.marginH) *
+					items.cols + items.marginH;
 	}
 };
 
@@ -508,22 +515,21 @@ int main(int argc, char* argv[]) {
 	(void)argv;
 
 	X x;
-	grect_t desktop_space;
-	x.getDesktopSpace(desktop_space, 0);
+	grect_t desk;
+	x.getDesktopSpace(desk, 0);
 
 	Launcher xwin;
 	const char* cfg = x_get_theme_fname(X_THEME_ROOT, "launcher", "theme.conf");
 	xwin.readConfig(cfg);
 	xwin.loadApps();
-	xwin.layout(desktop_space);
+	xwin.layout(desk);
 
-	int32_t h = xwin.getHeight(desktop_space);
-	int32_t w = xwin.getWidth(desktop_space);
-	gpos_t pos = xwin.getPos(desktop_space);
+	int32_t w = xwin.getWidth();
+	int32_t h = xwin.getHeight();
+	gpos_t pos = xwin.getPos(desk);
 
 	x.open(&xwin, pos.x, pos.y, w, h, "launcher",
 			XWIN_STYLE_NO_FRAME | XWIN_STYLE_LAUNCHER | XWIN_STYLE_SYSBOTTOM);
-
 	xwin.setVisible(true);
 
 	x.run(check_proc, &xwin);

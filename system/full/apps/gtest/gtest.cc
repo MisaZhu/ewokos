@@ -140,13 +140,13 @@ static void timer_handler(void) {
 int main(int argc, char* argv[]) {
 	(void)argc;
 	(void)argv;
-	xscreen_t scr;
+	grect_t desk;
 
 	X x;
-	x.getScreenInfo(scr, 0);
+	x.getDesktopSpace(desk, 0);
 
 	TestX xwin;
-	x.open(&scr, &xwin, 0, 0, "gtest", XWIN_STYLE_NORMAL);
+	x.open(&desk, &xwin, 0, 0, "gtest", XWIN_STYLE_NORMAL);
 	xwin.setVisible(true);
 
 	/*_xwin = &xwin;

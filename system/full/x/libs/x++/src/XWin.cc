@@ -68,6 +68,15 @@ static void _on_unfocus(xwin_t* xw) {
 	xwin->__doUnfocus();
 }
 
+static void _on_reorg(xwin_t* xw) {
+	if(xw == NULL)
+		return;
+	XWin* xwin = (XWin*)xw->data;
+	if(xwin == NULL)
+		return;
+	xwin->__doReorg();
+}
+
 static void _on_event(xwin_t* xw, xevent_t* ev) {
 	if(xw == NULL)
 		return;
@@ -176,5 +185,6 @@ void XWin::setCWin(xwin_t* xw) {
 	xwin->on_move = _on_move;
 	xwin->on_focus = _on_focus;
 	xwin->on_unfocus = _on_unfocus;
+	xwin->on_reorg = _on_reorg;
 	xwin->on_event = _on_event;
 }

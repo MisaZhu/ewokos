@@ -940,8 +940,28 @@ static int x_set_desktop_space(x_t* x, proto_t* in, proto_t* out) {
 	}
 
 	x_display_t* disp = &x->displays[disp_index];
-	proto_read_to(in, &disp->desktop_rect, sizeof(grect_t));
+	grect_t r;
+	proto_read_to(in, &r, sizeof(grect_t));
 	PF->addi(out, 0);
+
+	if(r.x == disp->desktop_rect.x &&
+			r.y == disp->desktop_rect.y &&
+			r.w == disp->desktop_rect.w &&
+			r.h == disp->desktop_rect.h)
+		return 0;
+	memcpy(&disp->desktop_rect, &r, sizeof(grect_t));
+
+	xevent_t ev;
+	ev.type = XEVT_WIN;
+	ev.value.window.event = XEVT_WIN_REORG;
+
+	xwin_t* win = x->win_head;
+	while(win != NULL) {
+		if(win->xinfo->display_index == disp_index) {
+			x_push_event(x, win, &ev);
+		}
+		win = win->next;
+	}
 	return 0;
 }
 
