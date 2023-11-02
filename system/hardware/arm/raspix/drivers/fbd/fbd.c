@@ -9,11 +9,31 @@
 
 static graph_t* _g = NULL;
 
+static void blt16(uint32_t* src, uint16_t* dst, uint32_t w, uint32_t h) {
+	uint32_t sz = w * h;
+	uint32_t i;
+
+	for (i = 0; i < sz; i++) {
+		uint32_t s = src[i];
+		uint8_t r = (s >> 16) & 0xff;
+		uint8_t g = (s >> 8)  & 0xff;
+		uint8_t b = s & 0xff;
+		dst[i] = ((r >> 3) <<11) | ((g >> 3) << 6) | (b >> 3);
+	}
+}
+
+
 static uint32_t flush(const fbinfo_t* fbinfo, const void* buf, uint32_t size, int rotate) {
-	uint32_t sz = 4 * fbinfo->width * fbinfo->height;
-	if(size < sz || fbinfo->depth != 32)
+
+	if(fbinfo->depth != 32 && fbinfo->depth != 16)
 		return -1;
 
+	if(fbinfo->depth == 16){
+		blt16(buf, fbinfo->pointer, fbinfo->width, fbinfo->height);
+		return size;
+	}
+
+	uint32_t sz = 4 * fbinfo->width * fbinfo->height;
 	graph_t g;
 	if(rotate == G_ROTATE_N90 || rotate == G_ROTATE_90) {
 		graph_init(&g, buf, fbinfo->height, fbinfo->width);
@@ -33,6 +53,7 @@ static uint32_t flush(const fbinfo_t* fbinfo, const void* buf, uint32_t size, in
 		memcpy((void*)fbinfo->pointer, buf, sz);
 	}
 	return size;
+
 }
 
 static fbinfo_t* get_info(void) {
