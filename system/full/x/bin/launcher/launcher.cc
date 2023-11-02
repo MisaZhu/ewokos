@@ -469,7 +469,6 @@ public:
 	}
 
 	void layout(const grect_t& scr) {
-		int max = 0;
 		if(position == POS_TOP || position == POS_BOTTOM) {
 			int max = (scr.w - items.marginH) / (items.icon_size + items.marginH);
 			if(items.num > max)
@@ -480,27 +479,24 @@ public:
 				items.rows = items.num / items.cols;
 			if((items.cols*items.rows) != items.num)
 				items.rows++;
-
-			height = scr.h;
-			width = scr.w;
-			return;
 		}
-
-		max = (scr.h - items.marginV) /
-				(fontSize + items.icon_size + titleMargin + items.marginV);
-		if(items.num > max)
-			items.rows = max;
-		else
-			items.rows = items.num;
-		if(items.rows > 0)
-			items.cols = items.num / items.rows;
-		if((items.cols*items.rows) != items.num)
-			items.cols++;
+		else {
+			int max = (scr.h - items.marginV) /
+					(fontSize + items.icon_size + titleMargin + items.marginV);
+			if(items.num > max)
+				items.rows = max;
+			else
+				items.rows = items.num;
+			if(items.rows > 0)
+				items.cols = items.num / items.rows;
+			if((items.cols*items.rows) != items.num)
+				items.cols++;
+		}
 
 		height = (fontSize + items.icon_size + titleMargin + items.marginV) *
 				items.rows + items.marginV;
 		width = (items.icon_size + items.marginH) *
-					items.cols + items.marginH;
+				items.cols + items.marginH;
 	}
 };
 
