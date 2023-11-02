@@ -51,7 +51,10 @@ void kconsole_init(void) {
 		return;
 	}
 	//printf("[ok] base: 0x%x, w:%d, h:%d, dep:%d\n", fbinfo.pointer, fbinfo.width, fbinfo.height, fbinfo.depth);
-	_fb_g = graph_new(NULL, fbinfo.width, fbinfo.height);
+	if(_rotate == G_ROTATE_90 || _rotate == G_ROTATE_N90)
+		_fb_g = graph_new(NULL, fbinfo.height, fbinfo.width);
+	else
+		_fb_g = graph_new(NULL, fbinfo.width, fbinfo.height);
 	_console.font = get_font();
 	_console.fg_color = 0xff000000;
 	_console.bg_color = 0xff888888;
@@ -63,7 +66,7 @@ void kconsole_input(const char* s) {
 		return;
 	console_put_string(&_console, s);
 	console_refresh(&_console, _fb_g);
-	fb_flush32(_fb_g->buffer, _fb_g->h, _fb_g->w, _rotate);
+	fb_flush32(_fb_g->buffer, _fb_g->w, _fb_g->h, _rotate);
 }
 
 void kconsole_close(void) {
