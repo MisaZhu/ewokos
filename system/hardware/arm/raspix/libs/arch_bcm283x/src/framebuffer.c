@@ -26,61 +26,43 @@ int32_t bcm283x_fb_init(uint32_t w, uint32_t h, uint32_t dep) {
 	sys_info_t sysinfo;
 	syscall1(SYS_GET_SYS_INFO, (int32_t)&sysinfo);
 
-	if(strncmp(sysinfo.machine, "raspberry-cm4-4G", 16) == 0 || 
-		strncmp(sysinfo.machine, "raspi4B1G", 9) == 0 
-	){
-		_fb_info.width = 480;
-		_fb_info.height = 1280;
-		_fb_info.vwidth = 480;
-		_fb_info.vheight = 1280;
-		_fb_info.depth = 16;
-		_fb_info.pitch = _fb_info.width*(_fb_info.depth/8);
+	bcm283x_mailbox_init();
+	fb_init_t* fbinit = (fb_init_t*)dma_map(sizeof(fb_init_t));
+	
+	mail_message_t msg;
+	memset(&msg, 0, sizeof(mail_message_t));
 
-		_fb_info.pointer = syscall1(SYS_P2V, 0xC00000); //GPU addr to ARM addr
-		_fb_info.size = 480*1280*2;
-		_fb_info.xoffset = 0;
-		_fb_info.yoffset = 0;
-		_fb_info.size_max = 2*1024*1024;
-		syscall3(SYS_MEM_MAP, _fb_info.pointer, _fb_info.pointer-sysinfo.kernel_base, _fb_info.size_max);
-	}else{
-		bcm283x_mailbox_init();
-		fb_init_t* fbinit = (fb_init_t*)dma_map(sizeof(fb_init_t));
-		
-		mail_message_t msg;
-		memset(&msg, 0, sizeof(mail_message_t));
+	memset(fbinit, 0, sizeof(fb_init_t));
+	fbinit->width = w;
+	fbinit->height = h;
+	fbinit->vwidth = fbinit->width;
+	fbinit->vheight = fbinit->height;
+	fbinit->depth = dep;
 
-		memset(fbinit, 0, sizeof(fb_init_t));
-		fbinit->width = w;
-		fbinit->height = h;
-		fbinit->vwidth = fbinit->width;
-		fbinit->vheight = fbinit->height;
-		fbinit->depth = dep;
+	msg.data = (syscall1(SYS_V2P, (uint32_t)fbinit) | 0xC0000000) >> 4; // ARM addr to GPU addr
+	bcm283x_mailbox_send(FRAMEBUFFER_CHANNEL, &msg);
+	bcm283x_mailbox_read(FRAMEBUFFER_CHANNEL, &msg);
 
-		msg.data = (syscall1(SYS_V2P, (uint32_t)fbinit) | 0xC0000000) >> 4; // ARM addr to GPU addr
-		bcm283x_mailbox_send(FRAMEBUFFER_CHANNEL, &msg);
-		bcm283x_mailbox_read(FRAMEBUFFER_CHANNEL, &msg);
+	if(fbinit->pointer == NULL)
+		return -1;
 
-		if(fbinit->pointer == NULL)
-			return -1;
+	_fb_info.width = fbinit->width;
+	_fb_info.height = fbinit->height;
+	_fb_info.vwidth = fbinit->width;
+	_fb_info.vheight = fbinit->height;
+	_fb_info.depth = fbinit->depth;
+	_fb_info.pitch = _fb_info.width*(_fb_info.depth/8);
 
-		_fb_info.width = fbinit->width;
-		_fb_info.height = fbinit->height;
-		_fb_info.vwidth = fbinit->width;
-		_fb_info.vheight = fbinit->height;
-		_fb_info.depth = fbinit->depth;
-		_fb_info.pitch = _fb_info.width*(_fb_info.depth/8);
+	_fb_info.pointer = syscall1(SYS_P2V, (uint32_t)fbinit->pointer & 0x3fffffff); //GPU addr to ARM addr
+	_fb_info.size = fbinit->size;
+	_fb_info.xoffset = 0;
+	_fb_info.yoffset = 0;
 
-		_fb_info.pointer = syscall1(SYS_P2V, (uint32_t)fbinit->pointer & 0x3fffffff); //GPU addr to ARM addr
-		_fb_info.size = fbinit->size;
-		_fb_info.xoffset = 0;
-		_fb_info.yoffset = 0;
-
-		if(_fb_info.pointer < sysinfo.kernel_base) {
-			_fb_info.pointer += sysinfo.kernel_base;
-		}
-		_fb_info.size_max = sysinfo.phy_mem_size - (_fb_info.pointer-sysinfo.kernel_base);
-		syscall3(SYS_MEM_MAP, _fb_info.pointer, _fb_info.pointer-sysinfo.kernel_base, _fb_info.size_max);
+	if(_fb_info.pointer < sysinfo.kernel_base) {
+		_fb_info.pointer += sysinfo.kernel_base;
 	}
+	_fb_info.size_max = sysinfo.phy_mem_size - (_fb_info.pointer-sysinfo.kernel_base);
+	syscall3(SYS_MEM_MAP, _fb_info.pointer, _fb_info.pointer-sysinfo.kernel_base, _fb_info.size_max);
 	return 0;
 }
 

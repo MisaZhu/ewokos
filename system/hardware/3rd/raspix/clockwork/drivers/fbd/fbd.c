@@ -5,7 +5,33 @@
 #include <fbd/fbd.h>
 #include <graph/graph.h>
 #include <upng/upng.h>
-#include <arch/bcm283x/framebuffer.h>
+#include <sys/syscall.h>
+#include <sysinfo.h>
+#include <sys/mmio.h>
+#include <sys/dma.h>
+
+static fbinfo_t _fb_info;
+
+static int32_t clockwork_fb_init(uint32_t w, uint32_t h, uint32_t dep) {
+	sys_info_t sysinfo;
+	syscall1(SYS_GET_SYS_INFO, (int32_t)&sysinfo);
+
+	memset(&_fb_info, 0, sizeof(fbinfo_t));
+	_fb_info.width = 480;
+	_fb_info.height = 1280;
+	_fb_info.vwidth = 480;
+	_fb_info.vheight = 1280;
+	_fb_info.depth = 16;
+	_fb_info.pitch = _fb_info.width*(_fb_info.depth/8);
+
+	_fb_info.pointer = syscall1(SYS_P2V, 0xC00000); //GPU addr to ARM addr
+	_fb_info.size = 480*1280*2;
+	_fb_info.xoffset = 0;
+	_fb_info.yoffset = 0;
+	_fb_info.size_max = 2*1024*1024;
+	syscall3(SYS_MEM_MAP, _fb_info.pointer, _fb_info.pointer-sysinfo.kernel_base, _fb_info.size_max);
+	return 0;
+}
 
 static graph_t* _g = NULL;
 
@@ -57,11 +83,11 @@ static uint32_t flush(const fbinfo_t* fbinfo, const void* buf, uint32_t size, in
 }
 
 static fbinfo_t* get_info(void) {
-	return bcm283x_get_fbinfo();
+	return &_fb_info;
 }
 
 static int32_t init(uint32_t w, uint32_t h, uint32_t dep) {
-	return bcm283x_fb_init(w, h, dep);
+	return clockwork_fb_init(w, h, dep);
 }
 
 int main(int argc, char** argv) {
