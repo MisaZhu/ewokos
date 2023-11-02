@@ -78,3 +78,29 @@ void blt16(uint32_t* src, uint16_t* dst, uint32_t w, uint32_t h) {
 	}
 }
 
+void graph_rotate_to(graph_t* g, graph_t* ret, int rot) {
+	if(g == NULL || ret == NULL)
+		return;
+
+	if(rot == G_ROTATE_90) {
+		for(int i=0; i<g->w; i++) {
+			for(int j=0; j<g->h; j++) {
+				ret->buffer[(ret->h-i-1)*ret->w + (ret->w-j)] = g->buffer[j*g->w + (g->w-i-1)];
+			}
+		}
+	}
+	else if(rot == G_ROTATE_N90) {
+		for(int i=0; i<g->w; i++) {
+			for(int j=0; j<g->h; j++) {
+				ret->buffer[i*ret->w + j] = g->buffer[j*g->w + (g->w-i-1)];
+			}
+		}
+	}
+	else if(rot == G_ROTATE_180) {
+		for(int i=0; i<g->h; i++) {
+			for(int j=0; j<g->w; j++) {
+				ret->buffer[i*g->w + j] = g->buffer[(g->h-i-1)*g->w + (g->w-j-1)];
+			}
+		}
+	}
+}

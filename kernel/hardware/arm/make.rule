@@ -123,7 +123,7 @@ CFLAGS += -I$(LOAD_DIR)
 QEMU_ARGS += -sd $(SYS_FULL_DIR)/build/root.ext2
 
 DEV_DIR = $(SRC_DIR)/dev/src
-DEV_OBJS = 
+DEV_OBJS = $(DEV_DIR)/fb.o
 
 KERNEL_DIR = $(SRC_DIR)/kernel/src
 KERNEL_OBJS = \

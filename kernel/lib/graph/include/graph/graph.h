@@ -4,6 +4,13 @@
 #include <graph/font.h>
 #include <stdbool.h>
 
+enum {
+	G_ROTATE_NONE = 0,
+	G_ROTATE_90,
+	G_ROTATE_180,
+	G_ROTATE_N90
+};
+
 typedef struct {
 	uint32_t *buffer;
 	int32_t w;
@@ -55,5 +62,7 @@ void graph_draw_char(graph_t* g, int32_t x, int32_t y, char c, font_t* font, uin
 void graph_draw_text(graph_t* g, int32_t x, int32_t y, const char* str, font_t* font, uint32_t color);
 
 void blt16(uint32_t* src, uint16_t* dst, uint32_t w, uint32_t h);
+
+void graph_rotate_to(graph_t* g, graph_t* ret, int rot);
 
 #endif

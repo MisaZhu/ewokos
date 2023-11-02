@@ -33,3 +33,11 @@ void printf(const char *format, ...) {
 	kout(_buf);
 }
 
+void kprintf(const char *format, ...) {
+	va_list ap;
+	va_start(ap, format);
+	_len = 0;
+	v_printf(outc, NULL, format, ap);
+	uart_write(_buf, strlen(_buf));
+}
+
