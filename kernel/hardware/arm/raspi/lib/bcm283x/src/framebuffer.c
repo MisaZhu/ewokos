@@ -27,18 +27,18 @@ static __attribute__((__aligned__(PAGE_SIZE))) fb_init_t _fbinit;
 int32_t fb_init_raw(uint32_t w, uint32_t h, uint32_t dep) {
 
 #if CLOCKWORK
-	_fb_info.width = 480;
-	_fb_info.height = 1280;
-	_fb_info.vwidth = 480;
-	_fb_info.vheight = 1280;
+	_fb_info.width = w;
+	_fb_info.height = h;
+	_fb_info.vwidth = w;
+	_fb_info.vheight = h;
 	_fb_info.depth = 16;
 	_fb_info.pitch = _fb_info.width*(_fb_info.depth/8);
 
 	_fb_info.pointer = P2V(0xC00000); //GPU addr to ARM addr
-	_fb_info.size = 480*1280*2;
+	_fb_info.size = w*h*2;
 	_fb_info.xoffset = 0;
 	_fb_info.yoffset = 0;
-	_fb_info.size_max = 480*1280*2;
+	_fb_info.size_max = w*h*2;
 #else
 	fb_init_t* fbinit = &_fbinit;
 	//fb_init_t* fbinit = (fb_init_t*)kalloc4k();
