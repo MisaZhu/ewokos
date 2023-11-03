@@ -56,15 +56,28 @@ uint8_t *gic_v2_gicc_get_address(void)
 
 void gic_v2_irq_enable(unsigned int irqn)
 {
-    unsigned m ,n, val;
+    uint32_t  m ,n, val;
     void *address;
     m = irqn;
     n = m / 32;
     address = gicd_base + GICD_ISENABLER + 4*n;
-    val = mmio_read32(address);
-    val |= 1 << (m % 32);
+
+    val = 1 << (m % 32);
     mmio_write32(address, val);
 }
+
+void gic_v2_irq_disable(unsigned int irqn)
+{
+    uint32_t m ,n, val;
+    void *address;
+    m = irqn;
+    n = m / 32;
+    address = gicd_base + GICD_ICENABLE + 4*n;
+
+    val = 1 << (m % 32);
+    mmio_write32(address, val);
+}
+
 
 void gic_v2_irq_set_prio(int irqno, int prio)
 {
@@ -98,6 +111,22 @@ void gic_irq_enable(int core_id, int irqno)
     gic_v2_irq_set_prio(irqno, LOWEST_INTERRUPT_PRIORITY);  
     gic_v2_irq_enable(irqno);  
 }
+
+void gic_irq_disable(int core_id, int irqno)
+{
+    volatile uint8_t *gicd = gic_v2_gicd_get_address() + GICD_ITARGETSR;
+    volatile uint8_t mask = 0x1 << core_id;
+    int n, m, offset;
+    m = irqno;
+    n = m / 4;
+    offset = 4*n;
+    offset += m % 4;
+
+    mask |= mmio_read8(gicd + offset);
+    mmio_write8(gicd + offset,  mask);
+    gic_v2_irq_disable(irqno);  
+}
+
 
 void gic_eoi(int intn) {
     mmio_write32(gicc_base + GICC_EOIR, intn); 

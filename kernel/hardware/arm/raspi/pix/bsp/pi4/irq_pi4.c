@@ -6,6 +6,9 @@
 void irq_arch_init(void) {
 	//routing_core0_irq();
 	gic_init(MMIO_BASE + 0x1840000);
+	for(int i = 0; i < 1022; i++){
+        gic_irq_disable(0, i);
+    }
 }
 
 inline uint32_t irq_gets(void) {
