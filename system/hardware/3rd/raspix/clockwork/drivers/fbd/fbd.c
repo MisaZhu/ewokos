@@ -21,14 +21,14 @@ static int32_t clockwork_fb_init(uint32_t w, uint32_t h, uint32_t dep) {
 	_fb_info.height = h;
 	_fb_info.vwidth = w;
 	_fb_info.vheight = h;
-	_fb_info.depth = 16;
+	_fb_info.depth = dep;
 	_fb_info.pitch = _fb_info.width*(_fb_info.depth/8);
 
 	_fb_info.pointer = syscall1(SYS_P2V, 0xC00000); //GPU addr to ARM addr
-	_fb_info.size = w*h*2;
+	_fb_info.size = w*h*(dep/8);
 	_fb_info.xoffset = 0;
 	_fb_info.yoffset = 0;
-	_fb_info.size_max = w*h*2;
+	_fb_info.size_max = w*h*(dep/8);
 	syscall3(SYS_MEM_MAP, _fb_info.pointer, _fb_info.pointer-sysinfo.kernel_base, _fb_info.size_max);
 	return 0;
 }

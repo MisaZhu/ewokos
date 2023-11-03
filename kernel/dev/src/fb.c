@@ -24,3 +24,6 @@ void fb_flush32(uint32_t* g32, uint32_t w, uint32_t h, uint8_t rotate) {
         fb_flush32_bsp(g32, w, h);
 }
 
+int32_t fb_init(uint32_t w, uint32_t h, uint8_t dep, fbinfo_t* fbinfo) {
+	return fb_init_bsp(w, h, dep, fbinfo);
+}

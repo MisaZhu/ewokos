@@ -6,7 +6,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-int32_t fb_init(uint32_t w, uint32_t h, fbinfo_t* fbinfo) {
+int32_t fb_init_bsp(uint32_t w, uint32_t h, uint8_t dep, fbinfo_t* fbinfo) {
 	(void)w;
 	(void)h;
 
