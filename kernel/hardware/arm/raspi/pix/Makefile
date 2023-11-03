@@ -15,9 +15,10 @@ MACHINE = arm/raspix
 
 ifeq ($(PI4),yes)
 include make.bsp.pi4
+else ifeq ($(CLOCKWORK),yes)
+include make.bsp.clockwork
 else
 include make.bsp
-
 endif
 
 include ../../make.rule
