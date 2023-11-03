@@ -72,7 +72,8 @@ void sys_info_init_arch(void) {
 	}
 	else if(pix_revision == PI_CM4_4G) {
 		strcpy(_sys_info.machine, "raspberry-cm4-4G");
-		_sys_info.phy_mem_size = 4u*GB;
+		_sys_info.phy_mem_size = 1u*GB;
+		_sys_info.phy_offset = 16*MB;
 		_sys_info.mmio.phy_base = 0xfe000000;
 		_core_base_offset =  0x01800000;
 		_pi4 = 1;
@@ -116,7 +117,7 @@ void sys_info_init_arch(void) {
 	_sys_info.mmio.size = 30*MB;
 
 	_sys_info.dma.size = DMA_SIZE;
-	_allocatable_phy_mem_base = V2P(ALLOCATABLE_MEMORY_START);
+	_allocatable_phy_mem_base = V2P(ALLOCATABLE_MEMORY_START) + 16*MB;
 	_allocatable_phy_mem_top = _sys_info.phy_offset +
 			_sys_info.phy_mem_size -
 			FB_SIZE - 
