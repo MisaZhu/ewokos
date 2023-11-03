@@ -18,6 +18,9 @@ include ../make.inc
 basic: basic_sys
 	@echo "all done."
 
+full: full_sys
+	@echo "all done."
+
 extra: extra_sys
 	@echo "all done."
 	rm -fr $(BUILD_DIR)/$(HW)
@@ -25,8 +28,11 @@ extra: extra_sys
 	cp -r $(BUILD_DIR)/include $(BUILD_DIR)/$(HW)
 	cp -r $(BUILD_DIR)/lib $(BUILD_DIR)/$(HW)
 
-full: full_sys
-	@echo "all done."
+clockwork: extra
+	cd ../../3rd/raspix/clockwork; make
+
+waveshare: extra
+	cd ../../3rd/raspix/waveshare; make
 
 basic_sys: kernel_heads 
 	rm -f $(BUILD_DIR)/lib/libbsp.a
