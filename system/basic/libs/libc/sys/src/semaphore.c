@@ -13,8 +13,8 @@ void semaphore_free(int sem_id) {
 	return syscall1(SYS_SEMAPHORE_FREE, sem_id);
 }
 
-int  semaphore_enter(int sem_id, int thread) {
-	return syscall2(SYS_SEMAPHORE_ENTER, sem_id, thread);
+int  semaphore_enter(int sem_id) {
+	return syscall1(SYS_SEMAPHORE_ENTER, sem_id);
 }
 
 int  semaphore_quit(int sem_id) {

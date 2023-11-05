@@ -702,7 +702,7 @@ static inline void _svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_
 		semaphore_free(arg0);
 		return;
 	case SYS_SEMAPHORE_ENTER:
-		semaphore_enter(ctx, arg0, arg1);
+		semaphore_enter(ctx, arg0);
 		return;
 	case SYS_SEMAPHORE_QUIT:
 		ctx->gpr[0] = semaphore_quit(arg0);

@@ -56,7 +56,7 @@ void semaphore_free(uint32_t sem_id) {
 	}	
 }
 
-int32_t semaphore_enter(context_t* ctx, uint32_t sem_id, uint8_t thread) {
+int32_t semaphore_enter(context_t* ctx, uint32_t sem_id) {
 	ctx->gpr[0] = -1;
 	proc_t* cproc = get_current_proc();
 	if(sem_id >= SEMAPHORE_MAX ||
@@ -65,17 +65,8 @@ int32_t semaphore_enter(context_t* ctx, uint32_t sem_id, uint8_t thread) {
 		return -1;
 
 	if(_semaphores[sem_id].occupied == SEM_OCCUPIED) {
-		if(thread == 0) {
-			proc_block_on(ctx, _semaphores[sem_id].occupied_pid, sem_id, 0);
-			return -1;
-		}
-		else { //only block all threads in same proc
-			proc_t *proc = proc_get_proc(proc_get(_semaphores[sem_id].occupied_pid));
-			if(proc == proc_get_proc(cproc)) {
-				proc_block_on(ctx, _semaphores[sem_id].occupied_pid, sem_id, 0);
-				return -1;
-			}
-		}
+		proc_block_on(ctx, _semaphores[sem_id].occupied_pid, sem_id, 0);
+		return -1;
 	}
 
 	ctx->gpr[0] = 0;

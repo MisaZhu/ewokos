@@ -329,8 +329,10 @@ static void proc_terminate(context_t* ctx, proc_t* proc) {
 			proc_t *p = &_proc_table[i];
 			/*terminate forked from this proc*/
 			if(p->info.father_pid == proc->info.pid) { //terminate forked children, skip reloaded ones
-				//proc_exit(ctx, p, 0);
-				proc_signal_send(ctx, p, SYS_SIG_STOP, false);
+				if(p->info.type == PROC_TYPE_PROC)
+					proc_signal_send(ctx, p, SYS_SIG_STOP, false);
+				else
+					proc_exit(ctx, p, 0);
 			}
 		}
 

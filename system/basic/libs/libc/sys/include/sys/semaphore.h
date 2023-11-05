@@ -7,7 +7,7 @@ extern "C" {
 
 int  semaphore_alloc(void);
 void semaphore_free(int sem_id);
-int  semaphore_enter(int sem_id, int thread);
+int  semaphore_enter(int sem_id);
 int  semaphore_quit(int sem_id);
 
 #ifdef __cplusplus
