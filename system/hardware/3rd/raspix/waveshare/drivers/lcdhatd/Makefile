@@ -18,7 +18,7 @@ $(LCDHATD): $(LCDHATD_OBJS) \
 		$(BUILD_DIR)/lib/libsconf.a \
 		$(BUILD_DIR)/lib/libupng.a \
 		$(BUILD_DIR)/lib/libarch_bcm283x.a 
-	$(LD) -Ttext=100 $(LCDHATD_OBJS) -o $(LCDHATD) $(LDFLAGS) -larch_bcm283x -lfbd -lupng -lgraph -lsconf -lewokc -lc
+	$(LD) -Ttext=100 $(LCDHATD_OBJS) -o $(LCDHATD) $(LDFLAGS) -larch_bcm283x -lfbd -lupng -lgraph -lbsp -lsconf -lewokc -lc
 
 clean:
 	rm -f $(LCDHATD_OBJS)

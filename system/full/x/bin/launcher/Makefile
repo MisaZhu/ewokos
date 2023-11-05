@@ -19,7 +19,7 @@ $(LAUNCHER): $(LAUNCHER_OBJS) \
 		$(BUILD_DIR)/lib/libfont.a \
 		$(BUILD_DIR)/lib/libhash.a \
 		$(BUILD_DIR)/lib/libcxx.a 
-	$(LD) -Ttext=100 $(LAUNCHER_OBJS) -o $(LAUNCHER) $(LDFLAGS)  -lgraph -lttf -lfont -lhash -lupng -lx++ -lx -lsconf -lewokc -lc -lcxx
+	$(LD) -Ttext=100 $(LAUNCHER_OBJS) -o $(LAUNCHER) $(LDFLAGS)  -lgraph -lbsp -lttf -lfont -lhash -lupng -lx++ -lx -lsconf -lewokc -lc -lcxx
 
 clean:
 	rm -f $(LAUNCHER_OBJS)

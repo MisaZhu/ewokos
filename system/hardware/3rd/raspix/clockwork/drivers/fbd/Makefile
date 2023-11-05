@@ -19,7 +19,7 @@ $(FBD): $(CLOCKWORK_FBD_OBJS) \
 		$(BUILD_DIR)/lib/libupng.a \
 		$(BUILD_DIR)/lib/libsconf.a \
 		$(BUILD_DIR)/lib/libarch_bcm283x.a
-	$(LD) -Ttext=100 $(CLOCKWORK_FBD_OBJS) -o $(FBD) $(LDFLAGS) -larch_bcm283x -lfbd -lupng -lgraph -lsconf -lewokc -lc
+	$(LD) -Ttext=100 $(CLOCKWORK_FBD_OBJS) -o $(FBD) $(LDFLAGS) -larch_bcm283x -lfbd -lupng -lgraph -lbsp -lsconf -lewokc -lc
 
 clean:
 	rm -f $(CLOCKWORK_FBD_OBJS)

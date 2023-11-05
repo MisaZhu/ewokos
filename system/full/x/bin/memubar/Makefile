@@ -20,7 +20,7 @@ $(MENU_BAR): $(MENU_BAR_OBJS) \
 		$(BUILD_DIR)/lib/libfont.a \
 		$(BUILD_DIR)/lib/libhash.a \
 		$(BUILD_DIR)/lib/libcxx.a 
-	$(LD) -Ttext=100 $(MENU_BAR_OBJS) -o $(MENU_BAR) $(LDFLAGS)  -lgraph -lupng -lx++ -lx  -lttf -lfont -lhash -lewokc -lc -lcxx
+	$(LD) -Ttext=100 $(MENU_BAR_OBJS) -o $(MENU_BAR) $(LDFLAGS)  -lgraph -lbsp -lupng -lx++ -lx  -lttf -lfont -lhash -lewokc -lc -lcxx
 
 clean:
 	rm -f $(MENU_BAR_OBJS)

@@ -23,7 +23,7 @@ $(BOOK): $(BOOK_OBJS) \
 		$(BUILD_DIR)/lib/libfont.a \
 		$(BUILD_DIR)/lib/libhash.a \
 		$(BUILD_DIR)/lib/libcxx.a 
-	$(LD) -Ttext=100 $(BOOK_OBJS) -o $(BOOK) $(LDFLAGS) -lgraph -lupng -lx++ -lttf -lfont -lhash -lx -lsconf -lewokc -lc -lcxx
+	$(LD) -Ttext=100 $(BOOK_OBJS) -o $(BOOK) $(LDFLAGS) -lgraph -lbsp -lupng -lx++ -lttf -lfont -lhash -lx -lsconf -lewokc -lc -lcxx
 
 $(BOOK_DIR):
 	mkdir -p $(BOOK_DIR)

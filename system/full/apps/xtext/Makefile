@@ -24,7 +24,7 @@ $(XTEXT): $(XTEXT_OBJS) \
 		$(BUILD_DIR)/lib/libfont.a \
 		$(BUILD_DIR)/lib/libhash.a \
 		$(BUILD_DIR)/lib/libcxx.a 
-	$(LD) -Ttext=100 $(XTEXT_OBJS) -o $(XTEXT) $(LDFLAGS) -lsconf -lx++ -lx -lcxx -lttf  -ltextview -lfont -lhash -lgraph -lewokc -lc
+	$(LD) -Ttext=100 $(XTEXT_OBJS) -o $(XTEXT) $(LDFLAGS) -lsconf -lx++ -lx -lcxx -lttf  -ltextview -lfont -lhash -lgraph -lbsp -lewokc -lc
 
 $(XTEXT_DIR):
 	mkdir -p $(XTEXT_DIR)
