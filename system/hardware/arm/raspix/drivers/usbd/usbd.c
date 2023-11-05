@@ -18,9 +18,10 @@ void* PlatformAllocateDMA(u32 size){
     printf("DMA: address: %08x\n", ret);
     return ret;
 }
+
 void LogPrint(const char* message, uint32_t messageLength) {
   (void)messageLength;
-  klog("%s", message);
+  printf("%s", message);
 }
 
 static void usb_host_init(uint32_t v_mmio_base) {

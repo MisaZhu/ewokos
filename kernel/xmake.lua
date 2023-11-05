@@ -67,11 +67,13 @@ function add_kernel_src(arch)
         kernel_dir.."lib/include",
         kernel_dir.."lib/ext2/include",
         kernel_dir.."lib/graph/include",
-        kernel_dir.."lib/console/include"
+        kernel_dir.."lib/console/include",
+		kernel_dir.."lib/sconf/include"
     )
     add_files(
        kernel_dir.."kernel/**.c",
        kernel_dir.."lib/**.c", 
+       kernel_dir.."dev/**.c", 
        kernel_dir.."loadinit/**.c"
     )
 end

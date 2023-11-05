@@ -47,7 +47,7 @@ struct rockchip_saradc_regs* saradc;
 
 #define DECLARE_GPIO_KEY(name, level)	{#name, name, name##_PIN, level, !level}
 
-struct gpio_pins{
+static struct gpio_pins{
 	char* name;
 	int key;
 	int pin;
@@ -101,7 +101,7 @@ struct rockchip_gpio_regs {
     uint32_t ls_sync;
 };
 
-struct rockchip_gpio_regs *gpio[4];
+static struct rockchip_gpio_regs *gpio[4];
 
 
 static uint32_t rockchip_saradc_get_value(int chn){

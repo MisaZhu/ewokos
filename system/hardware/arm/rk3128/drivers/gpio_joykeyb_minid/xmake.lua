@@ -1,4 +1,4 @@
-target("gpio_joykeybd")
+target("gpio_joykeybd_minid")
     set_type("application")
     add_deps("libbsp")
     add_files("**.c")        
