@@ -21,5 +21,6 @@ int32_t semaphore_alloc(void);
 void    semaphore_free(uint32_t sem_id);
 int32_t semaphore_enter(context_t* ctx, uint32_t sem_id, uint8_t thread);
 int32_t semaphore_quit(uint32_t sem_id);
+void    semaphore_clear(int32_t pid);
 
 #endif

@@ -16,13 +16,30 @@ void semaphore_init(void) {
 }
 
 int32_t semaphore_alloc(void) {
+	proc_t* proc = get_current_proc();
+	if(proc == NULL)
+		return -1;
+
 	for(int32_t i=0; i<SEMAPHORE_MAX; i++) {
 		if(_semaphores[i].creater_pid == -1) {
 			_semaphores[i].occupied = SEM_IDLE;
+			_semaphores[i].occupied_pid = -1;
+			_semaphores[i].creater_pid = proc->info.pid;
 			return i;
 		}
 	}
 	return -1;
+}
+
+void semaphore_clear(int32_t pid) {
+	for(int32_t i=0; i<SEMAPHORE_MAX; i++) {
+		if(_semaphores[i].creater_pid == pid) {
+			semaphore_quit(i);
+			_semaphores[i].occupied = SEM_IDLE;
+			_semaphores[i].creater_pid = -1;
+			_semaphores[i].occupied_pid = -1;
+		}
+	}
 }
 
 void semaphore_free(uint32_t sem_id) {

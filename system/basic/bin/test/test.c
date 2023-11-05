@@ -14,7 +14,7 @@ static void* timer_handle(void* p) {
 	while(1) {
 		pthread_mutex_lock(&_lock);
 		_v++;
-		printf("child thread: timer test: pid: %d, v: %d\n", getpid(), _v);
+		printf("child thread: pid: %d, v: %d\n", getpid(), _v);
 		pthread_mutex_unlock(&_lock);
 		if(_v >= 100)
 			break;
@@ -35,10 +35,10 @@ int main(int argc, char* argv[]) {
 	while(_v != 0xffffffff) {
 		pthread_mutex_lock(&_lock);
 		_v++;
-		printf("main thread: timer test: pid: %d, v: %d\n", getpid(), _v);
+		printf("main thread: pid: %d, v: %d\n", getpid(), _v);
 		pthread_mutex_unlock(&_lock);
 		usleep(5000);
 	}
-	pthread_mutex_destroy(&_lock);
+	//pthread_mutex_destroy(&_lock);
 	return 0;
 }

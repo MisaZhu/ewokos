@@ -7,6 +7,7 @@
 #include <mm/dma.h>
 #include <mm/shm.h>
 #include <kernel/kevqueue.h>
+#include <kernel/semaphore.h>
 #include <kstring.h>
 #include <kprintf.h>
 #include <queue.h>
@@ -334,6 +335,7 @@ static void proc_terminate(context_t* ctx, proc_t* proc) {
 		/*free all ipc context*/
 		proc_ipc_clear(proc);
 		proc_wakeup_waiting(proc->info.pid);
+	semaphore_clear(proc->info.pid);
 	}
 	proc->info.father_pid = 0;
 }
