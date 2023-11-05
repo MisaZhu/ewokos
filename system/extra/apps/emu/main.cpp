@@ -25,6 +25,7 @@
 #include <sys/kernel_tic.h>
 #include <sys/keydef.h>
 #include <sys/klog.h>
+#include <sys/timer.h>
 #include <x++/X.h>
 
 #include "src/InfoNES_Types.h"
@@ -366,10 +367,19 @@ protected:
 
 };
 
+/*
 static void loop(void* p) {
 	NesEmu* xwin = (NesEmu*)p;
 	xwin->repaint();
 	xwin->waitForNextFrame();
+}
+*/
+
+static NesEmu* _xwin;
+static void loop(void) {
+	NesEmu* xwin = _xwin;
+	xwin->repaint();
+	//xwin->waitForNextFrame();
 }
 
 int main(int argc, char *argv[])
@@ -411,7 +421,11 @@ int main(int argc, char *argv[])
 	x.open(&scr, &emu, 256*zoom, 240*zoom, "NesEmu", XWIN_STYLE_NO_RESIZE);
 	emu.setVisible(true);
 
-	x.run(loop, &emu);
+	_xwin = &emu;
+	uint32_t tid = timer_set(10000, loop);
+	x.run(NULL, &emu);
+	timer_remove(tid);
 
-    return 0;
+	//x.run(loop, &emu);
+  return 0;
 }
