@@ -102,8 +102,14 @@ static inline const char* svc_name(int32_t code) {
 		return "intr_setup";
 	case SYS_INTR_END:
 		return "intr_end";
-	case SYS_SAFE_SET:
-		return "safe_set";
+	case SYS_SEMAPHORE_ALLOC:
+		return "semaphore_alloc";
+	case SYS_SEMAPHORE_FREE:
+		return "semaphore_free";
+	case SYS_SEMAPHORE_ENTER:
+		return "semaphore_enter";
+	case SYS_SEMAPHORE_QUIT:
+		return "semaphore_quit";
 	case SYS_SOFT_INT:
 		return "soft_int";
 	case SYS_PROC_UUID:

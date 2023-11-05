@@ -137,6 +137,7 @@ KERNEL_OBJS = \
 	$(KERNEL_DIR)/kconsole.o \
 	$(KERNEL_DIR)/irq.o \
 	$(KERNEL_DIR)/svc.o \
+	$(KERNEL_DIR)/semaphore.o \
 	$(KERNEL_DIR)/proc.o \
 	$(KERNEL_DIR)/ipc.o \
 	$(KERNEL_DIR)/signal.o \

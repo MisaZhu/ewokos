@@ -17,7 +17,7 @@
 #include <dev/uart.h>
 #include <stddef.h>
 #include <kernel/kconsole.h>
-//`#include <gic.h>
+#include <kernel/semaphore.h>
 
 page_dir_entry_t* _kernel_vm = NULL;
 
@@ -166,6 +166,7 @@ void _kernel_entry_c(void) {
 	init_allocable_mem(); //init the rest allocable memory VM
 	printf("kernel: init allocable memory: %dMB, %d pages\n", (get_free_mem_size() / (1*MB)), _pages_ref.max);
 
+	semaphore_init();
 	irq_init();
 	printf("kernel: irq inited\n");
 
