@@ -157,14 +157,15 @@ void _kernel_entry_c(void) {
 
 	load_kernel_config();
 
+#ifdef KCONSOLE
+	kconsole_init();
+#endif
+
 	welcome();
 	printf("kernel: kmalloc initing  [ok] : %dMB\n", (KMALLOC_END-KMALLOC_BASE) / (1*MB));
 	init_allocable_mem(); //init the rest allocable memory VM
 	printf("kernel: init allocable memory: %dMB, %d pages\n", (get_free_mem_size() / (1*MB)), _pages_ref.max);
 
-#ifdef KCONSOLE
-	kconsole_init();
-#endif
 	irq_init();
 	printf("kernel: irq inited\n");
 

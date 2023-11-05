@@ -6,9 +6,9 @@
 
 static uint16_t* _g16 = NULL;
 static uint32_t* _g32 = NULL;
-int32_t fb_init(uint32_t w, uint32_t h, fbinfo_t* fbinfo) {
+int32_t fb_init_bsp(uint32_t w, uint32_t h, uint8_t dep, fbinfo_t* fbinfo) {
 	_g16 = NULL;
-	if(bcm283x_fb_init(w, h, 32) != 0)
+	if(bcm283x_fb_init(w, h, dep) != 0)
 		return -1;
 	memcpy(fbinfo, bcm283x_get_fbinfo(), sizeof(fbinfo_t));
 	if(fbinfo->depth == 16)

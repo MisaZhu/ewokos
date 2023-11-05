@@ -79,7 +79,7 @@ int rgb2nv12(uint8_t  *out,  uint32_t *in , int w, int h)
 }
 
 
-int32_t fb_init(uint32_t w, uint32_t h, fbinfo_t* fbinfo) {
+int32_t fb_init_bsp(uint32_t w, uint32_t h, uint8_t dep, fbinfo_t* fbinfo) {
 	panel_init();
 	fbinfo->width = 640;
 	fbinfo->height = 480;

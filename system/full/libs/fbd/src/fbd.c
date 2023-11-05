@@ -162,7 +162,7 @@ static void* fb_dma(int fd, int from_pid, uint32_t node, int* size, void* p) {
 	return dma->shm;
 }
 
-static void read_config(uint32_t* w, uint32_t* h, int32_t* rotate) {
+static void read_config(uint32_t* w, uint32_t* h, uint8_t* dep, int32_t* rotate) {
 	strncpy(_logo, "/usr/system/images/logos/logo.png", 255);
 
 	sconf_t *conf = sconf_load("/etc/framebuffer.conf");	
@@ -176,6 +176,10 @@ static void read_config(uint32_t* w, uint32_t* h, int32_t* rotate) {
 	v = sconf_get(conf, "height");
 	if(v[0] != 0)
 		*h = atoi(v);
+
+	v = sconf_get(conf, "depth");
+	if(v[0] != 0) 
+		*dep = atoi(v);
 
 	v = sconf_get(conf, "rotate");
 	if(v[0] != 0) 
@@ -192,14 +196,15 @@ int fbd_run(fbd_t* fbd, const char* mnt_name,
 		uint32_t def_w, uint32_t def_h, int32_t def_rotate) {
 	_fbd = fbd;
 	uint32_t w = def_w, h = def_h;
+	uint8_t dep = 32;
 	_rotate = def_rotate;
 
 
-	read_config(&w, &h, &_rotate);
+	read_config(&w, &h, &dep, &_rotate);
 
 	fb_dma_t dma;
 	dma.shm = NULL;
-	if(fbd->init(w, h, 32) != 0)
+	if(fbd->init(w, h, dep) != 0)
 		return -1;
 	_fbinfo = fbd->get_info();
 	

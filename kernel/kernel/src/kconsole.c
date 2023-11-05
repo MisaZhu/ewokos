@@ -12,7 +12,7 @@ static uint32_t _line;
 static graph_t* _fb_g = NULL;
 static uint8_t _rotate = G_ROTATE_NONE;
 
-static void read_config(uint32_t *w, uint32_t *h) {
+static void read_config(uint32_t *w, uint32_t *h, uint8_t *dep) {
 	sconf_t* sconf = sconf_load("/etc/kernel/framebuffer.conf");
 	if(sconf == NULL)
 		return;
@@ -24,9 +24,14 @@ static void read_config(uint32_t *w, uint32_t *h) {
 	if(v[0] != 0)
 		*h = atoi(v);
 
+	v = sconf_get(sconf, "depth");
+	if(v[0] != 0)
+		*dep = atoi(v);
+
 	v = sconf_get(sconf, "rotate");
 	if(v[0] != 0)
 		_rotate = atoi(v);
+
 
 	sconf_free(sconf);
 
@@ -34,6 +39,8 @@ static void read_config(uint32_t *w, uint32_t *h) {
 		*w = 640;
 	if(*h == 0)
 		*h = 480;
+	if(*dep == 0)
+		*dep = 32;
 }
 
 void kconsole_init(void) {
@@ -42,11 +49,12 @@ void kconsole_init(void) {
 	_line = 0;
 	_rotate = G_ROTATE_NONE;
 	uint32_t w = 640, h = 480;
+	uint8_t dep = 32;
 
 	console_init(&_console);
-	read_config(&w, &h);
+	read_config(&w, &h, &dep);
 	//printf("\nkernel: init framebuffer ... ");
-	if(fb_init(w, h, &fbinfo) != 0) {
+	if(fb_init_bsp(w, h, dep, &fbinfo) != 0) {
 		//printf("[failed]\n");
 		return;
 	}
