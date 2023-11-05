@@ -2,6 +2,7 @@
 #include <mm/kalloc.h>
 #include <mm/kmalloc.h>
 #include <mm/mmu.h>
+#include <mm/mmudef.h>
 #include <shmflag.h>
 #include <kernel/kernel.h>
 #include <kernel/hw_info.h>
