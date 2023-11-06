@@ -1,4 +1,6 @@
 #include <Widget/WidgetWin.h>
+#include <Widget/Image.h>
+#include <Widget/Label.h>
 #include <x++/X.h>
 #include <unistd.h>
 #include <font/font.h>
@@ -59,7 +61,9 @@ int main(int argc, char** argv) {
 	X x;
 	WidgetWin win;
 
-	Widget* wd = new MyWidget();
+	win.getWidget()->setBGColor(0xff000000);
+
+	Widget* wd = new Image("/usr/system/images/mac1984.png");
 	wd->setRect(10, 10, 40, 40);
 	win.getWidget()->add(wd);
 
@@ -69,7 +73,7 @@ int main(int argc, char** argv) {
 	c->setRect(0, 0, 40, 40);
 	win.getWidget()->add(c);
 
-	wd = new MyWidget();
+	wd = new Label(X::getSysFont(), "Label");
 	c->add(wd);
 	wd = new MyWidget();
 	c->add(wd);

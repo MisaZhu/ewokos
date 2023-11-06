@@ -13,15 +13,20 @@ class Widget {
 	Widget* next;
 	Widget* prev;
 protected:
+	uint32_t fgColor;
+	uint32_t bgColor;
+	int32_t marginH;
+	int32_t marginV;
 	Widget* father;
 	bool dirty;
 
 	bool fixed;
 	grect_t rect;
 
-	virtual void onRepaint(graph_t* g, grect_t* grect) {
-		(void)g;
-		(void)grect;
+	virtual void onRepaint(graph_t* g, grect_t* rect) {
+		if(bgColor == 0x0)
+			return;
+		graph_fill(g, rect->x, rect->y, rect->w, rect->h, bgColor);
 	}
 
 	virtual void onResize() { }
@@ -53,9 +58,26 @@ public:
 		next = NULL;
 		prev = NULL;
 		rect = {0, 0, 0, 0};
+		bgColor = 0x0; //transparent
+		fgColor = 0xff000000;
+		marginH = 0;
+		marginV = 0;
 	}
 
 	virtual ~Widget() { }
+
+	void setFGColor(uint32_t color) { 
+		fgColor = color;
+		update();
+	}
+
+	void setBGColor(uint32_t color) {
+		bgColor = color;
+		update();
+	}
+
+	void setMarginH(int32_t v) { marginH = v; }
+	void setMarginV(int32_t v) { marginV = v; }
 
 	inline Widget* getForeFather(void) {
 		Widget* wd = father;
@@ -76,6 +98,17 @@ public:
 			return;
 		onRepaint(g, grect);
 		dirty = false;
+	}
+
+	virtual gsize_t getMinSize(void) {
+		gsize_t sz = { marginH*2, marginV*2 };
+		return sz;
+	}
+
+	void fixedMinSize(void) {
+		gsize_t sz = getMinSize();
+		resizeTo(sz.w, sz.h);
+		setFixed(true);
 	}
 
 	inline void resizeTo(int w, int h) {

@@ -112,6 +112,7 @@ public:
 			children = child;
 		childrenEnd = child;
 		num++;
+		layout();
 	}
 
 	virtual void repaint(graph_t* g, grect_t* grect) {
@@ -141,6 +142,7 @@ public:
 
 	inline void setType(int type) {
 		this->type = type;
+		layout();
 	}
 
 	void clear() {

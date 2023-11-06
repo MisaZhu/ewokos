@@ -6,31 +6,47 @@
 #include <upng/upng.h>
 #include <font/font.h>
 #include <x++/X.h>
+#include <Widget/WidgetWin.h>
+#include <Widget/Image.h>
+#include <Widget/Label.h>
 
 using namespace Ewok;
 
-class Menubar : public XWin {
-	graph_t* logo;
-	font_t* font;
+class MenuItem : public Label {
 protected:
-	void onRepaint(graph_t* g) {
-		graph_fill(g, 0, 0, g->w, g->h, 0xffffffff);
-		graph_blt_alpha(logo, 0, 0, logo->w, logo->h,
-				g, 10, (g->h-logo->h)/2, logo->w, logo->h, 0xff);
-		graph_draw_text_font(g, 20 + logo->w, (g->h - font->max_size.y)/2, "EwokOS", font, 0xff000000);
+	bool onMouse(xevent_t* ev) {
+		if(ev->state == XEVT_MOUSE_DOWN)
+			setFGColor(0xff888888);
+		else if(ev->state == XEVT_MOUSE_UP)
+			setFGColor(0xff000000);
+		return true;
 	}
+public:
+	MenuItem(font_t* font, const char* str): Label(font, str) { }
+};
 
+class Menubar : public WidgetWin {
 public:
 	Menubar() {
-		logo = png_image_new("/usr/system/icons/os.png");
-		font = font_new(DEFAULT_SYSTEM_FONT, 12, true);
+		Container* container = getWidget();
+		container->setType(Container::HORIZONTAL);
+		container->setBGColor(0xffffffff);
+
+		Widget* wd = new Image("/usr/system/icons/os.png");
+		wd->setMarginH(10);
+		wd->fixedMinSize();
+		container->add(wd);
+	
+		wd = new MenuItem(X::getSysFont(), "EwokOS");
+		wd->setMarginH(10);
+		wd->fixedMinSize();
+		container->add(wd);
+
+		wd = new Widget();
+		container->add(wd);
 	}
 
 	~Menubar() {
-		if(logo != NULL)
-			graph_free(logo);
-		if(font != NULL)
-			font_free(font);
 	}
 };
 

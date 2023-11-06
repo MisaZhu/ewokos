@@ -12,9 +12,7 @@ class WinWidget: public Container {
 	XWin* xwin;
 protected:
 	void onRepaint(graph_t* g, grect_t* rect) {
-		(void)g;
-		(void)rect;
-		//graph_fill(g, rect->x, rect->y, rect->w, rect->h, 0xffffffff);
+		Container::onRepaint(g, rect);
 	}
 
 	XWin* getWin() {
