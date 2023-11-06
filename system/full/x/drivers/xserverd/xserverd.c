@@ -730,6 +730,23 @@ static void check_wins(x_t* x) {
 	}
 }
 
+static void xwin_top(x_t* x, xwin_t* win) {
+	remove_win(x, win);
+	push_win(x, win);
+}
+
+static int do_xwin_top(int fd, int from_pid, x_t* x) {
+	if(fd < 0)
+		return -1;
+	
+	xwin_t* win = x_get_win(x, fd, from_pid);
+	if(win == NULL || win->xinfo == NULL)
+		return -1;
+	if(!win->xinfo->visible)
+		return 0;
+	xwin_top(x, win);
+}
+
 static int x_update(int fd, int from_pid, x_t* x) {
 	if(fd < 0)
 		return -1;
@@ -989,6 +1006,9 @@ static int xserver_fcntl(int fd, int from_pid, uint32_t node,
 	else if(cmd == XWIN_CNTL_CALL_XIM) {
 		res = xwin_call_xim(x);
 	}
+	else if(cmd == XWIN_CNTL_TOP) {
+		res = do_xwin_top(fd, from_pid, x);
+	}
 	return res;
 }
 
@@ -1078,11 +1098,6 @@ static xwin_t* get_mouse_owner(x_t* x, int* win_frame_pos) {
 		win = win->prev;
 	}
 	return NULL;
-}
-
-static void xwin_top(x_t* x, xwin_t* win) {
-	remove_win(x, win);
-	push_win(x, win);
 }
 
 static void xwin_bg(x_t* x, xwin_t* win) {
@@ -1268,8 +1283,18 @@ static int mouse_handle(x_t* x, xevent_t* ev) {
 	else
 		win = get_mouse_owner(x, &pos);
 
-	if(win != NULL)
+	if(win != NULL) {
 		mouse_xwin_handle(x, win, pos, ev);
+	}
+	else if(ev->state ==  XEVT_MOUSE_DOWN) {
+		if(x->win_focus != NULL) {
+			xevent_t e;
+			e.type = XEVT_WIN;
+			e.value.window.event = XEVT_WIN_UNFOCUS;
+			x_push_event(x, x->win_focus, &e);
+		}
+	}
+
 	return 0;
 }
 

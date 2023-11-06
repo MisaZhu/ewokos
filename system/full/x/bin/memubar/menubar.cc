@@ -12,17 +12,63 @@
 
 using namespace Ewok;
 
-class MenuItem : public Label {
+class Menu : public WidgetWin {
 protected:
+	void onRepaint(graph_t* g) {
+		WidgetWin::onRepaint(g);
+		graph_box(g, 0, 0, g->w, g->h, 0x88000000);
+	}
+
+	void onUnfocus() {
+		setVisible(false);
+	}
+public:
+	Menu() {
+		Container* container = getWidget();
+		container->setType(Container::VERTICLE);
+		container->setBGColor(0xffffffff);
+	
+		Widget* wd = new Label(X::getSysFont(), "item1");
+		wd->setMarginV(4);
+		//wd->fixedMinSize();
+		container->add(wd);
+
+		wd = new Label(X::getSysFont(), "item2");
+		wd->setMarginV(4);
+		//wd->fixedMinSize();
+		container->add(wd);
+
+		wd = new Label(X::getSysFont(), "item3");
+		wd->setMarginV(4);
+		//wd->fixedMinSize();
+		container->add(wd);
+	}
+};
+
+class MenubarItem : public Label {
+	Menu *menu;
+protected:
+	void onClick() {
+		grect_t r = getAbsRect();
+
+		if(menu == NULL) {
+			X *x = getWin()->getX();
+			menu = new Menu();
+			x->open(menu, r.x, r.y+r.h, 100, 100, "menu", XWIN_STYLE_NO_FRAME);
+		}
+		menu->pop();
+	}
+
 	bool onMouse(xevent_t* ev) {
-		if(ev->state == XEVT_MOUSE_DOWN)
-			setFGColor(0xff888888);
-		else if(ev->state == XEVT_MOUSE_UP)
-			setFGColor(0xff000000);
+		if(ev->state == XEVT_MOUSE_CLICK) {
+			onClick();
+		}
 		return true;
 	}
 public:
-	MenuItem(font_t* font, const char* str): Label(font, str) { }
+	MenubarItem(font_t* font, const char* str): Label(font, str) { 
+		menu = NULL;
+	}
 };
 
 class Menubar : public WidgetWin {
@@ -37,7 +83,7 @@ public:
 		wd->fixedMinSize();
 		container->add(wd);
 	
-		wd = new MenuItem(X::getSysFont(), "EwokOS");
+		wd = new MenubarItem(X::getSysFont(), "EwokOS");
 		wd->setMarginH(10);
 		wd->fixedMinSize();
 		container->add(wd);

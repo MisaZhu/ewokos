@@ -111,6 +111,19 @@ void XWin::setAlpha(bool alpha) {
 	xwin_set_alpha(xwin, alpha);
 }
 
+void XWin::top() {
+	if(xwin == NULL)
+		return;
+	xwin_top(xwin);
+}
+
+void XWin::pop() {
+	if(xwin == NULL)
+		return;
+	xwin_set_visible(xwin, true);
+	xwin_top(xwin);
+}
+
 bool XWin::callXIM(void) {
 	if(xwin == NULL)
 		return false;

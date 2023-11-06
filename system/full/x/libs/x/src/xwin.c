@@ -39,6 +39,11 @@ int xwin_call_xim(xwin_t* xwin) {
 	return ret;
 }
 
+int xwin_top(xwin_t* xwin) {
+	int ret = vfs_fcntl(xwin->fd, XWIN_CNTL_TOP, NULL, NULL);
+	return ret;
+}
+
 static int  x_get_win_rect(int xfd, int style, grect_t* wsr, grect_t* win_space) {
 	proto_t in, out;
 	PF->init(&out);
@@ -252,15 +257,11 @@ int xwin_set_visible(xwin_t* xwin, bool visible) {
 	if(xwin->xinfo == NULL || xwin->xinfo->visible == visible)
 		return 0;
 
-	if(visible) {
-		if(xwin->on_focus)
-			xwin->on_focus(xwin);
-	}
 	xwin->xinfo->visible = visible;
 	int res = xwin_update_info(xwin, X_UPDATE_REFRESH);
-	if(visible) {
+
+	if(visible)
 		xwin_repaint(xwin);
-	}
 	return res;
 }
 

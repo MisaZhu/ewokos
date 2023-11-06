@@ -34,6 +34,7 @@ typedef struct st_xwin {
 xwin_t*  xwin_open(x_t* xp, int x, int y, int w, int h, const char* title, int style);
 void     xwin_close(xwin_t* x);
 int      xwin_set_visible(xwin_t* x, bool visible);
+int      xwin_top(xwin_t* x);
 void     xwin_set_alpha(xwin_t* x, bool alpha);
 void     xwin_repaint(xwin_t* x);
 //void     xwin_repaint_req(xwin_t* x);
