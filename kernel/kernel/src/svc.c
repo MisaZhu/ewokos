@@ -6,6 +6,7 @@
 #include <kernel/proc.h>
 #include <kernel/ipc.h>
 #include <kernel/hw_info.h>
+#include <kernel/semaphore.h>
 #include <kernel/kevqueue.h>
 #include <kernel/kconsole.h>
 #include <kernel/signal.h>
@@ -518,19 +519,6 @@ static void sys_interrupt_end(context_t* ctx) {
 	interrupt_end(ctx);
 }
 
-static inline void sys_safe_set(context_t* ctx, int32_t* to, int32_t v) {
-	ctx->gpr[0] = -1;
-	proc_t* proc = proc_get_proc(get_current_proc());
-	if(*to != 0 && v != 0) {
-		proc_block_on(ctx, proc->info.pid, (uint32_t)to, 0);
-		return;
-	}
-
-	*to = v;
-	ctx->gpr[0] = 0;
-	proc_wakeup(proc->info.pid, (uint32_t)to, 0);
-}
-
 static inline void sys_soft_int(context_t* ctx, int32_t to_pid, uint32_t entry, uint32_t data) {
 	proc_t* proc = proc_get_proc(get_current_proc());
 	if(proc->info.owner > 0)
@@ -707,8 +695,17 @@ static inline void _svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_
 	case SYS_INTR_END:
 		sys_interrupt_end(ctx);
 		return;
-	case SYS_SAFE_SET:
-		sys_safe_set(ctx, (int32_t*)arg0, arg1);
+	case SYS_SEMAPHORE_ALLOC:
+		ctx->gpr[0] = semaphore_alloc();
+		return;
+	case SYS_SEMAPHORE_FREE:
+		semaphore_free(arg0);
+		return;
+	case SYS_SEMAPHORE_ENTER:
+		semaphore_enter(ctx, arg0);
+		return;
+	case SYS_SEMAPHORE_QUIT:
+		ctx->gpr[0] = semaphore_quit(arg0);
 		return;
 	case SYS_SOFT_INT:
 		sys_soft_int(ctx, arg0, arg1, arg2);

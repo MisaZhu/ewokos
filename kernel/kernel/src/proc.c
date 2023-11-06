@@ -7,6 +7,7 @@
 #include <mm/dma.h>
 #include <mm/shm.h>
 #include <kernel/kevqueue.h>
+#include <kernel/semaphore.h>
 #include <kstring.h>
 #include <kprintf.h>
 #include <queue.h>
@@ -319,6 +320,8 @@ static void proc_terminate(context_t* ctx, proc_t* proc) {
 		return;
 
 	proc_unready(proc, ZOMBIE);
+	semaphore_clear(proc->info.pid);
+
 	if(proc->info.type == PROC_TYPE_PROC) {
 		kev_push(KEV_PROC_EXIT, proc->info.pid, 0, 0);
 		int32_t i;
@@ -326,8 +329,10 @@ static void proc_terminate(context_t* ctx, proc_t* proc) {
 			proc_t *p = &_proc_table[i];
 			/*terminate forked from this proc*/
 			if(p->info.father_pid == proc->info.pid) { //terminate forked children, skip reloaded ones
-				//proc_exit(ctx, p, 0);
-				proc_signal_send(ctx, p, SYS_SIG_STOP, false);
+				if(p->info.type == PROC_TYPE_PROC)
+					proc_signal_send(ctx, p, SYS_SIG_STOP, false);
+				else
+					proc_exit(ctx, p, 0);
 			}
 		}
 

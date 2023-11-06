@@ -70,13 +70,16 @@ enum {
 	SYS_INTR_SETUP,       //48
 	SYS_INTR_END,         //49
 
-	SYS_SAFE_SET,         //50
-	SYS_SOFT_INT,         //51
-	SYS_PROC_UUID,        //52
-	SYS_CLOSE_KCONSOLE,             //53
-	SYS_SCHD_CORE_LOCK,             //54
-	SYS_SCHD_CORE_UNLOCK,             //55
-	SYS_CALL_NUM          //56
+	SYS_SEMAPHORE_ALLOC,         //50
+	SYS_SEMAPHORE_FREE,         //51
+	SYS_SEMAPHORE_ENTER,         //52
+	SYS_SEMAPHORE_QUIT,         //53
+	SYS_SOFT_INT,         //54
+	SYS_PROC_UUID,        //55
+	SYS_CLOSE_KCONSOLE,             //56
+	SYS_SCHD_CORE_LOCK,             //57
+	SYS_SCHD_CORE_UNLOCK,             //58
+	SYS_CALL_NUM          //59
 };
 
 #endif

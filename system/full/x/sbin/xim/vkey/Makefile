@@ -19,7 +19,7 @@ $(XIM): $(XIM_OBJS) \
 		$(BUILD_DIR)/lib/libfont.a \
 		$(BUILD_DIR)/lib/libhash.a \
 		$(BUILD_DIR)/lib/libcxx.a 
-	$(LD) -Ttext=100 $(XIM_OBJS) -o $(XIM) $(LDFLAGS) -lgraph -lttf -lfont -lhash -lx++ -lx -lcxx -lewokc -lc
+	$(LD) -Ttext=100 $(XIM_OBJS) -o $(XIM) $(LDFLAGS) -lgraph -lbsp -lttf -lfont -lhash -lx++ -lx -lcxx -lewokc -lc
 
 clean:
 	rm -f $(XIM_OBJS)

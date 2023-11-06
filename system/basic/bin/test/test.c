@@ -4,27 +4,38 @@
 #include <string.h>
 #include <sys/interrupt.h>
 #include <sys/timer.h>
+#include <pthread.h>
 
 static uint32_t _v;
 
-static void timer_handle(void) {
-	fprintf(stderr, "timer test: pid: %d, v: %d\n", getpid(), _v);
-	_v++;
+pthread_mutex_t _lock;
+
+static void* timer_handle(void* p) {
+	while(1) {
+		pthread_mutex_lock(&_lock);
+		_v++;
+		printf("child thread: pid: %d, v: %d\n", pthread_self(), _v);
+		pthread_mutex_unlock(&_lock);
+		usleep(5000);
+	}
 }
 
 int main(int argc, char* argv[]) {
 	(void)argc;
 	(void)argv;
 	_v = 0;
-	
-	uint32_t id = timer_set(1000000, timer_handle);
 
-	while(1) {
-		usleep(50000);
-		if(_v > 10)  {
-			break;
-		}
+	pthread_t tid;
+	pthread_create(&tid, NULL, timer_handle, NULL);
+	pthread_mutex_init(&_lock, NULL);
+	
+	while(_v < 100) {
+		pthread_mutex_lock(&_lock);
+		_v++;
+		printf("main thread: pid: %d, v: %d\n", pthread_self(), _v);
+		pthread_mutex_unlock(&_lock);
+		usleep(5000);
 	}
-	timer_remove(id);
+	//pthread_mutex_destroy(&_lock);
 	return 0;
 }

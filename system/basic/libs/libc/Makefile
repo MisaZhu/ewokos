@@ -21,6 +21,7 @@ LIB_EWOKSYS_OBJS = sys/src/syscall.o \
 	sys/src/interrupt.o \
 	sys/src/vdevice.o \
 	sys/src/proto.o \
+	sys/src/semaphore.o \
 	sys/src/thread.o \
 	sys/src/basic_math.o \
 	sys/src/kernel_tic.o \
@@ -99,6 +100,7 @@ LIB_EWOKC_OBJS = \
 	src/pthread/pthread_mutex_init.o \
 	src/pthread/pthread_mutex_lock.o \
 	src/pthread/pthread_mutex_unlock.o \
+	src/pthread/pthread_mutex_destroy.o \
 	\
 	src/stdio/vprintf.o \
 	src/stdio/snprintf.o \

@@ -25,7 +25,7 @@ $(XCONSOLE): $(XCONSOLE_OBJS) \
 		$(BUILD_DIR)/lib/libfont.a \
 		$(BUILD_DIR)/lib/libhash.a \
 		$(BUILD_DIR)/lib/libcxx.a 
-	$(LD) -Ttext=100 $(XCONSOLE_OBJS) -o $(XCONSOLE) $(LDFLAGS) -lsconf -lx++ -lx -lcxx -lttf  -lconsole -ltextview -lfont -lhash -lgraph -lewokc -lc
+	$(LD) -Ttext=100 $(XCONSOLE_OBJS) -o $(XCONSOLE) $(LDFLAGS) -lsconf -lx++ -lx -lcxx -lttf  -lconsole -ltextview -lfont -lhash -lgraph -lbsp -lewokc -lc
 
 $(XCONSOLE_DIR):
 	mkdir -p $(XCONSOLE_DIR)
