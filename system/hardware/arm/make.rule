@@ -42,7 +42,7 @@ CXXFLAGS = -marm \
         -fno-builtin-unistd \
         -fno-rtti \
         -fno-exceptions \
-        -std=c++11
+        -std=c++14
         
 #CFLAGS +=  -g
 CFLAGS +=  -O2

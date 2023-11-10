@@ -16,6 +16,7 @@ basic_libs:
 	cd textview;make
 	cd console;make
 	cd c++/c++;make
+	cd c++/tiny_stl;make
 
 clean:
 	cd crc32;make clean
@@ -33,3 +34,4 @@ clean:
 	cd fb;make clean
 	cd fbd;make clean
 	cd c++/c++;make clean
+	cd c++/tiny_stl;make clean

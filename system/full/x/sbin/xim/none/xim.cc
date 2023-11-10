@@ -155,12 +155,6 @@ public:
 	}
 };
 
-static XIM* _xim = NULL;
-
-static void timer_handler(void) {
-	_xim->read();
-}
-
 int main(int argc, char* argv[]) {
 	const char* keyb_dev = "/dev/keyb0";
 	if(argc > 1)
@@ -172,14 +166,9 @@ int main(int argc, char* argv[]) {
 	}
 
 	XIM xim(keyb_dev, escHome);
-	_xim = &xim;
-	
-	uint32_t tid = timer_set(KEY_TIMER, timer_handler);
-
 	while(true) {
-		proc_block(getpid(), (uint32_t) main);
+		xim.read();
+		usleep(KEY_TIMER);
 	}
-
-	timer_remove(tid);
 	return 0;
 }

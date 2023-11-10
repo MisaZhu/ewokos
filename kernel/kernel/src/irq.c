@@ -74,7 +74,7 @@ static inline void irq_do_timer0(context_t* ctx) {
 	}
 	timer_clear_interrupt(0);
 
-	if(_timer_tic >= _kernel_config.schedule_freq) {
+	if(_timer_tic >= (_kernel_config.schedule_freq/2)) {
 		_timer_tic = 0;
 		if(_schedule == 0) { //this tic not for schedule, do timer interrupt.
 			_schedule = 1; //next tic for schedule
