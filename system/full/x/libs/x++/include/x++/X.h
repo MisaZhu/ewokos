@@ -10,7 +10,6 @@
 
 namespace Ewok {
 
-static font_t* _sysFont = NULL;
 class X {
 	x_t x;
 public:

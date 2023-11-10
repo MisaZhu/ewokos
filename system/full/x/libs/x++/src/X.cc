@@ -6,6 +6,8 @@
 
 using namespace Ewok;
 
+static font_t* _sysFont = NULL;
+
 bool X::open(XWin* xwin, int x, int y, uint32_t w, uint32_t h, const char* title, uint32_t style) {
 	xwin_t* xw = xwin_open(&this->x, x, y, w, h, title, style);
 	if(xw == NULL)

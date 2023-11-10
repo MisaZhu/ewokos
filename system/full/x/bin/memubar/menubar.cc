@@ -15,8 +15,11 @@ using namespace Ewok;
 class Menu : public WidgetWin {
 protected:
 	void onRepaint(graph_t* g) {
+		setAlpha(true);
+		graph_fill(g, 2, 2, g->w-2, g->h-2, 0xff000000);
+		graph_fill(g, 0, 0, g->w-2, g->h-2, 0xffffffff);
+		graph_box(g, 0, 0, g->w-2, g->h-2, 0xff000000);
 		WidgetWin::onRepaint(g);
-		graph_box(g, 0, 0, g->w, g->h, 0x88000000);
 	}
 
 	void onUnfocus() {
@@ -26,7 +29,6 @@ public:
 	Menu() {
 		Container* container = getWidget();
 		container->setType(Container::VERTICLE);
-		container->setBGColor(0xffffffff);
 	
 		Widget* wd = new Label(X::getSysFont(), "item1");
 		wd->setMarginV(4);
