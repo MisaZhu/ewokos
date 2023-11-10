@@ -9,7 +9,7 @@
 #include <sys/proc.h>
 #include <font/font.h>
 #include <dirent.h>
-#include "ListView.h"
+#include <Widget/ListView.h>
 
 #define ITEM_MAX 16
 using namespace Ewok;
@@ -23,14 +23,10 @@ typedef struct {
 	uint32_t runPidUUID;
 } item_t;
 
-class Launcher;
-
 class LauncherView: public ListView {
-	friend Launcher;
-
 	item_t items[ITEM_MAX];	
-	bool focused;
-	font_t font;
+	uint32_t itemNum;
+	font_t* font;
 	uint32_t titleColor;
 	uint32_t bgColor;
 	uint32_t selectedColor;
@@ -77,11 +73,11 @@ class LauncherView: public ListView {
 	void drawTitle(graph_t* g, int at, int x, int y, int w, int h) {
 		const char* title = items[at].app->cstr;
 		uint32_t tw, th;
-		font_text_size(title, &font, &tw, &th);
+		font_text_size(title, font, &tw, &th);
 		x += (w - (int32_t)tw)/2;
 		y += (h - (int)(iconSize + titleMargin + (int32_t)th)) /2 +
 				iconSize + titleMargin;
-		graph_draw_text_font(g, x, y, title, &font, titleColor);
+		graph_draw_text_font(g, x, y, title, font, titleColor);
 	}
 
 	void runProc(item_t* item) {
@@ -108,7 +104,7 @@ protected:
 	}
 
 	void drawItem(graph_t* g, int at, int x, int y, int w, int h) {
-		if (selected == at && focused) {
+		if (selected == at) {
 			graph_fill_round(g, x, y,
 							w, h,
 							8, selectedColor);
@@ -117,28 +113,33 @@ protected:
 		drawTitle(g, at, x, y, w, h);
 	}
 
-	void drawBG(graph_t* g) {
+	uint32_t getItemNum() {
+		return itemNum;
+	}
+
+	void drawBG(graph_t* g, const gpos_t& pos) {
 		graph_clear(g, bgColor);
 	}
 
 public:
 	inline LauncherView() {
+		font = NULL;
+		itemNum = 0;
 		titleMargin = 2;
-		focused = true;
 		for(int i=0; i<ITEM_MAX; i++)
 			memset(&items[i], 0, sizeof(item_t));
 	}
 
 	inline ~LauncherView() {
-		for(int i=0; i<itemsInfo.num; i++) {
+		for(int i=0; i<itemNum; i++) {
 			str_free(items[i].app);
 			str_free(items[i].fname);
 			str_free(items[i].icon);
 			if(items[i].iconImg)
 				graph_free(items[i].iconImg);
 		}
-		if(font.id >= 0)
-			font_close(&font);
+		if(font != NULL)
+			font_free(font);
 	}
 
 	bool readConfig(const char* fname) {
@@ -183,7 +184,7 @@ public:
 		v = sconf_get(conf, "font");
 		if(v[0] == 0)
 			v = DEFAULT_SYSTEM_FONT;
-		font_load(v, fontSize, &font, true);
+		font = font_new(v, fontSize, true);
 
 		v = sconf_get(conf, "title_color");
 		if(v[0] != 0)
@@ -196,7 +197,6 @@ public:
 		v = sconf_get(conf, "icon_selected_color");
 		if(v[0] != 0)
 			selectedColor = atoi_base(v, 16);
-
 		sconf_free(conf);
 
 		itemsInfo.itemSize.h = fontSize + iconSize + titleMargin;
@@ -243,16 +243,28 @@ public:
 			items[i].icon = getIconFname(it->d_name);
 			i++;
 		}
-		itemsInfo.num = i;
+		itemNum = i;
 		closedir(dirp);
 		return true;
+	}
+
+	bool checkProc(void) {
+		bool doRepaint = false;
+		for(int i=0; i<itemNum; i++) {
+			item_t* item = &items[i];
+			if(item->runPid > 0)  {
+				if(proc_check_uuid(item->runPid, item->runPidUUID) != item->runPidUUID) {
+					item->runPid = 0;
+					doRepaint = true;
+				}
+			}
+		}
+		return doRepaint;
 	}
 };
 
 class Launcher: public XWin {
-public:
 	LauncherView launcherView;
-
 protected:
 	void onRepaint(graph_t* g) {
 		setAlpha(true);
@@ -265,16 +277,6 @@ protected:
 		launcherView.handleEvent(ev, xinfo.wsr);
 		repaint();
 	}
-	
-	void onFocus(void) {
-		launcherView.focused = true;
-		repaint();
-	}
-
-	void onUnfocus(void) {
-		launcherView.focused = false;
-		repaint();
-	}
 
 	void onResize(void) {
 		xinfo_t xinfo;
@@ -283,37 +285,22 @@ protected:
 	}
 
 public:
-	inline Launcher() {
+	Launcher() {
 	}
 
-	inline ~Launcher() {
+	~Launcher() {
+	}
+
+	inline LauncherView* getView() {
+		return &launcherView;
 	}
 
 	void checkProc(void) {
-		bool doRepaint = false;
-		for(int i=0; i<launcherView.itemsInfo.num; i++) {
-			item_t* item = &launcherView.items[i];
-
-			if(item->runPid > 0)  {
-				if(proc_check_uuid(item->runPid, item->runPidUUID) != item->runPidUUID) {
-					item->runPid = 0;
-					doRepaint = true;
-				}
-			}
-		}
-		if(doRepaint) {
+		if(launcherView.checkProc()) {
 			repaint();
 		}
 	}
-
-	inline bool readConfig(const char* fname) {
-		launcherView.readConfig(fname);
-		//launcherView.itemsInfo.itemSize.h = launcherView.fontSize + launcherView.iconSize + launcherView.titleMargin;
-		//launcherView.itemsInfo.itemSize.w = launcherView.iconSize;
-		//klog("rc3\n");
-	}
 };
-
 
 static void check_proc(void* p) {
 	Launcher* xwin = (Launcher*)p;
@@ -330,14 +317,15 @@ int main(int argc, char* argv[]) {
 	x.getDesktopSpace(desk, 0);
 
 	Launcher xwin;
+	LauncherView* view = xwin.getView();
 	const char* cfg = x_get_theme_fname(X_THEME_ROOT, "launcher", "theme.conf");
-	xwin.launcherView.readConfig(cfg);
 
-	xwin.launcherView.loadApps();
-	xwin.launcherView.layout(desk);
+	view->readConfig(cfg);
+	view->loadApps();
+	view->layout(desk);
 
-	gsize_t sz = xwin.launcherView.getSize();
-	gpos_t pos = xwin.launcherView.getPos(desk);
+	gsize_t sz = view->getSize();
+	gpos_t pos = view->getPos(desk);
 
 	x.open(&xwin, pos.x, pos.y, sz.w, sz.h, "launcher",
 			XWIN_STYLE_NO_FRAME | XWIN_STYLE_LAUNCHER | XWIN_STYLE_SYSBOTTOM);

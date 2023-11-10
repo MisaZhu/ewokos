@@ -16,7 +16,6 @@ typedef struct {
 	int cols;
 	int marginH;
 	int marginV;
-	int num;
 	gsize_t itemSize;
 } ListViewItemsT;
 
@@ -40,11 +39,15 @@ protected:
 	uint8_t position;
 
 	virtual void drawItem(graph_t* g, int index, int x, int y, int w, int h) = 0;
-	virtual void drawBG(graph_t* g) = 0;
+	virtual void drawBG(graph_t* g, const gpos_t& pos) = 0;
 	virtual void onClick(uint32_t sel) = 0;
+	virtual uint32_t getItemNum() = 0;
 
 	void onRepaint(graph_t* g) {
-		drawBG(g);
+		grect_t gr = { 0, 0, g->w, g->h };
+		gpos_t pos = getPos(gr);
+		drawBG(g, pos);
+		uint32_t itemNum = getItemNum();
 
 		int i, j, itemH, itemW;
 		itemH = (size.h - itemsInfo.marginV) / itemsInfo.rows;
@@ -54,14 +57,11 @@ protected:
 			for(j=0; j<itemsInfo.rows; j++) {
 				for(i=0; i<itemsInfo.cols; i++) {
 					int at = j*itemsInfo.cols + i + start;
-					if(at >= itemsInfo.num)
+					if(at >= itemNum)
 						return;
 					int x = i*itemW + itemsInfo.marginH/2;
 					int y = j*itemH + itemsInfo.marginV/2;
-					paintItem(g, at, x,
-							y,
-							itemW,
-							itemH);
+					paintItem(g, at, x + pos.x, y + pos.y, itemW, itemH);
 				}
 			}
 		}
@@ -69,7 +69,7 @@ protected:
 			for(i=0; i<itemsInfo.cols; i++) {
 				for(j=0; j<itemsInfo.rows; j++) {
 					int at = i*itemsInfo.rows + j + start;
-					if(at >= itemsInfo.num)
+					if(at >= itemNum)
 						return;
 					int x;
 					if(position == POS_RIGHT)
@@ -77,16 +77,14 @@ protected:
 					else
 						x  = i*itemW + itemsInfo.marginH/2;
 					int y = j*itemH + itemsInfo.marginV/2;
-					paintItem(g, at, x,
-							y,
-							itemW,
-							itemH);
+					paintItem(g, at, x + pos.x, y + pos.y, itemW, itemH);
 				}
 			}
 		}
 	}
 
 	void onIM(xevent_t* ev) {
+		uint32_t itemNum = getItemNum();
 		int key = ev->value.im.value;
 		if(ev->state == XIM_STATE_PRESS) {
 			if(position == POS_TOP || position == POS_BOTTOM) {
@@ -133,8 +131,8 @@ protected:
 			return;
 		}
 
-		if(selected >= (itemsInfo.num-1))
-			selected = itemsInfo.num-1;
+		if(selected >= (itemNum-1))
+			selected = itemNum-1;
 		if(selected < 0)
 			selected = 0;
 		
@@ -148,10 +146,12 @@ protected:
 	}
 
 	void onMouse(xevent_t* ev, const grect_t& r) {
-		int itemW = r.w / itemsInfo.cols;
-		int itemH = r.h / itemsInfo.rows;
-		int col = (ev->value.mouse.x - r.x) / itemW;
-		int row = (ev->value.mouse.y - r.y) / itemH;
+		uint32_t itemNum = getItemNum();
+		gpos_t pos = getPos(r);
+		int itemW = size.w / itemsInfo.cols;
+		int itemH = size.h / itemsInfo.rows;
+		int col = (ev->value.mouse.x - pos.x) / itemW;
+		int row = (ev->value.mouse.y - pos.y) / itemH;
 		int at;
 		if(position == POS_TOP || position == POS_BOTTOM) 
 			at = row*itemsInfo.cols + col + start;
@@ -159,7 +159,7 @@ protected:
 			at = col*itemsInfo.rows + row + start;
 		else
 			at = (itemsInfo.cols-col-1)*itemsInfo.rows + row + start;
-		if(at >= itemsInfo.num)
+		if(at >= itemNum)
 			return;
 
 		if(ev->state == XEVT_MOUSE_DOWN) {
@@ -198,26 +198,27 @@ public:
 	}
 
 	void layout(const grect_t& r) {
+		uint32_t itemNum = getItemNum();
 		if(position == POS_TOP || position == POS_BOTTOM) {
 			int max = (r.w - itemsInfo.marginH) / (itemsInfo.itemSize.w + itemsInfo.marginH);
-			if(itemsInfo.num > max)
+			if(itemNum > max)
 				itemsInfo.cols = max;
 			else
-				itemsInfo.cols = itemsInfo.num;
+				itemsInfo.cols = itemNum;
 			if(itemsInfo.cols > 0)
-				itemsInfo.rows = itemsInfo.num / itemsInfo.cols;
-			if((itemsInfo.cols*itemsInfo.rows) != itemsInfo.num)
+				itemsInfo.rows = itemNum / itemsInfo.cols;
+			if((itemsInfo.cols*itemsInfo.rows) != itemNum)
 				itemsInfo.rows++;
 		}
 		else {
 			int max = (r.h - itemsInfo.marginV) / (itemsInfo.itemSize.h + itemsInfo.marginV);
-			if(itemsInfo.num > max)
+			if(itemNum > max)
 				itemsInfo.rows = max;
 			else
-				itemsInfo.rows = itemsInfo.num;
+				itemsInfo.rows = itemNum;
 			if(itemsInfo.rows > 0)
-				itemsInfo.cols = itemsInfo.num / itemsInfo.rows;
-			if((itemsInfo.cols*itemsInfo.rows) != itemsInfo.num)
+				itemsInfo.cols = itemNum / itemsInfo.rows;
+			if((itemsInfo.cols*itemsInfo.rows) != itemNum)
 				itemsInfo.cols++;
 		}
 
