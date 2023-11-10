@@ -4,7 +4,7 @@
 #include <mm/mmu.h>
 
 #define KERNEL_PROC_RUN_RECOUNT_SEC   3
-#define MIN_TIMER_FREQ      8192
+#define SCHEDULE_FREQ     512 // usecs (timer/schedule)
 
 extern uint32_t _kernel_sec;
 extern uint64_t _kernel_usec;

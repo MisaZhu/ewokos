@@ -57,8 +57,6 @@ static inline uint32_t read_cntctl(void) {
 
 void timer_set_interval(uint32_t id, uint32_t times_per_sec) {
 	(void)id;
-	if (times_per_sec < MIN_TIMER_FREQ)
-		times_per_sec = MIN_TIMER_FREQ;
 	_cntfrq = read_cntfrq(); 
 	if(_cntfrq < 1000000 || _cntfrq > 50000000)
 		_cntfrq = GIC_DEFAULT_FREQ;

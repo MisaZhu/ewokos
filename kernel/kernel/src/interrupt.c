@@ -83,9 +83,9 @@ static int32_t interrupt_send_raw(context_t* ctx, uint32_t interrupt,  interrupt
 		return -1;
 
 	proc_t* proc = proc_get_by_uuid(intr->uuid);
-	proc_t* cproc = get_current_proc();
 	if(proc == NULL || proc->space->interrupt.state != INTR_STATE_IDLE)
 		return -1;
+
 	ipc_task_t* ipc = proc_ipc_get_task(proc);
 	if(ipc != NULL && ipc->state == IPC_BUSY)
 		return -1;
@@ -98,6 +98,7 @@ static int32_t interrupt_send_raw(context_t* ctx, uint32_t interrupt,  interrupt
 	if(disable_intr)
 		irq_disable_cpsr(&proc->ctx); //disable interrupt on proc
 
+	proc_t* cproc = get_current_proc();
 	proc_switch_multi_core(ctx, proc, cproc->info.core);
 	return 0;
 }
@@ -130,28 +131,27 @@ int32_t  interrupt_soft_send(context_t* ctx, int32_t to_pid, uint32_t entry, uin
 
 void interrupt_end(context_t* ctx) {
 	proc_t* cproc = get_current_proc();
+	uint32_t interrupt = cproc->space->interrupt.interrupt;
 	cproc->space->interrupt.state = INTR_STATE_IDLE;
-	proc_wakeup(cproc->info.pid, (uint32_t)&cproc->space->interrupt, 0);
 
 	if(cproc->info.state == UNUSED || cproc->info.state == ZOMBIE) {
-		irq_enable_cpsr(&cproc->ctx); //enable interrupt on proc
 		schedule(ctx);
 		return;
 	}
 
-	uint32_t interrupt = cproc->space->interrupt.interrupt;
 	proc_restore_state(ctx, cproc, &cproc->space->interrupt.saved_state);
-
 	if(cproc->info.state == READY || cproc->info.state == RUNNING) {
 	//if(cproc->info.state == READY) {
 		proc_ready(cproc);
 	}
 
 	if(interrupt != SYS_INT_SOFT) {
+		irq_enable_cpsr(&cproc->ctx); //enable interrupt on proc
 		interrupt_t* intr = fetch_next(interrupt);
-		if(intr != NULL)
-			interrupt_send_raw(ctx, interrupt, intr, false);
+		if(intr != NULL) {
+			interrupt_send_raw(ctx, interrupt, intr, true);
+			return;
+		}
 	}
-	irq_enable_cpsr(&cproc->ctx); //enable interrupt on proc
 	schedule(ctx);
 }

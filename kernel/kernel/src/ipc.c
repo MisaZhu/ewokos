@@ -64,7 +64,7 @@ static void ipc_free(ipc_task_t* ipc) {
 
 ipc_task_t* proc_ipc_req(proc_t* serv_proc, proc_t* client_proc, int32_t call_id, proto_t* data) {
 	if(queue_num(&serv_proc->space->ipc_server.tasks) >= IPC_BUFFER_SIZE) {
-		//printf("ipc server request buffer overflowed!\n");
+		printf("ipc request buffer overflowed! c: %d, s: %d\n", client_proc->info.pid, serv_proc->info.pid);
 		//queue_clear(&serv_proc->space->ipc_server.tasks, ipc_free);
 		return NULL;
 	}
