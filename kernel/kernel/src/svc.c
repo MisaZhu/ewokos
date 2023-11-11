@@ -304,7 +304,7 @@ static void sys_ipc_call(context_t* ctx, int32_t serv_pid, int32_t call_id, prot
 	if(ipc == NULL) {
 		ctx->gpr[0] = -1; 
 		if(client_proc->ipc_buffer_clean) // blocked if client proc ipc bufferd overflow, should retry
-			proc_block_on(ctx, serv_pid, (uint32_t)&serv_proc->space->interrupt, 0);
+			proc_block_on(ctx, client_proc->info.pid, (uint32_t)&client_proc->ipc_buffer_clean, 0); 
 		return;
 	}
 

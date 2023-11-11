@@ -33,10 +33,9 @@ uint32_t proc_ipc_fetch(struct st_proc* serv_proc) {
 				client_proc->ipc_buffered--;
 				if(client_proc->ipc_buffered == 0) {
 					if(client_proc->ipc_buffer_clean) {
-						proc_wakeup(serv_proc->info.pid, (uint32_t)&serv_proc->space->ipc_server, 0); 
-						kprintf("cleaned!\n");
+						client_proc->ipc_buffer_clean = false;
+						proc_wakeup(client_proc->info.pid, (uint32_t)&client_proc->ipc_buffer_clean, 0); 
 					}
-					client_proc->ipc_buffer_clean = false;
 				}
 			}
 			break;
