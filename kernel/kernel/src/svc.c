@@ -286,7 +286,7 @@ static void sys_ipc_call(context_t* ctx, int32_t serv_pid, int32_t call_id, prot
 
 	if(serv_proc->space->ipc_server.disabled) {
 		ctx->gpr[0] = -1; // blocked if server disabled, should retry
-		proc_block_on(ctx, serv_pid, (uint32_t)&serv_proc->space->ipc_server, 0);
+		proc_block_on(ctx, serv_pid, (uint32_t)&serv_proc->space->ipc_server.disabled, 0);
 		return;
 	}
 
@@ -453,7 +453,7 @@ static void sys_ipc_enable(void) {
 		return;
 
 	cproc->space->ipc_server.disabled = false;
-	proc_wakeup(cproc->info.pid, (uint32_t)&cproc->space->ipc_server, 0);
+	proc_wakeup(cproc->info.pid, (uint32_t)&cproc->space->ipc_server.disabled, 0);
 }
 
 static int32_t sys_proc_ping(int32_t pid) {
