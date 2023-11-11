@@ -301,8 +301,12 @@ static void sys_ipc_call(context_t* ctx, int32_t serv_pid, int32_t call_id, prot
 	}
 
 	ipc_task_t* ipc = proc_ipc_req(serv_proc, client_proc, call_id, data);
-	if(ipc == NULL)
+	if(ipc == NULL) {
+		ctx->gpr[0] = -1; 
+		if(client_proc->ipc_buffer_clean) // blocked if client proc ipc bufferd overflow, should retry
+			proc_block_on(ctx, serv_pid, (uint32_t)&serv_proc->space->interrupt, 0);
 		return;
+	}
 
 	ctx->gpr[0] = ipc->uid;
 	if(ipc != proc_ipc_get_task(serv_proc)) // buffered ipc

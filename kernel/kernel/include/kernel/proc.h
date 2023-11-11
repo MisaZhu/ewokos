@@ -41,6 +41,8 @@ typedef struct {
 typedef struct st_proc {
 	procinfo_t        info;
 	uint32_t          block_event;
+	uint32_t          ipc_buffered;
+	bool              ipc_buffer_clean;
 	int64_t           sleep_counter; //sleep usec
 	uint32_t          schd_core_lock_counter; //schd_core_lock usec
 	uint32_t          run_usec_counter; //run time usec

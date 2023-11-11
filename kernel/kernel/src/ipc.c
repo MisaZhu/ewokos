@@ -8,7 +8,7 @@
 #include <stddef.h>
 #include <kstring.h>
 
-#define IPC_BUFFER_SIZE 128
+#define IPC_BUFFER_SIZE 32
 
 int32_t proc_ipc_setup(context_t* ctx, uint32_t entry, uint32_t extra_data, uint32_t flags) {
 	(void)ctx;
@@ -28,8 +28,19 @@ uint32_t proc_ipc_fetch(struct st_proc* serv_proc) {
 		if(ipc == NULL) 
 			return 0;
 		proc_t* client_proc = proc_get(ipc->client_pid);
-		if(client_proc != NULL && ipc->client_uuid == client_proc->info.uuid) //available ipc
+		if(client_proc != NULL && ipc->client_uuid == client_proc->info.uuid) {//available ipc
+			if(client_proc->ipc_buffered > 0) {
+				client_proc->ipc_buffered--;
+				if(client_proc->ipc_buffered == 0) {
+					if(client_proc->ipc_buffer_clean) {
+						proc_wakeup(serv_proc->info.pid, (uint32_t)&serv_proc->space->ipc_server, 0); 
+						kprintf("cleaned!\n");
+					}
+					client_proc->ipc_buffer_clean = false;
+				}
+			}
 			break;
+		}
 		kfree(ipc); //drop unvailable ipc
 	}
 
@@ -63,9 +74,10 @@ static void ipc_free(ipc_task_t* ipc) {
 }
 
 ipc_task_t* proc_ipc_req(proc_t* serv_proc, proc_t* client_proc, int32_t call_id, proto_t* data) {
-	if(queue_num(&serv_proc->space->ipc_server.tasks) >= IPC_BUFFER_SIZE) {
-		printf("ipc request buffer overflowed! c: %d, s: %d\n", client_proc->info.pid, serv_proc->info.pid);
-		//queue_clear(&serv_proc->space->ipc_server.tasks, ipc_free);
+	if(client_proc->ipc_buffered >= IPC_BUFFER_SIZE || client_proc->ipc_buffer_clean) {
+		if(!client_proc->ipc_buffer_clean)
+			client_proc->ipc_buffer_clean = true;
+		//kprintf("ipc buffer overflowed(%d)! c: %d, s: %d\n", client_proc->ipc_buffered, client_proc->info.pid, serv_proc->info.pid);
 		return NULL;
 	}
 
@@ -87,8 +99,10 @@ ipc_task_t* proc_ipc_req(proc_t* serv_proc, proc_t* client_proc, int32_t call_id
 
 	if(serv_proc->space->ipc_server.ctask == NULL) 
 		serv_proc->space->ipc_server.ctask = ipc; //set current task
-	else 
+	else  {
 		queue_push(&serv_proc->space->ipc_server.tasks, ipc); // buffered
+		client_proc->ipc_buffered++;
+	}
 	return ipc; 
 }
 
