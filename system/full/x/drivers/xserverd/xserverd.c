@@ -337,19 +337,24 @@ static void show_win(x_t* x, xwin_t* win) {
 	x_push_event(x, win, &e);
 }
 
+static void x_unfocus(x_t* x) {
+	if(x->win_focus == NULL)
+		return;
+
+	hide_win(x, x->win_xim);
+	xevent_t e;
+	e.type = XEVT_WIN;
+	e.value.window.event = XEVT_WIN_UNFOCUS;
+	x_push_event(x, x->win_focus, &e);
+	x->win_focus = NULL;
+}
+
 static void try_focus(x_t* x, xwin_t* win) {
-	if(x->win_focus == win)
+	if(x->win_focus == win || win->xinfo == NULL) 
 		return;
 	if((win->xinfo->style & XWIN_STYLE_NO_FOCUS) == 0 && 
 			(win->xinfo->style & XWIN_STYLE_LAZY) == 0) {
-		hide_win(x, x->win_xim);
-		if(x->win_focus != NULL) {
-			xevent_t e;
-			e.type = XEVT_WIN;
-			e.value.window.event = XEVT_WIN_UNFOCUS;
-			x_push_event(x, x->win_focus, &e);
-		}
-
+		x_unfocus(x);
 		xevent_t e;
 		e.type = XEVT_WIN;
 		e.value.window.event = XEVT_WIN_FOCUS;
@@ -427,7 +432,8 @@ static void push_win(x_t* x, xwin_t* win) {
 			}
 		}
 	}
-	try_focus(x, win);
+	if(win->xinfo != NULL && win->xinfo->visible)
+		try_focus(x, win);
 }
 
 static xwin_t* get_next_focus_win(x_t* x, bool skip_launcher) {
@@ -747,6 +753,18 @@ static int do_xwin_top(int fd, int from_pid, x_t* x) {
 	xwin_top(x, win);
 }
 
+static int do_xwin_try_focus(int fd, int from_pid, x_t* x) {
+	if(fd < 0)
+		return -1;
+	
+	xwin_t* win = x_get_win(x, fd, from_pid);
+	if(win == NULL || win->xinfo == NULL)
+		return -1;
+	if(!win->xinfo->visible)
+		return 0;
+	try_focus(x, win);
+}
+
 static int x_update(int fd, int from_pid, x_t* x) {
 	if(fd < 0)
 		return -1;
@@ -1005,6 +1023,9 @@ static int xserver_fcntl(int fd, int from_pid, uint32_t node,
 	}
 	else if(cmd == XWIN_CNTL_CALL_XIM) {
 		res = xwin_call_xim(x);
+	}
+	else if(cmd == XWIN_CNTL_TRY_FOCUS) {
+		res = do_xwin_try_focus(fd, from_pid, x);
 	}
 	else if(cmd == XWIN_CNTL_TOP) {
 		res = do_xwin_top(fd, from_pid, x);
@@ -1283,17 +1304,10 @@ static int mouse_handle(x_t* x, xevent_t* ev) {
 	else
 		win = get_mouse_owner(x, &pos);
 
-	if(win != NULL) {
+	if(win != NULL)
 		mouse_xwin_handle(x, win, pos, ev);
-	}
-	else if(ev->state ==  XEVT_MOUSE_DOWN) {
-		if(x->win_focus != NULL) {
-			xevent_t e;
-			e.type = XEVT_WIN;
-			e.value.window.event = XEVT_WIN_UNFOCUS;
-			x_push_event(x, x->win_focus, &e);
-		}
-	}
+	else if(ev->state ==  XEVT_MOUSE_DOWN)
+		x_unfocus(x);
 
 	return 0;
 }

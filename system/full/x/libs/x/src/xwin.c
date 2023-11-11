@@ -260,8 +260,10 @@ int xwin_set_visible(xwin_t* xwin, bool visible) {
 	xwin->xinfo->visible = visible;
 	int res = xwin_update_info(xwin, X_UPDATE_REFRESH);
 
-	if(visible)
+	if(visible) {
+		vfs_fcntl(xwin->fd, XWIN_CNTL_TRY_FOCUS, NULL, NULL);
 		xwin_repaint(xwin);
+	}
 	return res;
 }
 

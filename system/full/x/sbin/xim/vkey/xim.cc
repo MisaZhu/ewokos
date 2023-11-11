@@ -374,14 +374,6 @@ public:
 		if(font.id >= 0)
 			font_close(&font);
 	}
-
-	int getFixH(void) {
-		return keyh * row;
-	}
-
-	int getFixW(void) {
-		return keyw * col;
-	}
 };
 
 int main(int argc, char* argv[]) {
@@ -389,16 +381,15 @@ int main(int argc, char* argv[]) {
 	xscreen_t scr;
 	x.getScreenInfo(scr, 0);
 
-	int pw = 0, ph = 0;
+	int pw = scr.size.w/2;
+	int ph = scr.size.h/2;
 	if(argc > 1)
 		pw = atoi(argv[1]);
 	if(argc > 2)
 		ph = atoi(argv[2]);
 
 	XIMX xwin(scr.size.w, scr.size.h, pw, ph);
-	//x.open(&xwin, scr.size.w - xwin.getFixW(), scr.size.h-xwin.getFixH(), xwin.getFixW(), xwin.getFixH(), "xim",
-	//x.open(&xwin, 0, scr.size.h-xwin.getFixH(), scr.size.w, xwin.getFixH(), "xim",
-	x.open(&xwin, 0, scr.size.h/2, scr.size.w, scr.size.h/2, "xim",
+	x.open(&xwin, scr.size.w - pw, scr.size.h - ph, pw, ph, "xim",
 			XWIN_STYLE_NO_FRAME | XWIN_STYLE_NO_FOCUS | XWIN_STYLE_SYSTOP | XWIN_STYLE_XIM | XWIN_STYLE_ANTI_FSCR);
 	x.run(NULL, &xwin);
 	return 0;
