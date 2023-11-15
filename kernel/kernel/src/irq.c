@@ -19,8 +19,9 @@
 
 uint32_t _kernel_sec = 0;
 uint64_t _kernel_usec = 0;
+
+static uint64_t _last_usec = 0;
 static uint32_t _schedule = 0;
-static uint32_t _sec_tic = 0;
 static uint32_t _timer_tic = 0;
 
 #ifdef KERNEL_SMP
@@ -56,22 +57,18 @@ static inline void irq_do_timer0(context_t* ctx) {
 	uint64_t usec = timer_read_sys_usec();
 	int32_t do_schedule = 0;
 
-	if(_kernel_usec == 0) {
-		_kernel_usec = usec;
+	uint32_t usec_gap = usec - _last_usec;
+	_last_usec = usec;
+	_kernel_usec += usec_gap;
+	_timer_tic += usec_gap;
+	if(_kernel_usec >= 1000000) { //SEC_TIC sec
+		_kernel_sec++;
+		_kernel_usec -= 1000000;
+		renew_kernel_sec();
 	}
-	else {
-		uint32_t usec_gap = usec - _kernel_usec;
-		_kernel_usec = usec;
-		_sec_tic += usec_gap;
-		_timer_tic += usec_gap;
-		if(_sec_tic >= 1000000) { //SEC_TIC sec
-			_kernel_sec++;
-			_sec_tic = 0;
-			renew_kernel_sec();
-		}
-		if(renew_kernel_tic(usec_gap) == 0)
-			do_schedule = 1;
-	}
+	if(renew_kernel_tic(usec_gap) == 0)
+		do_schedule = 1;
+	
 	timer_clear_interrupt(0);
 
 	if(_timer_tic >= (_kernel_config.schedule_freq/2)) {
@@ -227,7 +224,7 @@ void irq_init(void) {
 	_kernel_usec = 0;
 	_schedule = 0;
 	_timer_tic = 0;
-	_sec_tic = 0;
+	_last_usec = timer_read_sys_usec();
 	//gic_set_irqs( IRQ_UART0 | IRQ_TIMER0 | IRQ_KEY | IRQ_MOUSE | IRQ_SDC);
 	irq_enable(IRQ_TIMER0 | IRQ_UART0);
 

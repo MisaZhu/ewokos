@@ -56,7 +56,7 @@ static inline uint32_t read_cntctl(void) {
 
 void timer_set_interval(uint32_t id, uint32_t times_per_sec) {
 	(void)id;
-	_timer_tval = read_cntfrq() / times_per_sec /20;
+	_timer_tval = read_cntfrq() / times_per_sec;
 	write_cntv_tval(_timer_tval);
 	enable_cntv();
 }
@@ -72,10 +72,10 @@ inline void timer_clear_interrupt(uint32_t id) {
 * 	x / 24 = x / (4096/171) = x * 171 / 4096 = (x * 682) >> 12
 *   it will save hundreds of cpu cycle
 */
-static __inline uint64_t fast_div64_24(uint64_t x){
-	return (x*171)>>12;
+static __inline uint64_t fast_div64_54(uint64_t x){
+	return (x*151)>>13;
 }
 
 inline uint64_t timer_read_sys_usec(void) { //read microsec
-	return fast_div64_24(read_cntvct());
+	return fast_div64_54(read_cntvct());
 }
