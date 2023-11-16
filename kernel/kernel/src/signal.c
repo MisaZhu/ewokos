@@ -11,8 +11,6 @@
 int32_t  proc_signal_setup(uint32_t entry) {
 	proc_t* cproc = get_current_proc();
 	cproc->space->signal.entry = entry;
-
-	cproc->space->signal.stack = proc_stack_alloc(cproc);
 	return 0;	
 }
 

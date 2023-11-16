@@ -220,6 +220,8 @@ void proc_switch(context_t* ctx, proc_t* to, bool quick){
 			memcpy(&to->space->signal.saved_state.ctx, &to->ctx, sizeof(context_t)); // save "to" context to ipc ctx, will restore after ipc done.
 			to->ctx.gpr[0] = to->space->signal.sig_no;
 			to->ctx.pc = to->ctx.lr = to->space->signal.entry;
+			if(to->space->signal.stack == 0)
+				to->space->signal.stack = proc_stack_alloc(to);
 			to->ctx.sp = ALIGN_DOWN(to->space->signal.stack + THREAD_STACK_PAGES * PAGE_SIZE, 8);
 			to->space->signal.do_switch = false; // clear ipc request mask
 		}
@@ -229,6 +231,8 @@ void proc_switch(context_t* ctx, proc_t* to, bool quick){
 			to->ctx.gpr[0] = ipc->uid;
 			to->ctx.gpr[1] = to->space->ipc_server.extra_data;
 			to->ctx.pc = to->ctx.lr = to->space->ipc_server.entry;
+			if(to->space->ipc_server.stack == 0)
+				to->space->ipc_server.stack = proc_stack_alloc(to);
 			to->ctx.sp = ALIGN_DOWN(to->space->ipc_server.stack + THREAD_STACK_PAGES * PAGE_SIZE, 8);
 			to->space->ipc_server.do_switch = false; // clear ipc request mask
 		}
