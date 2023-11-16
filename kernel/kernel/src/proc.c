@@ -200,6 +200,11 @@ void proc_switch(context_t* ctx, proc_t* to, bool quick){
 	if(cproc != NULL && cproc->info.state != UNUSED)
 		memcpy(&cproc->ctx, ctx, sizeof(context_t));
 
+	if(cproc != to) {
+		page_dir_entry_t *vm = to->space->vm;
+		set_translation_table_base((uint32_t)V2P(vm));
+	}
+
 	if(to->info.type == PROC_TYPE_PROC) {
 		if (to->space->interrupt.state == INTR_STATE_START) {																				// have irq request to handle
 			to->space->interrupt.state = INTR_STATE_WORKING; // clear irq request mask
@@ -207,6 +212,8 @@ void proc_switch(context_t* ctx, proc_t* to, bool quick){
 			to->ctx.gpr[0] = to->space->interrupt.interrupt;
 			to->ctx.gpr[1] = to->space->interrupt.data;
 			to->ctx.pc = to->ctx.lr = to->space->interrupt.entry;
+			if(to->space->interrupt.stack == 0)
+				to->space->interrupt.stack = proc_stack_alloc(to);
 			to->ctx.sp = ALIGN_DOWN(to->space->interrupt.stack + THREAD_STACK_PAGES * PAGE_SIZE, 8);
 		}
 		else if (to->space->signal.do_switch) {																			 // have signal request to handle
@@ -242,11 +249,8 @@ void proc_switch(context_t* ctx, proc_t* to, bool quick){
 
 	to->info.state = RUNNING;
 	to->info.block_by = -1;
-	if(cproc != to) {
-		page_dir_entry_t *vm = to->space->vm;
-		set_translation_table_base((uint32_t)V2P(vm));
+	if(cproc != to)
 		set_current_proc(to);
-	}
 	memcpy(ctx, &to->ctx, sizeof(context_t));
 }
 
