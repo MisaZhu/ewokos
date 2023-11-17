@@ -151,7 +151,7 @@ int main(int argc, char* argv[]) {
 	xwin.setVisible(true);
 
 	_xwin = &xwin;
-	uint32_t tid = timer_set(20000, timer_handler);
+	uint32_t tid = timer_set(10000, timer_handler);
 	x.run(NULL, &xwin);
 	timer_remove(tid);
 

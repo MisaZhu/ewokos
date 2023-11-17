@@ -114,6 +114,7 @@ void _start(void) {
 
 	__malloc_init();
 	sys_signal_init();
+	vfs_init();
 	proc_init();
 	init_stdio();
 	init_cmd();
