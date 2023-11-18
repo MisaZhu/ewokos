@@ -22,6 +22,7 @@ uint64_t _kernel_usec = 0;
 
 static uint64_t _last_usec = 0;
 static uint32_t _schedule = 0;
+static uint32_t _schedule_usec = 0;
 static uint32_t _timer_tic = 0;
 static uint32_t _sec_tic = 0;
 
@@ -73,7 +74,7 @@ static inline void irq_do_timer0(context_t* ctx) {
 	
 	timer_clear_interrupt(0);
 
-	if(_timer_tic >= (_kernel_config.schedule_freq/2)) {
+	if(_timer_tic >= _schedule_usec) {
 		_timer_tic = 0;
 		if(_schedule == 0) { //this tic not for schedule, do timer interrupt.
 			_schedule = 1; //next tic for schedule
@@ -228,6 +229,7 @@ void irq_init(void) {
 	_schedule = 0;
 	_timer_tic = 0;
 	_last_usec = timer_read_sys_usec();
+	_schedule_usec = (1000000 / _kernel_config.schedule_freq) / 2;
 	//gic_set_irqs( IRQ_UART0 | IRQ_TIMER0 | IRQ_KEY | IRQ_MOUSE | IRQ_SDC);
 	irq_enable(IRQ_TIMER0 | IRQ_UART0);
 

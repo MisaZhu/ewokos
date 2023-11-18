@@ -71,10 +71,12 @@ static void ipc_free(ipc_task_t* ipc) {
 }
 
 ipc_task_t* proc_ipc_req(proc_t* serv_proc, proc_t* client_proc, int32_t call_id, proto_t* data) {
-	if(client_proc->ipc_buffered >= IPC_BUFFER_SIZE || client_proc->ipc_buffer_clean) {
-		if(!client_proc->ipc_buffer_clean)
-			client_proc->ipc_buffer_clean = true;
-		//kprintf("ipc buffer overflowed(%d)! c: %d, s: %d\n", client_proc->ipc_buffered, client_proc->info.pid, serv_proc->info.pid);
+	if(client_proc->ipc_buffer_clean) //cleaning task still on
+		return NULL;
+
+	if(client_proc->ipc_buffered >= IPC_BUFFER_SIZE) {
+		client_proc->ipc_buffer_clean = true;
+		//kprintf("ipc buffer overflowed(%d)! c: %d, s: %d, call: %d\n", client_proc->ipc_buffered, client_proc->info.pid, serv_proc->info.pid, call_id);
 		return NULL;
 	}
 
