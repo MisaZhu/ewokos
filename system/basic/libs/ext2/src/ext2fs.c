@@ -36,7 +36,7 @@ static inline int32_t set_bit(char *buf, int32_t bit) {
 
 /*get group descriptor index by inode*/
 static inline int32_t get_gd_index_by_ino(ext2_t* ext2, int32_t ino) {
-	return (ino / ext2->super.s_inodes_per_group);
+	return ((ino -1) / ext2->super.s_inodes_per_group);
 }
 
 /*get group descriptor index by block*/
