@@ -14,11 +14,11 @@ enum {
 };
 
 typedef struct {
-    uint32_t      entry;
-    uint32_t      interrupt;
-    uint32_t      data;
+	uint32_t      entry;
+	uint32_t      interrupt;
+	uint32_t      data;
 
-    uint32_t      state;
+	uint32_t      state;
 	uint32_t      stack; //mapped stack page
 	saved_state_t saved_state;
 } proc_interrupt_t;

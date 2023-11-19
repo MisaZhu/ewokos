@@ -79,15 +79,13 @@ static int32_t interrupt_send_raw(context_t* ctx, uint32_t interrupt,  interrupt
 	if(intr->uuid <= 0 || intr->entry == 0)
 		return -1;
 
+	proc_t* cproc = get_current_proc();
 	proc_t* proc = proc_get_by_uuid(intr->uuid);
-	if(proc == NULL || proc->space->interrupt.state != INTR_STATE_IDLE)
+	if(proc == NULL ||
+			proc->space->interrupt.state != INTR_STATE_IDLE ||
+			proc->ipc_res.state != IPC_IDLE)
 		return -1;
 
-	/*ipc_task_t* ipc = proc_ipc_get_task(proc);
-	if(ipc != NULL && ipc->state == IPC_BUSY)
-		return -1;
-		*/
-	
 	proc_save_state(proc, &proc->space->interrupt.saved_state);
 	proc->space->interrupt.interrupt = interrupt;
 	proc->space->interrupt.entry = intr->entry;
@@ -96,7 +94,6 @@ static int32_t interrupt_send_raw(context_t* ctx, uint32_t interrupt,  interrupt
 	if(disable_intr)
 		irq_disable_cpsr(&proc->ctx); //disable interrupt on proc
 
-	proc_t* cproc = get_current_proc();
 	proc_switch_multi_core(ctx, proc, cproc->info.core);
 	return 0;
 }

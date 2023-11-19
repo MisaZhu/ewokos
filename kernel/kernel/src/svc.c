@@ -307,6 +307,7 @@ static void sys_ipc_call(context_t* ctx, int32_t serv_pid, int32_t call_id, prot
 		return;
 	}
 
+	client_proc->ipc_res.state = IPC_BUSY;
 	ctx->gpr[0] = ipc->uid;
 	if(ipc != proc_ipc_get_task(serv_proc)) // buffered ipc
 		return;
