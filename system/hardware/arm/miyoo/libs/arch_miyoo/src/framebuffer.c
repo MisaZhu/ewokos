@@ -36,6 +36,8 @@ int32_t miyoo_fb_init(uint32_t w, uint32_t h, uint32_t dep) {
 
 	sys_info_t sysinfo;
 	syscall1(SYS_GET_SYS_INFO, (int32_t)&sysinfo);
+	if(strcmp(sysinfo.machine, "miyoo-plus") == 0)
+		_fb_info.xoffset = 628;
 	syscall3(SYS_MEM_MAP, _fb_info.pointer, 0x27c00000, _fb_info.size_max);
 	return 0;
 }

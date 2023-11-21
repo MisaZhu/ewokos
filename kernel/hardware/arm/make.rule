@@ -29,6 +29,11 @@ ifeq ($(DPI),yes)
 CFLAGS +=  -DENABLE_DPI
 endif
 
+ifeq ($(MIYOO_PLUS),yes)
+CFLAGS +=  -DMIYOO_PLUS
+endif
+
+
 ifeq ($(KERNEL_CONSOLE),yes)
 CFLAGS +=  -DKCONSOLE
 endif
