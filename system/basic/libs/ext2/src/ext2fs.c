@@ -146,22 +146,22 @@ static int32_t ext2_bdealloc(ext2_t* ext2, int32_t block) {
 	return 0;
 }
 
-static uint32_t ext2_ialloc(ext2_t* ext2) {  //alloc a node
+static uint32_t ext2_ialloc(ext2_t* ext2) {  //alloc a node, inode start with 1 not 0!!
 	char buf[EXT2_BLOCK_SIZE];
 	int32_t index = 0;
 	uint32_t i;
 	for (i=0; i < ext2->super.s_inodes_count; i++){
 		if((i % ext2->super.s_inodes_per_group) == 0) {
-			index = get_gd_index_by_ino(ext2, i);
+			index = get_gd_index_by_ino(ext2, i+1);
 			ext2->read_block(ext2->gds[index].bg_inode_bitmap, buf, 0);
 		}
 	
-		uint32_t ino = get_ino_in_group(ext2, i, index);
+		uint32_t ino = get_ino_in_group(ext2, i+1, index);
 		if (tst_bit(buf, ino) == 0){
 			set_bit(buf, ino);
 			ext2->write_block(ext2->gds[index].bg_inode_bitmap, buf);
 			// update free inode count in SUPER and GD
-			dec_free_inodes(ext2, i);
+			dec_free_inodes(ext2, i+1);
 			return (i+1);
 		}
 	}
