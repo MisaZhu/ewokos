@@ -23,7 +23,7 @@ static int32_t sd_read_sector(int32_t sector, void* buf) {
 	return 0;
 }
 
-static int32_t sd_read(int32_t block, void* buf) {
+static int32_t sd_read(uint32_t block, void* buf) {
 	int32_t n = EXT2_BLOCK_SIZE/512;
 	int32_t sector = block * n + _partition.start_sector;
 	char* p = (char*)buf;
@@ -68,20 +68,12 @@ int32_t partition_get(uint32_t id, partition_t* p) {
 
 #define SHORT_NAME_MAX 64
 
-static inline int32_t get_gd_index_by_ino(ext2_t* ext2, int32_t ino) {
-	return (ino / ext2->super.s_inodes_per_group);
+static inline int32_t get_gd_index_by_ino(ext2_t* ext2, uint32_t ino) {
+	return (ino-1) / ext2->super.s_inodes_per_group;
 }
 
-static inline int32_t get_gd_index_by_block(ext2_t* ext2, int32_t block) {
-	return (block / ext2->super.s_blocks_per_group);
-}
-
-static inline int32_t get_ino_in_group(ext2_t* ext2, int32_t ino, int32_t index) {
+static inline int32_t get_ino_in_group(ext2_t* ext2, uint32_t ino, int32_t index) {
 	return ino - (index * ext2->super.s_inodes_per_group);
-}
-
-static inline int32_t get_block_in_group(ext2_t* ext2, int32_t block, int32_t index) {
-	return block - (index * ext2->super.s_blocks_per_group);
 }
 
 static int32_t ext2_read(ext2_t* ext2, INODE* node, char *buf, int32_t nbytes, int32_t offset) {
@@ -150,15 +142,17 @@ static int32_t ext2_read(ext2_t* ext2, INODE* node, char *buf, int32_t nbytes, i
 	return count_read;
 }	
 
-static INODE* get_node_by_ino(ext2_t* ext2, int32_t ino, char* buf) {
+static INODE* get_node_by_ino(ext2_t* ext2, uint32_t ino, char* buf) {
 	int32_t bgid = get_gd_index_by_ino(ext2, ino);
 	ino = get_ino_in_group(ext2, ino, bgid);
 
-	ext2->read_block(ext2->gds[bgid].bg_inode_table + 	((ino-1)/8), buf);
+	int32_t blk = bgid*ext2->super.s_blocks_per_group + ext2->gds[bgid].bg_inode_table + 	((ino-1)/8);
+	//int32_t blk = ext2->gds[bgid].bg_inode_table + 	((ino-1)/8);
+	ext2->read_block(blk, buf);
 	return ((INODE *)buf) + ((ino-1) % 8);
 }
 
-static int32_t search(ext2_t* ext2, INODE *ip, const char *name) {
+static uint32_t search(ext2_t* ext2, INODE *ip, const char *name) {
 	int32_t i; 
 	char c, *cp;
 	DIR  *dp;
@@ -183,7 +177,7 @@ static int32_t search(ext2_t* ext2, INODE *ip, const char *name) {
 			}
 		}
 	}
-	return -1;
+	return 0;
 }
 
 #define MAX_DIR_DEPTH 32
@@ -219,9 +213,10 @@ static int32_t split_fname(const char* filename, char* name[]) {
 	return depth;
 }
 
-static int32_t ext2_ino_by_fname(ext2_t* ext2, const char* filename) {
+static uint32_t ext2_ino_by_fname(ext2_t* ext2, const char* filename) {
 	char buf[EXT2_BLOCK_SIZE];
-	int32_t depth, i, j, ino;
+	int32_t depth, i, j;
+	uint32_t ino;
 	char* name[MAX_DIR_DEPTH];
 	INODE *ip;
 
@@ -229,7 +224,7 @@ static int32_t ext2_ino_by_fname(ext2_t* ext2, const char* filename) {
 		return 2; //ino 2 for root;
 	depth = split_fname(filename, name);
 
-	ino = -1;
+	ino = 0;
 	for (j=0; j<ext2->group_num; j++) {
 		//if(ext2->read_block((ext2->super.s_blocks_per_group * j) + ext2->gds[j].bg_inode_table+i, buf) == 0) {// read first inode block
 		if(ext2->read_block(ext2->gds[j].bg_inode_table, buf) == 0) {
@@ -237,18 +232,17 @@ static int32_t ext2_ino_by_fname(ext2_t* ext2, const char* filename) {
 			/* serach for system name */
 			for (i=0; i<depth; i++) {
 				ino = search(ext2, ip, name[i]);
-				if (ino < 0) {
-					ino = -1;
+				if (ino == 0) {
 					break;
 				}
 				ip = get_node_by_ino(ext2, ino, buf);
 				if(ip == NULL) {
-					ino = -1;
+					ino = 0;
 					break;
 				}
 			}
 		}
-		if(ino >= 0)
+		if(ino > 0)
 			break;
 	}
 	for (i=0; i<depth; i++) {
@@ -257,7 +251,7 @@ static int32_t ext2_ino_by_fname(ext2_t* ext2, const char* filename) {
 	return ino;
 }
 
-static int32_t ext2_node_by_ino(ext2_t* ext2, int32_t ino, INODE* node) {
+static int32_t ext2_node_by_ino(ext2_t* ext2, uint32_t ino, INODE* node) {
 	char buf[EXT2_BLOCK_SIZE];
 	INODE* p = get_node_by_ino(ext2, ino, buf);
 	if(p == NULL)
@@ -321,8 +315,8 @@ static void* ext2_readfile(ext2_t* ext2, const char* fname, int32_t* size) {
 	if(size != NULL)
 		*size = -1;
 
-	int ino = ext2_ino_by_fname(ext2, fname);
-	if(ino >= 0) {
+	uint32_t ino = ext2_ino_by_fname(ext2, fname);
+	if(ino > 0) {
 		INODE inode;
 		if(ext2_node_by_ino(ext2, ino, &inode) != 0) {
 			return ret;
