@@ -18,8 +18,11 @@ uint32_t _core_base_offset = 0;
 void sys_info_init_arch(void) {
 	memset(&_sys_info, 0, sizeof(sys_info_t));
 	_core_base_offset =  0x01000000;
-
+#ifdef MIYOO_PLUS
+	strcpy(_sys_info.machine, "miyoo-plus");
+#else
 	strcpy(_sys_info.machine, "miyoo-mini");
+#endif
 	strcpy(_sys_info.arch, "armv7");
 	_sys_info.phy_offset = 0x20000000;
 	_sys_info.vector_base = 0x20000000;

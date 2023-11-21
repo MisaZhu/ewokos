@@ -68,7 +68,7 @@ int rgb2nv12(uint8_t  *out,  uint32_t *in , int w, int h)
 }
 
 static uint32_t flush(const fbinfo_t* fbinfo, const void* buf, uint32_t size, int rotate) {
-	rgb2nv12(fbinfo->pointer, buf, fbinfo->width, fbinfo->height);
+	rgb2nv12(fbinfo->pointer + fbinfo->xoffset, buf, fbinfo->width, fbinfo->height);
 }
 
 static fbinfo_t* get_info(void) {
