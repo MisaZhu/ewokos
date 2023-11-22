@@ -51,6 +51,16 @@ static int32_t find_exec(char* fname, char* cmd) {
 			return 0;
 		}
 	}
+	else if(cmd[0] == '.' && cmd[1] == '/') { //current path
+		char cwd[FS_FULL_NAME_MAX+1];
+		const char* path = getcwd(cwd, FS_FULL_NAME_MAX);
+		snprintf(fname, FS_FULL_NAME_MAX-1, "%s/%s", path, cmd+2);
+		if(vfs_get_by_name(fname, &info) == 0 && info.type == FS_TYPE_FILE) {
+			cmd[at] = c;
+			snprintf(fname, FS_FULL_NAME_MAX-1, "%s/%s", path, cmd+2);
+			return 0;
+		}
+	}
 	//search executable file in PATH dirs.
 	const char* paths = getenv(ENV_PATH);
 	char path[FS_FULL_NAME_MAX];
