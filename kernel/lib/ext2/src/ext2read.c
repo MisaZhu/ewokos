@@ -146,8 +146,8 @@ static INODE* get_node_by_ino(ext2_t* ext2, uint32_t ino, char* buf) {
 	int32_t bgid = get_gd_index_by_ino(ext2, ino);
 	ino = get_ino_in_group(ext2, ino, bgid);
 
-	int32_t blk = bgid*ext2->super.s_blocks_per_group + ext2->gds[bgid].bg_inode_table + 	((ino-1)/8);
-	//int32_t blk = ext2->gds[bgid].bg_inode_table + 	((ino-1)/8);
+	//int32_t blk = bgid*ext2->super.s_blocks_per_group + ext2->gds[bgid].bg_inode_table + 	((ino-1)/8);
+	int32_t blk = ext2->gds[bgid].bg_inode_table + 	((ino-1)/8);
 	ext2->read_block(blk, buf);
 	return ((INODE *)buf) + ((ino-1) % 8);
 }

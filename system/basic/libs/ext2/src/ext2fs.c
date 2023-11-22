@@ -57,7 +57,7 @@ static inline uint32_t get_block_in_group(ext2_t* ext2, uint32_t block, uint32_t
 /*write back group descriptor by index*/
 static int32_t set_gd(ext2_t* ext2, uint32_t index) {
 	uint32_t gd_size = sizeof(GD);
-  uint32_t gd_num = (EXT2_BLOCK_SIZE / gd_size);
+	uint32_t gd_num = (EXT2_BLOCK_SIZE / gd_size);
 
 	uint32_t blk_index = (index / gd_num);
 	index = blk_index * gd_num;
@@ -118,8 +118,8 @@ static int32_t ext2_idealloc(ext2_t* ext2, uint32_t ino) {
 
 	// get inode bitmap block
 	uint32_t index = get_gd_index_by_ino(ext2, ino);
-	uint32_t blk = index*ext2->super.s_blocks_per_group + ext2->gds[index].bg_inode_bitmap;
-	//uint32_t blk = ext2->gds[index].bg_inode_bitmap;
+	//uint32_t blk = index*ext2->super.s_blocks_per_group + ext2->gds[index].bg_inode_bitmap;
+	uint32_t blk = ext2->gds[index].bg_inode_bitmap;
 	if(ext2->read_block(blk, buf, 0) != 0)
 		return -1;
 
@@ -137,8 +137,8 @@ static int32_t ext2_bdealloc(ext2_t* ext2, uint32_t block) {
 		return -1;
 
 	uint32_t index = get_gd_index_by_block(ext2, block);
-	uint32_t blk = index * ext2->super.s_blocks_per_group + ext2->gds[index].bg_block_bitmap;
-	//uint32_t blk = ext2->gds[index].bg_block_bitmap;
+	//uint32_t blk = index * ext2->super.s_blocks_per_group + ext2->gds[index].bg_block_bitmap;
+	uint32_t blk = ext2->gds[index].bg_block_bitmap;
 	if(ext2->read_block(blk, buf, 0) != 0)
 		return -1;
 	clr_bit(buf, block);
@@ -158,9 +158,9 @@ static uint32_t ext2_ialloc(ext2_t* ext2) {  //alloc a node, inode start with 1 
 		ino = i + 1;
 		if((i % ext2->super.s_inodes_per_group) == 0) {
 			index = get_gd_index_by_ino(ext2, ino);
-			blk = index*ext2->super.s_blocks_per_group + ext2->gds[index].bg_block_bitmap;
-			//blk = ext2->gds[index].bg_block_bitmap;
-			ext2->read_block(ext2->gds[index].bg_inode_bitmap, buf, 0);
+			//blk = index*ext2->super.s_inodes_per_group + ext2->gds[index].bg_inode_bitmap;
+			blk = ext2->gds[index].bg_inode_bitmap;
+			ext2->read_block(blk, buf, 0);
 		}
 	
 		uint32_t ino_g = get_ino_in_group(ext2, ino, index);
@@ -184,8 +184,8 @@ static int32_t ext2_balloc(ext2_t* ext2) { //alloc a block
 		uint32_t block = i + 1;
 		if((i % ext2->super.s_blocks_per_group) == 0) {
 			index = get_gd_index_by_block(ext2, block);
-			blk = index*ext2->super.s_blocks_per_group + ext2->gds[index].bg_inode_bitmap;
-			//blk = ext2->gds[index].bg_inode_bitmap;
+			//blk = index*ext2->super.s_blocks_per_group + ext2->gds[index].bg_block_bitmap;
+			blk = ext2->gds[index].bg_block_bitmap;
 			ext2->read_block(blk, buf, 0);
 		}
 
@@ -193,7 +193,7 @@ static int32_t ext2_balloc(ext2_t* ext2) { //alloc a block
 		if (tst_bit(buf, block_g-1) == 0) {
 			set_bit(buf, block_g-1);
 			ext2->write_block(blk, buf);
-			dec_free_blocks(ext2, i);
+			dec_free_blocks(ext2, block);
 			return block;
 		}
 	}
@@ -215,7 +215,7 @@ static int32_t write_child(ext2_t* ext2, INODE* pip, uint32_t ino, const char *n
 		//(5) if no block alloced
 		if(pip->i_block[i]==0){ 
 			blk = ext2_balloc(ext2);
-			if(blk<=0){
+			if(blk==0){
 				return -1;
 			}
 			pip->i_block[i] = blk;
@@ -421,8 +421,8 @@ void put_node(ext2_t* ext2, uint32_t ino, INODE *node) {
 	ino = get_ino_in_group(ext2, ino, bgid);
 	uint32_t offset = (ino-1)%8;
 
-	//uint32_t blk = bgid*ext2->super.s_blocks_per_group + ext2->gds[bgid].bg_inode_table + 	((ino-1)/8);
-	uint32_t blk = ext2->gds[bgid].bg_inode_table + 	((ino-1)/8);
+	//uint32_t blk = bgid*ext2->super.s_inodes_per_group + ext2->gds[bgid].bg_inode_table + 	((ino-1)/8);
+	uint32_t blk = ext2->gds[bgid].bg_inode_table + (ino-1)/8;
 	char buf[EXT2_BLOCK_SIZE];
 	ext2->read_block(blk, buf, 1);
 	INODE *ip = ((INODE *)buf) + offset;
@@ -453,6 +453,7 @@ int32_t ext2_create_dir(ext2_t* ext2, INODE* father_inp, const char *name, int32
 		inp->i_block[i] = 0;
 	}
 	//mip->dirty = 1;
+
 	put_node(ext2, ino, inp); //write inode back to block
 
 	if(write_child(ext2, father_inp, ino, name, EXT2_FT_DIR) < 0) //write dir info (name, type)
@@ -461,7 +462,7 @@ int32_t ext2_create_dir(ext2_t* ext2, INODE* father_inp, const char *name, int32
 }
 
 int32_t ext2_create_file(ext2_t* ext2, INODE* father_inp, const char *name, int32_t owner) { //mode file or dir
-	uint32_t ino, i;
+	uint32_t ino, i, blk;
 	char buf[EXT2_BLOCK_SIZE];
 
 	ino = ext2_ialloc(ext2);
@@ -500,7 +501,7 @@ int32_t ext2_write(ext2_t* ext2, INODE* node, const char *data, int32_t nbytes, 
 	/*(4) Compute LOGICAL BLOCK number lbk and start_byte in that block from offset;
 		lbk       = oftp->offset / EXT2_BLOCK_SIZE;
 		start_byte = oftp->offset % EXT2_BLOCK_SIZE;*/	
-	lbk = offset / EXT2_BLOCK_SIZE;
+	lbk = (offset / EXT2_BLOCK_SIZE);
 	start_byte = offset % EXT2_BLOCK_SIZE;
 	//5.1 direct
 	if(lbk < 12){
@@ -627,7 +628,7 @@ uint32_t ext2_ino_by_fname(ext2_t* ext2, const char* filename) {
 
 	ino = 0;
 	for (int32_t j=0; j<ext2->group_num; j++) {
-		//blk = j*ext2->super.s_blocks_per_group + ext2->gds[j].bg_inode_table;
+		//blk = j*ext2->super.s_inodes_per_group + ext2->gds[j].bg_inode_table;
 		blk = ext2->gds[j].bg_inode_table;
 		if(ext2->read_block(blk, buf, 1) == 0) {// read first inode block
 			ip = ((INODE *)buf) + 1;   // ip->root inode #2

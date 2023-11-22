@@ -114,6 +114,7 @@ static int sdext2_create(uint32_t node_to, uint32_t node, void* p, fsinfo_t* inf
 		return -1;
 	put_node(ext2, ino_to, &inode_to);
 	info->data = ino;
+	vfs_set(info);
 	return 0;
 }
 
@@ -156,7 +157,9 @@ static int sdext2_write(int fd, int from_pid, uint32_t node,
 
 	ext2_t* ext2 = (ext2_t*)p;
 	int32_t ino = (int32_t)info.data;
-	if(ino == 0) ino = 2;
+	if(ino == 0)
+		return -1;
+
 	INODE inode;
 	if(ext2_node_by_ino(ext2, ino, &inode) != 0) {
 		return -1;
