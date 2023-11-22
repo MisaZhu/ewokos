@@ -103,7 +103,7 @@ static void redir(const char* fname, int in) {
 		close(fd);
 	}
 	else {
-		int32_t fd = open(fname, O_WRONLY | O_CREAT);
+		int32_t fd = open(fname, O_WRONLY | O_CREAT | O_TRUNC);
 		if(fd < 0) {
 			printf("error: '%s' open failed!\n", fname);
 			exit(-1);

@@ -9,6 +9,7 @@
 
 #define O_CREAT      0x4
 #define O_NONBLOCK   0x8
+#define O_TRUNC      0x10
 
 #define SEEK_SET 0
 #define SEEK_CUR 1

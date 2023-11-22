@@ -8,6 +8,7 @@
 #include <sys/syscall.h>
 #include <sys/klog.h>
 #include <sysinfo.h>
+#include <fcntl.h>
 #include <sd/sd.h>
 #include <ext2/ext2fs.h>
 #include <stdio.h>
@@ -112,10 +113,37 @@ static int sdext2_create(uint32_t node_to, uint32_t node, void* p, fsinfo_t* inf
 		ino = ext2_create_file(ext2, &inode_to, info->name, info->uid);
 	if(ino == -1)
 		return -1;
-	put_node(ext2, ino_to, &inode_to);
 	info->data = ino;
+	info->size = 0;
 	vfs_set(info);
 	return 0;
+}
+
+static int sdext2_open(int fd, int from_pid, uint32_t node, int oflag, void* p) {
+	(void)fd;
+	(void)from_pid;
+
+	fsinfo_t info;
+	if(vfs_get_by_node(node, &info) != 0)
+		return -1;
+
+	ext2_t* ext2 = (ext2_t*)p;
+	int32_t ino = (int32_t)info.data;
+	if(ino == 0)
+		return -1;
+
+	INODE inode;
+	if(ext2_node_by_ino(ext2, ino, &inode) != 0) {
+		return -1;
+	}
+
+	if((oflag & O_TRUNC) != 0) {
+		inode.i_size = 0;
+		info.size = 0;
+		put_node(ext2, ino, &inode);
+		vfs_set(&info);
+	}
+	return 0;	
 }
 
 static int sdext2_read(int fd, int from_pid, uint32_t node, 
@@ -166,8 +194,8 @@ static int sdext2_write(int fd, int from_pid, uint32_t node,
 	}
 	size = ext2_write(ext2, &inode, buf, size, offset);
 	if(size >= 0) {
-		inode.i_size += size;
 		info.size += size;
+		inode.i_size = info.size;
 		put_node(ext2, ino, &inode);
 		vfs_set(&info);
 	}
@@ -212,6 +240,7 @@ int main(int argc, char** argv) {
 	dev.read = sdext2_read;
 	dev.write = sdext2_write;
 	dev.create = sdext2_create;
+	dev.open = sdext2_open;
 	dev.unlink = sdext2_unlink;
 	
 	dev.extra_data = &ext2;

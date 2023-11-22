@@ -27,6 +27,11 @@ int open(const char* fname, int oflag) {
 			vfs_del_node(&info);
 		return -1;
 	}
+
+	if((oflag & O_TRUNC) != 0) {
+		info.size = 0;
+		vfs_set(&info);
+	}
 	
 	proto_t in, out;
 	PF->init(&out);
