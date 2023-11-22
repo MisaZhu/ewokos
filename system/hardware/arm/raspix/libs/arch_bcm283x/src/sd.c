@@ -515,7 +515,7 @@ int32_t bcm283x_sd_read_sector(int32_t sector, void* buf) {
 }
 
 int32_t bcm283x_sd_write_sector(int32_t sector, const void* buf) {
-	if(sd_write_sector(sector, buf) != 0)
+	if(sd_write_sector(sector, buf) == 0)
 		return -1;
 	return 0;
 }
