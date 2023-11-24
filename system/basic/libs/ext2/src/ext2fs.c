@@ -118,12 +118,14 @@ static int32_t ext2_idealloc(ext2_t* ext2, uint32_t ino) {
 
 	// get inode bitmap block
 	uint32_t index = get_gd_index_by_ino(ext2, ino);
+	uint32_t ino_g = get_ino_in_group(ext2, ino, index);
+
 	//uint32_t blk = index*ext2->super.s_blocks_per_group + ext2->gds[index].bg_inode_bitmap;
 	uint32_t blk = ext2->gds[index].bg_inode_bitmap;
 	if(ext2->read_block(blk, buf, 0) != 0)
 		return -1;
 
-	clr_bit(buf, ino-1);
+	clr_bit(buf, ino_g-1);
 	// write buf back
 	if(ext2->write_block(blk, buf) != 0) // update free inode count in SUPER and GD
 		return -1;
@@ -133,15 +135,18 @@ static int32_t ext2_idealloc(ext2_t* ext2, uint32_t ino) {
 
 static int32_t ext2_bdealloc(ext2_t* ext2, uint32_t block) {
 	char buf[EXT2_BLOCK_SIZE];
-	if (block <= 0)
+	if (block == 0)
 		return -1;
 
 	uint32_t index = get_gd_index_by_block(ext2, block);
+	uint32_t block_g = get_block_in_group(ext2, block, index);
+
 	//uint32_t blk = index * ext2->super.s_blocks_per_group + ext2->gds[index].bg_block_bitmap;
 	uint32_t blk = ext2->gds[index].bg_block_bitmap;
 	if(ext2->read_block(blk, buf, 0) != 0)
 		return -1;
-	clr_bit(buf, block);
+
+	clr_bit(buf, block_g-1);
 	// write buf back
 	if(ext2->write_block(blk, buf) != 0)
 		return -1;
@@ -283,9 +288,9 @@ static int32_t ext2_rm_child(ext2_t* ext2, INODE *ip, const char *name) {
 		}
 		ext2->read_block(ip->i_block[i], buf, 0);
 		cp = buf;
-		while(cp < buf + EXT2_BLOCK_SIZE) {
+		while(cp < (buf + EXT2_BLOCK_SIZE)) {
 			dp = (DIR_T *)cp;
-			if(found == 0 && dp->inode!=0 && strcmp(dp->name, name)==0){
+			if(found == 0 && dp->inode != 0 && strcmp(dp->name, name) == 0){
 				//(2).1. if (first and only entry in a data block){
 				if(dp->rec_len == EXT2_BLOCK_SIZE){
 					dp->inode = 0;
@@ -293,14 +298,17 @@ static int32_t ext2_rm_child(ext2_t* ext2, INODE *ip, const char *name) {
 					return 0;
 				}
 				//(2).2. else if LAST entry in block
-				else if(precp != NULL && dp->rec_len + (cp - buf) == EXT2_BLOCK_SIZE){
+				else if(precp != NULL && (dp->rec_len + (cp - buf)) == EXT2_BLOCK_SIZE){
+				klog("find: 2\n");
 					dp = (DIR_T *)precp;
+					dp->inode = 0;
 					dp->rec_len = EXT2_BLOCK_SIZE - (precp - buf);
 					ext2->write_block(ip->i_block[i], buf);
 					return 0;
 				}
 				//(2).3. else: entry is first but not the only entry or in the middle of a block:
 				else{
+				klog("find: 3\n");
 					found = 1;
 					rec_len = dp->rec_len;
 					first_len = cp-buf;
@@ -310,9 +318,12 @@ static int32_t ext2_rm_child(ext2_t* ext2, INODE *ip, const char *name) {
 				precp = cp;
 			cp += dp->rec_len;
 		}
+
 		if(found == 1) {
+				klog("_find: 4\n");
 			dp->rec_len += rec_len;			
 			char cpbuf[EXT2_BLOCK_SIZE];
+			memset(cpbuf, 0, EXT2_BLOCK_SIZE);
 			memcpy(cpbuf, buf, first_len);
 			memcpy(cpbuf + first_len, buf + first_len + dp->rec_len, EXT2_BLOCK_SIZE-(first_len+rec_len));
 			ext2->write_block(ip->i_block[i], cpbuf);
@@ -674,22 +685,28 @@ int32_t ext2_unlink(ext2_t* ext2, const char* fname) {
 		str_free(name);
 		return -1;
 	}
+
 	INODE* fnode = get_node_by_ino(ext2, fino, buf);
 	str_free(dir);
 	if(fnode == NULL) {
 		str_free(name);
 		return -1;
 	}
+
 	uint32_t ino = search(ext2, fnode, CS(name));
+	if(ino == 0) {
+		str_free(name);
+		return -1;
+	}
+
 	ext2_rm_child(ext2, fnode, CS(name));
 	str_free(name);
 	put_node(ext2, fino, fnode);
 
-	if(ino == 0)
-		return -1;
 	INODE* node = get_node_by_ino(ext2, ino, buf);
-	if(node == NULL) 
+	if(node == NULL) {
 		return -1;
+	}
 
 	//(3) -(5)
 	if(node->i_links_count > 0){
@@ -701,6 +718,7 @@ int32_t ext2_unlink(ext2_t* ext2, const char* fname) {
 		if(node->i_block[i] == 0)
 			break;
 		ext2_bdealloc(ext2, node->i_block[i]);
+		node->i_block[i] = 0;
 	}
 	//}
 	ext2_idealloc(ext2, ino);
