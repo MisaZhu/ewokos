@@ -118,14 +118,13 @@ static int32_t ext2_idealloc(ext2_t* ext2, uint32_t ino) {
 
 	// get inode bitmap block
 	uint32_t index = get_gd_index_by_ino(ext2, ino);
-	uint32_t ino_g = get_ino_in_group(ext2, ino, index);
 
 	//uint32_t blk = index*ext2->super.s_blocks_per_group + ext2->gds[index].bg_inode_bitmap;
 	uint32_t blk = ext2->gds[index].bg_inode_bitmap;
 	if(ext2->read_block(blk, buf, 0) != 0)
 		return -1;
 
-	clr_bit(buf, ino_g-1);
+	clr_bit(buf, ino-1);
 	// write buf back
 	if(ext2->write_block(blk, buf) != 0) // update free inode count in SUPER and GD
 		return -1;
@@ -139,14 +138,13 @@ static int32_t ext2_bdealloc(ext2_t* ext2, uint32_t block) {
 		return -1;
 
 	uint32_t index = get_gd_index_by_block(ext2, block);
-	uint32_t block_g = get_block_in_group(ext2, block, index);
 
 	//uint32_t blk = index * ext2->super.s_blocks_per_group + ext2->gds[index].bg_block_bitmap;
 	uint32_t blk = ext2->gds[index].bg_block_bitmap;
 	if(ext2->read_block(blk, buf, 0) != 0)
 		return -1;
 
-	clr_bit(buf, block_g-1);
+	clr_bit(buf, block-1);
 	// write buf back
 	if(ext2->write_block(blk, buf) != 0)
 		return -1;
@@ -717,9 +715,9 @@ int32_t ext2_unlink(ext2_t* ext2, const char* fname) {
 		node->i_block[i] = 0;
 	}
 	//}
-	ext2_idealloc(ext2, ino);
 	//node->dirty = 1;
 	put_node(ext2, ino, node);	
+	ext2_idealloc(ext2, ino);
 	return 0;
 }
 
