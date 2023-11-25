@@ -299,16 +299,13 @@ static int32_t ext2_rm_child(ext2_t* ext2, INODE *ip, const char *name) {
 				}
 				//(2).2. else if LAST entry in block
 				else if(precp != NULL && (dp->rec_len + (cp - buf)) == EXT2_BLOCK_SIZE){
-				klog("find: 2\n");
 					dp = (DIR_T *)precp;
-					dp->inode = 0;
 					dp->rec_len = EXT2_BLOCK_SIZE - (precp - buf);
 					ext2->write_block(ip->i_block[i], buf);
 					return 0;
 				}
 				//(2).3. else: entry is first but not the only entry or in the middle of a block:
 				else{
-				klog("find: 3\n");
 					found = 1;
 					rec_len = dp->rec_len;
 					first_len = cp-buf;
@@ -320,12 +317,11 @@ static int32_t ext2_rm_child(ext2_t* ext2, INODE *ip, const char *name) {
 		}
 
 		if(found == 1) {
-				klog("_find: 4\n");
 			dp->rec_len += rec_len;			
 			char cpbuf[EXT2_BLOCK_SIZE];
 			memset(cpbuf, 0, EXT2_BLOCK_SIZE);
 			memcpy(cpbuf, buf, first_len);
-			memcpy(cpbuf + first_len, buf + first_len + dp->rec_len, EXT2_BLOCK_SIZE-(first_len+rec_len));
+			memcpy(cpbuf + first_len, buf + first_len + rec_len, EXT2_BLOCK_SIZE-(first_len+rec_len));
 			ext2->write_block(ip->i_block[i], cpbuf);
 			return 0;
 		}
