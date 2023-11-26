@@ -5,6 +5,27 @@
 #include <string.h>
 #include <dirent.h>
 
+static inline const char* get_show_name(const char* name, int32_t type) {
+	static char ret[128];
+	if(type == DT_DIR) 
+		snprintf(ret, 127, "[%s]", name);
+	else if(type == DT_BLK || type == DT_CHR) 
+		snprintf(ret, 127, "*%s", name);
+	else
+		strncpy(ret, name, 127);
+	return ret;
+}
+
+static inline const char* get_show_type(int32_t type) {
+	if(type == DT_BLK)
+		return "b";
+	else if(type == DT_CHR)
+		return "c";
+	else if(type == DT_DIR)
+		return "r";
+	return "f";
+}
+
 int main(int argc, char* argv[]) {
 	(void)argc;
 	(void)argv;
@@ -29,13 +50,13 @@ int main(int argc, char* argv[]) {
 		int sz = it->d_reclen / 1024;
 		if(it->d_reclen != 0 && sz == 0)
 			sz++;
+		const char* show_name = get_show_name(it->d_name, it->d_type);
+		const char* show_type = get_show_type(it->d_type);
 
-		if(it->d_type == DT_REG)
-			printf("  %24s  f    %dK\n", it->d_name, sz);
-		else if(it->d_type == DT_DIR)
-			printf("  %24s  r    %d\n", it->d_name, it->d_reclen);
-		else if(it->d_type == DT_BLK || it->d_type == DT_CHR)
-			printf("  %24s  d    %d\n", it->d_name, it->d_reclen);
+		if(it->d_reclen >= 1024)
+			printf("  %24s  %4s %dK\n", show_name, show_type, sz);
+		else
+			printf("  %24s  %4s %d\n", show_name, show_type, it->d_reclen);
 	}
 	closedir(dirp);
 	return 0;

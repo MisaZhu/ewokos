@@ -118,13 +118,14 @@ static int32_t ext2_idealloc(ext2_t* ext2, uint32_t ino) {
 
 	// get inode bitmap block
 	uint32_t index = get_gd_index_by_ino(ext2, ino);
+	uint32_t ino_g = get_ino_in_group(ext2, ino, index);
 
 	//uint32_t blk = index*ext2->super.s_blocks_per_group + ext2->gds[index].bg_inode_bitmap;
 	uint32_t blk = ext2->gds[index].bg_inode_bitmap;
 	if(ext2->read_block(blk, buf, 0) != 0)
 		return -1;
 
-	clr_bit(buf, ino-1);
+	clr_bit(buf, ino_g-1);
 	// write buf back
 	if(ext2->write_block(blk, buf) != 0) // update free inode count in SUPER and GD
 		return -1;
@@ -136,15 +137,18 @@ static int32_t ext2_bdealloc(ext2_t* ext2, uint32_t block) {
 	char buf[EXT2_BLOCK_SIZE];
 	if (block == 0)
 		return -1;
+	memset(buf, 0, EXT2_BLOCK_SIZE);	
+	ext2->write_block(block, buf);
 
 	uint32_t index = get_gd_index_by_block(ext2, block);
+	uint32_t block_g = get_block_in_group(ext2, block, index);
 
 	//uint32_t blk = index * ext2->super.s_blocks_per_group + ext2->gds[index].bg_block_bitmap;
 	uint32_t blk = ext2->gds[index].bg_block_bitmap;
 	if(ext2->read_block(blk, buf, 0) != 0)
 		return -1;
 
-	clr_bit(buf, block-1);
+	clr_bit(buf, block_g-1);
 	// write buf back
 	if(ext2->write_block(blk, buf) != 0)
 		return -1;
@@ -225,6 +229,7 @@ static int32_t write_child(ext2_t* ext2, INODE* pip, uint32_t ino, const char *n
 			pip->i_size += EXT2_BLOCK_SIZE;
 			//pmip->dirty = 1;
 			ext2->read_block(pip->i_block[i], buf, 0);
+			memset(buf, 0, EXT2_BLOCK_SIZE);
 			dp->inode = ino;
 			dp->rec_len = EXT2_BLOCK_SIZE;
 			dp->name_len = strlen(name);
