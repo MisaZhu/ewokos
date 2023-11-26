@@ -1,3 +1,5 @@
+/bin/rundev /drivers/timerd          /dev/timer
+
 /bin/rundev /drivers/versatilepb/ttyd       /dev/tty0
 /bin/rundev /drivers/versatilepb/ps2keybd   /dev/keyb0
 /bin/rundev /drivers/versatilepb/ps2moused  /dev/mouse0
@@ -7,7 +9,6 @@
 /bin/rundev /drivers/fontd           /dev/font /usr/system/fonts/system.ttf
 /bin/rundev /drivers/consoled        /dev/console0
 
-/bin/rundev /drivers/timerd          /dev/timer
 /bin/rundev /drivers/nulld           /dev/null
 /bin/rundev /drivers/ramfsd          /tmp
 /bin/rundev /drivers/proc/sysinfod   /proc/sysinfo

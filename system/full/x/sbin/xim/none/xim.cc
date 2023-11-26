@@ -13,7 +13,7 @@
 
 #define KEY_REPEAT_TIMEOUT	60
 #define KEY_HOLD_TIMEOUT	100
-#define KEY_TIMER	        20000 //50 ps
+#define KEY_TIMER	        10000 //100 ps
 
 typedef struct {
 	uint8_t key;
