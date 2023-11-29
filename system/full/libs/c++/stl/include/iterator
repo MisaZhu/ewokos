@@ -1,0 +1,238 @@
+#ifndef EWOK_STL_ITERATOR_H
+#define EWOK_STL_ITERATOR_H
+
+namespace EwokSTL {
+
+/**
+ * @class base_iterator
+ * Represents the base class upon which all other iterators will derive from
+ */
+template <typename T>
+class base_iterator {
+    public:
+        base_iterator();
+        base_iterator(T* ptr);
+        base_iterator(const T& src);
+
+        base_iterator& operator=(const base_iterator& rhs);
+
+        base_iterator& operator++();
+        base_iterator operator++(int) const;
+
+        bool operator==(const base_iterator& rhs) const;
+        bool operator!=(const base_iterator& rhs) const;
+
+        T& operator*();
+        const T& operator*() const;
+        T& operator->();
+        const T& operator->() const;
+
+    protected:
+        T* ptr_;
+};
+
+/**
+ * @class bidirectionnal_iterator
+ * Iterator that can also go in reverse order
+ */
+template <typename T>
+class bidirectionnal_iterator : public base_iterator<T> {
+    public:
+        using base_iterator<T>::ptr_;
+        bidirectionnal_iterator();
+        bidirectionnal_iterator(T* ptr);
+        bidirectionnal_iterator& operator--() const;
+        bidirectionnal_iterator& operator--(int);
+};
+
+/**
+ * @class random_access_iterator
+ * Can access a value anywhere in the iterator
+ */
+template <typename T>
+class random_access_iterator : public bidirectionnal_iterator<T> {
+    public:
+        using bidirectionnal_iterator<T>::ptr_;
+        random_access_iterator();
+        random_access_iterator(T* ptr);
+        random_access_iterator operator+(size_t n) const;
+        friend random_access_iterator operator+(size_t n, const random_access_iterator& rhs);
+
+        random_access_iterator operator-(size_t n) const;
+        friend random_access_iterator operator-(size_t n, const random_access_iterator& rhs);
+
+        bool operator<(const random_access_iterator& rhs) const;
+        bool operator>(const random_access_iterator& rhs) const;
+        bool operator<=(const random_access_iterator& rhs) const;
+        bool operator>=(const random_access_iterator& rhs) const;
+
+        random_access_iterator& operator+=(size_t n);
+        random_access_iterator& operator-=(size_t n);
+
+        T& operator[](size_t n);
+        const T& operator[](size_t n) const;
+};
+
+/////////////////////////////////////////////////////////////////////////
+// BASE_ITERATOR
+template <typename T>
+base_iterator<T>::base_iterator() : ptr_(nullptr) {
+}
+
+template <typename T>
+base_iterator<T>::base_iterator(T* ptr) : ptr_(ptr) {
+}
+
+template <typename T>
+base_iterator<T>::base_iterator(const T& src) : ptr_(src.ptr_) {
+}
+
+template <typename T>
+base_iterator<T>& base_iterator<T>::operator=(const base_iterator<T>& rhs) {
+    ptr_ = rhs.ptr_;
+    return *this;
+}
+
+template <typename T>
+base_iterator<T>& base_iterator<T>::operator++() {
+    ptr_++;
+    return *this;
+}
+
+template <typename T>
+base_iterator<T> base_iterator<T>::operator++(int) const {
+    base_iterator<T> copy(ptr_ + 1);
+    return copy;
+}
+
+template <typename T>
+bool base_iterator<T>::operator==(const base_iterator<T>& rhs) const {
+    return ptr_ == rhs.ptr_;
+}
+
+template <typename T>
+bool base_iterator<T>::operator!=(const base_iterator<T>& rhs) const {
+    return ptr_ != rhs.ptr_;
+}
+
+template <typename T>
+T& base_iterator<T>::operator*() {
+    return *ptr_;
+}
+
+template <typename T>
+const T& base_iterator<T>::operator*() const {
+    return *ptr_;
+}
+
+template <typename T>
+T& base_iterator<T>::operator->() {
+    return *ptr_;
+}
+
+template <typename T>
+const T& base_iterator<T>::operator->() const {
+    return *ptr_;
+}
+
+/////////////////////////////////////////////////////////////////////////
+// BIDIRECTIONNAL_ITERATOR
+template <typename T>
+bidirectionnal_iterator<T>::bidirectionnal_iterator() : base_iterator<T>() {
+}
+
+template <typename T>
+bidirectionnal_iterator<T>::bidirectionnal_iterator(T* ptr) : base_iterator<T>(ptr) {
+}
+
+template <typename T>
+bidirectionnal_iterator<T>& bidirectionnal_iterator<T>::operator--() const {
+    bidirectionnal_iterator<T> copy(ptr_ - 1);
+    return copy;
+}
+
+template <typename T>
+bidirectionnal_iterator<T>& bidirectionnal_iterator<T>::operator--(int) {
+    ptr_--;
+    return *this;
+}
+
+/////////////////////////////////////////////////////////////////////////
+// RANDOM_ACCESS_ITERATOR
+template <typename T>
+random_access_iterator<T>::random_access_iterator() : bidirectionnal_iterator<T>() {
+}
+
+template <typename T>
+random_access_iterator<T>::random_access_iterator(T* ptr) : bidirectionnal_iterator<T>(ptr) {
+}
+
+template <typename T>
+random_access_iterator<T> random_access_iterator<T>::operator+(size_t n) const {
+    random_access_iterator<T> copy(ptr_);
+    copy.ptr_ += n;
+    return copy;
+}
+
+template <typename T>
+random_access_iterator<T> operator+(size_t n, const random_access_iterator<T>& rhs) {
+    return rhs + n;
+}
+
+template <typename T>
+random_access_iterator<T> random_access_iterator<T>::operator-(size_t n) const {
+    random_access_iterator<T> copy(ptr_);
+    copy.ptr_ -= n;
+    return copy;
+}
+
+template <typename T>
+random_access_iterator<T> operator-(size_t n, const random_access_iterator<T>& rhs) {
+    return rhs - n;
+}
+
+template <typename T>
+bool random_access_iterator<T>::operator<(const random_access_iterator<T>& rhs) const {
+    return ptr_ < rhs.ptr_;
+}
+
+template <typename T>
+bool random_access_iterator<T>::operator>(const random_access_iterator<T>& rhs) const {
+    return ptr_ > rhs.ptr_;
+}
+
+template <typename T>
+bool random_access_iterator<T>::operator<=(const random_access_iterator<T>& rhs) const {
+    return ptr_ <= rhs.ptr_;
+}
+
+template <typename T>
+bool random_access_iterator<T>::operator>=(const random_access_iterator<T>& rhs) const {
+    return ptr_ >= rhs.ptr_;
+}
+
+template <typename T>
+random_access_iterator<T>& random_access_iterator<T>::operator+=(size_t n) {
+    ptr_ += n;
+    return *this;
+}
+
+template <typename T>
+random_access_iterator<T>& random_access_iterator<T>::operator-=(size_t n) {
+    ptr_ -= n;
+    return *this;
+}
+
+template <typename T>
+T& random_access_iterator<T>::operator[](size_t n) {
+    return (ptr_ + n);
+}
+
+template <typename T>
+const T& random_access_iterator<T>::operator[](size_t n) const {
+    return (ptr_ + n);
+}
+
+}
+
+#endif
