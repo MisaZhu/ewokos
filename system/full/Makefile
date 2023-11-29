@@ -2,7 +2,7 @@ BUILD_DIR = ../build
 TARGET_DIR = $(BUILD_DIR)/rootfs
 ROOT_DIR = ..
 
-all: mkdirs bins extra_libs extra_driver xapps
+all: mkdirs extra_libs bins extra_driver xapps
 	@echo "all done."
 
 mkdirs:
