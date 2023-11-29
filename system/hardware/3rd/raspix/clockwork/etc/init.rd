@@ -1,6 +1,11 @@
 /bin/rundev /drivers/raspix/uartd    /dev/tty0
 #/bin/rundev /drivers/raspix/soundd   /dev/sound
-/bin/rundev /drivers/raspix/usbd          /dev/touch0
+
+/bin/rundev /drivers/raspix/clockwork_usbd          /dev/hid0
+/bin/rundev /drivers/raspix/hid_keybd   /dev/keyb0
+/bin/rundev /drivers/raspix/hid_moused  /dev/mouse0
+/bin/rundev /drivers/raspix/hid_joystickd  /dev/joystick0
+
 /bin/rundev /drivers/raspix/clockwork_fbd      /dev/fb0
 
 /bin/rundev /drivers/fontd           /dev/font /usr/system/fonts/system.ttf
@@ -18,9 +23,9 @@
 
 #/bin/rundev /drivers/xconsoled       /dev/console0
 
-#@/sbin/x/xmoused /dev/mouse0 &
+@/sbin/x/xjoystickd /dev/joystick0 &
+@/sbin/x/xmoused /dev/mouse0 &
 @/sbin/x/xim_none &
-@/sbin/x/xim_vkey 560 168&
 
 @/bin/session &
 @/bin/x/launcher &

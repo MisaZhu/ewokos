@@ -17,7 +17,7 @@ static bool _prs_down = false;
 static bool _j_x_rev = false;
 static bool _j_y_rev = false;
 static uint32_t _j_speed_up = 0;
-
+#if 0
 static void joy_2_mouse(int key, int8_t* mv) {
 	uint32_t j_times = 1;
 	if(_j_speed_up > 8) {
@@ -89,7 +89,37 @@ static void input(char key) {
 		mouse_input(mv[0], mv[1], mv[2]);
 	}
 }
+#else 
+	
+static void update_key_event(uint32_t key, uint32_t state){
+	xevent_t ev;
+	proto_t in;
 
+	ev.type = XEVT_IM;
+	ev.state = state;
+	ev.value.im.value = key;
+
+	PF->init(&in)->add(&in, &ev, sizeof(xevent_t));
+	dev_cntl_by_pid(_x_pid, X_DCNTL_INPUT, &in, NULL);
+	PF->clear(&in);
+}	
+
+const int key_seq[8] = {KEY_UP, KEY_DOWN, KEY_LEFT, KEY_RIGHT, KEY_BUTTON_A, KEY_BUTTON_B, KEY_BUTTON_SELECT, KEY_BUTTON_START};
+static void input(char key) {
+	static uint8_t last_key = 0;
+
+	if(last_key != key){
+		uint8_t mask = last_key ^ key;
+		for(int i = 0; i < 8; i++){
+			if(mask & (0x1 << i)){
+				update_key_event(key_seq[i], (key &(0x1<<i))? XIM_STATE_PRESS: XIM_STATE_RELEASE);	
+			}
+		}
+		last_key = key;
+	}
+}
+
+#endif
 int main(int argc, char** argv) {
 	_prs_down = false;
 	_j_x_rev = false;

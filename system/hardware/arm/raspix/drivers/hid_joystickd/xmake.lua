@@ -1,0 +1,5 @@
+target("hid_hoystickd")
+    set_type("application")
+    add_files("**.c")        
+    install_dir("drivers/raspix")
+target_end()
