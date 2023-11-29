@@ -3,7 +3,7 @@ include ../../../../hardware/$(ARCH)/make.rule
 BUILD_DIR = ../../../../build
 TARGET_DIR = $(BUILD_DIR)/rootfs
 
-LDFLAGS = -L$(BUILD_DIR)/lib -lnosys
+LDFLAGS = -L$(BUILD_DIR)/lib
 
 CXXFLAGS += -I $(BUILD_DIR)/include
 
@@ -13,6 +13,7 @@ MENU_BAR = $(TARGET_DIR)/bin/x/menubar
 
 $(MENU_BAR): $(MENU_BAR_OBJS) \
 		$(BUILD_DIR)/lib/libewokc.a \
+		$(BUILD_DIR)/lib/libewokstl.a \
 		$(BUILD_DIR)/lib/libx++.a \
 		$(BUILD_DIR)/lib/libx.a \
 		$(BUILD_DIR)/lib/libupng.a \
@@ -20,7 +21,7 @@ $(MENU_BAR): $(MENU_BAR_OBJS) \
 		$(BUILD_DIR)/lib/libfont.a \
 		$(BUILD_DIR)/lib/libhash.a \
 		$(BUILD_DIR)/lib/libcxx.a 
-	$(LD) -Ttext=100 $(MENU_BAR_OBJS) -o $(MENU_BAR) $(LDFLAGS)  -lgraph -lbsp -lupng -lx++ -lx  -lttf -lfont -lhash -lewokc -lc -lcxx
+	$(LD) -Ttext=100 $(MENU_BAR_OBJS) -o $(MENU_BAR) $(LDFLAGS)  -lgraph -lbsp -lupng -lx++ -lx  -lttf -lfont -lhash -lewokstl -lewokc -lc_nano -lcxx -lnosys
 
 clean:
 	rm -f $(MENU_BAR_OBJS)
