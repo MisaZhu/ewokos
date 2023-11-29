@@ -9,7 +9,7 @@ CXXFLAGS += -I $(BUILD_DIR)/include
 
 STL_TEST_OBJS = test.o
 
-STL_TEST = $(TARGET_DIR)/bin/stl_test
+STL_TEST = $(TARGET_DIR)/bin/stltest
 
 $(STL_TEST): $(STL_TEST_OBJS) \
 		$(BUILD_DIR)/lib/libewokc.a \
