@@ -3,7 +3,7 @@ include ../../../../hardware/$(ARCH)/make.rule
 BUILD_DIR = ../../../../build
 TARGET_DIR = $(BUILD_DIR)/rootfs
 
-LDFLAGS = -L$(BUILD_DIR)/lib -lnosys
+LDFLAGS = -L$(BUILD_DIR)/lib
 
 CFLAGS += -I $(BUILD_DIR)/include
 
@@ -13,7 +13,7 @@ TTYJOY = $(TARGET_DIR)/bin/ttyjoy
 
 $(TTYJOY): $(TTYJOY_OBJS) \
 		$(BUILD_DIR)/lib/libewokc.a 
-	$(LD) -Ttext=100 $(TTYJOY_OBJS) -o $(TTYJOY) $(LDFLAGS) -lewokc -lc
+	$(LD) -Ttext=100 $(TTYJOY_OBJS) -o $(TTYJOY) $(LDFLAGS) -lewokc -lc_nano -lnosys
 
 clean:
 	rm -f $(TTYJOY_OBJS)

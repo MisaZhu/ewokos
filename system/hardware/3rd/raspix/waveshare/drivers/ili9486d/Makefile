@@ -3,7 +3,7 @@ include ../../make.rule
 BUILD_DIR = $(SYS_DIR)/build
 TARGET_DIR = $(BUILD_DIR)/$(HW)
 
-LDFLAGS = -L$(BUILD_DIR)/lib -lnosys
+LDFLAGS = -L$(BUILD_DIR)/lib
 
 CFLAGS += -I $(BUILD_DIR)/include
 
@@ -19,7 +19,7 @@ $(ILI9486D): $(ILI9486D_OBJS) \
 		$(BUILD_DIR)/lib/libsconf.a \
 		$(BUILD_DIR)/lib/libupng.a \
 		$(BUILD_DIR)/lib/libili9486.a 
-	$(LD) -Ttext=100 $(ILI9486D_OBJS) -o $(ILI9486D) $(LDFLAGS) -lili9486 -larch_bcm283x -lfbd -lupng -lgraph -lbsp -lsconf -lewokc -lc
+	$(LD) -Ttext=100 $(ILI9486D_OBJS) -o $(ILI9486D) $(LDFLAGS) -lili9486 -larch_bcm283x -lfbd -lupng -lgraph -lbsp -lsconf -lewokc -lc_nano -lnosys
 
 clean:
 	rm -f $(ILI9486D_OBJS)

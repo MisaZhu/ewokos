@@ -3,7 +3,7 @@ include ../../../../hardware/$(ARCH)/make.rule
 BUILD_DIR = ../../../../build
 TARGET_DIR = $(BUILD_DIR)/rootfs
 
-LDFLAGS = -L$(BUILD_DIR)/lib -lnosys
+LDFLAGS = -L$(BUILD_DIR)/lib
 
 CFLAGS += -I $(BUILD_DIR)/include -I./
 
@@ -18,7 +18,7 @@ $(XSERVERD): $(XSERVERD_OBJS) \
 		$(BUILD_DIR)/lib/libupng.a  \
 		$(BUILD_DIR)/lib/libgraph.a  \
 		$(BUILD_DIR)/lib/libdisplay.a
-	$(LD) -Ttext=100 $(XSERVERD_OBJS) -o $(XSERVERD) $(LDFLAGS) -lupng -lgraph -lbsp -lfb -ldisplay -lsconf -lewokc -lc
+	$(LD) -Ttext=100 $(XSERVERD_OBJS) -o $(XSERVERD) $(LDFLAGS) -lupng -lgraph -lbsp -lfb -ldisplay -lsconf -lewokc -lc_nano -lnosys
 
 clean:
 	rm -f $(XSERVERD_OBJS)

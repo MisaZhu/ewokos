@@ -4,7 +4,7 @@ include $(SYS_DIR)/hardware/$(ARCH)/make.rule
 BUILD_DIR = $(SYS_DIR)/build
 TARGET_DIR = $(BUILD_DIR)/rootfs
 
-LDFLAGS = -L$(BUILD_DIR)/lib -lnosys
+LDFLAGS = -L$(BUILD_DIR)/lib
 
 CXXFLAGS += -I $(BUILD_DIR)/include
 
@@ -25,7 +25,7 @@ $(XCONSOLE): $(XCONSOLE_OBJS) \
 		$(BUILD_DIR)/lib/libfont.a \
 		$(BUILD_DIR)/lib/libhash.a \
 		$(BUILD_DIR)/lib/libcxx.a 
-	$(LD) -Ttext=100 $(XCONSOLE_OBJS) -o $(XCONSOLE) $(LDFLAGS) -lsconf -lx++ -lx -lcxx -lttf  -lconsole -ltextview -lfont -lhash -lgraph -lbsp -lewokc -lc
+	$(LD) -Ttext=100 $(XCONSOLE_OBJS) -o $(XCONSOLE) $(LDFLAGS) -lsconf -lx++ -lx -lcxx -lttf  -lconsole -ltextview -lfont -lhash -lgraph -lbsp -lewokc -lc_nano -lnosys
 
 $(XCONSOLE_DIR):
 	mkdir -p $(XCONSOLE_DIR)

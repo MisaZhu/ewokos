@@ -3,7 +3,7 @@ include ../../../hardware/$(ARCH)/make.rule
 BUILD_DIR = ../../../build
 TARGET_DIR = $(BUILD_DIR)/rootfs
 
-LDFLAGS = -L$(BUILD_DIR)/lib -lnosys
+LDFLAGS = -L$(BUILD_DIR)/lib
 
 CFLAGS += -I $(BUILD_DIR)/include
 
@@ -17,7 +17,7 @@ $(SDFSD): $(SDFSD_OBJS) \
 		$(BUILD_DIR)/lib/libsd.a \
 		$(BUILD_DIR)/lib/libbsp.a \
 		$(BUILD_DIR)/lib/libext2.a 
-	$(LD) -Ttext=100 $(SDFSD_OBJS) -o $(SDFSD) $(LDFLAGS) -lbsp -lsd -lext2 -lhash -lewokc -lc -lnosys
+	$(LD) -Ttext=100 $(SDFSD_OBJS) -o $(SDFSD) $(LDFLAGS) -lbsp -lsd -lext2 -lhash -lewokc -lc_nano -lnosys -lnosys
 
 clean:
 	rm -fr $(SDFSD) $(SDFSD_OBJS)

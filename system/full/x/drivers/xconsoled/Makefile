@@ -3,7 +3,7 @@ include ../../../../hardware/$(ARCH)/make.rule
 BUILD_DIR = ../../../../build
 TARGET_DIR = $(BUILD_DIR)/rootfs
 
-LDFLAGS = -L$(BUILD_DIR)/lib -lnosys
+LDFLAGS = -L$(BUILD_DIR)/lib
 
 CXXFLAGS += -I $(BUILD_DIR)/include
 
@@ -26,7 +26,7 @@ $(XCONSOLED): $(XCONSOLED_OBJS) \
 		$(BUILD_DIR)/lib/libx++.a  \
 		$(BUILD_DIR)/lib/libcxx.a  \
 		$(BUILD_DIR)/lib/libdisplay.a 
-	$(LD) -Ttext=100 $(XCONSOLED_OBJS) -o $(XCONSOLED) $(LDFLAGS) -lfb -ldisplay -lx++ -lx -lcxx -lconsole -ltextview -lgraph -lbsp -lttf  -lfont -lhash -lupng -lsconf -lewokc -lc
+	$(LD) -Ttext=100 $(XCONSOLED_OBJS) -o $(XCONSOLED) $(LDFLAGS) -lfb -ldisplay -lx++ -lx -lcxx -lconsole -ltextview -lgraph -lbsp -lttf  -lfont -lhash -lupng -lsconf -lewokc -lc_nano -lnosys
 
 clean:
 	rm -f $(XCONSOLED_OBJS)
