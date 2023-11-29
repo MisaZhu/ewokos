@@ -11,6 +11,6 @@ int main(int argc, char** argv) {
 	str += "aaa";
 	str += "xxx";
 	printf("%s, %d\n", str.c_str(), v.at(0));
-	
+
 	return 0;
 }
