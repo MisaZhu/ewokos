@@ -23,7 +23,6 @@ static int mouse_read(int fd, int from_pid, uint32_t node,
 	(void)node;
 	
 	if(x || y || btn || last_btn){
-		static last_btn;
 		uint8_t* d = (uint8_t*)buf;
 		if(btn == 1){
 			d[0] = 2;
