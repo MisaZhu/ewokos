@@ -18,7 +18,7 @@ class Book: public XWin {
 	font_t font;
 	uint32_t bgColor;
 	uint32_t fgColor;
-	char text[1280];
+	char text[4096];
 	int  history_page[HISTORY_PAGE_SIZE];
 	int  current_page;
 	int  next_page;
