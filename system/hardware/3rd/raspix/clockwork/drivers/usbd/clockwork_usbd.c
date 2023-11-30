@@ -15,7 +15,6 @@
 typedef struct _fd_info_t{
 	int fd;
 	int from_pid;
-	uint32_t from_pid_uuid;
     struct _usb_info *next;
     uint8_t reportId;
     uint8_t buf[8];
@@ -26,11 +25,11 @@ typedef struct _fd_info_t{
 
 static fd_info_t *open_list= 0;
 
-static fd_info_t* get_fd_info(int fd, uint32_t uuid){
+static fd_info_t* get_fd_info(int fd, int from_pid){
     fd_info_t *ptr = open_list;
 
     while(ptr != NULL){
-        if(ptr->fd == fd && ptr->from_pid_uuid == uuid){
+        if(ptr->fd == fd && ptr->from_pid == from_pid){
             return ptr;
         }
         ptr = ptr->next;
@@ -51,14 +50,14 @@ static void del_fd_info(fd_info_t* dev){
     if(dev == NULL)
         return;
 
-    fd_info_t *ptr = open_list;
-    while(ptr != NULL){
-        if(ptr->next == dev){
-            ptr->next = dev->next;
+    fd_info_t **ptr = &open_list;
+    while(*ptr != NULL){
+        if(*ptr == dev){
+            *ptr = dev->next;
             free(dev);
             return;
         }
-        ptr = ptr->next;
+        ptr = &(*ptr)->next;
     }
 }
 
@@ -88,13 +87,13 @@ static int usb_step(void* p) {
         int ret = uConsoleGetEvent(buf);
         if(ret == 0){
             //klog("hid: %02x %02x %02x %02x %02x %02x %02x\n", 
-            //_buf[0], _buf[1],_buf[2], _buf[3], _buf[4], _buf[5], _buf[6]);
+            //buf[0], buf[1], buf[2],  buf[3], buf[4], buf[5], buf[6]);
             dispatch_data(buf[0], buf + 1, 7);
             proc_wakeup(RW_BLOCK_EVT);
         }
     }
 
-    usleep(1000); 
+    usleep(8000); 
 	return 0;
 }
 
@@ -106,7 +105,7 @@ static int usb_read(int fd, int from_pid, uint32_t node,
 	(void)offset;
 	(void)p;
 
-    fd_info_t *info = get_fd_info(fd, proc_get_uuid(from_pid));
+    fd_info_t *info = get_fd_info(fd, from_pid);
     if(info != NULL){
         int sz = info->size;
         if(sz > 0){
@@ -132,7 +131,6 @@ static int usb_open(int fd, int from_pid, uint32_t node, int oflag, void* p) {
 	memset(info, 0, sizeof(fd_info_t));
 	info->fd = fd;
 	info->from_pid = from_pid;
-	info->from_pid_uuid = proc_get_uuid(from_pid);
 
     add_fd_info(info);
 	return 0;
@@ -141,7 +139,7 @@ static int usb_open(int fd, int from_pid, uint32_t node, int oflag, void* p) {
 static int usb_close(int fd, int from_pid, uint32_t node, void* p) {
 	(void)node;
 	(void)fd;
-    del_fd_info(get_fd_info(fd, proc_get_uuid(from_pid)));
+    del_fd_info(get_fd_info(fd, from_pid));
 
 	return 0;
 }
@@ -149,7 +147,7 @@ static int usb_close(int fd, int from_pid, uint32_t node, void* p) {
 
 static int usb_fcntl(int fd, int from_pid, uint32_t node,
 	int cmd, proto_t* in, proto_t* out, void* p) {
-    fd_info_t *ptr = get_fd_info(fd, proc_get_uuid(from_pid));
+    fd_info_t *ptr = get_fd_info(fd, from_pid);
     if(!ptr)
         return -1;
         

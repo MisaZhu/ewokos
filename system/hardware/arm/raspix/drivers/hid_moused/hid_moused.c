@@ -13,6 +13,7 @@ static uint8_t btn;
 static uint8_t last_btn;
 static uint8_t x;
 static uint8_t y;
+static uint8_t has_data = 0;
 
 static int mouse_read(int fd, int from_pid, uint32_t node,
 		void* buf, int size, int offset, void* p) {
@@ -22,19 +23,15 @@ static int mouse_read(int fd, int from_pid, uint32_t node,
 	(void)p;
 	(void)node;
 	
-	if(x || y || btn || last_btn){
-		static last_btn;
+	if(has_data){
 		uint8_t* d = (uint8_t*)buf;
 		if(btn == 1){
 			d[0] = 2;
-			last_btn = btn;
+			last_btn = 1;
 		}else if(btn == 0){
-			if(last_btn == 1){
-				d[0] = 1;
-				last_btn = 0;
-			}
+			d[0] = last_btn;
+			last_btn = 0;
 		}
-
 
 		d[1] = x;
 		d[2] = y;
@@ -43,6 +40,8 @@ static int mouse_read(int fd, int from_pid, uint32_t node,
 		btn = 0;
 		x = 0; 
 		y = 0;
+
+		has_data = 0;
 		return 4;
 	}
 	return ERR_RETRY;
@@ -51,11 +50,12 @@ static int mouse_read(int fd, int from_pid, uint32_t node,
 static int loop(void* p) {
 	(void)p;
 
-	int8_t buf[8];
+	int8_t buf[8] = {0};
 	if(read(hid, buf, 7) == 7){
 		btn = buf[0];
 		x = buf[1];
 		y = buf[2];
+		has_data = 1;
 		proc_wakeup(RW_BLOCK_EVT);
 	}
 	usleep(10000);
