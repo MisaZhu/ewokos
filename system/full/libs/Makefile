@@ -15,8 +15,8 @@ basic_libs:
 	cd fbd;make
 	cd textview;make
 	cd console;make
+	cd c++/stl;make
 	cd c++/c++;make
-	cd c++/tiny_stl;make
 
 clean:
 	cd crc32;make clean
@@ -33,5 +33,5 @@ clean:
 	cd graph;make clean
 	cd fb;make clean
 	cd fbd;make clean
+	cd c++/stl;make clean
 	cd c++/c++;make clean
-	cd c++/tiny_stl;make clean

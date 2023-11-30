@@ -3,7 +3,7 @@ include ../../../../hardware/$(ARCH)/make.rule
 BUILD_DIR = ../../../../build
 TARGET_DIR = $(BUILD_DIR)
 
-LDFLAGS = -L$(TARGET_DIR)/lib -lnosys
+LDFLAGS = -L$(TARGET_DIR)/lib
 
 CXXFLAGS += -Iinclude -I $(TARGET_DIR)/include
 

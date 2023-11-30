@@ -3,7 +3,7 @@ include ../../../hardware/$(ARCH)/make.rule
 BUILD_DIR = ../../../build
 TARGET_DIR = $(BUILD_DIR)/rootfs
 
-LDFLAGS = -L$(BUILD_DIR)/lib -lnosys
+LDFLAGS = -L$(BUILD_DIR)/lib
 
 CFLAGS += -Iinclude -I $(BUILD_DIR)/include
 
@@ -13,7 +13,7 @@ MP3PLAY = $(TARGET_DIR)/bin/mp3play
 
 $(MP3PLAY): $(MP3PLAY_OBJS) \
 		$(BUILD_DIR)/lib/libewokc.a 
-	$(LD) -Ttext=100 $(MP3PLAY_OBJS) -o $(MP3PLAY) $(LDFLAGS) -lewokc -lm -lc
+	$(LD) -Ttext=100 $(MP3PLAY_OBJS) -o $(MP3PLAY) $(LDFLAGS) -lewokc -lm -lc_nano -lnosys
 	cp -r include/* $(BUILD_DIR)/include
 
 clean:

@@ -24,7 +24,7 @@ $(SAVER): $(SAVER_OBJS) \
 		$(BUILD_DIR)/lib/libopenlibm.a \
 		$(BUILD_DIR)/lib/libferox.a \
 		$(BUILD_DIR)/lib/libcxx.a  
-	$(LD) -Ttext=100 $(SAVER_OBJS) -o $(SAVER) $(LDFLAGS) -lx++ -lttf -lfont -lgraph -lbsp -lhash -lx -lferox -lopenlibm -lewokc -lc -lnosys -lcxx
+	$(LD) -Ttext=100 $(SAVER_OBJS) -o $(SAVER) $(LDFLAGS) -lx++ -lttf -lfont -lgraph -lbsp -lhash -lx -lferox -lopenlibm -lewokc -lc_nano -lnosys -lnosys -lcxx
 
 $(SAVER_DIR):
 	mkdir -p $(SAVER_DIR)

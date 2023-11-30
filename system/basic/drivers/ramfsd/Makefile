@@ -3,7 +3,7 @@ include ../../../hardware/$(ARCH)/make.rule
 BUILD_DIR = ../../../build
 TARGET_DIR = $(BUILD_DIR)/rootfs
 
-LDFLAGS = -L$(BUILD_DIR)/lib -lnosys
+LDFLAGS = -L$(BUILD_DIR)/lib
 
 CFLAGS += -I $(BUILD_DIR)/include
 
@@ -13,7 +13,7 @@ RAMFSD = $(TARGET_DIR)/drivers/ramfsd
 
 $(RAMFSD): $(RAMFSD_OBJS) \
 		$(BUILD_DIR)/lib/libewokc.a
-	$(LD) -Ttext=100 $(RAMFSD_OBJS) -o $(RAMFSD) $(LDFLAGS) -lewokc -lc
+	$(LD) -Ttext=100 $(RAMFSD_OBJS) -o $(RAMFSD) $(LDFLAGS) -lewokc -lc_nano -lnosys
 
 clean:
 	rm -f $(RAMFSD_OBJS)

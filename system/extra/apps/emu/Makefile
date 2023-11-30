@@ -3,7 +3,7 @@ include $(SYS_DIR)/hardware/$(ARCH)/make.rule
 
 BUILD_DIR = $(SYS_DIR)/build
 TARGET_DIR = $(BUILD_DIR)/rootfs
-LDFLAGS = -L$(BUILD_DIR)/lib -lnosys
+LDFLAGS = -L$(BUILD_DIR)/lib
 CFLAGS += -I include -I $(BUILD_DIR)/include
 CXXFLAGS += -I include -I $(BUILD_DIR)/include
 EMU_OBJS = main.o \
@@ -26,7 +26,7 @@ $(EMU): $(EMU_OBJS) \
 		$(BUILD_DIR)/lib/libgraph.a \
 		$(BUILD_DIR)/lib/libx.a \
 		$(BUILD_DIR)/lib/libcxx.a  
-	$(LD) -Ttext=100 $(EMU_OBJS) -o $(EMU) $(LDFLAGS) -lx++ -lttf -lfont -lgraph -lbsp -lhash -lx -lewokc -lc -lcxx
+	$(LD) -Ttext=100 $(EMU_OBJS) -o $(EMU) $(LDFLAGS) -lx++ -lttf -lfont -lgraph -lbsp -lhash -lx -lewokc -lc_nano -lnosys -lcxx
 
 $(EMU_DIR):
 	mkdir -p $(EMU_DIR)

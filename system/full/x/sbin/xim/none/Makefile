@@ -3,7 +3,7 @@ include ../../../../../hardware/$(ARCH)/make.rule
 BUILD_DIR = ../../../../../build
 TARGET_DIR = $(BUILD_DIR)/rootfs
 
-LDFLAGS = -L$(BUILD_DIR)/lib -lnosys
+LDFLAGS = -L$(BUILD_DIR)/lib
 
 CXXFLAGS += -I $(BUILD_DIR)/include
 
@@ -14,7 +14,7 @@ XIM = $(TARGET_DIR)/sbin/x/xim_none
 $(XIM): $(XIM_OBJS) \
 		$(BUILD_DIR)/lib/libewokc.a \
 		$(BUILD_DIR)/lib/libcxx.a 
-	$(LD) -Ttext=100 $(XIM_OBJS) -o $(XIM) $(LDFLAGS) -lewokc -lc -lcxx
+	$(LD) -Ttext=100 $(XIM_OBJS) -o $(XIM) $(LDFLAGS) -lewokc -lc_nano -lnosys -lcxx
 
 clean:
 	rm -f $(XIM_OBJS)

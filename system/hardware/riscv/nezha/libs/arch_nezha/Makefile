@@ -4,7 +4,7 @@ include $(SYS_DIR)/hardware/$(ARCH)/make.rule
 BUILD_DIR = $(SYS_DIR)/build
 TARGET_DIR = $(BUILD_DIR)
 
-LDFLAGS = -L$(TARGET_DIR)/lib -lnosys
+LDFLAGS = -L$(TARGET_DIR)/lib
 
 CFLAGS += -I$(SYS_DIR)/basic/libs/libc/sys/include -Iinclude -I $(TARGET_DIR)/include
 

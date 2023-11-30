@@ -3,7 +3,7 @@ include ../../../hardware/$(ARCH)/make.rule
 BUILD_DIR = ../../../build
 TARGET_DIR = $(BUILD_DIR)/rootfs
 
-LDFLAGS = -L$(BUILD_DIR)/lib -lnosys
+LDFLAGS = -L$(BUILD_DIR)/lib
 
 CFLAGS += -I $(BUILD_DIR)/include
 
@@ -14,7 +14,7 @@ VFSD = $(TARGET_DIR)/$(ROOT_DIR)/sbin/vfsd
 $(VFSD): $(VFSD_OBJS) \
 		$(BUILD_DIR)/lib/libewokc.a \
 		$(BUILD_DIR)/lib/libhash.a
-	$(LD) -Ttext=100 $(VFSD_OBJS) -o $(VFSD) $(LDFLAGS) -lhash -lewokc -lc
+	$(LD) -Ttext=100 $(VFSD_OBJS) -o $(VFSD) $(LDFLAGS) -lhash -lewokc -lc_nano -lnosys
 
 clean:
 	rm -fr $(VFSD) $(VFSD_OBJS)

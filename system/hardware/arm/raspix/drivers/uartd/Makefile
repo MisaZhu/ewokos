@@ -3,7 +3,7 @@ include ../../../../../hardware/$(ARCH)/make.rule
 BUILD_DIR = ../../../../../build
 TARGET_DIR = $(BUILD_DIR)/rootfs
 
-LDFLAGS = -L$(BUILD_DIR)/lib -lnosys
+LDFLAGS = -L$(BUILD_DIR)/lib
 
 CFLAGS += -I $(BUILD_DIR)/include
 
@@ -14,7 +14,7 @@ UARTD = $(TARGET_DIR)/drivers/raspix/uartd
 $(UARTD): $(UARTD_OBJS) \
 		$(BUILD_DIR)/lib/libarch_bcm283x.a \
 		$(BUILD_DIR)/lib/libewokc.a
-	$(LD) -Ttext=100 $(UARTD_OBJS) -o $(UARTD) $(LDFLAGS) -larch_bcm283x -lewokc -lc
+	$(LD) -Ttext=100 $(UARTD_OBJS) -o $(UARTD) $(LDFLAGS) -larch_bcm283x -lewokc -lc_nano -lnosys
 
 clean:
 	rm -f $(UARTD_OBJS) $(UARTD)

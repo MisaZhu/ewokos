@@ -19,7 +19,7 @@ CFLAGS = -Wstrict-prototypes \
 #CFLAGS +=  -g
 CFLAGS +=  -O2
 
-LDFLAGS = -L$(BUILD_DIR)/lib -lnosys
+LDFLAGS = -L$(BUILD_DIR)/lib
 
 CFLAGS += -I $(BUILD_DIR)/include
 
@@ -30,7 +30,7 @@ LEDSD = $(TARGET_DIR)/drivers/raspix/nxez_ledsd
 $(LEDSD): $(LEDSD_OBJS) \
 		$(BUILD_DIR)/lib/libewokc.a \
 		$(BUILD_DIR)/lib/libarch_bcm283x.a 
-	$(LD) -Ttext=100 $(LEDSD_OBJS) -o $(LEDSD) $(LDFLAGS) -larch_bcm283x -lewokc -lc
+	$(LD) -Ttext=100 $(LEDSD_OBJS) -o $(LEDSD) $(LDFLAGS) -larch_bcm283x -lewokc -lc_nano -lnosys
 
 clean:
 	rm -f $(LEDSD_OBJS)

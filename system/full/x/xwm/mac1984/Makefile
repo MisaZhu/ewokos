@@ -3,7 +3,7 @@ include ../../../../hardware/$(ARCH)/make.rule
 BUILD_DIR = ../../../../build
 TARGET_DIR = $(BUILD_DIR)/rootfs
 
-LDFLAGS = -L$(BUILD_DIR)/lib -lnosys
+LDFLAGS = -L$(BUILD_DIR)/lib
 
 CXXFLAGS += -I. -I $(BUILD_DIR)/include
 
@@ -21,7 +21,7 @@ $(XWM): $(XWM_OBJS) \
 		$(BUILD_DIR)/lib/libfont.a \
 		$(BUILD_DIR)/lib/libgraph.a \
 		$(BUILD_DIR)/lib/libcxx.a 
-	$(LD) -Ttext=100 $(XWM_OBJS) -o $(XWM) $(LDFLAGS) -lx++ -lx -lgraph -lbsp -lttf -lfont  -lhash -lupng -lsconf -lewokc -lc -lcxx
+	$(LD) -Ttext=100 $(XWM_OBJS) -o $(XWM) $(LDFLAGS) -lx++ -lx -lgraph -lbsp -lttf -lfont  -lhash -lupng -lsconf -lewokc -lc_nano -lnosys -lcxx
 
 clean:
 	rm -f $(XWM_OBJS)

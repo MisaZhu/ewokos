@@ -70,7 +70,7 @@ function set_type(type)
     elseif type == "application" then
         set_kind("binary")
         add_includedirs(system_dir.."build/include")
-        add_ldflags("-Ttext=100 -lc -lnosys", {force=true})
+        add_ldflags("-Ttext=100 -lc_nano -lnosys", {force=true})
     else
         set_kind("phony")
     end

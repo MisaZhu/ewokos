@@ -1,0 +1,524 @@
+#ifndef EWOK_STL_STRING_H
+#define EWOK_STL_STRING_H
+
+#include <assert.h>
+#include <stddef.h>
+#include <stdlib.h>
+
+namespace EwokSTL {
+
+/**
+ * @class string
+ * This class represents a string
+ */
+class string {
+    public:
+        // USEFUL STATICS
+        static const size_t npos = -1;
+
+        /**
+         * Default constructor
+         * Constructs an empty string, with a length of 0 characters
+         */
+        string();
+
+        /**
+         * Copy constructor
+         * @param str The string to copy
+         */
+        string(const string& str);
+
+        /**
+         * Substring constructor
+         * @param str The string to copy
+         * @param pos The position at which the copy begins
+         * @param len The number of characters to copy
+         */
+        string(const string& str, size_t pos, size_t len=npos);
+
+        /**
+         * From C-string
+         * @param s The C-string to use to construct the string
+         */
+        string(const char* s);
+
+        /**
+         * From buffer
+         * Copies the first n characters from the C-string provided
+         * @param s The C-string to use
+         * @param n The number of characters to copy from the string from the start
+         */
+        string(const char* s, size_t n);
+
+        /**
+         * Fill constructor
+         * @param n The number of time to repeat character 'c'
+         * @param c The character to fill the string with
+         */
+        string(size_t n, char c);
+
+        /**
+         * Destructor. Frees the memory
+         */
+        ~string();
+
+        /**
+         * Assignment operator from string
+         * @param str The string to copy
+         */
+        string& operator=(const string& str);
+
+        /**
+         * Assignment operator from c-string
+         * @param s The c-string to copy
+         */
+        string& operator=(const char* s);
+
+        /**
+         * Assignment operator from character
+         * @param c The character to copy
+         */
+        string& operator=(char c);
+
+        /**
+         * Returns the size of the string in bytes
+         */
+        size_t size() const;
+
+        /**
+         * Returns the size of the string in bytes
+         */
+        size_t length() const;
+
+        /**
+         * Return the maximum size of a string
+         */
+        size_t max_size() const;
+
+        /**
+         * Resize the string
+         * @param n The new size of the string
+         */
+        void resize(size_t n);
+
+        /**
+         * Resize the string
+         * @param n The new size of the string
+         * @param c Character used to fill the new space added to the string in case
+         * the string is expanded
+         */
+        void resize(size_t n, char c);
+
+        /**
+         * Return the capacity of the string
+         */
+        size_t capacity() const;
+
+        /**
+         * Request a change in capacity. This function call cannot change the string length
+         * @param n The planned length for the string
+         */
+        void reserve(size_t n=0);
+        
+        /**
+         * Clear the string. The content are erased and the string becomes an empty string (length of 0)
+         */
+        void clear();
+
+        /**
+         * Checks if the string is empty
+         */
+        bool empty() const;
+
+        /**
+         * Get a character in the string
+         * @param pos The position in the string to get the byte
+         */
+        char& operator[](size_t pos);
+
+        /**
+         * Get a character in the string
+         * @param pos The position in the string to get the byte
+         */
+        const char& operator[](size_t pos) const;
+
+        /**
+         * Get a character in the string
+         * @param pos The position in the string to get the byte
+         */
+        char& at(size_t pos);
+
+        /**
+         * Get a character in the string
+         * @param pos The position in the string to get the byte
+         */
+        const char& at(size_t pos) const;
+
+        /**
+         * Append to string
+         * @param str The string to append
+         */
+        string& operator+=(const string& str);
+
+        /**
+         * Append to string
+         * @param s The c-string to append
+         */
+        string& operator+=(const char* s);
+
+        /**
+         * Append to string
+         * @param c The character to append
+         */
+        string& operator+=(char c);
+
+        /**
+         * Append to string
+         * @param str The string to append
+         */
+        string& append(const string& str);
+
+        /**
+         * Append a substring to the string
+         * @param str The string from which to take a substring to append
+         * @param subpos The position at which the subtring begins
+         * @param sublen The number of characters to take from the substring
+         */
+        string& append(const string& str, size_t subpos, size_t sublen);
+
+        /**
+         * Append a c-string to the string
+         * @param s The c-string to append
+         */
+        string& append(const char* s);
+
+        /**
+         * Append a portion of a c-string to the string
+         * @param s The c-string to append
+         * @param n The number of characters to take from the c-string to append
+         */
+        string& append(const char* s, size_t n);
+
+        /**
+         * Append several characters to the string
+         * @param n The number of times to repeating the charaters
+         * @param c The character to repeat
+         */
+        string& append(size_t n, char c);
+
+        /**
+         * Appends a character to the end of the string
+         * @param c The character to add
+         */
+        void push_back(char c);
+
+        /**
+         * Assign a new value to the string
+         * @param str The string to assign
+         */
+        string& assign(const string& str);
+
+        /**
+         * Assign a substring of the specified string to this string
+         * @param str The string to take a susbtring from
+         * @param subpos The position at which the substring begins
+         * @param sublen The length of the substring to take
+         */
+        string& assign(const string& str, size_t subpos, size_t sublen);
+
+        /**
+         * Assign a c-string to the string
+         * @param s The c-string to assign
+         */
+        string& assign(const char* s);
+
+        /**
+         * Assign a portion of a c-string to this string
+         * @param s The c-string to assign
+         * @param n The number of characters to take from the c-string
+         */
+        string& assign(const char* s, size_t n);
+
+        /**
+         * Assign several characters to the string
+         * @param n The number of characters to assign
+         * @param c The character to assign
+         */
+        string& assign(size_t n, char c);
+
+        /**
+         * Insert additional characters to the string
+         * @param pos The position at which we start inserting characters
+         * @param str The string to insert
+         */
+        string& insert(size_t pos, const string& str);
+
+        /**
+         * Insert additional characters from a substring
+         * @param pos The position at which we start inserting characters
+         * @param str The string from which we want a substring
+         * @param subpos The position at which the substring starts
+         * @param sublen The length of the substring
+         */
+        string& insert(size_t pos, const string& str, size_t subpos, size_t sublen);
+
+        /**
+         * Insert additional characters to the string
+         * @param pos The position at which we start inserting characters
+         * @param s The c-string to insert
+         */
+        string& insert(size_t pos, const char* s);
+
+        /**
+         * Insert additional characters to the string
+         * @param pos The position at which we start inserting characters
+         * @param s The c-string from which to take a portion
+         * @param n The number of characters to take from the c-string
+         */
+        string& insert(size_t pos, const char* s, size_t n);
+
+        /**
+         * Insert additional characters to the string
+         * @param pos The position at which we start inserting characters
+         * @param n The number of characters to add
+         * @param c The character to add
+         */
+        string& insert(size_t pos, size_t n, char c);
+
+        /**
+         * Erase part of the string, reducing its length
+         * @param pos The position at which to start erasing
+         * @param len The length of the substring to erase
+         */
+        string& erase(size_t pos=0, size_t len=npos);
+
+        /**
+         * Replace a portion of the string
+         * @param pos The position at which the replacement will begin
+         * @param len The length of the string to replace
+         * @param str The string to replace the content with
+         */
+        string& replace(size_t pos, size_t len, const string& str);
+
+        /**
+         * Replace a portion of the string with a substring
+         * @param pos The position at which the replacement will begin
+         * @param len The length of the string to replace
+         * @param str The string to replace the content with
+         * @param subpos The position in the specified string at which to begin to
+         * take the substring
+         * @param sublen The length of the substring
+         */
+        string& replace(size_t pos, size_t len, const string& str, size_t subpos, size_t sublen);
+
+        /**
+         * Replace a portion of the string with a c-string
+         * @param pos The position at which the replacement will begin
+         * @param len The length of the string to replace
+         * @param s The c-string to replace the content with
+         */
+        string& replace(size_t pos, size_t len, const char* s);
+
+        /**
+         * Replace a portion of the string with a portion of a c-string
+         * @param pos The position at which the replacement will begin
+         * @param len The length of the string to replace
+         * @param s The c-string to replace the content with
+         * @param n The number of characters to take from the c-string
+         */
+        string& replace(size_t pos, size_t len, const char* s, size_t n);
+
+        /**
+         * Replace a portion of the string with a character several times
+         * @param pos The position at which the replacement will begin
+         * @param len The length of the string to replace
+         * @param n The number of times to repeat the specified character
+         * @param c The character to replace the content with
+         */
+        string& replace(size_t pos, size_t len, size_t n, char c);
+
+        /**
+         * Exchange the content of this string with another one
+         * @param str The string to swap
+         */
+        void swap(string& str);
+
+        /**
+         * Returns a pointer to an array that contains a null-terminated sequence of characters
+         */
+        const char* c_str() const;
+
+        /**
+         * Returns a pointer to an array that contains the same sequence of characters as the
+         * characters that make up the value of the string object
+         */
+        const char* data() const;
+
+        /**
+         * Copies a substring of the current string into an array of characters.
+         * No null character is append to the end of the array
+         * @param s The array into which the string will be copied
+         * @param len The length of the string to copy
+         * @param pos The position at which the copying will begin
+         * @param return The number of characters copied to the array
+         */
+        size_t copy(char* s, size_t len, size_t pos=0);
+
+        /**
+         * Return a substring of this string
+         * @param pos The position at which the substring begins
+         * @param len The length of the substring
+         * @return The substring of that string
+         */
+        string substr(size_t pos=0, size_t len=npos) const;
+
+        /**
+         * Searches the string for the first occurrence of the specified string
+         * @param str The string to look for
+         * @param pos The position of the first character to be considered in the search
+         * @return The position of the first character of the first match. If no matches were
+         * found, npos is returned
+         */
+        size_t find(const string& str, size_t pos=0) const;
+
+        /**
+         * Searches the string for the first occurrence of the specified c-string
+         * @param s The c-string to look for
+         * @param pos The position of the first character to be considered in the search
+         * @return The position of the first character of the first match. If no matches were
+         * found, npos is returned
+         */
+        size_t find(const char* s, size_t pos=0) const;
+
+        /**
+         * Searches the string for the first occurrence of the portion of the specified c-string
+         * @param s The string to look for
+         * @param pos The position of the first character to be considered in the search
+         * @param n The length of the characters to consider in the c-string
+         * @return The position of the first character of the first match. If no matches were
+         * found, npos is returned
+         */
+        size_t find(const char* s, size_t pos, size_t n) const;
+
+        /**
+         * Searches the string for the first occurrence of the specified character
+         * @param c The character to look for
+         * @param pos The position of the first character to be considered in the search
+         * @return The position of the first character of the first match. If no matches were
+         * found, npos is returned
+         */
+        size_t find(char c, size_t pos=0) const;
+
+        /**
+         * Compares the value of the string with another one
+         * @param str The string to compare this string with
+         * @return 0 if both strings are equal, < 0 if either the value of the first character
+         * that does not match is lower in this string or all characters match but this
+         * string is shorter, > 0 if either the value of the first character that does
+         * not match is greater in this string or all characters match but this
+         * string is longer
+         */
+        int compare(const string& str) const;
+
+        /**
+         * Compare the value of a substring of this string with another one
+         * @param pos The position at which the substring begins in this string
+         * @param len The length of the substring in this string
+         * @param str The string to compare this string with
+         * @return 0 if both strings are equal, < 0 if either the value of the first character
+         * that does not match is lower in this string or all characters match but this
+         * string is shorter, > 0 if either the value of the first character that does
+         * not match is greater in this string or all characters match but this
+         * string is longer
+         */
+        int compare (size_t pos, size_t len, const string& str) const;
+
+        /**
+         * Compare the value of a substring of this string with the substring of another string
+         * @param pos The position at which the substring begins in this string
+         * @param len The length of the substring in this string
+         * @param str The string from which to take a substring
+         * @param subpos The position at which the substring in the other string begins
+         * @param sublen The length of the substring in the other string
+         * @return 0 if both strings are equal, < 0 if either the value of the first character
+         * that does not match is lower in this string or all characters match but this
+         * string is shorter, > 0 if either the value of the first character that does
+         * not match is greater in this string or all characters match but this
+         * string is longer
+         */
+        int compare(size_t pos, size_t len, const string& str, size_t subpos, size_t sublen) const;
+
+        /**
+         * Compare The value of a c-string with this string
+         * @param s The c-string to compare this string with
+         * @return 0 if both strings are equal, < 0 if either the value of the first character
+         * that does not match is lower in this string or all characters match but this
+         * string is shorter, > 0 if either the value of the first character that does
+         * not match is greater in this string or all characters match but this
+         * string is longer
+         */
+        int compare(const char* s) const;
+
+        /**
+         * Compare the value of a substring of this string with a c-string
+         * @param pos The position at which the substring begins in this string
+         * @param len The length of the substring in this string
+         * @param s The c-string to compare the substring of this string with
+         * @return 0 if both strings are equal, < 0 if either the value of the first character
+         * that does not match is lower in this string or all characters match but this
+         * string is shorter, > 0 if either the value of the first character that does
+         * not match is greater in this string or all characters match but this
+         * string is longer
+         */
+        int compare(size_t pos, size_t len, const char* s) const;
+
+        /**
+         * Compare the value of a substring of this string with the first n characters of a c-string
+         * @param pos The position at which the substring begins in this string
+         * @param len The length of the substring in this string
+         * @param s The c-string to compare te substring of this string with
+         * @param n The number of characters to take from the c-string
+         * @return 0 if both strings are equal, < 0 if either the value of the first character
+         * that does not match is lower in this string or all characters match but this
+         * string is shorter, > 0 if either the value of the first character that does
+         * not match is greater in this string or all characters match but this
+         * string is longer
+         */
+        int compare(size_t pos, size_t len, const char* s, size_t n) const;
+
+        // CONCATENATION OPERATORS
+        friend string operator+(const string& lhs, const string& rhs);
+        friend string operator+(const string& lhs, const char* rhs);
+        friend string operator+(const char* lhs, const string& rhs);
+        friend string operator+(const string& lhs, char rhs);
+        friend string operator+(char lhs, const string& rhs);
+
+        // RELATIONAL OPERATORS
+        friend bool operator==(const string& lhs, const string& rhs);
+        friend bool operator==(const string& lhs, const char* rhs);
+        friend bool operator==(const char* lhs, const string& rhs);
+        friend bool operator!=(const string& lhs, const string& rhs);
+        friend bool operator!=(const string& lhs, const char* rhs);
+        friend bool operator!=(const char* lhs, const string& rhs);
+        friend bool operator<(const string& lhs, const string& rhs);
+        friend bool operator<(const string& lhs, const char* rhs);
+        friend bool operator<(const char* lhs, const string& rhs);
+        friend bool operator<=(const string& lhs, const string& rhs);
+        friend bool operator<=(const string& lhs, const char* rhs);
+        friend bool operator<=(const char* lhs, const string& rhs);
+        friend bool operator>(const string& lhs, const string& rhs);
+        friend bool operator>(const string& lhs, const char* rhs);
+        friend bool operator>(const char* lhs, const string& rhs);
+        friend bool operator>=(const string& lhs, const string& rhs);
+        friend bool operator>=(const string& lhs, const char* rhs);
+        friend bool operator>=(const char* lhs, const string& rhs);
+
+    private:
+        char*   data_;      /**< The c-string managed by the object */
+        size_t  length_;    /**< The length of the string */
+        size_t  capacity_;  /**< The capacity of the string. This is the actual size of the buffer */
+};
+
+}
+
+#endif

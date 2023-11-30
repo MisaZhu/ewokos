@@ -4,7 +4,7 @@ include $(SYS_DIR)/hardware/$(ARCH)/make.rule
 BUILD_DIR = $(SYS_DIR)/build
 TARGET_DIR = $(BUILD_DIR)/rootfs
 
-LDFLAGS = -L$(BUILD_DIR)/lib -lnosys
+LDFLAGS = -L$(BUILD_DIR)/lib
 
 CXXFLAGS += -I $(BUILD_DIR)/include
 
@@ -24,7 +24,7 @@ $(XTEXT): $(XTEXT_OBJS) \
 		$(BUILD_DIR)/lib/libfont.a \
 		$(BUILD_DIR)/lib/libhash.a \
 		$(BUILD_DIR)/lib/libcxx.a 
-	$(LD) -Ttext=100 $(XTEXT_OBJS) -o $(XTEXT) $(LDFLAGS) -lsconf -lx++ -lx -lcxx -lttf  -ltextview -lfont -lhash -lgraph -lbsp -lewokc -lc
+	$(LD) -Ttext=100 $(XTEXT_OBJS) -o $(XTEXT) $(LDFLAGS) -lsconf -lx++ -lx -lcxx -lttf  -ltextview -lfont -lhash -lgraph -lbsp -lewokc -lc_nano -lnosys
 
 $(XTEXT_DIR):
 	mkdir -p $(XTEXT_DIR)

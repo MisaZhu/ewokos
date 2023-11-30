@@ -3,7 +3,7 @@ include ../../../hardware/$(ARCH)/make.rule
 BUILD_DIR = ../../../build
 TARGET_DIR = $(BUILD_DIR)/rootfs
 
-LDFLAGS = -L$(BUILD_DIR)/lib -lnosys
+LDFLAGS = -L$(BUILD_DIR)/lib
 
 CFLAGS += -I $(BUILD_DIR)/include
 
@@ -23,7 +23,7 @@ $(CONSOLED): $(CONSOLED_OBJS) \
 		$(BUILD_DIR)/lib/libhash.a  \
 		$(BUILD_DIR)/lib/libfont.a  \
 		$(BUILD_DIR)/lib/libdisplay.a 
-	$(LD) -Ttext=100 $(CONSOLED_OBJS) -o $(CONSOLED) $(LDFLAGS) -lfb -ldisplay -lconsole -ltextview -lgraph -lbsp -lttf  -lfont -lhash -lupng -lsconf -lewokc -lc
+	$(LD) -Ttext=100 $(CONSOLED_OBJS) -o $(CONSOLED) $(LDFLAGS) -lfb -ldisplay -lconsole -ltextview -lgraph -lbsp -lttf  -lfont -lhash -lupng -lsconf -lewokc -lc_nano -lnosys
 
 clean:
 	rm -f $(CONSOLED_OBJS)
