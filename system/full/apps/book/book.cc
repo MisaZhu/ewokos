@@ -27,7 +27,7 @@ class Book: public XWin {
 
 protected:
 	void onRepaint(graph_t* g) {
-		printf("onRepaint\n");
+		//printf("onRepaint\n");
 		graph_clear(g, bgColor);
 		
 		int x = 0;
