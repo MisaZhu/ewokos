@@ -24,8 +24,14 @@ bool X::open(grect_t* desk, XWin* xwin, uint32_t w, uint32_t h, const char* titl
 		w = minW + random_to(desk->w - minW);
 	if(h == 0)
 		h = minH + random_to(desk->h - minH - 20);
-	int32_t x = random_to(desk->w - w) + desk->x;
-	int32_t y = 20 + random_to(desk->h - h) + desk->y;
+
+	int32_t x = desk->x;
+	if(desk->w > w)
+		x = random_to(desk->w - w) + desk->x;
+
+	int32_t y = 20 + desk->y;
+	if(desk->h > h)
+		y = 20 + random_to(desk->h - h) + desk->y;
 	return open(xwin, x, y, w, h, title, style);
 }
 
@@ -36,8 +42,13 @@ bool X::open(xscreen_t* scr, XWin* xwin, uint32_t w, uint32_t h, const char* tit
 		w = minW + random_to(scr->size.w - minW);
 	if(h == 0)
 		h = minH + random_to(scr->size.h - minH - 20);
-	int32_t x = random_to(scr->size.w - w);
-	int32_t y = 20 + random_to(scr->size.h - h);
+	int32_t x = 0;
+	if(scr->size.w > w)
+		x = random_to(scr->size.w - w);
+
+	int32_t y = 0;
+	if(scr->size.h > h)
+		y = 20 + (int32_t)random_to(scr->size.h - h);
 	return open(xwin, x, y, w, h, title, style);
 }
 
