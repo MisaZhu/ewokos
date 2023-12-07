@@ -52,7 +52,7 @@ void graph_frame(graph_t* g, int x, int y, int w, int h, int width, uint32_t bas
 	for(int i=1; i<(width-1); i++) {
 		graph_box(g, x+i, y+i, w-i*2, h-i*2, base_color);
 	}
-	graph_box_3d(g, x+width-1, y+width-1, w-width-2, h-width-2, dark, bright);
+	graph_box_3d(g, x+width-1, y+width-1, w-width*2+2, h-width*2+2, dark, bright);
 }
 
 void graph_draw_dot_pattern(graph_t* g,int x, int y, int w, int h, uint32_t c1, uint32_t c2) {
