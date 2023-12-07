@@ -3,7 +3,7 @@
 #/bin/rundev /drivers/raspix/soundd  /dev/sound
 
 /bin/rundev /drivers/raspix/clockwork_fbd      /dev/fb0
-/bin/rundev /drivers/fontd           /dev/font /usr/system/fonts/system.ttf
+/bin/rundev /drivers/fontd           /dev/font /usr/system/fonts/system.ttf /usr/system/fonts/system_cn.ttf
 /bin/rundev /drivers/consoled        /dev/console0
 
 /bin/rundev /drivers/raspix/clockwork_usbd /dev/hid0
