@@ -115,7 +115,7 @@ static int usb_read(int fd, int from_pid, uint32_t node,
         }
     }
 
-    return EAGAIN;
+    return ERR_RETRY;
  }
 
 
