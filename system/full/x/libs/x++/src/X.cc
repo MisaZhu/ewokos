@@ -46,7 +46,7 @@ bool X::open(xscreen_t* scr, XWin* xwin, uint32_t w, uint32_t h, const char* tit
 	if(scr->size.w > w)
 		x = random_to(scr->size.w - w);
 
-	int32_t y = 0;
+	int32_t y = 20;
 	if(scr->size.h > h)
 		y = 20 + (int32_t)random_to(scr->size.h - h);
 	return open(xwin, x, y, w, h, title, style);
