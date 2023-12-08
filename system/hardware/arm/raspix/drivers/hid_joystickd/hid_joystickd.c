@@ -72,7 +72,6 @@ static int loop(void* p) {
 
 		proc_wakeup(RW_BLOCK_EVT);
 	}
-	usleep(10000);
 	return 0;
 }
 

@@ -11,6 +11,7 @@ namespace Ewok {
 
 class Label: public Widget {
 	font_t* font;
+public:
 	string label;
 protected:
 	void onRepaint(graph_t* g, grect_t* rect) {
