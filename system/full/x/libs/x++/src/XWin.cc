@@ -181,7 +181,7 @@ gpos_t XWin::getInsidePos(int32_t x, int32_t y) {
 	return pos;
 }
 
-gpos_t XWin::getAbsPos(int32_t x, int32_t y) {
+gpos_t XWin::getScreenPos(int32_t x, int32_t y) {
 	gpos_t pos;
 	pos.x = x + xwin->xinfo->wsr.x;
 	pos.y = y + xwin->xinfo->wsr.y;

@@ -5,17 +5,21 @@ TARGET_DIR = $(BUILD_DIR)
 
 LDFLAGS = -L$(TARGET_DIR)/lib
 
-CXXFLAGS += -Iinclude -I $(TARGET_DIR)/include
+CXXFLAGS += -Iinclude -I$(TARGET_DIR)/include
 
-HEADS_DIR = include/Widget
-HEADS = $(HEADS_DIR)/Widget.h \
-		$(HEADS_DIR)/Container.h \
-		$(HEADS_DIR)/WidgetWin.h \
-		$(HEADS_DIR)/Image.h
+LIB_WIDGET_OBJS =  src/Widget.o \
+		src/Container.o \
+		src/Image.o \
+		src/Label.o \
+		src/WidgetWin.o
 
-HEAD_CP: $(HEADS)
-	cp -r $(HEADS_DIR) $(TARGET_DIR)/include
+WIDGET = $(TARGET_DIR)/lib/libwidget++.a
+
+$(WIDGET): $(LIB_WIDGET_OBJS)
+	$(AR) rT $(WIDGET) $(LIB_WIDGET_OBJS)
+	cp -r include/* $(TARGET_DIR)/include
 
 clean:
-	rm -fr $(TARGET_DIR)/include/widget
+	rm -f $(LIB_WIDGET_OBJS)
+	rm -f $(WIDGET)
 

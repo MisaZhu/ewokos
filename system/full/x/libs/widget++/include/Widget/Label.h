@@ -2,7 +2,6 @@
 #define WIDGET_LABEL_HH
 
 #include <Widget/Widget.h>
-#include <upng/upng.h>
 #include <string>
 #include <font/font.h>
 
@@ -14,34 +13,14 @@ class Label: public Widget {
 public:
 	string label;
 protected:
-	void onRepaint(graph_t* g, grect_t* rect) {
-		Widget::onRepaint(g, rect);
-		if(font == NULL)
-			return;
-		graph_draw_text_font_align(g, rect->x+marginH, rect->y+marginV, rect->w-marginH*2, rect->h-marginV*2,
-					label.c_str(), font, fgColor, FONT_ALIGN_CENTER);
-	}
+	void onRepaint(graph_t* g);
 
 public:
-	Label(font_t* font, const char* str) {
-		this->font = font;
-		label = str;
-	}
+	Label(font_t* font, const char* str);
+	~Label(void);
 
-	~Label(void) {
-	}
-
-	void setLabel(const char* str) {
-		label = str;
-		update();
-	}
-
-	gsize_t getMinSize(void) {
-		gsize_t sz = { 0, 0 };
-		if(font != NULL)
-			font_text_size(label.c_str(), font, (uint32_t*)&sz.w, (uint32_t*)&sz.h);
-		return sz;
-	}
+	void setLabel(const char* str);
+	gsize_t getMinSize(void);
 };
 
 }

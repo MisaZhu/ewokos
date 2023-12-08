@@ -6,7 +6,8 @@
 /bin/rundev /drivers/versatilepb/smc91c111d /dev/eth0
 /bin/rundev /drivers/versatilepb/fbd        /dev/fb0
 
-/bin/rundev /drivers/fontd           /dev/font /usr/system/fonts/system.ttf /usr/system/fonts/system_cn.ttf
+#/bin/rundev /drivers/fontd           /dev/font /usr/system/fonts/system.ttf /usr/system/fonts/system_cn.ttf
+/bin/rundev /drivers/fontd           /dev/font /usr/system/fonts/system.ttf 
 /bin/rundev /drivers/consoled        /dev/console0
 
 /bin/rundev /drivers/nulld           /dev/null

@@ -13,19 +13,20 @@ class MyWidget: public Widget {
 	bool down;
 
 protected:
-	void onRepaint(graph_t* g, grect_t* rect) {
+	void onRepaint(graph_t* g) {
+		grect_t rect = getRootArea();
 		if(down)
-			graph_fill(g, rect->x, rect->y, rect->w, rect->h, 0xff222222);
+			graph_fill(g, rect.x, rect.y, rect.w, rect.h, 0xff222222);
 		else
-			graph_fill(g, rect->x, rect->y, rect->w, rect->h, 0xffdddddd);
+			graph_fill(g, rect.x, rect.y, rect.w, rect.h, 0xffdddddd);
 
-		graph_box(g, rect->x, rect->y, rect->w, rect->h, 0xffffffff);
+		graph_box(g, rect.x, rect.y, rect.w, rect.h, 0xffffffff);
 
 		if(down)
-			graph_draw_text_font_align(g, rect->x, rect->y, rect->w, rect->h,
+			graph_draw_text_font_align(g, rect.x, rect.y, rect.w, rect.h,
 					"Down!", &font, 0xffdddddd, FONT_ALIGN_CENTER);
 		else
-			graph_draw_text_font_align(g, rect->x, rect->y, rect->w, rect->h,
+			graph_draw_text_font_align(g, rect.x, rect.y, rect.w, rect.h,
 					"Widget", &font, 0xff222222, FONT_ALIGN_CENTER);
 	}
 
@@ -61,17 +62,17 @@ int main(int argc, char** argv) {
 	X x;
 	WidgetWin win;
 
-	win.getWidget()->setBGColor(0xff000000);
+	win.getRootWidget()->setBGColor(0xff000000);
 
 	Widget* wd = new Image("/usr/system/images/mac1984.png");
-	wd->setRect(10, 10, 40, 40);
-	win.getWidget()->add(wd);
+	wd->setArea(10, 10, 40, 40);
+	win.getRootWidget()->add(wd);
 
 	Container* c = new Container();
 	c->setType(Container::HORIZONTAL);
 	c->setFixed(true);
-	c->setRect(0, 0, 40, 40);
-	win.getWidget()->add(c);
+	c->setArea(0, 0, 40, 40);
+	win.getRootWidget()->add(c);
 
 	wd = new Label(X::getSysFont(), "Label");
 	c->add(wd);
@@ -82,7 +83,7 @@ int main(int argc, char** argv) {
 	wd->setFixed(true);
 	c->add(wd);
 
-	win.getWidget()->setType(Container::VERTICLE);
+	win.getRootWidget()->setType(Container::VERTICLE);
 
 	x.open(&win, 20, 20, 200, 200, "widgetTest", XWIN_STYLE_NORMAL);
 	win.setVisible(true);

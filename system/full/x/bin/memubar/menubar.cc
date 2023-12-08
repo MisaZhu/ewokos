@@ -16,6 +16,7 @@
 using namespace Ewok;
 
 class Menu : public WidgetWin {
+
 protected:
 	void onRepaint(graph_t* g) {
 		setAlpha(true);
@@ -30,7 +31,7 @@ protected:
 	}
 public:
 	Menu() {
-		Container* container = getWidget();
+		Container* container = getRootWidget();
 		container->setType(Container::VERTICLE);
 	
 		Widget* wd = new Label(X::getSysFont(), "item1");
@@ -55,7 +56,7 @@ private:
 	char text[32] = {0};
 	int  power;
 protected:
-	void onRepaint(graph_t* g, grect_t* rect) {
+	void onRepaint(graph_t* g) {
 		uint8_t buf[4];
 		if(power > 0){
 			if(read(power, buf, 3) == 3){
@@ -69,7 +70,7 @@ protected:
 				label = (const char*)text;
 			}
 		}
-		Label::onRepaint(g, rect);
+		Label::onRepaint(g);
 	}
 public:
 	BatteryItem(): Label(X::getSysFont(), text) { 
@@ -81,10 +82,10 @@ class MenubarItem : public Label {
 	Menu *menu;
 protected:
 	void onClick() {
-		grect_t r = getAbsRect();
+		grect_t r = getScreenArea();
 
 		if(menu == NULL) {
-			X *x = getWin()->getX();
+			X *x = getRoot()->getWin()->getX();
 			menu = new Menu();
 			x->open(menu, r.x, r.y+r.h, 100, 100, "menu", XWIN_STYLE_NO_FRAME);
 		}
@@ -108,7 +109,7 @@ public:
 class Menubar : public WidgetWin {
 public:
 	Menubar() {
-		Container* container = getWidget();
+		RootWidget* container = getRootWidget();
 		container->setType(Container::HORIZONTAL);
 		container->setBGColor(0xffffffff);
 
@@ -126,7 +127,6 @@ public:
 		wd->setMarginH(10);
 		wd->fixedMinSize();
 		container->add(wd);
-
 
 		wd = new Widget();
 		container->add(wd);
@@ -157,10 +157,10 @@ int main(int argc, char* argv[]) {
 	x.setDesktopSpace(desk);
 
 	_xwin = &xwin;
-	uint32_t tid = timer_set(1000000, timer_handler);
+	//uint32_t tid = timer_set(1000000, timer_handler);
 
 	x.run(NULL);
-	timer_remove(tid);
+	//timer_remove(tid);
 	return 0;
 }
 
