@@ -61,11 +61,11 @@ protected:
 		if(power > 0){
 			if(read(power, buf, 3) == 3){
 				if(!buf[0]){
-					snprintf(text, sizeof(text), "NO");
+					snprintf(text, sizeof(text), "battery:NO");
 				}else if(buf[1]){
-					snprintf(text, sizeof(text), "CH");
+					snprintf(text, sizeof(text), "charging");
 				}else{
-					snprintf(text, sizeof(text), "%d", buf[2]);
+					snprintf(text, sizeof(text), "battery:%d%%", buf[2]);
 				}
 				label = (const char*)text;
 			}
@@ -73,7 +73,7 @@ protected:
 		Label::onRepaint(g);
 	}
 public:
-	BatteryItem(): Label(X::getSysFont(), "power_info") { 
+	BatteryItem(): Label(X::getSysFont(), "battery_info") { 
 		power = open("/dev/power0", O_RDONLY);
 	}
 };
@@ -123,12 +123,12 @@ public:
 		wd->fixedMinSize();
 		container->add(wd);
 
+		wd = new Widget();
+		container->add(wd);
+
 		wd = new BatteryItem();
 		wd->setMarginH(10);
 		wd->fixedMinSize();
-		container->add(wd);
-
-		wd = new Widget();
 		container->add(wd);
 	}
 
@@ -136,9 +136,9 @@ public:
 	}
 };
 
-static XWin* _xwin = NULL;
+static Menubar* _xwin = NULL;
 static void timer_handler(void) {
-	_xwin->repaint();
+	_xwin->getRootWidget()->update();
 }
 
 int main(int argc, char* argv[]) {

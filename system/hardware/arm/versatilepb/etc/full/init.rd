@@ -1,5 +1,6 @@
 /bin/rundev /drivers/timerd          /dev/timer
 
+/bin/rundev /drivers/versatilepb/powerd     /dev/power0
 /bin/rundev /drivers/versatilepb/ttyd       /dev/tty0
 /bin/rundev /drivers/versatilepb/ps2keybd   /dev/keyb0
 /bin/rundev /drivers/versatilepb/ps2moused  /dev/mouse0

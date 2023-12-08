@@ -100,9 +100,8 @@ void  Container::add(Widget* child) {
 }
 
 void  Container::repaint(graph_t* g) {
-	if(dirty) {
+	if(dirty)
 		onRepaint(g);
-	}
 
 	Widget* wd = children;
 	while(wd != NULL) {

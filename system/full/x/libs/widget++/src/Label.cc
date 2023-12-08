@@ -16,6 +16,7 @@ void Label::onRepaint(graph_t* g) {
 Label::Label(font_t* font, const char* str) {
 	this->font = font;
 	label = str;
+	alpha = true;
 }
 
 Label::~Label(void) {
