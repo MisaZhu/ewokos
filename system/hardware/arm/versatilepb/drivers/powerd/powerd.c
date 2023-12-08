@@ -18,7 +18,7 @@ static int power_read(int fd, int from_pid, uint32_t node,
 
 	uint8_t* data = (uint8_t *)buf;
 	data[0] = 1;
-	data[1] = 0;
+	data[1] = 1;
 	data[2] = r++;
 	if(r > 100)
 		r = 10;

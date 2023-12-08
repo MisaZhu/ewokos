@@ -63,7 +63,7 @@ protected:
 				if(!buf[0]){
 					snprintf(text, sizeof(text), "battery:NO");
 				}else if(buf[1]){
-					snprintf(text, sizeof(text), "charging");
+					snprintf(text, sizeof(text), "charging:%d%%", buf[2]);
 				}else{
 					snprintf(text, sizeof(text), "battery:%d%%", buf[2]);
 				}
@@ -73,7 +73,7 @@ protected:
 		Label::onRepaint(g);
 	}
 public:
-	BatteryItem(): Label(X::getSysFont(), "battery_info") { 
+	BatteryItem(): Label(X::getSysFont(), "battery_info:%0%%") { 
 		power = open("/dev/power0", O_RDONLY);
 	}
 };
