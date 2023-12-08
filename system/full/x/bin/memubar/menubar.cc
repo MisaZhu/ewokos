@@ -73,7 +73,7 @@ protected:
 		Label::onRepaint(g);
 	}
 public:
-	BatteryItem(): Label(X::getSysFont(), text) { 
+	BatteryItem(): Label(X::getSysFont(), "power_info") { 
 		power = open("/dev/power0", O_RDONLY);
 	}
 };
@@ -157,10 +157,10 @@ int main(int argc, char* argv[]) {
 	x.setDesktopSpace(desk);
 
 	_xwin = &xwin;
-	//uint32_t tid = timer_set(1000000, timer_handler);
+	uint32_t tid = timer_set(1000000, timer_handler);
 
 	x.run(NULL);
-	//timer_remove(tid);
+	timer_remove(tid);
 	return 0;
 }
 

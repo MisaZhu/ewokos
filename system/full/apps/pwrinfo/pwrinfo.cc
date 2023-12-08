@@ -42,9 +42,16 @@ protected:
 			return;
 
 		graph_clear(g, 0xffffffff);
+
 		char str[32];
-		snprintf(str, 31, "power: %d:%d:%d", buf[0], buf[1], buf[2]);
+		snprintf(str, 31, "charging: %s", buf[1] == 0 ? "No":"Yes");
 		graph_draw_text_font(g, 4, 4, str, &font, 0xff000000);
+
+		snprintf(str, 31, "battery: %d\%", buf[2]);
+		if(buf[0] == 1)
+			graph_draw_text_font(g, 4, 4+font.max_size.y, str, &font, 0xff000000);
+		else
+			graph_draw_text_font(g, 4, 4+font.max_size.y, str, &font, 0xff888888);
 	}
 };
 
