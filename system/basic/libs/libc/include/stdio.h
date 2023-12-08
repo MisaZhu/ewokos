@@ -10,6 +10,7 @@ extern "C" {
 
 void printf(const char *format, ...);
 void dprintf(int fd, const char *format, ...);
+int sprintf(char *str, const char *fmt, ...);
 int snprintf(char *target, int size, const char *format, ...);
 
 int  getch(void);

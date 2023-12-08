@@ -9,6 +9,9 @@
 #include <Widget/WidgetWin.h>
 #include <Widget/Image.h>
 #include <Widget/Label.h>
+#include <fcntl.h>
+#include <string.h>
+#include <sys/timer.h>
 
 using namespace Ewok;
 
@@ -47,6 +50,33 @@ public:
 	}
 };
 
+class BatteryItem : public Label {
+private: 
+	char text[32] = {0};
+	int  power;
+protected:
+	void onRepaint(graph_t* g, grect_t* rect) {
+		uint8_t buf[4];
+		if(power > 0){
+			if(read(power, buf, 3) == 3){
+				if(!buf[0]){
+					snprintf(text, sizeof(text), "NO");
+				}else if(buf[1]){
+					snprintf(text, sizeof(text), "CH");
+				}else{
+					snprintf(text, sizeof(text), "%d", buf[2]);
+				}
+				label = (const char*)text;
+			}
+		}
+		Label::onRepaint(g, rect);
+	}
+public:
+	BatteryItem(): Label(X::getSysFont(), text) { 
+		power = open("/dev/power0", O_RDONLY);
+	}
+};
+
 class MenubarItem : public Label {
 	Menu *menu;
 protected:
@@ -71,6 +101,8 @@ public:
 	MenubarItem(font_t* font, const char* str): Label(font, str) { 
 		menu = NULL;
 	}
+
+	
 };
 
 class Menubar : public WidgetWin {
@@ -90,6 +122,12 @@ public:
 		wd->fixedMinSize();
 		container->add(wd);
 
+		wd = new BatteryItem();
+		wd->setMarginH(10);
+		wd->fixedMinSize();
+		container->add(wd);
+
+
 		wd = new Widget();
 		container->add(wd);
 	}
@@ -97,6 +135,11 @@ public:
 	~Menubar() {
 	}
 };
+
+static XWin* _xwin = NULL;
+static void timer_handler(void) {
+	_xwin->repaint();
+}
 
 int main(int argc, char* argv[]) {
 	X x;
@@ -113,7 +156,11 @@ int main(int argc, char* argv[]) {
 	desk.h -= 28;
 	x.setDesktopSpace(desk);
 
+	_xwin = &xwin;
+	uint32_t tid = timer_set(1000000, timer_handler);
+
 	x.run(NULL);
+	timer_remove(tid);
 	return 0;
 }
 
