@@ -55,7 +55,7 @@ class BatteryItem : public Widget {
 	int  power;
 
 	void drawNoBat(graph_t* g, const grect_t& r) {
-		graph_fill(g, r.x, r.y, r.w, r.h, 0xff222222);
+		graph_fill(g, r.x, r.y, r.w, r.h, 0xffdddddd);
 		graph_box(g, r.x, r.y, r.w, r.h, 0xff000000);
 	}
 
