@@ -124,13 +124,17 @@ gpos_t Widget::getInsidePos(int32_t screenX, int32_t screenY) {
 	return ret;
 }
 
-grect_t Widget::getRootArea() {
+grect_t Widget::getRootArea(bool margin) {
 	gpos_t pos = getRootPos();
+	if(margin)
+		return {pos.x+marginH, pos.y+marginV, area.w-marginH*2, area.h-marginV*2};
 	return {pos.x, pos.y, area.w, area.h};
 }
 
-grect_t Widget::getScreenArea() {
+grect_t Widget::getScreenArea(bool margin) {
 	gpos_t pos = getScreenPos();
+	if(margin)
+		return {pos.x+marginH, pos.y+marginV, area.w-marginH*2, area.h-marginV*2};
 	return {pos.x, pos.y, area.w, area.h};
 }
 

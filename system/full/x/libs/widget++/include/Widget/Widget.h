@@ -56,7 +56,7 @@ public:
 	inline void setMarginH(int32_t v) { marginH = v; }
 	inline void setMarginV(int32_t v) { marginV = v; }
 	inline void setFixed(bool fixed) { this->fixed = fixed; }
-	inline bool setAlpha(bool alpha) { this->alpha = alpha; }
+	inline void setAlpha(bool alpha) { this->alpha = alpha; }
 	inline bool isAlpha() { return alpha; }
 
 	void update();
@@ -70,8 +70,8 @@ public:
 	gpos_t getRootPos(int32_t x = 0, int32_t y = 0);
 	gpos_t getScreenPos(int32_t x = 0, int32_t y = 0);
 	gpos_t getInsidePos(int32_t screenX, int32_t screenY);
-	grect_t getRootArea();
-	grect_t getScreenArea();
+	grect_t getRootArea(bool margin = true);
+	grect_t getScreenArea(bool margin = true);
 
 	virtual gsize_t getMinSize(void);
 };
