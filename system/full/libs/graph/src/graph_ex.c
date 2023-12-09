@@ -71,3 +71,35 @@ void graph_draw_dot_pattern(graph_t* g,int x, int y, int w, int h, uint32_t c1, 
 		j++;
 	}
 }
+
+void graph_gradation(graph_t* graph, int x, int y, int w, int h, uint32_t c1, uint32_t c2, bool vertical) {
+	int32_t a1 = (c1 >> 24) & 0xff;
+	int32_t a2 = (c2 >> 24) & 0xff;
+	int32_t r1 = (c1 >> 16) & 0xff;
+	int32_t r2 = (c2 >> 16) & 0xff;
+	int32_t g1 = (c1 >> 8) & 0xff;
+	int32_t g2 = (c2 >> 8) & 0xff;
+	int32_t b1 = c1 & 0xff;
+	int32_t b2 = c2 & 0xff;
+
+	if(!vertical) {
+			for(int32_t i=1; i<=w; i++) {
+				int32_t a = a1 + (((a2 - a1) * i ) / w);
+				int32_t r = r1 + (((r2 - r1) * i ) / w);
+				int32_t g = g1 + (((g2 - g1) * i ) / w);
+				int32_t b = b1 + (((b2 - b1) * i ) / w);
+				uint32_t c = (uint32_t)((a << 24) | (r << 16) | (g << 8) | b);
+				graph_line(graph, x+i-1, y, x+i-1, y+h-1, c);
+			}
+	}
+	else {
+			for(int32_t i=1; i<=h; i++) {
+				int32_t a = a1 + (((a2 - a1) * i ) / h);
+				int32_t r = r1 + (((r2 - r1) * i ) / h);
+				int32_t g = g1 + (((g2 - g1) * i ) / h);
+				int32_t b = b1 + (((b2 - b1) * i ) / h);
+				uint32_t c = (uint32_t)((a << 24) | (r << 16) | (g << 8) | b);
+				graph_line(graph, x, y+i-1, x+w-1, y+i-1, c);
+			}
+	}
+}
