@@ -17,6 +17,7 @@ class Container: public Widget {
 protected:
 	void onResize();
 	bool onEvent(xevent_t* ev);
+	void repaint(graph_t* g);
 
 public:
 	static const int FIXED = 0;
@@ -24,7 +25,6 @@ public:
 	static const int HORIZONTAL = 2;
 
 	void add(Widget* child);
-	void repaint(graph_t* g);
 	void setType(int type);
 	void clear();
 

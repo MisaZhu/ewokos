@@ -6,9 +6,11 @@
 
 namespace Ewok {
 
+class WidgetWin;
 class RootWidget: public Container {
 	XWin* xwin;
 public:
+	friend WidgetWin;
 	XWin* getWin() { return xwin; }
 	void updateWin() { xwin->repaint(); }
 	void setWin(XWin* win) { xwin = win; }

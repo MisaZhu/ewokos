@@ -31,6 +31,7 @@ protected:
 	virtual bool onMouse(xevent_t* ev) {  return false; }
 	virtual bool onKey(xevent_t* ev) {  return false; }
 
+	virtual void repaint(graph_t* g);
 	virtual void onRepaint(graph_t* g);
 	virtual bool onEvent(xevent_t* ev);
 public:
@@ -73,7 +74,6 @@ public:
 	grect_t getScreenArea();
 
 	virtual gsize_t getMinSize(void);
-	virtual void repaint(graph_t* g);
 };
 
 }
