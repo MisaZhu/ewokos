@@ -16,6 +16,61 @@ using namespace Ewok;
 class PowerInfoX : public XWin {
 	font_t font;
 	int powerFD;
+
+	void drawNoBat(graph_t* g, const grect_t& r) {
+		graph_fill(g, r.x, r.y, r.w, r.h, 0xffdddddd);
+		graph_box(g, r.x, r.y, r.w, r.h, 0xff000000);
+	}
+
+	void drawCharging(graph_t* g, const grect_t& r, int bat) {
+		static bool b = true;
+		int w = r.w*bat/100;
+		if(b)
+			graph_fill(g, r.x+r.w-w, r.y, w, r.h, 0xffdddddd);
+		else
+			graph_fill(g, r.x+r.w-w, r.y, w, r.h, 0xff22dd22);
+
+		graph_box(g, r.x, r.y, r.w, r.h, 0xff000000);
+		b = !b;
+	}
+
+	void drawBat(graph_t* g, const grect_t& r, int bat) {
+		int w = r.w*bat/100;
+		graph_fill(g, r.x+r.w-w, r.y, w, r.h, 0xff22dd22);
+		graph_box(g, r.x, r.y, r.w, r.h, 0xff000000);
+	}
+
+protected:
+	void onRepaint(graph_t* g) {
+		setAlpha(true);
+		graph_clear(g, 0x0);
+		grect_t r = {4, 4, g->w-8, g->h-8};
+		graph_box(g, r.x, r.y+2, 5, r.h-4, 0xff000000);
+		r.x += 4;
+		r.w -= 4;
+
+		if(powerFD < 0)
+			powerFD = open("/dev/power0", O_RDONLY);
+
+		uint8_t buf[4];
+		if(powerFD < 0){
+			drawNoBat(g, r);
+			return;
+		}
+
+		if(read(powerFD, buf, 3) == 3){
+			if(!buf[0])
+				drawNoBat(g, r);
+			else if(buf[1])
+				drawCharging(g, r, buf[2]);
+			else
+				drawBat(g, r, buf[2]);
+		}
+		else {
+			drawNoBat(g, r);
+		}
+	}
+
 public:
 	inline PowerInfoX() {
 		powerFD = -1;
@@ -27,31 +82,6 @@ public:
 			font_close(&font);
 		if(powerFD > 0)
 			::close(powerFD);
-	}
-
-protected:
-	void onRepaint(graph_t* g) {
-		if(powerFD < 0) {
-			powerFD = open("/dev/power0", O_RDONLY);
-			if(powerFD < 0)
-				return;
-		}
-		
-		uint8_t buf[4];
-		if(read(powerFD, buf, 3) != 3)
-			return;
-
-		graph_clear(g, 0xffffffff);
-
-		char str[32];
-		snprintf(str, 31, "charging: %s", buf[1] == 0 ? "No":"Yes");
-		graph_draw_text_font(g, 4, 4, str, &font, 0xff000000);
-
-		snprintf(str, 31, "battery: %d\%", buf[2]);
-		if(buf[0] == 1)
-			graph_draw_text_font(g, 4, 4+font.max_size.y, str, &font, 0xff000000);
-		else
-			graph_draw_text_font(g, 4, 4+font.max_size.y, str, &font, 0xff888888);
 	}
 };
 
@@ -69,7 +99,7 @@ int main(int argc, char* argv[]) {
 	x.getDesktopSpace(desk, 0);
 
 	PowerInfoX xwin;
-	x.open(&desk, &xwin, 100, 100, "pwrInfo", XWIN_STYLE_NO_RESIZE);
+	x.open(&desk, &xwin, 100, 32, "pwrInfo", XWIN_STYLE_NO_RESIZE);
 	xwin.setVisible(true);
 
 	_xwin = &xwin;
