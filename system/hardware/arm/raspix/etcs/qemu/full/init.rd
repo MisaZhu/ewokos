@@ -1,4 +1,3 @@
-/bin/rundev /drivers/raspix/powerd   /dev/power0
 /bin/rundev /drivers/raspix/uartd    /dev/tty0
 #/bin/rundev /drivers/raspix/soundd   /dev/sound
 /bin/rundev /drivers/raspix/usbd     /dev/touch0
