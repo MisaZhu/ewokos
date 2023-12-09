@@ -63,7 +63,7 @@ class BatteryItem : public Widget {
 		static bool b = true;
 		int w = r.w*bat/100;
 		if(b)
-			graph_fill(g, r.x+r.w-w, r.y, w, r.h, 0xff2222dd);
+			graph_fill(g, r.x+r.w-w, r.y, w, r.h, 0xffdddddd);
 		else
 			graph_fill(g, r.x+r.w-w, r.y, w, r.h, 0xff22dd22);
 
@@ -104,12 +104,12 @@ protected:
 	}
 
 	gsize_t getMinSize() {
-		return {64, 28};
+		return {56, 28};
 	}
 public:
 	BatteryItem() {
 		power = open("/dev/power0", O_RDONLY);
-		setMarginV(4);
+		setMarginV(6);
 		setMarginH(4);
 	}
 };
