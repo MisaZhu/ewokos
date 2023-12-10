@@ -49,8 +49,11 @@ public:
 
 protected:
 	void onEvent(xevent_t* ev) {
-		if(ev->type == XEVT_MOUSE && ev->state == XEVT_MOUSE_UP) {
-			this->close();
+		if(ev->type == XEVT_MOUSE) {
+			if(ev->state == XEVT_MOUSE_CLICK)
+				this->close();
+			else if(ev->state == XEVT_MOUSE_DRAG)
+				this->move(ev->value.mouse.rx, ev->value.mouse.ry);
 		}
 	}
 

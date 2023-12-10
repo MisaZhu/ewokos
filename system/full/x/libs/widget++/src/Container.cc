@@ -113,7 +113,26 @@ void  Container::repaint(graph_t* g) {
 	dirty = false;
 }
 
+Widget* Container::get(uint32_t id) {
+	if(this->id == id)
+		return this;
+
+	Widget* wd = children;
+	while(wd != NULL) {
+		if(wd->isContainer) {
+			Widget* w = ((Container*)wd)->get(id);
+			if(w != NULL)
+				return w;
+		}
+		else if(wd->id == id)
+			return wd;
+		wd = wd->next;
+	}
+	return NULL;
+}
+
 Container::Container() {
+	isContainer = true;
 	children = NULL;
 	childrenEnd = NULL;
 	type = FIXED;

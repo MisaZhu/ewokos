@@ -13,7 +13,10 @@ class Widget {
 	friend Container;
 	Widget* next;
 	Widget* prev;
+
+	bool isContainer;
 protected:
+	uint32_t id;
 	uint32_t fgColor;
 	uint32_t bgColor;
 	int32_t marginH;
@@ -35,20 +38,7 @@ protected:
 	virtual void onRepaint(graph_t* g);
 	virtual bool onEvent(xevent_t* ev);
 public:
-	inline Widget(void)  { 
-		dirty = true;
-		fixed = false;
-		alpha = false;
-		father = NULL;
-		next = NULL;
-		prev = NULL;
-		area = {0, 0, 0, 0};
-		bgColor = 0x0; //transparent
-		fgColor = 0xff000000;
-		marginH = 0;
-		marginV = 0;
-	}
-
+	Widget(void);
 	virtual ~Widget() { }
 
 	inline void setFGColor(uint32_t color) { fgColor = color; update(); }

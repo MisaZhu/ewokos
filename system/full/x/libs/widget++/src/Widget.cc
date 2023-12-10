@@ -3,6 +3,23 @@
 
 namespace Ewok {
 
+static uint32_t _idCounter = 0;
+Widget::Widget(void)  { 
+	dirty = true;
+	fixed = false;
+	alpha = false;
+	father = NULL;
+	next = NULL;
+	prev = NULL;
+	area = {0, 0, 0, 0};
+	bgColor = 0x0; //transparent
+	fgColor = 0xff000000;
+	marginH = 0;
+	marginV = 0;
+	id = _idCounter++;
+	isContainer = false;
+}
+
 void Widget::onRepaint(graph_t* g) {
 	if(bgColor == 0x0)
 		return;

@@ -25,6 +25,7 @@ public:
 	static const int HORIZONTAL = 2;
 
 	void add(Widget* child);
+	Widget* get(uint32_t id);
 	void setType(int type);
 	void clear();
 
