@@ -12,7 +12,6 @@ class Container: public Widget {
 
 	void layoutV();
 	void layoutH();
-	void layout();
 
 protected:
 	void onResize();
@@ -24,6 +23,7 @@ public:
 	static const int VERTICLE = 1;
 	static const int HORIZONTAL = 2;
 
+	void layout();
 	void add(Widget* child);
 	Widget* get(uint32_t id);
 	void setType(int type);

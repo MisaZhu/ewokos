@@ -21,7 +21,7 @@ protected:
 	uint32_t bgColor;
 	int32_t marginH;
 	int32_t marginV;
-	Widget* father;
+	Container* father;
 
 	bool dirty;
 	bool fixed;

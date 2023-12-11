@@ -44,7 +44,7 @@ RootWidget* Widget::getRoot(void) {
 	if(father == NULL)
 		return (RootWidget*)this;
 
-	Widget* wd = father;
+	Container* wd = father;
 	while(wd != NULL && wd->father != NULL)
 		wd = wd->father;
 	return (RootWidget*)wd;
@@ -84,6 +84,10 @@ void Widget::resizeTo(int w, int h) {
 	area.w = w;
 	area.h = h;
 	onResize();
+	if(father != NULL) {
+		father->layout();
+		father->update();
+	}
 }
 
 void Widget::resize(int dw, int dh) {
@@ -96,6 +100,10 @@ void Widget::moveTo(int x, int y) {
 	area.x = x;
 	area.y = y;
 	onMove();
+	if(father != NULL) {
+		father->layout();
+		father->update();
+	}
 }
 
 void Widget::move(int dx, int dy) {
