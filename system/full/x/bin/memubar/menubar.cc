@@ -123,6 +123,7 @@ public:
 	}
 };
 
+X* _x = NULL;
 class MenubarItem : public Label {
 	Menu *menu;
 protected:
@@ -130,9 +131,8 @@ protected:
 		grect_t r = getScreenArea();
 
 		if(menu == NULL) {
-			X *x = getRoot()->getWin()->getX();
 			menu = new Menu();
-			x->open(menu, r.x, r.y+r.h, 100, 100, "menu", XWIN_STYLE_NO_FRAME);
+			_x->open(menu, r.x, r.y+r.h, 100, 100, "menu", XWIN_STYLE_NO_FRAME);
 		}
 		menu->pop();
 	}
@@ -193,6 +193,7 @@ static void timer_handler(void) {
 
 int main(int argc, char* argv[]) {
 	X x;
+	_x = &x;
 	xscreen_t scr;
 	x.getScreenInfo(scr, 0);
 	Menubar xwin;
