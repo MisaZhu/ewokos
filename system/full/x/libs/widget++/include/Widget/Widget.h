@@ -51,7 +51,8 @@ public:
 
 	void update();
 	RootWidget* getRoot(void);
-	void fixedMinSize(void);
+	void fix(const gsize_t& size);
+	void fix(uint32_t w, uint32_t h);
 	void resizeTo(int w, int h);
 	void resize(int dw, int dh);
 	void moveTo(int x, int y);

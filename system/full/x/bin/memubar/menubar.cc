@@ -160,12 +160,12 @@ public:
 
 		Widget* wd = new Image("/usr/system/icons/os.png");
 		wd->setMarginH(10);
-		wd->fixedMinSize();
+		wd->fix(wd->getMinSize());
 		container->add(wd);
 	
 		wd = new MenubarItem(X::getSysFont(), "EwokOS");
 		wd->setMarginH(10);
-		wd->fixedMinSize();
+		wd->fix(wd->getMinSize());
 		container->add(wd);
 
 		wd = new Widget();
@@ -173,7 +173,7 @@ public:
 
 		wd = new BatteryItem();
 		wd->setMarginH(10);
-		wd->fixedMinSize();
+		wd->fix(wd->getMinSize());
 		container->add(wd);
 	}
 
