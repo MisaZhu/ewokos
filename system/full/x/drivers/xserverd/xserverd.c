@@ -22,7 +22,7 @@
 #define X_EVENT_MAX 16
 
 enum {
-	X_win_DRAG_MOVE = 0,
+	X_win_DRAG_MOVE = 1,
 	X_win_DRAG_RESIZE
 };
 
@@ -1142,6 +1142,7 @@ static void xwin_bg(x_t* x, xwin_t* win) {
 }
 
 static void mouse_xwin_handle(x_t* x, xwin_t* win, int pos, xevent_t* ev) {
+	bool xwin_drag_frame = false;;
 	if(ev->state ==  XEVT_MOUSE_DOWN) {
 		if(win != x->win_tail) {
 			xwin_top(x, win);
@@ -1155,14 +1156,15 @@ static void mouse_xwin_handle(x_t* x, xwin_t* win, int pos, xevent_t* ev) {
 	}
 	else if(ev->state ==  XEVT_MOUSE_DRAG) {
 		if(win->xinfo->state != XWIN_STATE_MAX) {
+			x->current.win = win;
 			if(pos == FRAME_R_TITLE) {//window title 
-				x->current.win = win;
+				//x->current.win = win;
 				x->current.old_pos.x = x->cursor.cpos.x;
 				x->current.old_pos.y = x->cursor.cpos.y;
 				x->current.drag_state = X_win_DRAG_MOVE;
 			}
 			else if(pos == FRAME_R_RESIZE) {//window resize
-				x->current.win = win;
+				//x->current.win = win;
 				x->current.old_pos.x = x->cursor.cpos.x;
 				x->current.old_pos.y = x->cursor.cpos.y;
 				x->current.drag_state = X_win_DRAG_RESIZE;
@@ -1171,7 +1173,7 @@ static void mouse_xwin_handle(x_t* x, xwin_t* win, int pos, xevent_t* ev) {
 	}
 	else if(ev->state == XEVT_MOUSE_UP) {
 		if(pos == FRAME_R_RESIZE) //window resize
-				return;
+			return;
 
 		if(x->current.win == win) {
 			ev->type = XEVT_WIN;
@@ -1209,9 +1211,10 @@ static void mouse_xwin_handle(x_t* x, xwin_t* win, int pos, xevent_t* ev) {
 			}
 		}
 		x->current.win = NULL;
+		x->current.drag_state = 0;
 	}
 
-	if(x->current.win == win) {
+	if(x->current.win == win && x->current.drag_state != 0) {
 		int mrx = x->cursor.cpos.x - x->current.old_pos.x;
 		int mry = x->cursor.cpos.y - x->current.old_pos.y;
 		if(abs(mrx) > 15 || abs(mry) > 15) {
