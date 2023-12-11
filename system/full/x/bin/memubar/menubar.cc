@@ -55,16 +55,17 @@ class BatteryItem : public Widget {
 	int  powerFD;
 
 	void drawCharging(graph_t* g, const grect_t& r, int bat) {
-		static bool b = true;
-		int w = r.w*bat/100;
-		if(b)
-			graph_gradation(g, r.x+r.w-w, r.y, w, r.h, 0xffffffff, 0xff22dd22, true);
-		b = !b;
+		static int b = 0;
+		int w = r.w*bat*b/300;
+		graph_gradation(g, r.x+r.w-w, r.y, w, r.h, 0xffffffff, 0xff22dd22, true);
+		b++;
+		b%=4;
 	}
 
 	void drawBat(graph_t* g, const grect_t& r, int bat) {
 		int w = r.w*bat/100;
-		graph_gradation(g, r.x+r.w-w, r.y, w, r.h, 0xffffffff, 0xff22dd22, true);
+		uint32_t color = (bat <= 20) ?0xffed7930 : 0xff22dd22;
+		graph_gradation(g, r.x+r.w-w, r.y, w, r.h, 0xffffffff, color, true);
 	}
 
 	void drawBase(graph_t* g, grect_t& r) {
