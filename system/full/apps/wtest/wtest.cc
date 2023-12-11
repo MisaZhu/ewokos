@@ -13,8 +13,7 @@ class MyWidget: public Widget {
 	bool down;
 
 protected:
-	void onRepaint(graph_t* g) {
-		grect_t rect = getRootArea();
+	void onRepaint(graph_t* g, const grect_t& rect) {
 		if(down)
 			graph_fill(g, rect.x, rect.y, rect.w, rect.h, 0xff222222);
 		else

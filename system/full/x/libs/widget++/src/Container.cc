@@ -100,8 +100,11 @@ void  Container::add(Widget* child) {
 }
 
 void  Container::repaint(graph_t* g) {
-	if(dirty)
-		onRepaint(g);
+	if(dirty) {
+		grect_t r = getRootArea();
+		graph_set_clip(g, r.x, r.y, r.w, r.h);
+		onRepaint(g, r);
+	}
 
 	Widget* wd = children;
 	while(wd != NULL) {

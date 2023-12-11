@@ -35,7 +35,7 @@ protected:
 	virtual bool onKey(xevent_t* ev) {  return false; }
 
 	virtual void repaint(graph_t* g);
-	virtual void onRepaint(graph_t* g);
+	virtual void onRepaint(graph_t* g, const grect_t& r);
 	virtual bool onEvent(xevent_t* ev);
 public:
 	Widget(void);

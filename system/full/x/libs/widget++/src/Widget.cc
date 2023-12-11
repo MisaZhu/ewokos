@@ -20,11 +20,10 @@ Widget::Widget(void)  {
 	isContainer = false;
 }
 
-void Widget::onRepaint(graph_t* g) {
+void Widget::onRepaint(graph_t* g, const grect_t& r) {
 	if(bgColor == 0x0)
 		return;
-	grect_t rect = getRootArea();
-	graph_fill(g, rect.x, rect.y, rect.w, rect.h, bgColor);
+	graph_fill(g, r.x, r.y, r.w, r.h, bgColor);
 }
 
 bool Widget::onEvent(xevent_t* ev) { 
@@ -51,7 +50,9 @@ RootWidget* Widget::getRoot(void) {
 }
 
 void Widget::repaint(graph_t* g) {
-	onRepaint(g);
+	grect_t r = getRootArea();
+	graph_set_clip(g, r.x, r.y, r.w, r.h);
+	onRepaint(g, r);
 	dirty = false;
 }
 

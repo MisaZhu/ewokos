@@ -3,13 +3,12 @@
 using namespace EwokSTL;
 namespace Ewok {
 
-void Label::onRepaint(graph_t* g) {
-	Widget::onRepaint(g);
+void Label::onRepaint(graph_t* g, const grect_t& r) {
+	Widget::onRepaint(g, r);
 	if(font == NULL)
 		return;
 
-	grect_t rect = getRootArea();
-	graph_draw_text_font_align(g, rect.x+marginH, rect.y+marginV, rect.w-marginH*2, rect.h-marginV*2,
+	graph_draw_text_font_align(g, r.x+marginH, r.y+marginV, r.w-marginH*2, r.h-marginV*2,
 				label.c_str(), font, fgColor, FONT_ALIGN_CENTER);
 }
 
@@ -31,6 +30,8 @@ gsize_t Label::getMinSize(void) {
 	gsize_t sz = { 0, 0 };
 	if(font != NULL)
 		font_text_size(label.c_str(), font, (uint32_t*)&sz.w, (uint32_t*)&sz.h);
+	sz.w += marginH*2;
+	sz.h += marginV*2;
 	return sz;
 }
 

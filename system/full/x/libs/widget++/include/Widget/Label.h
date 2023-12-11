@@ -13,7 +13,7 @@ class Label: public Widget {
 public:
 	string label;
 protected:
-	void onRepaint(graph_t* g);
+	void onRepaint(graph_t* g, const grect_t& r);
 
 public:
 	Label(font_t* font, const char* str);

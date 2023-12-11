@@ -83,9 +83,9 @@ class BatteryItem : public Widget {
 	}
 
 protected:
-	void onRepaint(graph_t* g) {
+	void onRepaint(graph_t* g, const grect_t& rect) {
 		setAlpha(true);
-		grect_t r = getRootArea(true);
+		grect_t r = rect;
 		drawBase(g, r);
 
 		if(powerFD < 0)
@@ -164,6 +164,11 @@ public:
 		container->add(wd);
 	
 		wd = new MenubarItem(X::getSysFont(), "EwokOS");
+		wd->setMarginH(10);
+		wd->fix(wd->getMinSize());
+		container->add(wd);
+
+		wd = new MenubarItem(X::getSysFont(), "EwokOS1");
 		wd->setMarginH(10);
 		wd->fix(wd->getMinSize());
 		container->add(wd);
