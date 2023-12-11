@@ -1270,8 +1270,8 @@ static int mouse_handle(x_t* x, xevent_t* ev) {
 			ev->state = XEVT_MOUSE_DRAG;
 			ev->value.mouse.from_x = x->mouse_state.down_pos.x;
 			ev->value.mouse.from_y = x->mouse_state.down_pos.y;
-			ev->value.mouse.rx = ev->value.mouse.x - x->mouse_state.last_pos.x;
-			ev->value.mouse.ry = ev->value.mouse.y - x->mouse_state.last_pos.y;
+			//ev->value.mouse.rx = ev->value.mouse.x - x->mouse_state.last_pos.x;
+			//ev->value.mouse.ry = ev->value.mouse.y - x->mouse_state.last_pos.y;
 			x->mouse_state.last_pos.x = ev->value.mouse.x;
 			x->mouse_state.last_pos.y = ev->value.mouse.y;
 		}
@@ -1284,8 +1284,8 @@ static int mouse_handle(x_t* x, xevent_t* ev) {
 		x->mouse_state.pressed = false;
 		ev->value.mouse.from_x = x->mouse_state.down_pos.x;
 		ev->value.mouse.from_y = x->mouse_state.down_pos.y;
-		ev->value.mouse.rx = ev->value.mouse.x - x->mouse_state.last_pos.x;
-		ev->value.mouse.ry = ev->value.mouse.y - x->mouse_state.last_pos.y;
+		//ev->value.mouse.rx = ev->value.mouse.x - x->mouse_state.last_pos.x;
+		//ev->value.mouse.ry = ev->value.mouse.y - x->mouse_state.last_pos.y;
 		x->mouse_state.last_pos.x = ev->value.mouse.x;
 		x->mouse_state.last_pos.y = ev->value.mouse.y;
 
