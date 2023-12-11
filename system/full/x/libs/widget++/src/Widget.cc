@@ -62,11 +62,6 @@ void Widget::update() {
 		if(isAlpha())
 			father->update();
 	}
-	else {
-		RootWidget* root = getRoot();
-		if(root != NULL)
-			root->updateWin();
-	}
 }
 
 gsize_t Widget::getMinSize(void) {

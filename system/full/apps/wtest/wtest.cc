@@ -67,7 +67,6 @@ int main(int argc, char** argv) {
 	win.getRootWidget()->setBGColor(0xff000000);
 
 	Widget* wd = new Image("/usr/system/images/mac1984.png");
-	wd->setArea(10, 10, 40, 40);
 	win.getRootWidget()->add(wd);
 
 	Container* c = new Container();
