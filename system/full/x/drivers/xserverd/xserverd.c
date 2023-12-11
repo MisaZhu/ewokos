@@ -47,7 +47,7 @@ typedef struct st_xwin {
 } xwin_t;
 
 typedef struct {
-	xwin_t* win; //moving or resizing;
+	xwin_t* win_drag; //moving or resizing;
 	gpos_t old_pos;
 	gpos_t pos_delta;
 	uint32_t drag_state;
@@ -192,10 +192,10 @@ static void draw_drag_frame(x_t* xp, uint32_t display_index) {
 	if(display->g == NULL)
 		return;
 
-	int x = xp->current.win->xinfo->winr.x;
-	int y = xp->current.win->xinfo->winr.y;
-	int w = xp->current.win->xinfo->winr.w;
-	int h = xp->current.win->xinfo->winr.h;
+	int x = xp->current.win_drag->xinfo->winr.x;
+	int y = xp->current.win_drag->xinfo->winr.y;
+	int w = xp->current.win_drag->xinfo->winr.w;
+	int h = xp->current.win_drag->xinfo->winr.h;
 
 	if(xp->current.drag_state == X_win_DRAG_MOVE)  {
 		x += xp->current.pos_delta.x;
@@ -249,7 +249,7 @@ static int draw_win(x_t* xp, xwin_t* win) {
 	}
 
 	draw_win_frame(xp, win);
-	if(xp->current.win == win && xp->config.win_move_alpha < 0xff) //drag and moving
+	if(xp->current.win_drag == win && xp->config.win_move_alpha < 0xff) //drag and moving
 		draw_drag_frame(xp, win->xinfo->display_index);
 
 	win->dirty = false;
@@ -1155,14 +1155,15 @@ static void mouse_xwin_handle(x_t* x, xwin_t* win, int pos, xevent_t* ev) {
 	}
 	else if(ev->state ==  XEVT_MOUSE_DRAG) {
 		if(win->xinfo->state != XWIN_STATE_MAX) {
+			x->current.win_drag = win;
 			if(pos == FRAME_R_TITLE) {//window title 
-				x->current.win = win;
+				//x->current.win_drag = win;
 				x->current.old_pos.x = x->cursor.cpos.x;
 				x->current.old_pos.y = x->cursor.cpos.y;
 				x->current.drag_state = X_win_DRAG_MOVE;
 			}
 			else if(pos == FRAME_R_RESIZE) {//window resize
-				x->current.win = win;
+				//x->current.win_drag = win;
 				x->current.old_pos.x = x->cursor.cpos.x;
 				x->current.old_pos.y = x->cursor.cpos.y;
 				x->current.drag_state = X_win_DRAG_RESIZE;
@@ -1173,7 +1174,7 @@ static void mouse_xwin_handle(x_t* x, xwin_t* win, int pos, xevent_t* ev) {
 		if(pos == FRAME_R_RESIZE) //window resize
 			return;
 
-		if(x->current.win == win) {
+		if(x->current.win_drag == win && x->current.drag_state != 0) {
 			ev->type = XEVT_WIN;
 			ev->value.window.v0 =  x->current.pos_delta.x;
 			ev->value.window.v1 =  x->current.pos_delta.y;
@@ -1208,11 +1209,11 @@ static void mouse_xwin_handle(x_t* x, xwin_t* win, int pos, xevent_t* ev) {
 				ev->value.window.event = XEVT_WIN_MAX;
 			}
 		}
-		x->current.win = NULL;
+		x->current.win_drag = NULL;
 		x->current.drag_state = 0;
 	}
 
-	if(x->current.win == win && x->current.drag_state != 0) {
+	if(x->current.win_drag == win && x->current.drag_state != 0) {
 		int mrx = x->cursor.cpos.x - x->current.old_pos.x;
 		int mry = x->cursor.cpos.y - x->current.old_pos.y;
 		if(abs(mrx) > 15 || abs(mry) > 15) {
@@ -1250,8 +1251,6 @@ static int mouse_handle(x_t* x, xevent_t* ev) {
 	else {
 		x->cursor.cpos.x = ev->value.mouse.x;
 		x->cursor.cpos.y = ev->value.mouse.y;
-		ev->value.mouse.rx = ev->value.mouse.x - x->mouse_state.last_pos.x;
-		ev->value.mouse.ry = ev->value.mouse.y - x->mouse_state.last_pos.y;
 	}
 
 	x_display_t *display = &x->displays[x->current_display];
@@ -1268,11 +1267,15 @@ static int mouse_handle(x_t* x, xevent_t* ev) {
 			ev->value.mouse.rx = 0;
 			ev->value.mouse.ry = 0;
 		}
-		else if(ev->value.mouse.from_x != ev->value.mouse.x ||
-					ev->value.mouse.from_y != ev->value.mouse.y) {
+		//else if(ev->value.mouse.from_x != ev->value.mouse.x ||
+		//			ev->value.mouse.from_y != ev->value.mouse.y) {
+		else if(x->mouse_state.last_pos.x != ev->value.mouse.x ||
+					x->mouse_state.last_pos.y != ev->value.mouse.y) {
 			ev->state = XEVT_MOUSE_DRAG;
 			ev->value.mouse.from_x = x->mouse_state.down_pos.x;
 			ev->value.mouse.from_y = x->mouse_state.down_pos.y;
+			ev->value.mouse.rx = ev->value.mouse.x - x->mouse_state.last_pos.x;
+			ev->value.mouse.ry = ev->value.mouse.y - x->mouse_state.last_pos.y;
 			x->mouse_state.last_pos.x = ev->value.mouse.x;
 			x->mouse_state.last_pos.y = ev->value.mouse.y;
 		}
@@ -1285,6 +1288,8 @@ static int mouse_handle(x_t* x, xevent_t* ev) {
 		x->mouse_state.pressed = false;
 		ev->value.mouse.from_x = x->mouse_state.down_pos.x;
 		ev->value.mouse.from_y = x->mouse_state.down_pos.y;
+		ev->value.mouse.rx = ev->value.mouse.x - x->mouse_state.last_pos.x;
+		ev->value.mouse.ry = ev->value.mouse.y - x->mouse_state.last_pos.y;
 		x->mouse_state.last_pos.x = ev->value.mouse.x;
 		x->mouse_state.last_pos.y = ev->value.mouse.y;
 
@@ -1298,8 +1303,8 @@ static int mouse_handle(x_t* x, xevent_t* ev) {
 
 	int pos = -1;
 	xwin_t* win = NULL;
-	if(x->current.win != NULL)
-		win = x->current.win;
+	if(x->current.win_drag != NULL)
+		win = x->current.win_drag;
 	else
 		win = get_mouse_owner(x, &pos);
 
