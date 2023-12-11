@@ -58,8 +58,9 @@ void Widget::repaint(graph_t* g) {
 
 void Widget::update() {
 	dirty = true;
-	if(isAlpha() && father != NULL) {
-		father->update();
+	if(father != NULL) {
+		if(isAlpha())
+			father->update();
 	}
 	else {
 		RootWidget* root = getRoot();

@@ -30,18 +30,21 @@ protected:
 	}
 
 	bool onMouse(xevent_t* ev) {
-		if(ev->state == XEVT_MOUSE_DOWN)
+		if(ev->state == XEVT_MOUSE_DOWN) {
 			down = true;
-		else if(ev->state == XEVT_MOUSE_UP)
+			update();
+		}
+		else if(ev->state == XEVT_MOUSE_UP) {
 			down = false;
-		update();
+			update();
+		}
 		return true;
 	}
 
 public:
 	MyWidget() {
 		down = false;
-		font_load(DEFAULT_SYSTEM_FONT, 14, &font, true);
+		font_load(DEFAULT_SYSTEM_FONT, 24, &font, true);
 	}
 
 	~MyWidget() {
@@ -69,17 +72,19 @@ int main(int argc, char** argv) {
 
 	Container* c = new Container();
 	c->setType(Container::HORIZONTAL);
-	c->setFixed(true);
-	c->setArea(0, 0, 40, 40);
+	c->fix(0, 40);
 	win.getRootWidget()->add(c);
 
 	wd = new Label(X::getSysFont(), "Label");
+	wd->setBGColor(0xff222222);
+	wd->setFGColor(0xffffffff);
 	c->add(wd);
+
 	wd = new MyWidget();
 	c->add(wd);
+
 	wd = new MyWidget();
-	wd->resizeTo(100, 0);
-	wd->setFixed(true);
+	wd->fix(100, 0);
 	c->add(wd);
 
 	win.getRootWidget()->setType(Container::VERTICLE);
