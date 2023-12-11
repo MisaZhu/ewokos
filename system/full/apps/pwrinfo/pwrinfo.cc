@@ -46,6 +46,15 @@ class PowerInfoX : public XWin {
 	}
 
 protected:
+	void onEvent(xevent_t* ev) {
+		if(ev->type == XEVT_MOUSE) {
+			if(ev->state == XEVT_MOUSE_CLICK)
+				this->close();
+			else if(ev->state == XEVT_MOUSE_DRAG)
+				this->move(ev->value.mouse.rx, ev->value.mouse.ry);
+		}
+	}
+
 	void onRepaint(graph_t* g) {
 		setAlpha(true);
 		graph_clear(g, 0x0);
@@ -99,7 +108,7 @@ int main(int argc, char* argv[]) {
 	x.getDesktopSpace(desk, 0);
 
 	PowerInfoX xwin;
-	x.open(&desk, &xwin, 100, 32, "pwrInfo", XWIN_STYLE_NO_RESIZE);
+	x.open(&desk, &xwin, 100, 32, "pwrInfo", XWIN_STYLE_NO_FRAME);
 	xwin.setVisible(true);
 
 	_xwin = &xwin;
