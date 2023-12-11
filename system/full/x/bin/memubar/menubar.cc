@@ -189,6 +189,7 @@ public:
 static Menubar* _xwin = NULL;
 static void timer_handler(void) {
 	_xwin->getRootWidget()->update();
+	_xwin->getRootWidget()->updateWin();
 }
 
 int main(int argc, char* argv[]) {

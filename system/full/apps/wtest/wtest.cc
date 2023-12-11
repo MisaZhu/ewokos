@@ -38,6 +38,7 @@ protected:
 			down = false;
 			update();
 		}
+		getRoot()->updateWin();
 		return true;
 	}
 
