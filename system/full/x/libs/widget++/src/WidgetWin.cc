@@ -12,6 +12,7 @@ void WidgetWin::onResize(void) {
 
 void WidgetWin::onEvent(xevent_t* ev) {
 	rootWidget.sendEvent(ev);
+	rootWidget.repaintWin();
 }
 
 }

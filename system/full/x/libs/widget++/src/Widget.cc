@@ -41,7 +41,7 @@ bool Widget::onEvent(xevent_t* ev) {
 
 RootWidget* Widget::getRoot(void) {
 	if(father == NULL)
-		return (RootWidget*)this;
+		return NULL;
 
 	Container* wd = father;
 	while(wd != NULL && wd->father != NULL)
@@ -62,6 +62,10 @@ void Widget::update() {
 		if(isAlpha())
 			father->update();
 	}
+
+	RootWidget* root = getRoot();
+	if(root != NULL)
+		root->refresh();
 }
 
 gsize_t Widget::getMinSize(void) {

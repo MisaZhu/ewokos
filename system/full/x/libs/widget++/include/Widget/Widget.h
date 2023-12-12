@@ -49,7 +49,7 @@ public:
 	inline void setAlpha(bool alpha) { this->alpha = alpha; }
 	inline bool isAlpha() { return alpha; }
 
-	void update();
+	virtual void update();
 	RootWidget* getRoot(void);
 	void fix(const gsize_t& size);
 	void fix(uint32_t w, uint32_t h);

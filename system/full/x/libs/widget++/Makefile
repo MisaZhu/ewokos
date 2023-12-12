@@ -11,6 +11,7 @@ LIB_WIDGET_OBJS =  src/Widget.o \
 		src/Container.o \
 		src/Image.o \
 		src/Label.o \
+		src/RootWidget.o \
 		src/WidgetWin.o
 
 WIDGET = $(TARGET_DIR)/lib/libwidget++.a
