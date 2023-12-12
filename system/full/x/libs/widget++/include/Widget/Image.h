@@ -9,7 +9,7 @@ class Image: public Widget {
 	graph_t* image;
 
 protected:
-	void onRepaint(graph_t* g, const grect_t& r);
+	void onRepaint(graph_t* g, const Theme* theme, const grect_t& r);
 
 public:
 	Image(const char* fname);

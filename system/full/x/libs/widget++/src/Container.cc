@@ -99,18 +99,18 @@ void  Container::add(Widget* child) {
 	layout();
 }
 
-void  Container::repaint(graph_t* g) {
+void  Container::repaint(graph_t* g, const Theme* theme) {
 	if(dirty) {
 		grect_t r = getRootArea();
 		graph_set_clip(g, r.x, r.y, r.w, r.h);
-		onRepaint(g, r);
+		onRepaint(g, theme, r);
 	}
 
 	Widget* wd = children;
 	while(wd != NULL) {
 		if(dirty)
 			wd->dirty = true;
-		wd->repaint(g);
+		wd->repaint(g, theme);
 		wd = wd->next;
 	}
 	dirty = false;

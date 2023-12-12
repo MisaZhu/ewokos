@@ -13,7 +13,7 @@ class MyWidget: public Widget {
 	bool down;
 
 protected:
-	void onRepaint(graph_t* g, const grect_t& rect) {
+	void onRepaint(graph_t* g, const Theme* theme, const grect_t& rect) {
 		if(down)
 			graph_fill(g, rect.x, rect.y, rect.w, rect.h, 0xff222222);
 		else
@@ -64,8 +64,6 @@ int main(int argc, char** argv) {
 	X x;
 	WidgetWin win;
 
-	win.getRootWidget()->setBGColor(0xff000000);
-
 	Widget* wd = new Image("/usr/system/images/mac1984.png");
 	win.getRootWidget()->add(wd);
 
@@ -75,8 +73,6 @@ int main(int argc, char** argv) {
 	win.getRootWidget()->add(c);
 
 	wd = new Label(X::getSysFont(), "Label");
-	wd->setBGColor(0xff222222);
-	wd->setFGColor(0xffffffff);
 	c->add(wd);
 
 	wd = new MyWidget();

@@ -3,8 +3,8 @@
 
 namespace Ewok {
 
-void Image::onRepaint(graph_t* g, const grect_t& r) {
-	Widget::onRepaint(g, r);
+void Image::onRepaint(graph_t* g, const Theme* theme, const grect_t& r) {
+	Widget::onRepaint(g, theme, r);
 	if(image == NULL)
 		return;
 

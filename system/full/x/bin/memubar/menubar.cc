@@ -83,7 +83,7 @@ class BatteryItem : public Widget {
 	}
 
 protected:
-	void onRepaint(graph_t* g, const grect_t& rect) {
+	void onRepaint(graph_t* g, const Theme* theme, const grect_t& rect) {
 		setAlpha(true);
 		grect_t r = rect;
 		drawBase(g, r);
@@ -156,7 +156,6 @@ public:
 	Menubar() {
 		RootWidget* container = getRootWidget();
 		container->setType(Container::HORIZONTAL);
-		container->setBGColor(0xffffffff);
 
 		Widget* wd = new Image("/usr/system/icons/os.png");
 		wd->setMarginH(10);

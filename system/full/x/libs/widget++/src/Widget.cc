@@ -12,18 +12,16 @@ Widget::Widget(void)  {
 	next = NULL;
 	prev = NULL;
 	area = {0, 0, 0, 0};
-	bgColor = 0x0; //transparent
-	fgColor = 0xff000000;
 	marginH = 0;
 	marginV = 0;
 	id = _idCounter++;
 	isContainer = false;
 }
 
-void Widget::onRepaint(graph_t* g, const grect_t& r) {
-	if(bgColor == 0x0)
+void Widget::onRepaint(graph_t* g, const Theme* theme, const grect_t& r) {
+	if(theme->bgColor == 0)
 		return;
-	graph_fill(g, r.x, r.y, r.w, r.h, bgColor);
+	graph_fill(g, r.x, r.y, r.w, r.h, theme->bgColor);
 }
 
 bool Widget::onEvent(xevent_t* ev) { 
@@ -49,10 +47,10 @@ RootWidget* Widget::getRoot(void) {
 	return (RootWidget*)wd;
 }
 
-void Widget::repaint(graph_t* g) {
+void Widget::repaint(graph_t* g, const Theme* theme) {
 	grect_t r = getRootArea();
 	graph_set_clip(g, r.x, r.y, r.w, r.h);
-	onRepaint(g, r);
+	onRepaint(g, theme, r);
 	dirty = false;
 }
 

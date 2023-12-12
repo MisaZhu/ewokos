@@ -3,13 +3,13 @@
 using namespace EwokSTL;
 namespace Ewok {
 
-void Label::onRepaint(graph_t* g, const grect_t& r) {
-	Widget::onRepaint(g, r);
+void Label::onRepaint(graph_t* g, const Theme* theme, const grect_t& r) {
+	Widget::onRepaint(g, theme, r);
 	if(font == NULL)
 		return;
 
 	graph_draw_text_font_align(g, r.x+marginH, r.y+marginV, r.w-marginH*2, r.h-marginV*2,
-				label.c_str(), font, fgColor, FONT_ALIGN_CENTER);
+				label.c_str(), font, theme->fgColor, FONT_ALIGN_CENTER);
 }
 
 Label::Label(font_t* font, const char* str) {

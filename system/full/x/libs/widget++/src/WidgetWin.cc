@@ -3,7 +3,7 @@
 namespace Ewok {
 
 void WidgetWin::onRepaint(graph_t* g) {
-	rootWidget.repaint(g);
+	rootWidget.repaint(g, rootWidget.theme);
 }
 
 void WidgetWin::onResize(void) {

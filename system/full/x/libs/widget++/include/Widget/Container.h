@@ -16,7 +16,7 @@ class Container: public Widget {
 protected:
 	void onResize();
 	bool onEvent(xevent_t* ev);
-	void repaint(graph_t* g);
+	void repaint(graph_t* g, const Theme* theme);
 
 public:
 	static const int FIXED = 0;

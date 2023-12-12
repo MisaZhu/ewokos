@@ -3,7 +3,7 @@
 
 #include <x++/XWin.h>
 #include <string.h>
-#include <sys/klog.h>
+#include <Widget/Theme.h>
 
 namespace Ewok {
 
@@ -17,8 +17,6 @@ class Widget {
 	bool isContainer;
 protected:
 	uint32_t id;
-	uint32_t fgColor;
-	uint32_t bgColor;
 	int32_t marginH;
 	int32_t marginV;
 	Container* father;
@@ -34,15 +32,13 @@ protected:
 	virtual bool onMouse(xevent_t* ev) {  return false; }
 	virtual bool onKey(xevent_t* ev) {  return false; }
 
-	virtual void repaint(graph_t* g);
-	virtual void onRepaint(graph_t* g, const grect_t& r);
+	virtual void repaint(graph_t* g, const Theme* theme);
+	virtual void onRepaint(graph_t* g, const Theme* theme, const grect_t& r);
 	virtual bool onEvent(xevent_t* ev);
 public:
 	Widget(void);
 	virtual ~Widget() { }
 
-	inline void setFGColor(uint32_t color) { fgColor = color; update(); }
-	inline void setBGColor(uint32_t color) { bgColor = color; update(); }
 	inline void setMarginH(int32_t v) { marginH = v; }
 	inline void setMarginV(int32_t v) { marginV = v; }
 	inline void setFixed(bool fixed) { this->fixed = fixed; }
