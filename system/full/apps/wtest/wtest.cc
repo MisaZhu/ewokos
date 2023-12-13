@@ -1,32 +1,23 @@
 #include <Widget/WidgetWin.h>
 #include <Widget/Image.h>
 #include <Widget/Label.h>
-#include <Widget/Button.h>
+#include <Widget/LabelButton.h>
 #include <x++/X.h>
 #include <unistd.h>
 #include <font/font.h>
 #include <sys/basic_math.h>
+#include <sys/klog.h>
 
 using namespace Ewok;
 
-class MyButton: public Button {
+class MyButton: public LabelButton {
 protected:
-	void paintDown(graph_t* g, const Theme* theme, const grect_t& r) {
-		Button::paintDown(g, theme, r);
-		graph_draw_text_font_align(g, r.x, r.y, r.w, r.h,
-				"Down!", theme->font, theme->fgColor, FONT_ALIGN_CENTER);
+	void onClick() {
+		klog("click %s!\n", label.c_str());
 	}
 
-	void paintUp(graph_t* g, const Theme* theme, const grect_t& r) {
-		Button::paintUp(g, theme, r);
-		graph_draw_text_font_align(g, r.x, r.y, r.w, r.h,
-					"Widget", theme->font, theme->fgColor, FONT_ALIGN_CENTER);
-	}
-
-	void paintDisabled(graph_t* g, const Theme* theme, const grect_t& r) {
-		Button::paintDisabled(g, theme, r);
-		graph_draw_text_font_align(g, r.x, r.y, r.w, r.h,
-					"Disable", theme->font, 0xffdddddd, FONT_ALIGN_CENTER);
+public: 
+	MyButton(const string& label = "") : LabelButton(label) {
 	}
 };
 
@@ -51,14 +42,13 @@ int main(int argc, char** argv) {
 	c->fix(0, 40);
 	win.getRoot()->add(c);
 
-	wd = new Label(X::getSysFont(), "Label");
+	wd = new Label("Label");
 	c->add(wd);
 
-	wd = new MyButton();
+	wd = new MyButton("test");
 	c->add(wd);
 
-	wd = new MyButton();
-	wd->fix(100, 0);
+	wd = new MyButton("disable");
 	wd->disable();
 	c->add(wd);
 

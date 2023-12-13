@@ -1,4 +1,5 @@
 #include <Widget/Button.h>
+#include <sys/klog.h>
 
 namespace Ewok {
 
@@ -10,6 +11,9 @@ bool Button::onMouse(xevent_t* ev) {
 	else if(ev->state == XEVT_MOUSE_UP) {
 		state = STATE_UP;
 		update();
+	}
+	else if(ev->state == XEVT_MOUSE_CLICK) {
+		onClick();
 	}
 	return true;
 }

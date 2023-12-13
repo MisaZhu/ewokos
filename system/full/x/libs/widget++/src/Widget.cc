@@ -1,5 +1,6 @@
 #include <Widget/Widget.h>
 #include <Widget/RootWidget.h>
+#include <sys/klog.h>
 
 namespace Ewok {
 
@@ -19,14 +20,36 @@ Widget::Widget(void)  {
 	disabled = false;
 }
 
+bool Widget::onMouse(xevent_t* ev) {
+	return false;
+}
+
+bool Widget::onKey(xevent_t* ev) {
+	return false;
+}
+
+void Widget::sendEvent(xevent_t* ev) { 
+	if(ev->type == XEVT_MOUSE) {
+		onMouse(ev);
+	}
+	else if(ev->type == XEVT_IM) {
+		onKey(ev);
+	}
+}
+
 bool Widget::onEvent(xevent_t* ev) { 
 	if(disabled)
 		return false;
+
 	if(ev->type == XEVT_MOUSE) {
 		grect_t r = getScreenArea();
 		if(ev->value.mouse.x > r.x && ev->value.mouse.x < (r.x+r.w) &&
-				ev->value.mouse.y > r.y && ev->value.mouse.y < (r.y+r.h))
+				ev->value.mouse.y > r.y && ev->value.mouse.y < (r.y+r.h)) {
+			if(ev->state == XEVT_MOUSE_DOWN) {
+				getRoot()->setFocus(this);
+			}
 			return onMouse(ev);
+		}
 	}
 	else if(ev->type == XEVT_IM) {
 			return onKey(ev);

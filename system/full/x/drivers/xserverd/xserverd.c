@@ -1267,10 +1267,12 @@ static int mouse_handle(x_t* x, xevent_t* ev) {
 			ev->value.mouse.rx = 0;
 			ev->value.mouse.ry = 0;
 		}
-		//else if(ev->value.mouse.from_x != ev->value.mouse.x ||
-		//			ev->value.mouse.from_y != ev->value.mouse.y) {
-		else if(x->mouse_state.last_pos.x != ev->value.mouse.x ||
+		/*else if(ev->value.mouse.from_x != ev->value.mouse.x ||
+					ev->value.mouse.from_y != ev->value.mouse.y ||
+					x->mouse_state.last_pos.x != ev->value.mouse.x ||
 					x->mouse_state.last_pos.y != ev->value.mouse.y) {
+						*/
+		else {
 			ev->state = XEVT_MOUSE_DRAG;
 			ev->value.mouse.from_x = x->mouse_state.down_pos.x;
 			ev->value.mouse.from_y = x->mouse_state.down_pos.y;

@@ -14,6 +14,7 @@ LIB_WIDGET_OBJS =  src/Widget.o \
 		src/Image.o \
 		src/Label.o \
 		src/Button.o \
+		src/LabelButton.o \
 		src/RootWidget.o \
 		src/WidgetWin.o
 

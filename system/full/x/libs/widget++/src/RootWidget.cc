@@ -1,10 +1,12 @@
 #include <Widget/RootWidget.h>
+#include <sys/klog.h>
 
 namespace Ewok {
 
 RootWidget::RootWidget() {
 	doRefresh = false;
 	theme = Theme::load("");
+	focusedWidget = NULL;
 	xwin = NULL;
 }
 
@@ -36,6 +38,13 @@ void RootWidget::update() {
 }
 
 void RootWidget::sendEvent(xevent_t* ev) {
+	if(ev->type == XEVT_MOUSE && 
+			ev->state == XEVT_MOUSE_UP &&
+			focusedWidget != NULL) {
+		focusedWidget->sendEvent(ev); 
+		setFocus(NULL);
+		return;
+	}
 	onEvent(ev);
 }
 

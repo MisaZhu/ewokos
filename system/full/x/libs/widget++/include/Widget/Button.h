@@ -19,8 +19,10 @@ protected:
 	virtual void paintUp(graph_t* g, const Theme* theme, const grect_t& r);
 	virtual void paintDisabled(graph_t* g, const Theme* theme, const grect_t& r);
 	void onRepaint(graph_t* g, const Theme* theme, const grect_t& r);
+	virtual bool onMouse(xevent_t* ev);
 
-	bool onMouse(xevent_t* ev);
+	virtual void onClick() = 0;
+
 };
 
 }

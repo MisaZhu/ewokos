@@ -9,6 +9,7 @@
 #include <Widget/WidgetWin.h>
 #include <Widget/Image.h>
 #include <Widget/Label.h>
+#include <Widget/LabelButton.h>
 #include <Widget/Blank.h>
 #include <fcntl.h>
 #include <string.h>
@@ -21,17 +22,17 @@ public:
 	Menu() {
 		setType(Container::VERTICLE);
 	
-		Widget* wd = new Label(X::getSysFont(), "item1");
+		Widget* wd = new Label("item1");
 		wd->setMarginH(4);
 		wd->setMarginV(4);
 		add(wd);
 
-		wd = new Label(X::getSysFont(), "item2");
+		wd = new Label("item2");
 		wd->setMarginH(4);
 		wd->setMarginV(4);
 		add(wd);
 
-		wd = new Label(X::getSysFont(), "item3");
+		wd = new Label("item3");
 		wd->setMarginH(4);
 		wd->setMarginV(4);
 		add(wd);
@@ -145,13 +146,13 @@ protected:
 	}
 
 	bool onMouse(xevent_t* ev) {
-		if(ev->state == XEVT_MOUSE_CLICK) {
+		if(ev->state == XEVT_MOUSE_CLICK)
 			onClick();
-		}
 		return true;
 	}
+
 public:
-	MenubarItem(font_t* font, const char* str): Label(font, str) { 
+	MenubarItem(const string& str): Label(str) { 
 		menu = NULL;
 	}
 
@@ -161,8 +162,6 @@ public:
 			delete menu;
 		}
 	}
-
-	
 };
 
 class Menubar : public RootWidget {
@@ -180,21 +179,21 @@ public:
 		wd->fix(wd->getMinSize());
 		add(wd);
 	
-		wd = new MenubarItem(X::getSysFont(), "EwokOS");
-		wd->setMarginH(10);
-		wd->fix(wd->getMinSize());
+		wd = new MenubarItem("EwokOS");
+		wd->setMarginH(4);
+		wd->fix(64, 0);
 		add(wd);
 
-		wd = new MenubarItem(X::getSysFont(), "EwokOS1");
-		wd->setMarginH(10);
-		wd->fix(wd->getMinSize());
+		wd = new MenubarItem("EwokOS1");
+		wd->setMarginH(4);
+		wd->fix(64, 0);
 		add(wd);
 
 		wd = new Blank();
 		add(wd);
 
 		wd = new BatteryItem();
-		wd->setMarginH(10);
+		wd->setMarginH(4);
 		wd->fix(wd->getMinSize());
 		add(wd);
 	}

@@ -10,7 +10,6 @@ namespace Ewok {
 class Container;
 class RootWidget;
 class Widget {
-	friend Container;
 	Widget* next;
 	Widget* prev;
 
@@ -30,13 +29,14 @@ protected:
 
 	virtual void onResize() { }
 	virtual void onMove() { }
-	virtual bool onMouse(xevent_t* ev) {  return false; }
-	virtual bool onKey(xevent_t* ev) {  return false; }
+	virtual bool onMouse(xevent_t* ev);
+	virtual bool onKey(xevent_t* ev);
 
 	virtual void repaint(graph_t* g, const Theme* theme);
 	virtual void onRepaint(graph_t* g, const Theme* theme, const grect_t& r) = 0;
 	virtual bool onEvent(xevent_t* ev);
 public:
+	friend Container;
 	Widget(void);
 	virtual ~Widget() { }
 
@@ -45,6 +45,7 @@ public:
 	inline void setFixed(bool fixed) { this->fixed = fixed; }
 	inline void setAlpha(bool alpha) { this->alpha = alpha; }
 	inline bool isAlpha() { return alpha; }
+	inline uint32_t getID() { return id; }
 
 	void disable();
 	void enable();
@@ -66,6 +67,7 @@ public:
 
 	virtual gsize_t getMinSize(void);
 	virtual void update();
+	virtual void sendEvent(xevent_t* ev);
 };
 
 }
