@@ -22,14 +22,17 @@ public:
 		setType(Container::VERTICLE);
 	
 		Widget* wd = new Label(X::getSysFont(), "item1");
+		wd->setMarginH(4);
 		wd->setMarginV(4);
 		add(wd);
 
 		wd = new Label(X::getSysFont(), "item2");
+		wd->setMarginH(4);
 		wd->setMarginV(4);
 		add(wd);
 
 		wd = new Label(X::getSysFont(), "item3");
+		wd->setMarginH(4);
 		wd->setMarginV(4);
 		add(wd);
 	}

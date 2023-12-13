@@ -144,10 +144,8 @@ int main(int argc, char* argv[]) {
 	grect_t desk;
 
 	X x;
-	x.getDesktopSpace(desk, 0);
-
 	TestX xwin;
-	x.open(0, &desk, &xwin, 0, 0, "gtest", XWIN_STYLE_NORMAL);
+	x.open(0, &xwin, 0, 0, "gtest", XWIN_STYLE_NORMAL);
 	xwin.setVisible(true);
 
 	_xwin = &xwin;
