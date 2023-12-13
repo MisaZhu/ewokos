@@ -25,7 +25,7 @@ $(WTEST): $(WTEST_OBJS) \
 		$(BUILD_DIR)/lib/libhash.a \
 		$(BUILD_DIR)/lib/libwidget++.a \
 		$(BUILD_DIR)/lib/libcxx.a 
-	$(LD) -Ttext=100 $(WTEST_OBJS) -o $(WTEST) $(LDFLAGS) -lgraph -lbsp -lttf -lfont -lhash -lwidget++ -lx++ -lx -lupng -lewokstl -lewokc -lc_nano -lcxx -lnosys
+	$(LD) -Ttext=100 $(WTEST_OBJS) -o $(WTEST) $(LDFLAGS) -lwidget++  -lgraph -lbsp -lttf -lfont -lhash -lx++ -lx -lupng -lewokstl -lewokc -lc_nano -lcxx -lnosys
 
 $(WTEST_DIR):
 	mkdir -p $(WTEST_DIR)

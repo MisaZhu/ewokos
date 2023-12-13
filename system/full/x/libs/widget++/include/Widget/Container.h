@@ -1,10 +1,10 @@
 #ifndef WIDGET_CONTAINER_HH
 #define WIDGET_CONTAINER_HH
 
-#include <Widget/Widget.h>
+#include <Widget/Blank.h>
 namespace Ewok {
 
-class Container: public Widget {
+class Container: public Blank {
 	Widget* children;
 	Widget* childrenEnd;
 	uint32_t num;

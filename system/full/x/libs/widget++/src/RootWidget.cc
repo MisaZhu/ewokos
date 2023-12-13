@@ -5,6 +5,7 @@ namespace Ewok {
 RootWidget::RootWidget() {
 	doRefresh = false;
 	theme = Theme::load("");
+	xwin = NULL;
 }
 
 void RootWidget::loadTheme(const char* theme) {
@@ -14,7 +15,15 @@ void RootWidget::loadTheme(const char* theme) {
 	update();
 }
 
+/*void RootWidget::onRepaint(graph_t* g, const Theme* theme, const grect_t& r) {
+	graph_fill(g, r.x, r.y, r.w, r.h, theme->bgColor);
+}
+*/
+
 void RootWidget::repaintWin() { 
+	if(xwin == NULL)
+		return;
+
 	if(doRefresh) {
 		xwin->repaint();
 		doRefresh = false;

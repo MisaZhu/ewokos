@@ -1,6 +1,7 @@
 #include <Widget/WidgetWin.h>
 #include <Widget/Image.h>
 #include <Widget/Label.h>
+#include <Widget/Button.h>
 #include <x++/X.h>
 #include <unistd.h>
 #include <font/font.h>
@@ -8,47 +9,24 @@
 
 using namespace Ewok;
 
-class MyWidget: public Widget {
-	font_t font;
-	bool down;
-
+class MyButton: public Button {
 protected:
-	void onRepaint(graph_t* g, const Theme* theme, const grect_t& rect) {
-		if(down)
-			graph_fill(g, rect.x, rect.y, rect.w, rect.h, 0xff222222);
-		else
-			graph_fill(g, rect.x, rect.y, rect.w, rect.h, 0xffdddddd);
-
-		graph_box(g, rect.x, rect.y, rect.w, rect.h, 0xffffffff);
-
-		if(down)
-			graph_draw_text_font_align(g, rect.x, rect.y, rect.w, rect.h,
-					"Down!", &font, 0xffdddddd, FONT_ALIGN_CENTER);
-		else
-			graph_draw_text_font_align(g, rect.x, rect.y, rect.w, rect.h,
-					"Widget", &font, 0xff222222, FONT_ALIGN_CENTER);
+	void paintDown(graph_t* g, const Theme* theme, const grect_t& r) {
+		Button::paintDown(g, theme, r);
+		graph_draw_text_font_align(g, r.x, r.y, r.w, r.h,
+				"Down!", theme->font, theme->fgColor, FONT_ALIGN_CENTER);
 	}
 
-	bool onMouse(xevent_t* ev) {
-		if(ev->state == XEVT_MOUSE_DOWN) {
-			down = true;
-			update();
-		}
-		else if(ev->state == XEVT_MOUSE_UP) {
-			down = false;
-			update();
-		}
-		return true;
+	void paintUp(graph_t* g, const Theme* theme, const grect_t& r) {
+		Button::paintUp(g, theme, r);
+		graph_draw_text_font_align(g, r.x, r.y, r.w, r.h,
+					"Widget", theme->font, theme->fgColor, FONT_ALIGN_CENTER);
 	}
 
-public:
-	MyWidget() {
-		down = false;
-		font_load(DEFAULT_SYSTEM_FONT, 24, &font, true);
-	}
-
-	~MyWidget() {
-		font_close(&font);
+	void paintDisabled(graph_t* g, const Theme* theme, const grect_t& r) {
+		Button::paintDisabled(g, theme, r);
+		graph_draw_text_font_align(g, r.x, r.y, r.w, r.h,
+					"Disable", theme->font, 0xffdddddd, FONT_ALIGN_CENTER);
 	}
 };
 
@@ -63,28 +41,30 @@ public:
 int main(int argc, char** argv) {
 	X x;
 	WidgetWin win;
+	win.setRoot(new RootWidget());
 
 	Widget* wd = new Image("/usr/system/images/mac1984.png");
-	win.getRootWidget()->add(wd);
+	win.getRoot()->add(wd);
 
 	Container* c = new Container();
 	c->setType(Container::HORIZONTAL);
 	c->fix(0, 40);
-	win.getRootWidget()->add(c);
+	win.getRoot()->add(c);
 
 	wd = new Label(X::getSysFont(), "Label");
 	c->add(wd);
 
-	wd = new MyWidget();
+	wd = new MyButton();
 	c->add(wd);
 
-	wd = new MyWidget();
+	wd = new MyButton();
 	wd->fix(100, 0);
+	wd->disable();
 	c->add(wd);
 
-	win.getRootWidget()->setType(Container::VERTICLE);
+	win.getRoot()->setType(Container::VERTICLE);
 
-	x.open(&win, 20, 20, 200, 200, "widgetTest", XWIN_STYLE_NORMAL);
+	x.open(0, &win, 400, 300, "widgetTest", XWIN_STYLE_NORMAL);
 	win.setVisible(true);
 	//x.run(loop, &win);
 	x.run(NULL, &win);

@@ -147,7 +147,7 @@ int main(int argc, char* argv[]) {
 	x.getDesktopSpace(desk, 0);
 
 	TestX xwin;
-	x.open(&desk, &xwin, 0, 0, "gtest", XWIN_STYLE_NORMAL);
+	x.open(0, &desk, &xwin, 0, 0, "gtest", XWIN_STYLE_NORMAL);
 	xwin.setVisible(true);
 
 	_xwin = &xwin;

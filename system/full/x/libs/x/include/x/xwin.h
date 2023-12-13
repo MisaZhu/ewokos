@@ -31,7 +31,7 @@ typedef struct st_xwin {
 	void (*on_event)(struct st_xwin* xwin, xevent_t* ev);
 } xwin_t;
 
-xwin_t*  xwin_open(x_t* xp, int x, int y, int w, int h, const char* title, int style);
+xwin_t*  xwin_open(x_t* xp, uint32_t disp_index, int x, int y, int w, int h, const char* title, int style);
 void     xwin_close(xwin_t* x);
 int      xwin_set_visible(xwin_t* x, bool visible);
 int      xwin_top(xwin_t* x);

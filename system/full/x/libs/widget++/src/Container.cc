@@ -76,6 +76,8 @@ void  Container::onResize() {
 }
 
 bool  Container::onEvent(xevent_t* ev) {
+	if(disabled)
+		return false;
 	Widget* wd = childrenEnd;
 	while(wd != NULL) {
 		if(wd->onEvent(ev)) {
@@ -161,5 +163,4 @@ void  Container::clear() {
 Container::~Container() {
 	clear();
 }
-
 }

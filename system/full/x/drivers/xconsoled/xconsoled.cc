@@ -172,7 +172,7 @@ int main(int argc, char** argv) {
 	w = w==0 ? scr.size.w:w;
 	h = h==0 ? scr.size.h:h;
 
-	x.open(&xwin, (scr.size.w-w)/2, scr.size.h-h, w, h, "xconsoled",
+	x.open(0, &xwin, (scr.size.w-w)/2, scr.size.h-h, w, h, "xconsoled",
 			XWIN_STYLE_NO_TITLE | XWIN_STYLE_NO_FOCUS | XWIN_STYLE_SYSTOP | XWIN_STYLE_LAZY);
 	xwin.setVisible(false);
 	xwin.setAlpha(true);

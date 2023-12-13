@@ -16,15 +16,12 @@ Widget::Widget(void)  {
 	marginV = 0;
 	id = _idCounter++;
 	isContainer = false;
-}
-
-void Widget::onRepaint(graph_t* g, const Theme* theme, const grect_t& r) {
-	if(theme->bgColor == 0)
-		return;
-	graph_fill(g, r.x, r.y, r.w, r.h, theme->bgColor);
+	disabled = false;
 }
 
 bool Widget::onEvent(xevent_t* ev) { 
+	if(disabled)
+		return false;
 	if(ev->type == XEVT_MOUSE) {
 		grect_t r = getScreenArea();
 		if(ev->value.mouse.x > r.x && ev->value.mouse.x < (r.x+r.w) &&
@@ -64,6 +61,16 @@ void Widget::update() {
 	RootWidget* root = getRoot();
 	if(root != NULL)
 		root->refresh();
+}
+
+void Widget::disable() {
+	disabled = true;
+	update();
+}
+
+void Widget::enable() {
+	disabled = false;
+	update();
 }
 
 gsize_t Widget::getMinSize(void) {
@@ -164,5 +171,6 @@ grect_t Widget::getScreenArea(bool margin) {
 		return {pos.x+marginH, pos.y+marginV, area.w-marginH*2, area.h-marginV*2};
 	return {pos.x, pos.y, area.w, area.h};
 }
+
 
 }

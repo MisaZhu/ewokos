@@ -57,9 +57,12 @@ static int  x_get_win_rect(int xfd, int style, grect_t* wsr, grect_t* win_space)
 	return ret;
 }
 
-xwin_t* xwin_open(x_t* xp, int x, int y, int w, int h, const char* title, int style) {
+xwin_t* xwin_open(x_t* xp, uint32_t disp_index, int x, int y, int w, int h, const char* title, int style) {
 	if(w <= 0 || h <= 0)
 		return NULL;
+
+	if(disp_index >= x_get_display_num())
+		disp_index = 0;
 
 	int fd = open("/dev/x", O_RDWR);
 	if(fd < 0)
@@ -83,6 +86,7 @@ xwin_t* xwin_open(x_t* xp, int x, int y, int w, int h, const char* title, int st
 	memset(ret->xinfo, 0, sizeof(xinfo_t));
 	ret->xinfo->win = (uint32_t)ret;
 	ret->xinfo->style = style;
+	ret->xinfo->display_index = disp_index;
 	memcpy(&ret->xinfo->wsr, &r, sizeof(grect_t));
 	strncpy(ret->xinfo->title, title, XWIN_TITLE_MAX-1);
 	xwin_update_info(ret, X_UPDATE_REBUILD | X_UPDATE_REFRESH);
@@ -156,6 +160,9 @@ void xwin_repaint_req(xwin_t* xwin) {
 */
 
 int xwin_set_display(xwin_t* xwin, uint32_t display_index) {
+	if(display_index >= x_get_display_num())
+		display_index = 0;
+
 	xwin->xinfo->display_index = display_index;
 	xwin_update_info(xwin, X_UPDATE_REFRESH);
 	return 0;

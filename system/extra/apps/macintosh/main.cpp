@@ -235,7 +235,7 @@ int main(int argc, char *argv[])
 	X x;
 	x.getScreenInfo(scr, 0);
 
-	x.open(&scr, &emu, 512, 342, "Macintosh", XWIN_STYLE_NORMAL);
+	x.open(0, &scr, &emu, 512, 342, "Macintosh", XWIN_STYLE_NORMAL);
 	emu.setVisible(true);
 
 	pthread_t tid;

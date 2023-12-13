@@ -9,13 +9,32 @@
 #include <Widget/WidgetWin.h>
 #include <Widget/Image.h>
 #include <Widget/Label.h>
+#include <Widget/Blank.h>
 #include <fcntl.h>
 #include <string.h>
 #include <sys/timer.h>
 
 using namespace Ewok;
 
-class Menu : public WidgetWin {
+class Menu : public RootWidget {
+public:
+	Menu() {
+		setType(Container::VERTICLE);
+	
+		Widget* wd = new Label(X::getSysFont(), "item1");
+		wd->setMarginV(4);
+		add(wd);
+
+		wd = new Label(X::getSysFont(), "item2");
+		wd->setMarginV(4);
+		add(wd);
+
+		wd = new Label(X::getSysFont(), "item3");
+		wd->setMarginV(4);
+		add(wd);
+	}
+};
+class MenuWin : public WidgetWin {
 
 protected:
 	void onRepaint(graph_t* g) {
@@ -30,24 +49,9 @@ protected:
 		setVisible(false);
 	}
 public:
-	Menu() {
-		Container* container = getRootWidget();
-		container->setType(Container::VERTICLE);
-	
-		Widget* wd = new Label(X::getSysFont(), "item1");
-		wd->setMarginV(4);
-		//wd->fixedMinSize();
-		container->add(wd);
-
-		wd = new Label(X::getSysFont(), "item2");
-		wd->setMarginV(4);
-		//wd->fixedMinSize();
-		container->add(wd);
-
-		wd = new Label(X::getSysFont(), "item3");
-		wd->setMarginV(4);
-		//wd->fixedMinSize();
-		container->add(wd);
+	MenuWin() {
+		Menu *menu = new Menu();
+		setRoot(menu);
 	}
 };
 
@@ -125,14 +129,14 @@ public:
 
 X* _x = NULL;
 class MenubarItem : public Label {
-	Menu *menu;
+	MenuWin *menu;
 protected:
 	void onClick() {
 		grect_t r = getScreenArea();
 
 		if(menu == NULL) {
-			menu = new Menu();
-			_x->open(menu, r.x, r.y+r.h, 100, 100, "menu", XWIN_STYLE_NO_FRAME);
+			menu = new MenuWin();
+			_x->open(0, menu, r.x, r.y+r.h, 100, 100, "menu", XWIN_STYLE_NO_FRAME);
 		}
 		menu->pop();
 	}
@@ -148,47 +152,55 @@ public:
 		menu = NULL;
 	}
 
+	~MenubarItem() {
+		if(menu != NULL) {
+			menu->close();
+			delete menu;
+		}
+	}
+
 	
 };
 
-class Menubar : public WidgetWin {
+class Menubar : public RootWidget {
+protected:
+	void onRepaint(graph_t* g, const Theme* theme, const grect_t& r) {
+		graph_fill(g, r.x, r.y, r.w, r.h, theme->bgColor);
+	}
+
 public:
 	Menubar() {
-		RootWidget* container = getRootWidget();
-		container->setType(Container::HORIZONTAL);
+		setType(Container::HORIZONTAL);
 
 		Widget* wd = new Image("/usr/system/icons/os.png");
 		wd->setMarginH(10);
 		wd->fix(wd->getMinSize());
-		container->add(wd);
+		add(wd);
 	
 		wd = new MenubarItem(X::getSysFont(), "EwokOS");
 		wd->setMarginH(10);
 		wd->fix(wd->getMinSize());
-		container->add(wd);
+		add(wd);
 
 		wd = new MenubarItem(X::getSysFont(), "EwokOS1");
 		wd->setMarginH(10);
 		wd->fix(wd->getMinSize());
-		container->add(wd);
+		add(wd);
 
-		wd = new Widget();
-		container->add(wd);
+		wd = new Blank();
+		add(wd);
 
 		wd = new BatteryItem();
 		wd->setMarginH(10);
 		wd->fix(wd->getMinSize());
-		container->add(wd);
-	}
-
-	~Menubar() {
+		add(wd);
 	}
 };
 
-static Menubar* _xwin = NULL;
+static WidgetWin* _xwin = NULL;
 static void timer_handler(void) {
-	_xwin->getRootWidget()->update();
-	_xwin->getRootWidget()->repaintWin();
+	_xwin->getRoot()->update();
+	_xwin->getRoot()->repaintWin();
 }
 
 int main(int argc, char* argv[]) {
@@ -196,9 +208,13 @@ int main(int argc, char* argv[]) {
 	_x = &x;
 	xscreen_t scr;
 	x.getScreenInfo(scr, 0);
-	Menubar xwin;
-	x.open(&xwin, 0, 0, scr.size.w, 28, "menubar",
-			XWIN_STYLE_NO_FRAME | XWIN_STYLE_NO_FOCUS| XWIN_STYLE_SYSBOTTOM);
+
+	WidgetWin xwin;
+	xwin.setRoot(new Menubar());
+
+	x.open(0, &xwin, 0, 0, scr.size.w, 28, "menubar",
+			XWIN_STYLE_NO_FRAME | XWIN_STYLE_NO_FOCUS| XWIN_STYLE_SYSBOTTOM | XWIN_STYLE_ANTI_FSCR);
+	
 	xwin.setVisible(true);
 
 	grect_t desk;

@@ -174,7 +174,7 @@ int main(int argc, char* argv[]) {
 		xwin.openBook("/data/books/tb.txt");
 	}
 	X x;
-	x.open(&xwin, 32,
+	x.open(0, &xwin, 32,
 			32,
 			300,
 			200,

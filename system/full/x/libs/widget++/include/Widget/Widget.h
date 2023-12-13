@@ -23,6 +23,7 @@ protected:
 
 	bool dirty;
 	bool fixed;
+	bool disabled;
 	bool alpha;
 
 	grect_t area;
@@ -33,7 +34,7 @@ protected:
 	virtual bool onKey(xevent_t* ev) {  return false; }
 
 	virtual void repaint(graph_t* g, const Theme* theme);
-	virtual void onRepaint(graph_t* g, const Theme* theme, const grect_t& r);
+	virtual void onRepaint(graph_t* g, const Theme* theme, const grect_t& r) = 0;
 	virtual bool onEvent(xevent_t* ev);
 public:
 	Widget(void);
@@ -45,15 +46,18 @@ public:
 	inline void setAlpha(bool alpha) { this->alpha = alpha; }
 	inline bool isAlpha() { return alpha; }
 
-	virtual void update();
-	RootWidget* getRoot(void);
+	void disable();
+	void enable();
 	void fix(const gsize_t& size);
 	void fix(uint32_t w, uint32_t h);
+
 	void resizeTo(int w, int h);
 	void resize(int dw, int dh);
 	void moveTo(int x, int y);
 	void move(int dx, int dy);
 	void setArea(int x, int y, int w, int h);
+
+	RootWidget* getRoot(void);
 	gpos_t getRootPos(int32_t x = 0, int32_t y = 0);
 	gpos_t getScreenPos(int32_t x = 0, int32_t y = 0);
 	gpos_t getInsidePos(int32_t screenX, int32_t screenY);
@@ -61,6 +65,7 @@ public:
 	grect_t getScreenArea(bool margin = true);
 
 	virtual gsize_t getMinSize(void);
+	virtual void update();
 };
 
 }

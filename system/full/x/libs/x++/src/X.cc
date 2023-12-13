@@ -8,8 +8,8 @@ using namespace Ewok;
 
 static font_t* _sysFont = NULL;
 
-bool X::open(XWin* xwin, int x, int y, uint32_t w, uint32_t h, const char* title, uint32_t style) {
-	xwin_t* xw = xwin_open(&this->x, x, y, w, h, title, style);
+bool X::open(uint32_t dispIndex, XWin* xwin, int x, int y, uint32_t w, uint32_t h, const char* title, uint32_t style) {
+	xwin_t* xw = xwin_open(&this->x, dispIndex, x, y, w, h, title, style);
 	if(xw == NULL)
 		return false;
 	xwin->setX(this);
@@ -17,7 +17,7 @@ bool X::open(XWin* xwin, int x, int y, uint32_t w, uint32_t h, const char* title
 	return true;
 }
 
-bool X::open(grect_t* desk, XWin* xwin, uint32_t w, uint32_t h, const char* title, uint32_t style) {
+bool X::open(uint32_t dispIndex, grect_t* desk, XWin* xwin, uint32_t w, uint32_t h, const char* title, uint32_t style) {
 	uint32_t minW = desk->w/3;
 	uint32_t minH = desk->h/3;
 	if(w == 0)
@@ -32,24 +32,27 @@ bool X::open(grect_t* desk, XWin* xwin, uint32_t w, uint32_t h, const char* titl
 	int32_t y = 20 + desk->y;
 	if(desk->h > h)
 		y = 20 + random_to(desk->h - h) + desk->y;
-	return open(xwin, x, y, w, h, title, style);
+	return open(dispIndex, xwin, x, y, w, h, title, style);
 }
 
-bool X::open(xscreen_t* scr, XWin* xwin, uint32_t w, uint32_t h, const char* title, uint32_t style) {
-	uint32_t minW = scr->size.w/3;
-	uint32_t minH = scr->size.h/3;
+bool X::open(uint32_t dispIndex, XWin* xwin, uint32_t w, uint32_t h, const char* title, uint32_t style) {
+	xscreen_t scr;
+	getScreenInfo(scr, dispIndex);
+
+	uint32_t minW = scr.size.w/3;
+	uint32_t minH = scr.size.h/3;
 	if(w == 0)
-		w = minW + random_to(scr->size.w - minW);
+		w = minW + random_to(scr.size.w - minW);
 	if(h == 0)
-		h = minH + random_to(scr->size.h - minH - 20);
+		h = minH + random_to(scr.size.h - minH - 20);
 	int32_t x = 0;
-	if(scr->size.w > w)
-		x = random_to(scr->size.w - w);
+	if(scr.size.w > w)
+		x = random_to(scr.size.w - w);
 
 	int32_t y = 20;
-	if(scr->size.h > h)
-		y = 20 + (int32_t)random_to(scr->size.h - h);
-	return open(xwin, x, y, w, h, title, style);
+	if(scr.size.h > h)
+		y = 20 + (int32_t)random_to(scr.size.h - h);
+	return open(dispIndex, xwin, x, y, w, h, title, style);
 }
 
 X::X(void) {
@@ -73,6 +76,10 @@ void X::terminate(void) {
 
 bool X::getScreenInfo(xscreen_t& scr, int index) {
 	return (x_screen_info(&scr, index) == 0);
+}
+
+uint32_t X::getDisplayNum() {
+	return x_get_display_num();
 }
 
 const char* X::getResName(const char* name) {

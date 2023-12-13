@@ -170,9 +170,7 @@ int main(int argc, char* argv[]) {
 	xwin.readConfig(x_get_theme_fname(X_THEME_ROOT, "xtext", "theme.conf"));
 
 	X x;
-	xscreen_t scr;
- 	x.getScreenInfo(scr, 0);
-	x.open(&xwin, 64, 40, scr.size.w*3/4, scr.size.h*3/4, "xtext", 0);
+	x.open(0, &xwin, 0, 0, "xtext", 0);
 	xwin.setVisible(true);
 
 	if(text != NULL && size > 0) {

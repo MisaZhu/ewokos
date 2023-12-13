@@ -91,20 +91,16 @@ static void loop(void* p) {
 int main(int argc, char* argv[]) {
 	(void)argc;
 	(void)argv;
-	xscreen_t scr;
-
 	X x;
 
 	int displayNum = x_get_display_num();
 	if(displayNum == 0)
 		return -1;
 
-	x.getScreenInfo(scr, displayNum-1);
-
 	TestX xwin;
 	int32_t w, h;
 	xwin.getSize(w, h);
-	x.open(&scr, &xwin, w, h,
+	x.open(0, &xwin, w, h,
 			"anim", XWIN_STYLE_NO_FRAME | XWIN_STYLE_NO_FOCUS | XWIN_STYLE_SYSTOP);
 
 	xwin.setDisplay(displayNum-1);

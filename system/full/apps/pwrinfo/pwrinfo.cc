@@ -102,13 +102,10 @@ static void timer_handler(void) {
 int main(int argc, char* argv[]) {
 	(void)argc;
 	(void)argv;
-	grect_t desk;
 
 	X x;
-	x.getDesktopSpace(desk, 0);
-
 	PowerInfoX xwin;
-	x.open(&desk, &xwin, 64, 32, "pwrInfo", XWIN_STYLE_NO_FRAME);
+	x.open(0, &xwin, 64, 32, "pwrInfo", XWIN_STYLE_NO_FRAME);
 	xwin.setVisible(true);
 
 	_xwin = &xwin;
