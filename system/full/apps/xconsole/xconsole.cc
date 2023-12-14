@@ -72,7 +72,9 @@ public:
 		if(v[0] == 0) 
 			v = DEFAULT_SYSTEM_FONT;
 		
-		font_load(v, font_size, &console.textview.font, true);
+		if(console.textview.font != NULL)
+			font_free(console.textview.font);
+		console.textview.font = font_new(v, font_size, true);
 
 		sconf_free(sconf);
 
@@ -107,7 +109,7 @@ protected:
 
 	void onRepaint(graph_t* g) {
 		if(console.textview.w != g->w || console.textview.h != g->h) {
-			rollStepRows = (g->h / console.textview.font.max_size.y) / 2;
+			rollStepRows = (g->h / console.textview.font->max_size.y) / 2;
 			console_reset(&console, g->w, g->h);
 		}
 		console_refresh(&console, g);
@@ -123,7 +125,7 @@ protected:
 			return;
 		}
 		else if(ev->state == XEVT_MOUSE_DRAG) {
-			int mv = (mouse_last_y - ev->value.mouse.y) / console.textview.font.max_size.y;
+			int mv = (mouse_last_y - ev->value.mouse.y) / console.textview.font->max_size.y;
 			if(abs_32(mv) > 0) {
 				mouse_last_y = ev->value.mouse.y;
 				//drag release

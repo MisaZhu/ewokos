@@ -44,7 +44,7 @@ public:
 
 		sconf_t *sconf = sconf_load(fname);	
 		if(sconf == NULL) {
-			font_load(DEFAULT_SYSTEM_FONT, 12, &textview.font, true);
+			textview.font = font_new(DEFAULT_SYSTEM_FONT, 12, true);
 			textview.font_size = 12;
 			return false;
 		}
@@ -78,8 +78,9 @@ public:
 		v = sconf_get(sconf, "font");
 		if(v[0] == 0) 
 			v = DEFAULT_SYSTEM_FONT;
-		
-		font_load(v, font_size, &textview.font, true);
+
+		if(textview.font != NULL)
+			textview.font = font_new(v, font_size, true);
 
 		sconf_free(sconf);
 
@@ -112,7 +113,7 @@ protected:
 
 	void onRepaint(graph_t* g) {
 		if(textview.w != g->w || textview.h != g->h) {
-			rollStepRows = (g->h / textview.font.max_size.y) / 2;
+			rollStepRows = (g->h / textview.font->max_size.y) / 2;
 			textview_reset(&textview, g->w, g->h, false);
 		}
 		textview_refresh(&textview, g);
@@ -124,7 +125,7 @@ protected:
 			return;
 		}
 		else if(ev->state == XEVT_MOUSE_DRAG) {
-			int mv = (mouse_last_y - ev->value.mouse.y) / textview.font.max_size.y;
+			int mv = (mouse_last_y - ev->value.mouse.y) / textview.font->max_size.y;
 			if(abs_32(mv) > 0) {
 				mouse_last_y = ev->value.mouse.y;
 				//drag release

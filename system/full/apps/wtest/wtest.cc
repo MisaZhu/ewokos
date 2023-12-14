@@ -2,6 +2,7 @@
 #include <Widget/Image.h>
 #include <Widget/Label.h>
 #include <Widget/LabelButton.h>
+#include <Widget/Text.h>
 #include <x++/X.h>
 #include <unistd.h>
 #include <font/font.h>
@@ -35,6 +36,9 @@ int main(int argc, char** argv) {
 	win.setRoot(new RootWidget());
 
 	Widget* wd = new Image("/usr/system/images/mac1984.png");
+	win.getRoot()->add(wd);
+
+	wd = new Text("text\nHello world");
 	win.getRoot()->add(wd);
 
 	Container* c = new Container();

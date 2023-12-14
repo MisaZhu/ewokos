@@ -35,7 +35,7 @@ static int32_t read_config(fb_console_t* console, const char* fname) {
 
 	sconf_t *conf = sconf_load(fname);	
 	if(conf == NULL) {
-		font_load(font_fname, font_size, &console->console.textview.font, true);
+		console->console.textview.font = font_new(font_fname, font_size, true);
 		return -1;
 	}	
 
@@ -64,7 +64,9 @@ static int32_t read_config(fb_console_t* console, const char* fname) {
 	if(v[0] != 0)
 		font_fname = v;
 
-	font_load(font_fname, font_size, &console->console.textview.font, true);
+	if(console->console.textview.font != NULL)
+		font_free(console->console.textview.font);
+	console->console.textview.font = font_new(font_fname, font_size, true);
 	sconf_free(conf);
 	return 0;
 }
@@ -96,8 +98,7 @@ static void close_console(fb_console_t* console) {
 	fb_close(&console->fb);
 	if(console->icon != NULL)
 		graph_free(console->icon);
-	if(console->console.textview.font.id >= 0)
-		font_close(&console->console.textview.font);
+	console_close(&console->console);
 }
 
 static int reset_console(fb_console_t* console) {

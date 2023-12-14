@@ -15,7 +15,7 @@ extern "C" {
 static uint32_t font_width(textview_t* textview) {
 	uint16_t fontw = textview->font_fixed;
 	if(fontw == 0)
-		font_char_size('i', &textview->font, &fontw, NULL);
+		font_char_size('i', textview->font, &fontw, NULL);
 	if(fontw == 0)
 		fontw = 8; //minimize width 
 	return fontw;
@@ -23,11 +23,11 @@ static uint32_t font_width(textview_t* textview) {
 
 static void tv_draw_char(textview_t* textview, graph_t* g, int32_t x, int32_t y, UNICODE16 c, int32_t *w) {
 	if(textview->font_fixed > 0 && c < 128) {
-		graph_draw_char_font_fixed(g, x, y, c, &textview->font, textview->fg_color, textview->font_fixed, 0);
+		graph_draw_char_font_fixed(g, x, y, c, textview->font, textview->fg_color, textview->font_fixed, 0);
 		*w = textview->font_fixed;
 	}
 	else {
-		graph_draw_char_font(g, x, y, c, &textview->font, textview->fg_color, w, NULL); 
+		graph_draw_char_font(g, x, y, c, textview->font, textview->fg_color, w, NULL); 
 	}
 }
 
@@ -36,7 +36,7 @@ static uint16_t tv_char_width(textview_t* textview, UNICODE16 c) {
 	if(textview->font_fixed > 0 && c < 128)
 		cw = textview->font_fixed;
 	else
-		font_char_size(c, &textview->font, &cw, NULL);
+		font_char_size(c, textview->font, &cw, NULL);
 	return cw;
 }
 
@@ -53,15 +53,16 @@ static void clear_lines(line_t* head) {
 }
 
 int32_t textview_reset(textview_t* textview, uint32_t w, uint32_t h, bool to_last) {
-	if(textview->font.id < 0)
+	if(textview->font == NULL)
 		return -1;
+
 	textview->w = w;
 	textview->h = h;
 	//save content data
 	line_t* head = textview->content.head;
 	textview->content.head = textview->content.tail = textview->content.start = NULL;
 	textview->content.cols = w / font_width(textview);
-	textview->content.rows = h / textview->font.max_size.y;
+	textview->content.rows = h / textview->font->max_size.y;
 
 	line_t* l = head;
 	while(l != NULL) {
@@ -89,14 +90,17 @@ int32_t textview_init(textview_t* textview) {
 	textview->font_size = 8;
 	textview->bg_color = argb(0xff, 0x0, 0x0, 0x0);
 	textview->fg_color = argb(0xff, 0xaa, 0xaa, 0xaa);
-	textview->font.id = -1;
+	textview->font = NULL;
 	memset(&textview->content, 0, sizeof(content_t));
 	return 0;
 }
 
 void textview_close(textview_t* textview) {
+	if(textview->font != NULL) {
+		font_free(textview->font);
+		textview->font = NULL;
+	}
 	textview_clear(textview);
-	font_close(&textview->font);
 }
 
 static line_t* to_last_start(textview_t* textview) {
@@ -141,13 +145,13 @@ void textview_roll(textview_t* textview, int32_t rows) {
 }
 
 void textview_refresh_content(textview_t* textview, graph_t* g) {
-	if(textview->font.id < 0)
+	if(textview->font == NULL)
 		return;
 
 	int32_t x = 0;
 	int32_t y = 0;
 	int32_t w = 0;
-	int32_t h = textview->font.max_size.y;
+	int32_t h = textview->font->max_size.y;
 
 	line_t* l = textview->content.start;
 	while(l != NULL) {

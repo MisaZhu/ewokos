@@ -37,7 +37,7 @@ void console_refresh(console_t* console, graph_t* g) {
 	//draw cursor
 	if(console->show_cursor) {
 		graph_fill(g, console->textview.last_x, console->textview.last_y,
-				10, console->textview.font.max_size.y, console->textview.fg_color);
+				10, console->textview.font->max_size.y, console->textview.fg_color);
 	}
 }
 
