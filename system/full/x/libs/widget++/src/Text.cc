@@ -6,7 +6,6 @@ namespace Ewok {
 void Text::onRepaint(graph_t* g, const Theme* theme, const grect_t& r) {
 	textview.bg_color = theme->bgColor;
 	textview.fg_color = theme->fgColor;
-	textview.font = getFont(theme, &textview.font_size);
 
 	if(bufferGraph != NULL && 
 			(r.w != bufferGraph->w || r.h != bufferGraph->h)) {
@@ -20,16 +19,17 @@ void Text::onRepaint(graph_t* g, const Theme* theme, const grect_t& r) {
 	}
 
 	if(reset) {
+		textview.font = getFont(theme, &textview.font_size);
 		textview_reset(&textview, r.w, r.h, false);
 		if(resetText) {
 			textview_clear(&textview);
 			textview_put_string(&textview, text.c_str(), text.length(), false);
 			resetText = false;
 		}
-		textview_refresh(&textview, bufferGraph);
-		graph_blt(bufferGraph, 0, 0, r.w, r.h, g, r.x, r.y, r.w, r.h);
 		reset = false;
 	}
+	textview_refresh(&textview, bufferGraph);
+	graph_blt(bufferGraph, 0, 0, r.w, r.h, g, r.x, r.y, r.w, r.h);
 }
 
 Text::Text(const string& str) {
