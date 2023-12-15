@@ -38,8 +38,9 @@ int main(int argc, char** argv) {
 	Widget* wd = new Image("/usr/system/images/mac1984.png");
 	win.getRoot()->add(wd);
 
-	wd = new Text("text\nHello world");
-	win.getRoot()->add(wd);
+	Text* txt = new Text("text\nHello world\n[中文测试]\n123～！@");
+	txt->setFont("/usr/system/fonts/system_cn.ttf", 18);
+	win.getRoot()->add(txt);
 
 	Container* c = new Container();
 	c->setType(Container::HORIZONTAL);

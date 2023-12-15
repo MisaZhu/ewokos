@@ -1,5 +1,4 @@
 #include <Widget/RootWidget.h>
-#include <sys/klog.h>
 
 namespace Ewok {
 

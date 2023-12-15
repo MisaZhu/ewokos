@@ -4,6 +4,7 @@
 #include <x++/XWin.h>
 #include <string.h>
 #include <Widget/Theme.h>
+#include <sys/klog.h>
 
 namespace Ewok {
 
@@ -66,7 +67,7 @@ public:
 	grect_t getScreenArea(bool margin = true);
 
 	virtual gsize_t getMinSize(void);
-	virtual void update();
+	void update();
 	virtual void sendEvent(xevent_t* ev);
 };
 

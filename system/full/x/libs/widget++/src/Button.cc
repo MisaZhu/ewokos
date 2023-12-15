@@ -1,5 +1,4 @@
 #include <Widget/Button.h>
-#include <sys/klog.h>
 
 namespace Ewok {
 
