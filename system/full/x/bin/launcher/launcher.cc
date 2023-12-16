@@ -328,7 +328,7 @@ int main(int argc, char* argv[]) {
 	gpos_t pos = view->getPos(desk);
 
 	x.open(0, &xwin, pos.x, pos.y, sz.w, sz.h, "launcher",
-			XWIN_STYLE_NO_FRAME | XWIN_STYLE_LAUNCHER | XWIN_STYLE_SYSBOTTOM);
+			XWIN_STYLE_NO_FRAME | XWIN_STYLE_LAUNCHER | XWIN_STYLE_SYSBOTTOM | XWIN_STYLE_ANTI_FSCR);
 	xwin.setVisible(true);
 
 	x.run(check_proc, &xwin);
