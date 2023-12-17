@@ -65,7 +65,11 @@ inline void proc_block(int by_pid, uint32_t evt) {
 }
 
 inline void proc_wakeup(uint32_t evt) {
-	syscall1(SYS_WAKEUP, evt);
+	syscall2(SYS_WAKEUP, -1, evt);
+}
+
+inline void proc_wakeup_pid(int pid, uint32_t evt) {
+	syscall2(SYS_WAKEUP, pid, evt);
 }
 
 inline void proc_exec_elf(const char* cmd_line, const char* elf, int32_t size) {

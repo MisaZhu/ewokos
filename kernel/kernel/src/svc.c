@@ -406,7 +406,7 @@ static void sys_ipc_set_return(context_t* ctx, uint32_t uid, proto_t* data) {
 		if(data != NULL) {
 			proto_copy(&client_proc->ipc_res.data, data->data, data->size);
 		}
-		proc_wakeup(serv_proc->info.pid, (uint32_t)&client_proc->ipc_res, 0);
+		proc_wakeup(serv_proc->info.pid, client_proc->info.pid, (uint32_t)&client_proc->ipc_res, 0);
 		proc_switch_multi_core(ctx, client_proc, serv_proc->info.core);
 	}
 }
@@ -426,7 +426,7 @@ static void sys_ipc_end(context_t* ctx) {
 
 	//wake up request proc to get return
 	proc_ipc_close(serv_proc, ipc);
-	proc_wakeup(serv_proc->info.pid, (uint32_t)&serv_proc->space->ipc_server, 0); 
+	proc_wakeup(serv_proc->info.pid, -1, (uint32_t)&serv_proc->space->ipc_server, 0); 
 
 	if(proc_ipc_fetch(serv_proc) != 0)  {//fetch next buffered ipc
 		proc_save_state(serv_proc, &serv_proc->space->ipc_server.saved_state);
@@ -453,7 +453,7 @@ static void sys_ipc_enable(void) {
 		return;
 
 	cproc->space->ipc_server.disabled = false;
-	proc_wakeup(cproc->info.pid, (uint32_t)&cproc->space->ipc_server.disabled, 0);
+	proc_wakeup(cproc->info.pid, -1, (uint32_t)&cproc->space->ipc_server.disabled, 0);
 }
 
 static int32_t sys_proc_ping(int32_t pid) {
@@ -484,10 +484,10 @@ static void sys_proc_block(context_t* ctx, int32_t pid_by, uint32_t evt) {
 	}
 }
 
-static void sys_proc_wakeup(context_t* ctx, uint32_t evt) {
+static void sys_proc_wakeup(context_t* ctx, int32_t pid, uint32_t evt) {
 	(void)ctx;
 	proc_t* proc = proc_get_proc(get_current_proc());
-	proc_wakeup(proc->info.pid, evt, 1);
+	proc_wakeup(proc->info.pid, pid, evt, 1);
 }
 
 static void sys_core_proc_ready(void) {
@@ -676,7 +676,7 @@ static inline void _svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_
 		sys_get_kevent(ctx);
 		return;
 	case SYS_WAKEUP:
-		sys_proc_wakeup(ctx, arg0);
+		sys_proc_wakeup(ctx, arg0, arg1);
 		return;
 	case SYS_BLOCK:
 		sys_proc_block(ctx, arg0, arg1);

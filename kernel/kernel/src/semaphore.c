@@ -85,7 +85,7 @@ int32_t semaphore_quit(uint32_t sem_id) {
 		return -1;
 
 	_semaphores[sem_id].occupied = SEM_IDLE;
-	proc_wakeup(_semaphores[sem_id].occupied_pid, sem_id, 0);
+	proc_wakeup(_semaphores[sem_id].occupied_pid, -1, sem_id, 0);
 	_semaphores[sem_id].occupied_pid = -1;
 	return 0;
 }
