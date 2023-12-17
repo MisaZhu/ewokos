@@ -40,7 +40,10 @@ int main(int argc, char** argv) {
 	win.getRoot()->add(wd);
 
 	Text* txt = new Text("text\nHello world\n[中文测试]\n123～！@");
-	txt->setFont("/usr/system/fonts/system_cn.ttf", 18);
+	Theme* theme = new Theme(font_new("/usr/system/fonts/system_cn.ttf", 18, true));
+	theme->bgColor = 0xff88aaff;
+	theme->fgColor = 0xffffaa88;
+	txt->setTheme(theme);
 	win.getRoot()->add(txt);
 
 	Container* c = new Container();
@@ -48,8 +51,11 @@ int main(int argc, char** argv) {
 	c->fix(0, 40);
 	win.getRoot()->add(c);
 
-	wd = new Label("Label");
-	c->add(wd);
+	Label* label = new Label("Label");
+	theme = new Theme(font_new("/usr/system/fonts/system.ttf", 32, true));
+	theme->fgColor = 0xffffaa88;
+	label->setTheme(theme);
+	c->add(label);
 
 	wd = new MyButton("test");
 	c->add(wd);

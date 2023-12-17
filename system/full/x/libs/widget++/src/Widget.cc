@@ -17,6 +17,12 @@ Widget::Widget(void)  {
 	id = _idCounter++;
 	isContainer = false;
 	disabled = false;
+	themePrivate = NULL;
+}
+
+Widget::~Widget(void)  { 
+	if(themePrivate != NULL)
+		delete themePrivate;
 }
 
 bool Widget::onMouse(xevent_t* ev) {
@@ -67,6 +73,9 @@ RootWidget* Widget::getRoot(void) {
 }
 
 void Widget::repaint(graph_t* g, const Theme* theme) {
+	if(this->themePrivate != NULL)
+		theme = this->themePrivate;
+
 	grect_t r = getRootArea();
 	graph_set_clip(g, r.x, r.y, r.w, r.h);
 	onRepaint(g, theme, r);
@@ -193,6 +202,5 @@ grect_t Widget::getScreenArea(bool margin) {
 		return {pos.x+marginH, pos.y+marginV, area.w-marginH*2, area.h-marginV*2};
 	return {pos.x, pos.y, area.w, area.h};
 }
-
 
 }

@@ -2,10 +2,22 @@
 
 namespace Ewok {
 
+WidgetWin::WidgetWin() {
+	root = NULL;
+	theme = Theme::loadDefault();
+}
+
+WidgetWin::~WidgetWin() {
+	if(root != NULL)
+		delete root;
+	if(theme != NULL)
+		delete theme;
+}
+
 void WidgetWin::onRepaint(graph_t* g) {
 	if(root == NULL)
 		return;
-	root->repaint(g, root->theme);
+	root->repaint(g, theme);
 }
 
 void WidgetWin::onResize(void) {

@@ -23,6 +23,7 @@ enum {
 
 typedef struct {
     int id;
+    uint16_t ppm;
     TTY_V2 max_size;
 	map_t *cache;
 } font_t;

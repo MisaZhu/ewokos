@@ -2,14 +2,13 @@
 #define WIDGET_TEXT_HH
 
 #include <Widget/Widget.h>
-#include <Widget/FontUnit.h>
 #include <textview/textview.h>
 #include <string>
 
 using namespace EwokSTL;
 namespace Ewok {
 
-class Text: public Widget, public FontUnit {
+class Text: public Widget {
 	textview_t textview;
 	string text;
 	graph_t* bufferGraph;

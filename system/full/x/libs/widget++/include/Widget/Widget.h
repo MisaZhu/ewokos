@@ -16,6 +16,7 @@ class Widget {
 
 	bool isContainer;
 protected:
+	Theme* themePrivate;
 	uint32_t id;
 	int32_t marginH;
 	int32_t marginV;
@@ -39,7 +40,7 @@ protected:
 public:
 	friend Container;
 	Widget(void);
-	virtual ~Widget() { }
+	~Widget(void);
 
 	inline void setMarginH(int32_t v) { marginH = v; }
 	inline void setMarginV(int32_t v) { marginV = v; }
@@ -47,6 +48,8 @@ public:
 	inline void setAlpha(bool alpha) { this->alpha = alpha; }
 	inline bool isAlpha() { return alpha; }
 	inline uint32_t getID() { return id; }
+	inline Theme* getTheme() { return themePrivate; }
+	inline void setTheme(Theme* theme) { themePrivate = theme; update(); }
 
 	void disable();
 	void enable();

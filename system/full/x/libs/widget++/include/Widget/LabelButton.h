@@ -2,12 +2,11 @@
 #define WIDGET_LABEL_BUTTON_HH
 
 #include <Widget/Button.h>
-#include <Widget/FontUnit.h>
 #include <string.h>
 
 namespace Ewok {
 
-class LabelButton: public Button, public FontUnit {
+class LabelButton: public Button {
 protected:
 	string label;
 	virtual void paintDown(graph_t* g, const Theme* theme, const grect_t& r);

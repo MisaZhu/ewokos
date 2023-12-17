@@ -3,7 +3,6 @@
 
 #include <x++/XWin.h>
 #include <Widget/Container.h>
-#include <Widget/Theme.h>
 
 namespace Ewok {
 
@@ -11,7 +10,6 @@ class WidgetWin;
 class RootWidget: public Container {
 	XWin* xwin;
 	bool doRefresh;
-	Theme* theme;
 	Widget* focusedWidget;
 	//void onRepaint(graph_t* g, const Theme* theme, const grect_t& r);
 public:
@@ -25,7 +23,6 @@ public:
 	void repaintWin();
 	void update();
 	void sendEvent(xevent_t* ev);
-	void loadTheme(const char* theme);
 };
 
 }

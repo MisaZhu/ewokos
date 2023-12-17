@@ -30,6 +30,7 @@ static int font_load_raw(const char* fname, uint16_t ppm, font_t* font) {
 	font->cache = NULL;
 	if(dev_cntl_by_pid(_font_dev_pid, FONT_DEV_LOAD, &in, &out) == 0) {
 		font->id = proto_read_int(&out);
+		font->ppm = ppm;
 		font->max_size.x = proto_read_int(&out);
 		font->max_size.y = proto_read_int(&out);
 		font->cache = hashmap_new();

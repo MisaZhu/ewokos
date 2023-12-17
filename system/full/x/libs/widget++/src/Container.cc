@@ -102,6 +102,9 @@ void  Container::add(Widget* child) {
 }
 
 void  Container::repaint(graph_t* g, const Theme* theme) {
+	if(this->themePrivate != NULL)
+		theme = this->themePrivate;
+
 	if(dirty) {
 		grect_t r = getRootArea();
 		graph_set_clip(g, r.x, r.y, r.w, r.h);

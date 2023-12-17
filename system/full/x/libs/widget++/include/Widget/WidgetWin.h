@@ -9,14 +9,16 @@ namespace Ewok {
 class WidgetWin: public XWin {
 protected:
 	RootWidget* root;
+	Theme* theme;
 	void onRepaint(graph_t* g);
 	void onResize(void);
 	void onEvent(xevent_t* ev);
 
 public:
-	inline WidgetWin(void) { root = NULL; }
-	inline ~WidgetWin(void) { if(root != NULL) delete root; }
+	WidgetWin(void);
+	~WidgetWin(void);
 	inline RootWidget* getRoot() { return root; }
+	inline Theme* getTheme() { return theme; }
 
 	void setRoot(RootWidget* root);
 };

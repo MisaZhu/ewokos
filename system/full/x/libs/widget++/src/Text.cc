@@ -7,6 +7,9 @@ void Text::onRepaint(graph_t* g, const Theme* theme, const grect_t& r) {
 	textview.bg_color = theme->bgColor;
 	textview.fg_color = theme->fgColor;
 
+	if(theme->font == NULL)
+		return;
+
 	if(bufferGraph != NULL && 
 			(r.w != bufferGraph->w || r.h != bufferGraph->h)) {
 		graph_free(bufferGraph);
@@ -19,7 +22,8 @@ void Text::onRepaint(graph_t* g, const Theme* theme, const grect_t& r) {
 	}
 
 	if(reset) {
-		textview.font = getFont(theme, &textview.font_size);
+		textview.font = theme->font;
+		textview.font_size = theme->font->ppm;
 		textview_reset(&textview, r.w, r.h, false);
 		if(resetText) {
 			textview_clear(&textview);
