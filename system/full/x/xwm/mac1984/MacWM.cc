@@ -69,10 +69,10 @@ void MacWM::drawTitle(graph_t* g, xinfo_t* info, grect_t* r, bool top) {
 
 	graph_fill(g, r->x+pw-2, r->y, sz.w+4, r->h, bg);//title box
 	graph_draw_text_font(g, r->x+pw, r->y+ph, info->title, &font, fg);//title
-	graph_line(g, r->x, r->y+r->h, r->x+r->w, r->y+r->h, fg);//title box
+	graph_line(g, r->x, r->y+r->h-1, r->x+r->w, r->y+r->h-1, fg);//title box
 }
 
-void MacWM::drawResize(graph_t* g, xinfo_t* info, grect_t* r, bool top) {
+/*void MacWM::drawResize(graph_t* g, xinfo_t* info, grect_t* r, bool top) {
 	(void)info;
 	if(!top)
 		return;
@@ -83,6 +83,31 @@ void MacWM::drawResize(graph_t* g, xinfo_t* info, grect_t* r, bool top) {
 	graph_fill(g, r->x+3, r->y+3, r->w-6, r->h-6, 0x88222222);
 	graph_line(g, r->x+3, r->y+r->h-4, r->x+r->w-4, r->y+3, bg & 0x88ffffff);
 	graph_box(g, r->x, r->y, r->w, r->h, fg & 0x88ffffff);
+}
+*/
+
+void MacWM::drawResize(graph_t* g, xinfo_t* info, grect_t* r, bool top) {
+	(void)info;
+	if(!top)
+		return;
+	uint32_t fg, bg;
+	getColor(&fg, &bg, top);
+
+	uint32_t dark, bright;
+	graph_get_3d_color(bg, &dark, &bright);
+
+	graph_line(g, 
+			r->x + r->w - frameW + 1, r->y,
+			r->x + r->w, r->y, dark);
+	graph_line(g,
+			r->x + r->w - frameW + 1, r->y + 1,
+			r->x + r->w, r->y + 1, bright);
+	graph_line(g,
+			r->x, r->y + r->h - frameW + 1,
+			r->x, r->y + r->h, dark);
+	graph_line(g,
+			r->x + 1, r->y + r->h - frameW + 1,
+			r->x + 1, r->y + r->h, bright);
 }
 
 void MacWM::getTitle(xinfo_t* info, grect_t* rect) {
