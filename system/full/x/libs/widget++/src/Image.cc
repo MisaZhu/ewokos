@@ -4,7 +4,6 @@
 namespace Ewok {
 
 void Image::onRepaint(graph_t* g, const Theme* theme, const grect_t& r) {
-	graph_fill(g, r.x, r.y, r.w, r.h, theme->bgColor);
 	graph_blt_alpha(image, 0, 0, image->w, image->h,
 			g, (r.w - image->w)/2 + r.x, (r.h - image->h)/2 + r.y, image->w, image->h, 0xff);
 }
@@ -12,6 +11,7 @@ void Image::onRepaint(graph_t* g, const Theme* theme, const grect_t& r) {
 Image::Image(const char* fname) {
 	image = NULL;
 	loadImage(fname);
+	alpha = true;
 }
 
 Image::~Image(void) {

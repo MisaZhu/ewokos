@@ -34,6 +34,7 @@ int main(int argc, char** argv) {
 	X x;
 	WidgetWin win;
 	win.setRoot(new RootWidget());
+	win.getRoot()->setAlpha(false);
 
 	Widget* wd = new Image("/usr/system/images/mac1984.png");
 	win.getRoot()->add(wd);

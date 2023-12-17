@@ -193,7 +193,9 @@ static int run(int argc, char* argv[]) {
 
 
 	X x;
-	x.open(0, &xwin, 400, 300, "xconsole", 0);
+	grect_t desk;
+	x.getDesktopSpace(desk, 0);
+	x.open(0, &xwin, desk.w*2/3, desk.h*2/3, "xconsole", 0);
 	xwin.setVisible(true);
 
 	pthread_t tid;
