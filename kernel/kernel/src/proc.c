@@ -743,6 +743,17 @@ void proc_wakeup(int32_t pid_by, int32_t pid, uint32_t event, uint8_t sys_call) 
 				set_block_evt(proc_by, event);
 		}
 	}
+	
+	if(pid >= 0) {
+		if(pid >= PROC_MAX)
+			return;
+		proc_t* proc = &_proc_table[pid];	
+		if(proc->info.state == UNUSED ||
+				proc->info.state == ZOMBIE)
+			return;
+		proc_wakeup_all_state(pid_by, event, proc);
+		return;
+	} 
 
 	int32_t i = 0;	
 	while(1) {
