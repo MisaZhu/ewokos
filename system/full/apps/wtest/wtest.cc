@@ -36,24 +36,27 @@ int main(int argc, char** argv) {
 	win.setRoot(new RootWidget());
 	win.getRoot()->setAlpha(false);
 
+	Container* c = new Container();
+	c->setType(Container::HORIZONTAL);
+	win.getRoot()->add(c);
+
 	Widget* wd = new Image("/usr/system/images/mac1984.png");
-	win.getRoot()->add(wd);
+	c->add(wd);
 
 	Text* txt = new Text("text\nHello world\n[中文测试]\n123～！@");
 	Theme* theme = new Theme(font_new("/usr/system/fonts/system_cn.ttf", 18, true));
-	theme->bgColor = 0xff88aaff;
+	theme->bgColor = 0xff000000;
 	theme->fgColor = 0xffffaa88;
 	txt->setTheme(theme);
-	win.getRoot()->add(txt);
+	c->add(txt);
 
-	Container* c = new Container();
+	c = new Container();
 	c->setType(Container::HORIZONTAL);
 	c->fix(0, 40);
 	win.getRoot()->add(c);
 
 	Label* label = new Label("Label");
 	theme = new Theme(font_new("/usr/system/fonts/system.ttf", 32, true));
-	theme->fgColor = 0xffffaa88;
 	label->setTheme(theme);
 	c->add(label);
 
