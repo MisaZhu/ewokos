@@ -124,6 +124,26 @@ void graph_fill_cpu(graph_t* g, int32_t x, int32_t y, int32_t w, int32_t h, uint
 	}
 }
 
+void graph_set(graph_t* g, int32_t x, int32_t y, int32_t w, int32_t h, uint32_t color) {
+	if(g == NULL || w <= 0 || h <= 0)
+		return;
+	grect_t r = {x, y, w, h};
+	if(!graph_insect(g, &r))
+		return;
+
+	register int32_t ex, ey;
+	y = r.y;
+	ex = r.x + r.w;
+	ey = r.y + r.h;
+
+	for(; y < ey; y++) {
+		x = r.x;
+		for(; x < ex; x++) {
+			graph_pixel(g, x, y, color);
+		}
+	}
+}
+
 inline void graph_fill(graph_t* g, int32_t x, int32_t y, int32_t w, int32_t h, uint32_t color) {
 	graph_fill_bsp(g, x, y, w, h, color);
 }
