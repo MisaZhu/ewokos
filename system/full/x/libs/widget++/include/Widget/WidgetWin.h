@@ -7,6 +7,7 @@
 namespace Ewok {
 
 class WidgetWin: public XWin {
+	bool painting;
 protected:
 	RootWidget* root;
 	Theme* theme;
