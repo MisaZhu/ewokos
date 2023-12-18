@@ -7,6 +7,7 @@
 #include <unistd.h>
 #include <font/font.h>
 #include <sys/basic_math.h>
+#include <sys/kernel_tic.h>
 #include <sys/klog.h>
 
 using namespace Ewok;
@@ -25,8 +26,14 @@ class MyLabel: public Label {
 	uint32_t counter;
 protected:
 	void onTimer() {
+		uint32_t ksec;
+		kernel_tic(&ksec, NULL);
+		uint32_t min = ksec / 60;
+		uint32_t hour = min / 60;
+		min = min % 60;
+		ksec = ksec % 60;
 		char s[16];
-		snprintf(s, 15, "Timer:%d", counter);
+		snprintf(s, 15, "%02d:%02d:%02d", hour, min, ksec);
 		setLabel(s);
 		counter++;
 	}

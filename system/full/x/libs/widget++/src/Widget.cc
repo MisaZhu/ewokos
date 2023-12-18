@@ -25,6 +25,13 @@ Widget::~Widget(void)  {
 		delete themePrivate;
 }
 
+void Widget::setTheme(Theme* theme)  {
+	if(themePrivate != NULL)
+		delete themePrivate;
+	themePrivate = theme;
+	update();
+}
+
 bool Widget::onMouse(xevent_t* ev) {
 	return false;
 }

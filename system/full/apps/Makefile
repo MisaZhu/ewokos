@@ -7,6 +7,7 @@ all:
 	cd wtest; make
 	cd anim; make
 	cd book; make
+	cd clock; make
 
 clean:
 	cd xtext; make clean
@@ -17,3 +18,4 @@ clean:
 	cd wtest; make clean
 	cd anim; make clean
 	cd book; make clean
+	cd clock; make clean

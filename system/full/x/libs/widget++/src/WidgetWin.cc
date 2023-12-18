@@ -15,6 +15,14 @@ WidgetWin::~WidgetWin() {
 		delete root;
 	if(theme != NULL)
 		delete theme;
+	if(timerID > 0)
+		timer_remove(timerID);
+}
+
+void WidgetWin::setTheme(Theme* theme)  {
+	if(this->theme != NULL)
+		delete this->theme;
+	this->theme = theme;
 }
 
 void WidgetWin::onRepaint(graph_t* g) {

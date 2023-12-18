@@ -14,6 +14,7 @@
 #include <fcntl.h>
 #include <string.h>
 #include <sys/timer.h>
+#include <sys/kernel_tic.h>
 
 using namespace Ewok;
 
@@ -56,6 +57,24 @@ public:
 	MenuWin() {
 		Menu *menu = new Menu();
 		setRoot(menu);
+	}
+};
+
+class Timer: public Label {
+protected:
+	void onTimer() {
+		uint32_t ksec;
+		kernel_tic(&ksec, NULL);
+		uint32_t min = ksec / 60;
+		uint32_t hour = min / 60;
+		min = min % 60;
+		ksec = ksec % 60;
+		char s[16];
+		snprintf(s, 15, "%02d:%02d:%02d", hour, min, ksec);
+		setLabel(s);
+	}
+public: 
+	Timer(const string& label = "00:00:00") : Label(label) {
 	}
 };
 
@@ -118,6 +137,11 @@ protected:
 	gsize_t getMinSize() {
 		return {56, 28};
 	}
+	
+	void onTimer() {
+		update();
+	}
+
 public:
 	BatteryItem() {
 		powerFD = -1;
@@ -192,18 +216,17 @@ public:
 		wd = new Blank();
 		add(wd);
 
+		wd = new Timer();
+		wd->setMarginH(4);
+		wd->fix(64, 0);
+		add(wd);
+
 		wd = new BatteryItem();
 		wd->setMarginH(4);
 		wd->fix(wd->getMinSize());
 		add(wd);
 	}
 };
-
-static WidgetWin* _xwin = NULL;
-static void timer_handler(void) {
-	_xwin->getRoot()->update();
-	_xwin->getRoot()->repaintWin();
-}
 
 int main(int argc, char* argv[]) {
 	X x;
@@ -225,11 +248,8 @@ int main(int argc, char* argv[]) {
 	desk.h -= 28;
 	x.setDesktopSpace(desk);
 
-	_xwin = &xwin;
-	uint32_t tid = timer_set(1000000, timer_handler);
-
+	xwin.setTimer(1);
 	x.run(NULL);
-	timer_remove(tid);
 	return 0;
 }
 

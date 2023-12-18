@@ -22,6 +22,7 @@ public:
 	inline RootWidget* getRoot() { return root; }
 	inline Theme* getTheme() { return theme; }
 
+	void setTheme(Theme* theme);
 	void setRoot(RootWidget* root);
 	void setTimer(uint32_t fps);
 	void timerTask();

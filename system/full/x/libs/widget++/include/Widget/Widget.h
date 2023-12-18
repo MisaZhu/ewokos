@@ -50,8 +50,8 @@ public:
 	inline bool isAlpha() { return alpha; }
 	inline uint32_t getID() { return id; }
 	inline Theme* getTheme() { return themePrivate; }
-	inline void setTheme(Theme* theme) { themePrivate = theme; update(); }
 
+	void setTheme(Theme* theme);
 	void disable();
 	void enable();
 	void fix(const gsize_t& size);
