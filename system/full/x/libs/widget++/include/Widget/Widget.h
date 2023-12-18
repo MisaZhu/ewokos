@@ -36,6 +36,7 @@ protected:
 
 	virtual void repaint(graph_t* g, const Theme* theme);
 	virtual void onRepaint(graph_t* g, const Theme* theme, const grect_t& r) = 0;
+	virtual void onTimer() { }
 	virtual bool onEvent(xevent_t* ev);
 public:
 	friend Container;

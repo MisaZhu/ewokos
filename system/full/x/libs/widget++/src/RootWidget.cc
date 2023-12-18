@@ -16,7 +16,6 @@ RootWidget::RootWidget() {
 void RootWidget::repaintWin() { 
 	if(xwin == NULL)
 		return;
-
 	if(doRefresh) {
 		xwin->repaint();
 		doRefresh = false;

@@ -29,7 +29,7 @@ void LabelButton::paintDisabled(graph_t* g, const Theme* theme, const grect_t& r
 
 void LabelButton::setLabel(const string& label) {
 	this->label = label;
-	Button::update();
+	update();
 }
 
 }

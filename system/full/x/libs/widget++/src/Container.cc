@@ -101,6 +101,14 @@ void  Container::add(Widget* child) {
 	layout();
 }
 
+void  Container::onTimer() {
+	Widget* wd = children;
+	while(wd != NULL) {
+		wd->onTimer();
+		wd = wd->next;
+	}
+}
+
 void  Container::repaint(graph_t* g, const Theme* theme) {
 	if(this->themePrivate != NULL)
 		theme = this->themePrivate;

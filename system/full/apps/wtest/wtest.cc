@@ -16,12 +16,25 @@ protected:
 	void onClick() {
 		klog("click %s!\n", label.c_str());
 	}
-
 public: 
 	MyButton(const string& label = "") : LabelButton(label) {
 	}
 };
 
+class MyLabel: public Label {
+	uint32_t counter;
+protected:
+	void onTimer() {
+		char s[16];
+		snprintf(s, 15, "Timer:%d", counter);
+		setLabel(s);
+		counter++;
+	}
+public: 
+	MyLabel(const string& label = "") : Label(label) {
+		counter = 0;
+	}
+};
 
 /*static void loop(void* p) {
 	WidgetWin* xwin = (WidgetWin*)p;
@@ -55,9 +68,10 @@ int main(int argc, char** argv) {
 	c->fix(0, 40);
 	win.getRoot()->add(c);
 
-	Label* label = new Label("Label");
-	theme = new Theme(font_new("/usr/system/fonts/system.ttf", 32, true));
+	MyLabel* label = new MyLabel("Label");
+	theme = new Theme(font_new("/usr/system/fonts/system.ttf", 18, true));
 	label->setTheme(theme);
+	label->setAlpha(false);
 	c->add(label);
 
 	wd = new MyButton("test");
@@ -71,6 +85,7 @@ int main(int argc, char** argv) {
 
 	x.open(0, &win, 400, 300, "widgetTest", XWIN_STYLE_NORMAL);
 	win.setVisible(true);
+	win.setTimer(60);
 	//x.run(loop, &win);
 	x.run(NULL, &win);
 	return 0;

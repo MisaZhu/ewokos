@@ -17,6 +17,7 @@ protected:
 	void onResize();
 	bool onEvent(xevent_t* ev);
 	void repaint(graph_t* g, const Theme* theme);
+	void onTimer();
 
 public:
 	static const int FIXED = 0;
