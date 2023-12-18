@@ -73,6 +73,8 @@ RootWidget* Widget::getRoot(void) {
 }
 
 void Widget::repaint(graph_t* g, const Theme* theme) {
+	if(!dirty)
+		return;
 	if(this->themePrivate != NULL)
 		theme = this->themePrivate;
 
