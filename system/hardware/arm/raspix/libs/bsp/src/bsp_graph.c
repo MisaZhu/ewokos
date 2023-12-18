@@ -211,6 +211,12 @@ inline void graph_blt_alpha_bsp(graph_t* src, int32_t sx, int32_t sy, int32_t sw
 	graph_insect(dst, &dr);
 	if(!graph_insect_with(src, &sr, dst, &dr))
 		return;
+
+	if(dx < 0)
+		sr.x -= dx;
+	if(dy < 0)
+		sr.y -= dy;
+
 	register int32_t ex, ey;
 	sy = sr.y;
 	dy = dr.y;
