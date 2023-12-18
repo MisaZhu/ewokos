@@ -109,7 +109,6 @@ static int reset_console(fb_console_t* console) {
 static void draw_bg(fb_console_t* console) {
 	graph_t* g = console->g;
 	graph_clear(g, console->console.textview.bg_color);
-	//graph_draw_dot_pattern(g, 0, 0, g->w, g->h, console->console.textview.bg_color, 0xff555555);
 }
 
 static void flush(fb_console_t* console) {

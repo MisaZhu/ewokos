@@ -18,7 +18,7 @@ void SolarisWM::loadConfig(sconf_t* sconf) {
 
 graph_t* SolarisWM::genPattern(void) {
 	graph_t* g = graph_new(NULL, 64, 64);
-	graph_draw_dot_pattern(g, 0, 0, g->w, g->h, desktopBGColor, desktopFGColor);
+	graph_draw_dot_pattern(g, 0, 0, g->w, g->h, desktopBGColor, desktopFGColor, 2);
 	return g;
 }
 
