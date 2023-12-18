@@ -167,6 +167,11 @@ void graph_blt_cpu(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_t sh,
 	if(!graph_insect_with(src, &sr, dst, &dr))
 		return;
 
+	if(dx < 0)
+		sr.x -= dx;
+	if(dy < 0)
+		sr.y -= dy;
+
 	register int32_t ex, ey, offset_d, offset_r;
 	sy = sr.y;
 	dy = dr.y;
@@ -200,6 +205,12 @@ void graph_blt_alpha_cpu(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32
 	graph_insect(dst, &dr);
 	if(!graph_insect_with(src, &sr, dst, &dr))
 		return;
+
+	if(dx < 0)
+		sr.x -= dx;
+	if(dy < 0)
+		sr.y -= dy;
+
 	register int32_t ex, ey;
 	sy = sr.y;
 	dy = dr.y;
