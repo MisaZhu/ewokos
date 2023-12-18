@@ -75,7 +75,7 @@ typedef struct {
 typedef struct {
 	gpos_t down_pos;
 	gpos_t last_pos;
-	bool pressed; //true for down
+	uint32_t state; 
 } x_mouse_state_t;
 
 typedef struct {
@@ -1261,8 +1261,8 @@ static int mouse_handle(x_t* x, xevent_t* ev) {
 	cursor_safe(x, display);
 	if(ev->state ==  XEVT_MOUSE_DOWN) {
 		x->cursor.down = true;
-		if(!x->mouse_state.pressed) {
-			x->mouse_state.pressed = true;
+		if(x->mouse_state.state == 0) {
+			x->mouse_state.state = XEVT_MOUSE_DOWN;
 			x->mouse_state.down_pos.x = ev->value.mouse.x;
 			x->mouse_state.down_pos.y = ev->value.mouse.y;
 			x->mouse_state.last_pos.x = ev->value.mouse.x;
@@ -1270,12 +1270,10 @@ static int mouse_handle(x_t* x, xevent_t* ev) {
 			ev->value.mouse.rx = 0;
 			ev->value.mouse.ry = 0;
 		}
-		/*else if(ev->value.mouse.from_x != ev->value.mouse.x ||
+		else if(ev->value.mouse.from_x != ev->value.mouse.x ||
 					ev->value.mouse.from_y != ev->value.mouse.y ||
-					x->mouse_state.last_pos.x != ev->value.mouse.x ||
-					x->mouse_state.last_pos.y != ev->value.mouse.y) {
-						*/
-		else {
+					x->mouse_state.state == XEVT_MOUSE_DRAG) {
+			x->mouse_state.state = XEVT_MOUSE_DRAG;
 			ev->state = XEVT_MOUSE_DRAG;
 			ev->value.mouse.from_x = x->mouse_state.down_pos.x;
 			ev->value.mouse.from_y = x->mouse_state.down_pos.y;
@@ -1290,7 +1288,7 @@ static int mouse_handle(x_t* x, xevent_t* ev) {
 	}
 	else if(ev->state ==  XEVT_MOUSE_UP) {
 		x->cursor.down = false;
-		x->mouse_state.pressed = false;
+		x->mouse_state.state = 0;
 		ev->value.mouse.from_x = x->mouse_state.down_pos.x;
 		ev->value.mouse.from_y = x->mouse_state.down_pos.y;
 		ev->value.mouse.rx = ev->value.mouse.x - x->mouse_state.last_pos.x;
