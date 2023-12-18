@@ -21,13 +21,17 @@ void Container::layoutV() {
 	wd = children;
 	int h = 0;
 	while(wd != NULL) {
-		if(wd->fixed) {
-			wd->setArea(0, h, area.w, wd->area.h);
+		int wh = asize;
+		if(wd->fixed)
+			wh = wd->area.h;
+		if(wd->next == NULL) {
+			wh = area.h - h;
+			if(wd->fixed && wh < wd->area.h)
+				wh = wd->area.h;
 		}
-		else {
-			wd->setArea(0, h, area.w, asize);
-		}
-		h += wd->area.h;
+
+		wd->setArea(0, h, area.w, wh);
+		h += wh;//wd->area.h;
 		wd = wd->next;
 	}
 }
@@ -51,12 +55,16 @@ void  Container::layoutH() {
 	wd = children;
 	int w = 0;
 	while(wd != NULL) {
-		if(wd->fixed) {
-			wd->setArea(w, 0, wd->area.w, area.h);
+		int ww = asize;
+		if(wd->fixed)
+			ww = wd->area.w;
+		if(wd->next == NULL) {
+			ww = area.w - w;
+			if(wd->fixed && ww < wd->area.w)
+				ww = wd->area.w;
 		}
-		else {
-			wd->setArea(w, 0, asize, area.h);
-		}
+
+		wd->setArea(w, 0, ww, area.h);
 		w += wd->area.w;
 		wd = wd->next;
 	}

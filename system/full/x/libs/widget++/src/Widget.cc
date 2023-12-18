@@ -112,8 +112,8 @@ gsize_t Widget::getMinSize(void) {
 }
 
 void Widget::fix(uint32_t w, uint32_t h) {
-	resizeTo(w, h);
 	setFixed(true);
+	resizeTo(w, h);
 }
 
 void Widget::fix(const gsize_t& size) {
