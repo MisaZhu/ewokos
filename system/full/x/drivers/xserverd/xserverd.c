@@ -247,7 +247,7 @@ static int draw_win(graph_t* disp_g, x_t* xp, xwin_t* win, bool do_frame) {
 
 	if(do_frame)
 		draw_win_frame(xp, win);
-	if(xp->current.win_drag == win && xp->config.win_move_alpha < 0xff) //drag and moving
+	if(xp->current.win_drag == win && (win->xinfo->style & XWIN_STYLE_NO_FRAME) == 0)
 		draw_drag_frame(xp, win->xinfo->display_index);
 
 	win->dirty = false;
