@@ -87,6 +87,8 @@ static void interrupt_handle(uint32_t interrupt, uint32_t data) {
 				_intr_list = next;
 			else if(prev != NULL)
 				prev->next = next;
+			free(intr);
+			intr = prev;
 		}
 		prev = intr;
 		intr = next;
