@@ -134,7 +134,7 @@ void interrupt_end(context_t* ctx) {
 	cproc->space->interrupt.state = INTR_STATE_IDLE;
 
 	if(cproc->info.state == UNUSED || cproc->info.state == ZOMBIE) {
-		proc_wakeup(cproc->info.pid, -1, (uint32_t)&cproc->space->interrupt, 0);
+		proc_wakeup(cproc->info.pid, -1, (uint32_t)&cproc->space->interrupt);
 		schedule(ctx);
 		return;
 	}
@@ -145,10 +145,11 @@ void interrupt_end(context_t* ctx) {
 		proc_ready(cproc);
 	}
 
-	proc_wakeup(cproc->info.pid, -1, (uint32_t)&cproc->space->interrupt, 0);
+	proc_wakeup(cproc->info.pid, -1, (uint32_t)&cproc->space->interrupt);
 	irq_enable_cpsr(&cproc->ctx); //enable interrupt on proc
 
 	if(interrupt != SYS_INT_SOFT) {
+	//kprintf("wake by:%d, 0x%x\n", cproc->info.pid, (uint32_t)&cproc->space->interrupt);
 		interrupt_t* intr = fetch_next(interrupt);
 		if(intr != NULL) {
 			interrupt_send_raw(ctx, interrupt, intr, true);

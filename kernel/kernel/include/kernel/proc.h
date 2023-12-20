@@ -13,8 +13,6 @@
 
 #define PROC_FILE_MAX 128
 #define SHM_MAX 128
-#define BLOCK_EVT_MAX 16
-
 typedef struct {
 	uint32_t event;
 	uint32_t refs;
@@ -28,7 +26,6 @@ typedef struct {
 	bool              ready_ping;
 	
 	uint32_t          shms[SHM_MAX];
-	proc_block_event_t block_events[BLOCK_EVT_MAX];
 
 	ipc_server_t      ipc_server;
 	signal_t          signal;
@@ -83,8 +80,8 @@ extern void*   proc_malloc(proc_t* proc, uint32_t size);
 extern uint32_t  proc_msize(proc_t* proc, void* p);
 extern void    proc_free(proc_t* proc, void* p);
 
-extern void proc_block_on(context_t* text, int32_t pid_by, uint32_t event, uint8_t sys_call);
-extern void    proc_wakeup(int32_t pid_by, int32_t pid, uint32_t event, uint8_t sys_call);
+extern void proc_block_on(context_t* text, int32_t pid_by, uint32_t event);
+extern void    proc_wakeup(int32_t pid_by, int32_t pid, uint32_t event);
 extern void    proc_waitpid(context_t* ctx, int32_t pid);
 extern proc_t* proc_get(int32_t pid);
 extern proc_t* proc_get_by_uuid(uint32_t uuid);

@@ -32,7 +32,7 @@ uint32_t proc_ipc_fetch(struct st_proc* serv_proc) {
 				if(client_proc->ipc_buffered == 0) {
 					if(client_proc->ipc_buffer_clean) {
 						client_proc->ipc_buffer_clean = false;
-						proc_wakeup(client_proc->info.pid, client_proc->info.pid, (uint32_t)&client_proc->ipc_buffer_clean, 0); 
+						proc_wakeup(client_proc->info.pid, client_proc->info.pid, (uint32_t)&client_proc->ipc_buffer_clean); 
 					}
 				}
 			}

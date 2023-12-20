@@ -624,69 +624,12 @@ inline void proc_usleep(context_t* ctx, uint32_t count) {
 	proc_unready(cproc, SLEEPING);
 	schedule(ctx);
 }
-
-/*static void proc_block_saved_state(int32_t pid_by, uint32_t event, proc_t* proc) {
-	ipc_task_t* ipc = proc_ipc_get_task(proc);
-	if(ipc != NULL && ipc->state != IPC_IDLE) {
-		proc->space->ipc_server.saved_state.state = BLOCK;
-		proc->space->ipc_server.saved_state.block_by = pid_by;
-		proc->space->ipc_server.saved_state.block_event = event;
-	}	
-
-	if(proc->space->interrupt.state != INTR_STATE_IDLE) {
-		proc->space->interrupt.saved_state.state = BLOCK;
-		proc->space->interrupt.saved_state.block_by = pid_by;
-		proc->space->interrupt.saved_state.block_event = event;
-	}
-}
-*/
-
-static proc_block_event_t* get_block_evt(proc_t* proc, uint32_t event) {
-	if(proc == NULL || event == 0)
-		return NULL;
-
-	for(int32_t i=0; i<BLOCK_EVT_MAX; i++) {
-		proc_block_event_t* block_evt = &proc->space->block_events[i];
-		if(block_evt->event == event)
-			return block_evt;
-	}
-	return NULL;
-}
-
-static void set_block_evt(proc_t* proc, uint32_t event) {
-	if(proc == NULL || event == 0)
-		return;
-
-	for(int32_t i=0; i<BLOCK_EVT_MAX; i++) {
-		proc_block_event_t* block_evt = &proc->space->block_events[i];
-		if(block_evt->event == 0) {
-			block_evt->event = event;
-			block_evt->refs = 0;
-			break;
-		}
-	}
-}
 	
-inline void proc_block_on(context_t* ctx, int32_t pid_by, uint32_t event, uint8_t sys_call) {
+inline void proc_block_on(context_t* ctx, int32_t pid_by, uint32_t event) {
 	proc_t* cproc = get_current_proc();
 	if(cproc == NULL)
 		return;
 
-	if(event != 0 && sys_call != 0) {
-		proc_t* proc_by = proc_get(pid_by);
-		if(proc_by != NULL && event != 0 && sys_call != 0) {
-			proc_block_event_t* block_evt = get_block_evt(proc_by, event);
-			if(block_evt != NULL) {
-				if(block_evt->refs > 0) {
-					block_evt->refs--;
-					return;
-				}
-				else
-					block_evt->event = 0;
-			}
-		}
-	}
-	
 	cproc->block_event = event;
 	cproc->info.block_by = pid_by;
 	proc_unready(cproc, BLOCK);
@@ -732,18 +675,7 @@ static void proc_wakeup_all_state(int32_t pid_by, uint32_t event, proc_t* proc) 
 	}
 }
 
-void proc_wakeup(int32_t pid_by, int32_t pid, uint32_t event, uint8_t sys_call) {
-	if(event != 0 && sys_call != 0) {
-		proc_t* proc_by = proc_get(pid_by);
-		if(proc_by != NULL) {
-			proc_block_event_t* block_evt = get_block_evt(proc_by, event);
-			if(block_evt != NULL)
-				block_evt->refs++;
-			else
-				set_block_evt(proc_by, event);
-		}
-	}
-	
+void proc_wakeup(int32_t pid_by, int32_t pid, uint32_t event) {
 	if(pid >= 0) {
 		if(pid >= PROC_MAX)
 			return;
