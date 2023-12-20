@@ -85,10 +85,14 @@ static void interrupt_handle(uint32_t interrupt, uint32_t data) {
 		else { //remove unavailable proc
 			if(intr == _intr_list)
 				_intr_list = next;
-			else if(prev != NULL)
-				prev->next = next;
+
 			free(intr);
-			intr = prev;
+			intr = NULL;
+
+			if(prev != NULL) {
+				prev->next = next;
+				intr = prev;
+			}
 		}
 		prev = intr;
 		intr = next;
