@@ -345,6 +345,10 @@ static void proc_terminate(context_t* ctx, proc_t* proc) {
 
 		/*free all ipc context*/
 		proc_ipc_clear(proc);
+		if(proc->space->interrupt.state != INTR_STATE_IDLE) {
+			proc->space->interrupt.state = INTR_STATE_IDLE;
+			proc_wakeup(proc->info.pid, -1, (uint32_t)&proc->space->interrupt);
+		}
 		proc_wakeup_waiting(proc->info.pid);
 	}
 	proc->info.father_pid = 0;

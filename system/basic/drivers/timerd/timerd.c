@@ -69,6 +69,7 @@ static void interrupt_handle(uint32_t interrupt, uint32_t data) {
 	(void)interrupt;
 	(void)data;
 	uint64_t usec;
+	ipc_disable();
 	kernel_tic(NULL, &usec);
 	interrupt_t* intr = _intr_list;
 	interrupt_t* prev = NULL;
@@ -93,10 +94,12 @@ static void interrupt_handle(uint32_t interrupt, uint32_t data) {
 				prev->next = next;
 				intr = prev;
 			}
+			klog("remove intr\n");
 		}
 		prev = intr;
 		intr = next;
 	}
+	ipc_enable();
 	sys_interrupt_end();
 }
 
