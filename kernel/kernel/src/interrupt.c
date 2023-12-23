@@ -82,15 +82,20 @@ static int32_t interrupt_send_raw(context_t* ctx, uint32_t interrupt,  interrupt
 	proc_t* cproc = get_current_proc();
 	proc_t* proc = proc_get_by_uuid(intr->uuid);
 	if(proc == NULL ||
-			proc->space->interrupt.state != INTR_STATE_IDLE ||
-			proc->ipc_res.state != IPC_IDLE) {
-		kprintf("inter err 1: %d\n", proc == NULL ? -1:proc->info.pid);
+			proc->space->interrupt.state != INTR_STATE_IDLE) {
+		//kprintf("inter err re-entre: %d\n", proc == NULL ? -1:proc->info.pid);
+		return -1;
+	}	
+
+	/*if(proc->ipc_res.state != IPC_IDLE) {
+		//kprintf("inter err ipc req: %d\n", proc == NULL ? -1:proc->info.pid);
 		return -1;
 	}
+	*/
 
 	ipc_task_t* ipc = proc_ipc_get_task(proc);
 	if(ipc != NULL) {
-		kprintf("inter err 2: %d\n", proc->info.pid);
+		//kprintf("inter err ipc svr: %d\n", proc->info.pid);
 		return -1;
 	}
 

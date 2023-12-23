@@ -35,13 +35,12 @@ static int32_t interrupt_remove(int32_t pid, uint32_t id) {
 				if(prev != NULL)
 					prev->next = next;
 				free(p);
+				p = NULL;
 			}
-			else 
-				prev = p;
 		}
-		else {
+
+		if(p != NULL)
 			prev = p;
-		}
 		p = next;
 	}
 	return 0;
@@ -70,6 +69,7 @@ static void interrupt_handle(uint32_t interrupt, uint32_t data) {
 	(void)data;
 	uint64_t usec;
 	ipc_disable();
+
 	kernel_tic(NULL, &usec);
 	interrupt_t* intr = _intr_list;
 	interrupt_t* prev = NULL;
@@ -82,6 +82,7 @@ static void interrupt_handle(uint32_t interrupt, uint32_t data) {
 				intr->timer_last = usec;
 				syscall3(SYS_SOFT_INT, intr->pid, intr->entry, intr->data);
 			}
+			prev = intr;
 		}
 		else { //remove unavailable proc
 			if(intr == _intr_list)
@@ -90,15 +91,15 @@ static void interrupt_handle(uint32_t interrupt, uint32_t data) {
 			free(intr);
 			intr = NULL;
 
-			if(prev != NULL) {
+			if(prev != NULL)
 				prev->next = next;
-				intr = prev;
-			}
-			klog("remove intr\n");
 		}
-		prev = intr;
 		intr = next;
 	}
+
+	if(_intr_list == NULL)
+		sys_interrupt_setup(SYS_INT_TIMER0, 0, 0);
+
 	ipc_enable();
 	sys_interrupt_end();
 }
