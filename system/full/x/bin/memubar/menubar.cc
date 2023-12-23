@@ -81,18 +81,28 @@ public:
 class BatteryItem : public Widget {
 	int  powerFD;
 
-	void drawCharging(graph_t* g, const grect_t& r, int bat) {
+	void drawCharging(graph_t* g, const Theme* theme, const grect_t& r, int bat) {
 		static int b = 0;
 		int w = r.w*bat*b/300;
 		graph_gradation(g, r.x+r.w-w, r.y, w, r.h, 0xffffffff, 0xff22dd22, true);
+
+		char txt[8];
+		snprintf(txt, 7, "%d%%", bat);
+		graph_draw_text_font_align(g, r.x, r.y, r.w, r.h,
+					txt, theme->font, theme->fgColor, FONT_ALIGN_CENTER);
 		b++;
 		b%=4;
 	}
 
-	void drawBat(graph_t* g, const grect_t& r, int bat) {
+	void drawBat(graph_t* g, const Theme* theme, const grect_t& r, int bat) {
 		int w = r.w*bat/100;
 		uint32_t color = (bat <= 20) ?0xffed7930 : 0xff22dd22;
 		graph_gradation(g, r.x+r.w-w, r.y, w, r.h, 0xffffffff, color, true);
+
+		char txt[8];
+		snprintf(txt, 7, "%d%%", bat);
+		graph_draw_text_font_align(g, r.x, r.y, r.w, r.h,
+					txt, theme->font, theme->fgColor, FONT_ALIGN_CENTER);
 	}
 
 	void drawBase(graph_t* g, grect_t& r) {
@@ -129,9 +139,9 @@ protected:
 			return;
 
 		if(buf[1])
-			drawCharging(g, r, buf[2]);
+			drawCharging(g, theme, r, buf[2]);
 		else
-			drawBat(g, r, buf[2]);
+			drawBat(g, theme, r, buf[2]);
 	}
 
 	gsize_t getMinSize() {
@@ -145,7 +155,7 @@ protected:
 public:
 	BatteryItem() {
 		powerFD = -1;
-		setMarginV(6);
+		setMarginV(4);
 		setMarginH(4);
 	}
 

@@ -22,6 +22,11 @@ class PowerInfoX : public XWin {
 		static int b = 0;
 		int w = r.w*bat*b/300;
 		graph_gradation(g, r.x+r.w-w, r.y, w, r.h, 0xffffffff, 0xff22dd22, true);
+
+		char txt[8];
+		snprintf(txt, 7, "%d%%", bat);
+		graph_draw_text_font_align(g, r.x, r.y, r.w, r.h,
+					txt, &font, 0xff000000, FONT_ALIGN_CENTER);
 		b++;
 		b%=4;
 	}
@@ -29,6 +34,11 @@ class PowerInfoX : public XWin {
 	void drawBat(graph_t* g, const grect_t& r, int bat) {
 		int w = r.w*bat/100;
 		graph_gradation(g, r.x+r.w-w, r.y, w, r.h, 0xffffffff, 0xff22dd22, true);
+
+		char txt[8];
+		snprintf(txt, 7, "%d%%", bat);
+		graph_draw_text_font_align(g, r.x, r.y, r.w, r.h,
+					txt, &font, 0xff000000, FONT_ALIGN_CENTER);
 	}
 
 	void drawBase(graph_t* g, grect_t& r) {
@@ -105,7 +115,7 @@ int main(int argc, char* argv[]) {
 
 	X x;
 	PowerInfoX xwin;
-	x.open(0, &xwin, 64, 32, "pwrInfo", XWIN_STYLE_NO_FRAME);
+	x.open(0, &xwin, 86, 42, "pwrInfo", XWIN_STYLE_NO_FRAME | XWIN_STYLE_ANTI_FSCR);
 	xwin.setVisible(true);
 
 	_xwin = &xwin;
