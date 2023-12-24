@@ -68,7 +68,7 @@ static void interrupt_handle(uint32_t interrupt, uint32_t data) {
 	(void)interrupt;
 	(void)data;
 	uint64_t usec;
-	ipc_disable();
+	//ipc_disable();
 
 	kernel_tic(NULL, &usec);
 	interrupt_t* intr = _intr_list;
@@ -100,7 +100,7 @@ static void interrupt_handle(uint32_t interrupt, uint32_t data) {
 	if(_intr_list == NULL)
 		sys_interrupt_setup(SYS_INT_TIMER0, 0, 0);
 
-	ipc_enable();
+	//ipc_enable();
 	sys_interrupt_end();
 }
 
