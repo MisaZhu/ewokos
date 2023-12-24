@@ -9,6 +9,17 @@ using namespace Ewok;
 
 class Timer: public Label {
 protected:
+	void onRepaint(graph_t* g, const Theme* theme, const grect_t& r) {
+		graph_gradation(g, r.x, r.y, r.w, r.h/2, 0xffffffff, 0xffaaaaaa, true);
+		graph_gradation(g, r.x, r.y+r.h/2, r.w, r.h/2, 0xffffffff, 0xffaaaaaa, true);
+
+		Label::onRepaint(g, theme, r);
+
+		graph_set(g, r.x, r.y+r.h/2-1, r.w, 2, 0x0);
+		graph_box(g, r.x, r.y, r.w, r.h/2-1, 0xff000000);
+		graph_box(g, r.x, r.y+r.h/2+1, r.w, r.h/2-1, 0xff000000);
+	}
+
 	void onTimer() {
 		uint32_t ksec;
 		kernel_tic(&ksec, NULL);
@@ -48,8 +59,8 @@ int main(int argc, char** argv) {
 	ClockWin win;
 
 	Theme* theme = new Theme(font_new("/usr/system/fonts/system.ttf", 48, true));
-	theme->fgColor = 0xffffffff;
-	theme->bgColor = 0xff000000;
+	theme->bgColor = 0xffffffff;
+	theme->fgColor = 0xff000000;
 
 	win.setRoot(new RootWidget());
 	win.setTheme(theme);
@@ -58,7 +69,7 @@ int main(int argc, char** argv) {
 	Timer* timer = new Timer();
 	win.getRoot()->add(timer);
 
-	x.open(0, &win, 200, 50, "clock", XWIN_STYLE_NO_TITLE);
+	x.open(0, &win, 200, 68, "clock", XWIN_STYLE_NO_FRAME);
 	win.setVisible(true);
 	win.setTimer(1);
 	x.run(NULL, &win);
