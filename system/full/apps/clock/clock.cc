@@ -21,7 +21,7 @@ class Timer: public Widget {
 		graph_draw_text_font_align(g, r.x, r.y, r.w, r.h,
 				txt, theme->font, theme->fgColor, FONT_ALIGN_CENTER);
 
-		graph_set(g, r.x, r.y+r.h/2-1, r.w, 2, 0x0);
+		graph_set(g, r.x, r.y+r.h/2-1, r.w, 2, 0xaa000000);
 		graph_box(g, r.x, r.y, r.w, r.h/2-1, 0xff000000);
 		graph_box(g, r.x, r.y+r.h/2+1, r.w, r.h/2-1, 0xff000000);
 	}
@@ -29,11 +29,13 @@ class Timer: public Widget {
 protected:
 
 	void onRepaint(graph_t* g, const Theme* theme, const grect_t& rect) {
-		grect_t r = {rect.x, rect.y, rect.w/3-2, rect.h};
+		graph_set(g, rect.x, rect.y+8, rect.w, rect.h-16, 0xaa000000);
+		uint32_t w = (rect.w-8)/3;
+		grect_t r = {rect.x+4, rect.y, w-2, rect.h};
 		drawClock(g, theme, r, hour);
-		r.x += (rect.w/3+1);
+		r.x += (w+1);
 		drawClock(g, theme, r, min);
-		r.x += (rect.w/3+1);
+		r.x += (w+1);
 		drawClock(g, theme, r, sec);
 	}
 
