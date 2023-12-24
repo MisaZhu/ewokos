@@ -291,11 +291,11 @@ static void sys_ipc_call(context_t* ctx, int32_t serv_pid, int32_t call_id, prot
 	}
 
 	if(serv_proc->space->interrupt.state != INTR_STATE_IDLE) {
-		if((call_id & IPC_NON_RETURN) == 0) {
+		//if((call_id & IPC_NON_RETURN) == 0) {
 			ctx->gpr[0] = -1; // blocked if proc is on interrupt task, should retry
 			proc_block_on(ctx, serv_pid, (uint32_t)&serv_proc->space->interrupt);
 			return;
-		}
+		//}
 		//call_id = call_id | IPC_LAZY; //not do task immediately
 		//serv_proc->space->interrupt.saved_state.state = READY;
 	}
