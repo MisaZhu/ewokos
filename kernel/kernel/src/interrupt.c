@@ -88,7 +88,7 @@ static int32_t interrupt_send_raw(context_t* ctx, uint32_t interrupt,  interrupt
 	}	
 
 	if(proc->ipc_res.state != IPC_IDLE) {
-		kprintf("inter err ipc req: %d\n", proc == NULL ? -1:proc->info.pid);
+		//kprintf("inter err ipc req: %d\n", proc == NULL ? -1:proc->info.pid);
 		return -1;
 	}
 
