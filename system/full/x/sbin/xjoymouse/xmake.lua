@@ -1,0 +1,6 @@
+target("xjoymoused")
+    set_type("application")
+    add_files("*.c")        
+    add_deps("libx")
+    install_dir("sbin/x")
+target_end()

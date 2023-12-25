@@ -19,7 +19,7 @@
 #/bin/rundev /drivers/xconsoled           /dev/console0
 
 @/sbin/x/xim_none                         /dev/joykeyb &
-@/sbin/x/xjoystickd /dev/joystick &
+@/sbin/x/xjoymoused /dev/joystick &
 @/sbin/x/xim_vkey 560 168&
 
 @/bin/x/launcher &
