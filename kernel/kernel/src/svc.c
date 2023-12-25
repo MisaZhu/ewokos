@@ -476,17 +476,60 @@ static void sys_get_kevent(context_t* ctx) {
 	}
 }
 
+static proc_block_event_t* get_block_evt(proc_t* proc, uint32_t event) {
+	if(proc == NULL || event == 0)
+		return NULL;
+
+	for(int32_t i=0; i<BLOCK_EVT_MAX; i++) {
+		proc_block_event_t* block_evt = &proc->space->block_events[i];
+		if(block_evt->event == event)
+			return block_evt;
+	}
+	return NULL;
+}
+
+static void set_block_evt(proc_t* proc, uint32_t event) {
+	if(proc == NULL || event == 0)
+		return;
+
+	for(int32_t i=0; i<BLOCK_EVT_MAX; i++) {
+		proc_block_event_t* block_evt = &proc->space->block_events[i];
+		if(block_evt->event == 0) {
+			block_evt->event = event;
+			block_evt->refs = 0;
+			break;
+		}
+	}
+}
+
 static void sys_proc_block(context_t* ctx, int32_t pid_by, uint32_t evt) {
 	proc_t* proc_by = proc_get_proc(proc_get(pid_by));
-	if(proc_by != NULL) {
-		proc_block_on(ctx, proc_by->info.pid, evt);
-	}
+	if(proc_by == NULL)
+		return;
+
+	if(evt != 0) {
+		proc_block_event_t* block_evt = get_block_evt(proc_by, evt);
+		if(block_evt != NULL) {
+			if(block_evt->refs > 0) {
+				block_evt->refs--;
+				return;
+			}
+			else
+				block_evt->event = 0;
+		}
+	}	
+	proc_block_on(ctx, proc_by->info.pid, evt);
 }
 
 static void sys_proc_wakeup(context_t* ctx, int32_t pid, uint32_t evt) {
 	(void)ctx;
-	proc_t* proc = proc_get_proc(get_current_proc());
-	proc_wakeup(proc->info.pid, pid, evt);
+	proc_t* proc_by = proc_get_proc(get_current_proc());
+	proc_block_event_t* block_evt = get_block_evt(proc_by, evt);
+	if(block_evt != NULL)
+		block_evt->refs++;
+	else
+		set_block_evt(proc_by, evt);
+	proc_wakeup(proc_by->info.pid, pid, evt);
 }
 
 static void sys_core_proc_ready(void) {

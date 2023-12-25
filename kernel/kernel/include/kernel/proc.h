@@ -13,6 +13,8 @@
 
 #define PROC_FILE_MAX 128
 #define SHM_MAX 128
+#define BLOCK_EVT_MAX 16
+
 typedef struct {
 	uint32_t event;
 	uint32_t refs;
@@ -26,6 +28,7 @@ typedef struct {
 	bool              ready_ping;
 	
 	uint32_t          shms[SHM_MAX];
+	proc_block_event_t block_events[BLOCK_EVT_MAX];
 
 	ipc_server_t      ipc_server;
 	signal_t          signal;
