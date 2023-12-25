@@ -73,6 +73,7 @@ int main(int argc, char** argv) {
 	WidgetWin win;
 	RootWidget* root = new RootWidget();
 	win.setRoot(root);
+	root->setType(Container::VERTICLE);
 	root->setAlpha(false);
 
 	Widget* wd = new Anim();
@@ -97,8 +98,6 @@ int main(int argc, char** argv) {
 	wd = new MyButton("disable");
 	wd->disable();
 	c->add(wd);
-
-	root->setType(Container::VERTICLE);
 
 	x.open(0, &win, 400, 300, "widgetTest", XWIN_STYLE_NORMAL);
 	win.setVisible(true);
