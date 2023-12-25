@@ -13,12 +13,17 @@
 using namespace Ewok;
 
 class MyButton: public LabelButton {
+	uint32_t counter;
 protected:
 	void onClick() {
-		klog("click %s!\n", label.c_str());
+		char s[16];
+		snprintf(s, 15, "test-%d", counter);
+		counter++;
+		setLabel(s);
 	}
 public: 
 	MyButton(const string& label = "") : LabelButton(label) {
+		counter = 0;
 	}
 };
 
