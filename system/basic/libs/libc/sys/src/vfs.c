@@ -150,16 +150,19 @@ const char* vfs_fullname(const char* fname) {
 	return ret;
 }
 
-int vfs_open(uint32_t node, int oflag) {
+int vfs_open(fsinfo_t* info, int oflag) {
 	proto_t in, out;
-	PF->init(&in)->addi(&in, node)->addi(&in, oflag);
+	PF->init(&in)->add(&in, info, sizeof(fsinfo_t))->addi(&in, oflag);
 	PF->init(&out);
 
 	int res = ipc_call(get_vfsd_pid(), VFS_OPEN, &in, &out);
 	PF->clear(&in);
 	if(res == 0) {
 		res = proto_read_int(&out);
-		vfs_clear_info_buffer(res);	
+		if(res >= 0) {
+			proto_read_to(&out, info, sizeof(fsinfo_t));
+			vfs_clear_info_buffer(res);	
+		}
 	}
 	PF->clear(&out);
 	return res;	

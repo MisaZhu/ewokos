@@ -21,7 +21,7 @@ int open(const char* fname, int oflag) {
 		}	
 	}
 
-	fd = vfs_open(info.node, oflag);
+	fd = vfs_open(&info, oflag);
 	if(fd < 0) {
 		if(created)
 			vfs_del_node(&info);
@@ -32,7 +32,7 @@ int open(const char* fname, int oflag) {
 		info.size = 0;
 		vfs_set(&info);
 	}
-	
+
 	proto_t in, out;
 	PF->init(&out);
 
@@ -51,6 +51,7 @@ int open(const char* fname, int oflag) {
 
 	PF->clear(&in);
 	PF->clear(&out);
+
 	return fd;
 }
 

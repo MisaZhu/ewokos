@@ -468,6 +468,13 @@ static void proc_file_close(int pid, int fd, file_t* file, bool close_dev) {
 		proc_wakeup(node_id);
 	}
 
+	if(node->fsinfo.type == FS_TYPE_ANNOUNIMOUS) {
+		if(node->refs <= 0) {
+			vfs_del_node(pid, node);
+			file->node = 0;
+		}
+		proc_wakeup(node_id);
+	}
 	if(!close_dev)
 		return;
 
@@ -674,19 +681,42 @@ static void do_vfs_new_node(int pid, proto_t* in, proto_t* out) {
 	PF->clear(out)->addi(out, 0)->add(out, &info, sizeof(fsinfo_t));
 }
 
+static vfs_node_t* vfs_open_announimous(int32_t pid, vfs_node_t* node) {
+	vfs_node_t* ret = vfs_new_node();
+	if(node == NULL)
+		return NULL;
+
+	ret->fsinfo.type = FS_TYPE_ANNOUNIMOUS;
+	ret->fsinfo.data = 0;
+	return ret;
+}
+
 static void do_vfs_open(int32_t pid, proto_t* in, proto_t* out) {
 	PF->addi(out, -1);
-	uint32_t node_id = proto_read_int(in);
-	if(node_id == 0)
+	fsinfo_t info;
+	if(proto_read_to(in, &info, sizeof(fsinfo_t)) != sizeof(fsinfo_t))
 		return;
+
+	int32_t mpid = info.mount_pid;
 	int32_t flags = proto_read_int(in);
- 	vfs_node_t* node = vfs_get_node_by_id(node_id);
+ 	vfs_node_t* node = vfs_get_node_by_id(info.node);
  	if(node == NULL)
 		return;
 
-	int res = vfs_open(pid, node, flags);
+	int res = -1;
+	if(node->fsinfo.type != FS_TYPE_ANNOUNIMOUS)
+		res = vfs_open(pid, node, flags);
+	else {
+		node = vfs_open_announimous(pid, node);
+		if(node != NULL)
+			res = 0;
+	}
+
+	memcpy(&info, &node->fsinfo, sizeof(fsinfo_t));
+	info.mount_pid = mpid;
+
 	PF->clear(out);
-	PF->addi(out, res);
+	PF->addi(out, res)->add(out, &info, sizeof(fsinfo_t));
 }
 
 static void do_vfs_close(int32_t pid, proto_t* in) {
