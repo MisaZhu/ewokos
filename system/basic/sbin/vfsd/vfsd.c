@@ -388,6 +388,17 @@ static int32_t vfs_open(int32_t pid, vfs_node_t* node, int32_t flags) {
 	return fd;
 }
 
+static vfs_node_t* vfs_open_announimous(int32_t pid, vfs_node_t* node) {
+	vfs_node_t* ret = vfs_new_node();
+	if(node == NULL)
+		return NULL;
+
+	ret->fsinfo.type = FS_TYPE_ANNOUNIMOUS;
+	ret->fsinfo.data = 0;
+	ret->mount_id = node->mount_id;
+	return ret;
+}
+
 static vfs_node_t* vfs_get_by_fd(int32_t pid, int32_t fd) {
 	file_t* file = vfs_get_file(pid, fd);
 	if(file == NULL)
@@ -681,16 +692,6 @@ static void do_vfs_new_node(int pid, proto_t* in, proto_t* out) {
 	PF->clear(out)->addi(out, 0)->add(out, &info, sizeof(fsinfo_t));
 }
 
-static vfs_node_t* vfs_open_announimous(int32_t pid, vfs_node_t* node) {
-	vfs_node_t* ret = vfs_new_node();
-	if(node == NULL)
-		return NULL;
-
-	ret->fsinfo.type = FS_TYPE_ANNOUNIMOUS;
-	ret->fsinfo.data = 0;
-	return ret;
-}
-
 static void do_vfs_open(int32_t pid, proto_t* in, proto_t* out) {
 	PF->addi(out, -1);
 	fsinfo_t info;
@@ -709,12 +710,10 @@ static void do_vfs_open(int32_t pid, proto_t* in, proto_t* out) {
 	else {
 		node = vfs_open_announimous(pid, node);
 		if(node != NULL)
-			res = 0;
+			res = vfs_open(pid, node, flags);
 	}
 
-	memcpy(&info, &node->fsinfo, sizeof(fsinfo_t));
-	info.mount_pid = mpid;
-
+	memcpy(&info, gen_fsinfo(node), sizeof(fsinfo_t));
 	PF->clear(out);
 	PF->addi(out, res)->add(out, &info, sizeof(fsinfo_t));
 }
