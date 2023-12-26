@@ -723,10 +723,9 @@ static void do_vfs_set_fsinfo(int32_t pid, proto_t* in, proto_t* out) {
 	fsinfo_t info;
 	int32_t res = -1;
 	if(proto_read_to(in, &info, sizeof(fsinfo_t)) == sizeof(fsinfo_t)) {
-  	vfs_node_t* node = vfs_get_node_by_id(info.node);
-  	if(node != NULL) { 
-			vfs_set(pid, node, &info);
-			res = 0;
+		vfs_node_t* node = vfs_get_node_by_id(info.node);
+		if(node != NULL) { 
+			res = vfs_set(pid, node, &info);
 		}
 	}
 	PF->addi(out, res);
