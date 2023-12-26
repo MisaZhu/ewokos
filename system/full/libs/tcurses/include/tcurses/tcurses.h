@@ -9,7 +9,12 @@ extern "C" {
 typedef uint16_t UNICODE16;
 
 typedef struct {
-	UNICODE16 *content;
+	UNICODE16 c;
+	uint32_t color;
+} tchar_t;
+
+typedef struct {
+	tchar_t* content;
 	uint32_t cols;
 	uint32_t rows;
 	uint32_t curs_x;
@@ -21,7 +26,7 @@ void tcurses_close(tcurses_t* tcurses);
 void tcurses_reset(tcurses_t* tcurses, uint32_t cols, uint32_t rows);
 void tcurses_move_to(tcurses_t* tcurses, uint32_t x, uint32_t y);
 void tcurses_move(tcurses_t* tcurses, int32_t steps);
-void tcurses_put(tcurses_t* tcurses, UNICODE16 c);
+void tcurses_put(tcurses_t* tcurses, UNICODE16 ci, uint32_t color);
 
 #ifdef __cplusplus
 }

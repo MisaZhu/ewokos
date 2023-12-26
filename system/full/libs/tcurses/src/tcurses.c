@@ -23,13 +23,13 @@ void tcurses_reset(tcurses_t* tc, uint32_t cols, uint32_t rows) {
 		return;
 	}
 
-	UNICODE16* content = tc->content;
+	tchar_t* content = tc->content;
 	uint32_t old_size = tc->cols * tc->rows;
 	uint32_t size = cols * rows;
 
-	tc->content = (UNICODE16*)calloc(size * sizeof(UNICODE16), 1);
+	tc->content = (tchar_t*)calloc(size * sizeof(tchar_t), 1);
 	if(content != NULL) {
-		memcpy(tc->content, content, sizeof(UNICODE16)*(size<old_size?size:old_size));
+		memcpy(tc->content, content, sizeof(tchar_t)*(size<old_size?size:old_size));
 		free(content);
 	}
 
@@ -66,11 +66,12 @@ void tcurses_move(tcurses_t* tc, int32_t steps) {
 	tcurses_move_to(tc, x, y);
 }
 
-void tcurses_put(tcurses_t* tc, UNICODE16 c) {
+void tcurses_put(tcurses_t* tc, UNICODE16 c, uint32_t color) {
 	if(tc->content == NULL)
 		return;
 	uint32_t at = tc->curs_y*tc->cols + tc->curs_x;
-	tc->content[at] = c;
+	tc->content[at].c = c;
+	tc->content[at].color = color;
 }
 
 #ifdef __cplusplus

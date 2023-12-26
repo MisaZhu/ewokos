@@ -17,6 +17,16 @@ class TestX : public XWin {
 	tcurses_t tc;	
 	font_t* font;
 
+	uint32_t getColor(UNICODE16 c) {
+		if((c >= 'a' && c <= 'z') ||
+				(c >= 'A' && c <= 'Z'))
+			return 0xff00ff00; //green 
+		else if(c >= '0' && c <= '9')
+			return 0xffffff00; //yellow 
+		else
+			return 0xff0000ff; //blue 
+	}
+
 	void drawBG(graph_t* g) {
 		graph_clear(g, 0xff000000);
 		uint32_t w = g->w / tc.cols;
@@ -57,7 +67,7 @@ class TestX : public XWin {
 		uint32_t w = g->w / tc.cols;
 		uint32_t h = g->h / tc.rows;
 		gpos_t pos = getPos(g, tc.curs_x, tc.curs_y);
-		graph_fill(g, pos.x, pos.y+h-2, w, 2, 0xffffffff);
+		graph_fill(g, pos.x, pos.y+h-2, w, 2, getColor('_'));
 	}
 
 	void drawContent(graph_t* g) {
@@ -66,9 +76,9 @@ class TestX : public XWin {
 
 		uint32_t i = 0;
 		while(i < tc.cols*tc.rows) {
-			if(tc.content[i] != 0) {
+			if(tc.content[i].c != 0) {
 				gpos_t pos = getPos(g, i);
-				graph_draw_char_font_fixed(g, pos.x, pos.y, tc.content[i], font, 0xffffffff, w, 0);
+				graph_draw_char_font_fixed(g, pos.x, pos.y, tc.content[i].c, font, tc.content[i].color, w, 0);
 			}
 			i++;
 		}
@@ -95,31 +105,32 @@ protected:
 
 	void onEvent(xevent_t* ev) {
 		if(ev->type == XEVT_IM && ev->state == XIM_STATE_PRESS) {
-			if(ev->value.im.value == KEY_LEFT)
+			UNICODE16 c = ev->value.im.value;
+			if(c == KEY_LEFT)
 				tcurses_move(&tc, -1);
-			else if(ev->value.im.value == KEY_RIGHT)
+			else if(c == KEY_RIGHT)
 				tcurses_move(&tc, 1);
-			else if(ev->value.im.value == KEY_UP)
+			else if(c == KEY_UP)
 				tcurses_move(&tc, -tc.cols);
-			else if(ev->value.im.value == KEY_DOWN)
+			else if(c == KEY_DOWN)
 				tcurses_move(&tc, tc.cols);
-			else if(ev->value.im.value == KEY_ENTER) {
-				tcurses_put(&tc, ev->value.im.value);
+			else if(c == KEY_ENTER) {
+				tcurses_put(&tc, c, getColor(c));
 				tcurses_move_to(&tc, 0, tc.curs_y+1);
 			}	
-			else if(ev->value.im.value == KEY_BACKSPACE ||
-					ev->value.im.value == CONSOLE_LEFT) {
+			else if(c == KEY_BACKSPACE ||
+					c == CONSOLE_LEFT) {
 				tcurses_move(&tc, -1);
-				tcurses_put(&tc, 0);
+				tcurses_put(&tc, 0, getColor(c));
 			}
-			else if(ev->value.im.value == '\t') {
-				tcurses_put(&tc, ' ');
+			else if(c == '\t') {
+				tcurses_put(&tc, ' ', getColor(c));
 				tcurses_move(&tc, 1);
-				tcurses_put(&tc, ' ');
+				tcurses_put(&tc, ' ', getColor(c));
 				tcurses_move(&tc, 1);
 			}	
 			else  {
-				tcurses_put(&tc, ev->value.im.value);
+				tcurses_put(&tc, c, getColor(c));
 				tcurses_move(&tc, 1);
 			}	
 			repaint();
