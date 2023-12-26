@@ -1110,7 +1110,7 @@ int main(int argc, char** argv) {
 			//ipc_disable();
 			//check_procs();
 			//ipc_enable();
-			usleep(3000);
+			//usleep(3000);
 		}
 	}
 	return 0;
