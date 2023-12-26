@@ -1,0 +1,6 @@
+target("test_tcurses")
+    set_type("application")
+    add_deps("libx", "libx++", "libupng", "libcxx", "libtcurses")
+    add_files("**.cc")        
+    install_dir("apps/test_tcurses")
+target_end()
