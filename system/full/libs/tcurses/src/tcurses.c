@@ -56,20 +56,31 @@ void tcurses_move_to(tcurses_t* tc, uint32_t x, uint32_t y) {
 		tc->curs_x = tc->cols - 1;
 }
 
-void tcurses_move(tcurses_t* tc, int32_t steps) {
-	int32_t at = (int32_t)(tc->curs_y*tc->cols + tc->curs_x) + steps;
-	if(at < 0)
-		at = 0;
-
+void tcurses_move_at(tcurses_t* tc, uint32_t at) {
 	uint32_t y = at/tc->cols;
 	uint32_t x = at%tc->cols;
 	tcurses_move_to(tc, x, y);
 }
 
+uint32_t tcurses_at(tcurses_t* tc) {
+	return tc->curs_y*tc->cols + tc->curs_x;
+}
+
+uint32_t tcurses_size(tcurses_t* tc) {
+	return tc->cols * tc->rows;
+}
+
+void tcurses_move(tcurses_t* tc, int32_t steps) {
+	int32_t at = (int32_t)tcurses_at(tc) + steps;
+	if(at < 0)
+		at = 0;
+	tcurses_move_at(tc, at);
+}
+
 void tcurses_put(tcurses_t* tc, UNICODE16 c, uint32_t color) {
 	if(tc->content == NULL)
 		return;
-	uint32_t at = tc->curs_y*tc->cols + tc->curs_x;
+	uint32_t at = tcurses_at(tc);
 	tc->content[at].c = c;
 	tc->content[at].color = color;
 }

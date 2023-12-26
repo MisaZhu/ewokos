@@ -24,7 +24,7 @@ class TestX : public XWin {
 		else if(c >= '0' && c <= '9')
 			return 0xffffff00; //yellow 
 		else
-			return 0xff0000ff; //blue 
+			return 0xffaaaaaa; //blue 
 	}
 
 	void drawBG(graph_t* g) {
@@ -84,6 +84,27 @@ class TestX : public XWin {
 		}
 	}
 
+	void skip(bool backward) {
+		int32_t at = tcurses_at(&tc);
+		int32_t o_at = at;
+		int32_t size = tcurses_size(&tc);
+		while(at >= 0 && at < size) {
+			if(tc.content[at].c != 0)
+				break;
+			if(backward)
+				at--;
+			else
+				at++;
+		}	
+
+		if(at < 0)
+			at = 0;
+		else if(at == size)
+			at = o_at-1;
+
+		tcurses_move_at(&tc, at);
+	}
+
 protected:
 	void onRepaint(graph_t* g) {
 		drawBG(g);
@@ -106,21 +127,29 @@ protected:
 	void onEvent(xevent_t* ev) {
 		if(ev->type == XEVT_IM && ev->state == XIM_STATE_PRESS) {
 			UNICODE16 c = ev->value.im.value;
-			if(c == KEY_LEFT)
+			if(c == KEY_LEFT) {
 				tcurses_move(&tc, -1);
-			else if(c == KEY_RIGHT)
+				skip(true);
+			}
+			else if(c == KEY_RIGHT) {
 				tcurses_move(&tc, 1);
-			else if(c == KEY_UP)
+				skip(false);
+			}
+			else if(c == KEY_UP) {
 				tcurses_move(&tc, -tc.cols);
-			else if(c == KEY_DOWN)
+				skip(true);
+			}	
+			else if(c == KEY_DOWN) {
 				tcurses_move(&tc, tc.cols);
+				skip(true);
+			}
 			else if(c == KEY_ENTER) {
 				tcurses_put(&tc, c, getColor(c));
 				tcurses_move_to(&tc, 0, tc.curs_y+1);
 			}	
 			else if(c == KEY_BACKSPACE ||
 					c == CONSOLE_LEFT) {
-				tcurses_move(&tc, -1);
+				skip(true);
 				tcurses_put(&tc, 0, getColor(c));
 			}
 			else if(c == '\t') {
