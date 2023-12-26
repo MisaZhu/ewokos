@@ -28,4 +28,5 @@
 @/sbin/x/xim_none &
 
 @/bin/session &
+@/bin/x/menubar &
 @/bin/x/launcher &

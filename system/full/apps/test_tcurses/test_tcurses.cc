@@ -81,6 +81,10 @@ protected:
 		drawCurs(g);
 	}
 
+	void onFocus(void) {
+		callXIM();
+	}
+
 	void onResize() {
 		xinfo_t xinfo;
 		getInfo(xinfo);
