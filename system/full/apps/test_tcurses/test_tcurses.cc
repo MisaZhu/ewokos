@@ -144,22 +144,22 @@ protected:
 				skip(true);
 			}
 			else if(c == KEY_ENTER) {
-				tcurses_put(&tc, c, getColor(c));
+				tcurses_set(&tc, c, getColor(c));
 				tcurses_move_to(&tc, 0, tc.curs_y+1);
 			}	
 			else if(c == KEY_BACKSPACE ||
 					c == CONSOLE_LEFT) {
 				skip(true);
-				tcurses_put(&tc, 0, getColor(c));
+				tcurses_set(&tc, 0, getColor(c));
 			}
 			else if(c == '\t') {
-				tcurses_put(&tc, ' ', getColor(c));
+				tcurses_set(&tc, ' ', getColor(c));
 				tcurses_move(&tc, 1);
-				tcurses_put(&tc, ' ', getColor(c));
+				tcurses_set(&tc, ' ', getColor(c));
 				tcurses_move(&tc, 1);
 			}	
 			else  {
-				tcurses_put(&tc, c, getColor(c));
+				tcurses_set(&tc, c, getColor(c));
 				tcurses_move(&tc, 1);
 			}	
 			repaint();

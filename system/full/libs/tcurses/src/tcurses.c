@@ -77,7 +77,7 @@ void tcurses_move(tcurses_t* tc, int32_t steps) {
 	tcurses_move_at(tc, at);
 }
 
-void tcurses_put(tcurses_t* tc, UNICODE16 c, uint32_t color) {
+void tcurses_set(tcurses_t* tc, UNICODE16 c, uint32_t color) {
 	if(tc->content == NULL)
 		return;
 	uint32_t at = tcurses_at(tc);
