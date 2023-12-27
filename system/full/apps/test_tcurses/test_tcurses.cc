@@ -133,7 +133,8 @@ protected:
 			}
 			else if(c == KEY_RIGHT) {
 				tcurses_move(&tc, 1);
-				skip(false);
+				if(tcurses_get(&tc) == 0)
+					skip(false);
 			}
 			else if(c == KEY_UP) {
 				tcurses_move(&tc, -tc.cols);

@@ -66,6 +66,12 @@ uint32_t tcurses_at(tcurses_t* tc) {
 	return tc->curs_y*tc->cols + tc->curs_x;
 }
 
+UNICODE16 tcurses_get(tcurses_t* tc) {
+	if(tc->content == NULL)
+		return 0;
+	return  tc->content[tcurses_at(tc)].c;
+}
+
 uint32_t tcurses_size(tcurses_t* tc) {
 	return tc->cols * tc->rows;
 }

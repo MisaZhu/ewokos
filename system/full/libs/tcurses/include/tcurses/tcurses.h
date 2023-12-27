@@ -29,6 +29,7 @@ void tcurses_move_at(tcurses_t* tcurses, uint32_t at);
 void tcurses_move(tcurses_t* tcurses, int32_t steps);
 void tcurses_put(tcurses_t* tcurses, UNICODE16 ci, uint32_t color);
 uint32_t tcurses_at(tcurses_t* tcurses);
+UNICODE16 tcurses_get(tcurses_t* tcurses);
 uint32_t tcurses_size(tcurses_t* tcurses);
 
 #ifdef __cplusplus
