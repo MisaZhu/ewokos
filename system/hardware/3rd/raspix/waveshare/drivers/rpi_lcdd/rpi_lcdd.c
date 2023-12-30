@@ -4,7 +4,6 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <string.h>
-#include <ewoksys/shm.h>
 #include <sys/shm.h>
 #include <ewoksys/vdevice.h>
 #include <arch/bcm283x/spi.h>

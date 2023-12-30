@@ -7,7 +7,6 @@
 #include <console/console.h>
 #include <fb/fb.h>
 #include <ttf/ttf.h>
-#include <ewoksys/shm.h>
 #include <ewoksys/vdevice.h>
 #include <display/display.h>
 #include <upng/upng.h>

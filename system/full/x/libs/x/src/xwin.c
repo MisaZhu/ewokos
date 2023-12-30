@@ -1,5 +1,4 @@
 #include <x/xwin.h>
-#include <ewoksys/shm.h>
 #include <ewoksys/ipc.h>
 #include <ewoksys/vfs.h>
 #include <ewoksys/syscall.h>
