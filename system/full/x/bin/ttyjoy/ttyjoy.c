@@ -3,8 +3,8 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include <sys/keydef.h>
-#include <sys/vdevice.h>
+#include <ewoksys/keydef.h>
+#include <ewoksys/vdevice.h>
 #include <x/xwin.h>
 
 static void input(int32_t x_pid, char c, int state) {

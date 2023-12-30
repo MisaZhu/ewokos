@@ -35,7 +35,7 @@
 #include <vprintf.h>
 #include <string.h>
 #include <unistd.h>
-#include <sys/mstr.h>
+#include <ewoksys/mstr.h>
 #include <stdarg.h>
 
 static void outc(char c, void* p) {

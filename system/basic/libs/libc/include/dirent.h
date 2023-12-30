@@ -1,7 +1,7 @@
 #ifndef DIRENT_H
 #define DIRENT_H
 
-#include <sys/fsinfo.h>
+#include <ewoksys/fsinfo.h>
 
 #ifdef __cplusplus
 extern "C" {

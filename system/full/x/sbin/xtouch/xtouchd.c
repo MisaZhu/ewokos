@@ -3,13 +3,13 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <string.h>
-#include <sys/vdevice.h>
+#include <ewoksys/vdevice.h>
 #include <sconf/sconf.h>
-#include <sys/proto.h>
+#include <ewoksys/proto.h>
 #include <x/xcntl.h>
 #include <x/xevent.h>
 #include <x/xwin.h>
-#include <sys/vfs.h>
+#include <ewoksys/vfs.h>
 
 static int _x_pid = -1;
 static int _scr_w = 0;

@@ -5,11 +5,11 @@
 #include <string.h>
 #include <console/console.h>
 #include <sconf/sconf.h>
-#include <sys/vfs.h>
-#include <sys/keydef.h>
-#include <sys/klog.h>
+#include <ewoksys/vfs.h>
+#include <ewoksys/keydef.h>
+#include <ewoksys/klog.h>
 #include <ttf/ttf.h>
-#include <sys/basic_math.h>
+#include <ewoksys/basic_math.h>
 #include <x++/X.h>
 #include <pthread.h>
 

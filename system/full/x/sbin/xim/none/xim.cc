@@ -2,14 +2,14 @@
 #include <stdlib.h>
 #include <fcntl.h>
 #include <stdio.h>
-#include <sys/vdevice.h>
-#include <sys/klog.h>
-#include <sys/proc.h>
-#include <sys/keydef.h>
-#include <sys/kernel_tic.h>
+#include <ewoksys/vdevice.h>
+#include <ewoksys/klog.h>
+#include <ewoksys/proc.h>
+#include <ewoksys/keydef.h>
+#include <ewoksys/kernel_tic.h>
 #include <x/xwin.h>
 #include <string.h>
-#include <sys/timer.h>
+#include <ewoksys/timer.h>
 
 #define KEY_REPEAT_TIMEOUT	60
 #define KEY_HOLD_TIMEOUT	100

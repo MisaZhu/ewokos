@@ -3,7 +3,7 @@
 #define PCM_LIB_H_
 
 #include <sys/types.h>
-#include <sys/vdevice.h>
+#include <ewoksys/vdevice.h>
 #include <pthread.h>
 
 #include "list.h"

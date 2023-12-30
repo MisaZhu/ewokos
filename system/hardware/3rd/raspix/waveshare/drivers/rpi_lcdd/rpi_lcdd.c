@@ -4,14 +4,15 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <string.h>
+#include <ewoksys/shm.h>
 #include <sys/shm.h>
-#include <sys/shm.h>
-#include <sys/vdevice.h>
+#include <ewoksys/vdevice.h>
 #include <arch/bcm283x/spi.h>
 #include <ili9486/ili9486.h>
 #include <xpt2046/xpt2046.h>
 
 typedef struct {
+	int32_t shm_id;
 	void* shm;
 	uint32_t size;
 } fb_dma_t;
@@ -30,13 +31,13 @@ static int lcd_flush(int fd, int from_pid, uint32_t node, void* p) {
 	return 0;
 }
 
-static void* lcd_dma(int fd, int from_pid, uint32_t node, int* size, void* p) {
+static int32_t lcd_dma(int fd, int from_pid, uint32_t node, int* size, void* p) {
 	(void)fd;
 	(void)from_pid;
 	(void)node;
 	fb_dma_t* dma = (fb_dma_t*)p;
 	*size = dma->size;
-	return dma->shm;
+	return dma->shm_id;
 }
 
 static int lcd_fcntl(int fd, int from_pid, uint32_t node, 
@@ -97,7 +98,10 @@ int main(int argc, char** argv) {
 
 	uint32_t sz = LCD_HEIGHT*LCD_WIDTH*4;
 	fb_dma_t dma;
-	dma.shm = shm_alloc(sz+1, SHM_PUBLIC);
+	dma.shm_id = shmget(IPC_PRIVATE, sz+1, SHM_PUBLIC);
+	if(dma.shm_id == -1)
+		return -1;
+	dma.shm = shmat(dma.shm_id, 0, 0);
 	if(dma.shm == NULL)
 		return -1;
 	dma.size = sz;

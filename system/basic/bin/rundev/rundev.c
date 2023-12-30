@@ -2,8 +2,8 @@
 #include <unistd.h>
 #include <stdio.h>
 #include <string.h>
-#include <sys/mstr.h>
-#include <sys/proc.h>
+#include <ewoksys/mstr.h>
+#include <ewoksys/proc.h>
 #include <unistd.h>
 
 static int run(const char* cmd) {

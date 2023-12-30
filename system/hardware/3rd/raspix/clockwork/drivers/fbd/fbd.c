@@ -5,10 +5,10 @@
 #include <fbd/fbd.h>
 #include <graph/graph.h>
 #include <upng/upng.h>
-#include <sys/syscall.h>
+#include <ewoksys/syscall.h>
 #include <sysinfo.h>
-#include <sys/mmio.h>
-#include <sys/dma.h>
+#include <ewoksys/mmio.h>
+#include <ewoksys/dma.h>
 
 static fbinfo_t _fb_info;
 

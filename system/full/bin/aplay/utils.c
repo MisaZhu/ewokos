@@ -3,7 +3,7 @@
 #include <string.h>
 #include <sys/time.h>
 #include <stdarg.h>
-#include <sys/klog.h>
+#include <ewoksys/klog.h>
 #include <vprintf.h>
 #include <fcntl.h>
 #include <unistd.h>

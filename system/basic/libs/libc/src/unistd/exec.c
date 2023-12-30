@@ -1,9 +1,9 @@
 #include <unistd.h>
 #include <stdlib.h>
-#include <sys/mstr.h>
-#include <sys/syscall.h>
-#include <sys/proc.h>
-#include <sys/vfs.h>
+#include <ewoksys/mstr.h>
+#include <ewoksys/syscall.h>
+#include <ewoksys/proc.h>
+#include <ewoksys/vfs.h>
 
 int exec(const char* cmd_line) {
 	str_t* cmd = str_new("");

@@ -1,7 +1,7 @@
 #include <dirent.h>
 #include <stddef.h>
 #include <stdlib.h>
-#include <sys/vfs.h>
+#include <ewoksys/vfs.h>
 
 DIR* opendir(const char* name) {
 	fsinfo_t info;

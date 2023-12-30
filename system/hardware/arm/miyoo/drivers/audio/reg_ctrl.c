@@ -5,7 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include <sys/klog.h>
+#include <ewoksys/klog.h>
 #include "reg_ctrl.h"
 
 #define READ_REGI(a)		(*(volatile unsigned int *)(a))

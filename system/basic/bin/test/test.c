@@ -2,8 +2,9 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/interrupt.h>
-#include <sys/timer.h>
+#include <sys/ipc.h>
+#include <ewoksys/interrupt.h>
+#include <ewoksys/timer.h>
 #include <pthread.h>
 
 static uint32_t _v;
@@ -28,6 +29,7 @@ int main(int argc, char* argv[]) {
 	pthread_t tid;
 	pthread_create(&tid, NULL, timer_handle, NULL);
 	pthread_mutex_init(&_lock, NULL);
+	printf("ftok: 0x%x, 0x%x\n", ftok("/etc/init.rd", 200), ftok("/etc/init.rd", 100));
 	
 	while(_v < 100) {
 		pthread_mutex_lock(&_lock);

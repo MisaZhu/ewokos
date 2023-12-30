@@ -1,6 +1,6 @@
 #include <unistd.h>
-#include <sys/vfs.h>
-#include <sys/ipc.h>
+#include <ewoksys/vfs.h>
+#include <ewoksys/ipc.h>
 
 int unlink(const char* fname) {
 	fsinfo_t info;

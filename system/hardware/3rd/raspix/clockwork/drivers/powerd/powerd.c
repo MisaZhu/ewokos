@@ -2,11 +2,11 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
-#include <sys/vdevice.h>
-#include <sys/syscall.h>
-#include <sys/mmio.h>
-#include <sys/dma.h>
-#include <sys/interrupt.h>
+#include <ewoksys/vdevice.h>
+#include <ewoksys/syscall.h>
+#include <ewoksys/mmio.h>
+#include <ewoksys/dma.h>
+#include <ewoksys/interrupt.h>
 #include <arch/bcm283x/gpio.h>
 #include <arch/bcm283x/i2c.h>
 

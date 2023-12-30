@@ -3,7 +3,7 @@
 
 #include <stdint.h>
 #include <stddef.h>
-#include <sys/fbinfo.h>
+#include <ewoksys/fbinfo.h>
 #include <graph/graph_ex.h>
 
 

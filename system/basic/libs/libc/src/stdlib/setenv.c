@@ -1,7 +1,7 @@
 #include <stdlib.h>
-#include <sys/ipc.h>
-#include <sys/proc.h>
-#include <sys/core.h>
+#include <ewoksys/ipc.h>
+#include <ewoksys/proc.h>
+#include <ewoksys/core.h>
 #include <string.h>
 
 int setenv(const char* name, const char* value) {

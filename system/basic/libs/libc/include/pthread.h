@@ -1,7 +1,7 @@
 #ifndef PTHREAD_H
 #define PTHREAD_H
 
-#include <sys/ewokdef.h>
+#include <ewoksys/ewokdef.h>
 
 #ifdef __cplusplus
 extern "C" {

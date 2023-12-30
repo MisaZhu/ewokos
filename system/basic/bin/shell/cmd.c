@@ -2,15 +2,15 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <stdio.h>
-#include <sys/vfs.h>
-#include <sys/core.h>
-#include <sys/ipc.h>
-#include <sys/proc.h>
+#include <ewoksys/vfs.h>
+#include <ewoksys/core.h>
+#include <ewoksys/ipc.h>
+#include <ewoksys/proc.h>
 #include <vprintf.h>
-#include <sys/mstr.h>
+#include <ewoksys/mstr.h>
 #include <fcntl.h>
-#include <sys/klog.h>
-#include <sys/syscall.h>
+#include <ewoksys/klog.h>
+#include <ewoksys/syscall.h>
 #include "shell.h"
 
 static int cd(const char* dir) {

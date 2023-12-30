@@ -6,8 +6,8 @@
 #include <string.h>
 #include <graph/graph.h>
 #include <x++/X.h>
-#include <sys/keydef.h>
-#include <sys/klog.h>
+#include <ewoksys/keydef.h>
+#include <ewoksys/klog.h>
 
 using namespace Ewok;
 

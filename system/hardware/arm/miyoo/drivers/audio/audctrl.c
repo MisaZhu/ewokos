@@ -1,8 +1,8 @@
 
 #include <stdio.h>
 #include <sys/types.h>
-#include <sys/klog.h>
-#include <sys/vdevice.h>
+#include <ewoksys/klog.h>
+#include <ewoksys/vdevice.h>
 
 #include "list.h"
 #include "pcm_lib.h"

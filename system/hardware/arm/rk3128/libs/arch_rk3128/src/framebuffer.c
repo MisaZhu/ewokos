@@ -1,8 +1,8 @@
 #include <string.h>
 #include <arch/rk3128/framebuffer.h>
-#include <sys/syscall.h>
+#include <ewoksys/syscall.h>
 #include <sysinfo.h>
-#include <sys/mmio.h>
+#include <ewoksys/mmio.h>
 
 static fbinfo_t _fb_info;
 

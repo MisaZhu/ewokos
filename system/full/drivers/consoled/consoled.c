@@ -3,18 +3,18 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <string.h>
-#include <sys/vfs.h>
+#include <ewoksys/vfs.h>
 #include <console/console.h>
 #include <fb/fb.h>
 #include <ttf/ttf.h>
-#include <sys/shm.h>
-#include <sys/vdevice.h>
+#include <ewoksys/shm.h>
+#include <ewoksys/vdevice.h>
 #include <display/display.h>
 #include <upng/upng.h>
-#include <sys/syscall.h>
+#include <ewoksys/syscall.h>
 #include <sysinfo.h>
 #include <sconf/sconf.h>
-#include <sys/klog.h>
+#include <ewoksys/klog.h>
 #include <font/font.h>
 
 typedef struct {

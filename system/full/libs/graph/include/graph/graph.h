@@ -1,7 +1,7 @@
 #ifndef GRAPH_H
 #define GRAPH_H
 
-#include <sys/ewokdef.h>
+#include <ewoksys/ewokdef.h>
 
 #ifdef __cplusplus
 extern "C" {

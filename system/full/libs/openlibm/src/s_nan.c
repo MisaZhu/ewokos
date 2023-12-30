@@ -27,7 +27,7 @@
  */
 
 //VBS
-//#include <sys/endian.h>
+//#include <ewoksys/endian.h>
 #include <ctype.h>
 #include <float.h>
 #include <openlibm_math.h>

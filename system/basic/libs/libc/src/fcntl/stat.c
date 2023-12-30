@@ -1,4 +1,4 @@
-#include <sys/vfs.h>
+#include <ewoksys/vfs.h>
 #include <fcntl.h>
 
 int stat(const char* name, struct stat* buf) {

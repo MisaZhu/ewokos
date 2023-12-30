@@ -1,4 +1,4 @@
-#include <sys/vdevice.h>
+#include <ewoksys/vdevice.h>
 #include <font/font.h>
 #include <string.h>
 #include <unistd.h>

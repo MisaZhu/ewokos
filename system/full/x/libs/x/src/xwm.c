@@ -2,10 +2,10 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
-#include <sys/ipc.h>
+#include <ewoksys/ipc.h>
 #include <sys/shm.h>
-#include <sys/proc.h>
-#include <sys/vdevice.h>
+#include <ewoksys/proc.h>
+#include <ewoksys/vdevice.h>
 #include <graph/graph.h>
 #include <x/xcntl.h>
 #include <x/xwm.h>
@@ -14,9 +14,9 @@
 extern "C" {
 #endif
 
-static int fetch_graph(xwm_t* xwm, void* shm, int w, int h, graph_t* g) {
+static int fetch_graph(xwm_t* xwm, int32_t shm_id, int w, int h, graph_t* g) {
 	(void)xwm;
-	uint8_t* g_buf = shm_map(shm);
+	uint8_t* g_buf = shmat(shm_id, 0, 0);
 	if(g_buf == NULL)
 		return -1;
 	graph_init(g, g_buf, w, h);
@@ -25,8 +25,8 @@ static int fetch_graph(xwm_t* xwm, void* shm, int w, int h, graph_t* g) {
 
 static void draw_drag_frame(xwm_t* xwm, proto_t* in) {
 	grect_t r;
-	void* shm = (void*)proto_read_int(in);
-	if(shm == NULL)
+	int32_t shm_id = proto_read_int(in);
+	if(shm_id == -1)
 		return;
 
 	int xw = proto_read_int(in);
@@ -34,19 +34,19 @@ static void draw_drag_frame(xwm_t* xwm, proto_t* in) {
 	proto_read_to(in, &r, sizeof(grect_t));
 
 	graph_t g;
-	if(fetch_graph(xwm, shm, xw, xh, &g) == 0) {
+	if(fetch_graph(xwm, shm_id, xw, xh, &g) == 0) {
 		if(xwm->draw_drag_frame != NULL)
 			xwm->draw_drag_frame(&g, &r, xwm->data);
 		else
 			graph_box(&g, r.x, r.y, r.w, r.h, 0xffffffff);
+		shmdt(g.buffer);
 	}
-	shm_unmap(shm);
 }
 
 static void draw_frame(xwm_t* xwm, proto_t* in) {
 	xinfo_t info;
-	void* shm = (void*)proto_read_int(in);
-	if(shm == NULL)
+	int32_t shm_id = proto_read_int(in);
+	if(shm_id == -1)
 		return;
 
 	int xw = proto_read_int(in);
@@ -58,7 +58,7 @@ static void draw_frame(xwm_t* xwm, proto_t* in) {
 		return;
 
 	graph_t g;
-	if(fetch_graph(xwm, shm, xw, xh, &g) == 0) {
+	if(fetch_graph(xwm, shm_id, xw, xh, &g) == 0) {
 		grect_t rtitle, rclose, rmax, rmin, rresize;
 		memset(&rtitle, 0, sizeof(grect_t));
 		memset(&rclose, 0, sizeof(grect_t));
@@ -98,8 +98,8 @@ static void draw_frame(xwm_t* xwm, proto_t* in) {
 			if(xwm->draw_close != NULL && rclose.w > 0 && rclose.h > 0)
 				xwm->draw_close(&g, &info, &rclose, top, xwm->data);
 		}
+		shmdt(g.buffer);
 	}
-	shm_unmap(shm);
 }
 
 static void get_frame_areas(xwm_t* xwm, proto_t* in, proto_t* out) {
@@ -138,15 +138,18 @@ static void get_frame_areas(xwm_t* xwm, proto_t* in, proto_t* out) {
 }
 
 static void draw_desktop(xwm_t* xwm, proto_t* in) {
-	void* shm = (void*)proto_read_int(in);
+	int32_t shm_id = proto_read_int(in);
+	if(shm_id == -1)
+		return;
+
 	int xw = proto_read_int(in);
 	int xh = proto_read_int(in);
 
 	graph_t g;
-	if(fetch_graph(xwm, shm, xw, xh, &g) == 0) {
+	if(fetch_graph(xwm, shm_id, xw, xh, &g) == 0) {
 		if(xwm->draw_desktop != NULL)
 			xwm->draw_desktop(&g, xwm->data);
-		shm_unmap(shm);
+		shmdt(g.buffer);
 	}
 }
 

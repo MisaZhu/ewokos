@@ -1,7 +1,7 @@
 // minimp3 example player application for Linux/OSS
 // this file is public domain -- do with it whatever you want!
 #include <unistd.h>
-#include <sys/vfs.h>
+#include <ewoksys/vfs.h>
 #include <stdio.h>
 #include <fcntl.h>
 #include <stdlib.h>

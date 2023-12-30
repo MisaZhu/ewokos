@@ -5,11 +5,11 @@
 #include <string.h>
 #include <vprintf.h>
 #include <upng/upng.h>
-#include <sys/basic_math.h>
-#include <sys/kernel_tic.h>
+#include <ewoksys/basic_math.h>
+#include <ewoksys/kernel_tic.h>
 #include <font/font.h>
 #include <x++/X.h>
-#include <sys/timer.h>
+#include <ewoksys/timer.h>
 
 using namespace Ewok;
 

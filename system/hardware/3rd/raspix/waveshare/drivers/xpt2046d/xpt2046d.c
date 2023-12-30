@@ -1,9 +1,9 @@
 #include <xpt2046/xpt2046.h>
-#include <sys/vdevice.h>
+#include <ewoksys/vdevice.h>
 #include <unistd.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/vfs.h>
+#include <ewoksys/vfs.h>
 
 static int tp_read(int fd, int from_pid, uint32_t node,
 		void* buf, int size, int offset, void* p) {

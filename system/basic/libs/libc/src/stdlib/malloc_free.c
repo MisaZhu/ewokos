@@ -1,7 +1,7 @@
 #include <stdlib.h>
 #include <string.h>
-#include <sys/syscall.h>
-#include <sys/trunkmem.h>
+#include <ewoksys/syscall.h>
+#include <ewoksys/trunkmem.h>
 
 #define MALLOC_BUF_SIZE_DEF  (4*1024)
 #define MALLOC_SEG_SIZE_DEF  128

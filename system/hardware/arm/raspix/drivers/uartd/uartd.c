@@ -2,14 +2,14 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
-#include <sys/vfs.h>
+#include <ewoksys/vfs.h>
 #include <sysinfo.h>
-#include <sys/syscall.h>
-#include <sys/vdevice.h>
-#include <sys/charbuf.h>
-#include <sys/mmio.h>
-#include <sys/proc.h>
-#include <sys/ipc.h>
+#include <ewoksys/syscall.h>
+#include <ewoksys/vdevice.h>
+#include <ewoksys/charbuf.h>
+#include <ewoksys/mmio.h>
+#include <ewoksys/proc.h>
+#include <ewoksys/ipc.h>
 #include <arch/bcm283x/mini_uart.h>
 #include <arch/bcm283x/pl011_uart.h>
 

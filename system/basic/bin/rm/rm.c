@@ -1,6 +1,6 @@
 #include <unistd.h>
 #include <stdio.h>
-#include <sys/vfs.h>
+#include <ewoksys/vfs.h>
 
 int main(int argc, char* argv[]) {
 	const char* fname;

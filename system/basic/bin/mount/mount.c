@@ -1,9 +1,9 @@
 #include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <sys/syscall.h>
+#include <ewoksys/syscall.h>
 #include <string.h>
-#include <sys/vfs.h>
+#include <ewoksys/vfs.h>
 
 static const char* get_cmd(char* cmd) {
 	char* p = cmd;

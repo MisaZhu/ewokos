@@ -3,12 +3,12 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <string.h>
-#include <sys/shm.h>
+#include <ewoksys/shm.h>
 #include <arch/bcm283x/gpio.h>
 #include <arch/bcm283x/spi.h>
-#include <sys/vdevice.h>
-#include <sys/vfs.h>
-#include <sys/syscall.h>
+#include <ewoksys/vdevice.h>
+#include <ewoksys/vfs.h>
+#include <ewoksys/syscall.h>
 
 #define UBYTE   uint8_t
 #define UWORD   uint16_t

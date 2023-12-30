@@ -2,7 +2,7 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/keydef.h>
+#include <ewoksys/keydef.h>
 #include <upng/upng.h>
 #include <x++/X.h>
 

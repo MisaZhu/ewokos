@@ -1,11 +1,11 @@
 #include <x/xwin.h>
-#include <sys/shm.h>
-#include <sys/ipc.h>
-#include <sys/vfs.h>
-#include <sys/syscall.h>
-#include <sys/thread.h>
-#include <sys/proc.h>
-#include <sys/vdevice.h>
+#include <ewoksys/shm.h>
+#include <ewoksys/ipc.h>
+#include <ewoksys/vfs.h>
+#include <ewoksys/syscall.h>
+#include <ewoksys/thread.h>
+#include <ewoksys/proc.h>
+#include <ewoksys/vdevice.h>
 #include <sys/shm.h>
 #include <fcntl.h>
 #include <unistd.h>
@@ -23,12 +23,12 @@ static int xwin_update_info(xwin_t* xwin, uint8_t type) {
 		return -1;
 
 	if(xwin->g_shm != NULL && (type & X_UPDATE_REBUILD) != 0) {
-		shm_unmap(xwin->g_shm);
+		shmdt(xwin->g_shm);
 		xwin->g_shm = NULL;
 	}
 
 	proto_t in;
-	PF->init(&in)->addi(&in, (uint32_t)xwin->xinfo)->addi(&in, type);
+	PF->init(&in)->addi(&in, xwin->xinfo_shm_id)->addi(&in, type);
 	int ret = vfs_fcntl_wait(xwin->fd, XWIN_CNTL_UPDATE_INFO, &in);
 	PF->clear(&in);
 	return ret;
@@ -82,8 +82,22 @@ xwin_t* xwin_open(x_t* xp, uint32_t disp_index, int x, int y, int w, int h, cons
 	if(xp->main_win == NULL)
 		xp->main_win = ret;
 
-	ret->xinfo = shm_alloc(sizeof(xinfo_t), SHM_PUBLIC);
+	int32_t xinfo_shm_id = shmget(IPC_PRIVATE, sizeof(xinfo_t), 0);
+	if(xinfo_shm_id == -1) {
+		free(ret);
+		return NULL;
+	}
+
+	xinfo_t* xinfo = (xinfo_t*)shmat(xinfo_shm_id, 0, 0);
+	if(xinfo == NULL) {
+		free(ret);
+		return NULL;
+	}
+
+	ret->xinfo_shm_id = xinfo_shm_id;
+	ret->xinfo = xinfo;
 	memset(ret->xinfo, 0, sizeof(xinfo_t));
+	ret->xinfo->g_shm_id = -1;
 	ret->xinfo->win = (uint32_t)ret;
 	ret->xinfo->style = style;
 	ret->xinfo->display_index = disp_index;
@@ -94,11 +108,11 @@ xwin_t* xwin_open(x_t* xp, uint32_t disp_index, int x, int y, int w, int h, cons
 }
 
 static graph_t* x_get_graph(xwin_t* xwin, graph_t* g) {
-	if(xwin == NULL)
+	if(xwin == NULL || xwin->xinfo == NULL || xwin->xinfo->g_shm_id == -1)
 		return NULL;
 
 	if(xwin->g_shm == NULL) {
-		xwin->g_shm = shm_map(xwin->xinfo->g_shm);
+		xwin->g_shm = shmat(xwin->xinfo->g_shm_id, 0, 0);
 		if(xwin->g_shm == NULL)
 			return NULL;
 		if(xwin->on_resize != NULL)
@@ -119,10 +133,10 @@ void xwin_close(xwin_t* xwin) {
 		xwin->on_close(xwin);
 
 	if(xwin->g_shm != NULL)
-		shm_unmap(xwin->g_shm);
+		shmdt(xwin->g_shm);
 
 	if(xwin->xinfo != NULL)
-		shm_unmap(xwin->xinfo);
+		shmdt(xwin->xinfo);
 
 	close(xwin->fd);
 	if(xwin->x->main_win == xwin)

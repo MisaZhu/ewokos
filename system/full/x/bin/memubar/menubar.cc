@@ -2,7 +2,7 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/keydef.h>
+#include <ewoksys/keydef.h>
 #include <upng/upng.h>
 #include <font/font.h>
 #include <x++/X.h>
@@ -13,8 +13,8 @@
 #include <Widget/Blank.h>
 #include <fcntl.h>
 #include <string.h>
-#include <sys/timer.h>
-#include <sys/kernel_tic.h>
+#include <ewoksys/timer.h>
+#include <ewoksys/kernel_tic.h>
 
 using namespace Ewok;
 

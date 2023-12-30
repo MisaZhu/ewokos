@@ -3,9 +3,9 @@
 #include <fcntl.h>
 #include <stdio.h>
 #include <string.h>
-#include <sys/vfs.h>
-#include <sys/vdevice.h>
-#include <sys/keydef.h>
+#include <ewoksys/vfs.h>
+#include <ewoksys/vdevice.h>
+#include <ewoksys/keydef.h>
 #include <font/font.h>
 #include <x++/X.h>
 

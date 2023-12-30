@@ -6,9 +6,9 @@
 #include <sconf/sconf.h>
 #include <font/font.h>
 #include <x++/X.h>
-#include <sys/keydef.h>
+#include <ewoksys/keydef.h>
 #include <string.h>
-#include <sys/utf8unicode.h>
+#include <ewoksys/utf8unicode.h>
 
 #define HISTORY_PAGE_SIZE 128
 

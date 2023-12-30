@@ -1,7 +1,7 @@
 #include <fcntl.h>
-#include <sys/syscall.h>
-#include <sys/ipc.h>
-#include <sys/vfs.h>
+#include <ewoksys/syscall.h>
+#include <ewoksys/ipc.h>
+#include <ewoksys/vfs.h>
 #include <stddef.h>
 #include <string.h>
 

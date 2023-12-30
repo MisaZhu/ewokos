@@ -1,12 +1,12 @@
 #include <stdlib.h>
 #include <unistd.h>
-#include <sys/wait.h>
+#include <ewoksys/wait.h>
 #include <string.h>
-#include <sys/ipc.h>
-#include <sys/vfs.h>
-#include <sys/vdevice.h>
-#include <sys/syscall.h>
-#include <sys/klog.h>
+#include <ewoksys/ipc.h>
+#include <ewoksys/vfs.h>
+#include <ewoksys/vdevice.h>
+#include <ewoksys/syscall.h>
+#include <ewoksys/klog.h>
 #include <stdio.h>
 
 static int ramfs_read(int fd, int from_pid, uint32_t node, 

@@ -1,5 +1,5 @@
 #include <sconf/sconf.h>
-#include <sys/vfs.h>
+#include <ewoksys/vfs.h>
 #include <stdlib.h>
 #include <fcntl.h>
 #include <unistd.h>

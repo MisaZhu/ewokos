@@ -1,4 +1,4 @@
-#include <sys/cdefs.h>
+#include <ewoksys/cdefs.h>
 
 
 #define	op_t	unsigned long int

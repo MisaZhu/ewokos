@@ -2,9 +2,9 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
-#include <sys/vdevice.h>
-#include <sys/keydef.h>
-#include <sys/syscall.h>
+#include <ewoksys/vdevice.h>
+#include <ewoksys/keydef.h>
+#include <ewoksys/syscall.h>
 #include <arch/bcm283x/gpio.h>
 
 /*default gpio for waveshare GamePi15 Hat*/

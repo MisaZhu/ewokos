@@ -1,7 +1,7 @@
 #include <unistd.h>
 #include <fcntl.h>
-#include <sys/proc.h>
-#include <sys/vfs.h>
+#include <ewoksys/proc.h>
+#include <ewoksys/vfs.h>
 #include <fcntl.h>
 
 static int read_nblock(int fd, void* buf, uint32_t size) {

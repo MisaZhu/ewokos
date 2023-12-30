@@ -3,11 +3,11 @@
 #include <unistd.h>
 #include <stdint.h>
 #include <string.h>
-#include <sys/vdevice.h>
-#include <sys/syscall.h>
-#include <sys/keydef.h>
-#include <sys/ipc.h>
-#include <sys/mmio.h>
+#include <ewoksys/vdevice.h>
+#include <ewoksys/syscall.h>
+#include <ewoksys/keydef.h>
+#include <ewoksys/ipc.h>
+#include <ewoksys/mmio.h>
 
 #define SARADC_CTRL_CHN_MASK        (0x7)
 #define SARADC_CTRL_POWER_CTRL      (0x1<<3)

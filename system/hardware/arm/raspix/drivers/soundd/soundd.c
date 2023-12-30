@@ -1,9 +1,9 @@
 #include <arch/bcm283x/gpio.h>
-#include <sys/vdevice.h>
-#include <sys/syscall.h>
+#include <ewoksys/vdevice.h>
+#include <ewoksys/syscall.h>
 #include <string.h>
 #include <unistd.h>
-#include <sys/dma.h>
+#include <ewoksys/dma.h>
 
 #define PWM_BASE        (_mmio_base + 0x20C000) /* PWM0 register base address on RPi */
 #define CLOCK_BASE      (_mmio_base + 0x101000)

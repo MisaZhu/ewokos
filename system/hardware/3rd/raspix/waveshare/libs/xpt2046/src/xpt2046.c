@@ -1,10 +1,10 @@
 #include <arch/bcm283x/gpio.h>
 #include <arch/bcm283x/spi.h>
-#include <sys/vdevice.h>
+#include <ewoksys/vdevice.h>
 #include <unistd.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/vfs.h>
+#include <ewoksys/vfs.h>
 
 //GPIO ports for waveshare 3.5 inch
 static int TP_CS = 7;

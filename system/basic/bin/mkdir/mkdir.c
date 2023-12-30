@@ -1,5 +1,5 @@
 #include <unistd.h>
-#include <sys/vfs.h>
+#include <ewoksys/vfs.h>
 #include <stdio.h>
 #include <vprintf.h>
 

@@ -1,8 +1,8 @@
 #include <ext2/ext2fs.h>
-#include <sys/vfs.h>
+#include <ewoksys/vfs.h>
 #include <string.h>
 #include <stdlib.h>
-#include <sys/mstr.h>
+#include <ewoksys/mstr.h>
 
 #define SHORT_NAME_MAX 64
 

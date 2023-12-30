@@ -1,6 +1,6 @@
 #include <arch/bcm283x/mailbox.h>
 #include <arch/bcm283x/mbox_actled.h>
-#include <sys/vdevice.h>
+#include <ewoksys/vdevice.h>
 #include <string.h>
 
 static void actled(bool on) {

@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <vprintf.h>
 #include <unistd.h>
-#include <sys/mstr.h>
+#include <ewoksys/mstr.h>
 
 static void outc(char c, void* p) {
 	str_t* buf = (str_t*)p;

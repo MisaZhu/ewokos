@@ -1,10 +1,10 @@
 #include <fcntl.h>
-#include <sys/syscall.h>
-#include <sys/proc.h>
-#include <sys/ipc.h>
-#include <sys/proc.h>
-#include <sys/vfsc.h>
-#include <sys/vfs.h>
+#include <ewoksys/syscall.h>
+#include <ewoksys/proc.h>
+#include <ewoksys/ipc.h>
+#include <ewoksys/proc.h>
+#include <ewoksys/vfsc.h>
+#include <ewoksys/vfs.h>
 #include <stddef.h>
 #include <string.h>
 

@@ -2,7 +2,7 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <stdio.h>
-#include <sys/syscall.h>
+#include <ewoksys/syscall.h>
 #include <sysinfo.h>
 #include <string.h>
 
@@ -54,14 +54,12 @@ static inline const char* svc_name(int32_t code) {
 		return "kernel_tic";
 	case SYS_GET_PROCS: 
 		return "get_procs";
-	case SYS_PROC_SHM_ALLOC:
+	case SYS_PROC_SHM_GET:
 		return "shm_alloc";
 	case SYS_PROC_SHM_MAP:
 		return "shm_map";
 	case SYS_PROC_SHM_UNMAP:
 		return "shm_unmap";
-	case SYS_PROC_SHM_REF:
-		return "shm_ref";
 	case SYS_THREAD:
 		return "thread";
 	case SYS_KPRINT:

@@ -2,9 +2,9 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
-#include <sys/vfs.h>
-#include <sys/syscall.h>
-#include <sys/vdevice.h>
+#include <ewoksys/vfs.h>
+#include <ewoksys/syscall.h>
+#include <ewoksys/vdevice.h>
 #include <sys/shm.h>
 #include <fb/fb.h>
 #include <fbd/fbd.h>
@@ -14,6 +14,7 @@
 typedef struct {
 	uint32_t size;
 	uint8_t* shm;
+	int32_t  shm_id;
 } fb_dma_t;
 
 static fbinfo_t* _fbinfo = NULL;
@@ -97,7 +98,10 @@ static void init_graph(fb_dma_t* dma) {
 static int fb_dma_init(fb_dma_t* dma) {
 	memset(dma, 0, sizeof(fb_dma_t));
 	uint32_t sz = _fbinfo->width*_fbinfo->height*4;
-	dma->shm = (void*)shm_alloc(sz + 1, SHM_PUBLIC); //one more byte (head) for busy flag 
+	dma->shm_id = shmget(IPC_PRIVATE, sz + 1, 0); //one more byte (head) for busy flag 
+	if(dma->shm_id == -1)
+		return -1;
+	dma->shm = shmat(dma->shm_id, 0, 0); //one more byte (head) for busy flag 
 	if(dma->shm == NULL)
 		return -1;
 	//dma->size = _fbinfo->size_max;
@@ -153,13 +157,13 @@ static int do_fb_flush(int fd, int from_pid, uint32_t node, void* p) {
 	return do_flush(dma);
 }
 
-static void* fb_dma(int fd, int from_pid, uint32_t node, int* size, void* p) {
+static int32_t fb_dma(int fd, int from_pid, uint32_t node, int* size, void* p) {
 	(void)fd;
 	(void)from_pid;
 	(void)node;
 	fb_dma_t* dma = (fb_dma_t*)p;
 	*size = dma->size;
-	return dma->shm;
+	return dma->shm_id;
 }
 
 static void read_config(uint32_t* w, uint32_t* h, uint8_t* dep, int32_t* rotate) {
@@ -223,6 +227,6 @@ int fbd_run(fbd_t* fbd, const char* mnt_name,
 
 	dev.extra_data = &dma;
 	device_run(&dev, mnt_name, FS_TYPE_CHAR);
-	shm_unmap(dma.shm);
+	shmdt(dma.shm);
 	return 0;
 }

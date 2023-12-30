@@ -1,7 +1,7 @@
 #ifndef SIMPLE_CONFIG_H
 #define SIMPLE_CONFIG_H
 
-#include <sys/mstr.h>
+#include <ewoksys/mstr.h>
 
 #ifdef __cplusplus
 extern "C" {

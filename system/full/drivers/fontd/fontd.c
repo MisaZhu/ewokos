@@ -3,11 +3,11 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <string.h>
-#include <sys/vfs.h>
+#include <ewoksys/vfs.h>
 #include <ttf/ttf.h>
-#include <sys/vdevice.h>
-#include <sys/syscall.h>
-#include <sys/klog.h>
+#include <ewoksys/vdevice.h>
+#include <ewoksys/syscall.h>
+#include <ewoksys/klog.h>
 #include <font/font.h>
 
 #define NAME_LEN 128

@@ -3,13 +3,13 @@
 #include <string.h>
 #include <sys/types.h>
 #include <pthread.h>
-#include <sys/timer.h>
-#include <sys/mmio.h>
-#include <sys/dma.h>
-#include <sys/syscall.h>
-#include <sys/klog.h>
-#include <sys/interrupt.h>
-#include <sys/kernel_tic.h>
+#include <ewoksys/timer.h>
+#include <ewoksys/mmio.h>
+#include <ewoksys/dma.h>
+#include <ewoksys/syscall.h>
+#include <ewoksys/klog.h>
+#include <ewoksys/interrupt.h>
+#include <ewoksys/kernel_tic.h>
 
 #include "pcm_lib.h"
 #include "miyoo-dais.h"

@@ -38,10 +38,11 @@ enum {
 	SYS_PROC_SET_UID,     //25
 
 	//share memory syscalls
-	SYS_PROC_SHM_ALLOC,   //26
+	SYS_PROC_SHM_GET,   //26
 	SYS_PROC_SHM_MAP,     //27
 	SYS_PROC_SHM_UNMAP,   //28
-	SYS_PROC_SHM_REF,     //29
+
+	SYS_PROC_UUID,        //29
 
 	SYS_GET_SYS_INFO,     //30
 	SYS_GET_SYS_STATE,    //31
@@ -75,11 +76,11 @@ enum {
 	SYS_SEMAPHORE_ENTER,         //52
 	SYS_SEMAPHORE_QUIT,         //53
 	SYS_SOFT_INT,         //54
-	SYS_PROC_UUID,        //55
-	SYS_CLOSE_KCONSOLE,             //56
-	SYS_SCHD_CORE_LOCK,             //57
-	SYS_SCHD_CORE_UNLOCK,             //58
-	SYS_CALL_NUM          //59
+
+	SYS_CLOSE_KCONSOLE,             //55
+	SYS_SCHD_CORE_LOCK,             //56
+	SYS_SCHD_CORE_UNLOCK,             //57
+	SYS_CALL_NUM          //58
 };
 
 #endif

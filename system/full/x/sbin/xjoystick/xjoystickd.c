@@ -3,9 +3,9 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <string.h>
-#include <sys/vdevice.h>
-#include <sys/proto.h>
-#include <sys/keydef.h>
+#include <ewoksys/vdevice.h>
+#include <ewoksys/proto.h>
+#include <ewoksys/keydef.h>
 #include <x/xcntl.h>
 #include <x/xevent.h>
 

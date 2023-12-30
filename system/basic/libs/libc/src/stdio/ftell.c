@@ -1,5 +1,5 @@
 #include <stdio.h>
-#include <sys/vfs.h>
+#include <ewoksys/vfs.h>
 #include <unistd.h>
 
 int ftell(FILE* fp) {

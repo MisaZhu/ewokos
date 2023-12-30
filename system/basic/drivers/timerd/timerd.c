@@ -2,13 +2,13 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
-#include <sys/vfs.h>
-#include <sys/proc.h>
-#include <sys/vdevice.h>
-#include <sys/timer.h>
-#include <sys/syscall.h>
-#include <sys/interrupt.h>
-#include <sys/kernel_tic.h>
+#include <ewoksys/vfs.h>
+#include <ewoksys/proc.h>
+#include <ewoksys/vdevice.h>
+#include <ewoksys/timer.h>
+#include <ewoksys/syscall.h>
+#include <ewoksys/interrupt.h>
+#include <ewoksys/kernel_tic.h>
 
 typedef struct interrupt_st {
 	uint32_t id;

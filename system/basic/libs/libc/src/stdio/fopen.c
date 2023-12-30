@@ -2,7 +2,7 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/vfs.h>
+#include <ewoksys/vfs.h>
 #include <fcntl.h>
 
 FILE* fopen(const char* fname, const char* mode) {

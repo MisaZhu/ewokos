@@ -1,5 +1,5 @@
 #include <stdlib.h>
-#include <sys/syscall.h>
+#include <ewoksys/syscall.h>
 #include <string.h>
 
 void *calloc(size_t nmemb, size_t size) {

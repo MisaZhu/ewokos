@@ -3,9 +3,9 @@
 #include <stdlib.h>
 #include <fcntl.h>
 #include <string.h>
-#include <sys/md5.h>
-#include <sys/mstr.h>
-#include <sys/keydef.h>
+#include <ewoksys/md5.h>
+#include <ewoksys/mstr.h>
+#include <ewoksys/keydef.h>
 
 #define USER_MAX 32
 #define PSWD_MAX 64

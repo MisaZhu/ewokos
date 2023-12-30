@@ -1,5 +1,5 @@
 #include <bsp/bsp_graph.h>
-#include <sys/core.h>
+#include <ewoksys/core.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>

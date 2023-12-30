@@ -4,7 +4,7 @@
 #include <x++/XWin.h>
 #include <string.h>
 #include <Widget/Theme.h>
-#include <sys/klog.h>
+#include <ewoksys/klog.h>
 
 namespace Ewok {
 

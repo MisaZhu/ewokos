@@ -1,7 +1,7 @@
 #ifndef XEVENT_H
 #define XEVENT_H
 
-#include <sys/ewokdef.h>
+#include <ewoksys/ewokdef.h>
 
 #ifdef __cplusplus
 extern "C" {

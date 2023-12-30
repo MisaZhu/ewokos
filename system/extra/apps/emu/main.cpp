@@ -22,10 +22,10 @@
 #include <fcntl.h>
 #include <string.h>
 #include <vprintf.h>
-#include <sys/kernel_tic.h>
-#include <sys/keydef.h>
-#include <sys/klog.h>
-#include <sys/timer.h>
+#include <ewoksys/kernel_tic.h>
+#include <ewoksys/keydef.h>
+#include <ewoksys/klog.h>
+#include <ewoksys/timer.h>
 #include <x++/X.h>
 
 #include "src/InfoNES_Types.h"

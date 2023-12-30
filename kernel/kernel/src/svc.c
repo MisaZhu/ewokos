@@ -207,13 +207,13 @@ static void	sys_get_sys_state(sys_state_t* info) {
 	memcpy(info->svc_counter, _svc_counter, SYS_CALL_NUM*4);
 }
 
-static int32_t sys_shm_alloc(uint32_t size, int32_t flag) {
-	return (int32_t)shm_alloc(size, flag);
+static int32_t sys_shm_get(int32_t id, uint32_t size, int32_t flag) {
+	return (int32_t)shm_get(id, size, flag);
 }
 
-static void* sys_shm_map(void* p) {
+static void* sys_shm_map(int32_t id) {
 	proc_t* cproc = get_current_proc();
-	return shm_proc_map(cproc->info.pid, p);
+	return shm_proc_map(cproc->info.pid, id);
 }
 
 static int32_t sys_shm_unmap(void* p) {
@@ -221,9 +221,9 @@ static int32_t sys_shm_unmap(void* p) {
 	return shm_proc_unmap(cproc->info.pid, p);
 }
 
-static int32_t sys_shm_ref(void* p) {
+static int32_t sys_shm_ref(int32_t id) {
 	proc_t* cproc = get_current_proc();
-	return shm_proc_ref(cproc->info.pid, p);
+	return shm_proc_ref(cproc->info.pid, id);
 }
 	
 static uint32_t sys_dma_map(uint32_t size) {
@@ -669,17 +669,14 @@ static inline void _svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_
 	case SYS_GET_PROCS: 
 		ctx->gpr[0] = (int32_t)get_procs((int32_t*)arg0);
 		return;
-	case SYS_PROC_SHM_ALLOC:
-		ctx->gpr[0] = (int32_t)sys_shm_alloc(arg0, arg1);
+	case SYS_PROC_SHM_GET:
+		ctx->gpr[0] = (int32_t)sys_shm_get(arg0, arg1, arg2);
 		return;
 	case SYS_PROC_SHM_MAP:
-		ctx->gpr[0] = (int32_t)sys_shm_map((void*)arg0);
+		ctx->gpr[0] = (int32_t)sys_shm_map(arg0);
 		return;
 	case SYS_PROC_SHM_UNMAP:
 		ctx->gpr[0] = sys_shm_unmap((void*)arg0);
-		return;
-	case SYS_PROC_SHM_REF:
-		ctx->gpr[0] = sys_shm_ref((void*)arg0);
 		return;
 	case SYS_THREAD:
 		sys_thread(ctx, (uint32_t)arg0, (uint32_t)arg1, arg2);

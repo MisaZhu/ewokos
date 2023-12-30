@@ -1,7 +1,7 @@
 #include <unistd.h>
 #include <fcntl.h>
-#include <sys/proc.h>
-#include <sys/vfs.h>
+#include <ewoksys/proc.h>
+#include <ewoksys/vfs.h>
 
 static int write_nblock(int fd, const void* buf, uint32_t size) {
   errno = ENONE;

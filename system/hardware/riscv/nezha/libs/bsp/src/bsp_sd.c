@@ -2,7 +2,7 @@
 #include <stdint.h>
 #include <sysinfo.h>
 #include <string.h>
-#include <sys/syscall.h>
+#include <ewoksys/syscall.h>
 #include <sd/sd.h>
 #include <arch/nezha/sd.h>
 

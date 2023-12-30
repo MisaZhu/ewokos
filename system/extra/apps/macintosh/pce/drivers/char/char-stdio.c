@@ -27,7 +27,7 @@
 #include <string.h>
 
 #ifdef HAVE_SYS_STAT_H
-#include <sys/stat.h>
+#include <ewoksys/stat.h>
 #endif
 
 #include <drivers/options.h>

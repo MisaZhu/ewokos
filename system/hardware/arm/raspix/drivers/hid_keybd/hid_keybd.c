@@ -2,18 +2,18 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
-#include <sys/vfs.h>
-#include <sys/klog.h>
-#include <sys/ipc.h>
-#include <sys/vdevice.h>
-#include <sys/mmio.h>
-#include <sys/charbuf.h>
-#include <sys/syscall.h>
-#include <sys/proc.h>
-#include <sys/interrupt.h>
-#include <sys/timer.h>
+#include <ewoksys/vfs.h>
+#include <ewoksys/klog.h>
+#include <ewoksys/ipc.h>
+#include <ewoksys/vdevice.h>
+#include <ewoksys/mmio.h>
+#include <ewoksys/charbuf.h>
+#include <ewoksys/syscall.h>
+#include <ewoksys/proc.h>
+#include <ewoksys/interrupt.h>
+#include <ewoksys/timer.h>
 #include <fcntl.h>
-#include <sys/keydef.h>
+#include <ewoksys/keydef.h>
 
 #define KEY_MOD_LCTRL  0x01
 #define KEY_MOD_LSHIFT 0x02

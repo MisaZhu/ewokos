@@ -3,17 +3,17 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <string.h>
-#include <sys/vfs.h>
-#include <sys/vdevice.h>
-#include <sys/syscall.h>
+#include <ewoksys/vfs.h>
+#include <ewoksys/vdevice.h>
+#include <ewoksys/syscall.h>
 #include <sys/shm.h>
 #include <fb/fb.h>
-#include <sys/ipc.h>
+#include <ewoksys/ipc.h>
 #include <x/xcntl.h>
 #include <x/xevent.h>
 #include <x/xwm.h>
-#include <sys/proc.h>
-#include <sys/keydef.h>
+#include <ewoksys/proc.h>
+#include <ewoksys/keydef.h>
 #include <sconf/sconf.h>
 #include <display/display.h>
 #include "cursor.h"
@@ -65,6 +65,7 @@ typedef struct {
 typedef struct {
 	fb_t fb;
 	graph_t* g;
+	int32_t  g_shm_id;
 	graph_t* g_fb;
 	grect_t desktop_rect;
 	bool dirty;
@@ -157,7 +158,7 @@ static void draw_win_frame(x_t* x, xwin_t* win) {
 
 	proto_t in;
 	PF->init(&in)->
-		addi(&in, (uint32_t)display->g->buffer)->
+		addi(&in, display->g_shm_id)->
 		addi(&in, display->g->w)->
 		addi(&in, display->g->h)->
 		add(&in, win->xinfo, sizeof(xinfo_t));
@@ -177,7 +178,7 @@ static void draw_desktop(x_t* x, uint32_t display_index) {
 
 	proto_t in;
 	PF->init(&in)->
-		addi(&in, (uint32_t)display->g->buffer)->
+		addi(&in, display->g_shm_id)->
 		addi(&in, display->g->w)->
 		addi(&in, display->g->h);
 
@@ -210,7 +211,7 @@ static void draw_drag_frame(x_t* xp, uint32_t display_index) {
 
 	proto_t in;
 	PF->init(&in)->
-		addi(&in, (uint32_t)display->g->buffer)->
+		addi(&in, display->g_shm_id)->
 		addi(&in, display->g->w)->
 		addi(&in, display->g->h)->
 		add(&in, &r, sizeof(grect_t));
@@ -455,8 +456,8 @@ static void x_del_win(x_t* x, xwin_t* win) {
 	remove_win(x, win);
 
 	if(win->xinfo->g_shm != NULL) {
-		shm_unmap(win->xinfo->g_shm);
-		shm_unmap(win->xinfo);
+		shmdt(win->xinfo->g_shm);
+		shmdt(win->xinfo);
 	}
 
 	if(win->g_buf != NULL)
@@ -532,7 +533,13 @@ static int x_init_display(x_t* x, int32_t display_index) {
 			return -1;
 		graph_t *g_fb = fb_fetch_graph(&x->displays[display_index].fb);
 		x->displays[display_index].g_fb = g_fb;
-		void* p = shm_alloc(g_fb->w * g_fb->h * 4, SHM_PUBLIC);
+		int32_t shm_id = shmget(IPC_PRIVATE, g_fb->w * g_fb->h * 4, 0);
+		if(shm_id == -1)
+			return -1;
+		void* p = shmat(shm_id, 0, 0);
+		if(p == NULL)
+			return -1;
+		x->displays[display_index].g_shm_id = shm_id;
 		x->displays[display_index].g = graph_new(p, g_fb->w, g_fb->h);
 		x->displays[display_index].desktop_rect.x = 0;
 		x->displays[display_index].desktop_rect.y = 0;
@@ -550,7 +557,13 @@ static int x_init_display(x_t* x, int32_t display_index) {
 			return -1;
 		graph_t *g_fb = fb_fetch_graph(&x->displays[i].fb);
 		x->displays[i].g_fb = g_fb;
-		void* p = shm_alloc(g_fb->w * g_fb->h * 4, SHM_PUBLIC);
+		int32_t shm_id = shmget(IPC_PRIVATE, g_fb->w * g_fb->h * 4, 0);
+		if(shm_id == -1)
+			return -1;
+		void* p = shmat(shm_id, 0, 0);
+		if(p == NULL)
+			return -1;
+		x->displays[i].g_shm_id = shm_id;
 		x->displays[i].g = graph_new(p, g_fb->w, g_fb->h);
 		x->displays[i].desktop_rect.x = 0;
 		x->displays[i].desktop_rect.y = 0;
@@ -585,11 +598,11 @@ static void x_close(x_t* x) {
 		x_display_t* display = &x->displays[i];
 		fb_close(&display->fb);
 		if(display->g != NULL) {
-			shm_unmap(display->g->buffer);
+			shmdt(display->g->buffer);
 			graph_free(display->g);
 		}
 		if(display->g_fb != NULL) {
-			shm_unmap(display->g_fb->buffer);
+			shmdt(display->g_fb->buffer);
 			graph_free(display->g_fb);
 		}
 	}
@@ -869,8 +882,8 @@ static int xwin_update_info(int fd, int from_pid, proto_t* in, proto_t* out, x_t
 	if(fd < 0)
 		return -1;
 
-	xinfo_t *xinfo = proto_read_int(in);
-	if(xinfo == NULL)
+	int32_t xinfo_shm_id = proto_read_int(in);
+	if(xinfo_shm_id == -1)
 		return -1;
 	uint8_t type = proto_read_int(in);
 	
@@ -879,7 +892,7 @@ static int xwin_update_info(int fd, int from_pid, proto_t* in, proto_t* out, x_t
 		return -1;
 
 	if(win->xinfo == NULL)
-		win->xinfo = shm_map(xinfo);
+		win->xinfo = shmat(xinfo_shm_id, 0, 0);
 	if(win->xinfo == NULL)
 		return -1;
 
@@ -916,12 +929,16 @@ static int xwin_update_info(int fd, int from_pid, proto_t* in, proto_t* out, x_t
 			win->g == NULL) {
 		if(win->g != NULL && g_shm != NULL) {
 			graph_free(win->g);
-			shm_unmap(g_shm);
+			shmdt(g_shm);
 			win->g = NULL;
 		}
-		g_shm = shm_alloc(win->xinfo->wsr.w * win->xinfo->wsr.h * 4, SHM_PUBLIC);
+		int32_t g_shm_id = shmget(IPC_PRIVATE, win->xinfo->wsr.w * win->xinfo->wsr.h * 4, 0);
+		if(g_shm_id == -1)
+			return -1;
+		g_shm = shmat(g_shm_id, 0, 0);
 		if(g_shm == NULL) 
 			return -1;
+		win->xinfo->g_shm_id = g_shm_id;
 		win->xinfo->g_shm = g_shm;
 		win->g = graph_new(g_shm, win->xinfo->wsr.w, win->xinfo->wsr.h);
 		graph_clear(win->g, 0x0);
@@ -1184,7 +1201,7 @@ static void mouse_xwin_handle(x_t* x, xwin_t* win, int pos, xevent_t* ev) {
 			if(x->current.drag_state == X_win_DRAG_RESIZE) {
 				ev->value.window.event = XEVT_WIN_RESIZE;
 				graph_free(win->g);
-				shm_unmap(win->xinfo->g_shm);
+				shmdt(win->xinfo->g_shm);
 				win->g = NULL;
 				win->xinfo->g_shm = NULL;
 			}

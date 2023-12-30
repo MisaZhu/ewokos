@@ -5,35 +5,35 @@ TARGET_DIR = $(BUILD_DIR)
 
 LDFLAGS = -L$(TARGET_DIR)/lib
 
-CFLAGS += -Isys/include -Iinclude -I $(TARGET_DIR)/include
+CFLAGS += -Iewoksys/include -Iinclude -I $(TARGET_DIR)/include
 
-LIB_EWOKSYS_OBJS = sys/src/syscall.o \
-	sys/src/syscall_${ARCH}.o \
-	sys/src/mstr.o \
-	sys/src/utf8unicode.o \
-	sys/src/klog.o \
-	sys/src/core.o \
-	sys/src/cmain.o \
-	sys/src/charbuf.o \
-	sys/src/vfs.o \
-	sys/src/ipc.o \
-	sys/src/signal.o \
-	sys/src/interrupt.o \
-	sys/src/vdevice.o \
-	sys/src/proto.o \
-	sys/src/semaphore.o \
-	sys/src/thread.o \
-	sys/src/basic_math.o \
-	sys/src/kernel_tic.o \
-	sys/src/shm.o \
-	sys/src/trunkmem.o \
-	sys/src/proc.o \
-	sys/src/wait.o \
-	sys/src/md5.o \
-	sys/src/buffer.o \
-	sys/src/mmio.o  \
-	sys/src/dma.o  \
-	sys/src/timer.o 
+LIB_EWOKSYS_OBJS = ewoksys/src/syscall.o \
+	ewoksys/src/syscall_${ARCH}.o \
+	ewoksys/src/mstr.o \
+	ewoksys/src/utf8unicode.o \
+	ewoksys/src/klog.o \
+	ewoksys/src/core.o \
+	ewoksys/src/cmain.o \
+	ewoksys/src/charbuf.o \
+	ewoksys/src/vfs.o \
+	ewoksys/src/ipc.o \
+	ewoksys/src/signal.o \
+	ewoksys/src/interrupt.o \
+	ewoksys/src/vdevice.o \
+	ewoksys/src/proto.o \
+	ewoksys/src/semaphore.o \
+	ewoksys/src/thread.o \
+	ewoksys/src/basic_math.o \
+	ewoksys/src/kernel_tic.o \
+	ewoksys/src/shm.o \
+	ewoksys/src/trunkmem.o \
+	ewoksys/src/proc.o \
+	ewoksys/src/wait.o \
+	ewoksys/src/md5.o \
+	ewoksys/src/buffer.o \
+	ewoksys/src/mmio.o  \
+	ewoksys/src/dma.o  \
+	ewoksys/src/timer.o 
 
 #LIB_EWOKC_OBJS = \
 	src/string/ctype_.o  \
@@ -124,14 +124,20 @@ LIB_EWOKC_OBJS = \
 	src/fcntl/fcntl.o \
 	\
 	src/signal/signal.o \
-	src/signal/kill.o
+	src/signal/kill.o \
+	\
+	src/sys/ipc/ftok.o \
+	\
+	src/sys/shm/shmget.o \
+	src/sys/shm/shmdt.o \
+	src/sys/shm/shmat.o
 
 ifeq (${ARCH},arm)
 LIB_EWOKSYS_OBJS += \
-     sys/src/arm32_aeabi_divmod_a32.o \
-     sys/src/arm32_aeabi_ldivmod_a32.o \
-     sys/src/arm32_aeabi_divmod.o \
-     sys/src/arm32_aeabi_ldivmod.o 
+     ewoksys/src/arm32_aeabi_divmod_a32.o \
+     ewoksys/src/arm32_aeabi_ldivmod_a32.o \
+     ewoksys/src/arm32_aeabi_divmod.o \
+     ewoksys/src/arm32_aeabi_ldivmod.o 
 endif
 
 EWOKC = $(TARGET_DIR)/lib/libewokc.a
@@ -139,7 +145,7 @@ EWOKC = $(TARGET_DIR)/lib/libewokc.a
 $(EWOKC): $(LIB_EWOKSYS_OBJS) $(LIB_EWOKC_OBJS)  \
 	$(TARGET_DIR)/lib/libsoftfloat.a
 	$(AR) rT $(EWOKC) $(LIB_EWOKSYS_OBJS) $(LIB_EWOKC_OBJS) $(TARGET_DIR)/lib/libsoftfloat.a
-	cp -r sys/include/* include/* $(TARGET_DIR)/include
+	cp -r ewoksys/include/* include/* $(TARGET_DIR)/include
 
 clean:
 	rm -f $(LIB_EWOKSYS_OBJS) $(LIB_EWOKC_OBJS)

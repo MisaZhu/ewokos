@@ -6,8 +6,8 @@
 #include <x++/X.h>
 #include <unistd.h>
 #include <font/font.h>
-#include <sys/basic_math.h>
-#include <sys/kernel_tic.h>
+#include <ewoksys/basic_math.h>
+#include <ewoksys/kernel_tic.h>
 #include <upng/upng.h>
 
 using namespace Ewok;

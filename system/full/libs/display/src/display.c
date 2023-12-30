@@ -1,5 +1,5 @@
 #include <display/display.h>
-#include <sys/vdevice.h>
+#include <ewoksys/vdevice.h>
 #include <string.h>
 #include <unistd.h>
 

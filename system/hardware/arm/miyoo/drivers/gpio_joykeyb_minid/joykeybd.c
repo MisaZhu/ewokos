@@ -3,11 +3,11 @@
 #include <unistd.h>
 #include <stdint.h>
 #include <string.h>
-#include <sys/vdevice.h>
-#include <sys/syscall.h>
-#include <sys/keydef.h>
-#include <sys/ipc.h>
-#include <sys/mmio.h>
+#include <ewoksys/vdevice.h>
+#include <ewoksys/syscall.h>
+#include <ewoksys/keydef.h>
+#include <ewoksys/ipc.h>
+#include <ewoksys/mmio.h>
 #include "gpio_table.h"
 
 #define GPIO_HIGH				1

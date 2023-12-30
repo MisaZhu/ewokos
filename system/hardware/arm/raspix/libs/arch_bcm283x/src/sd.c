@@ -2,8 +2,8 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
-#include <sys/syscall.h>
-#include <sys/mmio.h>
+#include <ewoksys/syscall.h>
+#include <ewoksys/mmio.h>
 
 #define SD_OK                0
 #define SD_TIMEOUT          -1

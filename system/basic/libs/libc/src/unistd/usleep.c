@@ -1,5 +1,5 @@
 #include <unistd.h>
-#include <sys/syscall.h>
+#include <ewoksys/syscall.h>
 
 int usleep(unsigned int usecs) {
 	if(usecs == 0)

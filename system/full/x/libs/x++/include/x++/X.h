@@ -4,7 +4,7 @@
 #include <x/xwin.h>
 #include <graph/graph.h>
 #include <x++/XWin.h>
-#include <sys/vfs.h>
+#include <ewoksys/vfs.h>
 #include <stdio.h>
 #include <font/font.h>
 

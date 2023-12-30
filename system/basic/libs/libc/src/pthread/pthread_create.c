@@ -1,5 +1,5 @@
 #include <pthread.h>
-#include <sys/thread.h>
+#include <ewoksys/thread.h>
 #include <stddef.h>
 
 int pthread_create(pthread_t* thread,

@@ -1,5 +1,5 @@
-#include <sys/mmio.h>
-#include <sys/klog.h>
+#include <ewoksys/mmio.h>
+#include <ewoksys/klog.h>
 #include "dwmmc.h"
 #include "mmc.h"
 #define PAGE_SIZE 4096

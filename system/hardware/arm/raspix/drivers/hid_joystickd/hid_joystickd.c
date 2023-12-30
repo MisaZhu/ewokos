@@ -2,11 +2,11 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
-#include <sys/vfs.h>
-#include <sys/vdevice.h>
-#include <sys/mmio.h>
+#include <ewoksys/vfs.h>
+#include <ewoksys/vdevice.h>
+#include <ewoksys/mmio.h>
 #include <fcntl.h>
-#include <sys/keydef.h>
+#include <ewoksys/keydef.h>
 
 static int hid;
 static uint8_t key_state;

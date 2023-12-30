@@ -1,9 +1,9 @@
 #include <stddef.h>
 #include <unistd.h>
 #include <string.h>
-#include <sys/proc.h>
-#include <sys/ipc.h>
-#include <sys/core.h>
+#include <ewoksys/proc.h>
+#include <ewoksys/ipc.h>
+#include <ewoksys/core.h>
 
 char* getcwd(char* buf, uint32_t size) {
 	proto_t out;

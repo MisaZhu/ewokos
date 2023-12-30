@@ -1,7 +1,7 @@
 #ifndef SHELL_H
 #define SHELL_H
 
-#include <sys/mstr.h>
+#include <ewoksys/mstr.h>
 
 extern bool _initrd;
 extern bool _terminated;

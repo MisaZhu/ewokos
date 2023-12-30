@@ -2,7 +2,7 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/wait.h>
+#include <ewoksys/wait.h>
 
 static void welcome(void) {
 	const char* s = "\n"

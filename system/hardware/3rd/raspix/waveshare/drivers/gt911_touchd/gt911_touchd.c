@@ -1,10 +1,10 @@
-#include <sys/vdevice.h>
+#include <ewoksys/vdevice.h>
 #include <unistd.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/vfs.h>
-#include <sys/kernel_tic.h>
-#include <sys/mmio.h>
+#include <ewoksys/vfs.h>
+#include <ewoksys/kernel_tic.h>
+#include <ewoksys/mmio.h>
 
 #include "gt911.h"
 static bool press = false;

@@ -3,7 +3,7 @@
 #include <x++/X.h>
 #include <unistd.h>
 #include <font/font.h>
-#include <sys/kernel_tic.h>
+#include <ewoksys/kernel_tic.h>
 
 using namespace Ewok;
 

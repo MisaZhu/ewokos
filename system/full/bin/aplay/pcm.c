@@ -7,8 +7,8 @@
 #include <fcntl.h>
 #include <errno.h>
 #include <sys/types.h>
-#include <sys/klog.h>
-#include <sys/vdevice.h>
+#include <ewoksys/klog.h>
+#include <ewoksys/vdevice.h>
 
 #include "pcm.h"
 #include "utils.h"

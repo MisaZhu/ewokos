@@ -1,7 +1,7 @@
 #ifndef SIGNAL_H
 #define SIGNAL_H
 
-#include <sys/signal.h>
+#include <ewoksys/signal.h>
 
 #define SIGSTOP SYS_SIG_STOP
 #define SIGTERM SYS_SIG_STOP

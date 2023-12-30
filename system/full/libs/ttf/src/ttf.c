@@ -1,5 +1,5 @@
 #include <ttf/ttf.h>
-#include <sys/utf8unicode.h>
+#include <ewoksys/utf8unicode.h>
 #include <stdlib.h>
 #include <string.h>
 #include <graph/graph.h>

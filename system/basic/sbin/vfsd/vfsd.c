@@ -3,15 +3,15 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <string.h>
-#include <sys/ipc.h>
-#include <sys/klog.h>
-#include <sys/proc.h>
-#include <sys/mstr.h>
-#include <sys/buffer.h>
-#include <sys/proto.h>
-#include <sys/fsinfo.h>
-#include <sys/vfsc.h>
-#include <sys/syscall.h>
+#include <ewoksys/ipc.h>
+#include <ewoksys/klog.h>
+#include <ewoksys/proc.h>
+#include <ewoksys/mstr.h>
+#include <ewoksys/buffer.h>
+#include <ewoksys/proto.h>
+#include <ewoksys/fsinfo.h>
+#include <ewoksys/vfsc.h>
+#include <ewoksys/syscall.h>
 #include <hashmap.h>
 #include <procinfo.h>
 

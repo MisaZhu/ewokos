@@ -1,7 +1,7 @@
 #ifndef VPRINTF_H
 #define VPRINTF_H
 
-#include <sys/ewokdef.h>
+#include <ewoksys/ewokdef.h>
 #include <stdarg.h>
 
 #ifdef __cplusplus

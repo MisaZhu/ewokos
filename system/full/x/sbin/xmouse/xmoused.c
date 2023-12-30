@@ -3,11 +3,11 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <string.h>
-#include <sys/vdevice.h>
-#include <sys/proto.h>
+#include <ewoksys/vdevice.h>
+#include <ewoksys/proto.h>
 #include <x/xcntl.h>
 #include <x/xevent.h>
-#include <sys/vfs.h>
+#include <ewoksys/vfs.h>
 
 static int _x_pid = -1;
 static int8_t _mouse_down = 0;

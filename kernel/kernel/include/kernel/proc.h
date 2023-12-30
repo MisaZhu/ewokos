@@ -27,7 +27,7 @@ typedef struct {
 	int32_t           refs;
 	bool              ready_ping;
 	
-	uint32_t          shms[SHM_MAX];
+	int32_t          shms[SHM_MAX];
 	proc_block_event_t block_events[BLOCK_EVT_MAX];
 
 	ipc_server_t      ipc_server;

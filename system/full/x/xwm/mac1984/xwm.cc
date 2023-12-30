@@ -1,6 +1,6 @@
 #include "MacWM.h"
 #include <x/x.h>
-#include <sys/klog.h>
+#include <ewoksys/klog.h>
 using namespace Ewok;
 
 int main(int argc, char** argv) {

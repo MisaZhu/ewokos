@@ -1,8 +1,8 @@
 #include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <sys/keydef.h>
-#include <sys/klog.h>
+#include <ewoksys/keydef.h>
+#include <ewoksys/klog.h>
 #include <string.h>
 #include <textview/textview.h>
 

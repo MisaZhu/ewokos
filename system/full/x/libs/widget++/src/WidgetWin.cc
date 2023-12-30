@@ -1,5 +1,5 @@
 #include <Widget/WidgetWin.h>
-#include <sys/timer.h>
+#include <ewoksys/timer.h>
 
 namespace Ewok {
 

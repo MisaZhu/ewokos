@@ -29,7 +29,7 @@
  * SUCH DAMAGE.
  */
 
-#include <sys/param.h>
+#include <ewoksys/param.h>
 #include <limits.h>
 
 /*

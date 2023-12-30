@@ -4,9 +4,9 @@
 #include <sconf/sconf.h>
 #include <upng/upng.h>
 #include <x++/X.h>
-#include <sys/keydef.h>
-#include <sys/klog.h>
-#include <sys/proc.h>
+#include <ewoksys/keydef.h>
+#include <ewoksys/klog.h>
+#include <ewoksys/proc.h>
 #include <font/font.h>
 #include <dirent.h>
 #include <Widget/ListView.h>

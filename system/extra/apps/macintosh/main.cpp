@@ -22,9 +22,9 @@
 #include <fcntl.h>
 #include <string.h>
 #include <vprintf.h>
-#include <sys/kernel_tic.h>
-#include <sys/keydef.h>
-#include <sys/klog.h>
+#include <ewoksys/kernel_tic.h>
+#include <ewoksys/keydef.h>
+#include <ewoksys/klog.h>
 #include <x++/X.h>
 #include <pthread.h>
 

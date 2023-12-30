@@ -6,10 +6,10 @@
 #include <upng/upng.h>
 #include <font/font.h>
 #include <x++/X.h>
-#include <sys/keydef.h>
+#include <ewoksys/keydef.h>
 #include <dirent.h>
-#include <sys/basic_math.h>
-#include <sys/proc.h>
+#include <ewoksys/basic_math.h>
+#include <ewoksys/proc.h>
 
 using namespace Ewok;
 

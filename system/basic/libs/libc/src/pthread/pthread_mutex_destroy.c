@@ -1,5 +1,5 @@
 #include <pthread.h>
-#include <sys/semaphore.h>
+#include <ewoksys/semaphore.h>
 
 int pthread_mutex_destroy(pthread_mutex_t* mutex) {
 	if(mutex == NULL)
