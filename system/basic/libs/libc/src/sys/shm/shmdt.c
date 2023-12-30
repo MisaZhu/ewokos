@@ -1,9 +1,9 @@
 #include <sys/shm.h>
-#include <ewoksys/shm.h>
+#include <ewoksys/syscall.h>
 
 int shmdt(void* p) {
 	if(p == NULL)
 		return -1;
-	return shm_dt(p);
+	return syscall1(SYS_PROC_SHM_UNMAP, (int32_t)p);
 }
 

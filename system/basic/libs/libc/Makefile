@@ -25,7 +25,6 @@ LIB_EWOKSYS_OBJS = ewoksys/src/syscall.o \
 	ewoksys/src/thread.o \
 	ewoksys/src/basic_math.o \
 	ewoksys/src/kernel_tic.o \
-	ewoksys/src/shm.o \
 	ewoksys/src/trunkmem.o \
 	ewoksys/src/proc.o \
 	ewoksys/src/wait.o \
