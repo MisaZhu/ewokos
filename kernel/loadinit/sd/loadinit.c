@@ -15,7 +15,7 @@ int32_t load_init_proc(void) {
 	if(elf != NULL) {
 		proc_t *proc = proc_create(PROC_TYPE_PROC, NULL);
 		strcpy(proc->info.cmd, prog);
-		proc->info.owner = -1;
+		proc->info.uid = -1;
 		int32_t res = proc_load_elf(proc, elf, sz);
 		kfree(elf);
 		printf("[ok]\n");

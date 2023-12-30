@@ -35,12 +35,12 @@ static const char* get_state(procinfo_t* proc) {
 }
 
 static const char* get_owner(procinfo_t* proc) {
-	if(proc->owner < 0)
+	if(proc->uid < 0)
 		return "kernel";
-	if(proc->owner == 0)
+	if(proc->uid == 0)
 		return "root";
 	static char ret[32];
-	snprintf(ret, 31, "%d", proc->owner);
+	snprintf(ret, 31, "%d", proc->uid);
 	return ret;
 }
 

@@ -97,7 +97,7 @@ int main(int argc, char** argv) {
 
 	uint32_t sz = LCD_HEIGHT*LCD_WIDTH*4;
 	fb_dma_t dma;
-	dma.shm_id = shmget(IPC_PRIVATE, sz+1, SHM_PUBLIC);
+	dma.shm_id = shmget(IPC_PRIVATE, sz+1, 0);
 	if(dma.shm_id == -1)
 		return -1;
 	dma.shm = shmat(dma.shm_id, 0, 0);

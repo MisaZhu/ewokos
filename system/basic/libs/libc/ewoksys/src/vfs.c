@@ -440,7 +440,7 @@ void* vfs_readfile(const char* fname, int* rsz) {
 	int fsize = info.size;
 	if(fd >= 0) {
 		while(fsize > 0) {
-			int sz = read(fd, p, fsize);
+			int sz = read(fd, p, VFS_BUF_SIZE);
 			if(sz < 0 && errno != EAGAIN)
 				break;
 			if(sz > 0) {
@@ -707,7 +707,7 @@ int vfs_read_pipe(uint32_t node, void* buf, uint32_t size, bool block) {
 	return 0; //res < 0 , pipe closed, return 0.
 }
 
-#define SHM_ON 32
+#define SHM_ON 128
 int vfs_read(int fd, fsinfo_t *info, void* buf, uint32_t size) {
 	/*mount_t mount;
 	if(vfs_get_mount(info, &mount) != 0)
@@ -747,7 +747,7 @@ int vfs_read(int fd, fsinfo_t *info, void* buf, uint32_t size) {
 		int rd = proto_read_int(&out);
 		res = rd;
 		if(rd > 0) {
-			if(shm != NULL)
+			if(shm_id != -1 && shm != NULL)
 				memcpy(buf, shm, rd);
 			else
 				proto_read_to(&out, buf, size);

@@ -44,9 +44,9 @@ static void sys_signal(context_t* ctx, int32_t pid, int32_t sig) {
 	ctx->gpr[0] = -1;
 	proc_t* proc = proc_get(pid);
 	proc_t* cproc = get_current_proc();
-	if((cproc->info.owner > 0 &&
-			cproc->info.owner != proc->info.owner) ||
-			proc->info.owner < 0) {
+	if((cproc->info.uid > 0 &&
+			cproc->info.uid != proc->info.uid) ||
+			proc->info.uid < 0) {
 		return;
 	}
 	proc_signal_send(ctx, proc, sig, true);
@@ -65,7 +65,7 @@ static int32_t sys_getpid(int32_t pid) {
 	if(proc == NULL)
 		return -1;
 
-	if(cproc->info.owner > 0 && cproc->info.owner != proc->info.owner)
+	if(cproc->info.uid > 0 && cproc->info.uid != proc->info.uid)
 		return -1;
 
 	proc_t* p = proc_get_proc(proc);
@@ -171,9 +171,9 @@ static void sys_load_elf(context_t* ctx, const char* cmd, void* elf, uint32_t el
 
 static int32_t sys_proc_set_uid(int32_t uid) {
 	proc_t* cproc = get_current_proc();
-	if(cproc->info.owner > 0)	
+	if(cproc->info.uid > 0)	
 		return -1;
-	cproc->info.owner = uid;
+	cproc->info.uid = uid;
 	return 0;
 }
 
@@ -228,7 +228,7 @@ static int32_t sys_shm_ref(int32_t id) {
 	
 static uint32_t sys_dma_map(uint32_t size) {
 	proc_t* cproc = get_current_proc();
-	if(cproc->info.owner > 0)
+	if(cproc->info.uid > 0)
 		return 0;
 
 	uint32_t paddr = dma_alloc(cproc->info.pid, size);
@@ -242,7 +242,7 @@ static uint32_t sys_dma_map(uint32_t size) {
 
 static uint32_t sys_mem_map(uint32_t vaddr, uint32_t paddr, uint32_t size) {
 	proc_t* cproc = get_current_proc();
-	if(cproc->info.owner > 0)
+	if(cproc->info.uid > 0)
 		return 0;
 
 	if(paddr == DMA_MAGIC)
@@ -534,7 +534,7 @@ static void sys_proc_wakeup(context_t* ctx, int32_t pid, uint32_t evt) {
 
 static void sys_core_proc_ready(void) {
 	proc_t* cproc = get_current_proc();
-	if(cproc->info.owner > 0)
+	if(cproc->info.uid > 0)
 		return;
 	_core_proc_ready = true;
 	_core_proc_pid = cproc->info.pid;
@@ -556,7 +556,7 @@ static int32_t sys_get_kernel_tic(uint32_t* sec, uint32_t* hi, uint32_t* low) {
 
 static int32_t sys_interrupt_setup(uint32_t interrupt, uint32_t entry, uint32_t data) {
 	proc_t * cproc = get_current_proc();
-	if(cproc->info.owner > 0)
+	if(cproc->info.uid > 0)
 		return -1;
 	return interrupt_setup(cproc, interrupt, entry, data);
 }
@@ -567,7 +567,7 @@ static void sys_interrupt_end(context_t* ctx) {
 
 static inline void sys_soft_int(context_t* ctx, int32_t to_pid, uint32_t entry, uint32_t data) {
 	proc_t* proc = proc_get_proc(get_current_proc());
-	if(proc->info.owner > 0)
+	if(proc->info.uid > 0)
 		return;
 	interrupt_soft_send(ctx, to_pid, entry, data);
 }
@@ -649,7 +649,7 @@ static inline void _svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_
 		ctx->gpr[0] = sys_proc_set_uid(arg0);
 		return;
 	case SYS_PROC_GET_UID: 
-		ctx->gpr[0] = get_current_proc()->info.owner;
+		ctx->gpr[0] = get_current_proc()->info.uid;
 		return;
 	case SYS_PROC_GET_CMD: 
 		ctx->gpr[0] = sys_proc_get_cmd(arg0, (char*)arg1, arg2);

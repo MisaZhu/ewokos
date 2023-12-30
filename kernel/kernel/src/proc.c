@@ -49,6 +49,15 @@ void procs_init(void) {
 	}
 }
 
+int32_t  proc_childof(proc_t* proc, proc_t* parent) {
+	while(proc != NULL) {
+		if(proc == parent)
+			return 0;
+		proc = proc_get(proc->info.father_pid);
+	}
+	return -1;
+}
+
 inline proc_t* proc_get(int32_t pid) {
 	if(pid < 0 || pid >= PROC_MAX ||
 			_proc_table[pid].info.state == UNUSED ||
@@ -492,7 +501,7 @@ inline void proc_free(proc_t* proc, void* p) {
 
 static inline uint32_t core_fetch(proc_t* proc) {
 	(void)proc;
-	if(_sys_info.cores == 1 || proc->info.owner < 0)
+	if(_sys_info.cores == 1 || proc->info.uid < 0)
 		return 0;
 
 	//fetch the next core.
@@ -757,7 +766,7 @@ proc_t* kfork_raw(context_t* ctx, int32_t type, proc_t* parent) {
 		return NULL;
 	}
 	child->info.father_pid = parent->info.pid;
-	child->info.owner = parent->info.owner;
+	child->info.uid = parent->info.uid;
 	memcpy(&child->ctx, &parent->ctx, sizeof(context_t));
 
 	if(type == PROC_TYPE_PROC) {
@@ -790,8 +799,8 @@ static int32_t get_procs_num(void) {
 	int32_t i;
 	for(i=0; i<PROC_MAX; i++) {
 		if(_proc_table[i].info.state != UNUSED &&
-				(cproc->info.owner == 0 ||
-				 _proc_table[i].info.owner == cproc->info.owner)) {
+				(cproc->info.uid == 0 ||
+				 _proc_table[i].info.uid == cproc->info.uid)) {
 			res++;
 		}
 	}
@@ -813,8 +822,8 @@ procinfo_t* get_procs(int32_t *num) {
 	int32_t i;
 	for(i=0; i<PROC_MAX && j<(*num); i++) {
 		if(_proc_table[i].info.state != UNUSED && 
-				(cproc->info.owner == 0 ||
-				 _proc_table[i].info.owner == cproc->info.owner)) {
+				(cproc->info.uid == 0 ||
+				 _proc_table[i].info.uid == cproc->info.uid)) {
 			proc_t* p = &_proc_table[i];
 			memcpy(&procs[j], &p->info, sizeof(procinfo_t));
 			procs[j].heap_size = p->space->heap_size;

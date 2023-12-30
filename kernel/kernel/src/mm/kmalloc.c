@@ -46,7 +46,7 @@ void kmalloc_init() {
 void *kmalloc(uint32_t size) {
 	void *ret = trunk_malloc(&_kmalloc, size);
 	if(ret == 0) {
-		printf("Panic: km_alloc failed!\n");
+		printf("Panic: km_alloc failed! %d\n", size);
 	}
 	return ret;
 }

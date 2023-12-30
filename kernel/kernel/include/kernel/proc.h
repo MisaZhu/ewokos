@@ -100,6 +100,7 @@ extern int32_t renew_kernel_tic(uint32_t usec);
 extern void    renew_kernel_sec(void);
 extern void    proc_usleep(context_t* ctx, uint32_t usec);
 extern void    proc_ready(proc_t* proc);
+extern int32_t proc_childof(proc_t* proc, proc_t* parent);
 
 extern uint32_t proc_stack_alloc(proc_t* proc);
 extern void     proc_stack_free(proc_t* proc, uint32_t stack);

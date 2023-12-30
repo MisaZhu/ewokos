@@ -9,6 +9,7 @@
 extern "C" {
 #endif
 
+#define VFS_BUF_SIZE (1024*8)
 
 const char* vfs_fullname(const char* fname);
 

@@ -44,7 +44,8 @@ typedef struct {
 	uint32_t core;
 	int32_t  pid; 
 	int32_t  father_pid;
-	int32_t  owner; 
+	int32_t  uid; 
+	int32_t  gid; 
 	int32_t  state; 
 	int32_t  block_by;
 	int32_t  wait_for;
