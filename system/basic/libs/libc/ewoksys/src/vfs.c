@@ -440,7 +440,7 @@ void* vfs_readfile(const char* fname, int* rsz) {
 	int fsize = info.size;
 	if(fd >= 0) {
 		while(fsize > 0) {
-			int sz = read(fd, p, VFS_BUF_SIZE);
+			int sz = read(fd, p, VFS_BUF_SIZE < fsize ? VFS_BUF_SIZE:fsize);
 			if(sz < 0 && errno != EAGAIN)
 				break;
 			if(sz > 0) {
