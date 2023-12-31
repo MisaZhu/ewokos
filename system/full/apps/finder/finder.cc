@@ -10,6 +10,7 @@
 #include <dirent.h>
 #include <ewoksys/basic_math.h>
 #include <ewoksys/proc.h>
+#include <elf/elf.h>
 
 using namespace Ewok;
 
@@ -75,7 +76,24 @@ class Finder: public XWin {
 		return "";
 	}
 
+	bool check_elf(const char* fname) {
+		elf_header_t header;
+		if(elf_read_header(fname, &header) != 0)
+			return false;
+
+		int pid = fork();
+		if(pid == 0)  {
+			proc_detach();
+			exec(fname);
+			exit(0);
+		}
+		return true;
+	}
+
 	void load(const char* fname) {
+		if(check_elf(fname))
+			return;
+
 		char cmd[FS_FULL_NAME_MAX+1] = "";
 		const char* prog = fileType(fname);
 

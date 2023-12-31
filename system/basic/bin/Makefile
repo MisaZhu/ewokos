@@ -23,6 +23,7 @@ builtin_apps:
 	cd mkdir;make
 	cd grep;make
 	cd rx;make
+	cd elfinfo;make
 
 clean:
 	cd cp;make clean
@@ -46,3 +47,4 @@ clean:
 	cd mkdir;make clean
 	cd grep;make clean
 	cd rx;make clean
+	cd elfinfo;make clean

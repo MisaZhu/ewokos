@@ -7,6 +7,7 @@ basic_libs:
 	cd sconf; make
 	cd hash;make
 	cd ext2;make
+	cd elf;make
 	cd sd;make
 
 clean:
@@ -15,4 +16,5 @@ clean:
 	cd sconf; make clean
 	cd hash;make clean
 	cd ext2;make clean
+	cd elf;make clean
 	cd sd;make clean
