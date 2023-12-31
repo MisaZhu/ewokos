@@ -259,12 +259,11 @@ static uint32_t check_access(proc_t* proc, share_mem_t* it) {
 	if(owner == proc)
 		return (SHM_R | SHM_W);
 
-	/*if(it->key == IPC_PRIVATE) { //family only
+	if(it->key == IPC_PRIVATE) { //family only
 		if(proc_childof(proc, owner) == 0)
 				return (SHM_R | SHM_W); //passed
 		return SHM_N;
 	}
-	*/
 
 	int32_t a = 0;
 	if(owner->info.uid == proc->info.uid)

@@ -662,7 +662,8 @@ int vfs_write_block(int pid, const void* buf, uint32_t size, int32_t index) {
 }
 
 int vfs_read_block(int pid, void* buf, uint32_t size, int32_t index) {
-	int32_t shm_id = shmget(IPC_PRIVATE, size, 0);
+	key_t key = (((uint32_t)buf) << 16) | pid; 
+	int32_t shm_id = shmget(key, size, 0666|IPC_CREAT);
 	if(shm_id == -1) 
 		return -1;
 	void* shm = shmat(shm_id, 0, 0);
@@ -724,12 +725,13 @@ int vfs_read(int fd, fsinfo_t *info, void* buf, uint32_t size) {
 	int32_t shm_id = -1;
 	void* shm = NULL;
 	if(size >= SHM_ON) {
-		shm_id = shmget(IPC_PRIVATE, size, 0);
-		if(shm_id == -1) 
-			return -1;
-		shm = shmat(shm_id, 0, 0);
-		if(shm == NULL)
-			return -1;
+		key_t key = (info->node << 16) | getpid(); 
+		shm_id = shmget(key, size, 0666|IPC_CREAT|IPC_EXCL);
+		if(shm_id != -1)  {
+			shm = shmat(shm_id, 0, 0);
+			if(shm == NULL)
+				return -1;
+		}
 	}
 
 	proto_t in, out;
@@ -801,13 +803,14 @@ int vfs_write(int fd, fsinfo_t* info, const void* buf, uint32_t size) {
 	int32_t shm_id = -1;
 	void* shm = NULL;
 	if(size >= SHM_ON) {
-		shm_id = shmget(IPC_PRIVATE, size, 0);
-		if(shm_id == -1) 
-			return -1;
-		shm = shmat(shm_id, 0, 0);
-		if(shm == NULL)
-			return -1;
-		memcpy(shm, buf, size);
+		key_t key = (info->node << 16) | getpid(); 
+		shm_id = shmget(key, size, 0666|IPC_CREAT|IPC_EXCL);
+		if(shm_id != -1)  {
+			shm = shmat(shm_id, 0, 0);
+			if(shm == NULL)
+				return -1;
+			memcpy(shm, buf, size);
+		}
 	}
 
 	proto_t in, out;

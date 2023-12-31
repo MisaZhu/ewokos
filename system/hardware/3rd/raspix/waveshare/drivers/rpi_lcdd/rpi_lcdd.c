@@ -97,7 +97,8 @@ int main(int argc, char** argv) {
 
 	uint32_t sz = LCD_HEIGHT*LCD_WIDTH*4;
 	fb_dma_t dma;
-	dma.shm_id = shmget(IPC_PRIVATE, sz+1, 0);
+	key_t key = (((int32_t)&dma) << 16) | getpid(); 
+	dma.shm_id = shmget(key, sz+1, 0666|IPC_CREAT|IPC_EXCL);
 	if(dma.shm_id == -1)
 		return -1;
 	dma.shm = shmat(dma.shm_id, 0, 0);

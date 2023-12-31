@@ -81,7 +81,8 @@ xwin_t* xwin_open(x_t* xp, uint32_t disp_index, int x, int y, int w, int h, cons
 	if(xp->main_win == NULL)
 		xp->main_win = ret;
 
-	int32_t xinfo_shm_id = shmget(IPC_PRIVATE, sizeof(xinfo_t), 0);
+	key_t key = (((int32_t)ret) << 16) | getpid();
+	int32_t xinfo_shm_id = shmget(key, sizeof(xinfo_t), 0666|IPC_CREAT|IPC_EXCL);
 	if(xinfo_shm_id == -1) {
 		free(ret);
 		return NULL;

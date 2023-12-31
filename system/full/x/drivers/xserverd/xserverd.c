@@ -533,7 +533,8 @@ static int x_init_display(x_t* x, int32_t display_index) {
 			return -1;
 		graph_t *g_fb = fb_fetch_graph(&x->displays[display_index].fb);
 		x->displays[display_index].g_fb = g_fb;
-		int32_t shm_id = shmget(IPC_PRIVATE, g_fb->w * g_fb->h * 4, 0);
+		key_t key = (((int32_t)g_fb) << 16) | getpid();
+		int32_t shm_id = shmget(key, g_fb->w * g_fb->h * 4, 0666 | IPC_CREAT | IPC_EXCL);
 		if(shm_id == -1)
 			return -1;
 		void* p = shmat(shm_id, 0, 0);
@@ -557,7 +558,8 @@ static int x_init_display(x_t* x, int32_t display_index) {
 			return -1;
 		graph_t *g_fb = fb_fetch_graph(&x->displays[i].fb);
 		x->displays[i].g_fb = g_fb;
-		int32_t shm_id = shmget(IPC_PRIVATE, g_fb->w * g_fb->h * 4, 0);
+		key_t key = (((int32_t)g_fb) << 16) | getpid();
+		int32_t shm_id = shmget(key, g_fb->w * g_fb->h * 4, 0666 | IPC_CREAT | IPC_EXCL);
 		if(shm_id == -1)
 			return -1;
 		void* p = shmat(shm_id, 0, 0);
@@ -932,7 +934,10 @@ static int xwin_update_info(int fd, int from_pid, proto_t* in, proto_t* out, x_t
 			shmdt(g_shm);
 			win->g = NULL;
 		}
-		int32_t g_shm_id = shmget(IPC_PRIVATE, win->xinfo->wsr.w * win->xinfo->wsr.h * 4, 0);
+		key_t key = (((int32_t)win) << 16) | getpid();
+		int32_t g_shm_id = shmget(key,
+				win->xinfo->wsr.w * win->xinfo->wsr.h * 4,
+				0666|IPC_CREAT|IPC_EXCL);
 		if(g_shm_id == -1)
 			return -1;
 		g_shm = shmat(g_shm_id, 0, 0);
