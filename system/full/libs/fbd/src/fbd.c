@@ -99,7 +99,7 @@ static int fb_dma_init(fb_dma_t* dma) {
 	memset(dma, 0, sizeof(fb_dma_t));
 	uint32_t sz = _fbinfo->width*_fbinfo->height*4;
 	key_t key = (((int32_t)dma) << 16) | getpid(); 
-	dma->shm_id = shmget(key, sz + 1, 0666 | IPC_CREAT | IPC_EXCL); //one more byte (head) for busy flag 
+	dma->shm_id = shmget(key, sz + 1, 0660 | IPC_CREAT | IPC_EXCL); //one more byte (head) for busy flag 
 	if(dma->shm_id == -1)
 		return -1;
 	dma->shm = shmat(dma->shm_id, 0, 0); //one more byte (head) for busy flag 
