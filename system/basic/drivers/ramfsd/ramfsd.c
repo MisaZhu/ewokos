@@ -55,12 +55,6 @@ static int ramfs_write(int fd, int from_pid, uint32_t node,
 	return size;
 }
 
-static int ramfs_create(uint32_t node_to, uint32_t node, void* p, fsinfo_t* info) {
-	(void)node_to;
-	(void)p;
-	return vfs_get_by_node(node, info);
-}
-
 static int ramfs_unlink(uint32_t node, const char* fname, void* p) {
 	(void)fname;
 	(void)p;
@@ -79,7 +73,6 @@ int main(int argc, char** argv) {
 	vdevice_t dev;
 	memset(&dev, 0, sizeof(vdevice_t));
 	strcpy(dev.name, "ramfs");
-	dev.create = ramfs_create;
 	dev.read = ramfs_read;
 	dev.write = ramfs_write;
 	dev.unlink = ramfs_unlink;

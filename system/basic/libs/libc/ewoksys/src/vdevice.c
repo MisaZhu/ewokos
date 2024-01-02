@@ -222,7 +222,7 @@ static void do_create(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, v
 	uint32_t node = (uint32_t)proto_read_int(in);
 
 	fsinfo_t info;
-	int res = -1;
+	int res = vfs_get_by_node(node, &info);
 	if(dev != NULL && dev->create != NULL)
 		res = dev->create(node_to, node, p, &info);
 
