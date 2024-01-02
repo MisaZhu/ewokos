@@ -424,9 +424,8 @@ static void sys_ipc_end(context_t* ctx) {
 		proc_ready(serv_proc);
 
 	//wake up request proc to get return
-	if((ipc->call_id & IPC_NON_RETURN) == 0)
-		proc_wakeup(serv_proc->info.pid, ipc->client_pid, (uint32_t)&serv_proc->space->ipc_server); 
 	proc_ipc_close(serv_proc, ipc);
+	proc_wakeup(serv_proc->info.pid, -1, (uint32_t)&serv_proc->space->ipc_server); 
 
 	if(proc_ipc_fetch(serv_proc) != 0)  {//fetch next buffered ipc
 		proc_save_state(serv_proc, &serv_proc->space->ipc_server.saved_state);
