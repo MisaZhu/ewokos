@@ -16,7 +16,7 @@ void close(int fd) {
 		addi(&in, -1)->
 		addi(&in, info.node);
 
-	ipc_call(info.mount_pid, FS_CMD_CLOSE, &in, NULL);
+	ipc_call_wait(info.mount_pid, FS_CMD_CLOSE, &in);
 	PF->clear(&in);
 	vfs_close(fd);
 }
