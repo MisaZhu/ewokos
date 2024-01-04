@@ -19,4 +19,4 @@ clean:
 	cd ext2;make clean
 	cd elf;make clean
 	cd sd;make clean
-	cd socket;make
+	cd socket;make clean
