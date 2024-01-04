@@ -24,6 +24,7 @@ builtin_apps:
 	cd grep;make
 	cd rx;make
 	cd elfinfo;make
+	cd httpd;make 
 
 clean:
 	cd cp;make clean
@@ -48,3 +49,4 @@ clean:
 	cd grep;make clean
 	cd rx;make clean
 	cd elfinfo;make clean
+	cd httpd;make clean

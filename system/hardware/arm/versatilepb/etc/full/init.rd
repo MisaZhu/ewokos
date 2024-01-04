@@ -5,6 +5,7 @@
 /bin/rundev /drivers/versatilepb/ps2keybd   /dev/keyb0
 /bin/rundev /drivers/versatilepb/ps2moused  /dev/mouse0
 /bin/rundev /drivers/versatilepb/smc91c111d /dev/eth0
+/bin/rundev /drivers/netd             /dev/net0 /dev/eth0
 /bin/rundev /drivers/versatilepb/fbd        /dev/fb0
 
 /bin/rundev /drivers/fontd           /dev/font /usr/system/fonts/system.ttf /usr/system/fonts/system_cn.ttf
