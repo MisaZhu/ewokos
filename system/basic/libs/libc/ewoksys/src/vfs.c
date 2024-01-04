@@ -226,7 +226,7 @@ int vfs_close(int fd) {
 	vfs_clear_info_buffer(fd);	
 	proto_t in;
 	PF->init(&in)->addi(&in, fd);
-	int res = ipc_call(get_vfsd_pid(), VFS_CLOSE, &in, NULL);
+	int res = ipc_call_wait(get_vfsd_pid(), VFS_CLOSE, &in);
 	PF->clear(&in);
 	return res;
 }
