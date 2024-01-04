@@ -9,6 +9,7 @@ basic_libs:
 	cd ext2;make
 	cd elf;make
 	cd sd;make
+	cd socket;make
 
 clean:
 	cd softfloat;make clean
@@ -18,3 +19,4 @@ clean:
 	cd ext2;make clean
 	cd elf;make clean
 	cd sd;make clean
+	cd socket;make
