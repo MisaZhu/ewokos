@@ -7,6 +7,7 @@
 extern "C" {
 #endif
 
+#define EOF (-1)
 
 void printf(const char *format, ...);
 void dprintf(int fd, const char *format, ...);
