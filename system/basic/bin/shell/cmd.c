@@ -95,7 +95,7 @@ static void export_set(const char* arg) {
 	char* v = strchr(arg, '=');
 	if(v == NULL)
 		return;
-	strncpy(name, arg, v-arg);
+	sstrncpy(name, arg, v-arg);
 	name[v-arg] = 0;
 
 	setenv(name, (v+1));

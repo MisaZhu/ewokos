@@ -109,16 +109,13 @@ inline uint32_t strncpy(char *target, const char *source, uint32_t n) {
 	if(source == 0)
 		return 0;
 
-	uint32_t source_len = 0;
 	uint32_t i = 0;
 	while (i < n && source[i] != '\0') {
 		target[i] = source[i];
 		i++;
 	}
 	target[i] = '\0';
-
-	source_len = strlen(source);
-	return source_len;
+	return i;
 }
 
 

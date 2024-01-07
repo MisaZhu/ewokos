@@ -14,7 +14,7 @@ static inline const char* get_show_name(const char* name, int32_t type) {
 	else if(type == DT_BLK || type == DT_CHR) 
 		snprintf(ret, 127, "*%s", name);
 	else
-		strncpy(ret, name, 127);
+		sstrncpy(ret, name, 127);
 	return ret;
 }
 

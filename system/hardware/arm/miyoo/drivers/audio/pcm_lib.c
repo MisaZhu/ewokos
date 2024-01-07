@@ -35,7 +35,7 @@ int snd_card_new(struct snd_card **snd_card, const char *name)
 	memset(card, 0, sizeof(struct snd_card));
 	list_init(&card->dev_list);
 	list_init(&card->pcm_list);
-	strncpy(card->name, name, 32);
+	sstrncpy(card->name, name, 32);
 	*snd_card = card;
 	return 0;
 }
@@ -115,7 +115,7 @@ static int snd_pcm_substream_new(struct snd_pcm *pcm)
 	memset(substream, 0, sizeof(*substream));
 	pcm->substream = substream;
 	substream->pcm = pcm;
-	strncpy(substream->name, "substream-0", 32);
+	sstrncpy(substream->name, "substream-0", 32);
 
 	struct snd_pcm_runtime *runtime;
 	runtime = malloc(sizeof(*runtime));

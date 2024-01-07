@@ -117,6 +117,7 @@ LIB_EWOKC_OBJS = \
 	src/stdio/getch.o \
 	src/stdio/putch.o \
 	src/stdio/puts.o \
+	src/stdio/sstrncpy.o \
 	\
 	src/fcntl/open.o \
 	src/fcntl/close.o \

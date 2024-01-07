@@ -12,6 +12,7 @@ extern "C" {
 void printf(const char *format, ...);
 void dprintf(int fd, const char *format, ...);
 int sprintf(char *str, const char *fmt, ...);
+char *sstrncpy(char *dst, const char *src, size_t n);
 int snprintf(char *target, int size, const char *format, ...);
 
 int  getch(void);
