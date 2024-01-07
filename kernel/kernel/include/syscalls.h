@@ -80,7 +80,8 @@ enum {
 	SYS_CLOSE_KCONSOLE,             //55
 	SYS_SCHD_CORE_LOCK,             //56
 	SYS_SCHD_CORE_UNLOCK,             //57
-	SYS_CALL_NUM          //58
+	SYS_SET_TIMER_INTR_USEC,          //58
+	SYS_CALL_NUM          //59
 };
 
 #endif

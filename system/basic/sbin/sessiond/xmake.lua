@@ -1,0 +1,6 @@
+target("sessiond")
+    set_type("application")
+    add_deps("libbsp", "libext2", "libsd")
+    add_files("*.c")        
+    install_dir("sbin")
+target_end()

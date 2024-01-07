@@ -11,6 +11,7 @@ void load_kernel_config(void) {
 	_kernel_config.cores = cores_max; 
 	_kernel_config.schedule_freq = SCHEDULE_FREQ;
 	_kernel_config.timer_freq = _kernel_config.schedule_freq*2;
+	_kernel_config.timer_intr_usec = 0;
 
 	sconf_t* sconf = sconf_load("/etc/kernel/kernel.conf");
 	if(sconf == NULL)

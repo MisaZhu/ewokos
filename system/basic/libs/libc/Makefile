@@ -32,6 +32,7 @@ LIB_EWOKSYS_OBJS = ewoksys/src/syscall.o \
 	ewoksys/src/buffer.o \
 	ewoksys/src/mmio.o  \
 	ewoksys/src/dma.o  \
+	ewoksys/src/session.o  \
 	ewoksys/src/timer.o 
 
 #LIB_EWOKC_OBJS = \

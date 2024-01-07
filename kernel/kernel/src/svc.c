@@ -585,6 +585,13 @@ static inline void sys_schd_core_unlock(void) {
 	cproc->schd_core_lock_counter = 0;
 }
 
+static inline void sys_set_timer_intr_usec(uint32_t usec) {
+	proc_t* cproc = get_current_proc();
+	if(cproc->info.uid > 0)
+		return;
+	_kernel_config.timer_intr_usec = usec;
+}
+
 static inline void sys_root(void) {
 #ifdef KCONSOLE
 	kconsole_close();
@@ -763,6 +770,9 @@ static inline void _svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_
 		return;	
 	case SYS_SCHD_CORE_UNLOCK:	
 		sys_schd_core_unlock();
+		return;	
+	case SYS_SET_TIMER_INTR_USEC:	
+		sys_set_timer_intr_usec(arg0);
 		return;	
 	case SYS_CLOSE_KCONSOLE:	
 		sys_root();

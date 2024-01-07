@@ -24,6 +24,7 @@ typedef struct {
 	uint32_t timer_freq;	
 	uint32_t cores;
 	uint32_t schedule_freq;
+	uint32_t timer_intr_usec;
 } kernel_conf_t;
 
 extern kernel_conf_t _kernel_config;
