@@ -23,6 +23,7 @@
 @/sbin/x/xim_none &
 @/sbin/x/xim_vkey 560 168&
 
+@/sbin/sessiond &
 @/bin/session &
 @/bin/x/menubar &
 @/bin/x/launcher &
