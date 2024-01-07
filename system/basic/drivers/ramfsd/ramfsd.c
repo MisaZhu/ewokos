@@ -21,8 +21,8 @@ static int ramfs_read(int fd, int from_pid, uint32_t node,
 
 	if(offset < 0)
 		offset = 0;
-	if((int)info.size < (size+offset))
-		size = info.size-offset;
+	if((int)info.stat.size < (size+offset))
+		size = info.stat.size-offset;
 	if(size < 0)
 		return 0;
 
@@ -50,7 +50,7 @@ static int ramfs_write(int fd, int from_pid, uint32_t node,
 	data = (char*)realloc(data, size + offset);
 	memcpy(data+offset, buf, size);
 	info.data = (uint32_t)data;
-	info.size = size+offset;
+	info.stat.size = size+offset;
 	vfs_set(&info);
 	return size;
 }

@@ -5,83 +5,85 @@
 
 enum {
 	SYS_NONE = 0,
-	SYS_KPRINT,           //1
-
+	SYS_KPRINT, 
 	//proccess memory manage
-	SYS_MALLOC,           //2
-	SYS_MSIZE,            //3
-	SYS_FREE,             //4
+	SYS_MALLOC,
+	SYS_MSIZE,
+	SYS_FREE,
 
-	SYS_EXEC_ELF,         //5
-	SYS_FORK,             //6
-	SYS_THREAD,           //7
-	SYS_YIELD,            //8
-	SYS_WAIT_PID,         //9
-	SYS_USLEEP,           //10
-	SYS_EXIT,             //11
-	SYS_DETACH,           //12
-	SYS_BLOCK,            //13
-	SYS_WAKEUP,           //14
-	SYS_SIGNAL_SETUP,     //15
-	SYS_SIGNAL,           //16
-	SYS_SIGNAL_END,       //17
+	SYS_EXEC_ELF,
+	SYS_FORK,
+	SYS_THREAD,
+	SYS_YIELD,
+	SYS_WAIT_PID,
+	SYS_USLEEP,
+	SYS_EXIT,
+	SYS_DETACH,
+	SYS_BLOCK,
+	SYS_WAKEUP,
+	SYS_SIGNAL_SETUP,
+	SYS_SIGNAL,
+	SYS_SIGNAL_END,
 
-	SYS_GET_PID,          //18
-	SYS_GET_THREAD_ID,    //19
+	SYS_GET_PID,
+	SYS_GET_THREAD_ID,
 
-	SYS_IPC_PING,        //20
-	SYS_IPC_READY,  //21
+	SYS_IPC_PING,
+	SYS_IPC_READY,
 
-	SYS_PROC_GET_CMD,     //22
-	SYS_PROC_SET_CMD,     //23
-	SYS_PROC_GET_UID,     //24
-	SYS_PROC_SET_UID,     //25
+	SYS_PROC_GET_CMD,
+	SYS_PROC_SET_CMD,
+	SYS_PROC_GET_UID,
+	SYS_PROC_SET_UID,
 
 	//share memory syscalls
-	SYS_PROC_SHM_GET,   //26
-	SYS_PROC_SHM_MAP,     //27
-	SYS_PROC_SHM_UNMAP,   //28
+	SYS_PROC_SHM_GET,
+	SYS_PROC_SHM_MAP,
+	SYS_PROC_SHM_UNMAP,
 
-	SYS_PROC_UUID,        //29
+	SYS_PROC_UUID,
 
-	SYS_GET_SYS_INFO,     //30
-	SYS_GET_SYS_STATE,    //31
-	SYS_GET_PROCS,        //32
+	SYS_GET_SYS_INFO,
+	SYS_GET_SYS_STATE,
+	SYS_GET_PROCS,
 
 	//map mmio memory for userspace access
-	SYS_MEM_MAP,          //33
-	SYS_V2P,              //34
-	SYS_P2V,              //35
+	SYS_MEM_MAP,
+	SYS_V2P,
+	SYS_P2V,
 
 	//internal proccess communication
-	SYS_IPC_SETUP,        //36
-	SYS_IPC_CALL,         //37
-	SYS_IPC_GET_ARG,      //38
-	SYS_IPC_SET_RETURN,   //39
-	SYS_IPC_GET_RETURN,   //40
-	SYS_IPC_END,          //41
-	SYS_IPC_DISABLE,      //42
-	SYS_IPC_ENABLE,       //43
+	SYS_IPC_SETUP,
+	SYS_IPC_CALL,
+	SYS_IPC_GET_ARG,
+	SYS_IPC_SET_RETURN,
+	SYS_IPC_GET_RETURN,
+	SYS_IPC_END,
+	SYS_IPC_DISABLE,
+	SYS_IPC_ENABLE,
 
-	SYS_CORE_READY,       //44
-	SYS_CORE_PID,         //45
-	SYS_GET_KEVENT,       //46
-	SYS_GET_KERNEL_TIC,   //47
+	SYS_CORE_READY,
+	SYS_CORE_PID,
+	SYS_GET_KEVENT,
+	SYS_GET_KERNEL_TIC,
 
-	SYS_INTR_SETUP,       //48
-	SYS_INTR_END,         //49
+	SYS_INTR_SETUP,
+	SYS_INTR_END,
 
-	SYS_SEMAPHORE_ALLOC,         //50
-	SYS_SEMAPHORE_FREE,         //51
-	SYS_SEMAPHORE_ENTER,         //52
-	SYS_SEMAPHORE_QUIT,         //53
-	SYS_SOFT_INT,         //54
+	SYS_SEMAPHORE_ALLOC,
+	SYS_SEMAPHORE_FREE,
+	SYS_SEMAPHORE_ENTER,
+	SYS_SEMAPHORE_QUIT,
+	SYS_SOFT_INT,
 
-	SYS_CLOSE_KCONSOLE,             //55
-	SYS_SCHD_CORE_LOCK,             //56
-	SYS_SCHD_CORE_UNLOCK,             //57
-	SYS_SET_TIMER_INTR_USEC,          //58
-	SYS_CALL_NUM          //59
+	SYS_CLOSE_KCONSOLE,
+	SYS_SCHD_CORE_LOCK,
+	SYS_SCHD_CORE_UNLOCK,
+	SYS_SET_TIMER_INTR_USEC,
+
+	SYS_PROC_GET_GID,
+	SYS_PROC_SET_GID,
+	SYS_CALL_NUM
 };
 
 #endif

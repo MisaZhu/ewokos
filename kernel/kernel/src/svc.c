@@ -177,6 +177,14 @@ static int32_t sys_proc_set_uid(int32_t uid) {
 	return 0;
 }
 
+static int32_t sys_proc_set_gid(int32_t gid) {
+	proc_t* cproc = get_current_proc();
+	if(cproc->info.uid > 0)	
+		return -1;
+	cproc->info.gid = gid;
+	return 0;
+}
+
 static int32_t sys_proc_get_cmd(int32_t pid, char* cmd, int32_t sz) {
 	proc_t* proc = proc_get(pid);
 	if(proc == NULL)
@@ -653,6 +661,12 @@ static inline void _svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_
 		return;
 	case SYS_PROC_GET_UID: 
 		ctx->gpr[0] = get_current_proc()->info.uid;
+		return;
+	case SYS_PROC_SET_GID: 
+		ctx->gpr[0] = sys_proc_set_gid(arg0);
+		return;
+	case SYS_PROC_GET_GID: 
+		ctx->gpr[0] = get_current_proc()->info.gid;
 		return;
 	case SYS_PROC_GET_CMD: 
 		ctx->gpr[0] = sys_proc_get_cmd(arg0, (char*)arg1, arg2);

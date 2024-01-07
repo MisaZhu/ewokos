@@ -17,6 +17,8 @@ extern "C" {
 
 int getuid(void);
 int setuid(int uid);
+int getgid(void);
+int setgid(int gid);
 int getpid(void);
 int fork(void);
 int vfork(void);

@@ -64,9 +64,12 @@ int main(int argc, char* argv[]) {
 		if(it == NULL)
 			break;
 
-		snprintf(fname, FS_FULL_NAME_MAX, "%s/%s", r, it->d_name);
-		const char* show_name = get_show_name(it->d_name, it->d_type);
+		if(strcmp(r, "/") == 0)
+			snprintf(fname, FS_FULL_NAME_MAX, "/%s", it->d_name);
+		else
+			snprintf(fname, FS_FULL_NAME_MAX, "%s/%s", r, it->d_name);
 
+		const char* show_name = get_show_name(it->d_name, it->d_type);
 		struct stat st;
 		stat(fname, &st);
 		const char* show_mode = get_show_mode(st.st_mode);
@@ -74,7 +77,7 @@ int main(int argc, char* argv[]) {
 		session_info_t info;
 		session_get(st.st_uid, &info);
 
-		printf("%10s %8s %8d  %24s\n", show_mode, info.user, it->d_reclen, show_name);
+		printf("%-10s %8s:%d %8d  %-24s\n", show_mode, info.user, info.gid, it->d_reclen, show_name);
 	}
 	closedir(dirp);
 	return 0;

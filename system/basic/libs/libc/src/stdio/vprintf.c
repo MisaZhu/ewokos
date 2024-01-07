@@ -168,8 +168,7 @@ static void print_string(outc_func_t outc, void* p, const char *str, int32_t wid
 	int32_t len = (int32_t)strlen(str);
 	int32_t i = 0;
 
-	if(width < 0) {
-		width = -width;
+	if(width > 0) {
 		for(; i<width-len; i++) {
 			outc(' ', p);
 		}
@@ -183,8 +182,11 @@ static void print_string(outc_func_t outc, void* p, const char *str, int32_t wid
 			break;
 	}
 
-	for(; i< width; i++) {
-		outc(' ', p);
+	if(width < 0) {
+		width = -width;
+		for(; i< width; i++) {
+			outc(' ', p);
+		}
 	}
 }
 

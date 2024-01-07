@@ -429,15 +429,15 @@ int vfs_seek(int fd, int offset) {
 void* vfs_readfile(const char* fname, int* rsz) {
 	fname = vfs_fullname(fname);
 	fsinfo_t info;
-	if(vfs_get_by_name(fname, &info) != 0 || info.size <= 0)
+	if(vfs_get_by_name(fname, &info) != 0 || info.stat.size <= 0)
 		return NULL;
-	void* buf = malloc(info.size+1); //one more char for string end.
+	void* buf = malloc(info.stat.size+1); //one more char for string end.
 	if(buf == NULL)
 		return NULL;
 
 	char* p = (char*)buf;
 	int fd = open(fname, O_RDONLY);
-	int fsize = info.size;
+	int fsize = info.stat.size;
 	if(fd >= 0) {
 		while(fsize > 0) {
 			int sz = read(fd, p, VFS_BUF_SIZE < fsize ? VFS_BUF_SIZE:fsize);
@@ -457,7 +457,7 @@ void* vfs_readfile(const char* fname, int* rsz) {
 	}
 
 	if(rsz != NULL)
-		*rsz = info.size;
+		*rsz = info.stat.size;
 	return buf;
 }
 
@@ -492,7 +492,10 @@ int vfs_create(const char* fname, fsinfo_t* ret, int type, bool vfs_node_only, b
 	str_free(name);
 	str_free(dir);
 	if(type == FS_TYPE_DIR)
-		ret->size = 1024;
+		ret->stat.size = 1024;
+
+	ret->stat.uid = getuid();
+	ret->stat.gid = getgid();
 
 	if(vfs_new_node(ret, info_to.node) != 0)
 		return -1;

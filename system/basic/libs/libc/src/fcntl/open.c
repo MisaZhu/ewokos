@@ -29,7 +29,7 @@ int open(const char* fname, int oflag) {
 	}
 
 	if((oflag & O_TRUNC) != 0) {
-		info.size = 0;
+		info.stat.size = 0;
 		vfs_set(&info);
 	}
 

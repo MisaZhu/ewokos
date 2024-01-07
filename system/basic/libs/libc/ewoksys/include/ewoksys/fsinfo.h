@@ -52,16 +52,26 @@ typedef struct {
 } mount_t;
 
 typedef struct {
+	uint16_t	mode;		/* File mode */
+	uint16_t	uid;		/* Owner Uid */
+	uint16_t	gid;		/* Group Id */
+	uint32_t	size;		/* Size in bytes */
+	uint32_t	atime;	/* Access time */
+	uint32_t	ctime;	/* Creation time */
+	uint32_t	mtime;	/* Modification time */
+	uint16_t	links_count;	/* Links count */
+} node_stat_t;
+
+typedef struct {
 	uint32_t type;
 	uint32_t node;
-	uint32_t size;
-	uint32_t uid;
-	uint32_t gid;
 	int32_t  mount_pid;
 	char     name[FS_NODE_NAME_MAX];
 
+	node_stat_t stat;
 	uint32_t data;
 } fsinfo_t;
+
 
 #ifdef __cplusplus 
 }

@@ -67,11 +67,13 @@ LIB_EWOKC_OBJS = \
 	src/unistd/vfork.o \
 	src/unistd/getcwd.o \
 	src/unistd/getuid.o \
+	src/unistd/getgid.o \
 	src/unistd/getpid.o \
 	src/unistd/lseek.o \
 	src/unistd/pipe.o \
 	src/unistd/read.o \
 	src/unistd/setuid.o \
+	src/unistd/setgid.o \
 	src/unistd/sleep.o \
 	src/unistd/usleep.o \
 	src/unistd/unlink.o \

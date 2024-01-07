@@ -42,6 +42,10 @@ static inline const char* svc_name(int32_t code) {
 		return "set_uid";
 	case SYS_PROC_GET_UID: 
 		return "get_uid";
+	case SYS_PROC_SET_GID: 
+		return "set_gid";
+	case SYS_PROC_GET_GID: 
+		return "get_gid";
 	case SYS_PROC_GET_CMD: 
 		return "get_cmd";
 	case SYS_PROC_SET_CMD: 

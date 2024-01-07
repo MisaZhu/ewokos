@@ -88,6 +88,7 @@ static void run_init(const char* init_file) {
 	int pid = fork();
 	if(pid == 0) {
 		setuid(0);
+		setgid(0);
 		char cmd[FS_FULL_NAME_MAX];
 		snprintf(cmd, FS_FULL_NAME_MAX-1, "/bin/shell -initrd %s", init_file);
 		out("\ninit: loading '%s' ... \n", init_file);
