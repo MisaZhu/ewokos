@@ -437,7 +437,7 @@ static int get_close_event(close_event_t *ev) {
 	close_event_t *e = _event_head;
 	if (e == NULL) {
 		ipc_enable();
-		proc_block(getpid(), (uint32_t)_vfs_root);
+		proc_block_by(getpid(), (uint32_t)_vfs_root);
 		return -1;
 	}
 

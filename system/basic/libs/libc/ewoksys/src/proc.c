@@ -44,23 +44,7 @@ inline void proc_detach(void) {
 	syscall0(SYS_DETACH);
 }
 
-inline int proc_ping(int pid) {
-	return syscall1(SYS_IPC_PING, (int32_t)pid);
-}
-
-inline void proc_ready_ping(void) {
-	syscall0(SYS_IPC_READY);
-}
-
-void proc_wait_ready(int pid) {
-	while(1) {
-		if(proc_ping(pid) == 0)
-			break;
-		usleep(100000);
-	}
-}
-
-inline void proc_block(int by_pid, uint32_t evt) {
+inline void proc_block_by(int by_pid, uint32_t evt) {
 	syscall2(SYS_BLOCK, by_pid, evt);
 }
 

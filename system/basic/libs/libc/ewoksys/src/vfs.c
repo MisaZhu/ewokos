@@ -184,7 +184,7 @@ static int read_pipe(uint32_t node, void* buf, uint32_t size, bool block) {
 	PF->clear(&out);
 
 	if(res == 0 && block == 1) {//empty , do retry
-		proc_block(vfsd_pid, node);
+		proc_block_by(vfsd_pid, node);
 	}
 	return res;	
 }
@@ -203,7 +203,7 @@ static int write_pipe(uint32_t node, const void* buf, uint32_t size, bool block)
 	PF->clear(&out);
 
 	if(res == 0 && block == 1) {//empty , do retry
-		proc_block(vfsd_pid, node); 
+		proc_block_by(vfsd_pid, node); 
 	}
 	return res;	
 }

@@ -129,7 +129,7 @@ int main(int argc, char** argv) {
 
 	switch_root();
 	while(true) {
-		proc_block(getpid(), (uint32_t)main);
+		proc_block_by(getpid(), (uint32_t)main);
 	}
 	return 0;
 }

@@ -40,7 +40,7 @@ static int vfs_split_fcntl(int fd, int cmd, proto_t* arg_in, proto_t* arg_out){
         PF->clear(&out);
         if(ret != ERR_RETRY)
             break;
-        proc_block(info.mount_pid, RW_BLOCK_EVT);
+        proc_block_by(info.mount_pid, RW_BLOCK_EVT);
     }while(true);
     return ret;
 }

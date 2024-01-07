@@ -22,6 +22,22 @@ static void ipc_end(void) {
 	syscall0(SYS_IPC_END);
 }
 
+static inline int ipc_ping(int pid) {
+	return syscall1(SYS_IPC_PING, (int32_t)pid);
+}
+
+inline void ipc_ready(void) {
+	syscall0(SYS_IPC_READY);
+}
+
+void proc_wait_ready(int pid) {
+	while(1) {
+		if(ipc_ping(pid) == 0)
+			break;
+		usleep(100000);
+	}
+}
+
 int ipc_disable(void) {
 	while(true) {
 		int res = syscall0(SYS_IPC_DISABLE);
@@ -173,8 +189,13 @@ int ipc_serv_run(ipc_serv_handle_t handle, ipc_handled_t handled, void* p, int f
 	_ipc_serv_handle = handle;
 	_ipc_handled = handled;
 
-	proc_ready_ping();
-	return ipc_setup(handle_ipc, p, flags);
+	int ret = ipc_setup(handle_ipc, p, flags);
+	if(ret == 0)
+		ipc_ready();
+
+	if((flags & IPC_NON_BLOCK) == 0) 
+		proc_block_by(getpid(), 0);
+	return ret;
 }
 
 #ifdef __cplusplus

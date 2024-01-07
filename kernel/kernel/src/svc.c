@@ -260,11 +260,6 @@ static uint32_t sys_mem_map(uint32_t vaddr, uint32_t paddr, uint32_t size) {
 static void sys_ipc_setup(context_t* ctx, uint32_t entry, uint32_t extra_data, uint32_t flags) {
 	proc_t* cproc = get_current_proc();
 	ctx->gpr[0] = proc_ipc_setup(ctx, entry, extra_data, flags);
-	if((flags & IPC_NON_BLOCK) == 0) {
-		cproc->info.state = BLOCK;
-		cproc->info.block_by = cproc->info.pid;
-		schedule(ctx);
-	}
 }
 
 static void sys_ipc_call(context_t* ctx, int32_t serv_pid, int32_t call_id, proto_t* data) {
@@ -518,6 +513,7 @@ static void sys_proc_block(context_t* ctx, int32_t pid_by, uint32_t evt) {
 				block_evt->event = 0;
 		}
 	}	
+
 	proc_block_on(ctx, proc_by->info.pid, evt);
 }
 

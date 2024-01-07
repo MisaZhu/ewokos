@@ -35,7 +35,7 @@ static int x_get_event(int xserv_pid, xevent_t* ev, bool block) {
 	PF->clear(&out);
 
 	if(res != 0 && block) {
-		proc_block(xserv_pid, X_EVT_BLOCK_EVT);
+		proc_block_by(xserv_pid, X_EVT_BLOCK_EVT);
 	}
 
 	return res;

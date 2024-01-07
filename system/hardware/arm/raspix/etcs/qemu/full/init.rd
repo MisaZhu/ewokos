@@ -3,7 +3,8 @@
 /bin/rundev /drivers/raspix/usbd     /dev/touch0
 
 /bin/rundev /drivers/raspix/fbd      /dev/fb0
-/bin/rundev /drivers/fontd           /dev/font /usr/system/fonts/system.ttf /usr/system/fonts/system_cn.ttf
+#/bin/rundev /drivers/fontd           /dev/font /usr/system/fonts/system.ttf /usr/system/fonts/system_cn.ttf
+/bin/rundev /drivers/fontd           /dev/font /usr/system/fonts/system.ttf
 /bin/rundev /drivers/consoled        /dev/console0
 
 /bin/rundev /drivers/timerd          /dev/timer

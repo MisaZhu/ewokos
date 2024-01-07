@@ -37,7 +37,7 @@ static int write_block(int fd, const void* buf, uint32_t size) {
 		}
 
 		if(errno == EAGAIN)
-			proc_block(info.mount_pid, RW_BLOCK_EVT);
+			proc_block_by(info.mount_pid, RW_BLOCK_EVT);
 
 		if (res < 0) /* let user handle those erro id*/
 			break;
