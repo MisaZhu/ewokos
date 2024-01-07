@@ -9,10 +9,6 @@
 #include <ewoksys/keydef.h>
 #include <ewoksys/session.h>
 
-#define USER_MAX 32
-#define PSWD_MAX 64
-#define HOME_MAX 64
-#define CMD_MAX 64
 #define USER_NUM_MAX 64
 
 static session_info_t _users[USER_NUM_MAX];
@@ -54,7 +50,7 @@ static int read_value(int fd, char* val, uint32_t len, bool start) {
 }
 
 static int read_user_item(int fd, session_info_t* info) {
-	if(read_value(fd, info->user, USER_MAX, true) != 0)
+	if(read_value(fd, info->user, SESSION_USER_MAX, true) != 0)
 		return -1;
 
 	char id[32];
@@ -66,13 +62,13 @@ static int read_user_item(int fd, session_info_t* info) {
 		return -1;
 	info->uid = atoi(id);
 
-	if(read_value(fd, info->home, HOME_MAX, false) != 0)
+	if(read_value(fd, info->home, SESSION_HOME_MAX, false) != 0)
 		return -1;
 
-	if(read_value(fd, info->cmd, CMD_MAX, false) != 0)
+	if(read_value(fd, info->cmd, SESSION_CMD_MAX, false) != 0)
 		return -1;
 
-	if(read_value(fd, info->password, PSWD_MAX, false) != 0)
+	if(read_value(fd, info->password, SESSION_PSWD_MAX, false) != 0)
 		return -1;
 	return 0;
 }
@@ -112,6 +108,35 @@ static session_info_t* check(const char* user, const char* password) {
 	return NULL;
 }
 
+static session_info_t* get_by_uid(int32_t uid) {
+	int i;
+	for(i=0; i<_user_num; i++) {
+		session_info_t* info = &_users[i];
+		if(info->uid == uid) {
+			return info;
+		}
+	}
+	return NULL;
+}
+
+static session_info_t* secure_session(const session_info_t* sinfo) {
+	static session_info_t to;
+	memcpy(&to, sinfo, sizeof(session_info_t));
+	memset(to.password, 0, SESSION_PSWD_MAX);
+	return &to;
+}
+
+static void do_session_get(int pid, proto_t* in, proto_t* out) {
+	int32_t uid = proto_read_int(in);
+	session_info_t* sinfo = get_by_uid(uid);
+
+	PF->clear(out)->addi(out, -1);
+	if(sinfo == NULL)
+			return;
+	sinfo = secure_session(sinfo);
+	PF->clear(out)->addi(out, 0)->add(out, sinfo, sizeof(session_info_t));
+}
+
 static void do_session_check(int pid, proto_t* in, proto_t* out) {
 	const char* name = proto_read_str(in);
 	const char* passwd = proto_read_str(in);
@@ -121,6 +146,7 @@ static void do_session_check(int pid, proto_t* in, proto_t* out) {
 	if(sinfo == NULL)
 			return;
 
+	sinfo = secure_session(sinfo);
 	PF->clear(out)->addi(out, 0)->add(out, sinfo, sizeof(session_info_t));
 }
 
@@ -131,6 +157,9 @@ static void handle_ipc(int pid, int cmd, proto_t* in, proto_t* out, void* p) {
 	switch(cmd) {
 	case SESSION_CHECK: 
 		do_session_check(pid, in, out);
+		return;
+	case SESSION_GET: 
+		do_session_get(pid, in, out);
 		return;
 	}
 }

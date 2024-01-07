@@ -124,13 +124,14 @@ LIB_EWOKC_OBJS = \
 	src/fcntl/fcntl.o \
 	\
 	src/signal/signal.o \
-	src/signal/kill.o \
-	\
+	src/signal/kill.o
+
+LIB_EWOKC_SYS_OBJS = \
 	src/sys/ipc/ftok.o \
 	\
 	src/sys/shm/shmget.o \
 	src/sys/shm/shmdt.o \
-	src/sys/shm/shmat.o
+	src/sys/shm/shmat.o \
 
 ifeq (${ARCH},arm)
 LIB_EWOKSYS_OBJS += \
@@ -142,9 +143,9 @@ endif
 
 EWOKC = $(TARGET_DIR)/lib/libewokc.a
 
-$(EWOKC): $(LIB_EWOKSYS_OBJS) $(LIB_EWOKC_OBJS)  \
+$(EWOKC): $(LIB_EWOKSYS_OBJS) $(LIB_EWOKC_OBJS)  $(LIB_EWOKC_SYS_OBJS) \
 	$(TARGET_DIR)/lib/libsoftfloat.a
-	$(AR) rT $(EWOKC) $(LIB_EWOKSYS_OBJS) $(LIB_EWOKC_OBJS) $(TARGET_DIR)/lib/libsoftfloat.a
+	$(AR) rT $(EWOKC) $(LIB_EWOKSYS_OBJS) $(LIB_EWOKC_OBJS) $(LIB_EWOKC_SYS_OBJS) $(TARGET_DIR)/lib/libsoftfloat.a
 	cp -r ewoksys/include/* include/* $(TARGET_DIR)/include
 
 clean:

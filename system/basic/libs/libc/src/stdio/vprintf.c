@@ -225,6 +225,11 @@ static void print_uint_in_base(outc_func_t outc, void* p, uint32_t number, uint3
 			outc('0', p);
 		}
 	}
+	else {
+		for(; i<len; i++) {
+			outc(' ', p);
+		}
+	}
 
 	int32_t j = strlen(s)-1;
 	while(j >= 0 && s[j] != 0) {

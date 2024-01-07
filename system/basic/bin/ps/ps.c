@@ -5,6 +5,7 @@
 #include <ewoksys/syscall.h>
 #include <sysinfo.h>
 #include <string.h>
+#include <ewoksys/session.h>
 
 static const char* _states[] = {
 	"unu",
@@ -37,11 +38,16 @@ static const char* get_state(procinfo_t* proc) {
 static const char* get_owner(procinfo_t* proc) {
 	if(proc->uid < 0)
 		return "kernel";
-	if(proc->uid == 0)
-		return "root";
-	static char ret[32];
-	snprintf(ret, 31, "%d", proc->uid);
-	return ret;
+
+	session_info_t info;
+	static char name[SESSION_USER_MAX+1];
+
+	if(session_get(proc->uid, &info) == 0)
+		strncpy(name, info.user, SESSION_USER_MAX);
+	else
+		snprintf(name, SESSION_USER_MAX, "%d", proc->uid);
+
+	return name;
 }
 
 static const char* get_cmd(procinfo_t* proc, int full) {
