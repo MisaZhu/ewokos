@@ -110,7 +110,7 @@ static net_req_t* net_queue_pop_id(net_req_t **list, int id){
 }
 
 
-static int do_network_fcntl(int fd, int from_pid, uint32_t node,
+static int do_network_fcntl(int fd, int from_pid, fsinfo_t* info,
 	int cmd, proto_t* in, proto_t* out, void* p){
 	int domain, sock,type,protocol;
 	char *data;
@@ -119,10 +119,8 @@ static int do_network_fcntl(int fd, int from_pid, uint32_t node,
 	struct sockaddr *paddr;
 	struct sockaddr addr;
 	int ret;
-	fsinfo_t info;
-	
-	vfs_get_by_node(node, &info);
-	sock = info.data;
+
+	sock = info->data;
 
 	switch(cmd){
 		case SOCK_OPEN:
@@ -131,7 +129,7 @@ static int do_network_fcntl(int fd, int from_pid, uint32_t node,
 			protocol = proto_read_int(in);
 			sock = sock_open(domain, type, protocol);
 			PF->addi(out, sock);
-			info.data = sock;
+			info->data = sock;
 			vfs_set(&info);
 			break;
 		case SOCK_BIND:
@@ -185,7 +183,7 @@ static int do_network_fcntl(int fd, int from_pid, uint32_t node,
 			break;
 		case SOCK_LINK:
 			sock = proto_read_int(in);	
-			info.data = sock;
+			info->data = sock;
 			vfs_set(&info);
 			PF->addi(out, 0);
 			break;
@@ -246,15 +244,15 @@ static int network_split_ack(int fd, int from_pid, uint32_t node,
 	return 0;
 }
 
-static int network_fcntl(int fd, int from_pid, uint32_t node,
+static int network_fcntl(int fd, int from_pid, fsinfo_t* info,
 	int cmd, proto_t* in, proto_t* out, void* p) {
     (void)p;
 	if(cmd < SOCK_REQUEST){
-		return do_network_fcntl(fd, from_pid, node, cmd, in, out, p);	
+		return do_network_fcntl(fd, from_pid, info->node, cmd, in, out, p);	
 	}else if(cmd == SOCK_REQUEST){
-		return network_split_fcntl(fd, fread, node, cmd, in, out, p);	
+		return network_split_fcntl(fd, fread, info->node, cmd, in, out, p);	
 	}else if(cmd == SOCK_ACK){
-		return network_split_ack(fd, from_pid, node, cmd, in, out, p);
+		return network_split_ack(fd, from_pid, info->node, cmd, in, out, p);
 	}
 }
 
@@ -279,12 +277,10 @@ static int network_write(int fd, int from_pid, fsinfo_t* info,
 	return ERR_RETRY;
 }
 
-static int network_close(int fd, int from_pid, uint32_t node, void* p) {
-	(void)node;
+static int network_close(int fd, int from_pid, fsinfo_t* info, void* p) {
+	(void)info;
 	(void)fd;
-	fsinfo_t info;
-	vfs_get_by_node(node, &info);
-	int sock = info.data;
+	int sock = info->data;
 	if(sock >= 0){
 		sock_close(sock);	
 	}

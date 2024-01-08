@@ -79,11 +79,11 @@ static int power_step(void* p) {
 	return 0;
 }
 
-static int power_read(int fd, int from_pid, uint32_t node,
+static int power_read(int fd, int from_pid, fsinfo_t* info,
 		void* buf, int size, int offset, void* p) {
 	(void)fd;
 	(void)from_pid;
-	(void)node;
+	(void)info;
 	(void)offset;
 	(void)p;
 

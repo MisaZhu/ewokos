@@ -152,7 +152,7 @@ static int rockchip_gpio_get_value(struct gpio_pins* pins)
     return (value == pins->active) ? 1 : 0;
 }
 
-static int joystick_read(int fd, int from_pid, uint32_t node,
+static int joystick_read(int fd, int from_pid, fsinfo_t* node,
 		void* buf, int size, int offset, void* p) {
 	(void)fd;
 	(void)from_pid;

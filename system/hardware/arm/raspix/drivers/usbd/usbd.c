@@ -81,7 +81,7 @@ static int usb_step(void* p) {
 	return 0;
 }
 
-static int touch_read(int fd, int from_pid, uint32_t node,
+static int touch_read(int fd, int from_pid, fsinfo_t* node,
 		void* buf, int size, int offset, void* p) {
 	(void)fd;
 	(void)from_pid;

@@ -1,7 +1,7 @@
 include ../../make.rule
 
 BUILD_DIR = $(SYS_DIR)/build
-TARGET_DIR = $(BUILD_DIR)/rootfs
+TARGET_DIR = $(BUILD_DIR)/$(HW)
 
 LDFLAGS = -L$(BUILD_DIR)/lib
 

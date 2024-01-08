@@ -97,7 +97,7 @@ static int usb_step(void* p) {
 	return 0;
 }
 
-static int usb_read(int fd, int from_pid, uint32_t node,
+static int usb_read(int fd, int from_pid, fsinfo_t* node,
 		void* buf, int size, int offset, void* p) {
 	(void)fd;
 	(void)from_pid;
@@ -119,7 +119,7 @@ static int usb_read(int fd, int from_pid, uint32_t node,
  }
 
 
-static int usb_open(int fd, int from_pid, uint32_t node, int oflag, void* p) {
+static int usb_open(int fd, int from_pid, fsinfo_t* node, int oflag, void* p) {
 	(void)oflag;
 	(void)node;
 	if(fd < 0)
@@ -136,7 +136,7 @@ static int usb_open(int fd, int from_pid, uint32_t node, int oflag, void* p) {
 	return 0;
 }
 
-static int usb_close(int fd, int from_pid, uint32_t node, void* p) {
+static int usb_close(int fd, int from_pid, fsinfo_t* node, void* p) {
 	(void)node;
 	(void)fd;
     del_fd_info(get_fd_info(fd, from_pid));
@@ -145,8 +145,8 @@ static int usb_close(int fd, int from_pid, uint32_t node, void* p) {
 }
 
 
-static int usb_fcntl(int fd, int from_pid, uint32_t node,
-	int cmd, proto_t* in, proto_t* out, void* p) {
+static int usb_fcntl(int fd, int from_pid, fsinfo_t* node,
+    	int cmd, proto_t* in, proto_t* out, void* p) {
     fd_info_t *ptr = get_fd_info(fd, from_pid);
     if(!ptr)
         return -1;

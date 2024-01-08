@@ -9,7 +9,7 @@
 
 static int sys_state_read(int fd,
 		int from_pid,
-		uint32_t node,
+		fsinfo_t* info,
 		void* buf,
 		int size,
 		int offset,
@@ -17,7 +17,7 @@ static int sys_state_read(int fd,
 
 	(void)fd;
 	(void)from_pid;
-	(void)node;
+	(void)info;
 	(void)offset;
 	(void)p;
 

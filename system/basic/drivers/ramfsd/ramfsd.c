@@ -9,59 +9,48 @@
 #include <ewoksys/klog.h>
 #include <stdio.h>
 
-static int ramfs_read(int fd, int from_pid, uint32_t node, 
+static int ramfs_read(int fd, int from_pid, fsinfo_t* info, 
 		void* buf, int size, int offset, void* p) {
 	(void)fd;
 	(void)from_pid;
 	(void)p;
 
-	fsinfo_t info;
-	if(vfs_get_by_node(node, &info) != 0)
-		return 0;
-
 	if(offset < 0)
 		offset = 0;
-	if((int)info.stat.size < (size+offset))
-		size = info.stat.size-offset;
+	if((int)info->stat.size < (size+offset))
+		size = info->stat.size-offset;
 	if(size < 0)
 		return 0;
 
-	char* data = (char*)info.data;
+	char* data = (char*)info->data;
 	memcpy(buf, data+offset, size);
 	return size;	
 }
 
-static int ramfs_write(int fd, int from_pid, uint32_t node,
+static int ramfs_write(int fd, int from_pid, fsinfo_t* info,
 		const void* buf, int size, int offset, void* p) {
 	(void)fd;
 	(void)from_pid;
 	(void)p;
-
-	fsinfo_t info;
-	if(vfs_get_by_node(node, &info) != 0)
-		return 0;
 
 	if(offset < 0)
 		offset = 0;
 	if(size <= 0)
 		return size;
 
-	char* data = (char*)info.data;
+	char* data = (char*)info->data;
 	data = (char*)realloc(data, size + offset);
 	memcpy(data+offset, buf, size);
-	info.data = (uint32_t)data;
-	info.stat.size = size+offset;
+	info->data = (uint32_t)data;
+	info->stat.size = size+offset;
 	vfs_set(&info);
 	return size;
 }
 
-static int ramfs_unlink(uint32_t node, const char* fname, void* p) {
+static int ramfs_unlink(fsinfo_t* info, const char* fname, void* p) {
 	(void)fname;
 	(void)p;
-	fsinfo_t info;
-	if(vfs_get_by_node(node, &info) != 0)
-		return -1;
-	char* data = (char*)info.data;
+	char* data = (char*)info->data;
 	if(data != NULL)
 		free(data);
 	return 0;
