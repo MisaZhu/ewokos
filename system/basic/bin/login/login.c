@@ -6,6 +6,7 @@
 #include <ewoksys/session.h>
 #include <ewoksys/mstr.h>
 #include <ewoksys/keydef.h>
+#include <ewoksys/vfs.h>
 
 static session_info_t* check(const char* user, const char* password) {
 	static session_info_t info;
@@ -90,6 +91,7 @@ int main(int argc, char* argv[]) {
 		}
 	}
 
+	vfs_create(info->home, NULL, FS_TYPE_DIR, 0660, false, true);
 	setenv("HOME", info->home);
 	exec(info->cmd);
 	return 0;

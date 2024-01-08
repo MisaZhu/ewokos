@@ -200,7 +200,7 @@ void copyfile(const char* src, const char* dst) {
 
 int mkdir(const char* path){
 	 fsinfo_t info;
-    if(vfs_create(path, &info, FS_TYPE_DIR, false, true) != 0) {
+    if(vfs_create(path, &info, FS_TYPE_DIR, 0664, false, true) != 0) {
         printf("mkdir '%s' failed!\n", path);
         return -1;
     }

@@ -378,7 +378,7 @@ int device_run(vdevice_t* dev, const char* mnt_point, int mnt_type, int mode) {
 	fsinfo_t mnt_point_info;
 	if(mnt_point != NULL) {
 		if(vfs_get_by_name(mnt_point, &mnt_point_info) != 0) {
-			if(vfs_create(mnt_point, &mnt_point_info, mnt_type & FS_TYPE_MASK, true, true) != 0)
+			if(vfs_create(mnt_point, &mnt_point_info, mnt_type & FS_TYPE_MASK, mode, true, true) != 0)
 				return -1;
 		}
 

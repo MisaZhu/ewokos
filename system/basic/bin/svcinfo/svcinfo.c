@@ -58,6 +58,8 @@ static inline const char* svc_name(int32_t code) {
 		return "kernel_tic";
 	case SYS_GET_PROCS: 
 		return "get_procs";
+	case SYS_GET_PROC: 
+		return "get_proc";
 	case SYS_PROC_SHM_GET:
 		return "shm_alloc";
 	case SYS_PROC_SHM_MAP:

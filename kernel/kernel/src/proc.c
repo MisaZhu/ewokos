@@ -767,6 +767,7 @@ proc_t* kfork_raw(context_t* ctx, int32_t type, proc_t* parent) {
 	}
 	child->info.father_pid = parent->info.pid;
 	child->info.uid = parent->info.uid;
+	child->info.gid = parent->info.gid;
 	memcpy(&child->ctx, &parent->ctx, sizeof(context_t));
 
 	if(type == PROC_TYPE_PROC) {
@@ -805,6 +806,16 @@ static int32_t get_procs_num(void) {
 		}
 	}
 	return res;
+}
+
+int32_t get_proc(int32_t pid, procinfo_t *info) {
+	proc_t* proc = proc_get(pid);
+	if(proc == NULL)
+		return -1;
+
+	memcpy(info, &proc->info, sizeof(procinfo_t));
+	info->heap_size = proc->space->heap_size;
+	return 0;
 }
 
 procinfo_t* get_procs(int32_t *num) {

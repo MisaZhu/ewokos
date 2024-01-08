@@ -117,7 +117,6 @@ static int sdext2_create(uint32_t node_to, uint32_t node, void* p, fsinfo_t* inf
 	}
 
 	int ino = -1;
-	info->stat.mode = 0664;
 	if(info->type == FS_TYPE_DIR)  {
 		info->stat.size = EXT2_BLOCK_SIZE;
 		ino = ext2_create_dir(ext2, &inode_to, info->name, info->stat.uid, info->stat.gid, info->stat.mode);

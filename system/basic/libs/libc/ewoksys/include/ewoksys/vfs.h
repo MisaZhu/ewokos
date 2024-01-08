@@ -33,7 +33,7 @@ fsinfo_t* vfs_kids(uint32_t node, uint32_t* num);
 int       vfs_mount(uint32_t mount_node_to, uint32_t node);
 int       vfs_umount(uint32_t node);
 
-int       vfs_create(const char* fname, fsinfo_t* ret, int type, bool vfs_node_only, bool autodir);
+int       vfs_create(const char* fname, fsinfo_t* ret, int type, int mode, bool vfs_node_only, bool autodir);
 void*     vfs_readfile(const char* fname, int* sz);
 int       vfs_parse_name(const char* fname, str_t* dir, str_t* name);
 int       vfs_dup(int fd);

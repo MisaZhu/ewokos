@@ -40,6 +40,10 @@ inline int proc_getpid(int pid) {
  	return syscall1(SYS_GET_PID, pid);
 }
 
+inline int proc_info(int pid, procinfo_t* info) {
+	return syscall2(SYS_GET_PROC, pid, (int32_t)info);
+}
+
 inline void proc_detach(void) {
 	syscall0(SYS_DETACH);
 }

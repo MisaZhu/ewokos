@@ -74,10 +74,11 @@ int main(int argc, char* argv[]) {
 		stat(fname, &st);
 		const char* show_mode = get_show_mode(st.st_mode);
 
-		session_info_t info;
+		session_info_t info, infog;
 		session_get(st.st_uid, &info);
+		session_get(st.st_gid, &infog);
 
-		printf("%-10s %8s:%d %8d  %-24s\n", show_mode, info.user, info.gid, it->d_reclen, show_name);
+		printf("%-10s %8s:%-8s %8d  %-24s\n", show_mode, info.user, infog.user, it->d_reclen, show_name);
 	}
 	closedir(dirp);
 	return 0;

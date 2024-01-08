@@ -95,6 +95,7 @@ extern proc_t* kfork(context_t* ctx, int32_t type);
 extern proc_t* kfork_core_halt(uint32_t core);
 
 extern procinfo_t* get_procs(int32_t* num);
+extern int32_t get_proc(int32_t pid, procinfo_t *info);
 
 extern int32_t renew_kernel_tic(uint32_t usec);
 extern void    renew_kernel_sec(void);

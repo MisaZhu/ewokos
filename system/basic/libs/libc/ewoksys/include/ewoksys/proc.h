@@ -2,6 +2,7 @@
 #define PROC_H
 
 #include <ewoksys/ewokdef.h>
+#include <procinfo.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -12,6 +13,7 @@ int      get_cored_pid(void);
 
 void     proc_exec_elf(const char* cmd_line, const char* elf, int32_t size);
 int      proc_getpid(int pid);
+int      proc_info(int pid, procinfo_t* info);
 void     proc_detach(void);
 
 void     proc_block_by(int by_pid, uint32_t evt);

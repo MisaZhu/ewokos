@@ -461,7 +461,7 @@ void* vfs_readfile(const char* fname, int* rsz) {
 	return buf;
 }
 
-int vfs_create(const char* fname, fsinfo_t* ret, int type, bool vfs_node_only, bool autodir) {
+int vfs_create(const char* fname, fsinfo_t* ret, int type, int mode, bool vfs_node_only, bool autodir) {
 	str_t *dir = str_new("");
 	str_t *name = str_new("");
 	vfs_parse_name(fname, dir, name);
@@ -470,68 +470,61 @@ int vfs_create(const char* fname, fsinfo_t* ret, int type, bool vfs_node_only, b
 	if(vfs_get_by_name(CS(dir), &info_to) != 0) {
 		int res_dir = -1;
 		if(autodir)
-			res_dir = vfs_create(CS(dir), &info_to, FS_TYPE_DIR, true, autodir);
+			res_dir = vfs_create(CS(dir), &info_to, FS_TYPE_DIR, mode, true, autodir);
 		if(res_dir != 0) {
 			str_free(dir);
 			str_free(name);
 			return -1;
 		}
 	}
-	
-	/*mount_t mount;
-	if(vfs_get_mount(&info_to, &mount) != 0) {
-		str_free(dir);
-		str_free(name);
-		return -1;
-	}
-	*/
 
-	memset(ret, 0, sizeof(fsinfo_t));
-	strcpy(ret->name, CS(name));
-	ret->type = type;
+	fsinfo_t fi;
+	memset(&fi, 0, sizeof(fsinfo_t));
+	strcpy(fi.name, CS(name));
+	fi.type = type;
 	str_free(name);
 	str_free(dir);
 	if(type == FS_TYPE_DIR)
-		ret->stat.size = 1024;
+		fi.stat.size = 1024;
 
-	ret->stat.uid = getuid();
-	ret->stat.gid = getgid();
-	ret->stat.mode = 0664;
+	fi.stat.uid = getuid();
+	fi.stat.gid = getgid();
+	fi.stat.mode = mode;
 
-	if(vfs_new_node(ret, info_to.node) != 0)
+	if(vfs_new_node(&fi, info_to.node) != 0)
 		return -1;
 
-	/*if(vfs_add_node(info_to.node, ret) != 0) {
-		vfs_del_node(ret);
-		return -1;
-	}
-	*/
-	if(vfs_node_only) //only create in vfs service, not existed in storage. 
+	if(vfs_node_only) {//only create in vfs service, not existed in storage. 
+		if(ret != NULL)
+			memcpy(ret, &fi, sizeof(fsinfo_t));
 		return 0;
+	}
 
-	ret->mount_pid = info_to.mount_pid;
+	fi.mount_pid = info_to.mount_pid;
 
 	proto_t in, out;
 	PF->init(&out);
 
 	PF->init(&in)->
 		addi(&in, info_to.node)->
-		addi(&in, ret->node);
+		addi(&in, fi.node);
 
 	int res = -1;
 	if(ipc_call(info_to.mount_pid, FS_CMD_CREATE, &in, &out) != 0) {
-		vfs_del_node(ret);
+		vfs_del_node(&fi);
 	}
 	else {
 		res = proto_read_int(&out);
 		if(res == 0) {
-			proto_read_to(&out, ret, sizeof(fsinfo_t));
+			proto_read_to(&out, &fi, sizeof(fsinfo_t));
 		}
 		else 
-			vfs_del_node(ret);
+			vfs_del_node(&fi);
 	}
 	PF->clear(&in);
 	PF->clear(&out);
+	if(ret != NULL)
+		memcpy(ret, &fi, sizeof(fsinfo_t));
 	return res;
 }
 

@@ -45,6 +45,7 @@ enum {
 
 	SYS_GET_SYS_INFO,
 	SYS_GET_SYS_STATE,
+	SYS_GET_PROC,
 	SYS_GET_PROCS,
 
 	//map mmio memory for userspace access

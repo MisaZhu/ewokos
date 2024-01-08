@@ -683,6 +683,9 @@ static inline void _svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_
 	case SYS_GET_KERNEL_TIC:
 		ctx->gpr[0] = sys_get_kernel_tic((uint32_t*)arg0, (uint32_t*)arg1, (uint32_t*)arg2);
 		return;
+	case SYS_GET_PROC: 
+		ctx->gpr[0] = (int32_t)get_proc(arg0, (procinfo_t*)arg1);
+		return;
 	case SYS_GET_PROCS: 
 		ctx->gpr[0] = (int32_t)get_procs((int32_t*)arg0);
 		return;
