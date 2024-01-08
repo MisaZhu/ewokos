@@ -58,6 +58,6 @@ int main(int argc, char** argv) {
 	strcpy(dev.name, "gt911");
 	dev.read = tp_read;
 
-	device_run(&dev, mnt_point, FS_TYPE_CHAR);
+	device_run(&dev, mnt_point, FS_TYPE_CHAR, 0664);
 	return 0;
 }

@@ -434,7 +434,7 @@ int main(int argc, char** argv) {
 	dev.close = network_close;
 	dev.loop_step = network_loop;
 	//uint32_t tid = timer_set(1000, net_timer_handler);
-	device_run(&dev, mnt_point, FS_TYPE_ANNOUNIMOUS);
+	device_run(&dev, mnt_point, FS_TYPE_ANNOUNIMOUS | FS_TYPE_CHAR, 0664);
 	//timer_remove(tid);
 	return 0;
 }

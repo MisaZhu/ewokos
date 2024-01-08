@@ -384,7 +384,7 @@ int main(int argc, char** argv) {
 	//dev.loop_step = eth_loop;
 
 	uint32_t tid = timer_set(1000, timer_handler);
-	device_run(&dev, mnt_point, FS_TYPE_CHAR);
+	device_run(&dev, mnt_point, FS_TYPE_CHAR, 0664);
 	timer_remove(tid);
 
 	return 0;

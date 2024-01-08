@@ -260,7 +260,7 @@ int main(int argc, char** argv) {
 	dev.unlink = sdext2_unlink;
 	
 	dev.extra_data = &ext2;
-	device_run(&dev, "/", FS_TYPE_DIR);
+	device_run(&dev, "/", FS_TYPE_DIR, 0664);
 	ext2_quit(&ext2);
 	sd_quit();
 	return 0;

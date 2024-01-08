@@ -64,6 +64,6 @@ int main(int argc, char** argv) {
 	dev.dev_cntl = DISP_dev_cntl;
 	dev.extra_data = &display_man;
 
-	device_run(&dev, mnt_point, FS_TYPE_CHAR);
+	device_run(&dev, mnt_point, FS_TYPE_CHAR, 0664);
 	return 0;
 }

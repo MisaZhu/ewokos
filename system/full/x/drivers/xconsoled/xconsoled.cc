@@ -184,7 +184,7 @@ int main(int argc, char** argv) {
 	dev.extra_data = &xwin;
 	dev.loop_step = try_hide;
 
-	device_run(&dev, mnt_point, FS_TYPE_CHAR);
+	device_run(&dev, mnt_point, FS_TYPE_CHAR, 0664);
 	xwin.close();
 	return 0;
 }

@@ -336,13 +336,16 @@ static void handle(int from_pid, int cmd, proto_t* in, proto_t* out, void* p) {
 	}
 }
 
-static int do_mount(vdevice_t* dev, fsinfo_t* mnt_point, int type) {
+static int do_mount(vdevice_t* dev, fsinfo_t* mnt_point, int type, int mode) {
 	fsinfo_t info;
 	memset(&info, 0, sizeof(fsinfo_t));
 
 	//create a non-father node 
 	strcpy(info.name, mnt_point->name);
 	info.type = type;
+	info.stat.uid = getuid();
+	info.stat.gid = getgid();
+	info.stat.mode = mode;
 	vfs_new_node(&info, 0); // 0 means no father node
 
 	if(dev->mount != NULL) { //do device mount precess
@@ -367,7 +370,7 @@ static void sig_stop(int sig_no, void* p) {
   dev->terminated = true;
 }
 
-int device_run(vdevice_t* dev, const char* mnt_point, int mnt_type) {
+int device_run(vdevice_t* dev, const char* mnt_point, int mnt_type, int mode) {
 	if(dev == NULL)
 		return -1;
 	sys_signal(SYS_SIG_STOP, sig_stop, dev);
@@ -375,11 +378,11 @@ int device_run(vdevice_t* dev, const char* mnt_point, int mnt_type) {
 	fsinfo_t mnt_point_info;
 	if(mnt_point != NULL) {
 		if(vfs_get_by_name(mnt_point, &mnt_point_info) != 0) {
-			if(vfs_create(mnt_point, &mnt_point_info, mnt_type, true, true) != 0)
+			if(vfs_create(mnt_point, &mnt_point_info, mnt_type & FS_TYPE_MASK, true, true) != 0)
 				return -1;
 		}
 
-		if(do_mount(dev, &mnt_point_info, mnt_type) != 0)
+		if(do_mount(dev, &mnt_point_info, mnt_type, mode) != 0)
 			return -1;
 	}
 

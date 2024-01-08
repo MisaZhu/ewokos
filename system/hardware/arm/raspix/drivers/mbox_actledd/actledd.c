@@ -48,6 +48,6 @@ int main(int argc, char** argv) {
 	strcpy(dev.name, "actled");
 	dev.write = actled_write;
 	dev.dev_cntl = actled_dev_cntl;
-	device_run(&dev, mnt_point, FS_TYPE_CHAR);
+	device_run(&dev, mnt_point, FS_TYPE_CHAR, 0664);
 	return 0;
 }

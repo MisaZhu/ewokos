@@ -35,7 +35,7 @@ typedef struct {
 	int (*loop_step)(void* p);
 } vdevice_t;
 
-extern int device_run(vdevice_t* dev, const char* mnt_point, int mnt_type);
+extern int device_run(vdevice_t* dev, const char* mnt_point, int mnt_type, int mode);
 
 extern int dev_cntl(const char* fname, int cmd, proto_t* in, proto_t* out);
 extern int dev_cntl_by_pid(int pid, int cmd, proto_t* in, proto_t* out);

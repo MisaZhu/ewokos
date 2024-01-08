@@ -109,6 +109,6 @@ int main(int argc, char** argv) {
 	dev.write = uart_write;
 	dev.loop_step = loop;
 
-	device_run(&dev, mnt_point, FS_TYPE_CHAR);
+	device_run(&dev, mnt_point, FS_TYPE_CHAR, 0664);
 	return 0;
 }

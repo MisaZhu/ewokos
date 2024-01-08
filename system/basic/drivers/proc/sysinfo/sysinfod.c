@@ -45,6 +45,6 @@ int main(int argc, char** argv) {
 	strcpy(dev.name, "sysinfo");
 	dev.read = sysinfo_read;
 
-	device_run(&dev, mnt_point, FS_TYPE_FILE);
+	device_run(&dev, mnt_point, FS_TYPE_FILE, 0664);
 	return 0;
 }

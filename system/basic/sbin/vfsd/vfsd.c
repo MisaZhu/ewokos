@@ -393,7 +393,7 @@ static vfs_node_t* vfs_open_announimous(int32_t pid, vfs_node_t* node) {
 		return NULL;
 
 	vfs_node_t* ret = vfs_new_node();
-	ret->fsinfo.type = FS_TYPE_ANNOUNIMOUS;
+	ret->fsinfo.type = node->fsinfo.type;
 	ret->fsinfo.data = 0;
 	ret->mount_id = node->mount_id;
 	return ret;
@@ -479,7 +479,7 @@ static void proc_file_close(int pid, int fd, file_t* file, bool close_dev) {
 		proc_wakeup(node_id);
 	}
 
-	if(node->fsinfo.type == FS_TYPE_ANNOUNIMOUS) {
+	if((node->fsinfo.type & FS_TYPE_ANNOUNIMOUS) != 0) {
 		if(node->refs <= 0) {
 			vfs_del_node(pid, node);
 			file->node = 0;
@@ -705,7 +705,7 @@ static void do_vfs_open(int32_t pid, proto_t* in, proto_t* out) {
 		return;
 
 	int res = -1;
-	if(node->fsinfo.type != FS_TYPE_ANNOUNIMOUS)
+	if((node->fsinfo.type & FS_TYPE_ANNOUNIMOUS) == 0)
 		res = vfs_open(pid, node, flags);
 	else {
 		node = vfs_open_announimous(pid, node);

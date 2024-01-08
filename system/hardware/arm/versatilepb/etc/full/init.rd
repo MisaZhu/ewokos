@@ -26,6 +26,6 @@
 @/sbin/x/xim_none /dev/keyb0 &
 
 @/sbin/sessiond &
-#@/bin/x/menubar &
-#@/bin/x/launcher &
+@/bin/x/menubar &
+@/bin/x/launcher &
 @/bin/session &

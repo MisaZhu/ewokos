@@ -184,7 +184,7 @@ int main(int argc, char** argv) {
 	dev.dev_cntl = console_dev_cntl;
 	dev.extra_data = &_console;
 
-	device_run(&dev, mnt_point, FS_TYPE_CHAR);
+	device_run(&dev, mnt_point, FS_TYPE_CHAR, 0664);
 	close_console(&_console);
 	return 0;
 }

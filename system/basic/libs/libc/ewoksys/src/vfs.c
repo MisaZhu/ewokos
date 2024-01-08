@@ -496,6 +496,7 @@ int vfs_create(const char* fname, fsinfo_t* ret, int type, bool vfs_node_only, b
 
 	ret->stat.uid = getuid();
 	ret->stat.gid = getgid();
+	ret->stat.mode = 0664;
 
 	if(vfs_new_node(ret, info_to.node) != 0)
 		return -1;
