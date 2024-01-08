@@ -401,6 +401,8 @@ static int do_mount(vdevice_t* dev, fsinfo_t* mnt_point, int type, int mode) {
 	//create a non-father node 
 	strcpy(info.name, mnt_point->name);
 	info.type = type;
+	if(type == FS_TYPE_DIR)
+		info.stat.size = 1024;
 	info.stat.uid = getuid();
 	info.stat.gid = getgid();
 	info.stat.mode = mode;
