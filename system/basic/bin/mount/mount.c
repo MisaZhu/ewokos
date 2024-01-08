@@ -21,7 +21,6 @@ int main(int argc, char* argv[]) {
 	(void)argc;
 	(void)argv;
 
-	printf("  MOUNT_POINT              PID    DRIVER\n");
 	int32_t i;
 	for(i=0; i<FS_MOUNT_MAX; i++) {
 		mount_t mnt;
@@ -30,7 +29,7 @@ int main(int argc, char* argv[]) {
 
 		char cmd[128];
 		syscall3(SYS_PROC_GET_CMD, mnt.pid, (int32_t)cmd, 127);
-		printf("  %24s %6d %s\n", 
+		printf("%-24s %-6d %s\n", 
 				mnt.org_name,
 				mnt.pid,
 				get_cmd(cmd));
