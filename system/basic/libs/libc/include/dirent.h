@@ -26,7 +26,7 @@ typedef struct {
 struct dirent {
 	uint32_t  d_ino;       /* Inode number */
 	uint32_t  d_off;       /* Not an offset; see below */
-	uint16_t  d_reclen;    /* Length of this record */
+	uint32_t  d_reclen;    /* Length of this record */
 	uint8_t   d_type;      /* Type of file; not supported by all filesystem types */
 	char      d_name[FS_NODE_NAME_MAX]; /* Null-terminated filename */
 };

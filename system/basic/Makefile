@@ -16,7 +16,7 @@ mkdirs:
 	@mkdir -p ${TARGET_DIR}/etc
 	@mkdir -p ${TARGET_DIR}/bin
 	@mkdir -p ${TARGET_DIR}/drivers/proc
-	@mkdir -p ${TARGET_DIR}/home
+	@mkdir -p ${TARGET_DIR}/home/root
 	@cp -r etc ${TARGET_DIR}
 
 builtin_apps: 

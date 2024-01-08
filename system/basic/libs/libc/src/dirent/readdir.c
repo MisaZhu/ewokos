@@ -13,7 +13,6 @@ struct dirent* readdir(DIR *dirp) {
 	ret.d_type = dirp->kids[i].type & FS_TYPE_MASK;
 	ret.d_reclen = dirp->kids[i].stat.size;
 	sstrncpy(ret.d_name, dirp->kids[i].name, FS_NODE_NAME_MAX-1);
-
 	dirp->offset++;
 	return &ret;
 }
