@@ -194,7 +194,7 @@ static int sdext2_write(int fd, int from_pid, fsinfo_t* info,
 		info->stat.size += size;
 		inode.i_size = info->stat.size;
 		put_node(ext2, ino, &inode);
-		vfs_set(&info);
+		vfs_set(info);
 	}
 	return size;	
 }
@@ -241,7 +241,7 @@ int main(int argc, char** argv) {
 	dev.unlink = sdext2_unlink;
 	
 	dev.extra_data = &ext2;
-	device_run(&dev, "/", FS_TYPE_DIR, 0664);
+	device_run(&dev, "/", FS_TYPE_DIR, 0771);
 	ext2_quit(&ext2);
 	sd_quit();
 	return 0;

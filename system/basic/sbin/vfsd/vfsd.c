@@ -607,14 +607,15 @@ static fsinfo_t* vfs_get_kids(vfs_node_t* father, uint32_t* num) {
 
 /*---------------------------------------*/
 
-static void do_vfs_get_by_name(proto_t* in, proto_t* out) {
+static void do_vfs_get_by_name(int32_t pid, proto_t* in, proto_t* out) {
+	PF->addi(out, 0);
 	const char* name = proto_read_str(in);
   vfs_node_t* node = vfs_get_by_name(vfs_root(), name);
-  if(node == NULL) {
-		PF->addi(out, 0);
+  //if(node == NULL || vfs_check_access(pid, &node->fsinfo, VFS_ACCESS_R) != 0)
+  if(node == NULL)
     return;
-	}
-	PF->addi(out, (int32_t)node)->add(out, gen_fsinfo(node), sizeof(fsinfo_t));
+
+	PF->clear(out)->addi(out, (int32_t)node)->add(out, gen_fsinfo(node), sizeof(fsinfo_t));
 }
 
 static void do_vfs_get_by_fd(int pid, proto_t* in, proto_t* out) {
@@ -624,17 +625,18 @@ static void do_vfs_get_by_fd(int pid, proto_t* in, proto_t* out) {
 		PF->addi(out, 0);
     return;
 	}
+
 	PF->addi(out, (int32_t)node)->add(out, gen_fsinfo(node), sizeof(fsinfo_t));
 }
 
-static void do_vfs_get_by_node(proto_t* in, proto_t* out) {
+static void do_vfs_get_by_node(int32_t pid, proto_t* in, proto_t* out) {
 	PF->addi(out, 0);
 	uint32_t node_id = (uint32_t)proto_read_int(in);
 	if(node_id == 0)
 		return;
 
   vfs_node_t* node = vfs_get_node_by_id(node_id);
-  if(node == NULL)
+	if(node == NULL || vfs_check_access(pid, &node->fsinfo, VFS_ACCESS_R) != 0)
     return;
 
 	PF->clear(out)->addi(out, (int32_t)node)->add(out, gen_fsinfo(node), sizeof(fsinfo_t));
@@ -673,6 +675,10 @@ static void do_vfs_new_node(int pid, proto_t* in, proto_t* out) {
 	if(node_to_id > 0) {
 		node_to = vfs_get_node_by_id(node_to_id);
 		if (node_to == NULL)
+			return;
+
+		if(vfs_check_access(pid, &node_to->fsinfo, VFS_ACCESS_W) != 0 ||
+				vfs_check_access(pid, &node_to->fsinfo, VFS_ACCESS_X) != 0)
 			return;
 	
 		if(vfs_get_by_name(node_to, info.name) != NULL) //existed ! 
@@ -760,7 +766,7 @@ static void do_vfs_set_fsinfo(int32_t pid, proto_t* in, proto_t* out) {
 	PF->addi(out, res);
 }
 
-static void do_vfs_get_kids(proto_t* in, proto_t* out) {
+static void do_vfs_get_kids(int pid, proto_t* in, proto_t* out) {
 	PF->addi(out, 0);
 	uint32_t node_id = (uint32_t)proto_read_int(in);
 	if(node_id == 0)
@@ -769,6 +775,9 @@ static void do_vfs_get_kids(proto_t* in, proto_t* out) {
   vfs_node_t* node = vfs_get_node_by_id(node_id);
   if(node == NULL)
     return;
+
+  if(vfs_check_access(pid, &node->fsinfo, VFS_ACCESS_X) != 0)
+		return;
 	
 	uint32_t num = 0;
 	fsinfo_t* kids = vfs_get_kids(node, &num);
@@ -1032,10 +1041,10 @@ static void handle(int pid, int cmd, proto_t* in, proto_t* out, void* p) {
 		do_vfs_seek(pid, in, out);
 		break;
 	case VFS_GET_BY_NAME:
-		do_vfs_get_by_name(in, out);
+		do_vfs_get_by_name(pid, in, out);
 		break;
 	case VFS_GET_BY_NODE:
-		do_vfs_get_by_node(in, out);
+		do_vfs_get_by_node(pid, in, out);
 		break;
 	case VFS_GET_BY_FD:
 		do_vfs_get_by_fd(pid, in, out);
@@ -1059,7 +1068,7 @@ static void handle(int pid, int cmd, proto_t* in, proto_t* out, void* p) {
 		do_vfs_umount(pid, in);
 		break;
 	case VFS_GET_KIDS:
-		do_vfs_get_kids(in, out);
+		do_vfs_get_kids(pid, in, out);
 		break;
 	case VFS_GET_MOUNT_BY_ID:
 		do_vfs_get_mount_by_id(in, out);

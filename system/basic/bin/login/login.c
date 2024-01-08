@@ -91,7 +91,7 @@ int main(int argc, char* argv[]) {
 		}
 	}
 
-	vfs_create(info->home, NULL, FS_TYPE_DIR, 0660, false, true);
+	vfs_create(info->home, NULL, FS_TYPE_DIR, 0770, false, true);
 	setenv("HOME", info->home);
 	exec(info->cmd);
 	return 0;

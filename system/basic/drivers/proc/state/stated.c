@@ -44,6 +44,6 @@ int main(int argc, char** argv) {
 	strcpy(dev.name, "state");
 	dev.read = sys_state_read;
 
-	device_run(&dev, mnt_point, FS_TYPE_FILE, 0664);
+	device_run(&dev, mnt_point, FS_TYPE_FILE, 0444);
 	return 0;
 }

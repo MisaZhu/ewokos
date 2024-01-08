@@ -156,6 +156,6 @@ int main(int argc, char** argv) {
 	strcpy(dev.name, "timer");
 	dev.dev_cntl = timer_dcntl;
 
-	device_run(&dev, mnt_point, FS_TYPE_CHAR, 0664);
+	device_run(&dev, mnt_point, FS_TYPE_CHAR, 0444);
 	return 0;
 }

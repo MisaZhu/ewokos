@@ -198,7 +198,7 @@ int main(int argc, char** argv) {
 		klog("ok\n");
 	}
 
-	device_run(&dev, mnt_point, FS_TYPE_CHAR, 0664);
+	device_run(&dev, mnt_point, FS_TYPE_CHAR, 0666);
 	font_dev_quit();
 	return 0;
 }

@@ -59,6 +59,9 @@ static int cd(const char* dir) {
 		printf("[%s] not exist!\n", dir);	
 	else if(info.type != FS_TYPE_DIR)
 		printf("[%s] is not a directory!\n", dir);	
+	
+	if(vfs_check_access(getpid(), &info, VFS_ACCESS_X) != 0)
+		printf("[%s] denied!\n", dir);	
 	else 
 		chdir(cwd);
 	return 0;

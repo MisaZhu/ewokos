@@ -60,6 +60,48 @@ static inline int vfs_fetch_info_buffer(int fd, fsinfo_t* info) {
 	return -1;
 }
 
+int vfs_check_access(int pid, fsinfo_t* info, int mode) {
+	procinfo_t procinfo;
+	if(info == NULL || proc_info(pid, &procinfo) != 0)
+    return -1;
+
+	if(procinfo.uid <= 0)
+		return 0;
+
+	int ucheck = 0400;	
+	int gcheck = 040;	
+	int acheck = 04;	
+	if(mode == VFS_ACCESS_R) {
+		ucheck = 0400;	
+		gcheck = 040;	
+		acheck = 04;	
+	}
+	else if(mode == VFS_ACCESS_W) {
+		ucheck = 0200;	
+		gcheck = 020;	
+		acheck = 02;	
+	}
+	else if(mode == VFS_ACCESS_X) {
+		ucheck = 0100;	
+		gcheck = 010;	
+		acheck = 01;	
+	}
+
+	if(procinfo.uid == info->stat.uid) {
+		if((info->stat.mode & ucheck) != 0)
+			return 0;
+	}
+	else if(procinfo.gid == info->stat.gid) {
+		if((info->stat.mode & gcheck) != 0)
+			return 0;
+	}
+	else {
+		if((info->stat.mode & acheck) != 0)
+			return 0;
+	}
+	return -1;
+}
+
 static int vfs_get_by_fd_raw(int fd, fsinfo_t* info) {
 	proto_t in, out;
 	PF->init(&in)->addi(&in, fd);
@@ -334,6 +376,7 @@ int vfs_del_node(uint32_t node) {
 	PF->clear(&out);
 	return res;
 }
+
 /*
 int vfs_get_mount(fsinfo_t* info, mount_t* mount) {
 	proto_t in, out;
@@ -470,7 +513,7 @@ int vfs_create(const char* fname, fsinfo_t* ret, int type, int mode, bool vfs_no
 	if(vfs_get_by_name(CS(dir), &info_to) != 0) {
 		int res_dir = -1;
 		if(autodir)
-			res_dir = vfs_create(CS(dir), &info_to, FS_TYPE_DIR, mode, true, autodir);
+			res_dir = vfs_create(CS(dir), &info_to, FS_TYPE_DIR, 0755, true, autodir);
 		if(res_dir != 0) {
 			str_free(dir);
 			str_free(name);

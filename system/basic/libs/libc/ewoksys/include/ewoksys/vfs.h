@@ -4,6 +4,7 @@
 #include <ewoksys/fsinfo.h>
 #include <ewoksys/mstr.h>
 #include <ewoksys/proto.h>
+#include <ewoksys/vfsc.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -12,7 +13,6 @@ extern "C" {
 #define VFS_BUF_SIZE (1024*8)
 
 const char* vfs_fullname(const char* fname);
-
 int       vfs_read_pipe(uint32_t node, void* buf, uint32_t size, bool block);
 int       vfs_write_pipe(uint32_t node, const void* buf, uint32_t size, bool block);
 int       vfs_open(fsinfo_t* info, int wr);

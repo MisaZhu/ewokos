@@ -43,7 +43,7 @@ static int ramfs_write(int fd, int from_pid, fsinfo_t* info,
 	memcpy(data+offset, buf, size);
 	info->data = (uint32_t)data;
 	info->stat.size = size+offset;
-	vfs_set(&info);
+	vfs_set(info);
 	return size;
 }
 
@@ -66,6 +66,6 @@ int main(int argc, char** argv) {
 	dev.write = ramfs_write;
 	dev.unlink = ramfs_unlink;
 	
-	device_run(&dev, mnt_point, FS_TYPE_DIR, 0666);
+	device_run(&dev, mnt_point, FS_TYPE_DIR, 0777);
 	return 0;
 }

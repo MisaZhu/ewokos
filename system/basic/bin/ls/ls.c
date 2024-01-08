@@ -18,19 +18,20 @@ static inline const char* get_show_name(const char* name, int32_t type) {
 	return ret;
 }
 
-static inline const char* get_show_type(int32_t type) {
+static inline const char get_show_type(int32_t type) {
 	if(type == DT_BLK)
-		return "b";
+		return 'b';
 	else if(type == DT_CHR)
-		return "c";
+		return 'c';
 	else if(type == DT_DIR)
-		return "r";
-	return "f";
+		return 'd';
+	return '-';
 }
 
-static inline const char* get_show_mode(uint32_t mode) {
+static inline const char* get_show_mode(uint32_t mode, int32_t type) {
 	static char ret[16];
-	snprintf(ret, 15, "%c%c%c%c%c%c%c%c%c",
+	snprintf(ret, 15, "%c%c%c%c%c%c%c%c%c%c",
+		get_show_type(type),
 		(mode & 0400) == 0 ? '-':'r',
 		(mode & 0200) == 0 ? '-':'w',
 		(mode & 0100) == 0 ? '-':'x',
@@ -72,7 +73,7 @@ int main(int argc, char* argv[]) {
 		const char* show_name = get_show_name(it->d_name, it->d_type);
 		struct stat st;
 		stat(fname, &st);
-		const char* show_mode = get_show_mode(st.st_mode);
+		const char* show_mode = get_show_mode(st.st_mode, it->d_type);
 
 		session_info_t info, infog;
 		session_get(st.st_uid, &info);
