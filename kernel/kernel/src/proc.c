@@ -794,6 +794,7 @@ proc_t* kfork(context_t* ctx, int32_t type) {
 	return child;
 }
 
+/*
 static int32_t get_procs_num(void) {
 	proc_t* cproc = get_current_proc();
 	int32_t res = 0;
@@ -808,23 +809,13 @@ static int32_t get_procs_num(void) {
 	return res;
 }
 
-int32_t get_proc(int32_t pid, procinfo_t *info) {
-	proc_t* proc = proc_get(pid);
-	if(proc == NULL)
-		return -1;
-
-	memcpy(info, &proc->info, sizeof(procinfo_t));
-	info->heap_size = proc->space->heap_size;
-	return 0;
-}
-
 procinfo_t* get_procs(int32_t *num) {
 	proc_t* cproc = get_current_proc();
 	*num = get_procs_num();
 	if(*num == 0)
 		return NULL;
 
-	/*need to be freed later used!*/
+	//need to be freed later used!
 	procinfo_t* procs = (procinfo_t*)proc_malloc(cproc, sizeof(procinfo_t)*(*num));
 	if(procs == NULL)
 		return NULL;
@@ -844,6 +835,54 @@ procinfo_t* get_procs(int32_t *num) {
 
 	*num = j;
 	return procs;
+}
+*/
+
+static int32_t get_procs_num(void) {
+	proc_t* cproc = get_current_proc();
+	int32_t res = 0;
+	int32_t i;
+	for(i=0; i<PROC_MAX; i++) {
+		if(_proc_table[i].info.state != UNUSED) 
+			res++;
+	}
+	return res;
+}
+
+procinfo_t* get_procs(int32_t *num) {
+	proc_t* cproc = get_current_proc();
+	*num = get_procs_num();
+	if(*num == 0)
+		return NULL;
+
+	//need to be freed later used!
+	procinfo_t* procs = (procinfo_t*)proc_malloc(cproc, sizeof(procinfo_t)*(*num));
+	if(procs == NULL)
+		return NULL;
+
+	int32_t j = 0;
+	int32_t i;
+	for(i=0; i<PROC_MAX && j<(*num); i++) {
+		if(_proc_table[i].info.state != UNUSED) {
+			proc_t* p = &_proc_table[i];
+			memcpy(&procs[j], &p->info, sizeof(procinfo_t));
+			procs[j].heap_size = p->space->heap_size;
+			j++;
+		}
+	}
+
+	*num = j;
+	return procs;
+}
+
+int32_t get_proc(int32_t pid, procinfo_t *info) {
+	proc_t* proc = proc_get(pid);
+	if(proc == NULL)
+		return -1;
+
+	memcpy(info, &proc->info, sizeof(procinfo_t));
+	info->heap_size = proc->space->heap_size;
+	return 0;
 }
 
 static int32_t renew_sleep_counter(uint32_t usec) {

@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <ewoksys/syscall.h>
+#include <ewoksys/proc.h>
 #include <sysinfo.h>
 #include <string.h>
 #include <ewoksys/session.h>
@@ -74,14 +75,23 @@ static const char* get_core_loading(sys_info_t* sys_info, procinfo_t* proc) {
 }
 
 int main(int argc, char* argv[]) {
-	int full = 0;
-	int all = 0;
+	int8_t full = 0;
+	int8_t all = 0;
+	int8_t thread = 0;
 	if(argc == 2 && argv[1][0] == '-') {	
 		if(strchr(argv[1], 'f') != NULL)
 			full = 1;
 		if(strchr(argv[1], 'a') != NULL)
 			all = 1;
+		if(strchr(argv[1], 't') != NULL) {
+			all = 1;
+			thread = 1;
+		}
 	}
+
+	procinfo_t cprocinfo;
+    if(proc_info(getpid(), &cprocinfo) != 0)
+		return -1;
 
 	int num = 0;
 	uint32_t core_idle[16]; //max 16 cores;
@@ -107,7 +117,10 @@ int main(int argc, char* argv[]) {
 				continue;
 			}
 
-			if(proc->type != PROC_TYPE_PROC && all == 0) //for thread 
+			if(proc->uid != cprocinfo.uid && all == 0) //for current uid
+				continue;
+
+			if(proc->type != PROC_TYPE_PROC && thread == 0) //for thread 
 				continue;
 
 			if(full) {
