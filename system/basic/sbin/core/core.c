@@ -29,6 +29,63 @@ static void core_init(void) {
 	}
 }
 
+static map_t* _ipc_servs = NULL; //pids of ipc_servers
+static int get_ipc_serv(const char* key) {
+	int32_t *v;
+	if(hashmap_get(_ipc_servs, key, (void**)&v) == MAP_MISSING) {
+		return -1;
+	}
+	return *v;
+}
+
+static void do_ipc_serv_get(proto_t* in, proto_t* out) {
+	const char* ks_id = proto_read_str(in);
+	if(ks_id[0] == 0) {
+		PF->addi(out, -1);
+		return;
+	}
+	PF->addi(out, get_ipc_serv(ks_id));
+}
+
+static void do_ipc_serv_reg(int pid, proto_t* in, proto_t* out) {
+	const char* ks_id = proto_read_str(in);
+	if(ks_id[0] == 0) {
+		PF->addi(out, -1);
+		return;
+	}
+
+	int32_t* v = (int32_t*)malloc(sizeof(int32_t));
+	*v = pid;
+	if(hashmap_put(_ipc_servs, ks_id, v) != MAP_OK) {
+		PF->addi(out, -1);
+		return;
+	}
+	PF->addi(out, 0);
+}
+
+static void do_ipc_serv_unreg(int pid, proto_t* in, proto_t* out) {
+	const char* ks_id = proto_read_str(in);
+	if(ks_id[0] == 0) {
+		PF->addi(out, -1);
+		return;
+	}
+
+	int32_t *v;
+	if(hashmap_get(_ipc_servs, ks_id, (void**)&v) == MAP_MISSING) {
+		PF->addi(out, -1);
+		return;
+	}
+
+	if(*v != pid) {
+		PF->addi(out, -1);
+		return;
+	}
+
+	hashmap_remove(_ipc_servs, ks_id);
+	free(v);
+	PF->addi(out, 0);
+}
+
 static void do_proc_get_cwd(int pid, proto_t* out) {
 	PF->addi(out, -1);
 	if(pid < 0 || pid >= PROC_MAX)
@@ -36,11 +93,40 @@ static void do_proc_get_cwd(int pid, proto_t* out) {
 	PF->clear(out)->addi(out, 0)->adds(out, CS(_proc_info_table[pid].cwd));
 }
 
+static int get_fsinfo_by_name(const char* fname, fsinfo_t* info) {
+	proto_t in, out;
+	PF->init(&in)->adds(&in, fname);
+	PF->init(&out);
+	int pid = get_ipc_serv(IPC_SERV_VFS);
+	int res = ipc_call(pid, VFS_GET_BY_NAME, &in, &out);
+	PF->clear(&in);
+	if(res == 0) {
+		res = proto_read_int(&out); //res = node
+		if(res != 0) {
+			if(info != NULL)
+				proto_read_to(&out, info, sizeof(fsinfo_t));
+			res = 0;
+		}
+		else
+			res = -1;
+	}
+	PF->clear(&out);
+	return res;	
+}
+
 static void do_proc_set_cwd(int pid, proto_t* in, proto_t* out) {
 	PF->addi(out, -1);
-	const char* s = proto_read_str(in);
 	if(pid < 0 || pid >= PROC_MAX)
 		return;
+
+	const char* s = proto_read_str(in);
+	fsinfo_t info;
+	if(get_fsinfo_by_name(s, &info) != 0)
+		return;
+	
+	if(vfs_check_access(pid, &info, VFS_ACCESS_X) != 0)
+		return;
+
 	str_cpy(_proc_info_table[pid].cwd, s);
 	PF->clear(out)->addi(out, 0);
 }
@@ -130,64 +216,6 @@ static void do_proc_clone(proto_t* in) {
 	hashmap_free(_proc_info_table[cpid].envs);
 	_proc_info_table[cpid].envs = hashmap_new();
 	hashmap_iterate(_proc_info_table[fpid].envs, copy_envs, _proc_info_table[cpid].envs);	
-}
-
-static map_t* _ipc_servs = NULL; //pids of ipc_servers
-
-static int get_ipc_serv(const char* key) {
-	int32_t *v;
-	if(hashmap_get(_ipc_servs, key, (void**)&v) == MAP_MISSING) {
-		return -1;
-	}
-	return *v;
-}
-
-static void do_ipc_serv_get(proto_t* in, proto_t* out) {
-	const char* ks_id = proto_read_str(in);
-	if(ks_id[0] == 0) {
-		PF->addi(out, -1);
-		return;
-	}
-	PF->addi(out, get_ipc_serv(ks_id));
-}
-
-static void do_ipc_serv_reg(int pid, proto_t* in, proto_t* out) {
-	const char* ks_id = proto_read_str(in);
-	if(ks_id[0] == 0) {
-		PF->addi(out, -1);
-		return;
-	}
-
-	int32_t* v = (int32_t*)malloc(sizeof(int32_t));
-	*v = pid;
-	if(hashmap_put(_ipc_servs, ks_id, v) != MAP_OK) {
-		PF->addi(out, -1);
-		return;
-	}
-	PF->addi(out, 0);
-}
-
-static void do_ipc_serv_unreg(int pid, proto_t* in, proto_t* out) {
-	const char* ks_id = proto_read_str(in);
-	if(ks_id[0] == 0) {
-		PF->addi(out, -1);
-		return;
-	}
-
-	int32_t *v;
-	if(hashmap_get(_ipc_servs, ks_id, (void**)&v) == MAP_MISSING) {
-		PF->addi(out, -1);
-		return;
-	}
-
-	if(*v != pid) {
-		PF->addi(out, -1);
-		return;
-	}
-
-	hashmap_remove(_ipc_servs, ks_id);
-	free(v);
-	PF->addi(out, 0);
 }
 
 static void handle_ipc(int pid, int cmd, proto_t* in, proto_t* out, void* p) {
