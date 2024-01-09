@@ -7,7 +7,7 @@ static void actled(bool on) {
 	bcm283x_mbox_actled(on);
 }
 
-static int actled_write(int fd, int from_pid, fsinfo_t* node,
+static int actled_write(int fd, int from_pid, uint32_t node,
 		const void* buf, int size, int offset, void* p) {
 	(void)fd;
 	(void)node;

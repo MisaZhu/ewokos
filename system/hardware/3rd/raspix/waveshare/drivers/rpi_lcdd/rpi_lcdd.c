@@ -16,7 +16,7 @@ typedef struct {
 	uint32_t size;
 } fb_dma_t;
 
-static int lcd_flush(int fd, int from_pid, fsinfo_t* node, void* p) {
+static int lcd_flush(int fd, int from_pid, uint32_t node, void* p) {
 	(void)fd;
 	(void)from_pid;
 	(void)node;
@@ -30,7 +30,7 @@ static int lcd_flush(int fd, int from_pid, fsinfo_t* node, void* p) {
 	return 0;
 }
 
-static int32_t lcd_dma(int fd, int from_pid, fsinfo_t* node, int* size, void* p) {
+static int32_t lcd_dma(int fd, int from_pid, uint32_t node, int* size, void* p) {
 	(void)fd;
 	(void)from_pid;
 	(void)node;
@@ -39,7 +39,7 @@ static int32_t lcd_dma(int fd, int from_pid, fsinfo_t* node, int* size, void* p)
 	return dma->shm_id;
 }
 
-static int lcd_fcntl(int fd, int from_pid, fsinfo_t* node, 
+static int lcd_fcntl(int fd, int from_pid, uint32_t node, 
 		int cmd, proto_t* in, proto_t* out, void* p) {
 	(void)fd;
 	(void)from_pid;
@@ -64,7 +64,7 @@ static int lcd_dev_cntl(int from_pid, int cmd, proto_t* in, proto_t* ret, void* 
 	return 0;
 }
 
-static int tp_read(int fd, int from_pid, fsinfo_t* node,
+static int tp_read(int fd, int from_pid, uint32_t node,
 		void* buf, int size, int offset, void* p) {
 	(void)fd;
 	(void)from_pid;

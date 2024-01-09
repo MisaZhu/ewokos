@@ -93,7 +93,7 @@ int miyoo_gpio_read(int pin)
 }
 
 
-static int joystick_read(int fd, int from_pid, fsinfo_t* node,
+static int joystick_read(int fd, int from_pid, uint32_t node,
 		void* buf, int size, int offset, void* p) {
 	(void)fd;
 	(void)from_pid;

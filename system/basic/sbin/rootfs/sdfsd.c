@@ -127,12 +127,16 @@ static int sdext2_create(fsinfo_t* info_to, fsinfo_t* info, void* p) {
 	return 0;
 }
 
-static int sdext2_open(int fd, int from_pid, fsinfo_t* info, int oflag, void* p) {
+static int sdext2_open(int fd, int from_pid, uint32_t node, int oflag, void* p) {
 	(void)fd;
 	(void)from_pid;
 
+	fsinfo_t info;
+	if(vfs_get_by_node(node, &info) != 0)
+		return -1;
+
 	ext2_t* ext2 = (ext2_t*)p;
-	int32_t ino = (int32_t)info->data;
+	int32_t ino = (int32_t)info.data;
 	if(ino == 0)
 		return -1;
 
@@ -143,20 +147,24 @@ static int sdext2_open(int fd, int from_pid, fsinfo_t* info, int oflag, void* p)
 
 	if((oflag & O_TRUNC) != 0) {
 		inode.i_size = 0;
-		info->stat.size = 0;
+		info.stat.size = 0;
 		put_node(ext2, ino, &inode);
-		vfs_set(info);
+		vfs_set(&info);
 	}
 	return 0;	
 }
 
-static int sdext2_read(int fd, int from_pid, fsinfo_t* info, 
+static int sdext2_read(int fd, int from_pid, uint32_t node, 
 		void* buf, int size, int offset, void* p) {
 	(void)fd;
 	(void)from_pid;
 
+	fsinfo_t info;
+	if(vfs_get_by_node(node, &info) != 0)
+		return -1;
+
 	ext2_t* ext2 = (ext2_t*)p;
-	int32_t ino = (int32_t)info->data;
+	int32_t ino = (int32_t)info.data;
 	if(ino == 0)
 		ino = 2;
 	INODE inode;
@@ -164,7 +172,7 @@ static int sdext2_read(int fd, int from_pid, fsinfo_t* info,
 		return -1;
 	}
 
-	int rsize = info->stat.size - offset;
+	int rsize = info.stat.size - offset;
 	if(rsize < size)
 		size = rsize;
 	if(size < 0)
@@ -175,13 +183,17 @@ static int sdext2_read(int fd, int from_pid, fsinfo_t* info,
 	return size;	
 }
 
-static int sdext2_write(int fd, int from_pid, fsinfo_t* info,
+static int sdext2_write(int fd, int from_pid, uint32_t node,
 		const void* buf, int size, int offset, void* p) {
 	(void)fd;
 	(void)from_pid;
 
+	fsinfo_t info;
+	if(vfs_get_by_node(node, &info) != 0)
+		return -1;
+
 	ext2_t* ext2 = (ext2_t*)p;
-	int32_t ino = (int32_t)info->data;
+	int32_t ino = (int32_t)info.data;
 	if(ino == 0)
 		return -1;
 
@@ -191,10 +203,10 @@ static int sdext2_write(int fd, int from_pid, fsinfo_t* info,
 	}
 	size = ext2_write(ext2, &inode, buf, size, offset);
 	if(size >= 0) {
-		info->stat.size += size;
-		inode.i_size = info->stat.size;
+		info.stat.size += size;
+		inode.i_size = info.stat.size;
 		put_node(ext2, ino, &inode);
-		vfs_set(info);
+		vfs_set(&info);
 	}
 	return size;	
 }
@@ -241,7 +253,7 @@ int main(int argc, char** argv) {
 	dev.unlink = sdext2_unlink;
 	
 	dev.extra_data = &ext2;
-	device_run(&dev, "/", FS_TYPE_DIR, 0771);
+	device_run(&dev, "/", FS_TYPE_DIR, 771);
 	ext2_quit(&ext2);
 	sd_quit();
 	return 0;

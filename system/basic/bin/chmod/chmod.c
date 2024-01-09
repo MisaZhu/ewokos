@@ -2,16 +2,17 @@
 #include <stdio.h>
 #include <fcntl.h>
 #include <stdlib.h>
+#include <ewoksys/vfs.h>
 
 int main(int argc, char* argv[]) {
 	const char* fname;
 	if(argc < 3) {
-		printf("Usage: chmod <fname> <mode>\n");
+		printf("Usage: chmod <mode> <fname>\n");
 		return -1;
 	}
 
-	fname = vfs_fullname(argv[1]);
-	if(chmod(fname, atoi_base(argv[2], 8)) != 0) {
+	fname = vfs_fullname(argv[2]);
+	if(chmod(fname, atoi_base(argv[1], 8)) != 0) {
 		printf("Can't chmod [%s]!\n", fname);
 		return -1;
 	}

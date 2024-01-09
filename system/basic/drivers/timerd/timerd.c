@@ -65,7 +65,7 @@ static int32_t interrupt_setup(int32_t pid, uint32_t timer_usec, uint32_t entry,
 	return intr->id;
 }
 
-static void update_timer_intr() {
+static void update_timer_intr(void) {
 	interrupt_t* intr = _intr_list;
 	uint32_t min_usec = 0;
 	while(intr != NULL) {

@@ -1,6 +1,7 @@
 #include <dirent.h>
 #include <stddef.h>
 #include <string.h>
+#include <stdio.h>
 #include <ewoksys/fsinfo.h>
 
 struct dirent* readdir(DIR *dirp) {

@@ -130,14 +130,14 @@ protected:
 
 static int console_write(int fd, 
 		int from_pid,
-		fsinfo_t* info,
+		uint32_t node,
 		const void* buf,
 		int size,
 		int offset,
 		void* p) {
 	(void)fd;
 	(void)from_pid;
-	(void)info;
+	(void)node;
 	(void)offset;
 
 	XConsoled *xwin = (XConsoled*)p;

@@ -4,6 +4,7 @@
 #include <string.h>
 #include <ewoksys/mstr.h>
 #include <ewoksys/proc.h>
+#include <ewoksys/ipc.h>
 #include <unistd.h>
 
 static int run(const char* cmd) {
@@ -16,7 +17,7 @@ static int run(const char* cmd) {
 		}
 	}
 	else 
-		proc_wait_ready(pid);
+		ipc_wait_ready(pid);
 	return 0;
 }
 

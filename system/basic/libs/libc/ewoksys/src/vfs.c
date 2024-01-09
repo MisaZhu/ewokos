@@ -549,12 +549,12 @@ int vfs_create(const char* fname, fsinfo_t* ret, int type, int mode, bool vfs_no
 	PF->init(&out);
 
 	PF->init(&in)->
-		addi(&in, info_to.node)->
-		addi(&in, fi.node);
+		add(&in, &info_to, sizeof(fsinfo_t))->
+		add(&in, &fi, sizeof(fsinfo_t));
 
 	int res = -1;
 	if(ipc_call(info_to.mount_pid, FS_CMD_CREATE, &in, &out) != 0) {
-		vfs_del_node(&fi);
+		vfs_del_node(fi.node);
 	}
 	else {
 		res = proto_read_int(&out);
@@ -562,7 +562,7 @@ int vfs_create(const char* fname, fsinfo_t* ret, int type, int mode, bool vfs_no
 			proto_read_to(&out, &fi, sizeof(fsinfo_t));
 		}
 		else 
-			vfs_del_node(&fi);
+			vfs_del_node(fi.node);
 	}
 	PF->clear(&in);
 	PF->clear(&out);
@@ -640,7 +640,7 @@ inline int  vfs_fcntl_wait(int fd, int cmd, proto_t* in) {
 int32_t vfs_dma(int fd, int* size) {
 	fsinfo_t info;
 	if(vfs_get_by_fd(fd, &info) != 0)
-		return NULL;
+		return 0;
 	
 	proto_t in, out;
 	PF->init(&out);
@@ -708,7 +708,7 @@ int vfs_read_block(int pid, void* buf, uint32_t size, int32_t index) {
 		return -1;
 	void* shm = shmat(shm_id, 0, 0);
 	if(shm == NULL)
-		return NULL;
+		return 0;
 
 	proto_t in, out;
 	PF->init(&out);

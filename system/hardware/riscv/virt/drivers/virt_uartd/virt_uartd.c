@@ -33,7 +33,7 @@ static inline void uart_putc(char c) {
 }
 
 
-static int uart_read(int fd, int from_pid, fsinfo_t* node, 
+static int uart_read(int fd, int from_pid, uint32_t node, 
 		void* buf, int size, int offset, void* p) {
 	(void)fd;
 	(void)from_pid;
@@ -48,7 +48,7 @@ static int uart_read(int fd, int from_pid, fsinfo_t* node,
     	return ERR_RETRY_NON_BLOCK;
 }
 
-static int uart_write(int fd, int from_pid, fsinfo_t* node,
+static int uart_write(int fd, int from_pid, uint32_t node,
 		const void* buf, int size, int offset, void* p) {
 	(void)fd;
 	(void)node;

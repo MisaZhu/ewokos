@@ -162,7 +162,7 @@ static void playaudio_cpu(uint8_t* data, uint32_t size) {
 }
 */
 
-static int sound_write(int fd, int from_pid, fsinfo_t* node,
+static int sound_write(int fd, int from_pid, uint32_t node,
 		const void* buf, int size, int offset, void* p) {
 	(void)fd;
 	(void)node;

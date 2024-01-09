@@ -9,7 +9,7 @@ uint32_t fwrite(const void* ptr, uint32_t size, uint32_t nmemb, FILE* fp) {
 		return 0;
 
 	int fsize = size*nmemb;
-	char* p = ptr;
+	const char* p = ptr;
 	while(fsize > 0) {
 		int sz = write(fp->fd, p, VFS_BUF_SIZE < fsize ? VFS_BUF_SIZE:fsize);
 		if(sz < 0)

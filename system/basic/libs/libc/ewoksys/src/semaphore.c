@@ -10,7 +10,7 @@ int  semaphore_alloc(void) {
 }
 
 void semaphore_free(int sem_id) {
-	return syscall1(SYS_SEMAPHORE_FREE, sem_id);
+	syscall1(SYS_SEMAPHORE_FREE, sem_id);
 }
 
 int  semaphore_enter(int sem_id) {

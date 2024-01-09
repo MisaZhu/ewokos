@@ -76,7 +76,7 @@ static vfs_node_t* vfs_get_node_by_id(uint32_t node_id) {
 	return node;
 }
 
-static void vfs_init(void) {
+static void vfsd_init(void) {
 	int32_t i;
 	for(i = 0; i<FS_MOUNT_MAX; i++) {
 		memset(&_vfs_mounts[i], 0, sizeof(mount_t));
@@ -180,6 +180,7 @@ static vfs_node_t* vfs_get_by_name(vfs_node_t* father, const char* name) {
 }
 
 static int32_t vfs_add_node(int32_t pid, vfs_node_t* father, vfs_node_t* node) {
+	(void)pid;
 	if(father == NULL || node == NULL)
 		return -1;
 
@@ -206,6 +207,7 @@ static int32_t vfs_get_free_mount_id(void) {
 }
 
 static void vfs_remove(int32_t pid, vfs_node_t* node) {
+	(void)pid;
 	if(node == NULL) 
 		return;
 
@@ -335,14 +337,14 @@ static int32_t vfs_del_node(int32_t pid, vfs_node_t* node) {
 		node->next->prev = node->prev;
 	if(node->prev != NULL)
 		node->prev->next = node->next;
-	hashmap_remove(_nodes_hash, node_hash_key(node));
+	hashmap_remove(_nodes_hash, node_hash_key((uint32_t)node));
 	free(node);
 	return 0;
 }
 
 static int32_t vfs_set(int32_t pid, vfs_node_t* node, fsinfo_t* info) {
-	if(node == NULL ||
-			info == NULL)
+	(void)pid;
+	if(node == NULL || info == NULL)
 		return -1;
 	memcpy(&node->fsinfo, info, sizeof(fsinfo_t));
 	return 0;
@@ -454,7 +456,7 @@ static void proc_file_close(int pid, int fd, file_t* file, bool close_dev) {
 	if(file == NULL)
 		return;
 
-	uint32_t node_id = file->node;
+	uint32_t node_id = (uint32_t)file->node;
 
 	vfs_node_t* node = vfs_get_node_by_id(node_id);
 	if(node == NULL)
@@ -605,6 +607,7 @@ static fsinfo_t* vfs_get_kids(vfs_node_t* father, uint32_t* num) {
 /*---------------------------------------*/
 
 static void do_vfs_get_by_name(int32_t pid, proto_t* in, proto_t* out) {
+	(void)pid;
 	PF->addi(out, 0);
 	const char* name = proto_read_str(in);
   vfs_node_t* node = vfs_get_by_name(vfs_root(), name);
@@ -627,13 +630,15 @@ static void do_vfs_get_by_fd(int pid, proto_t* in, proto_t* out) {
 }
 
 static void do_vfs_get_by_node(int32_t pid, proto_t* in, proto_t* out) {
+	(void)pid;
 	PF->addi(out, 0);
 	uint32_t node_id = (uint32_t)proto_read_int(in);
 	if(node_id == 0)
 		return;
 
   vfs_node_t* node = vfs_get_node_by_id(node_id);
-	if(node == NULL || vfs_check_access(pid, &node->fsinfo, VFS_ACCESS_R) != 0)
+	//if(node == NULL || vfs_check_access(pid, &node->fsinfo, VFS_ACCESS_R) != 0)
+	if(node == NULL)
     return;
 
 	PF->clear(out)->addi(out, (int32_t)node)->add(out, gen_fsinfo(node), sizeof(fsinfo_t));
@@ -701,16 +706,15 @@ static void do_vfs_open(int32_t pid, proto_t* in, proto_t* out) {
 	if(proto_read_to(in, &info, sizeof(fsinfo_t)) != sizeof(fsinfo_t))
 		return;
 
-	int32_t mpid = info.mount_pid;
 	int32_t flags = proto_read_int(in);
  	vfs_node_t* node = vfs_get_node_by_id(info.node);
  	if(node == NULL)
 		return;
 
-  	if((flags & O_WRONLY) != 0 && vfs_check_access(pid, &node->fsinfo, VFS_ACCESS_W) != 0)
+	if((flags & O_WRONLY) != 0 && vfs_check_access(pid, &node->fsinfo, VFS_ACCESS_W) != 0)
 		return;
 
-  	if(vfs_check_access(pid, &node->fsinfo, VFS_ACCESS_R) != 0)
+	if(vfs_check_access(pid, &node->fsinfo, VFS_ACCESS_R) != 0)
 		return;
 
 	int res = -1;
@@ -763,7 +767,7 @@ static void do_vfs_set_fsinfo(int32_t pid, proto_t* in, proto_t* out) {
 	if(proto_read_to(in, &info, sizeof(fsinfo_t)) == sizeof(fsinfo_t)) {
 		vfs_node_t* node = vfs_get_node_by_id(info.node);
 		if(node != NULL) { 
-  			if(vfs_check_access(pid, &node->fsinfo, VFS_ACCESS_W) == 0) {
+  		if(vfs_check_access(pid, &node->fsinfo, VFS_ACCESS_W) == 0) {
 				res = vfs_set(pid, node, &info);
 			}
 		}
@@ -976,7 +980,7 @@ static void do_vfs_proc_clone(int32_t pid, proto_t* in) {
 	int32_t i;
 	for(i=0; i<PROC_FILE_MAX; i++) {
 		file_t *f = &_proc_fds_table[fpid].fds[i];
-		vfs_node_t* node = 	vfs_get_node_by_id(f->node);
+		vfs_node_t* node = 	vfs_get_node_by_id((uint32_t)f->node);
 		if(node != NULL) {
 			file_t* file = &_proc_fds_table[cpid].fds[i];
 			memcpy(file, f, sizeof(file_t));
@@ -1116,7 +1120,7 @@ int main(int argc, char** argv) {
 		return -1;
 	}
 
-	vfs_init();
+	vfsd_init();
 
 	ipc_serv_run(handle, NULL, NULL, IPC_NON_BLOCK);
 

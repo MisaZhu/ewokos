@@ -15,7 +15,7 @@ static uint8_t x;
 static uint8_t y;
 static uint8_t has_data = 0;
 
-static int mouse_read(int fd, int from_pid, fsinfo_t* node,
+static int mouse_read(int fd, int from_pid, uint32_t node,
 		void* buf, int size, int offset, void* p) {
 	(void)fd;
 	(void)from_pid;

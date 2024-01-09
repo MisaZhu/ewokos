@@ -42,6 +42,9 @@ int32_t syscall3_raw(int32_t code, int32_t arg0, int32_t arg1, int32_t arg2) {
 	return r;
 }
 */
+
+int32_t syscall3_raw(int32_t code, int32_t arg0, int32_t arg1, int32_t arg2);
+
 inline int32_t syscall3(int32_t code, int32_t arg0, int32_t arg1, int32_t arg2) {
 	int32_t res = syscall3_raw(code, arg0, arg1, arg2);
 	return res;

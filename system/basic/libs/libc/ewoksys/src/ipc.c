@@ -30,7 +30,7 @@ inline void ipc_ready(void) {
 	syscall0(SYS_IPC_READY);
 }
 
-void proc_wait_ready(int pid) {
+void ipc_wait_ready(int pid) {
 	while(1) {
 		if(ipc_ping(pid) == 0)
 			break;

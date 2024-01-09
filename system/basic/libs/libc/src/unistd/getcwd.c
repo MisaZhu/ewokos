@@ -1,6 +1,7 @@
 #include <stddef.h>
 #include <unistd.h>
 #include <string.h>
+#include <stdio.h>
 #include <ewoksys/proc.h>
 #include <ewoksys/ipc.h>
 #include <ewoksys/core.h>

@@ -3,6 +3,7 @@
 #include <ewoksys/proc.h>
 #include <ewoksys/core.h>
 #include <string.h>
+#include <stdio.h>
 
 const char* getenv(const char* name) {
 	static char ret[1024];

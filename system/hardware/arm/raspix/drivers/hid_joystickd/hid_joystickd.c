@@ -12,7 +12,7 @@ static int hid;
 static uint8_t key_state;
 static uint8_t last_state;
 
-static int joystick_read(int fd, int from_pid, fsinfo_t* node,
+static int joystick_read(int fd, int from_pid, uint32_t node,
 		void* buf, int size, int offset, void* p) {
 	(void)fd;
 	(void)from_pid;

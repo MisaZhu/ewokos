@@ -135,6 +135,8 @@ static inline const char* svc_name(int32_t code) {
 }
 
 int main(int argc, char* argv[]) {
+	(void)argc;
+	(void)argv;
 	sys_state_t sys_state;
 
 	syscall1(SYS_GET_SYS_STATE, (int32_t)&sys_state);

@@ -6,6 +6,7 @@
 #include <ewoksys/syscall.h>
 #include <ewoksys/signal.h>
 #include <ewoksys/proc.h>
+#include <ewoksys/vfs.h>
 #include <procinfo.h>
 #include <unistd.h>
 
@@ -103,7 +104,7 @@ extern int __bss_start__;
 extern int __bss_end__;
 
 void _start(void) {
-	const char* argv[ARG_MAX];
+	char* argv[ARG_MAX];
 	int32_t argc = 0;
 
 	//clean bss befor cmain

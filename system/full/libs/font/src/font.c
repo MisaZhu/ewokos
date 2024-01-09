@@ -1,4 +1,5 @@
 #include <ewoksys/vdevice.h>
+#include <ewoksys/utf8unicode.h>
 #include <font/font.h>
 #include <string.h>
 #include <unistd.h>
@@ -76,6 +77,7 @@ int font_free(font_t* font) {
 		return -1;
 	font_close(font);
 	free(font);
+	return 0;
 }
 
 static void font_clear_cache(font_t* font) {
@@ -172,17 +174,19 @@ void font_char_size(uint16_t c, font_t* font,
 	if(font_get_glyph(font, c, &glyph) != 0)
 		return;
 	if(w != NULL)  {
-		*w = glyph.offset.x + 
+		TTY_S32 sw = glyph.offset.x + 
 				(glyph.size.x == 0 ? glyph.advance.x : glyph.size.x);
-		if(*w < 0)
-			*w = 0;
+		if(sw < 0)
+			sw = 0;
+		*w = sw;
 	}
 
 	if(h != NULL) {
-		*h = glyph.offset.y + 
+		TTY_S32 sh = glyph.offset.y + 
 				(glyph.size.y == 0 ?  glyph.advance.y : glyph.size.y);
-		if(*h < 0)
-			*h = 0;
+		if(sh < 0)
+			sh = 0;
+		*h = sh;
 	}
 }
 
@@ -201,7 +205,6 @@ void font_text_size(const char* str,
 	int n = utf82unicode((uint8_t*)str, sz, unicode);
 
 	int32_t x = 0;
-	uint16_t maxh;
 	for(int i=0;i <n; i++) {
 		TTY_U16 cw = 0;
 		font_char_size(unicode[i], font, &cw, NULL);
@@ -249,16 +252,18 @@ void graph_draw_char_font(graph_t* g, int32_t x, int32_t y, TTY_U32 c,
 		}
 	}
 	if(w != NULL) {
-		*w = glyph.offset.x +
+		TTY_S32 sw = glyph.offset.x +
 				(glyph.size.x == 0 ?  glyph.advance.x : glyph.size.x);
-		if(*w < 0)
-			*w = 0;
+		if(sw < 0)
+			sw = 0;
+		*w = sw;
 	}
 	if(h != NULL) {
-		*h = glyph.offset.y +
+		TTY_S32 sh = glyph.offset.y +
 				(glyph.size.y == 0 ?  glyph.advance.y : glyph.size.y);
-		if(*h < 0)
-			*h = 0;
+		if(sh < 0)
+			sh = 0;
+		*h = sh;
 	}
 }
 
@@ -311,7 +316,7 @@ void graph_draw_text_font(graph_t* g, int32_t x, int32_t y, const char* str,
 void graph_draw_text_font_align(graph_t* g, int32_t x, int32_t y, int32_t w, int32_t h,
 		const char* str, font_t* font, uint32_t color, uint32_t align) {
 	int32_t fw, fh;
-	font_text_size(str, font, &fw, &fh);
+	font_text_size(str, font, (uint32_t*)&fw, (uint32_t*)&fh);
 	if((align & FONT_ALIGN_CENTER) != 0) {
 		x = x + (w-fw)/2;
 		y = y + (h-fh)/2;

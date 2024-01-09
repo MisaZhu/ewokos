@@ -22,7 +22,7 @@ static void init(void) {
 
 static int keys_read(int fd,
 		int from_pid,
-		fsinfo_t* node,
+		uint32_t node,
 		void* buf,
 		int size,
 		int offset,

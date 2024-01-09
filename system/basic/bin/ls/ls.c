@@ -18,7 +18,7 @@ static inline const char* get_show_name(const char* name, int32_t type) {
 	return ret;
 }
 
-static inline const char get_show_type(int32_t type) {
+static inline char get_show_type(int32_t type) {
 	if(type == DT_BLK)
 		return 'b';
 	else if(type == DT_CHR)

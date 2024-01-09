@@ -1,5 +1,6 @@
 #include <ewoksys/session.h>
 #include <ewoksys/ipc.h>
+#include <string.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -58,6 +59,7 @@ int session_get(int32_t uid, session_info_t* sinfo) {
 }
 
 int session_set(session_info_t* sinfo) {
+	(void)sinfo;
 	return 0;
 }
 

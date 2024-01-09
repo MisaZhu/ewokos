@@ -10,6 +10,7 @@
 #include <ewoksys/klog.h>
 #include <ewoksys/ipc.h>
 #include <ewoksys/proc.h>
+#include <ewoksys/wait.h>
 #include <dirent.h>
 #include <sd/sd.h>
 #include <ext2/ext2fs.h>
@@ -67,16 +68,8 @@ static void run_before_vfs(const char* cmd) {
 		}
 	}
 	else
-		proc_wait_ready(pid);
+		ipc_wait_ready(pid);
 	out("[ok]\n");
-}
-
-static const char* get_arch_initrd(void) {
-	static char rd[FS_FULL_NAME_MAX] = "";
-	sys_info_t sysinfo;
-	syscall1(SYS_GET_SYS_INFO, (int32_t)&sysinfo);
-	snprintf(rd, FS_FULL_NAME_MAX-1, "/etc/arch/%s/init.rd", sysinfo.machine);
-	return rd;
 }
 
 static void run_init(const char* init_file) {
