@@ -717,6 +717,11 @@ static void do_vfs_open(int32_t pid, proto_t* in, proto_t* out) {
  	if(node == NULL)
 		return;
 
+  	if((flags & O_RDONLY) != 0 && vfs_check_access(pid, &node->fsinfo, VFS_ACCESS_R) != 0)
+		return;
+  	if((flags & O_WRONLY) != 0 && vfs_check_access(pid, &node->fsinfo, VFS_ACCESS_W) != 0)
+		return;
+
 	int res = -1;
 	if((node->fsinfo.type & FS_TYPE_ANNOUNIMOUS) == 0)
 		res = vfs_open(pid, node, flags);
@@ -767,7 +772,8 @@ static void do_vfs_set_fsinfo(int32_t pid, proto_t* in, proto_t* out) {
 	if(proto_read_to(in, &info, sizeof(fsinfo_t)) == sizeof(fsinfo_t)) {
 		vfs_node_t* node = vfs_get_node_by_id(info.node);
 		if(node != NULL) { 
-			res = vfs_set(pid, node, &info);
+  			if(vfs_check_access(pid, &node->fsinfo, VFS_ACCESS_W) == 0)
+				res = vfs_set(pid, node, &info);
 		}
 	}
 	PF->addi(out, res);

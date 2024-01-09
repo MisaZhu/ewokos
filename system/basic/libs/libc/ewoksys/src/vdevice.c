@@ -68,6 +68,11 @@ static void do_read(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, voi
 		PF->addi(out, -1);
 		return;
 	}
+	
+	if(vfs_check_access(from_pid, &info, VFS_ACCESS_R) != 0) {
+		PF->addi(out, -1);
+		return;
+	}
 
 	if(dev != NULL && dev->read != NULL) {
 		void* buf;
@@ -115,7 +120,13 @@ static void do_write(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, vo
 	if(vfs_get_by_node(node, &info) != 0) {
 		PF->addi(out, -1);
 		return;
+	}	
+
+	if(vfs_check_access(from_pid, &info, VFS_ACCESS_W) != 0) {
+		PF->addi(out, -1);
+		return;
 	}
+
 	
 	if(dev != NULL && dev->write != NULL) {
 		void* data;
