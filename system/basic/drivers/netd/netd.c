@@ -110,7 +110,7 @@ static net_req_t* net_queue_pop_id(net_req_t **list, int id){
 }
 
 
-static int do_network_fcntl(int fd, int from_pid, fsinfo_t* info,
+static int do_network_fcntl(int fd, int from_pid, uint32_t node,
 	int cmd, proto_t* in, proto_t* out, void* p){
 	int domain, sock,type,protocol;
 	char *data;
@@ -119,8 +119,10 @@ static int do_network_fcntl(int fd, int from_pid, fsinfo_t* info,
 	struct sockaddr *paddr;
 	struct sockaddr addr;
 	int ret;
+	fsinfo_t info;
 
-	sock = info->data;
+	vfs_get_by_node(node, &info);
+	sock = info.data;
 
 	switch(cmd){
 		case SOCK_OPEN:
@@ -129,8 +131,8 @@ static int do_network_fcntl(int fd, int from_pid, fsinfo_t* info,
 			protocol = proto_read_int(in);
 			sock = sock_open(domain, type, protocol);
 			PF->addi(out, sock);
-			info->data = sock;
-			vfs_set(info);
+			info.data = sock;
+			vfs_set(&info);
 			break;
 		case SOCK_BIND:
 			paddr = proto_read(in, &addrlen);
@@ -183,8 +185,8 @@ static int do_network_fcntl(int fd, int from_pid, fsinfo_t* info,
 			break;
 		case SOCK_LINK:
 			sock = proto_read_int(in);	
-			info->data = sock;
-			vfs_set(info);
+			info.data = sock;
+			vfs_set(&info);
 			PF->addi(out, 0);
 			break;
 		case SOCK_CONNECT:
@@ -278,7 +280,6 @@ static int network_write(int fd, int from_pid, fsinfo_t* info,
 }
 
 static int network_close(int fd, int from_pid, fsinfo_t* info, void* p) {
-	(void)info;
 	(void)fd;
 	int sock = info->data;
 	if(sock >= 0){
@@ -314,7 +315,6 @@ static char ETHER_TAP_HW_ADDR[32];
 static char ETHER_TAP_NAME[16];
 
 static void* network_loop(void* p) {
-	static loop_cnt = 0;
 	while(1){
     	pthread_t tid;
 		ipc_disable();
