@@ -392,8 +392,14 @@ static vfs_node_t* vfs_open_announimous(int32_t pid, vfs_node_t* node) {
 	if(node == NULL)
 		return NULL;
 
+	procinfo_t procinfo;
+	if(proc_info(pid, &procinfo) != 0)
+		return NULL;
+
 	vfs_node_t* ret = vfs_new_node();
 	ret->fsinfo.type = node->fsinfo.type;
+	ret->fsinfo.stat.mode = 0700;
+	ret->fsinfo.stat.uid = procinfo.uid;
 	ret->fsinfo.data = 0;
 	ret->mount_id = node->mount_id;
 	return ret;
