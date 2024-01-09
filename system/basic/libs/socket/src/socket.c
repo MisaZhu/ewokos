@@ -17,29 +17,31 @@ static int vfs_split_fcntl(int fd, int cmd, proto_t* arg_in, proto_t* arg_out){
     do{
         PF->init(&in)->addi(&in, cmd)->add(&in, arg_in->data, arg_in->size);
         PF->init(&out);
-        vfs_fcntl(fd, SOCK_REQUEST,  &in , &out);
-        id = proto_read_int(&out);
-        PF->clear(&in);
-        PF->clear(&out); 
-        if(id >= 0)
-             break;
-        if(id != ERR_RETRY)
-            return id;
+        if(vfs_fcntl(fd, SOCK_REQUEST,  &in , &out) == 0){
+            id = proto_read_int(&out);
+            PF->clear(&in);
+            PF->clear(&out); 
+            if(id >= 0)
+                break;
+            if(id != ERR_RETRY)
+                return id;
+        }
+        proc_block_by(info.mount_pid, RW_BLOCK_EVT);
     }while(true);
-
     do{
         PF->init(&in)->addi(&in, id);
         PF->init(&out);
-        vfs_fcntl(fd, SOCK_ACK,  &in , &out);
-        ret = proto_read_int(&out);
-        if(ret == 0){
-            proto_read_proto(&out, arg_out);
-            break;
+        if( vfs_fcntl(fd, SOCK_ACK,  &in , &out) == 0){
+            ret = proto_read_int(&out);
+            if(ret == 0){
+                proto_read_proto(&out, arg_out);
+                break;
+            }
+            PF->clear(&in);
+            PF->clear(&out);
+            if(ret != ERR_RETRY)
+                break;
         }
-        PF->clear(&in);
-        PF->clear(&out);
-        if(ret != ERR_RETRY)
-            break;
         proc_block_by(info.mount_pid, RW_BLOCK_EVT);
     }while(true);
     return ret;
@@ -53,7 +55,7 @@ int socket (int domain, int type, int protocol){
         return -1;
     PF->init(&in)->addi(&in, domain)->addi(&in, type)->addi(&in, protocol);
     PF->init(&out);
-    vfs_fcntl(fd, SOCK_OPEN, &in , &out);
+    vfs_split_fcntl(fd, SOCK_OPEN, &in , &out);
     int sock = proto_read_int(&out);
     PF->clear(&in);
     PF->clear(&out);
@@ -75,7 +77,7 @@ int bind (int fd, const struct sockaddr* addr, uint32_t len){
     
     PF->init(&in)->add(&in, addr, len);
     PF->init(&out);
-	vfs_fcntl(fd, SOCK_BIND, &in , &out);
+	vfs_split_fcntl(fd, SOCK_BIND, &in , &out);
     ret = proto_read_int(&out);
     PF->clear(&in);
 	PF->clear(&out);
@@ -230,13 +232,12 @@ int accept (int fd, struct sockaddr* addr,uint32_t * addr_len){
 		return -1;
 
     PF->init(&out);
-	vfs_split_fcntl(fd, SOCK_ACCEPT, NULL , &out);
+	ret = vfs_split_fcntl(fd, SOCK_ACCEPT, NULL , &out);
     ret = proto_read_int(&out);
     if(ret > 0){
         proto_read_to(&out, addr, addr_len);
     }
 	PF->clear(&out);
-
     int accept_fd = open("/dev/net0", 0);
     if(accept_fd <= 0)
         return -1; 
@@ -256,7 +257,7 @@ int shutdown (int fd, int how){
 	proto_t in, out;
     PF->init(&in)->addi(&in, how);
     PF->init(&out);
-    vfs_fcntl(fd, SOCK_CLOSE, NULL , &out);
+    vfs_split_fcntl(fd, SOCK_CLOSE, NULL , &out);
     ret = proto_read_int(&out);
     PF->clear(&out);
     return ret;
