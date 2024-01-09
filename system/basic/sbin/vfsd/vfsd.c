@@ -400,6 +400,7 @@ static vfs_node_t* vfs_open_announimous(int32_t pid, vfs_node_t* node) {
 	ret->fsinfo.type = node->fsinfo.type;
 	ret->fsinfo.stat.mode = 0700;
 	ret->fsinfo.stat.uid = procinfo.uid;
+	ret->fsinfo.stat.gid = procinfo.gid;
 	ret->fsinfo.data = 0;
 	ret->mount_id = node->mount_id;
 	return ret;
@@ -849,12 +850,20 @@ static void do_vfs_get_mount_by_id(proto_t* in, proto_t* out) {
 }
 
 static void do_vfs_pipe_open(int32_t pid, proto_t* out) {
-	vfs_node_t* node = vfs_new_node();
 	PF->addi(out, -1);
-	if(node == NULL) {
+
+	procinfo_t procinfo;
+	if(proc_info(pid, &procinfo) != 0)
 		return;
-	}
+
+	vfs_node_t* node = vfs_new_node();
+	if(node == NULL)
+		return;
+	
 	node->fsinfo.type = FS_TYPE_PIPE;
+	node->fsinfo.stat.mode = 0666;
+	node->fsinfo.stat.uid = procinfo.uid;
+	node->fsinfo.stat.gid = procinfo.gid;
 	node->fsinfo.data = 0; //buffer set as zero , waiting for other-port
 
 	int32_t fd0 = vfs_open(pid, node, 1);
