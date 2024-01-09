@@ -44,6 +44,8 @@ int  open(const char* name, int oflag);
 int  stat(const char* name, struct stat* buf);
 void close(int fd);
 int  fcntl(int fd, int cmd, int data);
+int  chmod(const char *pathname, int mode);
+
 
 #ifdef __cplusplus
 }

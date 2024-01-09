@@ -79,7 +79,7 @@ int main(int argc, char* argv[]) {
 		session_get(st.st_uid, &info);
 		session_get(st.st_gid, &infog);
 
-		printf("%-10s  %-8s %-8s %8d  %-24s\n", show_mode, info.user, infog.user, it->d_reclen, show_name);
+		printf("%-10s  %-8s %-8s %8d  %s\n", show_mode, info.user, infog.user, it->d_reclen, show_name);
 	}
 	closedir(dirp);
 	return 0;

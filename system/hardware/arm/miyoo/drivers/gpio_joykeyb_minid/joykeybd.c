@@ -155,6 +155,6 @@ int main(int argc, char** argv) {
 	strcpy(dev.name, "joykeyb_mini");
 	dev.read = joystick_read;
 	dev.loop_step = power_button;
-	device_run(&dev, mnt_point, FS_TYPE_CHAR, 0664);
+	device_run(&dev, mnt_point, FS_TYPE_CHAR, 0444);
 	return 0;
 }

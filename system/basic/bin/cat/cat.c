@@ -31,7 +31,7 @@ int main(int argc, char** argv) {
 
 	int fd = open(argv[1], 0);
 	if(fd < 0) {
-		printf("'%s' not found!\n", argv[1]);
+		printf("Open [%s] failed!\n", argv[1]);
 		return -1;
 	}
 

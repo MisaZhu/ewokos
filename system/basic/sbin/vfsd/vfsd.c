@@ -125,18 +125,10 @@ static inline int32_t get_mount_pid(vfs_node_t* node) {
 	return -1;
 }
 
-static inline int32_t check_mount(int32_t pid, vfs_node_t* node, bool owner_only) {
+static inline int32_t check_mount(int32_t pid, vfs_node_t* node) {
 	int32_t mnt_pid = get_mount_pid(node);
-	/*int32_t owner_uid = syscall0(SYS_PROC_GET_UID);
-	if(owner_uid <= 0)
-		return 0;
-	*/
-	
-	if(owner_only) {
-		if(mnt_pid != pid) { //current proc not the mounting one.
-			return -1;
-		}
-	}
+	if(mnt_pid != pid) //current proc not the mounting one.
+		return -1;
 	return 0;
 }
 
@@ -190,8 +182,6 @@ static vfs_node_t* vfs_get_by_name(vfs_node_t* father, const char* name) {
 static int32_t vfs_add_node(int32_t pid, vfs_node_t* father, vfs_node_t* node) {
 	if(father == NULL || node == NULL)
 		return -1;
-	//if(check_mount(pid, father) != 0)
-		//return -1;
 
 	node->father = father;
 	if(father->last_kid == NULL) {
@@ -299,7 +289,7 @@ static int32_t vfs_mount(int32_t pid, vfs_node_t* org, vfs_node_t* node) {
 }
 
 static void vfs_umount(int32_t pid, vfs_node_t* node) {
-	if(node == NULL || node->mount_id < 0 || check_mount(pid, node, true) != 0)
+	if(node == NULL || node->mount_id < 0 || check_mount(pid, node) != 0)
 		return;
 
 	vfs_node_t* org = vfs_get_node_by_id(_vfs_mounts[node->mount_id].org_node);
@@ -322,7 +312,7 @@ static void vfs_umount(int32_t pid, vfs_node_t* node) {
 }
 
 static int32_t vfs_del_node(int32_t pid, vfs_node_t* node) {
-	if(node == NULL || node->refs > 0 ||  check_mount(pid, node, false) != 0)
+	if(node == NULL || node->refs > 0)
 		return -1;
 	/*free children*/
 	vfs_node_t* c = node->first_kid;
@@ -352,7 +342,7 @@ static int32_t vfs_del_node(int32_t pid, vfs_node_t* node) {
 
 static int32_t vfs_set(int32_t pid, vfs_node_t* node, fsinfo_t* info) {
 	if(node == NULL ||
-			info == NULL || check_mount(pid, node, true) != 0)
+			info == NULL)
 		return -1;
 	memcpy(&node->fsinfo, info, sizeof(fsinfo_t));
 	return 0;
@@ -372,7 +362,7 @@ static int32_t get_free_fd(int32_t pid) {
 }
 
 static int32_t vfs_open(int32_t pid, vfs_node_t* node, int32_t flags) {
-	if(node == NULL || check_mount(pid, node, false) != 0)
+	if(node == NULL)
 		return -1;
 
 	int32_t fd = get_free_fd(pid);
@@ -717,9 +707,10 @@ static void do_vfs_open(int32_t pid, proto_t* in, proto_t* out) {
  	if(node == NULL)
 		return;
 
-  	if((flags & O_RDONLY) != 0 && vfs_check_access(pid, &node->fsinfo, VFS_ACCESS_R) != 0)
-		return;
   	if((flags & O_WRONLY) != 0 && vfs_check_access(pid, &node->fsinfo, VFS_ACCESS_W) != 0)
+		return;
+
+  	if(vfs_check_access(pid, &node->fsinfo, VFS_ACCESS_R) != 0)
 		return;
 
 	int res = -1;
@@ -772,8 +763,9 @@ static void do_vfs_set_fsinfo(int32_t pid, proto_t* in, proto_t* out) {
 	if(proto_read_to(in, &info, sizeof(fsinfo_t)) == sizeof(fsinfo_t)) {
 		vfs_node_t* node = vfs_get_node_by_id(info.node);
 		if(node != NULL) { 
-  			if(vfs_check_access(pid, &node->fsinfo, VFS_ACCESS_W) == 0)
+  			if(vfs_check_access(pid, &node->fsinfo, VFS_ACCESS_W) == 0) {
 				res = vfs_set(pid, node, &info);
+			}
 		}
 	}
 	PF->addi(out, res);

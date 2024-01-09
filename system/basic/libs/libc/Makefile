@@ -125,6 +125,7 @@ LIB_EWOKC_OBJS = \
 	src/fcntl/close.o \
 	src/fcntl/stat.o \
 	src/fcntl/fcntl.o \
+	src/fcntl/chmod.o \
 	\
 	src/signal/signal.o \
 	src/signal/kill.o

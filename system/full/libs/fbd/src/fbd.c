@@ -227,7 +227,7 @@ int fbd_run(fbd_t* fbd, const char* mnt_name,
 	dev.dev_cntl = fb_dev_cntl;
 
 	dev.extra_data = &dma;
-	device_run(&dev, mnt_name, FS_TYPE_CHAR, 0664);
+	device_run(&dev, mnt_name, FS_TYPE_CHAR, 0444);
 	shmdt(dma.shm);
 	return 0;
 }

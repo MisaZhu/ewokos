@@ -116,7 +116,7 @@ int main(int argc, char** argv) {
 	dev.read = tp_read;
 
 	dev.extra_data = &dma;
-	device_run(&dev, mnt_point, FS_TYPE_CHAR, 0664);
+	device_run(&dev, mnt_point, FS_TYPE_CHAR, 0444);
 
 	shmdt(dma.shm);
 	return 0;

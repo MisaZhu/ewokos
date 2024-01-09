@@ -301,8 +301,12 @@ static void do_unlink(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, v
 		PF->addi(out, -1);
 		return;
 	}
+	if(vfs_check_access(from_pid, &info, VFS_ACCESS_W) != 0) {
+		PF->addi(out, -1);
+		return;
+	}
 
-	int res = 0;
+	int res = -1;
 	if(dev != NULL && dev->unlink != NULL) {
 		res = dev->unlink(&info, fname, p);
 	}

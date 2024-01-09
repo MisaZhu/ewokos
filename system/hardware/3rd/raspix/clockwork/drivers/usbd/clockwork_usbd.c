@@ -210,6 +210,6 @@ int main(int argc, char** argv) {
     dev.open = usb_open;
     dev.close = usb_close;
     dev.read = usb_read;
-	device_run(&dev, mnt_point, FS_TYPE_CHAR, 0664);
+	device_run(&dev, mnt_point, FS_TYPE_CHAR, 0444);
 	return 0;
 }
