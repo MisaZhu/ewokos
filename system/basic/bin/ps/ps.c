@@ -117,7 +117,7 @@ int main(int argc, char* argv[]) {
 				continue;
 			}
 
-			if(proc->uid != cprocinfo.uid && all == 0) //for current uid
+			if(proc->uid > 0 && proc->uid != cprocinfo.uid && all == 0) //for current uid
 				continue;
 
 			if(proc->type != PROC_TYPE_PROC && thread == 0) //for thread 
