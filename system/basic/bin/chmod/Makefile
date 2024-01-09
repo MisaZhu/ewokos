@@ -16,5 +16,5 @@ $(CHMOD): $(CHMOD_OBJS) \
 	$(LD) -Ttext=100 $(CHMOD_OBJS) -o $(CHMOD) $(LDFLAGS) -lewokc -lc_nano -lnosys
 
 clean:
-	chmod -f $(CHMOD_OBJS)
+	rm -f $(CHMOD_OBJS)
 
