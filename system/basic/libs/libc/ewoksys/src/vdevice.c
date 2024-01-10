@@ -239,7 +239,7 @@ static void do_unlink(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, v
 	const char* fname = proto_read_str(in);
 	
 	if(vfs_check_access(from_pid, &info, VFS_ACCESS_W) != 0) {
-		PF->addi(out, -1);
+		PF->addi(out, -1)->addi(out, EPERM);
 		return;
 	}
 
