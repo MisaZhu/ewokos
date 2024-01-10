@@ -709,8 +709,6 @@ void proc_wakeup(int32_t pid_by, int32_t pid, uint32_t event) {
 		if(proc->info.state == UNUSED ||
 				proc->info.state == ZOMBIE)
 			continue;
-		if(pid >= 0 && proc->info.pid != pid)
-			continue;
 		proc_wakeup_all_state(pid_by, event, proc);
 	}
 }

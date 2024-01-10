@@ -213,9 +213,9 @@ int vfs_open(fsinfo_t* info, int oflag) {
 	return res;	
 }
 
-static int read_pipe(uint32_t node, void* buf, uint32_t size, bool block) {
+static int read_pipe(int fd, uint32_t node, void* buf, uint32_t size, bool block) {
 	proto_t in, out;
-	PF->init(&in)->addi(&in, node)->addi(&in, size)->addi(&in, block?1:0);
+	PF->init(&in)->addi(&in, fd)->addi(&in, node)->addi(&in, size)->addi(&in, block?1:0);
 	PF->init(&out);
 
 	int vfsd_pid = get_vfsd_pid();
@@ -234,9 +234,9 @@ static int read_pipe(uint32_t node, void* buf, uint32_t size, bool block) {
 	return res;	
 }
 
-static int write_pipe(uint32_t node, const void* buf, uint32_t size, bool block) {
+static int write_pipe(int fd, uint32_t node, const void* buf, uint32_t size, bool block) {
 	proto_t in, out;
-	PF->init(&in)->addi(&in, node)->add(&in, buf, size)->addi(&in, block?1:0);
+	PF->init(&in)->addi(&in, fd)->addi(&in, node)->add(&in, buf, size)->addi(&in, block?1:0);
 	PF->init(&out);
 
 	int vfsd_pid = get_vfsd_pid();
@@ -739,8 +739,8 @@ int vfs_read_block(int pid, void* buf, uint32_t size, int32_t index) {
 	return res;
 }
 
-int vfs_read_pipe(uint32_t node, void* buf, uint32_t size, bool block) {
-	int res = read_pipe(node, buf, size, block);
+int vfs_read_pipe(int fd, uint32_t node, void* buf, uint32_t size, bool block) {
+	int res = read_pipe(fd, node, buf, size, block);
 	if(res == 0) { // pipe empty, do retry
 		errno = EAGAIN;
 		return -1;
@@ -816,8 +816,8 @@ int vfs_read(int fd, fsinfo_t *info, void* buf, uint32_t size) {
 	return res;
 }
 
-int vfs_write_pipe(uint32_t node, const void* buf, uint32_t size, bool block) {
-	int res = write_pipe(node, buf, size, block);
+int vfs_write_pipe(int fd, uint32_t node, const void* buf, uint32_t size, bool block) {
+	int res = write_pipe(fd, node, buf, size, block);
 	if(res == 0) { // pipe not empty, do retry
 		errno = EAGAIN;
 		return -1;

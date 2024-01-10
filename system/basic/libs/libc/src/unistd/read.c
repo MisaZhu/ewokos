@@ -10,7 +10,7 @@ static int read_nblock(int fd, void* buf, uint32_t size) {
   if(vfs_get_by_fd(fd, &info) != 0)
     return -1;
   if(info.type == FS_TYPE_PIPE)
-    return vfs_read_pipe(info.node, buf, size, 0);
+    return vfs_read_pipe(fd, info.node, buf, size, 0);
   return vfs_read(fd, &info, buf, size);
 }
 
@@ -23,7 +23,7 @@ static int read_block(int fd, void* buf, uint32_t size) {
 	int res = -1;
 	if(info.type == FS_TYPE_PIPE) {
 		while(1) {
-			res = vfs_read_pipe(info.node, buf, size, true);
+			res = vfs_read_pipe(fd, info.node, buf, size, true);
 			if(res >= 0 || errno != EAGAIN)
 				break;
 		}

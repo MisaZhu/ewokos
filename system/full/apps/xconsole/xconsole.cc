@@ -206,6 +206,7 @@ static int run(int argc, char* argv[]) {
 	x.run(NULL, &xwin);
 	_termniated = true;
 	close(0);
+	close(1);
 	while(!_thread_done)
 		usleep(2000);
 	return 0;
