@@ -696,7 +696,10 @@ void proc_wakeup(int32_t pid_by, int32_t pid, uint32_t event) {
 		if(proc->info.state == UNUSED ||
 				proc->info.state == ZOMBIE)
 			return;
-		proc_wakeup_all_state(pid_by, event, proc);
+		if(proc == proc_get_proc(get_current_proc())) //self force wakeup
+			proc_wakeup_all_state(-1, 0, proc);
+		else
+			proc_wakeup_all_state(pid_by, event, proc);
 		return;
 	} 
 

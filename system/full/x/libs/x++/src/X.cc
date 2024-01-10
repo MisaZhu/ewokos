@@ -53,7 +53,7 @@ void X::run(void (*loop)(void*), void* p) {
 }
 
 void X::terminate(void) {
-	x.terminated = true;
+	x_terminate(&x);
 }
 
 bool X::getScreenInfo(xscreen_t& scr, int index) {

@@ -71,6 +71,11 @@ static void sig_stop(int sig_no, void* p) {
 	x->terminated = true;
 }
 
+void x_terminate(x_t* x) {
+	x->terminated = true;
+	proc_wakeup_pid(getpid(), 0);
+}
+
 void  x_init(x_t* x, void* data) {
 	memset(x, 0, sizeof(x_t));
 	x->data = data;
