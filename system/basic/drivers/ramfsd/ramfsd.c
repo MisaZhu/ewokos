@@ -62,7 +62,7 @@ static int ramfs_unlink(fsinfo_t* info, const char* fname, void* p) {
 	char* data = (char*)info->data;
 	if(data != NULL)
 		free(data);
-	return 0;
+	return vfs_del_node(info->node);
 }
 
 int main(int argc, char** argv) {

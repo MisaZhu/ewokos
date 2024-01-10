@@ -42,6 +42,8 @@ int dup(int from);
 
 int pipe(int fds[2]);
 
+int chown(const char *pathname, int uid, int gid);
+
 #ifdef __cplusplus
 }
 #endif

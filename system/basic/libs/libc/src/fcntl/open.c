@@ -1,6 +1,6 @@
 #include <fcntl.h>
 #include <ewoksys/syscall.h>
-#include <ewoksys/ipc.h>
+#include <ewoksys/devcmd.h>
 #include <ewoksys/vfs.h>
 #include <stddef.h>
 #include <string.h>
@@ -33,25 +33,12 @@ int open(const char* fname, int oflag) {
 		vfs_set(&info);
 	}
 
-	proto_t in, out;
-	PF->init(&out);
-
-	PF->init(&in)->
-		addi(&in, fd)->
-		addi(&in, info.node)->
-		addi(&in, oflag);
-
-	if(ipc_call(info.mount_pid, FS_CMD_OPEN, &in, &out) != 0 ||
-			proto_read_int(&out) != 0) {
+	if(dev_open(info.mount_pid, fd, info.node, oflag) != 0) {
 		vfs_close(fd);
 		if(created)
 			vfs_del_node(info.node);
 		fd = -1;
 	}
-
-	PF->clear(&in);
-	PF->clear(&out);
-
 	return fd;
 }
 

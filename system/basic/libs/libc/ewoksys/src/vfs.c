@@ -8,6 +8,7 @@
 #include <ewoksys/mstr.h>
 #include <ewoksys/ipc.h>
 #include <ewoksys/vfsc.h>
+#include <ewoksys/devcmd.h>
 #include <ewoksys/proc.h>
 #include <sys/shm.h>
 
@@ -547,28 +548,10 @@ int vfs_create(const char* fname, fsinfo_t* ret, int type, int mode, bool vfs_no
 	}
 
 	fi.mount_pid = info_to.mount_pid;
-
-	proto_t in, out;
-	PF->init(&out);
-
-	PF->init(&in)->
-		add(&in, &info_to, sizeof(fsinfo_t))->
-		add(&in, &fi, sizeof(fsinfo_t));
-
-	int res = -1;
-	if(ipc_call(info_to.mount_pid, FS_CMD_CREATE, &in, &out) != 0) {
+	int res = dev_create(info_to.mount_pid, &info_to, &fi);
+	if(res != 0)
 		vfs_del_node(fi.node);
-	}
-	else {
-		res = proto_read_int(&out);
-		if(res == 0) {
-			proto_read_to(&out, &fi, sizeof(fsinfo_t));
-		}
-		else 
-			vfs_del_node(fi.node);
-	}
-	PF->clear(&in);
-	PF->clear(&out);
+	
 	if(ret != NULL)
 		memcpy(ret, &fi, sizeof(fsinfo_t));
 	return res;
@@ -644,99 +627,14 @@ int32_t vfs_dma(int fd, int* size) {
 	fsinfo_t info;
 	if(vfs_get_by_fd(fd, &info) != 0)
 		return 0;
-	
-	proto_t in, out;
-	PF->init(&out);
-
-	PF->init(&in)->
-		addi(&in, fd)->
-		addi(&in, info.node);
-
-	int32_t shm_id = -1;
-	if(ipc_call(info.mount_pid, FS_CMD_DMA, &in, &out) == 0) {
-		shm_id = proto_read_int(&out);
-		if(size != NULL)
-			*size = proto_read_int(&out);
-	}
-	PF->clear(&in);
-	PF->clear(&out);
-	return shm_id;
+	return dev_dma(info.mount_pid, fd, info.node, size);
 }
 
 int vfs_flush(int fd, bool wait) {
 	fsinfo_t info;
 	if(vfs_get_by_fd(fd, &info) != 0)
 		return 0; //error
-	
-	proto_t in;
-	PF->init(&in)->
-		addi(&in, fd)->
-		addi(&in, info.node);
-
-	int res = -1;
-	if(wait)
-		ipc_call_wait(info.mount_pid, FS_CMD_FLUSH, &in);
-	else
-		ipc_call(info.mount_pid, FS_CMD_FLUSH, &in, NULL);
-	PF->clear(&in);
-	return res;
-}
-
-int vfs_write_block(int pid, const void* buf, uint32_t size, int32_t index) {
-	proto_t in, out;
-	PF->init(&out);
-
-	PF->init(&in)->
-		add(&in, buf, size)->
-		addi(&in, index);
-
-	int res = -1;
-	if(ipc_call(pid, FS_CMD_WRITE_BLOCK, &in, &out) == 0) {
-		int r = proto_read_int(&out);
-		res = r;
-		if(res == -2) {
-			errno = EAGAIN;
-			res = -1;
-		}
-	}
-	PF->clear(&in);
-	PF->clear(&out);
-	return res;
-}
-
-int vfs_read_block(int pid, void* buf, uint32_t size, int32_t index) {
-	key_t key = (((uint32_t)buf) << 16) | pid; 
-	int32_t shm_id = shmget(key, size, 0666|IPC_CREAT);
-	if(shm_id == -1) 
-		return -1;
-	void* shm = shmat(shm_id, 0, 0);
-	if(shm == NULL)
-		return 0;
-
-	proto_t in, out;
-	PF->init(&out);
-
-	PF->init(&in)->
-		addi(&in, size)->
-		addi(&in, index)->
-		addi(&in, shm_id);
-
-	int res = -1;
-	if(ipc_call(pid, FS_CMD_READ_BLOCK, &in, &out) == 0) {
-		int rd = proto_read_int(&out);
-		res = rd;
-		if(rd > 0) {
-			memcpy(buf, shm, rd);
-		}
-		if(res == ERR_RETRY) {
-			errno = EAGAIN;
-			res = -1;
-		}
-	}
-	PF->clear(&in);
-	PF->clear(&out);
-	shmdt(shm);
-	return res;
+	return dev_flush(info.mount_pid, fd, info.node, wait);
 }
 
 int vfs_read_pipe(int fd, uint32_t node, void* buf, uint32_t size, bool block) {
@@ -753,11 +651,6 @@ int vfs_read_pipe(int fd, uint32_t node, void* buf, uint32_t size, bool block) {
 
 #define SHM_ON 128
 int vfs_read(int fd, fsinfo_t *info, void* buf, uint32_t size) {
-	/*mount_t mount;
-	if(vfs_get_mount(info, &mount) != 0)
-		return -1;
-		*/
-
 	int offset = 0;
 	if(info->type == FS_TYPE_FILE) {
 		offset = vfs_tell(fd);
@@ -765,54 +658,20 @@ int vfs_read(int fd, fsinfo_t *info, void* buf, uint32_t size) {
 			offset = 0;
 	}
 
-	int32_t shm_id = -1;
-	void* shm = NULL;
-	if(size >= SHM_ON) {
-		key_t key = (info->node << 16) | getpid(); 
-		shm_id = shmget(key, size, 0666|IPC_CREAT|IPC_EXCL);
-		if(shm_id != -1)  {
-			shm = shmat(shm_id, 0, 0);
-			if(shm == NULL)
-				return -1;
-		}
+	int res = dev_read(info->mount_pid, fd, info->node, offset, buf, size);
+	if(res > 0) {
+		offset += res;
+		if(info->type == FS_TYPE_FILE)
+			vfs_seek(fd, offset);
 	}
-
-	proto_t in, out;
-	PF->init(&out);
-
-	PF->init(&in)->
-			addi(&in, fd)->
-			addi(&in, info->node)->
-			addi(&in, size)->
-			addi(&in, offset)->
-			addi(&in, shm_id);
-
-	int res = -1;
-	if(ipc_call(info->mount_pid, FS_CMD_READ, &in, &out) == 0) {
-		int rd = proto_read_int(&out);
-		res = rd;
-		if(rd > 0) {
-			if(shm_id != -1 && shm != NULL)
-				memcpy(buf, shm, rd);
-			else
-				proto_read_to(&out, buf, size);
-			offset += rd;
-			if(info->type == FS_TYPE_FILE)
-				vfs_seek(fd, offset);
-		}
-		if(res == ERR_RETRY) {
-			errno = EAGAIN;
-			res = -1;
-		}
-		else if(res == ERR_RETRY_NON_BLOCK) {
-			errno = EAGAIN_NON_BLOCK;
-			res = -1;
-		}
+	else if(res == ERR_RETRY) {
+		errno = EAGAIN;
+		res = -1;
 	}
-	PF->clear(&in);
-	PF->clear(&out);
-	if(shm != NULL)
-		shmdt(shm);
+	else if(res == ERR_RETRY_NON_BLOCK) {
+		errno = EAGAIN_NON_BLOCK;
+		res = -1;
+	}
 	return res;
 }
 
@@ -831,11 +690,6 @@ int vfs_write(int fd, fsinfo_t* info, const void* buf, uint32_t size) {
 	if(info->type == FS_TYPE_DIR) 
 		return -1;
 
-	/*mount_t mount;
-	if(vfs_get_mount(info, &mount) != 0)
-		return -1;
-		*/
-
 	int offset = 0;
 	if(info->type == FS_TYPE_FILE) {
 		offset = vfs_tell(fd);
@@ -843,50 +697,16 @@ int vfs_write(int fd, fsinfo_t* info, const void* buf, uint32_t size) {
 			offset = 0;
 	}
 		
-	int32_t shm_id = -1;
-	void* shm = NULL;
-	if(size >= SHM_ON) {
-		key_t key = (info->node << 16) | getpid(); 
-		shm_id = shmget(key, size, 0666|IPC_CREAT|IPC_EXCL);
-		if(shm_id != -1)  {
-			shm = shmat(shm_id, 0, 0);
-			if(shm == NULL)
-				return -1;
-			memcpy(shm, buf, size);
-		}
+	int res = dev_write(info->mount_pid, fd, info->node, offset, buf, size);
+	if(res > 0) {
+		offset += res;
+		if(info->type == FS_TYPE_FILE)
+			vfs_seek(fd, offset);
 	}
-
-	proto_t in, out;
-	PF->init(&out);
-
-	PF->init(&in)->
-		addi(&in, fd)->
-		addi(&in, info->node)->
-		addi(&in, offset)->
-		addi(&in, shm_id);
-	if(shm_id == -1)
-		PF->add(&in, buf, size);
-	else
-		PF->addi(&in, size);
-
-	int res = -1;
-	if(ipc_call(info->mount_pid, FS_CMD_WRITE, &in, &out) == 0) {
-		int r = proto_read_int(&out);
-		res = r;
-		if(r > 0) {
-			offset += r;
-			if(info->type == FS_TYPE_FILE)
-				vfs_seek(fd, offset);
-		}
-		if(res == -2) {
-			errno = EAGAIN;
-			res = -1;
-		}
+	else if(res == -2) {
+		errno = EAGAIN;
+		res = -1;
 	}
-	PF->clear(&in);
-	PF->clear(&out);
-	if(shm != NULL)
-		shmdt(shm);
 	return res;
 }
 

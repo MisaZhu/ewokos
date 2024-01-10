@@ -43,9 +43,6 @@ int       vfs_open_pipe(int fd[2]);
 int       vfs_flush(int fd, bool wait);
 int32_t   vfs_dma(int fd, int* size); 
 
-int       vfs_read_block(int pid, void* buf, uint32_t size, int32_t index);
-int       vfs_write_block(int pid, const void* buf, uint32_t size, int32_t index);
-
 int       vfs_read(int fd, fsinfo_t* info, void* buf, uint32_t size);
 int       vfs_write(int fd, fsinfo_t* info, const void* buf, uint32_t size);
 

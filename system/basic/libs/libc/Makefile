@@ -20,6 +20,7 @@ LIB_EWOKSYS_OBJS = ewoksys/src/syscall.o \
 	ewoksys/src/signal.o \
 	ewoksys/src/interrupt.o \
 	ewoksys/src/vdevice.o \
+	ewoksys/src/devcmd.o \
 	ewoksys/src/proto.o \
 	ewoksys/src/semaphore.o \
 	ewoksys/src/thread.o \
@@ -78,6 +79,7 @@ LIB_EWOKC_OBJS = \
 	src/unistd/usleep.o \
 	src/unistd/unlink.o \
 	src/unistd/write.o \
+	src/unistd/chown.o \
 	\
 	src/dirent/opendir.o \
 	src/dirent/closedir.o \

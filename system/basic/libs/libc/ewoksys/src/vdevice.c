@@ -248,10 +248,28 @@ static void do_unlink(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, v
 		return;
 	}
 
-	int res = -1;
-	if(dev != NULL && dev->unlink != NULL) {
+	int res = 0;
+	if(dev != NULL && dev->unlink != NULL)
 		res = dev->unlink(&info, fname, p);
+	else
+		res = vfs_del_node(info.node);
+	PF->addi(out, res);
+}
+
+static void do_set(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, void* p) {
+	fsinfo_t info;
+	proto_read_to(in, &info, sizeof(fsinfo_t));
+	
+	if(vfs_check_access(from_pid, &info, VFS_ACCESS_W) != 0) {
+		PF->addi(out, -1)->addi(out, EPERM);
+		return;
 	}
+
+	int res = 0;
+	if(dev != NULL && dev->set != NULL)
+		res = dev->set(from_pid, &info, p);
+	else
+		res =  vfs_set(&info);
 	PF->addi(out, res);
 }
 
@@ -333,6 +351,9 @@ static void handle(int from_pid, int cmd, proto_t* in, proto_t* out, void* p) {
 		break;
 	case FS_CMD_UNLINK:
 		do_unlink(dev, from_pid, in, out, p);
+		break;
+	case FS_CMD_SET:
+		do_set(dev, from_pid, in, out, p);
 		break;
 	case FS_CMD_CLEAR_BUFFER:
 		do_clear_buffer(dev, from_pid, in, out, p);
