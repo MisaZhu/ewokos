@@ -59,8 +59,14 @@ static int cd(const char* dir) {
 		printf("[%s] not exist!\n", dir);	
 	else if(info.type != FS_TYPE_DIR)
 		printf("[%s] is not a directory!\n", dir);	
-	else if(chdir(cwd) != 0)
-		printf("[%s] denied!\n", dir);	
+	else if(chdir(cwd) != 0) {
+		if(errno == ENOENT)
+			printf("[%s] not exist!\n", dir);	
+		else if(errno == EPERM)
+			printf("[%s] access denied!\n", dir);	
+		else
+			printf("[%s] denied!\n", dir);	
+	}
 	return 0;
 }
 

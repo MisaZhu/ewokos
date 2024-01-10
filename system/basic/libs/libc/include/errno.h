@@ -7,7 +7,10 @@ enum {
 	ENONE = 0,
 	EAGAIN,
 	EAGAIN_NON_BLOCK,
-	ENOTEMPTY
+	ENOTEMPTY,
+	ENOENT,
+	EPERM,
+	EEXIST
 };
 
 #endif

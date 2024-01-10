@@ -205,6 +205,9 @@ int vfs_open(fsinfo_t* info, int oflag) {
 			proto_read_to(&out, info, sizeof(fsinfo_t));
 			vfs_clear_info_buffer(res);	
 		}
+		else {
+			errno = proto_read_int(&out);
+		}
 	}
 	PF->clear(&out);
 	return res;	

@@ -13,6 +13,8 @@ int chdir(const char* path) {
 	PF->clear(&in);
 	if(res == 0) {
 		res = proto_read_int(&out);
+		if(res != 0)
+			errno = proto_read_int(&out);
 	}
 	PF->clear(&out);
 	return res;
