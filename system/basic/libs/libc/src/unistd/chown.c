@@ -8,7 +8,12 @@ int chown(const char *pathname, int uid, int gid) {
 	fsinfo_t info;
 	if(vfs_get_by_name(pathname, &info) != 0)
 		return -1;
-	info.stat.uid = uid;
-	info.stat.gid = gid;
+
+	if(uid >= 0)
+		info.stat.uid = uid;
+
+	if(gid >= 0)
+		info.stat.gid = gid;
+
 	return dev_set(info.mount_pid, &info);
 }

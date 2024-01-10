@@ -257,10 +257,14 @@ static void do_unlink(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, v
 }
 
 static void do_set(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, void* p) {
-	fsinfo_t info;
+	fsinfo_t info_old, info;
 	proto_read_to(in, &info, sizeof(fsinfo_t));
+	if(vfs_get_by_node(info.node, &info_old) != 0) {
+		PF->addi(out, -1)->addi(out, ENOENT);
+		return;
+	}
 	
-	if(vfs_check_access(from_pid, &info, VFS_ACCESS_W) != 0) {
+	if(vfs_check_access(from_pid, &info_old, VFS_ACCESS_W) != 0) {
 		PF->addi(out, -1)->addi(out, EPERM);
 		return;
 	}
