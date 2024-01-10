@@ -221,9 +221,14 @@ static void do_create(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, v
 	proto_read_to(in, &info_to, sizeof(fsinfo_t));
 	proto_read_to(in, &info, sizeof(fsinfo_t));
 
+	if(vfs_check_access(from_pid, &info_to, VFS_ACCESS_W) != 0) {
+		PF->addi(out, -1)->addi(out, EPERM);
+		return;
+	}
+
 	int res = 0;
 	if(dev != NULL && dev->create != NULL)
-		res = dev->create(&info_to, &info, p);
+		res = dev->create(from_pid, &info_to, &info, p);
 
 	if(res == 0) {
 		PF->addi(out, res)->add(out, &info, sizeof(fsinfo_t));
