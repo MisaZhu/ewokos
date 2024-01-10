@@ -221,7 +221,7 @@ static void do_create(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, v
 	proto_read_to(in, &info_to, sizeof(fsinfo_t));
 	proto_read_to(in, &info, sizeof(fsinfo_t));
 
-	int res = -1;
+	int res = 0;
 	if(dev != NULL && dev->create != NULL)
 		res = dev->create(&info_to, &info, p);
 
