@@ -262,7 +262,7 @@ int network_open(int fd, int from_pid, uint32_t node, int oflag, void* p){
 	return 0;
 }
 
-static int network_read(int fd, int from_pid, uint32_t node, 
+static int network_read(int fd, int from_pid, fsinfo_t* node, 
 		void* buf, int size, int offset, void* p) {
 	(void)fd;
 	(void)from_pid;
@@ -271,7 +271,7 @@ static int network_read(int fd, int from_pid, uint32_t node,
 }
 
 
-static int network_write(int fd, int from_pid, uint32_t node,
+static int network_write(int fd, int from_pid, fsinfo_t* node,
 		const void* buf, int size, int offset, void* p) {
 	(void)fd;
 	(void)from_pid;

@@ -28,7 +28,7 @@ static void leds(int v) {
 	bcm283x_gpio_write(STCP, 1);
 }
 
-static int leds_write(int fd, int from_pid, uint32_t node,
+static int leds_write(int fd, int from_pid, fsinfo_t* node,
 		const void* buf, int size, int offset, void* p) {
 	(void)fd;
 	(void)node;

@@ -8,7 +8,7 @@
 
 static int null_read(int fd,
 		int from_pid,
-		uint32_t node,
+		fsinfo_t* node,
 		void* buf,
 		int size,
 		int offset,
@@ -26,7 +26,7 @@ static int null_read(int fd,
 
 static int null_write(int fd, 
 		int from_pid,
-		uint32_t node,
+		fsinfo_t* node,
 		const void* buf,
 		int size,
 		int offset,

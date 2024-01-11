@@ -86,11 +86,11 @@ int dev_open(int dev_pid, int fd, uint32_t node, int oflag) {
 }
 
 #define SHM_ON 128
-int dev_read(int dev_pid, int fd, uint32_t node, int32_t offset, void* buf, uint32_t size) {
+int dev_read(int dev_pid, int fd, fsinfo_t* info, int32_t offset, void* buf, uint32_t size) {
 	int32_t shm_id = -1;
 	void* shm = NULL;
 	if(size >= SHM_ON) {
-		key_t key = (node << 16) | getpid(); 
+		key_t key = (info->node << 16) | getpid(); 
 		shm_id = shmget(key, size, 0666|IPC_CREAT|IPC_EXCL);
 		if(shm_id != -1)  {
 			shm = shmat(shm_id, 0, 0);
@@ -103,7 +103,7 @@ int dev_read(int dev_pid, int fd, uint32_t node, int32_t offset, void* buf, uint
 	PF->init(&out);
 	PF->init(&in)->
 			addi(&in, fd)->
-			addi(&in, node)->
+			add(&in, info, sizeof(fsinfo_t))->
 			addi(&in, size)->
 			addi(&in, offset)->
 			addi(&in, shm_id);
@@ -126,11 +126,11 @@ int dev_read(int dev_pid, int fd, uint32_t node, int32_t offset, void* buf, uint
 	return res;
 }
 
-int dev_write(int dev_pid, int fd, uint32_t node, int32_t offset, const void* buf, uint32_t size) {
+int dev_write(int dev_pid, int fd, fsinfo_t* info, int32_t offset, const void* buf, uint32_t size) {
 	int32_t shm_id = -1;
 	void* shm = NULL;
 	if(size >= SHM_ON) {
-		key_t key = (node << 16) | getpid(); 
+		key_t key = (info->node << 16) | getpid(); 
 		shm_id = shmget(key, size, 0666|IPC_CREAT|IPC_EXCL);
 		if(shm_id != -1)  {
 			shm = shmat(shm_id, 0, 0);
@@ -144,7 +144,7 @@ int dev_write(int dev_pid, int fd, uint32_t node, int32_t offset, const void* bu
 	PF->init(&out);
 	PF->init(&in)->
 		addi(&in, fd)->
-		addi(&in, node)->
+		add(&in, info, sizeof(fsinfo_t))->
 		addi(&in, offset)->
 		addi(&in, shm_id);
 	if(shm_id == -1)

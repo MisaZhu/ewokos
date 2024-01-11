@@ -669,7 +669,7 @@ int vfs_read(int fd, fsinfo_t *info, void* buf, uint32_t size) {
 			offset = 0;
 	}
 
-	int res = dev_read(info->mount_pid, fd, info->node, offset, buf, size);
+	int res = dev_read(info->mount_pid, fd, info, offset, buf, size);
 	if(res > 0) {
 		offset += res;
 		if(info->type == FS_TYPE_FILE)
@@ -708,7 +708,7 @@ int vfs_write(int fd, fsinfo_t* info, const void* buf, uint32_t size) {
 			offset = 0;
 	}
 		
-	int res = dev_write(info->mount_pid, fd, info->node, offset, buf, size);
+	int res = dev_write(info->mount_pid, fd, info, offset, buf, size);
 	if(res > 0) {
 		offset += res;
 		if(info->type == FS_TYPE_FILE)

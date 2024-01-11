@@ -48,7 +48,8 @@ static void do_close(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, vo
 static void do_read(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, void* p) {
 	int size, offset;
 	int fd = proto_read_int(in);
-	uint32_t node = (uint32_t)proto_read_int(in);
+	fsinfo_t info;
+	proto_read_to(in, &info, sizeof(fsinfo_t));
 	size = proto_read_int(in);
 	offset = proto_read_int(in);
 	int32_t shm_id = proto_read_int(in);
@@ -70,7 +71,7 @@ static void do_read(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, voi
 			PF->addi(out, -1);
 		}
 		else {
-			size = dev->read(fd, from_pid, node, buf, size, offset, p);
+			size = dev->read(fd, from_pid, &info, buf, size, offset, p);
 			PF->addi(out, size);
 			if(size > 0) {
 				if(shm_id == -1) {
@@ -91,8 +92,9 @@ static void do_read(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, voi
 
 static void do_write(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, void* p) {
 	int32_t size, offset;
+	fsinfo_t info;
 	int fd = proto_read_int(in);
-	uint32_t node = (uint32_t)proto_read_int(in);
+	proto_read_to(in, &info, sizeof(fsinfo_t));
 	offset = proto_read_int(in);
 	int32_t shm_id = proto_read_int(in);
 	
@@ -109,7 +111,7 @@ static void do_write(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, vo
 			PF->addi(out, -1);
 		}
 		else {
-			size = dev->write(fd, from_pid, node, data, size, offset, p);
+			size = dev->write(fd, from_pid, &info, data, size, offset, p);
 			PF->addi(out, size);
 		}
 		if(shm_id != -1 && data != NULL)

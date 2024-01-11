@@ -192,19 +192,16 @@ static int sdext2_set(int from_pid, fsinfo_t* info, void* p) {
 	return vfs_set(info);
 }
 
-static int sdext2_read(int fd, int from_pid, uint32_t node, 
+static int sdext2_read(int fd, int from_pid, fsinfo_t* info, 
 		void* buf, int size, int offset, void* p) {
 	(void)fd;
 	(void)from_pid;
 
-	fsinfo_t info;
-	if(vfs_get_by_node(node, &info) != 0)
-		return -1;
-	if(vfs_check_access(from_pid, &info, R_OK) != 0)
+	if(vfs_check_access(from_pid, info, R_OK) != 0)
 		return -1;
 
 	ext2_t* ext2 = (ext2_t*)p;
-	int32_t ino = (int32_t)info.data;
+	int32_t ino = (int32_t)info->data;
 	if(ino == 0)
 		ino = 2;
 	INODE inode;
@@ -212,7 +209,7 @@ static int sdext2_read(int fd, int from_pid, uint32_t node,
 		return -1;
 	}
 
-	int rsize = info.stat.size - offset;
+	int rsize = info->stat.size - offset;
 	if(rsize < size)
 		size = rsize;
 	if(size < 0)
@@ -223,19 +220,16 @@ static int sdext2_read(int fd, int from_pid, uint32_t node,
 	return size;	
 }
 
-static int sdext2_write(int fd, int from_pid, uint32_t node,
+static int sdext2_write(int fd, int from_pid, fsinfo_t* info,
 		const void* buf, int size, int offset, void* p) {
 	(void)fd;
 	(void)from_pid;
 
-	fsinfo_t info;
-	if(vfs_get_by_node(node, &info) != 0)
-		return -1;
-	if(vfs_check_access(from_pid, &info, W_OK) != 0)
+	if(vfs_check_access(from_pid, info, W_OK) != 0)
 		return -1;
 
 	ext2_t* ext2 = (ext2_t*)p;
-	int32_t ino = (int32_t)info.data;
+	int32_t ino = (int32_t)info->data;
 	if(ino == 0)
 		return -1;
 
@@ -245,8 +239,8 @@ static int sdext2_write(int fd, int from_pid, uint32_t node,
 	}
 	size = ext2_write(ext2, &inode, buf, size, offset);
 	if(size >= 0) {
-		info.stat.size += size;
-		inode.i_size = info.stat.size;
+		info->stat.size += size;
+		inode.i_size = info->stat.size;
 		put_node(ext2, ino, &inode);
 		vfs_set(&info);
 	}
