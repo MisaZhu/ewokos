@@ -2,8 +2,9 @@
 #define UNISTD_H
 
 #include <ewoksys/ewokdef.h>
-#include <errno.h>
 #include <ewoksys/cmain.h>
+#include <sys/stat.h>
+#include <errno.h>
 
 #ifdef __cplusplus
 extern "C" {

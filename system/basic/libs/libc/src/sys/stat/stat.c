@@ -1,5 +1,5 @@
 #include <ewoksys/vfs.h>
-#include <fcntl.h>
+#include <sys/stat.h>
 #include <string.h>
 
 int stat(const char* name, struct stat* buf) {
