@@ -18,16 +18,17 @@ extern "C" {
 
 typedef struct {
 	int fd;
+	uint32_t offset;
 	fsinfo_t info;
 } fsinfo_buffer_t;
 
-#define MAX_FINFO_BUFFER  16
+#define MAX_FINFO_BUFFER  32 
 static fsinfo_buffer_t _fsinfo_buffers[MAX_FINFO_BUFFER];
 
 void  vfs_init(void) {
 	for(uint32_t i=0; i<MAX_FINFO_BUFFER; i++) {
+		memset(&_fsinfo_buffers[i], 0, sizeof(fsinfo_buffer_t));
 		_fsinfo_buffers[i].fd = -1;
-		memset(&_fsinfo_buffers[i].info, 0, sizeof(fsinfo_t));
 	}
 }
 
@@ -44,21 +45,19 @@ static inline void vfs_set_info_buffer(int fd, fsinfo_t* info) {
 static inline void vfs_clear_info_buffer(int fd) {
 	for(uint32_t i=0; i<MAX_FINFO_BUFFER; i++) {
 		if(_fsinfo_buffers[i].fd == fd) {
+			memset(&_fsinfo_buffers[i], 0, sizeof(fsinfo_buffer_t));
 			_fsinfo_buffers[i].fd = -1;
-			memset(&_fsinfo_buffers[i].info, 0, sizeof(fsinfo_t));
 			return;
 		}
 	}
 }
 
-static inline int vfs_fetch_info_buffer(int fd, fsinfo_t* info) {
+static inline fsinfo_buffer_t* vfs_fetch_info_buffer(int fd) {
 	for(uint32_t i=0; i<MAX_FINFO_BUFFER; i++) {
-		if(_fsinfo_buffers[i].fd == fd) {
-			memcpy(info, &_fsinfo_buffers[i].info, sizeof(fsinfo_t));
-			return 0;
-		}
+		if(_fsinfo_buffers[i].fd == fd)
+			return &_fsinfo_buffers[i];
 	}
-	return -1;
+	return NULL;
 }
 
 int vfs_check_access(int pid, fsinfo_t* info, int mode) {
@@ -125,7 +124,9 @@ static int vfs_get_by_fd_raw(int fd, fsinfo_t* info) {
 }
 
 int vfs_get_by_fd(int fd, fsinfo_t* info) {
-	if(vfs_fetch_info_buffer(fd, info) == 0) {
+	fsinfo_buffer_t* buffer = vfs_fetch_info_buffer(fd);
+	if(buffer != NULL) {
+		memcpy(info, &buffer->info, sizeof(fsinfo_t));
 		return 0;
 	}
 	
@@ -444,6 +445,10 @@ int vfs_umount(uint32_t node) {
 }
 
 int vfs_tell(int fd) {
+	fsinfo_buffer_t* buffer = vfs_fetch_info_buffer(fd);
+	if(buffer != NULL)
+		return buffer->offset;
+
 	proto_t in, out;
 	PF->init(&in)->addi(&in, fd);
 	PF->init(&out);
@@ -458,6 +463,12 @@ int vfs_tell(int fd) {
 }
 
 int vfs_seek(int fd, int offset) {
+	fsinfo_buffer_t* buffer = vfs_fetch_info_buffer(fd);
+	if(buffer != NULL) {
+		buffer->offset = offset;
+		return 0;
+	}
+
 	proto_t in, out;
 	PF->init(&in)->addi(&in, fd)->addi(&in, offset);
 	PF->init(&out);

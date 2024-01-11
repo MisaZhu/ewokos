@@ -17,6 +17,10 @@ include ../make.inc
 
 basic: basic_sys
 	@echo "all done."
+	rm -fr $(BUILD_DIR)/$(HW)
+	mv $(TARGET_DIR) $(BUILD_DIR)/$(HW)
+	cp -r $(BUILD_DIR)/include $(BUILD_DIR)/$(HW)
+	cp -r $(BUILD_DIR)/lib $(BUILD_DIR)/$(HW)
 
 full: full_sys
 	@echo "all done."
