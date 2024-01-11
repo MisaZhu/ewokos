@@ -80,6 +80,7 @@ LIB_EWOKC_OBJS = \
 	src/unistd/unlink.o \
 	src/unistd/write.o \
 	src/unistd/chown.o \
+	src/unistd/access.o \
 	\
 	src/dirent/opendir.o \
 	src/dirent/closedir.o \

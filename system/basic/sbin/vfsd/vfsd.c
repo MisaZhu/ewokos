@@ -623,7 +623,7 @@ static void do_vfs_get_by_name(int32_t pid, proto_t* in, proto_t* out) {
 	PF->addi(out, 0);
 	const char* name = proto_read_str(in);
   vfs_node_t* node = vfs_get_by_name(vfs_root(), name);
-  //if(node == NULL || vfs_check_access(pid, &node->fsinfo, VFS_ACCESS_R) != 0)
+  //if(node == NULL || vfs_check_access(pid, &node->fsinfo, R_OK) != 0)
   if(node == NULL)
     return;
 
@@ -649,7 +649,7 @@ static void do_vfs_get_by_node(int32_t pid, proto_t* in, proto_t* out) {
 		return;
 
   vfs_node_t* node = vfs_get_node_by_id(node_id);
-	//if(node == NULL || vfs_check_access(pid, &node->fsinfo, VFS_ACCESS_R) != 0)
+	//if(node == NULL || vfs_check_access(pid, &node->fsinfo, R_OK) != 0)
 	if(node == NULL)
     return;
 
@@ -693,8 +693,8 @@ static void do_vfs_new_node(int pid, proto_t* in, proto_t* out) {
 			return;
 		}
 
-		if(vfs_check_access(pid, &node_to->fsinfo, VFS_ACCESS_W) != 0 ||
-				vfs_check_access(pid, &node_to->fsinfo, VFS_ACCESS_X) != 0) {
+		if(vfs_check_access(pid, &node_to->fsinfo, W_OK) != 0 ||
+				vfs_check_access(pid, &node_to->fsinfo, X_OK) != 0) {
 			PF->addi(out, EPERM);
 			return;
 		}
@@ -731,12 +731,12 @@ static void do_vfs_open(int32_t pid, proto_t* in, proto_t* out) {
 		return;
 	}
 
-	if((flags & O_WRONLY) != 0 && vfs_check_access(pid, &node->fsinfo, VFS_ACCESS_W) != 0) {
+	if((flags & O_WRONLY) != 0 && vfs_check_access(pid, &node->fsinfo, W_OK) != 0) {
 		PF->addi(out, EPERM);
 		return;
 	}
 
-	if(vfs_check_access(pid, &node->fsinfo, VFS_ACCESS_R) != 0) {
+	if(vfs_check_access(pid, &node->fsinfo, R_OK) != 0) {
 		PF->addi(out, EPERM);
 		return;
 	}
@@ -794,7 +794,7 @@ static void do_vfs_set_fsinfo(int32_t pid, proto_t* in, proto_t* out) {
 			PF->addi(out, ENOENT);
 			return;
 		}
-  		if(vfs_check_access(pid, &node->fsinfo, VFS_ACCESS_W) != 0) {
+  		if(vfs_check_access(pid, &node->fsinfo, W_OK) != 0) {
 			PF->addi(out, EPERM);
 			return;
 		}
@@ -813,7 +813,7 @@ static void do_vfs_get_kids(int pid, proto_t* in, proto_t* out) {
 	if(node == NULL)
  	   return;
 
-	if(vfs_check_access(pid, &node->fsinfo, VFS_ACCESS_X) != 0)
+	if(vfs_check_access(pid, &node->fsinfo, X_OK) != 0)
 		return;
 	
 	uint32_t num = 0;

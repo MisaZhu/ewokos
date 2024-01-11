@@ -72,17 +72,17 @@ int vfs_check_access(int pid, fsinfo_t* info, int mode) {
 	int ucheck = 0400;	
 	int gcheck = 040;	
 	int acheck = 04;	
-	if(mode == VFS_ACCESS_R) {
+	if(mode == R_OK) {
 		ucheck = 0400;	
 		gcheck = 040;	
 		acheck = 04;	
 	}
-	else if(mode == VFS_ACCESS_W) {
+	else if(mode == W_OK) {
 		ucheck = 0200;	
 		gcheck = 020;	
 		acheck = 02;	
 	}
-	else if(mode == VFS_ACCESS_X) {
+	else if(mode == X_OK) {
 		ucheck = 0100;	
 		gcheck = 010;	
 		acheck = 01;	

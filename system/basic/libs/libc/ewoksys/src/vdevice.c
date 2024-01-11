@@ -221,7 +221,7 @@ static void do_create(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, v
 	proto_read_to(in, &info_to, sizeof(fsinfo_t));
 	proto_read_to(in, &info, sizeof(fsinfo_t));
 
-	if(vfs_check_access(from_pid, &info_to, VFS_ACCESS_W) != 0) {
+	if(vfs_check_access(from_pid, &info_to, W_OK) != 0) {
 		PF->addi(out, -1)->addi(out, EPERM);
 		return;
 	}
@@ -243,7 +243,7 @@ static void do_unlink(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, v
 	proto_read_to(in, &info, sizeof(fsinfo_t));
 	const char* fname = proto_read_str(in);
 	
-	if(vfs_check_access(from_pid, &info, VFS_ACCESS_W) != 0) {
+	if(vfs_check_access(from_pid, &info, W_OK) != 0) {
 		PF->addi(out, -1)->addi(out, EPERM);
 		return;
 	}
@@ -264,7 +264,7 @@ static void do_set(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, void
 		return;
 	}
 	
-	if(vfs_check_access(from_pid, &info_old, VFS_ACCESS_W) != 0) {
+	if(vfs_check_access(from_pid, &info_old, W_OK) != 0) {
 		PF->addi(out, -1)->addi(out, EPERM);
 		return;
 	}

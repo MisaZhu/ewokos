@@ -33,12 +33,6 @@ enum {
 	VFS_PROC_EXIT
 };
 
-enum {
-	VFS_ACCESS_R = 0,
-	VFS_ACCESS_W,
-	VFS_ACCESS_X
-};
-
 int  vfs_check_access(int pid, fsinfo_t* info, int mode);
 
 #ifdef __cplusplus

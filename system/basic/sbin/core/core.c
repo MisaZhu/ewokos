@@ -126,7 +126,7 @@ static void do_proc_set_cwd(int pid, proto_t* in, proto_t* out) {
 		return;
 	}
 	
-	if(vfs_check_access(pid, &info, VFS_ACCESS_X) != 0) {
+	if(vfs_check_access(pid, &info, X_OK) != 0) {
 		PF->addi(out, EPERM);
 		return;
 	}

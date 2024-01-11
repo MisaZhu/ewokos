@@ -19,6 +19,12 @@ struct stat {
 	uint32_t      st_ctime;   /* time of last status change - */    
 };
 
+enum {
+	R_OK = 0,
+	W_OK,
+	X_OK
+};
+
 int mkdir(const char* name, int mode);
 int stat(const char* name, struct stat* buf);
 int fstat(int fd, struct stat* buf);

@@ -116,7 +116,7 @@ static int sdext2_create(int pid, fsinfo_t* info_to, fsinfo_t* info, void* p) {
 	int32_t ino_to = (int32_t)info_to->data;
 	if(ino_to == 0) ino_to = 2;
 
-	if(vfs_check_access(pid, info_to, VFS_ACCESS_W) != 0)
+	if(vfs_check_access(pid, info_to, W_OK) != 0)
 		return -1;
 
 	INODE inode_to;
@@ -148,10 +148,10 @@ static int sdext2_open(int fd, int from_pid, uint32_t node, int oflag, void* p) 
 	if(vfs_get_by_node(node, &info) != 0)
 		return -1;
 	
-	if((oflag & O_WRONLY) != 0 && vfs_check_access(from_pid, &info, VFS_ACCESS_W) != 0)
+	if((oflag & O_WRONLY) != 0 && vfs_check_access(from_pid, &info, W_OK) != 0)
 		return -1;
 
-	if(vfs_check_access(from_pid, &info, VFS_ACCESS_R) != 0)
+	if(vfs_check_access(from_pid, &info, R_OK) != 0)
 		return -1;
 
 	ext2_t* ext2 = (ext2_t*)p;
@@ -174,7 +174,7 @@ static int sdext2_open(int fd, int from_pid, uint32_t node, int oflag, void* p) 
 }
 
 static int sdext2_set(int from_pid, fsinfo_t* info, void* p) {
-	if(vfs_check_access(from_pid, info, VFS_ACCESS_W) != 0)
+	if(vfs_check_access(from_pid, info, W_OK) != 0)
 		return -1;
 
 	ext2_t* ext2 = (ext2_t*)p;
@@ -200,7 +200,7 @@ static int sdext2_read(int fd, int from_pid, uint32_t node,
 	fsinfo_t info;
 	if(vfs_get_by_node(node, &info) != 0)
 		return -1;
-	if(vfs_check_access(from_pid, &info, VFS_ACCESS_R) != 0)
+	if(vfs_check_access(from_pid, &info, R_OK) != 0)
 		return -1;
 
 	ext2_t* ext2 = (ext2_t*)p;
@@ -231,7 +231,7 @@ static int sdext2_write(int fd, int from_pid, uint32_t node,
 	fsinfo_t info;
 	if(vfs_get_by_node(node, &info) != 0)
 		return -1;
-	if(vfs_check_access(from_pid, &info, VFS_ACCESS_W) != 0)
+	if(vfs_check_access(from_pid, &info, W_OK) != 0)
 		return -1;
 
 	ext2_t* ext2 = (ext2_t*)p;
