@@ -55,6 +55,7 @@ LIB_EWOKSYS_OBJS = ewoksys/src/syscall.o \
 	src/string/strstr.o  \
 	src/string/strtol.o  \
 	src/string/strtoul.o \
+	src/stdio/fprintf.o \
 	\
 
 LIB_EWOKC_OBJS = \
@@ -108,7 +109,6 @@ LIB_EWOKC_OBJS = \
 	src/stdio/snprintf.o \
 	src/stdio/dprintf.o \
 	src/stdio/printf.o \
-	src/stdio/fprintf.o \
 	src/stdio/fopen.o \
 	src/stdio/fclose.o \
 	src/stdio/fread.o \
