@@ -97,6 +97,13 @@ static file_t* vfs_get_file(int32_t pid, int32_t fd) {
 	return &_proc_fds_table[pid].fds[fd];
 }
 
+static file_t* vfs_check_fd(int32_t pid, int32_t fd) {
+	file_t* f = vfs_get_file(pid, fd);
+	if(f->node == NULL)
+		return NULL;
+	return f;
+}
+
 static int32_t vfs_get_mount_id(vfs_node_t* node) {
 	while(node != NULL) {
 		if(node->mount_id >= 0)
@@ -318,13 +325,14 @@ static int32_t vfs_del_node(int32_t pid, vfs_node_t* node) {
 		return -1;
 	/*free children*/
 	vfs_node_t* c = node->first_kid;
+	vfs_node_t* father = node->father;
+
 	while(c != NULL) {
 		vfs_node_t* next = c->next;
 		vfs_del_node(pid, c);
 		c = next;
 	}
 
-	vfs_node_t* father = node->father;
 	if(father != NULL) {
 		if(father->first_kid == node)
 			father->first_kid = node->next;
@@ -399,10 +407,9 @@ static vfs_node_t* vfs_open_announimous(int32_t pid, vfs_node_t* node) {
 }
 
 static vfs_node_t* vfs_get_by_fd(int32_t pid, int32_t fd) {
-	file_t* file = vfs_get_file(pid, fd);
+	file_t* file = vfs_check_fd(pid, fd);
 	if(file == NULL)
 		return NULL;
-
 	return file->node;
 }
 
@@ -453,11 +460,9 @@ static void proc_file_close(int pid, int fd, file_t* file, bool close_dev) {
 	(void)close_dev;
 	(void)pid;
 	(void)fd;
-	if(file == NULL)
+	if(file == NULL || file->node == NULL)
 		return;
-
 	uint32_t node_id = (uint32_t)file->node;
-
 	vfs_node_t* node = vfs_get_node_by_id(node_id);
 	if(node == NULL)
 		return;
@@ -477,8 +482,7 @@ static void proc_file_close(int pid, int fd, file_t* file, bool close_dev) {
 		}
 		proc_wakeup(node_id);
 	}
-
-	if((node->fsinfo.type & FS_TYPE_ANNOUNIMOUS) != 0) {
+	else if((node->fsinfo.type & FS_TYPE_ANNOUNIMOUS) != 0) {
 		if(node->refs <= 0) {
 			vfs_del_node(pid, node);
 			file->node = 0;
@@ -504,9 +508,11 @@ static void vfs_close(int32_t pid, int32_t fd) {
 	if(pid < 0 || fd < 0 || fd >= PROC_FILE_MAX)
 		return;
 
-	file_t* f = vfs_get_file(pid, fd);
-	proc_file_close(pid, fd, f, false);
-	memset(f, 0, sizeof(file_t));
+	file_t* f = vfs_check_fd(pid, fd);
+	if(f != NULL) {
+		proc_file_close(pid, fd, f, false);
+		memset(f, 0, sizeof(file_t));
+	}
 }
 
 static int32_t vfs_dup(int32_t pid, int32_t from) {
@@ -516,11 +522,14 @@ static int32_t vfs_dup(int32_t pid, int32_t from) {
 	if(to < 0)
 		return -1;
 
-	file_t* f = vfs_get_file(pid, from);
-	if(f->node == NULL) 
+	file_t* f = vfs_check_fd(pid, from);
+	if(f == NULL) 
 		return -1;
 
 	file_t* f_to = vfs_get_file(pid, to);
+	if(f_to == NULL)
+		return -1;
+
 	memcpy(f_to, f, sizeof(file_t));
 	f->node->refs++;
 	if((f->flags & O_WRONLY) != 0)
@@ -538,11 +547,14 @@ static int32_t vfs_dup2(int32_t pid, int32_t from, int32_t to) {
 
 	vfs_close(pid, to);
 
-	file_t* f = vfs_get_file(pid, from);
-	if(f->node == NULL) 
+	file_t* f = vfs_check_fd(pid, from);
+	if(f == NULL) 
 		return -1;
 
 	file_t* f_to = vfs_get_file(pid, to);
+	if(f_to == NULL)
+		return -1;
+
 	memcpy(f_to, f, sizeof(file_t));
 	f->node->refs++;
 	if((f->flags & O_WRONLY) != 0)
@@ -561,8 +573,8 @@ static int32_t vfs_seek(int32_t pid, int32_t fd, int32_t offset) {
 	if(fd < 0 || fd >= PROC_FILE_MAX)
 		return -1;
 	
-	file_t* f = vfs_get_file(pid, fd);
-	if(f->node == NULL)
+	file_t* f = vfs_check_fd(pid, fd);
+	if(f == NULL)
 		return -1;
 
 	f->seek = offset;
@@ -573,8 +585,8 @@ static int32_t vfs_tell(int32_t pid, int32_t fd) {
 	if(fd < 0 || fd >= PROC_FILE_MAX)
 		return -1;
 	
-	file_t* f = vfs_get_file(pid, fd);
-	if(f->node == NULL)
+	file_t* f = vfs_check_fd(pid, fd);
+	if(f == NULL)
 		return -1;
 
 	return f->seek;
@@ -611,7 +623,7 @@ static void do_vfs_get_by_name(int32_t pid, proto_t* in, proto_t* out) {
 	PF->addi(out, 0);
 	const char* name = proto_read_str(in);
   vfs_node_t* node = vfs_get_by_name(vfs_root(), name);
-  //if(node == NULL || vfs_check_access(pid, &node->fsinfo, VFS_ACCESS_R) != 0)
+  //if(node == NULL || vfs_check_access(pid, &node->fsinfo, R_OK) != 0)
   if(node == NULL)
     return;
 
@@ -637,7 +649,7 @@ static void do_vfs_get_by_node(int32_t pid, proto_t* in, proto_t* out) {
 		return;
 
   vfs_node_t* node = vfs_get_node_by_id(node_id);
-	//if(node == NULL || vfs_check_access(pid, &node->fsinfo, VFS_ACCESS_R) != 0)
+	//if(node == NULL || vfs_check_access(pid, &node->fsinfo, R_OK) != 0)
 	if(node == NULL)
     return;
 
@@ -646,7 +658,7 @@ static void do_vfs_get_by_node(int32_t pid, proto_t* in, proto_t* out) {
 
 static void do_vfs_get_flags(int pid, proto_t* in, proto_t* out) {
 	int fd = proto_read_int(in);
-	file_t* file = vfs_get_file(pid, fd);
+	file_t* file = vfs_check_fd(pid, fd);
   if(file == NULL) {
 		PF->addi(out, -1);
     return;
@@ -657,7 +669,7 @@ static void do_vfs_get_flags(int pid, proto_t* in, proto_t* out) {
 static void do_vfs_set_flags(int pid, proto_t* in, proto_t* out) {
 	int fd = proto_read_int(in);
 	int flags = proto_read_int(in);
-	file_t* file = vfs_get_file(pid, fd);
+	file_t* file = vfs_check_fd(pid, fd);
   if(file == NULL) {
 		PF->addi(out, -1);
     return;
@@ -676,15 +688,21 @@ static void do_vfs_new_node(int pid, proto_t* in, proto_t* out) {
 	vfs_node_t* node_to = NULL;
 	if(node_to_id > 0) {
 		node_to = vfs_get_node_by_id(node_to_id);
-		if (node_to == NULL)
+		if (node_to == NULL) {
+			PF->addi(out, ENOENT);
 			return;
+		}
 
-		if(vfs_check_access(pid, &node_to->fsinfo, VFS_ACCESS_W) != 0 ||
-				vfs_check_access(pid, &node_to->fsinfo, VFS_ACCESS_X) != 0)
+		if(vfs_check_access(pid, &node_to->fsinfo, W_OK) != 0 ||
+				vfs_check_access(pid, &node_to->fsinfo, X_OK) != 0) {
+			PF->addi(out, EPERM);
 			return;
+		}
 	
-		if(vfs_get_by_name(node_to, info.name) != NULL) //existed ! 
+		if(vfs_get_by_name(node_to, info.name) != NULL) {//existed ! 
+			PF->addi(out, EEXIST);
 			return;
+		}
 	}
 
  	vfs_node_t* node = vfs_new_node();
@@ -708,14 +726,20 @@ static void do_vfs_open(int32_t pid, proto_t* in, proto_t* out) {
 
 	int32_t flags = proto_read_int(in);
  	vfs_node_t* node = vfs_get_node_by_id(info.node);
- 	if(node == NULL)
+ 	if(node == NULL) {
+		PF->addi(out, ENOENT);
 		return;
+	}
 
-	if((flags & O_WRONLY) != 0 && vfs_check_access(pid, &node->fsinfo, VFS_ACCESS_W) != 0)
+	if((flags & O_WRONLY) != 0 && vfs_check_access(pid, &node->fsinfo, W_OK) != 0) {
+		PF->addi(out, EPERM);
 		return;
+	}
 
-	if(vfs_check_access(pid, &node->fsinfo, VFS_ACCESS_R) != 0)
+	if(vfs_check_access(pid, &node->fsinfo, R_OK) != 0) {
+		PF->addi(out, EPERM);
 		return;
+	}
 
 	int res = -1;
 	if((node->fsinfo.type & FS_TYPE_ANNOUNIMOUS) == 0)
@@ -735,7 +759,6 @@ static void do_vfs_close(int32_t pid, proto_t* in) {
 	int fd = proto_read_int(in);
 	if(fd < 0)
 		return;
-
 	vfs_close(pid, fd);
 }
 
@@ -763,16 +786,21 @@ static void do_vfs_dup2(int32_t pid, proto_t* in, proto_t* out) {
 
 static void do_vfs_set_fsinfo(int32_t pid, proto_t* in, proto_t* out) {
 	fsinfo_t info;
-	int32_t res = -1;
+	PF->addi(out, -1);
+	int res = -1;
 	if(proto_read_to(in, &info, sizeof(fsinfo_t)) == sizeof(fsinfo_t)) {
 		vfs_node_t* node = vfs_get_node_by_id(info.node);
-		if(node != NULL) { 
-  		if(vfs_check_access(pid, &node->fsinfo, VFS_ACCESS_W) == 0) {
-				res = vfs_set(pid, node, &info);
-			}
+		if(node == NULL) { 
+			PF->addi(out, ENOENT);
+			return;
 		}
+  		if(vfs_check_access(pid, &node->fsinfo, W_OK) != 0) {
+			PF->addi(out, EPERM);
+			return;
+		}
+		res = vfs_set(pid, node, &info);
 	}
-	PF->addi(out, res);
+	PF->clear(out)->addi(out, res);
 }
 
 static void do_vfs_get_kids(int pid, proto_t* in, proto_t* out) {
@@ -781,11 +809,11 @@ static void do_vfs_get_kids(int pid, proto_t* in, proto_t* out) {
 	if(node_id == 0)
 		return;
 
-  vfs_node_t* node = vfs_get_node_by_id(node_id);
-  if(node == NULL)
-    return;
+	vfs_node_t* node = vfs_get_node_by_id(node_id);
+	if(node == NULL)
+ 	   return;
 
-  if(vfs_check_access(pid, &node->fsinfo, VFS_ACCESS_X) != 0)
+	if(vfs_check_access(pid, &node->fsinfo, X_OK) != 0)
 		return;
 	
 	uint32_t num = 0;
@@ -866,7 +894,10 @@ static void do_vfs_pipe_open(int32_t pid, proto_t* out) {
 	node->fsinfo.stat.mode = 0666;
 	node->fsinfo.stat.uid = procinfo.uid;
 	node->fsinfo.stat.gid = procinfo.gid;
-	node->fsinfo.data = 0; //buffer set as zero , waiting for other-port
+
+	buffer_t* buf = (buffer_t*)malloc(sizeof(buffer_t));
+	memset(buf, 0, sizeof(buffer_t));
+	node->fsinfo.data = (int32_t)buf;
 
 	int32_t fd0 = vfs_open(pid, node, 1);
 	if(fd0 < 0) {
@@ -887,6 +918,10 @@ static void do_vfs_pipe_write(int pid, proto_t* in, proto_t* out) {
 	(void)pid;
 	PF->addi(out, -1);
 
+	int32_t fd = proto_read_int(in);
+	if(vfs_check_fd(pid, fd) == NULL)
+		return;
+
 	uint32_t node_id = proto_read_int(in);
 	if(node_id == 0)
 		return;
@@ -902,7 +937,7 @@ static void do_vfs_pipe_write(int pid, proto_t* in, proto_t* out) {
 
 	buffer_t* buffer = (buffer_t*)node->fsinfo.data;
 	if(buffer == NULL) { //pipe buffer not ready 
-		PF->clear(out)->addi(out, 0); // retry
+		proc_wakeup(node_id); //wakeup reader
 		return;
 	}
 
@@ -919,6 +954,11 @@ static void do_vfs_pipe_write(int pid, proto_t* in, proto_t* out) {
 static void do_vfs_pipe_read(int pid, proto_t* in, proto_t* out) {
 	(void)pid;
 	PF->addi(out, -1);
+
+	int32_t fd = proto_read_int(in);
+	if(vfs_check_fd(pid, fd) == NULL)
+		return;
+
 	uint32_t node_id = proto_read_int(in);
 	if(node_id == 0)
 		return;
@@ -933,7 +973,7 @@ static void do_vfs_pipe_read(int pid, proto_t* in, proto_t* out) {
 
 	buffer_t* buffer = (buffer_t*)node->fsinfo.data;
 	if(buffer == NULL) { //buffer not ready 
-		PF->clear(out)->addi(out, 0); // retry
+		proc_wakeup(node_id); //wakeup writer.
 		return;
 	}
 
@@ -987,15 +1027,6 @@ static void do_vfs_proc_clone(int32_t pid, proto_t* in) {
 			node->refs++;
 			if((f->flags & O_WRONLY) != 0)
 				node->refs_w++;
-
-			if(node->fsinfo.type == FS_TYPE_PIPE) {
-				if(node->fsinfo.data == 0) {
-					buffer_t* buf = (buffer_t*)malloc(sizeof(buffer_t));
-					memset(buf, 0, sizeof(buffer_t));
-					node->fsinfo.data = (int32_t)buf;
-					proc_wakeup((int32_t)node);
-				}
-			}
 		}
 	}
 }

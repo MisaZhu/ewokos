@@ -20,6 +20,7 @@ LIB_EWOKSYS_OBJS = ewoksys/src/syscall.o \
 	ewoksys/src/signal.o \
 	ewoksys/src/interrupt.o \
 	ewoksys/src/vdevice.o \
+	ewoksys/src/devcmd.o \
 	ewoksys/src/proto.o \
 	ewoksys/src/semaphore.o \
 	ewoksys/src/thread.o \
@@ -79,6 +80,8 @@ LIB_EWOKC_OBJS = \
 	src/unistd/usleep.o \
 	src/unistd/unlink.o \
 	src/unistd/write.o \
+	src/unistd/chown.o \
+	src/unistd/access.o \
 	\
 	src/dirent/opendir.o \
 	src/dirent/closedir.o \
@@ -123,9 +126,9 @@ LIB_EWOKC_OBJS = \
 	\
 	src/fcntl/open.o \
 	src/fcntl/close.o \
-	src/fcntl/stat.o \
 	src/fcntl/fcntl.o \
 	src/fcntl/chmod.o \
+	src/fcntl/fchmod.o \
 	\
 	src/signal/signal.o \
 	src/signal/kill.o
@@ -136,6 +139,10 @@ LIB_EWOKC_SYS_OBJS = \
 	src/sys/shm/shmget.o \
 	src/sys/shm/shmdt.o \
 	src/sys/shm/shmat.o \
+	\
+	src/sys/stat/stat.o \
+	src/sys/stat/fstat.o \
+	src/sys/stat/mkdir.o
 
 ifeq (${ARCH},arm)
 LIB_EWOKSYS_OBJS += \

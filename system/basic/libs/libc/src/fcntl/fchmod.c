@@ -4,9 +4,9 @@
 #include <stddef.h>
 #include <string.h>
 
-int  chmod(const char *pathname, int mode) {
+int fchmod(int fd, int mode) {
 	fsinfo_t info;
-	if(vfs_get_by_name(pathname, &info) != 0)
+	if(vfs_get_by_fd(fd, &info) != 0)
 		return -1;
 	info.stat.mode = mode;
 	return dev_set(info.mount_pid, &info);

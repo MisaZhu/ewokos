@@ -140,7 +140,7 @@ void xwin_close(xwin_t* xwin) {
 
 	close(xwin->fd);
 	if(xwin->x->main_win == xwin)
-		xwin->x->terminated = true;
+		x_terminate(xwin->x);
 	free(xwin);
 }
 

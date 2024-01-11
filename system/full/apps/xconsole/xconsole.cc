@@ -7,6 +7,7 @@
 #include <sconf/sconf.h>
 #include <ewoksys/vfs.h>
 #include <ewoksys/keydef.h>
+#include <ewoksys/proc.h>
 #include <ewoksys/klog.h>
 #include <ttf/ttf.h>
 #include <ewoksys/basic_math.h>
@@ -168,18 +169,17 @@ static void* thread_loop(void* p) {
 	while(!_termniated) {
 		char buf[512];
 		int size = read(0, buf, 512);
-		if(_termniated)
-			break;
 		if(size > 0) {
 			console->put(buf, size);
 			console->rollEnd();
 			console->repaint();
 		}
 		else if(errno != EAGAIN) {
-			console->close();
 			break;
 		}
 	}
+	if(!_termniated)
+		console->close();
 	_thread_done = true;
 	return NULL;
 }
@@ -206,6 +206,7 @@ static int run(int argc, char* argv[]) {
 	x.run(NULL, &xwin);
 	_termniated = true;
 	close(0);
+	close(1);
 	while(!_thread_done)
 		usleep(2000);
 	return 0;

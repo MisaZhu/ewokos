@@ -121,11 +121,15 @@ static void do_proc_set_cwd(int pid, proto_t* in, proto_t* out) {
 
 	const char* s = proto_read_str(in);
 	fsinfo_t info;
-	if(get_fsinfo_by_name(s, &info) != 0)
+	if(get_fsinfo_by_name(s, &info) != 0) {
+		PF->addi(out, ENOENT);
 		return;
+	}
 	
-	if(vfs_check_access(pid, &info, VFS_ACCESS_X) != 0)
+	if(vfs_check_access(pid, &info, X_OK) != 0) {
+		PF->addi(out, EPERM);
 		return;
+	}
 
 	str_cpy(_proc_info_table[pid].cwd, s);
 	PF->clear(out)->addi(out, 0);

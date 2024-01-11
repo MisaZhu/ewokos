@@ -1,6 +1,6 @@
 #include <fcntl.h>
 #include <ewoksys/syscall.h>
-#include <ewoksys/ipc.h>
+#include <ewoksys/devcmd.h>
 #include <ewoksys/vfs.h>
 #include <stddef.h>
 #include <string.h>
@@ -10,14 +10,7 @@ void close(int fd) {
 	if(vfs_get_by_fd(fd, &info) != 0)
 		return;
 
-	proto_t in;
-	PF->init(&in)->
-		addi(&in, fd)->
-		addi(&in, -1)->
-		addi(&in, info.node);
-
-	ipc_call_wait(info.mount_pid, FS_CMD_CLOSE, &in);
-	PF->clear(&in);
+	dev_close(info.mount_pid, fd, -1, info.node);
 	vfs_close(fd);
 }
 

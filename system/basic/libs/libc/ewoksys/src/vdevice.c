@@ -221,9 +221,14 @@ static void do_create(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, v
 	proto_read_to(in, &info_to, sizeof(fsinfo_t));
 	proto_read_to(in, &info, sizeof(fsinfo_t));
 
+	if(vfs_check_access(from_pid, &info_to, W_OK) != 0) {
+		PF->addi(out, -1)->addi(out, EPERM);
+		return;
+	}
+
 	int res = 0;
 	if(dev != NULL && dev->create != NULL)
-		res = dev->create(&info_to, &info, p);
+		res = dev->create(from_pid, &info_to, &info, p);
 
 	if(res == 0) {
 		PF->addi(out, res)->add(out, &info, sizeof(fsinfo_t));
@@ -238,15 +243,37 @@ static void do_unlink(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, v
 	proto_read_to(in, &info, sizeof(fsinfo_t));
 	const char* fname = proto_read_str(in);
 	
-	if(vfs_check_access(from_pid, &info, VFS_ACCESS_W) != 0) {
-		PF->addi(out, -1);
+	if(vfs_check_access(from_pid, &info, W_OK) != 0) {
+		PF->addi(out, -1)->addi(out, EPERM);
 		return;
 	}
 
-	int res = -1;
-	if(dev != NULL && dev->unlink != NULL) {
+	int res = 0;
+	if(dev != NULL && dev->unlink != NULL)
 		res = dev->unlink(&info, fname, p);
+	else
+		res = vfs_del_node(info.node);
+	PF->addi(out, res);
+}
+
+static void do_set(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, void* p) {
+	fsinfo_t info_old, info;
+	proto_read_to(in, &info, sizeof(fsinfo_t));
+	if(vfs_get_by_node(info.node, &info_old) != 0) {
+		PF->addi(out, -1)->addi(out, ENOENT);
+		return;
 	}
+	
+	if(vfs_check_access(from_pid, &info_old, W_OK) != 0) {
+		PF->addi(out, -1)->addi(out, EPERM);
+		return;
+	}
+
+	int res = 0;
+	if(dev != NULL && dev->set != NULL)
+		res = dev->set(from_pid, &info, p);
+	else
+		res =  vfs_set(&info);
 	PF->addi(out, res);
 }
 
@@ -328,6 +355,9 @@ static void handle(int from_pid, int cmd, proto_t* in, proto_t* out, void* p) {
 		break;
 	case FS_CMD_UNLINK:
 		do_unlink(dev, from_pid, in, out, p);
+		break;
+	case FS_CMD_SET:
+		do_set(dev, from_pid, in, out, p);
 		break;
 	case FS_CMD_CLEAR_BUFFER:
 		do_clear_buffer(dev, from_pid, in, out, p);

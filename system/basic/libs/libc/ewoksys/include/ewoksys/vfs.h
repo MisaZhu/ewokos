@@ -14,8 +14,8 @@ extern "C" {
 
 void      vfs_init(void);
 const char* vfs_fullname(const char* fname);
-int       vfs_read_pipe(uint32_t node, void* buf, uint32_t size, bool block);
-int       vfs_write_pipe(uint32_t node, const void* buf, uint32_t size, bool block);
+int       vfs_read_pipe(int fd, uint32_t node, void* buf, uint32_t size, bool block);
+int       vfs_write_pipe(int fd, uint32_t node, const void* buf, uint32_t size, bool block);
 int       vfs_open(fsinfo_t* info, int wr);
 int       vfs_close(int fd);
 int       vfs_new_node(fsinfo_t* info, uint32_t node_to);
@@ -42,9 +42,6 @@ int       vfs_dup2(int fd, int to);
 int       vfs_open_pipe(int fd[2]);
 int       vfs_flush(int fd, bool wait);
 int32_t   vfs_dma(int fd, int* size); 
-
-int       vfs_read_block(int pid, void* buf, uint32_t size, int32_t index);
-int       vfs_write_block(int pid, const void* buf, uint32_t size, int32_t index);
 
 int       vfs_read(int fd, fsinfo_t* info, void* buf, uint32_t size);
 int       vfs_write(int fd, fsinfo_t* info, const void* buf, uint32_t size);

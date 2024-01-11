@@ -21,6 +21,7 @@ builtin_apps:
 	cd kill;make
 	cd rm;make
 	cd chmod;make
+	cd chown;make
 	cd mkdir;make
 	cd grep;make
 	cd rx;make
@@ -47,6 +48,7 @@ clean:
 	cd kill;make clean
 	cd rm;make clean
 	cd chmod;make clean
+	cd chown;make clean
 	cd mkdir;make clean
 	cd grep;make clean
 	cd rx;make clean
