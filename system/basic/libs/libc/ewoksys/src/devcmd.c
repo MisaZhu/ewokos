@@ -197,10 +197,15 @@ int dev_fcntl(int dev_pid, int fd, fsinfo_t* info, int cmd, proto_t* arg_in, pro
 	int res = -1;
 	proto_t out;
 	PF->init(&out);
-	if(ipc_call(dev_pid, FS_CMD_CNTL, &in, &out) == 0) {
+	if(arg_out == NULL)
+		res = ipc_call(dev_pid, FS_CMD_CNTL, &in, NULL);
+	else
+		res = ipc_call(dev_pid, FS_CMD_CNTL, &in, &out);
+
+	if(res == 0) {
 		res = proto_read_int(&out);
-		proto_read_to(&out, info, sizeof(fsinfo_t));
 		if(arg_out != NULL) {
+			proto_read_to(&out, info, sizeof(fsinfo_t));
 			int32_t sz;
 			void *p = proto_read(&out, &sz);
 			PF->copy(arg_out, p, sz);
