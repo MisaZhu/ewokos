@@ -18,16 +18,17 @@ extern "C" {
 
 typedef struct {
 	int fd;
+	uint32_t offset;
 	fsinfo_t info;
 } fsinfo_buffer_t;
 
-#define MAX_FINFO_BUFFER  16
+#define MAX_FINFO_BUFFER  32 
 static fsinfo_buffer_t _fsinfo_buffers[MAX_FINFO_BUFFER];
 
 void  vfs_init(void) {
 	for(uint32_t i=0; i<MAX_FINFO_BUFFER; i++) {
+		memset(&_fsinfo_buffers[i], 0, sizeof(fsinfo_buffer_t));
 		_fsinfo_buffers[i].fd = -1;
-		memset(&_fsinfo_buffers[i].info, 0, sizeof(fsinfo_t));
 	}
 }
 
@@ -41,24 +42,31 @@ static inline void vfs_set_info_buffer(int fd, fsinfo_t* info) {
 	}
 }
 
+static inline void vfs_update_info_buffer(fsinfo_t* info) {
+	for(uint32_t i=0; i<MAX_FINFO_BUFFER; i++) {
+		if(_fsinfo_buffers[i].fd >= 0 &&
+				_fsinfo_buffers[i].info.node == info->node) {
+			memcpy(&_fsinfo_buffers[i].info, info, sizeof(fsinfo_t));
+		}
+	}
+}
+
 static inline void vfs_clear_info_buffer(int fd) {
 	for(uint32_t i=0; i<MAX_FINFO_BUFFER; i++) {
 		if(_fsinfo_buffers[i].fd == fd) {
+			memset(&_fsinfo_buffers[i], 0, sizeof(fsinfo_buffer_t));
 			_fsinfo_buffers[i].fd = -1;
-			memset(&_fsinfo_buffers[i].info, 0, sizeof(fsinfo_t));
 			return;
 		}
 	}
 }
 
-static inline int vfs_fetch_info_buffer(int fd, fsinfo_t* info) {
+static inline fsinfo_buffer_t* vfs_fetch_info_buffer(int fd) {
 	for(uint32_t i=0; i<MAX_FINFO_BUFFER; i++) {
-		if(_fsinfo_buffers[i].fd == fd) {
-			memcpy(info, &_fsinfo_buffers[i].info, sizeof(fsinfo_t));
-			return 0;
-		}
+		if(_fsinfo_buffers[i].fd == fd)
+			return &_fsinfo_buffers[i];
 	}
-	return -1;
+	return NULL;
 }
 
 int vfs_check_access(int pid, fsinfo_t* info, int mode) {
@@ -125,12 +133,14 @@ static int vfs_get_by_fd_raw(int fd, fsinfo_t* info) {
 }
 
 int vfs_get_by_fd(int fd, fsinfo_t* info) {
-	if(vfs_fetch_info_buffer(fd, info) == 0) {
+	fsinfo_buffer_t* buffer = vfs_fetch_info_buffer(fd);
+	if(buffer != NULL) {
+		memcpy(info, &buffer->info, sizeof(fsinfo_t));
 		return 0;
 	}
-	
+
 	int res = vfs_get_by_fd_raw(fd, info);
-	if(res == 0 && fd > 3)
+	if(res == 0)
 		vfs_set_info_buffer(fd, info);
 	return res;
 }
@@ -278,6 +288,8 @@ int vfs_close(int fd) {
 }
 
 int vfs_dup2(int fd, int to) {
+	vfs_close(to);
+
 	proto_t in, out;
 	PF->init(&in)->addi(&in, fd)->addi(&in, to);
 	PF->init(&out);
@@ -367,6 +379,13 @@ int vfs_set(fsinfo_t* info) {
 	return res;
 }
 
+static int vfs_update(fsinfo_t* info) {
+	if(vfs_set(info) != 0)
+		return -1;
+	vfs_update_info_buffer(info);
+	return 0;
+}
+
 int vfs_del_node(uint32_t node) {
 	proto_t in, out;
 	PF->init(&in)->addi(&in, node);
@@ -444,6 +463,10 @@ int vfs_umount(uint32_t node) {
 }
 
 int vfs_tell(int fd) {
+	fsinfo_buffer_t* buffer = vfs_fetch_info_buffer(fd);
+	if(buffer != NULL)
+		return buffer->offset;
+
 	proto_t in, out;
 	PF->init(&in)->addi(&in, fd);
 	PF->init(&out);
@@ -458,6 +481,12 @@ int vfs_tell(int fd) {
 }
 
 int vfs_seek(int fd, int offset) {
+	fsinfo_buffer_t* buffer = vfs_fetch_info_buffer(fd);
+	if(buffer != NULL) {
+		buffer->offset = offset;
+		return 0;
+	}
+
 	proto_t in, out;
 	PF->init(&in)->addi(&in, fd)->addi(&in, offset);
 	PF->init(&out);
@@ -578,41 +607,9 @@ int vfs_parse_name(const char* fname, str_t* dir, str_t* name) {
 
 int vfs_fcntl(int fd, int cmd, proto_t* arg_in, proto_t* arg_out) {
 	fsinfo_t info;
-	//if(vfs_get_by_fd(fd, &info) != 0)
 	if(vfs_get_by_fd(fd, &info) != 0)
 		return -1;
-	
-	proto_t in;
-	PF->init(&in)->
-		addi(&in, fd)->
-		addi(&in, info.node)->
-		addi(&in, cmd);
-	if(arg_in == NULL)
-		PF->add(&in, NULL, 0);
-	else
-		PF->add(&in, arg_in->data, arg_in->size);
-
-	int res = -1;
-	if(arg_out != NULL) {
-		proto_t out;
-		PF->init(&out);
-		if(ipc_call(info.mount_pid, FS_CMD_CNTL, &in, &out) == 0) {
-			res = proto_read_int(&out);
-			if(arg_out != NULL) {
-				int32_t sz;
-				void *p = proto_read(&out, &sz);
-				PF->copy(arg_out, p, sz);
-			}
-		}
-		PF->clear(&in);
-		PF->clear(&out);
-	}
-	else {
-		res = ipc_call(info.mount_pid, FS_CMD_CNTL, &in, NULL);
-		PF->clear(&in);
-	}
-
-	return res;
+	return dev_fcntl(info.mount_pid, fd, &info, cmd, arg_in, arg_out);
 }
 
 inline int  vfs_fcntl_wait(int fd, int cmd, proto_t* in) {
@@ -634,6 +631,7 @@ int vfs_flush(int fd, bool wait) {
 	fsinfo_t info;
 	if(vfs_get_by_fd(fd, &info) != 0)
 		return 0; //error
+
 	return dev_flush(info.mount_pid, fd, info.node, wait);
 }
 
@@ -658,7 +656,7 @@ int vfs_read(int fd, fsinfo_t *info, void* buf, uint32_t size) {
 			offset = 0;
 	}
 
-	int res = dev_read(info->mount_pid, fd, info->node, offset, buf, size);
+	int res = dev_read(info->mount_pid, fd, info, offset, buf, size);
 	if(res > 0) {
 		offset += res;
 		if(info->type == FS_TYPE_FILE)
@@ -697,8 +695,9 @@ int vfs_write(int fd, fsinfo_t* info, const void* buf, uint32_t size) {
 			offset = 0;
 	}
 		
-	int res = dev_write(info->mount_pid, fd, info->node, offset, buf, size);
+	int res = dev_write(info->mount_pid, fd, info, offset, buf, size);
 	if(res > 0) {
+		vfs_update(info);
 		offset += res;
 		if(info->type == FS_TYPE_FILE)
 			vfs_seek(fd, offset);

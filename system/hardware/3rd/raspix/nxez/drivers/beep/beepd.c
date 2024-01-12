@@ -10,7 +10,7 @@ static void init(void) {
 	bcm283x_gpio_write(BEEP, 1);
 }
 
-static int beep_write(int fd, int from_pid, uint32_t node,
+static int beep_write(int fd, int from_pid, fsinfo_t* node,
 		const void* buf, int size, int offset, void* p) {
 	(void)fd;
 	(void)node;

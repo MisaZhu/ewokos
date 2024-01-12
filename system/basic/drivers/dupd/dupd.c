@@ -13,7 +13,7 @@ static int _fds_num = 0;
 
 static int dup_write(int fd, 
 		int from_pid,
-		uint32_t node,
+		fsinfo_t* node,
 		const void* buf,
 		int size,
 		int offset,

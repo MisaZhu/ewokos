@@ -193,7 +193,7 @@ static void prompt(void) {
 
 static void try_init_stdio(void) {
 	if(!_stdio_inited) {
-		int fd = open("/dev/tty0", 0);
+		int fd = open("/dev/tty0", O_RDWR);
 		if(fd > 0) {
 			dup2(fd, 0);
 			dup2(fd, 1);
@@ -204,7 +204,7 @@ static void try_init_stdio(void) {
 	}
 
 	if(!_stderr_console_inited) {
-		int fd_console = open("/dev/console0", 0);
+		int fd_console = open("/dev/console0", O_RDWR);
 		if(fd_console > 0) {
 			dup2(fd_console, 2);
 			close(fd_console);

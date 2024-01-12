@@ -1030,7 +1030,7 @@ static int xwin_call_xim(x_t* x) {
 	return 0;
 }
 
-static int xserver_fcntl(int fd, int from_pid, uint32_t node,
+static int xserver_fcntl(int fd, int from_pid, fsinfo_t* node,
 		int cmd, proto_t* in, proto_t* out, void* p) {
 	(void)fd;
 	(void)node;
