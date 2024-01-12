@@ -25,7 +25,7 @@ typedef struct {
 	int (*write_block)(int from_pid, const void* buf, int size, int index, void* p);
 	int32_t (*dma)(int fd, int from_pid, uint32_t node, int* size, void* p);
 	int (*flush)(int fd, int from_pid, uint32_t node, void* p);
-	int (*fcntl)(int fd, int from_pid, uint32_t node, int cmd, proto_t* in, proto_t* out, void* p);
+	int (*fcntl)(int fd, int from_pid, fsinfo_t* info, int cmd, proto_t* in, proto_t* out, void* p);
 	int (*set)(int from_pid, fsinfo_t* info, void* p);
 	int (*mount)(fsinfo_t* mnt_point, void* p);
 	int (*umount)(uint32_t node, void* p);

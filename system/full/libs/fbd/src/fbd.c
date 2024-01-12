@@ -24,7 +24,7 @@ static char _logo[256];
 
 static int fb_fcntl(int fd, 
 		int from_pid,
-		uint32_t node, 
+		fsinfo_t* node, 
 		int cmd, 
 		proto_t* in, 
 		proto_t* out,

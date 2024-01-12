@@ -113,7 +113,9 @@ static void do_write(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, vo
 		else {
 			size = dev->write(fd, from_pid, &info, data, size, offset, p);
 			PF->addi(out, size);
+			PF->add(out, &info, sizeof(fsinfo_t));
 		}
+		PF->add(out, &info, sizeof(fsinfo_t));
 		if(shm_id != -1 && data != NULL)
 			shmdt(data);
 	}
@@ -185,7 +187,8 @@ static void do_dma(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, void
 
 static void do_fcntl(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, void* p) {
 	int fd = proto_read_int(in);
-	uint32_t node = proto_read_int(in);
+	fsinfo_t info;
+	proto_read_to(in, &info, sizeof(fsinfo_t));
 	int32_t cmd = proto_read_int(in);
 
 	proto_t arg_in, arg_out;
@@ -197,11 +200,13 @@ static void do_fcntl(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, vo
 
 	int res = -1;
 	if(dev != NULL && dev->fcntl != NULL) {
-		res = dev->fcntl(fd, from_pid, node, cmd, &arg_in, &arg_out, p);
+		res = dev->fcntl(fd, from_pid, &info, cmd, &arg_in, &arg_out, p);
 	}
 	PF->clear(&arg_in);
 
-	PF->addi(out, res)->add(out, arg_out.data, arg_out.size);
+	PF->addi(out, res)->
+			add(out, &info, sizeof(fsinfo_t))->
+			add(out, arg_out.data, arg_out.size);
 	PF->clear(&arg_out);
 }
 

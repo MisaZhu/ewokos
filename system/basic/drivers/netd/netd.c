@@ -246,15 +246,15 @@ static int network_split_ack(int fd, int from_pid, uint32_t node,
 	return 0;
 }
 
-static int network_fcntl(int fd, int from_pid, uint32_t node,
+static int network_fcntl(int fd, int from_pid, fsinfo_t* info,
 	int cmd, proto_t* in, proto_t* out, void* p) {
     (void)p;
 	if(cmd < SOCK_REQUEST){
-		return do_network_fcntl(fd, from_pid, node, cmd, in, out, p);	
+		return do_network_fcntl(fd, from_pid, info->node, cmd, in, out, p);	
 	}else if(cmd == SOCK_REQUEST){
-		return network_split_fcntl(fd, fread, node, cmd, in, out, p);	
+		return network_split_fcntl(fd, fread, info->node, cmd, in, out, p);	
 	}else if(cmd == SOCK_ACK){
-		return network_split_ack(fd, from_pid, node, cmd, in, out, p);
+		return network_split_ack(fd, from_pid, info->node, cmd, in, out, p);
 	}
 }
 

@@ -145,7 +145,7 @@ static int usb_close(int fd, int from_pid, uint32_t node, void* p) {
 }
 
 
-static int usb_fcntl(int fd, int from_pid, uint32_t node,
+static int usb_fcntl(int fd, int from_pid, fsinfo_t* info,
     	int cmd, proto_t* in, proto_t* out, void* p) {
     fd_info_t *ptr = get_fd_info(fd, from_pid);
     if(!ptr)

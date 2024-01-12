@@ -42,6 +42,15 @@ static inline void vfs_set_info_buffer(int fd, fsinfo_t* info) {
 	}
 }
 
+static inline void vfs_update_info_buffer(fsinfo_t* info) {
+	for(uint32_t i=0; i<MAX_FINFO_BUFFER; i++) {
+		if(_fsinfo_buffers[i].fd >= 0 &&
+				_fsinfo_buffers[i].info.node == info->node) {
+			memcpy(&_fsinfo_buffers[i].info, info, sizeof(fsinfo_t));
+		}
+	}
+}
+
 static inline void vfs_clear_info_buffer(int fd) {
 	for(uint32_t i=0; i<MAX_FINFO_BUFFER; i++) {
 		if(_fsinfo_buffers[i].fd == fd) {
@@ -129,9 +138,9 @@ int vfs_get_by_fd(int fd, fsinfo_t* info) {
 		memcpy(info, &buffer->info, sizeof(fsinfo_t));
 		return 0;
 	}
-	
+
 	int res = vfs_get_by_fd_raw(fd, info);
-	if(res == 0 && fd > 3)
+	if(res == 0)
 		vfs_set_info_buffer(fd, info);
 	return res;
 }
@@ -279,6 +288,8 @@ int vfs_close(int fd) {
 }
 
 int vfs_dup2(int fd, int to) {
+	vfs_close(to);
+
 	proto_t in, out;
 	PF->init(&in)->addi(&in, fd)->addi(&in, to);
 	PF->init(&out);
@@ -366,6 +377,13 @@ int vfs_set(fsinfo_t* info) {
 	}
 	PF->clear(&out);
 	return res;
+}
+
+static int vfs_update(fsinfo_t* info) {
+	if(vfs_set(info) != 0)
+		return -1;
+	vfs_update_info_buffer(info);
+	return 0;
 }
 
 int vfs_del_node(uint32_t node) {
@@ -589,7 +607,6 @@ int vfs_parse_name(const char* fname, str_t* dir, str_t* name) {
 
 int vfs_fcntl(int fd, int cmd, proto_t* arg_in, proto_t* arg_out) {
 	fsinfo_t info;
-	//if(vfs_get_by_fd(fd, &info) != 0)
 	if(vfs_get_by_fd(fd, &info) != 0)
 		return -1;
 	
@@ -710,6 +727,7 @@ int vfs_write(int fd, fsinfo_t* info, const void* buf, uint32_t size) {
 		
 	int res = dev_write(info->mount_pid, fd, info, offset, buf, size);
 	if(res > 0) {
+		vfs_update(info);
 		offset += res;
 		if(info->type == FS_TYPE_FILE)
 			vfs_seek(fd, offset);
