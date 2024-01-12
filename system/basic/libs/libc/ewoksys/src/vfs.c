@@ -709,10 +709,11 @@ int vfs_write(int fd, fsinfo_t* info, const void* buf, uint32_t size) {
 		
 	int res = dev_write(info->mount_pid, fd, info, offset, buf, size);
 	if(res > 0) {
-		update_vfsd(info);
 		offset += res;
-		if(info->type == FS_TYPE_FILE)
+		if(info->type == FS_TYPE_FILE) {
+			update_vfsd(info);
 			vfs_seek(fd, offset);
+		}
 	}
 	else if(res == -2) {
 		errno = EAGAIN;
