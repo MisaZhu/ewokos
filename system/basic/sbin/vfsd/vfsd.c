@@ -350,7 +350,7 @@ static int32_t vfs_del_node(int32_t pid, vfs_node_t* node) {
 	return 0;
 }
 
-static int32_t vfs_set(int32_t pid, vfs_node_t* node, fsinfo_t* info) {
+static int32_t set_node_info(int32_t pid, vfs_node_t* node, fsinfo_t* info) {
 	(void)pid;
 	if(node == NULL || info == NULL)
 		return -1;
@@ -381,6 +381,9 @@ static int32_t vfs_open(int32_t pid, vfs_node_t* node, int32_t flags) {
 
 	_proc_fds_table[pid].fds[fd].node = node;
 	_proc_fds_table[pid].fds[fd].flags = flags;
+
+	if((flags & O_TRUNC) != 0)
+		node->fsinfo.stat.size = 0;
 
 	node->refs++;
 	if((flags & O_WRONLY) != 0)
@@ -798,7 +801,7 @@ static void do_vfs_set_fsinfo(int32_t pid, proto_t* in, proto_t* out) {
 			PF->addi(out, EPERM);
 			return;
 		}
-		res = vfs_set(pid, node, &info);
+		res = set_node_info(pid, node, &info);
 	}
 	PF->clear(out)->addi(out, res);
 }

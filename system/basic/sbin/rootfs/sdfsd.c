@@ -136,7 +136,6 @@ static int sdext2_create(int pid, fsinfo_t* info_to, fsinfo_t* info, void* p) {
 	if(ino == -1)
 		return -1;
 	info->data = ino;
-	vfs_set(info);
 	return 0;
 }
 
@@ -168,7 +167,6 @@ static int sdext2_open(int fd, int from_pid, uint32_t node, int oflag, void* p) 
 		inode.i_size = 0;
 		info.stat.size = 0;
 		put_node(ext2, ino, &inode);
-		vfs_set(&info);
 	}
 	return 0;	
 }
@@ -189,7 +187,7 @@ static int sdext2_set(int from_pid, fsinfo_t* info, void* p) {
 
 	set_inode_stat(&info->stat, &inode);
 	put_node(ext2, ino, &inode);
-	return vfs_set(info);
+	return 0;
 }
 
 static int sdext2_read(int fd, int from_pid, fsinfo_t* info, 

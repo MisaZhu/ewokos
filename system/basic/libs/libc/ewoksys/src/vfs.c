@@ -341,10 +341,6 @@ int vfs_get_by_name(const char* fname, fsinfo_t* info) {
 	return res;	
 }
 
-int  vfs_access(const char* fname) {
-	return vfs_get_by_name(fname, NULL);
-}
-
 fsinfo_t* vfs_kids(uint32_t node, uint32_t *num) {
 	proto_t in, out;
 	PF->init(&in)->addi(&in, node);
@@ -365,7 +361,7 @@ fsinfo_t* vfs_kids(uint32_t node, uint32_t *num) {
 	return ret;
 }
 
-int vfs_set(fsinfo_t* info) {
+static int vfs_set_info(fsinfo_t* info) {
 	proto_t in, out;
 	PF->init(&in)->add(&in, info, sizeof(fsinfo_t));
 	PF->init(&out);
@@ -379,10 +375,17 @@ int vfs_set(fsinfo_t* info) {
 	return res;
 }
 
-static int vfs_update(fsinfo_t* info) {
-	if(vfs_set(info) != 0)
+int update_vfsd(fsinfo_t* info) {
+	if(vfs_set_info(info) != 0)
 		return -1;
 	vfs_update_info_buffer(info);
+	return 0;
+}
+
+int vfs_update(fsinfo_t* info) {
+	if(dev_set(info->mount_pid, info) != 0)
+		return -1;
+	update_vfsd(info);
 	return 0;
 }
 
@@ -578,9 +581,14 @@ int vfs_create(const char* fname, fsinfo_t* ret, int type, int mode, bool vfs_no
 
 	fi.mount_pid = info_to.mount_pid;
 	int res = dev_create(info_to.mount_pid, &info_to, &fi);
-	if(res != 0)
+	if(res == 0) 
+		res = update_vfsd(&fi);
+
+	if(res != 0) {
 		vfs_del_node(fi.node);
-	
+		return res;
+	}
+
 	if(ret != NULL)
 		memcpy(ret, &fi, sizeof(fsinfo_t));
 	return res;
@@ -697,7 +705,7 @@ int vfs_write(int fd, fsinfo_t* info, const void* buf, uint32_t size) {
 		
 	int res = dev_write(info->mount_pid, fd, info, offset, buf, size);
 	if(res > 0) {
-		vfs_update(info);
+		update_vfsd(info);
 		offset += res;
 		if(info->type == FS_TYPE_FILE)
 			vfs_seek(fd, offset);

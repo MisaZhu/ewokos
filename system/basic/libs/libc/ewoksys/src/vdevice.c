@@ -279,8 +279,6 @@ static void do_set(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, void
 	int res = 0;
 	if(dev != NULL && dev->set != NULL)
 		res = dev->set(from_pid, &info, p);
-	else
-		res =  vfs_set(&info);
 	PF->addi(out, res);
 }
 

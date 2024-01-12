@@ -132,7 +132,7 @@ static int do_network_fcntl(int fd, int from_pid, uint32_t node,
 			sock = sock_open(domain, type, protocol);
 			PF->addi(out, sock);
 			info.data = sock;
-			vfs_set(&info);
+			update_vfsd(&info);
 			break;
 		case SOCK_BIND:
 			paddr = proto_read(in, &addrlen);
@@ -186,7 +186,7 @@ static int do_network_fcntl(int fd, int from_pid, uint32_t node,
 		case SOCK_LINK:
 			sock = proto_read_int(in);	
 			info.data = sock;
-			vfs_set(&info);
+			update_vfsd(&info);
 			PF->addi(out, 0);
 			break;
 		case SOCK_CONNECT:

@@ -210,7 +210,7 @@ public:
 		str_t* ret = NULL;
 		if(theme[0] != 0) {
 			ret = str_new(x_get_theme_fname(X_THEME_ROOT, appName, "icon.png"));
-			if(vfs_access(ret->cstr) == 0)
+			if(access(ret->cstr, R_OK) == 0)
 				return ret;
 			str_free(ret);
 		}
