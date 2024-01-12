@@ -166,6 +166,10 @@ int vfs_get_by_node(uint32_t node, fsinfo_t* info) {
 	return res;
 }
 
+int vfs_check(fsinfo_t* info) {
+	return vfs_get_by_node(info->node, info);
+}
+
 int vfs_new_node(fsinfo_t* info, uint32_t node_to) {
 	proto_t in, out;
 	PF->init(&in)->add(&in, info, sizeof(fsinfo_t))->addi(&in, node_to);

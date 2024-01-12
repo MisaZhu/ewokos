@@ -27,6 +27,8 @@ int       vfs_get_by_fd(int fd, fsinfo_t* info);
 int       vfs_tell(int fd);
 int       vfs_seek(int fd, int offset);
 int       update_vfsd(fsinfo_t* info);
+
+int       vfs_check(fsinfo_t* info);
 int       vfs_update(fsinfo_t* info);
 int       vfs_get_mount_by_id(int id, mount_t* mount);
 
