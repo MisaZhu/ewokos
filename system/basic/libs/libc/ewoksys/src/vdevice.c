@@ -6,6 +6,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <fcntl.h>
 #include <errno.h>
 #include <sys/shm.h>
 #include <ewoksys/proc.h>
@@ -21,14 +22,33 @@ static void do_open(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, voi
 	int fd = proto_read_int(in);
 	uint32_t node = proto_read_int(in);
 	oflag = proto_read_int(in);
+
+	fsinfo_t info;
+	if(vfs_get_by_node(node, &info) != 0) {
+		PF->addi(out, -1)->addi(out, ENOENT);
+		return;
+	}
+
+	if((oflag & O_WRONLY) != 0 && vfs_check_access(from_pid, &info, W_OK) != 0) {
+		PF->addi(out, -1)->addi(out, EPERM);
+		return;
+	}
+
+	if(vfs_check_access(from_pid, &info, R_OK) != 0) {
+		PF->addi(out, -1)->addi(out, EPERM);
+		return;
+	}
 	
 	int res = 0;
 	if(fd >= 0 && dev != NULL && dev->open != NULL) {
-		if(dev->open(fd, from_pid, node, oflag, p) != 0) {
+		if(dev->open(fd, from_pid, &info, oflag, p) != 0)
 			res = -1;
-		}
 	}
 	PF->addi(out, res);
+	if(res == 0)
+		PF->add(out, &info, sizeof(fsinfo_t));
+	else
+		PF->addi(out, errno);
 }
 
 static void do_close(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, void* p) {
@@ -57,6 +77,11 @@ static void do_read(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, voi
 	fsinfo_t info;
 	if(vfs_get_by_node(node, &info) != 0) {
 		PF->addi(out, -1);
+		return;
+	}
+
+	if(vfs_check_access(from_pid, &info, R_OK) != 0) {
+		PF->addi(out, -1)->addi(out, EPERM);
 		return;
 	}
 
@@ -105,6 +130,11 @@ static void do_write(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, vo
 	fsinfo_t info;
 	if(vfs_get_by_node(node, &info) != 0) {
 		PF->addi(out, -1);
+		return;
+	}
+
+	if(vfs_check_access(from_pid, &info, W_OK) != 0) {
+		PF->addi(out, -1)->addi(out, EPERM);
 		return;
 	}
 	

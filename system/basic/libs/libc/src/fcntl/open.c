@@ -28,7 +28,7 @@ int open(const char* fname, int oflag) {
 		return -1;
 	}
 
-	if(dev_open(info.mount_pid, fd, info.node, oflag) != 0) {
+	if(dev_open(info.mount_pid, fd, &info, oflag) != 0) {
 		vfs_close(fd);
 		if(created)
 			vfs_del_node(info.node);

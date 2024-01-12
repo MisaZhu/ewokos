@@ -258,7 +258,7 @@ static int network_fcntl(int fd, int from_pid, fsinfo_t* info,
 	}
 }
 
-int network_open(int fd, int from_pid, uint32_t node, int oflag, void* p){
+int network_open(int fd, int from_pid, fsinfo_t* node, int oflag, void* p){
 	return 0;
 }
 

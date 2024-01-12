@@ -62,12 +62,12 @@ int dev_close(int dev_pid, int fd, int pid, uint32_t node) {
 	return res;
 }
 
-int dev_open(int dev_pid, int fd, uint32_t node, int oflag) {
+int dev_open(int dev_pid, int fd, fsinfo_t* info, int oflag) {
 	proto_t in, out;
 	PF->init(&out);
 	PF->init(&in)->
 		addi(&in, fd)->
-		addi(&in, node)->
+		addi(&in, info->node)->
 		addi(&in, oflag);
 
 	int res = ipc_call(dev_pid, FS_CMD_OPEN, &in, &out);
@@ -79,6 +79,8 @@ int dev_open(int dev_pid, int fd, uint32_t node, int oflag) {
 	res =	proto_read_int(&out);
 	if(res != 0)
 		errno = proto_read_int(&out);
+	else
+		proto_read_to(&out, info, sizeof(fsinfo_t));
 
 	PF->clear(&in);
 	PF->clear(&out);
