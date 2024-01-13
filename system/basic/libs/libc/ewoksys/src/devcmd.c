@@ -105,7 +105,8 @@ int dev_read(int dev_pid, int fd, fsinfo_t* info, int32_t offset, void* buf, uin
 	PF->init(&out);
 	PF->init(&in)->
 			addi(&in, fd)->
-			addi(&in, info->node)->
+			//addi(&in, info->node)->
+			add(&in, info, sizeof(fsinfo_t))->
 			addi(&in, size)->
 			addi(&in, offset)->
 			addi(&in, shm_id);
@@ -146,7 +147,8 @@ int dev_write(int dev_pid, int fd, fsinfo_t* info, int32_t offset, const void* b
 	PF->init(&out);
 	PF->init(&in)->
 		addi(&in, fd)->
-		addi(&in, info->node)->
+		//addi(&in, info->node)->
+		add(&in, info, sizeof(fsinfo_t))->
 		addi(&in, offset)->
 		addi(&in, shm_id);
 	if(shm_id == -1)
@@ -189,7 +191,8 @@ int dev_fcntl(int dev_pid, int fd, fsinfo_t* info, int cmd, proto_t* arg_in, pro
 	proto_t in;
 	PF->init(&in)->
 		addi(&in, fd)->
-		addi(&in, info->node)->
+		//addi(&in, info->node)->
+		add(&in, info, sizeof(fsinfo_t))->
 		addi(&in, cmd);
 	if(arg_in == NULL)
 		PF->add(&in, NULL, 0);

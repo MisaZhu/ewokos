@@ -68,17 +68,19 @@ static void do_close(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, vo
 static void do_read(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, void* p) {
 	int size, offset;
 	int fd = proto_read_int(in);
-	uint32_t node = proto_read_int(in);
+	fsinfo_t info;
+	proto_read_to(in, &info, sizeof(fsinfo_t));
+	//uint32_t node = proto_read_int(in);
 	size = proto_read_int(in);
 	offset = proto_read_int(in);
 	int32_t shm_id = proto_read_int(in);
 	char buffer[READ_BUF_SIZE];
 
-	fsinfo_t info;
-	if(vfs_get_by_node(node, &info) != 0) {
+	/*if(vfs_get_by_node(node, &info) != 0) {
 		PF->addi(out, -1);
 		return;
 	}
+	*/
 
 	if(vfs_check_access(from_pid, &info, R_OK) != 0) {
 		PF->addi(out, -1)->addi(out, EPERM);
@@ -123,15 +125,17 @@ static void do_read(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, voi
 static void do_write(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, void* p) {
 	int32_t size, offset;
 	int fd = proto_read_int(in);
-	uint32_t node = proto_read_int(in);
+	fsinfo_t info;
+	proto_read_to(in, &info, sizeof(fsinfo_t));
+	//uint32_t node = proto_read_int(in);
 	offset = proto_read_int(in);
 	int32_t shm_id = proto_read_int(in);
 
-	fsinfo_t info;
-	if(vfs_get_by_node(node, &info) != 0) {
+	/*if(vfs_get_by_node(node, &info) != 0) {
 		PF->addi(out, -1);
 		return;
 	}
+	*/
 
 	if(vfs_check_access(from_pid, &info, W_OK) != 0) {
 		PF->addi(out, -1)->addi(out, EPERM);
@@ -227,14 +231,15 @@ static void do_dma(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, void
 
 static void do_fcntl(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, void* p) {
 	int fd = proto_read_int(in);
-	uint32_t node = proto_read_int(in);
+	//uint32_t node = proto_read_int(in);
+	fsinfo_t info;
+	proto_read_to(in, &info, sizeof(fsinfo_t));
 	int32_t cmd = proto_read_int(in);
 
-	fsinfo_t info;
-	if(vfs_get_by_node(node, &info) != 0) {
+	/*if(vfs_get_by_node(node, &info) != 0) {
 		PF->addi(out, -1);
 		return;
-	}
+	}*/
 
 	proto_t arg_in, arg_out;
 	PF->init(&arg_out);
