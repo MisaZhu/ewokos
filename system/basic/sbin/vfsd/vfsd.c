@@ -12,7 +12,7 @@
 #include <ewoksys/fsinfo.h>
 #include <ewoksys/vfsc.h>
 #include <ewoksys/syscall.h>
-#include <hashmap.h>
+#include <ewoksys/hashmap.h>
 #include <procinfo.h>
 
 #define PROC_FILE_MAX 128

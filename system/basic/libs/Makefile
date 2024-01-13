@@ -5,7 +5,6 @@ basic_libs:
 	cd softfloat;make
 	cd libc;make
 	cd sconf; make
-	cd hash;make
 	cd ext2;make
 	cd elf;make
 	cd sd;make
@@ -15,7 +14,6 @@ clean:
 	cd softfloat;make clean
 	cd libc;make clean
 	cd sconf; make clean
-	cd hash;make clean
 	cd ext2;make clean
 	cd elf;make clean
 	cd sd;make clean

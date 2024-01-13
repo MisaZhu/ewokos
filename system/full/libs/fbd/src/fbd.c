@@ -150,18 +150,18 @@ static int32_t do_flush(fb_dma_t* dma) {
 0: error;
 -1: resized;
 >0: size flushed*/
-static int do_fb_flush(int fd, int from_pid, uint32_t node, void* p) {
+static int do_fb_flush(int fd, int from_pid, fsinfo_t* info, void* p) {
 	(void)fd;
 	(void)from_pid;
-	(void)node;
+	(void)info;
 	fb_dma_t* dma = (fb_dma_t*)p;
 	return do_flush(dma);
 }
 
-static int32_t fb_dma(int fd, int from_pid, uint32_t node, int* size, void* p) {
+static int32_t fb_dma(int fd, int from_pid, fsinfo_t* info, int* size, void* p) {
 	(void)fd;
 	(void)from_pid;
-	(void)node;
+	(void)info;
 	fb_dma_t* dma = (fb_dma_t*)p;
 	*size = dma->size;
 	return dma->shm_id;

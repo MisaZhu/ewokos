@@ -3,7 +3,7 @@
 
 #include <ttf/truety.h>
 #include <graph/graph.h>
-#include <hashmap.h>
+#include <ewoksys/hashmap.h>
 
 #ifdef __cplusplus
 extern "C" {

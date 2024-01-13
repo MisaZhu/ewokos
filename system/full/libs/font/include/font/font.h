@@ -3,7 +3,7 @@
 
 #include <stdint.h>
 #include <ttf/ttf.h>
-#include <hashmap.h>
+#include <ewoksys/hashmap.h>
 
 #ifdef __cplusplus
 extern "C" {

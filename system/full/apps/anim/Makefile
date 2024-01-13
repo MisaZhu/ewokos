@@ -21,9 +21,8 @@ $(ANIM): $(ANIM_OBJS) \
 		$(BUILD_DIR)/lib/libx.a \
 		$(BUILD_DIR)/lib/libttf.a \
 		$(BUILD_DIR)/lib/libfont.a \
-		$(BUILD_DIR)/lib/libhash.a \
 		$(BUILD_DIR)/lib/libcxx.a 
-	$(LD) -Ttext=100 $(ANIM_OBJS) -o $(ANIM) $(LDFLAGS) -lgraph -lbsp -lx++ -lx  -lttf -lfont -lhash -lupng -lewokc -lc_nano -lnosys -lcxx
+	$(LD) -Ttext=100 $(ANIM_OBJS) -o $(ANIM) $(LDFLAGS) -lgraph -lbsp -lx++ -lx  -lttf -lfont -lupng -lewokc -lc_nano -lnosys -lcxx
 
 $(ANIM_DIR):
 	mkdir -p $(ANIM_DIR)

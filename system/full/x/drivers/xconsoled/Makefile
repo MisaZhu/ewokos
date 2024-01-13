@@ -20,13 +20,12 @@ $(XCONSOLED): $(XCONSOLED_OBJS) \
 		$(BUILD_DIR)/lib/libgraph.a \
 		$(BUILD_DIR)/lib/libupng.a \
 		$(BUILD_DIR)/lib/libttf.a  \
-		$(BUILD_DIR)/lib/libhash.a  \
 		$(BUILD_DIR)/lib/libfont.a  \
 		$(BUILD_DIR)/lib/libx.a  \
 		$(BUILD_DIR)/lib/libx++.a  \
 		$(BUILD_DIR)/lib/libcxx.a  \
 		$(BUILD_DIR)/lib/libdisplay.a 
-	$(LD) -Ttext=100 $(XCONSOLED_OBJS) -o $(XCONSOLED) $(LDFLAGS) -lfb -ldisplay -lx++ -lx -lcxx -lconsole -ltextview -lgraph -lbsp -lttf  -lfont -lhash -lupng -lsconf -lewokc -lc_nano -lnosys
+	$(LD) -Ttext=100 $(XCONSOLED_OBJS) -o $(XCONSOLED) $(LDFLAGS) -lfb -ldisplay -lx++ -lx -lcxx -lconsole -ltextview -lgraph -lbsp -lttf  -lfont -lupng -lsconf -lewokc -lc_nano -lnosys
 
 clean:
 	rm -f $(XCONSOLED_OBJS)
