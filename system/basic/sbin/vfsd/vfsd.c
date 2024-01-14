@@ -626,8 +626,7 @@ static void do_vfs_get_by_node(int32_t pid, proto_t* in, proto_t* out) {
 		return;
 
   vfs_node_t* node = vfs_get_node_by_id(node_id);
-	//if(node == NULL || vfs_check_access(pid, &node->fsinfo, R_OK) != 0)
-	if(node == NULL)
+	if(node == NULL || vfs_check_access(pid, &node->fsinfo, R_OK) != 0)
     return;
 
 	PF->clear(out)->addi(out, (int32_t)node)->add(out, gen_fsinfo(node), sizeof(fsinfo_t));
@@ -910,15 +909,15 @@ static void do_vfs_pipe_read(int pid, proto_t* in, proto_t* out) {
 	vfs_node_t* node = vfs_get_node_by_id(node_id);
 	int32_t size = proto_read_int(in);
 
-	if(node == NULL || size < 0 || node->refs < 2) { // close by other peer
-		proc_wakeup(node_id); //wakeup writer.
-   	return;
-	}
-
 	buffer_t* buffer = (buffer_t*)node->fsinfo.data;
 	if(buffer == NULL) { //buffer not ready 
 		proc_wakeup(node_id); //wakeup writer.
 		return;
+	}
+
+	if(node == NULL || size < 0 || (buffer->size == 0 && node->refs < 2)) { // close by other peer
+		proc_wakeup(node_id); //wakeup writer.
+   	return;
 	}
 
 	void* data = malloc(size);

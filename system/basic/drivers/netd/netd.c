@@ -110,7 +110,7 @@ static net_req_t* net_queue_pop_id(net_req_t **list, int id){
 }
 
 
-static int do_network_fcntl(int fd, int from_pid, uint32_t node,
+static int do_network_fcntl(int fd, int from_pid, fsinfo_t* info,
 	int cmd, proto_t* in, proto_t* out, void* p){
 	int domain, sock,type,protocol;
 	char *data;
@@ -119,10 +119,8 @@ static int do_network_fcntl(int fd, int from_pid, uint32_t node,
 	struct sockaddr *paddr;
 	struct sockaddr addr;
 	int ret;
-	fsinfo_t info;
 
-	vfs_get_by_node(node, &info);
-	sock = info.data;
+	sock = info->data;
 
 	switch(cmd){
 		case SOCK_OPEN:
@@ -131,8 +129,7 @@ static int do_network_fcntl(int fd, int from_pid, uint32_t node,
 			protocol = proto_read_int(in);
 			sock = sock_open(domain, type, protocol);
 			PF->addi(out, sock);
-			info.data = sock;
-			update_vfsd(&info);
+			info->data = sock;
 			break;
 		case SOCK_BIND:
 			paddr = proto_read(in, &addrlen);
@@ -185,8 +182,7 @@ static int do_network_fcntl(int fd, int from_pid, uint32_t node,
 			break;
 		case SOCK_LINK:
 			sock = proto_read_int(in);	
-			info.data = sock;
-			update_vfsd(&info);
+			info->data = sock;
 			PF->addi(out, 0);
 			break;
 		case SOCK_CONNECT:
@@ -250,7 +246,7 @@ static int network_fcntl(int fd, int from_pid, fsinfo_t* info,
 	int cmd, proto_t* in, proto_t* out, void* p) {
     (void)p;
 	if(cmd < SOCK_REQUEST){
-		return do_network_fcntl(fd, from_pid, info->node, cmd, in, out, p);	
+		return do_network_fcntl(fd, from_pid, info, cmd, in, out, p);	
 	}else if(cmd == SOCK_REQUEST){
 		return network_split_fcntl(fd, fread, info->node, cmd, in, out, p);	
 	}else if(cmd == SOCK_ACK){
