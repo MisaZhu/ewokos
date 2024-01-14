@@ -515,51 +515,51 @@ static void vfs_close(int32_t pid, int32_t fd) {
 	}
 }
 
-static int32_t vfs_dup(int32_t pid, int32_t from) {
+static vfs_node_t* vfs_dup(int32_t pid, int32_t from, int32_t *ret) {
 	if(from < 0 || from > PROC_FILE_MAX)
-		return -1;
+		return NULL;
 	int32_t to = get_free_fd(pid);
 	if(to < 0)
-		return -1;
+		return NULL;
 
 	file_t* f = vfs_check_fd(pid, from);
 	if(f == NULL) 
-		return -1;
+		return NULL;
 
 	file_t* f_to = vfs_get_file(pid, to);
 	if(f_to == NULL)
-		return -1;
+		return NULL;
 
 	memcpy(f_to, f, sizeof(file_t));
 	f->node->refs++;
 	if((f->flags & O_WRONLY) != 0)
 		f->node->refs_w++;
-	return to;
+	*ret = to;
+	return f_to->node;
 }
 
 static int32_t vfs_dup2(int32_t pid, int32_t from, int32_t to) {
+	file_t* f = vfs_check_fd(pid, from);
+	if(f == NULL) 
+		return NULL;
+
 	if(from == to)
-		return to;
+		return f->node;
 
 	if(from < 0 || from > PROC_FILE_MAX ||
 			to < 0 || to > PROC_FILE_MAX)
-		return -1;
+		return NULL;
 
 	vfs_close(pid, to);
-
-	file_t* f = vfs_check_fd(pid, from);
-	if(f == NULL) 
-		return -1;
-
 	file_t* f_to = vfs_get_file(pid, to);
 	if(f_to == NULL)
-		return -1;
+		return NULL;
 
 	memcpy(f_to, f, sizeof(file_t));
 	f->node->refs++;
 	if((f->flags & O_WRONLY) != 0)
 		f->node->refs_w++;
-	return to;
+	return f->node;
 }
 
 static inline fsinfo_t* gen_fsinfo(vfs_node_t* node) {
@@ -718,13 +718,23 @@ static void do_vfs_close(int32_t pid, proto_t* in) {
 
 static void do_vfs_dup(int32_t pid, proto_t* in, proto_t* out) {
 	int fd = proto_read_int(in);
-	PF->addi(out, vfs_dup(pid, fd));
+	int fdto = -1;
+	vfs_node_t* node = vfs_dup(pid, fd, &fdto);
+	if(node != NULL)
+		PF->addi(out, fdto)->add(out, gen_fsinfo(node), sizeof(fsinfo_t));
+	else
+		PF->addi(out, -1);
 }
 
 static void do_vfs_dup2(int32_t pid, proto_t* in, proto_t* out) {
 	int fd = proto_read_int(in);
 	int fdto = proto_read_int(in);
-	PF->addi(out, vfs_dup2(pid, fd, fdto));
+
+	vfs_node_t* node = vfs_dup2(pid, fd, fdto);
+	if(node != NULL)
+		PF->addi(out, fdto)->add(out, gen_fsinfo(node), sizeof(fsinfo_t));
+	else
+		PF->addi(out, -1);
 }
 
 static void do_vfs_set_fsinfo(int32_t pid, proto_t* in, proto_t* out) {
@@ -844,17 +854,20 @@ static void do_vfs_pipe_open(int32_t pid, proto_t* out) {
 
 	int32_t fd0 = vfs_open(pid, node, 1);
 	if(fd0 < 0) {
-		free(node);
+		vfs_del_node(pid, node);
 		return;
 	}
 
 	int32_t fd1 = vfs_open(pid, node, 1);
 	if(fd1 < 0) {
 		vfs_close(pid, fd0);
-		free(node);
+		vfs_del_node(pid, node);
 		return;
 	}
-	PF->clear(out)->addi(out, 0)->addi(out, fd0)->addi(out, fd1);
+	PF->clear(out)->addi(out, 0)->
+			addi(out, fd0)->
+			addi(out, fd1)->
+			add(out, gen_fsinfo(node), sizeof(fsinfo_t));
 }
 
 static void do_vfs_pipe_write(int pid, proto_t* in, proto_t* out) {

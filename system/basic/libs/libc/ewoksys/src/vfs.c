@@ -41,6 +41,20 @@ static int vfs_get_by_fd_raw(int fd, fsinfo_t* info) {
 	return res;
 }
 
+static int vfs_set_info(fsinfo_t* info) {
+	proto_t in, out;
+	PF->init(&in)->add(&in, info, sizeof(fsinfo_t));
+	PF->init(&out);
+	int res = ipc_call(get_vfsd_pid(), VFS_SET_FSINFO, &in, &out);
+	PF->clear(&in);
+
+	if(res == 0) {
+		res = proto_read_int(&out);
+	}
+	PF->clear(&out);
+	return res;
+}
+
 void  vfs_init(void) {
 	for(uint32_t i=0; i<PROC_FILE_MAX; i++) {
 		memset(&_fsfiles[i], 0, sizeof(fsfile_t));
@@ -263,17 +277,27 @@ int vfs_dup(int fd) {
 	PF->clear(&in);
 	if(res == 0) {
 		res = proto_read_int(&out);
+		if(res >= 0) {
+			fsinfo_t info;
+			proto_read_to(&out, &info, sizeof(fsinfo_t));
+			vfs_set_file(res, &info);
+		}
 	}
 	PF->clear(&out);
 	return res;
 }
 
 int vfs_close(int fd) {
-	vfs_clear_file(fd);	
+	/*fsfile_t* file = vfs_get_file(fd);
+	if(file == NULL)
+		return -1;
+	vfs_set_info(&file->info);
+	*/
 	proto_t in;
 	PF->init(&in)->addi(&in, fd);
 	int res = ipc_call_wait(get_vfsd_pid(), VFS_CLOSE, &in);
 	PF->clear(&in);
+	vfs_clear_file(fd);	
 	return res;
 }
 
@@ -288,6 +312,11 @@ int vfs_dup2(int fd, int to) {
 	PF->clear(&in);
 	if(res == 0) {
 		res = proto_read_int(&out);
+		if(res >= 0) {
+			fsinfo_t info;
+			proto_read_to(&out, &info, sizeof(fsinfo_t));
+			vfs_set_file(res, &info);
+		}
 	}
 	PF->clear(&out);
 	return res;
@@ -301,6 +330,10 @@ int vfs_open_pipe(int fd[2]) {
 		if(proto_read_int(&out) == 0) {
 			fd[0] = proto_read_int(&out);
 			fd[1] = proto_read_int(&out);
+			fsinfo_t info;
+			proto_read_to(&out, &info, sizeof(fsinfo_t));
+			vfs_set_file(fd[0], &info);
+			vfs_set_file(fd[1], &info);
 		}
 		else {
 			res = -1;
@@ -349,20 +382,6 @@ fsinfo_t* vfs_kids(uint32_t node, uint32_t *num) {
 	}
 	PF->clear(&out);
 	return ret;
-}
-
-static int vfs_set_info(fsinfo_t* info) {
-	proto_t in, out;
-	PF->init(&in)->add(&in, info, sizeof(fsinfo_t));
-	PF->init(&out);
-	int res = ipc_call(get_vfsd_pid(), VFS_SET_FSINFO, &in, &out);
-	PF->clear(&in);
-
-	if(res == 0) {
-		res = proto_read_int(&out);
-	}
-	PF->clear(&out);
-	return res;
 }
 
 int update_vfsd(fsinfo_t* info) {
