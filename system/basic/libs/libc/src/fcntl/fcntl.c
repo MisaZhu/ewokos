@@ -9,6 +9,7 @@
 #include <string.h>
 
 int fcntl(int fd, int cmd, int data) {
+	/*
 	int res = -1;
 	proto_t in, out;
 	PF->init(&out);
@@ -31,5 +32,19 @@ int fcntl(int fd, int cmd, int data) {
 	PF->clear(&out);
 	PF->clear(&in);
 	return res;
+	*/
+
+	fsfile_t* file = vfs_get_file(fd);
+	if(file == NULL)
+		return -1;
+
+	if(cmd == F_GETFL) {
+		return file->flags;
+	}
+	else if(cmd == F_SETFL) {
+		file->flags = data;
+		return 0;
+	}
+	return 0;
 }
 

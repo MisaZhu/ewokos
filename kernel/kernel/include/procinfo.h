@@ -6,6 +6,7 @@
 
 #define PROC_INFO_CMD_MAX 256
 #define PROC_MAX 128
+#define PROC_FILE_MAX 128
 
 enum {
 	UNUSED = 0,

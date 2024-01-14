@@ -10,10 +10,17 @@
 extern "C" {
 #endif
 
+typedef struct {
+	uint32_t flags;
+	uint32_t offset;
+	fsinfo_t info;
+} fsfile_t;
+
 #define VFS_BUF_SIZE (1024*8)
 
 const char* vfs_fullname(const char* fname);
 
+fsfile_t* vfs_get_file(int fd);
 void      vfs_init(void);
 int       vfs_read_pipe(int fd, uint32_t node, void* buf, uint32_t size, bool block);
 int       vfs_write_pipe(int fd, uint32_t node, const void* buf, uint32_t size, bool block);
@@ -28,7 +35,6 @@ int       vfs_tell(int fd);
 int       vfs_seek(int fd, int offset);
 int       update_vfsd(fsinfo_t* info);
 
-int       vfs_check(fsinfo_t* info);
 int       vfs_update(fsinfo_t* info);
 int       vfs_get_mount_by_id(int id, mount_t* mount);
 
