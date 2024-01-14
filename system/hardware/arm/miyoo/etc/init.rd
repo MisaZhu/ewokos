@@ -23,5 +23,8 @@
 #@/sbin/x/xjoystickd /dev/joystick &
 @/sbin/x/xim_vkey 560 160&
 
+@/sbin/sessiond &
+
+@/bin/x/menubar &
 @/bin/x/launcher &
 @/bin/session &
