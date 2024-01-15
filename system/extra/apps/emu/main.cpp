@@ -418,7 +418,6 @@ int main(int argc, char *argv[])
 
 	x.open(0, &emu, 256*zoom, 240*zoom, "NesEmu", XWIN_STYLE_NO_RESIZE);
 	emu.setVisible(true);
-
 	/*_xwin = &emu;
 	uint32_t tid = timer_set(10000, loop);
 	x.run(NULL, &emu);

@@ -25,6 +25,7 @@
 #include <ewoksys/kernel_tic.h>
 #include <ewoksys/keydef.h>
 #include <ewoksys/klog.h>
+#include <ewoksys/timer.h>
 #include <x++/X.h>
 #include <pthread.h>
 
@@ -230,12 +231,10 @@ int main(int argc, char *argv[])
 	__malloc_buf_set(0,0);
     /*init window*/
 	MacEmu emu;
-    xscreen_t scr;
 
 	X x;
-	x.getScreenInfo(scr, 0);
 
-	x.open(0, &scr, &emu, 512, 342, "Macintosh", XWIN_STYLE_NORMAL);
+	x.open(0, &emu, 512, 342, "Macintosh", XWIN_STYLE_NORMAL);
 	emu.setVisible(true);
 
 	pthread_t tid;
