@@ -54,7 +54,7 @@ static void file_del(int fd, int pid, uint32_t node) {
 	free(info);
 }
 
-static fsinfo_t* file_get(int fd, int pid, uint32_t node) {
+fsinfo_t* dev_get_file(int fd, int pid, uint32_t node) {
 	fsinfo_t* info = file_get_cache(fd, pid, node);
 	if(info == NULL) {
 		fsinfo_t i;
@@ -66,7 +66,7 @@ static fsinfo_t* file_get(int fd, int pid, uint32_t node) {
 }
 
 int dev_update_file(int fd, int from_pid, fsinfo_t* finfo) {
-	fsinfo_t* info = file_get(fd, from_pid, finfo->node);
+	fsinfo_t* info = dev_get_file(fd, from_pid, finfo->node);
 	if(info == NULL)
 		return -1;
 	memcpy(info, finfo, sizeof(fsinfo_t));
@@ -130,7 +130,7 @@ static void do_read(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, voi
 	int32_t shm_id = proto_read_int(in);
 	char buffer[READ_BUF_SIZE];
 
-	fsinfo_t* info = file_get(fd, from_pid, node);
+	fsinfo_t* info = dev_get_file(fd, from_pid, node);
 	if(info == NULL) {
 		PF->addi(out, -1);
 		return;
@@ -183,7 +183,7 @@ static void do_write(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, vo
 	offset = proto_read_int(in);
 	int32_t shm_id = proto_read_int(in);
 	
-	fsinfo_t* info = file_get(fd, from_pid, node);
+	fsinfo_t* info = dev_get_file(fd, from_pid, node);
 	if(info == NULL) {
 		PF->addi(out, -1);
 		return;
@@ -275,7 +275,7 @@ static void do_dma(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, void
 	int shm_id = -1;	
 	int size = 0;
 	if(dev != NULL && dev->dma != NULL) {
-		fsinfo_t* info = file_get(fd, from_pid, node);
+		fsinfo_t* info = dev_get_file(fd, from_pid, node);
 		if(info != NULL)
 			shm_id = dev->dma(fd, from_pid, info, &size, p);
 	}
@@ -287,7 +287,7 @@ static void do_fcntl(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, vo
 	uint32_t node = proto_read_int(in);
 	int32_t cmd = proto_read_int(in);
 
-	fsinfo_t* info = file_get(fd, from_pid, node);
+	fsinfo_t* info = dev_get_file(fd, from_pid, node);
 	if(info == NULL) {
 		PF->addi(out, -1);
 		return;
@@ -316,7 +316,7 @@ static void do_flush(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, vo
 	(void)from_pid;
 	int fd = proto_read_int(in);
 	uint32_t node = (uint32_t)proto_read_int(in);
-	fsinfo_t* info = file_get(fd, from_pid, node);
+	fsinfo_t* info = dev_get_file(fd, from_pid, node);
 
 	if(info == NULL) {
 		PF->addi(out, -1)->addi(out, ENOENT);
