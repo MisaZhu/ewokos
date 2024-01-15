@@ -363,7 +363,6 @@ static void do_create(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, v
 	int res = 0;
 	if(dev != NULL && dev->create != NULL)
 		res = dev->create(from_pid, &info_to, &info, p);
-	info.state = FS_STATE_CHANGED;
 
 	if(res == 0) {
 		PF->addi(out, res)->add(out, &info, sizeof(fsinfo_t));
