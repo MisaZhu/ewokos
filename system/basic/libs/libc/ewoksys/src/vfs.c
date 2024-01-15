@@ -292,7 +292,6 @@ int vfs_close_info(int fd) {
 	PF->init(&in)->addi(&in, fd);
 	int res = ipc_call_wait(get_vfsd_pid(), VFS_CLOSE, &in);
 	PF->clear(&in);
-	vfs_clear_file(fd);	
 	return res;
 }
 
@@ -300,8 +299,12 @@ int vfs_close(int fd) {
 	fsfile_t* file = vfs_get_file(fd);
 	if(file == NULL)
 		return -1;
-	if(vfs_update(&file->info) != 0)
-		return -1;
+	if((file->state & F_STATE_CHANGED) != 0) {
+		if(vfs_update(&file->info) != 0)
+			return -1;
+	}
+
+	vfs_clear_file(fd);	
 	return vfs_close_info(fd);
 }
 
@@ -695,6 +698,9 @@ int vfs_write(int fd, fsinfo_t* info, const void* buf, uint32_t size) {
 	if(res > 0) {
 		offset += res;
 		if(info->type == FS_TYPE_FILE) {
+			fsfile_t* file = vfs_get_file(fd);
+			if(file != NULL)
+				file->state |= F_STATE_CHANGED;
 			vfs_update_file(info);
 			vfs_seek(fd, offset);
 		}

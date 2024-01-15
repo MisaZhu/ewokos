@@ -10,9 +10,15 @@
 extern "C" {
 #endif
 
+#define F_STATE_CHANGED 0x01
+#define F_STATE_BUSY_R  0x02
+#define F_STATE_BUSY_W  0x04
+#define F_STATE_BUSY_X  0x08
+
 typedef struct {
 	uint32_t flags;
 	uint32_t offset;
+	uint32_t state;
 	fsinfo_t info;
 } fsfile_t;
 
