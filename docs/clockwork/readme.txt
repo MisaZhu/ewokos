@@ -1,4 +1,4 @@
-1.copy stage3.bin to boot partition
+1.copy all files in this direction to boot partition
 
 2.add two line to config.txt
 	initramfs kernel7.img 0x2000000
