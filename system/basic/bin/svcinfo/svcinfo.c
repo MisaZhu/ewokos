@@ -140,12 +140,13 @@ int main(int argc, char* argv[]) {
 	sys_state_t sys_state;
 
 	syscall1(SYS_GET_SYS_STATE, (int32_t)&sys_state);
-	printf("SVC  TYPE             TIMES            %%\n");
+	printf("SVC  TIMES      %%  TYPE\n"
+				 "----------------------------------\n");
 	for(int i=0; i<SYS_CALL_NUM; i++) {
-		printf("%4d %16s %16d %d\n", i, 
-				svc_name(i), 
+		printf("%-4d %-8d %2d%%  %s\n", i, 
 				sys_state.svc_counter[i],
-				sys_state.svc_counter[i]*100/sys_state.svc_total);
+				sys_state.svc_counter[i]*100/sys_state.svc_total,
+				svc_name(i));
 	}
 	printf("\ntotal:  %d\n", sys_state.svc_total);
 	return 0;

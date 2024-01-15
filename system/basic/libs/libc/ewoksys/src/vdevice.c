@@ -135,11 +135,11 @@ static void do_read(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, voi
 		PF->addi(out, -1);
 		return;
 	}
-
-	if(vfs_check_access(from_pid, info, R_OK) != 0) {
+	/*if(vfs_check_access(from_pid, info, R_OK) != 0) {
 		PF->addi(out, -1)->addi(out, EPERM);
 		return;
 	}
+	*/
 
 	if(dev != NULL && dev->read != NULL) {
 		void* buf;
@@ -188,11 +188,11 @@ static void do_write(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, vo
 		PF->addi(out, -1);
 		return;
 	}
-
-	if(vfs_check_access(from_pid, info, W_OK) != 0) {
+	/*if(vfs_check_access(from_pid, info, W_OK) != 0) {
 		PF->addi(out, -1)->addi(out, EPERM);
 		return;
 	}
+	*/
 	
 	if(dev != NULL && dev->write != NULL) {
 		void* data;
@@ -326,11 +326,11 @@ static void do_flush(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, vo
 		PF->addi(out, -1)->addi(out, ENOENT);
 		return;
 	}
-
-	if(vfs_check_access(from_pid, info, W_OK) != 0) {
+	/*if(vfs_check_access(from_pid, info, W_OK) != 0) {
 		PF->addi(out, -1)->addi(out, EPERM);
 		return;
 	}
+	*/
 
 	int ret = 0;
 	if(dev != NULL && dev->flush != NULL) {
