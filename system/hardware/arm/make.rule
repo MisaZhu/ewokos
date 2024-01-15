@@ -17,6 +17,10 @@ CFLAGS = -Wstrict-prototypes \
         -fno-builtin-fprintf \
         -fno-builtin-fwrite \
         -fno-builtin-fclose \
+        -fno-builtin-fgetc \
+        -fno-builtin-fopen \
+        -fno-builtin-fflush \
+        -fno-builtin-ungetc \
         -fno-builtin-realloc \
         -Wno-overlength-strings \
         -fno-builtin-exit \
@@ -30,11 +34,15 @@ CXXFLAGS = -marm \
         -fno-builtin-printf \
         -fno-builtin-memset \
         -fno-builtin-snprintf \
+        -fno-builtin-fflush \
+        -fno-builtin-ungetc \
         -fno-builtin-sprintf \
         -fno-builtin-fprintf \
         -fno-builtin-fread \
         -fno-builtin-fwrite \
         -fno-builtin-fclose \
+        -fno-builtin-fgetc \
+        -fno-builtin-fopen \
         -fno-builtin-realloc \
         -Wno-overlength-strings \
         -fno-builtin-exit \

@@ -109,22 +109,6 @@ LIB_EWOKC_OBJS = \
 	src/pthread/pthread_mutex_unlock.o \
 	src/pthread/pthread_mutex_destroy.o \
 	\
-	src/stdio/vprintf.o \
-	src/stdio/snprintf.o \
-	src/stdio/dprintf.o \
-	src/stdio/printf.o \
-	src/stdio/fopen.o \
-	src/stdio/fclose.o \
-	src/stdio/fread.o \
-	src/stdio/fwrite.o \
-	src/stdio/ftell.o \
-	src/stdio/fseek.o \
-	src/stdio/rewind.o \
-	src/stdio/getch.o \
-	src/stdio/putch.o \
-	src/stdio/puts.o \
-	src/stdio/sstrncpy.o \
-	\
 	src/fcntl/open.o \
 	src/fcntl/close.o \
 	src/fcntl/fcntl.o \
@@ -143,7 +127,35 @@ LIB_EWOKC_SYS_OBJS = \
 	\
 	src/sys/stat/stat.o \
 	src/sys/stat/fstat.o \
-	src/sys/stat/mkdir.o
+	src/sys/stat/mkdir.o \
+	\
+	src/stdio/vprintf.o \
+	src/stdio/snprintf.o \
+	src/stdio/dprintf.o \
+	src/stdio/printf.o \
+	src/stdio/fopen.o \
+	src/stdio/fgetc.o \
+	src/stdio/fclose.o \
+	src/stdio/fread.o \
+	src/stdio/fwrite.o \
+	src/stdio/ftell.o \
+	src/stdio/fseek.o \
+	src/stdio/rewind.o \
+	src/stdio/getch.o \
+	src/stdio/putch.o \
+	src/stdio/puts.o \
+	src/stdio/sstrncpy.o \
+	src/stdio/ferror.o \
+	src/stdio/fgets.o \
+	src/stdio/fputc.o \
+	src/stdio/fputs.o \
+	src/stdio/putc.o \
+	src/stdio/qsort.o \
+	src/stdio/rand.o \
+	src/stdio/sprintf.o
+#	src/stdio/fflush.o \
+	src/stdio/fprintf.o \
+	src/stdio/ungetc.o
 
 ifeq (${ARCH},arm)
 LIB_EWOKSYS_OBJS += \
@@ -156,7 +168,7 @@ endif
 EWOKC = $(TARGET_DIR)/lib/libewokc.a
 
 $(EWOKC): $(LIB_EWOKSYS_OBJS) $(LIB_EWOKC_OBJS)  $(LIB_EWOKC_SYS_OBJS) \
-	$(TARGET_DIR)/lib/libsoftfloat.a
+			$(TARGET_DIR)/lib/libsoftfloat.a
 	$(AR) rT $(EWOKC) $(LIB_EWOKSYS_OBJS) $(LIB_EWOKC_OBJS) $(LIB_EWOKC_SYS_OBJS) $(TARGET_DIR)/lib/libsoftfloat.a
 	cp -r ewoksys/include/* include/* $(TARGET_DIR)/include
 
