@@ -43,14 +43,6 @@ static fsinfo_t* file_add(int fd, int pid, fsinfo_t* info) {
 	return ret;
 }
 
-static fsinfo_t* file_set(int fd, int pid, fsinfo_t* info) {
-	fsinfo_t* ret = file_get_cache(fd, pid, info->node);
-	if(ret == NULL)
-		return;
-	memcpy(ret, info, sizeof(fsinfo_t));
-	return ret;
-}
-
 static void file_del(int fd, int pid, uint32_t node) {
 	fsinfo_t* info = NULL;
 	const char* key = file_hash_key(fd, pid, node);
@@ -71,6 +63,14 @@ static fsinfo_t* file_get(int fd, int pid, uint32_t node) {
 		info = file_add(fd, pid, &i);
 	}
 	return info;
+}
+
+int dev_update_file(int fd, int from_pid, fsinfo_t* finfo) {
+	fsinfo_t* info = file_get(fd, from_pid, finfo->node);
+	if(info == NULL)
+		return -1;
+	memcpy(info, finfo, sizeof(fsinfo_t));
+	return 0;
 }
 
 static void do_open(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, void* p) {
@@ -208,7 +208,6 @@ static void do_write(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, vo
 		}
 		else {
 			size = dev->write(fd, from_pid, info, data, size, offset, p);
-			file_set(fd, from_pid, info);
 			PF->addi(out, size);
 			PF->add(out, info, sizeof(fsinfo_t));
 		}
@@ -307,7 +306,6 @@ static void do_fcntl(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, vo
 	}
 	PF->clear(&arg_in);
 
-	file_set(fd, from_pid, info);
 	PF->addi(out, res)->
 			add(out, info, sizeof(fsinfo_t))->
 			add(out, arg_out.data, arg_out.size);

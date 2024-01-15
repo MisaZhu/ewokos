@@ -41,6 +41,7 @@ extern int device_run(vdevice_t* dev, const char* mnt_point, int mnt_type, int m
 extern int dev_cntl(const char* fname, int cmd, proto_t* in, proto_t* out);
 extern int dev_cntl_by_pid(int pid, int cmd, proto_t* in, proto_t* out);
 extern int dev_get_pid(const char* fname);
+extern int dev_update_file(int fd, int from_pid, fsinfo_t* finfo);
 
 #ifdef __cplusplus
 }
