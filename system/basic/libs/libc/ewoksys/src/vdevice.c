@@ -208,6 +208,7 @@ static void do_write(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, vo
 		}
 		else {
 			size = dev->write(fd, from_pid, info, data, size, offset, p);
+			dev_update_file(fd, from_pid, info);
 			PF->addi(out, size);
 			PF->add(out, info, sizeof(fsinfo_t));
 		}
@@ -303,6 +304,8 @@ static void do_fcntl(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, vo
 	int res = -1;
 	if(dev != NULL && dev->fcntl != NULL) {
 		res = dev->fcntl(fd, from_pid, info, cmd, &arg_in, &arg_out, p);
+		if(res == 0)
+			dev_update_file(fd, from_pid, info);
 	}
 	PF->clear(&arg_in);
 

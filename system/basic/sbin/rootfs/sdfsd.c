@@ -218,7 +218,6 @@ static int sdext2_write(int fd, int from_pid, fsinfo_t* info,
 		info->stat.size += size;
 		inode.i_size = info->stat.size;
 		put_node(ext2, ino, &inode);
-		dev_update_file(fd, from_pid, info);
 	}
 	return size;	
 }
