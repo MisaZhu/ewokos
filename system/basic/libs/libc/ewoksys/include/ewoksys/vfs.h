@@ -25,6 +25,7 @@ void      vfs_init(void);
 int       vfs_read_pipe(int fd, uint32_t node, void* buf, uint32_t size, bool block);
 int       vfs_write_pipe(int fd, uint32_t node, const void* buf, uint32_t size, bool block);
 int       vfs_open(fsinfo_t* info, int wr);
+int       vfs_close_info(int fd); //close but not set device
 int       vfs_close(int fd);
 int       vfs_new_node(fsinfo_t* info, uint32_t node_to);
 int       vfs_del_node(uint32_t node);
@@ -33,7 +34,6 @@ int       vfs_get_by_node(uint32_t node, fsinfo_t* info);
 int       vfs_get_by_fd(int fd, fsinfo_t* info);
 int       vfs_tell(int fd);
 int       vfs_seek(int fd, int offset);
-int       update_vfsd(fsinfo_t* info);
 
 int       vfs_update(fsinfo_t* info);
 int       vfs_get_mount_by_id(int id, mount_t* mount);

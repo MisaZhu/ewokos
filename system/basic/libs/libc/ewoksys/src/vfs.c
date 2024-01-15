@@ -287,18 +287,22 @@ int vfs_dup(int fd) {
 	return res;
 }
 
-int vfs_close(int fd) {
-	/*fsfile_t* file = vfs_get_file(fd);
-	if(file == NULL)
-		return -1;
-	vfs_set_info(&file->info);
-	*/
+int vfs_close_info(int fd) {
 	proto_t in;
 	PF->init(&in)->addi(&in, fd);
 	int res = ipc_call_wait(get_vfsd_pid(), VFS_CLOSE, &in);
 	PF->clear(&in);
 	vfs_clear_file(fd);	
 	return res;
+}
+
+int vfs_close(int fd) {
+	fsfile_t* file = vfs_get_file(fd);
+	if(file == NULL)
+		return -1;
+	if(vfs_update(&file->info) != 0)
+		return -1;
+	return vfs_close_info(fd);
 }
 
 int vfs_dup2(int fd, int to) {
@@ -384,17 +388,13 @@ fsinfo_t* vfs_kids(uint32_t node, uint32_t *num) {
 	return ret;
 }
 
-int update_vfsd(fsinfo_t* info) {
-	if(vfs_set_info(info) != 0)
-		return -1;
-	vfs_update_file(info);
-	return 0;
-}
-
 int vfs_update(fsinfo_t* info) {
 	if(dev_set(info->mount_pid, info) != 0)
 		return -1;
-	update_vfsd(info);
+
+	if(vfs_set_info(info) != 0)
+		return -1;
+	vfs_update_file(info);
 	return 0;
 }
 
@@ -567,7 +567,7 @@ int vfs_create(const char* fname, fsinfo_t* ret, int type, int mode, bool vfs_no
 	fi.mount_pid = info_to.mount_pid;
 	int res = dev_create(info_to.mount_pid, &info_to, &fi);
 	if(res == 0) 
-		res = update_vfsd(&fi);
+		res = vfs_set_info(&fi);
 
 	if(res != 0) {
 		vfs_del_node(fi.node);
@@ -692,7 +692,7 @@ int vfs_write(int fd, fsinfo_t* info, const void* buf, uint32_t size) {
 	if(res > 0) {
 		offset += res;
 		if(info->type == FS_TYPE_FILE) {
-			update_vfsd(info);
+			vfs_update_file(info);
 			vfs_seek(fd, offset);
 		}
 	}

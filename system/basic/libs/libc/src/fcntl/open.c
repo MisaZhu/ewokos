@@ -29,7 +29,7 @@ int open(const char* fname, int oflag) {
 	}
 
 	if(dev_open(info.mount_pid, fd, &info, oflag) != 0) {
-		vfs_close(fd);
+		vfs_close_info(fd);
 		if(created)
 			vfs_del_node(info.node);
 		fd = -1;

@@ -65,10 +65,10 @@ static void file_del(int fd, int pid, uint32_t node) {
 static fsinfo_t* file_get(int fd, int pid, uint32_t node) {
 	fsinfo_t* info = file_get_cache(fd, pid, node);
 	if(info == NULL) {
-		static fsinfo_t i;
+		fsinfo_t i;
 		if(vfs_get_by_node(node, &i) != 0)
 			return NULL;
-		info = &i;//file_add(fd, pid, &i);
+		info = file_add(fd, pid, &i);
 	}
 	return info;
 }
