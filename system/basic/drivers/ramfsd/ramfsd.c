@@ -43,6 +43,7 @@ static int ramfs_write(int fd, int from_pid, fsinfo_t* info,
 	memcpy(data+offset, buf, size);
 	info->data = (uint32_t)data;
 	info->stat.size = size+offset;
+	dev_update_file(fd, from_pid, info);
 	return size;
 }
 
