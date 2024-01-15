@@ -11,7 +11,7 @@
 #include <ewoksys/proc.h>
 #include <kevent.h>
 #include <procinfo.h>
-#include <hashmap.h>
+#include <ewoksys/hashmap.h>
 
 typedef struct {
 	str_t* cwd;	

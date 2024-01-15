@@ -11,7 +11,6 @@
 #include <stdbool.h>
 #include <queue.h>
 
-#define PROC_FILE_MAX 128
 #define SHM_MAX 128
 #define BLOCK_EVT_MAX 16
 

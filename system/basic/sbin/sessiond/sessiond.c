@@ -6,6 +6,7 @@
 #include <ewoksys/md5.h>
 #include <ewoksys/mstr.h>
 #include <ewoksys/ipc.h>
+#include <ewoksys/proc.h>
 #include <ewoksys/keydef.h>
 #include <ewoksys/session.h>
 
@@ -108,6 +109,17 @@ static session_info_t* check(const char* user, const char* password) {
 	return NULL;
 }
 
+static session_info_t* get_by_name(const char* user) {
+	int i;
+	for(i=0; i<_user_num; i++) {
+		session_info_t* info = &_users[i];
+		if(strcmp(info->user, user) == 0) {
+			return info;
+		}
+	}
+	return NULL;
+}
+
 static session_info_t* get_by_uid(int32_t uid) {
 	int i;
 	for(i=0; i<_user_num; i++) {
@@ -126,9 +138,20 @@ static session_info_t* secure_session(const session_info_t* sinfo) {
 	return &to;
 }
 
-static void do_session_get(int pid, proto_t* in, proto_t* out) {
+static void do_session_get_by_uid(int pid, proto_t* in, proto_t* out) {
 	int32_t uid = proto_read_int(in);
 	session_info_t* sinfo = get_by_uid(uid);
+
+	PF->clear(out)->addi(out, -1);
+	if(sinfo == NULL)
+			return;
+	sinfo = secure_session(sinfo);
+	PF->clear(out)->addi(out, 0)->add(out, sinfo, sizeof(session_info_t));
+}
+
+static void do_session_get_by_name(int pid, proto_t* in, proto_t* out) {
+	const char* name = proto_read_str(in);
+	session_info_t* sinfo = get_by_name(name);
 
 	PF->clear(out)->addi(out, -1);
 	if(sinfo == NULL)
@@ -158,8 +181,11 @@ static void handle_ipc(int pid, int cmd, proto_t* in, proto_t* out, void* p) {
 	case SESSION_CHECK: 
 		do_session_check(pid, in, out);
 		return;
-	case SESSION_GET: 
-		do_session_get(pid, in, out);
+	case SESSION_GET_BY_UID: 
+		do_session_get_by_uid(pid, in, out);
+		return;
+	case SESSION_GET_BY_NAME: 
+		do_session_get_by_name(pid, in, out);
 		return;
 	}
 }

@@ -7,13 +7,14 @@ LDFLAGS = -L$(BUILD_DIR)/lib
 
 CFLAGS += -I $(BUILD_DIR)/include
 
-VFSD_OBJS = vfsd.o 
-	
-VFSD = $(TARGET_DIR)/$(ROOT_DIR)/sbin/vfsd
+WHOAMI_OBJS = whoami.o
 
-$(VFSD): $(VFSD_OBJS) \
+WHOAMI = $(TARGET_DIR)/bin/whoami
+
+$(WHOAMI): $(WHOAMI_OBJS) \
 		$(BUILD_DIR)/lib/libewokc.a
-	$(LD) -Ttext=100 $(VFSD_OBJS) -o $(VFSD) $(LDFLAGS) -lewokc -lc_nano -lnosys
+	$(LD) -Ttext=100 $(WHOAMI_OBJS) -o $(WHOAMI) $(LDFLAGS) -lewokc -lc_nano -lnosys
 
 clean:
-	rm -fr $(VFSD) $(VFSD_OBJS)
+	rm -f $(WHOAMI_OBJS)
+

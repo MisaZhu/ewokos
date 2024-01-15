@@ -19,10 +19,9 @@ $(MENU_BAR): $(MENU_BAR_OBJS) \
 		$(BUILD_DIR)/lib/libupng.a \
 		$(BUILD_DIR)/lib/libttf.a \
 		$(BUILD_DIR)/lib/libfont.a \
-		$(BUILD_DIR)/lib/libhash.a \
 		$(BUILD_DIR)/lib/libwidget++.a \
 		$(BUILD_DIR)/lib/libcxx.a 
-	$(LD) -Ttext=100 $(MENU_BAR_OBJS) -o $(MENU_BAR) $(LDFLAGS) -lwidget++ -lgraph -lbsp -lupng -lx++ -lx  -lttf -lfont -lhash -lewokstl -lewokc -lc_nano -lcxx -lnosys
+	$(LD) -Ttext=100 $(MENU_BAR_OBJS) -o $(MENU_BAR) $(LDFLAGS) -lwidget++ -lgraph -lbsp -lupng -lx++ -lx  -lttf -lfont -lewokstl -lewokc -lc_nano -lcxx -lnosys
 
 clean:
 	rm -f $(MENU_BAR_OBJS)

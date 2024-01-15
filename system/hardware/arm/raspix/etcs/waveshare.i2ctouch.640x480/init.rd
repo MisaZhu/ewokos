@@ -19,5 +19,8 @@
 @/sbin/x/xtouchd &
 @/sbin/x/xim_vkey 560 168&
 
+@/sbin/sessiond &
+
+@/bin/x/menubar &
 @/bin/x/launcher &
 @/bin/session &

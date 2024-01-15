@@ -119,7 +119,7 @@ static int usb_read(int fd, int from_pid, fsinfo_t* node,
  }
 
 
-static int usb_open(int fd, int from_pid, uint32_t node, int oflag, void* p) {
+static int usb_open(int fd, int from_pid, fsinfo_t* node, int oflag, void* p) {
 	(void)oflag;
 	(void)node;
 	if(fd < 0)

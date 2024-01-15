@@ -9,7 +9,8 @@ extern "C" {
 
 enum {
 	SESSION_CHECK = 0,
-	SESSION_GET,
+	SESSION_GET_BY_UID,
+	SESSION_GET_BY_NAME,
 	SESSION_SET
 };
 
@@ -31,7 +32,8 @@ typedef struct  {
 
 int session_check(const char* name, const char* passwd, session_info_t* sinfo);
 int session_set(session_info_t* sinfo);
-int session_get(int32_t uid, session_info_t* sinfo);
+int session_get_by_uid(int32_t uid, session_info_t* sinfo);
+int session_get_by_name(const char* name, session_info_t* sinfo);
 
 #ifdef __cplusplus
 }

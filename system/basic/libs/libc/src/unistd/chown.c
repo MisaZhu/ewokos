@@ -11,9 +11,8 @@ int chown(const char *pathname, int uid, int gid) {
 
 	if(uid >= 0)
 		info.stat.uid = uid;
-
 	if(gid >= 0)
 		info.stat.gid = gid;
 
-	return dev_set(info.mount_pid, &info);
+	return vfs_update(&info);
 }

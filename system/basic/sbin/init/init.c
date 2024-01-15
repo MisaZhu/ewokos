@@ -73,7 +73,7 @@ static void run_before_vfs(const char* cmd) {
 }
 
 static void run_init(const char* init_file) {
-	if(vfs_access(init_file) != 0) {
+	if(access(init_file, R_OK) != 0) {
 		out("init: init file '%s' missed! \n", init_file);
 		return;
 	}

@@ -6,54 +6,140 @@
 #include <string.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <fcntl.h>
 #include <errno.h>
 #include <sys/shm.h>
 #include <ewoksys/proc.h>
 #include <ewoksys/syscall.h>
 #include <ewoksys/signal.h>
+#include <ewoksys/hashmap.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+static map_t*  _files_hash = NULL;
+
+static void device_init(vdevice_t* dev) {
+	_files_hash = hashmap_new();
+}
+
+static inline const char* file_hash_key(int fd, int pid, uint32_t node) {
+	static char key[32];
+	snprintf(key, 31, "%x:%x:%x", fd, pid, node);
+	return key;
+}
+
+static fsinfo_t* file_get_cache(int fd, int pid, uint32_t node) {
+	fsinfo_t* info = NULL;
+	hashmap_get(_files_hash, file_hash_key(fd, pid, node), (void**)&info);
+	return info;
+}
+
+static fsinfo_t* file_add(int fd, int pid, fsinfo_t* info) {
+	fsinfo_t* ret = (fsinfo_t*)malloc(sizeof(fsinfo_t));
+	hashmap_put(_files_hash, file_hash_key(fd, pid, info->node), ret);
+	memcpy(ret, info, sizeof(fsinfo_t));
+	return ret;
+}
+
+static fsinfo_t* file_set(int fd, int pid, fsinfo_t* info) {
+	fsinfo_t* ret = file_get_cache(fd, pid, info->node);
+	if(ret == NULL)
+		return;
+	memcpy(ret, info, sizeof(fsinfo_t));
+	return ret;
+}
+
+static void file_del(int fd, int pid, uint32_t node) {
+	fsinfo_t* info = NULL;
+	const char* key = file_hash_key(fd, pid, node);
+	hashmap_get(_files_hash, key, (void**)&info);
+	if(info == NULL)
+		return;
+
+	hashmap_remove(_files_hash, key);
+	free(info);
+}
+
+static fsinfo_t* file_get(int fd, int pid, uint32_t node) {
+	fsinfo_t* info = file_get_cache(fd, pid, node);
+	if(info == NULL) {
+		fsinfo_t i;
+		if(vfs_get_by_node(node, &i) != 0)
+			return NULL;
+		info = file_add(fd, pid, &i);
+	}
+	return info;
+}
 
 static void do_open(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, void* p) {
 	int oflag;
 	int fd = proto_read_int(in);
 	uint32_t node = proto_read_int(in);
 	oflag = proto_read_int(in);
+
+	fsinfo_t info;
+	if(vfs_get_by_node(node, &info) != 0) {
+		PF->addi(out, -1)->addi(out, ENOENT);
+		return;
+	}
+
+	if((oflag & O_WRONLY) != 0 && vfs_check_access(from_pid, &info, W_OK) != 0) {
+		PF->addi(out, -1)->addi(out, EPERM);
+		return;
+	}
+
+	if(vfs_check_access(from_pid, &info, R_OK) != 0) {
+		PF->addi(out, -1)->addi(out, EPERM);
+		return;
+	}
 	
 	int res = 0;
 	if(fd >= 0 && dev != NULL && dev->open != NULL) {
-		if(dev->open(fd, from_pid, node, oflag, p) != 0) {
+		if(dev->open(fd, from_pid, &info, oflag, p) != 0)
 			res = -1;
-		}
 	}
 	PF->addi(out, res);
+	if(res == 0) {
+		file_add(fd, from_pid, &info);
+		PF->add(out, &info, sizeof(fsinfo_t));
+	}
+	else
+		PF->addi(out, errno);
 }
 
 static void do_close(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, void* p) {
 	(void)out;
 	int fd = proto_read_int(in);
-	int pid = proto_read_int(in);
-	if(pid < 0)
-		pid = from_pid;
 	uint32_t node = (uint32_t)proto_read_int(in);
 
 	if(dev != NULL && dev->close != NULL) {
-		dev->close(fd, pid, node, p);
+		dev->close(fd, from_pid, node, p);
 	}
+	file_del(fd, from_pid, node);
 }
 
 #define READ_BUF_SIZE 32
 static void do_read(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, void* p) {
 	int size, offset;
 	int fd = proto_read_int(in);
-	fsinfo_t info;
-	proto_read_to(in, &info, sizeof(fsinfo_t));
+	uint32_t node = proto_read_int(in);
 	size = proto_read_int(in);
 	offset = proto_read_int(in);
 	int32_t shm_id = proto_read_int(in);
 	char buffer[READ_BUF_SIZE];
+
+	fsinfo_t* info = file_get(fd, from_pid, node);
+	if(info == NULL) {
+		PF->addi(out, -1);
+		return;
+	}
+
+	if(vfs_check_access(from_pid, info, R_OK) != 0) {
+		PF->addi(out, -1)->addi(out, EPERM);
+		return;
+	}
 
 	if(dev != NULL && dev->read != NULL) {
 		void* buf;
@@ -71,7 +157,7 @@ static void do_read(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, voi
 			PF->addi(out, -1);
 		}
 		else {
-			size = dev->read(fd, from_pid, &info, buf, size, offset, p);
+			size = dev->read(fd, from_pid, info, buf, size, offset, p);
 			PF->addi(out, size);
 			if(size > 0) {
 				if(shm_id == -1) {
@@ -92,11 +178,21 @@ static void do_read(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, voi
 
 static void do_write(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, void* p) {
 	int32_t size, offset;
-	fsinfo_t info;
 	int fd = proto_read_int(in);
-	proto_read_to(in, &info, sizeof(fsinfo_t));
+	uint32_t node = proto_read_int(in);
 	offset = proto_read_int(in);
 	int32_t shm_id = proto_read_int(in);
+	
+	fsinfo_t* info = file_get(fd, from_pid, node);
+	if(info == NULL) {
+		PF->addi(out, -1);
+		return;
+	}
+
+	if(vfs_check_access(from_pid, info, W_OK) != 0) {
+		PF->addi(out, -1)->addi(out, EPERM);
+		return;
+	}
 	
 	if(dev != NULL && dev->write != NULL) {
 		void* data;
@@ -111,11 +207,11 @@ static void do_write(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, vo
 			PF->addi(out, -1);
 		}
 		else {
-			size = dev->write(fd, from_pid, &info, data, size, offset, p);
+			size = dev->write(fd, from_pid, info, data, size, offset, p);
+			file_set(fd, from_pid, info);
 			PF->addi(out, size);
-			PF->add(out, &info, sizeof(fsinfo_t));
+			PF->add(out, info, sizeof(fsinfo_t));
 		}
-		PF->add(out, &info, sizeof(fsinfo_t));
 		if(shm_id != -1 && data != NULL)
 			shmdt(data);
 	}
@@ -180,16 +276,23 @@ static void do_dma(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, void
 	int shm_id = -1;	
 	int size = 0;
 	if(dev != NULL && dev->dma != NULL) {
-		shm_id = dev->dma(fd, from_pid, node, &size, p);
+		fsinfo_t* info = file_get(fd, from_pid, node);
+		if(info != NULL)
+			shm_id = dev->dma(fd, from_pid, info, &size, p);
 	}
 	PF->addi(out, shm_id)->addi(out, size);
 }
 
 static void do_fcntl(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, void* p) {
 	int fd = proto_read_int(in);
-	fsinfo_t info;
-	proto_read_to(in, &info, sizeof(fsinfo_t));
+	uint32_t node = proto_read_int(in);
 	int32_t cmd = proto_read_int(in);
+
+	fsinfo_t* info = file_get(fd, from_pid, node);
+	if(info == NULL) {
+		PF->addi(out, -1);
+		return;
+	}
 
 	proto_t arg_in, arg_out;
 	PF->init(&arg_out);
@@ -200,12 +303,13 @@ static void do_fcntl(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, vo
 
 	int res = -1;
 	if(dev != NULL && dev->fcntl != NULL) {
-		res = dev->fcntl(fd, from_pid, &info, cmd, &arg_in, &arg_out, p);
+		res = dev->fcntl(fd, from_pid, info, cmd, &arg_in, &arg_out, p);
 	}
 	PF->clear(&arg_in);
 
+	file_set(fd, from_pid, info);
 	PF->addi(out, res)->
-			add(out, &info, sizeof(fsinfo_t))->
+			add(out, info, sizeof(fsinfo_t))->
 			add(out, arg_out.data, arg_out.size);
 	PF->clear(&arg_out);
 }
@@ -214,19 +318,40 @@ static void do_flush(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, vo
 	(void)from_pid;
 	int fd = proto_read_int(in);
 	uint32_t node = (uint32_t)proto_read_int(in);
+	fsinfo_t* info = file_get(fd, from_pid, node);
+
+	if(info == NULL) {
+		PF->addi(out, -1)->addi(out, ENOENT);
+		return;
+	}
+
+	if(vfs_check_access(from_pid, info, W_OK) != 0) {
+		PF->addi(out, -1)->addi(out, EPERM);
+		return;
+	}
 
 	int ret = 0;
 	if(dev != NULL && dev->flush != NULL) {
-		ret = dev->flush(fd, from_pid, node, p);
+		ret = dev->flush(fd, from_pid, info, p);
 	}
 	PF->addi(out, ret);
 }
 
 static void do_create(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, void* p) {
 	(void)from_pid;
+	uint32_t node_to = proto_read_int(in);
+	uint32_t node = proto_read_int(in);
 	fsinfo_t info_to, info;
-	proto_read_to(in, &info_to, sizeof(fsinfo_t));
-	proto_read_to(in, &info, sizeof(fsinfo_t));
+
+	if(vfs_get_by_node(node_to, &info_to) != 0) {
+		PF->addi(out, -1)->addi(out, ENOENT);
+		return;
+	}
+
+	if(vfs_get_by_node(node, &info) != 0) {
+		PF->addi(out, -1)->addi(out, ENOENT);
+		return;
+	}
 
 	if(vfs_check_access(from_pid, &info_to, W_OK) != 0) {
 		PF->addi(out, -1)->addi(out, EPERM);
@@ -279,8 +404,6 @@ static void do_set(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, void
 	int res = 0;
 	if(dev != NULL && dev->set != NULL)
 		res = dev->set(from_pid, &info, p);
-	else
-		res =  vfs_set(&info);
 	PF->addi(out, res);
 }
 
@@ -417,6 +540,8 @@ static void sig_stop(int sig_no, void* p) {
 int device_run(vdevice_t* dev, const char* mnt_point, int mnt_type, int mode) {
 	if(dev == NULL)
 		return -1;
+	device_init(dev);
+
 	sys_signal(SYS_SIG_STOP, sig_stop, dev);
 	
 	fsinfo_t mnt_point_info;
@@ -449,6 +574,7 @@ int device_run(vdevice_t* dev, const char* mnt_point, int mnt_type, int mode) {
 		dev->umount(mnt_point_info.node, dev->extra_data);
 	}
 	vfs_umount(mnt_point_info.node);
+	hashmap_free(_files_hash);
 	return 0;
 }
 

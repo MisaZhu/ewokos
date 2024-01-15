@@ -1,6 +1,5 @@
-target("core")
+target("whoami")
     set_type("application")
-    add_deps("")
     add_files("*.c")        
-    install_dir("sbin")
+    install_dir("bin")
 target_end()

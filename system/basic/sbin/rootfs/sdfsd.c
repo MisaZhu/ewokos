@@ -116,9 +116,6 @@ static int sdext2_create(int pid, fsinfo_t* info_to, fsinfo_t* info, void* p) {
 	int32_t ino_to = (int32_t)info_to->data;
 	if(ino_to == 0) ino_to = 2;
 
-	if(vfs_check_access(pid, info_to, W_OK) != 0)
-		return -1;
-
 	INODE inode_to;
 	if(ext2_node_by_ino(ext2, ino_to, &inode_to) != 0)
 		return -1;
@@ -136,26 +133,15 @@ static int sdext2_create(int pid, fsinfo_t* info_to, fsinfo_t* info, void* p) {
 	if(ino == -1)
 		return -1;
 	info->data = ino;
-	vfs_set(info);
 	return 0;
 }
 
-static int sdext2_open(int fd, int from_pid, uint32_t node, int oflag, void* p) {
+static int sdext2_open(int fd, int from_pid, fsinfo_t* info, int oflag, void* p) {
 	(void)fd;
 	(void)from_pid;
 
-	fsinfo_t info;
-	if(vfs_get_by_node(node, &info) != 0)
-		return -1;
-	
-	if((oflag & O_WRONLY) != 0 && vfs_check_access(from_pid, &info, W_OK) != 0)
-		return -1;
-
-	if(vfs_check_access(from_pid, &info, R_OK) != 0)
-		return -1;
-
 	ext2_t* ext2 = (ext2_t*)p;
-	int32_t ino = (int32_t)info.data;
+	int32_t ino = (int32_t)info->data;
 	if(ino == 0)
 		return -1;
 
@@ -166,17 +152,13 @@ static int sdext2_open(int fd, int from_pid, uint32_t node, int oflag, void* p) 
 
 	if((oflag & O_TRUNC) != 0) {
 		inode.i_size = 0;
-		info.stat.size = 0;
+		info->stat.size = 0;
 		put_node(ext2, ino, &inode);
-		vfs_set(&info);
 	}
 	return 0;	
 }
 
 static int sdext2_set(int from_pid, fsinfo_t* info, void* p) {
-	if(vfs_check_access(from_pid, info, W_OK) != 0)
-		return -1;
-
 	ext2_t* ext2 = (ext2_t*)p;
 	int32_t ino = (int32_t)info->data;
 	if(ino == 0)
@@ -189,16 +171,13 @@ static int sdext2_set(int from_pid, fsinfo_t* info, void* p) {
 
 	set_inode_stat(&info->stat, &inode);
 	put_node(ext2, ino, &inode);
-	return vfs_set(info);
+	return 0;
 }
 
 static int sdext2_read(int fd, int from_pid, fsinfo_t* info, 
 		void* buf, int size, int offset, void* p) {
 	(void)fd;
 	(void)from_pid;
-
-	if(vfs_check_access(from_pid, info, R_OK) != 0)
-		return -1;
 
 	ext2_t* ext2 = (ext2_t*)p;
 	int32_t ino = (int32_t)info->data;
@@ -224,9 +203,6 @@ static int sdext2_write(int fd, int from_pid, fsinfo_t* info,
 		const void* buf, int size, int offset, void* p) {
 	(void)fd;
 	(void)from_pid;
-
-	if(vfs_check_access(from_pid, info, W_OK) != 0)
-		return -1;
 
 	ext2_t* ext2 = (ext2_t*)p;
 	int32_t ino = (int32_t)info->data;

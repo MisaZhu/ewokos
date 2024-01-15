@@ -1,6 +1,6 @@
 target("consoled")
     set_type("application")
-    add_deps("libupng","libconsole", "libtextview", "libdisplay", "libfb", "libfont", "libhash", "libgraph", "libsconf")
+    add_deps("libupng","libconsole", "libtextview", "libdisplay", "libfb", "libfont", , "libgraph", "libsconf")
     add_files("**.c")        
     install_dir("drivers")
 target_end()

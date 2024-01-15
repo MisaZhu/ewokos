@@ -1058,7 +1058,7 @@ static int xserver_fcntl(int fd, int from_pid, fsinfo_t* node,
 	return res;
 }
 
-static int xserver_win_open(int fd, int from_pid, uint32_t node, int oflag, void* p) {
+static int xserver_win_open(int fd, int from_pid, fsinfo_t* node, int oflag, void* p) {
 	(void)oflag;
 	(void)node;
 	if(fd < 0)

@@ -28,13 +28,8 @@ int open(const char* fname, int oflag) {
 		return -1;
 	}
 
-	if((oflag & O_TRUNC) != 0) {
-		info.stat.size = 0;
-		vfs_set(&info);
-	}
-
-	if(dev_open(info.mount_pid, fd, info.node, oflag) != 0) {
-		vfs_close(fd);
+	if(dev_open(info.mount_pid, fd, &info, oflag) != 0) {
+		vfs_close_info(fd);
 		if(created)
 			vfs_del_node(info.node);
 		fd = -1;

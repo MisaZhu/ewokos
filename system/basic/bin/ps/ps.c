@@ -43,7 +43,7 @@ static const char* get_owner(procinfo_t* proc) {
 	session_info_t info;
 	static char name[SESSION_USER_MAX+1];
 
-	if(session_get(proc->uid, &info) == 0)
+	if(session_get_by_uid(proc->uid, &info) == 0)
 		sstrncpy(name, info.user, SESSION_USER_MAX);
 	else
 		snprintf(name, SESSION_USER_MAX, "%d", proc->uid);
