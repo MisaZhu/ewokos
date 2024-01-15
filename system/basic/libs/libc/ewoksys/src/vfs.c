@@ -567,7 +567,7 @@ int vfs_create(const char* fname, fsinfo_t* ret, int type, int mode, bool vfs_no
 	fi.mount_pid = info_to.mount_pid;
 	int res = dev_create(info_to.mount_pid, &info_to, &fi);
 	if(res == 0) 
-		res = vfs_set_info(&fi);
+		vfs_set_info(&fi);
 
 	if(res != 0) {
 		vfs_del_node(fi.node);
@@ -602,7 +602,10 @@ int vfs_fcntl(int fd, int cmd, proto_t* arg_in, proto_t* arg_out) {
 	fsinfo_t info;
 	if(vfs_get_by_fd(fd, &info) != 0)
 		return -1;
-	return dev_fcntl(info.mount_pid, fd, &info, cmd, arg_in, arg_out);
+	int res = dev_fcntl(info.mount_pid, fd, &info, cmd, arg_in, arg_out);
+	if(res == 0)
+		vfs_update_file(&info);
+	return res;
 }
 
 inline int  vfs_fcntl_wait(int fd, int cmd, proto_t* in) {
