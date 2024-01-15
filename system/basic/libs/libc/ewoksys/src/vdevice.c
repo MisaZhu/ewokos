@@ -208,6 +208,7 @@ static void do_write(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, vo
 		}
 		else {
 			size = dev->write(fd, from_pid, info, data, size, offset, p);
+			info->state |= FS_STATE_CHANGED;
 			dev_update_file(fd, from_pid, info);
 			PF->addi(out, size);
 			PF->add(out, info, sizeof(fsinfo_t));
@@ -362,6 +363,7 @@ static void do_create(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, v
 	int res = 0;
 	if(dev != NULL && dev->create != NULL)
 		res = dev->create(from_pid, &info_to, &info, p);
+	info.state = FS_STATE_CHANGED;
 
 	if(res == 0) {
 		PF->addi(out, res)->add(out, &info, sizeof(fsinfo_t));

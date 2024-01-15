@@ -70,9 +70,10 @@ int main(int argc, char* argv[]) {
 		else
 			snprintf(fname, FS_FULL_NAME_MAX, "%s/%s", r, it->d_name);
 
-		const char* show_name = get_show_name(it->d_name, it->d_type);
 		struct stat st;
 		stat(fname, &st);
+
+		const char* show_name = get_show_name(it->d_name, it->d_type);
 		const char* show_mode = get_show_mode(st.st_mode, it->d_type);
 
 		session_info_t info, infog;

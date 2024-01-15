@@ -3,7 +3,7 @@
 #include <string.h>
 
 int stat(const char* name, struct stat* buf) {
-	memset(buf, 0, sizeof(struct stat));
+	//memset(buf, 0, sizeof(struct stat));
 
 	fsinfo_t info;
 	if(vfs_get_by_name(name, &info) != 0) {

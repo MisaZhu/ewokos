@@ -299,7 +299,7 @@ int vfs_close(int fd) {
 	fsfile_t* file = vfs_get_file(fd);
 	if(file == NULL)
 		return -1;
-	if((file->state & F_STATE_CHANGED) != 0) {
+	if((file->info.state & FS_STATE_CHANGED) != 0) {
 		if(vfs_update(&file->info) != 0)
 			return -1;
 	}
@@ -698,9 +698,6 @@ int vfs_write(int fd, fsinfo_t* info, const void* buf, uint32_t size) {
 	if(res > 0) {
 		offset += res;
 		if(info->type == FS_TYPE_FILE) {
-			fsfile_t* file = vfs_get_file(fd);
-			if(file != NULL)
-				file->state |= F_STATE_CHANGED;
 			vfs_update_file(info);
 			vfs_seek(fd, offset);
 		}

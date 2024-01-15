@@ -65,6 +65,11 @@ typedef struct {
 	uint16_t	links_count;	/* Links count */
 } node_stat_t;
 
+#define FS_STATE_CHANGED 0x01
+#define FS_STATE_BUSY_R  0x02
+#define FS_STATE_BUSY_W  0x04
+#define FS_STATE_BUSY_X  0x08
+
 typedef struct {
 	uint32_t type;
 	uint32_t node;
@@ -73,6 +78,7 @@ typedef struct {
 
 	node_stat_t stat;
 	uint32_t data;
+	uint32_t state;
 } fsinfo_t;
 
 
