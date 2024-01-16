@@ -134,6 +134,8 @@ void scn_init (scanner_t *scn)
 
 	scn->file = NULL;
 	scn->str = NULL;
+
+	scn->cache = NULL;
 }
 
 void scn_free (scanner_t *scn)
@@ -224,6 +226,21 @@ int scn_rmv_file (scanner_t *scn)
 	return (0);
 }
 
+static char read_cache(scanner_t *scn){
+	if(scn->cache == NULL){
+		scn->cache = malloc(512*8);
+		fread(scn->cache, 512, 8, scn->file->fp);
+		scn->rptr  = 0;
+	}
+	char c = scn->cache[scn->rptr];
+	scn->rptr++;
+	if(c == EOF){
+		free(scn->cache);
+		scn->cache = NULL;
+	}
+	return c;
+}
+
 static
 char scn_next_char (scanner_t *scn)
 {
@@ -231,7 +248,8 @@ char scn_next_char (scanner_t *scn)
 
 	if (scn->file != NULL) {
 		while (scn->file != NULL) {
-			c = fgetc (scn->file->fp);
+			//c = fgetc (scn->file->fp);
+			c = read_cache(scn);
 
 			if (c != EOF) {
 				return (c);

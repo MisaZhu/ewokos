@@ -222,13 +222,12 @@ void env_init(void){
 }
 
 void* emu_thread(void* param){
-	env_init();
+	//env_init();
 	return emu_main((char*)X::getResName("mac-plus.cfg"));
 }
 
 int main(int argc, char *argv[])
 {
-	__malloc_buf_set(0,0);
     /*init window*/
 	MacEmu emu;
 
