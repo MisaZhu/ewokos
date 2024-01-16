@@ -87,10 +87,13 @@ int dev_open(int dev_pid, int fd, fsinfo_t* info, int oflag) {
 }
 
 #define SHM_ON 128
+#define SHM_MAX 4096
 int dev_read(int dev_pid, int fd, fsinfo_t* info, int32_t offset, void* buf, uint32_t size) {
 	int32_t shm_id = -1;
 	void* shm = NULL;
 	if(size >= SHM_ON) {
+		if(size > SHM_MAX)
+			size = SHM_MAX;
 		key_t key = (info->node << 16) | getpid(); 
 		shm_id = shmget(key, size, 0666|IPC_CREAT|IPC_EXCL);
 		if(shm_id != -1)  {
@@ -132,6 +135,8 @@ int dev_write(int dev_pid, int fd, fsinfo_t* info, int32_t offset, const void* b
 	int32_t shm_id = -1;
 	void* shm = NULL;
 	if(size >= SHM_ON) {
+		if(size > SHM_MAX)
+			size = SHM_MAX;
 		key_t key = (info->node << 16) | getpid(); 
 		shm_id = shmget(key, size, 0666|IPC_CREAT|IPC_EXCL);
 		if(shm_id != -1)  {
