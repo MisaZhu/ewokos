@@ -61,7 +61,7 @@ clean:
 	cd $(ROOT_DIR)/full;make clean
 	cd $(ROOT_DIR)/basic;make clean
 	cd $(ROOT_DIR)/extra;make clean
-	rm -fr $(ROOT_DIR)/build/$(HW)
+	rm -fr $(ROOT_DIR)/build
 
 run:
 	qemu-system-arm -M raspi2b -m 1024M -serial mon:stdio -kernel $(ROOT_DIR)/../kernel/hardware/arm/raspi/pix/kernel7.qemu.img -sd build/root.ext2
