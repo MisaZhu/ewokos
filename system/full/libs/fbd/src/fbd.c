@@ -44,23 +44,6 @@ static int fb_fcntl(int fd,
 	return 0;
 }
 
-/*static void draw_bg(graph_t* g) {
-	int y, h, l;
-	uint32_t c, bc;
-
-	l = g->h/8;
-	h = (g->h / l);
-	h = (h==0 ? 1:h); 
-
-	bc = 0xff / l;
-	bc = (bc==0 ? 1:bc); 
-	for(y=0; y<l; y++) {
-		c = (l-1-y) * bc;
-		graph_fill(g, 0, y*h, g->w, h, (c | c<<8 | c<<16 | 0xff000000));
-	}
-}
-*/
-
 static void draw_bg(graph_t* g) {
 	if(graph_2d_boosted_bsp())
 		graph_clear(g, 0xff000000);
