@@ -63,8 +63,10 @@ void graph_draw_dot_pattern(graph_t* g,int x, int y, int w, int h, uint32_t c1, 
 	graph_fill(g, x, y, w, h, c1);
 	while(j < h) {
 		while(i < w) {
-			//graph_pixel(g, x+i, y+j, c2);
-			graph_fill(g, x+i, y+j, dw, dw, c2);
+			if(dw == 1)
+				graph_pixel(g, x+i, y+j, c2);
+			else
+				graph_fill(g, x+i, y+j, dw, dw, c2);
 			i += 2*dw;
 		}
 		i = shift ? 0:dw;

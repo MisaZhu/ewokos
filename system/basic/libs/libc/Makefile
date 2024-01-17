@@ -97,7 +97,9 @@ LIB_EWOKC_OBJS = \
 	src/stdlib/calloc.o \
 	src/stdlib/execl.o \
 	src/stdlib/exit.o \
-	src/stdlib/malloc_free.o \
+	src/stdlib/malloc.o \
+	src/stdlib/free.o \
+	src/stdlib/realloc.o \
 	src/stdlib/random.o \
 	src/stdlib/setenv.o \
 	src/stdlib/getenv.o \

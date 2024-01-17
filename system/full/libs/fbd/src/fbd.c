@@ -62,7 +62,10 @@ static int fb_fcntl(int fd,
 */
 
 static void draw_bg(graph_t* g) {
-	graph_draw_dot_pattern(g, 0, 0, g->w, g->h, 0xffffffff, 0xff555555, 2);
+	if(graph_2d_boosted_bsp())
+		graph_clear(g, 0xff000000);
+	else
+		graph_clear(g, 0xffffffff);
 }
 
 static void default_splash(graph_t* g) {
@@ -72,12 +75,6 @@ static void default_splash(graph_t* g) {
 		graph_blt_alpha(logo, 0, 0, logo->w, logo->h,
 				g, (g->w-logo->w)/2, (g->h-logo->h)/2, logo->w, logo->h, 0xff);
 		graph_free(logo);
-	}
-
-	if(graph_2d_boosted_bsp()) {
-		graph_fill_circle(g, (g->w-logo->w)/2+2, (g->h-logo->h)/2+2, 8, 0x88000000);
-		graph_fill_circle(g, (g->w-logo->w)/2, (g->h-logo->h)/2, 7, 0xff0000ff);
-		graph_circle(g, (g->w-logo->w)/2, (g->h-logo->h)/2, 8, 0xffffffff);
 	}
 }
 
