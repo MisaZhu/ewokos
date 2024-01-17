@@ -2,6 +2,7 @@
 #include <string.h>
 #include <ewoksys/syscall.h>
 #include <ewoksys/trunkmem.h>
+#include <ewoksys/semaphore.h>
 
 #define MALLOC_BUF_SIZE_DEF  (4*1024)
 #define MALLOC_SEG_SIZE_DEF  128
@@ -41,11 +42,13 @@ static void* m_get_mem_tail(void* arg) {
 	return (void*)_malloc_mem_tail;
 }
 
+static int _sema_malloc = -1;
 void __malloc_init() {
 	memset(&__malloc_info__, 0, sizeof(malloc_t));
 	_malloc_buf = NULL;
 	_malloc_buf_size = MALLOC_BUF_SIZE_DEF;
 	_malloc_seg_size = MALLOC_SEG_SIZE_DEF;
+	_sema_malloc = semaphore_alloc();
 }
 
 void __malloc_buf_set(uint32_t buf_size, uint32_t seg_size) {
@@ -74,6 +77,7 @@ static void malloc_setup() {
 void __malloc_close() {
 	if(_malloc_buf != NULL)
 		free_raw(_malloc_buf);
+	semaphore_free(_sema_malloc);
 }
 
 static void *m_malloc(uint32_t size) {
@@ -90,7 +94,7 @@ static void m_free(void* p) {
 	trunk_free(&__malloc_info__, p);
 }
 
-void *malloc(size_t size) {
+static void* malloc_(size_t size) {
 	void* ret = NULL;
 	ret = m_malloc(size);
 	if(ret == NULL) {
@@ -99,7 +103,14 @@ void *malloc(size_t size) {
 	return ret;
 }
 
-void free(void* ptr) {
+void* malloc(size_t size) {
+	semaphore_enter(_sema_malloc);
+	void* ret = malloc_(size);
+	semaphore_quit(_sema_malloc);
+	return ret;
+}
+
+static void free_(void* ptr) {
 	uint32_t p = (uint32_t)ptr;
 	if(p == 0)
 		return;
@@ -111,15 +122,21 @@ void free(void* ptr) {
 	}	
 }
 
-void* realloc(void* s, uint32_t new_size) {
+void free(void* ptr) {
+	semaphore_enter(_sema_malloc);
+	free_(ptr);
+	semaphore_quit(_sema_malloc);
+}
+
+static void* realloc_(void* s, uint32_t new_size) {
 	if(new_size == 0) {
 		if(s != NULL)
-			free(s);
+			free_(s);
 		return NULL;
 	}
 
 	if(s == NULL)
-		return malloc(new_size);
+		return malloc_(new_size);
 	
 	uint32_t old_size = 0;
 	uint32_t p = (uint32_t)s;
@@ -131,9 +148,16 @@ void* realloc(void* s, uint32_t new_size) {
 	if(old_size >= new_size)
 		return s;
 
-	void* n = malloc(new_size);
+	void* n = malloc_(new_size);
 	if(n != NULL)
 		memcpy(n, s, old_size);
-	free(s);
+	free_(s);
 	return n;
+}
+
+void* realloc(void* s, uint32_t size) {
+	semaphore_enter(_sema_malloc);
+	void* ret = realloc_(s, size);
+	semaphore_quit(_sema_malloc);
+	return ret;
 }
