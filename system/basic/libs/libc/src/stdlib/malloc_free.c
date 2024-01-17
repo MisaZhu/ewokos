@@ -117,7 +117,7 @@ static void free_(void* ptr) {
 		return;
 
 	if(p > (uint32_t)_malloc_buf && p < _malloc_mem_tail)
-		m_free(p);
+		m_free(ptr);
 	else  {
 		free_raw(ptr);
 	}	
