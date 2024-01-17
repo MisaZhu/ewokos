@@ -210,9 +210,9 @@ int mkdir(const char* path){
 
 void env_init(void){
 	mkdir("/tmp/run");
-    char* path = (char*)X::getResName("hd1.img");
-	copyfile(path, "/tmp/run/hd1.img");
-	path =  (char*)X::getResName("mac-plus-pram.dat");
+    //char* path = (char*)X::getResName("hd1.img");
+	//copyfile(path, "/tmp/run/hd1.img");
+	char *path =  (char*)X::getResName("mac-plus-pram.dat");
 	copyfile(path, "/tmp/run/mac-plus-pram.dat");
 //	copyfile("/apps/macplus/res/rom/mac-plus.rom", "/tmp/res/rom/mac-plus.rom");
 //	copyfile("/apps/macplus/res/rom/macplus-pcex.rom", "/tmp/res/rom/macplus-pcex.rom");
@@ -222,12 +222,13 @@ void env_init(void){
 }
 
 void* emu_thread(void* param){
-	//env_init();
+	env_init();
 	return emu_main((char*)X::getResName("mac-plus.cfg"));
 }
 
 int main(int argc, char *argv[])
 {
+	__malloc_buf_set(0,0);
     /*init window*/
 	MacEmu emu;
 

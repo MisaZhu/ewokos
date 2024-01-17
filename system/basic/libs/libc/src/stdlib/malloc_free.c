@@ -3,6 +3,7 @@
 #include <ewoksys/syscall.h>
 #include <ewoksys/trunkmem.h>
 #include <ewoksys/semaphore.h>
+#include <ewoksys/semaphore.h>
 
 #define MALLOC_BUF_SIZE_DEF  (4*1024)
 #define MALLOC_SEG_SIZE_DEF  128
@@ -42,7 +43,7 @@ static void* m_get_mem_tail(void* arg) {
 	return (void*)_malloc_mem_tail;
 }
 
-static int _sema_malloc = 0;
+static int _sema_malloc = -1;
 void __malloc_init() {
 	memset(&__malloc_info__, 0, sizeof(malloc_t));
 	_malloc_buf = NULL;
@@ -103,7 +104,7 @@ static void* malloc_(size_t size) {
 	return ret;
 }
 
-void *malloc(size_t size) {
+void* malloc(size_t size) {
 	semaphore_enter(_sema_malloc);
 	void* ret = malloc_(size);
 	semaphore_quit(_sema_malloc);
@@ -112,12 +113,14 @@ void *malloc(size_t size) {
 
 static void free_(void* ptr) {
 	uint32_t p = (uint32_t)ptr;
-	if(p != 0) {
-		if(p > (uint32_t)_malloc_buf && p < _malloc_mem_tail)
-			m_free((void*)p);
-		else 
-			free_raw(ptr);
-	}
+	if(p == 0)
+		return;
+
+	if(p > (uint32_t)_malloc_buf && p < _malloc_mem_tail)
+		m_free(p);
+	else  {
+		free_raw(ptr);
+	}	
 }
 
 void free(void* ptr) {
@@ -153,9 +156,9 @@ static void* realloc_(void* s, uint32_t new_size) {
 	return n;
 }
 
-void* realloc(void* s, uint32_t new_size) {
+void* realloc(void* s, uint32_t size) {
 	semaphore_enter(_sema_malloc);
-	void* ret = realloc_(s, new_size);
+	void* ret = realloc_(s, size);
 	semaphore_quit(_sema_malloc);
 	return ret;
 }
