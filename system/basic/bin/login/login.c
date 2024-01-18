@@ -77,6 +77,8 @@ int main(int argc, char* argv[]) {
 		if(info == NULL || info->cmd[0] == 0)
 			return -1;
 
+		vfs_create(info->home, NULL, FS_TYPE_DIR, 0750, false, true);
+		chown(info->home, info->uid, info->gid);
 
 		int res = setgid(info->gid);
 		if(res != 0) {
@@ -91,7 +93,6 @@ int main(int argc, char* argv[]) {
 		}
 	}
 
-	mkdir(info->home, 0770);
 	setenv("HOME", info->home);
 	exec(info->cmd);
 	return 0;

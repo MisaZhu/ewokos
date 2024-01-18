@@ -26,7 +26,7 @@ old_cmd_t* _history_tail = NULL;
 
 #define ENV_PATH "PATH"
 
-static int32_t find_exec(char* fname, char* cmd) {
+static int32_t find_exec(char* cmd, char* fname, char* full_cmd) {
 	fname[0] = 0;
 	fsinfo_t info;
 	//get the cmd file name(without arguments).
@@ -47,7 +47,7 @@ static int32_t find_exec(char* fname, char* cmd) {
 		strcpy(fname, cmd);
 		if(vfs_get_by_name(fname, &info) == 0 && info.type == FS_TYPE_FILE) {
 			cmd[at] = c;
-			strcpy(fname, cmd);
+			strcpy(full_cmd, cmd);
 			return 0;
 		}
 	}
@@ -57,7 +57,7 @@ static int32_t find_exec(char* fname, char* cmd) {
 		snprintf(fname, FS_FULL_NAME_MAX-1, "%s/%s", path, cmd+2);
 		if(vfs_get_by_name(fname, &info) == 0 && info.type == FS_TYPE_FILE) {
 			cmd[at] = c;
-			snprintf(fname, FS_FULL_NAME_MAX-1, "%s/%s", path, cmd+2);
+			snprintf(full_cmd, FS_FULL_NAME_MAX-1, "%s/%s", path, cmd+2);
 			return 0;
 		}
 	}
@@ -73,7 +73,7 @@ static int32_t find_exec(char* fname, char* cmd) {
 				snprintf(fname, FS_FULL_NAME_MAX-1, "%s/%s", path, cmd);
 				if(vfs_get_by_name(fname, &info) == 0 && info.type == FS_TYPE_FILE) {
 					cmd[at] = c;
-					snprintf(fname, FS_FULL_NAME_MAX-1, "%s/%s", path, cmd);
+					snprintf(full_cmd, FS_FULL_NAME_MAX-1, "%s/%s", path, cmd);
 					return 0;
 				}
 			}
@@ -118,11 +118,18 @@ static int do_cmd(char* cmd) {
 		cmd++;
 
 	char fname[FS_FULL_NAME_MAX];
-	if(find_exec(fname, cmd) != 0) {
+	char full_cmd[FS_FULL_NAME_MAX];
+	if(find_exec(cmd, fname, full_cmd) != 0) {
 		printf("'%s' not found!\n", cmd);
 		return -1;
 	}
-	exec(fname);
+
+	if(access(fname, X_OK) != 0) {
+		printf("'%s' inexecutable!\n", fname);
+		return -1;
+	}
+
+	exec(full_cmd);
 	return 0;
 }
 

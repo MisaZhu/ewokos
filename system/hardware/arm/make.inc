@@ -31,17 +31,6 @@ sd:
 #cp dirs and files
 	sudo cp -r $(ROOT_DIR)/build/$(HW)/* ${TMP}
 
-#setup users home path
-	sudo mkdir -p ${TMP}/home/root
-	sudo chmod 750 ${TMP}/home/root
-	sudo chown 0:0 ${TMP}/home/root
-	sudo mkdir -p ${TMP}/home/guest
-	sudo chown 1000:1000 ${TMP}/home/guest
-	sudo chmod 750 ${TMP}/home/guest
-	sudo mkdir -p ${TMP}/home/ewok
-	sudo chown 1:1 ${TMP}/home/ewok
-	sudo chmod 750 ${TMP}/home/ewok
-
 #umount tmp
 	sudo umount ${TMP}
 	@echo "==== ext2 format sdcard image created  ====\n"

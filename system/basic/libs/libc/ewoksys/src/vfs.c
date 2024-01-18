@@ -101,8 +101,11 @@ int vfs_check_access(int pid, fsinfo_t* info, int mode) {
 	if(info == NULL || proc_info(pid, &procinfo) != 0)
     return -1;
 
-	if(procinfo.uid <= 0)
+	if(procinfo.uid <= 0) {
+		if(mode == X_OK && (info->stat.mode & 0111) == 0)
+			return -1;
 		return 0;
+	}
 
 	int ucheck = 0400;	
 	int gcheck = 040;	
@@ -537,7 +540,7 @@ int vfs_create(const char* fname, fsinfo_t* ret, int type, int mode, bool vfs_no
 	if(vfs_get_by_name(CS(dir), &info_to) != 0) {
 		int res_dir = -1;
 		if(autodir)
-			res_dir = vfs_create(CS(dir), &info_to, FS_TYPE_DIR, 0755, true, autodir);
+			res_dir = vfs_create(CS(dir), &info_to, FS_TYPE_DIR, 0755, false, autodir);
 		if(res_dir != 0) {
 			str_free(dir);
 			str_free(name);
