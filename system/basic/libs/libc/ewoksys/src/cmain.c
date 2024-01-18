@@ -113,7 +113,6 @@ void _start(void) {
 		*p++ = 0;
 	}
 
-	__malloc_init();
 	sys_signal_init();
 	vfs_init();
 	proc_init();
@@ -132,7 +131,6 @@ void _start(void) {
 
 	int ret = main(argc, argv);
 	close_stdio();
-	__malloc_close();
 	exit(ret);
 }
 
