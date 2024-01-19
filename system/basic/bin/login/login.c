@@ -46,7 +46,8 @@ static void input(str_t* s, bool show) {
 				write(1, &c, 1);
 			if(c == '\n')
 				break;
-			str_addc(s, c);
+			if(c > 27)
+				str_addc(s, c);
 		}
 	}
 }
