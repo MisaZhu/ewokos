@@ -156,8 +156,6 @@ static void try_shrink(malloc_t* m) {
 }
 
 void trunk_free(malloc_t* m, char* p) {
-	if(p == NULL)
-		return;
 	mem_block_t* block = get_block(p);
 	if(block == NULL)
 		return;
