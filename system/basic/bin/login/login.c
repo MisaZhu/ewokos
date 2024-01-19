@@ -17,7 +17,7 @@ static session_info_t* check(const char* user, const char* password) {
 
 static void input(str_t* s, bool show) {
 	str_reset(s);
-	char c;
+	char c, old_c;
 	while(true) {
 		int i = read(0, &c, 1);
 		if(i <= 0 || c == 0) {
@@ -39,8 +39,11 @@ static void input(str_t* s, bool show) {
 			}
 		}
 		else {
+			old_c = c;
 			if(c == '\r')
 				c = '\n';
+			if(c == '\n' && old_c == '\r') 
+				continue;
 
 			if(show || c == '\n')
 				write(1, &c, 1);

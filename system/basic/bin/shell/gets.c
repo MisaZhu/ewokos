@@ -58,7 +58,7 @@ int32_t gets(int fd, str_t* buf) {
 	bool echo = true;
 
 	while(1) {
-		char c;
+		char c, old_c;
 		int i = read(fd, &c, 1);
 		if(i <= 0 || c == 0) {
 		 	if(i == 0)
@@ -117,11 +117,17 @@ int32_t gets(int fd, str_t* buf) {
 			}
 		}
 		else {
+			old_c = c;
+			if(c == '\r')
+				c = '\n';
+			if(c == '\n' && old_c == '\r') 
+				continue;
+
 			if(buf->len == 0 && (c == '@' || c == '#'))
 				echo = false;
 			if(echo && !_initrd) 
 				putch(c);
-			if(c == '\r' || c == '\n')
+			if(c == '\n')
 				break;
 			if(c > 27)
 				str_addc(buf, c);
