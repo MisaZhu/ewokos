@@ -18,6 +18,18 @@ static mem_block_t* gen_block(char* p, uint32_t size) {
 	return block;
 }
 
+mem_block_t* get_block(char* p) {
+	if(p == NULL)
+		return NULL;
+
+	uint32_t block_size = sizeof(mem_block_t);
+	if(((uint32_t)p) < block_size)
+		return NULL;
+
+	mem_block_t* block = (mem_block_t*)(p - block_size);
+	return block;
+}
+
 /*if block size much bigger than the size required, break to two blocks*/
 static void try_break(malloc_t* m, mem_block_t* block, uint32_t size) {
 	uint32_t block_size = sizeof(mem_block_t);
@@ -148,11 +160,10 @@ static void try_shrink(malloc_t* m) {
 void trunk_free(malloc_t* m, char* p) {
 	if(p == NULL)
 		return;
-
-	uint32_t block_size = sizeof(mem_block_t);
-	if(((uint32_t)p) < block_size) //wrong address.
+	mem_block_t* block = get_block(p);
+	if(block == NULL)
 		return;
-	mem_block_t* block = (mem_block_t*)(p - block_size);
+
 	block->used = 0; //mark as free.
 	block = try_merge(m, block);
 	if(m->start == 0 || m->start >= block)
@@ -163,12 +174,9 @@ void trunk_free(malloc_t* m, char* p) {
 
 uint32_t trunk_msize(malloc_t* m, char* p) {
 	(void)m;
-	if(p == NULL) {
+	mem_block_t* block = get_block(p);
+	if(block == NULL)
 		return 0;
-	}
-
-	uint32_t block_size = sizeof(mem_block_t);
-	mem_block_t* block = (mem_block_t*)(p - block_size);
 	return block->size;
 }
 

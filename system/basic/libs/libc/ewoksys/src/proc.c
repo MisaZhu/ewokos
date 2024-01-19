@@ -10,12 +10,10 @@ extern "C" {
 
 static int _vfsd_pid;
 static int _cored_pid;
-static int _cpid;
 
 void proc_init(void) {
 	_vfsd_pid = -1;
 	_cored_pid = -1;
-	_cpid = -1;
 }
 
 inline int get_vfsd_pid(void) {
@@ -31,12 +29,6 @@ inline int get_cored_pid(void) {
 }
 
 inline int proc_getpid(int pid) {
-	if(pid < 0) {
-		if(_cpid < 0) {
- 	 		_cpid = syscall1(SYS_GET_PID, pid);
-		}
-		return _cpid;
-	}
  	return syscall1(SYS_GET_PID, pid);
 }
 
