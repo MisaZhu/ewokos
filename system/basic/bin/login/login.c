@@ -39,11 +39,16 @@ static void input(str_t* s, bool show) {
 			}
 		}
 		else {
-			old_c = c;
-			if(c == '\r')
+			if(c == '\r') {
+				old_c = c;
 				c = '\n';
-			if(c == '\n' && old_c == '\r') 
-				continue;
+			}
+			else  {
+				if(c == '\n' && old_c == '\r') 
+					continue;
+				old_c = 0;
+			}
+
 
 			if(show || c == '\n')
 				write(1, &c, 1);
