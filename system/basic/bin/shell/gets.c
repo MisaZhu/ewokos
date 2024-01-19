@@ -122,9 +122,9 @@ int32_t gets(int fd, str_t* buf) {
 				c = '\n';
 			}
 			else  {
-				if(c == '\n' && old_c == '\r') 
-					continue;
 				old_c = 0;
+				if(c == '\n' && old_c == '\r')
+					continue;
 			}
 
 			if(buf->len == 0 && (c == '@' || c == '#'))

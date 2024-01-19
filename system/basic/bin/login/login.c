@@ -44,9 +44,9 @@ static void input(str_t* s, bool show) {
 				c = '\n';
 			}
 			else  {
+				old_c = 0;
 				if(c == '\n' && old_c == '\r') 
 					continue;
-				old_c = 0;
 			}
 
 
