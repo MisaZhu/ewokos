@@ -540,7 +540,7 @@ int vfs_create(const char* fname, fsinfo_t* ret, int type, int mode, bool vfs_no
 	if(vfs_get_by_name(CS(dir), &info_to) != 0) {
 		int res_dir = -1;
 		if(autodir)
-			res_dir = vfs_create(CS(dir), &info_to, FS_TYPE_DIR, 0755, false, autodir);
+			res_dir = vfs_create(CS(dir), &info_to, FS_TYPE_DIR, 0755, vfs_node_only, autodir);
 		if(res_dir != 0) {
 			str_free(dir);
 			str_free(name);
