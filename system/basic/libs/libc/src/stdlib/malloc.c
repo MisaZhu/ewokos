@@ -25,6 +25,8 @@ static int32_t m_expand(void* arg, int32_t pages) {
 	uint32_t tail = (uint32_t)(_malloc_buf) + _malloc_buf_size;
 	if(to > tail) {
 		uint32_t sz = to - tail;
+		if(sz < MALLOC_BUF_SIZE_DEF)
+			sz = MALLOC_BUF_SIZE_DEF;
 		_malloc_buf = proc_malloc_expand(sz);
 		if(_malloc_buf == NULL)
 			return -1;
