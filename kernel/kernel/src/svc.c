@@ -95,14 +95,14 @@ static int32_t sys_malloc(int32_t size) {
 	return (int32_t)proc_malloc(get_current_proc(), size);
 }
 
-static int32_t sys_msize(void* p) {
-	return (int32_t)proc_msize(get_current_proc(), p);
+static int32_t sys_msize(void) {
+	return (int32_t)proc_msize(get_current_proc());
 }
 
 static void sys_free(int32_t p) {
 	if(p == 0)
 		return;
-	proc_free(get_current_proc(), (void*)p);
+	proc_free(get_current_proc());
 }
 
 static void sys_fork(context_t* ctx) {
@@ -317,7 +317,7 @@ static void sys_ipc_call(context_t* ctx, int32_t serv_pid, int32_t call_id, prot
 	proc_ipc_do_task(ctx, serv_proc, client_proc->info.core);
 }
 
-static void sys_ipc_get_return(context_t* ctx, int32_t pid, uint32_t uid, proto_t* data) {
+static void sys_ipc_get_return_size(context_t* ctx, int32_t pid, uint32_t uid) {
 	ctx->gpr[0] = 0;
 	proc_t* client_proc = get_current_proc();
 	if(uid == 0 || client_proc == NULL) {
@@ -346,15 +346,35 @@ static void sys_ipc_get_return(context_t* ctx, int32_t pid, uint32_t uid, proto_
 		return;
 	}
 
-	if(data != NULL) {//get return value
-		if(client_proc->ipc_res.data.size > 0) {
-			if(data->total_size < client_proc->ipc_res.data.size) {
-				data->data = (proto_t*)proc_malloc(client_proc, client_proc->ipc_res.data.size);
-				data->total_size = client_proc->ipc_res.data.size;
-			}
-			data->size = client_proc->ipc_res.data.size;
-			memcpy(data->data, client_proc->ipc_res.data.data, data->size);
+	ctx->gpr[0] = client_proc->ipc_res.data.size;
+}
+
+static void sys_ipc_get_return(context_t* ctx, int32_t pid, uint32_t uid, proto_t* data) {
+	ctx->gpr[0] = 0;
+	proc_t* client_proc = get_current_proc();
+	if(uid == 0 || client_proc == NULL) {
+		ctx->gpr[0] = -2;
+		return;
+	}
+
+	if(client_proc->ipc_res.state != IPC_RETURN) { //block retry for serv return
+		proc_t* serv_proc = proc_get(pid);
+		ipc_task_t* ipc = proc_ipc_get_task(serv_proc);
+		if(ipc == NULL || ipc->uid != uid) {
+			ctx->gpr[0] = -2;
+			return;
 		}
+		return;
+	}
+
+	if(client_proc->ipc_res.uid != uid) {
+		ctx->gpr[0] = -2;
+		return;
+	}
+
+	if(data != NULL && data->data != NULL && 
+				data->size == client_proc->ipc_res.data.size) {
+		memcpy(data->data, client_proc->ipc_res.data.data, data->size);
 	}
 
 	client_proc->ipc_res.uid = 0;
@@ -362,7 +382,7 @@ static void sys_ipc_get_return(context_t* ctx, int32_t pid, uint32_t uid, proto_
 	proto_clear(&client_proc->ipc_res.data);
 }
 
-static int32_t sys_ipc_get_info(uint32_t uid, int32_t* ipc_info, proto_t* ipc_arg) {
+static int32_t sys_ipc_get_info_size(uint32_t uid) {
 	proc_t* serv_proc = get_current_proc();
 	ipc_task_t* ipc = proc_ipc_get_task(serv_proc);
 	if(uid == 0 ||
@@ -372,20 +392,26 @@ static int32_t sys_ipc_get_info(uint32_t uid, int32_t* ipc_info, proto_t* ipc_ar
 			serv_proc->space->ipc_server.entry == 0) {
 		return -1;
 	}
+	return ipc->data.size;
+}
+
+static int32_t sys_ipc_get_info(uint32_t uid, int32_t* ipc_info, proto_t* ipc_arg) {
+	proc_t* serv_proc = get_current_proc();
+	ipc_task_t* ipc = proc_ipc_get_task(serv_proc);
+	if(uid == 0 ||
+			ipc == NULL ||
+			ipc->uid != uid ||
+			ipc->state != IPC_BUSY ||
+			serv_proc->space->ipc_server.entry == 0 ||
+			ipc->data.size != ipc_arg->size) {
+		return -1;
+	}
 
 	ipc_info[0] = get_proc_pid(ipc->client_pid);
 	ipc_info[1] = ipc->call_id;
-
-	if(ipc->data.size > 0) { //get request input args
-		ipc_arg->size = ipc->data.size;
-		if(ipc_arg->total_size < ipc->data.size) {
-			ipc_arg->data = proc_malloc(serv_proc, ipc->data.size);
-			ipc_arg->total_size = ipc->data.size;
-		}
+	if(ipc_arg->data != NULL)
 		memcpy(ipc_arg->data, ipc->data.data, ipc->data.size);
-		proto_clear(&ipc->data);
-	}
-
+	proto_clear(&ipc->data);
 	return 0;
 }
 
@@ -470,13 +496,13 @@ static void sys_proc_ready_ping(void) {
 	cproc->space->ready_ping = true;
 }
 
-static void sys_get_kevent(context_t* ctx) {
-	kevent_t* kev = kev_pop();
-	ctx->gpr[0] = (int32_t)kev;	
-
-	if(kev == NULL) {
+static void sys_get_kevent(context_t* ctx, kevent_t* kev) {
+	ctx->gpr[0] = -1;
+	if(kev_pop(kev) != 0) {
 		proc_block_on(ctx, -1, (uint32_t)kev_init);
+		return;
 	}
+	ctx->gpr[0] = 0;
 }
 
 static proc_block_event_t* get_block_evt(proc_t* proc, uint32_t event) {
@@ -623,11 +649,11 @@ static inline void _svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_
 	case SYS_SIGNAL_END:
 		sys_signal_end(ctx);
 		return;
-	case SYS_MALLOC:
+	case SYS_MALLOC_EXPAND:
 		ctx->gpr[0] = sys_malloc(arg0);
 		return;
-	case SYS_MSIZE:
-		ctx->gpr[0] = sys_msize((void*)arg0);
+	case SYS_MALLOC_SIZE:
+		ctx->gpr[0] = sys_msize();
 		return;
 	case SYS_FREE:
 		sys_free(arg0);
@@ -686,8 +712,11 @@ static inline void _svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_
 	case SYS_GET_PROC: 
 		ctx->gpr[0] = (int32_t)get_proc(arg0, (procinfo_t*)arg1);
 		return;
+	case SYS_GET_PROCS_NUM: 
+		ctx->gpr[0] = (int32_t)get_procs_num();
+		return;
 	case SYS_GET_PROCS: 
-		ctx->gpr[0] = (int32_t)get_procs((int32_t*)arg0);
+		ctx->gpr[0] = (int32_t)get_procs(arg0, (procinfo_t*)arg1);
 		return;
 	case SYS_PROC_SHM_GET:
 		ctx->gpr[0] = (int32_t)sys_shm_get(arg0, arg1, arg2);
@@ -713,6 +742,9 @@ static inline void _svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_
 	case SYS_IPC_CALL:
 		sys_ipc_call(ctx, arg0, arg1, (proto_t*)arg2);
 		return;
+	case SYS_IPC_GET_RETURN_SIZE:
+		sys_ipc_get_return_size(ctx, arg0, (uint32_t)arg1);
+		return;
 	case SYS_IPC_GET_RETURN:
 		sys_ipc_get_return(ctx, arg0, (uint32_t)arg1, (proto_t*)arg2);
 		return;
@@ -721,6 +753,9 @@ static inline void _svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_
 		return;
 	case SYS_IPC_END:
 		sys_ipc_end(ctx);
+		return;
+	case SYS_IPC_GET_ARG_SIZE:
+		ctx->gpr[0] = sys_ipc_get_info_size((uint32_t)arg0);
 		return;
 	case SYS_IPC_GET_ARG:
 		ctx->gpr[0] = sys_ipc_get_info((uint32_t)arg0, (int32_t*)arg1, (proto_t*)arg2);
@@ -732,7 +767,7 @@ static inline void _svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_
 		sys_proc_ready_ping();
 		return;
 	case SYS_GET_KEVENT:
-		sys_get_kevent(ctx);
+		sys_get_kevent(ctx, (kevent_t*)arg0);
 		return;
 	case SYS_WAKEUP:
 		sys_proc_wakeup(ctx, arg0, arg1);

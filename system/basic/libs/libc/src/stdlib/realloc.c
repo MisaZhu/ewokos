@@ -1,25 +1,32 @@
 #include <stdlib.h>
 #include <string.h>
-#include <ewoksys/syscall.h>
 
-void* realloc(void* s, uint32_t new_size) {
+static void* realloc_(void* s, size_t new_size) {
 	if(new_size == 0) {
 		if(s != NULL)
-			free(s);
+			__free__(s);
 		return NULL;
 	}
 
 	if(s == NULL)
-		return malloc(new_size);
+		return __malloc__(new_size);
 	
-	uint32_t old_size = syscall1(SYS_MSIZE, (int32_t)s); 
+	uint32_t old_size = 0;
+	old_size = __size__(s); 
 	
 	if(old_size >= new_size)
 		return s;
 
-	void* n = malloc(new_size);
+	void* n = __malloc__(new_size);
 	if(n != NULL)
 		memcpy(n, s, old_size);
-	free(s);
+	__free__(s);
 	return n;
+}
+
+void* realloc(void* s, size_t size) {
+	__mlock__();
+	void* ret = realloc_(s, size);
+	__munlock__();
+	return ret;
 }

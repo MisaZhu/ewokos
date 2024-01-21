@@ -102,7 +102,59 @@ static inline uint32_t proc_get_user_stack_pages(proc_t* proc) {
 static inline  uint32_t proc_get_user_stack_base(proc_t* proc) {
 	if(proc->info.type == PROC_TYPE_PROC)
 		return USER_STACK_TOP - STACK_PAGES*PAGE_SIZE;
-	return proc->stack.thread_stack;
+	return proc->stack.thread_stack_base;
+}
+
+static void map_stack(proc_t* proc, uint32_t* stacks, uint32_t base, uint32_t pages) {
+	uint32_t i;
+	for(i=0; i<pages; i++) {
+		stacks[i] = (uint32_t)kalloc4k();
+		map_page(proc->space->vm,
+			base + PAGE_SIZE*i,
+			V2P(stacks[i]),
+			AP_RW_RW, PTE_ATTR_WRBACK);
+	}
+	flush_tlb();
+}
+
+static void unmap_stack(proc_t* proc, uint32_t* stacks, uint32_t base, uint32_t pages) {
+	uint32_t i;
+	for(i=0; i<pages; i++) {
+		kfree4k((void*)stacks[i]);
+		unmap_page(proc->space->vm, base + PAGE_SIZE*i);
+	}
+	flush_tlb();
+}
+
+inline uint32_t thread_stack_alloc(proc_t* proc) {
+	uint32_t i;
+	for(i=0; i<THREAD_MAX; i++) {
+		if(proc->stack.thread_stacks[i].base == 0)
+			break;
+	}
+
+	if(i >= THREAD_MAX) {
+		kprintf("thread stack alloc failed(pid %d)!\n", proc->info.pid);
+		return 0;
+	}
+
+	uint32_t base = USER_STACK_TOP - STACK_PAGES*PAGE_SIZE - THREAD_STACK_PAGES*PAGE_SIZE*(i+1);
+	uint32_t pages = THREAD_STACK_PAGES;
+	proc->stack.thread_stacks[i].base = base;
+	map_stack(proc, proc->stack.thread_stacks[i].stacks, base, pages);
+	return base;
+}
+
+inline void thread_stack_free(proc_t* proc, uint32_t base) {
+	uint32_t i;
+	for(i=0; i<THREAD_MAX; i++) {
+		if(proc->stack.thread_stacks[i].base == base)
+			break;
+	}
+	if(i >= THREAD_MAX) 
+		return;
+	unmap_stack(proc, proc->stack.thread_stacks[i].stacks, base, THREAD_STACK_PAGES);
+	proc->stack.thread_stacks[i].base = 0;
 }
 
 static inline void* proc_get_mem_tail(void* p) {
@@ -150,14 +202,6 @@ static int32_t proc_expand_mem(proc_t *proc, int32_t page_num) {
 	return res;
 }
 
-static inline int32_t proc_expand(void* p, int32_t page_num) {
-	return proc_expand_mem((proc_t*)p, page_num);
-}
-
-static inline void proc_shrink(void* p, int32_t page_num) {
-	proc_shrink_mem((proc_t*)p, page_num);
-}
-
 static void proc_init_space(proc_t* proc) {
 	page_dir_entry_t *vm = _proc_vm[proc->info.pid];
 	set_kernel_vm(vm);
@@ -166,10 +210,6 @@ static void proc_init_space(proc_t* proc) {
 
 	proc->space->vm = vm;
 	proc->space->heap_size = 0;
-	proc->space->malloc_man.arg = (void*)proc;
-	proc->space->malloc_man.expand = proc_expand;
-	proc->space->malloc_man.shrink = proc_shrink;
-	proc->space->malloc_man.get_mem_tail = proc_get_mem_tail;
 }
 
 inline void proc_save_state(proc_t* proc, saved_state_t* saved_state) {
@@ -222,7 +262,7 @@ void proc_switch(context_t* ctx, proc_t* to, bool quick){
 			to->ctx.gpr[1] = to->space->interrupt.data;
 			to->ctx.pc = to->ctx.lr = to->space->interrupt.entry;
 			if(to->space->interrupt.stack == 0)
-				to->space->interrupt.stack = proc_stack_alloc(to);
+				to->space->interrupt.stack = thread_stack_alloc(to);
 			to->ctx.sp = ALIGN_DOWN(to->space->interrupt.stack + THREAD_STACK_PAGES * PAGE_SIZE, 8);
 		}
 		else if (to->space->signal.do_switch) {																			 // have signal request to handle
@@ -230,7 +270,7 @@ void proc_switch(context_t* ctx, proc_t* to, bool quick){
 			to->ctx.gpr[0] = to->space->signal.sig_no;
 			to->ctx.pc = to->ctx.lr = to->space->signal.entry;
 			if(to->space->signal.stack == 0)
-				to->space->signal.stack = proc_stack_alloc(to);
+				to->space->signal.stack = thread_stack_alloc(to);
 			to->ctx.sp = ALIGN_DOWN(to->space->signal.stack + THREAD_STACK_PAGES * PAGE_SIZE, 8);
 			to->space->signal.do_switch = false; // clear ipc request mask
 		}
@@ -241,7 +281,7 @@ void proc_switch(context_t* ctx, proc_t* to, bool quick){
 			to->ctx.gpr[1] = to->space->ipc_server.extra_data;
 			to->ctx.pc = to->ctx.lr = to->space->ipc_server.entry;
 			if(to->space->ipc_server.stack == 0)
-				to->space->ipc_server.stack = proc_stack_alloc(to);
+				to->space->ipc_server.stack = thread_stack_alloc(to);
 			to->ctx.sp = ALIGN_DOWN(to->space->ipc_server.stack + THREAD_STACK_PAGES * PAGE_SIZE, 8);
 			to->space->ipc_server.do_switch = false; // clear ipc request mask
 		}
@@ -363,57 +403,29 @@ static void proc_terminate(context_t* ctx, proc_t* proc) {
 	proc->info.father_pid = 0;
 }
 
-inline uint32_t proc_stack_alloc(proc_t* proc) {
-	return (uint32_t)proc_malloc(proc, THREAD_STACK_PAGES*PAGE_SIZE);
-}
-
-inline void proc_stack_free(proc_t* proc, uint32_t stack) {
-	proc_free(proc, (void *)stack);
-}
-
-static inline uint32_t thread_stack_alloc(proc_t* proc) {
-	return (uint32_t)proc_malloc(proc, THREAD_STACK_PAGES*PAGE_SIZE);
-}
-
-static inline void thread_stack_free(proc_t* proc, uint32_t stack) {
-	proc_free(proc, (void *)stack);
-}
-
 static inline void proc_init_user_stack(proc_t* proc) {
 	if(proc->info.type == PROC_TYPE_THREAD) {
-		proc->stack.thread_stack = thread_stack_alloc(proc);
+		proc->stack.thread_stack_base = thread_stack_alloc(proc);
 	}
 	else {
 		uint32_t i;
-		uint32_t user_stack_base =  proc_get_user_stack_base(proc);
+		uint32_t base =  proc_get_user_stack_base(proc);
 		uint32_t pages = proc_get_user_stack_pages(proc);
-		for(i=0; i<pages; i++) {
-			proc->stack.user_stack[i] = kalloc4k();
-			map_page(proc->space->vm,
-				user_stack_base + PAGE_SIZE*i,
-				V2P(proc->stack.user_stack[i]),
-				AP_RW_RW, PTE_ATTR_WRBACK);
-		}
+		map_stack(proc, proc->stack.user_stack, base, pages);
 	}
-	flush_tlb();
 }
 
 static inline void proc_free_user_stack(proc_t* proc) {
 	/*free user_stack*/
 	if(proc->info.type == PROC_TYPE_THREAD) {
-		if(proc->stack.thread_stack != 0) {
-			thread_stack_free(proc, proc->stack.thread_stack);
+		if(proc->stack.thread_stack_base != 0) {
+			thread_stack_free(proc, proc->stack.thread_stack_base);
 		}
 	}
 	else {
-		uint32_t user_stack_base = proc_get_user_stack_base(proc);
+		uint32_t base = proc_get_user_stack_base(proc);
 		uint32_t pages = proc_get_user_stack_pages(proc);
-		uint32_t i;
-		for(i=0; i<pages; i++) {
-			kfree4k(proc->stack.user_stack[i]);
-			unmap_page(proc->space->vm, user_stack_base + PAGE_SIZE*i);
-		}
-		flush_tlb();
+		unmap_stack(proc, proc->stack.user_stack, base, pages);
 	}
 }
 
@@ -437,13 +449,13 @@ void proc_funeral(proc_t* proc) {
 	if(proc->info.type == PROC_TYPE_PROC) {
 		//free small_stack
 		if (proc->space->interrupt.stack != 0) {
-			proc_stack_free(proc, proc->space->interrupt.stack);
+			thread_stack_free(proc, proc->space->interrupt.stack);
 		}
 		if (proc->space->signal.stack != 0) {
-			proc_stack_free(proc, proc->space->signal.stack);
+			thread_stack_free(proc, proc->space->signal.stack);
 		}
 		if (proc->space->ipc_server.stack != 0) {
-			proc_stack_free(proc, proc->space->ipc_server.stack);
+			thread_stack_free(proc, proc->space->ipc_server.stack);
 		}
 
 		/*free proc heap*/
@@ -485,18 +497,23 @@ void proc_exit(context_t* ctx, proc_t *proc, int32_t res) {
 
 inline void* proc_malloc(proc_t* proc, uint32_t size) {
 	if(size == 0)
+		return (void*)proc->space->malloc_base;
+
+	size = ALIGN_UP(size, PAGE_SIZE);
+	uint32_t pages = size / PAGE_SIZE;
+	if(proc_expand_mem(proc, pages) != 0)
 		return NULL;
-	return trunk_malloc(&proc->space->malloc_man, size);
+	return (void*)proc->space->malloc_base;
 }
 
-inline uint32_t proc_msize(proc_t* proc, void* p) {
-	return trunk_msize(&proc->space->malloc_man, p);
+inline uint32_t proc_msize(proc_t* proc) {
+	return proc->space->heap_size - proc->space->malloc_base;
 }
 
-inline void proc_free(proc_t* proc, void* p) {
-	if(p == NULL)
-		return;
-	trunk_free(&proc->space->malloc_man, p);
+inline void proc_free(proc_t* proc) {
+	uint32_t size = proc_msize(proc);
+	uint32_t pages = size / PAGE_SIZE;
+	proc_shrink_mem(proc, pages);
 }
 
 static inline uint32_t core_fetch(proc_t* proc) {
@@ -569,9 +586,6 @@ proc_t *proc_create(int32_t type, proc_t* parent) {
 
 static inline void proc_free_heap(proc_t* proc) {
 	proc_shrink_mem(proc, proc->space->heap_size/PAGE_SIZE);
-	proc->space->malloc_man.head = NULL;
-	proc->space->malloc_man.tail = NULL;
-	proc->space->malloc_man.start = NULL;
 }
 
 /* proc_load loads the given ELF process image into the given process. */
@@ -618,6 +632,7 @@ int32_t proc_load_elf(proc_t *proc, const char *image, uint32_t size) {
 		prog_header_offset += sizeof(struct elf_program_header);
 	}
 
+	proc->space->malloc_base = proc->space->heap_size;
 	uint32_t user_stack_base =  proc_get_user_stack_base(proc);
 	uint32_t pages = proc_get_user_stack_pages(proc);
 	proc->ctx.sp = user_stack_base + pages*PAGE_SIZE;
@@ -724,9 +739,6 @@ static inline void proc_page_clone(proc_t* to, uint32_t to_addr, proc_t* from, u
 
 static int32_t proc_clone(proc_t* child, proc_t* parent) {
 	uint32_t pages = parent->space->heap_size / PAGE_SIZE;
-	if((parent->space->heap_size % PAGE_SIZE) != 0)
-		pages++;
-
 	//Copy On Write
 	uint32_t p;
 	for(p=0; p<pages; ++p) { 
@@ -751,10 +763,11 @@ static int32_t proc_clone(proc_t* child, proc_t* parent) {
 	int32_t i;
 	for(i=0; i<STACK_PAGES; i++) {
 		proc_page_clone(child, 
-			(uint32_t)child->stack.user_stack[i],
+			child->stack.user_stack[i],
 			parent,
-			(uint32_t)parent->stack.user_stack[i]);
+			parent->stack.user_stack[i]);
 	}
+	child->space->malloc_base = parent->space->malloc_base;
 	return 0;
 }
 
@@ -778,7 +791,7 @@ proc_t* kfork_raw(context_t* ctx, int32_t type, proc_t* parent) {
 		}
 	}
 	else {
-		child->ctx.sp = ALIGN_DOWN(child->stack.thread_stack + THREAD_STACK_PAGES*PAGE_SIZE, 8);
+		child->ctx.sp = ALIGN_DOWN(child->stack.thread_stack_base + THREAD_STACK_PAGES*PAGE_SIZE, 8);
 	}
 	return child;
 }
@@ -795,51 +808,7 @@ proc_t* kfork(context_t* ctx, int32_t type) {
 	return child;
 }
 
-/*
-static int32_t get_procs_num(void) {
-	proc_t* cproc = get_current_proc();
-	int32_t res = 0;
-	int32_t i;
-	for(i=0; i<PROC_MAX; i++) {
-		if(_proc_table[i].info.state != UNUSED &&
-				(cproc->info.uid == 0 ||
-				 _proc_table[i].info.uid == cproc->info.uid)) {
-			res++;
-		}
-	}
-	return res;
-}
-
-procinfo_t* get_procs(int32_t *num) {
-	proc_t* cproc = get_current_proc();
-	*num = get_procs_num();
-	if(*num == 0)
-		return NULL;
-
-	//need to be freed later used!
-	procinfo_t* procs = (procinfo_t*)proc_malloc(cproc, sizeof(procinfo_t)*(*num));
-	if(procs == NULL)
-		return NULL;
-
-	int32_t j = 0;
-	int32_t i;
-	for(i=0; i<PROC_MAX && j<(*num); i++) {
-		if(_proc_table[i].info.state != UNUSED && 
-				(cproc->info.uid == 0 ||
-				 _proc_table[i].info.uid == cproc->info.uid)) {
-			proc_t* p = &_proc_table[i];
-			memcpy(&procs[j], &p->info, sizeof(procinfo_t));
-			procs[j].heap_size = p->space->heap_size;
-			j++;
-		}
-	}
-
-	*num = j;
-	return procs;
-}
-*/
-
-static int32_t get_procs_num(void) {
+int32_t get_procs_num(void) {
 	proc_t* cproc = get_current_proc();
 	int32_t res = 0;
 	int32_t i;
@@ -850,20 +819,13 @@ static int32_t get_procs_num(void) {
 	return res;
 }
 
-procinfo_t* get_procs(int32_t *num) {
-	proc_t* cproc = get_current_proc();
-	*num = get_procs_num();
-	if(*num == 0)
-		return NULL;
-
-	//need to be freed later used!
-	procinfo_t* procs = (procinfo_t*)proc_malloc(cproc, sizeof(procinfo_t)*(*num));
+int32_t get_procs(int32_t num, procinfo_t* procs) {
 	if(procs == NULL)
-		return NULL;
+		return -1;
 
 	int32_t j = 0;
 	int32_t i;
-	for(i=0; i<PROC_MAX && j<(*num); i++) {
+	for(i=0; i<PROC_MAX && j<(num); i++) {
 		if(_proc_table[i].info.state != UNUSED) {
 			proc_t* p = &_proc_table[i];
 			memcpy(&procs[j], &p->info, sizeof(procinfo_t));
@@ -871,9 +833,7 @@ procinfo_t* get_procs(int32_t *num) {
 			j++;
 		}
 	}
-
-	*num = j;
-	return procs;
+	return 0;
 }
 
 int32_t get_proc(int32_t pid, procinfo_t *info) {

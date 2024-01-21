@@ -304,11 +304,10 @@ int main(int argc, char** argv) {
 	syscall0(SYS_CORE_READY);
 
 	while(1) {
-		kevent_t* kev = (kevent_t*)syscall0(SYS_GET_KEVENT);
-		if(kev != NULL) {
+		kevent_t kev;
+		if(syscall1(SYS_GET_KEVENT, (int32_t)&kev) == 0) {
 			ipc_disable();
-			handle_event(kev);
-			free(kev);
+			handle_event(&kev);
 			ipc_enable();
 		}
 		else

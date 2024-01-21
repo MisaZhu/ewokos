@@ -67,6 +67,18 @@ inline uint32_t proc_get_uuid(int32_t pid) {
 	return syscall1(SYS_PROC_UUID, pid);
 }
 
+inline void* proc_malloc_expand(uint32_t size) {
+	return (void*)syscall1(SYS_MALLOC_EXPAND, (int32_t)size);
+}
+
+inline void* proc_malloc_free(void) {
+	syscall0(SYS_FREE);
+}
+
+inline uint32_t proc_malloc_size(void) {
+	return syscall0(SYS_MALLOC_SIZE);
+}
+
 #ifdef __cplusplus
 }
 #endif

@@ -104,8 +104,9 @@ int main(int argc, char* argv[]) {
 	uint32_t t_mem = sys_info.phy_mem_size / (1024*1024);
 	uint32_t csec = sys_state.kernel_sec;
 
-	procinfo_t* procs = (procinfo_t*)syscall1(SYS_GET_PROCS, (int)&num);
-	if(procs != NULL) {
+	num = syscall0(SYS_GET_PROCS_NUM);
+	procinfo_t* procs = (procinfo_t*)malloc(sizeof(procinfo_t)*num);
+	if(num > 0 && procs != NULL && syscall2(SYS_GET_PROCS, num, (int)procs) == 0) {
 		if(full)
 			printf("OWNER    PID  FATH  CORE  STATE     TIME     HEAP(K) SHM(K) PROC\n"); 
 		else
@@ -154,15 +155,16 @@ int main(int argc, char* argv[]) {
 			else
 				printf("\n");
 		}
-		free(procs);
 	}
 	printf("\nmemory: total %d MB, free %d MB, shm %d MB\n", t_mem, fr_mem, shm_mem);
-
 	printf("cpu idle:");
 	for(uint32_t i=0; i<sys_info.cores; i++) {
 		int idle = core_idle[i]/10000;
 		printf("  %d%%", idle > 100 ? 100 : idle);
 	}
 	printf("\n");
+
+	if(procs != NULL)
+		free(procs);
 	return 0;
 }

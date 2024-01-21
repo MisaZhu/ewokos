@@ -7,10 +7,19 @@
 extern "C" {
 #endif
 
+void __malloc_init(void);
+void __malloc_close(void);
+void __free__(void* ptr);
+void* __malloc__(size_t size);
+size_t __size__(void* ptr);
+void __mset_thread_lock__(void);
+void __mlock__(void);
+void __munlock__(void);
+
 void *malloc(size_t size);
 void *calloc(size_t nmemb, size_t size);
 void free(void* ptr);
-void* realloc(void* s, uint32_t new_size);
+void* realloc(void* s, size_t new_size);
 
 void exit(int status);
 int execl(const char* fname, const char* arg, ...);

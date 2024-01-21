@@ -54,6 +54,19 @@ void ipc_enable(void) {
 
 static int32_t ipc_get_info(uint32_t ipc_id, int32_t* pid, int32_t* call_id, proto_t* arg) {
 	int32_t ipc_info[2];
+
+	int32_t size = syscall1(SYS_IPC_GET_ARG_SIZE, ipc_id);
+	if(size < 0)
+		return -1;
+
+	PF->clear(arg);
+	if(size > 0) {
+		void* data = malloc(size);
+		if(data == NULL)
+			return -1;
+		PF->init_data(arg, data, size);
+	}
+
 	if(syscall3(SYS_IPC_GET_ARG, ipc_id, (int32_t)ipc_info, (int32_t)arg) != 0)
 		return -1;
 	*pid = ipc_info[0];
@@ -82,6 +95,19 @@ inline int ipc_call(int to_pid, int call_id, const proto_t* ipkg, proto_t* opkg)
 
 	PF->clear(opkg);
 	while(true) {
+		int size = syscall2(SYS_IPC_GET_RETURN_SIZE, to_pid, (int32_t)ipc_id);
+		if(size == -1) //retry
+			continue;
+		if(size < 0) //error!
+			return -1;
+
+		if(size > 0) {
+			void* data = malloc(size);
+			if(data == NULL) //error!
+				return -1;
+			PF->init_data(opkg, data, size);
+		}
+
 		int res = syscall3(SYS_IPC_GET_RETURN, to_pid, (int32_t)ipc_id, (int32_t)opkg);
 		if(res != -1)  //not retry
 			return res;

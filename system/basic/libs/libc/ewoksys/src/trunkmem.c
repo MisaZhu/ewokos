@@ -101,7 +101,7 @@ char* trunk_malloc(malloc_t* m, uint32_t size) {
 	}
 
 	try_break(m, block, size);
-	m->start = block->next;
+	m->start = block;
 	return block->mem;
 }
 
@@ -109,10 +109,11 @@ char* trunk_malloc(malloc_t* m, uint32_t size) {
 try to merge around free blocks.
 */
 static mem_block_t* try_merge(malloc_t* m, mem_block_t* block) {
+	mem_block_t* b;
 	mem_block_t* ret = block;
 	uint32_t block_size = sizeof(mem_block_t);
 	//try next block	
-	mem_block_t* b = block->next;
+	/*b = block->next;
 	if(b != NULL && b->used == 0) {
 		block->size += (b->size + block_size);
 		block->next = b->next;
@@ -133,6 +134,7 @@ static mem_block_t* try_merge(malloc_t* m, mem_block_t* block) {
 			m->tail = b;
 		ret = b;
 	}
+	*/
 	return ret;
 }
 

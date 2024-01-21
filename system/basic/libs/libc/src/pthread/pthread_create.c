@@ -1,6 +1,7 @@
 #include <pthread.h>
 #include <ewoksys/thread.h>
 #include <stddef.h>
+#include <stdlib.h>
 
 int pthread_create(pthread_t* thread,
 		const pthread_attr_t *attr,
@@ -11,6 +12,7 @@ int pthread_create(pthread_t* thread,
 	if(tid < 0)
 		return -1;
 
+	__mset_thread_lock__();
 	if(thread != NULL)
 		*thread = tid;
 	return 0;

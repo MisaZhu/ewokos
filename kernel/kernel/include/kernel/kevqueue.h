@@ -5,6 +5,6 @@
 
 void       kev_init(void);
 kevent_t*  kev_push(uint32_t type, uint32_t arg0, uint32_t arg1, uint32_t arg2);
-kevent_t*  kev_pop(void);
+int32_t    kev_pop(kevent_t* kev);
 
 #endif

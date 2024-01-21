@@ -7,8 +7,8 @@ enum {
 	SYS_NONE = 0,
 	SYS_KPRINT, 
 	//proccess memory manage
-	SYS_MALLOC,
-	SYS_MSIZE,
+	SYS_MALLOC_EXPAND,
+	SYS_MALLOC_SIZE,
 	SYS_FREE,
 
 	SYS_EXEC_ELF,
@@ -46,6 +46,7 @@ enum {
 	SYS_GET_SYS_INFO,
 	SYS_GET_SYS_STATE,
 	SYS_GET_PROC,
+	SYS_GET_PROCS_NUM,
 	SYS_GET_PROCS,
 
 	//map mmio memory for userspace access
@@ -56,8 +57,10 @@ enum {
 	//internal proccess communication
 	SYS_IPC_SETUP,
 	SYS_IPC_CALL,
+	SYS_IPC_GET_ARG_SIZE,
 	SYS_IPC_GET_ARG,
 	SYS_IPC_SET_RETURN,
+	SYS_IPC_GET_RETURN_SIZE,
 	SYS_IPC_GET_RETURN,
 	SYS_IPC_END,
 	SYS_IPC_DISABLE,

@@ -16,10 +16,10 @@ static inline const char* svc_name(int32_t code) {
 		return "signal";
 	case SYS_SIGNAL_END:
 		return "signal_end";
-	case SYS_MALLOC:
-		return "malloc";
-	case SYS_MSIZE:
-		return "msize";
+	case SYS_MALLOC_EXPAND:
+		return "malloc_expand";
+	case SYS_MALLOC_SIZE:
+		return "malloc_size";
 	case SYS_FREE:
 		return "free";
 	case SYS_GET_PID:
@@ -56,6 +56,8 @@ static inline const char* svc_name(int32_t code) {
 		return "get_sys_state";
 	case SYS_GET_KERNEL_TIC:
 		return "kernel_tic";
+	case SYS_GET_PROCS_NUM: 
+		return "get_procs_num";
 	case SYS_GET_PROCS: 
 		return "get_procs";
 	case SYS_GET_PROC: 
@@ -76,12 +78,16 @@ static inline const char* svc_name(int32_t code) {
 		return "ipc_setup";
 	case SYS_IPC_CALL:
 		return "ipc_call";
+	case SYS_IPC_GET_RETURN_SIZE:
+		return "ipc_get_return_size";
 	case SYS_IPC_GET_RETURN:
 		return "ipc_get_return";
 	case SYS_IPC_SET_RETURN:
 		return "ipc_set_return";
 	case SYS_IPC_END:
 		return "ipc_end";
+	case SYS_IPC_GET_ARG_SIZE:
+		return "ipc_get_arg_size";
 	case SYS_IPC_GET_ARG:
 		return "ipc_get_arg";
 	case SYS_IPC_PING:
