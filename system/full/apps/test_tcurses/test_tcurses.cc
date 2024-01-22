@@ -144,7 +144,7 @@ protected:
 				tcurses_move(&tc, tc.cols);
 				skip(true);
 			}
-			else if(c == KEY_ENTER) {
+			else if(c == KEY_ENTER || c == '\n') {
 				c = '\n';
 				tcurses_insert(&tc, c, getColor(c));
 				tcurses_move_to(&tc, 0, tc.curs_y+1);
