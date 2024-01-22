@@ -54,7 +54,7 @@ static void file_del(int fd, int pid, uint32_t node) {
 	free(info);
 }
 
-fsinfo_t* dev_get_file(int fd, int pid, uint32_t node) {
+static fsinfo_t* dev_get_file(int fd, int pid, uint32_t node) {
 	fsinfo_t* info = file_get_cache(fd, pid, node);
 	if(info == NULL) {
 		fsinfo_t i;
@@ -65,7 +65,7 @@ fsinfo_t* dev_get_file(int fd, int pid, uint32_t node) {
 	return info;
 }
 
-int dev_update_file(int fd, int from_pid, fsinfo_t* finfo) {
+static int dev_update_file(int fd, int from_pid, fsinfo_t* finfo) {
 	fsinfo_t* info = dev_get_file(fd, from_pid, finfo->node);
 	if(info == NULL)
 		return -1;
