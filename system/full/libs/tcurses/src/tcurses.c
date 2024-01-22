@@ -18,6 +18,67 @@ void tcurses_close(tcurses_t* tc) {
 	memset(tc, 0, sizeof(tcurses_t));
 }
 
+void tcurses_set(tcurses_t* tc, UNICODE16 c, uint32_t color) {
+	if(tc->content == NULL)
+		return;
+	uint32_t at = tcurses_at(tc);
+	tc->content[at].c = c;
+	tc->content[at].color = color;
+}
+
+void tcurses_insert(tcurses_t* tc, UNICODE16 c, uint32_t color) {
+	uint32_t size = tc->cols*tc->rows;
+	if(tc->content == NULL || size == 0)
+		return;
+
+	uint32_t at = tcurses_at(tc);
+	uint32_t at2 = 0;
+	uint32_t move = 1;
+	if(c == '\n') {
+		at2 = (tc->curs_y+1)*tc->cols;
+		move = at2 - at;
+	}
+
+	uint32_t i;
+	for(i=size-1; i>=(at+move); i--) {
+		tc->content[i].c = tc->content[i-move].c;
+		tc->content[i].color = tc->content[i-move].color;
+	}
+	if(at2 > at) {
+		for(i=at+1; i<at2; i++) {
+			tc->content[i].c = 0;
+			tc->content[i].color = 0;
+		}
+	}
+
+	tc->content[at].c = c;
+	tc->content[at].color = color;
+}
+
+void tcurses_sets(tcurses_t* tc, tchar_t* s, uint32_t size) {
+	for(uint32_t i=0; i<size; i++) {
+		if(s[i].c != 0) {
+			tcurses_set(tc, s[i].c, s[i].color);
+			if(s[i].c != '\n')
+				tcurses_move(tc, 1);
+			else
+				tcurses_move_to(tc, 0, tc->curs_y+1);
+		}
+	}
+}
+
+void tcurses_inserts(tcurses_t* tc, tchar_t* s, uint32_t size) {
+	for(uint32_t i=0; i<size; i++) {
+		if(s[i].c != 0) {
+			tcurses_insert(tc, s[i].c, s[i].color);
+			if(s[i].c != '\n')
+				tcurses_move(tc, 1);
+			else
+				tcurses_move_to(tc, 0, tc->curs_y+1);
+		}
+	}
+}
+
 void tcurses_reset(tcurses_t* tc, uint32_t cols, uint32_t rows) {
 	if(cols == 0 || rows == 0) {
 		return;
@@ -27,21 +88,14 @@ void tcurses_reset(tcurses_t* tc, uint32_t cols, uint32_t rows) {
 	uint32_t old_size = tc->cols * tc->rows;
 	uint32_t size = cols * rows;
 
-	tc->content = (tchar_t*)calloc(size * sizeof(tchar_t), 1);
-	if(content != NULL) {
-		memcpy(tc->content, content, sizeof(tchar_t)*(size<old_size?size:old_size));
-		free(content);
-	}
-
 	tc->cols = cols;
 	tc->rows = rows;
-
-	if(tc->curs_y >= rows) {
-		tc->curs_y = rows - 1;
-		tc->curs_x = cols - 1;
+	tc->content = (tchar_t*)calloc(size * sizeof(tchar_t), 1);
+	if(content != NULL) {
+		tcurses_move_at(tc, 0);
+		tcurses_sets(tc, content, old_size);	
+		free(content);
 	}
-	else if(tc->curs_x >= cols)
-		tc->curs_x = cols - 1;
 }
 
 void tcurses_move_to(tcurses_t* tc, uint32_t x, uint32_t y) {
@@ -81,14 +135,6 @@ void tcurses_move(tcurses_t* tc, int32_t steps) {
 	if(at < 0)
 		at = 0;
 	tcurses_move_at(tc, at);
-}
-
-void tcurses_set(tcurses_t* tc, UNICODE16 c, uint32_t color) {
-	if(tc->content == NULL)
-		return;
-	uint32_t at = tcurses_at(tc);
-	tc->content[at].c = c;
-	tc->content[at].color = color;
 }
 
 #ifdef __cplusplus

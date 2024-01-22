@@ -31,7 +31,10 @@ uint32_t tcurses_at(tcurses_t* tcurses);
 UNICODE16 tcurses_get(tcurses_t* tcurses);
 uint32_t tcurses_size(tcurses_t* tcurses);
 
+void tcurses_insert(tcurses_t* tcurses, UNICODE16 ci, uint32_t color);
+void tcurses_inserts(tcurses_t* tc, tchar_t* s, uint32_t size);
 void tcurses_set(tcurses_t* tcurses, UNICODE16 ci, uint32_t color);
+void tcurses_sets(tcurses_t* tc, tchar_t* s, uint32_t size);
 
 #ifdef __cplusplus
 }

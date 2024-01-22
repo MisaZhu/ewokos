@@ -76,7 +76,7 @@ class TestX : public XWin {
 
 		uint32_t i = 0;
 		while(i < tc.cols*tc.rows) {
-			if(tc.content[i].c != 0) {
+			if(tc.content[i].c != 0 && tc.content[i].c != '\n') {
 				gpos_t pos = getPos(g, i);
 				graph_draw_char_font_fixed(g, pos.x, pos.y, tc.content[i].c, font, tc.content[i].color, w, 0);
 			}
@@ -145,7 +145,8 @@ protected:
 				skip(true);
 			}
 			else if(c == KEY_ENTER) {
-				tcurses_set(&tc, c, getColor(c));
+				c = '\n';
+				tcurses_insert(&tc, c, getColor(c));
 				tcurses_move_to(&tc, 0, tc.curs_y+1);
 			}	
 			else if(c == KEY_BACKSPACE ||
@@ -154,13 +155,13 @@ protected:
 				tcurses_set(&tc, 0, getColor(c));
 			}
 			else if(c == '\t') {
-				tcurses_set(&tc, ' ', getColor(c));
+				tcurses_insert(&tc, ' ', getColor(c));
 				tcurses_move(&tc, 1);
-				tcurses_set(&tc, ' ', getColor(c));
+				tcurses_insert(&tc, ' ', getColor(c));
 				tcurses_move(&tc, 1);
 			}	
 			else  {
-				tcurses_set(&tc, c, getColor(c));
+				tcurses_insert(&tc, c, getColor(c));
 				tcurses_move(&tc, 1);
 			}	
 			repaint();
