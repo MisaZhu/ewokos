@@ -150,12 +150,12 @@ void _kernel_entry_c(void) {
 	kmalloc_init();
 	dma_init();
 
-	uart_dev_init();
 	kev_init();
 
 	sd_init();
 
 	load_kernel_config();
+	uart_dev_init();
 
 #ifdef KCONSOLE
 	kconsole_init();

@@ -12,6 +12,7 @@ void load_kernel_config(void) {
 	_kernel_config.schedule_freq = SCHEDULE_FREQ;
 	_kernel_config.timer_freq = _kernel_config.schedule_freq*2;
 	_kernel_config.timer_intr_usec = 0;
+	_kernel_config.uart_baud = 115200;
 
 	sconf_t* sconf = sconf_load("/etc/kernel/kernel.conf");
 	if(sconf == NULL)
@@ -35,5 +36,11 @@ void load_kernel_config(void) {
 
 	if(_kernel_config.timer_freq < _kernel_config.schedule_freq*2)
 		_kernel_config.timer_freq = _kernel_config.schedule_freq*2;
+
+	v = sconf_get(sconf, "uart_baud");
+	if(v[0] != 0)
+		_kernel_config.uart_baud = atoi(v);
+	if(_kernel_config.uart_baud == 0)
+		_kernel_config.uart_baud = 115200;
 	sconf_free(sconf);
 }

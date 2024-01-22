@@ -25,6 +25,7 @@ typedef struct {
 	uint32_t cores;
 	uint32_t schedule_freq;
 	uint32_t timer_intr_usec;
+	uint32_t uart_baud;
 } kernel_conf_t;
 
 extern kernel_conf_t _kernel_config;

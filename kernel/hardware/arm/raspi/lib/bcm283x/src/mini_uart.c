@@ -2,6 +2,7 @@
 #include <bcm283x/gpio.h>
 #include <bcm283x/mini_uart.h>
 #include <kernel/hw_info.h>
+#include <kernel/kernel.h>
 
 #define AUX_OFFSET 0x00215000
 #define UART_OFFSET 0x00215040
@@ -32,6 +33,16 @@
 #define UART_TXD_GPIO 14
 #define UART_RXD_GPIO 15
 
+static inline uint32_t get_baud(void) {
+	if(_kernel_config.uart_baud == 115200)
+		return UART_BAUD_115200;
+	else if(_kernel_config.uart_baud == 19200)
+		return UART_BAUD_19200;
+	else if(_kernel_config.uart_baud == 9600)
+		return UART_BAUD_9600;
+	return UART_BAUD_DEFAULT;
+}
+
 int32_t mini_uart_init(void) {
 	unsigned int data = get32(AUX_ENABLES);
 	/* enable uart */
@@ -42,7 +53,7 @@ int32_t mini_uart_init(void) {
 	put32(UART_IER_REG, 0x00); /** no need interrupt */
 	/** check requested baudrate **/
 	/** baudrate count = ((sys_clk/baudrate)/8)-1 */
-	put32(UART_BAUD_REG, UART_BAUD_DEFAULT); /** 16-bit baudrate counter */
+	put32(UART_BAUD_REG, get_baud()); /** 16-bit baudrate counter */
 	/* disable pull-down default on tx/rx pins */
 	gpio_pull(UART_TXD_GPIO, GPIO_PULL_NONE);
 	gpio_pull(UART_RXD_GPIO, GPIO_PULL_NONE);
