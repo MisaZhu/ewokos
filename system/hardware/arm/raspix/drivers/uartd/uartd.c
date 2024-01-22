@@ -16,6 +16,7 @@
 static charbuf_t _TxBuf;
 static charbuf_t _RxBuf;
 static bool _mini_uart;
+static bool _no_return;
 
 static int uart_read(int fd, int from_pid, fsinfo_t* node, 
 		void* buf, int size, int offset, void* p) {
@@ -71,13 +72,15 @@ static int loop(void* p) {
 	if(_mini_uart) {
 		while(bcm283x_mini_uart_ready_to_recv() == 0){
 			c = bcm283x_mini_uart_recv();
-			charbuf_push(&_RxBuf, c, true);
+			if(c != '\r' || !_no_return)
+				charbuf_push(&_RxBuf, c, true);
 		}
 	}
 	else {
 		while(bcm283x_pl011_uart_ready_to_recv() == 0){
 			c = bcm283x_pl011_uart_recv();
-			charbuf_push(&_RxBuf, c, true);
+			if(c != '\r' || !_no_return)
+				charbuf_push(&_RxBuf, c, true);
 		}
 	}
 	ipc_enable();
@@ -89,8 +92,13 @@ int main(int argc, char** argv) {
 	const char* mnt_point = argc > 1 ? argv[1]: "/dev/tty0";
 	_mmio_base = mmio_map();
 	_mini_uart = true;
+	_no_return = false;
+
 	charbuf_init(&_TxBuf);
 	charbuf_init(&_RxBuf);
+
+	if(argc > 2 && strcmp(argv[2], "nr") == 0)
+		_no_return = true;
 
 	vdevice_t dev;
 	memset(&dev, 0, sizeof(vdevice_t));
