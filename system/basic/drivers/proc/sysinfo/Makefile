@@ -12,8 +12,8 @@ SYSINFOD_OBJS = sysinfod.o
 SYSINFOD = $(TARGET_DIR)/drivers/proc/sysinfod
 
 $(SYSINFOD): $(SYSINFOD_OBJS) \
-		$(BUILD_DIR)/lib/libewokc.a
-	$(LD) -Ttext=100 $(SYSINFOD_OBJS) -o $(SYSINFOD) $(LDFLAGS) -lewokc -lc_nano -lnosys
+		$(BUILD_DIR)/lib/libewoksys.a
+	$(LD) -Ttext=100 $(SYSINFOD_OBJS) -o $(SYSINFOD) $(LDFLAGS) -lewoksys -lc -lgloss -lsoftfloat
 
 clean:
 	rm -f $(SYSINFOD_OBJS)

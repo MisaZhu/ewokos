@@ -12,8 +12,8 @@ TTYJOY_OBJS = ttyjoy.o
 TTYJOY = $(TARGET_DIR)/bin/ttyjoy
 
 $(TTYJOY): $(TTYJOY_OBJS) \
-		$(BUILD_DIR)/lib/libewokc.a 
-	$(LD) -Ttext=100 $(TTYJOY_OBJS) -o $(TTYJOY) $(LDFLAGS) -lewokc -lc_nano -lnosys
+		$(BUILD_DIR)/lib/libewoksys.a 
+	$(LD) -Ttext=100 $(TTYJOY_OBJS) -o $(TTYJOY) $(LDFLAGS) -lewoksys -lc -lgloss -lsoftfloat
 
 clean:
 	rm -f $(TTYJOY_OBJS)

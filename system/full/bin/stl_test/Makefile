@@ -12,10 +12,10 @@ STL_TEST_OBJS = test.o
 STL_TEST = $(TARGET_DIR)/bin/stltest
 
 $(STL_TEST): $(STL_TEST_OBJS) \
-		$(BUILD_DIR)/lib/libewokc.a \
+		$(BUILD_DIR)/lib/libewoksys.a \
 		$(BUILD_DIR)/lib/libcxx.a \
 		$(BUILD_DIR)/lib/libewokstl.a 
-	$(LD) -Ttext=100 $(STL_TEST_OBJS) -o $(STL_TEST) $(LDFLAGS) -lewokstl -lewokc -lc_nano -lnosys -lcxx -lstdc++
+	$(LD) -Ttext=100 $(STL_TEST_OBJS) -o $(STL_TEST) $(LDFLAGS) -lewokstl -lewoksys -lc -lgloss -lsoftfloat -lcxx -lstdc++
 
 clean:
 	rm -f $(STL_TEST_OBJS) $(STL_TEST)

@@ -16,21 +16,6 @@
 #include <ext2/ext2fs.h>
 #include <bsp/bsp_sd.h>
 
-static void outc(char c, void* p) {
-	str_t *buf = (str_t *)p;
-	str_addc(buf, c);
-}
-
-static void out(const char *format, ...) {
-	str_t *str = str_new(NULL);
-	va_list ap;
-	va_start(ap, format);
-	v_printf(outc, str, format, ap);
-	va_end(ap);
-	klog("%s", str->cstr);
-	str_free(str);
-}
-
 static void* sd_read_ext2(const char* fname, int32_t* size) {
 	ext2_t ext2;
 	ext2_init(&ext2, sd_read, NULL);
@@ -58,23 +43,23 @@ static int32_t exec_from_sd(const char* prog) {
 }
 
 static void run_before_vfs(const char* cmd) {
-	out("init: %s    ", cmd);
+	klog("init: %s    ", cmd);
 
 	int pid = fork();
 	if(pid == 0) {
 		if(exec_from_sd(cmd) != 0) {
-			out("[failed]!\n");
+			klog("[failed]!\n");
 			exit(-1);
 		}
 	}
 	else
 		ipc_wait_ready(pid);
-	out("[ok]\n");
+	klog("[ok]\n");
 }
 
 static void run_init(const char* init_file) {
 	if(access(init_file, R_OK) != 0) {
-		out("init: init file '%s' missed! \n", init_file);
+		klog("init: init file '%s' missed! \n", init_file);
 		return;
 	}
 
@@ -84,9 +69,9 @@ static void run_init(const char* init_file) {
 		setgid(0);
 		char cmd[FS_FULL_NAME_MAX];
 		snprintf(cmd, FS_FULL_NAME_MAX-1, "/bin/shell -initrd %s", init_file);
-		out("\ninit: loading '%s' ... \n", init_file);
+		klog("\ninit: loading '%s' ... \n", init_file);
 		if(exec(cmd) != 0) {
-			out("[failed]!\n");
+			klog("[failed]!\n");
 			exit(-1);
 		}
 	}
@@ -107,7 +92,7 @@ int main(int argc, char** argv) {
 	(void)argv;
 
 	if(getuid() >= 0) {
-		out("process 'init' can only loaded by kernel!\n");
+		klog("process 'init' can only loaded by kernel!\n");
 		return -1;
 	}
 
@@ -116,7 +101,7 @@ int main(int argc, char** argv) {
 	else
 		syscall1(SYS_PROC_SET_CMD, (int32_t)"/sbin/init");
 
-	out("\n[init process started]\n");
+	klog("\n[init process started]\n");
 	run_before_vfs("/sbin/core");
 	run_before_vfs("/sbin/vfsd");
 	run_before_vfs("/sbin/sdfsd");

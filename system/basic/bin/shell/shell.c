@@ -63,11 +63,13 @@ static int32_t find_exec(char* cmd, char* fname, char* full_cmd) {
 	}
 	//search executable file in PATH dirs.
 	const char* paths = getenv(ENV_PATH);
+	if(paths == NULL)
+		paths = "";
 	char path[FS_FULL_NAME_MAX];
 	i = 0;
 	while(1) {
 		if(paths[i] == 0 || paths[i] == ':') {
-			sstrncpy(path, paths, i);
+			strncpy(path, paths, i);
 			path[i] = 0;
 			if(path[0] != 0) {
 				snprintf(fname, FS_FULL_NAME_MAX-1, "%s/%s", path, cmd);
@@ -116,7 +118,6 @@ static void redir(const char* fname, int in) {
 static int do_cmd(char* cmd) {
 	while(*cmd == ' ')
 		cmd++;
-
 	char fname[FS_FULL_NAME_MAX];
 	char full_cmd[FS_FULL_NAME_MAX];
 	if(find_exec(cmd, fname, full_cmd) != 0) {
@@ -189,7 +190,7 @@ static int run_cmd(char* cmd) {
 static void prompt(void) {
 	int uid = getuid();
 	const char* cid = getenv("CONSOLE_ID");
-	if(cid[0] == 0)
+	if(cid == NULL || cid[0] == 0)
 		cid = "0";
 	char cwd[FS_FULL_NAME_MAX+1];
 	if(uid == 0)
@@ -260,10 +261,9 @@ int main(int argc, char* argv[]) {
 	setenv("PATH", "/sbin:/bin:/bin/x");
 
 	const char* home = getenv("HOME");
-	if(home[0] == 0)
+	if(home == NULL || home[0] == 0)
 		home = "/";
 	chdir(home);
-
 	str_t* cmdstr = str_new("");
 	while(_terminated == 0) {
 		if(fd_in == 0)
@@ -271,7 +271,6 @@ int main(int argc, char* argv[]) {
 
 		if(gets(fd_in, cmdstr) != 0 && cmdstr->len == 0)
 			break;
-
 		char* cmd = cmdstr->cstr;
 		if(cmd[0] == 0)
 			continue;
@@ -307,7 +306,6 @@ int main(int argc, char* argv[]) {
 			waitpid(child_pid);
 		}
 	}
-
 	if(fd_in > 0) //close initrd file
 		close(fd_in);
 	str_free(cmdstr);	

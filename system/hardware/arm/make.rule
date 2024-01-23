@@ -8,47 +8,12 @@ CFLAGS = -Wstrict-prototypes \
         -marm \
 	-mfloat-abi=softfp \
         -Wall -Wextra -fPIC -mapcs-frame \
-        -fno-builtin-printf \
-        -fno-builtin-stat \
-        -fno-builtin-memset \
-        -fno-builtin-calloc \
-        -fno-builtin-snprintf \
-        -fno-builtin-sprintf \
-        -fno-builtin-fprintf \
-        -fno-builtin-fwrite \
-        -fno-builtin-fclose \
-        -fno-builtin-fgetc \
-        -fno-builtin-fopen \
-        -fno-builtin-fflush \
-        -fno-builtin-ungetc \
-        -fno-builtin-realloc \
-        -Wno-overlength-strings \
-        -fno-builtin-exit \
-        -fno-builtin-stdio \
-        -fno-builtin-unistd \
-        -std=c99
+       -std=c99
 
 CXXFLAGS = -marm \
 	-mfloat-abi=softfp \
         -pedantic -Wall -Wextra -fPIC -mapcs-frame \
-        -fno-builtin-printf \
-        -fno-builtin-memset \
-        -fno-builtin-snprintf \
-        -fno-builtin-fflush \
-        -fno-builtin-ungetc \
-        -fno-builtin-sprintf \
-        -fno-builtin-fprintf \
-        -fno-builtin-fread \
-        -fno-builtin-fwrite \
-        -fno-builtin-fclose \
-        -fno-builtin-fgetc \
-        -fno-builtin-fopen \
-        -fno-builtin-realloc \
-        -Wno-overlength-strings \
-        -fno-builtin-exit \
-        -fno-builtin-stdio \
-        -fno-builtin-unistd \
-        -fno-rtti \
+	    -fno-rtti \
         -fno-exceptions \
         -std=c++14
         

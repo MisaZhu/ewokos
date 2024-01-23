@@ -12,8 +12,8 @@ HID_JOYSTICKD_OBJS = hid_joystickd.o
 HID_JOYSTICKD = $(TARGET_DIR)/drivers/raspix/hid_joystickd
 
 $(HID_JOYSTICKD): $(HID_JOYSTICKD_OBJS) \
-		$(BUILD_DIR)/lib/libewokc.a 
-	$(LD) -Ttext=100 $(HID_JOYSTICKD_OBJS) -o $(HID_JOYSTICKD) $(LDFLAGS) -lewokc -lc_nano -lnosys
+		$(BUILD_DIR)/lib/libewoksys.a 
+	$(LD) -Ttext=100 $(HID_JOYSTICKD_OBJS) -o $(HID_JOYSTICKD) $(LDFLAGS) -lewoksys -lc -lgloss -lsoftfloat
 
 clean:
 	rm -f $(HID_JOYSTICKD_OBJS)

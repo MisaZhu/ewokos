@@ -40,7 +40,7 @@ intr_request_irq(unsigned int irq, int (*handler)(unsigned int irq, void *dev), 
     entry->irq = irq;
     entry->handler = handler;
     entry->flags = flags;
-    sstrncpy(entry->name, name, sizeof(entry->name)-1);
+    strncpy(entry->name, name, sizeof(entry->name)-1);
     entry->dev = dev;
     entry->next = irq_vec;
     irq_vec = entry;

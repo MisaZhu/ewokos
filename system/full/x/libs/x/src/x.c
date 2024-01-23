@@ -129,7 +129,7 @@ const char* x_get_theme(void) {
 	if(dev_cntl("/dev/x", X_DCNTL_GET_THEME, NULL, &out) == 0) {
 		const char* t = proto_read_str(&out);
 		if(t != NULL)
-			sstrncpy(theme, t, 127);
+			strncpy(theme, t, 127);
 	}
 	return theme;
 }
@@ -176,9 +176,9 @@ void x_set_top(int pid) {
 const char* x_get_theme_fname(const char* prefix, const char* app_name, const char* fname) {
 	static char ret[256];
 	const char* theme = getenv("XTHEME");
-	if(theme[0] == 0) 
+	if(theme == NULL || theme[0] == 0) 
 		theme = x_get_theme();
-	if(theme[0] == 0) 
+	if(theme == NULL || theme[0] == 0) 
 		theme = "default";
 
 	if(app_name == NULL || app_name[0] == 0)

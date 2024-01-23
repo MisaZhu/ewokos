@@ -12,8 +12,8 @@ WHOAMI_OBJS = whoami.o
 WHOAMI = $(TARGET_DIR)/bin/whoami
 
 $(WHOAMI): $(WHOAMI_OBJS) \
-		$(BUILD_DIR)/lib/libewokc.a
-	$(LD) -Ttext=100 $(WHOAMI_OBJS) -o $(WHOAMI) $(LDFLAGS) -lewokc -lc_nano -lnosys
+		$(BUILD_DIR)/lib/libewoksys.a
+	$(LD) -Ttext=100 $(WHOAMI_OBJS) -o $(WHOAMI) $(LDFLAGS) -lewoksys -lc -lgloss -lsoftfloat
 
 clean:
 	rm -f $(WHOAMI_OBJS)

@@ -12,7 +12,7 @@ XWM_OBJS = xwm.o SolarisWM.o
 XWM = $(TARGET_DIR)/sbin/x/xwm_solaris
 
 $(XWM): $(XWM_OBJS) \
-		$(BUILD_DIR)/lib/libewokc.a \
+		$(BUILD_DIR)/lib/libewoksys.a \
 		$(BUILD_DIR)/lib/libx++.a \
 		$(BUILD_DIR)/lib/libx.a \
 		$(BUILD_DIR)/lib/libsconf.a \
@@ -20,7 +20,7 @@ $(XWM): $(XWM_OBJS) \
 		$(BUILD_DIR)/lib/libfont.a \
 		$(BUILD_DIR)/lib/libgraph.a \
 		$(BUILD_DIR)/lib/libcxx.a 
-	$(LD) -Ttext=100 $(XWM_OBJS) -o $(XWM) $(LDFLAGS) -lx++ -lx -lgraph -lbsp -lttf -lfont  -lupng -lsconf -lewokc -lc_nano -lnosys -lcxx
+	$(LD) -Ttext=100 $(XWM_OBJS) -o $(XWM) $(LDFLAGS) -lx++ -lx -lgraph -lbsp -lttf -lfont  -lupng -lsconf -lewoksys -lc -lgloss -lsoftfloat -lcxx
 
 clean:
 	rm -f $(XWM_OBJS)

@@ -93,6 +93,8 @@ static void export_all(void) {
 
 static void export_get(const char* arg) {
 	const char* value = getenv(arg);
+	if(value == NULL)
+		value = "";
 	printf("%s=%s\n", arg, value);
 }
 
@@ -101,7 +103,7 @@ static void export_set(const char* arg) {
 	char* v = strchr(arg, '=');
 	if(v == NULL)
 		return;
-	sstrncpy(name, arg, v-arg);
+	strncpy(name, arg, v-arg);
 	name[v-arg] = 0;
 
 	setenv(name, (v+1));
@@ -132,7 +134,7 @@ int32_t handle_shell_cmd(const char* cmd) {
 	}
 	else if(strcmp(cmd, "cd") == 0) {
 		const char* home = getenv("HOME");
-		if(home[0] == 0)
+		if(home == NULL || home[0] == 0)
 			home = "/";
 		return cd(home);
 	}

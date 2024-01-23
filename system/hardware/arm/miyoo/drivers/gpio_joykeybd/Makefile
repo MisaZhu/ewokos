@@ -12,8 +12,8 @@ JOYKEYBD_OBJS = joykeybd.o
 JOYKEYBD = $(TARGET_DIR)/drivers/miyoo/gpio_joykeybd
 
 $(JOYKEYBD): $(JOYKEYBD_OBJS) \
-		$(BUILD_DIR)/lib/libewokc.a 
-	$(LD) -Ttext=100 $(JOYKEYBD_OBJS) -o $(JOYKEYBD) $(LDFLAGS) -lewokc -lc_nano -lnosys
+		$(BUILD_DIR)/lib/libewoksys.a 
+	$(LD) -Ttext=100 $(JOYKEYBD_OBJS) -o $(JOYKEYBD) $(LDFLAGS) -lewoksys -lc -lgloss -lsoftfloat
 
 clean:
 	rm -f $(JOYKEYBD_OBJS)
