@@ -342,27 +342,27 @@ public:
 
 		v = sconf_get(conf, "bg_color");
 		if(v[0] != 0)
-			bgColor = atoi_base(v, 16);
+			bgColor = strtol(v, NULL,16);
 
 		v = sconf_get(conf, "fg_color");
 		if(v[0] != 0)
-			fgColor = atoi_base(v, 16);
+			fgColor = strtol(v,NULL, 16);
 
 		v = sconf_get(conf, "select_color");
 		if(v[0] != 0)
-			selectColor = atoi_base(v, 16);
+			selectColor = strtol(v,NULL, 16);
 
 		v = sconf_get(conf, "hide_color");
 		if(v[0] != 0)
-			hideColor = atoi_base(v, 16);
+			hideColor = strtol(v, NULL,16);
 
 		v = sconf_get(conf, "title_color");
 		if(v[0] != 0)
-			titleColor = atoi_base(v, 16);
+			titleColor = strtol(v,NULL, 16);
 
 		v = sconf_get(conf, "title_bg_color");
 		if(v[0] != 0)
-			titleBGColor = atoi_base(v, 16);
+			titleBGColor = strtol(v, NULL,16);
 
 		v = sconf_get(conf, "file_icon");
 		if(v[0] != 0) {

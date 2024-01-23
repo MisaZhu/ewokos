@@ -44,11 +44,11 @@ static int32_t read_config(fb_console_t* console, const char* fname) {
 
 	v = sconf_get(conf, "bg_color");
 	if(v[0] != 0) 
-		console->console.textview.bg_color = atoi_base(v, 16);
+		console->console.textview.bg_color = strtol(v, NULL, 16);
 
 	v = sconf_get(conf, "fg_color");
 	if(v[0] != 0) 
-		console->console.textview.fg_color = atoi_base(v, 16);
+		console->console.textview.fg_color = strtol(v, NULL, 16);
 	
 	v = sconf_get(conf, "font_size");
 	if(v[0] != 0) 

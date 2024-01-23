@@ -12,8 +12,8 @@ VFSD_OBJS = vfsd.o
 VFSD = $(TARGET_DIR)/$(ROOT_DIR)/sbin/vfsd
 
 $(VFSD): $(VFSD_OBJS) \
-		$(BUILD_DIR)/lib/libewokc.a
-	$(LD) -Ttext=100 $(VFSD_OBJS) -o $(VFSD) $(LDFLAGS) -lewokc -lc_nano -lnosys
+		$(BUILD_DIR)/lib/libewoksys.a
+	$(LD) -Ttext=100 $(VFSD_OBJS) -o $(VFSD) $(LDFLAGS)  -lewoksys -lc -lgloss -lsoftfloat 
 
 clean:
 	rm -fr $(VFSD) $(VFSD_OBJS)

@@ -12,8 +12,8 @@ CAT_OBJS = aplay.o utils.o pcm.o
 CAT = $(TARGET_DIR)/bin/aplay
 
 $(CAT): $(CAT_OBJS) \
-		$(BUILD_DIR)/lib/libewokc.a
-	$(LD) -Ttext=100 $(CAT_OBJS) -o $(CAT) $(LDFLAGS) -lewokc -lc_nano -lnosys
+		$(BUILD_DIR)/lib/libewoksys.a
+	$(LD) -Ttext=100 $(CAT_OBJS) -o $(CAT) $(LDFLAGS) -lewoksys -lc -lgloss -lsoftfloat
 
 clean:
 	rm -f $(CAT_OBJS) $(CAT)

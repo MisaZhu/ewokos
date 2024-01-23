@@ -148,7 +148,7 @@ static int32_t fb_dma(int fd, int from_pid, fsinfo_t* info, int* size, void* p) 
 }
 
 static void read_config(uint32_t* w, uint32_t* h, uint8_t* dep, int32_t* rotate) {
-	sstrncpy(_logo, "/usr/system/images/logos/logo.png", 255);
+	strncpy(_logo, "/usr/system/images/logos/logo.png", 255);
 
 	sconf_t *conf = sconf_load("/etc/framebuffer.conf");	
 	if(conf == NULL)
@@ -172,7 +172,7 @@ static void read_config(uint32_t* w, uint32_t* h, uint8_t* dep, int32_t* rotate)
 
 	v = sconf_get(conf, "logo");
 	if(v[0] != 0) 
-		sstrncpy(_logo, v, 255);
+		strncpy(_logo, v, 255);
 
 	sconf_free(conf);
 }

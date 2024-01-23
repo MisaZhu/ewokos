@@ -12,8 +12,8 @@ CORE_OBJS = core.o
 CORE = $(TARGET_DIR)/$(ROOT_DIR)/sbin/core
 
 $(CORE): $(CORE_OBJS) \
-		$(BUILD_DIR)/lib/libewokc.a
-	$(LD) -Ttext=100 $(CORE_OBJS) -o $(CORE) $(LDFLAGS) -lewokc -lc_nano -lnosys -lnosys
+		$(BUILD_DIR)/lib/libewoksys.a
+	$(LD) -Ttext=100 $(CORE_OBJS) -o $(CORE) $(LDFLAGS)  -lewoksys -lc -lgloss -lsoftfloat 
 
 clean:
 	rm -fr $(CORE) $(CORE_OBJS)

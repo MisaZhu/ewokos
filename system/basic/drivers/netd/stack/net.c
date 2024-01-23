@@ -208,7 +208,7 @@ net_protocol_register(const char *name, uint16_t type, void (*handler)(const uin
         errorf("memory_alloc() failure");
         return -1;
     }
-    sstrncpy(proto->name, name, sizeof(proto->name)-1);
+    strncpy(proto->name, name, sizeof(proto->name)-1);
     proto->type = type;
     proto->handler = handler;
     proto->next = protocols;
@@ -264,7 +264,7 @@ net_timer_register(const char *name, struct timeval interval, void (*handler)(vo
         errorf("memory_alloc() failure");
         return -1;
     }
-    sstrncpy(timer->name, name, sizeof(timer->name)-1);
+    strncpy(timer->name, name, sizeof(timer->name)-1);
     timer->interval = interval;
     gettimeofday(&timer->last, NULL);
     timer->handler = handler;

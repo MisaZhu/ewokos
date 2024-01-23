@@ -73,7 +73,7 @@ protected:
 		int y = random_to(gH);
 		int w = random_to(gW/4);
 		int h = random_to(gH/4);
-		int c = random();
+		int c = rand();
 
 		uint32_t low;
 		kernel_tic32(NULL, NULL, &low); 

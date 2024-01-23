@@ -149,14 +149,14 @@ MACINTOSH = $(MACINTOSH_DIR)/macintosh
 all: $(MACINTOSH_DIR) $(MACINTOSH)
 
 $(MACINTOSH): $(MACINTOSH_OBJS) \
-		$(BUILD_DIR)/lib/libewokc.a \
+		$(BUILD_DIR)/lib/libewoksys.a \
 		$(BUILD_DIR)/lib/libx++.a \
 		$(BUILD_DIR)/lib/libopenlibm.a \
 		$(BUILD_DIR)/lib/libupng.a \
 		$(BUILD_DIR)/lib/libconsole.a \
 		$(BUILD_DIR)/lib/libx.a \
 		$(BUILD_DIR)/lib/libcxx.a  
-	$(LD) -Ttext=100 $(MACINTOSH_OBJS) -o $(MACINTOSH) $(LDFLAGS) -lx++ -lttf -lfont -lgraph -lbsp -lx  -lupng -lconsole -ltextview -lsconf -lopenlibm  -lewokc -lc_nano -lnosys -lcxx 
+	$(LD) -Ttext=100 $(MACINTOSH_OBJS) -o $(MACINTOSH) $(LDFLAGS) -lx++ -lttf -lfont -lgraph -lbsp -lx  -lupng -lconsole -ltextview -lsconf -lopenlibm  -lewoksys -lc -lgloss -lsoftfloat -lcxx 
 
 $(MACINTOSH_DIR):
 	mkdir -p $(MACINTOSH_DIR)

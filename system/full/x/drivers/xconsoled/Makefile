@@ -12,7 +12,7 @@ XCONSOLED_OBJS = xconsoled.o
 XCONSOLED = $(TARGET_DIR)/drivers/xconsoled
 
 $(XCONSOLED): $(XCONSOLED_OBJS) \
-		$(BUILD_DIR)/lib/libewokc.a \
+		$(BUILD_DIR)/lib/libewoksys.a \
 		$(BUILD_DIR)/lib/libsconf.a \
 		$(BUILD_DIR)/lib/libfb.a \
 		$(BUILD_DIR)/lib/libconsole.a \
@@ -25,7 +25,7 @@ $(XCONSOLED): $(XCONSOLED_OBJS) \
 		$(BUILD_DIR)/lib/libx++.a  \
 		$(BUILD_DIR)/lib/libcxx.a  \
 		$(BUILD_DIR)/lib/libdisplay.a 
-	$(LD) -Ttext=100 $(XCONSOLED_OBJS) -o $(XCONSOLED) $(LDFLAGS) -lfb -ldisplay -lx++ -lx -lcxx -lconsole -ltextview -lgraph -lbsp -lttf  -lfont -lupng -lsconf -lewokc -lc_nano -lnosys
+	$(LD) -Ttext=100 $(XCONSOLED_OBJS) -o $(XCONSOLED) $(LDFLAGS) -lfb -ldisplay -lx++ -lx -lcxx -lconsole -ltextview -lgraph -lbsp -lttf  -lfont -lupng -lsconf -lewoksys -lc -lgloss -lsoftfloat
 
 clean:
 	rm -f $(XCONSOLED_OBJS)

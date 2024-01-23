@@ -12,13 +12,13 @@ XSERVERD_OBJS = xserverd.o  cursor.o xevtpool.o
 XSERVERD = $(TARGET_DIR)/drivers/xserverd
 
 $(XSERVERD): $(XSERVERD_OBJS) \
-		$(BUILD_DIR)/lib/libewokc.a \
+		$(BUILD_DIR)/lib/libewoksys.a \
 		$(BUILD_DIR)/lib/libsconf.a  \
 		$(BUILD_DIR)/lib/libfb.a  \
 		$(BUILD_DIR)/lib/libupng.a  \
 		$(BUILD_DIR)/lib/libgraph.a  \
 		$(BUILD_DIR)/lib/libdisplay.a
-	$(LD) -Ttext=100 $(XSERVERD_OBJS) -o $(XSERVERD) $(LDFLAGS) -lupng -lgraph -lbsp -lfb -ldisplay -lsconf -lewokc -lc_nano -lnosys
+	$(LD) -Ttext=100 $(XSERVERD_OBJS) -o $(XSERVERD) $(LDFLAGS) -lupng -lgraph -lbsp -lfb -ldisplay -lsconf -lewoksys -lc -lgloss -lsoftfloat
 
 clean:
 	rm -f $(XSERVERD_OBJS)

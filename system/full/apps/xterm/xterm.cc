@@ -52,19 +52,19 @@ public:
 
 		const char* v = sconf_get(sconf, "bg_color");
 		if(v[0] != 0) 
-			conf.bg_color = atoi_base(v, 16);
+			conf.bg_color = strtol(v, NULL, 16);
 
 		v = sconf_get(sconf, "fg_color");
 		if(v[0] != 0) 
-			conf.fg_color = atoi_base(v, 16);
+			conf.fg_color = strtol(v, NULL, 16);
 
 		v = sconf_get(sconf, "unfocus_fg_color");
 		if(v[0] != 0) 
-			conf.unfocus_fg_color = atoi_base(v, 16);
+			conf.unfocus_fg_color = strtol(v, NULL, 16);
 
 		v = sconf_get(sconf, "unfocus_bg_color");
 		if(v[0] != 0) 
-			conf.unfocus_bg_color = atoi_base(v, 16);
+			conf.unfocus_bg_color = strtol(v, NULL, 16);
 
 		uint32_t font_size = 16;
 		v = sconf_get(sconf, "font_size");
@@ -277,8 +277,8 @@ int main(int argc, char* argv[]) {
 	close(fds1[1]);
 	close(fds2[0]);
 	close(fds2[1]);
-	setenv("CONSOLE", "xconsole");
-	setenv("CONSOLE_ID", "console-x");
+	//setenv("CONSOLE", "xconsole", 1);
+	//setenv("CONSOLE_ID", "console-x", 1);
 
 	return exec("/bin/shell");
 }

@@ -12,7 +12,7 @@ int main(int argc, char* argv[]) {
 	}
 
 	fname = vfs_fullname(argv[2]);
-	if(chmod(fname, atoi_base(argv[1], 8)) != 0) {
+	if(chmod(fname, strtol(argv[1], NULL, 8)) != 0) {
 		printf("Can't chmod [%s]!\n", fname);
 		return -1;
 	}

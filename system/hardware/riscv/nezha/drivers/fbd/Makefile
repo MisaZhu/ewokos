@@ -12,11 +12,11 @@ FBD_OBJS = fbd.o
 FBD = $(TARGET_DIR)/drivers/nezha/fbd
 
 $(FBD): $(FBD_OBJS) \
-		$(BUILD_DIR)/lib/libewokc.a \
+		$(BUILD_DIR)/lib/libewoksys.a \
 		$(BUILD_DIR)/lib/libgraph.a \
 		$(BUILD_DIR)/lib/libfbd.a \
 		$(BUILD_DIR)/lib/libarch_nezha.a
-	$(LD) -Ttext=100 $(FBD_OBJS) -o $(FBD) $(LDFLAGS) -larch_nezha -lgraph -lbsp -lfbd -lewokc -lc_nano -lnosys
+	$(LD) -Ttext=100 $(FBD_OBJS) -o $(FBD) $(LDFLAGS) -larch_nezha -lgraph -lbsp -lfbd -lewoksys -lc -lgloss -lsoftfloat
 
 clean:
 	rm -f $(FBD_OBJS)

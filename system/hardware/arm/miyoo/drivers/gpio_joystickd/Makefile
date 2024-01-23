@@ -12,8 +12,8 @@ JOYSTICKD_OBJS = joystickd.o
 JOYSTICKD = $(TARGET_DIR)/drivers/miyoo/gpio_joystickd
 
 $(JOYSTICKD): $(JOYSTICKD_OBJS) \
-		$(BUILD_DIR)/lib/libewokc.a 
-	$(LD) -Ttext=100 $(JOYSTICKD_OBJS) -o $(JOYSTICKD) $(LDFLAGS) -lewokc -lc_nano -lnosys
+		$(BUILD_DIR)/lib/libewoksys.a 
+	$(LD) -Ttext=100 $(JOYSTICKD_OBJS) -o $(JOYSTICKD) $(LDFLAGS) -lewoksys -lc -lgloss -lsoftfloat
 
 clean:
 	rm -f $(JOYSTICKD_OBJS)

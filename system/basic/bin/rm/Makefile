@@ -12,8 +12,8 @@ RM_OBJS = rm.o
 RM = $(TARGET_DIR)/bin/rm
 
 $(RM): $(RM_OBJS) \
-		$(BUILD_DIR)/lib/libewokc.a
-	$(LD) -Ttext=100 $(RM_OBJS) -o $(RM) $(LDFLAGS) -lewokc -lc_nano -lnosys
+		$(BUILD_DIR)/lib/libewoksys.a
+	$(LD) -Ttext=100 $(RM_OBJS) -o $(RM) $(LDFLAGS) -lewoksys -lc -lgloss -lsoftfloat
 
 clean:
 	rm -f $(RM_OBJS)

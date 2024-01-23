@@ -20,7 +20,7 @@ typedef struct DISP_st {
 static void add_disp(display_man_t* display_man, const char* dev) {
 	if(display_man->display_num >= DISP_MAX)
 		return;
-	sstrncpy(display_man->displays[display_man->display_num].fb_dev, dev, DEV_NAME_MAX-1);
+	strncpy(display_man->displays[display_man->display_num].fb_dev, dev, DEV_NAME_MAX-1);
 	display_man->display_num++;
 }
 
