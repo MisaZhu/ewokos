@@ -3,6 +3,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <string.h>
+#include <errno.h>
 #include <ewoksys/ipc.h>
 #include <ewoksys/klog.h>
 #include <ewoksys/proc.h>
@@ -1111,7 +1112,7 @@ int main(int argc, char** argv) {
 			//ipc_disable();
 			//check_procs();
 			//ipc_enable();
-			//usleep(3000);
+			//proc_usleep(3000);
 		}
 	}
 	return 0;

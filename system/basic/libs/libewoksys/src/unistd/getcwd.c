@@ -6,7 +6,7 @@
 #include <ewoksys/ipc.h>
 #include <ewoksys/core.h>
 
-char* getcwd(char* buf, uint32_t size) {
+char* getcwd(char* buf, size_t size) {
 	proto_t out;
 	PF->init(&out);
 	if(ipc_call(get_cored_pid(), CORE_CMD_GET_CWD, NULL, &out) == 0) {

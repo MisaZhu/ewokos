@@ -187,11 +187,11 @@ static int power_button(void* p) {
 		//close screnn
 		rockchip_gpio_set(44, 1);
 		printf("power down!\n");
-		usleep(1000);
+		proc_usleep(1000);
 		rockchip_gpio_set(122, 0);
 	}
 	ipc_enable();
-	usleep(200000);
+	proc_usleep(200000);
 }
 
 

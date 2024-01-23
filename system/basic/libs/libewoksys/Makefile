@@ -36,7 +36,9 @@ LIB_EWOKSYS_OBJS = ewoksys/src/syscall.o \
 	ewoksys/src/session.o  \
 	ewoksys/src/hashmap.o  \
 	ewoksys/src/timer.o \
+	\
 	src/stdlib/exit.o \
+	\
 	src/unistd/getuid.o \
 	src/unistd/sleep.o \
 	src/unistd/usleep.o \
@@ -44,21 +46,26 @@ LIB_EWOKSYS_OBJS = ewoksys/src/syscall.o \
 	src/unistd/getgid.o \
 	src/unistd/setgid.o \
 	src/unistd/setuid.o \
-	src/unistd/exec.o \
+	src/unistd/chdir.o \
 	src/unistd/dup2.o \
 	src/unistd/pipe.o \
 	src/unistd/chown.o \
-	src/unistd/chdir.o \
+	\
 	src/sys/shm/shmget.o \
 	src/sys/shm/shmat.o \
 	src/sys/shm/shmdt.o \
+	\
 	src/sys/stat/mkdir.o \
+	\
 	src/fcntl/fchmod.o \
 	src/fcntl/chmod.o \
+	\
 	src/stdio/putch.o \
+	\
 	src/dirent/readdir.o \
 	src/dirent/closedir.o \
 	src/dirent/opendir.o \
+	\
 	src/pthread/pthread_create.o \
 	src/pthread/pthread_mutex_destroy.o \
 	src/pthread/pthread_mutex_init.o \

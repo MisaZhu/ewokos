@@ -132,7 +132,7 @@ public:
 			keybFD = open(keyb_dev, O_RDONLY);
 			if(keybFD > 0)
 				break;
-			usleep(300000);
+			proc_usleep(300000);
 		}
 	}
 
@@ -168,7 +168,7 @@ int main(int argc, char* argv[]) {
 	XIM xim(keyb_dev, escHome);
 	while(true) {
 		xim.read();
-		usleep(KEY_TIMER);
+		proc_usleep(KEY_TIMER);
 	}
 	return 0;
 }

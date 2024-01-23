@@ -81,7 +81,7 @@ int main(int argc, char* argv[]) {
 			input(x_pid, c, XIM_STATE_PRESS);
 			input(x_pid, c, XIM_STATE_RELEASE);
 		}
-		usleep(100000);
+		proc_usleep(100000);
 	}
 	close(x_pid);
 	return 0;

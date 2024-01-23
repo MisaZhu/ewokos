@@ -122,7 +122,7 @@ void test(int i){
 }
 
 void *test_handler(void *arg){
-    usleep(1000);
+    proc_usleep(1000);
     test(arg);
     close((int)arg);
 }
@@ -142,7 +142,7 @@ int main(int argc, char *argv[])
 //         //close(fd); 
 //         pthread_create(&t_id, NULL, test_handler, (void*)fd);
 //     }
-//     usleep(10000);
+//     proc_usleep(10000);
 // }
     int port = (argc > 1) ? atoi(argv[1]):80;
     serv_sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);

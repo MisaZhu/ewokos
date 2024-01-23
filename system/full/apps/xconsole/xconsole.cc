@@ -210,7 +210,7 @@ static int run(int argc, char* argv[]) {
 	close(0);
 	close(1);
 	while(!_thread_done)
-		usleep(2000);
+		proc_usleep(2000);
 	return 0;
 }
 
@@ -243,5 +243,5 @@ int main(int argc, char* argv[]) {
 //	setenv("CONSOLE", "xconsole", 1);
 //	setenv("CONSOLE_ID", "console-x", 1);
 
-	return exec("/bin/shell");
+	return execve("/bin/shell", NULL, NULL);
 }

@@ -49,7 +49,7 @@ int main(int argc, char** argv) {
 
 	while(_x_pid < 0) {
 		_x_pid = dev_get_pid("/dev/x");
-		usleep(100000);
+		proc_usleep(100000);
 	}
 
 	while(true) {
@@ -57,7 +57,7 @@ int main(int argc, char** argv) {
 		if(read(fd, mv, 4) == 4)
 			input(mv[0], mv[1], mv[2]);
 		else
-			usleep(2000);
+			proc_usleep(2000);
 	}
 
 	close(fd);

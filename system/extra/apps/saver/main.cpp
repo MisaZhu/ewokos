@@ -21,8 +21,9 @@
 #include <fcntl.h>
 #include <stdio.h>
 #include <string.h>
-
+#include <ewoksys/proc.h>
 #include <ewoksys/kernel_tic.h>
+#include <ewoksys/basic_math.h>
 #include <ewoksys/klog.h>
 #include <x++/X.h>
 #include <ferox.h>
@@ -81,7 +82,7 @@ protected:
 		posx %=(width - 2*BALL_RADIUS);
 		posx += BALL_RADIUS;
 		frSetBodyPosition(body, frVec2PixelsToMeters((Vector2){ posx, BALL_RADIUS}));
-		frSetBodyVelocity(body, (Vector2){(random()&10 - 5)/1000.0, 0});
+		frSetBodyVelocity(body, (Vector2){(random_u32()&10 - 5)/1000.0, 0});
 		//frSetBodyGravityScale(body, 0.2);
         frAddToWorld(world, body);
 	}
@@ -202,7 +203,7 @@ public:
         kernel_tic(&sec, &usec);
         wait = 1000000/60 - ((sec - lastSec) * 1000000 + (usec - lastUsec));
         if(wait > 0)
-            usleep(wait);
+            proc_usleep(wait);
 
         kernel_tic(&lastSec, &lastUsec);
     }

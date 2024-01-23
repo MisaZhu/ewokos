@@ -11,6 +11,9 @@ extern int errno;
 #undef	EPERM
 #undef	EEXIST
 
+#define ERR_RETRY -2
+#define ERR_RETRY_NON_BLOCK -3
+
 enum {
 	ENONE = 0,
 	EAGAIN,

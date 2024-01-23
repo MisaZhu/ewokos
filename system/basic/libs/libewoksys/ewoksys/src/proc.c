@@ -79,6 +79,14 @@ inline uint32_t proc_malloc_size(void) {
 	return syscall0(SYS_MALLOC_SIZE);
 }
 
+int proc_usleep(uint32_t usecs) {
+	if(usecs == 0)
+		syscall0(SYS_YIELD);
+	else
+		syscall1(SYS_USLEEP, usecs);
+	return 0;
+}
+
 #ifdef __cplusplus
 }
 #endif

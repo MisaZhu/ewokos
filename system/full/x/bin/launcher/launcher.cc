@@ -90,7 +90,7 @@ class LauncherView: public ListView {
 
 		int pid = fork();
 		if(pid == 0)
-			exec(item->fname->cstr);
+			execve(item->fname->cstr, NULL, NULL); 
 		else {
 			item->runPid = pid;
 			item->runPidUUID = proc_get_uuid(pid);
@@ -305,7 +305,7 @@ public:
 static void check_proc(void* p) {
 	Launcher* xwin = (Launcher*)p;
 	xwin->checkProc();
-	usleep(20000);
+	proc_usleep(20000);
 }
 
 int main(int argc, char* argv[]) {

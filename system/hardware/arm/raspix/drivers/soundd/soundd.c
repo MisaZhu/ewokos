@@ -62,22 +62,22 @@ static void audio_init(void) {
 	volatile unsigned* clk = (void*)CLOCK_BASE;
 	volatile unsigned* pwm = (void*)PWM_BASE;
 	bcm283x_gpio_config(18, GPIO_ALTF5); // Ensure PWM0 is mapped to GPIO 18
-	usleep(2000);
+	proc_usleep(2000);
 
 	// Setup clock
 
 	*(clk + BCM283x_PWMCLK_CNTL) = PM_PASSWORD | (1 << 5); // Stop clock
-	usleep(2000);
+	proc_usleep(2000);
 
 	int idiv = 2;
 	*(clk + BCM283x_PWMCLK_DIV)  = PM_PASSWORD | (idiv<<12);
 	*(clk + BCM283x_PWMCLK_CNTL) = PM_PASSWORD | 16 | 1;  // Osc + Enable
-	usleep(2000);
+	proc_usleep(2000);
 
 	// Setup PWM
 
 	*(pwm + BCM283x_PWM_CONTROL) = 0;
-	usleep(2000);
+	proc_usleep(2000);
 
 	*(pwm+BCM283x_PWM0_RANGE) = 0x264; // 44.1khz, Stereo, 8-bit (54Mhz / 44100 / 2)
 
@@ -99,7 +99,7 @@ static void playaudio_dma(uint8_t* data, uint32_t size) {
 	uint32_t *pdata = (uint32_t *)_dma_data_addr;
 	for (uint32_t i = 0; i < size; i++)
 		*(pdata + i) = *(data + i);
-	usleep(200);
+	proc_usleep(200);
 	klog("sound: data ready\n");
 
 	// Set up control block
@@ -114,7 +114,7 @@ static void playaudio_dma(uint8_t* data, uint32_t size) {
 	_dma_cb->nextconbk = 0x00; // Don't loop
 	_dma_cb->null1 = 0x00;
 	_dma_cb->null2 = 0x00;
-	usleep(200);
+	proc_usleep(200);
 
 	klog("sound: setup done\n");
 
@@ -129,13 +129,13 @@ static void playaudio_dma(uint8_t* data, uint32_t size) {
 			BCM283x_PWM_ENAB + 0x0707; // Bits 0-7 Threshold For DREQ Signal = 1, Bits 8-15 Threshold For PANIC Signal = 0
 	*dmae = DMA_EN0;
 	*(dma + DMA_CONBLK_AD) = (long)_dma_cb; // checked and correct
-	usleep(200);
+	proc_usleep(200);
 	*(dma + DMA_CS) = DMA_ACTIVE;
 
 	klog("sound: play\n");
 
 	while (*(dma + DMA_CS) & 0x1) // Wait for DMA transfer to finish - we could do anything here instead!
-		usleep(200);
+		proc_usleep(200);
 	klog("sound: %d\n", size);
 }
 

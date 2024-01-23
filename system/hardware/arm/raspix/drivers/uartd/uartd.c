@@ -54,7 +54,7 @@ static int uart_write(int fd, int from_pid, fsinfo_t* node,
 			if(charbuf_push(&_TxBuf, ch, false) == 0){
 				break;
 			} 
-			usleep(100);
+			proc_usleep(100);
 		};
 	}
 	return size;
@@ -84,7 +84,7 @@ static int loop(void* p) {
 		}
 	}
 	ipc_enable();
-	usleep(10000);
+	proc_usleep(10000);
 	return 0;
 }
 

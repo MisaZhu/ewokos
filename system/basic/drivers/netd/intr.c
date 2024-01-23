@@ -88,7 +88,7 @@ void* intr_thread(void* p) {
                }
            }
        }
-       usleep(1000);
+       proc_usleep(1000);
     }
     return 0;
 }

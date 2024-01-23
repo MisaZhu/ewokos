@@ -34,7 +34,7 @@ void ipc_wait_ready(int pid) {
 	while(1) {
 		if(ipc_ping(pid) == 0)
 			break;
-		usleep(100000);
+		proc_usleep(100000);
 	}
 }
 

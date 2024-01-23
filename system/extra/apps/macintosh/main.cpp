@@ -21,7 +21,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <string.h>
-
+#include <ewoksys/proc.h>
 #include <ewoksys/kernel_tic.h>
 #include <ewoksys/keydef.h>
 #include <ewoksys/klog.h>
@@ -146,7 +146,7 @@ static void loop(void* p) {
 	MacEmu* xwin = (MacEmu*)p;
 	XWIN =  (MacEmu*)p;
 	xwin->repaint();
-	usleep(100000);
+	proc_usleep(100000);
 }
 
 inline void write_fd(int fd, char* data, int32_t size) {

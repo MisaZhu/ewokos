@@ -215,7 +215,7 @@ int wait_avail(struct pcm *pcm, int *avail, int time_out_ms)
 		if (pcm->hook != NULL) {
 			pcm->hook(pcm->private);
 		} else {
-			usleep(SLEEP_TIME_MS * 1000); /* Try again until timeout */
+			proc_usleep(SLEEP_TIME_MS * 1000); /* Try again until timeout */
 		}
 	}
 

@@ -79,7 +79,7 @@ static int usb_step(void* p) {
     if( !uConsolePersent()){
 	   //klog("detecting...\n");
        UsbCheckForChange(); 
-       usleep(100000);
+       proc_usleep(100000);
        return 0;
     }
 
@@ -93,7 +93,7 @@ static int usb_step(void* p) {
         }
     }
 
-    usleep(8000); 
+    proc_usleep(8000); 
 	return 0;
 }
 
@@ -179,15 +179,15 @@ void LogPrint(const char* message, uint32_t messageLength) {
 
 static void usb_host_init(uint32_t v_mmio_base) {
   UsbInitialise(v_mmio_base);
-  usleep(100000);
+  proc_usleep(100000);
   UsbCheckForChange();
-  usleep(100000);
+  proc_usleep(100000);
   UsbCheckForChange();
-  usleep(100000);
+  proc_usleep(100000);
   UsbCheckForChange();
-  usleep(100000);
+  proc_usleep(100000);
   UsbCheckForChange();
-  usleep(100000);
+  proc_usleep(100000);
   UsbCheckForChange();
 }
 

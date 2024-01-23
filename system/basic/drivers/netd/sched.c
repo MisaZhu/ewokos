@@ -38,7 +38,7 @@ sched_sleep(struct sched_ctx *ctx, mutex_t *mutex, const struct timespec *abstim
 			break;
 		}
 		mutex_unlock(mutex);
-		usleep(10000);
+		proc_usleep(10000);
 		mutex_lock(mutex);
     }
 

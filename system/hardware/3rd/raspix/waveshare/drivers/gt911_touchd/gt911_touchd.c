@@ -34,7 +34,7 @@ static int tp_read(int fd, int from_pid, fsinfo_t* node,
 			d[2] = cordinate[0].y;
 			return 6;
 		}else{
-			//usleep(25000);
+			//proc_usleep(25000);
 			return ERR_RETRY_NON_BLOCK;
 		}
 	}

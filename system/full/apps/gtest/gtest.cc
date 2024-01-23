@@ -129,7 +129,7 @@ protected:
 static void loop(void* p) {
 	XWin* xwin = (XWin*)p;
 	xwin->repaint();
-	usleep(5000);
+	proc_usleep(5000);
 }
 */
 

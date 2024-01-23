@@ -9,6 +9,7 @@
 #include <ewoksys/keydef.h>
 #include <ewoksys/vdevice.h>
 #include <ewoksys/klog.h>
+#include <ewoksys/proc.h>
 #include <ttf/ttf.h>
 #include <ewoksys/basic_math.h>
 #include <x++/X.h>
@@ -42,7 +43,7 @@ public:
 	}
 
 	void tryHide() {
-		usleep(100000); //count every 100 ms
+		proc_usleep(100000); //count every 100 ms
 		if(auto_hide == 0) //never hide
 			return;
 			

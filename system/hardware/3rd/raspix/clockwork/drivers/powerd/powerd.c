@@ -75,7 +75,7 @@ static int power_step(void* p) {
 	_capacity = adc2level(i2c_getb(0x34, 0x78)); 
 	if(_capacity < 10)
 		power_off();
-    usleep(100000); 
+    proc_usleep(100000); 
 	return 0;
 }
 

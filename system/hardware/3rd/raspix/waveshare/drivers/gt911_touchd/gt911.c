@@ -79,9 +79,9 @@ static GT911_Status_t GT911_ReadConfig(void){
 static void GT911_Reset(void){
 		bcm283x_gpio_config(4,GPIO_OUTPUT);
 		bcm283x_gpio_clr(4);
-		usleep(100000);
+		proc_usleep(100000);
 		bcm283x_gpio_set(4);
-		usleep(100000);
+		proc_usleep(100000);
 }
 
 static GT911_Status_t GT911_SetCommandRegister(uint8_t command){

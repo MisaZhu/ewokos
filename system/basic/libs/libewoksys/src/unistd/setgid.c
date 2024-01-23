@@ -1,7 +1,7 @@
 #include <unistd.h>
 #include <ewoksys/syscall.h>
 
-int setgid(int gid) {
+int setgid(gid_t gid) {
 	return syscall1(SYS_PROC_SET_GID, gid);
 }
 

@@ -7,6 +7,7 @@
 #include <font/font.h>
 #include <x++/X.h>
 #include <ewoksys/keydef.h>
+#include <ewoksys/proc.h>
 #include <string.h>
 #include <ewoksys/utf8unicode.h>
 
@@ -159,7 +160,7 @@ static void loop(void* p) {
 	//Book* xwin = (Book*)p;
 	// xwin->readPage();
 	// xwin->repaint();
-	usleep(100000);
+	proc_usleep(100000);
 }
 
 int main(int argc, char* argv[]) {

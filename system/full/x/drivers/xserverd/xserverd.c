@@ -1456,7 +1456,7 @@ int xserver_step(void* p) {
 		x_repaint(x, i);
 	}
 	ipc_enable();
-	usleep(1000000/x->config.fps);
+	proc_usleep(1000000/x->config.fps);
 	return 0;
 }
 
@@ -1477,7 +1477,7 @@ int main(int argc, char** argv) {
 		pid = fork();
 		if(pid == 0) {
 			setenv("XTHEME", x.config.theme);
-			exec(x.config.xwm);
+			execve(x.config.xwm, "", "");
 		}
 		ipc_wait_ready(pid);
 		x.xwm_pid = pid;

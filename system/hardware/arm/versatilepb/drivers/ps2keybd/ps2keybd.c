@@ -125,7 +125,7 @@ static int keyb_read(int fd, int from_pid, fsinfo_t* node,
 		charbuf_push(&_buffer, c, true);
 		proc_wakeup(RW_BLOCK_EVT);
 	}
-	usleep(3000);
+	proc_usleep(3000);
 	return 0;
 }
 */

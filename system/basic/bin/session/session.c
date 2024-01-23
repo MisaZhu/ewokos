@@ -20,7 +20,7 @@ int main(int argc, char* argv[]) {
 		welcome();
 		int pid = fork();
 		if(pid == 0) {
-			if(exec("/bin/login") < 0) {
+			if(execve("/bin/login", "", "") < 0) {
 				exit(-1);
 			}
 		}

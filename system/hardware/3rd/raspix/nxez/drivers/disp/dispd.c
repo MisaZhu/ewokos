@@ -7,7 +7,7 @@
 #define CLK  5
 
 static void delay(void) {
-	usleep(0);
+	proc_usleep(0);
 }
 
 static void start_bus(void) {

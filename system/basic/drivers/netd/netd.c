@@ -2,6 +2,7 @@
 #include <unistd.h>
 #include <sys/wait.h>
 #include <string.h>
+#include <errno.h>
 #include <ewoksys/ipc.h>
 #include <ewoksys/vfs.h>
 #include <ewoksys/vdevice.h>
@@ -329,7 +330,7 @@ static void* network_loop(void* p) {
 		raise_softirq(SIGUSR3);
 	}
 	raise_softirq(SIGALRM);
-	usleep(1000);
+	proc_usleep(1000);
 }
 
 static int setup(void)

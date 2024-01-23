@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <fcntl.h>
 #include <string.h>
+#include <errno.h>
 #include <ewoksys/session.h>
 #include <ewoksys/mstr.h>
 #include <ewoksys/keydef.h>
@@ -23,7 +24,7 @@ static void input(str_t* s, bool show) {
 		if(i <= 0 || c == 0) {
 		 	if(errno != EAGAIN)
 			 	break;
-			usleep(30000);
+			proc_usleep(30000);
 			continue;
 		}	
 
@@ -104,6 +105,6 @@ int main(int argc, char* argv[]) {
 	}
 
 	setenv("HOME", info->home);
-	exec(info->cmd);
+	execve(info->cmd, "", "");
 	return 0;
 }

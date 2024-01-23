@@ -27,7 +27,7 @@ uint16_t LCD_HEIGHT = LCD_SCREEN_HEIGHT;
 uint16_t LCD_WIDTH  = LCD_SCREEN_WIDTH;
 
 static inline void delay(int32_t count) {
-	usleep(count);
+	proc_usleep(count);
 }
 
 /* LCD CONTROL */

@@ -26,6 +26,7 @@ uint32_t proc_get_uuid(int32_t pid);
 void*    proc_malloc_expand(uint32_t size);
 void*    proc_malloc_free(void);
 uint32_t proc_malloc_size(void);
+int      proc_usleep(uint32_t usec);
 
 #ifdef __cplusplus
 }

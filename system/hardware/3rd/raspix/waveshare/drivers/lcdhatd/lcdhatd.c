@@ -18,7 +18,7 @@
 #define LCD_DC   25
 #define LCD_BL   24
 
-#define DEV_Delay_ms(x) usleep((x)*1000)
+#define DEV_Delay_ms(x) proc_usleep((x)*1000)
 #define DEV_Digital_Write bcm283x_gpio_write
 
 #define LCD_CS_0		DEV_Digital_Write(LCD_CS,0)

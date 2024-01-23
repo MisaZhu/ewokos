@@ -232,7 +232,7 @@ static int sdext2_unlink(fsinfo_t* info, const char* fname, void* p) {
 int main(int argc, char** argv) {
 	(void)argc;
 	(void)argv;
-	if(getuid() >= 0) {
+	if((int16_t)getuid() >= 0) {
 		klog("this process can only loaded by kernel!\n");
 		return -1;
 	}

@@ -3,10 +3,10 @@
 #include <fcntl.h>
 #include <stdio.h>
 #include <string.h>
-
 #include <upng/upng.h>
 #include <ewoksys/kernel_tic.h>
 #include <ewoksys/klog.h>
+#include <ewoksys/proc.h>
 #include <x++/X.h>
 #include <ttf/ttf.h>
 
@@ -85,7 +85,7 @@ protected:
 static void loop(void* p) {
 	XWin* xwin = (XWin*)p;
 	xwin->repaint();
-	usleep(30000);
+	proc_usleep(30000);
 }
 
 int main(int argc, char* argv[]) {

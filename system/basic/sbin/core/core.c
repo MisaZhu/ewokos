@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
+#include <errno.h>
 #include <ewoksys/mstr.h>
 #include <ewoksys/ipc.h>
 #include <ewoksys/proc.h>
@@ -311,7 +312,7 @@ int main(int argc, char** argv) {
 			ipc_enable();
 		}
 		else
-			usleep(2000);
+			proc_usleep(2000);
 	}
 
 	hashmap_free(_ipc_servs);

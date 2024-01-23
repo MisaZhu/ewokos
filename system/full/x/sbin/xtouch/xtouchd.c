@@ -107,7 +107,7 @@ int main(int argc, char** argv) {
 		fd = open(touch_dev, O_RDONLY);
 		if(fd > 0)
 			break;
-		usleep(100000);
+		proc_usleep(100000);
 	}
 
 	while(true) {
@@ -119,7 +119,7 @@ int main(int argc, char** argv) {
 			_scr_h = scr.size.h;
 			break;
 		}
-		usleep(100000);
+		proc_usleep(100000);
 	}
 
 	uint16_t prev_ev = 0;
@@ -146,7 +146,7 @@ int main(int argc, char** argv) {
 			input(mv[0], tx, ty);
 		}
 		else
-			usleep(5000);
+			proc_usleep(5000);
 	}
 
 	close(fd);

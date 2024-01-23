@@ -123,10 +123,10 @@ int main(int argc, char** argv) {
 			else {
 				input(0);
 			}
-			usleep(10000);
+			proc_usleep(10000);
 		}
 		else {
-			usleep(50000);
+			proc_usleep(50000);
 			_x_pid = dev_get_pid("/dev/x");
 		}
 	}

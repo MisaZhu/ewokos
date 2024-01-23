@@ -130,7 +130,7 @@ static int do_cmd(char* cmd) {
 		return -1;
 	}
 
-	exec(full_cmd);
+	execve(full_cmd, "", "");
 	return 0;
 }
 

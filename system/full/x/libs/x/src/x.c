@@ -108,7 +108,7 @@ int  x_run(x_t* x, void* loop_data) {
 			x->on_loop(loop_data);
 		}
 		/*else {
-			usleep(10000);
+			proc_usleep(10000);
 		}
 		*/
 	}

@@ -84,7 +84,7 @@ class Finder: public XWin {
 		int pid = fork();
 		if(pid == 0)  {
 			proc_detach();
-			exec(fname);
+			execve(fname, NULL, NULL);
 			exit(0);
 		}
 		return true;
@@ -104,7 +104,7 @@ class Finder: public XWin {
 		int pid = fork();
 		if(pid == 0)  {
 			proc_detach();
-			exec(cmd);
+			execve(cmd, NULL, NULL);
 			exit(0);
 		}
 	}

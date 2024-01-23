@@ -137,11 +137,11 @@ static int power_button(void* p) {
 		//close screnn
 		miyoo_gpio_set(4, 0);
 		printf("power down!\n");
-		usleep(1000);
+		proc_usleep(1000);
 		miyoo_gpio_set(85, 0);
 	}
 	ipc_enable();
-	usleep(200000);
+	proc_usleep(200000);
 }
 
 int main(int argc, char** argv) {
