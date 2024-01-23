@@ -95,7 +95,10 @@ public:
 		size = utf82unicode((unsigned char*)buf, size, unicode);
 		for(int i=0; i<size; i++) {
 			terminal_set(terminal, unicode[i], conf.fg_color);
-			terminal_move(terminal, 1);
+			if(unicode[i] == '\n')
+				terminal_move_next_line(terminal);
+			else
+				terminal_move(terminal, 1);
 		}
 	}
 

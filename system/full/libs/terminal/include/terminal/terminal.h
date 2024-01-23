@@ -29,15 +29,16 @@ void      terminal_reset(terminal_t* terminal, uint32_t cols, uint32_t rows);
 void      terminal_move_to(terminal_t* terminal, uint32_t x, uint32_t y);
 void      terminal_move_at(terminal_t* terminal, uint32_t at);
 void      terminal_move(terminal_t* terminal, int32_t steps);
+void      terminal_move_next_line(terminal_t* terminal);
 
 int32_t   terminal_pos_by_at(terminal_t* terminal, uint32_t at, uint32_t *x, uint32_t *y);
 int32_t   terminal_pos(terminal_t* terminal, uint32_t *x, uint32_t *y);
 uint32_t  terminal_at_by_pos(terminal_t* terminal, uint32_t x, uint32_t y);
 uint32_t  terminal_at(terminal_t* terminal);
 
-tchar_t* terminal_get(terminal_t* terminal);
-tchar_t* terminal_get_by_at(terminal_t* terminal, uint32_t at);
-tchar_t* terminal_get_by_pos(terminal_t* terminal, uint32_t x, uint32_t y);
+tchar_t*  terminal_get(terminal_t* terminal);
+tchar_t*  terminal_get_by_at(terminal_t* terminal, uint32_t at);
+tchar_t*  terminal_get_by_pos(terminal_t* terminal, uint32_t x, uint32_t y);
 
 uint32_t  terminal_size(terminal_t* terminal);
 

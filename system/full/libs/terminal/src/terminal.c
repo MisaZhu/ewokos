@@ -91,6 +91,10 @@ void terminal_move_at(terminal_t* terminal, uint32_t at) {
 	terminal_move_to(terminal, x, y);
 }
 
+void terminal_move_next_line(terminal_t* terminal) {
+	terminal_move_to(terminal, 0, terminal->curs_y+1);
+}
+
 inline uint32_t terminal_at(terminal_t* terminal) {
 	return terminal->curs_y*terminal->cols + terminal->curs_x;
 }
