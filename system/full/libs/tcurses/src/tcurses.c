@@ -180,6 +180,31 @@ void tcurses_move_to(tcurses_t* tc, uint32_t x, uint32_t y) {
 		tc->curs_x = tc->cols - 1;
 }
 
+int32_t tcurses_pos_by_at(tcurses_t* tc, uint32_t at, uint32_t* x, uint32_t *y) {
+	if(at >= tcurses_size(tc))
+		return -1;
+	*y = at/tc->cols;
+	*x = at%tc->cols;
+	return 0;
+}
+
+int32_t tcurses_pos(tcurses_t* tc, uint32_t* x, uint32_t *y) {
+	*y = tc->cols;
+	*x = tc->cols;
+	return 0;
+}
+
+uint32_t tcurses_at_by_pos(tcurses_t* tc, uint32_t x, uint32_t y) {
+	uint32_t size = tcurses_size(tc);
+	if(size == 0)
+		return 0;
+
+	uint32_t at = y*tc->cols + x;
+	if(at >= size)
+		at = size-1;
+	return at;
+}
+
 void tcurses_move_at(tcurses_t* tc, uint32_t at) {
 	uint32_t y = at/tc->cols;
 	uint32_t x = at%tc->cols;

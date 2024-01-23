@@ -53,8 +53,8 @@ class TestX : public XWin {
 	}
 
 	gpos_t getPos(graph_t* g, uint32_t at) {
-		uint32_t cx = at % tc.cols;
-		uint32_t cy = at / tc.cols;
+		uint32_t cx = 0, cy = 0;
+		tcurses_pos_by_at(&tc, at, &cx, &cy);
 		return getPos(g, cx, cy);
 	}
 
@@ -150,8 +150,11 @@ protected:
 			}	
 			else if(c == KEY_BACKSPACE ||
 					c == CONSOLE_LEFT) {
-				skip(true);
-				tcurses_del(&tc);
+				if(tcurses_at(&tc) > 0) {
+					tcurses_move(&tc, -1);
+					skip(true);
+					tcurses_del(&tc);
+				}
 			}
 			else if(c == '\t') {
 				tcurses_insert(&tc, ' ', getColor(c));

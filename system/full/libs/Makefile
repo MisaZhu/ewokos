@@ -13,6 +13,7 @@ basic_libs:
 	cd fb;make
 	cd upng; make
 	cd fbd;make
+	cd terminal;make
 	cd tcurses;make
 	cd textview;make
 	cd console;make
@@ -25,6 +26,7 @@ clean:
 	cd openlibm;make clean
 	cd ttf;make clean
 	cd tcurses;make clean
+	cd terminal;make clean
 	cd textview;make clean
 	cd console;make clean
 	cd display;make clean
