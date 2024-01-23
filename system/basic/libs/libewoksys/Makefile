@@ -66,20 +66,10 @@ LIB_EWOKSYS_OBJS = ewoksys/src/syscall.o \
 	src/pthread/pthread_mutex_unlock.o \
 	src/pthread/pthread_self.o
 
-
-ifeq (${ARCH},arm)
-LIB_EWOKSYS_OBJS += \
-     ewoksys/src/arm32_aeabi_divmod_a32.o \
-     ewoksys/src/arm32_aeabi_ldivmod_a32.o \
-     ewoksys/src/arm32_aeabi_divmod.o \
-     ewoksys/src/arm32_aeabi_ldivmod.o 
-endif
-
 EWOKSYS = $(TARGET_DIR)/lib/libewoksys.a
 
-$(EWOKSYS): $(LIB_EWOKSYS_OBJS)   $(LIB_EWOKSYS_SYS_OBJS) \
-			$(TARGET_DIR)/lib/libsoftfloat.a 
-	$(AR) rT $(EWOKSYS) $(LIB_EWOKSYS_OBJS) $(TARGET_DIR)/lib/libsoftfloat.a
+$(EWOKSYS): $(LIB_EWOKSYS_OBJS)   $(LIB_EWOKSYS_SYS_OBJS)
+	$(AR) rT $(EWOKSYS) $(LIB_EWOKSYS_OBJS)
 	cp -r ewoksys/include/* include/* $(TARGET_DIR)/include
 
 clean:

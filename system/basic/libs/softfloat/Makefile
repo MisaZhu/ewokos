@@ -304,7 +304,18 @@ OBJS_OTHERS = \
   f128M_lt_quiet$(OBJ) \
   arm32_aeabi_softfloat$(OBJ)
 
-OBJS_ALL = $(OBJS_PRIMITIVES) $(OBJS_SPECIALIZE) $(OBJS_OTHERS)
+ifeq (${ARCH},arm)
+OBJS_S_DIV = \
+     arm32_aeabi_divmod_a32$(OBJ) \
+     arm32_aeabi_ldivmod_a32$(OBJ)
+    
+OBJS_DIV = \
+     arm32_aeabi_divmod$(OBJ) \
+     arm32_aeabi_ldivmod$(OBJ) 
+endif
+
+
+OBJS_ALL = $(OBJS_PRIMITIVES) $(OBJS_SPECIALIZE) $(OBJS_OTHERS) $(OBJS_DIV) $(OBJS_S_DIV)
 
 $(OBJS_ALL): \
   $(OTHER_HEADERS) platform.h $(SOURCE_DIR)/include/primitiveTypes.h \
@@ -313,6 +324,12 @@ $(OBJS_SPECIALIZE) $(OBJS_OTHERS): \
   $(SOURCE_DIR)/include/softfloat_types.h $(SOURCE_DIR)/include/internals.h \
   $(SOURCE_DIR)/$(SPECIALIZE_TYPE)/specialize.h \
   $(SOURCE_DIR)/include/softfloat.h
+
+$(OBJS_DIV) : %$(OBJ): $(SOURCE_DIR)/%.c
+	$(COMPILE_C) $(SOURCE_DIR)/$*.c
+
+$(OBJS_S_DIV) : %$(OBJ): $(SOURCE_DIR)/%.S
+	$(COMPILE_C) $(SOURCE_DIR)/$*.S
 
 $(OBJS_PRIMITIVES) $(OBJS_OTHERS): %$(OBJ): $(SOURCE_DIR)/%.c
 	$(COMPILE_C) $(SOURCE_DIR)/$*.c
