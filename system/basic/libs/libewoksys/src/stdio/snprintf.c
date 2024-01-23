@@ -1,5 +1,5 @@
 #include <string.h>
-#include <vprintf.h>
+
 
 typedef struct {
 	char* p;

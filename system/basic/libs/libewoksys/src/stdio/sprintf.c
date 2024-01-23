@@ -32,7 +32,7 @@
  */
 
 #include <stdio.h>
-#include <vprintf.h>
+
 #include <string.h>
 #include <unistd.h>
 #include <ewoksys/mstr.h>

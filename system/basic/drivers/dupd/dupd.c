@@ -35,8 +35,6 @@ static int dup_write(int fd,
 
 int main(int argc, char** argv) {
 	if(argc < 3) {
-		fprintf(stderr, "Error: target devices missed!\n"
-				"Usage: dupd <mnt_point> {target devices}\n");
 		return -1;
 	}
 

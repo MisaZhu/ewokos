@@ -5,7 +5,7 @@
 #include <fcntl.h>
 #include <ewoksys/syscall.h>
 #include <ewoksys/vfs.h>
-#include <vprintf.h>
+
 #include <sysinfo.h>
 #include <ewoksys/klog.h>
 #include <ewoksys/ipc.h>

@@ -6,7 +6,7 @@
 #include <ewoksys/core.h>
 #include <ewoksys/ipc.h>
 #include <ewoksys/proc.h>
-#include <vprintf.h>
+
 #include <ewoksys/mstr.h>
 #include <fcntl.h>
 #include <ewoksys/syscall.h>
@@ -247,6 +247,7 @@ int main(int argc, char* argv[]) {
 	_stderr_console_inited = false;
 	_history = NULL;
 	_terminated = 0;
+	setbuf(stdout, NULL);
 
 	int fd_in = 0;
 	if(argc > 2) {
@@ -269,7 +270,7 @@ int main(int argc, char* argv[]) {
 		if(fd_in == 0)
 			prompt();
 
-		if(gets(fd_in, cmdstr) != 0 && cmdstr->len == 0)
+		if(cmd_gets(fd_in, cmdstr) != 0 && cmdstr->len == 0)
 			break;
 		char* cmd = cmdstr->cstr;
 		if(cmd[0] == 0)

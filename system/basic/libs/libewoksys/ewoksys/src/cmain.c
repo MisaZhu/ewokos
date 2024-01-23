@@ -78,28 +78,6 @@ static void init_cmd(void) {
 	syscall3(SYS_PROC_GET_CMD, getpid(), (int32_t)_cmd, PROC_INFO_CMD_MAX);
 }
 
-FILE* stdin = NULL;
-FILE* stdout = NULL;
-FILE* stderr = NULL;
-
-static FILE _stdin;
-static FILE _stdout;
-static FILE _stderr;
-
-static void init_stdio(void) {
-	_stdin.fd = 0;
-	_stdin.oflags = O_RDONLY;
-	stdin = &_stdin;
-
-	_stdout.fd = 1;
-	_stdout.oflags = O_WRONLY;
-	stdout = &_stdout;
-
-	_stderr.fd = 2;
-	_stderr.oflags = O_WRONLY;
-	stderr = &_stderr;
-}
-
 #define ARG_MAX 16
 extern int __bss_start__;
 extern int __bss_end__;
@@ -137,7 +115,6 @@ void _start(void) {
 	sys_signal_init();
 	vfs_init();
 	proc_init();
-	init_stdio();
 	init_cmd();
 
 

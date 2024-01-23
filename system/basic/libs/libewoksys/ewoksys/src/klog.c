@@ -1,5 +1,6 @@
-#include <vprintf.h>
-#include <unistd.h>
+
+#include <stdarg.h>
+#include <stdio.h>
 #include <ewoksys/mstr.h>
 #include <ewoksys/syscall.h>
 

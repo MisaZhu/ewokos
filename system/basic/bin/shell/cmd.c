@@ -6,7 +6,7 @@
 #include <ewoksys/core.h>
 #include <ewoksys/ipc.h>
 #include <ewoksys/proc.h>
-#include <vprintf.h>
+
 #include <ewoksys/mstr.h>
 #include <fcntl.h>
 #include <ewoksys/klog.h>

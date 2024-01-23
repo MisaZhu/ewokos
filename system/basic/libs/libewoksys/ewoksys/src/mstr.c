@@ -1,7 +1,7 @@
 #include <ewoksys/mstr.h>
 #include <string.h>
 #include <stdlib.h>
-#include <vprintf.h>
+
 #include <stdarg.h>
 
 #ifdef __cplusplus

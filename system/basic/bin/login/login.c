@@ -64,6 +64,7 @@ int main(int argc, char* argv[]) {
 	(void)argc;
 	(void)argv;
 
+	setbuf(stdout, NULL);
 	//session_info_t* info = check("root", "");  //if root have no password, run shell directly
 	session_info_t* info = NULL;
 	if(info == NULL || info->cmd[0] == 0) {

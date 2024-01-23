@@ -6,7 +6,7 @@
 #include <ewoksys/core.h>
 #include <ewoksys/ipc.h>
 #include <ewoksys/proc.h>
-#include <vprintf.h>
+
 #include <ewoksys/mstr.h>
 #include <ewoksys/keydef.h>
 #include "shell.h"
@@ -50,7 +50,7 @@ static void clear_buf(str_t* buf) {
 	buf->len = 0;
 }
 
-int32_t gets(int fd, str_t* buf) {
+int32_t cmd_gets(int fd, str_t* buf) {
 	str_reset(buf);	
 	old_cmd_t* head = NULL;
 	old_cmd_t* tail = NULL;

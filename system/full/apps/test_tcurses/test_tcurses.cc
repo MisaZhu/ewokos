@@ -3,7 +3,7 @@
 #include <fcntl.h>
 #include <stdio.h>
 #include <string.h>
-#include <vprintf.h>
+
 #include <font/font.h>
 #include <x++/X.h>
 #include <ewoksys/timer.h>

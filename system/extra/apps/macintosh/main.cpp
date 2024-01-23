@@ -21,7 +21,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <string.h>
-#include <vprintf.h>
+
 #include <ewoksys/kernel_tic.h>
 #include <ewoksys/keydef.h>
 #include <ewoksys/klog.h>

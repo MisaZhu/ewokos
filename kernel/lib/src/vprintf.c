@@ -1,4 +1,4 @@
-#include <vprintf.h>
+
 #include <kstring.h>
 
 /* digits */
