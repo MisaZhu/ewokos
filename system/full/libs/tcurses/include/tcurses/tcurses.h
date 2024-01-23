@@ -28,9 +28,11 @@ void tcurses_move_to(tcurses_t* tcurses, uint32_t x, uint32_t y);
 void tcurses_move_at(tcurses_t* tcurses, uint32_t at);
 void tcurses_move(tcurses_t* tcurses, int32_t steps);
 uint32_t tcurses_at(tcurses_t* tcurses);
+uint32_t tcurses_tail(tcurses_t* tcurses);
 UNICODE16 tcurses_get(tcurses_t* tcurses);
 uint32_t tcurses_size(tcurses_t* tcurses);
 
+tchar_t* tcurses_from_sgtr(const char* str, uint32_t color);
 void tcurses_insert(tcurses_t* tcurses, UNICODE16 ci, uint32_t color);
 void tcurses_inserts(tcurses_t* tc, tchar_t* s, uint32_t size);
 void tcurses_set(tcurses_t* tcurses, UNICODE16 ci, uint32_t color);

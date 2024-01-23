@@ -2,6 +2,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <tcurses/tcurses.h>
+#include <ewoksys/utf8unicode.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -65,6 +66,34 @@ void tcurses_sets(tcurses_t* tc, tchar_t* s, uint32_t size) {
 				tcurses_move_to(tc, 0, tc->curs_y+1);
 		}
 	}
+}
+
+tchar_t* tcurses_from_str(const char* str, uint32_t color) {
+	uint32_t len = strlen(str);
+	if(len == 0)
+		return NULL;
+	uint16_t* unicode = (uint16_t*)malloc((len+1)*2);
+	utf82unicode(str, len, unicode);
+	tchar_t* ret = (tchar_t*)malloc(sizeof(tchar_t)*len);
+	for(uint32_t i=0; i<len; i++) {
+		ret[i].c = unicode[i];
+		ret[i].color = color;
+	}
+	free(unicode);
+	return ret;
+}
+
+uint32_t tcurses_tail(tcurses_t* tc) {
+	int32_t size = tcurses_size(tc);
+	int32_t i = size - 1;
+	while(i >= 0) {
+		if(tc->content[i].c != 0)
+			break;
+		i--;
+	}
+	if(i < (size - 1))
+		i++;
+	return i;
 }
 
 void tcurses_inserts(tcurses_t* tc, tchar_t* s, uint32_t size) {

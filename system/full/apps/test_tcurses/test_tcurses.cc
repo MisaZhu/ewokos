@@ -100,8 +100,7 @@ class TestX : public XWin {
 		if(at < 0)
 			at = 0;
 		else if(at == size)
-			at = o_at-1;
-
+			at = tcurses_tail(&tc);
 		tcurses_move_at(&tc, at);
 	}
 
