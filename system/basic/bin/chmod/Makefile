@@ -13,7 +13,7 @@ CHMOD = $(TARGET_DIR)/bin/chmod
 
 $(CHMOD): $(CHMOD_OBJS) \
 		$(BUILD_DIR)/lib/libewoksys.a
-	$(LD) -Ttext=100 $(CHMOD_OBJS) -o $(CHMOD) $(LDFLAGS) -lewoksys -lc -lgloss -lsoftfloat
+	$(LD) -Ttext=100 $(CHMOD_OBJS) -o $(CHMOD) $(LDFLAGS) -lewoksys -lc -lgloss
 
 clean:
 	rm -f $(CHMOD_OBJS)

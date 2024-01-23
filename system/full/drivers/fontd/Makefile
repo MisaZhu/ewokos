@@ -16,7 +16,7 @@ $(FONTD): $(FONTD_OBJS) \
 		$(BUILD_DIR)/lib/libsconf.a \
 		$(BUILD_DIR)/lib/libgraph.a \
 		$(BUILD_DIR)/lib/libttf.a 
-	$(LD) -Ttext=100 $(FONTD_OBJS) -o $(FONTD) $(LDFLAGS)  -lttf -lgraph -lbsp -lsconf -lewoksys -lc -lgloss -lsoftfloat
+	$(LD) -Ttext=100 $(FONTD_OBJS) -o $(FONTD) $(LDFLAGS)  -lttf -lgraph -lbsp -lsconf -lewoksys -lc -lgloss
 
 clean:
 	rm -f $(FONTD_OBJS)

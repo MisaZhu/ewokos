@@ -13,7 +13,7 @@ MP3PLAY = $(TARGET_DIR)/bin/mp3play
 
 $(MP3PLAY): $(MP3PLAY_OBJS) \
 		$(BUILD_DIR)/lib/libewoksys.a 
-	$(LD) -Ttext=100 $(MP3PLAY_OBJS) -o $(MP3PLAY) $(LDFLAGS) -lewoksys -lc -lgloss -lsoftfloat -lm 
+	$(LD) -Ttext=100 $(MP3PLAY_OBJS) -o $(MP3PLAY) $(LDFLAGS) -lewoksys -lc -lgloss -lm 
 	cp -r include/* $(BUILD_DIR)/include
 
 clean:

@@ -15,7 +15,7 @@ $(XPTOUCHD): $(XPTOUCHD_OBJS) \
 		$(BUILD_DIR)/lib/libewoksys.a \
 		$(BUILD_DIR)/lib/libarch_bcm283x.a \
 		$(BUILD_DIR)/lib/libxpt2046.a 
-	$(LD) -Ttext=100 $(XPTOUCHD_OBJS) -o $(XPTOUCHD) $(LDFLAGS) -lxpt2046 -larch_bcm283x -lewoksys -lc -lgloss -lsoftfloat
+	$(LD) -Ttext=100 $(XPTOUCHD_OBJS) -o $(XPTOUCHD) $(LDFLAGS) -lxpt2046 -larch_bcm283x -lewoksys -lc -lgloss
 
 clean:
 	rm -f $(XPTOUCHD_OBJS)

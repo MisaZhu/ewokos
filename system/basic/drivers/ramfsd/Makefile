@@ -13,7 +13,7 @@ RAMFSD = $(TARGET_DIR)/drivers/ramfsd
 
 $(RAMFSD): $(RAMFSD_OBJS) \
 		$(BUILD_DIR)/lib/libewoksys.a
-	$(LD) -Ttext=100 $(RAMFSD_OBJS) -o $(RAMFSD) $(LDFLAGS) -lewoksys -lc -lgloss -lsoftfloat
+	$(LD) -Ttext=100 $(RAMFSD_OBJS) -o $(RAMFSD) $(LDFLAGS) -lewoksys -lc -lgloss
 
 clean:
 	rm -f $(RAMFSD_OBJS)

@@ -13,7 +13,7 @@ KILL = $(TARGET_DIR)/bin/kill
 
 $(KILL): $(KILL_OBJS) \
 		$(BUILD_DIR)/lib/libewoksys.a
-	$(LD) -Ttext=100 $(KILL_OBJS) -o $(KILL) $(LDFLAGS) -lewoksys -lc -lgloss -lsoftfloat
+	$(LD) -Ttext=100 $(KILL_OBJS) -o $(KILL) $(LDFLAGS) -lewoksys -lc -lgloss
 
 clean:
 	rm -f $(KILL_OBJS)

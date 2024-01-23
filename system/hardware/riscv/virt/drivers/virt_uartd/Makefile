@@ -13,7 +13,7 @@ VIRT_UARTD = $(TARGET_DIR)/drivers/virt/virt_uartd
 
 $(VIRT_UARTD): $(VIRT_UARTD_OBJS) \
 		$(BUILD_DIR)/lib/libewoksys.a
-	$(LD) -Ttext=100 $(VIRT_UARTD_OBJS) -o $(VIRT_UARTD) $(LDFLAGS) -lewoksys -lc -lgloss -lsoftfloat
+	$(LD) -Ttext=100 $(VIRT_UARTD_OBJS) -o $(VIRT_UARTD) $(LDFLAGS) -lewoksys -lc -lgloss
 
 clean:
 	rm -f $(VIRT_UARTD_OBJS) $(VIRT_UARTD)

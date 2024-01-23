@@ -15,7 +15,7 @@ $(STL_TEST): $(STL_TEST_OBJS) \
 		$(BUILD_DIR)/lib/libewoksys.a \
 		$(BUILD_DIR)/lib/libcxx.a \
 		$(BUILD_DIR)/lib/libewokstl.a 
-	$(LD) -Ttext=100 $(STL_TEST_OBJS) -o $(STL_TEST) $(LDFLAGS) -lewokstl -lewoksys -lc -lgloss -lsoftfloat -lcxx -lstdc++
+	$(LD) -Ttext=100 $(STL_TEST_OBJS) -o $(STL_TEST) $(LDFLAGS) -lewokstl -lewoksys -lc -lgloss -lcxx -lstdc++
 
 clean:
 	rm -f $(STL_TEST_OBJS) $(STL_TEST)

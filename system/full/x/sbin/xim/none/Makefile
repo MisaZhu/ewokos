@@ -14,7 +14,7 @@ XIM = $(TARGET_DIR)/sbin/x/xim_none
 $(XIM): $(XIM_OBJS) \
 		$(BUILD_DIR)/lib/libewoksys.a \
 		$(BUILD_DIR)/lib/libcxx.a 
-	$(LD) -Ttext=100 $(XIM_OBJS) -o $(XIM) $(LDFLAGS) -lewoksys -lc -lgloss -lsoftfloat -lcxx
+	$(LD) -Ttext=100 $(XIM_OBJS) -o $(XIM) $(LDFLAGS) -lewoksys -lc -lgloss -lcxx
 
 clean:
 	rm -f $(XIM_OBJS)

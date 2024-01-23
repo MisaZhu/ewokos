@@ -40,6 +40,7 @@ LIB_EWOKSYS_OBJS = ewoksys/src/syscall.o \
 	src/stdlib/exit.o \
 	\
 	src/unistd/getuid.o \
+	src/unistd/usleep.o \
 	src/unistd/sleep.o \
 	src/unistd/getcwd.o \
 	src/unistd/getgid.o \

@@ -11,8 +11,9 @@ LIBGLOSS_OBJS = syscalls.o
 
 LIBGLOSS = $(TARGET_DIR)/lib/libgloss.a
 
-$(LIBGLOSS): $(LIBGLOSS_OBJS)
-	$(AR) rT $(LIBGLOSS) $(LIBGLOSS_OBJS)
+$(LIBGLOSS): $(LIBGLOSS_OBJS)  \
+		$(TARGET_DIR)/lib/libsoftfloat.a
+	$(AR) rT $(LIBGLOSS) $(LIBGLOSS_OBJS) $(TARGET_DIR)/lib/libsoftfloat.a
 
 clean:
 	rm -f $(LIBGLOSS_OBJS)

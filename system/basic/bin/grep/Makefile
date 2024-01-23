@@ -13,7 +13,7 @@ GREP = $(TARGET_DIR)/bin/grep
 
 $(GREP): $(GREP_OBJS) \
 		$(BUILD_DIR)/lib/libewoksys.a
-	$(LD) -Ttext=100 $(GREP_OBJS) -o $(GREP) $(LDFLAGS) -lewoksys -lc -lgloss -lsoftfloat
+	$(LD) -Ttext=100 $(GREP_OBJS) -o $(GREP) $(LDFLAGS) -lewoksys -lc -lgloss
 
 clean:
 	rm -f $(GREP_OBJS)

@@ -13,7 +13,7 @@ SHELL_PROC = $(TARGET_DIR)/bin/shell
 
 $(SHELL_PROC): $(SHELL_OBJS) \
 		$(BUILD_DIR)/lib/libewoksys.a
-	$(LD) -Ttext=100 $(SHELL_OBJS) -o $(SHELL_PROC) $(LDFLAGS) -lewoksys -lc -lgloss -lsoftfloat
+	$(LD) -Ttext=100 $(SHELL_OBJS) -o $(SHELL_PROC) $(LDFLAGS) -lewoksys -lc -lgloss
 
 clean:
 	rm -f $(SHELL_OBJS)

@@ -13,7 +13,7 @@ MOUNT = $(TARGET_DIR)/bin/mount
 
 $(MOUNT): $(MOUNT_OBJS) \
 		$(BUILD_DIR)/lib/libewoksys.a
-	$(LD) -Ttext=100 $(MOUNT_OBJS) -o $(MOUNT) $(LDFLAGS) -lewoksys -lc -lgloss -lsoftfloat
+	$(LD) -Ttext=100 $(MOUNT_OBJS) -o $(MOUNT) $(LDFLAGS) -lewoksys -lc -lgloss
 
 clean:
 	rm -f $(MOUNT_OBJS)

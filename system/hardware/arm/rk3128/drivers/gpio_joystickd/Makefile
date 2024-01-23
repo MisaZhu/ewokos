@@ -13,7 +13,7 @@ JOYSTICKD = $(TARGET_DIR)/drivers/rk3128/gpio_joystickd
 
 $(JOYSTICKD): $(JOYSTICKD_OBJS) \
 		$(BUILD_DIR)/lib/libewoksys.a 
-	$(LD) -Ttext=100 $(JOYSTICKD_OBJS) -o $(JOYSTICKD) $(LDFLAGS) -lewoksys -lc -lgloss -lsoftfloat
+	$(LD) -Ttext=100 $(JOYSTICKD_OBJS) -o $(JOYSTICKD) $(LDFLAGS) -lewoksys -lc -lgloss
 
 clean:
 	rm -f $(JOYSTICKD_OBJS)

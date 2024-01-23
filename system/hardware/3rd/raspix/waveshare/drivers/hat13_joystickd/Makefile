@@ -14,7 +14,7 @@ JOYSTICKD = $(TARGET_DIR)/drivers/raspix/hat13_joystickd
 $(JOYSTICKD): $(JOYSTICKD_OBJS) \
 		$(BUILD_DIR)/lib/libewoksys.a \
 		$(BUILD_DIR)/lib/libarch_bcm283x.a 
-	$(LD) -Ttext=100 $(JOYSTICKD_OBJS) -o $(JOYSTICKD) $(LDFLAGS) -larch_bcm283x -lewoksys -lc -lgloss -lsoftfloat
+	$(LD) -Ttext=100 $(JOYSTICKD_OBJS) -o $(JOYSTICKD) $(LDFLAGS) -larch_bcm283x -lewoksys -lc -lgloss
 
 clean:
 	rm -f $(JOYSTICKD_OBJS)

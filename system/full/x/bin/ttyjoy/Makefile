@@ -13,7 +13,7 @@ TTYJOY = $(TARGET_DIR)/bin/ttyjoy
 
 $(TTYJOY): $(TTYJOY_OBJS) \
 		$(BUILD_DIR)/lib/libewoksys.a 
-	$(LD) -Ttext=100 $(TTYJOY_OBJS) -o $(TTYJOY) $(LDFLAGS) -lewoksys -lc -lgloss -lsoftfloat
+	$(LD) -Ttext=100 $(TTYJOY_OBJS) -o $(TTYJOY) $(LDFLAGS) -lewoksys -lc -lgloss
 
 clean:
 	rm -f $(TTYJOY_OBJS)

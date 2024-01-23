@@ -13,7 +13,7 @@ WHOAMI = $(TARGET_DIR)/bin/whoami
 
 $(WHOAMI): $(WHOAMI_OBJS) \
 		$(BUILD_DIR)/lib/libewoksys.a
-	$(LD) -Ttext=100 $(WHOAMI_OBJS) -o $(WHOAMI) $(LDFLAGS) -lewoksys -lc -lgloss -lsoftfloat
+	$(LD) -Ttext=100 $(WHOAMI_OBJS) -o $(WHOAMI) $(LDFLAGS) -lewoksys -lc -lgloss
 
 clean:
 	rm -f $(WHOAMI_OBJS)

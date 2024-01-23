@@ -13,7 +13,7 @@ HTTPD = $(TARGET_DIR)/bin/httpd
 
 $(HTTPD): $(HTTPD_OBJS) \
 		$(BUILD_DIR)/lib/libewoksys.a
-	$(LD) -Ttext=100 $(HTTPD_OBJS) -o $(HTTPD) $(LDFLAGS)    -lsocket  -lewoksys -lc -lgloss -lsoftfloat
+	$(LD) -Ttext=100 $(HTTPD_OBJS) -o $(HTTPD) $(LDFLAGS)    -lsocket  -lewoksys -lc -lgloss
 
 clean:
 	rm -f $(HTTPD_OBJS)

@@ -14,7 +14,7 @@ NETD = $(TARGET_DIR)/drivers/netd
 
 $(NETD): $(NETD_OBJS) \
 		$(BUILD_DIR)/lib/libewoksys.a
-	$(LD) -Ttext=100 $(NETD_OBJS) -o $(NETD) $(LDFLAGS) -lewoksys -lc -lgloss -lsoftfloat
+	$(LD) -Ttext=100 $(NETD_OBJS) -o $(NETD) $(LDFLAGS) -lewoksys -lc -lgloss
 
 clean:
 	rm -f $(NETD_OBJS)

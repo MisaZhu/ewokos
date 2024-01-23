@@ -22,7 +22,7 @@ $(GTEST): $(GTEST_OBJS) \
 		$(BUILD_DIR)/lib/libttf.a \
 		$(BUILD_DIR)/lib/libfont.a \
 		$(BUILD_DIR)/lib/libcxx.a 
-	$(LD) -Ttext=100 $(GTEST_OBJS) -o $(GTEST) $(LDFLAGS) -lgraph -lbsp -lttf -lfont -lx++ -lx -lupng -lewoksys -lc -lgloss -lsoftfloat -lcxx
+	$(LD) -Ttext=100 $(GTEST_OBJS) -o $(GTEST) $(LDFLAGS) -lgraph -lbsp -lttf -lfont -lx++ -lx -lupng -lewoksys -lc -lgloss -lcxx
 
 $(GTEST_DIR):
 	mkdir -p $(GTEST_DIR)

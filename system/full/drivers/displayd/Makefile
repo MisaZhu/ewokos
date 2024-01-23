@@ -13,7 +13,7 @@ DISPLAYD = $(TARGET_DIR)/drivers/displayd
 
 $(DISPLAYD): $(DISPLAYD_OBJS) \
 		$(BUILD_DIR)/lib/libewoksys.a 
-	$(LD) -Ttext=100 $(DISPLAYD_OBJS) -o $(DISPLAYD) $(LDFLAGS) -lewoksys -lc -lgloss -lsoftfloat
+	$(LD) -Ttext=100 $(DISPLAYD_OBJS) -o $(DISPLAYD) $(LDFLAGS) -lewoksys -lc -lgloss
 
 clean:
 	rm -f $(DISPLAYD_OBJS)

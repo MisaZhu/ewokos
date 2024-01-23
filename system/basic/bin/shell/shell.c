@@ -211,6 +211,7 @@ static void try_init_stdio(void) {
 		}
 	}
 
+	/*
 	if(!_stderr_console_inited) {
 		int fd_console = open("/dev/console0", O_RDWR);
 		if(fd_console > 0) {
@@ -219,6 +220,7 @@ static void try_init_stdio(void) {
 			_stderr_console_inited = true;
 		}
 	}
+	*/
 }
 
 static void initrd_out(const char* cmd) {

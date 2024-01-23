@@ -13,7 +13,7 @@ SLEEP = $(TARGET_DIR)/bin/sleep
 
 $(SLEEP): $(SLEEP_OBJS) \
 		$(BUILD_DIR)/lib/libewoksys.a
-	$(LD) -Ttext=100 $(SLEEP_OBJS) -o $(SLEEP) $(LDFLAGS) -lewoksys -lc -lgloss -lsoftfloat
+	$(LD) -Ttext=100 $(SLEEP_OBJS) -o $(SLEEP) $(LDFLAGS) -lewoksys -lc -lgloss
 
 clean:
 	rm -f $(SLEEP_OBJS)

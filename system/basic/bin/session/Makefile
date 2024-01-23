@@ -13,7 +13,7 @@ SESSION = $(TARGET_DIR)/bin/session
 
 $(SESSION): $(SESSION_OBJS) \
 		$(BUILD_DIR)/lib/libewoksys.a
-	$(LD) -Ttext=100 $(SESSION_OBJS) -o $(SESSION) $(LDFLAGS) -lewoksys -lc -lgloss -lsoftfloat
+	$(LD) -Ttext=100 $(SESSION_OBJS) -o $(SESSION) $(LDFLAGS) -lewoksys -lc -lgloss
 
 clean:
 	rm -f $(SESSION_OBJS)

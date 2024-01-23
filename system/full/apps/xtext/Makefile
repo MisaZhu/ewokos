@@ -23,7 +23,7 @@ $(XTEXT): $(XTEXT_OBJS) \
 		$(BUILD_DIR)/lib/libttf.a \
 		$(BUILD_DIR)/lib/libfont.a \
 		$(BUILD_DIR)/lib/libcxx.a 
-	$(LD) -Ttext=100 $(XTEXT_OBJS) -o $(XTEXT) $(LDFLAGS) -lsconf -lx++ -lx -lcxx -lttf  -ltextview -lfont -lgraph -lbsp -lewoksys -lc -lgloss -lsoftfloat
+	$(LD) -Ttext=100 $(XTEXT_OBJS) -o $(XTEXT) $(LDFLAGS) -lsconf -lx++ -lx -lcxx -lttf  -ltextview -lfont -lgraph -lbsp -lewoksys -lc -lgloss
 
 $(XTEXT_DIR):
 	mkdir -p $(XTEXT_DIR)

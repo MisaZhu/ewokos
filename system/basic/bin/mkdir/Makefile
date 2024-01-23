@@ -13,7 +13,7 @@ MKDIR = $(TARGET_DIR)/bin/mkdir
 
 $(MKDIR): $(MKDIR_OBJS) \
 		$(BUILD_DIR)/lib/libewoksys.a
-	$(LD) -Ttext=100 $(MKDIR_OBJS) -o $(MKDIR) $(LDFLAGS) -lewoksys -lc -lgloss -lsoftfloat
+	$(LD) -Ttext=100 $(MKDIR_OBJS) -o $(MKDIR) $(LDFLAGS) -lewoksys -lc -lgloss
 
 clean:
 	rm -f $(MKDIR_OBJS)

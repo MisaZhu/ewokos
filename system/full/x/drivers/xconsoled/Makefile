@@ -25,7 +25,7 @@ $(XCONSOLED): $(XCONSOLED_OBJS) \
 		$(BUILD_DIR)/lib/libx++.a  \
 		$(BUILD_DIR)/lib/libcxx.a  \
 		$(BUILD_DIR)/lib/libdisplay.a 
-	$(LD) -Ttext=100 $(XCONSOLED_OBJS) -o $(XCONSOLED) $(LDFLAGS) -lfb -ldisplay -lx++ -lx -lcxx -lconsole -ltextview -lgraph -lbsp -lttf  -lfont -lupng -lsconf -lewoksys -lc -lgloss -lsoftfloat
+	$(LD) -Ttext=100 $(XCONSOLED_OBJS) -o $(XCONSOLED) $(LDFLAGS) -lfb -ldisplay -lx++ -lx -lcxx -lconsole -ltextview -lgraph -lbsp -lttf  -lfont -lupng -lsconf -lewoksys -lc -lgloss
 
 clean:
 	rm -f $(XCONSOLED_OBJS)

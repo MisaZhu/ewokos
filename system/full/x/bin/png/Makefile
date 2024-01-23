@@ -19,7 +19,7 @@ $(PNG): $(PNG_OBJS) \
 		$(BUILD_DIR)/lib/libttf.a \
 		$(BUILD_DIR)/lib/libfont.a \
 		$(BUILD_DIR)/lib/libcxx.a 
-	$(LD) -Ttext=100 $(PNG_OBJS) -o $(PNG) $(LDFLAGS)  -lgraph -lbsp -lupng -lx++ -lx  -lttf -lfont -lewoksys -lc -lgloss -lsoftfloat -lcxx
+	$(LD) -Ttext=100 $(PNG_OBJS) -o $(PNG) $(LDFLAGS)  -lgraph -lbsp -lupng -lx++ -lx  -lttf -lfont -lewoksys -lc -lgloss -lcxx
 
 clean:
 	rm -f $(PNG_OBJS)

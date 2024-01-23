@@ -13,7 +13,7 @@ UNAME = $(TARGET_DIR)/bin/uname
 
 $(UNAME): $(UNAME_OBJS) \
 		$(BUILD_DIR)/lib/libewoksys.a
-	$(LD) -Ttext=100 $(UNAME_OBJS) -o $(UNAME) $(LDFLAGS) -lewoksys -lc -lgloss -lsoftfloat
+	$(LD) -Ttext=100 $(UNAME_OBJS) -o $(UNAME) $(LDFLAGS) -lewoksys -lc -lgloss
 
 clean:
 	rm -f $(UNAME_OBJS)

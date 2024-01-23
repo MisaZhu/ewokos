@@ -13,7 +13,7 @@ PS2MOUSED = $(TARGET_DIR)/drivers/versatilepb/ps2moused
 
 $(PS2MOUSED): $(PS2MOUSED_OBJS) \
 		$(BUILD_DIR)/lib/libewoksys.a 
-	$(LD) -Ttext=100 $(PS2MOUSED_OBJS) -o $(PS2MOUSED) $(LDFLAGS) -lewoksys -lc -lgloss -lsoftfloat
+	$(LD) -Ttext=100 $(PS2MOUSED_OBJS) -o $(PS2MOUSED) $(LDFLAGS) -lewoksys -lc -lgloss
 
 clean:
 	rm -f $(PS2MOUSED_OBJS)

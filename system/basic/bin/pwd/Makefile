@@ -13,7 +13,7 @@ PWD = $(TARGET_DIR)/bin/pwd
 
 $(PWD): $(PWD_OBJS) \
 		$(BUILD_DIR)/lib/libewoksys.a
-	$(LD) -Ttext=100 $(PWD_OBJS) -o $(PWD) $(LDFLAGS) -lewoksys -lc -lgloss -lsoftfloat
+	$(LD) -Ttext=100 $(PWD_OBJS) -o $(PWD) $(LDFLAGS) -lewoksys -lc -lgloss
 
 clean:
 	rm -f $(PWD_OBJS)

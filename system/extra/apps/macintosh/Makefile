@@ -156,7 +156,7 @@ $(MACINTOSH): $(MACINTOSH_OBJS) \
 		$(BUILD_DIR)/lib/libconsole.a \
 		$(BUILD_DIR)/lib/libx.a \
 		$(BUILD_DIR)/lib/libcxx.a  
-	$(LD) -Ttext=100 $(MACINTOSH_OBJS) -o $(MACINTOSH) $(LDFLAGS) -lx++ -lttf -lfont -lgraph -lbsp -lx  -lupng -lconsole -ltextview -lsconf -lopenlibm  -lewoksys -lc -lgloss -lsoftfloat -lcxx 
+	$(LD) -Ttext=100 $(MACINTOSH_OBJS) -o $(MACINTOSH) $(LDFLAGS) -lx++ -lttf -lfont -lgraph -lbsp -lx  -lupng -lconsole -ltextview -lsconf -lopenlibm  -lewoksys -lc -lgloss -lcxx 
 
 $(MACINTOSH_DIR):
 	mkdir -p $(MACINTOSH_DIR)

@@ -13,7 +13,7 @@ HID_MOUSED = $(TARGET_DIR)/drivers/raspix/hid_moused
 
 $(HID_MOUSED): $(HID_MOUSED_OBJS) \
 		$(BUILD_DIR)/lib/libewoksys.a 
-	$(LD) -Ttext=100 $(HID_MOUSED_OBJS) -o $(HID_MOUSED) $(LDFLAGS) -lewoksys -lc -lgloss -lsoftfloat
+	$(LD) -Ttext=100 $(HID_MOUSED_OBJS) -o $(HID_MOUSED) $(LDFLAGS) -lewoksys -lc -lgloss
 
 clean:
 	rm -f $(HID_MOUSED_OBJS)

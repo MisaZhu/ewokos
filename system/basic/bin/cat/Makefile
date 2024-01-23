@@ -13,7 +13,7 @@ CAT = $(TARGET_DIR)/bin/cat
 
 $(CAT): $(CAT_OBJS) \
 		$(BUILD_DIR)/lib/libewoksys.a
-	$(LD) -Ttext=100 $(CAT_OBJS) -o $(CAT) $(LDFLAGS) -lewoksys -lc -lgloss -lsoftfloat
+	$(LD) -Ttext=100 $(CAT_OBJS) -o $(CAT) $(LDFLAGS) -lewoksys -lc -lgloss
 
 clean:
 	rm -f $(CAT_OBJS)

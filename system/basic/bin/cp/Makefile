@@ -13,7 +13,7 @@ cp = $(TARGET_DIR)/bin/cp
 
 $(cp): $(cp_OBJS) \
 		$(BUILD_DIR)/lib/libewoksys.a
-	$(LD) -Ttext=100 $(cp_OBJS) -o $(cp) $(LDFLAGS) -lewoksys -lc -lgloss -lsoftfloat
+	$(LD) -Ttext=100 $(cp_OBJS) -o $(cp) $(LDFLAGS) -lewoksys -lc -lgloss
 
 clean:
 	rm -f $(cp_OBJS)

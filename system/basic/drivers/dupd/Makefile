@@ -13,7 +13,7 @@ DUPD = $(TARGET_DIR)/drivers/dupd
 
 $(DUPD): $(DUPD_OBJS) \
 		$(BUILD_DIR)/lib/libewoksys.a
-	$(LD) -Ttext=100 $(DUPD_OBJS) -o $(DUPD) $(LDFLAGS) -lewoksys -lc -lgloss -lsoftfloat
+	$(LD) -Ttext=100 $(DUPD_OBJS) -o $(DUPD) $(LDFLAGS) -lewoksys -lc -lgloss
 
 clean:
 	rm -f $(DUPD_OBJS)

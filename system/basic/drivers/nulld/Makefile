@@ -13,7 +13,7 @@ NULLD = $(TARGET_DIR)/drivers/nulld
 
 $(NULLD): $(NULLD_OBJS) \
 		$(BUILD_DIR)/lib/libewoksys.a
-	$(LD) -Ttext=100 $(NULLD_OBJS) -o $(NULLD) $(LDFLAGS) -lewoksys -lc -lgloss -lsoftfloat
+	$(LD) -Ttext=100 $(NULLD_OBJS) -o $(NULLD) $(LDFLAGS) -lewoksys -lc -lgloss
 
 clean:
 	rm -f $(NULLD_OBJS)

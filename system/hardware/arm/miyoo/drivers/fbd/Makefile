@@ -19,7 +19,7 @@ $(FBD): $(FBD_OBJS) \
 		$(BUILD_DIR)/lib/libupng.a \
 		$(BUILD_DIR)/lib/libsconf.a \
 		$(BUILD_DIR)/lib/libarch_miyoo.a
-	$(LD) -Ttext=100 $(FBD_OBJS) -o $(FBD) $(LDFLAGS) -larch_miyoo -lfbd -lupng -lgraph -lbsp -lsconf -lewoksys -lc -lgloss -lsoftfloat
+	$(LD) -Ttext=100 $(FBD_OBJS) -o $(FBD) $(LDFLAGS) -larch_miyoo -lfbd -lupng -lgraph -lbsp -lsconf -lewoksys -lc -lgloss
 
 clean:
 	rm -f $(FBD_OBJS)

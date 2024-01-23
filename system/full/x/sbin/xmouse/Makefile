@@ -13,7 +13,7 @@ XMOUSED = $(TARGET_DIR)/sbin/x/xmoused
 
 $(XMOUSED): $(XMOUSED_OBJS) \
 		$(BUILD_DIR)/lib/libewoksys.a 
-	$(LD) -Ttext=100 $(XMOUSED_OBJS) -o $(XMOUSED) $(LDFLAGS) -lewoksys -lc -lgloss -lsoftfloat
+	$(LD) -Ttext=100 $(XMOUSED_OBJS) -o $(XMOUSED) $(LDFLAGS) -lewoksys -lc -lgloss
 
 clean:
 	rm -f $(XMOUSED_OBJS)

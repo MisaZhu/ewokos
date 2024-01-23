@@ -13,7 +13,7 @@ RUNDEV = $(TARGET_DIR)/bin/rundev
 
 $(RUNDEV): $(RUNDEV_OBJS) \
 		$(BUILD_DIR)/lib/libewoksys.a
-	$(LD) -Ttext=100 $(RUNDEV_OBJS) -o $(RUNDEV) $(LDFLAGS) -lewoksys -lc -lgloss -lsoftfloat
+	$(LD) -Ttext=100 $(RUNDEV_OBJS) -o $(RUNDEV) $(LDFLAGS) -lewoksys -lc -lgloss
 
 clean:
 	rm -f $(RUNDEV_OBJS)

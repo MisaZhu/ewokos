@@ -20,7 +20,7 @@ $(XWM): $(XWM_OBJS) \
 		$(BUILD_DIR)/lib/libfont.a \
 		$(BUILD_DIR)/lib/libgraph.a \
 		$(BUILD_DIR)/lib/libcxx.a 
-	$(LD) -Ttext=100 $(XWM_OBJS) -o $(XWM) $(LDFLAGS) -lx++ -lx -lgraph -lbsp -lttf -lfont  -lupng -lsconf -lewoksys -lc -lgloss -lsoftfloat -lcxx
+	$(LD) -Ttext=100 $(XWM_OBJS) -o $(XWM) $(LDFLAGS) -lx++ -lx -lgraph -lbsp -lttf -lfont  -lupng -lsconf -lewoksys -lc -lgloss -lcxx
 
 clean:
 	rm -f $(XWM_OBJS)

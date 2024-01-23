@@ -25,7 +25,7 @@ $(CLOCK): $(CLOCK_OBJS) \
 		$(BUILD_DIR)/lib/libwidget++.a \
 		$(BUILD_DIR)/lib/libtextview.a \
 		$(BUILD_DIR)/lib/libcxx.a 
-	$(LD) -Ttext=100 $(CLOCK_OBJS) -o $(CLOCK) $(LDFLAGS) -lwidget++ -ltextview -lgraph -lbsp -lttf -lfont -lx++ -lx -lupng -lewokstl -lewoksys -lc -lgloss -lsoftfloat -lcxx
+	$(LD) -Ttext=100 $(CLOCK_OBJS) -o $(CLOCK) $(LDFLAGS) -lwidget++ -ltextview -lgraph -lbsp -lttf -lfont -lx++ -lx -lupng -lewokstl -lewoksys -lc -lgloss -lcxx
 
 $(CLOCK_DIR):
 	mkdir -p $(CLOCK_DIR)

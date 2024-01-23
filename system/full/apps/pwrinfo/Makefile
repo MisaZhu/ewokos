@@ -22,7 +22,7 @@ $(pwrinfo): $(pwrinfo_OBJS) \
 		$(BUILD_DIR)/lib/libttf.a \
 		$(BUILD_DIR)/lib/libfont.a \
 		$(BUILD_DIR)/lib/libcxx.a 
-	$(LD) -Ttext=100 $(pwrinfo_OBJS) -o $(pwrinfo) $(LDFLAGS) -lfont -lttf -lgraph -lbsp -lx++ -lx -lupng -lewoksys -lc -lgloss -lsoftfloat -lcxx
+	$(LD) -Ttext=100 $(pwrinfo_OBJS) -o $(pwrinfo) $(LDFLAGS) -lfont -lttf -lgraph -lbsp -lx++ -lx -lupng -lewoksys -lc -lgloss -lcxx
 
 $(pwrinfo_DIR):
 	mkdir -p $(pwrinfo_DIR)

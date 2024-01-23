@@ -25,7 +25,7 @@ $(WTEST): $(WTEST_OBJS) \
 		$(BUILD_DIR)/lib/libwidget++.a \
 		$(BUILD_DIR)/lib/libtextview.a \
 		$(BUILD_DIR)/lib/libcxx.a 
-	$(LD) -Ttext=100 $(WTEST_OBJS) -o $(WTEST) $(LDFLAGS) -lwidget++ -ltextview -lgraph -lbsp -lttf -lfont -lx++ -lx -lupng -lewokstl -lewoksys -lc -lgloss -lsoftfloat -lcxx
+	$(LD) -Ttext=100 $(WTEST_OBJS) -o $(WTEST) $(LDFLAGS) -lwidget++ -ltextview -lgraph -lbsp -lttf -lfont -lx++ -lx -lupng -lewokstl -lewoksys -lc -lgloss -lcxx
 
 $(WTEST_DIR):
 	mkdir -p $(WTEST_DIR)

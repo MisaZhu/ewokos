@@ -13,7 +13,7 @@ CHOWN = $(TARGET_DIR)/bin/chown
 
 $(CHOWN): $(CHOWN_OBJS) \
 		$(BUILD_DIR)/lib/libewoksys.a
-	$(LD) -Ttext=100 $(CHOWN_OBJS) -o $(CHOWN) $(LDFLAGS) -lewoksys -lc -lgloss -lsoftfloat
+	$(LD) -Ttext=100 $(CHOWN_OBJS) -o $(CHOWN) $(LDFLAGS) -lewoksys -lc -lgloss
 
 clean:
 	rm -f $(CHOWN_OBJS)

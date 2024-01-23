@@ -18,7 +18,7 @@ $(XSERVERD): $(XSERVERD_OBJS) \
 		$(BUILD_DIR)/lib/libupng.a  \
 		$(BUILD_DIR)/lib/libgraph.a  \
 		$(BUILD_DIR)/lib/libdisplay.a
-	$(LD) -Ttext=100 $(XSERVERD_OBJS) -o $(XSERVERD) $(LDFLAGS) -lupng -lgraph -lbsp -lfb -ldisplay -lsconf -lewoksys -lc -lgloss -lsoftfloat
+	$(LD) -Ttext=100 $(XSERVERD_OBJS) -o $(XSERVERD) $(LDFLAGS) -lupng -lgraph -lbsp -lfb -ldisplay -lsconf -lewoksys -lc -lgloss
 
 clean:
 	rm -f $(XSERVERD_OBJS)

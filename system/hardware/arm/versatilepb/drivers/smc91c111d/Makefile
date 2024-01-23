@@ -13,7 +13,7 @@ SMC91C111D = $(TARGET_DIR)/drivers/versatilepb/smc91c111d
 
 $(SMC91C111D): $(SMC91C111D_OBJS) \
 		$(BUILD_DIR)/lib/libewoksys.a
-	$(LD) -Ttext=100 $(SMC91C111D_OBJS) -o $(SMC91C111D) $(LDFLAGS) -lewoksys -lc -lgloss -lsoftfloat
+	$(LD) -Ttext=100 $(SMC91C111D_OBJS) -o $(SMC91C111D) $(LDFLAGS) -lewoksys -lc -lgloss
 
 clean:
 	rm -f $(SMC91C111D_OBJS) $(SMC91C111D)

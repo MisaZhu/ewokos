@@ -18,7 +18,7 @@ $(XIM): $(XIM_OBJS) \
 		$(BUILD_DIR)/lib/libttf.a \
 		$(BUILD_DIR)/lib/libfont.a \
 		$(BUILD_DIR)/lib/libcxx.a 
-	$(LD) -Ttext=100 $(XIM_OBJS) -o $(XIM) $(LDFLAGS) -lgraph -lbsp -lttf -lfont -lx++ -lx -lcxx -lewoksys -lc -lgloss -lsoftfloat
+	$(LD) -Ttext=100 $(XIM_OBJS) -o $(XIM) $(LDFLAGS) -lgraph -lbsp -lttf -lfont -lx++ -lx -lcxx -lewoksys -lc -lgloss
 
 clean:
 	rm -f $(XIM_OBJS)

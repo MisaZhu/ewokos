@@ -18,7 +18,7 @@ $(EPAPERD): $(EPAPERD_OBJS) \
 		$(BUILD_DIR)/lib/libsconf.a \
 		$(BUILD_DIR)/lib/libupng.a \
 		$(BUILD_DIR)/lib/libarch_bcm283x.a 
-	$(LD) -Ttext=100 $(EPAPERD_OBJS) -o $(EPAPERD) $(LDFLAGS) -lfbd -lupng -lgraph -lbsp -lsconf  -larch_bcm283x -lewoksys -lc -lgloss -lsoftfloat
+	$(LD) -Ttext=100 $(EPAPERD_OBJS) -o $(EPAPERD) $(LDFLAGS) -lfbd -lupng -lgraph -lbsp -lsconf  -larch_bcm283x -lewoksys -lc -lgloss
 
 clean:
 	rm -f $(EPAPERD_OBJS)
