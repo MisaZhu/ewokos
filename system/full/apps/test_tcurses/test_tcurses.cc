@@ -151,7 +151,7 @@ protected:
 			else if(c == KEY_BACKSPACE ||
 					c == CONSOLE_LEFT) {
 				skip(true);
-				tcurses_set(&tc, 0, getColor(c));
+				tcurses_del(&tc);
 			}
 			else if(c == '\t') {
 				tcurses_insert(&tc, ' ', getColor(c));

@@ -33,27 +33,80 @@ void tcurses_insert(tcurses_t* tc, UNICODE16 c, uint32_t color) {
 		return;
 
 	uint32_t at = tcurses_at(tc);
-	uint32_t at2 = 0;
-	uint32_t move = 1;
-	if(c == '\n') {
+	uint32_t at2 = at+1;
+	if(c == '\n')
 		at2 = (tc->curs_y+1)*tc->cols;
-		move = at2 - at;
-	}
+	size -= at;
 
-	uint32_t i;
-	for(i=size-1; i>=(at+move); i--) {
-		tc->content[i].c = tc->content[i-move].c;
-		tc->content[i].color = tc->content[i-move].color;
-	}
-	if(at2 > at) {
-		for(i=at+1; i<at2; i++) {
-			tc->content[i].c = 0;
-			tc->content[i].color = 0;
+	tchar_t* content = (tchar_t*)calloc(size * sizeof(tchar_t), 1);
+	if(content != NULL) {
+		uint32_t i;
+		for(i=0; i<size; i++) {
+			content[i].c = tc->content[i+at].c;
+			content[i].color = tc->content[i+at].color;
+			tc->content[i+at].c = 0;
+			tc->content[i+at].color = 0;
+		}
+
+		tcurses_move_at(tc, at2);
+		for(i=0; i<size; i++) {
+			if(content[i].c != 0) {
+				tcurses_set(tc, content[i].c, content[i].color);
+				if(content[i].c != '\n')
+					tcurses_move(tc, 1);
+				else
+					tcurses_move_at(tc, (tc->curs_y+1)*tc->cols);
+			}
 		}
 	}
-
 	tc->content[at].c = c;
 	tc->content[at].color = color;
+	tcurses_move_at(tc, at);
+}
+
+void tcurses_del(tcurses_t* tc) {
+	uint32_t size = tc->cols*tc->rows;
+	if(tc->content == NULL || size == 0)
+		return;
+
+	uint32_t at = tcurses_at(tc);
+	size -= (at+1);
+
+	tcurses_set(tc, 0, 0);
+	tchar_t* content = (tchar_t*)calloc(size * sizeof(tchar_t), 1);
+	if(content != NULL) {
+		uint32_t i;
+		for(i=0; i<size; i++) {
+			content[i].c = tc->content[i+at+1].c;
+			content[i].color = tc->content[i+at+1].color;
+			tc->content[i+at+1].c = 0;
+			tc->content[i+at+1].color = 0;
+		}
+
+		tcurses_move_at(tc, at);
+		for(i=0; i<size; i++) {
+			if(content[i].c != 0) {
+				tcurses_set(tc, content[i].c, content[i].color);
+				if(content[i].c != '\n')
+					tcurses_move(tc, 1);
+				else
+					tcurses_move_at(tc, (tc->curs_y+1)*tc->cols);
+			}
+		}
+	}
+	tcurses_move_at(tc, at);
+}
+
+void tcurses_inserts(tcurses_t* tc, tchar_t* s, uint32_t size) {
+	for(uint32_t i=0; i<size; i++) {
+		if(s[i].c != 0) {
+			tcurses_insert(tc, s[i].c, s[i].color);
+			if(s[i].c != '\n')
+				tcurses_move(tc, 1);
+			else
+				tcurses_move_to(tc, 0, tc->curs_y+1);
+		}
+	}
 }
 
 void tcurses_sets(tcurses_t* tc, tchar_t* s, uint32_t size) {
@@ -94,18 +147,6 @@ uint32_t tcurses_tail(tcurses_t* tc) {
 	if(i < (size - 1))
 		i++;
 	return i;
-}
-
-void tcurses_inserts(tcurses_t* tc, tchar_t* s, uint32_t size) {
-	for(uint32_t i=0; i<size; i++) {
-		if(s[i].c != 0) {
-			tcurses_insert(tc, s[i].c, s[i].color);
-			if(s[i].c != '\n')
-				tcurses_move(tc, 1);
-			else
-				tcurses_move_to(tc, 0, tc->curs_y+1);
-		}
-	}
 }
 
 void tcurses_reset(tcurses_t* tc, uint32_t cols, uint32_t rows) {
