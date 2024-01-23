@@ -85,7 +85,7 @@ extern void    proc_zombie_funeral(void);
 extern void    proc_exit(context_t* ctx, proc_t *proc, int32_t res);
 extern proc_t *proc_create(int32_t type, proc_t* parent);
 
-extern void*   proc_malloc(proc_t* proc, uint32_t size);
+extern void*   proc_malloc(proc_t* proc, int32_t size);
 extern uint32_t  proc_msize(proc_t* proc);
 extern void    proc_free(proc_t* proc);
 

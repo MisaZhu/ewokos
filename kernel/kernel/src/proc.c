@@ -495,13 +495,21 @@ void proc_exit(context_t* ctx, proc_t *proc, int32_t res) {
 	schedule(ctx);
 }
 
-inline void* proc_malloc(proc_t* proc, uint32_t size) {
+inline void* proc_malloc(proc_t* proc, int32_t size) {
 	if(size == 0)
 		return (void*)proc->space->malloc_base;
 
+	uint8_t expand = 1;
+	if(size < 0) {
+		expand = 0;
+		size = -size;
+	}
+
 	size = ALIGN_UP(size, PAGE_SIZE);
 	uint32_t pages = size / PAGE_SIZE;
-	if(proc_expand_mem(proc, pages) != 0)
+	if(expand == 0)
+		proc_shrink_mem(proc, pages);
+	else if(proc_expand_mem(proc, pages) != 0)
 		return NULL;
 	return (void*)proc->space->malloc_base;
 }

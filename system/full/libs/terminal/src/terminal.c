@@ -27,23 +27,25 @@ void terminal_set(terminal_t* terminal, UNICODE16 c, uint32_t color) {
 	terminal->content[at].color = color;
 }
 
-void terminal_reset(terminal_t* terminal, uint32_t cols, uint32_t rows) {
-	if(cols == 0 || rows == 0) {
-		return;
+void terminal_clear(terminal_t* terminal) {
+	uint32_t size = terminal_size(terminal);
+	for(uint32_t i=0; i<size; i++) {
+		terminal->content[i].c = 0;
+		terminal->content[i].color = 0;
 	}
+}
 
-	tchar_t* content = terminal->content;
-	uint32_t old_size = terminal->cols * terminal->rows;
+void terminal_reset(terminal_t* terminal, uint32_t cols, uint32_t rows) {
+	if(cols == 0 || rows == 0)
+		return;
+
+	if(terminal->content != NULL)
+		free(terminal->content);
+
 	uint32_t size = cols * rows;
-
+	terminal->content = (tchar_t*)calloc(size * sizeof(tchar_t), 1);
 	terminal->cols = cols;
 	terminal->rows = rows;
-	terminal->content = (tchar_t*)calloc(size * sizeof(tchar_t), 1);
-	if(content != NULL) {
-		terminal_move_at(terminal, 0);
-		terminal_sets(terminal, content, old_size);	
-		free(content);
-	}
 }
 
 void terminal_move_to(terminal_t* terminal, uint32_t x, uint32_t y) {
@@ -67,8 +69,8 @@ int32_t terminal_pos_by_at(terminal_t* terminal, uint32_t at, uint32_t* x, uint3
 }
 
 int32_t terminal_pos(terminal_t* terminal, uint32_t* x, uint32_t *y) {
-	*y = terminal->cols;
-	*x = terminal->cols;
+	*y = terminal->curs_y;
+	*x = terminal->curs_x;
 	return 0;
 }
 
@@ -93,16 +95,19 @@ inline uint32_t terminal_at(terminal_t* terminal) {
 	return terminal->curs_y*terminal->cols + terminal->curs_x;
 }
 
-UNICODE16 terminal_get_at(terminal_t* terminal, uint32_t at) {
+inline tchar_t* terminal_get_by_at(terminal_t* terminal, uint32_t at) {
 	if(terminal->content == NULL || at >= terminal_size(terminal))
-		return 0;
-	return  terminal->content[at].c;
+		return NULL;
+	return  &terminal->content[at];
 }
 
-UNICODE16 terminal_get(terminal_t* terminal) {
-	if(terminal->content == NULL)
-		return 0;
-	return  terminal->content[terminal_at(terminal)].c;
+tchar_t* terminal_get_by_pos(terminal_t* terminal, uint32_t x, uint32_t y) {
+	uint32_t at = terminal_at_by_pos(terminal, x, y);
+	return terminal_get_by_at(terminal, at);
+}
+
+tchar_t* terminal_get(terminal_t* terminal) {
+	return &terminal->content[terminal_at(terminal)];
 }
 
 inline uint32_t terminal_size(terminal_t* terminal) {
