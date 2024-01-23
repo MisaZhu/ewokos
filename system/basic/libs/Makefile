@@ -3,7 +3,8 @@ all: basic_libs
 
 basic_libs:
 	cd softfloat;make
-	cd libc;make
+	cd libewoksys;make
+	cd libgloss;make
 	cd sconf; make
 	cd ext2;make
 	cd elf;make
@@ -12,7 +13,8 @@ basic_libs:
 
 clean:
 	cd softfloat;make clean
-	cd libc;make clean
+	cd libewoksys;make clean
+	cd libgloss;make clean
 	cd sconf; make clean
 	cd ext2;make clean
 	cd elf;make clean

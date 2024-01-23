@@ -12,8 +12,8 @@ cp_OBJS = cp.o
 cp = $(TARGET_DIR)/bin/cp
 
 $(cp): $(cp_OBJS) \
-		$(BUILD_DIR)/lib/libewokc.a
-	$(LD) -Ttext=100 $(cp_OBJS) -o $(cp) $(LDFLAGS) -lewokc -lc_nano -lnosys
+		$(BUILD_DIR)/lib/libewoksys.a
+	$(LD) -Ttext=100 $(cp_OBJS) -o $(cp) $(LDFLAGS) -lewoksys -lc -lgloss -lsoftfloat
 
 clean:
 	rm -f $(cp_OBJS)

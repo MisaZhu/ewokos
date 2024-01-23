@@ -188,15 +188,15 @@ public:
 
 		v = sconf_get(conf, "title_color");
 		if(v[0] != 0)
-			titleColor = atoi_base(v, 16);
+			titleColor = strtol(v, NULL, 16);
 
 		v = sconf_get(conf, "bg_color");
 		if(v[0] != 0)
-			bgColor = atoi_base(v, 16);
+			bgColor = strtol(v,NULL, 16);
 
 		v = sconf_get(conf, "icon_selected_color");
 		if(v[0] != 0)
-			selectedColor = atoi_base(v, 16);
+			selectedColor = strtol(v,NULL, 16);
 		sconf_free(conf);
 
 		itemsInfo.itemSize.h = fontSize + iconSize + titleMargin;

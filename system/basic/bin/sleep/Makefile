@@ -12,8 +12,8 @@ SLEEP_OBJS = sleep.o
 SLEEP = $(TARGET_DIR)/bin/sleep
 
 $(SLEEP): $(SLEEP_OBJS) \
-		$(BUILD_DIR)/lib/libewokc.a
-	$(LD) -Ttext=100 $(SLEEP_OBJS) -o $(SLEEP) $(LDFLAGS) -lewokc -lc_nano -lnosys
+		$(BUILD_DIR)/lib/libewoksys.a
+	$(LD) -Ttext=100 $(SLEEP_OBJS) -o $(SLEEP) $(LDFLAGS) -lewoksys -lc -lgloss -lsoftfloat
 
 clean:
 	rm -f $(SLEEP_OBJS)

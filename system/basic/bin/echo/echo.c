@@ -14,7 +14,7 @@ int main(int argc, char* argv[]) {
 		p++;
 		uint8_t i;
 		if(p[0] == '0')
-			i = atoi_base(p, 16);
+			i = strtol(p, NULL, 16);
 		else
 			i = atoi(p);
 		write(1, &i, 1);

@@ -13,8 +13,8 @@ NETD_OBJS = netd.o intr.o sched.o tap.o\
 NETD = $(TARGET_DIR)/drivers/netd
 
 $(NETD): $(NETD_OBJS) \
-		$(BUILD_DIR)/lib/libewokc.a
-	$(LD) -Ttext=100 $(NETD_OBJS) -o $(NETD) $(LDFLAGS) -lewokc -lc_nano -lnosys
+		$(BUILD_DIR)/lib/libewoksys.a
+	$(LD) -Ttext=100 $(NETD_OBJS) -o $(NETD) $(LDFLAGS) -lewoksys -lc -lgloss -lsoftfloat
 
 clean:
 	rm -f $(NETD_OBJS)

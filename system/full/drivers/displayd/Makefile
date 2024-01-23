@@ -12,8 +12,8 @@ DISPLAYD_OBJS = displayd.o
 DISPLAYD = $(TARGET_DIR)/drivers/displayd
 
 $(DISPLAYD): $(DISPLAYD_OBJS) \
-		$(BUILD_DIR)/lib/libewokc.a 
-	$(LD) -Ttext=100 $(DISPLAYD_OBJS) -o $(DISPLAYD) $(LDFLAGS) -lewokc -lc_nano -lnosys
+		$(BUILD_DIR)/lib/libewoksys.a 
+	$(LD) -Ttext=100 $(DISPLAYD_OBJS) -o $(DISPLAYD) $(LDFLAGS) -lewoksys -lc -lgloss -lsoftfloat
 
 clean:
 	rm -f $(DISPLAYD_OBJS)

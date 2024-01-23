@@ -469,7 +469,7 @@ ip_protocol_register(const char *name, uint8_t type, void (*handler)(const uint8
         errorf("memory_alloc() failure");
         return -1;
     }
-    sstrncpy(entry->name, name, sizeof(entry->name)-1);
+    strncpy(entry->name, name, sizeof(entry->name)-1);
     entry->type = type;
     entry->handler = handler;
     entry->next = protocols;

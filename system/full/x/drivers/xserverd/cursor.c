@@ -51,7 +51,7 @@ void cursor_init(const char* theme, cursor_t* cursor) {
 		if(v[0] != '/')
 			snprintf(fname, 255, "%s/%s/xwm/%s", X_THEME_ROOT, theme, v);
 		else
-			sstrncpy(fname, v, 255);
+			strncpy(fname, v, 255);
 	}
 	cursor->img = png_image_new(fname);
 

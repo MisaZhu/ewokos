@@ -12,8 +12,8 @@ SESSION_OBJS = session.o
 SESSION = $(TARGET_DIR)/bin/session
 
 $(SESSION): $(SESSION_OBJS) \
-		$(BUILD_DIR)/lib/libewokc.a
-	$(LD) -Ttext=100 $(SESSION_OBJS) -o $(SESSION) $(LDFLAGS) -lewokc -lc_nano -lnosys
+		$(BUILD_DIR)/lib/libewoksys.a
+	$(LD) -Ttext=100 $(SESSION_OBJS) -o $(SESSION) $(LDFLAGS) -lewoksys -lc -lgloss -lsoftfloat
 
 clean:
 	rm -f $(SESSION_OBJS)

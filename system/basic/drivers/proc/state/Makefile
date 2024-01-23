@@ -12,8 +12,8 @@ STATED_OBJS = stated.o
 STATED = $(TARGET_DIR)/drivers/proc/stated
 
 $(STATED): $(STATED_OBJS) \
-		$(BUILD_DIR)/lib/libewokc.a
-	$(LD) -Ttext=100 $(STATED_OBJS) -o $(STATED) $(LDFLAGS) -lewokc -lc_nano -lnosys
+		$(BUILD_DIR)/lib/libewoksys.a
+	$(LD) -Ttext=100 $(STATED_OBJS) -o $(STATED) $(LDFLAGS) -lewoksys -lc -lgloss -lsoftfloat
 
 clean:
 	rm -f $(STATED_OBJS)

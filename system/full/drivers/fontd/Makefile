@@ -12,11 +12,11 @@ FONTD_OBJS = fontd.o
 FONTD = $(TARGET_DIR)/drivers/fontd
 
 $(FONTD): $(FONTD_OBJS) \
-		$(BUILD_DIR)/lib/libewokc.a \
+		$(BUILD_DIR)/lib/libewoksys.a \
 		$(BUILD_DIR)/lib/libsconf.a \
 		$(BUILD_DIR)/lib/libgraph.a \
 		$(BUILD_DIR)/lib/libttf.a 
-	$(LD) -Ttext=100 $(FONTD_OBJS) -o $(FONTD) $(LDFLAGS)  -lttf -lgraph -lbsp -lsconf -lewokc -lc_nano -lnosys
+	$(LD) -Ttext=100 $(FONTD_OBJS) -o $(FONTD) $(LDFLAGS)  -lttf -lgraph -lbsp -lsconf -lewoksys -lc -lgloss -lsoftfloat
 
 clean:
 	rm -f $(FONTD_OBJS)

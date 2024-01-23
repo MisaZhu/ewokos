@@ -12,8 +12,8 @@ RK_UARTD_OBJS = rk_uartd.o
 RK_UARTD = $(TARGET_DIR)/drivers/rk3128/rk_uartd
 
 $(RK_UARTD): $(RK_UARTD_OBJS) \
-		$(BUILD_DIR)/lib/libewokc.a
-	$(LD) -Ttext=100 $(RK_UARTD_OBJS) -o $(RK_UARTD) $(LDFLAGS) -lewokc -lc_nano -lnosys
+		$(BUILD_DIR)/lib/libewoksys.a
+	$(LD) -Ttext=100 $(RK_UARTD_OBJS) -o $(RK_UARTD) $(LDFLAGS) -lewoksys -lc -lgloss -lsoftfloat
 
 clean:
 	rm -f $(RK_UARTD_OBJS) $(RK_UARTD)

@@ -12,8 +12,8 @@ PS2KEYBD_OBJS = ps2keybd.o
 PS2KEYBD = $(TARGET_DIR)/drivers/versatilepb/ps2keybd
 
 $(PS2KEYBD): $(PS2KEYBD_OBJS) \
-		$(BUILD_DIR)/lib/libewokc.a 
-	$(LD) -Ttext=100 $(PS2KEYBD_OBJS) -o $(PS2KEYBD) $(LDFLAGS) -lewokc -lc_nano -lnosys
+		$(BUILD_DIR)/lib/libewoksys.a 
+	$(LD) -Ttext=100 $(PS2KEYBD_OBJS) -o $(PS2KEYBD) $(LDFLAGS) -lewoksys -lc -lgloss -lsoftfloat
 
 clean:
 	rm -f $(PS2KEYBD_OBJS)
