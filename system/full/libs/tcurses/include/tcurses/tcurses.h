@@ -30,6 +30,7 @@ void tcurses_move(tcurses_t* tcurses, int32_t steps);
 uint32_t tcurses_at(tcurses_t* tcurses);
 uint32_t tcurses_tail(tcurses_t* tcurses);
 UNICODE16 tcurses_get(tcurses_t* tcurses);
+UNICODE16 tcurses_get_at(tcurses_t* tcurses, uint32_t at);
 uint32_t tcurses_size(tcurses_t* tcurses);
 
 tchar_t* tcurses_from_sgtr(const char* str, uint32_t color);

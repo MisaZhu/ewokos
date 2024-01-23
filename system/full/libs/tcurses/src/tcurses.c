@@ -145,8 +145,14 @@ void tcurses_move_at(tcurses_t* tc, uint32_t at) {
 	tcurses_move_to(tc, x, y);
 }
 
-uint32_t tcurses_at(tcurses_t* tc) {
+inline uint32_t tcurses_at(tcurses_t* tc) {
 	return tc->curs_y*tc->cols + tc->curs_x;
+}
+
+UNICODE16 tcurses_get_at(tcurses_t* tc, uint32_t at) {
+	if(tc->content == NULL || at >= tcurses_size(tc))
+		return 0;
+	return  tc->content[at].c;
 }
 
 UNICODE16 tcurses_get(tcurses_t* tc) {
@@ -155,7 +161,7 @@ UNICODE16 tcurses_get(tcurses_t* tc) {
 	return  tc->content[tcurses_at(tc)].c;
 }
 
-uint32_t tcurses_size(tcurses_t* tc) {
+inline uint32_t tcurses_size(tcurses_t* tc) {
 	return tc->cols * tc->rows;
 }
 
