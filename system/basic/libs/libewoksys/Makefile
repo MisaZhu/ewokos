@@ -41,19 +41,22 @@ LIB_EWOKSYS_OBJS = ewoksys/src/syscall.o \
 	\
 	src/unistd/getuid.o \
 	src/unistd/sleep.o \
-	src/unistd/usleep.o \
 	src/unistd/getcwd.o \
 	src/unistd/getgid.o \
 	src/unistd/setgid.o \
 	src/unistd/setuid.o \
 	src/unistd/chdir.o \
 	src/unistd/dup2.o \
+	src/unistd/dup.o \
 	src/unistd/pipe.o \
 	src/unistd/chown.o \
 	\
 	src/sys/shm/shmget.o \
 	src/sys/shm/shmat.o \
 	src/sys/shm/shmdt.o \
+	\
+	src/signal/kill.o \
+	src/signal/signal.o \
 	\
 	src/sys/stat/mkdir.o \
 	\
