@@ -1,4 +1,5 @@
 #include "kprintf.h"
+#include "vprintf.h"
 #include "dev/uart.h"
 #include "kstring.h"
 #include "kernel/system.h"
