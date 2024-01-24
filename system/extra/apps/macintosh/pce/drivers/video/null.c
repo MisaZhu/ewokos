@@ -22,6 +22,7 @@
 
 #include <stdlib.h>
 #include <string.h>
+#include <stdint.h>
 
 #include <drivers/video/terminal.h>
 #include <drivers/video/null.h>
