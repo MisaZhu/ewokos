@@ -156,13 +156,13 @@ int main(int argc, char* argv[]) {
 				printf("\n");
 		}
 	}
-	printf("\nmemory: total %d MB, free %d MB, shm %d MB\n", t_mem, fr_mem, shm_mem);
+	printf("\n\033[33mmemory: total %d MB, free %d MB, shm %d MB\n", t_mem, fr_mem, shm_mem);
 	printf("cpu idle:");
 	for(uint32_t i=0; i<sys_info.cores; i++) {
 		int idle = core_idle[i]/10000;
 		printf("  %d%%", idle > 100 ? 100 : idle);
 	}
-	printf("\n");
+	printf("\033[0m\n");
 
 	if(procs != NULL)
 		free(procs);

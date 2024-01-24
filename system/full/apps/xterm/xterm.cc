@@ -162,7 +162,7 @@ class XTerm : public XWin {
 	void doEscClear(uint16_t* values, uint8_t vnum) {
 		if(values[0] == 2) {
 			terminal_clear(terminal);
-			terminal_move_to(terminal, 0, 0);
+			terminal_move_to(terminal, 0, terminal->rows-1);
 		}
 	}
 
