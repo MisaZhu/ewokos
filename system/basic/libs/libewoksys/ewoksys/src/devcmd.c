@@ -1,7 +1,7 @@
 #include <ewoksys/devcmd.h>
 #include <ewoksys/ipc.h>
 #include <sys/shm.h>
-#include <errno.h>
+#include <sys/errno.h>
 #include <unistd.h>
 #include <string.h>
 

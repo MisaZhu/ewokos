@@ -21,7 +21,7 @@ sd:
 	sudo rm -fr ${TMP}
 	mkdir -p  ${TMP}
 #256M ext2 sd
-	dd if=/dev/zero of=${SD} bs=1k count=256k
+	dd if=/dev/zero of=${SD} bs=1k count=128k
 #make ext2 fs with: block_size=1024 inode_size=128
 	mke2fs -b 1024 -I 128 ${SD}
 

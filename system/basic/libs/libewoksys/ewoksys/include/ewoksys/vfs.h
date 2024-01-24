@@ -5,7 +5,7 @@
 #include <ewoksys/mstr.h>
 #include <ewoksys/proto.h>
 #include <ewoksys/vfsc.h>
-#include <errno.h>
+#include <sys/errno.h>
 
 #ifdef __cplusplus
 extern "C" {

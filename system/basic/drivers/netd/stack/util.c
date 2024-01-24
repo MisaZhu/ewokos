@@ -3,7 +3,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
-#include <errno.h>
+#include <sys/errno.h>
 #include <limits.h>
 #include <ctype.h>
 #include <time.h>

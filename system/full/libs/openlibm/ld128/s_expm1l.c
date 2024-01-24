@@ -53,7 +53,7 @@
  *
  */
 
-#include <errno.h>
+#include <sys/errno.h>
 #include <openlibm_math.h>
 
 #include "math_private.h"

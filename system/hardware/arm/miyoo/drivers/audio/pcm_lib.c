@@ -5,7 +5,7 @@
 #include <string.h>
 #include <sys/types.h>
 #include <ewoksys/klog.h>
-#include <errno.h>
+#include <sys/errno.h>
 
 #include "pcm_lib.h"
 

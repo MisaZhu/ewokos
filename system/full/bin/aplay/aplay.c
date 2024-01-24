@@ -2,7 +2,7 @@
 
 #include <stdio.h>
 #include <fcntl.h>
-#include <errno.h>
+#include <sys/errno.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <pthread.h>

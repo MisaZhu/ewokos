@@ -7,7 +7,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <fcntl.h>
-#include <errno.h>
+#include <sys/errno.h>
 #include <sys/shm.h>
 #include <ewoksys/proc.h>
 #include <ewoksys/syscall.h>

@@ -3,7 +3,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <string.h>
-#include <errno.h>
+#include <sys/errno.h>
 #include <ewoksys/ipc.h>
 #include <ewoksys/klog.h>
 #include <ewoksys/proc.h>

@@ -1,7 +1,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <stdlib.h>
-#include <errno.h>
+#include <sys/errno.h>
 #include <stdio.h>
 #include <ewoksys/vfs.h>
 #include <ewoksys/core.h>
