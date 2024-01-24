@@ -85,7 +85,7 @@ void terminal_move_to(terminal_t* terminal, uint32_t x, uint32_t y) {
 
 	if(terminal->curs_y >= terminal->rows)
 		terminal->curs_y = terminal->rows - 1;
-	else if(terminal->curs_x >= terminal->cols)
+	if(terminal->curs_x >= terminal->cols)
 		terminal->curs_x = terminal->cols - 1;
 }
 
@@ -153,6 +153,7 @@ void terminal_move(terminal_t* terminal, int32_t steps) {
 		at = 0;
 	terminal_move_at(terminal, at);
 }
+
 
 #ifdef __cplusplus
 }

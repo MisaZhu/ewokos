@@ -43,6 +43,7 @@ class XTerm : public XWin {
 	int32_t mouse_last_y;
 	term_conf_t termConf;
 	gpos_t  cursPos;
+	bool show;
 
 	void drawBG(graph_t* g, uint32_t w, uint32_t h) {
 		graph_clear(g, conf.bg_color);
@@ -84,21 +85,22 @@ class XTerm : public XWin {
 				}
 				if(bg != 0) 
 					graph_fill(g, pos.x, pos.y, w, h, bg);
-				if((c->state & TERM_STATE_UNDERLINE) != 0)
-					graph_fill(g, pos.x, pos.y+h-2, w, 2, fg);
-
-				graph_draw_char_font_fixed(g, pos.x, pos.y, c->c, conf.font, fg, w, 0);
+				
+				
+				if((c->state & TERM_STATE_HIDE) == 0 && 
+						((c->state & TERM_STATE_FLASH) == 0 || show)) {
+					if((c->state & TERM_STATE_UNDERLINE) != 0)
+						graph_fill(g, pos.x, pos.y+h-2, w, 2, fg);
+					graph_draw_char_font_fixed(g, pos.x, pos.y, c->c, conf.font, fg, w, 0);
+				}
 			}
 			i++;
 		}
 	}
 
 	void drawCurs(graph_t* g, uint32_t w, uint32_t h) {
-		static bool show = true;
-		show = !show;
 		if(!show)
 			return;
-
 		gpos_t pos = getPos(g, terminal_at(terminal), w, h);
 		graph_fill(g, pos.x, pos.y+h-2, w, 2, conf.fg_color);
 	}
@@ -142,6 +144,10 @@ class XTerm : public XWin {
 			else if(v == 7) {
 				termConf.set = 1;
 				termConf.state |= TERM_STATE_REVERSE;
+			}
+			else if(v == 8) {
+				termConf.set = 1;
+				termConf.state |= TERM_STATE_HIDE;
 			}
 			else if(v >= 30 && v <= 39) {
 				termConf.set = 1;
@@ -366,6 +372,11 @@ public:
 		}
 	}
 
+	void flash() {
+		show = !show;
+		repaint();
+	}
+
 protected:
 	void onFocus(void) {
 		repaint();
@@ -451,9 +462,9 @@ static void* thread_loop(void* p) {
 	return NULL;
 }
 
-static XWin* _xwin = NULL;
+static XTerm* _xwin = NULL;
 static void timer_handler(void) {
-	_xwin->repaint();
+	_xwin->flash();
 }
 
 static int run(int argc, char* argv[]) {
