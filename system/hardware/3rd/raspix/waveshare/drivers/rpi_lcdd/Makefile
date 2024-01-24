@@ -13,6 +13,7 @@ RPI_LCDD = $(TARGET_DIR)/drivers/raspix/rpi_lcdd
 
 $(RPI_LCDD): $(RPI_LCDD_OBJS) \
 		$(BUILD_DIR)/lib/libewoksys.a \
+		$(BUILD_DIR)/lib/libgloss.a  \
 		$(BUILD_DIR)/lib/libarch_bcm283x.a \
 		$(BUILD_DIR)/lib/libfbd.a \
 		$(BUILD_DIR)/lib/libgraph.a \

@@ -12,7 +12,8 @@ ACTLED_OBJS = actled.o
 ACTLED = $(TARGET_DIR)/bin/actled
 
 $(ACTLED): $(ACTLED_OBJS) \
-		$(BUILD_DIR)/lib/libewoksys.a
+		$(BUILD_DIR)/lib/libewoksys.a \
+		$(BUILD_DIR)/lib/libgloss.a 
 	$(LD) -Ttext=100 $(ACTLED_OBJS) -o $(ACTLED) $(LDFLAGS) -lewoksys -lc -lgloss
 
 clean:

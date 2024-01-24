@@ -13,6 +13,7 @@ FBD = $(TARGET_DIR)/drivers/nezha/fbd
 
 $(FBD): $(FBD_OBJS) \
 		$(BUILD_DIR)/lib/libewoksys.a \
+		$(BUILD_DIR)/lib/libgloss.a  \
 		$(BUILD_DIR)/lib/libgraph.a \
 		$(BUILD_DIR)/lib/libfbd.a \
 		$(BUILD_DIR)/lib/libarch_nezha.a

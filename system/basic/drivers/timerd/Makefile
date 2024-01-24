@@ -12,7 +12,8 @@ TIMERD_OBJS = timerd.o
 TIMERD = $(TARGET_DIR)/drivers/timerd
 
 $(TIMERD): $(TIMERD_OBJS) \
-		$(BUILD_DIR)/lib/libewoksys.a
+		$(BUILD_DIR)/lib/libewoksys.a \
+		$(BUILD_DIR)/lib/libgloss.a 
 	$(LD) -Ttext=100 $(TIMERD_OBJS) -o $(TIMERD) $(LDFLAGS) -lewoksys -lc -lgloss
 
 clean:

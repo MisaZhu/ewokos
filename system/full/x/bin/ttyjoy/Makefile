@@ -12,7 +12,8 @@ TTYJOY_OBJS = ttyjoy.o
 TTYJOY = $(TARGET_DIR)/bin/ttyjoy
 
 $(TTYJOY): $(TTYJOY_OBJS) \
-		$(BUILD_DIR)/lib/libewoksys.a 
+		$(BUILD_DIR)/lib/libewoksys.a \
+		$(BUILD_DIR)/lib/libgloss.a  
 	$(LD) -Ttext=100 $(TTYJOY_OBJS) -o $(TTYJOY) $(LDFLAGS) -lewoksys -lc -lgloss
 
 clean:

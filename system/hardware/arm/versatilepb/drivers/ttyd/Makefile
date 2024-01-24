@@ -12,7 +12,8 @@ TTYD_OBJS = ttyd.o
 TTYD = $(TARGET_DIR)/drivers/versatilepb/ttyd
 
 $(TTYD): $(TTYD_OBJS) \
-		$(BUILD_DIR)/lib/libewoksys.a
+		$(BUILD_DIR)/lib/libewoksys.a \
+		$(BUILD_DIR)/lib/libgloss.a 
 	$(LD) -Ttext=100 $(TTYD_OBJS) -o $(TTYD) $(LDFLAGS) -lewoksys -lc -lgloss
 
 clean:

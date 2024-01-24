@@ -12,7 +12,8 @@ JOYKEYBD_OBJS = joykeybd.o
 JOYKEYBD = $(TARGET_DIR)/drivers/miyoo/gpio_joykeybd
 
 $(JOYKEYBD): $(JOYKEYBD_OBJS) \
-		$(BUILD_DIR)/lib/libewoksys.a 
+		$(BUILD_DIR)/lib/libewoksys.a \
+		$(BUILD_DIR)/lib/libgloss.a  
 	$(LD) -Ttext=100 $(JOYKEYBD_OBJS) -o $(JOYKEYBD) $(LDFLAGS) -lewoksys -lc -lgloss
 
 clean:

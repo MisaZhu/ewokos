@@ -13,6 +13,7 @@ EPAPERD = $(TARGET_DIR)/drivers/raspix/epaperd
 
 $(EPAPERD): $(EPAPERD_OBJS) \
 		$(BUILD_DIR)/lib/libewoksys.a \
+		$(BUILD_DIR)/lib/libgloss.a  \
 		$(BUILD_DIR)/lib/libfbd.a \
 		$(BUILD_DIR)/lib/libgraph.a \
 		$(BUILD_DIR)/lib/libsconf.a \

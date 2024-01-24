@@ -20,7 +20,7 @@ void klog(const char *format, ...) {
 	va_list ap;
 	_buf_index = 0;
 	va_start(ap, format);
-	vsprintf(_buf, format, ap);
+	vsnprintf(_buf, sizeof(_buf), format, ap);
 	va_end(ap);
 	//if(write(2, buf->cstr, buf->len) <= 0)
 		//syscall2(SYS_KPRINT, (int32_t)buf->cstr, (int32_t)buf->len);

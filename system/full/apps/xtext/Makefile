@@ -17,6 +17,7 @@ all: $(XTEXT_DIR) $(XTEXT)
 
 $(XTEXT): $(XTEXT_OBJS) \
 		$(BUILD_DIR)/lib/libewoksys.a \
+		$(BUILD_DIR)/lib/libgloss.a  \
 		$(BUILD_DIR)/lib/libx++.a \
 		$(BUILD_DIR)/lib/libx.a \
 		$(BUILD_DIR)/lib/libtextview.a \
