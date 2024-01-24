@@ -15,6 +15,7 @@ all: $(SAVER_DIR) $(SAVER)
 
 $(SAVER): $(SAVER_OBJS) \
 		$(BUILD_DIR)/lib/libewoksys.a \
+		$(BUILD_DIR)/lib/libgloss.a  \
 		$(BUILD_DIR)/lib/libx++.a \
 		$(BUILD_DIR)/lib/libx.a \
 		$(BUILD_DIR)/lib/libttf.a \

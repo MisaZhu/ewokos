@@ -12,7 +12,8 @@ SYSINFOD_OBJS = sysinfod.o
 SYSINFOD = $(TARGET_DIR)/drivers/proc/sysinfod
 
 $(SYSINFOD): $(SYSINFOD_OBJS) \
-		$(BUILD_DIR)/lib/libewoksys.a
+		$(BUILD_DIR)/lib/libewoksys.a \
+		$(BUILD_DIR)/lib/libgloss.a 
 	$(LD) -Ttext=100 $(SYSINFOD_OBJS) -o $(SYSINFOD) $(LDFLAGS) -lewoksys -lc -lgloss
 
 clean:

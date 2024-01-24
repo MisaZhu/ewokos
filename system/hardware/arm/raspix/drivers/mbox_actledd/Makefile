@@ -13,6 +13,7 @@ ACTLEDD = $(TARGET_DIR)/drivers/raspix/mbox_actledd
 
 $(ACTLEDD): $(ACTLEDD_OBJS) \
 		$(BUILD_DIR)/lib/libewoksys.a \
+		$(BUILD_DIR)/lib/libgloss.a  \
 		$(BUILD_DIR)/lib/libarch_bcm283x.a 
 	$(LD) -Ttext=100 $(ACTLEDD_OBJS) -o $(ACTLEDD) $(LDFLAGS) -larch_bcm283x -lewoksys -lc -lgloss
 

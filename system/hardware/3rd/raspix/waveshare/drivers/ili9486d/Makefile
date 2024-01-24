@@ -13,6 +13,7 @@ ILI9486D = $(TARGET_DIR)/drivers/raspix/ili9486d
 
 $(ILI9486D): $(ILI9486D_OBJS) \
 		$(BUILD_DIR)/lib/libewoksys.a \
+		$(BUILD_DIR)/lib/libgloss.a  \
 		$(BUILD_DIR)/lib/libarch_bcm283x.a \
 		$(BUILD_DIR)/lib/libfbd.a \
 		$(BUILD_DIR)/lib/libgraph.a \

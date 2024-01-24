@@ -12,7 +12,8 @@ CHOWN_OBJS = chown.o
 CHOWN = $(TARGET_DIR)/bin/chown
 
 $(CHOWN): $(CHOWN_OBJS) \
-		$(BUILD_DIR)/lib/libewoksys.a
+		$(BUILD_DIR)/lib/libewoksys.a \
+		$(BUILD_DIR)/lib/libgloss.a 
 	$(LD) -Ttext=100 $(CHOWN_OBJS) -o $(CHOWN) $(LDFLAGS) -lewoksys -lc -lgloss
 
 clean:

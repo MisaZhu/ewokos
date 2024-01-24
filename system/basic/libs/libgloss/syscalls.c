@@ -37,6 +37,7 @@
 
 #define IO_DEBUG 0
 
+
 static int _strlen(const char* str){
 	int  i = 0;
 	while(*str++ != 0){
@@ -95,7 +96,14 @@ static void kout_str(const char *str) {
 #endif
 }
 
-static void kout_int(const char *lable, int value) {
+void kout_str_str(const char *a, const char* b) {
+	kout_str(a);
+	kout_str(" ");
+	kout_str(b);
+	kout_str("\n");
+}
+
+void kout_int(const char *lable, int value) {
 	char buf[9] = {0};
 	kout_str(lable);
 	kout_str(":");
@@ -104,7 +112,7 @@ static void kout_int(const char *lable, int value) {
 	kout_str("\n");
 }
 
-static void kout_hex(const char *lable, int value) {
+void kout_hex(const char *lable, int value) {
 	char buf[9] = {0};
 	kout_str(lable);
 	kout_str(":");
@@ -112,6 +120,16 @@ static void kout_hex(const char *lable, int value) {
 	kout_str(buf);
 	kout_str("\n");
 }
+
+// int malloc_test(const char* func, int line){
+// 	void* tbuf = malloc(16);
+// 	kout_str("mtest: ");
+// 	kout_str(func);
+// 	kout_int(" ", line);
+// 	kout_hex(" ", tbuf);
+// 	free(tbuf);
+// 	return !!tbuf;
+// }
 
 /* Forward prototypes.  */
 int	_system		(const char *);
@@ -239,7 +257,6 @@ checkerror (int result)
 int __attribute__((weak))
 _read (int fd, void * buf, size_t size)
 {
-	//kout_int("read", fd);
 	fsinfo_t info;
 	fsfile_t* file = vfs_get_file(fd);
 
@@ -277,14 +294,12 @@ _read (int fd, void * buf, size_t size)
 		if (res < 0) /* let user handle those erro id*/
 			break;
 	}
-	//kout_int("read done", res);
 	return res;
 }
 
 off_t
 _lseek (int fd, off_t offset, int whence)
 {
-  kout("lseek\n");
   	if(whence == SEEK_CUR) {
 		int cur = vfs_tell(fd);
 		if(cur < 0)
@@ -305,7 +320,6 @@ _lseek (int fd, off_t offset, int whence)
 int __attribute__((weak))
 _write (int fd, const void * buf, size_t size)
 {
- // kout_int("write", fd);
 	fsinfo_t info;
 	fsfile_t* file = vfs_get_file(fd);
 
@@ -343,7 +357,6 @@ _write (int fd, const void * buf, size_t size)
 		if (res < 0) /* let user handle those erro id*/
 			break;
 	}
-	//kout_int("write done", res);
 	return res;
 }
 
@@ -351,12 +364,9 @@ _write (int fd, const void * buf, size_t size)
 int
 _open (const char * fname, int oflag, ...)
 {
-	kout_str("open ");
-	kout_str(fname);
   	int fd = -1;
 	bool created = false;
 	fsinfo_t info;
-
 	if(vfs_get_by_name(fname, &info) != 0) {
 		if((oflag & O_CREAT) != 0) {
 			if(vfs_create(fname, &info, FS_TYPE_FILE, 0664, false, false) != 0){
@@ -386,7 +396,6 @@ _open (const char * fname, int oflag, ...)
 		kout(" dev_err");
 		fd = -1;
 	}
-	kout(" done");
 	return fd;
 }
 
@@ -394,7 +403,6 @@ _open (const char * fname, int oflag, ...)
 int
 _close (int fd)
 {
-	//kout_int("close", fd);
 	fsinfo_t info;
 	if(vfs_get_by_fd(fd, &info) != 0)
 		return;
@@ -408,7 +416,6 @@ pid_t __attribute__((weak))
 _getpid (void)
 {
   pid_t pid =  proc_getpid(-1);
-  //kout_int(__func__, pid);
   return pid;
 }
 
@@ -418,22 +425,28 @@ unsigned __heap_size = 0;
 void * __attribute__((weak))
 _sbrk (ptrdiff_t incr)
 {
-  kout_int("sbrk", incr);
-
   char *prev_heap_end;
+
 
   __heap_size += incr;
   __heap_ptr = syscall1(SYS_MALLOC_EXPAND, incr);
+  if(incr > 0)
+  	memset(__heap_end, 0, incr);
+
   prev_heap_end = __heap_end;
   __heap_end += incr;
-  //kout_hex("sbrk M:", __heap_ptr);
+//   kout_int("sbrk", incr);
+//   kout_int("pid", _getpid());
+//   kout_int("current", __heap_size);
   return (void *) prev_heap_end;
 }
+
 void _libc_init(void){
 	kout(__func__);	
-	__heap_ptr = syscall1(SYS_MALLOC_EXPAND, 4096);
-	__heap_end = __heap_ptr + 4096;
-	__heap_size = 4096;	
+	__heap_ptr = syscall1(SYS_MALLOC_EXPAND, 16384);
+	__heap_end = __heap_ptr;
+	__heap_size = 16384;	
+	memset(__heap_ptr, 0, __heap_size);
 }
 
 void _libc_exit(void){
@@ -444,14 +457,12 @@ void _libc_exit(void){
 int __attribute__((weak))
 _fstat (int fd, struct stat * st)
 {
-  kout("fstat\n");
   memset (st, 0, sizeof (* st));
   fsinfo_t info;
   int res  = vfs_get_by_fd(fd, &info);
 
   if (res != 0)
     return -1;
-  kout_hex("fstat\n", info.stat.mode);
   /* Return the file size. */
   st->st_uid = info.stat.uid;
   st->st_gid = info.stat.gid;
@@ -627,8 +638,8 @@ void __malloc_close(void){
   //kout(__func__);
 }
 
-void _kill(int sig){
-  kout(__func__);
+void _kill(int pid, int sig){
+	return syscall2(SYS_SIGNAL, pid, sig);
 }
 
 void _fini(void){
@@ -677,26 +688,30 @@ static void saveenv() {
 				buf[i] = c;
 			}
 		}
-		_ewok_set_env(key, value);
+		if(key && value){
+			_ewok_set_env(key, value);
+		}
     }
 }
 
 int
 _execve(const char *name, char *const argv[], char *const env[])
 {
-	str_t* cmd = str_new("");
-	const char *p = name;
 
+	char fpath[64];
+	int sz = 0;
+	const char *p = name;
 	saveenv();
-	while(*p != 0 && *p != ' ') {
-		str_addc(cmd, *p);
-		p++;
+	memset(fpath, 0, sizeof(fpath));
+	for(int i = 0; i < sizeof(fpath); i++){
+		if(name[i] == '\0' || name[i] == ' ' || name[i] == '\t' || name[i] == '\n')
+			break;
+		fpath[i] = name[i];
 	}
-	str_addc(cmd, 0);
-	int sz;
-	void* buf = vfs_readfile(cmd->cstr, &sz);
-	str_free(cmd);
+	void* buf = vfs_readfile(fpath, &sz);
+
 	if(buf == NULL) {
+		kout_str("read error!\n");
 		return -1;
 	}
 	proc_exec_elf(name, buf, sz);
@@ -706,9 +721,7 @@ _execve(const char *name, char *const argv[], char *const env[])
 
 int _fork()
 {
-  //kout(__func__);
-//   errno = EAGAIN;
-//   return -1;
+  	kout(__func__);
 	return syscall0(SYS_FORK);
 }
 
