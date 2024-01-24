@@ -42,6 +42,7 @@ class XTerm : public XWin {
 	int32_t rollStepRows;
 	int32_t mouse_last_y;
 	term_conf_t termConf;
+	gpos_t  cursPos;
 
 	void drawBG(graph_t* g, uint32_t w, uint32_t h) {
 		graph_clear(g, conf.bg_color);
@@ -105,23 +106,20 @@ class XTerm : public XWin {
 	uint32_t gColor(uint32_t escColor, uint8_t fg) {
 		if(fg != 0)
 			escColor += 10;
-		switch(escColor) {
-		case 40:
-			return 0xff000000;
-		case 41:
-			return 0xffff0000;
-		case 42:
-			return 0xff00ff00;
-		case 43:
-			return 0xffffff00;
-		case 44:
-			return 0xff0000ff;
-		case 45:
-			return 0xffff0088;
-		case 46:
-			return 0xff00ffff;
-		}
-		return 0;
+		if(escColor < 40 || escColor > 47)
+			return 0;
+
+		uint32_t colors[8] = {
+				0xff000000, //BLACK
+				0xffff0000, //RED
+				0xff00ff00, //GREEN
+				0xffffff00, //YELLOW
+				0xff0000ff, //BLUE
+				0xffff0088, //PURPLE
+				0xff00ffff, //CYAN
+				0xffffffff  //WHITE
+			};
+		return colors[escColor-40];
 	}
 
 	void doEscColor(uint16_t* values, uint8_t vnum) {
@@ -171,14 +169,45 @@ class XTerm : public XWin {
 	}
 
 	void runEscCmd(UNICODE16 cmd, uint16_t* values, uint8_t vnum) {
-		if(cmd == 'm') {
+		if(cmd == 'm') { //color and state
 			doEscColor(values, vnum);
 		}
-		else if(cmd == 'J') {
+		else if(cmd == 'J') { //clear
 			doEscClear(values, vnum);
 		}
-		else if(cmd == 'H') {
+		else if(cmd == 'H') { //move curs y,x
 			doEscXY(values, vnum);
+		}
+		else if(cmd == 'A') { //move curs up
+			int16_t y = (int16_t)terminal->curs_y - values[0];
+			if(y < 0)
+				y = 0;
+			terminal_move_to(terminal, terminal->curs_x, y);
+		}
+		else if(cmd == 'B') { //move curs down
+			uint16_t y = terminal->curs_y + values[0];
+			if(y >= terminal->rows)
+				y = terminal->rows-1;
+			terminal_move_to(terminal, terminal->curs_x, y);
+		}
+		else if(cmd == 'D') { //move curs left
+			int16_t x = (int16_t)terminal->curs_x - values[0];
+			if(x < 0)
+				x = 0;
+			terminal_move_to(terminal, x, terminal->curs_y);
+		}
+		else if(cmd == 'C') { //move curs right
+			uint16_t x = terminal->curs_x + values[0];
+			if(x >= terminal->cols)
+				x = terminal->cols-1;
+			terminal_move_to(terminal, x, terminal->curs_y);
+		}
+		else if(cmd == 's') { //save curs pos
+			cursPos.x = terminal->curs_x;
+			cursPos.y = terminal->curs_y;
+		}
+		else if(cmd == 'u') { //restore curs pos
+			terminal_move_to(terminal, cursPos.x, cursPos.y);
 		}
 	}
 
@@ -194,11 +223,12 @@ class XTerm : public XWin {
 		uint16_t values[8];
 		uint8_t vnum = 0;
 		c = uni[from++];
-		if(from >= size || c == 0)
+		if(from > size || c == 0)
 			return from;
 		
 		while(true) {
 			if(c == '?') { //TODO hide/show curs
+				continue;
 			}
 			else if((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')) {
 				runEscCmd(c, values, vnum);
