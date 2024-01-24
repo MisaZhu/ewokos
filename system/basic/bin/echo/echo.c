@@ -4,21 +4,19 @@
 #include <string.h>
 
 int main(int argc, char* argv[]) {
-	const char* p = argv[1];
 	if(argc < 2)
 		return -1;
-	if(p[0] != '\\') {
-		write(1, p, strlen(p));
+	
+	setbuf(stdout, NULL);
+
+	if(strcmp(argv[1], "-e") == 0) {
+		if(argc < 3)
+			return -1;
+		const char* p = argv[2];
+		printf("\033[%s", p);
 	}
-	else {
-		p++;
-		uint8_t i;
-		if(p[0] == '0')
-			i = strtoul(p, NULL, 16);
-		else
-			i = atoi(p);
-		write(1, &i, 1);
-	}
+	else
+		printf("%s", argv[1]);
+
 	return 0;
 }
-
