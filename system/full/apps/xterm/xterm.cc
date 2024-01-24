@@ -12,6 +12,7 @@
 #include <ewoksys/klog.h>
 #include <ttf/ttf.h>
 #include <ewoksys/basic_math.h>
+#include <ewoksys/timer.h>
 #include <x++/X.h>
 #include <pthread.h>
 
@@ -27,16 +28,220 @@ typedef struct {
 	uint32_t font_fixed;
 } conf_t;
 
+typedef struct {
+	uint16_t set;
+	uint16_t state;
+	uint32_t fg_color;
+	uint32_t bg_color;
+} term_conf_t;
+
 class XTerm : public XWin {
+	static const uint16_t ESC_CMD = 033;
 	conf_t conf;
 	terminal_t* terminal;
 	int32_t rollStepRows;
 	int32_t mouse_last_y;
+	term_conf_t termConf;
+
+	void drawBG(graph_t* g, uint32_t w, uint32_t h) {
+		graph_clear(g, conf.bg_color);
+		uint32_t i = 0;
+		while(i < g->w) {
+			i += w;
+			graph_line(g, i, 0, i, g->h, 0xff222222);
+		}
+
+		i = 0;
+		while(i < g->h) {
+			i += h;
+			graph_line(g, 0, i, g->w, i, 0xff222222);
+		}
+	}
+
+	gpos_t getPos(graph_t* g, uint32_t at, int32_t cw, int32_t ch) {
+		uint32_t cx = 0, cy = 0;
+		terminal_pos_by_at(terminal, at, &cx, &cy);
+		gpos_t ret = { cx*cw, cy*ch };
+		return ret;
+	}
+
+	void drawContent(graph_t* g, uint32_t w, uint32_t h) {
+		uint32_t size = terminal_size(terminal);
+		uint32_t i = 0;
+		while(i < size) {
+			tchar_t* c = terminal_get_by_at(terminal, i);
+			if(c != NULL && c->c != 0 && c->c != '\n') {
+				gpos_t pos = getPos(g, i, w, h);
+
+				uint32_t fg = c->color, bg = c->bg_color;
+
+				if((c->state & TERM_STATE_REVERSE) != 0) {
+					fg = c->bg_color;
+					if(fg == 0)
+						fg = conf.bg_color;
+					bg = c->color;
+				}
+				if(bg != 0) 
+					graph_fill(g, pos.x, pos.y, w, h, bg);
+				if((c->state & TERM_STATE_UNDERLINE) != 0)
+					graph_fill(g, pos.x, pos.y+h-2, w, 2, fg);
+
+				graph_draw_char_font_fixed(g, pos.x, pos.y, c->c, conf.font, fg, w, 0);
+			}
+			i++;
+		}
+	}
+
+	void drawCurs(graph_t* g, uint32_t w, uint32_t h) {
+		static bool show = true;
+		show = !show;
+		if(!show)
+			return;
+
+		gpos_t pos = getPos(g, terminal_at(terminal), w, h);
+		graph_fill(g, pos.x, pos.y+h-2, w, 2, conf.fg_color);
+	}
+
+	uint32_t gColor(uint32_t escColor, uint8_t fg) {
+		if(fg != 0)
+			escColor += 10;
+		switch(escColor) {
+		case 40:
+			return 0xff000000;
+		case 41:
+			return 0xffff0000;
+		case 42:
+			return 0xff00ff00;
+		case 43:
+			return 0xffffff00;
+		case 44:
+			return 0xff0000ff;
+		case 45:
+			return 0xffff0088;
+		case 46:
+			return 0xff00ffff;
+		}
+		return 0;
+	}
+
+	void doEscColor(uint16_t* values, uint8_t vnum) {
+		for(uint8_t i=0; i<vnum; i++) {
+			uint16_t v = values[i];
+			if(v == 0) {
+				termConf.state = 0;
+				termConf.bg_color = 0;
+				termConf.fg_color = 0;
+				termConf.set = 0;
+			}
+			else if(v == 4) {
+				termConf.set = 1;
+				termConf.state |= TERM_STATE_UNDERLINE;
+			}
+			else if(v == 5) {
+				termConf.set = 1;
+				termConf.state |= TERM_STATE_FLASH;
+			}
+			else if(v == 7) {
+				termConf.set = 1;
+				termConf.state |= TERM_STATE_REVERSE;
+			}
+			else if(v >= 30 && v <= 39) {
+				termConf.set = 1;
+				termConf.fg_color = gColor(v, 1);
+			}
+			else if(v >= 40 && v <= 49) {
+				termConf.set = 1;
+				termConf.bg_color = gColor(v, 0);
+			}
+		}
+
+		if(termConf.fg_color == 0)
+			termConf.fg_color = conf.fg_color;
+	}
+
+	void doEscClear(uint16_t* values, uint8_t vnum) {
+		if(values[0] == 2) {
+			terminal_clear(terminal);
+			terminal_move_to(terminal, 0, 0);
+		}
+	}
+
+	void doEscXY(uint16_t* values, uint8_t vnum) {
+		terminal_move_to(terminal, values[1], values[0]);
+	}
+
+	void runEscCmd(UNICODE16 cmd, uint16_t* values, uint8_t vnum) {
+		if(cmd == 'm') {
+			doEscColor(values, vnum);
+		}
+		else if(cmd == 'J') {
+			doEscClear(values, vnum);
+		}
+		else if(cmd == 'H') {
+			doEscXY(values, vnum);
+		}
+	}
+
+	uint32_t doEscCmd(UNICODE16* uni, uint32_t from, uint32_t size) {
+		UNICODE16 c = uni[from];
+		if(c == 0)
+			return from;
+
+		from++;
+		if(from >= size || c != '[')
+			return from;
+
+		uint16_t values[8];
+		uint8_t vnum = 0;
+		c = uni[from++];
+		if(from >= size || c == 0)
+			return from;
+		
+		while(true) {
+			if(c == '?') { //TODO hide/show curs
+			}
+			else if((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')) {
+				runEscCmd(c, values, vnum);
+				from--;
+				break;
+			}
+			else if(c >= '0' && c <= '9') {
+				char vstr[4];
+				memset(vstr, 0, 4);
+				vstr[0] = c;
+				for(uint8_t i=1; i< 4; i++) {
+					c = uni[from++];
+					if(from > size || c == 0)
+						return from;
+					if(c < '0' || c > '9') {
+						if(vnum < 7) {
+							values[vnum] = atoi(vstr);
+							vnum++;
+						}
+						break;
+					}
+					vstr[i] = c;
+				}
+
+				if(c == ';') {
+					c = uni[from++];
+					if(from >= size || c == 0)
+						return from;
+				}
+			}
+			else {
+				from--;
+				break;
+			}
+		}
+		return from;
+	}
 
 public:
 	XTerm() {
 		terminal = (terminal_t*)malloc(sizeof(terminal_t));
 		terminal_init(terminal);
+		memset(&termConf, 0, sizeof(term_conf_t));
 	}
 
 	~XTerm() {
@@ -93,56 +298,44 @@ public:
 	void put(const char* buf, int size) {
 		uint16_t* unicode = (uint16_t*)malloc((size+1)*2);
 		size = utf82unicode((unsigned char*)buf, size, unicode);
-		for(int i=0; i<size; i++) {
-			terminal_set(terminal, unicode[i], conf.fg_color);
-			if(unicode[i] == '\n')
-				terminal_move_next_line(terminal);
-			else
-				terminal_move(terminal, 1);
-		}
-	}
 
-	void rollEnd(void) {
-	}
-
-	void drawBG(graph_t* g) {
-		graph_clear(g, conf.bg_color);
-		uint32_t w = g->w / terminal->cols;
-		uint32_t h = g->h / terminal->rows;
-		uint32_t i = 0;
-		while(i < g->w) {
-			i += w;
-			graph_line(g, i, 0, i, g->h, 0xff222222);
-		}
-
-		i = 0;
-		while(i < g->h) {
-			i += h;
-			graph_line(g, 0, i, g->w, i, 0xff222222);
-		}
-	}
-
-	gpos_t getPos(graph_t* g, uint32_t at, int32_t cw, int32_t ch) {
-		uint32_t cx = 0, cy = 0;
-		terminal_pos_by_at(terminal, at, &cx, &cy);
-		gpos_t ret = { cx*cw, cy*ch };
-		return ret;
-	}
-
-	void drawContent(graph_t* g) {
-		uint32_t w = g->w / terminal->cols;
-		uint32_t h = g->h / terminal->rows;
-		uint32_t size = terminal_size(terminal);
-		uint32_t i = 0;
-		while(i < size) {
-			tchar_t* c = terminal_get_by_at(terminal, i);
-			if(c != NULL && c->c != 0 && c->c != '\n') {
-				gpos_t pos = getPos(g, i, w, h);
-				graph_draw_char_font_fixed(g, pos.x, pos.y, c->c, conf.font, c->color, w, 0);
+		for(uint32_t i=0; i<size; i++) {
+			UNICODE16 c = unicode[i];
+			if(c == KEY_BACKSPACE || c == CONSOLE_LEFT) {
+				terminal_move(terminal, -1);
+				terminal_set(terminal, 0, 0, 0, 0);
+				continue;
 			}
-			i++;
+			else if(c == ESC_CMD) {
+				i = doEscCmd(unicode, i+1, size);
+				continue;
+			}
+
+			if(termConf.set == 0)
+				terminal_set(terminal, c, 0, conf.fg_color, 0);
+			else
+				terminal_set(terminal, c, termConf.state, termConf.fg_color, termConf.bg_color);
+
+			if(c == '\n') {
+				if((terminal->curs_y+1) >= terminal->rows) {
+					terminal_scroll(terminal, 1);
+					terminal_move_to(terminal, 0, terminal->curs_y);
+				}
+				else
+					terminal_move_next_line(terminal);
+			}
+			
+			else {
+				if((terminal_at(terminal)+1) >= terminal_size(terminal)) {//full
+					terminal_scroll(terminal, 1);
+					terminal_move_to(terminal, 0, terminal->curs_y);
+				}
+				else
+					terminal_move(terminal, 1);
+			}
 		}
 	}
+
 protected:
 	void onFocus(void) {
 		repaint();
@@ -154,8 +347,11 @@ protected:
 	}
 
 	void onRepaint(graph_t* g) {
-		drawBG(g);
-		drawContent(g);
+		uint32_t w = g->w / terminal->cols;
+		uint32_t h = g->h / terminal->rows;
+		drawBG(g, w, h);
+		drawContent(g, w, h);
+		drawCurs(g, w, h);
 	}
 
 	void onResize() {
@@ -213,7 +409,6 @@ static void* thread_loop(void* p) {
 		int size = read(0, buf, 512);
 		if(size > 0) {
 			xterm->put(buf, size);
-			xterm->rollEnd();
 			xterm->repaint();
 		}
 		else if(errno != EAGAIN) {
@@ -224,6 +419,11 @@ static void* thread_loop(void* p) {
 		xterm->close();
 	_thread_done = true;
 	return NULL;
+}
+
+static XWin* _xwin = NULL;
+static void timer_handler(void) {
+	_xwin->repaint();
 }
 
 static int run(int argc, char* argv[]) {
@@ -240,6 +440,9 @@ static int run(int argc, char* argv[]) {
 	x.open(0, &xwin, desk.w*2/3, desk.h*2/3, "xterm", 0);
 	xwin.setVisible(true);
 
+	_xwin = &xwin;
+	uint32_t timer_id = timer_set(500000, timer_handler);
+
 	pthread_t tid;
 	_termniated = false;
 	_thread_done = false;
@@ -249,6 +452,7 @@ static int run(int argc, char* argv[]) {
 	_termniated = true;
 	close(0);
 	close(1);
+	timer_remove(timer_id);
 	while(!_thread_done)
 		proc_usleep(2000);
 	return 0;
