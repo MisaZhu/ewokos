@@ -237,27 +237,27 @@ void XWM::getColor(uint32_t *fg, uint32_t* bg, bool top) {
 void XWM::loadConfig(sconf_t* sconf) {
 	const char* v = sconf_get(sconf, "fg_color");
 	if(v[0] != 0) 
-		fgColor = strtol(v,NULL, 16);
+		fgColor = strtoul(v,NULL, 16);
 
 	v = sconf_get(sconf, "bg_color");
 	if(v[0] != 0) 
-		bgColor = strtol(v,NULL, 16);
+		bgColor = strtoul(v,NULL, 16);
 
 	v = sconf_get(sconf, "fg_top_color");
 	if(v[0] != 0) 
-		fgTopColor = strtol(v, NULL, 16);
+		fgTopColor = strtoul(v, NULL, 16);
 
 	v = sconf_get(sconf, "bg_top_color");
 	if(v[0] != 0) 
-		bgTopColor = strtol(v, NULL, 16);
+		bgTopColor = strtoul(v, NULL, 16);
 
 	v = sconf_get(sconf, "desktop_fg_color");
 	if(v[0] != 0) 
-		desktopFGColor = strtol(v, NULL, 16);
+		desktopFGColor = strtoul(v, NULL, 16);
 
 	v = sconf_get(sconf, "desktop_bg_color");
 	if(v[0] != 0) 
-		desktopBGColor = strtol(v, NULL, 16);
+		desktopBGColor = strtoul(v, NULL, 16);
 
 	v = sconf_get(sconf, "frame_width");
 	if(v[0] != 0) 

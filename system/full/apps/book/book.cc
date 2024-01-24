@@ -145,10 +145,10 @@ public:
 
 		v = sconf_get(conf, "bg_color");
 		if(v[0] != 0)
-			bgColor = strtol(v, NULL,16);
+			bgColor = strtoul(v, NULL,16);
 		v = sconf_get(conf, "fg_color");
 		if(v[0] != 0)
-			fgColor = strtol(v, NULL,16);
+			fgColor = strtoul(v, NULL,16);
 
 		sconf_free(conf);
 		return true;

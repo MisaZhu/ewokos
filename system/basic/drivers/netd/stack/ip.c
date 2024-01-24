@@ -56,7 +56,7 @@ ip_addr_pton(const char *p, ip_addr_t *n)
 
     sp = (char *)p;
     for (idx = 0; idx < 4; idx++) {
-        ret = strtol(sp, &ep, 10);
+        ret = strtoul(sp, &ep, 10);
         if (ret < 0 || ret > 255) {
             return -1;
         }
@@ -97,7 +97,7 @@ ip_endpoint_pton(const char *p, struct ip_endpoint *n)
     if (ip_addr_pton(addr, &n->addr) == -1) {
         return -1;
     }
-    port = strtol(sep+1, NULL, 10);
+    port = strtoul(sep+1, NULL, 10);
     if (port <= 0 || port > UINT16_MAX) {
         return -1;
     }

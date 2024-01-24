@@ -171,9 +171,9 @@ int str_to_int(const char* str) {
 	int i = 0;
 	if(strstr(str, "0x") != NULL ||
 			strstr(str, "0x") != NULL)
-		i = (int)strtol(str, NULL, 16);
+		i = (int)strtoul(str, NULL, 16);
 	else
-		i = (int)strtol(str, NULL,  10);
+		i = (int)strtoul(str, NULL,  10);
 	return i;
 }
 

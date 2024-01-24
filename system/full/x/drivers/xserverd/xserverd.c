@@ -114,7 +114,7 @@ static int32_t read_config(x_t* x, const char* fname) {
 
 	const char* v = sconf_get(conf, "win_move_alpha");
 	if(v[0] != 0) 
-		x->config.win_move_alpha = strtol(v, NULL, 16);
+		x->config.win_move_alpha = strtoul(v, NULL, 16);
 
 	v = sconf_get(conf, "fps");
 	if(v[0] != 0) 

@@ -47,19 +47,19 @@ public:
 
 		const char* v = sconf_get(sconf, "bg_color");
 		if(v[0] != 0) 
-			conf.bg_color = strtol(v,NULL, 16);
+			conf.bg_color = strtoul(v,NULL, 16);
 
 		v = sconf_get(sconf, "fg_color");
 		if(v[0] != 0) 
-			conf.fg_color = strtol(v,NULL, 16);
+			conf.fg_color = strtoul(v,NULL, 16);
 
 		v = sconf_get(sconf, "unfocus_fg_color");
 		if(v[0] != 0) 
-			conf.unfocus_fg_color = strtol(v,NULL, 16);
+			conf.unfocus_fg_color = strtoul(v,NULL, 16);
 
 		v = sconf_get(sconf, "unfocus_bg_color");
 		if(v[0] != 0) 
-			conf.unfocus_bg_color = strtol(v,NULL, 16);
+			conf.unfocus_bg_color = strtoul(v,NULL, 16);
 
 		uint32_t font_size = 16;
 		v = sconf_get(sconf, "font_size");
