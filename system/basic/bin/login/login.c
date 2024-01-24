@@ -3,7 +3,7 @@
 #include <stdlib.h>
 #include <fcntl.h>
 #include <string.h>
-#include <errno.h>
+#include <sys/errno.h>
 #include <ewoksys/session.h>
 #include <ewoksys/mstr.h>
 #include <ewoksys/keydef.h>

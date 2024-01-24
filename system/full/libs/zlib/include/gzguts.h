@@ -110,7 +110,7 @@ void free(void *ptr);
 #  define zstrerror() gz_strwinerror((DWORD)GetLastError())
 #else
 #  ifndef NO_STRERROR
-//#    include <errno.h>
+//#    include <sys/errno.h>
 #    define zstrerror() strerror(errno)
 #  else
 #    define zstrerror() "stdio error (consult errno)"

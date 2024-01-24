@@ -11,7 +11,7 @@
 #include <time.h>
 #include <sys/time.h>
 #include <sys/times.h>
-#include <errno.h>
+#include <sys/errno.h>
 #include <reent.h>
 #include <unistd.h>
 #include <sys/wait.h>

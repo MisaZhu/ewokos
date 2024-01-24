@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
-#include <errno.h>
+#include <sys/errno.h>
 #include <ewoksys/vdevice.h>
 #include <ewoksys/syscall.h>
 #include <ewoksys/vfs.h>

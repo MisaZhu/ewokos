@@ -1,6 +1,6 @@
 #include <stddef.h>
 #include <unistd.h>
-#include <errno.h>
+#include <sys/errno.h>
 #include <ewoksys/syscall.h>
 #include <ewoksys/ipc.h>
 #include <ewoksys/proc.h>

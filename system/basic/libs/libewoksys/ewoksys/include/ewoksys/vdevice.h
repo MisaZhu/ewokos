@@ -3,7 +3,7 @@
 
 #include <ewoksys/fsinfo.h>
 #include <ewoksys/proto.h>
-#include <errno.h>
+#include <sys/errno.h>
 
 #ifdef __cplusplus
 extern "C" {

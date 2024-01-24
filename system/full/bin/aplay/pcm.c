@@ -5,7 +5,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <fcntl.h>
-#include <errno.h>
+#include <sys/errno.h>
 #include <sys/types.h>
 #include <ewoksys/klog.h>
 #include <ewoksys/vdevice.h>

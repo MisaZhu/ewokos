@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
-#include <errno.h>
+#include <sys/errno.h>
 #include <ewoksys/mstr.h>
 #include <ewoksys/ipc.h>
 #include <ewoksys/proc.h>

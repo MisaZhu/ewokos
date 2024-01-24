@@ -3,7 +3,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <fcntl.h>
-#include <errno.h>
+#include <sys/errno.h>
 
 void out(void* data, int32_t size) {
 	char* buf = (char*)data;

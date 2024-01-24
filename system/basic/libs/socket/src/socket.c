@@ -3,7 +3,7 @@
 #include "netinet/in.h"
 #include <fcntl.h>
 #include <ewoksys/vdevice.h>
-#include <errno.h>
+#include <sys/errno.h>
 #include <unistd.h>
 #include <ewoksys/vfs.h>
 

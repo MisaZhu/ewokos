@@ -2,7 +2,7 @@
 #include <unistd.h>
 #include <sys/wait.h>
 #include <string.h>
-#include <errno.h>
+#include <sys/errno.h>
 #include <ewoksys/ipc.h>
 #include <ewoksys/vfs.h>
 #include <ewoksys/vdevice.h>

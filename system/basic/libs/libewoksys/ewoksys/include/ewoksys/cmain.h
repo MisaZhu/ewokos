@@ -1,7 +1,7 @@
 #ifndef CMAIN_H
 #define CMAIN_H
 
-#include <errno.h>
+#include <sys/errno.h>
 
 #ifdef __cplusplus
 extern "C" {
