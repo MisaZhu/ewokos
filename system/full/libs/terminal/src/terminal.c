@@ -154,7 +154,6 @@ void terminal_move(terminal_t* terminal, int32_t steps) {
 	terminal_move_at(terminal, at);
 }
 
-
 #ifdef __cplusplus
 }
 #endif

@@ -43,7 +43,8 @@ class XTerm : public XWin {
 	int32_t mouse_last_y;
 	term_conf_t termConf;
 	gpos_t  cursPos;
-	bool show;
+	bool flashShow;
+	bool showCurs;
 
 	void drawBG(graph_t* g, uint32_t w, uint32_t h) {
 		graph_clear(g, conf.bg_color);
@@ -88,10 +89,13 @@ class XTerm : public XWin {
 				
 				
 				if((c->state & TERM_STATE_HIDE) == 0 && 
-						((c->state & TERM_STATE_FLASH) == 0 || show)) {
+						((c->state & TERM_STATE_FLASH) == 0 || flashShow)) {
 					if((c->state & TERM_STATE_UNDERLINE) != 0)
 						graph_fill(g, pos.x, pos.y+h-2, w, 2, fg);
+
 					graph_draw_char_font_fixed(g, pos.x, pos.y, c->c, conf.font, fg, w, 0);
+					if((c->state & TERM_STATE_HIGH_LIGHT) != 0)
+						graph_draw_char_font_fixed(g, pos.x, pos.y+1, c->c, conf.font, fg, w, 0);
 				}
 			}
 			i++;
@@ -99,10 +103,10 @@ class XTerm : public XWin {
 	}
 
 	void drawCurs(graph_t* g, uint32_t w, uint32_t h) {
-		if(!show)
+		if(!flashShow || !showCurs)
 			return;
 		gpos_t pos = getPos(g, terminal_at(terminal), w, h);
-		graph_fill(g, pos.x, pos.y+h-2, w, 2, conf.fg_color);
+		graph_fill(g, pos.x+2, pos.y+2, w-4, h-4, conf.fg_color);
 	}
 
 	uint32_t gColor(uint32_t escColor, uint8_t fg) {
@@ -113,6 +117,17 @@ class XTerm : public XWin {
 
 		uint32_t colors[8] = {
 				0xff000000, //BLACK
+				0xffbb0000, //RED
+				0xff00bb00, //GREEN
+				0xffbbbb00, //YELLOW
+				0xff0000bb, //BLUE
+				0xffbb0066, //PURPLE
+				0xff00bbbb, //CYAN
+				0xffbbbbbb  //WHITE
+			};
+
+		uint32_t colorsHi[8] = {
+				0xff000000, //BLACK
 				0xffff0000, //RED
 				0xff00ff00, //GREEN
 				0xffffff00, //YELLOW
@@ -121,6 +136,9 @@ class XTerm : public XWin {
 				0xff00ffff, //CYAN
 				0xffffffff  //WHITE
 			};
+
+		if((termConf.state & TERM_STATE_HIGH_LIGHT) != 0)
+			return colorsHi[escColor-40];
 		return colors[escColor-40];
 	}
 
@@ -132,6 +150,10 @@ class XTerm : public XWin {
 				termConf.bg_color = 0;
 				termConf.fg_color = 0;
 				termConf.set = 0;
+			}
+			else if(v == 1) {
+				termConf.set = 1;
+				termConf.state |= TERM_STATE_HIGH_LIGHT;
 			}
 			else if(v == 4) {
 				termConf.set = 1;
@@ -215,6 +237,12 @@ class XTerm : public XWin {
 		else if(cmd == 'u') { //restore curs pos
 			terminal_move_to(terminal, cursPos.x, cursPos.y);
 		}
+		else if(cmd == 'l') { //hide curs
+			showCurs = false;
+		}
+		else if(cmd == 'h') { //show curs
+			showCurs = true;
+		}
 	}
 
 	uint32_t doEscCmd(UNICODE16* uni, uint32_t from, uint32_t size) {
@@ -233,7 +261,10 @@ class XTerm : public XWin {
 			return from;
 		
 		while(true) {
-			if(c == '?') { //TODO hide/show curs
+			if(c == '?') { //TODO hide/flashShow curs
+				c = uni[from++];
+				if(from > size || c == 0)
+					return from;
 				continue;
 			}
 			else if((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')) {
@@ -278,6 +309,7 @@ public:
 		terminal = (terminal_t*)malloc(sizeof(terminal_t));
 		terminal_init(terminal);
 		memset(&termConf, 0, sizeof(term_conf_t));
+		showCurs = true;
 	}
 
 	~XTerm() {
@@ -373,7 +405,7 @@ public:
 	}
 
 	void flash() {
-		show = !show;
+		flashShow = !flashShow;
 		repaint();
 	}
 

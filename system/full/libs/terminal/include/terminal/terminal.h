@@ -8,10 +8,11 @@ extern "C" {
 
 typedef uint16_t UNICODE16;
 
-#define TERM_STATE_UNDERLINE 0x01
-#define TERM_STATE_REVERSE   0x02
-#define TERM_STATE_FLASH     0x04
-#define TERM_STATE_HIDE      0x08
+#define TERM_STATE_UNDERLINE  0x01
+#define TERM_STATE_REVERSE    0x02
+#define TERM_STATE_FLASH      0x04
+#define TERM_STATE_HIDE       0x08
+#define TERM_STATE_HIGH_LIGHT 0x10
 
 typedef struct {
 	UNICODE16 c;

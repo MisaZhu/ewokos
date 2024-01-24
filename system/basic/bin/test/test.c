@@ -15,44 +15,43 @@
 
 int main (int argc, char **argv) {
   setbuf(stdout, NULL);
+  printf ("\033[2J\033[0;0H");
   printf ("\033[31mThe color,%s!\033[1m\n", "haha");
-  printf ("\033[32mThe color,%s!\033[4m\n", "haha");
-  printf ("\033[33mThe color,%s!\033[5m\n", "haha");
+  printf ("\033[31mThe color,%s!\033[0;4m\n", "haha");
+  printf ("\033[32mThe color,%s!\033[5m\n", "haha");
   printf ("\033[34mThe color,%s!\033[7m\n", "haha");
   printf ("\033[35mThe color,%s!\033[0;8m\n", "haha");
   printf ("\033[42;36mThe color,%s!\033[0m\n", "haha");
   printf ("\033[47;30mThe color,%s!\n", "haha");
   sleep (2);
 
-  printf ("\033[47m\033[9B%s!", "down 9");
+  printf ("\033[30;46m\033[9B%s!", "down 9");
   sleep (2);
 
-  printf ("\033[47m\033[5A%s!", "up 5");
+  printf ("\033[5A%s!", "up 5");
   sleep (2);
 
-  printf ("\033[47m\033[19C%s!", "right 24");
+  printf ("\033[19C%s!", "right 24");
   sleep (2);
 
-  printf ("\033[47m\033[9B%s!", "down 9");
+  printf ("\033[9B%s!", "down 9");
   sleep (2);
 
-  printf ("\033[47m\033[20D%s!", "left 20");
+  printf ("\033[20D%s!", "left 20");
   sleep (2);
 
-  printf ("\033[47m\033[50;20H%s!", "move to y:50,x 20");
+  printf ("\033[50;20H%s!", "move to y:50,x 20");
   sleep (2);
-
-  /*printf ("\033[47m%s!\033[?25l\n", "hide cursor");
-
-  sleep (2);
-
-  printf ("\033[47m%s!\033[?25h\n", "sow cursor");
-
-  sleep (2);
-  */
 
   printf ("\033[2J%s!\033[0m", "clear screen");
   sleep (2);
+
+  printf ("%s!\033[?25l\n", "\nhide cursor");
+  sleep (2);
+
+  printf ("%s!\033[?25h", "show cursor");
+  sleep (2);
+
   printf ("\033[2Jdone!\n");
   return 0;
 }
