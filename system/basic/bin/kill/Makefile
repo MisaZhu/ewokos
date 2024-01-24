@@ -12,7 +12,8 @@ KILL_OBJS = kill.o
 KILL = $(TARGET_DIR)/bin/kill
 
 $(KILL): $(KILL_OBJS) \
-		$(BUILD_DIR)/lib/libewoksys.a
+		$(BUILD_DIR)/lib/libewoksys.a \
+		$(BUILD_DIR)/lib/libgloss.a 
 	$(LD) -Ttext=100 $(KILL_OBJS) -o $(KILL) $(LDFLAGS) -lewoksys -lc -lgloss
 
 clean:

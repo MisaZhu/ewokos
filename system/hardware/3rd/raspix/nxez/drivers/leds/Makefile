@@ -29,6 +29,7 @@ LEDSD = $(TARGET_DIR)/drivers/raspix/nxez_ledsd
 
 $(LEDSD): $(LEDSD_OBJS) \
 		$(BUILD_DIR)/lib/libewoksys.a \
+		$(BUILD_DIR)/lib/libgloss.a  \
 		$(BUILD_DIR)/lib/libarch_bcm283x.a 
 	$(LD) -Ttext=100 $(LEDSD_OBJS) -o $(LEDSD) $(LDFLAGS) -larch_bcm283x -lewoksys -lc -lgloss
 

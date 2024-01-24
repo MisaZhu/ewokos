@@ -12,7 +12,8 @@ RM_OBJS = rm.o
 RM = $(TARGET_DIR)/bin/rm
 
 $(RM): $(RM_OBJS) \
-		$(BUILD_DIR)/lib/libewoksys.a
+		$(BUILD_DIR)/lib/libewoksys.a \
+		$(BUILD_DIR)/lib/libgloss.a 
 	$(LD) -Ttext=100 $(RM_OBJS) -o $(RM) $(LDFLAGS) -lewoksys -lc -lgloss
 
 clean:

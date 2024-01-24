@@ -13,6 +13,7 @@ PNG = $(TARGET_DIR)/bin/x/png
 
 $(PNG): $(PNG_OBJS) \
 		$(BUILD_DIR)/lib/libewoksys.a \
+		$(BUILD_DIR)/lib/libgloss.a  \
 		$(BUILD_DIR)/lib/libx++.a \
 		$(BUILD_DIR)/lib/libx.a \
 		$(BUILD_DIR)/lib/libupng.a \

@@ -17,6 +17,7 @@ all: $(CLOCK_DIR) $(CLOCK)
 
 $(CLOCK): $(CLOCK_OBJS) \
 		$(BUILD_DIR)/lib/libewoksys.a \
+		$(BUILD_DIR)/lib/libgloss.a  \
 		$(BUILD_DIR)/lib/libewokstl.a \
 		$(BUILD_DIR)/lib/libx++.a \
 		$(BUILD_DIR)/lib/libx.a \

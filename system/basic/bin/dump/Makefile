@@ -12,7 +12,8 @@ DUMP_OBJS = dump.o
 DUMP = $(TARGET_DIR)/bin/dump
 
 $(DUMP): $(DUMP_OBJS) \
-		$(BUILD_DIR)/lib/libewoksys.a
+		$(BUILD_DIR)/lib/libewoksys.a \
+		$(BUILD_DIR)/lib/libgloss.a 
 	$(LD) -Ttext=100 $(DUMP_OBJS) -o $(DUMP) $(LDFLAGS) -lewoksys -lc -lgloss
 
 clean:

@@ -13,6 +13,7 @@ FONTD = $(TARGET_DIR)/drivers/fontd
 
 $(FONTD): $(FONTD_OBJS) \
 		$(BUILD_DIR)/lib/libewoksys.a \
+		$(BUILD_DIR)/lib/libgloss.a  \
 		$(BUILD_DIR)/lib/libsconf.a \
 		$(BUILD_DIR)/lib/libgraph.a \
 		$(BUILD_DIR)/lib/libttf.a 

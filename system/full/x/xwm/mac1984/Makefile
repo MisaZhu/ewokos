@@ -13,6 +13,7 @@ XWM = $(TARGET_DIR)/sbin/x/xwm_mac1984
 
 $(XWM): $(XWM_OBJS) \
 		$(BUILD_DIR)/lib/libewoksys.a \
+		$(BUILD_DIR)/lib/libgloss.a  \
 		$(BUILD_DIR)/lib/libx++.a \
 		$(BUILD_DIR)/lib/libx.a \
 		$(BUILD_DIR)/lib/libsconf.a \

@@ -12,7 +12,8 @@ GREP_OBJS = grep.o
 GREP = $(TARGET_DIR)/bin/grep
 
 $(GREP): $(GREP_OBJS) \
-		$(BUILD_DIR)/lib/libewoksys.a
+		$(BUILD_DIR)/lib/libewoksys.a \
+		$(BUILD_DIR)/lib/libgloss.a 
 	$(LD) -Ttext=100 $(GREP_OBJS) -o $(GREP) $(LDFLAGS) -lewoksys -lc -lgloss
 
 clean:

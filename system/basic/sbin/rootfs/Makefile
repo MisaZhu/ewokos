@@ -13,6 +13,7 @@ SDFSD = $(TARGET_DIR)/$(ROOT_DIR)/sbin/sdfsd
 
 $(SDFSD): $(SDFSD_OBJS) \
 		$(BUILD_DIR)/lib/libewoksys.a \
+		$(BUILD_DIR)/lib/libgloss.a  \
 		$(BUILD_DIR)/lib/libsd.a \
 		$(BUILD_DIR)/lib/libbsp.a \
 		$(BUILD_DIR)/lib/libext2.a 

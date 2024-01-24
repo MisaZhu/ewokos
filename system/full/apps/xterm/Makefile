@@ -17,6 +17,7 @@ all: $(XTERM_DIR) $(XTERM)
 
 $(XTERM): $(XTERM_OBJS) \
 		$(BUILD_DIR)/lib/libewoksys.a \
+		$(BUILD_DIR)/lib/libgloss.a  \
 		$(BUILD_DIR)/lib/libx++.a \
 		$(BUILD_DIR)/lib/libx.a \
 		$(BUILD_DIR)/lib/libterminal.a \

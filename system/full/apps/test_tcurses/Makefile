@@ -17,6 +17,7 @@ all: $(TEXT_TCURSES_DIR) $(TEXT_TCURSES)
 
 $(TEXT_TCURSES): $(TEXT_TCURSES_OBJS) \
 		$(BUILD_DIR)/lib/libewoksys.a \
+		$(BUILD_DIR)/lib/libgloss.a  \
 		$(BUILD_DIR)/lib/libx++.a \
 		$(BUILD_DIR)/lib/libx.a \
 		$(BUILD_DIR)/lib/libttf.a \

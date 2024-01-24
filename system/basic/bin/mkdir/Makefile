@@ -12,7 +12,8 @@ MKDIR_OBJS = mkdir.o
 MKDIR = $(TARGET_DIR)/bin/mkdir
 
 $(MKDIR): $(MKDIR_OBJS) \
-		$(BUILD_DIR)/lib/libewoksys.a
+		$(BUILD_DIR)/lib/libewoksys.a \
+		$(BUILD_DIR)/lib/libgloss.a 
 	$(LD) -Ttext=100 $(MKDIR_OBJS) -o $(MKDIR) $(LDFLAGS) -lewoksys -lc -lgloss
 
 clean:

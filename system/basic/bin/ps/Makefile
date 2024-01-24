@@ -12,7 +12,8 @@ PS_OBJS = ps.o
 PS = $(TARGET_DIR)/bin/ps
 
 $(PS): $(PS_OBJS) \
-		$(BUILD_DIR)/lib/libewoksys.a
+		$(BUILD_DIR)/lib/libewoksys.a \
+		$(BUILD_DIR)/lib/libgloss.a 
 	$(LD) -Ttext=100 $(PS_OBJS) -o $(PS) $(LDFLAGS) -lewoksys -lc -lgloss
 
 clean:
