@@ -1,6 +1,0 @@
-target("libconsole")
-    set_type("library")
-    add_files("**.c")        
-    add_deps("libtextview", "libfont", "libgraph", "libewokc")
-    add_includedirs("include",  {public = true})
-target_end()

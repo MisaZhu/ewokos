@@ -14,9 +14,8 @@ basic_libs:
 	cd upng; make
 	cd fbd;make
 	cd terminal;make
-	cd tcurses;make
+	cd gterminal;make
 	cd textview;make
-	cd console;make
 	cd c++/stl;make
 	cd c++/c++;make
 
@@ -25,14 +24,12 @@ clean:
 	cd zlib;make clean
 	cd openlibm;make clean
 	cd ttf;make clean
-	cd tcurses;make clean
 	cd terminal;make clean
+	cd gterminal;make clean
 	cd textview;make clean
-	cd console;make clean
 	cd display;make clean
 	cd font;make clean
 	cd upng; make clean
-	cd console;make clean
 	cd minimp3;make clean
 	cd graph;make clean
 	cd fb;make clean
