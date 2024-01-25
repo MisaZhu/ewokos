@@ -113,6 +113,7 @@ void _start(void) {
 	}
 
 	sys_signal_init();
+	//__ewok_malloc_init();
 	vfs_init();
 	proc_init();
 	init_cmd();
@@ -138,7 +139,7 @@ void _start(void) {
 	int ret = main(argc, argv);
 	_libc_exit();
 	close_stdio();
-	__malloc_close();
+	//__ewok_malloc_close();
 	exit(ret);
 }
 
