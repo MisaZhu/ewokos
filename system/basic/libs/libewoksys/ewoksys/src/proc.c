@@ -4,6 +4,7 @@
 #include <ewoksys/syscall.h>
 #include <pthread.h>
 #include <unistd.h>
+#include <malloc.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -27,13 +28,25 @@ void proc_exit(void) {
 }
 
 void proc_global_lock(void) {
-	if(_proc_global_need_lock)
+	if(_proc_global_need_lock) {
+		kout("lock\n", 5);
 		pthread_mutex_lock(&_proc_global_lock);
+	}
 }
 
 void proc_global_unlock(void) {
-	if(_proc_global_need_lock)
+	if(_proc_global_need_lock) {
+		kout("unlock\n", 7);
 		pthread_mutex_unlock(&_proc_global_lock);
+	}
+}
+
+void __malloc_lock (struct _reent *reent) {
+	proc_global_lock();
+}
+
+void __malloc_unlock (struct _reent *reent) {
+	proc_global_unlock();
 }
 
 inline int get_vfsd_pid(void) {

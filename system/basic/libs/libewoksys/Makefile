@@ -37,8 +37,6 @@ LIB_EWOKSYS_OBJS = ewoksys/src/syscall.o \
 	ewoksys/src/hashmap.o  \
 	ewoksys/src/timer.o \
 	\
-	src/stdlib/exit.o \
-	\
 	src/unistd/getuid.o \
 	src/unistd/usleep.o \
 	src/unistd/sleep.o \
@@ -75,8 +73,10 @@ LIB_EWOKSYS_OBJS = ewoksys/src/syscall.o \
 	src/pthread/pthread_mutex_init.o \
 	src/pthread/pthread_mutex_lock.o \
 	src/pthread/pthread_mutex_unlock.o \
-	src/pthread/pthread_self.o
-
+	src/pthread/pthread_self.o\
+	\
+	src/stdlib/exit.o
+	
 EWOKSYS = $(TARGET_DIR)/lib/libewoksys.a
 
 $(EWOKSYS): $(LIB_EWOKSYS_OBJS)   $(LIB_EWOKSYS_SYS_OBJS)
