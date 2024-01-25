@@ -29,14 +29,14 @@ void proc_exit(void) {
 
 void proc_global_lock(void) {
 	if(_proc_global_need_lock) {
-		kout("lock\n", 5);
+		//kout("lock\n", 5);
 		pthread_mutex_lock(&_proc_global_lock);
 	}
 }
 
 void proc_global_unlock(void) {
 	if(_proc_global_need_lock) {
-		kout("unlock\n", 7);
+		//kout("unlock\n", 7);
 		pthread_mutex_unlock(&_proc_global_lock);
 	}
 }

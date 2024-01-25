@@ -9,11 +9,11 @@ int pthread_create(pthread_t* thread,
 		void *(*start_routine) (void *),
 		void *arg) {
 	(void)attr;
+	_proc_global_need_lock = true;
+
 	pthread_t tid = thread_create(start_routine, arg);
 	if(tid < 0)
 		return -1;
-	
-	_proc_global_need_lock = true;
 
 	if(thread != NULL)
 		*thread = tid;
