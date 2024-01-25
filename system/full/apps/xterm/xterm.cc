@@ -25,7 +25,10 @@ class XTerm : public XWin {
 
 	void drawBG(graph_t* g) {
 		graph_clear(g, terminal.bg_color);
-		uint32_t cw = g->w / terminal.terminal.cols;
+		if(color_a(terminal.bg_color) != 0xff)
+			setAlpha(true);
+
+		/*uint32_t cw = g->w / terminal.terminal.cols;
 		uint32_t ch = g->h / terminal.terminal.rows;
 		uint32_t i = 0;
 		while(i < g->w) {
@@ -38,6 +41,7 @@ class XTerm : public XWin {
 			i += ch;
 			graph_line(g, 0, i, g->w, i, 0xff222222);
 		}
+		*/
 	}
 
 public:
