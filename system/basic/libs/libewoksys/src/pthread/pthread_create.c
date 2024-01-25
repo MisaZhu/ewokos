@@ -1,9 +1,8 @@
 #include <pthread.h>
 #include <ewoksys/thread.h>
+#include <ewoksys/proc.h>
 #include <stddef.h>
 #include <stdlib.h>
-
-bool _malloc_need_lock = false;
 
 int pthread_create(pthread_t* thread,
 		const pthread_attr_t *attr,
@@ -14,7 +13,7 @@ int pthread_create(pthread_t* thread,
 	if(tid < 0)
 		return -1;
 	
-	_malloc_need_lock = true;
+	_proc_global_need_lock = true;
 
 	if(thread != NULL)
 		*thread = tid;

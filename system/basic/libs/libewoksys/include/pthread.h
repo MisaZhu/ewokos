@@ -18,8 +18,6 @@ typedef struct {
 	uint32_t attr;
 } pthread_mutexattr_t;
 
-extern bool _malloc_need_lock;
-
 int pthread_create(pthread_t* thread,
 		const pthread_attr_t *attr,
 		void *(*start_routine) (void *),

@@ -20,6 +20,7 @@ void     proc_block_by(int by_pid, uint32_t evt);
 void     proc_wakeup(uint32_t evt);
 void     proc_wakeup_pid(int pid, uint32_t evt);
 void     proc_init(void);
+void     proc_exit(void);
 uint32_t proc_check_uuid(int32_t pid, uint32_t uuid);
 uint32_t proc_get_uuid(int32_t pid);
 
@@ -27,6 +28,11 @@ void*    proc_malloc_expand(uint32_t size);
 void*    proc_malloc_free(void);
 uint32_t proc_malloc_size(void);
 int      proc_usleep(uint32_t usec);
+
+void     proc_global_lock(void);
+void     proc_global_unlock(void);
+
+extern bool _proc_global_need_lock;
 
 #ifdef __cplusplus
 }

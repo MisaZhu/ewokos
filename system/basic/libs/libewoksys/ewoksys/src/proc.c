@@ -2,11 +2,15 @@
 #include <ewoksys/ipc.h>
 #include <ewoksys/vfs.h>
 #include <ewoksys/syscall.h>
+#include <pthread.h>
 #include <unistd.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+bool _proc_global_need_lock = false;
+static pthread_mutex_t _proc_global_lock;
 
 static int _vfsd_pid;
 static int _cored_pid;
@@ -14,6 +18,22 @@ static int _cored_pid;
 void proc_init(void) {
 	_vfsd_pid = -1;
 	_cored_pid = -1;
+	_proc_global_need_lock = false;
+	pthread_mutex_init(&_proc_global_lock, NULL);
+}
+
+void proc_exit(void) {
+	pthread_mutex_destroy(&_proc_global_lock);
+}
+
+void proc_global_lock(void) {
+	if(_proc_global_need_lock)
+		pthread_mutex_lock(&_proc_global_lock);
+}
+
+void proc_global_unlock(void) {
+	if(_proc_global_need_lock)
+		pthread_mutex_unlock(&_proc_global_lock);
 }
 
 inline int get_vfsd_pid(void) {
