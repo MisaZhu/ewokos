@@ -255,6 +255,7 @@ static uint32_t do_esc_cmd(gterminal_t* terminal, UNICODE16* uni, uint32_t from,
 void gterminal_init(gterminal_t* terminal) {
     memset(terminal, 0, sizeof(gterminal_t));
     terminal->show_curs = true;
+    terminal->flash_show = true;
 }
 
 void gterminal_close(gterminal_t* terminal) {

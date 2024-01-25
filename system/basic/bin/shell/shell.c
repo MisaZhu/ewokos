@@ -194,9 +194,9 @@ static void prompt(void) {
 		cid = "0";
 	char cwd[FS_FULL_NAME_MAX+1];
 	if(uid == 0)
-		printf("\033[4;36mewok(%s):%s#\033[0m ", cid, getcwd(cwd, FS_FULL_NAME_MAX));
+		printf("\033[0;4;36mewok(%s):%s#\033[0m ", cid, getcwd(cwd, FS_FULL_NAME_MAX));
 	else
-		printf("\033[4;36mewok(%s):%s$\033[0m ", cid, getcwd(cwd, FS_FULL_NAME_MAX));
+		printf("\033[0;4;36mewok(%s):%s$\033[0m ", cid, getcwd(cwd, FS_FULL_NAME_MAX));
 }
 
 static void try_init_stdio(void) {
@@ -232,13 +232,9 @@ static void initrd_out(const char* cmd) {
 		return;
 	}
 
-	if(_stderr_console_inited) {
-		if(write(1, cmd, strlen(cmd)) > 0)
-			write(1, "\n", 1);
-	}
-
-	if(write(2, cmd, strlen(cmd)) > 0)
-		write(2, "\n", 1);
+	if(_stderr_console_inited)
+		fprintf(stderr, "%s\n", cmd);
+	fprintf(stdout, "%s\n", cmd);
 }
 
 int main(int argc, char* argv[]) {
@@ -248,6 +244,7 @@ int main(int argc, char* argv[]) {
 	_history = NULL;
 	_terminated = 0;
 	setbuf(stdout, NULL);
+	setbuf(stderr, NULL);
 
 	int fd_in = 0;
 	if(argc > 2) {
