@@ -211,20 +211,42 @@ void data_abort_handler(context_t* ctx, uint32_t addr_fault, uint32_t status) {
 		halt();
 	}
 
-	if(((status & 0x1D) == 0xD || //permissions fault only
-		(status & 0x1F) == 0x6) && 
-			addr_fault < cproc->space->heap_size) { //in proc heap only
-		if (kernel_lock_check() > 0)
-			return;
+	uint32_t err = 0;
+	const char* errmsg = "";
+	if((status & 0x5) == 0x5) { //permissions fault only
+		if(addr_fault >= 0x100 && addr_fault < cproc->space->heap_size) { //in proc heap only
+			if (kernel_lock_check() > 0)
+				return;
 
-		kernel_lock();
-		int32_t res = copy_on_write(cproc, addr_fault);
-		kernel_unlock();
-		if(res == 0) 
-			return;
+			kernel_lock();
+			int32_t res = copy_on_write(cproc, addr_fault);
+			kernel_unlock();
+			if(res == 0) 
+				return;
+			err = 1;
+			errmsg = "copy on write failed";
+		}
+		else {
+			err = 2;
+			errmsg = "illegel address";
+		}
+	}
+	else {
+		err = 3;
+		errmsg = "access denied";
 	}
 
-	printf("\npid: %d(%s), core: %d, data abort!! at: 0x%X, code: 0x%X\n", cproc->info.pid, cproc->info.cmd, cproc->info.core, addr_fault, status);
+	printf("\npid: %d(%s), core: %d, data abort at: 0x%X, status: 0x%X\n", 
+			cproc->info.pid,
+			cproc->info.cmd,
+			cproc->info.core,
+			addr_fault,
+			status);
+	if(err == 2) //illegel address
+		printf("\terror:%s! (0x%X->0x%X)\n", errmsg, 0x100, cproc->space->heap_size);
+	else
+		printf("\terror:%s!\n", errmsg);
+
 	dump_ctx(&cproc->ctx);
 	proc_exit(ctx, cproc, -1);
 }
