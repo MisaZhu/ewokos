@@ -37,7 +37,7 @@ char* str_ncpy(str_t* str, const char* src, uint32_t l) {
 		str->max = new_size;
 	}
 
-	strncpy(str->cstr, src, len);
+	sstrncpy(str->cstr, src, len);
 	str->cstr[len] = 0;
 	str->len = len;
 	return str->cstr;
@@ -68,7 +68,7 @@ char* str_add(str_t* str, const char* src) {
 		new_size = str->len + len + STR_BUF; /*STR BUF for buffer*/
 		char* old = str->cstr;
 		str->cstr = (char*)kmalloc(new_size);
-		strncpy(str->cstr, old, str->len);
+		sstrncpy(str->cstr, old, str->len);
 		kfree(old);
 		str->max = new_size;
 	}
@@ -90,7 +90,7 @@ char* str_addc(str_t* str, char c) {
 		new_size = str->len + STR_BUF; /*STR BUF for buffer*/
 		char* old = str->cstr;
 		str->cstr = (char*)kmalloc(new_size);
-		strncpy(str->cstr, old, str->len);
+		sstrncpy(str->cstr, old, str->len);
 		kfree(old);
 		str->max = new_size;
 	}

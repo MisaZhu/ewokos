@@ -262,7 +262,7 @@ static const char* fullname(vfs_node_t* node) {
 	}
 
 	static char ret[FS_FULL_NAME_MAX];
-	strncpy(ret, CS(s1), FS_FULL_NAME_MAX-1);
+	sstrncpy(ret, CS(s1), FS_FULL_NAME_MAX-1);
 	str_free(s1);
 	return ret;
 }

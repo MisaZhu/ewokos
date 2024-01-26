@@ -257,6 +257,15 @@ str_t* str_format_new(const char *format, ...) {
 	return str;
 }
 
+char* sstrncpy(char* dst, const char* src, size_t len) {
+	strncpy(dst, src, len);
+	size_t slen = strlen(src);
+	if(len > slen)
+		len = slen;
+	dst[len] = 0;
+	return dst;
+}
+
 #ifdef __cplusplus
 }
 #endif

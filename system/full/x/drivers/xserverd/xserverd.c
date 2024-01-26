@@ -130,11 +130,11 @@ static int32_t read_config(x_t* x, const char* fname) {
 	
 	v = sconf_get(conf, "xwm");
 	if(v[0] != 0) 
-		strncpy(x->config.xwm, v, 127);
+		sstrncpy(x->config.xwm, v, 127);
 	
 	v = sconf_get(conf, "theme");
 	if(v[0] != 0)
-		strncpy(x->config.theme, v, 127);
+		sstrncpy(x->config.theme, v, 127);
 
 	v = sconf_get(conf, "cursor");
 	if(strcmp(v, "touch") == 0)

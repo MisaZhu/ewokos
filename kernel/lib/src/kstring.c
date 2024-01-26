@@ -105,7 +105,7 @@ inline char *strcpy(char *target, const char *source) {
  * function returns strlen(source). If return value is >= n, then truncation
  * occured.
  */
-inline uint32_t strncpy(char *target, const char *source, uint32_t n) {
+inline uint32_t sstrncpy(char *target, const char *source, uint32_t n) {
 	if(source == 0)
 		return 0;
 

@@ -189,13 +189,13 @@ static int32_t sys_proc_get_cmd(int32_t pid, char* cmd, int32_t sz) {
 	proc_t* proc = proc_get(pid);
 	if(proc == NULL)
 		return -1;
-	strncpy(cmd, proc->info.cmd, sz);
+	sstrncpy(cmd, proc->info.cmd, sz);
 	return 0;
 }
 
 static void sys_proc_set_cmd(const char* cmd) {
 	proc_t* cproc = get_current_proc();
-	strncpy(cproc->info.cmd, cmd, PROC_INFO_CMD_MAX-1);
+	sstrncpy(cproc->info.cmd, cmd, PROC_INFO_CMD_MAX-1);
 }
 
 static void	sys_get_sys_info(sys_info_t* info) {

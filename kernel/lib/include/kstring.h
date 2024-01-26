@@ -6,7 +6,7 @@
 /* copy functions */
 void *memcpy(void *target, const void *source, uint32_t n);
 char *strcpy(char *target, const char *source);
-uint32_t strncpy(char *target, const char *source, uint32_t n);
+uint32_t sstrncpy(char *target, const char *source, uint32_t n);
 
 /* compare functions */
 int32_t strcmp(const char *s1, const char *s2);

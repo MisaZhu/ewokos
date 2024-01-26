@@ -5,6 +5,7 @@ builtin_apps:
 	cd cp;make
 	cd rundev;make
 	cd test;make
+	cd tsaver;make
 	cd clear;make
 	cd echo;make
 	cd sleep;make
@@ -34,6 +35,7 @@ clean:
 	cd cp;make clean
 	cd rundev;make clean
 	cd test;make clean
+	cd tsaver;make clean
 	cd clear;make clean
 	cd echo;make clean
 	cd sleep;make clean

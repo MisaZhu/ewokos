@@ -120,7 +120,7 @@ ether_tap_init(const char *name, const char *addr)
         printf("memory_alloc() failure");
         return NULL;
     }
-    strncpy(tap->name, name, sizeof(tap->name)-1);
+    sstrncpy(tap->name, name, sizeof(tap->name)-1);
     tap->fd = -1;
     tap->irq = ETHER_TAP_IRQ;
     dev->priv = tap;

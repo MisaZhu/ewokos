@@ -69,7 +69,7 @@ static int32_t find_exec(char* cmd, char* fname, char* full_cmd) {
 	i = 0;
 	while(1) {
 		if(paths[i] == 0 || paths[i] == ':') {
-			strncpy(path, paths, i);
+			sstrncpy(path, paths, i);
 			path[i] = 0;
 			if(path[0] != 0) {
 				snprintf(fname, FS_FULL_NAME_MAX-1, "%s/%s", path, cmd);

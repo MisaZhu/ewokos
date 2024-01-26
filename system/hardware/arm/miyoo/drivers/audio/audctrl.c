@@ -21,7 +21,7 @@ static void enter_pcm_device_loop(struct snd_pcm *pcm, const char* dev_name)
 
 	vdevice_t *vdev = (vdevice_t*)pcm->private_data;
 	char mount_point[33] = {0};
-	strncpy(mount_point, dev_name, 32);
+	sstrncpy(mount_point, dev_name, 32);
 	device_run(vdev, mount_point, FS_TYPE_CHAR, 0666);
 }
 

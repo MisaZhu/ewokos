@@ -81,7 +81,7 @@ static int font_open(const char* fname, int ppm, int ttf_index) {
 			return -1;
 
 		_ttfs[i].ttf = ttf;
-		strncpy(_ttfs[i].name, fname, NAME_LEN-1);
+		sstrncpy(_ttfs[i].name, fname, NAME_LEN-1);
 		ttf_index = i;
 	}
 

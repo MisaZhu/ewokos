@@ -129,7 +129,7 @@ const char* x_get_theme(void) {
 	if(dev_cntl("/dev/x", X_DCNTL_GET_THEME, NULL, &out) == 0) {
 		const char* t = proto_read_str(&out);
 		if(t != NULL)
-			strncpy(theme, t, 127);
+			sstrncpy(theme, t, 127);
 	}
 	return theme;
 }
