@@ -296,13 +296,10 @@ int main(int argc, char* argv[]) {
 		if(cmd[len] == '&') {
 			cmd[len] = 0;
 			fg = 0;
-			klog("bg: len: %d: 0x%x:%d = [%s]\n", len, cmd, cmd, cmd);
 		}	
 
 		int child_pid = fork();
-		klog("forked: len: %d: 0x%x:%d = [%s]\n", len, cmd, cmd, cmd);
 		if (child_pid == 0) {
-			//klog("len: %d: 0x%x:%d = [%s]\n", len, cmd, cmd, cmd);
 			if(fg == 0 || _initrd)
 				proc_detach();
 			int res = run_cmd(cmd);

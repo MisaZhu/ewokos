@@ -44,9 +44,10 @@ int32_t   terminal_pos(terminal_t* terminal, uint32_t *x, uint32_t *y);
 uint32_t  terminal_at_by_pos(terminal_t* terminal, uint32_t x, uint32_t y);
 uint32_t  terminal_at(terminal_t* terminal);
 
-tchar_t*  terminal_get(terminal_t* terminal);
-tchar_t*  terminal_get_by_at(terminal_t* terminal, uint32_t at);
-tchar_t*  terminal_get_by_pos(terminal_t* terminal, uint32_t x, uint32_t y);
+tchar_t*  terminal_getc(terminal_t* terminal);
+tchar_t*  terminal_getc_by_at(terminal_t* terminal, uint32_t at);
+tchar_t*  terminal_getc_by_pos(terminal_t* terminal, uint32_t x, uint32_t y);
+tchar_t*  terminal_gets(terminal_t* terminal, uint32_t *size);
 
 uint32_t  terminal_size(terminal_t* terminal);
 
@@ -55,6 +56,7 @@ uint8_t   terminal_is_tail(terminal_t* terminal);
 void      terminal_scroll(terminal_t* terminal, uint32_t lines);
 
 void      terminal_set(terminal_t* terminal, UNICODE16 ci, uint16_t state, uint32_t color, uint32_t bg_color);
+void      terminal_push(terminal_t* terminal, UNICODE16 ci, uint16_t state, uint32_t color, uint32_t bg_color);
 
 #ifdef __cplusplus
 }

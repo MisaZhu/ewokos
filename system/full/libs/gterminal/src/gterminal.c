@@ -21,7 +21,7 @@ static void draw_content(gterminal_t* terminal, graph_t* g, uint32_t cw, uint32_
     uint32_t size = terminal_size(&terminal->terminal);
     uint32_t i = 0;
     while(i < size) {
-        tchar_t* c = terminal_get_by_at(&terminal->terminal, i);
+        tchar_t* c = terminal_getc_by_at(&terminal->terminal, i);
         if(c != NULL && c->c != 0 && c->c != '\n') {
             gpos_t pos = get_pos(terminal, g, i, cw, ch);
 
@@ -289,27 +289,9 @@ void gterminal_put(gterminal_t* terminal, const char* buf, int size) {
         }
 
         if(terminal->term_conf.set == 0)
-            terminal_set(&terminal->terminal, c, 0, terminal->fg_color, 0);
+            terminal_push(&terminal->terminal, c, 0, terminal->fg_color, 0);
         else
-            terminal_set(&terminal->terminal, c, terminal->term_conf.state, terminal->term_conf.fg_color, terminal->term_conf.bg_color);
-
-        if(c == '\n') {
-            if((terminal->terminal.curs_y+1) >= terminal->terminal.rows) {
-                terminal_scroll(&terminal->terminal, 1);
-                terminal_move_to(&terminal->terminal, 0, terminal->terminal.curs_y);
-            }
-            else
-                terminal_move_next_line(&terminal->terminal);
-        }
-        
-        else {
-            if((terminal_at(&terminal->terminal)+1) >= terminal_size(&terminal->terminal)) {//full
-                terminal_scroll(&terminal->terminal, 1);
-                terminal_move_to(&terminal->terminal, 0, terminal->terminal.curs_y);
-            }
-            else
-                terminal_move(&terminal->terminal, 1);
-        }
+            terminal_push(&terminal->terminal, c, terminal->term_conf.state, terminal->term_conf.fg_color, terminal->term_conf.bg_color);
     }
 }
 
@@ -322,7 +304,15 @@ void gterminal_resize(gterminal_t* terminal, uint32_t gw, uint32_t gh) {
     uint32_t font_h = terminal->font->max_size.y;
     if(font_w == 0 || font_h == 0)
         return;
+    uint32_t size;
+    tchar_t* content = terminal_gets(&terminal->terminal, &size);
     terminal_reset(&terminal->terminal, gw/font_w, gh/font_h);
+    if(content == NULL)
+        return;
+    for(uint32_t i=0; i<size; i++) {
+        terminal_push(&terminal->terminal, content[i].c, content[i].state, content[i].color, content[i].bg_color);
+    }
+    free(content);
 }
 
 #ifdef __cplusplus

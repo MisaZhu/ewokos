@@ -512,7 +512,7 @@ inline void* proc_malloc(proc_t* proc, int32_t size) {
 	pages = (size / PAGE_SIZE);
 
 	if(expand == 0) {
-		kprintf("kproc shrink pages: %d, size: %d\n", pages, size);
+		//kprintf("kproc shrink pages: %d, size: %d\n", pages, size);
 		proc_shrink_mem(proc, pages);
 	}
 	else {
@@ -809,9 +809,10 @@ proc_t* kfork_raw(context_t* ctx, int32_t type, proc_t* parent) {
 			printf("panic: kfork clone failed!!(%d)\n", parent->info.pid);
 			return NULL;
 		}
-		kprintf("clone: \n\tfather: 0x%x->0x%x\n\tchild:  0x%x->0x%x\n",
+		/*kprintf("clone: \n\tfather: 0x%x->0x%x\n\tchild:  0x%x->0x%x\n",
 				parent->space->malloc_base, parent->space->heap_size,
 				child->space->malloc_base, child->space->heap_size);
+				*/
 	}
 	else {
 		child->ctx.sp = ALIGN_DOWN(child->stack.thread_stack_base + THREAD_STACK_PAGES*PAGE_SIZE, 8);

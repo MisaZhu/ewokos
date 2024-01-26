@@ -112,9 +112,10 @@ void _start(void) {
 		*p++ = 0;
 	}
 
-	sys_signal_init();
+	_libc_init();
 	//__ewok_malloc_init();
 	proc_init();
+	sys_signal_init();
 	vfs_init();
 	init_cmd();
 
@@ -128,8 +129,6 @@ void _start(void) {
 		argv[argc++] = arg;
 	}
 
-
-	_libc_init();
 	// int val = setenv("PATH", "/bin", 1);
 	// klog("setenv: %d\n", val);
 	// // const char* paths = getenv("PATH");
@@ -137,10 +136,10 @@ void _start(void) {
 	loadenv();
 	
 	int ret = main(argc, argv);
-	_libc_exit();
 	close_stdio();
 	//__ewok_malloc_close();
 	proc_exit();
+	_libc_exit();
 	exit(ret);
 }
 
