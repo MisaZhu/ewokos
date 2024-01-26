@@ -10,9 +10,8 @@ CLEAR_OBJS = clear.o
 CLEAR = $(TARGET_DIR)/bin/clear
 
 $(CLEAR): $(CLEAR_OBJS) \
-		$(BUILD_DIR)/lib/libewoksys.a \
-		$(BUILD_DIR)/lib/libgloss.a
-		$(LD) -Ttext=100 $(CLEAR_OBJS) -o $(CLEAR) $(LDFLAGS) -lewoksys -lc -lgloss 
+		$(EWOK_LIBC_A)
+		$(LD) -Ttext=100 $(CLEAR_OBJS) -o $(CLEAR) $(LDFLAGS) $(EWOK_LIBC) 
 
 clean:
 	rm -f $(CLEAR_OBJS)

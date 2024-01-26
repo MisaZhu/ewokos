@@ -16,8 +16,7 @@ WTEST = $(WTEST_DIR)/wtest
 all: $(WTEST_DIR) $(WTEST)
 
 $(WTEST): $(WTEST_OBJS) \
-		$(BUILD_DIR)/lib/libewoksys.a \
-		$(BUILD_DIR)/lib/libgloss.a  \
+		$(EWOK_LIBC_A)  \
 		$(BUILD_DIR)/lib/libewokstl.a \
 		$(BUILD_DIR)/lib/libx++.a \
 		$(BUILD_DIR)/lib/libx.a \
@@ -26,7 +25,7 @@ $(WTEST): $(WTEST_OBJS) \
 		$(BUILD_DIR)/lib/libwidget++.a \
 		$(BUILD_DIR)/lib/libtextview.a \
 		$(BUILD_DIR)/lib/libcxx.a 
-	$(LD) -Ttext=100 $(WTEST_OBJS) -o $(WTEST) $(LDFLAGS) -lwidget++ -ltextview -lgraph -lbsp -lttf -lfont -lx++ -lx -lupng -lewokstl -lewoksys -lc -lgloss -lcxx
+	$(LD) -Ttext=100 $(WTEST_OBJS) -o $(WTEST) $(LDFLAGS) -lwidget++ -ltextview -lgraph -lbsp -lttf -lfont -lx++ -lx -lupng -lewokstl $(EWOK_LIBC) -lcxx
 
 $(WTEST_DIR):
 	mkdir -p $(WTEST_DIR)

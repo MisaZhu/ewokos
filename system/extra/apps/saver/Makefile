@@ -14,8 +14,7 @@ SAVER = $(SAVER_DIR)/saver
 all: $(SAVER_DIR) $(SAVER)
 
 $(SAVER): $(SAVER_OBJS) \
-		$(BUILD_DIR)/lib/libewoksys.a \
-		$(BUILD_DIR)/lib/libgloss.a  \
+		$(EWOK_LIBC_A)  \
 		$(BUILD_DIR)/lib/libx++.a \
 		$(BUILD_DIR)/lib/libx.a \
 		$(BUILD_DIR)/lib/libttf.a \
@@ -24,7 +23,7 @@ $(SAVER): $(SAVER_OBJS) \
 		$(BUILD_DIR)/lib/libopenlibm.a \
 		$(BUILD_DIR)/lib/libferox.a \
 		$(BUILD_DIR)/lib/libcxx.a  
-	$(LD) -Ttext=100 $(SAVER_OBJS) -o $(SAVER) $(LDFLAGS) -lx++ -lttf -lfont -lgraph -lbsp -lx -lferox -lopenlibm -lewoksys -lc -lgloss -lnosys -lcxx
+	$(LD) -Ttext=100 $(SAVER_OBJS) -o $(SAVER) $(LDFLAGS) -lx++ -lttf -lfont -lgraph -lbsp -lx -lferox -lopenlibm $(EWOK_LIBC) -lnosys -lcxx
 
 $(SAVER_DIR):
 	mkdir -p $(SAVER_DIR)

@@ -12,9 +12,8 @@ STATED_OBJS = stated.o
 STATED = $(TARGET_DIR)/drivers/proc/stated
 
 $(STATED): $(STATED_OBJS) \
-		$(BUILD_DIR)/lib/libewoksys.a \
-		$(BUILD_DIR)/lib/libgloss.a 
-	$(LD) -Ttext=100 $(STATED_OBJS) -o $(STATED) $(LDFLAGS) -lewoksys -lc -lgloss
+		$(EWOK_LIBC_A) 
+	$(LD) -Ttext=100 $(STATED_OBJS) -o $(STATED) $(LDFLAGS) $(EWOK_LIBC)
 
 clean:
 	rm -f $(STATED_OBJS)

@@ -13,9 +13,8 @@ ELFINFO = $(TARGET_DIR)/bin/elfinfo
 
 $(ELFINFO): $(ELFINFO_OBJS) \
 		$(BUILD_DIR)/lib/libelf.a \
-		$(BUILD_DIR)/lib/libewoksys.a \
-		$(BUILD_DIR)/lib/libgloss.a 
-	$(LD) -Ttext=100 $(ELFINFO_OBJS) -o $(ELFINFO) $(LDFLAGS) -lelf -lewoksys -lc -lgloss
+		$(EWOK_LIBC_A) 
+	$(LD) -Ttext=100 $(ELFINFO_OBJS) -o $(ELFINFO) $(LDFLAGS) -lelf $(EWOK_LIBC)
 
 clean:
 	rm -f $(ELFINFO_OBJS)

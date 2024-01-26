@@ -12,9 +12,8 @@ CHMOD_OBJS = chmod.o
 CHMOD = $(TARGET_DIR)/bin/chmod
 
 $(CHMOD): $(CHMOD_OBJS) \
-		$(BUILD_DIR)/lib/libewoksys.a \
-		$(BUILD_DIR)/lib/libgloss.a 
-	$(LD) -Ttext=100 $(CHMOD_OBJS) -o $(CHMOD) $(LDFLAGS) -lewoksys -lc -lgloss
+		$(EWOK_LIBC_A) 
+	$(LD) -Ttext=100 $(CHMOD_OBJS) -o $(CHMOD) $(LDFLAGS) $(EWOK_LIBC)
 
 clean:
 	rm -f $(CHMOD_OBJS)

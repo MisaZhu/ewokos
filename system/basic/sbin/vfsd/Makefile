@@ -12,9 +12,8 @@ VFSD_OBJS = vfsd.o
 VFSD = $(TARGET_DIR)/$(ROOT_DIR)/sbin/vfsd
 
 $(VFSD): $(VFSD_OBJS) \
-		$(BUILD_DIR)/lib/libewoksys.a \
-		$(BUILD_DIR)/lib/libgloss.a 
-	$(LD) -Ttext=100 $(VFSD_OBJS) -o $(VFSD) $(LDFLAGS)  -lewoksys -lc -lgloss 
+		$(EWOK_LIBC_A) 
+	$(LD) -Ttext=100 $(VFSD_OBJS) -o $(VFSD) $(LDFLAGS)  $(EWOK_LIBC) 
 
 clean:
 	rm -fr $(VFSD) $(VFSD_OBJS)

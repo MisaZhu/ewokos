@@ -12,9 +12,8 @@ UNAME_OBJS = uname.o
 UNAME = $(TARGET_DIR)/bin/uname
 
 $(UNAME): $(UNAME_OBJS) \
-		$(BUILD_DIR)/lib/libewoksys.a \
-		$(BUILD_DIR)/lib/libgloss.a 
-	$(LD) -Ttext=100 $(UNAME_OBJS) -o $(UNAME) $(LDFLAGS) -lewoksys -lc -lgloss
+		$(EWOK_LIBC_A) 
+	$(LD) -Ttext=100 $(UNAME_OBJS) -o $(UNAME) $(LDFLAGS) $(EWOK_LIBC)
 
 clean:
 	rm -f $(UNAME_OBJS)

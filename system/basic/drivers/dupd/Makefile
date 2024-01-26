@@ -12,9 +12,8 @@ DUPD_OBJS = dupd.o
 DUPD = $(TARGET_DIR)/drivers/dupd
 
 $(DUPD): $(DUPD_OBJS) \
-		$(BUILD_DIR)/lib/libewoksys.a \
-		$(BUILD_DIR)/lib/libgloss.a 
-	$(LD) -Ttext=100 $(DUPD_OBJS) -o $(DUPD) $(LDFLAGS) -lewoksys -lc -lgloss
+		$(EWOK_LIBC_A) 
+	$(LD) -Ttext=100 $(DUPD_OBJS) -o $(DUPD) $(LDFLAGS) $(EWOK_LIBC)
 
 clean:
 	rm -f $(DUPD_OBJS)

@@ -12,9 +12,8 @@ CORE_OBJS = core.o
 CORE = $(TARGET_DIR)/$(ROOT_DIR)/sbin/core
 
 $(CORE): $(CORE_OBJS) \
-		$(BUILD_DIR)/lib/libewoksys.a \
-		$(BUILD_DIR)/lib/libgloss.a 
-	$(LD) -Ttext=100 $(CORE_OBJS) -o $(CORE) $(LDFLAGS)  -lewoksys -lc -lgloss 
+		$(EWOK_LIBC_A) 
+	$(LD) -Ttext=100 $(CORE_OBJS) -o $(CORE) $(LDFLAGS)  $(EWOK_LIBC) 
 
 clean:
 	rm -fr $(CORE) $(CORE_OBJS)

@@ -12,12 +12,11 @@ SESSIOND_OBJS = sessiond.o
 SESSIOND = $(TARGET_DIR)/$(ROOT_DIR)/sbin/sessiond
 
 $(SESSIOND): $(SESSIOND_OBJS) \
-		$(BUILD_DIR)/lib/libewoksys.a \
-		$(BUILD_DIR)/lib/libgloss.a  \
+		$(EWOK_LIBC_A)  \
 		$(BUILD_DIR)/lib/libbsp.a \
 		$(BUILD_DIR)/lib/libsd.a \
 		$(BUILD_DIR)/lib/libext2.a 
-	$(LD) -Ttext=100 $(SESSIOND_OBJS) -o $(SESSIOND) $(LDFLAGS) -lbsp -lsd -lext2  -lewoksys -lc -lgloss -lnosys
+	$(LD) -Ttext=100 $(SESSIOND_OBJS) -o $(SESSIOND) $(LDFLAGS) -lbsp -lsd -lext2  $(EWOK_LIBC) -lnosys
 
 clean:
 	rm -fr $(SESSIOND) $(SESSIOND_OBJS)

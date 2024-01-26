@@ -12,9 +12,8 @@ SLEEP_OBJS = sleep.o
 SLEEP = $(TARGET_DIR)/bin/sleep
 
 $(SLEEP): $(SLEEP_OBJS) \
-		$(BUILD_DIR)/lib/libewoksys.a \
-		$(BUILD_DIR)/lib/libgloss.a 
-	$(LD) -Ttext=100 $(SLEEP_OBJS) -o $(SLEEP) $(LDFLAGS) -lewoksys -lc -lgloss
+		$(EWOK_LIBC_A) 
+	$(LD) -Ttext=100 $(SLEEP_OBJS) -o $(SLEEP) $(LDFLAGS) $(EWOK_LIBC)
 
 clean:
 	rm -f $(SLEEP_OBJS)

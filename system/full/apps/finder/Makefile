@@ -16,15 +16,14 @@ FINDER = $(FINDER_DIR)/finder
 all: $(FINDER_DIR) $(FINDER)
 
 $(FINDER): $(FINDER_OBJS) \
-		$(BUILD_DIR)/lib/libewoksys.a \
-		$(BUILD_DIR)/lib/libgloss.a  \
+		$(EWOK_LIBC_A)  \
 		$(BUILD_DIR)/lib/libx++.a \
 		$(BUILD_DIR)/lib/libx.a \
 		$(BUILD_DIR)/lib/libttf.a \
 		$(BUILD_DIR)/lib/libfont.a \
 		$(BUILD_DIR)/lib/libelf.a \
 		$(BUILD_DIR)/lib/libcxx.a 
-	$(LD) -Ttext=100 $(FINDER_OBJS) -o $(FINDER) $(LDFLAGS)  -lgraph -lbsp -lttf -lfont -lupng -lx++ -lx -lsconf -lelf -lewoksys -lc -lgloss -lcxx
+	$(LD) -Ttext=100 $(FINDER_OBJS) -o $(FINDER) $(LDFLAGS)  -lgraph -lbsp -lttf -lfont -lupng -lx++ -lx -lsconf -lelf $(EWOK_LIBC) -lcxx
 
 $(FINDER_DIR):
 	mkdir -p $(FINDER_DIR)

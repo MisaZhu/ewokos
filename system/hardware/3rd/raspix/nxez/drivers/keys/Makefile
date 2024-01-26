@@ -12,10 +12,9 @@ KEYSD_OBJS = keysd.o
 KEYSD = $(TARGET_DIR)/drivers/raspix/nxez_keysd
 
 $(KEYSD): $(KEYSD_OBJS) \
-		$(BUILD_DIR)/lib/libewoksys.a \
-		$(BUILD_DIR)/lib/libgloss.a  \
+		$(EWOK_LIBC_A)  \
 		$(BUILD_DIR)/lib/libarch_bcm283x.a 
-	$(LD) -Ttext=100 $(KEYSD_OBJS) -o $(KEYSD) $(LDFLAGS) -larch_bcm283x -lewoksys -lc -lgloss
+	$(LD) -Ttext=100 $(KEYSD_OBJS) -o $(KEYSD) $(LDFLAGS) -larch_bcm283x $(EWOK_LIBC)
 
 clean:
 	rm -f $(KEYSD_OBJS)

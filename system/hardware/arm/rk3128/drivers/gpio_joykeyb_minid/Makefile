@@ -12,9 +12,8 @@ JOY_KEYBD_MINI_OBJS = joykeybd.o
 JOY_KEYBD_MINI = $(TARGET_DIR)/drivers/rk3128/gpio_joykeyb_minid
 
 $(JOY_KEYBD_MINI): $(JOY_KEYBD_MINI_OBJS) \
-		$(BUILD_DIR)/lib/libewoksys.a \
-		$(BUILD_DIR)/lib/libgloss.a  
-	$(LD) -Ttext=100 $(JOY_KEYBD_MINI_OBJS) -o $(JOY_KEYBD_MINI) $(LDFLAGS) -lewoksys -lc -lgloss
+		$(EWOK_LIBC_A)  
+	$(LD) -Ttext=100 $(JOY_KEYBD_MINI_OBJS) -o $(JOY_KEYBD_MINI) $(LDFLAGS) $(EWOK_LIBC)
 
 clean:
 	rm -f $(JOY_KEYBD_MINI_OBJS)

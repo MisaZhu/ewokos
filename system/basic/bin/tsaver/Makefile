@@ -10,10 +10,8 @@ TSAVER_OBJS = tsaver.o
 TSAVER = $(TARGET_DIR)/bin/tsaver
 
 $(TSAVER): $(TSAVER_OBJS) \
-		$(BUILD_DIR)/lib/libewoksys.a \
-		$(BUILD_DIR)/lib/libgloss.a  \
-		$(BUILD_DIR)/lib/libgloss.a
-		$(LD) -Ttext=100 $(TSAVER_OBJS) -o $(TSAVER) $(LDFLAGS) -lewoksys -lc -lgloss 
+		$(EWOK_LIBC_A)
+		$(LD) -Ttext=100 $(TSAVER_OBJS) -o $(TSAVER) $(LDFLAGS) $(EWOK_LIBC) 
 
 clean:
 	rm -f $(TSAVER_OBJS)

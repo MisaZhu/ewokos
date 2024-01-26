@@ -12,12 +12,11 @@ SDFSD_OBJS = sdfsd.o
 SDFSD = $(TARGET_DIR)/$(ROOT_DIR)/sbin/sdfsd
 
 $(SDFSD): $(SDFSD_OBJS) \
-		$(BUILD_DIR)/lib/libewoksys.a \
-		$(BUILD_DIR)/lib/libgloss.a  \
+		$(EWOK_LIBC_A)  \
 		$(BUILD_DIR)/lib/libsd.a \
 		$(BUILD_DIR)/lib/libbsp.a \
 		$(BUILD_DIR)/lib/libext2.a 
-	$(LD) -Ttext=100 $(SDFSD_OBJS) -o $(SDFSD) $(LDFLAGS) -lbsp -lsd -lext2  -lewoksys -lc -lgloss 
+	$(LD) -Ttext=100 $(SDFSD_OBJS) -o $(SDFSD) $(LDFLAGS) -lbsp -lsd -lext2  $(EWOK_LIBC) 
 
 clean:
 	rm -fr $(SDFSD) $(SDFSD_OBJS)

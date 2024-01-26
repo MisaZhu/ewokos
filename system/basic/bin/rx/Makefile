@@ -12,9 +12,8 @@ LS_OBJS = xmodem.o crc16.o
 RX = $(TARGET_DIR)/bin/rx
 
 $(RX): $(LS_OBJS) \
-		$(BUILD_DIR)/lib/libewoksys.a \
-		$(BUILD_DIR)/lib/libgloss.a 
-	$(LD) -Ttext=100 $(LS_OBJS) -o $(RX) $(LDFLAGS) -lewoksys -lc -lgloss
+		$(EWOK_LIBC_A) 
+	$(LD) -Ttext=100 $(LS_OBJS) -o $(RX) $(LDFLAGS) $(EWOK_LIBC)
 
 clean:
 	rm -f $(LS_OBJS)

@@ -12,9 +12,8 @@ NULLD_OBJS = nulld.o
 NULLD = $(TARGET_DIR)/drivers/nulld
 
 $(NULLD): $(NULLD_OBJS) \
-		$(BUILD_DIR)/lib/libewoksys.a \
-		$(BUILD_DIR)/lib/libgloss.a 
-	$(LD) -Ttext=100 $(NULLD_OBJS) -o $(NULLD) $(LDFLAGS) -lewoksys -lc -lgloss
+		$(EWOK_LIBC_A) 
+	$(LD) -Ttext=100 $(NULLD_OBJS) -o $(NULLD) $(LDFLAGS) $(EWOK_LIBC)
 
 clean:
 	rm -f $(NULLD_OBJS)

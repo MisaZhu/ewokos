@@ -12,9 +12,8 @@ XJOYMOUSED_OBJS = xjoymoused.o
 XJOYMOUSED = $(TARGET_DIR)/sbin/x/xjoymoused
 
 $(XJOYMOUSED): $(XJOYMOUSED_OBJS) \
-		$(BUILD_DIR)/lib/libewoksys.a \
-		$(BUILD_DIR)/lib/libgloss.a  
-	$(LD) -Ttext=100 $(XJOYMOUSED_OBJS) -o $(XJOYMOUSED) $(LDFLAGS) -lewoksys -lc -lgloss
+		$(EWOK_LIBC_A)  
+	$(LD) -Ttext=100 $(XJOYMOUSED_OBJS) -o $(XJOYMOUSED) $(LDFLAGS) $(EWOK_LIBC)
 
 clean:
 	rm -f $(XJOYMOUSED_OBJS)

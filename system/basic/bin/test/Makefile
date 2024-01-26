@@ -10,10 +10,8 @@ TEST_OBJS = test.o
 TEST = $(TARGET_DIR)/bin/test
 
 $(TEST): $(TEST_OBJS) \
-		$(BUILD_DIR)/lib/libewoksys.a \
-		$(BUILD_DIR)/lib/libgloss.a  \
-		$(BUILD_DIR)/lib/libgloss.a
-		$(LD) -Ttext=100 $(TEST_OBJS) -o $(TEST) $(LDFLAGS) -lewoksys -lc -lgloss 
+		$(EWOK_LIBC_A)
+		$(LD) -Ttext=100 $(TEST_OBJS) -o $(TEST) $(LDFLAGS) $(EWOK_LIBC) 
 
 clean:
 	rm -f $(TEST_OBJS)

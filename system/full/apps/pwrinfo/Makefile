@@ -16,14 +16,13 @@ pwrinfo = $(pwrinfo_DIR)/pwrinfo
 all: $(pwrinfo_DIR) $(pwrinfo)
 
 $(pwrinfo): $(pwrinfo_OBJS) \
-		$(BUILD_DIR)/lib/libewoksys.a \
-		$(BUILD_DIR)/lib/libgloss.a  \
+		$(EWOK_LIBC_A)  \
 		$(BUILD_DIR)/lib/libx++.a \
 		$(BUILD_DIR)/lib/libx.a \
 		$(BUILD_DIR)/lib/libttf.a \
 		$(BUILD_DIR)/lib/libfont.a \
 		$(BUILD_DIR)/lib/libcxx.a 
-	$(LD) -Ttext=100 $(pwrinfo_OBJS) -o $(pwrinfo) $(LDFLAGS) -lfont -lttf -lgraph -lbsp -lx++ -lx -lupng -lewoksys -lc -lgloss -lcxx
+	$(LD) -Ttext=100 $(pwrinfo_OBJS) -o $(pwrinfo) $(LDFLAGS) -lfont -lttf -lgraph -lbsp -lx++ -lx -lupng $(EWOK_LIBC) -lcxx
 
 $(pwrinfo_DIR):
 	mkdir -p $(pwrinfo_DIR)

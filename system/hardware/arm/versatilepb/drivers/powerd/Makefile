@@ -12,10 +12,9 @@ PMU_OBJS = powerd.o
 PMU = $(TARGET_DIR)/drivers/versatilepb/powerd
 
 $(PMU): $(PMU_OBJS) \
-		$(BUILD_DIR)/lib/libewoksys.a \
-		$(BUILD_DIR)/lib/libgloss.a  \
+		$(EWOK_LIBC_A)  \
 		$(BUILD_DIR)/lib/libarch_vpb.a
-	$(LD) -Ttext=100 $(PMU_OBJS) -o $(PMU) $(LDFLAGS) -larch_vpb -lewoksys -lc -lgloss
+	$(LD) -Ttext=100 $(PMU_OBJS) -o $(PMU) $(LDFLAGS) -larch_vpb $(EWOK_LIBC)
 
 clean:
 	rm -f $(PMU_OBJS)

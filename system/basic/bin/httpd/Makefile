@@ -12,9 +12,8 @@ HTTPD_OBJS = httpd.o
 HTTPD = $(TARGET_DIR)/bin/httpd
 
 $(HTTPD): $(HTTPD_OBJS) \
-		$(BUILD_DIR)/lib/libewoksys.a \
-		$(BUILD_DIR)/lib/libgloss.a 
-	$(LD) -Ttext=100 $(HTTPD_OBJS) -o $(HTTPD) $(LDFLAGS)    -lsocket  -lewoksys -lc -lgloss
+		$(EWOK_LIBC_A) 
+	$(LD) -Ttext=100 $(HTTPD_OBJS) -o $(HTTPD) $(LDFLAGS)    -lsocket  $(EWOK_LIBC)
 
 clean:
 	rm -f $(HTTPD_OBJS)

@@ -12,9 +12,8 @@ DISPLAYD_OBJS = displayd.o
 DISPLAYD = $(TARGET_DIR)/drivers/displayd
 
 $(DISPLAYD): $(DISPLAYD_OBJS) \
-		$(BUILD_DIR)/lib/libewoksys.a \
-		$(BUILD_DIR)/lib/libgloss.a  
-	$(LD) -Ttext=100 $(DISPLAYD_OBJS) -o $(DISPLAYD) $(LDFLAGS) -lewoksys -lc -lgloss
+		$(EWOK_LIBC_A)  
+	$(LD) -Ttext=100 $(DISPLAYD_OBJS) -o $(DISPLAYD) $(LDFLAGS) $(EWOK_LIBC)
 
 clean:
 	rm -f $(DISPLAYD_OBJS)

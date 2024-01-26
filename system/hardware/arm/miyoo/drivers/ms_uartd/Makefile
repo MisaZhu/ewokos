@@ -12,9 +12,8 @@ MS_UARTD_OBJS = ms_uartd.o
 MS_UARTD = $(TARGET_DIR)/drivers/miyoo/ms_uartd
 
 $(MS_UARTD): $(MS_UARTD_OBJS) \
-		$(BUILD_DIR)/lib/libewoksys.a \
-		$(BUILD_DIR)/lib/libgloss.a 
-	$(LD) -Ttext=100 $(MS_UARTD_OBJS) -o $(MS_UARTD) $(LDFLAGS) -lewoksys -lc -lgloss
+		$(EWOK_LIBC_A) 
+	$(LD) -Ttext=100 $(MS_UARTD_OBJS) -o $(MS_UARTD) $(LDFLAGS) $(EWOK_LIBC)
 
 clean:
 	rm -f $(MS_UARTD_OBJS) $(MS_UARTD)

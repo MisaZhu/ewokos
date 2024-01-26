@@ -12,9 +12,8 @@ MOUNT_OBJS = mount.o
 MOUNT = $(TARGET_DIR)/bin/mount
 
 $(MOUNT): $(MOUNT_OBJS) \
-		$(BUILD_DIR)/lib/libewoksys.a \
-		$(BUILD_DIR)/lib/libgloss.a 
-	$(LD) -Ttext=100 $(MOUNT_OBJS) -o $(MOUNT) $(LDFLAGS) -lewoksys -lc -lgloss
+		$(EWOK_LIBC_A) 
+	$(LD) -Ttext=100 $(MOUNT_OBJS) -o $(MOUNT) $(LDFLAGS) $(EWOK_LIBC)
 
 clean:
 	rm -f $(MOUNT_OBJS)

@@ -12,9 +12,8 @@ SESSION_OBJS = session.o
 SESSION = $(TARGET_DIR)/bin/session
 
 $(SESSION): $(SESSION_OBJS) \
-		$(BUILD_DIR)/lib/libewoksys.a \
-		$(BUILD_DIR)/lib/libgloss.a 
-	$(LD) -Ttext=100 $(SESSION_OBJS) -o $(SESSION) $(LDFLAGS) -lewoksys -lc -lgloss
+		$(EWOK_LIBC_A) 
+	$(LD) -Ttext=100 $(SESSION_OBJS) -o $(SESSION) $(LDFLAGS) $(EWOK_LIBC)
 
 clean:
 	rm -f $(SESSION_OBJS)

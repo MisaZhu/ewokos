@@ -12,9 +12,8 @@ cp_OBJS = cp.o
 cp = $(TARGET_DIR)/bin/cp
 
 $(cp): $(cp_OBJS) \
-		$(BUILD_DIR)/lib/libewoksys.a \
-		$(BUILD_DIR)/lib/libgloss.a 
-	$(LD) -Ttext=100 $(cp_OBJS) -o $(cp) $(LDFLAGS) -lewoksys -lc -lgloss
+		$(EWOK_LIBC_A) 
+	$(LD) -Ttext=100 $(cp_OBJS) -o $(cp) $(LDFLAGS) $(EWOK_LIBC)
 
 clean:
 	rm -f $(cp_OBJS)

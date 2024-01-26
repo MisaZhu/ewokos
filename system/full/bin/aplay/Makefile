@@ -12,9 +12,8 @@ CAT_OBJS = aplay.o utils.o pcm.o
 CAT = $(TARGET_DIR)/bin/aplay
 
 $(CAT): $(CAT_OBJS) \
-		$(BUILD_DIR)/lib/libewoksys.a \
-		$(BUILD_DIR)/lib/libgloss.a 
-	$(LD) -Ttext=100 $(CAT_OBJS) -o $(CAT) $(LDFLAGS) -lewoksys -lc -lgloss
+		$(EWOK_LIBC_A) 
+	$(LD) -Ttext=100 $(CAT_OBJS) -o $(CAT) $(LDFLAGS) $(EWOK_LIBC)
 
 clean:
 	rm -f $(CAT_OBJS) $(CAT)

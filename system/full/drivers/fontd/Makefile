@@ -12,12 +12,11 @@ FONTD_OBJS = fontd.o
 FONTD = $(TARGET_DIR)/drivers/fontd
 
 $(FONTD): $(FONTD_OBJS) \
-		$(BUILD_DIR)/lib/libewoksys.a \
-		$(BUILD_DIR)/lib/libgloss.a  \
+		$(EWOK_LIBC_A)  \
 		$(BUILD_DIR)/lib/libsconf.a \
 		$(BUILD_DIR)/lib/libgraph.a \
 		$(BUILD_DIR)/lib/libttf.a 
-	$(LD) -Ttext=100 $(FONTD_OBJS) -o $(FONTD) $(LDFLAGS)  -lttf -lgraph -lbsp -lsconf -lewoksys -lc -lgloss
+	$(LD) -Ttext=100 $(FONTD_OBJS) -o $(FONTD) $(LDFLAGS)  -lttf -lgraph -lbsp -lsconf $(EWOK_LIBC)
 
 clean:
 	rm -f $(FONTD_OBJS)
