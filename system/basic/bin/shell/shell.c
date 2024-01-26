@@ -142,7 +142,7 @@ static int do_pipe_cmd(char* p1, char* p2) {
 		return -1;
 	}
 
-	int pid = fork();
+	int pid = syscall0(SYS_FORK);
 	if(pid != 0) { //father proc for p2 reader.
 		close(fds[1]);
 		dup2(fds[0], 0);
@@ -296,10 +296,13 @@ int main(int argc, char* argv[]) {
 		if(cmd[len] == '&') {
 			cmd[len] = 0;
 			fg = 0;
+			klog("bg: len: %d: 0x%x:%d = [%s]\n", len, cmd, cmd, cmd);
 		}	
 
 		int child_pid = fork();
+		klog("forked: len: %d: 0x%x:%d = [%s]\n", len, cmd, cmd, cmd);
 		if (child_pid == 0) {
+			//klog("len: %d: 0x%x:%d = [%s]\n", len, cmd, cmd, cmd);
 			if(fg == 0 || _initrd)
 				proc_detach();
 			int res = run_cmd(cmd);
@@ -312,7 +315,6 @@ int main(int argc, char* argv[]) {
 	}
 	if(fd_in > 0) //close initrd file
 		close(fd_in);
-	str_free(cmdstr);	
-	free_history();
+free_history();
 	return 0;
 }
