@@ -703,9 +703,7 @@ _execve(const char *name, char *const argv[], char *const env[])
 	char fpath[64];
 	int sz = 0;
 	const char *p = name;
-	kout_str("1\n");
 	saveenv();
-	kout_str("2\n");
 	memset(fpath, 0, sizeof(fpath));
 	for(int i = 0; i < sizeof(fpath); i++){
 		if(name[i] == '\0' || name[i] == ' ' || name[i] == '\t' || name[i] == '\n')
