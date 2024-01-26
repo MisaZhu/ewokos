@@ -105,6 +105,6 @@ int main(int argc, char* argv[]) {
 	}
 
 	setenv("HOME", info->home);
-	execve(info->cmd, "", "");
+	proc_exec(info->cmd);
 	return 0;
 }

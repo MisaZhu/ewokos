@@ -245,5 +245,5 @@ int main(int argc, char* argv[]) {
 	//setenv("CONSOLE", "xconsole", 1);
 	//setenv("CONSOLE_ID", "console-x", 1);
 
-	return execve("/bin/shell", NULL, NULL);
+	return proc_exec("/bin/shell");
 }

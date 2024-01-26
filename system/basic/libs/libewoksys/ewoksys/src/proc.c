@@ -12,14 +12,18 @@ extern "C" {
 
 bool _proc_global_need_lock = false;
 static pthread_mutex_t _proc_global_lock;
+static int _reent_dep = 0;
 
 static int _vfsd_pid;
 static int _cored_pid;
+static int _lock_thread;
 
 void proc_init(void) {
 	_vfsd_pid = -1;
 	_cored_pid = -1;
+	_lock_thread = -1;
 	_proc_global_need_lock = false;
+	_reent_dep = 0;
 	pthread_mutex_init(&_proc_global_lock, NULL);
 }
 
@@ -27,18 +31,31 @@ void proc_exit(void) {
 	pthread_mutex_destroy(&_proc_global_lock);
 }
 
+
 void proc_global_lock(void) {
-	if(_proc_global_need_lock) {
-		//kout("lock\n", 5);
-		pthread_mutex_lock(&_proc_global_lock);
+	if(!_proc_global_need_lock)
+		return -1;
+	int tid = pthread_self();
+	if(tid == _lock_thread) {
+		_reent_dep++;
+		return;
 	}
+
+	pthread_mutex_lock(&_proc_global_lock);
+	_lock_thread = tid;
 }
 
 void proc_global_unlock(void) {
-	if(_proc_global_need_lock) {
-		//kout("unlock\n", 7);
-		pthread_mutex_unlock(&_proc_global_lock);
+	if(!_proc_global_need_lock)
+		return;
+
+	if(_reent_dep > 0)  {
+		_reent_dep--;
+		return;
 	}
+		
+	pthread_mutex_unlock(&_proc_global_lock);
+	_lock_thread = -1;
 }
 
 void __malloc_lock (struct _reent *reent) {
@@ -87,6 +104,12 @@ inline void proc_wakeup_pid(int pid, uint32_t evt) {
 
 inline void proc_exec_elf(const char* cmd_line, const char* elf, int32_t size) {
 	syscall3(SYS_EXEC_ELF, (int32_t)cmd_line, (int32_t)elf, size);
+}
+
+int  proc_exec(const char* cmd_line) {
+	char* arg0[] = {cmd_line, NULL};
+	char* arg1[] = {"", NULL};
+	return execve(cmd_line, arg0, arg1); 		
 }
 
 inline uint32_t proc_check_uuid(int32_t pid, uint32_t uuid) {

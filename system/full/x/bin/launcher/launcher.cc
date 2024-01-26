@@ -89,8 +89,9 @@ class LauncherView: public ListView {
 		}
 
 		int pid = fork();
-		if(pid == 0)
-			execve(item->fname->cstr, NULL, NULL); 
+		if(pid == 0) {
+			proc_exec(item->fname->cstr); 
+		}
 		else {
 			item->runPid = pid;
 			item->runPidUUID = proc_get_uuid(pid);

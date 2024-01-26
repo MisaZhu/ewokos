@@ -70,7 +70,7 @@ static void run_init(const char* init_file) {
 		char cmd[FS_FULL_NAME_MAX];
 		snprintf(cmd, FS_FULL_NAME_MAX-1, "/bin/shell -initrd %s", init_file);
 		klog("\ninit: loading '%s' ... \n", init_file);
-		if(execve(cmd, "", "") != 0) {
+		if(proc_exec(cmd) != 0) {
 			klog("[failed]!\n");
 			exit(-1);
 		}

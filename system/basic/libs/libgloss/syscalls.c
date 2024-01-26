@@ -427,6 +427,7 @@ _sbrk (ptrdiff_t incr)
 {
   char *prev_heap_end;
 
+  proc_global_lock();
 
   __heap_size += incr;
   __heap_ptr = syscall1(SYS_MALLOC_EXPAND, incr);
@@ -438,6 +439,7 @@ _sbrk (ptrdiff_t incr)
 //   kout_int("sbrk", incr);
 //   kout_int("pid", _getpid());
 //   kout_int("current", __heap_size);
+  proc_global_unlock();
   return (void *) prev_heap_end;
 }
 
@@ -701,7 +703,9 @@ _execve(const char *name, char *const argv[], char *const env[])
 	char fpath[64];
 	int sz = 0;
 	const char *p = name;
+	kout_str("1\n");
 	saveenv();
+	kout_str("2\n");
 	memset(fpath, 0, sizeof(fpath));
 	for(int i = 0; i < sizeof(fpath); i++){
 		if(name[i] == '\0' || name[i] == ' ' || name[i] == '\t' || name[i] == '\n')

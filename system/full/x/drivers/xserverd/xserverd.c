@@ -1477,7 +1477,7 @@ int main(int argc, char** argv) {
 		pid = fork();
 		if(pid == 0) {
 			setenv("XTHEME", x.config.theme);
-			execve(x.config.xwm, "", "");
+			proc_exec(x.config.xwm);
 		}
 		ipc_wait_ready(pid);
 		x.xwm_pid = pid;

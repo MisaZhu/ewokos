@@ -12,7 +12,7 @@ static int run(const char* cmd) {
 	if(pid == 0) {
 		proc_detach();
 
-		if(execve(cmd, "", "") != 0) {
+		if(proc_exec(cmd) != 0) {
 			exit(-1);
 		}
 	}
