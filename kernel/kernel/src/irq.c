@@ -237,15 +237,11 @@ void data_abort_handler(context_t* ctx, uint32_t addr_fault, uint32_t status) {
 	}
 
 	printf("\npid: %d(%s), core: %d, data abort at: 0x%X, status: 0x%X\n", 
-			cproc->info.pid,
-			cproc->info.cmd,
-			cproc->info.core,
-			addr_fault,
-			status);
+			cproc->info.pid, cproc->info.cmd, cproc->info.core, addr_fault, status);
 	if(err == 2) //illegel address
-		printf("\terror:%s! (0x%X->0x%X)\n", errmsg, 0x100, cproc->space->heap_size);
+		printf("\terror: %s! heap(0x%X->0x%X)\n", errmsg, 0x100, cproc->space->heap_size);
 	else
-		printf("\terror:%s!\n", errmsg);
+		printf("\terror: %s!\n", errmsg);
 
 	dump_ctx(&cproc->ctx);
 	proc_exit(ctx, cproc, -1);

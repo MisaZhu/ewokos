@@ -670,15 +670,15 @@ static int _ewok_set_env(const char* name, const char* value) {
 
 
 static void saveenv() {
-	char buf[128] = {0};
-    char ** env;
-    extern char ** environ;
-    env = environ;
-    for (env; *env; ++env) {
+	char buf[256] = {0};
+	char ** env;
+	extern char ** environ;
+	env = environ;
+	for (env; *env; ++env) {
 		memset(buf, 0, sizeof(buf));
 		char* key = buf;
 		char* value = buf;
-		for(int i= 0;i < sizeof(buf); i++){
+		for(int i= 0;i < sizeof(buf)-1; i++){
 			char c = (*env)[i];
 			if(c == '\0'){
 				break;
@@ -690,10 +690,10 @@ static void saveenv() {
 				buf[i] = c;
 			}
 		}
-		if(key && value){
+		if(key[0] != 0){
 			_ewok_set_env(key, value);
 		}
-    }
+  }
 }
 
 int

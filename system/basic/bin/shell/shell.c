@@ -17,7 +17,7 @@
 
 bool _initrd = false;
 bool _stdio_inited = false;
-bool _stderr_console_inited = false;
+int  _console_fd = -1;
 bool _terminated = false;
 
 old_cmd_t* _history = NULL;
@@ -194,9 +194,9 @@ static void prompt(void) {
 		cid = "0";
 	char cwd[FS_FULL_NAME_MAX+1];
 	if(uid == 0)
-		printf("ewok(%s):%s# ", cid, getcwd(cwd, FS_FULL_NAME_MAX));
+		printf("\033[4mewok(%s):%s#\033[0m ", cid, getcwd(cwd, FS_FULL_NAME_MAX));
 	else
-		printf("ewok(%s):%s$ ", cid, getcwd(cwd, FS_FULL_NAME_MAX));
+		printf("\033[4mewok(%s):%s$\033[0m ", cid, getcwd(cwd, FS_FULL_NAME_MAX));
 }
 
 static void try_init_stdio(void) {
@@ -210,15 +210,6 @@ static void try_init_stdio(void) {
 			_stdio_inited = true;
 		}
 	}
-
-	if(!_stderr_console_inited) {
-		int fd_console = open("/dev/console0", O_RDWR);
-		if(fd_console > 0) {
-			dup2(fd_console, 2);
-			close(fd_console);
-			_stderr_console_inited = true;
-		}
-	}
 }
 
 static void initrd_out(const char* cmd) {
@@ -226,22 +217,22 @@ static void initrd_out(const char* cmd) {
 		return;
 
 	try_init_stdio();
-
 	if(!_stdio_inited) {
 		klog("%s\n", cmd);
 		return;
 	}
-
-	
-	if(_stderr_console_inited)
-		fprintf(stderr, "%s\n", cmd);
 	printf("%s\n", cmd);
+	
+	if(_console_fd < 0) 
+		_console_fd = open("/dev/console0", O_RDWR);
+	if(_console_fd >= 0) 
+		dprintf(_console_fd, "%s\n", cmd);
 }
 
 int main(int argc, char* argv[]) {
 	_initrd = false;
 	_stdio_inited = false;
-	_stderr_console_inited = false;
+	_console_fd = -1;
 	_history = NULL;
 	_terminated = 0;
 	setbuf(stdout, NULL);
@@ -268,12 +259,8 @@ int main(int argc, char* argv[]) {
 		if(fd_in == 0)
 			prompt();
 
-		printf("\033[1m");
-		if(cmd_gets(fd_in, cmdstr) != 0 && cmdstr->len == 0) {
-			printf("\033[0m");
+		if(cmd_gets(fd_in, cmdstr) != 0 && cmdstr->len == 0)
 			break;
-		}
-		printf("\033[0m");
 
 		char* cmd = cmdstr->cstr;
 		if(cmd[0] == 0)
