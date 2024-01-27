@@ -180,6 +180,8 @@ void prefetch_abort_handler(context_t* ctx, uint32_t status) {
 		halt();
 	}
 	
+	kprintf("handle prefetch abort: %d, status: 0x%x, addr: 0x%x\n", cproc->info.pid, status, ctx->pc);
+
 	if(((status & 0x1D) == 0xD || //permissions fault only
 		(status & 0x1F) == 0x6) && 
 			ctx->pc < cproc->space->heap_size) { //in proc heap only
@@ -208,11 +210,12 @@ void data_abort_handler(context_t* ctx, uint32_t addr_fault, uint32_t status) {
 		dump_ctx(ctx);
 		halt();
 	}
-	//kprintf("handle data abort: %d, 0x%x, 0x%x\n", cproc->info.pid, status, addr_fault);
+	kprintf("handle data abort: %d, 0x%x, 0x%x\n", cproc->info.pid, status, addr_fault);
 
 	uint32_t err = 0;
 	const char* errmsg = "";
 	static const uint32_t legel_addr_base = 0x400;
+
 	if((status & 0x5) == 0x5) { //permissions fault only
 		if(addr_fault >= legel_addr_base && addr_fault < cproc->space->heap_size) { //in proc heap only
 			if (kernel_lock_check() > 0)

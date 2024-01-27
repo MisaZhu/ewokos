@@ -179,9 +179,10 @@ static void proc_shrink_mem(proc_t* proc, int32_t page_num) {
 }
 
 /* proc_exapnad_memory expands the heap size of the given process. */
-static int32_t proc_expand_mem(proc_t *proc, int32_t page_num) {
+static int32_t proc_expand_mem(proc_t *proc, int32_t page_num, uint32_t rdonly) {
 	int32_t i;
 	int32_t res = 0;
+	uint32_t mode = rdonly == 0 ? AP_RW_RW:AP_RW_R;
 
 	for (i = 0; i < page_num; i++) {
 		char *page = kalloc4k();
@@ -195,7 +196,7 @@ static int32_t proc_expand_mem(proc_t *proc, int32_t page_num) {
 		map_page_ref(proc->space->vm,
 				proc->space->heap_size,
 				V2P(page),
-				AP_RW_RW, PTE_ATTR_WRBACK);
+				mode, PTE_ATTR_WRBACK);
 		proc->space->heap_size += PAGE_SIZE;
 	}
 	flush_tlb();
@@ -524,7 +525,7 @@ inline void* proc_malloc(proc_t* proc, int32_t size) {
 	}
 	else {
 		//kprintf("kproc expand pages: %d, size: %d\n", pages, size);
-		if(proc_expand_mem(proc, pages+1) != 0)
+		if(proc_expand_mem(proc, pages+1, 0) != 0)
 			return NULL;
 	}
 	return (void*)proc->space->malloc_base;
@@ -627,7 +628,6 @@ int32_t proc_load_elf(proc_t *proc, const char *image, uint32_t size) {
 		return -1;
 
 	prog_header_count = ELF_PHNUM(proc_image);
-
 	uint32_t *debug = 0;
 	for (i = 0; i < prog_header_count; i++) {
 		uint32_t j = 0;
@@ -635,26 +635,36 @@ int32_t proc_load_elf(proc_t *proc, const char *image, uint32_t size) {
 		uint32_t vaddr = ELF_PVADDR(proc_image, i);
 		uint32_t memsz = ELF_PSIZE(proc_image, i);
 		uint32_t offset = ELF_POFFSET(proc_image, i);
+		uint32_t flags = ELF_PFLAGS(proc_image, i);
+		uint8_t rdonly = 0;	
+		//if((flags & 0x2) == 0)
+			//rdonly = 1;
 
-		while (proc->space->heap_size < vaddr + memsz) {
-			if(proc_expand_mem(proc, 1) != 0){ 
+		printf("\nelf header: %s, vaddr 0x%x, vtail 0x%x, offset 0x%x, heap 0x%x\n",
+			rdonly?"r":"rw", vaddr, vaddr+memsz, offset, proc->space->heap_size);
+
+		while (proc->space->heap_size <= (vaddr + memsz)) {
+			if(proc_expand_mem(proc, 1, rdonly) != 0){ 
 				kfree(proc_image);
 				return -1;
 			}
 		}
+		printf("expanded 0x%x, copy elf img 0x%x->", proc->space->heap_size, vaddr);
 		/* copy the section from kernel to proc mem space*/
 		uint32_t hvaddr = vaddr;
 		uint32_t hoff = offset;
 		for (j = 0; j < memsz; j++) {
-			uint32_t vaddr = hvaddr + j; /*vaddr in elf (proc vaddr)*/
+			vaddr = hvaddr + j; /*vaddr in elf (proc vaddr)*/
 			uint32_t vkaddr = resolve_kernel_address(proc->space->vm, vaddr); /*trans to phyaddr by proc's page dir*/
 			/*copy from elf to vaddrKernel(=phyaddr=vaddrProc=vaddrElf)*/
 
 			uint32_t image_off = hoff + j;
 			*(char*)vkaddr = proc_image[image_off];
 		}
+		printf("0x%x", vaddr);
 		prog_header_offset += sizeof(struct elf_program_header);
 	}
+	printf("\n\n");
 
 	proc->space->malloc_base = proc->space->heap_size;
 	uint32_t user_stack_base =  proc_get_user_stack_base(proc);

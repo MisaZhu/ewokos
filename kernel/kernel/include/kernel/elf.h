@@ -108,5 +108,11 @@ struct elf64_program_header {
 #define ELF_POFFSET(img, n)		(ELF_CLASS(img) == ELFCLASS_32? \
 									(((struct elf_program_header*)(ELF_PHEAD(img, n)))->off): \
 									(((struct elf64_program_header*)(ELF_PHEAD(img, n)))->off))
+#define ELF_PTYPE(img, n)		(ELF_CLASS(img) == ELFCLASS_32? \
+									(((struct elf_program_header*)(ELF_PHEAD(img, n)))->type): \
+									(((struct elf64_program_header*)(ELF_PHEAD(img, n)))->type))
+#define ELF_PFLAGS(img, n)		(ELF_CLASS(img) == ELFCLASS_32? \
+									(((struct elf_program_header*)(ELF_PHEAD(img, n)))->flags): \
+									(((struct elf64_program_header*)(ELF_PHEAD(img, n)))->flags))
 
 #endif
