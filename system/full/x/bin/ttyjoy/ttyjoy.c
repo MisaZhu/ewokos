@@ -32,6 +32,14 @@ static void prompt(void) {
 			"+----------------------------------------+\n");
 }
 
+#define KEY_1	KEY_DOWN
+#define KEY_2	KEY_UP	
+
+// #define KEY_1	KEY_RIGHT
+// #define KEY_2	KEY_LEFT
+
+#define DELAYUS		1000000
+
 int main(int argc, char* argv[]) {
 	(void)argc;
 	(void)argv;
@@ -42,6 +50,45 @@ int main(int argc, char* argv[]) {
 		return -1;
 	}
 	prompt();
+
+	input(x_pid, KEY_1, XIM_STATE_PRESS);
+	input(x_pid, KEY_1, XIM_STATE_RELEASE);	
+	usleep(DELAYUS);
+	input(x_pid, KEY_1, XIM_STATE_PRESS);
+	input(x_pid, KEY_1, XIM_STATE_RELEASE);	
+	usleep(DELAYUS);
+	input(x_pid, KEY_1, XIM_STATE_PRESS);
+	input(x_pid, KEY_1, XIM_STATE_RELEASE);	
+	usleep(DELAYUS);
+	while(1){
+		input(x_pid, KEY_BUTTON_A, XIM_STATE_PRESS);	
+		input(x_pid, KEY_BUTTON_A, XIM_STATE_RELEASE);	
+		usleep(DELAYUS);
+		input(x_pid, KEY_HOME, XIM_STATE_PRESS);	
+		input(x_pid, KEY_HOME, XIM_STATE_RELEASE);	
+		usleep(DELAYUS);
+	
+		input(x_pid, KEY_2, XIM_STATE_PRESS);
+		input(x_pid, KEY_2, XIM_STATE_RELEASE);	
+		usleep(DELAYUS);
+		input(x_pid, KEY_2, XIM_STATE_PRESS);
+		input(x_pid, KEY_2, XIM_STATE_RELEASE);	
+		usleep(DELAYUS);
+
+		input(x_pid, KEY_BUTTON_A, XIM_STATE_PRESS);	
+		input(x_pid, KEY_BUTTON_A, XIM_STATE_RELEASE);	
+		usleep(DELAYUS);
+		input(x_pid, KEY_HOME, XIM_STATE_PRESS);	
+		input(x_pid, KEY_HOME, XIM_STATE_RELEASE);	
+		usleep(DELAYUS);
+
+		input(x_pid, KEY_1, XIM_STATE_PRESS);
+		input(x_pid, KEY_1, XIM_STATE_RELEASE);	
+		usleep(DELAYUS);
+		input(x_pid, KEY_1, XIM_STATE_PRESS);
+		input(x_pid, KEY_1, XIM_STATE_RELEASE);	
+		usleep(DELAYUS);
+	}
 
 	while(1) {
 		uint8_t ks[3];
