@@ -179,7 +179,7 @@ void prefetch_abort_handler(context_t* ctx, uint32_t status) {
 		dump_ctx(ctx);
 		halt();
 	}
-	//kprintf("handle prefetch abort: %d, status: 0x%x, addr: 0x%x\n", cproc->info.pid, status, ctx->pc);
+	/*kprintf("handle prefetch abort: %d, status: 0x%x, addr: 0x%x\n", cproc->info.pid, status, ctx->pc);
 
 	if(((status & 0x1D) == 0xD || //permissions fault only
 		(status & 0x1F) == 0x6) && 
@@ -193,6 +193,7 @@ void prefetch_abort_handler(context_t* ctx, uint32_t status) {
 		if(res == 0)
 			return;
 	}
+	*/
 
 	printf("pid: %d(%s), prefetch abort!! (core %d) code:0x%x\n", cproc->info.pid, cproc->info.cmd, core, status);
 	dump_ctx(&cproc->ctx);
