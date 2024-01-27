@@ -806,6 +806,7 @@ static int32_t proc_clone(proc_t* child, proc_t* parent) {
 			parent->stack.user_stack[i]);
 	}
 	child->space->malloc_base = parent->space->malloc_base;
+	child->space->rw_heap_base = parent->space->rw_heap_base;
 	flush_tlb();
 	return 0;
 }
