@@ -721,6 +721,27 @@ _execve(const char *name, char *const argv[], char *const env[])
 	return 0;
 }
 
+int execl(const char *name, const char* arg0, ...) {
+	char fpath[64];
+	int sz = 0;
+	const char *p = name;
+	saveenv();
+	memset(fpath, 0, sizeof(fpath));
+	for(int i = 0; i < sizeof(fpath); i++){
+		if(name[i] == '\0' || name[i] == ' ' || name[i] == '\t' || name[i] == '\n')
+			break;
+		fpath[i] = name[i];
+	}
+	void* buf = vfs_readfile(fpath, &sz);
+
+	if(buf == NULL) {
+		return -1;
+	}
+	proc_exec_elf(name, buf, sz);
+	free(buf);
+	return 0;
+}
+
 int _fork()
 {
   	kout(__func__);

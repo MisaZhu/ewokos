@@ -107,9 +107,11 @@ inline void proc_exec_elf(const char* cmd_line, const char* elf, int32_t size) {
 }
 
 int  proc_exec(const char* cmd_line) {
-	char* arg0[] = {"", NULL};
+	/*char* arg0[] = {"", NULL};
 	char* arg1[] = {"", NULL};
 	return execve(cmd_line, arg0, arg1); 		
+	*/
+	return execl(cmd_line, "", NULL);
 }
 
 inline uint32_t proc_check_uuid(int32_t pid, uint32_t uuid) {
