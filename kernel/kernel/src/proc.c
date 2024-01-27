@@ -636,14 +636,17 @@ int32_t proc_load_elf(proc_t *proc, const char *image, uint32_t size) {
 		uint32_t memsz = ELF_PSIZE(proc_image, i);
 		uint32_t offset = ELF_POFFSET(proc_image, i);
 		uint32_t flags = ELF_PFLAGS(proc_image, i);
-		uint8_t rdonly = 0;	
-		if((flags & 0x2) == 0)
-			rdonly = 1;
-		else if(proc->space->rw_heap_base == 0)
-			proc->space->rw_heap_base = vaddr;
 
-		//printf("\nelf header: %s, vaddr 0x%x, vtail 0x%x, offset 0x%x, heap 0x%x\n",
-			//rdonly?"r":"rw", vaddr, vaddr+memsz, offset, proc->space->heap_size);
+		uint8_t rdonly = 0;	
+		if((flags & 0x2) == 0) {
+			rdonly = 1;
+		}
+		else {
+			if(proc->space->rw_heap_base == 0)
+				proc->space->rw_heap_base = vaddr;
+			else if(vaddr < proc->space->rw_heap_base)
+				proc->space->rw_heap_base = vaddr;
+		}
 
 		while (proc->space->heap_size < (vaddr + memsz)) {
 			if(proc_expand_mem(proc, 1, rdonly) != 0){ 
@@ -651,6 +654,7 @@ int32_t proc_load_elf(proc_t *proc, const char *image, uint32_t size) {
 				return -1;
 			}
 		}
+
 		//printf("expanded 0x%x, copy elf img 0x%x->", proc->space->heap_size, vaddr);
 		/* copy the section from kernel to proc mem space*/
 		uint32_t hvaddr = vaddr;
@@ -666,6 +670,8 @@ int32_t proc_load_elf(proc_t *proc, const char *image, uint32_t size) {
 		prog_header_offset += sizeof(struct elf_program_header);
 	}
 
+	if(proc->space->rw_heap_base < 0x400)
+			proc->space->rw_heap_base = 0x400; //1024
 	proc->space->malloc_base = proc->space->heap_size;
 	uint32_t user_stack_base =  proc_get_user_stack_base(proc);
 	uint32_t pages = proc_get_user_stack_pages(proc);
