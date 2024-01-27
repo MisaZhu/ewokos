@@ -101,7 +101,6 @@ LIB_EWOKC_OBJS += \
 	src/stdlib/random.o \
 	src/stdlib/setenv.o \
 	src/stdlib/getenv.o \
-	src/stdlib/strtoul.o \
 	src/stdlib/rand.o \
 	\
 	src/pthread/pthread_create.o \

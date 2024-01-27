@@ -25,6 +25,7 @@ CFLAGS = -Wstrict-prototypes \
         -fno-builtin-ungetc \
         -fno-builtin-realloc \
         -fno-builtin-malloc \
+        -fno-builtin-strtoul \
         -fno-builtin-free \
         -Wno-overlength-strings \
         -fno-builtin-exit \
@@ -52,6 +53,7 @@ CXXFLAGS = -marm \
         -fno-builtin-ungetc \
         -fno-builtin-realloc \
         -fno-builtin-malloc \
+        -fno-builtin-strtoul \
         -fno-builtin-free \
         -Wno-overlength-strings \
         -fno-builtin-exit \
