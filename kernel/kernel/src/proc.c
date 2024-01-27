@@ -506,18 +506,14 @@ inline void* proc_malloc(proc_t* proc, int32_t size) {
 		shrink = 1;
 		size = -size;
 		size = ALIGN_DOWN(size, PAGE_SIZE);
-		pages = (size / PAGE_SIZE);
-		if(pages > 0 && (size % PAGE_SIZE) != 0)
-			pages--;
-		if(pages == 0)
-			return (void*)proc->space->malloc_base;
 	}
 	else {
 		size = ALIGN_UP(size, PAGE_SIZE);
-		pages = (size / PAGE_SIZE);
-		if((size % PAGE_SIZE) != 0)
-			pages++;
 	}
+
+	pages = (size / PAGE_SIZE);
+	if(pages == 0)
+		return (void*)proc->space->malloc_base;
 
 	if(shrink != 0) {
 		//kprintf("kproc shrink pages: %d, size: %d\n", pages, size);
