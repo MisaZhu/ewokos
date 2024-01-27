@@ -67,8 +67,7 @@ int32_t mouse_init(void) {
 	_mmio_base = mmio_map();
 	uint8_t data;
 	uint32_t divisor = 1000;
-	put8(MOUSE_CLKDIV, divisor);
-
+	put8(MOUSE_BASE+MOUSE_CLKDIV, divisor);
 	put8(MOUSE_BASE+MOUSE_CR, MOUSE_CR_EN);
 	//reset mouse, and wait ack and pass/fail code
 	if(! kmi_write(0xff) )

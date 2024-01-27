@@ -22,6 +22,7 @@ typedef struct {
 typedef struct {
 	page_dir_entry_t* vm;
 	uint32_t          malloc_base;
+	uint32_t          rw_heap_base;
 	uint32_t          heap_size;
 	int32_t           refs;
 	bool              ready_ping;

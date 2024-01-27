@@ -61,7 +61,7 @@ CXXFLAGS = -marm \
         -fno-builtin-unistd \
         -std=c++14
 
-EWOK_LIBC = -lewokc -lc_nano 
+EWOK_LIBC = -lewokc -lc_nano -lnosys
 EWOK_LIBC_A = $(BUILD_DIR)/lib/libewokc.a
 CFLAGS +=  -DEWOKLIBC
 CXXFLAGS +=  -DEWOKLIBC
