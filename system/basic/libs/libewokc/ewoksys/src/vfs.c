@@ -203,8 +203,8 @@ const char* vfs_fullname(const char* fname) {
 		str_add(fullname, fname);
 	}
 
-	static char ret[FS_FULL_NAME_MAX];
-	sstrncpy(ret, fullname->cstr, FS_FULL_NAME_MAX-1);
+	static char ret[FS_FULL_NAME_MAX] = {0};
+	strncpy(ret, fullname->cstr, FS_FULL_NAME_MAX-1);
 	str_free(fullname);
 	return ret;
 }

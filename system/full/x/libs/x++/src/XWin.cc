@@ -88,6 +88,7 @@ static void _on_event(xwin_t* xw, xevent_t* ev) {
 
 XWin::XWin(void) {
 	font_init();
+	theme.loadSystem();
 	this->xwin = NULL;
 }
 

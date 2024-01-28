@@ -26,6 +26,7 @@ public:
 	static bool    getScreenInfo(xscreen_t& scr, int index = 0);
 	static bool    getDesktopSpace(grect_t& r, int index = 0);
 	static bool    setDesktopSpace(const grect_t& r, int index = 0);
+	static int     getTheme(x_theme_t* theme);
 	static font_t* getSysFont(void);
 };
 

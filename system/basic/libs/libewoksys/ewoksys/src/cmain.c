@@ -52,11 +52,11 @@ static char* read_cmain_arg(void) {
 }
 
 const char* cmain_get_work_dir(void) {
-	static char ret[PROC_INFO_CMD_MAX];
+	static char ret[PROC_INFO_CMD_MAX] = {0};
 	int i = strlen(_argv0) - 1;
-	while(i >= 0) {
+	while(i >= 0 && i < PROC_INFO_CMD_MAX) {
 		if(_argv0[i] == '/') {
-			sstrncpy(ret, _argv0, i);
+			strncpy(ret, _argv0, i);
 			ret[i] = 0;
 			return ret;
 		}

@@ -59,7 +59,6 @@ typedef struct {
 	bool bg_run;
 	bool force_fullscreen;
 	char xwm[128];
-	char theme[128];
 } x_conf_t;
 
 typedef struct {
@@ -130,11 +129,7 @@ static int32_t read_config(x_t* x, const char* fname) {
 	
 	v = sconf_get(conf, "xwm");
 	if(v[0] != 0) 
-		sstrncpy(x->config.xwm, v, 127);
-	
-	v = sconf_get(conf, "theme");
-	if(v[0] != 0)
-		sstrncpy(x->config.theme, v, 127);
+		strncpy(x->config.xwm, v, 127);
 
 	v = sconf_get(conf, "cursor");
 	if(strcmp(v, "touch") == 0)
@@ -970,11 +965,6 @@ static int x_win_space(x_t* x, proto_t* in, proto_t* out) {
 	return 0;
 }
 
-static int x_get_theme(x_t* x, proto_t* out) {
-	PF->adds(out, x->config.theme);
-	return 0;
-}
-
 static int x_get_desktop_space(x_t* x, proto_t* in, proto_t* out) {
 	uint8_t disp_index = proto_read_int(in);
 
@@ -1414,9 +1404,6 @@ static int xserver_dev_cntl(int from_pid, int cmd, proto_t* in, proto_t* ret, vo
 	else if(cmd == X_DCNTL_GET_EVT) {
 		x_get_event(from_pid, ret);
 	}
-	else if(cmd == X_DCNTL_GET_THEME) {
-		x_get_theme(x, ret);
-	}
 	else if(cmd == X_DCNTL_GET_DESKTOP_SPACE) {
 		x_get_desktop_space(x, in, ret);
 	}
@@ -1468,15 +1455,16 @@ int main(int argc, char** argv) {
 	x_t x;
 	if(x_init(&x, display_man, display_index) != 0)
 		return -1;
+	x_theme_t theme;
+	x_get_theme(&theme);
 
 	read_config(&x, "/etc/x/x.conf");
-	cursor_init(x.config.theme, &x.cursor);
+	cursor_init(theme.name, &x.cursor);
 
 	int pid = -1;
 	if(x.config.xwm[0] != 0) {
 		pid = fork();
 		if(pid == 0) {
-			setenv("XTHEME", x.config.theme);
 			proc_exec(x.config.xwm);
 		}
 		ipc_wait_ready(pid);

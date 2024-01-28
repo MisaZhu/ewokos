@@ -65,11 +65,11 @@ static int32_t find_exec(char* cmd, char* fname, char* full_cmd) {
 	const char* paths = getenv(ENV_PATH);
 	if(paths == NULL)
 		paths = "";
-	char path[FS_FULL_NAME_MAX];
+	char path[FS_FULL_NAME_MAX] = {0};
 	i = 0;
 	while(1) {
 		if(paths[i] == 0 || paths[i] == ':') {
-			sstrncpy(path, paths, i);
+			strncpy(path, paths, i);
 			path[i] = 0;
 			if(path[0] != 0) {
 				snprintf(fname, FS_FULL_NAME_MAX-1, "%s/%s", path, cmd);

@@ -37,7 +37,7 @@ void     x_init(x_t* x, void* data);
 int      x_run(x_t* x, void* loop_data);
 void     x_terminate(x_t* x);
 const char* x_get_work_dir(void);
-const char* x_get_theme(void);
+int      x_get_theme(x_theme_t* theme);
 const char* x_get_theme_fname(const char* prefix, const char* app_name, const char* fname);
 int      x_get_desktop_space(int disp_index, grect_t* r);
 int      x_set_desktop_space(int disp_index, const grect_t* r);

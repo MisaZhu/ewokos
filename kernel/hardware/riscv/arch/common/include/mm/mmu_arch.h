@@ -39,7 +39,7 @@ typedef struct {
 	uint64_t ppn			: 44;
     uint32_t reserved  		: 7;
 	/*c906 extend*/
-	uint8_t  bufferable         : 1;
+	uint8_t  writeback         : 1;
 	uint8_t  cacheable          : 1;
 	uint8_t  strongorder		: 1;
 } page_table_entry_t; 

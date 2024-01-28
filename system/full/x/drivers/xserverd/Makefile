@@ -17,8 +17,10 @@ $(XSERVERD): $(XSERVERD_OBJS) \
 		$(BUILD_DIR)/lib/libfb.a  \
 		$(BUILD_DIR)/lib/libupng.a  \
 		$(BUILD_DIR)/lib/libgraph.a  \
+		$(BUILD_DIR)/lib/libx.a  \
+		$(BUILD_DIR)/lib/libfont.a  \
 		$(BUILD_DIR)/lib/libdisplay.a
-	$(LD) -Ttext=100 $(XSERVERD_OBJS) -o $(XSERVERD) $(LDFLAGS) -lupng -lgraph -lbsp -lfb -ldisplay -lsconf $(EWOK_LIBC)
+	$(LD) -Ttext=100 $(XSERVERD_OBJS) -o $(XSERVERD) $(LDFLAGS) -lx -lfont -lupng -lgraph -lbsp -lfb -ldisplay -lsconf $(EWOK_LIBC)
 
 clean:
 	rm -f $(XSERVERD_OBJS)

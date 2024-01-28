@@ -4,20 +4,17 @@
 #include <string.h>
 #include <sconf/sconf.h>
 #include <upng/upng.h>
-#include <font/font.h>
 #include <x++/X.h>
 #include <ewoksys/keydef.h>
 #include <dirent.h>
 #include <ewoksys/basic_math.h>
 #include <ewoksys/proc.h>
+#include <ewoksys/klog.h>
 #include <elf/elf.h>
 
 using namespace Ewok;
 
 class Finder: public XWin {
-	font_t font;
-	uint32_t bgColor;
-	uint32_t fgColor;
 	uint32_t hideColor;
 	uint32_t selectColor;
 	uint32_t titleColor;
@@ -151,10 +148,10 @@ protected:
 	void onRepaint(graph_t* g) {
 		char name[FS_FULL_NAME_MAX+1];
 		int h = itemSize;
-		int yMargin = (itemSize - font.max_size.y)/2;
+		int yMargin = (itemSize - theme.getFont()->max_size.y)/2;
 		int xMargin = 8;
 
-		graph_clear(g, bgColor);
+		graph_clear(g, theme.basic.bgColor);
 
 		graph_fill_3d(g, 0, 0, g->w, h, titleBGColor, false);
 
@@ -168,14 +165,14 @@ protected:
 					g, xMargin, iconMargin, dirIcon->w, dirIcon->h, 0xff);
 			xMargin += dirIcon->w + 4;
 		}
-		graph_draw_text_font(g, xMargin, yMargin, name, &font, titleColor);
+		graph_draw_text_font(g, xMargin, yMargin, name, theme.getFont(), titleColor);
 
 		for(int i=start; i<nums; i++) {
 			struct dirent* it = &files[i];
 			if(i == selected)
 				graph_fill(g, 0, (i+1-start)*h, g->w, h, selectColor);
 
-			uint32_t color = fgColor;
+			uint32_t color = theme.basic.fgColor;
 			if(it->d_name[0] == '.')
 				color = hideColor;
 
@@ -194,7 +191,7 @@ protected:
 						g, xMargin, (i+1-start)*h+iconMargin, icon->w, icon->h, 0xff);
 				xMargin += icon->w + 4;
 			}
-			graph_draw_text_font(g, xMargin, (i+1-start)*h+yMargin, it->d_name, &font, color);
+			graph_draw_text_font(g, xMargin, (i+1-start)*h+yMargin, it->d_name, theme.getFont(), color);
 		}
 	}
 
@@ -287,8 +284,6 @@ protected:
 
 public:
 	inline Finder() {
-		bgColor = 0xff000000;
-		fgColor = 0xffffffff;
 		hideColor = 0xff888888;
 		selectColor = 0xff444444;
 		titleColor = 0xffffff00;
@@ -296,7 +291,6 @@ public:
 		fileIcon = png_image_new(x_get_theme_fname(X_THEME_ROOT, "finder", "icons/file.png"));
 		dirIcon = png_image_new(x_get_theme_fname(X_THEME_ROOT, "finder", "icons/folder.png"));
 		devIcon = png_image_new(x_get_theme_fname(X_THEME_ROOT, "finder", "icons/device.png"));
-		font_load(DEFAULT_SYSTEM_FONT, 14, &font, true);
 		itemSize = 36;
 
 		selected = 0;
@@ -313,7 +307,6 @@ public:
 			graph_free(dirIcon);
 		if(devIcon != NULL)
 			graph_free(devIcon);
-		font_close(&font);
 		if(fileTypes != NULL)
 			sconf_free(fileTypes);
 	}
@@ -323,30 +316,13 @@ public:
 		if(conf == NULL)
 			return false;
 
-		uint32_t font_size = 14;
-		const char* v = sconf_get(conf, "font_size");
-		if(v[0] != 0)
-			font_size = atoi(v);
+		theme.loadConfig(conf);
 
-		v = sconf_get(conf, "font");
-		if(v[0] == 0) 
-			v = DEFAULT_SYSTEM_FONT;
-		font_close(&font);
-		font_load(v, font_size, &font, true);
-
-		v = sconf_get(conf, "item_size");
+		const char* v = sconf_get(conf, "item_size");
 		if(v[0] != 0)
 			itemSize = atoi(v);
-		if(font.max_size.y > itemSize)
-			itemSize = font.max_size.y;
-
-		v = sconf_get(conf, "bg_color");
-		if(v[0] != 0)
-			bgColor = strtoul(v, NULL,16);
-
-		v = sconf_get(conf, "fg_color");
-		if(v[0] != 0)
-			fgColor = strtoul(v,NULL, 16);
+		if(theme.getFont()->max_size.y > itemSize)
+			itemSize = theme.getFont()->max_size.y;
 
 		v = sconf_get(conf, "select_color");
 		if(v[0] != 0)
@@ -385,10 +361,10 @@ int main(int argc, char* argv[]) {
 	(void)argc;
 	(void)argv;
 
+	X x;
 	Finder xwin;
 	xwin.readConfig(x_get_theme_fname(X_THEME_ROOT, "finder", "theme.conf"));
 
-	X x;
 	x.open(0, &xwin, 300, 0, "finder", XWIN_STYLE_NORMAL);
 
 	xwin.setVisible(true);

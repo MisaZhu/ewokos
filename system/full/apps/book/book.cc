@@ -4,7 +4,7 @@
 #include <string.h>
 #include <fcntl.h>
 #include <sconf/sconf.h>
-#include <font/font.h>
+#include <x++/XTheme.h>
 #include <x++/X.h>
 #include <ewoksys/keydef.h>
 #include <ewoksys/proc.h>
@@ -16,9 +16,6 @@
 using namespace Ewok;
 
 class Book: public XWin {
-	font_t font;
-	uint32_t bgColor;
-	uint32_t fgColor;
 	char text[4096];
 	int  history_page[HISTORY_PAGE_SIZE];
 	int  current_page;
@@ -29,12 +26,12 @@ class Book: public XWin {
 protected:
 	void onRepaint(graph_t* g) {
 		//printf("onRepaint\n");
-		graph_clear(g, bgColor);
+		graph_clear(g, theme.basic.bgColor);
 		
 		int x = 0;
 		int y = 0;
 		TTY_U16 w = 0;
-		TTY_U16 h = font.max_size.y;
+		TTY_U16 h = theme.getFont()->max_size.y;
 		TTY_U16 tmp;
 		int i = 0;
 		while(i < read_len) {
@@ -53,7 +50,7 @@ protected:
 				continue;
 			}
 
-			font_char_size(unicode, &font, &w, &tmp);
+			font_char_size(unicode, theme.getFont(), &w, &tmp);
 			if((x + w) >= g->w){
 				x = 0;
 				y += h;
@@ -61,7 +58,7 @@ protected:
 					break;
 				}
 			}
-			graph_draw_char_font(g, x, y, unicode, &font, fgColor, &w, NULL);
+			graph_draw_char_font(g, x, y, unicode, theme.getFont(), theme.basic.fgColor, &w, NULL);
 			x += w;
 		}
 		next_page = current_page + i;
@@ -102,13 +99,10 @@ protected:
 	}
 public:
 	inline Book() {
-		bgColor = 0xffDDC090;
-		fgColor = 0xff3E3422;
 		read_len = 0;
 	}
 
 	inline ~Book() {
-		font_close(&font);
 	}
 
 	void readPage(void){
@@ -128,28 +122,9 @@ public:
 
 	bool readConfig(const char* fname) {
 		sconf_t *conf = sconf_load(fname);	
-		if(conf == NULL){
-			font_load(DEFAULT_SYSTEM_FONT, 14, &font, true);
+		if(conf == NULL)
 			return false;
-		}
-
-		uint32_t font_size = 14;
-		const char* v = sconf_get(conf, "font_size");
-		if(v[0] != 0)
-			font_size = atoi(v);
-
-		v = sconf_get(conf, "font");
-		if(v[0] == 0)
-			v = DEFAULT_SYSTEM_FONT;
-		font_load(v, font_size, &font, true);
-
-		v = sconf_get(conf, "bg_color");
-		if(v[0] != 0)
-			bgColor = strtoul(v, NULL,16);
-		v = sconf_get(conf, "fg_color");
-		if(v[0] != 0)
-			fgColor = strtoul(v, NULL,16);
-
+		theme.loadConfig(conf);
 		sconf_free(conf);
 		return true;
 	}

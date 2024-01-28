@@ -261,8 +261,8 @@ static const char* fullname(vfs_node_t* node) {
 		node = node->father;
 	}
 
-	static char ret[FS_FULL_NAME_MAX];
-	sstrncpy(ret, CS(s1), FS_FULL_NAME_MAX-1);
+	static char ret[FS_FULL_NAME_MAX] = {0};
+	strncpy(ret, CS(s1), FS_FULL_NAME_MAX-1);
 	str_free(s1);
 	return ret;
 }

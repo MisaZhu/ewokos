@@ -4,6 +4,7 @@
 #include <sconf/sconf.h>
 #include <upng/upng.h>
 #include <x++/X.h>
+#include <x++/XTheme.h>
 #include <ewoksys/keydef.h>
 #include <ewoksys/klog.h>
 #include <ewoksys/proc.h>
@@ -26,11 +27,8 @@ typedef struct {
 class LauncherView: public ListView {
 	item_t items[ITEM_MAX];	
 	uint32_t itemNum;
-	font_t* font;
-	uint32_t titleColor;
-	uint32_t bgColor;
+	XTheme* theme;
 	uint32_t selectedColor;
-	uint32_t fontSize;
 	uint32_t iconSize;
 	int32_t titleMargin;
 
@@ -62,7 +60,7 @@ class LauncherView: public ListView {
 		}
 
 		int dx = (w - img->w)/2;
-		int dy = (h - (int)(iconSize + titleMargin + fontSize)) / 2;
+		int dy = (h - (int)(iconSize + titleMargin + theme->basic.fontSize)) / 2;
 		graph_blt_alpha(img, 0, 0, img->w, img->h,
 				g, x+dx, y+dy, img->w, img->h, 0xff);
 		
@@ -73,11 +71,11 @@ class LauncherView: public ListView {
 	void drawTitle(graph_t* g, int at, int x, int y, int w, int h) {
 		const char* title = items[at].app->cstr;
 		uint32_t tw, th;
-		font_text_size(title, font, &tw, &th);
+		font_text_size(title, theme->getFont(), &tw, &th);
 		x += (w - (int32_t)tw)/2;
 		y += (h - (int)(iconSize + titleMargin + (int32_t)th)) /2 +
 				iconSize + titleMargin;
-		graph_draw_text_font(g, x, y, title, font, titleColor);
+		graph_draw_text_font(g, x, y, title, theme->getFont(), theme->basic.fgColor);
 	}
 
 	void runProc(item_t* item) {
@@ -119,43 +117,21 @@ protected:
 	}
 
 	void drawBG(graph_t* g, const gpos_t& pos) {
-		graph_clear(g, bgColor);
-	}
-
-public:
-	inline LauncherView() {
-		font = NULL;
-		itemNum = 0;
-		titleMargin = 2;
-		for(int i=0; i<ITEM_MAX; i++)
-			memset(&items[i], 0, sizeof(item_t));
-	}
-
-	inline ~LauncherView() {
-		for(int i=0; i<itemNum; i++) {
-			str_free(items[i].app);
-			str_free(items[i].fname);
-			str_free(items[i].icon);
-			if(items[i].iconImg)
-				graph_free(items[i].iconImg);
-		}
-		if(font != NULL)
-			font_free(font);
+		graph_clear(g, theme->basic.bgColor);
 	}
 
 	bool readConfig(const char* fname) {
 		itemsInfo.marginH = 6;
 		itemsInfo.marginV = 2;
 		iconSize = 64;
-		titleColor = 0xffffffff;
-		bgColor = 0xff000000;
 		selectedColor = 0x88444444;
-		fontSize = 14;
 		position = POS_BOTTOM;
 
 		sconf_t *conf = sconf_load(fname);	
 		if(conf == NULL)
 			return false;
+		theme->loadConfig(conf);
+
 		const char* v = sconf_get(conf, "icon_size");
 		if(v[0] != 0)
 			iconSize = atoi(v);
@@ -178,44 +154,48 @@ public:
 		if(v[0] != 0)
 			itemsInfo.marginV = atoi(v);
 
-		v = sconf_get(conf, "font_size");
-		if(v[0] != 0)
-			fontSize = atoi(v);
-
-		v = sconf_get(conf, "font");
-		if(v[0] == 0)
-			v = DEFAULT_SYSTEM_FONT;
-		font = font_new(v, fontSize, true);
-
-		v = sconf_get(conf, "title_color");
-		if(v[0] != 0)
-			titleColor = strtoul(v, NULL, 16);
-
-		v = sconf_get(conf, "bg_color");
-		if(v[0] != 0)
-			bgColor = strtoul(v,NULL, 16);
-
 		v = sconf_get(conf, "icon_selected_color");
 		if(v[0] != 0)
 			selectedColor = strtoul(v,NULL, 16);
 		sconf_free(conf);
 
-		itemsInfo.itemSize.h = fontSize + iconSize + titleMargin;
+		itemsInfo.itemSize.h = theme->basic.fontSize + iconSize + titleMargin;
 		itemsInfo.itemSize.w = iconSize;
+		return true;
+	}
+public:
+	inline LauncherView(XTheme* theme) {
+		this->theme = theme;
+		itemNum = 0;
+		titleMargin = 2;
+		for(int i=0; i<ITEM_MAX; i++)
+			memset(&items[i], 0, sizeof(item_t));
+	}
+
+	inline ~LauncherView() {
+		for(int i=0; i<itemNum; i++) {
+			str_free(items[i].app);
+			str_free(items[i].fname);
+			str_free(items[i].icon);
+			if(items[i].iconImg)
+				graph_free(items[i].iconImg);
+		}
+	}
+
+	bool readConfig(void) {
+		const char* cfg = x_get_theme_fname(X_THEME_ROOT, "launcher", "theme.conf");
+		readConfig(cfg);
 		return true;
 	}
 
 	str_t* getIconFname(const char* appName) {
 		//try theme icon first
-		const char* theme = x_get_theme();
 		str_t* ret = NULL;
-		if(theme[0] != 0) {
-			ret = str_new(x_get_theme_fname(X_THEME_ROOT, appName, "icon.png"));
-			if(access(ret->cstr, R_OK) == 0)
-				return ret;
-			str_free(ret);
-		}
+		ret = str_new(x_get_theme_fname(X_THEME_ROOT, appName, "icon.png"));
+		if(access(ret->cstr, R_OK) == 0)
+			return ret;
 
+		str_free(ret);
 		ret = str_new("/apps/");
 		str_add(ret, appName);
 		str_add(ret, "/res/icon.png");
@@ -265,39 +245,41 @@ public:
 };
 
 class Launcher: public XWin {
-	LauncherView launcherView;
+	LauncherView *launcherView;
 protected:
 	void onRepaint(graph_t* g) {
 		setAlpha(true);
-		launcherView.repaint(g);
+		launcherView->repaint(g);
 	}
 
 	void onEvent(xevent_t* ev) {
 		xinfo_t xinfo;
 		getInfo(xinfo);
-		launcherView.handleEvent(ev, xinfo.wsr);
+		launcherView->handleEvent(ev, xinfo.wsr);
 		repaint();
 	}
 
 	void onResize(void) {
 		xinfo_t xinfo;
 		getInfo(xinfo);
-		launcherView.layout(xinfo.wsr);
+		launcherView->layout(xinfo.wsr);
 	}
 
 public:
 	Launcher() {
+		launcherView = new LauncherView(&theme);
 	}
 
 	~Launcher() {
+		delete launcherView;
 	}
 
 	inline LauncherView* getView() {
-		return &launcherView;
+		return launcherView;
 	}
 
 	void checkProc(void) {
-		if(launcherView.checkProc()) {
+		if(launcherView->checkProc()) {
 			repaint();
 		}
 	}
@@ -319,9 +301,8 @@ int main(int argc, char* argv[]) {
 
 	Launcher xwin;
 	LauncherView* view = xwin.getView();
-	const char* cfg = x_get_theme_fname(X_THEME_ROOT, "launcher", "theme.conf");
 
-	view->readConfig(cfg);
+	view->readConfig();
 	view->loadApps();
 	view->layout(desk);
 

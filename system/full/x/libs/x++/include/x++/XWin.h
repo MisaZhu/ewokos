@@ -2,6 +2,7 @@
 #define XWIN_HH
 
 #include <x/xwin.h>
+#include <X++/XTheme.h>
 #include <graph/graph_ex.h>
 
 namespace Ewok {
@@ -12,6 +13,7 @@ class XWin {
 protected:
 	X* x;
 	xwin_t* xwin;
+	XTheme theme;
 	virtual void onRepaint(graph_t* g) = 0;
 
 	inline virtual void onClose(void)   { }

@@ -72,6 +72,21 @@ typedef struct {
 	char title[XWIN_TITLE_MAX];
 } xinfo_t;
 
+#define THEME_NAME_MAX 128
+#define FONT_NAME_MAX 128
+typedef struct {
+	char     name[THEME_NAME_MAX];
+	char     fontName[FONT_NAME_MAX];
+	uint32_t fontSize;
+	uint32_t fontFixedSize;
+	uint32_t bgColor;
+	uint32_t fgColor;
+	uint32_t bgUnfocusColor;
+	uint32_t fgUnfocusColor;
+	uint32_t bgDisableColor;
+	uint32_t fgDisableColor;
+} x_theme_t;
+
 typedef struct {
 	int id;
 	int fps;

@@ -8,13 +8,13 @@
 #include <ewoksys/session.h>
 
 static inline const char* get_show_name(const char* name, int32_t type) {
-	static char ret[128];
+	static char ret[128] = {0};
 	if(type == DT_DIR) 
 		snprintf(ret, 127, "[%s]", name);
 	else if(type == DT_BLK || type == DT_CHR) 
 		snprintf(ret, 127, "*%s", name);
 	else
-		sstrncpy(ret, name, 127);
+		strncpy(ret, name, 127);
 	return ret;
 }
 

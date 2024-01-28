@@ -8,24 +8,24 @@ inline void set_pte_flags(page_table_entry_t* pte, uint32_t pte_attr) {
 #ifdef C906_EXTEND
 	if(pte_attr == PTE_ATTR_WRBACK) { //normal mem, write back
 		pte->cacheable = 1;
-		pte->bufferable = 1;
+		pte->writeback = 1;
 	}
 	else if(pte_attr == PTE_ATTR_WRBACK_ALLOCATE) { //write back allocate mem
 		pte->cacheable = 1;
-		pte->bufferable = 1;
+		pte->writeback = 1;
 	}
 	else if(pte_attr == PTE_ATTR_WRTHR) { //write throuh mem
 		pte->cacheable = 1;
-		pte->bufferable = 0;
+		pte->writeback = 0;
 	}
 	else if(pte_attr == PTE_ATTR_DEV) { //dev mem
 		pte->cacheable = 0;
-		pte->bufferable = 1;
+		pte->writeback = 1;
 		pte->strongorder = 1;
 	}
 	else if(pte_attr == PTE_ATTR_STRONG_ORDER) { //strong ordered mem
 		pte->cacheable = 0;
-		pte->bufferable = 0;
+		pte->writeback = 0;
 		pte->strongorder = 1;
 	}
 #endif

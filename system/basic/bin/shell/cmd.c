@@ -100,13 +100,12 @@ static void export_get(const char* arg) {
 }
 
 static void export_set(const char* arg) {
-	char name[64];
+	char name[64] = {0};
 	char* v = strchr(arg, '=');
 	if(v == NULL)
 		return;
-	sstrncpy(name, arg, v-arg);
-	name[v-arg] = 0;
-
+	int len = v-arg;
+	strncpy(name, arg, len < 64 ? len : 63);
 	setenv(name, (v+1));
 }
 

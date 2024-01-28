@@ -45,7 +45,8 @@ static int read_value(int fd, char* val, uint32_t len, bool start) {
 
 		str_addc(s, c);
 	}
-	sstrncpy(val, s->cstr, len);
+	memset(val, 0, len);
+	strncpy(val, s->cstr, len);
 	str_free(s);
 	return 0;
 }

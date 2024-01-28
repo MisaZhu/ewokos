@@ -20,6 +20,8 @@
 /bin/rundev /drivers/proc/sysinfod   /proc/sysinfo
 /bin/rundev /drivers/proc/stated     /proc/state
 
+@export XTHEME=mac1984
+
 /bin/rundev /drivers/xserverd        /dev/x
 
 #/bin/rundev /drivers/xconsoled       /dev/console0

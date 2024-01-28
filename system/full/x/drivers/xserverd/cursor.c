@@ -31,7 +31,7 @@ void cursor_init(const char* theme, cursor_t* cursor) {
 	cursor->offset.x = cursor->size.w/2;
 	cursor->offset.y = cursor->size.h/2;
 
-	char fname[256] = "";
+	char fname[256] = {0};
 	snprintf(fname, 255, "%s/%s/xwm/cursors/%s.conf", X_THEME_ROOT, theme,
 			cursor->type == CURSOR_MOUSE ? "mouse":"touch");
 	sconf_t* sconf = sconf_load(fname);
@@ -51,7 +51,7 @@ void cursor_init(const char* theme, cursor_t* cursor) {
 		if(v[0] != '/')
 			snprintf(fname, 255, "%s/%s/xwm/%s", X_THEME_ROOT, theme, v);
 		else
-			sstrncpy(fname, v, 255);
+			strncpy(fname, v, 255);
 	}
 	cursor->img = png_image_new(fname);
 

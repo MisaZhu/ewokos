@@ -41,6 +41,10 @@ X::X(void) {
 	x_init(&x, this);
 }
 
+int X::getTheme(x_theme_t* theme) {
+	return x_get_theme(theme);
+}
+
 font_t* X::getSysFont(void) {
 	if(_sysFont == NULL)
 		_sysFont = font_new(DEFAULT_SYSTEM_FONT, DEFAULT_SYSTEM_FONT_SIZE, true);

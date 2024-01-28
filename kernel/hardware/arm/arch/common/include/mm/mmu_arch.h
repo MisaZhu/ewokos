@@ -22,7 +22,7 @@ typedef struct {
 /* a 32-bit entry in hardware's page table */
 typedef struct {
 	uint32_t type       : 2; //0: fault, 0x1: large size(64k), 0x2: small size(4k), 0x3: small size with no-excute(4k)
-	uint32_t bufferable : 1; //B
+	uint32_t writeback : 1; //B
 	uint32_t cacheable  : 1; //C
 	uint32_t ap         : 2; //Access Permissions,
                            //0x1: super-RW,user-NONE
