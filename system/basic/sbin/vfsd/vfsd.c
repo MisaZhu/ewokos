@@ -472,20 +472,20 @@ static void proc_file_close(int pid, int fd, file_t* file, bool close_dev) {
 		node->refs--;
 	if((file->flags & O_WRONLY) != 0 && node->refs_w > 0)
 		node->refs_w--;
-
+	bool del_node = false;
 	if(node->fsinfo.type == FS_TYPE_PIPE) {
 		if(node->refs <= 0) {
 			buffer_t* buffer = (buffer_t*)node->fsinfo.data;
 			if(buffer != NULL)
 				free(buffer);
-			vfs_del_node(pid, node);
+			del_node = true;
 			file->node = 0;
 		}
 		proc_wakeup(node_id);
 	}
 	else if((node->fsinfo.type & FS_TYPE_ANNOUNIMOUS) != 0) {
 		if(node->refs <= 0) {
-			vfs_del_node(pid, node);
+			del_node = true;
 			file->node = 0;
 		}
 		proc_wakeup(node_id);
@@ -502,6 +502,9 @@ static void proc_file_close(int pid, int fd, file_t* file, bool close_dev) {
 	ev.owner_pid = pid;
 	ev.dev_pid = to_pid;
 	memcpy(&ev.info, &node->fsinfo, sizeof(fsinfo_t));
+
+	if(del_node)
+			vfs_del_node(pid, node);
 	push_close_event(&ev);
 }
 
@@ -1004,7 +1007,7 @@ static void check_procs(void) {
 static void do_vfs_proc_exit(int32_t pid, proto_t* in) {
 	(void)pid;
 	int cpid = proto_read_int(in);
-	if(cpid < 0)
+	if(cpid < 0 || cpid >= PROC_MAX)
 		return;
 	vfs_proc_exit(cpid);
 }
@@ -1013,6 +1016,10 @@ static void handle(int pid, int cmd, proto_t* in, proto_t* out, void* p) {
 	(void)p;
 	if(_proc_fds_table[pid].state == UNUSED) //maybe thread 
 		pid = proc_getpid(pid); //get the main proc pid
+	if(pid < 0)
+		return;
+
+	//klog("pid: %d, cmd: %d\n", pid, cmd);
 
 	switch(cmd) {
 	case VFS_NEW_NODE:
@@ -1073,6 +1080,7 @@ static void handle(int pid, int cmd, proto_t* in, proto_t* out, void* p) {
 		do_vfs_proc_exit(pid, in);
 		break;
 	}
+	//klog("vfs cmd done\n");
 }
 
 static int handle_close_event(close_event_t* ev) {
