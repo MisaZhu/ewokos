@@ -90,8 +90,10 @@ int main(int argc, char* argv[]) {
 	}
 
 	procinfo_t cprocinfo;
-    if(proc_info(getpid(), &cprocinfo) != 0)
+  if(proc_info(getpid(), &cprocinfo) != 0)
 		return -1;
+	
+	int uid = getuid();
 
 	int num = 0;
 	uint32_t core_idle[16]; //max 16 cores;
@@ -118,7 +120,7 @@ int main(int argc, char* argv[]) {
 				continue;
 			}
 
-			if(proc->uid > 0 && proc->uid != cprocinfo.uid && all == 0) //for current uid
+			if(uid > 0 && proc->uid != cprocinfo.uid && all == 0) //for current uid
 				continue;
 
 			if(proc->type != PROC_TYPE_PROC && thread == 0) //for thread 

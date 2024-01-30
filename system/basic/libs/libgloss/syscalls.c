@@ -461,9 +461,7 @@ _fstat (int fd, struct stat * st)
 {
   memset (st, 0, sizeof (* st));
   fsinfo_t info;
-  int res  = vfs_get_by_fd(fd, &info);
-
-  if (res != 0)
+  if(vfs_get_by_fd(fd, &info) != 0)
     return -1;
   /* Return the file size. */
   st->st_uid = info.stat.uid;
@@ -480,18 +478,23 @@ _fstat (int fd, struct stat * st)
 int __attribute__((weak))
 _stat (const char *fname, struct stat *st)
 {
-  //kout(__func__);
-  int fd, res;
   memset (st, 0, sizeof (* st));
   /* The best we can do is try to open the file readonly.  If it exists,
      then we can guess a few things about it.  */
-  if ((fd = _open (fname, O_RDONLY)) == -1)
+	fsinfo_t info;
+	if(vfs_get_by_name(fname, &info) != 0) {
     return -1;
-  st->st_mode |= S_IFREG | S_IREAD;
-  res = _fstat (fd, st);
+	}
+  st->st_uid = info.stat.uid;
+  st->st_gid = info.stat.gid;
+  st->st_size = info.stat.size;
+  st->st_mode = info.stat.mode;
+  st->st_atime = info.stat.atime;
+  st->st_ctime = info.stat.ctime;
+  st->st_mtime = info.stat.mtime;
+  st->st_nlink = info.stat.links_count;
   /* Not interested in the error.  */
-  _close (fd); 
-  return res;
+  return 0;
 }
 
 int __attribute__((weak))
