@@ -256,8 +256,8 @@ int main(int argc, char* argv[]) {
 	close(fds2[0]);
 	close(fds2[1]);
 
-	char console[32];
-	snprintf(console, 31, "xterm-%d", getpid());
+	char console[16];
+	snprintf(console, 15, "xterm-%d", getpid());
 	setenv("CONSOLE_ID", console);
 
 	return proc_exec("/bin/shell");
