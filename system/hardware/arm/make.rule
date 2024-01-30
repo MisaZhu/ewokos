@@ -6,59 +6,42 @@ OBJDUMP = arm-none-eabi-objdump
 
 ifeq ($(LIBEWOKC),yes)
 
-CFLAGS = -Wstrict-prototypes \
+NO_BUILTIN = \
+        -fno-builtin-printf \
+        -fno-builtin-stat \
+        -fno-builtin-memset \
+        -fno-builtin-calloc \
+        -fno-builtin-snprintf \
+        -fno-builtin-sprintf \
+        -fno-builtin-fprintf \
+        -fno-builtin-fwrite \
+        -fno-builtin-fclose \
+        -fno-builtin-fgetc \
+        -fno-builtin-fopen \
+        -fno-builtin-fflush \
+        -fno-builtin-ungetc \
+        -fno-builtin-realloc \
+        -fno-builtin-malloc \
+        -fno-builtin-strtoul \
+        -fno-builtin-free \
+        -Wno-overlength-strings \
+        -fno-builtin-exit \
+        -fno-builtin-stdio \
+        -fno-builtin-unistd 
+
+CFLAGS = $(NO_BUILTIN) \
         -marm \
 	-mfloat-abi=softfp \
         -Wall -Wextra -fPIC -mapcs-frame \
-        -fno-builtin-printf \
-        -fno-builtin-stat \
-        -fno-builtin-memset \
-        -fno-builtin-calloc \
-        -fno-builtin-snprintf \
-        -fno-builtin-sprintf \
-        -fno-builtin-fprintf \
-        -fno-builtin-fwrite \
-        -fno-builtin-fclose \
-        -fno-builtin-fgetc \
-        -fno-builtin-fopen \
-        -fno-builtin-fflush \
-        -fno-builtin-ungetc \
-        -fno-builtin-realloc \
-        -fno-builtin-malloc \
-        -fno-builtin-strtoul \
-        -fno-builtin-free \
-        -Wno-overlength-strings \
-        -fno-builtin-exit \
-        -fno-builtin-stdio \
-        -fno-builtin-unistd \
         -std=c99
 
-CXXFLAGS = -marm \
+CXXFLAGS = $(NO_BUILTIN) \
+        -marm \
 	-mfloat-abi=softfp \
-        -pedantic -Wall -Wextra -fPIC -mapcs-frame \
+        -Wall -Wextra -fPIC -mapcs-frame \
+        -pedantic \
 	-fno-rtti \
         -fno-exceptions \
-        -fno-builtin-printf \
-        -fno-builtin-stat \
-        -fno-builtin-memset \
-        -fno-builtin-calloc \
-        -fno-builtin-snprintf \
-        -fno-builtin-sprintf \
-        -fno-builtin-fprintf \
-        -fno-builtin-fwrite \
-        -fno-builtin-fclose \
-        -fno-builtin-fgetc \
-        -fno-builtin-fopen \
-        -fno-builtin-fflush \
-        -fno-builtin-ungetc \
-        -fno-builtin-realloc \
-        -fno-builtin-malloc \
-        -fno-builtin-strtoul \
-        -fno-builtin-free \
-        -Wno-overlength-strings \
-        -fno-builtin-exit \
-        -fno-builtin-stdio \
-        -fno-builtin-unistd \
         -std=c++14
 
 EWOK_LIBC = -lewokc -lc_nano -lnosys

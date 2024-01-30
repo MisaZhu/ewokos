@@ -1,6 +1,8 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <ewoksys/vfs.h>
+#include <ewoksys/basic_math.h>
 
 #define CLEAR() printf ("\033[2J")
 #define MOVEUP(x) printf ("\033[%dA", (x))
@@ -16,36 +18,48 @@
 #define FLASH() printf ("\033[5m")
 #define RESET() printf ("\033[0m")
 
+void saver() {
+  const char* s = "May the Source be with you";
+  CLEAR();
+
+  FLASH();
+  int x, y;
+  for(int i=0; i< 10; i++) {
+    x = random_to(80);
+    y = random_to(30);
+    MOVETO(x, y);
+    printf("*");
+  }
+  RESET();
+
+  x = random_to(80-strlen(s));
+  y = random_to(30);
+  MOVETO(x, y);
+  printf("%s", s);
+}
+
 int main (int argc, char **argv) {
   setbuf(stdout, NULL);
   HIDE_CURSOR();
-  const char* s = "May the Source be with you";
 
+  fsfile_t *file = vfs_get_file(0);
+  file->flags |= O_NONBLOCK;
+
+  uint32_t counter = 0;
   while (1) {
-    CLEAR();
+    if((counter % 30) == 0) 
+      saver();
 
-    FLASH();
-
-    int x, y;
-    for(int i=0; i< 10; i++) {
-      x = random_to(80);
-      y = random_to(30);
-      MOVETO(x, y);
-      printf("*");
-    }
-
-    RESET();
-
-    x = random_to(80-strlen(s));
-    y = random_to(30);
-    MOVETO(x, y);
-    printf("%s", s);
-
-    sleep(2);
+    char c;
+    if(read(0, &c, 1) == 1)
+      break;
+    usleep(100000);
+    counter++;
   }
 
   CLEAR();
   SHOW_CURSOR();
   RESET();
+  printf("\n");
   return 0;
 }
