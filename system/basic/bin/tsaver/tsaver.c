@@ -18,6 +18,19 @@
 #define FLASH() printf ("\033[5m")
 #define REVERSE() printf ("\033[7m")
 #define RESET() printf ("\033[0m")
+#define COLOR(c) printf ("\033[3%dm", (c))
+#define BGCOLOR(c) printf ("\033[4%dm", (c))
+
+enum {
+  BLACK = 0,
+  RED,
+  GREEN,
+  YELLOW,
+  BLUE,
+  PURPLE,
+  CYAN,
+  WHITE
+};
 
 void saver() {
   const char* s[] = {
@@ -33,16 +46,20 @@ void saver() {
   CLEAR();
 
   FLASH();
-  int x, y;
-  for(int i=0; i< 10; i++) {
+  int x, y, c;
+  for(int i=0; i< 20; i++) {
     x = random_to(80);
     y = random_to(30);
+    c = random_to(8);
     MOVETO(x, y);
+    COLOR(c);
     printf("*");
   }
   RESET();
 
-  x = random_to(80-strlen(s));
+  BGCOLOR(WHITE);
+  COLOR(BLACK);
+  x = random_to(80-strlen(s[0]));
   y = random_to(30);
   int i = 0;
   while(true) {
