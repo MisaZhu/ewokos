@@ -191,7 +191,7 @@ static void prompt(void) {
 	int uid = getuid();
 	const char* cid = getenv("CONSOLE_ID");
 	if(cid == NULL || cid[0] == 0)
-		cid = "0";
+		cid = "unknown";
 	char cwd[FS_FULL_NAME_MAX+1];
 	if(uid == 0)
 		printf("\033[4mewok(%s):%s#\033[0m ", cid, getcwd(cwd, FS_FULL_NAME_MAX));
@@ -299,6 +299,6 @@ int main(int argc, char* argv[]) {
 	}
 	if(fd_in > 0) //close initrd file
 		close(fd_in);
-free_history();
+	free_history();
 	return 0;
 }

@@ -68,15 +68,15 @@ CXXFLAGS +=  -DEWOKLIBC
 
 else
 
-CFLAGS = -Wstrict-prototypes \
-        -marm \
+CFLAGS = -marm \
 	-mfloat-abi=softfp \
         -Wall -Wextra -fPIC -mapcs-frame \
         -std=c99
 
 CXXFLAGS = -marm \
 	-mfloat-abi=softfp \
-        -pedantic -Wall -Wextra -fPIC -mapcs-frame \
+        -Wall -Wextra -fPIC -mapcs-frame \
+        -pedantic \
 	-fno-rtti \
         -fno-exceptions \
         -std=c++14
