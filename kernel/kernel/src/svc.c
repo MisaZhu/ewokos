@@ -536,7 +536,7 @@ static void sys_proc_block(context_t* ctx, int32_t pid_by, uint32_t evt) {
 	if(proc_by == NULL)
 		return;
 
-	if(evt != 0) {
+	if(evt != 0 && proc_by->info.pid != _core_proc_pid) {
 		proc_block_event_t* block_evt = get_block_evt(proc_by, evt);
 		if(block_evt != NULL) {
 			if(block_evt->refs > 0) {
@@ -554,11 +554,13 @@ static void sys_proc_block(context_t* ctx, int32_t pid_by, uint32_t evt) {
 static void sys_proc_wakeup(context_t* ctx, int32_t pid, uint32_t evt) {
 	(void)ctx;
 	proc_t* proc_by = proc_get_proc(get_current_proc());
-	proc_block_event_t* block_evt = get_block_evt(proc_by, evt);
-	if(block_evt != NULL)
-		block_evt->refs++;
-	else
-		set_block_evt(proc_by, evt);
+	if(proc_by->info.pid != _core_proc_pid) {
+		proc_block_event_t* block_evt = get_block_evt(proc_by, evt);
+		if(block_evt != NULL)
+			block_evt->refs++;
+		else
+			set_block_evt(proc_by, evt);
+	}
 	proc_wakeup(proc_by->info.pid, pid, evt);
 }
 
