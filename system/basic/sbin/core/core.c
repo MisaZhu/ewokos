@@ -210,9 +210,7 @@ static int free_envs(const char* key, any_t data, any_t arg) {
 	return MAP_OK;
 }
 
-static void do_proc_clone(proto_t* in) {
-	int fpid = proto_read_int(in);
-	int cpid = proto_read_int(in);
+static void do_proc_clone(int fpid, int cpid) {
 	if(fpid < 0 || fpid >= PROC_MAX ||
 			cpid < 0 || cpid >= PROC_MAX)
 		return;
@@ -258,18 +256,24 @@ static void handle_ipc(int pid, int cmd, proto_t* in, proto_t* out, void* p) {
 /*----kernel event -------*/
 
 static void do_proc_created(kevent_t* kev) {
+	int fpid = kev->data[0];
 	int cpid = kev->data[1];
-	proto_t data;
-	PF->init(&data)->addi(&data, kev->data[0])->addi(&data, kev->data[1]);
 
 	int pid = get_ipc_serv(IPC_SERV_VFS);
 	if(pid > 0) {
-		ipc_call_wait(pid, VFS_PROC_CLONE, &data);
+		proto_t data;
+		PF->init(&data)->addi(&data, fpid)->addi(&data, cpid);
+		int res = ipc_call_wait(pid, VFS_PROC_CLONE, &data);
+		if(res == 0) {
+			PF->clear(&data);
+			do_proc_clone(fpid, cpid);
+			proc_wakeup(cpid);
+		}
 	}
-
-	do_proc_clone(&data);
-	PF->clear(&data);
-	proc_wakeup(cpid);
+	else {
+		do_proc_clone(fpid, cpid);
+		proc_wakeup(cpid);
+	}
 }
 
 static void do_proc_exit(kevent_t* kev) {
