@@ -53,6 +53,7 @@ static void set_kernel_init_vm(page_dir_entry_t* vm) {
 	map_pages_size(vm, _sys_info.mmio.v_base, _sys_info.mmio.phy_base, _sys_info.mmio.size, AP_RW_D, PTE_ATTR_DEV);
 
 	arch_vm(vm);
+	flush_tlb();
 }
 
 static void map_allocatable_pages(page_dir_entry_t* vm) {

@@ -13,9 +13,16 @@ __invalidate_dcache_all:
 .global __flush_tlb
 __flush_tlb:
 	mov r0, #0
-	mcr p15, 0, r0, c7, c7, 0  //invalidate cache
-	mcr p15, 0, r0, c8, c7, 0    //I-TLB and D-TLB invalidation
-	mcr p15, 0, r0, c7, c10, 4     //DSB
+	mcr     p15, 0, r0, c7, c10, 0 /* flush entire data cache */
+	mcr     p15, 0, r0, c7, c10, 4 /* dsb */
+	mcr     p15, 0, r0, c7, c5, 4  /* isb */
+	mcr     p15, 0, r0, c8, c7, 0  /* invalidate entire unified TLB */
+	mcr     p15, 0, r0, c7, c5, 6  /* invalidate entire branch target
+					* cache */
+	mcr     p15, 0, r0, c7, c7, 0  /* invalidate both data and instruction
+					* cache */
+	mcr     p15, 0, r0, c7, c10, 4 /* dsb */
+	mcr     p15, 0, r0, c7, c5, 4  /* isb */
 	mov pc, lr
 
 .global __set_translation_table_base
