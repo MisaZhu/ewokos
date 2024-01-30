@@ -42,14 +42,16 @@ int main (int argc, char **argv) {
   setbuf(stdout, NULL);
   HIDE_CURSOR();
 
-  fsfile_t *file = vfs_get_file(0);
-  file->flags |= O_NONBLOCK;
+  int flags = vfs_get_flags(0);
+  flags |= O_NONBLOCK;
+  vfs_set_flags(0, flags);
 
   uint32_t counter = 0;
   while (1) {
     if((counter % 30) == 0) 
       saver();
 
+  flags = vfs_get_flags(0);
     char c;
     if(read(0, &c, 1) == 1)
       break;

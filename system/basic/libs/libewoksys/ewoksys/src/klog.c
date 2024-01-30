@@ -12,8 +12,8 @@ extern "C" {
 static char _buf[BUF_SIZE+1];
 static int32_t _buf_index;
 
-void kout(const char *str, int len) {
-	syscall2(SYS_KPRINT, (int32_t)str, (int32_t)len);
+void kout(const char *str) {
+	syscall2(SYS_KPRINT, (int32_t)str, (int32_t)strlen(str));
 }
 
 void klog(const char *format, ...) {

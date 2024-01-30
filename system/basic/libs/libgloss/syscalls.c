@@ -258,21 +258,23 @@ int __attribute__((weak))
 _read (int fd, void * buf, size_t size)
 {
 	fsinfo_t info;
-	fsfile_t* file = vfs_get_file(fd);
-
-	if(file->flags == -1)
-	 		return -1;
-
 	if(vfs_get_by_fd(fd, &info) != 0)
 		return -1;
+
+	int flags = vfs_get_flags(fd);
+	if(flags == -1)
+	 		return -1;
+	bool block = true;
+	if(flags & O_NONBLOCK)
+		block = false;
 
 	int res = -1;
 	if(info.type == FS_TYPE_PIPE) {
 		while(1) {
-			res = vfs_read_pipe(fd, info.node, buf, size, true);
+			res = vfs_read_pipe(fd, info.node, buf, size, block);
 			if(res >= 0 || errno != EAGAIN)
 				break;
-			if(file->flags & O_NONBLOCK)
+			if(!block)
 				break;
 		}
 		return res;
@@ -285,8 +287,8 @@ _read (int fd, void * buf, size_t size)
 			break;
 		}
 
-		if(file->flags & O_NONBLOCK)
-		   break;
+		if(!block)
+			break;
 
 		if(errno == EAGAIN)
 			proc_block_by(info.mount_pid, RW_BLOCK_EVT);
@@ -321,21 +323,23 @@ int __attribute__((weak))
 _write (int fd, const void * buf, size_t size)
 {
 	fsinfo_t info;
-	fsfile_t* file = vfs_get_file(fd);
-
-	if(file->flags == -1)
-		return -1;
-
 	if(vfs_get_by_fd(fd, &info) != 0)
 		return -1;
+
+	int flags = vfs_get_flags(fd);
+	if(flags == -1)
+	 		return -1;
+	bool block = true;
+	if(flags & O_NONBLOCK)
+		block = false;
 
 	int res = -1;
 	if(info.type == FS_TYPE_PIPE) {
 		while(1) {
-			res = vfs_write_pipe(fd, info.node, buf, size, true);
+			res = vfs_write_pipe(fd, info.node, buf, size, block);
 			if(res >= 0 || errno != EAGAIN)
 				break;
-			if(file->flags & O_NONBLOCK)
+			if(!block)
 				break;
 		}
 		return res;
@@ -348,8 +352,8 @@ _write (int fd, const void * buf, size_t size)
 			break;
 		}
 
-		if(file->flags & O_NONBLOCK)
-		   break;
+		if(!block)
+			break;
 
 		if(errno == EAGAIN)
 			proc_block_by(info.mount_pid, RW_BLOCK_EVT);

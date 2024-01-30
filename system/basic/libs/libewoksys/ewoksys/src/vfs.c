@@ -83,18 +83,33 @@ static inline void vfs_clear_file(int fd) {
 	memset(&_fsfiles[fd], 0, sizeof(fsfile_t));
 }
 
-fsfile_t* vfs_get_file(int fd) {
+static fsfile_t* vfs_get_file(int fd) {
 	if(fd < 0 || fd >= PROC_FILE_MAX)
 		return NULL;
 
 	fsfile_t* ret = &_fsfiles[fd];
-	if(ret->info.node != NULL)
+	if(ret->info.node != 0)
 		return ret;
 
 	fsinfo_t info;
 	if(vfs_get_by_fd_raw(fd, &info) != 0)
 		return NULL;
 	return vfs_set_file(fd, &info);
+}
+
+int vfs_get_flags(int fd) {
+	fsfile_t* file = vfs_get_file(fd);
+	if(file == NULL)
+		return -1;
+	return file->flags;
+}
+
+int vfs_set_flags(int fd, int flags) {
+	fsfile_t* file = vfs_get_file(fd);
+	if(file == NULL)
+		return -1;
+	file->flags = flags;
+	return 0;
 }
 
 int vfs_check_access(int pid, fsinfo_t* info, int mode) {
@@ -272,25 +287,6 @@ static int write_pipe(int fd, uint32_t node, const void* buf, uint32_t size, boo
 	return res;	
 }
 
-int vfs_dup(int fd) {
-	proto_t in, out;
-	PF->init(&in)->addi(&in, fd);
-	PF->init(&out);
-
-	int res = ipc_call(get_vfsd_pid(), VFS_DUP, &in, &out);
-	PF->clear(&in);
-	if(res == 0) {
-		res = proto_read_int(&out);
-		if(res >= 0) {
-			fsinfo_t info;
-			proto_read_to(&out, &info, sizeof(fsinfo_t));
-			vfs_set_file(res, &info);
-		}
-	}
-	PF->clear(&out);
-	return res;
-}
-
 int vfs_close_info(int fd) {
 	proto_t in;
 	PF->init(&in)->addi(&in, fd);
@@ -312,7 +308,35 @@ int vfs_close(int fd) {
 	return vfs_close_info(fd);
 }
 
+int vfs_dup(int fd) {
+	fsfile_t* file = vfs_get_file(fd);
+	if(file == NULL)
+		return -1;
+
+	proto_t in, out;
+	PF->init(&in)->addi(&in, fd);
+	PF->init(&out);
+
+	int res = ipc_call(get_vfsd_pid(), VFS_DUP, &in, &out);
+	PF->clear(&in);
+	if(res == 0) {
+		res = proto_read_int(&out);
+		if(res >= 0) {
+			fsinfo_t info;
+			proto_read_to(&out, &info, sizeof(fsinfo_t));
+			fsfile_t* file_to = vfs_set_file(res, &info);
+			file_to->flags = file->flags;
+		}
+	}
+	PF->clear(&out);
+	return res;
+}
+
 int vfs_dup2(int fd, int to) {
+	fsfile_t* file = vfs_get_file(fd);
+	if(file == NULL)
+		return -1;
+
 	vfs_close(to);
 
 	proto_t in, out;
@@ -326,7 +350,8 @@ int vfs_dup2(int fd, int to) {
 		if(res >= 0) {
 			fsinfo_t info;
 			proto_read_to(&out, &info, sizeof(fsinfo_t));
-			vfs_set_file(res, &info);
+			fsfile_t* file_to = vfs_set_file(res, &info);
+			file_to->flags = file->flags;
 		}
 	}
 	PF->clear(&out);
