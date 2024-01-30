@@ -51,7 +51,6 @@ int main (int argc, char **argv) {
     if((counter % 30) == 0) 
       saver();
 
-  flags = vfs_get_flags(0);
     char c;
     if(read(0, &c, 1) == 1)
       break;
