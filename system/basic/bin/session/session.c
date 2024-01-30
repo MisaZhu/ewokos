@@ -2,6 +2,7 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <string.h>
+#include <fcntl.h>
 #include <ewoksys/wait.h>
 
 static void welcome(void) {
@@ -13,8 +14,21 @@ static void welcome(void) {
 }
 
 int main(int argc, char* argv[]) {
-	(void)argc;
-	(void)argv;
+	const char* tty = "/dev/tty0";
+	if(argc > 1)
+		tty = argv[1];
+
+	int fd = open(tty, O_RDWR);
+	if(fd < 0) {
+		klog("Can't open tty device(%s)!\n", tty);
+		return -1;
+	}
+
+	setenv("CONSOLE_ID", tty);
+	dup2(fd, 0);
+	dup2(fd, 1);
+	dup2(fd, 2);
+	close(fd);
 
 	while(1) {
 		welcome();
