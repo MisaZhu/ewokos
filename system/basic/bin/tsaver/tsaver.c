@@ -34,11 +34,11 @@ enum {
 
 void saver() {
   const char* s[] = {
-      "+-----------------------------+",
-      "|         EWOKOS v1.0         |",
-      "| May the Source be with you! |",
-      "|   (press any key to login)  |",
-      "+-----------------------------+",
+      "                               ",
+      "          EWOKOS v1.0          ",
+      "  May the Source be with you!  ",
+      "    (press any key to login)   ",
+      "                               ",
       NULL
     };
 
