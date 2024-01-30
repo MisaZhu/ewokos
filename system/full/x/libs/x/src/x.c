@@ -75,7 +75,7 @@ static void sig_stop(int sig_no, void* p) {
 
 void x_terminate(x_t* x) {
 	x->terminated = true;
-	proc_wakeup_pid(getpid(), 0);
+	proc_wakeup_pid(getpid(), X_EVT_BLOCK_EVT);
 }
 
 int  x_run(x_t* x, void* loop_data) {
