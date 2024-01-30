@@ -16,10 +16,20 @@
 #define HIGHT_LIGHT() printf ("\033[7m")
 #define UN_HIGHT_LIGHT() printf ("\033[27m")
 #define FLASH() printf ("\033[5m")
+#define REVERSE() printf ("\033[7m")
 #define RESET() printf ("\033[0m")
 
 void saver() {
-  const char* s = "May the Source be with you";
+  const char* s[] = {
+      "+-----------------------------+",
+      "|         EWOKOS v1.0         |",
+      "| May the Source be with you! |",
+      "|   (press any key to login)  |",
+      "+-----------------------------+",
+      NULL
+    };
+
+  RESET();
   CLEAR();
 
   FLASH();
@@ -34,8 +44,15 @@ void saver() {
 
   x = random_to(80-strlen(s));
   y = random_to(30);
-  MOVETO(x, y);
-  printf("%s", s);
+  int i = 0;
+  while(true) {
+    if(s[i] == NULL) 
+      break;
+    MOVETO(x, y+i);
+    printf("%s", s[i]);
+    i++;
+  }
+  RESET();
 }
 
 int main (int argc, char **argv) {
@@ -59,8 +76,7 @@ int main (int argc, char **argv) {
   }
 
   CLEAR();
+  MOVETO(0, 0);
   SHOW_CURSOR();
-  RESET();
-  printf("\n");
   return 0;
 }
