@@ -37,7 +37,7 @@ void saver() {
       "                               ",
       "          EWOKOS v1.0          ",
       "  May the Source be with you!  ",
-      "    (press any key to login)   ",
+      "     (press ENTER to login)    ",
       "                               ",
       NULL
     };
@@ -57,10 +57,11 @@ void saver() {
   }
   RESET();
 
-  BGCOLOR(WHITE);
-  COLOR(BLACK);
+  //BGCOLOR(YELLOW);
+  //COLOR(BLACK);
+  REVERSE();
   x = random_to(80-strlen(s[0]));
-  y = random_to(30);
+  y = random_to(22);
   int i = 0;
   while(true) {
     if(s[i] == NULL) 
@@ -86,7 +87,7 @@ int main (int argc, char **argv) {
       saver();
 
     char c;
-    if(read(0, &c, 1) == 1)
+    if(read(0, &c, 1) == 1 && (c == '\r' || c == '\n'))
       break;
     usleep(100000);
     counter++;
