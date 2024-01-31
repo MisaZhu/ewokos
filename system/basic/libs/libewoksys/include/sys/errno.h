@@ -10,6 +10,7 @@ extern int errno;
 #undef	ENOENT
 #undef	EPERM
 #undef	EEXIST
+#undef	ERANGE
 
 #define ERR_RETRY -2
 #define ERR_RETRY_NON_BLOCK -3
@@ -21,6 +22,7 @@ enum {
 	ENOTEMPTY,
 	ENOENT,
 	EPERM,
+	ERANGE,
 	EEXIST
 };
 
