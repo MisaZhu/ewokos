@@ -70,8 +70,10 @@ static int32_t set_gd(ext2_t* ext2, uint32_t index) {
 static int32_t set_super(ext2_t* ext2) {
 	char buf[EXT2_BLOCK_SIZE];
 	memcpy(buf, &ext2->super, sizeof(SUPER));
-	if(ext2->group_num > 1) //write backup super block
-		ext2->write_block(8193, buf);
+	if(ext2->group_num > 1) {//write backup super block
+		if(ext2->write_block(8193, buf) != 0)
+			return -1;
+	}
 	return ext2->write_block(1, buf);
 }
 
@@ -138,7 +140,8 @@ static int32_t ext2_bdealloc(ext2_t* ext2, uint32_t block) {
 	if (block == 0)
 		return -1;
 	memset(buf, 0, EXT2_BLOCK_SIZE);	
-	ext2->write_block(block, buf);
+	if(ext2->write_block(block, buf) != 0)
+		return -1;
 
 	uint32_t index = get_gd_index_by_block(ext2, block);
 	uint32_t block_g = get_block_in_group(ext2, block, index);
@@ -240,8 +243,7 @@ static int32_t write_child(ext2_t* ext2, INODE* pip, uint32_t ino, const char *n
 			dp->name_len = strlen(name);
 			dp->file_type = (uint8_t)ftype;
 			strcpy(dp->name, name);
-			ext2->write_block(pip->i_block[i], buf);
-			return 0;
+			return ext2->write_block(pip->i_block[i], buf);
 		}		
 
 		//if block alloced , initialize it
@@ -255,8 +257,7 @@ static int32_t write_child(ext2_t* ext2, INODE* pip, uint32_t ino, const char *n
 			dp->name_len = strlen(name);
 			dp->file_type = (uint8_t)ftype;
 			strcpy(dp->name, name);
-			ext2->write_block(pip->i_block[i], buf);
-			return 0;
+			return ext2->write_block(pip->i_block[i], buf);
 		}
 
 		//(4) get last entry in block
@@ -275,8 +276,7 @@ static int32_t write_child(ext2_t* ext2, INODE* pip, uint32_t ino, const char *n
 			dp->name_len = strlen(name);
 			dp->file_type = (uint8_t)ftype;
 			strcpy(dp->name, name);
-			ext2->write_block(pip->i_block[i], buf);
-			return 0;
+			return ext2->write_block(pip->i_block[i], buf);
 		}
 	}
 	return -1;
@@ -304,15 +304,13 @@ static int32_t ext2_rm_child(ext2_t* ext2, INODE *ip, const char *name) {
 				//(2).1. if (first and only entry in a data block){
 				if(dp->rec_len == EXT2_BLOCK_SIZE){
 					dp->inode = 0;
-					ext2->write_block(ip->i_block[i], buf);
-					return 0;
+					return ext2->write_block(ip->i_block[i], buf);
 				}
 				//(2).2. else if LAST entry in block
 				else if(precp != NULL && (dp->rec_len + (cp - buf)) == EXT2_BLOCK_SIZE){
 					dp = (DIR_T *)precp;
 					dp->rec_len = EXT2_BLOCK_SIZE - (precp - buf);
-					ext2->write_block(ip->i_block[i], buf);
-					return 0;
+					return ext2->write_block(ip->i_block[i], buf);
 				}
 				//(2).3. else: entry is first but not the only entry or in the middle of a block:
 				else{
@@ -332,8 +330,7 @@ static int32_t ext2_rm_child(ext2_t* ext2, INODE *ip, const char *name) {
 			memset(cpbuf, 0, EXT2_BLOCK_SIZE);
 			memcpy(cpbuf, buf, first_len);
 			memcpy(cpbuf + first_len, buf + first_len + rec_len, EXT2_BLOCK_SIZE-(first_len+rec_len));
-			ext2->write_block(ip->i_block[i], cpbuf);
-			return 0;
+			return ext2->write_block(ip->i_block[i], cpbuf);
 		}
 	}
 	return -1;
@@ -435,7 +432,7 @@ static INODE* get_node_by_ino(ext2_t* ext2, uint32_t ino, char* buf) {
 	return ((INODE *)buf) + offset;
 }
 
-void put_node(ext2_t* ext2, uint32_t ino, INODE *node) {
+int32_t put_node(ext2_t* ext2, uint32_t ino, INODE *node) {
 	uint32_t bgid = get_gd_index_by_ino(ext2, ino);
 	ino = get_ino_in_group(ext2, ino, bgid);
 	uint32_t offset = (ino-1)%8;
@@ -444,10 +441,10 @@ void put_node(ext2_t* ext2, uint32_t ino, INODE *node) {
 	uint32_t blk = ext2->gds[bgid].bg_inode_table + (ino-1)/8;
 	char buf[EXT2_BLOCK_SIZE];
 	if(ext2->read_block(blk, buf, 1) != 0)
-		return;
+		return -1;
 	INODE *ip = ((INODE *)buf) + offset;
 	memcpy(ip, node, sizeof(INODE));
-	ext2->write_block(blk, buf);	
+	return ext2->write_block(blk, buf);	
 }
 
 int32_t ext2_create_dir(ext2_t* ext2, INODE* father_inp, const char *name,
@@ -477,7 +474,8 @@ int32_t ext2_create_dir(ext2_t* ext2, INODE* father_inp, const char *name,
 	}
 	//mip->dirty = 1;
 
-	put_node(ext2, ino, inp); //write inode back to block
+	if(put_node(ext2, ino, inp) != 0)
+		return -1; //write inode back to block
 
 	if(write_child(ext2, father_inp, ino, name, EXT2_FT_DIR) < 0) //write dir info (name, type)
 		return -1;
@@ -509,7 +507,8 @@ int32_t ext2_create_file(ext2_t* ext2, INODE* father_inp, const char *name,
 		inp->i_block[i] = 0;
 	}
 	//mip->dirty = 1;
-	put_node(ext2, ino, inp);
+	if(put_node(ext2, ino, inp) != 0)
+		return -1;
 
 	if(write_child(ext2, father_inp, ino, name, EXT2_FT_FILE) < 0)
 		return -1;
@@ -544,13 +543,15 @@ int32_t ext2_write(ext2_t* ext2, INODE* node, const char *data, int32_t nbytes, 
 		if(node->i_block[12] == 0){
 			node->i_block[12] = ext2_balloc(ext2);
 			memset(indirect_buf, 0, EXT2_BLOCK_SIZE);
-			ext2->write_block(node->i_block[12], (char*)indirect_buf);
+			if(ext2->write_block(node->i_block[12], (char*)indirect_buf) != 0)
+				return 0;
 		}
 		if(ext2->read_block(node->i_block[12], (char*)indirect_buf, 0) != 0)
 			return 0;
 		if(indirect_buf[lbk-12] == 0){
 			indirect_buf[lbk-12] = ext2_balloc(ext2);
-			ext2->write_block(node->i_block[12], (char*)indirect_buf);
+			if(ext2->write_block(node->i_block[12], (char*)indirect_buf) != 0)
+				return 0;
 		}
 		blk = indirect_buf[lbk-12]; 
 	}
@@ -582,7 +583,8 @@ int32_t ext2_write(ext2_t* ext2, INODE* node, const char *data, int32_t nbytes, 
 			break;
 		}
 	}
-	ext2->write_block(blk, buf);
+	if(ext2->write_block(blk, buf) != 0)
+		return 0;
 	return nbytes_copy;
 }
 
@@ -719,7 +721,8 @@ int32_t ext2_unlink(ext2_t* ext2, const char* fname) {
 
 	ext2_rm_child(ext2, fnode, CS(name));
 	str_free(name);
-	put_node(ext2, fino, fnode);
+	if(put_node(ext2, fino, fnode) != 0)
+		return -1;
 
 	INODE* node = get_node_by_ino(ext2, ino, buf);
 	if(node == NULL) {
@@ -740,7 +743,8 @@ int32_t ext2_unlink(ext2_t* ext2, const char* fname) {
 	}
 	//}
 	//node->dirty = 1;
-	put_node(ext2, ino, node);	
+	if(put_node(ext2, ino, node) != 0)
+		return -1;
 	ext2_idealloc(ext2, ino);
 	return 0;
 }
