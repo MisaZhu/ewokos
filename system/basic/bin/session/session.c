@@ -6,7 +6,7 @@
 #include <ewoksys/wait.h>
 
 static void welcome(void) {
-	const char* s = "\n"
+	const char* s = "\033[2J\033[0;0H" //clear screen and move to 0,0
 			"+-----Ewok micro-kernel OS-----------------------+\n"
 			"| https://github.com/MisaZhu/EwokOS.git          |\n"
 			"+------------------------------------------------+\n";
@@ -32,16 +32,6 @@ int main(int argc, char* argv[]) {
 
 	while(1) {
 		int pid = fork();
-		if(pid == 0) {
-			if(proc_exec("/bin/tsaver") < 0) {
-				exit(-1);
-			}
-		}
-		else {
-			waitpid(pid);
-		}
-
-		pid = fork();
 		if(pid == 0) {
 			welcome();
 			if(proc_exec("/bin/login") < 0) {
