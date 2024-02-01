@@ -71,15 +71,19 @@ static int loop(void* p) {
 	if(_mini_uart) {
 		while(bcm283x_mini_uart_ready_to_recv() == 0){
 			c = bcm283x_mini_uart_recv();
-			if(c != '\r' || !_no_return)
+			if(c != '\r' || !_no_return) {
 				charbuf_push(_RxBuf, c, true);
+				proc_wakeup(RW_BLOCK_EVT);
+			}
 		}
 	}
 	else {
 		while(bcm283x_pl011_uart_ready_to_recv() == 0){
 			c = bcm283x_pl011_uart_recv();
-			if(c != '\r' || !_no_return)
+			if(c != '\r' || !_no_return) {
 				charbuf_push(_RxBuf, c, true);
+				proc_wakeup(RW_BLOCK_EVT);
+			}
 		}
 	}
 	ipc_enable();
