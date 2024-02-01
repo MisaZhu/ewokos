@@ -4,6 +4,7 @@
 #include <string.h>
 #include <ewoksys/vdevice.h>
 #include <ewoksys/syscall.h>
+#include <ewoksys/vfs.h>
 #include <ewoksys/mmio.h>
 #include <ewoksys/dma.h>
 #include <ewoksys/interrupt.h>
