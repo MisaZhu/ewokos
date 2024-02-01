@@ -13,8 +13,7 @@
 #include <arch/bcm283x/mini_uart.h>
 #include <arch/bcm283x/pl011_uart.h>
 
-static charbuf_t _TxBuf;
-static charbuf_t _RxBuf;
+static charbuf_t *_RxBuf;
 static bool _mini_uart;
 static bool _no_return;
 
@@ -29,7 +28,7 @@ static int uart_read(int fd, int from_pid, fsinfo_t* node,
 
 	int i;
 	for(i = 0; i < size; i++){
-	int res = charbuf_pop(&_RxBuf, buf + i);
+	int res = charbuf_pop(_RxBuf, buf + i);
 	if(res != 0)
 		break;
 	}
@@ -73,14 +72,14 @@ static int loop(void* p) {
 		while(bcm283x_mini_uart_ready_to_recv() == 0){
 			c = bcm283x_mini_uart_recv();
 			if(c != '\r' || !_no_return)
-				charbuf_push(&_RxBuf, c, true);
+				charbuf_push(_RxBuf, c, true);
 		}
 	}
 	else {
 		while(bcm283x_pl011_uart_ready_to_recv() == 0){
 			c = bcm283x_pl011_uart_recv();
 			if(c != '\r' || !_no_return)
-				charbuf_push(&_RxBuf, c, true);
+				charbuf_push(_RxBuf, c, true);
 		}
 	}
 	ipc_enable();
@@ -93,9 +92,6 @@ int main(int argc, char** argv) {
 	_mmio_base = mmio_map();
 	_mini_uart = true;
 	_no_return = false;
-
-	charbuf_init(&_TxBuf);
-	charbuf_init(&_RxBuf);
 
 	if(argc > 2 && strcmp(argv[2], "nr") == 0)
 		_no_return = true;
@@ -113,10 +109,14 @@ int main(int argc, char** argv) {
 	else
 		strcpy(dev.name, "mini_uart");
 
+	_RxBuf = charbuf_new(0);
+
 	dev.read = uart_read;
 	dev.write = uart_write;
 	dev.loop_step = loop;
 
 	device_run(&dev, mnt_point, FS_TYPE_CHAR, 0666);
+
+	charbuf_free(_RxBuf);
 	return 0;
 }

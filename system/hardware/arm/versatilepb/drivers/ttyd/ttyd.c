@@ -42,7 +42,7 @@ int32_t uart_write(const void* data, uint32_t size) {
   return i;
 }
 
-static charbuf_t _buffer;
+static charbuf_t *_buffer;
 
 static int tty_read(int fd, int from_pid, fsinfo_t* node,
 		void* buf, int size, int offset, void* p) {
@@ -54,7 +54,7 @@ static int tty_read(int fd, int from_pid, fsinfo_t* node,
 	(void)p;
 
 	char c;
-	int res = charbuf_pop(&_buffer, &c);
+	int res = charbuf_pop(_buffer, &c);
 
 	if(res != 0 || c == 0)
 		return ERR_RETRY;
@@ -77,7 +77,7 @@ static void interrupt_handle(uint32_t interrupt, uint32_t p) {
 	(void)interrupt;
 	(void)p;
 	uint32_t data = get32(UART0 + UART_DATA);
-	charbuf_push(&_buffer, data, true);
+	charbuf_push(_buffer, data, true);
 	proc_wakeup(RW_BLOCK_EVT);
 	sys_interrupt_end();
 }
@@ -86,7 +86,7 @@ int main(int argc, char** argv) {
 	const char* mnt_point = argc > 1 ? argv[1]: "/dev/tty0";
 	_mmio_base = mmio_map();
 
-	charbuf_init(&_buffer);
+	_buffer = charbuf_new(0);
 
 	vdevice_t dev;
 	memset(&dev, 0, sizeof(vdevice_t));
@@ -96,5 +96,6 @@ int main(int argc, char** argv) {
 
 	sys_interrupt_setup(SYS_INT_UART0, interrupt_handle, 0);
 	device_run(&dev, mnt_point, FS_TYPE_CHAR, 0666);
+	charbuf_free(_buffer);
 	return 0;
 }

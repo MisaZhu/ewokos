@@ -16,8 +16,7 @@
 
 #include "sc16is750.h"
 
-static charbuf_t _TxBuf;
-static charbuf_t _RxBuf;
+static charbuf_t *_RxBuf = NULL;
 static 	SC16IS750_t spiuart;
 static bool _no_return;
 
@@ -32,7 +31,7 @@ static int uart_read(int fd, int from_pid, fsinfo_t* node,
 
 	int i;
 	for(i = 0; i < size; i++){
-	int res = charbuf_pop(&_RxBuf, buf + i);
+	int res = charbuf_pop(_RxBuf, buf + i);
 		if(res != 0)
 			break;
 	}
@@ -61,7 +60,7 @@ static int loop(void* p) {
 	for(int i = 0; i < len; i++){
 		c = SC16IS750_read(&spiuart, SC16IS750_CHANNEL_B);
 		if(c != '\r' || !_no_return)
-			charbuf_push(&_RxBuf, c, true);
+			charbuf_push(_RxBuf, c, true);
 	}
 	ipc_enable();
 	proc_usleep(100);
@@ -75,9 +74,6 @@ int main(int argc, char** argv) {
 	if(argc > 2 && strcmp(argv[2], "nr") == 0)
 		_no_return = true;
 
-	charbuf_init(&_TxBuf);
-	charbuf_init(&_RxBuf);
-
 	vdevice_t dev;
 	memset(&dev, 0, sizeof(vdevice_t));
 	strcpy(dev.name, "spi_uart");
@@ -85,15 +81,17 @@ int main(int argc, char** argv) {
 	SC16IS750_init(&spiuart, SC16IS750_PROTOCOL_SPI, 18, SC16IS750_DUAL_CHANNEL);
 	SC16IS750_begin(&spiuart, SC16IS750_DEFAULT_SPEED, SC16IS750_DEFAULT_SPEED, 14745600UL); //baudrate&frequency setting
 
-	if (SC16IS750_ping(&spiuart)!=1) {
+	if (SC16IS750_ping(&spiuart)!=1) 
 		return 0;
-	} else {
-	}
+
+	_RxBuf = charbuf_new(0);
 
 	dev.read = uart_read;
 	dev.write = uart_write;
 	dev.loop_step = loop;
 
 	device_run(&dev, mnt_point, FS_TYPE_CHAR, 0666);
+
+	charbuf_free(_RxBuf);
 	return 0;
 }

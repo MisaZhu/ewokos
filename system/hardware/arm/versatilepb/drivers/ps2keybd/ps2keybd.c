@@ -96,7 +96,7 @@ static int32_t keyb_handle(uint8_t scode) {
 	return c;
 }
 
-static charbuf_t _buffer;
+static charbuf_t *_buffer;
 
 static int keyb_read(int fd, int from_pid, fsinfo_t* node, 
 		void* buf, int size, int offset, void* p) {
@@ -108,7 +108,7 @@ static int keyb_read(int fd, int from_pid, fsinfo_t* node,
 	(void)node;
 
 	char c;
-	int res = charbuf_pop(&_buffer, &c);
+	int res = charbuf_pop(_buffer, &c);
 
 	if(res != 0 || c == 0)
 		return ERR_RETRY;
@@ -122,7 +122,7 @@ static int keyb_read(int fd, int from_pid, fsinfo_t* node,
 	uint8_t key_scode = get8(KEYBOARD_BASE+KDATA);
 	char c = keyb_handle(key_scode);
 	if(c != 0) {
-		charbuf_push(&_buffer, c, true);
+		charbuf_push(_buffer, c, true);
 		proc_wakeup(RW_BLOCK_EVT);
 	}
 	proc_usleep(3000);
@@ -134,7 +134,7 @@ static void timer_handler(void) {
 	uint8_t key_scode = get8(KEYBOARD_BASE+KDATA);
 	char c = keyb_handle(key_scode);
 	if(c != 0) {
-		charbuf_push(&_buffer, c, true);
+		charbuf_push(_buffer, c, true);
 		proc_wakeup(RW_BLOCK_EVT);
 	}
 	return;
@@ -144,7 +144,7 @@ int main(int argc, char** argv) {
 	const char* mnt_point = argc > 1 ? argv[1]: "/dev/keyb0";
 
 	keyb_init();
-	charbuf_init(&_buffer);
+	_buffer = charbuf_new(0);
 
 	vdevice_t dev;
 	memset(&dev, 0, sizeof(vdevice_t));
@@ -155,5 +155,6 @@ int main(int argc, char** argv) {
 	uint32_t tid = timer_set(5000, timer_handler);
 	device_run(&dev, mnt_point, FS_TYPE_CHAR, 0444);
 	timer_remove(tid);
+	charbuf_free(_buffer);
 	return 0;
 }
