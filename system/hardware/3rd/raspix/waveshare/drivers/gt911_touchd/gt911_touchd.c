@@ -35,7 +35,7 @@ static int tp_read(int fd, int from_pid, fsinfo_t* node,
 			return 6;
 		}else{
 			//proc_usleep(25000);
-			return ERR_RETRY_NON_BLOCK;
+			return VFS_ERR_RETRY;
 		}
 	}
 	last_ts = kernel_tic_ms(0);

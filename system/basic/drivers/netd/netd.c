@@ -204,7 +204,7 @@ static int network_split_fcntl(int fd, int from_pid, uint32_t node,
 	net_req_t* req = alloc_request();
 
 	if(!req){
-		PF->addi(out, ERR_RETRY);
+		PF->addi(out, VFS_ERR_RETRY);
 		return 0;
 	}
 
@@ -239,7 +239,7 @@ static int network_split_ack(int fd, int from_pid, uint32_t node,
 		free_request(ack);
 		return 0;
 	}
-	PF->addi(out, ERR_RETRY);
+	PF->addi(out, VFS_ERR_RETRY);
 	return 0;
 }
 
@@ -264,7 +264,7 @@ static int network_read(int fd, int from_pid, fsinfo_t* node,
 	(void)fd;
 	(void)from_pid;
 	(void)p;
-    return ERR_RETRY;
+    return VFS_ERR_RETRY;
 }
 
 
@@ -273,7 +273,7 @@ static int network_write(int fd, int from_pid, fsinfo_t* node,
 	(void)fd;
 	(void)from_pid;
 	uint8_t mac[6];	
-	return ERR_RETRY;
+	return VFS_ERR_RETRY;
 }
 
 static int network_close(int fd, int from_pid, uint32_t node, void* p) {

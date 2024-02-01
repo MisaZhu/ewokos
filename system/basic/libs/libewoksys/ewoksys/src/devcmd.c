@@ -1,5 +1,6 @@
 #include <ewoksys/devcmd.h>
 #include <ewoksys/ipc.h>
+#include <ewoksys/vfs.h>
 #include <sys/shm.h>
 #include <sys/errno.h>
 #include <unistd.h>
@@ -304,7 +305,7 @@ int dev_read_block(int pid, void* buf, uint32_t size, int32_t index) {
 		if(rd > 0) {
 			memcpy(buf, shm, rd);
 		}
-		if(res == ERR_RETRY) {
+		if(res == VFS_ERR_RETRY) {
 			errno = EAGAIN;
 			res = -1;
 		}

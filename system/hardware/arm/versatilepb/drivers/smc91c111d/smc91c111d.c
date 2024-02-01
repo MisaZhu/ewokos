@@ -234,7 +234,7 @@ static int smc_send(uint8_t *buf, int size)
 			SMC_ACK_INT(IM_ALLOC_INT);
   			break;
 		}
-		return ERR_RETRY_NON_BLOCK; 
+		return VFS_ERR_RETRY; 
    	} 
 
 	packet_no = SMC_GET_AR();
@@ -242,7 +242,7 @@ static int smc_send(uint8_t *buf, int size)
 	if (packet_no & AR_FAILED) {
 		tx_errors++;
 		tx_fifo_errors++;
-		return ERR_RETRY_NON_BLOCK;
+		return VFS_ERR_RETRY;
 	}
 
 	/* point to the beginning of the packet */
@@ -302,7 +302,7 @@ static int eth_read(int fd, int from_pid, fsinfo_t* node,
 		}
 		return len;
 	}
-	return ERR_RETRY; 
+	return VFS_ERR_RETRY; 
 }
 
 static int eth_write(int fd, int from_pid, fsinfo_t* node,

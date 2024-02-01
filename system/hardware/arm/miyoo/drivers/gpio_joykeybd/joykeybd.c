@@ -124,7 +124,7 @@ static int joystick_read(int fd, int from_pid, fsinfo_t* node,
 				break;
 		}
 	}
-	return key_cnt > 0 ? key_cnt : ERR_RETRY_NON_BLOCK;
+	return key_cnt > 0 ? key_cnt : VFS_ERR_RETRY;
 }
 
 static void init_gpio(void) {

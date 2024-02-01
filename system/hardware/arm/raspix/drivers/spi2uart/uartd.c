@@ -35,7 +35,7 @@ static int uart_read(int fd, int from_pid, fsinfo_t* node,
 		if(res != 0)
 			break;
 	}
-	return (i==0)?ERR_RETRY_NON_BLOCK:i;
+	return (i==0)?VFS_ERR_RETRY:i;
 }
 
 static int uart_write(int fd, int from_pid, fsinfo_t* node,

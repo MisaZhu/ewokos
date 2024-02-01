@@ -4,15 +4,11 @@
 #include <ewoksys/ewokdef.h>
 #include <ewoksys/cmain.h>
 #include <sys/stat.h>
-#include <errno.h>
+#include <sys/errno.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-
-#define ERR_RETRY -2
-#define ERR_RETRY_NON_BLOCK -3
 
 #define RW_BLOCK_EVT	1
 

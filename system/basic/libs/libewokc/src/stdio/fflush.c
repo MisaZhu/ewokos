@@ -31,7 +31,7 @@
  * SUCH DAMAGE.
  */
 
-#include <errno.h>
+#include <sys/errno.h>
 #include <stdio.h>
 /* Flush a single file, or (if fp is NULL) all files.  */
 int

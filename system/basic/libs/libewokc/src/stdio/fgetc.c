@@ -1,5 +1,5 @@
 #include <stdio.h>
-#include <errno.h>
+#include <sys/errno.h>
 
 int fgetc(FILE *fp) {
 	char c = 0;

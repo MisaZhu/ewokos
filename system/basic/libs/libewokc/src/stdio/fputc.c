@@ -32,7 +32,7 @@
  */
 
 #include <stdio.h>
-#include <errno.h>
+#include <sys/errno.h>
 
 int
 fputc(int c, FILE *fp)

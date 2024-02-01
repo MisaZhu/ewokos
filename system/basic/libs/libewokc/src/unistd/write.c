@@ -31,16 +31,12 @@ static int write_block(int fd, const void* buf, uint32_t size) {
 
 	while(1) {
 		res = vfs_write(fd, &info, buf, size);
-		if(res >= 0 || errno == EAGAIN_NON_BLOCK) {
-			errno = EAGAIN;
+		if(res >= 0) 
 			break;
-		}
 
-		if(errno == EAGAIN)
-			proc_block_by(info.mount_pid, RW_BLOCK_EVT);
-
-		if (res < 0) /* let user handle those erro id*/
+		if(errno != EAGAIN)
 			break;
+		proc_block_by(info.mount_pid, RW_BLOCK_EVT);
 	}
 	return res;
 }

@@ -4,7 +4,7 @@
  * Andy Wilson, 2-Oct-89.
  */
 
-#include <errno.h>
+#include <sys/errno.h>
 #include <ctype.h>
 #include <stdio.h>
 

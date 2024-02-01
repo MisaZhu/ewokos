@@ -73,12 +73,12 @@ static int tp_read(int fd, int from_pid, fsinfo_t* node,
 	(void)p;
 
 	if(size < 6)
-    return ERR_RETRY_NON_BLOCK;
+    return VFS_ERR_RETRY;
 
 	uint16_t* d = (uint16_t*)buf;
 
 	if(xpt2046_read(&d[0], &d[1], &d[2]) != 0)
-		return ERR_RETRY_NON_BLOCK;
+		return VFS_ERR_RETRY;
 	return 6;	
 }
 

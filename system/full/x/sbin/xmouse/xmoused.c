@@ -54,10 +54,11 @@ int main(int argc, char** argv) {
 
 	while(true) {
 		int8_t mv[4];
-		if(read(fd, mv, 4) == 4)
-			input(mv[0], mv[1], mv[2]);
-		else
-			proc_usleep(2000);
+		if(read(fd, mv, 4) == 4) {
+			if(mv[0] != 0) 
+				input(mv[1], mv[2], mv[3]);
+		}
+		proc_usleep(3000);
 	}
 
 	close(fd);

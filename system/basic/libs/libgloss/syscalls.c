@@ -282,19 +282,12 @@ _read (int fd, void * buf, size_t size)
 
 	while(1) {
 		res = vfs_read(fd, &info, buf, size);
-		if(res >= 0 || errno == EAGAIN_NON_BLOCK) {
-			errno = EAGAIN;
-			break;
-		}
-
-		if(!block)
+		if(res >= 0)
 			break;
 
-		if(errno == EAGAIN)
-			proc_block_by(info.mount_pid, RW_BLOCK_EVT);
-
-		if (res < 0) /* let user handle those erro id*/
+		if(errno != EAGAIN || !block)
 			break;
+		proc_block_by(info.mount_pid, RW_BLOCK_EVT);
 	}
 	return res;
 }
@@ -347,23 +340,15 @@ _write (int fd, const void * buf, size_t size)
 
 	while(1) {
 		res = vfs_write(fd, &info, buf, size);
-		if(res >= 0 || errno == EAGAIN_NON_BLOCK) {
-			errno = EAGAIN;
-			break;
-		}
-
-		if(!block)
+		if(res >= 0)
 			break;
 
-		if(errno == EAGAIN)
-			proc_block_by(info.mount_pid, RW_BLOCK_EVT);
-
-		if (res < 0) /* let user handle those erro id*/
+		if(errno != EAGAIN || !block)
 			break;
+		proc_block_by(info.mount_pid, RW_BLOCK_EVT);
 	}
 	return res;
 }
-
 
 int
 _open (const char * fname, int oflag, ...)

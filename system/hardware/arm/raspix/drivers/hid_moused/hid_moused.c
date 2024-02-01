@@ -44,7 +44,7 @@ static int mouse_read(int fd, int from_pid, fsinfo_t* node,
 		has_data = 0;
 		return 4;
 	}
-	return ERR_RETRY;
+	return VFS_ERR_RETRY;
 }
 
 static int loop(void* p) {

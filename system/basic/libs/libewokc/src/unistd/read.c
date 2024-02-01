@@ -32,21 +32,20 @@ static int read_block(int fd, void* buf, uint32_t size) {
 
 	while(1) {
 		res = vfs_read(fd, &info, buf, size);
-		if(res >= 0 || errno == EAGAIN_NON_BLOCK) {
-			errno = EAGAIN;
+		if(res >= 0)
 			break;
-		}
 
-		if(errno == EAGAIN)
-			proc_block_by(info.mount_pid, RW_BLOCK_EVT);
+		if(errno != EAGAIN)
+			break;
+		proc_block_by(info.mount_pid, RW_BLOCK_EVT);
 	}
 	return res;
 }
 
 int read(int fd, void* buf, uint32_t size) {
-	int flags = fcntl(fd, F_GETFL, 0);
+	int flags = vfs_get_flags(fd);
 	if(flags == -1)
-		return -1;
+	 		return -1;
 
   if((flags & O_NONBLOCK) == 0)
 		return read_block(fd, buf, size);

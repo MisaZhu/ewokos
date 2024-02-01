@@ -48,7 +48,7 @@ static int uart_read(int fd, int from_pid, fsinfo_t* node,
 		*(char*)buf = get8(UART0 + UART_THR_OFFSET);
 		return 1;
 	}else
-    	return ERR_RETRY_NON_BLOCK;
+    	return VFS_ERR_RETRY;
 }
 
 static int uart_write(int fd, int from_pid, fsinfo_t* node,

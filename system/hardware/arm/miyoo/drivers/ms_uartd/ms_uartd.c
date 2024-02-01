@@ -30,7 +30,7 @@ static int uart_read(int fd, int from_pid, fsinfo_t* node,
 	char c;
 
     if(!(UART_MULTI_REG8(UART_LSR) & UART_LSR_DR))
-		return ERR_RETRY_NON_BLOCK;
+		return VFS_ERR_RETRY;
 
     ((uint8_t*)buf)[0]=(char) ( UART_MULTI_REG8(UART_TX) & 0xff);
 

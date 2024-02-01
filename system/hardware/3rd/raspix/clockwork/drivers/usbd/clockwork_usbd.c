@@ -116,7 +116,7 @@ static int usb_read(int fd, int from_pid, fsinfo_t* node,
         }
     }
 
-    return ERR_RETRY;
+    return VFS_ERR_RETRY;
  }
 
 

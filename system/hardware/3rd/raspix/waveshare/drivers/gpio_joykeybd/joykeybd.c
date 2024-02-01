@@ -68,7 +68,7 @@ static int joykeyb_read(int fd, int from_pid, fsinfo_t* node,
 				break;
 		}
 	}
-	return (cnt>0)?cnt:ERR_RETRY_NON_BLOCK;
+	return (cnt>0)?cnt:VFS_ERR_RETRY;
 }
 
 static void init_gpio(void) {

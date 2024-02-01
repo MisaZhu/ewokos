@@ -25,7 +25,7 @@ static int joystick_read(int fd, int from_pid, fsinfo_t* node,
 		last_state = key_state;
 		return 1;
 	}
-	return ERR_RETRY;
+	return VFS_ERR_RETRY;
 }
 
 typedef struct {

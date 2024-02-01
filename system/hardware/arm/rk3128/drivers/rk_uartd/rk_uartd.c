@@ -25,7 +25,7 @@ static int uart_read(int fd, int from_pid, fsinfo_t* node,
 	(void)p;
 
 	if((REG32(_mmio_base + 0x60014) & UART_LSR_DR) == 0)
-		return ERR_RETRY_NON_BLOCK;
+		return VFS_ERR_RETRY;
 
 	((char*)buf)[0] = (char)REG32(_mmio_base + 0x60000);
 	return 1;

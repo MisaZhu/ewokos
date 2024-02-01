@@ -690,12 +690,8 @@ int vfs_read(int fd, fsinfo_t *info, void* buf, uint32_t size) {
 		if(info->type == FS_TYPE_FILE)
 			vfs_seek(fd, offset);
 	}
-	else if(res == ERR_RETRY) {
+	else if(res == VFS_ERR_RETRY) {
 		errno = EAGAIN;
-		res = -1;
-	}
-	else if(res == ERR_RETRY_NON_BLOCK) {
-		errno = EAGAIN_NON_BLOCK;
 		res = -1;
 	}
 	return res;
@@ -731,7 +727,7 @@ int vfs_write(int fd, fsinfo_t* info, const void* buf, uint32_t size) {
 			vfs_seek(fd, offset);
 		}
 	}
-	else if(res == -2) {
+	else if(res == VFS_ERR_RETRY) {
 		errno = EAGAIN;
 		res = -1;
 	}

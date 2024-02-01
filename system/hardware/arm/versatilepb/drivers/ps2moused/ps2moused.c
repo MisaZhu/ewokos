@@ -170,15 +170,15 @@ static int mouse_read(int fd, int from_pid, fsinfo_t* node,
 	(void)node;
 
 	mouse_info_t minfo;
-	if(size < 4 || mouse_handler(&minfo) != 0) {
-		return ERR_RETRY_NON_BLOCK;
-	}
-
 	uint8_t* d = (uint8_t*)buf;
-	d[0] = minfo.btn;
-	d[1] = minfo.rx;
-	d[2] = minfo.ry;
-	d[3] = minfo.rz;
+	d[0] = 0;
+
+	if(size >= 4 && mouse_handler(&minfo) == 0) {
+		d[0] = 1;
+		d[1] = minfo.btn;
+		d[2] = minfo.rx;
+		d[3] = minfo.ry;
+	}
 	return 4;
 }
 
