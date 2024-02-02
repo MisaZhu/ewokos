@@ -8,6 +8,7 @@
 #include <ewoksys/keydef.h>
 #include <ewoksys/ipc.h>
 #include <ewoksys/mmio.h>
+#include <ewoksys/vfs.h>
 
 #define SARADC_CTRL_CHN_MASK        (0x7)
 #define SARADC_CTRL_POWER_CTRL      (0x1<<3)

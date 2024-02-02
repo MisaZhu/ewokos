@@ -7,6 +7,7 @@
 #include <ewoksys/syscall.h>
 #include <ewoksys/keydef.h>
 #include <ewoksys/ipc.h>
+#include <ewoksys/vfs.h>
 #include <ewoksys/mmio.h>
 
 #define SARADC_CTRL_CHN_MASK        (0x7)

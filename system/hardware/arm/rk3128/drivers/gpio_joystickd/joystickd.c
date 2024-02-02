@@ -6,6 +6,7 @@
 #include <ewoksys/vdevice.h>
 #include <ewoksys/syscall.h>
 #include <ewoksys/keydef.h>
+#include <ewoksys/vfs.h>
 #include <ewoksys/ipc.h>
 #include <ewoksys/mmio.h>
 
