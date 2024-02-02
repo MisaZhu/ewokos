@@ -97,6 +97,20 @@ fsfile_t* vfs_get_file(int fd) {
 	return vfs_set_file(fd, &info);
 }
 
+int vfs_get_flags(int fd) {
+	fsfile_t* file = vfs_get_file(fd);
+	if(file == NULL)
+		return -1;
+	return file->flags;
+}
+
+int vfs_set_flags(int fd, int flags) {
+	fsfile_t* file = vfs_get_file(fd);
+	if(file == NULL)
+		return -1;
+	file->flags = flags;
+	return 0;
+}
 int vfs_check_access(int pid, fsinfo_t* info, int mode) {
 	procinfo_t procinfo;
 	if(info == NULL || proc_info(pid, &procinfo) != 0)
