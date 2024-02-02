@@ -34,7 +34,7 @@
 #define KERNEL_PAGE_DIR_END            (KERNEL_PAGE_DIR_BASE + 128*KB)
 
 #define KMALLOC_BASE                   ALIGN_UP(KERNEL_PAGE_DIR_END, PAGE_SIZE)
-#define KMALLOC_END                    (KMALLOC_BASE + 8*MB)
+#define KMALLOC_END                    (KMALLOC_BASE + 16*MB)
 
 #define ALLOCATABLE_PAGE_DIR_BASE      KMALLOC_END
 #define ALLOCATABLE_PAGE_DIR_END       (ALLOCATABLE_PAGE_DIR_BASE + 1*MB)
