@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <unistd.h>
+#include <stdlib.h>
 #include <fcntl.h>
 #include <ewoksys/vfs.h>
 #include <ewoksys/basic_math.h>

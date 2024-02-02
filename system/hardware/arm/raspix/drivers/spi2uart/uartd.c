@@ -65,7 +65,7 @@ static int loop(void* p) {
 		}
 	}
 	ipc_enable();
-	proc_usleep(100);
+	proc_usleep(10000);
 	return 0;
 }
 
