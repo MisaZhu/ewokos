@@ -21,6 +21,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <string.h>
+#include <sys/errno.h>
 #include <ewoksys/proc.h>
 #include <ewoksys/kernel_tic.h>
 #include <ewoksys/keydef.h>

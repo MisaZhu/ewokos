@@ -106,7 +106,7 @@ int main(int argc, char** argv) {
 			_j_y_rev = true;
 	}
 
-	int fd = open(dev_name, O_RDONLY);
+	int fd = open(dev_name, O_RDONLY | O_NONBLOCK);
 	if(fd < 0) {
 		fprintf(stderr, "xjoymoused error: open [%s] failed!\n", dev_name);
 		return -1;

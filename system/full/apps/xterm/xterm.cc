@@ -7,6 +7,7 @@ extern "C" {
 #include <string.h>
 #include <fcntl.h>
 #include <stdio.h>
+#include <sys/errno.h>
 
 #ifdef __cplusplus
 }

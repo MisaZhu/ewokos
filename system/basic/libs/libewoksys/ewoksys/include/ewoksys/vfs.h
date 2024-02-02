@@ -5,7 +5,7 @@
 #include <ewoksys/mstr.h>
 #include <ewoksys/proto.h>
 #include <ewoksys/vfsc.h>
-#include <sys/errno.h>
+#include <ewoksys/vdevice.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -17,7 +17,6 @@ typedef struct {
 	fsinfo_t info;
 } fsfile_t;
 
-#define VFS_ERR_RETRY -2
 #define RW_BLOCK_EVT	1
 
 #define VFS_BUF_SIZE (1024*8)
