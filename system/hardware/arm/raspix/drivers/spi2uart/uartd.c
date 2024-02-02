@@ -59,8 +59,10 @@ static int loop(void* p) {
 	int len = SC16IS750_available(&spiuart, SC16IS750_CHANNEL_B);
 	for(int i = 0; i < len; i++){
 		c = SC16IS750_read(&spiuart, SC16IS750_CHANNEL_B);
-		if(c != '\r' || !_no_return)
+		if(c != '\r' || !_no_return) {
 			charbuf_push(_RxBuf, c, true);
+			proc_wakeup(RW_BLOCK_EVT);
+		}
 	}
 	ipc_enable();
 	proc_usleep(100);
