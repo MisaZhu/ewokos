@@ -33,6 +33,16 @@ int main(int argc, char* argv[]) {
 	while(1) {
 		int pid = fork();
 		if(pid == 0) {
+			if(proc_exec("/bin/tsaver") < 0) {
+				exit(-1);
+			}
+		}
+		else {
+			waitpid(pid);
+		}
+
+		pid = fork();
+		if(pid == 0) {
 			welcome();
 			if(proc_exec("/bin/login") < 0) {
 				exit(-1);
