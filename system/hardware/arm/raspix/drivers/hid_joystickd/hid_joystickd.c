@@ -45,7 +45,11 @@ static int loop(void* p) {
 	(void)p;
 
 	uint8_t buf[8];
-	if(read(hid, buf, 7) == 7){
+	ipc_disable();
+	int res = read(hid, buf, 7);
+	ipc_enable();
+
+	if(res == 7){
 		//klog("joy: %02x %02x %02x %02x %02x %02x %02x %02x\n", 
 		//buf[0], buf[1], buf[2], buf[3], buf[4], buf[5], buf[6], buf[7]);
 		joystick_t *joy = (joystick_t*)&buf;
