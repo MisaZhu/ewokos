@@ -3,6 +3,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <ewoksys/vfs.h>
+#include <ewoksys/ipc.h>
 #include <ewoksys/vdevice.h>
 #include <ewoksys/mmio.h>
 #include <fcntl.h>
@@ -55,17 +56,20 @@ static int mouse_read(int fd, int from_pid, fsinfo_t* node,
 static int loop(void* p) {
 	(void)p;
 
+	ipc_disable();
 	int8_t buf[8] = {0};
-	if(read(hid, buf, 7) == 7){
+	int res = read(hid, buf, 7);
+	ipc_enable();
+
+	if(res == 7) {
 		btn = buf[0];
 		x = buf[1];
 		y = buf[2];
 		has_data = 1;
 		//proc_wakeup(RW_BLOCK_EVT);
 	}
-	else {
-		usleep(10000);
-	}
+	else 
+		proc_usleep(10000);
 	return 0;
 }
 
