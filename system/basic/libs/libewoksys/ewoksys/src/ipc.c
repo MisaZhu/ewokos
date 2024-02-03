@@ -65,6 +65,7 @@ static int32_t ipc_get_info(uint32_t ipc_id, int32_t* pid, int32_t* call_id, pro
 		if(data == NULL)
 			return -1;
 		PF->init_data(arg, data, size);
+		arg->pre_alloc = false;
 	}
 
 	if(syscall3(SYS_IPC_GET_ARG, ipc_id, (int32_t)ipc_info, (int32_t)arg) != 0)
@@ -106,6 +107,7 @@ inline int ipc_call(int to_pid, int call_id, const proto_t* ipkg, proto_t* opkg)
 			if(data == NULL) //error!
 				return -1;
 			PF->init_data(opkg, data, size);
+			opkg->pre_alloc = false;
 		}
 
 		int res = syscall3(SYS_IPC_GET_RETURN, to_pid, (int32_t)ipc_id, (int32_t)opkg);
