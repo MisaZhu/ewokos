@@ -118,10 +118,12 @@ int dev_read(int dev_pid, int fd, fsinfo_t* info, int32_t offset, void* buf, uin
 		int rd = proto_read_int(&out);
 		res = rd;
 		if(rd > 0) {
+			if(rd > size)
+				rd = size;
 			if(shm_id != -1 && shm != NULL)
 				memcpy(buf, shm, rd);
 			else
-				proto_read_to(&out, buf, size);
+				proto_read_to(&out, buf, rd);
 		}
 	}
 	PF->clear(&in);
