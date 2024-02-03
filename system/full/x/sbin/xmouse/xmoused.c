@@ -41,7 +41,7 @@ int main(int argc, char** argv) {
 	_x_pid = -1;
 	_mouse_down = 0;
 
-	int fd = open(dev_name, O_RDONLY);
+	int fd = open(dev_name, O_RDONLY | O_NONBLOCK);
 	if(fd < 0) {
 		fprintf(stderr, "xmoused error: open [%s] failed!\n", dev_name);
 		return -1;
@@ -58,7 +58,7 @@ int main(int argc, char** argv) {
 			if(mv[0] != 0) 
 				input(mv[1], mv[2], mv[3]);
 		}
-		proc_usleep(3000);
+		proc_usleep(5000);
 	}
 
 	close(fd);

@@ -25,17 +25,17 @@ static int mouse_read(int fd, int from_pid, fsinfo_t* node,
 	
 	if(has_data){
 		uint8_t* d = (uint8_t*)buf;
+		d[0] = 1;
 		if(btn == 1){
-			d[0] = 2;
+			d[1] = 2;
 			last_btn = 1;
 		}else if(btn == 0){
-			d[0] = last_btn;
+			d[1] = last_btn;
 			last_btn = 0;
 		}
 
-		d[1] = x;
-		d[2] = y;
-		d[3] = 0;
+		d[2] = x;
+		d[3] = y;
 
 		btn = 0;
 		x = 0; 
@@ -58,6 +58,9 @@ static int loop(void* p) {
 		has_data = 1;
 		proc_wakeup(RW_BLOCK_EVT);
 	}
+	else {
+		usleep(10000);
+	}
 	return 0;
 }
 
@@ -73,7 +76,7 @@ static int set_report_id(int fd, int id) {
 int main(int argc, char** argv) {
 	const char* mnt_point = argc > 1 ? argv[1]: "/dev/mouse0";
 	const char* dev_point = argc > 2 ? argv[2]: "/dev/hid0";
-	hid = open(dev_point, O_RDONLY);
+	hid = open(dev_point, O_RDONLY | O_NONBLOCK);
 	set_report_id(hid, 1);
 
 	vdevice_t dev;
