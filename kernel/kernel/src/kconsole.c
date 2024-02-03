@@ -82,6 +82,7 @@ void kconsole_close(void) {
 	if(_fb_g != NULL)
 		graph_free(_fb_g);
 	_fb_g = NULL;
+	fb_close();
 }
 
 #endif
