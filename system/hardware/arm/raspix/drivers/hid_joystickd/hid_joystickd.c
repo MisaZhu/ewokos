@@ -72,6 +72,9 @@ static int loop(void* p) {
 
 		proc_wakeup(RW_BLOCK_EVT);
 	}
+	else {
+		usleep(5000);
+	}
 	return 0;
 }
 
@@ -88,7 +91,7 @@ int main(int argc, char** argv) {
 	const char* mnt_point = argc > 1 ? argv[1]: "/dev/joystick0";
 	const char* dev_point = argc > 2 ? argv[2]: "/dev/hid0";
 
-	hid = open(dev_point, O_RDONLY);
+	hid = open(dev_point, O_RDONLY | O_NONBLOCK);
 	set_report_id(hid, 0x14);
 
 	vdevice_t dev;
