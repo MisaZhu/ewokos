@@ -8,13 +8,14 @@
 /bin/rundev /drivers/fontd           /dev/font /usr/system/fonts/system.ttf
 /bin/rundev /drivers/consoled        /dev/console0
 
+/bin/rundev /drivers/timerd                /dev/timer
 /bin/rundev /drivers/raspix/clockwork_usbd /dev/hid0
 /bin/rundev /drivers/raspix/hid_keybd      /dev/keyb0
 /bin/rundev /drivers/raspix/hid_moused     /dev/mouse0
 /bin/rundev /drivers/raspix/hid_joystickd  /dev/joystick0
 
-/bin/rundev /drivers/timerd                /dev/timer
 /bin/rundev /drivers/ramfsd                /tmp
+@/bin/session &
 
 /bin/rundev /drivers/nulld                 /dev/null
 /bin/rundev /drivers/proc/sysinfod         /proc/sysinfo
