@@ -68,8 +68,7 @@ static int loop(void* p) {
 		has_data = 1;
 		//proc_wakeup(RW_BLOCK_EVT);
 	}
-	else 
-		usleep(10000);
+	usleep(10000);
 	return 0;
 }
 

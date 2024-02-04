@@ -91,9 +91,7 @@ static int loop(void* p) {
 		key[1] = getKeyChar(buf[1], buf[3]);
 		key[2] = getKeyChar(buf[2], buf[4]);
 	}
-	else {
-		usleep(10000);
-	}
+	usleep(20000);
 	return 0;
 }
 

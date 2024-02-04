@@ -58,7 +58,7 @@ int main(int argc, char** argv) {
 			if(mv[0] != 0) 
 				input(mv[1], mv[2], mv[3]);
 		}
-		proc_usleep(5000);
+		proc_usleep(10000);
 	}
 
 	close(fd);
