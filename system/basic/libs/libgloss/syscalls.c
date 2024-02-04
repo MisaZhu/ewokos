@@ -14,6 +14,7 @@
 #include <sys/errno.h>
 #include <reent.h>
 #include <unistd.h>
+#include <fcntl.h>
 #include <sys/wait.h>
 #include <syscalls.h>
 #include <ewoksys/syscall.h>
@@ -149,6 +150,7 @@ int	_open		(const char *, int, ...);
 int	_write		(int, const void *, size_t);
 _off_t	_lseek		(int, _off_t, int);
 int	_read		(int, void *, size_t);
+int	_fcntl	(int, int, int);
 
 static int	checkerror	(int);
 static int	error		(int);
@@ -251,6 +253,29 @@ checkerror (int result)
   return result;
 }
 
+int __attribute__((weak))
+_fcntl(int fd, int cmd, int arg) {
+	if(cmd == F_GETFL) {
+		return vfs_get_flags(fd);
+	}
+	else if(cmd == F_SETFL) {
+		return vfs_set_flags(fd, arg);
+	}
+	else {
+		proto_t in, out;
+		PF->init(&in)->addi(&in, arg);
+		PF->init(&out);
+		int res = vfs_fcntl(fd, cmd, &in, &out);
+		PF->clear(&in);
+		if(res != 0)
+			return -1;
+		res = proto_read_int(&out);
+		PF->clear(&out);
+		return res;
+	}
+	return 0;
+}
+
 /* fd, is a valid user file handle.
    Translates the return of _swiread into
    bytes read. */
@@ -261,9 +286,10 @@ _read (int fd, void * buf, size_t size)
 	if(vfs_get_by_fd(fd, &info) != 0)
 		return -1;
 
-	int flags = vfs_get_flags(fd);
+	int flags = _fcntl(fd, F_GETFL, 0);
 	if(flags == -1)
 	 		return -1;
+
 	bool block = true;
 	if(flags & O_NONBLOCK)
 		block = false;
@@ -319,7 +345,7 @@ _write (int fd, const void * buf, size_t size)
 	if(vfs_get_by_fd(fd, &info) != 0)
 		return -1;
 
-	int flags = vfs_get_flags(fd);
+	int flags = _fcntl(fd, F_GETFL, 0);
 	if(flags == -1)
 	 		return -1;
 	bool block = true;

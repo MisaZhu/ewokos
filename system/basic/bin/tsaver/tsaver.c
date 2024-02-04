@@ -78,9 +78,9 @@ int main (int argc, char **argv) {
   setbuf(stdout, NULL);
   HIDE_CURSOR();
 
-  int flags = vfs_get_flags(0);
+  int flags = fcntl(0, F_GETFL, 0);
   flags |= O_NONBLOCK;
-  vfs_set_flags(0, flags);
+  fcntl(0, F_SETFL, flags);
 
   uint32_t counter = 0;
   while (1) {
