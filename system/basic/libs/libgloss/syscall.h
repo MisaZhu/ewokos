@@ -46,7 +46,6 @@
 #define SYS_gettimeofday 19
 #define SYS_times	 20
 #define SYS_link	 21
-#define SYS_fcntl	 22
 /* These are additional syscalls in RedBoot. */
 #define SYS_rename       3001
 #define SYS_isatty       3002
