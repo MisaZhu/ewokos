@@ -61,6 +61,7 @@ LIB_EWOKSYS_OBJS = ewoksys/src/syscall.o \
 	\
 	src/fcntl/fchmod.o \
 	src/fcntl/chmod.o \
+	src/fcntl/fcntl.o \
 	\
 	src/stdio/putch.o \
 	\
