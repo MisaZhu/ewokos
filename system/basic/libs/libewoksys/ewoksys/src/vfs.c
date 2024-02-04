@@ -189,7 +189,8 @@ int vfs_get_by_node(uint32_t node, fsinfo_t* info) {
 
 int vfs_new_node(fsinfo_t* info, uint32_t node_to) {
 	proto_t in, out;
-	PF->init(&in)->add(&in, info, sizeof(fsinfo_t))->addi(&in, node_to);
+	//PF->init(&in)->add(&in, info, sizeof(fsinfo_t))->addi(&in, node_to);
+	PF->format(&in, "m,i", info, sizeof(fsinfo_t), node_to);
 	PF->init(&out);
 	int res = ipc_call(get_vfsd_pid(), VFS_NEW_NODE, &in, &out);
 	PF->clear(&in);
@@ -226,7 +227,8 @@ const char* vfs_fullname(const char* fname) {
 
 int vfs_open(fsinfo_t* info, int oflag) {
 	proto_t in, out;
-	PF->init(&in)->add(&in, info, sizeof(fsinfo_t))->addi(&in, oflag);
+	PF->format(&in, "m,i", info, sizeof(fsinfo_t), oflag);
+	//PF->init(&in)->add(&in, info, sizeof(fsinfo_t))->addi(&in, oflag);
 	PF->init(&out);
 
 	int res = ipc_call(get_vfsd_pid(), VFS_OPEN, &in, &out);
@@ -249,7 +251,7 @@ int vfs_open(fsinfo_t* info, int oflag) {
 
 static int read_pipe(int fd, uint32_t node, void* buf, uint32_t size, bool block) {
 	proto_t in, out;
-	PF->init(&in)->addi(&in, fd)->addi(&in, node)->addi(&in, size)->addi(&in, block?1:0);
+	PF->format(&in, "i,i,i,i", fd, node, size, block?1:0);
 	PF->init(&out);
 
 	int vfsd_pid = get_vfsd_pid();
@@ -270,7 +272,8 @@ static int read_pipe(int fd, uint32_t node, void* buf, uint32_t size, bool block
 
 static int write_pipe(int fd, uint32_t node, const void* buf, uint32_t size, bool block) {
 	proto_t in, out;
-	PF->init(&in)->addi(&in, fd)->addi(&in, node)->add(&in, buf, size)->addi(&in, block?1:0);
+	//PF->init(&in)->addi(&in, fd)->addi(&in, node)->add(&in, buf, size)->addi(&in, block?1:0);
+	PF->format(&in, "i,i,m,i", fd, node, buf, size, block?1:0);
 	PF->init(&out);
 
 	int vfsd_pid = get_vfsd_pid();
@@ -340,7 +343,7 @@ int vfs_dup2(int fd, int to) {
 	vfs_close(to);
 
 	proto_t in, out;
-	PF->init(&in)->addi(&in, fd)->addi(&in, to);
+	PF->format(&in, "i,i", fd, to);
 	PF->init(&out);
 
 	int res = ipc_call(get_vfsd_pid(), VFS_DUP2, &in, &out);

@@ -1085,10 +1085,7 @@ static void handle(int pid, int cmd, proto_t* in, proto_t* out, void* p) {
 
 static int handle_close_event(close_event_t* ev) {
 	proto_t in;
-	PF->init(&in)->
-			addi(&in, ev->fd)->
-			addi(&in, ev->owner_pid)->
-			add(&in, &ev->info, sizeof(fsinfo_t));
+	PF->format(&in, "i,i,m", ev->fd, ev->owner_pid, &ev->info, sizeof(fsinfo_t));
 	int res = ipc_call(ev->dev_pid, FS_CMD_CLOSE, &in, NULL);
 	PF->clear(&in);
 	return res;

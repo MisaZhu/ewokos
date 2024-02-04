@@ -30,10 +30,7 @@ int fb_set(const char *dev, int w, int h, int bpp) {
 	}
 
 	proto_t in;
-	PF->init(&in)->
-		addi(&in, w)->
-		addi(&in, h)->
-		addi(&in, bpp);
+	PF->format(&in, "i,i,i", w, h, bpp);
 
 	int res = dev_cntl(dev, 0, &in, NULL);
 	PF->clear(&in);

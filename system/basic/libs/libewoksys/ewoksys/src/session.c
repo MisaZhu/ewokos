@@ -17,9 +17,7 @@ int session_check(const char* name, const char* passwd, session_info_t* sinfo) {
 
 	proto_t in, out;
 	PF->init(&out);
-	PF->init(&in)->
-			adds(&in, name)->
-			adds(&in, passwd);
+	PF->format(&in, "s,s", name, passwd);
 
 	int res = -1;
 	if(ipc_call(pid, SESSION_CHECK, &in, &out) == 0) {
@@ -42,8 +40,7 @@ int session_get_by_uid(int32_t uid, session_info_t* sinfo) {
 
 	proto_t in, out;
 	PF->init(&out);
-	PF->init(&in)->
-			addi(&in, uid);
+	PF->init(&in)->addi(&in, uid);
 
 	int res = -1;
 	if(ipc_call(pid, SESSION_GET_BY_UID, &in, &out) == 0) {
@@ -66,8 +63,7 @@ int session_get_by_name(const char* name, session_info_t* sinfo) {
 
 	proto_t in, out;
 	PF->init(&out);
-	PF->init(&in)->
-			adds(&in, name);
+	PF->init(&in)->adds(&in, name);
 
 	int res = -1;
 	if(ipc_call(pid, SESSION_GET_BY_NAME, &in, &out) == 0) {

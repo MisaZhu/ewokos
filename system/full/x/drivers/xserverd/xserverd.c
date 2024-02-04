@@ -152,11 +152,11 @@ static void draw_win_frame(x_t* x, xwin_t* win) {
 		return;
 
 	proto_t in;
-	PF->init(&in)->
-		addi(&in, display->g_shm_id)->
-		addi(&in, display->g->w)->
-		addi(&in, display->g->h)->
-		add(&in, win->xinfo, sizeof(xinfo_t));
+	PF->format(&in, "i,i,i,m",
+		display->g_shm_id,
+		display->g->w,
+		display->g->h,
+		win->xinfo, sizeof(xinfo_t));
 	if(win == x->win_focus)
 		PF->addi(&in, 1); //top win
 	else
@@ -172,10 +172,10 @@ static void draw_desktop(x_t* x, uint32_t display_index) {
 		return;
 
 	proto_t in;
-	PF->init(&in)->
-		addi(&in, display->g_shm_id)->
-		addi(&in, display->g->w)->
-		addi(&in, display->g->h);
+	PF->format(&in, "i,i,i",
+		display->g_shm_id,
+		display->g->w,
+		display->g->h);
 
 	int res = ipc_call_wait(x->xwm_pid, XWM_CNTL_DRAW_DESKTOP, &in);
 	PF->clear(&in);
@@ -205,11 +205,11 @@ static void draw_drag_frame(x_t* xp, uint32_t display_index) {
 	grect_t r = {x, y, w, h};
 
 	proto_t in;
-	PF->init(&in)->
-		addi(&in, display->g_shm_id)->
-		addi(&in, display->g->w)->
-		addi(&in, display->g->h)->
-		add(&in, &r, sizeof(grect_t));
+	PF->format(&in, "i,i,i,m",
+		display->g_shm_id,
+		display->g->w,
+		display->g->h,
+		&r, sizeof(grect_t));
 
 	ipc_call_wait(xp->xwm_pid, XWM_CNTL_DRAW_DRAG_FRAME, &in);
 	PF->clear(&in);
@@ -820,8 +820,7 @@ static int x_update_frame_areas(x_t* x, xwin_t* win) {
 
 	proto_t in, out;
 	PF->init(&out);
-	PF->init(&in)->
-		add(&in, win->xinfo, sizeof(xinfo_t));
+	PF->init(&in)->add(&in, win->xinfo, sizeof(xinfo_t));
 	int res = ipc_call(x->xwm_pid, XWM_CNTL_GET_FRAME_AREAS, &in, &out);
 	PF->clear(&in);
 
@@ -837,8 +836,7 @@ static int x_update_frame_areas(x_t* x, xwin_t* win) {
 static void x_get_min_size(x_t* x, xwin_t* win, int *w, int* h) {
 	proto_t in, out;
 	PF->init(&out);
-	PF->init(&in)->
-		add(&in, win->xinfo, sizeof(xinfo_t));
+	PF->init(&in)->add(&in, win->xinfo, sizeof(xinfo_t));
 	int res = ipc_call(x->xwm_pid, XWM_CNTL_GET_MIN_SIZE, &in, &out);
 	PF->clear(&in);
 	if(res == 0) { 
@@ -864,9 +862,7 @@ static int get_xwm_win_space(x_t* x, int style, grect_t* rin, grect_t* rout) {
 	proto_t in, out;
 	PF->init(&out);
 
-	PF->init(&in)->
-		addi(&in, style)->
-		add(&in, rin, sizeof(grect_t));
+	PF->format(&in, "i,m", style, rin, sizeof(grect_t));
 
 	int res = ipc_call(x->xwm_pid, XWM_CNTL_GET_WIN_SPACE, &in, &out);
 	PF->clear(&in);

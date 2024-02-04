@@ -24,7 +24,7 @@ static int font_load_raw(const char* fname, uint16_t ppm, font_t* font) {
 
 	proto_t in, out;
 	PF->init(&out);
-	PF->init(&in)->adds(&in, fname)->addi(&in, ppm);
+	PF->format(&in, "s,i", fname, ppm);
 
 	int ret = -1;
 	font->id = -1;
@@ -133,7 +133,7 @@ int font_get_glyph(font_t* font, uint16_t c, TTY_Glyph* glyph) {
 	if(font_fetch_cache(font, c, glyph) != 0) {
 		proto_t in, out;
 		PF->init(&out);
-		PF->init(&in)->addi(&in, font->id)->addi(&in, c);
+		PF->format(&in, "i,i", font->id, c);
 
 		if(dev_cntl_by_pid(_font_dev_pid, FONT_DEV_GET, &in, &out) == 0) {
 			proto_read_to(&out, glyph, sizeof(TTY_Glyph));

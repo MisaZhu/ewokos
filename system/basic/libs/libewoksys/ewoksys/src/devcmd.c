@@ -13,8 +13,7 @@ extern "C" {
 int dev_set(int dev_pid, fsinfo_t* info) {
 	proto_t in, out;
 	PF->init(&out);
-	PF->init(&in)->
-		add(&in, info, sizeof(fsinfo_t));
+	PF->init(&in)->add(&in, info, sizeof(fsinfo_t));
 
 	int res = ipc_call(dev_pid, FS_CMD_SET, &in, &out);
 	PF->clear(&in);
@@ -33,9 +32,7 @@ int dev_set(int dev_pid, fsinfo_t* info) {
 int dev_unlink(int dev_pid, fsinfo_t* info, const char* fname) {
 	proto_t in, out;
 	PF->init(&out);
-	PF->init(&in)->
-		add(&in, info, sizeof(fsinfo_t))->
-		adds(&in, fname);
+	PF->format(&in, "m,s", info, sizeof(fsinfo_t), fname);
 
 	int res = ipc_call(dev_pid, FS_CMD_UNLINK, &in, &out);
 	PF->clear(&in);
@@ -53,9 +50,7 @@ int dev_unlink(int dev_pid, fsinfo_t* info, const char* fname) {
 
 int dev_close(int dev_pid, int fd, uint32_t node) {
 	proto_t in;
-	PF->init(&in)->
-		addi(&in, fd)->
-		addi(&in, node);
+	PF->format(&in, "i,i", fd, node);
 
 	int res = ipc_call_wait(dev_pid, FS_CMD_CLOSE, &in);
 	PF->clear(&in);
@@ -65,10 +60,7 @@ int dev_close(int dev_pid, int fd, uint32_t node) {
 int dev_open(int dev_pid, int fd, fsinfo_t* info, int oflag) {
 	proto_t in, out;
 	PF->init(&out);
-	PF->init(&in)->
-		addi(&in, fd)->
-		addi(&in, info->node)->
-		addi(&in, oflag);
+	PF->format(&in, "i,i,i", fd, info->node, oflag);
 
 	int res = ipc_call(dev_pid, FS_CMD_OPEN, &in, &out);
 	PF->clear(&in);
@@ -106,13 +98,7 @@ int dev_read(int dev_pid, int fd, fsinfo_t* info, int32_t offset, void* buf, uin
 
 	proto_t in, out;
 	PF->init(&out);
-	PF->init(&in)->
-			addi(&in, fd)->
-			addi(&in, info->node)->
-			//add(&in, info, sizeof(fsinfo_t))->
-			addi(&in, size)->
-			addi(&in, offset)->
-			addi(&in, shm_id);
+	PF->format(&in, "i,i,i,i,i", fd, info->node, size, offset, shm_id);
 
 	int res = -1;
 	if(ipc_call(dev_pid, FS_CMD_READ, &in, &out) == 0) {
@@ -150,12 +136,7 @@ int dev_write(int dev_pid, int fd, fsinfo_t* info, int32_t offset, const void* b
 
 	proto_t in, out;
 	PF->init(&out);
-	PF->init(&in)->
-		addi(&in, fd)->
-		addi(&in, info->node)->
-		//add(&in, info, sizeof(fsinfo_t))->
-		addi(&in, offset)->
-		addi(&in, shm_id);
+	PF->format(&in, "i,i,i,i", fd, info->node, offset, shm_id);
 	if(shm_id == -1)
 		PF->add(&in, buf, size);
 	else
@@ -177,9 +158,7 @@ int dev_write(int dev_pid, int fd, fsinfo_t* info, int32_t offset, const void* b
 int dev_create(int dev_pid, fsinfo_t* info_to, fsinfo_t* info) {
 	proto_t in, out;
 	PF->init(&out);
-	PF->init(&in)->
-		addi(&in, info_to->node)->
-		addi(&in, info->node);
+	PF->format(&in, "i,i", info_to->node, info->node);
 
 	int res = -1;
 	if(ipc_call(dev_pid, FS_CMD_CREATE, &in, &out) == 0) {
@@ -194,11 +173,7 @@ int dev_create(int dev_pid, fsinfo_t* info_to, fsinfo_t* info) {
 
 int dev_fcntl(int dev_pid, int fd, fsinfo_t* info, int cmd, proto_t* arg_in, proto_t* arg_out) {
 	proto_t in;
-	PF->init(&in)->
-		addi(&in, fd)->
-		addi(&in, info->node)->
-		//add(&in, info, sizeof(fsinfo_t))->
-		addi(&in, cmd);
+	PF->format(&in, "i,i,i", fd, info->node, cmd);
 	if(arg_in == NULL)
 		PF->add(&in, NULL, 0);
 	else
@@ -228,9 +203,7 @@ int dev_fcntl(int dev_pid, int fd, fsinfo_t* info, int cmd, proto_t* arg_in, pro
 
 int dev_flush(int dev_pid, int fd, uint32_t node, int8_t wait) {
 	proto_t in;
-	PF->init(&in)->
-		addi(&in, fd)->
-		addi(&in, node);
+	PF->format(&in, "i,i", fd, node);
 
 	int res = -1;
 	if(wait)
@@ -244,9 +217,7 @@ int dev_flush(int dev_pid, int fd, uint32_t node, int8_t wait) {
 int dev_dma(int dev_pid, int fd, uint32_t node, int* size) {
 	proto_t in, out;
 	PF->init(&out);
-	PF->init(&in)->
-		addi(&in, fd)->
-		addi(&in, node);
+	PF->format(&in, "i,i", fd, node);
 
 	int32_t shm_id = -1;
 	if(ipc_call(dev_pid, FS_CMD_DMA, &in, &out) == 0) {
@@ -262,10 +233,7 @@ int dev_dma(int dev_pid, int fd, uint32_t node, int* size) {
 int dev_write_block(int pid, const void* buf, uint32_t size, int32_t index) {
 	proto_t in, out;
 	PF->init(&out);
-
-	PF->init(&in)->
-		add(&in, buf, size)->
-		addi(&in, index);
+	PF->format(&in, "m,i", buf, size, index);
 
 	int res = -1;
 	if(ipc_call(pid, FS_CMD_WRITE_BLOCK, &in, &out) == 0) {
@@ -292,11 +260,7 @@ int dev_read_block(int pid, void* buf, uint32_t size, int32_t index) {
 
 	proto_t in, out;
 	PF->init(&out);
-
-	PF->init(&in)->
-		addi(&in, size)->
-		addi(&in, index)->
-		addi(&in, shm_id);
+	PF->format(&in, "i,i,i", size, index, shm_id);
 
 	int res = -1;
 	if(ipc_call(pid, FS_CMD_READ_BLOCK, &in, &out) == 0) {

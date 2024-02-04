@@ -584,8 +584,7 @@ int device_run(vdevice_t* dev, const char* mnt_point, int mnt_type, int mode) {
 
 int dev_cntl_by_pid(int pid, int cmd, proto_t* in, proto_t* out) {
 	proto_t in_arg;
-	PF->init(&in_arg)->
-		addi(&in_arg, cmd);
+	PF->init(&in_arg)->addi(&in_arg, cmd);
 
 	if(in != NULL)
 		PF->add(&in_arg, in->data, in->size);

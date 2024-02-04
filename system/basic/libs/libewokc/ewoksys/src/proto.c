@@ -1,6 +1,7 @@
 #include <ewoksys/proto.h>
 #include <string.h>
 #include <stdlib.h>
+#include <stdarg.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -89,16 +90,40 @@ inline static proto_factor_t* proto_add_str(proto_t* proto, const char* v) {
 }
 
 inline static proto_factor_t* proto_clear(proto_t* proto) {
-	if(proto->pre_alloc)
-		return &_proto_factor;
-	proto->pre_alloc = false;
-
 	proto->size = 0;
 	proto->offset = 0;
 	if(!proto->pre_alloc && proto->data != NULL && proto->data != proto->buffer)
 		free(proto->data);
 	proto->data = proto->buffer;
 	proto->total_size = PROTO_BUFFER;
+	proto->pre_alloc = false;
+	return &_proto_factor;
+}
+
+inline static proto_factor_t* proto_format(proto_t* proto, ... ) {
+	proto_init(proto);
+	va_list args;
+	va_start(args, 0);
+	while(true) {
+		const char* type = va_arg(args, const char*);
+		if(type == NULL || type[0] == 0) {
+			break;
+		}
+		if(type[0] == 's') {
+			const char* v = va_arg(args, const char*);
+			PF->adds(proto, v);
+		}
+		else if(type[0] == 'i') {
+			int v = va_arg(args, int);
+			PF->addi(proto, v);
+		}
+		else if(type[0] == 'm') {
+			void* v0 = va_arg(args, void*);
+			int v1 = va_arg(args, int);
+			PF->add(proto, v0, v1);
+		}
+	}
+	va_end(args);
 	return &_proto_factor;
 }
 
@@ -110,6 +135,7 @@ inline proto_factor_t* get_proto_factor() {
 	_proto_factor.add = proto_add;
 	_proto_factor.addi = proto_add_int;
 	_proto_factor.adds = proto_add_str;
+	_proto_factor.format = proto_format;
 	return &_proto_factor;
 }
 

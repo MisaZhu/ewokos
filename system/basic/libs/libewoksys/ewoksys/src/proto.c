@@ -1,6 +1,7 @@
 #include <ewoksys/proto.h>
 #include <string.h>
 #include <stdlib.h>
+#include <stdarg.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -99,6 +100,36 @@ inline static proto_factor_t* proto_clear(proto_t* proto) {
 	return &_proto_factor;
 }
 
+inline static proto_factor_t* proto_format(proto_t* proto, const char* fmt, ... ) {
+	proto_init(proto);
+	va_list args;
+	va_start(args, 0);
+	uint32_t i=0;
+	while(true) {
+		char c = fmt[i++];
+		if(c == ',' || c == ' ')
+			continue;
+		if(c == 0)
+			break;
+
+		if(c == 's') {
+			const char* v = va_arg(args, const char*);
+			PF->adds(proto, v);
+		}
+		else if(c == 'i') {
+			int v = va_arg(args, int);
+			PF->addi(proto, v);
+		}
+		else if(c == 'm') {
+			void* v0 = va_arg(args, void*);
+			int v1 = va_arg(args, int);
+			PF->add(proto, v0, v1);
+		}
+	}
+	va_end(args);
+	return &_proto_factor;
+}
+
 inline proto_factor_t* get_proto_factor() {
 	_proto_factor.init_data = proto_init_data;
 	_proto_factor.init = proto_init;
@@ -107,6 +138,7 @@ inline proto_factor_t* get_proto_factor() {
 	_proto_factor.add = proto_add;
 	_proto_factor.addi = proto_add_int;
 	_proto_factor.adds = proto_add_str;
+	_proto_factor.format = proto_format;
 	return &_proto_factor;
 }
 

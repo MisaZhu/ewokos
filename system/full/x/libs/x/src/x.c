@@ -220,7 +220,7 @@ int x_get_desktop_space(int disp_index, grect_t* r) {
 int x_set_desktop_space(int disp_index, const grect_t* r) {
 	int res = -1;
 	proto_t out, in;
-	PF->init(&in)->addi(&in, disp_index)->add(&in, r, sizeof(grect_t));
+	PF->format(&in, "i,m", disp_index, r, sizeof(grect_t));
 	PF->init(&out);
 
 	if(dev_cntl("/dev/x", X_DCNTL_SET_DESKTOP_SPACE, &in, &out) == 0) {
