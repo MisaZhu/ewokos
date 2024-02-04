@@ -9,6 +9,7 @@
 extern "C" {
 #endif
 
+#define VFS_ERR_RETRY (-128)
 
 #define MAX_TRUST_PID 10
 

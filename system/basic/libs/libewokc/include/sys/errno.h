@@ -3,8 +3,6 @@
 
 extern int errno;
 
-#define VFS_ERR_RETRY -2
-
 enum {
 	ENONE = 0,
 	EAGAIN,

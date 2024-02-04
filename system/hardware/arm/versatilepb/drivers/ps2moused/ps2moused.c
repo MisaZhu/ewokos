@@ -161,6 +161,9 @@ int32_t mouse_handler(mouse_info_t *info) {
 	return -1;
 }
 
+static mouse_info_t _minfo;
+static bool _has_data = false;
+
 static int mouse_read(int fd, int from_pid, fsinfo_t* node,
 		void* buf, int size, int offset, void* p) {
 	(void)fd;
@@ -169,20 +172,31 @@ static int mouse_read(int fd, int from_pid, fsinfo_t* node,
 	(void)p;
 	(void)node;
 
-	mouse_info_t minfo;
 	uint8_t* d = (uint8_t*)buf;
 	d[0] = 0;
 
-	if(size >= 4 && mouse_handler(&minfo) == 0) {
+	if(size >= 4 && _has_data) {
+		_has_data = false;
 		d[0] = 1;
-		d[1] = minfo.btn;
-		d[2] = minfo.rx;
-		d[3] = minfo.ry;
+		d[1] = _minfo.btn;
+		d[2] = _minfo.rx;
+		d[3] = _minfo.ry;
+		return 4;
 	}
-	return 4;
+	return VFS_ERR_RETRY;
+}
+
+static int mouse_loop(void* p) {
+	if(mouse_handler(&_minfo) == 0) {
+		_has_data = true;
+		proc_wakeup(RW_BLOCK_EVT);
+	}
+	usleep(5000);
+	return 0;
 }
 
 int main(int argc, char** argv) {
+	_has_data = false;
 	const char* mnt_point = argc > 1 ? argv[1]: "/dev/mouse0";
 
 	mouse_init();
@@ -190,6 +204,7 @@ int main(int argc, char** argv) {
 	memset(&dev, 0, sizeof(vdevice_t));
 	strcpy(dev.name, "mouse");
 	dev.read = mouse_read;
+	dev.loop_step = mouse_loop;
 
 	device_run(&dev, mnt_point, FS_TYPE_CHAR, 0444);
 	return 0;

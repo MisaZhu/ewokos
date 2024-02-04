@@ -28,28 +28,28 @@ static int mouse_read(int fd, int from_pid, fsinfo_t* node,
 		return -1;
 	
 	uint8_t* d = (uint8_t*)buf;
-	if(has_data){
-		d[0] = 1;
-		if(btn == 1){
-			d[1] = 2;
-			last_btn = 1;
-		}else if(btn == 0){
-			d[1] = last_btn;
-			last_btn = 0;
-		}
-
-		d[2] = x;
-		d[3] = y;
-
-		btn = 0;
-		x = 0; 
-		y = 0;
-
-		has_data = 0;
-	}
-	else {
+	if(!has_data){
 		d[0] = 0;
+		return VFS_ERR_RETRY;
 	}
+
+	d[0] = 1;
+	if(btn == 1){
+		d[1] = 2;
+		last_btn = 1;
+	}else if(btn == 0){
+		d[1] = last_btn;
+		last_btn = 0;
+	}
+
+	d[2] = x;
+	d[3] = y;
+
+	btn = 0;
+	x = 0; 
+	y = 0;
+
+	has_data = 0;
 	return 4;
 }
 
@@ -66,7 +66,7 @@ static int loop(void* p) {
 		x = buf[1];
 		y = buf[2];
 		has_data = 1;
-		//proc_wakeup(RW_BLOCK_EVT);
+		proc_wakeup(RW_BLOCK_EVT);
 	}
 	usleep(10000);
 	return 0;

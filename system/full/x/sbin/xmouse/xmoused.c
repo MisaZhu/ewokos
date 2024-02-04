@@ -41,7 +41,8 @@ int main(int argc, char** argv) {
 	_x_pid = -1;
 	_mouse_down = 0;
 
-	int fd = open(dev_name, O_RDONLY | O_NONBLOCK);
+	//int fd = open(dev_name, O_RDONLY | O_NONBLOCK);
+	int fd = open(dev_name, O_RDONLY);
 	if(fd < 0) {
 		fprintf(stderr, "xmoused error: open [%s] failed!\n", dev_name);
 		return -1;

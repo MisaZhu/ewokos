@@ -39,6 +39,10 @@ static int keyb_read(int fd, int from_pid, fsinfo_t* node,
 	(void)size;
 	(void)node;
 
+	if(_idle)
+		return VFS_ERR_RETRY;
+
+	_idle = true;
 	memcpy(buf, key, 3);
 	return 3;
 }
@@ -90,6 +94,8 @@ static int loop(void* p) {
 		key[0] = getKeyChar(buf[0], buf[2]);
 		key[1] = getKeyChar(buf[1], buf[3]);
 		key[2] = getKeyChar(buf[2], buf[4]);
+		_idle = false;
+		proc_wakeup(RW_BLOCK_EVT);
 	}
 	usleep(20000);
 	return 0;
@@ -106,6 +112,7 @@ static int set_report_id(int fd, int id) {
 }
 
 int main(int argc, char** argv) {
+	_idle = true;
 	const char* mnt_point = argc > 1 ? argv[1]: "/dev/keyb0";
 	const char* dev_point = argc > 2 ? argv[2]: "/dev/hid0";
 	hid = open(dev_point, O_RDONLY | O_NONBLOCK);
