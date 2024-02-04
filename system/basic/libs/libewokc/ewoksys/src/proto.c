@@ -100,24 +100,27 @@ inline static proto_factor_t* proto_clear(proto_t* proto) {
 	return &_proto_factor;
 }
 
-inline static proto_factor_t* proto_format(proto_t* proto, ... ) {
+inline static proto_factor_t* proto_format(proto_t* proto, const char* fmt, ... ) {
 	proto_init(proto);
 	va_list args;
 	va_start(args, 0);
+	uint32_t i=0;
 	while(true) {
-		const char* type = va_arg(args, const char*);
-		if(type == NULL || type[0] == 0) {
+		char c = fmt[i++];
+		if(c == ',' || c == ' ')
+			continue;
+		if(c == 0)
 			break;
-		}
-		if(type[0] == 's') {
+
+		if(c == 's') {
 			const char* v = va_arg(args, const char*);
 			PF->adds(proto, v);
 		}
-		else if(type[0] == 'i') {
+		else if(c == 'i') {
 			int v = va_arg(args, int);
 			PF->addi(proto, v);
 		}
-		else if(type[0] == 'm') {
+		else if(c == 'm') {
 			void* v0 = va_arg(args, void*);
 			int v1 = va_arg(args, int);
 			PF->add(proto, v0, v1);

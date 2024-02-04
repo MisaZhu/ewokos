@@ -11,6 +11,7 @@
 #include <ewoksys/proc.h>
 #include <ewoksys/vfsc.h>
 #include <ewoksys/devcmd.h>
+#include <ewoksys/vdevice.h>
 #include <ewoksys/proc.h>
 #include <sys/shm.h>
 // #include <sys/unistd.h>

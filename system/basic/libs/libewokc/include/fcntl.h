@@ -28,7 +28,7 @@ extern "C" {
 
 int  open(const char* name, int oflag);
 void close(int fd);
-int  fcntl(int fd, int cmd, int data);
+int  fcntl(int fd, int cmd, ...);
 int  chmod(const char *pathname, int mode);
 int  fchmod(int fd, int mode);
 

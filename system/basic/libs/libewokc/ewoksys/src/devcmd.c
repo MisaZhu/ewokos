@@ -1,5 +1,6 @@
 #include <ewoksys/devcmd.h>
 #include <ewoksys/ipc.h>
+#include <ewoksys/vdevice.h>
 #include <sys/shm.h>
 #include <sys/errno.h>
 #include <unistd.h>
