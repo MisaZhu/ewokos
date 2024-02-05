@@ -22,14 +22,14 @@
 #define KEYBOARD_BASE (_mmio_base+0x6000)
 
 static uint8_t _held[128] = {0};
-static bool _idle = true;
+static bool _read = false;
 
 int32_t keyb_init(void) {
 	_mmio_base = mmio_map();
   put8(KEYBOARD_BASE + KCNTL, 0x10); // bit4=Enable bit0=INT on
   put8(KEYBOARD_BASE + KCLK, 8);
 	memset(_held, 0, 128);
-	_idle = true;
+	_read = true;
 	return 0;
 }
 
@@ -56,43 +56,42 @@ const char _utab[] = {
   0,   0,  24,   0,   4,   5,  27,   0,    0,   0,   0,   0,   0,   0,   0,   0
 };
 
+static inline uint8_t get_scode(void) {
+	return  get8(KEYBOARD_BASE+KDATA);
+}
+
+static inline void empty(void) {
+	put8(KEYBOARD_BASE+KDATA, 0);
+}
+
+#define LSHIFT 0x12
+#define RSHIFT 0x59
+#define CTRL   0x14
+
 static int32_t keyb_handle(uint8_t scode) {
+	if(scode == 0)
+		return 0;
+
 	char c = 0;
-	if(scode == 0xF0) {
-		_idle = true;
+	//handle release event and key value
+	if(scode == 0xF0) { //release event
+		scode = get_scode(); // scan released code
+		if(_held[scode] == 1 && scode)  
+			_held[scode] = 0;
+		empty(); //set empty data
 		return 0;
 	}
+	else if(scode == 0xFA) //empty data
+		return 0;
 
-	if (_held[scode] == 1 && scode) {    // next scan code following key release
-		_held[scode] = 0;
-		return 0;
-	}
 	_held[scode] = 1;
-
-	if(!_idle)
-		return 0;
-	_idle = false;
-
-	if(scode == 0x12 || scode == 0x59 || scode == 0x14)
+	if(scode == LSHIFT || scode == RSHIFT || scode == CTRL) 
 		return 0;
 
-	if(_held[0x14] == 1 && _ltab[scode] == 'c') { // if control held and 'c' pressed
-		//kevent_push(KEV_TERMINATE, NULL);
-		return 0;
-	}
-	else if(_held[0x14] == 1 && _ltab[scode] == '\t') {// if control held and table pressed
-		//kevent_push(KEV_CONSOLE_SWITCH, NULL);
-		return 0;
-	}
-	else if(_held[0x14] == 1 && _ltab[scode] == 'd') {// if control held and 'd' pressed
-		c = 0x04;
-	}
-	else if (_held[0x12] == 1 || _held[0x59] == 1) { // If shift key held
+	if(_held[LSHIFT] == 1 || _held[RSHIFT] == 1) // If shift key held
 		c = _utab[scode];
-	}
-	else { // No significant keys held               
+	else 
 		c = _ltab[scode];
-	}
 	return c;
 }
 
@@ -119,13 +118,13 @@ static int keyb_read(int fd, int from_pid, fsinfo_t* node,
 
 static int loop(void* p) {
 	(void)p;
-	uint8_t key_scode = get8(KEYBOARD_BASE+KDATA);
+	uint8_t key_scode = get_scode();
 	char c = keyb_handle(key_scode);
 	if(c != 0) {
 		charbuf_push(_buffer, c, true);
 		proc_wakeup(RW_BLOCK_EVT);
 	}
-	proc_usleep(10000);
+	proc_usleep(20000);
 	return 0;
 }
 
