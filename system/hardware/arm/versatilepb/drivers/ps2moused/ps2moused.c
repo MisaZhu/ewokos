@@ -191,7 +191,7 @@ static int mouse_loop(void* p) {
 		_has_data = true;
 		proc_wakeup(RW_BLOCK_EVT);
 	}
-	usleep(5000);
+	usleep(3000);
 	return 0;
 }
 
