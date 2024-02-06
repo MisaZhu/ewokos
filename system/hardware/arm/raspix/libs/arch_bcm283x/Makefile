@@ -18,6 +18,8 @@ LIB_ARCH_BCM283X_OBJS = src/framebuffer.o \
 	src/sd.o \
 	src/i2c.o \
 	src/spi.o \
+	src/mmc.o \
+	src/sdhost.o \
 	src/auxspi.o 
 
 ARCH_BCM283X = $(TARGET_DIR)/lib/libarch_bcm283x.a
