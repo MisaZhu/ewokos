@@ -773,7 +773,7 @@ enum mmc_voltage {
 #define EIOCBQUEUED	529	/* iocb queued, will get completion event */
 #define ERECALLCONFLICT	530	/* conflict with recalled state */
 
-#define mmc_host_is_spi(mmc)	0
+#define mmc_host_is_spi(mmc)	(0)
 
 struct mmc_cmd {
 	uint16_t cmdidx;
