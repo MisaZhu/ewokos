@@ -452,19 +452,18 @@ static int mmc_startup(struct mmc *mmc)
 	 * For SD cards, get the Relatvie Address.
 	 * This also puts the cards into Standby State
 	 */
-	if (!mmc_host_is_spi(mmc)) { /* cmd not supported in spi */
-		cmd.cmdidx = SD_CMD_SEND_RELATIVE_ADDR;
-		cmd.cmdarg = mmc->rca << 16;
-		cmd.resp_type = MMC_RSP_R6;
+	cmd.cmdidx = SD_CMD_SEND_RELATIVE_ADDR;
+	cmd.cmdarg = mmc->rca << 16;
+	cmd.resp_type = MMC_RSP_R6;
 
-		err = mmc_send_cmd(mmc, &cmd, NULL);
+	err = mmc_send_cmd(mmc, &cmd, NULL);
 
-		if (err)
-			return err;
+	if (err)
+		return err;
 
-		if (IS_SD(mmc))
-			mmc->rca = (cmd.response[0] >> 16) & 0xffff;
-	}
+	if (IS_SD(mmc))
+		mmc->rca = (cmd.response[0] >> 16) & 0xffff;
+
 
 	/* Get the Card-Specific Data */
 	cmd.cmdidx = MMC_CMD_SEND_CSD;
@@ -582,8 +581,8 @@ int mmc_init(void){
     memset(&_config, 0, sizeof(struct mmc_config));
 
     _mmc.cfg = &_config; 
-    _mmc.bus_width = 4;
-    _mmc.clock = 25000000;
+    _mmc.bus_width = 1;
+    _mmc.clock = 400000;
     _mmc.has_init = false;
     _mmc.cfg->host_caps = MMC_MODE_4BIT | MMC_MODE_HS | MMC_MODE_HS_52MHz;
     _mmc.cfg->voltages = MMC_VDD_32_33 | MMC_VDD_33_34;
@@ -591,8 +590,10 @@ int mmc_init(void){
     _sdio = bcm283x_sdhost_init();
 
    	mmc_get_op_cond(&_mmc, false);
-    mmc_complete_op_cond(&_mmc);
-
+    //mmc_complete_op_cond(&_mmc);
+	_mmc.bus_width = 4;
+    _mmc.clock = 25000000;
+	bcm2835_set_ios(_sdio,_mmc.clock, _mmc.bus_width);
     return mmc_startup(&_mmc);
 }
 

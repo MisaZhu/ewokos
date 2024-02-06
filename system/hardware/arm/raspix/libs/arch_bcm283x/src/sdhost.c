@@ -938,7 +938,7 @@ void* bcm283x_sdhost_init(void){
     _host.max_clk = bcm2835_get_mmc_clock(4);
     bcm2835_set_sdhost_clock(0, &clock_rate[0], &clock_rate[1]);
     _host.firmware_sets_cdiv = (clock_rate[0] != (uint32_t)(~0));
-
+	//klog("sdio max clock:%d cdev:%d\n", _host.max_clk, _host.firmware_sets_cdiv);
 
     bcm2835_reset_internal(&_host);
 	return (void*)&_host;
