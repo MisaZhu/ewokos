@@ -192,11 +192,10 @@ static uint32_t bcm2835_read_wait_sdcmd(struct bcm2835_host *host)
 
 	// ret = readl_poll_timeout(host->ioaddr + SDCMD, value,
 	// 			 !(value & SDCMD_NEW_FLAG), timeout_us);
-    while(timeout_us -= 100){
+    while(timeout_us --){
         value = readl(host->ioaddr + SDCMD);
         if(!(value & SDCMD_NEW_FLAG))
             break;
-        usleep(100);
     }
     if (timeout_us <= 0)
 		klog("%s: timeout (%d us)\n", __func__, timeout_us);
