@@ -6,6 +6,7 @@ all: mkdirs basic_libs builtin_apps basic_drivers
 	@echo "all done."
 
 basic_libs:
+	cd libc;make
 	cd libs;make
 
 basic_drivers:
@@ -27,5 +28,6 @@ builtin_apps:
 clean:
 	cd sbin;make clean
 	cd bin;make clean
+	cd libc;make clean
 	cd libs;make clean
 	cd drivers;make clean
