@@ -7,5 +7,4 @@
 /bin/rundev /drivers/proc/stated          /proc/state
 
 @/sbin/sessiond &
-
 @/bin/session &
