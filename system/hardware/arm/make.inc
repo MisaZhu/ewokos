@@ -13,26 +13,17 @@ kernel_heads:
 	@mkdir -p ${BUILD_DIR}/lib
 	cp -r $(KERNEL_H) $(BUILD_DIR)/include/
 
-#SD = $(ROOT_DIR)/root.ext2
 SD = build/root.ext2
-TMP = build/tmp
+
 sd: 
 	@echo "\n====building ext2 format sdcard image===="
-	sudo rm -fr ${TMP}
-	mkdir -p  ${TMP}
 #256M ext2 sd
 	dd if=/dev/zero of=${SD} bs=1k count=128k
 #make ext2 fs with: block_size=1024 inode_size=128
 	mke2fs -b 1024 -I 128 ${SD}
 
-#mkdir tmp dir and mount sdimage to tmp
-	sudo fuse-ext2 -o force,rw+ ${SD} ${TMP}
+	@cd $(ROOT_DIR)/build/$(HW); \
+	find . -type f | e2cp -ap -d ../../hardware/arm/${HW}/${SD}:/
 
-#cp dirs and files
-	sudo cp -r $(ROOT_DIR)/build/$(HW)/* ${TMP}
-
-#umount tmp
-	sudo umount ${TMP}
 	@echo "==== ext2 format sdcard image created  ====\n"
-	rm -r ${TMP} 
 
