@@ -500,23 +500,11 @@ int
 _unlink (const char *path)
 {
   kout(__func__);
-  int res;
-#ifdef ARM_RDI_MONITOR
-  int block[2];
-  block[0] = (int)path;
-  block[1] = strlen(path);
-  res = do_AngelSWI (AngelSWI_Reason_Remove, block);
-#else
- // register int r0 asm("r0");
- // r0 = (int)path;
- // asm ("swi %a2" 
- //      : "=r"(r0)
- //      : "0"(r0), "i" (SWI_Remove));
- // res = r0;
- res = -1;
-#endif
-  if (res == -1) 
-    return error (res);
+  fsinfo_t info;
+  if(vfs_get_by_name(path, &info) != 0)
+	return -1;
+  if(dev_unlink(info.mount_pid, &info, path) != 0)	
+	return -1;
   return 0;
 }
 
