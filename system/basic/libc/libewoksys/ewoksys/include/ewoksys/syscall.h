@@ -8,14 +8,10 @@
 extern "C" {
 #endif
 
-
-int32_t syscall3(int32_t code, int32_t arg0, int32_t arg1, int32_t arg2);
-
-int32_t syscall2(int32_t code, int32_t arg0, int32_t arg1);
-
-int32_t syscall1(int32_t code, int32_t arg0);
-
-int32_t syscall0(int32_t code);
+#define syscall3(code, arg0, arg1, arg2) syscall3_raw((code), (arg0), (arg1), (arg2))
+#define syscall2(code, arg0, arg1) syscall3_raw((code), (arg0), (arg1), 0)
+#define syscall1(code, arg0) syscall3_raw((code), (arg0), 0, 0)
+#define syscall0(code) syscall3_raw((code), 0, 0, 0)
 
 #ifdef __cplusplus
 }

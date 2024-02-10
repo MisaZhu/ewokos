@@ -11,6 +11,7 @@
 #include <upng/upng.h>
 #include <sconf/sconf.h>
 #include <ewoksys/klog.h>
+#include <ewoksys/syscall.h>
 #include <sysinfo.h>
 #include <font/font.h>
 
