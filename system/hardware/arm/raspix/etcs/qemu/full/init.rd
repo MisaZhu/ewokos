@@ -24,6 +24,6 @@
 @/sbin/x/xim_vkey 560 168&
 
 @/sbin/sessiond &
-@/bin/session &
+@/bin/session /bin/tsaver &
 @/bin/x/menubar &
 @/bin/x/launcher &

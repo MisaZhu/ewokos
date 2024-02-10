@@ -13,34 +13,61 @@ static void welcome(void) {
 	printf("%s", s);
 }
 
-int main(int argc, char* argv[]) {
-	const char* tty = "/dev/tty0";
-	if(argc > 1)
-		tty = argv[1];
+static const char* _tty;
+static int doargs(int argc, char* argv[]) {
+	_tty = "/dev/tty0";
 
-	int fd = open(tty, O_RDWR);
+	int c = 0;
+  while (c != -1) {
+    c = getopt (argc, argv, "t:");
+    if(c == -1)
+      break;
+
+    switch (c) {
+      case 't':
+        _tty = optarg;
+        break;
+      case '?':
+        return -1;
+      default:
+        c = -1;
+        break;
+    }
+  }
+
+	return optind;
+}
+
+int main(int argc, char* argv[]) {
+	int argind = doargs(argc, argv);
+	if(argind < 0)
+		return -1;
+
+	int fd = open(_tty, O_RDWR);
 	if(fd < 0) {
-		klog("Can't open tty device(%s)!\n", tty);
 		return -1;
 	}
 
-	setenv("CONSOLE_ID", tty);
+	setenv("CONSOLE_ID", _tty);
 	dup2(fd, 0);
 	dup2(fd, 1);
 	dup2(fd, 2);
 	close(fd);
 
 	while(1) {
-		int pid = fork();
-		if(pid == 0) {
-			if(proc_exec("/bin/tsaver") < 0) {
-				exit(-1);
+		int pid;
+		for(int i=argind; i<argc; i++) {
+			pid = fork();
+			if(pid == 0) {
+				if(proc_exec(argv[i]) < 0) {
+					exit(-1);
+				}
+			}
+			else {
+				waitpid(pid);
 			}
 		}
-		else {
-			waitpid(pid);
-		}
-
+		
 		pid = fork();
 		if(pid == 0) {
 			welcome();
