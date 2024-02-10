@@ -7,9 +7,9 @@ LDFLAGS = -L$(BUILD_DIR)/lib
 
 CXXFLAGS += -I. -I $(BUILD_DIR)/include
 
-XWM_OBJS = xwm.o SolarisWM.o
+XWM_OBJS = xwm.o OpenCDEWM.o
 
-XWM = $(TARGET_DIR)/sbin/x/xwm_solaris
+XWM = $(TARGET_DIR)/sbin/x/xwm_opencde
 
 $(XWM): $(XWM_OBJS) \
 		$(EWOK_LIBC_A)  \

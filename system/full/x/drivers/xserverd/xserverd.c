@@ -58,7 +58,6 @@ typedef struct {
 	uint32_t fps;
 	bool bg_run;
 	bool force_fullscreen;
-	char xwm[128];
 } x_conf_t;
 
 typedef struct {
@@ -105,7 +104,6 @@ static int32_t read_config(x_t* x, const char* fname) {
 	x->config.win_move_alpha = 0x88;
 	x->config.fps = 60;
 	x->config.bg_run = 0;
-	x->config.xwm[0] = 0;
 
 	sconf_t *conf = sconf_load(fname);	
 	if(conf == NULL)
@@ -127,10 +125,6 @@ static int32_t read_config(x_t* x, const char* fname) {
 	if(v[0] != 0) 
 		x->config.force_fullscreen = atoi(v);
 	
-	v = sconf_get(conf, "xwm");
-	if(v[0] != 0) 
-		strncpy(x->config.xwm, v, 127);
-
 	v = sconf_get(conf, "cursor");
 	if(strcmp(v, "touch") == 0)
 		x->cursor.type = CURSOR_TOUCH;
@@ -1445,6 +1439,13 @@ int xserver_step(void* p) {
 	return 0;
 }
 
+const char* get_xwm_fname(x_t* x) {
+	const char* p = getenv("XWM");
+	if(p == NULL || p[0] == 0)
+		p = X_DEFAULT_XWM;
+	return p;
+}
+
 int main(int argc, char** argv) {
 	const char* mnt_point = argc > 1 ? argv[1]: "/dev/x";
 	const char* display_man = argc > 2 ? argv[2]: "/dev/display";
@@ -1459,12 +1460,11 @@ int main(int argc, char** argv) {
 	read_config(&x, "/etc/x/x.conf");
 	cursor_init(theme.name, &x.cursor);
 
-	int pid = -1;
-	if(x.config.xwm[0] != 0) {
-		pid = fork();
-		if(pid == 0) {
-			proc_exec(x.config.xwm);
-		}
+	const char* xwm_fname = get_xwm_fname(&x);
+	if(access(xwm_fname, X_OK) == 0) {
+		int pid = fork();
+		if(pid == 0)
+			proc_exec(xwm_fname);
 		ipc_wait_ready(pid);
 		x.xwm_pid = pid;
 	}

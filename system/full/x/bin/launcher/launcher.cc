@@ -29,6 +29,7 @@ class LauncherView: public ListView {
 	uint32_t itemNum;
 	XTheme* theme;
 	uint32_t selectedColor;
+	bool show_border;
 	uint32_t iconSize;
 	int32_t titleMargin;
 
@@ -125,6 +126,7 @@ protected:
 		itemsInfo.marginV = 2;
 		iconSize = 64;
 		selectedColor = 0x88444444;
+		show_border = true;
 		position = POS_BOTTOM;
 
 		sconf_t *conf = sconf_load(fname);	
@@ -150,9 +152,13 @@ protected:
 		if(v[0] != 0)
 			itemsInfo.marginH = atoi(v);
 
-		v = sconf_get(conf, "marginV");
+		v = sconf_get(conf, "marginv");
 		if(v[0] != 0)
 			itemsInfo.marginV = atoi(v);
+			
+		v = sconf_get(conf, "border");
+		if(v[0] != 0)
+			show_border = atoi(v);
 
 		v = sconf_get(conf, "icon_selected_color");
 		if(v[0] != 0)
@@ -186,6 +192,10 @@ public:
 		const char* cfg = x_get_theme_fname(X_THEME_ROOT, "launcher", "theme.conf");
 		readConfig(cfg);
 		return true;
+	}
+
+	bool showBorder(void) {
+		return show_border;
 	}
 
 	str_t* getIconFname(const char* appName) {
@@ -310,7 +320,8 @@ int main(int argc, char* argv[]) {
 	gpos_t pos = view->getPos(desk);
 
 	x.open(0, &xwin, pos.x, pos.y, sz.w, sz.h, "launcher",
-			XWIN_STYLE_NO_FRAME | XWIN_STYLE_LAUNCHER | XWIN_STYLE_SYSBOTTOM | XWIN_STYLE_ANTI_FSCR);
+			view->showBorder() ? XWIN_STYLE_NO_TITLE : XWIN_STYLE_NO_FRAME |
+			XWIN_STYLE_LAUNCHER | XWIN_STYLE_SYSBOTTOM | XWIN_STYLE_ANTI_FSCR);
 	xwin.setVisible(true);
 
 	x.run(check_proc, &xwin);

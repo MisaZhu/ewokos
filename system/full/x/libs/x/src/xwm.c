@@ -210,6 +210,7 @@ void xwm_run(xwm_t* xwm) {
 	}
 }
 
+
 #ifdef __cplusplus
 }
 #endif

@@ -8,6 +8,7 @@
 extern "C" {
 #endif
 
+#define X_DEFAULT_XWM       "/sbin/x/xwm_opencde"
 
 enum {
 	XWM_CNTL_DRAW_FRAME = 0,

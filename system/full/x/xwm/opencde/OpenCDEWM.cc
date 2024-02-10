@@ -1,4 +1,4 @@
-#include "SolarisWM.h"
+#include "OpenCDEWM.h"
 #include <ewoksys/kernel_tic.h>
 #include <ewoksys/klog.h>
 #include <upng/upng.h>
@@ -9,20 +9,20 @@
 
 using namespace Ewok;
 
-void SolarisWM::loadConfig(sconf_t* sconf) {
+void OpenCDEWM::loadConfig(sconf_t* sconf) {
 	XWM::loadConfig(sconf);
 	const char* v = sconf_get(sconf, "pattern");
 	if(v[0] != 0 && strcmp(v, "none") != 0)
 		pattern = png_image_new_bg(x_get_theme_fname(X_THEME_ROOT, "xwm", v), desktopBGColor);
 }
 
-graph_t* SolarisWM::genPattern(void) {
+graph_t* OpenCDEWM::genPattern(void) {
 	graph_t* g = graph_new(NULL, 64, 64);
 	graph_draw_dot_pattern(g, 0, 0, g->w, g->h, desktopBGColor, desktopFGColor, 2);
 	return g;
 }
 
-void SolarisWM::drawDesktop(graph_t* g) {
+void OpenCDEWM::drawDesktop(graph_t* g) {
 	if(pattern == NULL)
 		pattern = genPattern();
 	graph_clear(g, 0xffffffff);
@@ -40,7 +40,7 @@ void SolarisWM::drawDesktop(graph_t* g) {
 	}
 }
 
-void SolarisWM::drawMin(graph_t* g, xinfo_t* info, grect_t* r, bool top) {
+void OpenCDEWM::drawMin(graph_t* g, xinfo_t* info, grect_t* r, bool top) {
 	(void)info;
 	uint32_t fg, bg;
 	getColor(&fg, &bg, top);
@@ -49,7 +49,7 @@ void SolarisWM::drawMin(graph_t* g, xinfo_t* info, grect_t* r, bool top) {
 	graph_fill_3d(g, r->x+(r->w/2)-3, r->y+(r->h/2)-3, 6, 6, bg, false);
 }
 
-void SolarisWM::drawMax(graph_t* g, xinfo_t* info, grect_t* r, bool top) {
+void OpenCDEWM::drawMax(graph_t* g, xinfo_t* info, grect_t* r, bool top) {
 	(void)info;
 	uint32_t fg, bg;
 	getColor(&fg, &bg, top);
@@ -57,7 +57,7 @@ void SolarisWM::drawMax(graph_t* g, xinfo_t* info, grect_t* r, bool top) {
 	graph_fill_3d(g, r->x+2, r->y+2, r->w-4, r->h-4, bg, false);
 }
 
-void SolarisWM::drawClose(graph_t* g, xinfo_t* info, grect_t* r, bool top) {
+void OpenCDEWM::drawClose(graph_t* g, xinfo_t* info, grect_t* r, bool top) {
 	(void)info;
 	uint32_t fg, bg;
 	getColor(&fg, &bg, top);
@@ -67,12 +67,12 @@ void SolarisWM::drawClose(graph_t* g, xinfo_t* info, grect_t* r, bool top) {
 			r->w-10, 4, bg, false);
 }
 
-void SolarisWM::drawDragFrame(graph_t* g, grect_t* r) {
+void OpenCDEWM::drawDragFrame(graph_t* g, grect_t* r) {
 	graph_frame(g, r->x-frameW, r->y-frameW, 
 			r->w+frameW*2, r->h+frameW*2, frameW, 0x88ffffff, false);
 }
 
-void SolarisWM::drawResize(graph_t* g, xinfo_t* info, grect_t* r, bool top) {
+void OpenCDEWM::drawResize(graph_t* g, xinfo_t* info, grect_t* r, bool top) {
 	(void)info;
 	if(!top)
 		return;
@@ -96,7 +96,7 @@ void SolarisWM::drawResize(graph_t* g, xinfo_t* info, grect_t* r, bool top) {
 			r->x + 1, r->y + r->h, bright);
 }
 
-void SolarisWM::drawFrame(graph_t* graph, xinfo_t* info, bool top) {
+void OpenCDEWM::drawFrame(graph_t* graph, xinfo_t* info, bool top) {
 	uint32_t fg, bg;
 	getColor(&fg, &bg, top);
 
@@ -119,7 +119,7 @@ void SolarisWM::drawFrame(graph_t* graph, xinfo_t* info, bool top) {
 	*/
 }
 
-void SolarisWM::drawTitle(graph_t* g, xinfo_t* info, grect_t* r, bool top) {
+void OpenCDEWM::drawTitle(graph_t* g, xinfo_t* info, grect_t* r, bool top) {
 	uint32_t fg, bg;
 	getColor(&fg, &bg, top);
 
@@ -137,12 +137,12 @@ void SolarisWM::drawTitle(graph_t* g, xinfo_t* info, grect_t* r, bool top) {
 	graph_box_3d(g, r->x, r->y, r->w, r->h, bright, dark);
 }
 
-SolarisWM::~SolarisWM(void) {
+OpenCDEWM::~OpenCDEWM(void) {
 	font_close(&font);
 	if(pattern != NULL)
 		graph_free(pattern);
 }
 
-SolarisWM::SolarisWM(void) {
+OpenCDEWM::OpenCDEWM(void) {
 	pattern = NULL;
 }

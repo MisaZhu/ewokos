@@ -1,4 +1,4 @@
-target("xwm_solaris")
+target("xwm_opencde")
     set_type("application")
     add_files("*.cc")        
     add_deps("libx++", "libx", "libgraph", "libttf", "libfont" ,, "libupng","libsconf", "libcxx")

@@ -11,6 +11,7 @@ extern "C" {
 
 #define X_THEME_ROOT        "/usr/x/themes"
 #define X_SYSTEM_PATH       "/usr/system"
+#define X_DEFAULT_XTHEME    "opencde"
 
 typedef struct st_xevent {
   xevent_t event;

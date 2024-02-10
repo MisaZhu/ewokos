@@ -152,7 +152,7 @@ target("system")
 		os.run("cp -rf %s/basic/etc %s", system_dir, rootfs_dir)
         os.run("cp -rf %s/full/etc %s", system_dir, rootfs_dir)
         os.run("cp -rf %s/full/usr %s", system_dir, rootfs_dir)
-        os.run("cp -rf %s/full/usr/x/themes/solaris %s/usr/x/themes/default", system_dir, rootfs_dir)
+        os.run("cp -rf %s/full/usr/x/themes/opencde %s/usr/x/themes/default", system_dir, rootfs_dir)
         
     end)
 

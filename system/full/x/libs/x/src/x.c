@@ -131,8 +131,6 @@ static int32_t x_read_theme_config(const char* theme_name) {
 
 	char fname[FS_FULL_NAME_MAX];
 	snprintf(fname, FS_FULL_NAME_MAX-1, "%s/%s/x/theme.conf", X_THEME_ROOT, theme_name);
-	if(access(fname, R_OK) != 0)
-		snprintf(fname, FS_FULL_NAME_MAX-1, "%s/default/x/theme.conf", X_THEME_ROOT);
 	sconf_t *sconf = sconf_load(fname);	
 	if(sconf == NULL)
 		return -1;
@@ -181,7 +179,7 @@ int x_get_theme(x_theme_t* theme) {
 		return -1;
 	const char* name = getenv("XTHEME");
 	if(name == NULL || name[0] == 0) 
-		name = "default";
+		name = X_DEFAULT_XTHEME;
 	if(!_x_theme_loaded) {
 		x_read_theme_config(name);
 		_x_theme_loaded = true;

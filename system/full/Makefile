@@ -13,7 +13,7 @@ mkdirs:
 	@cp -r usr ${TARGET_DIR}
 	@cp -r etc ${TARGET_DIR}
 	@mkdir -p ${TARGET_DIR}/usr/x/themes/default
-	@cp -r usr/x/themes/solaris/* ${TARGET_DIR}/usr/x/themes/default/
+	@cp -r usr/x/themes/opencde/* ${TARGET_DIR}/usr/x/themes/default/
 
 extra_libs:
 	cd libs; make
