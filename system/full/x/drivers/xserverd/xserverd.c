@@ -54,7 +54,6 @@ typedef struct {
 } x_current_t;
 
 typedef struct {
-	uint32_t win_move_alpha;
 	uint32_t fps;
 	bool bg_run;
 	bool force_fullscreen;
@@ -101,7 +100,6 @@ typedef struct {
 } x_t;
 
 static int32_t read_config(x_t* x, const char* fname) {
-	x->config.win_move_alpha = 0x88;
 	x->config.fps = 60;
 	x->config.bg_run = 0;
 
@@ -109,11 +107,7 @@ static int32_t read_config(x_t* x, const char* fname) {
 	if(conf == NULL)
 		return -1;
 
-	const char* v = sconf_get(conf, "win_move_alpha");
-	if(v[0] != 0) 
-		x->config.win_move_alpha = strtoul(v, NULL, 16);
-
-	v = sconf_get(conf, "fps");
+	const char* v = sconf_get(conf, "fps");
 	if(v[0] != 0) 
 		x->config.fps = atoi(v);
 	
