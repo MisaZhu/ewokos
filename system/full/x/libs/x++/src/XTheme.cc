@@ -11,8 +11,10 @@ void XTheme::setFont(const char* name, uint32_t size) {
 
 	font = font_new(name, size, true);
 	basic.fontSize = size;
-	memset(basic.fontName, 0, FONT_NAME_MAX);
-	strncpy(basic.fontName, name, FONT_NAME_MAX-1);
+	if(basic.fontName != name)  {
+		memset(basic.fontName, 0, FONT_NAME_MAX);
+		strncpy(basic.fontName, name, FONT_NAME_MAX-1);
+	}
 }
 
 void XTheme::loadConfig(sconf_t* sconf) {

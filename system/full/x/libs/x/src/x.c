@@ -127,6 +127,7 @@ static int32_t x_read_theme_config(const char* theme_name) {
 	_x_theme.fgUnfocusColor = 0xffffffff;
 	strncpy(_x_theme.fontName, DEFAULT_SYSTEM_FONT,THEME_NAME_MAX-1);
 	_x_theme.fontSize = DEFAULT_SYSTEM_FONT_SIZE;
+	_x_theme.fontFixedSize = DEFAULT_SYSTEM_FONT_SIZE;
 	strncpy(_x_theme.name, theme_name, THEME_NAME_MAX-1);
 
 	char fname[FS_FULL_NAME_MAX];
@@ -135,10 +136,9 @@ static int32_t x_read_theme_config(const char* theme_name) {
 	if(sconf == NULL)
 		return -1;
 
-	int font_size = 14;
 	const char* v = sconf_get(sconf, "font_size");
 	if(v[0] != 0) 
-		font_size = atoi(v);
+		_x_theme.fontSize = _x_theme.fontFixedSize = atoi(v);
 
 	v = sconf_get(sconf, "font");
 	if(v[0] != 0) {

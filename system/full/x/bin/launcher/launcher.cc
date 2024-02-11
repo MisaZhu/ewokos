@@ -122,9 +122,9 @@ protected:
 	}
 
 	bool readConfig(const char* fname) {
-		itemsInfo.marginH = 6;
-		itemsInfo.marginV = 2;
-		iconSize = 64;
+		itemsInfo.marginH = 16;
+		itemsInfo.marginV = 6;
+		iconSize = 36;
 		selectedColor = 0x88444444;
 		show_border = true;
 		position = POS_BOTTOM;
@@ -165,8 +165,6 @@ protected:
 			selectedColor = strtoul(v,NULL, 16);
 		sconf_free(conf);
 
-		itemsInfo.itemSize.h = theme->basic.fontSize + iconSize + titleMargin;
-		itemsInfo.itemSize.w = iconSize;
 		return true;
 	}
 public:
@@ -191,6 +189,8 @@ public:
 	bool readConfig(void) {
 		const char* cfg = x_get_theme_fname(X_THEME_ROOT, "launcher", "theme.conf");
 		readConfig(cfg);
+		itemsInfo.itemSize.h = theme->basic.fontSize + iconSize + titleMargin;
+		itemsInfo.itemSize.w = iconSize;
 		return true;
 	}
 

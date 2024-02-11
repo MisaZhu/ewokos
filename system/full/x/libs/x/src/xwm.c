@@ -77,8 +77,6 @@ static void draw_frame(xwm_t* xwm, proto_t* in) {
 		if(xwm->get_resize != NULL)
 			xwm->get_resize(&info, &rresize, xwm->data);
 
-		if(xwm->draw_frame != NULL)
-			xwm->draw_frame(&g, &info, top, xwm->data);
 		if((info.style & XWIN_STYLE_NO_TITLE) == 0) {
 			if(xwm->draw_title != NULL && rtitle.w > 0 && rtitle.h > 0)
 				xwm->draw_title(&g, &info, &rtitle, top, xwm->data);
@@ -97,6 +95,11 @@ static void draw_frame(xwm_t* xwm, proto_t* in) {
 
 			if(xwm->draw_close != NULL && rclose.w > 0 && rclose.h > 0)
 				xwm->draw_close(&g, &info, &rclose, top, xwm->data);
+		}
+
+		if(info.state != XWIN_STATE_MAX) {
+			if(xwm->draw_frame != NULL)
+				xwm->draw_frame(&g, &info, top, xwm->data);
 		}
 		shmdt(g.buffer);
 	}
