@@ -234,6 +234,7 @@ int main(int argc, char* argv[]) {
 	}
 	//child proc for p1 writer
 	dup2(fds1[1], 1);
+	dup2(fds1[1], 2);
 	dup2(fds2[0], 0);
 	close(fds1[0]);
 	close(fds1[1]);

@@ -7,9 +7,9 @@ LDFLAGS = -L$(BUILD_DIR)/lib
 
 CFLAGS += -I $(BUILD_DIR)/include
 
-RUNDEV_OBJS = rundev.o
+RUNDEV_OBJS = ipcserv.o
 
-RUNDEV = $(TARGET_DIR)/bin/rundev
+RUNDEV = $(TARGET_DIR)/bin/ipcserv
 
 $(RUNDEV): $(RUNDEV_OBJS) \
 		$(EWOK_LIBC_A) 

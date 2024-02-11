@@ -83,6 +83,8 @@ typedef struct {
 	uint32_t current_display;
 
 	int xwm_pid;
+	uint32_t xwm_uuid;
+
 	bool show_cursor;
 	cursor_t cursor;
 
@@ -133,7 +135,19 @@ static int32_t read_config(x_t* x, const char* fname) {
 	return 0;
 }
 
+static bool check_xwm(x_t* x) {
+	if(proc_check_uuid(x->xwm_pid, x->xwm_uuid) == x->xwm_uuid)
+		return true;
+
+	x->xwm_pid = -1;
+	x->xwm_uuid = 0;
+	return false;
+}
+
 static void draw_win_frame(x_t* x, xwin_t* win) {
+	if(!check_xwm(x))
+		return;
+
 	x_display_t *display = &x->displays[win->xinfo->display_index];
 	if((win->xinfo->style & XWIN_STYLE_NO_FRAME) != 0 ||
 			display->g == NULL)
@@ -155,6 +169,9 @@ static void draw_win_frame(x_t* x, xwin_t* win) {
 }
 
 static void draw_desktop(x_t* x, uint32_t display_index) {
+	if(!check_xwm(x))
+		return;
+
 	x_display_t *display = &x->displays[display_index];
 	if(display->g == NULL)
 		return;
@@ -199,7 +216,8 @@ static void draw_drag_frame(x_t* xp, uint32_t display_index) {
 		display->g->h,
 		&r, sizeof(grect_t));
 
-	ipc_call_wait(xp->xwm_pid, XWM_CNTL_DRAW_DRAG_FRAME, &in);
+	if(check_xwm(xp))
+		ipc_call_wait(xp->xwm_pid, XWM_CNTL_DRAW_DRAG_FRAME, &in);
 	PF->clear(&in);
 }
 
@@ -803,6 +821,9 @@ static int xwin_set_visible(int fd, int from_pid, proto_t* in, x_t* x) {
 }
 
 static int x_update_frame_areas(x_t* x, xwin_t* win) {
+	if(!check_xwm(x))
+		return -1;
+
 	if((win->xinfo->style & XWIN_STYLE_NO_FRAME) != 0)
 		return -1;
 
@@ -822,6 +843,12 @@ static int x_update_frame_areas(x_t* x, xwin_t* win) {
 }
 
 static void x_get_min_size(x_t* x, xwin_t* win, int *w, int* h) {
+	*w = 100;
+	*h = 100;
+
+	if(!check_xwm(x))
+		return;
+
 	proto_t in, out;
 	PF->init(&out);
 	PF->init(&in)->add(&in, win->xinfo, sizeof(xinfo_t));
@@ -847,9 +874,12 @@ static void xwin_force_fullscreen(x_t* x, xinfo_t* xinfo) {
 }
 
 static int get_xwm_win_space(x_t* x, int style, grect_t* rin, grect_t* rout) {
+	memcpy(rout, rin, sizeof(grect_t));
+	if(!check_xwm(x))
+		return 0;
+
 	proto_t in, out;
 	PF->init(&out);
-
 	PF->format(&in, "i,m", style, rin, sizeof(grect_t));
 
 	int res = ipc_call(x->xwm_pid, XWM_CNTL_GET_WIN_SPACE, &in, &out);
@@ -1376,6 +1406,7 @@ static int xserver_dev_cntl(int from_pid, int cmd, proto_t* in, proto_t* ret, vo
 	}
 	else if(cmd == X_DCNTL_SET_XWM) {
 		x->xwm_pid = from_pid;
+		x->xwm_uuid = proc_get_uuid(from_pid);
 		x_dirty(x, -1);
 	}
 	else if(cmd == X_DCNTL_UNSET_XWM) {
@@ -1433,13 +1464,6 @@ int xserver_step(void* p) {
 	return 0;
 }
 
-const char* get_xwm_fname(x_t* x) {
-	const char* p = getenv("XWM");
-	if(p == NULL || p[0] == 0)
-		p = X_DEFAULT_XWM;
-	return p;
-}
-
 int main(int argc, char** argv) {
 	const char* mnt_point = argc > 1 ? argv[1]: "/dev/x";
 	const char* display_man = argc > 2 ? argv[2]: "/dev/display";
@@ -1453,15 +1477,6 @@ int main(int argc, char** argv) {
 
 	read_config(&x, "/etc/x/x.conf");
 	cursor_init(theme.name, &x.cursor);
-
-	const char* xwm_fname = get_xwm_fname(&x);
-	if(access(xwm_fname, X_OK) == 0) {
-		int pid = fork();
-		if(pid == 0)
-			proc_exec(xwm_fname);
-		ipc_wait_ready(pid);
-		x.xwm_pid = pid;
-	}
 
 	vdevice_t dev;
 	memset(&dev, 0, sizeof(vdevice_t));
