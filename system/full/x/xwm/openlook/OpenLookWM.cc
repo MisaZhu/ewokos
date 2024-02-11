@@ -103,10 +103,10 @@ void OpenLookWM::drawFrame(graph_t* graph, xinfo_t* info, bool top) {
 		y -= titleH;
 	}
 
-	graph_fill(graph, x-frameW, y-frameW, w+frameW*2, frameW, 0xffbbbbbb);
-	graph_fill(graph, x-frameW, y-frameW, frameW, h+frameW*2, 0xffbbbbbb);
-	graph_fill(graph, x-frameW, y+h, w+frameW*2, frameW, 0xffbbbbbb);
-	graph_fill(graph, x+w, y-frameW, frameW, h+frameW*2, 0xffbbbbbb);
+	graph_fill(graph, x-frameW, y-frameW, w+frameW*2, frameW, bg);
+	graph_fill(graph, x-frameW, y-frameW, frameW, h+frameW*2, bg);
+	graph_fill(graph, x-frameW, y+h, w+frameW*2, frameW, bg);
+	graph_fill(graph, x+w, y-frameW, frameW, h+frameW*2, bg);
 
 	graph_fill(graph, x-frameW, y-frameW, w+frameW*2, 2, 0xff000000);
 	graph_fill(graph, x-frameW, y-frameW, 2, h+frameW*2, 0xff000000);
@@ -130,7 +130,8 @@ void OpenLookWM::drawFrame(graph_t* graph, xinfo_t* info, bool top) {
 }
 
 void OpenLookWM::drawTitle(graph_t* g, xinfo_t* info, grect_t* r, bool top) {
-	uint32_t fg=0xff888888,	fg_top=0xff000000, bg=0xff999999, bg_top=0xffbbbbbb;
+	uint32_t fg, bg;
+	getColor(&fg, &bg, top);
 
 	uint32_t dark, bright;
 	graph_get_3d_color(bg, &dark, &bright);
@@ -140,8 +141,8 @@ void OpenLookWM::drawTitle(graph_t* g, xinfo_t* info, grect_t* r, bool top) {
 	
 	int pw = (r->w-sz.w)/2;
 	int ph = (r->h-sz.h)/2;
-	graph_fill(g, r->x, r->y, r->w, r->h, top ? bg_top:bg);
-	graph_draw_text_font(g, r->x+pw, r->y+ph, info->title, &font, top ? fg_top:fg);//title
+	graph_fill(g, r->x, r->y, r->w, r->h, bg);
+	graph_draw_text_font(g, r->x+pw, r->y+ph, info->title, &font, fg);//title
 
 	if(top) { 
 		graph_line(g, r->x, r->y+r->h-3, r->x+r->w, r->y+r->h-3, dark);

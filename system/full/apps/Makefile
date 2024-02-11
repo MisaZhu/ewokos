@@ -3,7 +3,6 @@ all:
 	cd finder; make
 	cd gtest; make
 	cd xterm; make
-	cd pwrinfo; make
 	cd wtest; make
 	cd anim; make
 	cd book; make
@@ -14,7 +13,6 @@ clean:
 	cd finder; make clean
 	cd gtest; make clean
 	cd xterm; make clean
-	cd pwrinfo; make clean
 	cd wtest; make clean
 	cd anim; make clean
 	cd book; make clean
