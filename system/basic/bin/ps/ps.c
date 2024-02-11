@@ -74,20 +74,43 @@ static const char* get_core_loading(sys_info_t* sys_info, procinfo_t* proc) {
 	return ret;
 }
 
+static int doargs(int argc, char* argv[], int8_t* full, int8_t* all, int8_t* thread) {
+	*full = 0;
+	*all = 0;
+	*thread = 0;
+
+	int c = 0;
+  while (c != -1) {
+    c = getopt (argc, argv, "aft");
+    if(c == -1)
+      break;
+
+    switch (c) {
+      case 't':
+        *thread = 1;
+        break;
+      case 'a':
+        *all = 1;
+        break;
+      case 'f':
+        *full = 1;
+        break;
+      case '?':
+        return -1;
+      default:
+        c = -1;
+        break;
+    }
+  }
+	return 0;
+}
+
 int main(int argc, char* argv[]) {
-	int8_t full = 0;
-	int8_t all = 0;
-	int8_t thread = 0;
-	if(argc == 2 && argv[1][0] == '-') {	
-		if(strchr(argv[1], 'f') != NULL)
-			full = 1;
-		if(strchr(argv[1], 'a') != NULL)
-			all = 1;
-		if(strchr(argv[1], 't') != NULL) {
-			all = 1;
-			thread = 1;
-		}
-	}
+	int8_t all;
+	int8_t thread;
+	int8_t full;
+	if(doargs(argc, argv, &full, &all, &thread) != 0)
+		return -1;
 
 	procinfo_t cprocinfo;
   if(proc_info(getpid(), &cprocinfo) != 0)
