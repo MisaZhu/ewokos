@@ -144,6 +144,20 @@ class Finder: public XWin {
 		nums = i;
 	}
 
+	void loadIcons() {
+		fileIcon = png_image_new(x_get_theme_fname(X_THEME_ROOT, "finder", "icons/file.png"));
+		if(fileIcon == NULL)
+			fileIcon = png_image_new(X::getResName("icons/file.png"));
+
+		dirIcon = png_image_new(x_get_theme_fname(X_THEME_ROOT, "finder", "icons/folder.png"));
+		if(dirIcon == NULL)
+			dirIcon = png_image_new(X::getResName("icons/folder.png"));
+
+		devIcon = png_image_new(x_get_theme_fname(X_THEME_ROOT, "finder", "icons/device.png"));
+		if(devIcon == NULL)
+			devIcon = png_image_new(X::getResName("icons/device.png"));
+	}
+
 protected:
 	void onRepaint(graph_t* g) {
 		char name[FS_FULL_NAME_MAX+1];
@@ -288,10 +302,8 @@ public:
 		selectColor = 0xff444444;
 		titleColor = 0xffffff00;
 		titleBGColor = 0xffaaaaaa;
-		fileIcon = png_image_new(x_get_theme_fname(X_THEME_ROOT, "finder", "icons/file.png"));
-		dirIcon = png_image_new(x_get_theme_fname(X_THEME_ROOT, "finder", "icons/folder.png"));
-		devIcon = png_image_new(x_get_theme_fname(X_THEME_ROOT, "finder", "icons/device.png"));
 		itemSize = 36;
+		loadIcons();
 
 		selected = 0;
 		start = 0;
