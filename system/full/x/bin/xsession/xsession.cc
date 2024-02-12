@@ -19,6 +19,7 @@ extern "C" { extern int setenv(const char*, const char*);}
 class XSession : public XWin {
 	EwokSTL::string username;
 	EwokSTL::string password;
+	graph_t *logo;
 	bool passwordMode;
 
 	void login() {
@@ -40,35 +41,62 @@ class XSession : public XWin {
 
 		proc_exec("/bin/shell /etc/x/xinit.rd");
 	}
+
+	void drawBG(graph_t* g) {
+		graph_draw_dot_pattern(g, 0, 0, g->w, g->h,
+				theme.basic.bgColor, theme.basic.fgColor, 1);
+	}
+
+	void drawFrame(graph_t* g, const grect_t& r) {
+		//graph_fill_3d(g, r.x, r.y, r.w, r.h, 0xff88aaff, false);
+		graph_fill_3d(g, r.x, r.y, r.w, r.h, theme.basic.bgColor, false);
+		graph_blt_alpha(logo, 0, 0, logo->w, logo->h,
+				g, r.x-logo->w, r.y, logo->w, logo->h, 0xff);
+	}
+
+	void drawInput(graph_t* g, const grect_t& r, const char* title, const char* input) {
+		font_t* font = theme.getFont();
+		int y = r.y;
+
+		graph_draw_text_font_align(g, r.x, y, r.w, font->max_size.y, 
+				title, font, theme.basic.fgColor, FONT_ALIGN_CENTER);
+
+		y += font->max_size.y+8;
+
+		graph_fill_3d(g, r.x+16, y, r.w-32, font->max_size.y, theme.basic.bgColor, true);
+		if(!passwordMode)
+			graph_draw_text_font_align(g, r.x, y, r.w, font->max_size.y,
+					input, font, theme.basic.fgColor, FONT_ALIGN_CENTER);
+	}
+
 protected:
 	void onRepaint(graph_t* g) {
 		font_t* font = theme.getFont();
-		const char* s = passwordMode ? password.c_str() : username.c_str();
-		int32_t x, y;
-		uint32_t tw, th;
-		font_text_size(s, font, &tw, &th);
-		tw = tw < 100 ? 100 : (tw+8);
+		const char* input = passwordMode ? password.c_str() : username.c_str();
+		const char* title = passwordMode ? "password" : "username";
 
-		x = (g->w - tw)/2;
-		y = (g->h - th)/2;
+		uint32_t tw, th, iw, ih;
+		font_text_size(title, font, &tw, &th);
+		font_text_size(input, font, &iw, &ih);
+		if(iw < tw)
+			iw = tw;
 
-		graph_clear(g, theme.basic.bgColor);	
-		graph_box_3d(g, x, y, tw, th, 0xff888888, 0xffbbbbbb);
+		uint32_t fw = iw + 64;
+		uint32_t fh = ih * 3;
+		grect_t frameR = { (g->w - fw) / 2, (g->h - fh) / 2, fw, fh };
 
-		graph_draw_text_font_align(g, 0, y-th-4, g->w, th, 
-				passwordMode ? "password":"username",
-				font, theme.basic.fgColor, FONT_ALIGN_CENTER);
-
-		if(!passwordMode)
-			graph_draw_text_font_align(g, x, y, tw, th, s, font, theme.basic.fgColor, FONT_ALIGN_CENTER);
+		drawBG(g);
+		drawFrame(g, frameR);
+		drawInput(g, frameR, title, input);
 	}
 
 	void onEvent(xevent_t* ev) {
 		if(ev->type == XEVT_IM && ev->state == XIM_STATE_PRESS) {
 			EwokSTL::string &input = passwordMode ? password:username;
 			int c = ev->value.im.value;
+			int len = input.length();
+
 			if(c == KEY_BACKSPACE || c == CONSOLE_LEFT) {
-				int len = input.length();
 				if(len > 0)
 					input = input.substr(0, len-1);
 			}
@@ -79,7 +107,8 @@ protected:
 					login();
 			}
 			else if(c > 20) {
-				input += c;
+				if(len < 16)
+					input += c;
 			}
 			repaint();
 		}
@@ -89,6 +118,7 @@ public:
 	XSession() {
 		theme.setFont(theme.basic.fontName, 16);
 		passwordMode = false;
+		logo = png_image_new("/usr/system/icons/ewok.png");
 	}
 
 	~XSession() {

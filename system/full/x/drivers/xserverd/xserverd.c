@@ -90,13 +90,20 @@ static void draw_win_frame(x_t* x, xwin_t* win) {
 	PF->clear(&in);
 }
 
-static void draw_desktop(x_t* x, uint32_t display_index) {
-	if(!check_xwm(x))
-		return;
+static void draw_init_desktop(x_t* x, x_display_t *display) {
+	graph_draw_dot_pattern(display->g, 0, 0, display->g->w, display->g->h,
+			0xffffffff, 0xff000000, 1);
+}
 
+static void draw_desktop(x_t* x, uint32_t display_index) {
 	x_display_t *display = &x->displays[display_index];
 	if(display->g == NULL)
 		return;
+
+	if(!check_xwm(x)) {
+		draw_init_desktop(x, display);
+		return;
+	}	
 
 	proto_t in;
 	PF->format(&in, "i,i,i",
