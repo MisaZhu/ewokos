@@ -1,0 +1,1 @@
+/bin/ipcserv /drivers/raspix/uartd         /dev/tty0

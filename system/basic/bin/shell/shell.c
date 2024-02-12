@@ -15,9 +15,8 @@
 #include <ewoksys/klog.h>
 #include "shell.h"
 
-bool _initrd = false;
+bool _script_mode = false;
 bool _stdio_inited = false;
-int  _console_fd = -1;
 bool _terminated = false;
 
 old_cmd_t* _history = NULL;
@@ -199,53 +198,20 @@ static void prompt(void) {
 		printf("\033[4mewok(%s):%s$\033[0m ", cid, getcwd(cwd, FS_FULL_NAME_MAX));
 }
 
-static void try_init_stdio(void) {
-	if(!_stdio_inited) {
-		int fd = open("/dev/tty0", O_RDWR);
-		if(fd > 0) {
-			dup2(fd, 0);
-			dup2(fd, 1);
-			dup2(fd, 2);
-			close(fd);
-			_stdio_inited = true;
-		}
-	}
-}
-
-static void initrd_out(const char* cmd) {
-	if(!_initrd || cmd[0] == '@')
-		return;
-
-	try_init_stdio();
-	if(!_stdio_inited) {
-		klog("%s\n", cmd);
-		return;
-	}
-	printf("%s\n", cmd);
-	
-	if(_console_fd < 0) 
-		_console_fd = open("/dev/console0", O_RDWR);
-	if(_console_fd >= 0) 
-		dprintf(_console_fd, "%s\n", cmd);
-}
-
 int main(int argc, char* argv[]) {
-	_initrd = false;
+	_script_mode = false;
 	_stdio_inited = false;
-	_console_fd = -1;
 	_history = NULL;
 	_terminated = 0;
 	setbuf(stdout, NULL);
 	setbuf(stderr, NULL);
 
 	int fd_in = 0;
-	if(argc > 2) {
-		if(strcmp(argv[1], "-initrd") == 0) {
-			_initrd = true;
-		}
-		fd_in = open(argv[2], O_RDONLY);
+	if(argc > 1) {
+		fd_in = open(argv[1], O_RDONLY);
 		if(fd_in < 0)
 			return -1;
+		_script_mode = true;
 	}
 
 	setenv("PATH", "/sbin:/bin:/bin/x");
@@ -266,13 +232,12 @@ int main(int argc, char* argv[]) {
 		if(cmd[0] == 0)
 			continue;
 
-		if(_initrd) {
-			if(cmd[0] == '#')
-				continue;
-			initrd_out(cmd);
-			if(cmd[0] == '@')
-				cmd++;
-		}
+		if(cmd[0] == '#')
+			continue;
+		if(cmd[0] == '@')
+			cmd++;
+		else if(_script_mode)
+			printf("%s\n", cmd);
 
 		add_history(cmdstr->cstr);
 		if(handle_shell_cmd(cmd) == 0)
@@ -287,7 +252,7 @@ int main(int argc, char* argv[]) {
 
 		int child_pid = fork();
 		if (child_pid == 0) {
-			if(fg == 0 || _initrd)
+			if(fg == 0 || _script_mode)
 				proc_detach();
 			int res = run_cmd(cmd);
 			str_free(cmdstr);	

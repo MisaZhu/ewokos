@@ -129,7 +129,7 @@ int32_t cmd_gets(int fd, str_t* buf) {
 
 			if(buf->len == 0 && (c == '@' || c == '#'))
 				echo = false;
-			if(echo && !_initrd) 
+			if(echo && !_script_mode) 
 				putch(c);
 			if(c == '\n')
 				break;

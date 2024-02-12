@@ -3,7 +3,7 @@
 
 #include <ewoksys/mstr.h>
 
-extern bool _initrd;
+extern bool _script_mode;
 extern bool _terminated;
 
 typedef struct st_old_cmd {

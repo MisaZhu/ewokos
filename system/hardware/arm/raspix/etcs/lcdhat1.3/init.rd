@@ -1,4 +1,3 @@
-/bin/ipcserv /drivers/raspix/uartd          /dev/tty0
 /bin/ipcserv /drivers/raspix/lcdhatd        /dev/fb0 
 /bin/ipcserv /drivers/raspix/hat13_joykeybd /dev/keyb0
 #/bin/ipcserv /drivers/raspix/hat13_joystickd /dev/joystick

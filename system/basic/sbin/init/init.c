@@ -68,7 +68,7 @@ static void run_init(const char* init_file) {
 		setuid(0);
 		setgid(0);
 		char cmd[FS_FULL_NAME_MAX];
-		snprintf(cmd, FS_FULL_NAME_MAX-1, "/bin/shell -initrd %s", init_file);
+		snprintf(cmd, FS_FULL_NAME_MAX-1, "/bin/shell %s -initrd", init_file);
 		klog("\ninit: loading '%s' ... \n", init_file);
 		if(proc_exec(cmd) != 0) {
 			klog("[failed]!\n");
@@ -79,7 +79,22 @@ static void run_init(const char* init_file) {
 		waitpid(pid);
 }
 
+static int init_stdio(void) {
+	int fd = open("/dev/tty0", O_RDWR);
+	if(fd > 0) {
+		dup2(fd, 0);
+		dup2(fd, 1);
+		dup2(fd, 2);
+		close(fd);
+		return 0;
+	}
+	return -1;
+}
+
 static void switch_root(void) {
+	run_init("/etc/init0.rd");
+	if(init_stdio() != 0)
+		return;
 	run_init("/etc/init.rd");
 }
 

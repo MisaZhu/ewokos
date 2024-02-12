@@ -1,5 +1,4 @@
 /bin/ipcserv /drivers/timerd          /dev/timer
-/bin/ipcserv /drivers/versatilepb/ttyd       /dev/tty0
 
 /bin/ipcserv /drivers/versatilepb/fbd        /dev/fb0
 /bin/ipcserv /drivers/displayd        /dev/display /dev/fb0

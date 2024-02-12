@@ -1,0 +1,1 @@
+/bin/ipcserv /drivers/rk3128/rk_uartd       /dev/tty0

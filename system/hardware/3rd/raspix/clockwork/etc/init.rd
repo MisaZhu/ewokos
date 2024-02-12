@@ -1,5 +1,3 @@
-/bin/ipcserv /drivers/raspix/powerd  /dev/power0
-/bin/ipcserv /drivers/raspix/uartd   /dev/tty0
 #/bin/ipcserv /drivers/raspix/soundd  /dev/sound
 
 /bin/ipcserv /drivers/raspix/clockwork_fbd      /dev/fb0
@@ -15,7 +13,7 @@
 /bin/ipcserv /drivers/raspix/hid_joystickd  /dev/joystick0
 
 /bin/ipcserv /drivers/ramfsd                /tmp
-@/bin/session &
+@/sbin/sessiond &
 
 /bin/ipcserv /drivers/nulld                 /dev/null
 /bin/ipcserv /drivers/proc/sysinfod         /proc/sysinfo

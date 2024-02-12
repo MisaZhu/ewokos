@@ -1,4 +1,3 @@
-/bin/ipcserv /drivers/rk3128/rk_uartd       /dev/tty0
 #/bin/ipcserv /drivers/rk3128/gpio_joykeybd  /dev/joykeyb
 /bin/ipcserv /drivers/rk3128/gpio_joykeyb_minid  /dev/joykeyb
 /bin/ipcserv /drivers/rk3128/gpio_joystickd  /dev/joystick

@@ -1,4 +1,3 @@
-/bin/ipcserv /drivers/miyoo/ms_uartd           /dev/tty0
 /bin/ipcserv /drivers/miyoo/gpio_joykeybd      /dev/joykeyb
 #/bin/ipcserv /drivers/miyoo/gpio_joykeyb_minid /dev/joykeyb
 #/bin/ipcserv /drivers/miyoo/gpio_joystickd     /dev/joystick

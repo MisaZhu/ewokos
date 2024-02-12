@@ -1,4 +1,3 @@
-/bin/ipcserv /drivers/raspix/uartd    /dev/tty0
 #/bin/ipcserv /drivers/raspix/soundd   /dev/sound
 /bin/ipcserv /drivers/raspix/usbd     /dev/touch0
 
