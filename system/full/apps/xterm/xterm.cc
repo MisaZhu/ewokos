@@ -214,8 +214,9 @@ extern "C" { extern int setenv(const char*, const char*);}
 #endif
 
 int main(int argc, char* argv[]) {
-	(void)argc;
-	(void)argv;
+	const char* cmd = "/bin/shell";
+	if(argc > 1)
+		cmd = argv[1];
 
 	int fds1[2];
 	int fds2[2];
@@ -245,5 +246,5 @@ int main(int argc, char* argv[]) {
 	snprintf(console, 15, "xterm-%d", getpid());
 	setenv("CONSOLE_ID", console);
 
-	return proc_exec("/bin/shell");
+	return proc_exec(cmd);
 }

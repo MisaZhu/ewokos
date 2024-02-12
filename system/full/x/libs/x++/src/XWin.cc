@@ -145,6 +145,12 @@ void XWin::repaint(void) {
 	xwin_repaint(xwin);
 }
 
+void XWin::fullscreen(void) {
+	if(xwin == NULL)	
+		return;
+	xwin_fullscreen(xwin);
+}
+
 void XWin::resize(int dw, int dh) {
 	if(xwin == NULL)	
 		return;

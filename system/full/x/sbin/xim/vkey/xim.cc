@@ -225,7 +225,7 @@ protected:
 
 		if(c == ' ')
 			strcpy(s, "SPC");
-		else if(c == '\n')
+		else if(c == '\r')
 			strcpy(s, "ENT");
 		else if(c == '\b')
 			strcpy(s, "BK");
@@ -277,7 +277,7 @@ protected:
 				
 				if(c == '\3') //two key size
 					kx -= keyw;
-				if(c == ' ' || c == '\n' || c == '\3') //two key size
+				if(c == ' ' || c == '\r' || c == '\3') //two key size
 					kw = keyw * 2;
 
 				if(keySelect == at) { //hot key
@@ -317,7 +317,7 @@ protected:
 			if(len > 0)
 				inputS[len-1] = 0;
 		}
-		else if(c == '\n') {
+		else if(c == '\r') {
 			inputS[0] = 0;
 		}
 		else if(c == '\4') {
@@ -349,11 +349,11 @@ public:
 		font_load(DEFAULT_SYSTEM_FONT, 13, &font, true);
 		keytable[1] = ""
 			"1234567890%-+\b"
-			"\\#$&*(){}[]!\n\3"
+			"\\#$&*(){}[]!\r\3"
 			"\2:;\"'<>. \3`?^\1";
 		keytable[0] = ""
 			"qwertyuiop-/|\b"
-			"~asdfghjkl@_\n\3"
+			"~asdfghjkl@_\r\3"
 			"\2zxcvbnm \3\4,.\1";
 		keytableType = 0;
 

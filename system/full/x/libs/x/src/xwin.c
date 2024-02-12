@@ -189,6 +189,20 @@ int xwin_resize_to(xwin_t* xwin, int w, int h) {
 	return 0;
 }
 
+int xwin_fullscreen(xwin_t* xwin) {
+	xscreen_t scr;
+	if(x_screen_info(&scr, xwin->xinfo->display_index) != 0)
+		return -1;
+	memcpy(&xwin->xinfo_prev, xwin->xinfo, sizeof(xinfo_t));
+	int32_t dh = xwin->xinfo->winr.h - xwin->xinfo->wsr.h;
+	grect_t r = {0, dh, scr.size.w, scr.size.h-dh};
+	memcpy(&xwin->xinfo->wsr, &r, sizeof(grect_t));
+	xwin->xinfo->state = XWIN_STATE_MAX;
+	xwin_update_info(xwin, X_UPDATE_REBUILD | X_UPDATE_REFRESH);
+	xwin_repaint(xwin);
+	return 0;
+}
+
 int xwin_resize(xwin_t* xwin, int dw, int dh) {
 	return xwin_resize_to(xwin, xwin->xinfo->wsr.w+dw, xwin->xinfo->wsr.h+dh);
 }

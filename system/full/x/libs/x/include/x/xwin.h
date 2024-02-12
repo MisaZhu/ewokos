@@ -39,6 +39,7 @@ int      xwin_top(xwin_t* x);
 void     xwin_set_alpha(xwin_t* x, bool alpha);
 void     xwin_repaint(xwin_t* x);
 //void     xwin_repaint_req(xwin_t* x);
+int      xwin_fullscreen(xwin_t* xwin);
 int      xwin_resize(xwin_t* x, int dw, int dh);
 int      xwin_resize_to(xwin_t* x, int w, int h);
 int      xwin_move(xwin_t* xwin, int dx, int dy);

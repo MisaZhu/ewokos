@@ -53,6 +53,11 @@ static int32_t read_config(x_t* x, const char* fname) {
 }
 
 static bool check_xwm(x_t* x) {
+	if(x->xwm_pid < 0) {
+		x->xwm_uuid = 0;
+		return false;
+	}
+
 	if(proc_check_uuid(x->xwm_pid, x->xwm_uuid) == x->xwm_uuid)
 		return true;
 
@@ -847,7 +852,6 @@ static int xwin_update_info(int fd, int from_pid, proto_t* in, proto_t* out, x_t
 	}
 	if(wsr_w != win->xinfo->wsr.w || wsr_h != win->xinfo->wsr.h)
 		type = type | X_UPDATE_REBUILD | X_UPDATE_REFRESH;
-	
 	if(get_xwm_win_space(x, (int)win->xinfo->style,
 			&win->xinfo->wsr,
 			&win->xinfo->winr) != 0)	
@@ -857,25 +861,30 @@ static int xwin_update_info(int fd, int from_pid, proto_t* in, proto_t* out, x_t
 	if((type & X_UPDATE_REBUILD) != 0 ||
 			g_shm == NULL ||
 			win->g == NULL) {
+
 		if(win->g != NULL && g_shm != NULL) {
 			graph_free(win->g);
 			shmdt(g_shm);
 			win->g = NULL;
 		}
+
 		key_t key = (((int32_t)win) << 16) | getpid();
 		int32_t g_shm_id = shmget(key,
 				win->xinfo->wsr.w * win->xinfo->wsr.h * 4,
 				0666|IPC_CREAT|IPC_EXCL);
 		if(g_shm_id == -1)
 			return -1;
+
 		g_shm = shmat(g_shm_id, 0, 0);
 		if(g_shm == NULL) 
 			return -1;
+
 		win->xinfo->g_shm_id = g_shm_id;
 		win->xinfo->g_shm = g_shm;
 		win->g = graph_new(g_shm, win->xinfo->wsr.w, win->xinfo->wsr.h);
 		graph_clear(win->g, 0x0);
 
+		win->xinfo->g_shm_id = g_shm_id;
 		if(win->g_buf != NULL) {
 			graph_free(win->g_buf);
 			win->g_buf = NULL;

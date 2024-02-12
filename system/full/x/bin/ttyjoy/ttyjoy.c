@@ -51,45 +51,6 @@ int main(int argc, char* argv[]) {
 	}
 	prompt();
 
-	input(x_pid, KEY_1, XIM_STATE_PRESS);
-	input(x_pid, KEY_1, XIM_STATE_RELEASE);	
-	usleep(DELAYUS);
-	input(x_pid, KEY_1, XIM_STATE_PRESS);
-	input(x_pid, KEY_1, XIM_STATE_RELEASE);	
-	usleep(DELAYUS);
-	input(x_pid, KEY_1, XIM_STATE_PRESS);
-	input(x_pid, KEY_1, XIM_STATE_RELEASE);	
-	usleep(DELAYUS);
-	while(1){
-		input(x_pid, KEY_BUTTON_A, XIM_STATE_PRESS);	
-		input(x_pid, KEY_BUTTON_A, XIM_STATE_RELEASE);	
-		usleep(DELAYUS);
-		input(x_pid, KEY_HOME, XIM_STATE_PRESS);	
-		input(x_pid, KEY_HOME, XIM_STATE_RELEASE);	
-		usleep(DELAYUS);
-	
-		input(x_pid, KEY_2, XIM_STATE_PRESS);
-		input(x_pid, KEY_2, XIM_STATE_RELEASE);	
-		usleep(DELAYUS);
-		input(x_pid, KEY_2, XIM_STATE_PRESS);
-		input(x_pid, KEY_2, XIM_STATE_RELEASE);	
-		usleep(DELAYUS);
-
-		input(x_pid, KEY_BUTTON_A, XIM_STATE_PRESS);	
-		input(x_pid, KEY_BUTTON_A, XIM_STATE_RELEASE);	
-		usleep(DELAYUS);
-		input(x_pid, KEY_HOME, XIM_STATE_PRESS);	
-		input(x_pid, KEY_HOME, XIM_STATE_RELEASE);	
-		usleep(DELAYUS);
-
-		input(x_pid, KEY_1, XIM_STATE_PRESS);
-		input(x_pid, KEY_1, XIM_STATE_RELEASE);	
-		usleep(DELAYUS);
-		input(x_pid, KEY_1, XIM_STATE_PRESS);
-		input(x_pid, KEY_1, XIM_STATE_RELEASE);	
-		usleep(DELAYUS);
-	}
-
 	while(1) {
 		uint8_t ks[3];
 		int32_t sz = read(0, ks, 3);
