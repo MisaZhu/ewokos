@@ -71,17 +71,19 @@ static inline void empty(void) {
 static int32_t keyb_handle(uint8_t scode) {
 	if(scode == 0)
 		return 0;
-
 	char c = 0;
 	//handle release event and key value
 	if(scode == 0xF0) { //release event
 		scode = get_scode(); // scan released code
-		if(_held[scode] == 1 && scode)  
-			_held[scode] = 0;
 		empty(); //set empty data
+		if(scode <= 127 && _held[scode] == 1 && scode)  
+			_held[scode] = 0;
 		return 0;
 	}
 	else if(scode == 0xFA) //empty data
+		return 0;
+	
+	if(scode > 127)
 		return 0;
 
 	_held[scode] = 1;

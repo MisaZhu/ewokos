@@ -914,7 +914,7 @@ static void do_vfs_pipe_write(int pid, proto_t* in, proto_t* out) {
 
 	size = buffer_write(buffer, data, size);
 	if(size > 0) {
-		node->fsinfo.state = FS_STATE_CHANGED;
+		node->fsinfo.state |= FS_STATE_CHANGED;
 		PF->clear(out)->addi(out, size);
 		proc_wakeup(node_id); //wakeup reader
 		return;
