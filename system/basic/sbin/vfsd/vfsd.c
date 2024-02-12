@@ -470,16 +470,21 @@ static void proc_file_close(int pid, int fd, file_t* file, bool close_dev) {
 
 	if(node->refs > 0)
 		node->refs--;
-	if((file->flags & O_WRONLY) != 0 && node->refs_w > 0)
+	if((file->flags & (O_WRONLY|O_RDWR)) != 0 && node->refs_w > 0)
 		node->refs_w--;
 	bool del_node = false;
 	if(node->fsinfo.type == FS_TYPE_PIPE) {
-		if(node->refs <= 0 && node->fsinfo.name[0] == 0) { //no refs and not fifo pipe
-			buffer_t* buffer = (buffer_t*)node->fsinfo.data;
-			if(buffer != NULL)
-				free(buffer);
-			del_node = true;
-			file->node = 0;
+		if(node->refs <= 0) {
+			if(node->fsinfo.name[0] == 0) { //no refs and not fifo pipe
+				buffer_t* buffer = (buffer_t*)node->fsinfo.data;
+				if(buffer != NULL)
+					free(buffer);
+				del_node = true;
+				file->node = 0;
+			}
+			else {
+				node->fsinfo.state = 0;
+			}
 		}
 		proc_wakeup(node_id);
 	}
@@ -909,6 +914,7 @@ static void do_vfs_pipe_write(int pid, proto_t* in, proto_t* out) {
 
 	size = buffer_write(buffer, data, size);
 	if(size > 0) {
+		node->fsinfo.state = FS_STATE_CHANGED;
 		PF->clear(out)->addi(out, size);
 		proc_wakeup(node_id); //wakeup reader
 		return;
@@ -938,20 +944,25 @@ static void do_vfs_pipe_read(int pid, proto_t* in, proto_t* out) {
 		return;
 	}
 
-	if(node == NULL || size < 0 || (buffer->size == 0 && node->refs < 2)) { // close by other peer
+	if(node == NULL || size < 0 || 
+					(buffer->size == 0 &&
+					(node->refs_w == 0 || node->refs < 2) && 
+					(node->fsinfo.state & FS_STATE_CHANGED) != 0 )) { // close by other peer
 		proc_wakeup(node_id); //wakeup writer.
    	return;
 	}
 
-	void* data = malloc(size);
-	size = buffer_read(buffer, data, size);
-	if(size > 0) {
-		PF->clear(out)->addi(out, size)->add(out, data, size);
+	if(buffer->size > 0 && size > 0) {
+		void* data = malloc(size);
+		size = buffer_read(buffer, data, size);
+		if(size > 0) {
+			PF->clear(out)->addi(out, size)->add(out, data, size);
+			free(data);
+			proc_wakeup(node_id); //wakeup writer.
+			return;
+		}
 		free(data);
-		proc_wakeup(node_id); //wakeup writer.
-		return;
 	}
-	free(data);
 
 	PF->clear(out)->addi(out, 0); //retry
 }
