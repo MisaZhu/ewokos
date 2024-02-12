@@ -474,7 +474,7 @@ static void proc_file_close(int pid, int fd, file_t* file, bool close_dev) {
 		node->refs_w--;
 	bool del_node = false;
 	if(node->fsinfo.type == FS_TYPE_PIPE) {
-		if(node->refs <= 0) {
+		if(node->refs <= 0 && node->fsinfo.name[0] == 0) { //no refs and not fifo pipe
 			buffer_t* buffer = (buffer_t*)node->fsinfo.data;
 			if(buffer != NULL)
 				free(buffer);
@@ -669,6 +669,11 @@ static void do_vfs_new_node(int pid, proto_t* in, proto_t* out) {
 	info.node = (uint32_t)node;
 	info.mount_pid = -1;
 	memcpy(&node->fsinfo, &info, sizeof(fsinfo_t));
+	if(info.type == FS_TYPE_PIPE)  {
+		buffer_t* buf = (buffer_t*)malloc(sizeof(buffer_t));
+		memset(buf, 0, sizeof(buffer_t));
+		node->fsinfo.data = (int32_t)buf;
+	}
 
 	if(node_to != NULL)
 		vfs_add_node(pid, node_to, node);
@@ -890,7 +895,8 @@ static void do_vfs_pipe_write(int pid, proto_t* in, proto_t* out) {
 	void *data = proto_read(in, &size);
 	vfs_node_t* node = vfs_get_node_by_id(node_id);
 
-	if(size < 0 || data == NULL || node == NULL || node->refs < 2) { //closed by other peer
+	//if(size < 0 || data == NULL || node == NULL || node->refs < 2) { //closed by other peer
+	if(size < 0 || data == NULL || node == NULL) { //closed by other peer
 		proc_wakeup(node_id); //wakeup reader
 		return;
 	}

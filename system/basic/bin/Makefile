@@ -26,6 +26,7 @@ builtin_apps:
 	cd chown;make
 	cd whoami;make
 	cd mkdir;make
+	cd mkfifo;make
 	cd grep;make
 	cd rx;make
 	cd elfinfo;make
@@ -55,6 +56,7 @@ clean:
 	cd chmod;make clean
 	cd chown;make clean
 	cd mkdir;make clean
+	cd mkfifo;make clean
 	cd grep;make clean
 	cd rx;make clean
 	cd elfinfo;make clean

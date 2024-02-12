@@ -27,5 +27,6 @@ struct stat {
 int mkdir(const char* name, int mode);
 int stat(const char* name, struct stat* buf);
 int fstat(int fd, struct stat* buf);
+int mkfifo(const char* name, int mode);
 
 #endif

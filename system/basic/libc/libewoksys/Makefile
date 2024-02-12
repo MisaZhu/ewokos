@@ -58,6 +58,7 @@ LIB_EWOKSYS_OBJS =  \
 	src/signal/signal.o \
 	\
 	src/sys/stat/mkdir.o \
+	src/sys/stat/mkfifo.o \
 	\
 	src/fcntl/fchmod.o \
 	src/fcntl/chmod.o \
