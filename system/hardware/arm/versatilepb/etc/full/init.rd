@@ -27,8 +27,11 @@
 @/sbin/x/xmoused /dev/mouse0 &
 @/sbin/x/xim_none /dev/keyb0 &
 
-@export XTHEME=openlook
-@/bin/ipcserv /sbin/x/xwm_openlook
+#@export XTHEME=openlook
+#@/bin/ipcserv /sbin/x/xwm_openlook
+
+@export XTHEME=opencde
+@/bin/ipcserv /sbin/x/xwm_opencde
 
 @/bin/x/menubar &
 @/bin/x/launcher &
