@@ -9,37 +9,6 @@
 
 using namespace Ewok;
 
-void OpenLookWM::loadConfig(sconf_t* sconf) {
-	XWM::loadConfig(sconf);
-	const char* v = sconf_get(sconf, "pattern");
-	if(v[0] != 0 && strcmp(v, "none") != 0)
-		pattern = png_image_new_bg(x_get_theme_fname(X_THEME_ROOT, "xwm", v), desktopBGColor);
-}
-
-graph_t* OpenLookWM::genPattern(void) {
-	graph_t* g = graph_new(NULL, 64, 64);
-	graph_draw_dot_pattern(g, 0, 0, g->w, g->h, desktopBGColor, desktopFGColor, 2);
-	return g;
-}
-
-void OpenLookWM::drawDesktop(graph_t* g) {
-	if(pattern == NULL)
-		pattern = genPattern();
-	graph_clear(g, 0xffffffff);
-
-	int x = 0;
-	int y = 0;
-	for(int i=0; y<g->h; i++) {
-		for(int j=0; x<g->w;j++) {
-			graph_blt(pattern, 0, 0, pattern->w, pattern->h,
-					g, x, y, pattern->w, pattern->h);
-			x += pattern->w;
-		}
-		x = 0;
-		y += pattern->h;
-	}
-}
-
 void OpenLookWM::drawMin(graph_t* g, xinfo_t* info, grect_t* r, bool top) {
 	(void)info;
 }
@@ -149,9 +118,6 @@ void OpenLookWM::drawTitle(graph_t* g, xinfo_t* info, grect_t* r, bool top) {
 }
 
 OpenLookWM::~OpenLookWM(void) {
-	font_close(&font);
-	if(pattern != NULL)
-		graph_free(pattern);
 }
 
 OpenLookWM::OpenLookWM(void) {
@@ -161,5 +127,4 @@ OpenLookWM::OpenLookWM(void) {
 	frameTRIcon = png_image_new(x_get_theme_fname(X_THEME_ROOT, "xwm", "icons/top_right.png"));
 	frameCloseIcon = png_image_new(x_get_theme_fname(X_THEME_ROOT, "xwm", "icons/button_down.png"));
 	frameMaxIcon = png_image_new(x_get_theme_fname(X_THEME_ROOT, "xwm", "icons/button_max.png"));
-	pattern = NULL;
 }

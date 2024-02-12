@@ -8,8 +8,6 @@
 using namespace Ewok;
 
 class OpenCDEWM : public XWM {
-	graph_t* pattern;
-	graph_t* genPattern(void);
 	void getBorderColor(uint32_t bg, uint32_t *dark, uint32_t *bright);
 protected:
 	void drawDragFrame(graph_t* g, grect_t* r);
@@ -18,9 +16,7 @@ protected:
 	void drawMin(graph_t* g, xinfo_t* info, grect_t* r, bool top);
 	void drawClose(graph_t* g, xinfo_t* info, grect_t* r, bool top);
 	void drawFrame(graph_t* g, xinfo_t* info, bool top);
-	void drawDesktop(graph_t* g);
 	void drawTitle(graph_t* g, xinfo_t* info, grect_t* r, bool top);
-	void loadConfig(sconf_t* sconf);
 public:
 	OpenCDEWM(void);
 	~OpenCDEWM(void);

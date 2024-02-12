@@ -14,8 +14,6 @@ class OpenLookWM : public XWM {
 	graph_t* frameBRIcon;
 	graph_t* frameCloseIcon;
 	graph_t* frameMaxIcon;
-	graph_t* pattern;
-	graph_t* genPattern(void);
 protected:
 	void drawDragFrame(graph_t* g, grect_t* r);
 	void drawResize(graph_t* g, xinfo_t* info, grect_t* r, bool top);
@@ -23,9 +21,7 @@ protected:
 	void drawMin(graph_t* g, xinfo_t* info, grect_t* r, bool top);
 	void drawClose(graph_t* g, xinfo_t* info, grect_t* r, bool top);
 	void drawFrame(graph_t* g, xinfo_t* info, bool top);
-	void drawDesktop(graph_t* g);
 	void drawTitle(graph_t* g, xinfo_t* info, grect_t* r, bool top);
-	void loadConfig(sconf_t* sconf);
 public:
 	OpenLookWM(void);
 	~OpenLookWM(void);

@@ -22,6 +22,9 @@ protected:
 	uint32_t desktopFGColor;
 	uint32_t desktopBGColor;
 
+	graph_t* desktopPattern;
+	virtual graph_t* genDesktopPattern(void);
+
 	virtual void getColor(uint32_t *fg, uint32_t* bg, bool top);
 	virtual void getWinSpace(int style, grect_t* xr, grect_t* wsr);
 	virtual void getClose(xinfo_t* info, grect_t* r);
@@ -58,7 +61,7 @@ public:
 	inline void __drawDragFrame(graph_t* g, grect_t* r) {drawDragFrame(g, r); }
 
 	XWM(void);
-	virtual ~XWM(void) { }
+	virtual ~XWM(void);
 
 	void readConfig(const char* fname);
 	void run(void);
