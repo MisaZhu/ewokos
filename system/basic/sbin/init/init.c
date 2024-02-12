@@ -80,14 +80,18 @@ static void run_init(const char* init_file) {
 }
 
 static int init_stdio(void) {
-	int fd = open("/dev/tty0", O_RDWR);
+	const char* tty_dev = "/dev/tty0";
+	klog("init: initailizing stdio at '%s' ... ", tty_dev);
+	int fd = open(tty_dev, O_RDWR);
 	if(fd > 0) {
 		dup2(fd, 0);
 		dup2(fd, 1);
 		dup2(fd, 2);
 		close(fd);
+		klog("[ok]\n");
 		return 0;
 	}
+	klog("[failed]!\n");
 	return -1;
 }
 
