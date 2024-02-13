@@ -14,6 +14,9 @@ enum {
 	SESSION_SET
 };
 
+#define SESSION_ERR_PWD -3
+#define SESSION_ERR_USR -2
+
 #define SESSION_USER_MAX 32
 #define SESSION_PSWD_MAX 64
 #define SESSION_HOME_MAX 64

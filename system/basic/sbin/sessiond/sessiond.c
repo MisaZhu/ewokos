@@ -93,8 +93,9 @@ static int read_user_info(void) {
 	return 0;
 }
 
-static session_info_t* check(const char* user, const char* password) {
+static session_info_t* check(const char* user, const char* password, int* res) {
 	int i;
+	*res = 0;
 	for(i=0; i<_user_num; i++) {
 		session_info_t* info = &_users[i];
 		if(strcmp(info->user, user) == 0) {
@@ -103,10 +104,13 @@ static session_info_t* check(const char* user, const char* password) {
 			const char* md5 = md5_encode_str((uint8_t*)password, strlen(password));
 			if(strcmp(info->password, md5) == 0) 
 				return info;
-			else
+			else {
+				*res = SESSION_ERR_PWD; //Wrong password
 				return NULL;
+			}
 		}
 	}
+	*res = SESSION_ERR_USR; //user not existed
 	return NULL;
 }
 
@@ -164,9 +168,9 @@ static void do_session_get_by_name(int pid, proto_t* in, proto_t* out) {
 static void do_session_check(int pid, proto_t* in, proto_t* out) {
 	const char* name = proto_read_str(in);
 	const char* passwd = proto_read_str(in);
-	session_info_t* sinfo = check(name, passwd);
-
-	PF->clear(out)->addi(out, -1);
+	int res = 0;
+	session_info_t* sinfo = check(name, passwd, &res);
+	PF->clear(out)->addi(out, res);
 	if(sinfo == NULL)
 			return;
 

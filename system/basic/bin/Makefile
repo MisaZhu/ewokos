@@ -15,6 +15,7 @@ builtin_apps:
 	cd shell;make
 	cd ls;make
 	cd login;make
+	cd md5;make
 	cd session;make
 	cd mount;make
 	cd uname;make
@@ -46,6 +47,7 @@ clean:
 	cd shell;make clean
 	cd ls;make clean
 	cd login;make clean
+	cd md5;make clean
 	cd session;make clean
 	cd mount;make clean
 	cd uname;make clean

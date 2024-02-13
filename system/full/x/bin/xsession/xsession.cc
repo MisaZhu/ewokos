@@ -19,13 +19,15 @@ extern "C" { extern int setenv(const char*, const char*);}
 class XSession : public XWin {
 	EwokSTL::string username;
 	EwokSTL::string password;
+	EwokSTL::string errMsg;
 	graph_t *logo;
 	bool passwordMode;
 
-	bool login() {
+	int login() {
 		session_info_t info;
-		if(session_check(username.c_str(), password.c_str(), &info) != 0)
-			return false;
+		int res = session_check(username.c_str(), password.c_str(), &info);
+		if(res != 0)
+			return res;
 
 		close();
 		vfs_create(info.home, NULL, FS_TYPE_DIR, 0750, false, true);
@@ -36,7 +38,7 @@ class XSession : public XWin {
 		setenv("HOME", info.home);
 
 		proc_exec("/bin/shell /etc/x/xinit.rd");
-		return true;
+		return 0;
 	}
 
 	void drawBG(graph_t* g) {
@@ -59,11 +61,16 @@ class XSession : public XWin {
 				title, font, theme.basic.fgColor, FONT_ALIGN_CENTER);
 
 		y += font->max_size.y+8;
-
 		graph_fill_3d(g, r.x+16, y, r.w-32, font->max_size.y, theme.basic.bgColor, true);
 		if(!passwordMode)
 			graph_draw_text_font_align(g, r.x, y, r.w, font->max_size.y,
 					input, font, theme.basic.fgColor, FONT_ALIGN_CENTER);
+
+		if(errMsg.length() != 0) {
+			y += font->max_size.y+8;
+			graph_draw_text_font_align(g, r.x, y, r.w, font->max_size.y, 
+					errMsg.c_str(), font, 0xffff0000, FONT_ALIGN_CENTER);
+		}
 	}
 
 protected:
@@ -79,7 +86,7 @@ protected:
 			iw = tw;
 
 		uint32_t fw = iw + 64;
-		uint32_t fh = ih * 3;
+		uint32_t fh = ih * 4;
 		grect_t frameR = { (g->w - fw) / 2, (g->h - fh) / 2, fw, fh };
 
 		drawBG(g);
@@ -99,13 +106,23 @@ protected:
 			}
 			else if(c == KEY_ENTER) {
 				if(!passwordMode) {
-					if(!login())
+					int res = login();
+					if(res == SESSION_ERR_PWD) {
 						passwordMode = true;
-				}
-				else {
-					if(!login()) {
+						errMsg = "";
+					}
+					else if(res == SESSION_ERR_USR) {
 						username = "";
 						password = "";
+						errMsg = "User not existed!";
+						passwordMode = false;
+					}
+				}
+				else {
+					if(login() != 0) {
+						username = "";
+						password = "";
+						errMsg = "Wrong password!";
 						passwordMode = false;
 					}
 				}
@@ -113,6 +130,7 @@ protected:
 			else if(c > 20) {
 				if(len < 16)
 					input += c;
+				errMsg = "";
 			}
 			repaint();
 		}

@@ -9,9 +9,10 @@
 #include <ewoksys/keydef.h>
 #include <ewoksys/vfs.h>
 
-static session_info_t* check(const char* user, const char* password) {
+static session_info_t* check(const char* user, const char* password, int* res) {
 	static session_info_t info;
-	if(session_check(user, password, &info) == 0)
+	*res = session_check(user, password, &info);
+	if(*res == 0)
 		return &info;
 	return NULL;
 }
@@ -74,11 +75,12 @@ int main(int argc, char* argv[]) {
 		printf("login: ");
 		input(user, true);
 		if(user->len > 0) {
-			info = check(user->cstr, password->cstr); 
-			if(info == NULL) {
+			int res = 0;
+			info = check(user->cstr, password->cstr, &res); 
+			if(info == NULL && res != SESSION_ERR_USR) {
 				printf("password: ");
 				input(password, false);
-				info = check(user->cstr, password->cstr); 
+				info = check(user->cstr, password->cstr, &res); 
 			}
 		}
 
