@@ -178,7 +178,7 @@ public:
 int main(int argc, char* argv[]) {
 	X x;
 	XSession xwin;
-	x.open(0, &xwin, 0, 0, "XSessioin", XWIN_STYLE_NO_FRAME);
+	x.open(0, &xwin, 0, 0, "XSessioin", XWIN_STYLE_NO_FRAME | XWIN_STYLE_SYSTOP);
 	xwin.fullscreen();
 	xwin.setVisible(true);
 	xwin.callXIM();

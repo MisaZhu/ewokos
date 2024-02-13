@@ -1088,7 +1088,9 @@ static xwin_t* get_mouse_owner(x_t* x, int* win_frame_pos) {
 static void xwin_bg(x_t* x, xwin_t* win) {
 	if(win == NULL)
 		return;
-	if(!x->config.bg_run && win != x->win_launcher) {
+	if(!x->config.bg_run &&
+			win != x->win_launcher)
+			(win->xinfo->style & XWIN_STYLE_SYSTOP) == 0) {
 		xevent_t ev;
 		ev.type = XEVT_WIN;
 		ev.value.window.event = XEVT_WIN_CLOSE;

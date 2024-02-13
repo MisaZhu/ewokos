@@ -101,7 +101,7 @@ int main(int argc, char* argv[]) {
 	int32_t w, h;
 	xwin.getSize(w, h);
 	x.open(0, &xwin, w, h,
-			"anim", XWIN_STYLE_NO_FRAME | XWIN_STYLE_SYSTOP);
+			"anim", XWIN_STYLE_NO_FRAME);
 
 	xwin.setDisplay(displayNum-1);
 	xwin.setAlpha(true);
