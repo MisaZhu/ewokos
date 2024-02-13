@@ -124,7 +124,6 @@ protected:
 						errMsg = "";
 					}
 					else if(res == SESSION_ERR_USR) {
-						username = "";
 						password = "";
 						errMsg = "User not existed!";
 						passwordMode = false;
