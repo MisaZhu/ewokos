@@ -23,7 +23,7 @@ sd:
 	mke2fs -b 1024 -I 128 ${SD}
 
 	@cd $(ROOT_DIR)/build/$(HW); \
-	find . -type f | e2cp -ap -d ../../hardware/arm/${HW}/${SD}:/
+	find . -type f | e2cp -ap -G0 -O0 -d ../../hardware/arm/${HW}/${SD}:/
 
 	@echo "==== ext2 format sdcard image created  ====\n"
 
