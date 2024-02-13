@@ -92,6 +92,20 @@ class LauncherView: public ListView {
 			proc_exec(item->fname->cstr); 
 		}
 		else {
+			//waiting for child exec done.
+			procinfo_t info;
+			if(proc_info(getpid(), &info) != 0)
+				return;
+
+			while(true) {
+				procinfo_t info_fork;
+				if(proc_info(pid, &info_fork) != 0)
+					return;
+				if(strcmp(info.cmd, info_fork.cmd) != 0)
+					break;
+				proc_usleep(100000);
+			}
+
 			item->runPid = pid;
 			item->runPidUUID = proc_get_uuid(pid);
 		}
