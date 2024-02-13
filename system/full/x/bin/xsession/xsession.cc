@@ -47,21 +47,26 @@ class XSession : public XWin {
 	}
 
 	void drawFrame(graph_t* g, const grect_t& r) {
-		//graph_fill_3d(g, r.x, r.y, r.w, r.h, 0xff88aaff, false);
-		graph_fill_3d(g, r.x, r.y, r.w, r.h, theme.basic.bgColor, false);
+		font_t* font = theme.getFont();
+		graph_fill(g, r.x, r.y, r.w, r.h, theme.basic.bgColor);
+		graph_fill(g, r.x, r.y, r.w, font->max_size.y, 0xffffbb88);
+		graph_draw_text_font(g, r.x+8, r.y,
+				"EwokOS(micro-kernel)", font, theme.basic.fgColor);
+
 		graph_blt_alpha(logo, 0, 0, logo->w, logo->h,
-				g, r.x-logo->w, r.y, logo->w, logo->h, 0xff);
+				g, r.x+r.w-logo->w, r.y, logo->w, logo->h, 0xff);
+		graph_box_3d(g, r.x, r.y, r.w, r.h, theme.basic.bgColor, false);
 	}
 
 	void drawInput(graph_t* g, const grect_t& r, const char* title, const char* input) {
 		font_t* font = theme.getFont();
-		int y = r.y;
 
-		graph_draw_text_font_align(g, r.x, y, r.w, font->max_size.y, 
-				title, font, theme.basic.fgColor, FONT_ALIGN_CENTER);
+		int y = r.y + font->max_size.y+8;
+		graph_draw_text_font(g, r.x+8, y, 
+				title, font, theme.basic.fgColor);
 
 		y += font->max_size.y+8;
-		graph_fill_3d(g, r.x+16, y, r.w-32, font->max_size.y, theme.basic.bgColor, true);
+		graph_fill_3d(g, r.x+8, y, r.w-16, font->max_size.y, theme.basic.bgColor, true);
 		if(passwordMode) {
 			EwokSTL::string pwd;
 			int len = strlen(input);
@@ -79,7 +84,7 @@ class XSession : public XWin {
 					input, font, theme.basic.fgColor, FONT_ALIGN_CENTER);
 
 		if(errMsg.length() != 0) {
-			y += font->max_size.y+8;
+			y += font->max_size.y;
 			graph_draw_text_font_align(g, r.x, y, r.w, font->max_size.y, 
 					errMsg.c_str(), font, 0xffff0000, FONT_ALIGN_CENTER);
 		}
@@ -97,8 +102,8 @@ protected:
 		if(iw < tw)
 			iw = tw;
 
-		uint32_t fw = iw + 64;
-		uint32_t fh = ih * 4;
+		uint32_t fw = 220;
+		uint32_t fh = ih * 5;
 		grect_t frameR = { (g->w - fw) / 2, (g->h - fh) / 2, fw, fh };
 
 		drawBG(g);
@@ -115,6 +120,7 @@ protected:
 			if(c == KEY_BACKSPACE || c == CONSOLE_LEFT) {
 				if(len > 0)
 					input = input.substr(0, len-1);
+				errMsg = "";
 			}
 			else if(c == KEY_ENTER) {
 				if(!passwordMode) {
