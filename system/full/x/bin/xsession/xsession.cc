@@ -62,7 +62,19 @@ class XSession : public XWin {
 
 		y += font->max_size.y+8;
 		graph_fill_3d(g, r.x+16, y, r.w-32, font->max_size.y, theme.basic.bgColor, true);
-		if(!passwordMode)
+		if(passwordMode) {
+			EwokSTL::string pwd;
+			int len = strlen(input);
+			if(len > 0) {
+				int i;
+				for(i=0; i<(len-1); i++)
+					pwd += '*';
+				pwd += input[i];
+				graph_draw_text_font_align(g, r.x, y, r.w, font->max_size.y,
+						pwd.c_str(), font, theme.basic.fgColor, FONT_ALIGN_CENTER);
+			}
+		}
+		else
 			graph_draw_text_font_align(g, r.x, y, r.w, font->max_size.y,
 					input, font, theme.basic.fgColor, FONT_ALIGN_CENTER);
 
