@@ -11,7 +11,7 @@
 #include <string.h>
 #include <ewoksys/timer.h>
 
-#define KEY_REPEAT_TIMEOUT	30
+#define KEY_REPEAT_TIMEOUT	50
 #define KEY_HOLD_TIMEOUT	100
 #define KEY_TIMER	        20000 //100 ps
 
