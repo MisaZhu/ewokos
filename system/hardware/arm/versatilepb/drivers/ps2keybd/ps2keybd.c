@@ -78,7 +78,7 @@ static int32_t keyb_handle(uint8_t scode) {
 		empty(); //set empty data
 		if(scode <= 127 && _held[scode] == 1 && scode)  
 			_held[scode] = 0;
-		return 0;
+		return -1; //release 
 	}
 	else if(scode == 0xFA) //empty data
 		return 0;
@@ -111,7 +111,7 @@ static int keyb_read(int fd, int from_pid, fsinfo_t* node,
 	char c;
 	int res = charbuf_pop(_buffer, &c);
 
-	if(res != 0 || c == 0)
+	if(res != 0)
 		return VFS_ERR_RETRY;
 
 	((char*)buf)[0] = c;
@@ -121,8 +121,11 @@ static int keyb_read(int fd, int from_pid, fsinfo_t* node,
 static int loop(void* p) {
 	(void)p;
 	uint8_t key_scode = get_scode();
-	char c = keyb_handle(key_scode);
+	int32_t c = keyb_handle(key_scode);
 	if(c != 0) {
+		if(c == -1) //release
+			c = 0;
+
 		charbuf_push(_buffer, c, true);
 		proc_wakeup(RW_BLOCK_EVT);
 	}
