@@ -87,6 +87,10 @@ protected:
 		uint32_t itemNum = getItemNum();
 		int key = ev->value.im.value;
 		if(ev->state == XIM_STATE_PRESS) {
+			if(key == KEY_ENTER || key == KEY_BUTTON_START || key == KEY_BUTTON_A) {
+				onClick(selected);
+			}
+
 			if(position == POS_TOP || position == POS_BOTTOM) {
 				if(key == KEY_LEFT)
 					selected--;
@@ -125,9 +129,6 @@ protected:
 			}
 		}
 		else {//XIM_STATE_RELEASE
-			if(key == KEY_ENTER || key == KEY_BUTTON_START || key == KEY_BUTTON_A) {
-				onClick(selected);
-			}
 			return;
 		}
 
