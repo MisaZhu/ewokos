@@ -2,8 +2,9 @@
 #/bin/ipcserv /drivers/miyoo/gpio_joykeyb_minid /dev/joykeyb
 #/bin/ipcserv /drivers/miyoo/gpio_joystickd     /dev/joystick
 /bin/ipcserv /drivers/miyoo/audctrl            /dev/sound
-/bin/ipcserv /drivers/miyoo/fbd                /dev/fb0
 
+/bin/ipcserv /drivers/miyoo/fbd                /dev/fb0
+/bin/ipcserv /drivers/displayd       /dev/display /dev/fb0
 /bin/ipcserv /drivers/fontd          /dev/font /usr/system/fonts/system.ttf
 /bin/ipcserv /drivers/consoled       /dev/console0
 
@@ -13,18 +14,11 @@
 /bin/ipcserv /drivers/proc/sysinfod  /proc/sysinfo
 /bin/ipcserv /drivers/proc/stated    /proc/state
 
-/bin/ipcserv /drivers/displayd       /dev/display /dev/fb0
+@/sbin/sessiond &
+@/bin/session &
+
 /bin/ipcserv /drivers/xserverd       /dev/x
-/bin/ipcserv /sbin/x/xwm_opencde
-
-#/bin/ipcserv /drivers/xconsoled      /dev/console0
-
 @/sbin/x/xim_none   /dev/joykeyb &
 #@/sbin/x/xjoystickd /dev/joystick &
 @/sbin/x/xim_vkey 560 160&
-
-@/sbin/sessiond &
-
-@/bin/x/menubar &
-@/bin/x/launcher &
-@/bin/session &
+@/bin/x/xsession &
