@@ -51,7 +51,7 @@ class XSession : public XWin {
 		graph_fill(g, r.x, r.y, r.w, r.h, theme.basic.bgColor);
 		graph_fill(g, r.x, r.y, r.w, font->max_size.y, 0xffffbb88);
 		graph_draw_text_font(g, r.x+8, r.y,
-				"EwokOS(micro-kernel)", font, theme.basic.fgColor);
+				"EwokOS(M-kernel)", font, theme.basic.fgColor);
 
 		graph_t* logo = logoUser;
 		if(passwordMode)
@@ -102,10 +102,10 @@ protected:
 		uint32_t tw, th, iw, ih;
 		font_text_size(title, font, &tw, &th);
 		font_text_size(input, font, &iw, &ih);
-		if(iw < tw)
-			iw = tw;
+		if(iw < 180)
+			iw = 180;
 
-		uint32_t fw = 220;
+		uint32_t fw = iw+16;
 		uint32_t fh = ih * 5;
 		grect_t frameR = { (g->w - fw) / 2, (g->h - fh) / 2, fw, fh };
 
@@ -127,6 +127,9 @@ protected:
 			}
 			else if(c == KEY_ENTER) {
 				if(!passwordMode) {
+					if(username.length() == 0)
+						return;
+
 					int res = login();
 					if(res == SESSION_ERR_PWD) {
 						passwordMode = true;
