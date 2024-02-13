@@ -22,16 +22,12 @@ class XSession : public XWin {
 	graph_t *logo;
 	bool passwordMode;
 
-	void login() {
+	bool login() {
 		session_info_t info;
-		if(session_check(username.c_str(), password.c_str(), &info) != 0) {
-			username = "";
-			password = "";
-			passwordMode = false;
-			return;
-		}	
-		close();
+		if(session_check(username.c_str(), password.c_str(), &info) != 0)
+			return false;
 
+		close();
 		vfs_create(info.home, NULL, FS_TYPE_DIR, 0750, false, true);
 		chown(info.home, info.uid, info.gid);
 
@@ -40,6 +36,7 @@ class XSession : public XWin {
 		setenv("HOME", info.home);
 
 		proc_exec("/bin/shell /etc/x/xinit.rd");
+		return true;
 	}
 
 	void drawBG(graph_t* g) {
@@ -101,10 +98,17 @@ protected:
 					input = input.substr(0, len-1);
 			}
 			else if(c == KEY_ENTER) {
-				if(!passwordMode)
-					passwordMode = true;
-				else
-					login();
+				if(!passwordMode) {
+					if(!login())
+						passwordMode = true;
+				}
+				else {
+					if(!login()) {
+						username = "";
+						password = "";
+						passwordMode = false;
+					}
+				}
 			}
 			else if(c > 20) {
 				if(len < 16)
