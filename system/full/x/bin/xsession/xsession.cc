@@ -20,7 +20,7 @@ class XSession : public XWin {
 	EwokSTL::string username;
 	EwokSTL::string password;
 	EwokSTL::string errMsg;
-	graph_t *logo;
+	graph_t *logoUser, *logoPasswd;
 	bool passwordMode;
 
 	int login() {
@@ -53,6 +53,9 @@ class XSession : public XWin {
 		graph_draw_text_font(g, r.x+8, r.y,
 				"EwokOS(micro-kernel)", font, theme.basic.fgColor);
 
+		graph_t* logo = logoUser;
+		if(passwordMode)
+			logo = logoPasswd;
 		graph_blt_alpha(logo, 0, 0, logo->w, logo->h,
 				g, r.x+r.w-logo->w, r.y, logo->w, logo->h, 0xff);
 		graph_box_3d(g, r.x, r.y, r.w, r.h, theme.basic.bgColor, false);
@@ -157,10 +160,15 @@ public:
 	XSession() {
 		theme.setFont(theme.basic.fontName, 16);
 		passwordMode = false;
-		logo = png_image_new("/usr/system/icons/ewok.png");
+		logoUser = png_image_new("/usr/system/icons/ewok.png");
+		logoPasswd = png_image_new("/usr/system/icons/storm.png");
 	}
 
 	~XSession() {
+		if(logoUser != NULL)
+			graph_free(logoUser);
+		if(logoPasswd != NULL)
+			graph_free(logoPasswd);
 	}
 };
 
