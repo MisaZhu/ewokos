@@ -104,7 +104,7 @@ static void loadenv(void) {
 }
 
 void _start(void) {
-	char* argv[ARG_MAX];
+	char* argv[ARG_MAX] = {0};
 	int32_t argc = 0;
 	//clean bss befor cmain
 	int *p = &__bss_start__;
@@ -126,7 +126,9 @@ void _start(void) {
 			break;
 		if(argc == 0)
 			_argv0 = arg;
-		argv[argc++] = arg;
+		argv[argc] = (char*)malloc(strlen(arg)+1);
+		strcpy(argv[argc], arg);
+		argc++;
 	}
 
 	// int val = setenv("PATH", "/bin", 1);
@@ -140,6 +142,12 @@ void _start(void) {
 	//__ewok_malloc_close();
 	proc_exit();
 	_libc_exit();
+
+	while(argc < ARG_MAX) {
+		if(argv[argc] != NULL)
+			free(argv[argc]);
+		argc++;
+	}
 	exit(ret);
 }
 
