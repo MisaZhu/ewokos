@@ -401,6 +401,10 @@ static void proc_terminate(context_t* ctx, proc_t* proc) {
 		}
 		proc_wakeup_waiting(proc->info.pid);
 	}
+	else if(proc->info.type == PROC_TYPE_THREAD) {
+		proc_t* father = proc_get_proc(proc);
+		proc_exit(ctx, father, 0);
+	}
 	proc->info.father_pid = 0;
 }
 
