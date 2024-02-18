@@ -118,7 +118,7 @@ static int keyb_read(int fd, int from_pid, fsinfo_t* node,
 	return 1;
 }
 
-static int loop(void* p) {
+static void interrupt_handle(uint32_t interrupt, uint32_t p) {
 	(void)p;
 	uint8_t key_scode = get_scode();
 	int32_t c = keyb_handle(key_scode);
@@ -129,20 +129,11 @@ static int loop(void* p) {
 		charbuf_push(_buffer, c, true);
 		proc_wakeup(RW_BLOCK_EVT);
 	}
-	proc_usleep(20000);
-	return 0;
-}
-
-/*static void timer_handler(void) {
-	uint8_t key_scode = get8(KEYBOARD_BASE+KDATA);
-	char c = keyb_handle(key_scode);
-	if(c != 0) {
-		charbuf_push(_buffer, c, true);
-		proc_wakeup(RW_BLOCK_EVT);
-	}
+	sys_interrupt_end();
 	return;
 }
-*/
+
+#define IRQ_RAW_KEYB 3 //VPB keyb interrupt at PIC bit3
 
 int main(int argc, char** argv) {
 	const char* mnt_point = argc > 1 ? argv[1]: "/dev/keyb0";
@@ -154,11 +145,9 @@ int main(int argc, char** argv) {
 	memset(&dev, 0, sizeof(vdevice_t));
 	strcpy(dev.name, "keyb");
 	dev.read = keyb_read;
-	dev.loop_step = loop;
 
-	//uint32_t tid = timer_set(5000, timer_handler);
+	sys_interrupt_setup(IRQ_RAW_S, IRQ_RAW_KEYB, interrupt_handle, 0);
 	device_run(&dev, mnt_point, FS_TYPE_CHAR, 0444);
-	//timer_remove(tid);
 	charbuf_free(_buffer);
 	return 0;
 }

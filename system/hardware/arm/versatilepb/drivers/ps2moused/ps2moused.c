@@ -4,8 +4,8 @@
 #include <string.h>
 #include <ewoksys/vfs.h>
 #include <ewoksys/vdevice.h>
+#include <ewoksys/interrupt.h>
 #include <ewoksys/mmio.h>
-
 
 #define MOUSE_CR 0x00
 #define MOUSE_STAT 0x04
@@ -186,6 +186,7 @@ static int mouse_read(int fd, int from_pid, fsinfo_t* node,
 	return VFS_ERR_RETRY;
 }
 
+/*
 static int mouse_loop(void* p) {
 	if(mouse_handler(&_minfo) == 0) {
 		_has_data = true;
@@ -194,6 +195,19 @@ static int mouse_loop(void* p) {
 	usleep(3000);
 	return 0;
 }
+*/
+
+static void interrupt_handle(uint32_t interrupt, uint32_t p) {
+	(void)p;
+	if(mouse_handler(&_minfo) == 0) {
+		_has_data = true;
+		proc_wakeup(RW_BLOCK_EVT);
+	}
+	sys_interrupt_end();
+	return;
+}
+
+#define IRQ_RAW_MOUSE 4 //VPB mouse interrupt at SIC bit4
 
 int main(int argc, char** argv) {
 	_has_data = false;
@@ -204,8 +218,9 @@ int main(int argc, char** argv) {
 	memset(&dev, 0, sizeof(vdevice_t));
 	strcpy(dev.name, "mouse");
 	dev.read = mouse_read;
-	dev.loop_step = mouse_loop;
+	//dev.loop_step = mouse_loop;
 
+	sys_interrupt_setup(IRQ_RAW_S, IRQ_RAW_MOUSE, interrupt_handle, 0);
 	device_run(&dev, mnt_point, FS_TYPE_CHAR, 0444);
 	return 0;
 }

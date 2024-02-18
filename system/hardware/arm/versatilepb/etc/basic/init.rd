@@ -8,4 +8,4 @@
 
 @/sbin/sessiond &
 
-@/bin/session &
+@/bin/shell &

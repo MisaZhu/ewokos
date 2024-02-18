@@ -1,11 +1,8 @@
 #include <ewoksys/interrupt.h>
 #include <ewoksys/syscall.h>
 
-int32_t sys_interrupt_setup(uint32_t interrupt, interrupt_handler_t handler, uint32_t data) {
-	if(interrupt >= SYS_INT_MAX)
-		return -1;
-
-	return syscall3(SYS_INTR_SETUP, interrupt, (int32_t)handler, data);
+int32_t sys_interrupt_setup(uint32_t interrupt, uint32_t irq_raw, interrupt_handler_t handler, uint32_t data) {
+	return syscall3(SYS_INTR_SETUP, interrupt | (irq_raw << 16), (int32_t)handler, data);
 }
 
 void sys_interrupt_end(void) {

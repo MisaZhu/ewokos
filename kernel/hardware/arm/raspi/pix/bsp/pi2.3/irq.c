@@ -20,7 +20,7 @@ void irq_arch_init(void) {
 	routing_core0_irq();
 }
 
-inline uint32_t irq_gets(void) {
+inline uint32_t irq_get(uint32_t* raw) {
 	uint32_t ret = 0;
 	uint32_t pending = read_core0_pending();
 
@@ -31,10 +31,10 @@ inline uint32_t irq_gets(void) {
 	return ret;
 }
 
-inline void irq_enable(uint32_t irqs) {
-	(void)irqs;
+inline void irq_enable(uint32_t irq) {
+	(void)irq;
 }
 
-void irq_disable(uint32_t irqs) {
-	(void)irqs;
+void irq_disable(uint32_t irq) {
+	(void)irq;
 }
