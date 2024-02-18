@@ -1,0 +1,29 @@
+[   15.449673] mmc_io_rw_extended w:0 f:1 a:8000+ b:0 s:4
+[   15.449697] mmc-bcm2835: =========== REGISTER DUMP (mmc1)===========
+[   15.449704] mmc-bcm2835: Sys addr: 0x00000000 | Version:  0x00009902
+[   15.449712] mmc-bcm2835: Blk size: 0x00007004 | Blk cnt:  0x00000001
+[   15.449719] mmc-bcm2835: Argument: 0x15000004 | Trn mode: 0x00000000
+[   15.449726] mmc-bcm2835: Present:  0x01ff0000 | Host ctl: 0x00000002
+[   15.449733] mmc-bcm2835: Power:    0x0000000f | Blk gap:  0x00000000
+[   15.449739] mmc-bcm2835: Wake-up:  0x00000000 | Clock:    0x00000207
+[   15.449746] mmc-bcm2835: Timeout:  0x0000000e | Int stat: 0x00000000
+[   15.449752] mmc-bcm2835: Int enab: 0x00ff0033 | Sig enab: 0x00ff0033
+[   15.449759] mmc-bcm2835: AC12 err: 0x00000000 | Slot int: 0x00000000
+[   15.449766] mmc-bcm2835: Caps:     0x00000000 | Caps_1:   0x00000000
+[   15.449772] mmc-bcm2835: Cmd:      0x0000341a | Max curr: 0x00000001
+[   15.449779] mmc-bcm2835: Host ctl2: 0x00000000
+[   15.449783] mmc-bcm2835: ===========================================
+: =========== REGISTER DUMP ===========
+: Sys addr: 0x00000000 | Version:  0x00009902
+: Blk size: 0x00007004 | Blk cnt:  0x00000001
+: Argument: 0x15000004 | Trn mode: 0x00000000
+: Present:  0x01ff0000 | Host ctl: 0x00000002
+: Power:    0x0000000f | Blk gap:  0x00000000
+: Wake-up:  0x00000000 | Clock:    0x00000207
+: Timeout:  0x0000000e | Int stat: 0x00000000
+: Int enab: 0x00ff0003 | Sig enab: 0x00ff0003
+: AC12 err: 0x00000000 | Slot int: 0x00000000
+: Caps:     0x00000000 | Caps_1:   0x00000000
+: Cmd:      0x0000341a | Max curr: 0x00000001
+: Host ctl2: 0x00000000
+: ===========================================
