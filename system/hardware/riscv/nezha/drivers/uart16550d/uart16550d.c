@@ -71,7 +71,6 @@ static int uart_write(int fd, int from_pid, fsinfo_t* node,
 static void interrupt_handle(uint32_t interrupt, uint32_t data) {
 	(void)interrupt;
 	(void)data;
-	sys_interrupt_end();
 }
 
 int main(int argc, char** argv) {

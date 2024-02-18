@@ -118,7 +118,6 @@ static void interrupt_handle(uint32_t interrupt, uint32_t data) {
 		sys_interrupt_setup(IRQ_TIMER0, 0, 0, 0);
 
 	//ipc_enable();
-	sys_interrupt_end();
 }
 
 static int timer_dcntl(int from_pid, int cmd, proto_t* in, proto_t* ret, void* p) {

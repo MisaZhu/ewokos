@@ -69,9 +69,6 @@ static void interrupt_handle(uint32_t interrupt, uint32_t data) {
 	(void)interrupt;
 	(void)data;
 	char c;
-
-
-	sys_interrupt_end();
 }
 
 int main(int argc, char** argv) {

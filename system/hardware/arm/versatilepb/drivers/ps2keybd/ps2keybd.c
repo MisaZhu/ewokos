@@ -129,7 +129,6 @@ static void interrupt_handle(uint32_t interrupt, uint32_t p) {
 		charbuf_push(_buffer, c, true);
 		proc_wakeup(RW_BLOCK_EVT);
 	}
-	sys_interrupt_end();
 	return;
 }
 

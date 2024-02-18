@@ -316,7 +316,6 @@ static void bach_irq_handle(uint32_t interrupt, uint32_t data)
 	}
 
 TIMER_INT_END:
-	sys_interrupt_end();
 }
 
 
