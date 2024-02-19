@@ -619,7 +619,7 @@ int32_t proc_load_elf(proc_t *proc, const char *image, uint32_t size) {
 	uint32_t prog_header_count = 0;
 	uint32_t i = 0;
 
-	proc->info.uuid = ++_proc_uuid; //load elf means a totally new proc
+	//proc->info.uuid = ++_proc_uuid; //load elf means a totally new proc
 	char* proc_image = kmalloc(size);
 	memcpy(proc_image, image, size);
 	proc_free_heap(proc);
