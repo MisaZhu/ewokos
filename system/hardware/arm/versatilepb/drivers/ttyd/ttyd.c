@@ -95,7 +95,7 @@ int main(int argc, char** argv) {
 	dev.read = tty_read;
 	dev.write = tty_write;
 
-	sys_interrupt_setup(IRQ_RAW_P, IRQ_RAW_UART0, interrupt_handle, 0);
+	sys_interrupt_setup(IRQ_RAW_UART0, interrupt_handle, 0);
 	device_run(&dev, mnt_point, FS_TYPE_CHAR, 0666);
 	charbuf_free(_buffer);
 	return 0;

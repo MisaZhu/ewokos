@@ -9,7 +9,7 @@ void irq_arch_init(void) {
 	gic_init(MMIO_BASE + 0x138000);
 }
 
-inline uint32_t irq_get(uint32_t* raw) {
+inline uint32_t irq_get(void) {
 	int ack = gic_get_irq();
 	int irqno = ack & 0x3FF;
 	int core = get_core_id();//ack & (~0x3FF);

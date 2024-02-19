@@ -132,7 +132,7 @@ static void interrupt_handle(uint32_t interrupt, uint32_t p) {
 	return;
 }
 
-#define IRQ_RAW_KEYB 3 //VPB keyb interrupt at SIC bit3
+#define IRQ_RAW_KEYB (32+3) //VPB keyb interrupt at SIC bit3
 
 int main(int argc, char** argv) {
 	const char* mnt_point = argc > 1 ? argv[1]: "/dev/keyb0";
@@ -145,7 +145,7 @@ int main(int argc, char** argv) {
 	strcpy(dev.name, "keyb");
 	dev.read = keyb_read;
 
-	sys_interrupt_setup(IRQ_RAW_S, IRQ_RAW_KEYB, interrupt_handle, 0);
+	sys_interrupt_setup(IRQ_RAW_KEYB, interrupt_handle, 0);
 	device_run(&dev, mnt_point, FS_TYPE_CHAR, 0444);
 	charbuf_free(_buffer);
 	return 0;

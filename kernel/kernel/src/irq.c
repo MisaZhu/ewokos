@@ -47,15 +47,9 @@ static inline void ipi_send_all(void) {
 
 #endif
 
-static inline void irq_do_raw(context_t* ctx, uint32_t irq, uint32_t irq_raw) {
-	uint32_t i=0;
-	while(i<32) {
-		if(((irq_raw >> i) & 0x1) != 0)
-			break;
-		i++;
-	}
-	//kprintf("irq_raw: 0x%x, %d\n", irq, i);
-	interrupt_send(ctx, irq | (i << 16));
+static inline void irq_do_raw(context_t* ctx, uint32_t irq) {
+	//kprintf("irq_raw: 0x%x\n", irq);
+	interrupt_send(ctx, irq);
 }
 
 static inline int32_t irq_do_timer0_interrupt(context_t* ctx) {
@@ -112,11 +106,11 @@ static inline void irq_do_timer0(context_t* ctx) {
 
 static inline void _irq_handler(uint32_t cid, context_t* ctx) {
 	uint64_t raw_irqs;
-	uint32_t irq = irq_get(&raw_irqs);
+	uint32_t irq = irq_get();
 
 	//handle irq
-	if(irq == IRQ_RAW_P || irq == IRQ_RAW_S) {
-		irq_do_raw(ctx, irq, raw_irqs);
+	if(irq < IRQ_RAW_TOP) {
+		irq_do_raw(ctx, irq);
 	}
 	else if(cid == 0 && irq == IRQ_TIMER0) {
 		irq_do_timer0(ctx);

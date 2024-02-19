@@ -21,6 +21,6 @@ void irq_disable(uint32_t irq) {
 
 }
 
-inline uint32_t irq_get(uint32_t* raw) {
+inline uint32_t irq_get(void) {
        return IRQ_TIMER0;
 }

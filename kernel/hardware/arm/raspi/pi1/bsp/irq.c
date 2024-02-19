@@ -56,7 +56,7 @@ inline void irq_enable(uint32_t irq) {
 	*/
 }
 
-inline uint32_t irq_get(uint32_t* raw) {
+inline uint32_t irq_get(void) {
 	uint32_t ret = 0;
 	if(IRQ_IS_PENDING(_pic, 64)) {
 		ret |= IRQ_TIMER0;

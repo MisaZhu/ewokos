@@ -115,7 +115,7 @@ static void interrupt_handle(uint32_t interrupt, uint32_t data) {
 	}
 
 	if(_intr_list == NULL)
-		sys_interrupt_setup(IRQ_TIMER0, 0, 0, 0);
+		sys_interrupt_setup(IRQ_TIMER0, 0, 0);
 
 	//ipc_enable();
 }
@@ -125,7 +125,7 @@ static int timer_dcntl(int from_pid, int cmd, proto_t* in, proto_t* ret, void* p
 
 	if(cmd == TIMER_SET) { 
 		if(_intr_list == NULL)
-			sys_interrupt_setup(IRQ_TIMER0, 0, interrupt_handle, 0);
+			sys_interrupt_setup(IRQ_TIMER0, interrupt_handle, 0);
 		uint32_t usec = (uint32_t)proto_read_int(in);
 		uint32_t entry = (uint32_t)proto_read_int(in);
 		uint32_t data = (uint32_t)proto_read_int(in);
@@ -138,7 +138,7 @@ static int timer_dcntl(int from_pid, int cmd, proto_t* in, proto_t* ret, void* p
 		interrupt_remove(from_pid, id);
 		update_timer_intr();
 		if(_intr_list == NULL)
-			sys_interrupt_setup(IRQ_TIMER0, 0, 0, 0);
+			sys_interrupt_setup(IRQ_TIMER0, 0, 0);
 	}
 	return 0;
 }
