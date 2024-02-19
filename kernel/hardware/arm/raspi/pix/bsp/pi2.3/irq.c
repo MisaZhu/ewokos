@@ -25,7 +25,7 @@ inline uint32_t irq_get(void) {
 	uint32_t pending = read_core0_pending();
 
 	if (pending & 0x08 ) {
-		ret |= IRQ_TIMER0;
+		ret = IRQ_TIMER0;
 		write_cntv_tval(_timer_tval); 
 	}
 	return ret;

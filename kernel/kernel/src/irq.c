@@ -109,7 +109,7 @@ static inline void _irq_handler(uint32_t cid, context_t* ctx) {
 	uint32_t irq = irq_get();
 
 	//handle irq
-	if(irq < IRQ_RAW_TOP) {
+	if(irq > 0 && irq < IRQ_RAW_TOP) {
 		irq_do_raw(ctx, irq);
 	}
 	else if(cid == 0 && irq == IRQ_TIMER0) {
