@@ -380,10 +380,11 @@ static xwin_t* get_next_focus_win(x_t* x, bool skip_launcher) {
 static void x_del_win(x_t* x, xwin_t* win) {
 	if(win == x->win_focus)
 		hide_win(x, x->win_xim);
+
+	remove_win(x, win);
 	if(win == x->win_last)
 		x->win_last = NULL;
 
-	remove_win(x, win);
 
 	if(win->xinfo->g_shm != NULL) {
 		shmdt(win->xinfo->g_shm);
@@ -463,7 +464,7 @@ static int x_init_display(x_t* x, int32_t display_index) {
 			return -1;
 		graph_t *g_fb = fb_fetch_graph(&x->displays[display_index].fb);
 		x->displays[display_index].g_fb = g_fb;
-		key_t key = (((int32_t)g_fb) << 16) | getpid();
+		key_t key = (((int32_t)g_fb) << 16) | proc_get_uuid(getpid());
 		int32_t shm_id = shmget(key, g_fb->w * g_fb->h * 4, 0666 | IPC_CREAT | IPC_EXCL);
 		if(shm_id == -1)
 			return -1;
@@ -488,7 +489,7 @@ static int x_init_display(x_t* x, int32_t display_index) {
 			return -1;
 		graph_t *g_fb = fb_fetch_graph(&x->displays[i].fb);
 		x->displays[i].g_fb = g_fb;
-		key_t key = (((int32_t)g_fb) << 16) | getpid();
+		key_t key = (((int32_t)g_fb) << 16) | proc_get_uuid(getpid());
 		int32_t shm_id = shmget(key, g_fb->w * g_fb->h * 4, 0666 | IPC_CREAT | IPC_EXCL);
 		if(shm_id == -1)
 			return -1;
@@ -596,10 +597,14 @@ static void x_repaint(x_t* x, uint32_t display_index) {
 static xwin_t* x_get_win(x_t* x, int fd, int from_pid) {
 	xwin_t* win = x->win_head;
 	while(win != NULL) {
-		if((win->fd == fd || fd < 0) &&
-				win->from_pid == from_pid &&
-				proc_check_uuid(from_pid, win->from_pid_uuid) == win->from_pid_uuid)
-			return win;
+		if((win->fd == fd || fd < 0) && win->from_pid == from_pid) {
+			if(proc_check_uuid(win->from_pid, win->from_pid_uuid) == win->from_pid_uuid)
+				return win;
+			else {
+				win->from_pid = -1;
+				win->from_pid_uuid = 0;
+			}
+		}
 		win = win->next;
 	}
 	return NULL;
@@ -679,7 +684,7 @@ static void check_wins(x_t* x) {
 	xwin_t* w = x->win_tail; 
 	while(w != NULL) {
 		xwin_t* p = w->prev;
-		if(proc_check_uuid(w->from_pid, w->from_pid_uuid) != w->from_pid_uuid) {
+		if(w->from_pid < 0 || proc_check_uuid(w->from_pid, w->from_pid_uuid) != w->from_pid_uuid) {
 			x_del_win(x, w);
 		}
 		w = p;
@@ -875,7 +880,7 @@ static int xwin_update_info(int fd, int from_pid, proto_t* in, proto_t* out, x_t
 			win->g = NULL;
 		}
 
-		key_t key = (((int32_t)win) << 16) | getpid();
+		key_t key = (((int32_t)win) << 16) | proc_get_uuid(from_pid);
 		int32_t g_shm_id = shmget(key,
 				win->xinfo->wsr.w * win->xinfo->wsr.h * 4,
 				0666|IPC_CREAT|IPC_EXCL);
@@ -971,7 +976,6 @@ static int xwin_call_xim(x_t* x) {
 
 static int xserver_fcntl(int fd, int from_pid, fsinfo_t* node,
 		int cmd, proto_t* in, proto_t* out, void* p) {
-	(void)fd;
 	(void)node;
 	x_t* x = (x_t*)p;
 
@@ -1374,7 +1378,6 @@ static int xserver_dev_cntl(int from_pid, int cmd, proto_t* in, proto_t* ret, vo
 
 static int xserver_win_close(int fd, int from_pid, uint32_t node, void* p) {
 	(void)node;
-	(void)fd;
 	x_t* x = (x_t*)p;
 	xwin_t* win = x_get_win(x, fd, from_pid);
 	if(win == NULL) {

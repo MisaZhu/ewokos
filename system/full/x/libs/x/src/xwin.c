@@ -80,7 +80,7 @@ xwin_t* xwin_open(x_t* xp, uint32_t disp_index, int x, int y, int w, int h, cons
 	if(xp->main_win == NULL)
 		xp->main_win = ret;
 
-	key_t key = (((int32_t)ret) << 16) | getpid();
+	key_t key = (((int32_t)ret) << 16) | proc_get_uuid(getpid());
 	int32_t xinfo_shm_id = shmget(key, sizeof(xinfo_t), 0600 |IPC_CREAT|IPC_EXCL);
 	if(xinfo_shm_id == -1) {
 		free(ret);
@@ -224,6 +224,7 @@ int xwin_event_handle(xwin_t* xwin, xevent_t* ev) {
 		return -1;
 
 	if(ev->value.window.event == XEVT_WIN_CLOSE) {
+		xwin_close(xwin);
 		if(xwin->x->main_win == xwin)
 			xwin->x->terminated = true;
 	}
