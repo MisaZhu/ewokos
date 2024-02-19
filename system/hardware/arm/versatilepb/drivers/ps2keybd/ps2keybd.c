@@ -132,7 +132,7 @@ static void interrupt_handle(uint32_t interrupt, uint32_t p) {
 	return;
 }
 
-#define IRQ_RAW_KEYB 3 //VPB keyb interrupt at PIC bit3
+#define IRQ_RAW_KEYB 3 //VPB keyb interrupt at SIC bit3
 
 int main(int argc, char** argv) {
 	const char* mnt_point = argc > 1 ? argv[1]: "/dev/keyb0";
