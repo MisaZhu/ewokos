@@ -224,7 +224,6 @@ int xwin_event_handle(xwin_t* xwin, xevent_t* ev) {
 		return -1;
 
 	if(ev->value.window.event == XEVT_WIN_CLOSE) {
-		xwin_close(xwin);
 		if(xwin->x->main_win == xwin)
 			xwin->x->terminated = true;
 	}
