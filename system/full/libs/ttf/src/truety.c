@@ -3705,6 +3705,8 @@ static TTY_Error tty_convert_zone1_points_into_curves(TTY_Font* font, TTY_Curves
 
             nextP0 = &curve->p2;
             curves->count++;
+            if(curves->count >= curves->cap)
+                return TTY_ERROR_NONE;
         }
 
         if (addFinalCurve) {
@@ -3713,6 +3715,8 @@ static TTY_Error tty_convert_zone1_points_into_curves(TTY_Font* font, TTY_Curves
             finalCurve->p1 = *startPoint;
             finalCurve->p2 = *startPoint;
             curves->count++;
+            if(curves->count >= curves->cap)
+                return TTY_ERROR_NONE;
         }
 
         startPointIdx = endPointIdx + 1;
@@ -3803,6 +3807,8 @@ static TTY_Error tty_subdivide_curves_into_edges(TTY_Curves* curves, TTY_Edges* 
             if (curve->p0.y != curve->p2.y) { // Horizontal lines can be ignored 
                 tty_edge_init(edges->buff + edges->count, curve->p0, curve->p2);
                 edges->count++;
+                if(edges->count >= edges->cap)
+                    return TTY_ERROR_NONE;
             }
         }
         else {
@@ -4176,7 +4182,6 @@ TTY_Error tty_render_glyph_cache(TTY_Font* font, TTY_Instance* instance, TTY_Gly
         glyph->advance.y = tty_get_unhinted_glyph_y_advance(font, instance->scale);
         return TTY_ERROR_NONE;
     }
-
 
     // The glyph's points are converted into curves and the curves are 
     // approximated by edges.
