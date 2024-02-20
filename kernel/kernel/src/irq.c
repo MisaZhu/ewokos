@@ -166,8 +166,7 @@ void undef_abort_handler(context_t* ctx, uint32_t status) {
 
 	printf("pid: %d(%s), undef instrunction abort!! (core %d)\n", cproc->info.pid, cproc->info.cmd, core);
 	dump_ctx(&cproc->ctx);
-	proc_exit(ctx, cproc, -1);
-	//proc_signal_send(ctx, cproc, SYS_SIG_STOP);
+	proc_exit(ctx, proc_get_proc(cproc), -1);
 }
 
 void prefetch_abort_handler(context_t* ctx, uint32_t status) {
@@ -199,7 +198,7 @@ void prefetch_abort_handler(context_t* ctx, uint32_t status) {
 
 	printf("pid: %d(%s), prefetch abort!! (core %d) code:0x%x\n", cproc->info.pid, cproc->info.cmd, core, status);
 	dump_ctx(&cproc->ctx);
-	proc_exit(ctx, cproc, -1);
+	proc_exit(ctx, proc_get_proc(cproc), -1);
 }
 
 void data_abort_handler(context_t* ctx, uint32_t addr_fault, uint32_t status) {
@@ -249,7 +248,7 @@ void data_abort_handler(context_t* ctx, uint32_t addr_fault, uint32_t status) {
 		printf("\terror: %s!\n", errmsg);
 
 	dump_ctx(&cproc->ctx);
-	proc_exit(ctx, cproc, -1);
+	proc_exit(ctx, proc_get_proc(cproc), -1);
 }
 
 void irq_init(void) {
