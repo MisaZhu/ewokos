@@ -4214,24 +4214,36 @@ TTY_Error tty_render_glyph_cache(TTY_Font* font, TTY_Instance* instance, TTY_Gly
         // approximate the curves using edges
 
         TTY_Curves curves = {0};
+        memset(&curves, 0, sizeof(TTY_Curves));
 
-        TTY_Error error =
-            tty_add_glyph_points_to_zone_1(font, instance, glyph) ||
-            tty_convert_zone1_points_into_curves(font, &curves)   ||
-            tty_subdivide_curves_into_edges(&curves, &edges, font->startingEdgeCap);
+        TTY_Error error = tty_add_glyph_points_to_zone_1(font, instance, glyph);
+        if (error) {
+            return error;
+        }
+
+        error = tty_convert_zone1_points_into_curves(font, &curves);
+        if (error) {
+            if(curves.buff != NULL)
+                free(curves.buff);
+            return error;
+        }
+
+        error = tty_subdivide_curves_into_edges(&curves, &edges, font->startingEdgeCap);
+        if(curves.buff != NULL)
+            free(curves.buff);
+
+        if (error) {
+            if(edges.buff != NULL)
+                free(edges.buff);
+            return error;
+        }
 
         if (instance->useHinting) {
             // Touch flags need to be cleared here (Everything else in zone1 is 
             // cleared elsewhere)
             memset(font->hint.zone1.touchFlags, TTY_UNTOUCHED, sizeof(TTY_U8) * font->hint.zone1.numOutlinePoints);
         }
-        free(curves.buff);
-
-        if (error) {
-            return error;
-        }
     }
-
 
     // Edges are sorted from largest to smallest y-coordinate
     qsort(edges.buff, edges.count, sizeof(TTY_Edge), tty_compare_edges);
