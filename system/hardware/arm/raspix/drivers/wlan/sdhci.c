@@ -786,8 +786,8 @@ int sdhci_send_command(struct mmc_cmd *cmd, struct mmc_data *data)
 	unsigned int time = 0;
 	ulong start = get_timer(0);
 
-	if(cmd->cmdidx != 52 && cmd->cmdidx != 53)
-    	klog("sdhci cmd:%d %x %x\n", cmd->cmdidx, cmd->cmdarg, cmd->resp_type);
+	// if(cmd->cmdidx != 52 && cmd->cmdidx != 53)
+    // 	klog("sdhci cmd:%d %x %x\n", cmd->cmdidx, cmd->cmdarg, cmd->resp_type);
 	// if(data)
 	// 	klog("sdhci data: %d %d\n", data->blocks, data->blocksize);
 
@@ -908,8 +908,8 @@ int sdhci_send_command(struct mmc_cmd *cmd, struct mmc_data *data)
 	stat = sdhci_readl(host, SDHCI_INT_STATUS);
 	sdhci_writel(host, SDHCI_INT_ALL_MASK, SDHCI_INT_STATUS);
 
-	if(cmd->cmdidx != 52 && cmd->cmdidx != 53)
-    	klog("ret:%d resp: %x %x %x %x\n", ret, cmd->response[0], cmd->response[1],cmd->response[2],cmd->response[3]);
+	// if(cmd->cmdidx != 52 && cmd->cmdidx != 53)
+    // 	klog("ret:%d resp: %x %x %x %x\n", ret, cmd->response[0], cmd->response[1],cmd->response[2],cmd->response[3]);
 
 	if (!ret) {
 		if ((host->quirks & SDHCI_QUIRK_32BIT_DMA_ADDR) &&
@@ -917,7 +917,7 @@ int sdhci_send_command(struct mmc_cmd *cmd, struct mmc_data *data)
 			memcpy(data->dest, host->align_buffer, trans_bytes);
 		return 0;
 	}
-
+	klog("sdhci cmd: %d error: %x", cmd->cmdidx, stat);
 	sdhci_reset(SDHCI_RESET_CMD);
 	sdhci_reset(SDHCI_RESET_DATA);
 	if (stat & SDHCI_INT_TIMEOUT)

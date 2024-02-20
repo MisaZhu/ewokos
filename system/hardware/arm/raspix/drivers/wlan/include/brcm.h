@@ -4,6 +4,53 @@
 
 #include "types.h"
 
+
+/*
+ * Software-defined protocol header
+ */
+
+/* Current protocol version */
+#define SDPCM_PROT_VERSION	4
+
+/*
+ * Shared structure between dongle and the host.
+ * The structure contains pointers to trap or assert information.
+ */
+#define SDPCM_SHARED_VERSION       0x0003
+#define SDPCM_SHARED_VERSION_MASK  0x00FF
+#define SDPCM_SHARED_ASSERT_BUILT  0x0100
+#define SDPCM_SHARED_ASSERT        0x0200
+#define SDPCM_SHARED_TRAP          0x0400
+
+/* Space for header read, limit for data packets */
+#define MAX_HDR_READ	(1 << 6)
+#define MAX_RX_DATASZ	2048
+
+/* Bump up limit on waiting for HT to account for first startup;
+ * if the image is doing a CRC calculation before programming the PMU
+ * for HT availability, it could take a couple hundred ms more, so
+ * max out at a 1 second (1000000us).
+ */
+#undef PMU_MAX_TRANSITION_DLY
+#define PMU_MAX_TRANSITION_DLY 1000000
+
+/* Value for ChipClockCSR during initial setup */
+#define BRCMF_INIT_CLKCTL1	(SBSDIO_FORCE_HW_CLKREQ_OFF |	\
+					SBSDIO_ALP_AVAIL_REQ)
+
+/* Flags for SDH calls */
+#define F2SYNC	(SDIO_REQ_4BYTE | SDIO_REQ_FIXED)
+
+#define BRCMF_IDLE_ACTIVE	0	/* Do not request any SD clock change
+					 /* when idle
+					 */
+#define BRCMF_IDLE_INTERVAL	1
+
+#define KSO_WAIT_US 50
+#define MAX_KSO_ATTEMPTS (PMU_MAX_TRANSITION_DLY/KSO_WAIT_US)
+#define BRCMF_SDIO_MAX_ACCESS_ERRORS	5
+
+
 #define SDIOD_FBR_SIZE		0x100
 
 /* io_en */
@@ -146,30 +193,6 @@ enum brcmf_sdiod_state {
 	BRCMF_SDIOD_NOMEDIUM
 };
 
-struct brcmf_sdio_dev {
-    void *func1;
-    void *func2;
-    u32 sbwad;          /* Save backplane window address */
-    // struct brcmf_core *cc_core; /* chipcommon core info struct */
-    // struct brcmf_sdio *bus;
-    // struct brcmf_bus *bus_if;
-    // struct brcmf_mp_device *settings;
-    bool oob_irq_requested;
-    bool sd_irq_requested;
-    bool irq_en;            /* irq enable flags */
-    bool sg_support;
-    uint max_request_size;
-    ushort max_segment_count;
-    uint max_segment_size;
-    uint txglomsz;
-    //struct sg_table sgtable;
-    char fw_name[BRCMF_FW_NAME_LEN];
-    char nvram_name[BRCMF_FW_NAME_LEN];
-    bool wowl_enabled;
-    enum brcmf_sdiod_state state;
-    struct brcmf_sdiod_freezer *freezer;
-};
-
 /* sdio core registers */
 struct sdpcmd_regs {
     u32 corecontrol;        /* 0x00, rev8 */
@@ -262,6 +285,104 @@ struct sdpcmd_regs {
 #define SD_REG(field) \
         (offsetof(struct sdpcmd_regs, field))
 		
+#define CONSOLE_LINE_MAX    192
+
+struct rte_log_le {
+    uint32_t buf;     /* Can't be pointer on (64-bit) hosts */
+    uint32_t buf_size;
+    uint32_t idx;
+    char *_buf_compat;  /* Redundant pointer for backward compat. */
+};
+
+
+struct rte_console {
+    /* Virtual UART
+     * When there is no UART (e.g. Quickturn),
+     * the host should write a complete
+     * input line directly into cbuf and then write
+     * the length into vcons_in.
+     * This may also be used when there is a real UART
+     * (at risk of conflicting with
+     * the real UART).  vcons_out is currently unused.
+     */
+    uint vcons_in;
+    uint vcons_out;
+
+    /* Output (logging) buffer
+     * Console output is written to a ring buffer log_buf at index log_idx.
+     * The host may read the output when it sees log_idx advance.
+     * Output will be lost if the output wraps around faster than the host
+     * polls.
+     */
+    struct rte_log_le log_le;
+
+    /* Console input line buffer
+     * Characters are read one at a time into cbuf
+     * until <CR> is received, then
+     * the buffer is processed as a command line.
+     * Also used for virtual UART.
+     */
+    uint cbuf_idx;
+    char cbuf[128];
+};
+
+/* Device console log buffer state */
+struct brcmf_console {
+    uint32_t console_addr;
+	uint count;		/* Poll interval msec counter */
+	uint log_addr;		/* Log struct address (fixed) */
+	struct rte_log_le log_le;	/* Log struct (host copy) */
+	uint bufsize;		/* Size of log buffer */
+	u8 *buf;		/* Log buffer (host copy) */
+	uint last;		/* Last buffer read index */
+};
+
+struct brcmf_trap_info {
+	uint32_t		type;
+	uint32_t		epc;
+	uint32_t		cpsr;
+	uint32_t		spsr;
+	uint32_t		r0;	/* a1 */
+	uint32_t		r1;	/* a2 */
+	uint32_t		r2;	/* a3 */
+	uint32_t		r3;	/* a4 */
+	uint32_t		r4;	/* v1 */
+	uint32_t		r5;	/* v2 */
+	uint32_t		r6;	/* v3 */
+	uint32_t		r7;	/* v4 */
+	uint32_t		r8;	/* v5 */
+	uint32_t		r9;	/* sb/v6 */
+	uint32_t		r10;	/* sl/v7 */
+	uint32_t		r11;	/* fp/v8 */
+	uint32_t		r12;	/* ip */
+	uint32_t		r13;	/* sp */
+	uint32_t		r14;	/* lr */
+	uint32_t		pc;	/* r15 */
+};
+
+struct sdpcm_shared {
+	u32 flags;
+	u32 trap_addr;
+	u32 assert_exp_addr;
+	u32 assert_file_addr;
+	u32 assert_line;
+	u32 console_addr;	/* Address of struct rte_console */
+	u32 msgtrace_addr;
+	u8 tag[32];
+	u32 brpt_addr;
+};
+
+struct sdpcm_shared_le {
+	uint32_t flags;
+	uint32_t trap_addr;
+	uint32_t assert_exp_addr;
+	uint32_t assert_file_addr;
+	uint32_t assert_line;
+	uint32_t console_addr;	/* Address of struct rte_console */
+	uint32_t msgtrace_addr;
+	u8 tag[32];
+	uint32_t brpt_addr;
+};
 
 #endif
 

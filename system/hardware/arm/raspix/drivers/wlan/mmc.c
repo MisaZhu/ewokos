@@ -26,10 +26,10 @@ int mmc_io_rw_direct_host(int write, unsigned fn,
 
 	err = sdhci_send_command(&cmd, 0);
 	
-	// if(out)
-    //     klog("%s w:%d f:%d a:%x in:%x out:%x\n", __func__, write, fn, addr, in, cmd.response[0] & 0xFF);
-    // else
-    //     klog("%s w:%d f:%d a:%x in:%x\n", __func__, write, fn, addr, in);
+	if(out)
+        klog("%s w:%d f:%d a:%x in:%x out:%x\n", __func__, write, fn, addr, in, cmd.response[0] & 0xFF);
+    else
+        klog("%s w:%d f:%d a:%x in:%x\n", __func__, write, fn, addr, in);
 
 	if (err){
 		return err;
@@ -67,7 +67,7 @@ int mmc_io_rw_extended(int write, int fn,
 	int err;
 
 	WARN_ON(blksz == 0);
- 	//klog("%s w:%d f:%d a:%x%s b:%d s:%d\n", __func__, write, fn, addr, incr_addr?"+":" ", blocks, blksz);
+
 	/* sanity check */
 	if (addr & ~0x1FFFF)
 		return -EINVAL;
@@ -89,7 +89,17 @@ int mmc_io_rw_extended(int write, int fn,
 	data.flags = write ? MMC_DATA_WRITE : MMC_DATA_READ;
     data.src = buf;
 
-    sdhci_send_command(&cmd, &data);
+    err = sdhci_send_command(&cmd, &data);
+
+	klog("%s w:%d f:%d a:%x%s b:%d s:%d r:%d  [", 
+		__func__, write, fn, addr, incr_addr?"+":" ", blocks, blksz, err);
+	for(int i = 0; i< min(16, blksz) ; i++)
+		klog("%02x ", buf[i]);
+	klog("]\n");
+
+	if (err){
+		return err;
+	}
 
     if (cmd.response[0] & R5_ERROR)
 		err = -EIO;

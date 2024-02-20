@@ -241,8 +241,6 @@ int sdio_disable_func(int func)
 	if (ret)
 		goto err;
 
-	klog("SDIO: Disabled device %d\n", func);
-
 	return 0;
 
 err:

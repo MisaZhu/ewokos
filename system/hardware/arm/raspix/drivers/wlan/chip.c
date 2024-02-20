@@ -1,6 +1,6 @@
 #include "types.h"
 #include "skb.h"
-#include "brcmfmac.h"
+#include "brcm.h"
 #include "chip.h"
 #include "chipcommon.h"
 #include "soc.h"
@@ -275,7 +275,11 @@ struct brcmf_core *brcmf_chip_get_chipcommon(void)
 
 static void brcmf_sdio_buscore_write32(u32 addr, u32 val)
 {
-    brcmf_sdiod_writel(addr, val, NULL);
+    uint32_t err;
+    brcmf_sdiod_writel(addr, val, &err);
+    if(err){
+        klog("%s error:%d\n", __func__, err);
+    }
 }
 
 static void brcmf_sdio_buscore_activate(u32 rstvec)
@@ -295,10 +299,12 @@ static void brcmf_sdio_buscore_activate(u32 rstvec)
 
 static u32 brcmf_sdio_buscore_read32(u32 addr)
 {
-    u32 val, rev;
+    u32 val, err;
 
-    val = brcmf_sdiod_readl(addr, NULL);
-
+    val = brcmf_sdiod_readl(addr, &err);
+    if(err){
+        klog("%s error:%d\n", __func__, err);
+    }
     // /*
     //  * this is a bit of special handling if reading the chipcommon chipid
     //  * register. The 4339 is a next-gen of the 4335. It uses the same
@@ -567,12 +573,12 @@ static void brcmf_chip_ai_coredisable(struct brcmf_core_priv *core,
     usleep(20);
 
     /* wait till reset is 1 */
-    int timeout = 300;
+    int timeout = 30;
     while(timeout--){
         uint32_t reg = brcmf_sdio_buscore_read32(core->wrapbase + BCMA_RESET_CTL) ;
-        if(reg != BCMA_RESET_CTL_RESET)
+        if(reg == BCMA_RESET_CTL_RESET)
             break;
-        usleep(100);
+        usleep(1000);
     };
 
 in_reset_configure:

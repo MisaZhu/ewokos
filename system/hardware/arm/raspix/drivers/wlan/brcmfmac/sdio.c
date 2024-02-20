@@ -69,9 +69,9 @@
 #define CONSOLE_BUFFER_MAX	2024
 
 struct rte_log_le {
-	__le32 buf;		/* Can't be pointer on (64-bit) hosts */
-	__le32 buf_size;
-	__le32 idx;
+	uint32_t buf;		/* Can't be pointer on (64-bit) hosts */
+	uint32_t buf_size;
+	uint32_t idx;
 	char *_buf_compat;	/* Redundant pointer for backward compat. */
 };
 
@@ -283,110 +283,6 @@ struct rte_console {
 
 #define HMB_DATA_VERSION_MASK	0x00ff0000
 #define HMB_DATA_VERSION_SHIFT	16
-
-/*
- * Software-defined protocol header
- */
-
-/* Current protocol version */
-#define SDPCM_PROT_VERSION	4
-
-/*
- * Shared structure between dongle and the host.
- * The structure contains pointers to trap or assert information.
- */
-#define SDPCM_SHARED_VERSION       0x0003
-#define SDPCM_SHARED_VERSION_MASK  0x00FF
-#define SDPCM_SHARED_ASSERT_BUILT  0x0100
-#define SDPCM_SHARED_ASSERT        0x0200
-#define SDPCM_SHARED_TRAP          0x0400
-
-/* Space for header read, limit for data packets */
-#define MAX_HDR_READ	(1 << 6)
-#define MAX_RX_DATASZ	2048
-
-/* Bump up limit on waiting for HT to account for first startup;
- * if the image is doing a CRC calculation before programming the PMU
- * for HT availability, it could take a couple hundred ms more, so
- * max out at a 1 second (1000000us).
- */
-#undef PMU_MAX_TRANSITION_DLY
-#define PMU_MAX_TRANSITION_DLY 1000000
-
-/* Value for ChipClockCSR during initial setup */
-#define BRCMF_INIT_CLKCTL1	(SBSDIO_FORCE_HW_CLKREQ_OFF |	\
-					SBSDIO_ALP_AVAIL_REQ)
-
-/* Flags for SDH calls */
-#define F2SYNC	(SDIO_REQ_4BYTE | SDIO_REQ_FIXED)
-
-#define BRCMF_IDLE_ACTIVE	0	/* Do not request any SD clock change
-					 * when idle
-					 */
-#define BRCMF_IDLE_INTERVAL	1
-
-#define KSO_WAIT_US 50
-#define MAX_KSO_ATTEMPTS (PMU_MAX_TRANSITION_DLY/KSO_WAIT_US)
-#define BRCMF_SDIO_MAX_ACCESS_ERRORS	5
-
-#ifdef DEBUG
-/* Device console log buffer state */
-struct brcmf_console {
-	uint count;		/* Poll interval msec counter */
-	uint log_addr;		/* Log struct address (fixed) */
-	struct rte_log_le log_le;	/* Log struct (host copy) */
-	uint bufsize;		/* Size of log buffer */
-	u8 *buf;		/* Log buffer (host copy) */
-	uint last;		/* Last buffer read index */
-};
-
-struct brcmf_trap_info {
-	__le32		type;
-	__le32		epc;
-	__le32		cpsr;
-	__le32		spsr;
-	__le32		r0;	/* a1 */
-	__le32		r1;	/* a2 */
-	__le32		r2;	/* a3 */
-	__le32		r3;	/* a4 */
-	__le32		r4;	/* v1 */
-	__le32		r5;	/* v2 */
-	__le32		r6;	/* v3 */
-	__le32		r7;	/* v4 */
-	__le32		r8;	/* v5 */
-	__le32		r9;	/* sb/v6 */
-	__le32		r10;	/* sl/v7 */
-	__le32		r11;	/* fp/v8 */
-	__le32		r12;	/* ip */
-	__le32		r13;	/* sp */
-	__le32		r14;	/* lr */
-	__le32		pc;	/* r15 */
-};
-#endif				/* DEBUG */
-
-struct sdpcm_shared {
-	u32 flags;
-	u32 trap_addr;
-	u32 assert_exp_addr;
-	u32 assert_file_addr;
-	u32 assert_line;
-	u32 console_addr;	/* Address of struct rte_console */
-	u32 msgtrace_addr;
-	u8 tag[32];
-	u32 brpt_addr;
-};
-
-struct sdpcm_shared_le {
-	__le32 flags;
-	__le32 trap_addr;
-	__le32 assert_exp_addr;
-	__le32 assert_file_addr;
-	__le32 assert_line;
-	__le32 console_addr;	/* Address of struct rte_console */
-	__le32 msgtrace_addr;
-	u8 tag[32];
-	__le32 brpt_addr;
-};
 
 /* dongle SDIO bus specific header info */
 struct brcmf_sdio_hdrinfo {
@@ -1021,7 +917,7 @@ static int brcmf_sdio_readshared(struct brcmf_sdio *bus,
 	int rv;
 	u32 shaddr = 0;
 	struct sdpcm_shared_le sh_le;
-	__le32 addr_le;
+	uint32_t addr_le;
 
 	sdio_claim_host(bus->sdiodev->func1);
 	brcmf_sdio_bus_sleep(bus, false, false);
@@ -1399,7 +1295,7 @@ static int brcmf_sdio_hdparse(struct brcmf_sdio *bus, u8 *header,
 
 	/* software header */
 	header += SDPCM_HWHDR_LEN;
-	swheader = le32_to_cpu(*(__le32 *)header);
+	swheader = le32_to_cpu(*(uint32_t *)header);
 	if (type == BRCMF_SDIO_FT_SUPER && SDPCM_GLOMDESC(header)) {
 		brcmf_err("Glom descriptor found in superframe head\n");
 		rd->len = 0;
@@ -1449,7 +1345,7 @@ static int brcmf_sdio_hdparse(struct brcmf_sdio *bus, u8 *header,
 			brcmf_err("seq %d: next length error\n", rx_seq);
 		rd->len_nxtfrm = 0;
 	}
-	swheader = le32_to_cpu(*(__le32 *)(header + 4));
+	swheader = le32_to_cpu(*(uint32_t *)(header + 4));
 	fc = swheader & SDPCM_FCMASK_MASK;
 	if (bus->flowcontrol != fc) {
 		if (~bus->flowcontrol & fc)
@@ -1486,9 +1382,9 @@ static void brcmf_sdio_hdpack(struct brcmf_sdio *bus, u8 *header,
 
 	if (bus->txglom) {
 		hdrval = (hd_info->len - hdr_offset) | (hd_info->lastfrm << 24);
-		*((__le32 *)(header + hdr_offset)) = cpu_to_le32(hdrval);
+		*((uint32_t *)(header + hdr_offset)) = cpu_to_le32(hdrval);
 		hdrval = (u16)hd_info->tail_pad << 16;
-		*(((__le32 *)(header + hdr_offset)) + 1) = cpu_to_le32(hdrval);
+		*(((uint32_t *)(header + hdr_offset)) + 1) = cpu_to_le32(hdrval);
 		hdr_offset += SDPCM_HWEXT_LEN;
 	}
 
@@ -1497,8 +1393,8 @@ static void brcmf_sdio_hdpack(struct brcmf_sdio *bus, u8 *header,
 		  SDPCM_CHANNEL_MASK;
 	hdrval |= (hd_info->dat_offset << SDPCM_DOFFSET_SHIFT) &
 		  SDPCM_DOFFSET_MASK;
-	*((__le32 *)(header + hdr_offset)) = cpu_to_le32(hdrval);
-	*(((__le32 *)(header + hdr_offset)) + 1) = 0;
+	*((uint32_t *)(header + hdr_offset)) = cpu_to_le32(hdrval);
+	*(((uint32_t *)(header + hdr_offset)) + 1) = 0;
 	trace_brcmf_sdpcm_hdr(SDPCM_TX + !!(bus->txglom), header);
 }
 
@@ -2272,7 +2168,7 @@ brcmf_sdio_txpkt_postp(struct brcmf_sdio *bus, struct sk_buff_head *pktq)
 			brcmu_pkt_buf_free_skb(pkt_next);
 		} else {
 			hdr = pkt_next->data + bus->tx_hdrlen - SDPCM_SWHDR_LEN;
-			dat_offset = le32_to_cpu(*(__le32 *)hdr);
+			dat_offset = le32_to_cpu(*(uint32_t *)hdr);
 			dat_offset = (dat_offset & SDPCM_DOFFSET_MASK) >>
 				     SDPCM_DOFFSET_SHIFT;
 			skb_pull(pkt_next, dat_offset);
@@ -2973,7 +2869,7 @@ static int brcmf_sdio_dump_console(struct seq_file *seq, struct brcmf_sdio *bus,
 {
 	u32 addr, console_ptr, console_size, console_index;
 	char *conbuf = NULL;
-	__le32 sh_val;
+	uint32_t sh_val;
 	int rv;
 
 	/* obtain console information from device memory */

@@ -1,5 +1,5 @@
-#ifndef __TYPE_H__
-#define __TYPE_H__
+#ifndef __TYPES_H__
+#define __TYPES_H__
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -9,14 +9,45 @@
 typedef unsigned char		u8;
 typedef unsigned short		u16;
 typedef unsigned int		u32;
+typedef unsigned int		size_t;
 typedef unsigned long long	u64;
 typedef signed char		s8;
 typedef short			s16;
 typedef int			s32;
+typedef int			ssize_t;
 typedef long long		s64;
 typedef unsigned int uint;
 typedef unsigned short ushort;
 typedef unsigned long ulong;
+
+/* sparse defines __CHECKER__; see Documentation/dev-tools/sparse.rst */
+#ifdef __CHECKER__
+#define __bitwise	__attribute__((bitwise))
+#else
+#define __bitwise
+#endif
+
+typedef __signed__ char __s8;
+typedef unsigned char __u8;
+
+typedef __signed__ short __s16;
+typedef unsigned short __u16;
+
+typedef __signed__ int __s32;
+typedef unsigned int __u32;
+
+typedef __signed__ long __s64;
+typedef unsigned long __u64;
+
+typedef __u16 __bitwise __le16;
+typedef __u16 __bitwise __be16;
+typedef __u32 __bitwise __le32;
+typedef __u32 __bitwise __be32;
+typedef __u64 __bitwise __le64;
+typedef __u64 __bitwise __be64;
+
+typedef __u16 __bitwise __sum16;
+typedef __u32 __bitwise __wsum;
 
 #define min(x,y) (((x) < (y)) ? (x) : (y))
 #define max(x,y) (((x) > (y)) ? (x) : (y))
@@ -203,5 +234,27 @@ typedef unsigned long ulong;
 	((type *)(__mptr - offsetof(type, member))); })
 
 #define BIT(x) (0x1<<(x))
+
+
+#define cpu_to_le32(x)  (x)
+#define le32_to_cpu(x)  (x)
+
+#define cpu_to_le16(x)  (x)
+#define le16_to_cpu(x)  (x)
+
+#define roundup(x, y)   ((((x) + ((y) - 1)) / (y)) * (y))
+#define rounddown(x, y) ((x) - ((x) % (y)))
+
+#define __struct_group(TAG, NAME, ATTRS, MEMBERS...) \
+	union { \
+		struct { MEMBERS } ATTRS; \
+		struct TAG { MEMBERS } ATTRS NAME; \
+	} ATTRS
+
+#define struct_group_tagged(TAG, NAME, MEMBERS...) \
+	__struct_group(TAG, NAME, /* no attrs */, MEMBERS)
+
+
+#define get_unaligned_le16(x)	((*(uint8_t*)(x))) + ((*(((uint8_t*)(x) + 1))) << 8)
 
 #endif

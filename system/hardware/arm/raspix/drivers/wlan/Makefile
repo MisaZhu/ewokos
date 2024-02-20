@@ -5,9 +5,19 @@ TARGET_DIR = $(BUILD_DIR)/rootfs
 
 LDFLAGS = -L$(BUILD_DIR)/lib
 
-CFLAGS += -I $(BUILD_DIR)/include
+CFLAGS += -I include -I $(BUILD_DIR)/include 
 
-BRCMFMACD_OBJS = main.o sdhci.o mmc.o brcm.o skb.o sdio.o chip.o
+BRCMFMACD_OBJS = main.o \
+				 sdhci.o \
+				 mmc.o \
+				 brcm.o \
+				 skb.o \
+				 sdio.o \
+				 chip.o \
+				 firmware.o \
+				 command.o \
+				 console.o 
+#			 	cfg80211.o
  
 BRCMFMACD = $(TARGET_DIR)/drivers/raspix/wland
 
