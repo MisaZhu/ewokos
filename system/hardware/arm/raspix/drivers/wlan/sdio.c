@@ -247,3 +247,30 @@ err:
 	klog("SDIO: Failed to disable device %d\n", func);
 	return ret;
 }
+
+int sdio_claim_irq(int func)
+{
+    int ret;
+    unsigned char reg;
+
+    if (!func)
+        return -EINVAL;
+
+    klog("SDIO: Enabling IRQ for %s...\n", sdio_func_id(func));
+
+    ret = mmc_io_rw_direct(0, 0, SDIO_CCCR_IENx, 0, &reg);
+    if (ret)
+        return ret;
+
+    reg |= 1 << func;
+
+    reg |= 1; /* Master interrupt enable */
+
+    ret = mmc_io_rw_direct(1, 0, SDIO_CCCR_IENx, reg, NULL);
+    if (ret)
+        return ret;
+
+	sdhci_enable_irq(1);
+
+    return ret;
+}

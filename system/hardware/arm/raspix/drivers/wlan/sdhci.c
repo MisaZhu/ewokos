@@ -281,7 +281,7 @@ static int bcm283x_sdhci_gpio_init(void){
 
 	//enable wifi power
 	bcm283x_gpio_config(41, GPIO_OUTPUT); 
-	bcm283x_gpio_set(41);
+	bcm283x_gpio_clr(41);
 
 	//set 32.768 clock for wifi module
 	writel(CM_PASSWORD|0x1, CM_GP2CTL);
@@ -704,6 +704,19 @@ void sdhci_reset(u8 mask)
 	}
 }
 
+void sdhci_enable_irq(int enable)
+{
+	uint32_t ier = sdhci_readl(&_host, SDHCI_INT_ENABLE);
+    if (enable)
+        ier |= SDHCI_INT_CARD_INT;
+    else
+        ier &= ~SDHCI_INT_CARD_INT;
+
+    sdhci_writel(&_host, ier, SDHCI_INT_ENABLE);
+    sdhci_writel(&_host, ier, SDHCI_SIGNAL_ENABLE);
+}
+
+
 static void sdhci_transfer_pio(struct sdhci_host *host, struct mmc_data *data)
 {
 	int i;
@@ -968,12 +981,12 @@ void sdhci_init(void)
 	sdhci_set_bus_width(&_host, 4);
 	sdhci_set_uhs_timing(&_host, 0);
 	/* Enable only interrupts served by the SD controller */
-	// sdhci_writel(&_host, SDHCI_INT_DATA_MASK | SDHCI_INT_CMD_MASK,
-	// 	     SDHCI_INT_ENABLE);
+	sdhci_writel(&_host, SDHCI_INT_DATA_MASK | SDHCI_INT_CMD_MASK,
+	 	    SDHCI_INT_ENABLE);
 
 	/* Mask all sdhci interrupt sources */
-	sdhci_writel(&_host, 0x00ff0033, SDHCI_INT_ENABLE);
-	sdhci_writel(&_host, 0x00ff0033, SDHCI_SIGNAL_ENABLE);
+	sdhci_writel(&_host, SDHCI_INT_DATA_MASK | SDHCI_INT_CMD_MASK,
+	 		SDHCI_SIGNAL_ENABLE);
 	dump(&_host);
 	return 0;
 }

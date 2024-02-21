@@ -186,6 +186,7 @@ static enum nvram_parser_state brcmf_nvram_handle_end(struct nvram_parser *nvp)
 	return END;
 }
 
+
 static enum nvram_parser_state
 (*nv_parser_states[])(struct nvram_parser *nvp) = {
 	brcmf_nvram_handle_idle,
@@ -396,7 +397,7 @@ static void *brcmf_fw_nvram_strip(const u8 *data, size_t data_len,
 	if (brcmf_init_nvram_parser(&nvp, data, data_len) < 0)
 		return NULL;
 
-	nvp.strip_mac = true;
+	nvp.strip_mac = false;
 
 	while (nvp.pos < data_len) {
 		nvp.state = nv_parser_states[nvp.state](&nvp);
@@ -439,8 +440,8 @@ static void *brcmf_fw_nvram_strip(const u8 *data, size_t data_len,
 }
 
 uint8_t* brcmf_fw_get_firmware(int* len){
-    *len = cyfmac43455_sdio_minimal_bin_len;
-    return cyfmac43455_sdio_minimal_bin;
+    *len = cyfmac43455_sdio_bin_len;
+    return cyfmac43455_sdio_bin;
 }
 
 uint8_t* brcmf_fw_get_nvram(int* len){

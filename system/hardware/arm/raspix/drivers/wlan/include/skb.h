@@ -2,13 +2,15 @@
 #define __SKB_H__
 #include "types.h"
 
-#define SKB_PRE_ALLOC_SIZE  16
+#define SKB_MAX_EXTEND 1024
 
 struct sk_buff{
     int priority;
     uint32_t len;
-    uint8_t* data;
-    uint8_t buf[SKB_PRE_ALLOC_SIZE];
+    uint8_t *data;
+	//internal
+	uint8_t *mem;
+	uint32_t total;
 }; 
 
 struct sk_buff_head {
@@ -20,8 +22,12 @@ struct sk_buff_head {
 };
 
 
-void skb_put(struct sk_buff* skb, int size);
-struct sk_buff* dev_alloc_skb(int size);
-void dev_kfree_skb(struct sk_buff* skb);
 
+struct sk_buff* skb_alloc(int size);
+void *skb_put(struct sk_buff* skb, int size);
+void *skb_push(struct sk_buff* skb, int size);
+void *skb_pull(struct sk_buff* skb, int size);
+void *skb_trim(struct sk_buff* skb, int size);
+void skb_reserve(struct sk_buff* skb, int size);
+void skb_free(struct sk_buff* skb);
 #endif

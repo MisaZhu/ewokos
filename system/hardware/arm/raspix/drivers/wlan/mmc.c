@@ -95,7 +95,10 @@ int mmc_io_rw_extended(int write, int fn,
 		__func__, write, fn, addr, incr_addr?"+":" ", blocks, blksz, err);
 	for(int i = 0; i< min(16, blksz) ; i++)
 		klog("%02x ", buf[i]);
-	klog("]\n");
+	if(blksz > 16)
+		klog("...]\n");
+	else
+		klog("]\n");
 
 	if (err){
 		return err;

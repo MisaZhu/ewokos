@@ -3,56 +3,79 @@
 #include "skb.h"
 
 
-void skb_put(struct sk_buff* skb, int size){
-    if(!skb)
-        return;
-    skb->len += size;
-    if(!skb->data || skb->data == skb->buf){
-        skb->data = malloc(skb->len); 
-        memcpy(skb->data, skb->buf, SKB_PRE_ALLOC_SIZE);
-    }else{
-        skb->data = realloc(skb->data, skb->len);
-    }
 
-}
 
-struct sk_buff* dev_alloc_skb(int size){
+struct sk_buff* skb_alloc(int size){
     struct sk_buff *skb = malloc(sizeof(struct sk_buff));
     if(!skb)
         return NULL;
 
-    if(size > SKB_PRE_ALLOC_SIZE){
-        int msize = (size + SKB_PRE_ALLOC_SIZE - 1)&(~(SKB_PRE_ALLOC_SIZE - 1));
-        skb->data = malloc(msize);
-        if(!skb->data){
-            free(skb);
-            return NULL;
-        }
-    }else if(size){
-         skb->data = skb->buf;
+    skb->len = 0;
+    skb->total =  size + SKB_MAX_EXTEND * 2;
+    skb->mem = malloc(skb->total);
+    if(!skb->mem){
+        free(skb);
+        return NULL;
     }
-    else{
-        skb->data = NULL;
-    }
-
-    skb->len = size;
+    skb->data = skb->mem + SKB_MAX_EXTEND;
     return skb;
 }
 
-void dev_kfree_skb(struct sk_buff* skb){
+void *skb_put(struct sk_buff* skb, int size){
     if(!skb)
         return;
-    if(skb->data && skb->data != skb->buf)
-        free(skb->data);
-    free(skb);
+    void* ret = skb->data;
+    skb->len += size;
+    if(skb->data + skb->len > skb->mem + skb->total){
+        klog("reach skb buffer max extend:%d \n", SKB_MAX_EXTEND);
+    }
+    return ret;
 }
 
-void skb_trim(struct sk_buff* skb){
+void *skb_push(struct sk_buff* skb, int size){
     if(!skb)
         return;
-    if(skb->data && skb->data != skb->buf){
-        free(skb->data);
+    void* ret = skb->data;
+    skb->len += size;
+    skb->data -= size;
+    if(skb->data < skb->mem){
+        klog("reach skb buffer min extend:%d \n", SKB_MAX_EXTEND);
     }
-    skb->data = NULL;
-    skb->len = 0;
+    return ret;
+}
+
+void *skb_pull(struct sk_buff* skb, int size){
+    if(!skb)
+        return;
+    void* ret = skb->data;
+    skb->len -= size;
+    skb->data += size;
+    if(skb->data > skb->mem + skb->total){
+        klog("reach skb buffer max extend:%d \n", SKB_MAX_EXTEND);
+    }
+    return ret;
+}
+
+void skb_reserve(struct sk_buff* skb, int size){
+    if(!skb)
+        return;
+    skb->data += size;
+    if(skb->data > skb->mem + skb->total){
+        klog("reach skb buffer max extend:%d \n", SKB_MAX_EXTEND);
+    }
+}
+
+void *skb_trim(struct sk_buff* skb, int size){
+    if(!skb && size >= skb->len)
+        return;
+    skb->len = size;
+    return skb->data;
+}
+
+void skb_free(struct sk_buff* skb){
+    if(!skb)
+        return;
+    if(skb->mem)
+        free(skb->mem);
+    free(skb);
 }

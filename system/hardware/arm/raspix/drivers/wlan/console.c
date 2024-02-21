@@ -1,12 +1,13 @@
 #include "types.h"
 #include "include/brcm.h"
 
-static struct brcmf_console *c;
+static struct brcmf_console *_console = NULL;
 
 void brcm_console_init(uint32_t addr){
-    c = malloc(sizeof(struct brcmf_console));
-    memset(c, 0, sizeof(struct brcmf_console));
-    c->console_addr = addr;
+    if(!_console){
+        _console = calloc(1, sizeof(struct brcmf_console));
+    }
+    _console->console_addr = addr;
     klog("%s %x\n", __func__, addr);
 }
 
@@ -18,58 +19,58 @@ int brcmf_sdio_readconsole(void)
     int rv;
 
     /* Don't do anything until FWREADY updates console address */
-    if (!c && c->console_addr == 0)
+    if (!_console || !_console->console_addr)
         return 0;
 
     /* Read console log struct */
-    addr = c->console_addr + offsetof(struct rte_console, log_le);
-    rv = brcmf_sdiod_ramrw(false, addr, (u8 *)&c->log_le,
-                   sizeof(c->log_le));
+    addr = _console->console_addr + offsetof(struct rte_console, log_le);
+    rv = brcmf_sdiod_ramrw(false, addr, (u8 *)&_console->log_le,
+                   sizeof(_console->log_le));
     if (rv < 0)
         return rv;
 
     /* Allocate console buffer (one time only) */
-    if (c->buf == NULL) {
-        c->bufsize = le32_to_cpu(c->log_le.buf_size);
-        klog("%d\n", c->bufsize);
-        c->buf = malloc(c->bufsize);
-        if (c->buf == NULL)
+    if (_console->buf == NULL) {
+        _console->bufsize = le32_to_cpu(_console->log_le.buf_size);
+        klog("%d\n", _console->bufsize);
+        _console->buf = malloc(_console->bufsize);
+        if (_console->buf == NULL)
             return -ENOMEM;
     }
 
-    idx = le32_to_cpu(c->log_le.idx);
+    idx = le32_to_cpu(_console->log_le.idx);
 
     /* Protect against corrupt value */
-    if (idx > c->bufsize)
+    if (idx > _console->bufsize)
         return -EBADE;
 
     /* Skip reading the console buffer if the index pointer
      has not moved */
-    if (idx == c->last)
+    if (idx == _console->last)
         return 0;
 
     /* Read the console buffer */
-    addr = le32_to_cpu(c->log_le.buf);
-    rv = brcmf_sdiod_ramrw(false, addr, c->buf, c->bufsize);
+    addr = le32_to_cpu(_console->log_le.buf);
+    rv = brcmf_sdiod_ramrw(false, addr, _console->buf, _console->bufsize);
     if (rv < 0)
         return rv;
 
-    while (c->last != idx) {
+    while (_console->last != idx) {
         for (n = 0; n < CONSOLE_LINE_MAX - 2; n++) {
-            if (c->last == idx) {
+            if (_console->last == idx) {
                 /* This would output a partial line.
                  * Instead, back up
                  * the buffer pointer and output this
                  * line next time around.
                  */
-                if (c->last >= n)
-                    c->last -= n;
+                if (_console->last >= n)
+                    _console->last -= n;
                 else
-                    c->last = c->bufsize - n;
+                    _console->last = _console->bufsize - n;
                 goto break2;
             }
-            ch = c->buf[c->last];
-            c->last = (c->last + 1) % c->bufsize;
+            ch = _console->buf[_console->last];
+            _console->last = (_console->last + 1) % _console->bufsize;
             if (ch == '\n')
                 break;
             line[n] = ch;
@@ -85,4 +86,8 @@ int brcmf_sdio_readconsole(void)
 break2:
 
     return 0;
+}
+
+void brcm_console_free(void){
+    free(_console);
 }
