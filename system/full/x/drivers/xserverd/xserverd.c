@@ -150,7 +150,7 @@ static void draw_drag_frame(x_t* xp, uint32_t display_index) {
 	PF->clear(&in);
 }
 
-static int draw_win(graph_t* disp_g, x_t* xp, xwin_t* win, bool do_frame) {
+static int draw_win(graph_t* disp_g, x_t* xp, xwin_t* win) {
 	uint32_t to = 0;
 	graph_t* g = win->g_buf;
 	if(g != NULL) {
@@ -176,8 +176,7 @@ static int draw_win(graph_t* disp_g, x_t* xp, xwin_t* win, bool do_frame) {
 		}
 	}
 
-	if(do_frame)
-		draw_win_frame(xp, win);
+	draw_win_frame(xp, win);
 	if(xp->current.win_drag == win && (win->xinfo->style & XWIN_STYLE_NO_FRAME) == 0)
 		draw_drag_frame(xp, win->xinfo->display_index);
 
@@ -567,13 +566,11 @@ static void x_repaint(x_t* x, uint32_t display_index) {
 	}
 
 	xwin_t* win = x->win_head;
-	bool do_frame = false;
 	while(win != NULL) {
 		if(win->xinfo->visible && win->xinfo->display_index == display_index) {
 			if(display->dirty || win->dirty) {
-				if(draw_win(display->g, x, win, do_frame) == 0) {
+				if(draw_win(display->g, x, win) == 0) {
 					do_flush = true;
-					do_frame = true;
 				}
 			}
 		}
