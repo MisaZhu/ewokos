@@ -68,11 +68,6 @@ static int uart_write(int fd, int from_pid, fsinfo_t* node,
 	return size;
 }
 
-static void interrupt_handle(uint32_t interrupt, uint32_t data) {
-	(void)interrupt;
-	(void)data;
-}
-
 int main(int argc, char** argv) {
 	const char* mnt_point = argc > 1 ? argv[1]: "/dev/tty1";
 	_mmio_base = mmio_map();
@@ -82,7 +77,6 @@ int main(int argc, char** argv) {
 	dev.read = uart_read;
 	dev.write = uart_write;
 
-	//sys_interrupt_setup(IRQ_TIMER0, 0, interrupt_handle, 0);
 	device_run(&dev, mnt_point, FS_TYPE_CHAR, 0666);
 	return 0;
 }

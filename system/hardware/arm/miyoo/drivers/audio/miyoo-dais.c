@@ -1296,7 +1296,11 @@ static int pre_allocate_dma_buffer(struct msc313_bach *bach)
 static int register_irq_handle(struct msc313_bach *bach)
 {
 	tStart = 0;
-	sys_interrupt_setup(IRQ_TIMER0, 0, bach_irq_handle, (uint32_t)bach);
+
+	static interrupt_handler_t handler;
+	handler.data = 0;
+	handler.handler = bach_irq_handle;
+	sys_interrupt_setup(IRQ_TIMER0, &handler);
 	/* Enable audio dma irq */
 	//msc313_unmask_irq(42);
 	//msc313_unmask_irq_polarity(42);
@@ -1307,7 +1311,7 @@ static int register_irq_handle(struct msc313_bach *bach)
 static int unregister_irq_handle(struct msc313_bach *bach)
 {
 	tStart = 0;
-	sys_interrupt_setup(IRQ_TIMER0, 0, 0, (uint32_t)bach);
+	sys_interrupt_setup(IRQ_TIMER0, NULL);
 	KLOG("%s() irq_id:%d\n", __func__, IRQ_TIMER0);
 	return 0;
 }

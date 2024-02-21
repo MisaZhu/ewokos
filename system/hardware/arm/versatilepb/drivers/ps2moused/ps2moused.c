@@ -219,7 +219,11 @@ int main(int argc, char** argv) {
 	dev.read = mouse_read;
 	//dev.loop_step = mouse_loop;
 
-	sys_interrupt_setup(IRQ_RAW_MOUSE, interrupt_handle, 0);
+	static interrupt_handler_t handler;
+	handler.data = 0;
+	handler.handler = interrupt_handle;
+	sys_interrupt_setup(IRQ_RAW_MOUSE, &handler);
+
 	device_run(&dev, mnt_point, FS_TYPE_CHAR, 0444);
 	return 0;
 }

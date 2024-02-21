@@ -145,7 +145,11 @@ int main(int argc, char** argv) {
 	strcpy(dev.name, "keyb");
 	dev.read = keyb_read;
 
-	sys_interrupt_setup(IRQ_RAW_KEYB, interrupt_handle, 0);
+	static interrupt_handler_t handler;
+	handler.data = 0;
+	handler.handler = interrupt_handle;
+	sys_interrupt_setup(IRQ_RAW_KEYB, &handler);
+
 	device_run(&dev, mnt_point, FS_TYPE_CHAR, 0444);
 	charbuf_free(_buffer);
 	return 0;
