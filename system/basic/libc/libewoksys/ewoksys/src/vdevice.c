@@ -414,7 +414,6 @@ static void do_set(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, void
 static void do_cmd(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, void* p) {
 	const char* cmd = proto_read_str(in);
 	if(cmd == NULL || cmd[0] == 0) {
-		PF->adds(out, "");
 		return;
 	}
 
@@ -426,12 +425,11 @@ static void do_cmd(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, void
 	char* res = NULL;
 	if(dev != NULL && dev->cmd != NULL)
 		res = dev->cmd(from_pid, cmd, p);
+
 	if(res != NULL) {
 		PF->adds(out, res);
 		free(res);
 	}
-	else 
-		PF->adds(out, "");
 }
 
 static void do_clear_buffer(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, void* p) {
@@ -659,10 +657,11 @@ char* dev_cmd_by_pid(int pid, const char* cmd) {
 	}
 
 	const char* s = proto_read_str(&out);
-	if(s == NULL)
-		s = "";
-	char* ret = (char*)calloc(1, strlen(s)+1);
-	strcpy(ret, s);
+	char* ret = NULL;
+	if(s != NULL) {
+		ret = (char*)calloc(1, strlen(s)+1);
+		strcpy(ret, s);
+	}
 	PF->clear(&out);
 	return ret;
 }
