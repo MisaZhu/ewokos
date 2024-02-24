@@ -411,6 +411,29 @@ static void do_set(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, void
 	PF->addi(out, res);
 }
 
+static void do_cmd(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, void* p) {
+	const char* cmd = proto_read_str(in);
+	if(cmd == NULL || cmd[0] == 0) {
+		PF->adds(out, "");
+		return;
+	}
+
+	if(strcmp(cmd, "cmd.echo") == 0) {
+		PF->adds(out, cmd);
+		return;
+	}
+
+	char* res = NULL;
+	if(dev != NULL && dev->cmd != NULL)
+		res = dev->cmd(from_pid, cmd, p);
+	if(res != NULL) {
+		PF->adds(out, res);
+		free(res);
+	}
+	else 
+		PF->adds(out, "");
+}
+
 static void do_clear_buffer(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, void* p) {
 	(void)from_pid;
 	uint32_t node = proto_read_int(in);
@@ -492,6 +515,9 @@ static void handle(int from_pid, int cmd, proto_t* in, proto_t* out, void* p) {
 		break;
 	case FS_CMD_SET:
 		do_set(dev, from_pid, in, out, p);
+		break;
+	case FS_CMD_CMD:
+		do_cmd(dev, from_pid, in, out, p);
 		break;
 	case FS_CMD_CLEAR_BUFFER:
 		do_clear_buffer(dev, from_pid, in, out, p);
@@ -618,6 +644,29 @@ int dev_cntl_by_pid(int pid, int cmd, proto_t* in, proto_t* out) {
 	return res;
 }
 
+char* dev_cmd_by_pid(int pid, const char* cmd) {
+	proto_t in_arg;
+	PF->init(&in_arg)->adds(&in_arg, cmd);
+
+	int res = -1;
+	proto_t out;
+	PF->init(&out);
+	res = ipc_call(pid, FS_CMD_CMD, &in_arg, &out);
+	PF->clear(&in_arg);
+	if(res != 0) {
+		PF->clear(&out);
+		return NULL;
+	}
+
+	const char* s = proto_read_str(&out);
+	if(s == NULL)
+		s = "";
+	char* ret = (char*)calloc(1, strlen(s)+1);
+	strcpy(ret, s);
+	PF->clear(&out);
+	return ret;
+}
+
 int dev_get_pid(const char* fname) {
 	fsinfo_t info;
 	if(vfs_get_by_name(fname, &info) != 0)
@@ -630,6 +679,13 @@ int dev_cntl(const char* fname, int cmd, proto_t* in, proto_t* out) {
 	if(pid < 0)
 		return -1;
 	return dev_cntl_by_pid(pid, cmd, in, out);
+}
+
+char* dev_cmd(const char* fname, const char* cmd) {
+	int pid = dev_get_pid(fname);
+	if(pid < 0)
+		return NULL;
+	return dev_cmd_by_pid(pid, cmd);
 }
 
 #ifdef __cplusplus

@@ -28,6 +28,7 @@ typedef struct {
 	int (*flush)(int fd, int from_pid, uint32_t node, void* p);
 	int (*fcntl)(int fd, int from_pid, fsinfo_t* info, int cmd, proto_t* in, proto_t* out, void* p);
 	int (*set)(int from_pid, fsinfo_t* info, void* p);
+	char* (*cmd)(int from_pid, const char* cmd, void* p);
 	int (*mount)(fsinfo_t* mnt_point, void* p);
 	int (*umount)(uint32_t node, void* p);
 	int (*unlink)(fsinfo_t* info, const char* fname, void* p);
@@ -39,9 +40,14 @@ typedef struct {
 
 extern int device_run(vdevice_t* dev, const char* mnt_point, int mnt_type, int mode);
 
+extern int dev_get_pid(const char* fname);
+
+extern char* dev_cmd_by_pid(int pid, const char* cmd);
+extern char* dev_cmd(const char* fname, const char* cmd);
+
 extern int dev_cntl(const char* fname, int cmd, proto_t* in, proto_t* out);
 extern int dev_cntl_by_pid(int pid, int cmd, proto_t* in, proto_t* out);
-extern int dev_get_pid(const char* fname);
+
 extern fsinfo_t*  dev_get_file(int fd, int pid, uint32_t node);
 extern int dev_update_file(int fd, int from_pid, fsinfo_t* finfo);
 
