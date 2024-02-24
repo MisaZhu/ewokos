@@ -8,6 +8,7 @@
 #include <ewoksys/timer.h>
 #include <ewoksys/syscall.h>
 #include <ewoksys/interrupt.h>
+#include <ewoksys/mstr.h>
 #include <ewoksys/kernel_tic.h>
 
 typedef struct interrupt_st {
@@ -149,6 +150,28 @@ static int timer_dcntl(int from_pid, int cmd, proto_t* in, proto_t* ret, void* p
 	return 0;
 }
 
+static char* timer_cmd(int from_pid, int argc, char** argv, void* p) {
+	if(strcmp(argv[0], "list") == 0) {
+		str_t* str = str_new("");
+		interrupt_t* intr = _intr_list;
+		while(intr != NULL) {
+			char item[32];
+			if(intr->timer_usec >= 1000000)
+				snprintf(item, 31, "%4d: %4d sec\n", intr->pid, intr->timer_usec/1000000);
+			else if(intr->timer_usec >= 1000)
+				snprintf(item, 31, "%4d: %4d msec\n", intr->pid, intr->timer_usec/1000);
+			else
+				snprintf(item, 31, "%4d: %4d usec\n", intr->pid, intr->timer_usec);
+			str_add(str, item);
+			intr = intr->next;
+		}
+		char* ret = str->cstr;
+		str->cstr = NULL;
+		str_free(str);
+		return ret;
+	}
+	return NULL;
+}
 
 int main(int argc, char** argv) {
 	const char* mnt_point = argc > 1 ? argv[1]: "/dev/timer";
@@ -160,6 +183,7 @@ int main(int argc, char** argv) {
 	memset(&dev, 0, sizeof(vdevice_t));
 	strcpy(dev.name, "timer");
 	dev.dev_cntl = timer_dcntl;
+	dev.cmd = timer_cmd;
 
 	device_run(&dev, mnt_point, FS_TYPE_CHAR, 0444);
 	return 0;

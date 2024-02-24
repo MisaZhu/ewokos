@@ -411,20 +411,67 @@ static void do_set(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, void
 	PF->addi(out, res);
 }
 
+static char* read_cmd_arg(char* cmd, int* offset) {
+	char* p = NULL;
+	uint8_t quotes = 0;
+
+	while(cmd[*offset] != 0) {
+		char c = cmd[*offset];
+		(*offset)++;
+		if(quotes) { //read whole quotes content.
+			if(c == '"') {
+				cmd[*offset-1] = 0;
+				return p;
+			}
+			continue;
+		}
+		if(c == ' ') { //read next arg.
+			if(p == NULL) //skip begin spaces.
+				continue;
+			cmd[*offset-1] = 0;
+			break;
+		}
+		else if(p == NULL) {
+			if(c == '"') { //if start of quotes.
+				quotes = 1;
+				(*offset)++;
+			}
+			p = cmd + *offset - 1;
+		}
+	}
+	return p;
+}
+
+#define ARG_MAX 16
 static void do_cmd(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, void* p) {
 	const char* cmd = proto_read_str(in);
 	if(cmd == NULL || cmd[0] == 0) {
 		return;
 	}
 
-	if(strcmp(cmd, "cmd.echo") == 0) {
-		PF->adds(out, cmd);
-		return;
+	char* argv[ARG_MAX] = {0};
+	int argc = 0;
+	int offset = 0;
+
+	while(argc < ARG_MAX) {
+		char* arg = read_cmd_arg((char*)cmd, &offset); 
+		if(arg == NULL || arg[0] == 0)
+			break;
+		argv[argc] = (char*)malloc(strlen(arg)+1);
+		strcpy(argv[argc], arg);
+		argc++;
 	}
 
 	char* res = NULL;
 	if(dev != NULL && dev->cmd != NULL)
-		res = dev->cmd(from_pid, cmd, p);
+		res = dev->cmd(from_pid, argc, argv, p);
+
+	argc = 0;
+	while(argc < ARG_MAX) {
+		if(argv[argc] != NULL)
+			free(argv[argc]);
+		argc++;
+	}
 
 	if(res != NULL) {
 		PF->adds(out, res);

@@ -17,7 +17,7 @@ int main(int argc, char* argv[]) {
 		return -1;
 	}
 
-	printf("%s\n", ret);
+	printf("%s", ret);
 	free(ret);
 	return 0;
 }

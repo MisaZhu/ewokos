@@ -143,6 +143,7 @@ void _start(void) {
 	proc_exit();
 	_libc_exit();
 
+	argc = 0;
 	while(argc < ARG_MAX) {
 		if(argv[argc] != NULL)
 			free(argv[argc]);
