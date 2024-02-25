@@ -152,16 +152,16 @@ static int timer_dcntl(int from_pid, int cmd, proto_t* in, proto_t* ret, void* p
 
 static char* timer_cmd(int from_pid, int argc, char** argv, void* p) {
 	if(strcmp(argv[0], "list") == 0) {
-		str_t* str = str_new("");
+		str_t* str = str_new("pid  timer\n");
 		interrupt_t* intr = _intr_list;
 		while(intr != NULL) {
 			char item[32];
 			if(intr->timer_usec >= 1000000)
-				snprintf(item, 31, "%4d: %4d sec\n", intr->pid, intr->timer_usec/1000000);
+				snprintf(item, 31, "%-4d  %4d sec\n", intr->pid, intr->timer_usec/1000000);
 			else if(intr->timer_usec >= 1000)
-				snprintf(item, 31, "%4d: %4d msec\n", intr->pid, intr->timer_usec/1000);
+				snprintf(item, 31, "%-4d  %4d msec\n", intr->pid, intr->timer_usec/1000);
 			else
-				snprintf(item, 31, "%4d: %4d usec\n", intr->pid, intr->timer_usec);
+				snprintf(item, 31, "%-4d  %4d usec\n", intr->pid, intr->timer_usec);
 			str_add(str, item);
 			intr = intr->next;
 		}

@@ -1399,6 +1399,8 @@ int xserver_step(void* p) {
 	return 0;
 }
 
+char* xserver_dev_cmd(int from_pid, int argc, char** argv, void* p);
+
 int main(int argc, char** argv) {
 	const char* mnt_point = argc > 1 ? argv[1]: "/dev/x";
 	const char* display_man = argc > 2 ? argv[2]: "/dev/display";
@@ -1420,6 +1422,7 @@ int main(int argc, char** argv) {
 	dev.close = xserver_win_close;
 	dev.open = xserver_win_open;
 	dev.dev_cntl = xserver_dev_cntl;
+	dev.cmd = xserver_dev_cmd;
 	dev.loop_step = xserver_step;
 	dev.extra_data = &x;
 

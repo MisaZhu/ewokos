@@ -7,7 +7,7 @@ LDFLAGS = -L$(BUILD_DIR)/lib
 
 CFLAGS += -I $(BUILD_DIR)/include -I./
 
-XSERVERD_OBJS = xserverd.o  cursor.o xevtpool.o
+XSERVERD_OBJS = xserverd.o  cursor.o xevtpool.o xcmd.o
 
 XSERVERD = $(TARGET_DIR)/drivers/xserverd
 

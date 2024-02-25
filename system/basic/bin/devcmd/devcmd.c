@@ -57,7 +57,7 @@ int32_t cmd_gets(int fd, str_t* buf) {
 }
 
 static void prompt(const char* dev_name) {
-	printf("%s> ", dev_name);
+	printf("devcmd: %s> ", dev_name);
 }
 
 int devcmd(const char* dev_name) {
