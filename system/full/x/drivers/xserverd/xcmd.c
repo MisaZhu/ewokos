@@ -15,9 +15,7 @@ char* xserver_dev_cmd(int from_pid, int argc, char** argv, void* p) {
             win = win->next;
             i++;
         }
-		char* ret = str->cstr;
-		str->cstr = NULL;
-		str_free(str);
+		char* ret = str_detach(str);
 		return ret;
 	}
 	return NULL;
