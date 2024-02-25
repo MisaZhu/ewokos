@@ -95,13 +95,21 @@ int main(int argc, char* argv[]) {
 		return devcmd(argv[1]);
 	}
 
-	ret = dev_cmd(argv[1], argv[2]);
+	str_t* args = str_new("");
+	for(int i=2; i<argc; i++) {
+		str_add(args, argv[i]);
+		str_add(args, " ");
+	}
+
+	ret = dev_cmd(argv[1], args->cstr);
+	str_free(args);
+
 	if(ret == NULL) {
 		printf("devcmd failed!\n");
 		return -1;
 	}
 
-	printf("%s", ret);
+	printf("%s\n", ret);
 	free(ret);
 	return 0;
 }
