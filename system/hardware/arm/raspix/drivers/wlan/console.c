@@ -1,5 +1,6 @@
 #include "types.h"
 #include "include/brcm.h"
+#include "log.h"
 
 static struct brcmf_console *_console = NULL;
 
@@ -8,7 +9,7 @@ void brcm_console_init(uint32_t addr){
         _console = calloc(1, sizeof(struct brcmf_console));
     }
     _console->console_addr = addr;
-    klog("%s %x\n", __func__, addr);
+    brcm_klog("%s %x\n", __func__, addr);
 }
 
 
@@ -32,7 +33,7 @@ int brcmf_sdio_readconsole(void)
     /* Allocate console buffer (one time only) */
     if (_console->buf == NULL) {
         _console->bufsize = le32_to_cpu(_console->log_le.buf_size);
-        klog("%d\n", _console->bufsize);
+        brcm_klog("%d\n", _console->bufsize);
         _console->buf = malloc(_console->bufsize);
         if (_console->buf == NULL)
             return -ENOMEM;
@@ -80,7 +81,7 @@ int brcmf_sdio_readconsole(void)
             if (line[n - 1] == '\r')
                 n--;
             line[n] = 0;
-            klog("CONSOLE: %s\n", line);
+            brcm_klog("CONSOLE: %s\n", line);
         }
     }
 break2:

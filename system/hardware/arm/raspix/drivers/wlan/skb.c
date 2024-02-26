@@ -1,6 +1,7 @@
 #include <unistd.h>
 
 #include "skb.h"
+#include "log.h"
 
 
 
@@ -27,7 +28,7 @@ void *skb_put(struct sk_buff* skb, int size){
     void* ret = skb->data;
     skb->len += size;
     if(skb->data + skb->len > skb->mem + skb->total){
-        klog("reach skb buffer max extend:%d \n", SKB_MAX_EXTEND);
+        brcm_klog("reach skb buffer max extend:%d \n", SKB_MAX_EXTEND);
     }
     return ret;
 }
@@ -39,7 +40,7 @@ void *skb_push(struct sk_buff* skb, int size){
     skb->len += size;
     skb->data -= size;
     if(skb->data < skb->mem){
-        klog("reach skb buffer min extend:%d \n", SKB_MAX_EXTEND);
+        brcm_klog("reach skb buffer min extend:%d \n", SKB_MAX_EXTEND);
     }
     return ret;
 }
@@ -51,7 +52,7 @@ void *skb_pull(struct sk_buff* skb, int size){
     skb->len -= size;
     skb->data += size;
     if(skb->data > skb->mem + skb->total){
-        klog("reach skb buffer max extend:%d \n", SKB_MAX_EXTEND);
+        brcm_klog("reach skb buffer max extend:%d \n", SKB_MAX_EXTEND);
     }
     return ret;
 }
@@ -61,7 +62,7 @@ void skb_reserve(struct sk_buff* skb, int size){
         return;
     skb->data += size;
     if(skb->data > skb->mem + skb->total){
-        klog("reach skb buffer max extend:%d \n", SKB_MAX_EXTEND);
+        brcm_klog("reach skb buffer max extend:%d \n", SKB_MAX_EXTEND);
     }
 }
 

@@ -2,6 +2,9 @@
 #include "mmc.h"
 #include "sdio.h"
 #include "sdhci.h"
+#include "log.h"
+
+#define MMC_DEBUG	0
 
 #define MMC_BLOCK_SIZE  512
 static struct mmc _mmc;
@@ -25,11 +28,13 @@ int mmc_io_rw_direct_host(int write, unsigned fn,
 	cmd.resp_type = MMC_RSP_SPI_R5 | MMC_RSP_R5 | MMC_CMD_AC;
 
 	err = sdhci_send_command(&cmd, 0);
-	
+
+#if MMC_DEBUG
 	if(out)
-        klog("%s w:%d f:%d a:%x in:%x out:%x\n", __func__, write, fn, addr, in, cmd.response[0] & 0xFF);
+        brcm_klog("%s w:%d f:%d a:%x in:%x out:%x\n", __func__, write, fn, addr, in, cmd.response[0] & 0xFF);
     else
-        klog("%s w:%d f:%d a:%x in:%x\n", __func__, write, fn, addr, in);
+        brcm_klog("%s w:%d f:%d a:%x in:%x\n", __func__, write, fn, addr, in);
+#endif
 
 	if (err){
 		return err;
@@ -91,15 +96,16 @@ int mmc_io_rw_extended(int write, int fn,
 
     err = sdhci_send_command(&cmd, &data);
 
-	klog("%s w:%d f:%d a:%x%s b:%d s:%d r:%d  [", 
-		__func__, write, fn, addr, incr_addr?"+":" ", blocks, blksz, err);
-	for(int i = 0; i< min(16, blksz) ; i++)
-		klog("%02x ", buf[i]);
-	if(blksz > 16)
-		klog("...]\n");
-	else
-		klog("]\n");
-
+#if 1//MMC_DEBUG
+	if(fn == 2){ //dont dump interrupt and console data
+		brcm_klog("%s w:%d f:%d a:%x%s b:%d s:%d r:%d ",
+			__func__, write, fn, addr, incr_addr?"+":" ", blocks, blksz, err);
+		if(blksz <= 4 || fn != 2)
+			brcm_klog("[%02x %02x %02x %02x]\n", buf[0], buf[1], buf[2], buf[3]);
+		else
+			hexdump("", buf, min(blksz, 256));
+	}
+#endif
 	if (err){
 		return err;
 	}
@@ -453,7 +459,7 @@ static int mmc_startup(struct mmc *mmc)
 		cmd.cmdarg = (mmc->dsr & 0xffff) << 16;
 		cmd.resp_type = MMC_RSP_NONE;
 		if (sdhci_send_command(&cmd, NULL))
-			klog("MMC: SET_DSR failed\n");
+			brcm_klog("MMC: SET_DSR failed\n");
 	}
 
 	/* Select the card, and put it into Transfer Mode */

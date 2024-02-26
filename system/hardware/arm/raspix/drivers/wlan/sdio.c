@@ -1,5 +1,6 @@
 #include "types.h"
 #include "sdio.h"
+#include "log.h"
 
 #define MMC_BLOCK_SIZE(fn)  (((fn)==2)?(512):(64))
 #define sdio_func_id(x)  (x)
@@ -189,7 +190,7 @@ int sdio_enable_func(int func)
     if (!func)
         return -EINVAL;
 
-    klog("SDIO: Enabling device %d...\n", sdio_func_id(func));
+    brcm_klog("SDIO: Enabling device %d...\n", sdio_func_id(func));
 
     ret = mmc_io_rw_direct(0, 0, SDIO_CCCR_IOEx, 0, &reg);
     if (ret)
@@ -217,7 +218,7 @@ int sdio_enable_func(int func)
     return 0;
 
 err:
-    klog("SDIO: Failed to enable device %s\n", sdio_func_id(func));
+    brcm_klog("SDIO: Failed to enable device %s\n", sdio_func_id(func));
     return ret;
 }
 
@@ -229,7 +230,7 @@ int sdio_disable_func(int func)
 	if (!func)
 		return -EINVAL;
 
-	klog("SDIO: Disabling device %d ...\n", func);
+	brcm_klog("SDIO: Disabling device %d ...\n", func);
 
 	ret = mmc_io_rw_direct(0, 0, SDIO_CCCR_IOEx, 0, &reg);
 	if (ret)
@@ -244,7 +245,7 @@ int sdio_disable_func(int func)
 	return 0;
 
 err:
-	klog("SDIO: Failed to disable device %d\n", func);
+	brcm_klog("SDIO: Failed to disable device %d\n", func);
 	return ret;
 }
 
@@ -256,7 +257,7 @@ int sdio_claim_irq(int func)
     if (!func)
         return -EINVAL;
 
-    klog("SDIO: Enabling IRQ for %s...\n", sdio_func_id(func));
+    brcm_klog("SDIO: Enabling IRQ for %s...\n", sdio_func_id(func));
 
     ret = mmc_io_rw_direct(0, 0, SDIO_CCCR_IENx, 0, &reg);
     if (ret)

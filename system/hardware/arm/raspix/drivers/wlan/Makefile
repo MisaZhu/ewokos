@@ -16,7 +16,8 @@ BRCMFMACD_OBJS = main.o \
 				 chip.o \
 				 firmware.o \
 				 command.o \
-				 console.o 
+				 console.o \
+				 log.o 
 #			 	cfg80211.o
  
 BRCMFMACD = $(TARGET_DIR)/drivers/raspix/wland

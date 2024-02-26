@@ -236,11 +236,27 @@ typedef __u32 __bitwise __wsum;
 #define BIT(x) (0x1<<(x))
 
 
+
+#define swap16(x)        ( (((*(short int *)&x) & 0xff00) >> 8) | \
+                                      (((*(short int *)&x) & 0x00ff) << 8) )
+ 
+#define swap32(x)        ( (((*(long int *)&x) & 0xff000000) >> 24) | \
+                                      (((*(long int *)&x) & 0x00ff0000) >> 8) | \
+                                      (((*(long int *)&x) & 0x0000ff00) << 8) | \
+									  (((*(long int *)&x) & 0x000000ff) << 24) )
+
 #define cpu_to_le32(x)  (x)
 #define le32_to_cpu(x)  (x)
 
 #define cpu_to_le16(x)  (x)
 #define le16_to_cpu(x)  (x)
+
+
+#define cpu_to_be32(x)  swap32(x)
+#define be32_to_cpu(x)  swap32(x)
+
+#define cpu_to_be16(x)  swap16(x)
+#define be16_to_cpu(x)  swap16(x)
 
 #define roundup(x, y)   ((((x) + ((y) - 1)) / (y)) * (y))
 #define rounddown(x, y) ((x) - ((x) % (y)))
@@ -256,5 +272,16 @@ typedef __u32 __bitwise __wsum;
 
 
 #define get_unaligned_le16(x)	((*(uint8_t*)(x))) + ((*(((uint8_t*)(x) + 1))) << 8)
+
+
+#ifndef setbit
+#ifndef NBBY            /* the BSD family defines NBBY */
+#define NBBY    8       /* 8 bits per byte */
+#endif              /* #ifndef NBBY */
+#define setbit(a, i)    (((u8 *)a)[(i)/NBBY] |= 1<<((i)%NBBY))
+#define clrbit(a, i)    (((u8 *)a)[(i)/NBBY] &= ~(1<<((i)%NBBY)))
+#define isset(a, i) (((const u8 *)a)[(i)/NBBY] & (1<<((i)%NBBY)))
+#define isclr(a, i) ((((const u8 *)a)[(i)/NBBY] & (1<<((i)%NBBY))) == 0)
+#endif              /* setbit */
 
 #endif

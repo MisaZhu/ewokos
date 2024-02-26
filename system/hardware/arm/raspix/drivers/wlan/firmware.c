@@ -6,6 +6,7 @@
 #include <netinet/if_ether.h>
 #include "firmware.h"
 #include "chip.h"
+#include "log.h"
 
 #define BRCMF_FW_MAX_NVRAM_SIZE			64000
 #define BRCMF_FW_NVRAM_DEVPATH_LEN		19	/* devpath0=pcie/1/4/ */
@@ -91,7 +92,7 @@ static enum nvram_parser_state brcmf_nvram_handle_idle(struct nvram_parser *nvp)
 		nvp->entry = nvp->pos;
 		return KEY;
 	}
-	klog("warning: ln=%d:col=%d: ignoring invalid character\n",
+	brcm_klog("warning: ln=%d:col=%d: ignoring invalid character\n",
 		  nvp->line, nvp->column);
 proceed:
 	nvp->column++;
@@ -122,7 +123,7 @@ static enum nvram_parser_state brcmf_nvram_handle_key(struct nvram_parser *nvp)
 		    strncmp(&nvp->data[nvp->entry], "macaddr", 7) == 0)
 			st = COMMENT;
 	} else if (!is_nvram_char(c) || c == ' ') {
-		klog("warning: ln=%d:col=%d: '=' expected, skip invalid key entry\n",
+		brcm_klog("warning: ln=%d:col=%d: '=' expected, skip invalid key entry\n",
 			  nvp->line, nvp->column);
 		return COMMENT;
 	}
@@ -446,4 +447,9 @@ uint8_t* brcmf_fw_get_firmware(int* len){
 
 uint8_t* brcmf_fw_get_nvram(int* len){
     return brcmf_fw_nvram_strip(brcmfmac43455_sdio_txt, brcmfmac43455_sdio_txt_len, len);
+}
+
+uint8_t* brcmf_fw_get_clm(int* len){
+	*len = cyfmac43455_sdio_clm_blob_len;
+	return cyfmac43455_sdio_clm_blob;
 }
