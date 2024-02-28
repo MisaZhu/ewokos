@@ -17,6 +17,7 @@ BRCMFMACD_OBJS = main.o \
 				 firmware.o \
 				 command.o \
 				 console.o \
+				 qbuf.o \
 				 log.o 
 #			 	cfg80211.o
  

@@ -184,12 +184,51 @@ void bcm283x_mbox_pin_ctrl(int idx, int dir, int on) {
 	bcm283x_mailbox_read(PROPERTY_CHANNEL, &msg);
 }
 
+static int net_read(int fd, int from_pid, fsinfo_t* node,
+		void* buf, int size, int offset, void* p) {
+	(void)fd;
+	(void)from_pid;
+	(void)p;
+	(void)node;
+
+	int len = brcm_recv(buf + offset, size);
+	return len?len:VFS_ERR_RETRY; 
+}
+
+static int net_write(int fd, int from_pid, fsinfo_t* node,
+		void* buf, int size, int offset, void* p) {
+	(void)fd;
+	(void)from_pid;
+	(void)offset;
+	(void)p;
+	(void)node;
+	return brcm_send(buf + offset, size);
+}
+
+static int net_dcntl(int from_pid, int cmd, proto_t* in, proto_t* ret, void* p) {
+	uint8_t mac[6];
+	switch(cmd){
+		case 0:	{//get mac
+			get_ethaddr(mac);
+			PF->add(ret, mac, 6);
+			break;
+		}
+		case 1:
+		{//get buffer count
+			PF->addi(ret, brcm_check_data()!=0);
+			break;
+		}	
+		default:
+			break;
+	}
+	return 0;
+}
+
 int main(int argc, char** argv) {
 	_mmio_base = mmio_map();\
 	
 	bcm2835_power_on_module(BCM2835_MBOX_POWER_DEVID_SDHCI);
 
-	const char* mnt_point = argc > 1 ? argv[1]: "/dev/wlan0";
 	vdevice_t dev;
 	memset(&dev, 0, sizeof(vdevice_t));
 	strcpy(dev.name, "wlan");
@@ -200,7 +239,17 @@ int main(int argc, char** argv) {
 	bcm283x_mbox_pin_ctrl(2, 1, 1);
 	usleep(100000);
 	brcm_init();
-	//device_run(&dev, mnt_point, FS_TYPE_CHAR, 0666);
+
+
+	const char* mnt_point = argc > 1 ? argv[1]: "/dev/eth0";
+	strcpy(dev.name, "eth");
+	dev.read = net_read;
+	dev.write = net_write;
+	dev.dev_cntl = net_dcntl;
+	//dev.loop_step = net_loop;
+	device_run(&dev, mnt_point, FS_TYPE_CHAR, 0664);
+
+
 	return 0;
 }
 

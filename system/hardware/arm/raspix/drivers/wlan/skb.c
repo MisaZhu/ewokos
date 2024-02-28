@@ -13,7 +13,7 @@ struct sk_buff* skb_alloc(int size){
 
     skb->len = 0;
     skb->total =  size + SKB_MAX_EXTEND * 2;
-    skb->mem = malloc(skb->total);
+    skb->mem = calloc(1, skb->total);
     if(!skb->mem){
         free(skb);
         return NULL;

@@ -96,7 +96,7 @@ int mmc_io_rw_extended(int write, int fn,
 
     err = sdhci_send_command(&cmd, &data);
 
-#if 1//MMC_DEBUG
+#if MMC_DEBUG
 	if(fn == 2){ //dont dump interrupt and console data
 		brcm_klog("%s w:%d f:%d a:%x%s b:%d s:%d r:%d ",
 			__func__, write, fn, addr, incr_addr?"+":" ", blocks, blksz, err);

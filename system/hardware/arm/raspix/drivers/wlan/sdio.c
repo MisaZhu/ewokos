@@ -257,7 +257,7 @@ int sdio_claim_irq(int func)
     if (!func)
         return -EINVAL;
 
-    brcm_klog("SDIO: Enabling IRQ for %s...\n", sdio_func_id(func));
+    brcm_klog("SDIO: Enabling IRQ for %d...\n", sdio_func_id(func));
 
     ret = mmc_io_rw_direct(0, 0, SDIO_CCCR_IENx, 0, &reg);
     if (ret)

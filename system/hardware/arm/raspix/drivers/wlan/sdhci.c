@@ -280,19 +280,18 @@ static struct sdhci_host _host;
 static int bcm283x_sdhci_gpio_init(void){
     bcm283x_gpio_init();
 
-	//enable wifi power
-	bcm283x_gpio_config(41, GPIO_OUTPUT); 
-	bcm283x_gpio_clr(41);
+	// //enable wifi power
+	// bcm283x_gpio_config(41, GPIO_OUTPUT); 
+	// bcm283x_gpio_clr(41);
 
 	//set 32.768 clock for wifi module
 	writel(CM_PASSWORD|0x1, CM_GP2CTL);
 	while(1)  // Wait for clock to be !BUSY
   	{
 		uint32_t reg = readl(CM_GP2CTL);
-		brcm_klog("stop clock 0x%x\n", reg);
 		if(!(reg&CM_BUSY))
 			break;
-    	usleep( 1000000 );
+    	usleep( 1000 );
   	}
 	//32.768Hz = 19.2Mhz / (585 + 3840/4096)
 	brcm_klog("%08x\n", CM_PASSWORD | (585<<12)|(3840));
@@ -303,10 +302,9 @@ static int bcm283x_sdhci_gpio_init(void){
 
 	while(1){
 		uint32_t reg = readl(CM_GP2CTL);
-		brcm_klog("start clock 0x%x\n", reg);
 		if(reg&CM_BUSY)
 			break;
-		usleep(1000000);
+		usleep(1000);
 	}
 
 	bcm283x_gpio_config(43, GPIO_ALTF0);  //32k clock

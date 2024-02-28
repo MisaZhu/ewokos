@@ -811,7 +811,6 @@ static int brcmf_setup_wiphybands(int ifidx)
 
 int brcmf_c_preinit_dcmds(void)
 {
-    uint8_t mac_addr[6];
     u8 buf[BRCMF_DCMD_SMLEN];
     struct brcmf_rev_info_le revinfo;
     struct brcmf_rev_info ri;
@@ -986,8 +985,8 @@ int brcmf_c_preinit_dcmds(void)
 
     brcmf_fil_iovar_int_set(0, "p2p_disc", 1);
     
-    brcmf_fil_iovar_int_set(0, "bsscfg:p2p_state", 1);
-    brcmf_fil_iovar_int_set(0, "bsscfg:wsec", 1);
+    // brcmf_fil_iovar_int_set(0, "bsscfg:p2p_state", 1);
+    // brcmf_fil_iovar_int_set(0, "bsscfg:wsec", 1);
 
     /* Setup default scan channel time */
     err = brcmf_fil_cmd_int_set(0, BRCMF_C_SET_SCAN_CHANNEL_TIME,
@@ -1118,8 +1117,9 @@ void scan_result(void){
                         &result, sizeof(result));
 }
 
-void get_ethaddr(void){
-
+const uint8_t default_mac[6] = {0xb8, 0x27, 0xeb, 0x98, 0xc8, 0x86};
+void get_ethaddr(mac){
+    memcpy(mac, default_mac, 6);
 }
 
 static s32 brcmf_set_wpa_version(int ifidx)
@@ -1199,7 +1199,7 @@ int connect(const char*ssid, const char* pmk)
     const char ie[22] = {0x30, 0x14, 0x01, 0x00, 0x00, 0x0f, 0xac, 0x04, 
                          0x01, 0x00, 0x00, 0x0f, 0xac, 0x04, 0x01, 0x00, 
                          0x00, 0x0f, 0xac, 0x02, 0x80, 0x00};
-                         
+
     brcmf_fil_iovar_data_set(0, "wpaie", ie, sizeof(ie));
 
     err = brcmf_fil_iovar_int_set(0, "wpa_auth", WPA2_AUTH_UNSPECIFIED|WPA2_AUTH_PSK);
