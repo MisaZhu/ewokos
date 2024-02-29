@@ -9,7 +9,6 @@
 
 /bin/ipcserv /drivers/versatilepb/ps2keybd   /dev/keyb0
 /bin/ipcserv /drivers/versatilepb/ps2moused  /dev/mouse0
-/bin/ipcserv /drivers/vkeybd                 /dev/vkeyb /dev/keyb0
 
 /bin/ipcserv /drivers/versatilepb/powerd     /dev/power0
 #/bin/ipcserv /drivers/versatilepb/smc91c111d /dev/eth0

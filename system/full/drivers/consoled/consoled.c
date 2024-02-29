@@ -155,10 +155,32 @@ static int console_write(int fd,
 	return size;
 }
 
+static int _keyb_fd = -1;
+static const char* _keyb_dev = "/dev/keyb0";
+
+static int console_read(int fd,
+		int from_pid,
+		fsinfo_t* node,
+		void* buf,
+		int size,
+		int offset,
+		void* p) {
+
+	if(_keyb_fd < 0) {
+		_keyb_fd = open(_keyb_dev, O_RDONLY | O_NONBLOCK);
+		if(_keyb_fd < 0)
+			return 0;
+	}
+	return read(_keyb_fd, buf, size);
+}
+
 int main(int argc, char** argv) {
 	const char* mnt_point = argc > 1 ? argv[1]: "/dev/console0";
-	const char* display_dev = argc > 2 ? argv[2]: "/dev/display";
-	const uint32_t display_index = argc > 3 ? atoi(argv[3]): 0;
+	_keyb_dev = argc > 2 ? argv[2]: "/dev/keyb0";
+	const char* display_dev = argc > 3 ? argv[3]: "/dev/display";
+	const uint32_t display_index = argc > 4 ? atoi(argv[4]): 0;
+
+	_keyb_fd = -1;
 
 	fb_console_t _console;
 	init_console(&_console, display_dev, display_index);
@@ -168,6 +190,7 @@ int main(int argc, char** argv) {
 	memset(&dev, 0, sizeof(vdevice_t));
 	strcpy(dev.name, "console");
 	dev.write = console_write;
+	dev.read = console_read;
 	dev.extra_data = &_console;
 
 	device_run(&dev, mnt_point, FS_TYPE_CHAR, 0666);
