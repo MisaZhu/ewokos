@@ -151,6 +151,7 @@ static int console_write(int fd,
 
 	const char* pb = (const char*)buf;
 	gterminal_put(&console->terminal, pb, size);
+
 	flush(console);
 	return size;
 }
@@ -171,6 +172,7 @@ static int console_read(int fd,
 		if(_keyb_fd < 0)
 			return 0;
 	}
+
 	return read(_keyb_fd, buf, size);
 }
 

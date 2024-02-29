@@ -443,11 +443,27 @@ static char* read_cmd_arg(char* cmd, int* offset) {
 }
 
 #define ARG_MAX 16
+
+static char* gen_str(const char* s) {
+	char* res = (char*)malloc(strlen(s)+1);
+	strcpy(res, s);
+	return res;
+}
+
+static char* do_basic_cmd(vdevice_t* dev, int argc, char** argv) {
+	if(strcmp(argv[0], "dev.echo") == 0) {
+		if(argc > 1)
+			return gen_str(argv[1]);
+		else
+			return gen_str("");
+	}
+	return NULL;
+}
+
 static void do_cmd(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, void* p) {
 	const char* cmd = proto_read_str(in);
-	if(cmd == NULL || cmd[0] == 0) {
+	if(cmd == NULL || cmd[0] == 0)
 		return;
-	}
 
 	char* argv[ARG_MAX] = {0};
 	int argc = 0;
@@ -462,8 +478,11 @@ static void do_cmd(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, void
 		argc++;
 	}
 
-	char* res = NULL;
-	if(dev != NULL && dev->cmd != NULL)
+	if(argc == 0)
+		return;
+
+	char* res = do_basic_cmd(dev, argc, argv);
+	if(res == NULL && dev != NULL && dev->cmd != NULL)
 		res = dev->cmd(from_pid, argc, argv, p);
 
 	argc = 0;

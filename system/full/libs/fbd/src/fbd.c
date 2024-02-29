@@ -21,7 +21,6 @@ static fbinfo_t* _fbinfo = NULL;
 static int32_t _rotate = 0;
 static fbd_t* _fbd = NULL;
 static char _logo[256] = {0};
-static int _active_pid = -1;
 
 static int fb_fcntl(int fd, 
 		int from_pid,
@@ -136,9 +135,6 @@ static int do_fb_flush(int fd, int from_pid, fsinfo_t* info, void* p) {
 	(void)from_pid;
 	(void)info;
 
-	if(_active_pid >= 0 && from_pid != _active_pid)
-		return -1;
-
 	fb_dma_t* dma = (fb_dma_t*)p;
 	return do_flush(dma);
 }
@@ -182,23 +178,9 @@ static void read_config(uint32_t* w, uint32_t* h, uint8_t* dep, int32_t* rotate)
 	sconf_free(conf);
 }
 
-static char* fb_cmd(int from_pid, int argc, char** argv, void* p) {
-	if(strcmp(argv[0], "active") == 0) {
-		if(argc < 2) {
-			printf("Usage: active <pid>\n");
-			return NULL;
-		}
-		_active_pid = atoi(argv[1]);
-		char* ret = str_detach(str_new("OK"));
-		return ret;
-	}
-	return NULL;
-}
-
 int fbd_run(fbd_t* fbd, const char* mnt_name,
 		uint32_t def_w, uint32_t def_h, int32_t def_rotate) {
 	_fbd = fbd;
-	_active_pid = -1;
 	uint32_t w = def_w, h = def_h;
 	uint8_t dep = 32;
 	_rotate = def_rotate;
@@ -223,7 +205,6 @@ int fbd_run(fbd_t* fbd, const char* mnt_name,
 	dev.dma = fb_dma;
 	dev.flush = do_fb_flush;
 	dev.fcntl = fb_fcntl;
-	dev.cmd = fb_cmd;
 	dev.dev_cntl = fb_dev_cntl;
 
 	dev.extra_data = &dma;
