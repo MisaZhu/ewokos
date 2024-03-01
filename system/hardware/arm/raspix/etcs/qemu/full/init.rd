@@ -19,7 +19,6 @@
 /bin/ipcserv /drivers/xserverd        /dev/x
 #@/sbin/x/xmoused /dev/mouse0 &
 @/sbin/x/xim_none &
-@/sbin/x/xim_vkey 560 168&
 @/bin/x/xsession  &
 
 @/bin/ipcserv /drivers/consoled        0

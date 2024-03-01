@@ -20,7 +20,7 @@ static void input(int32_t x_pid, char c, int state) {
 }
 
 static void prompt(void) {
-	printf( "type '~' to exit. 'ESC' as HOME.\n"
+	printf( "type 'ctrl+c' to exit. 'ESC' as HOME.\n"
 			"+----------------------------------------+\n"
 			"|                                        |\n"
 			"|        [up]                   [x]      |\n"
@@ -69,10 +69,9 @@ int main(int argc, char* argv[]) {
 				continue;
 			}
 
-			if(c == '~')
+			if(c == 3) //ctrl+c
 				break;
-
-			if(c == 27) //esc
+			else if(c == 27) //esc
 				c = KEY_HOME;
 			else if(c == 'a')
 				c = KEY_BUTTON_A;
