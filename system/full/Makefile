@@ -20,6 +20,7 @@ extra_libs:
 
 bins:
 	cd bin; make
+	cd sbin; make
 
 xapps:
 	cd x; make
@@ -31,6 +32,7 @@ extra_driver:
 clean:
 	cd libs; make clean
 	cd bin; make clean
+	cd sbin; make clean
 	cd drivers; make clean
 	cd x; make clean
 	cd apps; make clean

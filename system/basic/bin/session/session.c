@@ -13,28 +13,27 @@ static void welcome(void) {
 	printf("%s", s);
 }
 
-static const char* _tty;
+static const char* _tty = "";
 static int doargs(int argc, char* argv[]) {
-	_tty = "/dev/tty0";
+	_tty = "";
 
 	int c = 0;
-  while (c != -1) {
-    c = getopt (argc, argv, "t:");
-    if(c == -1)
-      break;
+	while (c != -1) {
+		c = getopt (argc, argv, "t:");
+		if(c == -1)
+			break;
 
-    switch (c) {
-      case 't':
-        _tty = optarg;
-        break;
-      case '?':
-        return -1;
-      default:
-        c = -1;
-        break;
-    }
-  }
-
+		switch (c) {
+		case 't':
+			_tty = optarg;
+			break;
+		case '?':
+			return -1;
+		default:
+			c = -1;
+			break;
+		}
+	}
 	return optind;
 }
 
@@ -43,16 +42,18 @@ int main(int argc, char* argv[]) {
 	if(argind < 0)
 		return -1;
 
-	int fd = open(_tty, O_RDWR);
-	if(fd < 0) {
-		return -1;
-	}
+	if(_tty[0] != 0) {
+		int fd = open(_tty, O_RDWR);
+		if(fd < 0) {
+			return -1;
+		}
 
-	setenv("CONSOLE_ID", _tty);
-	dup2(fd, 0);
-	dup2(fd, 1);
-	dup2(fd, 2);
-	close(fd);
+		setenv("CONSOLE_ID", _tty);
+		dup2(fd, 0);
+		dup2(fd, 1);
+		dup2(fd, 2);
+		close(fd);
+	}
 
 	while(1) {
 		int pid;
