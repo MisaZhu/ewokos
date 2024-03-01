@@ -15,11 +15,15 @@ enum {
 	CORE_CMD_SET_ENV,
 	CORE_CMD_GET_ENV,
 	CORE_CMD_GET_ENVS,
-	CORE_CMD_CLONE
+	CORE_CMD_CLONE,
+	CORE_CMD_SET_UX,
+	CORE_CMD_GET_UX
 };
 
 void     schd_core_lock(void); 
 void     schd_core_unlock(void); 
+int      core_set_ux(int ux_index);
+int      core_get_ux(void);
 
 #define neon_lock schd_core_lock
 #define neon_unlock schd_core_unlock

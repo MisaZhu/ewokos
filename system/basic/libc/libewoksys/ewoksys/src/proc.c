@@ -14,9 +14,9 @@ bool _proc_global_need_lock = false;
 static pthread_mutex_t _proc_global_lock;
 static int _reent_dep = 0;
 
-static int _vfsd_pid;
-static int _cored_pid;
-static int _lock_thread;
+int _vfsd_pid = -1;
+int _cored_pid = -1;
+static int _lock_thread = -1;
 
 void proc_init(void) {
 	_vfsd_pid = -1;

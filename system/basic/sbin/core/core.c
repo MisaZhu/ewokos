@@ -20,9 +20,11 @@ typedef struct {
 } proc_info_t;
 
 static proc_info_t _proc_info_table[PROC_MAX];
+static int _ux_index = 0;
 
 static void core_init(void) {
 	int32_t i;
+	_ux_index = 0;
 
 	for(i = 0; i<PROC_MAX; i++) {
 		_proc_info_table[i].cwd = str_new("/");
@@ -134,6 +136,15 @@ static void do_proc_set_cwd(int pid, proto_t* in, proto_t* out) {
 
 	str_cpy(_proc_info_table[pid].cwd, s);
 	PF->clear(out)->addi(out, 0);
+}
+
+static void do_proc_set_ux(int pid, proto_t* in) {
+	int index = proto_read_int(in);
+	_ux_index = index;
+}
+
+static void do_proc_get_ux(int pid, proto_t* out) {
+	PF->addi(out, _ux_index);
 }
 
 static str_t* env_get(map_t* envs, const char* key) {
@@ -249,6 +260,12 @@ static void handle_ipc(int pid, int cmd, proto_t* in, proto_t* out, void* p) {
 		return;
 	case CORE_CMD_GET_ENVS:
 		do_proc_get_envs(pid, out);
+		return;
+	case CORE_CMD_SET_UX:
+		do_proc_set_ux(pid, in);
+		return;
+	case CORE_CMD_GET_UX:
+		do_proc_get_ux(pid, out);
 		return;
 	}
 }

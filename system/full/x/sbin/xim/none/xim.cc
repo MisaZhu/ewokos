@@ -7,6 +7,7 @@
 #include <ewoksys/proc.h>
 #include <ewoksys/keydef.h>
 #include <ewoksys/kernel_tic.h>
+#include <ewoksys/core.h>
 #include <x/xwin.h>
 #include <string.h>
 #include <ewoksys/timer.h>
@@ -147,6 +148,9 @@ public:
 		if(x_pid < 0)
 			x_pid = dev_get_pid("/dev/x");
 		if(x_pid <= 0 || keybFD < 0)
+			return;
+		int ux = core_get_ux();
+		if(ux != 8)
 			return;
 
 		char v[6];

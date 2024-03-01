@@ -5,7 +5,6 @@
 
 #/bin/ipcserv /drivers/fontd           /dev/font /usr/system/fonts/system.ttf /usr/system/fonts/system_cn.ttf
 /bin/ipcserv /drivers/fontd           /dev/font /usr/system/fonts/system.ttf
-/bin/ipcserv /drivers/consoled        /dev/console0
 
 /bin/ipcserv /drivers/versatilepb/ps2keybd   /dev/keyb0
 /bin/ipcserv /drivers/versatilepb/ps2moused  /dev/mouse0
@@ -20,10 +19,17 @@
 /bin/ipcserv /drivers/proc/stated     /proc/state
 
 @/sbin/sessiond &
+
+/bin/ipcserv /drivers/consoled        0
+@/bin/console /dev/console0&
+
+/bin/ipcserv /drivers/consoled        1
+@/bin/console /dev/console1&
+
 @/bin/session &
 
 @/bin/ipcserv /drivers/xserverd        /dev/x
 @/sbin/x/xmoused /dev/mouse0 &
-@/sbin/x/xim_none /dev/vkeyb &
+@/sbin/x/xim_none /dev/keyb0 &
 @/bin/x/xsession &
 

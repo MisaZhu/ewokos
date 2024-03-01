@@ -12,6 +12,7 @@
 #include <ewoksys/proc.h>
 #include <ewoksys/interrupt.h>
 #include <ewoksys/timer.h>
+#include <ewoksys/core.h>
 
 #define KCNTL 0x00
 #define KSTAT 0x04
@@ -68,6 +69,13 @@ static inline void empty(void) {
 #define RSHIFT 0x59
 #define CTRL   0x14
 
+static void do_ctrl(char c) {
+	if(c >= '1' && c <= '9') {
+		core_set_ux(c - '1');
+		return;
+	}
+}
+
 static int32_t keyb_handle(uint8_t scode) {
 	if(scode == 0)
 		return 0;
@@ -94,7 +102,12 @@ static int32_t keyb_handle(uint8_t scode) {
 		c = _utab[scode];
 	else 
 		c = _ltab[scode];
-	return c;
+
+	if(_held[CTRL] == 0)
+		return c;
+
+	do_ctrl(c);
+	return 0;
 }
 
 static charbuf_t *_buffer;

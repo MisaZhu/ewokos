@@ -34,6 +34,8 @@ void     proc_global_unlock(void);
 
 int      proc_exec(const char* cmd_line);
 
+extern int _vfsd_pid;
+extern int _cored_pid;
 extern bool _proc_global_need_lock;
 
 #ifdef __cplusplus

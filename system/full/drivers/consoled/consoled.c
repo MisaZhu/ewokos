@@ -12,6 +12,7 @@
 #include <sconf/sconf.h>
 #include <ewoksys/klog.h>
 #include <ewoksys/syscall.h>
+#include <ewoksys/core.h>
 #include <sysinfo.h>
 #include <font/font.h>
 
@@ -133,6 +134,7 @@ static void flush(fb_console_t* console) {
 	fb_flush(&console->fb, true);
 }
 
+static int _ux_index = 0;
 static int console_write(int fd, 
 		int from_pid,
 		fsinfo_t* node,
@@ -152,7 +154,8 @@ static int console_write(int fd,
 	const char* pb = (const char*)buf;
 	gterminal_put(&console->terminal, pb, size);
 
-	flush(console);
+	if(_ux_index == core_get_ux())
+		flush(console);
 	return size;
 }
 
@@ -167,6 +170,9 @@ static int console_read(int fd,
 		int offset,
 		void* p) {
 
+	if(_ux_index != core_get_ux())
+		return -1;
+
 	if(_keyb_fd < 0) {
 		_keyb_fd = open(_keyb_dev, O_RDONLY | O_NONBLOCK);
 		if(_keyb_fd < 0)
@@ -176,13 +182,25 @@ static int console_read(int fd,
 	return read(_keyb_fd, buf, size);
 }
 
+static int console_loop(void* p) {
+	if(_ux_index == core_get_ux())
+		flush((fb_console_t*)p);
+	usleep(200000);
+	return 0;
+}
+
 int main(int argc, char** argv) {
-	const char* mnt_point = argc > 1 ? argv[1]: "/dev/console0";
-	_keyb_dev = argc > 2 ? argv[2]: "/dev/keyb0";
-	const char* display_dev = argc > 3 ? argv[3]: "/dev/display";
-	const uint32_t display_index = argc > 4 ? atoi(argv[4]): 0;
+	_ux_index = 0;
+	if(argc > 1)
+		_ux_index = atoi(argv[1]);
+	char mnt_point[128];
+	snprintf(mnt_point, 127, "/dev/console%d", _ux_index);
 
 	_keyb_fd = -1;
+	_keyb_dev = argc > 2 ? argv[2]: "/dev/keyb0";
+
+	const char* display_dev = argc > 3 ? argv[3]: "/dev/display";
+	const uint32_t display_index = argc > 4 ? atoi(argv[4]): 0;
 
 	fb_console_t _console;
 	init_console(&_console, display_dev, display_index);
@@ -194,6 +212,7 @@ int main(int argc, char** argv) {
 	dev.write = console_write;
 	dev.read = console_read;
 	dev.extra_data = &_console;
+	dev.loop_step = console_loop;
 
 	device_run(&dev, mnt_point, FS_TYPE_CHAR, 0666);
 	close_console(&_console);
