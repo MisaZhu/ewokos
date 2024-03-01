@@ -177,7 +177,7 @@ static int console_read(int fd,
 	if(_keyb_fd < 0) {
 		_keyb_fd = open(_keyb_dev, O_RDONLY | O_NONBLOCK);
 		if(_keyb_fd < 0)
-			return 0;
+			return -1;
 	}
 
 	return read(_keyb_fd, buf, size);

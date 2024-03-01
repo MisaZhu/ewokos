@@ -14,7 +14,7 @@
 /bin/ipcserv /drivers/proc/stated     /proc/state
 
 @/sbin/sessiond &
-@/bin/session /bin/tsaver &
+@/bin/session &
 
 /bin/ipcserv /drivers/xserverd        /dev/x
 #@/sbin/x/xmoused /dev/mouse0 &
@@ -22,7 +22,5 @@
 @/sbin/x/xim_vkey 560 168&
 @/bin/x/xsession  &
 
-#@/bin/ipcserv /drivers/consoled        0
-#@/bin/console /dev/console0&
-#@/bin/ipcserv /drivers/consoled        1
-#@/bin/console /dev/console1&
+@/bin/ipcserv /drivers/consoled        0
+@/bin/console /dev/console0&
