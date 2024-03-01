@@ -58,6 +58,7 @@ int main(int argc, char *argv[])
                 dup2(clnt_sock, 1);
                 dup2(clnt_sock, 2);
                 close(clnt_sock);
+		        setenv("CONSOLE_ID", "telnet");
                 proc_exec("/bin/session");
             }
             else {

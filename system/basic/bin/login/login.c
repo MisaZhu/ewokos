@@ -67,13 +67,17 @@ int main(int argc, char* argv[]) {
 	(void)argc;
 	(void)argv;
 
+	const char* console = getenv("CONSOLE_ID");
+	if(console == NULL)
+		console = "-";
+
 	setbuf(stdout, NULL);
 	//session_info_t* info = check("root", "");  //if root have no password, run shell directly
 	session_info_t* info = NULL;
 	if(info == NULL || info->cmd[0] == 0) {
 		str_t* user = str_new("root");
 		str_t* password = str_new("");
-		printf("login: ");
+		printf("(%s)login: ", console);
 		input(user, true);
 		if(user->len > 0) {
 			int res = 0;

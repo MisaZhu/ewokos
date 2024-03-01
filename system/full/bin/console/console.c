@@ -23,6 +23,7 @@ int main(int argc, char** argv) {
 	dup2(fd, 2);
 	close(fd);
 
+	setenv("CONSOLE_ID", dev);
 	proc_exec("/bin/session");
 	return 0;
 }
