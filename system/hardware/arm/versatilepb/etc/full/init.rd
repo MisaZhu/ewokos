@@ -20,16 +20,18 @@
 
 @/sbin/sessiond &
 
-/bin/ipcserv /drivers/consoled        0
-@/bin/console /dev/console0&
-
-/bin/ipcserv /drivers/consoled        1
-@/bin/console /dev/console1&
-
 @/bin/session &
 
 @/bin/ipcserv /drivers/xserverd        /dev/x
 @/sbin/x/xmoused /dev/mouse0 &
 @/sbin/x/xim_none /dev/keyb0 &
 @/bin/x/xsession &
+
+
+@/bin/ipcserv /drivers/consoled        0
+@/bin/console /dev/console0&
+
+@/bin/ipcserv /drivers/consoled        1
+@/bin/console /dev/console1&
+
 
