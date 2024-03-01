@@ -77,13 +77,13 @@ int main(int argc, char* argv[]) {
 	if(info == NULL || info->cmd[0] == 0) {
 		str_t* user = str_new("root");
 		str_t* password = str_new("");
-		printf("(%s)login: ", console);
+		printf("[%s] login: ", console);
 		input(user, true);
 		if(user->len > 0) {
 			int res = 0;
 			info = check(user->cstr, password->cstr, &res); 
 			if(info == NULL && res != SESSION_ERR_USR) {
-				printf("password: ");
+				printf("[%s] password: ", console);
 				input(password, false);
 				info = check(user->cstr, password->cstr, &res); 
 			}
