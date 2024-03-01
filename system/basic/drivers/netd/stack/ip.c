@@ -246,6 +246,19 @@ ip_iface_alloc(const char *unicast, const char *netmask)
     return iface;
 }
 
+void ip_iface_update(struct ip_iface *iface, uint32_t ipaddr, uint32_t netmask, uint32_t gateway){
+    if(iface == NULL)
+        return;
+    iface->unicast = ipaddr;
+    iface->netmask = netmask;
+    iface->broadcast = (iface->unicast & iface->netmask) | ~iface->netmask;
+
+    if (!ip_route_add(IP_ADDR_ANY, IP_ADDR_ANY, gateway, iface)) {
+        errorf("ip_route_add() failure");
+        return -1;
+    } 
+}
+
 /* NOTE: must not be call after net_run() */
 int
 ip_iface_register(struct net_device *dev, struct ip_iface *iface)

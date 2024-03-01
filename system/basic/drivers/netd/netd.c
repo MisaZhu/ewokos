@@ -54,8 +54,10 @@ static int get_mac_address(char* dev, uint8_t* buf){
 	int ret = -1;
     proto_t  out;
     PF->init(&out);
-    if(dev_cntl(dev, 0, NULL, &out) == 0)
+    ret = dev_cntl(dev, 0, NULL, &out);
+	if(ret == 0){
         proto_read_to(&out, buf, 6);
+	}
     PF->clear(&out);
     return ret;
 }
@@ -306,12 +308,12 @@ static void* network_task(void* p) {
 #define LOOPBACK_IP_ADDR "127.0.0.1"
 #define LOOPBACK_NETMASK "255.0.0.0"
 
-#define ETHER_TAP_IP_ADDR "192.168.64.2"
-#define ETHER_TAP_NETMASK "255.255.255.0"
+#define ETHER_TAP_IP_ADDR "169.254.72.2"
+#define ETHER_TAP_NETMASK "255.255.0.0"
 
-#define DEFAULT_GATEWAY "192.168.64.1"
+//#define DEFAULT_GATEWAY "169.168.43.1"
 
-static char ETHER_TAP_HW_ADDR[32];
+char ETHER_TAP_HW_ADDR[32];
 static char ETHER_TAP_NAME[16];
 
 static void* network_loop(void* p) {
@@ -369,10 +371,17 @@ static int setup(void)
         klog("ip_iface_register() failure");
         return -1;
     }
-    if (ip_route_set_default_gateway(iface, DEFAULT_GATEWAY) == -1) {
-        klog("ip_route_set_default_gateway() failure");
+
+    // if (ip_route_set_default_gateway(iface, DEFAULT_GATEWAY) == -1) {
+    //     klog("ip_route_set_default_gateway() failure");
+    //     return -1;
+    // }
+
+	if(dhcp_run(dev) == -1){
+        klog("dhcp_run() failure");
         return -1;
-    }
+	}
+
     if (net_run() == -1) {
         klog("net_run() failure");
         return -1;
@@ -392,8 +401,8 @@ int gettimeofday_plat(struct timeval *tp, void *tzp){
 void mac2str(uint8_t *mac,  char* str){
 	for(int i = 0; i < 6; i++){
 		uint8_t val = mac[i];
-		uint8_t hval = val>4;
-		uint8_t lval = val%0xf;
+		uint8_t hval = (val>>4)&0xf;
+		uint8_t lval = val&0xf;
 
 		if(hval <= 9)
 			*str++ = hval + '0';
@@ -417,7 +426,7 @@ int main(int argc, char** argv) {
 	memset(&dev, 0, sizeof(vdevice_t));
 	strcpy(dev.name, "networkd");
 
-	get_mac_address(argv[2],  mac);
+	get_mac_address(net_dev,  mac);
 	mac2str(mac, ETHER_TAP_HW_ADDR);
 	strcpy(ETHER_TAP_NAME, net_dev);
 	setup();
