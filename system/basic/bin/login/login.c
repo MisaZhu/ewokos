@@ -30,7 +30,7 @@ static void input(str_t* s, bool show) {
 			continue;
 		}	
 
-		if (c == KEY_BACKSPACE) {
+		if (c == KEY_BACKSPACE || c == CONSOLE_LEFT) {
 			if (s->len > 0) {
 				//delete last char
 				if(show) {
