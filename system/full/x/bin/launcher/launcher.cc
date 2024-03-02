@@ -92,6 +92,7 @@ class LauncherView: public ListView {
 			proc_exec(item->fname->cstr); 
 		}
 		else {
+			proc_usleep(300000);
 			item->runPid = pid;
 			item->runPidUUID = proc_get_uuid(pid);
 		}
