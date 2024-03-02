@@ -480,7 +480,6 @@ static int brcmf_chip_dmp_erom_scan()
         /* finally a core to be added */
         core = brcmf_chip_add_core(id, base, wrap);
         core->rev = rev;
-        brcm_klog("add core %x %x %x %x\n",id , base, wrap, rev);
     }
 
     return 0;

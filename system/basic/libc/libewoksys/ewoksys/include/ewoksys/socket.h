@@ -2,6 +2,7 @@
 #define	_SYS_SOCKET_H	
 
 #include <stdint.h>
+#include <netinet/in.h>
 
 struct sockaddr
 {
@@ -30,23 +31,6 @@ struct hostent {
           struct addrinfo   *ai_next;
  };
 
-typedef struct in_addr {
-  union {
-    struct {
-      uint8_t s_b1;
-      uint8_t s_b2;
-      uint8_t s_b3;
-      uint8_t s_b4;
-    } S_un_b;
-    struct {
-      uint16_t s_w1;
-      uint16_t s_w2;
-    } S_un_w;
-    uint32_t S_addr;
-  } S_un;
-} IN_ADDR, *PIN_ADDR, *LPIN_ADDR;
-
-
 struct iphdr {
          uint8_t   tos;
          uint16_t  tot_len;
@@ -70,15 +54,6 @@ struct ip {
     uint8_t  ip_p;         
     uint16_t ip_sum;       
     struct   in_addr ip_src,ip_dst; 
-};
-
-
-struct sockaddr_in {
-	uint8_t    sin_len;
-	uint8_t sin_family;
-	uint16_t   sin_port;
-	struct	    in_addr sin_addr;
-	int8_t	    sin_zero[8];
 };
 
 struct msghdr {

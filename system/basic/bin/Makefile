@@ -32,6 +32,7 @@ builtin_apps:
 	cd rx;make
 	cd elfinfo;make
 	cd httpd;make 
+	cd dhcpcd;make 
 
 clean:
 	cd cp;make clean
@@ -63,4 +64,5 @@ clean:
 	cd rx;make clean
 	cd elfinfo;make clean
 	cd httpd;make clean
+	cd dhcpcd;make clean
 	cd whoami;make clean

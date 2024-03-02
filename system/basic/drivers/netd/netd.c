@@ -311,7 +311,7 @@ static void* network_task(void* p) {
 #define ETHER_TAP_IP_ADDR "169.254.72.2"
 #define ETHER_TAP_NETMASK "255.255.0.0"
 
-//#define DEFAULT_GATEWAY "169.168.43.1"
+#define DEFAULT_GATEWAY "169.254.72.1"
 
 char ETHER_TAP_HW_ADDR[32];
 static char ETHER_TAP_NAME[16];

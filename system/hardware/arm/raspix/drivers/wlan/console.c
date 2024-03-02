@@ -33,7 +33,6 @@ int brcmf_sdio_readconsole(void)
     /* Allocate console buffer (one time only) */
     if (_console->buf == NULL) {
         _console->bufsize = le32_to_cpu(_console->log_le.buf_size);
-        brcm_klog("%d\n", _console->bufsize);
         _console->buf = malloc(_console->bufsize);
         if (_console->buf == NULL)
             return -ENOMEM;

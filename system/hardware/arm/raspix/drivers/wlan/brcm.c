@@ -748,8 +748,6 @@ static int brcmf_sdio_htclk(bool on, bool pendok)
     u8 clkctl, clkreq, devctl;
     unsigned long timeout;
 
-    brcm_klog("brcmf_sdio_htclk %d %d\n", on, pendok);
-
     clkctl = 0;
 
     if (on) {
@@ -857,7 +855,6 @@ static int brcmf_sdio_htclk(bool on, bool pendok)
 /* Transition SD and backplane clock readiness */
 static int brcmf_sdio_clkctl( uint target, bool pendok)
 {
-    uint oldstate = bus->clkstate;
     /* Early exit if we're already there */
     if (bus->clkstate == target)
         return 0;
@@ -890,7 +887,6 @@ static int brcmf_sdio_clkctl( uint target, bool pendok)
         brcmf_sdio_sdclk(false);
         break;
     }
-    brcm_klog("clock contol %d -> %d\n", oldstate, bus->clkstate);
     return 0;
 }
 
@@ -1361,95 +1357,6 @@ static void pkt_align(struct sk_buff *p, int len, int align)
         skb_pull(p, datalign);
     skb_trim(p, len);
 }
-
-
-#if 0
-static void
-brcmf_sdio_read_control(u8 *hdr, uint len, uint doff)
-{
-    uint rdlen, pad;
-    u8 *buf = NULL, *rbuf;
-    int sdret;
-
-    if (bus->rxblen)
-        buf = malloc(bus->rxblen);
-    if (!buf)
-        goto done;
-
-    rbuf = bus->rxbuf;
-    pad = ((unsigned long)rbuf % bus->head_align);
-    if (pad)
-        rbuf += (bus->head_align - pad);
-
-    /* Copy the already-read portion over */
-    memcpy(buf, hdr, BRCMF_FIRSTREAD);
-    if (len <= BRCMF_FIRSTREAD)
-        goto gotpkt;
-
-    /* Raise rdlen to next SDIO block to avoid tail command */
-    rdlen = len - BRCMF_FIRSTREAD;
-    if (bus->roundup && bus->blocksize && (rdlen > bus->blocksize)) {
-        pad = bus->blocksize - (rdlen % bus->blocksize);
-        if ((pad <= bus->roundup) && (pad < bus->blocksize) &&
-            ((len + pad) < bus->sdiodev->bus_if->maxctl))
-            rdlen += pad;
-    } else if (rdlen % bus->head_align) {
-        rdlen += bus->head_align - (rdlen % bus->head_align);
-    }
-
-    /* Drop if the read is too big or it exceeds our maximum */
-    if ((rdlen + BRCMF_FIRSTREAD) > bus->sdiodev->bus_if->maxctl) {
-        brcmf_err("%d-byte control read exceeds %d-byte buffer\n",
-              rdlen, bus->sdiodev->bus_if->maxctl);
-        brcmf_sdio_rxfail(false, false);
-        goto done;
-    }
-
-    if ((len - doff) > bus->sdiodev->bus_if->maxctl) {
-        brcmf_err("%d-byte ctl frame (%d-byte ctl data) exceeds %d-byte limit\n",
-              len, len - doff, bus->sdiodev->bus_if->maxctl);
-        bus->sdcnt.rx_toolong++;
-        brcmf_sdio_rxfail(false, false);
-        goto done;
-    }
-
-    /* Read remain of frame body */
-    sdret = brcmf_sdiod_recv_buf(bus->sdiodev, rbuf, rdlen);
-    bus->sdcnt.f2rxdata++;
-
-    /* Control frame failures need retransmission */
-    if (sdret < 0) {
-        brcmf_err("read %d control bytes failed: %d\n",
-              rdlen, sdret);
-        bus->sdcnt.rxc_errors++;
-        brcmf_sdio_rxfail(true, true);
-        goto done;
-    } else
-        memcpy(buf + BRCMF_FIRSTREAD, rbuf, rdlen);
-
-gotpkt:
-
-    brcmf_dbg_hex_dump(BRCMF_BYTES_ON() && BRCMF_CTL_ON(),
-               buf, len, "RxCtrl:\n");
-
-    /* Point to valid data and indicate its length */
-    spin_lock_bh(&bus->rxctl_lock);
-    if (bus->rxctl) {
-        brcmf_err("last control frame is being processed.\n");
-        spin_unlock_bh(&bus->rxctl_lock);
-        vfree(buf);
-        goto done;
-    }
-    bus->rxctl = buf + doff;
-    bus->rxctl_orig = buf;
-    bus->rxlen = len - doff;
-    spin_unlock_bh(&bus->rxctl_lock);
-
-done:
-    /* Awake any waiters */
-    brcmf_sdio_dcmd_resp_wake(bus);
-}
-#endif 
 
 #define MAXCTL 1024*9
 
@@ -2307,25 +2214,9 @@ void brcmf_sdiod_probe(void){
 
     ret = sdio_set_block_size(2, 512);
     if (ret) {
-        brcm_klog("Failed to set F2 blocksize\n");
+        brcm_klog("Failed to set blocksize\n");
         return ret;
-    } else {
-        brcm_klog("set F2 blocksize to %d\n", 512);
-    }
-
-    ret = sdio_set_block_size(1, 64);
-    if (ret) {
-        brcm_klog("Failed to set F1 blocksize\n");
-        return ret;
-    }
-
-    ret = sdio_set_block_size(2, 512);
-    if (ret) {
-        brcm_klog("Failed to set F2 blocksize\n");
-        return ret;
-    } else {
-        brcm_klog("set F2 blocksize to %d\n", 512);
-    }
+    } 
 
     ret = sdio_enable_func(1);
     if (ret) {
@@ -2365,7 +2256,6 @@ void brcmf_sdiod_probe(void){
 
     brcmf_sdio_drivestrengthinit(6);
 
-    brcm_klog("Reset WLAN backplane...\n");
     uint32_t reg_val = brcmf_sdiod_func0_rb(SDIO_CCCR_BRCM_CARDCTRL, &err);
     if (err){
         brcm_klog("WLAN backplane reset error\n");
@@ -2380,12 +2270,11 @@ void brcmf_sdiod_probe(void){
         return;
     }
 
-    brcm_klog("Reset PMU...\n");
     struct brcmf_core* pmu = brcmf_chip_get_pmu();
     uint32_t reg_addr = CORE_CC_REG(pmu->base, pmucontrol);
     reg_val = brcmf_sdiod_readl(reg_addr, &err);
     if (err){
-        brcm_klog("PMU read error\n");
+        brcm_klog("PMU reset error\n");
         return;
     }
 
@@ -2420,8 +2309,6 @@ void brcmf_sdiod_probe(void){
     if (ret) {
         brcm_klog("Failed to set F3 blocksize\n");
         return ret;
-    } else {
-        brcm_klog("set F3 blocksize to %d\n", 512);
     }
 
     int fw_len;
@@ -2502,31 +2389,19 @@ void brcmf_sdiod_probe(void){
     brcmf_c_preinit_dcmds();
     scan();
     sleep(10);
-    //rokid guest
-    // const uint8_t pmk[] = {
-    //     0xcc, 0x78, 0xc4, 0x99, 0xa4, 0xd5, 0xff, 0x7a, 
-    //     0xc0, 0x17, 0x6a, 0x92, 0xac, 0x46, 0xec, 0x1b, 
-    //     0xe5, 0xa7, 0x1a, 0xb3, 0x48, 0x51, 0xbe, 0xbb, 
-    //     0xcb, 0x1c, 0x91, 0x20, 0xb0, 0x27, 0xaf, 0x5e
-    // };
-    //HUAWEI
-    // const uint8_t pmk[] = {
-    //     0x56, 0xe5, 0xa2, 0xbd, 0xb1, 0x02, 0xab, 0xff,
-    //     0x3b, 0xc8, 0x78, 0x8a, 0xa4, 0xc1, 0x39, 0x3a, 
-    //     0x06, 0xd0, 0x6f, 0x79, 0x0d, 0x37, 0x13, 0x70,
-    //     0x18, 0xe5, 0xd0, 0x4b, 0x57, 0x69, 0x00, 0x9c
-    // };
-    //wtest
-    const uint8_t pmk[] ={
-       0x94, 0x29, 0x0b, 0xda, 0xf4, 0x31, 0xd3, 0xc7, 
-       0x28, 0x42, 0x1f, 0x92, 0x60, 0x6f, 0x7d, 0xc9,
-       0x30, 0x44, 0x39, 0x2f, 0x92, 0x4e, 0x34, 0x44, 
-       0x6b, 0x97, 0xf7, 0x1b, 0x73, 0x4e, 0x5d, 0x09
-    };
-
-    connect("wtest", pmk);
-    //scan_result();
-    sleep(5);
+    /*use https://www.wireshark.org/tools/wpa-psk.html to genrate pmk*/
+    //const char *ssid = "wtest"
+    //const char *pmk = "94290bdaf431d3c728421f92606f7dc93044392f924e34446b97f71b734e5d09";
+    // const char *ssid = "ROKID.GUEST";
+    // const char *pmk = "cc78c499a4d5ff7ac0176a92ac46ec1be5a71ab34851bebbcb1c9120b027af5e";
+    // const char *ssid = "HUAWEI";
+    // const char *pmk="56e5a2bdb102abff3bc8788aa4c1393a06d06f790d37137018e5d04b5769009c";
+    //const char *ssid = "ROKID.TEST";
+    //const char *pmk="217936393596331ebf4f485f6739fc92ba75ddc74e1f5a89bc8d0fed0d06274d";
+    const char *ssid = "home";
+    //const char *pmk="d3dc50c4a0d0f312614f194a1be2d2d3449d4075704396faad56395d13b668a1";
+    const char *pmk="d1b3d69b49c6644ff98e17ff994efaa7bdc8127988f342404d774fbc0bbc4ba1";
+    connect(ssid, pmk);
 }
 
 

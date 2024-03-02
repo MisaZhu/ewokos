@@ -879,8 +879,6 @@ int sdhci_send_command(struct mmc_cmd *cmd, struct mmc_data *data)
 	}
 
 	sdhci_writel(host, cmd->cmdarg, SDHCI_ARGUMENT);
-	// if(data)
-	// 	dump(host);
 	sdhci_writew(host, SDHCI_MAKE_CMD(cmd->cmdidx, flags), SDHCI_COMMAND);
 	start = get_timer(0);
 	do {
@@ -986,6 +984,5 @@ void sdhci_init(void)
 	/* Mask all sdhci interrupt sources */
 	sdhci_writel(&_host, SDHCI_INT_DATA_MASK | SDHCI_INT_CMD_MASK,
 	 		SDHCI_SIGNAL_ENABLE);
-	dump(&_host);
 	return 0;
 }

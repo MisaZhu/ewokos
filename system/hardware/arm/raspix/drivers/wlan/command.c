@@ -404,25 +404,50 @@ static int brcmf_c_download(int ifidx, u16 flag,
     return err;
 }
 
-void brcmf_c_set_joinpref_default(int ifidx)
+static int brcmf_set_join_pref(int ifidx)
 {
     struct brcmf_join_pref_params join_pref_params[2];
-    int err;
+    enum nl80211_band band;
 
-    /* Setup join_pref to select target by RSSI (boost on 5GHz) */
+    //brcmf_fil_cmd_int_set(ifidx, BRCMF_C_SET_ASSOC_PREFER, WLC_BAND_AUTO);
+    brcmf_fil_cmd_int_set(ifidx, BRCMF_C_SET_ASSOC_PREFER, WLC_BAND_ALL);
+
     join_pref_params[0].type = BRCMF_JOIN_PREF_RSSI_DELTA;
     join_pref_params[0].len = 2;
-    join_pref_params[0].rssi_gain = 8;
-    join_pref_params[0].band = 1;
-
+    join_pref_params[0].rssi_gain = 0x8;
+    join_pref_params[0].band = 0x1;
     join_pref_params[1].type = BRCMF_JOIN_PREF_RSSI;
     join_pref_params[1].len = 2;
     join_pref_params[1].rssi_gain = 0;
     join_pref_params[1].band = 0;
-    err = brcmf_fil_iovar_data_set(ifidx, "join_pref", join_pref_params,
+    int err = brcmf_fil_iovar_data_set(0, "join_pref", &join_pref_params,
                        sizeof(join_pref_params));
-    if (err)
-        brcm_klog("Set join_pref error (%d)\n", err);
+    return err;
+}
+
+/* Join with specific  SSID
+*/
+static int brcmf_join(int ifidx, char* ssid)
+{
+    struct brcmf_ext_join_params_le ext_join_params = {0};
+
+    int ssid_len = min(strlen(ssid), 32);
+    ext_join_params.ssid_le.SSID_len = cpu_to_le32(ssid_len);
+    memcpy(&ext_join_params.ssid_le.SSID, ssid, strlen(ssid));
+    ext_join_params.scan_le.scan_type = -1;
+    ext_join_params.scan_le.home_time = cpu_to_le32(-1);
+    memset(ext_join_params.assoc_le.bssid, 0xFF, 6);
+    ext_join_params.scan_le.active_time = cpu_to_le32(-1);
+    ext_join_params.scan_le.passive_time = cpu_to_le32(-1);
+    ext_join_params.scan_le.nprobes = cpu_to_le32(-1);
+    ext_join_params.assoc_le.chanspec_num = cpu_to_le32(0);
+
+    brcmf_set_join_pref(0);
+
+    int err  = brcmf_fil_iovar_data_set(0, "join", &ext_join_params,
+                     sizeof(ext_join_params) - 4);
+
+    return err;
 }
 
 static int brcmf_c_process_clm_blob(int ifidx)
@@ -436,8 +461,6 @@ static int brcmf_c_process_clm_blob(int ifidx)
     u16 dl_flag = DL_BEGIN;
     u32 status;
     s32 err;
-
-    brcm_klog("%s\n", __func__);
 
     clm = brcmf_fw_get_clm(&datalen);
 
@@ -561,253 +584,7 @@ static void brcmf_get_bwcap(int ifidx, u32 bw_cap[])
         brcm_klog("invalid mimo_bw_cap value\n");
     }
 }
-#if 0
-static int brcmf_construct_chaninfo(int ifidx, struct brcmf_cfg80211_info *cfg,
-                    u32 bw_cap[])
-{
-    struct ieee80211_supported_band *band;
-    struct ieee80211_channel *channel;
-    struct brcmf_chanspec_list *list;
-    struct brcmu_chan ch;
-    int err;
-    u8 *pbuf;
-    u32 i, j;
-    u32 total;
-    u32 chaninfo;
 
-    pbuf = malloc(BRCMF_DCMD_MEDLEN);
-
-    if (pbuf == NULL)
-        return -ENOMEM;
-
-    list = (struct brcmf_chanspec_list *)pbuf;
-
-    err = brcmf_fil_iovar_data_get(ifidx, "chanspecs", pbuf,
-                       BRCMF_DCMD_MEDLEN);
-    if (err) {
-        brcm_klog("get chanspecs error (%d)\n", err);
-        goto fail_pbuf;
-    }
-
-    band = bands[NL80211_BAND_2GHZ];
-    if (band)
-        for (i = 0; i < band->n_channels; i++)
-            band->channels[i].flags = IEEE80211_CHAN_DISABLED;
-    band = bands[NL80211_BAND_5GHZ];
-    if (band)
-        for (i = 0; i < band->n_channels; i++)
-            band->channels[i].flags = IEEE80211_CHAN_DISABLED;
-
-    total = le32_to_cpu(list->count);
-    for (i = 0; i < total; i++) {
-        ch.chspec = (u16)le32_to_cpu(list->element[i]);
-        cfg->d11inf.decchspec(&ch);
-
-        if (ch.band == BRCMU_CHAN_BAND_2G) {
-            band = wiphy->bands[NL80211_BAND_2GHZ];
-        } else if (ch.band == BRCMU_CHAN_BAND_5G) {
-            band = wiphy->bands[NL80211_BAND_5GHZ];
-        } else {
-            brcm_klog("Invalid channel Spec. 0x%x.\n",
-                 ch.chspec);
-            continue;
-        }
-        if (!band)
-            continue;
-        if (!(bw_cap[band->band] & WLC_BW_40MHZ_BIT) &&
-            ch.bw == BRCMU_CHAN_BW_40)
-            continue;
-        if (!(bw_cap[band->band] & WLC_BW_80MHZ_BIT) &&
-            ch.bw == BRCMU_CHAN_BW_80)
-            continue;
-
-        channel = NULL;
-        for (j = 0; j < band->n_channels; j++) {
-            if (band->channels[j].hw_value == ch.control_ch_num) {
-                channel = &band->channels[j];
-                break;
-            }
-        }
-        if (!channel) {
-            /* It seems firmware supports some channel we never
-             * considered. Something new in IEEE standard?
-             */
-            brcm_klog("Ignoring unexpected firmware channel %d\n",
-                 ch.control_ch_num);
-            continue;
-        }
-
-        if (channel->orig_flags & IEEE80211_CHAN_DISABLED)
-            continue;
-
-        /* assuming the chanspecs order is HT20,
-         * HT40 upper, HT40 lower, and VHT80.
-         */
-        switch (ch.bw) {
-        case BRCMU_CHAN_BW_160:
-            channel->flags &= ~IEEE80211_CHAN_NO_160MHZ;
-            break;
-        case BRCMU_CHAN_BW_80:
-            channel->flags &= ~IEEE80211_CHAN_NO_80MHZ;
-            break;
-        case BRCMU_CHAN_BW_40:
-            brcmf_update_bw40_channel_flag(channel, &ch);
-            break;
-        default:
-            brcm_klog("Firmware reported unsupported bandwidth %d\n",
-                   ch.bw);
-        case BRCMU_CHAN_BW_20:
-            /* enable the channel and disable other bandwidths
-             * for now as mentioned order assure they are enabled
-             * for subsequent chanspecs.
-             */
-            channel->flags = IEEE80211_CHAN_NO_HT40 |
-                     IEEE80211_CHAN_NO_80MHZ |
-                     IEEE80211_CHAN_NO_160MHZ;
-            ch.bw = BRCMU_CHAN_BW_20;
-            cfg->d11inf.encchspec(&ch);
-            chaninfo = ch.chspec;
-            err = brcmf_fil_bsscfg_int_get(ifidx, "per_chan_info",
-                               &chaninfo);
-            if (!err) {
-                if (chaninfo & WL_CHAN_RADAR)
-                    channel->flags |=
-                        (IEEE80211_CHAN_RADAR |
-                         IEEE80211_CHAN_NO_IR);
-                if (chaninfo & WL_CHAN_PASSIVE)
-                    channel->flags |=
-                        IEEE80211_CHAN_NO_IR;
-            }
-        }
-    }
-
-fail_pbuf:
-    free(pbuf);
-    return err;
-}
-
-static void brcmf_update_ht_cap(struct ieee80211_supported_band *band,
-                u32 bw_cap[2], u32 nchain)
-{
-    band->ht_cap.ht_supported = true;
-    if (bw_cap[band->band] & WLC_BW_40MHZ_BIT) {
-        band->ht_cap.cap |= IEEE80211_HT_CAP_SGI_40;
-        band->ht_cap.cap |= IEEE80211_HT_CAP_SUP_WIDTH_20_40;
-    }
-    band->ht_cap.cap |= IEEE80211_HT_CAP_SGI_20;
-    band->ht_cap.cap |= IEEE80211_HT_CAP_DSSSCCK40;
-    band->ht_cap.ampdu_factor = IEEE80211_HT_MAX_AMPDU_64K;
-    band->ht_cap.ampdu_density = IEEE80211_HT_MPDU_DENSITY_16;
-    memset(band->ht_cap.mcs.rx_mask, 0xff, nchain);
-    band->ht_cap.mcs.tx_params = IEEE80211_HT_MCS_TX_DEFINED;
-}
-
-static void brcmf_update_vht_cap(struct ieee80211_supported_band *band,
-                 u32 bw_cap[2], u32 nchain, u32 txstreams,
-                 u32 txbf_bfe_cap, u32 txbf_bfr_cap)
-{
-    __le16 mcs_map;
-
-    /* not allowed in 2.4G band */
-    if (band->band == NL80211_BAND_2GHZ)
-        return;
-
-    band->vht_cap.vht_supported = true;
-    /* 80MHz is mandatory */
-    band->vht_cap.cap |= IEEE80211_VHT_CAP_SHORT_GI_80;
-    if (bw_cap[band->band] & WLC_BW_160MHZ_BIT) {
-        band->vht_cap.cap |= IEEE80211_VHT_CAP_SUPP_CHAN_WIDTH_160MHZ;
-        band->vht_cap.cap |= IEEE80211_VHT_CAP_SHORT_GI_160;
-    }
-    /* all support 256-QAM */
-    mcs_map = brcmf_get_mcs_map(nchain, IEEE80211_VHT_MCS_SUPPORT_0_9);
-    band->vht_cap.vht_mcs.rx_mcs_map = mcs_map;
-    band->vht_cap.vht_mcs.tx_mcs_map = mcs_map;
-
-    /* Beamforming support information */
-    if (txbf_bfe_cap & BRCMF_TXBF_SU_BFE_CAP)
-        band->vht_cap.cap |= IEEE80211_VHT_CAP_SU_BEAMFORMEE_CAPABLE;
-    if (txbf_bfe_cap & BRCMF_TXBF_MU_BFE_CAP)
-        band->vht_cap.cap |= IEEE80211_VHT_CAP_MU_BEAMFORMEE_CAPABLE;
-    if (txbf_bfr_cap & BRCMF_TXBF_SU_BFR_CAP)
-        band->vht_cap.cap |= IEEE80211_VHT_CAP_SU_BEAMFORMER_CAPABLE;
-    if (txbf_bfr_cap & BRCMF_TXBF_MU_BFR_CAP)
-        band->vht_cap.cap |= IEEE80211_VHT_CAP_MU_BEAMFORMER_CAPABLE;
-
-    if ((txbf_bfe_cap || txbf_bfr_cap) && (txstreams > 1)) {
-        band->vht_cap.cap |=
-            (2 << IEEE80211_VHT_CAP_BEAMFORMEE_STS_SHIFT);
-        band->vht_cap.cap |= ((txstreams - 1) <<
-                IEEE80211_VHT_CAP_SOUNDING_DIMENSIONS_SHIFT);
-        band->vht_cap.cap |=
-            IEEE80211_VHT_CAP_VHT_LINK_ADAPTATION_VHT_MRQ_MFB;
-    }
-}
-
-static int brcmf_setup_wiphybands(int ifidx)
-{
-    u32 nmode = 0;
-    u32 vhtmode = 0;
-    u32 bw_cap[2] = { 0x1, 0x1 };
-    u32 rxchain;
-    u32 nchain;
-    int err;
-    s32 i;
-    struct ieee80211_supported_band *band;
-    u32 txstreams = 0;
-    u32 txbf_bfe_cap = 0;
-    u32 txbf_bfr_cap = 0;
-
-    (void)brcmf_fil_iovar_int_get(0, "vhtmode", &vhtmode);
-    err = brcmf_fil_iovar_int_get(0, "nmode", &nmode);
-    if (err) {
-        brcm_klog("nmode error (%d)\n", err);
-    } else {
-        brcmf_get_bwcap(ifidx, bw_cap);
-    }
-    brcm_klog("nmode=%d, vhtmode=%d, bw_cap=(%d, %d)\n",
-          nmode, vhtmode, bw_cap[NL80211_BAND_2GHZ],
-          bw_cap[NL80211_BAND_5GHZ]);
-
-    err = brcmf_fil_iovar_int_get(ifidx, "rxchain", &rxchain);
-    if (err) {
-        brcm_klog("rxchain error (%d)\n", err);
-        nchain = 1;
-    } else {
-        for (nchain = 0; rxchain; nchain++)
-            rxchain = rxchain & (rxchain - 1);
-    }
-    dklog("nchain=%d\n", nchain);
-
-    err = brcmf_construct_chaninfo(cfg, bw_cap);
-    if (err) {
-        brcm_klog("brcmf_construct_chaninfo failed (%d)\n", err);
-        return err;
-    }
-
-    if (vhtmode) {
-        (void)brcmf_fil_iovar_int_get(ifidx, "txstreams", &txstreams);
-        (void)brcmf_fil_iovar_int_get(ifidx, "txbf_bfe_cap",
-                          &txbf_bfe_cap);
-        (void)brcmf_fil_iovar_int_get(ifidx, "txbf_bfr_cap",
-                          &txbf_bfr_cap);
-    }
-
-    for (i = 0; i < ARRAY_SIZE(bands); i++) {
-        band = bands[i];
-        if (band == NULL)
-            continue;
-
-        if (nmode)
-            brcmf_update_ht_cap(band, bw_cap, nchain);
-        if (vhtmode)
-            brcmf_update_vht_cap(band, bw_cap, nchain, txstreams,
-                         txbf_bfe_cap, txbf_bfr_cap);
-    }
-
-    return 0;
-}
-#endif
 
 int brcmf_c_preinit_dcmds(void)
 {
@@ -875,8 +652,7 @@ int brcmf_c_preinit_dcmds(void)
     memset(buf, 0, sizeof(buf));
     err = brcmf_fil_iovar_data_get(0, "ver", buf, sizeof(buf));
     if (err < 0) {
-        brcm_klog("Retrieving version information failed, %d\n",
-             err);
+        brcm_klog("Retrieving version information failed, %d\n", err);
         goto done;
     }
     ptr = (char *)buf;
@@ -891,15 +667,7 @@ int brcmf_c_preinit_dcmds(void)
     if (err) {
         brcm_klog("retrieving clmver failed, %d\n", err);
     } else {
-        clmver = (char *)buf;
-        /* store CLM version for adding it to revinfo debugfs file */
-        //memcpy(ifp->drvr->clmver, clmver, sizeof(ifp->drvr->clmver));
-
-        /* Replace all newline/linefeed characters with space
-         * character
-         */
-
-        brcm_klog("CLM version = %s\n", clmver);
+        brcm_klog("CLM version = %s\n", buf);
     }
 
     /* set mpc */
@@ -909,30 +677,12 @@ int brcmf_c_preinit_dcmds(void)
         goto done;
     }
 
-    brcmf_c_set_joinpref_default(0);
-
     /* Setup event_msgs, enable E_IF */
     int8_t  eventmask[18] = {0x61, 0x15, 0x0b, 0x00, 0x02, 0x42, 0xc0, 0x11, 
                              0x60, 0x09, 0x00, 0x10, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}; 
-    // err = brcmf_fil_iovar_data_get(0, "event_msgs", eventmask,
-    //                    BRCMF_EVENTING_MASK_LEN);
-    // if (err) {
-    //     brcm_klog("Get event_msgs error (%d)\n", err);
-    //     goto done;
-    // }
-    //setbit(eventmask, BRCMF_E_IF);
-    err = brcmf_fil_iovar_data_set(0, "event_msgs", eventmask,
-                       BRCMF_EVENTING_MASK_LEN);
+    err = brcmf_fil_iovar_data_set(0, "event_msgs", eventmask, BRCMF_EVENTING_MASK_LEN);
     if (err) {
         brcm_klog("Set event_msgs error (%d)\n", err);
-        goto done;
-    }
-
-    /* Setup default scan channel time */
-    err = brcmf_fil_cmd_int_set(0, BRCMF_C_SET_SCAN_CHANNEL_TIME, 40);
-    if (err) {
-        brcm_klog("BRCMF_C_SET_SCAN_CHANNEL_TIME error (%d)\n",
-             err);
         goto done;
     }
 
@@ -955,7 +705,6 @@ int brcmf_c_preinit_dcmds(void)
         brcm_klog("set bw_cap error %d\n", err);
 
     brcmf_fil_iovar_int_set(0, "tdls_enable", 1);
-
     //set contry code to CN
     uint8_t ccreq[12] = {0x43, 0x4e, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x43, 0x4e, 0x00, 0x00};
     err = brcmf_fil_iovar_data_set(0, "country", &ccreq, sizeof(ccreq));
@@ -964,17 +713,15 @@ int brcmf_c_preinit_dcmds(void)
         return;
     }
 
-    // err = brcmf_p2p_set_discover_state(0, 0, 0, 0);
-    // if (err < 0) {
-    //     brcm_klog("unable to set WL_P2P_DISC_ST_SCAN\n");
-    //     goto done;
-    // }
-
     err = brcmf_fil_iovar_int_set(0, "bcn_timeout", 4);
     if (err) {
         brcm_klog("bcn_timeout error (%d)\n", err);
     }
-    brcmf_fil_iovar_int_set(0, "roam_off", 1);
+
+    err =  brcmf_fil_iovar_int_set(0, "roam_off", 1);
+    if (err) {
+        brcm_klog("set roam error (%d)\n", err);
+    }
 
     err = brcmf_fil_iovar_int_set(0, "pm2_sleep_ret", 2000);
     if (err){
@@ -984,9 +731,6 @@ int brcmf_c_preinit_dcmds(void)
     brcmf_fil_iovar_int_set(0, "apsta", 1);
 
     brcmf_fil_iovar_int_set(0, "p2p_disc", 1);
-    
-    // brcmf_fil_iovar_int_set(0, "bsscfg:p2p_state", 1);
-    // brcmf_fil_iovar_int_set(0, "bsscfg:wsec", 1);
 
     /* Setup default scan channel time */
     err = brcmf_fil_cmd_int_set(0, BRCMF_C_SET_SCAN_CHANNEL_TIME,
@@ -1006,44 +750,6 @@ done:
     return err;
 }
 
-
-//+------+-------------------------------------------------+------------------+
-//| 0000 | c4 00 3b ff  be  00 00 01 00 00 02 00 8c 00 00 14 | ..;............. |
-//         len:196      seq ch:0    glom
-//| 0010 | 00 00 00 00  07 01 00 00  9e 00 00 00  02 00 8e 00 | ................ |
-//                      cmd:107      len:158      flag
-//| 0020 | 00 00 00 00  65 73 63 61 6e 00  01 00 00 00  01 00 | ....escan....... |
-//         state        name                version     action
-//| 0030 | 34 12    00 00 00 00  00 00 00 00 00 00 00 00 00 00 | 4............... |
-//          sync id  ssid len    ssid
-//| 0040 | 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 | ................ |
-//| 0050 | 00 00 00 00 00 00    ff ff ff ff ff ff  02   00  ff ff | ................ |
-//                              boardcast address  type     nprobes:-1
-//| 0060 | ff ff  ff ff ff ff     ff ff ff ff     ff ff ff ff   16 00 | ................ |
-//                active_time:-1  passive_time:-1  home_time:-1  ch num:16
-//| 0070 | 01 00 01 10 02 10 03 10 04 10 05 10 06 10 07 10 | ................ |
-//
-//| 0080 | 08 10 09 10 0a 10 0b 10 0c 10 0d 10 24 d0 28 d0 | ............$.(. |
-//| 0090 | 2c d0 30 d0 95 d0 99 d0 9d d0 a1 d0 a5 d0 00 00 | ,.0............. |
-//| 00a0 | 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 | ................ |
-//| 00b0 | 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 | ................ |
-//| 00c0 | 00 00 00 00                                     | ....             |
-//+------+-------------------------------------------------+------------------+
-
-const uint8_t ch_list[44] = {
-    0x01,0x10,0x02,0x10, 
-    0x03,0x10,0x04,0x10, 
-    0x05,0x10,0x06,0x10, 
-    0x07,0x10,0x08,0x10, 
-    0x09,0x10,0x0a,0x10, 
-    0x0b,0x10,0x0c,0x10, 
-    0x0d,0x10,0x24,0xd0, 
-    0x28,0xd0,0x2c,0xd0, 
-    0x30,0xd0,0x95,0xd0, 
-    0x99,0xd0,0x9d,0xd0, 
-    0xa1,0xd0,0xa5,0xd0 
-};
-
 static void brcmf_escan_prep(struct brcmf_scan_params_le *params_le)
 {
     u32 n_ssids;
@@ -1053,6 +759,12 @@ static void brcmf_escan_prep(struct brcmf_scan_params_le *params_le)
     u16 chanspec;
     char *ptr;
     struct brcmf_ssid_le ssid_le;
+
+    const uint8_t ch_list[44] = {0x01,0x10,0x02,0x10,0x03,0x10,0x04,0x10, 
+        0x05,0x10,0x06,0x10,0x07,0x10,0x08,0x10,0x09,0x10,0x0a,0x10, 
+        0x0b,0x10,0x0c,0x10,0x0d,0x10,0x24,0xd0,0x28,0xd0,0x2c,0xd0, 
+        0x30,0xd0,0x95,0xd0,0x99,0xd0,0x9d,0xd0,0xa1,0xd0,0xa5,0xd0 
+    };
 
     memset(params_le->bssid, 0xff, 6);
     params_le->bss_type = DOT11_BSSTYPE_ANY;
@@ -1107,79 +819,10 @@ exit:
     return err;
 }
 
-void scan_result(void){
-
-    struct brcmf_scan_results result;
-    result.buflen = sizeof(struct brcmf_scan_results);
-    result.version = 0;
-    result.count = 1;
-    int err = brcmf_fil_cmd_data_set(0, BRCMF_C_SCAN_RESULTS,
-                        &result, sizeof(result));
-}
-
-const uint8_t default_mac[6] = {0xb8, 0x27, 0xeb, 0x98, 0xc8, 0x86};
 void get_ethaddr(mac){
-    memcpy(mac, default_mac, 6);
+    memcpy(mac, mac_addr, 6);
 }
 
-static s32 brcmf_set_wpa_version(int ifidx)
-{
-    s32 val = 0;
-    s32 err = 0;
-
-    //val = WPA_AUTH_PSK | WPA_AUTH_UNSPECIFIED;
-    //val = WPA2_AUTH_PSK | WPA2_AUTH_UNSPECIFIED;
-    val = WPA2_AUTH_PSK;
-    //val = WPA3_AUTH_SAE_PSK;
-    //val = WPA_AUTH_DISABLED;
-    err = brcmf_fil_iovar_int_set(ifidx, "wpa_auth", val);
-    if (err) {
-        brcm_klog("set wpa_auth failed (%d)\n", err);
-        return err;
-    }
-    return err;
-}
-
-static int brcmf_set_pmk(int ifidx, const u8 *pmk_data, u16 pmk_len)
-{
-    struct brcmf_wsec_pmk_le pmk;
-    int err;
-
-    memset(&pmk, 0, sizeof(pmk));
-
-    /* pass pmk directly */
-    pmk.key_len = cpu_to_le16(pmk_len);
-    pmk.flags = cpu_to_le16(0);
-    memcpy(pmk.key, pmk_data, pmk_len);
-
-    /* store psk in firmware */
-    err = brcmf_fil_cmd_data_set(ifidx, BRCMF_C_SET_WSEC_PMK,
-                     &pmk, sizeof(pmk));
-    if (err < 0)
-        brcm_klog("failed to change PSK in firmware (len=%u)\n",
-             pmk_len);
-
-    return err;
-}
-
-
-static void brcmf_set_join_pref(int ifidx)
-{
-    struct brcmf_join_pref_params join_pref_params[2];
-    enum nl80211_band band;
-    join_pref_params[0].type = 0x4;
-    join_pref_params[0].len = 2;
-    join_pref_params[0].rssi_gain = 0x8;
-    join_pref_params[0].band = 0x1;
-    join_pref_params[1].type = BRCMF_JOIN_PREF_RSSI;
-    join_pref_params[1].len = 2;
-    join_pref_params[1].rssi_gain = 0;
-    join_pref_params[1].band = 0;
-    int err = brcmf_fil_iovar_data_set(0, "join_pref", &join_pref_params,
-                       sizeof(join_pref_params));
-    if (err)
-        brcm_klog("Set join_pref error (%d)\n", err);
-}
 
 int connect(const char*ssid, const char* pmk)
 {
@@ -1188,12 +831,15 @@ int connect(const char*ssid, const char* pmk)
     const struct brcmf_tlv *rsn_ie;
     const struct brcmf_vs_tlv *wpa_ie;
     u32 ie_len;
-    struct brcmf_ext_join_params_le *ext_join_params;
     u16 chanspec;
     s32 err = 0;
     u32 ssid_len;
 
-    brcm_klog("%s\n", __func__);
+    if(strlen(pmk) < 64){
+        klog("Wrong PMK lens\n");
+        return -1;
+    }
+    brcm_klog("Connect to %s...\n", ssid);
 
     /* A normal (non P2P) connection request setup. */
     const char ie[22] = {0x30, 0x14, 0x01, 0x00, 0x00, 0x0f, 0xac, 0x04, 
@@ -1214,7 +860,7 @@ int connect(const char*ssid, const char* pmk)
         return err;
     }
 
-    err = brcmf_fil_iovar_int_set(0, "wsec", AES_ENABLED);
+    err = brcmf_fil_iovar_int_set(0, "wsec", AES_ENABLED|TKIP_ENABLED);
     if (err) {
         brcm_klog("error (%d)\n", err);
         return err;
@@ -1245,55 +891,27 @@ int connect(const char*ssid, const char* pmk)
         goto done;
     }
 
-    brcmf_set_pmk(0, pmk, 32);
-     /* Join with specific BSSID and cached SSID
-     * If SSID is zero join based on BSSID only
-     */
-    join_params_size = offsetof(struct brcmf_ext_join_params_le, assoc_le) +
-        offsetof(struct brcmf_assoc_params_le, chanspec_list);
-    ext_join_params = calloc(1,join_params_size);
-    if (ext_join_params == NULL) {
-        err = -ENOMEM;
+    struct brcmf_wsec_pmk_le pmk_le = {0};
+
+    /* pass pmk */
+    pmk_le.key_len = cpu_to_le16(32);
+    pmk_le.flags = cpu_to_le16(0);
+    to_hex(pmk, pmk_le.key, 32);
+
+     /* store psk in firmware */
+    err = brcmf_fil_cmd_data_set(0, BRCMF_C_SET_WSEC_PMK, &pmk_le, sizeof(pmk_le));
+    if (err < 0){
+        brcm_klog("failed to change PSK in firmware\n");
         goto done;
     }
-    ssid_len = min(strlen(ssid), 32);
-    ext_join_params->ssid_le.SSID_len = cpu_to_le32(ssid_len);
-    memcpy(&ext_join_params->ssid_le.SSID, ssid, strlen(ssid));
-    if (ssid_len < 32)
-        brcm_klog("SSID \"%s\", len (%d)\n",
-              ext_join_params->ssid_le.SSID, ssid_len);
 
-    /* Set up join scan parameters */
-    ext_join_params->scan_le.scan_type = -1;
-    ext_join_params->scan_le.home_time = cpu_to_le32(-1);
-    memset(ext_join_params->assoc_le.bssid, 0xFF, 6);
-    ext_join_params->scan_le.active_time = cpu_to_le32(-1);
-    ext_join_params->scan_le.passive_time = cpu_to_le32(-1);
-    ext_join_params->scan_le.nprobes = cpu_to_le32(-1);
 
-    brcmf_set_join_pref(0);
+    err = brcmf_join(0, ssid);
+    if (err < 0){
+        brcm_klog("failed to join SSID:%s\n", ssid);
+        goto done;
+    }
 
-    err  = brcmf_fil_iovar_data_set(0, "join", ext_join_params,
-                     join_params_size);
-    free(ext_join_params);
 done:
     return err;
 }
-
-//bw_cap
-//event_msgs
-//tdls_enable
-//event_msgs
-//BRCMF_C_SET_PM
-//bcn_timeout
-//roam_off
-//arp_ol
-//arpoe
-//ndoe
-//pm2_sleep_re
-//mcast_list
-//allmulti
-//arp_ol
-//arpoe
-//ndoeo
-//pmkid_info

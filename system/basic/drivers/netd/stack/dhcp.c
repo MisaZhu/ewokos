@@ -252,6 +252,8 @@ static void dhcp_discovery(struct net_device *dev){
     dhcp_t *dhcp;
     const uint8_t boardcast[] =  {0xff,0xff, 0xff, 0xff, 0xff, 0xff};
 
+    //klog("DHCP: Send discover\n");
+
     ip_header = (struct ip_hdr *)(packet);
     udp_header = (struct udp_hdr *)(((char *)ip_header) + sizeof(struct ip_hdr));
     dhcp = (dhcp_t *)(((char *)udp_header) + sizeof(struct udp_hdr));
@@ -318,6 +320,7 @@ static void dhcp_input(const uint8_t *data, size_t len, struct net_device *dev)
         size -= len + 2;
     }
 done:
+    gettimeofday(&dhc->update, NULL);
     ip_iface_update(net_device_get_iface(dev, NET_IFACE_FAMILY_IP), dhc->ip, dhc->netmask, dhc->gateway);
 }
 
@@ -327,6 +330,7 @@ dhcp_timer(void)
     struct timeval now, diff;
     gettimeofday(&now, NULL);
     dhcp_client_t *dhc = dhcp_client_list;
+
     while(dhc){
         timersub(&now, &dhc->update, &diff);
         if (diff.tv_sec >= dhc->validity) {
@@ -336,14 +340,15 @@ dhcp_timer(void)
     }
 }
 
-void 
+int  
 dhcp_run(struct net_device* dev){
-    dhcp_client_t *dhc = malloc(sizeof(dhcp_client_t));
+    dhcp_client_t *dhc = calloc(1, sizeof(dhcp_client_t));
+
     dhc->dev = dev;
     dhc->validity = 30;
- 
     dhc->next = dhcp_client_list;
     dhcp_client_list = dhc;
+    return 0;
 }
 
 int

@@ -2,8 +2,8 @@
 #include "sdio.h"
 #include "log.h"
 
-#define MMC_BLOCK_SIZE(fn)  (((fn)==2)?(512):(64))
-#define sdio_func_id(x)  (x)
+static int MMC_BLOCK_SIZE[8] = {0};
+
 /* Split an arbitrarily sized data transfer into several
  * IO_RW_EXTENDED commands. */
 static int sdio_io_rw_ext_helper(int fn, int write,
@@ -14,22 +14,22 @@ static int sdio_io_rw_ext_helper(int fn, int write,
 	int ret;
 
 	/* Do the bulk of the transfer using block mode (if supported). */
-	if (size > MMC_BLOCK_SIZE(fn)) {
+	if (size > MMC_BLOCK_SIZE[fn]) {
 		/* Blocks per command is limited by host count, host transfer
 		 * size and the maximum for IO_RW_EXTENDED of 511 blocks. */
 		max_blocks = 511;
 
-		while (remainder >= MMC_BLOCK_SIZE(fn)) {
+		while (remainder >= MMC_BLOCK_SIZE[fn]) {
 			unsigned blocks;
 
-			blocks = remainder / MMC_BLOCK_SIZE(fn);
+			blocks = remainder / MMC_BLOCK_SIZE[fn];
 			if (blocks > max_blocks)
 				blocks = max_blocks;
-			size = blocks * MMC_BLOCK_SIZE(fn);
+			size = blocks * MMC_BLOCK_SIZE[fn];
 
 			ret = mmc_io_rw_extended(write,
 				fn, addr, incr_addr, buf,
-				blocks, MMC_BLOCK_SIZE(fn));
+				blocks, MMC_BLOCK_SIZE[fn]);
 			if (ret)
 				return ret;
 
@@ -42,7 +42,7 @@ static int sdio_io_rw_ext_helper(int fn, int write,
 
 	/* Write the remainder using byte mode. */
 	while (remainder > 0) {
-		size = min(remainder, MMC_BLOCK_SIZE(fn));
+		size = min(remainder, MMC_BLOCK_SIZE[fn]);
 		/* Indicate byte mode by setting "blocks" = 0 */
 		ret = mmc_io_rw_extended(write, fn, addr,
 			 incr_addr, buf, 0, size);
@@ -178,6 +178,10 @@ int sdio_set_block_size(int func, unsigned blksz)
         (blksz >> 8) & 0xff, NULL);
     if (ret)
         return ret;
+
+	if(func < sizeof(MMC_BLOCK_SIZE)/sizeof(int))
+		MMC_BLOCK_SIZE[func] = blksz;
+
     return 0;
 }
 
@@ -189,8 +193,6 @@ int sdio_enable_func(int func)
 
     if (!func)
         return -EINVAL;
-
-    brcm_klog("SDIO: Enabling device %d...\n", sdio_func_id(func));
 
     ret = mmc_io_rw_direct(0, 0, SDIO_CCCR_IOEx, 0, &reg);
     if (ret)
@@ -218,7 +220,7 @@ int sdio_enable_func(int func)
     return 0;
 
 err:
-    brcm_klog("SDIO: Failed to enable device %s\n", sdio_func_id(func));
+    brcm_klog("SDIO: Failed to enable device %s\n", func);
     return ret;
 }
 
@@ -229,8 +231,6 @@ int sdio_disable_func(int func)
 
 	if (!func)
 		return -EINVAL;
-
-	brcm_klog("SDIO: Disabling device %d ...\n", func);
 
 	ret = mmc_io_rw_direct(0, 0, SDIO_CCCR_IOEx, 0, &reg);
 	if (ret)
@@ -254,14 +254,9 @@ int sdio_claim_irq(int func)
     int ret;
     unsigned char reg;
 
-    if (!func)
-        return -EINVAL;
-
-    brcm_klog("SDIO: Enabling IRQ for %d...\n", sdio_func_id(func));
-
     ret = mmc_io_rw_direct(0, 0, SDIO_CCCR_IENx, 0, &reg);
     if (ret)
-        return ret;
+        goto err;
 
     reg |= 1 << func;
 
@@ -269,9 +264,10 @@ int sdio_claim_irq(int func)
 
     ret = mmc_io_rw_direct(1, 0, SDIO_CCCR_IENx, reg, NULL);
     if (ret)
-        return ret;
+        goto err;
 
 	sdhci_enable_irq(1);
-
-    return ret;
+err:
+	brcm_klog("SDIO: Failed to claim irq %d\n", func);
+	return ret;
 }

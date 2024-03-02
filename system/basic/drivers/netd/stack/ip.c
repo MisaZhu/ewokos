@@ -253,7 +253,7 @@ void ip_iface_update(struct ip_iface *iface, uint32_t ipaddr, uint32_t netmask, 
     iface->netmask = netmask;
     iface->broadcast = (iface->unicast & iface->netmask) | ~iface->netmask;
 
-    if (!ip_route_add(IP_ADDR_ANY, IP_ADDR_ANY, gateway, iface)) {
+    if (!ip_route_add(iface->unicast & iface->netmask, iface->netmask, IP_ADDR_ANY, iface)) {
         errorf("ip_route_add() failure");
         return -1;
     } 
