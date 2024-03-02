@@ -129,7 +129,7 @@ static void unmap_stack(proc_t* proc, uint32_t* stacks, uint32_t base, uint32_t 
 inline uint32_t thread_stack_alloc(proc_t* proc) {
 	uint32_t i;
 	for(i=0; i<THREAD_MAX; i++) {
-		if(proc->stack.thread_stacks[i].base == 0)
+		if(proc->space->thread_stacks[i].base == 0)
 			break;
 	}
 
@@ -140,21 +140,21 @@ inline uint32_t thread_stack_alloc(proc_t* proc) {
 
 	uint32_t base = USER_STACK_TOP - STACK_PAGES*PAGE_SIZE - THREAD_STACK_PAGES*PAGE_SIZE*(i+1);
 	uint32_t pages = THREAD_STACK_PAGES;
-	proc->stack.thread_stacks[i].base = base;
-	map_stack(proc, proc->stack.thread_stacks[i].stacks, base, pages);
+	proc->space->thread_stacks[i].base = base;
+	map_stack(proc, proc->space->thread_stacks[i].stacks, base, pages);
 	return base;
 }
 
 inline void thread_stack_free(proc_t* proc, uint32_t base) {
 	uint32_t i;
 	for(i=0; i<THREAD_MAX; i++) {
-		if(proc->stack.thread_stacks[i].base == base)
+		if(proc->space->thread_stacks[i].base == base)
 			break;
 	}
 	if(i >= THREAD_MAX) 
 		return;
-	unmap_stack(proc, proc->stack.thread_stacks[i].stacks, base, THREAD_STACK_PAGES);
-	proc->stack.thread_stacks[i].base = 0;
+	unmap_stack(proc, proc->space->thread_stacks[i].stacks, base, THREAD_STACK_PAGES);
+	proc->space->thread_stacks[i].base = 0;
 }
 
 static inline void* proc_get_mem_tail(void* p) {

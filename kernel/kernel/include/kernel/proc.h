@@ -19,6 +19,14 @@ typedef struct {
 	uint32_t refs;
 } proc_block_event_t;
 
+#define THREAD_STACK_PAGES 16
+#define THREAD_MAX  32
+
+typedef struct {
+	uint32_t base;
+	void*    stacks[THREAD_STACK_PAGES];
+} thread_stack_t;
+
 typedef struct {
 	page_dir_entry_t* vm;
 	uint32_t          malloc_base;
@@ -33,16 +41,11 @@ typedef struct {
 	ipc_server_t      ipc_server;
 	signal_t          signal;
 	proc_interrupt_t  interrupt;
+
+	thread_stack_t  thread_stacks[THREAD_MAX];
 } proc_space_t;
 
 #define STACK_PAGES 32
-#define THREAD_STACK_PAGES 16
-#define THREAD_MAX  32
-
-typedef struct {
-	uint32_t base;
-	void*    stacks[THREAD_STACK_PAGES];
-} thread_stack_t;
 
 typedef struct st_proc {
 	procinfo_t        info;
@@ -56,7 +59,6 @@ typedef struct st_proc {
 
 	union {
 		uint32_t        user_stack[STACK_PAGES];
-		thread_stack_t  thread_stacks[THREAD_MAX];
 		uint32_t        thread_stack_base;
 	} stack;
 
