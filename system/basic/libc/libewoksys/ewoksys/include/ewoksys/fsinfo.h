@@ -41,7 +41,8 @@ enum {
 	FS_CMD_FLUSH,
 	FS_CMD_INTERRUPT,
 	FS_CMD_DEV_CNTL,
-	FS_CMD_SET
+	FS_CMD_SET,
+	FS_CMD_CMD
 };
 
 enum {

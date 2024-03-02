@@ -8,7 +8,7 @@ void irq_arch_init(void) {
 	gic_init(0);
 }
 
-inline uint32_t irq_gets(void) {
+inline uint32_t irq_get(void) {
 	int ack = gic_get_irq();
 	int irqno = ack & 0x3FF;
 	//int core = get_core_id();//ack & (~0x3FF);
@@ -21,12 +21,12 @@ inline uint32_t irq_gets(void) {
 	return 0;
 }
 
-inline void irq_enable(uint32_t irqs) {
-	if((irqs & IRQ_TIMER0) != 0) {
+inline void irq_enable(uint32_t irq) {
+	if(irq == IRQ_TIMER0) {
 		gic_irq_enable(0, 27);
 	}
 }
 
-void irq_disable(uint32_t irqs) {
-	(void)irqs;
+void irq_disable(uint32_t irq) {
+	(void)irq;
 }

@@ -24,6 +24,13 @@ void str_reset(str_t* str) {
 	str->len = 0;	
 }
 
+char* str_detach(str_t* str) {
+	char* ret = str->cstr;
+	str->cstr = NULL;
+	str_free(str);
+	return ret;
+}
+
 char* str_ncpy(str_t* str, const char* src, uint32_t l) {
 	if(src == NULL || src[0] == 0 || l == 0) {
 		str_reset(str);

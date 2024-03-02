@@ -7,6 +7,7 @@
 #include <upng/upng.h>
 #include <ewoksys/basic_math.h>
 #include <ewoksys/kernel_tic.h>
+#include <ewoksys/ipc.h>
 #include <font/font.h>
 #include <x++/X.h>
 #include <ewoksys/timer.h>
@@ -19,7 +20,6 @@ class TestX : public XWin {
 	uint32_t tic;
 	graph_t* img_big;
 	graph_t* img_small;
-	font_t font;
 
 	static const int CIRCLE = 0;
 	static const int RECT   = 1;
@@ -40,7 +40,6 @@ public:
         imgX = imgY = 0;
 		img_big = png_image_new(X::getResName("data/rokid.png"));	
 		img_small = png_image_new(X::getResName("data/rokid_small.png"));	
-		font_load(DEFAULT_SYSTEM_FONT, 13, &font, true);
 	}
 	
 	inline ~TestX() {
@@ -48,8 +47,6 @@ public:
 			graph_free(img_big);
 		if(img_small != NULL)
 			graph_free(img_small);
-		if(font.id >= 0)
-			font_close(&font);
 	}
 protected:
 	void onEvent(xevent_t* ev) {
@@ -65,7 +62,7 @@ protected:
 		int gW = g->w;
 		int gH = g->h;
 		graph_t* img = gW > (img_big->w*2) ? img_big: img_small;
-		uint32_t font_h = font.max_size.y;
+		uint32_t font_h = theme.getFont()->max_size.y;
 
 		count++;
 
@@ -118,9 +115,9 @@ protected:
 
 		char str[32];
 		snprintf(str, 31, "EwokOS FPS: %d", fps);
-		font_text_size(str, &font, (uint32_t*)&w, NULL);
+		font_text_size(str, theme.getFont(), (uint32_t*)&w, NULL);
 		graph_fill(g, imgX, imgY+img->h+2, img->w, font_h+4, 0xffffffff);
-		graph_draw_text_font(g, imgX+4, imgY+img->h+4, str, &font, 0xff000000);
+		graph_draw_text_font(g, imgX+4, imgY+img->h+4, str, theme.getFont(), 0xff000000);
 		drawImage(g, img);
 	}
 };
@@ -135,7 +132,9 @@ static void loop(void* p) {
 
 static XWin* _xwin = NULL;
 static void timer_handler(void) {
+	ipc_disable();
 	_xwin->repaint();
+	ipc_enable();
 }
 
 int main(int argc, char* argv[]) {

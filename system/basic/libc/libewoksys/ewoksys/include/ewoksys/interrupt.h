@@ -4,11 +4,14 @@
 #include <stdint.h>
 #include <interrupt.h>
 
-typedef void(*interrupt_handler_t)(uint32_t interrupt, uint32_t data);
+typedef void(*interrupt_handler_func_t)(uint32_t interrupt, uint32_t data);
 
-int32_t sys_interrupt_setup(uint32_t interrupt, interrupt_handler_t handler, uint32_t data);
+typedef struct {
+	interrupt_handler_func_t handler;
+	uint32_t data;
+} interrupt_handler_t;
 
-void sys_interrupt_end(void);
+int32_t sys_interrupt_setup(uint32_t irq, interrupt_handler_t* handler);
 
 
 #endif

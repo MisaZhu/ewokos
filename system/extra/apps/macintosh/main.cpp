@@ -147,7 +147,7 @@ static void loop(void* p) {
 	MacEmu* xwin = (MacEmu*)p;
 	XWIN =  (MacEmu*)p;
 	xwin->repaint();
-	proc_usleep(100000);
+	proc_usleep(30000);
 }
 
 inline void write_fd(int fd, char* data, int32_t size) {

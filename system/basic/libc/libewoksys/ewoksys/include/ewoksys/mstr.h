@@ -18,6 +18,7 @@ typedef struct st_str {
 } str_t;
 
 void str_reset(str_t* str);
+char* str_detach(str_t* str);
 char* str_ncpy(str_t* str, const char* src, uint32_t l);
 char* str_cpy(str_t* str, const char* src);
 str_t* str_new(const char* s);

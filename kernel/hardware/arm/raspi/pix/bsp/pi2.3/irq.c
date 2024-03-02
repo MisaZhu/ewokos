@@ -20,21 +20,21 @@ void irq_arch_init(void) {
 	routing_core0_irq();
 }
 
-inline uint32_t irq_gets(void) {
+inline uint32_t irq_get(void) {
 	uint32_t ret = 0;
 	uint32_t pending = read_core0_pending();
 
 	if (pending & 0x08 ) {
-		ret |= IRQ_TIMER0;
+		ret = IRQ_TIMER0;
 		write_cntv_tval(_timer_tval); 
 	}
 	return ret;
 }
 
-inline void irq_enable(uint32_t irqs) {
-	(void)irqs;
+inline void irq_enable(uint32_t irq) {
+	(void)irq;
 }
 
-void irq_disable(uint32_t irqs) {
-	(void)irqs;
+void irq_disable(uint32_t irq) {
+	(void)irq;
 }

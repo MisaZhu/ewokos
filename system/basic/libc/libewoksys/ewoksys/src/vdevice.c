@@ -411,6 +411,93 @@ static void do_set(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, void
 	PF->addi(out, res);
 }
 
+static char* read_cmd_arg(char* cmd, int* offset) {
+	char* p = NULL;
+	uint8_t quotes = 0;
+
+	while(cmd[*offset] != 0) {
+		char c = cmd[*offset];
+		(*offset)++;
+		if(quotes) { //read whole quotes content.
+			if(c == '"') {
+				cmd[*offset-1] = 0;
+				return p;
+			}
+			continue;
+		}
+		if(c == ' ') { //read next arg.
+			if(p == NULL) //skip begin spaces.
+				continue;
+			cmd[*offset-1] = 0;
+			break;
+		}
+		else if(p == NULL) {
+			if(c == '"') { //if start of quotes.
+				quotes = 1;
+				(*offset)++;
+			}
+			p = cmd + *offset - 1;
+		}
+	}
+	return p;
+}
+
+#define ARG_MAX 16
+
+static char* gen_str(const char* s) {
+	char* res = (char*)malloc(strlen(s)+1);
+	strcpy(res, s);
+	return res;
+}
+
+static char* do_basic_cmd(vdevice_t* dev, int argc, char** argv) {
+	if(strcmp(argv[0], "dev.echo") == 0) {
+		if(argc > 1)
+			return gen_str(argv[1]);
+		else
+			return gen_str("");
+	}
+	return NULL;
+}
+
+static void do_cmd(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, void* p) {
+	const char* cmd = proto_read_str(in);
+	if(cmd == NULL || cmd[0] == 0)
+		return;
+
+	char* argv[ARG_MAX] = {0};
+	int argc = 0;
+	int offset = 0;
+
+	while(argc < ARG_MAX) {
+		char* arg = read_cmd_arg((char*)cmd, &offset); 
+		if(arg == NULL || arg[0] == 0)
+			break;
+		argv[argc] = (char*)malloc(strlen(arg)+1);
+		strcpy(argv[argc], arg);
+		argc++;
+	}
+
+	if(argc == 0)
+		return;
+
+	char* res = do_basic_cmd(dev, argc, argv);
+	if(res == NULL && dev != NULL && dev->cmd != NULL)
+		res = dev->cmd(from_pid, argc, argv, p);
+
+	argc = 0;
+	while(argc < ARG_MAX) {
+		if(argv[argc] != NULL)
+			free(argv[argc]);
+		argc++;
+	}
+
+	if(res != NULL) {
+		PF->adds(out, res);
+		free(res);
+	}
+}
+
 static void do_clear_buffer(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, void* p) {
 	(void)from_pid;
 	uint32_t node = proto_read_int(in);
@@ -492,6 +579,9 @@ static void handle(int from_pid, int cmd, proto_t* in, proto_t* out, void* p) {
 		break;
 	case FS_CMD_SET:
 		do_set(dev, from_pid, in, out, p);
+		break;
+	case FS_CMD_CMD:
+		do_cmd(dev, from_pid, in, out, p);
 		break;
 	case FS_CMD_CLEAR_BUFFER:
 		do_clear_buffer(dev, from_pid, in, out, p);
@@ -618,6 +708,30 @@ int dev_cntl_by_pid(int pid, int cmd, proto_t* in, proto_t* out) {
 	return res;
 }
 
+char* dev_cmd_by_pid(int pid, const char* cmd) {
+	proto_t in_arg;
+	PF->init(&in_arg)->adds(&in_arg, cmd);
+
+	int res = -1;
+	proto_t out;
+	PF->init(&out);
+	res = ipc_call(pid, FS_CMD_CMD, &in_arg, &out);
+	PF->clear(&in_arg);
+	if(res != 0) {
+		PF->clear(&out);
+		return NULL;
+	}
+
+	const char* s = proto_read_str(&out);
+	char* ret = NULL;
+	if(s != NULL) {
+		ret = (char*)calloc(1, strlen(s)+1);
+		strcpy(ret, s);
+	}
+	PF->clear(&out);
+	return ret;
+}
+
 int dev_get_pid(const char* fname) {
 	fsinfo_t info;
 	if(vfs_get_by_name(fname, &info) != 0)
@@ -630,6 +744,13 @@ int dev_cntl(const char* fname, int cmd, proto_t* in, proto_t* out) {
 	if(pid < 0)
 		return -1;
 	return dev_cntl_by_pid(pid, cmd, in, out);
+}
+
+char* dev_cmd(const char* fname, const char* cmd) {
+	int pid = dev_get_pid(fname);
+	if(pid < 0)
+		return NULL;
+	return dev_cmd_by_pid(pid, cmd);
 }
 
 #ifdef __cplusplus

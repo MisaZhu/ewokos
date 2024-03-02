@@ -47,12 +47,13 @@ static inline void ipi_send_all(void) {
 
 #endif
 
-static inline void irq_do_uart0(context_t* ctx) {
-	interrupt_send(ctx, SYS_INT_UART0);
+static inline void irq_do_raw(context_t* ctx, uint32_t irq) {
+	//kprintf("irq_raw: 0x%x\n", irq);
+	interrupt_send(ctx, irq);
 }
 
 static inline int32_t irq_do_timer0_interrupt(context_t* ctx) {
-	return interrupt_send(ctx, SYS_INT_TIMER0);
+	return interrupt_send(ctx, IRQ_TIMER0);
 }
 
 static inline void irq_do_timer0(context_t* ctx) {
@@ -104,13 +105,14 @@ static inline void irq_do_timer0(context_t* ctx) {
 }
 
 static inline void _irq_handler(uint32_t cid, context_t* ctx) {
-	uint32_t irqs = irq_gets();
+	uint64_t raw_irqs;
+	uint32_t irq = irq_get();
 
 	//handle irq
-	if((irqs & IRQ_UART0) != 0) {
-		irq_do_uart0(ctx);
+	if(irq > 0 && irq < IRQ_RAW_TOP) {
+		irq_do_raw(ctx, irq);
 	}
-	else if(cid == 0 && (irqs & IRQ_TIMER0) != 0) {
+	else if(cid == 0 && irq == IRQ_TIMER0) {
 		irq_do_timer0(ctx);
 	}
 	else {
@@ -164,8 +166,7 @@ void undef_abort_handler(context_t* ctx, uint32_t status) {
 
 	printf("pid: %d(%s), undef instrunction abort!! (core %d)\n", cproc->info.pid, cproc->info.cmd, core);
 	dump_ctx(&cproc->ctx);
-	proc_exit(ctx, cproc, -1);
-	//proc_signal_send(ctx, cproc, SYS_SIG_STOP);
+	proc_exit(ctx, proc_get_proc(cproc), -1);
 }
 
 void prefetch_abort_handler(context_t* ctx, uint32_t status) {
@@ -197,7 +198,7 @@ void prefetch_abort_handler(context_t* ctx, uint32_t status) {
 
 	printf("pid: %d(%s), prefetch abort!! (core %d) code:0x%x\n", cproc->info.pid, cproc->info.cmd, core, status);
 	dump_ctx(&cproc->ctx);
-	proc_exit(ctx, cproc, -1);
+	proc_exit(ctx, proc_get_proc(cproc), -1);
 }
 
 void data_abort_handler(context_t* ctx, uint32_t addr_fault, uint32_t status) {
@@ -247,7 +248,7 @@ void data_abort_handler(context_t* ctx, uint32_t addr_fault, uint32_t status) {
 		printf("\terror: %s!\n", errmsg);
 
 	dump_ctx(&cproc->ctx);
-	proc_exit(ctx, cproc, -1);
+	proc_exit(ctx, proc_get_proc(cproc), -1);
 }
 
 void irq_init(void) {
@@ -261,8 +262,7 @@ void irq_init(void) {
 	_timer_tic = 0;
 	_last_usec = timer_read_sys_usec();
 	_schedule_usec = (1000000 / _kernel_config.schedule_freq) / 2;
-	//gic_set_irqs( IRQ_UART0 | IRQ_TIMER0 | IRQ_KEY | IRQ_MOUSE | IRQ_SDC);
-	irq_enable(IRQ_TIMER0 | IRQ_UART0);
+	irq_enable(IRQ_TIMER0);
 
 #ifdef KERNEL_SMP
 	ipi_enable_all();

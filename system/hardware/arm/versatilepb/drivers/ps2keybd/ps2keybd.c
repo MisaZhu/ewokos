@@ -12,6 +12,7 @@
 #include <ewoksys/proc.h>
 #include <ewoksys/interrupt.h>
 #include <ewoksys/timer.h>
+#include <ewoksys/core.h>
 
 #define KCNTL 0x00
 #define KSTAT 0x04
@@ -68,6 +69,13 @@ static inline void empty(void) {
 #define RSHIFT 0x59
 #define CTRL   0x14
 
+static void do_ctrl(char c) {
+	if(c >= '1' && c <= '9') {
+		core_set_ux(c - '1');
+		return;
+	}
+}
+
 static int32_t keyb_handle(uint8_t scode) {
 	if(scode == 0)
 		return 0;
@@ -94,7 +102,12 @@ static int32_t keyb_handle(uint8_t scode) {
 		c = _utab[scode];
 	else 
 		c = _ltab[scode];
-	return c;
+
+	if(_held[CTRL] == 0)
+		return c;
+
+	do_ctrl(c);
+	return 0;
 }
 
 static charbuf_t *_buffer;
@@ -118,7 +131,7 @@ static int keyb_read(int fd, int from_pid, fsinfo_t* node,
 	return 1;
 }
 
-static int loop(void* p) {
+static void interrupt_handle(uint32_t interrupt, uint32_t p) {
 	(void)p;
 	uint8_t key_scode = get_scode();
 	int32_t c = keyb_handle(key_scode);
@@ -129,20 +142,10 @@ static int loop(void* p) {
 		charbuf_push(_buffer, c, true);
 		proc_wakeup(RW_BLOCK_EVT);
 	}
-	proc_usleep(20000);
-	return 0;
-}
-
-/*static void timer_handler(void) {
-	uint8_t key_scode = get8(KEYBOARD_BASE+KDATA);
-	char c = keyb_handle(key_scode);
-	if(c != 0) {
-		charbuf_push(_buffer, c, true);
-		proc_wakeup(RW_BLOCK_EVT);
-	}
 	return;
 }
-*/
+
+#define IRQ_RAW_KEYB (32+3) //VPB keyb interrupt at SIC bit3
 
 int main(int argc, char** argv) {
 	const char* mnt_point = argc > 1 ? argv[1]: "/dev/keyb0";
@@ -154,11 +157,13 @@ int main(int argc, char** argv) {
 	memset(&dev, 0, sizeof(vdevice_t));
 	strcpy(dev.name, "keyb");
 	dev.read = keyb_read;
-	dev.loop_step = loop;
 
-	//uint32_t tid = timer_set(5000, timer_handler);
+	static interrupt_handler_t handler;
+	handler.data = 0;
+	handler.handler = interrupt_handle;
+	sys_interrupt_setup(IRQ_RAW_KEYB, &handler);
+
 	device_run(&dev, mnt_point, FS_TYPE_CHAR, 0444);
-	//timer_remove(tid);
 	charbuf_free(_buffer);
 	return 0;
 }

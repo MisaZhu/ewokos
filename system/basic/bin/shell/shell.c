@@ -193,9 +193,9 @@ static void prompt(void) {
 		cid = "unknown";
 	char cwd[FS_FULL_NAME_MAX+1];
 	if(uid == 0)
-		printf("\033[4mewok(%s):%s#\033[0m ", cid, getcwd(cwd, FS_FULL_NAME_MAX));
+		printf("\033[4m[%s]:%s#\033[0m ", cid, getcwd(cwd, FS_FULL_NAME_MAX));
 	else
-		printf("\033[4mewok(%s):%s$\033[0m ", cid, getcwd(cwd, FS_FULL_NAME_MAX));
+		printf("\033[4m[%s]:%s$\033[0m ", cid, getcwd(cwd, FS_FULL_NAME_MAX));
 }
 
 int main(int argc, char* argv[]) {

@@ -89,6 +89,7 @@ static int init_stdio(void) {
 		dup2(fd, 2);
 		close(fd);
 		klog("[ok]\n");
+		setenv("CONSOLE_ID", tty_dev);
 		return 0;
 	}
 	klog("[failed]!\n");

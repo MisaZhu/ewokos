@@ -1,6 +1,7 @@
 #include <ewoksys/timer.h>
 #include <ewoksys/vdevice.h>
 #include <ewoksys/interrupt.h>
+#include <ewoksys/syscall.h>
 #include <ewoksys/proto.h>
 
 #ifdef __cplusplus
@@ -12,7 +13,7 @@ static void _timer_handle(uint32_t intr, uint32_t data) {
 	timer_handle_t handle = (timer_handle_t)data;
 	if(handle != NULL)
 		handle();
-	sys_interrupt_end();
+	syscall0(SYS_INTR_END);
 }
 
 uint32_t timer_set(uint32_t usec, timer_handle_t handle) {

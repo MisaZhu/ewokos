@@ -27,7 +27,7 @@ void interrupt_init(void);
 
 int32_t interrupt_setup(struct st_proc* proc, uint32_t interrupt, uint32_t entry, uint32_t data);
 
-int32_t interrupt_send(context_t* ctx, uint32_t interrupt);
+int32_t interrupt_send(context_t* ctx, uint32_t irq);
 
 int32_t interrupt_soft_send(context_t* ctx, int32_t to_pid, uint32_t entry, uint32_t data);
 

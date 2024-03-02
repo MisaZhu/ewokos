@@ -300,7 +300,7 @@ void gterminal_flash(gterminal_t* terminal) {
 }
 
 void gterminal_resize(gterminal_t* terminal, uint32_t gw, uint32_t gh) {
-    uint32_t font_w = terminal->font_fixed;
+    uint32_t font_w = terminal->font_fixed > 0 ? terminal->font_fixed : terminal->font_size;
     uint32_t font_h = terminal->font->max_size.y;
     if(font_w == 0 || font_h == 0)
         return;

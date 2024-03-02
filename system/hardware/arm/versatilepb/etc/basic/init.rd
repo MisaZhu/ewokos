@@ -7,5 +7,4 @@
 /bin/ipcserv /drivers/proc/stated            /proc/state
 
 @/sbin/sessiond &
-
 @/bin/session &

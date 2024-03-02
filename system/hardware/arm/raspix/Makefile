@@ -10,8 +10,6 @@ all: full
 	@echo "all done."
 	rm -fr $(BUILD_DIR)/$(HW)
 	mv $(TARGET_DIR) $(BUILD_DIR)/$(HW)
-	cp -r $(BUILD_DIR)/include $(BUILD_DIR)/$(HW)
-	cp -r $(BUILD_DIR)/lib $(BUILD_DIR)/$(HW)
 
 include ../make.inc
 
@@ -19,8 +17,6 @@ basic: basic_sys
 	@echo "all done."
 	rm -fr $(BUILD_DIR)/$(HW)
 	mv $(TARGET_DIR) $(BUILD_DIR)/$(HW)
-	cp -r $(BUILD_DIR)/include $(BUILD_DIR)/$(HW)
-	cp -r $(BUILD_DIR)/lib $(BUILD_DIR)/$(HW)
 
 full: full_sys
 	@echo "all done."
@@ -29,8 +25,6 @@ extra: extra_sys
 	@echo "all done."
 	rm -fr $(BUILD_DIR)/$(HW)
 	mv $(TARGET_DIR) $(BUILD_DIR)/$(HW)
-	cp -r $(BUILD_DIR)/include $(BUILD_DIR)/$(HW)
-	cp -r $(BUILD_DIR)/lib $(BUILD_DIR)/$(HW)
 
 clockwork: extra
 	cd ../../3rd/raspix/clockwork; make

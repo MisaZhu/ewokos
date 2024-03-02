@@ -134,6 +134,7 @@ static int do_fb_flush(int fd, int from_pid, fsinfo_t* info, void* p) {
 	(void)fd;
 	(void)from_pid;
 	(void)info;
+
 	fb_dma_t* dma = (fb_dma_t*)p;
 	return do_flush(dma);
 }

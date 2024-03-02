@@ -79,8 +79,9 @@ static void interrupt_handle(uint32_t interrupt, uint32_t p) {
 	uint32_t data = get32(UART0 + UART_DATA);
 	charbuf_push(_buffer, data, true);
 	proc_wakeup(RW_BLOCK_EVT);
-	sys_interrupt_end();
 }
+
+#define IRQ_RAW_UART0 12 //VPB uart0 interrupt at PIC bit12 
 
 int main(int argc, char** argv) {
 	const char* mnt_point = argc > 1 ? argv[1]: "/dev/tty0";
@@ -94,7 +95,11 @@ int main(int argc, char** argv) {
 	dev.read = tty_read;
 	dev.write = tty_write;
 
-	sys_interrupt_setup(SYS_INT_UART0, interrupt_handle, 0);
+	static interrupt_handler_t handler;
+	handler.data = 0;
+	handler.handler = interrupt_handle;
+	sys_interrupt_setup(IRQ_RAW_UART0, &handler);
+
 	device_run(&dev, mnt_point, FS_TYPE_CHAR, 0666);
 	charbuf_free(_buffer);
 	return 0;

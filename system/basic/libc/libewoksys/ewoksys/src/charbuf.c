@@ -65,6 +65,12 @@ int32_t charbuf_pop(charbuf_t *buffer, char* c) {
 	return 0;
 }
 
+void charbuf_clear(charbuf_t* buffer) {
+	memset(buffer->buffer, 0, buffer->buf_size);
+	buffer->size = 0;
+	buffer->start = 0;
+}
+
 void charbuf_free(charbuf_t* buffer) {
 	if(buffer == NULL)
 		return;
