@@ -86,11 +86,6 @@ static void draw_frame(xwm_t* xwm, proto_t* in) {
 					xwm->draw_max(&g, &info, &rmax, top, xwm->data);
 				if(xwm->draw_min != NULL && rmin.w > 0 && rmin.h > 0)
 					xwm->draw_min(&g, &info, &rmin, top, xwm->data);
-
-				if(info.state != XWIN_STATE_MAX) {
-					if(xwm->draw_resize != NULL && rresize.w > 0 && rresize.h > 0)
-						xwm->draw_resize(&g, &info, &rresize, top, xwm->data);
-				}
 			}
 
 			if(xwm->draw_close != NULL && rclose.w > 0 && rclose.h > 0)
@@ -100,6 +95,11 @@ static void draw_frame(xwm_t* xwm, proto_t* in) {
 		if(info.state != XWIN_STATE_MAX) {
 			if(xwm->draw_frame != NULL)
 				xwm->draw_frame(&g, &info, top, xwm->data);
+
+			if((info.style & XWIN_STYLE_NO_TITLE) == 0) {
+				if(xwm->draw_resize != NULL && rresize.w > 0 && rresize.h > 0)
+					xwm->draw_resize(&g, &info, &rresize, top, xwm->data);
+			}
 		}
 		shmdt(g.buffer);
 	}
