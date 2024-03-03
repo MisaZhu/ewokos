@@ -1939,7 +1939,6 @@ static int file_write(char* fn, char* first, char* last) {
         return -1;
     cnt = last - first + 1;
     charcnt = write(fd, first, cnt);
-    klog("wr: %s, %d\n", fd, charcnt);
     if (charcnt == cnt) {
         // good write
         // modified_count = false;
@@ -3739,11 +3738,15 @@ int main(int argc, char** argv) {
     if (argc == 0)
         argc++;
     optind = 0;
-    for (optind = 1; optind < argc; optind++)
-        if (argv[optind])
-            edit_file(argv[optind]);
-        else
-            edit_file(NULL); // might be NULL on 1st iteration
+    if(argc < 2)
+        edit_file(NULL); // might be NULL on 1st iteration
+    else {
+        for (optind = 1; optind < argc; optind++)
+            if (argv[optind])
+                edit_file(argv[optind]);
+            else
+                edit_file(NULL); // might be NULL on 1st iteration
+    }
 done:
     flush_undo_data();
     if (text)
