@@ -1933,18 +1933,20 @@ static int file_write(char* fn, char* first, char* last) {
     // By popular request we do not open file with O_TRUNC,
     // but instead ftruncate() it _after_ successful write.
     // Might reduce amount of data lost on power fail etc.
-    fd = open(fn, O_WRONLY | O_CREAT | O_TRUNC);
+    //fd = open(fn, O_WRONLY | O_CREAT | O_TRUNC);
+    fd = open(fn, O_RDWR | O_CREAT | O_TRUNC);
     if(fd < 0)
         return -1;
     cnt = last - first + 1;
     charcnt = write(fd, first, cnt);
+    klog("wr: %s, %d\n", fd, charcnt);
     if (charcnt == cnt) {
         // good write
         // modified_count = false;
     } else {
         charcnt = 0;
     }
-    close(&fd);
+    close(fd);
     return charcnt;
 }
 
