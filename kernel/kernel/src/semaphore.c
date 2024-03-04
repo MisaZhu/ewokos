@@ -18,23 +18,23 @@ void semaphore_init(void) {
 int32_t semaphore_alloc(void) {
 	proc_t* proc = get_current_proc();
 	if(proc == NULL)
-		return -1;
+		return 0;
 
 	for(int32_t i=0; i<SEMAPHORE_MAX; i++) {
 		if(_semaphores[i].creater_pid == -1) {
 			_semaphores[i].creater_pid = proc->info.pid;
 			_semaphores[i].occupied = SEM_IDLE;
 			_semaphores[i].occupied_pid = -1;
-			return i;
+			return i+1;
 		}
 	}
-	return -1;
+	return 0;
 }
 
 void semaphore_clear(int32_t pid) {
 	for(int32_t i=0; i<SEMAPHORE_MAX; i++) {
 		if(_semaphores[i].creater_pid == pid) {
-			semaphore_quit(i);
+			semaphore_quit(i+1);
 			_semaphores[i].occupied = SEM_IDLE;
 			_semaphores[i].creater_pid = -1;
 			_semaphores[i].occupied_pid = -1;
@@ -43,6 +43,10 @@ void semaphore_clear(int32_t pid) {
 }
 
 void semaphore_free(uint32_t sem_id) {
+	if(sem_id == 0)
+		return;
+	sem_id--;
+
 	proc_t* cproc = get_current_proc();
 	if(sem_id >= SEMAPHORE_MAX ||
 			_semaphores[sem_id].creater_pid == -1 ||
@@ -58,6 +62,10 @@ void semaphore_free(uint32_t sem_id) {
 
 int32_t semaphore_enter(context_t* ctx, uint32_t sem_id) {
 	ctx->gpr[0] = -1;
+	if(sem_id == 0)
+		return -1;
+	sem_id--;
+
 	proc_t* cproc = get_current_proc();
 	if(sem_id >= SEMAPHORE_MAX ||
 			_semaphores[sem_id].creater_pid == -1 ||
@@ -76,6 +84,10 @@ int32_t semaphore_enter(context_t* ctx, uint32_t sem_id) {
 }
 
 int32_t semaphore_quit(uint32_t sem_id) {
+	if(sem_id == 0)
+		return -1;
+	sem_id--;
+
 	proc_t* cproc = get_current_proc();
 	if(sem_id >= SEMAPHORE_MAX ||
 			_semaphores[sem_id].creater_pid == -1 ||
