@@ -415,14 +415,8 @@ ip_output_core(struct ip_iface *iface, uint8_t protocol, const uint8_t *data, si
 static uint16_t
 ip_generate_id(void)
 {
-    static mutex_t mutex = MUTEX_INITIALIZER;
     static uint16_t id = 128;
-    uint16_t ret;
-
-    mutex_lock(&mutex);
-    ret = id++;
-    mutex_unlock(&mutex);
-    return ret;
+    return id++;
 }
 
 ssize_t

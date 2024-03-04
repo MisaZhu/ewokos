@@ -246,7 +246,7 @@ ip_fill(struct ip_hdr *ip_header, int *len)
 static void dhcp_discovery(struct net_device *dev){
 
     int len = 0;
-    uint8_t packet[4096];
+    uint8_t *packet = malloc(1544);
     struct udp_hdr *udp_header;
     struct ip_hdr *ip_header;
     dhcp_t *dhcp;
@@ -264,6 +264,7 @@ static void dhcp_discovery(struct net_device *dev){
     ip_fill(ip_header, &len);
 
     net_device_output(dev, ETHER_TYPE_IP, packet, len, boardcast);
+    free(packet);
 }
 
 static void dhcp_input(const uint8_t *data, size_t len, struct net_device *dev)
@@ -342,7 +343,7 @@ dhcp_timer(void)
 
 int  
 dhcp_run(struct net_device* dev){
-    dhcp_client_t *dhc = calloc(1, sizeof(dhcp_client_t));
+    dhcp_client_t *dhc = malloc(sizeof(dhcp_client_t));
 
     dhc->dev = dev;
     dhc->validity = 30;
