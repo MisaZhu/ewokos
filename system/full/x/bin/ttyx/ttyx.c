@@ -62,6 +62,7 @@ int main(int argc, char* argv[]) {
 	}
 	prompt();
 
+	bool down = false;
 	while(1) {
 		uint8_t ks[3];
 		memset(ks, 0, 3);
@@ -82,16 +83,19 @@ int main(int argc, char* argv[]) {
 				continue;
 			}
 			else {
-				if(c == 24) { //click
-					mouse_input(x_pid, 2, 0, 0);
-					mouse_input(x_pid, 1, 0, 0);
+				if(c == 24) { //click ctrl+x
+					down = !down;
+					if(down)
+						mouse_input(x_pid, 2, 0, 0);
+					else
+						mouse_input(x_pid, 1, 0, 0);
 				}
 				else if(c == 3) //ctrl+c
 					break;
 			}
 			
 			keyb_input(x_pid, c, XIM_STATE_PRESS);
-			keyb_input(x_pid, c, XIM_STATE_RELEASE);
+			//keyb_input(x_pid, c, XIM_STATE_RELEASE);
 		}
 		//proc_usleep(30000);
 	}

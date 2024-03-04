@@ -34,6 +34,7 @@ builtin_apps:
 	cd elfinfo;make
 	cd httpd;make 
 	cd setux;make 
+	cd vi;make 
 
 clean:
 	cd cp;make clean
@@ -68,3 +69,4 @@ clean:
 	cd httpd;make clean
 	cd whoami;make clean
 	cd setux;make clean
+	cd vi;make clean
