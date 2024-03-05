@@ -39,7 +39,7 @@ int       vfs_get_by_fd(int fd, fsinfo_t* info);
 int       vfs_tell(int fd);
 int       vfs_seek(int fd, int offset);
 
-int       vfs_update(fsinfo_t* info);
+int       vfs_update(fsinfo_t* info, bool do_dev);
 int       vfs_get_mount_by_id(int id, mount_t* mount);
 
 fsinfo_t* vfs_kids(uint32_t node, uint32_t* num);

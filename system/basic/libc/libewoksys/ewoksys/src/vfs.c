@@ -303,7 +303,7 @@ int vfs_close(int fd) {
 	if(file == NULL)
 		return -1;
 	if((file->info.state & FS_STATE_CHANGED) != 0) {
-		if(vfs_update(&file->info) != 0)
+		if(vfs_update(&file->info, true) != 0)
 			return -1;
 	}
 
@@ -423,9 +423,11 @@ fsinfo_t* vfs_kids(uint32_t node, uint32_t *num) {
 	return ret;
 }
 
-int vfs_update(fsinfo_t* info) {
-	if(dev_set(info->mount_pid, info) != 0)
-		return -1;
+int vfs_update(fsinfo_t* info, bool do_dev) {
+	if(do_dev) {
+		if(dev_set(info->mount_pid, info) != 0)
+			return -1;
+	}
 
 	if(vfs_set_info(info) != 0)
 		return -1;

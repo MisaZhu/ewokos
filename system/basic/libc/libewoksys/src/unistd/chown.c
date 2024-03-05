@@ -14,5 +14,5 @@ int chown(const char *pathname, int uid, int gid) {
 	if(gid >= 0)
 		info.stat.gid = gid;
 
-	return vfs_update(&info);
+	return vfs_update(&info, true);
 }

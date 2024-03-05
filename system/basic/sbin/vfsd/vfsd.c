@@ -496,9 +496,8 @@ static void proc_file_close(int pid, int fd, file_t* file, bool close_dev) {
 		}
 		proc_wakeup(node_id);
 	}
-	if(!close_dev) {
-		if(del_node)
-			vfs_del_node(node);
+
+	if(!close_dev && !del_node) {
 		return;
 	}
 
@@ -1107,7 +1106,7 @@ static void handle(int pid, int cmd, proto_t* in, proto_t* out, void* p) {
 
 static int handle_close_event(close_event_t* ev) {
 	proto_t in;
-	PF->format(&in, "i,i", ev->fd, ev->node);
+	PF->format(&in, "i,i,i", ev->fd, ev->node, ev->del_node);
 	//int res = ipc_call(ev->dev_pid, FS_CMD_CLOSE, &in, NULL);
 	int res = ipc_call_wait(ev->dev_pid, FS_CMD_CLOSE, &in);
 	PF->clear(&in);

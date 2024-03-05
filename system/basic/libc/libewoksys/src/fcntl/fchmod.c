@@ -10,5 +10,5 @@ int fchmod(int fd, int mode) {
 		return -1;
 
 	info.stat.mode = mode;
-	return vfs_update(&info);
+	return vfs_update(&info, true);
 }

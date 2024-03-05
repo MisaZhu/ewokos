@@ -137,7 +137,7 @@ static int usb_open(int fd, int from_pid, fsinfo_t* node, int oflag, void* p) {
 	return 0;
 }
 
-static int usb_close(int fd, int from_pid, uint32_t node, void* p) {
+static int usb_close(int fd, int from_pid, uint32_t node, bool del_node, void* p) {
 	(void)node;
 	(void)fd;
     del_fd_info(get_fd_info(fd, from_pid));
