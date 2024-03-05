@@ -17,6 +17,8 @@ extern "C" {
 #include <sconf/sconf.h>
 #include <ewoksys/vfs.h>
 #include <ewoksys/keydef.h>
+#include <ewoksys/ipc.h>
+#include <ewoksys/charbuf.h>
 #include <ewoksys/proc.h>
 #include <ewoksys/klog.h>
 #include <ttf/ttf.h>
@@ -27,8 +29,9 @@ extern "C" {
 
 using namespace Ewok;
 
+static charbuf_t *_buffer;
 
-class XTerm : public XWin {
+class XConsole : public XWin {
 	gterminal_t terminal;
 	int32_t rollStepRows;
 	int32_t mouse_last_y;
@@ -63,11 +66,11 @@ class XTerm : public XWin {
 		return true;
 	}
 public:
-	XTerm() {
+	XConsole() {
 		gterminal_init(&terminal);
 	}
 
-	~XTerm() {
+	~XConsole() {
 		gterminal_close(&terminal);
 	}
 
@@ -128,19 +131,9 @@ protected:
 	void onEvent(xevent_t* ev) {
 		if(ev->type == XEVT_IM && ev->state == XIM_STATE_PRESS) {
 			int c = ev->value.im.value;
-			if(c == KEY_ROLL_BACK) {
-				//console_roll(&console, -(rollStepRows));
-				repaint();
-				return;
-			}
-			else if(c == KEY_ROLL_FORWARD) {
-				//console_roll(&console, (rollStepRows));
-				repaint();
-				return;
-			}
-
 			if(c != 0) {
-				write(1, &c, 1);
+				charbuf_push(_buffer, c, false);
+				proc_wakeup(RW_BLOCK_EVT);
 			}
 		}
 		else if(ev->type == XEVT_MOUSE) {
@@ -150,63 +143,107 @@ protected:
 	}
 };
 
-static bool _termniated = false;
-static bool _thread_done = false;
+static XConsole* _xwin = NULL;
+static vdevice_t* _dev = NULL;
 
-static void* thread_loop(void* p) {
-	XTerm* xterm = (XTerm*)p;
-
-	while(!_termniated) {
-		char buf[512];
-		int size = read(0, buf, 512);
-		if(size > 0) {
-			xterm->put(buf, size);
-			xterm->repaint();
-		}
-		else if(errno != EAGAIN) {
-			break;
-		}
-	}
-	if(!_termniated)
-		xterm->close();
-	_thread_done = true;
-	return NULL;
+static int dev_loop(void* p) {
+	return 0;
 }
 
-static XTerm* _xwin = NULL;
 static void timer_handler(void) {
 	_xwin->flash();
 }
 
-static int run(int argc, char* argv[]) {
-	(void)argc;
-	(void)argv;
+static void win_loop(void* p) {
+	proc_usleep(10000);
+}
 
-	XTerm xwin;
-	xwin.readConfig(x_get_theme_fname(X_THEME_ROOT, "xterm", "theme.conf"));
+static void* thread_loop(void* p) {
+	X* x = (X*)p;
+
+	uint32_t timer_id = timer_set(500000, timer_handler);
+	x->run(win_loop, _xwin);
+	timer_remove(timer_id);
+	klog("terminated!\n");
+	_dev->terminated = true;
+	return NULL;
+}
+
+#ifdef __cplusplus
+extern "C" { extern int setenv(const char*, const char*);}
+#endif
+
+static int console_write(int fd, 
+		int from_pid,
+		fsinfo_t* node,
+		const void* buf,
+		int size,
+		int offset,
+		void* p) {
+	(void)fd;
+	(void)from_pid;
+	(void)node;
+	(void)offset;
+
+	XConsole *xwin = (XConsole*)p;
+	if(size <= 0 || xwin == NULL)
+		return 0;
+
+	xwin->put((const char*)buf, size);
+	xwin->repaint();
+	return size;
+}
+
+static int console_read(int fd, int from_pid, fsinfo_t* node, 
+		void* buf, int size, int offset, void* p) {
+	(void)fd;
+	(void)from_pid;
+	(void)offset;
+	(void)p;
+	(void)size;
+	(void)node;
+
+	char c;
+	int res = charbuf_pop(_buffer, &c);
+
+	if(res != 0)
+		return VFS_ERR_RETRY;
+
+	((char*)buf)[0] = c;
+	return 1;
+}
+
+int run(const char* mnt_point) {
+	_buffer = charbuf_new(0);
+
+	XConsole xwin;
+	xwin.readConfig(x_get_theme_fname(X_THEME_ROOT, "xconsole", "theme.conf"));
 
 	X x;
 	grect_t desk;
 	x.getDesktopSpace(desk, 0);
-	x.open(0, &xwin, desk.w*2/3, desk.h*2/3, "xterm", 0);
+	x.open(0, &xwin, desk.w*2/3, desk.h*2/3, "xconsole", 0);
 	xwin.setVisible(true);
 
 	_xwin = &xwin;
-	uint32_t timer_id = timer_set(500000, timer_handler);
+
+	vdevice_t dev;
+	memset(&dev, 0, sizeof(vdevice_t));
+	strcpy(dev.name, "xconsole");
+	dev.write = console_write;
+	dev.read = console_read;
+	dev.extra_data = &xwin;
+	dev.loop_step = dev_loop;
+	_dev = &dev;
 
 	pthread_t tid;
-	_termniated = false;
-	_thread_done = false;
-	pthread_create(&tid, NULL, thread_loop, &xwin);
+	pthread_create(&tid, NULL, thread_loop, &x);
 
-	x.run(NULL, &xwin);
-	_termniated = true;
-	close(0);
-	close(1);
-	timer_remove(timer_id);
-	while(!_thread_done)
-		proc_usleep(2000);
-	return 0;
+	device_run(&dev, mnt_point, FS_TYPE_CHAR, 0666);
+	charbuf_free(_buffer);
+	proc_wakeup(RW_BLOCK_EVT);
+	xwin.close();
+	exit(0);
 }
 
 #ifdef __cplusplus
@@ -214,37 +251,33 @@ extern "C" { extern int setenv(const char*, const char*);}
 #endif
 
 int main(int argc, char* argv[]) {
-	const char* cmd = "/bin/shell";
-	if(argc > 1)
-		cmd = argv[1];
-
-	int fds1[2];
-	int fds2[2];
-	pipe(fds1);
-	pipe(fds2);
+	const char* dev = "/dev/xconsole0";
+	if(argc > 1) 
+		dev = argv[1];
 
 	int pid = fork();
-	if(pid != 0) { //father proc for p2 reader.
-		dup2(fds1[0], 0);
-		dup2(fds2[1], 1);
-		close(fds1[0]);
-		close(fds1[1]);
-		close(fds2[0]);
-		close(fds2[1]);
-		return run(argc, argv);
+	if(pid == 0) {
+		if(run(dev) != 0) {
+			exit(-1);
+		}
 	}
-	//child proc for p1 writer
-	dup2(fds1[1], 1);
-	dup2(fds1[1], 2);
-	dup2(fds2[0], 0);
-	close(fds1[0]);
-	close(fds1[1]);
-	close(fds2[0]);
-	close(fds2[1]);
+	else 
+		ipc_wait_ready(pid);
 
-	char console[16];
-	snprintf(console, 15, "xterm-%d", getpid());
-	setenv("CONSOLE_ID", console);
+	klog("open dev %s\n", dev);
+	int fd = open(dev, O_RDONLY);
+	if(fd < 0) {
+		printf("Error: %s open failed\n", dev);
+		return -1;
+	}
+	klog("open dev %d\n", fd);
 
-	return proc_exec(cmd);
+	dup2(fd, 0);
+	dup2(fd, 1);
+	dup2(fd, 2);
+	close(fd);
+
+	setenv("CONSOLE_ID", dev);
+	proc_exec("/bin/shell");
+	return 0;
 }
