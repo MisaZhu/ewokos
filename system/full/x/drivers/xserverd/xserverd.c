@@ -1438,7 +1438,7 @@ int main(int argc, char** argv) {
 	dev.loop_step = xserver_step;
 	dev.extra_data = &x;
 
-	device_run(&dev, mnt_point, FS_TYPE_CHAR, 0666);
+	device_run(&dev, mnt_point, FS_TYPE_CHAR | FS_TYPE_ANNOUNIMOUS, 0666);
 	x_close(&x);
 	return 0;
 }
