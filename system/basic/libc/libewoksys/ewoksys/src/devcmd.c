@@ -48,15 +48,6 @@ int dev_unlink(int dev_pid, fsinfo_t* info, const char* fname) {
 	return res;
 }
 
-int dev_close(int dev_pid, int fd, uint32_t node) {
-	proto_t in;
-	PF->format(&in, "i,i,i", fd, node, 0);
-
-	int res = ipc_call_wait(dev_pid, FS_CMD_CLOSE, &in);
-	PF->clear(&in);
-	return res;
-}
-
 int dev_open(int dev_pid, int fd, fsinfo_t* info, int oflag) {
 	proto_t in, out;
 	PF->init(&out);

@@ -293,7 +293,7 @@ static int write_pipe(int fd, uint32_t node, const void* buf, uint32_t size, boo
 int vfs_close_info(int fd) {
 	proto_t in;
 	PF->init(&in)->addi(&in, fd);
-	int res = ipc_call_wait(get_vfsd_pid(), VFS_CLOSE, &in);
+	int res = ipc_call(get_vfsd_pid(), VFS_CLOSE, &in, NULL);
 	PF->clear(&in);
 	return res;
 }

@@ -398,7 +398,6 @@ _close (int fd)
 	if(vfs_get_by_fd(fd, &info) != 0)
 		return;
 
-	dev_close(info.mount_pid, fd, info.node);
 	int ret = vfs_close(fd);
 	return ret;
 }
