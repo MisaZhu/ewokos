@@ -437,7 +437,7 @@ static void push_close_event(close_event_t* ev) {
 	else
 		_event_head = e;
 	_event_tail = e;
-	proc_wakeup_pid(getpid(), (uint32_t)_vfs_root);
+	proc_wakeup_pid(getpid(), (uint32_t)_nodes_hash);
 }
 
 static int get_close_event(close_event_t *ev) {
@@ -445,7 +445,7 @@ static int get_close_event(close_event_t *ev) {
 	close_event_t *e = _event_head;
 	if (e == NULL) {
 		ipc_enable();
-		proc_block_by(getpid(), (uint32_t)_vfs_root);
+		proc_block_by(getpid(), (uint32_t)_nodes_hash);
 		return -1;
 	}
 
@@ -1031,12 +1031,15 @@ static void do_vfs_proc_exit(int32_t pid, proto_t* in) {
 
 static void handle(int pid, int cmd, proto_t* in, proto_t* out, void* p) {
 	(void)p;
+	if(pid < 0 || pid >= PROC_MAX)
+		return;
+
 	if(_proc_fds_table[pid].state == UNUSED) //maybe thread 
 		pid = proc_getpid(pid); //get the main proc pid
 	if(pid < 0)
 		return;
 
-	//klog("pid: %d, cmd: %d\n", pid, cmd);
+	//klog("vfs handle pid: %d, cmd: %d\n", pid, cmd);
 
 	switch(cmd) {
 	case VFS_NEW_NODE:
@@ -1105,7 +1108,6 @@ static int handle_close_event(close_event_t* ev) {
 	PF->format(&in, "i,i,m", ev->fd, ev->owner_pid, &ev->node->fsinfo, sizeof(fsinfo_t));
 	int res = ipc_call_wait(ev->dev_pid, FS_CMD_CLOSE, &in);
 	PF->clear(&in);
-
 	if(ev->del_node) {
 		ipc_disable();
 		vfs_del_node(ev->node);
@@ -1132,13 +1134,15 @@ int main(int argc, char** argv) {
 		close_event_t ev;
 		int res = get_close_event(&ev);
 		if(res == 0) {
+			//ipc_disable();
 			handle_close_event(&ev);
+			//ipc_enable();
 		}
 		else {
 			//ipc_disable();
 			//check_procs();
 			//ipc_enable();
-			//proc_usleep(3000);
+			proc_usleep(3000);
 		}
 	}
 	return 0;
