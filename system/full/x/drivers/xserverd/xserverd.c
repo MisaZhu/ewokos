@@ -1374,7 +1374,7 @@ static int xserver_dev_cntl(int from_pid, int cmd, proto_t* in, proto_t* ret, vo
 	return 0;
 }
 
-static int xserver_win_close(int fd, int from_pid, uint32_t node, void* p) {
+static int xserver_win_close(int fd, int from_pid, uint32_t node, bool del_node, void* p) {
 	(void)node;
 	x_t* x = (x_t*)p;
 	xwin_t* win = x_get_win(x, fd, from_pid);
