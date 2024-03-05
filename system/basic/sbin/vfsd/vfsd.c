@@ -1111,8 +1111,11 @@ static int handle_close_event(close_event_t* ev) {
 	int res = ipc_call_wait(ev->dev_pid, FS_CMD_CLOSE, &in);
 	PF->clear(&in);
 
-	if(ev->del_node)
+	if(ev->del_node) {
+		ipc_disable();
 		vfs_del_node(ev->node);
+		ipc_enable();
+	}
 	return res;
 }
 
@@ -1134,9 +1137,9 @@ int main(int argc, char** argv) {
 		close_event_t ev;
 		int res = get_close_event(&ev);
 		if(res == 0) {
-			ipc_disable();
+			//ipc_disable();
 			handle_close_event(&ev);
-			ipc_enable();
+			//ipc_enable();
 		}
 		else {
 			//ipc_disable();
