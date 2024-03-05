@@ -113,9 +113,10 @@ static void do_close(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, vo
 	(void)out;
 	int fd = proto_read_int(in);
 	uint32_t node = (uint32_t)proto_read_int(in);
+	bool del_node = (bool)proto_read_int(in);
 
 	if(dev != NULL && dev->close != NULL) {
-		dev->close(fd, from_pid, node, p);
+		dev->close(fd, from_pid, node, del_node, p);
 	}
 	file_del(fd, from_pid, node);
 }
