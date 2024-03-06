@@ -156,8 +156,8 @@ static int console_write(int fd,
 	const char* pb = (const char*)buf;
 	gterminal_put(&console->terminal, pb, size);
 
-	//if(_ux_index == core_get_ux())
-		//flush(console);
+	if(_ux_index == core_get_ux())
+		flush(console);
 	return size;
 }
 
@@ -183,13 +183,18 @@ static int console_read(int fd,
 	return 1;
 }
 
+static bool _flush = true;
 static int console_loop(void* p) {
 	if(_ux_index != core_get_ux()) {
 		usleep(200000);
+		_flush = true;
 		return 0;
 	}
 
-	flush((fb_console_t*)p);
+	if(_flush) {
+		flush((fb_console_t*)p);
+		_flush = false;
+	}
 
 	if(_keyb_fd < 0) {
 		_keyb_fd = open(_keyb_dev, O_RDONLY | O_NONBLOCK);
