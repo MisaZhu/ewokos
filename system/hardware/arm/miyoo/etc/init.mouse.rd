@@ -12,7 +12,7 @@
 /bin/ipcserv /drivers/proc/stated    /proc/state
 
 @/sbin/sessiond &
-@/bin/session &
+@/bin/session -r &
 
 /bin/ipcserv /drivers/xserverd       /dev/x
 @/sbin/x/xim_none   /dev/joykeyb &

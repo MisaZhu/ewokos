@@ -13,4 +13,4 @@ $
 #/bin/ipcserv /drivers/xserverd             /dev/x
 
 #@/bin/x/launcher &
-@/bin/session
+@/bin/session -r

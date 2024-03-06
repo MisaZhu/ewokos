@@ -8,4 +8,4 @@ $
 /bin/ipcserv /drivers/proc/sysinfod        /proc/sysinfo
 /bin/ipcserv /drivers/proc/stated          /proc/state
 
-@/bin/session
+@/bin/session -r

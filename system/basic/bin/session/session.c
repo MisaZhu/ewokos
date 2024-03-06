@@ -14,16 +14,21 @@ static void welcome(void) {
 }
 
 static const char* _tty = "";
+static int _auto_restart = 0;
+
 static int doargs(int argc, char* argv[]) {
 	_tty = "";
 
 	int c = 0;
 	while (c != -1) {
-		c = getopt (argc, argv, "t:");
+		c = getopt (argc, argv, "rt:");
 		if(c == -1)
 			break;
 
 		switch (c) {
+		case 'r':
+			_auto_restart = 1;
+			break;
 		case 't':
 			_tty = optarg;
 			break;
@@ -55,7 +60,7 @@ int main(int argc, char* argv[]) {
 		close(fd);
 	}
 
-	while(1) {
+	do {
 		int pid;
 		for(int i=argind; i<argc; i++) {
 			pid = fork();
@@ -71,7 +76,9 @@ int main(int argc, char* argv[]) {
 		
 		pid = fork();
 		if(pid == 0) {
+			klog("welcom\n");
 			welcome();
+			fflush(stdout);
 			if(proc_exec("/bin/login") < 0) {
 				exit(-1);
 			}
@@ -79,6 +86,6 @@ int main(int argc, char* argv[]) {
 		else {
 			waitpid(pid);
 		}
-	}
+	}while(_auto_restart);
 	return 0;
 }
