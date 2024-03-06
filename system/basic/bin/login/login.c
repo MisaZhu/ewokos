@@ -22,10 +22,10 @@ static void input(str_t* s, bool show) {
 	char c, old_c;
 	while(true) {
 		int i = read(0, &c, 1);
-		if(i <= 0 || c == 0) {
-		 	//if(errno != EAGAIN)
-			if(i == 0)
-			 	break;
+	 	if(i == 0 || (i < 0 && errno != EAGAIN))
+			break;
+
+		if(i < 0 || c == 0) {
 			proc_usleep(30000);
 			continue;
 		}	

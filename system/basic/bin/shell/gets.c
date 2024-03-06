@@ -62,11 +62,10 @@ int32_t cmd_gets(int fd, str_t* buf) {
 		char c, old_c;
 		errno = 0;
 		int i = read(fd, &c, 1);
-		if(i <= 0 || c == 0) {
-		 	if(i == 0)
-			 	return -1;
-			if(errno != EAGAIN)
-				return -1;
+	 	if(i == 0 || (i < 0 && errno != EAGAIN))
+			return -1;
+		
+		if(c == 0 || i < 0) {
 			proc_usleep(10000);
 			continue;
 		}
