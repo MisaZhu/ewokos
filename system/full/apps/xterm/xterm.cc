@@ -37,6 +37,7 @@ class XConsole : public XWin {
 	gterminal_t terminal;
 	int32_t rollStepRows;
 	int32_t mouse_last_y;
+	bool dirty;
 
 	void drawBG(graph_t* g) {
 		graph_clear(g, terminal.bg_color);
@@ -70,6 +71,7 @@ class XConsole : public XWin {
 public:
 	XConsole() {
 		gterminal_init(&terminal);
+		dirty = false;
 	}
 
 	~XConsole() {
@@ -94,7 +96,15 @@ public:
 
 	void flash() {
 		gterminal_flash(&terminal);
-		repaint();
+		dirty = true;
+	}
+
+	void refresh() {
+		dirty = true;
+	}
+
+	bool isDirty() {
+		return dirty;
 	}
 
 protected:
@@ -110,6 +120,7 @@ protected:
 	void onRepaint(graph_t* g) {
 		drawBG(g);
 		gterminal_paint(&terminal, g);
+		dirty = false;
 	}
 
 	void onResize() {
@@ -149,6 +160,7 @@ static XConsole* _xwin = NULL;
 static vdevice_t* _dev = NULL;
 
 static int dev_loop(void* p) {
+	proc_usleep(100000);
 	return 0;
 }
 
@@ -157,7 +169,9 @@ static void timer_handler(void) {
 }
 
 static void win_loop(void* p) {
-	proc_usleep(10000);
+	if(_xwin->isDirty())
+		_xwin->repaint();
+	proc_usleep(30000);
 }
 
 static void* thread_loop(void* p) {
@@ -187,7 +201,7 @@ static int console_write(int fd,
 		return 0;
 
 	xwin->put((const char*)buf, size);
-	xwin->repaint();
+	xwin->refresh();
 	return size;
 }
 
