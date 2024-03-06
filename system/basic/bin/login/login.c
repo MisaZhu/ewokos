@@ -17,14 +17,54 @@ static session_info_t* check(const char* user, const char* password, int* res) {
 	return NULL;
 }
 
+//remove telnet command add crlr
+static uint8_t telnet_parse(uint8_t c){
+	static int state = 0;
+	uint8_t ret = 0;
+	switch(state){
+		case 0:
+			if(c == 0xFF){
+				state = 1;
+			}else if(c == '\r'){
+				state = 3;
+				ret = '\n';
+			}else{
+				ret = c;
+			}
+			break;
+		case 1:
+			if(c >= 0xFB && c <= 0xFE)
+				state = 2;
+			else
+				state = 0;
+			break;
+		case 2:
+			state = 0;
+			break;
+		case 3:
+			if(c != '\n')
+				ret = c;
+			state = 0;
+			break;
+		default:
+			state = 0;
+			break;
+	}
+
+	return ret;
+}
+
 static void input(str_t* s, bool show) {
 	str_reset(s);
 	char c, old_c;
 	while(true) {
 		int i = read(0, &c, 1);
+		c = telnet_parse(c);
+		if(c == 0)
+			continue;
 		if(i <= 0 || c == 0) {
-		 	//if(errno != EAGAIN)
-			if(i == 0)
+		 	if(errno != EAGAIN)
+			//if(i == 0)
 			 	break;
 			proc_usleep(30000);
 			continue;
@@ -42,17 +82,6 @@ static void input(str_t* s, bool show) {
 			}
 		}
 		else {
-			if(c == '\r') {
-				old_c = c;
-				c = '\n';
-			}
-			else  {
-				old_c = 0;
-				if(c == '\n' && old_c == '\r') 
-					continue;
-			}
-
-
 			if(show || c == '\n')
 				write(1, &c, 1);
 			if(c == '\n')
