@@ -6,6 +6,7 @@
 #include <ewoksys/core.h>
 #include <ewoksys/ipc.h>
 #include <ewoksys/proc.h>
+#include <sys/errno.h>
 
 #include <ewoksys/mstr.h>
 #include <ewoksys/keydef.h>
@@ -59,10 +60,13 @@ int32_t cmd_gets(int fd, str_t* buf) {
 
 	while(1) {
 		char c, old_c;
+		errno = 0;
 		int i = read(fd, &c, 1);
 		if(i <= 0 || c == 0) {
 		 	if(i == 0)
 			 	return -1;
+			if(errno != EAGAIN)
+				return -1;
 			proc_usleep(10000);
 			continue;
 		}
