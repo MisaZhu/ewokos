@@ -112,6 +112,9 @@ static void do_open(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, voi
 static void do_close(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, void* p) {
 	//all close ipc are from vfsd proc, so read owner pid for real owner.
 	(void)out;
+	if(from_pid != get_vfsd_pid())
+		return;
+
 	int fd = proto_read_int(in);
 	uint32_t node = (uint32_t)proto_read_int(in);
 	bool last_ref = (bool)proto_read_int(in);
