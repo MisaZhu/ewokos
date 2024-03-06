@@ -187,10 +187,9 @@ int vfs_get_by_node(uint32_t node, fsinfo_t* info) {
 	return res;
 }
 
-int vfs_new_node(fsinfo_t* info, uint32_t node_to) {
+int vfs_new_node(fsinfo_t* info, uint32_t node_to, bool vfs_node_only) {
 	proto_t in, out;
-	//PF->init(&in)->add(&in, info, sizeof(fsinfo_t))->addi(&in, node_to);
-	PF->format(&in, "m,i", info, sizeof(fsinfo_t), node_to);
+	PF->format(&in, "m,i,i", info, sizeof(fsinfo_t), node_to, vfs_node_only);
 	PF->init(&out);
 	int res = ipc_call(get_vfsd_pid(), VFS_NEW_NODE, &in, &out);
 	PF->clear(&in);
@@ -293,7 +292,7 @@ static int write_pipe(int fd, uint32_t node, const void* buf, uint32_t size, boo
 int vfs_close_info(int fd) {
 	proto_t in;
 	PF->init(&in)->addi(&in, fd);
-	int res = ipc_call_wait(get_vfsd_pid(), VFS_CLOSE, &in);
+	int res = ipc_call(get_vfsd_pid(), VFS_CLOSE, &in, NULL);
 	PF->clear(&in);
 	return res;
 }
@@ -592,7 +591,7 @@ int vfs_create(const char* fname, fsinfo_t* ret, int type, int mode, bool vfs_no
 	fi.stat.gid = getgid();
 	fi.stat.mode = mode;
 
-	if(vfs_new_node(&fi, info_to.node) != 0)
+	if(vfs_new_node(&fi, info_to.node, vfs_node_only) != 0)
 		return -1;
 
 	if(vfs_node_only) {//only create in vfs service, not existed in storage. 

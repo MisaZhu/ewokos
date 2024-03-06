@@ -458,8 +458,7 @@ static int get_close_event(close_event_t *ev) {
 	return 0;
 }
 
-static void proc_file_close(int pid, int fd, file_t* file, bool close_dev) {
-	(void)close_dev;
+static void proc_file_close(int pid, int fd, file_t* file) {
 	(void)pid;
 	(void)fd;
 	if(file == NULL || file->node == NULL)
@@ -497,10 +496,6 @@ static void proc_file_close(int pid, int fd, file_t* file, bool close_dev) {
 		proc_wakeup(node_id);
 	}
 
-	if(!close_dev && !del_node) {
-		return;
-	}
-
 	int32_t to_pid = get_mount_pid(node);
 	if(to_pid < 0) {
 		if(del_node)
@@ -523,7 +518,7 @@ static void vfs_close(int32_t pid, int32_t fd) {
 
 	file_t* f = vfs_check_fd(pid, fd);
 	if(f != NULL) {
-		proc_file_close(pid, fd, f, false);
+		proc_file_close(pid, fd, f);
 		memset(f, 0, sizeof(file_t));
 	}
 }
@@ -651,6 +646,7 @@ static void do_vfs_new_node(int pid, proto_t* in, proto_t* out) {
 	if(proto_read_to(in, &info, sizeof(fsinfo_t)) != sizeof(fsinfo_t))
 		return;
 	uint32_t node_to_id = (uint32_t)proto_read_int(in);
+	bool vfs_node_only = (bool)proto_read_int(in);
 
 	vfs_node_t* node_to = NULL;
 	if(node_to_id > 0) {
@@ -660,10 +656,12 @@ static void do_vfs_new_node(int pid, proto_t* in, proto_t* out) {
 			return;
 		}
 
-		if(vfs_check_access(pid, &node_to->fsinfo, W_OK) != 0 ||
-				vfs_check_access(pid, &node_to->fsinfo, X_OK) != 0) {
-			PF->addi(out, EPERM);
-			return;
+		if(!vfs_node_only) {
+			if(vfs_check_access(pid, &node_to->fsinfo, W_OK) != 0 ||
+					vfs_check_access(pid, &node_to->fsinfo, X_OK) != 0) {
+				PF->addi(out, EPERM);
+				return;
+			}
 		}
 	
 		if(vfs_get_by_name(node_to, info.name) != NULL) {//existed ! 
@@ -978,7 +976,7 @@ static void vfs_proc_exit(int32_t cpid) {
 	for(i=0; i<PROC_FILE_MAX; i++) {
 		file_t *f = &_proc_fds_table[cpid].fds[i];
 		if(f->node != NULL) {
-			proc_file_close(cpid, i, f, true);
+			proc_file_close(cpid, i, f);
 		}
 		memset(f, 0, sizeof(file_t));
 	}
@@ -1111,8 +1109,11 @@ static int handle_close_event(close_event_t* ev) {
 	int res = ipc_call_wait(ev->dev_pid, FS_CMD_CLOSE, &in);
 	PF->clear(&in);
 
-	if(ev->del_node)
+	if(ev->del_node) {
+		ipc_disable();
 		vfs_del_node(ev->node);
+		ipc_enable();
+	}
 	return res;
 }
 
@@ -1134,9 +1135,9 @@ int main(int argc, char** argv) {
 		close_event_t ev;
 		int res = get_close_event(&ev);
 		if(res == 0) {
-			ipc_disable();
+			//ipc_disable();
 			handle_close_event(&ev);
-			ipc_enable();
+			//ipc_enable();
 		}
 		else {
 			//ipc_disable();

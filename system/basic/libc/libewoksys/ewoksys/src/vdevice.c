@@ -113,10 +113,10 @@ static void do_close(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, vo
 	(void)out;
 	int fd = proto_read_int(in);
 	uint32_t node = (uint32_t)proto_read_int(in);
-	bool del_node = (bool)proto_read_int(in);
+	bool last_ref = (bool)proto_read_int(in);
 
 	if(dev != NULL && dev->close != NULL) {
-		dev->close(fd, from_pid, node, del_node, p);
+		dev->close(fd, from_pid, node, last_ref, p);
 	}
 	file_del(fd, from_pid, node);
 }
@@ -608,7 +608,7 @@ static int do_mount(vdevice_t* dev, fsinfo_t* mnt_point, int type, int mode) {
 	info.stat.uid = getuid();
 	info.stat.gid = getgid();
 	info.stat.mode = mode;
-	vfs_new_node(&info, 0); // 0 means no father node
+	vfs_new_node(&info, 0, true); // 0 means no father node
 
 	if(dev->mount != NULL) { //do device mount precess
 		if(dev->mount(&info, dev->extra_data) != 0) {
