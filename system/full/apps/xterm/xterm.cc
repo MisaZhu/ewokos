@@ -8,6 +8,7 @@ extern "C" {
 #include <fcntl.h>
 #include <stdio.h>
 #include <sys/errno.h>
+#include <signal.h>
 
 #ifdef __cplusplus
 }
@@ -24,6 +25,7 @@ extern "C" {
 #include <ttf/ttf.h>
 #include <ewoksys/basic_math.h>
 #include <ewoksys/timer.h>
+#include <ewoksys/wait.h>
 #include <x++/X.h>
 #include <pthread.h>
 
@@ -164,14 +166,9 @@ static void* thread_loop(void* p) {
 	uint32_t timer_id = timer_set(500000, timer_handler);
 	x->run(win_loop, _xwin);
 	timer_remove(timer_id);
-	klog("terminated!\n");
 	_dev->terminated = true;
 	return NULL;
 }
-
-#ifdef __cplusplus
-extern "C" { extern int setenv(const char*, const char*);}
-#endif
 
 static int console_write(int fd, 
 		int from_pid,
@@ -213,16 +210,29 @@ static int console_read(int fd, int from_pid, fsinfo_t* node,
 	return 1;
 }
 
+static void do_signal(int sig, void* p) {
+	_dev->terminated = true;
+}
+
+#ifdef __cplusplus
+extern "C" { 
+	int setenv(const char*, const char*);
+	int kill(int, int);
+}
+#endif
+
 int run(const char* mnt_point) {
+	sys_signal_init();
+	sys_signal(SYS_SIG_STOP, do_signal, NULL);
 	_buffer = charbuf_new(0);
 
 	XConsole xwin;
-	xwin.readConfig(x_get_theme_fname(X_THEME_ROOT, "xconsole", "theme.conf"));
+	xwin.readConfig(x_get_theme_fname(X_THEME_ROOT, "xterm", "theme.conf"));
 
 	X x;
 	grect_t desk;
 	x.getDesktopSpace(desk, 0);
-	x.open(0, &xwin, desk.w*2/3, desk.h*2/3, "xconsole", 0);
+	x.open(0, &xwin, desk.w*2/3, desk.h*2/3, "xterm", 0);
 	xwin.setVisible(true);
 
 	_xwin = &xwin;
@@ -246,14 +256,9 @@ int run(const char* mnt_point) {
 	exit(0);
 }
 
-#ifdef __cplusplus
-extern "C" { extern int setenv(const char*, const char*);}
-#endif
-
 int main(int argc, char* argv[]) {
-	const char* dev = "/dev/xconsole0";
-	if(argc > 1) 
-		dev = argv[1];
+	char dev[128];
+	snprintf(dev, 127, "/dev/xconsole%d", getpid());
 
 	int pid = fork();
 	if(pid == 0) {
@@ -264,20 +269,25 @@ int main(int argc, char* argv[]) {
 	else 
 		ipc_wait_ready(pid);
 
-	klog("open dev %s\n", dev);
-	int fd = open(dev, O_RDONLY);
-	if(fd < 0) {
-		printf("Error: %s open failed\n", dev);
-		return -1;
+	int pid_shell = fork();
+	if(pid_shell == 0) {
+		int fd = open(dev, O_RDWR);
+		if(fd < 0) {
+			printf("Error: %s open failed\n", dev);
+			return -1;
+		}
+
+		dup2(fd, 0);
+		dup2(fd, 1);
+		dup2(fd, 2);
+		close(fd);
+		setenv("CONSOLE_ID", dev);
+		proc_exec("/bin/shell");
 	}
-	klog("open dev %d\n", fd);
-
-	dup2(fd, 0);
-	dup2(fd, 1);
-	dup2(fd, 2);
-	close(fd);
-
-	setenv("CONSOLE_ID", dev);
-	proc_exec("/bin/shell");
+	else {
+		waitpid(pid_shell);
+		kill(pid, SYS_SIG_STOP);
+	}
+	waitpid(pid);
 	return 0;
 }

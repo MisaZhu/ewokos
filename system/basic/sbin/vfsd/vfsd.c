@@ -646,6 +646,7 @@ static void do_vfs_new_node(int pid, proto_t* in, proto_t* out) {
 	if(proto_read_to(in, &info, sizeof(fsinfo_t)) != sizeof(fsinfo_t))
 		return;
 	uint32_t node_to_id = (uint32_t)proto_read_int(in);
+	bool vfs_node_only = (bool)proto_read_int(in);
 
 	vfs_node_t* node_to = NULL;
 	if(node_to_id > 0) {
@@ -655,10 +656,12 @@ static void do_vfs_new_node(int pid, proto_t* in, proto_t* out) {
 			return;
 		}
 
-		if(vfs_check_access(pid, &node_to->fsinfo, W_OK) != 0 ||
-				vfs_check_access(pid, &node_to->fsinfo, X_OK) != 0) {
-			PF->addi(out, EPERM);
-			return;
+		if(!vfs_node_only) {
+			if(vfs_check_access(pid, &node_to->fsinfo, W_OK) != 0 ||
+					vfs_check_access(pid, &node_to->fsinfo, X_OK) != 0) {
+				PF->addi(out, EPERM);
+				return;
+			}
 		}
 	
 		if(vfs_get_by_name(node_to, info.name) != NULL) {//existed ! 
