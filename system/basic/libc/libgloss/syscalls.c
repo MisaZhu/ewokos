@@ -502,7 +502,7 @@ _unlink (const char *path)
   fsinfo_t info;
   if(vfs_get_by_name(path, &info) != 0)
 	return -1;
-  if(dev_unlink(info.mount_pid, &info, path) != 0)	
+  if(dev_unlink(info.mount_pid, info.node, path) != 0)	
 	return -1;
   return 0;
 }

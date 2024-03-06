@@ -10,7 +10,7 @@ extern "C" {
 
 extern int dev_set(int dev_pid, fsinfo_t* info);
 extern int dev_create(int dev_pid, fsinfo_t* info_to, fsinfo_t* info);
-extern int dev_unlink(int dev_pid, fsinfo_t* info, const char* fname);
+extern int dev_unlink(int dev_pid, uint32_t node, const char* fname);
 extern int dev_open(int dev_pid, int fd, fsinfo_t* node, int oflag);
 extern int dev_read(int dev_pid, int fd, fsinfo_t* node, int32_t offset, void* buf, uint32_t size);
 extern int dev_write(int dev_pid, int fd, fsinfo_t* node, int32_t offset, const void* buf, uint32_t size);

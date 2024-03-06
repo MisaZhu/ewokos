@@ -183,6 +183,6 @@ int main(int argc, char** argv) {
 	dev.dev_cntl = timer_dcntl;
 	dev.cmd = timer_cmd;
 
-	device_run(&dev, mnt_point, FS_TYPE_CHAR, 0444);
+	device_run(&dev, mnt_point, FS_TYPE_CHAR, 0666);
 	return 0;
 }

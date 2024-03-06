@@ -263,7 +263,7 @@ int run(const char* mnt_point) {
 	pthread_t tid;
 	pthread_create(&tid, NULL, thread_loop, &x);
 
-	device_run(&dev, mnt_point, FS_TYPE_CHAR, 0666);
+	device_run(&dev, mnt_point, FS_TYPE_CHAR, 0600);
 	charbuf_free(_buffer);
 	proc_wakeup(RW_BLOCK_EVT);
 	xwin.close();

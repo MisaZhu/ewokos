@@ -701,7 +701,9 @@ static void do_vfs_open(int32_t pid, proto_t* in, proto_t* out) {
 		return;
 	}
 
-	if((flags & O_WRONLY) != 0 && vfs_check_access(pid, &node->fsinfo, W_OK) != 0) {
+	if(((flags & O_WRONLY) != 0 ||
+			(flags & O_RDWR) != 0) &&
+			vfs_check_access(pid, &node->fsinfo, W_OK) != 0) {
 		PF->addi(out, EPERM);
 		return;
 	}
