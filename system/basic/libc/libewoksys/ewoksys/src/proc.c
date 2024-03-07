@@ -35,6 +35,7 @@ void proc_exit(void) {
 void proc_global_lock(void) {
 	if(!_proc_global_need_lock)
 		return -1;
+
 	int tid = pthread_self();
 	if(tid == _lock_thread) {
 		_reent_dep++;

@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <ewoksys/syscall.h>
+#include <ewoksys/proc.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -12,10 +13,8 @@ static void thread_entry(thread_func_t func, void* p) {
 	exit(0);
 }
 
-static int32_t _thread_lock;
-
 int thread_create(thread_func_t func, void* p) {
-	_thread_lock = 0;
+	_proc_global_need_lock = true;
 	return syscall3(SYS_THREAD, (int32_t)thread_entry, (int32_t)func, (int32_t)p);
 }
 
