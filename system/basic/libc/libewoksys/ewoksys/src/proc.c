@@ -31,10 +31,7 @@ void proc_exit(void) {
 	pthread_mutex_destroy(&_proc_global_lock);
 }
 
-static void proc_global_lock(void) {
-	if(!_proc_global_need_lock)
-		return -1;
-
+static inline void proc_global_lock(void) {
 	int tid = pthread_self();
 	if(tid == _lock_thread) {
 		_reent_dep++;
@@ -45,10 +42,7 @@ static void proc_global_lock(void) {
 	_lock_thread = tid;
 }
 
-static void proc_global_unlock(void) {
-	if(!_proc_global_need_lock)
-		return;
-
+static inline void proc_global_unlock(void) {
 	int tid = pthread_self();
 	if(tid == _lock_thread) {
 		if(_reent_dep > 0)  {
@@ -62,10 +56,14 @@ static void proc_global_unlock(void) {
 }
 
 void __malloc_lock (struct _reent *reent) {
+	if(!_proc_global_need_lock)
+		return;
 	proc_global_lock();
 }
 
 void __malloc_unlock (struct _reent *reent) {
+	if(!_proc_global_need_lock)
+		return;
 	proc_global_unlock();
 }
 

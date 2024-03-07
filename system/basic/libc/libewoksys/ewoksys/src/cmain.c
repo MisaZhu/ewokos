@@ -16,7 +16,7 @@ extern "C" {
 #endif
 
 
-static char _cmd[PROC_INFO_CMD_MAX];
+static char _cmd[PROC_INFO_MAX_CMD_LEN];
 static int _off_cmd;
 static const char* _argv0;
 
@@ -52,9 +52,9 @@ static char* read_cmain_arg(void) {
 }
 
 const char* cmain_get_work_dir(void) {
-	static char ret[PROC_INFO_CMD_MAX] = {0};
+	static char ret[PROC_INFO_MAX_CMD_LEN] = {0};
 	int i = strlen(_argv0) - 1;
-	while(i >= 0 && i < PROC_INFO_CMD_MAX) {
+	while(i >= 0 && i < PROC_INFO_MAX_CMD_LEN) {
 		if(_argv0[i] == '/') {
 			strncpy(ret, _argv0, i);
 			ret[i] = 0;
@@ -75,7 +75,7 @@ static void init_cmd(void) {
 	_cmd[0] = 0;
 	_off_cmd = 0;
 	_argv0 = "";
-	syscall3(SYS_PROC_GET_CMD, getpid(), (int32_t)_cmd, PROC_INFO_CMD_MAX);
+	syscall3(SYS_PROC_GET_CMD, getpid(), (int32_t)_cmd, PROC_INFO_MAX_CMD_LEN);
 }
 
 #define ARG_MAX 16

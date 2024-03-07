@@ -19,7 +19,7 @@ extern "C" {
 #endif
 
 
-static fsfile_t _fsfiles[PROC_FILE_MAX];
+static fsfile_t _fsfiles[MAX_OPEN_FILE_PER_PROC];
 
 static int vfs_get_by_fd_raw(int fd, fsinfo_t* info) {
 	proto_t in, out;
@@ -57,13 +57,13 @@ static int vfs_set_info(fsinfo_t* info) {
 }
 
 void  vfs_init(void) {
-	for(uint32_t i=0; i<PROC_FILE_MAX; i++) {
+	for(uint32_t i=0; i<MAX_OPEN_FILE_PER_PROC; i++) {
 		memset(&_fsfiles[i], 0, sizeof(fsfile_t));
 	}
 }
 
 static inline fsfile_t* vfs_set_file(int fd, fsinfo_t* info) {
-	if(fd < 0 || fd >= PROC_FILE_MAX)
+	if(fd < 0 || fd >= MAX_OPEN_FILE_PER_PROC)
 		return NULL;
 	fsfile_t* file = &_fsfiles[fd];
 	memcpy(&file->info, info, sizeof(fsinfo_t));
@@ -71,20 +71,20 @@ static inline fsfile_t* vfs_set_file(int fd, fsinfo_t* info) {
 }
 
 static inline void vfs_update_file(fsinfo_t* info) {
-	for(uint32_t i=0; i<PROC_FILE_MAX; i++) {
+	for(uint32_t i=0; i<MAX_OPEN_FILE_PER_PROC; i++) {
 		if(_fsfiles[i].info.node == info->node)
 			memcpy(&_fsfiles[i].info, info, sizeof(fsinfo_t));
 	}
 }
 
 static inline void vfs_clear_file(int fd) {
-	if(fd < 0 || fd >= PROC_FILE_MAX)
+	if(fd < 0 || fd >= MAX_OPEN_FILE_PER_PROC)
 		return;
 	memset(&_fsfiles[fd], 0, sizeof(fsfile_t));
 }
 
 static fsfile_t* vfs_get_file(int fd) {
-	if(fd < 0 || fd >= PROC_FILE_MAX)
+	if(fd < 0 || fd >= MAX_OPEN_FILE_PER_PROC)
 		return NULL;
 
 	fsfile_t* ret = &_fsfiles[fd];

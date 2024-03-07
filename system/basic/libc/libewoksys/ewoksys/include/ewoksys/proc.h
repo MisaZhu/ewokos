@@ -8,6 +8,8 @@
 extern "C" {
 #endif
 
+#define MAX_OPEN_FILE_PER_PROC 128
+
 int      get_vfsd_pid(void);
 int      get_cored_pid(void);
 
