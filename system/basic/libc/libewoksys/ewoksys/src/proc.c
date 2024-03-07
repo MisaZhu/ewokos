@@ -31,8 +31,7 @@ void proc_exit(void) {
 	pthread_mutex_destroy(&_proc_global_lock);
 }
 
-
-void proc_global_lock(void) {
+static void proc_global_lock(void) {
 	if(!_proc_global_need_lock)
 		return -1;
 
@@ -46,7 +45,7 @@ void proc_global_lock(void) {
 	_lock_thread = tid;
 }
 
-void proc_global_unlock(void) {
+static void proc_global_unlock(void) {
 	if(!_proc_global_need_lock)
 		return;
 
