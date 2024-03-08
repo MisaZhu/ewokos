@@ -49,10 +49,10 @@ static inline void proc_global_unlock(void) {
 			_reent_dep--;
 			return;
 		}
-		_lock_thread = -1;
 	}
 		
 	pthread_mutex_unlock(&_proc_global_lock);
+	_lock_thread = -1;
 }
 
 void __malloc_lock (struct _reent *reent) {
