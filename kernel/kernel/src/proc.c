@@ -585,7 +585,7 @@ proc_t *proc_create(int32_t type, proc_t* parent) {
 	}
 	if (index < 0)
 		return NULL;
-	_last_create_pid = index;
+	_last_create_pid = index+1;
 
 	proc_t *proc = &_proc_table[index];
 	memset(proc, 0, sizeof(proc_t));
