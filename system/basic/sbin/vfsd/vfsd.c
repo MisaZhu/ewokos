@@ -15,6 +15,7 @@
 #include <ewoksys/syscall.h>
 #include <ewoksys/hashmap.h>
 #include <procinfo.h>
+#include <sysinfo.h>
 
 typedef struct vfs_node {
   struct vfs_node* father;
@@ -46,7 +47,8 @@ typedef struct {
 	uint32_t uuid;
 } proc_fds_t;
 
-static proc_fds_t _proc_fds_table[MAX_PROC_NUM];
+static proc_fds_t* _proc_fds_table = NULL;
+static uint32_t    _max_proc_num = 0;
 
 static void vfs_node_init(vfs_node_t* node) {
 	memset(node, 0, sizeof(vfs_node_t));
@@ -80,7 +82,12 @@ static void vfsd_init(void) {
 		memset(&_vfs_mounts[i], 0, sizeof(mount_t));
 	}
 
-	for(i = 0; i<MAX_PROC_NUM; i++) {
+	sys_info_t sysinfo;
+	syscall1(SYS_GET_SYS_INFO, (int32_t)&sysinfo);
+	_max_proc_num = sysinfo.max_proc_num;
+	_proc_fds_table = (proc_fds_t*)malloc(_max_proc_num*sizeof(proc_fds_t));
+
+	for(i = 0; i<_max_proc_num; i++) {
 		memset(&_proc_fds_table[i], 0, sizeof(proc_fds_t));
 	}
 
@@ -90,7 +97,7 @@ static void vfsd_init(void) {
 }
 
 static file_t* vfs_get_file(int32_t pid, int32_t fd) {
-	if(pid < 0 || pid >= MAX_PROC_NUM || fd < 0 || fd >= MAX_OPEN_FILE_PER_PROC)
+	if(pid < 0 || pid >= _max_proc_num || fd < 0 || fd >= MAX_OPEN_FILE_PER_PROC)
 		return NULL;
 	return &_proc_fds_table[pid].fds[fd];
 }
@@ -1015,7 +1022,7 @@ static void do_vfs_proc_clone(int32_t pid, proto_t* in) {
 /*
 static void check_procs(void) {
 	int32_t i;
-	for(i = 0; i<MAX_PROC_NUM; i++) {
+	for(i = 0; i<_max_proc_num; i++) {
 		if(_proc_fds_table[i].state != UNUSED) {
 			if(proc_get_uuid(i) != _proc_fds_table[i].uuid) {
 				vfs_proc_exit(i);
@@ -1028,7 +1035,7 @@ static void check_procs(void) {
 static void do_vfs_proc_exit(int32_t pid, proto_t* in) {
 	(void)pid;
 	int cpid = proto_read_int(in);
-	if(cpid < 0 || cpid >= MAX_PROC_NUM)
+	if(cpid < 0 || cpid >= _max_proc_num)
 		return;
 	vfs_proc_exit(cpid);
 }

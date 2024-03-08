@@ -39,6 +39,8 @@ typedef struct {
 	dma_info_t  dma;
 	fb_info_t   fb;
 	uint32_t    cores;
+
+	uint32_t    max_proc_num;
 } sys_info_t;
 
 /*dynamic attr*/

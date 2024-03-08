@@ -25,6 +25,7 @@ static queue_t _ready_queue[CPU_MAX_CORES];
 static proc_t* _current_proc[CPU_MAX_CORES];
 static uint32_t _use_core_id = 0;
 static uint32_t _proc_uuid = 0;
+static int32_t _last_create_pid = 0;
 
 bool _core_proc_ready = false;
 int32_t _core_proc_pid = -1;
@@ -572,14 +573,19 @@ static inline void core_attach(proc_t* proc) {
 proc_t *proc_create(int32_t type, proc_t* parent) {
 	int32_t index = -1;
 	uint32_t i;
+
 	for (i = 0; i < MAX_PROC_NUM; i++) {
-		if (_proc_table[i].info.state == UNUSED) {
-			index = i;
+		int32_t at = i + _last_create_pid;
+		if(at >= MAX_PROC_NUM)
+			at = at % MAX_PROC_NUM;
+		if (_proc_table[at].info.state == UNUSED) {
+			index = at;
 			break;
 		}
 	}
 	if (index < 0)
 		return NULL;
+	_last_create_pid = index;
 
 	proc_t *proc = &_proc_table[index];
 	memset(proc, 0, sizeof(proc_t));
