@@ -1155,5 +1155,7 @@ int main(int argc, char** argv) {
 			//proc_usleep(3000);
 		}
 	}
+
+	free(_proc_fds_table);
 	return 0;
 }

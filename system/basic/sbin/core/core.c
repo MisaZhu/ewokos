@@ -346,6 +346,7 @@ int main(int argc, char** argv) {
 	}
 
 	hashmap_free(_ipc_servs);
+	free(_proc_info_table);
 	return 0;
 }
 
