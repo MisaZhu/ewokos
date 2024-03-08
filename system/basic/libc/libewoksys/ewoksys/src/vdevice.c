@@ -110,7 +110,11 @@ static void do_open(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, voi
 }
 
 static void do_close(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, void* p) {
+	//all close ipc are from vfsd proc, so read owner pid for real owner.
 	(void)out;
+	if(from_pid != get_vfsd_pid())
+		return;
+
 	int fd = proto_read_int(in);
 	uint32_t node = (uint32_t)proto_read_int(in);
 	bool last_ref = (bool)proto_read_int(in);
@@ -377,9 +381,14 @@ static void do_create(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, v
 
 static void do_unlink(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, void* p) {
 	(void)from_pid;
-	fsinfo_t info;
-	proto_read_to(in, &info, sizeof(fsinfo_t));
+	uint32_t node = proto_read_int(in);
 	const char* fname = proto_read_str(in);
+
+	fsinfo_t info;
+	if(vfs_get_by_node(node, &info) != 0) {
+		PF->addi(out, -1)->addi(out, ENOENT);
+		return;
+	}
 	
 	if(vfs_check_access(from_pid, &info, W_OK) != 0) {
 		PF->addi(out, -1)->addi(out, EPERM);
@@ -389,6 +398,10 @@ static void do_unlink(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, v
 	int res = 0;
 	if(dev != NULL && dev->unlink != NULL)
 		res = dev->unlink(&info, fname, p);
+	else if(info.type != FS_TYPE_FILE && info.type != FS_TYPE_DIR) {
+		PF->addi(out, -1)->addi(out, EPERM);
+		return;
+	}
 	else
 		res = vfs_del_node(info.node);
 	PF->addi(out, res);

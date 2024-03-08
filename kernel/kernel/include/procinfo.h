@@ -4,9 +4,9 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-#define PROC_INFO_CMD_MAX 256
-#define PROC_MAX 128
-#define PROC_FILE_MAX 128
+#define MAX_PROC_NUM 1024
+#define PROC_INFO_MAX_CMD_LEN 256
+#define MAX_THREAD_NUM_PER_PROC  128
 
 enum {
 	UNUSED = 0,
@@ -54,7 +54,7 @@ typedef struct {
 	uint32_t run_usec;
 	uint32_t heap_size;
 	uint32_t shm_size;
-	char     cmd[PROC_INFO_CMD_MAX];
+	char     cmd[PROC_INFO_MAX_CMD_LEN];
 } procinfo_t;
 	
 #endif

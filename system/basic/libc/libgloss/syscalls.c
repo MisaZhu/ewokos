@@ -417,8 +417,6 @@ _sbrk (ptrdiff_t incr)
 {
   char *prev_heap_end;
 
-  proc_global_lock();
-
   __heap_size += incr;
   __heap_ptr = syscall1(SYS_MALLOC_EXPAND, incr);
   if(incr > 0)
@@ -429,7 +427,7 @@ _sbrk (ptrdiff_t incr)
 //   kout_int("sbrk", incr);
 //   kout_int("pid", _getpid());
 //   kout_int("current", __heap_size);
-  proc_global_unlock();
+
   return (void *) prev_heap_end;
 }
 
@@ -502,7 +500,7 @@ _unlink (const char *path)
   fsinfo_t info;
   if(vfs_get_by_name(path, &info) != 0)
 	return -1;
-  if(dev_unlink(info.mount_pid, &info, path) != 0)	
+  if(dev_unlink(info.mount_pid, info.node, path) != 0)	
 	return -1;
   return 0;
 }

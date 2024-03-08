@@ -41,12 +41,12 @@ static mount_t _vfs_mounts[FS_MOUNT_MAX];
 static map_t*  _nodes_hash = NULL;
 
 typedef struct {
-	file_t fds[PROC_FILE_MAX];
+	file_t fds[MAX_OPEN_FILE_PER_PROC];
 	uint32_t state;
 	uint32_t uuid;
 } proc_fds_t;
 
-static proc_fds_t _proc_fds_table[PROC_MAX];
+static proc_fds_t _proc_fds_table[MAX_PROC_NUM];
 
 static void vfs_node_init(vfs_node_t* node) {
 	memset(node, 0, sizeof(vfs_node_t));
@@ -80,7 +80,7 @@ static void vfsd_init(void) {
 		memset(&_vfs_mounts[i], 0, sizeof(mount_t));
 	}
 
-	for(i = 0; i<PROC_MAX; i++) {
+	for(i = 0; i<MAX_PROC_NUM; i++) {
 		memset(&_proc_fds_table[i], 0, sizeof(proc_fds_t));
 	}
 
@@ -90,7 +90,7 @@ static void vfsd_init(void) {
 }
 
 static file_t* vfs_get_file(int32_t pid, int32_t fd) {
-	if(pid < 0 || pid >= PROC_MAX || fd < 0 || fd >= PROC_FILE_MAX)
+	if(pid < 0 || pid >= MAX_PROC_NUM || fd < 0 || fd >= MAX_OPEN_FILE_PER_PROC)
 		return NULL;
 	return &_proc_fds_table[pid].fds[fd];
 }
@@ -362,7 +362,7 @@ vfs_node_t* vfs_root(void) {
 
 static int32_t get_free_fd(int32_t pid) {
 	int32_t i;
-	for(i=3; i<PROC_FILE_MAX; i++) { //0, 1, 2 reserved for stdio in/out/err
+	for(i=3; i<MAX_OPEN_FILE_PER_PROC; i++) { //0, 1, 2 reserved for stdio in/out/err
 		if(_proc_fds_table[pid].fds[i].node == 0)
 			return i;
 	}
@@ -513,7 +513,7 @@ static void proc_file_close(int pid, int fd, file_t* file) {
 }
 
 static void vfs_close(int32_t pid, int32_t fd) {
-	if(pid < 0 || fd < 0 || fd >= PROC_FILE_MAX)
+	if(pid < 0 || fd < 0 || fd >= MAX_OPEN_FILE_PER_PROC)
 		return;
 
 	file_t* f = vfs_check_fd(pid, fd);
@@ -524,7 +524,7 @@ static void vfs_close(int32_t pid, int32_t fd) {
 }
 
 static vfs_node_t* vfs_dup(int32_t pid, int32_t from, int32_t *ret) {
-	if(from < 0 || from > PROC_FILE_MAX)
+	if(from < 0 || from > MAX_OPEN_FILE_PER_PROC)
 		return NULL;
 	int32_t to = get_free_fd(pid);
 	if(to < 0)
@@ -554,8 +554,8 @@ static int32_t vfs_dup2(int32_t pid, int32_t from, int32_t to) {
 	if(from == to)
 		return f->node;
 
-	if(from < 0 || from > PROC_FILE_MAX ||
-			to < 0 || to > PROC_FILE_MAX)
+	if(from < 0 || from > MAX_OPEN_FILE_PER_PROC ||
+			to < 0 || to > MAX_OPEN_FILE_PER_PROC)
 		return NULL;
 
 	vfs_close(pid, to);
@@ -701,7 +701,9 @@ static void do_vfs_open(int32_t pid, proto_t* in, proto_t* out) {
 		return;
 	}
 
-	if((flags & O_WRONLY) != 0 && vfs_check_access(pid, &node->fsinfo, W_OK) != 0) {
+	if(((flags & O_WRONLY) != 0 ||
+			(flags & O_RDWR) != 0) &&
+			vfs_check_access(pid, &node->fsinfo, W_OK) != 0) {
 		PF->addi(out, EPERM);
 		return;
 	}
@@ -973,7 +975,7 @@ static void vfs_proc_exit(int32_t cpid) {
 	if(cpid < 0)
 		return;
 	int32_t i;
-	for(i=0; i<PROC_FILE_MAX; i++) {
+	for(i=0; i<MAX_OPEN_FILE_PER_PROC; i++) {
 		file_t *f = &_proc_fds_table[cpid].fds[i];
 		if(f->node != NULL) {
 			proc_file_close(cpid, i, f);
@@ -997,7 +999,7 @@ static void do_vfs_proc_clone(int32_t pid, proto_t* in) {
 	_proc_fds_table[cpid].uuid = proc_get_uuid(cpid);
 	
 	int32_t i;
-	for(i=0; i<PROC_FILE_MAX; i++) {
+	for(i=0; i<MAX_OPEN_FILE_PER_PROC; i++) {
 		file_t *f = &_proc_fds_table[fpid].fds[i];
 		vfs_node_t* node = 	vfs_get_node_by_id((uint32_t)f->node);
 		if(node != NULL) {
@@ -1013,7 +1015,7 @@ static void do_vfs_proc_clone(int32_t pid, proto_t* in) {
 /*
 static void check_procs(void) {
 	int32_t i;
-	for(i = 0; i<PROC_MAX; i++) {
+	for(i = 0; i<MAX_PROC_NUM; i++) {
 		if(_proc_fds_table[i].state != UNUSED) {
 			if(proc_get_uuid(i) != _proc_fds_table[i].uuid) {
 				vfs_proc_exit(i);
@@ -1026,7 +1028,7 @@ static void check_procs(void) {
 static void do_vfs_proc_exit(int32_t pid, proto_t* in) {
 	(void)pid;
 	int cpid = proto_read_int(in);
-	if(cpid < 0 || cpid >= PROC_MAX)
+	if(cpid < 0 || cpid >= MAX_PROC_NUM)
 		return;
 	vfs_proc_exit(cpid);
 }

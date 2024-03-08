@@ -13,6 +13,7 @@
 #include <ewoksys/klog.h>
 #include <ewoksys/syscall.h>
 #include <ewoksys/core.h>
+#include <ewoksys/charbuf.h>
 #include <sysinfo.h>
 #include <font/font.h>
 
@@ -162,6 +163,7 @@ static int console_write(int fd,
 
 static int _keyb_fd = -1;
 static const char* _keyb_dev = "/dev/keyb0";
+static charbuf_t *_buffer;
 
 static int console_read(int fd,
 		int from_pid,
@@ -171,26 +173,49 @@ static int console_read(int fd,
 		int offset,
 		void* p) {
 
-	if(_ux_index != core_get_ux())
-		return -1;
+	char c;
+	int res = charbuf_pop(_buffer, &c);
+
+	if(res != 0)
+		return VFS_ERR_RETRY;
+
+	((char*)buf)[0] = c;
+	return 1;
+}
+
+static bool _flush = true;
+static int console_loop(void* p) {
+	if(_ux_index != core_get_ux()) {
+		usleep(200000);
+		_flush = true;
+		return 0;
+	}
+
+	if(_flush) {
+		flush((fb_console_t*)p);
+		_flush = false;
+	}
 
 	if(_keyb_fd < 0) {
 		_keyb_fd = open(_keyb_dev, O_RDONLY | O_NONBLOCK);
-		if(_keyb_fd < 0)
-			return -1;
+		if(_keyb_fd < 0) {
+			usleep(200000);
+			return 0;
+		}
 	}
 
-	return read(_keyb_fd, buf, size);
-}
+	char c = 0;
+	if(read(_keyb_fd, &c, 1) == 1 && c != 0) {
+		charbuf_push(_buffer, c, true);
+		proc_wakeup(RW_BLOCK_EVT);
+	}
 
-static int console_loop(void* p) {
-	if(_ux_index == core_get_ux())
-		flush((fb_console_t*)p);
-	usleep(200000);
+	usleep(20000);
 	return 0;
 }
 
 int main(int argc, char** argv) {
+	_buffer = charbuf_new(0);
 	_ux_index = 0;
 	if(argc > 1)
 		_ux_index = atoi(argv[1]);
@@ -217,5 +242,6 @@ int main(int argc, char** argv) {
 
 	device_run(&dev, mnt_point, FS_TYPE_CHAR, 0666);
 	close_console(&_console);
+	charbuf_free(_buffer);
 	return 0;
 }

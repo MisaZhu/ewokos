@@ -1,6 +1,5 @@
 #include <pthread.h>
 #include <ewoksys/thread.h>
-#include <ewoksys/proc.h>
 #include <stddef.h>
 #include <stdlib.h>
 
@@ -9,7 +8,6 @@ int pthread_create(pthread_t* thread,
 		void *(*start_routine) (void *),
 		void *arg) {
 	(void)attr;
-	_proc_global_need_lock = true;
 
 	pthread_t tid = thread_create(start_routine, arg);
 	if(tid < 0)

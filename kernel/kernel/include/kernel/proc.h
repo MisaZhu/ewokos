@@ -20,7 +20,6 @@ typedef struct {
 } proc_block_event_t;
 
 #define THREAD_STACK_PAGES 16
-#define THREAD_MAX  32
 
 typedef struct {
 	uint32_t base;
@@ -42,7 +41,7 @@ typedef struct {
 	signal_t          signal;
 	proc_interrupt_t  interrupt;
 
-	thread_stack_t  thread_stacks[THREAD_MAX];
+	thread_stack_t  thread_stacks[MAX_THREAD_NUM_PER_PROC];
 } proc_space_t;
 
 #define STACK_PAGES 32

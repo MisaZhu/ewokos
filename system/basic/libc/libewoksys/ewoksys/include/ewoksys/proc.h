@@ -8,6 +8,8 @@
 extern "C" {
 #endif
 
+#define MAX_OPEN_FILE_PER_PROC 128
+
 int      get_vfsd_pid(void);
 int      get_cored_pid(void);
 
@@ -28,9 +30,6 @@ void*    proc_malloc_expand(uint32_t size);
 void*    proc_malloc_free(void);
 uint32_t proc_malloc_size(void);
 int      proc_usleep(uint32_t usec);
-
-void     proc_global_lock(void);
-void     proc_global_unlock(void);
 
 int      proc_exec(const char* cmd_line);
 

@@ -29,10 +29,10 @@ int dev_set(int dev_pid, fsinfo_t* info) {
 	return res;
 }
 
-int dev_unlink(int dev_pid, fsinfo_t* info, const char* fname) {
+int dev_unlink(int dev_pid, uint32_t node, const char* fname) {
 	proto_t in, out;
 	PF->init(&out);
-	PF->format(&in, "m,s", info, sizeof(fsinfo_t), fname);
+	PF->format(&in, "i,s", node, fname);
 
 	int res = ipc_call(dev_pid, FS_CMD_UNLINK, &in, &out);
 	PF->clear(&in);
