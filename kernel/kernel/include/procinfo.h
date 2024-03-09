@@ -4,9 +4,9 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-#define MAX_PROC_NUM 1024
+#define MAX_PROC_NUM 128
 #define PROC_INFO_MAX_CMD_LEN 256
-#define MAX_THREAD_NUM_PER_PROC  128
+#define MAX_THREAD_NUM_PER_PROC  32
 
 enum {
 	UNUSED = 0,
