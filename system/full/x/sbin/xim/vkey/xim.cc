@@ -164,7 +164,7 @@ protected:
 			}
 			else if(c == KEY_BUTTON_START) {
 				doKeyIn('\r');
-				changeMode(true);
+				//changeMode(true);
 				return;
 			}
 			else if(c == KEY_BUTTON_X) {
@@ -283,7 +283,7 @@ protected:
 				if(keySelect == at) { //hot key
 					ky -= (j == 0 ? input_h : keyh/2);
 					kh = keyh + (j == 0 ? input_h : keyh/2);
-					graph_fill(g, kx, ky, kw, kh, 0xffffffff);
+					graph_fill(g, kx, ky, kw, kh, 0xbb000000);
 				}
 
 				if(c != '\3')
@@ -296,7 +296,7 @@ protected:
 				if(keySelect == at) //hot key
 					graph_draw_text_font(g, kx + (kw-tw)/2, 
 							ky + 2,
-							t, &font, 0xff000000);
+							t, &font, 0xffffffff);
 				else
 					graph_draw_text_font(g, kx + (kw-tw)/2, 
 							ky + (kh - font_h)/2,
@@ -346,7 +346,7 @@ public:
 		scrSize.h = fh;
 		panelSize.w = pw;
 		panelSize.h = ph;
-		font_load(DEFAULT_SYSTEM_FONT, 13, &font, true);
+		font_load(DEFAULT_SYSTEM_FONT, 12, &font, true);
 		keytable[1] = ""
 			"1234567890%-+\b"
 			"\\#$&*(){}[]!\r\3"
