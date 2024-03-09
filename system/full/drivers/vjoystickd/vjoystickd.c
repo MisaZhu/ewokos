@@ -6,6 +6,7 @@
 #include <ewoksys/vdevice.h>
 #include <ewoksys/proto.h>
 #include <ewoksys/keydef.h>
+#include <ewoksys/kernel_tic.h>
 
 static int  _joys_fd = -1;
 static bool _mouse_mode = false;
@@ -26,6 +27,7 @@ static int vjoystick_read(int fd,
 
 	if(_joys_fd < 0 || size < 4)
 		return -1;
+	static uint64_t home_tic = 0u;
 	
 	char* v = (char*)buf;
 	int rd = -1;
@@ -38,8 +40,12 @@ static int vjoystick_read(int fd,
 	if(rd > 0) {
 		for(int i=0; i<rd; i++) {
 			if(v[i] == KEY_HOME) {
-				_mouse_mode = !_mouse_mode;
+				uint64_t now;
+				now = kernel_tic_ms(0);
+				if((now - home_tic) > 200)
+					_mouse_mode = !_mouse_mode;
 				rd = -1;
+				home_tic = now;
 				break;
 			}
 		}
