@@ -36,7 +36,7 @@ extern "C" {
 #define KEY_BUTTON_Y        100
 #define KEY_BUTTON_Z        101
 
-#define JOYSTICK_UP        0x1
+/*#define JOYSTICK_UP        0x1
 #define JOYSTICK_DOWN      0x2
 #define JOYSTICK_LEFT      0x4
 #define JOYSTICK_RIGHT     0x8
@@ -45,6 +45,7 @@ extern "C" {
 #define JOYSTICK_BTN_B     0x20
 #define JOYSTICK_BTN_SELECT    0x40
 #define JOYSTICK_BTN_START     0x80
+*/
 
 #ifdef __cplusplus
 }

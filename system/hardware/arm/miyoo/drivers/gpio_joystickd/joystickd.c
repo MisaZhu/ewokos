@@ -13,12 +13,12 @@
 #define GPIO_HIGH				1
 #define GPIO_LOW				0
 
-#define  JOYSTICK_UP_PIN				1
-#define  JOYSTICK_DOWN_PIN			69
-#define  JOYSTICK_LEFT_PIN			70
-#define  JOYSTICK_RIGHT_PIN			5
-#define  JOYSTICK_PRESS_PIN		7
+#define  KEY_UP_PIN				1
+#define  KEY_DOWN_PIN			69
+#define  KEY_LEFT_PIN			70
+#define  KEY_RIGHT_PIN			5
 #define  KEY_HOME_PIN			12
+#define  KEY_BUTTON_A_PIN		7
 #define  KEY_BUTTON_B_PIN		6
 #define  KEY_BUTTON_X_PIN		9
 #define  KEY_BUTTON_Y_PIN		8
@@ -38,12 +38,12 @@ struct gpio_pins{
 	int active;
 	int status;
 }_pins[] = {
-	DECLARE_GPIO_KEY(JOYSTICK_UP, GPIO_LOW),
-	DECLARE_GPIO_KEY(JOYSTICK_DOWN, GPIO_LOW),
-	DECLARE_GPIO_KEY(JOYSTICK_LEFT, GPIO_LOW),
-	DECLARE_GPIO_KEY(JOYSTICK_RIGHT, GPIO_LOW),
-	DECLARE_GPIO_KEY(JOYSTICK_PRESS, GPIO_LOW)
-	/*DECLARE_GPIO_KEY(KEY_BUTTON_B, GPIO_LOW),
+	DECLARE_GPIO_KEY(KEY_UP, GPIO_LOW),
+	DECLARE_GPIO_KEY(KEY_DOWN, GPIO_LOW),
+	DECLARE_GPIO_KEY(KEY_LEFT, GPIO_LOW),
+	DECLARE_GPIO_KEY(KEY_RIGHT, GPIO_LOW),
+	DECLARE_GPIO_KEY(KEY_BUTTON_A, GPIO_LOW),
+	DECLARE_GPIO_KEY(KEY_BUTTON_B, GPIO_LOW),
 	DECLARE_GPIO_KEY(KEY_BUTTON_X, GPIO_LOW),
 	DECLARE_GPIO_KEY(KEY_BUTTON_Y, GPIO_LOW),
 	DECLARE_GPIO_KEY(KEY_BUTTON_SELECT, GPIO_LOW),
@@ -54,7 +54,6 @@ struct gpio_pins{
 	DECLARE_GPIO_KEY(KEY_BUTTON_R2, GPIO_LOW),
 	DECLARE_GPIO_KEY(KEY_POWER, GPIO_HIGH),
 	DECLARE_GPIO_KEY(KEY_HOME, GPIO_LOW),
-	*/
 };
 
 #define GPIO_NUMBER                         91
@@ -136,16 +135,37 @@ static void init_gpio(void) {
 	}
 }
 
+static int power_button(void* p) {
+	(void)p;
+	static int count = 0;
+	ipc_disable();
+	if(miyoo_gpio_read(86) != 0)
+		count++;
+	else
+		count = 0;
+
+	if(count >= 10){
+		//close screnn
+		miyoo_gpio_set(4, 0);
+		printf("power down!\n");
+		proc_usleep(1000);
+		miyoo_gpio_set(85, 0);
+	}
+	ipc_enable();
+	proc_usleep(200000);
+}
+
 int main(int argc, char** argv) {
 	 _mmio_base = mmio_map();
 
-	const char* mnt_point = argc > 1 ? argv[1]: "/dev/joystick";
+	const char* mnt_point = argc > 1 ? argv[1]: "/dev/joykeyb";
 	init_gpio();
 
 	vdevice_t dev;
 	memset(&dev, 0, sizeof(vdevice_t));
-	strcpy(dev.name, "joystick");
+	strcpy(dev.name, "joykeyb");
 	dev.read = joystick_read;
+	dev.loop_step = power_button;
 	device_run(&dev, mnt_point, FS_TYPE_CHAR, 0444);
 	return 0;
 }

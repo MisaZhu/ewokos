@@ -1,6 +1,0 @@
-target("gpio_joykeybd_minid")
-    set_type("application")
-    add_deps("libbsp")
-    add_files("**.c")        
-    install_dir("drivers/miyoo")
-target_end()
