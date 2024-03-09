@@ -163,7 +163,7 @@ protected:
 				return;
 			}
 			else if(c == KEY_BUTTON_START) {
-				doKeyIn('\n');
+				doKeyIn('\r');
 				changeMode(true);
 				return;
 			}
