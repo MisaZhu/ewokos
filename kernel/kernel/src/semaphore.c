@@ -71,8 +71,7 @@ int32_t semaphore_enter(context_t* ctx, uint32_t sem_id) {
 			cproc == NULL)
 		return -1;
 
-	if(_semaphores[sem_id].occupied == SEM_OCCUPIED &&
-			_semaphores[sem_id].occupied_pid != cproc->info.pid) {
+	if(_semaphores[sem_id].occupied == SEM_OCCUPIED) {
 		ctx->gpr[0] = -2;
 		proc_block_on(ctx, _semaphores[sem_id].occupied_pid, (uint32_t)_semaphores + sem_id);
 		return -2;

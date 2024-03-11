@@ -67,11 +67,13 @@ int x_get_display_num(void) {
 	return ret;
 }
 
+/*
 static void sig_stop(int sig_no, void* p) {
 	(void)sig_no;
 	x_t* x = (x_t*)p;
 	x->terminated = true;
 }
+*/
 
 void x_terminate(x_t* x) {
 	x->terminated = true;
@@ -195,7 +197,7 @@ void  x_init(x_t* x, void* data) {
 
 	memset(x, 0, sizeof(x_t));
 	x->data = data;
-	sys_signal(SYS_SIG_STOP, sig_stop, x);
+	//sys_signal(SYS_SIG_STOP, sig_stop, x);
 }
 
 int x_get_desktop_space(int disp_index, grect_t* r) {
