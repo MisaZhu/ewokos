@@ -175,10 +175,14 @@ static void win_loop(void* p) {
 }
 
 static void* thread_loop(void* p) {
-	X* x = (X*)p;
-
+	//X* x = (X*)p;
+	X x;
+	grect_t desk;
+	x.getDesktopSpace(desk, 0);
+	x.open(0, _xwin, desk.w*2/3, desk.h*2/3, "xterm", 0);
+	_xwin->setVisible(true);
 	uint32_t timer_id = timer_set(500000, timer_handler);
-	x->run(win_loop, _xwin);
+	x.run(win_loop, _xwin);
 	timer_remove(timer_id);
 	_dev->terminated = true;
 	return NULL;
@@ -243,11 +247,6 @@ int run(const char* mnt_point) {
 	XConsole xwin;
 	xwin.readConfig(x_get_theme_fname(X_THEME_ROOT, "xterm", "theme.conf"));
 
-	X x;
-	grect_t desk;
-	x.getDesktopSpace(desk, 0);
-	x.open(0, &xwin, desk.w*2/3, desk.h*2/3, "xterm", 0);
-	xwin.setVisible(true);
 
 	_xwin = &xwin;
 
@@ -261,12 +260,11 @@ int run(const char* mnt_point) {
 	_dev = &dev;
 
 	pthread_t tid;
-	pthread_create(&tid, NULL, thread_loop, &x);
+	pthread_create(&tid, NULL, thread_loop, NULL);
 
 	device_run(&dev, mnt_point, FS_TYPE_CHAR, 0600);
 	charbuf_free(_buffer);
 	proc_wakeup(RW_BLOCK_EVT);
-	xwin.close();
 	exit(0);
 }
 
