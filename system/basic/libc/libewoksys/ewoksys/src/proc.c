@@ -11,7 +11,7 @@ extern "C" {
 #endif
 
 bool _proc_global_need_lock = false;
-static pthread_mutex_t _proc_global_lock;
+static pthread_mutex_t _proc_global_lock = 0;
 static int _reent_dep = 0;
 
 int _vfsd_pid = -1;
@@ -24,11 +24,12 @@ void proc_init(void) {
 	_lock_thread = -1;
 	_proc_global_need_lock = false;
 	_reent_dep = 0;
-	pthread_mutex_init(&_proc_global_lock, NULL);
+	_proc_global_lock = 0;
 }
 
 void proc_exit(void) {
-	pthread_mutex_destroy(&_proc_global_lock);
+	if(_proc_global_lock != 0)
+		pthread_mutex_destroy(&_proc_global_lock);
 }
 
 static inline void proc_global_lock(void) {
@@ -37,6 +38,9 @@ static inline void proc_global_lock(void) {
 		_reent_dep++;
 		return;
 	}
+
+	if(_proc_global_lock == 0)
+		pthread_mutex_init(&_proc_global_lock, NULL);
 
 	pthread_mutex_lock(&_proc_global_lock);
 	_lock_thread = tid;

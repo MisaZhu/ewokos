@@ -76,7 +76,6 @@ int main(int argc, char* argv[]) {
 		
 		pid = fork();
 		if(pid == 0) {
-			klog("welcom\n");
 			welcome();
 			fflush(stdout);
 			if(proc_exec("/bin/login") < 0) {

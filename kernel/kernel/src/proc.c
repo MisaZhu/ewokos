@@ -378,9 +378,10 @@ static void proc_terminate(context_t* ctx, proc_t* proc) {
 		return;
 
 	proc_unready(proc, ZOMBIE);
-	semaphore_clear(proc->info.pid);
 
 	if(proc->info.type == PROC_TYPE_PROC) {
+		semaphore_clear(proc->info.pid);
+
 		kev_push(KEV_PROC_EXIT, proc->info.pid, 0, 0);
 		int32_t i;
 		for (i = 0; i < MAX_PROC_NUM; i++) {
