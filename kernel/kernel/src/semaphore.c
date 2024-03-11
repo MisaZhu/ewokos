@@ -61,7 +61,6 @@ void semaphore_free(uint32_t sem_id) {
 }
 
 int32_t semaphore_enter(context_t* ctx, uint32_t sem_id) {
-	ctx->gpr[0] = -1;
 	if(sem_id == 0)
 		return -1;
 	sem_id--;
@@ -74,7 +73,7 @@ int32_t semaphore_enter(context_t* ctx, uint32_t sem_id) {
 
 	if(_semaphores[sem_id].occupied == SEM_OCCUPIED) {
 		proc_block_on(ctx, _semaphores[sem_id].occupied_pid, (uint32_t)_semaphores + sem_id);
-		return -1;
+		return -2;
 	}
 
 	ctx->gpr[0] = 0;
