@@ -30,19 +30,19 @@ static void joy_2_mouse(int key, int8_t* mv) {
 		
 	mv[0] = mv[1] = mv[2] = 0;
 	switch(key) {
-	case JOYSTICK_UP:
+	case KEY_UP:
 		mv[2] -= (_j_y_rev ? -JOY_STEP:JOY_STEP) * j_times;
 		return;
-	case JOYSTICK_DOWN:
+	case KEY_DOWN:
 		mv[2] += (_j_y_rev ? -JOY_STEP:JOY_STEP) * j_times;
 		return;
-	case JOYSTICK_LEFT:
+	case KEY_LEFT:
 		mv[1] -= (_j_x_rev ? -JOY_STEP:JOY_STEP) * j_times;
 		return;
-	case JOYSTICK_RIGHT:
+	case KEY_RIGHT:
 		mv[1] += (_j_x_rev ? -JOY_STEP:JOY_STEP) * j_times;
 		return;
-	case JOYSTICK_PRESS:
+	case KEY_BUTTON_A:
 		//if(!_prs_down) {
 			mv[0] = 2;
 			_prs_down = true;

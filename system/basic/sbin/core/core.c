@@ -10,6 +10,7 @@
 #include <ewoksys/core.h>
 #include <ewoksys/vfsc.h>
 #include <ewoksys/proc.h>
+#include <sysinfo.h>
 #include <kevent.h>
 #include <procinfo.h>
 #include <ewoksys/hashmap.h>
@@ -19,14 +20,20 @@ typedef struct {
 	map_t* envs;
 } proc_info_t;
 
-static proc_info_t _proc_info_table[MAX_PROC_NUM];
+static proc_info_t *_proc_info_table = NULL;
+static uint32_t _max_proc_num = 0;
 static int _ux_index = 0;
 
 static void core_init(void) {
 	int32_t i;
 	_ux_index = 0;
 
-	for(i = 0; i<MAX_PROC_NUM; i++) {
+	sys_info_t sysinfo;
+	syscall1(SYS_GET_SYS_INFO, (int32_t)&sysinfo);
+	_max_proc_num = sysinfo.max_proc_num;
+	_proc_info_table = (proc_info_t*)malloc(_max_proc_num*sizeof(proc_info_t));
+
+	for(i = 0; i<_max_proc_num; i++) {
 		_proc_info_table[i].cwd = str_new("/");
 		_proc_info_table[i].envs = hashmap_new();
 	}
@@ -91,7 +98,7 @@ static void do_ipc_serv_unreg(int pid, proto_t* in, proto_t* out) {
 
 static void do_proc_get_cwd(int pid, proto_t* out) {
 	PF->addi(out, -1);
-	if(pid < 0 || pid >= MAX_PROC_NUM)
+	if(pid < 0 || pid >= _max_proc_num)
 		return;
 	PF->clear(out)->addi(out, 0)->adds(out, CS(_proc_info_table[pid].cwd));
 }
@@ -119,7 +126,7 @@ static int get_fsinfo_by_name(const char* fname, fsinfo_t* info) {
 
 static void do_proc_set_cwd(int pid, proto_t* in, proto_t* out) {
 	PF->addi(out, -1);
-	if(pid < 0 || pid >= MAX_PROC_NUM)
+	if(pid < 0 || pid >= _max_proc_num)
 		return;
 
 	const char* s = proto_read_str(in);
@@ -168,7 +175,7 @@ static void set_env(map_t* envs, const char* key, const char* val) {
 
 static void do_proc_set_env(int pid, proto_t* in, proto_t* out) {
 	PF->addi(out, -1);
-	if(pid < 0 || pid >= MAX_PROC_NUM)
+	if(pid < 0 || pid >= _max_proc_num)
 		return;
 	const char* key = proto_read_str(in);
 	const char* val = proto_read_str(in);
@@ -187,7 +194,7 @@ static int get_envs(const char* key, any_t data, any_t arg) {
 
 static void do_proc_get_envs(int pid, proto_t* out) {
 	PF->addi(out, -1);
-	if(pid < 0 || pid >= MAX_PROC_NUM)
+	if(pid < 0 || pid >= _max_proc_num)
 		return;
 
 	PF->clear(out)->addi(out, hashmap_length(_proc_info_table[pid].envs));
@@ -196,7 +203,7 @@ static void do_proc_get_envs(int pid, proto_t* out) {
 
 static void do_proc_get_env(int pid, proto_t* in, proto_t* out) {
 	PF->addi(out, -1);
-	if(pid < 0 || pid >= MAX_PROC_NUM)
+	if(pid < 0 || pid >= _max_proc_num)
 		return;
 	const char* key = proto_read_str(in);
 	str_t* v = env_get(_proc_info_table[pid].envs, key);
@@ -222,8 +229,8 @@ static int free_envs(const char* key, any_t data, any_t arg) {
 }
 
 static void do_proc_clone(int fpid, int cpid) {
-	if(fpid < 0 || fpid >= MAX_PROC_NUM ||
-			cpid < 0 || cpid >= MAX_PROC_NUM)
+	if(fpid < 0 || fpid >= _max_proc_num ||
+			cpid < 0 || cpid >= _max_proc_num)
 		return;
 	str_cpy(_proc_info_table[cpid].cwd, CS(_proc_info_table[fpid].cwd));	
 	hashmap_iterate(_proc_info_table[cpid].envs, free_envs, _proc_info_table[cpid].envs);	
@@ -339,6 +346,7 @@ int main(int argc, char** argv) {
 	}
 
 	hashmap_free(_ipc_servs);
+	free(_proc_info_table);
 	return 0;
 }
 

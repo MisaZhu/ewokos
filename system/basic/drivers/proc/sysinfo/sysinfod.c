@@ -37,14 +37,12 @@ static int sysinfo_read(int fd,
 			"cores: %d\n"
 			"phy_mem_size: %d\n"
 			"max proc num: %d\n"
-			"max thread per_proc: %d\n"
 			"max files per_proc: %d\n"
 			"mmio_base: 0x%x\n",
 			sysinfo.machine,
 			sysinfo.cores,
 			sysinfo.phy_mem_size,
-			MAX_PROC_NUM,
-			MAX_THREAD_NUM_PER_PROC,
+			sysinfo.max_proc_num,
 			MAX_OPEN_FILE_PER_PROC,
 			sysinfo.mmio);
 	return strlen(str);

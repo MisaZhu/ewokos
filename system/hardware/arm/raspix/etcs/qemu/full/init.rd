@@ -13,13 +13,11 @@
 /bin/ipcserv /drivers/proc/sysinfod   /proc/sysinfo
 /bin/ipcserv /drivers/proc/stated     /proc/state
 
+/bin/ipcserv /drivers/xserverd        /dev/x
+
 @/sbin/sessiond &
 @/bin/session -r &
 
-/bin/ipcserv /drivers/xserverd        /dev/x
 #@/sbin/x/xmoused /dev/mouse0 &
 @/sbin/x/xim_none &
 @/bin/x/xsession  &
-
-@/bin/ipcserv /drivers/consoled        0
-@/bin/console /dev/console0&
