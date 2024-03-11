@@ -53,6 +53,6 @@ int main (int argc, char **argv) {
     pthread_mutex_unlock(&mutex);
     usleep(1);
   }
-  printf("%d\n", err_cnt);
+  klog("%d\n", err_cnt);
   return 0;
 }
