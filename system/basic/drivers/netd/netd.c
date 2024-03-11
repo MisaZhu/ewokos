@@ -20,7 +20,6 @@
 #include "stack/util.h"
 #include "stack/net.h"
 
-
 static int get_mac_address(char* dev, uint8_t* buf){
 	int ret = -1;
     proto_t  out;
