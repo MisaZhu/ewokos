@@ -22,7 +22,7 @@ struct irq_entry *irq_vec;
 int
 intr_request_irq(unsigned int irq, int (*handler)(unsigned int irq, void *dev), int flags, const char *name, void *dev)
 {
-    printf("irq=%u, handler=%p, flags=%d, name=%s, dev=%p", irq, handler, flags, name, dev);
+    debugf("irq=%u, handler=%p, flags=%d, name=%s, dev=%p", irq, handler, flags, name, dev);
     struct irq_entry *entry;
     for (entry = irq_vec; entry; entry = entry->next) {
         if (entry->irq == irq) {
@@ -60,7 +60,7 @@ struct irq_entry *irq_vec;
 static uint32_t gSignel = 0;
 
 void raise_softirq(uint32_t  sig){
-	//printf("put signal %d %d\n", sig_count, sig);
+	//printf("put signal %08x\n", sig);
     gSignel |= sig; 
 }
 

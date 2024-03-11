@@ -246,6 +246,19 @@ ip_iface_alloc(const char *unicast, const char *netmask)
     return iface;
 }
 
+void ip_iface_update(struct ip_iface *iface, uint32_t ipaddr, uint32_t netmask, uint32_t gateway){
+    if(iface == NULL)
+        return;
+    iface->unicast = ipaddr;
+    iface->netmask = netmask;
+    iface->broadcast = (iface->unicast & iface->netmask) | ~iface->netmask;
+
+    if (!ip_route_add(iface->unicast & iface->netmask, iface->netmask, IP_ADDR_ANY, iface)) {
+        errorf("ip_route_add() failure");
+        return -1;
+    } 
+}
+
 /* NOTE: must not be call after net_run() */
 int
 ip_iface_register(struct net_device *dev, struct ip_iface *iface)
@@ -402,14 +415,8 @@ ip_output_core(struct ip_iface *iface, uint8_t protocol, const uint8_t *data, si
 static uint16_t
 ip_generate_id(void)
 {
-    static mutex_t mutex = MUTEX_INITIALIZER;
     static uint16_t id = 128;
-    uint16_t ret;
-
-    mutex_lock(&mutex);
-    ret = id++;
-    mutex_unlock(&mutex);
-    return ret;
+    return id++;
 }
 
 ssize_t

@@ -2,24 +2,49 @@
 #include <unistd.h>
 #include <pthread.h>
 
+static pthread_mutex_t mutex = {0};
+static uint32_t flag  = 0;
+static int err_cnt = 0;
+
+static void delay(void){
+    volatile uint64_t cnt = 10;
+    while(cnt){
+      cnt--;
+      // klog(".");
+    }
+    // klog("\n");
+    usleep(1);
+}
+
 static void* loop(void* p) {
-  while(1) {
-    char* x = (char*)malloc(10024);
-    strcpy(x, "child");
-    printf("%s\n", x);
-    free(x);
+  int i = 0;
+  while(i++ < 1000) {
+    pthread_mutex_lock(&mutex);
+    flag = 0xaaaaaaaa;
+    delay();
+    if(flag != 0xaaaaaaaa){
+      klog("child error %08x\n", flag);
+      err_cnt++;
+    }
+    pthread_mutex_unlock(&mutex);
   }
   return NULL;
 }
 
 int main (int argc, char **argv) {
+  pthread_mutex_init(&mutex, NULL);
   pthread_create(NULL, NULL, loop, NULL);
-  uint32_t i=0;
+  int i=0;
   while(i++ < 1000) {
-    void* x = malloc(10024);
-    strcpy(x, "father");
-    printf("%s\n", x);
-    free(x);
+    pthread_mutex_lock(&mutex);
+    flag = 0x55555555;
+    delay();
+    if(flag != 0x55555555){
+      klog("father error %08x\n", flag);
+      err_cnt++;
+    }
+    pthread_mutex_unlock(&mutex);
   }
+  printf("%d\n", err_cnt);
   return 0;
 }

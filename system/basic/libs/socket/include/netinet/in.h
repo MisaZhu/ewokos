@@ -136,7 +136,13 @@ enum
 
 #define INET_ADDRSTRLEN 16
 
+#define  __bswap_32(x)	((((x)>>24)&0xff) | \
+					(((x)<<8)&0xff0000) | \
+					(((x)>>8)&0xff00) | \
+					(((x)<<24)&0xff000000))  
 
+#define  __bswap_16(x)	((((x)>>8)&0xff) | \
+					(((x)<<8)&0xff00))
 
 #define ntohl(x)	__bswap_32 (x)
 #define ntohs(x)	__bswap_16 (x)

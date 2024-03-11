@@ -157,13 +157,4 @@ int getaddrinfo( const char *node, const char *service,
                 const struct addrinfo *hints, struct addrinfo **res);
 int freeaddrinfo(struct addrinfo **res);
 
-#define  __bswap_32(x)	((((x)>>24)&0xff) | \
-					(((x)<<8)&0xff0000) | \
-					(((x)>>8)&0xff00) | \
-					(((x)<<24)&0xff000000))  
-
-#define  __bswap_16(x)	((((x)>>8)&0xff) | \
-					(((x)<<8)&0xff00))
-
-
 #endif /* sys/socket.h */

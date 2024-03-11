@@ -25,4 +25,4 @@
 
 @/bin/x/menubar &
 @/bin/x/launcher &
-@/bin/session &
+@/bin/session -r &

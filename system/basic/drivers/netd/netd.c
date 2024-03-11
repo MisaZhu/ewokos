@@ -54,8 +54,10 @@ static int get_mac_address(char* dev, uint8_t* buf){
 	int ret = -1;
     proto_t  out;
     PF->init(&out);
-    if(dev_cntl(dev, 0, NULL, &out) == 0)
+    ret = dev_cntl(dev, 0, NULL, &out);
+	if(ret == 0){
         proto_read_to(&out, buf, 6);
+	}
     PF->clear(&out);
     return ret;
 }
@@ -109,7 +111,6 @@ static net_req_t* net_queue_pop_id(net_req_t **list, int id){
 	}
 	return NULL;
 }
-
 
 static int do_network_fcntl(int fd, int from_pid, fsinfo_t* info,
 	int cmd, proto_t* in, proto_t* out, void* p){
@@ -184,6 +185,7 @@ static int do_network_fcntl(int fd, int from_pid, fsinfo_t* info,
 		case SOCK_LINK:
 			sock = proto_read_int(in);	
 			info->data = sock;
+			vfs_update(info);
 			PF->addi(out, 0);
 			break;
 		case SOCK_CONNECT:
@@ -249,7 +251,7 @@ static int network_fcntl(int fd, int from_pid, fsinfo_t* info,
 	if(cmd < SOCK_REQUEST){
 		return do_network_fcntl(fd, from_pid, info, cmd, in, out, p);	
 	}else if(cmd == SOCK_REQUEST){
-		return network_split_fcntl(fd, fread, info->node, cmd, in, out, p);	
+		return network_split_fcntl(fd, from_pid, info->node, cmd, in, out, p);	
 	}else if(cmd == SOCK_ACK){
 		return network_split_ack(fd, from_pid, info->node, cmd, in, out, p);
 	}
@@ -278,10 +280,12 @@ static int network_write(int fd, int from_pid, fsinfo_t* node,
 
 static int network_close(int fd, int from_pid, uint32_t node, void* p) {
 	(void)fd;
-	fsinfo_t info;
-	vfs_get_by_node(node, &info);
+	// fsinfo_t test;
+	// vfs_get_by_node(node, &test);
+	fsinfo_t* info = dev_get_file(fd, from_pid, node);
+	// klog("%d %d\n", test.data, info->data);
 
-	int sock = info.data;
+	int sock = info->data;
 	if(sock >= 0){
 		sock_close(sock);	
 	}
@@ -291,8 +295,14 @@ static int network_close(int fd, int from_pid, uint32_t node, void* p) {
 static int task_cnt = 0;
 static void* network_task(void* p) {
 		net_req_t *req = (net_req_t*)p;
-		do_network_fcntl(req->fd, req->from_pid, req->node, 
-						req->cmd, &req->in, &req->out, req->p);	
+		
+		fsinfo_t* info = dev_get_file(req->fd, req->from_pid, req->node);
+		if(info) {
+			do_network_fcntl(req->fd, req->from_pid, info, 
+			req->cmd, &req->in, &req->out, req->p);	
+		}else{
+			PF->addi(&req->out, -1);	
+		}
 
 		ipc_disable();
 		net_queue_push(&ack_list, req);
@@ -306,12 +316,12 @@ static void* network_task(void* p) {
 #define LOOPBACK_IP_ADDR "127.0.0.1"
 #define LOOPBACK_NETMASK "255.0.0.0"
 
-#define ETHER_TAP_IP_ADDR "192.168.64.2"
-#define ETHER_TAP_NETMASK "255.255.255.0"
+#define ETHER_TAP_IP_ADDR "169.254.72.2"
+#define ETHER_TAP_NETMASK "255.255.0.0"
 
-#define DEFAULT_GATEWAY "192.168.64.1"
+#define DEFAULT_GATEWAY "169.254.72.1"
 
-static char ETHER_TAP_HW_ADDR[32];
+char ETHER_TAP_HW_ADDR[32];
 static char ETHER_TAP_NAME[16];
 
 static void* network_loop(void* p) {
@@ -337,15 +347,18 @@ static int setup(void)
 {
     struct net_device *dev;
     struct ip_iface *iface;
+
     if (net_init() == -1) {
         klog("net_init() failure");
         return -1;
     }
+
     dev = loopback_init();
     if (!dev) {
         klog("loopback_init() failure");
         return -1;
     }
+
     iface = ip_iface_alloc(LOOPBACK_IP_ADDR, LOOPBACK_NETMASK);
     if (!iface) {
         klog("ip_iface_alloc() failure");
@@ -355,24 +368,34 @@ static int setup(void)
         klog("ip_iface_register() failure");
         return -1;
     }
+
     dev = ether_tap_init(ETHER_TAP_NAME, ETHER_TAP_HW_ADDR);
     if (!dev) {
         klog("ether_tap_init() failure");
         return -1;
     }
+
     iface = ip_iface_alloc(ETHER_TAP_IP_ADDR, ETHER_TAP_NETMASK);
     if (!iface) {
         klog("ip_iface_alloc() failure");
         return -1;
     }
+
     if (ip_iface_register(dev, iface) == -1) {
         klog("ip_iface_register() failure");
         return -1;
     }
-    if (ip_route_set_default_gateway(iface, DEFAULT_GATEWAY) == -1) {
-        klog("ip_route_set_default_gateway() failure");
+
+    // if (ip_route_set_default_gateway(iface, DEFAULT_GATEWAY) == -1) {
+    //     klog("ip_route_set_default_gateway() failure");
+    //     return -1;
+    // }
+
+	if(dhcp_run(dev) == -1){
+        klog("dhcp_run() failure");
         return -1;
-    }
+	}
+
     if (net_run() == -1) {
         klog("net_run() failure");
         return -1;
@@ -392,8 +415,8 @@ int gettimeofday_plat(struct timeval *tp, void *tzp){
 void mac2str(uint8_t *mac,  char* str){
 	for(int i = 0; i < 6; i++){
 		uint8_t val = mac[i];
-		uint8_t hval = val>4;
-		uint8_t lval = val%0xf;
+		uint8_t hval = (val>>4)&0xf;
+		uint8_t lval = val&0xf;
 
 		if(hval <= 9)
 			*str++ = hval + '0';
@@ -417,7 +440,7 @@ int main(int argc, char** argv) {
 	memset(&dev, 0, sizeof(vdevice_t));
 	strcpy(dev.name, "networkd");
 
-	get_mac_address(argv[2],  mac);
+	get_mac_address(net_dev,  mac);
 	mac2str(mac, ETHER_TAP_HW_ADDR);
 	strcpy(ETHER_TAP_NAME, net_dev);
 	setup();

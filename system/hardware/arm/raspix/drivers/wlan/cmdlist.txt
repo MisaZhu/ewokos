@@ -1,0 +1,2491 @@
+mmc_io_rw_direct_host w:0 f:0 a:0 in:0 out:32
+mmc_io_rw_direct_host w:0 f:0 a:8 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:12 in:0 out:1
+mmc_io_rw_direct_host w:0 f:0 a:13 in:0 out:1
+mmc_io_rw_direct_host w:0 f:0 a:9 in:0 out:ac
+mmc_io_rw_direct_host w:0 f:0 a:a in:0 out:10
+mmc_io_rw_direct_host w:0 f:0 a:b in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:10ac in:0 out:20
+mmc_io_rw_direct_host w:0 f:0 a:10ad in:0 out:4
+mmc_io_rw_direct_host w:0 f:0 a:10ae in:0 out:d0
+mmc_io_rw_direct_host w:0 f:0 a:10af in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:10b0 in:0 out:a6
+mmc_io_rw_direct_host w:0 f:0 a:10b1 in:0 out:a9
+mmc_io_rw_direct_host w:0 f:0 a:10b2 in:0 out:21
+mmc_io_rw_direct_host w:0 f:0 a:10b3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:10b4 in:0 out:c
+mmc_io_rw_direct_host w:0 f:0 a:10b5 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:10b6 in:0 out:22
+mmc_io_rw_direct_host w:0 f:0 a:10b7 in:0 out:4
+mmc_io_rw_direct_host w:0 f:0 a:10b8 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:10b9 in:0 out:20
+mmc_io_rw_direct_host w:0 f:0 a:10ba in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:10bb in:0 out:58
+mmc_io_rw_direct_host w:0 f:0 a:10bc in:0 out:80
+mmc_io_rw_direct_host w:0 f:0 a:10bd in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:10be in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:10bf in:0 out:b
+mmc_io_rw_direct_host w:0 f:0 a:10c0 in:0 out:80
+mmc_io_rw_direct_host w:0 f:0 a:10c1 in:0 out:3
+mmc_io_rw_direct_host w:0 f:0 a:10c2 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:10c3 in:0 out:1
+mmc_io_rw_direct_host w:0 f:0 a:10c4 in:0 out:11
+mmc_io_rw_direct_host w:0 f:0 a:10c5 in:0 out:80
+mmc_io_rw_direct_host w:0 f:0 a:10c6 in:0 out:3
+mmc_io_rw_direct_host w:0 f:0 a:10c7 in:0 out:1b
+mmc_io_rw_direct_host w:0 f:0 a:10c8 in:0 out:26
+mmc_io_rw_direct_host w:0 f:0 a:10c9 in:0 out:7
+mmc_io_rw_direct_host w:0 f:0 a:10ca in:0 out:80
+mmc_io_rw_direct_host w:0 f:0 a:10cb in:0 out:7
+mmc_io_rw_direct_host w:0 f:0 a:10cc in:0 out:19
+mmc_io_rw_direct_host w:0 f:0 a:10cd in:0 out:b8
+mmc_io_rw_direct_host w:0 f:0 a:10ce in:0 out:27
+mmc_io_rw_direct_host w:0 f:0 a:10cf in:0 out:eb
+mmc_io_rw_direct_host w:0 f:0 a:10d0 in:0 out:98
+mmc_io_rw_direct_host w:0 f:0 a:10d1 in:0 out:c8
+mmc_io_rw_direct_host w:0 f:0 a:10d2 in:0 out:86
+mmc_io_rw_direct_host w:0 f:0 a:10d3 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:10d4 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:10d5 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:10d6 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:10d7 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:10d8 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:10d9 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:10da in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:10db in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:10dc in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:10dd in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:10de in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:10df in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:10e0 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:10e1 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:10e2 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:10e3 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:10e4 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:10e5 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:10e6 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:10e7 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:10e8 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:10e9 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:10ea in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:10eb in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:10ec in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:10ed in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:10ee in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:10ef in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:10f0 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:10f1 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:10f2 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:10f3 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:10f4 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:10f5 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:10f6 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:10f7 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:10f8 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:10f9 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:10fa in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:10fb in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:10fc in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:10fd in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:10fe in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:10ff in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:1100 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:1101 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:1102 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:1103 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:1104 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:1105 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:1106 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:1107 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:1108 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:1109 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:110a in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:110b in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:110c in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:110d in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:110e in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:110f in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:1110 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:1111 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:1112 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:1113 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:1114 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:1115 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:1116 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:1117 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:1118 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:1119 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:111a in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:111b in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:111c in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:111d in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:111e in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:111f in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:1120 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:1121 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:1122 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:1123 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:1124 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:1125 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:1126 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:1127 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:1128 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:1129 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:112a in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:112b in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:112c in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:112d in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:112e in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:112f in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:1130 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:1131 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:1132 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:1133 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:1134 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:1135 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:1136 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:1137 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:1138 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:1139 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:113a in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:113b in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:113c in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:113d in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:113e in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:113f in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:1140 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:1141 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:1142 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:1143 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:1144 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:1145 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:1146 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:1147 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:1148 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:1149 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:114a in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:114b in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:114c in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:114d in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:114e in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:114f in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:1150 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:1151 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:1152 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:1153 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:1154 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:1155 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:1156 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:1157 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:1158 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:1159 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:115a in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:115b in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:115c in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:115d in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:115e in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:115f in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:1160 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:1161 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:1162 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:1163 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:1164 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:1165 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:1166 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:1167 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:1168 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:1169 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:116a in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:116b in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:116c in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:116d in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:116e in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:116f in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:1170 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:1171 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:1172 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:1173 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:1174 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:1175 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:1176 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:1177 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:1178 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:1179 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:117a in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:117b in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:117c in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:117d in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:117e in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:117f in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:1180 in:0 out:ff
+mmc_io_rw_direct_host w:0 f:0 a:13 in:0 out:1
+mmc_io_rw_direct_host w:1 f:0 a:13 in:3
+mmc_io_rw_direct_host w:0 f:0 a:7 in:0 out:40
+mmc_io_rw_direct_host w:1 f:0 a:7 in:42
+mmc_io_rw_direct_host w:0 f:0 a:100 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:109 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:10a in:0 out:10
+mmc_io_rw_direct_host w:0 f:0 a:10b in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:1000 in:0 out:20
+mmc_io_rw_direct_host w:0 f:0 a:1001 in:0 out:4
+mmc_io_rw_direct_host w:0 f:0 a:1002 in:0 out:d0
+mmc_io_rw_direct_host w:0 f:0 a:1003 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:1004 in:0 out:a6
+mmc_io_rw_direct_host w:0 f:0 a:1005 in:0 out:a9
+mmc_io_rw_direct_host w:0 f:0 a:1006 in:0 out:21
+mmc_io_rw_direct_host w:0 f:0 a:1007 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:1008 in:0 out:c
+mmc_io_rw_direct_host w:0 f:0 a:1009 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:100a in:0 out:22
+mmc_io_rw_direct_host w:0 f:0 a:100b in:0 out:2a
+mmc_io_rw_direct_host w:0 f:0 a:100c in:0 out:1
+mmc_io_rw_direct_host w:0 f:0 a:100d in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:100e in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:100f in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:1010 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:1011 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:1012 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:1013 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:1014 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:1015 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:1016 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:1017 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:1018 in:0 out:40
+mmc_io_rw_direct_host w:0 f:0 a:1019 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:101a in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:101b in:0 out:ff
+mmc_io_rw_direct_host w:0 f:0 a:101c in:0 out:ff
+mmc_io_rw_direct_host w:0 f:0 a:101d in:0 out:80
+mmc_io_rw_direct_host w:0 f:0 a:101e in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:101f in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:1020 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:1021 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:1022 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:1023 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:1024 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:1025 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:1026 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:1027 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:1028 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:1029 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:102a in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:102b in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:102c in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:102d in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:102e in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:102f in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:1030 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:1031 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:1032 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:1033 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:1034 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:1035 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:1036 in:0 out:ff
+mmc_io_rw_direct_host w:0 f:0 a:200 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:209 in:0 out:38
+mmc_io_rw_direct_host w:0 f:0 a:20a in:0 out:10
+mmc_io_rw_direct_host w:0 f:0 a:20b in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:1038 in:0 out:20
+mmc_io_rw_direct_host w:0 f:0 a:1039 in:0 out:4
+mmc_io_rw_direct_host w:0 f:0 a:103a in:0 out:d0
+mmc_io_rw_direct_host w:0 f:0 a:103b in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:103c in:0 out:a6
+mmc_io_rw_direct_host w:0 f:0 a:103d in:0 out:a9
+mmc_io_rw_direct_host w:0 f:0 a:103e in:0 out:21
+mmc_io_rw_direct_host w:0 f:0 a:103f in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:1040 in:0 out:c
+mmc_io_rw_direct_host w:0 f:0 a:1041 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:1042 in:0 out:22
+mmc_io_rw_direct_host w:0 f:0 a:1043 in:0 out:2a
+mmc_io_rw_direct_host w:0 f:0 a:1044 in:0 out:1
+mmc_io_rw_direct_host w:0 f:0 a:1045 in:0 out:1
+mmc_io_rw_direct_host w:0 f:0 a:1046 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:1047 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:1048 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:1049 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:104a in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:104b in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:104c in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:104d in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:104e in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:104f in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:1050 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:1051 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:1052 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:1053 in:0 out:ff
+mmc_io_rw_direct_host w:0 f:0 a:1054 in:0 out:ff
+mmc_io_rw_direct_host w:0 f:0 a:1055 in:0 out:80
+mmc_io_rw_direct_host w:0 f:0 a:1056 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:1057 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:1058 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:1059 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:105a in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:105b in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:105c in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:105d in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:105e in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:105f in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:1060 in:0 out:c8
+mmc_io_rw_direct_host w:0 f:0 a:1061 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:1062 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:1063 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:1064 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:1065 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:1066 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:1067 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:1068 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:1069 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:106a in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:106b in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:106c in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:106d in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:106e in:0 out:ff
+mmc_io_rw_direct_host w:0 f:0 a:300 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:309 in:0 out:70
+mmc_io_rw_direct_host w:0 f:0 a:30a in:0 out:10
+mmc_io_rw_direct_host w:0 f:0 a:30b in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:1070 in:0 out:20
+mmc_io_rw_direct_host w:0 f:0 a:1071 in:0 out:4
+mmc_io_rw_direct_host w:0 f:0 a:1072 in:0 out:d0
+mmc_io_rw_direct_host w:0 f:0 a:1073 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:1074 in:0 out:a6
+mmc_io_rw_direct_host w:0 f:0 a:1075 in:0 out:a9
+mmc_io_rw_direct_host w:0 f:0 a:1076 in:0 out:21
+mmc_io_rw_direct_host w:0 f:0 a:1077 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:1078 in:0 out:c
+mmc_io_rw_direct_host w:0 f:0 a:1079 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:107a in:0 out:22
+mmc_io_rw_direct_host w:0 f:0 a:107b in:0 out:2a
+mmc_io_rw_direct_host w:0 f:0 a:107c in:0 out:1
+mmc_io_rw_direct_host w:0 f:0 a:107d in:0 out:1
+mmc_io_rw_direct_host w:0 f:0 a:107e in:0 out:10
+mmc_io_rw_direct_host w:0 f:0 a:107f in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:1080 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:1081 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:1082 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:1083 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:1084 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:1085 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:1086 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:1087 in:0 out:3
+mmc_io_rw_direct_host w:0 f:0 a:1088 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:1089 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:108a in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:108b in:0 out:ff
+mmc_io_rw_direct_host w:0 f:0 a:108c in:0 out:ff
+mmc_io_rw_direct_host w:0 f:0 a:108d in:0 out:80
+mmc_io_rw_direct_host w:0 f:0 a:108e in:0 out:18
+mmc_io_rw_direct_host w:0 f:0 a:108f in:0 out:28
+mmc_io_rw_direct_host w:0 f:0 a:1090 in:0 out:3c
+mmc_io_rw_direct_host w:0 f:0 a:1091 in:0 out:4
+mmc_io_rw_direct_host w:0 f:0 a:1092 in:0 out:8
+mmc_io_rw_direct_host w:0 f:0 a:1093 in:0 out:10
+mmc_io_rw_direct_host w:0 f:0 a:1094 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:1095 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:1096 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:1097 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:1098 in:0 out:c8
+mmc_io_rw_direct_host w:0 f:0 a:1099 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:109a in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:109b in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:109c in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:109d in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:109e in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:109f in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:10a0 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:10a1 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:10a2 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:10a3 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:10a4 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:10a5 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:10a6 in:0 out:91
+mmc_io_rw_direct_host w:0 f:0 a:10a7 in:0 out:3
+mmc_io_rw_direct_host w:0 f:0 a:10a8 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:10a9 in:0 out:0
+mmc_io_rw_direct_host w:0 f:0 a:10aa in:0 out:1
+mmc_io_rw_direct_host w:0 f:0 a:10ab in:0 out:ff
+mmc_io_rw_direct_host w:1 f:0 a:110 in:40
+mmc_io_rw_direct_host w:1 f:0 a:111 in:0
+mmc_io_rw_direct_host w:1 f:0 a:210 in:0
+mmc_io_rw_direct_host w:1 f:0 a:211 in:2
+mmc_io_rw_direct_host w:1 f:0 a:110 in:40
+mmc_io_rw_direct_host w:1 f:0 a:111 in:0
+mmc_io_rw_direct_host w:1 f:0 a:210 in:0
+mmc_io_rw_direct_host w:1 f:0 a:211 in:2
+mmc_io_rw_direct_host w:0 f:0 a:2 in:0 out:0
+mmc_io_rw_direct_host w:1 f:0 a:2 in:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:1 f:1 a:1000a in:0
+mmc_io_rw_direct_host w:1 f:1 a:1000b in:0
+mmc_io_rw_direct_host w:1 f:1 a:1000c in:18
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:28
+mmc_io_rw_direct_host w:0 f:1 a:1000e in:0 out:68
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:28
+mmc_io_rw_direct_host w:0 f:1 a:1000e in:0 out:68
+mmc_io_rw_direct_host w:0 f:1 a:1000e in:0 out:68
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:21
+mmc_io_rw_direct_host w:1 f:1 a:1000f in:0
+
+
+
+
+
+
+mmc_io_rw_direct_host w:1 f:1 a:1000a in:80
+mmc_io_rw_direct_host w:1 f:1 a:1000b in:10
+mmc_io_rw_direct_host w:1 f:1 a:1000c in:18
+mmc_io_rw_direct_host w:1 f:1 a:1000a in:0
+mmc_io_rw_direct_host w:1 f:1 a:1000b in:10
+mmc_io_rw_direct_host w:1 f:1 a:1000c in:18
+mmc_io_rw_direct_host w:1 f:1 a:1000a in:0
+mmc_io_rw_direct_host w:1 f:1 a:1000b in:0
+mmc_io_rw_direct_host w:1 f:1 a:1000c in:18
+mmc_io_rw_direct_host w:0 f:1 a:1001f in:0 out:3
+mmc_io_rw_direct_host w:0 f:0 a:f1 in:0 out:1
+mmc_io_rw_direct_host w:1 f:0 a:f1 in:3
+mmc_io_rw_direct_host w:0 f:0 a:2 in:0 out:2
+mmc_io_rw_direct_host w:1 f:0 a:2 in:2
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:0
+mmc_io_rw_direct_host w:1 f:0 a:310 in:0
+mmc_io_rw_direct_host w:1 f:0 a:311 in:2
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:8
+mmc_io_rw_direct_host w:0 f:1 a:1000e in:0 out:48
+mmc_io_rw_direct_host w:1 f:1 a:1000a in:80
+mmc_io_rw_direct_host w:1 f:1 a:1000b in:19
+mmc_io_rw_direct_host w:1 f:1 a:1000c in:0
+mmc_io_rw_direct_host w:1 f:1 a:1000a in:0
+mmc_io_rw_direct_host w:1 f:1 a:1000b in:1a
+mmc_io_rw_direct_host w:1 f:1 a:1000c in:0
+mmc_io_rw_direct_host w:1 f:1 a:1000a in:80
+mmc_io_rw_direct_host w:1 f:1 a:1000b in:1a
+mmc_io_rw_direct_host w:1 f:1 a:1000c in:0
+mmc_io_rw_direct_host w:1 f:1 a:1000a in:0
+mmc_io_rw_direct_host w:1 f:1 a:1000b in:1b
+mmc_io_rw_direct_host w:1 f:1 a:1000c in:0
+mmc_io_rw_direct_host w:1 f:1 a:1000a in:80
+mmc_io_rw_direct_host w:1 f:1 a:1000b in:1b
+mmc_io_rw_direct_host w:1 f:1 a:1000c in:0
+mmc_io_rw_direct_host w:1 f:1 a:1000a in:0
+mmc_io_rw_direct_host w:1 f:1 a:1000b in:1c
+mmc_io_rw_direct_host w:1 f:1 a:1000c in:0
+mmc_io_rw_direct_host w:1 f:1 a:1000a in:80
+mmc_io_rw_direct_host w:1 f:1 a:1000b in:1c
+mmc_io_rw_direct_host w:1 f:1 a:1000c in:0
+mmc_io_rw_direct_host w:1 f:1 a:1000a in:0
+mmc_io_rw_direct_host w:1 f:1 a:1000b in:1d
+mmc_io_rw_direct_host w:1 f:1 a:1000c in:0
+mmc_io_rw_direct_host w:1 f:1 a:1000a in:80
+mmc_io_rw_direct_host w:1 f:1 a:1000b in:1d
+mmc_io_rw_direct_host w:1 f:1 a:1000c in:0
+mmc_io_rw_direct_host w:1 f:1 a:1000a in:0
+mmc_io_rw_direct_host w:1 f:1 a:1000b in:1e
+mmc_io_rw_direct_host w:1 f:1 a:1000c in:0
+mmc_io_rw_direct_host w:1 f:1 a:1000a in:80
+mmc_io_rw_direct_host w:1 f:1 a:1000b in:1e
+mmc_io_rw_direct_host w:1 f:1 a:1000c in:0
+mmc_io_rw_direct_host w:1 f:1 a:1000a in:0
+mmc_io_rw_direct_host w:1 f:1 a:1000b in:1f
+mmc_io_rw_direct_host w:1 f:1 a:1000c in:0
+mmc_io_rw_direct_host w:1 f:1 a:1000a in:80
+mmc_io_rw_direct_host w:1 f:1 a:1000b in:1f
+mmc_io_rw_direct_host w:1 f:1 a:1000c in:0
+mmc_io_rw_direct_host w:1 f:1 a:1000a in:0
+mmc_io_rw_direct_host w:1 f:1 a:1000b in:20
+mmc_io_rw_direct_host w:1 f:1 a:1000c in:0
+mmc_io_rw_direct_host w:1 f:1 a:1000a in:80
+mmc_io_rw_direct_host w:1 f:1 a:1000b in:20
+mmc_io_rw_direct_host w:1 f:1 a:1000c in:0
+mmc_io_rw_direct_host w:1 f:1 a:1000a in:0
+mmc_io_rw_direct_host w:1 f:1 a:1000b in:21
+mmc_io_rw_direct_host w:1 f:1 a:1000c in:0
+mmc_io_rw_direct_host w:1 f:1 a:1000a in:80
+mmc_io_rw_direct_host w:1 f:1 a:1000b in:21
+mmc_io_rw_direct_host w:1 f:1 a:1000c in:0
+mmc_io_rw_direct_host w:1 f:1 a:1000a in:0
+mmc_io_rw_direct_host w:1 f:1 a:1000b in:22
+mmc_io_rw_direct_host w:1 f:1 a:1000c in:0
+mmc_io_rw_direct_host w:1 f:1 a:1000a in:80
+mmc_io_rw_direct_host w:1 f:1 a:1000b in:22
+mmc_io_rw_direct_host w:1 f:1 a:1000c in:0
+mmc_io_rw_direct_host w:1 f:1 a:1000a in:0
+mmc_io_rw_direct_host w:1 f:1 a:1000b in:23
+mmc_io_rw_direct_host w:1 f:1 a:1000c in:0
+mmc_io_rw_direct_host w:1 f:1 a:1000a in:80
+mmc_io_rw_direct_host w:1 f:1 a:1000b in:19
+mmc_io_rw_direct_host w:1 f:1 a:1000c in:0
+mmc_io_rw_direct_host w:1 f:1 a:1000a in:0
+mmc_io_rw_direct_host w:1 f:1 a:1000b in:1a
+mmc_io_rw_direct_host w:1 f:1 a:1000c in:0
+mmc_io_rw_direct_host w:1 f:1 a:1000a in:80
+mmc_io_rw_direct_host w:1 f:1 a:1000b in:1a
+mmc_io_rw_direct_host w:1 f:1 a:1000c in:0
+mmc_io_rw_direct_host w:1 f:1 a:1000a in:0
+mmc_io_rw_direct_host w:1 f:1 a:1000b in:1b
+mmc_io_rw_direct_host w:1 f:1 a:1000c in:0
+mmc_io_rw_direct_host w:1 f:1 a:1000a in:80
+mmc_io_rw_direct_host w:1 f:1 a:1000b in:1b
+mmc_io_rw_direct_host w:1 f:1 a:1000c in:0
+mmc_io_rw_direct_host w:1 f:1 a:1000a in:0
+mmc_io_rw_direct_host w:1 f:1 a:1000b in:1c
+mmc_io_rw_direct_host w:1 f:1 a:1000c in:0
+mmc_io_rw_direct_host w:1 f:1 a:1000a in:80
+mmc_io_rw_direct_host w:1 f:1 a:1000b in:1c
+mmc_io_rw_direct_host w:1 f:1 a:1000c in:0
+mmc_io_rw_direct_host w:1 f:1 a:1000a in:0
+mmc_io_rw_direct_host w:1 f:1 a:1000b in:1d
+mmc_io_rw_direct_host w:1 f:1 a:1000c in:0
+mmc_io_rw_direct_host w:1 f:1 a:1000a in:80
+mmc_io_rw_direct_host w:1 f:1 a:1000b in:1d
+mmc_io_rw_direct_host w:1 f:1 a:1000c in:0
+mmc_io_rw_direct_host w:1 f:1 a:1000a in:0
+mmc_io_rw_direct_host w:1 f:1 a:1000b in:1e
+mmc_io_rw_direct_host w:1 f:1 a:1000c in:0
+mmc_io_rw_direct_host w:1 f:1 a:1000a in:80
+mmc_io_rw_direct_host w:1 f:1 a:1000b in:1e
+mmc_io_rw_direct_host w:1 f:1 a:1000c in:0
+mmc_io_rw_direct_host w:1 f:1 a:1000a in:0
+mmc_io_rw_direct_host w:1 f:1 a:1000b in:1f
+mmc_io_rw_direct_host w:1 f:1 a:1000c in:0
+mmc_io_rw_direct_host w:1 f:1 a:1000a in:80
+mmc_io_rw_direct_host w:1 f:1 a:1000b in:1f
+mmc_io_rw_direct_host w:1 f:1 a:1000c in:0
+mmc_io_rw_direct_host w:1 f:1 a:1000a in:0
+mmc_io_rw_direct_host w:1 f:1 a:1000b in:20
+mmc_io_rw_direct_host w:1 f:1 a:1000c in:0
+mmc_io_rw_direct_host w:1 f:1 a:1000a in:80
+mmc_io_rw_direct_host w:1 f:1 a:1000b in:20
+mmc_io_rw_direct_host w:1 f:1 a:1000c in:0
+mmc_io_rw_direct_host w:1 f:1 a:1000a in:0
+mmc_io_rw_direct_host w:1 f:1 a:1000b in:21
+mmc_io_rw_direct_host w:1 f:1 a:1000c in:0
+mmc_io_rw_direct_host w:1 f:1 a:1000a in:80
+mmc_io_rw_direct_host w:1 f:1 a:1000b in:21
+mmc_io_rw_direct_host w:1 f:1 a:1000c in:0
+mmc_io_rw_direct_host w:1 f:1 a:1000a in:0
+mmc_io_rw_direct_host w:1 f:1 a:1000b in:22
+mmc_io_rw_direct_host w:1 f:1 a:1000c in:0
+mmc_io_rw_direct_host w:1 f:1 a:1000a in:80
+mmc_io_rw_direct_host w:1 f:1 a:1000b in:22
+mmc_io_rw_direct_host w:1 f:1 a:1000c in:0
+mmc_io_rw_direct_host w:1 f:1 a:1000a in:0
+mmc_io_rw_direct_host w:1 f:1 a:1000b in:23
+mmc_io_rw_direct_host w:1 f:1 a:1000c in:0
+mmc_io_rw_direct_host w:1 f:1 a:1000a in:80
+mmc_io_rw_direct_host w:1 f:1 a:1000b in:25
+mmc_io_rw_direct_host w:1 f:1 a:1000c in:0
+mmc_io_rw_direct_host w:1 f:1 a:1000a in:0
+mmc_io_rw_direct_host w:1 f:1 a:1000b in:0
+mmc_io_rw_direct_host w:1 f:1 a:1000c in:18
+mmc_io_rw_direct_host w:1 f:1 a:1000a in:0
+mmc_io_rw_direct_host w:1 f:1 a:1000b in:0
+mmc_io_rw_direct_host w:1 f:1 a:1000c in:0
+mmc_io_rw_direct_host w:1 f:1 a:1000a in:0
+mmc_io_rw_direct_host w:1 f:1 a:1000b in:10
+mmc_io_rw_direct_host w:1 f:1 a:1000c in:18
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:0
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:10
+mmc_io_rw_direct_host w:0 f:1 a:1000e in:0 out:50
+mmc_io_rw_direct_host w:0 f:1 a:1000e in:0 out:50
+mmc_io_rw_direct_host w:0 f:1 a:1000e in:0 out:50
+mmc_io_rw_direct_host w:0 f:1 a:1000e in:0 out:50
+mmc_io_rw_direct_host w:0 f:1 a:1000e in:0 out:50
+mmc_io_rw_direct_host w:0 f:1 a:1000e in:0 out:d0
+mmc_io_rw_direct_host w:0 f:1 a:1000e in:0 out:d0
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:d2
+mmc_io_rw_direct_host w:1 f:1 a:1000a in:0
+mmc_io_rw_direct_host w:1 f:1 a:1000b in:0
+mmc_io_rw_direct_host w:1 f:1 a:1000c in:18
+mmc_io_rw_direct_host w:0 f:0 a:2 in:0 out:2
+mmc_io_rw_direct_host w:1 f:0 a:2 in:6
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:3 in:0 out:6
+mmc_io_rw_direct_host w:1 f:1 a:10008 in:8
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:d0
+mmc_io_rw_direct_host w:0 f:0 a:4 in:0 out:0
+mmc_io_rw_direct_host w:1 f:0 a:4 in:3
+mmc_io_rw_direct_host w:0 f:0 a:4 in:0 out:3
+mmc_io_rw_direct_host w:1 f:0 a:4 in:7
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:1 f:1 a:1000a in:80
+mmc_io_rw_direct_host w:1 f:1 a:1000b in:25
+mmc_io_rw_direct_host w:1 f:1 a:1000c in:0
+mmc_io_rw_direct_host w:1 f:1 a:1000a in:0
+mmc_io_rw_direct_host w:1 f:1 a:1000b in:20
+mmc_io_rw_direct_host w:1 f:1 a:1000c in:0
+mmc_io_rw_direct_host w:1 f:1 a:1000a in:0
+mmc_io_rw_direct_host w:1 f:1 a:1000b in:0
+mmc_io_rw_direct_host w:1 f:1 a:1000c in:18
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:1 f:1 a:1000a in:80
+mmc_io_rw_direct_host w:1 f:1 a:1000b in:25
+mmc_io_rw_direct_host w:1 f:1 a:1000c in:0
+mmc_io_rw_direct_host w:1 f:1 a:1000a in:0
+mmc_io_rw_direct_host w:1 f:1 a:1000b in:20
+mmc_io_rw_direct_host w:1 f:1 a:1000c in:0
+mmc_io_rw_direct_host w:1 f:1 a:1000a in:0
+mmc_io_rw_direct_host w:1 f:1 a:1000b in:0
+mmc_io_rw_direct_host w:1 f:1 a:1000c in:18
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:0
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:10
+mmc_io_rw_direct_host w:0 f:1 a:1000e in:0 out:d0
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:0
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:10
+mmc_io_rw_direct_host w:0 f:1 a:1000e in:0 out:10
+mmc_io_rw_direct_host w:0 f:1 a:10009 in:0 out:0
+mmc_io_rw_direct_host w:1 f:1 a:10009 in:4
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:1 a:10009 in:0 out:4
+mmc_io_rw_direct_host w:0 f:1 a:1000e in:0 out:d0
+mmc_io_rw_direct_host w:0 f:1 a:10009 in:0 out:4
+mmc_io_rw_direct_host w:1 f:1 a:10009 in:0
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:0
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:10
+mmc_io_rw_direct_host w:0 f:1 a:1000e in:0 out:10
+mmc_io_rw_direct_host w:0 f:1 a:10009 in:0 out:0
+mmc_io_rw_direct_host w:1 f:1 a:10009 in:4
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:1 a:10009 in:0 out:4
+mmc_io_rw_direct_host w:0 f:1 a:1000e in:0 out:d0
+mmc_io_rw_direct_host w:0 f:1 a:10009 in:0 out:4
+mmc_io_rw_direct_host w:1 f:1 a:10009 in:0
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:0
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:10
+mmc_io_rw_direct_host w:0 f:1 a:1000e in:0 out:10
+mmc_io_rw_direct_host w:0 f:1 a:10009 in:0 out:0
+mmc_io_rw_direct_host w:1 f:1 a:10009 in:4
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:1 a:10009 in:0 out:4
+mmc_io_rw_direct_host w:0 f:1 a:1000e in:0 out:d0
+mmc_io_rw_direct_host w:0 f:1 a:10009 in:0 out:4
+mmc_io_rw_direct_host w:1 f:1 a:10009 in:0
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:0
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:10
+mmc_io_rw_direct_host w:0 f:1 a:1000e in:0 out:10
+mmc_io_rw_direct_host w:0 f:1 a:10009 in:0 out:0
+mmc_io_rw_direct_host w:1 f:1 a:10009 in:4
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:1 a:10009 in:0 out:4
+mmc_io_rw_direct_host w:0 f:1 a:1000e in:0 out:d0
+mmc_io_rw_direct_host w:0 f:1 a:10009 in:0 out:4
+mmc_io_rw_direct_host w:1 f:1 a:10009 in:0
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:0
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:10
+mmc_io_rw_direct_host w:0 f:1 a:1000e in:0 out:10
+mmc_io_rw_direct_host w:0 f:1 a:10009 in:0 out:0
+mmc_io_rw_direct_host w:1 f:1 a:10009 in:4
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:1 a:10009 in:0 out:4
+mmc_io_rw_direct_host w:0 f:1 a:1000e in:0 out:d0
+mmc_io_rw_direct_host w:0 f:1 a:10009 in:0 out:4
+mmc_io_rw_direct_host w:1 f:1 a:10009 in:0
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:0
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:10
+mmc_io_rw_direct_host w:0 f:1 a:1000e in:0 out:d0
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:0
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:10
+mmc_io_rw_direct_host w:0 f:1 a:1000e in:0 out:d0
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:0
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:10
+mmc_io_rw_direct_host w:0 f:1 a:1000e in:0 out:d0
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:0
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:10
+mmc_io_rw_direct_host w:0 f:1 a:1000e in:0 out:d0
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:0
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:10
+mmc_io_rw_direct_host w:0 f:1 a:1000e in:0 out:10
+mmc_io_rw_direct_host w:0 f:1 a:10009 in:0 out:0
+mmc_io_rw_direct_host w:1 f:1 a:10009 in:4
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:1 a:10009 in:0 out:4
+mmc_io_rw_direct_host w:0 f:1 a:1000e in:0 out:d0
+mmc_io_rw_direct_host w:0 f:1 a:10009 in:0 out:4
+mmc_io_rw_direct_host w:1 f:1 a:10009 in:0
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:0
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:10
+mmc_io_rw_direct_host w:0 f:1 a:1000e in:0 out:10
+mmc_io_rw_direct_host w:0 f:1 a:10009 in:0 out:0
+mmc_io_rw_direct_host w:1 f:1 a:10009 in:4
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:1 a:10009 in:0 out:4
+mmc_io_rw_direct_host w:0 f:1 a:1000e in:0 out:d0
+mmc_io_rw_direct_host w:0 f:1 a:10009 in:0 out:4
+mmc_io_rw_direct_host w:1 f:1 a:10009 in:0
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:0
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:10
+mmc_io_rw_direct_host w:0 f:1 a:1000e in:0 out:d0
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:0
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:10
+mmc_io_rw_direct_host w:0 f:1 a:1000e in:0 out:d0
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:0
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:10
+mmc_io_rw_direct_host w:0 f:1 a:1000e in:0 out:d0
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:0
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:10
+mmc_io_rw_direct_host w:0 f:1 a:1000e in:0 out:d0
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:0
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:10
+mmc_io_rw_direct_host w:0 f:1 a:1000e in:0 out:d0
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:0
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:10
+mmc_io_rw_direct_host w:0 f:1 a:1000e in:0 out:d0
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:0
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:10
+mmc_io_rw_direct_host w:0 f:1 a:1000e in:0 out:d0
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:0
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:10
+mmc_io_rw_direct_host w:0 f:1 a:1000e in:0 out:d0
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:0
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:10
+mmc_io_rw_direct_host w:0 f:1 a:1000e in:0 out:d0
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:0
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:10
+mmc_io_rw_direct_host w:0 f:1 a:1000e in:0 out:d0
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:0
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:10
+mmc_io_rw_direct_host w:0 f:1 a:1000e in:0 out:d0
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:0
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:10
+mmc_io_rw_direct_host w:0 f:1 a:1000e in:0 out:d0
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:0
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:10
+mmc_io_rw_direct_host w:0 f:1 a:1000e in:0 out:d0
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:0
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:10
+mmc_io_rw_direct_host w:0 f:1 a:1000e in:0 out:d0
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:0
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:10
+mmc_io_rw_direct_host w:0 f:1 a:1000e in:0 out:d0
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:0
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:10
+mmc_io_rw_direct_host w:0 f:1 a:1000e in:0 out:d0
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:0
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:10
+mmc_io_rw_direct_host w:0 f:1 a:1000e in:0 out:d0
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:0
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:10
+mmc_io_rw_direct_host w:0 f:1 a:1000e in:0 out:d0
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:0
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:10
+mmc_io_rw_direct_host w:0 f:1 a:1000e in:0 out:d0
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:0
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:10
+mmc_io_rw_direct_host w:0 f:1 a:1000e in:0 out:10
+mmc_io_rw_direct_host w:0 f:1 a:10009 in:0 out:0
+mmc_io_rw_direct_host w:1 f:1 a:10009 in:4
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:1 a:10009 in:0 out:4
+mmc_io_rw_direct_host w:0 f:1 a:1000e in:0 out:d0
+mmc_io_rw_direct_host w:0 f:1 a:10009 in:0 out:4
+mmc_io_rw_direct_host w:1 f:1 a:10009 in:0
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:0
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:10
+mmc_io_rw_direct_host w:0 f:1 a:1000e in:0 out:10
+mmc_io_rw_direct_host w:0 f:1 a:10009 in:0 out:0
+mmc_io_rw_direct_host w:1 f:1 a:10009 in:4
+mmc_io_rw_direct_host w:0 f:1 a:10009 in:0 out:4
+mmc_io_rw_direct_host w:0 f:1 a:1000e in:0 out:10
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:10
+mmc_io_rw_direct_host w:0 f:1 a:1000e in:0 out:10
+mmc_io_rw_direct_host w:0 f:1 a:10009 in:0 out:4
+mmc_io_rw_direct_host w:1 f:1 a:10009 in:4
+mmc_io_rw_direct_host w:0 f:1 a:10009 in:0 out:4
+mmc_io_rw_direct_host w:0 f:1 a:1000e in:0 out:10
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:10
+mmc_io_rw_direct_host w:0 f:1 a:1000e in:0 out:10
+mmc_io_rw_direct_host w:0 f:1 a:10009 in:0 out:4
+mmc_io_rw_direct_host w:1 f:1 a:10009 in:4
+mmc_io_rw_direct_host w:0 f:1 a:10009 in:0 out:4
+mmc_io_rw_direct_host w:0 f:1 a:1000e in:0 out:10
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:10
+mmc_io_rw_direct_host w:0 f:1 a:1000e in:0 out:10
+mmc_io_rw_direct_host w:0 f:1 a:10009 in:0 out:4
+mmc_io_rw_direct_host w:1 f:1 a:10009 in:4
+mmc_io_rw_direct_host w:0 f:1 a:10009 in:0 out:4
+mmc_io_rw_direct_host w:0 f:1 a:1000e in:0 out:10
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:10
+mmc_io_rw_direct_host w:0 f:1 a:1000e in:0 out:10
+mmc_io_rw_direct_host w:0 f:1 a:10009 in:0 out:4
+mmc_io_rw_direct_host w:1 f:1 a:10009 in:4
+mmc_io_rw_direct_host w:0 f:1 a:10009 in:0 out:4
+mmc_io_rw_direct_host w:0 f:1 a:1000e in:0 out:10
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:10
+mmc_io_rw_direct_host w:0 f:1 a:1000e in:0 out:10
+mmc_io_rw_direct_host w:0 f:1 a:10009 in:0 out:4
+mmc_io_rw_direct_host w:1 f:1 a:10009 in:4
+mmc_io_rw_direct_host w:0 f:1 a:10009 in:0 out:4
+mmc_io_rw_direct_host w:0 f:1 a:1000e in:0 out:10
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:10
+mmc_io_rw_direct_host w:0 f:1 a:1000e in:0 out:10
+mmc_io_rw_direct_host w:0 f:1 a:10009 in:0 out:4
+mmc_io_rw_direct_host w:1 f:1 a:10009 in:4
+mmc_io_rw_direct_host w:0 f:1 a:10009 in:0 out:4
+mmc_io_rw_direct_host w:0 f:1 a:1000e in:0 out:10
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:10
+mmc_io_rw_direct_host w:0 f:1 a:1000e in:0 out:10
+mmc_io_rw_direct_host w:0 f:1 a:10009 in:0 out:4
+mmc_io_rw_direct_host w:1 f:1 a:10009 in:4
+mmc_io_rw_direct_host w:0 f:1 a:10009 in:0 out:4
+mmc_io_rw_direct_host w:0 f:1 a:1000e in:0 out:10
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:10
+mmc_io_rw_direct_host w:0 f:1 a:1000e in:0 out:10
+mmc_io_rw_direct_host w:0 f:1 a:10009 in:0 out:4
+mmc_io_rw_direct_host w:1 f:1 a:10009 in:4
+mmc_io_rw_direct_host w:0 f:1 a:10009 in:0 out:4
+mmc_io_rw_direct_host w:0 f:1 a:1000e in:0 out:10
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:10
+mmc_io_rw_direct_host w:0 f:1 a:1000e in:0 out:10
+mmc_io_rw_direct_host w:0 f:1 a:10009 in:0 out:4
+mmc_io_rw_direct_host w:1 f:1 a:10009 in:4
+mmc_io_rw_direct_host w:0 f:1 a:10009 in:0 out:4
+mmc_io_rw_direct_host w:0 f:1 a:1000e in:0 out:10
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:10
+mmc_io_rw_direct_host w:0 f:1 a:1000e in:0 out:10
+mmc_io_rw_direct_host w:0 f:1 a:10009 in:0 out:4
+mmc_io_rw_direct_host w:1 f:1 a:10009 in:4
+mmc_io_rw_direct_host w:0 f:1 a:10009 in:0 out:4
+mmc_io_rw_direct_host w:0 f:1 a:1000e in:0 out:10
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:10
+mmc_io_rw_direct_host w:0 f:1 a:1000e in:0 out:10
+mmc_io_rw_direct_host w:0 f:1 a:10009 in:0 out:4
+mmc_io_rw_direct_host w:1 f:1 a:10009 in:4
+mmc_io_rw_direct_host w:0 f:1 a:10009 in:0 out:4
+mmc_io_rw_direct_host w:0 f:1 a:1000e in:0 out:10
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:10
+mmc_io_rw_direct_host w:0 f:1 a:1000e in:0 out:10
+mmc_io_rw_direct_host w:0 f:1 a:10009 in:0 out:4
+mmc_io_rw_direct_host w:1 f:1 a:10009 in:4
+mmc_io_rw_direct_host w:0 f:1 a:10009 in:0 out:4
+mmc_io_rw_direct_host w:0 f:1 a:1000e in:0 out:10
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:10
+mmc_io_rw_direct_host w:0 f:1 a:1000e in:0 out:10
+mmc_io_rw_direct_host w:0 f:1 a:10009 in:0 out:4
+mmc_io_rw_direct_host w:1 f:1 a:10009 in:4
+mmc_io_rw_direct_host w:0 f:1 a:10009 in:0 out:4
+mmc_io_rw_direct_host w:0 f:1 a:1000e in:0 out:10
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:10
+mmc_io_rw_direct_host w:0 f:1 a:1000e in:0 out:10
+mmc_io_rw_direct_host w:0 f:1 a:10009 in:0 out:4
+mmc_io_rw_direct_host w:1 f:1 a:10009 in:4
+mmc_io_rw_direct_host w:0 f:1 a:10009 in:0 out:4
+mmc_io_rw_direct_host w:0 f:1 a:1000e in:0 out:10
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:10
+mmc_io_rw_direct_host w:0 f:1 a:1000e in:0 out:10
+mmc_io_rw_direct_host w:0 f:1 a:10009 in:0 out:4
+mmc_io_rw_direct_host w:1 f:1 a:10009 in:4
+mmc_io_rw_direct_host w:0 f:1 a:10009 in:0 out:4
+mmc_io_rw_direct_host w:0 f:1 a:1000e in:0 out:10
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:10
+mmc_io_rw_direct_host w:0 f:1 a:1000e in:0 out:10
+mmc_io_rw_direct_host w:0 f:1 a:10009 in:0 out:4
+mmc_io_rw_direct_host w:1 f:1 a:10009 in:4
+mmc_io_rw_direct_host w:0 f:1 a:10009 in:0 out:4
+mmc_io_rw_direct_host w:0 f:1 a:1000e in:0 out:10
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:10
+mmc_io_rw_direct_host w:0 f:1 a:1000e in:0 out:10
+mmc_io_rw_direct_host w:0 f:1 a:10009 in:0 out:4
+mmc_io_rw_direct_host w:1 f:1 a:10009 in:4
+mmc_io_rw_direct_host w:0 f:1 a:10009 in:0 out:4
+mmc_io_rw_direct_host w:0 f:1 a:1000e in:0 out:10
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:10
+mmc_io_rw_direct_host w:0 f:1 a:1000e in:0 out:10
+mmc_io_rw_direct_host w:0 f:1 a:10009 in:0 out:4
+mmc_io_rw_direct_host w:1 f:1 a:10009 in:4
+mmc_io_rw_direct_host w:0 f:1 a:10009 in:0 out:4
+mmc_io_rw_direct_host w:0 f:1 a:1000e in:0 out:10
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:10
+mmc_io_rw_direct_host w:0 f:1 a:1000e in:0 out:50
+mmc_io_rw_direct_host w:0 f:1 a:10009 in:0 out:4
+mmc_io_rw_direct_host w:1 f:1 a:10009 in:4
+mmc_io_rw_direct_host w:0 f:1 a:10009 in:0 out:4
+mmc_io_rw_direct_host w:0 f:1 a:1000e in:0 out:50
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:10
+mmc_io_rw_direct_host w:0 f:1 a:1000e in:0 out:50
+mmc_io_rw_direct_host w:0 f:1 a:10009 in:0 out:4
+mmc_io_rw_direct_host w:1 f:1 a:10009 in:4
+mmc_io_rw_direct_host w:0 f:1 a:10009 in:0 out:4
+mmc_io_rw_direct_host w:0 f:1 a:1000e in:0 out:d0
+mmc_io_rw_direct_host w:0 f:1 a:10009 in:0 out:4
+mmc_io_rw_direct_host w:1 f:1 a:10009 in:0
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:0
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:10
+mmc_io_rw_direct_host w:0 f:1 a:1000e in:0 out:d0
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:0
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:10
+mmc_io_rw_direct_host w:0 f:1 a:1000e in:0 out:d0
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:0
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:10
+mmc_io_rw_direct_host w:0 f:1 a:1000e in:0 out:d0
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:0
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:10
+mmc_io_rw_direct_host w:0 f:1 a:1000e in:0 out:d0
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:0
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:10
+mmc_io_rw_direct_host w:0 f:1 a:1000e in:0 out:d0
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:0
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:10
+mmc_io_rw_direct_host w:0 f:1 a:1000e in:0 out:d0
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:0
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:10
+mmc_io_rw_direct_host w:0 f:1 a:1000e in:0 out:d0
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:0
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:10
+mmc_io_rw_direct_host w:0 f:1 a:1000e in:0 out:d0
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:0
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:10
+mmc_io_rw_direct_host w:0 f:1 a:1000e in:0 out:d0
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:0
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:10
+mmc_io_rw_direct_host w:0 f:1 a:1000e in:0 out:d0
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:0
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:10
+mmc_io_rw_direct_host w:0 f:1 a:1000e in:0 out:d0
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:0
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:10
+mmc_io_rw_direct_host w:0 f:1 a:1000e in:0 out:d0
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:0
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:10
+mmc_io_rw_direct_host w:0 f:1 a:1000e in:0 out:d0
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:0
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:10
+mmc_io_rw_direct_host w:0 f:1 a:1000e in:0 out:d0
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:0
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:10
+mmc_io_rw_direct_host w:0 f:1 a:1000e in:0 out:d0
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:0
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:10
+mmc_io_rw_direct_host w:0 f:1 a:1000e in:0 out:d0
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:0
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:10
+mmc_io_rw_direct_host w:0 f:1 a:1000e in:0 out:d0
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:0
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:10
+mmc_io_rw_direct_host w:0 f:1 a:1000e in:0 out:d0
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:0
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:10
+mmc_io_rw_direct_host w:0 f:1 a:1000e in:0 out:d0
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:0
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:10
+mmc_io_rw_direct_host w:0 f:1 a:1000e in:0 out:d0
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:0
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:10
+mmc_io_rw_direct_host w:0 f:1 a:1000e in:0 out:d0
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:0
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:10
+mmc_io_rw_direct_host w:0 f:1 a:1000e in:0 out:d0
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:0
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:10
+mmc_io_rw_direct_host w:0 f:1 a:1000e in:0 out:d0
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:0
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:10
+mmc_io_rw_direct_host w:0 f:1 a:1000e in:0 out:d0
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:0
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:10
+mmc_io_rw_direct_host w:0 f:1 a:1000e in:0 out:d0
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:0
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:10
+mmc_io_rw_direct_host w:0 f:1 a:1000e in:0 out:d0
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:0
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:10
+mmc_io_rw_direct_host w:0 f:1 a:1000e in:0 out:d0
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:0
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:10
+mmc_io_rw_direct_host w:0 f:1 a:1000e in:0 out:d0
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:0
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:10
+mmc_io_rw_direct_host w:0 f:1 a:1000e in:0 out:d0
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:0
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:10
+mmc_io_rw_direct_host w:0 f:1 a:1000e in:0 out:d0
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:0
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:10
+mmc_io_rw_direct_host w:0 f:1 a:1000e in:0 out:d0
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:0
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:10
+mmc_io_rw_direct_host w:0 f:1 a:1000e in:0 out:d0
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:0
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:10
+mmc_io_rw_direct_host w:0 f:1 a:1000e in:0 out:d0
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:0
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:10
+mmc_io_rw_direct_host w:0 f:1 a:1000e in:0 out:d0
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:0
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:10
+mmc_io_rw_direct_host w:0 f:1 a:1000e in:0 out:d0
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:0
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:10
+mmc_io_rw_direct_host w:0 f:1 a:1000e in:0 out:d0
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:0
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:10
+mmc_io_rw_direct_host w:0 f:1 a:1000e in:0 out:d0
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:0
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:10
+mmc_io_rw_direct_host w:0 f:1 a:1000e in:0 out:d0
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:0
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:10
+mmc_io_rw_direct_host w:0 f:1 a:1000e in:0 out:d0
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:0
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:10
+mmc_io_rw_direct_host w:0 f:1 a:1000e in:0 out:d0
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:0
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:10
+mmc_io_rw_direct_host w:0 f:1 a:1000e in:0 out:d0
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:0
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:10
+mmc_io_rw_direct_host w:0 f:1 a:1000e in:0 out:d0
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:0
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:10
+mmc_io_rw_direct_host w:0 f:1 a:1000e in:0 out:d0
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:0
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:10
+mmc_io_rw_direct_host w:0 f:1 a:1000e in:0 out:d0
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:0
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:10
+mmc_io_rw_direct_host w:0 f:1 a:1000e in:0 out:d0
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:0
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:10
+mmc_io_rw_direct_host w:0 f:1 a:1000e in:0 out:d0
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:0
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:10
+mmc_io_rw_direct_host w:0 f:1 a:1000e in:0 out:d0
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:0
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:10
+mmc_io_rw_direct_host w:0 f:1 a:1000e in:0 out:d0
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:0
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:10
+mmc_io_rw_direct_host w:0 f:1 a:1000e in:0 out:d0
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:0
+mmc_io_rw_direct_host w:0 f:0 a:5 in:0 out:2
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:10
+mmc_io_rw_direct_host w:0 f:1 a:1000e in:0 out:d0
+mmc_io_rw_direct_host w:1 f:1 a:1000e in:0

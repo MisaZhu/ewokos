@@ -33,6 +33,8 @@
 /* NOTE: use same value as the Ethernet types */
 #define NET_PROTOCOL_TYPE_IP   0x0800
 #define NET_PROTOCOL_TYPE_ARP  0x0806
+
+#define NET_PROTOCOL_TYPE_RAW  0xFFFF
 #define NTT_PROTOCOL_TYPE_IPV6 0x86dd
 
 #define NET_IRQ_SHARED 0x0001

@@ -28,6 +28,6 @@
 @/sbin/x/xmoused /dev/mouse0 &
 @/sbin/x/xim_none &
 
-@/bin/session &
+@/bin/session -r &
 @/bin/x/menubar &
 @/bin/x/launcher &

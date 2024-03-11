@@ -25,22 +25,22 @@ sched_sleep(struct sched_ctx *ctx, mutex_t *mutex, const struct timespec *abstim
 {
     int ret;
 	(void)abstime;
-	mutex_lock(mutex);
     if (ctx->interrupted) {
         errno = EINTR;
         return -1;
     }
     ctx->wc++;
 	ctx->cond = 0;
+	
+	mutex_unlock(mutex);
     while(1){
 		if(ctx->cond){
 			ret = 0;
 			break;
 		}
-		mutex_unlock(mutex);
 		proc_usleep(10000);
-		mutex_lock(mutex);
     }
+	mutex_lock(mutex);
 
     ctx->wc--;
     if (ctx->interrupted) {
