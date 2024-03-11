@@ -408,7 +408,8 @@ static int32_t sys_ipc_get_info(uint32_t uid, int32_t* ipc_info, proto_t* ipc_ar
 		return -1;
 	}
 
-	ipc_info[0] = get_proc_pid(ipc->client_pid);
+	//ipc_info[0] = get_proc_pid(ipc->client_pid);
+	ipc_info[0] = ipc->client_pid;
 	ipc_info[1] = ipc->call_id;
 	if(ipc_arg->data != NULL)
 		memcpy(ipc_arg->data, ipc->data.data, ipc->data.size);
