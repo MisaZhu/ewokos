@@ -14,8 +14,13 @@ void semaphore_free(int sem_id) {
 }
 
 int  semaphore_enter(int sem_id) {
-	while(syscall1(SYS_SEMAPHORE_ENTER, sem_id) == 2);
-	return 0;
+	int res = 0;
+	while(true) {
+		res = syscall1(SYS_SEMAPHORE_ENTER, sem_id);
+		if(res != -2)
+			break;
+	}
+	return res;
 }
 
 int  semaphore_quit(int sem_id) {

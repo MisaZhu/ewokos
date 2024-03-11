@@ -185,7 +185,7 @@ static int do_network_fcntl(int fd, int from_pid, fsinfo_t* info,
 		case SOCK_LINK:
 			sock = proto_read_int(in);	
 			info->data = sock;
-			vfs_update(info);
+			vfs_update(info, false);
 			PF->addi(out, 0);
 			break;
 		case SOCK_CONNECT:
