@@ -103,7 +103,7 @@ static inline uint32_t proc_get_user_stack_pages(proc_t* proc) {
 static inline  uint32_t proc_get_user_stack_base(proc_t* proc) {
 	if(proc->info.type == PROC_TYPE_PROC)
 		return USER_STACK_TOP - STACK_PAGES*PAGE_SIZE;
-	return proc->stack.thread_stack_base;
+	return proc->thread_stack_base;
 }
 
 static void map_stack(proc_t* proc, uint32_t* stacks, uint32_t base, uint32_t pages) {
@@ -412,27 +412,27 @@ static void proc_terminate(context_t* ctx, proc_t* proc) {
 
 static inline void proc_init_user_stack(proc_t* proc) {
 	if(proc->info.type == PROC_TYPE_THREAD) {
-		proc->stack.thread_stack_base = thread_stack_alloc(proc);
+		proc->thread_stack_base = thread_stack_alloc(proc);
 	}
 	else {
 		uint32_t i;
 		uint32_t base =  proc_get_user_stack_base(proc);
 		uint32_t pages = proc_get_user_stack_pages(proc);
-		map_stack(proc, proc->stack.user_stack, base, pages);
+		map_stack(proc, proc->space->user_stack, base, pages);
 	}
 }
 
 static inline void proc_free_user_stack(proc_t* proc) {
 	/*free user_stack*/
 	if(proc->info.type == PROC_TYPE_THREAD) {
-		if(proc->stack.thread_stack_base != 0) {
-			thread_stack_free(proc, proc->stack.thread_stack_base);
+		if(proc->thread_stack_base != 0) {
+			thread_stack_free(proc, proc->thread_stack_base);
 		}
 	}
 	else {
 		uint32_t base = proc_get_user_stack_base(proc);
 		uint32_t pages = proc_get_user_stack_pages(proc);
-		unmap_stack(proc, proc->stack.user_stack, base, pages);
+		unmap_stack(proc, proc->space->user_stack, base, pages);
 	}
 }
 
@@ -814,9 +814,9 @@ static int32_t proc_clone(proc_t* child, proc_t* parent) {
 	int32_t i;
 	for(i=0; i<STACK_PAGES; i++) {
 		proc_page_clone(child, 
-			child->stack.user_stack[i],
+			child->space->user_stack[i],
 			parent,
-			parent->stack.user_stack[i]);
+			parent->space->user_stack[i]);
 	}
 	child->space->malloc_base = parent->space->malloc_base;
 	child->space->rw_heap_base = parent->space->rw_heap_base;
@@ -847,7 +847,7 @@ proc_t* kfork_raw(context_t* ctx, int32_t type, proc_t* parent) {
 				*/
 	}
 	else {
-		child->ctx.sp = ALIGN_DOWN(child->stack.thread_stack_base + THREAD_STACK_PAGES*PAGE_SIZE, 8);
+		child->ctx.sp = ALIGN_DOWN(child->thread_stack_base + THREAD_STACK_PAGES*PAGE_SIZE, 8);
 	}
 	return child;
 }

@@ -169,8 +169,10 @@ static void timer_handler(void) {
 }
 
 static void win_loop(void* p) {
+	ipc_disable();
 	if(_xwin->isDirty())
 		_xwin->repaint();
+	ipc_enable();
 	proc_usleep(30000);
 }
 
@@ -200,12 +202,11 @@ static int console_write(int fd,
 	(void)node;
 	(void)offset;
 
-	XConsole *xwin = (XConsole*)p;
-	if(size <= 0 || xwin == NULL)
+	if(size <= 0 || _xwin == NULL)
 		return 0;
 
-	xwin->put((const char*)buf, size);
-	xwin->refresh();
+	_xwin->put((const char*)buf, size);
+	_xwin->refresh();
 	return size;
 }
 
@@ -246,8 +247,6 @@ int run(const char* mnt_point) {
 
 	XConsole xwin;
 	xwin.readConfig(x_get_theme_fname(X_THEME_ROOT, "xterm", "theme.conf"));
-
-
 	_xwin = &xwin;
 
 	vdevice_t dev;
@@ -255,7 +254,6 @@ int run(const char* mnt_point) {
 	strcpy(dev.name, "xconsole");
 	dev.write = console_write;
 	dev.read = console_read;
-	dev.extra_data = &xwin;
 	dev.loop_step = dev_loop;
 	_dev = &dev;
 

@@ -20,6 +20,7 @@ typedef struct {
 } proc_block_event_t;
 
 #define THREAD_STACK_PAGES 16
+#define STACK_PAGES 32
 
 typedef struct {
 	uint32_t base;
@@ -42,9 +43,8 @@ typedef struct {
 	proc_interrupt_t  interrupt;
 
 	thread_stack_t  thread_stacks[MAX_THREAD_NUM_PER_PROC];
+	uint32_t        user_stack[STACK_PAGES];
 } proc_space_t;
-
-#define STACK_PAGES 32
 
 typedef struct st_proc {
 	procinfo_t        info;
@@ -56,11 +56,7 @@ typedef struct st_proc {
 	uint32_t          run_usec_counter; //run time usec
 	proc_space_t*     space;
 
-	union {
-		uint32_t        user_stack[STACK_PAGES];
-		uint32_t        thread_stack_base;
-	} stack;
-
+	uint32_t          thread_stack_base;
 	context_t         ctx;
 	ipc_res_t         ipc_res;
 } proc_t;

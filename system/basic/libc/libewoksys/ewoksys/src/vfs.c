@@ -338,8 +338,7 @@ int vfs_dup2(int fd, int to) {
 	fsfile_t* file = vfs_get_file(fd);
 	if(file == NULL)
 		return -1;
-
-	vfs_close(to);
+	vfs_clear_file(to);	
 
 	proto_t in, out;
 	PF->format(&in, "i,i", fd, to);

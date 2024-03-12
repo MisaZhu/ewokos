@@ -7,7 +7,7 @@ static uint32_t flag  = 0;
 static int err_cnt = 0;
 static int cnt = 0 ;
 FILE *fp;
-extern int IO_DEBUG;
+static int IO_DEBUG;
 
 void * read_thread(void *){
   char buf[32];
