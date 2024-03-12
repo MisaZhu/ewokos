@@ -25,11 +25,11 @@
 //    //gettimeofday(&tv, NULL);
 //    //strftime(timestamp, sizeof(timestamp), "%T", localtime_r(&tv.tv_sec, &tm));
 //    //printf("%s.%03d [%c] %s: ", timestamp, (int)(tv.tv_usec / 1000), level, func);
-//    printf("[%c] %s: ", level, func);
+//    infof("[%c] %s: ", level, func);
 //    va_start(ap, fmt);
 //    vprintf(fmt, ap);
 //    va_end(ap);
-//    printf(" (%s:%d)\n", file, line);
+//    infof(" (%s:%d)\n", file, line);
 //    return 0;
 //}
 
@@ -40,31 +40,31 @@ hexdump(FILE *fp, const void *data, size_t size)
     int offset, index;
 
     src = (unsigned char *)data;
-    printf("+------+-------------------------------------------------+------------------+\n");
+    infof("+------+-------------------------------------------------+------------------+\n");
     for(offset = 0; offset < (int)size; offset += 16) {
-		printf("| %04x | ", offset);
+		infof("| %04x | ", offset);
         for(index = 0; index < 16; index++) {
             if(offset + index < (int)size) {
-                printf("%02x ", 0xff & src[offset + index]);
+                infof("%02x ", 0xff & src[offset + index]);
             } else {
-                printf("   ");
+                infof("   ");
             }
         }
-        printf("| ");
+        infof("| ");
         for(index = 0; index < 16; index++) {
             if(offset + index < (int)size) {
                 if(isascii(src[offset + index]) && isprint(src[offset + index])) {
-                    printf("%c", src[offset + index]);
+                    infof("%c", src[offset + index]);
                 } else {
-                    printf(".");
+                    infof(".");
                 }
             } else {
-                printf(" ");
+                infof(" ");
             }
         }
-        printf(" |\n");
+        infof(" |\n");
     }
-    printf("+------+-------------------------------------------------+------------------+\n");
+    infof("+------+-------------------------------------------------+------------------+\n");
     funlockfile(fp);
 }
 

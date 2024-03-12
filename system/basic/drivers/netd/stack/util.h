@@ -41,17 +41,19 @@
 
 #define lprintf(x, level, file, line, func, ...)   \
 		do{	\
-			printf("[%c] %s: (%s:%d) :\n", level, func, file, line); \
-			printf(__VA_ARGS__);printf("\n"); \
+			klog("[%c] %s: (%s:%d) :\n", level, func, file, line); \
+			klog(__VA_ARGS__);klog("\n"); \
 		}while(0)
 
 #define errorf(...) lprintf(stderr, 'E', __FILE__, __LINE__, __func__, __VA_ARGS__)
+
+#define NET_DEBUG
 
 #ifdef NET_DEBUG
 #define warnf(...) lprintf(stderr, 'W', __FILE__, __LINE__, __func__, __VA_ARGS__)
 #define infof(...) lprintf(stderr, 'I', __FILE__, __LINE__, __func__, __VA_ARGS__)
 #define debugf(...) lprintf(stderr, 'D', __FILE__, __LINE__, __func__, __VA_ARGS__)
-#define HEXDUMP
+//#define HEXDUMP
 #else
 #define warnf(...)        do{}while(0)
 #define infof(...)        do{}while(0)

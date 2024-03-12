@@ -103,7 +103,7 @@ typedef struct dhcp_client{
     uint32_t   gateway;
     uint32_t   dns1;
     uint32_t   dns2;
-    uint32_t   validity; 
+    int   validity; 
 
 }dhcp_client_t;
 
@@ -271,6 +271,7 @@ static void dhcp_input(const uint8_t *data, size_t len, struct net_device *dev)
 {
     struct ip_hdr *ip_packet  = (struct ip_hdr *)(data);
 
+    //hexdump(stderr, data, len);
     dhcp_client_t *dhc =  get_client(dev);
     if(!dhc)
         return;
@@ -331,7 +332,6 @@ dhcp_timer(void)
     struct timeval now, diff;
     gettimeofday(&now, NULL);
     dhcp_client_t *dhc = dhcp_client_list;
-
     while(dhc){
         timersub(&now, &dhc->update, &diff);
         if (diff.tv_sec >= dhc->validity) {
@@ -344,11 +344,12 @@ dhcp_timer(void)
 int  
 dhcp_run(struct net_device* dev){
     dhcp_client_t *dhc = malloc(sizeof(dhcp_client_t));
-
+   
     dhc->dev = dev;
-    dhc->validity = 30;
+    dhc->validity = 10;
     dhc->next = dhcp_client_list;
     dhcp_client_list = dhc;
+    gettimeofday(&dhc->update, NULL);
     return 0;
 }
 

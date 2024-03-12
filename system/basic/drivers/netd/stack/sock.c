@@ -83,7 +83,7 @@ sock_open(int domain, int type, int protocol)
 {
     struct sock *s;
     if (domain != AF_INET) {
-        return -1;
+        return -17;
     }
     if (type != SOCK_STREAM && type != SOCK_DGRAM ) {
         return -1;
@@ -115,9 +115,10 @@ int
 sock_close(int id)
 {
     struct sock *s;
+    klog("sock close %d\n", id);
     s = sock_get(id);
     if (!s) {
-        return -1;
+        return -17;
     }
     switch (s->type) {
     case SOCK_STREAM:
@@ -140,7 +141,7 @@ sock_recvfrom(int id, void *buf, size_t n, struct sockaddr *addr, int *addrlen)
     int ret;
     s = sock_get(id);
     if (!s) {
-        return -1;
+        return -17;
     }
     if (s->type != SOCK_DGRAM) {
         return -1;
@@ -165,7 +166,7 @@ sock_sendto(int id, const void *buf, size_t n, const struct sockaddr *addr, int 
 
     s = sock_get(id);
     if (!s) {
-        return -1;
+        return -17;
     }
     if (s->type != SOCK_DGRAM) {
         return -1;
@@ -186,7 +187,7 @@ sock_bind(int id, const struct sockaddr *addr, int addrlen)
     struct ip_endpoint ep;
     s = sock_get(id);
     if (!s) {
-        return -1;
+        return -17;
     }
     switch (s->type) {
     case SOCK_STREAM:
@@ -216,7 +217,7 @@ sock_listen(int id, int backlog)
 
     s = sock_get(id);
     if (!s) {
-        return -1;
+        return -17;
     }
     if (s->type != SOCK_STREAM) {
         return -1;
@@ -237,7 +238,7 @@ sock_accept(int id, struct sockaddr *addr, int *addrlen)
 
     s = sock_get(id);
     if (!s) {
-        return -1;
+        return -17;
     }
     if (s->type != SOCK_STREAM) {
         return -1;
@@ -252,6 +253,7 @@ sock_accept(int id, struct sockaddr *addr, int *addrlen)
         ((struct sockaddr_in *)addr)->sin_addr = ep.addr;
         ((struct sockaddr_in *)addr)->sin_port = ep.port;
         new_s = sock_alloc();
+        klog("sock accept %d %d\n",  indexof(socks, new_s), ret);
         if(new_s){
             new_s->family = s->family;
             new_s->type = s->type;
@@ -271,7 +273,7 @@ sock_connect(int id, const struct sockaddr *addr, int addrlen)
 
     s = sock_get(id);
     if (!s) {
-        return -1;
+        return -17;
     }
     if (s->type != SOCK_STREAM) {
         return -1;
@@ -292,7 +294,7 @@ sock_recv(int id, void *buf, size_t n)
 
     s = sock_get(id);
     if (!s) {
-        return -1;
+        return -17;
     }
     if (s->type != SOCK_STREAM) {
         return -1;
@@ -308,10 +310,10 @@ ssize_t
 sock_send(int id, const void *buf, size_t n)
 {
     struct sock *s;
-
+    klog("sock send %d %d\n", id, n);
     s = sock_get(id);
     if (!s) {
-        return -1;
+        return -17;
     }
     if (s->type != SOCK_STREAM) {
         return -1;

@@ -7,7 +7,7 @@ LDFLAGS = -L$(BUILD_DIR)/lib
 
 CFLAGS += -I $(BUILD_DIR)/include
 
-NETD_OBJS = netd.o intr.o sched.o tap.o\
+NETD_OBJS = netd.o intr.o sched.o tap.o task.o\
 				stack/loopback.o	\
 				stack/icmp.o \
 				stack/net.o \

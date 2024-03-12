@@ -141,15 +141,15 @@ tcp_dump(const uint8_t *data, size_t len)
 #ifdef NET_DEBUG
     struct tcp_hdr *hdr;
     hdr = (struct tcp_hdr *)data;
-    printf( "        src: %u\n", ntoh16(hdr->src));
-    printf( "        dst: %u\n", ntoh16(hdr->dst));
-    printf( "        seq: %u\n", ntoh32(hdr->seq));
-    printf( "        ack: %u\n", ntoh32(hdr->ack));
-    printf( "        off: 0x%02x (%d)\n", hdr->off, (hdr->off >> 4) << 2);
-    printf( "        flg: 0x%02x (%s)\n", hdr->flg, tcp_flg_ntoa(hdr->flg));
-    printf( "        wnd: %u\n", ntoh16(hdr->wnd));
-    printf( "        sum: 0x%04x\n", ntoh16(hdr->sum));
-    printf( "         up: %u\n", ntoh16(hdr->up));
+    klog( "        src: %u\n", ntoh16(hdr->src));
+    klog( "        dst: %u\n", ntoh16(hdr->dst));
+    klog( "        seq: %u\n", ntoh32(hdr->seq));
+    klog( "        ack: %u\n", ntoh32(hdr->ack));
+    klog( "        off: 0x%02x (%d)\n", hdr->off, (hdr->off >> 4) << 2);
+    klog( "        flg: 0x%02x (%s)\n", hdr->flg, tcp_flg_ntoa(hdr->flg));
+    klog( "        wnd: %u\n", ntoh16(hdr->wnd));
+    klog( "        sum: 0x%04x\n", ntoh16(hdr->sum));
+    klog( "         up: %u\n", ntoh16(hdr->up));
 #ifdef HEXDUMP
     hexdump(stderr, data, len);
 #endif
@@ -335,8 +335,9 @@ tcp_output_segment(uint32_t seq, uint32_t ack, uint8_t flg, uint16_t wnd, uint8_
     uint16_t total;
     char ep1[IP_ENDPOINT_STR_LEN];
     char ep2[IP_ENDPOINT_STR_LEN];
-
+    klog("%s %d\n", __func__, __LINE__);
     uint8_t *buf = malloc(IP_PAYLOAD_SIZE_MAX);
+    klog("%s %d\n", __func__, __LINE__);
     if(!buf)
         return -1;
 
@@ -394,8 +395,9 @@ tcp_segment_arrives(struct tcp_segment_info *seg, uint8_t flags, uint8_t *data, 
 {
     struct tcp_pcb *pcb, *new_pcb;
     int acceptable = 0;
-
+    klog("%s %d\n", __func__, __LINE__);
     pcb = tcp_pcb_select(local, foreign);
+    klog("%s %d\n", __func__, __LINE__);
     if (!pcb || pcb->state == TCP_PCB_STATE_CLOSED) {
         if (TCP_FLG_ISSET(flags, TCP_FLG_RST)) {
             return;
@@ -407,6 +409,7 @@ tcp_segment_arrives(struct tcp_segment_info *seg, uint8_t flags, uint8_t *data, 
         }
         return;
     }
+    klog("%s %d\n", __func__, __LINE__);
     switch(pcb->state) {
     case TCP_PCB_STATE_LISTEN:
         /*
@@ -524,6 +527,7 @@ tcp_segment_arrives(struct tcp_segment_info *seg, uint8_t flags, uint8_t *data, 
     /*
      * first check sequence number
      */
+    klog("%s %d\n", __func__, __LINE__);
     switch (pcb->state) {
     case TCP_PCB_STATE_SYN_RECEIVED:
     case TCP_PCB_STATE_ESTABLISHED:
@@ -572,6 +576,7 @@ tcp_segment_arrives(struct tcp_segment_info *seg, uint8_t flags, uint8_t *data, 
     /*
      * second check the RST bit
      */
+    klog("%s %d\n", __func__, __LINE__);
     switch (pcb->state) {
     case TCP_PCB_STATE_SYN_RECEIVED:
         if (TCP_FLG_ISSET(flags, TCP_FLG_RST)) {
@@ -607,6 +612,7 @@ tcp_segment_arrives(struct tcp_segment_info *seg, uint8_t flags, uint8_t *data, 
     /*
      * fourth check the SYN bit
      */
+    klog("%s %d\n", __func__, __LINE__);
     switch (pcb->state) {
     case TCP_PCB_STATE_SYN_RECEIVED:
     case TCP_PCB_STATE_ESTABLISHED:
@@ -631,6 +637,7 @@ tcp_segment_arrives(struct tcp_segment_info *seg, uint8_t flags, uint8_t *data, 
         /* drop segment */
         return;
     }
+    klog("%s %d\n", __func__, __LINE__);
     switch (pcb->state) {
     case TCP_PCB_STATE_SYN_RECEIVED:
         if (pcb->snd.una <= seg->ack && seg->ack <= pcb->snd.nxt) {
@@ -706,6 +713,7 @@ tcp_segment_arrives(struct tcp_segment_info *seg, uint8_t flags, uint8_t *data, 
     /*
      * seventh, process the segment text
      */
+    klog("%s %d\n", __func__, __LINE__);
     switch (pcb->state) {
     case TCP_PCB_STATE_ESTABLISHED:
     case TCP_PCB_STATE_FIN_WAIT1:
@@ -726,6 +734,7 @@ tcp_segment_arrives(struct tcp_segment_info *seg, uint8_t flags, uint8_t *data, 
         break;
     }
 
+    klog("%s %d\n", __func__, __LINE__);
     /*
      * eighth, check the FIN bit
      */
@@ -772,6 +781,7 @@ tcp_segment_arrives(struct tcp_segment_info *seg, uint8_t flags, uint8_t *data, 
             break;
         }
     }
+    klog("%s %d\n", __func__, __LINE__);
     return;
 }
 
@@ -975,9 +985,9 @@ tcp_state(int id)
     mutex_lock(&mutex);
     pcb = tcp_pcb_get(id);
     if (!pcb) {
-        errorf("pcb not found");
+        errorf("pcb not found %d\n", id);
         mutex_unlock(&mutex);
-        return -1;
+        return -17;
     }
     if (pcb->mode != TCP_PCB_MODE_RFC793) {
         errorf("not opened in rfc793 mode");
@@ -1025,9 +1035,9 @@ tcp_connect(int id, struct ip_endpoint *foreign)
     mutex_lock(&mutex);
     pcb = tcp_pcb_get(id);
     if (!pcb) {
-        errorf("pcb not found");
+        errorf("pcb not found %d\n", id);
         mutex_unlock(&mutex);
-        return -1;
+        return -17;
     }
     if (pcb->mode != TCP_PCB_MODE_SOCKET) {
         errorf("not opened in socket mode");
@@ -1114,9 +1124,9 @@ tcp_bind(int id, struct ip_endpoint *local)
     mutex_lock(&mutex);
     pcb = tcp_pcb_get(id);
     if (!pcb) {
-        errorf("pcb not found");
+        errorf("pcb not found %d\n", id);
         mutex_unlock(&mutex);
-        return -1;
+        return -17;
     }
     if (pcb->mode != TCP_PCB_MODE_SOCKET) {
         errorf("not opened in socket mode");
@@ -1143,9 +1153,9 @@ tcp_listen(int id, int backlog)
     mutex_lock(&mutex);
     pcb = tcp_pcb_get(id);
     if (!pcb) {
-        errorf("pcb not found");
+        errorf("pcb not found %d\n", id);
         mutex_unlock(&mutex);
-        return -1;
+        return -17;
     }
     if (pcb->mode != TCP_PCB_MODE_SOCKET) {
         errorf("not opened in socket mode");
@@ -1167,9 +1177,9 @@ tcp_accept(int id, struct ip_endpoint *foreign)
     mutex_lock(&mutex);
     pcb = tcp_pcb_get(id);
     if (!pcb) {
-        errorf("pcb not found");
+        errorf("pcb not found %d\n", id);
         mutex_unlock(&mutex);
-        return -1;
+        return -17;
     }
     if (pcb->mode != TCP_PCB_MODE_SOCKET) {
         errorf("not opened in socket mode");
@@ -1214,14 +1224,15 @@ tcp_send(int id, uint8_t *data, size_t len)
     ssize_t sent = 0;
     struct ip_iface *iface;
     size_t mss, cap, slen;
-
     mutex_lock(&mutex);
     pcb = tcp_pcb_get(id);
+    klog("%08x\n", pcb);
     if (!pcb) {
-        errorf("pcb not found");
+        errorf("pcb not found %d\n", id);
         mutex_unlock(&mutex);
-        return -1;
+        return -17;
     }
+    klog("%08x\n", pcb->state);
 RETRY:
     switch (pcb->state) {
     case TCP_PCB_STATE_CLOSED:
@@ -1251,6 +1262,7 @@ RETRY:
         while (sent < (ssize_t)len) {
             cap = pcb->snd.wnd - (pcb->snd.nxt - pcb->snd.una);
             if (!cap) {
+                klog("%d\n", __LINE__);
                 if (sched_sleep(&pcb->ctx, &mutex, NULL) == -1) {
                     debugf("interrupted");
                     if (!sent) {
@@ -1263,6 +1275,7 @@ RETRY:
                 goto RETRY;
             }
             slen = MIN(MIN(mss, len - sent), cap);
+            klog("%d\n", __LINE__);
             if (tcp_output(pcb, TCP_FLG_ACK | TCP_FLG_PSH, data + sent, slen) == -1) {
                 errorf("tcp_output() failure");
                 pcb->state = TCP_PCB_STATE_CLOSED;
@@ -1273,6 +1286,7 @@ RETRY:
             pcb->snd.nxt += slen;
             sent += slen;
         }
+        klog("%d\n", __LINE__);
         break;
     case TCP_PCB_STATE_FIN_WAIT1:
     case TCP_PCB_STATE_FIN_WAIT2:
@@ -1287,6 +1301,7 @@ RETRY:
         mutex_unlock(&mutex);
         return -1;
     }
+    klog("%d\n", __LINE__);
     mutex_unlock(&mutex);
     return sent;
 }
@@ -1300,9 +1315,9 @@ tcp_receive(int id, uint8_t *buf, size_t size)
     mutex_lock(&mutex);
     pcb = tcp_pcb_get(id);
     if (!pcb) {
-        errorf("pcb not found");
+        errorf("pcb not found %d\n", id);
         mutex_unlock(&mutex);
-        return -1;
+        return -17;
     }
 RETRY:
     switch (pcb->state) {
@@ -1364,9 +1379,9 @@ tcp_close(int id)
     mutex_lock(&mutex);
     pcb = tcp_pcb_get(id);
     if (!pcb) {
-        errorf("pcb not found");
+        errorf("pcb not found %d\n", id);
         mutex_unlock(&mutex);
-        return -1;
+        return -17;
     }
     switch (pcb->state) {
     case TCP_PCB_STATE_CLOSED:

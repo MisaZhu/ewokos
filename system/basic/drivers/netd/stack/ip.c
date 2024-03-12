@@ -129,18 +129,18 @@ ip_dump(const uint8_t *data, size_t len)
     v = (hdr->vhl & 0xf0) >> 4;
     hl = hdr->vhl & 0x0f;
     hlen = hl << 2;
-    printf("        vhl: 0x%02x [v: %u, hl: %u (%u)]\n", hdr->vhl, v, hl, hlen);
-    printf("        tos: 0x%02x\n", hdr->tos);
+    klog("        vhl: 0x%02x [v: %u, hl: %u (%u)]\n", hdr->vhl, v, hl, hlen);
+    klog("        tos: 0x%02x\n", hdr->tos);
     total = ntoh16(hdr->total);
-    printf("      total: %u (payload: %u)\n", total, total - hlen);
-    printf("         id: %u\n", ntoh16(hdr->id));
+    klog("      total: %u (payload: %u)\n", total, total - hlen);
+    klog("         id: %u\n", ntoh16(hdr->id));
     offset = ntoh16(hdr->offset);
-    printf("     offset: 0x%04x [flags=%x, offset=%u]\n", offset, (offset & 0xe000) >> 13, offset & 0x1fff);
-    printf("        ttl: %u\n", hdr->ttl);
-    printf("   protocol: %u (%s)\n", hdr->protocol, ip_protocol_name(hdr->protocol));
-    printf("        sum: 0x%04x (0x%04x)\n", ntoh16(hdr->sum), ntoh16(cksum16((uint16_t *)data, hlen, -hdr->sum)));
-    printf("        src: %s\n", ip_addr_ntop(hdr->src, addr, sizeof(addr)));
-    printf("        dst: %s\n", ip_addr_ntop(hdr->dst, addr, sizeof(addr)));
+    klog("     offset: 0x%04x [flags=%x, offset=%u]\n", offset, (offset & 0xe000) >> 13, offset & 0x1fff);
+    klog("        ttl: %u\n", hdr->ttl);
+    klog("   protocol: %u (%s)\n", hdr->protocol, ip_protocol_name(hdr->protocol));
+    klog("        sum: 0x%04x (0x%04x)\n", ntoh16(hdr->sum), ntoh16(cksum16((uint16_t *)data, hlen, -hdr->sum)));
+    klog("        src: %s\n", ip_addr_ntop(hdr->src, addr, sizeof(addr)));
+    klog("        dst: %s\n", ip_addr_ntop(hdr->dst, addr, sizeof(addr)));
 #ifdef HEXDUMP
     hexdump(stderr, data, len);
 #endif
@@ -370,6 +370,7 @@ ip_output_device(struct ip_iface *iface, const uint8_t *data, size_t len, ip_add
         } else {
             ret = arp_resolve(NET_IFACE(iface), dst, hwaddr);
             if (ret != ARP_RESOLVE_FOUND) {
+                klog("arp resolve error\n");
                 return -1;
             }
         }
@@ -383,8 +384,9 @@ ip_output_core(struct ip_iface *iface, uint8_t protocol, const uint8_t *data, si
     struct ip_hdr *hdr;
     uint16_t hlen, total;
     char addr[IP_ADDR_STR_LEN];
-
+    klog("%s %d\n", __func__, __LINE__);
     uint8_t *buf = malloc(IP_TOTAL_SIZE_MAX*2);
+    klog("%s %d\n", __func__, __LINE__);
     if(!buf)
         return -1;
 

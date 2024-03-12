@@ -154,10 +154,13 @@ net_device_output(struct net_device *dev, uint16_t type, const uint8_t *data, si
     }
     debugf("dev=%s, type=%s(0x%04x), len=%zu", dev->name, net_protocol_name(type), type, len);
     debugdump(data, len);
+        klog("%s %d\n", __func__, __LINE__);
     if (dev->ops->transmit(dev, type, data, len, dst) == -1) {
+            klog("%s %d\n", __func__, __LINE__);
         errorf("device transmit failure, dev=%s, len=%zu", dev->name, len);
         return -1;
     }
+        klog("%s %d\n", __func__, __LINE__);
     return 0;
 }
 int
@@ -181,9 +184,9 @@ net_input_handler(uint16_t type, const uint8_t *data, size_t len, struct net_dev
                 memory_free(entry);
                 return -1;
             }
-            debugf("queue pushed (num:%u), dev=%s, type=%s(0x%04x), len=%zd", proto->queue.num, dev->name, proto->name, type, len);
+            klog("queue pushed (num:%u), dev=%s, type=%s(0x%04x), len=%zd\n", proto->queue.num, dev->name, proto->name, type, len);
             debugdump(data, len);
-            raise_softirq(SIGUSR1);
+            raise_softirq(SIGNET);
         }
     }
     /* unsupported protocol */
@@ -293,8 +296,8 @@ net_timer_handler(void)
 int
 net_interrupt(void)
 {
-	printf("interrupt\n");
-	raise_softirq(SIGUSR2);	
+	infof("interrupt\n");
+	raise_softirq(SIGINT);	
     /* getpid(2) and kill(2) are signal safety functions. see signal-safety(7). */
 }
 

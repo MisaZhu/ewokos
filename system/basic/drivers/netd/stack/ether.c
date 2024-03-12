@@ -73,9 +73,9 @@ ether_dump(const uint8_t *frame, size_t flen)
     char addr[ETHER_ADDR_STR_LEN];
 
     hdr = (struct ether_hdr *)frame;
-    printf("        src: %s\n", ether_addr_ntop(hdr->src, addr, sizeof(addr)));
-    printf("        dst: %s\n", ether_addr_ntop(hdr->dst, addr, sizeof(addr)));
-    printf("       type: 0x%04x (%s)\n", ntoh16(hdr->type), ether_type_ntoa(hdr->type));
+    klog("        src: %s\n", ether_addr_ntop(hdr->src, addr, sizeof(addr)));
+    klog("        dst: %s\n", ether_addr_ntop(hdr->dst, addr, sizeof(addr)));
+    klog("       type: 0x%04x (%s)\n", ntoh16(hdr->type), ether_type_ntoa(hdr->type));
 #ifdef HEXDUMP
     hexdump(stderr, frame, flen);
 #endif
@@ -124,7 +124,7 @@ ether_poll_helper(struct net_device *dev, ssize_t (*callback)(struct net_device 
         }
     }
     type = ntoh16(hdr->type);
-    debugf("dev=%s, type=%s(0x%04x), len=%zu", dev->name, ether_type_ntoa(hdr->type), type, flen);
+    klog("dev=%s, type=%s(0x%04x), len=%zu\n", dev->name, ether_type_ntoa(hdr->type), type, flen);
     ether_dump(frame, flen);
     return net_input_handler(type, (uint8_t *)(hdr + 1), flen - sizeof(*hdr), dev);
 }
