@@ -37,6 +37,7 @@ static fsinfo_t* file_get_cache(int fd, int pid, uint32_t node) {
 }
 
 static fsinfo_t* file_add(int fd, int pid, fsinfo_t* info) {
+	pid = proc_getpid(pid);
 	fsinfo_t* ret = (fsinfo_t*)malloc(sizeof(fsinfo_t));
 	hashmap_put(_files_hash, file_hash_key(fd, pid, info->node), ret);
 	memcpy(ret, info, sizeof(fsinfo_t));
@@ -44,6 +45,7 @@ static fsinfo_t* file_add(int fd, int pid, fsinfo_t* info) {
 }
 
 static void file_del(int fd, int pid, uint32_t node) {
+	pid = proc_getpid(pid);
 	fsinfo_t* info = NULL;
 	const char* key = file_hash_key(fd, pid, node);
 	hashmap_get(_files_hash, key, (void**)&info);
@@ -55,6 +57,7 @@ static void file_del(int fd, int pid, uint32_t node) {
 }
 
 fsinfo_t* dev_get_file(int fd, int pid, uint32_t node) {
+	pid = proc_getpid(pid);
 	fsinfo_t* info = file_get_cache(fd, pid, node);
 	if(info == NULL) {
 		fsinfo_t i;
