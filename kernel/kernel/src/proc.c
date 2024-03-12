@@ -121,8 +121,8 @@ static void map_stack(proc_t* proc, uint32_t* stacks, uint32_t base, uint32_t pa
 static void unmap_stack(proc_t* proc, uint32_t* stacks, uint32_t base, uint32_t pages) {
 	uint32_t i;
 	for(i=0; i<pages; i++) {
-		kfree4k((void*)stacks[i]);
 		unmap_page(proc->space->vm, base + PAGE_SIZE*i);
+		kfree4k((void*)stacks[i]);
 	}
 	flush_tlb();
 }
@@ -406,7 +406,6 @@ static void proc_terminate(context_t* ctx, proc_t* proc) {
 	}
 	else if(proc->info.type == PROC_TYPE_THREAD) { //TODO
 		proc->info.father_pid = 0;
-		proc_funeral(proc);
 	}
 }
 
@@ -474,10 +473,10 @@ void proc_funeral(proc_t* proc) {
 		set_translation_table_base(V2P(cproc->space->vm));
 		free_page_tables(proc->space->vm);
 		kfree(proc->space);
-
 	}
-	else
+	else {
 		set_translation_table_base(V2P(cproc->space->vm));
+	}
 
 	memset(proc, 0, sizeof(proc_t));
 	proc->info.state = UNUSED;
@@ -496,9 +495,8 @@ inline void proc_zombie_funeral(void) {
 /* proc_free frees all resources allocated by proc. */
 void proc_exit(context_t* ctx, proc_t *proc, int32_t res) {
 	(void)res;
-	if(proc->info.state == UNUSED || proc->info.state == ZOMBIE)
-		return;
-	proc_terminate(ctx, proc);
+	if(proc->info.state != UNUSED && proc->info.state != ZOMBIE)
+		proc_terminate(ctx, proc);
 	schedule(ctx);
 }
 

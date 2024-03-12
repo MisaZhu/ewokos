@@ -19,6 +19,7 @@ typedef struct {
 	uint32_t refs;
 } proc_block_event_t;
 
+#define MAX_THREAD_NUM_PER_PROC 32
 #define THREAD_STACK_PAGES 16
 #define STACK_PAGES 32
 

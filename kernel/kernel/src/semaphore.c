@@ -60,26 +60,29 @@ void semaphore_free(uint32_t sem_id) {
 	}	
 }
 
-int32_t semaphore_enter(context_t* ctx, uint32_t sem_id) {
+void semaphore_enter(context_t* ctx, uint32_t sem_id) {
+	ctx->gpr[0] = -1;
+
 	if(sem_id == 0)
-		return -1;
+		return;
 	sem_id--;
 
 	proc_t* cproc = get_current_proc();
 	if(sem_id >= SEMAPHORE_MAX ||
 			_semaphores[sem_id].creater_pid == -1 ||
 			cproc == NULL)
-		return -1;
+		return;
 
 	if(_semaphores[sem_id].occupied == SEM_OCCUPIED) {
 		ctx->gpr[0] = -2;
 		proc_block_on(ctx, _semaphores[sem_id].occupied_pid, (uint32_t)_semaphores + sem_id);
-		return -2;
+		return;
 	}
 
+	ctx->gpr[0] = 0;
 	_semaphores[sem_id].occupied = SEM_OCCUPIED;
 	_semaphores[sem_id].occupied_pid = cproc->info.pid;
-	return 0;
+	return;
 }
 
 int32_t semaphore_quit(uint32_t sem_id) {

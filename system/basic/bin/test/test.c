@@ -19,7 +19,7 @@ void * read_thread(void *){
     pthread_mutex_lock(&mutex);
     fseek(fp, 0, SEEK_SET);
     fwrite(buf, 1, sizeof(buf), fp);
-    klog("write:%s", buf);
+    printf("write:%s", buf);
     pthread_mutex_unlock(&mutex); 
     // usleep(1);
   // }
@@ -33,9 +33,9 @@ void * write_thread(void *){
     fseek(fp, 0, SEEK_SET);
     int len = fread(buf, 1, sizeof(buf), fp);
     if(len){
-      klog("read:%s", buf);
+      printf("read:%s", buf);
     }else{
-      klog("read error:%d\n", len); 
+      printf("read error:%d\n", len); 
     }
     pthread_mutex_unlock(&mutex); 
     usleep(1);
@@ -45,12 +45,12 @@ void * write_thread(void *){
 
 int main (int argc, char **argv) {
   IO_DEBUG = 1; 
-  klog("read write test\n");
+  printf("read write test\n");
   pthread_mutex_init(&mutex, NULL);
   fp = fopen("/tmp/a", "w+b");
 
-
-  while(1) {
+  int i = 0;
+  while(i++ <10000) {
     pthread_create(NULL, NULL, read_thread, NULL);
     pthread_create(NULL, NULL, write_thread, NULL);
     usleep(10000);
