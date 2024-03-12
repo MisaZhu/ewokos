@@ -5,54 +5,55 @@
 static pthread_mutex_t mutex = {0};
 static uint32_t flag  = 0;
 static int err_cnt = 0;
+static int cnt = 0 ;
+FILE *fp;
+extern int IO_DEBUG;
 
-static void delay(void){
-    volatile uint64_t cnt = 10;
-    while(cnt){
-      cnt--;
-      klog(".");
-    }
-    usleep(1);
-}
+void * read_thread(void *){
+  char buf[32];
 
-static bool stop = false;
-static void* loop(void* p) {
-  int i = 0;
-  int tid = pthread_self();
-  while(i++ < 100) {
+
+  // while(1){
+    sprintf(buf, "test %d\n", cnt++);
+
     pthread_mutex_lock(&mutex);
-    klog("child %d ", i);
-    flag = 0xaaaaaaaa;
-    delay();
-    if(flag != 0xaaaaaaaa){
-      klog("child error %08x\n", flag);
-      err_cnt++;
-    }
-    klog("child done %d\n", i);
-    pthread_mutex_unlock(&mutex);
-  }
-  stop = true;
-  return NULL;
+    fseek(fp, 0, SEEK_SET);
+    fwrite(buf, 1, sizeof(buf), fp);
+    klog("write:%s", buf);
+    pthread_mutex_unlock(&mutex); 
+    // usleep(1);
+  // }
 }
+
+void * write_thread(void *){
+  char buf[32]; 
+  // while(1){
+    memset(buf, 0, sizeof(buf));
+    pthread_mutex_lock(&mutex);
+    fseek(fp, 0, SEEK_SET);
+    int len = fread(buf, 1, sizeof(buf), fp);
+    if(len){
+      klog("read:%s", buf);
+    }else{
+      klog("read error:%d\n", len); 
+    }
+    pthread_mutex_unlock(&mutex); 
+    usleep(1);
+  // }
+}
+
 
 int main (int argc, char **argv) {
-  stop = false;
+  IO_DEBUG = 1; 
+  klog("read write test\n");
   pthread_mutex_init(&mutex, NULL);
-  pthread_create(NULL, NULL, loop, NULL);
-  int tid = pthread_self();
-  while(!stop) {
-    pthread_mutex_lock(&mutex);
-    klog("father ");
-    flag = 0x55555555;
-    delay();
-    if(flag != 0x55555555){
-      klog("father error %08x\n", flag);
-      err_cnt++;
-    }
-    klog("father done\n");
-    pthread_mutex_unlock(&mutex);
-    usleep(1);
+  fp = fopen("/tmp/a", "w+b");
+
+
+  while(1) {
+    pthread_create(NULL, NULL, read_thread, NULL);
+    pthread_create(NULL, NULL, write_thread, NULL);
+    usleep(10000);
   }
-  klog("%d\n", err_cnt);
   return 0;
 }
