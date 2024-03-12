@@ -19,7 +19,7 @@ void * read_thread(void *){
     pthread_mutex_lock(&mutex);
     fseek(fp, 0, SEEK_SET);
     fwrite(buf, 1, sizeof(buf), fp);
-    printf("write:%s", buf);
+    printf("write: %s", buf);
     pthread_mutex_unlock(&mutex); 
     // usleep(1);
   // }
@@ -33,7 +33,7 @@ void * write_thread(void *){
     fseek(fp, 0, SEEK_SET);
     int len = fread(buf, 1, sizeof(buf), fp);
     if(len){
-      printf("read:%s", buf);
+      printf("read : %s", buf);
     }else{
       printf("read error:%d\n", len); 
     }
