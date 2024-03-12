@@ -16,6 +16,7 @@ basic_libs:
 	cd terminal;make
 	cd gterminal;make
 	cd textview;make
+	cd tinyjson;make
 	cd c++/stl;make
 	cd c++/c++;make
 
@@ -34,5 +35,6 @@ clean:
 	cd graph;make clean
 	cd fb;make clean
 	cd fbd;make clean
+	cd tinyjson;make clean
 	cd c++/stl;make clean
 	cd c++/c++;make clean
