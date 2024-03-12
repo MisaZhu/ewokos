@@ -869,11 +869,6 @@ inline void var_unref(var_t* var) {
   }
 }
 
-inline var_t* var_new_block(void) {
-	var_t* var = (NULL, NULL);
-	return var;
-}
-
 inline var_t* var_new_array(void) {
 	var_t* var = var_new_obj(NULL);
 	var->is_array = 1;

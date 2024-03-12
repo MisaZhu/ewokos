@@ -166,7 +166,6 @@ var_t* var_ref(var_t* var);
 void var_unref(var_t* var);
 
 var_t* var_new(void);
-var_t* var_new_block(void);
 var_t* var_new_array(void);
 var_t* var_new_int(int i);
 var_t* var_new_null(void);
