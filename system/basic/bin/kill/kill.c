@@ -3,7 +3,7 @@
 #include <signal.h>
 
 int main(int argc, char* argv[]) {
-	int pid, res, sig=0;
+	int pid, res, sig=SIGSTOP;
 	if(argc < 2) {
 		printf("Usage: kill <pid> {sig}.\n");
 		return -1;
