@@ -127,17 +127,21 @@ void graph_scale_fix_center(graph_t *src, graph_t *dst){
 	static int ex;
 	static int ey;
 
-	if(dstW != dst->w || dstH!= dst->h){
+	if(dstH!= dst->h) {
 		dstW = dst->w;
 		dstH = dst->h;
-		scale = MAX(dstW/src->w, dstH/src->h);
+		scale = dstH/src->h;
 		scale = MAX(scale, 1);
-		sx = MAX((dstW- src->w * scale)/2, 0);
-		ex = MIN(sx + (src->w * scale), dst->w);
-		sy = MAX((dstH - src->h * scale)/2, 0);
-		ey = MIN(sy + (src->h * scale), dst->h);
+		if(scale > 4)
+			scale = 4;
+		else if(scale > 2)
+			scale = 2;
 	}
 
+	sx = MAX((dstW- src->w * scale)/2, 0);
+	ex = MIN(sx + (src->w * scale), dst->w);
+	sy = MAX((dstH - src->h * scale)/2, 0);
+	ey = MIN(sy + (src->h * scale), dst->h);
 	int dstY = sy;
 	int srcY = 0;
 
