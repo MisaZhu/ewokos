@@ -22,8 +22,9 @@ enum {
 
 typedef struct st_xwin {
 	int fd;
-	int from_pid;
-	uint32_t from_pid_uuid;
+	int from_pid; 
+	int from_main_pid; //main proc pid
+	uint32_t from_main_pid_uuid;
 	graph_t* g;
 	graph_t* g_buf;
 	xinfo_t* xinfo;

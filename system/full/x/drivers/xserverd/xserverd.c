@@ -595,12 +595,13 @@ static void x_repaint(x_t* x, uint32_t display_index) {
 static xwin_t* x_get_win(x_t* x, int fd, int from_pid) {
 	xwin_t* win = x->win_head;
 	while(win != NULL) {
-		if((win->fd == fd || fd < 0) && win->from_pid == from_pid) {
-			if(proc_check_uuid(win->from_pid, win->from_pid_uuid) == win->from_pid_uuid)
+		if((win->fd == fd || fd < 0) && win->from_main_pid == proc_getpid(from_pid)) {
+			if(proc_check_uuid(win->from_main_pid, win->from_main_pid_uuid) == win->from_main_pid_uuid)
 				return win;
 			else {
 				win->from_pid = -1;
-				win->from_pid_uuid = 0;
+				win->from_main_pid = -1;
+				win->from_main_pid_uuid = 0;
 			}
 		}
 		win = win->next;
@@ -682,7 +683,7 @@ static void check_wins(x_t* x) {
 	xwin_t* w = x->win_tail; 
 	while(w != NULL) {
 		xwin_t* p = w->prev;
-		if(w->from_pid < 0 || proc_check_uuid(w->from_pid, w->from_pid_uuid) != w->from_pid_uuid) {
+		if(w->from_main_pid < 0 || proc_check_uuid(w->from_main_pid, w->from_main_pid_uuid) != w->from_main_pid_uuid) {
 			x_del_win(x, w);
 		}
 		w = p;
@@ -1013,7 +1014,8 @@ static int xserver_win_open(int fd, int from_pid, fsinfo_t* node, int oflag, voi
 	memset(win, 0, sizeof(xwin_t));
 	win->fd = fd;
 	win->from_pid = from_pid;
-	win->from_pid_uuid = proc_get_uuid(from_pid);
+	win->from_main_pid = proc_getpid(from_pid);
+	win->from_main_pid_uuid = proc_get_uuid(win->from_main_pid);
 	push_win(x, win);
 	return 0;
 }
