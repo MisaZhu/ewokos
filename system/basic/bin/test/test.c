@@ -49,8 +49,7 @@ int main (int argc, char **argv) {
   pthread_mutex_init(&mutex, NULL);
   fp = fopen("/tmp/a", "w+b");
 
-  int i = 0;
-  while(i++ <10000) {
+  while(1) {
     pthread_create(NULL, NULL, read_thread, NULL);
     pthread_create(NULL, NULL, write_thread, NULL);
     usleep(10000);
