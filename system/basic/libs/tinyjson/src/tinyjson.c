@@ -531,13 +531,10 @@ void lex_get_pos(lex_t* lex, int* line, int *col, int pos) {
 
 typedef enum {
   // reserved words
-#define LEX_R_LIST_START LEX_R_IF
-  LEX_R_FUNCTION,
   LEX_R_TRUE,
   LEX_R_FALSE,
   LEX_R_NULL,
-  LEX_R_UNDEFINED,
-  LEX_R_LIST_END /* always the last entry */
+  LEX_R_UNDEFINED
 } JSON_LEX_TYPES;
 
 static void lex_js_get_js_str(lex_t* lex) {
@@ -663,11 +660,6 @@ static var_t* json_parse_factor(lex_t *l) {
 		var_t* ret = var_new_str(s->cstr);
 		str_free(s);
 		return ret;
-	}
-	else if(l->tk==LEX_R_FUNCTION) {
-		lex_js_chkread(l, LEX_R_FUNCTION);
-		//TODO
-		return var_new();
 	}
 	else if (l->tk=='[') {
 		/* JSON-style array */

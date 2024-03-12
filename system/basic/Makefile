@@ -20,6 +20,7 @@ mkdirs:
 	@mkdir -p ${TARGET_DIR}/home/root
 	@chmod 750 ${TARGET_DIR}/home/root
 	@cp -r etc ${TARGET_DIR}
+	@cp -r data ${TARGET_DIR}
 
 builtin_apps: 
 	cd sbin;make

@@ -35,6 +35,7 @@ builtin_apps:
 	cd httpd;make 
 	cd setux;make 
 	cd vi;make 
+	cd json;make 
 
 clean:
 	cd cp;make clean
@@ -70,3 +71,4 @@ clean:
 	cd whoami;make clean
 	cd setux;make clean
 	cd vi;make clean
+	cd json;make clean
