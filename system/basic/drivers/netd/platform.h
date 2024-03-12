@@ -7,8 +7,8 @@ typedef uint32_t mutex_t;
 #define memory_alloc(x)		calloc(1, x)
 #define memory_free(x)		free(x)
 
-#define mutex_lock(x)	pthread_mutex_lock(x)	
-#define mutex_unlock(x) pthread_mutex_unlock(x)
+#define mutex_lock(x)	do{klog("%s lock\n", __func__);pthread_mutex_lock(x);}while(0)	
+#define mutex_unlock(x) do{klog("%s unlock\n", __func__);pthread_mutex_unlock(x);}while(0)	
 
 
 #define flockfile(x)	do{}while(0)
@@ -38,9 +38,11 @@ void raise_softirq(uint32_t sig);
 
 #define EINTR -1
 
-#define SIGUSR1 0x1
-#define SIGUSR2 0x4
-#define SIGUSR3 0x2
-#define SIGALRM 0x8
+#define SIGIRQ    0x0
+#define SIGNET    0x1
+#define SIGINT    0x2
+#define SIGSHARE  0x3
+#define SIGALRM   0x4
+#define SIGMAX    0x5
 
 #endif

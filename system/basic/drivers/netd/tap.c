@@ -24,6 +24,7 @@ struct ether_tap {
     char name[IFNAMSIZ];
     int fd;
     unsigned int irq;
+    pthread_mutex_t lock;
 };
 
 #define PRIV(x) ((struct ether_tap *)x->priv)
@@ -39,9 +40,9 @@ ether_tap_open(struct net_device *dev)
     struct ether_tap *tap;
 
     tap = PRIV(dev);
-    tap->fd = open(tap->name, 0);
+    tap->fd = open(tap->name, O_NONBLOCK);
     if (tap->fd < 0) {
-        printf("open: %s, dev=%s", strerror(errno), dev->name);
+        klog("open: %s, dev=%s", strerror(errno), dev->name);
         return -1;
     }
  
@@ -52,6 +53,8 @@ ether_tap_open(struct net_device *dev)
             return -1;
         }
     }
+
+    pthread_mutex_init(&tap->lock, NULL);
     return 0;
 };
 
@@ -61,11 +64,19 @@ ether_tap_close(struct net_device *dev)
     close(PRIV(dev)->fd);
     return 0;
 }
-
+// extern int IO_DEBUG;
 static ssize_t
 ether_tap_write(struct net_device *dev, const uint8_t *frame, size_t flen)
 {
-    return write(PRIV(dev)->fd, frame, flen);
+    struct ether_tap *tap = PRIV(dev);
+    // IO_DEBUG = 1;
+    // klog("eth write %d %d\n",  tap->fd, flen);
+    mutex_lock(&tap->lock);
+    int ret = write(PRIV(dev)->fd, frame, flen);
+    mutex_unlock(&tap->lock);
+    // klog("%d writed\n",  flen);
+    // IO_DEBUG = 0;
+    return ret;
 }
 
 int
@@ -78,8 +89,14 @@ static ssize_t
 ether_tap_read(struct net_device *dev, uint8_t *buf, size_t size)
 {
     ssize_t len;
-
+    struct ether_tap *tap = PRIV(dev);
+    // IO_DEBUG = 1;
+    // klog("eth read %d %d\n", PRIV(dev)->fd, size);
+    mutex_lock(&tap->lock);
     len = read(PRIV(dev)->fd, buf, size);
+    mutex_unlock(&tap->lock);
+    // klog("eth return %d\n", len);
+    // IO_DEBUG = 0;
     return len>0?len: -1;
 }
 
@@ -117,12 +134,12 @@ ether_tap_init(const char *name, const char *addr)
     dev->ops = &ether_tap_ops;
     tap = memory_alloc(sizeof(*tap));
     if (!tap) {
-        printf("memory_alloc() failure");
+        klog("memory_alloc() failure");
         return NULL;
     }
     strncpy(tap->name, name, sizeof(tap->name)-1);
     tap->fd = -1;
-    tap->irq = ETHER_TAP_IRQ;
+    tap->irq = SIGIRQ;
     dev->priv = tap;
 	dev->next = NULL;
     if (net_device_register(dev) == -1) {
@@ -131,6 +148,6 @@ ether_tap_init(const char *name, const char *addr)
         return NULL;
     }
     intr_request_irq(tap->irq, ether_tap_isr, NET_IRQ_SHARED, dev->name, dev);
-    printf("ethernet device initialized, dev=%s", dev->name);
+    klog("ethernet device initialized, dev=%s", dev->name);
     return dev;
 }

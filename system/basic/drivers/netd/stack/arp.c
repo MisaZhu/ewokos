@@ -10,7 +10,7 @@
 #include "ether.h"
 #include "arp.h"
 #include "ip.h"
-
+//#define debugf errorf
 /* see https://www.iana.org/assignments/arp-parameters/arp-parameters.txt */
 #define ARP_HRD_ETHER 0x0001
 /* NOTE: use same value as the Ethernet types */
@@ -20,7 +20,7 @@
 #define ARP_OP_REPLY   0x0002
 
 #define ARP_CACHE_SIZE 32
-#define ARP_CACHE_TIMEOUT 30 /* seconds */
+#define ARP_CACHE_TIMEOUT 600 /* seconds */
 
 #define ARP_CACHE_STATE_FREE       0
 #define ARP_CACHE_STATE_INCOMPLETE 1
@@ -74,17 +74,17 @@ arp_dump(const uint8_t *data, size_t len)
     char addr[128];
 
     message = (struct arp_ether *)data;
-    printf( "        hrd: 0x%04x\n", ntoh16(message->hdr.hrd));
-    printf( "        pro: 0x%04x\n", ntoh16(message->hdr.pro));
-    printf( "        hln: %u\n", message->hdr.hln);
-    printf( "        pln: %u\n", message->hdr.pln);
-    printf( "         op: 0x%04x (%s)\n", ntoh16(message->hdr.op), arp_opcode_ntoa(message->hdr.op));
-    printf( "        sha: %s\n", ether_addr_ntop(message->sha, addr, sizeof(addr)));
+    infof( "        hrd: 0x%04x\n", ntoh16(message->hdr.hrd));
+    infof( "        pro: 0x%04x\n", ntoh16(message->hdr.pro));
+    infof( "        hln: %u\n", message->hdr.hln);
+    infof( "        pln: %u\n", message->hdr.pln);
+    infof( "         op: 0x%04x (%s)\n", ntoh16(message->hdr.op), arp_opcode_ntoa(message->hdr.op));
+    infof( "        sha: %s\n", ether_addr_ntop(message->sha, addr, sizeof(addr)));
     memcpy(&spa, message->spa, sizeof(spa));
-    printf( "        spa: %s\n", ip_addr_ntop(spa, addr, sizeof(addr)));
-    printf( "        tha: %s\n", ether_addr_ntop(message->tha, addr, sizeof(addr)));
+    infof( "        spa: %s\n", ip_addr_ntop(spa, addr, sizeof(addr)));
+    infof( "        tha: %s\n", ether_addr_ntop(message->tha, addr, sizeof(addr)));
     memcpy(&tpa, message->tpa, sizeof(tpa));
-    printf( "        tpa: %s\n", ip_addr_ntop(tpa, addr, sizeof(addr)));
+    infof( "        tpa: %s\n", ip_addr_ntop(tpa, addr, sizeof(addr)));
 #ifdef HEXDUMP
     hexdump(stderr, data, len);
 #endif
