@@ -22,4 +22,4 @@
 @/sbin/x/xjoymoused /dev/vjoystick &
 @/sbin/x/xim_vkey 460 120&
 
-@/bin/x/xsession &
+@/bin/x/xsession misa &

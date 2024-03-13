@@ -14,7 +14,8 @@
 
 /bin/ipcserv /drivers/xserverd             /dev/x
 
-@/sbin/sessiond &
+@/bin/ipcserv /sbin/sessiond
+
 @/bin/session -r &
 
 @/sbin/x/xim_none   /dev/vjoystick &
