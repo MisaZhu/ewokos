@@ -1,6 +1,6 @@
 {
     "name": "Misa",
-    "age":40,
+    "age": 40,
     "tickets": ["aaa", "bbb", "ccc"],
     "kid": {
         "name": "Luke",

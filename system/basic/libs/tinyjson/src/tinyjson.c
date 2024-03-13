@@ -309,7 +309,7 @@ void lex_get_basic_token(lex_t* lex) {
 			str_addc(lex->tk_str, lex->curr_ch);
 			lex_get_nextch(lex);
 		}
-		if (lex->curr_ch=='x') {
+		if (lex->curr_ch == 'x' || lex->curr_ch == 'X') {
 			isHex = true;
 			str_addc(lex->tk_str, lex->curr_ch);
 			lex_get_nextch(lex);
@@ -508,7 +508,11 @@ static var_t* json_parse_factor(lex_t *l) {
 		return var_new();
 	}
 	else if (l->tk==LEX_INT) {
-		int i = atoi(l->tk_str->cstr);
+		int i = 0;
+		if(strchr(l->tk_str->cstr, 'x') != NULL || strchr(l->tk_str->cstr, 'X') != NULL)
+			i = strtoul(l->tk_str->cstr, 0, 16);
+		else	
+			i = atoi(l->tk_str->cstr);
 		lex_js_chkread(l, LEX_INT);
 		return var_new_int(i);
 	}
