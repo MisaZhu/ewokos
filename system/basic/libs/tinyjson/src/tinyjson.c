@@ -955,7 +955,7 @@ inline var_t* var_set_str(var_t* var, const char* v) {
 		free(var->value);
 	uint32_t len = (uint32_t)strlen(v)+1;
 	var->value = malloc(len);
-	strcpy(var->value, v);
+	strcpy((char*)var->value, v);
 	return var;
 }
 
