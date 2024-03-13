@@ -14,10 +14,12 @@
 
 /bin/ipcserv /drivers/xserverd       /dev/x
 
-@/sbin/sessiond &
+@/bin/ipcserv /sbin/sessiond
+
 @/bin/session -r &
 
 @/sbin/x/xim_none   /dev/vjoystick &
 @/sbin/x/xjoymoused /dev/vjoystick &
 @/sbin/x/xim_vkey 460 120&
+
 @/bin/x/xsession &

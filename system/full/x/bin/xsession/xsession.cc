@@ -16,6 +16,17 @@ using namespace Ewok;
 extern "C" { extern int setenv(const char*, const char*);}
 #endif
 
+static void run_xinit(session_info_t* info) {
+	vfs_create(info->home, NULL, FS_TYPE_DIR, 0750, false, true);
+	chown(info->home, info->uid, info->gid);
+
+	setgid(info->gid);
+	setuid(info->uid);
+	setenv("HOME", info->home);
+
+	proc_exec("/bin/shell /etc/x/xinit.rd");
+}
+
 class XSession : public XWin {
 	EwokSTL::string username;
 	EwokSTL::string password;
@@ -30,14 +41,7 @@ class XSession : public XWin {
 			return res;
 
 		close();
-		vfs_create(info.home, NULL, FS_TYPE_DIR, 0750, false, true);
-		chown(info.home, info.uid, info.gid);
-
-		setgid(info.gid);
-		setuid(info.uid);
-		setenv("HOME", info.home);
-
-		proc_exec("/bin/shell /etc/x/xinit.rd");
+		run_xinit(&info);
 		return 0;
 	}
 
@@ -176,6 +180,15 @@ public:
 };
 
 int main(int argc, char* argv[]) {
+	if(argc > 1) {
+		//no login check
+		session_info_t info;
+		if(session_get_by_name(argv[1], &info) == 0) {
+			run_xinit(&info);
+			return 0;
+		}
+	}
+
 	X x;
 	XSession xwin;
 	x.open(0, &xwin, 0, 0, "XSessioin", XWIN_STYLE_NO_FRAME | XWIN_STYLE_SYSTOP);

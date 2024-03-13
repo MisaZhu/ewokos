@@ -15,9 +15,10 @@
 
 /bin/ipcserv /drivers/xserverd        /dev/x
 
-@/sbin/sessiond &
+@/bin/ipcserv /sbin/sessiond
+
 @/bin/session -r &
 
 #@/sbin/x/xmoused /dev/mouse0 &
 @/sbin/x/xim_none &
-@/bin/x/xsession  &
+@/bin/x/xsession  misa &
