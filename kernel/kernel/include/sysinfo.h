@@ -41,6 +41,7 @@ typedef struct {
 	uint32_t    cores;
 
 	uint32_t    max_proc_num;
+	uint32_t    max_proc_table_num;
 } sys_info_t;
 
 /*dynamic attr*/

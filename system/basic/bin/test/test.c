@@ -49,10 +49,11 @@ int main (int argc, char **argv) {
   pthread_mutex_init(&mutex, NULL);
   fp = fopen("/tmp/a", "w+b");
 
-  while(1) {
+  int i=0;
+  while(i++ < 1000) {
     pthread_create(NULL, NULL, read_thread, NULL);
     pthread_create(NULL, NULL, write_thread, NULL);
-    usleep(10000);
+    usleep(30000);
   }
   return 0;
 }

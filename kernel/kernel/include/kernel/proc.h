@@ -11,8 +11,6 @@
 #include <stdbool.h>
 #include <queue.h>
 
-#define MAX_PROC_NUM 128 //real proc num, no threads included.
-#define MAX_PROC_TABLE_NUM 1024 //proc table includes procs and threads 
 #define MAX_THREAD_NUM_PER_PROC 32
 
 #define SHM_MAX 128
@@ -77,6 +75,7 @@ extern uint32_t _ipc_uid;
 
 extern void    procs_init(void);
 extern uint32_t procs_get_max_num(void);
+extern uint32_t procs_get_max_table_num(void);
 extern int32_t proc_load_elf(proc_t *proc, const char *proc_image, uint32_t size);
 extern int32_t proc_start(proc_t* proc, uint32_t entry);
 extern proc_t* proc_get_next_ready(void);
