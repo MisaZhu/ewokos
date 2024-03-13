@@ -774,26 +774,29 @@ inline void proc_waitpid(context_t* ctx, int32_t pid) {
 }
 
 static void proc_wakeup_all_state(int32_t pid_by, uint32_t event, proc_t* proc) {
-	if((event == 0 || proc->block_event == event) && 
+	if(proc->info.state == BLOCK && (event == 0 || proc->block_event == event) && 
 			(pid_by < 0 || proc->info.block_by == pid_by )) {
 		proc_ready(proc);
 	}
 
-	if((pid_by < 0 || proc->space->ipc_server.saved_state.block_by == pid_by) &&
+	if(proc->space->ipc_server.saved_state.state == BLOCK && 
+			(pid_by < 0 || proc->space->ipc_server.saved_state.block_by == pid_by) &&
 			(event == 0 || proc->space->ipc_server.saved_state.block_event == event)) {
 		proc->space->ipc_server.saved_state.state = READY;
 		proc->space->ipc_server.saved_state.block_by = -1;
 		proc->space->ipc_server.saved_state.block_event = 0;
 	}	
 
-	if((pid_by < 0 || proc->space->signal.saved_state.block_by == pid_by) &&
+	if(proc->space->signal.saved_state.state == BLOCK && 
+			(pid_by < 0 || proc->space->signal.saved_state.block_by == pid_by) &&
 			(event == 0 || proc->space->signal.saved_state.block_event == event)) {
 		proc->space->signal.saved_state.state = READY;
 		proc->space->signal.saved_state.block_by = -1;
 		proc->space->signal.saved_state.block_event = 0;
 	}
 
-	if((pid_by < 0 || proc->space->interrupt.saved_state.block_by == pid_by) &&
+	if(proc->space->interrupt.saved_state.state == BLOCK && 
+			(pid_by < 0 || proc->space->interrupt.saved_state.block_by == pid_by) &&
 			(event == 0 || proc->space->interrupt.saved_state.block_event == event)) {
 		proc->space->interrupt.saved_state.state = READY;
 		proc->space->interrupt.saved_state.block_by = -1;
