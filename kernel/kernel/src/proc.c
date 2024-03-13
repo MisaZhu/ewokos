@@ -20,6 +20,7 @@
 
 #define MAX_PROC_NUM 128 //real proc num, no threads included.
 #define MAX_PROC_TABLE_NUM 1024 //proc table includes procs and threads 
+#define MAX_THREAD_NUM_PER_PROC 32
 
 static proc_t *_proc_table[MAX_PROC_TABLE_NUM];
 
@@ -249,6 +250,8 @@ static int32_t proc_init_space(proc_t* proc) {
 	proc->space = (proc_space_t*)kmalloc(sizeof(proc_space_t));
 	memset(proc->space, 0, sizeof(proc_space_t));
 
+	proc->space->thread_stacks = (thread_stack_t*)kmalloc(MAX_THREAD_NUM_PER_PROC*sizeof(thread_stack_t));
+	memset(proc->space->thread_stacks, 0, MAX_THREAD_NUM_PER_PROC*sizeof(thread_stack_t));
 	proc->space->pde_index = pde_index;
 	proc->space->vm = vm;
 	proc->space->heap_size = 0;
@@ -517,6 +520,7 @@ void proc_funeral(proc_t* proc) {
 		free_page_tables(proc->space->vm);
 
 		_proc_vm_mark[proc->space->pde_index] = 0;
+		kfree(proc->space->thread_stacks);
 		kfree(proc->space);
 	}
 	else {

@@ -11,8 +11,6 @@
 #include <stdbool.h>
 #include <queue.h>
 
-#define MAX_THREAD_NUM_PER_PROC 32
-
 #define SHM_MAX 128
 #define BLOCK_EVT_MAX 16
 
@@ -46,7 +44,7 @@ typedef struct {
 	signal_t           signal;
 	proc_interrupt_t   interrupt;
 
-	thread_stack_t     thread_stacks[MAX_THREAD_NUM_PER_PROC];
+	thread_stack_t     *thread_stacks;
 	uint32_t           user_stack[STACK_PAGES];
 } proc_space_t;
 
