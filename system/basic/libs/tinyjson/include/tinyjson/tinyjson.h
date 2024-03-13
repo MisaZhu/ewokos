@@ -195,6 +195,9 @@ bool get_bool(var_t* obj, const char* name);
 var_t* get_obj_member(var_t* obj, const char* name);
 var_t* set_obj_member(var_t* obj, const char* name, var_t* var);
 
+node_t* json_find(var_t* var, const char* path_name);
+var_t*  json_find_var(var_t* var, const char* path_name);
+
 extern var_t* json_parse(const char* str);
 
 #ifdef __cplusplus

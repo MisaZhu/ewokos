@@ -1200,6 +1200,39 @@ void* get_raw(var_t* var, const char* name) {
 	return v->value;
 }
 
+node_t* json_find(var_t* var, const char* path_name) {
+	str_t *name = str_new("");
+	bool end = false;
+	node_t* node = NULL;
+	while(!end) {
+		char c = *path_name++;
+		if(c != 0 && c != '/') {
+			str_addc(name, c);
+			continue;
+		}
+
+		if(name->len > 0) {
+			node = var_find(var, name->cstr);
+			if(node == NULL)
+				break;
+			var = node->var; 
+		}
+
+		str_reset(name);
+		if(c == 0)
+			end = true;
+	}
+	str_free(name);
+	return node;
+}
+
+var_t*  json_find_var(var_t* var, const char* path_name) {
+	node_t* node = json_find(var, path_name);
+	if(node == NULL)
+		return NULL;
+	return node->var;
+}
+
 #ifdef __cplusplus
 }
 #endif /* __cplusplus */

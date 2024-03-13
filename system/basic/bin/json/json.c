@@ -27,15 +27,18 @@ int main(int argc, char** argv) {
 
 	if(var == NULL) {
 		printf("Error: json parse failed\n");
-	}
-	else {
-		str_t* mstr = str_new(NULL);
-		var_to_json_str(var, mstr, 0);
-		var_unref(var);
-		printf("%s\n", mstr->cstr);
-		str_free(mstr);
-
+		return -1;
 	}
 
+	str_t* mstr = str_new(NULL);
+	var_to_json_str(var, mstr, 0);
+	printf("%s\n", mstr->cstr);
+	str_free(mstr);
+
+	var_t* v = json_find_var(var, "/kid/sister/name");
+	if(v != NULL)
+		printf("%s\n", var_get_str(v));
+
+	var_unref(var);
 	return 0;
 }
