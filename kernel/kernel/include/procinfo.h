@@ -4,7 +4,6 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-#define MAX_PROC_NUM 128
 #define PROC_INFO_MAX_CMD_LEN 256
 
 enum {

@@ -11,6 +11,10 @@
 #include <stdbool.h>
 #include <queue.h>
 
+#define MAX_PROC_NUM 128 //real proc num, no threads included.
+#define MAX_PROC_TABLE_NUM 1024 //proc table includes procs and threads 
+#define MAX_THREAD_NUM_PER_PROC 32
+
 #define SHM_MAX 128
 #define BLOCK_EVT_MAX 16
 
@@ -19,7 +23,6 @@ typedef struct {
 	uint32_t refs;
 } proc_block_event_t;
 
-#define MAX_THREAD_NUM_PER_PROC 32
 #define THREAD_STACK_PAGES 16
 #define STACK_PAGES 32
 
@@ -29,37 +32,42 @@ typedef struct {
 } thread_stack_t;
 
 typedef struct {
-	page_dir_entry_t* vm;
-	uint32_t          malloc_base;
-	uint32_t          rw_heap_base;
-	uint32_t          heap_size;
-	int32_t           refs;
-	bool              ready_ping;
+	uint32_t           pde_index;
+	page_dir_entry_t*  vm;
+
+	uint32_t           malloc_base;
+	uint32_t           rw_heap_base;
+	uint32_t           heap_size;
+	int32_t            refs;
+	bool               ready_ping;
 	
-	int32_t          shms[SHM_MAX];
+	int32_t            shms[SHM_MAX];
 	proc_block_event_t block_events[BLOCK_EVT_MAX];
 
-	ipc_server_t      ipc_server;
-	signal_t          signal;
-	proc_interrupt_t  interrupt;
+	ipc_server_t       ipc_server;
+	signal_t           signal;
+	proc_interrupt_t   interrupt;
 
-	thread_stack_t  thread_stacks[MAX_THREAD_NUM_PER_PROC];
-	uint32_t        user_stack[STACK_PAGES];
+	thread_stack_t     thread_stacks[MAX_THREAD_NUM_PER_PROC];
+	uint32_t           user_stack[STACK_PAGES];
 } proc_space_t;
 
 typedef struct st_proc {
 	procinfo_t        info;
+
 	uint32_t          block_event;
 	uint32_t          ipc_buffered;
 	bool              ipc_buffer_clean;
+	ipc_res_t         ipc_res;
+
 	int64_t           sleep_counter; //sleep usec
 	uint32_t          schd_core_lock_counter; //schd_core_lock usec
 	uint32_t          run_usec_counter; //run time usec
-	proc_space_t*     space;
 
+	proc_space_t*     space; //threads share the space from owner proc
 	uint32_t          thread_stack_base;
+
 	context_t         ctx;
-	ipc_res_t         ipc_res;
 } proc_t;
 
 extern proc_t* get_current_proc(void);
@@ -68,6 +76,7 @@ extern int32_t _core_proc_pid;
 extern uint32_t _ipc_uid;
 
 extern void    procs_init(void);
+extern uint32_t procs_get_max_num(void);
 extern int32_t proc_load_elf(proc_t *proc, const char *proc_image, uint32_t size);
 extern int32_t proc_start(proc_t* proc, uint32_t entry);
 extern proc_t* proc_get_next_ready(void);

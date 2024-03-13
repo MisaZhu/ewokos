@@ -202,7 +202,7 @@ static void	sys_get_sys_info(sys_info_t* info) {
 	if(info == NULL)
 		return;
 	memcpy(info, &_sys_info, sizeof(sys_info_t));
-	info->max_proc_num = MAX_PROC_NUM;
+	info->max_proc_num = procs_get_max_num();
 }
 
 static void	sys_get_sys_state(sys_state_t* info) {

@@ -137,7 +137,7 @@ static void welcome(void) {
 			_sys_info.phy_offset,
 			_sys_info.mmio.phy_base, _sys_info.mmio.v_base,
 			_kernel_config.schedule_freq,
-			MAX_PROC_NUM,
+			procs_get_max_num(),
 			MAX_THREAD_NUM_PER_PROC);
 }
 
