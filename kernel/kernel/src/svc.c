@@ -277,6 +277,7 @@ static void sys_ipc_call(context_t* ctx, int32_t serv_pid, int32_t call_id, prot
 	ctx->gpr[0] = 0;
 
 	proc_t* client_proc = get_current_proc();
+	serv_pid = get_proc_pid(serv_pid);
 	proc_t* serv_proc = proc_get(serv_pid);
 
 	if(client_proc->info.pid == serv_pid) { //can't do self ipc
@@ -338,7 +339,7 @@ static void sys_ipc_get_return_size(context_t* ctx, int32_t pid, uint32_t uid) {
 
 		if((ipc->call_id & IPC_NON_RETURN) == 0 || ipc->uid != uid) {
 			ctx->gpr[0] = -1;
-			proc_block_on(ctx, pid, (uint32_t)&client_proc->ipc_res);
+			proc_block_on(ctx, serv_proc->info.pid, (uint32_t)&client_proc->ipc_res);
 			return;
 		}
 		return;

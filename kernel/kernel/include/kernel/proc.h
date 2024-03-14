@@ -94,7 +94,7 @@ extern void*   proc_malloc(proc_t* proc, int32_t size);
 extern uint32_t  proc_msize(proc_t* proc);
 extern void    proc_free(proc_t* proc);
 
-extern void proc_block_on(context_t* text, int32_t pid_by, uint32_t event);
+extern void    proc_block_on(context_t* text, int32_t pid_by, uint32_t event);
 extern void    proc_wakeup(int32_t pid_by, int32_t pid, uint32_t event);
 extern void    proc_waitpid(context_t* ctx, int32_t pid);
 extern proc_t* proc_get(int32_t pid);
