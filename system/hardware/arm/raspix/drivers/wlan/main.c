@@ -4,7 +4,7 @@
 #include <arch/bcm283x/mailbox.h>
 #include <ewoksys/dma.h>
 
-#include "sdhci.h"
+#include <sdio/sdhci.h>
 
 uint8_t buf[512];
 
@@ -192,7 +192,7 @@ static int net_read(int fd, int from_pid, fsinfo_t* node,
 	(void)node;
 
 	int len = brcm_recv(buf + offset, size);
-	return len?len:VFS_ERR_RETRY; 
+	return (len > 0)?len:VFS_ERR_RETRY; 
 }
 
 static int net_write(int fd, int from_pid, fsinfo_t* node,
@@ -202,7 +202,8 @@ static int net_write(int fd, int from_pid, fsinfo_t* node,
 	(void)offset;
 	(void)p;
 	(void)node;
-	return brcm_send(buf + offset, size);
+	int len = brcm_send(buf + offset, size);
+	return (len > 0)?len:VFS_ERR_RETRY; 
 }
 
 static int net_dcntl(int from_pid, int cmd, proto_t* in, proto_t* ret, void* p) {
@@ -215,13 +216,17 @@ static int net_dcntl(int from_pid, int cmd, proto_t* in, proto_t* ret, void* p) 
 		}
 		case 1:
 		{//get buffer count
-			PF->addi(ret, brcm_check_data()!=0);
+			PF->addi(ret, brcm_check_data() > 0);
 			break;
 		}	
 		default:
 			break;
 	}
 	return 0;
+}
+
+static void net_loop(void){
+
 }
 
 int main(int argc, char** argv) {
@@ -246,8 +251,8 @@ int main(int argc, char** argv) {
 	dev.read = net_read;
 	dev.write = net_write;
 	dev.dev_cntl = net_dcntl;
-	//dev.loop_step = net_loop;
-	device_run(&dev, mnt_point, FS_TYPE_CHAR, 0664);
+	dev.loop_step = net_loop;
+	device_run(&dev, mnt_point, FS_TYPE_CHAR, 0666);
 
 
 	return 0;

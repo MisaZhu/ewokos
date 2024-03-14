@@ -10,7 +10,7 @@
 #ifndef BRCMFMAC_CORE_H
 #define BRCMFMAC_CORE_H
 
-#include "types.h"
+#include <types.h>
 #include "fweh.h"
 
 #define TOE_TX_CSUM_OL		0x00000001

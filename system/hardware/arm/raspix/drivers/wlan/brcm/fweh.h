@@ -7,8 +7,8 @@
 #ifndef FWEH_H_
 #define FWEH_H_
 
-#include "types.h"
-#include "skb.h"
+#include <types.h>
+#include <utils/skb.h>
 #include <netinet/if_ether.h>
 
 /* formward declarations */

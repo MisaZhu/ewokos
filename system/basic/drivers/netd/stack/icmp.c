@@ -5,6 +5,7 @@
 #include "util.h"
 #include "ip.h"
 #include "icmp.h"
+#include "../platform.h"
 
 #define ICMP_BUFSIZ IP_PAYLOAD_SIZE_MAX
 
@@ -145,6 +146,7 @@ icmp_output(uint8_t type, uint8_t code, uint32_t values, const uint8_t *data, si
     icmp_dump((uint8_t *)hdr, msg_len);
 
     int ret = ip_output(IP_PROTOCOL_ICMP, (uint8_t *)hdr, msg_len, src, dst);
+    TRACE();
     free(buf);
     return ret;
 }

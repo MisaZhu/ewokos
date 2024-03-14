@@ -2,7 +2,7 @@
 #ifndef __BRCM_FMAC_H__
 #define __BRCM_FMAC_H__
 
-#include "types.h"
+#include <types.h>
 
 
 /*
@@ -383,6 +383,12 @@ struct sdpcm_shared_le {
 	u8 tag[32];
 	uint32_t brpt_addr;
 };
+
+
+void brcm_init(void);
+int brcm_recv(uint8_t *buf, int len);
+int brcm_send(uint8_t *buf, int len);
+int brcm_check_data(void);
 
 #endif
 

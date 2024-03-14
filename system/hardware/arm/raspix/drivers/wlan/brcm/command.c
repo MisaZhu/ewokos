@@ -1,8 +1,9 @@
-#include "include/types.h"
-#include "include/fwil_types.h"
-#include "include/command.h"
-#include "include/core.h"
-#include "log.h"
+#include <types.h>
+#include <utils/log.h>
+
+#include "fwil_types.h"
+#include "command.h"
+#include "core.h"
 #include "brcmu_wifi.h"
 #include "nl80211.h"
 

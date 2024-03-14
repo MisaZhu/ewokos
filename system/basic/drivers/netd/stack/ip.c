@@ -375,6 +375,7 @@ ip_output_device(struct ip_iface *iface, const uint8_t *data, size_t len, ip_add
             }
         }
     }
+    TRACE();
     return net_device_output(NET_IFACE(iface)->dev, NET_PROTOCOL_TYPE_IP, data, len, hwaddr);
 }
 
@@ -384,9 +385,7 @@ ip_output_core(struct ip_iface *iface, uint8_t protocol, const uint8_t *data, si
     struct ip_hdr *hdr;
     uint16_t hlen, total;
     char addr[IP_ADDR_STR_LEN];
-    klog("%s %d\n", __func__, __LINE__);
-    uint8_t *buf = malloc(IP_TOTAL_SIZE_MAX*2);
-    klog("%s %d\n", __func__, __LINE__);
+    uint8_t *buf = memory_alloc(IP_TOTAL_SIZE_MAX*2);
     if(!buf)
         return -1;
 
@@ -410,7 +409,8 @@ ip_output_core(struct ip_iface *iface, uint8_t protocol, const uint8_t *data, si
     ip_dump(buf, total);
 
     int ret = ip_output_device(iface, buf, total, nexthop);
-    free(buf);
+    memory_free(buf);
+    TRACE();
     return ret;
 }
 
@@ -454,9 +454,11 @@ ip_output(uint8_t protocol, const uint8_t *data, size_t len, ip_addr_t src, ip_a
     }
     id = ip_generate_id();
     if (ip_output_core(iface, protocol, data, len, iface->unicast, dst, nexthop, id, 0) == -1) {
+        TRACE(); 
         errorf("ip_output_core() failure");
         return -1;
     }
+    TRACE();
     return len;
 }
 

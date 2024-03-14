@@ -5,7 +5,7 @@
 #ifndef BRCMF_CHIP_H
 #define BRCMF_CHIP_H
 
-#include "types.h"
+#include <types.h>
 #include "chipcommon.h"
 
 #define CORE_CC_REG(base, field) \

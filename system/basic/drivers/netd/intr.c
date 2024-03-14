@@ -56,10 +56,10 @@ static uint32_t gSignel[SIGMAX] = {0};
 static pthread_mutex_t gMutex;
 int tid;
 
-int flag = 0;
-static int dflag [16];
-static int dcnt = 0;
-#define TRACE(x)     do{dflag[dcnt%(sizeof(dflag)/sizeof(int))] = x; dcnt++;}while(0)
+int dflag [16];
+int dcnt = 0;
+int debug_flag = 0;
+
 void raise_softirq(uint32_t  sig){
     if(sig < SIGMAX){
         gSignel[sig]++; 
@@ -81,38 +81,40 @@ void* intr_thread(void* p) {
 	struct irq_entry *entry;
     while(1){
        while(gSignel[SIGNET]){
-TRACE(__LINE__); 
+TRACE(); 
            net_protocol_handler();
-TRACE(__LINE__); 
+TRACE(); 
            gSignel[SIGNET]--; 
        }
       while(gSignel[SIGINT]){
-TRACE(__LINE__); 
+TRACE(); 
            net_event_handler();
-TRACE(__LINE__); 
+TRACE(); 
            gSignel[SIGINT]--;
        }
        while(gSignel[SIGALRM]){
-TRACE(__LINE__); 
+TRACE(); 
            net_timer_handler();
-TRACE(__LINE__); 
+TRACE(); 
            gSignel[SIGALRM]--; 
        }
-TRACE(__LINE__); 
-        if(eth_select("/dev/eth0")){
+TRACE(); 
             for (entry = irq_vec; entry; entry = entry->next) {
                 if (entry->irq == SIGIRQ) {
-TRACE(__LINE__); 
+TRACE(); 
+                if(tap_select(entry->dev)){
                     entry->handler(entry->irq, entry->dev);
-TRACE(__LINE__); 
+TRACE(); 
                 }
             }
         }
-TRACE(__LINE__); 
+TRACE(); 
        net_timer_handler();
-TRACE(__LINE__); 
+TRACE(); 
+        start_task();
+TRACE();  
        usleep(10000);
-TRACE(__LINE__); 
+TRACE(); 
     }
     return 0;
 }
@@ -123,13 +125,14 @@ void* debug_thread(void* p){
         int ret = sleep(1);
     }
 }
+
 int
 intr_run(void)
 {
     pthread_t tid;
     pthread_create(&tid, NULL, intr_thread, NULL);
     klog("intr thread id: %d\n", tid);
-    pthread_create(&tid, NULL, debug_thread, NULL);
+    //pthread_create(&tid, NULL, debug_thread, NULL);
 }
 
 int

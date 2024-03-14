@@ -10,8 +10,9 @@
 /bin/ipcserv /drivers/versatilepb/ps2moused  /dev/mouse0
 
 /bin/ipcserv /drivers/versatilepb/powerd     /dev/power0
-#/bin/ipcserv /drivers/versatilepb/smc91c111d /dev/eth0
-#/bin/ipcserv /drivers/netd             /dev/net0 /dev/eth0
+/bin/ipcserv /drivers/versatilepb/smc91c111d /dev/eth0
+/bin/ipcserv /drivers/netd             /dev/net0 /dev/eth0
+/bin/telnetd &
 
 /bin/ipcserv /drivers/nulld           /dev/null
 /bin/ipcserv /drivers/ramfsd          /tmp

@@ -1,8 +1,9 @@
 #ifndef __SKB_H__
 #define __SKB_H__
-#include "types.h"
 
-#define SKB_MAX_EXTEND 1024
+#include <types.h>
+
+#define SKB_MAX_EXTEND 2048 
 
 struct sk_buff{
     int priority;
@@ -30,4 +31,5 @@ void *skb_pull(struct sk_buff* skb, int size);
 void *skb_trim(struct sk_buff* skb, int size);
 void skb_reserve(struct sk_buff* skb, int size);
 void skb_free(struct sk_buff* skb);
+
 #endif
