@@ -328,6 +328,7 @@ static void sys_ipc_get_return_size(context_t* ctx, int32_t pid, uint32_t uid) {
 		ctx->gpr[0] = -2;
 		return;
 	}
+	pid = get_proc_pid(pid);
 
 	if(client_proc->ipc_res.state != IPC_RETURN) { //block retry for serv return
 		proc_t* serv_proc = proc_get(pid);
@@ -360,6 +361,7 @@ static void sys_ipc_get_return(context_t* ctx, int32_t pid, uint32_t uid, proto_
 		ctx->gpr[0] = -2;
 		return;
 	}
+	pid = get_proc_pid(pid);
 
 	if(client_proc->ipc_res.state != IPC_RETURN) { //block retry for serv return
 		proc_t* serv_proc = proc_get(pid);
@@ -421,7 +423,7 @@ static int32_t sys_ipc_get_info(uint32_t uid, int32_t* ipc_info, proto_t* ipc_ar
 }
 
 static void sys_ipc_set_return(context_t* ctx, uint32_t uid, proto_t* data) {
-	proc_t* serv_proc = get_current_proc();
+	proc_t* serv_proc = proc_get_proc(get_current_proc());
 	ipc_task_t* ipc = proc_ipc_get_task(serv_proc);
 	if(uid == 0 ||
 			ipc == NULL ||
@@ -445,7 +447,7 @@ static void sys_ipc_set_return(context_t* ctx, uint32_t uid, proto_t* data) {
 }
 
 static void sys_ipc_end(context_t* ctx) {
-	proc_t* serv_proc = get_current_proc();
+	proc_t* serv_proc = proc_get_proc(get_current_proc());
 	ipc_task_t* ipc = proc_ipc_get_task(serv_proc);
 	if(serv_proc == NULL ||
 			serv_proc->space->ipc_server.entry == 0 ||
@@ -490,15 +492,15 @@ static void sys_ipc_enable(void) {
 }
 
 static int32_t sys_proc_ping(int32_t pid) {
-	proc_t* proc = proc_get(pid);
+	proc_t* proc = proc_get_proc(proc_get(pid));
 	if(proc == NULL || !proc->space->ready_ping)
 		return -1;
 	return 0;
 }
 
 static void sys_proc_ready_ping(void) {
-	proc_t* cproc = get_current_proc();
-	cproc->space->ready_ping = true;
+	proc_t* proc = proc_get_proc(get_current_proc());
+	proc->space->ready_ping = true;
 }
 
 static void sys_get_kevent(context_t* ctx, kevent_t* kev) {
