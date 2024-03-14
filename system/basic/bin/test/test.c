@@ -9,7 +9,7 @@ static int cnt = 0 ;
 FILE *fp;
 static int IO_DEBUG;
 
-void * read_thread(void *){
+void * read_thread(void *p){
   char buf[32];
 
 
@@ -25,7 +25,7 @@ void * read_thread(void *){
   // }
 }
 
-void * write_thread(void *){
+void * write_thread(void * p){
   char buf[32]; 
   // while(1){
     memset(buf, 0, sizeof(buf));
