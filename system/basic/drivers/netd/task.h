@@ -27,6 +27,7 @@ typedef struct net_task{
     int state;
     int sock;
     char *buf;
+    struct net_task *next;
 }net_task_t;
 
 #endif

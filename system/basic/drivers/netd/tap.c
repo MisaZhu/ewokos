@@ -65,7 +65,7 @@ ether_tap_close(struct net_device *dev)
     close(PRIV(dev)->fd);
     return 0;
 }
-extern int IO_DEBUG;
+
 static ssize_t
 ether_tap_write(struct net_device *dev, const uint8_t *frame, size_t flen)
 {
@@ -94,7 +94,6 @@ ether_tap_read(struct net_device *dev, uint8_t *buf, size_t size)
     len = read(PRIV(dev)->fd, buf, size);
     mutex_unlock(&tap->lock);
     TRACE();
-    IO_DEBUG = 0;
     return len>0?len: -1;
 }
 

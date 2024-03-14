@@ -111,6 +111,8 @@ TRACE();
 TRACE(); 
        net_timer_handler();
 TRACE(); 
+        start_task();
+TRACE();  
        usleep(10000);
 TRACE(); 
     }
@@ -130,7 +132,7 @@ intr_run(void)
     pthread_t tid;
     pthread_create(&tid, NULL, intr_thread, NULL);
     klog("intr thread id: %d\n", tid);
-    pthread_create(&tid, NULL, debug_thread, NULL);
+    //pthread_create(&tid, NULL, debug_thread, NULL);
 }
 
 int

@@ -6,18 +6,47 @@
 
 static void* task_thread(void* arg);
 
+net_task_t *task_list = NULL;
+
+void task_list_add(net_task_t * task){
+    if(task_list == NULL){
+        task_list = task;
+        task->next = NULL;
+    }else{
+        net_task_t *t = task_list->next;
+
+        while(t->next != NULL){
+            t = t->next;
+        }
+        t->next = task;
+        task->next = NULL;
+    }
+}
+
+void start_task(void){
+    ipc_disable();
+    net_task_t *task = task_list;
+    while(task!=NULL){
+       pthread_create(&task->tid, NULL, task_thread, task);
+       task = task->next;
+    }
+    task_list = NULL;
+    ipc_enable();
+}
+
 net_task_t *create_task(int fd, int from_pid, int node){
     net_task_t *task = malloc(sizeof(net_task_t));
     memset(task, 0 , sizeof(net_task_t));
     task->fd = fd;
-    task->from_pid = from_pid;
+    task->from_pid = 0;
     task->node = node;
-    task->running = true;
+    task->running = false;
     task->sock = -1;
     task->iobuf = malloc(4096);
     task->inbuf = malloc(4096);
     task->outbuf = malloc(4096);
-    pthread_create(&task->tid, NULL, task_thread, task);
+    task_list_add(task);
+    //pthread_create(&task->tid, NULL, task_thread, task);
     return task;
 }
 
@@ -70,7 +99,6 @@ int  task_read(net_task_t* task, int from_pid, char* buf,  int size, void *p){
     }else if(task->state == NET_TASK_IDLE){
         task->cmd = SOCK_RECV;	
         task->p = p;
-        task->from_pid = from_pid;
         PF->init_data(&task->in, task->inbuf, 4096);
         task->in.size = 0;
         PF->init_data(&task->out, task->outbuf, 4096);
@@ -79,6 +107,7 @@ int  task_read(net_task_t* task, int from_pid, char* buf,  int size, void *p){
         task->state = NET_TASK_START;
         proc_wakeup(task);
     }
+    task->from_pid = from_pid;
     return VFS_ERR_RETRY;
 }
 
@@ -97,7 +126,6 @@ int  task_write(net_task_t* task, int from_pid,  char* buf,  int size, void *p){
     }else if(task->state == NET_TASK_IDLE){
         task->cmd = SOCK_SEND;	
         task->p = p;
-        task->from_pid = from_pid;
         PF->init_data(&task->in, task->inbuf, 4096);
         task->in.size = 0;
         PF->init_data(&task->out, task->outbuf, 4096);
@@ -106,6 +134,7 @@ int  task_write(net_task_t* task, int from_pid,  char* buf,  int size, void *p){
         task->state = NET_TASK_START;
         proc_wakeup(task);
     }
+    task->from_pid = from_pid;
     return VFS_ERR_RETRY;
 }
 
@@ -199,6 +228,12 @@ int do_network_fcntl(net_task_t *task){
 
 static void* task_thread(void* arg){
     net_task_t *task = (net_task_t *)arg;
+    task->running = true;
+    task->state = NET_TASK_IDLE;
+
+    if(task->from_pid)
+        proc_wakeup_pid(task->from_pid, RW_BLOCK_EVT); 
+        
     while(task->running){
 		ipc_disable();
         if(task->state == NET_TASK_START)
