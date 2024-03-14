@@ -389,7 +389,7 @@ static void sys_ipc_get_return(context_t* ctx, int32_t pid, uint32_t uid, proto_
 }
 
 static int32_t sys_ipc_get_info_size(uint32_t uid) {
-	proc_t* serv_proc = proc_get_proc(get_current_proc());
+	proc_t* serv_proc = get_current_proc();
 	ipc_task_t* ipc = proc_ipc_get_task(serv_proc);
 	if(uid == 0 ||
 			ipc == NULL ||
@@ -402,7 +402,7 @@ static int32_t sys_ipc_get_info_size(uint32_t uid) {
 }
 
 static int32_t sys_ipc_get_info(uint32_t uid, int32_t* ipc_info, proto_t* ipc_arg) {
-	proc_t* serv_proc = proc_get_proc(get_current_proc());
+	proc_t* serv_proc = get_current_proc();
 	ipc_task_t* ipc = proc_ipc_get_task(serv_proc);
 	if(uid == 0 ||
 			ipc == NULL ||
