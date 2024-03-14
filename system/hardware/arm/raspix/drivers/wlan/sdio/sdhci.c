@@ -1,24 +1,21 @@
 
 #include <stdint.h>
 #include <arch/bcm283x/gpio.h>
-#include <arch/bcm283x/mmc.h>
 
-#include "sdhci.h"
-#include "log.h"
+#include <types.h>
+#include <utils/log.h>
+
+#include "mmc.h"
 
 #define SDHCI_CMD_MAX_TIMEOUT			3200
 #define SDHCI_CMD_DEFAULT_TIMEOUT		100
 #define SDHCI_READ_STATUS_TIMEOUT		1000
 
 #define SDHCI_DMA_ADDRESS	0x00
-
 #define SDHCI_BLOCK_SIZE	0x04
 #define  SDHCI_MAKE_BLKSZ(dma, blksz) (((dma & 0x7) << 12) | (blksz & 0xFFF))
-
 #define SDHCI_BLOCK_COUNT	0x06
-
 #define SDHCI_ARGUMENT		0x08
-
 #define SDHCI_TRANSFER_MODE	0x0C
 #define  SDHCI_TRNS_DMA		BIT(0)
 #define  SDHCI_TRNS_BLK_CNT_EN	BIT(1)
@@ -42,7 +39,6 @@
 #define SDHCI_GET_CMD(c) ((c>>8) & 0x3f)
 
 #define SDHCI_RESPONSE		0x10
-
 #define SDHCI_BUFFER		0x20
 
 #define SDHCI_PRESENT_STATE	0x24
@@ -139,6 +135,7 @@
 #define SDHCI_INT_ALL_MASK	((unsigned int)-1)
 
 #define SDHCI_ACMD12_ERR	0x3C
+#define SDHCI_AUTO_CMD_STATUS	0x3C
 
 #define SDHCI_HOST_CONTROL2	0x3E
 #define  SDHCI_CTRL_UHS_MASK	0x0007
@@ -214,8 +211,29 @@
 #define   SDHCI_SPEC_200	1
 #define   SDHCI_SPEC_300	2
 
+
+#define SDHCI_MAX_DIV_SPEC_200	256
+#define SDHCI_MAX_DIV_SPEC_300	2046
+#define SDHCI_QUIRK_32BIT_DMA_ADDR	(1 << 0)
+#define SDHCI_QUIRK_REG32_RW		(1 << 1)
+#define SDHCI_QUIRK_BROKEN_R1B		(1 << 2)
+#define SDHCI_QUIRK_NO_HISPD_BIT	(1 << 3)
+#define SDHCI_QUIRK_BROKEN_VOLTAGE	(1 << 4)
+#define SDHCI_QUIRK_BROKEN_HISPD_MODE	BIT(5)
+#define SDHCI_QUIRK_WAIT_SEND_CMD	(1 << 6)
+#define SDHCI_QUIRK_USE_WIDE8		(1 << 8)
+#define SDHCI_QUIRK_NO_1_8_V		(1 << 9)
+#define SDHCI_QUIRK_SUPPORT_SINGLE	(1 << 10)
+#define SDHCI_QUIRK_CAPS_BIT63_FOR_HS400	BIT(11)
+
+
+#define SDHCI_DEFAULT_BOUNDARY_ARG	(7)
+
+
 #define readl(addr) (*((volatile uint32_t *)(addr)))
 #define writel(val, addr) (*((volatile uint32_t *)(addr)) = (uint32_t)(val))
+
+#define SDHCI_GET_VERSION(x) (x->version & SDHCI_SPEC_VER_MASK)
 
 static inline u16 readw(uint32_t reg)
 {

@@ -1,13 +1,15 @@
-#include "types.h"
+#include <types.h>
+#include <utils/log.h>
+
 #include "sdio.h"
-#include "log.h"
+
 
 static int MMC_BLOCK_SIZE[8] = {0};
 
 /* Split an arbitrarily sized data transfer into several
  * IO_RW_EXTENDED commands. */
 static int sdio_io_rw_ext_helper(int fn, int write,
-	unsigned addr, int incr_addr, u8 *buf, unsigned size)
+	unsigned addr, int incr_addr, uint8_t *buf, unsigned size)
 {
 	unsigned remainder = size;
 	unsigned max_blocks;
@@ -69,10 +71,10 @@ int sdio_memcpy_toio(int func, unsigned int addr,
 	return sdio_io_rw_ext_helper(func, 1, addr, 1, src, count);
 }
 
-u8 sdio_readb(int func, unsigned int addr, int *err_ret)
+uint8_t sdio_readb(int func, unsigned int addr, int *err_ret)
 {
 	int ret;
-	u8 val;
+	uint8_t val;
 
 	ret = mmc_io_rw_direct(0, func, addr, 0, &val);
 	if (err_ret)
@@ -83,7 +85,7 @@ u8 sdio_readb(int func, unsigned int addr, int *err_ret)
 	return val;
 }
 
-void sdio_writeb(int func, u8 b, unsigned int addr, int *err_ret)
+void sdio_writeb(int func, uint8_t b, unsigned int addr, int *err_ret)
 {
 	int ret;
 
@@ -103,7 +105,7 @@ int sdio_writesb(int func, unsigned int addr, void *src,
 	return sdio_io_rw_ext_helper(func, 1, addr, 0, src, count);
 }
 
-u16 sdio_readw(int func, unsigned int addr, int *err_ret)
+uint16_t sdio_readw(int func, unsigned int addr, int *err_ret)
 {
 	int ret;
     uint16_t val;
@@ -116,7 +118,7 @@ u16 sdio_readw(int func, unsigned int addr, int *err_ret)
 	return val;
 }
 
-void sdio_writew(int func, u16 b, unsigned int addr, int *err_ret)
+void sdio_writew(int func, uint16_t b, unsigned int addr, int *err_ret)
 {
 	int ret;
 
@@ -125,7 +127,7 @@ void sdio_writew(int func, u16 b, unsigned int addr, int *err_ret)
 		*err_ret = ret;
 }
 
-u32 sdio_readl(int func, unsigned int addr, int *err_ret)
+uint32_t sdio_readl(int func, unsigned int addr, int *err_ret)
 {
 	int ret;
     uint32_t val;
@@ -138,7 +140,7 @@ u32 sdio_readl(int func, unsigned int addr, int *err_ret)
 	return val;
 }
 
-void sdio_writel(int func, u32 b, unsigned int addr, int *err_ret)
+void sdio_writel(int func, uint32_t b, unsigned int addr, int *err_ret)
 {
 	int ret;
 
@@ -147,10 +149,10 @@ void sdio_writel(int func, u32 b, unsigned int addr, int *err_ret)
 		*err_ret = ret;
 }
 
-int sdio_reset(struct mmc_host *host)
+int sdio_reset(void)
 {
 	int ret;
-	u8 abort;
+	uint8_t abort;
 
 	/* SDIO Simplified Specification V2.0, 4.4 Reset for SDIO */
 

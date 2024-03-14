@@ -39,15 +39,18 @@
     } while(0);
 
 
+extern int debug_flag;
 #define lprintf(x, level, file, line, func, ...)   \
 		do{	\
-			klog("[%c] %s: (%s:%d) :\n", level, func, file, line); \
-			klog(__VA_ARGS__);klog("\n"); \
+            if(debug_flag){ \
+			    klog("[%c] %s: (%s:%d) :\n", level, func, file, line); \
+			    klog(__VA_ARGS__);klog("\n"); \
+            }   \
 		}while(0)
 
 #define errorf(...) lprintf(stderr, 'E', __FILE__, __LINE__, __func__, __VA_ARGS__)
 
-#define NET_DEBUG
+//#define NET_DEBUG
 
 #ifdef NET_DEBUG
 #define warnf(...) lprintf(stderr, 'W', __FILE__, __LINE__, __func__, __VA_ARGS__)

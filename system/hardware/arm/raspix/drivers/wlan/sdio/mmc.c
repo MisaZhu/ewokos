@@ -1,12 +1,15 @@
-#include "types.h"
+#include <types.h>
+#include <utils/log.h>
+
 #include "mmc.h"
 #include "sdio.h"
 #include "sdhci.h"
-#include "log.h"
+
 
 #define MMC_DEBUG	0
-
 #define MMC_BLOCK_SIZE  512
+#define mmc_host_is_spi(mmc)	(0)
+
 static struct mmc _mmc;
 
 int mmc_io_rw_direct_host(int write, unsigned fn,
@@ -203,7 +206,7 @@ static int mmc_init_card(struct mmc *mmc, u32 ocr)
 	return 0;
 }
 
-int mmc_hw_reset()
+int mmc_hw_reset(void)
 {
     sdhci_init();
     _mmc.bus_width = 1;

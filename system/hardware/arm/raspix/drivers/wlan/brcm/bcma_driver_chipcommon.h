@@ -2,7 +2,7 @@
 #ifndef LINUX_BCMA_DRIVER_CC_H_
 #define LINUX_BCMA_DRIVER_CC_H_
 
-#include "types.h"
+#include <types.h>
 
 /** ChipCommon core registers. **/
 #define BCMA_CC_ID			0x0000

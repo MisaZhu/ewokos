@@ -32,22 +32,7 @@ static int get_mac_address(char* dev, uint8_t* buf){
     return ret;
 }
 
-int eth_select(char* dev){
-	int ret = 0;
-	static dev_pid = 0;
 
-	if(dev_pid == 0){
-		dev_pid = dev_get_pid(dev);
-	}
-
-    proto_t  out;
-    PF->init(&out);
-    if(dev_cntl_by_pid(dev_pid, 1, NULL, &out) == 0){
-       ret =  proto_read_int(&out);
-	}
-    PF->clear(&out);
-    return ret;
-}
 
 static int network_fcntl(int fd, int from_pid, fsinfo_t* info,
 	int cmd, proto_t* in, proto_t* out, void* p) {
@@ -61,7 +46,6 @@ int network_open(int fd, int from_pid, fsinfo_t* info, int oflag, void* p){
 	net_task_t *task = create_task(fd, from_pid, info->node);
 	info->data = task;
 	vfs_update(info, false);
-	klog("%s fd:%d pid:%d node:%d data:%08x\n", __func__, fd, from_pid, info->node, info->data);
 	return 0;
 }
 
@@ -71,9 +55,7 @@ static int network_read(int fd, int from_pid, fsinfo_t* info,
 	(void)p;
 
 	net_task_t *task = (net_task_t*)info->data;
-	klog("network read fd:%d pid:%d\n",fd, from_pid);
 	int ret = task_read(task, from_pid, buf + offset, size, p);
-	klog("read %d\n", ret);
     return ret > 0? ret : VFS_ERR_RETRY;
 }
 
@@ -83,9 +65,7 @@ static int network_write(int fd, int from_pid, fsinfo_t* info,
 	(void)fd;
 
 	net_task_t *task = (net_task_t*)info->data;
-	klog("network write fd:%d pid:%d size:%d\n",fd, from_pid, size);
 	int ret = task_write(task, from_pid, buf + offset, size, p);
-	klog("write %d\n", ret);
     return ret > 0? ret : VFS_ERR_RETRY;
 }
 
@@ -95,7 +75,6 @@ static int network_close(int fd, int from_pid, uint32_t node, bool delnode,void*
 	// fsinfo_t info;
 	// vfs_get_by_node(node, &info);
 
-	klog("%s fd:%d pid:%d node:%d data:%08x del:%d\n", __func__, fd, from_pid, node, info->data, delnode);
 	if(delnode){
 		net_task_t *task = (net_task_t *)info->data;
 		if(task)
@@ -117,9 +96,9 @@ char ETHER_TAP_HW_ADDR[32];
 static char ETHER_TAP_NAME[16];
 
 static void* network_loop(void* p) {
-	if(eth_select(ETHER_TAP_NAME)){
-		raise_softirq(SIGIRQ);
-	}
+	// if(eth_select(ETHER_TAP_NAME)){
+	// 	raise_softirq(SIGIRQ);
+	// }
 	raise_softirq(SIGALRM);
 	proc_usleep(1000);
 }
@@ -234,7 +213,7 @@ int main(int argc, char** argv) {
 	dev.close = network_close;
 	//dev.loop_step = network_loop;
 	//uint32_t tid = timer_set(1000, net_timer_handler);
-	device_run(&dev, mnt_point, FS_TYPE_ANNOUNIMOUS | FS_TYPE_CHAR, 0664);
+	device_run(&dev, mnt_point, FS_TYPE_ANNOUNIMOUS | FS_TYPE_CHAR, 0666);
 	//timer_remove(tid);
 	return 0;
 }

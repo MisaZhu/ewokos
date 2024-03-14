@@ -1,5 +1,7 @@
-#include "types.h"
-#include "skb.h"
+#include <types.h>
+#include <utils/skb.h>
+#include <utils/log.h>
+
 #include "brcm.h"
 #include "chip.h"
 #include "chipcommon.h"
@@ -7,7 +9,6 @@
 #include "brcm_hw_ids.h"
 #include "bcma.h"
 #include "bcma_regs.h"
-#include "log.h"
 
 /* SOC Interconnect types (aka chip types) */
 #define SOCI_SB		0

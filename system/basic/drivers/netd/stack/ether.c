@@ -124,7 +124,7 @@ ether_poll_helper(struct net_device *dev, ssize_t (*callback)(struct net_device 
         }
     }
     type = ntoh16(hdr->type);
-    klog("dev=%s, type=%s(0x%04x), len=%zu\n", dev->name, ether_type_ntoa(hdr->type), type, flen);
+    infof("dev=%s, type=%s(0x%04x), len=%zu\n", dev->name, ether_type_ntoa(hdr->type), type, flen);
     ether_dump(frame, flen);
     return net_input_handler(type, (uint8_t *)(hdr + 1), flen - sizeof(*hdr), dev);
 }

@@ -120,6 +120,7 @@ arp_cache_select(ip_addr_t pa)
 
     for (entry = caches; entry < tailof(caches); entry++) {
         if (entry->state != ARP_CACHE_STATE_FREE && entry->pa == pa) {
+            gettimeofday(&entry->timestamp, NULL);
             return entry;
         }
     }

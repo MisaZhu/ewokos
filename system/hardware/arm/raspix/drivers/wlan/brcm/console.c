@@ -1,6 +1,8 @@
-#include "types.h"
-#include "include/brcm.h"
-#include "log.h"
+#include <types.h>
+#include <utils/log.h>
+
+#include "brcm.h"
+
 
 static struct brcmf_console *_console = NULL;
 

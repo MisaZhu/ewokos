@@ -8,6 +8,7 @@
 #include <sys/errno.h>
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <ewoksys/proto.h>
 
 #include "platform.h"
 
@@ -64,18 +65,16 @@ ether_tap_close(struct net_device *dev)
     close(PRIV(dev)->fd);
     return 0;
 }
-// extern int IO_DEBUG;
+extern int IO_DEBUG;
 static ssize_t
 ether_tap_write(struct net_device *dev, const uint8_t *frame, size_t flen)
 {
     struct ether_tap *tap = PRIV(dev);
-    // IO_DEBUG = 1;
-    // klog("eth write %d %d\n",  tap->fd, flen);
+    TRACE();
     mutex_lock(&tap->lock);
     int ret = write(PRIV(dev)->fd, frame, flen);
     mutex_unlock(&tap->lock);
-    // klog("%d writed\n",  flen);
-    // IO_DEBUG = 0;
+    TRACE();
     return ret;
 }
 
@@ -90,14 +89,36 @@ ether_tap_read(struct net_device *dev, uint8_t *buf, size_t size)
 {
     ssize_t len;
     struct ether_tap *tap = PRIV(dev);
-    // IO_DEBUG = 1;
-    // klog("eth read %d %d\n", PRIV(dev)->fd, size);
+    TRACE();
     mutex_lock(&tap->lock);
     len = read(PRIV(dev)->fd, buf, size);
     mutex_unlock(&tap->lock);
-    // klog("eth return %d\n", len);
-    // IO_DEBUG = 0;
+    TRACE();
+    IO_DEBUG = 0;
     return len>0?len: -1;
+}
+
+
+int tap_select(struct net_device *dev){
+	int ret = 0;
+    static int dev_pid = 0;
+    struct ether_tap *tap = PRIV(dev);
+
+	if(dev_pid == 0){
+		dev_pid = dev_get_pid(tap->name);
+	}
+	TRACE();
+    proto_t  out;
+    PF->init(&out);
+    TRACE();
+    mutex_lock(&tap->lock);
+    if(dev_cntl_by_pid(dev_pid, 1, NULL, &out) == 0){
+       ret =  proto_read_int(&out);
+	}
+    mutex_unlock(&tap->lock);
+    PF->clear(&out);
+	TRACE();
+    return ret;
 }
 
 static int

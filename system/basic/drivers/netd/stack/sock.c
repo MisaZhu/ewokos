@@ -310,7 +310,6 @@ ssize_t
 sock_send(int id, const void *buf, size_t n)
 {
     struct sock *s;
-    klog("sock send %d %d\n", id, n);
     s = sock_get(id);
     if (!s) {
         return -17;

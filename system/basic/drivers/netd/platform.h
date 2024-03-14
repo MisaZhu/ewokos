@@ -4,12 +4,10 @@
 #define MUTEX_INITIALIZER  0
 typedef uint32_t mutex_t;
 
+
+
 #define memory_alloc(x)		calloc(1, x)
 #define memory_free(x)		free(x)
-
-#define mutex_lock(x)	do{klog("%s lock\n", __func__);pthread_mutex_lock(x);}while(0)	
-#define mutex_unlock(x) do{klog("%s unlock\n", __func__);pthread_mutex_unlock(x);}while(0)	
-
 
 #define flockfile(x)	do{}while(0)
 #define funlockfile(x)	do{}while(0)
@@ -45,4 +43,17 @@ void raise_softirq(uint32_t sig);
 #define SIGALRM   0x4
 #define SIGMAX    0x5
 
+
+extern int dflag[16];
+extern int dcnt;
+#define TRACE()     do{dflag[dcnt%(sizeof(dflag)/sizeof(int))] = __LINE__; dcnt++;}while(0)
+
+
+#if 0
+#define mutex_lock(x)	      do{TRACE();pthread_mutex_lock(x);}while(0)	
+#define mutex_unlock(x)     do{TRACE();pthread_mutex_unlock(x);}while(0)	
+#else
+#define mutex_lock(x)	pthread_mutex_lock(x)
+#define mutex_unlock(x) pthread_mutex_unlock(x)
+#endif
 #endif

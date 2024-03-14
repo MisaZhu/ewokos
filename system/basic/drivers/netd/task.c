@@ -18,7 +18,6 @@ net_task_t *create_task(int fd, int from_pid, int node){
     task->inbuf = malloc(4096);
     task->outbuf = malloc(4096);
     pthread_create(&task->tid, NULL, task_thread, task);
-    klog("create task %08x\n", task);
     return task;
 }
 
@@ -49,7 +48,6 @@ int  task_cntl(net_task_t* task, int from_pid, int cmd, proto_t *in,  proto_t *o
         PF->copy(&task->in, in->data, in->size);
         task->state = NET_TASK_START;
         proc_wakeup(task);
-        klog("task %08x %d\n", task, task->state);
     }
     return VFS_ERR_RETRY;
 }
@@ -95,7 +93,6 @@ int  task_write(net_task_t* task, int from_pid,  char* buf,  int size, void *p){
         PF->clear(&task->out);
         PF->clear(&task->in);
         task->state = NET_TASK_IDLE; 
-        klog("task_write %d\n", ret);
         return ret;
     }else if(task->state == NET_TASK_IDLE){
         task->cmd = SOCK_SEND;	
@@ -130,7 +127,6 @@ int do_network_fcntl(net_task_t *task){
 			sock = sock_open(domain, type, protocol);
 			PF->addi(&task->out, sock);
 			task->sock = sock;
-            klog("open socket %d\n", task->sock);
 			break;
 		case SOCK_BIND:
 			paddr = proto_read(&task->in, &addrlen);
@@ -156,8 +152,7 @@ int do_network_fcntl(net_task_t *task){
 			data = proto_read(&task->in, &size);
             if(data && size){
 			    ret = sock_send(sock, data, size);
-            }
-            klog("sock_send %d\n", ret);
+            } 
 			PF->addi(&task->out, ret);
 			break;
 		case SOCK_RECV:
@@ -189,7 +184,6 @@ int do_network_fcntl(net_task_t *task){
 			sock = proto_read_int(&task->in);	
 			task->sock = sock;
 			PF->addi(&task->out, 0);
-            klog("link socket %08x->%d\n", task, task->sock);
 			break;
 		case SOCK_CONNECT:
 			paddr = proto_read(&task->in, &addrlen);
@@ -214,7 +208,6 @@ static void* task_thread(void* arg){
         if(task->state == NET_TASK_PROCESS){
             do_network_fcntl(task);	
             task->state = NET_TASK_FINISH;
-            klog("wake up %d\n", task->from_pid);
             proc_wakeup_pid(task->from_pid, RW_BLOCK_EVT);
         }
         proc_block_by(getpid(), task);

@@ -1,7 +1,7 @@
 #ifndef __QUEUE_T__
 #define __QUEUE_T__ 
-#include "types.h"
-#include "skb.h"
+
+#include <types.h>
 
 typedef struct _buf{
 	int size;

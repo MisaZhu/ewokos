@@ -1,56 +1,17 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
-/*
- *  include/linux/mmc/sdio.h
- *
- *  Copyright 2006-2007 Pierre Ossman
- */
+#ifndef __SDIO_H__
+#define __SDIO_H__
 
-#ifndef LINUX_MMC_SDIO_H
-#define LINUX_MMC_SDIO_H
+#include <types.h>
+
+
 
 /* SDIO commands                         type  argument     response */
 #define SD_IO_SEND_OP_COND          5 /* bcr  [23:0] OCR         R4  */
 #define SD_IO_RW_DIRECT            52 /* ac   [31:0] See below   R5  */
 #define SD_IO_RW_EXTENDED          53 /* adtc [31:0] See below   R5  */
 
-/*
- * SD_IO_RW_DIRECT argument format:
- *
- *      [31] R/W flag
- *      [30:28] Function number
- *      [27] RAW flag
- *      [25:9] Register address
- *      [7:0] Data
- */
-
-/*
- * SD_IO_RW_EXTENDED argument format:
- *
- *      [31] R/W flag
- *      [30:28] Function number
- *      [27] Block mode
- *      [26] Increment address
- *      [25:9] Register address
- *      [8:0] Byte/block count
- */
-
 #define R4_18V_PRESENT (1<<24)
 #define R4_MEMORY_PRESENT (1 << 27)
-
-/*
-  SDIO status in R5
-  Type
-	e : error bit
-	s : status bit
-	r : detected and set for the actual command response
-	x : detected and set during command execution. the host must poll
-            the card by sending status command in order to read these bits.
-  Clear condition
-	a : according to the card state
-	b : always related to the previous command. Reception of
-            a valid command will clear it (with a delay of one command)
-	c : clear by read
- */
 
 #define R5_COM_CRC_ERROR	(1 << 15)	/* er, b */
 #define R5_ILLEGAL_COMMAND	(1 << 14)	/* er, b */
@@ -59,10 +20,6 @@
 #define R5_OUT_OF_RANGE		(1 << 8)	/* er, c */
 #define R5_STATUS(x)		(x & 0xCB00)
 #define R5_IO_CURRENT_STATE(x)	((x & 0x3000) >> 12) /* s, b */
-
-/*
- * Card Common Control Registers (CCCR)
- */
 
 #define SDIO_CCCR_CCCR		0x00
 
@@ -118,7 +75,6 @@
 
 #define SDIO_CCCR_CIS		0x09	/* common CIS pointer (3 bytes) */
 
-/* Following 4 regs are valid only if SBS is set */
 #define SDIO_CCCR_SUSPEND	0x0c
 #define SDIO_CCCR_SELx		0x0d
 #define SDIO_CCCR_EXECx		0x0e
@@ -163,33 +119,34 @@
 #define SDIO_CCCR_INTERRUPT_EXT	0x16
 #define SDIO_INTERRUPT_EXT_SAI	(1 << 0)
 #define SDIO_INTERRUPT_EXT_EAI	(1 << 1)
-
-/*
- * Function Basic Registers (FBR)
- */
-
 #define SDIO_FBR_BASE(f)	((f) * 0x100) /* base of function f's FBRs */
-
 #define SDIO_FBR_STD_IF		0x00
-
 #define  SDIO_FBR_SUPPORTS_CSA	0x40	/* supports Code Storage Area */
 #define  SDIO_FBR_ENABLE_CSA	0x80	/* enable Code Storage Area */
-
 #define SDIO_FBR_STD_IF_EXT	0x01
-
 #define SDIO_FBR_POWER		0x02
-
 #define  SDIO_FBR_POWER_SPS	0x01	/* Supports Power Selection */
 #define  SDIO_FBR_POWER_EPS	0x02	/* Enable (low) Power Selection */
-
 #define SDIO_FBR_CIS		0x09	/* CIS pointer (3 bytes) */
-
-
 #define SDIO_FBR_CSA		0x0C	/* CSA pointer (3 bytes) */
-
 #define SDIO_FBR_CSA_DATA	0x0F
-
 #define SDIO_FBR_BLKSIZE	0x10	/* block size (2 bytes) */
 
+int sdio_memcpy_fromio(int func, void *dst, unsigned int addr, int count);
+int sdio_memcpy_toio(int func, unsigned int addr, void *src, int count);
+uint8_t sdio_readb(int func, unsigned int addr, int *err_ret);
+void sdio_writeb(int func, uint8_t b, unsigned int addr, int *err_ret);
+int sdio_readsb(int func, void *dst, unsigned int addr,int count);
+int sdio_writesb(int func, unsigned int addr, void *src,int count);
+uint16_t sdio_readw(int func, unsigned int addr, int *err_ret);
+void sdio_writew(int func, uint16_t b, unsigned int addr, int *err_ret);
+uint32_t sdio_readl(int func, unsigned int addr, int *err_ret);
+void sdio_writel(int func, uint32_t b, unsigned int addr, int *err_ret);
 
-#endif /* LINUX_MMC_SDIO_H */
+int sdio_reset(void);
+int sdio_set_block_size(int func, unsigned blksz);
+int sdio_enable_func(int func);
+int sdio_disable_func(int func);
+int sdio_claim_irq(int func);
+
+#endif

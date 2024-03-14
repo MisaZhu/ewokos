@@ -1,0 +1,83 @@
+
+#include <stdint.h>
+#include <stdbool.h>
+#include <ewoksys/vfs.h>
+#include <tinyjson/tinyjson.h>
+
+#define DEFAULT_WLAN_CFG	"/etc/wlan/network.json"
+
+node_t* network_config; 
+
+void config_init(const char* path){
+	if(path == NULL)
+		path = DEFAULT_WLAN_CFG;
+
+	int sz = 0;
+	char* str = (char*)vfs_readfile(path, &sz);
+	if(str == NULL) {
+		printf("Error: %s open failed\n", path);
+		return;
+	}
+
+	str[sz] = 0;
+
+	var_t *var = json_parse(str);
+	free(str);
+
+	if(var != NULL) {
+		network_config = var_find(var, "network");
+		if(network_config && network_config->var->is_array)
+			return;
+	}
+	printf("Error: %s parse failed \n", path);
+}
+
+int config_match_ssid(const char* ssid){
+	int cnt = var_array_size(network_config->var);
+	for(int i = 0; i < cnt; i++){
+		node_t *n = var_array_get(network_config->var, i);
+		if(n){
+			node_t* s = var_find(n->var, "ssid");
+			if(s && s->var->type == V_STRING){
+				if(strcmp(ssid, var_get_str(s->var)) == 0)
+					return i;
+			}
+		}
+	}
+	return -1;
+}
+
+int config_get_priority(int idx){
+
+	node_t *n = var_array_get(network_config->var, idx);
+	if(n){
+		node_t* p = var_find(n->var, "priority");
+		if(p && p->var->type == V_INT){
+			return var_get_int(p->var);
+		}
+	}
+	return 0;
+}
+
+const char* config_get_pmk(int idx){
+	node_t *n = var_array_get(network_config->var, idx);
+	if(n){
+		node_t* p = var_find(n->var, "pmk");
+		if(p && p->var->type == V_STRING){
+			return var_get_str(p->var);
+		}
+	}
+	return "";
+}
+
+
+const char* config_get_ssid(int idx){
+	node_t *n = var_array_get(network_config->var, idx);
+	if(n){
+		node_t* p = var_find(n->var, "ssid");
+		if(p && p->var->type == V_STRING){
+				return var_get_str(p->var);
+		}
+	}
+	return "";
+}
