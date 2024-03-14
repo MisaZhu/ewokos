@@ -126,13 +126,13 @@ uint8_t SC16IS750_ReadRegister(SC16IS750_t * dev, uint8_t channel, uint8_t reg_a
 		//printf("result=0x%x\n",result);
 	} else if (dev->protocol == SC16IS750_PROTOCOL_SPI) {	//register read operation via SPI
 		bcm283x_gpio_write(dev->device_address_sspin, 0);
-		usleep(10);
+		//usleep(10);
 		unsigned char spi_data[2];
 		spi_data[0] = 0x80|(reg_addr<<3 | channel<<1);
 		spi_data[1] = 0xff;
 		//printf("spi_data[in]=0x%x 0x%x\n",spi_data[0],spi_data[1]);
 		wiringPiSPIDataRW(dev->spi_channel, spi_data, 2);
-		usleep(10);
+		//usleep(10);
 		bcm283x_gpio_write(dev->device_address_sspin, 1);
 		//printf("spi_data[out]=0x%x 0x%x\n",spi_data[0],spi_data[1]);
 		result = spi_data[1];
@@ -148,12 +148,12 @@ void SC16IS750_WriteRegister(SC16IS750_t * dev, uint8_t channel, uint8_t reg_add
 		wiringPiI2CWriteReg8(dev->i2c_fd, (reg_addr<<3 | channel<<1), val);
 	} else {
 		bcm283x_gpio_write(dev->device_address_sspin, 0);
-		usleep(10);
+		//usleep(10);
 		unsigned char spi_data[2];
 		spi_data[0] = (reg_addr<<3 | channel<<1);
 		spi_data[1] = val;
 		wiringPiSPIDataRW(dev->spi_channel, spi_data, 2);
-		usleep(10);
+		//usleep(10);
 		bcm283x_gpio_write(dev->device_address_sspin, 1);
 	}
 	return ;
