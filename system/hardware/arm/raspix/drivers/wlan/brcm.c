@@ -1424,6 +1424,7 @@ gotpkt:
 
     //brcm_klog("read control pack len:%d off:%d\n", len, doff);
 done:
+    return;
 }
 
 struct brcmf_event_msg {
