@@ -22,9 +22,7 @@ static const char* _states[] = {
 static const char* get_state(procinfo_t* proc) {
 	static char ret[16];
 	if(proc->state == 4) {
-		if(proc->pid == proc->block_by)
-			strcpy(ret, "blk[slf]");
-		else if(proc->block_by < 0)
+		if(proc->block_by < 0)
 			strcpy(ret, "blk[kev]");
 		else 
 			snprintf(ret, 13, "blk[%d]", proc->block_by);
