@@ -43,8 +43,8 @@ typedef struct _eth_msg{
 
 eth_msg_t *tx_queue = NULL;
 eth_msg_t *rx_queue = NULL;
-
-
+static int rx_queue_size = 0;
+static int tx_queue_size = 0;
 
 static eth_msg_t* eth_dequeue(eth_msg_t **q){
 	if(*q == NULL)
@@ -75,6 +75,7 @@ static int eth_queue_put(eth_msg_t**q, uint8_t *data, int len){
 	msg->len = len;
 	msg->data = malloc(len);
 	if(!msg->data){
+		klog("malloc error");
 		free(msg);
 		return -1;
 	}
@@ -288,18 +289,10 @@ static int eth_read(int fd, int from_pid, fsinfo_t* node,
 	eth_msg_t *msg = eth_dequeue(&rx_queue);
 	if(msg){
 		int len = MIN(msg->len, size);
-		//printf(":::read %08x %d\n", msg, len);
 		memcpy(buf + offset, msg->data, len);
-		//dump_hex("rx",buf, len);
-		int remnant =  msg->len - len;
-		if(remnant){
-			memmove(msg->data, msg->data + len, remnant);
-			msg->len = remnant;
-			eth_inqueue(&rx_queue, msg);
-		}else{
-			free(msg->data);
-			free(msg);
-		}
+		free(msg->data);
+		free(msg);
+		rx_queue_size--;
 		return len;
 	}
 	return VFS_ERR_RETRY; 
@@ -312,8 +305,14 @@ static int eth_write(int fd, int from_pid, fsinfo_t* node,
 	(void)offset;
 	(void)p;
 	(void)node;
+
+	if(tx_queue_size > 16)
+		return VFS_ERR_RETRY;
+
 	int len = MIN(1500, size);	
 	eth_queue_put(&tx_queue, buf+offset, len);
+	tx_queue_size++ ;
+
 	return len;
 }
 
@@ -330,7 +329,7 @@ static int eth_dcntl(int from_pid, int cmd, proto_t* in, proto_t* ret, void* p) 
 		}
 		case 1:
 		{//get buffer count
-			PF->addi(ret, rx_queue!=NULL);
+			PF->addi(ret, rx_queue_size);
 			break;
 		}	
 		default:
@@ -341,16 +340,23 @@ static int eth_dcntl(int from_pid, int cmd, proto_t* in, proto_t* ret, void* p) 
 
 static void timer_handler(void){
 	int ret;
+	ipc_disable();
 	eth_msg_t *tx = eth_dequeue(&tx_queue);
+	ipc_enable();
 	if(tx){
 		//dump_hex("eth tx", tx->data, tx->len);
 		ret = smc_send(tx->data, tx->len);
 		if(ret > 0){
 			free(tx->data);
 			free(tx);
+			ipc_disable();
+			tx_queue_size--;
+			ipc_enable();	
 			proc_wakeup(RW_BLOCK_EVT);
 		}else{
+			ipc_disable();
 			eth_inqueue(&tx_queue, tx);
+			ipc_enable();
 		}
 	}
 
@@ -363,7 +369,10 @@ static void timer_handler(void){
 			if(msg){
 				msg->data = tmp;
 				msg->len = ret;
+				ipc_disable();
 				eth_inqueue(&rx_queue, msg);
+				rx_queue_size++;
+				ipc_enable();
 				proc_wakeup(RW_BLOCK_EVT);
 				return;
 			}

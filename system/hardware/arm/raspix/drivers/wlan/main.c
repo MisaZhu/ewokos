@@ -216,7 +216,7 @@ static int net_dcntl(int from_pid, int cmd, proto_t* in, proto_t* ret, void* p) 
 		}
 		case 1:
 		{//get buffer count
-			PF->addi(ret, brcm_check_data() > 0);
+			PF->addi(ret, brcm_check_data());
 			break;
 		}	
 		default:
