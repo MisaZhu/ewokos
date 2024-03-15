@@ -13,6 +13,9 @@ void load_kernel_config(void) {
 	_kernel_config.timer_freq = _kernel_config.schedule_freq*2;
 	_kernel_config.timer_intr_usec = 0;
 	_kernel_config.uart_baud = 115200;
+	_kernel_config.max_task_per_proc = MAX_TASK_PER_PROC;
+	_kernel_config.max_task_num = MAX_TASK_NUM;
+	_kernel_config.max_proc_num = MAX_PROC_NUM;
 
 	sconf_t* sconf = sconf_load("/etc/kernel/kernel.conf");
 	if(sconf == NULL)
@@ -37,10 +40,32 @@ void load_kernel_config(void) {
 	if(_kernel_config.timer_freq < _kernel_config.schedule_freq*2)
 		_kernel_config.timer_freq = _kernel_config.schedule_freq*2;
 
+	v = sconf_get(sconf, "max_task_num");
+	if(v[0] != 0)
+		_kernel_config.max_task_num = atoi(v);
+
+	if(_kernel_config.max_task_num < MAX_TASK_NUM)
+		_kernel_config.max_task_num = MAX_TASK_NUM;
+
+	v = sconf_get(sconf, "max_proc_num");
+	if(v[0] != 0)
+		_kernel_config.max_proc_num = atoi(v);
+
+	if(_kernel_config.max_proc_num < MAX_PROC_NUM)
+		_kernel_config.max_proc_num = MAX_PROC_NUM;
+
+	v = sconf_get(sconf, "max_task_per_proc");
+	if(v[0] != 0)
+		_kernel_config.max_task_per_proc = atoi(v);
+
+	if(_kernel_config.max_task_per_proc < MAX_TASK_PER_PROC)
+		_kernel_config.max_task_per_proc = MAX_TASK_PER_PROC;
+
 	v = sconf_get(sconf, "uart_baud");
 	if(v[0] != 0)
 		_kernel_config.uart_baud = atoi(v);
 	if(_kernel_config.uart_baud == 0)
 		_kernel_config.uart_baud = 115200;
+
 	sconf_free(sconf);
 }

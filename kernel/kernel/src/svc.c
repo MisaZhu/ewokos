@@ -108,7 +108,7 @@ static void sys_free(int32_t p) {
 
 static void sys_fork(context_t* ctx) {
 	proc_t *proc;
-	proc = kfork(ctx, PROC_TYPE_PROC);
+	proc = kfork(ctx, TASK_TYPE_PROC);
 	if(proc == NULL) {
 		ctx->gpr[0] = -1;
 		return;
@@ -139,7 +139,7 @@ static void sys_detach(void) {
 
 static void sys_thread(context_t* ctx, uint32_t entry, uint32_t func, int32_t arg) {
 	ctx->gpr[0] = -1;
-	proc_t *proc = kfork(ctx, PROC_TYPE_THREAD);
+	proc_t *proc = kfork(ctx, TASK_TYPE_THREAD);
 	if(proc == NULL)
 		return;
 	ctx->gpr[0] = proc->info.pid;
@@ -203,8 +203,9 @@ static void	sys_get_sys_info(sys_info_t* info) {
 	if(info == NULL)
 		return;
 	memcpy(info, &_sys_info, sizeof(sys_info_t));
-	info->max_proc_num = procs_get_max_num();
-	info->max_proc_table_num = procs_get_max_table_num();
+	info->max_proc_num = _kernel_config.max_proc_num;
+	info->max_task_num = _kernel_config.max_task_num;
+	info->max_task_per_proc = _kernel_config.max_task_per_proc;
 }
 
 static void	sys_get_sys_state(sys_state_t* info) {
@@ -261,7 +262,7 @@ static uint32_t sys_mem_map(uint32_t vaddr, uint32_t paddr, uint32_t size) {
 
 	/*allocatable memory can only mapped by kernel,
 	userspace can map upper address such as MMIO/FRAMEBUFFER... */
-	if(paddr > _allocatable_phy_mem_base && paddr < _allocatable_phy_mem_top)
+	if(paddr > _allocable_phy_mem_base && paddr < _allocable_phy_mem_top)
 		return 0;
 	map_pages_size(cproc->space->vm, vaddr, paddr, size, AP_RW_RW, PTE_ATTR_DEV);	
 	flush_tlb();

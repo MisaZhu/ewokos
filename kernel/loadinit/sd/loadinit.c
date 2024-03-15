@@ -13,7 +13,7 @@ int32_t load_init_proc(void) {
 	printf("  load /sbin/init from sdc .... ");
 	char* elf = sd_read_ext2(prog, &sz);
 	if(elf != NULL) {
-		proc_t *proc = proc_create(PROC_TYPE_PROC, NULL);
+		proc_t *proc = proc_create(TASK_TYPE_PROC, NULL);
 		strcpy(proc->info.cmd, prog);
 		proc->info.uid = -1;
 		page_dir_entry_t *vm = proc->space->vm;

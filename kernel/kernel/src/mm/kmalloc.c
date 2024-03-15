@@ -7,6 +7,10 @@
 #include <kprintf.h>
 #include <stddef.h>
 
+uint32_t get_kmalloc_size(void) {
+	return 32*MB;
+}
+
 /*
 kmalloc manage the memory(from KMALLOC_BASE to KMALLOC_END) for kernel.
 */

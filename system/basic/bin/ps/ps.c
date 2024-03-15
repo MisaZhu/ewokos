@@ -144,7 +144,7 @@ int main(int argc, char* argv[]) {
 			if(uid > 0 && proc->uid != cprocinfo.uid && all == 0) //for current uid
 				continue;
 
-			if(proc->type != PROC_TYPE_PROC && thread == 0) //for thread 
+			if(proc->type != TASK_TYPE_PROC && thread == 0) //for thread 
 				continue;
 
 			if(full) {
@@ -173,7 +173,7 @@ int main(int argc, char* argv[]) {
 
 			}
 
-			if(proc->type == PROC_TYPE_THREAD)
+			if(proc->type == TASK_TYPE_THREAD)
 				printf(" [THRD:%d]\n", proc->father_pid);
 			else
 				printf("\n");

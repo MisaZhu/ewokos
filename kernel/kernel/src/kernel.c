@@ -23,7 +23,7 @@ page_dir_entry_t* _kernel_vm = NULL;
 
 /*Copy interrupt talbe to phymen address 0x00000000.
 	Virtual address #INTERRUPT_VECTOR_BASE(0xFFFF0000 for ARM) must mapped to phymen 0x00000000.
-ref: set_kernel_vm(page_dir_entry_t* vm)
+ref: set_vm(page_dir_entry_t* vm)
  */
 static void __attribute__((optimize("O0"))) copy_interrupt_table(void) {
 	extern uint32_t  interrupt_table_start, interrupt_table_end;
@@ -35,7 +35,7 @@ static void __attribute__((optimize("O0"))) copy_interrupt_table(void) {
 	}
 }
 
-static void set_kernel_init_vm(page_dir_entry_t* vm) {
+static void set_kernel_vm(page_dir_entry_t* vm) {
 	memset(vm, 0, PAGE_DIR_SIZE);
 	flush_dcache();
 
@@ -44,29 +44,29 @@ static void set_kernel_init_vm(page_dir_entry_t* vm) {
 	//map kernel image
 	map_pages(vm, KERNEL_BASE, _sys_info.phy_offset, V2P(KERNEL_IMAGE_END), AP_RW_D, PTE_ATTR_WRBACK_ALLOCATE);
 	//map kernel page dir
-	map_pages(vm, KERNEL_PAGE_DIR_BASE, V2P(KERNEL_PAGE_DIR_BASE), V2P(ALLOCATABLE_PAGE_DIR_END), AP_RW_D, PTE_ATTR_WRBACK);
+	map_pages(vm, KERNEL_PAGE_DIR_BASE, V2P(KERNEL_PAGE_DIR_BASE), V2P(KERNEL_PAGE_DIR_END), AP_RW_D, PTE_ATTR_WRBACK);
 	//map kernel malloc memory
 	map_pages(vm, KMALLOC_BASE, V2P(KMALLOC_BASE), V2P(KMALLOC_END), AP_RW_D, PTE_ATTR_WRBACK);
 	//map allocatable memory page dir
-	map_pages(vm, ALLOCATABLE_PAGE_DIR_BASE, V2P(ALLOCATABLE_PAGE_DIR_BASE), V2P(ALLOCATABLE_PAGE_DIR_END), AP_RW_D, PTE_ATTR_WRBACK);
+	map_pages(vm, ALLOCABLE_PAGE_DIR_BASE, V2P(ALLOCABLE_PAGE_DIR_BASE), V2P(ALLOCABLE_PAGE_DIR_END), AP_RW_D, PTE_ATTR_WRBACK);
 	//map MMIO to high(virtual) mem.
 	map_pages_size(vm, _sys_info.mmio.v_base, _sys_info.mmio.phy_base, _sys_info.mmio.size, AP_RW_D, PTE_ATTR_DEV);
 
 	arch_vm(vm);
 }
 
-static void map_allocatable_pages(page_dir_entry_t* vm) {
+static void map_allocable_pages(page_dir_entry_t* vm) {
 	map_pages(vm,
-			P2V(_allocatable_phy_mem_base),
-			_allocatable_phy_mem_base,
-			_allocatable_phy_mem_top,
+			P2V(_allocable_phy_mem_base),
+			_allocable_phy_mem_base,
+			_allocable_phy_mem_top,
 			AP_RW_D, PTE_ATTR_WRBACK);
 	flush_tlb();
 }
 
-void set_kernel_vm(page_dir_entry_t* vm) {
-	set_kernel_init_vm(vm);
-	map_allocatable_pages(vm);
+void set_vm(page_dir_entry_t* vm) {
+	set_kernel_vm(vm);
+	map_allocable_pages(vm);
 }
 
 static void init_kernel_vm(void) {
@@ -76,21 +76,21 @@ static void init_kernel_vm(void) {
 	kalloc_init(KERNEL_PAGE_DIR_BASE+PAGE_DIR_SIZE, KERNEL_PAGE_DIR_END); 
 
 	//switch to two-levels 4k page_size type paging
-	set_kernel_init_vm(_kernel_vm);
+	set_kernel_vm(_kernel_vm);
 	//Use physical address of kernel virtual memory as the new virtual memory page dir table base.
 	set_translation_table_base(V2P((uint32_t)_kernel_vm));
 }
 
 static void init_allocable_mem(void) {
-	printf("kernel: kalloc init for allocatable page dir\n");
-	kalloc_init(ALLOCATABLE_PAGE_DIR_BASE, ALLOCATABLE_PAGE_DIR_END); 
-	printf("kernel: mapping allocatable pages\n");
-	map_allocatable_pages(_kernel_vm);
+	printf("kernel: kalloc init for allocable page dir\n");
+	kalloc_init(ALLOCABLE_PAGE_DIR_BASE, ALLOCABLE_PAGE_DIR_END); 
+	printf("kernel: mapping allocable pages\n");
+	map_allocable_pages(_kernel_vm);
 	
-	printf("kernel: kalloc init for all allocatable pages\n");
-	_pages_ref.max = kalloc_init(P2V(_allocatable_phy_mem_base), P2V(_allocatable_phy_mem_top));
+	printf("kernel: kalloc init for all allocable pages\n");
+	_pages_ref.max = kalloc_init(P2V(_allocable_phy_mem_base), P2V(_allocable_phy_mem_top));
 	_pages_ref.refs = kmalloc(_pages_ref.max * sizeof(page_ref_t));	
-	_pages_ref.phy_base = _allocatable_phy_mem_base;
+	_pages_ref.phy_base = _allocable_phy_mem_base;
 	memset(_pages_ref.refs, 0, _pages_ref.max * sizeof(page_ref_t));
 }
 
@@ -118,16 +118,17 @@ static void welcome(void) {
 			"(______/(_______)(______)|_/  \\_/ (______)\\______)\n\n");
                                                       
 	printf(
-		  "machine            %s\n" 
-		  "arch               %s\n"
-		  "cores              %d\n"
-		  "kernel_timer_freq  %d\n"
-		  "mem_size           %d MB\n"
-		  "mem_offset         0x%x\n"
-		  "mmio_base          Phy:0x%x, V: 0x%x\n"
-		  "schedule_freq      %d\n"
-		  "max procs num      %d\n"
-		  "max task(threads)  %d\n"
+		  "machine              %s\n" 
+		  "arch                 %s\n"
+		  "cores                %d\n"
+		  "kernel_timer_freq    %d\n"
+		  "mem_size             %d MB\n"
+		  "mem_offset           0x%x\n"
+		  "mmio_base            Phy:0x%x, V: 0x%x\n"
+		  "schedule_freq        %d\n"
+		  "max proc num         %d\n"
+		  "max task total       %d\n"
+		  "max task per proc    %d\n"
 		  "---------------------------------------------------\n\n",
 			_sys_info.machine,
 			_sys_info.arch,
@@ -137,8 +138,9 @@ static void welcome(void) {
 			_sys_info.phy_offset,
 			_sys_info.mmio.phy_base, _sys_info.mmio.v_base,
 			_kernel_config.schedule_freq,
-			procs_get_max_num(),
-			procs_get_max_table_num());
+			_kernel_config.max_proc_num,
+			_kernel_config.max_task_num,
+			_kernel_config.max_task_per_proc);
 }
 
 int32_t load_init_proc(void);

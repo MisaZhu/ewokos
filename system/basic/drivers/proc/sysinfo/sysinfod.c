@@ -35,16 +35,18 @@ static int sysinfo_read(int fd,
 	snprintf(str, STR_MAX-1, 
 			"machine: %s\n"
 			"cores: %d\n"
-			"phy_mem_size: %d\n"
+			"phy_mem_size: %d MB\n"
 			"max proc num: %d\n"
-			"max task num: %d\n"
+			"max task total: %d\n"
+			"max task per proc: %d\n"
 			"max files per_proc: %d\n"
 			"mmio_base: 0x%x\n",
 			sysinfo.machine,
 			sysinfo.cores,
-			sysinfo.phy_mem_size,
+			sysinfo.phy_mem_size/1024/1024,
 			sysinfo.max_proc_num,
-			sysinfo.max_proc_table_num,
+			sysinfo.max_task_num,
+			sysinfo.max_task_per_proc,
 			MAX_OPEN_FILE_PER_PROC,
 			sysinfo.mmio);
 	return strlen(str);

@@ -16,9 +16,13 @@ extern char _bss_start[];
 extern char _bss_end[];
 
 extern page_dir_entry_t* _kernel_vm;
-extern void set_kernel_vm(page_dir_entry_t* vm);
+extern void set_vm(page_dir_entry_t* vm);
 
 extern void load_kernel_config(void);
+
+#define MAX_PROC_NUM  128
+#define MAX_TASK_NUM  1024
+#define MAX_TASK_PER_PROC 128
 
 typedef struct {
 	uint32_t timer_freq;	
@@ -26,6 +30,10 @@ typedef struct {
 	uint32_t schedule_freq;
 	uint32_t timer_intr_usec;
 	uint32_t uart_baud;
+
+	uint32_t max_proc_num;
+	uint32_t max_task_num;
+	uint32_t max_task_per_proc;
 } kernel_conf_t;
 
 extern kernel_conf_t _kernel_config;

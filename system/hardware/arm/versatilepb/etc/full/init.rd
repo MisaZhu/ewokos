@@ -12,7 +12,6 @@
 /bin/ipcserv /drivers/versatilepb/powerd     /dev/power0
 /bin/ipcserv /drivers/versatilepb/smc91c111d /dev/eth0
 /bin/ipcserv /drivers/netd             /dev/net0 /dev/eth0
-/bin/telnetd &
 
 /bin/ipcserv /drivers/nulld           /dev/null
 /bin/ipcserv /drivers/ramfsd          /tmp
@@ -22,6 +21,7 @@
 @/bin/ipcserv /sbin/sessiond
 
 @/bin/session -r &
+@/sbin/telnetd &
 
 @/bin/ipcserv /drivers/xserverd        /dev/x
 @/sbin/x/xmoused /dev/mouse0 &

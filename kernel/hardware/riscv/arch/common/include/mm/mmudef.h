@@ -2,6 +2,7 @@
 #define MMU_DEF_H
 
 #include <stdint.h>
+#include <kernel.h>
 
 #define KB 1024
 #define MB (1024*KB)
@@ -36,10 +37,10 @@
 #define KMALLOC_BASE                   ALIGN_UP(KERNEL_PAGE_DIR_END, PAGE_SIZE)
 #define KMALLOC_END                    (KMALLOC_BASE + 8*MB)
 
-#define ALLOCATABLE_PAGE_DIR_BASE      KMALLOC_END
-#define ALLOCATABLE_PAGE_DIR_END       (ALLOCATABLE_PAGE_DIR_BASE + 4*MB)
+#define ALLOCABLE_PAGE_DIR_BASE      KMALLOC_END
+#define ALLOCABLE_PAGE_DIR_END       (ALLOCABLE_PAGE_DIR_BASE + 4*MB)
 
-#define ALLOCATABLE_MEMORY_START       ALLOCATABLE_PAGE_DIR_END
+#define get_allocable_start()       ALLOCABLE_PAGE_DIR_END
 
 #define ALIGN_DOWN(x, alignment) ((x) & ~(alignment - 1))
 #define ALIGN_UP(x, alignment) (((x) + alignment - 1) & ~(alignment - 1))

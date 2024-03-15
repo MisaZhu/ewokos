@@ -11,6 +11,9 @@
 #include <kprintf.h>
 #include <stddef.h>
 
+#define SHM_MAX_SIZE                   (128*MB)
+#define SHM_BASE                       (USER_STACK_BOTTOM - SHM_MAX_SIZE)
+
 #define 	IPC_PRIVATE 0
 #define 	IPC_CREAT   00001000 /* create if key is nonexistent */
 #define 	IPC_EXCL    00002000 /* fail if key exists */

@@ -5,6 +5,11 @@
 
 #include <stdint.h>
 
+#define KMALLOC_BASE                   ALLOCABLE_PAGE_DIR_END
+#define KMALLOC_END                    (KMALLOC_BASE + get_kmalloc_size())
+
+uint32_t get_kmalloc_size(void);
+
 void* kmalloc(uint32_t size);
 void* kcalloc(uint32_t nmemb, uint32_t size);
 void  kfree(void* p);
