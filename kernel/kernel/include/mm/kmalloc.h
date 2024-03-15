@@ -6,7 +6,11 @@
 #include <stdint.h>
 #include <mm/mmu.h>
 
-#define KMALLOC_SIZE  ((_sys_info.phy_mem_size >= (512*MB) ? 32:16)*MB)
+#ifdef KCONSOLE
+#define KMALLOC_SIZE  (16*MB)
+#else
+#define KMALLOC_SIZE  (8*MB)
+#endif
 
 void* kmalloc(uint32_t size);
 void* kcalloc(uint32_t nmemb, uint32_t size);
