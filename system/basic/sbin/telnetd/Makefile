@@ -9,7 +9,7 @@ CFLAGS += -I $(BUILD_DIR)/include
 
 TELNETD_OBJS = telnetd.o
 
-TELNETD = $(TARGET_DIR)/bin/telnetd
+TELNETD = $(TARGET_DIR)/sbin/telnetd
 
 $(TELNETD): $(TELNETD_OBJS) \
 		$(BUILD_DIR)/lib/libsocket.a \
