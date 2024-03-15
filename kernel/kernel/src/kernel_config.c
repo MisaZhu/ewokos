@@ -1,4 +1,5 @@
 #include <kernel/kernel.h>
+#include <mm/kmalloc.h>
 #include <kernel/core.h>
 #include <stddef.h>
 #include <sconf.h>
@@ -39,11 +40,14 @@ void load_kernel_config(void) {
 	if(_kernel_config.timer_freq < _kernel_config.schedule_freq*2)
 		_kernel_config.timer_freq = _kernel_config.schedule_freq*2;
 
+	uint32_t proc_num_limit = (KMALLOC_SIZE) / (PAGE_DIR_SIZE) / 2;
 	v = sconf_get(sconf, "max_proc_num");
 	if(v[0] != 0)
 		_kernel_config.max_proc_num = atoi(v);
 	if(_kernel_config.max_proc_num < MAX_PROC_NUM_DEF)
 		_kernel_config.max_proc_num = MAX_PROC_NUM_DEF;
+	if(_kernel_config.max_proc_num > proc_num_limit)
+		_kernel_config.max_proc_num = proc_num_limit;
 
 	v = sconf_get(sconf, "max_task_num");
 	if(v[0] != 0)

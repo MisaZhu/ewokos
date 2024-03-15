@@ -82,12 +82,11 @@ static void init_kernel_vm(void) {
 }
 
 static void init_allocable_mem(void) {
-	printf("kernel: kalloc init for allocable page dir\n");
+	//printf("kernel: kalloc init for allocable page dir\n");
 	kalloc_init(ALLOCABLE_PAGE_DIR_BASE, ALLOCABLE_PAGE_DIR_END); 
-	printf("kernel: mapping allocable pages\n");
+	//printf("kernel: mapping allocable pages\n");
 	map_allocable_pages(_kernel_vm);
 	
-	printf("kernel: kalloc init for all allocable pages\n");
 	_pages_ref.max = kalloc_init(P2V(_allocable_phy_mem_base), P2V(_allocable_phy_mem_top));
 	_pages_ref.refs = kmalloc(_pages_ref.max * sizeof(page_ref_t));	
 	_pages_ref.phy_base = _allocable_phy_mem_base;
@@ -121,8 +120,9 @@ static void welcome(void) {
 		  "arch                 %s\n"
 		  "cores                %d\n"
 		  "kernel_timer_freq    %d\n"
-		  "mem_size             %d MB\n"
 		  "mem_offset           0x%x\n"
+		  "mem_size             %d MB\n"
+		  "kmalloc size         %d MB\n"
 		  "mmio_base            Phy:0x%x, V: 0x%x\n"
 		  "schedule_freq        %d\n"
 		  "max proc num         %d\n"
@@ -133,8 +133,9 @@ static void welcome(void) {
 			_sys_info.arch,
 			_kernel_config.cores,
 			_kernel_config.timer_freq,
-			_sys_info.phy_mem_size/1024/1024,
 			_sys_info.phy_offset,
+			_sys_info.phy_mem_size/1024/1024,
+			(KMALLOC_END-KMALLOC_BASE) / (1*MB),
 			_sys_info.mmio.phy_base, _sys_info.mmio.v_base,
 			_kernel_config.schedule_freq,
 			_kernel_config.max_proc_num,
@@ -166,28 +167,28 @@ void _kernel_entry_c(void) {
 #endif
 
 	welcome();
-	printf("kernel: kmalloc initing      ... [ok] (%d MB)\n", (KMALLOC_END-KMALLOC_BASE) / (1*MB));
+	printf("kernel: init allocable memory  ... ");
 	init_allocable_mem(); //init the rest allocable memory VM
-	printf("kernel: init allocable memory: %d MB(%d pages)\n\n", (get_free_mem_size() / (1*MB)), _pages_ref.max);
+	printf("[ok] (%d MB)\n", (get_free_mem_size() / (1*MB)));
 
-	printf("kernel: init semaphore       ... ");
+	printf("kernel: init semaphore         ... ");
 	semaphore_init();
 	printf("[ok]\n");
 
-	printf("kernel: init irq             ... ");
+	printf("kernel: init irq               ... ");
 	irq_init();
 	printf("[ok]\n");
 
-	printf("kernel: init share memory    ... ");
+	printf("kernel: init share memory      ... ");
 	shm_init();
 	printf("[ok]\n");
 
-	printf("kernel: init processes table ... ");
+	printf("kernel: init processes table   ... ");
 	if(procs_init() != 0)
 		halt();
-	printf("[ok]\n");
+	printf("[ok] (%d)\n", _kernel_config.max_proc_num);
 
-	printf("kernel: loading init process ... ");
+	printf("kernel: loading init process   ... ");
 	if(load_init_proc() != 0)  {
 		printf("[failed!]\n");
 		halt();
@@ -200,7 +201,7 @@ void _kernel_entry_c(void) {
 
 	for(uint32_t i=1; i<_sys_info.cores; i++) {
 		_cpu_cores[i].actived = false;
-		printf("kernel: start core %d         ... ", i);
+		printf("kernel: start core %d           ... ", i);
 		kfork_core_halt(i);
 		start_core(i);
 		while(!_cpu_cores[i].actived)
@@ -209,10 +210,11 @@ void _kernel_entry_c(void) {
 	}
 #endif
 
-	printf("kernel: set timer            ... ");
+	printf("kernel: set timer              ... ");
 	timer_set_interval(0, _kernel_config.timer_freq); 
-	printf("[ok]\n\n");
-	printf("kernel: start init\n");
+	printf("[ok]\n");
+	printf("kernel: start init process     ...\n"
+		   "---------------------------------------------------\n");
 	__irq_enable();
 	halt();
 }
