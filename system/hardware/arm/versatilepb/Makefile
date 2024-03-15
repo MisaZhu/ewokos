@@ -52,7 +52,7 @@ clean:
 	rm -fr $(ROOT_DIR)/build
 
 run:
-	qemu-system-arm -cpu arm926 -M versatilepb -m 256M -serial mon:stdio -kernel $(ROOT_DIR)/../kernel/hardware/arm/versatilepb/kernel.qemu.img -sd build/root.ext2
+	sudo qemu-system-arm -cpu arm926 -M versatilepb -m 256M -serial mon:stdio -nic vmnet-shared  -kernel $(ROOT_DIR)/../kernel/hardware/arm/versatilepb/kernel.qemu.img -sd build/root.ext2
 
 net:
 	sudo qemu-system-arm -k en.US -nographic  -cpu arm926 -M versatilepb -m 256M -serial mon:stdio -nic vmnet-shared -kernel $(ROOT_DIR)/../kernel/hardware/arm/versatilepb/kernel.qemu.img -sd build/root.ext2
