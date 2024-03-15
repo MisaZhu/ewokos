@@ -102,7 +102,8 @@ TRACE();
             for (entry = irq_vec; entry; entry = entry->next) {
                 if (entry->irq == SIGIRQ) {
 TRACE(); 
-                if(tap_select(entry->dev)){
+                int cnt = tap_select(entry->dev);
+                for(int i = 0; i < cnt; i++){
                     entry->handler(entry->irq, entry->dev);
 TRACE(); 
                 }
@@ -113,7 +114,7 @@ TRACE();
 TRACE(); 
         start_task();
 TRACE();  
-       usleep(10000);
+       usleep(1000);
 TRACE(); 
     }
     return 0;

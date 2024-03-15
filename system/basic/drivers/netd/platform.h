@@ -50,8 +50,10 @@ extern int dcnt;
 
 
 #if 0
-#define mutex_lock(x)	      do{TRACE();pthread_mutex_lock(x);}while(0)	
-#define mutex_unlock(x)     do{TRACE();pthread_mutex_unlock(x);}while(0)	
+// #define mutex_lock(x)	      do{TRACE();pthread_mutex_lock(x);}while(0)	
+// #define mutex_unlock(x)     do{TRACE();pthread_mutex_unlock(x);}while(0)	
+#define mutex_lock(x)	      do{klog("%s %d %08x lock\n", __func__, __LINE__, x);pthread_mutex_lock(x);klog("%s %d %08x enter\n", __func__, __LINE__, x);}while(0)	
+#define mutex_unlock(x)     do{klog("%s %d %08x unlock\n", __func__, __LINE__, x);pthread_mutex_unlock(x);}while(0)	
 #else
 #define mutex_lock(x)	pthread_mutex_lock(x)
 #define mutex_unlock(x) pthread_mutex_unlock(x)

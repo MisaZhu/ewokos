@@ -2416,7 +2416,10 @@ int brcm_recv(uint8_t *buf, int len){
 }
 
 int brcm_send(uint8_t *buf, int len){
-    return queue_buffer_push(bus->tx_queue, buf, len);
+    if(queue_buffer_check(bus->tx_queue >= 20))
+        return 0;
+    else
+        return queue_buffer_push(bus->tx_queue, buf, len);
 }
 
 int brcm_check_data(void){

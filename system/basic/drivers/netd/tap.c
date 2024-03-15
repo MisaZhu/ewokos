@@ -41,7 +41,7 @@ ether_tap_open(struct net_device *dev)
     struct ether_tap *tap;
 
     tap = PRIV(dev);
-    tap->fd = open(tap->name, O_NONBLOCK);
+    tap->fd = open(tap->name, 0);
     if (tap->fd < 0) {
         klog("open: %s, dev=%s", strerror(errno), dev->name);
         return -1;
