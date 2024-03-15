@@ -46,17 +46,17 @@ void procs_init(void) {
 	int32_t i;
 
 	uint32_t size = PAGE_DIR_SIZE + (_kernel_config.max_proc_num*sizeof(proc_vm_t));
-	kprintf("size: %d\n", size/1024);
-
 	uint32_t pde = (uint32_t)kmalloc(size);
 	_proc_vm = (proc_vm_t*)ALIGN_UP(pde, PAGE_DIR_SIZE);
 
-	_proc_vm_mark = (uint8_t*)kmalloc(_kernel_config.max_proc_num);
+	size = _kernel_config.max_proc_num;
+	_proc_vm_mark = (uint8_t*)kmalloc(size);
 	for (i = 0; i < _kernel_config.max_proc_num; i++) {
 		_proc_vm_mark[i] = 0;
 	}
 
-	_task_table = (proc_t*)kmalloc(_kernel_config.max_task_num*sizeof(proc_t));
+	size = _kernel_config.max_task_num*sizeof(proc_t);
+	_task_table = (proc_t*)kmalloc(size);
 	for (i = 0; i < _kernel_config.max_task_num; i++) {
 		_task_table[i] = NULL;
 	}
