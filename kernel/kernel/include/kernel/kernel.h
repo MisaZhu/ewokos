@@ -3,8 +3,8 @@
 
 #include <mm/mmu.h>
 
-#define KERNEL_PROC_RUN_RECOUNT_SEC   3
-#define SCHEDULE_FREQ     512 // usecs (timer/schedule)
+#define KERNEL_PROC_RUN_RECOUNT_SEC   2
+#define SCHEDULE_FREQ_DEF     512 // usecs (timer/schedule)
 
 extern uint32_t _kernel_sec;
 extern uint64_t _kernel_usec;
@@ -18,11 +18,9 @@ extern char _bss_end[];
 extern page_dir_entry_t* _kernel_vm;
 extern void set_vm(page_dir_entry_t* vm);
 
-extern void load_kernel_config(void);
-
-#define MAX_PROC_NUM  128
-#define MAX_TASK_NUM  1024
-#define MAX_TASK_PER_PROC 128
+#define MAX_PROC_NUM_DEF  128
+#define MAX_TASK_NUM_DEF  1024
+#define MAX_TASK_PER_PROC_DEF 128
 
 typedef struct {
 	uint32_t timer_freq;	
@@ -37,5 +35,6 @@ typedef struct {
 } kernel_conf_t;
 
 extern kernel_conf_t _kernel_config;
+extern void load_kernel_config(void);
 
 #endif

@@ -97,7 +97,6 @@ static void init_allocable_mem(void) {
 #ifdef KERNEL_SMP
 void __attribute__((optimize("O0"))) _slave_kernel_entry_c(void) {
 	set_translation_table_base(V2P((uint32_t)_kernel_vm));
-	printf("[ok]\n");
 
 	uint32_t cid = get_core_id();
 	cpu_core_ready(cid);
@@ -155,7 +154,6 @@ void _kernel_entry_c(void) {
 	init_kernel_vm();  
 	kmalloc_init();
 	dma_init();
-
 	kev_init();
 
 	sd_init();
@@ -168,24 +166,33 @@ void _kernel_entry_c(void) {
 #endif
 
 	welcome();
-	printf("kernel: kmalloc initing  [ok] : %dMB\n", (KMALLOC_END-KMALLOC_BASE) / (1*MB));
+	printf("kernel: kmalloc initing      ... [ok] (%d MB)\n", (KMALLOC_END-KMALLOC_BASE) / (1*MB));
 	init_allocable_mem(); //init the rest allocable memory VM
-	printf("kernel: init allocable memory: %dMB, %d pages\n", (get_free_mem_size() / (1*MB)), _pages_ref.max);
+	printf("kernel: init allocable memory: %d MB(%d pages)\n\n", (get_free_mem_size() / (1*MB)), _pages_ref.max);
 
+	printf("kernel: init semaphore       ... ");
 	semaphore_init();
+	printf("[ok]\n");
+
+	printf("kernel: init irq             ... ");
 	irq_init();
-	printf("kernel: irq inited\n");
+	printf("[ok]\n");
 
+	printf("kernel: init share memory    ... ");
 	shm_init();
-	printf("kernel: share memory inited.\n");
+	printf("[ok]\n");
 
-	procs_init();
-	printf("kernel: processes inited.\n");
-	printf("kernel: loading init process\n");
+	printf("kernel: init processes table ... ");
+	if(procs_init() != 0)
+		halt();
+	printf("[ok]\n");
+
+	printf("kernel: loading init process ... ");
 	if(load_init_proc() != 0)  {
-		printf("  [failed!]\n");
+		printf("[failed!]\n");
 		halt();
 	}
+	printf("[ok]\n");
 
 	kfork_core_halt(0);
 #ifdef KERNEL_SMP
@@ -193,19 +200,19 @@ void _kernel_entry_c(void) {
 
 	for(uint32_t i=1; i<_sys_info.cores; i++) {
 		_cpu_cores[i].actived = false;
-		printf("kernel: start core %d ... ", i);
+		printf("kernel: start core %d         ... ", i);
 		kfork_core_halt(i);
 		start_core(i);
 		while(!_cpu_cores[i].actived)
 			_delay_msec(10);
+		printf("[ok]\n");
 	}
 #endif
 
-	printf("kernel: set timer.\n");
+	printf("kernel: set timer            ... ");
 	timer_set_interval(0, _kernel_config.timer_freq); 
-
-	printf("kernel: enable irq and start init...\n");
-
+	printf("[ok]\n\n");
+	printf("kernel: start init\n");
 	__irq_enable();
 	halt();
 }

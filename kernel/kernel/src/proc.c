@@ -38,7 +38,7 @@ int32_t _core_proc_pid = -1;
 uint32_t _ipc_uid = 0;
 
 /* proc_init initializes the process sub-system. */
-void procs_init(void) {
+int32_t procs_init(void) {
 	_use_core_id = 0;
 	_ipc_uid = 0;
 	_proc_uuid = 0;
@@ -47,6 +47,11 @@ void procs_init(void) {
 
 	uint32_t size = PAGE_DIR_SIZE + (_kernel_config.max_proc_num*sizeof(proc_vm_t));
 	uint32_t pde = (uint32_t)kmalloc(size);
+	if(pde == 0) {
+		printf("Panic: VMM process page dir entry table alloc failed (%d MB)!\n", size/1024/1024);
+		return -1;
+	}
+
 	_proc_vm = (proc_vm_t*)ALIGN_UP(pde, PAGE_DIR_SIZE);
 
 	size = _kernel_config.max_proc_num;
@@ -67,6 +72,8 @@ void procs_init(void) {
 		_current_proc[i] = -1;
 		queue_init(&_ready_queue[i]);
 	}
+
+	return 0;
 }
 
 int32_t  proc_childof(proc_t* proc, proc_t* parent) {

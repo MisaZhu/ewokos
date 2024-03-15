@@ -19,6 +19,9 @@
 #define ALLOCABLE_PAGE_DIR_BASE        KERNEL_PAGE_DIR_END
 #define ALLOCABLE_PAGE_DIR_END         (ALLOCABLE_PAGE_DIR_BASE + 1*MB)
 
+#define KMALLOC_BASE                   ALLOCABLE_PAGE_DIR_END
+#define KMALLOC_END                    (KMALLOC_BASE + KMALLOC_SIZE)
+
 #define MMIO_BASE                      (KERNEL_BASE + MAX_MEM_SIZE)
 
 #define USER_STACK_TOP                 (KERNEL_BASE - PAGE_SIZE)
