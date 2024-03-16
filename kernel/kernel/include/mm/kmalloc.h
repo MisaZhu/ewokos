@@ -6,11 +6,7 @@
 #include <stdint.h>
 #include <mm/mmu.h>
 
-#ifdef KCONSOLE
-#define MIN_KMALLOC_SIZE  (16*MB)
-#else
 #define MIN_KMALLOC_SIZE  (8*MB)
-#endif
 
 uint32_t get_kmalloc_size(void); 
 
