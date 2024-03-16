@@ -18,9 +18,8 @@ extern char _bss_end[];
 extern page_dir_entry_t* _kernel_vm;
 extern void set_vm(page_dir_entry_t* vm);
 
-#define MAX_PROC_NUM_DEF  128
-#define MAX_TASK_NUM_DEF  1024
-#define MAX_TASK_PER_PROC_DEF 128
+#define MAX_PROC_NUM_DEF  64
+#define MAX_TASK_PER_PROC_DEF 64
 
 typedef struct {
 	uint32_t timer_freq;	
