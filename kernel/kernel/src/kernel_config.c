@@ -58,8 +58,8 @@ void load_kernel_config(void) {
 	if(_kernel_config.max_proc_num < MAX_PROC_NUM_DEF)
 		_kernel_config.max_proc_num = MAX_PROC_NUM_DEF;
 
-	if(_kernel_config.max_task_num < _kernel_config.max_proc_num*8)
-		_kernel_config.max_task_num = _kernel_config.max_proc_num*8;
+	if(_kernel_config.max_task_num < _kernel_config.max_proc_num*4)
+		_kernel_config.max_task_num = _kernel_config.max_proc_num*4;
 
 	if(_kernel_config.max_task_per_proc < MAX_TASK_PER_PROC_DEF)
 		_kernel_config.max_task_per_proc = MAX_TASK_PER_PROC_DEF;

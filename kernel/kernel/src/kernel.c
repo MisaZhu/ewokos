@@ -55,6 +55,17 @@ static void set_kernel_vm(page_dir_entry_t* vm) {
 	arch_vm(vm);
 }
 
+static void reset_kernel_vm(void) {
+	page_dir_entry_t* vm = (page_dir_entry_t*)KERNEL_PAGE_DIR_BASE;
+	//map kernel malloc memory
+	map_pages(vm, KMALLOC_BASE, V2P(KMALLOC_BASE), V2P(KMALLOC_END), AP_RW_D, PTE_ATTR_WRBACK);
+	//map allocatable memory page dir
+	map_pages(vm, ALLOCABLE_PAGE_DIR_BASE, V2P(ALLOCABLE_PAGE_DIR_BASE), V2P(ALLOCABLE_PAGE_DIR_END), AP_RW_D, PTE_ATTR_WRBACK);
+	//map MMIO to high(virtual) mem.
+	flush_tlb();
+}
+
+
 static void map_allocable_pages(page_dir_entry_t* vm) {
 	map_pages(vm,
 			P2V(_allocable_phy_mem_base),
@@ -158,6 +169,8 @@ void _kernel_entry_c(void) {
 	sd_init();
 
 	load_kernel_config();
+
+	reset_kernel_vm();
 	kmalloc_init(); //init kmalloc again with config info;
 
 	dma_init();
