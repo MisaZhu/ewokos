@@ -28,9 +28,11 @@ static void load_kernel_config_file() {
 	if(v[0] != 0)
 		_kernel_config.max_proc_num = atoi(v);
 
+/*
 	v = sconf_get(sconf, "max_task_num");
 	if(v[0] != 0)
 		_kernel_config.max_task_num = atoi(v);
+		*/
 
 	v = sconf_get(sconf, "max_task_per_proc");
 	if(v[0] != 0)
