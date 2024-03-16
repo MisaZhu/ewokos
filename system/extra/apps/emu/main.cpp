@@ -119,24 +119,16 @@ void InfoNES_ReleaseRom(){
 
 }
 
+static int scale = 1;
 void graph_scale_fix_center(graph_t *src, graph_t *dst){
 	static int dstW,dstH;
-	static int scale;
 	static int sx;
 	static int sy; 
 	static int ex;
 	static int ey;
 
-	if(dstH!= dst->h) {
-		dstW = dst->w;
-		dstH = dst->h;
-		scale = dstH/src->h;
-		scale = MAX(scale, 1);
-		if(scale > 4)
-			scale = 4;
-		else if(scale > 2)
-			scale = 2;
-	}
+	dstW = dst->w;
+	dstH = dst->h;
 
 	sx = MAX((dstW- src->w * scale)/2, 0);
 	ex = MIN(sx + (src->w * scale), dst->w);
@@ -419,6 +411,7 @@ int main(int argc, char *argv[])
 		zoom = 2;
 	else 
 		zoom = 1;
+	scale = zoom;
 
 	x.open(0, &emu, 256*zoom, 240*zoom, "NesEmu", XWIN_STYLE_NO_RESIZE);
 	emu.setVisible(true);
