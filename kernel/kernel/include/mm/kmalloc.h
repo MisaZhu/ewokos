@@ -7,10 +7,12 @@
 #include <mm/mmu.h>
 
 #ifdef KCONSOLE
-#define KMALLOC_SIZE  (16*MB)
+#define MIN_KMALLOC_SIZE  (8*MB)
 #else
-#define KMALLOC_SIZE  (8*MB)
+#define MIN_KMALLOC_SIZE  (4*MB)
 #endif
+
+uint32_t get_kmalloc_size(void); 
 
 void* kmalloc(uint32_t size);
 void* kcalloc(uint32_t nmemb, uint32_t size);

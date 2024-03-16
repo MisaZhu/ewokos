@@ -153,13 +153,14 @@ void _kernel_entry_c(void) {
 	copy_interrupt_table();
 
 	init_kernel_vm();  
-	kmalloc_init();
-	dma_init();
+	kmalloc_init(); //init kmalloc with min size for just early stage kernel load
 	kev_init();
-
 	sd_init();
 
 	load_kernel_config();
+	kmalloc_init(); //init kmalloc again with config info;
+
+	dma_init();
 	uart_dev_init();
 
 #ifdef KCONSOLE

@@ -20,7 +20,7 @@
 #define ALLOCABLE_PAGE_DIR_END         (ALLOCABLE_PAGE_DIR_BASE + 1*MB)
 
 #define KMALLOC_BASE                   ALLOCABLE_PAGE_DIR_END
-#define KMALLOC_END                    (KMALLOC_BASE + KMALLOC_SIZE)
+#define KMALLOC_END                    (KMALLOC_BASE + get_kmalloc_size())
 
 #define MMIO_BASE                      (KERNEL_BASE + MAX_MEM_SIZE)
 
