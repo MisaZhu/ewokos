@@ -32,7 +32,11 @@ BUILD_DIR = ../../../build
 TARGET_DIR = $(BUILD_DIR)/rootfs
 
 LDFLAGS = -L$(BUILD_DIR)/lib
-HEADS = -I $(BUILD_DIR)/include -I$(NATIVE_PATH_BUILTIN) -I$(NATIVE_PATH_X) -I$(MARIO_VM)/mario
+HEADS = -I $(BUILD_DIR)/include \
+	-I$(NATIVE_PATH_BUILTIN) \
+	-I$(NATIVE_PATH_GRAPH) \
+	-I$(NATIVE_PATH_X) \
+	-I$(MARIO_VM)/mario
 
 CFLAGS += $(HEADS)
 CXXFLAGS += $(HEADS)

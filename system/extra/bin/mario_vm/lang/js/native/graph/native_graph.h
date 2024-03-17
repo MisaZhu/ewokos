@@ -1,5 +1,5 @@
-#ifndef MARIO_NATIVE_X
-#define MARIO_NATIVE_X
+#ifndef MARIO_NATIVE_GRAPH
+#define MARIO_NATIVE_GRAPH
 
 #include "mario.h"
 
@@ -7,7 +7,7 @@
 extern "C" {
 #endif
 
-void reg_native_x(vm_t* vm);
+void reg_native_graph(vm_t* vm);
 
 #ifdef __cplusplus /* __cplusplus */
 }

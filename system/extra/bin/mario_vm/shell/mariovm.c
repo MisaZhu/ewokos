@@ -1,5 +1,6 @@
 #include "mario.h"
 #include "native_builtin.h"
+#include "native_graph.h"
 #include "native_x.h"
 
 #include <unistd.h>
@@ -18,7 +19,8 @@ typedef void (*reg_natives_t)(vm_t* vm);
 
 void reg_natives(vm_t* vm) {
 	reg_basic_natives(vm);
-	reg_x_natives(vm);
+	reg_native_graph(vm);
+	reg_native_x(vm);
 }
 
 mstr_t* load_script_content(const char* fname) {
