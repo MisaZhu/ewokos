@@ -11,6 +11,7 @@ KERNEL_H = \
 kernel_heads:
 	@mkdir -p ${BUILD_DIR}/include
 	@mkdir -p ${BUILD_DIR}/lib
+	@mkdir -p ${BUILD_DIR}/rootfs
 	cp -r $(KERNEL_H) $(BUILD_DIR)/include/
 
 SD = build/root.ext2
@@ -23,6 +24,9 @@ sd:
 	mke2fs -b 1024 -I 128 ${SD}
 
 	@cd $(ROOT_DIR)/build/$(HW); \
+	find . -type f | e2cp -ap -G0 -O0 -d ../../hardware/arm/${HW}/${SD}:/
+
+	@cd $(ROOT_DIR)/build/rootfs; \
 	find . -type f | e2cp -ap -G0 -O0 -d ../../hardware/arm/${HW}/${SD}:/
 
 	@echo "==== ext2 format sdcard image created  ====\n"

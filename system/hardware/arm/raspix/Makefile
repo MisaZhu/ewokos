@@ -9,22 +9,19 @@ export G_2D_BOOST=yes
 all: full
 	@echo "all done."
 	rm -fr $(BUILD_DIR)/$(HW)
-	mv $(TARGET_DIR) $(BUILD_DIR)/$(HW)
+	mkdir -p $(BUILD_DIR)/$(HW)
+	mv $(TARGET_DIR)/* $(BUILD_DIR)/$(HW)
 
 include ../make.inc
 
 basic: basic_sys
 	@echo "all done."
 	rm -fr $(BUILD_DIR)/$(HW)
-	mv $(TARGET_DIR) $(BUILD_DIR)/$(HW)
+	mkdir -p $(BUILD_DIR)/$(HW)
+	mv $(TARGET_DIR)/* $(BUILD_DIR)/$(HW)
 
 full: full_sys
 	@echo "all done."
-
-extra: extra_sys
-	@echo "all done."
-	rm -fr $(BUILD_DIR)/$(HW)
-	mv $(TARGET_DIR) $(BUILD_DIR)/$(HW)
 
 clockwork: extra
 	cd ../../3rd/raspix/clockwork; make
@@ -45,9 +42,6 @@ full_sys: basic_sys
 	cd $(ROOT_DIR)/full;make
 	cd drivers;make full_sys
 	@cp -r etcs/qemu/full/* ${TARGET_DIR}/etc
-
-extra_sys: full_sys
-	cd $(ROOT_DIR)/extra;make
 
 clean:
 	cd libs;make clean

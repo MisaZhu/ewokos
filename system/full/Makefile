@@ -2,10 +2,15 @@ BUILD_DIR = ../build
 TARGET_DIR = $(BUILD_DIR)/rootfs
 ROOT_DIR = ..
 
+ifeq ($(ARCH),)
+export ARCH=arm
+endif
+
 all: mkdirs extra_libs bins extra_driver xapps
 	@echo "all done."
 
 mkdirs:
+	@mkdir -p ${TARGET_DIR}/drivers
 	@mkdir -p ${TARGET_DIR}/apps
 	@mkdir -p ${TARGET_DIR}/sbin/x
 	@mkdir -p ${TARGET_DIR}/bin/x
