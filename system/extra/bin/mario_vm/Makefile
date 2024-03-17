@@ -32,16 +32,23 @@ BUILD_DIR = ../../../build
 TARGET_DIR = $(BUILD_DIR)/rootfs
 
 LDFLAGS = -L$(BUILD_DIR)/lib
-CFLAGS += -I $(BUILD_DIR)/include
-CFLAGS += -I$(NATIVE_PATH) -I$(MARIO_VM)/mario
+HEADS = -I $(BUILD_DIR)/include -I$(NATIVE_PATH_BUILTIN) -I$(NATIVE_PATH_X) -I$(MARIO_VM)/mario
+
+CFLAGS += $(HEADS)
+CXXFLAGS += $(HEADS)
 
 MARIO = $(TARGET_DIR)/bin/mario
 
 $(MARIO): $(MARIO_OBJS) \
+		$(BUILD_DIR)/lib/libx.a \
+		$(BUILD_DIR)/lib/libx++.a \
+		$(BUILD_DIR)/lib/libupng.a \
+		$(BUILD_DIR)/lib/libttf.a \
+		$(BUILD_DIR)/lib/libfont.a \
+		$(BUILD_DIR)/lib/libgraph.a \
 		$(EWOK_LIBC_A) 
 	mkdir -p $(TARGET_DIR)/bin
-	$(LD) -Ttext=100 $(MARIO_OBJS) -o $(MARIO) $(LDFLAGS) $(EWOK_LIBC)
-	cp -r $(MARIO_VM)/mario/demos/demo_js/js $(TARGET_DIR)/data/js
+	$(LD) -Ttext=100 $(MARIO_OBJS) -o $(MARIO) $(LDFLAGS) -lttf -lfont  -lgraph -lbsp -lupng -lx++ -lx -lsconf  $(EWOK_LIBC) -lcxx
 
 clean:
 	rm -f $(MARIO_OBJS) $(MARIO)

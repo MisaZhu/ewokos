@@ -19,14 +19,14 @@
 /bin/ipcserv /drivers/proc/stated     /proc/state
 
 @/bin/ipcserv /sbin/sessiond
-
 @/bin/session -r &
+
 @/sbin/telnetd &
 
 @/bin/ipcserv /drivers/xserverd        /dev/x
 @/sbin/x/xmoused /dev/mouse0 &
 @/sbin/x/xim_none /dev/keyb0 &
-@/bin/x/xsession &
+@/bin/x/xsession misa &
 
 @/bin/ipcserv /drivers/consoled        0
 @/bin/console /dev/console0&

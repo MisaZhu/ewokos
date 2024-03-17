@@ -58,7 +58,7 @@ void array_clean(m_array_t* array, free_func_t fr);
 
 /**====== string functions. ======*/
 
-typedef struct st_str {
+typedef struct st_mstr {
 	char* cstr;
 	uint32_t max: 16;
 	uint32_t len: 16;

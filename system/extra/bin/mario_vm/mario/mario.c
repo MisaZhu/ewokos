@@ -1625,6 +1625,11 @@ inline void var_clean(var_t* var) {
 	if(var_empty(var))
 		return;
 	var->status = V_ST_FREE; //mark as freed for avoid dead loop
+
+	if(var->on_destroy != NULL) {
+		var->on_destroy(var);
+	}
+
 	/*free children*/
 	if(var->children.size > 0)
 		var_remove_all(var);	
@@ -1636,11 +1641,6 @@ inline void var_clean(var_t* var) {
 		else
 			_free(var->value);
 		var->value = NULL;
-	}
-
-	if(var->on_destroy != NULL) {
-		var->on_destroy(var);
-		var->on_destroy = NULL;
 	}
 
 	var_t* next = var->next; //backup next
