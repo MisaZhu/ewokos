@@ -422,7 +422,7 @@ bool stmt_block(lex_t* l, bytecode_t* bc, bool func) {
 		doBlock = true;
 
 	if(doBlock)
-		bc_gen(bc, INmstr_BLOCK);
+		bc_gen(bc, INSTR_BLOCK);
 
 	while (l->tk && l->tk!='}'){
 		if(!statement(l, bc))
@@ -431,7 +431,7 @@ bool stmt_block(lex_t* l, bytecode_t* bc, bool func) {
 	if(!lex_chkread(l, '}')) return false;
 
 	if(doBlock) 
-		bc_gen(bc, INmstr_BLOCK_END);
+		bc_gen(bc, INSTR_BLOCK_END);
 	return true;
 }
 
@@ -453,23 +453,23 @@ bool factor_def_func(lex_t* l, bytecode_t* bc, mstr_t* name) {
 		if(strcmp(name->cstr, "get") == 0) {
 			mstr_cpy(name, l->tk_str->cstr);
 			if(!lex_chkread(l, LEX_ID)) return false;
-			bc_gen(bc, INmstr_FUNC_GET);
+			bc_gen(bc, INSTR_FUNC_GET);
 		}
 		if(strcmp(name->cstr, "set") == 0) {
 			mstr_cpy(name, l->tk_str->cstr);
 			if(!lex_chkread(l, LEX_ID)) return false;
-			bc_gen(bc, INmstr_FUNC_SET);
+			bc_gen(bc, INSTR_FUNC_SET);
 		}
 	}
 	else {
-		bc_gen(bc, is_static ? INmstr_FUNC_STC:INmstr_FUNC);
+		bc_gen(bc, is_static ? INSTR_FUNC_STC:INSTR_FUNC);
 	}
 	lex_skip_empty(l);
 	//do arguments
 	if(!lex_chkread(l, '(')) return false;
 	while (l->tk!=')') {
-		bc_gen_str(bc, INmstr_LOAD, l->tk_str->cstr);
-		//bc_gen_str(bc, INmstr_VAR, l->tk_str->cstr);
+		bc_gen_str(bc, INSTR_LOAD, l->tk_str->cstr);
+		//bc_gen_str(bc, INSTR_VAR, l->tk_str->cstr);
 		if(!lex_chkread(l, LEX_ID)) return false;
 		if (l->tk!=')') {
 			if(!lex_chkread(l, ',')) return false;
@@ -481,9 +481,9 @@ bool factor_def_func(lex_t* l, bytecode_t* bc, mstr_t* name) {
 	stmt_block(l, bc, true);
 	opr_code_t op = bc->code_buf[bc->cindex - 1] >> 16;
 
-	if(op != INmstr_RETURN && op != INmstr_RETURNV)
-		bc_gen(bc, INmstr_RETURN);
-	bc_set_instr(bc, pc, INmstr_JMP, ILLEGAL_PC);
+	if(op != INSTR_RETURN && op != INSTR_RETURNV)
+		bc_gen(bc, INSTR_RETURN);
+	bc_set_instr(bc, pc, INSTR_JMP, ILLEGAL_PC);
 	return true;
 }
 
@@ -494,9 +494,9 @@ bool factor_def_afunc(lex_t* l, bytecode_t* bc) {
 
 	opr_code_t op = bc->code_buf[bc->cindex - 1] >> 16;
 
-	if(op != INmstr_RETURN && op != INmstr_RETURNV)
-		bc_gen(bc, INmstr_RETURN);
-	bc_set_instr(bc, pc, INmstr_JMP, ILLEGAL_PC);
+	if(op != INSTR_RETURN && op != INSTR_RETURNV)
+		bc_gen(bc, INSTR_RETURN);
+	bc_set_instr(bc, pc, INSTR_JMP, ILLEGAL_PC);
 	return true;	
 }
 
@@ -523,7 +523,7 @@ bool factor_def_class(lex_t* l, bytecode_t* bc) {
 		mstr_cpy(name, l->tk_str->cstr);
 		if(!lex_chkread(l, LEX_ID)) return false;
 	}
-	bc_gen_str(bc, INmstr_CLASS, name->cstr);
+	bc_gen_str(bc, INSTR_CLASS, name->cstr);
 
 	lex_skip_empty(l);
 	/*read extends*/
@@ -532,7 +532,7 @@ bool factor_def_class(lex_t* l, bytecode_t* bc) {
 		lex_skip_empty(l);
 		mstr_cpy(name, l->tk_str->cstr);
 		if(!lex_chkread(l, LEX_ID)) return false;
-		bc_gen_str(bc, INmstr_EXTENDS, name->cstr);
+		bc_gen_str(bc, INSTR_EXTENDS, name->cstr);
 	}
 
 	lex_skip_empty(l);
@@ -540,12 +540,12 @@ bool factor_def_class(lex_t* l, bytecode_t* bc) {
 	lex_skip_empty(l);
 	while (l->tk!='}') {
 		if(l->tk == LEX_ID && l->next_ch == '=') {
-			bc_gen_str(bc, INmstr_LOAD, l->tk_str->cstr);
+			bc_gen_str(bc, INSTR_LOAD, l->tk_str->cstr);
 			if(!lex_chkread(l, LEX_ID)) return false;
 			if(!lex_chkread(l, '=')) return false;
 			if(!base(l, bc)) return false;
-			bc_gen(bc, INmstr_ASIGN);
-			bc_gen(bc, INmstr_POP);
+			bc_gen(bc, INSTR_ASIGN);
+			bc_gen(bc, INSTR_POP);
 			lex_chkread_stmt_end(l);
 			lex_skip_empty(l);
 		}
@@ -553,11 +553,11 @@ bool factor_def_class(lex_t* l, bytecode_t* bc) {
 			if(!factor_def_func(l, bc, name))
 				return false;
 			lex_skip_empty(l);
-			bc_gen_str(bc, INmstr_MEMBERN, name->cstr);
+			bc_gen_str(bc, INSTR_MEMBERN, name->cstr);
 		}
 	}
 	if(!lex_chkread(l, '}')) return false;
-	bc_gen(bc, INmstr_CLASS_END);
+	bc_gen(bc, INSTR_CLASS_END);
 
 	mstr_free(name);
 	return true;
@@ -574,7 +574,7 @@ bool factor_new(lex_t*l, bytecode_t* bc) {
 		int arg_num = call_func(l, bc);
 		mstr_t* s = mstr_new("");
 		gen_func_name(class_name->cstr, arg_num, s);
-		bc_gen_str(bc, INmstr_NEW, s->cstr);
+		bc_gen_str(bc, INSTR_NEW, s->cstr);
 		mstr_free(s);
 	}
 	mstr_free(class_name);
@@ -583,7 +583,7 @@ bool factor_new(lex_t*l, bytecode_t* bc) {
 
 bool factor_json(lex_t*l, bytecode_t* bc) {
 	if(!lex_chkread(l, '{')) return false;
-	bc_gen(bc, INmstr_OBJ);
+	bc_gen(bc, INSTR_OBJ);
 	while (l->tk != '}') {
 		lex_skip_empty(l);
 		mstr_t* id = mstr_new(l->tk_str->cstr);
@@ -598,29 +598,29 @@ bool factor_json(lex_t*l, bytecode_t* bc) {
 		if(!lex_chkread(l, ':')) return false;
 		if(!base(l, bc)) return false;
 		lex_skip_empty(l);
-		bc_gen_str(bc, INmstr_MEMBERN, id->cstr);
+		bc_gen_str(bc, INSTR_MEMBERN, id->cstr);
 		// no need to clean here, as it will definitely be used
 		if (l->tk != '}') {
 			if(!lex_chkread(l, ',')) return false;
 		}
 		mstr_free(id);
 	}
-	bc_gen(bc, INmstr_OBJ_END);
+	bc_gen(bc, INSTR_OBJ_END);
 	return lex_chkread(l, '}');
 }
 
 bool factor_array(lex_t*l, bytecode_t* bc) {
 	if(!lex_chkread(l, '[')) return false;
-	bc_gen(bc, INmstr_ARRAY);
+	bc_gen(bc, INSTR_ARRAY);
 	while (l->tk != ']') {
 		base(l, bc);
-		bc_gen(bc, INmstr_MEMBER);
+		bc_gen(bc, INSTR_MEMBER);
 		if (l->tk != ']') {
 			if(!lex_chkread(l, ',')) return false;
 		}
 	}
 	if(!lex_chkread(l, ']')) return false;
-	bc_gen(bc, INmstr_ARRAY_END);
+	bc_gen(bc, INSTR_ARRAY_END);
 	return true;
 }
 
@@ -629,18 +629,18 @@ bool factor_call_func(lex_t* l, bytecode_t* bc, mstr_t* name, bool member) {
 
 	int arg_num = call_func(l, bc);
 	gen_func_name(name->cstr, arg_num, s);
-	bc_gen_str(bc, member ? INmstr_CALLO:INmstr_CALL, s->cstr);	
+	bc_gen_str(bc, member ? INSTR_CALLO:INSTR_CALL, s->cstr);	
 	mstr_free(s);
 	return true;
 }
 
 bool factor_array_access(lex_t* l, bytecode_t* bc, mstr_t* name, bool member) {
-	bc_gen_str(bc, member ? INmstr_GET:INmstr_LOAD, name->cstr);
+	bc_gen_str(bc, member ? INSTR_GET:INSTR_LOAD, name->cstr);
 
 	if(!lex_chkread(l, '[')) return false;
 	if(!base(l, bc)) return false;
 	if(!lex_chkread(l, ']')) return false;
-	bc_gen(bc, INmstr_ARRAY_AT);
+	bc_gen(bc, INSTR_ARRAY_AT);
 	return true;
 }
 
@@ -660,7 +660,7 @@ bool factor(lex_t* l, bytecode_t* bc, bool member) {
 
 		if(l->tk == LEX_R_AFUNCTION) {
 			if(!lex_chkread(l, LEX_R_AFUNCTION)) return false;
-			bc_set_instr(bc, pc, INmstr_FUNC, 0);
+			bc_set_instr(bc, pc, INSTR_FUNC, 0);
 			factor_def_afunc(l, bc);
 		}
 		else {
@@ -669,30 +669,30 @@ bool factor(lex_t* l, bytecode_t* bc, bool member) {
 	}
 	else if (l->tk==LEX_R_TRUE) {
 		if(!lex_chkread(l, LEX_R_TRUE)) return false;
-		bc_gen(bc, INmstr_TRUE);
+		bc_gen(bc, INSTR_TRUE);
 	}
 	else if (l->tk==LEX_R_FALSE) {
 		if(!lex_chkread(l, LEX_R_FALSE)) return false;
-		bc_gen(bc, INmstr_FALSE);
+		bc_gen(bc, INSTR_FALSE);
 	}
 	else if (l->tk==LEX_R_NULL) {
 		if(!lex_chkread(l, LEX_R_NULL)) return false;
-		bc_gen(bc, INmstr_NULL);
+		bc_gen(bc, INSTR_NULL);
 	}
 	else if (l->tk==LEX_R_UNDEFINED) {
 		if(!lex_chkread(l, LEX_R_UNDEFINED)) return false;
-		bc_gen(bc, INmstr_UNDEF);
+		bc_gen(bc, INSTR_UNDEF);
 	}
 	else if (l->tk==LEX_INT) {
-		bc_gen_str(bc, INmstr_INT, l->tk_str->cstr);
+		bc_gen_str(bc, INSTR_INT, l->tk_str->cstr);
 		if(!lex_chkread(l, LEX_INT)) return false;
 	}
 	else if (l->tk==LEX_FLOAT) {
-		bc_gen_str(bc, INmstr_FLOAT, l->tk_str->cstr);
+		bc_gen_str(bc, INSTR_FLOAT, l->tk_str->cstr);
 		if(!lex_chkread(l, LEX_FLOAT)) return false;
 	}
 	else if (l->tk==LEX_STR) {
-		bc_gen_str(bc, INmstr_STR, l->tk_str->cstr);
+		bc_gen_str(bc, INSTR_STR, l->tk_str->cstr);
 		if(!lex_chkread(l, LEX_STR)) return false;
 	}
 	else if(l->tk==LEX_R_FUNCTION) { //define function
@@ -725,19 +725,19 @@ bool factor(lex_t* l, bytecode_t* bc, bool member) {
 		}
 		else {
 			if(member) {
-				bc_gen_str(bc, INmstr_GET, name->cstr);	
+				bc_gen_str(bc, INSTR_GET, name->cstr);	
 			}
 			else if (l->tk == '.') {
-				bc_gen_str(bc, INmstr_LOADO, name->cstr);	
+				bc_gen_str(bc, INSTR_LOADO, name->cstr);	
 			}
 			else if (l->tk == LEX_R_AFUNCTION) {
 				if(!lex_chkread(l, LEX_R_AFUNCTION)) return false;
-				bc_gen(bc, INmstr_FUNC);
-				bc_gen_str(bc, INmstr_LOAD, name->cstr);	
+				bc_gen(bc, INSTR_FUNC);
+				bc_gen_str(bc, INSTR_LOAD, name->cstr);	
 				factor_def_afunc(l, bc);
 			}
 			else {
-				bc_gen_str(bc, INmstr_LOAD, name->cstr);	
+				bc_gen_str(bc, INSTR_LOAD, name->cstr);	
 			}
 		}
 		mstr_free(name);
@@ -751,19 +751,19 @@ bool factor(lex_t* l, bytecode_t* bc, bool member) {
 }
 
 bool unary(lex_t* l, bytecode_t* bc) {
-	opr_code_t instr = INmstr_END;
+	opr_code_t instr = INSTR_END;
 	if (l->tk == '!') {
 		if(!lex_chkread(l, '!')) return false;
-		instr = INmstr_NOT;
+		instr = INSTR_NOT;
 	} else if(l->tk == LEX_R_TYPEOF) {
 		if(!lex_chkread(l, LEX_R_TYPEOF)) return false;
-		instr = INmstr_TYPEOF;
+		instr = INSTR_TYPEOF;
 	}
 
 	if(!factor(l, bc, false))
 		return false;
 
-	if(instr != INmstr_END) {
+	if(instr != INSTR_END) {
 		bc_gen(bc, instr);
 	}
 	return true;	
@@ -779,13 +779,13 @@ bool term(lex_t* l, bytecode_t* bc) {
 		if(!unary(l, bc)) return false;
 
 		if(op == '*') {
-			bc_gen(bc, INmstr_MULTI);
+			bc_gen(bc, INSTR_MULTI);
 		}
 		else if(op == '/') {
-			bc_gen(bc, INmstr_DIV);
+			bc_gen(bc, INSTR_DIV);
 		}
 		else {
-			bc_gen(bc, INmstr_MOD);
+			bc_gen(bc, INSTR_MOD);
 		}
 	}
 
@@ -809,13 +809,13 @@ bool expr(lex_t* l, bytecode_t* bc) {
 		return false;
 
 	if (pre == '-') {
-		bc_gen(bc, INmstr_NEG);
+		bc_gen(bc, INSTR_NEG);
 	}
 	else if(pre==LEX_PLUSPLUS) {
-		bc_gen(bc, INmstr_PPLUS_PRE);
+		bc_gen(bc, INSTR_PPLUS_PRE);
 	}
 	else if(pre==LEX_MINUSMINUS) {
-		bc_gen(bc, INmstr_MMINUS_PRE);
+		bc_gen(bc, INSTR_MMINUS_PRE);
 	}
 
 	while (l->tk=='+' || l->tk=='-' ||
@@ -823,19 +823,19 @@ bool expr(lex_t* l, bytecode_t* bc) {
 		int op = l->tk;
 		if(!lex_chkread(l, l->tk)) return false;
 		if (op==LEX_PLUSPLUS) {
-			bc_gen(bc, INmstr_PPLUS);
+			bc_gen(bc, INSTR_PPLUS);
 		}
 		else if(op==LEX_MINUSMINUS) {
-			bc_gen(bc, INmstr_MMINUS);
+			bc_gen(bc, INSTR_MMINUS);
 		}
 		else {
 			if(!term(l, bc))
 				return false;
 			if(op== '+') {
-				bc_gen(bc, INmstr_PLUS);
+				bc_gen(bc, INSTR_PLUS);
 			}
 			else if(op=='-') {
-				bc_gen(bc, INmstr_MINUS);
+				bc_gen(bc, INSTR_MINUS);
 			}
 		}
 	}
@@ -854,13 +854,13 @@ bool shift(lex_t* l, bytecode_t* bc) {
 			return false;
 
 		if (op==LEX_LSHIFT) {
-			bc_gen(bc, INmstr_LSHIFT);
+			bc_gen(bc, INSTR_LSHIFT);
 		}
 		else if (op==LEX_RSHIFT) {
-			bc_gen(bc, INmstr_RSHIFT);
+			bc_gen(bc, INSTR_RSHIFT);
 		}
 		else {
-			bc_gen(bc, INmstr_URSHIFT);
+			bc_gen(bc, INSTR_URSHIFT);
 		}
 	}
 	return true;	
@@ -881,31 +881,31 @@ bool condition(lex_t *l, bytecode_t* bc) {
 			return false;
 
 		if(op == LEX_EQUAL) {
-			bc_gen(bc, INmstr_EQ);
+			bc_gen(bc, INSTR_EQ);
 		}
 		else if(op == LEX_NEQUAL) {
-			bc_gen(bc, INmstr_NEQ);
+			bc_gen(bc, INSTR_NEQ);
 		}
 		else if(op == LEX_TYPEEQUAL) {
-			bc_gen(bc, INmstr_TEQ);
+			bc_gen(bc, INSTR_TEQ);
 		}
 		else if(op == LEX_NTYPEEQUAL) {
-			bc_gen(bc, INmstr_NTEQ);
+			bc_gen(bc, INSTR_NTEQ);
 		}
 		else if(op == LEX_LEQUAL) {
-			bc_gen(bc, INmstr_LEQ);
+			bc_gen(bc, INSTR_LEQ);
 		}
 		else if(op == LEX_GEQUAL) {
-			bc_gen(bc, INmstr_GEQ);
+			bc_gen(bc, INSTR_GEQ);
 		}
 		else if(op == LEX_R_INSTANCEOF) {
-			bc_gen(bc, INmstr_INSTOF);
+			bc_gen(bc, INSTR_INSTOF);
 		}
 		else if(op == '>') {
-			bc_gen(bc, INmstr_GRT);
+			bc_gen(bc, INSTR_GRT);
 		}
 		else if(op == '<') {
-			bc_gen(bc, INmstr_LES);
+			bc_gen(bc, INSTR_LES);
 		}
 	}
 
@@ -923,19 +923,19 @@ bool logic(lex_t* l, bytecode_t* bc) {
 			return false;
 
 		if (op==LEX_ANDAND) {
-			bc_gen(bc, INmstr_AAND);
+			bc_gen(bc, INSTR_AAND);
 		} 
 		else if (op==LEX_OROR) {
-			bc_gen(bc, INmstr_OOR);
+			bc_gen(bc, INSTR_OOR);
 		}
 		else if (op=='|') {
-			bc_gen(bc, INmstr_OR);
+			bc_gen(bc, INSTR_OR);
 		}
 		else if (op=='&') {
-			bc_gen(bc, INmstr_AND);
+			bc_gen(bc, INSTR_AND);
 		}
 		else if (op=='^') {
-			bc_gen(bc, INmstr_XOR);
+			bc_gen(bc, INSTR_XOR);
 		}
 	}
 	return true;	
@@ -952,9 +952,9 @@ bool ternary(lex_t *l, bytecode_t* bc) {
 		base(l, bc); //first choice
 		PC pc2 = bc_reserve(bc); //keep for jump
 		if(!lex_chkread(l, ':')) return false;
-		bc_set_instr(bc, pc1, INmstr_NJMP, ILLEGAL_PC);
+		bc_set_instr(bc, pc1, INSTR_NJMP, ILLEGAL_PC);
 		base(l, bc); //second choice
-		bc_set_instr(bc, pc2, INmstr_JMP, ILLEGAL_PC);
+		bc_set_instr(bc, pc2, INSTR_JMP, ILLEGAL_PC);
 	} 
 	return true;	
 }
@@ -974,22 +974,22 @@ bool base(lex_t* l, bytecode_t* bc) {
 		base(l, bc);
 		// sort out initialiser
 		if (op == '=')  {
-			bc_gen(bc, INmstr_ASIGN);
+			bc_gen(bc, INSTR_ASIGN);
 		}
 		else if(op == LEX_PLUSEQUAL) {
-			bc_gen(bc, INmstr_PLUSEQ);
+			bc_gen(bc, INSTR_PLUSEQ);
 		}
 		else if(op == LEX_MINUSEQUAL) {
-			bc_gen(bc, INmstr_MINUSEQ);
+			bc_gen(bc, INSTR_MINUSEQ);
 		}
 		else if(op == LEX_MULTIEQUAL) {
-			bc_gen(bc, INmstr_MULTIEQ);
+			bc_gen(bc, INSTR_MULTIEQ);
 		}
 		else if(op == LEX_DIVEQUAL) {
-			bc_gen(bc, INmstr_DIVEQ);
+			bc_gen(bc, INSTR_DIVEQ);
 		}
 		else if(op == LEX_MODEQUAL) {
-			bc_gen(bc, INmstr_MODEQ);
+			bc_gen(bc, INSTR_MODEQ);
 		}
 	}
 	return true;
@@ -1005,15 +1005,15 @@ bool stmt_var(lex_t* l, bytecode_t* bc) {
 
 	if(l->tk == LEX_R_VAR) {
 		if(!lex_chkread(l, LEX_R_VAR)) return false;
-		op = INmstr_VAR;
+		op = INSTR_VAR;
 	}
 	else if(l->tk == LEX_R_LET) {
 		if(!lex_chkread(l, LEX_R_LET)) return false;
-		op = INmstr_LET;
+		op = INSTR_LET;
 	}
 	else {
 		if(!lex_chkread(l, LEX_R_CONST)) return false;
-		op = INmstr_CONST;
+		op = INSTR_CONST;
 	}
 
 	while (!is_stmt_end(l->tk)) {
@@ -1023,10 +1023,10 @@ bool stmt_var(lex_t* l, bytecode_t* bc) {
 		// sort out initialiser
 		if (l->tk == '=') {
 			if(!lex_chkread(l, '=')) return false;
-			bc_gen_str(bc, INmstr_LOAD, vname->cstr);
+			bc_gen_str(bc, INSTR_LOAD, vname->cstr);
 			if(!base(l, bc)) return false;
-			bc_gen(bc, INmstr_ASIGN);
-			bc_gen(bc, INmstr_POP);
+			bc_gen(bc, INSTR_ASIGN);
+			bc_gen(bc, INSTR_POP);
 		}
 		if (!is_stmt_end(l->tk))
 			if(!lex_chkread(l, ',')) return false;
@@ -1048,42 +1048,42 @@ bool stmt_if(lex_t* l, bytecode_t* bc) {
 	if (l->tk == LEX_R_ELSE) {
 		if(!lex_chkread(l, LEX_R_ELSE)) return false;
 		PC pc2 = bc_reserve(bc);
-		bc_set_instr(bc, pc, INmstr_NJMP, ILLEGAL_PC);
+		bc_set_instr(bc, pc, INSTR_NJMP, ILLEGAL_PC);
 		lex_skip_empty(l);
 		if(!statement(l, bc)) return false;
-		bc_set_instr(bc, pc2, INmstr_JMP, ILLEGAL_PC);
+		bc_set_instr(bc, pc2, INSTR_JMP, ILLEGAL_PC);
 	}
 	else {
-		bc_set_instr(bc, pc, INmstr_NJMP, ILLEGAL_PC);
+		bc_set_instr(bc, pc, INSTR_NJMP, ILLEGAL_PC);
 	}
 	return true;
 }
 
 bool stmt_while(lex_t* l, bytecode_t* bc) {
 	if(!lex_chkread(l, LEX_R_WHILE)) return false;
-	bc_gen(bc, INmstr_LOOP);
+	bc_gen(bc, INSTR_LOOP);
 	PC pc = bc_reserve(bc); //to init, nil for while statement.
-	PC pcc = bc_add_instr(bc, pc, INmstr_JMP, pc+2)-1; //jmp to loop (for continue anchor).
+	PC pcc = bc_add_instr(bc, pc, INSTR_JMP, pc+2)-1; //jmp to loop (for continue anchor).
 	PC pcb = bc_reserve(bc); //jump out of loop (for break anchor);
 
 	if(!lex_chkread(l, '(')) return false;
 	if(!base(l, bc)) return false; //condition
 	if(!lex_chkread(l, ')')) return false;
 
-	bc_add_instr(bc, pcb, INmstr_NJMPB, ILLEGAL_PC); //not jump back to break anchor;
+	bc_add_instr(bc, pcb, INSTR_NJMPB, ILLEGAL_PC); //not jump back to break anchor;
 
 	if(!stmt_loop_block(l, bc)) return false;
 
-	bc_add_instr(bc, pcc, INmstr_JMPB, ILLEGAL_PC); //coninue anchor;
-	pc = bc_gen(bc, INmstr_LOOP_END);
-	bc_set_instr(bc, pcb, INmstr_JMP, pc-1); // end anchor;
+	bc_add_instr(bc, pcc, INSTR_JMPB, ILLEGAL_PC); //coninue anchor;
+	pc = bc_gen(bc, INSTR_LOOP_END);
+	bc_set_instr(bc, pcb, INSTR_JMP, pc-1); // end anchor;
 	return true;
 }
 
 bool stmt_for(lex_t* l, bytecode_t* bc) {
 	if(!lex_chkread(l, LEX_R_FOR)) return false;
-	PC pc = bc_gen(bc, INmstr_LOOP);
-	bc_add_instr(bc, pc, INmstr_JMP, pc+3); //jmp to init.
+	PC pc = bc_gen(bc, INSTR_LOOP);
+	bc_add_instr(bc, pc, INSTR_JMP, pc+3); //jmp to init.
 	PC pcc = bc_reserve(bc); //jump to condition (for continue anchor);
 	PC pcb = bc_reserve(bc); //jump out of loop (for break anchor);
 
@@ -1092,44 +1092,44 @@ bool stmt_for(lex_t* l, bytecode_t* bc) {
 		return false;
 
 	lex_skip_empty(l);
-	bc_set_instr(bc, pcc, INmstr_JMP, bc->cindex);
+	bc_set_instr(bc, pcc, INSTR_JMP, bc->cindex);
 	if(!base(l, bc)) //condition
 		return false; 
 	if(!lex_chkread(l, ';')) return false;
 	lex_skip_empty(l);
-	bc_add_instr(bc, pcb, INmstr_NJMPB, ILLEGAL_PC); //jump out of loop if not condition.
+	bc_add_instr(bc, pcb, INSTR_NJMPB, ILLEGAL_PC); //jump out of loop if not condition.
 	PC pcl = bc_reserve(bc); //jump to loop .skip the iterrator
 
 	PC pci = bc->cindex;  //iterator anchor;
 	if(!base(l, bc)) //iterator statement
 		return false; 
 	if(!lex_chkread(l, ')')) return false;
-	bc_gen(bc, INmstr_POP); //pop the stack.
+	bc_gen(bc, INSTR_POP); //pop the stack.
 
-	bc_add_instr(bc, pcc, INmstr_JMPB, ILLEGAL_PC); //jump to coninue anchor;
+	bc_add_instr(bc, pcc, INSTR_JMPB, ILLEGAL_PC); //jump to coninue anchor;
 
-	bc_set_instr(bc, pcl, INmstr_JMP, ILLEGAL_PC); // loop anchor;
+	bc_set_instr(bc, pcl, INSTR_JMP, ILLEGAL_PC); // loop anchor;
 
 	//if(!statement(l, bc)) return false; //loop statement
 	if(!stmt_loop_block(l, bc)) return false;
 
-	bc_add_instr(bc, pci, INmstr_JMPB, ILLEGAL_PC); //jump to iterator anchor;
-	pc = bc_gen(bc, INmstr_LOOP_END);
-	bc_set_instr(bc, pcb, INmstr_JMP, pc-1); // end anchor;
+	bc_add_instr(bc, pci, INSTR_JMPB, ILLEGAL_PC); //jump to iterator anchor;
+	pc = bc_gen(bc, INSTR_LOOP_END);
+	bc_set_instr(bc, pcb, INSTR_JMP, pc-1); // end anchor;
 	return true;
 }
 
 bool stmt_break(lex_t* l, bytecode_t* bc) {
 	if(!lex_chkread(l, LEX_R_BREAK)) return false;
 	if(!lex_chkread_stmt_end(l)) return false;
-	bc_gen(bc, INmstr_BREAK);
+	bc_gen(bc, INSTR_BREAK);
 	return true;
 }
 
 bool stmt_continue(lex_t* l, bytecode_t* bc) {
 	if(!lex_chkread(l, LEX_R_CONTINUE)) return false;
 	if(!lex_chkread_stmt_end(l)) return false;
-	bc_gen(bc, INmstr_CONTINUE);
+	bc_gen(bc, INSTR_CONTINUE);
 	return true;
 }
 
@@ -1137,7 +1137,7 @@ bool stmt_function(lex_t* l, bytecode_t* bc) {
 	if(!lex_chkread(l, LEX_R_FUNCTION)) return false;
 	mstr_t* fname = mstr_new("");
 	factor_def_func(l, bc, fname);
-	bc_gen_str(bc, INmstr_MEMBERN, fname->cstr);
+	bc_gen_str(bc, INSTR_MEMBERN, fname->cstr);
 	mstr_free(fname);
 	return true;
 }
@@ -1145,7 +1145,7 @@ bool stmt_function(lex_t* l, bytecode_t* bc) {
 bool stmt_include(lex_t* l, bytecode_t* bc) {
 	if(!lex_chkread(l, LEX_R_INCLUDE)) return false;
 	if(!base(l, bc)) return false;
-	bc_gen(bc, INmstr_INCLUDE);
+	bc_gen(bc, INSTR_INCLUDE);
 	return true;
 }
 
@@ -1153,10 +1153,10 @@ bool stmt_return(lex_t* l, bytecode_t* bc) {
 	if(!lex_chkread(l, LEX_R_RETURN)) return false;
 	if (!is_stmt_end(l->tk)) {
 		if(!base(l, bc)) return false;
-		bc_gen(bc, INmstr_RETURNV);
+		bc_gen(bc, INSTR_RETURNV);
 	}
 	else {
-		bc_gen(bc, INmstr_RETURN);
+		bc_gen(bc, INSTR_RETURN);
 	}
 	return lex_chkread_stmt_end(l);
 }
@@ -1165,14 +1165,14 @@ bool stmt_throw(lex_t* l, bytecode_t* bc) {
 	if(!lex_chkread(l, LEX_R_THROW)) return false;
 	if(!base(l, bc)) return false;
 	if(!lex_chkread_stmt_end(l)) return false;
-	bc_gen(bc, INmstr_THROW);
+	bc_gen(bc, INSTR_THROW);
 	return true;
 }
 
 bool stmt_try(lex_t* l, bytecode_t* bc) {
 	if(!lex_chkread(l, LEX_R_TRY)) return false;
-	PC pc = bc_gen(bc, INmstr_TRY);
-	bc_add_instr(bc, pc, INmstr_JMP, pc+2);
+	PC pc = bc_gen(bc, INSTR_TRY);
+	bc_add_instr(bc, pc, INSTR_JMP, pc+2);
 
 	lex_skip_empty(l);
 	PC pc_cache = bc_reserve(bc);
@@ -1180,19 +1180,19 @@ bool stmt_try(lex_t* l, bytecode_t* bc) {
 	lex_skip_empty(l);
 	PC pce = bc_reserve(bc); //jmp to finalize.
 
-	bc_set_instr(bc, pc_cache, INmstr_JMP, ILLEGAL_PC);
+	bc_set_instr(bc, pc_cache, INSTR_JMP, ILLEGAL_PC);
 	if(!lex_chkread(l, LEX_R_CATCH)) return false;
 
 	lex_skip_empty(l);
 	if(!lex_chkread(l, '(')) return false;
-	bc_gen_str(bc, INmstr_CATCH, l->tk_str->cstr);
+	bc_gen_str(bc, INSTR_CATCH, l->tk_str->cstr);
 	if(!lex_chkread(l, LEX_ID)) return false;
 	if(!lex_chkread(l, ')')) return false;
 	lex_skip_empty(l);
 	if(!statement(l, bc)) return false;
 
-	pc = bc_gen(bc, INmstr_TRY_END) - 1;
-	bc_set_instr(bc, pce, INmstr_JMP, pc); // end anchor;
+	pc = bc_gen(bc, INSTR_TRY_END) - 1;
+	bc_set_instr(bc, pce, INSTR_JMP, pc); // end anchor;
 	return true;
 }
 
@@ -1279,7 +1279,7 @@ bool statement(lex_t* l, bytecode_t* bc) {
 	}
 
 	if(pop)
-		bc_gen(bc, INmstr_POP);
+		bc_gen(bc, INSTR_POP);
 	return true;
 }
 
@@ -1294,7 +1294,7 @@ bool compile(bytecode_t *bc, const char* input) {
 			return false;
 		}
 	}
-	bc_gen(bc, INmstr_END);
+	bc_gen(bc, INSTR_END);
 	lex_release(&lex);
 	return true;
 }

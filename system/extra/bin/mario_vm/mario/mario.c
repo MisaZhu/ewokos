@@ -1136,7 +1136,7 @@ void bc_add(bytecode_t* bc, PC ins) {
 }
 	
 PC bc_reserve(bytecode_t* bc) {
-	bc_add(bc, INS(INmstr_NIL, OFF_MASK));
+	bc_add(bc, INS(INSTR_NIL, OFF_MASK));
   return bc->cindex-1;
 }
 
@@ -1169,15 +1169,15 @@ PC bc_gen_str(bytecode_t* bc, opr_code_t instr, const char* str) {
 	float f = 0.0;
 	const char* s = str;
 
-	if(instr == INmstr_INT) {
+	if(instr == INSTR_INT) {
 		if(strstr(str, "0x") != NULL ||
 				strstr(str, "0x") != NULL)
-			i = (uint32_t)strtol(str, NULL, 16);
+			i = (uint32_t)strtoul(str, NULL, 16);
 		else
 			i = (uint32_t)strtol(str, NULL, 10);
 		s = NULL;
 	}
-	else if(instr == INmstr_FLOAT) {
+	else if(instr == INSTR_FLOAT) {
 		f = 0.0;//atof(str);
 		s = NULL;
 	}
@@ -1185,13 +1185,13 @@ PC bc_gen_str(bytecode_t* bc, opr_code_t instr, const char* str) {
 	PC ins = bc_bytecode(bc, instr, s);
 	bc_add(bc, ins);
 
-	if(instr == INmstr_INT) {
+	if(instr == INSTR_INT) {
 		if(i < OFF_MASK) //short int
-			bc->code_buf[bc->cindex-1] = INS(INmstr_INT_S, i);
+			bc->code_buf[bc->cindex-1] = INS(INSTR_INT_S, i);
 		else 	
 			bc_add(bc, i);
 	}
-	else if(instr == INmstr_FLOAT) {
+	else if(instr == INSTR_FLOAT) {
 		memcpy(&i, &f, sizeof(PC));
 		bc_add(bc, i);
 	}
@@ -1234,90 +1234,90 @@ PC bc_add_instr(bytecode_t* bc, PC anchor, opr_code_t op, PC target) {
 
 const char* inmstr_str(opr_code_t ins) {
 	switch(ins) {
-		case  INmstr_NIL					: return "NIL";
-		case  INmstr_END					: return "END";
-		case  INmstr_OBJ					: return "OBJ";
-		case  INmstr_OBJ_END			: return "OBJE";
-		case  INmstr_MEMBER			: return "MEMBER";
-		case  INmstr_MEMBERN			: return "MEMBERN";
-		case  INmstr_POP					: return "POP";
-		case  INmstr_VAR					: return "VAR";
-		case  INmstr_LET					: return "LET";
-		case  INmstr_CONST				: return "CONST";
-		case  INmstr_INT					: return "INT";
-		case  INmstr_INT_S				: return "INTS";
-		case  INmstr_FLOAT				: return "FLOAT";
-		case  INmstr_STR					: return "STR";
-		case  INmstr_ARRAY_AT		: return "ARRAT";
-		case  INmstr_ARRAY				: return "ARR";
-		case  INmstr_ARRAY_END		: return "ARRE";
-		case  INmstr_LOAD				: return "LOAD";
-		case  INmstr_LOADO				: return "LOADO";
-		case  INmstr_STORE				: return "STORE";
-		case  INmstr_JMP					: return "JMP";
-		case  INmstr_NJMP				: return "NJMP";
-		case  INmstr_JMPB				: return "JMPB";
-		case  INmstr_NJMPB				: return "NJMPB";
-		case  INmstr_FUNC				: return "FUNC";
-		case  INmstr_FUNC_STC		: return "FUNC_STC";
-		case  INmstr_FUNC_GET		: return "FUNCGET";
-		case  INmstr_FUNC_SET		: return "FUNCSET";
-		case  INmstr_CLASS				: return "CLASS";
-		case  INmstr_CLASS_END		: return "CLASSE";
-		case  INmstr_EXTENDS			: return "EXTENDS";
-		case  INmstr_CALL				: return "CALL";
-		case  INmstr_CALLO				: return "CALLO";
-		case  INmstr_NOT					: return "NOT";
-		case  INmstr_MULTI				: return "MULTI";
-		case  INmstr_DIV					: return "DIV";
-		case  INmstr_MOD					: return "MOD";
-		case  INmstr_PLUS				: return "PLUS";
-		case  INmstr_MINUS				: return "MINUS";
-		case  INmstr_NEG					: return "NEG";
-		case  INmstr_PPLUS				: return "PPLUS";
-		case  INmstr_MMINUS			: return "MMINUS";
-		case  INmstr_PPLUS_PRE		: return "PPLUSP";
-		case  INmstr_MMINUS_PRE	: return "MMINUSP";
-		case  INmstr_LSHIFT			: return "LSHIFT";
-		case  INmstr_RSHIFT			: return "RSHIFT";
-		case  INmstr_URSHIFT			: return "URSHIFT";
-		case  INmstr_EQ					: return "EQ";
-		case  INmstr_NEQ					: return "NEQ";
-		case  INmstr_LEQ					: return "LEQ";
-		case  INmstr_GEQ					: return "GEQ";
-		case  INmstr_GRT					: return "GRT";
-		case  INmstr_LES					: return "LES";
-		case  INmstr_PLUSEQ			: return "PLUSEQ";
-		case  INmstr_MINUSEQ			: return "MINUSEQ";
-		case  INmstr_MULTIEQ			: return "MULTIEQ";
-		case  INmstr_DIVEQ				: return "DIVEQ";
-		case  INmstr_MODEQ				: return "MODEQ";
-		case  INmstr_AAND				: return "AAND";
-		case  INmstr_OOR					: return "OOR";
-		case  INmstr_OR					: return "OR";
-		case  INmstr_XOR					: return "XOR";
-		case  INmstr_AND					: return "AND";
-		case  INmstr_ASIGN				: return "ASIGN";
-		case  INmstr_BREAK				: return "BREAK";
-		case  INmstr_CONTINUE		: return "CONTINUE";
-		case  INmstr_RETURN			: return "RETURN";
-		case  INmstr_RETURNV			: return "RETURNV";
-		case  INmstr_TRUE				: return "TRUE";
-		case  INmstr_FALSE				: return "FALSE";
-		case  INmstr_NULL				: return "NULL";
-		case  INmstr_UNDEF				: return "UNDEF";
-		case  INmstr_NEW					: return "NEW";
-		case  INmstr_GET					: return "GET";
-		case  INmstr_BLOCK				: return "BLOCK";
-		case  INmstr_BLOCK_END		: return "BLOCKE";
-		case  INmstr_LOOP				: return "LOOP";
-		case  INmstr_LOOP_END		: return "LOOPE";
-		case  INmstr_TRY					: return "TRY";
-		case  INmstr_TRY_END			: return "TRYE";
-		case  INmstr_THROW				: return "THROW";
-		case  INmstr_CATCH				: return "CATCH";
-		case  INmstr_INSTOF			: return "INSTOF";
-		case  INmstr_INCLUDE			: return "INCLUDE";
+		case  INSTR_NIL					: return "NIL";
+		case  INSTR_END					: return "END";
+		case  INSTR_OBJ					: return "OBJ";
+		case  INSTR_OBJ_END			: return "OBJE";
+		case  INSTR_MEMBER			: return "MEMBER";
+		case  INSTR_MEMBERN			: return "MEMBERN";
+		case  INSTR_POP					: return "POP";
+		case  INSTR_VAR					: return "VAR";
+		case  INSTR_LET					: return "LET";
+		case  INSTR_CONST				: return "CONST";
+		case  INSTR_INT					: return "INT";
+		case  INSTR_INT_S				: return "INTS";
+		case  INSTR_FLOAT				: return "FLOAT";
+		case  INSTR_STR					: return "STR";
+		case  INSTR_ARRAY_AT		: return "ARRAT";
+		case  INSTR_ARRAY				: return "ARR";
+		case  INSTR_ARRAY_END		: return "ARRE";
+		case  INSTR_LOAD				: return "LOAD";
+		case  INSTR_LOADO				: return "LOADO";
+		case  INSTR_STORE				: return "STORE";
+		case  INSTR_JMP					: return "JMP";
+		case  INSTR_NJMP				: return "NJMP";
+		case  INSTR_JMPB				: return "JMPB";
+		case  INSTR_NJMPB				: return "NJMPB";
+		case  INSTR_FUNC				: return "FUNC";
+		case  INSTR_FUNC_STC		: return "FUNC_STC";
+		case  INSTR_FUNC_GET		: return "FUNCGET";
+		case  INSTR_FUNC_SET		: return "FUNCSET";
+		case  INSTR_CLASS				: return "CLASS";
+		case  INSTR_CLASS_END		: return "CLASSE";
+		case  INSTR_EXTENDS			: return "EXTENDS";
+		case  INSTR_CALL				: return "CALL";
+		case  INSTR_CALLO				: return "CALLO";
+		case  INSTR_NOT					: return "NOT";
+		case  INSTR_MULTI				: return "MULTI";
+		case  INSTR_DIV					: return "DIV";
+		case  INSTR_MOD					: return "MOD";
+		case  INSTR_PLUS				: return "PLUS";
+		case  INSTR_MINUS				: return "MINUS";
+		case  INSTR_NEG					: return "NEG";
+		case  INSTR_PPLUS				: return "PPLUS";
+		case  INSTR_MMINUS			: return "MMINUS";
+		case  INSTR_PPLUS_PRE		: return "PPLUSP";
+		case  INSTR_MMINUS_PRE	: return "MMINUSP";
+		case  INSTR_LSHIFT			: return "LSHIFT";
+		case  INSTR_RSHIFT			: return "RSHIFT";
+		case  INSTR_URSHIFT			: return "URSHIFT";
+		case  INSTR_EQ					: return "EQ";
+		case  INSTR_NEQ					: return "NEQ";
+		case  INSTR_LEQ					: return "LEQ";
+		case  INSTR_GEQ					: return "GEQ";
+		case  INSTR_GRT					: return "GRT";
+		case  INSTR_LES					: return "LES";
+		case  INSTR_PLUSEQ			: return "PLUSEQ";
+		case  INSTR_MINUSEQ			: return "MINUSEQ";
+		case  INSTR_MULTIEQ			: return "MULTIEQ";
+		case  INSTR_DIVEQ				: return "DIVEQ";
+		case  INSTR_MODEQ				: return "MODEQ";
+		case  INSTR_AAND				: return "AAND";
+		case  INSTR_OOR					: return "OOR";
+		case  INSTR_OR					: return "OR";
+		case  INSTR_XOR					: return "XOR";
+		case  INSTR_AND					: return "AND";
+		case  INSTR_ASIGN				: return "ASIGN";
+		case  INSTR_BREAK				: return "BREAK";
+		case  INSTR_CONTINUE		: return "CONTINUE";
+		case  INSTR_RETURN			: return "RETURN";
+		case  INSTR_RETURNV			: return "RETURNV";
+		case  INSTR_TRUE				: return "TRUE";
+		case  INSTR_FALSE				: return "FALSE";
+		case  INSTR_NULL				: return "NULL";
+		case  INSTR_UNDEF				: return "UNDEF";
+		case  INSTR_NEW					: return "NEW";
+		case  INSTR_GET					: return "GET";
+		case  INSTR_BLOCK				: return "BLOCK";
+		case  INSTR_BLOCK_END		: return "BLOCKE";
+		case  INSTR_LOOP				: return "LOOP";
+		case  INSTR_LOOP_END		: return "LOOPE";
+		case  INSTR_TRY					: return "TRY";
+		case  INSTR_TRY_END			: return "TRYE";
+		case  INSTR_THROW				: return "THROW";
+		case  INSTR_CATCH				: return "CATCH";
+		case  INSTR_INSTOF			: return "INSTOF";
+		case  INSTR_INCLUDE			: return "INCLUDE";
 		default									: return "";
 	}
 }
@@ -1335,11 +1335,11 @@ PC bc_get_inmstr_str(bytecode_t* bc, PC i, mstr_t* ret) {
 		mstr_append(ret, s);
 	}
 	else {
-		if(instr == INmstr_JMP || 
-				instr == INmstr_NJMP || 
-				instr == INmstr_NJMPB ||
-				instr == INmstr_JMPB ||
-				instr == INmstr_INT_S) {
+		if(instr == INSTR_JMP || 
+				instr == INSTR_NJMP || 
+				instr == INSTR_NJMPB ||
+				instr == INSTR_JMPB ||
+				instr == INSTR_INT_S) {
 			snprintf(s, 128, "%08d | 0x%08X ; %s\t%d", i, ins, inmstr_str(instr), offset);	
 			mstr_append(ret, s);
 		}
@@ -1351,13 +1351,13 @@ PC bc_get_inmstr_str(bytecode_t* bc, PC i, mstr_t* ret) {
 		}
 	}
 	
-	if(instr == INmstr_INT) {
+	if(instr == INSTR_INT) {
 		ins = bc->code_buf[i+1];
 		snprintf(s, 128, "\n%08d | 0x%08X ; %d", i+1, ins, ins);	
 		mstr_append(ret, s);
 		i++;
 	}
-	else if(instr == INmstr_FLOAT) {
+	else if(instr == INSTR_FLOAT) {
 		ins = bc->code_buf[i+1];
 		float f;
 		memcpy(&f, &ins, sizeof(PC));
@@ -2293,14 +2293,14 @@ static int32_t var_cache(vm_t* vm, var_t* v) {
 }
 
 static bool try_cache(vm_t* vm, PC* ins, var_t* v) {
-	if((*ins) & INmstr_OPT_CACHE) {
+	if((*ins) & INSTR_OPT_CACHE) {
 		int index = var_cache(vm, v); 
 		if(index >= 0) 
-			*ins = INS(INmstr_CACHE, index);
+			*ins = INS(INSTR_CACHE, index);
 		return true;
 	}
 
-	*ins = (*ins) | INmstr_OPT_CACHE;
+	*ins = (*ins) | INSTR_OPT_CACHE;
 	return false;
 }
 */
@@ -2886,7 +2886,7 @@ static var_t* func_def(vm_t* vm, bool regular, bool is_static) {
 		PC ins = vm->bc.code_buf[vm->pc++];
 		opr_code_t instr = OP(ins);
 		uint32_t offset = OFF(ins);
-		if(instr == INmstr_JMP) {
+		if(instr == INSTR_JMP) {
 			func->pc = vm->pc;
 			vm->pc = vm->pc + offset - 1;
 			break;
@@ -2916,46 +2916,46 @@ static inline void math_op(vm_t* vm, opr_code_t op, var_t* v1, var_t* v2) {
 		i2 = *(int*)v2->value;
 
 		switch(op) {
-			case INmstr_PLUS: 
-			case INmstr_PLUSEQ: 
+			case INSTR_PLUS: 
+			case INSTR_PLUSEQ: 
 				ret = (i1 + i2);
 				break; 
-			case INmstr_MINUS: 
-			case INmstr_MINUSEQ: 
+			case INSTR_MINUS: 
+			case INSTR_MINUSEQ: 
 				ret = (i1 - i2);
 				break; 
-			case INmstr_DIV: 
-			case INmstr_DIVEQ: 
+			case INSTR_DIV: 
+			case INSTR_DIVEQ: 
 				ret = (i1 / i2);
 				break; 
-			case INmstr_MULTI: 
-			case INmstr_MULTIEQ: 
+			case INSTR_MULTI: 
+			case INSTR_MULTIEQ: 
 				ret = (i1 * i2);
 				break; 
-			case INmstr_MOD: 
-			case INmstr_MODEQ: 
+			case INSTR_MOD: 
+			case INSTR_MODEQ: 
 				ret = i1 % i2;
 				break; 
-			case INmstr_RSHIFT: 
+			case INSTR_RSHIFT: 
 				ret = i1 >> i2;
 				break; 
-			case INmstr_LSHIFT: 
+			case INSTR_LSHIFT: 
 				ret = i1 << i2;
 				break; 
-			case INmstr_AND: 
+			case INSTR_AND: 
 				ret = i1 & i2;
 				break; 
-			case INmstr_OR: 
+			case INSTR_OR: 
 				ret = i1 | i2;
 				break; 
 		}
 
 		var_t* v;
-		if(op == INmstr_PLUSEQ || 
-				op == INmstr_MINUSEQ ||
-				op == INmstr_DIVEQ ||
-				op == INmstr_MULTIEQ ||
-				op == INmstr_MODEQ)  {
+		if(op == INSTR_PLUSEQ || 
+				op == INSTR_MINUSEQ ||
+				op == INSTR_DIVEQ ||
+				op == INSTR_MULTIEQ ||
+				op == INSTR_MODEQ)  {
 			v = v1;
 			*(int*)v->value = ret;
 		}
@@ -2981,30 +2981,30 @@ static inline void math_op(vm_t* vm, opr_code_t op, var_t* v1, var_t* v2) {
 			f2 = (float) *(int*)v2->value;
 
 		switch(op) {
-			case INmstr_PLUS: 
-			case INmstr_PLUSEQ: 
+			case INSTR_PLUS: 
+			case INSTR_PLUSEQ: 
 				ret = (f1 + f2);
 				break; 
-			case INmstr_MINUS: 
-			case INmstr_MINUSEQ: 
+			case INSTR_MINUS: 
+			case INSTR_MINUSEQ: 
 				ret = (f1 - f2);
 				break; 
-			case INmstr_DIV: 
-			case INmstr_DIVEQ: 
+			case INSTR_DIV: 
+			case INSTR_DIVEQ: 
 				ret = (f1 / f2);
 				break; 
-			case INmstr_MULTI: 
-			case INmstr_MULTIEQ: 
+			case INSTR_MULTI: 
+			case INSTR_MULTIEQ: 
 				ret = (f1 * f2);
 				break; 
 		}
 
 		var_t* v;
-		if(op == INmstr_PLUSEQ || 
-				op == INmstr_MINUSEQ ||
-				op == INmstr_DIVEQ ||
-				op == INmstr_MULTIEQ ||
-				op == INmstr_MODEQ)  {
+		if(op == INSTR_PLUSEQ || 
+				op == INSTR_MINUSEQ ||
+				op == INSTR_DIVEQ ||
+				op == INSTR_MULTIEQ ||
+				op == INSTR_MODEQ)  {
 			v = v1;
 			*(float*)v->value = ret;
 		}
@@ -3016,7 +3016,7 @@ static inline void math_op(vm_t* vm, opr_code_t op, var_t* v1, var_t* v2) {
 	}
 
 	//do string + 
-	if(op == INmstr_PLUS || op == INmstr_PLUSEQ) {
+	if(op == INSTR_PLUS || op == INSTR_PLUSEQ) {
 		mstr_t* s = mstr_new((const char*)v1->value);
 		mstr_t* json = mstr_new("");
 		var_to_str(v2, json);
@@ -3024,7 +3024,7 @@ static inline void math_op(vm_t* vm, opr_code_t op, var_t* v1, var_t* v2) {
 		mstr_free(json);
 
 		var_t* v;
-		if(op == INmstr_PLUSEQ) {
+		if(op == INSTR_PLUSEQ) {
 			v = v1;
 			char* p = (char*)v->value;
 			v->value = _malloc(s->len+1);
@@ -3044,12 +3044,12 @@ static inline void compare(vm_t* vm, opr_code_t op, var_t* v1, var_t* v2) {
     if(v1->type == V_OBJECT) {
         bool i = false;
         switch(op) {
-        case INmstr_EQ:
-        case INmstr_TEQ:
+        case INSTR_EQ:
+        case INSTR_TEQ:
             i = (v1 == v2);
             break;
-        case INmstr_NEQ:
-        case INmstr_NTEQ:
+        case INSTR_NEQ:
+        case INSTR_NTEQ:
             i = (v1 != v2);
             break;
         }
@@ -3068,24 +3068,24 @@ static inline void compare(vm_t* vm, opr_code_t op, var_t* v1, var_t* v2) {
 
 		bool i = false;
 		switch(op) {
-			case INmstr_EQ: 
-			case INmstr_TEQ:
+			case INSTR_EQ: 
+			case INSTR_TEQ:
 				i = (i1 == i2);
 				break; 
-			case INmstr_NEQ: 
-			case INmstr_NTEQ:
+			case INSTR_NEQ: 
+			case INSTR_NTEQ:
 				i = (i1 != i2);
 				break; 
-			case INmstr_LES: 
+			case INSTR_LES: 
 				i = (i1 < i2);
 				break; 
-			case INmstr_GRT: 
+			case INSTR_GRT: 
 				i = (i1 > i2);
 				break; 
-			case INmstr_LEQ: 
+			case INSTR_LEQ: 
 				i = (i1 <= i2);
 				break; 
-			case INmstr_GEQ: 
+			case INSTR_GEQ: 
 				i = (i1 >= i2);
 				break; 
 		}
@@ -3118,54 +3118,54 @@ static inline void compare(vm_t* vm, opr_code_t op, var_t* v1, var_t* v2) {
 			(v2->type == V_INT || v2->type == V_FLOAT))) {
 		if(v1->type == V_STRING) {
 			switch(op) {
-				case INmstr_EQ: 
-				case INmstr_TEQ:
+				case INSTR_EQ: 
+				case INSTR_TEQ:
 					i = (strcmp((const char*)v1->value, (const char*)v2->value) == 0);
 					break; 
-				case INmstr_NEQ: 
-				case INmstr_NTEQ:
+				case INSTR_NEQ: 
+				case INSTR_NTEQ:
 					i = (strcmp((const char*)v1->value, (const char*)v2->value) != 0);
 					break;
 			}
 		}
 		else if(v1->type == V_NULL) {
 			switch(op) {
-				case INmstr_EQ: 
-				case INmstr_TEQ:
+				case INSTR_EQ: 
+				case INSTR_TEQ:
 					i = (v2->type == V_NULL);
 					break; 
-				case INmstr_NEQ: 
-				case INmstr_NTEQ:
+				case INSTR_NEQ: 
+				case INSTR_NTEQ:
 					i = (v2->type != V_NULL);
 					break;
 			}
 		}
 		else if(v1->type == V_INT || v1->type == V_FLOAT) {
 			switch(op) {
-				case INmstr_EQ: 
-				case INmstr_TEQ:
+				case INSTR_EQ: 
+				case INSTR_TEQ:
 					i = (f1 == f2);
 					break; 
-				case INmstr_NEQ: 
-				case INmstr_NTEQ:
+				case INSTR_NEQ: 
+				case INSTR_NTEQ:
 					i = (f1 != f2);
 					break; 
-				case INmstr_LES: 
+				case INSTR_LES: 
 					i = (f1 < f2);
 					break; 
-				case INmstr_GRT: 
+				case INSTR_GRT: 
 					i = (f1 > f2);
 					break; 
-				case INmstr_LEQ: 
+				case INSTR_LEQ: 
 					i = (f1 <= f2);
 					break; 
-				case INmstr_GEQ: 
+				case INSTR_GEQ: 
 					i = (f1 >= f2);
 					break; 
 			}
 		}
 	}
-	else if(op == INmstr_NEQ || op == INmstr_NTEQ) {
+	else if(op == INSTR_NEQ || op == INSTR_NTEQ) {
 		i = true;
 	}
 
@@ -3532,28 +3532,28 @@ bool vm_run(vm_t* vm) {
 		register opr_code_t instr = OP(ins);
 		register uint32_t offset = OFF(ins);
 
-		if(instr == INmstr_END)
+		if(instr == INSTR_END)
 			break;
 		
 		switch(instr) {
-			case INmstr_JMP: 
+			case INSTR_JMP: 
 			{
 				vm->pc = vm->pc + offset - 1;
 				break;
 			}
-			case INmstr_JMPB: 
+			case INSTR_JMPB: 
 			{
 				vm->pc = vm->pc - offset - 1;
 				break;
 			}
-			case INmstr_NJMP: 
-			case INmstr_NJMPB: 
+			case INSTR_NJMP: 
+			case INSTR_NJMPB: 
 			{
 				var_t* v = vm_pop2(vm);
 				if(v->type == V_UNDEF ||
 						v->value == NULL ||
 						*(int*)(v->value) == 0) {
-					if(instr == INmstr_NJMP) 
+					if(instr == INSTR_NJMP) 
 						vm->pc = vm->pc + offset - 1;
 					else
 						vm->pc = vm->pc - offset - 1;
@@ -3561,8 +3561,8 @@ bool vm_run(vm_t* vm) {
 				var_unref(v);
 				break;
 			}
-			case INmstr_LOAD: 
-			case INmstr_LOADO: 
+			case INSTR_LOAD: 
+			case INSTR_LOADO: 
 			{
 				bool loaded = false;
 				if(offset == vm->this_strIndex) {
@@ -3575,7 +3575,7 @@ bool vm_run(vm_t* vm) {
 				if(!loaded) {
 					const char* s = bc_getstr(&vm->bc, offset);
 					node_t* n = NULL;
-					if(instr == INmstr_LOAD) {
+					if(instr == INSTR_LOAD) {
 						n = vm_load_node(vm, s, true); //load variable, create if not exist.
 						vm_push_node(vm, n);
 					}
@@ -3591,14 +3591,14 @@ bool vm_run(vm_t* vm) {
 				}
 				break;
 			}
-			case INmstr_LES: 
-			case INmstr_EQ: 
-			case INmstr_NEQ: 
-			case INmstr_TEQ:
-			case INmstr_NTEQ:
-			case INmstr_GRT: 
-			case INmstr_LEQ: 
-			case INmstr_GEQ: 
+			case INSTR_LES: 
+			case INSTR_EQ: 
+			case INSTR_NEQ: 
+			case INSTR_TEQ:
+			case INSTR_NTEQ:
+			case INSTR_GRT: 
+			case INSTR_LEQ: 
+			case INSTR_GEQ: 
 			{
 				var_t* v2 = vm_pop2(vm);
 				var_t* v1 = vm_pop2(vm);
@@ -3607,37 +3607,37 @@ bool vm_run(vm_t* vm) {
 				var_unref(v2);
 				break;
 			}
-			case INmstr_NIL: 
+			case INSTR_NIL: 
 			{	
 				break; 
 			}
-			case INmstr_BLOCK: 
-			case INmstr_LOOP: 
-			case INmstr_TRY: 
+			case INSTR_BLOCK: 
+			case INSTR_LOOP: 
+			case INSTR_TRY: 
 			{
 				scope_t* sc = NULL;
 				sc = scope_new(var_new_block(vm));
 				sc->is_block = true;
-				if(instr == INmstr_LOOP) {
+				if(instr == INSTR_LOOP) {
 					sc->is_loop = true;
 					sc->pc_start = vm->pc+1;
 					sc->pc = vm->pc+2;
 				}
-				else if(instr == INmstr_TRY) {
+				else if(instr == INSTR_TRY) {
 					sc->is_try = true;
 					sc->pc = vm->pc+1;
 				}
 				vm_push_scope(vm, sc);
 				break;
 			}
-			case INmstr_BLOCK_END: 
-			case INmstr_LOOP_END: 
-			case INmstr_TRY_END: 
+			case INSTR_BLOCK_END: 
+			case INSTR_LOOP_END: 
+			case INSTR_TRY_END: 
 			{
 				vm_pop_scope(vm);
 				break;
 			}
-			case INmstr_BREAK: 
+			case INSTR_BREAK: 
 			{
 				while(true) {
 					scope_t* sc = vm_get_scope(vm);
@@ -3654,7 +3654,7 @@ bool vm_run(vm_t* vm) {
 				}
 				break;
 			}
-			case INmstr_CONTINUE:
+			case INSTR_CONTINUE:
 			{
 				while(true) {
 					scope_t* sc = vm_get_scope(vm);
@@ -3672,40 +3672,40 @@ bool vm_run(vm_t* vm) {
 				break;
 			}
 			#ifdef MARIO_CACHE
-			case INmstr_CACHE: 
+			case INSTR_CACHE: 
 			{	
 				var_t* v = vm->var_cache[offset];
 				vm_push(vm, v);
 				break;
 			}
 			#endif
-			case INmstr_TRUE: 
+			case INSTR_TRUE: 
 			{
 				vm_push(vm, vm->var_true);
 				break;
 			}
-			case INmstr_FALSE: 
+			case INSTR_FALSE: 
 			{
 				vm_push(vm, vm->var_false);
 				break;
 			}
-			case INmstr_NULL: 
+			case INSTR_NULL: 
 			{
 				vm_push(vm, vm->var_null);
 				break;
 			}
-			case INmstr_UNDEF: 
+			case INSTR_UNDEF: 
 			{
 				var_t* v = var_new(vm);	
 				vm_push(vm, v);
 				break;
 			}
-			case INmstr_POP: 
+			case INSTR_POP: 
 			{
 				vm_pop(vm);
 				break;
 			}
-			case INmstr_NEG: 
+			case INSTR_NEG: 
 			{
 				var_t* v = vm_pop2(vm);
 				if(v->type == V_INT) {
@@ -3721,7 +3721,7 @@ bool vm_run(vm_t* vm) {
 				var_unref(v);
 				break;
 			}
-			case INmstr_NOT: 
+			case INSTR_NOT: 
 			{
 				var_t* v = vm_pop2(vm);
 				bool i = false;
@@ -3731,8 +3731,8 @@ bool vm_run(vm_t* vm) {
 				vm_push(vm, i ? vm->var_true:vm->var_false);
 				break;
 			}
-			case INmstr_AAND: 
-			case INmstr_OOR: 
+			case INSTR_AAND: 
+			case INSTR_OOR: 
 			{
 				var_t* v2 = vm_pop2(vm);
 				var_t* v1 = vm_pop2(vm);
@@ -3740,7 +3740,7 @@ bool vm_run(vm_t* vm) {
 				int i1 = *(int*)v1->value;
 				int i2 = *(int*)v2->value;
 
-				if(instr == INmstr_AAND)
+				if(instr == INSTR_AAND)
 					r = (i1 != 0) && (i2 != 0);
 				else
 					r = (i1 != 0) || (i2 != 0);
@@ -3750,20 +3750,20 @@ bool vm_run(vm_t* vm) {
 				var_unref(v2);
 				break;
 			}
-			case INmstr_PLUS: 
-			case INmstr_RSHIFT: 
-			case INmstr_LSHIFT: 
-			case INmstr_AND: 
-			case INmstr_OR: 
-			case INmstr_PLUSEQ: 
-			case INmstr_MULTIEQ: 
-			case INmstr_DIVEQ: 
-			case INmstr_MODEQ: 
-			case INmstr_MINUS: 
-			case INmstr_MINUSEQ: 
-			case INmstr_DIV: 
-			case INmstr_MULTI: 
-			case INmstr_MOD:
+			case INSTR_PLUS: 
+			case INSTR_RSHIFT: 
+			case INSTR_LSHIFT: 
+			case INSTR_AND: 
+			case INSTR_OR: 
+			case INSTR_PLUSEQ: 
+			case INSTR_MULTIEQ: 
+			case INSTR_DIVEQ: 
+			case INSTR_MODEQ: 
+			case INSTR_MINUS: 
+			case INSTR_MINUSEQ: 
+			case INSTR_DIV: 
+			case INSTR_MULTI: 
+			case INSTR_MOD:
 			{
 				var_t* v2 = vm_pop2(vm);
 				var_t* v1 = vm_pop2(vm);
@@ -3772,19 +3772,19 @@ bool vm_run(vm_t* vm) {
 				var_unref(v2);
 				break;
 			}
-			case INmstr_MMINUS_PRE: 
+			case INSTR_MMINUS_PRE: 
 			{
 				var_t* v = vm_pop2(vm);
 				int *i = (int*)v->value;
 				if(i != NULL) {
 					(*i)--;
-					if((ins & INmstr_OPT_CACHE) == 0) {
-						if(OP(code[vm->pc]) != INmstr_POP) { 
+					if((ins & INSTR_OPT_CACHE) == 0) {
+						if(OP(code[vm->pc]) != INSTR_POP) { 
 							vm_push(vm, v);
 						}
 						else { 
-							code[vm->pc] = INmstr_NIL;
-							code[vm->pc-1] |= INmstr_OPT_CACHE; 
+							code[vm->pc] = INSTR_NIL;
+							code[vm->pc-1] |= INSTR_OPT_CACHE; 
 						}
 					}
 					else { //skip the nil if cached
@@ -3797,19 +3797,19 @@ bool vm_run(vm_t* vm) {
 				var_unref(v);
 				break;
 			}
-			case INmstr_MMINUS: 
+			case INSTR_MMINUS: 
 			{
 				var_t* v = vm_pop2(vm);
 				int *i = (int*)v->value;
 				if(i != NULL) {
-					if((ins & INmstr_OPT_CACHE) == 0) {
+					if((ins & INSTR_OPT_CACHE) == 0) {
 						var_t* v2 = var_new_int(vm, *i);
-						if(OP(code[vm->pc]) != INmstr_POP) {
+						if(OP(code[vm->pc]) != INSTR_POP) {
 							vm_push(vm, v2);
 						}
 						else { 
-							code[vm->pc] = INmstr_NIL; 
-							code[vm->pc-1] |= INmstr_OPT_CACHE;
+							code[vm->pc] = INSTR_NIL; 
+							code[vm->pc-1] |= INSTR_OPT_CACHE;
 							var_unref(v2);
 						}
 					}
@@ -3824,19 +3824,19 @@ bool vm_run(vm_t* vm) {
 				var_unref(v);
 				break;
 			}
-			case INmstr_PPLUS_PRE: 
+			case INSTR_PPLUS_PRE: 
 			{
 				var_t* v = vm_pop2(vm);
 				int *i = (int*)v->value;
 				if(i != NULL) {
 					(*i)++;
-					if((ins & INmstr_OPT_CACHE) == 0) {
-						if(OP(code[vm->pc]) != INmstr_POP) { 
+					if((ins & INSTR_OPT_CACHE) == 0) {
+						if(OP(code[vm->pc]) != INSTR_POP) { 
 							vm_push(vm, v);
 						}
 						else { 
-							code[vm->pc] = INmstr_NIL; 
-							code[vm->pc-1] |= INmstr_OPT_CACHE; 
+							code[vm->pc] = INSTR_NIL; 
+							code[vm->pc-1] |= INSTR_OPT_CACHE; 
 						}
 					}
 					else { //skip the nil if cached
@@ -3849,19 +3849,19 @@ bool vm_run(vm_t* vm) {
 				var_unref(v);
 				break;
 			}
-			case INmstr_PPLUS: 
+			case INSTR_PPLUS: 
 			{
 				var_t* v = vm_pop2(vm);
 				int *i = (int*)v->value;
 				if(i != NULL) {
-					if((ins & INmstr_OPT_CACHE) == 0) {
+					if((ins & INSTR_OPT_CACHE) == 0) {
 						var_t* v2 = var_new_int(vm, *i);
-						if(OP(code[vm->pc]) != INmstr_POP) {
+						if(OP(code[vm->pc]) != INSTR_POP) {
 							vm_push(vm, v2);
 						}
 						else { 
-							code[vm->pc] = INmstr_NIL;
-							code[vm->pc-1] |= INmstr_OPT_CACHE; 
+							code[vm->pc] = INSTR_NIL;
+							code[vm->pc-1] |= INSTR_OPT_CACHE; 
 							var_unref(v2);
 						}
 					}
@@ -3876,10 +3876,10 @@ bool vm_run(vm_t* vm) {
 				var_unref(v);
 				break;
 			}
-			case INmstr_RETURN:  //return without value
-			case INmstr_RETURNV: 
+			case INSTR_RETURN:  //return without value
+			case INSTR_RETURNV: 
 			{ //return with value
-				if(instr == INmstr_RETURN) {//return without value, push "this" to stack
+				if(instr == INSTR_RETURN) {//return without value, push "this" to stack
 					var_t* thisV = vm_this_in_scopes(vm);
 					if(thisV != NULL)
 						vm_push(vm, thisV);
@@ -3904,7 +3904,7 @@ bool vm_run(vm_t* vm) {
 				}
 				return true;
 			}
-			case INmstr_VAR:
+			case INSTR_VAR:
 			{
 				const char* s = bc_getstr(&vm->bc, offset);
 				node_t *node = vm_find(vm, s);
@@ -3921,8 +3921,8 @@ bool vm_run(vm_t* vm) {
 				}
 				break;
 			}
-			case INmstr_LET:
-			case INmstr_CONST: 
+			case INSTR_LET:
+			case INSTR_CONST: 
 			{
 				const char* s = bc_getstr(&vm->bc, offset);
 				var_t* v = vm_get_scope_var(vm);
@@ -3935,23 +3935,23 @@ bool vm_run(vm_t* vm) {
 				}
 				else {
 					node = var_add(v, s, NULL);
-					if(node != NULL && instr == INmstr_CONST)
+					if(node != NULL && instr == INSTR_CONST)
 						node->be_const = true;
 				}
 				break;
 			}
-			case INmstr_INT:
+			case INSTR_INT:
 			{
 				var_t* v = var_new_int(vm, (int)code[vm->pc++]);
 				/*#ifdef MARIO_CACHE
 				if(try_cache(vm, &code[vm->pc-2], v))
-					code[vm->pc-1] = INmstr_NIL;
+					code[vm->pc-1] = INSTR_NIL;
 				#endif
 				*/
 				vm_push(vm, v);
 				break;
 			}
-			case INmstr_INT_S:
+			case INSTR_INT_S:
 			{
 				var_t* v = var_new_int(vm, offset);
 				/*#ifdef MARIO_CACHE
@@ -3961,18 +3961,18 @@ bool vm_run(vm_t* vm) {
 				vm_push(vm, v);
 				break;
 			}
-			case INmstr_FLOAT: 
+			case INSTR_FLOAT: 
 			{
 				var_t* v = var_new_float(vm, *(float*)(&code[vm->pc++]));
 				/*#ifdef MARIO_CACHE
 				if(try_cache(vm, &code[vm->pc-2], v))
-					code[vm->pc-1] = INmstr_NIL;
+					code[vm->pc-1] = INSTR_NIL;
 				#endif
 				*/
 				vm_push(vm, v);
 				break;
 			}
-			case INmstr_STR: 
+			case INSTR_STR: 
 			{
 				const char* s = bc_getstr(&vm->bc, offset);
 				var_t* v = var_new_str(vm, s);
@@ -3984,7 +3984,7 @@ bool vm_run(vm_t* vm) {
 				vm_push(vm, v);
 				break;
 			}
-			case INmstr_ASIGN: 
+			case INSTR_ASIGN: 
 			{
 				var_t* v = vm_pop2(vm);
 				node_t* n = vm_pop2node(vm);
@@ -3998,13 +3998,13 @@ bool vm_run(vm_t* vm) {
 					mario_debug("'!\n");
 				}
 
-				if((ins & INmstr_OPT_CACHE) == 0) {
-					if(OP(code[vm->pc]) != INmstr_POP) {
+				if((ins & INSTR_OPT_CACHE) == 0) {
+					if(OP(code[vm->pc]) != INSTR_POP) {
 						vm_push(vm, n->var);
 					}
 					else { 
-						code[vm->pc] = INmstr_NIL;
-						code[vm->pc-1] |= INmstr_OPT_CACHE;
+						code[vm->pc] = INSTR_NIL;
+						code[vm->pc-1] |= INSTR_OPT_CACHE;
 					}
 				}
 				else { //skip the nil if cached
@@ -4013,7 +4013,7 @@ bool vm_run(vm_t* vm) {
 				var_unref(v);
 				break;
 			}
-			case INmstr_GET: 
+			case INSTR_GET: 
 			{
 				const char* s = bc_getstr(&vm->bc, offset);
 				var_t* v = vm_pop2(vm);
@@ -4022,15 +4022,15 @@ bool vm_run(vm_t* vm) {
 				var_unref(v);
 				break;
 			}
-			case INmstr_NEW: 
+			case INSTR_NEW: 
 			{
 				const char* s = bc_getstr(&vm->bc, offset);
 				if(!do_new(vm, s)) 
 					vm_terminate(vm);
 				break;
 			}
-			case INmstr_CALL: 
-			case INmstr_CALLO: 
+			case INSTR_CALL: 
+			case INSTR_CALLO: 
 			{
 				var_t* func = NULL;
 				var_t* obj = NULL;
@@ -4040,7 +4040,7 @@ bool vm_run(vm_t* vm) {
 				int arg_num = parse_func_name(s, name);
 				var_t* sc_var = vm_get_scope_var(vm);
 				
-				if(instr == INmstr_CALLO) {
+				if(instr == INSTR_CALLO) {
 					obj = vm_stack_pick(vm, arg_num+1);
 					var_build_basic_prototype(vm, obj);
 					unrefObj = true;
@@ -4091,10 +4091,10 @@ bool vm_run(vm_t* vm) {
 				#endif
 				break;
 			}
-			case INmstr_MEMBER: 
-			case INmstr_MEMBERN: 
+			case INSTR_MEMBER: 
+			case INSTR_MEMBERN: 
 			{
-				const char* s = (instr == INmstr_MEMBER ? "" :  bc_getstr(&vm->bc, offset));
+				const char* s = (instr == INSTR_MEMBER ? "" :  bc_getstr(&vm->bc, offset));
 				var_t* v = vm_pop2(vm);
 				if(v == NULL) 
 					v = var_new(vm);
@@ -4113,25 +4113,25 @@ bool vm_run(vm_t* vm) {
 				var_unref(v);
 				break;
 			}
-			case INmstr_FUNC: 
-			case INmstr_FUNC_STC: 
-			case INmstr_FUNC_GET: 
-			case INmstr_FUNC_SET: 
+			case INSTR_FUNC: 
+			case INSTR_FUNC_STC: 
+			case INSTR_FUNC_GET: 
+			case INSTR_FUNC_SET: 
 			{
 				var_t* v = func_def(vm, 
-						(instr == INmstr_FUNC ? true:false),
-						(instr == INmstr_FUNC_STC ? true:false));
+						(instr == INSTR_FUNC ? true:false),
+						(instr == INSTR_FUNC_STC ? true:false));
 				if(v != NULL) {
 					func_mark_closure(vm, v);
 					vm_push(vm, v);
 				}
 				break;
 			}
-			case INmstr_OBJ:
-			case INmstr_ARRAY: 
+			case INSTR_OBJ:
+			case INSTR_ARRAY: 
 			{
 				var_t* obj;
-				if(instr == INmstr_OBJ) {
+				if(instr == INSTR_OBJ) {
 					obj = var_new_obj(vm, NULL, NULL);
 					var_set_prototype(obj, var_get_prototype(vm->var_Object));
 				}
@@ -4141,15 +4141,15 @@ bool vm_run(vm_t* vm) {
 				vm_push_scope(vm, sc);
 				break;
 			}
-			case INmstr_ARRAY_END: 
-			case INmstr_OBJ_END: 
+			case INSTR_ARRAY_END: 
+			case INSTR_OBJ_END: 
 			{
 				var_t* obj = vm_get_scope_var(vm);
 				vm_push(vm, obj); //that actually means currentObj->ref() for push and unref for unasign.
 				vm_pop_scope(vm);
 				break;
 			}
-			case INmstr_ARRAY_AT: 
+			case INSTR_ARRAY_AT: 
 			{
 				var_t* v2 = vm_pop2(vm);
 				var_t* v1 = vm_pop2(vm);
@@ -4170,14 +4170,14 @@ bool vm_run(vm_t* vm) {
 				var_unref(v2);
 				break;
 			}
-			case INmstr_CLASS: 
+			case INSTR_CLASS: 
 			{
 				const char* s =  bc_getstr(&vm->bc, offset);
 				var_t* cls_var = vm_new_class(vm, s);
 				//read extends
 				ins = code[vm->pc];
 				instr = OP(ins);
-				if(instr == INmstr_EXTENDS) {
+				if(instr == INSTR_EXTENDS) {
 					vm->pc++;
 					offset = OFF(ins);
 					s =  bc_getstr(&vm->bc, offset);
@@ -4189,14 +4189,14 @@ bool vm_run(vm_t* vm) {
 				vm_push_scope(vm, sc);
 				break;
 			}
-			case INmstr_CLASS_END: 
+			case INSTR_CLASS_END: 
 			{
 				var_t* var = vm_get_scope_var(vm);
 				vm_push(vm, var);
 				vm_pop_scope(vm);
 				break;
 			}
-			case INmstr_INSTOF: 
+			case INSTR_INSTOF: 
 			{
 				var_t* v2 = vm_pop2(vm);
 				var_t* v1 = vm_pop2(vm);
@@ -4206,21 +4206,21 @@ bool vm_run(vm_t* vm) {
 				vm_push(vm, var_new_bool(vm, res));
 				break;
 			}
-			case INmstr_TYPEOF: 
+			case INSTR_TYPEOF: 
 			{
 				var_t* var = vm_pop2(vm);
 				var_t* v = var_new_str(vm, get_typeof(var));
 				vm_push(vm, v);
 				break;
 			}
-			case INmstr_INCLUDE: 
+			case INSTR_INCLUDE: 
 			{
 				var_t* v = vm_pop2(vm);
 				do_include(vm, var_get_str(v));
 				var_unref(v);
 				break;
 			}
-			case INmstr_THROW: 
+			case INSTR_THROW: 
 			{
 				while(true) {
 					scope_t* sc = vm_get_scope(vm);
@@ -4237,7 +4237,7 @@ bool vm_run(vm_t* vm) {
 				}
 				break;
 			}
-			case INmstr_CATCH: 
+			case INSTR_CATCH: 
 			{
 				const char* s = bc_getstr(&vm->bc, offset);
 				var_t* v = vm_pop2(vm);

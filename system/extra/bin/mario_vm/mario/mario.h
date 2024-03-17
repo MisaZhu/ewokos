@@ -190,118 +190,118 @@ typedef struct st_bytecode {
 */
 
 #define ILLEGAL_PC 0xFFFFFFFF
-#define INmstr_OPT_CACHE	 0x80000000
+#define INSTR_OPT_CACHE	 0x80000000
 #define OFF_MASK 0x0FFFFF
 #define INS(ins, off) (((((int32_t)ins) << 20) & 0xFFF00000) | ((off) & OFF_MASK))
 #define OP(ins) (((ins) >>20) & 0xFF)
 #define OFF(ins) ((ins) & OFF_MASK)
 
-#define INmstr_NIL          0x000 // NIL           : Do nothing.
+#define INSTR_NIL          0x000 // NIL           : Do nothing.
 
-#define INmstr_VAR          0x001 // VAR x         : declare var x
-#define INmstr_CONST        0x002 // CONST x       : declare const x
-#define INmstr_LOAD         0x003 // LOAD x        : load and push x 
-#define INmstr_LOADO        0x004 // LOAD obj x    : load and push obj x 
-#define INmstr_STORE        0x005 // STORE x       : pop and store to x
-#define INmstr_GET          0x006 // getfield
-#define INmstr_ASIGN        0x007 // ASIGN         : =
+#define INSTR_VAR          0x001 // VAR x         : declare var x
+#define INSTR_CONST        0x002 // CONST x       : declare const x
+#define INSTR_LOAD         0x003 // LOAD x        : load and push x 
+#define INSTR_LOADO        0x004 // LOAD obj x    : load and push obj x 
+#define INSTR_STORE        0x005 // STORE x       : pop and store to x
+#define INSTR_GET          0x006 // getfield
+#define INSTR_ASIGN        0x007 // ASIGN         : =
 
-#define INmstr_INT					 0x008 // INT int       : push int
-#define INmstr_FLOAT        0x009 // FLOAT float   : push float 
-#define INmstr_STR          0x00A // STR "str"     : push str
-#define INmstr_ARRAY_AT     0x00B // ARRAT         : get array element at
-#define INmstr_ARRAY        0x00C // ARRAY         : array start
-#define INmstr_ARRAY_END    0x00D // ARRAY_END     : array end
-#define INmstr_INT_S        0x00E // SHORT_INT int : push short int
-#define INmstr_LET          0x00F // LET x         : declare let x
+#define INSTR_INT					 0x008 // INT int       : push int
+#define INSTR_FLOAT        0x009 // FLOAT float   : push float 
+#define INSTR_STR          0x00A // STR "str"     : push str
+#define INSTR_ARRAY_AT     0x00B // ARRAT         : get array element at
+#define INSTR_ARRAY        0x00C // ARRAY         : array start
+#define INSTR_ARRAY_END    0x00D // ARRAY_END     : array end
+#define INSTR_INT_S        0x00E // SHORT_INT int : push short int
+#define INSTR_LET          0x00F // LET x         : declare let x
 
-#define INmstr_FUNC         0x010 // FUNC x        : function definetion x
-#define INmstr_FUNC_GET     0x011 // GET FUNC x    : class get function definetion x
-#define INmstr_FUNC_SET     0x012 // SET FUNC x    : class set function definetion x
-#define INmstr_CALL         0x013 // CALL x        : call function x and push res
-#define INmstr_CALLO        0x014 // CALL obj.x    : call object member function x and push res
-#define INmstr_CLASS        0x015 // class         
-#define INmstr_CLASS_END    0x016 // class end			
-#define INmstr_MEMBER       0x017 // member without name
-#define INmstr_MEMBERN      0x018 // : member with name
-#define INmstr_EXTENDS      0x019 // : class extends
-#define INmstr_FUNC_STC     0x01A // ST FUNC x     : static function definetion x
+#define INSTR_FUNC         0x010 // FUNC x        : function definetion x
+#define INSTR_FUNC_GET     0x011 // GET FUNC x    : class get function definetion x
+#define INSTR_FUNC_SET     0x012 // SET FUNC x    : class set function definetion x
+#define INSTR_CALL         0x013 // CALL x        : call function x and push res
+#define INSTR_CALLO        0x014 // CALL obj.x    : call object member function x and push res
+#define INSTR_CLASS        0x015 // class         
+#define INSTR_CLASS_END    0x016 // class end			
+#define INSTR_MEMBER       0x017 // member without name
+#define INSTR_MEMBERN      0x018 // : member with name
+#define INSTR_EXTENDS      0x019 // : class extends
+#define INSTR_FUNC_STC     0x01A // ST FUNC x     : static function definetion x
 
-#define INmstr_NOT          0x020 // NOT           : !
-#define INmstr_MULTI        0x021 // MULTI         : *
-#define INmstr_DIV          0x022 // DIV           : /
-#define INmstr_MOD          0x023 // MOD           : %
-#define INmstr_PLUS         0x024 // PLUS          : + 
-#define INmstr_MINUS        0x025 // MINUS         : - 
-#define INmstr_NEG          0x026 // NEG           : negate -
-#define INmstr_PPLUS        0x027 // PPLUS         : x++
-#define INmstr_MMINUS       0x028 // MMINUS        : x--
-#define INmstr_PPLUS_PRE    0x029 // PPLUS         : ++x
-#define INmstr_MMINUS_PRE   0x02A // MMINUS        : --x
-#define INmstr_LSHIFT       0x02B // LSHIFT        : <<
-#define INmstr_RSHIFT       0x02C // RSHIFT        : >>
-#define INmstr_URSHIFT      0x02D // URSHIFT       : >>>
+#define INSTR_NOT          0x020 // NOT           : !
+#define INSTR_MULTI        0x021 // MULTI         : *
+#define INSTR_DIV          0x022 // DIV           : /
+#define INSTR_MOD          0x023 // MOD           : %
+#define INSTR_PLUS         0x024 // PLUS          : + 
+#define INSTR_MINUS        0x025 // MINUS         : - 
+#define INSTR_NEG          0x026 // NEG           : negate -
+#define INSTR_PPLUS        0x027 // PPLUS         : x++
+#define INSTR_MMINUS       0x028 // MMINUS        : x--
+#define INSTR_PPLUS_PRE    0x029 // PPLUS         : ++x
+#define INSTR_MMINUS_PRE   0x02A // MMINUS        : --x
+#define INSTR_LSHIFT       0x02B // LSHIFT        : <<
+#define INSTR_RSHIFT       0x02C // RSHIFT        : >>
+#define INSTR_URSHIFT      0x02D // URSHIFT       : >>>
 
-#define INmstr_EQ           0x030 // EQ            : ==
-#define INmstr_NEQ          0x031 // NEQ           : !=
-#define INmstr_LEQ          0x032 // LEQ           : <=
-#define INmstr_GEQ          0x033 // GEQ           : >=
-#define INmstr_GRT          0x034 // GRT           : >
-#define INmstr_LES          0x035 // LES           : <
+#define INSTR_EQ           0x030 // EQ            : ==
+#define INSTR_NEQ          0x031 // NEQ           : !=
+#define INSTR_LEQ          0x032 // LEQ           : <=
+#define INSTR_GEQ          0x033 // GEQ           : >=
+#define INSTR_GRT          0x034 // GRT           : >
+#define INSTR_LES          0x035 // LES           : <
 
-#define INmstr_PLUSEQ       0x036 // +=
-#define INmstr_MINUSEQ      0x037 // -=	
-#define INmstr_MULTIEQ      0x038 // *=
-#define INmstr_DIVEQ        0x039 // /=
-#define INmstr_MODEQ        0x03A // %=
+#define INSTR_PLUSEQ       0x036 // +=
+#define INSTR_MINUSEQ      0x037 // -=	
+#define INSTR_MULTIEQ      0x038 // *=
+#define INSTR_DIVEQ        0x039 // /=
+#define INSTR_MODEQ        0x03A // %=
 
-#define INmstr_AAND         0x040 // AAND          : &&
-#define INmstr_OOR          0x041 // OOR           : ||
-#define INmstr_OR           0x042 // OR            : |
-#define INmstr_XOR          0x043 // XOR           : ^
-#define INmstr_AND          0x044 // AND           : &
+#define INSTR_AAND         0x040 // AAND          : &&
+#define INSTR_OOR          0x041 // OOR           : ||
+#define INSTR_OR           0x042 // OR            : |
+#define INSTR_XOR          0x043 // XOR           : ^
+#define INSTR_AND          0x044 // AND           : &
 
-#define INmstr_TEQ          0x046 // TEQ           : ===
-#define INmstr_NTEQ         0x047 // NTEQ          : !==
-#define INmstr_TYPEOF       0x048 // TYPEOF        : typeof
+#define INSTR_TEQ          0x046 // TEQ           : ===
+#define INSTR_NTEQ         0x047 // NTEQ          : !==
+#define INSTR_TYPEOF       0x048 // TYPEOF        : typeof
 
-#define INmstr_BREAK        0x050 // break
-#define INmstr_CONTINUE     0x051 // continue
-#define INmstr_RETURN       0x052 // return none value
-#define INmstr_RETURNV      0x053 // return with value
+#define INSTR_BREAK        0x050 // break
+#define INSTR_CONTINUE     0x051 // continue
+#define INSTR_RETURN       0x052 // return none value
+#define INSTR_RETURNV      0x053 // return with value
 
-#define INmstr_NJMP         0x054 // NJMP x        : Condition not JMP offset x 
-#define INmstr_JMPB         0x055 // JMP back x    : JMP back offset x  
-#define INmstr_NJMPB        0x056 // NJMP back x   : Condition not JMP back offset x 
-#define INmstr_JMP          0x057 // JMP x         : JMP offset x  
+#define INSTR_NJMP         0x054 // NJMP x        : Condition not JMP offset x 
+#define INSTR_JMPB         0x055 // JMP back x    : JMP back offset x  
+#define INSTR_NJMPB        0x056 // NJMP back x   : Condition not JMP back offset x 
+#define INSTR_JMP          0x057 // JMP x         : JMP offset x  
 
-#define INmstr_TRUE         0x060 // true
-#define INmstr_FALSE        0x061 // false
-#define INmstr_NULL         0x062 // null
-#define INmstr_UNDEF        0x063 // undefined
+#define INSTR_TRUE         0x060 // true
+#define INSTR_FALSE        0x061 // false
+#define INSTR_NULL         0x062 // null
+#define INSTR_UNDEF        0x063 // undefined
 
-#define INmstr_NEW          0x070 // new
-#define INmstr_CACHE        0x071 // CACHE index   : load cache at 'index' and push 
+#define INSTR_NEW          0x070 // new
+#define INSTR_CACHE        0x071 // CACHE index   : load cache at 'index' and push 
 
-#define INmstr_POP          0x080 // pop and release
+#define INSTR_POP          0x080 // pop and release
 
-#define INmstr_OBJ          0x090 // object for JSON 
-#define INmstr_OBJ_END      0x091 // object end for JSON 
+#define INSTR_OBJ          0x090 // object for JSON 
+#define INSTR_OBJ_END      0x091 // object end for JSON 
 
-#define INmstr_BLOCK        0x0A0 // block 
-#define INmstr_BLOCK_END    0x0A1 // block end 
-#define INmstr_LOOP         0x0A2 // loop
-#define INmstr_LOOP_END     0x0A3 // loop end
-#define INmstr_TRY          0x0A4 // try
-#define INmstr_TRY_END      0x0A5 // try end
+#define INSTR_BLOCK        0x0A0 // block 
+#define INSTR_BLOCK_END    0x0A1 // block end 
+#define INSTR_LOOP         0x0A2 // loop
+#define INSTR_LOOP_END     0x0A3 // loop end
+#define INSTR_TRY          0x0A4 // try
+#define INSTR_TRY_END      0x0A5 // try end
 
-#define INmstr_THROW        0x0B0 // throw
-#define INmstr_CATCH        0x0B1 // catch
-#define INmstr_INSTOF       0x0B2 // instanceof
+#define INSTR_THROW        0x0B0 // throw
+#define INSTR_CATCH        0x0B1 // catch
+#define INSTR_INSTOF       0x0B2 // instanceof
 
-#define INmstr_INCLUDE      0x0C0 // include
+#define INSTR_INCLUDE      0x0C0 // include
 
-#define INmstr_END          0x0FF //END : end of code.
+#define INSTR_END          0x0FF //END : end of code.
 
 
 PC bc_gen(bytecode_t* bc, opr_code_t instr);
