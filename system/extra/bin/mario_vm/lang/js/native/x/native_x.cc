@@ -43,7 +43,7 @@ static void destroy_win(void* p) {
 	delete xwin;
 }
 
-/** String */
+//============= x natives =================================
 var_t* native_x_open(vm_t* vm, var_t* env, void* data) {
 	X* x = get_x();
 	JSWin *xwin = new JSWin();
@@ -51,7 +51,7 @@ var_t* native_x_open(vm_t* vm, var_t* env, void* data) {
 
 	var_t* var_win = new_obj(vm, CLS_XWIN, 0);
 	var_win->value = xwin;
-	var_win->free_func = free_none;
+	var_win->free_func = destroy_win;
 	xwin->vm = vm;
 	xwin->var_win = var_win;
 
@@ -63,6 +63,8 @@ var_t* native_x_run(vm_t* vm, var_t* env, void* data) {
 	x->run(NULL);
 	return NULL;
 }
+
+//============= xwin natives =================================
 
 var_t* native_xwin_setVisible(vm_t* vm, var_t* env, void* data) {
 	bool visible = get_bool(env, "visible");
