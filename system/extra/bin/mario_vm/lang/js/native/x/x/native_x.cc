@@ -5,9 +5,24 @@
 
 using namespace Ewok;
 
+
+static void free_none(void* p) {
+	return;
+}
+
 class JSWin : public XWin {
+public:
+	var_t* var_win;
+	vm_t * vm;
 protected:
 	void onRepaint(graph_t* g) { 
+		var_t* arg_g = var_new_obj(vm, g, free_none);
+
+		var_t* args = var_new(vm);
+		var_add(args, "g", arg_g);
+
+		call_m_func_by_name(vm, var_win, "onRepaint", args);
+		var_unref(args);
 	}
 };
 
@@ -26,11 +41,14 @@ static void destroy_win(void* p) {
 /** String */
 var_t* native_x_open(vm_t* vm, var_t* env, void* data) {
 	X* x = get_x();
-	XWin *xwin = new JSWin();
+	JSWin *xwin = new JSWin();
 	x->open(0, xwin, 10, 10, 300, 200, "xwin", XWIN_STYLE_NORMAL);
-	xwin->setVisible(true);
 
 	var_t* var_win = var_new_obj(vm, xwin, destroy_win);
+	xwin->vm = vm;
+	xwin->var_win = var_win;
+
+	xwin->setVisible(true);
 	return var_win;
 }
 
