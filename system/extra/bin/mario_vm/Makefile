@@ -11,7 +11,7 @@ include $(MARIO_VM)/lang/js/lang.mk
 
 mario_OBJS= $(MARIO_VM)/mario/mario.o
 
-MARIO_OBJS = shell/mariovm.o shell/shell.o $(mario_OBJS) $(lang_OBJS) \
+MARIO_OBJS = shell/mariovm.o $(mario_OBJS) $(lang_OBJS) \
 		$(NATIVE_OBJS)
 
 ifneq ($(MARIO_DEBUG), no)

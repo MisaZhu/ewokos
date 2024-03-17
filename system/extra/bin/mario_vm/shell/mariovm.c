@@ -89,8 +89,6 @@ bool load_js(vm_t* vm, const char* fname) {
 	return ret;
 }
 
-void run_shell(vm_t* vm);
-
 int main(int argc, char** argv) {
 	setbuf(stdin, NULL);
 	setbuf(stdout, NULL);
