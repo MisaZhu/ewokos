@@ -1,10 +1,12 @@
 #include "native_graph.h"
 #include <ewoksys/klog.h>
 #include <graph/graph.h>
+#include <upng/upng.h>
 #include <font/font.h>
 
 #define CLS_GRAPH "Graph"
 #define CLS_FONT "Font"
+#define CLS_PNG "PNG"
 
 #ifdef __cplusplus /* __cplusplus */
 extern "C" {
@@ -79,11 +81,52 @@ var_t* native_graph_drawText(vm_t* vm, var_t* env, void* data) {
 	if(g == NULL || font == NULL)
 		return NULL;
 
-	klog("%d, %d, %s, font %x, %x\n", x, y, text, font, color);
 	graph_draw_text_font(g, x, y, text, font, color);
 	return NULL;
 }
 
+var_t* native_graph_blt(vm_t* vm, var_t* env, void* data) {
+	graph_t* src = (graph_t*)get_raw(env, "src");
+	int sx = get_int(env, "sx");
+	int sy = get_int(env, "sy");
+	int sw = get_int(env, "sw");
+	int sh = get_int(env, "sh");
+
+	graph_t* dst = (graph_t*)get_raw(env, THIS);
+	if(src == NULL || dst == NULL)
+		return NULL;
+	
+	int dx = get_int(env, "dx");
+	int dy = get_int(env, "dy");
+	int dw = get_int(env, "dw");
+	int dh = get_int(env, "dh");
+
+	graph_blt(src, sx, sy, sw, sh, dst, dx, dy, dw, dh);
+	return NULL;
+}
+
+var_t* native_graph_bltAlpha(vm_t* vm, var_t* env, void* data) {
+	graph_t* src = (graph_t*)get_raw(env, "src");
+	int sx = get_int(env, "sx");
+	int sy = get_int(env, "sy");
+	int sw = get_int(env, "sw");
+	int sh = get_int(env, "sh");
+
+
+	graph_t* dst = (graph_t*)get_raw(env, THIS);
+	if(src == NULL || dst == NULL)
+		return NULL;
+	
+	int dx = get_int(env, "dx");
+	int dy = get_int(env, "dy");
+	int dw = get_int(env, "dw");
+	int dh = get_int(env, "dh");
+
+	int alpha = get_int(env, "alpha");
+
+	graph_blt_alpha(src, sx, sy, sw, sh, dst, dx, dy, dw, dh, alpha);
+	return NULL;
+}
 
 //===================Font natives=================
 static void free_font(void* p) {
@@ -101,6 +144,27 @@ var_t* native_font_constructor(vm_t* vm, var_t* env, void* data) {
 	return thisV;
 }
 
+//===================Png natives=================
+static void free_g(void* p) {
+	graph_t* img = (graph_t*)p;
+	graph_free(img);
+}
+
+var_t* native_png_load(vm_t* vm, var_t* env, void* data) {
+	const char* name = get_str(env, "name");
+	graph_t* img = png_image_new(name);
+	if(img == NULL)
+		return NULL;
+
+	var_t* v = new_obj(vm, CLS_GRAPH, 0);
+	v->value = img;
+	v->free_func = free_g;
+	var_add(v, "width", var_new_int(vm, img->w));
+	var_add(v, "height", var_new_int(vm, img->h));
+
+	return v;
+}
+
 void reg_native_graph(vm_t* vm) {
 	var_t* cls = vm_new_class(vm, CLS_GRAPH);
 	vm_reg_native(vm, cls, "clear(color)", native_graph_clear, NULL); 
@@ -108,9 +172,14 @@ void reg_native_graph(vm_t* vm) {
 	vm_reg_native(vm, cls, "box(x,y,w,h,color)", native_graph_box, NULL); 
 	vm_reg_native(vm, cls, "line(x0,y0,x1,y1,color)", native_graph_line, NULL); 
 	vm_reg_native(vm, cls, "drawText(x, y, text, font, color)", native_graph_drawText, NULL); 
+	vm_reg_native(vm, cls, "blt(src, sx, sy, sw, sh, dx, dy, dw, dh)", native_graph_blt, NULL); 
+	vm_reg_native(vm, cls, "bltAlpha(src, sx, sy, sw, sh, dx, dy, dw, dh, alpha)", native_graph_bltAlpha, NULL); 
 
 	cls = vm_new_class(vm, CLS_FONT);
 	vm_reg_native(vm, cls, "constructor(name, size)", native_font_constructor, NULL); 
+
+	cls = vm_new_class(vm, CLS_PNG);
+	vm_reg_static(vm, cls, "load(name)", native_png_load, NULL); 
 }
 
 #ifdef __cplusplus /* __cplusplus */

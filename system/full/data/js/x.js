@@ -1,25 +1,29 @@
 var xwin = X.open();
 
-xwin.i = 0;
+var png = PNG.load("/usr/system/images/mac1984.png");
+var font = new Font("/usr/system/fonts/system.ttf", 16);
+var x=0, y=0, ix=0, iy=0;
 
 xwin.onRepaint = function(g) {
     g.clear(0xffffffff);
-    g.fill(10, 10, 40, 40, 0xff000000 | i);
-    var font = new Font("/usr/system/fonts/system.ttf", 16);
-    g.drawText(10, 50, "Hello, World!", font, 0xffff0000);
+    g.bltAlpha(png, 0, 0, png.width, png.height, ix, iy, png.width, png.height, 0xff);
+    g.drawText(10, 50, "Hello, World " + x + ", " + y, font, 0xffff0000);
 };
-
 
 xwin.onMouse = function(mouseEvt) {
     debug(mouseEvt);
-    i += 0xff;
+    x = mouseEvt.x;
+    y = mouseEvt.y;
+
+    if(mouseEvt.state == 3) {
+        ix = x;
+        iy = y;
+    }
     repaint();
 };
 
 xwin.onIM = function(imEvt) {
     debug(imEvt);
-    i += 0xff;
-    repaint();
 };
 
 xwin.setVisible(true);

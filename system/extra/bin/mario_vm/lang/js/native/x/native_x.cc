@@ -51,12 +51,17 @@ protected:
 		var_t* arg_g = new_obj(vm, CLS_GRAPH, 0);
 		arg_g->value = g;
 		arg_g->free_func = free_none;
+		var_add(arg_g, "width", var_new_int(vm, g->w));
+		var_add(arg_g, "height", var_new_int(vm, g->h));
 
 		var_t* args = var_new(vm);
 		var_add(args, "g", arg_g);
 
+		klog("repaint\n");
 		call_m_func_by_name(vm, var_win, "onRepaint", args);
+		klog("repaint done\n");
 		var_unref(args);
+		klog("repaint quit\n");
 	}
 
 	void onEvent(xevent_t* xev) {
