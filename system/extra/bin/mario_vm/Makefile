@@ -29,7 +29,7 @@ CFLAGS += -DMARIO_THREAD
 endif
 
 BUILD_DIR = ../../../build
-TARGET_DIR = $(BUILD_DIR)/rootfs
+TARGET_DIR = $(BUILD_DIR)/extra
 
 LDFLAGS = -L$(BUILD_DIR)/lib
 HEADS = -I $(BUILD_DIR)/include \

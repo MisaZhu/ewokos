@@ -6,7 +6,7 @@ SYS_DIR=../../..
 include $(SYS_DIR)/hardware/$(ARCH)/make.rule
 
 BUILD_DIR = $(SYS_DIR)/build
-TARGET_DIR = $(BUILD_DIR)/rootfs
+TARGET_DIR = $(BUILD_DIR)/extra
 LDFLAGS = -L$(BUILD_DIR)/lib
 CFLAGS += -I include -I $(BUILD_DIR)/include -I pce -D EOF=0 -D M_PI=3.1415926 -D SEEK_SET=0
 CXXFLAGS += -I include -I $(BUILD_DIR)/include -I pce -D EOF=0 -D M_PI=3.1415926 -D SEEK_SET=0
