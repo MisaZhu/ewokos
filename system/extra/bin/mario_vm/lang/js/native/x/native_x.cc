@@ -17,6 +17,35 @@ class JSWin : public XWin {
 public:
 	var_t* var_win;
 	vm_t * vm;
+private:
+	void onMouse(xevent_t* xev) {
+		var_t* arg = var_new_obj(vm, NULL, NULL);
+		var_add(arg, "state", var_new_int(vm, xev->state));
+		var_add(arg, "global_x", var_new_int(vm, xev->value.mouse.x));
+		var_add(arg, "global_y", var_new_int(vm, xev->value.mouse.y));
+		var_add(arg, "rx", var_new_int(vm, xev->value.mouse.rx));
+		var_add(arg, "ry", var_new_int(vm, xev->value.mouse.ry));
+
+		gpos_t pos = getInsidePos(xev->value.mouse.x, xev->value.mouse.y);
+		var_add(arg, "x", var_new_int(vm, pos.x));
+		var_add(arg, "y", var_new_int(vm, pos.y));
+
+		var_t* args = var_new(vm);
+		var_add(args, "mouseEvt", arg);
+		call_m_func_by_name(vm, var_win, "onMouse", args);
+		var_unref(args);
+	}
+	
+	void onIM(xevent_t* xev) {
+		var_t* arg = var_new_obj(vm, NULL, NULL);
+		var_add(arg, "state", var_new_int(vm, xev->state));
+		var_add(arg, "c", var_new_int(vm, xev->value.im.value));
+
+		var_t* args = var_new(vm);
+		var_add(args, "imEvt", arg);
+		call_m_func_by_name(vm, var_win, "onIM", args);
+		var_unref(args);
+	}
 protected:
 	void onRepaint(graph_t* g) { 
 		var_t* arg_g = new_obj(vm, CLS_GRAPH, 0);
@@ -28,6 +57,15 @@ protected:
 
 		call_m_func_by_name(vm, var_win, "onRepaint", args);
 		var_unref(args);
+	}
+
+	void onEvent(xevent_t* xev) {
+		if(xev->type == XEVT_MOUSE) {
+			onMouse(xev);
+		}
+		else if(xev->type == XEVT_IM) {
+			onIM(xev);
+		}
 	}
 };
 
@@ -70,8 +108,19 @@ var_t* native_xwin_setVisible(vm_t* vm, var_t* env, void* data) {
 	bool visible = get_bool(env, "visible");
 
 	XWin* xwin = (XWin*)get_raw(env, THIS);
-	if(xwin != NULL)
-		xwin->setVisible(visible);
+	if(xwin == NULL)
+		return NULL;
+
+	xwin->setVisible(visible);
+	return NULL;
+}
+
+var_t* native_xwin_repaint(vm_t* vm, var_t* env, void* data) {
+	XWin* xwin = (XWin*)get_raw(env, THIS);
+	if(xwin == NULL)
+		return NULL;
+
+	xwin->repaint();
 	return NULL;
 }
 
@@ -86,6 +135,7 @@ void reg_native_x(vm_t* vm) {
 
 	cls = vm_new_class(vm, CLS_XWIN);
 	vm_reg_native(vm, cls, "setVisible(visible)", native_xwin_setVisible, NULL); 
+	vm_reg_native(vm, cls, "repaint()", native_xwin_repaint, NULL); 
 }
 
 #ifdef __cplusplus /* __cplusplus */
