@@ -1680,6 +1680,9 @@ static inline void add_to_gc(var_t* var) {
 }
 
 static inline var_t* get_from_free(vm_t* vm) {
+	if(vm->is_doing_gc)
+		return NULL;
+
 	var_t* var = vm->free_vars;
 	if(var != NULL) {
 		vm->free_vars = var->next;
@@ -3303,10 +3306,8 @@ var_t* call_m_func(vm_t* vm, var_t* obj, var_t* func, var_t* args) {
 		}
 	}
 
-	//while(vm->is_doing_gc); //TODO
-	vm->is_doing_gc = true;
+	while(vm->is_doing_gc);
 	func_call(vm, obj, func, arg_num);
-	vm->is_doing_gc = false;
 	return vm_pop2(vm);
 }
 
@@ -4247,7 +4248,6 @@ bool vm_run(vm_t* vm) {
 				break;
 			}
 		}
-		//gc(vm, false);
 	}
 	while(vm->pc < code_size && !vm->terminated);
 	return false;

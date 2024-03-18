@@ -57,11 +57,8 @@ protected:
 		var_t* args = var_new(vm);
 		var_add(args, "g", arg_g);
 
-		klog("repaint\n");
 		call_m_func_by_name(vm, var_win, "onRepaint", args);
-		klog("repaint done\n");
 		var_unref(args);
-		klog("repaint quit\n");
 	}
 
 	void onEvent(xevent_t* xev) {
