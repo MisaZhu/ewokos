@@ -3303,7 +3303,7 @@ var_t* call_m_func(vm_t* vm, var_t* obj, var_t* func, var_t* args) {
 		}
 	}
 
-	while(vm->is_doing_gc);
+	//while(vm->is_doing_gc); //TODO
 	vm->is_doing_gc = true;
 	func_call(vm, obj, func, arg_num);
 	vm->is_doing_gc = false;
