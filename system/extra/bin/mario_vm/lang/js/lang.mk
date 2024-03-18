@@ -15,12 +15,14 @@ NATIVE_OBJS= $(NATIVE_PATH_BUILTIN)/native_builtin.o  \
 	$(NATIVE_PATH_BUILTIN)/json/native_json.o \
 	$(NATIVE_PATH_BUILTIN)/system/native_system.o \
 	$(NATIVE_PATH_BUILTIN)/fs/native_fs.o \
+	$(NATIVE_PATH_BUILTIN)/dir/native_dir.o \
 	\
 	$(NATIVE_PATH_GRAPH)/native_graph.o  \
 	\
-	$(NATIVE_PATH_X)/native_x.o  \
+	$(NATIVE_PATH_X)/native_x.o
 
-#	$(NATIVE_PATH_BUILTIN)/math/native_math.o
+#	$(NATIVE_PATH_BUILTIN)/socket/native_socket.o \
+	$(NATIVE_PATH_BUILTIN)/math/native_math.o
 
 
 
