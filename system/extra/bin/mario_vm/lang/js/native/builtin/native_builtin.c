@@ -7,6 +7,8 @@
 #include "bytes/native_bytes.h"
 #include "console/native_console.h"
 #include "json/native_json.h"
+#include "system/native_system.h"
+#include "fs/native_fs.h"
 
 #ifdef __cplusplus /* __cplusplus */
 extern "C" {
@@ -21,6 +23,8 @@ void reg_basic_natives(vm_t* vm) {
 	//reg_native_math(vm);
 	reg_native_json(vm);
 	reg_native_bytes(vm);
+	reg_native_system(vm);
+	reg_native_fs(vm);
 }
 
 #ifdef __cplusplus /* __cplusplus */

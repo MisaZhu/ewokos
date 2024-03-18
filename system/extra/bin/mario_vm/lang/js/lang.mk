@@ -13,6 +13,8 @@ NATIVE_OBJS= $(NATIVE_PATH_BUILTIN)/native_builtin.o  \
 	$(NATIVE_PATH_BUILTIN)/string/native_string.o \
 	$(NATIVE_PATH_BUILTIN)/array/native_array.o \
 	$(NATIVE_PATH_BUILTIN)/json/native_json.o \
+	$(NATIVE_PATH_BUILTIN)/system/native_system.o \
+	$(NATIVE_PATH_BUILTIN)/fs/native_fs.o \
 	\
 	$(NATIVE_PATH_GRAPH)/native_graph.o  \
 	\
