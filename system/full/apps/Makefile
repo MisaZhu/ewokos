@@ -1,5 +1,4 @@
 all:
-	cd xtext; make
 	cd finder; make
 	cd gtest; make
 	cd xterm; make
@@ -9,7 +8,6 @@ all:
 	cd clock; make
 
 clean:
-	cd xtext; make clean
 	cd finder; make clean
 	cd gtest; make clean
 	cd xterm; make clean

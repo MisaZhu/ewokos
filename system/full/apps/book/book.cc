@@ -23,6 +23,31 @@ class Book: public XWin {
 	int  read_len;
 	FILE  *fp;
 
+	void pageUp() {
+		if(current_page == history_page[0])
+			return;
+
+		current_page = history_page[0];
+		for (int i = 0; i < HISTORY_PAGE_SIZE - 1; i++) {
+			history_page[i] = history_page[i + 1];
+		}
+		readPage();
+		repaint();
+	}
+
+	void pageDown() {
+		if(current_page == next_page)
+			return;
+
+		for (int i = HISTORY_PAGE_SIZE - 1; i > 0; i--) {
+			history_page[i] = history_page[i - 1];
+		}
+		history_page[0] = current_page;
+		current_page = next_page;
+		readPage();
+		repaint();
+	}
+
 protected:
 	void onRepaint(graph_t* g) {
 		//printf("onRepaint\n");
@@ -72,29 +97,19 @@ protected:
 			int key = ev->value.im.value;
 			if(ev->state == XIM_STATE_PRESS) {
 				if(key == KEY_UP){
-					if(current_page == history_page[0])
-						return;
-
-					current_page = history_page[0];
-					for(int i = 0; i < HISTORY_PAGE_SIZE - 1; i++){
-						history_page[i]	= history_page[i+1];
-					}
-					readPage();
-					repaint();
+					pageUp();	
 				}else if(key == KEY_DOWN){
-					if(current_page == next_page)
-						return;
-
-					for(int i = HISTORY_PAGE_SIZE - 1; i > 0; i--){
-						history_page[i] = history_page[i - 1];
-					}
-					history_page[0] = current_page;
-					current_page = next_page;
-					readPage();
-					repaint();
+					pageDown();	
 				}else
 					return;
 			}
+		}
+		else if(ev->type == XEVT_MOUSE && ev->state == XEVT_MOUSE_CLICK) {
+			gpos_t pos = getInsidePos(ev->value.mouse.x, ev->value.mouse.y);
+			if(pos.y > xinfo.wsr.h/2)
+				pageDown();
+			else
+				pageUp();
 		}
 	}
 public:
