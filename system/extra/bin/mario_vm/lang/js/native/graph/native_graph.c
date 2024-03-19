@@ -55,6 +55,38 @@ var_t* native_graph_box(vm_t* vm, var_t* env, void* data) {
 	return NULL;
 }
 
+var_t* native_graph_round(vm_t* vm, var_t* env, void* data) {
+	int x = get_int(env, "x");
+	int y = get_int(env, "y");
+	int w = get_int(env, "w");
+	int h = get_int(env, "h");
+	int r = get_int(env, "r");
+	int color = get_int(env, "color");
+
+	graph_t* g = (graph_t*)get_raw(env, THIS);
+	if(g == NULL)
+		return NULL;
+
+	graph_round(g, x, y, w, h, r, color);
+	return NULL;
+}
+
+var_t* native_graph_fillRound(vm_t* vm, var_t* env, void* data) {
+	int x = get_int(env, "x");
+	int y = get_int(env, "y");
+	int w = get_int(env, "w");
+	int h = get_int(env, "h");
+	int r = get_int(env, "r");
+	int color = get_int(env, "color");
+
+	graph_t* g = (graph_t*)get_raw(env, THIS);
+	if(g == NULL)
+		return NULL;
+
+	graph_fill_round(g, x, y, w, h, r, color);
+	return NULL;
+}
+
 var_t* native_graph_line(vm_t* vm, var_t* env, void* data) {
 	int x0 = get_int(env, "x0");
 	int y0 = get_int(env, "y0");
@@ -169,6 +201,8 @@ void reg_native_graph(vm_t* vm) {
 	var_t* cls = vm_new_class(vm, CLS_GRAPH);
 	vm_reg_native(vm, cls, "clear(color)", native_graph_clear, NULL); 
 	vm_reg_native(vm, cls, "fill(x,y,w,h,color)", native_graph_fill, NULL); 
+	vm_reg_native(vm, cls, "round(x,y,w,h,r,color)", native_graph_round, NULL); 
+	vm_reg_native(vm, cls, "fillRound(x,y,w,h,r,color)", native_graph_fillRound, NULL); 
 	vm_reg_native(vm, cls, "box(x,y,w,h,color)", native_graph_box, NULL); 
 	vm_reg_native(vm, cls, "line(x0,y0,x1,y1,color)", native_graph_line, NULL); 
 	vm_reg_native(vm, cls, "drawText(x, y, text, font, color)", native_graph_drawText, NULL); 

@@ -377,7 +377,7 @@ int main(int argc, char* argv[]) {
 	Finder xwin;
 	xwin.readConfig(x_get_theme_fname(X_THEME_ROOT, "finder", "theme.conf"));
 
-	x.open(0, &xwin, 300, 0, "finder", XWIN_STYLE_NORMAL);
+	x.open(0, &xwin, -1, -1, 300, 0, "finder", XWIN_STYLE_NORMAL);
 
 	xwin.setVisible(true);
 	x.run(NULL);

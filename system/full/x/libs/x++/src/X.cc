@@ -9,15 +9,6 @@ using namespace Ewok;
 static font_t* _sysFont = NULL;
 
 bool X::open(uint32_t dispIndex, XWin* xwin, int x, int y, uint32_t w, uint32_t h, const char* title, uint32_t style) {
-	xwin_t* xw = xwin_open(&this->x, dispIndex, x, y, w, h, title, style);
-	if(xw == NULL)
-		return false;
-	xwin->setX(this);
-	xwin->setCWin(xw);
-	return true;
-}
-
-bool X::open(uint32_t dispIndex, XWin* xwin, uint32_t w, uint32_t h, const char* title, uint32_t style) {
 	xscreen_t scr;
 	getScreenInfo(scr, dispIndex);
 
@@ -27,14 +18,25 @@ bool X::open(uint32_t dispIndex, XWin* xwin, uint32_t w, uint32_t h, const char*
 		w = minW + random_to(scr.size.w - minW);
 	if(h == 0)
 		h = minH + random_to(scr.size.h - minH - 20);
-	int32_t x = 0;
-	if(scr.size.w > w)
-		x = random_to(scr.size.w - w);
 
-	int32_t y = 20;
-	if(scr.size.h > h)
-		y = 20 + (int32_t)random_to(scr.size.h - h);
-	return open(dispIndex, xwin, x, y, w, h, title, style);
+	if(x < 0) {
+		x = 0;
+		if(scr.size.w > w)
+			x = random_to(scr.size.w - w);
+	}
+
+	if(y < 0) {
+		y = 20;
+		if(scr.size.h > h)
+			y += (int32_t)random_to(scr.size.h - h);
+	}	
+	
+	xwin_t* xw = xwin_open(&this->x, dispIndex, x, y, w, h, title, style);
+	if(xw == NULL)
+		return false;
+	xwin->setX(this);
+	xwin->setCWin(xw);
+	return true;
 }
 
 X::X(void) {

@@ -99,7 +99,7 @@ int main(int argc, char** argv) {
 	wd->disable();
 	c->add(wd);
 
-	x.open(0, &win, 400, 300, "widgetTest", XWIN_STYLE_NORMAL);
+	x.open(0, &win, -1, -1, 400, 300, "widgetTest", XWIN_STYLE_NORMAL);
 	win.setVisible(true);
 	win.setTimer(12);
 	x.run(NULL, &win);

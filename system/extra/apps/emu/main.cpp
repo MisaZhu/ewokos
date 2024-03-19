@@ -413,7 +413,7 @@ int main(int argc, char *argv[])
 		zoom = 1;
 	scale = zoom;
 
-	x.open(0, &emu, 256*zoom, 240*zoom, "NesEmu", XWIN_STYLE_NO_RESIZE);
+	x.open(0, &emu, -1, -1, 256*zoom, 240*zoom, "NesEmu", XWIN_STYLE_NO_RESIZE);
 	emu.setVisible(true);
 	emu.fullscreen();
 	/*_xwin = &emu;
