@@ -30,6 +30,8 @@ extern void* _raw_realloc(void* p, uint32_t old_size, uint32_t new_size, const c
 
 typedef void (*free_func_t)(void* p);
 extern void (*_out_func)(const char*);
+
+extern bool _m_debug;
 void mario_debug(const char* s);
 
 /**====== array functions. ======*/

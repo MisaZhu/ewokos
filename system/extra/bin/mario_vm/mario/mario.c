@@ -11,15 +11,16 @@ extern "C" {
 #endif
 
 /**======debug functions======*/
+bool _m_debug = false;
 static inline void default_out(const char* s) {
 	printf("%s", s);
 }
 
 void (*_out_func)(const char*) = default_out;
-
 inline void mario_debug(const char* s) {
 #ifdef MARIO_DEBUG
-	_out_func(s);
+	if(_m_debug)
+		_out_func(s);
 #endif
 }
 

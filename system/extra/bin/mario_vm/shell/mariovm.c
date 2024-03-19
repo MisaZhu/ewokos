@@ -6,9 +6,6 @@
 #include <fcntl.h>
 #include <stdio.h>
 
-#define ERR_MAX 1023
-char _err_info[ERR_MAX+1];
-
 /**
 load extra native libs.
 */
@@ -84,8 +81,7 @@ void init_args(vm_t* vm, int argc, char** argv) {
 bool load_js(vm_t* vm, const char* fname) {
 	mstr_t* s = load_script_content(fname);
 	if(s == NULL) {
-		snprintf(_err_info, ERR_MAX, "Can not open file '%s'\n", fname);
-		mario_debug(_err_info);
+		printf("Can not open file '%s'\n", fname);
 		return false;
 	}
 	
@@ -107,7 +103,7 @@ static const char* _fname_out = "";
 static int doargs(int argc, char* argv[]) {
 	int c = 0;
 	while (c != -1) {
-		c = getopt (argc, argv, "cv");
+		c = getopt (argc, argv, "cvd");
 		if(c == -1)
 			break;
 
@@ -117,6 +113,9 @@ static int doargs(int argc, char* argv[]) {
 			break;
 		case 'v':
 			_mode = MODE_ASM;
+			break;
+		case 'd':
+			_m_debug = true;
 			break;
 		case '?':
 			return -1;
@@ -144,7 +143,7 @@ int main(int argc, char** argv) {
 	setbuf(stdout, NULL);
 
 	if(doargs(argc, argv) != 0) {
-		mario_debug("Usage: mario (-v/c) <js-filename>\n");
+		printf("Usage: mario (-v/c/d) <filename>\n");
 		return -1;
 	}
 
