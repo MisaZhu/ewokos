@@ -3,6 +3,7 @@
 #include <arch/bcm283x/gpio.h>
 
 #include <types.h>
+#include <string.h>
 #include <utils/log.h>
 
 #include "mmc.h"
@@ -229,26 +230,22 @@
 
 #define SDHCI_DEFAULT_BOUNDARY_ARG	(7)
 
-
-#define readl(addr) (*((volatile uint32_t *)(addr)))
-#define writel(val, addr) (*((volatile uint32_t *)(addr)) = (uint32_t)(val))
-
 #define SDHCI_GET_VERSION(x) (x->version & SDHCI_SPEC_VER_MASK)
 
-static inline u16 readw(uint32_t reg)
+static inline u16 readw(uint32_t *reg)
 {
-    u32 val = readl((reg & ~3));
-    u32 word_num = (reg >> 1) & 1;
+    u32 val = readl(((uint32_t)reg & ~3));
+    u32 word_num = ((uint32_t)reg >> 1) & 1;
     u32 word_shift = word_num * 16;
     u32 word = (val >> word_shift) & 0xffff;
 
     return word;
 }
 
-static inline u8 readb(uint32_t reg)
+static inline u8 readb(uint32_t *reg)
 {
-    u32 val = readl((reg & ~3));
-    u32 byte_num = reg & 3;
+    u32 val = readl(((uint32_t)reg & ~3));
+    u32 byte_num = (uint32_t)reg & 3;
     u32 byte_shift = byte_num * 8;
     u32 byte = (val >> byte_shift) & 0xff;
 
@@ -272,7 +269,7 @@ struct sdhci_host {
 	int pwr_gpio;	/* Power GPIO */
 	int cd_gpio;		/* Card Detect GPIO */
 
-	uint	voltages;
+	unsigned int	voltages;
 
 	struct mmc_config cfg;
 	void *align_buffer;
@@ -283,50 +280,18 @@ struct sdhci_host {
 #define USE_ADMA	(0x1 << 1)
 #define USE_ADMA64	(0x1 << 2)
 #define USE_DMA		(USE_SDMA | USE_ADMA | USE_ADMA64)
-	uint twoticks_delay;
-	ulong last_write;
+	unsigned int twoticks_delay;
+	unsigned long last_write;
 };
 
 static struct sdhci_host _host;
 
-#define CM_GP2DIV	(_mmio_base + 0x101084) 
-#define CM_GP2CTL	(_mmio_base + 0x101080) 
-#define CM_PASSWORD (0x5a000000)
-#define CM_BUSY 	(0x1<<7)
-#define CM_ENABLE 	(0x1<<4)
-
-static int bcm283x_sdhci_gpio_init(void){
+static void bcm283x_sdhci_gpio_init(void){
     bcm283x_gpio_init();
 
-	// //enable wifi power
-	// bcm283x_gpio_config(41, GPIO_OUTPUT); 
-	// bcm283x_gpio_clr(41);
-
-	//set 32.768 clock for wifi module
-	writel(CM_PASSWORD|0x1, CM_GP2CTL);
-	while(1)  // Wait for clock to be !BUSY
-  	{
-		uint32_t reg = readl(CM_GP2CTL);
-		if(!(reg&CM_BUSY))
-			break;
-    	usleep( 1000 );
-  	}
-	//32.768Hz = 19.2Mhz / (585 + 3840/4096)
-	brcm_klog("%08x\n", CM_PASSWORD | (585<<12)|(3840));
-
-	writel(CM_PASSWORD | (585<<12)|(3840), CM_GP2DIV); 
-    writel((CM_PASSWORD | (1 << 9) | 1), CM_GP2CTL );
-    writel(CM_PASSWORD | (1 << 9) | 1 | (1 << 4), CM_GP2CTL);
-
-	while(1){
-		uint32_t reg = readl(CM_GP2CTL);
-		if(reg&CM_BUSY)
-			break;
-		usleep(1000);
-	}
 
 	bcm283x_gpio_config(43, GPIO_ALTF0);  //32k clock
-	usleep(200000);
+	usleep(20000);
 
 	//init sdio interface
     bcm283x_gpio_config(34, GPIO_ALTF3);  //clock
@@ -492,14 +457,13 @@ static void sdhci_set_power(struct sdhci_host *host, uint32_t power)
 int sdhci_set_clock(struct sdhci_host *host , unsigned int clock)
 {
 	unsigned int div, clk = 0, timeout;
-	int ret;
 
 	/* Wait max 20 ms */
 	timeout = 200;
 	while (sdhci_readl(host, SDHCI_PRESENT_STATE) &
 			   (SDHCI_CMD_INHIBIT | SDHCI_DATA_INHIBIT)) {
 		if (timeout == 0) {
-			printf("%s: Timeout to wait cmd & data inhibit\n",
+			brcm_klog("%s: Timeout to wait cmd & data inhibit\n",
 			       __func__);
 			return -EBUSY;
 		}
@@ -565,7 +529,7 @@ int sdhci_set_clock(struct sdhci_host *host , unsigned int clock)
 	while (!((clk = sdhci_readw(host, SDHCI_CLOCK_CONTROL))
 		& SDHCI_CLOCK_INT_STABLE)) {
 		if (timeout == 0) {
-			printf("%s: Internal clock never stabilised.\n",
+			brcm_klog("%s: Internal clock never stabilised.\n",
 			       __func__);
 			return -EBUSY;
 		}
@@ -736,8 +700,8 @@ void sdhci_enable_irq(int enable)
 
 static void sdhci_transfer_pio(struct sdhci_host *host, struct mmc_data *data)
 {
-	int i;
-	char *offs;
+	uint32_t i;
+	uint8_t *offs;
 	for (i = 0; i < data->blocksize; i += 4) {
 		offs = data->dest + i;
 		if (data->flags == MMC_DATA_READ)
@@ -749,7 +713,6 @@ static void sdhci_transfer_pio(struct sdhci_host *host, struct mmc_data *data)
 
 static int sdhci_transfer_data(struct sdhci_host *host, struct mmc_data *data)
 {
-	uint8_t* start_addr = host->start_addr;
 	unsigned int stat, rdy, mask, timeout, block = 0;
 	bool transfer_done = false;
 
@@ -956,19 +919,17 @@ int sdhci_send_command(struct mmc_cmd *cmd, struct mmc_data *data)
 
 int sdhci_set_ios(struct mmc *mmc)
 {
-	u32 ctrl;
-	bool no_hispd_bit = false;
     struct sdhci_host *host = &_host;
 
 	brcm_klog("set ios clock:%d bus:%d mode:%d\n", mmc->clock, mmc->bus_width, mmc->selected_mode);
-	if (mmc->clock != _host.clock)
-		sdhci_set_clock(&_host, mmc->clock);
+	if (mmc->clock != host->clock)
+		sdhci_set_clock(host, mmc->clock);
 
 	if (mmc->clk_disable)
-		sdhci_set_clock(&_host, 0);
+		sdhci_set_clock(host, 0);
 
-	sdhci_set_bus_width(&_host, mmc->bus_width);
-	sdhci_set_select_mode(&_host, mmc->selected_mode);
+	sdhci_set_bus_width(host, mmc->bus_width);
+	sdhci_set_select_mode(host, mmc->selected_mode);
 	return 0;
 }
 
@@ -980,7 +941,7 @@ void sdhci_init(void)
 	_host.max_clk = 50000000;
 	_host.clock = 400000;
 	_host.name = "sdhci";
-	_host.ioaddr = (_mmio_base + 0x300000);
+	_host.ioaddr = (void*)(_mmio_base + 0x300000);
 	_host.twoticks_delay = ((2 * 1000000) / 400000) + 1;
 	_host.last_write = 0;
 	_host.quirks = SDHCI_QUIRK_BROKEN_VOLTAGE | SDHCI_QUIRK_BROKEN_R1B |
@@ -1002,5 +963,5 @@ void sdhci_init(void)
 	/* Mask all sdhci interrupt sources */
 	sdhci_writel(&_host, SDHCI_INT_DATA_MASK | SDHCI_INT_CMD_MASK,
 	 		SDHCI_SIGNAL_ENABLE);
-	return 0;
+	return;
 }

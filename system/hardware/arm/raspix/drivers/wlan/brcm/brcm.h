@@ -41,9 +41,7 @@
 /* Flags for SDH calls */
 #define F2SYNC	(SDIO_REQ_4BYTE | SDIO_REQ_FIXED)
 
-#define BRCMF_IDLE_ACTIVE	0	/* Do not request any SD clock change
-					 /* when idle
-					 */
+#define BRCMF_IDLE_ACTIVE	0	/* Do not request any SD clock change when idle*/
 #define BRCMF_IDLE_INTERVAL	1
 
 #define KSO_WAIT_US 50
@@ -195,91 +193,91 @@ enum brcmf_sdiod_state {
 
 /* sdio core registers */
 struct sdpcmd_regs {
-    u32 corecontrol;        /* 0x00, rev8 */
-    u32 corestatus;         /* rev8 */
-    u32 PAD0[1];
-    u32 biststatus;         /* rev8 */
+    uint32_t corecontrol;        /* 0x00, rev8 */
+    uint32_t corestatus;         /* rev8 */
+    uint32_t PAD0[1];
+    uint32_t biststatus;         /* rev8 */
 
     /* PCMCIA access */
-    u16 pcmciamesportaladdr;    /* 0x010, rev8 */
-    u16 PAD1[1];
-    u16 pcmciamesportalmask;    /* rev8 */
-    u16 PAD2[1];
-    u16 pcmciawrframebc;        /* rev8 */
-    u16 PAD3[1];
-    u16 pcmciaunderflowtimer;   /* rev8 */
-    u16 PAD4[1];
+    uint16_t pcmciamesportaladdr;    /* 0x010, rev8 */
+    uint16_t PAD1[1];
+    uint16_t pcmciamesportalmask;    /* rev8 */
+    uint16_t PAD2[1];
+    uint16_t pcmciawrframebc;        /* rev8 */
+    uint16_t PAD3[1];
+    uint16_t pcmciaunderflowtimer;   /* rev8 */
+    uint16_t PAD4[1];
 
     /* interrupt */
-    u32 intstatus;          /* 0x020, rev8 */
-    u32 hostintmask;        /* rev8 */
-    u32 intmask;            /* rev8 */
-    u32 sbintstatus;        /* rev8 */
-    u32 sbintmask;          /* rev8 */
-    u32 funcintmask;        /* rev4 */
-    u32 PAD5[2];
-    u32 tosbmailbox;        /* 0x040, rev8 */
-    u32 tohostmailbox;      /* rev8 */
-    u32 tosbmailboxdata;        /* rev8 */
-    u32 tohostmailboxdata;      /* rev8 */
+    uint32_t intstatus;          /* 0x020, rev8 */
+    uint32_t hostintmask;        /* rev8 */
+    uint32_t intmask;            /* rev8 */
+    uint32_t sbintstatus;        /* rev8 */
+    uint32_t sbintmask;          /* rev8 */
+    uint32_t funcintmask;        /* rev4 */
+    uint32_t PAD5[2];
+    uint32_t tosbmailbox;        /* 0x040, rev8 */
+    uint32_t tohostmailbox;      /* rev8 */
+    uint32_t tosbmailboxdata;        /* rev8 */
+    uint32_t tohostmailboxdata;      /* rev8 */
 
     /* synchronized access to registers in SDIO clock domain */
-    u32 sdioaccess;         /* 0x050, rev8 */
-    u32 PAD6[3];
+    uint32_t sdioaccess;         /* 0x050, rev8 */
+    uint32_t PAD6[3];
 
     /* PCMCIA frame control */
-    u8 pcmciaframectrl;     /* 0x060, rev8 */
-    u8 PAD7[3];
-    u8 pcmciawatermark;     /* rev8 */
-    u8 PAD8[155];
+    uint8_t pcmciaframectrl;     /* 0x060, rev8 */
+    uint8_t PAD7[3];
+    uint8_t pcmciawatermark;     /* rev8 */
+    uint8_t PAD8[155];
 
     /* interrupt batching control */
-    u32 intrcvlazy;         /* 0x100, rev8 */
-    u32 PA9[3];
+    uint32_t intrcvlazy;         /* 0x100, rev8 */
+    uint32_t PA9[3];
 
     /* counters */
-    u32 cmd52rd;            /* 0x110, rev8 */
-    u32 cmd52wr;            /* rev8 */
-    u32 cmd53rd;            /* rev8 */
-    u32 cmd53wr;            /* rev8 */
-    u32 abort;          /* rev8 */
-    u32 datacrcerror;       /* rev8 */
-    u32 rdoutofsync;        /* rev8 */
-    u32 wroutofsync;        /* rev8 */
-    u32 writebusy;          /* rev8 */
-    u32 readwait;           /* rev8 */
-    u32 readterm;           /* rev8 */
-    u32 writeterm;          /* rev8 */
-    u32 PAD10[40];
-    u32 clockctlstatus;     /* rev8 */
-    u32 PAD11[7];
+    uint32_t cmd52rd;            /* 0x110, rev8 */
+    uint32_t cmd52wr;            /* rev8 */
+    uint32_t cmd53rd;            /* rev8 */
+    uint32_t cmd53wr;            /* rev8 */
+    uint32_t abort;          /* rev8 */
+    uint32_t datacrcerror;       /* rev8 */
+    uint32_t rdoutofsync;        /* rev8 */
+    uint32_t wroutofsync;        /* rev8 */
+    uint32_t writebusy;          /* rev8 */
+    uint32_t readwait;           /* rev8 */
+    uint32_t readterm;           /* rev8 */
+    uint32_t writeterm;          /* rev8 */
+    uint32_t PAD10[40];
+    uint32_t clockctlstatus;     /* rev8 */
+    uint32_t PAD11[7];
 
-    u32 PAD12[128];           /* DMA engines */
+    uint32_t PAD12[128];           /* DMA engines */
 
     /* SDIO/PCMCIA CIS region */
     char cis[512];          /* 0x400-0x5ff, rev6 */
 
     /* PCMCIA function control registers */
     char pcmciafcr[256];        /* 0x600-6ff, rev6 */
-    u16 PAD13[55];
+    uint16_t PAD13[55];
 
     /* PCMCIA backplane access */
-    u16 backplanecsr;       /* 0x76E, rev6 */
-    u16 backplaneaddr0;     /* rev6 */
-    u16 backplaneaddr1;     /* rev6 */
-    u16 backplaneaddr2;     /* rev6 */
-    u16 backplaneaddr3;     /* rev6 */
-    u16 backplanedata0;     /* rev6 */
-    u16 backplanedata1;     /* rev6 */
-    u16 backplanedata2;     /* rev6 */
-    u16 backplanedata3;     /* rev6 */
-    u16 PAD14[31];
+    uint16_t backplanecsr;       /* 0x76E, rev6 */
+    uint16_t backplaneaddr0;     /* rev6 */
+    uint16_t backplaneaddr1;     /* rev6 */
+    uint16_t backplaneaddr2;     /* rev6 */
+    uint16_t backplaneaddr3;     /* rev6 */
+    uint16_t backplanedata0;     /* rev6 */
+    uint16_t backplanedata1;     /* rev6 */
+    uint16_t backplanedata2;     /* rev6 */
+    uint16_t backplanedata3;     /* rev6 */
+    uint16_t PAD14[31];
 
     /* sprom "size" & "blank" info */
-    u16 spromstatus;        /* 0x7BE, rev2 */
-    u32 PAD15[464];
+    uint16_t spromstatus;        /* 0x7BE, rev2 */
+    uint32_t PAD15[464];
 
-    u16 PAD16[0x80];
+    uint16_t PAD16[0x80];
 };
 
 #define SD_REG(field) \
@@ -333,7 +331,7 @@ struct brcmf_console {
 	uint log_addr;		/* Log struct address (fixed) */
 	struct rte_log_le log_le;	/* Log struct (host copy) */
 	uint bufsize;		/* Size of log buffer */
-	u8 *buf;		/* Log buffer (host copy) */
+	uint8_t *buf;		/* Log buffer (host copy) */
 	uint last;		/* Last buffer read index */
 };
 
@@ -361,15 +359,15 @@ struct brcmf_trap_info {
 };
 
 struct sdpcm_shared {
-	u32 flags;
-	u32 trap_addr;
-	u32 assert_exp_addr;
-	u32 assert_file_addr;
-	u32 assert_line;
-	u32 console_addr;	/* Address of struct rte_console */
-	u32 msgtrace_addr;
-	u8 tag[32];
-	u32 brpt_addr;
+	uint32_t flags;
+	uint32_t trap_addr;
+	uint32_t assert_exp_addr;
+	uint32_t assert_file_addr;
+	uint32_t assert_line;
+	uint32_t console_addr;	/* Address of struct rte_console */
+	uint32_t msgtrace_addr;
+	uint8_t tag[32];
+	uint32_t brpt_addr;
 };
 
 struct sdpcm_shared_le {
@@ -380,7 +378,7 @@ struct sdpcm_shared_le {
 	uint32_t assert_line;
 	uint32_t console_addr;	/* Address of struct rte_console */
 	uint32_t msgtrace_addr;
-	u8 tag[32];
+	uint8_t tag[32];
 	uint32_t brpt_addr;
 };
 
@@ -389,6 +387,10 @@ void brcm_init(void);
 int brcm_recv(uint8_t *buf, int len);
 int brcm_send(uint8_t *buf, int len);
 int brcm_check_data(void);
-
+void brcm_console_init(uint32_t addr);
+int brcmf_sdio_readconsole(void);
+void brcm_console_free(void);
+int brcmf_sdio_bus_txctl(unsigned char *msg, uint msglen);
+int brcmf_sdio_bus_rxctl(unsigned char *msg, uint msglen);
 #endif
 

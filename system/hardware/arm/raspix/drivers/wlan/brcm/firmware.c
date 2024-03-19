@@ -6,7 +6,7 @@
 #include <utils/log.h>
 #include <netinet/if_ether.h>
 
-#include "firmware.h"
+#include "firmware_bin.h"
 #include "chip.h"
 
 

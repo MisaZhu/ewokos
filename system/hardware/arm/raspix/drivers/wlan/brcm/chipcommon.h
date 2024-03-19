@@ -301,11 +301,4 @@ struct chipcregs {
 #define PMU_RCTL_MACPHY_DISABLE_MASK        (1 << 26)
 #define PMU_RCTL_LOGIC_DISABLE_MASK         (1 << 27)
 
-
-/*
-* Maximum delay for the PMU state transition in us.
-* This is an upper bound intended for spinwaits etc.
-*/
-#define PMU_MAX_TRANSITION_DLY	15000
-
 #endif				/* _SBCHIPC_H */

@@ -7,13 +7,12 @@
 
 
 #define MMC_DEBUG	0
-#define MMC_BLOCK_SIZE  512
 #define mmc_host_is_spi(mmc)	(0)
 
 static struct mmc _mmc;
 
 int mmc_io_rw_direct_host(int write, unsigned fn,
-	unsigned addr, u8 in, u8 *out)
+	unsigned addr, uint8_t in, uint8_t *out)
 {
 	struct mmc_cmd cmd = {};
 	int err;
@@ -62,13 +61,13 @@ int mmc_io_rw_direct_host(int write, unsigned fn,
 }
 
 int mmc_io_rw_direct( int write, unsigned fn,
-	unsigned addr, u8 in, u8 *out)
+	unsigned addr, uint8_t in, uint8_t *out)
 {
 	return mmc_io_rw_direct_host(write, fn, addr, in, out);
 }
 
 int mmc_io_rw_extended(int write, int fn,
-	unsigned addr, int incr_addr, u8 *buf, unsigned blocks, unsigned blksz)
+	unsigned addr, int incr_addr, uint8_t *buf, unsigned blocks, unsigned blksz)
 {
 	struct mmc_cmd cmd = {};
 	struct mmc_data data = {};
@@ -125,7 +124,7 @@ int mmc_io_rw_extended(int write, int fn,
 	return err;
 }
 
-static int mmc_go_idle(struct mmc *mmc)
+static int mmc_go_idle(void)
 {
 	struct mmc_cmd cmd;
 	int err;
@@ -147,7 +146,7 @@ static int mmc_go_idle(struct mmc *mmc)
 /*
 * dump form linux kernel
 */
-static int brcm_init(struct mmc *mmc)
+static int brcm_init(void)
 {
 	struct mmc_cmd cmd;
 	int err;
@@ -193,16 +192,12 @@ static int brcm_init(struct mmc *mmc)
 }
 
 
-static int mmc_init_card(struct mmc *mmc, u32 ocr)
+static int mmc_init_card(void)
 {
-	int err;
-	u32 cid[4];
-	u32 rocr;
-	
-	mmc_go_idle(mmc);
+	mmc_go_idle();
 	usleep(200000);
 
-	brcm_init(mmc);
+	brcm_init();
 	return 0;
 }
 
@@ -214,5 +209,5 @@ int mmc_hw_reset(void)
     _mmc.ocr = 1;
 	_mmc.voltages =  MMC_VDD_32_33 | MMC_VDD_33_34|MMC_VDD_165_195;
 
-	return mmc_init_card(&_mmc, _mmc.ocr);
+	return mmc_init_card();
 }

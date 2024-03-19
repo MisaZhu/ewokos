@@ -1,9 +1,16 @@
 #include <types.h>
 #include <utils/log.h>
+#include <ctype.h>
+#include <string.h>
+#include <stdlib.h>
+
+#include <utils/utils.h>
 
 #include "fwil_types.h"
 #include "command.h"
+#include "brcm.h"
 #include "core.h"
+#include "chip.h"
 #include "brcmu_wifi.h"
 #include "nl80211.h"
 
@@ -74,8 +81,7 @@ struct brcmf_proto_bcdc_dcmd {
 static uint8_t proto_buf[8192];
 static uint8_t temp[8192];
 static uint8_t mac_addr[6];
-static int bands[256];
-static int reqid = 0;
+static uint32_t reqid = 0;
 
 int debug_dump = 0;
 
@@ -101,7 +107,7 @@ hexdump(const char* lable, const void *data, size_t size)
         brcm_klog("| ");
         for(index = 0; index < 16; index++) {
             if(offset + index < (int)size) {
-                if(isascii(src[offset + index]) && isprint(src[offset + index])) {
+            if(src[offset + index] >= 32  && src[offset + index] <= 126) {
                     brcm_klog("%c", src[offset + index]);
                 } else {
                     brcm_klog(".");
@@ -120,8 +126,8 @@ static int
 brcmf_proto_bcdc_msg(int ifidx, uint cmd, void *buf,
              uint len, bool set)
 {
-    u32 flags;
-    struct brcmf_proto_bcdc_dcmd *msg = temp + 32;
+    uint32_t flags;
+    struct brcmf_proto_bcdc_dcmd *msg = (struct brcmf_proto_bcdc_dcmd *)(temp + 32);
     memset(msg, 0, sizeof(struct brcmf_proto_bcdc_dcmd));
 
 
@@ -147,16 +153,16 @@ brcmf_proto_bcdc_msg(int ifidx, uint cmd, void *buf,
 }
 
 
-static int brcmf_proto_bcdc_cmplt(u32 id, u32 len)
+static int brcmf_proto_bcdc_cmplt(uint32_t id, uint32_t len)
 {
     int ret;
 
-    struct brcmf_proto_bcdc_dcmd *msg = temp + 32;
+    struct brcmf_proto_bcdc_dcmd *msg = (struct brcmf_proto_bcdc_dcmd *)(temp + 32);
     memset(msg, 0, sizeof(struct brcmf_proto_bcdc_dcmd));
 
     len += sizeof(struct brcmf_proto_bcdc_dcmd);
     do {
-        ret = brcmf_sdio_bus_rxctl(msg, len);
+        ret = brcmf_sdio_bus_rxctl((unsigned char*)msg, len);
         if (ret < 0)
             break;
     } while (BCDC_DCMD_ID(le32_to_cpu(msg->flags)) != id);
@@ -168,11 +174,11 @@ static int brcmf_proto_bcdc_cmplt(u32 id, u32 len)
 
 static int
 brcmf_proto_bcdc_set_dcmd(int ifidx, uint cmd,
-              void *buf, uint len, int *fwerr)
+              void *buf, uint len, int32_t *fwerr)
 {
-    struct brcmf_proto_bcdc_dcmd *msg = temp + 32;
+    struct brcmf_proto_bcdc_dcmd *msg = (struct brcmf_proto_bcdc_dcmd *)(temp + 32);
     int ret;
-    u32 flags, id;
+    uint32_t flags, id;
 
     // brcm_klog("brcmf_proto_bcdc_set_dcmd cmd %d len %d\n", cmd, len);
 
@@ -206,12 +212,11 @@ done:
 
 static int
 brcmf_proto_bcdc_query_dcmd(int ifidx, uint cmd,
-                void *buf, uint len, int *fwerr)
+                void *buf, uint len, int32_t *fwerr)
 {
-    struct brcmf_proto_bcdc_dcmd *msg = temp + 32;
-    void *info;
+    struct brcmf_proto_bcdc_dcmd *msg = (struct brcmf_proto_bcdc_dcmd *)(temp + 32);
     int ret = 0, retries = 0;
-    u32 id, flags;
+    uint32_t id, flags;
 
     *fwerr = 0;
     ret = brcmf_proto_bcdc_msg(ifidx, cmd, buf, len, false);
@@ -254,10 +259,10 @@ done:
     return ret;
 }
 
-static s32
-brcmf_fil_cmd_data(int ifidx, u32 cmd, void *data, u32 len, bool set)
+static int32_t
+brcmf_fil_cmd_data(int ifidx, uint32_t cmd, void *data, uint32_t len, bool set)
 {
-    s32 err, fwerr;
+    int32_t err, fwerr;
 
     if (data != NULL)
         len = min_t(uint, len, BRCMF_DCMD_MAXLEN);
@@ -277,30 +282,30 @@ brcmf_fil_cmd_data(int ifidx, u32 cmd, void *data, u32 len, bool set)
     return err;
 }
 
-s32 brcmf_fil_cmd_data_set(int ifidx, u32 cmd, void *data, u32 len)
+int32_t brcmf_fil_cmd_data_set(int ifidx, uint32_t cmd, void *data, uint32_t len)
 {
-    s32 err;
+    int32_t err;
     err = brcmf_fil_cmd_data(ifidx, cmd, data, len, true);
     return err;
 }
 
-s32 brcmf_fil_cmd_data_get(int ifidx, u32 cmd, void *data, u32 len)
+int32_t brcmf_fil_cmd_data_get(int ifidx, uint32_t cmd, void *data, uint32_t len)
 {
-    s32 err;
+    int32_t err;
 
     err = brcmf_fil_cmd_data(ifidx, cmd, data, len, false);
 
     return err;
 }
 
-s32 brcmf_fil_cmd_int_set(int ifidx, u32 cmd, u32 data)
+int32_t brcmf_fil_cmd_int_set(int ifidx, uint32_t cmd, uint32_t data)
 {
     return brcmf_fil_cmd_data(ifidx, cmd, &data, sizeof(data), true);
 }
 
-s32 brcmf_fil_cmd_int_get(int ifidx, u32 cmd, u32 *data)
+int32_t brcmf_fil_cmd_int_get(int ifidx, uint32_t cmd, uint32_t *data)
 {
-    s32 err;
+    int32_t err;
     __le32 data_le = cpu_to_le32(*data);
 
     err = brcmf_fil_cmd_data(ifidx, cmd, &data_le, sizeof(data_le), false);
@@ -309,11 +314,11 @@ s32 brcmf_fil_cmd_int_get(int ifidx, u32 cmd, u32 *data)
     return err;
 }
 
-static u32
-brcmf_create_iovar(char *name, const char *data, u32 datalen,
-           char *buf, u32 buflen)
+static uint32_t
+brcmf_create_iovar(char *name, const char *data, uint32_t datalen,
+           uint8_t *buf, uint32_t buflen)
 {
-    u32 len;
+    uint32_t len;
 
     len = strlen(name) + 1;
 
@@ -329,11 +334,11 @@ brcmf_create_iovar(char *name, const char *data, u32 datalen,
     return len + datalen;
 }
 
-s32 brcmf_fil_iovar_data_set(int ifidx, char *name, const void *data,
-             u32 len)
+int32_t brcmf_fil_iovar_data_set(int ifidx, char *name, const void *data,
+             uint32_t len)
 {
-    s32 err;
-    u32 buflen;
+    int32_t err;
+    uint32_t buflen;
 
     buflen = brcmf_create_iovar(name, data, len, proto_buf,
                     sizeof(proto_buf));
@@ -348,11 +353,11 @@ s32 brcmf_fil_iovar_data_set(int ifidx, char *name, const void *data,
     return err;
 }
 
-s32 brcmf_fil_iovar_data_get(int ifidx, char *name, void *data,
-             u32 len)
+int32_t brcmf_fil_iovar_data_get(int ifidx, char *name, void *data,
+             uint32_t len)
 {
-    s32 err;
-    u32 buflen;
+    int32_t err;
+    uint32_t buflen;
 
 
     buflen = brcmf_create_iovar(name, data, len, proto_buf,
@@ -371,15 +376,15 @@ s32 brcmf_fil_iovar_data_get(int ifidx, char *name, void *data,
 }
 
 
-s32 brcmf_fil_iovar_int_set(int ifidx, char *name, u32 data)
+int32_t brcmf_fil_iovar_int_set(int ifidx, char *name, uint32_t data)
 {
     return brcmf_fil_iovar_data_set(ifidx, name, &data, sizeof(data));
 }
 
-s32 brcmf_fil_iovar_int_get(int ifidx, char *name, u32 *data)
+int32_t brcmf_fil_iovar_int_get(int ifidx, char *name, uint32_t *data)
 {
     __le32 data_le = cpu_to_le32(*data);
-    s32 err;
+    int32_t err;
 
     err = brcmf_fil_iovar_data_get(ifidx, name, &data_le, sizeof(data_le));
     if (err == 0)
@@ -387,11 +392,11 @@ s32 brcmf_fil_iovar_int_get(int ifidx, char *name, u32 *data)
     return err;
 }
 
-static int brcmf_c_download(int ifidx, u16 flag,
+static int brcmf_c_download(int ifidx, uint16_t flag,
                 struct brcmf_dload_data_le *dload_buf,
-                u32 len)
+                uint32_t len)
 {
-    s32 err;
+    int32_t err;
 
     flag |= (DLOAD_HANDLER_VER << DLOAD_FLAG_VER_SHIFT);
     dload_buf->flag = cpu_to_le16(flag);
@@ -408,7 +413,6 @@ static int brcmf_c_download(int ifidx, u16 flag,
 static int brcmf_set_join_pref(int ifidx)
 {
     struct brcmf_join_pref_params join_pref_params[2];
-    enum nl80211_band band;
 
     //brcmf_fil_cmd_int_set(ifidx, BRCMF_C_SET_ASSOC_PREFER, WLC_BAND_AUTO);
     brcmf_fil_cmd_int_set(ifidx, BRCMF_C_SET_ASSOC_PREFER, WLC_BAND_ALL);
@@ -428,7 +432,7 @@ static int brcmf_set_join_pref(int ifidx)
 
 /* Join with specific  SSID
 */
-static int brcmf_join(int ifidx, char* ssid)
+static int brcmf_join(int ifidx, const char* ssid)
 {
     struct brcmf_ext_join_params_le ext_join_params = {0};
 
@@ -445,7 +449,7 @@ static int brcmf_join(int ifidx, char* ssid)
 
     brcmf_set_join_pref(0);
 
-    int err  = brcmf_fil_iovar_data_set(0, "join", &ext_join_params,
+    int err  = brcmf_fil_iovar_data_set(ifidx, "join", &ext_join_params,
                      sizeof(ext_join_params) - 4);
 
     return err;
@@ -455,13 +459,12 @@ static int brcmf_c_process_clm_blob(int ifidx)
 {
     struct brcmf_dload_data_le *chunk_buf;
     uint8_t *clm = NULL;
-    u8 clm_name[320];
     int datalen;
-    u32 chunk_len;
-    u32 cumulative_len;
-    u16 dl_flag = DL_BEGIN;
-    u32 status;
-    s32 err;
+    uint32_t chunk_len;
+    uint32_t cumulative_len;
+    uint16_t dl_flag = DL_BEGIN;
+    uint32_t status;
+    int32_t err;
 
     clm = brcmf_fw_get_clm(&datalen);
 
@@ -528,73 +531,12 @@ static int brcmf_dump_revinfo(struct brcmf_rev_info *ri)
     return 0;
 }
 
-// struct brcmf_p2p_disc_st_le {
-//     u8 state;
-//     __le16 chspec;
-//     __le16 dwell;
-// };
-
-// static s32 brcmf_p2p_set_discover_state(struct brcmf_if *ifp, u8 state,
-//                     u16 chanspec, u16 listen_ms)
-// {
-//     struct brcmf_p2p_disc_st_le discover_state;
-//     s32 ret = 0;
-
-//     discover_state.state = state;
-//     discover_state.chspec = cpu_to_le16(chanspec);
-//     discover_state.dwell = cpu_to_le16(listen_ms);
-//     ret = brcmf_fil_bsscfg_data_set(ifp, "p2p_state", &discover_state,
-//                     sizeof(discover_state));
-//     return ret;
-// }
-
-static void brcmf_get_bwcap(int ifidx, u32 bw_cap[])
-{
-    u32 band, mimo_bwcap;
-    int err;
-
-    band = WLC_BAND_2G;
-    err = brcmf_fil_iovar_int_get(ifidx, "bw_cap", &band);
-    if (!err) {
-        bw_cap[NL80211_BAND_2GHZ] = band;
-        band = WLC_BAND_5G;
-        err = brcmf_fil_iovar_int_get(ifidx, "bw_cap", &band);
-        if (!err) {
-            bw_cap[NL80211_BAND_5GHZ] = band;
-            return;
-        }
-        return;
-    }
-    brcm_klog("fallback to mimo_bw_cap info\n");
-    mimo_bwcap = 0;
-    err = brcmf_fil_iovar_int_get(0, "mimo_bw_cap", &mimo_bwcap);
-    if (err)
-        /* assume 20MHz if firmware does not give a clue */
-        mimo_bwcap = WLC_N_BW_20ALL;
-
-    switch (mimo_bwcap) {
-    case WLC_N_BW_40ALL:
-        bw_cap[NL80211_BAND_2GHZ] |= WLC_BW_40MHZ_BIT;
-    case WLC_N_BW_20IN2G_40IN5G:
-        bw_cap[NL80211_BAND_5GHZ] |= WLC_BW_40MHZ_BIT;
-    case WLC_N_BW_20ALL:
-        bw_cap[NL80211_BAND_2GHZ] |= WLC_BW_20MHZ_BIT;
-        bw_cap[NL80211_BAND_5GHZ] |= WLC_BW_20MHZ_BIT;
-        break;
-    default:
-        brcm_klog("invalid mimo_bw_cap value\n");
-    }
-}
-
-
 int brcmf_c_preinit_dcmds(void)
 {
-    u8 buf[BRCMF_DCMD_SMLEN];
+    uint8_t buf[BRCMF_DCMD_SMLEN];
     struct brcmf_rev_info_le revinfo;
     struct brcmf_rev_info ri;
-    char *clmver;
-    char *ptr;
-    s32 err;
+    int32_t err = 0;
     int chip = 0;
     int chiprev = 0;
 
@@ -656,7 +598,7 @@ int brcmf_c_preinit_dcmds(void)
         brcm_klog("Retrieving version information failed, %d\n", err);
         goto done;
     }
-    ptr = (char *)buf;
+    char* ptr = (char *)buf;
     strsep(&ptr, "\n");
 
     /* Print fw version info */
@@ -711,7 +653,7 @@ int brcmf_c_preinit_dcmds(void)
     err = brcmf_fil_iovar_data_set(0, "country", &ccreq, sizeof(ccreq));
     if (err) {
         brcm_klog("Firmware rejected country setting\n");
-        return;
+        return err;
     }
 
     err = brcmf_fil_iovar_int_set(0, "bcn_timeout", 4);
@@ -753,13 +695,8 @@ done:
 
 static void brcmf_escan_prep(struct brcmf_scan_params_le *params_le)
 {
-    u32 n_ssids;
-    u32 n_channels;
-    s32 i;
-    s32 offset;
-    u16 chanspec;
-    char *ptr;
-    struct brcmf_ssid_le ssid_le;
+    uint32_t n_ssids;
+    uint32_t n_channels;
 
     const uint8_t ch_list[44] = {0x01,0x10,0x02,0x10,0x03,0x10,0x04,0x10, 
         0x05,0x10,0x06,0x10,0x07,0x10,0x08,0x10,0x09,0x10,0x0a,0x10, 
@@ -790,10 +727,10 @@ static void brcmf_escan_prep(struct brcmf_scan_params_le *params_le)
 
 void scan(void)
 {
-    s32 params_size = BRCMF_SCAN_PARAMS_FIXED_SIZE +
+    int32_t params_size = BRCMF_SCAN_PARAMS_FIXED_SIZE +
               offsetof(struct brcmf_escan_params_le, params_le) + 44 + 36;
     struct brcmf_escan_params_le *params;
-    s32 err = 0;
+    int32_t err;
 
     brcm_klog("E-SCAN START\n");
 
@@ -817,24 +754,17 @@ void scan(void)
 
     free(params);
 exit:
-    return err;
+    return;
 }
 
-void get_ethaddr(mac){
+void get_ethaddr(char* mac){
     memcpy(mac, mac_addr, 6);
 }
 
 
 int connect(const char*ssid, const char* pmk)
 {
-    struct brcmf_join_params join_params;
-    size_t join_params_size;
-    const struct brcmf_tlv *rsn_ie;
-    const struct brcmf_vs_tlv *wpa_ie;
-    u32 ie_len;
-    u16 chanspec;
-    s32 err = 0;
-    u32 ssid_len;
+    int32_t err = 0;
 
     if(strlen(pmk) < 64){
         klog("Wrong PMK lens\n");
