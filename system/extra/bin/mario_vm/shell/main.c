@@ -12,60 +12,6 @@ load extra native libs.
 
 void reg_natives(vm_t* vm);
 
-mstr_t* load_script_content(const char* fname) {
-	int fd = open(fname, O_RDONLY);
-	if(fd < 0) {
-		return NULL;
-	}
-
-	struct stat st;
-	fstat(fd, &st);
-
-	mstr_t* ret = mstr_new_by_size(st.st_size+1);
-
-	char* p = ret->cstr;
-	uint32_t sz = st.st_size;
-	while(sz > 0) {
-		int rd = read(fd, p, sz);
-		if(rd <= 0 || sz < rd)
-			break;
-		p += rd;
-		sz -= rd; 
-	}
-	close(fd);
-	
-	if(sz > 0) {
-		mstr_free(ret);
-		return NULL;
-	}
-	ret->cstr[st.st_size] = 0;
-	ret->len = st.st_size;
-	return ret;
-}
-
-#define DEF_LIBS "/usr/local/mario"
-
-mstr_t* include_script(vm_t* vm, const char* name) {
-	const char* path = getenv("MARIO_PATH");
-	if(path == NULL)
-		path = DEF_LIBS;
-
-	mstr_t* ret = load_script_content(name);
-	if(ret != NULL) {
-		return ret;
-	}
-
-	mstr_t* fname = mstr_new(path);
-	mstr_append(fname, "/libs/");
-	mstr_append(fname, _mario_lang);
-	mstr_add(fname, '/');
-	mstr_append(fname, name);
-	
-	ret = load_script_content(name);
-	mstr_free(fname);
-	return ret;
-}
-
 void init_args(vm_t* vm, int argc, char** argv) {
 	var_t* args = var_new_array(vm);
 	int i;
@@ -76,18 +22,6 @@ void init_args(vm_t* vm, int argc, char** argv) {
 	}
 
 	var_add(vm->root, "_args", args);
-}
-
-bool load_js(vm_t* vm, const char* fname) {
-	mstr_t* s = load_script_content(fname);
-	if(s == NULL) {
-		printf("Can not open file '%s'\n", fname);
-		return false;
-	}
-	
-	bool ret = vm_load(vm, s->cstr);
-	mstr_free(s);
-	return ret;
 }
 
 enum {
@@ -135,12 +69,21 @@ static int doargs(int argc, char* argv[]) {
 	return 0;
 }
 
+bool load_js(vm_t* vm, const char* fname);
+void vm_dump_out(vm_t* vm);
 void vm_gen_mbc(vm_t* vm, const char* fname_out);
 bool vm_load_mbc(vm_t* vm, const char* fname);
+
+
+static void out(const char* str) {
+    write(1, str, strlen(str));
+}
 
 int main(int argc, char** argv) {
 	setbuf(stdin, NULL);
 	setbuf(stdout, NULL);
+
+    _out_func = out;
 
 	if(doargs(argc, argv) != 0) {
 		printf("Usage: mario (-v/c/d) <filename>\n");
@@ -148,7 +91,6 @@ int main(int argc, char** argv) {
 	}
 
 	bool loaded = true;
-	_load_m_func = include_script;
 
 	mario_mem_init();
 	vm_t* vm = vm_new(compile);
@@ -169,7 +111,7 @@ int main(int argc, char** argv) {
 			
 			if(res) {
 				if(_mode == 1)
-					vm_dump(vm);
+					vm_dump_out(vm);
 				else if(_mode == 2)
 					vm_gen_mbc(vm, _fname_out);
 				else

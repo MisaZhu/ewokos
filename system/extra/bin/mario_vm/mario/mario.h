@@ -318,7 +318,6 @@ PC bc_reserve(bytecode_t* bc);
 
 #define bc_getstr(bc, i) (((i)>=(bc)->mstr_table.size) ? "" : (const char*)(bc)->mstr_table.items[(i)])
 
-void bc_dump(bytecode_t* bc);
 void bc_init(bytecode_t* bc);
 void bc_release(bytecode_t* bc);
 
@@ -471,7 +470,6 @@ node_t* node_new(vm_t* vm, const char* name, var_t* var);
 void node_free(void* p);
 var_t* node_replace(node_t* node, var_t* v);
 
-void var_dump(var_t* var);
 void var_remove_all(var_t* var);
 node_t* var_add(var_t* var, const char* name, var_t* add);
 node_t* var_add_head(var_t* var, const char* name, var_t* add);
@@ -538,7 +536,6 @@ vm_t* vm_from(vm_t* vm);
 bool vm_load(vm_t* vm, const char* s);
 bool vm_load_run(vm_t* vm, const char* s);
 bool vm_load_run_native(vm_t* vm, const char* s);
-void vm_dump(vm_t* vm);
 bool vm_run(vm_t* vm);
 void vm_close(vm_t* vm);
 

@@ -142,7 +142,6 @@ node_t* node_new(const char* name, var_t* var);
 void node_free(void* p);
 var_t* node_replace(node_t* node, var_t* v);
 
-void var_dump(var_t* var);
 void var_remove_all(var_t* var);
 node_t* var_add(var_t* var, const char* name, var_t* add);
 node_t* var_add_head(var_t* var, const char* name, var_t* add);

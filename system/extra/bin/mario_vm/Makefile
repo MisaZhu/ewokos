@@ -9,9 +9,10 @@ endif
 include ../../../hardware/$(ARCH)/make.rule
 include $(MARIO_VM)/lang/js/lang.mk
 
-mario_OBJS= $(MARIO_VM)/mario/mario.o
+mario_OBJS = $(MARIO_VM)/mario/mario.o
+shell_OBJS = shell/main.o shell/mbc.o shell/js.o shell/dump.o
 
-MARIO_OBJS = shell/mariovm.o shell/mbc.o $(mario_OBJS) $(lang_OBJS) \
+MARIO_OBJS = $(mario_OBJS) $(shell_OBJS) $(lang_OBJS) \
 		$(NATIVE_OBJS)
 
 ifneq ($(MARIO_DEBUG), no)
