@@ -144,7 +144,7 @@ uint32_t sdio_readl(int func, unsigned int addr, int *err_ret);
 void sdio_writel(int func, uint32_t b, unsigned int addr, int *err_ret);
 
 int sdio_reset(void);
-int sdio_set_block_size(int func, unsigned blksz);
+int sdio_set_block_size(unsigned int func, unsigned int blksz);
 int sdio_enable_func(int func);
 int sdio_disable_func(int func);
 int sdio_claim_irq(int func);

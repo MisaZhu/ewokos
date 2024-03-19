@@ -1,12 +1,11 @@
 #include <unistd.h>
+#include <stdlib.h>
+#include <types.h>
 
 #include "skb.h"
 #include "log.h"
 
-
-
-
-struct sk_buff* skb_alloc(int size){
+struct sk_buff* skb_alloc(uint32_t size){
     struct sk_buff *skb = malloc(sizeof(struct sk_buff));
     if(!skb)
         return NULL;
@@ -22,9 +21,9 @@ struct sk_buff* skb_alloc(int size){
     return skb;
 }
 
-void *skb_put(struct sk_buff* skb, int size){
+void *skb_put(struct sk_buff* skb, uint32_t size){
     if(!skb)
-        return;
+        return NULL;
     void* ret = skb->data;
     skb->len += size;
     if(skb->data + skb->len > skb->mem + skb->total){
@@ -33,9 +32,9 @@ void *skb_put(struct sk_buff* skb, int size){
     return ret;
 }
 
-void *skb_push(struct sk_buff* skb, int size){
+void *skb_push(struct sk_buff* skb, uint32_t size){
     if(!skb)
-        return;
+        return NULL;
     void* ret = skb->data;
     skb->len += size;
     skb->data -= size;
@@ -45,9 +44,9 @@ void *skb_push(struct sk_buff* skb, int size){
     return ret;
 }
 
-void *skb_pull(struct sk_buff* skb, int size){
+void *skb_pull(struct sk_buff* skb, uint32_t size){
     if(!skb)
-        return;
+        return NULL;
     void* ret = skb->data;
     skb->len -= size;
     skb->data += size;
@@ -57,7 +56,7 @@ void *skb_pull(struct sk_buff* skb, int size){
     return ret;
 }
 
-void skb_reserve(struct sk_buff* skb, int size){
+void skb_reserve(struct sk_buff* skb, uint32_t size){
     if(!skb)
         return;
     skb->data += size;
@@ -66,9 +65,9 @@ void skb_reserve(struct sk_buff* skb, int size){
     }
 }
 
-void *skb_trim(struct sk_buff* skb, int size){
+void *skb_trim(struct sk_buff* skb, uint32_t size){
     if(!skb && size >= skb->len)
-        return;
+        return NULL;
     skb->len = size;
     return skb->data;
 }

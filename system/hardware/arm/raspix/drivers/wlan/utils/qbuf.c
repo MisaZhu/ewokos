@@ -1,3 +1,7 @@
+#include <stdlib.h>
+#include <types.h>
+#include <string.h>
+
 #include "qbuf.h"
 #include "log.h"
 

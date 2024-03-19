@@ -1,8 +1,10 @@
 #ifndef __TYPES_H__
 #define __TYPES_H__
 
+#include <unistd.h>
 #include <stdbool.h>
 #include <stdint.h>
+#include <stddef.h>
 
 #define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
 
@@ -101,7 +103,6 @@ typedef __u32 __bitwise __wsum;
 
 #define	EDEADLK		11	/* Resource deadlock would occur */
 
-#define	EAGAIN		35	/* Try again */
 #define	EWOULDBLOCK	EAGAIN	/* Operation would block */
 #define	EINPROGRESS	36	/* Operation now in progress */
 #define	EALREADY	37	/* Operation already in progress */
@@ -220,14 +221,8 @@ typedef __u32 __bitwise __wsum;
 
 #define WARN_ON(x)  
 
-#define get_timer(x)    (kernel_tic_ms(0) - (x))
 #define DIV_ROUND_UP(n, d) (((n) + (d) - 1) / (d))
 
-#define NULL 0
-
-#define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
-
-#define offsetof(TYPE, MEMBER)	((uint32_t)&((TYPE *)0)->MEMBER)
 
 #define container_of(ptr, type, member) ({				\
 	void *__mptr = (void *)(ptr);					\
@@ -236,15 +231,6 @@ typedef __u32 __bitwise __wsum;
 #define BIT(x) (0x1<<(x))
 
 
-
-#define swap16(x)        ( (((*(short int *)&x) & 0xff00) >> 8) | \
-                                      (((*(short int *)&x) & 0x00ff) << 8) )
- 
-#define swap32(x)        ( (((*(long int *)&x) & 0xff000000) >> 24) | \
-                                      (((*(long int *)&x) & 0x00ff0000) >> 8) | \
-                                      (((*(long int *)&x) & 0x0000ff00) << 8) | \
-									  (((*(long int *)&x) & 0x000000ff) << 24) )
-
 #define cpu_to_le32(x)  (x)
 #define le32_to_cpu(x)  (x)
 
@@ -252,11 +238,11 @@ typedef __u32 __bitwise __wsum;
 #define le16_to_cpu(x)  (x)
 
 
-#define cpu_to_be32(x)  swap32(x)
-#define be32_to_cpu(x)  swap32(x)
+#define cpu_to_be32(x)  __builtin_bswap32(x)
+#define be32_to_cpu(x)  __builtin_bswap32(x)
 
-#define cpu_to_be16(x)  swap16(x)
-#define be16_to_cpu(x)  swap16(x)
+#define cpu_to_be16(x)  __builtin_bswap16(x)
+#define be16_to_cpu(x)  __builtin_bswap16(x)
 
 #define roundup(x, y)   ((((x) + ((y) - 1)) / (y)) * (y))
 #define rounddown(x, y) ((x) - ((x) % (y)))
@@ -283,5 +269,8 @@ typedef __u32 __bitwise __wsum;
 #define isset(a, i) (((const u8 *)a)[(i)/NBBY] & (1<<((i)%NBBY)))
 #define isclr(a, i) ((((const u8 *)a)[(i)/NBBY] & (1<<((i)%NBBY))) == 0)
 #endif              /* setbit */
+
+#define readl(addr) (*((volatile uint32_t *)(addr)))
+#define writel(val, addr) (*((volatile uint32_t *)(addr)) = (uint32_t)(val))
 
 #endif

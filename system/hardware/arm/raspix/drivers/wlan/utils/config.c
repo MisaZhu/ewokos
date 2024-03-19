@@ -4,6 +4,8 @@
 #include <ewoksys/vfs.h>
 #include <tinyjson/tinyjson.h>
 
+#include "log.h"
+
 #define DEFAULT_WLAN_CFG	"/etc/wlan/network.json"
 
 node_t* network_config; 
@@ -15,7 +17,7 @@ void config_init(const char* path){
 	int sz = 0;
 	char* str = (char*)vfs_readfile(path, &sz);
 	if(str == NULL) {
-		printf("Error: %s open failed\n", path);
+		brcm_klog("Error: %s open failed\n", path);
 		return;
 	}
 
@@ -29,7 +31,7 @@ void config_init(const char* path){
 		if(network_config && network_config->var->is_array)
 			return;
 	}
-	printf("Error: %s parse failed \n", path);
+	brcm_klog("Error: %s parse failed \n", path);
 }
 
 int config_match_ssid(const char* ssid){

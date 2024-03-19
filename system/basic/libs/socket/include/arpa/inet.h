@@ -3,9 +3,6 @@
 
 #include <netinet/in.h>
 
-typedef __socklen_t socklen_t;
-
-
 extern in_addr_t inet_addr (const char *__cp) ;
 extern in_addr_t inet_lnaof (struct in_addr __in) ;
 extern struct in_addr inet_makeaddr (in_addr_t __net, in_addr_t __host);

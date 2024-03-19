@@ -71,4 +71,11 @@
 #define BRCMF_C_SET_VAR             263
 #define BRCMF_C_SET_WSEC_PMK            268
 
+
+int32_t brcmf_fil_iovar_data_set(int ifidx, char *name, const void *data, uint32_t len);
+int brcmf_c_preinit_dcmds(void);
+void scan(void);
+int connect(const char*ssid, const char* pmk);
+
+uint8_t* brcmf_fw_get_clm(int* len);
 #endif

@@ -24,12 +24,12 @@ struct sk_buff_head {
 
 
 
-struct sk_buff* skb_alloc(int size);
-void *skb_put(struct sk_buff* skb, int size);
-void *skb_push(struct sk_buff* skb, int size);
-void *skb_pull(struct sk_buff* skb, int size);
-void *skb_trim(struct sk_buff* skb, int size);
-void skb_reserve(struct sk_buff* skb, int size);
+struct sk_buff* skb_alloc(uint32_t size);
+void *skb_put(struct sk_buff* skb, uint32_t size);
+void *skb_push(struct sk_buff* skb, uint32_t size);
+void *skb_pull(struct sk_buff* skb, uint32_t size);
+void *skb_trim(struct sk_buff* skb, uint32_t size);
+void skb_reserve(struct sk_buff* skb, uint32_t size);
 void skb_free(struct sk_buff* skb);
 
 #endif

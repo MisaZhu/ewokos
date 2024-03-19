@@ -5,6 +5,8 @@
 #include <ewoksys/dma.h>
 
 #include <sdio/sdhci.h>
+#include <utils/log.h>
+#include <types.h>
 
 uint8_t buf[512];
 
@@ -184,6 +186,41 @@ void bcm283x_mbox_pin_ctrl(int idx, int dir, int on) {
 	bcm283x_mailbox_read(PROPERTY_CHANNEL, &msg);
 }
 
+#define CM_GP2DIV	(_mmio_base + 0x101084) 
+#define CM_GP2CTL	(_mmio_base + 0x101080) 
+#define CM_PASSWORD (0x5a000000)
+#define CM_BUSY 	(0x1<<7)
+#define CM_ENABLE 	(0x1<<4)
+#define writel(val, addr) (*((volatile uint32_t *)(addr)) = (uint32_t)(val))
+
+void clock_init(void){
+	int timeout = 1000;
+
+	//set 32.768 clock for wifi module
+	writel(CM_PASSWORD|0x1, CM_GP2CTL);
+	while(timeout--)  // Wait for clock to be !BUSY
+  	{
+		uint32_t reg = readl(CM_GP2CTL);
+		if(!(reg&CM_BUSY))
+			break;
+    	usleep( 1000 );
+  	}
+	//32.768Hz = 19.2Mhz / (585 + 3840/4096)
+	brcm_klog("%08x\n", CM_PASSWORD | (585<<12)|(3840));
+
+	writel(CM_PASSWORD | (585<<12)|(3840), CM_GP2DIV); 
+    writel((CM_PASSWORD | (1 << 9) | 1), CM_GP2CTL );
+    writel(CM_PASSWORD | (1 << 9) | 1 | (1 << 4), CM_GP2CTL);
+
+	timeout = 1000;
+	while(timeout--){
+		uint32_t reg = readl(CM_GP2CTL);
+		if(reg&CM_BUSY)
+			break;
+		usleep(1000);
+	}
+}
+
 static int net_read(int fd, int from_pid, fsinfo_t* node,
 		void* buf, int size, int offset, void* p) {
 	(void)fd;
@@ -233,6 +270,7 @@ int main(int argc, char** argv) {
 	_mmio_base = mmio_map();\
 	
 	bcm2835_power_on_module(BCM2835_MBOX_POWER_DEVID_SDHCI);
+	clock_init();
 
 	vdevice_t dev;
 	memset(&dev, 0, sizeof(vdevice_t));

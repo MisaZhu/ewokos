@@ -16,6 +16,7 @@ BRCMFMACD_OBJS = sdio/sdhci.o \
 				 utils/log.o \
 				 utils/skb.o \
 				 utils/config.o \
+				 utils/pbkdf2.o \
 				 \
 				 brcm/brcm.o \
 				 brcm/chip.o \

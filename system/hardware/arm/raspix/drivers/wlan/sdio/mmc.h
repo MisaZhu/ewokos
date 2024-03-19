@@ -134,13 +134,14 @@ struct mmc_cmd {
 
 struct mmc_data {
 	union {
-		char *dest;
-		const char *src; /* src buffers don't get written to */
+		uint8_t *dest;
+		uint8_t *src; /* src buffers don't get written to */
 	};
 	uint32_t flags;
 	uint32_t blocks;
 	uint32_t blocksize;
 };
+
 struct mmc_config {
 	const char *name;
 	uint32_t host_caps;

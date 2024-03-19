@@ -26,15 +26,15 @@
  * @name: string representation of the chip identifier.
  */
 struct brcmf_chip {
-	u32 chip;
-	u32 chiprev;
-	u32 cc_caps;
-	u32 cc_caps_ext;
-	u32 pmucaps;
-	u32 pmurev;
-	u32 rambase;
-	u32 ramsize;
-	u32 srsize;
+	uint32_t chip;
+	uint32_t chiprev;
+	uint32_t cc_caps;
+	uint32_t cc_caps_ext;
+	uint32_t pmucaps;
+	uint32_t pmurev;
+	uint32_t rambase;
+	uint32_t ramsize;
+	uint32_t srsize;
 	char name[12];
 };
 
@@ -48,7 +48,7 @@ struct brcmf_chip {
 struct brcmf_core {
 	u16 id;
 	u16 rev;
-	u32 base;
+	uint32_t base;
 };
 
 /**
@@ -62,12 +62,17 @@ struct brcmf_core {
  *	The callback should use the provided @rstvec when non-zero.
  */
 struct brcmf_buscore_ops {
-	u32 (*read32)(void *ctx, u32 addr);
-	void (*write32)(void *ctx, u32 addr, u32 value);
+	uint32_t (*read32)(void *ctx, uint32_t addr);
+	void (*write32)(void *ctx, uint32_t addr, uint32_t value);
 	int (*prepare)(void *ctx);
 	int (*reset)(void *ctx, struct brcmf_chip *chip);
 	int (*setup)(void *ctx, struct brcmf_chip *chip);
-	void (*activate)(void *ctx, struct brcmf_chip *chip, u32 rstvec);
+	void (*activate)(void *ctx, struct brcmf_chip *chip, uint32_t rstvec);
 };
 
+struct brcmf_core *brcmf_chip_get_pmu(void);
+bool brcmf_chip_set_active(uint32_t rstvec);
+char *brcmf_chip_name(uint32_t id, uint32_t rev, char *buf, uint32_t len);
+struct brcmf_chip *brcmf_chip_attach(void);
+struct brcmf_core *brcmf_chip_get_core(u16 coreid);
 #endif /* BRCMF_AXIDMP_H */

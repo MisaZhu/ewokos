@@ -2,9 +2,11 @@
 #include <utils/log.h>
 
 #include "sdio.h"
+#include "sdhci.h"
+#include "mmc.h"
 
 
-static int MMC_BLOCK_SIZE[8] = {0};
+static unsigned int MMC_BLOCK_SIZE[8] = {0};
 
 /* Split an arbitrarily sized data transfer into several
  * IO_RW_EXTENDED commands. */
@@ -166,23 +168,23 @@ int sdio_reset(void)
 }
 
 
-int sdio_set_block_size(int func, unsigned blksz)
+int sdio_set_block_size(unsigned int func, unsigned int blksz)
 {
     int ret;
 
-    ret = mmc_io_rw_direct(1, 0,
-        SDIO_FBR_BASE(func) + SDIO_FBR_BLKSIZE,
-        blksz & 0xff, NULL);
-    if (ret)
+    ret = mmc_io_rw_direct(1, 0, SDIO_FBR_BASE(func) + SDIO_FBR_BLKSIZE, blksz & 0xff, NULL);
+    if (ret){
         return ret;
-    ret = mmc_io_rw_direct(1, 0,
-        SDIO_FBR_BASE(func) + SDIO_FBR_BLKSIZE + 1,
-        (blksz >> 8) & 0xff, NULL);
-    if (ret)
-        return ret;
+	}
 
-	if(func < sizeof(MMC_BLOCK_SIZE)/sizeof(int))
+    ret = mmc_io_rw_direct(1, 0, SDIO_FBR_BASE(func) + SDIO_FBR_BLKSIZE + 1, (blksz >> 8) & 0xff, NULL);
+    if (ret){
+        return ret;
+	}
+
+	if(func < sizeof(MMC_BLOCK_SIZE)/sizeof(unsigned int)){
 		MMC_BLOCK_SIZE[func] = blksz;
+	}
 
     return 0;
 }
@@ -257,16 +259,18 @@ int sdio_claim_irq(int func)
     unsigned char reg;
 
     ret = mmc_io_rw_direct(0, 0, SDIO_CCCR_IENx, 0, &reg);
-    if (ret)
+    if (ret){
         goto err;
+	}
 
     reg |= 1 << func;
 
     reg |= 1; /* Master interrupt enable */
 
     ret = mmc_io_rw_direct(1, 0, SDIO_CCCR_IENx, reg, NULL);
-    if (ret)
+    if (ret){
         goto err;
+	}
 
 	sdhci_enable_irq(1);
 err:
