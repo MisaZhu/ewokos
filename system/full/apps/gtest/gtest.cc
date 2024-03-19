@@ -144,7 +144,7 @@ int main(int argc, char* argv[]) {
 
 	X x;
 	TestX xwin;
-	x.open(0, &xwin, 0, 0, "gtest", XWIN_STYLE_NORMAL);
+	x.open(0, &xwin, -1, -1, 0, 0, "gtest", XWIN_STYLE_NORMAL);
 	xwin.setVisible(true);
 
 	_xwin = &xwin;

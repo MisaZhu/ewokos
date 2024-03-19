@@ -1,4 +1,5 @@
 #include <mm/mmu.h>
+#include <mm/kmalloc.h>
 #include <mm/kalloc.h>
 #include <kstring.h>
 #include <stddef.h>
@@ -6,6 +7,10 @@
 #include <kernel/system.h>
 #include <kernel/hw_info.h>
 #include <kernel/kernel.h>
+
+uint32_t get_allocable_start(void) {
+	return KMALLOC_END;
+}
 
 /*
  * map_pages adds the given virtual to physical memory mapping to the given
@@ -63,4 +68,3 @@ inline void unmap_page_ref(page_dir_entry_t *vm, uint32_t virtual_addr) {
 	}
 	unmap_page(vm, virtual_addr);
 }
-

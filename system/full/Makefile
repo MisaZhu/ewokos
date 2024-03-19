@@ -2,10 +2,15 @@ BUILD_DIR = ../build
 TARGET_DIR = $(BUILD_DIR)/rootfs
 ROOT_DIR = ..
 
+ifeq ($(ARCH),)
+export ARCH=arm
+endif
+
 all: mkdirs extra_libs bins extra_driver xapps
 	@echo "all done."
 
 mkdirs:
+	@mkdir -p ${TARGET_DIR}/drivers
 	@mkdir -p ${TARGET_DIR}/apps
 	@mkdir -p ${TARGET_DIR}/sbin/x
 	@mkdir -p ${TARGET_DIR}/bin/x
@@ -20,7 +25,6 @@ extra_libs:
 
 bins:
 	cd bin; make
-	cd sbin; make
 
 xapps:
 	cd x; make
@@ -32,7 +36,6 @@ extra_driver:
 clean:
 	cd libs; make clean
 	cd bin; make clean
-	cd sbin; make clean
 	cd drivers; make clean
 	cd x; make clean
 	cd apps; make clean

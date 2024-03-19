@@ -83,7 +83,7 @@ int main(int argc, char* argv[]) {
 	X x;
 	grect_t desk;
 	Png xwin;
-	x.open(0, &xwin, img->w, img->h, "png",
+	x.open(0, &xwin, -1, -1, img->w, img->h, "png",
 			XWIN_STYLE_NORMAL | XWIN_STYLE_NO_RESIZE);
 			//XWIN_STYLE_NO_FRAME | XWIN_STYLE_NO_FOCUS);
 	xwin.setImage(img);

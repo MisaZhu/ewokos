@@ -9,18 +9,12 @@ export G_2D_BOOST=yes
 all: basic_sys
 	@echo "all done."
 	rm -fr $(BUILD_DIR)/$(HW)
-	mv $(TARGET_DIR) $(BUILD_DIR)/$(HW)
+	mkdir -p $(BUILD_DIR)/$(HW)
+	mv $(TARGET_DIR)/* $(BUILD_DIR)/$(HW)
 	cp -r $(BUILD_DIR)/include $(BUILD_DIR)/$(HW)
 	cp -r $(BUILD_DIR)/lib $(BUILD_DIR)/$(HW)
 
 include ../make.inc
-
-extra: basic_sys extra_sys
-	@echo "all done."
-	rm -fr $(BUILD_DIR)/$(HW)
-	mv $(TARGET_DIR) $(BUILD_DIR)/$(HW)
-	cp -r $(BUILD_DIR)/include $(BUILD_DIR)/$(HW)
-	cp -r $(BUILD_DIR)/lib $(BUILD_DIR)/$(HW)
 
 basic_sys: kernel_heads 
 	rm -f $(BUILD_DIR)/lib/libbsp.a
@@ -32,13 +26,9 @@ basic_sys: kernel_heads
 	cd drivers;make
 	cp -r etc $(TARGET_DIR)/
 
-extra_sys:
-	cd $(ROOT_DIR)/extra;make
-
 clean:
 	cd libs;make clean
 	cd drivers;make clean
 	cd $(ROOT_DIR)/full;make clean
 	cd $(ROOT_DIR)/basic;make clean
-	cd $(ROOT_DIR)/extra;make clean
 	rm -fr $(ROOT_DIR)/build/$(HW)

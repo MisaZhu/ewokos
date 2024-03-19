@@ -100,7 +100,7 @@ int main(int argc, char* argv[]) {
 	TestX xwin;
 	int32_t w, h;
 	xwin.getSize(w, h);
-	x.open(0, &xwin, w, h,
+	x.open(0, &xwin, -1, -1, w, h,
 			"anim", XWIN_STYLE_NO_FRAME);
 
 	xwin.setDisplay(displayNum-1);

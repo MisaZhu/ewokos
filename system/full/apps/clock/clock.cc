@@ -90,7 +90,7 @@ int main(int argc, char** argv) {
 	Timer* timer = new Timer();
 	root->add(timer);
 
-	x.open(0, &win, 200, 68, "clock", XWIN_STYLE_NO_FRAME | XWIN_STYLE_ANTI_FSCR);
+	x.open(0, &win, -1, -1, 200, 68, "clock", XWIN_STYLE_NO_FRAME | XWIN_STYLE_ANTI_FSCR);
 	win.setVisible(true);
 	win.setTimer(1);
 	x.run(NULL, &win);

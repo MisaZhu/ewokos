@@ -4,6 +4,7 @@ all:
 	cd rootfs;make
 	cd vfsd;make
 	cd sessiond;make
+	cd telnetd;make
 
 clean:
 	cd core;make clean
@@ -11,3 +12,4 @@ clean:
 	cd rootfs;make clean
 	cd vfsd;make clean
 	cd sessiond;make clean
+	cd telnetd;make clean

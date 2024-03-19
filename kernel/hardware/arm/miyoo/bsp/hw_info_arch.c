@@ -8,8 +8,8 @@
 #endif
 
 
-uint32_t _allocatable_phy_mem_top = 0;
-uint32_t _allocatable_phy_mem_base = 0;
+uint32_t _allocable_phy_mem_top = 0;
+uint32_t _allocable_phy_mem_base = 0;
 uint32_t _core_base_offset = 0;
 
 #define FB_SIZE 4*MB
@@ -34,12 +34,12 @@ void sys_info_init_arch(void) {
 
 	_sys_info.dma.size = DMA_SIZE;
 
-	_allocatable_phy_mem_base = V2P(ALLOCATABLE_MEMORY_START);
-	_allocatable_phy_mem_top = _sys_info.phy_offset +
+	_allocable_phy_mem_base = V2P(get_allocable_start());
+	_allocable_phy_mem_top = _sys_info.phy_offset +
 			_sys_info.phy_mem_size -
 			FB_SIZE - 
 			_sys_info.dma.size;
-	_sys_info.dma.phy_base = _allocatable_phy_mem_top;
+	_sys_info.dma.phy_base = _allocable_phy_mem_top;
 
 #ifdef KERNEL_SMP
 	_sys_info.cores = get_cpu_cores();

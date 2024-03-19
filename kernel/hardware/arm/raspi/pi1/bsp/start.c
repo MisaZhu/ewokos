@@ -1,4 +1,4 @@
-#include <mm/mmudef.h>
+#include <mm/mmu.h>
 
 #define PDE_SHIFT     20   // shift how many bits to get PDE index
 

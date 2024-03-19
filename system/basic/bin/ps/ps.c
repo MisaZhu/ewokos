@@ -144,7 +144,7 @@ int main(int argc, char* argv[]) {
 			if(uid > 0 && proc->uid != cprocinfo.uid && all == 0) //for current uid
 				continue;
 
-			if(proc->type != PROC_TYPE_PROC && thread == 0) //for thread 
+			if(proc->type != TASK_TYPE_PROC && thread == 0) //for thread 
 				continue;
 
 			if(full) {
@@ -173,13 +173,13 @@ int main(int argc, char* argv[]) {
 
 			}
 
-			if(proc->type == PROC_TYPE_THREAD)
+			if(proc->type == TASK_TYPE_THREAD)
 				printf(" [THRD:%d]\n", proc->father_pid);
 			else
 				printf("\n");
 		}
 	}
-	printf("\n\033[1mmemory: total %d MB, free %d MB, shm %d MB\n", t_mem, fr_mem, shm_mem);
+	printf("\n\033[1mtask_num: %d, memory: total %d MB, free %d MB, shm %d MB\n", num, t_mem, fr_mem, shm_mem);
 	printf("cpu idle:");
 	for(uint32_t i=0; i<sys_info.cores; i++) {
 		int idle = core_idle[i]/10000;

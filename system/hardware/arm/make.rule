@@ -7,11 +7,13 @@ OBJDUMP = arm-none-eabi-objdump
 CFLAGS = -marm \
 	-mfloat-abi=softfp \
         -Wall -Wextra -fPIC -mapcs-frame \
+        -Wno-unused-parameter \
         -std=c99
 
 CXXFLAGS = -marm \
 	-mfloat-abi=softfp \
         -Wall -Wextra -fPIC -mapcs-frame \
+        -Wno-unused-parameter \
         -pedantic \
 	-fno-rtti \
         -fno-exceptions \

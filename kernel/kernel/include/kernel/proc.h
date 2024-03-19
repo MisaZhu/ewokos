@@ -24,7 +24,7 @@ typedef struct {
 
 typedef struct {
 	uint32_t base;
-	void*    stacks[THREAD_STACK_PAGES];
+	void**   stacks;
 } thread_stack_t;
 
 typedef struct {
@@ -71,9 +71,7 @@ extern bool _core_proc_ready;
 extern int32_t _core_proc_pid;
 extern uint32_t _ipc_uid;
 
-extern void    procs_init(void);
-extern uint32_t procs_get_max_num(void);
-extern uint32_t procs_get_max_table_num(void);
+extern int32_t procs_init(void);
 extern int32_t proc_load_elf(proc_t *proc, const char *proc_image, uint32_t size);
 extern int32_t proc_start(proc_t* proc, uint32_t entry);
 extern proc_t* proc_get_next_ready(void);

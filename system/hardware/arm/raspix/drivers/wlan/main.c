@@ -262,10 +262,6 @@ static int net_dcntl(int from_pid, int cmd, proto_t* in, proto_t* ret, void* p) 
 	return 0;
 }
 
-static void net_loop(void){
-
-}
-
 int main(int argc, char** argv) {
 	_mmio_base = mmio_map();\
 	
@@ -289,7 +285,6 @@ int main(int argc, char** argv) {
 	dev.read = net_read;
 	dev.write = net_write;
 	dev.dev_cntl = net_dcntl;
-	dev.loop_step = net_loop;
 	device_run(&dev, mnt_point, FS_TYPE_CHAR, 0666);
 
 

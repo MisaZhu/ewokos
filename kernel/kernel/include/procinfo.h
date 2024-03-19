@@ -18,9 +18,9 @@ enum {
 };
 
 enum {
-	PROC_TYPE_PROC = 0,
-	PROC_TYPE_THREAD,
-	PROC_TYPE_VFORK
+	TASK_TYPE_PROC = 0,
+	TASK_TYPE_THREAD,
+	TASK_TYPE_VFORK
 };
 
 enum {

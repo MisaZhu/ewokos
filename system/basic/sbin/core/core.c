@@ -30,7 +30,7 @@ static void core_init(void) {
 
 	sys_info_t sysinfo;
 	syscall1(SYS_GET_SYS_INFO, (int32_t)&sysinfo);
-	_max_proc_table_num = sysinfo.max_proc_table_num;
+	_max_proc_table_num = sysinfo.max_task_num;
 	_proc_info_table = (proc_info_t*)malloc(_max_proc_table_num*sizeof(proc_info_t));
 
 	for(i = 0; i<_max_proc_table_num; i++) {
