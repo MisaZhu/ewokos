@@ -69,6 +69,21 @@ protected:
 			onIM(xev);
 		}
 	}
+
+	void onResize(void) {
+		xinfo_t xinfo;
+		getInfo(xinfo);
+
+		var_t* arg = var_new_obj(vm, NULL, NULL); 
+		var_add(arg, "width", var_new_int(vm, xinfo.wsr.w));
+		var_add(arg, "height", var_new_int(vm, xinfo.wsr.h));
+
+		var_t* args = var_new(vm);
+		var_add(args, "size", arg);
+
+		call_m_func_by_name(vm, var_win, "onResize", args);
+		var_unref(args);
+	}
 };
 
 
@@ -132,6 +147,20 @@ var_t* native_xwin_repaint(vm_t* vm, var_t* env, void* data) {
 	return NULL;
 }
 
+var_t* native_xwin_getSize(vm_t* vm, var_t* env, void* data) {
+	XWin* xwin = (XWin*)get_raw(env, THIS);
+	if(xwin == NULL)
+		return NULL;
+
+
+	xinfo_t xinfo;
+	xwin->getInfo(xinfo);
+	var_t* ret = var_new_obj(vm, NULL, NULL);
+	var_add(ret, "width", var_new_int(vm, xinfo.wsr.w));
+	var_add(ret, "height", var_new_int(vm, xinfo.wsr.h));
+	return ret;
+}
+
 #ifdef __cplusplus /* __cplusplus */
 extern "C" {
 #endif
@@ -144,6 +173,7 @@ void reg_native_x(vm_t* vm) {
 	cls = vm_new_class(vm, CLS_XWIN);
 	vm_reg_native(vm, cls, "setVisible(visible)", native_xwin_setVisible, NULL); 
 	vm_reg_native(vm, cls, "repaint()", native_xwin_repaint, NULL); 
+	vm_reg_native(vm, cls, "getSize()", native_xwin_getSize, NULL); 
 }
 
 #ifdef __cplusplus /* __cplusplus */

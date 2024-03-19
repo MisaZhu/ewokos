@@ -38,6 +38,10 @@ xwin.onMouse = function(mouseEvt) {
     repaint();
 };
 
+xwin.onResize = function(size) {
+    debug(size);
+}
+
 xwin.onIM = function(imEvt) {
     debug(imEvt);
     ievent = imEvt;

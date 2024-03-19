@@ -1,11 +1,13 @@
 MARIO_LANG = js
 lang_OBJS = $(MARIO_VM)/lang/$(MARIO_LANG)/compiler.o 
 
+NATIVE_PATH = $(MARIO_VM)/lang/$(MARIO_LANG)/native
 NATIVE_PATH_BUILTIN = $(MARIO_VM)/lang/$(MARIO_LANG)/native/builtin
 NATIVE_PATH_X = $(MARIO_VM)/lang/$(MARIO_LANG)/native/x
 NATIVE_PATH_GRAPH = $(MARIO_VM)/lang/$(MARIO_LANG)/native/graph
 
-NATIVE_OBJS= $(NATIVE_PATH_BUILTIN)/native_builtin.o  \
+NATIVE_OBJS= $(NATIVE_PATH)/natives.o  \
+	$(NATIVE_PATH_BUILTIN)/native_builtin.o  \
 	$(NATIVE_PATH_BUILTIN)/object/native_object.o  \
 	$(NATIVE_PATH_BUILTIN)/number/native_number.o  \
 	$(NATIVE_PATH_BUILTIN)/bytes/native_bytes.o  \

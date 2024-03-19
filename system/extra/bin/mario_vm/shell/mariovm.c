@@ -1,7 +1,4 @@
 #include "mario.h"
-#include "native_builtin.h"
-#include "native_graph.h"
-#include "native_x.h"
 
 #include <unistd.h>
 #include <stdlib.h>
@@ -15,13 +12,8 @@ char _err_info[ERR_MAX+1];
 /**
 load extra native libs.
 */
-typedef void (*reg_natives_t)(vm_t* vm);
 
-void reg_natives(vm_t* vm) {
-	reg_basic_natives(vm);
-	reg_native_graph(vm);
-	reg_native_x(vm);
-}
+void reg_natives(vm_t* vm);
 
 mstr_t* load_script_content(const char* fname) {
 	int fd = open(fname, O_RDONLY);
@@ -33,15 +25,24 @@ mstr_t* load_script_content(const char* fname) {
 	fstat(fd, &st);
 
 	mstr_t* ret = mstr_new_by_size(st.st_size+1);
-	int sz = read(fd, ret->cstr, st.st_size);
+
+	char* p = ret->cstr;
+	uint32_t sz = st.st_size;
+	while(sz > 0) {
+		int rd = read(fd, p, sz);
+		if(rd <= 0 || sz < rd)
+			break;
+		p += rd;
+		sz -= rd; 
+	}
 	close(fd);
 	
-	if(sz != st.st_size) {
+	if(sz > 0) {
 		mstr_free(ret);
 		return NULL;
 	}
-	ret->cstr[sz] = 0;
-	ret->len = sz;
+	ret->cstr[st.st_size] = 0;
+	ret->len = st.st_size;
 	return ret;
 }
 
@@ -93,28 +94,60 @@ bool load_js(vm_t* vm, const char* fname) {
 	return ret;
 }
 
+enum {
+	MODE_RUN = 0,
+	MODE_ASM,
+	MODE_CMPL
+};
+
+static uint8_t _mode = MODE_RUN; //0 for run, 1 for verify, 2 for generate mbc file
+static const char* _fname = "";
+static const char* _fname_out = "";
+
+static int doargs(int argc, char* argv[]) {
+	int c = 0;
+	while (c != -1) {
+		c = getopt (argc, argv, "cv");
+		if(c == -1)
+			break;
+
+		switch (c) {
+		case 'c':
+			_mode = MODE_CMPL;
+			break;
+		case 'v':
+			_mode = MODE_ASM;
+			break;
+		case '?':
+			return -1;
+		default:
+			c = -1;
+			break;
+		}
+	}
+
+	if(optind < 0 || optind == argc)
+		return -1;
+
+	_fname = argv[optind];
+	optind++;
+	if(optind < argc)
+		_fname_out = argv[optind];
+	return 0;
+}
+
+void vm_gen_mbc(vm_t* vm, const char* fname_out);
+bool vm_load_mbc(vm_t* vm, const char* fname);
+
 int main(int argc, char** argv) {
 	setbuf(stdin, NULL);
 	setbuf(stdout, NULL);
-	if(argc < 2) {
-		mario_debug("Usage: mario (-v) <js-filename>\n");
+
+	if(doargs(argc, argv) != 0) {
+		mario_debug("Usage: mario (-v/c) <js-filename>\n");
+		return -1;
 	}
 
-	bool verify = false;
-	const char* fname = "";
-
-	if(argc > 1) {
-		if(strcmp(argv[1], "-v") == 0) {
-			if(argc != 3)
-				return 1;
-			verify = true;
-			fname = argv[2];
-		}
-		else {
-			fname = argv[1];
-		}
-	}
-	
 	bool loaded = true;
 	_load_m_func = include_script;
 
@@ -126,11 +159,20 @@ int main(int argc, char** argv) {
 	if(loaded) {
 		vm_init(vm, reg_natives, NULL);
 
-		if(fname[0] != 0) {
-			mario_debug("-------- run script --------\n");
-			if(load_js(vm, fname)) {
-				if(verify)
+		if(_fname[0] != 0) {
+			bool res = false;
+			if(strstr(_fname, ".js") != NULL)
+				res = load_js(vm, _fname);
+			else if(strstr(_fname, ".mbc") != NULL && _mode != 2) {
+				bc_release(&vm->bc);
+				res = vm_load_mbc(vm, _fname);
+			}
+			
+			if(res) {
+				if(_mode == 1)
 					vm_dump(vm);
+				else if(_mode == 2)
+					vm_gen_mbc(vm, _fname_out);
 				else
 					vm_run(vm);
 			}
