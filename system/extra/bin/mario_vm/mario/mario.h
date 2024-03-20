@@ -10,31 +10,25 @@
 extern "C" {
 #endif
 
+/**====== platform porting functions.======*/
+extern void  (*_mem_init)(void);
+extern void  (*_mem_quit)(void);
+extern void* (*_malloc)(uint32_t size);
+extern void  (*_free)(void* p);
+extern void  (*_out_func)(const char*);
+
 /**====== memory functions.======*/
+extern void  mario_mem_init(void);
+extern void  mario_mem_close(void);
+extern void* _realloc(void* p, uint32_t old_size, uint32_t new_size);
 
-#ifndef MARIO_DEBUG
-	#define _malloc malloc
-	#define _free free
-#else
-	extern void* _raw_malloc(uint32_t size, const char* file, uint32_t line);
-	#define _malloc(size) _raw_malloc((size), __FILE__, __LINE__)
-	extern void _free(void *p);
-#endif
-
-extern void mario_mem_init(void);
-extern void mario_mem_close(void);
-extern void* _raw_realloc(void* p, uint32_t old_size, uint32_t new_size, const char* file, uint32_t line);
-#define _realloc(p, old_size, new_size) _raw_realloc(p, old_size, new_size, __FILE__, __LINE__)
-
-#define STATIC_mstr_MAX 32
-
-typedef void (*free_func_t)(void* p);
-extern void (*_out_func)(const char*);
-
+/**====== debug functions.======*/
 extern bool _m_debug;
 void mario_debug(const char* s);
 
 /**====== array functions. ======*/
+#define STATIC_mstr_MAX 32
+typedef void (*free_func_t)(void* p);
 
 typedef struct st_array {
 	void** items;

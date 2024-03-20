@@ -10,10 +10,35 @@
 extern "C" {
 #endif
 
+/**======platform porting functions======*/
+void  (*_mem_init)(void) = NULL;
+void  (*_mem_quit)(void) = NULL;
+void* (*_malloc)(uint32_t size) = NULL;
+void  (*_free)(void* p) = NULL;
+void  (*_out_func)(const char*) = NULL;
+
+/**======memory functions======*/
+void mario_mem_init() { 
+	if(_mem_init != NULL)
+		_mem_init();
+}
+
+void mario_mem_close() {
+	if(_mem_quit != NULL)
+		_mem_quit();
+}
+
+void *_realloc(void* p, uint32_t old_size, uint32_t new_size) {
+	void *np = _malloc(new_size);
+	if(p != NULL && old_size > 0) {
+		memcpy(np, p, old_size);
+		_free(p);
+	}
+	return np;
+}
+
 /**======debug functions======*/
 bool _m_debug = false;
-
-void (*_out_func)(const char*) = NULL;
 
 static inline void dout(const char* s) {
 	if(_out_func != NULL)
@@ -26,138 +51,6 @@ inline void mario_debug(const char* s) {
 		dout(s);
 #endif
 }
-
-#ifdef MARIO_DEBUG
-typedef struct mem_block {
-	void* p;
-	uint32_t size;
-	const char* file;
-	uint32_t line;
-	struct mem_block *prev;
-	struct mem_block *next;
-} mem_block_t;
-
-static mem_block_t* _mem_head = NULL;
-
-#ifdef MARIO_THREAD
-static pthread_mutex_t _mem_lock;
-static inline void mem_lock_init() {
-	pthread_mutex_init(&_mem_lock, NULL);
-}
-static inline void mem_lock_destroy() {
-	pthread_mutex_destroy(&_mem_lock);
-}
-static inline void mem_lock() {
-	pthread_mutex_lock(&_mem_lock);
-}
-static inline void mem_unlock() {
-	pthread_mutex_unlock(&_mem_lock);
-}
-
-#else
-static inline void mem_lock_destroy() { }
-static inline void mem_lock_init() { }
-static inline void mem_lock() { }
-static inline void mem_unlock() { }
-#endif
-
-inline void* _raw_malloc(uint32_t size, const char* file, uint32_t line) {
-	if(size == 0)
-		return NULL;
-
-	mem_lock();
-	mem_block_t* block = (mem_block_t*)malloc(sizeof(mem_block_t));
-	block->p = malloc(size);
-	block->size = size;
-	block->file = file;
-	block->line = line;
-	block->prev = NULL;
-
-	if(_mem_head != NULL)
-		_mem_head->prev = block;
-	block->next = _mem_head;
-	_mem_head = block;
-	mem_unlock();
-	return block->p;
-}
-
-inline void _free(void* p) {
-	mem_lock();
-	mem_block_t* block = _mem_head;	
-	while(block != NULL) {
-		if(block->p == p) // found.
-			break;
-		block = block->next;
-	}
-
-	if(block == NULL) {
-		mem_unlock();
-		return;
-	}
-	
-	if(block->next != NULL)
-		block->next->prev = block->prev;
-	if(block->prev != NULL)
-		block->prev->next = block->next;
-	
-	if(block == _mem_head)
-		_mem_head = block->next;
-
-	free(block->p);
-	free(block);
-	mem_unlock();
-}
-
-void mario_mem_init() { 
-	_mem_head = NULL;	
-	mem_lock_init();
-}
-
-void mario_mem_close() { 
-	mem_lock();
-	mem_block_t* block = _mem_head;	
-	if(block != NULL) { // mem clean
-		mario_debug("[debug]memory is leaking!!!\n");
-		while(block != NULL) {
-			mario_debug(" ");
-			mario_debug(block->file);
-			mario_debug(", ");
-			mario_debug(mstr_from_int(block->line, 10));
-			mario_debug(", size=");
-			mario_debug(mstr_from_int(block->size, 10));
-			mario_debug("\n");
-			block = block->next;
-		}
-	}
-	else {
-		mario_debug("[debug] memory is clean.\n");
-	}
-	mem_unlock();
-	mem_lock_destroy();
-}
-
-void *_raw_realloc(void* p, uint32_t old_size, uint32_t new_size, const char* file, uint32_t line) {
-	void *np = _raw_malloc(new_size, file, line);
-	if(p != NULL && old_size > 0) {
-		memcpy(np, p, old_size);
-		_free(p);
-	}
-	return np;
-}
-#else
-
-void mario_mem_init() { }
-void mario_mem_close() { }
-
-void *_raw_realloc(void* p, uint32_t old_size, uint32_t new_size, const char* file, uint32_t line) {
-	void *np = _malloc(new_size);
-	if(p != NULL && old_size > 0) {
-		memcpy(np, p, old_size);
-		_free(p);
-	}
-	return np;
-}
-#endif
 
 /**======array functions======*/
 

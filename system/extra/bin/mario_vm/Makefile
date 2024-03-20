@@ -10,7 +10,7 @@ include ../../../hardware/$(ARCH)/make.rule
 include $(MARIO_VM)/lang/js/lang.mk
 
 mario_OBJS = $(MARIO_VM)/mario/mario.o
-shell_OBJS = shell/main.o shell/mbc.o shell/js.o shell/dump.o
+shell_OBJS = shell/main.o shell/mbc.o shell/js.o shell/dump.o shell/platform.o
 
 MARIO_OBJS = $(mario_OBJS) $(shell_OBJS) $(lang_OBJS) \
 		$(NATIVE_OBJS)

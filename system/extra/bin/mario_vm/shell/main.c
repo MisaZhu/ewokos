@@ -73,17 +73,13 @@ bool load_js(vm_t* vm, const char* fname);
 void vm_dump_out(vm_t* vm);
 void vm_gen_mbc(vm_t* vm, const char* fname_out);
 bool vm_load_mbc(vm_t* vm, const char* fname);
-
-
-static void out(const char* str) {
-    write(1, str, strlen(str));
-}
+void platform_init(void);
 
 int main(int argc, char** argv) {
 	setbuf(stdin, NULL);
 	setbuf(stdout, NULL);
 
-    _out_func = out;
+	platform_init();
 
 	if(doargs(argc, argv) != 0) {
 		printf("Usage: mario (-v/c/d) <filename>\n");
