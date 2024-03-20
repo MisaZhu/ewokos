@@ -1,4 +1,6 @@
 #include "mario.h"
+#include <stdio.h>
+#include <unistd.h>
 
 #ifdef MARIO_DEBUG
 

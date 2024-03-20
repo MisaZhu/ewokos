@@ -1,6 +1,7 @@
 #include "mario.h"
 #include "platform.h"
 #include <stdlib.h>
+#include <unistd.h>
 #include <stdio.h>
 
 #ifdef MRCIO_THREAD
