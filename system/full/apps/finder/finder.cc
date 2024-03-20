@@ -158,6 +158,14 @@ class Finder: public XWin {
 			devIcon = png_image_new(X::getResName("icons/device.png"));
 	}
 
+	void scroll(int lines) {
+		start -= lines;
+		if(start < 0)
+			start = 0;
+		else if(start >= nums)
+			start = nums - 1;
+		repaint();
+	}
 protected:
 	void onRepaint(graph_t* g) {
 		char name[FS_FULL_NAME_MAX+1];
@@ -224,13 +232,14 @@ protected:
 			if(abs_32(mv) > 0) {
 				mouse_last_y = ev->value.mouse.y;
 				//drag release
-				start -= mv;
-				if(start < 0)
-					start = 0;
-				else if(start >= nums)
-					start = nums - 1;
-				repaint();
+				scroll(mv);
 			}
+		}
+		else if(ev->state == XEVT_MOUSE_MOVE) {
+			if(ev->value.mouse.button == MOUSE_BUTTON_SCROLL_UP)
+				scroll(-1);
+			else if(ev->value.mouse.button == MOUSE_BUTTON_SCROLL_DOWN)
+				scroll(1);
 		}
 		else if(ev->state == XEVT_MOUSE_CLICK) {
 			int at = pos.y / itemSize;

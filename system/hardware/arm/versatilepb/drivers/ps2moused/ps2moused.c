@@ -151,18 +151,24 @@ int32_t mouse_handler(mouse_info_t *info) {
 			
 			btndown = (btndown << 1 | btnup);
 
+			if(btndown == 0 && rz != 0) {
+				btndown = 8;//scroll wheel
+				rx = rz;
+			}
+
 			info->btn = btndown;
 			info->rx = rx;
 			info->ry = ry;
-			info->rz = rz;
 			return 0;
 		}
 	}
 	return -1;
 }
 
-static mouse_info_t _minfo;
-static bool _has_data = false;
+#define MAX_MEVT 64
+static mouse_info_t _minfo[MAX_MEVT];
+static uint32_t _minfo_num = 0;
+static uint32_t _minfo_index = 0;
 
 static int mouse_read(int fd, int from_pid, fsinfo_t* node,
 		void* buf, int size, int offset, void* p) {
@@ -175,12 +181,15 @@ static int mouse_read(int fd, int from_pid, fsinfo_t* node,
 	uint8_t* d = (uint8_t*)buf;
 	d[0] = 0;
 
-	if(size >= 4 && _has_data) {
-		_has_data = false;
+	if(size >= 4 && _minfo_num > 0) {
 		d[0] = 1;
-		d[1] = _minfo.btn;
-		d[2] = _minfo.rx;
-		d[3] = _minfo.ry;
+		d[1] = _minfo[_minfo_index].btn;
+		d[2] = _minfo[_minfo_index].rx;
+		d[3] = _minfo[_minfo_index].ry;
+		_minfo_index++;
+		if(_minfo_index >= _minfo_num) {
+			_minfo_num = _minfo_index = 0;
+		}
 		return 4;
 	}
 	return VFS_ERR_RETRY;
@@ -199,17 +208,31 @@ static int mouse_loop(void* p) {
 
 static void interrupt_handle(uint32_t interrupt, uint32_t p) {
 	(void)p;
-	if(mouse_handler(&_minfo) == 0) {
-		_has_data = true;
+	ipc_disable();
+
+	mouse_info_t info;
+	if(mouse_handler(&info) == 0) {
+		if((_minfo_num+1) >= MAX_MEVT) {
+			if(info.btn != 0)
+				memcpy(&_minfo[MAX_MEVT-1], &info, sizeof(mouse_info_t));
+		}
+		else {
+			memcpy(&_minfo[_minfo_num], &info, sizeof(mouse_info_t));
+			_minfo_num++;
+		}
 		proc_wakeup(RW_BLOCK_EVT);
 	}
+
+	ipc_enable();
 	return;
 }
 
 #define IRQ_RAW_MOUSE (32+4) //VPB mouse interrupt at SIC bit4
 
 int main(int argc, char** argv) {
-	_has_data = false;
+	_minfo_num = 0;
+	_minfo_index = 0;
+
 	const char* mnt_point = argc > 1 ? argv[1]: "/dev/mouse0";
 
 	mouse_init();
