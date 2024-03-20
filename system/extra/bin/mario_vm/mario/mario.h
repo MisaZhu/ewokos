@@ -319,7 +319,6 @@ void bc_release(bytecode_t* bc);
 /**====== mario_vm ======*/
 
 extern const char* _mario_lang;
-bool compile(bytecode_t *bc, const char* input);
 
 //script var
 #define V_UNDEF  0

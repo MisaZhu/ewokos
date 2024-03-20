@@ -1,4 +1,6 @@
-#include "mario.h"
+#include "js.h"
+#include "mbc.h"
+#include "platform.h"
 
 #include <unistd.h>
 #include <stdlib.h>
@@ -69,11 +71,7 @@ static int doargs(int argc, char* argv[]) {
 	return 0;
 }
 
-bool load_js(vm_t* vm, const char* fname);
-void vm_dump_out(vm_t* vm);
-void vm_gen_mbc(vm_t* vm, const char* fname_out);
-bool vm_load_mbc(vm_t* vm, const char* fname);
-void platform_init(void);
+bool js_compile(bytecode_t *bc, const char* input);
 
 int main(int argc, char** argv) {
 	setbuf(stdin, NULL);
@@ -89,7 +87,7 @@ int main(int argc, char** argv) {
 	bool loaded = true;
 
 	mario_mem_init();
-	vm_t* vm = vm_new(compile);
+	vm_t* vm = vm_new(js_compile);
 	vm->gc_buffer_size = 1024;
 	init_args(vm, argc, argv);
 

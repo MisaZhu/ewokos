@@ -1,4 +1,5 @@
 #include "mario.h"
+#include "platform.h"
 #include <stdlib.h>
 #include <stdio.h>
 

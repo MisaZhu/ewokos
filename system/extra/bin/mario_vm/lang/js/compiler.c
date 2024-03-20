@@ -1283,7 +1283,7 @@ bool statement(lex_t* l, bytecode_t* bc) {
 	return true;
 }
 
-bool compile(bytecode_t *bc, const char* input) {
+bool js_compile(bytecode_t *bc, const char* input) {
 	lex_t lex;
 	lex_init(&lex, input);
 	lex_get_next_token(&lex);

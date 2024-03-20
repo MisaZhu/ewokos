@@ -1,4 +1,4 @@
-#include "mario.h"
+#include "mbc.h"
 
 #include <unistd.h>
 #include <stdlib.h>

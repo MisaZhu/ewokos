@@ -1,4 +1,4 @@
-#include "mario.h"
+#include "js.h"
 
 #include <unistd.h>
 #include <stdlib.h>
@@ -39,7 +39,7 @@ static mstr_t* load_script_content(const char* fname) {
 
 #define DEF_LIBS "/usr/local/mario"
 
-mstr_t* include_script(vm_t* vm, const char* name) {
+static mstr_t* include_script(vm_t* vm, const char* name) {
 	const char* path = getenv("MARIO_PATH");
 	if(path == NULL)
 		path = DEF_LIBS;
