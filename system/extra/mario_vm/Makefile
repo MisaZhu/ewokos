@@ -6,7 +6,7 @@ ifeq ($(MARIO_VM),)
 MARIO_VM = .
 endif
 
-include ../../../hardware/$(ARCH)/make.rule
+include ../../hardware/$(ARCH)/make.rule
 include $(MARIO_VM)/lang/js/lang.mk
 
 mario_OBJS = $(MARIO_VM)/mario/mario.o
@@ -34,7 +34,7 @@ ifneq ($(MARIO_THREAD), no)
 CFLAGS += -DMARIO_THREAD
 endif
 
-BUILD_DIR = ../../../build
+BUILD_DIR = ../../build
 TARGET_DIR = $(BUILD_DIR)/extra
 
 LDFLAGS = -L$(BUILD_DIR)/lib
