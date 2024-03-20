@@ -51,8 +51,8 @@ static inline void* raw_malloc(uint32_t size, const char* file, uint32_t line) {
 		return NULL;
 
 	mem_lock();
-	mem_block_t* block = (mem_block_t*)malloc(sizeof(mem_block_t));
-	block->p = malloc(size);
+	mem_block_t* block = (mem_block_t*)_platform_malloc(sizeof(mem_block_t));
+	block->p = _platform_malloc(size);
 	block->size = size;
 	block->file = file;
 	block->line = line;
@@ -88,8 +88,8 @@ static inline void raw_free(void* p) {
 	if(block == _mem_head)
 		_mem_head = block->next;
 
-	free(block->p);
-	free(block);
+	_platform_free(block->p);
+	_platform_free(block);
 	mem_unlock();
 }
 
@@ -123,28 +123,28 @@ static void raw_mem_quit() {
 
 #else
 
-static void raw_mem_init() { }
-static void raw_mem_quit() { }
-
 static inline void* raw_malloc(uint32_t size) {
-	return malloc(size);
+	return _platform_malloc(size);
 }
 
 static inline void raw_free(void* p) {
-	return free(p);
+	return _platform_free(p);
 }
 
+static void raw_mem_init() { 
+}
+
+static void raw_mem_quit() { 
+}
 #endif
 
-static void out(const char* str) {
-    write(1, str, strlen(str));
-}
 
-void platform_init(void) {
-	_mem_init = raw_mem_init;
-	_mem_quit = raw_mem_quit;
+void mem_init(void) {
 	_malloc = raw_malloc;
 	_free = raw_free;
+	raw_mem_init();
+}
 
-    _out_func = out;
+void mem_quit(void) {
+	raw_mem_quit();
 }

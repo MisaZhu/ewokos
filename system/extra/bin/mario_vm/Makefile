@@ -10,10 +10,15 @@ include ../../../hardware/$(ARCH)/make.rule
 include $(MARIO_VM)/lang/js/lang.mk
 
 mario_OBJS = $(MARIO_VM)/mario/mario.o
-shell_OBJS = shell/main.o shell/mbc.o shell/js.o shell/dump.o shell/platform.o
+platform_OBJS = $(MARIO_VM)/platform/platform.o \
+		$(MARIO_VM)/platform/mem.o
+mvm_OBJS = bin/mario/main.o bin/lib/mbc.o bin/lib/js.o 
+bcasm_OBJS = bin/bcasm/main.o bin/bcasm/dump.o bin/lib/mbc.o bin/lib/js.o 
 
-MARIO_OBJS = $(mario_OBJS) $(shell_OBJS) $(lang_OBJS) \
+MARIO_OBJS = $(mario_OBJS) $(mvm_OBJS) $(lang_OBJS) $(platform_OBJS) \
 		$(NATIVE_OBJS)
+
+BCASM_OBJS = $(mario_OBJS) $(bcasm_OBJS) $(lang_OBJS) $(platform_OBJS)
 
 ifneq ($(MARIO_DEBUG), no)
 CFLAGS += -g -DMARIO_DEBUG
@@ -37,12 +42,19 @@ HEADS = -I $(BUILD_DIR)/include \
 	-I$(NATIVE_PATH_BUILTIN) \
 	-I$(NATIVE_PATH_GRAPH) \
 	-I$(NATIVE_PATH_X) \
-	-I$(MARIO_VM)/mario
+	-I$(MARIO_VM)/mario \
+	-I$(MARIO_VM)/bin/lib \
+	-I$(MARIO_VM)/platform
 
 CFLAGS += $(HEADS)
 CXXFLAGS += $(HEADS)
 
 MARIO = $(TARGET_DIR)/bin/mario
+BCASM = $(TARGET_DIR)/bin/bcasm
+
+all: $(MARIO) $(BCASM)
+	@echo "done"
+
 
 $(MARIO): $(MARIO_OBJS) \
 		$(BUILD_DIR)/lib/libx.a \
@@ -54,6 +66,12 @@ $(MARIO): $(MARIO_OBJS) \
 		$(EWOK_LIBC_A) 
 	mkdir -p $(TARGET_DIR)/bin
 	$(LD) -Ttext=100 $(MARIO_OBJS) -o $(MARIO) $(LDFLAGS) -lttf -lfont  -lgraph -lbsp -lupng -lx++ -lx -lsconf  $(EWOK_LIBC) -lcxx
+
+$(BCASM): $(BCASM_OBJS) \
+		$(EWOK_LIBC_A) 
+	mkdir -p $(TARGET_DIR)/bin
+	$(LD) -Ttext=100 $(BCASM_OBJS) -o $(BCASM) $(LDFLAGS) -lbsp  $(EWOK_LIBC)
+
 
 clean:
 	rm -f $(MARIO_OBJS) $(MARIO)

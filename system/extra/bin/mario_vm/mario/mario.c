@@ -11,22 +11,11 @@ extern "C" {
 #endif
 
 /**======platform porting functions======*/
-void  (*_mem_init)(void) = NULL;
-void  (*_mem_quit)(void) = NULL;
 void* (*_malloc)(uint32_t size) = NULL;
 void  (*_free)(void* p) = NULL;
 void  (*_out_func)(const char*) = NULL;
 
 /**======memory functions======*/
-void mario_mem_init() { 
-	if(_mem_init != NULL)
-		_mem_init();
-}
-
-void mario_mem_close() {
-	if(_mem_quit != NULL)
-		_mem_quit();
-}
 
 void *_realloc(void* p, uint32_t old_size, uint32_t new_size) {
 	void *np = _malloc(new_size);
@@ -46,10 +35,8 @@ static inline void dout(const char* s) {
 }
 
 inline void mario_debug(const char* s) {
-#ifdef MARIO_DEBUG
 	if(_m_debug)
 		dout(s);
-#endif
 }
 
 /**======array functions======*/

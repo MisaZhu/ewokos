@@ -2,8 +2,6 @@
 #include <stdio.h>
 #include <unistd.h>
 
-#ifdef MARIO_DEBUG
-
 const char* inmstr_str(opr_code_t ins) {
 	switch(ins) {
 		case  INSTR_NIL					: return "NIL";
@@ -170,12 +168,4 @@ void bc_dump_out(bytecode_t* bc) {
 	}
 	mstr_free(s);
 	_out_func("---------------------------------------\n");
-}
-
-#endif
-
-void vm_dump_out(vm_t* vm) {
-#ifdef MARIO_DEBUG
-	bc_dump_out(&vm->bc);
-#endif
 }

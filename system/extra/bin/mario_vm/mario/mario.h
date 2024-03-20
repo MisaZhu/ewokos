@@ -11,15 +11,11 @@ extern "C" {
 #endif
 
 /**====== platform porting functions.======*/
-extern void  (*_mem_init)(void);
-extern void  (*_mem_quit)(void);
 extern void* (*_malloc)(uint32_t size);
 extern void  (*_free)(void* p);
 extern void  (*_out_func)(const char*);
 
 /**====== memory functions.======*/
-extern void  mario_mem_init(void);
-extern void  mario_mem_close(void);
 extern void* _realloc(void* p, uint32_t old_size, uint32_t new_size);
 
 /**====== debug functions.======*/

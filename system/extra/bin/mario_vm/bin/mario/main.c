@@ -1,6 +1,7 @@
 #include "js.h"
 #include "mbc.h"
 #include "platform.h"
+#include "mem.h"
 
 #include <unistd.h>
 #include <stdlib.h>
@@ -28,7 +29,6 @@ void init_args(vm_t* vm, int argc, char** argv) {
 
 enum {
 	MODE_RUN = 0,
-	MODE_ASM,
 	MODE_CMPL
 };
 
@@ -46,9 +46,6 @@ static int doargs(int argc, char* argv[]) {
 		switch (c) {
 		case 'c':
 			_mode = MODE_CMPL;
-			break;
-		case 'v':
-			_mode = MODE_ASM;
 			break;
 		case 'd':
 			_m_debug = true;
@@ -80,13 +77,13 @@ int main(int argc, char** argv) {
 	platform_init();
 
 	if(doargs(argc, argv) != 0) {
-		printf("Usage: mario (-v/c/d) <filename>\n");
+		printf("Usage: mario (-c/d) <filename>\n");
 		return -1;
 	}
 
 	bool loaded = true;
 
-	mario_mem_init();
+	mem_init();
 	vm_t* vm = vm_new(js_compile);
 	vm->gc_buffer_size = 1024;
 	init_args(vm, argc, argv);
@@ -104,9 +101,7 @@ int main(int argc, char** argv) {
 			}
 			
 			if(res) {
-				if(_mode == 1)
-					vm_dump_out(vm);
-				else if(_mode == 2)
+				if(_mode == MODE_CMPL) 
 					vm_gen_mbc(vm, _fname_out);
 				else
 					vm_run(vm);
@@ -115,6 +110,6 @@ int main(int argc, char** argv) {
 	}
 	
 	vm_close(vm);
-	mario_mem_close();
+	mem_quit();
 	return 0;
 }
