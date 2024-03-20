@@ -5,7 +5,7 @@
 #include <ewoksys/fsinfo.h>
 
 struct dirent* readdir(DIR *dirp) {
-	if(dirp == NULL || dirp->offset >= dirp->num)
+	if(dirp == NULL || dirp->kids == NULL || dirp->offset >= dirp->num)
 		return NULL;
 	static struct dirent ret;
 	memset(&ret, 0, sizeof(struct dirent));
