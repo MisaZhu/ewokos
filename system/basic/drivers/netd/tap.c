@@ -32,6 +32,20 @@ struct ether_tap {
 
 static int
 ether_tap_addr(struct net_device *dev) {
+    int ret = -1;
+    struct ether_tap *tap;
+    tap = PRIV(dev);
+    proto_t  out;
+
+	while(ret){
+		PF->init(&out);
+		ret = dev_cntl (tap->name, 0, NULL, &out);
+		if(ret == 0){
+			proto_read_to(&out, dev->addr, 6);
+		}
+		PF->clear(&out);
+		usleep(100000);
+	}
     return 0;
 }
 

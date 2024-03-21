@@ -3,10 +3,12 @@
 #include <ewoksys/mmio.h>
 #include <arch/bcm283x/mailbox.h>
 #include <ewoksys/dma.h>
-
+#include <ewoksys/mstr.h>
 #include <sdio/sdhci.h>
 #include <utils/log.h>
 #include <types.h>
+#include <brcm/brcm.h>
+#include <brcm/command.h>
 
 uint8_t buf[512];
 
@@ -137,7 +139,7 @@ static int bcm2835_power_on_module(uint32_t module)
 	return 0;
 }
 
-
+#if 0
 static int bcm2835_set_sdhost_clock(uint32_t rate_hz, uint32_t *rate_1, uint32_t *rate_2)
 {
     mail_message_t msg;
@@ -157,6 +159,7 @@ static int bcm2835_set_sdhost_clock(uint32_t rate_hz, uint32_t *rate_1, uint32_t
 
 	return 0;
 }
+#endif
 
 void bcm283x_mbox_pin_ctrl(int idx, int dir, int on) {
 	mail_message_t msg;
@@ -233,22 +236,26 @@ static int net_read(int fd, int from_pid, fsinfo_t* node,
 }
 
 static int net_write(int fd, int from_pid, fsinfo_t* node,
-		void* buf, int size, int offset, void* p) {
+		const void* buf, int size, int offset, void* p) {
 	(void)fd;
 	(void)from_pid;
 	(void)offset;
 	(void)p;
 	(void)node;
-	int len = brcm_send(buf + offset, size);
+	int len = brcm_send((uint8_t*)(buf + offset), size);
 	return (len > 0)?len:VFS_ERR_RETRY; 
 }
 
 static int net_dcntl(int from_pid, int cmd, proto_t* in, proto_t* ret, void* p) {
-	uint8_t mac[6];
+	char mac[6];
 	switch(cmd){
 		case 0:	{//get mac
-			get_ethaddr(mac);
-			PF->add(ret, mac, 6);
+			if(brcm_state() > 0){
+				get_ethaddr(mac);
+				PF->add(ret, mac, 6);
+			}else{
+				return VFS_ERR_RETRY;
+			}
 			break;
 		}
 		case 1:
@@ -262,9 +269,18 @@ static int net_dcntl(int from_pid, int cmd, proto_t* in, proto_t* ret, void* p) 
 	return 0;
 }
 
+char* net_dev_cmd(int from_pid, int argc, char** argv, void* p) {
+	if(strcmp(argv[0], "log") == 0) {
+		str_t* str = str_new("==brcm log==\n");
+		char* ret = str_detach(str);
+		return ret;
+	}
+	return NULL;
+}
+
 int main(int argc, char** argv) {
 	_mmio_base = mmio_map();\
-	
+	log_init();	
 	bcm2835_power_on_module(BCM2835_MBOX_POWER_DEVID_SDHCI);
 	clock_init();
 
@@ -285,6 +301,7 @@ int main(int argc, char** argv) {
 	dev.read = net_read;
 	dev.write = net_write;
 	dev.dev_cntl = net_dcntl;
+	dev.cmd = net_dev_cmd;
 	device_run(&dev, mnt_point, FS_TYPE_CHAR, 0666);
 
 

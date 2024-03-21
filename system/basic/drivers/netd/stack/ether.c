@@ -138,4 +138,5 @@ ether_setup_helper(struct net_device *dev)
     dev->hlen = ETHER_HDR_SIZE;
     dev->alen = ETHER_ADDR_LEN;
     memcpy(dev->broadcast, ETHER_ADDR_BROADCAST, ETHER_ADDR_LEN);
+    memcpy(dev->addr, ETHER_ADDR_ANY, ETHER_ADDR_LEN);
 }

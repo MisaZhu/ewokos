@@ -83,16 +83,16 @@
 #define BCMA_SOC_PCI_DMA		0x40000000U	/* Client Mode sb2pcitranslation2 (1 GB) */
 #define BCMA_SOC_PCI_DMA2		0x80000000U	/* Client Mode sb2pcitranslation2 (1 GB) */
 #define BCMA_SOC_PCI_DMA_SZ		0x40000000U	/* Client Mode sb2pcitranslation2 size in bytes */
-#define BCMA_SOC_PCIE_DMA_L32		0x00000000U	/* PCIE Client Mode sb2pcitranslation2
+#define BCMA_SOC_PCIE_DMA_L32		0x00000000U	/* PCIE Client Mode sb2pcitranslation2 */
 							 /* (2 ZettaBytes), low 32 bits
 							 */
-#define BCMA_SOC_PCIE_DMA_H32		0x80000000U	/* PCIE Client Mode sb2pcitranslation2
+#define BCMA_SOC_PCIE_DMA_H32		0x80000000U	/* PCIE Client Mode sb2pcitranslation2 */
 							 /* (2 ZettaBytes), high 32 bits
 							 */
 
 #define BCMA_SOC_PCI1_MEM		0x40000000U	/* Host Mode sb2pcitranslation0 (64 MB) */
 #define BCMA_SOC_PCI1_CFG		0x44000000U	/* Host Mode sb2pcitranslation1 (64 MB) */
-#define BCMA_SOC_PCIE1_DMA_H32		0xc0000000U	/* PCIE Client Mode sb2pcitranslation2
+#define BCMA_SOC_PCIE1_DMA_H32		0xc0000000U	/* PCIE Client Mode sb2pcitranslation2 */
 							 /* (2 ZettaBytes), high 32 bits
 							 */
 

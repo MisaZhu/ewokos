@@ -1,4 +1,6 @@
 #include <types.h>
+#include <stdlib.h>
+#include <stdio.h>
 #include <utils/log.h>
 
 #include "brcm.h"

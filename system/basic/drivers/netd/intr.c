@@ -77,45 +77,28 @@ static void print_trace(void){
     klog("\n");
 }
 
-void* intr_thread(void* p) {
+void intr_loop(void) {
 	struct irq_entry *entry;
     while(1){
-       while(gSignel[SIGNET]){
-TRACE(); 
-           net_protocol_handler();
-TRACE(); 
-           gSignel[SIGNET]--; 
-       }
-      while(gSignel[SIGINT]){
-TRACE(); 
-           net_event_handler();
-TRACE(); 
-           gSignel[SIGINT]--;
-       }
-       while(gSignel[SIGALRM]){
-TRACE(); 
-           net_timer_handler();
-TRACE(); 
-           gSignel[SIGALRM]--; 
-       }
-TRACE(); 
-            for (entry = irq_vec; entry; entry = entry->next) {
+        while(gSignel[SIGNET]){
+            net_protocol_handler();
+            gSignel[SIGNET]--; 
+        }
+        while(gSignel[SIGINT]){
+            net_event_handler();
+            gSignel[SIGINT]--;
+        }
+        for (entry = irq_vec; entry; entry = entry->next) {
                 if (entry->irq == SIGIRQ) {
-TRACE(); 
-                int cnt = tap_select(entry->dev);
-                for(int i = 0; i < cnt; i++){
-                    entry->handler(entry->irq, entry->dev);
-TRACE(); 
+                    int cnt = tap_select(entry->dev);
+                    for(int i = 0; i < cnt; i++){
+                        entry->handler(entry->irq, entry->dev);
                 }
             }
         }
-TRACE(); 
-       net_timer_handler();
-TRACE(); 
+        net_timer_handler();
         start_task();
-TRACE();  
-       usleep(1000);
-TRACE(); 
+        usleep(1000);
     }
     return 0;
 }
@@ -125,15 +108,6 @@ void* debug_thread(void* p){
         print_trace();
         int ret = sleep(1);
     }
-}
-
-int
-intr_run(void)
-{
-    pthread_t tid;
-    pthread_create(&tid, NULL, intr_thread, NULL);
-    klog("intr thread id: %d\n", tid);
-    //pthread_create(&tid, NULL, debug_thread, NULL);
 }
 
 int

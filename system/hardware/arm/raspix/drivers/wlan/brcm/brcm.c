@@ -9,6 +9,8 @@
 #include <utils/skb.h>
 #include <utils/qbuf.h>
 #include <utils/log.h>
+#include <utils/config.h>
+#include <utils/pbkdf2.h>
 #include <sdio/sdio.h>
 #include <sdio/mmc.h>
 
@@ -298,7 +300,13 @@ struct brcmf_sdio_hdrinfo {
 	uint16_t tail_pad;
 };
 
-
+enum WL_STATE{
+    IDLE,
+    SCANNING,
+    CONNECTING,
+    CONNECTED,
+    DISCONNECTED
+};
 struct brcmf_dev{
     struct brcmf_chip *ci;
     struct brcmf_core *sdio_core;
@@ -328,7 +336,6 @@ struct brcmf_dev{
     uint rxbound;       /* Rx frames to read before resched */
     uint txbound;       /* Tx frames to send before resched */
     
-    int state;
     int blocksize;
     int roundup;
     struct brcmf_sdio_hdrinfo cur_read;
@@ -340,12 +347,18 @@ struct brcmf_dev{
     int rxdoff;
     uint8_t* rxctl;
 
-
     queue_buffer_t *rx_queue;
     queue_buffer_t *tx_queue;
+
+
+    uint64_t scan_update;
+    int priority;
+    char ssid[32];
+    enum WL_STATE  state;
 };
 
 struct brcmf_dev *bus =  NULL;
+static void brcmf_sdio_dpc(void);
 
 static inline uint8_t brcmf_sdio_getdatoffset(uint8_t *swheader)
 {
@@ -525,8 +538,8 @@ out:
 		*ret = retval;
 }
 
-uint8_t brcm_dummy_read(uint32_t addr, int len){
-    int ret = 0;
+void brcm_dummy_read(uint32_t addr, int len){
+    int ret;
     for(int i= 0; i < len; i++){
         sdio_readb(0, addr + i, &ret);
         if (ret) {
@@ -900,11 +913,11 @@ static int brcmf_sdio_clkctl(int target, bool pendok)
 
 static bool
 brcmf_sdio_verifymemory(uint32_t ram_addr,
-            uint8_t *ram_data, uint ram_sz)
+            const uint8_t *ram_data, uint ram_sz)
 {
     uint8_t *ram_cmp;
     int err;
-    bool ret;
+    bool ret = false;
     int address;
     unsigned int offset;
     unsigned int len;
@@ -937,10 +950,10 @@ brcmf_sdio_verifymemory(uint32_t ram_addr,
         offset += len;
         address += len;
     }
-    if(offset == ram_sz)
+    if(offset == ram_sz){
         brcm_klog("Verify success!\n");
-
-    brcm_klog("");
+        ret = true;
+    }
     free(ram_cmp);
 
     return ret;
@@ -1538,6 +1551,22 @@ struct brcmf_escan_result_le {
     struct brcmf_bss_info_le bss_info_le;
 };
 
+static void scan_result(struct brcmf_bss_info_le *info){
+
+    bus->scan_update = kernel_tic_ms(0);
+    int idx = config_match_ssid(info->SSID);
+        
+    if(idx >= 0){
+        if(strlen(bus->ssid) > 0){
+            int old = config_match_ssid(bus->ssid);
+            if(config_get_priority(idx) >= config_get_passwd(old))
+                return;
+        }
+        brcm_klog("match ssid:%s\n", info->SSID);
+        strncpy(bus->ssid, info->SSID, sizeof(bus->ssid));
+    } 
+}
+
 
 void brcmf_rx_event( struct sk_buff *skb)
 {
@@ -1560,16 +1589,20 @@ void brcmf_rx_event( struct sk_buff *skb)
     emsg.bsscfgidx = emsg_be->bsscfgidx;
 
     uint32_t event_type = be32_to_cpu(event->msg.event_type);
-    //uint32_t event_status = be32_to_cpu(event->msg.status); 
+    uint32_t event_status = be32_to_cpu(event->msg.status); 
     if(event_type == 69){
         //parse scan result;
         struct brcmf_escan_result_le *result = (struct brcmf_escan_result_le *)(skb->data + 4 + sizeof( struct brcmf_event));
         for(int i = 0; i < result->bss_count; i++){
            struct brcmf_bss_info_le *info = &((struct brcmf_bss_info_le *)&(result->bss_info_le))[i];
-           brcm_klog("found ssid:%s \n", info->SSID);
+           scan_result(info);
         }
+    }else if(event_type == 0 && event_status == 0){
+        brcm_klog("Event: link up\n"); 
+        bus->state = CONNECTED;
+        proc_wakeup(1);
     }else{
-        //brcm_klog("Event: %d\n", event_type);
+        brcm_klog("Event: %d\n", event_type);
     }
     skb_free(skb);
 }
@@ -1601,7 +1634,7 @@ static uint brcmf_sdio_readframes(uint maxframes)
     bus->rxpending = true;
 
     for (rd->seq_num = bus->rx_seq, rxleft = maxframes;
-         !bus->rxskip && rxleft && bus->state == BRCMF_SDIOD_DATA;
+         !bus->rxskip && rxleft;
          rd->seq_num++, rxleft--) {
 
         rd->len_left = rd->len;
@@ -1791,9 +1824,15 @@ static uint32_t brcmf_sdio_hostmail(void)
 /* To check if there's window offered */
 static bool txctl_ok(void)
 {
-    return 1;
-    return (bus->tx_max - bus->tx_seq) != 0 &&
-           ((bus->tx_max - bus->tx_seq) & 0x80) == 0;
+    return true;
+    // static int cnt = 0;
+    // cnt++;
+    // if(cnt % 20 == 0)
+    //     return true;
+    // else
+    //     return false;
+    // return (bus->tx_max - bus->tx_seq) != 0 &&
+    //        ((bus->tx_max - bus->tx_seq) & 0x80) == 0;
 }
 
 static inline void brcmf_sdio_update_hwhdr(uint8_t *header, uint16_t frm_length)
@@ -1990,6 +2029,7 @@ static void brcmf_sdio_dpc(void)
     int err = 0;
     err = brcmf_sdio_intr_rstatus();
     intstatus = bus->intstatus;
+
     /* Handle flow-control change: read new state in case our ack
      * crossed another change interrupt.  If change still set, assume
      * FC ON for safety, let next loop through do the debounce.
@@ -2050,7 +2090,7 @@ static void brcmf_sdio_dpc(void)
     }
     /* Send queued frames */
     int max_frames = 20;
-    while(queue_buffer_check(bus->tx_queue) && max_frames--){
+    while(bus->state == CONNECTED && queue_buffer_check(bus->tx_queue) && max_frames--){
         struct sk_buff *pkt = skb_alloc(MAX_FRAME_SIZE);
         ipc_disable();
         int len = queue_buffer_pop(bus->tx_queue, pkt->data, MAX_FRAME_SIZE);
@@ -2066,13 +2106,6 @@ static void brcmf_sdio_dpc(void)
     }
 }
 
-void brcmf_sdio_trigger_dpc()
-{
-    while(bus->dpc_triggered){usleep(1000);};
-    bus->dpc_triggered = true;
-}
-
-
 int brcmf_sdio_bus_txctl(unsigned char *msg, uint msglen)
 {
 	int ret = 0;
@@ -2083,10 +2116,9 @@ int brcmf_sdio_bus_txctl(unsigned char *msg, uint msglen)
 	bus->ctrl_frame_stat = true;
     bus->rxlen = 0;
 
-	brcmf_sdio_trigger_dpc();
-
 	int timeout = 50;
 	while (bus->ctrl_frame_stat && timeout--){
+        brcmf_sdio_dpc();
         usleep(1000);
     } 
 
@@ -2094,8 +2126,6 @@ int brcmf_sdio_bus_txctl(unsigned char *msg, uint msglen)
 		brcm_klog("ctrl_frame timeout\n");
 		bus->ctrl_frame_stat = false;
 	}else{
-		// brcm_klog("ctrl_frame complete, err=%d\n",
-		// 	  bus->ctrl_frame_err);
 		ret = bus->ctrl_frame_err;
 	}
 	return ret;
@@ -2105,46 +2135,31 @@ int brcmf_sdio_bus_rxctl(unsigned char *msg, uint msglen)
 {
     int timeleft = 1000;
     uint rxlen = 0;
-
     /* Wait until control frame is available */
     //timeleft = brcmf_sdio_dcmd_resp_wait(bus, &bus->rxlen, &pending);
     while(!bus->rxlen || timeleft--){
         usleep(1000);
+        brcmf_sdio_dpc();
     };
-    
+
     if(bus->rxlen){
         rxlen = bus->rxlen - bus->rxdoff;
         memcpy(msg, bus->rxctl + bus->rxdoff, min(msglen, rxlen));
         bus->rxlen = 0;
     }
 
-    if (rxlen) {
-        // brcm_klog("resumed on rxctl frame, got %d expected %d\n",
-        //       rxlen, msglen);
-    } else if (timeleft == 0) {
+    if (timeleft == 0) {
         brcm_klog("resumed on timeout\n");
         brcmf_sdio_checkdied();
-    } else {
+    } else if(!rxlen) {
         brcm_klog("resumed for unknown reason?\n");
         brcmf_sdio_checkdied();
     }
+
     return rxlen ? (int)rxlen : -ETIMEDOUT;
 }
 
-int brcm_thread(void* p) {
-    (void)p;
-    static int tick = 0;
-    while(1){
-        bus->dpc_triggered = true;
-        brcmf_sdio_dpc();
-        if(tick%1000 == 0){
-            brcmf_sdio_readconsole();
-        }
-        bus->dpc_triggered = false;
-        usleep(1000);
-        tick++;
-    }
-}
+
 
 int brcmf_sdiod_probe(void){
     int ret = 0, err = 0;
@@ -2298,8 +2313,8 @@ int brcmf_sdiod_probe(void){
         return ret;
     }
 
-    int fw_len;
-    int nvram_len;
+    uint32_t fw_len;
+    uint32_t nvram_len;
     uint8_t *fw = brcmf_fw_get_firmware(&fw_len);
     uint8_t* nvram = brcmf_fw_get_nvram(&nvram_len);
 
@@ -2354,15 +2369,53 @@ int brcmf_sdiod_probe(void){
     bus->intstatus = devpend & (INTR_STATUS_FUNC1 |
                                INTR_STATUS_FUNC2);
 
-    bus->state = BRCMF_SDIOD_DATA;
+    // //wait for firmware wake up
+    // sleep(5);
+    // uint32_t value = 0;
+    // err  = brcmf_fil_iovar_data_set(0, "bus:txglom", &value, sizeof(uint32_t));
+    // if(err){
+    //     brcm_klog("disable glom failed %d\n", err);
+    // }
 
-    pthread_t tid;
-	pthread_create(&tid, NULL, brcm_thread, NULL);
+    // err  = brcmf_fil_iovar_data_set(0, "bus:rxglom", &value, sizeof(uint32_t));
+    // if(err){
+    //     brcm_klog("disable glom failed %d\n", err);
+    // }
 
-    //wait for firmware wake up
-    sleep(5);
-    uint32_t value = 0;
-    err  = brcmf_fil_iovar_data_set(0, "bus:txglom", &value, sizeof(uint32_t));
+    // brcmf_c_preinit_dcmds();
+    // scan();
+
+    // /*use https://www.wireshark.org/tools/wpa-psk.html to genrate pmk*/
+    // //const char *ssid = "wtest"
+    // //const char *pmk = "94290bdaf431d3c728421f92606f7dc93044392f924e34446b97f71b734e5d09";
+    // // const char *ssid = "ROKID.GUEST";
+    // // const char *pmk = "cc78c499a4d5ff7ac0176a92ac46ec1be5a71ab34851bebbcb1c9120b027af5e";
+    // // const char *ssid = "HUAWEI";
+    // // const char *pmk="56e5a2bdb102abff3bc8788aa4c1393a06d06f790d37137018e5d04b5769009c";
+    // const char *ssid = "ROKID.TEST";
+    // const char *pmk="217936393596331ebf4f485f6739fc92ba75ddc74e1f5a89bc8d0fed0d06274d";
+    // // const char *ssid = "home";
+    // // //const char *pmk="d3dc50c4a0d0f312614f194a1be2d2d3449d4075704396faad56395d13b668a1";
+    // // const char *pmk="d1b3d69b49c6644ff98e17ff994efaa7bdc8127988f342404d774fbc0bbc4ba1";
+    // connect(ssid, pmk);
+
+    return 0;
+}
+
+
+void* brcm_thread(void* p) {
+    (void)p;
+    static int tick = 0;
+    
+    brcmf_sdiod_probe();
+
+    for(int i = 0; i < 500; i++){
+        brcmf_sdio_dpc();
+        usleep(1000);
+    }
+
+    uint32_t value = 0; 
+    int err  = brcmf_fil_iovar_data_set(0, "bus:txglom", &value, sizeof(uint32_t));
     if(err){
         brcm_klog("disable glom failed %d\n", err);
     }
@@ -2373,29 +2426,60 @@ int brcmf_sdiod_probe(void){
     }
 
     brcmf_c_preinit_dcmds();
-    scan();
-    sleep(10);
-    /*use https://www.wireshark.org/tools/wpa-psk.html to genrate pmk*/
-    //const char *ssid = "wtest"
-    //const char *pmk = "94290bdaf431d3c728421f92606f7dc93044392f924e34446b97f71b734e5d09";
-    // const char *ssid = "ROKID.GUEST";
-    // const char *pmk = "cc78c499a4d5ff7ac0176a92ac46ec1be5a71ab34851bebbcb1c9120b027af5e";
-    // const char *ssid = "HUAWEI";
-    // const char *pmk="56e5a2bdb102abff3bc8788aa4c1393a06d06f790d37137018e5d04b5769009c";
-    const char *ssid = "ROKID.TEST";
-    const char *pmk="217936393596331ebf4f485f6739fc92ba75ddc74e1f5a89bc8d0fed0d06274d";
-    // const char *ssid = "home";
-    // //const char *pmk="d3dc50c4a0d0f312614f194a1be2d2d3449d4075704396faad56395d13b668a1";
-    // const char *pmk="d1b3d69b49c6644ff98e17ff994efaa7bdc8127988f342404d774fbc0bbc4ba1";
-    connect(ssid, pmk);
 
-    return 0;
+    while(1){
+        brcmf_sdio_dpc();
+
+        if(tick%1000 == 0){
+            brcmf_sdio_readconsole();
+
+            if(tick % 100000 == 0 && bus->state != CONNECTED){
+                memset(bus->ssid, 0, sizeof(bus->ssid));
+                bus->scan_update = kernel_tic_ms(0);
+                bus->state = SCANNING;
+                scan();
+            } 
+
+            if(bus->state == SCANNING && kernel_tic_ms(0) - bus->scan_update > 2000 && strlen(bus->ssid) > 0){
+                int idx = config_match_ssid(bus->ssid);
+                char*  pmk = config_get_pmk(idx);
+                if(!pmk){
+                    char pmkstr[65];
+                    char pmk[32];
+
+                    if(pmk){
+                        char* passwd = config_get_passwd(idx);
+                        if(!passwd){
+                            brcm_klog("no passwd fond for ssid: %d\n", config_get_ssid(idx));
+                            return;
+                        }
+                        PKCS5_PBKDF2_HMAC(passwd, strlen(passwd), bus->ssid, strlen(bus->ssid), 4096, 32, pmk);
+                        to_str(pmkstr, pmk, 32);
+                        brcm_klog("connect ssid:%s %s\n", bus->ssid, pmkstr);
+                        bus->state = CONNECTING;
+                        connect(bus->ssid, pmkstr);
+                    }
+                }else{
+                    brcm_klog("connect ssid:%s %s\n", bus->ssid, pmk);
+                    bus->state = CONNECTING;
+                    connect(bus->ssid, pmk);
+                }
+            }
+        }
+        usleep(1000);
+        tick++;
+    }
 }
 
+int brcm_state(void){
+    return bus->state;
+}
 
 void brcm_init(void){
     mmc_hw_reset();
-    brcmf_sdiod_probe();
+    config_init(NULL);
+    pthread_t tid;
+	pthread_create(&tid, NULL, brcm_thread, NULL);
 }
 
 int brcm_recv(uint8_t *buf, int len){
@@ -2404,6 +2488,8 @@ int brcm_recv(uint8_t *buf, int len){
 }
 
 int brcm_send(uint8_t *buf, int len){
+    if(bus->state != CONNECTED)
+        return 0;
     int ret = queue_buffer_push(bus->tx_queue, buf, len);
     return ret;
 }

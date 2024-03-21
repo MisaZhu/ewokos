@@ -3,6 +3,9 @@
  * Copyright (c) 2013 Broadcom Corporation
  */
 #include <types.h>
+#include <string.h>
+#include <stdlib.h>
+#include <stdio.h>
 #include <utils/log.h>
 #include <netinet/if_ether.h>
 
@@ -45,13 +48,13 @@ char saved_ccode[2] = {};
  */
 struct nvram_parser {
 	enum nvram_parser_state state;
-	const u8 *data;
-	u8 *nvram;
-	u32 nvram_len;
-	u32 line;
-	u32 column;
-	u32 pos;
-	u32 entry;
+	const char *data;
+	uint8_t *nvram;
+	uint32_t nvram_len;
+	uint32_t line;
+	uint32_t column;
+	uint32_t pos;
+	uint32_t entry;
 	bool multi_dev_v1;
 	bool multi_dev_v2;
 	bool boardrev_found;
@@ -141,13 +144,13 @@ brcmf_nvram_handle_value(struct nvram_parser *nvp)
 	char c;
 	char *skv;
 	char *ekv;
-	u32 cplen;
+	uint32_t cplen;
 
 	c = nvp->data[nvp->pos];
 	if (!is_nvram_char(c)) {
 		/* key,value pair complete */
-		ekv = (u8 *)&nvp->data[nvp->pos];
-		skv = (u8 *)&nvp->data[nvp->entry];
+		ekv = (char *)&nvp->data[nvp->pos];
+		skv = (char *)&nvp->data[nvp->entry];
 		cplen = ekv - skv;
 		if (nvp->nvram_len + cplen + 1 >= BRCMF_FW_MAX_NVRAM_SIZE)
 			return END;
@@ -200,7 +203,7 @@ static enum nvram_parser_state
 };
 
 static int brcmf_init_nvram_parser(struct nvram_parser *nvp,
-				   const u8 *data, size_t data_len)
+				   const char *data, size_t data_len)
 {
 	size_t size;
 
@@ -215,7 +218,7 @@ static int brcmf_init_nvram_parser(struct nvram_parser *nvp,
 	size += strlen(BRCMF_FW_DEFAULT_BOARDREV) + 1;
 	size += BRCMF_FW_MACADDR_LEN + 1;
 	/* Alloc for extra 0 byte + roundup by 4 + length field */
-	size += 1 + 3 + sizeof(u32);
+	size += 1 + 3 + sizeof(uint32_t);
 	nvp->nvram = malloc(size);
 	if (!nvp->nvram)
 		return -ENOMEM;
@@ -230,8 +233,8 @@ static int brcmf_init_nvram_parser(struct nvram_parser *nvp,
  * which data is to be returned. v1 is the version where nvram is stored
  * compressed and "devpath" maps to index for valid entries.
  */
-static void brcmf_fw_strip_multi_v1(struct nvram_parser *nvp, u16 domain_nr,
-				    u16 bus_nr)
+static void brcmf_fw_strip_multi_v1(struct nvram_parser *nvp, uint16_t domain_nr,
+				    uint16_t bus_nr)
 {
 	/* Device path with a leading '=' key-value separator */
 	char pci_path[] = "=pci/?/?";
@@ -239,12 +242,12 @@ static void brcmf_fw_strip_multi_v1(struct nvram_parser *nvp, u16 domain_nr,
 	char pcie_path[] = "=pcie/?/?";
 	size_t pcie_len;
 
-	u32 i, j;
+	uint32_t i, j;
 	bool found;
-	u8 *nvram;
-	u8 id;
+	uint8_t *nvram;
+	uint8_t id;
 
-	nvram = malloc(nvp->nvram_len + 1 + 3 + sizeof(u32));
+	nvram = malloc(nvp->nvram_len + 1 + 3 + sizeof(uint32_t));
 	if (!nvram)
 		goto fail;
 
@@ -267,9 +270,9 @@ static void brcmf_fw_strip_multi_v1(struct nvram_parser *nvp, u16 domain_nr,
 		/* Format: devpathX=pcie/Y/Z/
 		 * Y = domain_nr, Z = bus_nr, X = virtual ID
 		 */
-		if (strncmp(&nvp->nvram[i], "devpath", 7) == 0 &&
-		    (!strncmp(&nvp->nvram[i + 8], pci_path, pci_len) ||
-		     !strncmp(&nvp->nvram[i + 8], pcie_path, pcie_len))) {
+		if (strncmp((const char*)&nvp->nvram[i], "devpath", 7) == 0 &&
+		    (!strncmp((const char*)&nvp->nvram[i + 8], pci_path, pci_len) ||
+		     !strncmp((const char*)&nvp->nvram[i + 8], pcie_path, pcie_len))) {
 			id = nvp->nvram[i + 7] - '0';
 			found = true;
 			break;
@@ -287,7 +290,7 @@ static void brcmf_fw_strip_multi_v1(struct nvram_parser *nvp, u16 domain_nr,
 	while (i < nvp->nvram_len) {
 		if ((nvp->nvram[i] - '0' == id) && (nvp->nvram[i + 1] == ':')) {
 			i += 2;
-			if (strncmp(&nvp->nvram[i], "boardrev", 8) == 0)
+			if (strncmp((const char*)&nvp->nvram[i], "boardrev", 8) == 0)
 				nvp->boardrev_found = true;
 			while (nvp->nvram[i] != 0) {
 				nvram[j] = nvp->nvram[i];
@@ -317,15 +320,15 @@ fail:
  * uncompressed, all relevant valid entries are identified by
  * pcie/domain_nr/bus_nr:
  */
-static void brcmf_fw_strip_multi_v2(struct nvram_parser *nvp, u16 domain_nr,
-				    u16 bus_nr)
+static void brcmf_fw_strip_multi_v2(struct nvram_parser *nvp, uint16_t domain_nr,
+				    uint16_t bus_nr)
 {
 	char prefix[BRCMF_FW_NVRAM_PCIEDEV_LEN];
 	size_t len;
-	u32 i, j;
-	u8 *nvram;
+	uint32_t i, j;
+	uint8_t *nvram;
 
-	nvram = malloc(nvp->nvram_len + 1 + 3 + sizeof(u32));
+	nvram = malloc(nvp->nvram_len + 1 + 3 + sizeof(uint32_t));
 	if (!nvram) {
 		nvp->nvram_len = 0;
 		return;
@@ -340,9 +343,9 @@ static void brcmf_fw_strip_multi_v2(struct nvram_parser *nvp, u16 domain_nr,
 	i = 0;
 	j = 0;
 	while (i < nvp->nvram_len - len) {
-		if (strncmp(&nvp->nvram[i], prefix, len) == 0) {
+		if (strncmp((const char*)&nvp->nvram[i], prefix, len) == 0) {
 			i += len;
-			if (strncmp(&nvp->nvram[i], "boardrev", 8) == 0)
+			if (strncmp((const char*)&nvp->nvram[i], "boardrev", 8) == 0)
 				nvp->boardrev_found = true;
 			while (nvp->nvram[i] != 0) {
 				nvram[j] = nvp->nvram[i];
@@ -373,11 +376,11 @@ static void brcmf_fw_add_defaults(struct nvram_parser *nvp)
 	nvp->nvram_len++;
 }
 
-static void brcmf_fw_add_macaddr(struct nvram_parser *nvp, u8 *mac)
+static void brcmf_fw_add_macaddr(struct nvram_parser *nvp, uint8_t *mac)
 {
 	int len;
 
-	len = snprintf(&nvp->nvram[nvp->nvram_len], BRCMF_FW_MACADDR_LEN + 1,
+	len = snprintf((char*)&nvp->nvram[nvp->nvram_len], BRCMF_FW_MACADDR_LEN + 1,
 			BRCMF_FW_MACADDR_FMT, mac);
 	WARN_ON(len != BRCMF_FW_MACADDR_LEN);
 	nvp->nvram_len += len + 1;
@@ -388,14 +391,14 @@ static void brcmf_fw_add_macaddr(struct nvram_parser *nvp, u8 *mac)
  * and converts newlines to NULs. Shortens buffer as needed and pads with NULs.
  * End of buffer is completed with token identifying length of buffer.
  */
-static void *brcmf_fw_nvram_strip(const u8 *data, size_t data_len,
-				  u32 *new_length)
+static void *brcmf_fw_nvram_strip(const char *data, size_t data_len,
+				  uint32_t *new_length)
 {
 	struct nvram_parser nvp;
-	u32 pad;
-	u32 token;
-	u32 token_le;
-	u8 mac[ETH_ALEN];
+	uint32_t pad;
+	uint32_t token;
+	uint32_t token_le;
+	uint8_t mac[ETH_ALEN];
 
 	if (brcmf_init_nvram_parser(&nvp, data, data_len) < 0)
 		return NULL;
@@ -442,16 +445,16 @@ static void *brcmf_fw_nvram_strip(const u8 *data, size_t data_len,
 	return nvp.nvram;
 }
 
-uint8_t* brcmf_fw_get_firmware(int* len){
+uint8_t* brcmf_fw_get_firmware(uint32_t* len){
     *len = cyfmac43455_sdio_bin_len;
     return cyfmac43455_sdio_bin;
 }
 
-uint8_t* brcmf_fw_get_nvram(int* len){
+uint8_t* brcmf_fw_get_nvram(uint32_t* len){
     return brcmf_fw_nvram_strip(brcmfmac43455_sdio_txt, brcmfmac43455_sdio_txt_len, len);
 }
 
-uint8_t* brcmf_fw_get_clm(int* len){
+uint8_t* brcmf_fw_get_clm(uint32_t* len){
 	*len = cyfmac43455_sdio_clm_blob_len;
 	return cyfmac43455_sdio_clm_blob;
 }

@@ -1,9 +1,10 @@
 #include <types.h>
-#include <utils/log.h>
 #include <ctype.h>
 #include <string.h>
 #include <stdlib.h>
+#include <stdio.h>
 
+#include <utils/log.h>
 #include <utils/utils.h>
 
 #include "fwil_types.h"
@@ -13,6 +14,7 @@
 #include "chip.h"
 #include "brcmu_wifi.h"
 #include "nl80211.h"
+#include "firmware.h"
 
 #define TOE_TX_CSUM_OL      0x00000001
 #define TOE_RX_CSUM_OL      0x00000002
@@ -459,7 +461,7 @@ static int brcmf_c_process_clm_blob(int ifidx)
 {
     struct brcmf_dload_data_le *chunk_buf;
     uint8_t *clm = NULL;
-    int datalen;
+    uint32_t datalen;
     uint32_t chunk_len;
     uint32_t cumulative_len;
     uint16_t dl_flag = DL_BEGIN;
@@ -767,7 +769,7 @@ int connect(const char*ssid, const char* pmk)
     int32_t err = 0;
 
     if(strlen(pmk) < 64){
-        klog("Wrong PMK lens\n");
+        brcm_klog("Wrong PMK lens\n");
         return -1;
     }
     brcm_klog("Connect to %s...\n", ssid);
