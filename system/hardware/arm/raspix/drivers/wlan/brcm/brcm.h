@@ -392,5 +392,8 @@ int brcmf_sdio_readconsole(void);
 void brcm_console_free(void);
 int brcmf_sdio_bus_txctl(unsigned char *msg, uint msglen);
 int brcmf_sdio_bus_rxctl(unsigned char *msg, uint msglen);
+void brcmf_sdiod_writel(uint32_t addr,uint32_t data, int *ret);
+uint32_t brcmf_sdiod_readl(uint32_t addr, int *ret);
+int brcmf_sdiod_ramrw(bool write, uint32_t address, uint8_t *data, uint size);
 #endif
 

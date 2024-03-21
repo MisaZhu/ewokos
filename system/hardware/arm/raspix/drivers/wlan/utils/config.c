@@ -35,14 +35,17 @@ void config_init(const char* path){
 }
 
 int config_match_ssid(const char* ssid){
-	int cnt = var_array_size(network_config->var);
-	for(int i = 0; i < cnt; i++){
-		node_t *n = var_array_get(network_config->var, i);
-		if(n){
-			node_t* s = var_find(n->var, "ssid");
-			if(s && s->var->type == V_STRING){
-				if(strcmp(ssid, var_get_str(s->var)) == 0)
-					return i;
+	if(network_config)
+	{
+		int cnt = var_array_size(network_config->var);
+		for(int i = 0; i < cnt; i++){
+			node_t *n = var_array_get(network_config->var, i);
+			if(n){
+				node_t* s = var_find(n->var, "ssid");
+				if(s && s->var->type == V_STRING){
+					if(strcmp(ssid, var_get_str(s->var)) == 0)
+						return i;
+				}
 			}
 		}
 	}
@@ -50,36 +53,58 @@ int config_match_ssid(const char* ssid){
 }
 
 int config_get_priority(int idx){
-
-	node_t *n = var_array_get(network_config->var, idx);
-	if(n){
-		node_t* p = var_find(n->var, "priority");
-		if(p && p->var->type == V_INT){
-			return var_get_int(p->var);
+	if(network_config)
+	{
+		node_t *n = var_array_get(network_config->var, idx);
+		if(n){
+			node_t* p = var_find(n->var, "priority");
+			if(p && p->var->type == V_INT){
+				return var_get_int(p->var);
+			}
 		}
 	}
 	return 0;
 }
 
 const char* config_get_pmk(int idx){
-	node_t *n = var_array_get(network_config->var, idx);
-	if(n){
-		node_t* p = var_find(n->var, "pmk");
-		if(p && p->var->type == V_STRING){
-			return var_get_str(p->var);
+	if(network_config)
+	{
+		node_t *n = var_array_get(network_config->var, idx);
+		if(n){
+			node_t* p = var_find(n->var, "pmk");
+			if(p && p->var->type == V_STRING){
+				return var_get_str(p->var);
+			}
+		}
+		}
+	return NULL;
+}
+
+const char* config_get_passwd(int idx){
+	if(network_config)
+	{
+		node_t *n = var_array_get(network_config->var, idx);
+		if(n){
+			node_t* p = var_find(n->var, "passwd");
+			if(p && p->var->type == V_STRING){
+				return var_get_str(p->var);
+			}
 		}
 	}
-	return "";
+	return NULL;
 }
 
 
 const char* config_get_ssid(int idx){
-	node_t *n = var_array_get(network_config->var, idx);
-	if(n){
-		node_t* p = var_find(n->var, "ssid");
-		if(p && p->var->type == V_STRING){
-				return var_get_str(p->var);
+	if(network_config)
+	{
+		node_t *n = var_array_get(network_config->var, idx);
+		if(n){
+			node_t* p = var_find(n->var, "ssid");
+			if(p && p->var->type == V_STRING){
+					return var_get_str(p->var);
+			}
 		}
 	}
-	return "";
+	return NULL;
 }

@@ -76,6 +76,5 @@ int32_t brcmf_fil_iovar_data_set(int ifidx, char *name, const void *data, uint32
 int brcmf_c_preinit_dcmds(void);
 void scan(void);
 int connect(const char*ssid, const char* pmk);
-
-uint8_t* brcmf_fw_get_clm(int* len);
+void get_ethaddr(char* mac);
 #endif

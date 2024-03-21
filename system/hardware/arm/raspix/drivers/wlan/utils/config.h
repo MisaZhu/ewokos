@@ -8,6 +8,7 @@ int config_match_ssid(const char* ssid);
 int config_get_priority(int idx);
 const char* config_get_pmk(int idx);
 const char* config_get_ssid(int idx);
+const char* config_get_passwd(int idx);
 
 
 #endif

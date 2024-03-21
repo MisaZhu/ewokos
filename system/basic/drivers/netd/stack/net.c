@@ -327,8 +327,7 @@ net_event_handler(void)
     return 0;
 }
 
-int
-net_run(void)
+void *net_thread(void* p)
 {
     struct net_device *dev;
 
@@ -338,12 +337,7 @@ net_run(void)
         net_device_open(dev);
     }
 
-    if (intr_run() == -1) {
-        errorf("intr_run() failure");
-        return -1;
-    }
-    debugf("running...");
-    return 0;
+    intr_loop();
 }
 
 void
