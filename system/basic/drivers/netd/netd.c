@@ -19,6 +19,8 @@
 
 #include "stack/util.h"
 #include "stack/net.h"
+#include "stack/ip.h"
+#include "stack/loopback.h"
 
 static int network_fcntl(int fd, int from_pid, fsinfo_t* info,
 	int cmd, proto_t* in, proto_t* out, void* p) {
@@ -122,11 +124,6 @@ static int setup(void)
         return -1;
     }
 
-    // if (ip_route_set_default_gateway(iface, DEFAULT_GATEWAY) == -1) {
-    //     klog("ip_route_set_default_gateway() failure");
-    //     return -1;
-    // }
-
 	if(dhcp_run(dev) == -1){
         klog("dhcp_run() failure");
         return -1;
@@ -166,6 +163,32 @@ void mac2str(uint8_t *mac,  char* str){
 	*(str - 1) = '\0';
 }
 
+char* network_devcmd(int from_pid, int argc, char** argv, void* p) {
+	char* buf = malloc(256);
+	buf[0] = 0;
+	if(strcmp(argv[0], "ip") == 0) {
+		struct ip_iface *iface =  NULL;
+		char* p = buf;
+		while(true){
+			iface = ip_iface_itor(iface);
+			if(iface == NULL)
+				break;
+			char unicast[16];
+			char netmask[16];	
+			char broadcast[16];
+			ip_addr_ntop(iface->unicast, unicast, sizeof(unicast));
+			ip_addr_ntop(iface->netmask, netmask, sizeof(netmask));
+			ip_addr_ntop(iface->broadcast, broadcast, sizeof(broadcast));
+
+			snprintf(p + strlen(p), 256 - strlen(p), "IP Address: %s\n netmask: %s\n broadcast: %s\n", 
+					unicast,
+					netmask,
+					broadcast);
+		}
+	}
+	return buf;
+}
+
 int main(int argc, char** argv) {
 	const char* mnt_point = argc > 1 ? argv[1]: "/dev/net0";
 	const char* net_dev = argc > 2 ? argv[2]: "/dev/eth0";
@@ -183,6 +206,7 @@ int main(int argc, char** argv) {
 	dev.read = network_read;
 	dev.write = network_write;
 	dev.close = network_close;
+	dev.cmd = network_devcmd;
 	device_run(&dev, mnt_point, FS_TYPE_ANNOUNIMOUS | FS_TYPE_CHAR, 0666);
 	return 0;
 }

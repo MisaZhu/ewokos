@@ -1,14 +1,21 @@
 
+#include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
+#include <unistd.h>
+
+#include <ewoksys/vfs.h>
+#include <ewoksys/klog.h>
+#include <ewoksys/proc.h>
 
 #include "task.h"
 #include "netd.h"
-#include <ewoksys/vfs.h>
 
 static void* task_thread(void* arg);
 
 net_task_t *task_list = NULL;
 
-void task_list_add(net_task_t * task){
+static void task_list_add(net_task_t * task){
     if(task_list == NULL){
         task_list = task;
         task->next = NULL;
@@ -52,7 +59,7 @@ net_task_t *create_task(int fd, int from_pid, int node){
 
 void release_task(net_task_t *task){
     task->running = false;
-    proc_wakeup(task);
+    proc_wakeup((uint32_t)task);
 }
 
 int  task_cntl(net_task_t* task, int from_pid, int cmd, proto_t *in,  proto_t *out, void *p){
@@ -76,7 +83,7 @@ int  task_cntl(net_task_t* task, int from_pid, int cmd, proto_t *in,  proto_t *o
         task->out.size = 0;
         PF->copy(&task->in, in->data, in->size);
         task->state = NET_TASK_START;
-        proc_wakeup(task);
+        proc_wakeup((uint32_t)task);
     }
     return VFS_ERR_RETRY;
 }
@@ -105,10 +112,11 @@ int  task_read(net_task_t* task, int from_pid, char* buf,  int size, void *p){
         task->out.size = 0;
         PF->addi(&task->in, size);
         task->state = NET_TASK_START;
-        proc_wakeup(task);
+        proc_wakeup((uint32_t)task);
     }
     task->from_pid = from_pid;
     return VFS_ERR_RETRY;
+
 }
 
 int  task_write(net_task_t* task, int from_pid,  char* buf,  int size, void *p){
@@ -132,7 +140,7 @@ int  task_write(net_task_t* task, int from_pid,  char* buf,  int size, void *p){
         task->out.size = 0;
         PF->add(&task->in, buf, size);
         task->state = NET_TASK_START;
-        proc_wakeup(task);
+        proc_wakeup((uint32_t)task);
     }
     task->from_pid = from_pid;
     return VFS_ERR_RETRY;
@@ -142,10 +150,9 @@ int  task_write(net_task_t* task, int from_pid,  char* buf,  int size, void *p){
 int do_network_fcntl(net_task_t *task){
 	int domain, sock,type,protocol;
 	char *data;
-	int size, addrlen = sizeof(struct sockaddr);
+	int32_t size, addrlen = sizeof(struct sockaddr);
 	struct sockaddr *paddr;
 	struct sockaddr addr;
-    char* buf;
 	int ret = -1;
 	sock = task->sock;
 	switch(task->cmd){
@@ -191,7 +198,6 @@ int do_network_fcntl(net_task_t *task){
             if(ret > 0){
                 PF->add(&task->out, task->iobuf, ret);
             }
-            free(buf);
 			break;
 		case SOCK_LISTEN:
 			size = proto_read_int(&task->in);
@@ -245,7 +251,7 @@ static void* task_thread(void* arg){
             task->state = NET_TASK_FINISH;
             proc_wakeup_pid(task->from_pid, RW_BLOCK_EVT);
         }
-        proc_block_by(getpid(), task);
+        proc_block_by(getpid(), (uint32_t)task);
     }
     PF->clear(&task->in);
     PF->clear(&task->out);

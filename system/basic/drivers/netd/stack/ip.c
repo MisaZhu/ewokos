@@ -297,6 +297,20 @@ ip_iface_select(ip_addr_t addr)
     return entry;
 }
 
+struct ip_iface *
+ip_iface_itor(struct ip_iface *priv)
+{
+    struct ip_iface *entry;
+
+    if(priv == NULL)
+        return ifaces;
+    for (entry = ifaces; entry; entry = entry->next) {
+        if(entry == priv)
+            return entry->next;
+    }
+    return entry;
+}
+
 static void
 ip_input(const uint8_t *data, size_t len, struct net_device *dev)
 {
