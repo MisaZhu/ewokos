@@ -6,26 +6,49 @@
 #include <pthread.h>
 
 #include <ewoksys/syscall.h>
+#include <ewoksys/charbuf.h>
 
 
 #define RING_BUF_SIZE 4096
+#define TEMP_BUF_SIZE 128
 
-static uint32_t buf_ptr;
-static char *ring_buf;
+static charbuf_t *LogBuf;
+static char *temp_buf;
 static pthread_mutex_t mutex;
 
 void log_init(void){
-    ring_buf = malloc(RING_BUF_SIZE);
-    buf_ptr = 0;
+    LogBuf = charbuf_new(RING_BUF_SIZE);
+    temp_buf = malloc(TEMP_BUF_SIZE);
     pthread_mutex_init(&mutex, NULL);
 }
 
-void brcm_klog(const char *format, ...) {
+void brcm_log(const char *format, ...) {
 	va_list ap;
     pthread_mutex_lock(&mutex);
 	va_start(ap, format);
-	vsnprintf(ring_buf, RING_BUF_SIZE, format, ap);
+	vsnprintf(temp_buf, TEMP_BUF_SIZE, format, ap);
 	va_end(ap);
+
+    int i = 0;
+    while(temp_buf[i]!= '\0'){
+        charbuf_push(LogBuf, temp_buf[i], true);
+        i++;
+    }
     pthread_mutex_unlock(&mutex);
-	syscall2(SYS_KPRINT, (int32_t)ring_buf, strlen(ring_buf));
+
+	//syscall2(SYS_KPRINT, (int32_t)ring_buf, strlen(ring_buf));
+}
+
+char* brcm_get_log(void){
+    char* buf = malloc(RING_BUF_SIZE);
+   int ret, i = 0;
+
+    while(true){
+        ret =  charbuf_pop(LogBuf, &buf[i]);
+        if(ret != 0)
+            break;
+        i++;
+    };
+    buf[i] = '\0';
+    return buf;
 }

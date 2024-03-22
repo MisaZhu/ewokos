@@ -13,8 +13,8 @@ static inline uint8_t ascii2char(char c){
     return c;
 }
 
-static inline char char2ascii(char c){
-    if(c >= 0 && c <= 9)
+static inline char char2ascii(unsigned char c){
+    if(c <= 9)
         c += '0';
     else if(c >= 0xa && c <= 0xf)
         c += 'A' - 10;

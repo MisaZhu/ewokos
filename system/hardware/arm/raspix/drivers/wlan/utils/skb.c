@@ -27,7 +27,7 @@ void *skb_put(struct sk_buff* skb, uint32_t size){
     void* ret = skb->data;
     skb->len += size;
     if(skb->data + skb->len > skb->mem + skb->total){
-        brcm_klog("reach skb buffer max extend:%d \n", SKB_MAX_EXTEND);
+        brcm_log("reach skb buffer max extend:%d \n", SKB_MAX_EXTEND);
     }
     return ret;
 }
@@ -39,7 +39,7 @@ void *skb_push(struct sk_buff* skb, uint32_t size){
     skb->len += size;
     skb->data -= size;
     if(skb->data < skb->mem){
-        brcm_klog("reach skb buffer min extend:%d \n", SKB_MAX_EXTEND);
+        brcm_log("reach skb buffer min extend:%d \n", SKB_MAX_EXTEND);
     }
     return ret;
 }
@@ -51,7 +51,7 @@ void *skb_pull(struct sk_buff* skb, uint32_t size){
     skb->len -= size;
     skb->data += size;
     if(skb->data > skb->mem + skb->total){
-        brcm_klog("reach skb buffer max extend:%d \n", SKB_MAX_EXTEND);
+        brcm_log("reach skb buffer max extend:%d \n", SKB_MAX_EXTEND);
     }
     return ret;
 }
@@ -61,7 +61,7 @@ void skb_reserve(struct sk_buff* skb, uint32_t size){
         return;
     skb->data += size;
     if(skb->data > skb->mem + skb->total){
-        brcm_klog("reach skb buffer max extend:%d \n", SKB_MAX_EXTEND);
+        brcm_log("reach skb buffer max extend:%d \n", SKB_MAX_EXTEND);
     }
 }
 

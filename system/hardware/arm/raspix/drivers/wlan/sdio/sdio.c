@@ -221,7 +221,7 @@ int sdio_enable_func(int func)
     return 0;
 
 err:
-    brcm_klog("SDIO: Failed to enable device %d\n", func);
+    brcm_log("SDIO: Failed to enable device %d\n", func);
     return ret;
 }
 
@@ -246,7 +246,7 @@ int sdio_disable_func(int func)
 	return 0;
 
 err:
-	brcm_klog("SDIO: Failed to disable device %d\n", func);
+	brcm_log("SDIO: Failed to disable device %d\n", func);
 	return ret;
 }
 
@@ -273,6 +273,6 @@ int sdio_claim_irq(int func)
 	return 0;
 
 err:
-	brcm_klog("SDIO: Failed to claim irq %d\n", func);
+	brcm_log("SDIO: Failed to claim irq %d\n", func);
 	return ret;
 }

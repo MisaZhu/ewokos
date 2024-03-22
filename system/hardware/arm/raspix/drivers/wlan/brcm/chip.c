@@ -283,7 +283,7 @@ static void brcmf_sdio_buscore_write32(uint32_t addr, uint32_t val)
     int err;
     brcmf_sdiod_writel(addr, val, &err);
     if(err){
-        brcm_klog("%s error:%d\n", __func__, err);
+        brcm_log("%s error:%d\n", __func__, err);
     }
 }
 
@@ -309,9 +309,9 @@ static uint32_t brcmf_sdio_buscore_read32(uint32_t addr)
 
     val = brcmf_sdiod_readl(addr, &err);
     if(err){
-        brcm_klog("%s error:%d\n", __func__, err);
+        brcm_log("%s error:%d\n", __func__, err);
     }
-    
+
     return val;
 }
 
@@ -489,7 +489,7 @@ static int brcmf_chip_cores_check()
         if(!core)
             continue;
             
-        brcm_klog(" [%-2d] core 0x%x:%-3d base 0x%08x wrap 0x%08x\n",
+        brcm_log(" [%-2d] core 0x%x:%-3d base 0x%08x wrap 0x%08x\n",
               idx++, core->pub.id, core->pub.rev, core->pub.base,
               core->wrapbase);
 
@@ -513,12 +513,12 @@ static int brcmf_chip_cores_check()
     }
 
     if (!cpu_found) {
-        brcm_klog("CPU core not detected\n");
+        brcm_log("CPU core not detected\n");
         return -ENXIO;
     }
     /* check RAM core presence for ARM CM3 core */
     if (need_socram && !has_socram) {
-        brcm_klog("RAM core not provided with ARM CM3 core\n");
+        brcm_log("RAM core not provided with ARM CM3 core\n");
         return -ENODEV;
     }
     return 0;
@@ -650,7 +650,7 @@ static void brcmf_chip_disable_arm(u16 id)
                      ARMCR4_BCMA_IOCTL_CPUHALT);
         break;
     default:
-        brcm_klog("unknown id: %u\n", id);
+        brcm_log("unknown id: %u\n", id);
         break;
     }
 }
@@ -739,7 +739,7 @@ static bool brcmf_chip_cm3_set_active(void)
 
     core = brcmf_chip_get_core(BCMA_CORE_INTERNAL_MEM);
     if (!brcmf_chip_iscoreup(core)) {
-        brcm_klog("SOCRAM core is down after reset?\n");
+        brcm_log("SOCRAM core is down after reset?\n");
         return false;
     }
 
@@ -821,7 +821,7 @@ static uint32_t brcmf_chip_tcm_rambase(void)
     case CY_CC_89459_CHIP_ID:
         return ((pub.chiprev < 9) ? 0x180000 : 0x160000);
     default:
-        brcm_klog("unknown chip: %s\n", pub.name);
+        brcm_log("unknown chip: %s\n", pub.name);
         break;
     }
     return INVALID_RAMBASE;
@@ -952,7 +952,7 @@ static uint32_t brcmf_chip_tcm_ramsize(struct brcmf_core_priv *cr4)
 static int brcmf_chip_get_raminfo(void){
     struct brcmf_core_priv *mem_core;
     struct brcmf_core *mem;
-    brcm_klog("brcmf_chip_get_raminfo\n");
+    brcm_log("brcmf_chip_get_raminfo\n");
 
     mem = brcmf_chip_get_core(BCMA_CORE_ARM_CR4);
     if (mem) {
@@ -960,7 +960,7 @@ static int brcmf_chip_get_raminfo(void){
         pub.ramsize = brcmf_chip_tcm_ramsize(mem_core);
         pub.rambase = brcmf_chip_tcm_rambase();
         if (pub.rambase == INVALID_RAMBASE) {
-            brcm_klog("RAM base not provided with ARM CR4 core\n");
+            brcm_log("RAM base not provided with ARM CR4 core\n");
             return -EINVAL;
         }
     } else {
@@ -971,13 +971,13 @@ static int brcmf_chip_get_raminfo(void){
             pub.ramsize = brcmf_chip_sysmem_ramsize(mem_core);
             pub.rambase = brcmf_chip_tcm_rambase();
             if (pub.rambase == INVALID_RAMBASE) {
-                brcm_klog("RAM base not provided with ARM CA7 core\n");
+                brcm_log("RAM base not provided with ARM CA7 core\n");
                 return -EINVAL;
             }
         } else {
             mem = brcmf_chip_get_core(BCMA_CORE_INTERNAL_MEM);
             if (!mem) {
-                brcm_klog("No memory cores found\n");
+                brcm_log("No memory cores found\n");
                 return -ENOMEM;
             }
             mem_core = container_of(mem, struct brcmf_core_priv,
@@ -987,15 +987,15 @@ static int brcmf_chip_get_raminfo(void){
         }
     }
     
-    brcm_klog("RAM: base=0x%x size=%d (0x%x) sr=%d (0x%x)\n",
+    brcm_log("RAM: base=0x%x size=%d (0x%x) sr=%d (0x%x)\n",
           pub.rambase, pub.ramsize, pub.ramsize,
           pub.srsize,  pub.srsize);
 
     if (!pub.ramsize) {
-        brcm_klog("RAM size is undetermined\n");
+        brcm_log("RAM size is undetermined\n");
         return -ENOMEM;
         if (pub.ramsize > BRCMF_CHIP_MAX_MEMSIZE) {
-            brcm_klog("RAM size is incorrect\n");
+            brcm_log("RAM size is incorrect\n");
             return -ENOMEM;
         }
     }
@@ -1022,7 +1022,7 @@ int brcmf_chip_recognition(void)
 
     brcmf_chip_name(pub.chip, pub.chiprev,
             pub.name, sizeof(pub.name));
-    brcm_klog("found %s chip: %s\n",
+    brcm_log("found %s chip: %s\n",
           socitype == SOCI_SB ? "SB" : "AXI", pub.name);
 
 
@@ -1100,7 +1100,7 @@ int brcmf_chip_setup(void)
         pub.pmucaps = val;
     }
 
-    brcm_klog("ccrev=%d, pmurev=%d, pmucaps=0x%x\n",
+    brcm_log("ccrev=%d, pmurev=%d, pmucaps=0x%x\n",
           cc->pub.rev, pub.pmurev, pub.pmucaps);
 
     return ret;

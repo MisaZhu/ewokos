@@ -139,28 +139,6 @@ static int bcm2835_power_on_module(uint32_t module)
 	return 0;
 }
 
-#if 0
-static int bcm2835_set_sdhost_clock(uint32_t rate_hz, uint32_t *rate_1, uint32_t *rate_2)
-{
-    mail_message_t msg;
-    struct msg_set_sdhost_clock* msg_sdhost_clk = (struct msg_set_sdhost_clock*)dma_map(sizeof(struct msg_set_sdhost_clock));
-
-	BCM2835_MBOX_INIT_HDR(msg_sdhost_clk);
-	BCM2835_MBOX_INIT_TAG(&msg_sdhost_clk->set_sdhost_clock, SET_SDHOST_CLOCK);
-
-	msg_sdhost_clk->set_sdhost_clock.body.req.rate_hz = rate_hz;
-
-    msg.data = ((uint32_t)msg_sdhost_clk + 0x40000000) >> 4;	
-    bcm283x_mailbox_send(PROPERTY_CHANNEL, &msg);
-	bcm283x_mailbox_read(PROPERTY_CHANNEL, &msg);
-
-	*rate_1 = msg_sdhost_clk->set_sdhost_clock.body.resp.rate_1;
-	*rate_2 = msg_sdhost_clk->set_sdhost_clock.body.resp.rate_2;
-
-	return 0;
-}
-#endif
-
 void bcm283x_mbox_pin_ctrl(int idx, int dir, int on) {
 	mail_message_t msg;
 	/*message head + tag head + property*/
@@ -209,8 +187,6 @@ void clock_init(void){
     	usleep( 1000 );
   	}
 	//32.768Hz = 19.2Mhz / (585 + 3840/4096)
-	brcm_klog("%08x\n", CM_PASSWORD | (585<<12)|(3840));
-
 	writel(CM_PASSWORD | (585<<12)|(3840), CM_GP2DIV); 
     writel((CM_PASSWORD | (1 << 9) | 1), CM_GP2CTL );
     writel(CM_PASSWORD | (1 << 9) | 1 | (1 << 4), CM_GP2CTL);
@@ -271,9 +247,7 @@ static int net_dcntl(int from_pid, int cmd, proto_t* in, proto_t* ret, void* p) 
 
 char* net_dev_cmd(int from_pid, int argc, char** argv, void* p) {
 	if(strcmp(argv[0], "log") == 0) {
-		str_t* str = str_new("==brcm log==\n");
-		char* ret = str_detach(str);
-		return ret;
+		return brcm_get_log();
 	}
 	return NULL;
 }

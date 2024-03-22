@@ -85,43 +85,39 @@ static uint8_t temp[8192];
 static uint8_t mac_addr[6];
 static uint32_t reqid = 0;
 
-int debug_dump = 0;
 
 void
 hexdump(const char* lable, const void *data, size_t size)
 {
     unsigned char *src;
     int offset, index;
-	while(debug_dump){usleep(1);};
-    debug_dump = 1;
     src = (unsigned char *)data;
-    brcm_klog("%s %d:\n", lable, size);
-    brcm_klog("+------+-------------------------------------------------+------------------+\n");
+    brcm_log("%s %d:\n", lable, size);
+    brcm_log("+------+-------------------------------------------------+------------------+\n");
     for(offset = 0; offset < (int)size; offset += 16) {
-		brcm_klog("| %04x | ", offset);
+		brcm_log("| %04x | ", offset);
         for(index = 0; index < 16; index++) {
             if(offset + index < (int)size) {
-                brcm_klog("%02x ", 0xff & src[offset + index]);
+                brcm_log("%02x ", 0xff & src[offset + index]);
             } else {
-                brcm_klog("   ");
+                brcm_log("   ");
             }
         }
-        brcm_klog("| ");
+        brcm_log("| ");
         for(index = 0; index < 16; index++) {
             if(offset + index < (int)size) {
             if(src[offset + index] >= 32  && src[offset + index] <= 126) {
-                    brcm_klog("%c", src[offset + index]);
+                    brcm_log("%c", src[offset + index]);
                 } else {
-                    brcm_klog(".");
+                    brcm_log(".");
                 }
             } else {
-                brcm_klog(" ");
+                brcm_log(" ");
             }
         }
-        brcm_klog(" |\n");
+        brcm_log(" |\n");
     }
-    brcm_klog("+------+-------------------------------------------------+------------------+\n");
-    debug_dump = 0;
+    brcm_log("+------+-------------------------------------------------+------------------+\n");
 }
 
 static int
@@ -182,7 +178,7 @@ brcmf_proto_bcdc_set_dcmd(int ifidx, uint cmd,
     int ret;
     uint32_t flags, id;
 
-    // brcm_klog("brcmf_proto_bcdc_set_dcmd cmd %d len %d\n", cmd, len);
+    // brcm_log("brcmf_proto_bcdc_set_dcmd cmd %d len %d\n", cmd, len);
 
     *fwerr = 0;
     ret = brcmf_proto_bcdc_msg(ifidx, cmd, buf, len, true);
@@ -197,7 +193,7 @@ brcmf_proto_bcdc_set_dcmd(int ifidx, uint cmd,
     id = (flags & BCDC_DCMD_ID_MASK) >> BCDC_DCMD_ID_SHIFT;
 
     if (id != reqid) {
-        brcm_klog("unexpected request id %d (expected %d)\n", id, reqid);
+        brcm_log("unexpected request id %d (expected %d)\n", id, reqid);
         ret = -EINVAL;
         goto done;
     }
@@ -223,7 +219,7 @@ brcmf_proto_bcdc_query_dcmd(int ifidx, uint cmd,
     *fwerr = 0;
     ret = brcmf_proto_bcdc_msg(ifidx, cmd, buf, len, false);
     if (ret < 0) {
-        brcm_klog("brcmf_proto_bcdc_msg failed w/status %d\n",
+        brcm_log("brcmf_proto_bcdc_msg failed w/status %d\n",
              ret);
         goto done;
     }
@@ -240,7 +236,7 @@ retry:
     if ((id < reqid) && (++retries < 2))
         goto retry;
     if (id != reqid) {
-        brcm_klog("unexpected request id %d (expected %d)\n", id, reqid);
+        brcm_log("unexpected request id %d (expected %d)\n", id, reqid);
         ret = -EINVAL;
         goto done;
     }
@@ -276,9 +272,9 @@ brcmf_fil_cmd_data(int ifidx, uint32_t cmd, void *data, uint32_t len, bool set)
                          data, len, &fwerr);
 
     if (err) {
-        brcm_klog("Failed: error=%d\n", err);
+        brcm_log("Failed: error=%d\n", err);
     } else if (fwerr < 0) {
-        brcm_klog("Firmware error: %d\n", fwerr);
+        brcm_log("Firmware error: %d\n", fwerr);
         err = -EBADE;
     }
     return err;
@@ -349,7 +345,7 @@ int32_t brcmf_fil_iovar_data_set(int ifidx, char *name, const void *data,
                      buflen, true);
     } else {
         err = -EPERM;
-        brcm_klog("Creating iovar failed\n");
+        brcm_log("Creating iovar failed\n");
     }
 
     return err;
@@ -371,7 +367,7 @@ int32_t brcmf_fil_iovar_data_get(int ifidx, char *name, void *data,
             memcpy(data, proto_buf, len);
     } else {
         err = -EPERM;
-        brcm_klog("Creating iovar failed\n");
+        brcm_log("Creating iovar failed\n");
     }
 
     return err;
@@ -495,13 +491,13 @@ static int brcmf_c_process_clm_blob(int ifidx)
     } while ((datalen > 0) && (err == 0));
 
     if (err) {
-        brcm_klog("clmload failed (%d)\n", err);
+        brcm_log("clmload failed (%d)\n", err);
         /* Retrieve clmload_status and print */
         err = brcmf_fil_iovar_int_get(ifidx, "clmload_status", &status);
         if (err)
-            brcm_klog("get clmload_status failed (%d)\n", err);
+            brcm_log("get clmload_status failed (%d)\n", err);
         else
-            brcm_klog("clmload_status=%d\n", status);
+            brcm_log("clmload_status=%d\n", status);
         err = -EIO;
     }
 
@@ -512,22 +508,22 @@ static int brcmf_c_process_clm_blob(int ifidx)
 
 static int brcmf_dump_revinfo(struct brcmf_rev_info *ri)
 {
-    brcm_klog("vendorid: 0x%04x\n", ri->vendorid);
-    brcm_klog("deviceid: 0x%04x\n", ri->deviceid);
-    brcm_klog("radiorev: %x\n", ri->radiorev);
-    brcm_klog("chip: %s\n", ri->chipname);
-    brcm_klog("chippkg: %u\n", ri->chippkg);
-    brcm_klog("corerev: %u\n", ri->corerev);
-    brcm_klog("boardid: 0x%04x\n", ri->boardid);
-    brcm_klog("boardvendor: 0x%04x\n", ri->boardvendor);
-    brcm_klog("boardrev: %x\n", ri->boardrev);
-    brcm_klog("driverrev: %x\n", ri->driverrev);
-    brcm_klog("ucoderev: %u\n", ri->ucoderev);
-    brcm_klog("bus: %u\n", ri->bus);
-    brcm_klog("phytype: %u\n", ri->phytype);
-    brcm_klog("phyrev: %u\n", ri->phyrev);
-    brcm_klog("anarev: %u\n", ri->anarev);
-    brcm_klog("nvramrev: %08x\n", ri->nvramrev);
+    brcm_log("vendorid: 0x%04x\n", ri->vendorid);
+    brcm_log("deviceid: 0x%04x\n", ri->deviceid);
+    brcm_log("radiorev: %x\n", ri->radiorev);
+    brcm_log("chip: %s\n", ri->chipname);
+    brcm_log("chippkg: %u\n", ri->chippkg);
+    brcm_log("corerev: %u\n", ri->corerev);
+    brcm_log("boardid: 0x%04x\n", ri->boardid);
+    brcm_log("boardvendor: 0x%04x\n", ri->boardvendor);
+    brcm_log("boardrev: %x\n", ri->boardrev);
+    brcm_log("driverrev: %x\n", ri->driverrev);
+    brcm_log("ucoderev: %u\n", ri->ucoderev);
+    brcm_log("bus: %u\n", ri->bus);
+    brcm_log("phytype: %u\n", ri->phytype);
+    brcm_log("phyrev: %u\n", ri->phyrev);
+    brcm_log("anarev: %u\n", ri->anarev);
+    brcm_log("nvramrev: %08x\n", ri->nvramrev);
 
 
     return 0;
@@ -546,14 +542,14 @@ int brcmf_c_preinit_dcmds(void)
     err = brcmf_fil_iovar_data_get(0, "cur_etheraddr", mac_addr,
                        sizeof(mac_addr));
     if (err < 0) {
-        brcm_klog("Retrieving cur_etheraddr failed, %d\n", err);
+        brcm_log("Retrieving cur_etheraddr failed, %d\n", err);
         goto done;
     }
 
     err = brcmf_fil_cmd_data_get(0, BRCMF_C_GET_REVINFO,
                      &revinfo, sizeof(revinfo));
     if (err < 0) {
-        brcm_klog("retrieving revision info failed, %d\n", err);
+        brcm_log("retrieving revision info failed, %d\n", err);
         strlcpy(ri.chipname, "UNKNOWN", sizeof(ri.chipname));
     } else {
         ri.vendorid = le32_to_cpu(revinfo.vendorid);
@@ -589,7 +585,7 @@ int brcmf_c_preinit_dcmds(void)
     /* Do any CLM downloading */
     err = brcmf_c_process_clm_blob(0);
     if (err < 0) {
-        brcm_klog("download CLM blob file failed, %d\n", err);
+        brcm_log("download CLM blob file failed, %d\n", err);
         goto done;
     }
 
@@ -597,28 +593,28 @@ int brcmf_c_preinit_dcmds(void)
     memset(buf, 0, sizeof(buf));
     err = brcmf_fil_iovar_data_get(0, "ver", buf, sizeof(buf));
     if (err < 0) {
-        brcm_klog("Retrieving version information failed, %d\n", err);
+        brcm_log("Retrieving version information failed, %d\n", err);
         goto done;
     }
     char* ptr = (char *)buf;
     strsep(&ptr, "\n");
 
     /* Print fw version info */
-    brcm_klog("Firmware: %s %s\n", ri.chipname, buf);
+    brcm_log("Firmware: %s %s\n", ri.chipname, buf);
 
     /* Query for 'clmver' to get CLM version info from firmware */
     memset(buf, 0, sizeof(buf));
     err = brcmf_fil_iovar_data_get(0, "clmver", buf, sizeof(buf));
     if (err) {
-        brcm_klog("retrieving clmver failed, %d\n", err);
+        brcm_log("retrieving clmver failed, %d\n", err);
     } else {
-        brcm_klog("CLM version = %s\n", buf);
+        brcm_log("CLM version = %s\n", buf);
     }
 
     /* set mpc */
     err = brcmf_fil_iovar_int_set(0, "mpc", 1);
     if (err) {
-        brcm_klog("failed setting mpc\n");
+        brcm_log("failed setting mpc\n");
         goto done;
     }
 
@@ -627,14 +623,14 @@ int brcmf_c_preinit_dcmds(void)
                              0x60, 0x09, 0x00, 0x10, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}; 
     err = brcmf_fil_iovar_data_set(0, "event_msgs", eventmask, BRCMF_EVENTING_MASK_LEN);
     if (err) {
-        brcm_klog("Set event_msgs error (%d)\n", err);
+        brcm_log("Set event_msgs error (%d)\n", err);
         goto done;
     }
 
     /* Setup default scan unassoc time */
     err = brcmf_fil_cmd_int_set(0, BRCMF_C_SET_SCAN_UNASSOC_TIME, 40);
     if (err) {
-        brcm_klog("BRCMF_C_SET_SCAN_UNASSOC_TIME error (%d)\n",
+        brcm_log("BRCMF_C_SET_SCAN_UNASSOC_TIME error (%d)\n",
              err);
         goto done;
     }
@@ -647,30 +643,30 @@ int brcmf_c_preinit_dcmds(void)
     band_bwcap.bw_cap = 3;
     err = brcmf_fil_iovar_data_set(0, "bw_cap", &band_bwcap, sizeof(band_bwcap));
     if (err < 0)
-        brcm_klog("set bw_cap error %d\n", err);
+        brcm_log("set bw_cap error %d\n", err);
 
     brcmf_fil_iovar_int_set(0, "tdls_enable", 1);
     //set contry code to CN
     uint8_t ccreq[12] = {0x43, 0x4e, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x43, 0x4e, 0x00, 0x00};
     err = brcmf_fil_iovar_data_set(0, "country", &ccreq, sizeof(ccreq));
     if (err) {
-        brcm_klog("Firmware rejected country setting\n");
+        brcm_log("Firmware rejected country setting\n");
         return err;
     }
 
     err = brcmf_fil_iovar_int_set(0, "bcn_timeout", 4);
     if (err) {
-        brcm_klog("bcn_timeout error (%d)\n", err);
+        brcm_log("bcn_timeout error (%d)\n", err);
     }
 
     err =  brcmf_fil_iovar_int_set(0, "roam_off", 1);
     if (err) {
-        brcm_klog("set roam error (%d)\n", err);
+        brcm_log("set roam error (%d)\n", err);
     }
 
     err = brcmf_fil_iovar_int_set(0, "pm2_sleep_ret", 2000);
     if (err){
-        brcm_klog("Unable to set pm timeout, (%d)\n", err);
+        brcm_log("Unable to set pm timeout, (%d)\n", err);
     }
 
     brcmf_fil_iovar_int_set(0, "apsta", 1);
@@ -681,7 +677,7 @@ int brcmf_c_preinit_dcmds(void)
     err = brcmf_fil_cmd_int_set(0, BRCMF_C_SET_SCAN_CHANNEL_TIME,
                     40);
     if (err) {
-        brcm_klog("BRCMF_C_SET_SCAN_CHANNEL_TIME error (%d)\n",
+        brcm_log("BRCMF_C_SET_SCAN_CHANNEL_TIME error (%d)\n",
              err);
         goto done;
     }
@@ -689,7 +685,7 @@ int brcmf_c_preinit_dcmds(void)
     /* Bring device back up*/
     err = brcmf_fil_cmd_int_set(0, BRCMF_C_UP, 1);
     if (err < 0)
-        brcm_klog("BRCMF_C_UP error %d\n", err);
+        brcm_log("BRCMF_C_UP error %d\n", err);
 
 done:
     return err;
@@ -734,7 +730,7 @@ void scan(void)
     struct brcmf_escan_params_le *params;
     int32_t err;
 
-    brcm_klog("E-SCAN START\n");
+    brcm_log("E-SCAN START\n");
 
     params = calloc(1, params_size);
     if (!params) {
@@ -749,9 +745,9 @@ void scan(void)
     err = brcmf_fil_iovar_data_set(0, "escan", params, params_size);
     if (err) {
         if (err == -EBUSY)
-            brcm_klog("system busy : escan canceled\n");
+            brcm_log("system busy : escan canceled\n");
         else
-            brcm_klog("error (%d)\n", err);
+            brcm_log("error (%d)\n", err);
     }
 
     free(params);
@@ -769,10 +765,10 @@ int connect(const char*ssid, const char* pmk)
     int32_t err = 0;
 
     if(strlen(pmk) < 64){
-        brcm_klog("Wrong PMK lens\n");
+        brcm_log("Wrong PMK lens\n");
         return -1;
     }
-    brcm_klog("Connect to %s...\n", ssid);
+    brcm_log("Connect to %s...\n", ssid);
 
     /* A normal (non P2P) connection request setup. */
     const char ie[22] = {0x30, 0x14, 0x01, 0x00, 0x00, 0x0f, 0xac, 0x04, 
@@ -783,37 +779,37 @@ int connect(const char*ssid, const char* pmk)
 
     err = brcmf_fil_iovar_int_set(0, "wpa_auth", WPA2_AUTH_UNSPECIFIED|WPA2_AUTH_PSK);
     if (err) {
-        brcm_klog("clear wpa_auth failed (%d)\n", err);
+        brcm_log("clear wpa_auth failed (%d)\n", err);
         return err;
     }
 
     err = brcmf_fil_iovar_int_set(0, "auth", 0);
     if (err) {
-        brcm_klog("set auth failed (%d)\n", err);
+        brcm_log("set auth failed (%d)\n", err);
         return err;
     }
 
     err = brcmf_fil_iovar_int_set(0, "wsec", AES_ENABLED|TKIP_ENABLED);
     if (err) {
-        brcm_klog("error (%d)\n", err);
+        brcm_log("error (%d)\n", err);
         return err;
     }
 
     err = brcmf_fil_iovar_int_set(0, "wpa_auth", 0);
     if (err) {
-        brcm_klog("clear wpa_auth failed (%d)\n", err);
+        brcm_log("clear wpa_auth failed (%d)\n", err);
         return err;
     }
 
     brcmf_fil_iovar_int_set(0, "mfp", BRCMF_MFP_CAPABLE);
     if (err) {
-        brcm_klog("set mfp failed (%d)\n", err);
+        brcm_log("set mfp failed (%d)\n", err);
         return err;
     }
 
     err = brcmf_fil_iovar_int_set(0, "wpa_auth", WPA2_AUTH_PSK);
     if (err) {
-        brcm_klog("set wpa_auth failed (%d)\n", err);
+        brcm_log("set wpa_auth failed (%d)\n", err);
         return err;
     }
 
@@ -834,14 +830,14 @@ int connect(const char*ssid, const char* pmk)
      /* store psk in firmware */
     err = brcmf_fil_cmd_data_set(0, BRCMF_C_SET_WSEC_PMK, &pmk_le, sizeof(pmk_le));
     if (err < 0){
-        brcm_klog("failed to change PSK in firmware\n");
+        brcm_log("failed to change PSK in firmware\n");
         goto done;
     }
 
 
     err = brcmf_join(0, ssid);
     if (err < 0){
-        brcm_klog("failed to join SSID:%s\n", ssid);
+        brcm_log("failed to join SSID:%s\n", ssid);
         goto done;
     }
 

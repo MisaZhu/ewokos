@@ -9,4 +9,6 @@
 #define get_timer(x)    (kernel_tic_ms(0) - (x))
 
 void log_init(void);
+void brcm_log(const char *format, ...);
+char* brcm_get_log(void);
 #endif

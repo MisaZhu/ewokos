@@ -97,7 +97,7 @@ static enum nvram_parser_state brcmf_nvram_handle_idle(struct nvram_parser *nvp)
 		nvp->entry = nvp->pos;
 		return KEY;
 	}
-	brcm_klog("warning: ln=%d:col=%d: ignoring invalid character\n",
+	brcm_log("warning: ln=%d:col=%d: ignoring invalid character\n",
 		  nvp->line, nvp->column);
 proceed:
 	nvp->column++;
@@ -128,7 +128,7 @@ static enum nvram_parser_state brcmf_nvram_handle_key(struct nvram_parser *nvp)
 		    strncmp(&nvp->data[nvp->entry], "macaddr", 7) == 0)
 			st = COMMENT;
 	} else if (!is_nvram_char(c) || c == ' ') {
-		brcm_klog("warning: ln=%d:col=%d: '=' expected, skip invalid key entry\n",
+		brcm_log("warning: ln=%d:col=%d: '=' expected, skip invalid key entry\n",
 			  nvp->line, nvp->column);
 		return COMMENT;
 	}

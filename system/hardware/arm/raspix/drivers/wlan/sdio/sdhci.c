@@ -9,7 +9,7 @@
 #include "mmc.h"
 
 #define SDHCI_CMD_MAX_TIMEOUT			3200
-#define SDHCI_CMD_DEFAULT_TIMEOUT		100
+#define SDHCI_CMD_DEFAULT_TIMEOUT		10000
 #define SDHCI_READ_STATUS_TIMEOUT		1000
 
 #define SDHCI_DMA_ADDRESS	0x00
@@ -318,45 +318,45 @@ static void bcm283x_sdhci_gpio_init(void){
 
 static void dump(struct sdhci_host *host)
 {
-    brcm_klog( ": =========== REGISTER DUMP ===========\n");
+    brcm_log( ": =========== REGISTER DUMP ===========\n");
 
-    brcm_klog( ": Sys addr: 0x%08x | Version:  0x%08x\n",
+    brcm_log( ": Sys addr: 0x%08x | Version:  0x%08x\n",
         readl(host->ioaddr + SDHCI_DMA_ADDRESS),
         readw(host->ioaddr + SDHCI_HOST_VERSION));
-    brcm_klog( ": Blk size: 0x%08x | Blk cnt:  0x%08x\n",
+    brcm_log( ": Blk size: 0x%08x | Blk cnt:  0x%08x\n",
         readw(host->ioaddr + SDHCI_BLOCK_SIZE),
         readw(host->ioaddr + SDHCI_BLOCK_COUNT));
-    brcm_klog( ": Argument: 0x%08x | Trn mode: 0x%08x\n",
+    brcm_log( ": Argument: 0x%08x | Trn mode: 0x%08x\n",
         readl(host->ioaddr + SDHCI_ARGUMENT),
         readw(host->ioaddr + SDHCI_TRANSFER_MODE));
-    brcm_klog( ": Present:  0x%08x | Host ctl: 0x%08x\n",
+    brcm_log( ": Present:  0x%08x | Host ctl: 0x%08x\n",
         readl(host->ioaddr + SDHCI_PRESENT_STATE),
         readb(host->ioaddr + SDHCI_HOST_CONTROL));
-    brcm_klog( ": Power:    0x%08x | Blk gap:  0x%08x\n",
+    brcm_log( ": Power:    0x%08x | Blk gap:  0x%08x\n",
         readb(host->ioaddr + SDHCI_POWER_CONTROL),
         readb(host->ioaddr + SDHCI_BLOCK_GAP_CONTROL));
-    brcm_klog( ": Wake-up:  0x%08x | Clock:    0x%08x\n",
+    brcm_log( ": Wake-up:  0x%08x | Clock:    0x%08x\n",
         readb(host->ioaddr + SDHCI_WAKE_UP_CONTROL),
         readw(host->ioaddr + SDHCI_CLOCK_CONTROL));
-    brcm_klog( ": Timeout:  0x%08x | Int stat: 0x%08x\n",
+    brcm_log( ": Timeout:  0x%08x | Int stat: 0x%08x\n",
         readb(host->ioaddr + SDHCI_TIMEOUT_CONTROL),
         readl(host->ioaddr + SDHCI_INT_STATUS));
-    brcm_klog( ": Int enab: 0x%08x | Sig enab: 0x%08x\n",
+    brcm_log( ": Int enab: 0x%08x | Sig enab: 0x%08x\n",
         readl(host->ioaddr + SDHCI_INT_ENABLE),
         readl(host->ioaddr + SDHCI_SIGNAL_ENABLE));
-    brcm_klog( ": AC12 err: 0x%08x | Slot int: 0x%08x\n",
+    brcm_log( ": AC12 err: 0x%08x | Slot int: 0x%08x\n",
         readw(host->ioaddr + SDHCI_AUTO_CMD_STATUS),
         readw(host->ioaddr + SDHCI_SLOT_INT_STATUS));
-    brcm_klog( ": Caps:     0x%08x | Caps_1:   0x%08x\n",
+    brcm_log( ": Caps:     0x%08x | Caps_1:   0x%08x\n",
         readl(host->ioaddr + SDHCI_CAPABILITIES),
         readl(host->ioaddr + SDHCI_CAPABILITIES_1));
-    brcm_klog( ": Cmd:      0x%08x | Max curr: 0x%08x\n",
+    brcm_log( ": Cmd:      0x%08x | Max curr: 0x%08x\n",
         readw(host->ioaddr + SDHCI_COMMAND),
         readl(host->ioaddr + SDHCI_MAX_CURRENT));
-    brcm_klog( ": Host ctl2: 0x%08x\n",
+    brcm_log( ": Host ctl2: 0x%08x\n",
         readw(host->ioaddr + SDHCI_HOST_CONTROL2));
 
-    brcm_klog( ": ===========================================\n");
+    brcm_log( ": ===========================================\n");
 }
 
 #define BCM2835_SDHCI_WRITE_DELAY(f)    (((2 * 1000000) / f) + 1)
@@ -463,7 +463,7 @@ int sdhci_set_clock(struct sdhci_host *host , unsigned int clock)
 	while (sdhci_readl(host, SDHCI_PRESENT_STATE) &
 			   (SDHCI_CMD_INHIBIT | SDHCI_DATA_INHIBIT)) {
 		if (timeout == 0) {
-			brcm_klog("%s: Timeout to wait cmd & data inhibit\n",
+			brcm_log("%s: Timeout to wait cmd & data inhibit\n",
 			       __func__);
 			return -EBUSY;
 		}
@@ -529,7 +529,7 @@ int sdhci_set_clock(struct sdhci_host *host , unsigned int clock)
 	while (!((clk = sdhci_readw(host, SDHCI_CLOCK_CONTROL))
 		& SDHCI_CLOCK_INT_STABLE)) {
 		if (timeout == 0) {
-			brcm_klog("%s: Internal clock never stabilised.\n",
+			brcm_log("%s: Internal clock never stabilised.\n",
 			       __func__);
 			return -EBUSY;
 		}
@@ -597,12 +597,12 @@ static int sdhci_get_info(struct sdhci_host *host)
 	u32 caps, caps_1 = 0;
 	caps = sdhci_readl(host, SDHCI_CAPABILITIES);
 	host->version = sdhci_readw(host, SDHCI_HOST_VERSION);
-	brcm_klog("%s, version: %x caps: 0x%x\n", __func__, host->version, caps);
+	brcm_log("%s, version: %x caps: 0x%x\n", __func__, host->version, caps);
 
 	/* Check whether the clock multiplier is supported or not */
 	if (SDHCI_GET_VERSION(host) >= SDHCI_SPEC_300) {
 		caps_1 = sdhci_readl(host, SDHCI_CAPABILITIES_1);
-		brcm_klog("%s, caps_1: 0x%x\n", __func__, caps_1);
+		brcm_log("%s, caps_1: 0x%x\n", __func__, caps_1);
 		host->clk_mul = (caps_1 & SDHCI_CLOCK_MUL_MASK) >>
 				SDHCI_CLOCK_MUL_SHIFT;
 	}
@@ -619,11 +619,11 @@ static int sdhci_get_info(struct sdhci_host *host)
 			host->max_clk *= host->clk_mul;
 	}
 	if (host->max_clk == 0) {
-		brcm_klog("%s: Hardware doesn't specify base clock frequency\n",
+		brcm_log("%s: Hardware doesn't specify base clock frequency\n",
 		       __func__);
 		return -EINVAL;
 	}
-	brcm_klog("max clock:%d \n", host->max_clk);
+	brcm_log("max clock:%d \n", host->max_clk);
 
 	return 0;
 }
@@ -676,7 +676,7 @@ void sdhci_reset(u8 mask)
 	sdhci_writeb(&_host, mask, SDHCI_SOFTWARE_RESET);
 	while (sdhci_readb(&_host, SDHCI_SOFTWARE_RESET) & mask) {
 		if (timeout == 0) {
-			brcm_klog("%s: Reset 0x%x never completed.\n",
+			brcm_log("%s: Reset 0x%x never completed.\n",
 			       __func__, (int)mask);
 			return;
 		}
@@ -722,7 +722,7 @@ static int sdhci_transfer_data(struct sdhci_host *host, struct mmc_data *data)
 	do {
 		stat = sdhci_readl(host, SDHCI_INT_STATUS);
 		if (stat & SDHCI_INT_ERROR) {
-			brcm_klog("%s: Error detected in status(0x%X)! %d\n",
+			brcm_log("%s: Error detected in status(0x%X)! %d\n",
 				 __func__, stat, timeout);
 			return -EIO;
 		}
@@ -741,10 +741,8 @@ static int sdhci_transfer_data(struct sdhci_host *host, struct mmc_data *data)
 				continue;
 			}
 		}
-		if (timeout-- != 0)
-			usleep(10);
-		else {
-			brcm_klog("%s: Transfer data timeout\n", __func__);
+		if (timeout-- == 0){
+			brcm_log("%s: Transfer data timeout\n", __func__);
 			return -ETIMEDOUT;
 		}
 	} while (!(stat & SDHCI_INT_DATA_END));
@@ -777,12 +775,7 @@ int sdhci_send_command(struct mmc_cmd *cmd, struct mmc_data *data)
 	int trans_bytes = 0, is_aligned = 1;
 	u32 mask, flags, mode = 0;
 	unsigned int time = 0;
-	ulong start = get_timer(0);
-
-	// if(cmd->cmdidx != 52 && cmd->cmdidx != 53)
-    // 	brcm_klog("sdhci cmd:%d %x %x\n", cmd->cmdidx, cmd->cmdarg, cmd->resp_type);
-	// if(data)
-	// 	brcm_klog("sdhci data: %d %d\n", data->blocks, data->blocksize);
+	uint64_t start = get_timer(0);
 
 	host->start_addr = 0;
 	/* Timeout unit - ms */
@@ -799,18 +792,17 @@ int sdhci_send_command(struct mmc_cmd *cmd, struct mmc_data *data)
 
 	while (sdhci_readl(host, SDHCI_PRESENT_STATE) & mask) {
 		if (time >= cmd_timeout) {
-			brcm_klog("%s: busy ", __func__);
+			brcm_log("%s: busy ", __func__);
 			if (2 * cmd_timeout <= SDHCI_CMD_MAX_TIMEOUT) {
 				cmd_timeout += cmd_timeout;
-				brcm_klog("timeout increasing to: %u ms.\n",
+				brcm_log("timeout increasing to: %u ms.\n",
 				       cmd_timeout);
 			} else {
-				brcm_klog("timeout.\n");
+				brcm_log("timeout.\n");
 				return -ECOMM;
 			}
 		}
 		time++;
-		usleep(100);
 	}
 
 	sdhci_writel(host, SDHCI_INT_ALL_MASK, SDHCI_INT_STATUS);
@@ -877,7 +869,7 @@ int sdhci_send_command(struct mmc_cmd *cmd, struct mmc_data *data)
 		}
 
 		if (get_timer(start) >= SDHCI_READ_STATUS_TIMEOUT) {
-			brcm_klog("%s: Timeout for status update: %08x %08x\n",
+			brcm_log("%s: Timeout for status update: %08x %08x\n",
 			       __func__, stat, mask);
 			dump(host);
 			return -ETIMEDOUT;
@@ -894,13 +886,13 @@ int sdhci_send_command(struct mmc_cmd *cmd, struct mmc_data *data)
 		ret = sdhci_transfer_data(host, data);
 
 	if (host->quirks & SDHCI_QUIRK_WAIT_SEND_CMD)
-		usleep(1000);
+		usleep(10);
 
 	stat = sdhci_readl(host, SDHCI_INT_STATUS);
 	sdhci_writel(host, SDHCI_INT_ALL_MASK, SDHCI_INT_STATUS);
 
 	// if(cmd->cmdidx != 52 && cmd->cmdidx != 53)
-    // 	brcm_klog("ret:%d resp: %x %x %x %x\n", ret, cmd->response[0], cmd->response[1],cmd->response[2],cmd->response[3]);
+    // 	brcm_log("ret:%d resp: %x %x %x %x\n", ret, cmd->response[0], cmd->response[1],cmd->response[2],cmd->response[3]);
 
 	if (!ret) {
 		if ((host->quirks & SDHCI_QUIRK_32BIT_DMA_ADDR) &&
@@ -908,7 +900,7 @@ int sdhci_send_command(struct mmc_cmd *cmd, struct mmc_data *data)
 			memcpy(data->dest, host->align_buffer, trans_bytes);
 		return 0;
 	}
-	brcm_klog("sdhci cmd: %d error: %x", cmd->cmdidx, stat);
+	brcm_log("sdhci cmd: %d error: %x", cmd->cmdidx, stat);
 	sdhci_reset(SDHCI_RESET_CMD);
 	sdhci_reset(SDHCI_RESET_DATA);
 	if (stat & SDHCI_INT_TIMEOUT)
@@ -921,7 +913,7 @@ int sdhci_set_ios(struct mmc *mmc)
 {
     struct sdhci_host *host = &_host;
 
-	brcm_klog("set ios clock:%d bus:%d mode:%d\n", mmc->clock, mmc->bus_width, mmc->selected_mode);
+	brcm_log("set ios clock:%d bus:%d mode:%d\n", mmc->clock, mmc->bus_width, mmc->selected_mode);
 	if (mmc->clock != host->clock)
 		sdhci_set_clock(host, mmc->clock);
 
