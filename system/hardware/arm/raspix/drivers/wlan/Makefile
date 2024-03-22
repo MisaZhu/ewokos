@@ -33,6 +33,8 @@ $(BRCMFMACD): $(BRCMFMACD_OBJS) \
 		$(BUILD_DIR)/lib/libgloss.a  \
 		$(BUILD_DIR)/lib/libarch_bcm283x.a 
 	$(LD) -Ttext=100 $(BRCMFMACD_OBJS) -o $(BRCMFMACD) $(LDFLAGS) -ltinyjson -larch_bcm283x -lewoksys -lc -lgloss 
+	mkdir -p  $(TARGET_DIR)/etc/wlan/
+	cp -r network.json $(TARGET_DIR)/etc/wlan/
 
 clean:
 	rm -f $(BRCMFMACD_OBJS)

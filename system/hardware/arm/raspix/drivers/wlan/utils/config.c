@@ -17,7 +17,7 @@ void config_init(const char* path){
 	int sz = 0;
 	char* str = (char*)vfs_readfile(path, &sz);
 	if(str == NULL) {
-		brcm_klog("Error: %s open failed\n", path);
+		brcm_log("Error: %s open failed\n", path);
 		return;
 	}
 
@@ -31,7 +31,7 @@ void config_init(const char* path){
 		if(network_config && network_config->var->is_array)
 			return;
 	}
-	brcm_klog("Error: %s parse failed \n", path);
+	brcm_log("Error: %s parse failed \n", path);
 }
 
 int config_match_ssid(const char* ssid){

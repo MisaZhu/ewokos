@@ -33,9 +33,9 @@ int mmc_io_rw_direct_host(int write, unsigned fn,
 
 #if MMC_DEBUG
 	if(out)
-        brcm_klog("%s w:%d f:%d a:%x in:%x out:%x\n", __func__, write, fn, addr, in, cmd.response[0] & 0xFF);
+        brcm_log("%s w:%d f:%d a:%x in:%x out:%x\n", __func__, write, fn, addr, in, cmd.response[0] & 0xFF);
     else
-        brcm_klog("%s w:%d f:%d a:%x in:%x\n", __func__, write, fn, addr, in);
+        brcm_log("%s w:%d f:%d a:%x in:%x\n", __func__, write, fn, addr, in);
 #endif
 
 	if (err){
@@ -100,10 +100,10 @@ int mmc_io_rw_extended(int write, int fn,
 
 #if MMC_DEBUG
 	if(fn == 2){ //dont dump interrupt and console data
-		brcm_klog("%s w:%d f:%d a:%x%s b:%d s:%d r:%d ",
+		brcm_log("%s w:%d f:%d a:%x%s b:%d s:%d r:%d ",
 			__func__, write, fn, addr, incr_addr?"+":" ", blocks, blksz, err);
 		if(blksz <= 4 || fn != 2)
-			brcm_klog("[%02x %02x %02x %02x]\n", buf[0], buf[1], buf[2], buf[3]);
+			brcm_log("[%02x %02x %02x %02x]\n", buf[0], buf[1], buf[2], buf[3]);
 		else
 			hexdump("", buf, min(blksz, 256));
 	}

@@ -13,7 +13,6 @@ void brcm_console_init(uint32_t addr){
         _console = calloc(1, sizeof(struct brcmf_console));
     }
     _console->console_addr = addr;
-    brcm_klog("%s %x\n", __func__, addr);
 }
 
 
@@ -84,7 +83,7 @@ int brcmf_sdio_readconsole(void)
             if (line[n - 1] == '\r')
                 n--;
             line[n] = 0;
-            brcm_klog("CONSOLE: %s\n", line);
+            brcm_log("CONSOLE: %s\n", line);
         }
     }
 break2:
