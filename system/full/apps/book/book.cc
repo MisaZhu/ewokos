@@ -21,6 +21,7 @@ class Book: public XWin {
 	int  current_page;
 	int  next_page;
 	int  read_len;
+	int  mouse_last_y;
 	FILE  *fp;
 
 	void pageUp() {
@@ -118,11 +119,26 @@ protected:
 				else if(ev->value.mouse.button == MOUSE_BUTTON_SCROLL_DOWN)
 					pageUp();
 			}
+			else if(ev->state == XEVT_MOUSE_DRAG) {
+				int dy = ev->value.mouse.y - mouse_last_y;
+				if(dy > 10) {
+					pageUp();
+					mouse_last_y = ev->value.mouse.y;
+				}
+				else if(dy < -10) {
+					pageDown();
+					mouse_last_y = ev->value.mouse.y;
+				}
+			}
+			else if(ev->state == XEVT_MOUSE_DOWN) {
+				mouse_last_y = ev->value.mouse.y;
+			}
 		}
 	}
 public:
 	inline Book() {
 		read_len = 0;
+		mouse_last_y = 0;
 	}
 
 	inline ~Book() {
