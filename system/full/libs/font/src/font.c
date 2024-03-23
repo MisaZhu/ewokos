@@ -97,6 +97,11 @@ static void font_cache(font_t* font, uint16_t c, TTY_Glyph* glyph) {
 	TTY_Glyph* p = (TTY_Glyph*)malloc(sizeof(TTY_Glyph));
 	if(p == NULL)
 		return;
+
+	if(hashmap_length(font->cache) > 4096) {
+		font_clear_cache(font);
+	}
+
 	memcpy(p, glyph, sizeof(TTY_Glyph));
 	hashmap_put(font->cache, (const char*)&c, p);
 }

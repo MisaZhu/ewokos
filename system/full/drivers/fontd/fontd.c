@@ -150,6 +150,8 @@ static int font_dev_get(proto_t* in, proto_t* ret) {
 	TTY_Glyph glyph;
 	if(ttf == NULL || font == NULL ||
 			ttf_render_glyph_cache(ttf, font, c, &glyph) != 0) {
+		if(glyph.cache != NULL)
+			free(glyph.cache);
 		PF->init(ret)->addi(ret, -1);
 		return -1;
 	}
@@ -157,6 +159,7 @@ static int font_dev_get(proto_t* in, proto_t* ret) {
 		PF->format(ret, "m,m",
 				&glyph, sizeof(TTY_Glyph),
 				glyph.cache, font->inst.maxGlyphSize.x*font->inst.maxGlyphSize.y);
+		free(glyph.cache);
 	}
 	else {
 		PF->init(ret)->add(ret, &glyph, sizeof(TTY_Glyph));

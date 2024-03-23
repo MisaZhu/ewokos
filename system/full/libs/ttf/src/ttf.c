@@ -26,45 +26,12 @@ ttf_font_t*  ttf_new_inst(ttf_t* ttf, uint16_t ppm) {
 		free(font);
 		return NULL;
 	}
-	font->cache = hashmap_new();
 	return font;
-}
-
-static void ttf_cache(ttf_font_t* font, uint16_t c, TTY_Glyph* glyph) {
-	TTY_Glyph* p = (TTY_Glyph*)malloc(sizeof(TTY_Glyph));
-	if(p == NULL)
-		return;
-	memcpy(p, glyph, sizeof(TTY_Glyph));
-	hashmap_put(font->cache, (const char*)&c, p);
-}
-
-static int free_cache(const char* key, any_t data, any_t arg) {
-	map_t* map = (map_t*)arg;
-	TTY_Glyph* v = (TTY_Glyph*)data;
-	hashmap_remove(map, key);
-	if(v->cache != NULL)
-		free(v->cache);
-	free(v);
-	return MAP_OK;
-}
-
-static void ttf_clear_cache(ttf_font_t* font) {
-	hashmap_iterate(font->cache, free_cache, font->cache);	
-}
-
-static int ttf_fetch_cache(ttf_font_t* font, uint16_t c, TTY_Glyph* glyph) {
-	TTY_Glyph* p;
-	if(hashmap_get(font->cache, (const char*)&c, (void**)&p) == 0) {
-		memcpy(glyph, p, sizeof(TTY_Glyph));
-		return 0;
-	}
-	return -1;
 }
 
 int ttf_font_resize(ttf_t* ttf, ttf_font_t* font, uint16_t ppm) {
 	if(font == NULL || ttf == NULL)
 		return -1;
-	ttf_clear_cache(font);
 	if(tty_instance_resize(ttf, &font->inst, ppm))
 		return -1;
 	return 0;
@@ -78,8 +45,6 @@ void ttf_free(ttf_t* ttf) {
 void  ttf_font_free(ttf_font_t* font) {
 	if(font == NULL)
 		return;
-	ttf_clear_cache(font);
-	hashmap_free(font->cache);
 	tty_instance_free(&font->inst);
 }
 
@@ -96,19 +61,13 @@ TTY_Error tty_render_glyph_cache(TTY_Font* font, TTY_Instance* instance, TTY_Gly
 int ttf_render_glyph_cache(ttf_t* ttf, ttf_font_t* font, TTY_U32 c, TTY_Glyph* glyph) {
 	int do_cache = 0;
 	memset(glyph, 0, sizeof(TTY_Glyph));
-	if(ttf_fetch_cache(font, c, glyph) != 0) {
-		TTY_U32 glyphIdx;
-		if (tty_get_glyph_index(ttf, c, &glyphIdx))
-			return -1;
-		if (tty_glyph_init(ttf, glyph, glyphIdx))
-			return -1;
-		do_cache = 1;
-	}
-	if(do_cache) {
-		if(tty_render_glyph_cache(ttf, &font->inst, glyph))
-			return -1;
-		ttf_cache(font, c, glyph);
-	}
+	TTY_U32 glyphIdx;
+	if (tty_get_glyph_index(ttf, c, &glyphIdx))
+		return -1;
+	if (tty_glyph_init(ttf, glyph, glyphIdx))
+		return -1;
+	if(tty_render_glyph_cache(ttf, &font->inst, glyph))
+		return -1;
 	return 0;
 }
 
