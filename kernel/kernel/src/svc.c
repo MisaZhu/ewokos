@@ -547,8 +547,10 @@ static void sys_proc_block(context_t* ctx, int32_t pid_by, uint32_t evt) {
 	if(proc_by == NULL || cproc == NULL)
 		return;
 
-	if(proc_ipc_get_task(cproc) != NULL)
+	if(proc_ipc_get_task(cproc) != NULL) {
+		schedule(ctx);
 		return;
+	}
 
 	if(evt != 0 && proc_by->info.pid != _core_proc_pid) {
 		proc_block_event_t* block_evt = get_block_evt(proc_by, evt);
