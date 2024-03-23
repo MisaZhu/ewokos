@@ -88,8 +88,10 @@ static void sys_usleep(context_t* ctx, uint32_t count) {
 		return;
 
 	//no sleep longer than 100000 usec when handling interrupter/ipc task .
-	if(ipc != NULL && count > 100000) 
+	if(ipc != NULL && count > 100000)  {
+		schedule(ctx);
 		return;
+	}
 
 	proc_usleep(ctx, count);
 }
