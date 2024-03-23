@@ -228,22 +228,22 @@ static int32_t sys_shm_get(int32_t id, uint32_t size, int32_t flag) {
 }
 
 static void* sys_shm_map(int32_t id) {
-	proc_t* cproc = get_current_proc();
-	return shm_proc_map(cproc->info.pid, id);
+	proc_t* cproc = proc_get_proc(get_current_proc());
+	return shm_proc_map(cproc, id);
 }
 
 static int32_t sys_shm_unmap(void* p) {
-	proc_t* cproc = get_current_proc();
-	return shm_proc_unmap(cproc->info.pid, p);
+	proc_t* cproc = proc_get_proc(get_current_proc());
+	return shm_proc_unmap(cproc, p);
 }
 
 static int32_t sys_shm_ref(int32_t id) {
-	proc_t* cproc = get_current_proc();
+	proc_t* cproc = proc_get_proc(get_current_proc());
 	return shm_proc_ref(cproc->info.pid, id);
 }
 	
 static uint32_t sys_dma_map(uint32_t size) {
-	proc_t* cproc = get_current_proc();
+	proc_t* cproc = proc_get_proc(get_current_proc());
 	if(cproc->info.uid > 0)
 		return 0;
 
@@ -257,7 +257,7 @@ static uint32_t sys_dma_map(uint32_t size) {
 }
 
 static uint32_t sys_mem_map(uint32_t vaddr, uint32_t paddr, uint32_t size) {
-	proc_t* cproc = get_current_proc();
+	proc_t* cproc = proc_get_proc(get_current_proc());
 	if(cproc->info.uid > 0)
 		return 0;
 

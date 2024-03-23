@@ -385,7 +385,6 @@ static void x_del_win(x_t* x, xwin_t* win) {
 	if(win == x->win_last)
 		x->win_last = NULL;
 
-
 	if(win->xinfo->g_shm != NULL) {
 		shmdt(win->xinfo->g_shm);
 		shmdt(win->xinfo);
