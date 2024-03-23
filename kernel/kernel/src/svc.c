@@ -83,12 +83,14 @@ static int32_t sys_get_thread_id(void) {
 
 static void sys_usleep(context_t* ctx, uint32_t count) {
 	proc_t * cproc = get_current_proc();
-	//ipc_task_t* ipc = proc_ipc_get_task(cproc);
-
-	//no sleep when handling interrupter/ipc task.
-	//if(cproc->space->interrupt.state != INTR_STATE_IDLE || ipc != NULL)
+	ipc_task_t* ipc = proc_ipc_get_task(cproc);
 	if(cproc->space->interrupt.state != INTR_STATE_IDLE)
 		return;
+
+	//no sleep longer than 100000 usec when handling interrupter/ipc task .
+	if(ipc != NULL && count > 100000) 
+		return;
+
 	proc_usleep(ctx, count);
 }
 
@@ -541,7 +543,11 @@ static void set_block_evt(proc_t* proc, uint32_t event) {
 
 static void sys_proc_block(context_t* ctx, int32_t pid_by, uint32_t evt) {
 	proc_t* proc_by = proc_get_proc(proc_get(pid_by));
-	if(proc_by == NULL)
+	proc_t* cproc = proc_get_proc(get_current_proc());
+	if(proc_by == NULL || cproc == NULL)
+		return;
+
+	if(proc_ipc_get_task(cproc) != NULL)
 		return;
 
 	if(evt != 0 && proc_by->info.pid != _core_proc_pid) {
