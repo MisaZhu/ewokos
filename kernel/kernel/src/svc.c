@@ -547,7 +547,7 @@ static void sys_proc_block(context_t* ctx, int32_t pid_by, uint32_t evt) {
 	if(proc_by == NULL || cproc == NULL)
 		return;
 
-	if(proc_ipc_get_task(cproc) != NULL) {
+	if(proc_ipc_get_task(cproc) != NULL) {//don't block the proc when it's serving ipc
 		schedule(ctx);
 		return;
 	}
