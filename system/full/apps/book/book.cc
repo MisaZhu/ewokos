@@ -189,10 +189,10 @@ int main(int argc, char* argv[]) {
 		xwin.openBook("/data/books/tb.txt");
 	}
 	X x;
-	x.open(0, &xwin, 32,
-			32,
-			300,
-			200,
+	x.open(0, &xwin, -1,
+			-1,
+			0,
+			0,
 			"book",
 			XWIN_STYLE_NORMAL);
 
