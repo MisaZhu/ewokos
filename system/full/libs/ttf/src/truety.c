@@ -2486,6 +2486,7 @@ static TTY_Bool tty_try_execute_shared_ins(TTY_Program_Context* ctx, TTY_U8 ins)
 /* ------------ */
 /* Font Loading */
 /* ------------ */
+static char f_buf[4096];
 static TTY_Error tty_read_file_into_buff(TTY_Font* font, const char* path) {
     FILE* f = fopen(path, "rb");
     if (f == NULL) {
@@ -2506,6 +2507,7 @@ static TTY_Error tty_read_file_into_buff(TTY_Font* font, const char* path) {
         return TTY_ERROR_OUT_OF_MEMORY;
     }
     
+    setbuffer(f, f_buf, 4096);
     if ((TTY_S32)fread(font->data, 1, font->size, f) != font->size) {
         fclose(f);
         free(font->data);
