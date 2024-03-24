@@ -4302,7 +4302,6 @@ TTY_Error tty_render_glyph_cache(TTY_Font* font, TTY_Instance* instance, TTY_Gly
     scanline      = scanlineStart;
 
     TTY_S32 y = instance->maxGlyphSize.y - glyph->offset.y - instance->maxGlyphSize.y /4;
-    if(y < 0) y = 0;
     TTY_S32 x = 0;
     TTY_U32 cache_size = instance->maxGlyphSize.x*instance->maxGlyphSize.y;
     glyph->cache = (TTY_U8*)calloc(1, cache_size);
@@ -4337,7 +4336,8 @@ TTY_Error tty_render_glyph_cache(TTY_Font* font, TTY_Instance* instance, TTY_Gly
                 TTY_F26Dot6 pixelValue = pixelBuff[pixelBuffIdx] >> 6;
                 if(pixelValue != 0) {
                     int at = y*instance->maxGlyphSize.x+x+pixelBuffIdx;
-                    glyph->cache[at] = pixelValue;
+                    if(at >=0 && at < cache_size)
+                        glyph->cache[at] = pixelValue;
                 }
             }
             
