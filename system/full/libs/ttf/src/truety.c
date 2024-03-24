@@ -4302,8 +4302,10 @@ TTY_Error tty_render_glyph_cache(TTY_Font* font, TTY_Instance* instance, TTY_Gly
     scanline      = scanlineStart;
 
     TTY_S32 y = instance->maxGlyphSize.y - glyph->offset.y - instance->maxGlyphSize.y /4;
+    if(y < 0) y = 0;
     TTY_S32 x = 0;
-    glyph->cache = (TTY_U8*)calloc(1, instance->maxGlyphSize.x*instance->maxGlyphSize.y);
+    TTY_U32 cache_size = instance->maxGlyphSize.x*instance->maxGlyphSize.y;
+    glyph->cache = (TTY_U8*)calloc(1, cache_size);
     while (scanline >= scanlineEnd) {
         tty_update_or_remove_active_edges(&activeEdges, scanline, xIntersectionOff);
         tty_sort_active_edges(&activeEdges);
@@ -4334,7 +4336,8 @@ TTY_Error tty_render_glyph_cache(TTY_Font* font, TTY_Instance* instance, TTY_Gly
                 TTY_ASSERT(pixelBuffIdx < pixelBuffLen);
                 TTY_F26Dot6 pixelValue = pixelBuff[pixelBuffIdx] >> 6;
                 if(pixelValue != 0) {
-                    glyph->cache[y*instance->maxGlyphSize.x+x+pixelBuffIdx] = pixelValue;
+                    int at = y*instance->maxGlyphSize.x+x+pixelBuffIdx;
+                    glyph->cache[at] = pixelValue;
                 }
             }
             
