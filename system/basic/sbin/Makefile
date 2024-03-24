@@ -5,6 +5,7 @@ all:
 	cd vfsd;make
 	cd sessiond;make
 	cd telnetd;make
+	cd httpd;make
 
 clean:
 	cd core;make clean
@@ -13,3 +14,4 @@ clean:
 	cd vfsd;make clean
 	cd sessiond;make clean
 	cd telnetd;make clean
+	cd httpd;make clean

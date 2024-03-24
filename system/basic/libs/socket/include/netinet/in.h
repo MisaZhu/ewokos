@@ -13,13 +13,13 @@ typedef struct in_addr {
       uint8_t s_b2;
       uint8_t s_b3;
       uint8_t s_b4;
-    } S_un_b;
+    } s_un_b;
     struct {
       uint16_t s_w1;
       uint16_t s_w2;
-    } S_un_w;
-    uint32_t S_addr;
-  } S_un;
+    } s_un_w;
+    uint32_t s_addr;
+  } s_un;
 } IN_ADDR, *PIN_ADDR, *LPIN_ADDR;
 
 struct sockaddr_in {

@@ -26,7 +26,7 @@
 @/bin/ipcserv /drivers/xserverd        /dev/x
 @/sbin/x/xmoused /dev/mouse0 &
 @/sbin/x/xim_none /dev/keyb0 &
-@/bin/x/xsession misa &
+@/bin/x/xsession &
 
 @/bin/ipcserv /drivers/consoled        0
 @/bin/console /dev/console0&

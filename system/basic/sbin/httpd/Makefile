@@ -9,7 +9,7 @@ CFLAGS += -I $(BUILD_DIR)/include
 
 HTTPD_OBJS = httpd.o
 
-HTTPD = $(TARGET_DIR)/bin/httpd
+HTTPD = $(TARGET_DIR)/sbin/httpd
 
 $(HTTPD): $(HTTPD_OBJS) \
 		$(EWOK_LIBC_A) 
