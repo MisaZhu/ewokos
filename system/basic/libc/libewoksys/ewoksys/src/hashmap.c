@@ -13,7 +13,7 @@ extern "C" {
 
 
 #define INITIAL_SIZE (128)
-#define MAX_CHAIN_LENGTH (8)
+#define MAX_CHAIN_LENGTH (16)
 
 /* We need to keep keys and values */
 typedef struct _hashmap_element{
@@ -340,10 +340,10 @@ int hashmap_iterate(map_t in, PFany f, any_t arg) {
 
 	/* Linear probing */
 	for(i = 0; i< m->table_size; i++) {
-		if(m->data[i].in_use != 0 && m->data[i].key != NULL) {
+		if(m->data[i].in_use != 0 || m->data[i].key != NULL) {
 			char* key = m->data[i].key;
 			any_t data = (any_t) (m->data[i].data);
-			int status = f(key, data, arg);
+			int status = f(in, key, data, arg);
 			if (status != MAP_OK) {
 				return status;
 			}
@@ -376,7 +376,7 @@ int hashmap_remove(map_t in, const char* key){
                 /* Blank out the fields */
                 m->data[curr].in_use = 0;
                 m->data[curr].data = NULL;
-								free(m->data[curr].key);
+				free(m->data[curr].key);
                 m->data[curr].key = NULL;
 
                 /* Reduce the size */
