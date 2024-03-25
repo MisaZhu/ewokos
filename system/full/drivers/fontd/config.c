@@ -6,21 +6,23 @@
 
 static void* load_thread(void* p) {
 	var_t* var = (var_t*)p;
-	ipc_disable();
-
 	uint32_t num = var_array_size(var);
+
 	for(int i=0; i<num; i++) {
 		var_t* v = var_array_get_var(var, i);
 		const char* name = get_str(v, "name");
 		const char* fname = get_str(v, "file");
-		font_open(name, fname, DEFAULT_SYSTEM_FONT_SIZE, -1);
+		if(strcmp(name, DEFAULT_SYSTEM_FONT) != 0)
+			font_open(name, fname, DEFAULT_SYSTEM_FONT_SIZE, -1);
 	}
-	ipc_enable();
+
 	var_unref(var);
 	return NULL;
 }
 
 void load_config(void) {
+	font_open(DEFAULT_SYSTEM_FONT, DEFAULT_SYSTEM_FONT_FILE, DEFAULT_SYSTEM_FONT_SIZE, -1);
+
 	int sz = 0;
 	var_t* var = NULL;
 	char* str = (char*)vfs_readfile("/usr/system/fonts.json", &sz);
@@ -37,7 +39,5 @@ void load_config(void) {
 			}
 		}
 	}
-	if(var == NULL)
-		font_open(DEFAULT_SYSTEM_FONT, DEFAULT_SYSTEM_FONT_FILE, DEFAULT_SYSTEM_FONT_SIZE, -1);
 	return 0;
 }
