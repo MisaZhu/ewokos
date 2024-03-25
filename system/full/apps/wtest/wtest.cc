@@ -81,7 +81,7 @@ int main(int argc, char** argv) {
 	root->add(wd);
 
 	Text* txt = new Text("text\nHello world\n[中文测试]\n123～！@");
-	Theme* theme = new Theme(font_new("/usr/system/fonts/system_cn.ttf", 18, true));
+	Theme* theme = new Theme(font_new("system.cn", 18, true));
 	theme->bgColor = 0xff000000;
 	theme->fgColor = 0xffffaa88;
 	txt->setTheme(theme);

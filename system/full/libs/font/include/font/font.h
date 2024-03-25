@@ -9,7 +9,8 @@
 extern "C" {
 #endif
 
-#define DEFAULT_SYSTEM_FONT       "/usr/system/fonts/system.ttf"
+#define DEFAULT_SYSTEM_FONT       "system"
+#define DEFAULT_SYSTEM_FONT_FILE  "/usr/system/fonts/system.ttf"
 #define DEFAULT_SYSTEM_FONT_SIZE  12
 
 enum {

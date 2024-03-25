@@ -18,13 +18,13 @@ int font_init(void) {
 	return 0;
 }
 
-static int font_load_raw(const char* fname, uint16_t ppm, font_t* font) {
+static int font_load_raw(const char* name, uint16_t ppm, font_t* font) {
 	if(_font_dev_pid < 0)
 		return -1;
 
 	proto_t in, out;
 	PF->init(&out);
-	PF->format(&in, "s,i", fname, ppm);
+	PF->format(&in, "s,i", name, ppm);
 
 	int ret = -1;
 	font->id = -1;
@@ -43,11 +43,11 @@ static int font_load_raw(const char* fname, uint16_t ppm, font_t* font) {
 	return ret;
 }
 
-int font_load(const char* fname, uint16_t ppm, font_t* font, bool safe) {
+int font_load(const char* name, uint16_t ppm, font_t* font, bool safe) {
 	if(_font_dev_pid < 0)
 		return -1;
 	
-	if(font_load_raw(fname, ppm, font) == 0)
+	if(font_load_raw(name, ppm, font) == 0)
 		return 0;
 	if(safe)
 		return font_load_raw(DEFAULT_SYSTEM_FONT, ppm, font);
@@ -66,9 +66,9 @@ static int free_cache(map_t map, const char* key, any_t data, any_t arg) {
 	return MAP_OK;
 }
 
-font_t* font_new(const char* fname, uint16_t ppm, bool safe) {
+font_t* font_new(const char* name, uint16_t ppm, bool safe) {
 	font_t* font = (font_t*)calloc(sizeof(font_t), 1);
-	if(font_load(fname, ppm, font, safe) == 0)
+	if(font_load(name, ppm, font, safe) == 0)
 		return font;
 	free(font);
 	return NULL;

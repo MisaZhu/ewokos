@@ -78,7 +78,7 @@ int main(int argc, char** argv) {
 	X x;
 	ClockWin win;
 
-	Theme* theme = new Theme(font_new("/usr/system/fonts/system.ttf", 48, true));
+	Theme* theme = new Theme(font_new("system", 48, true));
 	theme->bgColor = 0xffffffff;
 	theme->fgColor = 0xff000000;
 

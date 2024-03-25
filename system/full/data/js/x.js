@@ -1,7 +1,7 @@
 var xwin = X.open("js_test", -1, -1, 300, 200);
 
 var png = PNG.load("/usr/system/images/mac1984.png");
-var font = new Font("/usr/system/fonts/system.ttf", 16);
+var font = new Font("system", 16);
 
 var mevent = null;
 var ievent = null;
