@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <sconf/sconf.h>
+#include <tinyjson/tinyjson.h>
 #include <upng/upng.h>
 #include <x++/X.h>
 #include <ewoksys/keydef.h>
@@ -14,6 +15,11 @@
 
 using namespace Ewok;
 
+static void freeIcon(void*p) {
+	graph_t* g = (graph_t*)p;
+	graph_free(g);
+}
+
 class Finder: public XWin {
 	uint32_t hideColor;
 	uint32_t selectColor;
@@ -23,7 +29,7 @@ class Finder: public XWin {
 	graph_t* fileIcon;
 	graph_t* devIcon;
 
-	sconf_t* fileTypes;
+	var_t* fileTypes;
 	int itemSize;
 
 	int     mouse_last_y;
@@ -63,12 +69,18 @@ class Finder: public XWin {
 	const char* fileType(const char* fname) {
 		if(fileTypes == NULL)
 			return "";
-		for(int i=0; i<fileTypes->num;i++) {
-			sconf_item_t* it = sconf_get_at(fileTypes, i);
-			if(it == NULL || it->name->cstr[0] == 0)
+		int num = var_array_size(fileTypes);
+		for(int i=0; i<num; i++) {
+			var_t* it = var_array_get_var(fileTypes, i);
+			if(it == NULL)
 				break;
-			if(check(fname, it->name->cstr))
-				return it->value->cstr;
+
+			const char* ext = get_str(it, "ext");
+			const char* open_with = get_str(it, "open_with");
+			if(ext[0] == 0 || open_with[0] == 0)
+				break;
+			if(check(fname, ext))
+				return open_with;
 		}
 		return "";
 	}
@@ -166,6 +178,47 @@ class Finder: public XWin {
 			start = nums - 1;
 		repaint();
 	}
+
+	var_t* loadFileTypes(const char* confFile) {
+		int sz;
+		char* str = (char*)vfs_readfile(confFile, &sz);
+		if(str == NULL) 
+			return NULL;
+		str[sz] = 0;
+		var_t* ret = json_parse(str);
+		free(str);
+		return ret;
+	}
+
+	graph_t*  getIcon(const char* fname) {
+		if(fileTypes == NULL)
+			return NULL;
+		int num = var_array_size(fileTypes);
+		for(int i=0; i<num; i++) {
+			var_t* it = var_array_get_var(fileTypes, i);
+			if(it == NULL)
+				break;
+
+			const char* ext = get_str(it, "ext");
+			const char* icon = get_str(it, "icon");
+			if(ext[0] == 0 || icon[0] == 0)
+				continue;
+
+			if(check(fname, ext)) {
+				graph_t* img = (graph_t*)get_raw(it, "icon_image");
+				if(img != NULL)
+					return img;
+
+				img = png_image_new(x_get_theme_fname(X_THEME_ROOT, "finder", icon));
+				if(img == NULL)
+					return NULL;
+				var_add(it, "icon_image", var_new_obj(img, freeIcon));
+				return img;
+			}
+		}
+		return NULL;
+	}
+
 protected:
 	void onRepaint(graph_t* g) {
 		char name[FS_FULL_NAME_MAX+1];
@@ -201,10 +254,13 @@ protected:
 			graph_t* icon = NULL;
 			if(it->d_type == DT_DIR)
 				icon = dirIcon;
-			else if(it->d_type == DT_REG || it->d_type == DT_BLK)
-				icon = fileIcon;
-			else
+			else if(it->d_type == DT_CHR || it->d_type == DT_BLK)
 				icon = devIcon;
+			else {
+				icon = getIcon(it->d_name);
+				if(icon == NULL)
+					icon = fileIcon;
+			}
 
 			xMargin = 8;
 			if(icon != NULL) {
@@ -317,7 +373,7 @@ public:
 		selected = 0;
 		start = 0;
 		mouse_last_y = 0;
-		fileTypes = sconf_load("/usr/system/filetypes.conf");
+		fileTypes = loadFileTypes("/usr/system/filetypes.json");
 		readDir("/");
 	}
 
@@ -329,7 +385,7 @@ public:
 		if(devIcon != NULL)
 			graph_free(devIcon);
 		if(fileTypes != NULL)
-			sconf_free(fileTypes);
+			var_unref(fileTypes);
 	}
 
 	bool readConfig(const char* fname) {
@@ -360,18 +416,6 @@ public:
 		v = sconf_get(conf, "title_bg_color");
 		if(v[0] != 0)
 			titleBGColor = strtoul(v, NULL,16);
-
-		v = sconf_get(conf, "file_icon");
-		if(v[0] != 0) {
-			graph_free(fileIcon);
-			fileIcon = png_image_new(v);
-		}
-
-		v = sconf_get(conf, "dir_icon");
-		if(v[0] != 0) {
-			graph_free(dirIcon);
-			dirIcon = png_image_new(v);
-		}
 
 		sconf_free(conf);
 		return true;

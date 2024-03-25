@@ -543,7 +543,7 @@ static var_t* json_parse_factor(lex_t *l) {
 	}
 	else if (l->tk=='{') {
 		lex_js_chkread(l, '{');
-		var_t* obj = var_new_obj(NULL);
+		var_t* obj = var_new_obj(NULL, NULL);
 		while(l->tk != '}') {
 			str_t* id = str_new(l->tk_str->cstr);
 			if(l->tk == LEX_STR)
@@ -803,7 +803,10 @@ inline void var_clean(var_t* var) {
 
 	/*free value*/
 	if(var->value != NULL) {
-		free(var->value);
+		if(var->free_func != NULL)
+			var->free_func(var->value);
+		else
+			free(var->value);
 		var->value = NULL;
 	}
 
@@ -874,9 +877,9 @@ inline void var_unref(var_t* var) {
 }
 
 inline var_t* var_new_array(void) {
-	var_t* var = var_new_obj(NULL);
+	var_t* var = var_new_obj(NULL, NULL);
 	var->is_array = 1;
-	var_t* members = var_new_obj(NULL);
+	var_t* members = var_new_obj(NULL, NULL);
 	var_add(var, "_ARRAY_", members);
 	return var;
 }
@@ -903,10 +906,11 @@ inline var_t* var_new_bool(bool b) {
 	return var;
 }
 
-inline var_t* var_new_obj(void*p) {
+inline var_t* var_new_obj(void*p, free_func_t fr) {
 	var_t* var = var_new();
 	var->type = V_OBJECT;
 	var->value = p;
+	var->free_func = fr;
 	return var;
 }
 
