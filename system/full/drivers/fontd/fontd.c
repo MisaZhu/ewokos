@@ -81,7 +81,7 @@ static int font_open_size(int ttf_index, int ppm) {
 	return j;
 }
 
-static int font_open(const char* name, const char* fname, int ppm, int ttf_index) {
+int font_open(const char* name, const char* fname, int ppm, int ttf_index) {
 	if(ttf_index < 0) { //TTF not loaded.
 		int i;
 		for(i=0;i < TTF_MAX; i++) {
@@ -185,23 +185,6 @@ static int font_dev_cntl(int from_pid, int cmd, proto_t* in, proto_t* ret, void*
 	return -1;
 }
 
-void* load_thread(void* p) {
-	var_t* var = (var_t*)p;
-	ipc_disable();
-
-	uint32_t num = var_array_size(var);
-	for(int i=0; i<num; i++) {
-		var_t* v = var_array_get_var(var, i);
-		const char* name = get_str(v, "name");
-		const char* fname = get_str(v, "file");
-		font_open(name, fname, DEFAULT_SYSTEM_FONT_SIZE, -1);
-	}
-	ipc_enable();
-	return NULL;
-}
-
-char* font_cmd(int from_pid, int argc, char** argv, void* p);
-
 int main(int argc, char** argv) {
 	const char* mnt_point = argc > 1 ? argv[1]: "/dev/font";
 	font_dev_init();
@@ -212,29 +195,9 @@ int main(int argc, char** argv) {
 	dev.dev_cntl = font_dev_cntl;
 	dev.cmd = font_cmd;
 
-	int sz = 0;
-	var_t* var = NULL;
-	char* str = (char*)vfs_readfile("/usr/system/fonts.json", &sz);
-	if(str != NULL) {
-		str[sz] = 0;
-		var = json_parse(str);
-		if(var != NULL) {
-			var_t* v = json_find_var(var, "fonts");
-			if(v != NULL && v->is_array)
-				pthread_create(NULL, NULL, &load_thread, v);
-			else {
-				var_unref(var);
-				var = NULL;
-			}
-		}
-	}
-	if(var == NULL)
-		font_open(DEFAULT_SYSTEM_FONT, DEFAULT_SYSTEM_FONT_FILE, DEFAULT_SYSTEM_FONT_SIZE, -1);
+	load_config();
 
 	device_run(&dev, mnt_point, FS_TYPE_CHAR, 0444);
 	font_dev_quit();
-
-	if(var != NULL)
-		var_unref(var);
 	return 0;
 }
