@@ -723,7 +723,7 @@ static int x_update(int fd, int from_pid, x_t* x) {
 		return -1;
 	
 	xwin_t* win = x_get_win(x, fd, from_pid);
-	if(win == NULL || win->xinfo == NULL)
+	if(win == NULL || win->xinfo == NULL || win->g == NULL)
 		return -1;
 	if(!win->xinfo->visible)
 		return 0;
