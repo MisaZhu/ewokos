@@ -3,8 +3,8 @@
     {"ext":".nes", "open_with": "/apps/emu/emu", "icon": "icons/emu.png" },
     {"ext":".txt", "open_with": "/apps/book/book", "icon": "icons/book.png" },
     {"ext":".conf", "open_with": "/apps/book/book", "icon": "icons/book.png" },
-    {"ext":".js", "open_with": "/apps/book/book", "icon": "icons/js.png" },
     {"ext":".json", "open_with": "/apps/book/book", "icon": "icons/book.png" },
     {"ext":".rd", "open_with": "/apps/book/book", "icon": "icons/book.png" },
-    {"ext":".mbc", "open_with": "/bin/mario", "icon": "" }
+    {"ext":".js", "open_with": "/apps/book/book", "icon": "icons/js.png" },
+    {"ext":".mbc", "open_with": "/bin/mario", "icon": "icons/js.png" }
 ]
