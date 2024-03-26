@@ -80,13 +80,6 @@ int main(int argc, char** argv) {
 	wd->fix(0, 100);
 	root->add(wd);
 
-	Text* txt = new Text("text\nHello world\n[中文测试]\n123～！@");
-	Theme* theme = new Theme(font_new("system.cn", 18, true));
-	theme->bgColor = 0xff000000;
-	theme->fgColor = 0xffffaa88;
-	txt->setTheme(theme);
-	root->add(txt);
-
 	Container* c = new Container();
 	c->setType(Container::HORIZONTAL);
 	c->fix(0, 40);
