@@ -87,7 +87,7 @@ static void font_clear_cache(font_t* font) {
 }
 
 static inline const char* hash_key(uint16_t c) {
-	static char key[8] = {};
+	static char key[8] = {0};
 	snprintf(key, 7, "%x", c);
 	return key;
 }
@@ -102,6 +102,9 @@ static int font_fetch_cache(font_t* font, uint16_t c, TTY_Glyph* glyph) {
 }
 
 static void font_cache(font_t* font, uint16_t c, TTY_Glyph* glyph) {
+	if(font->cache == NULL)
+		return;
+
 	TTY_Glyph* p = (TTY_Glyph*)malloc(sizeof(TTY_Glyph));
 	if(p == NULL)
 		return;

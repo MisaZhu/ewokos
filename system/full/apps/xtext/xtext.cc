@@ -11,11 +11,13 @@
 #include <string.h>
 #include <ewoksys/utf8unicode.h>
 
-#define HISTORY_PAGE_SIZE 128
+#include <string>
+using namespace EwokSTL;
 
 using namespace Ewok;
 
-class Book: public XWin {
+#define HISTORY_PAGE_SIZE 128
+class XText: public XWin {
 	char text[4096];
 	int  history_page[HISTORY_PAGE_SIZE];
 	int  current_page;
@@ -136,12 +138,12 @@ protected:
 		}
 	}
 public:
-	inline Book() {
+	inline XText() {
 		read_len = 0;
 		mouse_last_y = 0;
 	}
 
-	inline ~Book() {
+	inline ~XText() {
 	}
 
 	void readPage(void){
@@ -152,7 +154,7 @@ public:
 		}
 	}
 	
-	void openBook(const char* path){
+	void openXText(const char* path){
 		fp = fopen(path, "r");
 		memset(history_page, 0, sizeof(history_page));
 		current_page = 0;
@@ -171,7 +173,7 @@ public:
 
 static void loop(void* p) {
 	(void)p;
-	//Book* xwin = (Book*)p;
+	//XText* xwin = (XText*)p;
 	// xwin->readPage();
 	// xwin->repaint();
 	proc_usleep(100000);
@@ -181,19 +183,21 @@ int main(int argc, char* argv[]) {
 	(void)argc;
 	(void)argv;
 
-	Book xwin;
-	xwin.readConfig(x_get_theme_fname(X_THEME_ROOT, "book", "theme.conf"));
+	XText xwin;
+	xwin.readConfig(x_get_theme_fname(X_THEME_ROOT, "xtext", "theme.conf"));
+
+	string title = "xtext";
 	if(argc == 2){
-		xwin.openBook(argv[1]);
-	}else{
-		xwin.openBook("/data/books/tb.txt");
+		xwin.openXText(argv[1]);
+		title = title + ":" + argv[1];
 	}
+
 	X x;
 	x.open(0, &xwin, -1,
 			-1,
 			0,
 			0,
-			"book",
+			title.c_str(),
 			XWIN_STYLE_NORMAL);
 
 	xwin.setVisible(true);
