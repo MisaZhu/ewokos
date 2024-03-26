@@ -4,7 +4,7 @@ all:
 	cd xterm; make
 	cd wtest; make
 	cd anim; make
-	cd xtext; make
+	cd xread; make
 	cd clock; make
 
 clean:
@@ -13,5 +13,5 @@ clean:
 	cd xterm; make clean
 	cd wtest; make clean
 	cd anim; make clean
-	cd xtext; make clean
+	cd xread; make clean
 	cd clock; make clean

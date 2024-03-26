@@ -17,7 +17,7 @@ using namespace EwokSTL;
 using namespace Ewok;
 
 #define HISTORY_PAGE_SIZE 128
-class XText: public XWin {
+class XRead: public XWin {
 	char text[4096];
 	int  history_page[HISTORY_PAGE_SIZE];
 	int  current_page;
@@ -138,12 +138,12 @@ protected:
 		}
 	}
 public:
-	inline XText() {
+	inline XRead() {
 		read_len = 0;
 		mouse_last_y = 0;
 	}
 
-	inline ~XText() {
+	inline ~XRead() {
 	}
 
 	void readPage(void){
@@ -154,7 +154,7 @@ public:
 		}
 	}
 	
-	void openXText(const char* path){
+	void openXRead(const char* path){
 		fp = fopen(path, "r");
 		memset(history_page, 0, sizeof(history_page));
 		current_page = 0;
@@ -173,7 +173,7 @@ public:
 
 static void loop(void* p) {
 	(void)p;
-	//XText* xwin = (XText*)p;
+	//XRead* xwin = (XRead*)p;
 	// xwin->readPage();
 	// xwin->repaint();
 	proc_usleep(100000);
@@ -183,12 +183,12 @@ int main(int argc, char* argv[]) {
 	(void)argc;
 	(void)argv;
 
-	XText xwin;
-	xwin.readConfig(x_get_theme_fname(X_THEME_ROOT, "xtext", "theme.conf"));
+	XRead xwin;
+	xwin.readConfig(x_get_theme_fname(X_THEME_ROOT, "xread", "theme.conf"));
 
-	string title = "xtext";
+	string title = "xread";
 	if(argc == 2){
-		xwin.openXText(argv[1]);
+		xwin.openXRead(argv[1]);
 		title = title + ":" + argv[1];
 	}
 

@@ -8,10 +8,10 @@ LDFLAGS = -L$(BUILD_DIR)/lib
 
 CXXFLAGS += -I $(BUILD_DIR)/include
 
-XTEXT_OBJS = xtext.o
+XTEXT_OBJS = xread.o
 
-XTEXT_DIR = $(TARGET_DIR)/apps/xtext
-XTEXT = $(XTEXT_DIR)/xtext
+XTEXT_DIR = $(TARGET_DIR)/apps/xread
+XTEXT = $(XTEXT_DIR)/xread
 
 all: $(XTEXT_DIR) $(XTEXT)
 
