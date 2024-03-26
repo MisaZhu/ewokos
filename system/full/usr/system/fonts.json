@@ -1,6 +1,4 @@
-{
-    "fonts": [
-        {"name": "system", "file": "/usr/system/fonts/system.ttf"},
-        {"name": "system.cn", "file": "/usr/system/fonts/system_cn.ttf"}
-    ]
-}
+[
+    {"name": "system", "file": "/usr/system/fonts/system.ttf"},
+    {"name": "system.cn", "file": "/usr/system/fonts/system_cn.ttf"}
+]

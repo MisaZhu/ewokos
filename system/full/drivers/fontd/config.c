@@ -30,13 +30,11 @@ void load_config(void) {
 		str[sz] = 0;
 		var = json_parse(str);
 		if(var != NULL) {
-			var_t* v = json_find_var(var, "fonts");
-			if(v != NULL && v->is_array)
-				pthread_create(NULL, NULL, &load_thread, v);
-			else {
-				var_unref(var);
-				var = NULL;
-			}
+			pthread_create(NULL, NULL, &load_thread, var);
+		}
+		else {
+			var_unref(var);
+			var = NULL;
 		}
 	}
 	return 0;
