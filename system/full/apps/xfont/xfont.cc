@@ -71,8 +71,8 @@ public:
 		if(fontBig != NULL)
 			font_free(fontBig);
 
-		font = font_new(fontName.c_str(), 12, false);
-		fontBig = font_new(fontName.c_str(), 24, false);
+		font = font_new(fontName.c_str(), 14, false);
+		fontBig = font_new(fontName.c_str(), 32, false);
 		update();
 	}
 };
