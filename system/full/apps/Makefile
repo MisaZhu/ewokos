@@ -6,6 +6,7 @@ all:
 	cd anim; make
 	cd xread; make
 	cd clock; make
+	cd gcores; make
 
 clean:
 	cd finder; make clean
@@ -15,3 +16,4 @@ clean:
 	cd anim; make clean
 	cd xread; make clean
 	cd clock; make clean
+	cd gcores; make clean

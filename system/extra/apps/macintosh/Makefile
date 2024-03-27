@@ -160,7 +160,7 @@ $(MACINTOSH): $(MACINTOSH_OBJS) \
 		$(BUILD_DIR)/lib/libsconf.a \
 		$(BUILD_DIR)/lib/libx.a \
 		$(BUILD_DIR)/lib/libcxx.a  
-	$(LD) -Ttext=100 $(MACINTOSH_OBJS) -o $(MACINTOSH) $(LDFLAGS) -lx++ -lttf -lfont -lgraph -lbsp -lx  -lsconf -lupng -ltextview -lsconf -lopenlibm  $(EWOK_LIBC) -lcxx 
+	$(LD) -Ttext=100 $(MACINTOSH_OBJS) -o $(MACINTOSH) $(LDFLAGS) -lx++ -lttf -lfont -lgraph -lbsp -lx  -lsconf -lupng -lsconf -lopenlibm  $(EWOK_LIBC) -lcxx 
 
 $(MACINTOSH_DIR):
 	mkdir -p $(MACINTOSH_DIR)

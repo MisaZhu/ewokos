@@ -2,7 +2,6 @@
 #include <Widget/Image.h>
 #include <Widget/Label.h>
 #include <Widget/LabelButton.h>
-#include <Widget/Text.h>
 #include <x++/X.h>
 #include <unistd.h>
 #include <font/font.h>
