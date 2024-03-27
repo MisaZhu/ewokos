@@ -61,18 +61,13 @@ public:
 protected:
 	void drawTitle(graph_t* g, uint32_t i, uint32_t color) {
 		int x = 10 + i*60;
-		graph_fill(g, x, 10, 10, 10, color);
+		graph_fill(g, x, 4, 10, 10, color);
 		char s[16];
 		snprintf(s, 15, "%d:%d%%", i, 100 - (sysInfo.core_idles[i]/10000));
-		graph_draw_text_font(g, x+12, 10, s, theme.getFont(), color);
+		graph_draw_text_font(g, x+12, 4, s, theme.getFont(), color);
 	}
 
-	void drawChat(graph_t* g, uint32_t i, uint32_t color) {
-		uint32_t xstep = g->w / HEART_BIT_NUM;
-		float yzoom = (g->h - 30)/ 100;
-		if(yzoom == 0)
-			yzoom = 1.0;
-
+	void drawChat(graph_t* g, uint32_t i, float xstep, float yzoom, uint32_t color) {
 		int last_x = 0;
 		int last_y = 0;
 		uint32_t num = loop ? HEART_BIT_NUM:index;
@@ -88,10 +83,25 @@ protected:
 			if(last_y == 0)
 				last_y = y;
 
-			graph_line(g, last_x, last_y, x, y, color);
+			graph_wline(g, 10+last_x, last_y, 10+x, y, color, 3);
 			last_x = x;
 			last_y = y;
 		}
+	}
+
+	void drawBG(graph_t* g, float xstep, float yzoom) {
+		uint32_t color = 0xffdddddd;
+		uint32_t w = xstep*HEART_BIT_NUM;
+		uint32_t h = yzoom*100;
+
+		for(uint32_t i=0; i<=HEART_BIT_NUM; i++) {
+			graph_line(g, 10+i*xstep, g->h-10, 10+ i*xstep, g->h-10-h, color);
+		}
+
+		for(uint32_t i=0; i<=10; i++) {
+			graph_line(g, 10, g->h-10-i*10*yzoom, w+10, g->h-10-i*10*yzoom, color);
+		}
+
 	}
 
 	void onRepaint(graph_t* g) {
@@ -100,10 +110,16 @@ protected:
 
 		graph_clear(g, 0xffffffff);
 
+		float xstep = (g->w - 10*2)/ (float)HEART_BIT_NUM;
+		float yzoom = (g->h - 20 - 10)/ 100.0;
+		if(yzoom == 0)
+			yzoom = 1.0;
+
+		drawBG(g, xstep, yzoom);
 		for(uint32_t i=0; i<sysInfo.cores; i++) {
 			uint32_t color = colors[i%6];
 			drawTitle(g, i, color);
-			drawChat(g, i, color);
+			drawChat(g, i, xstep, yzoom, color);
 		}
 	}
 };
