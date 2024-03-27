@@ -50,6 +50,7 @@ typedef struct {
 
 typedef struct st_proc {
 	procinfo_t        info;
+	bool              is_core_idle_proc;
 
 	uint32_t          block_event;
 	uint32_t          ipc_buffered;

@@ -3,10 +3,11 @@
 
 #include <stdint.h>
 #include <kernel/proc.h>
+#include <sysinfo.h>
 
 #ifdef KERNEL_SMP
 
-#define CPU_MAX_CORES 16
+#define CPU_MAX_CORES MAX_CORE_NUM
 extern void     mcore_lock(int32_t* v);
 extern void     mcore_unlock(int32_t* v);
 extern uint32_t get_core_id(void);
