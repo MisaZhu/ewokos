@@ -107,8 +107,7 @@ protected:
 		uint32_t w = xstep*HEART_BIT_NUM;
 		uint32_t h = yzoom*100;
 
-		graph_fill(g, x_off,
-				g->h - h - y_off_bottom,
+		graph_fill(g, x_off, g->h - h - y_off_bottom,
 				w, h, bgColor);
 
 		for(uint32_t i=0; i<=HEART_BIT_NUM; i++) {
