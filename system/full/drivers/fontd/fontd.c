@@ -169,6 +169,16 @@ static int font_dev_get(proto_t* in, proto_t* ret) {
 	return 0;
 }
 
+static int font_dev_list(proto_t* in, proto_t* ret) {
+	uint32_t i = 0;
+	for(int i=0; i<TTF_MAX; i++) {
+		if(_ttfs[i].ttf != NULL) {
+			PF->adds(ret, _ttfs[i].name);
+		}
+	}
+	return 0;
+}
+
 static int font_dev_cntl(int from_pid, int cmd, proto_t* in, proto_t* ret, void* p) {
 	(void)from_pid;
 	(void)p;
@@ -181,6 +191,9 @@ static int font_dev_cntl(int from_pid, int cmd, proto_t* in, proto_t* ret, void*
 	}
 	else if(cmd == FONT_DEV_GET) {
 		return font_dev_get(in, ret);
+	}
+	else if(cmd == FONT_DEV_LIST) {
+		return font_dev_list(in, ret);
 	}
 	return -1;
 }

@@ -154,7 +154,7 @@ int main(int argc, char* argv[]) {
 
 	X x;
 	GCores xwin;
-	x.open(0, &xwin, -1, -1, 300, 160, "gcores", XWIN_STYLE_NORMAL);
+	x.open(0, &xwin, -1, -1, 300, 160, "xcores", XWIN_STYLE_NORMAL);
 	xwin.setVisible(true);
 
 	_xwin = &xwin;

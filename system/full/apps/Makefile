@@ -7,6 +7,7 @@ all:
 	cd xread; make
 	cd clock; make
 	cd xcores; make
+	cd xfont; make
 
 clean:
 	cd finder; make clean
@@ -17,3 +18,4 @@ clean:
 	cd xread; make clean
 	cd clock; make clean
 	cd xcores; make clean
+	cd xfont; make clean

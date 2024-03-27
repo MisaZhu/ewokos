@@ -16,7 +16,8 @@ extern "C" {
 enum {
     FONT_DEV_LOAD = 0,
     FONT_DEV_CLOSE,
-    FONT_DEV_GET
+    FONT_DEV_GET,
+    FONT_DEV_LIST
 };
 
 #define FONT_ALIGN_NONE    0x00
