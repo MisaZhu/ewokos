@@ -7,148 +7,124 @@
 #include <upng/upng.h>
 #include <ewoksys/basic_math.h>
 #include <ewoksys/kernel_tic.h>
+#include <ewoksys/sys.h>
 #include <ewoksys/ipc.h>
+#include <ewoksys/klog.h>
 #include <font/font.h>
 #include <x++/X.h>
 #include <ewoksys/timer.h>
+#include <sysinfo.h>
 
 using namespace Ewok;
 
-class TestX : public XWin {
-	int count, fps, imgX, imgY;
-	int mode;
-	uint32_t tic;
-	graph_t* img_big;
-	graph_t* img_small;
 
-	static const int CIRCLE = 0;
-	static const int RECT   = 1;
-	static const int ROUND  = 2;
-
-	void drawImage(graph_t* g, graph_t* img) {
-		if(img == NULL)
-			return;
-		graph_blt_alpha(img, 0, 0, img->w, img->h,
-				g, imgX, imgY, img->w, img->h, 0xff);
-	}
+class GCores : public XWin {
+	static const uint32_t HEART_BIT_NUM = 32;
+	uint32_t index;
+	bool loop;
+	sys_info_t sysInfo;
+	uint32_t cores[MAX_CORE_NUM][HEART_BIT_NUM];
+	const  uint32_t colors[6] = {
+		0xff000000, //BLACK
+		0xffff0000, //RED
+		0xff00ff00, //GREEN
+		0xff0000ff, //BLUE
+		0xffff0088, //PURPLE
+		0xff00ffff //CYAN
+	};
 public:
-	inline TestX() {
-		tic = 0;
-		fps = 0;
-		count = 0;
-		mode = CIRCLE;
-        imgX = imgY = 0;
-		img_big = png_image_new(X::getResName("data/rokid.png"));	
-		img_small = png_image_new(X::getResName("data/rokid_small.png"));	
+	inline GCores() {
+		index = 0;
+		loop = false;
+		memset(cores, 0, sizeof(cores));
+		memset(&sysInfo, 0, sizeof(sys_info_t));
 	}
 	
-	inline ~TestX() {
-		if(img_big != NULL)
-			graph_free(img_big);
-		if(img_small != NULL)
-			graph_free(img_small);
+	inline ~GCores() {
 	}
+
+	void update_cores() {
+		sys_get_sys_info(&sysInfo);
+
+		for(uint32_t i=0; i<sysInfo.cores; i++) {
+			cores[i][index] = sysInfo.core_idles[i];
+		}
+
+		index++;
+		if(index >= HEART_BIT_NUM) {
+			loop = true;
+			index = 0;
+		}
+		repaint();
+	}
+
 protected:
-	void onEvent(xevent_t* ev) {
-		int key = 0;
-		if(ev->type == XEVT_IM) {
-			key = ev->value.im.value;
-			if(key == 27) //esc
-				this->close();
+	void drawTitle(graph_t* g, uint32_t i, uint32_t color) {
+		int x = 10 + i*60;
+		graph_fill(g, x, 10, 10, 10, color);
+		char s[16];
+		snprintf(s, 15, "%d:%d%%", i, 100 - (sysInfo.core_idles[i]/10000));
+		graph_draw_text_font(g, x+12, 10, s, theme.getFont(), color);
+	}
+
+	void drawChat(graph_t* g, uint32_t i, uint32_t color) {
+		uint32_t xstep = g->w / HEART_BIT_NUM;
+		float yzoom = (g->h - 30)/ 100;
+		if(yzoom == 0)
+			yzoom = 1.0;
+
+		int last_x = 0;
+		int last_y = 0;
+		uint32_t num = loop ? HEART_BIT_NUM:index;
+		for(uint32_t j=0; j<num; j++) {
+			uint32_t k = j;
+			if(loop)
+				k = j+index;
+			if(k >= HEART_BIT_NUM)
+				k -= HEART_BIT_NUM;
+
+			int x = j*xstep;
+			int y = g->h - 10 - yzoom*(100 - (cores[i][k] / 10000)); //percentage
+			if(last_y == 0)
+				last_y = y;
+
+			graph_line(g, last_x, last_y, x, y, color);
+			last_x = x;
+			last_y = y;
 		}
 	}
 
 	void onRepaint(graph_t* g) {
-		int gW = g->w;
-		int gH = g->h;
-		graph_t* img = gW > (img_big->w*2) ? img_big: img_small;
-		uint32_t font_h = theme.getFont()->max_size.y;
+		if(sysInfo.cores == 0)
+			return;
 
-		count++;
+		graph_clear(g, 0xffffffff);
 
-		int x = random_to(gW);
-		int y = random_to(gH);
-		int w = random_to(gW/4);
-		int h = random_to(gH/4);
-		int c = rand();
-
-		uint32_t low;
-		kernel_tic32(NULL, NULL, &low); 
-		if(tic == 0 || (low - tic) >= 3000000) //3 second
-			tic = low;
-
-		if(w > h*2)
-			w = h*2;
-		if(h > w*2)
-			h = w*2;
-
-		w = w < 32 ? 32 : w;
-		h = h < 32 ? 32 : h;
-
-		if(tic == low) { //3 second
-			fps = count/3;
-			count = 0;
-
-			mode++;
-			if(mode > ROUND)
-				mode = 0;
-
-			graph_fill(g, 0, 0, gW, gH, 0xff000000);
-			if(gW > img->w)
-				imgX = random_to(gW - img->w);
-			if(gH > (img->h+font_h))
-				imgY = random_to(gH - img->h - font_h);
+		for(uint32_t i=0; i<sysInfo.cores; i++) {
+			uint32_t color = colors[i%6];
+			drawTitle(g, i, color);
+			drawChat(g, i, color);
 		}
-
-		if(mode == CIRCLE) {
-			graph_fill_circle(g, x, y, h/2, c);
-			graph_circle(g, x, y, h/2+4, c);
-		}
-		else if(mode == ROUND) {
-			graph_fill_round(g, x, y, w, h, 12, c);
-			graph_round(g, x-4, y-4, w+8, h+8, 16, c);
-		}
-		else if(mode == RECT) {
-			graph_fill(g, x, y, w, h, c);
-			graph_box(g, x-4, y-4, w+8, h+8, c);
-		}
-
-		char str[32];
-		snprintf(str, 31, "EwokOS FPS: %d", fps);
-		font_text_size(str, theme.getFont(), (uint32_t*)&w, NULL);
-		graph_fill(g, imgX, imgY+img->h+2, img->w, font_h+4, 0xffffffff);
-		graph_draw_text_font(g, imgX+4, imgY+img->h+4, str, theme.getFont(), 0xff000000);
-		drawImage(g, img);
 	}
 };
 
-/*
-static void loop(void* p) {
-	XWin* xwin = (XWin*)p;
-	xwin->repaint();
-	proc_usleep(5000);
-}
-*/
 
-static XWin* _xwin = NULL;
+static GCores* _xwin = NULL;
 static void timer_handler(void) {
-	ipc_disable();
-	_xwin->repaint();
-	ipc_enable();
+	_xwin->update_cores();
 }
 
 int main(int argc, char* argv[]) {
 	(void)argc;
 	(void)argv;
-	grect_t desk;
 
 	X x;
-	TestX xwin;
-	x.open(0, &xwin, -1, -1, 0, 0, "gtest", XWIN_STYLE_NORMAL);
+	GCores xwin;
+	x.open(0, &xwin, -1, -1, 300, 210, "gcores", XWIN_STYLE_NORMAL);
 	xwin.setVisible(true);
 
 	_xwin = &xwin;
-	uint32_t tid = timer_set(10000, timer_handler);
+	uint32_t tid = timer_set(500000, timer_handler);
 	x.run(NULL, &xwin);
 	timer_remove(tid);
 
