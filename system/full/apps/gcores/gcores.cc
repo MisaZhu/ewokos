@@ -78,7 +78,7 @@ protected:
 			if(k >= HEART_BIT_NUM)
 				k -= HEART_BIT_NUM;
 
-			int x = j*xstep;
+			int x = (j+1)*xstep;
 			int y = g->h - 10 - yzoom*(100 - (cores[i][k] / 10000)); //percentage
 			if(last_y == 0)
 				last_y = y;
