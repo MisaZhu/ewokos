@@ -18,7 +18,7 @@
 using namespace Ewok;
 
 
-class XCores : public XWin {
+class GCores : public XWin {
 	static const uint32_t HEART_BIT_NUM = 32;
 	uint32_t index;
 	bool loop;
@@ -29,9 +29,10 @@ class XCores : public XWin {
 	int y_off_bottom;
 	int y_off;
 
-	static const uint32_t COLOR_NUM = 6;
+	static const uint32_t COLOR_NUM = 7;
 	const  uint32_t colors[COLOR_NUM] = {
 		0xff0000ff, 
+		0xff00ff00, 
 		0xffff0000, 
 		0xff8800ff,
 		0xff0088ff,
@@ -39,7 +40,7 @@ class XCores : public XWin {
 		0xff000000
 	};
 public:
-	inline XCores() {
+	inline GCores() {
 		index = 0;
 		loop = false;
 		x_off = 10;
@@ -49,7 +50,7 @@ public:
 		memset(&sysInfo, 0, sizeof(sys_info_t));
 	}
 	
-	inline ~XCores() {
+	inline ~GCores() {
 	}
 
 	void update_cores() {
@@ -143,7 +144,7 @@ protected:
 };
 
 
-static XCores* _xwin = NULL;
+static GCores* _xwin = NULL;
 static void timer_handler(void) {
 	_xwin->update_cores();
 }
@@ -153,8 +154,8 @@ int main(int argc, char* argv[]) {
 	(void)argv;
 
 	X x;
-	XCores xwin;
-	x.open(0, &xwin, -1, -1, 300, 160, "xcores", XWIN_STYLE_NORMAL);
+	GCores xwin;
+	x.open(0, &xwin, -1, -1, 300, 160, "gcores", XWIN_STYLE_NORMAL);
 	xwin.setVisible(true);
 
 	_xwin = &xwin;
