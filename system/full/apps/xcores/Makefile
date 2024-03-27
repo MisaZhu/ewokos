@@ -8,10 +8,10 @@ LDFLAGS = -L$(BUILD_DIR)/lib
 
 CXXFLAGS += -I $(BUILD_DIR)/include
 
-GCORES_OBJS = gcores.o
+GCORES_OBJS = xcores.o
 
-GCORES_DIR = $(TARGET_DIR)/apps/gcores
-GCORES = $(GCORES_DIR)/gcores
+GCORES_DIR = $(TARGET_DIR)/apps/xcores
+GCORES = $(GCORES_DIR)/xcores
 
 all: $(GCORES_DIR) $(GCORES)
 
