@@ -18,13 +18,13 @@ int font_init(void) {
 	return 0;
 }
 
-static int font_load_raw(const char* fname, uint16_t ppm, font_t* font) {
+static int font_load_raw(const char* name, uint16_t ppm, font_t* font) {
 	if(_font_dev_pid < 0)
 		return -1;
 
 	proto_t in, out;
 	PF->init(&out);
-	PF->format(&in, "s,i", fname, ppm);
+	PF->format(&in, "s,i", name, ppm);
 
 	int ret = -1;
 	font->id = -1;
@@ -43,20 +43,22 @@ static int font_load_raw(const char* fname, uint16_t ppm, font_t* font) {
 	return ret;
 }
 
-int font_load(const char* fname, uint16_t ppm, font_t* font, bool safe) {
+int font_load(const char* name, uint16_t ppm, font_t* font, bool safe) {
 	if(_font_dev_pid < 0)
 		return -1;
 	
-	if(font_load_raw(fname, ppm, font) == 0)
+	if(font_load_raw(name, ppm, font) == 0)
 		return 0;
 	if(safe)
 		return font_load_raw(DEFAULT_SYSTEM_FONT, ppm, font);
 	return -1;
 }
 
-static int free_cache(const char* key, any_t data, any_t arg) {
-	map_t* map = (map_t*)arg;
+static int free_cache(map_t map, const char* key, any_t data, any_t arg) {
 	TTY_Glyph* v = (TTY_Glyph*)data;
+	if(v == NULL)
+		return MAP_OK;
+
 	hashmap_remove(map, key);
 	if(v->cache != NULL)
 		free(v->cache);
@@ -64,9 +66,9 @@ static int free_cache(const char* key, any_t data, any_t arg) {
 	return MAP_OK;
 }
 
-font_t* font_new(const char* fname, uint16_t ppm, bool safe) {
+font_t* font_new(const char* name, uint16_t ppm, bool safe) {
 	font_t* font = (font_t*)calloc(sizeof(font_t), 1);
-	if(font_load(fname, ppm, font, safe) == 0)
+	if(font_load(name, ppm, font, safe) == 0)
 		return font;
 	free(font);
 	return NULL;
@@ -81,12 +83,18 @@ int font_free(font_t* font) {
 }
 
 static void font_clear_cache(font_t* font) {
-	hashmap_iterate(font->cache, free_cache, font->cache);	
+	hashmap_iterate(font->cache, free_cache, NULL);	
+}
+
+static inline const char* hash_key(uint16_t c) {
+	static char key[8] = {0};
+	snprintf(key, 7, "%x", c);
+	return key;
 }
 
 static int font_fetch_cache(font_t* font, uint16_t c, TTY_Glyph* glyph) {
 	TTY_Glyph* p;
-	if(hashmap_get(font->cache, (const char*)&c, (void**)&p) == 0) {
+	if(hashmap_get(font->cache, hash_key(c), (void**)&p) == 0) {
 		memcpy(glyph, p, sizeof(TTY_Glyph));
 		return 0;
 	}
@@ -94,11 +102,19 @@ static int font_fetch_cache(font_t* font, uint16_t c, TTY_Glyph* glyph) {
 }
 
 static void font_cache(font_t* font, uint16_t c, TTY_Glyph* glyph) {
+	if(font->cache == NULL)
+		return;
+
 	TTY_Glyph* p = (TTY_Glyph*)malloc(sizeof(TTY_Glyph));
 	if(p == NULL)
 		return;
+
+	if(hashmap_length(font->cache) >= 4096) {
+		font_clear_cache(font);
+	}
+
 	memcpy(p, glyph, sizeof(TTY_Glyph));
-	hashmap_put(font->cache, (const char*)&c, p);
+	hashmap_put(font->cache, hash_key(c), p);
 }
 
 int font_close(font_t* font) {

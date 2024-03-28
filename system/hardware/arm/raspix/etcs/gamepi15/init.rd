@@ -6,7 +6,7 @@
 #right button as keyboard pins: up down left right press
 /bin/ipcserv /drivers/raspix/gpio_joykeybd  /dev/joykeyb  12 21 15 20 26 
 
-/bin/ipcserv /drivers/fontd                 /dev/font /usr/system/fonts/system.ttf
+/bin/ipcserv /drivers/fontd                 /dev/font
 /bin/ipcserv /drivers/consoled              /dev/console0
 
 /bin/ipcserv /drivers/timerd                /dev/timer

@@ -24,6 +24,6 @@ int main(int argc, char** argv) {
 	close(fd);
 
 	setenv("CONSOLE_ID", dev);
-	proc_exec("/bin/session");
+	proc_exec("/bin/session -r");
 	return 0;
 }

@@ -26,17 +26,17 @@ extern "C" {
 typedef void *any_t;
 
 /*
- * PFany is a pointer to a function that can take two any_t arguments
- * and return an integer. Returns status code..
- */
-typedef int (*PFany)(const char*, any_t, any_t);
-
-/*
  * map_t is a pointer to an internally maintained data structure.
  * Clients of this package do not need to know how hashmaps are
  * represented.  They see and manipulate only map_t's.
  */
 typedef any_t map_t;
+
+/*
+ * PFany is a pointer to a function that can take two any_t arguments
+ * and return an integer. Returns status code..
+ */
+typedef int (*PFany)(map_t in, const char*, any_t, any_t);
 
 /*
  * Return an empty hashmap. Returns NULL if empty.

@@ -360,7 +360,7 @@ _open (const char * fname, int oflag, ...)
 	fsinfo_t info;
 	if(vfs_get_by_name(fname, &info) != 0) {
 		if((oflag & O_CREAT) != 0) {
-			if(vfs_create(fname, &info, FS_TYPE_FILE, 0664, false, false) != 0){
+			if(vfs_create(fname, &info, FS_TYPE_FILE, 0644, false, false) != 0){
 				kout(" create error");
 				return -1;
 			}

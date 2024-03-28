@@ -9,13 +9,15 @@
 extern "C" {
 #endif
 
-#define DEFAULT_SYSTEM_FONT       "/usr/system/fonts/system.ttf"
+#define DEFAULT_SYSTEM_FONT       "system"
+#define DEFAULT_SYSTEM_FONT_FILE  "/usr/system/fonts/system.ttf"
 #define DEFAULT_SYSTEM_FONT_SIZE  12
 
 enum {
     FONT_DEV_LOAD = 0,
     FONT_DEV_CLOSE,
-    FONT_DEV_GET
+    FONT_DEV_GET,
+    FONT_DEV_LIST
 };
 
 #define FONT_ALIGN_NONE    0x00

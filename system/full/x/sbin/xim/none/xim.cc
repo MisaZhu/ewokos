@@ -14,7 +14,7 @@
 
 #define KEY_REPEAT_TIMEOUT	50
 #define KEY_HOLD_TIMEOUT	100
-#define KEY_TIMER	        20000 //100 ps
+#define KEY_TIMER	        3000 //300 ps
 
 typedef struct {
 	uint8_t key;
@@ -130,8 +130,8 @@ public:
 		}
 
 		while(true) {
-			keybFD = open(keyb_dev, O_RDONLY | O_NONBLOCK);
-			//keybFD = open(keyb_dev, O_RDONLY);
+			//keybFD = open(keyb_dev, O_RDONLY | O_NONBLOCK);
+			keybFD = open(keyb_dev, O_RDONLY);
 			if(keybFD > 0)
 				break;
 			proc_usleep(300000);

@@ -256,10 +256,10 @@ int getaddrinfo( const char *node, const char *service,
     
     in->sin_port = 4950;
     in->sin_family = AF_INET;
-	in->sin_addr.S_un.S_un_b.s_b1 = 0xc0;
-    in->sin_addr.S_un.S_un_b.s_b2 = 0xa8;
-    in->sin_addr.S_un.S_un_b.s_b3 = 0x40;
-    in->sin_addr.S_un.S_un_b.s_b4 = 0x01;
+	in->sin_addr.s_un.s_un_b.s_b1 = 0xc0;
+    in->sin_addr.s_un.s_un_b.s_b2 = 0xa8;
+    in->sin_addr.s_un.s_un_b.s_b3 = 0x40;
+    in->sin_addr.s_un.s_un_b.s_b4 = 0x01;
     ret->ai_addr = (struct sockaddr*)in;
     ret->ai_addrlen = sizeof(struct sockaddr_in); 
     ret->ai_protocol = 0x11;

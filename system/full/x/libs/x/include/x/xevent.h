@@ -42,6 +42,15 @@ enum {
 	XIM_STATE_RELEASE
 };
 
+enum {
+	MOUSE_BUTTON_NONE = 0,
+	MOUSE_BUTTON_LEFT,
+	MOUSE_BUTTON_MID,
+	MOUSE_BUTTON_RIGHT,
+	MOUSE_BUTTON_SCROLL_UP,
+	MOUSE_BUTTON_SCROLL_DOWN
+};
+
 typedef struct {
 	uint8_t type;
 	int32_t state;

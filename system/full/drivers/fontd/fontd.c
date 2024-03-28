@@ -4,29 +4,22 @@
 #include <unistd.h>
 #include <string.h>
 #include <ewoksys/vfs.h>
-#include <ttf/ttf.h>
 #include <ewoksys/vdevice.h>
 #include <ewoksys/syscall.h>
 #include <ewoksys/klog.h>
+#include <pthread.h>
 #include <font/font.h>
+#include <tinyjson/tinyjson.h>
+#include "fontd.h"
 
-#define NAME_LEN 128
-
-typedef struct {
-	char name[NAME_LEN];
-	ttf_t* ttf;
-	int32_t ref;
-} ttf_item_t;
+ttf_item_t _ttfs[TTF_MAX];
 
 typedef struct {
 	int ttf_index;
 	ttf_font_t* font;
 } font_item_t;
 
-
-#define TTF_MAX   8
 #define FONT_MAX  32
-static ttf_item_t _ttfs[TTF_MAX];
 static font_item_t _fonts[FONT_MAX];
 
 static void font_dev_init(void) {
@@ -48,11 +41,11 @@ static void font_dev_quit(void) {
 	}
 }
 
-static int font_fetch(const char* fname, int ppm, int* ttf_index) {
+static int font_fetch(const char* name, int ppm, int* ttf_index) {
 	*ttf_index  = -1;
 	for(int i=0; i<TTF_MAX; i++) {
 		if(_ttfs[i].ttf != NULL &&
-				strcmp(fname, _ttfs[i].name) == 0) {
+				strcmp(name, _ttfs[i].name) == 0) {
 			*ttf_index= i;
 			break;
 		}
@@ -66,24 +59,9 @@ static int font_fetch(const char* fname, int ppm, int* ttf_index) {
 	return -1;
 }
 
-static int font_open(const char* fname, int ppm, int ttf_index) {
-	if(ttf_index < 0) { //TTF not loaded.
-		int i;
-		for(i=0;i < TTF_MAX; i++) {
-			if(_ttfs[i].ttf == NULL)
-				break;
-		}
-		if(i >= TTF_MAX)
-			return -1;
-
-		ttf_t* ttf = ttf_load(fname);
-		if(ttf == NULL)
-			return -1;
-
-		_ttfs[i].ttf = ttf;
-		strncpy(_ttfs[i].name, fname, NAME_LEN-1);
-		ttf_index = i;
-	}
+static int font_open_size(int ttf_index, int ppm) {
+	if(ttf_index < 0) //TTF not loaded.
+		return -1;
 
 	int j;
 	for(j=0;j < FONT_MAX; j++) {
@@ -103,14 +81,38 @@ static int font_open(const char* fname, int ppm, int ttf_index) {
 	return j;
 }
 
+int font_open(const char* name, const char* fname, int ppm, int ttf_index) {
+	if(ttf_index < 0) { //TTF not loaded.
+		int i;
+		for(i=0;i < TTF_MAX; i++) {
+			if(_ttfs[i].ttf == NULL)
+				break;
+		}
+		if(i >= TTF_MAX)
+			return -1;
+
+		ttf_t* ttf = ttf_load(fname);
+		if(ttf == NULL)
+			return -1;
+
+		_ttfs[i].ttf = ttf;
+		strncpy(_ttfs[i].name, name, NAME_LEN-1);
+		strncpy(_ttfs[i].fname, fname, FNAME_LEN-1);
+		ttf_index = i;
+	}
+
+	return font_open_size(ttf_index, ppm);
+}
+
 static int font_dev_load(proto_t* in, proto_t* ret) {
-	const char* fname = proto_read_str(in);
+	const char* name = proto_read_str(in);
 	int ppm = proto_read_int(in);
 
 	int i = -1;
-	int at = font_fetch(fname, ppm, &i);
-	if(at < 0)
-		at = font_open(fname, ppm, i);
+	int at = font_fetch(name, ppm, &i);
+	if(at < 0 && i >= 0)
+		at = font_open_size(i, ppm);
+
 	if(at >= 0) {
 		PF->init(ret)->addi(ret, at)->
 				addi(ret, _fonts[at].font->inst.maxGlyphSize.x)->
@@ -150,6 +152,8 @@ static int font_dev_get(proto_t* in, proto_t* ret) {
 	TTY_Glyph glyph;
 	if(ttf == NULL || font == NULL ||
 			ttf_render_glyph_cache(ttf, font, c, &glyph) != 0) {
+		if(glyph.cache != NULL)
+			free(glyph.cache);
 		PF->init(ret)->addi(ret, -1);
 		return -1;
 	}
@@ -157,9 +161,20 @@ static int font_dev_get(proto_t* in, proto_t* ret) {
 		PF->format(ret, "m,m",
 				&glyph, sizeof(TTY_Glyph),
 				glyph.cache, font->inst.maxGlyphSize.x*font->inst.maxGlyphSize.y);
+		free(glyph.cache);
 	}
 	else {
 		PF->init(ret)->add(ret, &glyph, sizeof(TTY_Glyph));
+	}
+	return 0;
+}
+
+static int font_dev_list(proto_t* in, proto_t* ret) {
+	uint32_t i = 0;
+	for(int i=0; i<TTF_MAX; i++) {
+		if(_ttfs[i].ttf != NULL) {
+			PF->adds(ret, _ttfs[i].name);
+		}
 	}
 	return 0;
 }
@@ -177,6 +192,9 @@ static int font_dev_cntl(int from_pid, int cmd, proto_t* in, proto_t* ret, void*
 	else if(cmd == FONT_DEV_GET) {
 		return font_dev_get(in, ret);
 	}
+	else if(cmd == FONT_DEV_LIST) {
+		return font_dev_list(in, ret);
+	}
 	return -1;
 }
 
@@ -188,12 +206,9 @@ int main(int argc, char** argv) {
 	memset(&dev, 0, sizeof(vdevice_t));
 	strcpy(dev.name, "font");
 	dev.dev_cntl = font_dev_cntl;
+	dev.cmd = font_cmd;
 
-	for(int i=2; i<argc; i++) {
-		klog("    pre-load: %s ... ", argv[i]);
-		font_open(argv[i], 12, -1);
-		klog("ok\n");
-	}
+	load_config();
 
 	device_run(&dev, mnt_point, FS_TYPE_CHAR, 0444);
 	font_dev_quit();

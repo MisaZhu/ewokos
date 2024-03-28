@@ -79,8 +79,10 @@ int main(int argc, char* argv[]) {
 		const char* show_mode = get_show_mode(st.st_mode, it->d_type);
 
 		session_info_t info, infog;
-		session_get_by_uid(st.st_uid, &info);
-		session_get_by_uid(st.st_gid, &infog);
+		if(session_get_by_uid(st.st_uid, &info) != 0)
+			sprintf(info.user, "%d", st.st_uid);
+		if(session_get_by_uid(st.st_gid, &infog) != 0)
+			sprintf(infog.user, "%d", st.st_gid);
 
 		printf("%-10s  %-8s %-8s %8d  %s\n", show_mode, info.user, infog.user, it->d_reclen, show_name);
 	}

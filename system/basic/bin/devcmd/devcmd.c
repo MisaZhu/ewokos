@@ -73,7 +73,7 @@ int devcmd(const char* dev_name) {
 			printf("command excute failed!\n");
 		}
 		else {
-			printf("%s\n", ret);
+			printf("%s", ret);
 			free(ret);
 		}
 	}
@@ -109,7 +109,7 @@ int main(int argc, char* argv[]) {
 		return -1;
 	}
 
-	printf("%s\n", ret);
+	printf("%s", ret);
 	free(ret);
 	return 0;
 }

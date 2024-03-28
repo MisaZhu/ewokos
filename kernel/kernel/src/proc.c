@@ -371,8 +371,9 @@ static inline void proc_unmap_shms(proc_t *proc) {
 	int32_t i;
 	for(i=0; i<SHM_MAX; i++) {
 		int32_t shm = proc->space->shms[i];
-		if(shm > 0)
-			shm_proc_unmap(proc->info.pid, shm);
+		if(shm > 0) {
+			shm_proc_unmap_by_id(proc, shm);
+		}
 	}
 }
 
@@ -971,8 +972,10 @@ int32_t get_procs_num(void) {
 	int32_t res = 0;
 	int32_t i;
 	for(i=0; i<_kernel_config.max_task_num; i++) {
-		if(_task_table[i] != NULL && _task_table[i]->info.state != UNUSED) 
-			res++;
+		if(_task_table[i] != NULL && _task_table[i]->info.state != UNUSED)  {
+			if(!_task_table[i]->is_core_idle_proc)
+				res++;
+		}
 	}
 	return res;
 }
@@ -985,7 +988,7 @@ int32_t get_procs(int32_t num, procinfo_t* procs) {
 	int32_t i;
 	for(i=0; i<_kernel_config.max_task_num && j<(num); i++) {
 		proc_t* p = _task_table[i];
-		if(p != NULL && p->info.state != UNUSED) {
+		if(p != NULL && p->info.state != UNUSED && !p->is_core_idle_proc) {
 			memcpy(&procs[j], &p->info, sizeof(procinfo_t));
 			procs[j].heap_size = p->space->heap_size;
 			j++;
@@ -1078,8 +1081,8 @@ proc_t* kfork_core_halt(uint32_t core) {
 	proc_t* cproc = _task_table[0];
 	proc_t* child = kfork_raw(NULL, TASK_TYPE_PROC, cproc);
 	child->info.core = core;
-	strcpy(child->info.cmd, "cpu_core_halt");
 	_cpu_cores[core].halt_proc = child;
+	child->is_core_idle_proc = true;
 
 	return child;
 }

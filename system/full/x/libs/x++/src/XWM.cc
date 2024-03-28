@@ -281,11 +281,11 @@ void XWM::loadConfig(sconf_t* sconf) {
 	if(v[0] != 0) 
 		font_size = atoi(v);
 
-	const char* fname = DEFAULT_SYSTEM_FONT;
+	const char* name = DEFAULT_SYSTEM_FONT;
 	v = sconf_get(sconf, "font");
 	if(v[0] != 0) 
- 		fname = v;
- 	font_load(fname, font_size, &font, true);
+ 		name = v;
+ 	font_load(name, font_size, &font, true);
 
 	v = sconf_get(sconf, "pattern");
 	if(v[0] != 0 && strcmp(v, "none") != 0)
