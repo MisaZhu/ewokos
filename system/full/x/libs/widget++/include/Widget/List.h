@@ -20,6 +20,7 @@ protected:
 	void onRepaint(graph_t* g, const Theme* theme, const grect_t& r);
 	void onResize();
 	bool onMouse(xevent_t* ev);
+	bool onKey(xevent_t* ev);
 
 	virtual void drawBG(graph_t* g, const Theme* theme, const grect_t& r);
 	virtual void drawItem(graph_t* g, const Theme* theme, int32_t index, const grect_t& r) = 0;

@@ -1,5 +1,6 @@
 #include <Widget/List.h>
 #include <ewoksys/basic_math.h>
+#include <ewoksys/keydef.h>
 
 using namespace EwokSTL;
 namespace Ewok {
@@ -101,6 +102,36 @@ bool List::onMouse(xevent_t* ev) {
 			itemSelected = ipos.y / itemSize + itemStart;
 		onSelect(itemSelected);
 		update();
+	}
+	return true;
+}
+
+bool List::onKey(xevent_t* ev) {
+	if(ev->state == XIM_STATE_PRESS) {
+		int32_t sel = itemSelected;
+		if(ev->value.im.value == KEY_UP) {
+			sel--;
+			if(sel < 0)
+				sel = 0;
+			if(sel < itemStart)
+				itemStart = sel;
+		}
+		else if(ev->value.im.value == KEY_DOWN) {
+			sel++;
+			if(sel >= itemNum)
+				sel = itemNum-1;
+			if(sel >= itemStart+itemNumInView) {
+				itemStart = sel-itemNumInView+1;
+				if(itemStart < 0)
+					itemStart = 0;
+			}
+		}
+
+		if(sel != itemSelected) {
+			itemSelected = sel;
+			onSelect(sel);
+		}
+			update();
 	}
 	return true;
 }

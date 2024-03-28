@@ -64,7 +64,7 @@ bool Widget::onEvent(xevent_t* ev) {
 		}
 	}
 	else if(ev->type == XEVT_IM) {
-			return onKey(ev);
+		return onKey(ev);
 	}
 	return false; 
 }
