@@ -18,4 +18,4 @@ $(USBD): $(USBD_OBJS) \
 	$(LD) -Ttext=100 $(USBD_OBJS) -o $(USBD) $(LDFLAGS) -larch_bcm283x $(EWOK_LIBC) -lcsud -lewoksys
 
 clean:
-	rm -f $(USBD_OBJS)
+	rm -f $(USBD_OBJS) $(USBD)

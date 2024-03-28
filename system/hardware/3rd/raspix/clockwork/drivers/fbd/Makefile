@@ -22,4 +22,4 @@ $(FBD): $(CLOCKWORK_FBD_OBJS) \
 	$(LD) -Ttext=100 $(CLOCKWORK_FBD_OBJS) -o $(FBD) $(LDFLAGS) -larch_bcm283x -lfbd -lupng -lgraph -lbsp -lsconf $(EWOK_LIBC)
 
 clean:
-	rm -f $(CLOCKWORK_FBD_OBJS)
+	rm -f $(CLOCKWORK_FBD_OBJS) $(FBD)

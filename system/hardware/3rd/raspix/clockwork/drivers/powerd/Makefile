@@ -17,4 +17,4 @@ $(PMU): $(PMU_OBJS) \
 	$(LD) -Ttext=100 $(PMU_OBJS) -o $(PMU) $(LDFLAGS) -larch_bcm283x $(EWOK_LIBC)
 
 clean:
-	rm -f $(PMU_OBJS)
+	rm -f $(PMU_OBJS) $(PMU)
