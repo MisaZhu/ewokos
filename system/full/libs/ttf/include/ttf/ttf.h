@@ -13,7 +13,6 @@ typedef TTY_Font ttf_t;
 
 typedef struct {
 	TTY_Instance inst;
-	map_t *cache;
 } ttf_font_t;
 
 ttf_t* ttf_load(const char* fname);

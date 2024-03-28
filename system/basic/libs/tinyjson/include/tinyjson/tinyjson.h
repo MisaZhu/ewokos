@@ -10,10 +10,6 @@
 extern "C" {
 #endif
 
-#ifndef bool
-typedef enum bool_enum {false, true} bool;
-#endif
-
 /**====== memory functions.======*/
 typedef void (*free_func_t)(void* p);
 
@@ -123,6 +119,7 @@ typedef struct st_var {
 
   uint32_t size;  // size for bytes type of value;
   void* value;
+  free_func_t free_func;
  
   struct st_var* prev; //for var list
   struct st_var* next; //for var list
@@ -142,7 +139,6 @@ node_t* node_new(const char* name, var_t* var);
 void node_free(void* p);
 var_t* node_replace(node_t* node, var_t* v);
 
-void var_dump(var_t* var);
 void var_remove_all(var_t* var);
 node_t* var_add(var_t* var, const char* name, var_t* add);
 node_t* var_add_head(var_t* var, const char* name, var_t* add);
@@ -170,7 +166,7 @@ var_t* var_new_array(void);
 var_t* var_new_int(int i);
 var_t* var_new_null(void);
 var_t* var_new_bool(bool b);
-var_t* var_new_obj(void*p);
+var_t* var_new_obj(void*p, free_func_t fr);
 var_t* var_new_float(float i);
 var_t* var_new_str(const char* s);
 var_t* var_new_str2(const char* s, uint32_t len);

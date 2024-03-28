@@ -32,7 +32,6 @@ builtin_apps:
 	cd grep;make
 	cd rx;make
 	cd elfinfo;make
-	cd httpd;make 
 	cd setux;make 
 	cd vi;make 
 	cd json;make 
@@ -67,7 +66,6 @@ clean:
 	cd grep;make clean
 	cd rx;make clean
 	cd elfinfo;make clean
-	cd httpd;make clean
 	cd whoami;make clean
 	cd setux;make clean
 	cd vi;make clean

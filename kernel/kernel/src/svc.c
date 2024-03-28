@@ -10,6 +10,7 @@
 #include <kernel/kevqueue.h>
 #include <kernel/kconsole.h>
 #include <kernel/signal.h>
+#include <kernel/core.h>
 #include <mm/kalloc.h>
 #include <mm/shm.h>
 #include <mm/dma.h>
@@ -83,12 +84,16 @@ static int32_t sys_get_thread_id(void) {
 
 static void sys_usleep(context_t* ctx, uint32_t count) {
 	proc_t * cproc = get_current_proc();
-	//ipc_task_t* ipc = proc_ipc_get_task(cproc);
-
-	//no sleep when handling interrupter/ipc task.
-	//if(cproc->space->interrupt.state != INTR_STATE_IDLE || ipc != NULL)
+	ipc_task_t* ipc = proc_ipc_get_task(cproc);
 	if(cproc->space->interrupt.state != INTR_STATE_IDLE)
 		return;
+
+	//no sleep longer than 100000 usec when handling interrupter/ipc task .
+	if(ipc != NULL) {
+		schedule(ctx);
+		return;
+	}
+
 	proc_usleep(ctx, count);
 }
 
@@ -206,6 +211,10 @@ static void	sys_get_sys_info(sys_info_t* info) {
 	info->max_proc_num = _kernel_config.max_proc_num;
 	info->max_task_num = _kernel_config.max_task_num;
 	info->max_task_per_proc = _kernel_config.max_task_per_proc;
+
+	for(uint32_t i=0; i< _sys_info.cores; i++) {
+		info->core_idles[i] = _cpu_cores[i].halt_proc->info.run_usec;
+	}
 }
 
 static void	sys_get_sys_state(sys_state_t* info) {
@@ -224,22 +233,22 @@ static int32_t sys_shm_get(int32_t id, uint32_t size, int32_t flag) {
 }
 
 static void* sys_shm_map(int32_t id) {
-	proc_t* cproc = get_current_proc();
-	return shm_proc_map(cproc->info.pid, id);
+	proc_t* cproc = proc_get_proc(get_current_proc());
+	return shm_proc_map(cproc, id);
 }
 
 static int32_t sys_shm_unmap(void* p) {
-	proc_t* cproc = get_current_proc();
-	return shm_proc_unmap(cproc->info.pid, p);
+	proc_t* cproc = proc_get_proc(get_current_proc());
+	return shm_proc_unmap(cproc, p);
 }
 
 static int32_t sys_shm_ref(int32_t id) {
-	proc_t* cproc = get_current_proc();
+	proc_t* cproc = proc_get_proc(get_current_proc());
 	return shm_proc_ref(cproc->info.pid, id);
 }
 	
 static uint32_t sys_dma_map(uint32_t size) {
-	proc_t* cproc = get_current_proc();
+	proc_t* cproc = proc_get_proc(get_current_proc());
 	if(cproc->info.uid > 0)
 		return 0;
 
@@ -253,7 +262,7 @@ static uint32_t sys_dma_map(uint32_t size) {
 }
 
 static uint32_t sys_mem_map(uint32_t vaddr, uint32_t paddr, uint32_t size) {
-	proc_t* cproc = get_current_proc();
+	proc_t* cproc = proc_get_proc(get_current_proc());
 	if(cproc->info.uid > 0)
 		return 0;
 
@@ -541,8 +550,14 @@ static void set_block_evt(proc_t* proc, uint32_t event) {
 
 static void sys_proc_block(context_t* ctx, int32_t pid_by, uint32_t evt) {
 	proc_t* proc_by = proc_get_proc(proc_get(pid_by));
-	if(proc_by == NULL)
+	proc_t* cproc = proc_get_proc(get_current_proc());
+	if(proc_by == NULL || cproc == NULL)
 		return;
+
+	if(proc_ipc_get_task(cproc) != NULL) {//don't block the proc when it's serving ipc
+		schedule(ctx);
+		return;
+	}
 
 	if(evt != 0 && proc_by->info.pid != _core_proc_pid) {
 		proc_block_event_t* block_evt = get_block_evt(proc_by, evt);

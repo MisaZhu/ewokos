@@ -20,13 +20,14 @@ mkdirs:
 	@mkdir -p ${TARGET_DIR}/home/root
 	@chmod 750 ${TARGET_DIR}/home/root
 	@cp -r etc ${TARGET_DIR}
-	@cp -r data ${TARGET_DIR}
 
 builtin_apps: 
+	cd sys;make
 	cd sbin;make
 	cd bin;make
 
 clean:
+	cd sys;make clean
 	cd sbin;make clean
 	cd bin;make clean
 	cd libc;make clean

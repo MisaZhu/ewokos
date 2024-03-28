@@ -3,8 +3,7 @@
 /bin/ipcserv /drivers/versatilepb/fbd        /dev/fb0
 /bin/ipcserv /drivers/displayd        /dev/display /dev/fb0
 
-#/bin/ipcserv /drivers/fontd           /dev/font /usr/system/fonts/system.ttf /usr/system/fonts/system_cn.ttf
-/bin/ipcserv /drivers/fontd           /dev/font /usr/system/fonts/system.ttf
+/bin/ipcserv /drivers/fontd           /dev/font
 
 /bin/ipcserv /drivers/versatilepb/ps2keybd   /dev/keyb0
 /bin/ipcserv /drivers/versatilepb/ps2moused  /dev/mouse0

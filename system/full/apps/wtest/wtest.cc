@@ -2,7 +2,7 @@
 #include <Widget/Image.h>
 #include <Widget/Label.h>
 #include <Widget/LabelButton.h>
-#include <Widget/Text.h>
+#include <Widget/List.h>
 #include <x++/X.h>
 #include <unistd.h>
 #include <font/font.h>
@@ -24,6 +24,23 @@ protected:
 public: 
 	MyButton(const string& label = "") : LabelButton(label) {
 		counter = 0;
+	}
+};
+
+class MyList: public List {
+protected:
+	void drawItem(graph_t* g, const Theme* theme, int32_t index, const grect_t& r) {
+		if(index == itemSelected)
+			graph_box(g, r.x, r.y, r.w, r.h, 0xffff0000);
+		else
+			graph_box(g, r.x, r.y, r.w, r.h, 0xffaaaaaa);
+		char s[8];
+		snprintf(s, 7, "%d", index);
+		graph_draw_text_font(g, r.x+2, r.y+2, s, theme->font, 0xff000000);
+	}
+
+	void onSelect(int32_t index) {
+		klog("index: %d\n", index);
 	}
 };
 
@@ -80,13 +97,6 @@ int main(int argc, char** argv) {
 	wd->fix(0, 100);
 	root->add(wd);
 
-	Text* txt = new Text("text\nHello world\n[中文测试]\n123～！@");
-	Theme* theme = new Theme(font_new("/usr/system/fonts/system_cn.ttf", 18, true));
-	theme->bgColor = 0xff000000;
-	theme->fgColor = 0xffffaa88;
-	txt->setTheme(theme);
-	root->add(txt);
-
 	Container* c = new Container();
 	c->setType(Container::HORIZONTAL);
 	c->fix(0, 40);
@@ -98,6 +108,12 @@ int main(int argc, char** argv) {
 	wd = new MyButton("disable");
 	wd->disable();
 	c->add(wd);
+
+	wd = new MyList();
+	c->add(wd);
+	((List*)wd)->setItemNum(100);
+	((List*)wd)->setItemSize(20);
+	((List*)wd)->setHorizontal(false);
 
 	x.open(0, &win, -1, -1, 400, 300, "widgetTest", XWIN_STYLE_NORMAL);
 	win.setVisible(true);

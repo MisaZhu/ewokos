@@ -2486,6 +2486,7 @@ static TTY_Bool tty_try_execute_shared_ins(TTY_Program_Context* ctx, TTY_U8 ins)
 /* ------------ */
 /* Font Loading */
 /* ------------ */
+static char f_buf[1024*8];
 static TTY_Error tty_read_file_into_buff(TTY_Font* font, const char* path) {
     FILE* f = fopen(path, "rb");
     if (f == NULL) {
@@ -2506,6 +2507,7 @@ static TTY_Error tty_read_file_into_buff(TTY_Font* font, const char* path) {
         return TTY_ERROR_OUT_OF_MEMORY;
     }
     
+    setbuffer(f, f_buf, 1024*8);
     if ((TTY_S32)fread(font->data, 1, font->size, f) != font->size) {
         fclose(f);
         free(font->data);
@@ -4301,7 +4303,8 @@ TTY_Error tty_render_glyph_cache(TTY_Font* font, TTY_Instance* instance, TTY_Gly
 
     TTY_S32 y = instance->maxGlyphSize.y - glyph->offset.y - instance->maxGlyphSize.y /4;
     TTY_S32 x = 0;
-    glyph->cache = (TTY_U8*)calloc(1, instance->maxGlyphSize.x*instance->maxGlyphSize.y);
+    TTY_U32 cache_size = instance->maxGlyphSize.x*instance->maxGlyphSize.y;
+    glyph->cache = (TTY_U8*)calloc(1, cache_size);
     while (scanline >= scanlineEnd) {
         tty_update_or_remove_active_edges(&activeEdges, scanline, xIntersectionOff);
         tty_sort_active_edges(&activeEdges);
@@ -4332,7 +4335,9 @@ TTY_Error tty_render_glyph_cache(TTY_Font* font, TTY_Instance* instance, TTY_Gly
                 TTY_ASSERT(pixelBuffIdx < pixelBuffLen);
                 TTY_F26Dot6 pixelValue = pixelBuff[pixelBuffIdx] >> 6;
                 if(pixelValue != 0) {
-                    glyph->cache[y*instance->maxGlyphSize.x+x+pixelBuffIdx] = pixelValue;
+                    int at = y*instance->maxGlyphSize.x+x+pixelBuffIdx;
+                    if(at >=0 && at < cache_size)
+                        glyph->cache[at] = pixelValue;
                 }
             }
             

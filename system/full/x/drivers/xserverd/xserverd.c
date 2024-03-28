@@ -385,7 +385,6 @@ static void x_del_win(x_t* x, xwin_t* win) {
 	if(win == x->win_last)
 		x->win_last = NULL;
 
-
 	if(win->xinfo->g_shm != NULL) {
 		shmdt(win->xinfo->g_shm);
 		shmdt(win->xinfo);
@@ -724,7 +723,7 @@ static int x_update(int fd, int from_pid, x_t* x) {
 		return -1;
 	
 	xwin_t* win = x_get_win(x, fd, from_pid);
-	if(win == NULL || win->xinfo == NULL)
+	if(win == NULL || win->xinfo == NULL || win->g == NULL)
 		return -1;
 	if(!win->xinfo->visible)
 		return 0;

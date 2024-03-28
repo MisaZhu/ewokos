@@ -117,7 +117,6 @@ int main(int argc, char* argv[]) {
 	int uid = getuid();
 
 	int num = 0;
-	uint32_t core_idle[16]; //max 16 cores;
 	sys_info_t sys_info;
 	sys_state_t sys_state;
 	syscall1(SYS_GET_SYS_INFO, (int32_t)&sys_info);
@@ -136,11 +135,6 @@ int main(int argc, char* argv[]) {
 			printf("OWNER    PID  FATH  CORE  STATE     PROC\n"); 
 		for(int i=0; i<num; i++) {
 			procinfo_t* proc = &procs[i];
-			if(strcmp(proc->cmd, "cpu_core_halt") == 0) {
-				core_idle[proc->core] = proc->run_usec;
-				continue;
-			}
-
 			if(uid > 0 && proc->uid != cprocinfo.uid && all == 0) //for current uid
 				continue;
 
@@ -182,7 +176,7 @@ int main(int argc, char* argv[]) {
 	printf("\n\033[1mtask_num: %d, memory: total %d MB, free %d MB, shm %d MB\n", num, t_mem, fr_mem, shm_mem);
 	printf("cpu idle:");
 	for(uint32_t i=0; i<sys_info.cores; i++) {
-		int idle = core_idle[i]/10000;
+		int idle = sys_info.core_idles[i]/10000;
 		printf("  %d%%", idle > 100 ? 100 : idle);
 	}
 	printf("\033[0m\n");

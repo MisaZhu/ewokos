@@ -10,12 +10,10 @@ DIR* opendir(const char* name) {
 	
 	uint32_t num = 0;
 	fsinfo_t* kids = vfs_kids(info.node, &num);
-	if(kids == NULL || num == 0)
-		return NULL;
-
 	DIR* ret = (DIR*)malloc(sizeof(DIR));
 	if(ret == NULL) {
-		free(kids);
+		if(kids != NULL)
+			free(kids);
 		return NULL;
 	}
 

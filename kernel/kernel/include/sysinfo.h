@@ -26,6 +26,8 @@ typedef struct {
 	uint32_t phy_base;
 } dma_info_t;
 
+#define MAX_CORE_NUM 16
+
 /*static attr*/
 typedef struct {
 	char        machine[32];
@@ -39,6 +41,7 @@ typedef struct {
 	dma_info_t  dma;
 	fb_info_t   fb;
 	uint32_t    cores;
+	uint32_t    core_idles[MAX_CORE_NUM];
 
 	uint32_t    max_proc_num;
 	uint32_t    max_task_num;

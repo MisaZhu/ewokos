@@ -95,6 +95,18 @@ void graph_line(graph_t* g, int32_t x1, int32_t y1, int32_t x2, int32_t y2, uint
 	}
 }
 
+void graph_wline(graph_t* g, int32_t x1, int32_t y1, int32_t x2, int32_t y2, uint32_t color, uint32_t w) {
+	if(w == 0)
+		return;
+
+	if(x1 == x2)
+		for(uint32_t i=0; i<w; i++)
+			graph_line(g, x1+1, y1, x2+i, y2, color);
+	else 
+		for(uint32_t i=0; i<w; i++)
+			graph_line(g, x1, y1+i, x2, y2+i, color);
+}
+
 #ifdef __cplusplus
 }
 #endif

@@ -2,7 +2,7 @@
 
 /bin/ipcserv /drivers/raspix/fbd           /dev/fb0
 /bin/ipcserv /drivers/displayd             /dev/display /dev/fb0
-/bin/ipcserv /drivers/fontd                /dev/font /usr/system/fonts/system.ttf
+/bin/ipcserv /drivers/fontd                /dev/font
 /bin/ipcserv /drivers/consoled             /dev/console0
 
 /bin/ipcserv /drivers/timerd               /dev/timer
