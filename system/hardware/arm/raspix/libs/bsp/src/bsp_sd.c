@@ -9,7 +9,10 @@
 int bsp_sd_init(void) {
   sys_info_t sysinfo;
   syscall1(SYS_GET_SYS_INFO, (int32_t)&sysinfo);
-  int res = sd_init(bcm283x_sd_init, bcm283x_sd_read_sector, bcm283x_sd_write_sector);
-	return res;
+  if(strstr(sysinfo.machine, "pi4") || strstr(sysinfo.machine, "cm4"))
+      return sd_init(emmc2_init, emmc2_read_sector, emmc2_write_sector);
+  else
+    return sd_init(bcm283x_sd_init, bcm283x_sd_read_sector, bcm283x_sd_write_sector);
+
 }
 

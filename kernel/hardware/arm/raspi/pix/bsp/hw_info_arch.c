@@ -146,9 +146,6 @@ void arch_vm(page_dir_entry_t* vm) {
 			AP_RW_D, PTE_ATTR_DEV);
 	}
 #endif
-
-	if(_pi4)
-	 	*(uint32_t*)(MMIO_BASE + 0x2000d0) |= 0x2;
 }
 
 

@@ -1,9 +1,10 @@
-#include <bcm283x/gpio.h>
-#include <bcm283x/sd.h>
-#include <kernel/system.h>
-#include <kernel/proc.h>
-#include <mm/mmu.h>
-#include <kstring.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <string.h>
+#include <ewoksys/syscall.h>
+#include <ewoksys/mmio.h>
+
 
 #define SD_OK                0
 #define SD_TIMEOUT          -1
@@ -11,23 +12,23 @@
 
 static uint32_t  EMMC_BASE;
 
-#define EMMC_ARG2           ((volatile uint32_t*)(_sys_info.mmio.v_base + EMMC_BASE + 0x00))
-#define EMMC_BLKSIZECNT     ((volatile uint32_t*)(_sys_info.mmio.v_base + EMMC_BASE + 0x04))
-#define EMMC_ARG1           ((volatile uint32_t*)(_sys_info.mmio.v_base + EMMC_BASE + 0x08))
-#define EMMC_CMDTM          ((volatile uint32_t*)(_sys_info.mmio.v_base + EMMC_BASE + 0x0C))
-#define EMMC_RESP0          ((volatile uint32_t*)(_sys_info.mmio.v_base + EMMC_BASE + 0x10))
-#define EMMC_RESP1          ((volatile uint32_t*)(_sys_info.mmio.v_base + EMMC_BASE + 0x14))
-#define EMMC_RESP2          ((volatile uint32_t*)(_sys_info.mmio.v_base + EMMC_BASE + 0x18))
-#define EMMC_RESP3          ((volatile uint32_t*)(_sys_info.mmio.v_base + EMMC_BASE + 0x1C))
-#define EMMC_DATA           ((volatile uint32_t*)(_sys_info.mmio.v_base + EMMC_BASE + 0x20))
-#define EMMC_STATUS         ((volatile uint32_t*)(_sys_info.mmio.v_base + EMMC_BASE + 0x24))
-#define EMMC_CONTROL0       ((volatile uint32_t*)(_sys_info.mmio.v_base + EMMC_BASE + 0x28))
-#define EMMC_CONTROL1       ((volatile uint32_t*)(_sys_info.mmio.v_base + EMMC_BASE + 0x2C))
-#define EMMC_INTERRUPT      ((volatile uint32_t*)(_sys_info.mmio.v_base + EMMC_BASE + 0x30))
-#define EMMC_INT_MASK       ((volatile uint32_t*)(_sys_info.mmio.v_base + EMMC_BASE + 0x34))
-#define EMMC_INT_EN         ((volatile uint32_t*)(_sys_info.mmio.v_base + EMMC_BASE + 0x38))
-#define EMMC_CONTROL2       ((volatile uint32_t*)(_sys_info.mmio.v_base + EMMC_BASE + 0x3C))
-#define EMMC_SLOTISR_VER    ((volatile uint32_t*)(_sys_info.mmio.v_base + EMMC_BASE + 0xFC))
+#define EMMC_ARG2           ((volatile uint32_t*)(_mmio_base + EMMC_BASE + 0x00))
+#define EMMC_BLKSIZECNT     ((volatile uint32_t*)(_mmio_base + EMMC_BASE + 0x04))
+#define EMMC_ARG1           ((volatile uint32_t*)(_mmio_base + EMMC_BASE + 0x08))
+#define EMMC_CMDTM          ((volatile uint32_t*)(_mmio_base + EMMC_BASE + 0x0C))
+#define EMMC_RESP0          ((volatile uint32_t*)(_mmio_base + EMMC_BASE + 0x10))
+#define EMMC_RESP1          ((volatile uint32_t*)(_mmio_base + EMMC_BASE + 0x14))
+#define EMMC_RESP2          ((volatile uint32_t*)(_mmio_base + EMMC_BASE + 0x18))
+#define EMMC_RESP3          ((volatile uint32_t*)(_mmio_base + EMMC_BASE + 0x1C))
+#define EMMC_DATA           ((volatile uint32_t*)(_mmio_base + EMMC_BASE + 0x20))
+#define EMMC_STATUS         ((volatile uint32_t*)(_mmio_base + EMMC_BASE + 0x24))
+#define EMMC_CONTROL0       ((volatile uint32_t*)(_mmio_base + EMMC_BASE + 0x28))
+#define EMMC_CONTROL1       ((volatile uint32_t*)(_mmio_base + EMMC_BASE + 0x2C))
+#define EMMC_INTERRUPT      ((volatile uint32_t*)(_mmio_base + EMMC_BASE + 0x30))
+#define EMMC_INT_MASK       ((volatile uint32_t*)(_mmio_base + EMMC_BASE + 0x34))
+#define EMMC_INT_EN         ((volatile uint32_t*)(_mmio_base + EMMC_BASE + 0x38))
+#define EMMC_CONTROL2       ((volatile uint32_t*)(_mmio_base + EMMC_BASE + 0x3C))
+#define EMMC_SLOTISR_VER    ((volatile uint32_t*)(_mmio_base + EMMC_BASE + 0xFC))
 
 // command flags
 #define CMD_NEED_APP        0x80000000
@@ -117,6 +118,32 @@ typedef struct {
 } sd_t;
 
 static sd_t _sdc;
+
+void __attribute__((optimize("O0"))) _delay(uint32_t count) {
+	while(count > 0) {
+		count--;
+	}
+}
+
+inline uint64_t timer_usec(void){
+	uint64_t usec;
+	kernel_tic(NULL, &usec);
+	return usec;
+}
+
+
+inline void _delay_usec(uint64_t count) {
+	uint64_t s = timer_usec();
+	uint64_t t = s + count;
+	while(s < t) {
+		s = timer_usec();
+	}
+}
+
+inline void _delay_msec(uint32_t count) {
+	_delay_usec(count*1000);
+}
+
 
 /**
  * Wait for data or command ready
@@ -321,14 +348,16 @@ static int32_t sd_clk(uint32_t f) {
 /**
  * initialize EMMC to read SDHC card
  */
-int32_t bcm283x_sd_init(void) {
+int32_t emmc2_init(void) {
+
+	_mmio_base = mmio_map();
+	_delay_msec(10);
 	_sdc.rxdone = 1;
 	_sdc.txdone = 1;
 
 	int64_t r, cnt, ccs = 0;
-
-	// check sdmux connect to witch emmc bus
-	if((*((uint32_t*)(_sys_info.mmio.v_base + 0x2000d0)) & 0x2) == 0){
+	//check sdmux connect to witch emmc bus
+	if((*((uint32_t*)(_mmio_base + 0x2000d0)) & 0x2) == 0){
 		EMMC_BASE = 0x00340000;
 	}else{
 		EMMC_BASE = 0x00300000;
@@ -449,16 +478,8 @@ static inline void sd_handle(void) {
 	return;
 }
 
-int32_t bcm283x_sd_read(int32_t sector) {
-	if(_sdc.rxdone == 0)
-		return -1;
 
-	_sdc.sector = sector;
-	_sdc.rxdone = 0;
-	return sd_read_sector(_sdc.sector);
-}
-
-inline int32_t bcm283x_sd_read_done(void* buf) {
+static int32_t sd_read_done(void* buf) {
 	sd_handle();
 	if(_sdc.rxdone == 0)
 		return -1;
@@ -466,12 +487,25 @@ inline int32_t bcm283x_sd_read_done(void* buf) {
 	return 0;
 }
 
-int32_t bcm283x_sd_write(int32_t sector, const void* buf) {
-	if(sd_write_sector(sector, (unsigned char*)buf) == 0)
+int32_t emmc2_read_sector(int32_t sector, void* buf) {
+	if(_sdc.rxdone == 0)
+		return -1;
+	_sdc.sector = sector;
+	_sdc.rxdone = 0;
+
+	if(sd_read_sector(sector) != 0)
+		return -1;
+	while(1) {
+		if(sd_read_done(buf) == 0)
+			break;
+		//sleep(0);
+	}
+	return 0;
+}
+
+int32_t emmc2_write_sector(int32_t sector, const void* buf) {
+	if(sd_write_sector(sector, buf) == 0)
 		return -1;
 	return 0;
 }
 
-int32_t bcm283x_sd_write_done(void) {
-	return 0;
-}

@@ -24,7 +24,7 @@ inline uint32_t irq_get(void) {
 }
 
 inline void irq_enable(uint32_t irq) {
-	if(irqs == IRQ_TIMER0)
+	if(irq == IRQ_TIMER0)
         gic_irq_enable(0, 27);
 }
 
