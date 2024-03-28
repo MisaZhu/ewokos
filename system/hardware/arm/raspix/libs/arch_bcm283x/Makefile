@@ -19,6 +19,7 @@ LIB_ARCH_BCM283X_OBJS = src/framebuffer.o \
 	src/i2c.o \
 	src/spi.o \
 	src/mmc.o \
+	src/emmc.o \
 	src/sdhost.o \
 	src/auxspi.o 
 
