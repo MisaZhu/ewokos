@@ -68,6 +68,15 @@ void List::onResize() {
 	}
 }
 
+void List::scroll(int step) {
+	itemStart -= step;
+	if(itemStart < 0)
+		itemStart = 0;
+	else if(itemStart >= itemNum)
+		itemStart = itemNum-1;
+	update();
+}
+
 bool List::onMouse(xevent_t* ev) {
 	gpos_t ipos = getInsidePos(ev->value.mouse.x, ev->value.mouse.y);
 	if(itemSize == 0)
@@ -87,13 +96,14 @@ bool List::onMouse(xevent_t* ev) {
 		int mv = (pos - last_mouse_down) / (int)itemSize;
 		if(abs_32(mv) > 0) {
 			last_mouse_down = pos;
-			itemStart -= mv;
-			if(itemStart < 0)
-				itemStart = 0;
-			else if(itemStart >= itemNum)
-				itemStart = itemNum-1;
-			update();
+			scroll(mv);
 		}
+	}
+	else if(ev->state == XEVT_MOUSE_MOVE) {
+		if(ev->value.mouse.button == MOUSE_BUTTON_SCROLL_UP)
+			scroll(-1);
+		else if(ev->value.mouse.button == MOUSE_BUTTON_SCROLL_DOWN)
+			scroll(1);
 	}
 	else if(ev->state == XEVT_MOUSE_CLICK) {
 		if(horizontal)
@@ -132,8 +142,8 @@ bool List::onKey(xevent_t* ev) {
 		if(sel != itemSelected) {
 			itemSelected = sel;
 			onSelect(sel);
-		}
 			update();
+		}
 	}
 	return true;
 }

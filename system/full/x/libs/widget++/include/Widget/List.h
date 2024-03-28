@@ -8,6 +8,7 @@ namespace Ewok {
 
 class List: public Widget {
 	int last_mouse_down;
+	void scroll(int step);
 protected:
 	uint32_t itemNum;
 	uint32_t itemNumInView;
