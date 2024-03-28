@@ -100,6 +100,6 @@ void load_kernel_config(void) {
 			_kernel_config.max_task_num*sizeof(proc_t);
 
 #ifdef KCONSOLE
-	_kernel_config.kmalloc_size += _kernel_config.fb.width*_kernel_config.fb.height*4;
+	_kernel_config.kmalloc_size += (_kernel_config.fb.width*_kernel_config.fb.height*4)*2;
 #endif
 }
