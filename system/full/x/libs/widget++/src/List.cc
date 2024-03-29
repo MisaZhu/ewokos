@@ -77,16 +77,35 @@ void List::scroll(int step) {
 	update();
 }
 
+void List::select(int sel) {
+	if(sel < 0 || sel >= itemNum || itemSelected == sel)
+		return;
+	itemSelected = sel;
+	onSelect(sel);
+	update();
+}
+
+void List::enter(int sel) {
+	if(sel < 0 || sel >= itemNum)
+		return;
+	onEnter(sel);
+}
+
 bool List::onMouse(xevent_t* ev) {
 	gpos_t ipos = getInsidePos(ev->value.mouse.x, ev->value.mouse.y);
 	if(itemSize == 0)
 		return true;
 
 	if(ev->state == XEVT_MOUSE_DOWN) {
-		if(horizontal)
+		if(horizontal) {
 			last_mouse_down = ipos.x;
-		else
+			select(ipos.x / itemSize + itemStart);
+		}
+		else {
 			last_mouse_down = ipos.y;
+			select(ipos.y / itemSize + itemStart);
+		}
+		update();
 	}
 	else if(ev->state == XEVT_MOUSE_DRAG) {
 		int pos = ipos.y;
@@ -107,11 +126,9 @@ bool List::onMouse(xevent_t* ev) {
 	}
 	else if(ev->state == XEVT_MOUSE_CLICK) {
 		if(horizontal)
-			itemSelected = ipos.x / itemSize + itemStart;
+			enter(ipos.x / itemSize + itemStart);
 		else
-			itemSelected = ipos.y / itemSize + itemStart;
-		onSelect(itemSelected);
-		update();
+			enter(ipos.y / itemSize + itemStart);
 	}
 	return true;
 }
@@ -126,6 +143,7 @@ bool List::onKey(xevent_t* ev) {
 				sel = 0;
 			if(sel < itemStart)
 				itemStart = sel;
+			select(sel);
 		}
 		else if(ev->value.im.value == KEY_DOWN ||
 				ev->value.im.value == JOYSTICK_DOWN) {
@@ -137,18 +155,19 @@ bool List::onKey(xevent_t* ev) {
 				if(itemStart < 0)
 					itemStart = 0;
 			}
+			select(sel);
 		}
-
-		if(sel != itemSelected) {
-			itemSelected = sel;
-			onSelect(sel);
-			update();
+		else if(ev->value.im.value == KEY_ENTER) {
+			enter(itemSelected);
 		}
 	}
 	return true;
 }
 
 void List::onSelect(int32_t index) {
+}
+
+void List::onEnter(int32_t index) {
 }
 
 void List::setItemNum(uint32_t num) {

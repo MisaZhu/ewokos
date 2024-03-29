@@ -1,24 +1,24 @@
-#ifndef WIDGET_LIST_HH
-#define WIDGET_LIST_HH
+#ifndef WIDGET_GRID_HH
+#define WIDGET_GRID_HH
 
 #include <Widget/Widget.h>
 
 using namespace EwokSTL;
 namespace Ewok {
 
-class List: public Widget {
+class Grid: public Widget {
 	int last_mouse_down;
 	void scroll(int step);
 	void select(int sel);
 	void enter(int sel);
 protected:
 	uint32_t itemNum;
-	uint32_t itemNumInView;
-	uint32_t itemSize;
+	uint32_t itemW;
+	uint32_t itemH;
+	uint32_t rows;
+	uint32_t cols;
 	int32_t  itemStart;
 	int32_t  itemSelected;
-	bool     fixedItemSize;
-	bool     horizontal;
 
 	void onRepaint(graph_t* g, const Theme* theme, const grect_t& r);
 	void onResize();
@@ -30,13 +30,11 @@ protected:
 	virtual void onSelect(int32_t index);
 	virtual void onEnter(int32_t index);
 public:
-	List();
-	~List(void);
+	Grid();
+	~Grid(void);
 
 	void setItemNum(uint32_t itemNum);
-	void setItemSize(uint32_t itemSize);
-	void setItemNumInView(uint32_t itemSize);
-	void setHorizontal(bool h);
+	void setItemSize(uint32_t itemW, uint32_t itemH);
 
 	inline int32_t getSelected() { return itemSelected; }
 };

@@ -8,6 +8,7 @@ all:
 	cd clock; make
 	cd xcores; make
 	cd xfont; make
+	cd xapps; make
 
 clean:
 	cd finder; make clean
@@ -19,3 +20,4 @@ clean:
 	cd clock; make clean
 	cd xcores; make clean
 	cd xfont; make clean
+	cd xapps; make clean

@@ -3,6 +3,7 @@
 #include <Widget/Label.h>
 #include <Widget/LabelButton.h>
 #include <Widget/List.h>
+#include <Widget/Grid.h>
 #include <x++/X.h>
 #include <unistd.h>
 #include <font/font.h>
@@ -28,6 +29,23 @@ public:
 };
 
 class MyList: public List {
+protected:
+	void drawItem(graph_t* g, const Theme* theme, int32_t index, const grect_t& r) {
+		if(index == itemSelected)
+			graph_box(g, r.x, r.y, r.w, r.h, 0xffff0000);
+		else
+			graph_box(g, r.x, r.y, r.w, r.h, 0xffaaaaaa);
+		char s[8];
+		snprintf(s, 7, "%d", index);
+		graph_draw_text_font(g, r.x+2, r.y+2, s, theme->font, 0xff000000);
+	}
+
+	void onSelect(int32_t index) {
+		klog("index: %d\n", index);
+	}
+};
+
+class MyGrid: public Grid {
 protected:
 	void drawItem(graph_t* g, const Theme* theme, int32_t index, const grect_t& r) {
 		if(index == itemSelected)
@@ -99,7 +117,6 @@ int main(int argc, char** argv) {
 
 	Container* c = new Container();
 	c->setType(Container::HORIZONTAL);
-	c->fix(0, 40);
 	root->add(c);
 
 	wd = new MyButton("test");
@@ -114,6 +131,11 @@ int main(int argc, char** argv) {
 	((List*)wd)->setItemNum(100);
 	((List*)wd)->setItemSize(20);
 	((List*)wd)->setHorizontal(false);
+
+	wd = new MyGrid();
+	root->add(wd);
+	((Grid*)wd)->setItemNum(100);
+	((Grid*)wd)->setItemSize(40, 20);
 
 	x.open(0, &win, -1, -1, 400, 300, "widgetTest", XWIN_STYLE_NORMAL);
 	win.setVisible(true);

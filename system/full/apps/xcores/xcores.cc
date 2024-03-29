@@ -95,7 +95,7 @@ protected:
 			if(last_y == 0)
 				last_y = y;
 
-			graph_wline(g, x_off+last_x, last_y, x_off+x, y, color, 3);
+			graph_wline(g, x_off+last_x, last_y, x_off+x, y, color, 2);
 			last_x = x;
 			last_y = y;
 		}
