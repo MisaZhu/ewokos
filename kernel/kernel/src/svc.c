@@ -161,9 +161,17 @@ static void sys_waitpid(context_t* ctx, int32_t pid) {
 
 static void sys_load_elf(context_t* ctx, const char* cmd, void* elf, uint32_t elf_size) {
 	if(elf == NULL) {
+		printf("Panic: load elf content is NULL!\n");
 		ctx->gpr[0] = -1;
 		return;
 	}
+
+	if(strlen(cmd) >= PROC_INFO_MAX_CMD_LEN) {
+		printf("Panic: proc cmd line too long!\n");
+		ctx->gpr[0] = -1;
+		return;
+	}
+
 	proc_t* cproc = get_current_proc();
 	strcpy(cproc->info.cmd, cmd);
 	if(proc_load_elf(cproc, elf, elf_size) != 0) {

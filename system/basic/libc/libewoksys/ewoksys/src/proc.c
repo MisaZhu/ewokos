@@ -108,7 +108,8 @@ inline void proc_wakeup_pid(int pid, uint32_t evt) {
 }
 
 inline void proc_exec_elf(const char* cmd_line, const char* elf, int32_t size) {
-	syscall3(SYS_EXEC_ELF, (int32_t)cmd_line, (int32_t)elf, size);
+	if(syscall3(SYS_EXEC_ELF, (int32_t)cmd_line, (int32_t)elf, size) != 0)
+		exit(-1);
 }
 
 int  proc_exec(const char* cmd_line) {
