@@ -45,11 +45,12 @@ inline void graph_init(graph_t* g, const uint32_t* buffer, int32_t w, int32_t h)
 }
 
 void graph_set_clip(graph_t* g, int x, int y, int w, int h) {
-	g->clip.x = x;
-	g->clip.y = y;
-	g->clip.w = w;
-	g->clip.h = h;
-	graph_insect(g, &g->clip);
+	grect_t r = {x, y, w, h};
+	g->clip.x = 0;
+	g->clip.y = 0;
+	g->clip.w = g->w;
+	g->clip.h = g->h;
+	grect_insect(&r, &g->clip);
 }
 
 void graph_unset_clip(graph_t* g) {
