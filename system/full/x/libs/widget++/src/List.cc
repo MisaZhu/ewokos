@@ -137,7 +137,7 @@ bool List::onKey(xevent_t* ev) {
 	if(ev->state == XIM_STATE_PRESS) {
 		int32_t sel = itemSelected;
 		if(ev->value.im.value == KEY_UP ||
-				ev->value.im.value == JOYSTICK_UP) {
+				ev->value.im.value == KEY_LEFT) {
 			sel--;
 			if(sel < 0)
 				sel = 0;
@@ -146,7 +146,7 @@ bool List::onKey(xevent_t* ev) {
 			select(sel);
 		}
 		else if(ev->value.im.value == KEY_DOWN ||
-				ev->value.im.value == JOYSTICK_DOWN) {
+				ev->value.im.value == KEY_RIGHT) {
 			sel++;
 			if(sel >= itemNum)
 				sel = itemNum-1;

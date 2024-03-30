@@ -61,6 +61,8 @@ class AppList: public List {
 
 		int dx = (w - img->w)/2;
 		int dy = (h - (int)(iconSize + titleMargin + theme->font->max_size.y)) / 2;
+		if(at == itemSelected)
+			dy -= 4;
 		graph_blt_alpha(img, 0, 0, img->w, img->h,
 				g, x+dx, y+dy, img->w, img->h, 0xff);
 	}
@@ -72,7 +74,10 @@ class AppList: public List {
 		x += (w - (int32_t)tw)/2;
 		y += (h - (int)(iconSize + titleMargin + (int32_t)th)) /2 +
 				iconSize + titleMargin;
-		graph_draw_text_font(g, x, y, title, theme->font, theme->fgColor);
+
+		graph_draw_text_font(g, x, y, title, theme->font, 0xff000000);
+		if(at == itemSelected)
+			graph_draw_text_font(g, x-1, y-1, title, theme->font, 0xffffffff);
 	}
 
 protected:
