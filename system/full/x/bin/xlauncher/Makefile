@@ -1,4 +1,4 @@
-SYS_DIR=../../..
+SYS_DIR=../../../..
 include $(SYS_DIR)/hardware/$(ARCH)/make.rule
 
 BUILD_DIR = $(SYS_DIR)/build
@@ -10,7 +10,7 @@ CXXFLAGS += -I $(BUILD_DIR)/include
 
 XLAUNCHER_OBJS = xlauncher.o
 
-XLAUNCHER_DIR = $(TARGET_DIR)/apps/xlauncher
+XLAUNCHER_DIR = $(TARGET_DIR)/bin/x
 XLAUNCHER = $(XLAUNCHER_DIR)/xlauncher
 
 all: $(XLAUNCHER_DIR) $(XLAUNCHER)

@@ -71,10 +71,16 @@ void List::onResize() {
 
 void List::scroll(int step) {
 	itemStart -= step;
+	if(step < 0) {
+		if((itemStart+itemNumInView) >= itemNum) {
+			itemStart = itemNum-(int)itemNumInView;
+			if((itemNum % itemNumInView) != 0)
+				itemStart++;
+		}
+	}
+
 	if(itemStart < 0)
 		itemStart = 0;
-	else if(itemStart >= itemNum)
-		itemStart = itemNum-1;
 	update();
 }
 

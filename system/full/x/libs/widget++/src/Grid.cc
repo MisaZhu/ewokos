@@ -75,14 +75,18 @@ void Grid::onResize() {
 
 void Grid::scroll(int step) {
 	itemStart -= (step*cols);
+	if(step < 0) {
+		if((itemStart + rows*cols)>= itemNum) {
+			uint32_t i = itemNum%cols;
+			if(i == 0)
+				itemStart = itemNum - rows*cols;
+			else
+				itemStart = itemNum - i - (rows-1)*cols;
+		}
+	}
+
 	if(itemStart < 0)
 		itemStart = 0;
-	else if(itemStart >= itemNum) {
-		if((itemNum % cols) == 0)
-			itemStart = itemNum - cols;
-		else
-			itemStart = itemNum - (itemNum%cols);
-	}
 	update();
 }
 
