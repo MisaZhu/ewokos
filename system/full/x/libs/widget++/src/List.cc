@@ -157,7 +157,9 @@ bool List::onKey(xevent_t* ev) {
 			}
 			select(sel);
 		}
-		else if(ev->value.im.value == KEY_ENTER) {
+		else if(ev->value.im.value == KEY_ENTER ||
+				ev->value.im.value == KEY_BUTTON_START ||
+				ev->value.im.value == KEY_BUTTON_A) {
 			enter(itemSelected);
 		}
 	}
