@@ -39,6 +39,10 @@ bool X::open(uint32_t dispIndex, XWin* xwin, int x, int y, uint32_t w, uint32_t 
 	return true;
 }
 
+bool X::open(uint32_t dispIndex, XWin* xwin, const grect_t& r, const char* title, uint32_t style) {
+	return open(dispIndex, xwin, r.x, r.y, r.w, r.h, title, style);
+}
+
 X::X(void) {
 	x_init(&x, this);
 }

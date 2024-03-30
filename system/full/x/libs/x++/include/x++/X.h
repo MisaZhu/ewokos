@@ -18,6 +18,7 @@ public:
 	void run(void (*loop)(void*), void* p = NULL);
 	void terminate(void);
 	bool open(uint32_t dispIndex, XWin* xwin, int x, int y, uint32_t w, uint32_t h, const char* title, uint32_t style);
+	bool open(uint32_t dispIndex, XWin* xwin, const grect_t& r, const char* title, uint32_t style);
 
 	static const char* getResName(const char* name);
 

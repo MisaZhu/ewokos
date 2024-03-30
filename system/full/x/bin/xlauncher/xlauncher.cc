@@ -27,7 +27,7 @@ typedef struct {
 
 class AppList: public List {
 	item_t items[ITEM_MAX];	
-	static const uint32_t iconSize = 32;
+	uint32_t iconSize;
 	static const uint32_t titleMargin = 4;
 
 	string getIconFname(const char* appName) {
@@ -80,6 +80,34 @@ class AppList: public List {
 			graph_draw_text_font(g, x-1, y-1, title, theme->getFont(), 0xffffffff);
 	}
 
+	bool loadApps(var_t* var) {
+		if(var == NULL) {
+			return false;
+		}
+
+		var_t* apps = get_obj(var, "apps");
+		if(apps == NULL) {
+			return false;
+		}
+		
+		int sz = var_array_size(apps);
+		for(int i=0;i <sz && i <ITEM_MAX; i++) {
+			var_t* app = var_array_get_var(apps, i);
+			if(app == NULL)
+				continue;
+
+			const char* name = get_str(app, "name");
+			const char* file = get_str(app, "file");
+
+			items[i].app = name;
+			items[i].fname = file;
+			items[i].icon = file;
+			items[i].icon = getIconFname(name);
+		}
+		setItemNum(sz);
+		return true;
+	}
+
 protected:
 	void drawBG(graph_t* g, XTheme* theme, const grect_t& r) {
 		graph_fill(g, r.x, r.y, r.w, r.h, 0xffbbbbbb);
@@ -102,47 +130,42 @@ protected:
 
 public:
 	AppList() {
+		iconSize = 32;
 		for(int i=0; i<ITEM_MAX; i++)
 			memset(&items[i], 0, sizeof(item_t));
 	}
 
-	bool loadApps(void) {
+	bool loadConfig() {
 		int sz = 0;
 		var_t* var = NULL;
-		char* str = (char*)vfs_readfile("/usr/system/xlauncher.json", &sz);
+		char* str = (char*)vfs_readfile("/usr/x/xlauncher/xlauncher.json", &sz);
 		if(str == NULL) {
 			return false;
 		}
 		str[sz] = 0;
 		var = json_parse(str);
-		
-		var_t* apps = get_obj(var, "apps");
-		if(apps == NULL) {
-			var_unref(var);
+		free(str);
+		if(var == NULL)
 			return false;
-		}
+
+		loadApps(var);
+
+		itemSize = get_int(var, "item_size");
+		if(itemSize == 0)
+			itemSize = 64;
+
+		iconSize = get_int(var, "icon_size");
+		if(iconSize == 0)
+			iconSize = 32;
 		
-		sz = var_array_size(apps);
-		for(int i=0;i <sz && i <ITEM_MAX; i++) {
-			var_t* app = var_array_get_var(apps, i);
-			if(app == NULL)
-				continue;
-
-			const char* name = get_str(app, "name");
-			const char* file = get_str(app, "file");
-
-			items[i].app = name;
-			items[i].fname = file;
-			items[i].icon = file;
-			items[i].icon = getIconFname(name);
-		}
-
-		setItemNum(sz);
+		var_unref(var);
 		return true;
 	}
 
-	uint32_t getNum() {
-		return itemNum;
+	void setIconSize(uint32_t size) {
+		iconSize = size;
+		onResize();
+		update();
 	}
 };
 
@@ -155,22 +178,38 @@ int main(int argc, char** argv) {
 	root->setAlpha(false);
 
 	AppList* apps = new AppList();
-	apps->loadApps();
-	apps->setHorizontal(true);
+	apps->loadConfig();
 	root->add(apps);
-
 
 	grect_t desk;
 	x.getDesktopSpace(desk, 0);
 
-	uint32_t itemSize = 64;
-	uint32_t itemNum = apps->getNum();
-	apps->setItemSize(itemSize);
+	uint32_t itemSize = apps->getItemSize();
+	uint32_t itemNum = apps->getItemNum();
 
-	x.open(0, &win, (desk.w-itemSize*itemNum)/2, desk.h-itemSize,
-			itemSize*itemNum, itemSize, "xlauncher",
-			XWIN_STYLE_NO_TITLE | XWIN_STYLE_LAUNCHER | XWIN_STYLE_SYSBOTTOM | XWIN_STYLE_ANTI_FSCR);
+	grect_t wr;
+	if(argc >=2 && strcmp(argv[1], "left") == 0) {
+		wr.x = 0;
+		wr.y = (desk.h-itemSize*itemNum)/2,
+		wr.w = itemSize;
+		wr.h = itemSize*itemNum;
+	}
+	else if(argc >=2 && strcmp(argv[1], "right") == 0) {
+		wr.x = desk.w - itemSize;
+		wr.y = (desk.h-itemSize*itemNum)/2,
+		wr.w = itemSize;
+		wr.h = itemSize*itemNum;
+	}
+	else {
+		wr.x = (desk.w-itemSize*itemNum)/2;
+		wr.y = desk.h-itemSize;
+		wr.w = itemSize*itemNum;
+		wr.h = itemSize;
+		apps->setHorizontal(true);
+	}
 
+	x.open(0, &win, wr, "xlauncher",
+				XWIN_STYLE_NO_TITLE | XWIN_STYLE_LAUNCHER | XWIN_STYLE_SYSBOTTOM | XWIN_STYLE_ANTI_FSCR);
 	win.setVisible(true);
 	x.run(NULL, &win);
 	return 0;

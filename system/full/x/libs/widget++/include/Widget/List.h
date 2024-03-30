@@ -37,7 +37,9 @@ public:
 	void setItemNumInView(uint32_t itemSize);
 	void setHorizontal(bool h);
 
+	inline uint32_t getItemNum() { return itemNum; }
 	inline int32_t getSelected() { return itemSelected; }
+	inline uint32_t getItemSize() { return itemSize; }
 };
 
 }

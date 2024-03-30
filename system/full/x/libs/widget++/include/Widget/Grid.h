@@ -36,6 +36,8 @@ public:
 	void setItemSize(uint32_t itemW, uint32_t itemH);
 
 	inline int32_t getSelected() { return itemSelected; }
+	inline uint32_t getItemNum() { return itemNum; }
+	inline gsize_t getItemSize() { gsize_t r = {itemW, itemH}; return r;}
 };
 
 }
