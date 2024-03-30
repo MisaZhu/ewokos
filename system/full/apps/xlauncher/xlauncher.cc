@@ -41,7 +41,7 @@ class AppList: public List {
 		return ret;
 	}
  
-	void drawIcon(graph_t* g, int at, const Theme* theme, int x, int y, int w, int h) {
+	void drawIcon(graph_t* g, int at, XTheme* theme, int x, int y, int w, int h) {
 		item_t* item = &items[at];
 		const char* icon = item->icon.c_str();
 		int icon_size = iconSize < w ? iconSize : w;
@@ -60,32 +60,32 @@ class AppList: public List {
 		}
 
 		int dx = (w - img->w)/2;
-		int dy = (h - (int)(iconSize + titleMargin + theme->font->max_size.y)) / 2;
+		int dy = (h - (int)(iconSize + titleMargin + theme->getFont()->max_size.y)) / 2;
 		if(at == itemSelected)
 			dy -= 4;
 		graph_blt_alpha(img, 0, 0, img->w, img->h,
 				g, x+dx, y+dy, img->w, img->h, 0xff);
 	}
 
-	void drawTitle(graph_t* g, int at, const Theme* theme, int x, int y, int w, int h) {
+	void drawTitle(graph_t* g, int at, XTheme* theme, int x, int y, int w, int h) {
 		const char* title = items[at].app.c_str();
 		uint32_t tw, th;
-		font_text_size(title, theme->font, &tw, &th);
+		font_text_size(title, theme->getFont(), &tw, &th);
 		x += (w - (int32_t)tw)/2;
 		y += (h - (int)(iconSize + titleMargin + (int32_t)th)) /2 +
 				iconSize + titleMargin;
 
-		graph_draw_text_font(g, x, y, title, theme->font, 0xff000000);
+		graph_draw_text_font(g, x, y, title, theme->getFont(), 0xff000000);
 		if(at == itemSelected)
-			graph_draw_text_font(g, x-1, y-1, title, theme->font, 0xffffffff);
+			graph_draw_text_font(g, x-1, y-1, title, theme->getFont(), 0xffffffff);
 	}
 
 protected:
-	void drawBG(graph_t* g, const Theme* theme, const grect_t& r) {
+	void drawBG(graph_t* g, XTheme* theme, const grect_t& r) {
 		graph_fill(g, r.x, r.y, r.w, r.h, 0xffbbbbbb);
 	}
 
-	void drawItem(graph_t* g, const Theme* theme, int32_t index, const grect_t& r) {
+	void drawItem(graph_t* g, XTheme* theme, int32_t index, const grect_t& r) {
 		if(index >= itemNum)
 			return;
 

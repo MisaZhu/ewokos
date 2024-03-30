@@ -25,7 +25,7 @@ Widget::~Widget(void)  {
 		delete themePrivate;
 }
 
-void Widget::setTheme(Theme* theme)  {
+void Widget::setTheme(XTheme* theme)  {
 	if(themePrivate != NULL)
 		delete themePrivate;
 	themePrivate = theme;
@@ -79,7 +79,7 @@ RootWidget* Widget::getRoot(void) {
 	return (RootWidget*)wd;
 }
 
-void Widget::repaint(graph_t* g, const Theme* theme) {
+void Widget::repaint(graph_t* g, XTheme* theme) {
 	if(!dirty)
 		return;
 	if(this->themePrivate != NULL)

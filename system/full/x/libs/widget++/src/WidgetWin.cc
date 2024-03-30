@@ -5,7 +5,6 @@ namespace Ewok {
 
 WidgetWin::WidgetWin() {
 	root = NULL;
-	theme = Theme::loadDefault();
 	timerID = 0;
 	painting = false;
 }
@@ -13,16 +12,8 @@ WidgetWin::WidgetWin() {
 WidgetWin::~WidgetWin() {
 	if(root != NULL)
 		delete root;
-	if(theme != NULL)
-		delete theme;
 	if(timerID > 0)
 		timer_remove(timerID);
-}
-
-void WidgetWin::setTheme(Theme* theme)  {
-	if(this->theme != NULL)
-		delete this->theme;
-	this->theme = theme;
 }
 
 void WidgetWin::onRepaint(graph_t* g) {
@@ -31,7 +22,7 @@ void WidgetWin::onRepaint(graph_t* g) {
 	if(painting)
 		return;
 	painting = true;
-	root->repaint(g, theme);
+	root->repaint(g, &theme);
 	painting = false;
 }
 

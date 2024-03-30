@@ -30,14 +30,14 @@ public:
 
 class MyList: public List {
 protected:
-	void drawItem(graph_t* g, const Theme* theme, int32_t index, const grect_t& r) {
+	void drawItem(graph_t* g, XTheme* theme, int32_t index, const grect_t& r) {
 		if(index == itemSelected)
 			graph_box(g, r.x, r.y, r.w, r.h, 0xffff0000);
 		else
 			graph_box(g, r.x, r.y, r.w, r.h, 0xffaaaaaa);
 		char s[8];
 		snprintf(s, 7, "%d", index);
-		graph_draw_text_font(g, r.x+2, r.y+2, s, theme->font, 0xff000000);
+		graph_draw_text_font(g, r.x+2, r.y+2, s, theme->getFont(), 0xff000000);
 	}
 
 	void onSelect(int32_t index) {
@@ -47,14 +47,14 @@ protected:
 
 class MyGrid: public Grid {
 protected:
-	void drawItem(graph_t* g, const Theme* theme, int32_t index, const grect_t& r) {
+	void drawItem(graph_t* g, XTheme* theme, int32_t index, const grect_t& r) {
 		if(index == itemSelected)
 			graph_box(g, r.x, r.y, r.w, r.h, 0xffff0000);
 		else
 			graph_box(g, r.x, r.y, r.w, r.h, 0xffaaaaaa);
 		char s[8];
 		snprintf(s, 7, "%d", index);
-		graph_draw_text_font(g, r.x+2, r.y+2, s, theme->font, 0xff000000);
+		graph_draw_text_font(g, r.x+2, r.y+2, s, theme->getFont(), 0xff000000);
 	}
 
 	void onSelect(int32_t index) {
@@ -68,7 +68,7 @@ class Anim: public Widget {
 	uint32_t pos;
 	int32_t steps;
 protected:
-	void onRepaint(graph_t* g, const Theme* theme, const grect_t& r) {
+	void onRepaint(graph_t* g, XTheme* theme, const grect_t& r) {
 		if(img == NULL)
 			return;
 		//graph_fill(g, r.x, r.y, r.w, r.h, 0xff00ff00);

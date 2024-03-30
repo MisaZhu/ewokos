@@ -3,7 +3,6 @@
 
 #include <x++/XWin.h>
 #include <string.h>
-#include <Widget/Theme.h>
 #include <ewoksys/klog.h>
 
 namespace Ewok {
@@ -16,7 +15,7 @@ class Widget {
 
 	bool isContainer;
 protected:
-	Theme* themePrivate;
+	XTheme* themePrivate;
 	uint32_t id;
 	int32_t marginH;
 	int32_t marginV;
@@ -34,8 +33,8 @@ protected:
 	virtual bool onMouse(xevent_t* ev);
 	virtual bool onKey(xevent_t* ev);
 
-	virtual void repaint(graph_t* g, const Theme* theme);
-	virtual void onRepaint(graph_t* g, const Theme* theme, const grect_t& r) = 0;
+	virtual void repaint(graph_t* g, XTheme* theme);
+	virtual void onRepaint(graph_t* g, XTheme* theme, const grect_t& r) = 0;
 	virtual void onTimer() { }
 	virtual bool onEvent(xevent_t* ev);
 public:
@@ -49,9 +48,9 @@ public:
 	inline void setAlpha(bool alpha) { this->alpha = alpha; }
 	inline bool isAlpha() { return alpha; }
 	inline uint32_t getID() { return id; }
-	inline Theme* getTheme() { return themePrivate; }
+	inline XTheme* getTheme() { return themePrivate; }
 
-	void setTheme(Theme* theme);
+	void setTheme(XTheme* theme);
 	void disable();
 	void enable();
 	void fix(const gsize_t& size);

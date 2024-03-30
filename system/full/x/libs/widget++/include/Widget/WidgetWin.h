@@ -10,7 +10,6 @@ class WidgetWin: public XWin {
 	bool painting;
 protected:
 	RootWidget* root;
-	Theme* theme;
 	uint32_t timerID;
 	void onRepaint(graph_t* g);
 	void onResize(void);
@@ -20,9 +19,7 @@ public:
 	WidgetWin(void);
 	~WidgetWin(void);
 	inline RootWidget* getRoot() { return root; }
-	inline Theme* getTheme() { return theme; }
 
-	void setTheme(Theme* theme);
 	void setRoot(RootWidget* root);
 	void setTimer(uint32_t fps);
 	void timerTask();

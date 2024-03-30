@@ -172,6 +172,26 @@ static int32_t x_read_theme_config(const char* theme_name) {
 	if(v[0] != 0) 
 		_x_theme.bgDisableColor = strtoul(v, NULL, 16);
 
+	v = sconf_get(sconf, "hide_color");
+	if(v[0] != 0) 
+		_x_theme.hideColor = strtoul(v, NULL, 16);
+
+	v = sconf_get(sconf, "select_color");
+	if(v[0] != 0) 
+		_x_theme.selectColor = strtoul(v, NULL, 16);
+
+	v = sconf_get(sconf, "select_bg_color");
+	if(v[0] != 0) 
+		_x_theme.selectBGColor = strtoul(v, NULL, 16);
+
+	v = sconf_get(sconf, "title_color");
+	if(v[0] != 0) 
+		_x_theme.titleColor = strtoul(v, NULL, 16);
+
+	v = sconf_get(sconf, "title_bg_color");
+	if(v[0] != 0) 
+		_x_theme.titleBGColor = strtoul(v, NULL, 16);
+
 	sconf_free(sconf);
 	return 0;
 }

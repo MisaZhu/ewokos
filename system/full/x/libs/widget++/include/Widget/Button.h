@@ -15,10 +15,10 @@ public:
 	Button() { state = STATE_UP; }
 protected:
 	uint8_t state;
-	virtual void paintDown(graph_t* g, const Theme* theme, const grect_t& r);
-	virtual void paintUp(graph_t* g, const Theme* theme, const grect_t& r);
-	virtual void paintDisabled(graph_t* g, const Theme* theme, const grect_t& r);
-	void onRepaint(graph_t* g, const Theme* theme, const grect_t& r);
+	virtual void paintDown(graph_t* g, XTheme* theme, const grect_t& r);
+	virtual void paintUp(graph_t* g, XTheme* theme, const grect_t& r);
+	virtual void paintDisabled(graph_t* g, XTheme* theme, const grect_t& r);
+	void onRepaint(graph_t* g, XTheme* theme, const grect_t& r);
 	virtual bool onMouse(xevent_t* ev);
 
 	virtual void onClick() = 0;

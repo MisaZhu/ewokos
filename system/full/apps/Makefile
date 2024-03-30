@@ -1,5 +1,4 @@
 all:
-	cd finder; make
 	cd gtest; make
 	cd xterm; make
 	cd wtest; make
@@ -10,9 +9,9 @@ all:
 	cd xfont; make
 	cd xapps; make
 	cd xlauncher; make
+	cd xfinder; make
 
 clean:
-	cd finder; make clean
 	cd gtest; make clean
 	cd xterm; make clean
 	cd wtest; make clean
@@ -23,3 +22,4 @@ clean:
 	cd xfont; make clean
 	cd xapps; make clean
 	cd xlauncher; make clean
+	cd xfinder; make clean

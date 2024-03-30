@@ -17,26 +17,26 @@ bool Button::onMouse(xevent_t* ev) {
 	return true;
 }
 
-void Button::paintDown(graph_t* g, const Theme* theme, const grect_t& rect) {
-	graph_fill(g, rect.x, rect.y, rect.w, rect.h, theme->bgColor);
+void Button::paintDown(graph_t* g, XTheme* theme, const grect_t& rect) {
+	graph_fill(g, rect.x, rect.y, rect.w, rect.h, theme->basic.bgColor);
 	uint32_t d, b;
-	graph_get_3d_color(theme->bgColor, &d, &b);
+	graph_get_3d_color(theme->basic.bgColor, &d, &b);
 	graph_box_3d(g, rect.x, rect.y, rect.w, rect.h, d, b);
 }
 
-void Button::paintUp(graph_t* g, const Theme* theme, const grect_t& rect) {
-	graph_fill(g, rect.x, rect.y, rect.w, rect.h, theme->bgColor);
+void Button::paintUp(graph_t* g, XTheme* theme, const grect_t& rect) {
+	graph_fill(g, rect.x, rect.y, rect.w, rect.h, theme->basic.bgColor);
 	uint32_t d, b;
-	graph_get_3d_color(theme->bgColor, &d, &b);
+	graph_get_3d_color(theme->basic.bgColor, &d, &b);
 	graph_box_3d(g, rect.x, rect.y, rect.w, rect.h, b, d);
 }
 
-void Button::paintDisabled(graph_t* g, const Theme* theme, const grect_t& rect) {
+void Button::paintDisabled(graph_t* g, XTheme* theme, const grect_t& rect) {
 	graph_fill(g, rect.x, rect.y, rect.w, rect.h, 0xff888888);
 	graph_box(g, rect.x, rect.y, rect.w, rect.h, 0xffcccccc);
 }
 
-void Button::onRepaint(graph_t* g, const Theme* theme, const grect_t& r) {
+void Button::onRepaint(graph_t* g, XTheme* theme, const grect_t& r) {
 	if(disabled) {
 		paintDisabled(g, theme, r);
 		return;

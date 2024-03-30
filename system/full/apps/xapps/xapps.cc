@@ -40,7 +40,7 @@ class AppGrid: public Grid {
 		return ret;
 	}
  
-	void drawIcon(graph_t* g, int at, const Theme* theme, int x, int y, int w, int h) {
+	void drawIcon(graph_t* g, int at, XTheme* theme, int x, int y, int w, int h) {
 		item_t* item = &items[at];
 		const char* icon = item->icon.c_str();
 		int icon_size = iconSize < w ? iconSize : w;
@@ -59,33 +59,32 @@ class AppGrid: public Grid {
 		}
 
 		int dx = (w - img->w)/2;
-		int dy = (h - (int)(iconSize + titleMargin + theme->font->max_size.y)) / 2;
+		int dy = (h - (int)(iconSize + titleMargin + theme->getFont()->max_size.y)) / 2;
 		graph_blt_alpha(img, 0, 0, img->w, img->h,
 				g, x+dx, y+dy, img->w, img->h, 0xff);
 	}
 
-	void drawTitle(graph_t* g, int at, const Theme* theme, int x, int y, int w, int h) {
+	void drawTitle(graph_t* g, int at, XTheme* theme, int x, int y, int w, int h) {
 		const char* title = items[at].app.c_str();
 		uint32_t tw, th;
-		font_text_size(title, theme->font, &tw, &th);
+		font_text_size(title, theme->getFont(), &tw, &th);
 		x += (w - (int32_t)tw)/2;
 		y += (h - (int)(iconSize + titleMargin + (int32_t)th)) /2 +
 				iconSize + titleMargin;
-		graph_draw_text_font(g, x, y, title, theme->font, theme->fgColor);
+		graph_draw_text_font(g, x, y, title, theme->getFont(), theme->basic.fgColor);
 	}
 
 protected:
-	void drawBG(graph_t* g, const Theme* theme, const grect_t& r) {
-		graph_fill(g, r.x, r.y, r.w, r.h, 0xffbbbbbb);
+	void drawBG(graph_t* g, XTheme* theme, const grect_t& r) {
+		graph_fill(g, r.x, r.y, r.w, r.h, theme->basic.bgColor);
 	}
 
-	void drawItem(graph_t* g, const Theme* theme, int32_t index, const grect_t& r) {
+	void drawItem(graph_t* g, XTheme* theme, int32_t index, const grect_t& r) {
 		if(index >= itemNum)
 			return;
 
-		uint32_t color = 0xff000000;
 		if(index == itemSelected)
-			graph_box(g, r.x, r.y, r.w, r.h, 0xffff0000);
+			graph_fill_round(g, r.x, r.y, r.w, r.h, 6, theme->basic.selectBGColor);
 
 		drawIcon(g, index, theme, r.x , r.y, r.w, r.h);
 		drawTitle(g, index, theme, r.x , r.y, r.w, r.h);

@@ -7,7 +7,7 @@ namespace Ewok {
 
 class Blank: public Widget {
 protected:
-	void onRepaint(graph_t* g, const Theme* theme, const grect_t& r);
+	void onRepaint(graph_t* g, XTheme* theme, const grect_t& r);
 public:
 	Blank() { alpha = true; }
 };

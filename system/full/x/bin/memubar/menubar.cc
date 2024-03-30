@@ -81,7 +81,7 @@ public:
 class BatteryItem : public Widget {
 	int  powerFD;
 
-	void drawCharging(graph_t* g, const Theme* theme, const grect_t& r, int bat) {
+	void drawCharging(graph_t* g, XTheme* theme, const grect_t& r, int bat) {
 		static int b = 0;
 		int w = r.w*bat*b/300;
 		graph_gradation(g, r.x+r.w-w, r.y, w, r.h, 0xffffffff, 0xff22dd22, true);
@@ -89,12 +89,12 @@ class BatteryItem : public Widget {
 		char txt[8];
 		snprintf(txt, 7, "%d%%", bat);
 		graph_draw_text_font_align(g, r.x, r.y, r.w, r.h,
-					txt, theme->font, theme->fgColor, FONT_ALIGN_CENTER);
+					txt, theme->getFont(), theme->basic.fgColor, FONT_ALIGN_CENTER);
 		b++;
 		b%=4;
 	}
 
-	void drawBat(graph_t* g, const Theme* theme, const grect_t& r, int bat) {
+	void drawBat(graph_t* g, XTheme* theme, const grect_t& r, int bat) {
 		int w = r.w*bat/100;
 		uint32_t color = (bat <= 20) ?0xffed7930 : 0xff22dd22;
 		graph_gradation(g, r.x+r.w-w, r.y, w, r.h, 0xffffffff, color, true);
@@ -102,7 +102,7 @@ class BatteryItem : public Widget {
 		char txt[8];
 		snprintf(txt, 7, "%d%%", bat);
 		graph_draw_text_font_align(g, r.x, r.y, r.w, r.h,
-					txt, theme->font, theme->fgColor, FONT_ALIGN_CENTER);
+					txt, theme->getFont(), theme->basic.fgColor, FONT_ALIGN_CENTER);
 	}
 
 	void drawBase(graph_t* g, grect_t& r) {
@@ -120,7 +120,7 @@ class BatteryItem : public Widget {
 	}
 
 protected:
-	void onRepaint(graph_t* g, const Theme* theme, const grect_t& rect) {
+	void onRepaint(graph_t* g, XTheme* theme, const grect_t& rect) {
 		setAlpha(true);
 		grect_t r = rect;
 		drawBase(g, r);
@@ -200,8 +200,8 @@ public:
 
 class Menubar : public RootWidget {
 protected:
-	void onRepaint(graph_t* g, const Theme* theme, const grect_t& r) {
-		graph_fill(g, r.x, r.y, r.w, r.h, theme->bgColor);
+	void onRepaint(graph_t* g, XTheme* theme, const grect_t& r) {
+		graph_fill(g, r.x, r.y, r.w, r.h, theme->basic.bgColor);
 	}
 
 public:

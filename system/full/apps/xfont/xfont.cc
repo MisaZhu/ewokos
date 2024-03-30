@@ -17,36 +17,36 @@ using namespace Ewok;
 
 class FontDemo: public Widget {
 protected:
-	void onRepaint(graph_t* g, const Theme* theme, const grect_t& r) {
-		graph_fill(g, r.x, r.y, r.w, r.h, theme->bgColor);
+	void onRepaint(graph_t* g, XTheme* theme, const grect_t& r) {
+		graph_fill(g, r.x, r.y, r.w, r.h, theme->basic.bgColor);
 
 		font_t* f = font;
 		int y = 10;
 		if(f != NULL) {
-			graph_draw_text_font(g, r.x+10, y, "abcdefghijklmn", f, theme->fgColor);
+			graph_draw_text_font(g, r.x+10, y, "abcdefghijklmn", f, theme->basic.fgColor);
 			y += 20;
-			graph_draw_text_font(g, r.x+10, y, "opqrstuvwxyz", f, theme->fgColor);
+			graph_draw_text_font(g, r.x+10, y, "opqrstuvwxyz", f, theme->basic.fgColor);
 			y += 20;
-			graph_draw_text_font(g, r.x+10, y, "0123456789.+-", f, theme->fgColor);
+			graph_draw_text_font(g, r.x+10, y, "0123456789.+-", f, theme->basic.fgColor);
 			y += 20;
-			graph_draw_text_font(g, r.x+10, y, "~!@#$%%^&*()", f, theme->fgColor);
+			graph_draw_text_font(g, r.x+10, y, "~!@#$%%^&*()", f, theme->basic.fgColor);
 			y += 20;
-			graph_draw_text_font(g, r.x+10, y, "中文字体演示", f, theme->fgColor);
+			graph_draw_text_font(g, r.x+10, y, "中文字体演示", f, theme->basic.fgColor);
 			y += 20;
 		}
 		y += 20;
 
 		f = fontBig;
 		if(f != NULL) {
-			graph_draw_text_font(g, r.x+10, y, "abcdefghijklmn", f, theme->fgColor);
+			graph_draw_text_font(g, r.x+10, y, "abcdefghijklmn", f, theme->basic.fgColor);
 			y += 40;
-			graph_draw_text_font(g, r.x+10, y, "opqrstuvwxyz", f, theme->fgColor);
+			graph_draw_text_font(g, r.x+10, y, "opqrstuvwxyz", f, theme->basic.fgColor);
 			y += 40;
-			graph_draw_text_font(g, r.x+10, y, "0123456789.+-", f, theme->fgColor);
+			graph_draw_text_font(g, r.x+10, y, "0123456789.+-", f, theme->basic.fgColor);
 			y += 40;
-			graph_draw_text_font(g, r.x+10, y, "~!@#$%%^&*()", f, theme->fgColor);
+			graph_draw_text_font(g, r.x+10, y, "~!@#$%%^&*()", f, theme->basic.fgColor);
 			y += 40;
-			graph_draw_text_font(g, r.x+10, y, "中文字体演示", f, theme->fgColor);
+			graph_draw_text_font(g, r.x+10, y, "中文字体演示", f, theme->basic.fgColor);
 			y += 40;
 		}
 	}
@@ -83,21 +83,20 @@ class FontList: public List {
 	string fonts[MAX_FONTS];
 	FontDemo* demo;
 protected:
-	void drawBG(graph_t* g, const Theme* theme, const grect_t& r) {
-		graph_fill(g, r.x, r.y, r.w, r.h, 0xffbbbbbb);
-		graph_box_3d(g, r.x, r.y, r.w, r.h, 0xffffffff, 0xff888888);
+	void drawBG(graph_t* g, XTheme* theme, const grect_t& r) {
+		graph_fill_3d(g, r.x, r.y, r.w, r.h, theme->basic.titleBGColor, false);
 	}
 
-	void drawItem(graph_t* g, const Theme* theme, int32_t index, const grect_t& r) {
+	void drawItem(graph_t* g, XTheme* theme, int32_t index, const grect_t& r) {
 		if(index >= MAX_FONTS)
 			return;
 
-		uint32_t color = 0xff000000;
-		if(index == itemSelected)
-			color = 0xffffffff;
-
-		graph_box(g, r.x, r.y, r.w, r.h, 0xffaaaaaa);
-		graph_draw_text_font(g, r.x+2, r.y+2, fonts[index].c_str(), theme->font, color);
+		uint32_t color = theme->basic.fgColor;
+		if(index == itemSelected) {
+			graph_fill(g, r.x, r.y, r.w, r.h, theme->basic.selectBGColor);
+			color = theme->basic.selectColor;
+		}
+		graph_draw_text_font(g, r.x+2, r.y+2, fonts[index].c_str(), theme->getFont(), color);
 	}
 
 	void onSelect(int32_t index) {

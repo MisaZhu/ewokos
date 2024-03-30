@@ -1,6 +1,6 @@
 {
     "apps": [
-        {"name":"finder", "file": "/apps/finder/finder"},
+        {"name":"xfinder", "file": "/apps/xfinder/xfinder"},
         {"name":"xapps", "file": "/apps/xapps/xapps"},
         {"name":"xterm", "file": "/apps/xterm/xterm"},
         {"name":"clock", "file": "/apps/clock/clock"}

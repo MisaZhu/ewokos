@@ -1,5 +1,4 @@
 all:
-	cd launcher; make
 	cd memubar; make
 	cd png; make
 	cd xsession; make
@@ -7,7 +6,6 @@ all:
 	cd ttyx; make
 
 clean:
-	cd launcher; make clean
 	cd memubar; make clean
 	cd png; make clean
 	cd xsession; make clean

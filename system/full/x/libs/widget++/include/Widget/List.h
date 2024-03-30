@@ -3,7 +3,6 @@
 
 #include <Widget/Widget.h>
 
-using namespace EwokSTL;
 namespace Ewok {
 
 class List: public Widget {
@@ -20,13 +19,13 @@ protected:
 	bool     fixedItemSize;
 	bool     horizontal;
 
-	void onRepaint(graph_t* g, const Theme* theme, const grect_t& r);
+	void onRepaint(graph_t* g, XTheme* theme, const grect_t& r);
 	void onResize();
 	bool onMouse(xevent_t* ev);
 	bool onKey(xevent_t* ev);
 
-	virtual void drawBG(graph_t* g, const Theme* theme, const grect_t& r);
-	virtual void drawItem(graph_t* g, const Theme* theme, int32_t index, const grect_t& r) = 0;
+	virtual void drawBG(graph_t* g, XTheme* theme, const grect_t& r);
+	virtual void drawItem(graph_t* g, XTheme* theme, int32_t index, const grect_t& r) = 0;
 	virtual void onSelect(int32_t index);
 	virtual void onEnter(int32_t index);
 public:

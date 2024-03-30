@@ -4,6 +4,7 @@
 #include <graph/graph_ex.h>
 #include <x/xcntl.h>
 #include <x/xevent.h>
+#include <x/xtheme.h>
 
 #ifdef __cplusplus
 extern "C" {

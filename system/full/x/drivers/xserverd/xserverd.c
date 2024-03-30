@@ -11,6 +11,7 @@
 #include <fb/fb.h>
 #include <ewoksys/ipc.h>
 #include <x/xcntl.h>
+#include <x/xtheme.h>
 #include <x/xevent.h>
 #include <x/xwm.h>
 #include <ewoksys/proc.h>

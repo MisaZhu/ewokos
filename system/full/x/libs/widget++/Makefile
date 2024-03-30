@@ -10,7 +10,6 @@ CXXFLAGS += -Iinclude -I$(TARGET_DIR)/include
 LIB_WIDGET_OBJS =  src/Widget.o \
 		src/Blank.o \
 		src/Container.o \
-		src/Theme.o \
 		src/Image.o \
 		src/Label.o \
 		src/List.o \

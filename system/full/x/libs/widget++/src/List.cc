@@ -2,14 +2,13 @@
 #include <ewoksys/basic_math.h>
 #include <ewoksys/keydef.h>
 
-using namespace EwokSTL;
 namespace Ewok {
 
-void List::drawBG(graph_t* g, const Theme* theme, const grect_t& r) {
-	graph_fill(g, r.x, r.y, r.w, r.h, theme->bgColor);
+void List::drawBG(graph_t* g, XTheme* theme, const grect_t& r) {
+	graph_fill(g, r.x, r.y, r.w, r.h, theme->basic.bgColor);
 }
 
-void List::onRepaint(graph_t* g, const Theme* theme, const grect_t& r) {
+void List::onRepaint(graph_t* g, XTheme* theme, const grect_t& r) {
 	drawBG(g, theme, r);
 	uint32_t num = 0;
 	if(itemNum > itemStart)
@@ -25,6 +24,7 @@ void List::onRepaint(graph_t* g, const Theme* theme, const grect_t& r) {
 			ir.y = r.y;
 			ir.w = itemSize;
 			ir.h = r.h;
+			graph_set_clip(g, ir.x, ir.y, ir.w, ir.h);
 			drawItem(g, theme, i+itemStart, ir);
 		}
 	}
@@ -35,6 +35,7 @@ void List::onRepaint(graph_t* g, const Theme* theme, const grect_t& r) {
 			ir.y = r.y + i*itemSize;
 			ir.w = r.w;
 			ir.h = itemSize;
+			graph_set_clip(g, ir.x, ir.y, ir.w, ir.h);
 			drawItem(g, theme, i+itemStart, ir);
 		}
 	}

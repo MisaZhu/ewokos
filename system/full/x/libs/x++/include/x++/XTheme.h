@@ -1,7 +1,7 @@
 #ifndef XTHEME_HH
 #define XTHEME_HH
 
-#include <x/xcntl.h>
+#include <x/xtheme.h>
 #include <font/font.h>
 #include <sconf/sconf.h>
 #include <string.h>

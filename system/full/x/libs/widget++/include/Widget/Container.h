@@ -16,7 +16,7 @@ class Container: public Blank {
 protected:
 	void onResize();
 	bool onEvent(xevent_t* ev);
-	void repaint(graph_t* g, const Theme* theme);
+	void repaint(graph_t* g, XTheme* theme);
 	void onTimer();
 
 public:

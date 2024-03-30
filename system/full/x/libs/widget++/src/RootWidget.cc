@@ -8,8 +8,8 @@ RootWidget::RootWidget() {
 	xwin = NULL;
 }
 
-/*void RootWidget::onRepaint(graph_t* g, const Theme* theme, const grect_t& r) {
-	graph_fill(g, r.x, r.y, r.w, r.h, theme->bgColor);
+/*void RootWidget::onRepaint(graph_t* g, XTheme* theme, const grect_t& r) {
+	graph_fill(g, r.x, r.y, r.w, r.h, theme->basic.bgColor);
 }
 */
 

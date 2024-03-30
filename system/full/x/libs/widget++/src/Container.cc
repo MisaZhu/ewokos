@@ -117,7 +117,7 @@ void  Container::onTimer() {
 	}
 }
 
-void  Container::repaint(graph_t* g, const Theme* theme) {
+void  Container::repaint(graph_t* g, XTheme* theme) {
 	if(this->themePrivate != NULL)
 		theme = this->themePrivate;
 

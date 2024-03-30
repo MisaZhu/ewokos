@@ -8,15 +8,16 @@ using namespace EwokSTL;
 namespace Ewok {
 
 class Label: public Widget {
-	string label;
 protected:
-	void onRepaint(graph_t* g, const Theme* theme, const grect_t& r);
+	string label;
+	void onRepaint(graph_t* g, XTheme* theme, const grect_t& r);
 
 public:
 	Label(const string& str);
 	~Label(void);
 
 	void setLabel(const string& str);
+	const string& getLabel() { return label; }
 };
 
 }

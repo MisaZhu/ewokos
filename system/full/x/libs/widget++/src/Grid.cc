@@ -2,14 +2,13 @@
 #include <ewoksys/basic_math.h>
 #include <ewoksys/keydef.h>
 
-using namespace EwokSTL;
 namespace Ewok {
 
-void Grid::drawBG(graph_t* g, const Theme* theme, const grect_t& r) {
-	graph_fill(g, r.x, r.y, r.w, r.h, theme->bgColor);
+void Grid::drawBG(graph_t* g, XTheme* theme, const grect_t& r) {
+	graph_fill(g, r.x, r.y, r.w, r.h, theme->basic.bgColor);
 }
 
-void Grid::onRepaint(graph_t* g, const Theme* theme, const grect_t& r) {
+void Grid::onRepaint(graph_t* g, XTheme* theme, const grect_t& r) {
 	drawBG(g, theme, r);
 	uint32_t num = 0;
 	if(itemNum > itemStart)
@@ -22,6 +21,8 @@ void Grid::onRepaint(graph_t* g, const Theme* theme, const grect_t& r) {
 	if(num > (rs * cols))	
 		num = rs * cols;
 
+	uint32_t iw = (uint32_t)(area.w / (float)cols);
+
 	int x = 0;
 	int y = 0;
 	grect_t ir;
@@ -32,14 +33,15 @@ void Grid::onRepaint(graph_t* g, const Theme* theme, const grect_t& r) {
 				x = 0;
 			}
 			else
-				x += itemW;
+				x += iw;
 		}	
 
 		ir.x = r.x + x;
 		ir.y = r.y + y;
-		ir.w = itemW;
+		ir.w = iw;
 		ir.h = itemH;
 
+		graph_set_clip(g, ir.x, ir.y, ir.w, ir.h);
 		drawItem(g, theme, i+itemStart, ir);
 	}
 }
@@ -100,9 +102,10 @@ void Grid::enter(int sel) {
 
 bool Grid::onMouse(xevent_t* ev) {
 	gpos_t ipos = getInsidePos(ev->value.mouse.x, ev->value.mouse.y);
+	uint32_t iw = (uint32_t)(area.w / (float)cols);
 	if(ev->state == XEVT_MOUSE_DOWN) {
 		last_mouse_down = ipos.y;
-		int x = ipos.x / itemW;
+		int x = ipos.x / iw;
 		int y = ipos.y / itemH;
 		select(itemStart + y*cols + x);
 		update();
@@ -122,7 +125,7 @@ bool Grid::onMouse(xevent_t* ev) {
 			scroll(1);
 	}
 	else if(ev->state == XEVT_MOUSE_CLICK) {
-		int x = ipos.x / itemW;
+		int x = ipos.x / iw;
 		int y = ipos.y / itemH;
 		enter(itemStart + y*cols + x);
 	}
