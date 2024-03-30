@@ -11,15 +11,19 @@ extern "C" {
 
 /** str functions.-----------------------------*/
 
-#define STR_BUF 16
+#define STR_BUF 32
 #define STATIC_STR_MAX 64
 
 void str_reset(str_t* str) {
 	if(str->cstr == NULL) {
 		str->cstr = (char*)malloc(STR_BUF);
+		if(str->cstr == NULL) {
+			str->max = 0;
+			str->len = 0;	
+			return;
+		}
 		str->max = STR_BUF;
 	}
-
 	str->cstr[0] = 0;
 	str->len = 0;	
 }
@@ -61,6 +65,8 @@ char* str_cpy(str_t* str, const char* src) {
 
 str_t* str_new(const char* s) {
 	str_t* ret = (str_t*)malloc(sizeof(str_t));
+	if(ret == NULL)
+		return NULL;
 	ret->cstr = NULL;
 	ret->max = 0;
 	ret->len = 0;
@@ -70,10 +76,18 @@ str_t* str_new(const char* s) {
 
 str_t* str_new_by_size(uint32_t sz) {
 	str_t* ret = (str_t*)malloc(sizeof(str_t));
+	if(ret == NULL)
+		return NULL;
+	ret->len = 0;
+
 	ret->cstr = (char*)malloc(sz);
+	if(ret->cstr == NULL) {
+		ret->max = 0;
+		return ret;
+	}
+
 	ret->max = sz;
 	ret->cstr[0] = 0;
-	ret->len = 0;
 	return ret;
 }
 
