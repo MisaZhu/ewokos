@@ -9,6 +9,7 @@ all:
 	cd xcores; make
 	cd xfont; make
 	cd xapps; make
+	cd xlauncher; make
 
 clean:
 	cd finder; make clean
@@ -21,3 +22,4 @@ clean:
 	cd xcores; make clean
 	cd xfont; make clean
 	cd xapps; make clean
+	cd xlauncher; make clean

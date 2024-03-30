@@ -6,4 +6,5 @@
 @/bin/ipcserv /sbin/x/xwm_opencde
 
 #@/bin/x/menubar &
-@/bin/x/launcher &
+#@/bin/x/launcher &
+@/apps/xlauncher/xlauncher &
