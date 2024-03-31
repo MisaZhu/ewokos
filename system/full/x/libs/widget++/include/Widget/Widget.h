@@ -37,6 +37,7 @@ protected:
 	virtual void onRepaint(graph_t* g, XTheme* theme, const grect_t& r) = 0;
 	virtual void onTimer() { }
 	virtual bool onEvent(xevent_t* ev);
+	virtual void onScroll(int step);
 public:
 	friend Container;
 	Widget(void);
@@ -61,6 +62,7 @@ public:
 	void moveTo(int x, int y);
 	void move(int dx, int dy);
 	void setArea(int x, int y, int w, int h);
+	void scroll(int step);
 
 	RootWidget* getRoot(void);
 	gpos_t getRootPos(int32_t x = 0, int32_t y = 0);

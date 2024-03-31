@@ -268,7 +268,7 @@ protected:
 		drawTitle(g, index, theme, r.x , r.y, r.w, r.h);
 	}
 
-	void onEnter(int32_t i) {
+	void onEnter(int i) {
 		struct dirent* it = &files[i];
 		char fname[FS_FULL_NAME_MAX+1];
 		if(strcmp(it->d_name, "..") == 0) {

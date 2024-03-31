@@ -4,10 +4,6 @@
 
 namespace Ewok {
 
-void Grid::drawBG(graph_t* g, XTheme* theme, const grect_t& r) {
-	graph_fill(g, r.x, r.y, r.w, r.h, theme->basic.bgColor);
-}
-
 void Grid::onRepaint(graph_t* g, XTheme* theme, const grect_t& r) {
 	drawBG(g, theme, r);
 	uint32_t num = 0;
@@ -47,14 +43,10 @@ void Grid::onRepaint(graph_t* g, XTheme* theme, const grect_t& r) {
 }
 
 Grid::Grid() {
-	itemNum = 0;
-	itemStart = 0;
-	itemSelected = -1;
 	itemW = 32;
 	itemH = 32;
 	cols = 1;
 	rows = 1;
-	last_mouse_down = 0;
 }
 
 Grid::~Grid(void) {
@@ -73,7 +65,7 @@ void Grid::onResize() {
 		itemStart -= (itemStart %cols);
 }
 
-void Grid::scroll(int step) {
+void Grid::onScroll(int step) {
 	itemStart -= (step*cols);
 	if(step < 0) {
 		if((itemStart + rows*cols)>= itemNum) {
@@ -87,21 +79,6 @@ void Grid::scroll(int step) {
 
 	if(itemStart < 0)
 		itemStart = 0;
-	update();
-}
-
-void Grid::select(int sel) {
-	if(sel < 0 || sel >= itemNum || itemSelected == sel)
-		return;
-	itemSelected = sel;
-	onSelect(sel);
-	update();
-}
-
-void Grid::enter(int sel) {
-	if(sel < 0 || sel >= itemNum)
-		return;
-	onEnter(sel);
 }
 
 bool Grid::onMouse(xevent_t* ev) {
@@ -176,17 +153,6 @@ bool Grid::onKey(xevent_t* ev) {
 		}
 	}
 	return true;
-}
-
-void Grid::onSelect(int32_t index) {
-}
-
-void Grid::onEnter(int32_t index) {
-}
-
-void Grid::setItemNum(uint32_t num) {
-	itemNum = num;
-	onResize();
 }
 
 void Grid::setItemSize(uint32_t iw, uint32_t ih) {

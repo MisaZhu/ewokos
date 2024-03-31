@@ -12,6 +12,7 @@ LIB_WIDGET_OBJS =  src/Widget.o \
 		src/Container.o \
 		src/Image.o \
 		src/Label.o \
+		src/ListBase.o \
 		src/List.o \
 		src/Grid.o \
 		src/Button.o \

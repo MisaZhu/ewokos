@@ -4,10 +4,6 @@
 
 namespace Ewok {
 
-void List::drawBG(graph_t* g, XTheme* theme, const grect_t& r) {
-	graph_fill(g, r.x, r.y, r.w, r.h, theme->basic.bgColor);
-}
-
 void List::onRepaint(graph_t* g, XTheme* theme, const grect_t& r) {
 	drawBG(g, theme, r);
 	uint32_t num = 0;
@@ -42,12 +38,8 @@ void List::onRepaint(graph_t* g, XTheme* theme, const grect_t& r) {
 }
 
 List::List() {
-	itemNum = 0;
-	itemStart = 0;
-	itemSelected = -1;
 	itemNumInView = 2;
 	itemSize = 0;
-	last_mouse_down = 0;
 	horizontal = false;
 	fixedItemSize = false;	
 }
@@ -69,7 +61,7 @@ void List::onResize() {
 	}
 }
 
-void List::scroll(int step) {
+void List::onScroll(int step) {
 	itemStart -= step;
 	if(step < 0) {
 		if((itemStart+itemNumInView) >= itemNum) {
@@ -81,21 +73,6 @@ void List::scroll(int step) {
 
 	if(itemStart < 0)
 		itemStart = 0;
-	update();
-}
-
-void List::select(int sel) {
-	if(sel < 0 || sel >= itemNum || itemSelected == sel)
-		return;
-	itemSelected = sel;
-	onSelect(sel);
-	update();
-}
-
-void List::enter(int sel) {
-	if(sel < 0 || sel >= itemNum)
-		return;
-	onEnter(sel);
 }
 
 bool List::onMouse(xevent_t* ev) {
@@ -171,17 +148,6 @@ bool List::onKey(xevent_t* ev) {
 		}
 	}
 	return true;
-}
-
-void List::onSelect(int32_t index) {
-}
-
-void List::onEnter(int32_t index) {
-}
-
-void List::setItemNum(uint32_t num) {
-	itemNum = num;
-	onResize();
 }
 
 void List::setItemNumInView(uint32_t num) {

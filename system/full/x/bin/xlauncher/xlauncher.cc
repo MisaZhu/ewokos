@@ -121,7 +121,7 @@ protected:
 		drawTitle(g, index, theme, r.x , r.y, r.w, r.h);
 	}
 
-	void onEnter(int32_t index) {
+	void onEnter(int index) {
 		int pid = fork();
 		if(pid == 0) {
 			proc_exec(items[index].fname.c_str()); 
