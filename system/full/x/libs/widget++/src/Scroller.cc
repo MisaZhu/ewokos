@@ -5,10 +5,14 @@
 namespace Ewok {
 
 void Scroller::drawBG(graph_t* g, XTheme* theme, const grect_t& r) {
+	if(range == scrollW)
+		return;
 	graph_fill_3d(g, r.x, r.y, r.w, r.h, theme->basic.widgetBGColor, true);
 }
 
 void Scroller::drawPos(graph_t* g, XTheme* theme, const grect_t& r) {
+	if(range == scrollW)
+		return;
 	graph_fill_3d(g, r.x, r.y, r.w, r.h, theme->basic.widgetColor, false);
 }
 

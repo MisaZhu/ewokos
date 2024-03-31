@@ -22,7 +22,7 @@ using namespace Ewok;
 class CWDLabel: public Label {
 protected:
 	void onRepaint(graph_t* g, XTheme* theme, const grect_t& r) {
-		graph_fill_3d(g, r.x, r.y, r.w, r.h, theme->basic.titleBGColor, false);
+		graph_fill_3d(g, r.x, r.y, r.w, r.h, theme->basic.titleBGColor, true);
 		font_t* font = theme->getFont();
 		int y = r.y + (r.h-font->max_size.y)/2;
 		graph_draw_text_font(g, r.x+4, y, label.c_str(), font, theme->basic.titleColor);
@@ -255,7 +255,7 @@ class FileGrid: public Grid {
 
 protected:
 	void drawBG(graph_t* g, XTheme* theme, const grect_t& r) {
-		graph_fill_3d(g, r.x, r.y, r.w, r.h, theme->basic.bgColor, false);
+		graph_fill(g, r.x, r.y, r.w, r.h, theme->basic.bgColor);
 	}
 
 	void drawItem(graph_t* g, XTheme* theme, int32_t index, const grect_t& r) {

@@ -94,6 +94,7 @@ protected:
 			return;
 		setScrollerInfo(img->w, off_x, area.w, true);
 		setScrollerInfo(img->h, off_y, area.h, false);
+
 		if(statusLabel != NULL) {
 			char s[128] = { 0 };
 			snprintf(s, 127, "zoom:%.2f, w:%d, h:%d, x:%d, y:%d", zoom, img->w, img->h, off_x, off_y);
@@ -111,18 +112,22 @@ protected:
 			int dx = last_mouse_down.x - ipos.x;
 			int dy =  last_mouse_down.y - ipos.y;
 
-			if(abs_32(dx) > 10) {
+			if(abs_32(dx) > 10 && img->w > area.w) {
 				off_x +=  dx;
 				last_mouse_down.x = ipos.x;
 				if(off_x < 0)
 					off_x = 0;
+				else if(off_x > (img->w-area.w))
+					off_x = img->w-area.w;
 			}
 			
-			if(abs_32(dy) > 10) {
+			if(abs_32(dy) > 10 && img->h > area.h) {
 				off_y +=  dy;
 				last_mouse_down.y = ipos.y;
 				if(off_y < 0)
 					off_y = 0;
+				else if(off_y > (img->h-area.h))
+					off_y = img->h-area.h;
 			}
 			updateScroller();
 			update();
@@ -221,6 +226,7 @@ int main(int argc, char** argv) {
 	RootWidget* root = new RootWidget();
 	win.setRoot(root);
 	root->setType(Container::VERTICLE);
+	root->setAlpha(false);
 
 	Container* c = new Container();
 	c->setType(Container::HORIZONTAL);
