@@ -9,6 +9,7 @@ all:
 	cd xfont; make
 	cd xapps; make
 	cd xfinder; make
+	cd xpng; make
 
 clean:
 	cd gtest; make clean
@@ -21,3 +22,4 @@ clean:
 	cd xfont; make clean
 	cd xapps; make clean
 	cd xfinder; make clean
+	cd xpng; make clean

@@ -139,14 +139,6 @@ void Widget::resizeTo(int w, int h) {
 	}
 }
 
-void Widget::onScroll(int step) {
-}
-
-void Widget::scroll(int step) {
-	onScroll(step);
-	update();
-}
-
 void Widget::resize(int dw, int dh) {
 	resizeTo(area.w + dw, area.h + dh);
 }

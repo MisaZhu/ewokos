@@ -47,9 +47,16 @@ Grid::Grid() {
 	itemH = 32;
 	cols = 1;
 	rows = 1;
+	last_mouse_down = 0;
 }
 
 Grid::~Grid(void) {
+}
+
+void Grid::updateScroller() {
+	if(scrollerV == NULL)
+		return;
+	setScrollerInfo(itemNum, itemStart, cols*rows, false);
 }
 
 void Grid::onResize() {
@@ -63,9 +70,10 @@ void Grid::onResize() {
 
 	if((itemStart % cols) != 0)
 		itemStart -= (itemStart %cols);
+	updateScroller();
 }
 
-void Grid::onScroll(int step) {
+void Grid::onScroll(int step, bool horizontal) {
 	itemStart -= (step*cols);
 	if(step < 0) {
 		if((itemStart + rows*cols)>= itemNum) {
@@ -79,6 +87,7 @@ void Grid::onScroll(int step) {
 
 	if(itemStart < 0)
 		itemStart = 0;
+	updateScroller();
 }
 
 bool Grid::onMouse(xevent_t* ev) {
@@ -96,14 +105,14 @@ bool Grid::onMouse(xevent_t* ev) {
 		int mv = (pos - last_mouse_down) / (int)itemH;
 		if(abs_32(mv) > 0) {
 			last_mouse_down = pos;
-			scroll(mv);
+			scroll(mv, false);
 		}
 	}
 	else if(ev->state == XEVT_MOUSE_MOVE) {
 		if(ev->value.mouse.button == MOUSE_BUTTON_SCROLL_UP)
-			scroll(-1);
+			scroll(-1, false);
 		else if(ev->value.mouse.button == MOUSE_BUTTON_SCROLL_DOWN)
-			scroll(1);
+			scroll(1, false);
 	}
 	else if(ev->state == XEVT_MOUSE_CLICK) {
 		int x = ipos.x / iw;
@@ -130,6 +139,7 @@ bool Grid::onKey(xevent_t* ev) {
 				if(itemStart < 0)
 					itemStart = 0;
 			}
+			updateScroller();
 			select(sel);
 		}
 		else if(ev->value.im.value == KEY_RIGHT ||
@@ -144,6 +154,7 @@ bool Grid::onKey(xevent_t* ev) {
 			if(sel >= itemStart+cols*rows) {
 				itemStart += cols;
 			}
+			updateScroller();
 			select(sel);
 		}
 		else if(ev->value.im.value == KEY_ENTER ||

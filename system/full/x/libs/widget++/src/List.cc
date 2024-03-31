@@ -42,6 +42,7 @@ List::List() {
 	itemSize = 0;
 	horizontal = false;
 	fixedItemSize = false;	
+	last_mouse_down = 0;
 }
 
 List::~List(void) {
@@ -52,6 +53,10 @@ void List::setHorizontal(bool h) {
 	onResize();
 }
 
+void List::updateScroller() {
+	setScrollerInfo(itemNum, itemStart, itemNumInView, horizontal);
+}
+
 void List::onResize() {
 	if(fixedItemSize) {
 		setItemSize(itemSize);
@@ -59,9 +64,10 @@ void List::onResize() {
 	else {
 		setItemNumInView(itemNumInView);
 	}
+	updateScroller();
 }
 
-void List::onScroll(int step) {
+void List::onScroll(int step, bool horizontal) {
 	itemStart -= step;
 	if(step < 0) {
 		if((itemStart+itemNumInView) >= itemNum) {
@@ -73,6 +79,7 @@ void List::onScroll(int step) {
 
 	if(itemStart < 0)
 		itemStart = 0;
+	updateScroller();
 }
 
 bool List::onMouse(xevent_t* ev) {
@@ -99,14 +106,16 @@ bool List::onMouse(xevent_t* ev) {
 		int mv = (pos - last_mouse_down) / (int)itemSize;
 		if(abs_32(mv) > 0) {
 			last_mouse_down = pos;
-			scroll(mv);
+			scroll(mv, horizontal);
 		}
 	}
 	else if(ev->state == XEVT_MOUSE_MOVE) {
-		if(ev->value.mouse.button == MOUSE_BUTTON_SCROLL_UP)
-			scroll(-1);
-		else if(ev->value.mouse.button == MOUSE_BUTTON_SCROLL_DOWN)
-			scroll(1);
+		if(ev->value.mouse.button == MOUSE_BUTTON_SCROLL_UP) {
+			scroll(-1, horizontal);
+		}
+		else if(ev->value.mouse.button == MOUSE_BUTTON_SCROLL_DOWN) {
+			scroll(1, horizontal);
+		}
 	}
 	else if(ev->state == XEVT_MOUSE_CLICK) {
 		if(horizontal)
@@ -127,6 +136,8 @@ bool List::onKey(xevent_t* ev) {
 				sel = 0;
 			if(sel < itemStart)
 				itemStart = sel;
+
+			updateScroller();
 			select(sel);
 		}
 		else if(ev->value.im.value == KEY_DOWN ||
@@ -139,6 +150,7 @@ bool List::onKey(xevent_t* ev) {
 				if(itemStart < 0)
 					itemStart = 0;
 			}
+			updateScroller();
 			select(sel);
 		}
 		else if(ev->value.im.value == KEY_ENTER ||

@@ -8,7 +8,6 @@ ListBase::ListBase() {
 	itemNum = 0;
 	itemStart = 0;
 	itemSelected = -1;
-	last_mouse_down = 0;
 }
 
 ListBase::~ListBase(void) {
@@ -22,9 +21,6 @@ void ListBase::onSelect(int sel) {
 }
 
 void ListBase::onEnter(int sel) {
-}
-
-void ListBase::onScroll(int step) {
 }
 
 void ListBase::select(int sel) {

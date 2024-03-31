@@ -2,6 +2,7 @@
 #include <Widget/Image.h>
 #include <Widget/Label.h>
 #include <Widget/Grid.h>
+#include <Widget/Scroller.h>
 #include <x++/X.h>
 #include <unistd.h>
 #include <ewoksys/basic_math.h>
@@ -29,7 +30,6 @@ protected:
 public:
 	CWDLabel(const char* label) : Label(label) {}
 };
-
 
 static void freeIcon(void*p) {
 	graph_t* g = (graph_t*)p;
@@ -196,6 +196,7 @@ class FileGrid: public Grid {
 		setItemNum(i);
 		itemStart = 0;
 		itemSelected = -1;
+		updateScroller();
 	}
 
 	void loadIcons() {
@@ -292,6 +293,7 @@ protected:
 public:
 	FileGrid() {
 		cwdLabel = NULL;
+		scrollerV = NULL;
 		loadIcons();
 		fileTypes = loadFileTypes("/usr/system/filetypes.json");
 		readDir("/");
@@ -314,10 +316,20 @@ int main(int argc, char** argv) {
 	cwdLabel->fix(0, 20);
 	root->add(cwdLabel);
 
+	Container* c = new Container();
+	c->setType(Container::HORIZONTAL);
+	root->add(c);
+
 	FileGrid* fgrid = new FileGrid();
 	fgrid->setCWDLabel(cwdLabel);
 	fgrid->setItemSize(72, 72);
-	root->add(fgrid);
+	c->add(fgrid);
+
+	Scroller* scrollerV = new Scroller();
+	scrollerV->fix(8, 0);
+	c->add(scrollerV);
+	fgrid->setScrollerV(scrollerV);
+
 	x.open(0, &win, -1, -1, 320, 240, "xfinder", XWIN_STYLE_NORMAL);
 	win.setVisible(true);
 	x.run(NULL, &win);

@@ -4,6 +4,7 @@
 #include <Widget/LabelButton.h>
 #include <Widget/List.h>
 #include <Widget/Grid.h>
+#include <Widget/Scroller.h>
 #include <x++/X.h>
 #include <unistd.h>
 #include <font/font.h>
@@ -40,8 +41,12 @@ protected:
 		graph_draw_text_font(g, r.x+2, r.y+2, s, theme->getFont(), 0xff000000);
 	}
 
-	void onSelect(int32_t index) {
+	void onSelect(int index) {
 		klog("index: %d\n", index);
+	}
+
+public:
+	MyList() {
 	}
 };
 
@@ -109,11 +114,26 @@ int main(int argc, char** argv) {
 	wd->disable();
 	c->add(wd);
 
-	wd = new MyList();
-	c->add(wd);
-	((List*)wd)->setItemNum(100);
-	((List*)wd)->setItemSize(20);
-	((List*)wd)->setHorizontal(false);
+	MyList* list = new MyList();
+	c->add(list);
+	list->setItemNum(100);
+	list->setItemSize(20);
+
+	Scroller *sr = new Scroller();
+	sr->fix(8, 0);
+	list->setScrollerV(sr);
+	c->add(sr);
+
+	list = new MyList();
+	root->add(list);
+	list->setItemNum(100);
+	list->setItemSize(20);
+	list->setHorizontal(true);
+
+	sr = new Scroller(true);
+	sr->fix(0, 8);
+	list->setScrollerH(sr);
+	root->add(sr);
 
 	x.open(0, &win, -1, -1, 400, 300, "widgetTest", XWIN_STYLE_NORMAL);
 	win.setVisible(true);

@@ -70,13 +70,19 @@ void  Container::layoutH() {
 	}
 }
 
+void  Container::onLayout() {
+}
+
 void  Container::layout() {
-	if(type == FIXED)
+	if(type == FIXED) {
+		onLayout();
 		return;
+	}
 	if(type == VERTICLE)
 		layoutV();
 	else if(type == HORIZONTAL)
 		layoutH();
+	onLayout();
 }
 
 void  Container::onResize() { 

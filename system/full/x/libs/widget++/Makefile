@@ -15,6 +15,8 @@ LIB_WIDGET_OBJS =  src/Widget.o \
 		src/ListBase.o \
 		src/List.o \
 		src/Grid.o \
+		src/Scrollable.o \
+		src/Scroller.o \
 		src/Button.o \
 		src/LabelButton.o \
 		src/RootWidget.o \

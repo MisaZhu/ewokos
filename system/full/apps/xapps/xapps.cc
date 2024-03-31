@@ -3,6 +3,7 @@
 #include <Widget/Label.h>
 #include <Widget/LabelButton.h>
 #include <Widget/Grid.h>
+#include <Widget/Scroller.h>
 #include <x++/X.h>
 #include <unistd.h>
 #include <ewoksys/basic_math.h>
@@ -97,9 +98,9 @@ protected:
 			proc_exec(items[index].fname.c_str()); 
 		}
 	}
-
 public:
 	AppGrid() {
+		scrollerV = NULL;
 		for(int i=0; i<ITEM_MAX; i++)
 			memset(&items[i], 0, sizeof(item_t));
 	}
@@ -140,6 +141,11 @@ int main(int argc, char** argv) {
 	apps->loadApps();
 	apps->setItemSize(72, 72);
 	root->add(apps);
+
+	Scroller* scrollerV = new Scroller();
+	scrollerV->fix(8, 0);
+	root->add(scrollerV);
+	apps->setScrollerV(scrollerV);
 
 	x.open(0, &win, -1, -1, 320, 240, "xapps", XWIN_STYLE_NORMAL);
 	win.setVisible(true);

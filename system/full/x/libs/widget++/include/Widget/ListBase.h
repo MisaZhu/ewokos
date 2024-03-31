@@ -2,12 +2,12 @@
 #define WIDGET_LIST_BASE_HH
 
 #include <Widget/Widget.h>
+#include <Widget/Scrollable.h>
 
 namespace Ewok {
 
-class ListBase: public Widget {
+class ListBase: public Scrollable {
 protected:
-	int      last_mouse_down;
 	uint32_t itemNum;
 	int32_t  itemStart;
 	int32_t  itemSelected;
@@ -17,7 +17,6 @@ protected:
 	virtual void drawBG(graph_t* g, XTheme* theme, const grect_t& r);
 	virtual void onSelect(int sel);
 	virtual void onEnter(int sel);
-	virtual void onScroll(int step);
 public:
 	ListBase();
 	~ListBase(void);
