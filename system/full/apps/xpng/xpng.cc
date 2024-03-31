@@ -241,10 +241,18 @@ int main(int argc, char** argv) {
 	imgView->loadImage(argc < 2 ? "/data/test/test.png":argv[1]);
 	c->add(sr);
 
+	c = new Container();
+	c->setType(Container::HORIZONTAL);
+	c->fix(0, 8);
+	root->add(c);
+
 	sr = new Scroller(true);
-	sr->fix(0, 8);
 	imgView->setScrollerH(sr);
-	root->add(sr);
+	c->add(sr);
+
+	Blank *blank = new Blank();
+	blank->fix(8, 0);
+	c->add(blank);
 
 	StatusLabel* statusLabel = new StatusLabel("");
 	statusLabel->fix(0, 16);
