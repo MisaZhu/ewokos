@@ -119,6 +119,8 @@ protected:
 					off_x = 0;
 				else if(off_x > (img->w-area.w))
 					off_x = img->w-area.w;
+				updateScroller();
+				update();
 			}
 			
 			if(abs_32(dy) > 10 && img->h > area.h) {
@@ -128,9 +130,9 @@ protected:
 					off_y = 0;
 				else if(off_y > (img->h-area.h))
 					off_y = img->h-area.h;
+				updateScroller();
+				update();
 			}
-			updateScroller();
-			update();
 		}
 		else if(ev->state == XEVT_MOUSE_MOVE) {
 			if(ev->value.mouse.button == MOUSE_BUTTON_SCROLL_UP) {
