@@ -10,8 +10,19 @@ void List::onRepaint(graph_t* g, XTheme* theme, const grect_t& r) {
 	if(itemNum > itemStart)
 		num = itemNum - itemStart;
 
-	if(num > itemNumInView)	
+	if(num > itemNumInView)	{
 		num = itemNumInView;
+		if(horizontal) {
+			if((num*itemSize) < r.w)
+				num++;
+		}
+		else {
+			if((num*itemSize) < r.h)
+				num++;
+		}
+		if(num > (itemNum - itemStart))
+			num = itemNum - itemStart;
+	}
 
 	if(horizontal) {
 		for(uint32_t i=0; i<num; i++) {
@@ -189,9 +200,6 @@ void List::setItemSize(uint32_t size) {
 		size = area.w;
 
 	itemNumInView = size / itemSize;
-	if((size % itemSize) != 0)
-		itemNumInView++;
-
 	fixedItemSize = true;	
 	update();
 }
