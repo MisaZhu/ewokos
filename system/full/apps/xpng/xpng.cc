@@ -156,7 +156,7 @@ protected:
 	}
 
 
-	bool onKey(xevent_t* ev) {
+	bool onIM(xevent_t* ev) {
 		if(ev->state == XIM_STATE_PRESS) {
 			if(ev->value.im.value == KEY_UP) {
 				off_y -= 10;

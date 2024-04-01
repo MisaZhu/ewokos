@@ -16,7 +16,7 @@ protected:
 	void onRepaint(graph_t* g, XTheme* theme, const grect_t& r);
 	void onResize();
 	bool onMouse(xevent_t* ev);
-	bool onKey(xevent_t* ev);
+	bool onIM(xevent_t* ev);
 
 	virtual void onScroll(int step, bool horizontal);
     virtual void updateScroller();

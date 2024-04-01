@@ -37,6 +37,7 @@ void Grid::onRepaint(graph_t* g, XTheme* theme, const grect_t& r) {
 		ir.w = iw;
 		ir.h = itemH;
 
+		grect_insect(&r, &ir);
 		graph_set_clip(g, ir.x, ir.y, ir.w, ir.h);
 		drawItem(g, theme, i+itemStart, ir);
 	}
@@ -126,7 +127,7 @@ bool Grid::onMouse(xevent_t* ev) {
 	return true;
 }
 
-bool Grid::onKey(xevent_t* ev) {
+bool Grid::onIM(xevent_t* ev) {
 	if(ev->state == XIM_STATE_PRESS) {
 		int32_t sel = itemSelected;
 		if(ev->value.im.value == KEY_LEFT ||

@@ -46,7 +46,7 @@ typedef struct {
 } graph_t;
 
 
-int32_t grect_insect(grect_t* src, grect_t* r);
+int32_t grect_insect(const grect_t* src, grect_t* dst);
 
 uint32_t argb(uint32_t a, uint32_t r, uint32_t g, uint32_t b);
 

@@ -37,17 +37,8 @@ bool Widget::onMouse(xevent_t* ev) {
 	return false;
 }
 
-bool Widget::onKey(xevent_t* ev) {
+bool Widget::onIM(xevent_t* ev) {
 	return false;
-}
-
-void Widget::sendEvent(xevent_t* ev) { 
-	if(ev->type == XEVT_MOUSE) {
-		onMouse(ev);
-	}
-	else if(ev->type == XEVT_IM) {
-		onKey(ev);
-	}
 }
 
 bool Widget::onEvent(xevent_t* ev) { 
@@ -59,13 +50,13 @@ bool Widget::onEvent(xevent_t* ev) {
 		if(ev->value.mouse.x > r.x && ev->value.mouse.x < (r.x+r.w) &&
 				ev->value.mouse.y > r.y && ev->value.mouse.y < (r.y+r.h)) {
 			if(ev->state == XEVT_MOUSE_DOWN) {
-				getRoot()->setFocus(this);
+				getRoot()->focus(this);
 			}
 			return onMouse(ev);
 		}
 	}
-	else if(ev->type == XEVT_IM) {
-		return onKey(ev);
+	else if(ev->type == XEVT_IM && getRoot()->getFocused() == this) {
+		return onIM(ev);
 	}
 	return false; 
 }
@@ -112,6 +103,13 @@ void Widget::disable() {
 void Widget::enable() {
 	disabled = false;
 	update();
+}
+
+bool Widget::focused() {
+	RootWidget* root = getRoot();
+	if(root == NULL)
+		return false;	
+	return this == root->getFocused();
 }
 
 gsize_t Widget::getMinSize(void) {

@@ -18,7 +18,9 @@ public:
 	inline XWin* getWin() { return xwin; }
 	inline void setWin(XWin* xwin) { this->xwin = xwin; }
 	inline void refresh() { doRefresh = true; }
-	inline void setFocus(Widget* wd) { focusedWidget = wd; }
+
+	void focus(Widget* wd);
+	inline Widget* getFocused() { return focusedWidget; }
 
 	void repaintWin();
 	void update();

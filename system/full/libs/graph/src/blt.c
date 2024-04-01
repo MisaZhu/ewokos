@@ -8,29 +8,29 @@
 extern "C" { 
 #endif
 
-int32_t grect_insect(grect_t* src, grect_t* r) {
+int32_t grect_insect(const grect_t* src, grect_t* dst) {
 	//insect src;
-	if(r->x >= (int32_t)(src->x+src->w) || r->y >= (int32_t)(src->y+src->h)) //check x, y
+	if(dst->x >= (int32_t)(src->x+src->w) || dst->y >= (int32_t)(src->y+src->h)) //check x, y
 		return 0;
 
 	int32_t rx, ry;  //chehck w, h
-	rx = r->x + r->w;
-	ry = r->y + r->h;
+	rx = dst->x + dst->w;
+	ry = dst->y + dst->h;
 	if(rx >= (int32_t)(src->x+src->w))
-		r->w -= (rx - (src->x+src->w));
+		dst->w -= (rx - (src->x+src->w));
 	if(ry >= (int32_t)(src->y+src->h))
-		r->h -= (ry - (src->y+src->h));
+		dst->h -= (ry - (src->y+src->h));
 
-	if(r->x < src->x) {
-		r->w -= (src->x - r->x);
-		r->x = src->x;
+	if(dst->x < src->x) {
+		dst->w -= (src->x - dst->x);
+		dst->x = src->x;
 	}
 
-	if(r->y < src->y) {
-		r->h -= (src->y - r->y);
-		r->y = src->y;
+	if(dst->y < src->y) {
+		dst->h -= (src->y - dst->y);
+		dst->y = src->y;
 	}
-	if(r->w <= 0 || r->h <= 0)
+	if(dst->w <= 0 || dst->h <= 0)
 		return 0;
 	return 1;
 }

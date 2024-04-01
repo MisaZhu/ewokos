@@ -12,6 +12,17 @@ RootWidget::RootWidget() {
 	graph_fill(g, r.x, r.y, r.w, r.h, theme->basic.bgColor);
 }
 */
+ 
+void RootWidget::focus(Widget* wd) {
+	if(focusedWidget != NULL && focusedWidget != wd) {
+		focusedWidget->onUnfocus();
+		focusedWidget->update();
+	}
+
+	focusedWidget = wd;
+	wd->onFocus();
+	wd->update();
+}
 
 void RootWidget::repaintWin() { 
 	if(xwin == NULL)
@@ -28,13 +39,6 @@ void RootWidget::update() {
 }
 
 void RootWidget::sendEvent(xevent_t* ev) {
-	if(ev->type == XEVT_MOUSE && 
-			ev->state == XEVT_MOUSE_UP &&
-			focusedWidget != NULL) {
-		focusedWidget->sendEvent(ev); 
-		setFocus(NULL);
-		return;
-	}
 	onEvent(ev);
 }
 

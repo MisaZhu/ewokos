@@ -32,16 +32,20 @@ protected:
 	virtual void onResize() { }
 	virtual void onMove() { }
 	virtual bool onMouse(xevent_t* ev);
-	virtual bool onKey(xevent_t* ev);
+	virtual bool onIM(xevent_t* ev);
 
 	virtual void repaint(graph_t* g, XTheme* theme);
 	virtual void onRepaint(graph_t* g, XTheme* theme, const grect_t& r) = 0;
 	virtual void onTimer() { }
+	virtual void onFocus() { }
+	virtual void onUnfocus() { }
 	virtual bool onEvent(xevent_t* ev);
 public:
 	friend Container;
+	friend RootWidget;
+
 	Widget(void);
-	~Widget(void);
+	virtual ~Widget(void);
 
 	inline void setMarginH(int32_t v) { marginH = v; }
 	inline void setMarginV(int32_t v) { marginV = v; }
@@ -71,10 +75,10 @@ public:
 	gpos_t getInsidePos(int32_t screenX, int32_t screenY);
 	grect_t getRootArea(bool margin = true);
 	grect_t getScreenArea(bool margin = true);
+	bool   focused();
 
 	virtual gsize_t getMinSize(void);
 	void update();
-	virtual void sendEvent(xevent_t* ev);
 };
 
 }

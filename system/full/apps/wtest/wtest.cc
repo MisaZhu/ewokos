@@ -3,6 +3,7 @@
 #include <Widget/Label.h>
 #include <Widget/LabelButton.h>
 #include <Widget/List.h>
+#include <Widget/EditLine.h>
 #include <Widget/Grid.h>
 #include <Widget/Scroller.h>
 #include <x++/X.h>
@@ -55,6 +56,7 @@ class Anim: public Widget {
 	uint32_t step;
 	uint32_t pos;
 	int32_t steps;
+	EditLine* editLine;
 protected:
 	void onRepaint(graph_t* g, XTheme* theme, const grect_t& r) {
 		if(img == NULL)
@@ -64,6 +66,8 @@ protected:
 		graph_blt_alpha(img, step*(img->w/steps), 0, img->w/steps, img->h,
 				//g, r.x+(r.w-img->w/steps)/2, r.y+(r.h-img->h)/2, img->w/steps, img->h, 0xff);
 				g, r.x+pos, r.y+(r.h-img->h)/2, img->w/steps, img->h, 0xff);
+
+		graph_draw_text_font(g, r.x+pos+img->w/steps, r.y+2, editLine->getContent().c_str(), theme->getFont(), theme->basic.fgColor);
 
 		if(pos > r.w)
 			pos = 0;
@@ -78,7 +82,8 @@ protected:
 	}
 
 public: 
-	Anim() {
+	Anim(EditLine* editLine) {
+		this->editLine = editLine;
 		step = 0;
 		img = png_image_new(X::getResName("data/walk.png"));
 		steps = 8;
@@ -99,7 +104,13 @@ int main(int argc, char** argv) {
 	root->setType(Container::VERTICLE);
 	root->setAlpha(false);
 
-	Widget* wd = new Anim();
+	EditLine* editLine = new EditLine();
+	editLine->fix(0, 30);
+	editLine->setContent("hello!");
+	root->focus(editLine);
+	root->add(editLine);
+
+	Widget* wd = new Anim(editLine);
 	wd->fix(0, 100);
 	root->add(wd);
 

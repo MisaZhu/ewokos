@@ -20,6 +20,7 @@ LIB_WIDGET_OBJS =  src/Widget.o \
 		src/Button.o \
 		src/LabelButton.o \
 		src/RootWidget.o \
+		src/EditLine.o \
 		src/WidgetWin.o
 
 WIDGET = $(TARGET_DIR)/lib/libwidget++.a

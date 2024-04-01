@@ -31,6 +31,7 @@ void List::onRepaint(graph_t* g, XTheme* theme, const grect_t& r) {
 			ir.y = r.y;
 			ir.w = itemSize;
 			ir.h = r.h;
+			grect_insect(&r, &ir);
 			graph_set_clip(g, ir.x, ir.y, ir.w, ir.h);
 			drawItem(g, theme, i+itemStart, ir);
 		}
@@ -42,6 +43,7 @@ void List::onRepaint(graph_t* g, XTheme* theme, const grect_t& r) {
 			ir.y = r.y + i*itemSize;
 			ir.w = r.w;
 			ir.h = itemSize;
+			grect_insect(&r, &ir);
 			graph_set_clip(g, ir.x, ir.y, ir.w, ir.h);
 			drawItem(g, theme, i+itemStart, ir);
 		}
@@ -140,7 +142,7 @@ bool List::onMouse(xevent_t* ev) {
 	return true;
 }
 
-bool List::onKey(xevent_t* ev) {
+bool List::onIM(xevent_t* ev) {
 	if(ev->state == XIM_STATE_PRESS) {
 		int32_t sel = itemSelected;
 		if(ev->value.im.value == KEY_UP ||
