@@ -18,6 +18,7 @@ Widget::Widget(void)  {
 	isContainer = false;
 	disabled = false;
 	themePrivate = NULL;
+	visible = true;
 }
 
 Widget::~Widget(void)  { 
@@ -80,7 +81,7 @@ RootWidget* Widget::getRoot(void) {
 }
 
 void Widget::repaint(graph_t* g, XTheme* theme) {
-	if(!dirty)
+	if(!dirty || !visible)
 		return;
 	if(this->themePrivate != NULL)
 		theme = this->themePrivate;
@@ -141,6 +142,22 @@ void Widget::resizeTo(int w, int h) {
 
 void Widget::resize(int dw, int dh) {
 	resizeTo(area.w + dw, area.h + dh);
+}
+
+void Widget::show() {
+	visible = true;
+	if(father != NULL) {
+		father->layout();
+		father->update();
+	}
+}
+
+void Widget::hide() {
+	visible = false;
+	if(father != NULL) {
+		father->layout();
+		father->update();
+	}
 }
 
 void Widget::moveTo(int x, int y) {

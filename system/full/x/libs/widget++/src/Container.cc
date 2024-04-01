@@ -7,10 +7,12 @@ void Container::layoutV() {
 	int anum = 0;
 	Widget* wd = children;
 	while(wd != NULL) {
-		if(wd->fixed)
-			asize -= wd->area.h;
-		else
-			anum++;
+		if(wd->visible) {
+			if(wd->fixed)
+				asize -= wd->area.h;
+			else
+				anum++;
+		}
 		wd = wd->next;
 	}
 	if(asize < 0)
@@ -21,17 +23,19 @@ void Container::layoutV() {
 	wd = children;
 	int h = 0;
 	while(wd != NULL) {
-		int wh = asize;
-		if(wd->fixed)
-			wh = wd->area.h;
-		if(wd->next == NULL) {
-			wh = area.h - h;
-			if(wd->fixed && wh < wd->area.h)
+		if(wd->visible) {
+			int wh = asize;
+			if(wd->fixed)
 				wh = wd->area.h;
-		}
+			if(wd->next == NULL) {
+				wh = area.h - h;
+				if(wd->fixed && wh < wd->area.h)
+					wh = wd->area.h;
+			}
 
-		wd->setArea(0, h, area.w, wh);
-		h += wh;//wd->area.h;
+			wd->setArea(0, h, area.w, wh);
+			h += wh;//wd->area.h;
+		}
 		wd = wd->next;
 	}
 }
@@ -41,10 +45,12 @@ void  Container::layoutH() {
 	int anum = 0;
 	Widget* wd = children;
 	while(wd != NULL) {
-		if(wd->fixed)
-			asize -= wd->area.w;
-		else
-			anum++;
+		if(wd->visible) {
+			if(wd->fixed)
+				asize -= wd->area.w;
+			else
+				anum++;
+		}
 		wd = wd->next;
 	}
 	if(asize < 0)
@@ -55,17 +61,19 @@ void  Container::layoutH() {
 	wd = children;
 	int w = 0;
 	while(wd != NULL) {
-		int ww = asize;
-		if(wd->fixed)
-			ww = wd->area.w;
-		if(wd->next == NULL) {
-			ww = area.w - w;
-			if(wd->fixed && ww < wd->area.w)
+		if(wd->visible) {
+			int ww = asize;
+			if(wd->fixed)
 				ww = wd->area.w;
-		}
+			if(wd->next == NULL) {
+				ww = area.w - w;
+				if(wd->fixed && ww < wd->area.w)
+					ww = wd->area.w;
+			}
 
-		wd->setArea(w, 0, ww, area.h);
-		w += wd->area.w;
+			wd->setArea(w, 0, ww, area.h);
+			w += wd->area.w;
+		}
 		wd = wd->next;
 	}
 }
@@ -124,6 +132,8 @@ void  Container::onTimer() {
 }
 
 void  Container::repaint(graph_t* g, XTheme* theme) {
+	if(!visible)
+		return;
 	if(this->themePrivate != NULL)
 		theme = this->themePrivate;
 

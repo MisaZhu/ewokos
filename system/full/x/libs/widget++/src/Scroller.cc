@@ -9,8 +9,6 @@ void Scroller::drawBG(graph_t* g, XTheme* theme, const grect_t& r) {
 }
 
 void Scroller::drawPos(graph_t* g, XTheme* theme, const grect_t& r) {
-	if(range == scrollW)
-		return;
 	graph_fill_3d(g, r.x, r.y, r.w, r.h, theme->basic.widgetColor, false);
 }
 
@@ -57,6 +55,11 @@ void Scroller::setScrollW(uint32_t w) {
 		w = range;
 	scrollW = w;
 	update();
+
+	if(range <= scrollW)
+		hide();
+	else
+		show();
 }
 
 void Scroller::setRange(uint32_t range) {
@@ -70,6 +73,11 @@ void Scroller::setRange(uint32_t range) {
 
 	this->range = range;
 	update();
+
+	if(range <= scrollW) 
+		hide();
+	else
+		show();
 }
 
 void Scroller::setPos(uint32_t pos) {
