@@ -65,7 +65,10 @@ void List::setHorizontal(bool h) {
 }
 
 void List::updateScroller() {
-	setScrollerInfo(itemNum, itemStart, itemNumInView, horizontal);
+	if(itemNum <= itemNumInView && itemStart > 0)
+		setScrollerInfo(itemNumInView+itemStart, itemStart, itemNumInView, horizontal);
+	else
+		setScrollerInfo(itemNum, itemStart, itemNumInView, horizontal);
 }
 
 void List::onResize() {

@@ -56,7 +56,11 @@ Grid::~Grid(void) {
 void Grid::updateScroller() {
 	if(scrollerV == NULL)
 		return;
-	setScrollerInfo(itemNum, itemStart, cols*rows, false);
+	uint32_t itemNumInView = cols * rows;
+	if(itemNum <= itemNumInView && itemStart > 0)
+		setScrollerInfo(itemNumInView+itemStart, itemStart, itemNumInView, false);
+	else
+		setScrollerInfo(itemNum, itemStart, itemNumInView, false);
 }
 
 void Grid::onResize() {
