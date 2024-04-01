@@ -2,7 +2,6 @@
 #include <Widget/Grid.h>
 #include <Widget/Scroller.h>
 #include <WidgetEx/FileWidget.h>
-#include <ewoksys/basic_math.h>
 #include <ewoksys/proc.h>
 #include <tinyjson/tinyjson.h>
 #include <upng/upng.h>
