@@ -75,10 +75,7 @@ xwin_t* xwin_open(x_t* xp, uint32_t disp_index, int x, int y, int w, int h, cons
 	xwin_t* ret = (xwin_t*)malloc(sizeof(xwin_t));
 	memset(ret, 0, sizeof(xwin_t));
 	ret->fd = fd;
-
 	ret->x = xp;
-	if(xp->main_win == NULL)
-		xp->main_win = ret;
 
 	key_t key = (((int32_t)ret) << 16) | proc_get_uuid(getpid());
 	int32_t xinfo_shm_id = shmget(key, sizeof(xinfo_t), 0600 |IPC_CREAT|IPC_EXCL);
@@ -93,6 +90,11 @@ xwin_t* xwin_open(x_t* xp, uint32_t disp_index, int x, int y, int w, int h, cons
 		return NULL;
 	}
 
+	if((style & XWIN_STYLE_PROMPT) != 0)
+		xp->prompt_win = ret;
+	if(xp->main_win == NULL)
+		xp->main_win = ret;
+
 	ret->xinfo_shm_id = xinfo_shm_id;
 	ret->xinfo = xinfo;
 	memset(ret->xinfo, 0, sizeof(xinfo_t));
@@ -103,6 +105,7 @@ xwin_t* xwin_open(x_t* xp, uint32_t disp_index, int x, int y, int w, int h, cons
 	memcpy(&ret->xinfo->wsr, &r, sizeof(grect_t));
 	strncpy(ret->xinfo->title, title, XWIN_TITLE_MAX-1);
 	xwin_update_info(ret, X_UPDATE_REBUILD | X_UPDATE_REFRESH);
+
 	return ret;
 }
 
@@ -140,6 +143,9 @@ void xwin_close(xwin_t* xwin) {
 	close(xwin->fd);
 	if(xwin->x->main_win == xwin)
 		x_terminate(xwin->x);
+
+	if(xwin->x->prompt_win == xwin)
+		xwin->x->prompt_win = NULL;
 	free(xwin);
 }
 
@@ -226,9 +232,14 @@ int xwin_event_handle(xwin_t* xwin, xevent_t* ev) {
 	if(ev->value.window.event == XEVT_WIN_CLOSE) {
 		if(xwin->x->main_win == xwin)
 			xwin->x->terminated = true;
+		else
+			xwin_close(xwin);
 	}
 	else if(ev->value.window.event == XEVT_WIN_FOCUS) {
-		if(xwin->on_focus) {
+		if(xwin->x->prompt_win != NULL && xwin->x->prompt_win != xwin) {
+			vfs_fcntl(xwin->x->prompt_win->fd, XWIN_CNTL_TRY_FOCUS, NULL, NULL);
+		}
+		else if(xwin->on_focus) {
 			xwin->on_focus(xwin);
 		}
 	}

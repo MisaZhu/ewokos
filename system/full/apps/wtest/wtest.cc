@@ -6,6 +6,7 @@
 #include <Widget/EditLine.h>
 #include <Widget/Grid.h>
 #include <Widget/Scroller.h>
+#include <WidgetEx/FileWidget.h>
 #include <x++/X.h>
 #include <unistd.h>
 #include <font/font.h>
@@ -133,6 +134,11 @@ int main(int argc, char** argv) {
 	list->setScrollerV(sr);
 	c->add(sr);
 
+	WidgetWin win1;
+	root = new RootWidget();
+	win1.setRoot(root);
+	root->setType(Container::VERTICLE);
+
 	list = new MyList();
 	root->add(list);
 	list->setItemNum(100);
@@ -144,8 +150,13 @@ int main(int argc, char** argv) {
 	list->setScrollerH(sr);
 	root->add(sr);
 
+	FileWidget* fwd = new FileWidget();
+	root->add(fwd);
+
 	x.open(0, &win, -1, -1, 400, 300, "widgetTest", XWIN_STYLE_NORMAL);
+	x.open(0, &win1, -1, -1, 400, 300, "subwin", XWIN_STYLE_NORMAL|XWIN_STYLE_PROMPT);
 	win.setVisible(true);
+	win1.setVisible(true);
 	win.setTimer(12);
 	x.run(NULL, &win);
 	return 0;

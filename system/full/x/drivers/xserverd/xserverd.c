@@ -716,6 +716,8 @@ static int do_xwin_try_focus(int fd, int from_pid, x_t* x) {
 		return -1;
 	if(!win->xinfo->visible)
 		return 0;
+
+	xwin_top(x, win);
 	try_focus(x, win);
 }
 

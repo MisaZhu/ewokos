@@ -80,40 +80,6 @@ void x_terminate(x_t* x) {
 	proc_wakeup_pid(getpid(), X_EVT_BLOCK_EVT);
 }
 
-int  x_run(x_t* x, void* loop_data) {
-	int xserv_pid = dev_get_pid("/dev/x");
-	if(xserv_pid < 0) {
-		return -1;
-	}
-
-	//ipc_serv_run(handle, NULL, x, IPC_NON_BLOCK);
-
-	bool block = x->on_loop==NULL ? true:false;
-	xevent_t xev;
-	while(!x->terminated) {
-		int res = x_get_event(xserv_pid, &xev, block);
-		if(res == 0) {
-			xwin_t* xwin = (xwin_t*)xev.win;
-			if(xwin != NULL) {
-				if(xev.type == XEVT_WIN) {
-					xwin_event_handle(xwin, &xev);
-				}
-				if(xwin->on_event != NULL)
-					xwin->on_event(xwin, &xev);
-			}
-		}
-		else if(x->on_loop != NULL) {
-			x->on_loop(loop_data);
-		}
-		/*else {
-			proc_usleep(10000);
-		}
-		*/
-	}
-	dev_cntl_by_pid(xserv_pid, X_DCNTL_QUIT, NULL, NULL);
-	return 0;
-}
-
 const char* x_get_work_dir(void) {
 	return cmain_get_work_dir();
 }
@@ -273,6 +239,36 @@ const char* x_get_theme_fname(const char* prefix, const char* app_name, const ch
 	else
 		snprintf(ret, 255, "%s/%s/%s/%s", prefix, theme.name, app_name, fname);
 	return ret;
+}
+
+int  x_run(x_t* x, void* loop_data) {
+	int xserv_pid = dev_get_pid("/dev/x");
+	if(xserv_pid < 0) {
+		return -1;
+	}
+
+	bool block = x->on_loop==NULL ? true:false;
+	xevent_t xev;
+	while(!x->terminated) {
+		int res = x_get_event(xserv_pid, &xev, block);
+		if(res == 0) {
+			xwin_t* xwin = (xwin_t*)xev.win;
+			if(xwin != NULL) {
+				if(xev.type == XEVT_WIN)
+					xwin_event_handle(xwin, &xev);
+				if(xwin->on_event != NULL) {
+					if(xwin->x->prompt_win == NULL ||
+							xwin->x->prompt_win == xwin) //has prompt win, can't response
+						xwin->on_event(xwin, &xev);
+				}
+			}
+		}
+		else if(x->on_loop != NULL) {
+			x->on_loop(loop_data);
+		}
+	}
+	dev_cntl_by_pid(xserv_pid, X_DCNTL_QUIT, NULL, NULL);
+	return 0;
 }
 
 #ifdef __cplusplus
