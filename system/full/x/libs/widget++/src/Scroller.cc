@@ -44,6 +44,7 @@ Scroller::Scroller(bool h) {
 	scrollW = range;
 	horizontal = h;
 	widget = NULL;
+	visible = false;
 }
 
 void Scroller::setScrollable(Scrollable* widget) {
