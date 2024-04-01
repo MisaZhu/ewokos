@@ -61,10 +61,8 @@ protected:
 	void onRepaint(graph_t* g, XTheme* theme, const grect_t& r) {
 		if(img == NULL)
 			return;
-		//graph_fill(g, r.x, r.y, r.w, r.h, 0xff00ff00);
 		graph_gradation(g, r.x, r.y, r.w, r.h, 0xffffffff, 0xff00ff00, true);
 		graph_blt_alpha(img, step*(img->w/steps), 0, img->w/steps, img->h,
-				//g, r.x+(r.w-img->w/steps)/2, r.y+(r.h-img->h)/2, img->w/steps, img->h, 0xff);
 				g, r.x+pos, r.y+(r.h-img->h)/2, img->w/steps, img->h, 0xff);
 
 		graph_draw_text_font(g, r.x+pos+img->w/steps, r.y+2, editLine->getContent().c_str(), theme->getFont(), theme->basic.fgColor);
