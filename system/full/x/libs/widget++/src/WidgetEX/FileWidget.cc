@@ -40,17 +40,6 @@ class FileGrid: public Grid {
 	graph_t* devIcon;
 
 	CWDLabel *cwdLabel;
-
-	string getIconFname(const char* appName) {
-		//try theme icon first
-		string ret = x_get_theme_fname(X_THEME_ROOT, appName, "icon.png");
-		if(access(ret.c_str(), R_OK) == 0)
-			return ret;
-
-		ret = "/apps/";
-		ret = ret + appName + "/res/icon.png";
-		return ret;
-	}
  
 	void drawIcon(graph_t* g, int at, XTheme* theme, int x, int y, int w, int h) {
 		graph_t* img = NULL;
