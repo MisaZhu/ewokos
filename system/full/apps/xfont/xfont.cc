@@ -99,7 +99,7 @@ protected:
 		graph_draw_text_font(g, r.x+2, r.y+2, fonts[index].c_str(), theme->getFont(), color);
 	}
 
-	void onSelect(int32_t index) {
+	void onSelect(int index) {
 		if(demo == NULL)
 			return;
 		demo->setFont(fonts[index].c_str());
@@ -144,6 +144,11 @@ int main(int argc, char** argv) {
 	list->setItemSize(20);
 	list->fix(160, 0);
 	root->add(list);
+
+	Scroller* scrollerV = new Scroller();
+	scrollerV->fix(8, 0);
+	root->add(scrollerV);
+	list->setScrollerV(scrollerV);
 
 	FontDemo* demo = new FontDemo();
 	root->add(demo);

@@ -18,7 +18,7 @@ void Container::layoutV() {
 	if(asize < 0)
 		asize = 0;
 	else if(anum > 0)
-		asize = asize / anum;
+		asize = (float)asize / (float)anum;
 
 	wd = children;
 	int h = 0;
@@ -27,12 +27,6 @@ void Container::layoutV() {
 			int wh = asize;
 			if(wd->fixed)
 				wh = wd->area.h;
-			if(wd->next == NULL) {
-				wh = area.h - h;
-				if(wd->fixed && wh < wd->area.h)
-					wh = wd->area.h;
-			}
-
 			wd->setArea(0, h, area.w, wh);
 			h += wh;//wd->area.h;
 		}
@@ -56,7 +50,7 @@ void  Container::layoutH() {
 	if(asize < 0)
 		asize = 0;
 	else if(anum > 0)
-		asize = asize / anum;
+		asize = (float)asize / (float)anum;
 
 	wd = children;
 	int w = 0;
@@ -65,12 +59,6 @@ void  Container::layoutH() {
 			int ww = asize;
 			if(wd->fixed)
 				ww = wd->area.w;
-			if(wd->next == NULL) {
-				ww = area.w - w;
-				if(wd->fixed && ww < wd->area.w)
-					ww = wd->area.w;
-			}
-
 			wd->setArea(w, 0, ww, area.h);
 			w += wd->area.w;
 		}
