@@ -102,7 +102,7 @@ bool Grid::onMouse(xevent_t* ev) {
 	}
 	else if(ev->state == XEVT_MOUSE_DRAG) {
 		int pos = ipos.y;
-		int mv = (pos - last_mouse_down) / (int)itemH;
+		int mv = (pos - last_mouse_down) * 2 / (int)itemH;
 		if(abs_32(mv) > 0) {
 			last_mouse_down = pos;
 			scroll(mv, false);

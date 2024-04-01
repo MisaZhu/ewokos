@@ -103,7 +103,7 @@ bool List::onMouse(xevent_t* ev) {
 		if(horizontal)
 			pos = ipos.x;
 
-		int mv = (pos - last_mouse_down) / (int)itemSize;
+		int mv = (pos - last_mouse_down) * 2 / (int)itemSize;
 		if(abs_32(mv) > 0) {
 			last_mouse_down = pos;
 			scroll(mv, horizontal);
