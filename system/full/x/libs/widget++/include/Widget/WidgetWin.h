@@ -14,7 +14,7 @@ protected:
 	void onRepaint(graph_t* g);
 	void onResize(void);
 	void onEvent(xevent_t* ev);
-
+	bool onClose();
 public:
 	WidgetWin(void);
 	~WidgetWin(void);

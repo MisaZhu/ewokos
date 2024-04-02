@@ -13,10 +13,12 @@ class FileWidget: public Container {
 protected:
 	virtual void onFile(const string& fname, const string& open_with) { }
 	virtual void onPath(const string& fname) { }
+	virtual void onSelect(const string& fname) { }
 public:
 	FileWidget();
 	inline void load(const string& fname, const string& open_with) { onFile(fname, open_with); }
 	inline void enter(const string& pathname) { onPath(pathname); }
+	inline void select(const string& fname) { onSelect(fname); }
 	inline uint32_t getItemSize() { return itemSize; }
 };
 

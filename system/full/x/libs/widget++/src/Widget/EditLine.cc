@@ -37,7 +37,7 @@ bool EditLine::onIM(xevent_t* ev) {
 			content = content.substr(0, content.length()-1);
 	}
 	else if(v > 27) {
-		content = content + v;
+		content += (char)v;
 	}
 
 	onInput();
