@@ -16,7 +16,7 @@ protected:
 	XTheme theme;
 	virtual void onRepaint(graph_t* g) = 0;
 
-	inline virtual void onClose(void)   { }
+	inline virtual bool onClose(void)   { return true; }
 	inline virtual void onMin(void)     { }
 	inline virtual void onResize(void)  { }
 	inline virtual void onMove(void)  { }
@@ -44,7 +44,7 @@ public:
 	inline xwin_t* getCWin(void) { return xwin; }
 
 	inline void __doRepaint(graph_t* g) { onRepaint(g); }
-	inline void __doClose(void) { onClose(); }
+	inline bool __doClose(void) { return onClose(); }
 	inline void __doMin(void) { onMin(); }
 	inline void __doResize(void) { onResize(); }
 	inline void __doMove(void) { onMove(); }

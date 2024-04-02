@@ -39,6 +39,12 @@ void WidgetWin::onEvent(xevent_t* ev) {
 	root->repaintWin();
 }
 
+bool WidgetWin::onClose() {
+	if(timerID > 0)
+		timer_remove(timerID);
+	return true;
+}
+
 void WidgetWin::timerTask() {
 	if(root == NULL)
 		return;

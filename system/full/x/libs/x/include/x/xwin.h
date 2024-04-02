@@ -21,7 +21,7 @@ typedef struct st_xwin {
 
 	xinfo_t xinfo_prev; //for backup the state before fullscreen/min/max.
 
-	void (*on_close)(struct st_xwin* xwin);
+	bool (*on_close)(struct st_xwin* xwin);
 	void (*on_min)(struct st_xwin* xwin);
 	void (*on_resize)(struct st_xwin* xwin);
 	void (*on_move)(struct st_xwin* xwin);

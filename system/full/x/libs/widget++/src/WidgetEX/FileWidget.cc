@@ -247,6 +247,16 @@ protected:
 		}
 	}
 
+	void onSelect(int i) {
+		struct dirent* it = &files[i];
+		char fname[FS_FULL_NAME_MAX+1];
+		if(strcmp(cwd, "/") == 0)
+			snprintf(fname, FS_FULL_NAME_MAX, "/%s", it->d_name);
+		else
+			snprintf(fname, FS_FULL_NAME_MAX, "%s/%s", cwd, it->d_name);
+		fileWidget->select(fname);
+	}
+
 public:
 	friend FileWidget;
 	FileGrid(FileWidget* fileWidget) {
