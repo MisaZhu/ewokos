@@ -32,7 +32,7 @@ public:
 	XWin(void);
 
 	inline virtual ~XWin(void) {
-		//this->close();
+		close();
 	}
 
 	inline X* getX(void) {return x;}

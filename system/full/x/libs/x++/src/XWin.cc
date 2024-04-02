@@ -96,6 +96,7 @@ void XWin::close() {
 	if(xwin == NULL)
 		return;
 	xwin_close(xwin);
+	xwin_destroy(xwin);
 	xwin = NULL;
 }
 

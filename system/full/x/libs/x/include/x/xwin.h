@@ -33,15 +33,16 @@ typedef struct st_xwin {
 } xwin_t;
 
 xwin_t*  xwin_open(x_t* xp, uint32_t disp_index, int x, int y, int w, int h, const char* title, int style);
-void     xwin_close(xwin_t* x);
-int      xwin_set_visible(xwin_t* x, bool visible);
-int      xwin_top(xwin_t* x);
-void     xwin_set_alpha(xwin_t* x, bool alpha);
-void     xwin_repaint(xwin_t* x);
-//void     xwin_repaint_req(xwin_t* x);
+void     xwin_close(xwin_t* xwin);
+void     xwin_destroy(xwin_t* xwin);
+int      xwin_set_visible(xwin_t* xwin, bool visible);
+int      xwin_top(xwin_t* xwin);
+void     xwin_set_alpha(xwin_t* xwin, bool alpha);
+void     xwin_repaint(xwin_t* xwin);
+//void     xwin_repaint_req(xwin_t* xwin);
 int      xwin_fullscreen(xwin_t* xwin);
-int      xwin_resize(xwin_t* x, int dw, int dh);
-int      xwin_resize_to(xwin_t* x, int w, int h);
+int      xwin_resize(xwin_t* xwin, int dw, int dh);
+int      xwin_resize_to(xwin_t* xwin, int w, int h);
 int      xwin_move(xwin_t* xwin, int dx, int dy);
 int      xwin_move_to(xwin_t* xwin, int x, int y);
 int      xwin_set_display(xwin_t* xwin, uint32_t display_index);

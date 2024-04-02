@@ -128,6 +128,11 @@ static graph_t* x_get_graph(xwin_t* xwin, graph_t* g) {
 	return g;
 }
 
+void xwin_destroy(xwin_t* xwin) {
+	if(xwin != NULL)
+		free(xwin);
+}
+
 void xwin_close(xwin_t* xwin) {
 	if(xwin == NULL)
 		return;
@@ -148,7 +153,6 @@ void xwin_close(xwin_t* xwin) {
 
 	if(xwin->x->prompt_win == xwin)
 		xwin->x->prompt_win = NULL;
-	free(xwin);
 }
 
 void xwin_repaint(xwin_t* xwin) {
