@@ -131,8 +131,11 @@ static graph_t* x_get_graph(xwin_t* xwin, graph_t* g) {
 void xwin_close(xwin_t* xwin) {
 	if(xwin == NULL)
 		return;
-	if(xwin->on_close)
-		xwin->on_close(xwin);
+
+	if(xwin->on_close) {
+		if(!xwin->on_close(xwin))
+			return;
+	}
 
 	if(xwin->g_shm != NULL)
 		shmdt(xwin->g_shm);
@@ -230,10 +233,7 @@ int xwin_event_handle(xwin_t* xwin, xevent_t* ev) {
 		return -1;
 
 	if(ev->value.window.event == XEVT_WIN_CLOSE) {
-		if(xwin->x->main_win == xwin)
-			xwin->x->terminated = true;
-		else
-			xwin_close(xwin);
+		xwin_close(xwin);
 	}
 	else if(ev->value.window.event == XEVT_WIN_FOCUS) {
 		if(xwin->x->prompt_win != NULL && xwin->x->prompt_win != xwin) {

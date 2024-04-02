@@ -144,8 +144,11 @@ int main(int argc, char** argv) {
 	list->setScrollerH(sr);
 	root->add(sr);
 
+	WidgetWin win1;
 	x.open(0, &win, -1, -1, 400, 300, "widgetTest", XWIN_STYLE_NORMAL);
+	x.open(0, &win1, -1, -1, 400, 300, "widgetTest", XWIN_STYLE_NORMAL | XWIN_STYLE_PROMPT);
 	win.setVisible(true);
+	win1.setVisible(true);
 	win.setTimer(12);
 	x.run(NULL, &win);
 	return 0;

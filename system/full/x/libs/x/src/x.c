@@ -254,8 +254,9 @@ int  x_run(x_t* x, void* loop_data) {
 		if(res == 0) {
 			xwin_t* xwin = (xwin_t*)xev.win;
 			if(xwin != NULL) {
-				if(xev.type == XEVT_WIN)
+				if(xev.type == XEVT_WIN) {
 					xwin_event_handle(xwin, &xev);
+				}	
 				if(xwin->on_event != NULL) {
 					if(xwin->x->prompt_win == NULL ||
 							xwin->x->prompt_win == xwin) //has prompt win, can't response

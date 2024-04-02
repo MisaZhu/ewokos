@@ -236,7 +236,7 @@ static void x_get_event(int from_pid, proto_t* out) {
 
 static void x_push_event(x_t* x, xwin_t* win, xevent_t* e) {
 	(void)x;
-	if(win->from_pid <= 0 || win->xinfo == NULL)
+	if(win == NULL || win->from_pid <= 0 || win->xinfo == NULL)
 		return;
 	e->win = win->xinfo->win;
 	xevent_push(win->from_pid, e);

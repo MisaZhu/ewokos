@@ -41,13 +41,13 @@ static void _on_move(xwin_t* xw) {
 	xwin->__doMove();
 }
 
-static void _on_close(xwin_t* xw) {
+static bool _on_close(xwin_t* xw) {
 	if(xw == NULL)
-		return;
+		return false;
 	XWin* xwin = (XWin*)xw->data;
 	if(xwin == NULL)
-		return;
-	xwin->__doClose();
+		return false;
+	return xwin->__doClose();
 }
 
 static void _on_focus(xwin_t* xw) {
