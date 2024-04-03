@@ -18,7 +18,7 @@ protected:
 	bool onMouse(xevent_t* ev);
 	bool onIM(xevent_t* ev);
 
-	virtual void onScroll(int step, bool horizontal);
+	virtual bool onScroll(int step, bool horizontal);
     virtual void updateScroller();
 public:
 	List();

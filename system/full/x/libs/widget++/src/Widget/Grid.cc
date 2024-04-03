@@ -78,7 +78,8 @@ void Grid::onResize() {
 	updateScroller();
 }
 
-void Grid::onScroll(int step, bool horizontal) {
+bool Grid::onScroll(int step, bool horizontal) {
+	int oldStart = itemStart;
 	itemStart -= (step*cols);
 	if(step < 0) {
 		if((itemStart + rows*cols)>= itemNum) {
@@ -92,7 +93,12 @@ void Grid::onScroll(int step, bool horizontal) {
 
 	if(itemStart < 0)
 		itemStart = 0;
+
+	if(oldStart == itemStart)
+		return false;
+
 	updateScroller();
+	return true;
 }
 
 bool Grid::onMouse(xevent_t* ev) {

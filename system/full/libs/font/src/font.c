@@ -51,7 +51,7 @@ static font_inst_t* get_free_inst(font_t* font) {
 	return NULL;
 }
 
-static font_inst_t* get_inst(font_t* font, uint16_t size) {
+font_inst_t* font_get_inst(font_t* font, uint16_t size) {
 	font_inst_t* inst = NULL;
 	for(int i=0; i<FONT_INST_MAX; i++) {
 		inst = &font->instances[i];
@@ -227,7 +227,7 @@ void font_char_size(uint16_t c, font_t* font, uint16_t size, uint16_t *w, uint16
 	if(h != NULL)
 		*h = 0;
 	
-	font_inst_t* inst = get_inst(font, size);
+	font_inst_t* inst = font_get_inst(font, size);
 	if(inst == NULL)
 		return;
 
@@ -288,7 +288,7 @@ void graph_draw_char_font(graph_t* g, int32_t x, int32_t y, TTY_U32 c,
 	if(h != NULL)
 		*h = 0;
 
-	font_inst_t* inst = get_inst(font, size);
+	font_inst_t* inst = font_get_inst(font, size);
 	if(inst == NULL)
 		return;
 
@@ -334,7 +334,7 @@ void graph_draw_char_font(graph_t* g, int32_t x, int32_t y, TTY_U32 c,
 
 void graph_draw_char_font_fixed(graph_t* g, int32_t x, int32_t y, TTY_U32 c,
 		font_t* font, uint16_t size, uint32_t color, TTY_U16 w, TTY_U16 h) {
-	font_inst_t* inst = get_inst(font, size);
+	font_inst_t* inst = font_get_inst(font, size);
 	if(inst == NULL)
 		return;
 

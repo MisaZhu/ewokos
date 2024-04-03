@@ -10,7 +10,7 @@ protected:
     Scroller* scrollerV;
     Scroller* scrollerH;
 
-	virtual void onScroll(int step, bool horizontal) = 0;
+	virtual bool onScroll(int step, bool horizontal) = 0;
     virtual void updateScroller() = 0;
 
     void setScrollerInfo(uint32_t range, uint32_t pos, uint32_t scrollW, bool horizontal);

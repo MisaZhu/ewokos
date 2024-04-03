@@ -15,42 +15,100 @@ using namespace EwokSTL;
 
 using namespace Ewok;
 
-class FontDemo: public Widget {
+class FontDemo: public Scrollable {
+	int off_y;
+	uint32_t demoH;
+	int last_mouse_down;
 protected:
+	font_t* font;
 	void onRepaint(graph_t* g, XTheme* theme, const grect_t& r) {
 		graph_fill(g, r.x, r.y, r.w, r.h, theme->basic.bgColor);
 
-		int y = 10;
-		if(font != NULL) {
-			graph_draw_text_font(g, r.x+10, y, "abcdefghijklmn", font, 12, theme->basic.fgColor);
-			y += 20;
-			graph_draw_text_font(g, r.x+10, y, "opqrstuvwxyz", font, 12, theme->basic.fgColor);
-			y += 20;
-			graph_draw_text_font(g, r.x+10, y, "0123456789.+-", font, 12, theme->basic.fgColor);
-			y += 20;
-			graph_draw_text_font(g, r.x+10, y, "~!@#$%%^&*()", font, 12, theme->basic.fgColor);
-			y += 20;
-			graph_draw_text_font(g, r.x+10, y, "中文字体演示", font, 12, theme->basic.fgColor);
-			y += 20;
-			y += 20;
+		if(font == NULL)
+			return;
 
-			graph_draw_text_font(g, r.x+10, y, "abcdefghijklmn", font, 24, theme->basic.fgColor);
-			y += 20;
-			graph_draw_text_font(g, r.x+10, y, "opqrstuvwxyz", font, 24, theme->basic.fgColor);
-			y += 20;
-			graph_draw_text_font(g, r.x+10, y, "0123456789.+-", font, 24, theme->basic.fgColor);
-			y += 20;
-			graph_draw_text_font(g, r.x+10, y, "~!@#$%%^&*()", font, 24, theme->basic.fgColor);
-			y += 20;
-			graph_draw_text_font(g, r.x+10, y, "中文字体演示", font, 24, theme->basic.fgColor);
+		uint32_t y = 0;
+		uint16_t margin = 4;
+		for(int i=0; i<4; i++) {
+			uint16_t size = (i+1) * 12;
+			graph_draw_text_font(g, r.x+10, y - off_y, "abcdefghijklmn", font, size, theme->basic.fgColor);
+			y += size + margin;
+			graph_draw_text_font(g, r.x+10, y - off_y, "opqrstuvwxyz", font, size, theme->basic.fgColor);
+			y += size + margin;
+			graph_draw_text_font(g, r.x+10, y - off_y, "0123456789.+-", font, size, theme->basic.fgColor);
+			y += size + margin;
+			graph_draw_text_font(g, r.x+10, y - off_y, "~!@#$%%^&*()", font, size, theme->basic.fgColor);
+			y += size + margin;
+			graph_draw_text_font(g, r.x+10, y - off_y, "中文字体演示", font, size, theme->basic.fgColor);
+			y += (size + margin)*2;
 		}
+
+		demoH = y;
+		updateScroller();
 	}
 
-	font_t* font;
+	bool onScroll(int step, bool horizontal) {
+		int old_off = off_y;
+		off_y -= step;
+
+		if(step < 0) {
+			if((off_y + area.h) >= demoH)
+				off_y = demoH - area.h;
+		}
+
+		if(off_y < 0)
+			off_y = 0;
+		
+		if(off_y == old_off)
+			return false;
+
+		updateScroller();
+		return true;
+	}
+
+	void onResize() {
+		updateScroller();
+	}
+
+	void updateScroller() {
+		if(demoH <= area.h && off_y > 0)
+			setScrollerInfo(area.h + off_y, off_y, area.h, false);
+		else
+			setScrollerInfo(demoH, off_y, area.h, false);
+	}
+
+	bool onMouse(xevent_t* ev) {
+		gpos_t ipos = getInsidePos(ev->value.mouse.x, ev->value.mouse.y);
+		if(ev->state == XEVT_MOUSE_DOWN) {
+			last_mouse_down = ipos.y;
+			update();
+		}
+		else if(ev->state == XEVT_MOUSE_DRAG) {
+			int pos = ipos.y;
+			int mv = (pos - last_mouse_down) * 2;
+			if(abs_32(mv) > 0) {
+				last_mouse_down = pos;
+				scroll(mv, false);
+			}
+		}
+		else if(ev->state == XEVT_MOUSE_MOVE) {
+			if(ev->value.mouse.button == MOUSE_BUTTON_SCROLL_UP) {
+				scroll(-16, false);
+			}
+			else if(ev->value.mouse.button == MOUSE_BUTTON_SCROLL_DOWN) {
+				scroll(16, false);
+			}
+		}
+		return true;
+	}
+
 public: 
 	FontDemo() {
 		font = NULL;
+		off_y = 0;
+		demoH = 0;
 	}
+
 	~FontDemo() {
 		if(font != NULL)
 			font_free(font);
@@ -141,6 +199,11 @@ int main(int argc, char** argv) {
 	FontDemo* demo = new FontDemo();
 	root->add(demo);
 	list->setDemo(demo);
+
+	scrollerV = new Scroller();
+	scrollerV->fix(8, 0);
+	root->add(scrollerV);
+	demo->setScrollerV(scrollerV);
 
 	win.open(&x, 0, -1, -1, 460, 460, "xfont", XWIN_STYLE_NORMAL);
 	x.run(NULL, &win);

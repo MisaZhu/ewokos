@@ -84,7 +84,8 @@ protected:
 				g, r.x-off_x, r.y-off_y, img->w, img->h, 0xff);
 	}
 
-	void onScroll(int step, bool horizontal) {
+	bool onScroll(int step, bool horizontal) {
+		return false;
 	}
 
 	void onResize() {

@@ -47,6 +47,8 @@ int     font_free(font_t* font);
 
 TTY_Glyph* font_init_glyph(TTY_Glyph* glyph); 
 
+font_inst_t* font_get_inst(font_t* font, uint16_t size);
+
 void font_char_size(uint16_t c, font_t* font, uint16_t size, uint16_t *w, uint16_t* h);
 void font_text_size(const char* str, font_t* font , uint16_t size, uint32_t *w, uint32_t* h);
 

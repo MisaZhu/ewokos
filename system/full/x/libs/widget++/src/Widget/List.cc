@@ -83,7 +83,8 @@ void List::onResize() {
 	updateScroller();
 }
 
-void List::onScroll(int step, bool horizontal) {
+bool List::onScroll(int step, bool horizontal) {
+	int oldStart = itemStart;
 	itemStart -= step;
 	if(step < 0) {
 		if((itemStart+itemNumInView) >= itemNum) {
@@ -95,7 +96,12 @@ void List::onScroll(int step, bool horizontal) {
 
 	if(itemStart < 0)
 		itemStart = 0;
+
+	if(oldStart == itemStart)
+		return false;
+
 	updateScroller();
+	return true;
 }
 
 bool List::onMouse(xevent_t* ev) {
