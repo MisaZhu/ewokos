@@ -12,8 +12,10 @@ class Dialog: public WidgetWin {
 protected:
 	XWin* owner;
 public:
-	static const int RES_CANCEL = 0;
-	static const int RES_OK = 1;
+	static const int RES_CANCEL =  0;
+	static const int RES_OK =      1;
+	static const int RES_DEFAULT = 2;
+	static const int RES_RESET =   3;
 
 	Dialog();
 
