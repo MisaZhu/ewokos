@@ -20,7 +20,6 @@ public:
 	Dialog();
 
 	void submit(int res);
-	bool popup(XWin* owner, int x, int y, uint32_t w, uint32_t h, const char* title, uint32_t style);
 	bool popup(XWin* owner, uint32_t w, uint32_t h, const char* title, uint32_t style);
 };
 
