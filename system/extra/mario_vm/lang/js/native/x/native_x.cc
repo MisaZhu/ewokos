@@ -108,7 +108,7 @@ var_t* native_x_open(vm_t* vm, var_t* env, void* data) {
 
 	X* xp = get_x();
 	JSWin *xwin = new JSWin();
-	xp->open(0, xwin, x, y, w, h, title, XWIN_STYLE_NORMAL);
+	xwin->open(xp, 0, x, y, w, h, title, XWIN_STYLE_NORMAL);
 
 	var_t* var_win = new_obj(vm, CLS_XWIN, 0);
 	var_win->value = xwin;
