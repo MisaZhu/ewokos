@@ -314,5 +314,6 @@ void FileWidget::enter(const string& pathname) {
 }
 
 void FileWidget::select(const string& fname) {
+	file = fname;
 	onSelect(fname);
 }

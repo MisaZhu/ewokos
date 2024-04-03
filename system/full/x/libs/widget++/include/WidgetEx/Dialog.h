@@ -10,10 +10,12 @@ namespace Ewok {
 class Dialog: public WidgetWin {
 protected:
 	XWin* owner;
-	virtual const string submit() = 0;
-	bool onClose();
+	virtual string getResult() = 0;
 public:
 	Dialog();
+
+	void cancel();
+	void submit();
 	bool popup(XWin* owner, int x, int y, uint32_t w, uint32_t h, const char* title, uint32_t style);
 };
 
