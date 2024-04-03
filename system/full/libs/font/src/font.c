@@ -55,7 +55,7 @@ static font_inst_t* get_inst(font_t* font, uint16_t size) {
 	font_inst_t* inst = NULL;
 	for(int i=0; i<FONT_INST_MAX; i++) {
 		inst = &font->instances[i];
-		if(inst->id != 0 && inst->ppm == size)
+		if(inst->cache != NULL && inst->ppm == size)
 			return inst;
 	}
 
@@ -125,8 +125,9 @@ static inline const char* hash_key(uint16_t c) {
 }
 
 static int font_fetch_cache(font_inst_t* inst, uint16_t c, TTY_Glyph* glyph) {
-	if(inst == NULL || inst->cache == NULL)
+	if(inst == NULL || inst->cache == NULL) {
 		return -1;
+	}
 
 	TTY_Glyph* p;
 	if(hashmap_get(inst->cache, hash_key(c), (void**)&p) == 0) {
@@ -137,8 +138,9 @@ static int font_fetch_cache(font_inst_t* inst, uint16_t c, TTY_Glyph* glyph) {
 }
 
 static void font_cache(font_inst_t* inst, uint16_t c, TTY_Glyph* glyph) {
-	if(inst == NULL || inst->cache == NULL)
+	if(inst == NULL || inst->cache == NULL) {
 		return;
+	}
 
 	TTY_Glyph* p = (TTY_Glyph*)malloc(sizeof(TTY_Glyph));
 	if(p == NULL)
