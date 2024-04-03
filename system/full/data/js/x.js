@@ -57,5 +57,4 @@ xwin.onIM = function(imEvt) {
     repaint();
 };
 
-xwin.setVisible(true);
 X.run();

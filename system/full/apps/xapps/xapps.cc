@@ -147,8 +147,7 @@ int main(int argc, char** argv) {
 	root->add(scrollerV);
 	apps->setScrollerV(scrollerV);
 
-	x.open(0, &win, -1, -1, 320, 240, "xapps", XWIN_STYLE_NORMAL);
-	win.setVisible(true);
+	win.open(&x, 0, -1, -1, 320, 240, "xapps", XWIN_STYLE_NORMAL);
 	x.run(NULL, &win);
 	return 0;
 }

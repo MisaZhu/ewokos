@@ -208,9 +208,8 @@ int main(int argc, char** argv) {
 		apps->setHorizontal(true);
 	}
 
-	x.open(0, &win, wr, "xlauncher",
+	win.open(&x, 0, wr, "xlauncher",
 				XWIN_STYLE_NO_TITLE | XWIN_STYLE_LAUNCHER | XWIN_STYLE_SYSBOTTOM | XWIN_STYLE_ANTI_FSCR);
-	win.setVisible(true);
 	x.run(NULL, &win);
 	return 0;
 }

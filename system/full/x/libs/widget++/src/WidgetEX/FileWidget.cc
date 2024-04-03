@@ -9,6 +9,7 @@
 #include <unistd.h>
 
 #include <x++/X.h>
+
 using namespace Ewok;
 
 #define MAX_FILES 1024
@@ -299,4 +300,19 @@ void FileWidget::build() {
 FileWidget::FileWidget() {
 	itemSize = 72;
 	build();
+}
+
+
+void FileWidget::load(const string& fname, const string& open_with) {
+	file = fname;
+	onFile(fname, open_with);
+}
+
+void FileWidget::enter(const string& pathname) {
+	path = pathname;
+	onPath(pathname);
+}
+
+void FileWidget::select(const string& fname) {
+	onSelect(fname);
 }

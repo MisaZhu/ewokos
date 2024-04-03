@@ -224,8 +224,7 @@ int main(int argc, char *argv[])
 
 	X x;
 	x.getScreenInfo(scr, 0);
-	x.open(0, &saver, -1, -1, scr.size.w/2, scr.size.h/2, "ScreenSaver", XWIN_STYLE_NORMAL);
-	saver.setVisible(true);
+	saver.open(&x, 0, -1, -1, scr.size.w/2, scr.size.h/2, "ScreenSaver", XWIN_STYLE_NORMAL);
 
 	x.run(loop, &saver);
 

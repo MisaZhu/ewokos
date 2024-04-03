@@ -144,8 +144,7 @@ int main(int argc, char* argv[]) {
 
 	X x;
 	TestX xwin;
-	x.open(0, &xwin, -1, -1, 0, 0, "gtest", XWIN_STYLE_NORMAL);
-	xwin.setVisible(true);
+	xwin.open(&x, 0, -1, -1, 0, 0, "gtest", XWIN_STYLE_NORMAL);
 
 	_xwin = &xwin;
 	uint32_t tid = timer_set(10000, timer_handler);

@@ -6,6 +6,8 @@
 #include <Widget/EditLine.h>
 #include <Widget/Grid.h>
 #include <Widget/Scroller.h>
+#include <WidgetEx/FileDialog.h>
+
 #include <x++/X.h>
 #include <unistd.h>
 #include <font/font.h>
@@ -94,9 +96,17 @@ public:
 	}
 };
 
+class MyWidgetWin: public WidgetWin{
+protected:
+	void onMessage(const string& msg) {
+		klog("%s\n", msg.c_str());
+	}
+
+};
+
 int main(int argc, char** argv) {
 	X x;
-	WidgetWin win;
+	MyWidgetWin win;
 	RootWidget* root = new RootWidget();
 	win.setRoot(root);
 	root->setType(Container::VERTICLE);
@@ -144,12 +154,10 @@ int main(int argc, char** argv) {
 	list->setScrollerH(sr);
 	root->add(sr);
 
-	WidgetWin win1;
-	x.open(0, &win, -1, -1, 400, 300, "widgetTest", XWIN_STYLE_NORMAL);
-	x.open(0, &win1, -1, -1, 400, 300, "widgetTest", XWIN_STYLE_NORMAL | XWIN_STYLE_PROMPT);
-	win.setVisible(true);
-	win1.setVisible(true);
+	FileDialog fdialog;
+	win.open(&x, 0, -1, -1, 400, 300, "widgetTest", XWIN_STYLE_NORMAL);
 	win.setTimer(12);
+	fdialog.popup(&win, 100, 100, 400, 300, "files", XWIN_STYLE_NORMAL);
 	x.run(NULL, &win);
 	return 0;
 }

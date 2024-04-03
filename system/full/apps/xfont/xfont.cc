@@ -154,8 +154,7 @@ int main(int argc, char** argv) {
 	root->add(demo);
 	list->setDemo(demo);
 
-	x.open(0, &win, -1, -1, 460, 460, "xfont", XWIN_STYLE_NORMAL);
-	win.setVisible(true);
+	win.open(&x, 0, -1, -1, 460, 460, "xfont", XWIN_STYLE_NORMAL);
 	x.run(NULL, &win);
 	return 0;
 }

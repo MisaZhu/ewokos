@@ -181,8 +181,7 @@ static void* thread_loop(void* p) {
 	X x;
 	grect_t desk;
 	x.getDesktopSpace(desk, 0);
-	x.open(0, _xwin, -1, -1, desk.w*2/3, desk.h*2/3, "xterm", 0);
-	_xwin->setVisible(true);
+	_xwin->open(&x, 0, -1, -1, desk.w*2/3, desk.h*2/3, "xterm", 0);
 	uint32_t timer_id = timer_set(500000, timer_handler);
 	x.run(win_loop, _xwin);
 	timer_remove(timer_id);

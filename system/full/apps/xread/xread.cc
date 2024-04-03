@@ -193,14 +193,13 @@ int main(int argc, char* argv[]) {
 	}
 
 	X x;
-	x.open(0, &xwin, -1,
+	xwin.open(&x, 0, -1,
 			-1,
 			0,
 			0,
 			title.c_str(),
 			XWIN_STYLE_NORMAL);
 
-	xwin.setVisible(true);
 	x.run(loop, &xwin);
 	return 0;
 }

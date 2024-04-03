@@ -174,7 +174,7 @@ protected:
 
 		if(menu == NULL) {
 			menu = new MenuWin();
-			_x->open(0, menu, r.x, r.y+r.h, 100, 100, "menu", XWIN_STYLE_NO_FRAME);
+			menu->open(_x, 0, r.x, r.y+r.h, 100, 100, "menu", XWIN_STYLE_NO_FRAME);
 		}
 		menu->pop();
 	}
@@ -247,10 +247,8 @@ int main(int argc, char* argv[]) {
 	WidgetWin xwin;
 	xwin.setRoot(new Menubar());
 
-	x.open(0, &xwin, 0, 0, scr.size.w, 28, "menubar",
+	xwin.open(&x, 0, 0, 0, scr.size.w, 28, "menubar",
 			XWIN_STYLE_NO_FRAME | XWIN_STYLE_NO_FOCUS| XWIN_STYLE_SYSBOTTOM | XWIN_STYLE_ANTI_FSCR);
-	
-	xwin.setVisible(true);
 
 	grect_t desk;
 	x.getDesktopSpace(desk, 0);

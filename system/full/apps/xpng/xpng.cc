@@ -5,6 +5,8 @@
 #include <Widget/List.h>
 #include <Widget/Grid.h>
 #include <Widget/Scroller.h>
+#include <WidgetEx/FileDialog.h>
+
 #include <x++/X.h>
 #include <unistd.h>
 #include <font/font.h>
@@ -209,12 +211,20 @@ public:
 	~ImageView() {
 		if(img != NULL)
 			graph_free(img);
+
+		if(imgOrig != NULL)
+			graph_free(imgOrig);
 	}
 
 	void loadImage(const char* fname) {
+		if(imgOrig != NULL)
+			graph_free(imgOrig);
+
 		imgOrig = png_image_new(fname);
 		zoom = 1.0;
 		zoomImg();
+		updateScroller();
+		update();
 	}
 
 	void setStatusLabel(StatusLabel* l) {
@@ -222,9 +232,19 @@ public:
 	}
 };
 
+class PngWin: public WidgetWin{
+protected:
+	void onMessage(XWin* from, const string& msg) {
+		if(msg.length() > 0)
+			imgView->loadImage(msg.c_str());
+	}
+public:
+	ImageView* imgView;
+};
+
 int main(int argc, char** argv) {
 	X x;
-	WidgetWin win;
+	PngWin win;
 	RootWidget* root = new RootWidget();
 	win.setRoot(root);
 	root->setType(Container::VERTICLE);
@@ -236,11 +256,11 @@ int main(int argc, char** argv) {
 
 	ImageView* imgView = new ImageView();
 	c->add(imgView);
+	win.imgView = imgView;
 
 	Scroller *sr = new Scroller();
 	sr->fix(8, 0);
 	imgView->setScrollerV(sr);
-	imgView->loadImage(argc < 2 ? "/data/test/test.png":argv[1]);
 	c->add(sr);
 
 	sr = new Scroller(true);
@@ -253,9 +273,16 @@ int main(int argc, char** argv) {
 	imgView->setStatusLabel(statusLabel);
 	root->add(statusLabel);
 
-	x.open(0, &win, -1, -1, 400, 300, "xpng", XWIN_STYLE_NORMAL);
-	win.setVisible(true);
-	win.setTimer(12);
+	win.open(&x, 0, -1, -1, 400, 300, "xpng", XWIN_STYLE_NORMAL);
+	
+	FileDialog fdialog;
+	if(argc < 2) {
+		fdialog.popup(&win, 100, 100, 400, 300, "files", XWIN_STYLE_NORMAL);
+	}
+	else {
+		imgView->loadImage(argv[1]);
+	}
+
 	x.run(NULL, &win);
 	return 0;
 }

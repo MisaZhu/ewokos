@@ -389,7 +389,7 @@ int main(int argc, char* argv[]) {
 		ph = atoi(argv[2]);
 
 	XIMX xwin(scr.size.w, scr.size.h, pw, ph);
-	x.open(0, &xwin, scr.size.w - pw, scr.size.h - ph, pw, ph, "xim",
+	xwin.open(&x, 0, scr.size.w - pw, scr.size.h - ph, pw, ph, "xim",
 			XWIN_STYLE_NO_FRAME | XWIN_STYLE_NO_FOCUS | XWIN_STYLE_SYSTOP | XWIN_STYLE_XIM | XWIN_STYLE_ANTI_FSCR);
 	x.run(NULL, &xwin);
 	return 0;

@@ -24,8 +24,9 @@ $(XPNG): $(XPNG_OBJS) \
 		$(BUILD_DIR)/lib/libfont.a \
 		$(BUILD_DIR)/lib/libsconf.a \
 		$(BUILD_DIR)/lib/libwidget++.a \
+		$(BUILD_DIR)/lib/libtinyjson.a \
 		$(BUILD_DIR)/lib/libcxx.a 
-	$(LD) -Ttext=100 $(XPNG_OBJS) -o $(XPNG) $(LDFLAGS) -lwidget++ -lgraph -lbsp -lttf -lfont -lx++ -lx -lsconf -lupng -lewokstl $(EWOK_LIBC) -lcxx
+	$(LD) -Ttext=100 $(XPNG_OBJS) -o $(XPNG) $(LDFLAGS) -lwidget++ -lgraph -lbsp -lttf -lfont -lx++ -lx -lsconf -ltinyjson -lupng -lewokstl $(EWOK_LIBC) -lcxx
 
 $(XPNG_DIR):
 	mkdir -p $(XPNG_DIR)

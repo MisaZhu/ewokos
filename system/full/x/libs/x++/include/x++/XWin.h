@@ -4,7 +4,9 @@
 #include <x/xwin.h>
 #include <x++/XTheme.h>
 #include <graph/graph_ex.h>
+#include <string>
 
+using namespace EwokSTL;
 namespace Ewok {
 
 class X;
@@ -12,11 +14,13 @@ class X;
 class XWin {
 protected:
 	X* x;
+	uint32_t displayIndex;
 	xwin_t* xwin;
 	XTheme theme;
 	virtual void onRepaint(graph_t* g) = 0;
 
 	inline virtual bool onClose(void)   { return true; }
+	inline virtual void onOpen(void)   {  }
 	inline virtual void onMin(void)     { }
 	inline virtual void onResize(void)  { }
 	inline virtual void onMove(void)  { }
@@ -24,6 +28,7 @@ protected:
 	inline virtual void onUnfocus(void) { }
 	inline virtual void onReorg(void)   { }
 	inline virtual void onEvent(xevent_t* ev)  { (void)ev; }
+	inline virtual void onMessage(XWin* from, const string& msg)  { (void)from; (void) msg; }
 
 	inline bool repaintLazy(void)  {
 		return xwin->xinfo->repaint_lazy;
@@ -36,8 +41,7 @@ public:
 	}
 
 	inline X* getX(void) {return x;}
-
-	inline void setX(X* x) { this->x = x;}
+	inline uint32_t getDisplayIndex(void) {return displayIndex;}
 
 	void setCWin(xwin_t* xw);
 
@@ -53,7 +57,12 @@ public:
 	inline void __doReorg(void) { onReorg(); }
 	inline void __doEvent(xevent_t* ev) { onEvent(ev); }
 
+	inline void message(XWin* from, const string& msg) { onMessage(from, msg); }
+
 	void close(void);
+	bool open(X* xp, uint32_t dispIndex, int x, int y, uint32_t w, uint32_t h,
+			const char* title, uint32_t style, bool visible = true);
+	bool open(X* xp, uint32_t dispIndex, const grect_t& r, const char* title, uint32_t style, bool visible = true);
 	bool setVisible(bool visible);
 	void setAlpha(bool alpha);
 	bool callXIM(void);

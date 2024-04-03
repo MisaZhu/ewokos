@@ -400,8 +400,6 @@ int main(int argc, char *argv[])
 	X x;
 	x.getScreenInfo(scr, 0);
 
-	//x.open(0, &emu, scr.size.w /2  - 128 , scr.size.h /2 - 128, 256, 256, "NesEmu", XWIN_STYLE_NO_RESIZE);
-	//x.open(0, &emu, 10, 10, scr.size.w-20, scr.size.h-20, "NesEmu", XWIN_STYLE_NORMAL);
 	int zoom;
 	if(scr.size.h > 240)
 		zoom = scr.size.h / 240;
@@ -413,8 +411,7 @@ int main(int argc, char *argv[])
 		zoom = 1;
 	scale = zoom;
 
-	x.open(0, &emu, -1, -1, 256*zoom, 240*zoom, "NesEmu", XWIN_STYLE_NO_RESIZE);
-	emu.setVisible(true);
+	emu.open(&x, 0, -1, -1, 256*zoom, 240*zoom, "NesEmu", XWIN_STYLE_NO_RESIZE);
 	emu.fullscreen();
 	/*_xwin = &emu;
 	uint32_t tid = timer_set(10000, loop);
