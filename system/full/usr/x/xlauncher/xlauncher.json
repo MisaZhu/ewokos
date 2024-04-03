@@ -5,6 +5,7 @@
         {"name":"xfinder", "file": "/apps/xfinder/xfinder"},
         {"name":"xapps", "file": "/apps/xapps/xapps"},
         {"name":"xterm", "file": "/apps/xterm/xterm"},
+        {"name":"xpng", "file": "/apps/xpng/xpng"},
         {"name":"clock", "file": "/apps/clock/clock"}
     ]
 }

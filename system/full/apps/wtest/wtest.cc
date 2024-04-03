@@ -154,10 +154,9 @@ int main(int argc, char** argv) {
 	list->setScrollerH(sr);
 	root->add(sr);
 
-	FileDialog fdialog;
 	win.open(&x, 0, -1, -1, 400, 300, "widgetTest", XWIN_STYLE_NORMAL);
 	win.setTimer(12);
-	fdialog.popup(&win, 100, 100, 400, 300, "files", XWIN_STYLE_NORMAL);
+
 	x.run(NULL, &win);
 	return 0;
 }

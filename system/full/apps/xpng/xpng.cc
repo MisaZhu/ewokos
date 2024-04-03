@@ -290,22 +290,18 @@ int main(int argc, char** argv) {
 	imgView->setScrollerH(sr);
 	root->add(sr);
 
-	c = new Container();
-	c->setType(Container::HORIZONTAL);
-	c->fix(0, 20);
-	root->add(c);
-
 	StatusLabel* statusLabel = new StatusLabel("");
 	imgView->setStatusLabel(statusLabel);
-	c->add(statusLabel);
+	statusLabel->fix(0, 20);
+	root->add(statusLabel);
 
 	LoadButton *lbutton = new LoadButton(&win, imgView);
-	lbutton->fix(100, 0);
-	c->add(lbutton);
+	lbutton->fix(0, 20);
+	root->add(lbutton);
 
 	win.open(&x, 0, -1, -1, 400, 300, "xpng", XWIN_STYLE_NORMAL);
-	
-	//win.load(imgView, argc < 2 ? "":argv[1]);
+	if(argc >= 2)
+		win.load(imgView, argv[1]);
 	x.run(NULL, &win);
 	return 0;
 }

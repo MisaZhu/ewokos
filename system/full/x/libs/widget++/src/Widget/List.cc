@@ -187,10 +187,7 @@ void List::setItemNumInView(uint32_t num) {
 	if(horizontal)
 		size = area.w;
 
-	itemSize = size / itemNumInView;
-	if((size % itemSize) != 0)
-		itemNumInView++;
-
+	itemSize = (float)size / (float)itemNumInView;
 	fixedItemSize = false;	
 	update();
 }

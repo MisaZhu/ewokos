@@ -105,6 +105,7 @@ class AppList: public List {
 			items[i].icon = getIconFname(name);
 		}
 		setItemNum(sz);
+		setItemNumInView(sz);
 		return true;
 	}
 
