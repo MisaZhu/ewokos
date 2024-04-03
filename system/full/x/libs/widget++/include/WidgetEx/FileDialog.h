@@ -11,6 +11,7 @@ protected:
 	const string submit();
 	FileWidget* fileWidget;
 	bool pathMode;
+	void onOpen();
 
 public:
 	FileDialog(bool path = false);

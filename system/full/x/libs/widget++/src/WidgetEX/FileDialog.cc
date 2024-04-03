@@ -15,7 +15,7 @@ public:
 	}
 };
 
-FileDialog::FileDialog(bool path) {
+void FileDialog::onOpen() {
 	RootWidget* root = new RootWidget();
 	setRoot(root);
 	root->setType(Container::VERTICLE);
@@ -23,6 +23,9 @@ FileDialog::FileDialog(bool path) {
 
 	fileWidget = new FWidget(this);
 	root->add(fileWidget);
+}
+
+FileDialog::FileDialog(bool path) {
 	pathMode = path;
 }
 

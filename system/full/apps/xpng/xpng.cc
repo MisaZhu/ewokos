@@ -233,13 +233,36 @@ public:
 };
 
 class PngWin: public WidgetWin{
+	FileDialog fdialog;
+	ImageView* imgView;
 protected:
 	void onMessage(XWin* from, const string& msg) {
 		if(msg.length() > 0)
 			imgView->loadImage(msg.c_str());
 	}
 public:
+
+	void load(ImageView* imgView, const string& fname) {
+		this->imgView = imgView;
+		if(fname.length() == 0)
+			fdialog.popup(this, 100, 100, 400, 300, "files", XWIN_STYLE_NORMAL);
+		else
+			imgView->loadImage(fname.c_str());
+	}
+};
+
+class LoadButton: public LabelButton {
+	PngWin* pngWin;
 	ImageView* imgView;
+protected:
+	void onClick() {
+		pngWin->load(imgView, "");
+	}
+public:
+	LoadButton(PngWin* pwin, ImageView* imgView) : LabelButton("load") {
+		this->imgView = imgView;
+		pngWin = pwin;
+	}
 };
 
 int main(int argc, char** argv) {
@@ -256,7 +279,6 @@ int main(int argc, char** argv) {
 
 	ImageView* imgView = new ImageView();
 	c->add(imgView);
-	win.imgView = imgView;
 
 	Scroller *sr = new Scroller();
 	sr->fix(8, 0);
@@ -268,21 +290,22 @@ int main(int argc, char** argv) {
 	imgView->setScrollerH(sr);
 	root->add(sr);
 
+	c = new Container();
+	c->setType(Container::HORIZONTAL);
+	c->fix(0, 20);
+	root->add(c);
+
 	StatusLabel* statusLabel = new StatusLabel("");
-	statusLabel->fix(0, 16);
 	imgView->setStatusLabel(statusLabel);
-	root->add(statusLabel);
+	c->add(statusLabel);
+
+	LoadButton *lbutton = new LoadButton(&win, imgView);
+	lbutton->fix(100, 0);
+	c->add(lbutton);
 
 	win.open(&x, 0, -1, -1, 400, 300, "xpng", XWIN_STYLE_NORMAL);
 	
-	FileDialog fdialog;
-	if(argc < 2) {
-		fdialog.popup(&win, 100, 100, 400, 300, "files", XWIN_STYLE_NORMAL);
-	}
-	else {
-		imgView->loadImage(argv[1]);
-	}
-
+	//win.load(imgView, argc < 2 ? "":argv[1]);
 	x.run(NULL, &win);
 	return 0;
 }
