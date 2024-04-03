@@ -86,7 +86,7 @@ public:
 		terminal.font_fixed = theme.basic.fontFixedSize;
 		if(terminal.font != NULL)
 			font_free(terminal.font);
-		terminal.font = font_new(theme.basic.fontName, terminal.font_size, true);
+		terminal.font = font_new(theme.basic.fontName, true);
 		return true;
 	}
 

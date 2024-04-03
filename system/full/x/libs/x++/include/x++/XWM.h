@@ -14,7 +14,8 @@ protected:
 	uint32_t titleH;
 	uint32_t frameW;
 
-	font_t font;
+	font_t* font;
+	uint32_t fontSize;
 	uint32_t bgColor;
 	uint32_t fgColor;
 	uint32_t bgTopColor;

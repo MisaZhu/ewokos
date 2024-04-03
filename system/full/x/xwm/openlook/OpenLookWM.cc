@@ -106,12 +106,12 @@ void OpenLookWM::drawTitle(graph_t* g, xinfo_t* info, grect_t* r, bool top) {
 	graph_get_3d_color(bg, &dark, &bright);
 
 	gsize_t sz;
-	font_text_size(info->title, &font, (uint32_t*)&sz.w, (uint32_t*)&sz.h);
+	font_text_size(info->title, font, fontSize, (uint32_t*)&sz.w, (uint32_t*)&sz.h);
 	
 	int pw = (r->w-sz.w)/2;
 	int ph = (r->h-sz.h)/2;
 	graph_fill(g, r->x, r->y, r->w, r->h, bg);
-	graph_draw_text_font(g, r->x+pw, r->y+ph, info->title, &font, fg);//title
+	graph_draw_text_font(g, r->x+pw, r->y+ph, info->title, font, fontSize, fg);//title
 
 	//graph_line(g, r->x, r->y+r->h-3, r->x+r->w, r->y+r->h-3, dark);
 	//graph_line(g, r->x, r->y+r->h-2, r->x+r->w, r->y+r->h-2, bright);

@@ -41,7 +41,7 @@ protected:
 			graph_box(g, r.x, r.y, r.w, r.h, 0xffaaaaaa);
 		char s[8];
 		snprintf(s, 7, "%d", index);
-		graph_draw_text_font(g, r.x+2, r.y+2, s, theme->getFont(), 0xff000000);
+		graph_draw_text_font(g, r.x+2, r.y+2, s, theme->getFont(), theme->basic.fontSize, 0xff000000);
 	}
 
 	void onSelect(int index) {
@@ -67,7 +67,7 @@ protected:
 		graph_blt_alpha(img, step*(img->w/steps), 0, img->w/steps, img->h,
 				g, r.x+pos, r.y+(r.h-img->h)/2, img->w/steps, img->h, 0xff);
 
-		graph_draw_text_font(g, r.x+pos+img->w/steps, r.y+2, editLine->getContent().c_str(), theme->getFont(), theme->basic.fgColor);
+		graph_draw_text_font(g, r.x+pos+img->w/steps, r.y+2, editLine->getContent().c_str(), theme->getFont(), theme->basic.fontSize, theme->basic.fgColor);
 
 		if(pos > r.w)
 			pos = 0;

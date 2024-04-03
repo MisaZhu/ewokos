@@ -10,6 +10,7 @@
 #include <ewoksys/proc.h>
 #include <string.h>
 #include <ewoksys/utf8unicode.h>
+#include <ewoksys/klog.h>
 
 #include <string>
 using namespace EwokSTL;
@@ -59,7 +60,7 @@ protected:
 		int x = 0;
 		int y = 0;
 		TTY_U16 w = 0;
-		TTY_U16 h = theme.getFont()->max_size.y;
+		TTY_U16 h = theme.basic.fontSize;
 		TTY_U16 tmp;
 		int i = 0;
 		while(i < read_len) {
@@ -78,7 +79,7 @@ protected:
 				continue;
 			}
 
-			font_char_size(unicode, theme.getFont(), &w, &tmp);
+			font_char_size(unicode, theme.getFont(), theme.basic.fontSize, &w, &tmp);
 			if((x + w) >= g->w){
 				x = 0;
 				y += h;
@@ -86,7 +87,7 @@ protected:
 					break;
 				}
 			}
-			graph_draw_char_font(g, x, y, unicode, theme.getFont(), theme.basic.fgColor, &w, NULL);
+			graph_draw_char_font(g, x, y, unicode, theme.getFont(), theme.basic.fontSize, theme.basic.fgColor, &w, NULL);
 			x += w;
 		}
 		

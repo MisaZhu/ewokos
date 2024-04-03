@@ -89,7 +89,7 @@ class BatteryItem : public Widget {
 		char txt[8];
 		snprintf(txt, 7, "%d%%", bat);
 		graph_draw_text_font_align(g, r.x, r.y, r.w, r.h,
-					txt, theme->getFont(), theme->basic.fgColor, FONT_ALIGN_CENTER);
+					txt, theme->getFont(), theme->basic.fontSize, theme->basic.fgColor, FONT_ALIGN_CENTER);
 		b++;
 		b%=4;
 	}
@@ -102,7 +102,7 @@ class BatteryItem : public Widget {
 		char txt[8];
 		snprintf(txt, 7, "%d%%", bat);
 		graph_draw_text_font_align(g, r.x, r.y, r.w, r.h,
-					txt, theme->getFont(), theme->basic.fgColor, FONT_ALIGN_CENTER);
+					txt, theme->getFont(), theme->basic.fontSize, theme->basic.fgColor, FONT_ALIGN_CENTER);
 	}
 
 	void drawBase(graph_t* g, grect_t& r) {

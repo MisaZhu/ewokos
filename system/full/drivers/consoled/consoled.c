@@ -36,7 +36,7 @@ static int32_t read_config(fb_console_t* console, const char* fname) {
 
 	sconf_t *conf = sconf_load(fname);	
 	if(conf == NULL) {
-		console->terminal.font = font_new(font_fname, font_size, true);
+		console->terminal.font = font_new(font_fname, true);
 		return -1;
 	}	
 
@@ -67,7 +67,7 @@ static int32_t read_config(fb_console_t* console, const char* fname) {
 
 	if(console->terminal.font != NULL)
 		font_free(console->terminal.font);
-	console->terminal.font = font_new(font_fname, font_size, true);
+	console->terminal.font = font_new(font_fname, true);
 	sconf_free(conf);
 	return 0;
 }

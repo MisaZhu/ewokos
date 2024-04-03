@@ -19,7 +19,7 @@ class Timer: public Widget {
 		char txt[4];
 		snprintf(txt, 3, "%02d", clock);
 		graph_draw_text_font_align(g, r.x, r.y, r.w, r.h,
-				txt, theme->getFont(), theme->basic.fgColor, FONT_ALIGN_CENTER);
+				txt, theme->getFont(), theme->basic.fontSize, theme->basic.fgColor, FONT_ALIGN_CENTER);
 
 		graph_set(g, r.x, r.y+r.h/2-1, r.w, 2, 0xaa000000);
 		graph_box(g, r.x, r.y, r.w, r.h/2-1, 0xff000000);

@@ -20,59 +20,47 @@ protected:
 	void onRepaint(graph_t* g, XTheme* theme, const grect_t& r) {
 		graph_fill(g, r.x, r.y, r.w, r.h, theme->basic.bgColor);
 
-		font_t* f = font;
 		int y = 10;
-		if(f != NULL) {
-			graph_draw_text_font(g, r.x+10, y, "abcdefghijklmn", f, theme->basic.fgColor);
+		if(font != NULL) {
+			graph_draw_text_font(g, r.x+10, y, "abcdefghijklmn", font, 12, theme->basic.fgColor);
 			y += 20;
-			graph_draw_text_font(g, r.x+10, y, "opqrstuvwxyz", f, theme->basic.fgColor);
+			graph_draw_text_font(g, r.x+10, y, "opqrstuvwxyz", font, 12, theme->basic.fgColor);
 			y += 20;
-			graph_draw_text_font(g, r.x+10, y, "0123456789.+-", f, theme->basic.fgColor);
+			graph_draw_text_font(g, r.x+10, y, "0123456789.+-", font, 12, theme->basic.fgColor);
 			y += 20;
-			graph_draw_text_font(g, r.x+10, y, "~!@#$%%^&*()", f, theme->basic.fgColor);
+			graph_draw_text_font(g, r.x+10, y, "~!@#$%%^&*()", font, 12, theme->basic.fgColor);
 			y += 20;
-			graph_draw_text_font(g, r.x+10, y, "中文字体演示", f, theme->basic.fgColor);
+			graph_draw_text_font(g, r.x+10, y, "中文字体演示", font, 12, theme->basic.fgColor);
 			y += 20;
-		}
-		y += 20;
+			y += 20;
 
-		f = fontBig;
-		if(f != NULL) {
-			graph_draw_text_font(g, r.x+10, y, "abcdefghijklmn", f, theme->basic.fgColor);
-			y += 40;
-			graph_draw_text_font(g, r.x+10, y, "opqrstuvwxyz", f, theme->basic.fgColor);
-			y += 40;
-			graph_draw_text_font(g, r.x+10, y, "0123456789.+-", f, theme->basic.fgColor);
-			y += 40;
-			graph_draw_text_font(g, r.x+10, y, "~!@#$%%^&*()", f, theme->basic.fgColor);
-			y += 40;
-			graph_draw_text_font(g, r.x+10, y, "中文字体演示", f, theme->basic.fgColor);
-			y += 40;
+			graph_draw_text_font(g, r.x+10, y, "abcdefghijklmn", font, 24, theme->basic.fgColor);
+			y += 20;
+			graph_draw_text_font(g, r.x+10, y, "opqrstuvwxyz", font, 24, theme->basic.fgColor);
+			y += 20;
+			graph_draw_text_font(g, r.x+10, y, "0123456789.+-", font, 24, theme->basic.fgColor);
+			y += 20;
+			graph_draw_text_font(g, r.x+10, y, "~!@#$%%^&*()", font, 24, theme->basic.fgColor);
+			y += 20;
+			graph_draw_text_font(g, r.x+10, y, "中文字体演示", font, 24, theme->basic.fgColor);
 		}
 	}
 
 	font_t* font;
-	font_t* fontBig;
 public: 
 	FontDemo() {
 		font = NULL;
-		fontBig = NULL;
 	}
 	~FontDemo() {
 		if(font != NULL)
 			font_free(font);
-		if(fontBig != NULL)
-			font_free(fontBig);
 	}
 
 	void setFont(const string& fontName) {
 		if(font != NULL)
 			font_free(font);
-		if(fontBig != NULL)
-			font_free(fontBig);
 
-		font = font_new(fontName.c_str(), 14, false);
-		fontBig = font_new(fontName.c_str(), 32, false);
+		font = font_new(fontName.c_str(), false);
 		update();
 	}
 };
@@ -96,7 +84,7 @@ protected:
 			graph_fill(g, r.x, r.y, r.w, r.h, theme->basic.selectBGColor);
 			color = theme->basic.selectColor;
 		}
-		graph_draw_text_font(g, r.x+2, r.y+2, fonts[index].c_str(), theme->getFont(), color);
+		graph_draw_text_font(g, r.x+2, r.y+2, fonts[index].c_str(), theme->getFont(), theme->basic.fontSize, color);
 	}
 
 	void onSelect(int index) {

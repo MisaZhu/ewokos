@@ -24,7 +24,7 @@ void MacWM::drawTitle(graph_t* g, xinfo_t* info, grect_t* r, bool top) {
 	uint32_t fg, bg;
 	getColor(&fg, &bg, top);
 	gsize_t sz;
-	font_text_size(info->title, &font, (uint32_t*)&sz.w, (uint32_t*)&sz.h);
+	font_text_size(info->title, font, fontSize, (uint32_t*)&sz.w, (uint32_t*)&sz.h);
 	
 	/*grect_t rect;
 	getTitle(info, &rect);
@@ -37,7 +37,7 @@ void MacWM::drawTitle(graph_t* g, xinfo_t* info, grect_t* r, bool top) {
 		drawTitlePattern(g, r->x, r->y, r->w, r->h, fg);
 
 	graph_fill(g, r->x+pw-2, r->y, sz.w+4, r->h, bg);//title box
-	graph_draw_text_font(g, r->x+pw, r->y+ph, info->title, &font, fg);//title
+	graph_draw_text_font(g, r->x+pw, r->y+ph, info->title, font, fontSize, fg);//title
 	graph_line(g, r->x, r->y+r->h-1, r->x+r->w, r->y+r->h-1, fg);//title box
 }
 

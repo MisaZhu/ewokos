@@ -10,7 +10,7 @@ void Label::onRepaint(graph_t* g, XTheme* theme, const grect_t& r) {
 	if(!alpha)
 		graph_fill(g, r.x, r.y, r.w, r.h, theme->basic.bgColor);
 	graph_draw_text_font_align(g, r.x+marginH, r.y+marginV, r.w-marginH*2, r.h-marginV*2,
-				label.c_str(), theme->getFont(), theme->basic.fgColor, FONT_ALIGN_CENTER);
+				label.c_str(), theme->getFont(), theme->basic.fontSize, theme->basic.fgColor, FONT_ALIGN_CENTER);
 }
 
 Label::Label(const string& str) {

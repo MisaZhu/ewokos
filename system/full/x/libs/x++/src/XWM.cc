@@ -276,16 +276,16 @@ void XWM::loadConfig(sconf_t* sconf) {
 	if(v[0] != 0) 
 		titleH = atoi(v);
 
-	int font_size = 14;
+	fontSize = 14;
 	v = sconf_get(sconf, "font_size");
 	if(v[0] != 0) 
-		font_size = atoi(v);
+		fontSize = atoi(v);
 
 	const char* name = DEFAULT_SYSTEM_FONT;
 	v = sconf_get(sconf, "font");
 	if(v[0] != 0) 
  		name = v;
- 	font_load(name, font_size, &font, true);
+ 	font = font_new(name, true);
 
 	v = sconf_get(sconf, "pattern");
 	if(v[0] != 0 && strcmp(v, "none") != 0)
@@ -313,6 +313,7 @@ XWM::XWM(void) {
 	fgTopColor = 0xff222222;
 	frameW = 2;
 	titleH = 24;
+	font = NULL;
 
 	xwm.data = this;
 	xwm.get_win_space = get_win_space;
@@ -336,7 +337,8 @@ XWM::XWM(void) {
 XWM::~XWM(void) {
 	if(desktopPattern != NULL)
 		graph_free(desktopPattern);
-	font_close(&font);
+	if(font != NULL)
+		font_free(font);
 }
 
 void XWM::run(void) {

@@ -9,7 +9,7 @@ void XTheme::setFont(const char* name, uint32_t size) {
 	if(font != NULL)
 		font_free(font);
 
-	font = font_new(name, size, true);
+	font = font_new(name, true);
 	basic.fontSize = size;
 	if(basic.fontName != name)  {
 		memset(basic.fontName, 0, FONT_NAME_MAX);

@@ -96,13 +96,13 @@ void OpenCDEWM::drawTitle(graph_t* g, xinfo_t* info, grect_t* r, bool top) {
 	graph_get_3d_color(bg, &dark, &bright);
 
 	gsize_t sz;
-	font_text_size(info->title, &font, (uint32_t*)&sz.w, (uint32_t*)&sz.h);
+	font_text_size(info->title, font, fontSize, (uint32_t*)&sz.w, (uint32_t*)&sz.h);
 	
 	int pw = (r->w-sz.w)/2;
 	int ph = (r->h-sz.h)/2;
 	graph_fill(g, r->x, r->y, r->w, r->h, bg);
-	graph_draw_text_font(g, r->x+pw+1, r->y+ph+1, info->title, &font, 0xff222222);//title
-	graph_draw_text_font(g, r->x+pw, r->y+ph, info->title, &font, fg);//title
+	graph_draw_text_font(g, r->x+pw+1, r->y+ph+1, info->title, font, fontSize, 0xff222222);//title
+	graph_draw_text_font(g, r->x+pw, r->y+ph, info->title, font, fontSize, fg);//title
 	graph_box_3d(g, r->x, r->y, r->w, r->h, bright, dark);
 }
 

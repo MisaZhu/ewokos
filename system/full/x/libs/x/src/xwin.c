@@ -134,12 +134,15 @@ void xwin_destroy(xwin_t* xwin) {
 }
 
 void xwin_close(xwin_t* xwin) {
-	if(xwin == NULL)
+	if(xwin == NULL || xwin->fd <= 0)
 		return;
-	if(xwin->on_close) {
+
+	if(xwin->on_close != NULL) {
 		if(!xwin->on_close(xwin))
 			return;
 	}
+	close(xwin->fd);
+	xwin->fd = -1;
 
 	if(xwin->g_shm != NULL)
 		shmdt(xwin->g_shm);
@@ -147,7 +150,6 @@ void xwin_close(xwin_t* xwin) {
 	if(xwin->xinfo != NULL)
 		shmdt(xwin->xinfo);
 
-	close(xwin->fd);
 	if(xwin->x->main_win == xwin)
 		x_terminate(xwin->x);
 

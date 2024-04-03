@@ -2,13 +2,14 @@
 #define XTHEME_H
 
 #include <ewoksys/ewokdef.h>
+#include <font/font.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 #define THEME_NAME_MAX 128
-#define FONT_NAME_MAX 128
+
 typedef struct {
 	char     name[THEME_NAME_MAX];
 

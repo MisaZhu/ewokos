@@ -19,8 +19,8 @@ protected:
 	void onRepaint(graph_t* g, XTheme* theme, const grect_t& r) {
 		graph_fill_3d(g, r.x, r.y, r.w, r.h, theme->basic.titleBGColor, true);
 		font_t* font = theme->getFont();
-		int y = r.y + (r.h-font->max_size.y)/2;
-		graph_draw_text_font(g, r.x+4, y, label.c_str(), font, theme->basic.titleColor);
+		int y = r.y + (r.h-theme->basic.fontSize)/2;
+		graph_draw_text_font(g, r.x+4, y, label.c_str(), font, theme->basic.fontSize, theme->basic.titleColor);
 	}
 public:
 	CWDLabel(const char* label) : Label(label) {}
@@ -54,7 +54,7 @@ class FileGrid: public Grid {
 				img = fileIcon;
 		}
 
-		uint32_t sz = fileWidget->getItemSize() - theme->getFont()->max_size.y;
+		uint32_t sz = fileWidget->getItemSize() - theme->basic.fontSize;
 		int dx = (w - img->w)/2;
 		int dy = (sz-img->h) / 2;
 		graph_blt_alpha(img, 0, 0, img->w, img->h,
@@ -64,7 +64,7 @@ class FileGrid: public Grid {
 	void drawTitle(graph_t* g, int at, XTheme* theme, int x, int y, int w, int h) {
 		const char* title = files[at].d_name;
 		uint32_t tw, th;
-		font_text_size(title, theme->getFont(), &tw, &th);
+		font_text_size(title, theme->getFont(), theme->basic.fontSize, &tw, &th);
 		int xto = x + (w - (int32_t)tw)/2;
 		if(xto > x)
 			x = xto;
@@ -74,8 +74,8 @@ class FileGrid: public Grid {
 			return;
 
 		uint32_t sz = fileWidget->getItemSize();
-		y += sz - font->max_size.y;
-		graph_draw_text_font(g, x, y, title, font, theme->basic.fgColor);
+		y += sz - theme->basic.fontSize;
+		graph_draw_text_font(g, x, y, title, font, theme->basic.fontSize, theme->basic.fgColor);
 	}
 
 	void setCWD(const char* r) {

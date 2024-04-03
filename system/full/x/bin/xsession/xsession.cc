@@ -53,9 +53,9 @@ class XSession : public XWin {
 	void drawFrame(graph_t* g, const grect_t& r) {
 		font_t* font = theme.getFont();
 		graph_fill(g, r.x, r.y, r.w, r.h, theme.basic.bgColor);
-		graph_fill(g, r.x, r.y, r.w, font->max_size.y, 0xffffbb88);
+		graph_fill(g, r.x, r.y, r.w, theme.basic.fontSize, 0xffffbb88);
 		graph_draw_text_font(g, r.x+8, r.y,
-				"EwokOS(M-kernel)", font, theme.basic.fgColor);
+				"EwokOS(M-kernel)", font, theme.basic.fontSize, theme.basic.fgColor);
 
 		graph_t* logo = logoUser;
 		if(passwordMode)
@@ -68,12 +68,12 @@ class XSession : public XWin {
 	void drawInput(graph_t* g, const grect_t& r, const char* title, const char* input) {
 		font_t* font = theme.getFont();
 
-		int y = r.y + font->max_size.y+8;
+		int y = r.y + theme.basic.fontSize+8;
 		graph_draw_text_font(g, r.x+8, y, 
-				title, font, theme.basic.fgColor);
+				title, font, theme.basic.fontSize , theme.basic.fgColor);
 
-		y += font->max_size.y+8;
-		graph_fill_3d(g, r.x+8, y, r.w-16, font->max_size.y, theme.basic.bgColor, true);
+		y += theme.basic.fontSize+8;
+		graph_fill_3d(g, r.x+8, y, r.w-16, theme.basic.fontSize, theme.basic.bgColor, true);
 		if(passwordMode) {
 			EwokSTL::string pwd;
 			int len = strlen(input);
@@ -82,18 +82,18 @@ class XSession : public XWin {
 				for(i=0; i<(len-1); i++)
 					pwd += '*';
 				pwd += input[i];
-				graph_draw_text_font_align(g, r.x, y, r.w, font->max_size.y,
-						pwd.c_str(), font, theme.basic.fgColor, FONT_ALIGN_CENTER);
+				graph_draw_text_font_align(g, r.x, y, r.w, theme.basic.fontSize,
+						pwd.c_str(), font, theme.basic.fontSize, theme.basic.fgColor, FONT_ALIGN_CENTER);
 			}
 		}
 		else
-			graph_draw_text_font_align(g, r.x, y, r.w, font->max_size.y,
-					input, font, theme.basic.fgColor, FONT_ALIGN_CENTER);
+			graph_draw_text_font_align(g, r.x, y, r.w, theme.basic.fontSize,
+					input, font, theme.basic.fontSize, theme.basic.fgColor, FONT_ALIGN_CENTER);
 
 		if(errMsg.length() != 0) {
-			y += font->max_size.y;
-			graph_draw_text_font_align(g, r.x, y, r.w, font->max_size.y, 
-					errMsg.c_str(), font, 0xffff0000, FONT_ALIGN_CENTER);
+			y += theme.basic.fontSize;
+			graph_draw_text_font_align(g, r.x, y, r.w, theme.basic.fontSize, 
+					errMsg.c_str(), font, theme.basic.fontSize, 0xffff0000, FONT_ALIGN_CENTER);
 		}
 	}
 
@@ -104,8 +104,8 @@ protected:
 		const char* title = passwordMode ? "password" : "username";
 
 		uint32_t tw, th, iw, ih;
-		font_text_size(title, font, &tw, &th);
-		font_text_size(input, font, &iw, &ih);
+		font_text_size(title, font, theme.basic.fontSize, &tw, &th);
+		font_text_size(input, font, theme.basic.fontSize, &iw, &ih);
 		if(iw < 180)
 			iw = 180;
 

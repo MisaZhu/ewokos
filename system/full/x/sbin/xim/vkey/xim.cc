@@ -16,11 +16,13 @@ class XIMX : public XWin {
 
 	static const int TYPE_KEYB = 0;
 	static const int TYPE_OTHER = 1;
+	static const int FONT_SIZE = 12;
 	const char* keytable[2];
 	int keytableType;
 
 	int kbFD;
-	font_t font;
+	font_t* font;
+
 	gsize_t scrSize;
 	gsize_t panelSize;
 	bool hideMode;
@@ -32,7 +34,7 @@ class XIMX : public XWin {
 protected:
 	int get_at(int x, int y) {
 		if(!hideMode) {
-			int input_h = font.max_size.y + 8;
+			int input_h = FONT_SIZE + 8;
 			y -= input_h;
 		}
 
@@ -213,8 +215,8 @@ protected:
 	void draw_input(graph_t* g, int input_h) {
 		uint32_t w;
 		graph_fill(g, 0, 0, g->w, input_h, 0xffffffff);
-		font_text_size(inputS, &font, &w, NULL);
-		graph_draw_text_font(g, (g->w-w)/2, 2, inputS, &font, 0xff000000);
+		font_text_size(inputS, font, FONT_SIZE, &w, NULL);
+		graph_draw_text_font(g, (g->w-w)/2, 2, inputS, font, FONT_SIZE, 0xff000000);
 		graph_box(g, 0, 0, g->w, input_h, 0xff000000);
 	}
 
@@ -240,12 +242,12 @@ protected:
 	}
 
 	void onRepaint(graph_t* g) {
-		uint32_t font_h = font.max_size.y;
+		uint32_t font_h = FONT_SIZE;
 		if(hideMode) {
 			graph_clear(g, 0xffaaaaaa);
 			graph_draw_text_font(g,  2, 
 					(g->h - font_h)/2,
-					"|||", &font, 0xff000000);
+					"|||", font, FONT_SIZE, 0xff000000);
 			graph_box(g, 0, 0, g->w, g->h, 0xffdddddd);
 			return;
 		}
@@ -292,15 +294,15 @@ protected:
 					continue;
 
 				uint32_t tw;
-				font_text_size(t, &font, &tw, NULL);
+				font_text_size(t, font, FONT_SIZE, &tw, NULL);
 				if(keySelect == at) //hot key
 					graph_draw_text_font(g, kx + (kw-tw)/2, 
 							ky + 2,
-							t, &font, 0xffffffff);
+							t, font, FONT_SIZE, 0xffffffff);
 				else
 					graph_draw_text_font(g, kx + (kw-tw)/2, 
 							ky + (kh - font_h)/2,
-							t, &font, 0xff000000);
+							t, font, FONT_SIZE, 0xff000000);
 				graph_box(g, kx, ky, kw, kh, 0xffaaaaaa);
 			}
 		}
@@ -346,7 +348,7 @@ public:
 		scrSize.h = fh;
 		panelSize.w = pw;
 		panelSize.h = ph;
-		font_load(DEFAULT_SYSTEM_FONT, 12, &font, true);
+		font = font_new(DEFAULT_SYSTEM_FONT, true);
 		keytable[1] = ""
 			"1234567890%-+\b"
 			"\\#$&*(){}[]!\r\3"
@@ -359,8 +361,8 @@ public:
 
 		col = 14;
 		row = 3;
-		keyh = font.max_size.y + 12;
-		keyw = font.max_size.x*2 + 12;
+		keyh = FONT_SIZE + 12;
+		keyw = FONT_SIZE*2 + 12;
 		xPid = dev_get_pid("/dev/x");
 		keySelect = -1;
 		hideMode = false;
@@ -371,8 +373,8 @@ public:
 		if(kbFD > 0)
 			::close(kbFD);
 		::close(xPid);
-		if(font.id >= 0)
-			font_close(&font);
+		if(font == NULL)
+			font_free(font);
 	}
 };
 

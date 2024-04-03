@@ -11,14 +11,14 @@ void EditLine::onRepaint(graph_t* g, XTheme* theme, const grect_t& r) {
 		return;
 
 	graph_fill_3d(g, r.x, r.y, r.w, r.h, theme->basic.bgColor, true);
-	graph_draw_text_font_align(g, r.x+marginH, r.y + (r.h-font->max_size.y)/2,
+	graph_draw_text_font_align(g, r.x+marginH, r.y + (r.h-theme->basic.fontSize)/2,
 				r.w-marginH*2, r.h,
-				content.c_str(), font, theme->basic.fgColor, FONT_ALIGN_NONE);
+				content.c_str(), font, theme->basic.fontSize, theme->basic.fgColor, FONT_ALIGN_NONE);
 
 	if(focused()) {
 		int32_t cw;
-		font_text_size(content.c_str(), font, (uint32_t*)&cw, NULL);
-		graph_fill(g, r.x+marginH + cw + 2, r.y + (r.h-font->max_size.y)/2, 4, font->max_size.y, theme->basic.fgColor); 
+		font_text_size(content.c_str(), font, theme->basic.fontSize, (uint32_t*)&cw, NULL);
+		graph_fill(g, r.x+marginH + cw + 2, r.y + (r.h-theme->basic.fontSize)/2, 4, theme->basic.fontSize, theme->basic.fgColor); 
 	}
 }
 

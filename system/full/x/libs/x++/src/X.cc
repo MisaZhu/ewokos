@@ -18,7 +18,7 @@ int X::getTheme(x_theme_t* theme) {
 
 font_t* X::getSysFont(void) {
 	if(_sysFont == NULL)
-		_sysFont = font_new(DEFAULT_SYSTEM_FONT, DEFAULT_SYSTEM_FONT_SIZE, true);
+		_sysFont = font_new(DEFAULT_SYSTEM_FONT, true);
 	return _sysFont;
 }
 

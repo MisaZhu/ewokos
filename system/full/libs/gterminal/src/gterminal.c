@@ -42,9 +42,9 @@ static void draw_content(gterminal_t* terminal, graph_t* g, uint32_t cw, uint32_
                 if((c->state & TERM_STATE_UNDERLINE) != 0)
                     graph_fill(g, pos.x, pos.y+ch-2, cw, 2, fg);
 
-                graph_draw_char_font_fixed(g, pos.x, pos.y, c->c, terminal->font, fg, cw, 0);
+                graph_draw_char_font_fixed(g, pos.x, pos.y, c->c, terminal->font, terminal->font_size, fg, cw, 0);
                 if((c->state & TERM_STATE_HIGH_LIGHT) != 0)
-                    graph_draw_char_font_fixed(g, pos.x, pos.y+1, c->c, terminal->font, fg, cw, 0);
+                    graph_draw_char_font_fixed(g, pos.x, pos.y+1, c->c, terminal->font, terminal->font_size, fg, cw, 0);
             }
         }
         i++;
@@ -301,7 +301,7 @@ void gterminal_flash(gterminal_t* terminal) {
 
 void gterminal_resize(gterminal_t* terminal, uint32_t gw, uint32_t gh) {
     uint32_t font_w = terminal->font_fixed > 0 ? terminal->font_fixed : terminal->font_size;
-    uint32_t font_h = terminal->font->max_size.y;
+    uint32_t font_h = terminal->font_size;
     if(font_w == 0 || font_h == 0)
         return;
     uint32_t size;

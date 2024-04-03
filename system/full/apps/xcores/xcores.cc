@@ -74,7 +74,7 @@ protected:
 		graph_fill(g, x, 4, 10, 10, color);
 		char s[16];
 		snprintf(s, 15, "%d:%d%%", i, 100 - (sysInfo.core_idles[i]/10000));
-		graph_draw_text_font(g, x+12, 4, s, theme.getFont(), color);
+		graph_draw_text_font(g, x+12, 4, s, theme.getFont(), theme.basic.fontSize, color);
 	}
 
 	void drawChat(graph_t* g, uint32_t i, float xstep, float yzoom, uint32_t color) {
