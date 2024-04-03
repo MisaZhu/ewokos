@@ -14,7 +14,8 @@ ListBase::~ListBase(void) {
 }
 
 void ListBase::drawBG(graph_t* g, XTheme* theme, const grect_t& r) {
-	graph_fill(g, r.x, r.y, r.w, r.h, theme->basic.bgColor);
+	if(!isAlpha())
+		graph_fill(g, r.x, r.y, r.w, r.h, theme->basic.bgColor);
 }
 
 void ListBase::onSelect(int sel) {

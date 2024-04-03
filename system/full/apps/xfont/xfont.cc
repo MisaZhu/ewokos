@@ -119,6 +119,7 @@ public:
 			font_free(font);
 
 		font = font_new(fontName.c_str(), false);
+		off_y = 0;
 		update();
 	}
 };
