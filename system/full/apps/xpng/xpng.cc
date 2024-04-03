@@ -249,7 +249,7 @@ public:
 	void load(ImageView* imgView, const string& fname) {
 		this->imgView = imgView;
 		if(fname.length() == 0)
-			fdialog.popup(this, 100, 100, 400, 300, "files", XWIN_STYLE_NORMAL);
+			fdialog.popup(this, 400, 300, "files", XWIN_STYLE_NORMAL);
 		else
 			imgView->loadImage(fname.c_str());
 	}
