@@ -7,6 +7,7 @@
 #include <Widget/Grid.h>
 #include <Widget/Scroller.h>
 #include <WidgetEx/FileDialog.h>
+#include <WidgetEx/ConfirmDialog.h>
 
 #include <x++/X.h>
 #include <unistd.h>
@@ -19,15 +20,16 @@ using namespace Ewok;
 
 class MyButton: public LabelButton {
 	uint32_t counter;
+	ConfirmDialog dialog;
+	XWin* win;
 protected:
 	void onClick() {
-		char s[16];
-		snprintf(s, 15, "test-%d", counter);
-		counter++;
-		setLabel(s);
+		dialog.popup(win, 200, 100, "dialog", XWIN_STYLE_NO_TITLE);
 	}
 public: 
-	MyButton(const string& label = "") : LabelButton(label) {
+	MyButton(XWin* win, const string& label = "") : LabelButton(label) {
+		dialog.setMessage("Dialog Test");
+		this->win = win;
 		counter = 0;
 	}
 };
@@ -98,8 +100,13 @@ public:
 
 class MyWidgetWin: public WidgetWin{
 protected:
-	void onMessage(const string& msg) {
-		klog("%s\n", msg.c_str());
+	void onDialoged(XWin* from, int res) {
+		Widget* w = root->getByID(1);
+		MyButton* button = (MyButton*)w;
+		if(res == Dialog::RES_OK)
+			button->setLabel("Confirmed");
+		else
+			button->setLabel("Canceled");
 	}
 
 };
@@ -126,10 +133,11 @@ int main(int argc, char** argv) {
 	c->setType(Container::HORIZONTAL);
 	root->add(c);
 
-	wd = new MyButton("test");
+	wd = new MyButton(&win, "Dialog Test");
+	wd->setID(1);
 	c->add(wd);
 
-	wd = new MyButton("disable");
+	wd = new MyButton(&win, "disable");
 	wd->disable();
 	c->add(wd);
 

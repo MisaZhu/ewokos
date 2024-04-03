@@ -3,7 +3,6 @@
 
 namespace Ewok {
 
-static uint32_t _idCounter = 0;
 Widget::Widget(void)  { 
 	dirty = true;
 	fixed = false;
@@ -14,7 +13,7 @@ Widget::Widget(void)  {
 	area = {0, 0, 0, 0};
 	marginH = 0;
 	marginV = 0;
-	id = _idCounter++;
+	id = 0;
 	isContainer = false;
 	disabled = false;
 	themePrivate = NULL;

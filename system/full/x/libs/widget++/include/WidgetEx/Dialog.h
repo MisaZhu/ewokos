@@ -7,16 +7,19 @@
 using namespace EwokSTL;
 namespace Ewok {
 
+
 class Dialog: public WidgetWin {
 protected:
 	XWin* owner;
-	virtual string getResult() = 0;
 public:
+	static const int RES_CANCEL = 0;
+	static const int RES_OK = 1;
+
 	Dialog();
 
-	void cancel();
-	void submit();
+	void submit(int res);
 	bool popup(XWin* owner, int x, int y, uint32_t w, uint32_t h, const char* title, uint32_t style);
+	bool popup(XWin* owner, uint32_t w, uint32_t h, const char* title, uint32_t style);
 };
 
 }

@@ -25,6 +25,8 @@ LIB_WIDGET_OBJS =  src/Widget/Widget.o \
 		\
 		src/WidgetEx/FileWidget.o \
 		src/WidgetEx/Dialog.o \
+		src/WidgetEx/DialogButton.o \
+		src/WidgetEx/ConfirmDialog.o \
 		src/WidgetEx/FileDialog.o
 
 WIDGET = $(TARGET_DIR)/lib/libwidget++.a

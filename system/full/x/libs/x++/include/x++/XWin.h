@@ -28,7 +28,7 @@ protected:
 	inline virtual void onUnfocus(void) { }
 	inline virtual void onReorg(void)   { }
 	inline virtual void onEvent(xevent_t* ev)  { (void)ev; }
-	inline virtual void onMessage(XWin* from, const string& msg)  { (void)from; (void) msg; }
+	inline virtual void onDialoged(XWin* from, int res)  { (void)from; (void) res; }
 
 	inline bool repaintLazy(void)  {
 		return xwin->xinfo->repaint_lazy;
@@ -57,7 +57,7 @@ public:
 	inline void __doReorg(void) { onReorg(); }
 	inline void __doEvent(xevent_t* ev) { onEvent(ev); }
 
-	inline void message(XWin* from, const string& msg) { onMessage(from, msg); }
+	inline void dialoged(XWin* from, int res) { onDialoged(from, res); }
 
 	void close(void);
 	bool open(X* xp, uint32_t dispIndex, int x, int y, uint32_t w, uint32_t h,

@@ -237,9 +237,12 @@ class PngWin: public WidgetWin{
 	FileDialog fdialog;
 	ImageView* imgView;
 protected:
-	void onMessage(XWin* from, const string& msg) {
-		if(msg.length() > 0)
-			imgView->loadImage(msg.c_str());
+	void onDialoged(XWin* from, int res) {
+		if(res == Dialog::RES_OK) {
+			string fname = fdialog.getResult();
+			imgView->loadImage(fname.c_str());
+			repaint();
+		}
 	}
 public:
 

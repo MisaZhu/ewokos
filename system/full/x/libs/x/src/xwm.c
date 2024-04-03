@@ -97,8 +97,10 @@ static void draw_frame(xwm_t* xwm, proto_t* in) {
 				xwm->draw_frame(&g, &info, top, xwm->data);
 
 			if((info.style & XWIN_STYLE_NO_TITLE) == 0) {
-				if(xwm->draw_resize != NULL && rresize.w > 0 && rresize.h > 0)
-					xwm->draw_resize(&g, &info, &rresize, top, xwm->data);
+				if((info.style & XWIN_STYLE_NO_RESIZE) == 0) {
+					if(xwm->draw_resize != NULL && rresize.w > 0 && rresize.h > 0)
+						xwm->draw_resize(&g, &info, &rresize, top, xwm->data);
+				}
 			}
 		}
 		shmdt(g.buffer);

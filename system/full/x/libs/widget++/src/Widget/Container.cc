@@ -142,19 +142,17 @@ void  Container::repaint(graph_t* g, XTheme* theme) {
 	dirty = false;
 }
 
-Widget* Container::get(uint32_t id) {
-	if(this->id == id)
-		return this;
-
+Widget* Container::getByID(uint32_t id) {
 	Widget* wd = children;
 	while(wd != NULL) {
+		if(wd->id != 0 && wd->id == id)
+			return wd;
+
 		if(wd->isContainer) {
-			Widget* w = ((Container*)wd)->get(id);
+			Widget* w = ((Container*)wd)->getByID(id);
 			if(w != NULL)
 				return w;
 		}
-		else if(wd->id == id)
-			return wd;
 		wd = wd->next;
 	}
 	return NULL;

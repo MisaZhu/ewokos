@@ -1,5 +1,5 @@
 #include <WidgetEx/FileDialog.h>
-#include <Widget/LabelButton.h>
+#include <WidgetEx/DialogButton.h>
 #include <x++/X.h>
 
 using namespace Ewok;
@@ -8,36 +8,11 @@ class FWidget: public FileWidget {
 	FileDialog* dialog;
 protected:
 	void onFile(const string& fname, const string& open_with) {
-		dialog->submit();
+		dialog->submit(Dialog::RES_OK);
 	}
 public: 
 	FWidget(FileDialog* d) {
 		dialog = d;
-	}
-};
-
-class OKButton: public LabelButton {
-	FileDialog* dialog;
-protected:
-	void onClick() {
-		dialog->submit();
-	}
-public:
-	OKButton(FileDialog* dialog) : LabelButton("OK") {
-		this->dialog = dialog;
-	}
-
-};
-
-class CancelButton: public LabelButton {
-	FileDialog* dialog;
-protected:
-	void onClick() {
-		dialog->cancel();
-	}
-public:
-	CancelButton(FileDialog* dialog) : LabelButton("Cancel") {
-		this->dialog = dialog;
 	}
 };
 
@@ -55,9 +30,9 @@ void FileDialog::onOpen() {
 	c->fix(0, 20);
 	root->add(c);
 
-	OKButton* okButton = new OKButton(this);
+	DialogButton* okButton = new DialogButton(this, "OK", Dialog::RES_OK);
 	c->add(okButton);
-	CancelButton* cancelButton = new CancelButton(this);
+	DialogButton* cancelButton = new DialogButton(this, "Cancel", Dialog::RES_CANCEL);
 	c->add(cancelButton);
 }
 

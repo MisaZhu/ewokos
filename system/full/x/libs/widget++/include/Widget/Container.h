@@ -27,7 +27,7 @@ public:
 
 	void layout();
 	void add(Widget* child);
-	Widget* get(uint32_t id);
+	Widget* getByID(uint32_t id);
 	void setType(int type);
 	void clear();
 

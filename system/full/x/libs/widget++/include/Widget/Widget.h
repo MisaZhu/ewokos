@@ -53,6 +53,7 @@ public:
 	inline void setAlpha(bool alpha) { this->alpha = alpha; }
 	inline bool isAlpha() { return alpha; }
 	inline uint32_t getID() { return id; }
+	inline void setID(uint32_t id) { this->id = id; }
 	inline XTheme* getTheme() { return themePrivate; }
 
 	void setTheme(XTheme* theme);
