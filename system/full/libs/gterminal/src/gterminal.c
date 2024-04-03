@@ -40,7 +40,7 @@ static void draw_content(gterminal_t* terminal, graph_t* g, uint32_t cw, uint32_
             if((c->state & TERM_STATE_HIDE) == 0 && 
                     ((c->state & TERM_STATE_FLASH) == 0 || terminal->flash_show)) {
                 if((c->state & TERM_STATE_UNDERLINE) != 0)
-                    graph_fill(g, pos.x, pos.y+ch-2, cw, 2, fg);
+                    graph_fill(g, pos.x, pos.y+ch, cw, 2, fg);
 
                 graph_draw_char_font_fixed(g, pos.x, pos.y, c->c, terminal->font, terminal->font_size, fg, cw, 0);
                 if((c->state & TERM_STATE_HIGH_LIGHT) != 0)
@@ -55,7 +55,7 @@ static void draw_curs(gterminal_t* terminal, graph_t* g, uint32_t cw, uint32_t c
     if(!terminal->flash_show || !terminal->show_curs)
         return;
     gpos_t pos = get_pos(terminal, g, terminal_at(&terminal->terminal), cw, ch);
-    graph_fill(g, pos.x+2, pos.y+2, cw-4, ch-4, terminal->fg_color);
+    graph_fill(g, pos.x, pos.y+1, 4, ch-2, terminal->fg_color);
 }
 
 static uint32_t g_color(gterminal_t* terminal, uint32_t esc_color, uint8_t fg) {
