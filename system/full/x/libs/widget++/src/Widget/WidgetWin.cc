@@ -35,8 +35,8 @@ void WidgetWin::onResize(void) {
 void WidgetWin::onEvent(xevent_t* ev) {
 	if(root == NULL)
 		return;
-	root->sendEvent(ev);
-	root->repaintWin();
+	if(root->sendEvent(ev))
+		root->repaintWin();
 }
 
 bool WidgetWin::onClose() {

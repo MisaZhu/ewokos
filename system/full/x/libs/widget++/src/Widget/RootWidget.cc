@@ -38,8 +38,8 @@ void RootWidget::update() {
 	doRefresh = true;
 }
 
-void RootWidget::sendEvent(xevent_t* ev) {
-	onEvent(ev);
+bool RootWidget::sendEvent(xevent_t* ev) {
+	return onEvent(ev);
 }
 
 }

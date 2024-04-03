@@ -24,7 +24,7 @@ public:
 
 	void repaintWin();
 	void update();
-	void sendEvent(xevent_t* ev);
+	bool sendEvent(xevent_t* ev);
 };
 
 }
