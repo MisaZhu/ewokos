@@ -1,5 +1,5 @@
 #include <WidgetEx/FileDialog.h>
-#include <WidgetEx/DialogButton.h>
+#include <Widget/LabelButton.h>
 #include <x++/X.h>
 
 using namespace Ewok;

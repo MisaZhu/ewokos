@@ -14,8 +14,6 @@ protected:
 	void onRepaint(graph_t* g, XTheme* theme, const grect_t& r);
 	virtual bool onMouse(xevent_t* ev);
 
-	virtual void onClick();
-
 public:
 	enum {
 		STATE_UP = 0,
@@ -23,7 +21,6 @@ public:
 	};
 
 	Button();
-	void (*onClickFunc)(Widget* wd);
 };
 
 }

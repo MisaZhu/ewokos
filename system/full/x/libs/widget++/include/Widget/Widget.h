@@ -35,6 +35,7 @@ protected:
 	virtual void onMove() { }
 	virtual bool onMouse(xevent_t* ev);
 	virtual bool onIM(xevent_t* ev);
+	virtual void onClick();
 
 	virtual void repaint(graph_t* g, XTheme* theme);
 	virtual void onRepaint(graph_t* g, XTheme* theme, const grect_t& r) = 0;
@@ -45,6 +46,8 @@ protected:
 public:
 	friend Container;
 	friend RootWidget;
+
+	void (*onClickFunc)(Widget* wd);
 
 	Widget(void);
 	virtual ~Widget(void);

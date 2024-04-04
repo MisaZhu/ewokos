@@ -19,6 +19,8 @@ Widget::Widget(void)  {
 	disabled = false;
 	themePrivate = NULL;
 	visible = true;
+
+	onClickFunc = NULL;
 }
 
 Widget::~Widget(void)  { 
@@ -33,7 +35,16 @@ void Widget::setTheme(XTheme* theme)  {
 	update();
 }
 
+void Widget::onClick() {
+	if(onClickFunc != NULL)
+		onClickFunc(this);
+}
+
 bool Widget::onMouse(xevent_t* ev) {
+	if(ev->state == XEVT_MOUSE_CLICK) {
+		onClick();
+		return true;
+	}
 	return false;
 }
 
