@@ -48,4 +48,14 @@ void Button::onRepaint(graph_t* g, XTheme* theme, const grect_t& r) {
 		paintUp(g, theme, r);
 }
 
+void Button::onClick() {
+	if(onClickFunc != NULL)
+		onClickFunc(this);
+}
+
+Button::Button() {
+	state = STATE_UP;
+	onClickFunc = NULL;
+}
+
 }

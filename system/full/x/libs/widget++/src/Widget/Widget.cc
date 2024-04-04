@@ -1,5 +1,6 @@
 #include <Widget/Widget.h>
 #include <Widget/RootWidget.h>
+#include <Widget/WidgetWin.h>
 
 namespace Ewok {
 
@@ -68,6 +69,13 @@ RootWidget* Widget::getRoot(void) {
 	while(wd != NULL && wd->father != NULL)
 		wd = wd->father;
 	return (RootWidget*)wd;
+}
+
+WidgetWin* Widget::getWin(void) {
+	RootWidget* root = getRoot();
+	if(root == NULL)
+		return NULL;
+	return root->getWin();
 }
 
 void Widget::repaint(graph_t* g, XTheme* theme) {
@@ -195,7 +203,7 @@ gpos_t Widget::getScreenPos(int32_t x, int32_t y) {
 	if(root == NULL)
 		return pos;
 
-	XWin* win = root->getWin();
+	WidgetWin* win = root->getWin();
 	if(win == NULL)
 		return pos;
 

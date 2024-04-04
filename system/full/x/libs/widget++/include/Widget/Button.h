@@ -6,13 +6,6 @@
 namespace Ewok {
 
 class Button: public Widget {
-public:
-	enum {
-		STATE_UP = 0,
-		STATE_DOWN
-	};
-
-	Button() { state = STATE_UP; }
 protected:
 	uint8_t state;
 	virtual void paintDown(graph_t* g, XTheme* theme, const grect_t& r);
@@ -21,8 +14,16 @@ protected:
 	void onRepaint(graph_t* g, XTheme* theme, const grect_t& r);
 	virtual bool onMouse(xevent_t* ev);
 
-	virtual void onClick() = 0;
+	virtual void onClick();
 
+public:
+	enum {
+		STATE_UP = 0,
+		STATE_DOWN
+	};
+
+	Button();
+	void (*onClickFunc)(Widget* wd);
 };
 
 }

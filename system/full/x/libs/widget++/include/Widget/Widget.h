@@ -9,6 +9,7 @@ namespace Ewok {
 
 class Container;
 class RootWidget;
+class WidgetWin;
 class Widget {
 	Widget* next;
 	Widget* prev;
@@ -74,6 +75,7 @@ public:
 	void hide();
 
 	RootWidget* getRoot(void);
+	WidgetWin*  getWin(void);
 	gpos_t getRootPos(int32_t x = 0, int32_t y = 0);
 	gpos_t getScreenPos(int32_t x = 0, int32_t y = 0);
 	gpos_t getInsidePos(int32_t screenX, int32_t screenY);

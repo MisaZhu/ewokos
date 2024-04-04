@@ -45,4 +45,9 @@ bool EditLine::onIM(xevent_t* ev) {
 	return true;
 }
 
+void EditLine::onInput() {
+	if(onInputFunc != NULL)
+		onInputFunc(this);
+}
+
 }

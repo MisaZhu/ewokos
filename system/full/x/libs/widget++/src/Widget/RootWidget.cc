@@ -1,4 +1,5 @@
 #include <Widget/RootWidget.h>
+#include <Widget/WidgetWin.h>
 
 namespace Ewok {
 

@@ -18,22 +18,6 @@
 
 using namespace Ewok;
 
-class MyButton: public LabelButton {
-	uint32_t counter;
-	ConfirmDialog dialog;
-	XWin* win;
-protected:
-	void onClick() {
-		dialog.popup(win, 200, 100, "dialog", XWIN_STYLE_NO_TITLE);
-	}
-public: 
-	MyButton(XWin* win, const string& label = "") : LabelButton(label) {
-		dialog.setMessage("Dialog Test");
-		this->win = win;
-		counter = 0;
-	}
-};
-
 class MyList: public List {
 protected:
 	void drawItem(graph_t* g, XTheme* theme, int32_t index, const grect_t& r) {
@@ -101,15 +85,26 @@ public:
 class MyWidgetWin: public WidgetWin{
 protected:
 	void onDialoged(XWin* from, int res) {
-		Widget* w = root->get(1);
-		MyButton* button = (MyButton*)w;
+		Widget* w = root->get("button");
+		LabelButton* button = (LabelButton*)w;
 		if(res == Dialog::RES_OK)
 			button->setLabel("Confirmed");
 		else
 			button->setLabel("Canceled");
 	}
 
+	ConfirmDialog dialog;
+public:
+	static void onClickFunc(Widget* wd) {
+		MyWidgetWin* win = (MyWidgetWin*)wd->getWin();
+		win->dialog.popup(win, 200, 100, "dialog", XWIN_STYLE_NO_TITLE);
+	}
+
+	MyWidgetWin() {
+		dialog.setMessage("Dialog Test");
+	}
 };
+
 
 int main(int argc, char** argv) {
 	X x;
@@ -133,13 +128,14 @@ int main(int argc, char** argv) {
 	c->setType(Container::HORIZONTAL);
 	root->add(c);
 
-	wd = new MyButton(&win, "Dialog Test");
-	wd->setID(1);
-	c->add(wd);
+	LabelButton* button = new LabelButton("Dialog Test");
+	button->setName("button");
+	button->onClickFunc = win.onClickFunc;
+	c->add(button);
 
-	wd = new MyButton(&win, "disable");
-	wd->disable();
-	c->add(wd);
+	button = new LabelButton("disable");
+	button->disable();
+	c->add(button);
 
 	MyList* list = new MyList();
 	c->add(list);

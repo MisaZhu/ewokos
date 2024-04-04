@@ -13,8 +13,10 @@ protected:
 	void onRepaint(graph_t* g, XTheme* theme, const grect_t& r);
 	bool onIM(xevent_t* ev);
 
-	virtual void onInput() { }
+	virtual void onInput();
 public:
+	void (*onInputFunc)(Widget* wd);
+
 	const string& getContent() { return content; }
 	void setContent(const string& content);
 };

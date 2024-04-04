@@ -16,6 +16,16 @@ public:
 	}
 };
 
+static void okFunc(Widget* wd) {
+	FileDialog* dialog = (FileDialog*)wd->getWin();
+	dialog->submit(Dialog::RES_OK);
+}
+
+static void cancelFunc(Widget* wd) {
+	FileDialog* dialog = (FileDialog*)wd->getWin();
+	dialog->submit(Dialog::RES_CANCEL);
+}
+
 void FileDialog::onOpen() {
 	RootWidget* root = new RootWidget();
 	setRoot(root);
@@ -30,9 +40,12 @@ void FileDialog::onOpen() {
 	c->fix(0, 20);
 	root->add(c);
 
-	DialogButton* okButton = new DialogButton(this, "OK", Dialog::RES_OK);
+	LabelButton* okButton = new LabelButton("OK");
+	okButton->onClickFunc = okFunc;
 	c->add(okButton);
-	DialogButton* cancelButton = new DialogButton(this, "Cancel", Dialog::RES_CANCEL);
+
+	LabelButton* cancelButton = new LabelButton("Cancel");
+	cancelButton->onClickFunc = cancelFunc;
 	c->add(cancelButton);
 }
 

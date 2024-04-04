@@ -1,10 +1,20 @@
 #include <WidgetEx/ConfirmDialog.h>
-#include <WidgetEx/DialogButton.h>
+#include <Widget/LabelButton.h>
 #include <Widget/Label.h>
 
 #include <x++/X.h>
 
 using namespace Ewok;
+
+static void okFunc(Widget* wd) {
+	ConfirmDialog* dialog = (ConfirmDialog*)wd->getWin();
+	dialog->submit(Dialog::RES_OK);
+}
+
+static void cancelFunc(Widget* wd) {
+	ConfirmDialog* dialog = (ConfirmDialog*)wd->getWin();
+	dialog->submit(Dialog::RES_CANCEL);
+}
 
 void ConfirmDialog::onOpen() {
 	RootWidget* root = new RootWidget();
@@ -20,9 +30,11 @@ void ConfirmDialog::onOpen() {
 	c->fix(0, 20);
 	root->add(c);
 
-	DialogButton* okButton = new DialogButton(this, "OK", Dialog::RES_OK);
+	LabelButton* okButton = new LabelButton("OK");
+	okButton->onClickFunc = okFunc;
 	c->add(okButton);
-	DialogButton* cancelButton = new DialogButton(this, "Cancel", Dialog::RES_CANCEL);
+	LabelButton* cancelButton = new LabelButton("Cancel");
+	cancelButton->onClickFunc = cancelFunc;
 	c->add(cancelButton);
 }
 
