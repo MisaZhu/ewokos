@@ -150,6 +150,7 @@ static int font_dev_get(proto_t* in, proto_t* ret) {
 
 	TTY_U32 c = (TTY_U32)proto_read_int(in);
 	TTY_Glyph glyph;
+	memset(&glyph, 0, sizeof(TTY_Glyph));
 	if(ttf == NULL || font == NULL ||
 			ttf_render_glyph_cache(ttf, font, c, &glyph) != 0) {
 		if(glyph.cache != NULL)
