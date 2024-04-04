@@ -3481,10 +3481,6 @@ static TTY_Error tty_add_simple_glyph_points_to_zone1(TTY_Font* font, TTY_Instan
     
     for (TTY_U32 i = 0; i < font->hint.zone1.numEndPoints; i++) {
         font->hint.zone1.endPointIndices[i] = tty_get_u16(glyph->glyfBlock + 10 + 2 * i);
-        //TODO, just work around for no understanding
-        if(font->hint.zone1.endPointIndices[i] >= 128  &&
-                (font->hint.zone1.endPointIndices[i]+1) >= font->hint.zone1.numOutlinePoints) 
-            font->hint.zone1.endPointIndices[i] = 0;
     }
 
     if (instance->useHinting) {
@@ -3700,6 +3696,8 @@ static TTY_Error tty_convert_zone1_points_into_curves(TTY_Font* font, TTY_Curves
             }
             else if (font->hint.zone1.pointTypes[j + 1] == TTY_ON_CURVE_POINT) {
                 curve->p2 = font->hint.zone1.cur[++j];
+                if(j >= endPointIdx)
+                    break;
             }
             else { // Implied on-curve point
                 TTY_F26Dot6_V2* nextPoint = font->hint.zone1.cur + j + 1;
