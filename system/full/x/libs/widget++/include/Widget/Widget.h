@@ -17,6 +17,7 @@ class Widget {
 protected:
 	XTheme* themePrivate;
 	uint32_t id;
+	string   name;
 	int32_t marginH;
 	int32_t marginV;
 	Container* father;
@@ -54,6 +55,8 @@ public:
 	inline bool isAlpha() { return alpha; }
 	inline uint32_t getID() { return id; }
 	inline void setID(uint32_t id) { this->id = id; }
+	inline const string& getName() { return name; }
+	inline void setName(const string& name) { this->name = name; }
 	inline XTheme* getTheme() { return themePrivate; }
 
 	void setTheme(XTheme* theme);

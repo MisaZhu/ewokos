@@ -101,7 +101,7 @@ public:
 class MyWidgetWin: public WidgetWin{
 protected:
 	void onDialoged(XWin* from, int res) {
-		Widget* w = root->getByID(1);
+		Widget* w = root->get(1);
 		MyButton* button = (MyButton*)w;
 		if(res == Dialog::RES_OK)
 			button->setLabel("Confirmed");
