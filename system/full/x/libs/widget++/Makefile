@@ -21,6 +21,7 @@ LIB_WIDGET_OBJS =  src/Widget/Widget.o \
 		src/Widget/LabelButton.o \
 		src/Widget/RootWidget.o \
 		src/Widget/EditLine.o \
+		src/Widget/Text.o \
 		src/Widget/WidgetWin.o \
 		\
 		src/WidgetEx/FileWidget.o \

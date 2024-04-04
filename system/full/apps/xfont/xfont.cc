@@ -62,12 +62,7 @@ protected:
 		if(off_y == old_off)
 			return false;
 
-		updateScroller();
 		return true;
-	}
-
-	void onResize() {
-		updateScroller();
 	}
 
 	void updateScroller() {

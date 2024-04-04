@@ -281,7 +281,7 @@ void font_text_size(const char* str,
 	free(unicode);
 }
 
-void graph_draw_char_font(graph_t* g, int32_t x, int32_t y, TTY_U32 c,
+void graph_draw_unicode_font(graph_t* g, int32_t x, int32_t y, TTY_U32 c,
 		font_t* font, uint16_t size, uint32_t color, TTY_U16* w, TTY_U16* h) {
 	if(w != NULL)
 		*w = 0;
@@ -374,7 +374,7 @@ void graph_draw_text_font(graph_t* g, int32_t x, int32_t y, const char* str,
 	int n = utf82unicode((uint8_t*)str, len, out);
 	for(int i=0;i <n; i++) {
 		TTY_U16 w = 0;
-		graph_draw_char_font(g, x, y, out[i], font, size, color, &w, NULL);
+		graph_draw_unicode_font(g, x, y, out[i], font, size, color, &w, NULL);
 		int dx = w;
 		if(dx < 0)
 			dx = w/2;

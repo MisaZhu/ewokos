@@ -10,6 +10,8 @@ protected:
     Scroller* scrollerV;
     Scroller* scrollerH;
 
+    void onResize();
+
 	virtual bool onScroll(int step, bool horizontal) = 0;
     virtual void updateScroller() = 0;
 

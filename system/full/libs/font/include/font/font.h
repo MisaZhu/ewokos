@@ -52,7 +52,7 @@ font_inst_t* font_get_inst(font_t* font, uint16_t size);
 void font_char_size(uint16_t c, font_t* font, uint16_t size, uint16_t *w, uint16_t* h);
 void font_text_size(const char* str, font_t* font , uint16_t size, uint32_t *w, uint32_t* h);
 
-void graph_draw_char_font(graph_t* g, int32_t x, int32_t y, TTY_U32 c,
+void graph_draw_unicode_font(graph_t* g, int32_t x, int32_t y, TTY_U32 c,
 		font_t* font, uint16_t size, uint32_t color, TTY_U16* w, TTY_U16* h);
 void graph_draw_char_font_fixed(graph_t* g, int32_t x, int32_t y, TTY_U32 c,
 		font_t* font, uint16_t size, uint32_t color, TTY_U16 w, TTY_U16 h);

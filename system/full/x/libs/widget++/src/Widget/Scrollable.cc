@@ -14,8 +14,14 @@ void Scrollable::setScrollerH(Scroller *r) {
 }
 
 void Scrollable::scroll(int step, bool horizontal) {
-	if(onScroll(step, horizontal))
+	if(onScroll(step, horizontal)) {
+		updateScroller();
 		update();
+	}
+}
+
+void Scrollable::onResize() {
+	updateScroller();
 }
 
 void Scrollable::setScrollerInfo(uint32_t range, uint32_t pos, uint32_t scrollW, bool horizontal) {

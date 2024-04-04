@@ -1,206 +1,123 @@
-#include <unistd.h>
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
-#include <fcntl.h>
-#include <sconf/sconf.h>
-#include <x++/XTheme.h>
+#include <Widget/WidgetWin.h>
+#include <Widget/Text.h>
+#include <Widget/Label.h>
+#include <Widget/LabelButton.h>
+#include <WidgetEx/FileDialog.h>
 #include <x++/X.h>
-#include <ewoksys/keydef.h>
-#include <ewoksys/proc.h>
-#include <string.h>
-#include <ewoksys/utf8unicode.h>
-#include <ewoksys/klog.h>
-
-#include <string>
-using namespace EwokSTL;
+#include <unistd.h>
 
 using namespace Ewok;
 
-#define HISTORY_PAGE_SIZE 128
-class XRead: public XWin {
-	char text[4096];
-	int  history_page[HISTORY_PAGE_SIZE];
-	int  current_page;
-	int  next_page;
-	int  read_len;
-	int  mouse_last_y;
-	FILE  *fp;
-
-	void pageUp() {
-		if(current_page == history_page[0])
-			return;
-
-		current_page = history_page[0];
-		for (int i = 0; i < HISTORY_PAGE_SIZE - 1; i++) {
-			history_page[i] = history_page[i + 1];
-		}
-		readPage();
-		repaint();
-	}
-
-	void pageDown() {
-		if(current_page == next_page)
-			return;
-
-		for (int i = HISTORY_PAGE_SIZE - 1; i > 0; i--) {
-			history_page[i] = history_page[i - 1];
-		}
-		history_page[0] = current_page;
-		current_page = next_page;
-		readPage();
-		repaint();
-	}
-
+class StatusLabel: public Label {
 protected:
-	void onRepaint(graph_t* g) {
-		//printf("onRepaint\n");
-		graph_clear(g, theme.basic.bgColor);
-		
-		int x = 0;
-		int y = 0;
-		TTY_U16 w = 0;
-		TTY_U16 h = theme.basic.fontSize;
-		TTY_U16 tmp;
-		int i = 0;
-		while(i < read_len) {
-			int unicode;
-			int n = utf82unicode_char((uint8_t*)text + i, &unicode);
-			if( n < 0){
-				break;
-			}
-			i+=n;
-			if(unicode == 0xd || unicode == 0xa){
-				y+=h;
-				x = 0;
-				if((y + h) >= g->h){
-					break;
-				}
-				continue;
-			}
-
-			font_char_size(unicode, theme.getFont(), theme.basic.fontSize, &w, &tmp);
-			if((x + w) >= g->w){
-				x = 0;
-				y += h;
-				if((y + h) >= g->h){
-					break;
-				}
-			}
-			graph_draw_char_font(g, x, y, unicode, theme.getFont(), theme.basic.fontSize, theme.basic.fgColor, &w, NULL);
-			x += w;
-		}
-		
-		i = i/8;
-		while(i < read_len) {
-			char c = *((uint8_t*)text + i);
-			i++;
-			if(c == '\n')
-				break;
-		}
-		next_page = current_page + i;
-	}
-
-	void onEvent(xevent_t* ev) {
-		xinfo_t xinfo;
-		getInfo(xinfo);
-		if(ev->type == XEVT_IM) {
-			int key = ev->value.im.value;
-			if(ev->state == XIM_STATE_PRESS) {
-				if(key == KEY_UP){
-					pageUp();	
-				}else if(key == KEY_DOWN){
-					pageDown();	
-				}else
-					return;
-			}
-		}
-		else if(ev->type == XEVT_MOUSE) {
-			if(ev->state == XEVT_MOUSE_MOVE) {
-				if(ev->value.mouse.button == MOUSE_BUTTON_SCROLL_UP)
-					pageDown();
-				else if(ev->value.mouse.button == MOUSE_BUTTON_SCROLL_DOWN)
-					pageUp();
-			}
-			else if(ev->state == XEVT_MOUSE_DRAG) {
-				int dy = ev->value.mouse.y - mouse_last_y;
-				if(dy > 10) {
-					pageUp();
-					mouse_last_y = ev->value.mouse.y;
-				}
-				else if(dy < -10) {
-					pageDown();
-					mouse_last_y = ev->value.mouse.y;
-				}
-			}
-			else if(ev->state == XEVT_MOUSE_DOWN) {
-				mouse_last_y = ev->value.mouse.y;
-			}
-		}
+	void onRepaint(graph_t* g, XTheme* theme, const grect_t& r) {
+		graph_fill_3d(g, r.x, r.y, r.w, r.h, theme->basic.titleBGColor, true);
+		font_t* font = theme->getFont();
+		int y = r.y + (r.h-theme->basic.fontSize)/2;
+		graph_draw_text_font(g, r.x+4, y, label.c_str(), font, theme->basic.fontSize, theme->basic.titleColor);
 	}
 public:
-	inline XRead() {
-		read_len = 0;
-		mouse_last_y = 0;
-	}
+	StatusLabel(const char* label) : Label(label) {}
+};
 
-	inline ~XRead() {
-	}
+class MyText: public Text {
+protected:
+	void updateScroller() {
+		Text::updateScroller();
 
-	void readPage(void){
-		if(fp){
-			fseek(fp, current_page, SEEK_SET);  
-			memset(text, 0, sizeof(text));
-			read_len = fread(text, 1, sizeof(text), fp);
+		char s[128] = { 0 };
+		if(contentSize > 0) {
+			int curr = offset+pageSize;
+			if(curr > contentSize)
+				curr = contentSize;
+			snprintf(s, 127, "%.2f%%", 100.0 * (float)(curr)/(float)contentSize);
 		}
+		else
+			snprintf(s, 127, "--%%");
+		statusLabel->setLabel(s);
 	}
-	
-	void openXRead(const char* path){
-		fp = fopen(path, "r");
-		memset(history_page, 0, sizeof(history_page));
-		current_page = 0;
-		readPage();
-	}
-
-	bool readConfig(const char* fname) {
-		sconf_t *conf = sconf_load(fname);	
-		if(conf == NULL)
-			return false;
-		theme.loadConfig(conf);
-		sconf_free(conf);
-		return true;
+public:
+	StatusLabel* statusLabel;
+	MyText() {
+		statusLabel = NULL;
 	}
 };
 
-static void loop(void* p) {
-	(void)p;
-	//XRead* xwin = (XRead*)p;
-	// xwin->readPage();
-	// xwin->repaint();
-	proc_usleep(100000);
+
+class TextWin: public WidgetWin{
+	FileDialog fdialog;
+
+	void loadFile(const string& fname) {
+		if(text == NULL)
+			return;
+
+		int sz;
+		char* content = (char*)vfs_readfile(fname.c_str(), &sz);
+		if(content != NULL) {
+			text->setContent(content, sz);
+			free(content);
+		}
+	}
+protected:
+	void onDialoged(XWin* from, int res) {
+		if(res == Dialog::RES_OK) {
+			string fname = fdialog.getResult();
+			loadFile(fname.c_str());
+			repaint();
+		}
+	}
+public:
+	MyText* text;
+
+	void load(const string& fname) {
+		if(fname.length() == 0)
+			fdialog.popup(this, 400, 300, "files", XWIN_STYLE_NORMAL);
+		else 
+			loadFile(fname);
+	}
+};
+
+static void onClickFunc(Widget* wd) {
+	TextWin* win = (TextWin*)wd->getWin();
+	win->load("");
 }
 
-int main(int argc, char* argv[]) {
-	(void)argc;
-	(void)argv;
-
-	XRead xwin;
-	xwin.readConfig(x_get_theme_fname(X_THEME_ROOT, "xread", "theme.conf"));
-
-	string title = "xread";
-	if(argc == 2){
-		xwin.openXRead(argv[1]);
-		title = title + ":" + argv[1];
-	}
-
+int main(int argc, char** argv) {
 	X x;
-	xwin.open(&x, 0, -1,
-			-1,
-			0,
-			0,
-			title.c_str(),
-			XWIN_STYLE_NORMAL);
+	TextWin win;
+	RootWidget* root = new RootWidget();
+	win.setRoot(root);
+	root->setType(Container::VERTICLE);
+	root->setAlpha(false);
 
-	x.run(loop, &xwin);
+	Container* c = new Container();
+	c->setType(Container::HORIZONTAL);
+	root->add(c);
+
+	MyText* text = new MyText();
+	c->add(text);
+	win.text = text;
+
+	Scroller* scrollerV = new Scroller();
+	scrollerV->fix(8, 0);
+	c->add(scrollerV);
+	text->setScrollerV(scrollerV);
+
+	StatusLabel* statusLabel = new StatusLabel("");
+	statusLabel->fix(0, 20);
+	root->add(statusLabel);
+	text->statusLabel = statusLabel;
+
+	LabelButton* loadButton = new LabelButton("Load");
+	loadButton->fix(0, 20);
+	loadButton->onClickFunc = onClickFunc;
+	root->add(loadButton);
+
+	win.getTheme()->setFont("system.cn", 14);
+	if(argc >= 2)
+		win.load(argv[1]);
+
+	win.open(&x, 0, -1, -1, 460, 460, "xtext", XWIN_STYLE_NORMAL);
+	x.run(NULL, &win);
 	return 0;
 }

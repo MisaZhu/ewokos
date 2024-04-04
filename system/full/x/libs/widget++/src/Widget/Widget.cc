@@ -150,6 +150,7 @@ void Widget::resizeTo(int w, int h) {
 	area.w = w;
 	area.h = h;
 	onResize();
+	update();
 	if(father != NULL) {
 		father->layout();
 		father->update();

@@ -8,29 +8,31 @@ LDFLAGS = -L$(BUILD_DIR)/lib
 
 CXXFLAGS += -I $(BUILD_DIR)/include
 
-XTEXT_OBJS = xread.o
+XREAD_OBJS = xread.o
 
-XTEXT_DIR = $(TARGET_DIR)/apps/xread
-XTEXT = $(XTEXT_DIR)/xread
+XREAD_DIR = $(TARGET_DIR)/apps/xread
+XREAD = $(XREAD_DIR)/xread
 
-all: $(XTEXT_DIR) $(XTEXT)
+all: $(XREAD_DIR) $(XREAD)
 
-$(XTEXT): $(XTEXT_OBJS) \
+$(XREAD): $(XREAD_OBJS) \
 		$(EWOK_LIBC_A)  \
+		$(BUILD_DIR)/lib/libewokstl.a \
 		$(BUILD_DIR)/lib/libx++.a \
 		$(BUILD_DIR)/lib/libx.a \
 		$(BUILD_DIR)/lib/libttf.a \
 		$(BUILD_DIR)/lib/libfont.a \
 		$(BUILD_DIR)/lib/libsconf.a \
-		$(BUILD_DIR)/lib/libewokstl.a \
+		$(BUILD_DIR)/lib/libwidget++.a \
+		$(BUILD_DIR)/lib/libtinyjson.a \
 		$(BUILD_DIR)/lib/libcxx.a 
-	$(LD) -Ttext=100 $(XTEXT_OBJS) -o $(XTEXT) $(LDFLAGS) -lgraph -lbsp -lupng -lx++ -lttf -lfont -lx -lsconf $(EWOK_LIBC) -lewokstl -lcxx
+	$(LD) -Ttext=100 $(XREAD_OBJS) -o $(XREAD) $(LDFLAGS) -lwidget++ -lgraph -lbsp -lttf -lfont -lx++ -lx -lsconf -ltinyjson -lupng -lewokstl $(EWOK_LIBC) -lcxx
 
-$(XTEXT_DIR):
-	mkdir -p $(XTEXT_DIR)
-	cp -r res $(XTEXT_DIR)
+$(XREAD_DIR):
+	mkdir -p $(XREAD_DIR)
+	cp -r res $(XREAD_DIR)
 
 clean:
-	rm -f $(XTEXT_OBJS)
-	rm -fr $(XTEXT_DIR)
+	rm -f $(XREAD_OBJS)
+	rm -fr $(XREAD_DIR)
 

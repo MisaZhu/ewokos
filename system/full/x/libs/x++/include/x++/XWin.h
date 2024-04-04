@@ -41,6 +41,7 @@ public:
 	}
 
 	inline X* getX(void) {return x;}
+	inline XTheme* getTheme(void) {return &theme;}
 	inline uint32_t getDisplayIndex(void) {return displayIndex;}
 
 	void setCWin(xwin_t* xw);
