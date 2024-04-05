@@ -77,9 +77,21 @@ public:
 	}
 };
 
-static void onClickFunc(Widget* wd) {
+static void onLoadClickFunc(Widget* wd) {
 	TextWin* win = (TextWin*)wd->getWin();
 	win->load("");
+}
+
+static void onZoomInClickFunc(Widget* wd) {
+	TextWin* win = (TextWin*)wd->getWin();
+	uint32_t size = win->text->getFontSize();
+	win->text->setFontSize(size+4);
+}
+
+static void onZoomOutClickFunc(Widget* wd) {
+	TextWin* win = (TextWin*)wd->getWin();
+	uint32_t size = win->text->getFontSize();
+	win->text->setFontSize(size-4);
 }
 
 int main(int argc, char** argv) {
@@ -108,10 +120,22 @@ int main(int argc, char** argv) {
 	root->add(statusLabel);
 	text->statusLabel = statusLabel;
 
+	c = new Container();
+	c->setType(Container::HORIZONTAL);
+	c->fix(0, 22);
+	root->add(c);
+
 	LabelButton* loadButton = new LabelButton("Load");
-	loadButton->fix(0, 20);
-	loadButton->onClickFunc = onClickFunc;
-	root->add(loadButton);
+	loadButton->onClickFunc = onLoadClickFunc;
+	c->add(loadButton);
+
+	LabelButton* zoomInButton = new LabelButton("+");
+	zoomInButton->onClickFunc = onZoomInClickFunc;
+	c->add(zoomInButton);
+
+	LabelButton* zoomOutButton = new LabelButton("-");
+	zoomOutButton->onClickFunc = onZoomOutClickFunc;
+	c->add(zoomOutButton);
 
 	win.getTheme()->setFont("system.cn", 14);
 	if(argc >= 2)

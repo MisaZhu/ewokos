@@ -7,6 +7,8 @@ namespace Ewok {
 
 class Text: public Scrollable {
 	int last_mouse_down;
+	font_t* font;
+	uint32_t fontSize;
 
 protected:
     uint16_t *content;
@@ -30,6 +32,10 @@ public:
 
     inline int getOffset() { return offset; }
     inline int getConttentSize() { return contentSize; }
+	inline uint32_t getFontSize() { return fontSize; }
+
+	void setFont(const string& name);
+	void setFontSize(uint32_t fontSize);
 };
 
 }

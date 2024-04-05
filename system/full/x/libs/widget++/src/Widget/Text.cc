@@ -4,9 +4,14 @@
 namespace Ewok {
 
 void Text::onRepaint(graph_t* g, XTheme* theme, const grect_t& r) {
-	font_t* font = theme->getFont();
-	if(font == NULL)
+	font_t* ft = font;
+	if(ft == NULL)
+		ft = theme->getFont();
+	
+	if(ft == NULL)
 		return;
+	if(fontSize == 0)
+		fontSize = theme->basic.fontSize;
 
 	graph_fill(g, r.x, r.y, r.w, r.h, theme->basic.bgColor);
 
@@ -16,8 +21,8 @@ void Text::onRepaint(graph_t* g, XTheme* theme, const grect_t& r) {
 		uint16_t c = content[i];
 		uint16_t w, h;
 
-		font_char_size(c, font, theme->basic.fontSize, &w, NULL);
-		h = theme->basic.fontSize;
+		font_char_size(c, ft, fontSize, &w, NULL);
+		h = fontSize;
 		if((x+w) >= r.w || c == '\r' || c == '\n') {
 			x = 0;
 			y += h;
@@ -26,7 +31,7 @@ void Text::onRepaint(graph_t* g, XTheme* theme, const grect_t& r) {
 		}
 
 		if(c != '\r' && c != '\n') {
-			graph_draw_unicode_font(g, r.x+x, r.y+y, c, font, theme->basic.fontSize, theme->basic.fgColor, &w, &h);
+			graph_draw_unicode_font(g, r.x+x, r.y+y, c, ft, fontSize, theme->basic.fgColor, &w, &h);
 			x += w;
 		}
 	}
@@ -39,6 +44,8 @@ Text::Text() {
 	contentSize = 0;
 	offset = 0;
 	pageSize = 0;
+	font = NULL;
+	fontSize = 0;
 }
 
 Text::~Text() {
@@ -125,5 +132,18 @@ void Text::setContent(const char* ctnt, uint32_t size) {
 	update();
 }
 
+void Text::setFont(const string& name) {
+	if(font != NULL)
+		font_free(font);
+	font = font_new(name.c_str(), true);
+	update();
+}
+
+void Text::setFontSize(uint32_t size) {
+	if(size < 12)
+		size = 12;
+	fontSize = size;
+	update();
+}
 
 }

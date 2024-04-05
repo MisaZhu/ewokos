@@ -27,7 +27,6 @@ typedef struct {
     int id;
     uint16_t ppm;
     TTY_V2 max_size;
-	map_t *cache;
 } font_inst_t;
 
 #define FONT_NAME_MAX 64
@@ -35,6 +34,7 @@ typedef struct {
 
 typedef struct {
     char name[FONT_NAME_MAX];
+	map_t *cache;
     font_inst_t instances[FONT_INST_MAX];
 } font_t;
 
