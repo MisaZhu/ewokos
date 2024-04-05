@@ -82,30 +82,44 @@ void Text::updateScroller() {
 	setScrollerInfo(contentSize, offset, pageSize, false);
 }
 
+void Text::scrollBack() {
+	while(offset >= 0) {
+		if(content[offset] == '\r' || content[offset] == '\n') {
+			offset++;
+			break;
+		}
+		offset--;
+	}
+}
+
+void Text::scrollForward() {
+	while(offset < contentSize) {
+		if(content[offset] == '\r' || content[offset] == '\n') {
+			offset++;
+			break;
+		}
+		offset++;
+	}
+}
+
 bool Text::onScroll(int step, bool horizontal) {
 	int old_off = offset;
 	//back to prev line start
 	if(step > 0) {
-		offset--;
-		while(offset >= 0) {
-			if(content[offset] == '\r' || content[offset] == '\n')
-				break;
-			offset--;
-		}
+		offset -= 2;
+		scrollBack();	
 	}
 	else {
-		offset++;
-		while(offset < contentSize) {
-			if(content[offset] == '\r' || content[offset] == '\n')
-				break;
-			offset++;
-		}
+		//offset++;
+		scrollForward();	
 	}
 
 	if(offset < 0)
 		offset = 0;
-	else if((offset + pageSize) >= contentSize)
-		offset = contentSize-pageSize;
+	else if(offset >= contentSize) {
+		offset -= 2;
+		scrollBack();	
+	}
 
 	if(offset == old_off)
 		return false;

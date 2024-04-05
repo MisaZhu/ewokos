@@ -10,6 +10,8 @@ class Text: public Scrollable {
 	font_t* font;
 	uint32_t fontSize;
 
+	void scrollBack();
+	void scrollForward();
 protected:
     uint16_t *content;
 	int offset;
