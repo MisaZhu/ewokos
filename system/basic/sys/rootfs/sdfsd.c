@@ -79,7 +79,7 @@ static int32_t add_nodes(ext2_t* ext2, INODE *ip, fsinfo_t* dinfo) {
 				c = dp->name[dp->name_len];  // save last byte
 				dp->name[dp->name_len] = 0;   
 
-				if(strcmp(dp->name, ".") != 0 && strcmp(dp->name, "..") != 0) {
+				if(strcmp(dp->name, ".") != 0 && strcmp(dp->name, "..") != 0 && dp->inode != 0) {
 					int32_t ino = dp->inode;
 					INODE ip_node;
 					if(ext2_node_by_ino(ext2, ino, &ip_node) == 0) {

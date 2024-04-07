@@ -119,24 +119,24 @@ typedef struct {
 
 static sd_t _sdc;
 
-void __attribute__((optimize("O0"))) _delay(uint32_t count) {
-	while(count > 0) {
-		count--;
-	}
-}
-
 inline uint64_t timer_usec(void){
 	uint64_t usec;
 	kernel_tic(NULL, &usec);
 	return usec;
 }
 
+void __attribute__((optimize("O0"))) _delay(uint32_t count) {
+       while(count > 0) {
+               count--;
+       }
+}
 
-inline void _delay_usec(uint64_t count) {
-	uint64_t s = timer_usec();
-	uint64_t t = s + count;
-	while(s < t) {
-		s = timer_usec();
+inline void _delay_usec(int64_t count) {
+	uint64_t end = timer_usec() + count;
+
+	while(count > 0) {
+		usleep(count);
+		count = end - timer_usec();
 	}
 }
 
@@ -149,9 +149,14 @@ inline void _delay_msec(uint32_t count) {
  * Wait for data or command ready
  */
 static inline int32_t sd_status(uint32_t mask) {
-	int32_t cnt = 1000000; 
-	while((*EMMC_STATUS & mask) != 0 && (*EMMC_INTERRUPT & INT_ERROR_MASK) == 0 && cnt > 0)
-		_delay(1000);
+	int32_t cnt = 1000; 
+	while((*EMMC_STATUS & mask) != 0 && (*EMMC_INTERRUPT & INT_ERROR_MASK) == 0 && cnt-- > 0){
+		_delay_msec(1);
+	}
+
+	// if(cnt <= 0 || (*EMMC_INTERRUPT & INT_ERROR_MASK)){
+	// 	klog("%d: %08x %08x\n",cnt, *EMMC_STATUS, *EMMC_INTERRUPT);	
+	// }
 	return (cnt <= 0 || (*EMMC_INTERRUPT & INT_ERROR_MASK)) ? SD_ERROR : SD_OK;
 }
 
@@ -162,9 +167,9 @@ static inline int32_t sd_int(uint32_t mask, int32_t wait) {
 	uint32_t r, m = (mask | INT_ERROR_MASK);
 	int32_t cnt = 10000; 
 	while((*EMMC_INTERRUPT & m) == 0 && cnt--) {
-		_delay(1000);
 		if(wait == 0)
 			return -1;
+		_delay_usec(100);
 	}
 
 	r = *EMMC_INTERRUPT;
@@ -357,6 +362,7 @@ int32_t emmc2_init(void) {
 
 	int64_t r, cnt, ccs = 0;
 	//check sdmux connect to witch emmc bus
+	//*((uint32_t*)(_mmio_base + 0x2000d0)) |= 0x2;
 	if((*((uint32_t*)(_mmio_base + 0x2000d0)) & 0x2) == 0){
 		EMMC_BASE = 0x00340000;
 	}else{
@@ -366,16 +372,14 @@ int32_t emmc2_init(void) {
 	sd_hv = (*EMMC_SLOTISR_VER & HOST_SPEC_NUM) >> HOST_SPEC_NUM_SHIFT;
 	// Reset the card.
 	*EMMC_CONTROL0 = 0;
-	*EMMC_CONTROL1 |= C1_SRST_HC|C1_SRST_DATA|C1_SRST_CMD;
+	*EMMC_CONTROL1 |= C1_SRST_HC;
 	cnt = 10000;
 	do{
 		_delay_msec(10);
 	} while((*EMMC_CONTROL1 & C1_SRST_HC) && cnt-- );
 
-	if(cnt<=0){
-
+	if(cnt<=0)
 		return SD_ERROR;
-	}
 
 	*EMMC_CONTROL0 |= 0xF00;
 	*EMMC_CONTROL1 |= C1_CLK_INTLEN | C1_TOUNIT_MAX;
@@ -398,7 +402,7 @@ int32_t emmc2_init(void) {
 	cnt = 6;
 	r = 0;
 	while(!(r&ACMD41_CMD_COMPLETE) && cnt--) {
-		_delay(4000);
+		_delay_usec(4000);
 		r = sd_cmd(CMD_SEND_OP_COND, ACMD41_ARG_HC);
 		if((r & ACMD41_CMD_COMPLETE) &&
 				(r & ACMD41_VOLTAGE) &&
@@ -432,6 +436,7 @@ int32_t emmc2_init(void) {
 	*EMMC_BLKSIZECNT = (1<<16) | 8;
 
 	sd_cmd(CMD_SEND_SCR, 0);
+	_delay_usec(10000);
 	if(sd_err)
 		return sd_err;
 
@@ -470,9 +475,11 @@ static inline void sd_handle(void) {
 	if((sd_int(INT_READ_RDY, 0)) != 0) {
 		return;
 	}
+	*EMMC_INTERRUPT = 0x30;
 	uint32_t* buf = (uint32_t*)_sdc.rxbuf;
-	for(d=0; d<SECTOR_SIZE/4; d++)
+	for(d=0; d<SECTOR_SIZE/4; d++){
 		buf[d] = *EMMC_DATA;
+	}
 
 	_sdc.rxdone = 1;
 	return;
@@ -487,25 +494,33 @@ static int32_t sd_read_done(void* buf) {
 	return 0;
 }
 
+static uint32_t last = 0;
 int32_t emmc2_read_sector(int32_t sector, void* buf) {
 	if(_sdc.rxdone == 0)
 		return -1;
 	_sdc.sector = sector;
 	_sdc.rxdone = 0;
 
-	if(sd_read_sector(sector) != 0)
+	if(sd_read_sector(sector) != 0){
 		return -1;
-	while(1) {
+	}
+	last = sector;
+	int timeout = 1000;
+	while(timeout--) {
 		if(sd_read_done(buf) == 0)
 			break;
+		_delay_msec(1);
 		//sleep(0);
+	}
+	if(!timeout){
+		return -1;
 	}
 	return 0;
 }
 
 int32_t emmc2_write_sector(int32_t sector, const void* buf) {
-	if(sd_write_sector(sector, buf) == 0)
-		return -1;
+	// if(sd_write_sector(sector, buf) == 0)
+	// 	return -1;
 	return 0;
 }
 
