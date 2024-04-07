@@ -3695,8 +3695,9 @@ static TTY_Error tty_convert_zone1_points_into_curves(TTY_Font* font, TTY_Curves
                 addFinalCurve = TTY_FALSE;
             }
             else if (font->hint.zone1.pointTypes[j + 1] == TTY_ON_CURVE_POINT) {
-                //curve->p2 = font->hint.zone1.cur[++j]; //TODO
-                curve->p2 = font->hint.zone1.cur[j];
+                curve->p2 = font->hint.zone1.cur[++j]; //TODO
+                if(j >= endPointIdx)
+                    break;
             }
             else { // Implied on-curve point
                 TTY_F26Dot6_V2* nextPoint = font->hint.zone1.cur + j + 1;
