@@ -65,9 +65,8 @@ static void _timerHandler(void) {
 }
 
 void WidgetWin::setTimer(uint32_t fps) {
-	if(fps == 0)
-		return;
-
+	if(fps < TIMER_MIN_FPS)
+		fps = TIMER_MIN_FPS;
 	timerFPS = fps;
 
 	_win = this;

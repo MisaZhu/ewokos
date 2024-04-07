@@ -159,7 +159,7 @@ int main(int argc, char** argv) {
 	root->add(sr);
 
 	win.open(&x, 0, -1, -1, 400, 300, "widgetTest", XWIN_STYLE_NORMAL);
-	win.setTimer(12);
+	win.setTimer(16);
 
 	x.run(NULL, &win);
 	return 0;
