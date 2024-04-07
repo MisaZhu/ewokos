@@ -93,6 +93,8 @@ static int32_t x_read_theme_config(const char* theme_name) {
 	_x_theme.docBGColor = 0xffffffff;
 	_x_theme.widgetFGColor = 0xff000000;
 	_x_theme.widgetBGColor = 0xffffffff;
+	_x_theme.fgDisableColor = 0xff444444;
+	_x_theme.bgDisableColor = 0xff888888;
 
 	strncpy(_x_theme.fontName, DEFAULT_SYSTEM_FONT,THEME_NAME_MAX-1);
 	_x_theme.fontSize = DEFAULT_SYSTEM_FONT_SIZE;
