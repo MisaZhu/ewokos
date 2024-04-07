@@ -109,6 +109,8 @@ void  Container::add(Widget* child) {
 		children = child;
 	childrenEnd = child;
 	num++;
+	child->onAdd();
+
 	layout();
 }
 
@@ -182,7 +184,7 @@ Container::Container() {
 	num = 0;
 }
 
-void  Container::setType(int type) {
+void  Container::setType(uint8_t type) {
 	this->type = type;
 	layout();
 }

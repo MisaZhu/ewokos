@@ -3,6 +3,7 @@
 #include <Widget/Label.h>
 #include <Widget/LabelButton.h>
 #include <Widget/List.h>
+#include <Widget/Split.h>
 #include <x++/X.h>
 #include <unistd.h>
 #include <font/font.h>
@@ -191,6 +192,10 @@ int main(int argc, char** argv) {
 	scrollerV->fix(8, 0);
 	root->add(scrollerV);
 	list->setScrollerV(scrollerV);
+
+	Split* split = new Split();
+	split->attach(list);
+	root->add(split);
 
 	FontDemo* demo = new FontDemo();
 	root->add(demo);

@@ -6,6 +6,7 @@
 #include <Widget/EditLine.h>
 #include <Widget/Grid.h>
 #include <Widget/Scroller.h>
+#include <Widget/Split.h>
 #include <WidgetEx/FileDialog.h>
 #include <WidgetEx/ConfirmDialog.h>
 
@@ -133,6 +134,10 @@ int main(int argc, char** argv) {
 	button->onClickFunc = win.onClickFunc;
 	c->add(button);
 
+	Split* split = new Split();
+	split->attach(button);
+	c->add(split);
+
 	button = new LabelButton("disable");
 	button->disable();
 	c->add(button);
@@ -146,6 +151,10 @@ int main(int argc, char** argv) {
 	sr->fix(8, 0);
 	list->setScrollerV(sr);
 	c->add(sr);
+
+	split = new Split();
+	split->attach(c);
+	root->add(split);
 
 	list = new MyList();
 	root->add(list);

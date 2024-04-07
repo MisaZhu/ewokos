@@ -42,6 +42,7 @@ protected:
 	virtual void onTimer(uint32_t timerFPS) { }
 	virtual void onFocus() { }
 	virtual void onUnfocus() { }
+	virtual void onAdd() { }
 	virtual bool onEvent(xevent_t* ev);
 public:
 	friend Container;
@@ -77,6 +78,10 @@ public:
 	void show();
 	void hide();
 
+	bool isFixed() { return fixed; }
+	bool isVisible() { return visible; }
+	Widget* getNext() { return next; }
+	Widget* getPrev() { return prev; }
 	RootWidget* getRoot(void);
 	WidgetWin*  getWin(void);
 	gpos_t getRootPos(int32_t x = 0, int32_t y = 0);
