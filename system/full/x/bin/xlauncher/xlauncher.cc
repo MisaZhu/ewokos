@@ -75,9 +75,7 @@ class AppList: public List {
 		y += (h - (int)(iconSize + titleMargin + (int32_t)th)) /2 +
 				iconSize + titleMargin;
 
-		graph_draw_text_font(g, x, y, title, theme->getFont(), theme->basic.fontSize, 0xff000000);
-		if(at == itemSelected)
-			graph_draw_text_font(g, x-1, y-1, title, theme->getFont(), theme->basic.fontSize, 0xffffffff);
+		graph_draw_text_font(g, x, y, title, theme->getFont(), theme->basic.fontSize, theme->basic.fgColor);
 	}
 
 	bool loadApps(var_t* var) {
@@ -111,7 +109,7 @@ class AppList: public List {
 
 protected:
 	void drawBG(graph_t* g, XTheme* theme, const grect_t& r) {
-		graph_fill(g, r.x, r.y, r.w, r.h, 0xffbbbbbb);
+		graph_fill(g, r.x, r.y, r.w, r.h, theme->basic.bgColor);
 	}
 
 	void drawItem(graph_t* g, XTheme* theme, int32_t index, const grect_t& r) {

@@ -20,6 +20,9 @@ typedef struct {
 	uint32_t bgColor;
 	uint32_t fgColor;
 
+	uint32_t docBGColor;
+	uint32_t docFGColor;
+
 	uint32_t bgUnfocusColor;
 	uint32_t fgUnfocusColor;
 
@@ -34,7 +37,7 @@ typedef struct {
 	uint32_t titleColor;
 	uint32_t titleBGColor;
 
-	uint32_t widgetColor;
+	uint32_t widgetFGColor;
 	uint32_t widgetBGColor;
 } x_theme_t;
 

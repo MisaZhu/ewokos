@@ -13,7 +13,7 @@ void Text::onRepaint(graph_t* g, XTheme* theme, const grect_t& r) {
 	if(fontSize == 0)
 		fontSize = theme->basic.fontSize;
 
-	graph_fill(g, r.x, r.y, r.w, r.h, theme->basic.bgColor);
+	graph_fill(g, r.x, r.y, r.w, r.h, theme->basic.docBGColor);
 
 	int i, x=0, y=0;
 	pageSize = 0; 
@@ -31,7 +31,7 @@ void Text::onRepaint(graph_t* g, XTheme* theme, const grect_t& r) {
 		}
 
 		if(c != '\r' && c != '\n') {
-			graph_draw_unicode_font(g, r.x+x, r.y+y, c, ft, fontSize, theme->basic.fgColor, &w, &h);
+			graph_draw_unicode_font(g, r.x+x, r.y+y, c, ft, fontSize, theme->basic.docFGColor, &w, &h);
 			x += w;
 		}
 	}
