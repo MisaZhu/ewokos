@@ -206,7 +206,7 @@ int main(int argc, char** argv) {
 		wr.y = desk.h-itemSize;
 		wr.w = itemSize*itemNum;
 		wr.h = itemSize;
-		apps->setHorizontal(true);
+		apps->setDefaultScrollType(Scrollable::SCROLL_TYPE_H);
 	}
 
 	win.open(&x, 0, wr, "xlauncher",

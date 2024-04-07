@@ -6,7 +6,6 @@
 namespace Ewok {
 
 class Text: public Scrollable {
-	int last_mouse_down;
 	font_t* font;
 	uint32_t fontSize;
 

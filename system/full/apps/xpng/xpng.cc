@@ -85,7 +85,21 @@ protected:
 	}
 
 	bool onScroll(int step, bool horizontal) {
-		return false;
+		if(horizontal) {
+			off_x -=  step * dragStep;
+			if(off_x < 0)
+				off_x = 0;
+			else if(off_x > (img->w-area.w))
+				off_x = img->w-area.w;
+		}
+		else {
+			off_y -= step * dragStep;
+			if(off_y < 0)
+				off_y = 0;
+			else if(off_y > (img->h-area.h))
+				off_y = img->h-area.h;
+		}
+		return true;
 	}
 
 	void onResize() {
@@ -106,38 +120,9 @@ protected:
 	}
 
 	bool onMouse(xevent_t* ev) {
-		gpos_t ipos = getInsidePos(ev->value.mouse.x, ev->value.mouse.y);
-		if(ev->state == XEVT_MOUSE_DOWN) {
-			last_mouse_down.x = ipos.x;
-			last_mouse_down.y = ipos.y;
-		}
-		else if(ev->state == XEVT_MOUSE_DRAG) {
-			int dx = last_mouse_down.x - ipos.x;
-			int dy =  last_mouse_down.y - ipos.y;
+		Scrollable::onMouse(ev);
 
-			if(abs_32(dx) > 10 && img->w > area.w) {
-				off_x +=  dx;
-				last_mouse_down.x = ipos.x;
-				if(off_x < 0)
-					off_x = 0;
-				else if(off_x > (img->w-area.w))
-					off_x = img->w-area.w;
-				updateScroller();
-				update();
-			}
-			
-			if(abs_32(dy) > 10 && img->h > area.h) {
-				off_y +=  dy;
-				last_mouse_down.y = ipos.y;
-				if(off_y < 0)
-					off_y = 0;
-				else if(off_y > (img->h-area.h))
-					off_y = img->h-area.h;
-				updateScroller();
-				update();
-			}
-		}
-		else if(ev->state == XEVT_MOUSE_MOVE) {
+		if(ev->state == XEVT_MOUSE_MOVE) {
 			if(ev->value.mouse.button == MOUSE_BUTTON_SCROLL_UP) {
 				zoom += 0.2;
 				if(zoom > 2.0)

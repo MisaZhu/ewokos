@@ -151,7 +151,7 @@ int main(int argc, char** argv) {
 	root->add(list);
 	list->setItemNum(100);
 	list->setItemSize(20);
-	list->setHorizontal(true);
+	list->setDefaultScrollType(Scrollable::SCROLL_TYPE_H);
 
 	sr = new Scroller(true);
 	sr->fix(0, 8);

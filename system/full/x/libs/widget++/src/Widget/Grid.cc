@@ -101,36 +101,26 @@ bool Grid::onScroll(int step, bool horizontal) {
 	return true;
 }
 
-bool Grid::onMouse(xevent_t* ev) {
+void Grid::selectByMouse(xevent_t* ev) {
 	gpos_t ipos = getInsidePos(ev->value.mouse.x, ev->value.mouse.y);
 	uint32_t iw = (uint32_t)(area.w / (float)cols);
 	if(ev->state == XEVT_MOUSE_DOWN) {
-		last_mouse_down = ipos.y;
 		int x = ipos.x / iw;
 		int y = ipos.y / itemH;
-		select(itemStart + y*cols + x);
-		update();
+		int sel = itemStart + y*cols + x;
+		select(sel);
 	}
-	else if(ev->state == XEVT_MOUSE_DRAG) {
-		int pos = ipos.y;
-		int mv = (pos - last_mouse_down) * 2 / (int)itemH;
-		if(abs_32(mv) > 0) {
-			last_mouse_down = pos;
-			scroll(mv, false);
-		}
-	}
-	else if(ev->state == XEVT_MOUSE_MOVE) {
-		if(ev->value.mouse.button == MOUSE_BUTTON_SCROLL_UP)
-			scroll(-1, false);
-		else if(ev->value.mouse.button == MOUSE_BUTTON_SCROLL_DOWN)
-			scroll(1, false);
-	}
-	else if(ev->state == XEVT_MOUSE_CLICK) {
+}
+
+void Grid::enterByMouse(xevent_t* ev) {
+	gpos_t ipos = getInsidePos(ev->value.mouse.x, ev->value.mouse.y);
+	uint32_t iw = (uint32_t)(area.w / (float)cols);
+	if(ev->state == XEVT_MOUSE_CLICK) {
 		int x = ipos.x / iw;
 		int y = ipos.y / itemH;
-		enter(itemStart + y*cols + x);
+		int sel = itemStart + y*cols + x;
+		enter(sel);
 	}
-	return true;
 }
 
 bool Grid::onIM(xevent_t* ev) {

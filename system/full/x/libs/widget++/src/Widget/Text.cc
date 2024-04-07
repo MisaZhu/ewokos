@@ -54,20 +54,9 @@ Text::~Text() {
 }
 
 bool Text::onMouse(xevent_t* ev) {
-	gpos_t ipos = getInsidePos(ev->value.mouse.x, ev->value.mouse.y);
-	if(ev->state == XEVT_MOUSE_DOWN) {
-		last_mouse_down = ipos.y;
-		update();
-	}
-	else if(ev->state == XEVT_MOUSE_DRAG) {
-		int pos = ipos.y;
-		int mv = (pos - last_mouse_down) * 2 / 16;
-		if(mv != 0) {
-			last_mouse_down = pos;
-			scroll(mv, false);
-		}
-	}
-	else if(ev->state == XEVT_MOUSE_MOVE) {
+	Scrollable::onMouse(ev);
+
+	if(ev->state == XEVT_MOUSE_MOVE) {
 		if(ev->value.mouse.button == MOUSE_BUTTON_SCROLL_UP) {
 			scroll(-1, false);
 		}
