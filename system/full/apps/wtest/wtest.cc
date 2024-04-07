@@ -59,7 +59,7 @@ protected:
 			pos = 0;
 	}
 
-	void onTimer() {
+	void onTimer(uint32_t timerFPS) {
 		step++;
 		if (step >= steps)
 			step = 0;

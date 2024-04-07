@@ -32,8 +32,7 @@ void Button::paintUp(graph_t* g, XTheme* theme, const grect_t& rect) {
 }
 
 void Button::paintDisabled(graph_t* g, XTheme* theme, const grect_t& rect) {
-	graph_fill(g, rect.x, rect.y, rect.w, rect.h, 0xff888888);
-	graph_box(g, rect.x, rect.y, rect.w, rect.h, 0xffcccccc);
+	graph_fill_3d(g, rect.x, rect.y, rect.w, rect.h, theme->basic.bgDisableColor, false);
 }
 
 void Button::onRepaint(graph_t* g, XTheme* theme, const grect_t& r) {

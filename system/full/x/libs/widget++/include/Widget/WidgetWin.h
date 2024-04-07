@@ -9,6 +9,7 @@ namespace Ewok {
 class WidgetWin: public XWin {
 	bool painting;
 protected:
+	uint32_t timerFPS;
 	RootWidget* root;
 	uint32_t timerID;
 	void onRepaint(graph_t* g);

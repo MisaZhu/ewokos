@@ -7,6 +7,7 @@ WidgetWin::WidgetWin() {
 	root = NULL;
 	timerID = 0;
 	painting = false;
+	timerFPS = 1;
 }
 
 WidgetWin::~WidgetWin() {
@@ -48,7 +49,7 @@ bool WidgetWin::onClose() {
 void WidgetWin::timerTask() {
 	if(root == NULL)
 		return;
-	root->onTimer();
+	root->onTimer(timerFPS);
 	root->repaintWin();
 }
 
@@ -67,10 +68,12 @@ void WidgetWin::setTimer(uint32_t fps) {
 	if(fps == 0)
 		return;
 
+	timerFPS = fps;
+
 	_win = this;
 	if(timerID > 0)
 		timer_remove(timerID);
-	timerID = timer_set(1000*1000/fps, _timerHandler);
+	timerID = timer_set(1000*1000/timerFPS, _timerHandler);
 }
 
 }

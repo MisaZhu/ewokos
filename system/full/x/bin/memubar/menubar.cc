@@ -62,7 +62,7 @@ public:
 
 class Timer: public Label {
 protected:
-	void onTimer() {
+	void onTimer(uint32_t timerFPS) {
 		uint32_t ksec;
 		kernel_tic(&ksec, NULL);
 		uint32_t min = ksec / 60;
@@ -148,7 +148,7 @@ protected:
 		return {56, 28};
 	}
 	
-	void onTimer() {
+	void onTimer(uint32_t timerFPS) {
 		update();
 	}
 

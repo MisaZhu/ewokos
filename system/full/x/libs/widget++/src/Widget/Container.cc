@@ -112,10 +112,10 @@ void  Container::add(Widget* child) {
 	layout();
 }
 
-void  Container::onTimer() {
+void  Container::onTimer(uint32_t timerFPS) {
 	Widget* wd = children;
 	while(wd != NULL) {
-		wd->onTimer();
+		wd->onTimer(timerFPS);
 		wd = wd->next;
 	}
 }

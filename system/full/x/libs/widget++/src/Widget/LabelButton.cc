@@ -27,7 +27,7 @@ void LabelButton::paintDisabled(graph_t* g, XTheme* theme, const grect_t& r) {
 	if(font == NULL)
 		return;
 	graph_draw_text_font_align(g, r.x, r.y, r.w, r.h,
-			label.c_str(), font, theme->basic.fontSize, 0xffdddddd, FONT_ALIGN_CENTER);
+			label.c_str(), font, theme->basic.fontSize, theme->basic.fgDisableColor, FONT_ALIGN_CENTER);
 }
 
 void LabelButton::setLabel(const string& label) {

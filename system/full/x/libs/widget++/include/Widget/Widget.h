@@ -39,7 +39,7 @@ protected:
 
 	virtual void repaint(graph_t* g, XTheme* theme);
 	virtual void onRepaint(graph_t* g, XTheme* theme, const grect_t& r) = 0;
-	virtual void onTimer() { }
+	virtual void onTimer(uint32_t timerFPS) { }
 	virtual void onFocus() { }
 	virtual void onUnfocus() { }
 	virtual bool onEvent(xevent_t* ev);
