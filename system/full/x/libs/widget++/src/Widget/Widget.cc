@@ -53,26 +53,30 @@ bool Widget::onIM(xevent_t* ev) {
 }
 
 bool Widget::onEvent(xevent_t* ev) { 
-	if(disabled)
-		return false;
-
+	bool ret = false;
 	if(ev->type == XEVT_MOUSE) {
 		grect_t r = getScreenArea();
 		if(ev->value.mouse.x > r.x && ev->value.mouse.x < (r.x+r.w) &&
 				ev->value.mouse.y > r.y && ev->value.mouse.y < (r.y+r.h)) {
-			if(ev->state == XEVT_MOUSE_DOWN)
+			if(ev->state == XEVT_MOUSE_DOWN) {
 				getRoot()->focus(this);
-			if(ev->state != XEVT_MOUSE_UP && ev->state != XEVT_MOUSE_DRAG)
+				ret = true;
+			}
+			if(!disabled && 
+					ev->state != XEVT_MOUSE_UP &&
+					ev->state != XEVT_MOUSE_DRAG)
 				return onMouse(ev);
 		}
-		if((ev->state == XEVT_MOUSE_UP || ev->state == XEVT_MOUSE_DRAG) &&
+		if(!disabled && 
+				(ev->state == XEVT_MOUSE_UP || ev->state == XEVT_MOUSE_DRAG) &&
 				getRoot()->getFocused() == this)
 			return onMouse(ev);
 	}
-	else if(ev->type == XEVT_IM && getRoot()->getFocused() == this) {
+	else if(!disabled &&
+			ev->type == XEVT_IM && getRoot()->getFocused() == this) {
 		return onIM(ev);
 	}
-	return false; 
+	return ret; 
 }
 
 RootWidget* Widget::getRoot(void) {

@@ -6,15 +6,18 @@ bool Button::onMouse(xevent_t* ev) {
 	if(ev->state == XEVT_MOUSE_DOWN) {
 		state = STATE_DOWN;
 		update();
+		return true;
 	}
 	else if(ev->state == XEVT_MOUSE_UP) {
 		state = STATE_UP;
 		update();
+		return true;
 	}
 	else if(ev->state == XEVT_MOUSE_CLICK) {
 		onClick();
+		return true;
 	}
-	return true;
+	return false;
 }
 
 void Button::paintDown(graph_t* g, XTheme* theme, const grect_t& rect) {

@@ -23,14 +23,15 @@ void Split::onRepaint(graph_t* g, XTheme* theme, const grect_t& r) {
 	return;
 }
 
-void Split::moveSplit(xevent_t* ev) {
+bool Split::moveSplit(xevent_t* ev) {
 	if(attachedWidget == NULL || father == NULL || !fixed)
-		return;
+		return false;
 	attachedWidget->setFixed(true);
 
 	if(horizontal) {
 		if(ev->state == XEVT_MOUSE_DOWN) {
 			last_mouse_down = ev->value.mouse.x;
+			return true;
 		}
 		else if(ev->state == XEVT_MOUSE_DRAG) {
 			int dx = last_mouse_down - ev->value.mouse.x;
@@ -38,11 +39,13 @@ void Split::moveSplit(xevent_t* ev) {
 				last_mouse_down = ev->value.mouse.x;
 				attachedWidget->resize(-dx, 0);
 			}
+			return true;
 		}
 	}
 	else {
 		if(ev->state == XEVT_MOUSE_DOWN) {
 			last_mouse_down = ev->value.mouse.y;
+			return true;
 		}
 		else if(ev->state == XEVT_MOUSE_DRAG) {
 			int dy = last_mouse_down - ev->value.mouse.y;
@@ -50,16 +53,17 @@ void Split::moveSplit(xevent_t* ev) {
 				last_mouse_down = ev->value.mouse.y;
 				attachedWidget->resize(0, -dy);
 			}
+			return true;
 		}
 	}
+	return false;
 }
 
 bool Split::onMouse(xevent_t* ev) {
 	if(attachedWidget == NULL)
-		return true;
+		return false;
 
-	moveSplit(ev);
-	return true;
+	return moveSplit(ev);
 }
 
 void Split::onAdd() {

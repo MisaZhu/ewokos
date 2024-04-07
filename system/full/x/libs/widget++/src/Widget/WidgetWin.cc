@@ -20,8 +20,7 @@ WidgetWin::~WidgetWin() {
 void WidgetWin::onRepaint(graph_t* g) {
 	if(root == NULL)
 		return;
-	if(painting)
-		return;
+
 	painting = true;
 	root->repaint(g, &theme);
 	painting = false;
@@ -50,7 +49,8 @@ void WidgetWin::timerTask() {
 	if(root == NULL)
 		return;
 	root->onTimer(timerFPS);
-	root->repaintWin();
+	if(!painting)
+		root->repaintWin();
 }
 
 void WidgetWin::setRoot(RootWidget* root) {

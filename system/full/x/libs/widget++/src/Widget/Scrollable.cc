@@ -54,6 +54,7 @@ bool Scrollable::onMouse(xevent_t* ev) {
 	if(ev->state == XEVT_MOUSE_DOWN) {
 		last_mouse_down.x = ipos.x;
 		last_mouse_down.y = ipos.y;
+		return true;
 	}
 	else if(ev->state == XEVT_MOUSE_DRAG) {
 		int dx = last_mouse_down.x - ipos.x;
@@ -74,8 +75,9 @@ bool Scrollable::onMouse(xevent_t* ev) {
 			else
 				scroll(1, false);
 		}
+		return true;
 	}
-	return true;
+	return false;
 }
 
 void Scrollable::setDefaultScrollType(uint8_t type) {

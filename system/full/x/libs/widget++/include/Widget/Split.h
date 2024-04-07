@@ -19,7 +19,7 @@ protected:
 
 	void onAdd();
 
-	void moveSplit(xevent_t* ev);
+	bool moveSplit(xevent_t* ev);
 public:
 	Split();
 
