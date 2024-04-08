@@ -32,11 +32,11 @@ void Split::resizeAttach(int d) {
 	grect_t r = attachedWidget->getRootArea();
 
 	if(horizontal) {
-		if((r.x + r.w - d + width) < (father_area.x + father_area.w))
+		if((r.x + r.w - d + width) <= (father_area.x + father_area.w))
 			attachedWidget->resize(-d, 0);
 	}
 	else {
-		if((r.y + r.h - d + width) < (father_area.y + father_area.h))
+		if((r.y + r.h - d + width) <= (father_area.y + father_area.h))
 			attachedWidget->resize(0, -d);
 	}
 }
