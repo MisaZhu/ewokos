@@ -47,8 +47,8 @@ static uint32_t  EMMC_BASE;
 #define CMD_READ_SINGLE     0x11220010
 #define CMD_READ_MULTI      0x12220032
 #define CMD_SET_BLOCKCNT    0x17020000
-#define CMD_WRITE_SINGLE    0x18220010
-#define CMD_WRITE_MULTI     0x19220032
+#define CMD_WRITE_SINGLE    0x18220000
+#define CMD_WRITE_MULTI     0x19220022
 #define CMD_APP_CMD         0x37000000
 #define CMD_SET_BUS_WIDTH   (0x06020000|CMD_NEED_APP)
 #define CMD_SEND_OP_COND    (0x29020000|CMD_NEED_APP)
@@ -505,12 +505,11 @@ int32_t emmc2_read_sector(int32_t sector, void* buf) {
 		return -1;
 	}
 	last = sector;
-	int timeout = 1000;
+	int timeout = 100000;
 	while(timeout--) {
 		if(sd_read_done(buf) == 0)
 			break;
-		_delay_msec(1);
-		//sleep(0);
+		_delay_usec(1);
 	}
 	if(!timeout){
 		return -1;
@@ -519,8 +518,8 @@ int32_t emmc2_read_sector(int32_t sector, void* buf) {
 }
 
 int32_t emmc2_write_sector(int32_t sector, const void* buf) {
-	// if(sd_write_sector(sector, buf) == 0)
-	// 	return -1;
+	if(sd_write_sector(sector, buf) == 0)
+		return -1;
 	return 0;
 }
 
