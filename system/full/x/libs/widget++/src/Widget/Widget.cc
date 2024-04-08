@@ -103,6 +103,11 @@ void Widget::repaint(graph_t* g, XTheme* theme) {
 		theme = this->themePrivate;
 
 	grect_t r = getRootArea();
+	if(r.w <= 0 || r.h <= 0) {
+		dirty = false;
+		return;
+	}
+
 	graph_set_clip(g, r.x, r.y, r.w, r.h);
 	onRepaint(g, theme, r);
 	dirty = false;
@@ -154,6 +159,11 @@ void Widget::fix(const gsize_t& size) {
 void Widget::resizeTo(int w, int h) {
 	if(area.w == w && area.h == h)
 		return;
+	if(w < 0)
+		w = 0;
+	if(h < 0)
+		h = 0;
+
 	area.w = w;
 	area.h = h;
 	onResize();

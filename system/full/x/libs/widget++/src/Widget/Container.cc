@@ -71,6 +71,10 @@ void  Container::onLayout() {
 }
 
 void  Container::layout() {
+	if(area.w <= 0 || area.h <= 0) {
+		return;
+	}
+
 	if(type == FIXED) {
 		onLayout();
 		return;
