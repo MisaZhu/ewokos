@@ -53,6 +53,9 @@ bool Widget::onIM(xevent_t* ev) {
 }
 
 bool Widget::onEvent(xevent_t* ev) { 
+	if(!visible)
+		return false;
+
 	bool ret = false;
 	if(ev->type == XEVT_MOUSE) {
 		grect_t r = getScreenArea();

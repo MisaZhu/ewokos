@@ -67,6 +67,14 @@ void  Container::layoutH() {
 	}
 }
 
+void  Container::layoutO() {
+	Widget* wd = children;
+	while(wd != NULL) {
+		wd->setArea(0, 0, area.w, area.h);
+		wd = wd->next;
+	}
+}
+
 void  Container::onLayout() {
 }
 
@@ -83,6 +91,8 @@ void  Container::layout() {
 		layoutV();
 	else if(type == HORIZONTAL)
 		layoutH();
+	else if(type == OVERLAP)
+		layoutO();
 	onLayout();
 }
 

@@ -12,7 +12,7 @@ class Container: public Blank {
 
 	void layoutV();
 	void layoutH();
-
+	void layoutO();
 protected:
 	void onResize();
 	void onLayout();
@@ -24,6 +24,7 @@ public:
 	static const uint8_t FIXED = 0;
 	static const uint8_t VERTICLE = 1;
 	static const uint8_t HORIZONTAL = 2;
+	static const uint8_t OVERLAP = 3;
 
 	void layout();
 	void add(Widget* child);
