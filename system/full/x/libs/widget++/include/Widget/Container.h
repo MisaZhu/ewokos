@@ -5,15 +5,15 @@
 namespace Ewok {
 
 class Container: public Blank {
+	void layoutV();
+	void layoutH();
+	void layoutO();
+protected:
 	Widget* children;
 	Widget* childrenEnd;
 	uint32_t num;
 	uint8_t type;
 
-	void layoutV();
-	void layoutH();
-	void layoutO();
-protected:
 	void onResize();
 	void onLayout();
 	bool onEvent(xevent_t* ev);
@@ -30,6 +30,7 @@ public:
 	void add(Widget* child);
 	Widget* get(uint32_t id);
 	Widget* get(const string& name);
+	bool has(Widget* wd);
 	void setType(uint8_t type);
 	uint8_t  getType() { return type; }
 	void clear();

@@ -75,6 +75,16 @@ void  Container::layoutO() {
 	}
 }
 
+bool  Container::has(Widget* w) {
+	Widget* wd = children;
+	while(wd != NULL) {
+		if(wd == w)
+			return true;
+		wd = wd->next;
+	}
+	return false;
+}
+
 void  Container::onLayout() {
 }
 

@@ -9,6 +9,7 @@ namespace Ewok {
 
 class Container;
 class RootWidget;
+class Stage;
 class WidgetWin;
 class Widget {
 	Widget* next;
@@ -47,6 +48,7 @@ protected:
 public:
 	friend Container;
 	friend RootWidget;
+	friend Stage;
 
 	void (*onClickFunc)(Widget* wd);
 
