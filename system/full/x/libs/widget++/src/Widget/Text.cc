@@ -92,6 +92,8 @@ void Text::scrollForward() {
 }
 
 bool Text::onScroll(int step, bool horizontal) {
+	if(content == NULL)
+		return false;
 	int old_off = offset;
 	//back to prev line start
 	if(step > 0) {
