@@ -134,6 +134,7 @@ void  Container::repaint(graph_t* g, XTheme* theme) {
 
 	if(dirty) {
 		grect_t r = getRootArea();
+		graph_insect(g, &r);
 		graph_set_clip(g, r.x, r.y, r.w, r.h);
 		onRepaint(g, theme, r);
 	}

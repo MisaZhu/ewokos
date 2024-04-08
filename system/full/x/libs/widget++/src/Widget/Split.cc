@@ -23,6 +23,24 @@ void Split::onRepaint(graph_t* g, XTheme* theme, const grect_t& r) {
 	return;
 }
 
+void Split::resizeAttach(int d) {
+	Container* father = attachedWidget->getFather();
+	if(father == NULL)
+		return;
+
+	grect_t father_area = father->getRootArea();
+	grect_t r = attachedWidget->getRootArea();
+
+	if(horizontal) {
+		if((r.x + r.w - d + width) < (father_area.x + father_area.w))
+			attachedWidget->resize(-d, 0);
+	}
+	else {
+		if((r.y + r.h - d + width) < (father_area.y + father_area.h))
+			attachedWidget->resize(0, -d);
+	}
+}
+
 bool Split::moveSplit(xevent_t* ev) {
 	if(attachedWidget == NULL || father == NULL || !fixed)
 		return false;
@@ -39,7 +57,7 @@ bool Split::moveSplit(xevent_t* ev) {
 				dx = -dx;
 			if(abs(dx) > step) {
 				last_mouse_down = ev->value.mouse.x;
-				attachedWidget->resize(-dx, 0);
+				resizeAttach(dx);
 			}
 			return true;
 		}
@@ -55,7 +73,7 @@ bool Split::moveSplit(xevent_t* ev) {
 				dy = -dy;
 			if(abs(dy) > step) {
 				last_mouse_down = ev->value.mouse.y;
-				attachedWidget->resize(0, -dy);
+				resizeAttach(dy);
 			}
 			return true;
 		}

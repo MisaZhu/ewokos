@@ -90,6 +90,7 @@ public:
 	grect_t getRootArea(bool margin = true);
 	grect_t getScreenArea(bool margin = true);
 	bool   focused();
+	Container* getFather() { return father; }
 
 	virtual gsize_t getMinSize(void);
 	void update();

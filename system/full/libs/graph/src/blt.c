@@ -10,7 +10,12 @@ extern "C" {
 
 int32_t grect_insect(const grect_t* src, grect_t* dst) {
 	//insect src;
-	if(dst->x >= (int32_t)(src->x+src->w) || dst->y >= (int32_t)(src->y+src->h)) //check x, y
+	if(dst->x >= (int32_t)(src->x+src->w))
+		dst->w = 0;
+	if(dst->y >= (int32_t)(src->y+src->h))
+		dst->h = 0;
+	
+	if(dst->w == 0 || dst->h == 0)
 		return 0;
 
 	int32_t rx, ry;  //chehck w, h
@@ -39,11 +44,8 @@ int32_t grect_insect(const grect_t* src, grect_t* dst) {
 	return 0 for none-insection-area.
 */
 inline int32_t graph_insect(graph_t* g, grect_t* r) {
-	if(g->clip.w == 0 || g->clip.h == 0) {
-		grect_t gr = {0, 0, g->w, g->h};
-		return grect_insect(&gr, r);
-	}
-	return grect_insect(&g->clip, r);
+	grect_t gr = {0, 0, g->w, g->h};
+	return grect_insect(&gr, r);
 }
 
 /*will change the value of sr, dr.

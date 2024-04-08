@@ -6,6 +6,8 @@
 namespace Ewok {
 
 class Split: public Widget {
+	void resizeAttach(int d);
+	bool moveSplit(xevent_t* ev);
 protected:
 	bool horizontal;
 	uint32_t width;
@@ -19,8 +21,6 @@ protected:
 	bool onMouse(xevent_t* ev);
 
 	void onAdd();
-
-	bool moveSplit(xevent_t* ev);
 public:
 	Split();
 

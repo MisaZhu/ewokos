@@ -108,6 +108,7 @@ void Widget::repaint(graph_t* g, XTheme* theme) {
 		return;
 	}
 
+	graph_insect(g, &r);
 	graph_set_clip(g, r.x, r.y, r.w, r.h);
 	onRepaint(g, theme, r);
 	dirty = false;
