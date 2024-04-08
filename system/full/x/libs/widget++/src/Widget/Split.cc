@@ -35,6 +35,8 @@ bool Split::moveSplit(xevent_t* ev) {
 		}
 		else if(ev->state == XEVT_MOUSE_DRAG) {
 			int dx = last_mouse_down - ev->value.mouse.x;
+			if(attachedAfter)
+				dx = -dx;
 			if(abs(dx) > step) {
 				last_mouse_down = ev->value.mouse.x;
 				attachedWidget->resize(-dx, 0);
@@ -49,6 +51,8 @@ bool Split::moveSplit(xevent_t* ev) {
 		}
 		else if(ev->state == XEVT_MOUSE_DRAG) {
 			int dy = last_mouse_down - ev->value.mouse.y;
+			if(attachedAfter)
+				dy = -dy;
 			if(abs(dy) > step) {
 				last_mouse_down = ev->value.mouse.y;
 				attachedWidget->resize(0, -dy);
@@ -96,8 +100,9 @@ void Split::setStep(uint32_t stp) {
 	step = stp;
 }
 
-void Split::attach(Widget* wd) {
+void Split::attach(Widget* wd, bool after) {
 	attachedWidget = wd;
+	attachedAfter = after;
 }
 
 Split::Split() {
@@ -106,6 +111,7 @@ Split::Split() {
 	barSize = 16;
 	step = 8;
 	horizontal = false;
+	attachedAfter = false;
 	attachedWidget = NULL;
 }
 

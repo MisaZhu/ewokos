@@ -12,6 +12,7 @@ protected:
 	uint32_t barSize;
 	uint32_t step;
 	Widget*  attachedWidget;
+	bool  attachedAfter;
 	int last_mouse_down;
 	void onRepaint(graph_t* g, XTheme* theme, const grect_t& r);
 
@@ -26,7 +27,7 @@ public:
 	void setWidth(uint32_t w);
 	void setBarSize(uint32_t bsize);
 	void setStep(uint32_t step);
-	void attach(Widget* wd);
+	void attach(Widget* wd, bool after = false);
 };
 
 }
