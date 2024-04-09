@@ -6,6 +6,7 @@
 #include <Widget/EditLine.h>
 #include <Widget/Grid.h>
 #include <Widget/Scroller.h>
+#include <Widget/Split.h>
 #include <WidgetEx/FileDialog.h>
 #include <WidgetEx/ConfirmDialog.h>
 
@@ -59,7 +60,7 @@ protected:
 			pos = 0;
 	}
 
-	void onTimer() {
+	void onTimer(uint32_t timerFPS) {
 		step++;
 		if (step >= steps)
 			step = 0;
@@ -133,6 +134,10 @@ int main(int argc, char** argv) {
 	button->onClickFunc = win.onClickFunc;
 	c->add(button);
 
+	Split* split = new Split();
+	split->attach(button);
+	c->add(split);
+
 	button = new LabelButton("disable");
 	button->disable();
 	c->add(button);
@@ -147,11 +152,15 @@ int main(int argc, char** argv) {
 	list->setScrollerV(sr);
 	c->add(sr);
 
+	split = new Split();
+	split->attach(c);
+	root->add(split);
+
 	list = new MyList();
 	root->add(list);
 	list->setItemNum(100);
 	list->setItemSize(20);
-	list->setHorizontal(true);
+	list->setDefaultScrollType(Scrollable::SCROLL_TYPE_H);
 
 	sr = new Scroller(true);
 	sr->fix(0, 8);
@@ -159,7 +168,7 @@ int main(int argc, char** argv) {
 	root->add(sr);
 
 	win.open(&x, 0, -1, -1, 400, 300, "widgetTest", XWIN_STYLE_NORMAL);
-	win.setTimer(12);
+	win.setTimer(16);
 
 	x.run(NULL, &win);
 	return 0;

@@ -9,7 +9,7 @@ void Scroller::drawBG(graph_t* g, XTheme* theme, const grect_t& r) {
 }
 
 void Scroller::drawPos(graph_t* g, XTheme* theme, const grect_t& r) {
-	graph_fill_3d(g, r.x, r.y, r.w, r.h, theme->basic.widgetColor, false);
+	graph_fill_3d(g, r.x, r.y, r.w, r.h, theme->basic.widgetFGColor, false);
 }
 
 void Scroller::onRepaint(graph_t* g, XTheme* theme, const grect_t& r) {

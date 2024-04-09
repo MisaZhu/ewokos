@@ -9,6 +9,7 @@ CXXFLAGS += -Iinclude -I$(TARGET_DIR)/include
 
 LIB_WIDGET_OBJS =  src/Widget/Widget.o \
 		src/Widget/Blank.o \
+		src/Widget/Split.o \
 		src/Widget/Container.o \
 		src/Widget/Image.o \
 		src/Widget/Label.o \
@@ -22,12 +23,15 @@ LIB_WIDGET_OBJS =  src/Widget/Widget.o \
 		src/Widget/RootWidget.o \
 		src/Widget/EditLine.o \
 		src/Widget/Text.o \
+		src/Widget/Stage.o \
 		src/Widget/WidgetWin.o \
 		\
 		src/WidgetEx/FileWidget.o \
 		src/WidgetEx/Dialog.o \
 		src/WidgetEx/ConfirmDialog.o \
-		src/WidgetEx/FileDialog.o
+		src/WidgetEx/FileDialog.o \
+		src/WidgetEx/Menu.o \
+		src/WidgetEx/Menubar.o
 
 WIDGET = $(TARGET_DIR)/lib/libwidget++.a
 

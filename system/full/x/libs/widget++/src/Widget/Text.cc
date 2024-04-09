@@ -13,7 +13,7 @@ void Text::onRepaint(graph_t* g, XTheme* theme, const grect_t& r) {
 	if(fontSize == 0)
 		fontSize = theme->basic.fontSize;
 
-	graph_fill(g, r.x, r.y, r.w, r.h, theme->basic.bgColor);
+	graph_fill(g, r.x, r.y, r.w, r.h, theme->basic.docBGColor);
 
 	int i, x=0, y=0;
 	pageSize = 0; 
@@ -31,7 +31,7 @@ void Text::onRepaint(graph_t* g, XTheme* theme, const grect_t& r) {
 		}
 
 		if(c != '\r' && c != '\n') {
-			graph_draw_unicode_font(g, r.x+x, r.y+y, c, ft, fontSize, theme->basic.fgColor, &w, &h);
+			graph_draw_unicode_font(g, r.x+x, r.y+y, c, ft, fontSize, theme->basic.docFGColor, &w, &h);
 			x += w;
 		}
 	}
@@ -54,20 +54,9 @@ Text::~Text() {
 }
 
 bool Text::onMouse(xevent_t* ev) {
-	gpos_t ipos = getInsidePos(ev->value.mouse.x, ev->value.mouse.y);
-	if(ev->state == XEVT_MOUSE_DOWN) {
-		last_mouse_down = ipos.y;
-		update();
-	}
-	else if(ev->state == XEVT_MOUSE_DRAG) {
-		int pos = ipos.y;
-		int mv = (pos - last_mouse_down) * 2 / 16;
-		if(mv != 0) {
-			last_mouse_down = pos;
-			scroll(mv, false);
-		}
-	}
-	else if(ev->state == XEVT_MOUSE_MOVE) {
+	Scrollable::onMouse(ev);
+
+	if(ev->state == XEVT_MOUSE_MOVE) {
 		if(ev->value.mouse.button == MOUSE_BUTTON_SCROLL_UP) {
 			scroll(-1, false);
 		}
@@ -82,30 +71,46 @@ void Text::updateScroller() {
 	setScrollerInfo(contentSize, offset, pageSize, false);
 }
 
+void Text::scrollBack() {
+	while(offset >= 0) {
+		if(content[offset] == '\r' || content[offset] == '\n') {
+			offset++;
+			break;
+		}
+		offset--;
+	}
+}
+
+void Text::scrollForward() {
+	while(offset < contentSize) {
+		if(content[offset] == '\r' || content[offset] == '\n') {
+			offset++;
+			break;
+		}
+		offset++;
+	}
+}
+
 bool Text::onScroll(int step, bool horizontal) {
+	if(content == NULL)
+		return false;
 	int old_off = offset;
 	//back to prev line start
 	if(step > 0) {
-		offset--;
-		while(offset >= 0) {
-			if(content[offset] == '\r' || content[offset] == '\n')
-				break;
-			offset--;
-		}
+		offset -= 2;
+		scrollBack();	
 	}
 	else {
-		offset++;
-		while(offset < contentSize) {
-			if(content[offset] == '\r' || content[offset] == '\n')
-				break;
-			offset++;
-		}
+		//offset++;
+		scrollForward();	
 	}
 
 	if(offset < 0)
 		offset = 0;
-	else if((offset + pageSize) >= contentSize)
-		offset = contentSize-pageSize;
+	else if(offset >= contentSize) {
+		offset -= 2;
+		scrollBack();	
+	}
 
 	if(offset == old_off)
 		return false;

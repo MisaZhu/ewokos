@@ -7,6 +7,7 @@ WidgetWin::WidgetWin() {
 	root = NULL;
 	timerID = 0;
 	painting = false;
+	timerFPS = 1;
 }
 
 WidgetWin::~WidgetWin() {
@@ -19,8 +20,7 @@ WidgetWin::~WidgetWin() {
 void WidgetWin::onRepaint(graph_t* g) {
 	if(root == NULL)
 		return;
-	if(painting)
-		return;
+
 	painting = true;
 	root->repaint(g, &theme);
 	painting = false;
@@ -48,8 +48,9 @@ bool WidgetWin::onClose() {
 void WidgetWin::timerTask() {
 	if(root == NULL)
 		return;
-	root->onTimer();
-	root->repaintWin();
+	root->onTimer(timerFPS);
+	if(!painting)
+		root->repaintWin();
 }
 
 void WidgetWin::setRoot(RootWidget* root) {
@@ -64,13 +65,14 @@ static void _timerHandler(void) {
 }
 
 void WidgetWin::setTimer(uint32_t fps) {
-	if(fps == 0)
-		return;
+	if(fps < TIMER_MIN_FPS)
+		fps = TIMER_MIN_FPS;
+	timerFPS = fps;
 
 	_win = this;
 	if(timerID > 0)
 		timer_remove(timerID);
-	timerID = timer_set(1000*1000/fps, _timerHandler);
+	timerID = timer_set(1000*1000/timerFPS, _timerHandler);
 }
 
 }

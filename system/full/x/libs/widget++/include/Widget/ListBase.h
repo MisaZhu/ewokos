@@ -17,6 +17,11 @@ protected:
 	virtual void drawBG(graph_t* g, XTheme* theme, const grect_t& r);
 	virtual void onSelect(int sel);
 	virtual void onEnter(int sel);
+
+	virtual void selectByMouse(xevent_t* ev);
+	virtual void enterByMouse(xevent_t* ev);
+
+	bool onMouse(xevent_t* ev);
 public:
 	ListBase();
 	~ListBase(void);
