@@ -2227,6 +2227,7 @@ int brcmf_sdiod_probe(void){
     brcm_log("F1 signature read @0x%08x=0x%4x\n", enum_base,
          brcmf_sdiod_readl(enum_base, NULL));
 
+
     /*
      * Force PLL off until brcmf_chip_attach()
      * programs PLL control regs
@@ -2374,7 +2375,7 @@ int brcmf_sdiod_probe(void){
 void* brcm_thread(void* p) {
     (void)p;
     static int tick = 0;
-    
+    sleep(10);
     brcmf_sdiod_probe();
 
     for(int i = 0; i < 500; i++){

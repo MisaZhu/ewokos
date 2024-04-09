@@ -309,7 +309,7 @@ static uint32_t brcmf_sdio_buscore_read32(uint32_t addr)
 
     val = brcmf_sdiod_readl(addr, &err);
     if(err){
-        brcm_log("%s error:%d\n", __func__, err);
+        brcm_log("%s 0x%08x error:%d\n", __func__, addr, err);
     }
 
     return val;
@@ -429,7 +429,10 @@ static int brcmf_chip_dmp_erom_scan()
     uint32_t base, wrap;
     int err;
 
-    eromaddr = brcmf_sdio_buscore_read32(CORE_CC_REG(0x18000000, eromptr));
+    do{
+        eromaddr = brcmf_sdio_buscore_read32(CORE_CC_REG(0x18000000, eromptr));
+        brcm_log("eromaddr: 0x%08x\n", eromaddr);
+    }while(eromaddr < 0x18000000);
 
     while (desc_type != DMP_DESC_EOT) {
         val = brcmf_chip_dmp_get_desc(&eromaddr, &desc_type);

@@ -25,8 +25,10 @@ void log_init(void){
 void brcm_log(const char *format, ...) {
 	va_list ap;
     pthread_mutex_lock(&mutex);
+    uint64_t ts = kernel_tic_ms(0);
+    int len = sprintf(temp_buf, "%d:", ts);
 	va_start(ap, format);
-	vsnprintf(temp_buf, TEMP_BUF_SIZE, format, ap);
+	vsnprintf(temp_buf + len, TEMP_BUF_SIZE, format, ap);
 	va_end(ap);
 
     int i = 0;
@@ -36,7 +38,6 @@ void brcm_log(const char *format, ...) {
     }
     pthread_mutex_unlock(&mutex);
 	//syscall2(SYS_KPRINT, (int32_t)ring_buf, strlen(ring_buf));
-    printf("%s", temp_buf);
 }
 
 char* brcm_get_log(void){
