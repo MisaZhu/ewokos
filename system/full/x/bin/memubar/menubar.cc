@@ -4,8 +4,89 @@
 #include <Widget/LabelButton.h>
 #include <x++/X.h>
 #include <unistd.h>
+#include <fcntl.h>
 
 using namespace Ewok;
+
+class PowerInfo : public Widget {
+	int powerFD;
+
+	void drawCharging(graph_t* g, XTheme* theme, const grect_t& r, int bat) {
+		static int b = 0;
+		int w = r.w*bat*b/300;
+		graph_gradation(g, r.x+r.w-w, r.y, w, r.h, 0xffffffff, 0xff22dd22, true);
+
+		char txt[8];
+		snprintf(txt, 7, "%d%%", bat);
+		graph_draw_text_font_align(g, r.x, r.y, r.w, r.h,
+					txt, theme->getFont(), theme->basic.fontSize, 0xff000000, FONT_ALIGN_CENTER);
+		b++;
+		b%=4;
+	}
+
+	void drawBat(graph_t* g, XTheme* theme, const grect_t& r, int bat) {
+		int w = r.w*bat/100;
+		graph_gradation(g, r.x+r.w-w, r.y, w, r.h, 0xffffffff, 0xff22dd22, true);
+
+		char txt[8];
+		snprintf(txt, 7, "%d%%", bat);
+		graph_draw_text_font_align(g, r.x, r.y, r.w, r.h,
+					txt, theme->getFont(), theme->basic.fontSize, 0xff000000, FONT_ALIGN_CENTER);
+	}
+
+	void drawBase(graph_t* g, grect_t& r) {
+		graph_gradation(g, r.x, r.y+4, 5, r.h-8, 0xffffffff, 0xffaaaaaa, true);
+		graph_box(g, r.x, r.y+4, 5, r.h-8, 0xff000000);
+		r.x += 4;
+		r.w -= 4;
+
+		graph_gradation(g, r.x, r.y, r.w, r.h, 0xffffffff, 0xff888888, true);
+		graph_box(g, r.x, r.y, r.w, r.h, 0xff000000);
+		r.x++;
+		r.y++;
+		r.w -= 2;
+		r.h -= 2;
+	}
+
+protected:
+	void onRepaint(graph_t* g, XTheme* theme, const grect_t& r) {
+		grect_t rb = {r.x+4, r.y+4, r.w-8, r.h-8};
+		drawBase(g, rb);
+
+		if(powerFD < 0)
+			powerFD = ::open("/dev/power0", O_RDONLY);
+
+		if(powerFD < 0)
+			return;
+
+		uint8_t buf[4];
+		if(read(powerFD, buf, 3) != 3)
+			return;
+			
+		if(buf[0] == 0)
+			return;
+
+		if(buf[1])
+			drawCharging(g, theme, rb, buf[2]);
+		else
+			drawBat(g, theme, rb, buf[2]);
+	}
+
+	void onTimer(uint32_t timerFPS) {
+		update();
+	}
+
+public:
+	inline PowerInfo() {
+		powerFD = -1;
+		setAlpha(true);
+	}
+	
+	inline ~PowerInfo() {
+		if(powerFD > 0)
+			::close(powerFD);
+	}
+};
 
 int main(int argc, char** argv) {
 	X x;
@@ -15,7 +96,7 @@ int main(int argc, char** argv) {
 	WidgetWin win;
 	RootWidget* root = new RootWidget();
 	win.setRoot(root);
-	root->setType(Container::VERTICLE);
+	root->setType(Container::HORIZONTAL);
 
 	Menu* submenu = new Menu();
 	submenu->add("submenu1", NULL, NULL, NULL, NULL);
@@ -36,10 +117,14 @@ int main(int argc, char** argv) {
 
 	Menubar* menubar = new Menubar();
 	menubar->add("menu1", NULL, menu, NULL, NULL);
-	menubar->fix(0, 20);
 	root->add(menubar);
 
+	PowerInfo* powerInfo = new PowerInfo();
+	powerInfo->fix(48, 0);
+	root->add(powerInfo);
+
 	win.open(&x, 0, 0, 0, scr.size.w, 20, "", XWIN_STYLE_SYSBOTTOM | XWIN_STYLE_NO_FRAME);
+	win.setTimer(2);
 	x.run(NULL, &win);
 	return 0;
 }

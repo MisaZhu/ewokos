@@ -141,7 +141,7 @@ void graph_set(graph_t* g, int32_t x, int32_t y, int32_t w, int32_t h, uint32_t 
 	for(; y < ey; y++) {
 		x = r.x;
 		for(; x < ex; x++) {
-			graph_pixel(g, x, y, color);
+			g->buffer[y*g->w+x] = color;
 		}
 	}
 }
