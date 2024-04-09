@@ -34,7 +34,7 @@ protected:
         }
 
         if(item->menu != NULL) {
-            graph_fill_circle(g, r.x+r.w-8, r.y+(r.h/2), 3, theme->basic.fgColor);
+            graph_fill(g, r.x+r.w-9, r.y+(r.h/2)-2, 4, 4, theme->basic.fgColor);
         }
     }
 
