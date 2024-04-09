@@ -1,6 +1,8 @@
 #include <Widget/WidgetWin.h>
 #include <Widget/Text.h>
 #include <Widget/Label.h>
+#include <WidgetEx/Menubar.h>
+#include <WidgetEx/Menu.h>
 #include <Widget/LabelButton.h>
 #include <WidgetEx/FileDialog.h>
 #include <x++/X.h>
@@ -77,9 +79,14 @@ public:
 	}
 };
 
-static void onLoadClickFunc(Widget* wd) {
-	TextWin* win = (TextWin*)wd->getWin();
+static void onLoadFunc(MenuItem* it, void* p) {
+	TextWin* win = (TextWin*)p;
 	win->load("");
+}
+
+static void onQuitFunc(MenuItem* it, void* p) {
+	TextWin* win = (TextWin*)p;
+	win->close();
 }
 
 static void onZoomInClickFunc(Widget* wd) {
@@ -104,6 +111,28 @@ int main(int argc, char** argv) {
 
 	Container* c = new Container();
 	c->setType(Container::HORIZONTAL);
+	c->fix(0, 20);
+	root->add(c);
+
+	Menu* menu = new Menu();
+	menu->add("open", NULL, NULL, onLoadFunc, &win);
+	menu->add("quit", NULL, NULL, onQuitFunc, &win);
+	Menubar* menubar = new Menubar();
+	menubar->add("file", NULL, menu, NULL, NULL);
+	c->add(menubar);
+
+	LabelButton* zoomInButton = new LabelButton("+");
+	zoomInButton->onClickFunc = onZoomInClickFunc;
+	zoomInButton->fix(48, 0);
+	c->add(zoomInButton);
+
+	LabelButton* zoomOutButton = new LabelButton("-");
+	zoomOutButton->onClickFunc = onZoomOutClickFunc;
+	zoomOutButton->fix(48, 0);
+	c->add(zoomOutButton);
+
+	c = new Container();
+	c->setType(Container::HORIZONTAL);
 	root->add(c);
 
 	MyText* text = new MyText();
@@ -119,23 +148,6 @@ int main(int argc, char** argv) {
 	statusLabel->fix(0, 20);
 	root->add(statusLabel);
 	text->statusLabel = statusLabel;
-
-	c = new Container();
-	c->setType(Container::HORIZONTAL);
-	c->fix(0, 22);
-	root->add(c);
-
-	LabelButton* loadButton = new LabelButton("Load");
-	loadButton->onClickFunc = onLoadClickFunc;
-	c->add(loadButton);
-
-	LabelButton* zoomInButton = new LabelButton("+");
-	zoomInButton->onClickFunc = onZoomInClickFunc;
-	c->add(zoomInButton);
-
-	LabelButton* zoomOutButton = new LabelButton("-");
-	zoomOutButton->onClickFunc = onZoomOutClickFunc;
-	c->add(zoomOutButton);
 
 	win.getTheme()->setFont("system.cn", 14);
 	if(argc >= 2)

@@ -18,7 +18,6 @@ typedef struct st_xwin {
 	void* g_shm;
 	int32_t xinfo_shm_id;
 	xinfo_t *xinfo;
-
 	xinfo_t xinfo_prev; //for backup the state before fullscreen/min/max.
 
 	bool (*on_close)(struct st_xwin* xwin);

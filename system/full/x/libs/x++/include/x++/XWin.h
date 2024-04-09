@@ -80,6 +80,7 @@ public:
 	void pop(void);
 	gpos_t getInsidePos(int32_t x, int32_t y);
 	gpos_t getScreenPos(int32_t x, int32_t y);
+	bool focused();
 };
 
 }

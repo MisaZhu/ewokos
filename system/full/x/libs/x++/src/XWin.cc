@@ -90,6 +90,12 @@ static void _on_event(xwin_t* xw, xevent_t* ev) {
 	xwin->__doEvent(ev);
 }
 
+bool XWin::focused() {
+	if(xwin == NULL || xwin->xinfo == NULL)
+		return false;
+	return xwin->xinfo->focused;
+}
+
 XWin::XWin(void) {
 	font_init();
 	theme.loadSystem();

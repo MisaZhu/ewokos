@@ -68,6 +68,7 @@ typedef struct {
 	bool visible;
 	bool repaint_lazy;
 	bool alpha;
+	bool focused;
 	grect_t wsr; //workspace rect
 	grect_t winr; //window rect
 	char title[XWIN_TITLE_MAX];

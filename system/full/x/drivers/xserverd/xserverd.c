@@ -275,6 +275,7 @@ static void x_unfocus(x_t* x) {
 	xevent_t e;
 	e.type = XEVT_WIN;
 	e.value.window.event = XEVT_WIN_UNFOCUS;
+	x->win_focus->xinfo->focused = false;
 	x_push_event(x, x->win_focus, &e);
 	x->win_focus = NULL;
 }
@@ -288,6 +289,7 @@ static void try_focus(x_t* x, xwin_t* win) {
 		xevent_t e;
 		e.type = XEVT_WIN;
 		e.value.window.event = XEVT_WIN_FOCUS;
+		win->xinfo->focused = true;
 		x_push_event(x, win, &e);
 		x->win_focus = win;
 	}

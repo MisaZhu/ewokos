@@ -244,8 +244,9 @@ int xwin_event_handle(xwin_t* xwin, xevent_t* ev) {
 		if(xwin->x->prompt_win != NULL && xwin->x->prompt_win != xwin) {
 			vfs_fcntl(xwin->x->prompt_win->fd, XWIN_CNTL_TRY_FOCUS, NULL, NULL);
 		}
-		else if(xwin->on_focus) {
-			xwin->on_focus(xwin);
+		else {
+			if(xwin->on_focus)
+				xwin->on_focus(xwin);
 		}
 	}
 	else if(ev->value.window.event == XEVT_WIN_UNFOCUS) {
