@@ -253,7 +253,7 @@ char* net_dev_cmd(int from_pid, int argc, char** argv, void* p) {
 }
 
 int main(int argc, char** argv) {
-	_mmio_base = mmio_map();\
+	_mmio_base = mmio_map();
 	log_init();	
 	bcm2835_power_on_module(BCM2835_MBOX_POWER_DEVID_SDHCI);
 	clock_init();

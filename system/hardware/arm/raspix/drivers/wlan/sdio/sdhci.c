@@ -900,9 +900,10 @@ int sdhci_send_command(struct mmc_cmd *cmd, struct mmc_data *data)
 			memcpy(data->dest, host->align_buffer, trans_bytes);
 		return 0;
 	}
-	brcm_log("sdhci cmd: %d error: %x", cmd->cmdidx, stat);
+	brcm_log("sdhci cmd: %d ret: %d error: %x\n", cmd->cmdidx, ret, stat);
 	sdhci_reset(SDHCI_RESET_CMD);
 	sdhci_reset(SDHCI_RESET_DATA);
+	
 	if (stat & SDHCI_INT_TIMEOUT)
 		return -ETIMEDOUT;
 	else
@@ -945,7 +946,7 @@ void sdhci_init(void)
 
 	sdhci_get_info(&_host);
 
-	sdhci_set_clock(&_host, 50000000);
+	sdhci_set_clock(&_host, 25000000);
 	sdhci_set_bus_width(&_host, 4);
 	sdhci_set_uhs_timing(&_host, 0);
 	/* Enable only interrupts served by the SD controller */
