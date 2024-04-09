@@ -60,6 +60,9 @@ void Menubar::add(const string& title, graph_t* icon, Menu* menu, menufunc_t fun
     item->menu = menu;
     item->func = func;
 
+    if(menu != NULL)
+    	menu->attachMenubar(this);
+
     items.push_back(item);
     setItemNum(items.size());
 }

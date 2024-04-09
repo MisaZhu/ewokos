@@ -36,7 +36,6 @@ int main(int argc, char** argv) {
 
 	Menubar* menubar = new Menubar();
 	menubar->add("menu1", NULL, menu, NULL);
-	menu->attachMenubar(menubar);
 	menubar->fix(0, 20);
 	root->add(menubar);
 
