@@ -153,9 +153,10 @@ void  Container::repaint(graph_t* g, XTheme* theme) {
 		theme = this->themePrivate;
 
 	if(dirty) {
+		grect_t rclip = getRootArea();
 		grect_t r = getRootArea();
-		graph_insect(g, &r);
-		graph_set_clip(g, r.x, r.y, r.w, r.h);
+		graph_insect(g, &rclip);
+		graph_set_clip(g, rclip.x, rclip.y, rclip.w, rclip.h);
 		onRepaint(g, theme, r);
 	}
 
