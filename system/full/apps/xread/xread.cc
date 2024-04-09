@@ -109,16 +109,29 @@ int main(int argc, char** argv) {
 	root->setType(Container::VERTICLE);
 	root->setAlpha(false);
 
+	Container* c = new Container();
+	c->setType(Container::HORIZONTAL);
+	c->fix(0, 20);
+	root->add(c);
+
 	Menu* menu = new Menu();
 	menu->add("open", NULL, NULL, onLoadFunc, &win);
 	menu->add("quit", NULL, NULL, onQuitFunc, &win);
-
 	Menubar* menubar = new Menubar();
 	menubar->add("file", NULL, menu, NULL, NULL);
-	menubar->fix(0, 20);
-	root->add(menubar);
+	c->add(menubar);
 
-	Container* c = new Container();
+	LabelButton* zoomInButton = new LabelButton("+");
+	zoomInButton->onClickFunc = onZoomInClickFunc;
+	zoomInButton->fix(48, 0);
+	c->add(zoomInButton);
+
+	LabelButton* zoomOutButton = new LabelButton("-");
+	zoomOutButton->onClickFunc = onZoomOutClickFunc;
+	zoomOutButton->fix(48, 0);
+	c->add(zoomOutButton);
+
+	c = new Container();
 	c->setType(Container::HORIZONTAL);
 	root->add(c);
 
@@ -135,19 +148,6 @@ int main(int argc, char** argv) {
 	statusLabel->fix(0, 20);
 	root->add(statusLabel);
 	text->statusLabel = statusLabel;
-
-	c = new Container();
-	c->setType(Container::HORIZONTAL);
-	c->fix(0, 22);
-	root->add(c);
-
-	LabelButton* zoomInButton = new LabelButton("+");
-	zoomInButton->onClickFunc = onZoomInClickFunc;
-	c->add(zoomInButton);
-
-	LabelButton* zoomOutButton = new LabelButton("-");
-	zoomOutButton->onClickFunc = onZoomOutClickFunc;
-	c->add(zoomOutButton);
 
 	win.getTheme()->setFont("system.cn", 14);
 	if(argc >= 2)
