@@ -27,11 +27,14 @@ void Menubar::drawItem(graph_t* g, XTheme* theme, int32_t index, const grect_t& 
 
 void Menubar::onEnter(int index) {
     MenuItem *item = items.at(index);
+    if(item->func != NULL)
+        item->func(item, this);
+
     if(item->menu != NULL) {
         gpos_t pos = getScreenPos(area.x, area.y);
         if(item->menu->getCWin() == NULL) {
     		item->menu->open(getWin()->getX(), 0, pos.x + index*itemSize+4, pos.y+area.h+4,
-                    100, 100, "menu", XWIN_STYLE_NO_TITLE);
+                    100, item->menu->getItemNum()*item->menu->getItemSize(), "menu", XWIN_STYLE_NO_TITLE);
         }
         item->menu->pop();
     }
@@ -50,11 +53,12 @@ Menubar::~Menubar() {
     }
 }
 
-void Menubar::add(const string& title, graph_t* icon, Menu* menu) {
+void Menubar::add(const string& title, graph_t* icon, Menu* menu, menufunc_t func) {
     MenuItem *item = new MenuItem();
     item->title = title;
     item->icon = icon;
     item->menu = menu;
+    item->func = func;
 
     items.push_back(item);
     setItemNum(items.size());
