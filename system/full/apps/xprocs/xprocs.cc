@@ -210,6 +210,7 @@ public:
 class CoreList: public List {
 	Procs* procs;
 	uint32_t coreNum;
+	sys_info_t sysInfo;
 protected:
 	void drawBG(graph_t* g, XTheme* theme, const grect_t& r) {
 		graph_fill_3d(g, r.x, r.y, r.w, r.h, theme->basic.bgColor, false);
@@ -225,11 +226,11 @@ protected:
 			color = theme->basic.selectColor;
 		}
 
-		char s[8] = {0};
+		char s[16] = {0};
 		if(index == 0)
-			snprintf(s, 7, "all");
+			snprintf(s, 15, "all");
 		else
-			snprintf(s, 7, "core%d", index-1);
+			snprintf(s, 15, "core%2d: %d%%", index-1, 100 - (sysInfo.core_idles[index-1]/10000));
 		graph_draw_text_font(g, r.x+2, r.y+2, s, theme->getFont(), theme->basic.fontSize, color);
 	}
 
@@ -238,16 +239,20 @@ protected:
 			return;
 		procs->setCore(index);
 	}
+
+	void onTimer(uint32_t timerFPS) {
+		loadCores();
+		update();
+	}
 public:
 	CoreList() {
-		coreNum = 1;
 		procs = NULL;
+		loadCores();
 	}
 
 	void loadCores() {
-		sys_info_t info;
-		sys_get_sys_info(&info);
-		coreNum = info.cores;
+		sys_get_sys_info(&sysInfo);
+		coreNum = sysInfo.cores;
 		setItemNum(coreNum+1);
 	}
 
@@ -267,7 +272,7 @@ int main(int argc, char** argv) {
 	CoreList* list = new CoreList();
 	list->loadCores();
 	list->setItemSize(20);
-	list->fix(60, 0);
+	list->fix(100, 0);
 	root->add(list);
 
 	Procs* procs = new Procs();
