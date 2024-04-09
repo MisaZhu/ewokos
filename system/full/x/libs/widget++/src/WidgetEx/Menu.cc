@@ -32,6 +32,10 @@ protected:
             graph_draw_text_font_align(g, r.x+dx, r.y, r.w-dx, r.h, item->title.c_str(),
                     theme->getFont(), theme->basic.fontSize, theme->basic.fgColor, FONT_ALIGN_CENTER);
         }
+
+        if(item->menu != NULL) {
+            graph_fill_circle(g, r.x+r.w-8, r.y+(r.h/2), 3, theme->basic.fgColor);
+        }
     }
 
     void onEnter(int index) {
@@ -44,11 +48,11 @@ protected:
             menu->subMenu(true);
             gpos_t pos = getScreenPos(area.x, area.y);
             if(item->menu->getCWin() == NULL) {
-                item->menu->open(getWin()->getX(), 0, pos.x + area.w + 4, pos.y+ index*itemSize + 4,
+                item->menu->open(getWin()->getX(), 0, pos.x + area.w, pos.y+ index*itemSize,
                         100, item->menu->getItemNum()*item->menu->getItemSize(), "menu", XWIN_STYLE_NO_FRAME);
             }
             else  {
-        		item->menu->moveTo(pos.x + index*itemSize+4, pos.y+area.h+4);
+        		item->menu->moveTo(pos.x + area.w, pos.y+ index*itemSize);
             }
             item->menu->pop();
             return;
