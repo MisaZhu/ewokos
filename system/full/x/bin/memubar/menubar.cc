@@ -18,24 +18,24 @@ int main(int argc, char** argv) {
 	root->setType(Container::VERTICLE);
 
 	Menu* submenu = new Menu();
-	submenu->add("submenu1", NULL, NULL, NULL);
-	submenu->add("submenu2", NULL, NULL, NULL);
-	submenu->add("submenu3", NULL, NULL, NULL);
+	submenu->add("submenu1", NULL, NULL, NULL, NULL);
+	submenu->add("submenu2", NULL, NULL, NULL, NULL);
+	submenu->add("submenu3", NULL, NULL, NULL, NULL);
 
 
 	Menu* submenu1 = new Menu();
-	submenu1->add("submenu1", NULL, NULL, NULL);
-	submenu1->add("submenu2", NULL, submenu, NULL);
-	submenu1->add("submenu3", NULL, NULL, NULL);
+	submenu1->add("submenu1", NULL, NULL, NULL, NULL);
+	submenu1->add("submenu2", NULL, submenu, NULL, NULL);
+	submenu1->add("submenu3", NULL, NULL, NULL, NULL);
 
 	Menu* menu = new Menu();
-	menu->add("submenu1", NULL, NULL, NULL);
-	menu->add("submenu2", NULL, NULL, NULL);
-	menu->add("submenu3", NULL, submenu1, NULL);
+	menu->add("submenu1", NULL, NULL, NULL, NULL);
+	menu->add("submenu2", NULL, NULL, NULL, NULL);
+	menu->add("submenu3", NULL, submenu1, NULL, NULL);
 
 
 	Menubar* menubar = new Menubar();
-	menubar->add("menu1", NULL, menu, NULL);
+	menubar->add("menu1", NULL, menu, NULL, NULL);
 	menubar->fix(0, 20);
 	root->add(menubar);
 

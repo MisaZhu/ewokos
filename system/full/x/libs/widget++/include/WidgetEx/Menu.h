@@ -29,8 +29,9 @@ public:
 
     Menu();
     uint32_t getItemNum();
-    void add(const string& title, graph_t* icon, Menu* menu, menufunc_t func);
+    void add(const string& title, graph_t* icon, Menu* menu, menufunc_t func, void* funcArg);
     void subMenu(bool s);
+    void hide();
 };
 
 class MenuItem {
@@ -39,11 +40,13 @@ public:
     graph_t* icon;
     Menu* menu;
     menufunc_t func;
+    void* funcArg;
 
     inline MenuItem() {
         icon = NULL;
         menu = NULL;
         func = NULL;
+        funcArg = NULL;
     }
 
     inline ~MenuItem() {

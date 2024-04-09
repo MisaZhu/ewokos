@@ -3,13 +3,17 @@
 
 using namespace Ewok;
 
+void Menubar::drawBG(graph_t* g, XTheme* theme, const grect_t& r) {
+    graph_fill_3d(g, r.x, r.y, r.w, r.h, theme->basic.bgColor, false);
+}
+
 void Menubar::drawItem(graph_t* g, XTheme* theme, int32_t index, const grect_t& r) {
     if(index < 0 || index >= items.size())
         return;
     MenuItem *item = items.at(index);
 
 	if(index == itemSelected)
-		graph_fill_round(g, r.x, r.y, r.w, r.h, 3, theme->basic.selectBGColor);
+		graph_fill_round(g, r.x+1, r.y+1, r.w-2, r.h-2, 3, theme->basic.selectBGColor);
 
     int dx = 0;
 
@@ -28,13 +32,16 @@ void Menubar::drawItem(graph_t* g, XTheme* theme, int32_t index, const grect_t& 
 void Menubar::onEnter(int index) {
     MenuItem *item = items.at(index);
     if(item->func != NULL)
-        item->func(item, this);
+        item->func(item, item->funcArg);
 
     if(item->menu != NULL) {
         gpos_t pos = getScreenPos(area.x, area.y);
         if(item->menu->getCWin() == NULL) {
     		item->menu->open(getWin()->getX(), 0, pos.x + index*itemSize+4, pos.y+area.h+4,
-                    100, item->menu->getItemNum()*item->menu->getItemSize(), "menu", XWIN_STYLE_NO_TITLE);
+                    100, item->menu->getItemNum()*item->menu->getItemSize(), "menu", XWIN_STYLE_NO_FRAME);
+        }
+        else {
+    		item->menu->moveTo(pos.x + index*itemSize+4, pos.y+area.h+4);
         }
         item->menu->pop();
     }
@@ -53,12 +60,13 @@ Menubar::~Menubar() {
     }
 }
 
-void Menubar::add(const string& title, graph_t* icon, Menu* menu, menufunc_t func) {
+void Menubar::add(const string& title, graph_t* icon, Menu* menu, menufunc_t func, void* funcArg) {
     MenuItem *item = new MenuItem();
     item->title = title;
     item->icon = icon;
     item->menu = menu;
     item->func = func;
+    item->funcArg = funcArg;
 
     if(menu != NULL)
     	menu->attachMenubar(this);

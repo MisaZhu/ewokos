@@ -8,13 +8,17 @@ class MenuList: public List {
     vector<MenuItem*> items;
     Menu* menu;
 protected:
+    void drawBG(graph_t* g, XTheme* theme, const grect_t& r) {
+        graph_fill_3d(g, r.x, r.y, r.w, r.h, theme->basic.bgColor, false);
+    }
+
     void drawItem(graph_t* g, XTheme* theme, int32_t index, const grect_t& r) {
         if(index < 0 || index >= items.size())
             return;
         MenuItem *item = items.at(index);
 
         if(index == itemSelected)
-            graph_fill_round(g, r.x, r.y, r.w, r.h, 3, theme->basic.selectBGColor);
+            graph_fill_round(g, r.x+1, r.y+1, r.w-2, r.h-2, 3, theme->basic.selectBGColor);
 
         int dx = 0;
 
@@ -32,18 +36,25 @@ protected:
 
     void onEnter(int index) {
         MenuItem *item = items.at(index);
-        if(item->func != NULL)
-            item->func(item, this);
+        if(item->func != NULL) {
+            item->func(item, item->funcArg);
+        }
 
         if(item->menu != NULL) {
             menu->subMenu(true);
             gpos_t pos = getScreenPos(area.x, area.y);
             if(item->menu->getCWin() == NULL) {
                 item->menu->open(getWin()->getX(), 0, pos.x + area.w + 4, pos.y+ index*itemSize + 4,
-                        100, item->menu->getItemNum()*item->menu->getItemSize(), "menu", XWIN_STYLE_NO_TITLE);
+                        100, item->menu->getItemNum()*item->menu->getItemSize(), "menu", XWIN_STYLE_NO_FRAME);
+            }
+            else  {
+        		item->menu->moveTo(pos.x + index*itemSize+4, pos.y+area.h+4);
             }
             item->menu->pop();
+            return;
         }
+
+        menu->hide();
     }
 public:
     friend Menu;
@@ -59,13 +70,13 @@ void Menu::subMenu(bool s) {
 void Menu::onUnfocus() {
     if(subMenued)
         return;
+    hide(); 
+}
 
+void Menu::hide() {
     Menu* m = this;
     while(m != NULL) {
         m->subMenu(false);
-        if(m->focused())
-            break;
-
         m->setVisible(false);
         if(m->menubar != NULL) {
             m->menubar->select(-1);
@@ -95,7 +106,7 @@ uint32_t Menu::getItemNum() {
     return list->getItemNum();
 }
 
-void Menu::add(const string& title, graph_t* icon, Menu* menu, menufunc_t func) {
+void Menu::add(const string& title, graph_t* icon, Menu* menu, menufunc_t func, void* funcArg) {
     MenuList* list = (MenuList*)root->get(1);
     if(list == NULL)
         return;
@@ -108,6 +119,7 @@ void Menu::add(const string& title, graph_t* icon, Menu* menu, menufunc_t func) 
     item->icon = icon;
     item->menu = menu;
     item->func = func;
+    item->funcArg = funcArg;
 
     list->items.push_back(item);
     list->setItemNum(list->items.size());

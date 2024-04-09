@@ -1,6 +1,8 @@
 #include <Widget/WidgetWin.h>
 #include <Widget/Text.h>
 #include <Widget/Label.h>
+#include <WidgetEx/Menubar.h>
+#include <WidgetEx/Menu.h>
 #include <Widget/LabelButton.h>
 #include <WidgetEx/FileDialog.h>
 #include <x++/X.h>
@@ -77,9 +79,14 @@ public:
 	}
 };
 
-static void onLoadClickFunc(Widget* wd) {
-	TextWin* win = (TextWin*)wd->getWin();
+static void onLoadFunc(MenuItem* it, void* p) {
+	TextWin* win = (TextWin*)p;
 	win->load("");
+}
+
+static void onQuitFunc(MenuItem* it, void* p) {
+	TextWin* win = (TextWin*)p;
+	win->close();
 }
 
 static void onZoomInClickFunc(Widget* wd) {
@@ -101,6 +108,15 @@ int main(int argc, char** argv) {
 	win.setRoot(root);
 	root->setType(Container::VERTICLE);
 	root->setAlpha(false);
+
+	Menu* menu = new Menu();
+	menu->add("open", NULL, NULL, onLoadFunc, &win);
+	menu->add("quit", NULL, NULL, onQuitFunc, &win);
+
+	Menubar* menubar = new Menubar();
+	menubar->add("file", NULL, menu, NULL, NULL);
+	menubar->fix(0, 20);
+	root->add(menubar);
 
 	Container* c = new Container();
 	c->setType(Container::HORIZONTAL);
@@ -124,10 +140,6 @@ int main(int argc, char** argv) {
 	c->setType(Container::HORIZONTAL);
 	c->fix(0, 22);
 	root->add(c);
-
-	LabelButton* loadButton = new LabelButton("Load");
-	loadButton->onClickFunc = onLoadClickFunc;
-	c->add(loadButton);
 
 	LabelButton* zoomInButton = new LabelButton("+");
 	zoomInButton->onClickFunc = onZoomInClickFunc;
