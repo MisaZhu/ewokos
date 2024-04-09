@@ -89,6 +89,13 @@ static bool _x_theme_loaded = false;
 static int32_t x_read_theme_config(const char* theme_name) {
 	_x_theme.bgColor = 0xff000000;
 	_x_theme.fgColor = 0xffffffff;
+	_x_theme.docFGColor = 0xff000000;
+	_x_theme.docBGColor = 0xffffffff;
+	_x_theme.widgetFGColor = 0xff000000;
+	_x_theme.widgetBGColor = 0xffffffff;
+	_x_theme.fgDisableColor = 0xff444444;
+	_x_theme.bgDisableColor = 0xff888888;
+
 	strncpy(_x_theme.fontName, DEFAULT_SYSTEM_FONT,THEME_NAME_MAX-1);
 	_x_theme.fontSize = DEFAULT_SYSTEM_FONT_SIZE;
 	_x_theme.fontFixedSize = DEFAULT_SYSTEM_FONT_SIZE;
@@ -117,6 +124,14 @@ static int32_t x_read_theme_config(const char* theme_name) {
 	v = sconf_get(sconf, "bg_color");
 	if(v[0] != 0) 
 		_x_theme.bgColor = strtoul(v, NULL, 16);
+
+	v = sconf_get(sconf, "doc_fg_color");
+	if(v[0] != 0) 
+		_x_theme.docFGColor = strtoul(v, NULL, 16);
+
+	v = sconf_get(sconf, "doc_bg_color");
+	if(v[0] != 0) 
+		_x_theme.docBGColor = strtoul(v, NULL, 16);
 
 	v = sconf_get(sconf, "fg_unfocus_color");
 	if(v[0] != 0) 
@@ -156,7 +171,7 @@ static int32_t x_read_theme_config(const char* theme_name) {
 
 	v = sconf_get(sconf, "widget_color");
 	if(v[0] != 0) 
-		_x_theme.widgetColor = strtoul(v, NULL, 16);
+		_x_theme.widgetFGColor = strtoul(v, NULL, 16);
 
 	v = sconf_get(sconf, "widget_bg_color");
 	if(v[0] != 0) 

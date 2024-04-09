@@ -67,10 +67,32 @@ void  Container::layoutH() {
 	}
 }
 
+void  Container::layoutO() {
+	Widget* wd = children;
+	while(wd != NULL) {
+		wd->setArea(0, 0, area.w, area.h);
+		wd = wd->next;
+	}
+}
+
+bool  Container::has(Widget* w) {
+	Widget* wd = children;
+	while(wd != NULL) {
+		if(wd == w)
+			return true;
+		wd = wd->next;
+	}
+	return false;
+}
+
 void  Container::onLayout() {
 }
 
 void  Container::layout() {
+	if(area.w <= 0 || area.h <= 0) {
+		return;
+	}
+
 	if(type == FIXED) {
 		onLayout();
 		return;
@@ -79,6 +101,8 @@ void  Container::layout() {
 		layoutV();
 	else if(type == HORIZONTAL)
 		layoutH();
+	else if(type == OVERLAP)
+		layoutO();
 	onLayout();
 }
 
@@ -109,13 +133,15 @@ void  Container::add(Widget* child) {
 		children = child;
 	childrenEnd = child;
 	num++;
+	child->onAdd();
+
 	layout();
 }
 
-void  Container::onTimer() {
+void  Container::onTimer(uint32_t timerFPS) {
 	Widget* wd = children;
 	while(wd != NULL) {
-		wd->onTimer();
+		wd->onTimer(timerFPS);
 		wd = wd->next;
 	}
 }
@@ -128,6 +154,7 @@ void  Container::repaint(graph_t* g, XTheme* theme) {
 
 	if(dirty) {
 		grect_t r = getRootArea();
+		graph_insect(g, &r);
 		graph_set_clip(g, r.x, r.y, r.w, r.h);
 		onRepaint(g, theme, r);
 	}
@@ -182,7 +209,7 @@ Container::Container() {
 	num = 0;
 }
 
-void  Container::setType(int type) {
+void  Container::setType(uint8_t type) {
 	this->type = type;
 	layout();
 }

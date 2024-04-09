@@ -15,12 +15,14 @@ RootWidget::RootWidget() {
 */
  
 void RootWidget::focus(Widget* wd) {
-	if(focusedWidget != NULL && focusedWidget != wd) {
-		focusedWidget->onUnfocus();
-		focusedWidget->update();
+	Widget* oldFocusedWidget = focusedWidget;
+	focusedWidget = wd;
+
+	if(oldFocusedWidget != NULL && oldFocusedWidget != wd) {
+		oldFocusedWidget->onUnfocus();
+		oldFocusedWidget->update();
 	}
 
-	focusedWidget = wd;
 	wd->onFocus();
 	wd->update();
 }

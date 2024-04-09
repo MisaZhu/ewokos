@@ -12,7 +12,7 @@ void List::onRepaint(graph_t* g, XTheme* theme, const grect_t& r) {
 
 	if(num > itemNumInView)	{
 		num = itemNumInView;
-		if(horizontal) {
+		if(defaultScrollType  == SCROLL_TYPE_H) {
 			if((num*itemSize) < r.w)
 				num++;
 		}
@@ -24,7 +24,7 @@ void List::onRepaint(graph_t* g, XTheme* theme, const grect_t& r) {
 			num = itemNum - itemStart;
 	}
 
-	if(horizontal) {
+	if(defaultScrollType == SCROLL_TYPE_H) {
 		for(uint32_t i=0; i<num; i++) {
 			grect_t ir;
 			ir.x = r.x + i*itemSize;
@@ -53,7 +53,6 @@ void List::onRepaint(graph_t* g, XTheme* theme, const grect_t& r) {
 List::List() {
 	itemNumInView = 2;
 	itemSize = 0;
-	horizontal = false;
 	fixedItemSize = false;	
 	last_mouse_down = 0;
 }
@@ -61,16 +60,11 @@ List::List() {
 List::~List(void) {
 }
 
-void List::setHorizontal(bool h) {
-	horizontal = h;
-	onResize();
-}
-
 void List::updateScroller() {
 	if(itemNum <= itemNumInView && itemStart > 0)
-		setScrollerInfo(itemNumInView+itemStart, itemStart, itemNumInView, horizontal);
+		setScrollerInfo(itemNumInView+itemStart, itemStart, itemNumInView, defaultScrollType == SCROLL_TYPE_H);
 	else
-		setScrollerInfo(itemNum, itemStart, itemNumInView, horizontal);
+		setScrollerInfo(itemNum, itemStart, itemNumInView, defaultScrollType  == SCROLL_TYPE_H);
 }
 
 void List::onResize() {
@@ -104,48 +98,30 @@ bool List::onScroll(int step, bool horizontal) {
 	return true;
 }
 
-bool List::onMouse(xevent_t* ev) {
+void List::selectByMouse(xevent_t* ev) {
 	gpos_t ipos = getInsidePos(ev->value.mouse.x, ev->value.mouse.y);
 	if(itemSize == 0)
-		return true;
+		return;
 
 	if(ev->state == XEVT_MOUSE_DOWN) {
-		if(horizontal) {
-			last_mouse_down = ipos.x;
-			select(ipos.x / itemSize + itemStart);
-		}
-		else {
-			last_mouse_down = ipos.y;
-			select(ipos.y / itemSize + itemStart);
-		}
-		update();
+		int sel = ipos.y / itemSize + itemStart;
+		if(defaultScrollType  == SCROLL_TYPE_H)
+			sel = ipos.x / itemSize + itemStart; 
+		select(sel);
 	}
-	else if(ev->state == XEVT_MOUSE_DRAG) {
-		int pos = ipos.y;
-		if(horizontal)
-			pos = ipos.x;
+}
 
-		int mv = (pos - last_mouse_down) * 2 / (int)itemSize;
-		if(abs_32(mv) > 0) {
-			last_mouse_down = pos;
-			scroll(mv, horizontal);
-		}
+void List::enterByMouse(xevent_t* ev) {
+	gpos_t ipos = getInsidePos(ev->value.mouse.x, ev->value.mouse.y);
+	if(itemSize == 0)
+		return;
+
+	if(ev->state == XEVT_MOUSE_CLICK) {
+		int sel = ipos.y / itemSize + itemStart;
+		if(defaultScrollType  == SCROLL_TYPE_H)
+			sel = ipos.x / itemSize + itemStart; 
+		enter(sel);
 	}
-	else if(ev->state == XEVT_MOUSE_MOVE) {
-		if(ev->value.mouse.button == MOUSE_BUTTON_SCROLL_UP) {
-			scroll(-1, horizontal);
-		}
-		else if(ev->value.mouse.button == MOUSE_BUTTON_SCROLL_DOWN) {
-			scroll(1, horizontal);
-		}
-	}
-	else if(ev->state == XEVT_MOUSE_CLICK) {
-		if(horizontal)
-			enter(ipos.x / itemSize + itemStart);
-		else
-			enter(ipos.y / itemSize + itemStart);
-	}
-	return true;
 }
 
 bool List::onIM(xevent_t* ev) {
@@ -190,7 +166,7 @@ void List::setItemNumInView(uint32_t num) {
 
 	itemNumInView = num;
 	uint32_t size = area.h;
-	if(horizontal)
+	if(defaultScrollType  == SCROLL_TYPE_H)
 		size = area.w;
 
 	itemSize = (float)size / (float)itemNumInView;
@@ -204,7 +180,7 @@ void List::setItemSize(uint32_t size) {
 	itemSize = size;
 
 	size = area.h;
-	if(horizontal)
+	if(defaultScrollType  == SCROLL_TYPE_H)
 		size = area.w;
 
 	itemNumInView = size / itemSize;

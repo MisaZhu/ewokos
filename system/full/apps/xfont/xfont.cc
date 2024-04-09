@@ -3,6 +3,7 @@
 #include <Widget/Label.h>
 #include <Widget/LabelButton.h>
 #include <Widget/List.h>
+#include <Widget/Split.h>
 #include <x++/X.h>
 #include <unistd.h>
 #include <font/font.h>
@@ -22,7 +23,7 @@ class FontDemo: public Scrollable {
 protected:
 	font_t* font;
 	void onRepaint(graph_t* g, XTheme* theme, const grect_t& r) {
-		graph_fill(g, r.x, r.y, r.w, r.h, theme->basic.bgColor);
+		graph_fill(g, r.x, r.y, r.w, r.h, theme->basic.docBGColor);
 
 		if(font == NULL)
 			return;
@@ -31,15 +32,15 @@ protected:
 		uint16_t margin = 4;
 		for(int i=0; i<4; i++) {
 			uint16_t size = (i+1) * 12;
-			graph_draw_text_font(g, r.x+10, y - off_y, "abcdefghijklmn", font, size, theme->basic.fgColor);
+			graph_draw_text_font(g, r.x+10, y - off_y, "abcdefghijklmn", font, size, theme->basic.docFGColor);
 			y += size + margin;
-			graph_draw_text_font(g, r.x+10, y - off_y, "opqrstuvwxyz", font, size, theme->basic.fgColor);
+			graph_draw_text_font(g, r.x+10, y - off_y, "opqrstuvwxyz", font, size, theme->basic.docFGColor);
 			y += size + margin;
-			graph_draw_text_font(g, r.x+10, y - off_y, "0123456789.+-", font, size, theme->basic.fgColor);
+			graph_draw_text_font(g, r.x+10, y - off_y, "0123456789.+-", font, size, theme->basic.docFGColor);
 			y += size + margin;
-			graph_draw_text_font(g, r.x+10, y - off_y, "~!@#$%%^&*()", font, size, theme->basic.fgColor);
+			graph_draw_text_font(g, r.x+10, y - off_y, "~!@#$%%^&*()", font, size, theme->basic.docFGColor);
 			y += size + margin;
-			graph_draw_text_font(g, r.x+10, y - off_y, "中文字体演示", font, size, theme->basic.fgColor);
+			graph_draw_text_font(g, r.x+10, y - off_y, "中文字体演示", font, size, theme->basic.docFGColor);
 			y += (size + margin)*2;
 		}
 
@@ -126,7 +127,7 @@ class FontList: public List {
 	FontDemo* demo;
 protected:
 	void drawBG(graph_t* g, XTheme* theme, const grect_t& r) {
-		graph_fill_3d(g, r.x, r.y, r.w, r.h, theme->basic.titleBGColor, false);
+		graph_fill_3d(g, r.x, r.y, r.w, r.h, theme->basic.bgColor, false);
 	}
 
 	void drawItem(graph_t* g, XTheme* theme, int32_t index, const grect_t& r) {
@@ -191,6 +192,10 @@ int main(int argc, char** argv) {
 	scrollerV->fix(8, 0);
 	root->add(scrollerV);
 	list->setScrollerV(scrollerV);
+
+	Split* split = new Split();
+	split->attach(list);
+	root->add(split);
 
 	FontDemo* demo = new FontDemo();
 	root->add(demo);

@@ -9,6 +9,7 @@ namespace Ewok {
 
 class Container;
 class RootWidget;
+class Stage;
 class WidgetWin;
 class Widget {
 	Widget* next;
@@ -39,13 +40,15 @@ protected:
 
 	virtual void repaint(graph_t* g, XTheme* theme);
 	virtual void onRepaint(graph_t* g, XTheme* theme, const grect_t& r) = 0;
-	virtual void onTimer() { }
+	virtual void onTimer(uint32_t timerFPS) { }
 	virtual void onFocus() { }
 	virtual void onUnfocus() { }
+	virtual void onAdd() { }
 	virtual bool onEvent(xevent_t* ev);
 public:
 	friend Container;
 	friend RootWidget;
+	friend Stage;
 
 	void (*onClickFunc)(Widget* wd);
 
@@ -77,6 +80,10 @@ public:
 	void show();
 	void hide();
 
+	bool isFixed() { return fixed; }
+	bool isVisible() { return visible; }
+	Widget* getNext() { return next; }
+	Widget* getPrev() { return prev; }
 	RootWidget* getRoot(void);
 	WidgetWin*  getWin(void);
 	gpos_t getRootPos(int32_t x = 0, int32_t y = 0);
@@ -85,6 +92,7 @@ public:
 	grect_t getRootArea(bool margin = true);
 	grect_t getScreenArea(bool margin = true);
 	bool   focused();
+	Container* getFather() { return father; }
 
 	virtual gsize_t getMinSize(void);
 	void update();

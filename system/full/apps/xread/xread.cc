@@ -13,7 +13,7 @@ protected:
 	void onRepaint(graph_t* g, XTheme* theme, const grect_t& r) {
 		graph_fill_3d(g, r.x, r.y, r.w, r.h, theme->basic.titleBGColor, true);
 		font_t* font = theme->getFont();
-		int y = r.y + (r.h-theme->basic.fontSize)/2;
+		int y = r.y + (r.h-font_get_inst_h(font, theme->basic.fontSize))/2;
 		graph_draw_text_font(g, r.x+4, y, label.c_str(), font, theme->basic.fontSize, theme->basic.titleColor);
 	}
 public:
@@ -30,7 +30,7 @@ protected:
 			int curr = offset+pageSize;
 			if(curr > contentSize)
 				curr = contentSize;
-			snprintf(s, 127, "%.2f%%", 100.0 * (float)(curr)/(float)contentSize);
+			snprintf(s, 127, "%.2f%% font_size:%d", 100.0 * (float)(curr)/(float)contentSize, getFontSize());
 		}
 		else
 			snprintf(s, 127, "--%%");

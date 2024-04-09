@@ -224,7 +224,7 @@ void font_char_size(uint16_t c, font_t* font, uint16_t size, uint16_t *w, uint16
 	if(w != NULL)
 		*w = 0;
 	if(h != NULL)
-		*h = 0;
+		*h = size;
 	
 	font_inst_t* inst = font_get_inst(font, size);
 	if(inst == NULL)
@@ -250,12 +250,19 @@ void font_char_size(uint16_t c, font_t* font, uint16_t size, uint16_t *w, uint16
 	}
 }
 
+uint16_t font_get_inst_h(font_t* font, uint16_t size) {
+	font_inst_t* inst = font_get_inst(font, size);
+	if(inst == NULL)
+		return 0;
+	return inst->max_size.y;
+}
+
 void font_text_size(const char* str,
 		font_t* font, uint16_t size, uint32_t *w, uint32_t* h) {
 	if(w != NULL)
 		*w = 0;
 	if(h != NULL)
-		*h = 0;
+		*h = font_get_inst_h(font, size);
 	
 	int sz = strlen(str);
 	uint16_t* unicode = (uint16_t*)malloc((sz+1)*2);
@@ -265,6 +272,7 @@ void font_text_size(const char* str,
 	int n = utf82unicode((uint8_t*)str, sz, unicode);
 
 	int32_t x = 0;
+	
 	for(int i=0;i <n; i++) {
 		TTY_U16 cw = 0;
 		font_char_size(unicode[i], font, size, &cw, NULL);
@@ -275,8 +283,6 @@ void font_text_size(const char* str,
 	}
 	if(w != NULL)
 		*w = x;
-	if(h != NULL)
-		*h = size;
 	free(unicode);
 }
 
