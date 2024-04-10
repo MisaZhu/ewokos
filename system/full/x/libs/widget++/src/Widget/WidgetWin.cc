@@ -8,6 +8,7 @@ WidgetWin::WidgetWin() {
 	timerID = 0;
 	painting = false;
 	timerFPS = 1;
+	timerStep = 0;
 }
 
 WidgetWin::~WidgetWin() {
@@ -48,7 +49,11 @@ bool WidgetWin::onClose() {
 void WidgetWin::timerTask() {
 	if(root == NULL)
 		return;
-	root->onTimer(timerFPS);
+
+	root->onTimer(timerFPS, timerStep++);
+	if(timerStep >= timerFPS)
+		timerStep = 0;
+
 	if(!painting)
 		root->repaintWin();
 }

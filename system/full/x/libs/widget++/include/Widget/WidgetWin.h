@@ -11,6 +11,7 @@ class WidgetWin: public XWin {
 	static const uint32_t TIMER_MIN_FPS = 1;
 protected:
 	uint32_t timerFPS;
+	uint32_t timerStep;
 	RootWidget* root;
 	uint32_t timerID;
 	void onRepaint(graph_t* g);

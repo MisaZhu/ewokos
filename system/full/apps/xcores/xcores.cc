@@ -1,25 +1,18 @@
+#include <Widget/WidgetWin.h>
+#include <x++/X.h>
 #include <unistd.h>
 #include <stdlib.h>
-#include <fcntl.h>
-#include <stdio.h>
-#include <string.h>
-
-#include <upng/upng.h>
-#include <ewoksys/basic_math.h>
-#include <ewoksys/kernel_tic.h>
-#include <ewoksys/sys.h>
-#include <ewoksys/ipc.h>
-#include <ewoksys/klog.h>
 #include <font/font.h>
-#include <x++/X.h>
-#include <ewoksys/timer.h>
-#include <sysinfo.h>
+#include <upng/upng.h>
+#include <ewoksys/sys.h>
+#include <ewoksys/session.h>
+#include <ewoksys/syscall.h>
+#include <procinfo.h>
 
 using namespace Ewok;
 
-
-class GCores : public XWin {
-	static const uint32_t HEART_BIT_NUM = 32;
+class Cores : public Widget {
+	static const uint32_t HEART_BIT_NUM = 64;
 	uint32_t index;
 	bool loop;
 	sys_info_t sysInfo;
@@ -40,7 +33,7 @@ class GCores : public XWin {
 		0xff000000
 	};
 public:
-	inline GCores() {
+	inline Cores() {
 		index = 0;
 		loop = false;
 		x_off = 10;
@@ -50,10 +43,10 @@ public:
 		memset(&sysInfo, 0, sizeof(sys_info_t));
 	}
 	
-	inline ~GCores() {
+	inline ~Cores() {
 	}
 
-	void update_cores() {
+	void updateCores() {
 		sys_get_sys_info(&sysInfo);
 
 		for(uint32_t i=0; i<sysInfo.cores; i++) {
@@ -65,21 +58,21 @@ public:
 			loop = true;
 			index = 0;
 		}
-		repaint();
+		update();
 	}
 
 protected:
-	void drawTitle(graph_t* g, uint32_t i, uint32_t color) {
-		int x = x_off + i*60;
-		graph_fill(g, x, 4, 10, 10, color);
+	void drawTitle(graph_t* g, XTheme* theme, uint32_t i, uint32_t color, const grect_t& r) {
+		int x = r.x + x_off + i*60;
+		graph_fill(g, x, r.y+4, 10, 10, color);
 		char s[16];
 		snprintf(s, 15, "%d:%d%%", i, 100 - (sysInfo.core_idles[i]/10000));
-		graph_draw_text_font(g, x+12, 4, s, theme.getFont(), theme.basic.fontSize, color);
+		graph_draw_text_font(g, x+12, r.y+4, s, theme->getFont(), theme->basic.fontSize, color);
 	}
 
-	void drawChat(graph_t* g, uint32_t i, float xstep, float yzoom, uint32_t color) {
+	void drawChat(graph_t* g, uint32_t i, float xstep, float yzoom, uint32_t color, const grect_t& r) {
 		int last_x = 0;
-		int last_y = 0;
+		int last_y = -1;
 		uint32_t num = loop ? HEART_BIT_NUM:index;
 		for(uint32_t j=0; j<num; j++) {
 			uint32_t k = j;
@@ -91,76 +84,75 @@ protected:
 			uint32_t perc = 100 - (cores[i][k] / 10000);
 
 			int x = (j+1) * xstep;
-			int y = g->h - y_off_bottom - yzoom*(perc); //percentage
-			if(last_y == 0)
+			int y = r.h - y_off_bottom - yzoom*(perc); //percentage
+			if(last_y < 0)
 				last_y = y;
 
-			graph_wline(g, x_off+last_x, last_y, x_off+x, y, color, 2);
+			graph_wline(g, r.x+x_off+last_x, r.y+last_y, r.x+x_off+x, r.y+y, color, 2);
 			last_x = x;
 			last_y = y;
 		}
 	}
 
-	void drawBG(graph_t* g, float xstep, float yzoom) {
+	void drawBG(graph_t* g, float xstep, float yzoom, const grect_t& r) {
 		uint32_t color = 0xffbbbbbb;
 		uint32_t bgColor = 0xff888888;
 		uint32_t w = xstep*HEART_BIT_NUM;
 		uint32_t h = yzoom*100;
 
-		graph_fill(g, x_off, g->h - h - y_off_bottom,
+		graph_fill(g, r.x + x_off, r.y+ r.h - h - y_off_bottom,
 				w, h, bgColor);
 
 		for(uint32_t i=0; i<=HEART_BIT_NUM; i++) {
-			graph_line(g, x_off + i*xstep, g->h - y_off_bottom,
-					x_off + i*xstep, g->h - y_off_bottom - h, color);
+			graph_line(g, r.x + x_off + i*xstep, r.y + r.h - y_off_bottom,
+					r.x + x_off + i*xstep, r.y + r.h - y_off_bottom - h, color);
 		}
 
 		for(uint32_t i=0; i<=10; i++) {
-			graph_line(g, x_off, g->h - y_off_bottom - i*10*yzoom,
-				w + x_off, g->h - y_off_bottom - i*10*yzoom, color);
+			graph_line(g, r.x + x_off, r.y + r.h - y_off_bottom - i*10*yzoom,
+				r.x + w + x_off, r.y + r.h - y_off_bottom - i*10*yzoom, color);
 		}
 
 	}
 
-	void onRepaint(graph_t* g) {
+	void onRepaint(graph_t* g, XTheme* theme, const grect_t& r) {
 		if(sysInfo.cores == 0)
 			return;
 
-		graph_clear(g, 0xffffffff);
+		graph_fill_3d(g, r.x, r.y, r.w, r.h, theme->basic.widgetBGColor, true);
 
-		float xstep = (g->w - x_off*2)/ (float)HEART_BIT_NUM;
-		float yzoom = (g->h - y_off - y_off_bottom)/ 100.0;
+		float xstep = (r.w - x_off*2)/ (float)HEART_BIT_NUM;
+		float yzoom = (r.h - y_off - y_off_bottom)/ 100.0;
 		if(yzoom == 0)
 			yzoom = 1.0;
 
-		drawBG(g, xstep, yzoom);
+		drawBG(g, xstep, yzoom, r);
 		for(uint32_t i=0; i<sysInfo.cores; i++) {
 			uint32_t color = colors[i%COLOR_NUM];
-			drawTitle(g, i, color);
-			drawChat(g, i, xstep, yzoom, color);
+			drawTitle(g, theme, i, color, r);
+			drawChat(g, i, xstep, yzoom, color, r);
 		}
+	}
+
+	void onTimer(uint32_t timerFPS, uint32_t timerStep) {
+		updateCores();
 	}
 };
 
 
-static GCores* _xwin = NULL;
-static void timer_handler(void) {
-	_xwin->update_cores();
-}
-
-int main(int argc, char* argv[]) {
-	(void)argc;
-	(void)argv;
-
+int main(int argc, char** argv) {
 	X x;
-	GCores xwin;
-	xwin.open(&x, 0, -1, -1, 300, 160, "xcores", XWIN_STYLE_NORMAL);
+	WidgetWin win;
+	RootWidget* root = new RootWidget();
+	win.setRoot(root);
+	root->setType(Container::HORIZONTAL);
+	root->setAlpha(false);
 
-	_xwin = &xwin;
-	uint32_t tid = timer_set(500000, timer_handler);
-	x.run(NULL, &xwin);
-	timer_remove(tid);
+	Cores* cores = new Cores();
+	root->add(cores);
 
-	//x.run(loop, &xwin);
+	win.open(&x, 0, -1, -1, 320, 140, "xcores", XWIN_STYLE_NORMAL);
+	win.setTimer(1);
+	x.run(NULL, &win);
 	return 0;
-} 
+}

@@ -142,6 +142,25 @@ protected:
 		add("CMD", 0);
 	}
 
+	void filter() {
+		if(procs == NULL || procNum == 0 || coreIndex < 0)
+			return;
+
+		procinfo_t* procsNew = (procinfo_t*)malloc(sizeof(procinfo_t)*procNum);
+		int num = 0;
+		for(int i=0; i<procNum; i++) {
+			procinfo_t* proc = &procs[i];
+			if(proc->core != coreIndex)
+				continue;
+			memcpy(&procsNew[num], &procs[i], sizeof(procinfo_t));
+			num++;
+		}
+
+		free(procs);
+		procs = procsNew;
+		procNum = num;
+	}
+
 public: 
 	Procs() {
 		procs = NULL;
@@ -156,17 +175,38 @@ public:
 		else
 			coreIndex = index - 1;
 		off_y = 0;
+		filter();
 		update();
 	}
 
-	void onTimer(uint32_t timerFPS) {
+	void onTimer(uint32_t timerFPS, uint32_t timerStep) {
+		if(timerStep != 0)
+			return;
+
 		if(procs != NULL)
 			free(procs);
 		procs = ps(procNum);
 		rowNum = procNum;
+		filter();
 		update();
 	}
 };
+
+
+static const uint32_t COLOR_NUM = 7;
+const  uint32_t colors[COLOR_NUM] = {
+	0xff0000ff, 
+	0xff00ff00, 
+	0xffff0000, 
+	0xff8800ff,
+	0xff0088ff,
+	0xffff8800,
+	0xff000000
+};
+
+static inline uint32_t getColor(int32_t core) {
+	return colors[core%COLOR_NUM];
+}
 
 class CoreList: public List {
 	Procs* procs;
@@ -184,14 +224,16 @@ protected:
 		uint32_t color = theme->basic.fgColor;
 		if(index == itemSelected) {
 			graph_fill(g, r.x, r.y, r.w, r.h, theme->basic.selectBGColor);
-			color = theme->basic.selectColor;
+			//color = theme->basic.selectColor;
 		}
 
 		char s[16] = {0};
 		if(index == 0)
 			snprintf(s, 15, "all");
-		else
+		else {
+			color = getColor(index-1);
 			snprintf(s, 15, "core%2d: %d%%", index-1, 100 - (sysInfo.core_idles[index-1]/10000));
+		}
 		graph_draw_text_font(g, r.x+2, r.y+2, s, theme->getFont(), theme->basic.fontSize, color);
 	}
 
@@ -201,7 +243,10 @@ protected:
 		procs->setCore(index);
 	}
 
-	void onTimer(uint32_t timerFPS) {
+	void onTimer(uint32_t timerFPS, uint32_t timerStep) {
+		if(timerStep != 0)
+			return;
+
 		loadCores();
 		update();
 	}
@@ -222,6 +267,123 @@ public:
 	}
 };
 
+
+class Cores : public Widget {
+	static const uint32_t HEART_BIT_NUM = 24;
+	uint32_t index;
+	bool loop;
+	sys_info_t sysInfo;
+	uint32_t cores[MAX_CORE_NUM][HEART_BIT_NUM];
+
+	int x_off;
+	int y_off;
+public:
+	inline Cores() {
+		index = 0;
+		loop = false;
+		x_off = 4;
+		y_off = 4;
+		memset(cores, 0, sizeof(cores));
+		memset(&sysInfo, 0, sizeof(sys_info_t));
+	}
+	
+	inline ~Cores() {
+	}
+
+	void updateCores() {
+		sys_get_sys_info(&sysInfo);
+
+		for(uint32_t i=0; i<sysInfo.cores; i++) {
+			cores[i][index] = sysInfo.core_idles[i];
+		}
+
+		index++;
+		if(index >= HEART_BIT_NUM) {
+			loop = true;
+			index = 0;
+		}
+		update();
+	}
+
+protected:
+	void drawTitle(graph_t* g, XTheme* theme, uint32_t i, uint32_t color, const grect_t& r) {
+		int x = r.x + x_off + i*60;
+		graph_fill(g, x, r.y+4, 10, 10, color);
+		char s[16];
+		snprintf(s, 15, "%d:%d%%", i, 100 - (sysInfo.core_idles[i]/10000));
+		graph_draw_text_font(g, x+12, r.y+4, s, theme->getFont(), theme->basic.fontSize, color);
+	}
+
+	void drawChat(graph_t* g, uint32_t i, float xstep, float yzoom, uint32_t color, const grect_t& r) {
+		int last_x = 0;
+		int last_y = -1;
+		uint32_t num = loop ? HEART_BIT_NUM:index;
+		for(uint32_t j=0; j<num; j++) {
+			uint32_t k = j;
+			if(loop)
+				k = j + index;
+			if(k >= HEART_BIT_NUM)
+				k -= HEART_BIT_NUM;
+
+			uint32_t perc = 100 - (cores[i][k] / 10000);
+
+			int x = (j+1) * xstep;
+			int y = r.h - y_off - yzoom*(perc); //percentage
+			if(last_y < 0)
+				last_y = y;
+
+			graph_wline(g, r.x+x_off+last_x, r.y+last_y, r.x+x_off+x, r.y+y, color, 2);
+			last_x = x;
+			last_y = y;
+		}
+	}
+
+	void drawBG(graph_t* g, float xstep, float yzoom, const grect_t& r) {
+		uint32_t color = 0xffbbbbbb;
+		uint32_t bgColor = 0xff888888;
+		uint32_t w = xstep*HEART_BIT_NUM;
+		uint32_t h = yzoom*100;
+
+		graph_fill(g, r.x + x_off, r.y+ r.h - h - y_off,
+				w, h, bgColor);
+
+		for(uint32_t i=0; i<=HEART_BIT_NUM; i++) {
+			graph_line(g, r.x + x_off + i*xstep, r.y + r.h - y_off,
+					r.x + x_off + i*xstep, r.y + r.h - y_off - h, color);
+		}
+
+		for(uint32_t i=0; i<=10; i++) {
+			graph_line(g, r.x + x_off, r.y + r.h - y_off - i*10*yzoom,
+				r.x + w + x_off, r.y + r.h - y_off - i*10*yzoom, color);
+		}
+
+	}
+
+	void onRepaint(graph_t* g, XTheme* theme, const grect_t& r) {
+		if(sysInfo.cores == 0)
+			return;
+
+		graph_fill_3d(g, r.x, r.y, r.w, r.h, theme->basic.widgetBGColor, true);
+
+		float xstep = (r.w - x_off*2)/ (float)HEART_BIT_NUM;
+		float yzoom = (r.h - y_off*2)/ 100.0;
+		if(yzoom == 0)
+			yzoom = 1.0;
+
+		drawBG(g, xstep, yzoom, r);
+		for(uint32_t i=0; i<sysInfo.cores; i++) {
+			uint32_t color = colors[i%COLOR_NUM];
+			color = getColor(i);
+			drawChat(g, i, xstep, yzoom, color, r);
+		}
+	}
+
+	void onTimer(uint32_t timerFPS, uint32_t timerStep) {
+		updateCores();
+	}
+};
+
+
 int main(int argc, char** argv) {
 	X x;
 	WidgetWin win;
@@ -230,11 +392,19 @@ int main(int argc, char** argv) {
 	root->setType(Container::HORIZONTAL);
 	root->setAlpha(false);
 
+	Container* c = new Container();
+	c->setType(Container::VERTICLE);
+	c->fix(120, 0);
+	root->add(c);
+
 	CoreList* list = new CoreList();
 	list->loadCores();
 	list->setItemSize(20);
-	list->fix(100, 0);
-	root->add(list);
+	c->add(list);
+
+	Cores* cores = new Cores();
+	cores->fix(0, 72);
+	c->add(cores);
 
 	Procs* procs = new Procs();
 	root->add(procs);
@@ -246,7 +416,7 @@ int main(int argc, char** argv) {
 	procs->setScrollerV(scrollerV);
 
 	win.open(&x, 0, -1, -1, 640, 480, "xprocs", XWIN_STYLE_NORMAL);
-	win.setTimer(1);
+	win.setTimer(2);
 	x.run(NULL, &win);
 	return 0;
 }

@@ -16,7 +16,7 @@ protected:
 	bool onIM(xevent_t* ev);
 
 	virtual void onInput();
-	void onTimer(uint32_t timerFPS);
+	void onTimer(uint32_t timerFPS, uint32_t timerStep);
 public:
 	void (*onInputFunc)(Widget* wd);
 

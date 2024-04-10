@@ -18,7 +18,7 @@ protected:
 	void onLayout();
 	bool onEvent(xevent_t* ev);
 	void repaint(graph_t* g, XTheme* theme);
-	void onTimer(uint32_t timerFPS);
+	void onTimer(uint32_t timerFPS, uint32_t timerStep);
 
 public:
 	static const uint8_t FIXED = 0;

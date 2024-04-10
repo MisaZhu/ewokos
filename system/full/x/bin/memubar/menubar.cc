@@ -72,7 +72,7 @@ protected:
 			drawBat(g, theme, rb, buf[2]);
 	}
 
-	void onTimer(uint32_t timerFPS) {
+	void onTimer(uint32_t timerFPS, uint32_t timerStep) {
 		update();
 	}
 

@@ -39,7 +39,7 @@ protected:
 		drawClock(g, theme, r, sec);
 	}
 
-	void onTimer(uint32_t timerFPS) {
+	void onTimer(uint32_t timerFPS, uint32_t timerStep) {
 		uint32_t ksec;
 		kernel_tic(&ksec, NULL);
 		min = ksec / 60;
