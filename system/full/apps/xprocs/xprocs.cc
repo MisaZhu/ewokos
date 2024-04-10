@@ -192,26 +192,12 @@ public:
 	}
 };
 
-
-static const uint32_t COLOR_NUM = 7;
-const  uint32_t colors[COLOR_NUM] = {
-	0xff0000ff, 
-	0xff00ff00, 
-	0xffff0000, 
-	0xff8800ff,
-	0xff0088ff,
-	0xffff8800,
-	0xff000000
-};
-
-static inline uint32_t getColor(int32_t core) {
-	return colors[core%COLOR_NUM];
-}
-
 class CoreList: public List {
 	Procs* procs;
 	uint32_t coreNum;
 	sys_info_t sysInfo;
+
+
 protected:
 	void drawBG(graph_t* g, XTheme* theme, const grect_t& r) {
 		graph_fill_3d(g, r.x, r.y, r.w, r.h, theme->basic.bgColor, false);
@@ -264,6 +250,20 @@ public:
 
 	void setprocs(Procs* procs) {
 		this->procs = procs;
+	}
+
+	static inline uint32_t getColor(int32_t core) {
+		static const uint32_t COLOR_NUM = 7;
+		static uint32_t colors[COLOR_NUM] = {
+			0xff0000ff, 
+			0xff00ff00, 
+			0xffff0000, 
+			0xff8800ff,
+			0xff0088ff,
+			0xffff8800,
+			0xff000000
+		};
+		return colors[core%COLOR_NUM];
 	}
 };
 
@@ -372,8 +372,7 @@ protected:
 
 		drawBG(g, xstep, yzoom, r);
 		for(uint32_t i=0; i<sysInfo.cores; i++) {
-			uint32_t color = colors[i%COLOR_NUM];
-			color = getColor(i);
+			uint32_t color = CoreList::getColor(i);
 			drawChat(g, i, xstep, yzoom, color, r);
 		}
 	}
