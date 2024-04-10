@@ -111,9 +111,7 @@ void Widget::repaint(graph_t* g, XTheme* theme) {
 		return;
 	}
 
-	grect_t rclip = getRootArea();
-	graph_insect(g, &rclip);
-	graph_set_clip(g, rclip.x, rclip.y, rclip.w, rclip.h);
+	graph_set_clip(g, r.x, r.y, r.w, r.h);
 	onRepaint(g, theme, r);
 	dirty = false;
 }

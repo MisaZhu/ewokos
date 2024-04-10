@@ -24,6 +24,7 @@ LIB_WIDGET_OBJS =  src/Widget/Widget.o \
 		src/Widget/EditLine.o \
 		src/Widget/Text.o \
 		src/Widget/Stage.o \
+		src/Widget/Columns.o \
 		src/Widget/WidgetWin.o \
 		\
 		src/WidgetEx/FileWidget.o \

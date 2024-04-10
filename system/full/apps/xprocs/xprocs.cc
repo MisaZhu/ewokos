@@ -4,6 +4,7 @@
 #include <Widget/LabelButton.h>
 #include <Widget/List.h>
 #include <Widget/Split.h>
+#include <Widget/Columns.h>
 #include <x++/X.h>
 #include <unistd.h>
 #include <stdlib.h>
@@ -79,149 +80,62 @@ static procinfo_t* ps(int &num) {
 	}
 }
 
-class Procs: public Scrollable {
-	int off_y;
+class Procs: public Columns {
 	int coreIndex;
-	uint32_t procsH;
+	procinfo_t* procs;
+	int procNum;
 protected:
-	void onRepaint(graph_t* g, XTheme* theme, const grect_t& r) {
-		graph_fill(g, r.x, r.y, r.w, r.h, theme->basic.docBGColor);
-
+	void drawItem(graph_t* g, XTheme* theme, int row, int col, const grect_t& r) {
 		font_t* font = theme->getFont();
-		if(font == NULL)
+		if(font == NULL || procs == NULL || row >= procNum)
 			return;
 
-		int32_t y = 0;
-		int32_t x = r.x;
-		int num = 0;
-		procinfo_t* procs = ps(num);
-		if(procs == NULL)
+		procinfo_t* proc = &procs[row];
+		if(proc == NULL)
 			return;
 
-		uint32_t cols[6] = {64, 32, 48, 72, 64, 0};
+		char s[16] = { 0 };
+		string str = "";
 
-		graph_fill(g, r.x, y, r.w, theme->basic.fontSize+2, theme->basic.widgetBGColor);
-		int col = 0;
-		graph_draw_text_font(g, x, y - off_y, "OWNER",
-				font, theme->basic.fontSize, theme->basic.docFGColor);
-		x += cols[col++];
-
-		graph_draw_text_font(g, x, y - off_y, "PID",
-				font, theme->basic.fontSize, theme->basic.docFGColor);
-		x += cols[col++];
-
-		graph_draw_text_font(g, x, y - off_y, "CPU",
-				font, theme->basic.fontSize, theme->basic.docFGColor);
-		x += cols[col++];
-
-		graph_draw_text_font(g, x, y - off_y, "STATE",
-				font, theme->basic.fontSize, theme->basic.docFGColor);
-		x += cols[col++];
-
-		graph_draw_text_font(g, x, y - off_y, "HEAP",
-				font, theme->basic.fontSize, theme->basic.docFGColor);
-		x += cols[col];
-
-		graph_draw_text_font(g, x, y - off_y, "CMD",
-				font, theme->basic.fontSize, theme->basic.docFGColor);
-
-		x = r.x;
-		y += theme->basic.fontSize+4;
-
-		for(int i=0; i<num; i++) {
-			procinfo_t* proc = &procs[i];
-			if(proc != NULL) {
-				if(coreIndex >= 0 && coreIndex != proc->core)
-					continue;
-
-				col = 0;
-				const char* owner = get_owner(proc);
-				graph_draw_text_font(g, x, y - off_y, owner,
-						font, theme->basic.fontSize, theme->basic.docFGColor);
-				x += cols[col++];
-
-				char s[16] = { 0 };
-				snprintf(s, 15, "%d", proc->pid);
-				graph_draw_text_font(g, x, y - off_y, s,
-						font, theme->basic.fontSize, theme->basic.docFGColor);
-				x += cols[col++];
-
-				const char* loading = get_core_loading(proc);
-				graph_draw_text_font(g, x, y - off_y, loading,
-						font, theme->basic.fontSize, theme->basic.docFGColor);
-				x += cols[col++];
-
-				const char* state = get_state(proc);
-				graph_draw_text_font(g, x, y - off_y, state,
-						font, theme->basic.fontSize, theme->basic.docFGColor);
-				x += cols[col++];
-
-				snprintf(s, 15, "%d", (proc->heap_size / 1024));
-				graph_draw_text_font(g, x, y - off_y, s,
-						font, theme->basic.fontSize, theme->basic.docFGColor);
-				x += cols[col];
-
-				graph_draw_text_font(g, x, y - off_y, proc->cmd,
-						font, theme->basic.fontSize, theme->basic.docFGColor);
-
-				x = r.x;
-				y += theme->basic.fontSize;
-			}
+		if(col == 0) {
+			str = get_owner(proc);
 		}
-
-		free(procs);
-
-		procsH = y;
-		updateScroller();
+		else if(col == 1) {
+			snprintf(s, 15, "%d", proc->pid);
+			str = s;
+		}
+		else if(col == 2) {
+			str = get_core_loading(proc);
+		}
+		else if(col == 3) {
+			str = get_state(proc);
+		}
+		else if(col == 4) {
+			snprintf(s, 15, "%d", (proc->heap_size / 1024));
+			str = s;
+		}
+		else if(col == 5) {
+			str = proc->cmd;
+		}
+		graph_draw_text_font(g, r.x, r.y, str.c_str(),
+			font, theme->basic.fontSize, theme->basic.docFGColor);
 	}
 
-	bool onScroll(int step, bool horizontal) {
-		int old_off = off_y;
-		off_y -= step*16;
-
-		if(step < 0) {
-			if((off_y + area.h) >= procsH)
-				off_y = procsH - area.h;
-		}
-
-		if(off_y < 0)
-			off_y = 0;
-		
-		if(off_y == old_off)
-			return false;
-
-		return true;
-	}
-
-	void updateScroller() {
-		if(procsH <= area.h && off_y > 0)
-			setScrollerInfo(area.h + off_y, off_y, area.h, false);
-		else
-			setScrollerInfo(procsH, off_y, area.h, false);
-	}
-
-	bool onMouse(xevent_t* ev) {
-		bool ret = Scrollable::onMouse(ev);
-
-		if(ev->state == XEVT_MOUSE_MOVE) {
-			if(ev->value.mouse.button == MOUSE_BUTTON_SCROLL_UP) {
-				scroll(-1, defaultScrollType == SCROLL_TYPE_H);
-				ret = true;
-			}
-			else if(ev->value.mouse.button == MOUSE_BUTTON_SCROLL_DOWN) {
-				scroll(1, defaultScrollType == SCROLL_TYPE_H);
-				ret = true;
-			}
-		}
-		return ret;
+	void build() {
+		add("OWNER", 64);
+		add("PID", 32);
+		add("CPU", 48);
+		add("STATE", 72);
+		add("HEAP", 64);
+		add("CMD", 0);
 	}
 
 public: 
 	Procs() {
-		coreIndex = 0;
-		off_y = 0;
-		procsH = 0;
+		procs = NULL;
 		coreIndex = -1;
+		procNum = 0;
+		build();
 	}
 
 	void setCore(uint32_t index) {
@@ -234,6 +148,10 @@ public:
 	}
 
 	void onTimer(uint32_t timerFPS) {
+		if(procs != NULL)
+			free(procs);
+		procs = ps(procNum);
+		rowNum = procNum;
 		update();
 	}
 };
@@ -315,7 +233,7 @@ int main(int argc, char** argv) {
 	root->add(scrollerV);
 	procs->setScrollerV(scrollerV);
 
-	win.open(&x, 0, -1, -1, 460, 460, "xfont", XWIN_STYLE_NORMAL);
+	win.open(&x, 0, -1, -1, 640, 480, "xprocs", XWIN_STYLE_NORMAL);
 	win.setTimer(1);
 	x.run(NULL, &win);
 	return 0;

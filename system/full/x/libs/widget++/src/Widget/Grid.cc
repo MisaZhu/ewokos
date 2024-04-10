@@ -37,10 +37,7 @@ void Grid::onRepaint(graph_t* g, XTheme* theme, const grect_t& r) {
 		ir.w = iw;
 		ir.h = itemH;
 
-		grect_t rclip = {ir.x, ir.y , ir.w, ir.h};
-
-		grect_insect(&r, &rclip);
-		graph_set_clip(g, rclip.x, rclip.y, rclip.w, rclip.h);
+		graph_set_clip(g, ir.x, ir.y, ir.w, ir.h);
 		drawItem(g, theme, i+itemStart, ir);
 	}
 }
