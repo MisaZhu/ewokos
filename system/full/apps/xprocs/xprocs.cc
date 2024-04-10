@@ -130,6 +130,22 @@ protected:
 		add("CMD", 0);
 	}
 
+	void filter() {
+		if(procNum == 0 || procs == NULL || coreIndex < 0)
+			return;
+		procinfo_t* procs0 = (procinfo_t*)malloc(sizeof(procinfo_t)*procNum);
+		int num = 0;
+		for(int i=0;i <procNum; i++) {
+			if(procs[i].core != coreIndex)
+				continue;
+			memcpy(&procs0[num], &procs[i], sizeof(procinfo_t));
+			num++;
+		}
+		free(procs);
+		procs = procs0;
+		procNum = num;
+	}
+
 public: 
 	Procs() {
 		procs = NULL;
@@ -144,6 +160,7 @@ public:
 		else
 			coreIndex = index - 1;
 		off_y = 0;
+		filter();
 		update();
 	}
 
@@ -151,6 +168,10 @@ public:
 		if(procs != NULL)
 			free(procs);
 		procs = ps(procNum);
+		if(procNum == 0)
+			return;
+
+		filter();
 		rowNum = procNum;
 		update();
 	}
