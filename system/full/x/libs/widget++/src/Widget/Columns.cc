@@ -27,6 +27,8 @@ void Columns::onRepaint(graph_t* g, XTheme* theme, const grect_t& r) {
 	y += rowH +4;
 
 	for(uint32_t i=0; i<rowNum; i++) {
+		grect_t rr = {r.x, y-off_y, r.w, rowH};
+		drawRowBG(g, theme, i, r);
 		for(uint32_t j=0; j<colNum; j++) {
 			grect_t r = {x, y-off_y, cols[j].width, rowH};
 			graph_set_clip(g, r.x, r.y, r.w, r.h);

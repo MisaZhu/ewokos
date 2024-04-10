@@ -117,6 +117,16 @@ protected:
 		else if(col == 5) {
 			str = proc->cmd;
 		}
+		int load = proc->run_usec/10000;
+		if(load > 70)
+			graph_fill(g, r.x, r.y, r.w, r.h, 0xffffaaaa);
+		else if(load > 50)
+			graph_fill(g, r.x, r.y, r.w, r.h, 0xffaaffaa);
+		else if(load > 30)
+			graph_fill(g, r.x, r.y, r.w, r.h, 0xffaaaaff);
+		else if(load > 10)
+			graph_fill(g, r.x, r.y, r.w, r.h, 0xffaaaaaa);
+
 		graph_draw_text_font(g, r.x, r.y, str.c_str(),
 			font, theme->basic.fontSize, theme->basic.docFGColor);
 	}
@@ -128,22 +138,6 @@ protected:
 		add("STATE", 72);
 		add("HEAP", 64);
 		add("CMD", 0);
-	}
-
-	void filter() {
-		if(procNum == 0 || procs == NULL || coreIndex < 0)
-			return;
-		procinfo_t* procs0 = (procinfo_t*)malloc(sizeof(procinfo_t)*procNum);
-		int num = 0;
-		for(int i=0;i <procNum; i++) {
-			if(procs[i].core != coreIndex)
-				continue;
-			memcpy(&procs0[num], &procs[i], sizeof(procinfo_t));
-			num++;
-		}
-		free(procs);
-		procs = procs0;
-		procNum = num;
 	}
 
 public: 
@@ -160,7 +154,6 @@ public:
 		else
 			coreIndex = index - 1;
 		off_y = 0;
-		filter();
 		update();
 	}
 
@@ -168,10 +161,6 @@ public:
 		if(procs != NULL)
 			free(procs);
 		procs = ps(procNum);
-		if(procNum == 0)
-			return;
-
-		filter();
 		rowNum = procNum;
 		update();
 	}

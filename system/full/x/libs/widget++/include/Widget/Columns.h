@@ -24,6 +24,7 @@ protected:
 	int off_y;
 
 	virtual void drawItem(graph_t* g, XTheme* theme, int row, int col, const grect_t& r) = 0; 
+	virtual void drawRowBG(graph_t* g, XTheme* theme, int row, const grect_t& r) { }
 
 	void onRepaint(graph_t* g, XTheme* theme, const grect_t& r);
 	bool onScroll(int step, bool horizontal);
