@@ -57,7 +57,7 @@ static uint32_t flush(const fbinfo_t* fbinfo, const void* buf, uint32_t size, in
 	else  {
 		if(fbinfo->depth == 16)
 			blt16(buf, fbinfo->pointer, fbinfo->width, fbinfo->height);
-		else if(fbinfo->pointer != _g->buffer)
+		else
 			memcpy((void*)fbinfo->pointer, buf, sz);
 	}
 	return size;
