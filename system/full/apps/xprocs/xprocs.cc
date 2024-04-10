@@ -97,38 +97,69 @@ protected:
 		procinfo_t* procs = ps(num);
 		if(procs == NULL)
 			return;
-		
+
+		uint32_t cols[6] = {64, 32, 48, 72, 64, 0};
+
+		graph_fill(g, r.x, y, r.w, theme->basic.fontSize+2, theme->basic.widgetBGColor);
+		int col = 0;
+		graph_draw_text_font(g, x, y - off_y, "OWNER",
+				font, theme->basic.fontSize, theme->basic.docFGColor);
+		x += cols[col++];
+
+		graph_draw_text_font(g, x, y - off_y, "PID",
+				font, theme->basic.fontSize, theme->basic.docFGColor);
+		x += cols[col++];
+
+		graph_draw_text_font(g, x, y - off_y, "CPU",
+				font, theme->basic.fontSize, theme->basic.docFGColor);
+		x += cols[col++];
+
+		graph_draw_text_font(g, x, y - off_y, "STATE",
+				font, theme->basic.fontSize, theme->basic.docFGColor);
+		x += cols[col++];
+
+		graph_draw_text_font(g, x, y - off_y, "HEAP",
+				font, theme->basic.fontSize, theme->basic.docFGColor);
+		x += cols[col];
+
+		graph_draw_text_font(g, x, y - off_y, "CMD",
+				font, theme->basic.fontSize, theme->basic.docFGColor);
+
+		x = r.x;
+		y += theme->basic.fontSize+4;
+
 		for(int i=0; i<num; i++) {
 			procinfo_t* proc = &procs[i];
 			if(proc != NULL) {
 				if(coreIndex >= 0 && coreIndex != proc->core)
 					continue;
 
+				col = 0;
 				const char* owner = get_owner(proc);
 				graph_draw_text_font(g, x, y - off_y, owner,
 						font, theme->basic.fontSize, theme->basic.docFGColor);
-				x += 64;
+				x += cols[col++];
 
 				char s[16] = { 0 };
 				snprintf(s, 15, "%d", proc->pid);
 				graph_draw_text_font(g, x, y - off_y, s,
 						font, theme->basic.fontSize, theme->basic.docFGColor);
-				x += 32;
+				x += cols[col++];
 
 				const char* loading = get_core_loading(proc);
 				graph_draw_text_font(g, x, y - off_y, loading,
 						font, theme->basic.fontSize, theme->basic.docFGColor);
-				x += 48;
+				x += cols[col++];
 
 				const char* state = get_state(proc);
 				graph_draw_text_font(g, x, y - off_y, state,
 						font, theme->basic.fontSize, theme->basic.docFGColor);
-				x += 72;
+				x += cols[col++];
 
 				snprintf(s, 15, "%d", (proc->heap_size / 1024));
 				graph_draw_text_font(g, x, y - off_y, s,
 						font, theme->basic.fontSize, theme->basic.docFGColor);
-				x += 64;
+				x += cols[col];
 
 				graph_draw_text_font(g, x, y - off_y, proc->cmd,
 						font, theme->basic.fontSize, theme->basic.docFGColor);
