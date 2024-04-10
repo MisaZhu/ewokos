@@ -118,14 +118,16 @@ protected:
 			str = proc->cmd;
 		}
 		int load = proc->run_usec/10000;
-		if(load > 70)
+		if(load >= 80)
+			graph_fill(g, r.x, r.y, r.w, r.h, 0xffff6666);
+		else if(load >= 60)
 			graph_fill(g, r.x, r.y, r.w, r.h, 0xffffaaaa);
-		else if(load > 50)
+		else if(load >= 40)
 			graph_fill(g, r.x, r.y, r.w, r.h, 0xffaaffaa);
-		else if(load > 30)
+		else if(load >= 20)
 			graph_fill(g, r.x, r.y, r.w, r.h, 0xffaaaaff);
-		else if(load > 10)
-			graph_fill(g, r.x, r.y, r.w, r.h, 0xffaaaaaa);
+		else if(load >= 10)
+			graph_fill(g, r.x, r.y, r.w, r.h, 0xffaaaaa);
 
 		graph_draw_text_font(g, r.x, r.y, str.c_str(),
 			font, theme->basic.fontSize, theme->basic.docFGColor);
