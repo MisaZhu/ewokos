@@ -51,9 +51,6 @@ void WidgetWin::timerTask() {
 		return;
 
 	root->onTimer(timerFPS, timerStep++);
-	if(timerStep >= timerFPS)
-		timerStep = 0;
-
 	if(!painting)
 		root->repaintWin();
 }

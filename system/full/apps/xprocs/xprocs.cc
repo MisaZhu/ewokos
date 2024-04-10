@@ -180,7 +180,7 @@ public:
 	}
 
 	void onTimer(uint32_t timerFPS, uint32_t timerStep) {
-		if(timerStep != 0)
+		if((timerStep % timerFPS) != 0)
 			return;
 
 		if(procs != NULL)
@@ -244,7 +244,7 @@ protected:
 	}
 
 	void onTimer(uint32_t timerFPS, uint32_t timerStep) {
-		if(timerStep != 0)
+		if((timerStep % timerFPS) != 0)
 			return;
 
 		loadCores();
