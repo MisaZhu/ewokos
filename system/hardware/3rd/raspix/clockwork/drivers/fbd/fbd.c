@@ -56,20 +56,28 @@ static uint32_t flush(const fbinfo_t* fbinfo, const void* buf, uint32_t size, in
 	graph_t g;
 	if(rotate == G_ROTATE_N90 || rotate == G_ROTATE_90) {
 		graph_init(&g, buf, fbinfo->height, fbinfo->width);
-		if(_g == NULL)
-			_g = graph_new(NULL, fbinfo->width, fbinfo->height);
+		if(_g == NULL) {
+			if(fbinfo->depth == 16)
+				_g = graph_new(NULL, fbinfo->width, fbinfo->height);
+			else
+				_g = graph_new(fbinfo->pointer, fbinfo->width, fbinfo->height);
+		}
 	}
 	else if(rotate == G_ROTATE_180) {
 		graph_init(&g, buf, fbinfo->width, fbinfo->height);
-		if(_g == NULL)
-			_g = graph_new(NULL, fbinfo->width, fbinfo->height);
+		if(_g == NULL) {
+			if(fbinfo->depth == 16)
+				_g = graph_new(NULL, fbinfo->width, fbinfo->height);
+			else
+				_g = graph_new(fbinfo->pointer, fbinfo->width, fbinfo->height);
+		}
 	}
 
 	if(_g != NULL) {
 		graph_rotate_to(&g, _g, rotate);
 		if(fbinfo->depth == 16)
 			blt16(_g->buffer, fbinfo->pointer, fbinfo->width, fbinfo->height);
-		else
+		else if(fbinfo->pointer != _g->buffer)
 			memcpy((void*)fbinfo->pointer, _g->buffer, sz);
 	}
 	else  {
@@ -79,7 +87,6 @@ static uint32_t flush(const fbinfo_t* fbinfo, const void* buf, uint32_t size, in
 			memcpy((void*)fbinfo->pointer, buf, sz);
 	}
 	return size;
-
 }
 
 static fbinfo_t* get_info(void) {
