@@ -192,82 +192,6 @@ public:
 	}
 };
 
-class CoreList: public List {
-	Procs* procs;
-	uint32_t coreNum;
-	sys_info_t sysInfo;
-
-
-protected:
-	void drawBG(graph_t* g, XTheme* theme, const grect_t& r) {
-		graph_fill_3d(g, r.x, r.y, r.w, r.h, theme->basic.bgColor, false);
-	}
-
-	void drawItem(graph_t* g, XTheme* theme, int32_t index, const grect_t& r) {
-		if(index > coreNum)
-			return;
-
-		uint32_t color = theme->basic.fgColor;
-		if(index == itemSelected) {
-			graph_fill(g, r.x, r.y, r.w, r.h, theme->basic.selectBGColor);
-			//color = theme->basic.selectColor;
-		}
-
-		char s[16] = {0};
-		if(index == 0)
-			snprintf(s, 15, "all");
-		else {
-			color = getColor(index-1);
-			snprintf(s, 15, "core%2d: %d%%", index-1, 100 - (sysInfo.core_idles[index-1]/10000));
-		}
-		graph_draw_text_font(g, r.x+2, r.y+2, s, theme->getFont(), theme->basic.fontSize, color);
-	}
-
-	void onSelect(int index) {
-		if(procs == NULL)
-			return;
-		procs->setCore(index);
-	}
-
-	void onTimer(uint32_t timerFPS, uint32_t timerStep) {
-		if((timerStep % timerFPS) != 0)
-			return;
-
-		loadCores();
-		update();
-	}
-public:
-	CoreList() {
-		procs = NULL;
-		loadCores();
-	}
-
-	void loadCores() {
-		sys_get_sys_info(&sysInfo);
-		coreNum = sysInfo.cores;
-		setItemNum(coreNum+1);
-	}
-
-	void setprocs(Procs* procs) {
-		this->procs = procs;
-	}
-
-	static inline uint32_t getColor(int32_t core) {
-		static const uint32_t COLOR_NUM = 7;
-		static uint32_t colors[COLOR_NUM] = {
-			0xff0000ff, 
-			0xff00ff00, 
-			0xffff0000, 
-			0xff8800ff,
-			0xff0088ff,
-			0xffff8800,
-			0xff000000
-		};
-		return colors[core%COLOR_NUM];
-	}
-};
-
-
 class Cores : public Widget {
 	static const uint32_t HEART_BIT_NUM = 24;
 	uint32_t index;
@@ -303,6 +227,20 @@ public:
 			index = 0;
 		}
 		update();
+	}
+
+	static inline uint32_t getColor(int32_t core) {
+		static const uint32_t COLOR_NUM = 7;
+		static uint32_t colors[COLOR_NUM] = {
+			0xff0000ff, 
+			0xff00ff00, 
+			0xffff0000, 
+			0xff8800ff,
+			0xff0088ff,
+			0xffff8800,
+			0xff000000
+		};
+		return colors[core%COLOR_NUM];
 	}
 
 protected:
@@ -372,7 +310,7 @@ protected:
 
 		drawBG(g, xstep, yzoom, r);
 		for(uint32_t i=0; i<sysInfo.cores; i++) {
-			uint32_t color = CoreList::getColor(i);
+			uint32_t color = getColor(i);
 			drawChat(g, i, xstep, yzoom, color, r);
 		}
 	}
@@ -382,6 +320,65 @@ protected:
 	}
 };
 
+class CoreList: public List {
+	Procs* procs;
+	uint32_t coreNum;
+	sys_info_t sysInfo;
+
+protected:
+	void drawBG(graph_t* g, XTheme* theme, const grect_t& r) {
+		graph_fill_3d(g, r.x, r.y, r.w, r.h, theme->basic.bgColor, false);
+	}
+
+	void drawItem(graph_t* g, XTheme* theme, int32_t index, const grect_t& r) {
+		if(index > coreNum)
+			return;
+
+		uint32_t color = theme->basic.fgColor;
+		if(index == itemSelected) {
+			graph_fill(g, r.x, r.y, r.w, r.h, theme->basic.selectBGColor);
+			//color = theme->basic.selectColor;
+		}
+
+		char s[16] = {0};
+		if(index == 0)
+			snprintf(s, 15, "all");
+		else {
+			color = Cores::getColor(index-1);
+			snprintf(s, 15, "core%2d: %d%%", index-1, 100 - (sysInfo.core_idles[index-1]/10000));
+		}
+		graph_draw_text_font(g, r.x+2, r.y+2, s, theme->getFont(), theme->basic.fontSize, color);
+	}
+
+	void onSelect(int index) {
+		if(procs == NULL)
+			return;
+		procs->setCore(index);
+	}
+
+	void onTimer(uint32_t timerFPS, uint32_t timerStep) {
+		if((timerStep % timerFPS) != 0)
+			return;
+
+		loadCores();
+		update();
+	}
+public:
+	CoreList() {
+		procs = NULL;
+		loadCores();
+	}
+
+	void loadCores() {
+		sys_get_sys_info(&sysInfo);
+		coreNum = sysInfo.cores;
+		setItemNum(coreNum+1);
+	}
+
+	void setprocs(Procs* procs) {
+		this->procs = procs;
+	}
+};
 
 int main(int argc, char** argv) {
 	X x;
