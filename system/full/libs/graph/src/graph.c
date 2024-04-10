@@ -113,10 +113,10 @@ void graph_rotate_to(graph_t* g, graph_t* ret, int rot) {
 
 	if(rot == G_ROTATE_90) {
 		for(int i=0; i<g->w; ++i) {
-			int w0 = (ret->h - i - 1) * ret->w;
+			int w0 = (ret->h - i - 1) * ret->w + ret->w;
 			int w1 = g->w - i - 1;
 			for(int j=0; j<g->h; ++j) {
-				ret->buffer[w0 + (ret->w - j)] = g->buffer[j*g->w + w1];
+				ret->buffer[w0 - j] = g->buffer[j*g->w + w1];
 			}
 		}
 	}
