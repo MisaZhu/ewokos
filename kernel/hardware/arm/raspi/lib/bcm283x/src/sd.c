@@ -326,9 +326,10 @@ int32_t bcm283x_sd_init(void) {
 	_sdc.txdone = 1;
 
 	int64_t r, cnt, ccs = 0;
-
+	extern uint32_t _pi4;
+	
 	// check sdmux connect to witch emmc bus
-	if((*((uint32_t*)(_sys_info.mmio.v_base + 0x2000d0)) & 0x2) == 0){
+	if(_pi4 && (*((uint32_t*)(_sys_info.mmio.v_base + 0x2000d0)) & 0x2) == 0){
 		EMMC_BASE = 0x00340000;
 	}else{
 		EMMC_BASE = 0x00300000;
