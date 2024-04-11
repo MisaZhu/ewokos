@@ -73,8 +73,8 @@ static int power_step(void* p) {
 	_hasBattery = !!(state & (0x1 << 5));
 	_charging = !!(state & (0x1 << 6));
 	_capacity = adc2level(i2c_getb(0x34, 0x78)); 
-	if(_capacity < 10)
-		power_off();
+	//if(_capacity < 10)
+		//power_off();
     proc_usleep(100000); 
 	return 0;
 }
