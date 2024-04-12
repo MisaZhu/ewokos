@@ -116,7 +116,7 @@ void __attribute__((optimize("O0"))) _slave_kernel_entry_c(void) {
 }
 #endif
 
-static void welcome(void) {
+static void logo(void) {
 	printf( "\n"
 			"---------------------------------------------------\n"
 			" ______           ______  _    _   ______  ______ \n"
@@ -125,21 +125,22 @@ static void welcome(void) {
 			"|  __)  | |( )| || |  | ||  _  (  | |  | |(____  )\n"
 			"| (___  | || || || |__| || ( \\  \\ | |__| |  ___) |\n"
 			"(______/(_______)(______)|_/  \\_/ (______)\\______)\n\n");
-                                                      
-	printf(
-		  "machine              %s\n" 
-		  "arch                 %s\n"
-		  "cores                %d\n"
-		  "kernel_timer_freq    %d\n"
-		  "schedule_freq        %d\n"
-		  "mem_offset           0x%x\n"
-		  "mem_size             %d MB\n"
-		  "kmalloc size         %d MB\n"
-		  "mmio_base            Phy:0x%x, V: 0x%x\n"
-		  "max proc num         %d\n"
-		  "max task total       %d\n"
-		  "max task per proc    %d\n"
-		  "---------------------------------------------------\n\n",
+}
+
+static void show_config(void) {
+	printf("\n"
+		  "    machine              %s\n" 
+		  "    arch                 %s\n"
+		  "    cores                %d\n"
+		  "    kernel_timer_freq    %d\n"
+		  "    schedule_freq        %d\n"
+		  "    mem_offset           0x%x\n"
+		  "    mem_size             %d MB\n"
+		  "    kmalloc size         %d MB\n"
+		  "    mmio_base            Phy:0x%x, V: 0x%x\n"
+		  "    max proc num         %d\n"
+		  "    max task total       %d\n"
+		  "    max task per proc    %d\n\n",
 			_sys_info.machine,
 			_sys_info.arch,
 			_kernel_config.cores,
@@ -182,19 +183,21 @@ void _kernel_entry_c(void) {
 	load_kernel_config();
 	kout  ("[OK]\n");
 
+	uart_dev_init(_kernel_config.uart_baud);
+
+	show_config();
+
 	kout  ("kernel: remapping kernel mem   ... ");
 	reset_kernel_vm();
 	kmalloc_init(); //init kmalloc again with config info;
 	kout  ("[OK]\n");
-
-	uart_dev_init(_kernel_config.uart_baud);
 
 #ifdef KCONSOLE
 	kout  ("kernel: init framebuffer       ... ");
 	kconsole_init();
 	kout  ("[OK]\n");
 #endif
-	welcome();
+	logo();
 
 	printf("kernel: init allocable memory  ... ");
 	init_allocable_mem(); //init the rest allocable memory VM
