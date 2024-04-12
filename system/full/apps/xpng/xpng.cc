@@ -39,18 +39,19 @@ class ImageView: public Scrollable {
 	StatusLabel* statusLabel;
 
 	void background(graph_t* g, uint32_t sz, const grect_t& r) {
+		graph_set(g, r.x, r.y, r.w, r.h, 0);
 		int x = r.x;
 		int y = r.y;
 		uint32_t c1;
 		uint32_t c2;
 		for(int i=0; ;i++) {
 			if((i%2) == 0) {
-				c1 = 0xff888888;
-				c2 = 0xff4444444;
+				c1 = 0x88888888;
+				c2 = 0x884444444;
 			}
 			else {
-				c2 = 0xff888888;
-				c1 = 0xff444444;
+				c2 = 0x88888888;
+				c1 = 0x88444444;
 			}
 
 			for(int j=0; ;j++) {
@@ -192,6 +193,7 @@ public:
 		last_mouse_down.x = 0;
 		last_mouse_down.y = 0;
 		statusLabel = NULL;
+		alpha = true;
 	}
 
 	~ImageView() {
@@ -260,7 +262,7 @@ int main(int argc, char** argv) {
 	RootWidget* root = new RootWidget();
 	win.setRoot(root);
 	root->setType(Container::VERTICLE);
-	root->setAlpha(false);
+	root->setAlpha(true);
 
 	Container* c = new Container();
 	c->setType(Container::HORIZONTAL);

@@ -55,10 +55,11 @@ public:
 	Widget(void);
 	virtual ~Widget(void);
 
+	void setAlpha(bool alpha);
+
 	inline void setMarginH(int32_t v) { marginH = v; }
 	inline void setMarginV(int32_t v) { marginV = v; }
 	inline void setFixed(bool fixed) { this->fixed = fixed; }
-	inline void setAlpha(bool alpha) { this->alpha = alpha; }
 	inline bool isAlpha() { return alpha; }
 	inline uint32_t getID() { return id; }
 	inline void setID(uint32_t id) { this->id = id; }

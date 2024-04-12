@@ -18,6 +18,7 @@ protected:
 	void onResize(void);
 	void onEvent(xevent_t* ev);
 	bool onClose();
+	void onOpen();
 public:
 	WidgetWin(void);
 	~WidgetWin(void);

@@ -99,6 +99,16 @@ WidgetWin* Widget::getWin(void) {
 	return root->getWin();
 }
 
+void Widget::setAlpha(bool alpha) {
+	this->alpha = alpha;
+	WidgetWin* win = getWin();
+	if(win == NULL)
+		return;
+
+	if(win->getRoot() == this)
+		win->setAlpha(alpha);
+}
+
 void Widget::repaint(graph_t* g, XTheme* theme) {
 	if(!dirty || !visible)
 		return;
