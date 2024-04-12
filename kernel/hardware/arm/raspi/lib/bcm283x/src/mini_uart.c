@@ -2,7 +2,6 @@
 #include <bcm283x/gpio.h>
 #include <bcm283x/mini_uart.h>
 #include <kernel/hw_info.h>
-#include <kernel/kernel.h>
 
 #define AUX_OFFSET 0x00215000
 #define UART_OFFSET 0x00215040
