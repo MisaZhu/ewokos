@@ -15,6 +15,9 @@ void OpenLookWM::drawMin(graph_t* g, xinfo_t* info, grect_t* r, bool top) {
 
 void OpenLookWM::drawMax(graph_t* g, xinfo_t* info, grect_t* r, bool top) {
 	(void)info;
+	if(frameMaxIcon == NULL)
+		return;
+
 	graph_blt_alpha(frameMaxIcon, 0, 0, frameMaxIcon->w, frameMaxIcon->h,
 			g, r->x + (r->w-frameMaxIcon->w)/2,
 			r->y + (r->h-frameMaxIcon->h)/2, frameMaxIcon->w, frameMaxIcon->h, 0xff);
@@ -22,6 +25,8 @@ void OpenLookWM::drawMax(graph_t* g, xinfo_t* info, grect_t* r, bool top) {
 
 void OpenLookWM::drawClose(graph_t* g, xinfo_t* info, grect_t* r, bool top) {
 	(void)info;
+	if(frameCloseIcon == NULL)
+		return;
 	graph_blt_alpha(frameCloseIcon, 0, 0, frameCloseIcon->w, frameCloseIcon->h,
 			g, r->x + (r->w-frameCloseIcon->w)/2,
 			r->y + (r->h-frameCloseIcon->h)/2, frameCloseIcon->w, frameCloseIcon->h, 0xff);
@@ -82,14 +87,18 @@ void OpenLookWM::drawFrame(graph_t* graph, xinfo_t* info, bool top) {
 	graph_fill(graph, x-frameW, y+h+frameW-2, w+frameW*2, 2, 0xff000000);
 	graph_fill(graph, x+w+frameW-2, y-frameW, 2, h+frameW*2, 0xff000000);
 
-	graph_blt_alpha(frameTLIcon, 0, 0, frameTLIcon->w, frameTLIcon->h,
-			graph, x-frameW, y-frameW, frameTLIcon->w, frameTLIcon->h, 0xff);
-	graph_blt_alpha(frameTRIcon, 0, 0, frameTRIcon->w, frameTRIcon->h,
-			graph, x+w-frameTRIcon->w+frameW, y-frameW, frameTLIcon->w, frameTLIcon->h, 0xff);
-	graph_blt_alpha(frameBLIcon, 0, 0, frameBLIcon->w, frameBLIcon->h,
-			graph, x-frameW, y+h-frameBLIcon->h+frameW, frameBLIcon->w, frameBLIcon->h, 0xff);
-	graph_blt_alpha(frameBRIcon, 0, 0, frameBRIcon->w, frameBRIcon->h,
-			graph, x+w-frameBRIcon->w+frameW, y+h-frameBRIcon->h+frameW, frameBRIcon->w, frameBRIcon->h, 0xff);
+	if(frameTLIcon)
+		graph_blt_alpha(frameTLIcon, 0, 0, frameTLIcon->w, frameTLIcon->h,
+				graph, x-frameW, y-frameW, frameTLIcon->w, frameTLIcon->h, 0xff);
+	if(frameTRIcon)
+		graph_blt_alpha(frameTRIcon, 0, 0, frameTRIcon->w, frameTRIcon->h,
+				graph, x+w-frameTRIcon->w+frameW, y-frameW, frameTLIcon->w, frameTLIcon->h, 0xff);
+	if(frameBLIcon)
+		graph_blt_alpha(frameBLIcon, 0, 0, frameBLIcon->w, frameBLIcon->h,
+				graph, x-frameW, y+h-frameBLIcon->h+frameW, frameBLIcon->w, frameBLIcon->h, 0xff);
+	if(frameBRIcon)
+		graph_blt_alpha(frameBRIcon, 0, 0, frameBRIcon->w, frameBRIcon->h,
+				graph, x+w-frameBRIcon->w+frameW, y+h-frameBRIcon->h+frameW, frameBRIcon->w, frameBRIcon->h, 0xff);
 	//shadow
 	/*if(top) {
 		graph_fill(graph, x+w+frameW, y, frameW, h+frameW, 0xaa000000);
