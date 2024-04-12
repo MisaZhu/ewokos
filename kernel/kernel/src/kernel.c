@@ -164,26 +164,45 @@ void _kernel_entry_c(void) {
 	copy_interrupt_table();
 
 	init_kernel_vm();  
+	uart_dev_init();
+	kout  ("\n");
+	kout  ("kernel: init kernel malloc     ... ");
 	kmalloc_init(); //init kmalloc with min size for just early stage kernel load
+	kout  ("[OK]\n");
+
+	kout  ("kernel: init kernel event      ... ");
 	kev_init();
+	kout  ("[OK]\n");
+
+	kout  ("kernel: init sd                ... ");
 	sd_init();
+	kout  ("[OK]\n");
 
+	kout  ("kernel: load kernel config     ... ");
 	load_kernel_config();
+	kout  ("[OK]\n");
 
+	kout  ("kernel: remapping kernel mem   ... ");
 	reset_kernel_vm();
 	kmalloc_init(); //init kmalloc again with config info;
+	kout  ("[OK]\n");
 
-	dma_init();
 	uart_dev_init();
 
 #ifdef KCONSOLE
+	kout  ("kernel: init framebuffer       ... ");
 	kconsole_init();
+	kout  ("[OK]\n");
 #endif
-
 	welcome();
+
 	printf("kernel: init allocable memory  ... ");
 	init_allocable_mem(); //init the rest allocable memory VM
 	printf("[ok] (%d MB)\n", (get_free_mem_size() / (1*MB)));
+
+	printf("kernel: init DMA               ... ");
+	dma_init();
+	printf("[OK]\n");
 
 	printf("kernel: init semaphore         ... ");
 	semaphore_init();
