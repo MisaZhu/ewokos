@@ -126,7 +126,7 @@ protected:
 			graph_fill(g, r.x, r.y, r.w, r.h, 0xffaaffaa);
 		else if(load >= 20)
 			graph_fill(g, r.x, r.y, r.w, r.h, 0xffaaaaff);
-		else if(load >= 10)
+		else if(load >= 5)
 			graph_fill(g, r.x, r.y, r.w, r.h, 0xffaaaaaa);
 
 		graph_draw_text_font(g, r.x, r.y, str.c_str(),
