@@ -117,7 +117,7 @@ void __attribute__((optimize("O0"))) _slave_kernel_entry_c(void) {
 #endif
 
 static void logo(void) {
-	printf( "\n"
+	printf(
 			"---------------------------------------------------\n"
 			" ______           ______  _    _   ______  ______ \n"
 			"(  ___ \\|\\     /|(  __  )| \\  / \\ (  __  )(  ___ \\\n"
