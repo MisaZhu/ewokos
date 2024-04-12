@@ -22,7 +22,7 @@
 #define UART_LSR_THRE       0x20    /* Transmit-hold-register empty */
 #define UART_LSR_DR       	0x1    	/*Data Ready*/
 
-int32_t uart_dev_init(void) {
+int32_t uart_dev_init(uint32_t baud) {
 
 }
 

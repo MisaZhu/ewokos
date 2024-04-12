@@ -164,7 +164,7 @@ void _kernel_entry_c(void) {
 	copy_interrupt_table();
 
 	init_kernel_vm();  
-	uart_dev_init();
+	uart_dev_init(115200);
 	kout  ("\n");
 	kout  ("kernel: init kernel malloc     ... ");
 	kmalloc_init(); //init kmalloc with min size for just early stage kernel load
@@ -187,7 +187,7 @@ void _kernel_entry_c(void) {
 	kmalloc_init(); //init kmalloc again with config info;
 	kout  ("[OK]\n");
 
-	uart_dev_init();
+	uart_dev_init(_kernel_config.uart_baud);
 
 #ifdef KCONSOLE
 	kout  ("kernel: init framebuffer       ... ");

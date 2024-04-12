@@ -33,17 +33,17 @@
 #define UART_TXD_GPIO 14
 #define UART_RXD_GPIO 15
 
-static inline uint32_t get_baud(void) {
-	if(_kernel_config.uart_baud == 115200)
+static inline uint32_t get_baud(uint32_t uart_baud) {
+	if(uart_baud == 115200)
 		return UART_BAUD_115200;
-	else if(_kernel_config.uart_baud == 19200)
+	else if(uart_baud == 19200)
 		return UART_BAUD_19200;
-	else if(_kernel_config.uart_baud == 9600)
+	else if(uart_baud == 9600)
 		return UART_BAUD_9600;
 	return UART_BAUD_DEFAULT;
 }
 
-int32_t mini_uart_init(void) {
+int32_t mini_uart_init(uint32_t baud) {
 	unsigned int data = get32(AUX_ENABLES);
 	/* enable uart */
 	put32(AUX_ENABLES, data|UART_AUX_ENABLE);
@@ -53,7 +53,7 @@ int32_t mini_uart_init(void) {
 	put32(UART_IER_REG, 0x00); /** no need interrupt */
 	/** check requested baudrate **/
 	/** baudrate count = ((sys_clk/baudrate)/8)-1 */
-	put32(UART_BAUD_REG, get_baud()); /** 16-bit baudrate counter */
+	put32(UART_BAUD_REG, get_baud(baud)); /** 16-bit baudrate counter */
 	/* disable pull-down default on tx/rx pins */
 	gpio_pull(UART_TXD_GPIO, GPIO_PULL_NONE);
 	gpio_pull(UART_RXD_GPIO, GPIO_PULL_NONE);

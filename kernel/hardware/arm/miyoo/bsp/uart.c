@@ -9,8 +9,8 @@ uint32_t uart_base = MMIO_BASE;
 #define UART_MULTI_REG8(_x_)  ((uint8_t volatile *)(BASE))[((_x_) * 4) - ((_x_) & 1)]
 
 
-int32_t uart_dev_init(void) {
-	//return mini_uart_init();
+int32_t uart_dev_init(uint32_t baud) {
+	//return mini_uart_init(baud);
 	return 0;
 }
 
