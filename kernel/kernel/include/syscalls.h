@@ -87,6 +87,8 @@ enum {
 
 	SYS_PROC_GET_GID,
 	SYS_PROC_SET_GID,
+
+	SYS_GET_TRACE,
 	SYS_CALL_NUM
 };
 

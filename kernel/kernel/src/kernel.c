@@ -165,8 +165,8 @@ void _kernel_entry_c(void) {
 	copy_interrupt_table();
 
 	init_kernel_vm();  
-	uart_dev_init(115200);
-	kout  ("\n");
+	uart_dev_init(19200);
+	kout  ("\n=== ewokos booting ===\n\n");
 	kout  ("kernel: init kernel malloc     ... ");
 	kmalloc_init(); //init kmalloc with min size for just early stage kernel load
 	kout  ("[OK]\n");

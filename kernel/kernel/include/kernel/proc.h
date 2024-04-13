@@ -67,6 +67,7 @@ typedef struct st_proc {
 	context_t         ctx;
 } proc_t;
 
+extern proc_t* get_current_core_proc(uint32_t core);
 extern proc_t* get_current_proc(void);
 extern bool _core_proc_ready;
 extern int32_t _core_proc_pid;

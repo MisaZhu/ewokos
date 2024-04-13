@@ -117,6 +117,13 @@ inline proc_t* get_current_proc(void) {
 	return cproc;
 }
 
+inline proc_t* get_current_core_proc(uint32_t core) {
+	proc_t* cproc = proc_get(_current_proc[core]);
+	if(cproc == NULL || cproc->info.state == UNUSED || cproc->info.state == ZOMBIE)
+		return NULL;
+	return cproc;
+}
+
 inline void set_current_proc(proc_t* proc) {
 	uint32_t core_id = get_core_id();
 	if(proc == NULL) {

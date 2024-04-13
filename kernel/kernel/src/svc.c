@@ -665,6 +665,10 @@ static inline void sys_root(void) {
 #endif
 }
 
+static int sys_get_trace(int** pids) {
+	return get_trace(pids);
+}
+
 static inline void _svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_t arg2, context_t* ctx) {
 	_svc_total++;
 	_svc_counter[code]++;
@@ -861,6 +865,9 @@ static inline void _svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_
 		return;	
 	case SYS_CLOSE_KCONSOLE:	
 		sys_root();
+		return;	
+	case SYS_GET_TRACE:	
+		ctx->gpr[0] = sys_get_trace((int**)arg0);
 		return;	
 	}
 }

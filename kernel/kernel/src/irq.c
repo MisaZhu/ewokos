@@ -56,12 +56,65 @@ static inline int32_t irq_do_timer0_interrupt(context_t* ctx) {
 	return interrupt_send(ctx, IRQ_TIMER0);
 }
 
+#ifdef SCHD_TRACE
+
+static uint32_t _traces = 0; 
+static int _pids[MAX_CORE_NUM][MAX_SCHD_TRACE_NUM];
+
+uint32_t get_trace(int pids[MAX_CORE_NUM][MAX_SCHD_TRACE_NUM]) {
+	for(uint32_t trace=0; trace<_traces; trace++) {
+		for(uint32_t core=0; core<_sys_info.cores; core++) {
+			pids[core][trace] = _pids[core][trace];
+		}
+	}
+
+	uint32_t ret = _traces;
+	_traces = 0;
+	return ret;
+}
+
+static void update_trace(uint32_t usec_gap) {
+	static uint32_t usec_trace = 0;
+	usec_trace += usec_gap;
+	if(usec_trace < (1000000 / MAX_SCHD_TRACE_NUM))
+		return;
+	usec_trace = 0;
+
+	if(_traces >= MAX_SCHD_TRACE_NUM) {
+		return;
+	}
+
+	for(uint32_t core=0; core<_sys_info.cores; core++) {
+		proc_t* proc = get_current_core_proc(core);
+		if(proc == NULL || _cpu_cores[core].halt_proc == proc) {
+			_pids[core][_traces] = -1;
+		}
+		else {
+			_pids[core][_traces] = proc->info.pid;
+		}
+	}
+	_traces++;
+}
+
+#else
+
+uint32_t get_trace(int pids[MAX_CORE_NUM][MAX_SCHD_TRACE_NUM]) {
+	return 0;
+}
+
+#endif
+
 static inline void irq_do_timer0(context_t* ctx) {
 	(void)ctx;
 	uint64_t usec = timer_read_sys_usec();
 	int32_t do_schedule = 0;
 
 	uint32_t usec_gap = usec - _last_usec;
+
+#ifdef SCHD_TRACE
+	update_trace(usec_gap);
+#endif
+
 	_last_usec = usec;
 	_kernel_usec += usec_gap;
 	_sec_tic += usec_gap;

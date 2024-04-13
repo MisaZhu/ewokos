@@ -1,59 +1,25 @@
 #include <stdio.h>
-#include <unistd.h>
-#include <pthread.h>
+#include <ewoksys/syscall.h>
+#include <ewoksys/sys.h>
+#include <sysinfo.h>
 
-static pthread_mutex_t mutex = {0};
-static uint32_t flag  = 0;
-static int err_cnt = 0;
-static int cnt = 0 ;
-FILE *fp;
-static int IO_DEBUG;
-
-void * read_thread(void *p){
-  char buf[32];
-
-
-  // while(1){
-    sprintf(buf, "test %d\n", cnt++);
-
-    pthread_mutex_lock(&mutex);
-    fseek(fp, 0, SEEK_SET);
-    fwrite(buf, 1, sizeof(buf), fp);
-    printf("write: %s", buf);
-    pthread_mutex_unlock(&mutex); 
-    // usleep(1);
-  // }
-}
-
-void * write_thread(void * p){
-  char buf[32]; 
-  // while(1){
-    memset(buf, 0, sizeof(buf));
-    pthread_mutex_lock(&mutex);
-    fseek(fp, 0, SEEK_SET);
-    int len = fread(buf, 1, sizeof(buf), fp);
-    if(len){
-      printf("read : %s", buf);
-    }else{
-      printf("read error:%d\n", len); 
-    }
-    pthread_mutex_unlock(&mutex); 
-    usleep(1);
-  // }
-}
-
+int pids[MAX_CORE_NUM][MAX_SCHD_TRACE_NUM];
+int traces;
 
 int main (int argc, char **argv) {
-  IO_DEBUG = 1; 
-  printf("read write test\n");
-  pthread_mutex_init(&mutex, NULL);
-  fp = fopen("/tmp/a", "w+b");
+  sys_info_t sys_info;
+  sys_get_sys_info(&sys_info);
 
-  int i=0;
-  while(i++ < 1000) {
-    pthread_create(NULL, NULL, read_thread, NULL);
-    pthread_create(NULL, NULL, write_thread, NULL);
-    usleep(30000);
+  while(true) {
+    traces = syscall1(SYS_GET_TRACE, (int)pids);
+    printf("%d\n", traces);
+    for(uint32_t trace=0; trace<traces; trace++) {
+      for(uint32_t core=0; core<sys_info.cores; core++) {
+        printf("%8d - %d:%d ", trace, core, pids[core][trace]);
+      }
+      printf("\n");
+    }
+    usleep(500000);
   }
   return 0;
 }
