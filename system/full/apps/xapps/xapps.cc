@@ -105,6 +105,14 @@ public:
 			memset(&items[i], 0, sizeof(item_t));
 	}
 
+	~AppGrid() {
+		for(int i=0; i<ITEM_MAX; i++) {
+			if(items[i].iconImg != NULL) {
+				graph_free(items[i].iconImg);
+			}
+		}
+	}
+
 	bool loadApps(void) {
 		DIR* dirp = opendir("/apps");
 		if(dirp == NULL)

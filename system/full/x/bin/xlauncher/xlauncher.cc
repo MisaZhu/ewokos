@@ -123,6 +123,7 @@ protected:
 	void onEnter(int index) {
 		int pid = fork();
 		if(pid == 0) {
+			proc_detach();
 			proc_exec(items[index].fname.c_str()); 
 		}
 	}
