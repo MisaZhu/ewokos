@@ -62,7 +62,7 @@ public:
 		y_off_bottom = 10;
     	fps = syscall0(SYS_GET_TRACE_FPS);
 		sys_get_sys_info(&sysInfo);
-		pids = (int*)malloc(MAX_CORE_NUM*fps*4);
+		pids = (int*)malloc(sysInfo.cores * fps * 4);
 	}
 	
 	inline ~Cores() {
