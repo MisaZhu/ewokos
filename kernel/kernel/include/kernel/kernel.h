@@ -45,7 +45,9 @@ extern kernel_conf_t _kernel_config;
 extern void load_kernel_config(void);
 
 #ifdef SCHD_TRACE
-extern uint32_t get_trace(int** pids);
+extern uint32_t get_trace(int *pids);
+extern uint32_t get_trace_fps(void);
+extern void update_trace(uint32_t usec_gap);
 #endif
 
 #endif

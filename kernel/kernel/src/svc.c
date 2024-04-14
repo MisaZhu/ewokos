@@ -665,11 +665,15 @@ static inline void sys_root(void) {
 #endif
 }
 
-static int sys_get_trace(int** pids) {
+static int sys_get_trace(int* pids) {
 #ifdef SCHD_TRACE
 	return get_trace(pids);
-#else	
-	return 0;
+#endif
+}
+
+static int sys_get_trace_fps(void) {
+#ifdef SCHD_TRACE
+	return get_trace_fps();
 #endif
 }
 
@@ -871,7 +875,10 @@ static inline void _svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_
 		sys_root();
 		return;	
 	case SYS_GET_TRACE:	
-		ctx->gpr[0] = sys_get_trace((int**)arg0);
+		ctx->gpr[0] = sys_get_trace((int*)arg0);
+		return;	
+	case SYS_GET_TRACE_FPS:	
+		ctx->gpr[0] = sys_get_trace_fps();
 		return;	
 	}
 }

@@ -26,8 +26,7 @@ typedef struct {
 	uint32_t phy_base;
 } dma_info_t;
 
-#define MAX_CORE_NUM 16
-#define MAX_SCHD_TRACE_NUM 256
+#define MAX_CORE_NUM 8
 
 /*static attr*/
 typedef struct {

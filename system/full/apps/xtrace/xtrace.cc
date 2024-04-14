@@ -36,7 +36,8 @@ int traces;
 class Cores : public Widget {
 	uint32_t index;
 	sys_info_t sysInfo;
-	int pids[MAX_CORE_NUM][MAX_SCHD_TRACE_NUM];
+	int *pids;
+	int fps;
 	int traces;
 
 	int x_off;
@@ -59,11 +60,14 @@ public:
 		x_off = 10;
 		y_off = 20;
 		y_off_bottom = 10;
-		memset(pids, 0, sizeof(pids));
-		memset(&sysInfo, 0, sizeof(sys_info_t));
+    	fps = syscall0(SYS_GET_TRACE_FPS);
+		sys_get_sys_info(&sysInfo);
+		pids = (int*)malloc(MAX_CORE_NUM*fps*4);
 	}
 	
 	inline ~Cores() {
+		if(pids != NULL)
+			free(pids);
 	}
 
 	void updateCores() {
@@ -85,7 +89,7 @@ protected:
 	}
 
 	void onRepaint(graph_t* g, XTheme* theme, const grect_t& r) {
-		if(sysInfo.cores == 0)
+		if(sysInfo.cores == 0 || pids == NULL)
 			return;
 
 		graph_fill_3d(g, r.x, r.y, r.w, r.h, theme->basic.widgetBGColor, true);
