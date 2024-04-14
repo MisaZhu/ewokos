@@ -60,6 +60,7 @@ public:
 		x_off = 10;
 		y_off = 20;
 		y_off_bottom = 10;
+		traces = 0;
     	fps = syscall0(SYS_GET_TRACE_FPS);
 		sys_get_sys_info(&sysInfo);
 		pids = (int*)malloc(sysInfo.cores * fps * 4);
@@ -72,7 +73,8 @@ public:
 
 	void updateCores() {
 		sys_get_sys_info(&sysInfo);
-    	traces = syscall1(SYS_GET_TRACE, (int)pids);
+		if(pids != NULL)
+	    	traces = syscall1(SYS_GET_TRACE, (int)pids);
 		update();
 	}
 
