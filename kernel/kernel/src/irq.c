@@ -61,7 +61,7 @@ static inline int32_t irq_do_timer0_interrupt(context_t* ctx) {
 static uint32_t _traces = 0; 
 static int _pids[MAX_CORE_NUM][MAX_SCHD_TRACE_NUM];
 
-uint32_t get_trace(int pids[MAX_CORE_NUM][MAX_SCHD_TRACE_NUM]) {
+uint32_t get_trace(int **pids) {
 	for(uint32_t trace=0; trace<_traces; trace++) {
 		for(uint32_t core=0; core<_sys_info.cores; core++) {
 			pids[core][trace] = _pids[core][trace];
@@ -94,12 +94,6 @@ static void update_trace(uint32_t usec_gap) {
 		}
 	}
 	_traces++;
-}
-
-#else
-
-uint32_t get_trace(int pids[MAX_CORE_NUM][MAX_SCHD_TRACE_NUM]) {
-	return 0;
 }
 
 #endif

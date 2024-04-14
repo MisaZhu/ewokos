@@ -44,6 +44,8 @@ typedef struct {
 extern kernel_conf_t _kernel_config;
 extern void load_kernel_config(void);
 
-extern uint32_t get_trace(int pids[MAX_CORE_NUM][MAX_SCHD_TRACE_NUM]);
+#ifdef SCHD_TRACE
+extern uint32_t get_trace(int** pids);
+#endif
 
 #endif

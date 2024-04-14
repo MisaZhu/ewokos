@@ -666,7 +666,11 @@ static inline void sys_root(void) {
 }
 
 static int sys_get_trace(int** pids) {
+#ifdef SCHD_TRACE
 	return get_trace(pids);
+#else	
+	return 0;
+#endif
 }
 
 static inline void _svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_t arg2, context_t* ctx) {
