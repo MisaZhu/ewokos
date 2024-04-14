@@ -40,6 +40,15 @@ class AppGrid: public Grid {
 		ret = ret + appName + "/res/icon.png";
 		return ret;
 	}
+
+	void clearItem() {
+		for(int i=0; i<ITEM_MAX; i++) {
+			if(items[i].iconImg != NULL) {
+				graph_free(items[i].iconImg);
+				items[i].iconImg = NULL;
+			}
+		}
+	}
  
 	void drawIcon(graph_t* g, int at, XTheme* theme, int x, int y, int w, int h) {
 		item_t* item = &items[at];
@@ -94,6 +103,7 @@ protected:
 	void onEnter(int index) {
 		int pid = fork();
 		if(pid == 0) {
+			clearItem();
 			proc_detach();
 			proc_exec(items[index].fname.c_str()); 
 		}
@@ -106,11 +116,7 @@ public:
 	}
 
 	~AppGrid() {
-		for(int i=0; i<ITEM_MAX; i++) {
-			if(items[i].iconImg != NULL) {
-				graph_free(items[i].iconImg);
-			}
-		}
+		clearItem();
 	}
 
 	bool loadApps(void) {
