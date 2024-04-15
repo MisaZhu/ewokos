@@ -139,7 +139,7 @@ class Cores : public Widget {
 						}
 					}
 				}
-				y += sysInfo.cores*h+10;
+				y += sysInfo.cores*h+4;
 			}
 		}
 	}
@@ -206,7 +206,7 @@ protected:
 					}
 				}
 			}
-			y += sysInfo.cores*h+10;
+			y += sysInfo.cores*h+4;
 		}
 	}
 
@@ -239,7 +239,14 @@ protected:
 };
 
 static void onHoldClickFunc(Widget* wd) {
+	LabelButton* button = (LabelButton*)wd;
 	_hold = !_hold;
+	if(_hold) {
+		button->setLabel("resume(holded)");
+	}
+	else {
+		button->setLabel("hold(tracing)");
+	}
 }
 
 int main(int argc, char** argv) {
@@ -254,12 +261,12 @@ int main(int argc, char** argv) {
 	Cores* cores = new Cores();
 	root->add(cores);
 
-	LabelButton* holdButton = new LabelButton("hold");
+	LabelButton* holdButton = new LabelButton("hold(tracing)");
 	holdButton->onClickFunc = onHoldClickFunc;
 	holdButton->fix(0, 20);
 	root->add(holdButton);
 
-	win.open(&x, 0, -1, -1, 640, 480, "xtrace", XWIN_STYLE_NORMAL);
+	win.open(&x, 0, -1, -1, 600, 480, "xtrace", XWIN_STYLE_NORMAL);
 	win.setTimer(1);
 	x.run(NULL, &win);
 	return 0;
