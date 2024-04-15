@@ -35,14 +35,14 @@ void Widget::setTheme(XTheme* theme)  {
 	update();
 }
 
-void Widget::onClick() {
+void Widget::onClick(xevent_t* ev) {
 	if(onClickFunc != NULL)
 		onClickFunc(this);
 }
 
 bool Widget::onMouse(xevent_t* ev) {
 	if(ev->state == XEVT_MOUSE_CLICK) {
-		onClick();
+		onClick(ev);
 		return true;
 	}
 	return false;

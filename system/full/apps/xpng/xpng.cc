@@ -246,7 +246,7 @@ class LoadButton: public LabelButton {
 	PngWin* pngWin;
 	ImageView* imgView;
 protected:
-	void onClick() {
+	void onClick(xevent_t* ev) {
 		pngWin->load(imgView, "");
 	}
 public:

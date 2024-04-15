@@ -14,7 +14,7 @@ bool Button::onMouse(xevent_t* ev) {
 		return true;
 	}
 	else if(ev->state == XEVT_MOUSE_CLICK) {
-		onClick();
+		onClick(ev);
 		return true;
 	}
 	return false;

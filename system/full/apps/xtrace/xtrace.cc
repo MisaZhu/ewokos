@@ -9,43 +9,28 @@
 #include <ewoksys/session.h>
 #include <ewoksys/syscall.h>
 #include <procinfo.h>
+#include <arch_context.h>
 
 using namespace Ewok;
 
-
-int traces;
-
-/*int main (int argc, char **argv) {
-  sys_info_t sys_info;
-  sys_get_sys_info(&sys_info);
-
-  while(true) {
-    traces = syscall1(SYS_GET_TRACE, (int)pids);
-    printf("%d\n", traces);
-    for(uint32_t trace=0; trace<traces; trace++) {
-      for(uint32_t core=0; core<sys_info.cores; core++) {
-        printf("%8d - %d:%d ", trace, core, pids[core][trace]);
-      }
-      printf("\n");
-    }
-    usleep(500000);
-  }
-  return 0;
-}
-*/
+struct Trace {
+	int32_t pid;
+	context_t ctx;
+};
 
 static bool _hold = false;
 
 class Cores : public Widget {
 	uint32_t index;
 	sys_info_t sysInfo;
-	int *pids;
+	Trace *traces;
 	int fps;
-	int traces;
+	int tracesNum;
 
 	int x_off;
 	int y_off_bottom;
 	int y_off;
+	gpos_t mousePos;
 
 	static const uint32_t COLOR_NUM = 7;
 	const  uint32_t colors[COLOR_NUM] = {
@@ -57,27 +42,76 @@ class Cores : public Widget {
 		0xffff8800,
 		0xff000000
 	};
+
+	void dump_ctx(int pid, context_t *ctx) {
+		printf("PID:  %d\n", pid);
+		printf("ctx dump:\n"
+			"  cpsr=0x%x\n"
+			"  pc=0x%x\n"
+			"  sp=0x%x\n"
+			"  lr=0x%x\n",
+			ctx->cpsr,
+			ctx->pc,
+			ctx->sp,
+			ctx->lr);
+
+		uint32_t i;
+		for(i=0; i<13; i++) 
+			printf("  r%d: 0x%x\n", i, ctx->gpr[i]);
+	}
+
+	void pitch(int x, int y) {
+		grect_t r = {area.x, area.y, area.w, area.h};
+		for(int core=0; core<sysInfo.cores; core++) {
+			uint32_t line = 8;
+			uint32_t seg = fps/line;
+
+			uint32_t w = (float)(r.w-x_off*2)/(float)seg;
+			uint32_t h = 12;
+			int x = r.x + x_off;
+			int y = r.y + core*h + y_off;
+
+			for(uint32_t l=0; l < line; l++) {
+				for(uint32_t trace=0; trace < seg; trace++) {
+					int i = core*fps+ seg*l +trace;
+					if((seg*l +trace) < tracesNum) {
+						int pid = traces[i].pid;
+						if(pid >= 0) {
+							if(mousePos.x > (x + trace*w) && mousePos.x < (x+trace*w+w) &&
+									mousePos.y > y && mousePos.y < (y+h-2)) {
+								dump_ctx(pid, &traces[i].ctx);
+								return;
+							}
+						}
+					}
+				}
+				y += sysInfo.cores*h+10;
+			}
+		}
+	}
 public:
 	inline Cores() {
 		index = 0;
 		x_off = 4;
 		y_off = 24;
 		y_off_bottom = 4;
-		traces = 0;
+		tracesNum = 0;
+		mousePos.x = 0;
+		mousePos.y = 0;
     	fps = syscall0(SYS_GET_TRACE_FPS);
 		sys_get_sys_info(&sysInfo);
-		pids = (int*)malloc(sysInfo.cores * fps * 4);
+		traces = (Trace*)malloc(sysInfo.cores * fps * sizeof(Trace));
 	}
 	
 	inline ~Cores() {
-		if(pids != NULL)
-			free(pids);
+		if(traces != NULL)
+			free(traces);
 	}
 
 	void updateCores() {
 		sys_get_sys_info(&sysInfo);
-		if(pids != NULL)
-	    	traces = syscall1(SYS_GET_TRACE, (int)pids);
+		if(traces != NULL)
+	    	tracesNum = syscall1(SYS_GET_TRACE, (int)traces);
 		update();
 	}
 
@@ -104,8 +138,8 @@ protected:
 		
 			for(uint32_t trace=0; trace < seg; trace++) {
 				int i = core*fps+ seg*l +trace;
-				if((seg*l +trace) < traces) {
-					int pid = pids[i];
+				if((seg*l +trace) < tracesNum) {
+					int pid = traces[i].pid;
 					if(pid >= 0) {
 						char s[16];
 						snprintf(s, 15, "%d", pid);
@@ -123,7 +157,7 @@ protected:
 	}
 
 	void onRepaint(graph_t* g, XTheme* theme, const grect_t& r) {
-		if(sysInfo.cores == 0 || pids == NULL)
+		if(sysInfo.cores == 0 || traces == NULL)
 			return;
 
 		graph_fill_3d(g, r.x, r.y, r.w, r.h, theme->basic.widgetBGColor, true);
@@ -138,6 +172,15 @@ protected:
 	void onTimer(uint32_t timerFPS, uint32_t timerStep) {
 		if(!_hold)
 			updateCores();
+	}
+
+	void onClick(xevent_t* ev) {
+		gpos_t pos = getInsidePos(ev->value.mouse.x, ev->value.mouse.y);
+		pos = getRootPos(pos.x, pos.y);
+		mousePos.x = pos.x;
+		mousePos.y = pos.y;
+		pitch(mousePos.x, mousePos.y);
+		update();
 	}
 };
 
