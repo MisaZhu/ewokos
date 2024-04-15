@@ -1,5 +1,7 @@
 #include <Widget/WidgetWin.h>
 #include <Widget/LabelButton.h>
+#include <Widget/Label.h>
+#include <WidgetEx/Popup.h>
 #include <x++/X.h>
 #include <unistd.h>
 #include <stdlib.h>
@@ -20,6 +22,72 @@ struct Trace {
 
 static bool _hold = false;
 
+class ProcInfo: public Widget {
+protected:
+	Trace* trace;
+	void onRepaint(graph_t* g, XTheme* theme, const grect_t& r) {
+		if(trace == NULL)
+			return;
+
+		font_t* font = theme->getFont();
+		if(font == NULL)
+			return;
+
+		int x = r.x;
+		int y = r.y;
+
+		char s[256];
+
+		snprintf(s, 255, "PID: %d",
+			trace->pid);
+		graph_draw_text_font(g, x, y, s, font, theme->basic.fontSize, theme->basic.fgColor);
+		y += theme->basic.fontSize;
+
+		snprintf(s, 255, "cpsr=0x%x pc=0x%x",
+			trace->ctx.cpsr,
+			trace->ctx.pc);
+		graph_draw_text_font(g, x, y, s, font, theme->basic.fontSize, theme->basic.fgColor);
+		y += theme->basic.fontSize;
+
+		snprintf(s, 255, "sp=0x%x lr=0x%x",
+			trace->ctx.sp,
+			trace->ctx.lr);
+		graph_draw_text_font(g, x, y, s, font, theme->basic.fontSize, theme->basic.fgColor);
+		y += theme->basic.fontSize;
+
+		for(int i=0; i<13; i++)  {
+			snprintf(s, 255, "r%d: 0x%x", i, trace->ctx.gpr[i]);
+			graph_draw_text_font(g, x, y, s, font, theme->basic.fontSize, theme->basic.fgColor);
+			y += theme->basic.fontSize;
+		}
+	}
+public:
+	ProcInfo() {
+		trace = NULL;
+	}
+
+	void set(Trace* trace) {
+		this->trace = trace;
+		update();
+		getWin()->repaint();
+	}
+};
+
+class ProcInfoPopup: public Popup {
+protected:
+	ProcInfo* info;
+	void onOpen() {
+		Popup::onOpen();
+		info = new ProcInfo();
+		root->add(info);
+	}
+
+public:
+	void set(Trace* trace) {
+		info->set(trace);
+	}
+};
+
 class Cores : public Widget {
 	uint32_t index;
 	sys_info_t sysInfo;
@@ -31,6 +99,7 @@ class Cores : public Widget {
 	int y_off_bottom;
 	int y_off;
 	gpos_t mousePos;
+	ProcInfoPopup procPopup;
 
 	static const uint32_t COLOR_NUM = 7;
 	const  uint32_t colors[COLOR_NUM] = {
@@ -42,23 +111,6 @@ class Cores : public Widget {
 		0xffff8800,
 		0xff000000
 	};
-
-	void dump_ctx(int pid, context_t *ctx) {
-		printf("PID:  %d\n", pid);
-		printf("ctx dump:\n"
-			"  cpsr=0x%x\n"
-			"  pc=0x%x\n"
-			"  sp=0x%x\n"
-			"  lr=0x%x\n",
-			ctx->cpsr,
-			ctx->pc,
-			ctx->sp,
-			ctx->lr);
-
-		uint32_t i;
-		for(i=0; i<13; i++) 
-			printf("  r%d: 0x%x\n", i, ctx->gpr[i]);
-	}
 
 	void pitch(int x, int y) {
 		grect_t r = {area.x, area.y, area.w, area.h};
@@ -79,7 +131,9 @@ class Cores : public Widget {
 						if(pid >= 0) {
 							if(mousePos.x > (x + trace*w) && mousePos.x < (x+trace*w+w) &&
 									mousePos.y > y && mousePos.y < (y+h-2)) {
-								dump_ctx(pid, &traces[i].ctx);
+								gpos_t spos = getScreenPos(x + trace*w, y);
+								procPopup.popup(getWin(), spos.x, spos.y, 240, 240, "procinfo", XWIN_STYLE_NO_RESIZE);
+								procPopup.set(&traces[i]);
 								return;
 							}
 						}

@@ -31,6 +31,7 @@ LIB_WIDGET_OBJS =  src/Widget/Widget.o \
 		src/WidgetEx/Dialog.o \
 		src/WidgetEx/ConfirmDialog.o \
 		src/WidgetEx/FileDialog.o \
+		src/WidgetEx/Popup.o \
 		src/WidgetEx/Menu.o \
 		src/WidgetEx/Menubar.o
 

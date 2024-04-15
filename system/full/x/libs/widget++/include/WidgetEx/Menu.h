@@ -1,7 +1,7 @@
 #ifndef WIDGET_MENU_HH
 #define WIDGET_MENU_HH
 
-#include <Widget/WidgetWin.h>
+#include <WidgetEx/Popup.h>
 
 #include <string>
 #include <vector>
@@ -13,7 +13,7 @@ class Menubar;
 class MenuItem;
 typedef void (*menufunc_t)(MenuItem*, void*);
 
-class Menu: public WidgetWin {
+class Menu: public Popup {
 protected:
     Menubar* menubar;
     Menu* menu;
