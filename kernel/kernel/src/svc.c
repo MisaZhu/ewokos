@@ -678,6 +678,18 @@ static int sys_get_trace_fps(void) {
 #endif
 }
 
+static void sys_pause_trace(void) {
+#ifdef SCHD_TRACE
+	pause_trace();
+#endif
+}
+
+static void sys_resume_trace(void) {
+#ifdef SCHD_TRACE
+	resume_trace();
+#endif
+}
+
 static inline void _svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_t arg2, context_t* ctx) {
 	_svc_total++;
 	_svc_counter[code]++;
@@ -880,6 +892,12 @@ static inline void _svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_
 		return;	
 	case SYS_GET_TRACE_FPS:	
 		ctx->gpr[0] = sys_get_trace_fps();
+		return;	
+	case SYS_PAUSE_TRACE:	
+		sys_pause_trace();
+		return;	
+	case SYS_RESUME_TRACE:	
+		sys_resume_trace();
 		return;	
 	}
 }

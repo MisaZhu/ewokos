@@ -13,6 +13,16 @@ static uint32_t _traces_num = 0;
 
 #define MAX_SCHD_TRACE_NUM 256
 static trace_t _traces[MAX_CORE_NUM][MAX_SCHD_TRACE_NUM];
+static bool _paused = false;
+
+
+void pause_trace(void) {
+	_paused = true;
+}
+
+void resume_trace(void) {
+	_paused = false;
+}
 
 uint32_t get_trace(trace_t *traces) {
 	for(uint32_t core=0; core<_sys_info.cores; core++) {
@@ -22,7 +32,8 @@ uint32_t get_trace(trace_t *traces) {
 	}
 
 	uint32_t ret = _traces_num;
-	_traces_num = 0;
+	if(!_paused)
+		_traces_num = 0;
 	return ret;
 }
 
@@ -31,6 +42,9 @@ uint32_t get_trace_fps() {
 }
 
 void update_trace(uint32_t usec_gap) {
+	if(_paused)
+		return;
+
 	static uint32_t usec_trace = 0;
 	usec_trace += usec_gap;
 

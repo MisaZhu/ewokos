@@ -224,7 +224,7 @@ protected:
 	}
 
 	void onTimer(uint32_t timerFPS, uint32_t timerStep) {
-		if(!_hold)
+		//if(!_hold)
 			updateCores();
 	}
 
@@ -239,14 +239,13 @@ protected:
 };
 
 static void onHoldClickFunc(Widget* wd) {
-	LabelButton* button = (LabelButton*)wd;
-	_hold = !_hold;
-	if(_hold) {
-		button->setLabel("resume(holded)");
-	}
-	else {
-		button->setLabel("hold(tracing)");
-	}
+	_hold = true;
+	syscall0(SYS_PAUSE_TRACE);
+}
+
+static void onResumeClickFunc(Widget* wd) {
+	_hold = false;
+	syscall0(SYS_RESUME_TRACE);
 }
 
 int main(int argc, char** argv) {
@@ -261,10 +260,18 @@ int main(int argc, char** argv) {
 	Cores* cores = new Cores();
 	root->add(cores);
 
-	LabelButton* holdButton = new LabelButton("hold(tracing)");
-	holdButton->onClickFunc = onHoldClickFunc;
-	holdButton->fix(0, 20);
-	root->add(holdButton);
+	Container* c = new Container();
+	c->setType(Container::HORIZONTAL);
+	c->fix(0, 20);
+	root->add(c);
+
+	LabelButton* button = new LabelButton("hold(tracing)");
+	button->onClickFunc = onHoldClickFunc;
+	c->add(button);
+
+	button = new LabelButton("resume(holded)");
+	button->onClickFunc = onResumeClickFunc;
+	c->add(button);
 
 	win.open(&x, 0, -1, -1, 600, 480, "xtrace", XWIN_STYLE_NORMAL);
 	win.setTimer(1);
