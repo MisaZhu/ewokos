@@ -173,6 +173,7 @@ void undef_abort_handler(context_t* ctx, uint32_t status) {
 	printf("pid: %d(%s), undef instrunction abort!! (core %d)\n", cproc->info.pid, cproc->info.cmd, core);
 	dump_ctx(&cproc->ctx);
 #ifdef SCHD_TRACE
+	update_trace(1000000);
 	pause_trace();
 #endif
 	proc_exit(ctx, proc_get_proc(cproc), -1);
@@ -208,6 +209,7 @@ void prefetch_abort_handler(context_t* ctx, uint32_t status) {
 	printf("pid: %d(%s), prefetch abort!! (core %d) code:0x%x\n", cproc->info.pid, cproc->info.cmd, core, status);
 	dump_ctx(&cproc->ctx);
 #ifdef SCHD_TRACE
+	update_trace(1000000);
 	pause_trace();
 #endif
 	proc_exit(ctx, proc_get_proc(cproc), -1);
@@ -261,6 +263,7 @@ void data_abort_handler(context_t* ctx, uint32_t addr_fault, uint32_t status) {
 
 	dump_ctx(&cproc->ctx);
 #ifdef SCHD_TRACE
+	update_trace(1000000);
 	pause_trace();
 #endif
 	proc_exit(ctx, proc_get_proc(cproc), -1);
