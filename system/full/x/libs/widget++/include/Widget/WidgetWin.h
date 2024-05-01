@@ -18,12 +18,13 @@ protected:
 	void onResize(void);
 	void onEvent(xevent_t* ev);
 	bool onClose();
-	void onOpen();
+	virtual void onBuild();
 public:
 	WidgetWin(void);
 	~WidgetWin(void);
 	inline RootWidget* getRoot() { return root; }
 
+	void build();
 	void setRoot(RootWidget* root);
 	void setTimer(uint32_t fps);
 	void timerTask();

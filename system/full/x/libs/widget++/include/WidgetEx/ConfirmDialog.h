@@ -13,7 +13,7 @@ namespace Ewok {
 class ConfirmDialog: public Dialog {
 protected:
 	string message;
-	void onOpen();
+	void onBuild();
 public:
 	ConfirmDialog(const string& msg = "");
 	void setMessage(const string& msg);

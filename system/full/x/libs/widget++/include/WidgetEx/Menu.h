@@ -18,6 +18,7 @@ protected:
     Menubar* menubar;
     Menu* menu;
     void onUnfocus();
+    void onBuild();
     bool subMenued;
     uint32_t itemSize;
 public:

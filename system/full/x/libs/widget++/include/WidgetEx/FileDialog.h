@@ -10,7 +10,7 @@ class FileDialog: public Dialog {
 protected:
 	FileWidget* fileWidget;
 	bool pathMode;
-	void onOpen();
+	void onBuild();
 
 public:
 	FileDialog(bool path = false);

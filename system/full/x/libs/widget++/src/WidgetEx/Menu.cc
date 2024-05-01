@@ -95,10 +95,11 @@ Menu::Menu() {
     menubar = NULL;
     menu = NULL;
     itemSize = 24;
-    RootWidget* root = new RootWidget();
-	setRoot(root);
-	root->setType(Container::VERTICLE);
+    build();
+}
 
+void Menu::onBuild() {
+    Popup::onBuild();
     MenuList* list = new MenuList(this);
     list->setID(1);
     list->setDefaultScrollType(Scrollable::SCROLL_TYPE_V);

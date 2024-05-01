@@ -76,8 +76,8 @@ public:
 class ProcInfoPopup: public Popup {
 protected:
 	ProcInfo* info;
-	void onOpen() {
-		Popup::onOpen();
+	void onBuild() {
+		Popup::onBuild();
 		info = new ProcInfo();
 		root->add(info);
 	}

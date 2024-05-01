@@ -16,13 +16,14 @@ static void cancelFunc(Widget* wd) {
 	dialog->submit(Dialog::RES_CANCEL);
 }
 
-void ConfirmDialog::onOpen() {
+void ConfirmDialog::onBuild() {
 	RootWidget* root = new RootWidget();
 	setRoot(root);
 	root->setType(Container::VERTICLE);
 	root->setAlpha(false);
 
-	Label* label = new Label(message);
+	Label* label = new Label("");
+	label->setID(1);
 	root->add(label);
 
 	Container* c = new Container();
@@ -39,9 +40,17 @@ void ConfirmDialog::onOpen() {
 }
 
 ConfirmDialog::ConfirmDialog(const string& msg) {
+    build();
 	setMessage(msg);
 }
 
 void ConfirmDialog::setMessage(const string& msg) {
-	message = msg;
+	if(root == NULL)
+		return;
+
+	Label* label = (Label*)root->get(1);
+	if(label == NULL)
+		return;
+
+	label->setLabel(msg);
 }

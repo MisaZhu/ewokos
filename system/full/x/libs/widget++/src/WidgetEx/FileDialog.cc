@@ -26,7 +26,7 @@ static void cancelFunc(Widget* wd) {
 	dialog->submit(Dialog::RES_CANCEL);
 }
 
-void FileDialog::onOpen() {
+void FileDialog::onBuild() {
 	RootWidget* root = new RootWidget();
 	setRoot(root);
 	root->setType(Container::VERTICLE);
@@ -51,6 +51,7 @@ void FileDialog::onOpen() {
 
 FileDialog::FileDialog(bool path) {
 	pathMode = path;
+   	build();
 }
 
 string FileDialog::getResult() {

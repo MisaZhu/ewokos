@@ -56,14 +56,22 @@ void WidgetWin::timerTask() {
 }
 
 void WidgetWin::setRoot(RootWidget* root) {
+	if(this->root != NULL)
+		delete this->root;
 	root->xwin = this;
 	this->root = root;
 	setAlpha(root->isAlpha());
 }
 
-void WidgetWin::onOpen() {
-	if(root != NULL)
-		setAlpha(root->isAlpha());
+void WidgetWin::build() {
+	onBuild();
+}
+
+void WidgetWin::onBuild() {
+	RootWidget* r = new RootWidget();
+	r->setType(Container::VERTICLE);
+	r->setAlpha(false);
+	setRoot(r);
 }
 
 static WidgetWin* _win = NULL;

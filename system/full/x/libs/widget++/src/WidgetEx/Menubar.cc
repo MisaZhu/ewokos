@@ -37,7 +37,7 @@ void Menubar::onEnter(int index) {
     if(item->menu != NULL) {
         gpos_t pos = getScreenPos(area.x, area.y);
         if(item->menu->getCWin() == NULL) {
-    		item->menu->open(getWin()->getX(), 0, pos.x + index*itemSize, pos.y+area.h,
+    		item->menu->popup(getWin(), pos.x + index*itemSize, pos.y+area.h,
                     100, item->menu->getItemNum()*item->menu->getItemSize(), "menu", XWIN_STYLE_NO_FRAME);
         }
         else {

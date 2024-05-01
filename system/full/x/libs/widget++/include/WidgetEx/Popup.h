@@ -8,7 +8,6 @@ namespace Ewok {
 class Popup: public WidgetWin {
 protected:
     void onUnfocus();
-    void onOpen();
 public:
     virtual void hide();
     bool popup(XWin* owner, int x, int y, uint32_t w, uint32_t h, const char* title, uint32_t style);
