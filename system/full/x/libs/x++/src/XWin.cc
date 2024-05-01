@@ -156,6 +156,12 @@ bool XWin::open(X* xp, uint32_t dispIndex, const grect_t& r, const char* title, 
 bool XWin::setVisible(bool visible) {
 	if(xwin == NULL)
 		return false;
+
+	if(visible) 
+		onShow();
+	else
+		onHide();
+
 	xwin_set_visible(xwin, visible);
 	return true;
 }

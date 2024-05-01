@@ -21,6 +21,8 @@ protected:
 
 	inline virtual bool onClose(void)   { return true; }
 	inline virtual void onOpen(void)   {  }
+	inline virtual void onHide(void)   {  }
+	inline virtual void onShow(void)   {  }
 	inline virtual void onMin(void)     { }
 	inline virtual void onResize(void)  { }
 	inline virtual void onMove(void)  { }

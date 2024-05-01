@@ -17,6 +17,7 @@ protected:
 	void onRepaint(graph_t* g);
 	void onResize(void);
 	void onEvent(xevent_t* ev);
+	void onShow(void);
 	bool onClose();
 	virtual void onBuild();
 public:

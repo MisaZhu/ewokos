@@ -27,6 +27,11 @@ void WidgetWin::onRepaint(graph_t* g) {
 	painting = false;
 }
 
+void WidgetWin::onShow(void) {
+	if(root)
+		root->update();
+}
+
 void WidgetWin::onResize(void) {
 	if(root == NULL)
 		return;
