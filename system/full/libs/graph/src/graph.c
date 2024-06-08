@@ -41,7 +41,7 @@ inline void graph_init(graph_t* g, const uint32_t* buffer, int32_t w, int32_t h)
 		g->buffer = (uint32_t*)malloc(w*h*4);
 		g->need_free = true;
 	}
-	//memset(&g->clip, 0, sizeof(grect_t));
+	memset(&g->clip, 0, sizeof(grect_t));
 }
 
 void graph_set_clip(graph_t* g, int x, int y, int w, int h) {

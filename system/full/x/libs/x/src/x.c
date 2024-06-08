@@ -245,7 +245,12 @@ void x_set_top(int pid) {
 }
 
 const char* x_get_theme_fname(const char* prefix, const char* app_name, const char* fname) {
-	static char ret[256];
+	static char ret[256] = {0};
+	if(fname[0] == '/') {
+		strncpy(ret, fname, 255);
+		return ret;
+	}
+
 	x_theme_t theme;
 	x_get_theme(&theme);
 
