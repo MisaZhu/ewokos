@@ -5,7 +5,7 @@
 #include <fbd/fbd.h>
 #include <graph/graph.h>
 #include <upng/upng.h>
-#include <arch/vpb/framebuffer.h>
+#include <bsp/bsp_fb.h>
 
 static graph_t* _g = NULL;
 static uint32_t flush(const fbinfo_t* fbinfo, const void* buf, uint32_t size, int rotate) {
@@ -37,11 +37,11 @@ static uint32_t flush(const fbinfo_t* fbinfo, const void* buf, uint32_t size, in
 }
 
 static fbinfo_t* get_info(void) {
-	return vpb_get_fbinfo();
+	return bsp_get_fbinfo();
 }
 
 static int32_t init(uint32_t w, uint32_t h, uint32_t dep) {
-	return vpb_fb_init(w, h, dep);
+	return bsp_fb_init(w, h, dep);
 }
 
 int main(int argc, char** argv) {

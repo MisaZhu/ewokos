@@ -5,7 +5,7 @@
 #include <fbd/fbd.h>
 #include <graph/graph.h>
 #include <upng/upng.h>
-#include <arch/rk3128/framebuffer.h>
+#include <bsp/bsp_fb.h>
 
 int argv2rgb(uint8_t  *out,  uint32_t *in , int w, int h)
 {
@@ -54,11 +54,11 @@ static uint32_t flush(const fbinfo_t* fbinfo, const void* buf, uint32_t size, in
 }
 
 static fbinfo_t* get_info(void) {
-	return rk3128_get_fbinfo();
+	return bsp_get_fbinfo();
 }
 
 static int32_t init(uint32_t w, uint32_t h, uint32_t dep) {
-	return rk3128_fb_init(w, h, dep);
+	return bsp_fb_init(w, h, dep);
 }
 
 int main(int argc, char** argv) {
