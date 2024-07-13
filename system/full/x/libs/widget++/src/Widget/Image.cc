@@ -6,8 +6,13 @@ namespace Ewok {
 void Image::onRepaint(graph_t* g, XTheme* theme, const grect_t& r) {
 	if(!alpha)
 		graph_fill(g, r.x, r.y, r.w, r.h, theme->basic.bgColor);
+	grect_t ir = {(r.w - image->w)/2 + r.x, (r.h - image->h)/2 + r.y, image->w, image->h};
+	int dw = r.x + r.w - ir.x - ir.w;
+	ir.w = ir.w + dw;
+	int dh = r.y + r.h - ir.y - ir.h;
+	ir.h = ir.h + dh;
 	graph_blt_alpha(image, 0, 0, image->w, image->h,
-			g, (r.w - image->w)/2 + r.x, (r.h - image->h)/2 + r.y, image->w, image->h, 0xff);
+			g, ir.x, ir.y, ir.w, ir.h, 0xff);
 }
 
 Image::Image(const char* fname) {

@@ -81,8 +81,14 @@ protected:
 		if(img == NULL)
 			return;
 
+		grect_t ir = {r.x-off_x, r.y-off_y, img->w, img->h};
+		int dw = r.x + r.w - ir.x - ir.w;
+		ir.w = ir.w + dw;
+		int dh = r.y + r.h - ir.y - ir.h;
+		ir.h = ir.h + dh;
+
 		graph_blt_alpha(img, 0, 0, img->w, img->h,
-				g, r.x-off_x, r.y-off_y, img->w, img->h, 0xff);
+				g, ir.x, ir.y, ir.w, ir.h, 0xff);
 	}
 
 	bool onScroll(int step, bool horizontal) {
