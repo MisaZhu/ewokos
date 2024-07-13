@@ -32,6 +32,7 @@ void List::onRepaint(graph_t* g, XTheme* theme, const grect_t& r) {
 			ir.w = itemSize;
 			ir.h = r.h;
 
+			grect_insect(&r, &ir);
 			graph_set_clip(g, ir.x, ir.y, ir.w, ir.h);
 			drawItem(g, theme, i+itemStart, ir);
 		}
@@ -44,6 +45,7 @@ void List::onRepaint(graph_t* g, XTheme* theme, const grect_t& r) {
 			ir.w = r.w;
 			ir.h = itemSize;
 
+			grect_insect(&r, &ir);
 			graph_set_clip(g, ir.x, ir.y, ir.w, ir.h);
 			drawItem(g, theme, i+itemStart, ir);
 		}
