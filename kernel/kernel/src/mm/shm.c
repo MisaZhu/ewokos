@@ -289,10 +289,12 @@ static uint32_t check_access(proc_t* proc, share_mem_t* it) {
 /*map share memory to process*/
 void* shm_proc_map(proc_t* proc, int32_t id) {
 	share_mem_t* it = shm_item_by_id(id);
-	if(it == NULL || proc == NULL)
+	if(it == NULL || proc == NULL) {
 		return NULL;
+	}
 
-	uint32_t access = check_access(proc, it);
+	//uint32_t access = check_access(proc, it);
+	uint32_t access = SHM_W | SHM_R;
 	if(access == SHM_N)
 		return NULL;
 
@@ -310,8 +312,9 @@ void* shm_proc_map(proc_t* proc, int32_t id) {
 			break;
 		}
 	}
-	if(i >= SHM_MAX)
+	if(i >= SHM_MAX) {
 		return NULL;
+	}
 
 	if((access & SHM_W) != 0)
 		access = AP_RW_RW;
@@ -334,7 +337,7 @@ void* shm_proc_map(proc_t* proc, int32_t id) {
 }
 
 /*unmap share memory of process*/
-static int32_t shm_proc_unmap_it(proc_t* proc, share_mem_t* it) {
+static int32_t shm_proc_unmap_it(proc_t* proc, share_mem_t* it, bool free_it) {
 	uint32_t i;
 	for (i = 0; i < SHM_MAX; i++) {
 		if(proc->space->shms[i] == it->id) {
@@ -357,17 +360,17 @@ static int32_t shm_proc_unmap_it(proc_t* proc, share_mem_t* it) {
 		proc->info.shm_size = 0;
 
 	it->refs--;
-	if(it->refs <= 0) {
+	if(free_it && it->refs <= 0) {
 		free_item(it);
 	}
 	return 0;
 }
 
-int32_t shm_proc_unmap_by_id(proc_t* proc, uint32_t id) {
+int32_t shm_proc_unmap_by_id(proc_t* proc, uint32_t id, bool free_it) {
 	share_mem_t* it = shm_item_by_id(id);
 	if(it == NULL)
 		return -1;
-	return shm_proc_unmap_it(proc, it);
+	return shm_proc_unmap_it(proc, it, free_it);
 }
 
 /*unmap share memory of process*/
@@ -376,5 +379,5 @@ int32_t shm_proc_unmap(proc_t* proc, void* p) {
 	if(it == NULL || proc == NULL)
 		return -1;
 
-	return shm_proc_unmap_it(proc, it);
+	return shm_proc_unmap_it(proc, it, true);
 }

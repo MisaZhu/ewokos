@@ -266,6 +266,7 @@ void data_abort_handler(context_t* ctx, uint32_t addr_fault, uint32_t status) {
 	update_trace(1000000);
 	pause_trace();
 #endif
+	while(1);
 	proc_exit(ctx, proc_get_proc(cproc), -1);
 }
 

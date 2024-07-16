@@ -11,6 +11,6 @@ uint32_t shm_alloced_size(void);
 
 void*   shm_proc_map(proc_t* proc, int32_t id);
 int32_t shm_proc_unmap(proc_t* proc, void *p);
-int32_t shm_proc_unmap_by_id(proc_t* proc, uint32_t id);
+int32_t shm_proc_unmap_by_id(proc_t* proc, uint32_t id, bool free_it);
 
 #endif

@@ -57,7 +57,6 @@ enum {
 	//internal proccess communication
 	SYS_IPC_SETUP,
 	SYS_IPC_CALL,
-	SYS_IPC_GET_ARG_SIZE,
 	SYS_IPC_GET_ARG,
 	SYS_IPC_SET_RETURN,
 	SYS_IPC_GET_RETURN_SIZE,

@@ -379,7 +379,7 @@ static inline void proc_unmap_shms(proc_t *proc) {
 	for(i=0; i<SHM_MAX; i++) {
 		int32_t shm = proc->space->shms[i];
 		if(shm > 0) {
-			shm_proc_unmap_by_id(proc, shm);
+			shm_proc_unmap_by_id(proc, shm, true);
 		}
 	}
 }

@@ -66,11 +66,10 @@ int32_t proc_ipc_do_task(context_t* ctx, proc_t* serv_proc, uint32_t core) {
 }
 
 static void ipc_free(ipc_task_t* ipc) {
-	proto_clear(&ipc->data);
 	kfree(ipc);
 }
 
-ipc_task_t* proc_ipc_req(proc_t* serv_proc, proc_t* client_proc, int32_t call_id, proto_t* data) {
+ipc_task_t* proc_ipc_req(proc_t* serv_proc, proc_t* client_proc, int32_t call_id, int32_t arg_shm_id) {
 	if(client_proc->ipc_buffer_clean) //cleaning task still on
 		return NULL;
 
@@ -86,14 +85,13 @@ ipc_task_t* proc_ipc_req(proc_t* serv_proc, proc_t* client_proc, int32_t call_id
 		return NULL;
 
 	memset(ipc, 0, sizeof(ipc_task_t));
-	proto_init(&ipc->data);
 	ipc->uid = _ipc_uid;
 	ipc->state = IPC_BUSY;
 	ipc->client_pid = client_proc->info.pid;
 	ipc->client_uuid = client_proc->info.uuid;
 	ipc->call_id = call_id;
-	if(data != NULL) {
-		proto_copy(&ipc->data, data->data, data->size); 
+	if(arg_shm_id > 0) {
+		ipc->arg_shm_id = arg_shm_id;
 	}
 
 	if(serv_proc->space->ipc_server.ctask == NULL) 

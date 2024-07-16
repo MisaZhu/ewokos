@@ -86,8 +86,6 @@ static inline const char* svc_name(int32_t code) {
 		return "ipc_set_return";
 	case SYS_IPC_END:
 		return "ipc_end";
-	case SYS_IPC_GET_ARG_SIZE:
-		return "ipc_get_arg_size";
 	case SYS_IPC_GET_ARG:
 		return "ipc_get_arg";
 	case SYS_IPC_PING:
