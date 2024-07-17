@@ -293,8 +293,7 @@ void* shm_proc_map(proc_t* proc, int32_t id) {
 		return NULL;
 	}
 
-	//uint32_t access = check_access(proc, it);
-	uint32_t access = SHM_W | SHM_R;
+	uint32_t access = check_access(proc, it);
 	if(access == SHM_N)
 		return NULL;
 
@@ -371,6 +370,13 @@ int32_t shm_proc_unmap_by_id(proc_t* proc, uint32_t id, bool free_it) {
 	if(it == NULL)
 		return -1;
 	return shm_proc_unmap_it(proc, it, free_it);
+}
+
+int32_t shm_set_owner(uint32_t id, int32_t pid) {
+	share_mem_t* it = shm_item_by_id(id);
+	if(it == NULL || !it->used)
+		return -1;
+	it->owner_pid = pid;	
 }
 
 /*unmap share memory of process*/

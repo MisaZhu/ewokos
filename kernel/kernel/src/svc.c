@@ -333,6 +333,7 @@ static void sys_ipc_call(context_t* ctx, int32_t serv_pid, int32_t call_id, int3
 		return;
 	}
 	shm_proc_unmap_by_id(client_proc, arg_shm_id, false);
+	shm_set_owner(arg_shm_id, serv_pid);
 
 	client_proc->ipc_res.state = IPC_BUSY;
 	ctx->gpr[0] = ipc->uid;
