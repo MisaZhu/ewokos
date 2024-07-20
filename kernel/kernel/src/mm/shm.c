@@ -92,6 +92,7 @@ static int32_t shm_map_pages(uint32_t addr, uint32_t pages) {
 }
 
 static int32_t shm_alloc(int32_t key, uint32_t size, int32_t flag) {
+	size = ALIGN_UP(size, 8);
 	uint32_t addr = shmem_tail;
 	uint32_t pages = (size / PAGE_SIZE);
 	if((size % PAGE_SIZE) != 0)
