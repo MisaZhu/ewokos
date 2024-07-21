@@ -257,8 +257,9 @@ static share_mem_t* free_item(share_mem_t* it) {
 static uint32_t check_access(proc_t* proc, share_mem_t* it) {
 	if(proc->info.uid == 0)
 		return (SHM_R | SHM_W);
-
+	
 	proc_t* owner = proc_get(it->owner_pid);
+	owner = proc_get_proc(owner);
 	if(owner == NULL)
 		return SHM_N;
 	
@@ -295,6 +296,7 @@ void* shm_proc_map(proc_t* proc, int32_t id) {
 	}
 
 	uint32_t access = check_access(proc, it);
+	//uint32_t access = SHM_W | SHM_R;
 	if(access == SHM_N)
 		return NULL;
 
