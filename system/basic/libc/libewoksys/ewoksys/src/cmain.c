@@ -119,7 +119,6 @@ void _start(void) {
 	vfs_init();
 	init_cmd();
 
-
 	while(argc < ARG_MAX) {
 		char* arg = read_cmain_arg(); 
 		if(arg == NULL || arg[0] == 0)
@@ -127,7 +126,8 @@ void _start(void) {
 		if(argc == 0)
 			_argv0 = arg;
 		argv[argc] = (char*)malloc(strlen(arg)+1);
-		strcpy(argv[argc], arg);
+		if(argv[argc] != NULL)
+			strcpy(argv[argc], arg);
 		argc++;
 	}
 
