@@ -110,9 +110,14 @@ LIB_EXT2_DIR=$(SRC_DIR)/lib/ext2
 LIB_EXT2_OBJS = $(LIB_EXT2_DIR)/src/ext2read.o 
 CFLAGS += -I$(LIB_EXT2_DIR)/include
 
+LIB_SCONF_DIR=$(SRC_DIR)/lib/sconf
+LIB_SCONF_OBJS = $(LIB_SCONF_DIR)/src/sconf.o 
+CFLAGS += -I$(LIB_SCONF_DIR)/include
+
 LIB_DIR = $(SRC_DIR)/lib/src
 LIB_OBJS = \
 	$(LIB_DIR)/kstring.o \
+	$(LIB_DIR)/mstr.o \
 	$(LIB_DIR)/atoi.o \
 	$(LIB_DIR)/vprintf.o \
 	$(LIB_DIR)/proto.o \
@@ -120,11 +125,11 @@ LIB_OBJS = \
 	$(LIB_DIR)/kprintf.o \
 	$(LIB_GRAPH_OBJS) \
 	$(LIB_EXT2_OBJS) \
+	$(LIB_SCONF_OBJS) \
 	$(LIB_CONSOLE_OBJS)
 
 LOAD_DIR=$(SRC_DIR)/loadinit/sd
 LOAD_OBJS = \
-	$(LOAD_DIR)/ext2read.o \
 	$(LOAD_DIR)/loadinit.o
 CFLAGS += -I$(LOAD_DIR)
 #QEMU_ARGS += -sd $(SYS_FULL_DIR)/root.ext2
@@ -144,6 +149,7 @@ KERNEL_OBJS = \
 	$(KERNEL_DIR)/kconsole.o \
 	$(KERNEL_DIR)/irq.o \
 	$(KERNEL_DIR)/svc.o \
+	$(KERNEL_DIR)/semaphore.o \
 	$(KERNEL_DIR)/proc.o \
 	$(KERNEL_DIR)/ipc.o \
 	$(KERNEL_DIR)/signal.o \
@@ -166,8 +172,8 @@ LDFLAGS = -L $(ARCH_DIR)/$(ARCH)
 all: $(OS_IMG) 
 
 $(OS_IMG): $(OBJS) $(LDS) $(LDS_QEMU) $(START_OBJ)
-	$(LD) $(OBJS) $(LDFLAGS) -T $(LDS) -o $(BUILD_DIR)/$(OS_ELF)
-	$(LD) $(OBJS) $(LDFLAGS) -T $(LDS_QEMU) -o $(BUILD_DIR)/$(OS_QEMU_ELF)
+	$(LD) $(OBJS)  $(START_OBJ) $(LDFLAGS) -T $(LDS) -o $(BUILD_DIR)/$(OS_ELF)
+	$(LD) $(OBJS) $(START_OBJ) $(LDFLAGS) -T $(LDS_QEMU) -o $(BUILD_DIR)/$(OS_QEMU_ELF)
 	$(OBJCOPY) -O binary $(BUILD_DIR)/$(OS_ELF) $(BUILD_DIR)/$(OS_IMG)
 	$(OBJCOPY) -O binary $(BUILD_DIR)/$(OS_QEMU_ELF) $(BUILD_DIR)/$(OS_QEMU_IMG)
 
