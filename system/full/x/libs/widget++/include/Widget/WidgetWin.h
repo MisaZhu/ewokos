@@ -2,48 +2,33 @@
 #define WIDGET_WIN_HH
 
 #include <x++/XWin.h>
-#include <Widget/Container.h>
+#include <Widget/RootWidget.h>
 
 namespace Ewok {
 
-class WidgetWin;
-class WinWidget: public Container {
-	friend WidgetWin;
-	XWin* xwin;
-protected:
-	void onRepaint(graph_t* g, grect_t* rect) {
-		Container::onRepaint(g, rect);
-	}
-
-	XWin* getWin() {
-		return xwin;
-	}
-
-	void sendEvent(xevent_t* ev) {
-		onEvent(ev);
-	}
-};
-
 class WidgetWin: public XWin {
+	bool painting;
+	static const uint32_t TIMER_MIN_FPS = 1;
 protected:
-	WinWidget widget;
-	void onRepaint(graph_t* g) {
-		grect_t r = {0, 0, g->w, g->h};
-		widget.repaint(g, &r);
-	}
-
-	void onResize(void) override {
-		widget.resizeTo(xwin->xinfo->wsr.w, xwin->xinfo->wsr.h);
-	}	
-
-	void onEvent(xevent_t* ev) {
-		widget.sendEvent(ev);
-	}
+	uint32_t timerFPS;
+	uint32_t timerStep;
+	RootWidget* root;
+	uint32_t timerID;
+	void onRepaint(graph_t* g);
+	void onResize(void);
+	void onEvent(xevent_t* ev);
+	void onShow(void);
+	bool onClose();
+	virtual void onBuild();
 public:
-	inline WidgetWin(void) {
-		widget.xwin = this;
-	}
-	inline WinWidget* getWidget() { return &widget; }
+	WidgetWin(void);
+	~WidgetWin(void);
+	inline RootWidget* getRoot() { return root; }
+
+	void build();
+	void setRoot(RootWidget* root);
+	void setTimer(uint32_t fps);
+	void timerTask();
 };
 
 }

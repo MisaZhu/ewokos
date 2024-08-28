@@ -1,15 +1,16 @@
 #include <x/xwin.h>
 #include <x/x.h>
-#include <sys/shm.h>
-#include <sys/ipc.h>
-#include <sys/vfs.h>
-#include <sys/syscall.h>
-#include <sys/thread.h>
-#include <sys/proc.h>
-#include <sys/vdevice.h>
-#include <sys/cmain.h>
-#include <sys/basic_math.h>
-#include <sys/proc.h>
+#include <ewoksys/ipc.h>
+#include <ewoksys/vfs.h>
+#include <ewoksys/syscall.h>
+#include <ewoksys/thread.h>
+#include <ewoksys/proc.h>
+#include <ewoksys/vdevice.h>
+#include <sconf/sconf.h>
+#include <ewoksys/cmain.h>
+#include <ewoksys/basic_math.h>
+#include <font/font.h>
+#include <ewoksys/proc.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <stdlib.h>
@@ -36,7 +37,7 @@ static int x_get_event(int xserv_pid, xevent_t* ev, bool block) {
 	PF->clear(&out);
 
 	if(res != 0 && block) {
-		proc_block(xserv_pid, X_EVT_BLOCK_EVT);
+		proc_block_by(xserv_pid, X_EVT_BLOCK_EVT);
 	}
 
 	return res;
@@ -66,68 +67,142 @@ int x_get_display_num(void) {
 	return ret;
 }
 
+/*
 static void sig_stop(int sig_no, void* p) {
 	(void)sig_no;
 	x_t* x = (x_t*)p;
 	x->terminated = true;
 }
+*/
 
-void  x_init(x_t* x, void* data) {
-	memset(x, 0, sizeof(x_t));
-	x->data = data;
-	sys_signal(SYS_SIG_STOP, sig_stop, x);
-}
-
-int  x_run(x_t* x, void* loop_data) {
-	int xserv_pid = dev_get_pid("/dev/x");
-	if(xserv_pid < 0) {
-		return -1;
-	}
-
-	//ipc_serv_run(handle, NULL, x, IPC_NON_BLOCK);
-
-	bool block = x->on_loop==NULL ? true:false;
-	xevent_t xev;
-	while(!x->terminated) {
-		int res = x_get_event(xserv_pid, &xev, block);
-		if(res == 0) {
-			xwin_t* xwin = (xwin_t*)xev.win;
-			if(xwin != NULL) {
-				if(xev.type == XEVT_WIN) {
-					xwin_event_handle(xwin, &xev);
-				}
-				if(xwin->on_event != NULL)
-					xwin->on_event(xwin, &xev);
-			}
-		}
-		else if(x->on_loop != NULL) {
-			x->on_loop(loop_data);
-		}
-		/*else {
-			usleep(10000);
-		}
-		*/
-	}
-	dev_cntl_by_pid(xserv_pid, X_DCNTL_QUIT, NULL, NULL);
-	return 0;
+void x_terminate(x_t* x) {
+	x->terminated = true;
+	proc_wakeup_pid(getpid(), X_EVT_BLOCK_EVT);
 }
 
 const char* x_get_work_dir(void) {
 	return cmain_get_work_dir();
 }
 
-const char* x_get_theme(void) {
-	static char theme[128];
-	theme[0] = 0;
-	proto_t out;
-	PF->init(&out);
+static x_theme_t _x_theme;
+static bool _x_theme_loaded = false;
+static int32_t x_read_theme_config(const char* theme_name) {
+	_x_theme.bgColor = 0xff000000;
+	_x_theme.fgColor = 0xffffffff;
+	_x_theme.docFGColor = 0xff000000;
+	_x_theme.docBGColor = 0xffffffff;
+	_x_theme.widgetFGColor = 0xff000000;
+	_x_theme.widgetBGColor = 0xffffffff;
+	_x_theme.fgDisableColor = 0xff444444;
+	_x_theme.bgDisableColor = 0xff888888;
 
-	if(dev_cntl("/dev/x", X_DCNTL_GET_THEME, NULL, &out) == 0) {
-		const char* t = proto_read_str(&out);
-		if(t != NULL)
-			strncpy(theme, t, 127);
+	strncpy(_x_theme.fontName, DEFAULT_SYSTEM_FONT,THEME_NAME_MAX-1);
+	_x_theme.fontSize = DEFAULT_SYSTEM_FONT_SIZE;
+	_x_theme.fontFixedSize = DEFAULT_SYSTEM_FONT_SIZE;
+	strncpy(_x_theme.name, theme_name, THEME_NAME_MAX-1);
+
+	char fname[FS_FULL_NAME_MAX];
+	snprintf(fname, FS_FULL_NAME_MAX-1, "%s/%s/x/theme.conf", X_THEME_ROOT, theme_name);
+	sconf_t *sconf = sconf_load(fname);	
+	if(sconf == NULL)
+		return -1;
+
+	const char* v = sconf_get(sconf, "font_size");
+	if(v[0] != 0) 
+		_x_theme.fontSize = _x_theme.fontFixedSize = atoi(v);
+
+	v = sconf_get(sconf, "font");
+	if(v[0] != 0) {
+		memset(_x_theme.fontName, 0, FONT_NAME_MAX);
+		strncpy(_x_theme.fontName, v, FONT_NAME_MAX-1);
 	}
-	return theme;
+
+	v = sconf_get(sconf, "fg_color");
+	if(v[0] != 0) 
+		_x_theme.fgColor = strtoul(v, NULL, 16);
+
+	v = sconf_get(sconf, "bg_color");
+	if(v[0] != 0) 
+		_x_theme.bgColor = strtoul(v, NULL, 16);
+
+	v = sconf_get(sconf, "doc_fg_color");
+	if(v[0] != 0) 
+		_x_theme.docFGColor = strtoul(v, NULL, 16);
+
+	v = sconf_get(sconf, "doc_bg_color");
+	if(v[0] != 0) 
+		_x_theme.docBGColor = strtoul(v, NULL, 16);
+
+	v = sconf_get(sconf, "fg_unfocus_color");
+	if(v[0] != 0) 
+		_x_theme.fgUnfocusColor = strtoul(v, NULL, 16);
+
+	v = sconf_get(sconf, "bg_unfocus_color");
+	if(v[0] != 0) 
+		_x_theme.bgUnfocusColor = strtoul(v, NULL, 16);
+
+	v = sconf_get(sconf, "fg_disable_color");
+	if(v[0] != 0) 
+		_x_theme.fgDisableColor = strtoul(v, NULL, 16);
+
+	v = sconf_get(sconf, "bg_disable_color");
+	if(v[0] != 0) 
+		_x_theme.bgDisableColor = strtoul(v, NULL, 16);
+
+	v = sconf_get(sconf, "hide_color");
+	if(v[0] != 0) 
+		_x_theme.hideColor = strtoul(v, NULL, 16);
+
+	v = sconf_get(sconf, "select_color");
+	if(v[0] != 0) 
+		_x_theme.selectColor = strtoul(v, NULL, 16);
+
+	v = sconf_get(sconf, "select_bg_color");
+	if(v[0] != 0) 
+		_x_theme.selectBGColor = strtoul(v, NULL, 16);
+
+	v = sconf_get(sconf, "title_color");
+	if(v[0] != 0) 
+		_x_theme.titleColor = strtoul(v, NULL, 16);
+
+	v = sconf_get(sconf, "title_bg_color");
+	if(v[0] != 0) 
+		_x_theme.titleBGColor = strtoul(v, NULL, 16);
+
+	v = sconf_get(sconf, "widget_color");
+	if(v[0] != 0) 
+		_x_theme.widgetFGColor = strtoul(v, NULL, 16);
+
+	v = sconf_get(sconf, "widget_bg_color");
+	if(v[0] != 0) 
+		_x_theme.widgetBGColor = strtoul(v, NULL, 16);
+
+	sconf_free(sconf);
+	return 0;
+}
+
+int x_get_theme(x_theme_t* theme) {
+	if(theme == NULL)
+		return -1;
+	const char* name = getenv("XTHEME");
+	if(name == NULL || name[0] == 0) 
+		name = X_DEFAULT_XTHEME;
+	if(!_x_theme_loaded) {
+		x_read_theme_config(name);
+		_x_theme_loaded = true;
+	}
+	memcpy(theme, &_x_theme, sizeof(x_theme_t));
+	return 0;
+}
+
+void  x_init(x_t* x, void* data) {
+	memset(&_x_theme, 0, sizeof(x_theme_t));
+	x_get_theme(&_x_theme);
+	_x_theme_loaded = false;
+
+	memset(x, 0, sizeof(x_t));
+	x->data = data;
+	//sys_signal(SYS_SIG_STOP, sig_stop, x);
 }
 
 int x_get_desktop_space(int disp_index, grect_t* r) {
@@ -150,7 +225,7 @@ int x_get_desktop_space(int disp_index, grect_t* r) {
 int x_set_desktop_space(int disp_index, const grect_t* r) {
 	int res = -1;
 	proto_t out, in;
-	PF->init(&in)->addi(&in, disp_index)->add(&in, r, sizeof(grect_t));
+	PF->format(&in, "i,m", disp_index, r, sizeof(grect_t));
 	PF->init(&out);
 
 	if(dev_cntl("/dev/x", X_DCNTL_SET_DESKTOP_SPACE, &in, &out) == 0) {
@@ -170,18 +245,51 @@ void x_set_top(int pid) {
 }
 
 const char* x_get_theme_fname(const char* prefix, const char* app_name, const char* fname) {
-	static char ret[256];
-	const char* theme = getenv("XTHEME");
-	if(theme[0] == 0) 
-		theme = x_get_theme();
-	if(theme[0] == 0) 
-		theme = "default";
+	static char ret[256] = {0};
+	if(fname[0] == '/') {
+		strncpy(ret, fname, 255);
+		return ret;
+	}
+
+	x_theme_t theme;
+	x_get_theme(&theme);
 
 	if(app_name == NULL || app_name[0] == 0)
-		snprintf(ret, 255, "%s/%s/%s", prefix, theme, fname);
+		snprintf(ret, 255, "%s/%s/%s", prefix, theme.name, fname);
 	else
-		snprintf(ret, 255, "%s/%s/%s/%s", prefix, theme, app_name, fname);
+		snprintf(ret, 255, "%s/%s/%s/%s", prefix, theme.name, app_name, fname);
 	return ret;
+}
+
+int  x_run(x_t* x, void* loop_data) {
+	int xserv_pid = dev_get_pid("/dev/x");
+	if(xserv_pid < 0) {
+		return -1;
+	}
+
+	bool block = x->on_loop==NULL ? true:false;
+	xevent_t xev;
+	while(!x->terminated) {
+		int res = x_get_event(xserv_pid, &xev, block);
+		if(res == 0) {
+			xwin_t* xwin = (xwin_t*)xev.win;
+			if(xwin != NULL) {
+				if(xev.type == XEVT_WIN) {
+					xwin_event_handle(xwin, &xev);
+				}	
+				else if(xwin->on_event != NULL) {
+					if(xwin->x->prompt_win == NULL ||
+							xwin->x->prompt_win == xwin) //has prompt win, can't response
+						xwin->on_event(xwin, &xev);
+				}
+			}
+		}
+		else if(x->on_loop != NULL) {
+			x->on_loop(loop_data);
+		}
+	}
+	dev_cntl_by_pid(xserv_pid, X_DCNTL_QUIT, NULL, NULL);
+	return 0;
 }
 
 #ifdef __cplusplus

@@ -51,7 +51,7 @@ int _inbyte(char* c, int timeout){
 		if( ret >= 0){
 			return ret;
 		}
-		usleep(5000);
+		proc_usleep(5000);
 	}
 	return -1;
 }
@@ -67,7 +67,7 @@ int _inbytes(unsigned char* c, int len,  int timeout){
 		}else{
 			timeout--;
 		}
-		usleep(5000);
+		proc_usleep(5000);
 	}
 	return (timeout > 0)?0:-1;
 }

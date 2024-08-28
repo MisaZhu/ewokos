@@ -99,3 +99,16 @@ void fb_flush32_bsp(uint32_t* g32, uint32_t w, uint32_t h) {
 		rgb2nv12(0x87c00000, g32, w, h);	
 	#endif
 }
+
+
+void fb_flush_graph_bsp(graph_t* g) {
+	void* p = (void*)(0x87c00000);
+	#ifdef MIYOO_PLUS
+		p = (void*)(0x87c00000 + 628);
+	#endif
+	rgb2nv12(p, g->buffer, g->w, g->h);	
+}
+
+graph_t* fb_fetch_graph_bsp(uint32_t w, uint32_t h) {
+	return graph_new(NULL, w, h);
+}

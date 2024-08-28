@@ -1,5 +1,5 @@
 #include <arch/bcm283x/gpio.h>
-#include <sys/vdevice.h>
+#include <ewoksys/vdevice.h>
 #include <string.h>
 
 #define YELLOW  20
@@ -22,7 +22,7 @@ static void init(void) {
 
 static int keys_read(int fd,
 		int from_pid,
-		uint32_t node,
+		fsinfo_t* node,
 		void* buf,
 		int size,
 		int offset,
@@ -60,6 +60,6 @@ int main(int argc, char** argv) {
 	memset(&dev, 0, sizeof(vdevice_t));
 	strcpy(dev.name, "nxez_keys");
 	dev.read = keys_read;
-	device_run(&dev, mnt_point, FS_TYPE_CHAR);
+	device_run(&dev, mnt_point, FS_TYPE_CHAR, 0444);
 	return 0;
 }

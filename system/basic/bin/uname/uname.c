@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <string.h>
-#include <sys/syscall.h>
+#include <ewoksys/syscall.h>
 #include <sysinfo.h>
 
 int main(int argc, char* argv[]) {

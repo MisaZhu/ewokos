@@ -12,8 +12,8 @@ LS_OBJS = ls.o
 LS = $(TARGET_DIR)/bin/ls
 
 $(LS): $(LS_OBJS) \
-		$(BUILD_DIR)/lib/libewokc.a
-	$(LD) -Ttext=100 $(LS_OBJS) -o $(LS) $(LDFLAGS) -lewokc -lc_nano -lnosys
+		$(EWOK_LIBC_A) 
+	$(LD) -Ttext=100 $(LS_OBJS) -o $(LS) $(LDFLAGS) $(EWOK_LIBC)
 
 clean:
 	rm -f $(LS_OBJS)

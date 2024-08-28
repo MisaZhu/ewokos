@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <stdlib.h>
-#include <vprintf.h>
+#include <sys/errno.h>
 #include <string.h>
 
 static char rpl(char c) {

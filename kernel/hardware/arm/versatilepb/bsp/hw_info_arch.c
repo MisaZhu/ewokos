@@ -6,8 +6,8 @@ extern char _framebuffer_base_raw[];
 extern char _framebuffer_end_raw[];
 
 
-uint32_t _allocatable_phy_mem_top = 0;
-uint32_t _allocatable_phy_mem_base = 0;
+uint32_t _allocable_phy_mem_top = 0;
+uint32_t _allocable_phy_mem_base = 0;
 
 void sys_info_init_arch(void) {
 	memset(&_sys_info, 0, sizeof(sys_info_t));
@@ -26,8 +26,8 @@ void sys_info_init_arch(void) {
 	_sys_info.fb.phy_base = V2P(_sys_info.fb.v_base);
 	_sys_info.fb.size = _framebuffer_end_raw - _framebuffer_base_raw;
 
-	_allocatable_phy_mem_base = V2P(ALLOCATABLE_MEMORY_START);
-	_allocatable_phy_mem_top = _sys_info.phy_offset +  
+	_allocable_phy_mem_base = V2P(get_allocable_start());
+	_allocable_phy_mem_top = _sys_info.phy_offset +  
 			_sys_info.phy_mem_size < _sys_info.mmio.phy_base ?
 			_sys_info.phy_mem_size : _sys_info.mmio.phy_base;
 	_sys_info.cores = 1;

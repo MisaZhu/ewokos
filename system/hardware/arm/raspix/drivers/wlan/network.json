@@ -1,0 +1,8 @@
+{
+    "network":[
+        {
+            "ssid":"your ssid",
+            "passwd":"your passwd"
+        }
+    ]
+}

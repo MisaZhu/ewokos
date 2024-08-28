@@ -7,17 +7,16 @@ LDFLAGS = -L$(BUILD_DIR)/lib
 
 CFLAGS += -I $(BUILD_DIR)/include
 
-FONTD_OBJS = fontd.o
+FONTD_OBJS = fontd.o cmd.o config.o
 
 FONTD = $(TARGET_DIR)/drivers/fontd
 
 $(FONTD): $(FONTD_OBJS) \
-		$(BUILD_DIR)/lib/libewokc.a \
-		$(BUILD_DIR)/lib/libsconf.a \
+		$(EWOK_LIBC_A)  \
 		$(BUILD_DIR)/lib/libgraph.a \
-		$(BUILD_DIR)/lib/libhash.a \
+		$(BUILD_DIR)/lib/libtinyjson.a \
 		$(BUILD_DIR)/lib/libttf.a 
-	$(LD) -Ttext=100 $(FONTD_OBJS) -o $(FONTD) $(LDFLAGS)  -lttf -lhash -lgraph -lbsp -lsconf -lewokc -lc_nano -lnosys
+	$(LD) -Ttext=100 $(FONTD_OBJS) -o $(FONTD) $(LDFLAGS)  -lttf -lgraph -lbsp -ltinyjson $(EWOK_LIBC)
 
 clean:
 	rm -f $(FONTD_OBJS)

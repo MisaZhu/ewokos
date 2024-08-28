@@ -3,13 +3,13 @@
 #include <string.h>
 #include <sys/types.h>
 #include <pthread.h>
-#include <sys/timer.h>
-#include <sys/mmio.h>
-#include <sys/dma.h>
-#include <sys/syscall.h>
-#include <sys/klog.h>
-#include <sys/interrupt.h>
-#include <sys/kernel_tic.h>
+#include <ewoksys/timer.h>
+#include <ewoksys/mmio.h>
+#include <ewoksys/dma.h>
+#include <ewoksys/syscall.h>
+#include <ewoksys/klog.h>
+#include <ewoksys/interrupt.h>
+#include <ewoksys/kernel_tic.h>
 
 #include "pcm_lib.h"
 #include "miyoo-dais.h"
@@ -316,7 +316,7 @@ static void bach_irq_handle(uint32_t interrupt, uint32_t data)
 	}
 
 TIMER_INT_END:
-	sys_interrupt_end();
+	return;
 }
 
 
@@ -1297,19 +1297,23 @@ static int pre_allocate_dma_buffer(struct msc313_bach *bach)
 static int register_irq_handle(struct msc313_bach *bach)
 {
 	tStart = 0;
-	sys_interrupt_setup(SYS_INT_TIMER0, bach_irq_handle, (uint32_t)bach);
+
+	static interrupt_handler_t handler;
+	handler.data = 0;
+	handler.handler = bach_irq_handle;
+	sys_interrupt_setup(IRQ_TIMER0, &handler);
 	/* Enable audio dma irq */
 	//msc313_unmask_irq(42);
 	//msc313_unmask_irq_polarity(42);
-	KLOG("%s() irq_id:%d\n", __func__, SYS_INT_TIMER0);
+	KLOG("%s() irq_id:%d\n", __func__, IRQ_TIMER0);
 	return 0;
 }
 
 static int unregister_irq_handle(struct msc313_bach *bach)
 {
 	tStart = 0;
-	sys_interrupt_setup(SYS_INT_TIMER0, 0, (uint32_t)bach);
-	KLOG("%s() irq_id:%d\n", __func__, SYS_INT_TIMER0);
+	sys_interrupt_setup(IRQ_TIMER0, NULL);
+	KLOG("%s() irq_id:%d\n", __func__, IRQ_TIMER0);
 	return 0;
 }
 

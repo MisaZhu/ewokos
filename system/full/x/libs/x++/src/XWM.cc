@@ -4,6 +4,7 @@
 #include <font/font.h>
 #include <sconf/sconf.h>
 #include <upng/upng.h>
+#include <x/x.h>
 #include <stdlib.h>
 
 using namespace Ewok;
@@ -203,19 +204,27 @@ static void draw_resize(graph_t* g, xinfo_t* info, grect_t* r, bool top, void* p
 	((XWM*)p)->__drawResize(g, info, r, top);
 }
 
-void XWM::drawDesktop(graph_t* g) {
-	uint32_t desktop_fg_color;
-	uint32_t desktop_bg_color;
-	desktop_fg_color = 0xff8888aa;
-	desktop_bg_color = 0xff555588;
+graph_t* XWM::genDesktopPattern(void) {
+	graph_t* g = graph_new(NULL, 64, 64);
+	graph_draw_dot_pattern(g, 0, 0, g->w, g->h, desktopBGColor, desktopFGColor, 2);
+	return g;
+}
 
-	graph_clear(g, desktop_bg_color);
-	//background pattern
-	int32_t x, y;
-	for(y=10; y<(int32_t)g->h; y+=10) {
-		for(x=0; x<(int32_t)g->w; x+=10) {
-			graph_pixel(g, x, y, desktop_fg_color);
+void XWM::drawDesktop(graph_t* g) {
+	if(desktopPattern == NULL)
+		desktopPattern = genDesktopPattern();
+	graph_clear(g, 0xffffffff);
+
+	int x = 0;
+	int y = 0;
+	for(int i=0; y<g->h; i++) {
+		for(int j=0; x<g->w;j++) {
+			graph_blt(desktopPattern, 0, 0, desktopPattern->w, desktopPattern->h,
+					g, x, y, desktopPattern->w, desktopPattern->h);
+			x += desktopPattern->w;
 		}
+		x = 0;
+		y += desktopPattern->h;
 	}
 }
 
@@ -237,27 +246,27 @@ void XWM::getColor(uint32_t *fg, uint32_t* bg, bool top) {
 void XWM::loadConfig(sconf_t* sconf) {
 	const char* v = sconf_get(sconf, "fg_color");
 	if(v[0] != 0) 
-		fgColor = atoi_base(v, 16);
+		fgColor = strtoul(v,NULL, 16);
 
 	v = sconf_get(sconf, "bg_color");
 	if(v[0] != 0) 
-		bgColor = atoi_base(v, 16);
+		bgColor = strtoul(v,NULL, 16);
 
 	v = sconf_get(sconf, "fg_top_color");
 	if(v[0] != 0) 
-		fgTopColor = atoi_base(v, 16);
+		fgTopColor = strtoul(v, NULL, 16);
 
 	v = sconf_get(sconf, "bg_top_color");
 	if(v[0] != 0) 
-		bgTopColor = atoi_base(v, 16);
+		bgTopColor = strtoul(v, NULL, 16);
 
 	v = sconf_get(sconf, "desktop_fg_color");
 	if(v[0] != 0) 
-		desktopFGColor = atoi_base(v, 16);
+		desktopFGColor = strtoul(v, NULL, 16);
 
 	v = sconf_get(sconf, "desktop_bg_color");
 	if(v[0] != 0) 
-		desktopBGColor = atoi_base(v, 16);
+		desktopBGColor = strtoul(v, NULL, 16);
 
 	v = sconf_get(sconf, "frame_width");
 	if(v[0] != 0) 
@@ -267,16 +276,20 @@ void XWM::loadConfig(sconf_t* sconf) {
 	if(v[0] != 0) 
 		titleH = atoi(v);
 
-	int font_size = 14;
+	fontSize = 14;
 	v = sconf_get(sconf, "font_size");
 	if(v[0] != 0) 
-		font_size = atoi(v);
+		fontSize = atoi(v);
 
-	const char* fname = DEFAULT_SYSTEM_FONT;
+	const char* name = DEFAULT_SYSTEM_FONT;
 	v = sconf_get(sconf, "font");
 	if(v[0] != 0) 
- 		fname = v;
- 	font_load(fname, font_size, &font, true);
+ 		name = v;
+ 	font = font_new(name, true);
+
+	v = sconf_get(sconf, "pattern");
+	if(v[0] != 0 && strcmp(v, "none") != 0)
+		desktopPattern = png_image_new_bg(x_get_theme_fname(X_THEME_ROOT, "xwm", v), desktopBGColor);
 }
 
 void XWM::readConfig(const char* fname) {
@@ -291,6 +304,7 @@ XWM::XWM(void) {
 	font_init();
 	memset(&xwm, 0, sizeof(xwm_t));
 
+	desktopPattern = NULL;
 	desktopBGColor = 0xff555588;
 	desktopFGColor = 0xff8888aa;
 	bgColor = 0xff666666;
@@ -299,6 +313,7 @@ XWM::XWM(void) {
 	fgTopColor = 0xff222222;
 	frameW = 2;
 	titleH = 24;
+	font = NULL;
 
 	xwm.data = this;
 	xwm.get_win_space = get_win_space;
@@ -317,6 +332,13 @@ XWM::XWM(void) {
 	xwm.draw_max = draw_max;
 	xwm.draw_resize = draw_resize;
 	xwm.draw_desktop = draw_desktop;
+}
+
+XWM::~XWM(void) {
+	if(desktopPattern != NULL)
+		graph_free(desktopPattern);
+	if(font != NULL)
+		font_free(font);
 }
 
 void XWM::run(void) {

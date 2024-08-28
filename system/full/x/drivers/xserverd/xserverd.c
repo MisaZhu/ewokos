@@ -3,119 +3,32 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <string.h>
-#include <sys/vfs.h>
-#include <sys/vdevice.h>
-#include <sys/syscall.h>
+#include <ewoksys/vfs.h>
+#include <ewoksys/vdevice.h>
+#include <ewoksys/core.h>
+#include <ewoksys/syscall.h>
 #include <sys/shm.h>
 #include <fb/fb.h>
-#include <sys/ipc.h>
+#include <ewoksys/ipc.h>
 #include <x/xcntl.h>
+#include <x/xtheme.h>
 #include <x/xevent.h>
 #include <x/xwm.h>
-#include <sys/proc.h>
-#include <sys/keydef.h>
+#include <ewoksys/proc.h>
+#include <ewoksys/keydef.h>
 #include <sconf/sconf.h>
 #include <display/display.h>
-#include "cursor.h"
-#include "xevtpool.h"
-
-#define X_EVENT_MAX 16
-
-enum {
-	X_win_DRAG_MOVE = 0,
-	X_win_DRAG_RESIZE
-};
-
-typedef struct st_xwin {
-	int fd;
-	int from_pid;
-	uint32_t from_pid_uuid;
-	graph_t* g;
-	graph_t* g_buf;
-	xinfo_t* xinfo;
-	bool dirty;
-	bool dirty_mark;
-
-	grect_t r_title;
-	grect_t r_close;
-	grect_t r_min;
-	grect_t r_max;
-	grect_t r_resize;
-
-	struct st_xwin *next;
-	struct st_xwin *prev;
-} xwin_t;
-
-typedef struct {
-	xwin_t* win; //moving or resizing;
-	gpos_t old_pos;
-	gpos_t pos_delta;
-	uint32_t drag_state;
-} x_current_t;
-
-typedef struct {
-	uint32_t win_move_alpha;
-	uint32_t fps;
-	bool bg_run;
-	bool force_fullscreen;
-	char xwm[128];
-	char theme[128];
-} x_conf_t;
-
-typedef struct {
-	fb_t fb;
-	graph_t* g;
-	graph_t* g_fb;
-	grect_t desktop_rect;
-	bool dirty;
-	bool cursor_task;
-	bool need_repaint;
-} x_display_t;
-
-typedef struct {
-	gpos_t down_pos;
-	gpos_t last_pos;
-	bool pressed; //true for down
-} x_mouse_state_t;
-
-typedef struct {
-	const char* display_man;
-	x_display_t displays[DISP_MAX];
-	uint32_t display_num;
-	uint32_t current_display;
-
-	int xwm_pid;
-	bool show_cursor;
-	cursor_t cursor;
-
-	xwin_t* win_head;
-	xwin_t* win_tail;
-	xwin_t* win_focus;
-	xwin_t* win_launcher;
-	xwin_t* win_last;
-
-	xwin_t* win_xim;
-	bool     win_xim_actived;
-	x_mouse_state_t mouse_state;
-	x_current_t current;
-	x_conf_t config;
-} x_t;
+#include "xserver.h"
 
 static int32_t read_config(x_t* x, const char* fname) {
-	x->config.win_move_alpha = 0x88;
 	x->config.fps = 60;
 	x->config.bg_run = 0;
-	x->config.xwm[0] = 0;
 
 	sconf_t *conf = sconf_load(fname);	
 	if(conf == NULL)
 		return -1;
 
-	const char* v = sconf_get(conf, "win_move_alpha");
-	if(v[0] != 0) 
-		x->config.win_move_alpha = atoi_base(v, 16);
-
-	v = sconf_get(conf, "fps");
+	const char* v = sconf_get(conf, "fps");
 	if(v[0] != 0) 
 		x->config.fps = atoi(v);
 	
@@ -127,14 +40,6 @@ static int32_t read_config(x_t* x, const char* fname) {
 	if(v[0] != 0) 
 		x->config.force_fullscreen = atoi(v);
 	
-	v = sconf_get(conf, "xwm");
-	if(v[0] != 0) 
-		strncpy(x->config.xwm, v, 127);
-	
-	v = sconf_get(conf, "theme");
-	if(v[0] != 0)
-		strncpy(x->config.theme, v, 127);
-
 	v = sconf_get(conf, "cursor");
 	if(strcmp(v, "touch") == 0)
 		x->cursor.type = CURSOR_TOUCH;
@@ -149,18 +54,35 @@ static int32_t read_config(x_t* x, const char* fname) {
 	return 0;
 }
 
+static bool check_xwm(x_t* x) {
+	if(x->xwm_pid < 0) {
+		x->xwm_uuid = 0;
+		return false;
+	}
+
+	if(proc_check_uuid(x->xwm_pid, x->xwm_uuid) == x->xwm_uuid)
+		return true;
+
+	x->xwm_pid = -1;
+	x->xwm_uuid = 0;
+	return false;
+}
+
 static void draw_win_frame(x_t* x, xwin_t* win) {
+	if(!check_xwm(x))
+		return;
+
 	x_display_t *display = &x->displays[win->xinfo->display_index];
 	if((win->xinfo->style & XWIN_STYLE_NO_FRAME) != 0 ||
 			display->g == NULL)
 		return;
 
 	proto_t in;
-	PF->init(&in)->
-		addi(&in, (uint32_t)display->g->buffer)->
-		addi(&in, display->g->w)->
-		addi(&in, display->g->h)->
-		add(&in, win->xinfo, sizeof(xinfo_t));
+	PF->format(&in, "i,i,i,m",
+		display->g_shm_id,
+		display->g->w,
+		display->g->h,
+		win->xinfo, sizeof(xinfo_t));
 	if(win == x->win_focus)
 		PF->addi(&in, 1); //top win
 	else
@@ -170,16 +92,26 @@ static void draw_win_frame(x_t* x, xwin_t* win) {
 	PF->clear(&in);
 }
 
+static void draw_init_desktop(x_t* x, x_display_t *display) {
+	graph_draw_dot_pattern(display->g, 0, 0, display->g->w, display->g->h,
+			0xffffffff, 0xff000000, 1);
+}
+
 static void draw_desktop(x_t* x, uint32_t display_index) {
 	x_display_t *display = &x->displays[display_index];
 	if(display->g == NULL)
 		return;
 
+	if(!check_xwm(x)) {
+		draw_init_desktop(x, display);
+		return;
+	}	
+
 	proto_t in;
-	PF->init(&in)->
-		addi(&in, (uint32_t)display->g->buffer)->
-		addi(&in, display->g->w)->
-		addi(&in, display->g->h);
+	PF->format(&in, "i,i,i",
+		display->g_shm_id,
+		display->g->w,
+		display->g->h);
 
 	int res = ipc_call_wait(x->xwm_pid, XWM_CNTL_DRAW_DESKTOP, &in);
 	PF->clear(&in);
@@ -192,10 +124,10 @@ static void draw_drag_frame(x_t* xp, uint32_t display_index) {
 	if(display->g == NULL)
 		return;
 
-	int x = xp->current.win->xinfo->winr.x;
-	int y = xp->current.win->xinfo->winr.y;
-	int w = xp->current.win->xinfo->winr.w;
-	int h = xp->current.win->xinfo->winr.h;
+	int x = xp->current.win_drag->xinfo->winr.x;
+	int y = xp->current.win_drag->xinfo->winr.y;
+	int w = xp->current.win_drag->xinfo->winr.w;
+	int h = xp->current.win_drag->xinfo->winr.h;
 
 	if(xp->current.drag_state == X_win_DRAG_MOVE)  {
 		x += xp->current.pos_delta.x;
@@ -209,20 +141,18 @@ static void draw_drag_frame(x_t* xp, uint32_t display_index) {
 	grect_t r = {x, y, w, h};
 
 	proto_t in;
-	PF->init(&in)->
-		addi(&in, (uint32_t)display->g->buffer)->
-		addi(&in, display->g->w)->
-		addi(&in, display->g->h)->
-		add(&in, &r, sizeof(grect_t));
+	PF->format(&in, "i,i,i,m",
+		display->g_shm_id,
+		display->g->w,
+		display->g->h,
+		&r, sizeof(grect_t));
 
-	ipc_call_wait(xp->xwm_pid, XWM_CNTL_DRAW_DRAG_FRAME, &in);
+	if(check_xwm(xp))
+		ipc_call_wait(xp->xwm_pid, XWM_CNTL_DRAW_DRAG_FRAME, &in);
 	PF->clear(&in);
 }
 
-static int draw_win(x_t* xp, xwin_t* win) {
-	x_display_t *display = &xp->displays[win->xinfo->display_index];
-	if(!display->dirty && !win->dirty)
-		return -1;
+static int draw_win(graph_t* disp_g, x_t* xp, xwin_t* win) {
 	uint32_t to = 0;
 	graph_t* g = win->g_buf;
 	if(g != NULL) {
@@ -230,7 +160,7 @@ static int draw_win(x_t* xp, xwin_t* win) {
 			graph_blt_alpha(g, 0, 0, 
 					win->xinfo->wsr.w,
 					win->xinfo->wsr.h,
-					display->g,
+					disp_g,
 					win->xinfo->wsr.x,
 					win->xinfo->wsr.y,
 					win->xinfo->wsr.w,
@@ -240,7 +170,7 @@ static int draw_win(x_t* xp, xwin_t* win) {
 			graph_blt(g, 0, 0, 
 					win->xinfo->wsr.w,
 					win->xinfo->wsr.h,
-					display->g,
+					disp_g,
 					win->xinfo->wsr.x,
 					win->xinfo->wsr.y,
 					win->xinfo->wsr.w,
@@ -249,7 +179,7 @@ static int draw_win(x_t* xp, xwin_t* win) {
 	}
 
 	draw_win_frame(xp, win);
-	if(xp->current.win == win && xp->config.win_move_alpha < 0xff) //drag and moving
+	if(xp->current.win_drag == win && (win->xinfo->style & XWIN_STYLE_NO_FRAME) == 0)
 		draw_drag_frame(xp, win->xinfo->display_index);
 
 	win->dirty = false;
@@ -306,11 +236,11 @@ static void x_get_event(int from_pid, proto_t* out) {
 
 static void x_push_event(x_t* x, xwin_t* win, xevent_t* e) {
 	(void)x;
-	if(win->from_pid <= 0 || win->xinfo == NULL)
+	if(win == NULL || win->from_pid <= 0 || win->xinfo == NULL)
 		return;
 	e->win = win->xinfo->win;
 	xevent_push(win->from_pid, e);
-	proc_wakeup(X_EVT_BLOCK_EVT);
+	proc_wakeup_pid(win->from_pid, X_EVT_BLOCK_EVT);
 }
 
 static void hide_win(x_t* x, xwin_t* win) {
@@ -345,6 +275,7 @@ static void x_unfocus(x_t* x) {
 	xevent_t e;
 	e.type = XEVT_WIN;
 	e.value.window.event = XEVT_WIN_UNFOCUS;
+	x->win_focus->xinfo->focused = false;
 	x_push_event(x, x->win_focus, &e);
 	x->win_focus = NULL;
 }
@@ -358,6 +289,7 @@ static void try_focus(x_t* x, xwin_t* win) {
 		xevent_t e;
 		e.type = XEVT_WIN;
 		e.value.window.event = XEVT_WIN_FOCUS;
+		win->xinfo->focused = true;
 		x_push_event(x, win, &e);
 		x->win_focus = win;
 	}
@@ -451,14 +383,14 @@ static xwin_t* get_next_focus_win(x_t* x, bool skip_launcher) {
 static void x_del_win(x_t* x, xwin_t* win) {
 	if(win == x->win_focus)
 		hide_win(x, x->win_xim);
+
+	remove_win(x, win);
 	if(win == x->win_last)
 		x->win_last = NULL;
 
-	remove_win(x, win);
-
 	if(win->xinfo->g_shm != NULL) {
-		shm_unmap(win->xinfo->g_shm);
-		shm_unmap(win->xinfo);
+		shmdt(win->xinfo->g_shm);
+		shmdt(win->xinfo);
 	}
 
 	if(win->g_buf != NULL)
@@ -534,7 +466,14 @@ static int x_init_display(x_t* x, int32_t display_index) {
 			return -1;
 		graph_t *g_fb = fb_fetch_graph(&x->displays[display_index].fb);
 		x->displays[display_index].g_fb = g_fb;
-		void* p = shm_alloc(g_fb->w * g_fb->h * 4, SHM_PUBLIC);
+		key_t key = (((int32_t)g_fb) << 16) | proc_get_uuid(getpid());
+		int32_t shm_id = shmget(key, g_fb->w * g_fb->h * 4, 0666 | IPC_CREAT | IPC_EXCL);
+		if(shm_id == -1)
+			return -1;
+		void* p = shmat(shm_id, 0, 0);
+		if(p == NULL)
+			return -1;
+		x->displays[display_index].g_shm_id = shm_id;
 		x->displays[display_index].g = graph_new(p, g_fb->w, g_fb->h);
 		x->displays[display_index].desktop_rect.x = 0;
 		x->displays[display_index].desktop_rect.y = 0;
@@ -552,7 +491,14 @@ static int x_init_display(x_t* x, int32_t display_index) {
 			return -1;
 		graph_t *g_fb = fb_fetch_graph(&x->displays[i].fb);
 		x->displays[i].g_fb = g_fb;
-		void* p = shm_alloc(g_fb->w * g_fb->h * 4, SHM_PUBLIC);
+		key_t key = (((int32_t)g_fb) << 16) | proc_get_uuid(getpid());
+		int32_t shm_id = shmget(key, g_fb->w * g_fb->h * 4, 0666 | IPC_CREAT | IPC_EXCL);
+		if(shm_id == -1)
+			return -1;
+		void* p = shmat(shm_id, 0, 0);
+		if(p == NULL)
+			return -1;
+		x->displays[i].g_shm_id = shm_id;
 		x->displays[i].g = graph_new(p, g_fb->w, g_fb->h);
 		x->displays[i].desktop_rect.x = 0;
 		x->displays[i].desktop_rect.y = 0;
@@ -587,11 +533,11 @@ static void x_close(x_t* x) {
 		x_display_t* display = &x->displays[i];
 		fb_close(&display->fb);
 		if(display->g != NULL) {
-			shm_unmap(display->g->buffer);
+			shmdt(display->g->buffer);
 			graph_free(display->g);
 		}
 		if(display->g_fb != NULL) {
-			shm_unmap(display->g_fb->buffer);
+			shmdt(display->g_fb->buffer);
 			graph_free(display->g_fb);
 		}
 	}
@@ -625,8 +571,11 @@ static void x_repaint(x_t* x, uint32_t display_index) {
 	xwin_t* win = x->win_head;
 	while(win != NULL) {
 		if(win->xinfo->visible && win->xinfo->display_index == display_index) {
-			if(draw_win(x, win) == 0)
-				do_flush = true;
+			if(display->dirty || win->dirty) {
+				if(draw_win(display->g, x, win) == 0) {
+					do_flush = true;
+				}
+			}
 		}
 		win = win->next;
 	}
@@ -648,10 +597,15 @@ static void x_repaint(x_t* x, uint32_t display_index) {
 static xwin_t* x_get_win(x_t* x, int fd, int from_pid) {
 	xwin_t* win = x->win_head;
 	while(win != NULL) {
-		if((win->fd == fd || fd < 0) &&
-				win->from_pid == from_pid &&
-				proc_check_uuid(from_pid, win->from_pid_uuid) == win->from_pid_uuid)
-			return win;
+		if((win->fd == fd || fd < 0) && win->from_main_pid == proc_getpid(from_pid)) {
+			if(proc_check_uuid(win->from_main_pid, win->from_main_pid_uuid) == win->from_main_pid_uuid)
+				return win;
+			else {
+				win->from_pid = -1;
+				win->from_main_pid = -1;
+				win->from_main_pid_uuid = 0;
+			}
+		}
 		win = win->next;
 	}
 	return NULL;
@@ -689,6 +643,8 @@ static void mark_dirty_confirm(x_t* x, xwin_t* win) {
 }
 
 static void mark_dirty(x_t* x, xwin_t* win) {
+	if(win->xinfo == NULL)
+		return;
 	xwin_t* win_next = win->next;
 
 	if(win->xinfo->visible && win->dirty) {
@@ -729,7 +685,7 @@ static void check_wins(x_t* x) {
 	xwin_t* w = x->win_tail; 
 	while(w != NULL) {
 		xwin_t* p = w->prev;
-		if(proc_check_uuid(w->from_pid, w->from_pid_uuid) != w->from_pid_uuid) {
+		if(w->from_main_pid < 0 || proc_check_uuid(w->from_main_pid, w->from_main_pid_uuid) != w->from_main_pid_uuid) {
 			x_del_win(x, w);
 		}
 		w = p;
@@ -762,6 +718,8 @@ static int do_xwin_try_focus(int fd, int from_pid, x_t* x) {
 		return -1;
 	if(!win->xinfo->visible)
 		return 0;
+
+	xwin_top(x, win);
 	try_focus(x, win);
 }
 
@@ -770,7 +728,7 @@ static int x_update(int fd, int from_pid, x_t* x) {
 		return -1;
 	
 	xwin_t* win = x_get_win(x, fd, from_pid);
-	if(win == NULL || win->xinfo == NULL)
+	if(win == NULL || win->xinfo == NULL || win->g == NULL)
 		return -1;
 	if(!win->xinfo->visible)
 		return 0;
@@ -800,13 +758,15 @@ static int xwin_set_visible(int fd, int from_pid, proto_t* in, x_t* x) {
 }
 
 static int x_update_frame_areas(x_t* x, xwin_t* win) {
+	if(!check_xwm(x))
+		return -1;
+
 	if((win->xinfo->style & XWIN_STYLE_NO_FRAME) != 0)
 		return -1;
 
 	proto_t in, out;
 	PF->init(&out);
-	PF->init(&in)->
-		add(&in, win->xinfo, sizeof(xinfo_t));
+	PF->init(&in)->add(&in, win->xinfo, sizeof(xinfo_t));
 	int res = ipc_call(x->xwm_pid, XWM_CNTL_GET_FRAME_AREAS, &in, &out);
 	PF->clear(&in);
 
@@ -820,10 +780,15 @@ static int x_update_frame_areas(x_t* x, xwin_t* win) {
 }
 
 static void x_get_min_size(x_t* x, xwin_t* win, int *w, int* h) {
+	*w = 100;
+	*h = 100;
+
+	if(!check_xwm(x))
+		return;
+
 	proto_t in, out;
 	PF->init(&out);
-	PF->init(&in)->
-		add(&in, win->xinfo, sizeof(xinfo_t));
+	PF->init(&in)->add(&in, win->xinfo, sizeof(xinfo_t));
 	int res = ipc_call(x->xwm_pid, XWM_CNTL_GET_MIN_SIZE, &in, &out);
 	PF->clear(&in);
 	if(res == 0) { 
@@ -846,12 +811,13 @@ static void xwin_force_fullscreen(x_t* x, xinfo_t* xinfo) {
 }
 
 static int get_xwm_win_space(x_t* x, int style, grect_t* rin, grect_t* rout) {
+	memcpy(rout, rin, sizeof(grect_t));
+	if(!check_xwm(x))
+		return 0;
+
 	proto_t in, out;
 	PF->init(&out);
-
-	PF->init(&in)->
-		addi(&in, style)->
-		add(&in, rin, sizeof(grect_t));
+	PF->format(&in, "i,m", style, rin, sizeof(grect_t));
 
 	int res = ipc_call(x->xwm_pid, XWM_CNTL_GET_WIN_SPACE, &in, &out);
 	PF->clear(&in);
@@ -866,8 +832,8 @@ static int xwin_update_info(int fd, int from_pid, proto_t* in, proto_t* out, x_t
 	if(fd < 0)
 		return -1;
 
-	xinfo_t *xinfo = proto_read_int(in);
-	if(xinfo == NULL)
+	int32_t xinfo_shm_id = proto_read_int(in);
+	if(xinfo_shm_id == -1)
 		return -1;
 	uint8_t type = proto_read_int(in);
 	
@@ -876,7 +842,7 @@ static int xwin_update_info(int fd, int from_pid, proto_t* in, proto_t* out, x_t
 		return -1;
 
 	if(win->xinfo == NULL)
-		win->xinfo = shm_map(xinfo);
+		win->xinfo = shmat(xinfo_shm_id, 0, 0);
 	if(win->xinfo == NULL)
 		return -1;
 
@@ -901,7 +867,6 @@ static int xwin_update_info(int fd, int from_pid, proto_t* in, proto_t* out, x_t
 	}
 	if(wsr_w != win->xinfo->wsr.w || wsr_h != win->xinfo->wsr.h)
 		type = type | X_UPDATE_REBUILD | X_UPDATE_REFRESH;
-	
 	if(get_xwm_win_space(x, (int)win->xinfo->style,
 			&win->xinfo->wsr,
 			&win->xinfo->winr) != 0)	
@@ -911,18 +876,30 @@ static int xwin_update_info(int fd, int from_pid, proto_t* in, proto_t* out, x_t
 	if((type & X_UPDATE_REBUILD) != 0 ||
 			g_shm == NULL ||
 			win->g == NULL) {
+
 		if(win->g != NULL && g_shm != NULL) {
 			graph_free(win->g);
-			shm_unmap(g_shm);
+			shmdt(g_shm);
 			win->g = NULL;
 		}
-		g_shm = shm_alloc(win->xinfo->wsr.w * win->xinfo->wsr.h * 4, SHM_PUBLIC);
+
+		key_t key = (((int32_t)win) << 16) | proc_get_uuid(from_pid);
+		int32_t g_shm_id = shmget(key,
+				win->xinfo->wsr.w * win->xinfo->wsr.h * 4,
+				0666|IPC_CREAT|IPC_EXCL);
+		if(g_shm_id == -1)
+			return -1;
+
+		g_shm = shmat(g_shm_id, 0, 0);
 		if(g_shm == NULL) 
 			return -1;
+
+		win->xinfo->g_shm_id = g_shm_id;
 		win->xinfo->g_shm = g_shm;
 		win->g = graph_new(g_shm, win->xinfo->wsr.w, win->xinfo->wsr.h);
 		graph_clear(win->g, 0x0);
 
+		win->xinfo->g_shm_id = g_shm_id;
 		if(win->g_buf != NULL) {
 			graph_free(win->g_buf);
 			win->g_buf = NULL;
@@ -942,11 +919,6 @@ static int x_win_space(x_t* x, proto_t* in, proto_t* out) {
 	proto_read_to(in, &r, sizeof(grect_t));
 	get_xwm_win_space(x, style, &r, &r); 
 	PF->add(out, &r, sizeof(grect_t));
-	return 0;
-}
-
-static int x_get_theme(x_t* x, proto_t* out) {
-	PF->adds(out, x->config.theme);
 	return 0;
 }
 
@@ -1005,9 +977,8 @@ static int xwin_call_xim(x_t* x) {
 	return 0;
 }
 
-static int xserver_fcntl(int fd, int from_pid, uint32_t node,
+static int xserver_fcntl(int fd, int from_pid, fsinfo_t* node,
 		int cmd, proto_t* in, proto_t* out, void* p) {
-	(void)fd;
 	(void)node;
 	x_t* x = (x_t*)p;
 
@@ -1033,7 +1004,7 @@ static int xserver_fcntl(int fd, int from_pid, uint32_t node,
 	return res;
 }
 
-static int xserver_win_open(int fd, int from_pid, uint32_t node, int oflag, void* p) {
+static int xserver_win_open(int fd, int from_pid, fsinfo_t* node, int oflag, void* p) {
 	(void)oflag;
 	(void)node;
 	if(fd < 0)
@@ -1047,7 +1018,8 @@ static int xserver_win_open(int fd, int from_pid, uint32_t node, int oflag, void
 	memset(win, 0, sizeof(xwin_t));
 	win->fd = fd;
 	win->from_pid = from_pid;
-	win->from_pid_uuid = proc_get_uuid(from_pid);
+	win->from_main_pid = proc_getpid(from_pid);
+	win->from_main_pid_uuid = proc_get_uuid(win->from_main_pid);
 	push_win(x, win);
 	return 0;
 }
@@ -1124,7 +1096,9 @@ static xwin_t* get_mouse_owner(x_t* x, int* win_frame_pos) {
 static void xwin_bg(x_t* x, xwin_t* win) {
 	if(win == NULL)
 		return;
-	if(!x->config.bg_run && win != x->win_launcher) {
+	if(!x->config.bg_run &&
+			win != x->win_launcher &&
+			(win->xinfo->style & XWIN_STYLE_SYSTOP) == 0) {
 		xevent_t ev;
 		ev.type = XEVT_WIN;
 		ev.value.window.event = XEVT_WIN_CLOSE;
@@ -1149,38 +1123,50 @@ static void mouse_xwin_handle(x_t* x, xwin_t* win, int pos, xevent_t* ev) {
 		else {
 			try_focus(x, win);
 		}
+		
+		if(pos == FRAME_R_TITLE) {//window title 
+			x->current.win_drag = win;
+			x->current.old_pos.x = x->cursor.cpos.x;
+			x->current.old_pos.y = x->cursor.cpos.y;
+			x->current.drag_state = X_win_DRAG_MOVE;
+		}
+		else if(pos == FRAME_R_RESIZE) {//window resize
+			x->current.win_drag = win;
+			x->current.old_pos.x = x->cursor.cpos.x;
+			x->current.old_pos.y = x->cursor.cpos.y;
+			x->current.drag_state = X_win_DRAG_RESIZE;
+		}
 
 		if(pos == FRAME_R_RESIZE) //window resize
 			return;
 	}
 	else if(ev->state ==  XEVT_MOUSE_DRAG) {
 		if(win->xinfo->state != XWIN_STATE_MAX) {
+			x->current.win_drag = win;
 			if(pos == FRAME_R_TITLE) {//window title 
-				x->current.win = win;
 				x->current.old_pos.x = x->cursor.cpos.x;
 				x->current.old_pos.y = x->cursor.cpos.y;
-				x->current.drag_state = X_win_DRAG_MOVE;
+				//x->current.drag_state = X_win_DRAG_MOVE;
 			}
 			else if(pos == FRAME_R_RESIZE) {//window resize
-				x->current.win = win;
 				x->current.old_pos.x = x->cursor.cpos.x;
 				x->current.old_pos.y = x->cursor.cpos.y;
-				x->current.drag_state = X_win_DRAG_RESIZE;
+				//x->current.drag_state = X_win_DRAG_RESIZE;
 			}
 		}
 	}
 	else if(ev->state == XEVT_MOUSE_UP) {
 		if(pos == FRAME_R_RESIZE) //window resize
-				return;
+			return;
 
-		if(x->current.win == win) {
+		if(x->current.win_drag == win && x->current.drag_state != 0) {
 			ev->type = XEVT_WIN;
 			ev->value.window.v0 =  x->current.pos_delta.x;
 			ev->value.window.v1 =  x->current.pos_delta.y;
 			if(x->current.drag_state == X_win_DRAG_RESIZE) {
 				ev->value.window.event = XEVT_WIN_RESIZE;
 				graph_free(win->g);
-				shm_unmap(win->xinfo->g_shm);
+				shmdt(win->xinfo->g_shm);
 				win->g = NULL;
 				win->xinfo->g_shm = NULL;
 			}
@@ -1208,10 +1194,11 @@ static void mouse_xwin_handle(x_t* x, xwin_t* win, int pos, xevent_t* ev) {
 				ev->value.window.event = XEVT_WIN_MAX;
 			}
 		}
-		x->current.win = NULL;
+		x->current.win_drag = NULL;
+		x->current.drag_state = 0;
 	}
 
-	if(x->current.win == win) {
+	if(x->current.win_drag == win && x->current.drag_state != 0) {
 		int mrx = x->cursor.cpos.x - x->current.old_pos.x;
 		int mry = x->cursor.cpos.y - x->current.old_pos.y;
 		if(abs(mrx) > 15 || abs(mry) > 15) {
@@ -1256,8 +1243,8 @@ static int mouse_handle(x_t* x, xevent_t* ev) {
 	cursor_safe(x, display);
 	if(ev->state ==  XEVT_MOUSE_DOWN) {
 		x->cursor.down = true;
-		if(!x->mouse_state.pressed) {
-			x->mouse_state.pressed = true;
+		if(x->mouse_state.state == 0) {
+			x->mouse_state.state = XEVT_MOUSE_DOWN;
 			x->mouse_state.down_pos.x = ev->value.mouse.x;
 			x->mouse_state.down_pos.y = ev->value.mouse.y;
 			x->mouse_state.last_pos.x = ev->value.mouse.x;
@@ -1265,8 +1252,12 @@ static int mouse_handle(x_t* x, xevent_t* ev) {
 			ev->value.mouse.rx = 0;
 			ev->value.mouse.ry = 0;
 		}
-		else if(ev->value.mouse.from_x != ev->value.mouse.x ||
-					ev->value.mouse.from_y != ev->value.mouse.y) {
+		//else if(ev->value.mouse.from_x != ev->value.mouse.x ||
+			//		ev->value.mouse.from_y != ev->value.mouse.y ||
+		else if(x->mouse_state.last_pos.x != ev->value.mouse.x ||
+				x->mouse_state.last_pos.y != ev->value.mouse.y ||
+					x->mouse_state.state == XEVT_MOUSE_DRAG) {
+			x->mouse_state.state = XEVT_MOUSE_DRAG;
 			ev->state = XEVT_MOUSE_DRAG;
 			ev->value.mouse.from_x = x->mouse_state.down_pos.x;
 			ev->value.mouse.from_y = x->mouse_state.down_pos.y;
@@ -1281,7 +1272,7 @@ static int mouse_handle(x_t* x, xevent_t* ev) {
 	}
 	else if(ev->state ==  XEVT_MOUSE_UP) {
 		x->cursor.down = false;
-		x->mouse_state.pressed = false;
+		x->mouse_state.state = 0;
 		ev->value.mouse.from_x = x->mouse_state.down_pos.x;
 		ev->value.mouse.from_y = x->mouse_state.down_pos.y;
 		ev->value.mouse.rx = ev->value.mouse.x - x->mouse_state.last_pos.x;
@@ -1299,8 +1290,8 @@ static int mouse_handle(x_t* x, xevent_t* ev) {
 
 	int pos = -1;
 	xwin_t* win = NULL;
-	if(x->current.win != NULL)
-		win = x->current.win;
+	if(x->current.win_drag != NULL)
+		win = x->current.win_drag;
 	else
 		win = get_mouse_owner(x, &pos);
 
@@ -1369,6 +1360,7 @@ static int xserver_dev_cntl(int from_pid, int cmd, proto_t* in, proto_t* ret, vo
 	}
 	else if(cmd == X_DCNTL_SET_XWM) {
 		x->xwm_pid = from_pid;
+		x->xwm_uuid = proc_get_uuid(from_pid);
 		x_dirty(x, -1);
 	}
 	else if(cmd == X_DCNTL_UNSET_XWM) {
@@ -1382,9 +1374,6 @@ static int xserver_dev_cntl(int from_pid, int cmd, proto_t* in, proto_t* ret, vo
 	}
 	else if(cmd == X_DCNTL_GET_EVT) {
 		x_get_event(from_pid, ret);
-	}
-	else if(cmd == X_DCNTL_GET_THEME) {
-		x_get_theme(x, ret);
 	}
 	else if(cmd == X_DCNTL_GET_DESKTOP_SPACE) {
 		x_get_desktop_space(x, in, ret);
@@ -1402,9 +1391,8 @@ static int xserver_dev_cntl(int from_pid, int cmd, proto_t* in, proto_t* ret, vo
 	return 0;
 }
 
-static int xserver_win_close(int fd, int from_pid, uint32_t node, void* p) {
+static int xserver_win_close(int fd, int from_pid, uint32_t node, bool last_ref, void* p) {
 	(void)node;
-	(void)fd;
 	x_t* x = (x_t*)p;
 	xwin_t* win = x_get_win(x, fd, from_pid);
 	if(win == NULL) {
@@ -1417,40 +1405,44 @@ static int xserver_win_close(int fd, int from_pid, uint32_t node, void* p) {
 	return 0;
 }
 
+static int _last_ux = 0;
 int xserver_step(void* p) {
 	x_t* x = (x_t*)p;
 	ipc_disable();
 	check_wins(x);
-	for(uint32_t i=0; i<x->display_num; i++) {
-		x_repaint(x, i);
+
+	if(core_get_ux() == 8) {
+		for(uint32_t i=0; i<x->display_num; i++) {
+			if(_last_ux == 0)
+				x_dirty(x, i);
+			x_repaint(x, i);
+		}
+		_last_ux = 8;
 	}
+	else 
+		_last_ux = 0;
 	ipc_enable();
-	usleep(1000000/x->config.fps);
+	proc_usleep(1000000/x->config.fps);
 	return 0;
 }
+
+char* xserver_dev_cmd(int from_pid, int argc, char** argv, void* p);
 
 int main(int argc, char** argv) {
 	const char* mnt_point = argc > 1 ? argv[1]: "/dev/x";
 	const char* display_man = argc > 2 ? argv[2]: "/dev/display";
 	const int32_t display_index = argc > 3 ? atoi(argv[3]): -1;
 
+	core_set_ux(8);
+
 	x_t x;
 	if(x_init(&x, display_man, display_index) != 0)
 		return -1;
+	x_theme_t theme;
+	x_get_theme(&theme);
 
 	read_config(&x, "/etc/x/x.conf");
-	cursor_init(x.config.theme, &x.cursor);
-
-	int pid = -1;
-	if(x.config.xwm[0] != 0) {
-		pid = fork();
-		if(pid == 0) {
-			setenv("XTHEME", x.config.theme);
-			exec(x.config.xwm);
-		}
-		proc_wait_ready(pid);
-		x.xwm_pid = pid;
-	}
+	cursor_init(theme.name, &x.cursor);
 
 	vdevice_t dev;
 	memset(&dev, 0, sizeof(vdevice_t));
@@ -1459,10 +1451,11 @@ int main(int argc, char** argv) {
 	dev.close = xserver_win_close;
 	dev.open = xserver_win_open;
 	dev.dev_cntl = xserver_dev_cntl;
+	dev.cmd = xserver_dev_cmd;
 	dev.loop_step = xserver_step;
 	dev.extra_data = &x;
 
-	device_run(&dev, mnt_point, FS_TYPE_CHAR);
+	device_run(&dev, mnt_point, FS_TYPE_CHAR | FS_TYPE_ANNOUNIMOUS, 0666);
 	x_close(&x);
 	return 0;
 }

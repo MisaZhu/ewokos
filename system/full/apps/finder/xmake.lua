@@ -1,6 +1,0 @@
-target("finder")
-    set_type("application")
-    add_deps("libx", "libx++", "libupng", "libsconf", "libcxx")
-    add_files("**.cc")        
-    install_dir("apps/finder")
-target_end()

@@ -6,21 +6,30 @@ inline uint32_t argb(uint32_t a, uint32_t r, uint32_t g, uint32_t b) {
 	return a << 24 | r << 16 | g << 8 | b;
 }
 
+void graph_init(graph_t* g, const uint32_t* buffer, int32_t w, int32_t h) {
+	if(w <= 0 || h <= 0)
+		return;
+
+	g->w = w;
+	g->h = h;
+	if(buffer != NULL) {
+		g->buffer = (uint32_t*)buffer;
+		g->need_free = false;
+	}
+	else {
+		g->buffer = (uint32_t*)kmalloc(w*h*4);
+		g->need_free = true;
+	}
+}
+
 graph_t* graph_new(uint32_t* buffer, int32_t w, int32_t h) {
 	if(w <= 0 || h <= 0)
 		return NULL;
 
 	graph_t* ret = (graph_t*)kmalloc(sizeof(graph_t));
-	ret->w = w;
-	ret->h = h;
-	if(buffer != NULL) {
-		ret->buffer = buffer;
-		ret->need_free = false;
-	}
-	else {
-		ret->buffer = (uint32_t*)kmalloc(w*h*4);
-		ret->need_free = true;
-	}
+	if(ret != NULL)
+		graph_init(ret, buffer, w, h);
+	
 	return ret;
 }
 

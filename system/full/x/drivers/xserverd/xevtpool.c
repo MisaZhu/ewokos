@@ -35,10 +35,9 @@ static void xevent_pool_push(xevt_pool_t* pool, xevent_t* evt) {
 	if(pool->head == NULL)
 		pool->head = item;
 
-	if(pool->tail == NULL)
-		pool->tail = item;
-	else 
+	if(pool->tail != NULL)
 		pool->tail->next = item;
+	pool->tail = item;
 	pool->num++;
 }
 

@@ -1,76 +1,59 @@
 #include <stdlib.h>
 #include <unistd.h>
-#include <sys/wait.h>
+#include <ewoksys/wait.h>
 #include <string.h>
-#include <sys/ipc.h>
-#include <sys/vfs.h>
-#include <sys/vdevice.h>
-#include <sys/syscall.h>
-#include <sys/klog.h>
+#include <ewoksys/ipc.h>
+#include <ewoksys/vfs.h>
+#include <ewoksys/vdevice.h>
+#include <ewoksys/syscall.h>
+#include <ewoksys/klog.h>
 #include <stdio.h>
 
-static int ramfs_read(int fd, int from_pid, uint32_t node, 
+static int ramfs_read(int fd, int from_pid, fsinfo_t* info, 
 		void* buf, int size, int offset, void* p) {
 	(void)fd;
 	(void)from_pid;
 	(void)p;
 
-	fsinfo_t info;
-	if(vfs_get_by_node(node, &info) != 0)
-		return 0;
-
 	if(offset < 0)
 		offset = 0;
-	if((int)info.size < (size+offset))
-		size = info.size-offset;
+	if((int)info->stat.size < (size+offset))
+		size = info->stat.size-offset;
 	if(size < 0)
 		return 0;
 
-	char* data = (char*)info.data;
+	char* data = (char*)info->data;
 	memcpy(buf, data+offset, size);
 	return size;	
 }
 
-static int ramfs_write(int fd, int from_pid, uint32_t node,
+static int ramfs_write(int fd, int from_pid, fsinfo_t* info,
 		const void* buf, int size, int offset, void* p) {
 	(void)fd;
 	(void)from_pid;
 	(void)p;
-
-	fsinfo_t info;
-	if(vfs_get_by_node(node, &info) != 0)
-		return 0;
 
 	if(offset < 0)
 		offset = 0;
 	if(size <= 0)
 		return size;
 
-	char* data = (char*)info.data;
+	char* data = (char*)info->data;
 	data = (char*)realloc(data, size + offset);
 	memcpy(data+offset, buf, size);
-	info.data = (uint32_t)data;
-	info.size = size+offset;
-	vfs_set(&info);
+	info->data = (uint32_t)data;
+	info->stat.size = size+offset;
 	return size;
 }
 
-static int ramfs_create(uint32_t node_to, uint32_t node, void* p, fsinfo_t* info) {
-	(void)node_to;
-	(void)p;
-	return vfs_get_by_node(node, info);
-}
-
-static int ramfs_unlink(uint32_t node, const char* fname, void* p) {
+static int ramfs_unlink(fsinfo_t* info, const char* fname, void* p) {
 	(void)fname;
 	(void)p;
-	fsinfo_t info;
-	if(vfs_get_by_node(node, &info) != 0)
-		return -1;
-	char* data = (char*)info.data;
+
+	char* data = (char*)info->data;
 	if(data != NULL)
 		free(data);
-	return 0;
+	return vfs_del_node(info->node);
 }
 
 int main(int argc, char** argv) {
@@ -79,11 +62,10 @@ int main(int argc, char** argv) {
 	vdevice_t dev;
 	memset(&dev, 0, sizeof(vdevice_t));
 	strcpy(dev.name, "ramfs");
-	dev.create = ramfs_create;
 	dev.read = ramfs_read;
 	dev.write = ramfs_write;
 	dev.unlink = ramfs_unlink;
 	
-	device_run(&dev, mnt_point, FS_TYPE_DIR);
+	device_run(&dev, mnt_point, FS_TYPE_DIR, 0777);
 	return 0;
 }

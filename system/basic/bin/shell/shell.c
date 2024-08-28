@@ -2,22 +2,21 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <stdio.h>
-#include <sys/vfs.h>
-#include <sys/core.h>
-#include <sys/ipc.h>
-#include <sys/proc.h>
-#include <vprintf.h>
-#include <sys/mstr.h>
+#include <ewoksys/vfs.h>
+#include <ewoksys/core.h>
+#include <ewoksys/ipc.h>
+#include <ewoksys/proc.h>
+
+#include <ewoksys/mstr.h>
 #include <fcntl.h>
-#include <sys/syscall.h>
-#include <sys/wait.h>
-#include <sys/keydef.h>
-#include <sys/klog.h>
+#include <ewoksys/syscall.h>
+#include <ewoksys/wait.h>
+#include <ewoksys/keydef.h>
+#include <ewoksys/klog.h>
 #include "shell.h"
 
-bool _initrd = false;
+bool _script_mode = false;
 bool _stdio_inited = false;
-bool _stderr_console_inited = false;
 bool _terminated = false;
 
 old_cmd_t* _history = NULL;
@@ -26,7 +25,7 @@ old_cmd_t* _history_tail = NULL;
 
 #define ENV_PATH "PATH"
 
-static int32_t find_exec(char* fname, char* cmd) {
+static int32_t find_exec(char* cmd, char* fname, char* full_cmd) {
 	fname[0] = 0;
 	fsinfo_t info;
 	//get the cmd file name(without arguments).
@@ -47,7 +46,7 @@ static int32_t find_exec(char* fname, char* cmd) {
 		strcpy(fname, cmd);
 		if(vfs_get_by_name(fname, &info) == 0 && info.type == FS_TYPE_FILE) {
 			cmd[at] = c;
-			strcpy(fname, cmd);
+			strcpy(full_cmd, cmd);
 			return 0;
 		}
 	}
@@ -57,13 +56,15 @@ static int32_t find_exec(char* fname, char* cmd) {
 		snprintf(fname, FS_FULL_NAME_MAX-1, "%s/%s", path, cmd+2);
 		if(vfs_get_by_name(fname, &info) == 0 && info.type == FS_TYPE_FILE) {
 			cmd[at] = c;
-			snprintf(fname, FS_FULL_NAME_MAX-1, "%s/%s", path, cmd+2);
+			snprintf(full_cmd, FS_FULL_NAME_MAX-1, "%s/%s", path, cmd+2);
 			return 0;
 		}
 	}
 	//search executable file in PATH dirs.
 	const char* paths = getenv(ENV_PATH);
-	char path[FS_FULL_NAME_MAX];
+	if(paths == NULL)
+		paths = "";
+	char path[FS_FULL_NAME_MAX] = {0};
 	i = 0;
 	while(1) {
 		if(paths[i] == 0 || paths[i] == ':') {
@@ -73,7 +74,7 @@ static int32_t find_exec(char* fname, char* cmd) {
 				snprintf(fname, FS_FULL_NAME_MAX-1, "%s/%s", path, cmd);
 				if(vfs_get_by_name(fname, &info) == 0 && info.type == FS_TYPE_FILE) {
 					cmd[at] = c;
-					snprintf(fname, FS_FULL_NAME_MAX-1, "%s/%s", path, cmd);
+					snprintf(full_cmd, FS_FULL_NAME_MAX-1, "%s/%s", path, cmd);
 					return 0;
 				}
 			}
@@ -116,13 +117,19 @@ static void redir(const char* fname, int in) {
 static int do_cmd(char* cmd) {
 	while(*cmd == ' ')
 		cmd++;
-
 	char fname[FS_FULL_NAME_MAX];
-	if(find_exec(fname, cmd) != 0) {
+	char full_cmd[FS_FULL_NAME_MAX];
+	if(find_exec(cmd, fname, full_cmd) != 0) {
 		printf("'%s' not found!\n", cmd);
 		return -1;
 	}
-	exec(fname);
+
+	if(access(fname, X_OK) != 0) {
+		printf("'%s' inexecutable!\n", fname);
+		return -1;
+	}
+
+	proc_exec(full_cmd);
 	return 0;
 }
 
@@ -134,7 +141,7 @@ static int do_pipe_cmd(char* p1, char* p2) {
 		return -1;
 	}
 
-	int pid = fork();
+	int pid = syscall0(SYS_FORK);
 	if(pid != 0) { //father proc for p2 reader.
 		close(fds[1]);
 		dup2(fds[0], 0);
@@ -182,100 +189,55 @@ static int run_cmd(char* cmd) {
 static void prompt(void) {
 	int uid = getuid();
 	const char* cid = getenv("CONSOLE_ID");
-	if(cid[0] == 0)
-		cid = "0";
+	if(cid == NULL || cid[0] == 0)
+		cid = "unknown";
 	char cwd[FS_FULL_NAME_MAX+1];
 	if(uid == 0)
-		printf("ewok(%s):%s# ", cid, getcwd(cwd, FS_FULL_NAME_MAX));
+		printf("\033[4m[%s]:%s#\033[0m ", cid, getcwd(cwd, FS_FULL_NAME_MAX));
 	else
-		printf("ewok(%s):%s$ ", cid, getcwd(cwd, FS_FULL_NAME_MAX));
-}
-
-static void try_init_stdio(void) {
-	if(!_stdio_inited) {
-		int fd = open("/dev/tty0", 0);
-		if(fd > 0) {
-			dup2(fd, 0);
-			dup2(fd, 1);
-			dup2(fd, 2);
-			close(fd);
-			_stdio_inited = true;
-		}
-	}
-
-	if(!_stderr_console_inited) {
-		int fd_console = open("/dev/console0", 0);
-		if(fd_console > 0) {
-			dup2(fd_console, 2);
-			close(fd_console);
-			_stderr_console_inited = true;
-		}
-	}
-}
-
-static void initrd_out(const char* cmd) {
-	if(!_initrd || cmd[0] == '@')
-		return;
-
-	try_init_stdio();
-
-	if(!_stdio_inited) {
-		klog("%s\n", cmd);
-		return;
-	}
-
-	if(_stderr_console_inited) {
-		if(write(1, cmd, strlen(cmd)) > 0)
-			write(1, "\n", 1);
-	}
-
-	if(write(2, cmd, strlen(cmd)) > 0)
-		write(2, "\n", 1);
+		printf("\033[4m[%s]:%s$\033[0m ", cid, getcwd(cwd, FS_FULL_NAME_MAX));
 }
 
 int main(int argc, char* argv[]) {
-	_initrd = false;
+	_script_mode = false;
 	_stdio_inited = false;
-	_stderr_console_inited = false;
 	_history = NULL;
 	_terminated = 0;
+	setbuf(stdout, NULL);
+	setbuf(stderr, NULL);
 
 	int fd_in = 0;
-	if(argc > 2) {
-		if(strcmp(argv[1], "-initrd") == 0) {
-			_initrd = true;
-		}
-		fd_in = open(argv[2], O_RDONLY);
+	if(argc > 1) {
+		fd_in = open(argv[1], O_RDONLY);
 		if(fd_in < 0)
 			return -1;
+		_script_mode = true;
 	}
 
 	setenv("PATH", "/sbin:/bin:/bin/x");
 
 	const char* home = getenv("HOME");
-	if(home[0] == 0)
+	if(home == NULL || home[0] == 0)
 		home = "/";
 	chdir(home);
-
 	str_t* cmdstr = str_new("");
 	while(_terminated == 0) {
 		if(fd_in == 0)
 			prompt();
 
-		if(gets(fd_in, cmdstr) != 0 && cmdstr->len == 0)
+		if(cmd_gets(fd_in, cmdstr) != 0 && cmdstr->len == 0)
 			break;
 
 		char* cmd = cmdstr->cstr;
 		if(cmd[0] == 0)
 			continue;
 
-		if(_initrd) {
-			if(cmd[0] == '#')
-				continue;
-			initrd_out(cmd);
-			if(cmd[0] == '@')
-				cmd++;
-		}
+		if(cmd[0] == '#')
+			continue;
+		if(cmd[0] == '@')
+			cmd++;
+		else if(_script_mode)
+			printf("%s\n", cmd);
 
 		add_history(cmdstr->cstr);
 		if(handle_shell_cmd(cmd) == 0)
@@ -290,7 +252,7 @@ int main(int argc, char* argv[]) {
 
 		int child_pid = fork();
 		if (child_pid == 0) {
-			if(fg == 0 || _initrd)
+			if(fg == 0 || _script_mode)
 				proc_detach();
 			int res = run_cmd(cmd);
 			str_free(cmdstr);	
@@ -300,10 +262,8 @@ int main(int argc, char* argv[]) {
 			waitpid(child_pid);
 		}
 	}
-
 	if(fd_in > 0) //close initrd file
 		close(fd_in);
-	str_free(cmdstr);	
 	free_history();
 	return 0;
 }

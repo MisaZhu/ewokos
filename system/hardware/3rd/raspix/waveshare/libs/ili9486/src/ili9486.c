@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
-#include <sys/vdevice.h>
+#include <ewoksys/vdevice.h>
 #include <arch/bcm283x/gpio.h>
 #include <arch/bcm283x/spi.h>
 #include <ili9486/ili9486.h>
@@ -27,7 +27,7 @@ uint16_t LCD_HEIGHT = LCD_SCREEN_HEIGHT;
 uint16_t LCD_WIDTH  = LCD_SCREEN_WIDTH;
 
 static inline void delay(int32_t count) {
-	usleep(count);
+	proc_usleep(count);
 }
 
 /* LCD CONTROL */

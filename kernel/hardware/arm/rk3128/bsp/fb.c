@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 
+static void* _fb_pointer = NULL;
 int32_t fb_init_bsp(uint32_t w, uint32_t h, uint8_t dep, fbinfo_t* fbinfo) {
 	(void)w;
 	(void)h;
@@ -18,11 +19,15 @@ int32_t fb_init_bsp(uint32_t w, uint32_t h, uint8_t dep, fbinfo_t* fbinfo) {
 	fbinfo->pointer = 0x6dd00000;
 	fbinfo->size = 1024 * 600 * 4;
 
+	_fb_pointer = (void*)fbinfo->pointer;
 	return 0;
 }
 
-void fb_flush32_bsp(uint32_t* g32, uint32_t w, uint32_t h) {
-	(void)g32;
-	(void)w;
-	(void)h;
+void fb_flush_graph_bsp(graph_t* g) {
+	if(_fb_pointer != g->buffer)
+		memcpy(_fb_pointer, g->buffer, g->w*g->h*4);
+}
+
+graph_t* fb_fetch_graph_bsp(uint32_t w, uint32_t h) {
+	return graph_new(_fb_pointer, w, h);
 }

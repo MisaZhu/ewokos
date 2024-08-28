@@ -3,12 +3,11 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <string.h>
-#include <sys/shm.h>
 #include <arch/bcm283x/gpio.h>
 #include <arch/bcm283x/spi.h>
-#include <sys/vdevice.h>
-#include <sys/vfs.h>
-#include <sys/syscall.h>
+#include <ewoksys/vdevice.h>
+#include <ewoksys/vfs.h>
+#include <ewoksys/syscall.h>
 
 #define UBYTE   uint8_t
 #define UWORD   uint16_t
@@ -19,7 +18,7 @@
 #define LCD_DC   25
 #define LCD_BL   24
 
-#define DEV_Delay_ms(x) usleep((x)*1000)
+#define DEV_Delay_ms(x) proc_usleep((x)*1000)
 #define DEV_Digital_Write bcm283x_gpio_write
 
 #define LCD_CS_0		DEV_Digital_Write(LCD_CS,0)

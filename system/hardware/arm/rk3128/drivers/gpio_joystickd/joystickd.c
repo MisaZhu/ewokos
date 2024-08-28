@@ -3,11 +3,12 @@
 #include <unistd.h>
 #include <stdint.h>
 #include <string.h>
-#include <sys/vdevice.h>
-#include <sys/syscall.h>
-#include <sys/keydef.h>
-#include <sys/ipc.h>
-#include <sys/mmio.h>
+#include <ewoksys/vdevice.h>
+#include <ewoksys/syscall.h>
+#include <ewoksys/keydef.h>
+#include <ewoksys/ipc.h>
+#include <ewoksys/mmio.h>
+#include <ewoksys/vfs.h>
 
 #define SARADC_CTRL_CHN_MASK        (0x7)
 #define SARADC_CTRL_POWER_CTRL      (0x1<<3)
@@ -28,27 +29,49 @@ struct rockchip_saradc_regs* saradc;
 #define GPIO_HIGH				1
 #define GPIO_LOW				0
 
-#define  JOYSTICK_UP_PIN			GPIO_PIN(2,22)
-#define  JOYSTICK_DOWN_PIN			GPIO_PIN(2,23)
-#define  JOYSTICK_LEFT_PIN			GPIO_PIN(2,24)
-#define  JOYSTICK_RIGHT_PIN			GPIO_PIN(2,25)
-#define  JOYSTICK_PRESS_PIN		GPIO_PIN(0,11)
-
+#define  KEY_POWER_PIN			GPIO_PIN(3,17)
+#define  KEY_UP_PIN				GPIO_PIN(2,22)
+#define  KEY_DOWN_PIN			GPIO_PIN(2,23)
+#define  KEY_LEFT_PIN			GPIO_PIN(2,24)
+#define  KEY_RIGHT_PIN			GPIO_PIN(2,25)
+#define  KEY_ENTER_PIN			GPIO_PIN(0,11)
+#define  KEY_BACK_PIN			GPIO_PIN(0,9)
+#define  KEY_HOME_PIN			GPIO_PIN(3,21)
+#define  KEY_BUTTON_A_PIN		GPIO_PIN(0,11)
+#define  KEY_BUTTON_B_PIN		GPIO_PIN(0,9)
+#define  KEY_BUTTON_X_PIN		GPIO_PIN(0,13)
+#define  KEY_BUTTON_Y_PIN		GPIO_PIN(0,12)
+#define  KEY_BUTTON_SELECT_PIN	GPIO_PIN(3,22)
+#define  KEY_BUTTON_START_PIN	GPIO_PIN(3,27)
+#define  KEY_BUTTON_L1_PIN		GPIO_PIN(0,8)
+#define  KEY_BUTTON_R1_PIN		GPIO_PIN(1,9)
 
 #define DECLARE_GPIO_KEY(name, level)	{#name, name, name##_PIN, level, !level}
 
-struct gpio_pins{
+static struct gpio_pins{
 	char* name;
 	int key;
 	int pin;
 	int active;
 	int status;
 }_pins[] = {
-	DECLARE_GPIO_KEY(JOYSTICK_UP, GPIO_LOW),
-	DECLARE_GPIO_KEY(JOYSTICK_DOWN, GPIO_LOW),
-	DECLARE_GPIO_KEY(JOYSTICK_LEFT, GPIO_LOW),
-	DECLARE_GPIO_KEY(JOYSTICK_RIGHT, GPIO_LOW),
-	DECLARE_GPIO_KEY(JOYSTICK_PRESS, GPIO_LOW)
+	DECLARE_GPIO_KEY(KEY_POWER, GPIO_LOW),
+	DECLARE_GPIO_KEY(KEY_UP, GPIO_LOW),
+	DECLARE_GPIO_KEY(KEY_DOWN, GPIO_LOW),
+	DECLARE_GPIO_KEY(KEY_LEFT, GPIO_LOW),
+	DECLARE_GPIO_KEY(KEY_RIGHT, GPIO_LOW),
+	DECLARE_GPIO_KEY(KEY_BUTTON_A, GPIO_LOW),
+	DECLARE_GPIO_KEY(KEY_BUTTON_B, GPIO_LOW),
+	DECLARE_GPIO_KEY(KEY_BUTTON_X, GPIO_LOW),
+	DECLARE_GPIO_KEY(KEY_BUTTON_Y, GPIO_LOW),
+	DECLARE_GPIO_KEY(KEY_BUTTON_SELECT, GPIO_LOW),
+	DECLARE_GPIO_KEY(KEY_BUTTON_START, GPIO_LOW),
+	DECLARE_GPIO_KEY(KEY_BUTTON_L1, GPIO_LOW),
+	// DECLARE_GPIO_KEY(KEY_BUTTON_L2, GPIO_LOW),
+	DECLARE_GPIO_KEY(KEY_BUTTON_R1, GPIO_LOW),
+	// DECLARE_GPIO_KEY(KEY_BUTTON_R2, GPIO_LOW),
+	//DECLARE_GPIO_KEY(KEY_ENTER, GPIO_LOW),
+	DECLARE_GPIO_KEY(KEY_HOME, GPIO_LOW),
 };
 
 struct adc_pins{
@@ -79,7 +102,7 @@ struct rockchip_gpio_regs {
     uint32_t ls_sync;
 };
 
-struct rockchip_gpio_regs *gpio[4];
+static struct rockchip_gpio_regs *gpio[4];
 
 
 static uint32_t rockchip_saradc_get_value(int chn){
@@ -130,7 +153,7 @@ static int rockchip_gpio_get_value(struct gpio_pins* pins)
     return (value == pins->active) ? 1 : 0;
 }
 
-static int joystick_read(int fd, int from_pid, uint32_t node,
+static int joystick_read(int fd, int from_pid, fsinfo_t* node,
 		void* buf, int size, int offset, void* p) {
 	(void)fd;
 	(void)from_pid;
@@ -151,7 +174,8 @@ static int joystick_read(int fd, int from_pid, uint32_t node,
 				break;
 		}
 	}
-	return key_cnt > 0 ? key_cnt : ERR_RETRY_NON_BLOCK;
+	//return key_cnt > 0 ? key_cnt : VFS_ERR_RETRY;
+	return key_cnt > 0 ? key_cnt : -1;
 }
 
 static void init_gpio(void) {
@@ -162,16 +186,38 @@ static void init_gpio(void) {
 	saradc = (struct rockchip_saradc_regs *)(_mmio_base +0x6c000);
 }
 
+static int power_button(void* p) {
+	(void)p;
+	static int count = 0;
+	ipc_disable();
+	if(rockchip_gpio_get(113) == 0)
+		count++;
+	else
+		count = 0;
+
+	if(count >= 10){
+		//close screnn
+		rockchip_gpio_set(44, 1);
+		printf("power down!\n");
+		proc_usleep(1000);
+		rockchip_gpio_set(122, 0);
+	}
+	ipc_enable();
+	proc_usleep(200000);
+}
+
+
 int main(int argc, char** argv) {
 	 _mmio_base = mmio_map_offset(0x10000000, 8*1024*1024);
 
-	const char* mnt_point = argc > 1 ? argv[1]: "/dev/joystick";
+	const char* mnt_point = argc > 1 ? argv[1]: "/dev/joykeyb";
 	init_gpio();
 
 	vdevice_t dev;
 	memset(&dev, 0, sizeof(vdevice_t));
-	strcpy(dev.name, "joystick");
+	strcpy(dev.name, "joykeyb");
 	dev.read = joystick_read;
-	device_run(&dev, mnt_point, FS_TYPE_CHAR);
+	dev.loop_step = power_button;
+	device_run(&dev, mnt_point, FS_TYPE_CHAR, 0444);
 	return 0;
 }

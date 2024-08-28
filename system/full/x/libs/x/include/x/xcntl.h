@@ -1,7 +1,7 @@
 #ifndef XCNTL_H
 #define XCNTL_H
 
-#include <sys/ewokdef.h>
+#include <ewoksys/ewokdef.h>
 #include <graph/graph.h>
 
 #ifdef __cplusplus
@@ -55,10 +55,12 @@ enum {
 #define XWIN_STYLE_XIM       0x80
 #define XWIN_STYLE_LAUNCHER  0x100
 #define XWIN_STYLE_ANTI_FSCR 0x200 //anti full screen
+#define XWIN_STYLE_PROMPT    0x400 //prompt win
 
 #define XWIN_TITLE_MAX 32
 typedef struct {
 	uint32_t win;
+	int32_t  g_shm_id;
 	void*    g_shm;
 	uint32_t display_index;
 	uint32_t style;
@@ -66,6 +68,7 @@ typedef struct {
 	bool visible;
 	bool repaint_lazy;
 	bool alpha;
+	bool focused;
 	grect_t wsr; //workspace rect
 	grect_t winr; //window rect
 	char title[XWIN_TITLE_MAX];

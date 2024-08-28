@@ -1,0 +1,7 @@
+{
+    "files.associations": {
+        "*.xsml": "xml",
+        "*.asm": "asm",
+        "stdlib.h": "c"
+    }
+}

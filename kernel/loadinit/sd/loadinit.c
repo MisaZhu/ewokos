@@ -10,17 +10,16 @@ int32_t load_init_proc(void) {
 	const char* prog = "/sbin/init";
 	int32_t sz;
 
-	printf("  load /sbin/init from sdc .... ");
 	char* elf = sd_read_ext2(prog, &sz);
 	if(elf != NULL) {
-		proc_t *proc = proc_create(PROC_TYPE_PROC, NULL);
+		proc_t *proc = proc_create(TASK_TYPE_PROC, NULL);
 		strcpy(proc->info.cmd, prog);
-		proc->info.owner = -1;
+		proc->info.uid = -1;
+		page_dir_entry_t *vm = proc->space->vm;
+		set_translation_table_base((uint32_t)V2P(vm));
 		int32_t res = proc_load_elf(proc, elf, sz);
 		kfree(elf);
-		printf("[ok]\n");
 		return res;
 	}
-	printf("[failed]!\n");
 	return -1;
 }

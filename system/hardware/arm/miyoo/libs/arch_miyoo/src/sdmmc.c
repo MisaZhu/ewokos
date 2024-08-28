@@ -26,7 +26,7 @@
  *     (2) h file will has APIs for Driver, but just SD abstract, not register abstract.
  *
  ***************************************************************************************************************/
-#include <sys/mmio.h>
+#include <ewoksys/mmio.h>
 #include "sdmmc.h"
 
 

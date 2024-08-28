@@ -1,0 +1,13 @@
+{
+    "name": "Misa",
+    "age": 40,
+    "tickets": ["aaa", "bbb", "ccc"],
+    "kid": {
+        "name": "Luke",
+        "age": 5,
+        "sister": {
+            "name": "Leia",
+            "age": 2
+        }
+    }
+}

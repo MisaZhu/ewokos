@@ -2,20 +2,20 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
-#include <sys/vfs.h>
-#include <sys/vdevice.h>
-#include <sys/charbuf.h>
-#include <sys/mmio.h>
-#include <sys/proc.h>
-#include <sys/ipc.h>
-#include <sys/interrupt.h>
-#include <sys/interrupt.h>
+#include <ewoksys/vfs.h>
+#include <ewoksys/vdevice.h>
+#include <ewoksys/charbuf.h>
+#include <ewoksys/mmio.h>
+#include <ewoksys/proc.h>
+#include <ewoksys/ipc.h>
+#include <ewoksys/interrupt.h>
+#include <ewoksys/interrupt.h>
 
 #define UART_LSR_THRE	0x20
 #define UART_LSR_DR 	0x01      
 #define REG32(x) (*(volatile uint32_t*)(x))
 
-static int uart_read(int fd, int from_pid, uint32_t node, 
+static int uart_read(int fd, int from_pid, fsinfo_t* node, 
 		void* buf, int size, int offset, void* p) {
 	(void)fd;
 	(void)from_pid;
@@ -25,13 +25,13 @@ static int uart_read(int fd, int from_pid, uint32_t node,
 	(void)p;
 
 	if((REG32(_mmio_base + 0x60014) & UART_LSR_DR) == 0)
-		return ERR_RETRY_NON_BLOCK;
+		return VFS_ERR_RETRY;
 
 	((char*)buf)[0] = (char)REG32(_mmio_base + 0x60000);
 	return 1;
 }
 
-static int uart_write(int fd, int from_pid, uint32_t node,
+static int uart_write(int fd, int from_pid, fsinfo_t* node,
 		const void* buf, int size, int offset, void* p) {
 	(void)fd;
 	(void)node;
@@ -49,13 +49,6 @@ static int uart_write(int fd, int from_pid, uint32_t node,
 	return size;
 }
 
-// static void interrupt_handle(uint32_t interrupt, uint32_t data) {
-// 	(void)interrupt;
-// 	(void)data;
-
-// 	sys_interrupt_end();
-// }
-
 int main(int argc, char** argv) {
 	const char* mnt_point = argc > 1 ? argv[1]: "/dev/tty1";
 	_mmio_base = mmio_map_offset(0x10000000, 8*1024*1024);
@@ -65,7 +58,6 @@ int main(int argc, char** argv) {
 	dev.read = uart_read;
 	dev.write = uart_write;
 
-	//sys_interrupt_setup(SYS_INT_TIMER0, interrupt_handle, 0);
-	device_run(&dev, mnt_point, FS_TYPE_CHAR);
+	device_run(&dev, mnt_point, FS_TYPE_CHAR, 0666);
 	return 0;
 }

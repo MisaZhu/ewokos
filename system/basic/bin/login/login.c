@@ -3,118 +3,74 @@
 #include <stdlib.h>
 #include <fcntl.h>
 #include <string.h>
-#include <sys/md5.h>
-#include <sys/mstr.h>
-#include <sys/keydef.h>
+#include <sys/errno.h>
+#include <ewoksys/session.h>
+#include <ewoksys/mstr.h>
+#include <ewoksys/keydef.h>
+#include <ewoksys/vfs.h>
 
-#define USER_MAX 32
-#define PSWD_MAX 64
-#define HOME_MAX 64
-#define CMD_MAX 64
-#define USER_NUM_MAX 64
-
-typedef struct  {
-	char user[USER_MAX];
-	int32_t gid;
-	int32_t uid;
-	char home[HOME_MAX];
-	char cmd[CMD_MAX];
-	char password[PSWD_MAX];
-} user_info_t;
-
-static user_info_t _users[USER_NUM_MAX];
-static int _user_num = 0;
-
-static char skip_space(int fd) {
-	char c;
-	while(true) {
-		if(read(fd, &c , 1) != 1)
-			break;
-		if(c != ' ' && c != '\t' && c != '\r' &&  c != '\n')
-			return c;
-	}
-	return 0;
+static session_info_t* check(const char* user, const char* password, int* res) {
+	static session_info_t info;
+	*res = session_check(user, password, &info);
+	if(*res == 0)
+		return &info;
+	return NULL;
 }
 
-static int read_value(int fd, char* val, uint32_t len, bool start) {
-	str_t* s = str_new("");
-	char c = 0;
-	if(start) {
-		c = skip_space(fd);
-		if(c == 0)
-			return -1;
-		str_addc(s, c);
-	}
-
-	while(true) {
-		if(read(fd, &c , 1) != 1) {
+//remove telnet command add crlr
+static uint8_t telnet_parse(uint8_t c){
+	static int state = 0;
+	uint8_t ret = 0;
+	switch(state){
+		case 0:
+			if(c == 0xFF){
+				state = 1;
+			}else if(c == '\r'){
+				state = 3;
+				ret = '\n';
+			}else{
+				ret = c;
+			}
 			break;
-		}
-		if(c == ':' || c == '\r' || c == '\n')
+		case 1:
+			if(c >= 0xFB && c <= 0xFE)
+				state = 2;
+			else
+				state = 0;
 			break;
-
-		str_addc(s, c);
-	}
-	strncpy(val, s->cstr, len);
-	str_free(s);
-	return 0;
-}
-
-static int read_user_item(int fd, user_info_t* info) {
-	if(read_value(fd, info->user, USER_MAX, true) != 0)
-		return -1;
-
-	char id[32];
-	if(read_value(fd, id, 32, false) != 0)
-		return -1;
-	info->gid = atoi(id);
-	
-	if(read_value(fd, id, 32, false) != 0)
-		return -1;
-	info->uid = atoi(id);
-
-	if(read_value(fd, info->home, HOME_MAX, false) != 0)
-		return -1;
-
-	if(read_value(fd, info->cmd, CMD_MAX, false) != 0)
-		return -1;
-
-	if(read_value(fd, info->password, PSWD_MAX, false) != 0)
-		return -1;
-	return 0;
-}
-
-static int read_user_info(void) {
-	int fd = open("/etc/passwd", O_RDONLY);
-	if(fd < 0) {
-		dprintf(3, "Error, open password file failed!\n");
-		return -1;
-	}
-	_user_num = 0;
-
-	while(_user_num < USER_NUM_MAX) {
-		user_info_t* info = &_users[_user_num];
-		if(read_user_item(fd, info) != 0)
+		case 2:
+			state = 0;
 			break;
-		_user_num++;
+		case 3:
+			if(c != '\n')
+				ret = c;
+			state = 0;
+			break;
+		default:
+			state = 0;
+			break;
 	}
-	close(fd);
-	return 0;
+
+	return ret;
 }
 
 static void input(str_t* s, bool show) {
 	str_reset(s);
-	char c;
+	char c, old_c;
 	while(true) {
 		int i = read(0, &c, 1);
+		c = telnet_parse(c);
+		if(c == 0)
+			continue;
 		if(i <= 0 || c == 0) {
 		 	if(errno != EAGAIN)
+			//if(i == 0)
 			 	break;
-			usleep(30000);
+			proc_usleep(30000);
 			continue;
 		}	
 
-		if (c == KEY_BACKSPACE) {
+		if (c == KEY_BACKSPACE || c == CONSOLE_LEFT) {
 			if (s->len > 0) {
 				//delete last char
 				if(show) {
@@ -126,52 +82,40 @@ static void input(str_t* s, bool show) {
 			}
 		}
 		else {
-			if(c == '\r')
-				c = '\n';
-
 			if(show || c == '\n')
 				write(1, &c, 1);
 			if(c == '\n')
 				break;
-			str_addc(s, c);
+			if(c > 27)
+				str_addc(s, c);
 		}
 	}
-}
-
-static user_info_t* check(const char* user, const char* password) {
-	int i;
-	for(i=0; i<_user_num; i++) {
-		user_info_t* info = &_users[i];
-		if(strcmp(info->user, user) == 0) {
-			if(info->password[0] == 0)
-				return info;
-			const char* md5 = md5_encode_str((uint8_t*)password, strlen(password));
-			if(strcmp(info->password, md5) == 0) 
-				return info;
-			else
-				return NULL;
-		}
-	}
-	return NULL;
 }
 
 int main(int argc, char* argv[]) {
 	(void)argc;
 	(void)argv;
 
-	if(read_user_info() != 0)
-		return -1;
+	const char* console = getenv("CONSOLE_ID");
+	if(console == NULL)
+		console = "-";
 
-	user_info_t* info = check("root", ""); 
-	//if root have no password, run shell directly
+	setbuf(stdout, NULL);
+	//session_info_t* info = check("root", "");  //if root have no password, run shell directly
+	session_info_t* info = NULL;
 	if(info == NULL || info->cmd[0] == 0) {
 		str_t* user = str_new("root");
 		str_t* password = str_new("");
-		printf("login: ");
+		printf("[%s] login: ", console);
 		input(user, true);
 		if(user->len > 0) {
-			printf("password: ");
-			input(password, false);
+			int res = 0;
+			info = check(user->cstr, password->cstr, &res); 
+			if(info == NULL && res != SESSION_ERR_USR) {
+				printf("[%s] password: ", console);
+				input(password, false);
+				info = check(user->cstr, password->cstr, &res); 
+			}
 		}
 
 		str_free(user);
@@ -180,13 +124,23 @@ int main(int argc, char* argv[]) {
 		if(info == NULL || info->cmd[0] == 0)
 			return -1;
 
-		if(setuid(info->uid) != 0) {
+		//vfs_create(info->home, NULL, FS_TYPE_DIR, 0750, false, true);
+		//chown(info->home, info->uid, info->gid);
+
+		int res = setgid(info->gid);
+		if(res != 0) {
+			dprintf(3, "Error, setgid failed!\n");
+			return -1;
+		}
+
+		res = setuid(info->uid);
+		if(res != 0) {
 			dprintf(3, "Error, setuid failed!\n");
 			return -1;
 		}
 	}
 
 	setenv("HOME", info->home);
-	exec(info->cmd);
+	proc_exec(info->cmd);
 	return 0;
 }

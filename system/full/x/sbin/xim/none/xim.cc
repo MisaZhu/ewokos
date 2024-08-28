@@ -2,18 +2,19 @@
 #include <stdlib.h>
 #include <fcntl.h>
 #include <stdio.h>
-#include <sys/vdevice.h>
-#include <sys/klog.h>
-#include <sys/proc.h>
-#include <sys/keydef.h>
-#include <sys/kernel_tic.h>
+#include <ewoksys/vdevice.h>
+#include <ewoksys/klog.h>
+#include <ewoksys/proc.h>
+#include <ewoksys/keydef.h>
+#include <ewoksys/kernel_tic.h>
+#include <ewoksys/core.h>
 #include <x/xwin.h>
 #include <string.h>
-#include <sys/timer.h>
+#include <ewoksys/timer.h>
 
-#define KEY_REPEAT_TIMEOUT	60
+#define KEY_REPEAT_TIMEOUT	50
 #define KEY_HOLD_TIMEOUT	100
-#define KEY_TIMER	        10000 //100 ps
+#define KEY_TIMER	        3000 //300 ps
 
 typedef struct {
 	uint8_t key;
@@ -129,10 +130,11 @@ public:
 		}
 
 		while(true) {
+			//keybFD = open(keyb_dev, O_RDONLY | O_NONBLOCK);
 			keybFD = open(keyb_dev, O_RDONLY);
 			if(keybFD > 0)
 				break;
-			usleep(300000);
+			proc_usleep(300000);
 		}
 	}
 
@@ -146,6 +148,9 @@ public:
 		if(x_pid < 0)
 			x_pid = dev_get_pid("/dev/x");
 		if(x_pid <= 0 || keybFD < 0)
+			return;
+		int ux = core_get_ux();
+		if(ux != 8)
 			return;
 
 		char v[6];
@@ -168,7 +173,7 @@ int main(int argc, char* argv[]) {
 	XIM xim(keyb_dev, escHome);
 	while(true) {
 		xim.read();
-		usleep(KEY_TIMER);
+		proc_usleep(KEY_TIMER);
 	}
 	return 0;
 }

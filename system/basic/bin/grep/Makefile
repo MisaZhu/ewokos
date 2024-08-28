@@ -12,8 +12,8 @@ GREP_OBJS = grep.o
 GREP = $(TARGET_DIR)/bin/grep
 
 $(GREP): $(GREP_OBJS) \
-		$(BUILD_DIR)/lib/libewokc.a
-	$(LD) -Ttext=100 $(GREP_OBJS) -o $(GREP) $(LDFLAGS) -lewokc -lc_nano -lnosys
+		$(EWOK_LIBC_A) 
+	$(LD) -Ttext=100 $(GREP_OBJS) -o $(GREP) $(LDFLAGS) $(EWOK_LIBC)
 
 clean:
 	rm -f $(GREP_OBJS)

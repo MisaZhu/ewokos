@@ -12,8 +12,8 @@ UNAME_OBJS = uname.o
 UNAME = $(TARGET_DIR)/bin/uname
 
 $(UNAME): $(UNAME_OBJS) \
-		$(BUILD_DIR)/lib/libewokc.a
-	$(LD) -Ttext=100 $(UNAME_OBJS) -o $(UNAME) $(LDFLAGS) -lewokc -lc_nano -lnosys
+		$(EWOK_LIBC_A) 
+	$(LD) -Ttext=100 $(UNAME_OBJS) -o $(UNAME) $(LDFLAGS) $(EWOK_LIBC)
 
 clean:
 	rm -f $(UNAME_OBJS)

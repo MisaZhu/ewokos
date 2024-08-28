@@ -1,5 +1,5 @@
 #include <arch/bcm283x/gpio.h>
-#include <sys/vdevice.h>
+#include <ewoksys/vdevice.h>
 #include <string.h>
 #include <unistd.h>
 
@@ -7,7 +7,7 @@
 #define CLK  5
 
 static void delay(void) {
-	usleep(0);
+	proc_usleep(0);
 }
 
 static void start_bus(void) {
@@ -72,7 +72,7 @@ static void init(void) {
 }
 
 static int _nums[] = { 0x3f, 0x06, 0x5b, 0x4f, 0x66, 0x6d, 0x7d, 0x07, 0x7f, 0x6f, 0x40 };
-static int display_write(int fd, int from_pid, uint32_t node,
+static int display_write(int fd, int from_pid, fsinfo_t* node,
 		const void* buf, int size, int offset, void* p) {
 	(void)fd;
 	(void)node;
@@ -114,6 +114,6 @@ int main(int argc, char** argv) {
 	memset(&dev, 0, sizeof(vdevice_t));
 	strcpy(dev.name, "nxez_display");
 	dev.write = display_write;
-	device_run(&dev, mnt_point, FS_TYPE_CHAR);
+	device_run(&dev, mnt_point, FS_TYPE_CHAR, 0444);
 	return 0;
 }

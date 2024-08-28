@@ -3,8 +3,8 @@
 #include <string.h>
 #include <sys/time.h>
 #include <stdarg.h>
-#include <sys/klog.h>
-#include <vprintf.h>
+#include <ewoksys/klog.h>
+
 #include <fcntl.h>
 #include <unistd.h>
 
@@ -65,7 +65,7 @@ extern void x_log(int logLevel, const char* tag, const char *fmt, ...)
 
 	va_list ap;
 	va_start(ap, fmt);
-	v_printf(outc_sn, &arg, fmt, ap);
+	//vprintf(outc_sn, &arg, fmt, ap); //TODO
 	arg.p[arg.index] = 0;
 	va_end(ap);
 	len += arg.index;

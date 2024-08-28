@@ -1,11 +1,11 @@
-/bin/rundev /drivers/virt/virt_uartd   /dev/tty0
+/bin/ipcserv /drivers/virt/virt_uartd   /dev/tty0
 
 $
 
-/bin/rundev /drivers/timerd               /dev/timer
-/bin/rundev /drivers/nulld                /dev/null
-/bin/rundev /drivers/ramfsd               /tmp
-/bin/rundev /drivers/proc/sysinfod        /proc/sysinfo
-/bin/rundev /drivers/proc/stated          /proc/state
+/bin/ipcserv /drivers/timerd               /dev/timer
+/bin/ipcserv /drivers/nulld                /dev/null
+/bin/ipcserv /drivers/ramfsd               /tmp
+/bin/ipcserv /drivers/proc/sysinfod        /proc/sysinfo
+/bin/ipcserv /drivers/proc/stated          /proc/state
 
-@/bin/session
+@/bin/session -r

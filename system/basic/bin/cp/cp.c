@@ -3,6 +3,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <fcntl.h>
+#include <sys/errno.h>
 
 void out(void* data, int32_t size) {
 	char* buf = (char*)data;
@@ -29,6 +30,12 @@ int main(int argc, char** argv) {
 		return -1;
 	}
 
+	struct stat st;
+	if(stat(argv[1], &st) != 0) {
+		printf("'%s' stat info failed!\n", argv[1]);
+		return -1;
+	}
+
 	int fd_from = open(argv[1], O_RDONLY);
 	if(fd_from < 0) {
 		printf("'%s' open failed!\n", argv[1]);
@@ -50,6 +57,8 @@ int main(int argc, char** argv) {
 		if(sz <= 0)
 			break;
 	}
+
+	fchmod(fd_to, st.st_mode);
 	close(fd_to);
 	close(fd_from);
 	return 0;

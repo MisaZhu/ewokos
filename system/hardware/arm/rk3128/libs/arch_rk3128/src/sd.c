@@ -2,10 +2,10 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
-#include <sys/syscall.h>
-#include <sys/mmio.h>
+#include <ewoksys/syscall.h>
+#include <ewoksys/mmio.h>
 #include <sysinfo.h>
-#include <sys/mmio.h>
+#include <ewoksys/mmio.h>
 
 #include "dwmmc.h"
 

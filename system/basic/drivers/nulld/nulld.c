@@ -2,13 +2,13 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
-#include <sys/vfs.h>
-#include <sys/vdevice.h>
-#include <sys/syscall.h>
+#include <ewoksys/vfs.h>
+#include <ewoksys/vdevice.h>
+#include <ewoksys/syscall.h>
 
 static int null_read(int fd,
 		int from_pid,
-		uint32_t node,
+		fsinfo_t* node,
 		void* buf,
 		int size,
 		int offset,
@@ -26,7 +26,7 @@ static int null_read(int fd,
 
 static int null_write(int fd, 
 		int from_pid,
-		uint32_t node,
+		fsinfo_t* node,
 		const void* buf,
 		int size,
 		int offset,
@@ -50,6 +50,6 @@ int main(int argc, char** argv) {
 	dev.read = null_read;
 	dev.write = null_write;
 
-	device_run(&dev, mnt_point, FS_TYPE_CHAR);
+	device_run(&dev, mnt_point, FS_TYPE_CHAR, 0666);
 	return 0;
 }

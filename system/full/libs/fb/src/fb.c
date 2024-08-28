@@ -3,11 +3,11 @@
 #include <fcntl.h>
 #include <string.h>
 #include <unistd.h>
-#include <sys/syscall.h>
-#include <sys/vdevice.h>
+#include <ewoksys/syscall.h>
+#include <ewoksys/vdevice.h>
 #include <sys/shm.h>
-#include <sys/proto.h>
-#include <sys/vfs.h>
+#include <ewoksys/proto.h>
+#include <ewoksys/vfs.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -30,10 +30,7 @@ int fb_set(const char *dev, int w, int h, int bpp) {
 	}
 
 	proto_t in;
-	PF->init(&in)->
-		addi(&in, w)->
-		addi(&in, h)->
-		addi(&in, bpp);
+	PF->format(&in, "i,i,i", w, h, bpp);
 
 	int res = dev_cntl(dev, 0, &in, NULL);
 	PF->clear(&in);
@@ -81,7 +78,7 @@ int fb_close(fb_t* fb) {
 		return -1;
 	if(fb->g != NULL) {
 		graph_free(fb->g);
-		shm_unmap(fb->dma);
+		shmdt(fb->dma);
 	}
 	close(fb->fd);
 	return 0;
@@ -100,6 +97,7 @@ graph_t* fb_fetch_graph(fb_t* fb) {
 		return NULL;
 
 	int w, h, bpp;
+	int32_t dma_id;
 	uint8_t* dma;
 	graph_t* g;
 
@@ -112,16 +110,16 @@ graph_t* fb_fetch_graph(fb_t* fb) {
 
 	if(fb->g != NULL) {
 		graph_free(fb->g);
-		shm_unmap(fb->dma);
+		shmdt(fb->dma);
 		fb->g = NULL;
 		fb->dma = NULL;
 	}
 
-	dma = (uint8_t*)vfs_dma(fb->fd, NULL);
-	if(dma == NULL) 
+	dma_id = vfs_dma(fb->fd, NULL);
+	if(dma_id == -1) 
 		return NULL;
 	
-	dma = shm_map(dma);
+	dma = shmat(dma_id, 0, 0);
 	if(dma == NULL) 
 		return NULL;
 	

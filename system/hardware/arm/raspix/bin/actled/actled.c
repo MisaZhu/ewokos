@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <string.h>
-#include <sys/vdevice.h>
+#include <ewoksys/vdevice.h>
 
 int main(int argc, char* argv[]) {
 	int on = 0;

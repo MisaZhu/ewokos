@@ -4,8 +4,8 @@
 #include <stddef.h>
 #include <string.h>
 #include <sys/types.h>
-#include <sys/klog.h>
-#include <errno.h>
+#include <ewoksys/klog.h>
+#include <sys/errno.h>
 
 #include "pcm_lib.h"
 

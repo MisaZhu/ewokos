@@ -8,6 +8,10 @@
 
 void kout(const char* s) {
 	uart_write(s, strlen(s));
+}
+
+static void out(const char* s) {
+	uart_write(s, strlen(s));
 #ifdef KCONSOLE
 	kconsole_input(s);
 #endif
@@ -30,7 +34,7 @@ void printf(const char *format, ...) {
 	va_start(ap, format);
 	_len = 0;
 	v_printf(outc, NULL, format, ap);
-	kout(_buf);
+	out(_buf);
 }
 
 void kprintf(const char *format, ...) {
@@ -38,6 +42,6 @@ void kprintf(const char *format, ...) {
 	va_start(ap, format);
 	_len = 0;
 	v_printf(outc, NULL, format, ap);
-	uart_write(_buf, strlen(_buf));
+	kout(_buf);
 }
 

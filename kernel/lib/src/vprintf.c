@@ -1,5 +1,6 @@
 #include <vprintf.h>
 #include <kstring.h>
+#include <stdarg.h>
 
 /* digits */
 #define DIGITS_CAP "0123456789ABCDEF"

@@ -45,11 +45,12 @@ inline void graph_init(graph_t* g, const uint32_t* buffer, int32_t w, int32_t h)
 }
 
 void graph_set_clip(graph_t* g, int x, int y, int w, int h) {
-	g->clip.x = x;
-	g->clip.y = y;
-	g->clip.w = w;
-	g->clip.h = h;
-	graph_insect(g, &g->clip);
+	grect_t r = {x, y, w, h};
+	g->clip.x = 0;
+	g->clip.y = 0;
+	g->clip.w = g->w;
+	g->clip.h = g->h;
+	grect_insect(&r, &g->clip);
 }
 
 void graph_unset_clip(graph_t* g) {
@@ -111,23 +112,29 @@ void graph_rotate_to(graph_t* g, graph_t* ret, int rot) {
 		return;
 
 	if(rot == G_ROTATE_90) {
-		for(int i=0; i<g->w; i++) {
-			for(int j=0; j<g->h; j++) {
-				ret->buffer[(ret->h-i-1)*ret->w + (ret->w-j)] = g->buffer[j*g->w + (g->w-i-1)];
+		for(int i=0; i<g->w; ++i) {
+			int w0 = (ret->h - i - 1) * ret->w + ret->w;
+			int w1 = g->w - i - 1;
+			for(int j=0; j<g->h; ++j) {
+				ret->buffer[w0 - j] = g->buffer[j*g->w + w1];
 			}
 		}
 	}
 	else if(rot == G_ROTATE_N90) {
-		for(int i=0; i<g->w; i++) {
-			for(int j=0; j<g->h; j++) {
-				ret->buffer[i*ret->w + j] = g->buffer[j*g->w + (g->w-i-1)];
+		for(int i=0; i<g->w; ++i) {
+			int w0 = i*ret->w;
+			int w1 = g->w - i - 1;
+			for(int j=0; j<g->h; ++j) {
+				ret->buffer[w0 + j] = g->buffer[j*g->w + w1];
 			}
 		}
 	}
 	else if(rot == G_ROTATE_180) {
-		for(int i=0; i<g->h; i++) {
-			for(int j=0; j<g->w; j++) {
-				ret->buffer[i*g->w + j] = g->buffer[(g->h-i-1)*g->w + (g->w-j-1)];
+		for(int i=0; i<g->h; ++i) {
+			int w0 = i*g->w;
+			int w1 = (g->h-i-1)*g->w;
+			for(int j=0; j<g->w; ++j) {
+				ret->buffer[w0 + j] = g->buffer[w1 + (g->w - j - 1)];
 			}
 		}
 	}

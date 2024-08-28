@@ -3,16 +3,16 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <string.h>
-#include <sys/vdevice.h>
-#include <sys/proto.h>
+#include <ewoksys/vdevice.h>
+#include <ewoksys/proto.h>
 #include <x/xcntl.h>
 #include <x/xevent.h>
-#include <sys/vfs.h>
+#include <ewoksys/vfs.h>
 
 static int _x_pid = -1;
 static int8_t _mouse_down = 0;
 
-static void input(int8_t state, int8_t rx, int8_t ry) {
+static void input(int8_t button, int8_t rx, int8_t ry) {
 	xevent_t ev;
 	memset(&ev, 0, sizeof(xevent_t));
 	ev.type = XEVT_MOUSE;
@@ -20,12 +20,29 @@ static void input(int8_t state, int8_t rx, int8_t ry) {
 	ev.value.mouse.relative = 1;
 	ev.value.mouse.rx = rx;
 	ev.value.mouse.ry = ry;
+	ev.value.mouse.button = MOUSE_BUTTON_NONE;
 
-	if(state == 2 || (state == 0 && _mouse_down == 1)) {//down
+	if(button == 2) 
+		ev.value.mouse.button = MOUSE_BUTTON_LEFT;
+	else if(button == 3) 
+		ev.value.mouse.button = MOUSE_BUTTON_MID;
+	else if(button == 4) 
+		ev.value.mouse.button = MOUSE_BUTTON_RIGHT;
+	else if(button == 8) {
+		if(ev.value.mouse.rx > 0)
+			ev.value.mouse.button = MOUSE_BUTTON_SCROLL_UP;
+		else
+			ev.value.mouse.button = MOUSE_BUTTON_SCROLL_DOWN;
+		ev.value.mouse.rx = 0;
+		ev.value.mouse.ry = 0;
+	}
+
+	if((button > 1 && button != 8)||
+			(button == 0 && _mouse_down == 1)) {//down
 		ev.state = XEVT_MOUSE_DOWN;
 		_mouse_down = 1;
 	}
-	else if(state == 1) {//up
+	else if(button == 1) {//up
 		ev.state = XEVT_MOUSE_UP;
 		_mouse_down = 0;
 	}
@@ -49,15 +66,16 @@ int main(int argc, char** argv) {
 
 	while(_x_pid < 0) {
 		_x_pid = dev_get_pid("/dev/x");
-		usleep(100000);
+		proc_usleep(100000);
 	}
 
 	while(true) {
 		int8_t mv[4];
-		if(read(fd, mv, 4) == 4)
-			input(mv[0], mv[1], mv[2]);
-		else
-			usleep(2000);
+		if(read(fd, mv, 4) == 4) {
+			if(mv[0] != 0) 
+				input(mv[1], mv[2], mv[3]);
+		}
+		proc_usleep(3000);
 	}
 
 	close(fd);

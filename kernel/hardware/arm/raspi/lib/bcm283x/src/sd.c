@@ -9,23 +9,25 @@
 #define SD_TIMEOUT          -1
 #define SD_ERROR            -2
 
-#define EMMC_ARG2           ((volatile uint32_t*)(_sys_info.mmio.v_base+0x00300000))
-#define EMMC_BLKSIZECNT     ((volatile uint32_t*)(_sys_info.mmio.v_base+0x00300004))
-#define EMMC_ARG1           ((volatile uint32_t*)(_sys_info.mmio.v_base+0x00300008))
-#define EMMC_CMDTM          ((volatile uint32_t*)(_sys_info.mmio.v_base+0x0030000C))
-#define EMMC_RESP0          ((volatile uint32_t*)(_sys_info.mmio.v_base+0x00300010))
-#define EMMC_RESP1          ((volatile uint32_t*)(_sys_info.mmio.v_base+0x00300014))
-#define EMMC_RESP2          ((volatile uint32_t*)(_sys_info.mmio.v_base+0x00300018))
-#define EMMC_RESP3          ((volatile uint32_t*)(_sys_info.mmio.v_base+0x0030001C))
-#define EMMC_DATA           ((volatile uint32_t*)(_sys_info.mmio.v_base+0x00300020))
-#define EMMC_STATUS         ((volatile uint32_t*)(_sys_info.mmio.v_base+0x00300024))
-#define EMMC_CONTROL0       ((volatile uint32_t*)(_sys_info.mmio.v_base+0x00300028))
-#define EMMC_CONTROL1       ((volatile uint32_t*)(_sys_info.mmio.v_base+0x0030002C))
-#define EMMC_INTERRUPT      ((volatile uint32_t*)(_sys_info.mmio.v_base+0x00300030))
-#define EMMC_INT_MASK       ((volatile uint32_t*)(_sys_info.mmio.v_base+0x00300034))
-#define EMMC_INT_EN         ((volatile uint32_t*)(_sys_info.mmio.v_base+0x00300038))
-#define EMMC_CONTROL2       ((volatile uint32_t*)(_sys_info.mmio.v_base+0x0030003C))
-#define EMMC_SLOTISR_VER    ((volatile uint32_t*)(_sys_info.mmio.v_base+0x003000FC))
+static uint32_t  EMMC_BASE;
+
+#define EMMC_ARG2           ((volatile uint32_t*)(_sys_info.mmio.v_base + EMMC_BASE + 0x00))
+#define EMMC_BLKSIZECNT     ((volatile uint32_t*)(_sys_info.mmio.v_base + EMMC_BASE + 0x04))
+#define EMMC_ARG1           ((volatile uint32_t*)(_sys_info.mmio.v_base + EMMC_BASE + 0x08))
+#define EMMC_CMDTM          ((volatile uint32_t*)(_sys_info.mmio.v_base + EMMC_BASE + 0x0C))
+#define EMMC_RESP0          ((volatile uint32_t*)(_sys_info.mmio.v_base + EMMC_BASE + 0x10))
+#define EMMC_RESP1          ((volatile uint32_t*)(_sys_info.mmio.v_base + EMMC_BASE + 0x14))
+#define EMMC_RESP2          ((volatile uint32_t*)(_sys_info.mmio.v_base + EMMC_BASE + 0x18))
+#define EMMC_RESP3          ((volatile uint32_t*)(_sys_info.mmio.v_base + EMMC_BASE + 0x1C))
+#define EMMC_DATA           ((volatile uint32_t*)(_sys_info.mmio.v_base + EMMC_BASE + 0x20))
+#define EMMC_STATUS         ((volatile uint32_t*)(_sys_info.mmio.v_base + EMMC_BASE + 0x24))
+#define EMMC_CONTROL0       ((volatile uint32_t*)(_sys_info.mmio.v_base + EMMC_BASE + 0x28))
+#define EMMC_CONTROL1       ((volatile uint32_t*)(_sys_info.mmio.v_base + EMMC_BASE + 0x2C))
+#define EMMC_INTERRUPT      ((volatile uint32_t*)(_sys_info.mmio.v_base + EMMC_BASE + 0x30))
+#define EMMC_INT_MASK       ((volatile uint32_t*)(_sys_info.mmio.v_base + EMMC_BASE + 0x34))
+#define EMMC_INT_EN         ((volatile uint32_t*)(_sys_info.mmio.v_base + EMMC_BASE + 0x38))
+#define EMMC_CONTROL2       ((volatile uint32_t*)(_sys_info.mmio.v_base + EMMC_BASE + 0x3C))
+#define EMMC_SLOTISR_VER    ((volatile uint32_t*)(_sys_info.mmio.v_base + EMMC_BASE + 0xFC))
 
 // command flags
 #define CMD_NEED_APP        0x80000000
@@ -155,8 +157,10 @@ static inline int32_t sd_int(uint32_t mask, int32_t wait) {
  * Send a command
  */
 static inline int32_t sd_cmd(uint32_t code, uint32_t arg) {
+
 	int32_t r = 0;
 	sd_err = SD_OK;
+
 	if(code & CMD_NEED_APP) {
 		r = sd_cmd(CMD_APP_CMD|(sd_rca?CMD_RSPNS_48:0), sd_rca);
 		if(sd_rca != 0 && r == 0x0) {
@@ -165,10 +169,12 @@ static inline int32_t sd_cmd(uint32_t code, uint32_t arg) {
 		}
 		code &= ~CMD_NEED_APP;
 	}
+
 	if(sd_status(SR_CMD_INHIBIT)) { 
 		sd_err = SD_TIMEOUT;
 		return 0;
 	}
+
 	*EMMC_INTERRUPT = *EMMC_INTERRUPT; 
 	*EMMC_ARG1 = arg;
 	*EMMC_CMDTM = code;
@@ -202,6 +208,7 @@ static inline int32_t sd_cmd(uint32_t code, uint32_t arg) {
 		sd_err = (((r&0x1fff))|((r&0x2000)<<6)|((r&0x4000)<<8)|((r&0x8000)<<8)) & CMD_ERRORS_MASK;
 		return r & CMD_RCA_MASK;
 	}
+
 	return r & CMD_ERRORS_MASK;
 }
 
@@ -319,7 +326,15 @@ int32_t bcm283x_sd_init(void) {
 	_sdc.txdone = 1;
 
 	int64_t r, cnt, ccs = 0;
+	extern uint32_t _pi4;
 	
+	// check sdmux connect to witch emmc bus
+	if(_pi4 && (*((uint32_t*)(_sys_info.mmio.v_base + 0x2000d0)) & 0x2) == 0){
+		EMMC_BASE = 0x00340000;
+	}else{
+		EMMC_BASE = 0x00300000;
+	}
+
 	sd_hv = (*EMMC_SLOTISR_VER & HOST_SPEC_NUM) >> HOST_SPEC_NUM_SHIFT;
 	// Reset the card.
 	*EMMC_CONTROL0 = 0;
@@ -329,9 +344,12 @@ int32_t bcm283x_sd_init(void) {
 		_delay_msec(10);
 	} while((*EMMC_CONTROL1 & C1_SRST_HC) && cnt-- );
 
-	if(cnt<=0)
-		return SD_ERROR;
+	if(cnt<=0){
 
+		return SD_ERROR;
+	}
+
+	*EMMC_CONTROL0 |= 0xF00;
 	*EMMC_CONTROL1 |= C1_CLK_INTLEN | C1_TOUNIT_MAX;
 	_delay_msec(10);
 	// Set clock to setup frequency.
@@ -341,12 +359,14 @@ int32_t bcm283x_sd_init(void) {
 	*EMMC_INT_MASK = 0xffffffff;
 	sd_scr[0] = sd_scr[1] = sd_rca = sd_err = 0;
 	sd_cmd(CMD_GO_IDLE, 0);
-	if(sd_err)
+	if(sd_err){
 		return sd_err;
+	}
 
 	sd_cmd(CMD_SEND_IF_COND, 0x000001AA);
-	if(sd_err) 
+	if(sd_err){
 		return sd_err;
+	}
 	cnt = 6;
 	r = 0;
 	while(!(r&ACMD41_CMD_COMPLETE) && cnt--) {
@@ -374,8 +394,8 @@ int32_t bcm283x_sd_init(void) {
 	if(sd_err)
 		return sd_err;
 	
-	//if((r=sd_clk(25000000)))
 	if((r=sd_clk(12500000)))
+	//if((r=sd_clk(25000000)))
 		return r;
 
 	if(sd_status(SR_DAT_INHIBIT))
@@ -410,6 +430,7 @@ int32_t bcm283x_sd_init(void) {
 	// add software flag
 	sd_scr[0] &= ~SCR_SUPP_CCS;
 	sd_scr[0] |= ccs;
+
 	return SD_OK;
 }
 

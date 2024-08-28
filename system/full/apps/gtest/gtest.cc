@@ -3,13 +3,14 @@
 #include <fcntl.h>
 #include <stdio.h>
 #include <string.h>
-#include <vprintf.h>
+
 #include <upng/upng.h>
-#include <sys/basic_math.h>
-#include <sys/kernel_tic.h>
+#include <ewoksys/basic_math.h>
+#include <ewoksys/kernel_tic.h>
+#include <ewoksys/ipc.h>
 #include <font/font.h>
 #include <x++/X.h>
-#include <sys/timer.h>
+#include <ewoksys/timer.h>
 
 using namespace Ewok;
 
@@ -19,7 +20,6 @@ class TestX : public XWin {
 	uint32_t tic;
 	graph_t* img_big;
 	graph_t* img_small;
-	font_t font;
 
 	static const int CIRCLE = 0;
 	static const int RECT   = 1;
@@ -40,7 +40,6 @@ public:
         imgX = imgY = 0;
 		img_big = png_image_new(X::getResName("data/rokid.png"));	
 		img_small = png_image_new(X::getResName("data/rokid_small.png"));	
-		font_load(DEFAULT_SYSTEM_FONT, 13, &font, true);
 	}
 	
 	inline ~TestX() {
@@ -48,8 +47,6 @@ public:
 			graph_free(img_big);
 		if(img_small != NULL)
 			graph_free(img_small);
-		if(font.id >= 0)
-			font_close(&font);
 	}
 protected:
 	void onEvent(xevent_t* ev) {
@@ -65,7 +62,7 @@ protected:
 		int gW = g->w;
 		int gH = g->h;
 		graph_t* img = gW > (img_big->w*2) ? img_big: img_small;
-		uint32_t font_h = font.max_size.y;
+		uint32_t font_h = theme.basic.fontSize;
 
 		count++;
 
@@ -73,7 +70,7 @@ protected:
 		int y = random_to(gH);
 		int w = random_to(gW/4);
 		int h = random_to(gH/4);
-		int c = random();
+		int c = rand();
 
 		uint32_t low;
 		kernel_tic32(NULL, NULL, &low); 
@@ -118,9 +115,8 @@ protected:
 
 		char str[32];
 		snprintf(str, 31, "EwokOS FPS: %d", fps);
-		font_text_size(str, &font, (uint32_t*)&w, NULL);
 		graph_fill(g, imgX, imgY+img->h+2, img->w, font_h+4, 0xffffffff);
-		graph_draw_text_font(g, imgX+4, imgY+img->h+4, str, &font, 0xff000000);
+		graph_draw_text_font(g, imgX+4, imgY+img->h+4, str, theme.getFont(), theme.basic.fontSize, 0xff000000);
 		drawImage(g, img);
 	}
 };
@@ -129,13 +125,15 @@ protected:
 static void loop(void* p) {
 	XWin* xwin = (XWin*)p;
 	xwin->repaint();
-	usleep(5000);
+	proc_usleep(5000);
 }
 */
 
 static XWin* _xwin = NULL;
 static void timer_handler(void) {
+	ipc_disable();
 	_xwin->repaint();
+	ipc_enable();
 }
 
 int main(int argc, char* argv[]) {
@@ -144,11 +142,8 @@ int main(int argc, char* argv[]) {
 	grect_t desk;
 
 	X x;
-	x.getDesktopSpace(desk, 0);
-
 	TestX xwin;
-	x.open(&desk, &xwin, 0, 0, "gtest", XWIN_STYLE_NORMAL);
-	xwin.setVisible(true);
+	xwin.open(&x, 0, -1, -1, 0, 0, "gtest", XWIN_STYLE_NORMAL);
 
 	_xwin = &xwin;
 	uint32_t tid = timer_set(10000, timer_handler);

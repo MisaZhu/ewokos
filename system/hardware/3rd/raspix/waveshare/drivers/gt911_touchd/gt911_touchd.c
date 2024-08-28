@@ -1,10 +1,10 @@
-#include <sys/vdevice.h>
+#include <ewoksys/vdevice.h>
 #include <unistd.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/vfs.h>
-#include <sys/kernel_tic.h>
-#include <sys/mmio.h>
+#include <ewoksys/vfs.h>
+#include <ewoksys/kernel_tic.h>
+#include <ewoksys/mmio.h>
 
 #include "gt911.h"
 static bool press = false;
@@ -12,7 +12,7 @@ static	TouchCordinate_t cordinate[5];
 static 	uint8_t  number_of_cordinate = 0;
 static 	uint64_t last_ts = 0;	
 
-static int tp_read(int fd, int from_pid, uint32_t node,
+static int tp_read(int fd, int from_pid, fsinfo_t* node,
 		void* buf, int size, int offset, void* p) {
 	(void)fd;
 	(void)from_pid;
@@ -34,8 +34,8 @@ static int tp_read(int fd, int from_pid, uint32_t node,
 			d[2] = cordinate[0].y;
 			return 6;
 		}else{
-			//usleep(25000);
-			return ERR_RETRY_NON_BLOCK;
+			//proc_usleep(25000);
+			return VFS_ERR_RETRY;
 		}
 	}
 	last_ts = kernel_tic_ms(0);
@@ -58,6 +58,6 @@ int main(int argc, char** argv) {
 	strcpy(dev.name, "gt911");
 	dev.read = tp_read;
 
-	device_run(&dev, mnt_point, FS_TYPE_CHAR);
+	device_run(&dev, mnt_point, FS_TYPE_CHAR, 0444);
 	return 0;
 }

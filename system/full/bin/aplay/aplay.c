@@ -2,7 +2,7 @@
 
 #include <stdio.h>
 #include <fcntl.h>
-#include <errno.h>
+#include <sys/errno.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <pthread.h>
@@ -134,7 +134,7 @@ void *push_data_to_pcm(void *data)
 	struct pcm *wpcm = mgr->wpcm;
 	int ret = 0;
 
-	usleep(200 * 1000);
+	proc_usleep(200 * 1000);
 	if ((mgr->p_size == 0) && (mgr->q_size == 0)) {
 		LOGD("%s() No available data, should not happen!", __func__);
 	}
@@ -149,7 +149,7 @@ void *push_data_to_pcm(void *data)
 
 		if ((p_size == 0) && (q_size == 0)) {
 			//LOGD("%s() No available data, sleep and try again", __func__);
-			usleep(1000);
+			proc_usleep(1000);
 			continue;
 		}
 
@@ -277,7 +277,7 @@ int play_with_stdin(int bit_depth, int rate, int channels)
 	}
 
 	while(mgr.pcm_exit != 0) {
-		usleep(10 * 1000);
+		proc_usleep(10 * 1000);
 	}
 
 	free(pbuf);

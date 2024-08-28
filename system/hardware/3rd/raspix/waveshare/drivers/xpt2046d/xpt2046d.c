@@ -1,11 +1,11 @@
 #include <xpt2046/xpt2046.h>
-#include <sys/vdevice.h>
+#include <ewoksys/vdevice.h>
 #include <unistd.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/vfs.h>
+#include <ewoksys/vfs.h>
 
-static int tp_read(int fd, int from_pid, uint32_t node,
+static int tp_read(int fd, int from_pid, fsinfo_t* node,
 		void* buf, int size, int offset, void* p) {
 	(void)fd;
 	(void)from_pid;
@@ -14,12 +14,12 @@ static int tp_read(int fd, int from_pid, uint32_t node,
 	(void)p;
 
 	if(size < 6)
-		return ERR_RETRY_NON_BLOCK;
+		return VFS_ERR_RETRY;
 
 	uint16_t* d = (uint16_t*)buf;
 
 	if(xpt2046_read(&d[0], &d[1], &d[2]) != 0)
-		return ERR_RETRY_NON_BLOCK;
+		return VFS_ERR_RETRY;
 	return 6;	
 }
 
@@ -43,6 +43,6 @@ int main(int argc, char** argv) {
 	strcpy(dev.name, "xpt2046");
 	dev.read = tp_read;
 
-	device_run(&dev, mnt_point, FS_TYPE_CHAR);
+	device_run(&dev, mnt_point, FS_TYPE_CHAR, 0444);
 	return 0;
 }

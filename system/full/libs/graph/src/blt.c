@@ -8,29 +8,34 @@
 extern "C" { 
 #endif
 
-int32_t grect_insect(grect_t* src, grect_t* r) {
+int32_t grect_insect(const grect_t* src, grect_t* dst) {
 	//insect src;
-	if(r->x >= (int32_t)(src->x+src->w) || r->y >= (int32_t)(src->y+src->h)) //check x, y
+	if(dst->x >= (int32_t)(src->x+src->w))
+		dst->w = 0;
+	if(dst->y >= (int32_t)(src->y+src->h))
+		dst->h = 0;
+	
+	if(dst->w == 0 || dst->h == 0)
 		return 0;
 
 	int32_t rx, ry;  //chehck w, h
-	rx = r->x + r->w;
-	ry = r->y + r->h;
+	rx = dst->x + dst->w;
+	ry = dst->y + dst->h;
 	if(rx >= (int32_t)(src->x+src->w))
-		r->w -= (rx - (src->x+src->w));
+		dst->w -= (rx - (src->x+src->w));
 	if(ry >= (int32_t)(src->y+src->h))
-		r->h -= (ry - (src->y+src->h));
+		dst->h -= (ry - (src->y+src->h));
 
-	if(r->x < src->x) {
-		r->w -= (src->x - r->x);
-		r->x = src->x;
+	if(dst->x < src->x) {
+		dst->w -= (src->x - dst->x);
+		dst->x = src->x;
 	}
 
-	if(r->y < src->y) {
-		r->h -= (src->y - r->y);
-		r->y = src->y;
+	if(dst->y < src->y) {
+		dst->h -= (src->y - dst->y);
+		dst->y = src->y;
 	}
-	if(r->w <= 0 || r->h <= 0)
+	if(dst->w <= 0 || dst->h <= 0)
 		return 0;
 	return 1;
 }
@@ -39,11 +44,8 @@ int32_t grect_insect(grect_t* src, grect_t* r) {
 	return 0 for none-insection-area.
 */
 inline int32_t graph_insect(graph_t* g, grect_t* r) {
-	if(g->clip.w == 0 || g->clip.h == 0) {
-		grect_t gr = {0, 0, g->w, g->h};
-		return grect_insect(&gr, r);
-	}
-	return grect_insect(&g->clip, r);
+	grect_t gr = {0, 0, g->w, g->h};
+	return grect_insect(&gr, r);
 }
 
 /*will change the value of sr, dr.
@@ -124,6 +126,26 @@ void graph_fill_cpu(graph_t* g, int32_t x, int32_t y, int32_t w, int32_t h, uint
 	}
 }
 
+void graph_set(graph_t* g, int32_t x, int32_t y, int32_t w, int32_t h, uint32_t color) {
+	if(g == NULL || w <= 0 || h <= 0)
+		return;
+	grect_t r = {x, y, w, h};
+	if(!graph_insect(g, &r))
+		return;
+
+	register int32_t ex, ey;
+	y = r.y;
+	ex = r.x + r.w;
+	ey = r.y + r.h;
+
+	for(; y < ey; y++) {
+		x = r.x;
+		for(; x < ex; x++) {
+			g->buffer[y*g->w+x] = color;
+		}
+	}
+}
+
 inline void graph_fill(graph_t* g, int32_t x, int32_t y, int32_t w, int32_t h, uint32_t color) {
 	graph_fill_bsp(g, x, y, w, h, color);
 }
@@ -146,6 +168,11 @@ void graph_blt_cpu(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_t sh,
 	graph_insect(dst, &dr);
 	if(!graph_insect_with(src, &sr, dst, &dr))
 		return;
+
+	if(dx < 0)
+		sr.x -= dx;
+	if(dy < 0)
+		sr.y -= dy;
 
 	register int32_t ex, ey, offset_d, offset_r;
 	sy = sr.y;
@@ -180,6 +207,12 @@ void graph_blt_alpha_cpu(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32
 	graph_insect(dst, &dr);
 	if(!graph_insect_with(src, &sr, dst, &dr))
 		return;
+
+	if(dx < 0)
+		sr.x -= dx;
+	if(dy < 0)
+		sr.y -= dy;
+
 	register int32_t ex, ey;
 	sy = sr.y;
 	dy = dr.y;

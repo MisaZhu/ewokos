@@ -12,16 +12,15 @@ XWM_OBJS = xwm.o MacWM.o
 XWM = $(TARGET_DIR)/sbin/x/xwm_mac1984
 
 $(XWM): $(XWM_OBJS) \
-		$(BUILD_DIR)/lib/libewokc.a \
+		$(EWOK_LIBC_A)  \
 		$(BUILD_DIR)/lib/libx++.a \
 		$(BUILD_DIR)/lib/libx.a \
 		$(BUILD_DIR)/lib/libsconf.a \
-		$(BUILD_DIR)/lib/libhash.a \
 		$(BUILD_DIR)/lib/libttf.a \
 		$(BUILD_DIR)/lib/libfont.a \
 		$(BUILD_DIR)/lib/libgraph.a \
 		$(BUILD_DIR)/lib/libcxx.a 
-	$(LD) -Ttext=100 $(XWM_OBJS) -o $(XWM) $(LDFLAGS) -lx++ -lx -lgraph -lbsp -lttf -lfont  -lhash -lupng -lsconf -lewokc -lc_nano -lnosys -lcxx
+	$(LD) -Ttext=100 $(XWM_OBJS) -o $(XWM) $(LDFLAGS) -lx++ -lx -lgraph -lbsp -lttf -lfont  -lupng -lsconf $(EWOK_LIBC) -lcxx
 
 clean:
 	rm -f $(XWM_OBJS)

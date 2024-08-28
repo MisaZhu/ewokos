@@ -12,8 +12,8 @@ RAMFSD_OBJS = ramfsd.o
 RAMFSD = $(TARGET_DIR)/drivers/ramfsd
 
 $(RAMFSD): $(RAMFSD_OBJS) \
-		$(BUILD_DIR)/lib/libewokc.a
-	$(LD) -Ttext=100 $(RAMFSD_OBJS) -o $(RAMFSD) $(LDFLAGS) -lewokc -lc_nano -lnosys
+		$(EWOK_LIBC_A) 
+	$(LD) -Ttext=100 $(RAMFSD_OBJS) -o $(RAMFSD) $(LDFLAGS) $(EWOK_LIBC)
 
 clean:
 	rm -f $(RAMFSD_OBJS)

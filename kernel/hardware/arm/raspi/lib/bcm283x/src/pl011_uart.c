@@ -38,7 +38,7 @@ enum {
 	UART0_TDR = (UART0_BASE_OFF + 0x8C),
 };
 
-int32_t pl011_uart_init(void) {
+int32_t pl011_uart_init(uint32_t baud) {
 	// Disable UART0.
 	put32(_sys_info.mmio.v_base+UART0_CR, 0x00000000);
 	// Setup the GPIO pin 14 && 15.

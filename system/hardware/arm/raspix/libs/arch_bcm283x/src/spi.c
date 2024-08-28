@@ -8,7 +8,7 @@
  **/
 #include <arch/bcm283x/gpio.h>
 #include <arch/bcm283x/spi.h>
-#include <sys/mmio.h>
+#include <ewoksys/mmio.h>
 
 #define SPI0_OFFSET 0x00204000
 #define SPI1_OFFSET 0x00215080

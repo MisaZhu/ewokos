@@ -4,45 +4,23 @@ CXX = arm-none-eabi-c++
 LD = arm-none-eabi-ld
 OBJDUMP = arm-none-eabi-objdump
 
-CFLAGS = -Wstrict-prototypes \
-        -marm \
+CFLAGS = -marm \
 	-mfloat-abi=softfp \
         -Wall -Wextra -fPIC -mapcs-frame \
-        -fno-builtin-printf \
-        -fno-builtin-stat \
-        -fno-builtin-memset \
-        -fno-builtin-calloc \
-        -fno-builtin-snprintf \
-        -fno-builtin-sprintf \
-        -fno-builtin-fprintf \
-        -fno-builtin-fwrite \
-        -fno-builtin-fclose \
-        -fno-builtin-realloc \
-        -Wno-overlength-strings \
-        -fno-builtin-exit \
-        -fno-builtin-stdio \
-        -fno-builtin-unistd \
+        -Wno-unused-parameter \
         -std=c99
 
 CXXFLAGS = -marm \
 	-mfloat-abi=softfp \
-        -pedantic -Wall -Wextra -fPIC -mapcs-frame \
-        -fno-builtin-printf \
-        -fno-builtin-memset \
-        -fno-builtin-snprintf \
-        -fno-builtin-sprintf \
-        -fno-builtin-fprintf \
-        -fno-builtin-fread \
-        -fno-builtin-fwrite \
-        -fno-builtin-fclose \
-        -fno-builtin-realloc \
-        -Wno-overlength-strings \
-        -fno-builtin-exit \
-        -fno-builtin-stdio \
-        -fno-builtin-unistd \
-        -fno-rtti \
+        -Wall -Wextra -fPIC -mapcs-frame \
+        -Wno-unused-parameter \
+        -pedantic \
+	-fno-rtti \
         -fno-exceptions \
         -std=c++14
+
+EWOK_LIBC = -lewoksys -lc -lgloss
+EWOK_LIBC_A = $(BUILD_DIR)/lib/libewoksys.a $(BUILD_DIR)/lib/libgloss.a 
         
 #CFLAGS +=  -g
 CFLAGS +=  -O2

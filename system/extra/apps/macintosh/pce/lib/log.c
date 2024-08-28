@@ -150,7 +150,7 @@ void pce_log (unsigned level, const char *msg, ...)
 	for (i = 0; i < par_log_cnt; i++) {
 		if (level <= par_log[i].level) {
 			va_start (va, msg);
-			v_printf (outc, NULL, msg, va);
+			//vprintf (outc, NULL, msg, va); //TODO
 			va_end (va);
 			fflush (par_log[i].fp);
 		}
@@ -169,7 +169,7 @@ void pce_log_va (unsigned level, const char *msg, va_list va)
 #else
 			tmp = va;
 #endif
-			v_printf (outc, NULL, msg, va);
+			//vprintf (outc, NULL, msg, va); //TODO
 			va_end (tmp);
 			fflush (par_log[i].fp);
 		}
@@ -198,7 +198,7 @@ void pce_log_tag (unsigned level, const char *tag, const char *msg, ...)
 		if (level <= par_log[i].level) {
 			va_start (va, msg);
 			fprintf (par_log[i].fp, "%-9s ", tag);
-			v_printf (outc, NULL, msg, va);
+			//vprintf (outc, NULL, msg, va); //TODO
 			va_end (va);
 			fflush (par_log[i].fp);
 		}

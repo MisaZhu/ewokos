@@ -6,6 +6,7 @@
 #include <kernel/kernel.h>
 #include <kernel/proc.h>
 #include <kernel/kevqueue.h>
+#include <kernel/trace.h>
 #include <kernel/interrupt.h>
 #include <kernel/core.h>
 #include <kstring.h>
@@ -23,6 +24,7 @@ uint64_t _kernel_usec = 0;
 static uint64_t _last_usec = 0;
 static uint32_t _schedule = 0;
 static uint32_t _schedule_usec = 0;
+static uint32_t _schedule_tic = 0;
 static uint32_t _timer_tic = 0;
 static uint32_t _sec_tic = 0;
 
@@ -46,12 +48,13 @@ static inline void ipi_send_all(void) {
 
 #endif
 
-static inline void irq_do_uart0(context_t* ctx) {
-	interrupt_send(ctx, SYS_INT_UART0);
+static inline void irq_do_raw(context_t* ctx, uint32_t irq) {
+	//kprintf("irq_raw: 0x%x\n", irq);
+	interrupt_send(ctx, irq);
 }
 
 static inline int32_t irq_do_timer0_interrupt(context_t* ctx) {
-	return interrupt_send(ctx, SYS_INT_TIMER0);
+	return interrupt_send(ctx, IRQ_TIMER0);
 }
 
 static inline void irq_do_timer0(context_t* ctx) {
@@ -60,9 +63,15 @@ static inline void irq_do_timer0(context_t* ctx) {
 	int32_t do_schedule = 0;
 
 	uint32_t usec_gap = usec - _last_usec;
+
+#ifdef SCHD_TRACE
+	update_trace(usec_gap);
+#endif
+
 	_last_usec = usec;
 	_kernel_usec += usec_gap;
 	_sec_tic += usec_gap;
+	_schedule_tic += usec_gap;
 	_timer_tic += usec_gap;
 	if(_sec_tic >= 1000000) { //SEC_TIC sec
 		_kernel_sec++;
@@ -74,14 +83,21 @@ static inline void irq_do_timer0(context_t* ctx) {
 	
 	timer_clear_interrupt(0);
 
-	if(_timer_tic >= _schedule_usec) {
-		_timer_tic = 0;
-		if(_schedule == 0) { //this tic not for schedule, do timer interrupt.
+	if(_schedule == 0) { //this tic not for schedule, do timer interrupt.
 			_schedule = 1; //next tic for schedule
-			if(irq_do_timer0_interrupt(ctx) == 0) //if timer set, don't do schedule
-				return;
+			uint32_t intr_usec = _kernel_config.timer_intr_usec/2;
+			if(intr_usec > 0 && _timer_tic >= intr_usec) {
+				_timer_tic = 0;
+				if(irq_do_timer0_interrupt(ctx) == 0) //if timer set, don't do schedule
+					return;
+			}
+	}
+	else {
+		_schedule = 0;
+		if(_schedule_tic >= _schedule_usec) {
+			_schedule_tic = 0;
+			do_schedule = 1;
 		}
-		do_schedule = 1;
 	}
 	
 	if(do_schedule) {
@@ -95,13 +111,14 @@ static inline void irq_do_timer0(context_t* ctx) {
 }
 
 static inline void _irq_handler(uint32_t cid, context_t* ctx) {
-	uint32_t irqs = irq_gets();
+	uint64_t raw_irqs;
+	uint32_t irq = irq_get();
 
 	//handle irq
-	if((irqs & IRQ_UART0) != 0) {
-		irq_do_uart0(ctx);
+	if(irq > 0 && irq < IRQ_RAW_TOP) {
+		irq_do_raw(ctx, irq);
 	}
-	else if(cid == 0 && (irqs & IRQ_TIMER0) != 0) {
+	else if(cid == 0 && irq == IRQ_TIMER0) {
 		irq_do_timer0(ctx);
 	}
 	else {
@@ -123,8 +140,6 @@ inline void irq_handler(context_t* ctx) {
 	_irq_handler(cid, ctx);
 	kernel_unlock();
 }
-
-
 
 static int32_t copy_on_write(proc_t* proc, uint32_t v_addr) {
 	v_addr = ALIGN_DOWN(v_addr, PAGE_SIZE);
@@ -157,8 +172,11 @@ void undef_abort_handler(context_t* ctx, uint32_t status) {
 
 	printf("pid: %d(%s), undef instrunction abort!! (core %d)\n", cproc->info.pid, cproc->info.cmd, core);
 	dump_ctx(&cproc->ctx);
-	proc_exit(ctx, cproc, -1);
-	//proc_signal_send(ctx, cproc, SYS_SIG_STOP);
+#ifdef SCHD_TRACE
+	update_trace(1000000);
+	pause_trace();
+#endif
+	proc_exit(ctx, proc_get_proc(cproc), -1);
 }
 
 void prefetch_abort_handler(context_t* ctx, uint32_t status) {
@@ -172,7 +190,8 @@ void prefetch_abort_handler(context_t* ctx, uint32_t status) {
 		dump_ctx(ctx);
 		halt();
 	}
-	
+	/*kprintf("handle prefetch abort: %d, status: 0x%x, addr: 0x%x\n", cproc->info.pid, status, ctx->pc);
+
 	if(((status & 0x1D) == 0xD || //permissions fault only
 		(status & 0x1F) == 0x6) && 
 			ctx->pc < cproc->space->heap_size) { //in proc heap only
@@ -185,10 +204,15 @@ void prefetch_abort_handler(context_t* ctx, uint32_t status) {
 		if(res == 0)
 			return;
 	}
+	*/
 
 	printf("pid: %d(%s), prefetch abort!! (core %d) code:0x%x\n", cproc->info.pid, cproc->info.cmd, core, status);
 	dump_ctx(&cproc->ctx);
-	proc_exit(ctx, cproc, -1);
+#ifdef SCHD_TRACE
+	update_trace(1000000);
+	pause_trace();
+#endif
+	proc_exit(ctx, proc_get_proc(cproc), -1);
 }
 
 void data_abort_handler(context_t* ctx, uint32_t addr_fault, uint32_t status) {
@@ -201,23 +225,49 @@ void data_abort_handler(context_t* ctx, uint32_t addr_fault, uint32_t status) {
 		dump_ctx(ctx);
 		halt();
 	}
+	//kprintf("handle data abort: %d, 0x%x, 0x%x\n", cproc->info.pid, status, addr_fault);
 
-	if(((status & 0x1D) == 0xD || //permissions fault only
-		(status & 0x1F) == 0x6) && 
-			addr_fault < cproc->space->heap_size) { //in proc heap only
-		if (kernel_lock_check() > 0)
-			return;
+	uint32_t err = 0;
+	const char* errmsg = "";
+	uint32_t legel_addr_base = cproc->space->rw_heap_base;
 
-		kernel_lock();
-		int32_t res = copy_on_write(cproc, addr_fault);
-		kernel_unlock();
-		if(res == 0) 
-			return;
+	if((status & 0x5) == 0x5 || (status & 0xD) == 0xD) { //permissions fault only
+		if(addr_fault >= legel_addr_base && addr_fault < cproc->space->heap_size) { //in proc heap only
+			if (kernel_lock_check() > 0)
+				return;
+
+			kernel_lock();
+			int32_t res = copy_on_write(cproc, addr_fault);
+			kernel_unlock();
+			if(res == 0) 
+				return;
+			err = 1;
+			errmsg = "copy on write failed";
+		}
+		else {
+			err = 2;
+			errmsg = "illegel address";
+		}
+	}
+	else {
+		err = 3;
+		errmsg = "access denied";
 	}
 
-	printf("\npid: %d(%s), core: %d, data abort!! at: 0x%X, code: 0x%X\n", cproc->info.pid, cproc->info.cmd, cproc->info.core, addr_fault, status);
+	printf("\npid: %d(%s), core: %d, data abort at: 0x%X, status: 0x%X\n", 
+			cproc->info.pid, cproc->info.cmd, cproc->info.core, addr_fault, status);
+	if(err == 2) //illegel address
+		printf("\terror: %s! heap(0x%X->0x%X)\n", errmsg, legel_addr_base, cproc->space->heap_size);
+	else
+		printf("\terror: %s!\n", errmsg);
+
 	dump_ctx(&cproc->ctx);
-	proc_exit(ctx, cproc, -1);
+#ifdef SCHD_TRACE
+	update_trace(1000000);
+	pause_trace();
+#endif
+	while(1);
+	proc_exit(ctx, proc_get_proc(cproc), -1);
 }
 
 void irq_init(void) {
@@ -227,11 +277,11 @@ void irq_init(void) {
 	_kernel_usec = 0;
 	_sec_tic = 0;
 	_schedule = 0;
+	_schedule_tic = 0;
 	_timer_tic = 0;
 	_last_usec = timer_read_sys_usec();
 	_schedule_usec = (1000000 / _kernel_config.schedule_freq) / 2;
-	//gic_set_irqs( IRQ_UART0 | IRQ_TIMER0 | IRQ_KEY | IRQ_MOUSE | IRQ_SDC);
-	irq_enable(IRQ_TIMER0 | IRQ_UART0);
+	irq_enable(IRQ_TIMER0);
 
 #ifdef KERNEL_SMP
 	ipi_enable_all();

@@ -15,7 +15,7 @@
 #define UART_RECEIVE  0x10
 #define UART_TRANSMIT 0x20
 
-int32_t uart_dev_init(void) {
+int32_t uart_dev_init(uint32_t baud) {
 	put32(UART0+UART_INT_ENABLE, UART_RECEIVE);
 	return 0;
 }

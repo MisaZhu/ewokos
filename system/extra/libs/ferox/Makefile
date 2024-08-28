@@ -1,3 +1,7 @@
+ifeq ($(ARCH),)
+export ARCH=arm
+endif
+
 include ../../../hardware/$(ARCH)/make.rule
 
 BUILD_DIR = ../../../build

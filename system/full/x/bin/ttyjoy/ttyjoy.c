@@ -3,8 +3,8 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include <sys/keydef.h>
-#include <sys/vdevice.h>
+#include <ewoksys/keydef.h>
+#include <ewoksys/vdevice.h>
 #include <x/xwin.h>
 
 static void input(int32_t x_pid, char c, int state) {
@@ -20,7 +20,7 @@ static void input(int32_t x_pid, char c, int state) {
 }
 
 static void prompt(void) {
-	printf( "type '~' to exit. 'ESC' as HOME.\n"
+	printf( "type 'ctrl+c' to exit. 'ESC' as HOME.\n"
 			"+----------------------------------------+\n"
 			"|                                        |\n"
 			"|        [up]                   [x]      |\n"
@@ -31,6 +31,14 @@ static void prompt(void) {
 			"|                                        |\n"
 			"+----------------------------------------+\n");
 }
+
+#define KEY_1	KEY_DOWN
+#define KEY_2	KEY_UP	
+
+// #define KEY_1	KEY_RIGHT
+// #define KEY_2	KEY_LEFT
+
+#define DELAYUS		1000000
 
 int main(int argc, char* argv[]) {
 	(void)argc;
@@ -61,10 +69,9 @@ int main(int argc, char* argv[]) {
 				continue;
 			}
 
-			if(c == '~')
+			if(c == 3) //ctrl+c
 				break;
-
-			if(c == 27) //esc
+			else if(c == 27) //esc
 				c = KEY_HOME;
 			else if(c == 'a')
 				c = KEY_BUTTON_A;
@@ -81,7 +88,7 @@ int main(int argc, char* argv[]) {
 			input(x_pid, c, XIM_STATE_PRESS);
 			input(x_pid, c, XIM_STATE_RELEASE);
 		}
-		usleep(100000);
+		proc_usleep(100000);
 	}
 	close(x_pid);
 	return 0;

@@ -56,6 +56,8 @@ typedef struct {
 	scn_file_t    *file;
 
 	const char    *str;
+	const char*	  cache;
+	unsigned long rptr;
 } scanner_t;
 
 

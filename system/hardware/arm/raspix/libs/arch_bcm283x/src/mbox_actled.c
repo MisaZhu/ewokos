@@ -1,5 +1,5 @@
 #include <arch/bcm283x/mailbox.h>
-#include <sys/dma.h>
+#include <ewoksys/dma.h>
 
 void bcm283x_mbox_actled(bool on) {
 	mail_message_t msg;

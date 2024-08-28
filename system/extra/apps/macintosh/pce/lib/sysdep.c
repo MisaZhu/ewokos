@@ -36,7 +36,7 @@
 #endif
 
 #ifdef HAVE_SYS_POLL_H
-#include <sys/poll.h>
+#include <ewoksys/poll.h>
 #endif
 
 #ifdef HAVE_TERMIOS_H

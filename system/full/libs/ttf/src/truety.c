@@ -2486,6 +2486,7 @@ static TTY_Bool tty_try_execute_shared_ins(TTY_Program_Context* ctx, TTY_U8 ins)
 /* ------------ */
 /* Font Loading */
 /* ------------ */
+static char f_buf[1024*8];
 static TTY_Error tty_read_file_into_buff(TTY_Font* font, const char* path) {
     FILE* f = fopen(path, "rb");
     if (f == NULL) {
@@ -2506,6 +2507,7 @@ static TTY_Error tty_read_file_into_buff(TTY_Font* font, const char* path) {
         return TTY_ERROR_OUT_OF_MEMORY;
     }
     
+    setbuffer(f, f_buf, 1024*8);
     if ((TTY_S32)fread(font->data, 1, font->size, f) != font->size) {
         fclose(f);
         free(font->data);
@@ -3693,7 +3695,9 @@ static TTY_Error tty_convert_zone1_points_into_curves(TTY_Font* font, TTY_Curves
                 addFinalCurve = TTY_FALSE;
             }
             else if (font->hint.zone1.pointTypes[j + 1] == TTY_ON_CURVE_POINT) {
-                curve->p2 = font->hint.zone1.cur[++j];
+                curve->p2 = font->hint.zone1.cur[++j]; //TODO
+                if(j >= endPointIdx)
+                    break;
             }
             else { // Implied on-curve point
                 TTY_F26Dot6_V2* nextPoint = font->hint.zone1.cur + j + 1;
@@ -3705,6 +3709,8 @@ static TTY_Error tty_convert_zone1_points_into_curves(TTY_Font* font, TTY_Curves
 
             nextP0 = &curve->p2;
             curves->count++;
+            if(curves->count >= curves->cap)
+                return TTY_ERROR_NONE;
         }
 
         if (addFinalCurve) {
@@ -3713,6 +3719,8 @@ static TTY_Error tty_convert_zone1_points_into_curves(TTY_Font* font, TTY_Curves
             finalCurve->p1 = *startPoint;
             finalCurve->p2 = *startPoint;
             curves->count++;
+            if(curves->count >= curves->cap)
+                return TTY_ERROR_NONE;
         }
 
         startPointIdx = endPointIdx + 1;
@@ -3803,6 +3811,8 @@ static TTY_Error tty_subdivide_curves_into_edges(TTY_Curves* curves, TTY_Edges* 
             if (curve->p0.y != curve->p2.y) { // Horizontal lines can be ignored 
                 tty_edge_init(edges->buff + edges->count, curve->p0, curve->p2);
                 edges->count++;
+                if(edges->count >= edges->cap)
+                    return TTY_ERROR_NONE;
             }
         }
         else {
@@ -4177,7 +4187,6 @@ TTY_Error tty_render_glyph_cache(TTY_Font* font, TTY_Instance* instance, TTY_Gly
         return TTY_ERROR_NONE;
     }
 
-
     // The glyph's points are converted into curves and the curves are 
     // approximated by edges.
     TTY_Edges edges = {0};
@@ -4214,24 +4223,36 @@ TTY_Error tty_render_glyph_cache(TTY_Font* font, TTY_Instance* instance, TTY_Gly
         // approximate the curves using edges
 
         TTY_Curves curves = {0};
+        memset(&curves, 0, sizeof(TTY_Curves));
 
-        TTY_Error error =
-            tty_add_glyph_points_to_zone_1(font, instance, glyph) ||
-            tty_convert_zone1_points_into_curves(font, &curves)   ||
-            tty_subdivide_curves_into_edges(&curves, &edges, font->startingEdgeCap);
+        TTY_Error error = tty_add_glyph_points_to_zone_1(font, instance, glyph);
+        if (error) {
+            return error;
+        }
+
+        error = tty_convert_zone1_points_into_curves(font, &curves);
+        if (error) {
+            if(curves.buff != NULL)
+                free(curves.buff);
+            return error;
+        }
+
+        error = tty_subdivide_curves_into_edges(&curves, &edges, font->startingEdgeCap);
+        if(curves.buff != NULL)
+            free(curves.buff);
+
+        if (error) {
+            if(edges.buff != NULL)
+                free(edges.buff);
+            return error;
+        }
 
         if (instance->useHinting) {
             // Touch flags need to be cleared here (Everything else in zone1 is 
             // cleared elsewhere)
             memset(font->hint.zone1.touchFlags, TTY_UNTOUCHED, sizeof(TTY_U8) * font->hint.zone1.numOutlinePoints);
         }
-        free(curves.buff);
-
-        if (error) {
-            return error;
-        }
     }
-
 
     // Edges are sorted from largest to smallest y-coordinate
     qsort(edges.buff, edges.count, sizeof(TTY_Edge), tty_compare_edges);
@@ -4284,7 +4305,8 @@ TTY_Error tty_render_glyph_cache(TTY_Font* font, TTY_Instance* instance, TTY_Gly
 
     TTY_S32 y = instance->maxGlyphSize.y - glyph->offset.y - instance->maxGlyphSize.y /4;
     TTY_S32 x = 0;
-    glyph->cache = (TTY_U8*)calloc(1, instance->maxGlyphSize.x*instance->maxGlyphSize.y);
+    TTY_U32 cache_size = instance->maxGlyphSize.x*instance->maxGlyphSize.y;
+    glyph->cache = (TTY_U8*)calloc(1, cache_size);
     while (scanline >= scanlineEnd) {
         tty_update_or_remove_active_edges(&activeEdges, scanline, xIntersectionOff);
         tty_sort_active_edges(&activeEdges);
@@ -4315,7 +4337,9 @@ TTY_Error tty_render_glyph_cache(TTY_Font* font, TTY_Instance* instance, TTY_Gly
                 TTY_ASSERT(pixelBuffIdx < pixelBuffLen);
                 TTY_F26Dot6 pixelValue = pixelBuff[pixelBuffIdx] >> 6;
                 if(pixelValue != 0) {
-                    glyph->cache[y*instance->maxGlyphSize.x+x+pixelBuffIdx] = pixelValue;
+                    int at = y*instance->maxGlyphSize.x+x+pixelBuffIdx;
+                    if(at >=0 && at < cache_size)
+                        glyph->cache[at] = pixelValue;
                 }
             }
             

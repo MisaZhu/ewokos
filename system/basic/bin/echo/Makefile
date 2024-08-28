@@ -12,8 +12,8 @@ ECHO_OBJS = echo.o
 ECHO = $(TARGET_DIR)/bin/echo
 
 $(ECHO): $(ECHO_OBJS) \
-		$(BUILD_DIR)/lib/libewokc.a
-	$(LD) -Ttext=100 $(ECHO_OBJS) -o $(ECHO) $(LDFLAGS) -lewokc -lc_nano -lnosys
+		$(EWOK_LIBC_A) 
+	$(LD) -Ttext=100 $(ECHO_OBJS) -o $(ECHO) $(LDFLAGS) $(EWOK_LIBC)
 
 clean:
 	rm -f $(ECHO_OBJS)

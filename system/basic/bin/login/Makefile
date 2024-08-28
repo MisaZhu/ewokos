@@ -12,8 +12,8 @@ LOGIN_OBJS = login.o
 LOGIN = $(TARGET_DIR)/bin/login
 
 $(LOGIN): $(LOGIN_OBJS) \
-		$(BUILD_DIR)/lib/libewokc.a
-	$(LD) -Ttext=100 $(LOGIN_OBJS) -o $(LOGIN) $(LDFLAGS) -lewokc -lc_nano -lnosys
+		$(EWOK_LIBC_A) 
+	$(LD) -Ttext=100 $(LOGIN_OBJS) -o $(LOGIN) $(LDFLAGS) $(EWOK_LIBC)
 
 clean:
 	rm -f $(LOGIN_OBJS)

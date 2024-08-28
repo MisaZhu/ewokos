@@ -1,8 +1,8 @@
 
 #include <stdio.h>
 #include <sys/types.h>
-#include <sys/klog.h>
-#include <sys/vdevice.h>
+#include <ewoksys/klog.h>
+#include <ewoksys/vdevice.h>
 
 #include "list.h"
 #include "pcm_lib.h"
@@ -22,7 +22,7 @@ static void enter_pcm_device_loop(struct snd_pcm *pcm, const char* dev_name)
 	vdevice_t *vdev = (vdevice_t*)pcm->private_data;
 	char mount_point[33] = {0};
 	strncpy(mount_point, dev_name, 32);
-	device_run(vdev, mount_point, FS_TYPE_CHAR);
+	device_run(vdev, mount_point, FS_TYPE_CHAR, 0666);
 }
 
 int main(int argc, char *argv[])

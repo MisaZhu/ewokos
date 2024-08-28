@@ -1,7 +1,7 @@
 #ifndef GRAPH_H
 #define GRAPH_H
 
-#include <sys/ewokdef.h>
+#include <ewoksys/ewokdef.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -46,7 +46,7 @@ typedef struct {
 } graph_t;
 
 
-int32_t grect_insect(grect_t* src, grect_t* r);
+int32_t grect_insect(const grect_t* src, grect_t* dst);
 
 uint32_t argb(uint32_t a, uint32_t r, uint32_t g, uint32_t b);
 
@@ -85,8 +85,10 @@ graph_t* graph_scalef(graph_t* g, float scale);
 
 void     graph_box(graph_t* g, int32_t x, int32_t y, int32_t w, int32_t h, uint32_t color);
 void     graph_fill(graph_t* g, int32_t x, int32_t y, int32_t w, int32_t h, uint32_t color);
+void     graph_set(graph_t* g, int32_t x, int32_t y, int32_t w, int32_t h, uint32_t color);
 
 void     graph_line(graph_t* g, int32_t x1, int32_t y1, int32_t x2, int32_t y2, uint32_t color);
+void     graph_wline(graph_t* g, int32_t x1, int32_t y1, int32_t x2, int32_t y2, uint32_t color, uint32_t w);
 
 void     graph_circle(graph_t* g, int32_t x, int32_t y, int32_t radius, uint32_t color);
 void     graph_fill_circle(graph_t* g, int32_t x, int32_t y, int32_t radius, uint32_t color);

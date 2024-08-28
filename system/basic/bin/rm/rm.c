@@ -1,6 +1,6 @@
 #include <unistd.h>
 #include <stdio.h>
-#include <sys/vfs.h>
+#include <ewoksys/vfs.h>
 
 int main(int argc, char* argv[]) {
 	const char* fname;
@@ -9,5 +9,9 @@ int main(int argc, char* argv[]) {
 		return -1;
 	}
 	fname = vfs_fullname(argv[1]);
-	return unlink(fname);
+	if(unlink(fname) != 0) {
+		printf("Can't remove [%s]!\n", fname);
+		return -1;
+	}
+	return 0;
 }

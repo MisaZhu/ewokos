@@ -2,9 +2,11 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <stdio.h>
-#include <sys/syscall.h>
+#include <ewoksys/syscall.h>
+#include <ewoksys/proc.h>
 #include <sysinfo.h>
 #include <string.h>
+#include <ewoksys/session.h>
 
 static const char* _states[] = {
 	"unu",
@@ -20,9 +22,7 @@ static const char* _states[] = {
 static const char* get_state(procinfo_t* proc) {
 	static char ret[16];
 	if(proc->state == 4) {
-		if(proc->pid == proc->block_by)
-			strcpy(ret, "blk[ipc]");
-		else if(proc->block_by < 0)
+		if(proc->block_by < 0)
 			strcpy(ret, "blk[kev]");
 		else 
 			snprintf(ret, 13, "blk[%d]", proc->block_by);
@@ -35,13 +35,18 @@ static const char* get_state(procinfo_t* proc) {
 }
 
 static const char* get_owner(procinfo_t* proc) {
-	if(proc->owner < 0)
+	if(proc->uid < 0)
 		return "kernel";
-	if(proc->owner == 0)
-		return "root";
-	static char ret[32];
-	snprintf(ret, 31, "%d", proc->owner);
-	return ret;
+
+	session_info_t info;
+	static char name[SESSION_USER_MAX+1] = {0};
+
+	if(session_get_by_uid(proc->uid, &info) == 0)
+		strncpy(name, info.user, SESSION_USER_MAX);
+	else
+		snprintf(name, SESSION_USER_MAX, "%d", proc->uid);
+
+	return name;
 }
 
 static const char* get_cmd(procinfo_t* proc, int full) {
@@ -67,18 +72,51 @@ static const char* get_core_loading(sys_info_t* sys_info, procinfo_t* proc) {
 	return ret;
 }
 
+static int doargs(int argc, char* argv[], int8_t* full, int8_t* all, int8_t* thread) {
+	*full = 0;
+	*all = 0;
+	*thread = 0;
+
+	int c = 0;
+  while (c != -1) {
+    c = getopt (argc, argv, "aft");
+    if(c == -1)
+      break;
+
+    switch (c) {
+      case 't':
+        *thread = 1;
+        break;
+      case 'a':
+        *all = 1;
+        break;
+      case 'f':
+        *full = 1;
+        break;
+      case '?':
+        return -1;
+      default:
+        c = -1;
+        break;
+    }
+  }
+	return 0;
+}
+
 int main(int argc, char* argv[]) {
-	int full = 0;
-	int all = 0;
-	if(argc == 2 && argv[1][0] == '-') {	
-		if(strchr(argv[1], 'f') != NULL)
-			full = 1;
-		if(strchr(argv[1], 'a') != NULL)
-			all = 1;
-	}
+	int8_t all;
+	int8_t thread;
+	int8_t full;
+	if(doargs(argc, argv, &full, &all, &thread) != 0)
+		return -1;
+
+	procinfo_t cprocinfo;
+  if(proc_info(getpid(), &cprocinfo) != 0)
+		return -1;
+	
+	int uid = getuid();
 
 	int num = 0;
-	uint32_t core_idle[16]; //max 16 cores;
 	sys_info_t sys_info;
 	sys_state_t sys_state;
 	syscall1(SYS_GET_SYS_INFO, (int32_t)&sys_info);
@@ -88,25 +126,24 @@ int main(int argc, char* argv[]) {
 	uint32_t t_mem = sys_info.phy_mem_size / (1024*1024);
 	uint32_t csec = sys_state.kernel_sec;
 
-	procinfo_t* procs = (procinfo_t*)syscall1(SYS_GET_PROCS, (int)&num);
-	if(procs != NULL) {
+	num = syscall0(SYS_GET_PROCS_NUM);
+	procinfo_t* procs = (procinfo_t*)malloc(sizeof(procinfo_t)*num);
+	if(num > 0 && procs != NULL && syscall2(SYS_GET_PROCS, num, (int)procs) == 0) {
 		if(full)
-			printf("OWNER   PID  FATH CORE   STATE     TIME     HEAP(K) SHM(K) PROC\n"); 
+			printf("OWNER    PID  FATH  CORE  STATE     TIME     HEAP(K) SHM(K) PROC\n"); 
 		else
-			printf("OWNER   PID  FATH CORE   STATE     PROC\n"); 
+			printf("OWNER    PID  FATH  CORE  STATE     PROC\n"); 
 		for(int i=0; i<num; i++) {
 			procinfo_t* proc = &procs[i];
-			if(strcmp(proc->cmd, "cpu_core_halt") == 0) {
-				core_idle[proc->core] = proc->run_usec;
+			if(uid > 0 && proc->uid != cprocinfo.uid && all == 0) //for current uid
 				continue;
-			}
 
-			if(proc->type != PROC_TYPE_PROC && all == 0) //for thread 
+			if(proc->type != TASK_TYPE_PROC && thread == 0) //for thread 
 				continue;
 
 			if(full) {
 				uint32_t sec = csec - proc->start_sec;
-				printf("%8s%4d %4d %6s %9s %02d:%02d:%02d %6d  %5d  %s",
+				printf("%-8s %-4d %-4d  %-5s %-9s %02d:%02d:%02d %-6d  %-5d  %s",
 					get_owner(proc),
 					proc->pid,
 					proc->father_pid,
@@ -120,7 +157,7 @@ int main(int argc, char* argv[]) {
 					get_cmd(proc, full));
 			}
 			else {
-				printf("%8s%4d %4d %6s %9s %s",
+				printf("%-8s %-4d %-4d  %-5s %-9s %s",
 					get_owner(proc),
 					proc->pid,
 					proc->father_pid,
@@ -130,20 +167,21 @@ int main(int argc, char* argv[]) {
 
 			}
 
-			if(proc->type == PROC_TYPE_THREAD)
+			if(proc->type == TASK_TYPE_THREAD)
 				printf(" [THRD:%d]\n", proc->father_pid);
 			else
 				printf("\n");
 		}
-		free(procs);
 	}
-	printf("\nmemory: total %d MB, free %d MB, shm %d MB\n", t_mem, fr_mem, shm_mem);
-
+	printf("\n\033[1mtask_num: %d, memory: total %d MB, free %d MB, shm %d MB\n", num, t_mem, fr_mem, shm_mem);
 	printf("cpu idle:");
-	for(int i=0; i<sys_info.cores; i++) {
-		int idle = core_idle[i]/10000;
+	for(uint32_t i=0; i<sys_info.cores; i++) {
+		int idle = sys_info.core_idles[i]/10000;
 		printf("  %d%%", idle > 100 ? 100 : idle);
 	}
-	printf("\n");
+	printf("\033[0m\n");
+
+	if(procs != NULL)
+		free(procs);
 	return 0;
 }

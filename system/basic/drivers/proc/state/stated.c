@@ -2,14 +2,14 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
-#include <sys/vfs.h>
-#include <sys/vdevice.h>
-#include <sys/syscall.h>
+#include <ewoksys/vfs.h>
+#include <ewoksys/vdevice.h>
+#include <ewoksys/syscall.h>
 #include <sysinfo.h>
 
 static int sys_state_read(int fd,
 		int from_pid,
-		uint32_t node,
+		fsinfo_t* node,
 		void* buf,
 		int size,
 		int offset,
@@ -44,6 +44,6 @@ int main(int argc, char** argv) {
 	strcpy(dev.name, "state");
 	dev.read = sys_state_read;
 
-	device_run(&dev, mnt_point, FS_TYPE_FILE);
+	device_run(&dev, mnt_point, FS_TYPE_FILE, 0444);
 	return 0;
 }

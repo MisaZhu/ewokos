@@ -2,9 +2,9 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
-#include <sys/vfs.h>
-#include <sys/syscall.h>
-#include <sys/vdevice.h>
+#include <ewoksys/vfs.h>
+#include <ewoksys/syscall.h>
+#include <ewoksys/vdevice.h>
 #include <sys/shm.h>
 #include <fb/fb.h>
 #include <fbd/fbd.h>
@@ -14,16 +14,17 @@
 typedef struct {
 	uint32_t size;
 	uint8_t* shm;
+	int32_t  shm_id;
 } fb_dma_t;
 
 static fbinfo_t* _fbinfo = NULL;
 static int32_t _rotate = 0;
 static fbd_t* _fbd = NULL;
-static char _logo[256];
+static char _logo[256] = {0};
 
 static int fb_fcntl(int fd, 
 		int from_pid,
-		uint32_t node, 
+		fsinfo_t* node, 
 		int cmd, 
 		proto_t* in, 
 		proto_t* out,
@@ -43,25 +44,11 @@ static int fb_fcntl(int fd,
 	return 0;
 }
 
-/*static void draw_bg(graph_t* g) {
-	int y, h, l;
-	uint32_t c, bc;
-
-	l = g->h/8;
-	h = (g->h / l);
-	h = (h==0 ? 1:h); 
-
-	bc = 0xff / l;
-	bc = (bc==0 ? 1:bc); 
-	for(y=0; y<l; y++) {
-		c = (l-1-y) * bc;
-		graph_fill(g, 0, y*h, g->w, h, (c | c<<8 | c<<16 | 0xff000000));
-	}
-}
-*/
-
 static void draw_bg(graph_t* g) {
-	graph_draw_dot_pattern(g, 0, 0, g->w, g->h, 0xffffffff, 0xff555555);
+	if(graph_2d_boosted_bsp())
+		graph_clear(g, 0xff000000);
+	else
+		graph_clear(g, 0xffffffff);
 }
 
 static void default_splash(graph_t* g) {
@@ -71,12 +58,6 @@ static void default_splash(graph_t* g) {
 		graph_blt_alpha(logo, 0, 0, logo->w, logo->h,
 				g, (g->w-logo->w)/2, (g->h-logo->h)/2, logo->w, logo->h, 0xff);
 		graph_free(logo);
-	}
-
-	if(graph_2d_boosted_bsp()) {
-		graph_fill_circle(g, (g->w-logo->w)/2+2, (g->h-logo->h)/2+2, 8, 0x88000000);
-		graph_fill_circle(g, (g->w-logo->w)/2, (g->h-logo->h)/2, 7, 0xff0000ff);
-		graph_circle(g, (g->w-logo->w)/2, (g->h-logo->h)/2, 8, 0xffffffff);
 	}
 }
 
@@ -97,7 +78,11 @@ static void init_graph(fb_dma_t* dma) {
 static int fb_dma_init(fb_dma_t* dma) {
 	memset(dma, 0, sizeof(fb_dma_t));
 	uint32_t sz = _fbinfo->width*_fbinfo->height*4;
-	dma->shm = (void*)shm_alloc(sz + 1, SHM_PUBLIC); //one more byte (head) for busy flag 
+	key_t key = (((int32_t)dma) << 16) | getpid(); 
+	dma->shm_id = shmget(key, sz + 1, 0666 | IPC_CREAT | IPC_EXCL); //one more byte (head) for busy flag 
+	if(dma->shm_id == -1)
+		return -1;
+	dma->shm = shmat(dma->shm_id, 0, 0); //one more byte (head) for busy flag 
 	if(dma->shm == NULL)
 		return -1;
 	//dma->size = _fbinfo->size_max;
@@ -145,21 +130,22 @@ static int32_t do_flush(fb_dma_t* dma) {
 0: error;
 -1: resized;
 >0: size flushed*/
-static int do_fb_flush(int fd, int from_pid, uint32_t node, void* p) {
+static int do_fb_flush(int fd, int from_pid, fsinfo_t* info, void* p) {
 	(void)fd;
 	(void)from_pid;
-	(void)node;
+	(void)info;
+
 	fb_dma_t* dma = (fb_dma_t*)p;
 	return do_flush(dma);
 }
 
-static void* fb_dma(int fd, int from_pid, uint32_t node, int* size, void* p) {
+static int32_t fb_dma(int fd, int from_pid, fsinfo_t* info, int* size, void* p) {
 	(void)fd;
 	(void)from_pid;
-	(void)node;
+	(void)info;
 	fb_dma_t* dma = (fb_dma_t*)p;
 	*size = dma->size;
-	return dma->shm;
+	return dma->shm_id;
 }
 
 static void read_config(uint32_t* w, uint32_t* h, uint8_t* dep, int32_t* rotate) {
@@ -222,7 +208,7 @@ int fbd_run(fbd_t* fbd, const char* mnt_name,
 	dev.dev_cntl = fb_dev_cntl;
 
 	dev.extra_data = &dma;
-	device_run(&dev, mnt_name, FS_TYPE_CHAR);
-	shm_unmap(dma.shm);
+	device_run(&dev, mnt_name, FS_TYPE_CHAR, 0644);
+	shmdt(dma.shm);
 	return 0;
 }

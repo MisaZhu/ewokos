@@ -2,13 +2,14 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <stdio.h>
-#include <sys/vfs.h>
-#include <sys/core.h>
-#include <sys/ipc.h>
-#include <sys/proc.h>
-#include <vprintf.h>
-#include <sys/mstr.h>
-#include <sys/keydef.h>
+#include <ewoksys/vfs.h>
+#include <ewoksys/core.h>
+#include <ewoksys/ipc.h>
+#include <ewoksys/proc.h>
+#include <sys/errno.h>
+
+#include <ewoksys/mstr.h>
+#include <ewoksys/keydef.h>
 #include "shell.h"
 
 void add_history(const char* cmd) {
@@ -50,7 +51,7 @@ static void clear_buf(str_t* buf) {
 	buf->len = 0;
 }
 
-int32_t gets(int fd, str_t* buf) {
+int32_t cmd_gets(int fd, str_t* buf) {
 	str_reset(buf);	
 	old_cmd_t* head = NULL;
 	old_cmd_t* tail = NULL;
@@ -58,12 +59,14 @@ int32_t gets(int fd, str_t* buf) {
 	bool echo = true;
 
 	while(1) {
-		char c;
+		char c, old_c;
+		errno = 0;
 		int i = read(fd, &c, 1);
-		if(i <= 0 || c == 0) {
-		 	if(i == 0)
-			 	return -1;
-			usleep(10000);
+	 	if(i == 0 || (i < 0 && errno != EAGAIN))
+			return -1;
+		
+		if(c == 0 || i < 0) {
+			proc_usleep(10000);
 			continue;
 		}
 
@@ -117,11 +120,21 @@ int32_t gets(int fd, str_t* buf) {
 			}
 		}
 		else {
+			if(c == '\r') {
+				old_c = c;
+				c = '\n';
+			}
+			else  {
+				old_c = 0;
+				if(c == '\n' && old_c == '\r')
+					continue;
+			}
+
 			if(buf->len == 0 && (c == '@' || c == '#'))
 				echo = false;
-			if(echo && !_initrd) 
+			if(echo && !_script_mode) 
 				putch(c);
-			if(c == '\r' || c == '\n')
+			if(c == '\n')
 				break;
 			if(c > 27)
 				str_addc(buf, c);

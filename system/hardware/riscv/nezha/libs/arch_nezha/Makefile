@@ -6,7 +6,7 @@ TARGET_DIR = $(BUILD_DIR)
 
 LDFLAGS = -L$(TARGET_DIR)/lib
 
-CFLAGS += -I$(SYS_DIR)/basic/libs/libc/sys/include -Iinclude -I $(TARGET_DIR)/include
+CFLAGS += -I$(SYS_DIR)/basic/libs/libc/ewoksys/include -Iinclude -I $(TARGET_DIR)/include
 
 LIB_ARCH_NEZHA_OBJS = src/sd.o 
 

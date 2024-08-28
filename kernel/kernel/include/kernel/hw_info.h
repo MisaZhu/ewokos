@@ -6,8 +6,8 @@
 #include <mm/mmu.h>
 
 extern sys_info_t _sys_info;
-extern uint32_t   _allocatable_phy_mem_top;
-extern uint32_t   _allocatable_phy_mem_base;
+extern uint32_t   _allocable_phy_mem_top;
+extern uint32_t   _allocable_phy_mem_base;
 extern uint32_t   _core_base_offset;
 
 extern void       sys_info_init_arch(void);

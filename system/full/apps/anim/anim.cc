@@ -3,10 +3,10 @@
 #include <fcntl.h>
 #include <stdio.h>
 #include <string.h>
-#include <vprintf.h>
 #include <upng/upng.h>
-#include <sys/kernel_tic.h>
-#include <sys/klog.h>
+#include <ewoksys/kernel_tic.h>
+#include <ewoksys/klog.h>
+#include <ewoksys/proc.h>
 #include <x++/X.h>
 #include <ttf/ttf.h>
 
@@ -49,8 +49,11 @@ public:
 
 protected:
 	void onEvent(xevent_t* ev) {
-		if(ev->type == XEVT_MOUSE && ev->state == XEVT_MOUSE_UP) {
-			this->close();
+		if(ev->type == XEVT_MOUSE) {
+			if(ev->state == XEVT_MOUSE_CLICK)
+				this->close();
+			else if(ev->state == XEVT_MOUSE_DRAG)
+				this->move(ev->value.mouse.rx, ev->value.mouse.ry);
 		}
 	}
 
@@ -82,31 +85,26 @@ protected:
 static void loop(void* p) {
 	XWin* xwin = (XWin*)p;
 	xwin->repaint();
-	usleep(30000);
+	proc_usleep(30000);
 }
 
 int main(int argc, char* argv[]) {
 	(void)argc;
 	(void)argv;
-	xscreen_t scr;
-
 	X x;
 
 	int displayNum = x_get_display_num();
 	if(displayNum == 0)
 		return -1;
 
-	x.getScreenInfo(scr, displayNum-1);
-
 	TestX xwin;
 	int32_t w, h;
 	xwin.getSize(w, h);
-	x.open(&scr, &xwin, w, h,
-			"anim", XWIN_STYLE_NO_FRAME | XWIN_STYLE_NO_FOCUS | XWIN_STYLE_SYSTOP);
+	xwin.open(&x, 0, -1, -1, w, h,
+			"anim", XWIN_STYLE_NO_FRAME);
 
 	xwin.setDisplay(displayNum-1);
 	xwin.setAlpha(true);
-	xwin.setVisible(true);
 	x.run(loop, &xwin);
 	return 0;
 } 

@@ -12,10 +12,10 @@ XMOUSED_OBJS = xtouchd.o
 XMOUSED = $(TARGET_DIR)/sbin/x/xtouchd
 
 $(XMOUSED): $(XMOUSED_OBJS) \
-		$(BUILD_DIR)/lib/libewokc.a \
+		$(EWOK_LIBC_A)  \
 		$(BUILD_DIR)/lib/libgraph.a \
 		$(BUILD_DIR)/lib/libx.a
-	$(LD) -Ttext=100 $(XMOUSED_OBJS) -o $(XMOUSED) $(LDFLAGS) -lx -lgraph -lbsp -lewokc -lc_nano -lnosys -lsconf
+	$(LD) -Ttext=100 $(XMOUSED_OBJS) -o $(XMOUSED) $(LDFLAGS) -lx -lsconf -lgraph -lbsp $(EWOK_LIBC)
 
 clean:
 	rm -f $(XMOUSED_OBJS)

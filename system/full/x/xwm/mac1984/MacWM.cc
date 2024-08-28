@@ -1,6 +1,6 @@
 #include "MacWM.h"
-#include <sys/kernel_tic.h>
-#include <sys/klog.h>
+#include <ewoksys/kernel_tic.h>
+#include <ewoksys/klog.h>
 #include <upng/upng.h>
 #include <x++/X.h>
 #include <sconf/sconf.h>
@@ -8,37 +8,6 @@
 #include <string.h>
 
 using namespace Ewok;
-
-void MacWM::loadConfig(sconf_t* sconf) {
-	XWM::loadConfig(sconf);
-	const char* v = sconf_get(sconf, "pattern");
-	if(v[0] != 0 && strcmp(v, "none") != 0)
-		pattern = png_image_new_bg(x_get_theme_fname(X_THEME_ROOT, "xwm", v), desktopBGColor);
-}
-
-graph_t* MacWM::genPattern(void) {
-	graph_t* g = graph_new(NULL, 64, 64);
-	graph_draw_dot_pattern(g, 0, 0, g->w, g->h, desktopBGColor, desktopFGColor);
-	return g;
-}
-
-void MacWM::drawDesktop(graph_t* g) {
-	if(pattern == NULL)
-		pattern = genPattern();
-
-	graph_clear(g, 0xffffffff);
-	int x = 0;
-	int y = 0;
-	for(int i=0; y<g->h; i++) {
-		for(int j=0; x<g->w;j++) {
-			graph_blt(pattern, 0, 0, pattern->w, pattern->h,
-					g, x, y, pattern->w, pattern->h);
-			x += pattern->w;
-		}
-		x = 0;
-		y += pattern->h;
-	}
-}
 
 void MacWM::drawTitlePattern(graph_t* g, int x, int y, int w, int h, uint32_t fg) {
 	int step = 3;
@@ -55,7 +24,7 @@ void MacWM::drawTitle(graph_t* g, xinfo_t* info, grect_t* r, bool top) {
 	uint32_t fg, bg;
 	getColor(&fg, &bg, top);
 	gsize_t sz;
-	font_text_size(info->title, &font, (uint32_t*)&sz.w, (uint32_t*)&sz.h);
+	font_text_size(info->title, font, fontSize, (uint32_t*)&sz.w, (uint32_t*)&sz.h);
 	
 	/*grect_t rect;
 	getTitle(info, &rect);
@@ -68,11 +37,11 @@ void MacWM::drawTitle(graph_t* g, xinfo_t* info, grect_t* r, bool top) {
 		drawTitlePattern(g, r->x, r->y, r->w, r->h, fg);
 
 	graph_fill(g, r->x+pw-2, r->y, sz.w+4, r->h, bg);//title box
-	graph_draw_text_font(g, r->x+pw, r->y+ph, info->title, &font, fg);//title
-	graph_line(g, r->x, r->y+r->h, r->x+r->w, r->y+r->h, fg);//title box
+	graph_draw_text_font(g, r->x+pw, r->y+ph, info->title, font, fontSize, fg);//title
+	graph_line(g, r->x, r->y+r->h-1, r->x+r->w, r->y+r->h-1, fg);//title box
 }
 
-void MacWM::drawResize(graph_t* g, xinfo_t* info, grect_t* r, bool top) {
+/*void MacWM::drawResize(graph_t* g, xinfo_t* info, grect_t* r, bool top) {
 	(void)info;
 	if(!top)
 		return;
@@ -83,6 +52,31 @@ void MacWM::drawResize(graph_t* g, xinfo_t* info, grect_t* r, bool top) {
 	graph_fill(g, r->x+3, r->y+3, r->w-6, r->h-6, 0x88222222);
 	graph_line(g, r->x+3, r->y+r->h-4, r->x+r->w-4, r->y+3, bg & 0x88ffffff);
 	graph_box(g, r->x, r->y, r->w, r->h, fg & 0x88ffffff);
+}
+*/
+
+void MacWM::drawResize(graph_t* g, xinfo_t* info, grect_t* r, bool top) {
+	(void)info;
+	if(!top)
+		return;
+	uint32_t fg, bg;
+	getColor(&fg, &bg, top);
+
+	uint32_t dark, bright;
+	graph_get_3d_color(bg, &dark, &bright);
+
+	graph_line(g, 
+			r->x + r->w - frameW + 1, r->y,
+			r->x + r->w, r->y, dark);
+	graph_line(g,
+			r->x + r->w - frameW + 1, r->y + 1,
+			r->x + r->w, r->y + 1, bright);
+	graph_line(g,
+			r->x, r->y + r->h - frameW + 1,
+			r->x, r->y + r->h, dark);
+	graph_line(g,
+			r->x + 1, r->y + r->h - frameW + 1,
+			r->x + 1, r->y + r->h, bright);
 }
 
 void MacWM::getTitle(xinfo_t* info, grect_t* rect) {
@@ -114,9 +108,6 @@ void MacWM::getMax(xinfo_t* info, grect_t* rect) {
 }
 
 MacWM::~MacWM(void) {
-	if(pattern != NULL)
-		graph_free(pattern);
-	font_close(&font);
 }
 
 MacWM::MacWM(void) {
@@ -127,5 +118,4 @@ MacWM::MacWM(void) {
 	bgTopColor = 0xffaaaaaa;
 	fgTopColor = 0xff222222;
 	titleH = 32;
-	pattern = NULL;
 }

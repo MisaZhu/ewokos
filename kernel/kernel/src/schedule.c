@@ -4,7 +4,6 @@
 #include <kernel/system.h>
 #include <kernel/core.h>
 #include <stddef.h>
-#include <kstring.h>
 
 int32_t schedule(context_t* ctx) {
 	proc_zombie_funeral();
@@ -39,4 +38,3 @@ int32_t schedule(context_t* ctx) {
 	halt();
 	return 0;
 }
-

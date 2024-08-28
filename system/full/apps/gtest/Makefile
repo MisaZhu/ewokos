@@ -16,14 +16,14 @@ GTEST = $(GTEST_DIR)/gtest
 all: $(GTEST_DIR) $(GTEST)
 
 $(GTEST): $(GTEST_OBJS) \
-		$(BUILD_DIR)/lib/libewokc.a \
+		$(EWOK_LIBC_A)  \
 		$(BUILD_DIR)/lib/libx++.a \
 		$(BUILD_DIR)/lib/libx.a \
 		$(BUILD_DIR)/lib/libttf.a \
+		$(BUILD_DIR)/lib/libsconf.a \
 		$(BUILD_DIR)/lib/libfont.a \
-		$(BUILD_DIR)/lib/libhash.a \
 		$(BUILD_DIR)/lib/libcxx.a 
-	$(LD) -Ttext=100 $(GTEST_OBJS) -o $(GTEST) $(LDFLAGS) -lgraph -lbsp -lttf -lfont -lhash -lx++ -lx -lupng -lewokc -lc_nano -lnosys -lcxx
+	$(LD) -Ttext=100 $(GTEST_OBJS) -o $(GTEST) $(LDFLAGS) -lgraph -lbsp -lttf -lfont -lx++ -lx -lsconf -lupng $(EWOK_LIBC) -lcxx
 
 $(GTEST_DIR):
 	mkdir -p $(GTEST_DIR)

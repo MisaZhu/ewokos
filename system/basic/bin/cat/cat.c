@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <sys/errno.h>
 #include <string.h>
 #include <fcntl.h>
 
@@ -31,7 +32,7 @@ int main(int argc, char** argv) {
 
 	int fd = open(argv[1], 0);
 	if(fd < 0) {
-		printf("'%s' not found!\n", argv[1]);
+		printf("Can't open [%s]!\n", argv[1]);
 		return -1;
 	}
 

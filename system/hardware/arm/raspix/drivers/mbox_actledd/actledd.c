@@ -1,13 +1,13 @@
 #include <arch/bcm283x/mailbox.h>
 #include <arch/bcm283x/mbox_actled.h>
-#include <sys/vdevice.h>
+#include <ewoksys/vdevice.h>
 #include <string.h>
 
 static void actled(bool on) {
 	bcm283x_mbox_actled(on);
 }
 
-static int actled_write(int fd, int from_pid, uint32_t node,
+static int actled_write(int fd, int from_pid, fsinfo_t* node,
 		const void* buf, int size, int offset, void* p) {
 	(void)fd;
 	(void)node;
@@ -48,6 +48,6 @@ int main(int argc, char** argv) {
 	strcpy(dev.name, "actled");
 	dev.write = actled_write;
 	dev.dev_cntl = actled_dev_cntl;
-	device_run(&dev, mnt_point, FS_TYPE_CHAR);
+	device_run(&dev, mnt_point, FS_TYPE_CHAR, 0666);
 	return 0;
 }

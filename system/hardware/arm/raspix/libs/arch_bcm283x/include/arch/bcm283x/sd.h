@@ -7,4 +7,8 @@ int32_t bcm283x_sd_init(void);
 int32_t bcm283x_sd_read_sector(int32_t sector, void* buf);
 int32_t bcm283x_sd_write_sector(int32_t sector, const void* buf);
 
+int32_t emmc2_init(void);
+int32_t emmc2_read_sector(int32_t sector, void* buf);
+int32_t emmc2_write_sector(int32_t sector, const void* buf);
+
 #endif

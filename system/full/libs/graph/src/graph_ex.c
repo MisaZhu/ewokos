@@ -55,7 +55,7 @@ void graph_frame(graph_t* g, int x, int y, int w, int h, int width, uint32_t bas
 	graph_box_3d(g, x+width-1, y+width-1, w-width*2+2, h-width*2+2, dark, bright);
 }
 
-void graph_draw_dot_pattern(graph_t* g,int x, int y, int w, int h, uint32_t c1, uint32_t c2) {
+void graph_draw_dot_pattern(graph_t* g,int x, int y, int w, int h, uint32_t c1, uint32_t c2, uint8_t dw) {
 	int i = 0;
 	int j = 0;
 	bool shift = false;
@@ -63,11 +63,46 @@ void graph_draw_dot_pattern(graph_t* g,int x, int y, int w, int h, uint32_t c1, 
 	graph_fill(g, x, y, w, h, c1);
 	while(j < h) {
 		while(i < w) {
-			graph_pixel(g, x+i, y+j, c2);
-			i += 2;
+			if(dw == 1)
+				graph_pixel(g, x+i, y+j, c2);
+			else
+				graph_fill(g, x+i, y+j, dw, dw, c2);
+			i += 2*dw;
 		}
-		i = shift ? 0:1;
+		i = shift ? 0:dw;
 		shift = !shift;
-		j++;
+		j += dw;
+	}
+}
+
+void graph_gradation(graph_t* graph, int x, int y, int w, int h, uint32_t c1, uint32_t c2, bool vertical) {
+	int32_t a1 = (c1 >> 24) & 0xff;
+	int32_t a2 = (c2 >> 24) & 0xff;
+	int32_t r1 = (c1 >> 16) & 0xff;
+	int32_t r2 = (c2 >> 16) & 0xff;
+	int32_t g1 = (c1 >> 8) & 0xff;
+	int32_t g2 = (c2 >> 8) & 0xff;
+	int32_t b1 = c1 & 0xff;
+	int32_t b2 = c2 & 0xff;
+
+	if(!vertical) {
+			for(int32_t i=1; i<=w; i++) {
+				int32_t a = a1 + (((a2 - a1) * i ) / w);
+				int32_t r = r1 + (((r2 - r1) * i ) / w);
+				int32_t g = g1 + (((g2 - g1) * i ) / w);
+				int32_t b = b1 + (((b2 - b1) * i ) / w);
+				uint32_t c = (uint32_t)((a << 24) | (r << 16) | (g << 8) | b);
+				graph_line(graph, x+i-1, y, x+i-1, y+h-1, c);
+			}
+	}
+	else {
+			for(int32_t i=1; i<=h; i++) {
+				int32_t a = a1 + (((a2 - a1) * i ) / h);
+				int32_t r = r1 + (((r2 - r1) * i ) / h);
+				int32_t g = g1 + (((g2 - g1) * i ) / h);
+				int32_t b = b1 + (((b2 - b1) * i ) / h);
+				uint32_t c = (uint32_t)((a << 24) | (r << 16) | (g << 8) | b);
+				graph_line(graph, x, y+i-1, x+w-1, y+i-1, c);
+			}
 	}
 }

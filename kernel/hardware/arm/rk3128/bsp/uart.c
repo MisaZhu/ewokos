@@ -8,7 +8,7 @@
 
 #define UART_LSR_THRE	0x20
 
-int32_t uart_dev_init(void) {
+int32_t uart_dev_init(uint32_t baud) {
 	return 0;
 }
 

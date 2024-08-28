@@ -1,6 +1,0 @@
-target("xconsole")
-    set_type("application")
-    add_deps("libx", "libx++", "libupng", "libconsole", "libtextview", "libsconf", "libcxx")
-    add_files("**.cc")        
-    install_dir("apps/xconsole")
-target_end()

@@ -1,6 +1,0 @@
-target("xtext")
-    set_type("application")
-    add_deps("libx", "libx++", "libupng", "libtextview", "libsconf", "libcxx")
-    add_files("**.cc")        
-    install_dir("apps/xtext")
-target_end()

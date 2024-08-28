@@ -1,10 +1,11 @@
 #include <display/display.h>
-#include <sys/vdevice.h>
+#include <ewoksys/vdevice.h>
 #include <string.h>
 #include <unistd.h>
+#include <stdio.h>
 
 const char* get_display_fb_dev(const char* display_man_dev, uint32_t display_index) {
-	static char ret[128];
+	static char ret[128] = {0};
 	proto_t in, out;
 	PF->init(&out);
 	PF->init(&in)->addi(&in, display_index);

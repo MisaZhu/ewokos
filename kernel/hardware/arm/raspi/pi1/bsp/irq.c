@@ -39,8 +39,8 @@ void irq_arch_init(void) {
 }
 
 
-inline void irq_enable(uint32_t irqs) {
-  if((irqs & IRQ_TIMER0) != 0) {
+inline void irq_enable(uint32_t irq) {
+  if(irq == IRQ_TIMER0) {
   	enable_irq(64);
 	}
 
@@ -56,7 +56,7 @@ inline void irq_enable(uint32_t irqs) {
 	*/
 }
 
-inline uint32_t irq_gets(void) {
+inline uint32_t irq_get(void) {
 	uint32_t ret = 0;
 	if(IRQ_IS_PENDING(_pic, 64)) {
 		ret |= IRQ_TIMER0;
@@ -70,6 +70,6 @@ inline uint32_t irq_gets(void) {
 	return ret;
 }
 
-void irq_disable(uint32_t irqs) {
-	(void)irqs;
+void irq_disable(uint32_t irq) {
+	(void)irq;
 }

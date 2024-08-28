@@ -12,8 +12,8 @@ XMOUSED_OBJS = xmoused.o
 XMOUSED = $(TARGET_DIR)/sbin/x/xmoused
 
 $(XMOUSED): $(XMOUSED_OBJS) \
-		$(BUILD_DIR)/lib/libewokc.a 
-	$(LD) -Ttext=100 $(XMOUSED_OBJS) -o $(XMOUSED) $(LDFLAGS) -lewokc -lc_nano -lnosys
+		$(EWOK_LIBC_A)  
+	$(LD) -Ttext=100 $(XMOUSED_OBJS) -o $(XMOUSED) $(LDFLAGS) $(EWOK_LIBC)
 
 clean:
 	rm -f $(XMOUSED_OBJS)

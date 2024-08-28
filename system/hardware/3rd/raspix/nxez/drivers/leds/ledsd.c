@@ -1,5 +1,5 @@
 #include <arch/bcm283x/gpio.h>
-#include <sys/vdevice.h>
+#include <ewoksys/vdevice.h>
 #include <string.h>
 
 #define DS   6
@@ -28,7 +28,7 @@ static void leds(int v) {
 	bcm283x_gpio_write(STCP, 1);
 }
 
-static int leds_write(int fd, int from_pid, uint32_t node,
+static int leds_write(int fd, int from_pid, fsinfo_t* node,
 		const void* buf, int size, int offset, void* p) {
 	(void)fd;
 	(void)node;
@@ -54,6 +54,6 @@ int main(int argc, char** argv) {
 	memset(&dev, 0, sizeof(vdevice_t));
 	strcpy(dev.name, "nxez_leds");
 	dev.write = leds_write;
-	device_run(&dev, mnt_point, FS_TYPE_CHAR);
+	device_run(&dev, mnt_point, FS_TYPE_CHAR, 0666);
 	return 0;
 }

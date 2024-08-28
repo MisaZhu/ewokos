@@ -1,7 +1,7 @@
 #include <string.h>
 #include <arch/vpb/framebuffer.h>
-#include <sys/syscall.h>
-#include <sys/mmio.h>
+#include <ewoksys/syscall.h>
+#include <ewoksys/mmio.h>
 #include <sysinfo.h>
 
 static fbinfo_t _fb_info;

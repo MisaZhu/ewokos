@@ -2,9 +2,9 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
-#include <sys/syscall.h>
+#include <ewoksys/syscall.h>
 #include <sysinfo.h>
-#include <sys/mmio.h>
+#include <ewoksys/mmio.h>
 
 #define SECTOR_SIZE 512
 

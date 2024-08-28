@@ -7,6 +7,11 @@
 #include <kprintf.h>
 #include <stddef.h>
 
+uint32_t get_kmalloc_size(void) {
+	return _kernel_config.kmalloc_size == 0 ?
+			MIN_KMALLOC_SIZE : _kernel_config.kmalloc_size;
+}
+
 /*
 kmalloc manage the memory(from KMALLOC_BASE to KMALLOC_END) for kernel.
 */
@@ -46,7 +51,7 @@ void kmalloc_init() {
 void *kmalloc(uint32_t size) {
 	void *ret = trunk_malloc(&_kmalloc, size);
 	if(ret == 0) {
-		printf("Panic: km_alloc failed!\n");
+		printf("Panic: km_alloc failed! (for %d)\n", size);
 	}
 	return ret;
 }

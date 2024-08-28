@@ -1,16 +1,17 @@
 #include <string.h>
 #include <unistd.h>
 #include <stdlib.h>
+#include <sys/errno.h>
 #include <stdio.h>
-#include <sys/vfs.h>
-#include <sys/core.h>
-#include <sys/ipc.h>
-#include <sys/proc.h>
-#include <vprintf.h>
-#include <sys/mstr.h>
+#include <ewoksys/vfs.h>
+#include <ewoksys/core.h>
+#include <ewoksys/ipc.h>
+#include <ewoksys/proc.h>
+
+#include <ewoksys/mstr.h>
 #include <fcntl.h>
-#include <sys/klog.h>
-#include <sys/syscall.h>
+#include <ewoksys/klog.h>
+#include <ewoksys/syscall.h>
 #include "shell.h"
 
 static int cd(const char* dir) {
@@ -59,8 +60,14 @@ static int cd(const char* dir) {
 		printf("[%s] not exist!\n", dir);	
 	else if(info.type != FS_TYPE_DIR)
 		printf("[%s] is not a directory!\n", dir);	
-	else 
-		chdir(cwd);
+	else if(chdir(cwd) != 0) {
+		if(errno == ENOENT)
+			printf("[%s] not exist!\n", dir);	
+		else if(errno == EPERM)
+			printf("[%s] access denied!\n", dir);	
+		else
+			printf("[%s] denied!\n", dir);	
+	}
 	return 0;
 }
 
@@ -87,17 +94,18 @@ static void export_all(void) {
 
 static void export_get(const char* arg) {
 	const char* value = getenv(arg);
+	if(value == NULL)
+		value = "";
 	printf("%s=%s\n", arg, value);
 }
 
 static void export_set(const char* arg) {
-	char name[64];
+	char name[64] = {0};
 	char* v = strchr(arg, '=');
 	if(v == NULL)
 		return;
-	strncpy(name, arg, v-arg);
-	name[v-arg] = 0;
-
+	int len = v-arg;
+	strncpy(name, arg, len < 64 ? len : 63);
 	setenv(name, (v+1));
 }
 
@@ -126,7 +134,7 @@ int32_t handle_shell_cmd(const char* cmd) {
 	}
 	else if(strcmp(cmd, "cd") == 0) {
 		const char* home = getenv("HOME");
-		if(home[0] == 0)
+		if(home == NULL || home[0] == 0)
 			home = "/";
 		return cd(home);
 	}

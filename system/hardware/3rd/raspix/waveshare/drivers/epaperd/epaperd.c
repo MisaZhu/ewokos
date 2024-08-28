@@ -16,11 +16,11 @@
 //bc
 static void epaper_reset(void) {
 	bcm283x_gpio_write(EPD_RST_PIN, 1);
-	usleep(100000);
+	proc_usleep(100000);
 	bcm283x_gpio_write(EPD_RST_PIN, 0);
-	usleep(100000);
+	proc_usleep(100000);
 	bcm283x_gpio_write(EPD_RST_PIN, 1);
-	usleep(100000);
+	proc_usleep(100000);
 }
 
 static void epaper_cmd_raw(uint8_t reg) {
@@ -51,7 +51,7 @@ static void epaper_write(uint8_t data) {
 
 static void epaper_wait(void) {
 	while(bcm283x_gpio_read(EPD_BUSY_PIN) == 0) {
-		usleep(1000);
+		proc_usleep(1000);
 	}
 }
 

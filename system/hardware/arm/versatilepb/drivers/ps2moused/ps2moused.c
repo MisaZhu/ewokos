@@ -2,10 +2,10 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
-#include <sys/vfs.h>
-#include <sys/vdevice.h>
-#include <sys/mmio.h>
-
+#include <ewoksys/vfs.h>
+#include <ewoksys/vdevice.h>
+#include <ewoksys/interrupt.h>
+#include <ewoksys/mmio.h>
 
 #define MOUSE_CR 0x00
 #define MOUSE_STAT 0x04
@@ -67,8 +67,7 @@ int32_t mouse_init(void) {
 	_mmio_base = mmio_map();
 	uint8_t data;
 	uint32_t divisor = 1000;
-	put8(MOUSE_CLKDIV, divisor);
-
+	put8(MOUSE_BASE+MOUSE_CLKDIV, divisor);
 	put8(MOUSE_BASE+MOUSE_CR, MOUSE_CR_EN);
 	//reset mouse, and wait ack and pass/fail code
 	if(! kmi_write(0xff) )
@@ -152,17 +151,26 @@ int32_t mouse_handler(mouse_info_t *info) {
 			
 			btndown = (btndown << 1 | btnup);
 
+			if(btndown == 0 && rz != 0) {
+				btndown = 8;//scroll wheel
+				rx = rz;
+			}
+
 			info->btn = btndown;
 			info->rx = rx;
 			info->ry = ry;
-			info->rz = rz;
 			return 0;
 		}
 	}
 	return -1;
 }
 
-static int mouse_read(int fd, int from_pid, uint32_t node,
+#define MAX_MEVT 64
+static mouse_info_t _minfo[MAX_MEVT];
+static uint32_t _minfo_num = 0;
+static uint32_t _minfo_index = 0;
+
+static int mouse_read(int fd, int from_pid, fsinfo_t* node,
 		void* buf, int size, int offset, void* p) {
 	(void)fd;
 	(void)from_pid;
@@ -170,20 +178,61 @@ static int mouse_read(int fd, int from_pid, uint32_t node,
 	(void)p;
 	(void)node;
 
-	mouse_info_t minfo;
-	if(size < 4 || mouse_handler(&minfo) != 0) {
-		return ERR_RETRY_NON_BLOCK;
-	}
-
 	uint8_t* d = (uint8_t*)buf;
-	d[0] = minfo.btn;
-	d[1] = minfo.rx;
-	d[2] = minfo.ry;
-	d[3] = minfo.rz;
-	return 4;
+	d[0] = 0;
+
+	if(size >= 4 && _minfo_num > 0) {
+		d[0] = 1;
+		d[1] = _minfo[_minfo_index].btn;
+		d[2] = _minfo[_minfo_index].rx;
+		d[3] = _minfo[_minfo_index].ry;
+		_minfo_index++;
+		if(_minfo_index >= _minfo_num) {
+			_minfo_num = _minfo_index = 0;
+		}
+		return 4;
+	}
+	return VFS_ERR_RETRY;
 }
 
+/*
+static int mouse_loop(void* p) {
+	if(mouse_handler(&_minfo) == 0) {
+		_has_data = true;
+		proc_wakeup(RW_BLOCK_EVT);
+	}
+	usleep(3000);
+	return 0;
+}
+*/
+
+static void interrupt_handle(uint32_t interrupt, uint32_t p) {
+	(void)p;
+	ipc_disable();
+
+	mouse_info_t info;
+	if(mouse_handler(&info) == 0) {
+		if((_minfo_num+1) >= MAX_MEVT) {
+			if(info.btn != 0)
+				memcpy(&_minfo[MAX_MEVT-1], &info, sizeof(mouse_info_t));
+		}
+		else {
+			memcpy(&_minfo[_minfo_num], &info, sizeof(mouse_info_t));
+			_minfo_num++;
+		}
+		proc_wakeup(RW_BLOCK_EVT);
+	}
+
+	ipc_enable();
+	return;
+}
+
+#define IRQ_RAW_MOUSE (32+4) //VPB mouse interrupt at SIC bit4
+
 int main(int argc, char** argv) {
+	_minfo_num = 0;
+	_minfo_index = 0;
+
 	const char* mnt_point = argc > 1 ? argv[1]: "/dev/mouse0";
 
 	mouse_init();
@@ -191,7 +240,13 @@ int main(int argc, char** argv) {
 	memset(&dev, 0, sizeof(vdevice_t));
 	strcpy(dev.name, "mouse");
 	dev.read = mouse_read;
+	//dev.loop_step = mouse_loop;
 
-	device_run(&dev, mnt_point, FS_TYPE_CHAR);
+	static interrupt_handler_t handler;
+	handler.data = 0;
+	handler.handler = interrupt_handle;
+	sys_interrupt_setup(IRQ_RAW_MOUSE, &handler);
+
+	device_run(&dev, mnt_point, FS_TYPE_CHAR, 0444);
 	return 0;
 }

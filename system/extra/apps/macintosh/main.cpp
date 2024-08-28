@@ -21,10 +21,12 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <string.h>
-#include <vprintf.h>
-#include <sys/kernel_tic.h>
-#include <sys/keydef.h>
-#include <sys/klog.h>
+#include <sys/errno.h>
+#include <ewoksys/proc.h>
+#include <ewoksys/kernel_tic.h>
+#include <ewoksys/keydef.h>
+#include <ewoksys/klog.h>
+#include <ewoksys/timer.h>
 #include <x++/X.h>
 #include <pthread.h>
 
@@ -145,7 +147,7 @@ static void loop(void* p) {
 	MacEmu* xwin = (MacEmu*)p;
 	XWIN =  (MacEmu*)p;
 	xwin->repaint();
-	usleep(100000);
+	proc_usleep(30000);
 }
 
 inline void write_fd(int fd, char* data, int32_t size) {
@@ -200,7 +202,7 @@ void copyfile(const char* src, const char* dst) {
 
 int mkdir(const char* path){
 	 fsinfo_t info;
-    if(vfs_create(path, &info, FS_TYPE_DIR, false, true) != 0) {
+    if(vfs_create(path, &info, FS_TYPE_DIR, 0775, false, true) != 0) {
         printf("mkdir '%s' failed!\n", path);
         return -1;
     }
@@ -209,9 +211,9 @@ int mkdir(const char* path){
 
 void env_init(void){
 	mkdir("/tmp/run");
-    char* path = (char*)X::getResName("hd1.img");
-	copyfile(path, "/tmp/run/hd1.img");
-	path =  (char*)X::getResName("mac-plus-pram.dat");
+    //char* path = (char*)X::getResName("hd1.img");
+	//copyfile(path, "/tmp/run/hd1.img");
+	char *path =  (char*)X::getResName("mac-plus-pram.dat");
 	copyfile(path, "/tmp/run/mac-plus-pram.dat");
 //	copyfile("/apps/macplus/res/rom/mac-plus.rom", "/tmp/res/rom/mac-plus.rom");
 //	copyfile("/apps/macplus/res/rom/macplus-pcex.rom", "/tmp/res/rom/macplus-pcex.rom");
@@ -227,16 +229,12 @@ void* emu_thread(void* param){
 
 int main(int argc, char *argv[])
 {
-	__malloc_buf_set(0,0);
-    /*init window*/
 	MacEmu emu;
-    xscreen_t scr;
 
 	X x;
-	x.getScreenInfo(scr, 0);
 
-	x.open(&scr, &emu, 512, 342, "Macintosh", XWIN_STYLE_NORMAL);
-	emu.setVisible(true);
+	emu.open(&x, 0, -1, -1, 512, 342, "Macintosh", XWIN_STYLE_NO_RESIZE);
+	emu.fullscreen();
 
 	pthread_t tid;
 	pthread_create(&tid, NULL, emu_thread, NULL);

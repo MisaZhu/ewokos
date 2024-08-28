@@ -2,18 +2,18 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
-#include <sys/vfs.h>
-#include <sys/klog.h>
-#include <sys/ipc.h>
-#include <sys/vdevice.h>
-#include <sys/mmio.h>
-#include <sys/charbuf.h>
-#include <sys/syscall.h>
-#include <sys/proc.h>
-#include <sys/interrupt.h>
-#include <sys/timer.h>
+#include <ewoksys/vfs.h>
+#include <ewoksys/klog.h>
+#include <ewoksys/ipc.h>
+#include <ewoksys/vdevice.h>
+#include <ewoksys/mmio.h>
+#include <ewoksys/charbuf.h>
+#include <ewoksys/syscall.h>
+#include <ewoksys/proc.h>
+#include <ewoksys/interrupt.h>
+#include <ewoksys/timer.h>
 #include <fcntl.h>
-#include <sys/keydef.h>
+#include <ewoksys/keydef.h>
 
 #define KEY_MOD_LCTRL  0x01
 #define KEY_MOD_LSHIFT 0x02
@@ -30,7 +30,7 @@ static bool _idle = true;
 static int  hid;
 static char key[3];
 
-static int keyb_read(int fd, int from_pid, uint32_t node, 
+static int keyb_read(int fd, int from_pid, fsinfo_t* node, 
 		void* buf, int size, int offset, void* p) {
 	(void)fd;
 	(void)from_pid;
@@ -39,6 +39,10 @@ static int keyb_read(int fd, int from_pid, uint32_t node,
 	(void)size;
 	(void)node;
 
+	if(_idle)
+		return VFS_ERR_RETRY;
+
+	_idle = true;
 	memcpy(buf, key, 3);
 	return 3;
 }
@@ -80,14 +84,20 @@ uint8_t getKeyChar(uint8_t alt, uint8_t keycode){
 static int loop(void* p) {
 	(void)p;
 	int8_t buf[8];
-	if(read(hid, buf, 7) == 7){
+	ipc_disable();
+	int res = read(hid, buf, 7);
+	ipc_enable();
+
+	if(res == 7){
 		//klog("kb: %02x %02x %02x %02x %02x %02x %02x %02x\n", 
 		//buf[0], buf[1], buf[2], buf[3], buf[4], buf[5], buf[6], buf[7]);
 		key[0] = getKeyChar(buf[0], buf[2]);
 		key[1] = getKeyChar(buf[1], buf[3]);
 		key[2] = getKeyChar(buf[2], buf[4]);
+		_idle = false;
+		proc_wakeup(RW_BLOCK_EVT);
 	}
-	usleep(10000);
+	usleep(20000);
 	return 0;
 }
 
@@ -102,9 +112,10 @@ static int set_report_id(int fd, int id) {
 }
 
 int main(int argc, char** argv) {
+	_idle = true;
 	const char* mnt_point = argc > 1 ? argv[1]: "/dev/keyb0";
 	const char* dev_point = argc > 2 ? argv[2]: "/dev/hid0";
-	hid = open(dev_point, O_RDONLY);
+	hid = open(dev_point, O_RDONLY | O_NONBLOCK);
 	set_report_id(hid, 2);
 
 	vdevice_t dev;
@@ -113,6 +124,6 @@ int main(int argc, char** argv) {
 	dev.read = keyb_read;
 	dev.loop_step = loop;
 
-	device_run(&dev, mnt_point, FS_TYPE_CHAR);
+	device_run(&dev, mnt_point, FS_TYPE_CHAR, 0444);
 	return 0;
 }

@@ -4,7 +4,7 @@
 #include <string.h>
 #include <fbd/fbd.h>
 #include <graph/graph.h>
-#include <sys/syscall.h>
+#include <ewoksys/syscall.h>
 #include <sysinfo.h>
 
 static fbinfo_t _fb_info;

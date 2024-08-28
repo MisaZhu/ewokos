@@ -1,7 +1,7 @@
 #include <unistd.h>
-#include <sys/vfs.h>
+#include <ewoksys/vfs.h>
 #include <stdio.h>
-#include <vprintf.h>
+
 
 int main(int argc, char* argv[]) {
 	const char* fname;
@@ -12,7 +12,7 @@ int main(int argc, char* argv[]) {
 	}
 
 	fname = vfs_fullname(argv[1]);
-	if(vfs_create(fname, &info, FS_TYPE_DIR, false, true) != 0) {
+	if(mkdir(fname, 0751) != 0) {
 		printf("mkdir '%s' failed!\n", argv[1]);
 		return -1;
 	}

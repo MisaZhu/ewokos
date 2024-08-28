@@ -7,6 +7,8 @@ basic_sys:
 	cd hid_keybd; make
 	cd hid_moused; make
 	cd hid_joystickd; make
+	cd spi2uart; make
+	cd wlan; make
 
 full_sys:
 	cd fbd; make
@@ -21,3 +23,5 @@ clean:
 	cd hid_keybd; make clean
 	cd hid_moused; make clean
 	cd hid_joystickd; make clean
+	cd spi2uart; make clean
+	cd wlan; make clean

@@ -1,0 +1,10 @@
+[
+    {"ext":".png", "open_with": "/apps/xpng/xpng", "icon": "icons/pic.png" },
+    {"ext":".nes", "open_with": "/apps/emu/emu", "icon": "icons/emu.png" },
+    {"ext":".txt", "open_with": "/apps/xread/xread", "icon": "icons/xread.png" },
+    {"ext":".conf", "open_with": "/apps/xread/xread", "icon": "icons/xread.png" },
+    {"ext":".json", "open_with": "/apps/xread/xread", "icon": "icons/json.png" },
+    {"ext":".rd", "open_with": "/apps/xread/xread", "icon": "icons/xread.png" },
+    {"ext":".js", "open_with": "/apps/xread/xread", "icon": "icons/js.png" },
+    {"ext":".mbc", "open_with": "/bin/mario", "icon": "icons/js.png" }
+]

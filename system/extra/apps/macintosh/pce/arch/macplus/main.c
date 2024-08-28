@@ -28,7 +28,7 @@
 
 #include <stdarg.h>
 #include <time.h>
-#include <sys/vfs.h>
+#include <ewoksys/vfs.h>
 #include <fcntl.h>
 
 #include <unistd.h>

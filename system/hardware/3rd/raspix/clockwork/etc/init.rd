@@ -1,31 +1,33 @@
-/bin/rundev /drivers/raspix/powerd  /dev/power0
-/bin/rundev /drivers/raspix/uartd   /dev/tty0
-#/bin/rundev /drivers/raspix/soundd  /dev/sound
+/bin/ipcserv /drivers/timerd                /dev/timer
 
-/bin/rundev /drivers/raspix/clockwork_fbd      /dev/fb0
-/bin/rundev /drivers/fontd           /dev/font /usr/system/fonts/system.ttf /usr/system/fonts/system_cn.ttf
-/bin/rundev /drivers/consoled        /dev/console0
+/bin/ipcserv /drivers/raspix/clockwork_fbd      /dev/fb0
+/bin/ipcserv /drivers/displayd              /dev/display /dev/fb0
+/bin/ipcserv /drivers/fontd           /dev/font
 
-/bin/rundev /drivers/raspix/clockwork_usbd /dev/hid0
-/bin/rundev /drivers/raspix/hid_keybd      /dev/keyb0
-/bin/rundev /drivers/raspix/hid_moused     /dev/mouse0
-/bin/rundev /drivers/raspix/hid_joystickd  /dev/joystick0
+#/bin/ipcserv /drivers/consoled        /dev/console0
 
-/bin/rundev /drivers/timerd                /dev/timer
-/bin/rundev /drivers/ramfsd                /tmp
+/bin/ipcserv /drivers/raspix/clockwork_usbd /dev/hid0
+/bin/ipcserv /drivers/raspix/hid_keybd      /dev/keyb0
+/bin/ipcserv /drivers/raspix/hid_moused     /dev/mouse0
+/bin/ipcserv /drivers/raspix/hid_joystickd  /dev/joystick0
 
-/bin/rundev /drivers/nulld                 /dev/null
-/bin/rundev /drivers/proc/sysinfod         /proc/sysinfo
-/bin/rundev /drivers/proc/stated           /proc/state
+/bin/ipcserv /drivers/ramfsd                /tmp
+/bin/ipcserv /drivers/nulld                 /dev/null
+/bin/ipcserv /drivers/proc/sysinfod         /proc/sysinfo
+/bin/ipcserv /drivers/proc/stated           /proc/state
 
-/bin/rundev /drivers/displayd              /dev/display /dev/fb0
-/bin/rundev /drivers/xserverd              /dev/x
+/bin/ipcserv /drivers/raspix/wland          /dev/wl0
+/bin/ipcserv /drivers/netd                  /dev/net0 /dev/wl0
 
-#/bin/rundev /drivers/xconsoled             /dev/console0
+@/bin/telnetd &
+
+@/bin/ipcserv /sbin/sessiond
+@/bin/session -r &
+
+@/bin/ipcserv /drivers/xserverd              /dev/x
 
 @/sbin/x/xjoystickd /dev/joystick0 &
 @/sbin/x/xmoused /dev/mouse0 &
 @/sbin/x/xim_none &
 
-@/bin/session &
-@/bin/x/launcher &
+@/bin/x/xsession misa &

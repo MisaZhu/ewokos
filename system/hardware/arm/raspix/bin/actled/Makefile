@@ -12,8 +12,8 @@ ACTLED_OBJS = actled.o
 ACTLED = $(TARGET_DIR)/bin/actled
 
 $(ACTLED): $(ACTLED_OBJS) \
-		$(BUILD_DIR)/lib/libewokc.a
-	$(LD) -Ttext=100 $(ACTLED_OBJS) -o $(ACTLED) $(LDFLAGS) -lewokc -lc_nano -lnosys
+		$(EWOK_LIBC_A) 
+	$(LD) -Ttext=100 $(ACTLED_OBJS) -o $(ACTLED) $(LDFLAGS) $(EWOK_LIBC)
 
 clean:
 	rm -f $(ACTLED_OBJS)

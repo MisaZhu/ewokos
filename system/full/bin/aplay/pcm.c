@@ -5,10 +5,10 @@
 #include <unistd.h>
 #include <string.h>
 #include <fcntl.h>
-#include <errno.h>
+#include <sys/errno.h>
 #include <sys/types.h>
-#include <sys/klog.h>
-#include <sys/vdevice.h>
+#include <ewoksys/klog.h>
+#include <ewoksys/vdevice.h>
 
 #include "pcm.h"
 #include "utils.h"
@@ -215,7 +215,7 @@ int wait_avail(struct pcm *pcm, int *avail, int time_out_ms)
 		if (pcm->hook != NULL) {
 			pcm->hook(pcm->private);
 		} else {
-			usleep(SLEEP_TIME_MS * 1000); /* Try again until timeout */
+			proc_usleep(SLEEP_TIME_MS * 1000); /* Try again until timeout */
 		}
 	}
 

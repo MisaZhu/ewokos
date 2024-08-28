@@ -3,10 +3,8 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <string.h>
-#include <sys/shm.h>
 #include <fb/fb.h>
-#include <sys/shm.h>
-#include <sys/vdevice.h>
+#include <ewoksys/vdevice.h>
 #include <ili9486/ili9486.h>
 #include <fbd/fbd.h>
 

@@ -12,8 +12,8 @@ CAT_OBJS = cat.o
 CAT = $(TARGET_DIR)/bin/cat
 
 $(CAT): $(CAT_OBJS) \
-		$(BUILD_DIR)/lib/libewokc.a
-	$(LD) -Ttext=100 $(CAT_OBJS) -o $(CAT) $(LDFLAGS) -lewokc -lc_nano -lnosys
+		$(EWOK_LIBC_A) 
+	$(LD) -Ttext=100 $(CAT_OBJS) -o $(CAT) $(LDFLAGS) $(EWOK_LIBC)
 
 clean:
 	rm -f $(CAT_OBJS)

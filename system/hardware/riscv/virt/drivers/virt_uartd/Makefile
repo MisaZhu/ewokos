@@ -12,8 +12,8 @@ VIRT_UARTD_OBJS = virt_uartd.o
 VIRT_UARTD = $(TARGET_DIR)/drivers/virt/virt_uartd
 
 $(VIRT_UARTD): $(VIRT_UARTD_OBJS) \
-		$(BUILD_DIR)/lib/libewokc.a
-	$(LD) -Ttext=100 $(VIRT_UARTD_OBJS) -o $(VIRT_UARTD) $(LDFLAGS) -lewokc -lc_nano -lnosys
+		$(EWOK_LIBC_A) 
+	$(LD) -Ttext=100 $(VIRT_UARTD_OBJS) -o $(VIRT_UARTD) $(LDFLAGS) $(EWOK_LIBC)
 
 clean:
 	rm -f $(VIRT_UARTD_OBJS) $(VIRT_UARTD)

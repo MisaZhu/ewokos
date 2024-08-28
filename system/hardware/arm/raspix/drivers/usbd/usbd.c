@@ -2,10 +2,12 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
-#include <sys/vdevice.h>
-#include <sys/syscall.h>
-#include <sys/mmio.h>
-#include <sys/dma.h>
+#include <sys/errno.h>
+#include <ewoksys/vdevice.h>
+#include <ewoksys/syscall.h>
+#include <ewoksys/vfs.h>
+#include <ewoksys/mmio.h>
+#include <ewoksys/dma.h>
 #include <usbd/usbd.h>
 #include <device/hid/keyboard.h>
 #include <device/hid/touch.h>
@@ -26,15 +28,15 @@ void LogPrint(const char* message, uint32_t messageLength) {
 
 static void usb_host_init(uint32_t v_mmio_base) {
   UsbInitialise(v_mmio_base);
-  usleep(100000);
+  proc_usleep(100000);
   UsbCheckForChange();
-  usleep(100000);
+  proc_usleep(100000);
   UsbCheckForChange();
-  usleep(100000);
+  proc_usleep(100000);
   UsbCheckForChange();
-  usleep(100000);
+  proc_usleep(100000);
   UsbCheckForChange();
-  usleep(100000);
+  proc_usleep(100000);
   UsbCheckForChange();
 }
 
@@ -49,7 +51,7 @@ static int usb_step(void* p) {
 	//klog("detecting...\n");
     if(!TouchPersent()){
        UsbCheckForChange(); 
-       usleep(100000);
+       proc_usleep(100000);
        return 0;
     }
 
@@ -77,11 +79,11 @@ static int usb_step(void* p) {
             proc_wakeup(RW_BLOCK_EVT);
         }
     }
-    usleep(15000);
+    proc_usleep(15000);
 	return 0;
 }
 
-static int touch_read(int fd, int from_pid, uint32_t node,
+static int touch_read(int fd, int from_pid, fsinfo_t* node,
 		void* buf, int size, int offset, void* p) {
 	(void)fd;
 	(void)from_pid;
@@ -90,10 +92,10 @@ static int touch_read(int fd, int from_pid, uint32_t node,
 	(void)p;
 
 	if(size < 6)
-        return ERR_RETRY;
+        return VFS_ERR_RETRY;
 
     if(!_hasData)
-        return ERR_RETRY;
+        return VFS_ERR_RETRY;
 
 
     memcpy(buf, _buf, 6);
@@ -116,6 +118,6 @@ int main(int argc, char** argv) {
 	dev.loop_step = usb_step;
     dev.read = touch_read;
 
-	device_run(&dev, mnt_point, FS_TYPE_CHAR);
+	device_run(&dev, mnt_point, FS_TYPE_CHAR, 0444);
 	return 0;
 }

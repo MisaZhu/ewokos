@@ -9,24 +9,19 @@ export G_2D_BOOST=yes
 all: full
 	@echo "all done."
 	rm -fr $(BUILD_DIR)/$(HW)
-	mv $(TARGET_DIR) $(BUILD_DIR)/$(HW)
-	cp -r $(BUILD_DIR)/include $(BUILD_DIR)/$(HW)
-	cp -r $(BUILD_DIR)/lib $(BUILD_DIR)/$(HW)
+	mkdir -p $(BUILD_DIR)/$(HW)
+	mv $(TARGET_DIR)/* $(BUILD_DIR)/$(HW)
 
 include ../make.inc
 
 basic: basic_sys
 	@echo "all done."
+	rm -fr $(BUILD_DIR)/$(HW)
+	mkdir -p $(BUILD_DIR)/$(HW)
+	mv $(TARGET_DIR)/* $(BUILD_DIR)/$(HW)
 
 full: full_sys
 	@echo "all done."
-
-extra: extra_sys
-	@echo "all done."
-	rm -fr $(BUILD_DIR)/$(HW)
-	mv $(TARGET_DIR) $(BUILD_DIR)/$(HW)
-	cp -r $(BUILD_DIR)/include $(BUILD_DIR)/$(HW)
-	cp -r $(BUILD_DIR)/lib $(BUILD_DIR)/$(HW)
 
 clockwork: extra
 	cd ../../3rd/raspix/clockwork; make
@@ -48,16 +43,13 @@ full_sys: basic_sys
 	cd drivers;make full_sys
 	@cp -r etcs/qemu/full/* ${TARGET_DIR}/etc
 
-extra_sys: full_sys
-	cd $(ROOT_DIR)/extra;make
-
 clean:
 	cd libs;make clean
 	cd drivers;make clean
 	cd $(ROOT_DIR)/full;make clean
 	cd $(ROOT_DIR)/basic;make clean
 	cd $(ROOT_DIR)/extra;make clean
-	rm -fr $(ROOT_DIR)/build/$(HW)
+	rm -fr $(ROOT_DIR)/build
 
 run:
 	qemu-system-arm -M raspi2b -m 1024M -serial mon:stdio -kernel $(ROOT_DIR)/../kernel/hardware/arm/raspi/pix/kernel7.qemu.img -sd build/root.ext2

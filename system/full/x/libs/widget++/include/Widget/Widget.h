@@ -3,182 +3,100 @@
 
 #include <x++/XWin.h>
 #include <string.h>
-#include <sys/klog.h>
+#include <ewoksys/klog.h>
 
 namespace Ewok {
 
 class Container;
+class RootWidget;
+class Stage;
+class WidgetWin;
 class Widget {
-	friend Container;
 	Widget* next;
 	Widget* prev;
+
+	bool isContainer;
 protected:
-	uint32_t fgColor;
-	uint32_t bgColor;
+	XTheme* themePrivate;
+	uint32_t id;
+	string   name;
 	int32_t marginH;
 	int32_t marginV;
-	Widget* father;
+	Container* father;
+
 	bool dirty;
-
 	bool fixed;
-	grect_t rect;
+	bool disabled;
+	bool alpha;
+	bool visible;
 
-	virtual void onRepaint(graph_t* g, grect_t* rect) {
-		if(bgColor == 0x0)
-			return;
-		graph_fill(g, rect->x, rect->y, rect->w, rect->h, bgColor);
-	}
+	grect_t area;
 
 	virtual void onResize() { }
 	virtual void onMove() { }
+	virtual bool onMouse(xevent_t* ev);
+	virtual bool onIM(xevent_t* ev);
+	virtual void onClick(xevent_t* ev);
 
-	virtual bool onMouse(xevent_t* ev) {  return false; }
-	virtual bool onKey(xevent_t* ev) {  return false; }
-	virtual bool onEvent(xevent_t* ev) { 
-		if(ev->type == XEVT_MOUSE) {
-			grect_t r = getAbsRect();
-			if(ev->value.mouse.x > r.x && ev->value.mouse.x < (r.x+r.w) &&
-					ev->value.mouse.y > r.y && ev->value.mouse.y < (r.y+r.h))
-				return onMouse(ev);
-		}
-		return false; 
-	}
-
-	virtual XWin* getWin() {
-		if(father == NULL)
-			return NULL;
-		return father->getWin();
-	}
-
+	virtual void repaint(graph_t* g, XTheme* theme);
+	virtual void onRepaint(graph_t* g, XTheme* theme, const grect_t& r) = 0;
+	virtual void onTimer(uint32_t timerFPS, uint32_t timerStep) { }
+	virtual void onFocus() { }
+	virtual void onUnfocus() { }
+	virtual void onAdd() { }
+	virtual bool onEvent(xevent_t* ev);
 public:
-	inline Widget(void)  { 
-		dirty = true;
-		fixed = false;
-		father = NULL;
-		next = NULL;
-		prev = NULL;
-		rect = {0, 0, 0, 0};
-		bgColor = 0x0; //transparent
-		fgColor = 0xff000000;
-		marginH = 0;
-		marginV = 0;
-	}
+	friend Container;
+	friend RootWidget;
+	friend Stage;
 
-	virtual ~Widget() { }
+	void (*onClickFunc)(Widget* wd);
 
-	void setFGColor(uint32_t color) { 
-		fgColor = color;
-		update();
-	}
+	Widget(void);
+	virtual ~Widget(void);
 
-	void setBGColor(uint32_t color) {
-		bgColor = color;
-		update();
-	}
+	void setAlpha(bool alpha);
 
-	void setMarginH(int32_t v) { marginH = v; }
-	void setMarginV(int32_t v) { marginV = v; }
+	inline void setMarginH(int32_t v) { marginH = v; }
+	inline void setMarginV(int32_t v) { marginV = v; }
+	inline void setFixed(bool fixed) { this->fixed = fixed; }
+	inline bool isAlpha() { return alpha; }
+	inline uint32_t getID() { return id; }
+	inline void setID(uint32_t id) { this->id = id; }
+	inline const string& getName() { return name; }
+	inline void setName(const string& name) { this->name = name; }
+	inline XTheme* getTheme() { return themePrivate; }
 
-	inline Widget* getForeFather(void) {
-		Widget* wd = father;
-		while(wd != NULL && wd->father != NULL)
-			wd = wd->father;
-		return wd;
-	}
+	void setTheme(XTheme* theme);
+	void disable();
+	void enable();
+	void fix(const gsize_t& size);
+	void fix(uint32_t w, uint32_t h);
 
-	inline void update() {
-		dirty = true;
-		XWin* win = getWin();
-		if(win != NULL)
-			win->repaint();
-	}
+	void resizeTo(int w, int h);
+	void resize(int dw, int dh);
+	void moveTo(int x, int y);
+	void move(int dx, int dy);
+	void setArea(int x, int y, int w, int h);
+	void show();
+	void hide();
 
-	virtual void repaint(graph_t* g, grect_t* grect) {
-		if(!dirty)
-			return;
-		onRepaint(g, grect);
-		dirty = false;
-	}
+	bool isFixed() { return fixed; }
+	bool isVisible() { return visible; }
+	Widget* getNext() { return next; }
+	Widget* getPrev() { return prev; }
+	RootWidget* getRoot(void);
+	WidgetWin*  getWin(void);
+	gpos_t getRootPos(int32_t x = 0, int32_t y = 0);
+	gpos_t getScreenPos(int32_t x = 0, int32_t y = 0);
+	gpos_t getInsidePos(int32_t screenX, int32_t screenY);
+	grect_t getRootArea(bool margin = true);
+	grect_t getScreenArea(bool margin = true);
+	bool   focused();
+	Container* getFather() { return father; }
 
-	virtual gsize_t getMinSize(void) {
-		gsize_t sz = { marginH*2, marginV*2 };
-		return sz;
-	}
-
-	void fixedMinSize(void) {
-		gsize_t sz = getMinSize();
-		resizeTo(sz.w, sz.h);
-		setFixed(true);
-	}
-
-	inline void resizeTo(int w, int h) {
-		if(rect.w == w && rect.h == h)
-			return;
-		rect.w = w;
-		rect.h = h;
-		onResize();
-	}
-
-	inline void resize(int dw, int dh) {
-		resizeTo(rect.w + dw, rect.h + dh);
-	}
-
-	inline void moveTo(int x, int y) {
-		if(rect.x == x && rect.y == y)
-			return;
-		rect.x = x;
-		rect.y = y;
-		onMove();
-	}
-
-	inline void move(int dx, int dy) {
-		moveTo(rect.x + dx, rect.y + dy);
-	}
-
-	inline void setFixed(bool fixed) {
-		this->fixed = fixed;
-	}
-
-	inline void setRect(int x, int y, int w, int h) {
-		resizeTo(w, h);
-		moveTo(x, y);
-	}
-	
-	inline void getRect(grect_t* r) { memcpy(r, &rect, sizeof(grect_t)); }
-
-	inline grect_t getAbsRect() {
-		grect_t r;
-		getRect(&r);
-		Widget* wd = father;
-		while(wd != NULL) {
-			r.x += wd->rect.x;
-			r.y += wd->rect.y;
-			wd = wd->father;
-		}
-
-		XWin* win = getWin();
-		if(win == NULL)
-			return r;
-		r.x += win->getCWin()->xinfo->wsr.x;
-		r.y += win->getCWin()->xinfo->wsr.y;
-		return r;
-	}
-
-	inline gpos_t getAbsPos(int32_t x, int32_t y) {
-		gpos_t ret;
-		grect_t r = getAbsRect();
-		ret.x = r.x + x;
-		ret.y = r.y + y;
-		return ret;
-	}
-
-	inline gpos_t getInsidePos(int32_t x, int32_t y) {
-		gpos_t ret;
-		grect_t r = getAbsRect();
-		ret.x = x - r.x;
-		ret.y = y - r.y;
-		return ret;
-	}
+	virtual gsize_t getMinSize(void);
+	void update();
 };
 
 }

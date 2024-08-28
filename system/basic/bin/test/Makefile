@@ -4,7 +4,6 @@ BUILD_DIR = ../../../build
 TARGET_DIR = $(BUILD_DIR)/rootfs
 
 LDFLAGS = -L$(BUILD_DIR)/lib
-
 CFLAGS += -I $(BUILD_DIR)/include
 
 TEST_OBJS = test.o
@@ -12,8 +11,8 @@ TEST_OBJS = test.o
 TEST = $(TARGET_DIR)/bin/test
 
 $(TEST): $(TEST_OBJS) \
-		$(BUILD_DIR)/lib/libewokc.a 
-	$(LD) -Ttext=100 $(TEST_OBJS) -o $(TEST) $(LDFLAGS) -lewokc -lc_nano -lnosys
+		$(EWOK_LIBC_A)
+		$(LD) -Ttext=100 $(TEST_OBJS) -o $(TEST) $(LDFLAGS) $(EWOK_LIBC) 
 
 clean:
 	rm -f $(TEST_OBJS)

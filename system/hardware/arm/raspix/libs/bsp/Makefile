@@ -6,7 +6,7 @@ TARGET_DIR = $(BUILD_DIR)
 
 LDFLAGS = -L$(TARGET_DIR)/lib
 
-CFLAGS += -I$(SYS_DIR)/basic/libs/libc/sys/include \
+CFLAGS += -I$(SYS_DIR)/basic/libc/libewoksys/ewoksys/include \
 	-I$(SYS_DIR)/basic/libs/sd/include \
 	-I$(SYS_DIR)/full/libs/graph/include \
 	-Iinclude -I $(TARGET_DIR)/include
@@ -16,7 +16,7 @@ CFLAGS += -mfpu=neon-vfpv4 -DGRAPH_2D_BOOST
 CXXFLAGS += -mfpu=neon-vfpv4 -DGRAPH_2D_BOOST
 endif
 
-LIB_BSP_OBJS = src/bsp_sd.o src/bsp_graph.o
+LIB_BSP_OBJS = src/bsp_sd.o src/bsp_graph.o src/bsp_fb.o
 
 BSP = $(TARGET_DIR)/lib/libbsp.a
 

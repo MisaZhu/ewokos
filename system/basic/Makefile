@@ -6,6 +6,7 @@ all: mkdirs basic_libs builtin_apps basic_drivers
 	@echo "all done."
 
 basic_libs:
+	cd libc;make
 	cd libs;make
 
 basic_drivers:
@@ -17,15 +18,18 @@ mkdirs:
 	@mkdir -p ${TARGET_DIR}/bin
 	@mkdir -p ${TARGET_DIR}/drivers/proc
 	@mkdir -p ${TARGET_DIR}/home/root
-	@mkdir -p ${TARGET_DIR}/home/guest
+	@chmod 750 ${TARGET_DIR}/home/root
 	@cp -r etc ${TARGET_DIR}
 
 builtin_apps: 
+	cd sys;make
 	cd sbin;make
 	cd bin;make
 
 clean:
+	cd sys;make clean
 	cd sbin;make clean
 	cd bin;make clean
+	cd libc;make clean
 	cd libs;make clean
 	cd drivers;make clean

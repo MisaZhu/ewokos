@@ -18,61 +18,107 @@
 #include <stddef.h>
 #include <signals.h>
 
-static proc_t _proc_table[PROC_MAX];
-__attribute__((__aligned__(PAGE_DIR_SIZE))) 
-static page_dir_entry_t _proc_vm[PROC_MAX][PAGE_DIR_NUM];
+static proc_t **_task_table;//[_kernel_config.max_task_num];
+
+typedef struct {
+	page_dir_entry_t pde[PAGE_DIR_NUM];
+} proc_vm_t;
+
+static proc_vm_t *_proc_vm = NULL;
+static uint8_t  *_proc_vm_mark = NULL;
+
 static queue_t _ready_queue[CPU_MAX_CORES];
-static proc_t* _current_proc[CPU_MAX_CORES];
+static int32_t _current_proc[CPU_MAX_CORES];
 static uint32_t _use_core_id = 0;
 static uint32_t _proc_uuid = 0;
+static int32_t _last_create_pid = 0;
 
 bool _core_proc_ready = false;
 int32_t _core_proc_pid = -1;
 uint32_t _ipc_uid = 0;
 
 /* proc_init initializes the process sub-system. */
-void procs_init(void) {
+int32_t procs_init(void) {
 	_use_core_id = 0;
 	_ipc_uid = 0;
 	_proc_uuid = 0;
 	_core_proc_ready = false;
 	int32_t i;
-	for (i = 0; i < PROC_MAX; i++) {
-		_proc_table[i].info.state = UNUSED;
-		_proc_table[i].info.wait_for = -1;
+
+	uint32_t size = PAGE_DIR_SIZE + (_kernel_config.max_proc_num*sizeof(proc_vm_t));
+	uint32_t pde = (uint32_t)kmalloc(size);
+	if(pde == 0) {
+		printf("Panic: VMM process page dir entry table alloc failed (%d MB)!\n", size/1024/1024);
+		return -1;
 	}
+
+	_proc_vm = (proc_vm_t*)ALIGN_UP(pde, PAGE_DIR_SIZE);
+
+	size = _kernel_config.max_proc_num;
+	_proc_vm_mark = (uint8_t*)kmalloc(size);
+	for (i = 0; i < _kernel_config.max_proc_num; i++) {
+		_proc_vm_mark[i] = 0;
+	}
+
+	size = _kernel_config.max_task_num*sizeof(proc_t);
+	_task_table = (proc_t*)kmalloc(size);
+	for (i = 0; i < _kernel_config.max_task_num; i++) {
+		_task_table[i] = NULL;
+	}
+
 	_core_proc_pid = -1;
 
 	for (i = 0; i < CPU_MAX_CORES; i++) {
-		_current_proc[i] = NULL;
+		_current_proc[i] = -1;
 		queue_init(&_ready_queue[i]);
 	}
+
+	return 0;
+}
+
+int32_t  proc_childof(proc_t* proc, proc_t* parent) {
+	while(proc != NULL) {
+		if(proc == parent)
+			return 0;
+		proc = proc_get(proc->info.father_pid);
+	}
+	return -1;
 }
 
 inline proc_t* proc_get(int32_t pid) {
-	if(pid < 0 || pid >= PROC_MAX ||
-			_proc_table[pid].info.state == UNUSED ||
-			_proc_table[pid].info.state == ZOMBIE)
+	if(pid < 0 || pid >= _kernel_config.max_task_num)
 		return NULL;
-	return &_proc_table[pid];
+
+	proc_t* p = _task_table[pid];
+	if(p->info.state == UNUSED || p->info.state == ZOMBIE)
+		return NULL;
+	return p;
 }
 
 inline proc_t* proc_get_by_uuid(uint32_t uuid) {
 	proc_t* proc = NULL;
-	for (uint32_t i = 0; i < PROC_MAX; i++) {
-		if(_proc_table[i].info.uuid == uuid) {
-			proc = &_proc_table[i];
+	for (uint32_t i = 0; i < _kernel_config.max_task_num; i++) {
+		proc = _task_table[i];
+		if(proc != NULL && proc->info.uuid == uuid) {
 			break;
 		}
 	}
-	if(proc->info.state == UNUSED || proc->info.state == ZOMBIE)
+
+	if(proc == NULL || proc->info.state == UNUSED || proc->info.state == ZOMBIE)
 		return NULL;
 	return proc;
 }
 
 inline proc_t* get_current_proc(void) {
 	uint32_t core_id = get_core_id();
-	proc_t* cproc = _current_proc[core_id];
+	proc_t* cproc = proc_get(_current_proc[core_id]);
+	if(cproc == NULL || cproc->info.state == UNUSED || cproc->info.state == ZOMBIE)
+		return NULL;
+	return cproc;
+}
+
+inline proc_t* get_current_core_proc(uint32_t core) {
+	proc_t* cproc = proc_get(_current_proc[core]);
 	if(cproc == NULL || cproc->info.state == UNUSED || cproc->info.state == ZOMBIE)
 		return NULL;
 	return cproc;
@@ -80,20 +126,84 @@ inline proc_t* get_current_proc(void) {
 
 inline void set_current_proc(proc_t* proc) {
 	uint32_t core_id = get_core_id();
-	if(proc == NULL || proc->info.core == core_id)
-		_current_proc[core_id] = proc;
+	if(proc == NULL) {
+		_current_proc[core_id] = -1;
+		return;
+	}
+
+	if(proc->info.core == core_id)
+		_current_proc[core_id] = proc->info.pid;
 }
 
 static inline uint32_t proc_get_user_stack_pages(proc_t* proc) {
-	if(proc->info.type == PROC_TYPE_PROC)
+	if(proc->info.type == TASK_TYPE_PROC)
 		return STACK_PAGES;
 	return THREAD_STACK_PAGES;
 }
 
 static inline  uint32_t proc_get_user_stack_base(proc_t* proc) {
-	if(proc->info.type == PROC_TYPE_PROC)
+	if(proc->info.type == TASK_TYPE_PROC)
 		return USER_STACK_TOP - STACK_PAGES*PAGE_SIZE;
-	return proc->stack.thread_stack;
+	return proc->thread_stack_base;
+}
+
+static void map_stack(proc_t* proc, uint32_t* stacks, uint32_t base, uint32_t pages) {
+	uint32_t i;
+	for(i=0; i<pages; i++) {
+		stacks[i] = (uint32_t)kalloc4k();
+		map_page(proc->space->vm,
+			base + PAGE_SIZE*i,
+			V2P(stacks[i]),
+			AP_RW_RW, PTE_ATTR_WRBACK);
+	}
+	flush_tlb();
+}
+
+static void unmap_stack(proc_t* proc, uint32_t* stacks, uint32_t base, uint32_t pages) {
+	uint32_t i;
+	for(i=0; i<pages; i++) {
+		unmap_page(proc->space->vm, base + PAGE_SIZE*i);
+		kfree4k((void*)stacks[i]);
+	}
+	flush_tlb();
+}
+
+inline uint32_t thread_stack_alloc(proc_t* proc) {
+	uint32_t i;
+	for(i=0; i<_kernel_config.max_task_per_proc; i++) {
+		if(proc->space->thread_stacks[i].base == 0)
+			break;
+	}
+
+	if(i >= _kernel_config.max_task_per_proc) {
+		kprintf("thread stack alloc failed(pid %d)!\n", proc->info.pid);
+		return 0;
+	}
+
+	uint32_t base = USER_STACK_TOP - STACK_PAGES*PAGE_SIZE - THREAD_STACK_PAGES*PAGE_SIZE*(i+1);
+	uint32_t pages = THREAD_STACK_PAGES;
+	proc->space->thread_stacks[i].base = base;
+	if(proc->space->thread_stacks[i].stacks == NULL) 
+		proc->space->thread_stacks[i].stacks = kmalloc(THREAD_STACK_PAGES*sizeof(void*));
+	memset(proc->space->thread_stacks[i].stacks, 0, THREAD_STACK_PAGES*sizeof(void*));
+	map_stack(proc, proc->space->thread_stacks[i].stacks, base, pages);
+	return base;
+}
+
+inline void thread_stack_free(proc_t* proc, uint32_t base) {
+	uint32_t i;
+	for(i=0; i<_kernel_config.max_task_per_proc; i++) {
+		if(proc->space->thread_stacks[i].base == base)
+			break;
+	}
+	if(i >= _kernel_config.max_task_per_proc) 
+		return;
+	unmap_stack(proc, proc->space->thread_stacks[i].stacks, base, THREAD_STACK_PAGES);
+	proc->space->thread_stacks[i].base = 0;
+	if(proc->space->thread_stacks[i].stacks != NULL)  {
+		kfree(proc->space->thread_stacks[i].stacks);
+		proc->space->thread_stacks[i].stacks = NULL;
+	}
 }
 
 static inline void* proc_get_mem_tail(void* p) {
@@ -118,9 +228,10 @@ static void proc_shrink_mem(proc_t* proc, int32_t page_num) {
 }
 
 /* proc_exapnad_memory expands the heap size of the given process. */
-static int32_t proc_expand_mem(proc_t *proc, int32_t page_num) {
+static int32_t proc_expand_mem(proc_t *proc, int32_t page_num, uint32_t rdonly) {
 	int32_t i;
 	int32_t res = 0;
+	uint32_t mode = rdonly == 0 ? AP_RW_RW:AP_RW_R;
 
 	for (i = 0; i < page_num; i++) {
 		char *page = kalloc4k();
@@ -134,33 +245,38 @@ static int32_t proc_expand_mem(proc_t *proc, int32_t page_num) {
 		map_page_ref(proc->space->vm,
 				proc->space->heap_size,
 				V2P(page),
-				AP_RW_RW, PTE_ATTR_WRBACK);
+				mode, PTE_ATTR_WRBACK);
 		proc->space->heap_size += PAGE_SIZE;
 	}
 	flush_tlb();
 	return res;
 }
 
-static inline int32_t proc_expand(void* p, int32_t page_num) {
-	return proc_expand_mem((proc_t*)p, page_num);
+static int32_t get_free_pde(void) {
+	for(int32_t i=0; i<_kernel_config.max_proc_num; i++) {
+		if(_proc_vm_mark[i] == 0) {
+			_proc_vm_mark[i] = 1;
+			return i;
+		}
+	}
+	return -1;
 }
 
-static inline void proc_shrink(void* p, int32_t page_num) {
-	proc_shrink_mem((proc_t*)p, page_num);
-}
+static int32_t proc_init_space(proc_t* proc) {
+	int32_t pde_index = get_free_pde();
+	if(pde_index < 0) {
+		return -1;
+	}
 
-static void proc_init_space(proc_t* proc) {
-	page_dir_entry_t *vm = _proc_vm[proc->info.pid];
-	set_kernel_vm(vm);
+	page_dir_entry_t *vm = _proc_vm[pde_index].pde;
+	set_vm(vm);
 	proc->space = (proc_space_t*)kmalloc(sizeof(proc_space_t));
 	memset(proc->space, 0, sizeof(proc_space_t));
 
+	proc->space->pde_index = pde_index;
 	proc->space->vm = vm;
 	proc->space->heap_size = 0;
-	proc->space->malloc_man.arg = (void*)proc;
-	proc->space->malloc_man.expand = proc_expand;
-	proc->space->malloc_man.shrink = proc_shrink;
-	proc->space->malloc_man.get_mem_tail = proc_get_mem_tail;
+	return 0;
 }
 
 inline void proc_save_state(proc_t* proc, saved_state_t* saved_state) {
@@ -205,7 +321,7 @@ void proc_switch(context_t* ctx, proc_t* to, bool quick){
 		set_translation_table_base((uint32_t)V2P(vm));
 	}
 
-	if(to->info.type == PROC_TYPE_PROC) {
+	if(to->info.type == TASK_TYPE_PROC) {
 		if (to->space->interrupt.state == INTR_STATE_START) {																				// have irq request to handle
 			to->space->interrupt.state = INTR_STATE_WORKING; // clear irq request mask
 			memcpy(&to->space->interrupt.saved_state.ctx, &to->ctx, sizeof(context_t)); // save "to" context to irq ctx, will restore after irq done.
@@ -213,7 +329,7 @@ void proc_switch(context_t* ctx, proc_t* to, bool quick){
 			to->ctx.gpr[1] = to->space->interrupt.data;
 			to->ctx.pc = to->ctx.lr = to->space->interrupt.entry;
 			if(to->space->interrupt.stack == 0)
-				to->space->interrupt.stack = proc_stack_alloc(to);
+				to->space->interrupt.stack = thread_stack_alloc(to);
 			to->ctx.sp = ALIGN_DOWN(to->space->interrupt.stack + THREAD_STACK_PAGES * PAGE_SIZE, 8);
 		}
 		else if (to->space->signal.do_switch) {																			 // have signal request to handle
@@ -221,7 +337,7 @@ void proc_switch(context_t* ctx, proc_t* to, bool quick){
 			to->ctx.gpr[0] = to->space->signal.sig_no;
 			to->ctx.pc = to->ctx.lr = to->space->signal.entry;
 			if(to->space->signal.stack == 0)
-				to->space->signal.stack = proc_stack_alloc(to);
+				to->space->signal.stack = thread_stack_alloc(to);
 			to->ctx.sp = ALIGN_DOWN(to->space->signal.stack + THREAD_STACK_PAGES * PAGE_SIZE, 8);
 			to->space->signal.do_switch = false; // clear ipc request mask
 		}
@@ -232,7 +348,7 @@ void proc_switch(context_t* ctx, proc_t* to, bool quick){
 			to->ctx.gpr[1] = to->space->ipc_server.extra_data;
 			to->ctx.pc = to->ctx.lr = to->space->ipc_server.entry;
 			if(to->space->ipc_server.stack == 0)
-				to->space->ipc_server.stack = proc_stack_alloc(to);
+				to->space->ipc_server.stack = thread_stack_alloc(to);
 			to->ctx.sp = ALIGN_DOWN(to->space->ipc_server.stack + THREAD_STACK_PAGES * PAGE_SIZE, 8);
 			to->space->ipc_server.do_switch = false; // clear ipc request mask
 		}
@@ -262,8 +378,9 @@ static inline void proc_unmap_shms(proc_t *proc) {
 	int32_t i;
 	for(i=0; i<SHM_MAX; i++) {
 		int32_t shm = proc->space->shms[i];
-		if(shm > 0)
-			shm_proc_unmap(proc->info.pid, shm);
+		if(shm > 0) {
+			shm_proc_unmap_by_id(proc, shm, true);
+		}
 	}
 }
 
@@ -285,7 +402,7 @@ inline proc_t* proc_get_core_ready(uint32_t core_id) {
 
 inline bool proc_have_ready_task(uint32_t core) {
 	return !queue_is_empty(&_ready_queue[core]) ||
-			_current_proc[core] != NULL;
+			_current_proc[core] >= 0;
 }
 
 proc_t* proc_get_next_ready(void) {
@@ -313,9 +430,9 @@ static inline void proc_unready(proc_t* proc, int32_t state) {
 
 static void proc_wakeup_waiting(int32_t pid) {
 	int32_t i;
-	for (i = 0; i < PROC_MAX; i++) {
-		proc_t *proc = &_proc_table[i];
-		if (proc->info.state == WAIT && proc->info.wait_for == pid) {
+	for (i = 0; i < _kernel_config.max_task_num; i++) {
+		proc_t *proc = _task_table[i];
+		if (proc != NULL && proc->info.state == WAIT && proc->info.wait_for == pid) {
 			proc->info.wait_for = -1;
 			proc_ready(proc);
 		}
@@ -327,80 +444,62 @@ static void proc_terminate(context_t* ctx, proc_t* proc) {
 		return;
 
 	proc_unready(proc, ZOMBIE);
-	semaphore_clear(proc->info.pid);
 
-	if(proc->info.type == PROC_TYPE_PROC) {
+	if(proc->info.type == TASK_TYPE_PROC) {
+		semaphore_clear(proc->info.pid);
+
 		kev_push(KEV_PROC_EXIT, proc->info.pid, 0, 0);
 		int32_t i;
-		for (i = 0; i < PROC_MAX; i++) {
-			proc_t *p = &_proc_table[i];
-			/*terminate forked from this proc*/
-			if(p->info.father_pid == proc->info.pid) { //terminate forked children, skip reloaded ones
-				if(p->info.type == PROC_TYPE_PROC)
-					proc_signal_send(ctx, p, SYS_SIG_STOP, false);
-				else
-					proc_exit(ctx, p, 0);
+		for (i = 0; i < _kernel_config.max_task_num; i++) {
+			proc_t *p = _task_table[i];
+			if(p != NULL) {
+				/*terminate forked from this proc*/
+				if(p->info.father_pid == proc->info.pid) { //terminate forked children, skip reloaded ones
+					if(p->info.type == TASK_TYPE_PROC)
+						proc_signal_send(ctx, p, SYS_SIG_STOP, false);
+					else
+						proc_exit(ctx, p, 0);
+				}
 			}
 		}
 
 		/*free all ipc context*/
 		proc_ipc_clear(proc);
+		if(proc->space->interrupt.state != INTR_STATE_IDLE) {
+			proc->space->interrupt.state = INTR_STATE_IDLE;
+			proc_wakeup(proc->info.pid, -1, (uint32_t)&proc->space->interrupt);
+		}
 		proc_wakeup_waiting(proc->info.pid);
+		proc->info.father_pid = 0;
 	}
-	proc->info.father_pid = 0;
-}
-
-inline uint32_t proc_stack_alloc(proc_t* proc) {
-	return (uint32_t)proc_malloc(proc, THREAD_STACK_PAGES*PAGE_SIZE);
-}
-
-inline void proc_stack_free(proc_t* proc, uint32_t stack) {
-	proc_free(proc, (void *)stack);
-}
-
-static inline uint32_t thread_stack_alloc(proc_t* proc) {
-	return (uint32_t)proc_malloc(proc, THREAD_STACK_PAGES*PAGE_SIZE);
-}
-
-static inline void thread_stack_free(proc_t* proc, uint32_t stack) {
-	proc_free(proc, (void *)stack);
+	else if(proc->info.type == TASK_TYPE_THREAD) { //TODO
+		proc->info.father_pid = 0;
+	}
 }
 
 static inline void proc_init_user_stack(proc_t* proc) {
-	if(proc->info.type == PROC_TYPE_THREAD) {
-		proc->stack.thread_stack = thread_stack_alloc(proc);
+	if(proc->info.type == TASK_TYPE_THREAD) {
+		proc->thread_stack_base = thread_stack_alloc(proc);
 	}
 	else {
 		uint32_t i;
-		uint32_t user_stack_base =  proc_get_user_stack_base(proc);
+		uint32_t base =  proc_get_user_stack_base(proc);
 		uint32_t pages = proc_get_user_stack_pages(proc);
-		for(i=0; i<pages; i++) {
-			proc->stack.user_stack[i] = kalloc4k();
-			map_page(proc->space->vm,
-				user_stack_base + PAGE_SIZE*i,
-				V2P(proc->stack.user_stack[i]),
-				AP_RW_RW, PTE_ATTR_WRBACK);
-		}
+		map_stack(proc, proc->space->user_stack, base, pages);
 	}
-	flush_tlb();
 }
 
 static inline void proc_free_user_stack(proc_t* proc) {
 	/*free user_stack*/
-	if(proc->info.type == PROC_TYPE_THREAD) {
-		if(proc->stack.thread_stack != 0) {
-			thread_stack_free(proc, proc->stack.thread_stack);
+	if(proc->info.type == TASK_TYPE_THREAD) {
+		if(proc->thread_stack_base != 0) {
+			thread_stack_free(proc, proc->thread_stack_base);
 		}
 	}
 	else {
-		uint32_t user_stack_base = proc_get_user_stack_base(proc);
+		uint32_t base = proc_get_user_stack_base(proc);
 		uint32_t pages = proc_get_user_stack_pages(proc);
-		uint32_t i;
-		for(i=0; i<pages; i++) {
-			kfree4k(proc->stack.user_stack[i]);
-			unmap_page(proc->space->vm, user_stack_base + PAGE_SIZE*i);
-		}
-		flush_tlb();
+		unmap_stack(proc, proc->space->user_stack, base, pages);
 	}
 }
 
@@ -408,7 +507,7 @@ void proc_funeral(proc_t* proc) {
 	proc_t* cproc = get_current_proc();
 	if(cproc == NULL || cproc == proc || proc->info.state == UNUSED)
 		return;
-	if(proc->info.type == PROC_TYPE_PROC) {
+	if(proc->info.type == TASK_TYPE_PROC) {
 		if(proc->space->refs > 0) //keep it still got child thread running.
 			return;
 	}
@@ -421,16 +520,16 @@ void proc_funeral(proc_t* proc) {
 	dma_release(proc->info.pid);
 	proc_free_user_stack(proc);
 
-	if(proc->info.type == PROC_TYPE_PROC) {
+	if(proc->info.type == TASK_TYPE_PROC) {
 		//free small_stack
 		if (proc->space->interrupt.stack != 0) {
-			proc_stack_free(proc, proc->space->interrupt.stack);
+			thread_stack_free(proc, proc->space->interrupt.stack);
 		}
 		if (proc->space->signal.stack != 0) {
-			proc_stack_free(proc, proc->space->signal.stack);
+			thread_stack_free(proc, proc->space->signal.stack);
 		}
 		if (proc->space->ipc_server.stack != 0) {
-			proc_stack_free(proc, proc->space->ipc_server.stack);
+			thread_stack_free(proc, proc->space->ipc_server.stack);
 		}
 
 		/*free proc heap*/
@@ -441,22 +540,25 @@ void proc_funeral(proc_t* proc) {
 
 		set_translation_table_base(V2P(cproc->space->vm));
 		free_page_tables(proc->space->vm);
+
+		_proc_vm_mark[proc->space->pde_index] = 0;
+		if(proc->space->thread_stacks != NULL)
+			kfree(proc->space->thread_stacks);
 		kfree(proc->space);
-
 	}
-	else
+	else {
 		set_translation_table_base(V2P(cproc->space->vm));
+	}
 
-	memset(proc, 0, sizeof(proc_t));
-	proc->info.state = UNUSED;
-	proc->info.wait_for = -1;
+	_task_table[proc->info.pid] = NULL;
+	kfree(proc);
 }
 
 inline void proc_zombie_funeral(void) {
 	int32_t i;
-	for (i = 0; i < PROC_MAX; i++) {
-		proc_t *p = &_proc_table[i];
-		if(p->info.state == ZOMBIE)
+	for (i = 0; i < _kernel_config.max_task_num; i++) {
+		proc_t *p = _task_table[i];
+		if(p != NULL && p->info.state == ZOMBIE)
 			proc_funeral(p);
 	}
 }
@@ -464,31 +566,55 @@ inline void proc_zombie_funeral(void) {
 /* proc_free frees all resources allocated by proc. */
 void proc_exit(context_t* ctx, proc_t *proc, int32_t res) {
 	(void)res;
-	if(proc->info.state == UNUSED || proc->info.state == ZOMBIE)
-		return;
-	proc_terminate(ctx, proc);
+	if(proc->info.state != UNUSED && proc->info.state != ZOMBIE)
+		proc_terminate(ctx, proc);
 	schedule(ctx);
 }
 
-inline void* proc_malloc(proc_t* proc, uint32_t size) {
+inline void* proc_malloc(proc_t* proc, int32_t size) {
 	if(size == 0)
-		return NULL;
-	return trunk_malloc(&proc->space->malloc_man, size);
+		return (void*)proc->space->malloc_base;
+
+	uint8_t shrink = 0;
+	uint32_t pages;
+	if(size < 0) {
+		shrink = 1;
+		size = -size;
+		size = ALIGN_DOWN(size, PAGE_SIZE);
+	}
+	else {
+		size = ALIGN_UP(size, PAGE_SIZE);
+	}
+
+	pages = (size / PAGE_SIZE);
+	if(pages == 0)
+		return (void*)proc->space->malloc_base;
+
+	if(shrink != 0) {
+		//kprintf("kproc shrink pages: %d, size: %d\n", pages, size);
+		proc_shrink_mem(proc, pages);
+	}
+	else {
+		//kprintf("kproc expand pages: %d, size: %d\n", pages, size);
+		if(proc_expand_mem(proc, pages+1, 0) != 0)
+			return NULL;
+	}
+	return (void*)proc->space->malloc_base;
 }
 
-inline uint32_t proc_msize(proc_t* proc, void* p) {
-	return trunk_msize(&proc->space->malloc_man, p);
+inline uint32_t proc_msize(proc_t* proc) {
+	return proc->space->heap_size - proc->space->malloc_base;
 }
 
-inline void proc_free(proc_t* proc, void* p) {
-	if(p == NULL)
-		return;
-	trunk_free(&proc->space->malloc_man, p);
+inline void proc_free(proc_t* proc) {
+	uint32_t size = proc_msize(proc);
+	uint32_t pages = size / PAGE_SIZE;
+	proc_shrink_mem(proc, pages);
 }
 
 static inline uint32_t core_fetch(proc_t* proc) {
 	(void)proc;
-	if(_sys_info.cores == 1 || proc->info.owner < 0)
+	if(_sys_info.cores == 1 || proc->info.uid < 0)
 		return 0;
 
 	//fetch the next core.
@@ -519,17 +645,25 @@ static inline void core_attach(proc_t* proc) {
 proc_t *proc_create(int32_t type, proc_t* parent) {
 	int32_t index = -1;
 	uint32_t i;
-	for (i = 0; i < PROC_MAX; i++) {
-		if (_proc_table[i].info.state == UNUSED) {
-			index = i;
+
+	for (i = 0; i < _kernel_config.max_task_num; i++) {
+		int32_t at = i + _last_create_pid;
+		if(at >= _kernel_config.max_task_num)
+			at = at % _kernel_config.max_task_num;
+		if (_task_table[at] == NULL) {
+			_task_table[at] = (proc_t*)kmalloc(sizeof(proc_t));
+			index = at;
 			break;
 		}
 	}
-	if (index < 0)
+	if (index < 0) {
 		return NULL;
+	}
+	_last_create_pid = index+1;
 
-	proc_t *proc = &_proc_table[index];
+	proc_t *proc = _task_table[index];
 	memset(proc, 0, sizeof(proc_t));
+	proc->info.wait_for = -1;
 	proc->info.uuid = ++_proc_uuid;
 	proc->info.pid = index;
 	proc->info.type = type;
@@ -537,12 +671,16 @@ proc_t *proc_create(int32_t type, proc_t* parent) {
 	proc->info.state = CREATED;
 	proto_init(&proc->ipc_res.data);
 
-	if(type == PROC_TYPE_PROC) {
+	if(type == TASK_TYPE_PROC) {
 		proc_init_space(proc);
 	}
 	else {
 		proc->space = parent->space;
 		proc->space->refs++;
+		if(proc->space->thread_stacks == NULL) {
+			proc->space->thread_stacks = (thread_stack_t*)kmalloc(_kernel_config.max_task_per_proc*sizeof(thread_stack_t));
+			memset(proc->space->thread_stacks, 0, _kernel_config.max_task_per_proc*sizeof(thread_stack_t));
+		}
 	}
 
 	if(parent != NULL)
@@ -556,9 +694,6 @@ proc_t *proc_create(int32_t type, proc_t* parent) {
 
 static inline void proc_free_heap(proc_t* proc) {
 	proc_shrink_mem(proc, proc->space->heap_size/PAGE_SIZE);
-	proc->space->malloc_man.head = NULL;
-	proc->space->malloc_man.tail = NULL;
-	proc->space->malloc_man.start = NULL;
 }
 
 /* proc_load loads the given ELF process image into the given process. */
@@ -567,6 +702,7 @@ int32_t proc_load_elf(proc_t *proc, const char *image, uint32_t size) {
 	uint32_t prog_header_count = 0;
 	uint32_t i = 0;
 
+	proc->info.uuid = ++_proc_uuid; //load elf means a totally new proc
 	char* proc_image = kmalloc(size);
 	memcpy(proc_image, image, size);
 	proc_free_heap(proc);
@@ -576,7 +712,6 @@ int32_t proc_load_elf(proc_t *proc, const char *image, uint32_t size) {
 		return -1;
 
 	prog_header_count = ELF_PHNUM(proc_image);
-
 	uint32_t *debug = 0;
 	for (i = 0; i < prog_header_count; i++) {
 		uint32_t j = 0;
@@ -584,18 +719,32 @@ int32_t proc_load_elf(proc_t *proc, const char *image, uint32_t size) {
 		uint32_t vaddr = ELF_PVADDR(proc_image, i);
 		uint32_t memsz = ELF_PSIZE(proc_image, i);
 		uint32_t offset = ELF_POFFSET(proc_image, i);
+		uint32_t flags = ELF_PFLAGS(proc_image, i);
 
-		while (proc->space->heap_size < vaddr + memsz) {
-			if(proc_expand_mem(proc, 1) != 0){ 
+		uint8_t rdonly = 0;	
+		if((flags & 0x2) == 0) {
+			rdonly = 1;
+		}
+		else {
+			if(proc->space->rw_heap_base == 0)
+				proc->space->rw_heap_base = vaddr;
+			else if(vaddr < proc->space->rw_heap_base)
+				proc->space->rw_heap_base = vaddr;
+		}
+
+		while (proc->space->heap_size < (vaddr + memsz)) {
+			if(proc_expand_mem(proc, 1, rdonly) != 0){ 
 				kfree(proc_image);
 				return -1;
 			}
 		}
+
+		//printf("expanded 0x%x, copy elf img 0x%x->", proc->space->heap_size, vaddr);
 		/* copy the section from kernel to proc mem space*/
 		uint32_t hvaddr = vaddr;
 		uint32_t hoff = offset;
 		for (j = 0; j < memsz; j++) {
-			uint32_t vaddr = hvaddr + j; /*vaddr in elf (proc vaddr)*/
+			vaddr = hvaddr + j; /*vaddr in elf (proc vaddr)*/
 			uint32_t vkaddr = resolve_kernel_address(proc->space->vm, vaddr); /*trans to phyaddr by proc's page dir*/
 			/*copy from elf to vaddrKernel(=phyaddr=vaddrProc=vaddrElf)*/
 
@@ -605,6 +754,9 @@ int32_t proc_load_elf(proc_t *proc, const char *image, uint32_t size) {
 		prog_header_offset += sizeof(struct elf_program_header);
 	}
 
+	if(proc->space->rw_heap_base < 0x400)
+			proc->space->rw_heap_base = 0x400; //1024
+	proc->space->malloc_base = proc->space->heap_size;
 	uint32_t user_stack_base =  proc_get_user_stack_base(proc);
 	uint32_t pages = proc_get_user_stack_pages(proc);
 	proc->ctx.sp = user_stack_base + pages*PAGE_SIZE;
@@ -624,69 +776,12 @@ inline void proc_usleep(context_t* ctx, uint32_t count) {
 	proc_unready(cproc, SLEEPING);
 	schedule(ctx);
 }
-
-/*static void proc_block_saved_state(int32_t pid_by, uint32_t event, proc_t* proc) {
-	ipc_task_t* ipc = proc_ipc_get_task(proc);
-	if(ipc != NULL && ipc->state != IPC_IDLE) {
-		proc->space->ipc_server.saved_state.state = BLOCK;
-		proc->space->ipc_server.saved_state.block_by = pid_by;
-		proc->space->ipc_server.saved_state.block_event = event;
-	}	
-
-	if(proc->space->interrupt.state != INTR_STATE_IDLE) {
-		proc->space->interrupt.saved_state.state = BLOCK;
-		proc->space->interrupt.saved_state.block_by = pid_by;
-		proc->space->interrupt.saved_state.block_event = event;
-	}
-}
-*/
-
-static proc_block_event_t* get_block_evt(proc_t* proc, uint32_t event) {
-	if(proc == NULL || event == 0)
-		return NULL;
-
-	for(int32_t i=0; i<BLOCK_EVT_MAX; i++) {
-		proc_block_event_t* block_evt = &proc->space->block_events[i];
-		if(block_evt->event == event)
-			return block_evt;
-	}
-	return NULL;
-}
-
-static void set_block_evt(proc_t* proc, uint32_t event) {
-	if(proc == NULL || event == 0)
-		return;
-
-	for(int32_t i=0; i<BLOCK_EVT_MAX; i++) {
-		proc_block_event_t* block_evt = &proc->space->block_events[i];
-		if(block_evt->event == 0) {
-			block_evt->event = event;
-			block_evt->refs = 0;
-			break;
-		}
-	}
-}
 	
-inline void proc_block_on(context_t* ctx, int32_t pid_by, uint32_t event, uint8_t sys_call) {
+inline void proc_block_on(context_t* ctx, int32_t pid_by, uint32_t event) {
 	proc_t* cproc = get_current_proc();
 	if(cproc == NULL)
 		return;
 
-	if(event != 0 && sys_call != 0) {
-		proc_t* proc_by = proc_get(pid_by);
-		if(proc_by != NULL && event != 0 && sys_call != 0) {
-			proc_block_event_t* block_evt = get_block_evt(proc_by, event);
-			if(block_evt != NULL) {
-				if(block_evt->refs > 0) {
-					block_evt->refs--;
-					return;
-				}
-				else
-					block_evt->event = 0;
-			}
-		}
-	}
-	
 	cproc->block_event = event;
 	cproc->info.block_by = pid_by;
 	proc_unready(cproc, BLOCK);
@@ -696,7 +791,8 @@ inline void proc_block_on(context_t* ctx, int32_t pid_by, uint32_t event, uint8_
 
 inline void proc_waitpid(context_t* ctx, int32_t pid) {
 	proc_t* cproc = get_current_proc();
-	if(cproc == NULL || _proc_table[pid].info.state == UNUSED)
+	proc_t* p = _task_table[pid];
+	if(cproc == NULL || p == NULL)
 		return;
 
 	cproc->info.wait_for = pid;
@@ -704,56 +800,92 @@ inline void proc_waitpid(context_t* ctx, int32_t pid) {
 	schedule(ctx);
 }
 
-static void proc_wakeup_all_state(int32_t pid, uint32_t event, proc_t* proc) {
+static void proc_wakeup_all_state(int32_t pid_by, uint32_t event, proc_t* proc) {
 	if((event == 0 || proc->block_event == event) && 
-			(pid < 0 || proc->info.block_by == pid )) {
+			(pid_by < 0 || proc->info.block_by == pid_by )) {
 		proc_ready(proc);
 	}
 
-	if((pid < 0 || proc->space->ipc_server.saved_state.block_by == pid) &&
+	if((pid_by < 0 || proc->space->ipc_server.saved_state.block_by == pid_by) &&
 			(event == 0 || proc->space->ipc_server.saved_state.block_event == event)) {
 		proc->space->ipc_server.saved_state.state = READY;
 		proc->space->ipc_server.saved_state.block_by = -1;
 		proc->space->ipc_server.saved_state.block_event = 0;
 	}	
 
-	if((pid < 0 || proc->space->signal.saved_state.block_by == pid) &&
+	if((pid_by < 0 || proc->space->signal.saved_state.block_by == pid_by) &&
 			(event == 0 || proc->space->signal.saved_state.block_event == event)) {
 		proc->space->signal.saved_state.state = READY;
 		proc->space->signal.saved_state.block_by = -1;
 		proc->space->signal.saved_state.block_event = 0;
 	}
 
-	if((pid < 0 || proc->space->interrupt.saved_state.block_by == pid) &&
+	if((pid_by < 0 || proc->space->interrupt.saved_state.block_by == pid_by) &&
 			(event == 0 || proc->space->interrupt.saved_state.block_event == event)) {
 		proc->space->interrupt.saved_state.state = READY;
 		proc->space->interrupt.saved_state.block_by = -1;
 		proc->space->interrupt.saved_state.block_event = 0;
 	}
+
+/*
+	if(proc->info.state == BLOCK && (event == 0 || proc->block_event == event) && 
+			(pid_by < 0 || proc->info.block_by == pid_by )) {
+		proc_ready(proc);
+	}
+
+	if(proc->space->ipc_server.saved_state.state == BLOCK && 
+			(pid_by < 0 || proc->space->ipc_server.saved_state.block_by == pid_by) &&
+			(event == 0 || proc->space->ipc_server.saved_state.block_event == event)) {
+		proc->space->ipc_server.saved_state.state = READY;
+		proc->space->ipc_server.saved_state.block_by = -1;
+		proc->space->ipc_server.saved_state.block_event = 0;
+	}	
+
+	if(proc->space->signal.saved_state.state == BLOCK && 
+			(pid_by < 0 || proc->space->signal.saved_state.block_by == pid_by) &&
+			(event == 0 || proc->space->signal.saved_state.block_event == event)) {
+		proc->space->signal.saved_state.state = READY;
+		proc->space->signal.saved_state.block_by = -1;
+		proc->space->signal.saved_state.block_event = 0;
+	}
+
+	if(proc->space->interrupt.saved_state.state == BLOCK && 
+			(pid_by < 0 || proc->space->interrupt.saved_state.block_by == pid_by) &&
+			(event == 0 || proc->space->interrupt.saved_state.block_event == event)) {
+		proc->space->interrupt.saved_state.state = READY;
+		proc->space->interrupt.saved_state.block_by = -1;
+		proc->space->interrupt.saved_state.block_event = 0;
+	}
+	*/
 }
 
-void proc_wakeup(int32_t pid, uint32_t event, uint8_t sys_call) {
-	if(event != 0 && sys_call != 0) {
-		proc_t* proc_by = proc_get(pid);
-		if(proc_by != NULL) {
-			proc_block_event_t* block_evt = get_block_evt(proc_by, event);
-			if(block_evt != NULL)
-				block_evt->refs++;
-			else
-				set_block_evt(proc_by, event);
-		}
-	}
+void proc_wakeup(int32_t pid_by, int32_t pid, uint32_t event) {
+	if(pid >= 0) {
+		if(pid >= _kernel_config.max_task_num)
+			return;
+
+		proc_t* proc = _task_table[pid];	
+		if(proc == NULL || proc->info.state == UNUSED ||
+				proc->info.state == ZOMBIE)
+			return;
+
+		if(proc == proc_get_proc(get_current_proc())) //self force wakeup
+			proc_wakeup_all_state(-1, 0, proc);
+		else
+			proc_wakeup_all_state(pid_by, event, proc);
+		return;
+	} 
 
 	int32_t i = 0;	
 	while(1) {
-		if(i >= PROC_MAX)
+		if(i >= _kernel_config.max_task_num)
 			break;
-		proc_t* proc = &_proc_table[i];	
+		proc_t* proc = _task_table[i];	
 		i++;
-		if(proc->info.state == UNUSED ||
+		if(proc == NULL || proc->info.state == UNUSED ||
 				proc->info.state == ZOMBIE)
 			continue;
-		proc_wakeup_all_state(pid, event, proc);
+		proc_wakeup_all_state(pid_by, event, proc);
 	}
 }
 
@@ -792,10 +924,12 @@ static int32_t proc_clone(proc_t* child, proc_t* parent) {
 	int32_t i;
 	for(i=0; i<STACK_PAGES; i++) {
 		proc_page_clone(child, 
-			(uint32_t)child->stack.user_stack[i],
+			child->space->user_stack[i],
 			parent,
-			(uint32_t)parent->stack.user_stack[i]);
+			parent->space->user_stack[i]);
 	}
+	child->space->malloc_base = parent->space->malloc_base;
+	child->space->rw_heap_base = parent->space->rw_heap_base;
 	return 0;
 }
 
@@ -808,17 +942,22 @@ proc_t* kfork_raw(context_t* ctx, int32_t type, proc_t* parent) {
 		return NULL;
 	}
 	child->info.father_pid = parent->info.pid;
-	child->info.owner = parent->info.owner;
+	child->info.uid = parent->info.uid;
+	child->info.gid = parent->info.gid;
 	memcpy(&child->ctx, &parent->ctx, sizeof(context_t));
 
-	if(type == PROC_TYPE_PROC) {
+	if(type == TASK_TYPE_PROC) {
 		if(proc_clone(child, parent) != 0) {
 			printf("panic: kfork clone failed!!(%d)\n", parent->info.pid);
 			return NULL;
 		}
+		/*kprintf("clone: \n\tfather: 0x%x->0x%x\n\tchild:  0x%x->0x%x\n",
+				parent->space->malloc_base, parent->space->heap_size,
+				child->space->malloc_base, child->space->heap_size);
+				*/
 	}
 	else {
-		child->ctx.sp = ALIGN_DOWN(child->stack.thread_stack + THREAD_STACK_PAGES*PAGE_SIZE, 8);
+		child->ctx.sp = ALIGN_DOWN(child->thread_stack_base + THREAD_STACK_PAGES*PAGE_SIZE, 8);
 	}
 	return child;
 }
@@ -828,60 +967,61 @@ proc_t* kfork(context_t* ctx, int32_t type) {
 	proc_t* child = kfork_raw(ctx, type, cproc);
 	core_attach(child);
 
-	if(_core_proc_ready && child->info.type == PROC_TYPE_PROC)
+	if(_core_proc_ready && child->info.type == TASK_TYPE_PROC)
 		kev_push(KEV_PROC_CREATED, cproc->info.pid, child->info.pid, 0);
 	else
 		proc_ready(child);
 	return child;
 }
 
-static int32_t get_procs_num(void) {
+int32_t get_procs_num(void) {
 	proc_t* cproc = get_current_proc();
 	int32_t res = 0;
 	int32_t i;
-	for(i=0; i<PROC_MAX; i++) {
-		if(_proc_table[i].info.state != UNUSED &&
-				(cproc->info.owner == 0 ||
-				 _proc_table[i].info.owner == cproc->info.owner)) {
-			res++;
+	for(i=0; i<_kernel_config.max_task_num; i++) {
+		if(_task_table[i] != NULL && _task_table[i]->info.state != UNUSED)  {
+			if(!_task_table[i]->is_core_idle_proc)
+				res++;
 		}
 	}
 	return res;
 }
 
-procinfo_t* get_procs(int32_t *num) {
-	proc_t* cproc = get_current_proc();
-	*num = get_procs_num();
-	if(*num == 0)
-		return NULL;
-
-	/*need to be freed later used!*/
-	procinfo_t* procs = (procinfo_t*)proc_malloc(cproc, sizeof(procinfo_t)*(*num));
+int32_t get_procs(int32_t num, procinfo_t* procs) {
 	if(procs == NULL)
-		return NULL;
+		return -1;
 
 	int32_t j = 0;
 	int32_t i;
-	for(i=0; i<PROC_MAX && j<(*num); i++) {
-		if(_proc_table[i].info.state != UNUSED && 
-				(cproc->info.owner == 0 ||
-				 _proc_table[i].info.owner == cproc->info.owner)) {
-			proc_t* p = &_proc_table[i];
+	for(i=0; i<_kernel_config.max_task_num && j<(num); i++) {
+		proc_t* p = _task_table[i];
+		if(p != NULL && p->info.state != UNUSED && !p->is_core_idle_proc) {
 			memcpy(&procs[j], &p->info, sizeof(procinfo_t));
 			procs[j].heap_size = p->space->heap_size;
 			j++;
 		}
 	}
+	return 0;
+}
 
-	*num = j;
-	return procs;
+int32_t get_proc(int32_t pid, procinfo_t *info) {
+	proc_t* proc = proc_get(pid);
+	if(proc == NULL)
+		return -1;
+
+	memcpy(info, &proc->info, sizeof(procinfo_t));
+	info->heap_size = proc->space->heap_size;
+	return 0;
 }
 
 static int32_t renew_sleep_counter(uint32_t usec) {
 	int i;
 	int32_t res = -1;
-	for(i=0; i<PROC_MAX; i++) {
-		proc_t* proc = &_proc_table[i];
+	for(i=0; i<_kernel_config.max_task_num; i++) {
+		proc_t* proc = _task_table[i];
+		if(proc == NULL)
+			continue;
+
 		if(proc->schd_core_lock_counter > usec) {
 			proc->schd_core_lock_counter -= usec;
 		}
@@ -911,8 +1051,10 @@ static uint32_t _k_sec_counter = 0;
 inline void renew_kernel_sec(void) {
 	int i;
 	_k_sec_counter++;
-	for(i=0; i<PROC_MAX; i++) {
-		proc_t* proc = &_proc_table[i];
+	for(i=0; i<_kernel_config.max_task_num; i++) {
+		proc_t* proc = _task_table[i];
+		if(proc == NULL)
+			continue;
 		if(proc->info.state != UNUSED && 
 				proc->info.state != ZOMBIE) {
 
@@ -928,7 +1070,7 @@ inline void renew_kernel_sec(void) {
 
 proc_t* proc_get_proc(proc_t* proc) {
 	while(proc != NULL) {
-		if(proc->info.type == PROC_TYPE_PROC)
+		if(proc->info.type == TASK_TYPE_PROC)
 			return proc;
 		proc = proc_get(proc->info.father_pid);
 	}
@@ -943,11 +1085,11 @@ int32_t get_proc_pid(int32_t pid) {
 }
 
 proc_t* kfork_core_halt(uint32_t core) {
-	proc_t* cproc = &_proc_table[0];
-	proc_t* child = kfork_raw(NULL, PROC_TYPE_PROC, cproc);
+	proc_t* cproc = _task_table[0];
+	proc_t* child = kfork_raw(NULL, TASK_TYPE_PROC, cproc);
 	child->info.core = core;
-	strcpy(child->info.cmd, "cpu_core_halt");
 	_cpu_cores[core].halt_proc = child;
+	child->is_core_idle_proc = true;
 
 	return child;
 }

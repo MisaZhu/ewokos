@@ -1,4 +1,4 @@
-#include <sys/mmio.h>
+#include <ewoksys/mmio.h>
 
 enum {
 	// The GPIO registers base address.

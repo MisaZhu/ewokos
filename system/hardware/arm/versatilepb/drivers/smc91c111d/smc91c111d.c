@@ -2,14 +2,16 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
-#include <sys/vfs.h>
-#include <sys/vdevice.h>
-#include <sys/mmio.h>
+#include <ewoksys/vfs.h>
+#include <ewoksys/vdevice.h>
+#include <ewoksys/mmio.h>
 
 #include "smc91c111d.h"
 
 #define SMC_BASE  (_mmio_base+0x10000)
 #define MII_DELAY		1
+
+#define MIN(a,b) (((a)>(b))?(b):(a))
 
 void udelay(volatile int x){
     x*=50;
@@ -32,17 +34,72 @@ uint32_t tx_packets;
 uint32_t tx_bytes;
 
 uint32_t multicast;
-uint8_t rx_buf[2048];
+
+typedef struct _eth_msg{
+	uint16_t len;
+	uint8_t*  data;
+	struct _eth_msg* next;
+}eth_msg_t;
+
+eth_msg_t *tx_queue = NULL;
+eth_msg_t *rx_queue = NULL;
+static int rx_queue_size = 0;
+static int tx_queue_size = 0;
+
+static eth_msg_t* eth_dequeue(eth_msg_t **q){
+	if(*q == NULL)
+		return NULL;
+	eth_msg_t *ret= *q;
+	*q = (*q)->next;
+
+	return ret;
+}
+
+static int eth_inqueue(eth_msg_t **q, eth_msg_t *msg){
+	while(*q!=NULL){
+		q = &(*q)->next;				
+	}
+	*q = msg;
+	msg->next = NULL;
+	return 0;
+}
+
+
+static int eth_queue_put(eth_msg_t**q, uint8_t *data, int len){
+
+	eth_msg_t *msg = malloc(sizeof(eth_msg_t));
+	if(!msg)
+		return -1;
+	//printf(":::write %08x %d\n", msg, len);
+	msg->next = NULL;
+	msg->len = len;
+	msg->data = malloc(len);
+	if(!msg->data){
+		klog("malloc error");
+		free(msg);
+		return -1;
+	}
+	memcpy(msg->data, data, len);
+	eth_inqueue(q, msg);
+	//printf(":::inqueue\n");
+
+	return 0;
+}
 
 static void dump_hex(char* lable, char* buf, int size){
 	int i;
 	klog("%s:\n", lable);
 	for(int i = 0; i < size; i++){
-		klog("%02x ", buf[i]);
+		if(buf[i] >= '!' && buf[i] <= '~')
+			klog("%c", buf[i]);
+		else
+			klog("%02x ", buf[i]);
+		
 		if(i%4 == 3)
 			klog(" ");
-		if(i%16 == 15)
+		if(i%16 == 15){
 			klog("\n");
+		}
 	}
 	klog("\n");
 }
@@ -178,6 +235,7 @@ static int smc_send(uint8_t *buf, int size)
 			SMC_ACK_INT(IM_ALLOC_INT);
   			break;
 		}
+		return VFS_ERR_RETRY; 
    	} 
 
 	packet_no = SMC_GET_AR();
@@ -185,7 +243,7 @@ static int smc_send(uint8_t *buf, int size)
 	if (packet_no & AR_FAILED) {
 		tx_errors++;
 		tx_fifo_errors++;
-		return ERR_RETRY_NON_BLOCK;
+		return VFS_ERR_RETRY;
 	}
 
 	/* point to the beginning of the packet */
@@ -221,18 +279,26 @@ int32_t eth_init(void) {
 	return 0;
 }
 
-static int eth_read(int fd, int from_pid, uint32_t node,
+static int eth_read(int fd, int from_pid, fsinfo_t* node,
 		void* buf, int size, int offset, void* p) {
 	(void)fd;
 	(void)from_pid;
 	(void)p;
 	(void)node;
-	int len = smc_recv(buf + offset, size);
 
-	return (len > 0) ? len : ERR_RETRY_NON_BLOCK;
+	eth_msg_t *msg = eth_dequeue(&rx_queue);
+	if(msg){
+		int len = MIN(msg->len, size);
+		memcpy(buf + offset, msg->data, len);
+		free(msg->data);
+		free(msg);
+		rx_queue_size--;
+		return len;
+	}
+	return VFS_ERR_RETRY; 
 }
 
-static int eth_write(int fd, int from_pid, uint32_t node,
+static int eth_write(int fd, int from_pid, fsinfo_t* node,
 		void* buf, int size, int offset, void* p) {
 	(void)fd;
 	(void)from_pid;
@@ -240,7 +306,14 @@ static int eth_write(int fd, int from_pid, uint32_t node,
 	(void)p;
 	(void)node;
 
-	return smc_send(buf + offset, size);
+	if(tx_queue_size > 16)
+		return VFS_ERR_RETRY;
+
+	int len = MIN(1500, size);	
+	eth_queue_put(&tx_queue, buf+offset, len);
+	tx_queue_size++ ;
+
+	return len;
 }
 
 static int eth_dcntl(int from_pid, int cmd, proto_t* in, proto_t* ret, void* p) {
@@ -254,10 +327,58 @@ static int eth_dcntl(int from_pid, int cmd, proto_t* in, proto_t* ret, void* p) 
 			PF->add(ret, buf, 6);
 			break;
 		}
+		case 1:
+		{//get buffer count
+			PF->addi(ret, rx_queue_size);
+			break;
+		}	
 		default:
 			break;
 	}
 	return 0;
+}
+
+static void timer_handler(void){
+	int ret;
+	ipc_disable();
+	eth_msg_t *tx = eth_dequeue(&tx_queue);
+	ipc_enable();
+	if(tx){
+		//dump_hex("eth tx", tx->data, tx->len);
+		ret = smc_send(tx->data, tx->len);
+		if(ret > 0){
+			free(tx->data);
+			free(tx);
+			ipc_disable();
+			tx_queue_size--;
+			ipc_enable();	
+			proc_wakeup(RW_BLOCK_EVT);
+		}else{
+			ipc_disable();
+			eth_inqueue(&tx_queue, tx);
+			ipc_enable();
+		}
+	}
+
+	uint8_t *tmp = malloc(2048);
+	if(tmp){
+		ret = smc_recv(tmp, 2048);
+		if(ret > 0){
+			//dump_hex("eth rx", tmp, ret);
+			eth_msg_t *msg = malloc(sizeof(eth_msg_t));
+			if(msg){
+				msg->data = tmp;
+				msg->len = ret;
+				ipc_disable();
+				eth_inqueue(&rx_queue, msg);
+				rx_queue_size++;
+				ipc_enable();
+				proc_wakeup(RW_BLOCK_EVT);
+				return;
+			}
+		}
+		free(tmp);
+	}
 }
 
 int main(int argc, char** argv) {
@@ -269,7 +390,11 @@ int main(int argc, char** argv) {
 	dev.read = eth_read;
 	dev.write = eth_write;
 	dev.dev_cntl = eth_dcntl;
+	//dev.loop_step = eth_loop;
 
-	device_run(&dev, mnt_point, FS_TYPE_CHAR);
+	uint32_t tid = timer_set(1000, timer_handler);
+	device_run(&dev, mnt_point, FS_TYPE_CHAR, 0664);
+	timer_remove(tid);
+
 	return 0;
 }

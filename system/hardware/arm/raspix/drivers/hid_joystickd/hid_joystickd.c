@@ -2,17 +2,17 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
-#include <sys/vfs.h>
-#include <sys/vdevice.h>
-#include <sys/mmio.h>
+#include <ewoksys/vfs.h>
+#include <ewoksys/vdevice.h>
+#include <ewoksys/mmio.h>
 #include <fcntl.h>
-#include <sys/keydef.h>
+#include <ewoksys/keydef.h>
 
 static int hid;
 static uint8_t key_state;
 static uint8_t last_state;
 
-static int joystick_read(int fd, int from_pid, uint32_t node,
+static int joystick_read(int fd, int from_pid, fsinfo_t* node,
 		void* buf, int size, int offset, void* p) {
 	(void)fd;
 	(void)from_pid;
@@ -25,7 +25,7 @@ static int joystick_read(int fd, int from_pid, uint32_t node,
 		last_state = key_state;
 		return 1;
 	}
-	return ERR_RETRY;
+	return VFS_ERR_RETRY;
 }
 
 typedef struct {
@@ -45,7 +45,11 @@ static int loop(void* p) {
 	(void)p;
 
 	uint8_t buf[8];
-	if(read(hid, buf, 7) == 7){
+	ipc_disable();
+	int res = read(hid, buf, 7);
+	ipc_enable();
+
+	if(res == 7){
 		//klog("joy: %02x %02x %02x %02x %02x %02x %02x %02x\n", 
 		//buf[0], buf[1], buf[2], buf[3], buf[4], buf[5], buf[6], buf[7]);
 		joystick_t *joy = (joystick_t*)&buf;
@@ -89,7 +93,7 @@ int main(int argc, char** argv) {
 	const char* mnt_point = argc > 1 ? argv[1]: "/dev/joystick0";
 	const char* dev_point = argc > 2 ? argv[2]: "/dev/hid0";
 
-	hid = open(dev_point, O_RDONLY);
+	hid = open(dev_point, O_RDONLY | O_NONBLOCK);
 	set_report_id(hid, 0x14);
 
 	vdevice_t dev;
@@ -98,6 +102,6 @@ int main(int argc, char** argv) {
 	dev.loop_step = loop;
 	dev.read = joystick_read;
 
-	device_run(&dev, mnt_point, FS_TYPE_CHAR);
+	device_run(&dev, mnt_point, FS_TYPE_CHAR, 0444);
 	return 0;
 }

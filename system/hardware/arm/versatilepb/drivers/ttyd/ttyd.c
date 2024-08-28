@@ -2,13 +2,13 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
-#include <sys/vfs.h>
-#include <sys/vdevice.h>
-#include <sys/charbuf.h>
-#include <sys/mmio.h>
-#include <sys/proc.h>
-#include <sys/ipc.h>
-#include <sys/interrupt.h>
+#include <ewoksys/vfs.h>
+#include <ewoksys/vdevice.h>
+#include <ewoksys/charbuf.h>
+#include <ewoksys/mmio.h>
+#include <ewoksys/proc.h>
+#include <ewoksys/ipc.h>
+#include <ewoksys/interrupt.h>
 
 /* memory mapping for the serial port */
 #define UART0 ((volatile uint32_t*)(_mmio_base+0x001f1000))
@@ -42,9 +42,9 @@ int32_t uart_write(const void* data, uint32_t size) {
   return i;
 }
 
-static charbuf_t _buffer;
+static charbuf_t *_buffer;
 
-static int tty_read(int fd, int from_pid, uint32_t node,
+static int tty_read(int fd, int from_pid, fsinfo_t* node,
 		void* buf, int size, int offset, void* p) {
 	(void)fd;
 	(void)from_pid;
@@ -54,16 +54,16 @@ static int tty_read(int fd, int from_pid, uint32_t node,
 	(void)p;
 
 	char c;
-	int res = charbuf_pop(&_buffer, &c);
+	int res = charbuf_pop(_buffer, &c);
 
 	if(res != 0 || c == 0)
-		return ERR_RETRY;
+		return VFS_ERR_RETRY;
 
 	((char*)buf)[0] = c;
 	return 1;
 }
 
-static int tty_write(int fd, int from_pid, uint32_t node,
+static int tty_write(int fd, int from_pid, fsinfo_t* node,
 		const void* buf, int size, int offset, void* p) {
 	(void)fd;
 	(void)node;
@@ -77,16 +77,17 @@ static void interrupt_handle(uint32_t interrupt, uint32_t p) {
 	(void)interrupt;
 	(void)p;
 	uint32_t data = get32(UART0 + UART_DATA);
-	charbuf_push(&_buffer, data, true);
+	charbuf_push(_buffer, data, true);
 	proc_wakeup(RW_BLOCK_EVT);
-	sys_interrupt_end();
 }
+
+#define IRQ_RAW_UART0 12 //VPB uart0 interrupt at PIC bit12 
 
 int main(int argc, char** argv) {
 	const char* mnt_point = argc > 1 ? argv[1]: "/dev/tty0";
 	_mmio_base = mmio_map();
 
-	charbuf_init(&_buffer);
+	_buffer = charbuf_new(0);
 
 	vdevice_t dev;
 	memset(&dev, 0, sizeof(vdevice_t));
@@ -94,7 +95,12 @@ int main(int argc, char** argv) {
 	dev.read = tty_read;
 	dev.write = tty_write;
 
-	sys_interrupt_setup(SYS_INT_UART0, interrupt_handle, 0);
-	device_run(&dev, mnt_point, FS_TYPE_CHAR);
+	static interrupt_handler_t handler;
+	handler.data = 0;
+	handler.handler = interrupt_handle;
+	sys_interrupt_setup(IRQ_RAW_UART0, &handler);
+
+	device_run(&dev, mnt_point, FS_TYPE_CHAR, 0666);
+	charbuf_free(_buffer);
 	return 0;
 }

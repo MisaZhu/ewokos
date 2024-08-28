@@ -2,14 +2,15 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
-#include <sys/vfs.h>
-#include <sys/vdevice.h>
-#include <sys/syscall.h>
+#include <ewoksys/vfs.h>
+#include <ewoksys/vdevice.h>
+#include <ewoksys/syscall.h>
+#include <ewoksys/proc.h>
 #include <sysinfo.h>
 
 static int sysinfo_read(int fd,
 		int from_pid,
-		uint32_t node,
+		fsinfo_t* node,
 		void* buf,
 		int size,
 		int offset,
@@ -24,7 +25,7 @@ static int sysinfo_read(int fd,
 	if(offset > 0)
 		return 0;
 
-#define STR_MAX 128
+#define STR_MAX 256
 	if(size < STR_MAX)
 		return -1;
 
@@ -32,8 +33,22 @@ static int sysinfo_read(int fd,
 	syscall1(SYS_GET_SYS_INFO, (int32_t)&sysinfo);
 	char* str = (char*)buf;
 	snprintf(str, STR_MAX-1, 
-			"machine: %s\ncores: %d\nphy_mem_size: %d\nmmio_base: 0x%x\n", 
-			sysinfo.machine, sysinfo.cores, sysinfo.phy_mem_size, sysinfo.mmio);
+			"machine: %s\n"
+			"cores: %d\n"
+			"phy_mem_size: %d MB\n"
+			"max proc num: %d\n"
+			"max task total: %d\n"
+			"max task per proc: %d\n"
+			"max files per_proc: %d\n"
+			"mmio_base: 0x%x\n",
+			sysinfo.machine,
+			sysinfo.cores,
+			sysinfo.phy_mem_size/1024/1024,
+			sysinfo.max_proc_num,
+			sysinfo.max_task_num,
+			sysinfo.max_task_per_proc,
+			MAX_OPEN_FILE_PER_PROC,
+			sysinfo.mmio);
 	return strlen(str);
 }
 
@@ -45,6 +60,6 @@ int main(int argc, char** argv) {
 	strcpy(dev.name, "sysinfo");
 	dev.read = sysinfo_read;
 
-	device_run(&dev, mnt_point, FS_TYPE_FILE);
+	device_run(&dev, mnt_point, FS_TYPE_FILE, 0444);
 	return 0;
 }

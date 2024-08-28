@@ -21,11 +21,11 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <string.h>
-#include <vprintf.h>
-#include <sys/kernel_tic.h>
-#include <sys/keydef.h>
-#include <sys/klog.h>
-#include <sys/timer.h>
+#include <ewoksys/proc.h>
+#include <ewoksys/kernel_tic.h>
+#include <ewoksys/keydef.h>
+#include <ewoksys/klog.h>
+#include <ewoksys/timer.h>
 #include <x++/X.h>
 
 #include "src/InfoNES_Types.h"
@@ -119,25 +119,21 @@ void InfoNES_ReleaseRom(){
 
 }
 
+static int scale = 1;
 void graph_scale_fix_center(graph_t *src, graph_t *dst){
 	static int dstW,dstH;
-	static int scale;
 	static int sx;
 	static int sy; 
 	static int ex;
 	static int ey;
 
-	if(dstW != dst->w || dstH!= dst->h){
-		dstW = dst->w;
-		dstH = dst->h;
-		scale = MAX(dstW/src->w, dstH/src->h);
-		scale = MAX(scale, 1);
-		sx = MAX((dstW- src->w * scale)/2, 0);
-		ex = MIN(sx + (src->w * scale), dst->w);
-		sy = MAX((dstH - src->h * scale)/2, 0);
-		ey = MIN(sy + (src->h * scale), dst->h);
-	}
+	dstW = dst->w;
+	dstH = dst->h;
 
+	sx = MAX((dstW- src->w * scale)/2, 0);
+	ex = MIN(sx + (src->w * scale), dst->w);
+	sy = MAX((dstH - src->h * scale)/2, 0);
+	ey = MIN(sy + (src->h * scale), dst->h);
 	int dstY = sy;
 	int srcY = 0;
 
@@ -288,7 +284,7 @@ public:
 		kernel_tic(&sec, &usec);
 		wait = 1000000/60 - ((sec - lastSec) * 1000000 + (usec - lastUsec)); 
 		if(wait > 0 && wait < (1000000/60))
-			usleep(wait);
+			proc_usleep(wait);
 
 		kernel_tic(&lastSec, &lastUsec);
 	}
@@ -385,27 +381,25 @@ int main(int argc, char *argv[])
 	const char* path;
 	NesEmu emu;
 
-    /*init window*/
-    xscreen_t scr;
+	/*init window*/
+	xscreen_t scr;
 
 	//init emulator
-    if(argc < 2){
-        path = X::getResName("roms/nes1200in1.nes");
-    }else{
-        path = argv[1];
-    }
+	if(argc < 2){
+			path = X::getResName("roms/nes1200in1.nes");
+	}else{
+			path = argv[1];
+	}
 
 	printf("load game: %s\n", path);
-    if(emu.loadGame((char*)path) != true){
-        printf("Error load rom file:%s\n", argv[1]);
-        return -1;
-    }
+	if(emu.loadGame((char*)path) != true){
+			printf("Error load rom file:%s\n", argv[1]);
+			return -1;
+	}
 
 	X x;
 	x.getScreenInfo(scr, 0);
 
-	//x.open(&emu, scr.size.w /2  - 128 , scr.size.h /2 - 128, 256, 256, "NesEmu", XWIN_STYLE_NO_RESIZE);
-	//x.open(&emu, 10, 10, scr.size.w-20, scr.size.h-20, "NesEmu", XWIN_STYLE_NORMAL);
 	int zoom;
 	if(scr.size.h > 240)
 		zoom = scr.size.h / 240;
@@ -415,10 +409,10 @@ int main(int argc, char *argv[])
 		zoom = 2;
 	else 
 		zoom = 1;
+	scale = zoom;
 
-	x.open(&scr, &emu, 256*zoom, 240*zoom, "NesEmu", XWIN_STYLE_NO_RESIZE);
-	emu.setVisible(true);
-
+	emu.open(&x, 0, -1, -1, 256*zoom, 240*zoom, "NesEmu", XWIN_STYLE_NO_RESIZE);
+	emu.fullscreen();
 	/*_xwin = &emu;
 	uint32_t tid = timer_set(10000, loop);
 	x.run(NULL, &emu);

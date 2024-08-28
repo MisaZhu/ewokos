@@ -12,8 +12,8 @@ MOUNT_OBJS = mount.o
 MOUNT = $(TARGET_DIR)/bin/mount
 
 $(MOUNT): $(MOUNT_OBJS) \
-		$(BUILD_DIR)/lib/libewokc.a
-	$(LD) -Ttext=100 $(MOUNT_OBJS) -o $(MOUNT) $(LDFLAGS) -lewokc -lc_nano -lnosys
+		$(EWOK_LIBC_A) 
+	$(LD) -Ttext=100 $(MOUNT_OBJS) -o $(MOUNT) $(LDFLAGS) $(EWOK_LIBC)
 
 clean:
 	rm -f $(MOUNT_OBJS)

@@ -1,5 +1,5 @@
 #include <arch/bcm283x/gpio.h>
-#include <sys/vdevice.h>
+#include <ewoksys/vdevice.h>
 #include <string.h>
 
 #define BEEP   12
@@ -10,7 +10,7 @@ static void init(void) {
 	bcm283x_gpio_write(BEEP, 1);
 }
 
-static int beep_write(int fd, int from_pid, uint32_t node,
+static int beep_write(int fd, int from_pid, fsinfo_t* node,
 		const void* buf, int size, int offset, void* p) {
 	(void)fd;
 	(void)node;
@@ -38,6 +38,6 @@ int main(int argc, char** argv) {
 	memset(&dev, 0, sizeof(vdevice_t));
 	strcpy(dev.name, "nxez_beep");
 	dev.write = beep_write;
-	device_run(&dev, mnt_point, FS_TYPE_CHAR);
+	device_run(&dev, mnt_point, FS_TYPE_CHAR, 0664);
 	return 0;
 }

@@ -1,11 +1,10 @@
 #include <x/xwin.h>
-#include <sys/shm.h>
-#include <sys/ipc.h>
-#include <sys/vfs.h>
-#include <sys/syscall.h>
-#include <sys/thread.h>
-#include <sys/proc.h>
-#include <sys/vdevice.h>
+#include <ewoksys/ipc.h>
+#include <ewoksys/vfs.h>
+#include <ewoksys/syscall.h>
+#include <ewoksys/thread.h>
+#include <ewoksys/proc.h>
+#include <ewoksys/vdevice.h>
 #include <sys/shm.h>
 #include <fcntl.h>
 #include <unistd.h>
@@ -23,12 +22,12 @@ static int xwin_update_info(xwin_t* xwin, uint8_t type) {
 		return -1;
 
 	if(xwin->g_shm != NULL && (type & X_UPDATE_REBUILD) != 0) {
-		shm_unmap(xwin->g_shm);
+		shmdt(xwin->g_shm);
 		xwin->g_shm = NULL;
 	}
 
 	proto_t in;
-	PF->init(&in)->addi(&in, (uint32_t)xwin->xinfo)->addi(&in, type);
+	PF->format(&in, "i,i", xwin->xinfo_shm_id, type);
 	int ret = vfs_fcntl_wait(xwin->fd, XWIN_CNTL_UPDATE_INFO, &in);
 	PF->clear(&in);
 	return ret;
@@ -47,8 +46,7 @@ int xwin_top(xwin_t* xwin) {
 static int  x_get_win_rect(int xfd, int style, grect_t* wsr, grect_t* win_space) {
 	proto_t in, out;
 	PF->init(&out);
-
-	PF->init(&in)->addi(&in, style)->add(&in, wsr, sizeof(grect_t));
+	PF->format(&in, "i,m", style, wsr, sizeof(grect_t));
 	int ret = vfs_fcntl(xfd, XWIN_CNTL_WORK_SPACE, &in, &out);
 	PF->clear(&in);
 	if(ret == 0) 
@@ -57,9 +55,12 @@ static int  x_get_win_rect(int xfd, int style, grect_t* wsr, grect_t* win_space)
 	return ret;
 }
 
-xwin_t* xwin_open(x_t* xp, int x, int y, int w, int h, const char* title, int style) {
+xwin_t* xwin_open(x_t* xp, uint32_t disp_index, int x, int y, int w, int h, const char* title, int style) {
 	if(w <= 0 || h <= 0)
 		return NULL;
+
+	if(disp_index >= x_get_display_num())
+		disp_index = 0;
 
 	int fd = open("/dev/x", O_RDWR);
 	if(fd < 0)
@@ -74,27 +75,46 @@ xwin_t* xwin_open(x_t* xp, int x, int y, int w, int h, const char* title, int st
 	xwin_t* ret = (xwin_t*)malloc(sizeof(xwin_t));
 	memset(ret, 0, sizeof(xwin_t));
 	ret->fd = fd;
-
 	ret->x = xp;
+
+	key_t key = (((int32_t)ret) << 16) | proc_get_uuid(getpid());
+	int32_t xinfo_shm_id = shmget(key, sizeof(xinfo_t), 0600 |IPC_CREAT|IPC_EXCL);
+	if(xinfo_shm_id == -1) {
+		free(ret);
+		return NULL;
+	}
+
+	xinfo_t* xinfo = (xinfo_t*)shmat(xinfo_shm_id, 0, 0);
+	if(xinfo == NULL) {
+		free(ret);
+		return NULL;
+	}
+
+	if((style & XWIN_STYLE_PROMPT) != 0)
+		xp->prompt_win = ret;
 	if(xp->main_win == NULL)
 		xp->main_win = ret;
 
-	ret->xinfo = shm_alloc(sizeof(xinfo_t), SHM_PUBLIC);
+	ret->xinfo_shm_id = xinfo_shm_id;
+	ret->xinfo = xinfo;
 	memset(ret->xinfo, 0, sizeof(xinfo_t));
+	ret->xinfo->g_shm_id = -1;
 	ret->xinfo->win = (uint32_t)ret;
 	ret->xinfo->style = style;
+	ret->xinfo->display_index = disp_index;
 	memcpy(&ret->xinfo->wsr, &r, sizeof(grect_t));
 	strncpy(ret->xinfo->title, title, XWIN_TITLE_MAX-1);
 	xwin_update_info(ret, X_UPDATE_REBUILD | X_UPDATE_REFRESH);
+
 	return ret;
 }
 
 static graph_t* x_get_graph(xwin_t* xwin, graph_t* g) {
-	if(xwin == NULL)
+	if(xwin == NULL || xwin->xinfo == NULL || xwin->xinfo->g_shm_id == -1)
 		return NULL;
 
 	if(xwin->g_shm == NULL) {
-		xwin->g_shm = shm_map(xwin->xinfo->g_shm);
+		xwin->g_shm = shmat(xwin->xinfo->g_shm_id, 0, 0);
 		if(xwin->g_shm == NULL)
 			return NULL;
 		if(xwin->on_resize != NULL)
@@ -108,22 +128,33 @@ static graph_t* x_get_graph(xwin_t* xwin, graph_t* g) {
 	return g;
 }
 
+void xwin_destroy(xwin_t* xwin) {
+	if(xwin != NULL)
+		free(xwin);
+}
+
 void xwin_close(xwin_t* xwin) {
-	if(xwin == NULL)
+	if(xwin == NULL || xwin->fd <= 0)
 		return;
-	if(xwin->on_close)
-		xwin->on_close(xwin);
+
+	if(xwin->on_close != NULL) {
+		if(!xwin->on_close(xwin))
+			return;
+	}
+	close(xwin->fd);
+	xwin->fd = -1;
 
 	if(xwin->g_shm != NULL)
-		shm_unmap(xwin->g_shm);
+		shmdt(xwin->g_shm);
 
 	if(xwin->xinfo != NULL)
-		shm_unmap(xwin->xinfo);
+		shmdt(xwin->xinfo);
 
-	close(xwin->fd);
 	if(xwin->x->main_win == xwin)
-		xwin->x->terminated = true;
-	free(xwin);
+		x_terminate(xwin->x);
+
+	if(xwin->x->prompt_win == xwin)
+		xwin->x->prompt_win = NULL;
 }
 
 void xwin_repaint(xwin_t* xwin) {
@@ -156,6 +187,9 @@ void xwin_repaint_req(xwin_t* xwin) {
 */
 
 int xwin_set_display(xwin_t* xwin, uint32_t display_index) {
+	if(display_index >= x_get_display_num())
+		display_index = 0;
+
 	xwin->xinfo->display_index = display_index;
 	xwin_update_info(xwin, X_UPDATE_REFRESH);
 	return 0;
@@ -164,6 +198,20 @@ int xwin_set_display(xwin_t* xwin, uint32_t display_index) {
 int xwin_resize_to(xwin_t* xwin, int w, int h) {
 	xwin->xinfo->wsr.w = w;
 	xwin->xinfo->wsr.h = h;
+	xwin_update_info(xwin, X_UPDATE_REBUILD | X_UPDATE_REFRESH);
+	xwin_repaint(xwin);
+	return 0;
+}
+
+int xwin_fullscreen(xwin_t* xwin) {
+	xscreen_t scr;
+	if(x_screen_info(&scr, xwin->xinfo->display_index) != 0)
+		return -1;
+	memcpy(&xwin->xinfo_prev, xwin->xinfo, sizeof(xinfo_t));
+	int32_t dh = xwin->xinfo->winr.h - xwin->xinfo->wsr.h;
+	grect_t r = {0, dh, scr.size.w, scr.size.h-dh};
+	memcpy(&xwin->xinfo->wsr, &r, sizeof(grect_t));
+	xwin->xinfo->state = XWIN_STATE_MAX;
 	xwin_update_info(xwin, X_UPDATE_REBUILD | X_UPDATE_REFRESH);
 	xwin_repaint(xwin);
 	return 0;
@@ -190,12 +238,15 @@ int xwin_event_handle(xwin_t* xwin, xevent_t* ev) {
 		return -1;
 
 	if(ev->value.window.event == XEVT_WIN_CLOSE) {
-		if(xwin->x->main_win == xwin)
-			xwin->x->terminated = true;
+		xwin_close(xwin);
 	}
 	else if(ev->value.window.event == XEVT_WIN_FOCUS) {
-		if(xwin->on_focus) {
-			xwin->on_focus(xwin);
+		if(xwin->x->prompt_win != NULL && xwin->x->prompt_win != xwin) {
+			vfs_fcntl(xwin->x->prompt_win->fd, XWIN_CNTL_TRY_FOCUS, NULL, NULL);
+		}
+		else {
+			if(xwin->on_focus)
+				xwin->on_focus(xwin);
 		}
 	}
 	else if(ev->value.window.event == XEVT_WIN_UNFOCUS) {

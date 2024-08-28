@@ -1,4 +1,4 @@
-#include <sys/syscall.h>
+#include <ewoksys/syscall.h>
 #include <arch/bcm283x/mailbox.h>
 
 uint32_t bcm283x_mailbox_init(void) {
