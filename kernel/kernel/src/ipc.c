@@ -71,14 +71,25 @@ int32_t proc_ipc_do_task(context_t* ctx, proc_t* serv_proc, uint32_t core) {
 }
 
 static void ipc_free(ipc_task_t* ipc) {
+	if(ipc == NULL)
+		return;
 	memset(ipc, 0, sizeof(ipc_task_t));
 	//kfree(ipc);
 }
 
 ipc_task_t* proc_ipc_req(proc_t* serv_proc, proc_t* client_proc, int32_t call_id, int32_t arg_shm_id) {
+	//uint64_t usec = timer_read_sys_usec();
 	ipc_task_t* ipc = &serv_proc->space->ipc_server.ctask;
-	if(ipc->state != IPC_IDLE)
-		return NULL;
+	if(ipc->state != IPC_IDLE) {
+		//if((usec - ipc->usec) < IPC_TIMEOUT_USEC)
+			return NULL;
+
+		/*if(ipc->arg_shm_id > 0) {
+			kprintf("ipc timeout c: %d, s: %d, call: %d\n", ipc->client_pid, serv_proc->info.pid, ipc->call_id);
+			shm_proc_unmap_by_id(serv_proc, ipc->arg_shm_id, true);
+		}
+		*/
+	}
 	/*
 	if(client_proc->ipc_buffer_clean) //cleaning task still on
 		return NULL;
@@ -100,6 +111,7 @@ ipc_task_t* proc_ipc_req(proc_t* serv_proc, proc_t* client_proc, int32_t call_id
 	ipc->client_pid = client_proc->info.pid;
 	ipc->client_uuid = client_proc->info.uuid;
 	ipc->call_id = call_id;
+	//ipc->usec = usec;
 	if(arg_shm_id > 0) {
 		ipc->arg_shm_id = arg_shm_id;
 	}
