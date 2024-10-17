@@ -19,9 +19,15 @@ int32_t proc_ipc_setup(context_t* ctx, uint32_t entry, uint32_t extra_data, uint
 	return 0;
 }
 
+inline ipc_task_t* proc_ipc_get_task(struct st_proc* serv_proc) {
+	if(serv_proc->space->ipc_server.ctask.state == IPC_IDLE)
+		return NULL;
+	return &(serv_proc->space->ipc_server.ctask);
+}
+
 uint32_t proc_ipc_fetch(struct st_proc* serv_proc) {
 	ipc_task_t* ipc = NULL;
-	while(true) {
+	/*while(true) {
 		ipc = (ipc_task_t*)queue_pop(&serv_proc->space->ipc_server.tasks);
 		if(ipc == NULL) 
 			return 0;
@@ -40,13 +46,12 @@ uint32_t proc_ipc_fetch(struct st_proc* serv_proc) {
 		}
 		kfree(ipc); //drop unvailable ipc
 	}
+	*/
 
-	serv_proc->space->ipc_server.ctask = ipc;
+	ipc = proc_ipc_get_task(serv_proc);
+	if(ipc == NULL)
+		return 0;
 	return ipc->uid;
-}
- 
-inline ipc_task_t* proc_ipc_get_task(struct st_proc* serv_proc) {
-	return serv_proc->space->ipc_server.ctask;
 }
 
 int32_t proc_ipc_do_task(context_t* ctx, proc_t* serv_proc, uint32_t core) {
@@ -66,10 +71,15 @@ int32_t proc_ipc_do_task(context_t* ctx, proc_t* serv_proc, uint32_t core) {
 }
 
 static void ipc_free(ipc_task_t* ipc) {
-	kfree(ipc);
+	memset(ipc, 0, sizeof(ipc_task_t));
+	//kfree(ipc);
 }
 
 ipc_task_t* proc_ipc_req(proc_t* serv_proc, proc_t* client_proc, int32_t call_id, int32_t arg_shm_id) {
+	ipc_task_t* ipc = &serv_proc->space->ipc_server.ctask;
+	if(ipc->state != IPC_IDLE)
+		return NULL;
+	/*
 	if(client_proc->ipc_buffer_clean) //cleaning task still on
 		return NULL;
 
@@ -79,11 +89,11 @@ ipc_task_t* proc_ipc_req(proc_t* serv_proc, proc_t* client_proc, int32_t call_id
 		return NULL;
 	}
 
-	_ipc_uid++;
 	ipc_task_t* ipc  = (ipc_task_t*)kmalloc(sizeof(ipc_task_t));
 	if(ipc == NULL)
 		return NULL;
-
+	*/
+	_ipc_uid++;
 	memset(ipc, 0, sizeof(ipc_task_t));
 	ipc->uid = _ipc_uid;
 	ipc->state = IPC_BUSY;
@@ -94,31 +104,34 @@ ipc_task_t* proc_ipc_req(proc_t* serv_proc, proc_t* client_proc, int32_t call_id
 		ipc->arg_shm_id = arg_shm_id;
 	}
 
+	/*
 	if(serv_proc->space->ipc_server.ctask == NULL) 
 		serv_proc->space->ipc_server.ctask = ipc; //set current task
 	else  {
 		queue_push(&serv_proc->space->ipc_server.tasks, ipc); // buffered
 		client_proc->ipc_buffered++;
 	}
+	*/
 	return ipc; 
 }
 
 void proc_ipc_close(proc_t* serv_proc, ipc_task_t* ipc) {
-	(void)serv_proc;
 	if(ipc == NULL)
 		return;
 
-	if(serv_proc->space->ipc_server.ctask == ipc)
+	/*if(serv_proc->space->ipc_server.ctask == ipc)
 		serv_proc->space->ipc_server.ctask = NULL;
+	*/
 	ipc_free(ipc);
 }
 
 void proc_ipc_clear(proc_t* serv_proc) {
-	proc_ipc_close(serv_proc, serv_proc->space->ipc_server.ctask);
-	while(true) {
+	proc_ipc_close(serv_proc, &serv_proc->space->ipc_server.ctask);
+	/*while(true) {
 		ipc_task_t* ipc = (ipc_task_t*)queue_pop(&serv_proc->space->ipc_server.tasks);
 		if(ipc == NULL)
 			break;
 		ipc_free(ipc);
 	}
+	*/
 }

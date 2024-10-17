@@ -37,7 +37,7 @@ typedef struct {
 	uint32_t      flags;
 	uint32_t      extra_data;
 	queue_t       tasks;
-	ipc_task_t*   ctask; //current_task
+	ipc_task_t    ctask; //current_task
 
     bool          do_switch;
 	uint32_t      stack; //mapped stack page

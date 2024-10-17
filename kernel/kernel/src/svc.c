@@ -329,7 +329,7 @@ static void sys_ipc_call(context_t* ctx, int32_t serv_pid, int32_t call_id, int3
 	ipc_task_t* ipc = proc_ipc_req(serv_proc, client_proc, call_id, arg_shm_id);
 	if(ipc == NULL) {
 		ctx->gpr[0] = -1; 
-		proc_block_on(ctx, client_proc->info.pid, (uint32_t)&client_proc->ipc_buffer_clean); 
+		proc_block_on(ctx, serv_pid, (uint32_t)&serv_proc->space->ipc_server);
 		return;
 	}
 	shm_proc_unmap_by_id(client_proc, arg_shm_id, false);
@@ -337,8 +337,8 @@ static void sys_ipc_call(context_t* ctx, int32_t serv_pid, int32_t call_id, int3
 
 	client_proc->ipc_res.state = IPC_BUSY;
 	ctx->gpr[0] = ipc->uid;
-	if(ipc != proc_ipc_get_task(serv_proc)) // buffered ipc
-		return;
+	//if(ipc != proc_ipc_get_task(serv_proc)) // buffered ipc
+		//return;
 	proc_ipc_do_task(ctx, serv_proc, client_proc->info.core);
 }
 
@@ -468,12 +468,13 @@ static void sys_ipc_end(context_t* ctx) {
 	proc_ipc_close(serv_proc, ipc);
 	proc_wakeup(serv_proc->info.pid, -1, (uint32_t)&serv_proc->space->ipc_server); 
 
-	if(proc_ipc_fetch(serv_proc) != 0)  {//fetch next buffered ipc
+	/*if(proc_ipc_fetch(serv_proc) != 0)  {//fetch next buffered ipc
 		proc_save_state(serv_proc, &serv_proc->space->ipc_server.saved_state);
 		serv_proc->space->ipc_server.do_switch = true;
 		proc_ready(serv_proc);
 		//proc_ipc_do_task(ctx, serv_proc, serv_proc->info.core);
 	}
+	*/
 	//else
 	schedule(ctx);
 }
