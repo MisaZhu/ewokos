@@ -391,6 +391,9 @@ static void sys_ipc_get_return(context_t* ctx, int32_t pid, uint32_t uid, proto_
 			ctx->gpr[0] = -2;
 			return;
 		}
+
+		ctx->gpr[0] = -1;
+		proc_block_on(ctx, serv_proc->info.pid, (uint32_t)&client_proc->ipc_res);
 		return;
 	}
 
