@@ -368,6 +368,18 @@ static int32_t shm_proc_unmap_it(proc_t* proc, share_mem_t* it, bool free_it) {
 	return 0;
 }
 
+void*   shm_map(proc_t* proc, int32_t key, uint32_t size, int32_t flag, int32_t* id) {
+	*id = -1;
+	int32_t sid = shm_get(key, size, flag);
+	if(sid <= 0)
+		return NULL;
+	void* ret = shm_proc_map(proc, sid);
+	if(ret == NULL)
+		return NULL;
+	*id = sid;
+	return ret;
+}
+
 int32_t shm_proc_unmap_by_id(proc_t* proc, uint32_t id, bool free_it) {
 	share_mem_t* it = shm_item_by_id(id);
 	if(it == NULL)

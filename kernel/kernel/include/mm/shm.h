@@ -6,6 +6,7 @@
 
 void    shm_init(void);
 int32_t shm_get(int32_t key, uint32_t size, int32_t flag);
+void*   shm_map(proc_t* proc, int32_t key, uint32_t size, int32_t flag, int32_t* id);
 uint32_t shm_alloced_size(void);
 //void*   shm_raw(int32_t id);
 
