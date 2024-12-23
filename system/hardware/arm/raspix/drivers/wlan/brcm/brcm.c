@@ -2404,12 +2404,13 @@ void* brcm_thread(void* p) {
 
             if(tick % 100000 == 0 && bus->state != CONNECTED){
                 memset(bus->ssid, 0, sizeof(bus->ssid));
-                bus->scan_update = kernel_tic_ms(0);
+                //bus->scan_update = kernel_tic_ms(0);
+                bus->scan_update = 0;
                 bus->state = SCANNING;
                 scan();
             } 
 
-            if(bus->state == SCANNING && kernel_tic_ms(0) - bus->scan_update > 2000 && strlen(bus->ssid) > 0){
+            if(bus->state == SCANNING && (bus->scan_update++) > 20000 && strlen(bus->ssid) > 0){
                 int idx = config_match_ssid(bus->ssid);
                 char*  pmk = (char*)config_get_pmk(idx);
                 if(!pmk){

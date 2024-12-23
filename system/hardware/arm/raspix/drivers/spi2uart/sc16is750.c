@@ -596,8 +596,7 @@ size_t SC16IS750_readBytes(SC16IS750_t * dev, uint8_t channel, char *buffer, siz
 int16_t SC16IS750_readwithtimeout(SC16IS750_t * dev, uint8_t * channel)
 {
 	int16_t tmp;
-	uint32_t time_stamp;
-	time_stamp = kernel_tic_ms(0);
+	uint32_t retry_count = 0;
 	do {
 		*channel = SC16IS750_CHANNEL_A;
 		tmp = SC16IS750_read(dev, SC16IS750_CHANNEL_A);
@@ -607,7 +606,8 @@ int16_t SC16IS750_readwithtimeout(SC16IS750_t * dev, uint8_t * channel)
 			tmp = SC16IS750_read(dev, SC16IS750_CHANNEL_B);
 			if (tmp >= 0) return tmp;
 		}
-	} while(kernel_tic_ms(0) - time_stamp < dev->timeout);
+		sleep(0);
+	} while(retry_count < dev->timeout);
 	return -1;	 // -1 indicates timeout
 }
 
