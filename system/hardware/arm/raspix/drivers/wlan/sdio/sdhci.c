@@ -874,6 +874,7 @@ int sdhci_send_command(struct mmc_cmd *cmd, struct mmc_data *data)
 			dump(host);
 			return -ETIMEDOUT;
 		}
+		sleep(0);
 	} while ((stat & mask) != mask);
 
 	if ((stat & (SDHCI_INT_ERROR | mask)) == mask) {
