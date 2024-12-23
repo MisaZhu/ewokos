@@ -32,7 +32,7 @@ static int sys_state_read(int fd,
 	syscall1(SYS_GET_SYS_STATE, (int32_t)&state);
 	snprintf((char*)buf, STR_MAX-1, 
 			"run_sec: %d\nfree_mem: %d\nshared_mem: %d\n", 
-			state.kernel_sec, state.mem.free, state.mem.shared);
+			(uint32_t)(state.kernel_usec / 1000000), state.mem.free, state.mem.shared);
 	return strlen((char*)buf);
 }
 

@@ -232,7 +232,7 @@ static void	sys_get_sys_state(sys_state_t* info) {
 
 	info->mem.free = get_free_mem_size();
 	info->mem.shared = shm_alloced_size();
-	info->kernel_sec = _kernel_sec;
+	info->kernel_usec = _kernel_usec;
 	info->svc_total = _svc_total;
 	memcpy(info->svc_counter, _svc_counter, SYS_CALL_NUM*4);
 }

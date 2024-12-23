@@ -51,7 +51,7 @@ typedef struct {
 /*dynamic attr*/
 typedef struct {
 	mem_info_t mem;
-	uint32_t kernel_sec;
+	uint64_t kernel_usec;
 	uint32_t svc_total;
 	uint32_t svc_counter[SYS_CALL_NUM];
 } sys_state_t;
