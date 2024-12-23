@@ -1,27 +1,37 @@
-#include <ewoksys/syscall.h>
+#include <ewoksys/sys.h>
 #include <ewoksys/kernel_tic.h>
+#include <unistd.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 inline int32_t kernel_tic32(uint32_t* sec, uint32_t* usec_hi, uint32_t* usec_low) {
-	return syscall3(SYS_GET_KERNEL_TIC, (int32_t)sec, (int32_t)usec_hi, (int32_t)usec_low);
+	if(_vsyscall_info == NULL)
+		return -1;
+
+	if(sec != NULL)
+		*sec = _vsyscall_info->kernel_usec / 1000000;
+	if(usec_hi != NULL)
+		*usec_hi = _vsyscall_info->kernel_usec >> 32;
+	if(usec_low != NULL)
+		*usec_low = _vsyscall_info->kernel_usec & 0xffffffff;
+	return 0;
 }
 
 inline int32_t kernel_tic(uint32_t* sec, uint64_t* usec) {
-	uint32_t hi, low;
-	int32_t ret = kernel_tic32(sec, &hi, &low);
+	if(_vsyscall_info == NULL)
+		return -1;
+
 	if(usec != NULL)
-		*usec = ((uint64_t)hi) << 32 | low;
-	return ret;
+		*usec = _vsyscall_info->kernel_usec;
+	if(sec != NULL)
+		*sec = _vsyscall_info->kernel_usec / 1000000;
+	return 0;
 }
 
 uint64_t kernel_tic_ms(int zone){
-	uint32_t sec;
-	uint64_t usec;
-	kernel_tic(&sec, &usec);
-	return (usec/1000);
+	return _vsyscall_info->kernel_usec / 1000;
 }
 
 #ifdef __cplusplus

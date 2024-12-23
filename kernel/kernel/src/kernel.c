@@ -16,10 +16,12 @@
 #include <kprintf.h>
 #include <dev/uart.h>
 #include <stddef.h>
+#include <sysinfo.h>
 #include <kernel/kconsole.h>
 #include <kernel/semaphore.h>
 
 page_dir_entry_t* _kernel_vm = NULL;
+vsyscall_info_t* _kernel_vsyscall_info = NULL;
 
 /*Copy interrupt talbe to phymen address 0x00000000.
 	Virtual address #INTERRUPT_VECTOR_BASE(0xFFFF0000 for ARM) must mapped to phymen 0x00000000.
@@ -45,6 +47,11 @@ static void set_kernel_vm(page_dir_entry_t* vm) {
 	map_pages(vm, KERNEL_BASE, _sys_info.phy_offset, V2P(KERNEL_IMAGE_END), AP_RW_D, PTE_ATTR_WRBACK_ALLOCATE);
 	//map kernel page dir
 	map_pages(vm, KERNEL_PAGE_DIR_BASE, V2P(KERNEL_PAGE_DIR_BASE), V2P(KERNEL_PAGE_DIR_END), AP_RW_D, PTE_ATTR_WRBACK);
+
+	//map kernel sys_state memory
+	map_pages(vm, KERNEL_VSYSCALL_INFO_BASE, V2P(KERNEL_VSYSCALL_INFO_BASE), V2P(KERNEL_VSYSCALL_INFO_END), AP_RW_R, PTE_ATTR_DEV);
+	_kernel_vsyscall_info = (vsyscall_info_t*) KERNEL_VSYSCALL_INFO_BASE;
+
 	//map kernel malloc memory
 	map_pages(vm, KMALLOC_BASE, V2P(KMALLOC_BASE), V2P(KMALLOC_END), AP_RW_D, PTE_ATTR_WRBACK);
 	//map allocatable memory page dir
@@ -253,4 +260,6 @@ void _kernel_entry_c(void) {
 		   "---------------------------------------------------\n");
 	__irq_enable();
 	halt();
+
+	kfree4k(_kernel_vsyscall_info);
 }

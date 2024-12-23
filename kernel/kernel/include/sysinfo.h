@@ -56,5 +56,9 @@ typedef struct {
 	uint32_t svc_counter[SYS_CALL_NUM];
 } sys_state_t;
 
+typedef struct {
+	uint64_t kernel_usec;
+} vsyscall_info_t;
+
 #endif
 

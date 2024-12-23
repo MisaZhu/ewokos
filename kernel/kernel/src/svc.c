@@ -237,6 +237,16 @@ static void	sys_get_sys_state(sys_state_t* info) {
 	memcpy(info->svc_counter, _svc_counter, SYS_CALL_NUM*4);
 }
 
+static vsyscall_info_t* sys_get_vsyscall_info(void) {
+	return _kernel_vsyscall_info;
+}
+
+void renew_vsyscall_info(void) {
+	if(_kernel_vsyscall_info == NULL)
+		return;
+	_kernel_vsyscall_info->kernel_usec = _kernel_usec;
+}
+
 static int32_t sys_shm_get(int32_t id, uint32_t size, int32_t flag) {
 	return (int32_t)shm_get(id, size, flag);
 }
@@ -754,8 +764,8 @@ static inline void _svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_
 	case SYS_GET_SYS_STATE:
 		sys_get_sys_state((sys_state_t*)arg0);
 		return;
-	case SYS_GET_KERNEL_TIC:
-		ctx->gpr[0] = sys_get_kernel_tic((uint32_t*)arg0, (uint32_t*)arg1, (uint32_t*)arg2);
+	case SYS_GET_VSYSCALL_INFO:
+		ctx->gpr[0] = (uint32_t)sys_get_vsyscall_info();
 		return;
 	case SYS_GET_PROC: 
 		ctx->gpr[0] = (int32_t)get_proc(arg0, (procinfo_t*)arg1);

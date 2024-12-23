@@ -57,6 +57,8 @@ static inline int32_t irq_do_timer0_interrupt(context_t* ctx) {
 	return interrupt_send(ctx, IRQ_TIMER0);
 }
 
+void renew_vsyscall_info(void);
+
 static inline void irq_do_timer0(context_t* ctx) {
 	(void)ctx;
 	uint64_t usec = timer_read_sys_usec();
@@ -73,6 +75,7 @@ static inline void irq_do_timer0(context_t* ctx) {
 	_sec_tic += usec_gap;
 	_schedule_tic += usec_gap;
 	_timer_tic += usec_gap;
+
 	if(_sec_tic >= 1000000) { //SEC_TIC sec
 		_kernel_sec++;
 		_sec_tic = 0;
@@ -80,6 +83,8 @@ static inline void irq_do_timer0(context_t* ctx) {
 	}
 	if(renew_kernel_tic(usec_gap) == 0)
 		do_schedule = 1;
+	
+	renew_vsyscall_info();
 	
 	timer_clear_interrupt(0);
 

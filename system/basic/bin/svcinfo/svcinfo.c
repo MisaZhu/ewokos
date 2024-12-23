@@ -3,7 +3,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <ewoksys/syscall.h>
-#include <sysinfo.h>
+#include <ewoksys/sys.h>
 #include <string.h>
 
 static inline const char* svc_name(int32_t code) {
@@ -54,8 +54,8 @@ static inline const char* svc_name(int32_t code) {
 		return "get_sys_info";
 	case SYS_GET_SYS_STATE:
 		return "get_sys_state";
-	case SYS_GET_KERNEL_TIC:
-		return "kernel_tic";
+	case SYS_GET_VSYSCALL_INFO:
+		return "get_vsyscall_info";
 	case SYS_GET_PROCS_NUM: 
 		return "get_procs_num";
 	case SYS_GET_PROCS: 

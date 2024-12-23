@@ -7,6 +7,7 @@
 #include <ewoksys/signal.h>
 #include <ewoksys/proc.h>
 #include <ewoksys/vfs.h>
+#include <ewoksys/sys.h>
 #include <ewoksys/core.h>
 #include <procinfo.h>
 #include <unistd.h>
@@ -15,6 +16,7 @@
 extern "C" {
 #endif
 
+vsyscall_info_t* _vsyscall_info = NULL;
 
 static char _cmd[PROC_INFO_MAX_CMD_LEN];
 static int _off_cmd;
@@ -111,6 +113,10 @@ void _start(void) {
 	while(p < &__bss_end__){
 		*p++ = 0;
 	}
+
+	_vsyscall_info = syscall0(SYS_GET_VSYSCALL_INFO);
+	if(_vsyscall_info == NULL)
+		exit(-1);
 
 	_libc_init();
 	//__ewok_malloc_init();
