@@ -8,6 +8,8 @@
 
 static inline const char* svc_name(int32_t code) {
 	switch(code) {
+	case SYS_NONE:
+		return "none";
 	case SYS_EXIT:
 		return "exit";
 	case SYS_SIGNAL_SETUP:
@@ -134,6 +136,14 @@ static inline const char* svc_name(int32_t code) {
 		return "sys_root";
 	case SYS_SET_TIMER_INTR_USEC:
 		return "sys_set_timer_intr_usec";
+	case SYS_GET_TRACE:
+		return "sys_get_trace";
+	case SYS_GET_TRACE_FPS:
+		return "sys_get_trace_fps";
+	case SYS_PAUSE_TRACE:
+		return "sys_pause_trace";
+	case SYS_RESUME_TRACE:
+		return "sys_resume_trace";
 	}
 	return "unknown";
 }
