@@ -252,12 +252,11 @@ static int mmc_send_op_cond(struct mmc *mmc)
 {
 	int err, i;
 	uint32_t timeout = 1000000;
-	uint32_t start;
+	uint32_t retry_count = 0;
 
 	/* Some cards seem to need this */
 	mmc_go_idle(mmc);
 
-	start = kernel_tic_ms(0);
 	/* Asking to the card its capabilities */
 	for (i = 0; ; i++) {
 		err = mmc_send_op_cond_iter(mmc, i != 0);
@@ -268,9 +267,9 @@ static int mmc_send_op_cond(struct mmc *mmc)
 		if (mmc->ocr & OCR_BUSY)
 			break;
 
-		if (kernel_tic_ms(0) - start > timeout)
+		if (retry_count > timeout)
 			return -ETIMEDOUT;
-		usleep(100);
+		sleep(0);
 	}
 	mmc->op_cond_pending = 1;
 	return 0;
@@ -321,7 +320,7 @@ static int mmc_complete_op_cond(struct mmc *mmc)
 {
 	struct mmc_cmd cmd;
 	uint32_t timeout = 1000;
-	uint64_t start;
+	uint32_t retry_count = 0;
 	int err;
 
 	mmc->op_cond_pending = 0;
@@ -329,16 +328,15 @@ static int mmc_complete_op_cond(struct mmc *mmc)
 		/* Some cards seem to need this */
 		mmc_go_idle(mmc);
 
-		start = kernel_tic_ms(0);
 		while (1) {
 			err = mmc_send_op_cond_iter(mmc, 1);
 			if (err)
 				return err;
 			if (mmc->ocr & OCR_BUSY)
 				break;
-			if (kernel_tic_ms(0) - start > timeout)
+			if (retry_count > timeout)
 				return -EOPNOTSUPP;
-			usleep(100);
+			sleep(0);
 		}
 	}
 
