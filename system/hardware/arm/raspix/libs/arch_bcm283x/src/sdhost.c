@@ -280,8 +280,8 @@ static int bcm2835_check_data_error(struct bcm2835_host *host, uint32_t intmask)
 
 static int bcm2835_wait_transfer_complete(struct bcm2835_host *host)
 {
-	//uint64_t tstart_ms = 0;
-	uint32_t retry_count = 0;
+	uint64_t tstart_ms = 0;
+	//uint32_t retry_count = 0;
 	while (1) {
 		uint32_t edm, fsm;
 
@@ -301,7 +301,6 @@ static int bcm2835_wait_transfer_complete(struct bcm2835_host *host)
 		}
 
 		/* Error out after ~1s */
-		/*
 		if(tstart_ms > 0) {
 			uint64_t tlapse_ms = kernel_tic_ms(0) - tstart_ms;
 			if ( tlapse_ms > 1000 ) {
@@ -313,8 +312,8 @@ static int bcm2835_wait_transfer_complete(struct bcm2835_host *host)
 			}
 		}
 		tstart_ms = kernel_tic_ms(0);
-		*/
 
+		/*
 		sleep(0);
 		retry_count++;
 		if(retry_count > 10000) {
@@ -323,6 +322,7 @@ static int bcm2835_wait_transfer_complete(struct bcm2835_host *host)
 			bcm2835_dumpregs(host);
 			return -ETIMEDOUT;
 		}
+		*/
 	}
 
 	return 0;
