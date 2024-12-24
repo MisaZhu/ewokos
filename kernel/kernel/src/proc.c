@@ -439,6 +439,13 @@ static void proc_wakeup_waiting(int32_t pid) {
 	}
 }
 
+static inline void proc_update_vsyscall(proc_t* proc) {
+	if(_kernel_vsyscall_info == NULL || proc == NULL || proc->info.pid < 0)
+		return;
+	_kernel_vsyscall_info->proc_info[proc->info.pid].father_pid = proc->info.father_pid;
+	_kernel_vsyscall_info->proc_info[proc->info.pid].uuid = proc->info.uuid;
+}
+
 static void proc_terminate(context_t* ctx, proc_t* proc) {
 	if(proc->info.state == ZOMBIE || proc->info.state == UNUSED)
 		return;
@@ -475,6 +482,9 @@ static void proc_terminate(context_t* ctx, proc_t* proc) {
 	else if(proc->info.type == TASK_TYPE_THREAD) { //TODO
 		proc->info.father_pid = 0;
 	}
+
+	proc->info.uuid = 0;
+	proc_update_vsyscall(proc);
 }
 
 static inline void proc_init_user_stack(proc_t* proc) {
@@ -641,6 +651,7 @@ static inline void core_attach(proc_t* proc) {
 	proc->info.core = core_fetch(proc);
 }
 
+
 /* proc_creates allocates a new process and returns it. */
 proc_t *proc_create(int32_t type, proc_t* parent) {
 	int32_t index = -1;
@@ -683,12 +694,18 @@ proc_t *proc_create(int32_t type, proc_t* parent) {
 		}
 	}
 
-	if(parent != NULL)
+	if(parent != NULL) {
+		proc->info.father_pid = parent->info.pid;
+		proc->info.uid = parent->info.uid;
+		proc->info.gid = parent->info.gid;
 		strcpy(proc->info.cmd, parent->info.cmd);
+	}
 
 	proc_init_user_stack(proc);
 	proc->info.start_sec = _kernel_sec;
 	CONTEXT_INIT(proc->ctx);
+
+	proc_update_vsyscall(proc);
 	return proc;
 }
 
@@ -764,6 +781,8 @@ int32_t proc_load_elf(proc_t *proc, const char *image, uint32_t size) {
 	proc->ctx.lr = ELF_ENTRY(proc_image);
 	proc_ready(proc);
 	kfree(proc_image);
+
+	proc_update_vsyscall(proc);
 	return 0;
 }
 
@@ -918,8 +937,6 @@ static int32_t proc_clone(proc_t* child, proc_t* parent) {
 	flush_tlb();
 	child->space->heap_size = pages * PAGE_SIZE;
 
-	//set father
-	child->info.father_pid = parent->info.pid;
 	// copy parent's stack to child's stack
 	int32_t i;
 	for(i=0; i<STACK_PAGES; i++) {
@@ -941,9 +958,6 @@ proc_t* kfork_raw(context_t* ctx, int32_t type, proc_t* parent) {
 		printf("panic: kfork create proc failed!!(%d)\n", parent->info.pid);
 		return NULL;
 	}
-	child->info.father_pid = parent->info.pid;
-	child->info.uid = parent->info.uid;
-	child->info.gid = parent->info.gid;
 	memcpy(&child->ctx, &parent->ctx, sizeof(context_t));
 
 	if(type == TASK_TYPE_PROC) {

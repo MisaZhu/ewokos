@@ -863,9 +863,6 @@ static inline void _svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_
 	case SYS_SOFT_INT:
 		sys_soft_int(ctx, arg0, arg1, arg2);
 		return;
-	case SYS_PROC_UUID:
-		ctx->gpr[0] = sys_proc_uuid(arg0);
-		return;
 	case SYS_V2P:
 		ctx->gpr[0] = V2P(arg0);
 		return;

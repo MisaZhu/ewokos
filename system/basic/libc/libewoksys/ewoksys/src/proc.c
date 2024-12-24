@@ -2,6 +2,7 @@
 #include <ewoksys/ipc.h>
 #include <ewoksys/vfs.h>
 #include <ewoksys/syscall.h>
+#include <ewoksys/sys.h>
 #include <pthread.h>
 #include <unistd.h>
 #include <malloc.h>
@@ -121,14 +122,18 @@ int  proc_exec(const char* cmd_line) {
 }
 
 inline uint32_t proc_check_uuid(int32_t pid, uint32_t uuid) {
-	uint32_t ret = syscall1(SYS_PROC_UUID, pid);
-	if(ret == uuid)
-		return ret;
+	if(pid < 0 || pid >= MAX_PROC_NUM)
+		return 0;
+
+	if(_vsyscall_info->proc_info[pid].uuid == uuid)
+		return uuid;
 	return 0;
 }
 
 inline uint32_t proc_get_uuid(int32_t pid) {
-	return syscall1(SYS_PROC_UUID, pid);
+	if(pid < 0 || pid >= MAX_PROC_NUM)
+		return 0;
+	return _vsyscall_info->proc_info[pid].uuid;
 }
 
 inline void* proc_malloc_expand(uint32_t size) {

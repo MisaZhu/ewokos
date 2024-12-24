@@ -51,7 +51,7 @@ static int32_t interrupt_remove(int32_t pid, uint32_t id) {
 static int32_t interrupt_setup(int32_t pid, uint32_t timer_usec, uint32_t entry, uint32_t data) {
 	interrupt_t* intr = (interrupt_t*)malloc(sizeof(interrupt_t));
 	intr->pid = pid;
-	intr->proc_uuid = syscall1(SYS_PROC_UUID, pid);
+	intr->proc_uuid = proc_get_uuid(pid);
 	intr->entry = entry;
 	intr->data = data;
 	intr->timer_usec = timer_usec;

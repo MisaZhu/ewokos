@@ -27,6 +27,7 @@ static void load_kernel_config_file() {
 	v = sconf_get(sconf, "max_proc_num");
 	if(v[0] != 0)
 		_kernel_config.max_proc_num = atoi(v);
+	
 
 /*
 	v = sconf_get(sconf, "max_task_num");
@@ -72,6 +73,9 @@ void load_kernel_config(void) {
 		_kernel_config.schedule_freq = SCHEDULE_FREQ_DEF;
 	if(_kernel_config.timer_freq < _kernel_config.schedule_freq*2)
 		_kernel_config.timer_freq = _kernel_config.schedule_freq*2;
+
+	if(_kernel_config.max_proc_num > MAX_PROC_NUM)
+		_kernel_config.max_proc_num = MAX_PROC_NUM;
 
 	if(_kernel_config.max_proc_num < MAX_PROC_NUM_DEF)
 		_kernel_config.max_proc_num = MAX_PROC_NUM_DEF;

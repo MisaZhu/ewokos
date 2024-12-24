@@ -27,6 +27,7 @@ typedef struct {
 } dma_info_t;
 
 #define MAX_CORE_NUM 8
+#define MAX_PROC_NUM 512
 
 /*static attr*/
 typedef struct {
@@ -57,7 +58,13 @@ typedef struct {
 } sys_state_t;
 
 typedef struct {
+	uint32_t uuid;
+	int32_t  father_pid;
+} proc_base_info_t;
+
+typedef struct {
 	uint64_t kernel_usec;
+	proc_base_info_t proc_info[MAX_PROC_NUM];
 } vsyscall_info_t;
 
 #endif

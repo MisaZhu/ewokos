@@ -122,8 +122,6 @@ static inline const char* svc_name(int32_t code) {
 		return "semaphore_quit";
 	case SYS_SOFT_INT:
 		return "soft_int";
-	case SYS_PROC_UUID:
-		return "proc_check_uuid";
 	case SYS_V2P:
 		return "sys_v2p";
 	case SYS_P2V:
