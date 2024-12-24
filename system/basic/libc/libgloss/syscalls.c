@@ -724,7 +724,7 @@ int execl(const char *name, const char* arg0, ...) {
 int _fork()
 {
   	kout(__func__);
-	return syscall0(SYS_FORK);
+	return proc_fork();
 }
 
 int _wait(int *status)

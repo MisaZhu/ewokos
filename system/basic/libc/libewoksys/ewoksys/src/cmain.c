@@ -17,6 +17,7 @@ extern "C" {
 #endif
 
 vsyscall_info_t* _vsyscall_info = NULL;
+int _current_pid = -1;
 
 static char _cmd[PROC_INFO_MAX_CMD_LEN];
 static int _off_cmd;
@@ -113,6 +114,9 @@ void _start(void) {
 	while(p < &__bss_end__){
 		*p++ = 0;
 	}
+
+	_current_pid = -1;
+	_current_pid = getpid();
 
 	_vsyscall_info = syscall0(SYS_GET_VSYSCALL_INFO);
 	if(_vsyscall_info == NULL)

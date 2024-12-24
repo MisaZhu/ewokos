@@ -444,6 +444,7 @@ static inline void proc_update_vsyscall(proc_t* proc) {
 		return;
 	_kernel_vsyscall_info->proc_info[proc->info.pid].father_pid = proc->info.father_pid;
 	_kernel_vsyscall_info->proc_info[proc->info.pid].uuid = proc->info.uuid;
+	_kernel_vsyscall_info->proc_info[proc->info.pid].type = proc->info.type;
 }
 
 static void proc_terminate(context_t* ctx, proc_t* proc) {

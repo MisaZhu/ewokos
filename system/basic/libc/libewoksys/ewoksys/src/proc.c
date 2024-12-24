@@ -85,7 +85,36 @@ inline int get_cored_pid(void) {
 }
 
 inline int proc_getpid(int pid) {
- 	return syscall1(SYS_GET_PID, pid);
+	if(pid < 0) {
+		if(_current_pid < 0)
+		 	_current_pid = syscall1(SYS_GET_PID, pid);
+		return _current_pid;
+	}	
+
+	if(_current_pid == pid)
+		return pid;
+	
+	if(pid >= MAX_PROC_NUM)
+		return -1;
+
+	while(true) {
+		if(_vsyscall_info->proc_info[pid].uuid == 0)
+			return -1;
+
+		if(_vsyscall_info->proc_info[pid].type == TASK_TYPE_PROC)
+			return pid;
+		pid = _vsyscall_info->proc_info[pid].father_pid;
+	}
+	return -1;
+}
+
+inline int proc_fork(void) {
+	int ret = syscall0(SYS_FORK);
+	if(ret == 0) {
+		_current_pid = -1;
+		proc_getpid(-1);
+	}
+	return ret;
 }
 
 inline int proc_info(int pid, procinfo_t* info) {

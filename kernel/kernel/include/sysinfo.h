@@ -60,6 +60,7 @@ typedef struct {
 typedef struct {
 	uint32_t uuid;
 	int32_t  father_pid;
+	int32_t  type;
 } proc_base_info_t;
 
 typedef struct {

@@ -22,6 +22,7 @@ void     proc_block_by(int by_pid, uint32_t evt);
 void     proc_wakeup(uint32_t evt);
 void     proc_wakeup_pid(int pid, uint32_t evt);
 void     proc_init(void);
+int      proc_fork(void);
 void     proc_exit(void);
 uint32_t proc_check_uuid(int32_t pid, uint32_t uuid);
 uint32_t proc_get_uuid(int32_t pid);
@@ -35,6 +36,7 @@ int      proc_exec(const char* cmd_line);
 
 extern int _vfsd_pid;
 extern int _cored_pid;
+extern int _current_pid;
 extern bool _proc_global_need_lock;
 
 #ifdef __cplusplus
