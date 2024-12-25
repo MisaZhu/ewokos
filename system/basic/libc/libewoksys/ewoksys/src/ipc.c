@@ -110,7 +110,7 @@ extern "C"
 			if (res < 0) // error!
 				return -1;
 
-			if (res > 0) {
+			if (res > 0) { //opkg not big enough, must resize it.
 				void *data = malloc(res);
 				if (data == NULL) // error!
 					return -1;
@@ -213,7 +213,7 @@ extern "C"
 			return;
 		}
 
-		if(res > 0) { //have to resize input arg
+		if(res > 0) { //in not big enough, have to resize it
 			void *data = malloc(res);
 			if (data == NULL) {// error!
 				ipc_end();
