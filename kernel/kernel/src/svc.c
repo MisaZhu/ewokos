@@ -379,8 +379,8 @@ static void sys_ipc_get_return(context_t* ctx, int32_t pid, uint32_t uid, proto_
 	}
 
 	if(data != NULL && data->data != NULL) {
-		if(data->size >= client_proc->ipc_res.data.size)
-			memcpy(data->data, client_proc->ipc_res.data.data, data->size);
+		if(data->total_size >= client_proc->ipc_res.data.size)
+			proto_copy(data, client_proc->ipc_res.data.data, client_proc->ipc_res.data.size);
 		else {
 			ctx->gpr[0] = client_proc->ipc_res.data.size; //return ret_arg size if input pkg not big enought
 			return;
@@ -407,8 +407,12 @@ static int32_t sys_ipc_get_info(uint32_t uid, int32_t* ipc_info, proto_t* arg) {
 	ipc_info[0] = ipc->client_pid;
 	ipc_info[1] = ipc->call_id;
 
-	if(arg != NULL)
-		proto_copy(arg, ipc->arg_ret.data, ipc->arg_ret.size);
+	if(arg != NULL) {
+		if(arg->total_size >= ipc->arg_ret.size && ipc->arg_ret.data != NULL)
+			proto_copy(arg, ipc->arg_ret.data, ipc->arg_ret.size);
+		else
+			return ipc->arg_ret.size;
+	}
 	return 0;
 }
 

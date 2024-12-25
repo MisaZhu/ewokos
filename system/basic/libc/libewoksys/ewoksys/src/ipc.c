@@ -79,12 +79,6 @@ extern "C"
 	{
 		if (to_pid < 0)
 			return -1;
-		int32_t shm_id = 0;
-		uint8_t* shm = NULL;
-		if (ipkg != NULL && ipkg->size >= PROTO_BUFFER) {//ipc input arg size must not bigger than PROTO_BUFFER!!!!
-			klog("panic: size of ipc input arg is %d, bigger than %d bytes!\n", ipkg->size, PROTO_BUFFER);
-			return -1;
-		}
 
 		int ipc_id = 0;
 		while (true) {
@@ -213,9 +207,25 @@ extern "C"
 		proto_t in;
 		PF->init(&in);
 
-		if(ipc_get_info(ipc_id, &pid, &cmd, &in) != 0) {
+		int res = ipc_get_info(ipc_id, &pid, &cmd, &in);
+		if(res < 0) {
 			ipc_end();
 			return;
+		}
+
+		if(res > 0) { //have to resize input arg
+			void *data = malloc(res);
+			if (data == NULL) {// error!
+				ipc_end();
+				return -1;
+			}
+			PF->init_data(&in, data, res);
+			in.pre_alloc = false;
+		
+			if(ipc_get_info(ipc_id, &pid, &cmd, &in) != 0) {
+				ipc_end();
+				return -1;
+			}
 		}
 
 		proto_t out;
