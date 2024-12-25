@@ -80,8 +80,6 @@ static inline const char* svc_name(int32_t code) {
 		return "ipc_setup";
 	case SYS_IPC_CALL:
 		return "ipc_call";
-	case SYS_IPC_GET_RETURN_SIZE:
-		return "ipc_get_return_size";
 	case SYS_IPC_GET_RETURN:
 		return "ipc_get_return";
 	case SYS_IPC_SET_RETURN:

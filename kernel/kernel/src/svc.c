@@ -302,7 +302,7 @@ static void sys_ipc_setup(context_t* ctx, uint32_t entry, uint32_t extra_data, u
 	ctx->gpr[0] = proc_ipc_setup(ctx, entry, extra_data, flags);
 }
 
-static void sys_ipc_call(context_t* ctx, int32_t serv_pid, int32_t call_id, int32_t arg_shm_id) {
+static void sys_ipc_call(context_t* ctx, int32_t serv_pid, int32_t call_id, proto_t* arg) {
 	ctx->gpr[0] = 0;
 
 	proc_t* client_proc = get_current_proc();
@@ -336,23 +336,19 @@ static void sys_ipc_call(context_t* ctx, int32_t serv_pid, int32_t call_id, int3
 		//serv_proc->space->interrupt.saved_state.state = READY;
 	}
 
-	ipc_task_t* ipc = proc_ipc_req(serv_proc, client_proc, call_id, arg_shm_id);
+	ipc_task_t* ipc = proc_ipc_req(serv_proc, client_proc, call_id, arg);
 	if(ipc == NULL) {
 		ctx->gpr[0] = -1; 
 		proc_block_on(ctx, serv_pid, (uint32_t)&serv_proc->space->ipc_server);
 		return;
 	}
-	shm_proc_unmap_by_id(client_proc, arg_shm_id, false);
-	shm_set_owner(arg_shm_id, serv_pid);
 
 	client_proc->ipc_res.state = IPC_BUSY;
 	ctx->gpr[0] = ipc->uid;
-	//if(ipc != proc_ipc_get_task(serv_proc)) // buffered ipc
-		//return;
 	proc_ipc_do_task(ctx, serv_proc, client_proc->info.core);
 }
 
-static void sys_ipc_get_return_size(context_t* ctx, int32_t pid, uint32_t uid) {
+static void sys_ipc_get_return(context_t* ctx, int32_t pid, uint32_t uid, proto_t* data) {
 	ctx->gpr[0] = 0;
 	proc_t* client_proc = get_current_proc();
 	if(uid == 0 || client_proc == NULL) {
@@ -382,39 +378,13 @@ static void sys_ipc_get_return_size(context_t* ctx, int32_t pid, uint32_t uid) {
 		return;
 	}
 
-	ctx->gpr[0] = client_proc->ipc_res.data.size;
-}
-
-static void sys_ipc_get_return(context_t* ctx, int32_t pid, uint32_t uid, proto_t* data) {
-	ctx->gpr[0] = 0;
-	proc_t* client_proc = get_current_proc();
-	if(uid == 0 || client_proc == NULL) {
-		ctx->gpr[0] = -2;
-		return;
-	}
-	pid = get_proc_pid(pid);
-
-	if(client_proc->ipc_res.state != IPC_RETURN) { //block retry for serv return
-		proc_t* serv_proc = proc_get(pid);
-		ipc_task_t* ipc = proc_ipc_get_task(serv_proc);
-		if(ipc == NULL || ipc->uid != uid) {
-			ctx->gpr[0] = -2;
+	if(data != NULL && data->data != NULL) {
+		if(data->size >= client_proc->ipc_res.data.size)
+			memcpy(data->data, client_proc->ipc_res.data.data, data->size);
+		else {
+			ctx->gpr[0] = client_proc->ipc_res.data.size; //return ret_arg size if input pkg not big enought
 			return;
 		}
-
-		ctx->gpr[0] = -1;
-		proc_block_on(ctx, serv_proc->info.pid, (uint32_t)&client_proc->ipc_res);
-		return;
-	}
-
-	if(client_proc->ipc_res.uid != uid) {
-		ctx->gpr[0] = -2;
-		return;
-	}
-
-	if(data != NULL && data->data != NULL && 
-				data->size == client_proc->ipc_res.data.size) {
-		memcpy(data->data, client_proc->ipc_res.data.data, data->size);
 	}
 
 	client_proc->ipc_res.uid = 0;
@@ -422,7 +392,7 @@ static void sys_ipc_get_return(context_t* ctx, int32_t pid, uint32_t uid, proto_
 	proto_clear(&client_proc->ipc_res.data);
 }
 
-static int32_t sys_ipc_get_info(uint32_t uid, int32_t* ipc_info) {
+static int32_t sys_ipc_get_info(uint32_t uid, int32_t* ipc_info, proto_t* arg) {
 	proc_t* serv_proc = proc_get_proc(get_current_proc());
 	ipc_task_t* ipc = proc_ipc_get_task(serv_proc);
 	if(uid == 0 ||
@@ -436,7 +406,9 @@ static int32_t sys_ipc_get_info(uint32_t uid, int32_t* ipc_info) {
 	//ipc_info[0] = get_proc_pid(ipc->client_pid);
 	ipc_info[0] = ipc->client_pid;
 	ipc_info[1] = ipc->call_id;
-	ipc_info[2] = ipc->arg_shm_id;
+
+	if(arg != NULL)
+		proto_copy(arg, ipc->arg_ret.data, ipc->arg_ret.size);
 	return 0;
 }
 
@@ -800,9 +772,6 @@ static inline void _svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_
 	case SYS_IPC_CALL:
 		sys_ipc_call(ctx, arg0, arg1, (proto_t*)arg2);
 		return;
-	case SYS_IPC_GET_RETURN_SIZE:
-		sys_ipc_get_return_size(ctx, arg0, (uint32_t)arg1);
-		return;
 	case SYS_IPC_GET_RETURN:
 		sys_ipc_get_return(ctx, arg0, (uint32_t)arg1, (proto_t*)arg2);
 		return;
@@ -813,7 +782,7 @@ static inline void _svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_
 		sys_ipc_end(ctx);
 		return;
 	case SYS_IPC_GET_ARG:
-		ctx->gpr[0] = sys_ipc_get_info((uint32_t)arg0, (int32_t*)arg1);
+		ctx->gpr[0] = sys_ipc_get_info((uint32_t)arg0, (int32_t*)arg1, (proto_t*)arg2);
 		return;
 	case SYS_IPC_PING:
 		ctx->gpr[0] = sys_proc_ping(arg0);

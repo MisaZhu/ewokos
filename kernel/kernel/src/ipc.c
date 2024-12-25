@@ -73,11 +73,12 @@ int32_t proc_ipc_do_task(context_t* ctx, proc_t* serv_proc, uint32_t core) {
 static void ipc_free(ipc_task_t* ipc) {
 	if(ipc == NULL)
 		return;
+	proto_clear(&ipc->arg_ret);
 	memset(ipc, 0, sizeof(ipc_task_t));
 	//kfree(ipc);
 }
 
-ipc_task_t* proc_ipc_req(proc_t* serv_proc, proc_t* client_proc, int32_t call_id, int32_t arg_shm_id) {
+ipc_task_t* proc_ipc_req(proc_t* serv_proc, proc_t* client_proc, int32_t call_id, proto_t* arg) {
 	uint64_t usec = timer_read_sys_usec();
 	ipc_task_t* ipc = &serv_proc->space->ipc_server.ctask;
 	//kprintf("ipc timeout check %d\n", usec);
@@ -116,8 +117,8 @@ ipc_task_t* proc_ipc_req(proc_t* serv_proc, proc_t* client_proc, int32_t call_id
 	ipc->client_uuid = client_proc->info.uuid;
 	ipc->call_id = call_id;
 	ipc->usec = usec;
-	if(arg_shm_id > 0) {
-		ipc->arg_shm_id = arg_shm_id;
+	if(arg != NULL && arg->data != NULL) {
+		proto_copy(&ipc->arg_ret, arg->data, arg->size);
 	}
 
 	/*

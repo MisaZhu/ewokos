@@ -24,7 +24,7 @@ typedef	struct {
 	uint32_t  uid;
 	uint64_t  usec;
 	uint32_t  state;
-	int32_t   arg_shm_id;
+	proto_t   arg_ret;
 	int32_t   client_pid;
 	uint32_t  client_uuid;
 	int32_t   call_id;
@@ -36,7 +36,6 @@ typedef struct {
 	uint32_t      entry;
 	uint32_t      flags;
 	uint32_t      extra_data;
-	queue_t       tasks;
 	ipc_task_t    ctask; //current_task
 
     bool          do_switch;
@@ -46,7 +45,7 @@ typedef struct {
 
 extern int32_t     proc_ipc_setup(context_t* ctx, uint32_t entry, uint32_t extra, uint32_t flags);
 extern int32_t     proc_ipc_do_task(context_t* ctx, struct st_proc* proc, uint32_t core);
-extern ipc_task_t* proc_ipc_req(struct st_proc* serv_proc, struct st_proc* client_proc, int32_t call_id, int32_t arg_shm_id);
+extern ipc_task_t* proc_ipc_req(struct st_proc* serv_proc, struct st_proc* client_proc, int32_t call_id, proto_t* arg);
 extern uint32_t    proc_ipc_fetch(struct st_proc* serv_proc);
 extern ipc_task_t* proc_ipc_get_task(struct st_proc* serv_proc);
 extern void        proc_ipc_close(struct st_proc* serv_proc, ipc_task_t* ipc); 

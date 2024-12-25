@@ -65,30 +65,14 @@ extern "C"
 
 	static int32_t ipc_get_info(uint32_t ipc_id, int32_t *pid, int32_t *call_id, proto_t *arg)
 	{
-		int32_t ipc_info[3];
-		if (syscall2(SYS_IPC_GET_ARG, ipc_id, (int32_t)ipc_info) != 0) {
+		int32_t ipc_info[2];
+		if (syscall3(SYS_IPC_GET_ARG, ipc_id, (int32_t)ipc_info, (int32_t)arg) != 0) {
 			return -1;
 		}
 
 		*pid = ipc_info[0];
 		*call_id = ipc_info[1];
-		int32_t shm_id = ipc_info[2];
-
-		if (shm_id > 0)
-		{
-			uint8_t *shm = (uint8_t*)shmat(shm_id, 0, 0);
-			if (shm == NULL) {
-				return -1;
-			}
-			int32_t size;
-			memcpy(&size, shm, 4);
-			if (size > 0)
-			{
-				PF->init_data(arg, shm + 4, size);
-				arg->pre_alloc = false;
-			}
-		}
-		return shm_id;
+		return 0;
 	}
 
 	inline int ipc_call(int to_pid, int call_id, const proto_t *ipkg, proto_t *opkg)
@@ -97,30 +81,20 @@ extern "C"
 			return -1;
 		int32_t shm_id = 0;
 		uint8_t* shm = NULL;
-		if (ipkg != NULL && ipkg->data != NULL && ipkg->size > 0)
-		{
-			shm_id = shmget(IPC_PRIVATE, ipkg->size + 4, 0666);
-			if (shm_id <= 0)
-				return -1;
-			shm = (uint8_t *)shmat(shm_id, 0, 0);
-			if (shm == NULL)
-				return -1;
-			memcpy(shm, &ipkg->size, 4);
-			memcpy(shm + 4, ipkg->data, ipkg->size);
+		if (ipkg != NULL && ipkg->size >= PROTO_BUFFER) {//ipc input arg size must not bigger than PROTO_BUFFER!!!!
+			klog("panic: size of ipc input arg is %d, bigger than %d bytes!\n", ipkg->size, PROTO_BUFFER);
+			return -1;
 		}
 
 		int ipc_id = 0;
-		while (true)
-		{
+		while (true) {
 			if (opkg == NULL)
 				call_id |= IPC_NON_RETURN;
-			ipc_id = syscall3(SYS_IPC_CALL, (int32_t)to_pid, (int32_t)call_id, (int32_t)shm_id);
+			ipc_id = syscall3(SYS_IPC_CALL, (int32_t)to_pid, (int32_t)call_id, (int32_t)ipkg);
 
 			if (ipc_id == -1)
 				continue;
 			if (ipc_id == 0) {
-				if(shm != NULL)
-					shmdt(shm);
 				return -1;
 			}
 			break;
@@ -129,29 +103,31 @@ extern "C"
 		if (opkg == NULL)
 			return 0;
 
+		int res = -1;
 		PF->clear(opkg);
-		while (true)
-		{
-			int size = syscall2(SYS_IPC_GET_RETURN_SIZE, to_pid, (int32_t)ipc_id);
-			if (size == -1) // retry
+		while (true) {
+			res = syscall3(SYS_IPC_GET_RETURN, to_pid, (int32_t)ipc_id, (int32_t)opkg);
+			if(res == 0)
+				break;
+
+			if (res == -1) // retry
 				continue;
-			if (size < 0) // error!
+
+			if (res < 0) // error!
 				return -1;
 
-			if (size > 0)
-			{
-				void *data = malloc(size);
+			if (res > 0) {
+				void *data = malloc(res);
 				if (data == NULL) // error!
 					return -1;
-				PF->init_data(opkg, data, size);
+				PF->init_data(opkg, data, res);
 				opkg->pre_alloc = false;
 			}
 
-			int res = syscall3(SYS_IPC_GET_RETURN, to_pid, (int32_t)ipc_id, (int32_t)opkg);
-			if (res != -1) // not retry
-				return res;
+			res = syscall3(SYS_IPC_GET_RETURN, to_pid, (int32_t)ipc_id, (int32_t)opkg);
+			break;
 		}
-		return 0;
+		return res;
 	}
 
 	inline int ipc_call_wait(int to_pid, int call_id, const proto_t *ipkg)
@@ -237,9 +213,7 @@ extern "C"
 		proto_t in;
 		PF->init(&in);
 
-		int32_t shm_id = ipc_get_info(ipc_id, &pid, &cmd, &in);
-		if (shm_id < 0)
-		{
+		if(ipc_get_info(ipc_id, &pid, &cmd, &in) != 0) {
 			ipc_end();
 			return;
 		}
@@ -248,12 +222,7 @@ extern "C"
 		PF->init(&out);
 		_ipc_serv_handle(pid, (cmd & IPC_NON_RETURN_MASK), &in, &out, p);
 
-		if (shm_id > 0 && in.data != NULL)
-		{
-			uint8_t *shm = (uint8_t *)(in.data) - 4;
-			if (shm != NULL)
-				shmdt(shm);
-		}
+		PF->clear(&in);
 
 		if ((cmd & IPC_NON_RETURN) == 0)
 		{ // need return
