@@ -27,6 +27,22 @@ inline static proto_factor_t* proto_init_data(proto_t* proto, void* data, uint32
 	return &_proto_factor;
 }
 
+inline static proto_factor_t* proto_reserve(proto_t* proto, uint32_t size) {
+	if(size <= PROTO_BUFFER) {
+		proto->data = proto->buffer;
+		proto->total_size = PROTO_BUFFER;
+	}
+	else {
+		proto->data = malloc(size);
+		proto->total_size = size;
+	}
+
+	proto->size = 0;
+	proto->offset = 0;
+	proto->pre_alloc = 0;
+	return &_proto_factor;
+}
+
 inline static proto_factor_t* proto_init(proto_t* proto) {
 	return proto_init_data(proto, NULL, 0);
 }
@@ -133,6 +149,7 @@ inline static proto_factor_t* proto_format(proto_t* proto, const char* fmt, ... 
 inline proto_factor_t* get_proto_factor() {
 	_proto_factor.init_data = proto_init_data;
 	_proto_factor.init = proto_init;
+	_proto_factor.reserve = proto_reserve;
 	_proto_factor.copy = proto_copy;
 	_proto_factor.clear = proto_clear;
 	_proto_factor.add = proto_add;

@@ -110,13 +110,8 @@ extern "C"
 			if (res < 0) // error!
 				return -1;
 
-			if (res > 0) { //opkg not big enough, must resize it.
-				void *data = malloc(res);
-				if (data == NULL) // error!
-					return -1;
-				PF->init_data(opkg, data, res);
-				opkg->pre_alloc = false;
-			}
+			if (res > 0) //opkg not big enough, must resize it.
+				PF->reserve(opkg, res);
 
 			res = syscall3(SYS_IPC_GET_RETURN, to_pid, (int32_t)ipc_id, (int32_t)opkg);
 			break;
@@ -214,14 +209,7 @@ extern "C"
 		}
 
 		if(res > 0) { //in not big enough, have to resize it
-			void *data = malloc(res);
-			if (data == NULL) {// error!
-				ipc_end();
-				return -1;
-			}
-			PF->init_data(&in, data, res);
-			in.pre_alloc = false;
-		
+			PF->reserve(&in, res);
 			if(ipc_get_info(ipc_id, &pid, &cmd, &in) != 0) {
 				ipc_end();
 				return -1;
