@@ -8,6 +8,8 @@
 extern "C" { 
 #endif
 
+#define BSP_SIZE 256
+
 int32_t grect_insect(const grect_t* src, grect_t* dst) {
 	//insect src;
 	if(dst->x >= (int32_t)(src->x+src->w))
@@ -147,7 +149,10 @@ void graph_set(graph_t* g, int32_t x, int32_t y, int32_t w, int32_t h, uint32_t 
 }
 
 inline void graph_fill(graph_t* g, int32_t x, int32_t y, int32_t w, int32_t h, uint32_t color) {
-	graph_fill_bsp(g, x, y, w, h, color);
+	if(w < BSP_SIZE || h < BSP_SIZE)
+		graph_fill_cpu(g, x, y, w, h, color);
+	else
+		graph_fill_bsp(g, x, y, w, h, color);
 }
 
 void graph_blt_cpu(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_t sh,
@@ -194,7 +199,10 @@ void graph_blt_cpu(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_t sh,
 
 inline void graph_blt(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_t sh,
 		graph_t* dst, int32_t dx, int32_t dy, int32_t dw, int32_t dh) {
-	graph_blt_bsp(src, sx, sy, sw, sh, dst, dx, dy, dw, dh);
+	if(dw < BSP_SIZE || dh < BSP_SIZE)
+		graph_blt_cpu(src, sx, sy, sw, sh, dst, dx, dy, dw, dh);
+	else
+		graph_blt_bsp(src, sx, sy, sw, sh, dst, dx, dy, dw, dh);
 }
 
 void graph_blt_alpha_cpu(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_t sh,
