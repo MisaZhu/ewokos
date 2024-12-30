@@ -77,7 +77,6 @@ static void update_timer_intr(void) {
 
 	if(min_usec != _min_timer_usec) {
 		_min_timer_usec = min_usec;
-		syscall1(SYS_SET_TIMER_INTR_USEC, min_usec);
 	}
 }
 
@@ -115,8 +114,8 @@ static void interrupt_handle(uint32_t interrupt, uint32_t data) {
 		intr = next;
 	}
 
-	if(_intr_list == NULL)
-		sys_interrupt_setup(IRQ_TIMER0, NULL);
+	//if(_intr_list == NULL)
+		//sys_interrupt_setup(IRQ_TIMER0, NULL);
 
 	//ipc_enable();
 }
@@ -171,6 +170,16 @@ static char* timer_cmd(int from_pid, int argc, char** argv, void* p) {
 	return NULL;
 }
 
+static int timer_loop(void* p) {
+	interrupt_handle(0, 0);
+
+	if(_min_timer_usec == 0)
+		sleep(1);
+	else {
+		usleep(_min_timer_usec);
+	}
+}
+
 int main(int argc, char** argv) {
 	const char* mnt_point = argc > 1 ? argv[1]: "/dev/timer";
 	_intr_list = NULL;
@@ -182,6 +191,7 @@ int main(int argc, char** argv) {
 	strcpy(dev.name, "timer");
 	dev.dev_cntl = timer_dcntl;
 	dev.cmd = timer_cmd;
+	dev.loop_step = timer_loop;
 
 	device_run(&dev, mnt_point, FS_TYPE_CHAR, 0666);
 	return 0;

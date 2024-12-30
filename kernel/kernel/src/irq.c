@@ -25,7 +25,6 @@ static uint64_t _last_usec = 0;
 static uint32_t _schedule = 0;
 static uint32_t _schedule_usec = 0;
 static uint32_t _schedule_tic = 0;
-static uint32_t _timer_tic = 0;
 static uint32_t _sec_tic = 0;
 
 #ifdef KERNEL_SMP
@@ -53,17 +52,11 @@ static inline void irq_do_raw(context_t* ctx, uint32_t irq) {
 	interrupt_send(ctx, irq);
 }
 
-static inline int32_t irq_do_timer0_interrupt(context_t* ctx) {
-	return interrupt_send(ctx, IRQ_TIMER0);
-}
-
 void renew_vsyscall_info(void);
 
 static inline void irq_do_timer0(context_t* ctx) {
 	(void)ctx;
 	uint64_t usec = timer_read_sys_usec();
-	int32_t do_schedule = 0;
-
 	uint32_t usec_gap = usec - _last_usec;
 
 #ifdef SCHD_TRACE
@@ -74,39 +67,23 @@ static inline void irq_do_timer0(context_t* ctx) {
 	_kernel_usec += usec_gap;
 	_sec_tic += usec_gap;
 	_schedule_tic += usec_gap;
-	_timer_tic += usec_gap;
 
 	if(_sec_tic >= 1000000) { //SEC_TIC sec
 		_kernel_sec++;
 		_sec_tic = 0;
 		renew_kernel_sec();
 	}
-	if(renew_kernel_tic(usec_gap) == 0)
+	/*if(renew_kernel_tic(usec_gap) == 0)
 		do_schedule = 1;
+	*/
+	renew_kernel_tic(usec_gap);
 	
 	renew_vsyscall_info();
 	
 	timer_clear_interrupt(0);
 
-	if(_schedule == 0) { //this tic not for schedule, do timer interrupt.
-			_schedule = 1; //next tic for schedule
-			uint32_t intr_usec = _kernel_config.timer_intr_usec/2;
-			if(intr_usec > 0 && _timer_tic >= intr_usec) {
-				_timer_tic = 0;
-				if(irq_do_timer0_interrupt(ctx) == 0) //if timer set, don't do schedule
-					return;
-			}
-	}
-	else {
-		_schedule = 0;
-		if(_schedule_tic >= _schedule_usec) {
-			_schedule_tic = 0;
-			do_schedule = 1;
-		}
-	}
-	
-	if(do_schedule) {
-		_schedule = 0;
+	if(_schedule_tic >= _schedule_usec) {
+		_schedule_tic = 0;
 #ifdef KERNEL_SMP
 		ipi_send_all();
 #else
@@ -283,7 +260,6 @@ void irq_init(void) {
 	_sec_tic = 0;
 	_schedule = 0;
 	_schedule_tic = 0;
-	_timer_tic = 0;
 	_last_usec = timer_read_sys_usec();
 	_schedule_usec = (1000000 / _kernel_config.schedule_freq) / 2;
 	irq_enable(IRQ_TIMER0);
