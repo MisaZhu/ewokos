@@ -14,9 +14,32 @@
 extern "C" {
 #endif
 
+typedef struct {
+	int shm_id;
+	int w;
+	int h;
+	uint8_t* g;
+} xwm_graph_t;
+
+static xwm_graph_t _xwm_graph;
+
 static int fetch_graph(xwm_t* xwm, int32_t shm_id, int w, int h, graph_t* g) {
 	(void)xwm;
-	uint8_t* g_buf = shmat(shm_id, 0, 0);
+	uint8_t* g_buf = NULL;
+	if(w == _xwm_graph.w && h == _xwm_graph.h && shm_id == _xwm_graph.shm_id)
+		g_buf = _xwm_graph.g;
+	else {
+		if(_xwm_graph.g != NULL) {
+			shmdt(_xwm_graph.g);
+			_xwm_graph.g = NULL;
+		}
+		g_buf = shmat(shm_id, 0, 0);
+		_xwm_graph.g = g_buf;
+		_xwm_graph.w = w;
+		_xwm_graph.h = h;
+		_xwm_graph.shm_id = shm_id;
+	}
+
 	if(g_buf == NULL)
 		return -1;
 	graph_init(g, g_buf, w, h);
@@ -39,7 +62,6 @@ static void draw_drag_frame(xwm_t* xwm, proto_t* in) {
 			xwm->draw_drag_frame(&g, &r, xwm->data);
 		else
 			graph_box(&g, r.x, r.y, r.w, r.h, 0xffffffff);
-		shmdt(g.buffer);
 	}
 }
 
@@ -103,7 +125,6 @@ static void draw_frame(xwm_t* xwm, proto_t* in) {
 				}
 			}
 		}
-		shmdt(g.buffer);
 	}
 }
 
@@ -154,7 +175,6 @@ static void draw_desktop(xwm_t* xwm, proto_t* in) {
 	if(fetch_graph(xwm, shm_id, xw, xh, &g) == 0) {
 		if(xwm->draw_desktop != NULL)
 			xwm->draw_desktop(&g, xwm->data);
-		shmdt(g.buffer);
 	}
 }
 
@@ -209,9 +229,15 @@ static void handle(int from_pid, int cmd, proto_t* in, proto_t* out, void* p) {
 void xwm_run(xwm_t* xwm) {
 	setenv("XWM", "true");
 	dev_cntl("/dev/x", X_DCNTL_SET_XWM, NULL, NULL);
+
+	memset(&_xwm_graph, 0, sizeof(xwm_graph_t));
 	ipc_serv_run(handle, NULL, xwm, 0);
 	while(true) {
 		proc_block_by(getpid(), (uint32_t)xwm_run);
+	}
+	
+	if(_xwm_graph.g != NULL) {
+		shmdt(_xwm_graph.g);
 	}
 }
 
