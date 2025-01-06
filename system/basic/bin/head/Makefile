@@ -7,14 +7,14 @@ LDFLAGS = -L$(BUILD_DIR)/lib
 
 CFLAGS += -I $(BUILD_DIR)/include
 
-line_OBJS = line.o
+head_OBJS = head.o
 
-line = $(TARGET_DIR)/bin/line
+head = $(TARGET_DIR)/bin/head
 
-$(line): $(line_OBJS) \
+$(head): $(head_OBJS) \
 		$(EWOK_LIBC_A) 
-	$(LD) -Ttext=100 $(line_OBJS) -o $(line) $(LDFLAGS) $(EWOK_LIBC)
+	$(LD) -Ttext=100 $(head_OBJS) -o $(head) $(LDFLAGS) $(EWOK_LIBC)
 
 clean:
-	rm -f $(line_OBJS)
+	rm -f $(head_OBJS)
 

@@ -35,10 +35,12 @@ static char* get_line(char* ln, int32_t* sz, char c) {
 	return ret;
 }
 
-static char* _line = NULL;
-static int32_t _line_buf_size = 0;
-static int _lines_rd  = 1;
-static int _line_no  = 0;
+static char*   _line = NULL;
+static uint32_t _line_buf_size = 0;
+static uint32_t  _lines_rd  = 8;
+static uint32_t  _line_count  = 0;
+static uint32_t  _line_index  = 0;
+static bool _line_no  = false;
 	
 static void line(char* str, int32_t sz, const char* key) {
 	int32_t i = 0;
@@ -46,16 +48,21 @@ static void line(char* str, int32_t sz, const char* key) {
 		char c = str[i++];
 		if(c == 0 || c == '\r' || c == '\n') {
 			if(_line != NULL) {
-				printf("%s\n", _line);
-				_line[0] = 0;
-				_line_no++;
+				if(_line_no)
+					printf("%06d: %s\n", _line_index, _line);
+				else
+					printf("%s\n", _line);
 
-				if(_line_no >= _lines_rd) {
+				_line[0] = 0;
+				_line_count++;
+				_line_index++;
+
+				if(_line_count >= _lines_rd) {
 					while(read(VFS_BACKUP_FD0, &c, 1) == 1) {
 						if(c == '\n' || c == '\r' || c == ' ')
 							break;
 					}
-					_line_no = 0;
+					_line_count = 0;
 				}
 			}
 		}
@@ -64,15 +71,41 @@ static void line(char* str, int32_t sz, const char* key) {
 	}
 }
 
+
+static int doargs(int argc, char* argv[]) {
+	int c = 0;
+	while (c != -1) {
+		c = getopt (argc, argv, "ln:");
+		if(c == -1)
+			break;
+
+		switch (c) {
+		case 'l':
+			_line_no = true;
+			break;
+		case 'n':
+			_lines_rd = atoi(optarg);
+			break;
+		case '?':
+			return -1;
+		default:
+			c = -1;
+			break;
+		}
+	}
+	return 0;
+}
+
 int main(int argc, char* argv[]) {
 	_line = NULL;
 	_line_buf_size = 0;
-	_lines_rd  = 1;
-	_line_no  = 0;
+	_lines_rd  = 8;
+	_line_count  = 0;
+	_line_index  = 0;
+	_line_no  = false;
 
-	if(argc > 1) {
-		_lines_rd = atoi(argv[1]);
-	}
+	if(doargs(argc, argv) != 0)
+		return -1;
 
 	while(1) {
 		char buf[128];

@@ -30,7 +30,7 @@ builtin_apps:
 	cd mkdir;make
 	cd mkfifo;make
 	cd grep;make
-	cd line;make
+	cd head;make
 	cd rx;make
 	cd elfinfo;make
 	cd setux;make 
@@ -65,7 +65,7 @@ clean:
 	cd mkdir;make clean
 	cd mkfifo;make clean
 	cd grep;make clean
-	cd line;make clean
+	cd head;make clean
 	cd rx;make clean
 	cd elfinfo;make clean
 	cd whoami;make clean
