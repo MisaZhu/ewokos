@@ -171,6 +171,7 @@ static int run_cmd(char* cmd) {
 		}
 		else if(c == '<') { //redirection
 			*(cmd-1) = 0;	
+			dup2(0, VFS_BACKUP_FD0);
 			redir(cmd, 1); //redir in.
 			return do_cmd(proc);
 		}
