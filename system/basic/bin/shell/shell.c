@@ -143,6 +143,7 @@ static int do_pipe_cmd(char* p1, char* p2) {
 
 	int pid = syscall0(SYS_FORK);
 	if(pid != 0) { //father proc for p2 reader.
+		dup2(0, VFS_BACKUP_FD0);
 		close(fds[1]);
 		dup2(fds[0], 0);
 		close(fds[0]);
