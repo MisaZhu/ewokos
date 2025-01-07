@@ -38,13 +38,17 @@ static char* get_line(char* ln, int32_t* sz, char c) {
 
 static char*   _line = NULL;
 static uint32_t _line_buf_size = 0;
-static uint32_t  _lines_rd  = 8;
+static uint32_t  _lines_rd  = 16;
 static uint32_t  _line_count  = 0;
 static uint32_t  _line_index  = 0;
 static bool _line_no  = false;
+static bool _pause  = true;
 	
 static void line(char* str, int32_t sz, const char* key) {
 	int32_t i = 0;
+	static int32_t lines_rd = 0;
+	if(lines_rd == 0)
+		lines_rd = _lines_rd;
 	while(i < sz) {
 		char c = str[i++];
 		if(c == 0 || c == '\r' || c == '\n') {
@@ -58,12 +62,21 @@ static void line(char* str, int32_t sz, const char* key) {
 				_line_count++;
 				_line_index++;
 
-				if(_line_count >= _lines_rd) {
-					while(read(VFS_BACKUP_FD0, &c, 1) == 1) {
-						if(c == '\n' || c == '\r' || c == ' ')
+				if(_line_count >= lines_rd) {
+					if(_pause) {
+						while(read(VFS_BACKUP_FD0, &c, 1) == 1) {
+							if(c == '\n' || c == '\r') {
+								lines_rd = 1;
+							}
+							else if(c == ' ')  {
+								lines_rd = _lines_rd;
+							}
+							else
+								_pause = false;
 							break;
+						}
+						_line_count = 0;
 					}
-					_line_count = 0;
 				}
 			}
 		}
@@ -100,10 +113,11 @@ static int doargs(int argc, char* argv[]) {
 int main(int argc, char* argv[]) {
 	_line = NULL;
 	_line_buf_size = 0;
-	_lines_rd  = 8;
+	_lines_rd  = 16;
 	_line_count  = 0;
 	_line_index  = 0;
 	_line_no  = false;
+	_pause  = true;
 
 	if(doargs(argc, argv) != 0)
 		return -1;
