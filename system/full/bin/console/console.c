@@ -5,6 +5,7 @@
 #include <fcntl.h>
 #include <sys/errno.h>
 #include <ewoksys/proc.h>
+#include <ewoksys/vfs.h>
 
 int main(int argc, char** argv) {
 	const char* dev = "/dev/console0";
@@ -21,6 +22,8 @@ int main(int argc, char** argv) {
 	dup2(fd, 0);
 	dup2(fd, 1);
 	dup2(fd, 2);
+	dup2(fd, VFS_BACKUP_FD0);
+	dup2(fd, VFS_BACKUP_FD1);
 	close(fd);
 
 	setenv("CONSOLE_ID", dev);

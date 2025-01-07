@@ -4,6 +4,7 @@
 #include <string.h>
 #include <fcntl.h>
 #include <ewoksys/wait.h>
+#include <ewoksys/vfs.h>
 
 static void welcome(void) {
 	const char* s = "\033[2J\033[0;0H" //clear screen and move to 0,0
@@ -57,6 +58,8 @@ int main(int argc, char* argv[]) {
 		dup2(fd, 0);
 		dup2(fd, 1);
 		dup2(fd, 2);
+		dup2(fd, VFS_BACKUP_FD0);
+		dup2(fd, VFS_BACKUP_FD1);
 		close(fd);
 	}
 

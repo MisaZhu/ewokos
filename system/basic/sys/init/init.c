@@ -87,6 +87,8 @@ static int init_stdio(void) {
 		dup2(fd, 0);
 		dup2(fd, 1);
 		dup2(fd, 2);
+		dup2(fd, VFS_BACKUP_FD0);
+		dup2(fd, VFS_BACKUP_FD1);
 		close(fd);
 		klog("[ok]\n");
 		setenv("CONSOLE_ID", tty_dev);

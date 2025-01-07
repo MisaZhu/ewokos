@@ -289,6 +289,8 @@ int main(int argc, char* argv[]) {
 		dup2(fd, 0);
 		dup2(fd, 1);
 		dup2(fd, 2);
+		dup2(fd, VFS_BACKUP_FD0);
+		dup2(fd, VFS_BACKUP_FD1);
 		close(fd);
 		setenv("CONSOLE_ID", dev);
 		proc_exec("/bin/shell");
