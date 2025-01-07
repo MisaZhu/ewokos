@@ -66,13 +66,10 @@ extern "C"
 	static int32_t ipc_get_info(uint32_t ipc_id, int32_t *pid, int32_t *call_id, proto_t *arg)
 	{
 		int32_t ipc_info[2];
-		if (syscall3(SYS_IPC_GET_ARG, ipc_id, (int32_t)ipc_info, (int32_t)arg) != 0) {
-			return -1;
-		}
-
+		int32_t res = syscall3(SYS_IPC_GET_ARG, ipc_id, (int32_t)ipc_info, (int32_t)arg);
 		*pid = ipc_info[0];
 		*call_id = ipc_info[1];
-		return 0;
+		return res;
 	}
 
 	inline int ipc_call(int to_pid, int call_id, const proto_t *ipkg, proto_t *opkg)
