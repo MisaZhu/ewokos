@@ -174,7 +174,7 @@ static int timer_loop(void* p) {
 	interrupt_handle(0, 0);
 
 	if(_min_timer_usec == 0)
-		sleep(1);
+		usleep(5000);
 	else {
 		usleep(_min_timer_usec);
 	}
