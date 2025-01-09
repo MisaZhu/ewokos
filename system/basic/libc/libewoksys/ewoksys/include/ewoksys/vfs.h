@@ -20,7 +20,7 @@ typedef struct {
 
 #define RW_BLOCK_EVT	1
 
-#define VFS_BUF_SIZE (1024*8)
+#define VFS_BUF_SIZE (1024)
 
 #define VFS_BACKUP_FD0 (MAX_OPEN_FILE_PER_PROC-3)
 #define VFS_BACKUP_FD1 (MAX_OPEN_FILE_PER_PROC-2)

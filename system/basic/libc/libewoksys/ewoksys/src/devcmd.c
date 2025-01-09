@@ -70,12 +70,12 @@ int dev_open(int dev_pid, int fd, fsinfo_t* info, int oflag) {
 	return res;
 }
 
-#define SHM_ON 128
+#define SHM_ON VFS_BUF_SIZE
 #define SHM_MAX 4096
 int dev_read(int dev_pid, int fd, fsinfo_t* info, int32_t offset, void* buf, uint32_t size) {
 	int32_t shm_id = -1;
 	void* shm = NULL;
-	if(size >= SHM_ON) {
+	if(size > SHM_ON) {
 		if(size > SHM_MAX)
 			size = SHM_MAX;
 		key_t key = (info->node << 16) | getpid(); 

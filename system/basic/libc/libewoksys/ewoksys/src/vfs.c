@@ -678,7 +678,6 @@ int vfs_read_pipe(int fd, uint32_t node, void* buf, uint32_t size, bool block) {
 	return 0; //res < 0 , pipe closed, return 0.
 }
 
-#define SHM_ON 128
 int vfs_read(int fd, fsinfo_t *info, void* buf, uint32_t size) {
 	errno = 0;
 	int offset = 0;
