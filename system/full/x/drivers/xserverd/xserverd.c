@@ -1405,23 +1405,36 @@ static int xserver_win_close(int fd, int from_pid, uint32_t node, bool last_ref,
 	return 0;
 }
 
+static bool do_step(x_t* x) {
+	for(uint32_t i=0; i<x->display_num; i++) {
+		x_display_t* display = &x->displays[i];
+		if(display->g != NULL &&
+				display->need_repaint &&
+				!fb_busy(&display->fb))
+			return true;
+	}
+	return false;
+}
+
 static int _last_ux = 0;
 int xserver_step(void* p) {
 	x_t* x = (x_t*)p;
-	ipc_disable();
-	check_wins(x);
+	if(do_step(x)) {
+		ipc_disable();
+		check_wins(x);
 
-	if(core_get_ux() == 8) {
-		for(uint32_t i=0; i<x->display_num; i++) {
-			if(_last_ux == 0)
-				x_dirty(x, i);
-			x_repaint(x, i);
+		if(core_get_ux() == 8) {
+			for(uint32_t i=0; i<x->display_num; i++) {
+				if(_last_ux == 0)
+					x_dirty(x, i);
+				x_repaint(x, i);
+			}
+			_last_ux = 8;
 		}
-		_last_ux = 8;
+		else 
+			_last_ux = 0;
+		ipc_enable();
 	}
-	else 
-		_last_ux = 0;
-	ipc_enable();
 	proc_usleep(1000000/x->config.fps);
 	return 0;
 }

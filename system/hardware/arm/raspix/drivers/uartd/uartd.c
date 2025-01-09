@@ -67,12 +67,13 @@ static int uart_write(int fd, int from_pid, fsinfo_t* node,
 static int loop(void* p) {
 	(void)p;
 	char c;
-	ipc_disable();
 	if(_mini_uart) {
 		while(bcm283x_mini_uart_ready_to_recv() == 0){
 			c = bcm283x_mini_uart_recv();
 			if(c != '\r' || !_no_return) {
+				ipc_disable();
 				charbuf_push(_RxBuf, c, true);
+				ipc_enable();
 				proc_wakeup(RW_BLOCK_EVT);
 			}
 		}
@@ -81,12 +82,13 @@ static int loop(void* p) {
 		while(bcm283x_pl011_uart_ready_to_recv() == 0){
 			c = bcm283x_pl011_uart_recv();
 			if(c != '\r' || !_no_return) {
+				ipc_disable();
 				charbuf_push(_RxBuf, c, true);
+				ipc_enable();
 				proc_wakeup(RW_BLOCK_EVT);
 			}
 		}
 	}
-	ipc_enable();
 	proc_usleep(10000);
 	return 0;
 }
