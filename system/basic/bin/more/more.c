@@ -67,13 +67,16 @@ static void line(char* str, int32_t sz, const char* key) {
 						while(read(VFS_BACKUP_FD0, &c, 1) == 1) {
 							if(c == '\n' || c == '\r') {
 								lines_rd = 1;
+								break;
 							}
 							else if(c == ' ')  {
 								lines_rd = _lines_rd;
+								break;
 							}
-							else
+							else if(c == 'q') {
 								_pause = false;
-							break;
+								break;
+							}
 						}
 						_line_count = 0;
 					}
