@@ -448,13 +448,14 @@ static void push_close_event(close_event_t* ev) {
 }
 
 static int get_close_event(close_event_t *ev) {
+	ipc_disable();
 	close_event_t *e = _event_head;
 	if (e == NULL) {
+		ipc_enable();
 		proc_block_by(getpid(), (uint32_t)_nodes_hash);
 		return -1;
 	}
 
-	ipc_disable();
 	_event_head = _event_head->next;
 	if (_event_head == NULL)
 		_event_tail = NULL;

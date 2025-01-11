@@ -1,5 +1,5 @@
 /bin/ipcserv /drivers/raspix/lcdhatd        /dev/fb0 
-/bin/ipcserv /drivers/raspix/hat13_joykeybd /dev/keyb0
+#/bin/ipcserv /drivers/raspix/hat13_joykeybd /dev/keyb0
 #/bin/ipcserv /drivers/raspix/hat13_joystickd /dev/joystick
 
 /bin/ipcserv /drivers/fontd                 /dev/font
@@ -13,16 +13,11 @@
 
 /bin/ipcserv /drivers/displayd              /dev/display /dev/fb0
 /bin/ipcserv /drivers/xserverd              /dev/x
-/bin/ipcserv /sbin/x/xwm_opencde
 
-#/bin/ipcserv /drivers/xconsoled             /dev/console0
+@/bin/ipcserv /sbin/sessiond
 
 @/sbin/x/xim_none /dev/keyb0 esc_home&
 #@/sbin/x/xjoystickd /dev/joystick&
 @/sbin/x/xim_vkey &
 
-@/sbin/sessiond &
-
-@/bin/x/menubar &
-@/bin/x/launcher &
-@/bin/session -r &
+@/bin/x/xsession misa &

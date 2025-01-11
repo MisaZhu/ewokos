@@ -29,6 +29,7 @@ class AppList: public List {
 	item_t items[ITEM_MAX];	
 	uint32_t iconSize;
 	static const uint32_t titleMargin = 4;
+	uint32_t dockItemNum;
 
 	string getIconFname(const char* appName) {
 		//try theme icon first
@@ -112,7 +113,11 @@ class AppList: public List {
 			items[i].icon = getIconFname(name);
 		}
 		setItemNum(sz);
-		setItemNumInView(sz);
+		
+		if(dockItemNum == 0)
+			setItemNumInView(sz);
+		else
+			setItemNumInView(dockItemNum);
 		return true;
 	}
 
@@ -140,6 +145,7 @@ protected:
 
 public:
 	AppList() {
+		dockItemNum = 0;
 		iconSize = 32;
 		for(int i=0; i<ITEM_MAX; i++)
 			memset(&items[i], 0, sizeof(item_t));
@@ -162,6 +168,8 @@ public:
 		if(var == NULL)
 			return false;
 
+		dockItemNum = get_int(var, "item_num");
+
 		loadApps(var);
 
 		itemSize = get_int(var, "item_size");
@@ -171,7 +179,7 @@ public:
 		iconSize = get_int(var, "icon_size");
 		if(iconSize == 0)
 			iconSize = 32;
-		
+
 		var_unref(var);
 		return true;
 	}
@@ -199,23 +207,23 @@ int main(int argc, char** argv) {
 	x.getDesktopSpace(desk, 0);
 
 	uint32_t itemSize = apps->getItemSize();
-	uint32_t itemNum = apps->getItemNum();
+	uint32_t itemNum = apps->getItemNumInView();
 
 	grect_t wr;
 	if(argc >=2 && strcmp(argv[1], "left") == 0) {
 		wr.x = 0;
-		wr.y = (desk.h-itemSize*itemNum)/2,
+		wr.y = (int32_t)(desk.h-itemSize*itemNum)/2,
 		wr.w = itemSize;
 		wr.h = itemSize*itemNum;
 	}
 	else if(argc >=2 && strcmp(argv[1], "right") == 0) {
 		wr.x = desk.w - itemSize;
-		wr.y = (desk.h-itemSize*itemNum)/2,
+		wr.y = (int32_t)(desk.h-itemSize*itemNum)/2,
 		wr.w = itemSize;
 		wr.h = itemSize*itemNum;
 	}
 	else {
-		wr.x = (desk.w-itemSize*itemNum)/2;
+		wr.x = (int32_t)(desk.w-itemSize*itemNum)/2;
 		wr.y = desk.h-itemSize;
 		wr.w = itemSize*itemNum;
 		wr.h = itemSize;
