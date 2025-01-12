@@ -70,7 +70,7 @@ int dev_open(int dev_pid, int fd, fsinfo_t* info, int oflag) {
 	return res;
 }
 
-#define SHM_ON VFS_BUF_SIZE
+#define SHM_ON  256
 #define SHM_MAX 4096
 int dev_read(int dev_pid, int fd, fsinfo_t* info, int32_t offset, void* buf, uint32_t size) {
 	int32_t shm_id = -1;
