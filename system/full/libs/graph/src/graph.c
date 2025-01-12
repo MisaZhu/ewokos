@@ -120,10 +120,11 @@ void graph_rotate_to(graph_t* g, graph_t* ret, int rot) {
 			}
 		}
 		*/
+		
 		int w0 = (ret->h+1) * ret->w - 1;
 		for(int i=0; i<g->w; ++i) {
 			w0 -= ret->w;
-			int w1 = g->w - i - 2;
+			int w1 = -i - 1;
 			for(int j=0; j<g->h; ++j) {
 				w1 += g->w;
 				ret->buffer[w0 - j] = g->buffer[w1];
@@ -131,10 +132,10 @@ void graph_rotate_to(graph_t* g, graph_t* ret, int rot) {
 		}
 	}
 	else if(rot == G_ROTATE_N90) {
-		int w0 = -ret->w;
+		int w0 = -(ret->w);
 		for(int i=0; i<g->w; ++i) {
 			w0 += ret->w;
-			int w1 = g->w - i - 1;
+			int w1 = -i - 1;
 			for(int j=0; j<g->h; ++j) {
 				w1 += g->w;
 				ret->buffer[w0 + j] = g->buffer[w1];
