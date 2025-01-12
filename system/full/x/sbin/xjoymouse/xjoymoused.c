@@ -43,6 +43,7 @@ static void joy_2_mouse(int key, int8_t* mv) {
 		mv[1] += (_j_x_rev ? -JOY_STEP:JOY_STEP) * j_times;
 		return;
 	case KEY_BUTTON_A:
+	case KEY_BUTTON_START:
 		//if(!_prs_down) {
 			mv[0] = 2;
 			_prs_down = true;
