@@ -245,7 +245,7 @@ int run(const char* mnt_point) {
 	_buffer = charbuf_new(0);
 
 	XConsole xwin;
-	xwin.readConfig(x_get_theme_fname(X_THEME_ROOT, "xterm", "theme.conf"));
+	xwin.readConfig(x_get_theme_fname(X_THEME_ROOT, "xterm", "theme.json"));
 	_xwin = &xwin;
 
 	vdevice_t dev;

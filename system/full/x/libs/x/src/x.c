@@ -90,7 +90,7 @@ static int32_t x_read_theme_config(const char* theme_name) {
 	strncpy(_x_theme.name, theme_name, THEME_NAME_MAX-1);
 
 	char fname[FS_FULL_NAME_MAX];
-	snprintf(fname, FS_FULL_NAME_MAX-1, "%s/%s/x/theme.conf", X_THEME_ROOT, theme_name);
+	snprintf(fname, FS_FULL_NAME_MAX-1, "%s/%s/x/theme.json", X_THEME_ROOT, theme_name);
 	var_t *conf_var = json_parse_file(fname);	
 
 	_x_theme.fontSize = _x_theme.fontFixedSize = get_int_def(conf_var, "font_size", DEFAULT_SYSTEM_FONT_SIZE);
