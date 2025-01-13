@@ -52,6 +52,7 @@ typedef struct {
 	uint32_t fps;
 	bool bg_run;
 	bool force_fullscreen;
+	bool gray_mode;
 } x_conf_t;
 
 typedef struct {

@@ -107,6 +107,22 @@ void graph_reverse(graph_t* g) {
 	}
 }
 
+void graph_gray(graph_t* g) {
+	if(g == NULL)
+		return;
+	int32_t i = 0;
+	while(i < g->w*g->h) {
+		uint32_t oc = g->buffer[i];
+		uint8_t oa = (oc >> 24) & 0xff;
+		uint8_t or = (oc >> 16) & 0xff;
+		uint8_t og = (oc >> 8)  & 0xff;
+		uint8_t ob = oc & 0xff;
+		or = (or + og + ob) / 3;
+		g->buffer[i] = argb(oa, or, or, or);
+		i++;
+	}
+}
+
 void graph_rotate_to(graph_t* g, graph_t* ret, int rot) {
 	if(g == NULL || ret == NULL)
 		return;

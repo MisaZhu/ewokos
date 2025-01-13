@@ -40,6 +40,10 @@ static int32_t read_config(x_t* x, const char* fname) {
 	if(v[0] != 0) 
 		x->config.force_fullscreen = atoi(v);
 	
+	v = sconf_get(conf, "gray_mode");
+	if(v[0] != 0) 
+		x->config.gray_mode = atoi(v);
+	
 	v = sconf_get(conf, "cursor");
 	if(strcmp(v, "touch") == 0)
 		x->cursor.type = CURSOR_TOUCH;
@@ -590,6 +594,8 @@ static void x_repaint(x_t* x, uint32_t display_index) {
 		memcpy(display->g_fb->buffer,
 				display->g->buffer,
 				display->g->w * display->g->h * 4);
+		if(x->config.gray_mode)
+			graph_gray(display->g_fb);
 		fb_flush(&display->fb, false);
 	}
 }
