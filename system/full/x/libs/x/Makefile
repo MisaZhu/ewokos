@@ -12,9 +12,10 @@ LIB_X_OBJS = src/x.o \
 	src/xwm.o
 
 X = $(TARGET_DIR)/lib/libx.a
+LIB_TINYJSON = $(TARGET_DIR)/lib/libtinyjson.a
 
 $(X): $(LIB_X_OBJS)
-	$(AR) rT $(X) $(LIB_X_OBJS)
+	$(AR) rT $(X) $(LIB_TINYJSON) $(LIB_X_OBJS)
 	cp -r include/* $(TARGET_DIR)/include
 
 clean:

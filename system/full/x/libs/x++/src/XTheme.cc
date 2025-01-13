@@ -17,46 +17,27 @@ void XTheme::setFont(const char* name, uint32_t size) {
 	}
 }
 
-void XTheme::loadConfig(sconf_t* sconf) {
-	if(sconf == NULL)
+void XTheme::loadConfig(var_t* conf_var) {
+	if(conf_var == NULL)
 		return;
 
-	int font_size = basic.fontSize;
-	const char* v = sconf_get(sconf, "font_size");
-	if(v[0] != 0) 
-		font_size = atoi(v);
+	int font_size = get_int(conf_var, "font_size");
+	if(font_size == 0) 
+		font_size = basic.fontSize;
 
-	v = sconf_get(sconf, "font");
+	const char* v = get_str(conf_var, "font");
 	if(v[0] != 0) 
 		setFont(v, font_size);
 
-	v = sconf_get(sconf, "fg_color");
-	if(v[0] != 0) 
-		basic.fgColor = strtoul(v, NULL, 16);
+	basic.fgColor = get_int(conf_var, "fg_color");
+	basic.bgColor = get_int(conf_var, "bg_color");
 
-	v = sconf_get(sconf, "bg_color");
-	if(v[0] != 0) 
-		basic.bgColor = strtoul(v, NULL, 16);
+	basic.fgUnfocusColor = get_int(conf_var, "fg_unfocus_color");
+	basic.bgUnfocusColor = get_int(conf_var, "bg_unfocus_color");
+	basic.fgDisableColor = get_int(conf_var, "fg_disable_color");
+	basic.bgDisableColor = get_int(conf_var, "bg_disable_color");
 
-	v = sconf_get(sconf, "fg_unfocus_color");
-	if(v[0] != 0) 
-		basic.fgUnfocusColor = strtoul(v, NULL, 16);
-
-	v = sconf_get(sconf, "bg_unfocus_color");
-	if(v[0] != 0) 
-		basic.bgUnfocusColor = strtoul(v, NULL, 16);
-
-	v = sconf_get(sconf, "fg_disable_color");
-	if(v[0] != 0) 
-		basic.fgDisableColor = strtoul(v, NULL, 16);
-
-	v = sconf_get(sconf, "bg_disable_color");
-	if(v[0] != 0) 
-		basic.bgDisableColor = strtoul(v, NULL, 16);
-
-	v = sconf_get(sconf, "font_fixed");
-	if(v[0] != 0) 
-		basic.fontFixedSize = atoi(v);
+	basic.fontFixedSize = get_int(conf_var, "font_fixed");
 	if(basic.fontFixedSize == 0)
 		basic.fontFixedSize = basic.fontSize;
 }

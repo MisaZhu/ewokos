@@ -1,4 +1,5 @@
 #include "tinyjson/tinyjson.h"
+#include "ewoksys/vfs.h"
 #include <stdlib.h>
 #include <stdio.h>
 
@@ -571,6 +572,17 @@ var_t* json_parse(const char* str) {
 
 	var_t* ret = json_parse_factor(&lex);
 	lex_release(&lex);
+	return ret;
+}
+
+var_t* json_parse_file(const char* fname) {
+	int sz = 0;
+	char* str = (char*)vfs_readfile(fname, &sz);
+	if(str == NULL)
+		return NULL;
+	str[sz] = 0;
+	var_t* ret = json_parse(str);
+	free(str);
 	return ret;
 }
 

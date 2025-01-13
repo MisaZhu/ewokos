@@ -2,7 +2,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <font/font.h>
-#include <sconf/sconf.h>
+#include <tinyjson/tinyjson.h>
 #include <upng/upng.h>
 #include <x/x.h>
 #include <stdlib.h>
@@ -243,61 +243,35 @@ void XWM::getColor(uint32_t *fg, uint32_t* bg, bool top) {
 	}
 }
 
-void XWM::loadConfig(sconf_t* sconf) {
-	const char* v = sconf_get(sconf, "fg_color");
-	if(v[0] != 0) 
-		fgColor = strtoul(v,NULL, 16);
+void XWM::readConfig(const char* fname) {
+	var_t* conf_var = json_parse_file(fname);
+	if(conf_var == NULL)
+		return;
 
-	v = sconf_get(sconf, "bg_color");
-	if(v[0] != 0) 
-		bgColor = strtoul(v,NULL, 16);
+	fgColor = get_int(conf_var, "fg_color");
+	bgColor = get_int(conf_var, "bg_color");
+	fgTopColor = get_int(conf_var, "fg_top_color");
+	bgTopColor = get_int(conf_var, "bg_top_color");
+	desktopFGColor = get_int(conf_var, "desktop_fg_color");
+	desktopBGColor = get_int(conf_var, "desktop_bg_color");
+	frameW = get_int(conf_var, "frame_width");
+	titleH = get_int(conf_var, "title_h");
 
-	v = sconf_get(sconf, "fg_top_color");
-	if(v[0] != 0) 
-		fgTopColor = strtoul(v, NULL, 16);
-
-	v = sconf_get(sconf, "bg_top_color");
-	if(v[0] != 0) 
-		bgTopColor = strtoul(v, NULL, 16);
-
-	v = sconf_get(sconf, "desktop_fg_color");
-	if(v[0] != 0) 
-		desktopFGColor = strtoul(v, NULL, 16);
-
-	v = sconf_get(sconf, "desktop_bg_color");
-	if(v[0] != 0) 
-		desktopBGColor = strtoul(v, NULL, 16);
-
-	v = sconf_get(sconf, "frame_width");
-	if(v[0] != 0) 
-		frameW = atoi(v);
-
-	v = sconf_get(sconf, "title_h");
-	if(v[0] != 0) 
-		titleH = atoi(v);
-
-	fontSize = 14;
-	v = sconf_get(sconf, "font_size");
-	if(v[0] != 0) 
-		fontSize = atoi(v);
+	fontSize = get_int(conf_var, "font_size");
+	if(fontSize == 0) 
+		fontSize = 14;
 
 	const char* name = DEFAULT_SYSTEM_FONT;
-	v = sconf_get(sconf, "font");
+	const char* v = get_str(conf_var, "font");
 	if(v[0] != 0) 
  		name = v;
  	font = font_new(name, true);
 
-	v = sconf_get(sconf, "pattern");
+	v = get_str(conf_var, "pattern");
 	if(v[0] != 0 && strcmp(v, "none") != 0)
 		desktopPattern = png_image_new_bg(x_get_theme_fname(X_THEME_ROOT, "xwm", v), desktopBGColor);
-}
 
-void XWM::readConfig(const char* fname) {
-	sconf_t *sconf = sconf_load(fname);	
-	if(sconf == NULL)
-		return;
-	loadConfig(sconf);
-	sconf_free(sconf);
+	var_unref(conf_var);
 }
 
 XWM::XWM(void) {

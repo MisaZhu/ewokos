@@ -6,7 +6,7 @@
 #include <ewoksys/thread.h>
 #include <ewoksys/proc.h>
 #include <ewoksys/vdevice.h>
-#include <sconf/sconf.h>
+#include <tinyjson/tinyjson.h>
 #include <ewoksys/cmain.h>
 #include <ewoksys/basic_math.h>
 #include <font/font.h>
@@ -103,81 +103,42 @@ static int32_t x_read_theme_config(const char* theme_name) {
 
 	char fname[FS_FULL_NAME_MAX];
 	snprintf(fname, FS_FULL_NAME_MAX-1, "%s/%s/x/theme.conf", X_THEME_ROOT, theme_name);
-	sconf_t *sconf = sconf_load(fname);	
-	if(sconf == NULL)
+	var_t *conf_var = json_parse_file(fname);	
+	if(conf_var == NULL)
 		return -1;
 
-	const char* v = sconf_get(sconf, "font_size");
-	if(v[0] != 0) 
-		_x_theme.fontSize = _x_theme.fontFixedSize = atoi(v);
+	int ft_size = get_int(conf_var, "font_size");
+	if(ft_size != 0) 
+		_x_theme.fontSize = _x_theme.fontFixedSize = ft_size;
 
-	v = sconf_get(sconf, "font");
+	const char* v = get_str(conf_var, "font");
 	if(v[0] != 0) {
 		memset(_x_theme.fontName, 0, FONT_NAME_MAX);
 		strncpy(_x_theme.fontName, v, FONT_NAME_MAX-1);
 	}
 
-	v = sconf_get(sconf, "fg_color");
-	if(v[0] != 0) 
-		_x_theme.fgColor = strtoul(v, NULL, 16);
+	_x_theme.fgColor = get_int(conf_var, "fg_color");
+	_x_theme.bgColor = get_int(conf_var, "bg_color");
+	_x_theme.docFGColor = get_int(conf_var, "doc_fg_color");
+	_x_theme.docBGColor = get_int(conf_var, "doc_bg_color");
 
-	v = sconf_get(sconf, "bg_color");
-	if(v[0] != 0) 
-		_x_theme.bgColor = strtoul(v, NULL, 16);
+	_x_theme.fgUnfocusColor = get_int(conf_var, "fg_unfocus_color");
+	_x_theme.bgUnfocusColor = get_int(conf_var, "bg_unfocus_color");
 
-	v = sconf_get(sconf, "doc_fg_color");
-	if(v[0] != 0) 
-		_x_theme.docFGColor = strtoul(v, NULL, 16);
+	_x_theme.fgDisableColor = get_int(conf_var, "fg_disable_color");
+	_x_theme.bgDisableColor = get_int(conf_var, "bg_disable_color");
 
-	v = sconf_get(sconf, "doc_bg_color");
-	if(v[0] != 0) 
-		_x_theme.docBGColor = strtoul(v, NULL, 16);
+	_x_theme.hideColor = get_int(conf_var, "hide_color");
+	_x_theme.selectColor = get_int(conf_var, "select_color");
+	_x_theme.selectBGColor = get_int(conf_var, "select_bg_color");
 
-	v = sconf_get(sconf, "fg_unfocus_color");
-	if(v[0] != 0) 
-		_x_theme.fgUnfocusColor = strtoul(v, NULL, 16);
+	_x_theme.titleColor = get_int(conf_var, "title_color");
+	_x_theme.titleBGColor = get_int(conf_var, "title_bg_color");
 
-	v = sconf_get(sconf, "bg_unfocus_color");
-	if(v[0] != 0) 
-		_x_theme.bgUnfocusColor = strtoul(v, NULL, 16);
+	_x_theme.widgetFGColor = get_int(conf_var, "widget_color");
+	_x_theme.widgetBGColor = get_int(conf_var, "widget_bg_color");
 
-	v = sconf_get(sconf, "fg_disable_color");
-	if(v[0] != 0) 
-		_x_theme.fgDisableColor = strtoul(v, NULL, 16);
-
-	v = sconf_get(sconf, "bg_disable_color");
-	if(v[0] != 0) 
-		_x_theme.bgDisableColor = strtoul(v, NULL, 16);
-
-	v = sconf_get(sconf, "hide_color");
-	if(v[0] != 0) 
-		_x_theme.hideColor = strtoul(v, NULL, 16);
-
-	v = sconf_get(sconf, "select_color");
-	if(v[0] != 0) 
-		_x_theme.selectColor = strtoul(v, NULL, 16);
-
-	v = sconf_get(sconf, "select_bg_color");
-	if(v[0] != 0) 
-		_x_theme.selectBGColor = strtoul(v, NULL, 16);
-
-	v = sconf_get(sconf, "title_color");
-	if(v[0] != 0) 
-		_x_theme.titleColor = strtoul(v, NULL, 16);
-
-	v = sconf_get(sconf, "title_bg_color");
-	if(v[0] != 0) 
-		_x_theme.titleBGColor = strtoul(v, NULL, 16);
-
-	v = sconf_get(sconf, "widget_color");
-	if(v[0] != 0) 
-		_x_theme.widgetFGColor = strtoul(v, NULL, 16);
-
-	v = sconf_get(sconf, "widget_bg_color");
-	if(v[0] != 0) 
-		_x_theme.widgetBGColor = strtoul(v, NULL, 16);
-
-	sconf_free(sconf);
+	var_unref(conf_var);
 	return 0;
 }
 

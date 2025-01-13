@@ -195,6 +195,7 @@ node_t* json_find(var_t* var, const char* path_name);
 var_t*  json_find_var(var_t* var, const char* path_name);
 
 extern var_t* json_parse(const char* str);
+extern var_t* json_parse_file(const char* fname);
 
 #ifdef __cplusplus
 }

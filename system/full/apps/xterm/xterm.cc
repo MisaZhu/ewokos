@@ -15,7 +15,7 @@ extern "C" {
 #endif
 
 #include <gterminal/gterminal.h>
-#include <sconf/sconf.h>
+#include <tinyjson/tinyjson.h>
 #include <ewoksys/vfs.h>
 #include <ewoksys/keydef.h>
 #include <ewoksys/ipc.h>
@@ -61,11 +61,11 @@ class XConsole : public XWin {
 	}
 
 	bool readConfigRaw(const char* fname) {
-		sconf_t *sconf = sconf_load(fname);	
-		if(sconf == NULL)
+		var_t *conf_var = json_parse_file(fname);	
+		if(conf_var == NULL)
 			return false;
-		theme.loadConfig(sconf);
-		sconf_free(sconf);
+		theme.loadConfig(conf_var);
+		var_unref(conf_var);
 		return true;
 	}
 public:

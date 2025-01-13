@@ -3,7 +3,7 @@
 
 #include <x/xtheme.h>
 #include <font/font.h>
-#include <sconf/sconf.h>
+#include <tinyjson/tinyjson.h>
 #include <string.h>
 
 namespace Ewok {
@@ -19,7 +19,7 @@ public:
 	void setFont(const char* name, uint32_t size);
 
 	void loadSystem(void);
-	void loadConfig(sconf_t* sconf);
+	void loadConfig(var_t* conf_var);
 
 	inline font_t* getFont(void) {
 			return font;
