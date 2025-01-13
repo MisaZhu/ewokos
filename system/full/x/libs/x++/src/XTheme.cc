@@ -18,9 +18,6 @@ void XTheme::setFont(const char* name, uint32_t size) {
 }
 
 void XTheme::loadConfig(var_t* conf_var) {
-	if(conf_var == NULL)
-		return;
-
 	int font_size = get_int(conf_var, "font_size");
 	if(font_size == 0) 
 		font_size = basic.fontSize;

@@ -168,17 +168,12 @@ public:
 		if(var == NULL)
 			return false;
 
-		dockItemNum = get_int(var, "item_num");
+		dockItemNum = get_int_def(var, "item_num", 0);
 
 		loadApps(var);
 
-		itemSize = get_int(var, "item_size");
-		if(itemSize == 0)
-			itemSize = 64;
-
-		iconSize = get_int(var, "icon_size");
-		if(iconSize == 0)
-			iconSize = 32;
+		itemSize = get_int_def(var, "item_size", 64);
+		iconSize = get_int_def(var, "icon_size", 32);
 
 		var_unref(var);
 		return true;

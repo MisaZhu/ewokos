@@ -1184,24 +1184,52 @@ void var_to_json_str(var_t* var, str_t* ret, int level) {
 	}
 }
 
-const char* get_str(var_t* var, const char* name) {
+const char* get_str_def(var_t* var, const char* name, const char* def) {
+	if(var == NULL)
+		return def;
+
 	var_t* v = get_obj(var, name);
-	return v == NULL ? "" : var_get_str(v);
+	return v == NULL ? def : var_get_str(v);
 }
 
-int get_int(var_t* var, const char* name) {
+int get_int_def(var_t* var, const char* name, int def) {
+	if(var == NULL)
+		return def;
+
 	var_t* v = get_obj(var, name);
-	return v == NULL ? 0 : var_get_int(v);
+	return v == NULL ? def : var_get_int(v);
 }
 
-bool get_bool(var_t* var, const char* name) {
+bool get_bool_def(var_t* var, const char* name, bool def) {
+	if(var == NULL)
+		return def;
+
 	var_t* v = get_obj(var, name);
-	return v == NULL ? 0 : var_get_bool(v);
+	return v == NULL ? def : var_get_bool(v);
 }
 
-float get_float(var_t* var, const char* name) {
+float get_float_def(var_t* var, const char* name, float def) {
+	if(var == NULL)
+		return def;
+
 	var_t* v = get_obj(var, name);
-	return v == NULL ? 0 : var_get_float(v);
+	return v == NULL ? def : var_get_float(v);
+}
+
+inline const char* get_str(var_t* var, const char* name) {
+	return get_str_def(var, name, "");
+}
+
+inline int get_int(var_t* var, const char* name) {
+	return get_int_def(var, name, 0);
+}
+
+inline bool get_bool(var_t* var, const char* name) {
+	return get_bool_def(var, name, false);
+}
+
+inline float get_float(var_t* var, const char* name) {
+	return get_float_def(var, name, 0.0);
 }
 
 var_t* get_obj(var_t* var, const char* name) {

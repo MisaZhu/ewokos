@@ -184,10 +184,17 @@ void var_to_str(var_t*, str_t*);
 node_t* find_member(var_t* obj, const char* name);
 var_t* get_obj(var_t* obj, const char* name);
 void* get_raw(var_t* obj, const char* name);
+
+const char* get_str_def(var_t* obj, const char* name, const char* def);
+int get_int_def(var_t* obj, const char* name, int def);
+float get_float_def(var_t* obj, const char* name, float def);
+bool get_bool_def(var_t* obj, const char* name, bool def);
+
 const char* get_str(var_t* obj, const char* name);
 int get_int(var_t* obj, const char* name);
 float get_float(var_t* obj, const char* name);
 bool get_bool(var_t* obj, const char* name);
+
 var_t* get_obj_member(var_t* obj, const char* name);
 var_t* set_obj_member(var_t* obj, const char* name, var_t* var);
 

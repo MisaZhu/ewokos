@@ -245,33 +245,27 @@ void XWM::getColor(uint32_t *fg, uint32_t* bg, bool top) {
 
 void XWM::readConfig(const char* fname) {
 	var_t* conf_var = json_parse_file(fname);
-	if(conf_var == NULL)
-		return;
 
-	fgColor = get_int(conf_var, "fg_color");
-	bgColor = get_int(conf_var, "bg_color");
-	fgTopColor = get_int(conf_var, "fg_top_color");
-	bgTopColor = get_int(conf_var, "bg_top_color");
-	desktopFGColor = get_int(conf_var, "desktop_fg_color");
-	desktopBGColor = get_int(conf_var, "desktop_bg_color");
-	frameW = get_int(conf_var, "frame_width");
-	titleH = get_int(conf_var, "title_h");
+	fgColor = get_int_def(conf_var, "fg_color", 0xff888888);
+	bgColor = get_int_def(conf_var, "bg_color", 0xff666666);
+	fgTopColor = get_int_def(conf_var, "fg_top_color", 0xff222222);
+	bgTopColor = get_int_def(conf_var, "bg_top_color", 0xffaaaaaa);
+	desktopFGColor = get_int_def(conf_var, "desktop_fg_color", 0xff555588);
+	desktopBGColor = get_int_def(conf_var, "desktop_bg_color", 0xff8888aa);
+	frameW = get_int_def(conf_var, "frame_width", 2);
+	titleH = get_int_def(conf_var, "title_h", 24);
 
-	fontSize = get_int(conf_var, "font_size");
-	if(fontSize == 0) 
-		fontSize = 14;
+	fontSize = get_int_def(conf_var, "font_size", 14);
 
-	const char* name = DEFAULT_SYSTEM_FONT;
-	const char* v = get_str(conf_var, "font");
-	if(v[0] != 0) 
- 		name = v;
- 	font = font_new(name, true);
+	const char* v = get_str_def(conf_var, "font", DEFAULT_SYSTEM_FONT);
+ 	font = font_new(v, true);
 
-	v = get_str(conf_var, "pattern");
+	v = get_str_def(conf_var, "pattern", "none");
 	if(v[0] != 0 && strcmp(v, "none") != 0)
 		desktopPattern = png_image_new_bg(x_get_theme_fname(X_THEME_ROOT, "xwm", v), desktopBGColor);
 
-	var_unref(conf_var);
+	if(conf_var != NULL)
+		var_unref(conf_var);
 }
 
 XWM::XWM(void) {
