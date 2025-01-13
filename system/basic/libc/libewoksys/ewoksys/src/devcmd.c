@@ -71,7 +71,7 @@ int dev_open(int dev_pid, int fd, fsinfo_t* info, int oflag) {
 }
 
 #define SHM_ON  256
-#define SHM_MAX 4096
+#define SHM_MAX (1024*16)
 int dev_read(int dev_pid, int fd, fsinfo_t* info, int32_t offset, void* buf, uint32_t size) {
 	int32_t shm_id = -1;
 	void* shm = NULL;
