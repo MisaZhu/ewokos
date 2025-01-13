@@ -149,11 +149,10 @@ int main(int argc, char** argv) {
 	root->add(statusLabel);
 	text->statusLabel = statusLabel;
 
-	win.getTheme()->setFont("system.cn", 14);
 	if(argc >= 2)
 		win.load(argv[1]);
 
-	win.open(&x, 0, -1, -1, 460, 460, "xtext", XWIN_STYLE_NORMAL);
+	win.open(&x, 0, -1, -1, 460, 460, "xread", XWIN_STYLE_NORMAL);
 	x.run(NULL, &win);
 	return 0;
 }

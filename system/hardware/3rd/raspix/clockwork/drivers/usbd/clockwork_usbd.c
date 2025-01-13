@@ -182,6 +182,7 @@ static void usb_host_init(uint32_t v_mmio_base) {
   UsbInitialise(v_mmio_base);
   proc_usleep(100000);
   UsbCheckForChange();
+  /*
   proc_usleep(100000);
   UsbCheckForChange();
   proc_usleep(100000);
@@ -190,6 +191,7 @@ static void usb_host_init(uint32_t v_mmio_base) {
   UsbCheckForChange();
   proc_usleep(100000);
   UsbCheckForChange();
+  */
 }
 
 
