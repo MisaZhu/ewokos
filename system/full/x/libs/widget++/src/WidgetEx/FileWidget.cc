@@ -155,15 +155,15 @@ class FileGrid: public Grid {
 	}
 
 	void loadIcons() {
-		fileIcon = png_image_new(x_get_theme_fname(X_THEME_ROOT, "finder", "icons/file.png"));
+		fileIcon = png_image_new(x_get_theme_fname(X_THEME_ROOT, "xfinder", "icons/file.png"));
 		if(fileIcon == NULL)
 			fileIcon = png_image_new(X::getResName("icons/file.png"));
 
-		dirIcon = png_image_new(x_get_theme_fname(X_THEME_ROOT, "finder", "icons/folder.png"));
+		dirIcon = png_image_new(x_get_theme_fname(X_THEME_ROOT, "xfinder", "icons/folder.png"));
 		if(dirIcon == NULL)
 			dirIcon = png_image_new(X::getResName("icons/folder.png"));
 
-		devIcon = png_image_new(x_get_theme_fname(X_THEME_ROOT, "finder", "icons/device.png"));
+		devIcon = png_image_new(x_get_theme_fname(X_THEME_ROOT, "xfinder", "icons/device.png"));
 		if(devIcon == NULL)
 			devIcon = png_image_new(X::getResName("icons/device.png"));
 	}
@@ -198,7 +198,7 @@ class FileGrid: public Grid {
 				if(img != NULL)
 					return img;
 
-				img = png_image_new(x_get_theme_fname(X_THEME_ROOT, "finder", icon));
+				img = png_image_new(x_get_theme_fname(X_THEME_ROOT, "xfinder", icon));
 				if(img == NULL)
 					return NULL;
 				var_add(it, "icon_image", var_new_obj(img, freeIcon));

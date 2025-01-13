@@ -71,6 +71,13 @@ protected:
 public:
 	MyText* text;
 
+	void loadConfig(void) {
+		const char* fname = X::getResName("config.json");
+		var_t *conf_var = json_parse_file(fname);
+		text->setFont(get_str_def(conf_var, "font", DEFAULT_SYSTEM_FONT));
+		var_unref(conf_var);
+	}
+
 	void load(const string& fname) {
 		if(fname.length() == 0)
 			fdialog.popup(this, 400, 300, "files", XWIN_STYLE_NORMAL);
@@ -148,6 +155,8 @@ int main(int argc, char** argv) {
 	statusLabel->fix(0, 20);
 	root->add(statusLabel);
 	text->statusLabel = statusLabel;
+
+	win.loadConfig();
 
 	if(argc >= 2)
 		win.load(argv[1]);
