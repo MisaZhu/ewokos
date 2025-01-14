@@ -73,9 +73,9 @@ public:
 
 	void loadConfig(void) {
 		const char* fname = X::getResName("config.json");
-		var_t *conf_var = json_parse_file(fname);
-		text->setFont(get_str_def(conf_var, "font", DEFAULT_SYSTEM_FONT));
-		var_unref(conf_var);
+		json_var_t *conf_var = json_parse_file(fname);
+		text->setFont(json_get_str_def(conf_var, "font", DEFAULT_SYSTEM_FONT));
+		json_var_unref(conf_var);
 	}
 
 	void load(const string& fname) {

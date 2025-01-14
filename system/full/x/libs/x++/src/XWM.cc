@@ -244,28 +244,28 @@ void XWM::getColor(uint32_t *fg, uint32_t* bg, bool top) {
 }
 
 void XWM::readConfig(const char* fname) {
-	var_t* conf_var = json_parse_file(fname);
+	json_var_t* conf_var = json_parse_file(fname);
 
-	fgColor = get_int_def(conf_var, "fg_color", 0xff888888);
-	bgColor = get_int_def(conf_var, "bg_color", 0xff666666);
-	fgTopColor = get_int_def(conf_var, "fg_top_color", 0xff222222);
-	bgTopColor = get_int_def(conf_var, "bg_top_color", 0xffaaaaaa);
-	desktopFGColor = get_int_def(conf_var, "desktop_fg_color", 0xff555588);
-	desktopBGColor = get_int_def(conf_var, "desktop_bg_color", 0xff8888aa);
-	frameW = get_int_def(conf_var, "frame_width", 2);
-	titleH = get_int_def(conf_var, "title_h", 24);
+	fgColor = json_get_int_def(conf_var, "fg_color", 0xff888888);
+	bgColor = json_get_int_def(conf_var, "bg_color", 0xff666666);
+	fgTopColor = json_get_int_def(conf_var, "fg_top_color", 0xff222222);
+	bgTopColor = json_get_int_def(conf_var, "bg_top_color", 0xffaaaaaa);
+	desktopFGColor = json_get_int_def(conf_var, "desktop_fg_color", 0xff555588);
+	desktopBGColor = json_get_int_def(conf_var, "desktop_bg_color", 0xff8888aa);
+	frameW = json_get_int_def(conf_var, "frame_width", 2);
+	titleH = json_get_int_def(conf_var, "title_h", 24);
 
-	fontSize = get_int_def(conf_var, "font_size", 14);
+	fontSize = json_get_int_def(conf_var, "font_size", 14);
 
-	const char* v = get_str_def(conf_var, "font", DEFAULT_SYSTEM_FONT);
+	const char* v = json_get_str_def(conf_var, "font", DEFAULT_SYSTEM_FONT);
  	font = font_new(v, true);
 
-	v = get_str_def(conf_var, "pattern", "none");
+	v = json_get_str_def(conf_var, "pattern", "none");
 	if(v[0] != 0 && strcmp(v, "none") != 0)
 		desktopPattern = png_image_new_bg(x_get_theme_fname(X_THEME_ROOT, "xwm", v), desktopBGColor);
 
 	if(conf_var != NULL)
-		var_unref(conf_var);
+		json_var_unref(conf_var);
 }
 
 XWM::XWM(void) {

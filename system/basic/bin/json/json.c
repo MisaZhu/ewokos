@@ -22,7 +22,7 @@ int main(int argc, char** argv) {
 
 	str[sz] = 0;
 
-	var_t* var = json_parse(str);
+	json_var_t* var = json_parse_str(str);
 	free(str);
 
 	if(var == NULL) {
@@ -31,14 +31,14 @@ int main(int argc, char** argv) {
 	}
 
 	str_t* mstr = str_new(NULL);
-	var_to_json_str(var, mstr, 0);
+	json_var_to_json_str(var, mstr, 0);
 	printf("%s\n", mstr->cstr);
 	str_free(mstr);
 
-	var_t* v = json_find_var(var, "/kid/sister/name");
+	json_var_t* v = json_find_var(var, "/kid/sister/name");
 	if(v != NULL)
-		printf("%s\n", var_get_str(v));
+		printf("%s\n", json_var_json_get_str(v));
 
-	var_unref(var);
+	json_var_unref(var);
 	return 0;
 }

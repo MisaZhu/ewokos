@@ -61,11 +61,11 @@ class XConsole : public XWin {
 	}
 
 	bool readConfigRaw(const char* fname) {
-		var_t *conf_var = json_parse_file(fname);	
+		json_var_t *conf_var = json_parse_file(fname);	
 		theme.loadConfig(conf_var);
 
 		if(conf_var != NULL)
-			var_unref(conf_var);
+			json_var_unref(conf_var);
 		return true;
 	}
 public:

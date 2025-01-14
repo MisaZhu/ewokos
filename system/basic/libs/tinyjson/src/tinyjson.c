@@ -15,19 +15,19 @@ extern "C" {
 
 #define ARRAY_BUF 16
 
-inline void array_init(m_array_t* array) { 
+inline void json_array_init(json_array_t* array) { 
 	array->items = NULL; 
 	array->size = 0; 
 	array->max = 0; 
 }
 
-m_array_t* array_new() {
-	m_array_t* ret = (m_array_t*)malloc(sizeof(m_array_t));
-	array_init(ret);
+json_array_t* json_array_new() {
+	json_array_t* ret = (json_array_t*)malloc(sizeof(json_array_t));
+	json_array_init(ret);
 	return ret;
 }
 
-inline void array_add(m_array_t* array, void* item) {
+inline void json_array_add(json_array_t* array, void* item) {
 	uint32_t new_size = array->size + 1; 
 	if(array->max <= new_size) { 
 		new_size = array->size + ARRAY_BUF;
@@ -39,7 +39,7 @@ inline void array_add(m_array_t* array, void* item) {
 	array->items[array->size] = NULL; 
 }
 
-inline void array_add_head(m_array_t* array, void* item) {
+inline void json_array_add_head(json_array_t* array, void* item) {
 	uint32_t new_size = array->size + 1; 
 	if(array->max <= new_size) { 
 		new_size = array->size + ARRAY_BUF;
@@ -55,34 +55,34 @@ inline void array_add_head(m_array_t* array, void* item) {
 	array->items[array->size] = NULL; 
 }
 
-void* array_add_buf(m_array_t* array, void* s, uint32_t sz) {
+void* json_array_add_buf(json_array_t* array, void* s, uint32_t sz) {
 	void* item = malloc(sz);
 	if(s != NULL)
 		memcpy(item, s, sz);
-	array_add(array, item);
+	json_array_add(array, item);
 	return item;
 }
 
-inline void* array_get(m_array_t* array, uint32_t index) {
+inline void* json_array_get(json_array_t* array, uint32_t index) {
 	if(array->items == NULL || index >= array->size)
 		return NULL;
 	return array->items[index];
 }
 
-inline void* array_set(m_array_t* array, uint32_t index, void* p) {
+inline void* json_array_set(json_array_t* array, uint32_t index, void* p) {
 	if(array->items == NULL || index >= array->size)
 		return NULL;
 	array->items[index] = p;
 	return p;
 }
 
-inline void* array_head(m_array_t* array) {
+inline void* json_array_head(json_array_t* array) {
 	if(array->items == NULL || array->size == 0)
 		return NULL;
 	return array->items[0];
 }
 
-inline void* array_remove(m_array_t* array, uint32_t index) { //remove out but not free
+inline void* json_array_remove(json_array_t* array, uint32_t index) { //remove out but not free
 	if(index >= array->size)
 		return NULL;
 
@@ -97,8 +97,8 @@ inline void* array_remove(m_array_t* array, uint32_t index) { //remove out but n
 	return p;
 }
 
-inline void array_del(m_array_t* array, uint32_t index, free_func_t fr) { // remove out and free.
-	void* p = array_remove(array, index);
+inline void json_array_del(json_array_t* array, uint32_t index, free_func_t fr) { // remove out and free.
+	void* p = json_array_remove(array, index);
 	if(p != NULL) {
 		if(fr != NULL)
 			fr(p);
@@ -107,7 +107,7 @@ inline void array_del(m_array_t* array, uint32_t index, free_func_t fr) { // rem
 	}
 }
 
-inline void array_remove_all(m_array_t* array) { //remove all items bot not free them.
+inline void json_array_remove_all(json_array_t* array) { //remove all items bot not free them.
 	if(array->items != NULL) {
 		free(array->items);
 		array->items = NULL;
@@ -115,12 +115,12 @@ inline void array_remove_all(m_array_t* array) { //remove all items bot not free
 	array->max = array->size = 0;
 }
 
-inline void array_free(m_array_t* array, free_func_t fr) {
-	array_clean(array, fr);
+inline void json_array_free(json_array_t* array, free_func_t fr) {
+	json_array_clean(array, fr);
 	free(array);
 }
 
-inline void array_clean(m_array_t* array, free_func_t fr) { //remove all items and free them.
+inline void json_array_clean(json_array_t* array, free_func_t fr) { //remove all items and free them.
 	if(array->items != NULL) {
 		uint32_t i;
 		for(i=0; i<array->size; i++) {
@@ -140,35 +140,35 @@ inline void array_clean(m_array_t* array, free_func_t fr) { //remove all items a
 
 /**======lex functions======*/
 
-bool is_whitespace(unsigned char ch) {
+bool json_is_whitespace(unsigned char ch) {
 	if(ch == ' ' || ch == '\t' || ch == '\n' || ch == '\r')
 		return true;
 	return false;
 }
 
-bool is_space(unsigned char ch) {
+bool json_is_space(unsigned char ch) {
 	if(ch == ' ' || ch == '\t' || ch == '\r')
 		return true;
 	return false;
 }
 
-bool is_numeric(unsigned char ch) {
+bool json_is_numeric(unsigned char ch) {
 	if(ch >= '0' && ch <= '9')
 		return true;
 	return false;
 }
 
-bool is_number(const char* cstr) {
+bool json_is_number(const char* cstr) {
 	int  i= 0;
 	while(cstr[i] != 0) {
-		if (is_numeric(cstr[i]) == false)
+		if (json_is_numeric(cstr[i]) == false)
 			return false;
 		i++;
 	}
 	return true;
 }
 
-bool is_hexadecimal(unsigned char ch) {
+bool json_is_hexadecimal(unsigned char ch) {
 	if(((ch>='0') && (ch<='9')) ||
 		((ch>='a') && (ch<='f')) ||
 		((ch>='A') && (ch<='F')))
@@ -176,7 +176,7 @@ bool is_hexadecimal(unsigned char ch) {
 	return false;
 }
 
-bool is_alpha(unsigned char ch) {
+bool json_is_alpha(unsigned char ch) {
 	if(((ch>='a') && (ch<='z')) ||
 		((ch>='A') && (ch<='Z')) ||
 		ch == '_')
@@ -184,17 +184,17 @@ bool is_alpha(unsigned char ch) {
 	return false;
 }
 
-bool is_alpha_num(const char* cstr) {
+bool json_is_alpha_num(const char* cstr) {
 	if (cstr[0] == 0){
 		return true;
 	}
-	if (is_alpha(cstr[0]) == 0){
+	if (json_is_alpha(cstr[0]) == 0){
 		return false;
 	}
 
 	int  i= 0;
 	while(cstr[i] != 0) {
-		if (is_alpha(cstr[i]) == false || is_numeric(cstr[i]) == true){
+		if (json_is_alpha(cstr[i]) == false || json_is_numeric(cstr[i]) == true){
 			return false;
 		}
 		i++;
@@ -202,7 +202,7 @@ bool is_alpha_num(const char* cstr) {
 	return true;
 }
 
-void lex_get_nextch(lex_t* lex) {
+void json_lex_get_nextch(json_lex_t* lex) {
 	lex->curr_ch = lex->next_ch;
 	if (lex->data_pos < lex->data_end){
 		lex->next_ch = lex->data[lex->data_pos];
@@ -212,144 +212,144 @@ void lex_get_nextch(lex_t* lex) {
 	lex->data_pos++;
 }
 
-void lex_skip_whitespace(lex_t* lex) {
-	while (lex->curr_ch && is_whitespace(lex->curr_ch)){
-		lex_get_nextch(lex);
+void json_lex_skip_whitespace(json_lex_t* lex) {
+	while (lex->curr_ch && json_is_whitespace(lex->curr_ch)){
+		json_lex_get_nextch(lex);
 	}
 }
 
-void lex_skip_space(lex_t* lex) {
-	while (lex->curr_ch && is_space(lex->curr_ch)){
-		lex_get_nextch(lex);
+void json_lex_skip_space(json_lex_t* lex) {
+	while (lex->curr_ch && json_is_space(lex->curr_ch)){
+		json_lex_get_nextch(lex);
 	}
 }
 
 //only take first 1~2 chars from start
-bool lex_skip_comments_line(lex_t* lex, const char* start) {
+bool json_lex_skip_comments_line(json_lex_t* lex, const char* start) {
 	if(start[0] == 0)
 		return false;
 
 	if ((lex->curr_ch==start[0] && (start[1] == 0 || lex->next_ch==start[1]))) {
 		while (lex->curr_ch && lex->curr_ch!='\n'){
-			lex_get_nextch(lex);
+			json_lex_get_nextch(lex);
 		}
 		if(start[1] != 0)
-			lex_get_nextch(lex);
+			json_lex_get_nextch(lex);
 		return true;
 	}
 	return false;
 }
 
 //only take first 2 chars from start and end.
-bool lex_skip_comments_block(lex_t* lex, const char* start, const char* end) {
+bool json_lex_skip_comments_block(json_lex_t* lex, const char* start, const char* end) {
 	if(start[0] == 0 || start[1] == 0 || end[0] == 0 || end[1] == 0)
 		return false;
 
 	if (lex->curr_ch==start[0] && lex->next_ch==start[1]) {
 		while (lex->curr_ch && (lex->curr_ch!=end[0] || lex->next_ch!=end[1])) {
-			lex_get_nextch(lex);
+			json_lex_get_nextch(lex);
 		}
-		lex_get_nextch(lex);
-		lex_get_nextch(lex);
+		json_lex_get_nextch(lex);
+		json_lex_get_nextch(lex);
 		return true;
 	}	
 	return false;
 }
 
-void lex_reset(lex_t* lex) {
+void json_lex_reset(json_lex_t* lex) {
 	lex->data_pos = lex->data_start;
 	lex->tk_start   = 0;
 	lex->tk_end     = 0;
 	lex->tk_last_end = 0;
-	lex->tk  = LEX_EOF;
+	lex->tk  = JSON_LEX_EOF;
 	str_reset(lex->tk_str);
-	lex_get_nextch(lex);
-	lex_get_nextch(lex);
+	json_lex_get_nextch(lex);
+	json_lex_get_nextch(lex);
 }
 
-void lex_init(lex_t * lex, const char* input) {
+void json_lex_init(json_lex_t * lex, const char* input) {
 	lex->data = input;
 	lex->data_start = 0;
 	lex->data_end = (int)strlen(lex->data);
 	lex->tk_str = str_new("");
-	lex_reset(lex);
+	json_lex_reset(lex);
 }
 
-void lex_release(lex_t* lex) {
+void json_lex_release(json_lex_t* lex) {
 	str_free(lex->tk_str);
 	lex->tk_str = NULL;
 }
 
-void lex_token_start(lex_t* lex) {
+void json_lex_token_start(json_lex_t* lex) {
 	// record beginning of this token(pre-read 2 chars );
 	lex->tk_start = lex->data_pos-2;
 }
 
-void lex_token_end(lex_t* lex) {
+void json_lex_token_end(json_lex_t* lex) {
 	lex->tk_last_end = lex->tk_end;
 	lex->tk_end = lex->data_pos-3;
 }
 
-void lex_get_char_token(lex_t* lex) {
+void json_lex_get_char_token(json_lex_t* lex) {
 	lex->tk = lex->curr_ch;
 	if (lex->curr_ch) 
-		lex_get_nextch(lex);
+		json_lex_get_nextch(lex);
 }
 
-void lex_get_basic_token(lex_t* lex) {
+void json_lex_get_basic_token(json_lex_t* lex) {
 	// tokens
-	if (is_alpha(lex->curr_ch)) { //  IDs
-		while (is_alpha(lex->curr_ch) || is_numeric(lex->curr_ch)) {
+	if (json_is_alpha(lex->curr_ch)) { //  IDs
+		while (json_is_alpha(lex->curr_ch) || json_is_numeric(lex->curr_ch)) {
 			str_addc(lex->tk_str, lex->curr_ch);
-			lex_get_nextch(lex);
+			json_lex_get_nextch(lex);
 		}
-		lex->tk = LEX_ID;
-	} else if (is_numeric(lex->curr_ch)) { // _numbers
+		lex->tk = JSON_LEX_ID;
+	} else if (json_is_numeric(lex->curr_ch)) { // _numbers
 		bool isHex = false;
 		if (lex->curr_ch=='0') {
 			str_addc(lex->tk_str, lex->curr_ch);
-			lex_get_nextch(lex);
+			json_lex_get_nextch(lex);
 		}
 		if (lex->curr_ch == 'x' || lex->curr_ch == 'X') {
 			isHex = true;
 			str_addc(lex->tk_str, lex->curr_ch);
-			lex_get_nextch(lex);
+			json_lex_get_nextch(lex);
 		}
-		lex->tk = LEX_INT;
+		lex->tk = JSON_LEX_INT;
 
-		while (is_numeric(lex->curr_ch) || (isHex && is_hexadecimal(lex->curr_ch))) {
+		while (json_is_numeric(lex->curr_ch) || (isHex && json_is_hexadecimal(lex->curr_ch))) {
 			str_addc(lex->tk_str, lex->curr_ch);
-			lex_get_nextch(lex);
+			json_lex_get_nextch(lex);
 		}
-		if (!isHex && lex->curr_ch=='.' && is_numeric(lex->next_ch)) {
-			lex->tk = LEX_FLOAT;
+		if (!isHex && lex->curr_ch=='.' && json_is_numeric(lex->next_ch)) {
+			lex->tk = JSON_LEX_FLOAT;
 			str_addc(lex->tk_str, '.');
-			lex_get_nextch(lex);
-			while (is_numeric(lex->curr_ch)) {
+			json_lex_get_nextch(lex);
+			while (json_is_numeric(lex->curr_ch)) {
 				str_addc(lex->tk_str, lex->curr_ch);
-				lex_get_nextch(lex);
+				json_lex_get_nextch(lex);
 			}
 		}
 		// do fancy e-style floating point
 		if (!isHex && (lex->curr_ch=='e'||lex->curr_ch=='E')) {
-			lex->tk = LEX_FLOAT;
+			lex->tk = JSON_LEX_FLOAT;
 			str_addc(lex->tk_str, lex->curr_ch);
-			lex_get_nextch(lex);
+			json_lex_get_nextch(lex);
 			if (lex->curr_ch=='-') {
 				str_addc(lex->tk_str, lex->curr_ch);
-				lex_get_nextch(lex);
+				json_lex_get_nextch(lex);
 			}
-			while (is_numeric(lex->curr_ch)) {
+			while (json_is_numeric(lex->curr_ch)) {
 				str_addc(lex->tk_str, lex->curr_ch);
-				lex_get_nextch(lex);
+				json_lex_get_nextch(lex);
 			}
 		}
 	} else if (lex->curr_ch=='"') {
 		// strings...
-		lex_get_nextch(lex);
+		json_lex_get_nextch(lex);
 		while (lex->curr_ch && lex->curr_ch!='"') {
 			if (lex->curr_ch == '\\') {
-				lex_get_nextch(lex);
+				json_lex_get_nextch(lex);
 				switch (lex->curr_ch) {
 					case 'n' : str_addc(lex->tk_str, '\n'); break;
 					case 'r' : str_addc(lex->tk_str, '\r'); break;
@@ -361,14 +361,14 @@ void lex_get_basic_token(lex_t* lex) {
 			} else {
 				str_addc(lex->tk_str, lex->curr_ch);
 			}
-			lex_get_nextch(lex);
+			json_lex_get_nextch(lex);
 		}
-		lex_get_nextch(lex);
-		lex->tk = LEX_STR;
+		json_lex_get_nextch(lex);
+		lex->tk = JSON_LEX_STR;
 	}
 }
 
-void lex_get_pos(lex_t* lex, int* line, int *col, int pos) {
+void json_lex_get_pos(json_lex_t* lex, int* line, int *col, int pos) {
 	if (pos<0) 
 		pos= lex->tk_last_end;
 
@@ -395,18 +395,18 @@ void lex_get_pos(lex_t* lex, int* line, int *col, int pos) {
 
 typedef enum {
   // reserved words
-  LEX_R_TRUE,
-  LEX_R_FALSE,
-  LEX_R_NULL,
-  LEX_R_UNDEFINED
-} JSON_LEX_TYPES;
+  JSON_LEX_R_TRUE,
+  JSON_LEX_R_FALSE,
+  JSON_LEX_R_NULL,
+  JSON_LEX_R_UNDEFINED
+} JSON_JSON_LEX_TYPES;
 
-static void lex_js_get_js_str(lex_t* lex) {
+static void json_lex_js_get_js_str(json_lex_t* lex) {
 	// js style strings 
-	lex_get_nextch(lex);
+	json_lex_get_nextch(lex);
 	while (lex->curr_ch && lex->curr_ch!='\'') {
 		if (lex->curr_ch == '\\') {
-			lex_get_nextch(lex);
+			json_lex_get_nextch(lex);
 			switch (lex->curr_ch) {
 				case 'n' : str_addc(lex->tk_str, '\n'); break;
 				case 'a' : str_addc(lex->tk_str, '\a'); break;
@@ -416,9 +416,9 @@ static void lex_js_get_js_str(lex_t* lex) {
 				case '\\' : str_addc(lex->tk_str, '\\'); break;
 				case 'x' : { // hex digits
 										 char buf[3] = "??";
-										 lex_get_nextch(lex);
+										 json_lex_get_nextch(lex);
 										 buf[0] = lex->curr_ch;
-										 lex_get_nextch(lex);
+										 json_lex_get_nextch(lex);
 										 buf[1] = lex->curr_ch;
 										 str_addc(lex->tk_str, (char)strtoul(buf, 0, 16));
 									 } break;
@@ -426,9 +426,9 @@ static void lex_js_get_js_str(lex_t* lex) {
 									 // octal digits
 									 char buf[4] = "???";
 									 buf[0] = lex->curr_ch;
-									 lex_get_nextch(lex);
+									 json_lex_get_nextch(lex);
 									 buf[1] = lex->curr_ch;
-									 lex_get_nextch(lex);
+									 json_lex_get_nextch(lex);
 									 buf[2] = lex->curr_ch;
 									 str_addc(lex->tk_str, (char)strtoul(buf, 0, 8));
 								 } else
@@ -437,169 +437,169 @@ static void lex_js_get_js_str(lex_t* lex) {
 		} else {
 			str_addc(lex->tk_str, lex->curr_ch);
 		}
-		lex_get_nextch(lex);
+		json_lex_get_nextch(lex);
 	}
-	lex_get_nextch(lex);
-	lex->tk = LEX_STR;
+	json_lex_get_nextch(lex);
+	lex->tk = JSON_LEX_STR;
 }
 
-static void lex_js_get_reserved_word(lex_t *lex) {
-	if (strcmp(lex->tk_str->cstr, "true") == 0)      lex->tk = LEX_R_TRUE;
-	else if (strcmp(lex->tk_str->cstr, "false") == 0)     lex->tk = LEX_R_FALSE;
-	else if (strcmp(lex->tk_str->cstr, "null") == 0)      lex->tk = LEX_R_NULL;
-	else if (strcmp(lex->tk_str->cstr, "undefined") == 0) lex->tk = LEX_R_UNDEFINED;
+static void json_lex_js_get_reserved_word(json_lex_t *lex) {
+	if (strcmp(lex->tk_str->cstr, "true") == 0)      lex->tk = JSON_LEX_R_TRUE;
+	else if (strcmp(lex->tk_str->cstr, "false") == 0)     lex->tk = JSON_LEX_R_FALSE;
+	else if (strcmp(lex->tk_str->cstr, "null") == 0)      lex->tk = JSON_LEX_R_NULL;
+	else if (strcmp(lex->tk_str->cstr, "undefined") == 0) lex->tk = JSON_LEX_R_UNDEFINED;
 }
 
-static void lex_js_get_next_token(lex_t* lex) {
-	lex->tk = LEX_EOF;
+static void json_lex_js_get_next_token(json_lex_t* lex) {
+	lex->tk = JSON_LEX_EOF;
 	str_reset(lex->tk_str);
 
-	lex_skip_whitespace(lex);
-	if(lex_skip_comments_line(lex, "//")) {
-		lex_js_get_next_token(lex);
+	json_lex_skip_whitespace(lex);
+	if(json_lex_skip_comments_line(lex, "//")) {
+		json_lex_js_get_next_token(lex);
 		return;
 	}
-	if(lex_skip_comments_block(lex, "/*", "*/")) {
-		lex_js_get_next_token(lex);
+	if(json_lex_skip_comments_block(lex, "/*", "*/")) {
+		json_lex_js_get_next_token(lex);
 		return;
 	}
 
-	lex_token_start(lex);
-	lex_get_basic_token(lex);
+	json_lex_token_start(lex);
+	json_lex_get_basic_token(lex);
 
-	if (lex->tk == LEX_ID) { //  IDs
-		lex_js_get_reserved_word(lex);
+	if (lex->tk == JSON_LEX_ID) { //  IDs
+		json_lex_js_get_reserved_word(lex);
 	} 
-	else if(lex->tk == LEX_EOF) {
+	else if(lex->tk == JSON_LEX_EOF) {
 		if (lex->curr_ch=='\'') {
 			// js style strings 
-			lex_js_get_js_str(lex);
+			json_lex_js_get_js_str(lex);
 		} 
 		else {
-			lex_get_char_token(lex);
+			json_lex_get_char_token(lex);
 		}
 	}
 
-	lex_token_end(lex);
+	json_lex_token_end(lex);
 }
 
-static bool lex_js_chkread(lex_t* lex, uint32_t expected_tk) {
+static bool json_lex_js_chkread(json_lex_t* lex, uint32_t expected_tk) {
 	if (lex->tk != expected_tk) {
 		return false;
 	}
-	lex_js_get_next_token(lex);
+	json_lex_js_get_next_token(lex);
 	return true;
 }
 
-static var_t* json_parse_factor(lex_t *l) {
-	if (l->tk==LEX_R_TRUE) {
-		lex_js_chkread(l, LEX_R_TRUE);
-		return var_new_int(1);
+static json_var_t* json_parse_factor(json_lex_t *l) {
+	if (l->tk==JSON_LEX_R_TRUE) {
+		json_lex_js_chkread(l, JSON_LEX_R_TRUE);
+		return json_var_new_int(1);
 	}
-	else if (l->tk==LEX_R_FALSE) {
-		lex_js_chkread(l, LEX_R_FALSE);
-		return var_new_int(0);
+	else if (l->tk==JSON_LEX_R_FALSE) {
+		json_lex_js_chkread(l, JSON_LEX_R_FALSE);
+		return json_var_new_int(0);
 	}
-	else if (l->tk==LEX_R_NULL) {
-		lex_js_chkread(l, LEX_R_NULL);
-		return var_new();
+	else if (l->tk==JSON_LEX_R_NULL) {
+		json_lex_js_chkread(l, JSON_LEX_R_NULL);
+		return json_var_new();
 	}
-	else if (l->tk==LEX_R_UNDEFINED) {
-		lex_js_chkread(l, LEX_R_UNDEFINED);
-		return var_new();
+	else if (l->tk==JSON_LEX_R_UNDEFINED) {
+		json_lex_js_chkread(l, JSON_LEX_R_UNDEFINED);
+		return json_var_new();
 	}
-	else if (l->tk==LEX_INT) {
+	else if (l->tk==JSON_LEX_INT) {
 		int i = 0;
 		if(strchr(l->tk_str->cstr, 'x') != NULL || strchr(l->tk_str->cstr, 'X') != NULL)
 			i = strtoul(l->tk_str->cstr, 0, 16);
 		else	
 			i = atoi(l->tk_str->cstr);
-		lex_js_chkread(l, LEX_INT);
-		return var_new_int(i);
+		json_lex_js_chkread(l, JSON_LEX_INT);
+		return json_var_new_int(i);
 	}
-	else if (l->tk==LEX_FLOAT) {
+	else if (l->tk==JSON_LEX_FLOAT) {
 		float f = 0.0;//TODO atof(l->tk_str->cstr);
-		lex_js_chkread(l, LEX_FLOAT);
-		return var_new_float(f);
+		json_lex_js_chkread(l, JSON_LEX_FLOAT);
+		return json_var_new_float(f);
 	}
-	else if (l->tk==LEX_STR) {
+	else if (l->tk==JSON_LEX_STR) {
 		str_t* s = str_new(l->tk_str->cstr);
-		lex_js_chkread(l, LEX_STR);
-		var_t* ret = var_new_str(s->cstr);
+		json_lex_js_chkread(l, JSON_LEX_STR);
+		json_var_t* ret = json_var_new_str(s->cstr);
 		str_free(s);
 		return ret;
 	}
 	else if (l->tk=='[') {
 		/* JSON-style array */
-		var_t* arr = var_new_array();
-		lex_js_chkread(l, '[');
+		json_var_t* arr = json_var_new_array();
+		json_lex_js_chkread(l, '[');
 		while (l->tk != ']') {
-			var_t* v = json_parse_factor(l);
-			var_array_add(arr, v);
+			json_var_t* v = json_parse_factor(l);
+			json_var_array_add(arr, v);
 			if (l->tk != ']') 
-				lex_js_chkread(l, ',');
+				json_lex_js_chkread(l, ',');
 		}
-		lex_js_chkread(l, ']');
+		json_lex_js_chkread(l, ']');
 		return arr;
 	}
 	else if (l->tk=='{') {
-		lex_js_chkread(l, '{');
-		var_t* obj = var_new_obj(NULL, NULL);
+		json_lex_js_chkread(l, '{');
+		json_var_t* obj = json_var_new_obj(NULL, NULL);
 		while(l->tk != '}') {
 			str_t* id = str_new(l->tk_str->cstr);
-			if(l->tk == LEX_STR)
-				lex_js_chkread(l, LEX_STR);
+			if(l->tk == JSON_LEX_STR)
+				json_lex_js_chkread(l, JSON_LEX_STR);
 			else
-				lex_js_chkread(l, LEX_ID);
+				json_lex_js_chkread(l, JSON_LEX_ID);
 
-			lex_js_chkread(l, ':');
-			var_t* v = json_parse_factor(l);
-			var_add(obj, id->cstr, v);
+			json_lex_js_chkread(l, ':');
+			json_var_t* v = json_parse_factor(l);
+			json_var_add(obj, id->cstr, v);
 			str_free(id);
 			if(l->tk != '}')
-				lex_js_chkread(l, ',');
+				json_lex_js_chkread(l, ',');
 		}
-		lex_js_chkread(l, '}');
+		json_lex_js_chkread(l, '}');
 		return obj;
 	}
-	return var_new();
+	return json_var_new();
 }
 
-var_t* json_parse(const char* str) {
-	lex_t lex;
-	lex_init(&lex, str);
-	lex_js_get_next_token(&lex);
+json_var_t* json_parse_str(const char* str) {
+	json_lex_t lex;
+	json_lex_init(&lex, str);
+	json_lex_js_get_next_token(&lex);
 
-	var_t* ret = json_parse_factor(&lex);
-	lex_release(&lex);
+	json_var_t* ret = json_parse_factor(&lex);
+	json_lex_release(&lex);
 	return ret;
 }
 
-var_t* json_parse_file(const char* fname) {
+json_var_t* json_parse_file(const char* fname) {
 	int sz = 0;
 	char* str = (char*)vfs_readfile(fname, &sz);
 	if(str == NULL)
 		return NULL;
 	str[sz] = 0;
-	var_t* ret = json_parse(str);
+	json_var_t* ret = json_parse_str(str);
 	free(str);
 	return ret;
 }
 
-static var_t* var_clone(var_t* v) {
+static json_var_t* json_var_clone(json_var_t* v) {
 	switch(v->type) { //basic types
-		case V_INT:
-			return var_new_int(var_get_int(v));
-		case V_FLOAT:
-			return var_new_float(var_get_int(v));
-		case V_STRING:
-			return var_new_str(var_get_str(v));
-		/*case V_BOOL:
-			return var_new_bool(var_get_bool(v));
-		case V_NULL:
-			return var_new_null(v->vm);
-		case V_UNDEF:
-			return var_new(v->vm);*/
+		case JSON_V_INT:
+			return json_var_new_int(json_var_json_get_int(v));
+		case JSON_V_FLOAT:
+			return json_var_new_float(json_var_json_get_int(v));
+		case JSON_V_STRING:
+			return json_var_new_str(json_var_json_get_str(v));
+		/*case JSON_V_BOOL:
+			return json_var_new_bool(json_var_json_get_bool(v));
+		case JSON_V_NULL:
+			return json_var_new_null(v->vm);
+		case JSON_V_UNDEF:
+			return json_var_new(v->vm);*/
 		default:
 			break;
 	}
@@ -607,66 +607,66 @@ static var_t* var_clone(var_t* v) {
 	return v; 
 }
 
-node_t* node_new(const char* name, var_t* var) {
-	node_t* node = (node_t*)malloc(sizeof(node_t));
-	memset(node, 0, sizeof(node_t));
+json_node_t* json_node_new(const char* name, json_var_t* var) {
+	json_node_t* node = (json_node_t*)malloc(sizeof(json_node_t));
+	memset(node, 0, sizeof(json_node_t));
 
 	node->magic = 1;
 	uint32_t len = (uint32_t)strlen(name);
 	node->name = (char*)malloc(len+1);
 	memcpy(node->name, name, len+1);
 	if(var != NULL)
-		//node->var = var_ref(var_clone(var));
-		node->var = var_ref(var);
+		//node->var = json_var_ref(json_var_clone(var));
+		node->var = json_var_ref(var);
 	else
-		node->var = var_ref(var_new());
+		node->var = json_var_ref(json_var_new());
 	return node;
 }
 
-static inline bool var_empty(var_t* var) {
+static inline bool json_var_empty(json_var_t* var) {
 	if(var == NULL)
 		return true;
 	return false;
 }
 
-void node_free(void* p) {
-	node_t* node = (node_t*)p;
+void json_node_free(void* p) {
+	json_node_t* node = (json_node_t*)p;
 	if(node == NULL)
 		return;
 
 	free(node->name);
-	if(!var_empty(node->var)) {
-		var_unref(node->var);
+	if(!json_var_empty(node->var)) {
+		json_var_unref(node->var);
 	}
 	free(node);
 }
 
-static inline bool node_empty(node_t* node) {
-	if(node == NULL || var_empty(node->var))
+static inline bool json_node_empty(json_node_t* node) {
+	if(node == NULL || json_var_empty(node->var))
 		return true;
 	return false;
 }
 
-inline var_t* node_replace(node_t* node, var_t* v) {
-	var_t* old = node->var;
-	//node->var = var_ref(var_clone(v));
-	node->var = var_ref(v);
-	var_unref(old);
+inline json_var_t* json_node_replace(json_node_t* node, json_var_t* v) {
+	json_var_t* old = node->var;
+	//node->var = json_var_ref(json_var_clone(v));
+	node->var = json_var_ref(v);
+	json_var_unref(old);
 	return v;
 }
 
-inline void var_remove_all(var_t* var) {
+inline void json_var_remove_all(json_var_t* var) {
 	/*free children*/
-	array_clean(&var->children, node_free);
+	json_array_clean(&var->children, json_node_free);
 }
 
-static inline node_t* var_find_raw(var_t* var, const char*name) {
-	if(var_empty(var))
+static inline json_node_t* json_var_find_raw(json_var_t* var, const char*name) {
+	if(json_var_empty(var))
 		return NULL;
 
 	uint32_t i;
 	for(i=0; i<var->children.size; i++) {
-		node_t* node = (node_t*)var->children.items[i];
+		json_node_t* node = (json_node_t*)var->children.items[i];
 		if(node != NULL && node->name != NULL) {
 			if(strcmp(node->name, name) == 0) {
 				return node;
@@ -676,142 +676,142 @@ static inline node_t* var_find_raw(var_t* var, const char*name) {
 	return NULL;
 }
 
-node_t* var_add(var_t* var, const char* name, var_t* add) {
-	node_t* node = NULL;
+json_node_t* json_var_add(json_var_t* var, const char* name, json_var_t* add) {
+	json_node_t* node = NULL;
 
 	if(name[0] != 0) 
-		node = var_find_raw(var, name);
+		node = json_var_find_raw(var, name);
 
 	if(node == NULL) {
-		node = node_new(name, add);
-		array_add(&var->children, node);
+		node = json_node_new(name, add);
+		json_array_add(&var->children, node);
 	}
 	else if(add != NULL)
-		node_replace(node, add);
+		json_node_replace(node, add);
 
 	return node;
 }
 
-node_t* var_add_head(var_t* var, const char* name, var_t* add) {
-	return var_add(var, name, add);
+json_node_t* json_var_add_head(json_var_t* var, const char* name, json_var_t* add) {
+	return json_var_add(var, name, add);
 }
 
-inline node_t* var_find(var_t* var, const char*name) {
-	node_t* node = var_find_raw(var, name);
-	if(node_empty(node))
+inline json_node_t* json_var_find(json_var_t* var, const char*name) {
+	json_node_t* node = json_var_find_raw(var, name);
+	if(json_node_empty(node))
 		return NULL;
 	return node;
 }
 
-inline var_t* var_find_var(var_t* var, const char*name) {
-	node_t* node = var_find(var, name);
+inline json_var_t* json_var_find_var(json_var_t* var, const char*name) {
+	json_node_t* node = json_var_find(var, name);
 	if(node == NULL)
 		return NULL;
 	return node->var;
 }
 
-inline node_t* var_find_create(var_t* var, const char*name) {
-	node_t* n = var_find(var, name);
+inline json_node_t* json_var_find_create(json_var_t* var, const char*name) {
+	json_node_t* n = json_var_find(var, name);
 	if(n != NULL)
 		return n;
-	n = var_add(var, name, NULL);
+	n = json_var_add(var, name, NULL);
 	return n;
 }
 
-node_t* var_get(var_t* var, int32_t index) {
-	node_t* node = (node_t*)array_get(&var->children, index);
-	if(node_empty(node))
+json_node_t* json_var_get(json_var_t* var, int32_t index) {
+	json_node_t* node = (json_node_t*)json_array_get(&var->children, index);
+	if(json_node_empty(node))
 		return NULL;
 	return node;
 }
 
-node_t* var_array_get(var_t* var, int32_t index) {
-	var_t* arr_var = var_find_var(var, "_ARRAY_");
+json_node_t* json_var_array_get(json_var_t* var, int32_t index) {
+	json_var_t* arr_var = json_var_find_var(var, "_ARRAY_");
 	if(arr_var == NULL)
 		return NULL;
 
 	int32_t i;
 	for(i=arr_var->children.size; i<=index; i++) {
-		var_add(arr_var, "", NULL);
+		json_var_add(arr_var, "", NULL);
 	}
 
-	node_t* node = (node_t*)array_get(&arr_var->children, index);
-	if(node_empty(node))
+	json_node_t* node = (json_node_t*)json_array_get(&arr_var->children, index);
+	if(json_node_empty(node))
 		return NULL;
 	return node;
 }
 
-var_t* var_array_get_var(var_t* var, int32_t index) {
-	node_t* n = var_array_get(var, index);
+json_var_t* json_var_array_get_var(json_var_t* var, int32_t index) {
+	json_node_t* n = json_var_array_get(var, index);
 	if(n != NULL)
 		return n->var;
 	return NULL;
 }
 
-node_t* var_array_set(var_t* var, int32_t index, var_t* set_var) {
-	node_t* node = var_array_get(var, index);
+json_node_t* json_var_array_set(json_var_t* var, int32_t index, json_var_t* set_var) {
+	json_node_t* node = json_var_array_get(var, index);
 	if(node != NULL)
-		node_replace(node, set_var);
+		json_node_replace(node, set_var);
 	return node;
 }
 
-node_t* var_array_add(var_t* var, var_t* add_var) {
-	node_t* ret = NULL;
-	var_t* arr_var = var_find_var(var, "_ARRAY_");
+json_node_t* json_var_array_add(json_var_t* var, json_var_t* add_var) {
+	json_node_t* ret = NULL;
+	json_var_t* arr_var = json_var_find_var(var, "_ARRAY_");
 	if(arr_var != NULL)
-		ret = var_add(arr_var, "", add_var);
+		ret = json_var_add(arr_var, "", add_var);
 	return ret;
 }
 
-node_t* var_array_add_head(var_t* var, var_t* add_var) {
-	node_t* ret = NULL;
-	var_t* arr_var = var_find_var(var, "_ARRAY_");
+json_node_t* json_var_array_add_head(json_var_t* var, json_var_t* add_var) {
+	json_node_t* ret = NULL;
+	json_var_t* arr_var = json_var_find_var(var, "_ARRAY_");
 	if(arr_var != NULL)
-		ret = var_add_head(arr_var, "", add_var);
+		ret = json_var_add_head(arr_var, "", add_var);
 	return ret;
 }
 
-uint32_t var_array_size(var_t* var) {
-	var_t* arr_var = var_find_var(var, "_ARRAY_");
+uint32_t json_var_array_size(json_var_t* var) {
+	json_var_t* arr_var = json_var_find_var(var, "_ARRAY_");
 	if(arr_var == NULL)
 		return 0;
 	return arr_var->children.size;
 }
 
-void var_array_reverse(var_t* arr) {
-	uint32_t sz = var_array_size(arr);
+void json_var_array_reverse(json_var_t* arr) {
+	uint32_t sz = json_var_array_size(arr);
 	uint32_t i;
 	for(i=0; i<sz/2; ++i) {
-		node_t* n1 = var_array_get(arr, i);
-		node_t* n2 = var_array_get(arr, sz-i-1);
+		json_node_t* n1 = json_var_array_get(arr, i);
+		json_node_t* n2 = json_var_array_get(arr, sz-i-1);
 		if(n1 != NULL && n2 != NULL) {
-			var_t* tmp = n1->var;
+			json_var_t* tmp = n1->var;
 			n1->var = n2->var;
 			n2->var = tmp;
 		}
 	}
 }
 
-node_t* var_array_remove(var_t* var, int32_t index) {
-	var_t* arr_var = var_find_var(var, "_ARRAY_");
+json_node_t* json_var_array_remove(json_var_t* var, int32_t index) {
+	json_var_t* arr_var = json_var_find_var(var, "_ARRAY_");
 	if(arr_var == NULL)
 		return NULL;
-	return (node_t*)array_remove(&arr_var->children, index);
+	return (json_node_t*)json_array_remove(&arr_var->children, index);
 }
 
-void var_array_del(var_t* var, int32_t index) {
-	var_t* arr_var = var_find_var(var, "_ARRAY_");
+void json_var_array_del(json_var_t* var, int32_t index) {
+	json_var_t* arr_var = json_var_find_var(var, "_ARRAY_");
 	if(arr_var == NULL)
 		return;
-	array_del(&arr_var->children, index, node_free);
+	json_array_del(&arr_var->children, index, json_node_free);
 }
 
-inline void var_clean(var_t* var) {
-	if(var_empty(var))
+inline void json_var_clean(json_var_t* var) {
+	if(json_var_empty(var))
 		return;
 	/*free children*/
 	if(var->children.size > 0)
-		var_remove_all(var);	
+		json_var_remove_all(var);	
 
 	/*free value*/
 	if(var->value != NULL) {
@@ -822,60 +822,60 @@ inline void var_clean(var_t* var) {
 		var->value = NULL;
 	}
 
-	var_t* next = var->next; //backup next
-	var_t* prev = var->prev; //backup prev
-	memset(var, 0, sizeof(var_t));
+	json_var_t* next = var->next; //backup next
+	json_var_t* prev = var->prev; //backup prev
+	memset(var, 0, sizeof(json_var_t));
 	var->next = next;
 	var->prev = prev;
 }
 
-static const char* get_typeof(var_t* var) {
+static const char* get_typeof(json_var_t* var) {
 	switch(var->type) {
-		case V_UNDEF:
+		case JSON_V_UNDEF:
 			return "undefined";
-		case V_INT:
-		case V_FLOAT:
+		case JSON_V_INT:
+		case JSON_V_FLOAT:
 			return "number";
-		case V_BOOL: 
+		case JSON_V_BOOL: 
 			return "boolean";
-		case V_STRING: 
+		case JSON_V_STRING: 
 			return "string";
-		case V_NULL: 
+		case JSON_V_NULL: 
 			return "null";
-		case V_OBJECT: 
+		case JSON_V_OBJECT: 
 			return "object";
 	}
 	return "undefined";
 }
 
-inline var_t* var_new(void) {
-	var_t* var = NULL;
-    uint32_t sz = sizeof(var_t);
-	var = (var_t*)malloc(sz);
+inline json_var_t* json_var_new(void) {
+	json_var_t* var = NULL;
+    uint32_t sz = sizeof(json_var_t);
+	var = (json_var_t*)malloc(sz);
 
-	memset(var, 0, sizeof(var_t));
-	var->type = V_UNDEF;
+	memset(var, 0, sizeof(json_var_t));
+	var->type = JSON_V_UNDEF;
 	return var;
 }
 
-static inline void var_free(void* p) {
-  var_t* var = (var_t*)p;
-  if(var_empty(var))
+static inline void json_var_free(void* p) {
+  json_var_t* var = (json_var_t*)p;
+  if(json_var_empty(var))
     return;
 
   //clean var.
-  var_clean(var);
-  var->type = V_UNDEF; 
+  json_var_clean(var);
+  var->type = JSON_V_UNDEF; 
   free(var);
 }   
   
-inline var_t* var_ref(var_t* var) {
+inline json_var_t* json_var_ref(json_var_t* var) {
   ++var->refs;
   return var;
 } 
     
-inline void var_unref(var_t* var) {
-  if(var_empty(var))
+inline void json_var_unref(json_var_t* var) {
+  if(json_var_empty(var))
     return;
 
   if(var->refs > 0)
@@ -884,68 +884,68 @@ inline void var_unref(var_t* var) {
   if(var->refs == 0) {
     /*referenced count is 0, means this variable not be referenced anymore,
     free it immediately.*/
-    var_free(var);
+    json_var_free(var);
   }
 }
 
-inline var_t* var_new_array(void) {
-	var_t* var = var_new_obj(NULL, NULL);
-	var->is_array = 1;
-	var_t* members = var_new_obj(NULL, NULL);
-	var_add(var, "_ARRAY_", members);
+inline json_var_t* json_var_new_array(void) {
+	json_var_t* var = json_var_new_obj(NULL, NULL);
+	var->json_is_array = 1;
+	json_var_t* members = json_var_new_obj(NULL, NULL);
+	json_var_add(var, "_ARRAY_", members);
 	return var;
 }
 
-inline var_t* var_new_int(int i) {
-	var_t* var = var_new();
-	var->type = V_INT;
+inline json_var_t* json_var_new_int(int i) {
+	json_var_t* var = json_var_new();
+	var->type = JSON_V_INT;
 	var->value = malloc(sizeof(int));
 	*((int*)var->value) = i;
 	return var;
 }
 
-inline var_t* var_new_null(void) {
-	var_t* var = var_new();
-	var->type = V_NULL;
+inline json_var_t* json_var_new_null(void) {
+	json_var_t* var = json_var_new();
+	var->type = JSON_V_NULL;
 	return var;
 }
 
-inline var_t* var_new_bool(bool b) {
-	var_t* var = var_new();
-	var->type = V_BOOL;
+inline json_var_t* json_var_new_bool(bool b) {
+	json_var_t* var = json_var_new();
+	var->type = JSON_V_BOOL;
 	var->value = malloc(sizeof(int));
 	*((int*)var->value) = b;
 	return var;
 }
 
-inline var_t* var_new_obj(void*p, free_func_t fr) {
-	var_t* var = var_new();
-	var->type = V_OBJECT;
+inline json_var_t* json_var_new_obj(void*p, free_func_t fr) {
+	json_var_t* var = json_var_new();
+	var->type = JSON_V_OBJECT;
 	var->value = p;
 	var->free_func = fr;
 	return var;
 }
 
-inline var_t* var_new_float(float i) {
-	var_t* var = var_new();
-	var->type = V_FLOAT;
+inline json_var_t* json_var_new_float(float i) {
+	json_var_t* var = json_var_new();
+	var->type = JSON_V_FLOAT;
 	var->value = malloc(sizeof(float));
 	*((float*)var->value) = i;
 	return var;
 }
 
-inline var_t* var_new_str(const char* s) {
-	var_t* var = var_new();
-	var->type = V_STRING;
+inline json_var_t* json_var_new_str(const char* s) {
+	json_var_t* var = json_var_new();
+	var->type = JSON_V_STRING;
 	var->size = (uint32_t)strlen(s);
 	var->value = malloc(var->size + 1);
 	memcpy(var->value, s, var->size + 1);
 	return var;
 }
 
-inline var_t* var_new_str2(const char* s, uint32_t len) {
-	var_t* var = var_new();
-	var->type = V_STRING;
+inline json_var_t* json_var_new_str2(const char* s, uint32_t len) {
+	json_var_t* var = json_var_new();
+	var->type = JSON_V_STRING;
 	var->size = (uint32_t)strlen(s);
 	if(var->size > len)
 		var->size = len;
@@ -955,18 +955,18 @@ inline var_t* var_new_str2(const char* s, uint32_t len) {
 	return var;
 }
 
-inline const char* var_get_str(var_t* var) {
+inline const char* json_var_json_get_str(json_var_t* var) {
 	if(var == NULL || var->value == NULL)
 		return "";
 	
 	return (const char*)var->value;
 }
 
-inline var_t* var_set_str(var_t* var, const char* v) {
+inline json_var_t* json_var_set_str(json_var_t* var, const char* v) {
 	if(v == NULL)
 		return var;
 
-	var->type = V_STRING;
+	var->type = JSON_V_STRING;
 	if(var->value != NULL)
 		free(var->value);
 	uint32_t len = (uint32_t)strlen(v)+1;
@@ -975,23 +975,23 @@ inline var_t* var_set_str(var_t* var, const char* v) {
 	return var;
 }
 
-inline bool var_get_bool(var_t* var) {
+inline bool json_var_json_get_bool(json_var_t* var) {
 	if(var == NULL || var->value == NULL)
 		return false;
 	int i = (int)(*(int*)var->value);
 	return i==0 ? false:true;
 }
 
-inline int var_get_int(var_t* var) {
+inline int json_var_json_get_int(json_var_t* var) {
 	if(var == NULL || var->value == NULL)
 		return 0;
-	if(var->type == V_FLOAT)	
+	if(var->type == JSON_V_FLOAT)	
 		return (int)(*(float*)var->value);
 	return *(int*)var->value;
 }
 
-inline var_t* var_set_int(var_t* var, int v) {
-	var->type = V_INT;
+inline json_var_t* json_var_set_int(json_var_t* var, int v) {
+	var->type = JSON_V_INT;
 	if(var->value != NULL)
 		free(var->value);
 	var->value = malloc(sizeof(int));
@@ -999,17 +999,17 @@ inline var_t* var_set_int(var_t* var, int v) {
 	return var;
 }
 
-inline float var_get_float(var_t* var) {
+inline float json_var_json_get_float(json_var_t* var) {
 	if(var == NULL || var->value == NULL)
 		return 0.0;
 	
-	if(var->type == V_INT)	
+	if(var->type == JSON_V_INT)	
 		return (float)(*(int*)var->value);
 	return *(float*)var->value;
 }
 
-inline var_t* var_set_float(var_t* var, float v) {
-	var->type = V_FLOAT;
+inline json_var_t* json_var_set_float(json_var_t* var, float v) {
+	var->type = JSON_V_FLOAT;
 	if(var->value != NULL)
 		free(var->value);
 	var->value = malloc(sizeof(int));
@@ -1037,7 +1037,7 @@ static void get_m_str(const char* str, str_t* ret) {
 	str_addc(ret, '"');
 }
 
-void var_to_str(var_t* var, str_t* ret) {
+void json_var_to_str(json_var_t* var, str_t* ret) {
 	str_reset(ret);
 	if(var == NULL) {
 		str_cpy(ret, "undefined");
@@ -1045,22 +1045,22 @@ void var_to_str(var_t* var, str_t* ret) {
 	}
 
 	switch(var->type) {
-	case V_INT:
-		str_cpy(ret, str_from_int(var_get_int(var), 10));
+	case JSON_V_INT:
+		str_cpy(ret, str_from_int(json_var_json_get_int(var), 10));
 		break;
-	case V_FLOAT:
-		str_cpy(ret, str_from_float(var_get_float(var)));
+	case JSON_V_FLOAT:
+		str_cpy(ret, str_from_float(json_var_json_get_float(var)));
 		break;
-	case V_STRING:
-		str_cpy(ret, var_get_str(var));
+	case JSON_V_STRING:
+		str_cpy(ret, json_var_json_get_str(var));
 		break;
-	case V_OBJECT:
-		var_to_json_str(var, ret, 0);
+	case JSON_V_OBJECT:
+		json_var_to_json_str(var, ret, 0);
 		break;
-	case V_BOOL:
-		str_cpy(ret, var_get_int(var) == 1 ? "true":"false");
+	case JSON_V_BOOL:
+		str_cpy(ret, json_var_json_get_int(var) == 1 ? "true":"false");
 		break;
-	case V_NULL:
+	case JSON_V_NULL:
 		str_cpy(ret, "null");
 		break;
 	default:
@@ -1069,12 +1069,12 @@ void var_to_str(var_t* var, str_t* ret) {
 	}
 }
 
-static void get_parsable_str(var_t* var, str_t* ret) {
+static void get_parsable_str(json_var_t* var, str_t* ret) {
 	str_reset(ret);
 
 	str_t* s = str_new("");
-	var_to_str(var, s);
-	if(var->type == V_STRING)
+	json_var_to_str(var, s);
+	if(var->type == JSON_V_STRING)
 		get_m_str(s->cstr, ret);
 	else
 		str_cpy(ret, s->cstr);
@@ -1090,44 +1090,44 @@ static void append_json_spaces(str_t* ret, int level) {
 }
 
 static bool _done_arr_inited = false;
-void var_to_json_str(var_t* var, str_t* ret, int level) {
+void json_var_to_json_str(json_var_t* var, str_t* ret, int level) {
 	str_reset(ret);
 
 	uint32_t i;
 
 	//check if done to avoid dead recursion
-	static m_array_t done;
+	static json_array_t done;
 	if(level == 0) {
 		if(!_done_arr_inited) {		
-			array_init(&done);
+			json_array_init(&done);
 			_done_arr_inited = true;
 		}
-		array_remove_all(&done);
+		json_array_remove_all(&done);
 	}
-	if(var->type == V_OBJECT) {
+	if(var->type == JSON_V_OBJECT) {
 		uint32_t sz = done.size;
 		for(i=0; i<sz; ++i) {
 			if(done.items[i] == var) { //already done before.
 				str_cpy(ret, "{}");
 				if(level == 0)
-					array_remove_all(&done);
+					json_array_remove_all(&done);
 				return;
 			}
 		}
-		array_add(&done, var);
+		json_array_add(&done, var);
 	}
 
-	if (var->is_array) {
+	if (var->json_is_array) {
 		str_addc(ret, '[');
-		uint32_t len = var_array_size(var);
+		uint32_t len = json_var_array_size(var);
 		if (len>100) len=100; // we don't want to get stuck here!
 
 		uint32_t i;
 		for (i=0;i<len;i++) {
-			node_t* n = var_array_get(var, i);
+			json_node_t* n = json_var_array_get(var, i);
 
 			str_t* s = str_new("");
-			var_to_json_str(n->var, s, level);
+			json_var_to_json_str(n->var, s, level);
 			str_add(ret, s->cstr);
 			str_free(s);
 
@@ -1136,7 +1136,7 @@ void var_to_json_str(var_t* var, str_t* ret, int level) {
 		}
 		str_addc(ret, ']');
 	}
-	else if (var->type == V_OBJECT) {
+	else if (var->type == JSON_V_OBJECT) {
 		// children - handle with bracketed list
 		int sz = (int)var->children.size;
 		if(sz > 0)
@@ -1147,7 +1147,7 @@ void var_to_json_str(var_t* var, str_t* ret, int level) {
 		int i;
 		bool had = false;
 		for(i=0; i<sz; ++i) {
-			node_t* n = var_get(var, i);
+			json_node_t* n = json_var_get(var, i);
 			if(strcmp(n->name, "prototype") == 0)
 				continue;
 			if(had)
@@ -1160,7 +1160,7 @@ void var_to_json_str(var_t* var, str_t* ret, int level) {
 			str_add(ret, ": ");
 
 			str_t* s = str_new("");
-			var_to_json_str(n->var, s, level+1);
+			json_var_to_json_str(n->var, s, level+1);
 			str_add(ret, s->cstr);
 			str_free(s);
 		}
@@ -1180,78 +1180,78 @@ void var_to_json_str(var_t* var, str_t* ret, int level) {
 	}
 
 	if(level == 0) {
-		array_remove_all(&done);
+		json_array_remove_all(&done);
 	}
 }
 
-const char* get_str_def(var_t* var, const char* name, const char* def) {
+const char* json_get_str_def(json_var_t* var, const char* name, const char* def) {
 	if(var == NULL)
 		return def;
 
-	var_t* v = get_obj(var, name);
-	return v == NULL ? def : var_get_str(v);
+	json_var_t* v = json_get_obj(var, name);
+	return v == NULL ? def : json_var_json_get_str(v);
 }
 
-int get_int_def(var_t* var, const char* name, int def) {
+int json_get_int_def(json_var_t* var, const char* name, int def) {
 	if(var == NULL)
 		return def;
 
-	var_t* v = get_obj(var, name);
-	return v == NULL ? def : var_get_int(v);
+	json_var_t* v = json_get_obj(var, name);
+	return v == NULL ? def : json_var_json_get_int(v);
 }
 
-bool get_bool_def(var_t* var, const char* name, bool def) {
+bool json_get_bool_def(json_var_t* var, const char* name, bool def) {
 	if(var == NULL)
 		return def;
 
-	var_t* v = get_obj(var, name);
-	return v == NULL ? def : var_get_bool(v);
+	json_var_t* v = json_get_obj(var, name);
+	return v == NULL ? def : json_var_json_get_bool(v);
 }
 
-float get_float_def(var_t* var, const char* name, float def) {
+float json_get_float_def(json_var_t* var, const char* name, float def) {
 	if(var == NULL)
 		return def;
 
-	var_t* v = get_obj(var, name);
-	return v == NULL ? def : var_get_float(v);
+	json_var_t* v = json_get_obj(var, name);
+	return v == NULL ? def : json_var_json_get_float(v);
 }
 
-inline const char* get_str(var_t* var, const char* name) {
-	return get_str_def(var, name, "");
+inline const char* json_get_str(json_var_t* var, const char* name) {
+	return json_get_str_def(var, name, "");
 }
 
-inline int get_int(var_t* var, const char* name) {
-	return get_int_def(var, name, 0);
+inline int json_get_int(json_var_t* var, const char* name) {
+	return json_get_int_def(var, name, 0);
 }
 
-inline bool get_bool(var_t* var, const char* name) {
-	return get_bool_def(var, name, false);
+inline bool json_get_bool(json_var_t* var, const char* name) {
+	return json_get_bool_def(var, name, false);
 }
 
-inline float get_float(var_t* var, const char* name) {
-	return get_float_def(var, name, 0.0);
+inline float json_get_float(json_var_t* var, const char* name) {
+	return json_get_float_def(var, name, 0.0);
 }
 
-var_t* get_obj(var_t* var, const char* name) {
+json_var_t* json_get_obj(json_var_t* var, const char* name) {
 	//if(strcmp(name, THIS) == 0)
 	//	return var;
-	node_t* n = var_find(var, name);
+	json_node_t* n = json_var_find(var, name);
 	if(n == NULL)
 		return NULL;
 	return n->var;
 }
 
-void* get_raw(var_t* var, const char* name) {
-	var_t* v = get_obj(var, name);
+void* json_get_raw(json_var_t* var, const char* name) {
+	json_var_t* v = json_get_obj(var, name);
 	if(v == NULL)
 		return NULL;
 	return v->value;
 }
 
-node_t* json_find(var_t* var, const char* path_name) {
+json_node_t* json_find(json_var_t* var, const char* path_name) {
 	str_t *name = str_new("");
 	bool end = false;
-	node_t* node = NULL;
+	json_node_t* node = NULL;
 	while(!end) {
 		char c = *path_name++;
 		if(c != 0 && c != '/') {
@@ -1260,7 +1260,7 @@ node_t* json_find(var_t* var, const char* path_name) {
 		}
 
 		if(name->len > 0) {
-			node = var_find(var, name->cstr);
+			node = json_var_find(var, name->cstr);
 			if(node == NULL)
 				break;
 			var = node->var; 
@@ -1274,8 +1274,8 @@ node_t* json_find(var_t* var, const char* path_name) {
 	return node;
 }
 
-var_t*  json_find_var(var_t* var, const char* path_name) {
-	node_t* node = json_find(var, path_name);
+json_var_t*  json_find_var(json_var_t* var, const char* path_name) {
+	json_node_t* node = json_find(var, path_name);
 	if(node == NULL)
 		return NULL;
 	return node->var;

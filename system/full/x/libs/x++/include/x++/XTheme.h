@@ -19,7 +19,7 @@ public:
 	void setFont(const char* name, uint32_t size);
 
 	void loadSystem(void);
-	void loadConfig(var_t* conf_var);
+	void loadConfig(json_var_t* conf_var);
 
 	inline font_t* getFont(void) {
 			return font;
