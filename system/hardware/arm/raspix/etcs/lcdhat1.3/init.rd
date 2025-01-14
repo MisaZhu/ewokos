@@ -1,5 +1,6 @@
 /bin/ipcserv /drivers/raspix/lcdhatd        /dev/fb0 
-#/bin/ipcserv /drivers/raspix/hat13_joykeybd /dev/keyb0
+/bin/ipcserv /drivers/raspix/hat13_joykeybd /dev/keyb0
+/bin/ipcserv /drivers/vjoystickd               /dev/vjoystick /dev/keyb0
 #/bin/ipcserv /drivers/raspix/hat13_joystickd /dev/joystick
 
 /bin/ipcserv /drivers/fontd                 /dev/font
@@ -16,8 +17,8 @@
 
 @/bin/ipcserv /sbin/sessiond
 
-@/sbin/x/xim_none /dev/keyb0 esc_home&
-#@/sbin/x/xjoystickd /dev/joystick&
+@/sbin/x/xim_none   /dev/vjoystick &
+@/sbin/x/xjoymoused /dev/vjoystick &
 @/sbin/x/xim_vkey &
 
 @/bin/x/xsession misa &
