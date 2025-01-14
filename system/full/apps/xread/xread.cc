@@ -144,6 +144,7 @@ int main(int argc, char** argv) {
 
 	MyText* text = new MyText();
 	c->add(text);
+	root->focus(text);
 	win.text = text;
 
 	Scroller* scrollerV = new Scroller();

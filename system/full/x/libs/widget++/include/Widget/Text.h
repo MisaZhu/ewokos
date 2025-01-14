@@ -24,6 +24,7 @@ protected:
 	void updateScroller();
 
 	bool onMouse(xevent_t* ev);
+	bool onIM(xevent_t* ev);
 
 public: 
 	Text();

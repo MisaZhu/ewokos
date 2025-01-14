@@ -1,5 +1,6 @@
 #include <Widget/Text.h>
 #include <ewoksys/utf8unicode.h>
+#include <ewoksys/keydef.h>
 
 namespace Ewok {
 
@@ -67,6 +68,23 @@ bool Text::onMouse(xevent_t* ev) {
 	return true;
 }
 
+bool Text::onIM(xevent_t* ev) {
+	if(ev->state != XIM_STATE_PRESS)
+		return false;
+
+	if(ev->value.im.value == KEY_UP ||
+			ev->value.im.value == JOYSTICK_UP) {
+		scroll(4, true);
+		return true;
+	}
+	if(ev->value.im.value == KEY_DOWN ||
+			ev->value.im.value == JOYSTICK_DOWN) {
+		scroll(-4, true);
+		return true;
+	}
+	return false;
+}
+
 void Text::updateScroller() {
 	setScrollerInfo(contentSize, offset, pageSize, false);
 }
@@ -96,20 +114,24 @@ bool Text::onScroll(int step, bool horizontal) {
 		return false;
 	int old_off = offset;
 	//back to prev line start
-	if(step > 0) {
-		offset -= 2;
-		scrollBack();	
-	}
-	else {
-		//offset++;
-		scrollForward();	
-	}
+	int s = abs(step);
+	while(s != 0) {
+		s--;
+		if(step > 0) {
+			offset -= 2;
+			scrollBack();	
+		}
+		else {
+			//offset++;
+			scrollForward();	
+		}
 
-	if(offset < 0)
-		offset = 0;
-	else if(offset >= contentSize) {
-		offset -= 2;
-		scrollBack();	
+		if(offset < 0)
+			offset = 0;
+		else if(offset >= contentSize) {
+			offset -= 2;
+			scrollBack();	
+		}
 	}
 
 	if(offset == old_off)
