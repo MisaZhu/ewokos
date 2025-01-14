@@ -179,7 +179,9 @@ static int draw_win(graph_t* disp_g, x_t* xp, xwin_t* win) {
 	}
 
 	draw_win_frame(xp, win);
-	if(xp->current.win_drag == win && (win->xinfo->style & XWIN_STYLE_NO_FRAME) == 0)
+	if(xp->current.win_drag == win &&
+			(win->xinfo->style & XWIN_STYLE_NO_FRAME) == 0 &&
+			win->xinfo->state != XWIN_STATE_MAX)
 		draw_drag_frame(xp, win->xinfo->display_index);
 
 	win->dirty = false;
@@ -1148,7 +1150,9 @@ static void mouse_xwin_handle(x_t* x, xwin_t* win, int pos, xevent_t* ev) {
 		if(pos == FRAME_R_RESIZE) //window resize
 			return;
 
-		if(x->current.win_drag == win && x->current.drag_state != 0) {
+		if(x->current.win_drag == win &&
+				x->current.drag_state != 0 &&
+				win->xinfo->state != XWIN_STATE_MAX) {
 			ev->type = XEVT_WIN;
 			ev->value.window.v0 =  x->current.pos_delta.x;
 			ev->value.window.v1 =  x->current.pos_delta.y;

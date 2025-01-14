@@ -192,7 +192,7 @@ int main(int argc, char* argv[]) {
 	X x;
 	XSession xwin;
 	xwin.open(&x, 0, 0, 0, 0, 0, "XSessioin", XWIN_STYLE_NO_FRAME | XWIN_STYLE_SYSTOP);
-	xwin.fullscreen();
+	xwin.max();
 	xwin.callXIM();
 
 	x.run(NULL);

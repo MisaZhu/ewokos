@@ -74,7 +74,7 @@ public:
 	void repaint(void);
 	void resizeTo(int w, int h);
 	void resize(int dw, int dh);
-	void fullscreen(void);
+	void max(void);
 	void moveTo(int x, int y);
 	void move(int dx, int dy);
 	void setDisplay(int index);
