@@ -104,8 +104,15 @@ xwin_t* xwin_open(x_t* xp, uint32_t disp_index, int x, int y, int w, int h, cons
 	ret->xinfo->display_index = disp_index;
 	memcpy(&ret->xinfo->wsr, &r, sizeof(grect_t));
 	strncpy(ret->xinfo->title, title, XWIN_TITLE_MAX-1);
+
 	xwin_update_info(ret, X_UPDATE_REBUILD | X_UPDATE_REFRESH);
 
+	const char* auto_fscr = getenv("XFULLSCREEN");
+	if(auto_fscr != NULL &&
+			(style & XWIN_STYLE_NO_TITLE) == 0 &&
+			(style & XWIN_STYLE_NO_RESIZE) == 0 &&
+			(style & XWIN_STYLE_NO_FRAME) == 0)
+		xwin_fullscreen(ret);
 	return ret;
 }
 

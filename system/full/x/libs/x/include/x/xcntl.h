@@ -54,8 +54,7 @@ enum {
 #define XWIN_STYLE_SYSBOTTOM 0x40
 #define XWIN_STYLE_XIM       0x80
 #define XWIN_STYLE_LAUNCHER  0x100
-#define XWIN_STYLE_ANTI_FSCR 0x200 //anti full screen
-#define XWIN_STYLE_PROMPT    0x400 //prompt win
+#define XWIN_STYLE_PROMPT    0x200 //prompt win
 
 #define XWIN_TITLE_MAX 32
 typedef struct {

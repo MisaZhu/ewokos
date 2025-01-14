@@ -1,3 +1,5 @@
+#@export XFULLSCREEN=yes
+
 @export XTHEME=openlook
 @/sbin/x/xwm_openlook &
 
