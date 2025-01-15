@@ -16,7 +16,8 @@
 #include "shell.h"
 
 bool _script_mode = false;
-bool _stdio_inited = false;
+bool _stdio_tty_inited = false;
+bool _stdio_console_inited = false;
 bool _terminated = false;
 
 old_cmd_t* _history = NULL;
@@ -158,22 +159,26 @@ static int do_pipe_cmd(char* p1, char* p2) {
 
 static int run_cmd(char* cmd) {
 	char* proc = NULL;
+	bool inQ = false;
 	while(*cmd != 0) {
 		char c = *cmd++;
-		if(proc == NULL && c == ' ')
+		if(c == '"') 
+			inQ = !inQ;
+		
+		if(!inQ && proc == NULL && c == ' ')
 			continue;
 
-		if(c == '>') { //redirection
+		if(!inQ && c == '>') { //redirection
 			*(cmd-1) = 0;	
 			redir(cmd, 0); //redir OUT.
 			return do_cmd(proc);
 		}
-		else if(c == '<') { //redirection
+		else if(!inQ && c == '<') { //redirection
 			*(cmd-1) = 0;	
 			redir(cmd, 1); //redir in.
 			return do_cmd(proc);
 		}
-		else if(c == '|') { //pipe
+		else if(!inQ && c == '|') { //pipe
 			*(cmd-1) = 0;	
 			return do_pipe_cmd(proc, cmd);
 		}
@@ -198,8 +203,8 @@ static void prompt(void) {
 		printf("\033[4m[%s]:%s$\033[0m ", cid, getcwd(cwd, FS_FULL_NAME_MAX));
 }
 
-static int init_console_stdio(void) {
-	if(_stdio_inited)
+static int init_stdio(void) {
+	if(_stdio_console_inited)
 		return 0;
 
 	const char* tty_dev = "/dev/console0";
@@ -212,23 +217,65 @@ static int init_console_stdio(void) {
 		dup2(fd, VFS_BACKUP_FD1);
 		close(fd);
 		setenv("CONSOLE_ID", tty_dev);
-		_stdio_inited = true;
+		_stdio_console_inited = true;
+		return 0;
+	}
+
+	if(_stdio_tty_inited)
+		return 0;
+
+	tty_dev = "/dev/tty0";
+	fd = open(tty_dev, O_RDWR);
+	if(fd > 0) {
+		dup2(fd, 0);
+		dup2(fd, 1);
+		dup2(fd, 2);
+		dup2(fd, VFS_BACKUP_FD0);
+		dup2(fd, VFS_BACKUP_FD1);
+		close(fd);
+		setenv("CONSOLE_ID", tty_dev);
+		_stdio_tty_inited = true;
 		return 0;
 	}
 	return -1;
 }
 
+static bool _initrd_mode = false; 
+static int doargs(int argc, char* argv[]) {
+	int c = 0;
+	while (c != -1) {
+		c = getopt (argc, argv, "i");
+		if(c == -1)
+			break;
+
+		switch (c) {
+		case 'i':
+			_initrd_mode = true;
+			break;
+		case '?':
+			return -1;
+		default:
+			c = -1;
+			break;
+		}
+	}
+	return optind;
+}
+
 int main(int argc, char* argv[]) {
 	_script_mode = false;
-	_stdio_inited = false;
+	_stdio_tty_inited = false;
+	_stdio_console_inited = false;
 	_history = NULL;
 	_terminated = 0;
 	setbuf(stdout, NULL);
 	setbuf(stderr, NULL);
 
+	int argind = doargs(argc, argv);
+
 	int fd_in = 0;
-	if(argc > 1) {
-		fd_in = open(argv[1], O_RDONLY);
+	if(argind < argc) {
+		fd_in = open(argv[argind], O_RDONLY);
 		if(fd_in < 0)
 			return -1;
 		_script_mode = true;
@@ -242,8 +289,8 @@ int main(int argc, char* argv[]) {
 	chdir(home);
 	str_t* cmdstr = str_new("");
 	while(_terminated == 0) {
-		if(_script_mode)
-			init_console_stdio();
+		if(_initrd_mode)
+			init_stdio();
 
 		if(fd_in == 0)
 			prompt();

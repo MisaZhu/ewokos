@@ -1,3 +1,5 @@
+/bin/ipcserv /drivers/raspix/uartd         /dev/tty0
+
 /bin/ipcserv /drivers/raspix/rpi_lcdd      /dev/fb0
 /bin/ipcserv /drivers/displayd             /dev/display /dev/fb0
 /bin/ipcserv /drivers/fontd                /dev/font

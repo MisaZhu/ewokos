@@ -1,10 +1,15 @@
-/bin/ipcserv /drivers/timerd          /dev/timer
+/bin/ipcserv /drivers/versatilepb/ttyd /dev/tty0
 
-/bin/ipcserv /drivers/versatilepb/fbd        /dev/fb0
-/bin/ipcserv /drivers/displayd        /dev/display /dev/fb0
-/bin/ipcserv /drivers/fontd           /dev/font
+/bin/ipcserv /drivers/versatilepb/fbd  /dev/fb0
+/bin/ipcserv /drivers/displayd         /dev/display /dev/fb0
+/bin/ipcserv /drivers/fontd            /dev/font
+/bin/ipcserv /drivers/consoled         0
 
-/bin/ipcserv /drivers/consoled        0
+@echo "+---------------------------------------+\n"
+@echo "|  < EwokOS MicroKernel >               |\n" 
+@echo "+---------------------------------------+\n"
+
+/bin/ipcserv /drivers/timerd                 /dev/timer
 
 /bin/ipcserv /drivers/versatilepb/ps2keybd   /dev/keyb0
 /bin/ipcserv /drivers/versatilepb/ps2moused  /dev/mouse0
@@ -27,7 +32,7 @@
 /sbin/x/xmoused /dev/mouse0 &
 /sbin/x/xim_none /dev/keyb0 &
 
-/bin/load_font
+@/bin/load_font
 
 /bin/ipcserv /drivers/xserverd        /dev/x
 @/bin/x/xsession misa &

@@ -25,6 +25,10 @@ char* parse(const char* s, uint32_t* rlen) {
 		}
 		else if(s[i] == 'e' && esc != 0) //
 			ret[j] = 033;
+		else if(s[i] == 'n' && esc != 0) //
+			ret[j] = '\n';
+		else if(s[i] == 'r' && esc != 0) //
+			ret[j] = '\r';
 		else 
 			ret[j] = s[i];
 		esc = 0;

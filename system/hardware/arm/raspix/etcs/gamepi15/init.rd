@@ -1,3 +1,5 @@
+/bin/ipcserv /drivers/raspix/uartd         /dev/tty0
+
 /bin/ipcserv /drivers/raspix/lcdhatd        /dev/fb0
 
 #left button as joystick pins: up down left right press
