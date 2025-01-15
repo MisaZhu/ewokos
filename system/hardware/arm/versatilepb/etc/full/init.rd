@@ -27,6 +27,7 @@
 /sbin/x/xmoused /dev/mouse0 &
 /sbin/x/xim_none /dev/keyb0 &
 
+/bin/load_font
 
 /bin/ipcserv /drivers/xserverd        /dev/x
 @/bin/x/xsession misa &

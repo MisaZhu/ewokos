@@ -17,7 +17,7 @@ typedef struct {
 extern ttf_item_t _ttfs[TTF_MAX];
 
 char* font_cmd(int from_pid, int argc, char** argv, void* p);
-void  load_config(void);
-int   font_open(const char* name, const char* fname, int ppm, int ttf_index);
+void  load_config(bool basic);
+int   font_open(const char* name, const char* fname);
 
 #endif

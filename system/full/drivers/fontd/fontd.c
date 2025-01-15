@@ -81,30 +81,47 @@ static int font_open_size(int ttf_index, int ppm) {
 	return j;
 }
 
-int font_open(const char* name, const char* fname, int ppm, int ttf_index) {
-	if(ttf_index < 0) { //TTF not loaded.
-		int i;
-		for(i=0;i < TTF_MAX; i++) {
-			if(_ttfs[i].ttf == NULL)
-				break;
+int font_open(const char* name, const char* fname) {
+	for(int i=0; i<TTF_MAX; i++) {
+		if(_ttfs[i].ttf != NULL &&
+				strcmp(name, _ttfs[i].name) == 0) {
+			return i;
 		}
-		if(i >= TTF_MAX)
-			return -1;
-
-		ttf_t* ttf = ttf_load(fname);
-		if(ttf == NULL)
-			return -1;
-
-		_ttfs[i].ttf = ttf;
-		strncpy(_ttfs[i].name, name, NAME_LEN-1);
-		strncpy(_ttfs[i].fname, fname, FNAME_LEN-1);
-		ttf_index = i;
 	}
 
-	return font_open_size(ttf_index, ppm);
+	int i;
+	for(i=0;i < TTF_MAX; i++) {
+		if(_ttfs[i].ttf == NULL)
+			break;
+	}
+	if(i >= TTF_MAX)
+		return -1;
+
+	ttf_t* ttf = ttf_load(fname);
+	if(ttf == NULL)
+		return -1;
+
+	_ttfs[i].ttf = ttf;
+	strncpy(_ttfs[i].name, name, NAME_LEN-1);
+	strncpy(_ttfs[i].fname, fname, FNAME_LEN-1);
+	return i;
 }
 
 static int font_dev_load(proto_t* in, proto_t* ret) {
+	const char* name = proto_read_str(in);
+	const char* fname = proto_read_str(in);
+
+	if(name == NULL || fname == NULL) {
+		PF->init(ret)->addi(ret, -1);
+		return 0;
+	}
+
+	int res = font_open(name, fname);
+	PF->init(ret)->addi(ret, res);
+	return 0;
+}
+
+static int font_dev_new_inst(proto_t* in, proto_t* ret) {
 	const char* name = proto_read_str(in);
 	int ppm = proto_read_int(in);
 
@@ -124,7 +141,7 @@ static int font_dev_load(proto_t* in, proto_t* ret) {
 	return 0;
 }
 
-static int font_dev_close(proto_t* in, proto_t* ret) {
+static int font_dev_free_inst(proto_t* in, proto_t* ret) {
 	int i = proto_read_int(in);
 	if(i >= FONT_MAX)
 		return -1;
@@ -187,8 +204,11 @@ static int font_dev_cntl(int from_pid, int cmd, proto_t* in, proto_t* ret, void*
 	if(cmd == FONT_DEV_LOAD) {
 		return font_dev_load(in, ret);
 	}
-	else if(cmd == FONT_DEV_CLOSE) {
-		return font_dev_close(in, ret);
+	else if(cmd == FONT_DEV_NEW_INSTANCE) {
+		return font_dev_new_inst(in, ret);
+	}
+	else if(cmd == FONT_DEV_FREE_INSTANCE) {
+		return font_dev_free_inst(in, ret);
 	}
 	else if(cmd == FONT_DEV_GET) {
 		return font_dev_get(in, ret);
@@ -209,7 +229,7 @@ int main(int argc, char** argv) {
 	dev.dev_cntl = font_dev_cntl;
 	dev.cmd = font_cmd;
 
-	load_config();
+	font_open(DEFAULT_SYSTEM_FONT, DEFAULT_SYSTEM_FONT_FILE);
 
 	device_run(&dev, mnt_point, FS_TYPE_CHAR, 0444);
 	font_dev_quit();

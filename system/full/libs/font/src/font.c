@@ -28,7 +28,7 @@ static int font_load_inst(const char* name, uint16_t ppm, font_inst_t* inst) {
 
 	int ret = -1;
 	inst->id = -1;
-	if(dev_cntl_by_pid(_font_dev_pid, FONT_DEV_LOAD, &in, &out) == 0) {
+	if(dev_cntl_by_pid(_font_dev_pid, FONT_DEV_NEW_INSTANCE, &in, &out) == 0) {
 		inst->id = proto_read_int(&out);
 		inst->ppm = ppm;
 		inst->max_size.x = proto_read_int(&out);
@@ -167,7 +167,7 @@ int font_close(font_t* font) {
 		if(inst->ppm != 0) {
 			proto_t in;
 			PF->init(&in)->addi(&in, inst->id);
-			dev_cntl_by_pid(_font_dev_pid, FONT_DEV_CLOSE, &in, NULL);
+			dev_cntl_by_pid(_font_dev_pid, FONT_DEV_FREE_INSTANCE, &in, NULL);
 			PF->clear(&in);
 			inst->ppm = 0;
 		}	

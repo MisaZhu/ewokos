@@ -15,7 +15,8 @@ extern "C" {
 
 enum {
     FONT_DEV_LOAD = 0,
-    FONT_DEV_CLOSE,
+    FONT_DEV_NEW_INSTANCE,
+    FONT_DEV_FREE_INSTANCE,
     FONT_DEV_GET,
     FONT_DEV_LIST
 };

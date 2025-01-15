@@ -7,7 +7,7 @@ LDFLAGS = -L$(BUILD_DIR)/lib
 
 CFLAGS += -I $(BUILD_DIR)/include
 
-FONTD_OBJS = fontd.o cmd.o config.o
+FONTD_OBJS = fontd.o cmd.o
 
 FONTD = $(TARGET_DIR)/drivers/fontd
 
