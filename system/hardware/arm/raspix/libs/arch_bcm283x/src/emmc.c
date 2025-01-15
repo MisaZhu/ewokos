@@ -149,9 +149,9 @@ inline void _delay_msec(uint32_t count) {
  * Wait for data or command ready
  */
 static inline int32_t sd_status(uint32_t mask) {
-	int32_t cnt = 1000; 
+	int32_t cnt = 100000; 
 	while((*EMMC_STATUS & mask) != 0 && (*EMMC_INTERRUPT & INT_ERROR_MASK) == 0 && cnt-- > 0){
-		_delay_msec(1);
+		_delay_usec(1);
 	}
 
 	// if(cnt <= 0 || (*EMMC_INTERRUPT & INT_ERROR_MASK)){
@@ -426,8 +426,8 @@ int32_t emmc2_init(void) {
 	if(sd_err)
 		return sd_err;
 	
-	if((r=sd_clk(12500000)))
-	//if((r=sd_clk(25000000)))
+	//if((r=sd_clk(12500000)))
+	if((r=sd_clk(25000000)))
 		return r;
 
 	if(sd_status(SR_DAT_INHIBIT))
