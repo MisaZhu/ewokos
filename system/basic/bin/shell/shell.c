@@ -198,6 +198,26 @@ static void prompt(void) {
 		printf("\033[4m[%s]:%s$\033[0m ", cid, getcwd(cwd, FS_FULL_NAME_MAX));
 }
 
+static int init_console_stdio(void) {
+	if(_stdio_inited)
+		return 0;
+
+	const char* tty_dev = "/dev/console0";
+	int fd = open(tty_dev, O_RDWR);
+	if(fd > 0) {
+		dup2(fd, 0);
+		dup2(fd, 1);
+		dup2(fd, 2);
+		dup2(fd, VFS_BACKUP_FD0);
+		dup2(fd, VFS_BACKUP_FD1);
+		close(fd);
+		setenv("CONSOLE_ID", tty_dev);
+		_stdio_inited = true;
+		return 0;
+	}
+	return -1;
+}
+
 int main(int argc, char* argv[]) {
 	_script_mode = false;
 	_stdio_inited = false;
@@ -222,6 +242,9 @@ int main(int argc, char* argv[]) {
 	chdir(home);
 	str_t* cmdstr = str_new("");
 	while(_terminated == 0) {
+		if(_script_mode)
+			init_console_stdio();
+
 		if(fd_in == 0)
 			prompt();
 
