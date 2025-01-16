@@ -20,18 +20,18 @@
 /bin/ipcserv /drivers/proc/sysinfod         /proc/sysinfo
 /bin/ipcserv /drivers/proc/stated           /proc/state
 
-/bin/ipcserv /drivers/raspix/wland          /dev/wl0
-/bin/ipcserv /drivers/netd                  /dev/net0 /dev/wl0
+#/bin/ipcserv /drivers/raspix/wland          /dev/wl0
+#/bin/ipcserv /drivers/netd                  /dev/net0 /dev/wl0
+#@/bin/telnetd &
 
-@/bin/telnetd &
+/bin/ipcserv /sbin/sessiond
+#/bin/session -r &
 
-@/bin/ipcserv /sbin/sessiond
-@/bin/session -r &
 
-@/bin/ipcserv /drivers/xserverd              /dev/x
+/sbin/x/xjoystickd /dev/joystick0 &
+/sbin/x/xmoused /dev/mouse0 &
+/sbin/x/xim_none &
 
-@/sbin/x/xjoystickd /dev/joystick0 &
-@/sbin/x/xmoused /dev/mouse0 &
-@/sbin/x/xim_none &
-
+/bin/load_font
+/bin/ipcserv /drivers/xserverd              /dev/x
 @/bin/x/xsession misa &
