@@ -18,6 +18,7 @@
 
 #/bin/ipcserv /drivers/versatilepb/smc91c111d /dev/eth0
 #/bin/ipcserv /drivers/netd             /dev/net0 /dev/eth0
+#/sbin/telnetd &
 
 /bin/ipcserv /drivers/versatilepb/powerd     /dev/power0
 
@@ -29,18 +30,11 @@
 /bin/ipcserv /sbin/sessiond
 /bin/session -r -t /dev/tty0 &
 
-#@/sbin/telnetd &
-
-/sbin/x/xmoused /dev/mouse0 &
-/sbin/x/xim_none /dev/keyb0 &
-
-@/bin/load_font
-
+/bin/load_font
 /bin/ipcserv /drivers/xserverd        /dev/x
-/bin/session -r &
 
-/bin/ipcserv /drivers/consoled         1
-/bin/session -r -t /dev/console1 &
+@/sbin/x/xmoused /dev/mouse0 &
+@/sbin/x/xim_none /dev/keyb0 &
 
-@/bin/x/xsession misa &
+@/bin/x/xsession  &
 

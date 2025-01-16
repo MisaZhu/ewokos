@@ -1,4 +1,5 @@
 #include <ewoksys/vdevice.h>
+#include <ewoksys/vfs.h>
 #include <font/font.h>
 #include <tinyjson/tinyjson.h>
 #include <string.h>
@@ -19,9 +20,17 @@ static int font_load_font(const char* name, const char* fname) {
 	if(_font_dev_pid < 0)
 		return -1;
 
+	str_t* sname = str_new("");
+	if(name == NULL) {
+		vfs_parse_name(fname, NULL, sname);
+		name = CS(sname);
+	}
+	printf("  %s ... ", name);
+
 	proto_t in, out;
 	PF->init(&out);
 	PF->format(&in, "s,s", name, fname);
+	str_free(sname);
 
 	int ret = -1;
 	if(dev_cntl_by_pid(_font_dev_pid, FONT_DEV_LOAD, &in, &out) == 0) {
@@ -30,6 +39,11 @@ static int font_load_font(const char* name, const char* fname) {
 
 	PF->clear(&in);
 	PF->clear(&out);
+
+	if(ret < 0)
+		printf("[error]\n");
+	else
+		printf("[OK]\n");
 	return ret;
 }
 
@@ -51,9 +65,7 @@ static void font_load_config() {
 		json_var_t* v = json_var_array_get_var(var, i);
 		const char* name = json_get_str(v, "name");
 		const char* fname = json_get_str(v, "file");
-		printf(" %24s ... ", name);
 		font_load_font(name, fname);
-		printf("[ok]\n");
 	}
 	json_var_unref(var);
 }
@@ -67,6 +79,11 @@ int main(int argc, char** argv) {
             return -1;
         return 0;
     }
+	else if(argc > 1) {
+        if(font_load_font(NULL, argv[1]) < 0)
+            return -1;
+        return 0;
+	}
     
     font_load_config();
     return 0;
