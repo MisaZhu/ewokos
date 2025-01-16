@@ -37,5 +37,10 @@
 @/bin/load_font
 
 /bin/ipcserv /drivers/xserverd        /dev/x
+/bin/session -r &
+
+/bin/ipcserv /drivers/consoled         1
+/bin/session -r -t /dev/console1 &
+
 @/bin/x/xsession misa &
 
