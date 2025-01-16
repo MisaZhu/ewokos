@@ -15,7 +15,7 @@ int font_init(void) {
 	return 0;
 }
 
-static int font_load_inst(const char* name, const char* fname) {
+static int font_load_font(const char* name, const char* fname) {
 	if(_font_dev_pid < 0)
 		return -1;
 
@@ -52,7 +52,7 @@ static void font_load_config() {
 		const char* name = json_get_str(v, "name");
 		const char* fname = json_get_str(v, "file");
 		printf(" %24s ... ", name);
-		font_load_inst(name, fname);
+		font_load_font(name, fname);
 		printf("[ok]\n");
 	}
 	json_var_unref(var);
@@ -63,7 +63,7 @@ int main(int argc, char** argv) {
 	setbuf(stdout, NULL);
 
     if(argc > 2) {
-        if(font_load_inst(argv[1], argv[2]) < 0)
+        if(font_load_font(argv[1], argv[2]) < 0)
             return -1;
         return 0;
     }

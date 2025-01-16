@@ -153,6 +153,7 @@ public:
 	}
 
 	void loadFont() {
+		setItemNum(0);
 		proto_t ret;
 		PF->init(&ret);
 		if(dev_cntl("/dev/font", FONT_DEV_LIST, NULL, &ret) != 0)

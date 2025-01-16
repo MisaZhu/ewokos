@@ -3,5 +3,5 @@
     {"name": "Sono-Regular", "file": "/usr/system/fonts/Sono-Regular.ttf"},
     {"name": "Salsa-Regular", "file": "/usr/system/fonts/Salsa-Regular.ttf"},
     {"name": "KodeMono-Medium", "file": "/usr/system/fonts/KodeMono-Medium.ttf"},
-    {"name": "system.cn", "file": "/usr/system/fonts/system_cn.ttf"}
+    {"name": "system-cn", "file": "/usr/system/fonts/system-cn.ttf"}
 ]
