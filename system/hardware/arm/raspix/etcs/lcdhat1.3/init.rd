@@ -3,7 +3,9 @@
 /bin/ipcserv /drivers/raspix/lcdhatd        /dev/fb0 
 /bin/ipcserv /drivers/displayd              /dev/display /dev/fb0
 /bin/ipcserv /drivers/fontd                 /dev/font
+
 /bin/ipcserv /drivers/consoled              /dev/console0
+@export INIT_OUT_DEV=/dev/console0
 
 /bin/ipcserv /drivers/raspix/hat13_joykeybd /dev/keyb0
 /bin/ipcserv /drivers/vjoystickd               /dev/vjoystick /dev/keyb0

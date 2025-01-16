@@ -16,8 +16,7 @@
 #include "shell.h"
 
 bool _script_mode = false;
-bool _stdio_tty_inited = false;
-bool _stdio_console_inited = false;
+bool _stdio_inited = false;
 bool _terminated = false;
 
 old_cmd_t* _history = NULL;
@@ -204,10 +203,20 @@ static void prompt(void) {
 }
 
 static int init_stdio(void) {
-	if(_stdio_console_inited)
+	static bool dev_set = false;
+	const char* tty_dev = "/dev/tty0";
+	if(!dev_set) {
+		const char* dev = getenv("INIT_OUT_DEV");
+		if(dev != NULL) {
+			dev_set = true;
+			_stdio_inited = false;
+			tty_dev = dev;
+		}
+	}
+
+	if(_stdio_inited)
 		return 0;
 
-	const char* tty_dev = "/dev/console0";
 	int fd = open(tty_dev, O_RDWR);
 	if(fd > 0) {
 		dup2(fd, 0);
@@ -217,26 +226,10 @@ static int init_stdio(void) {
 		dup2(fd, VFS_BACKUP_FD1);
 		close(fd);
 		setenv("CONSOLE_ID", tty_dev);
-		_stdio_console_inited = true;
+		_stdio_inited = true;
 		return 0;
 	}
 
-	if(_stdio_tty_inited)
-		return 0;
-
-	tty_dev = "/dev/tty0";
-	fd = open(tty_dev, O_RDWR);
-	if(fd > 0) {
-		dup2(fd, 0);
-		dup2(fd, 1);
-		dup2(fd, 2);
-		dup2(fd, VFS_BACKUP_FD0);
-		dup2(fd, VFS_BACKUP_FD1);
-		close(fd);
-		setenv("CONSOLE_ID", tty_dev);
-		_stdio_tty_inited = true;
-		return 0;
-	}
 	return -1;
 }
 
@@ -264,8 +257,7 @@ static int doargs(int argc, char* argv[]) {
 
 int main(int argc, char* argv[]) {
 	_script_mode = false;
-	_stdio_tty_inited = false;
-	_stdio_console_inited = false;
+	_stdio_inited = false;
 	_history = NULL;
 	_terminated = 0;
 	setbuf(stdout, NULL);

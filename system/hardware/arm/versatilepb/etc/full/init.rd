@@ -3,7 +3,9 @@
 /bin/ipcserv /drivers/versatilepb/fbd  /dev/fb0
 /bin/ipcserv /drivers/displayd         /dev/display /dev/fb0
 /bin/ipcserv /drivers/fontd            /dev/font
+
 /bin/ipcserv /drivers/consoled         0
+@export INIT_OUT_DEV=/dev/console0
 
 @echo "+---------------------------------------+\n"
 @echo "|  < EwokOS MicroKernel >               |\n" 
