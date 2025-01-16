@@ -19,8 +19,8 @@
 
 /sbin/x/xim_none   /dev/vjoystick &
 /sbin/x/xjoymoused /dev/vjoystick &
-/sbin/x/xim_vkey 560 168&
 
 /bin/load_font
 /bin/ipcserv /drivers/xserverd             /dev/x
-@/bin/x/xsession &
+@/sbin/x/xim_vkey 560 168&
+@/bin/x/xsession misa &
