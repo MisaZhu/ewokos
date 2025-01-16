@@ -51,7 +51,7 @@ static void font_load_config() {
 		json_var_t* v = json_var_array_get_var(var, i);
 		const char* name = json_get_str(v, "name");
 		const char* fname = json_get_str(v, "file");
-		printf(" %s: %s ... ", name, fname);
+		printf(" %24s ... ", name);
 		font_load_inst(name, fname);
 		printf("[ok]\n");
 	}
