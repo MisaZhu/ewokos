@@ -1,0 +1,6 @@
+target("3ddemo")
+    set_type("application")
+	add_deps("libferox", "libx", "libx++", "libcxx")
+    add_files("main.cpp")
+    install_dir("apps/3ddemo")
+target_end()
