@@ -20,7 +20,6 @@ class XIMX : public XWin {
 	const char* keytable[2];
 	int keytableType;
 
-	int kbFD;
 	font_t* font;
 
 	gsize_t scrSize;
@@ -370,20 +369,28 @@ public:
 	}
 
 	inline ~XIMX() {
-		if(kbFD > 0)
-			::close(kbFD);
-		::close(xPid);
 		if(font == NULL)
 			font_free(font);
 	}
 };
 
+static void waitX() {
+	while(true) {
+		int pid = dev_get_pid("/dev/x");
+		if(pid > 0)
+			break;
+		proc_usleep(300000);
+	}
+}
+
 int main(int argc, char* argv[]) {
+	waitX();
+
 	X x;
 	xscreen_t scr;
 	x.getScreenInfo(scr, 0);
 
-	int pw = scr.size.w/2;
+	int pw = scr.size.w;
 	int ph = scr.size.h/2;
 	if(argc > 1)
 		pw = atoi(argv[1]);
