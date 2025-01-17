@@ -44,8 +44,7 @@ class ScreenSaver : public XWin {
 private:
 	frWorld *world = 0;
 	frBody *walls[MAX_WALL_COUNT];
-	uint32_t lastSec;
-    uint64_t lastUsec;
+    	uint64_t lastTs;
 	graph_t  *particle;
 	int width = 0;
 	int height = 0;
@@ -66,7 +65,7 @@ private:
 
 public:
 	inline ScreenSaver() {
-        kernel_tic(&lastSec, &lastUsec);
+        	kernel_tic(NULL, &lastTs);
 		particle = graph_new((uint32_t*)object, 32, 32);
  	}
 	
@@ -196,16 +195,14 @@ protected:
 
 public:
     void waitForNextFrame(){
-        uint32_t sec;
-        uint64_t usec;
+        uint64_t now;
         int wait;
 
-        kernel_tic(&sec, &usec);
-        wait = 1000000/60 - ((sec - lastSec) * 1000000 + (usec - lastUsec));
+        kernel_tic(NULL, &now);
+        wait = 16667 - (now - lastTs);
         if(wait > 0)
             proc_usleep(wait);
-
-        kernel_tic(&lastSec, &lastUsec);
+	lastTs = now;
     }
 };
 

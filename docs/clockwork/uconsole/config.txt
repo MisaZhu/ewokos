@@ -1,0 +1,25 @@
+disable_overscan=1
+dtparam=audio=on
+[pi4]
+dtoverlay=vc4-fkms-v3d
+max_framebuffers=2
+
+[all]
+dtoverlay=dwc2,dr_mode=host
+dtoverlay=vc4-kms-v3d-pi4,cma-384
+dtoverlay=devterm-pmu
+dtoverlay=devterm-panel
+dtoverlay=devterm-misc
+dtoverlay=audremap,pins_12_13
+
+dtparam=spi=on
+gpio=10=ip,np
+
+
+enable_uart=1
+force_turbo=1
+core_freq=250
+uart_2ndstage=1
+
+initramfs kernel7.img 0x2000000
+kernel=stage3.bin

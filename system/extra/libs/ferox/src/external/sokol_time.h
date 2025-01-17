@@ -220,10 +220,9 @@ SOKOL_API_IMPL void stm_setup(void) {
     #elif defined(__EMSCRIPTEN__)
         _stm.start = emscripten_get_now();
     #else
-		uint32_t sec;
         uint64_t usec;
-        kernel_tic(&sec, &usec);
-        _stm.start = (uint64_t)sec * 1000000000 + usec*1000;
+        kernel_tic(NULL, &usec);
+        _stm.start = usec*1000;
     #endif
 }
 
@@ -241,10 +240,9 @@ SOKOL_API_IMPL uint64_t stm_now(void) {
         double js_now = emscripten_get_now() - _stm.start;
         now = (uint64_t) (js_now * 1000000.0);
     #else
-		uint32_t sec;
         uint64_t usec;
-        kernel_tic(&sec, &usec);
-        now = (uint64_t)sec * 1000000000 + usec * 1000 - _stm.start;
+        kernel_tic(NULL, &usec);
+        now = usec * 1000 - _stm.start;
     #endif
     return now;
 }
