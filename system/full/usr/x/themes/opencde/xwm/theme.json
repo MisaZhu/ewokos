@@ -11,5 +11,5 @@
     "font_size": 13,
     "title_h": 20,
     "frame_width": 4,
-    "pattern": "images/pattern.png"
+    "pattern": "/usr/system/images/patterns/pattern.png"
 }
