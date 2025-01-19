@@ -155,6 +155,7 @@ int main(int argc, char** argv) {
 	apps->loadApps();
 	apps->setItemSize(72, 72);
 	root->add(apps);
+	root->focus(apps);
 
 	Scroller* scrollerV = new Scroller();
 	scrollerV->fix(8, 0);

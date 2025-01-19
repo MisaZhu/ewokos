@@ -197,6 +197,7 @@ int main(int argc, char** argv) {
 	AppList* apps = new AppList();
 	apps->loadConfig();
 	root->add(apps);
+	root->focus(apps);
 
 	grect_t desk;
 	x.getDesktopSpace(desk, 0);
