@@ -46,7 +46,7 @@ static int fb_fcntl(int fd,
 
 static void draw_bg(graph_t* g) {
 	if(graph_2d_boosted_bsp())
-		graph_clear(g, 0xff000000);
+		graph_gradation(g, 0, 0, g->w, g->h, 0xff8888ff, 0xff000000, true);
 	else
 		graph_clear(g, 0xffffffff);
 }
