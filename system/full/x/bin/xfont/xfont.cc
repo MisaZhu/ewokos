@@ -1,0 +1,110 @@
+#include <Widget/WidgetWin.h>
+#include <Widget/Label.h>
+#include <x++/X.h>
+#include <unistd.h>
+#include <string>
+#include <font/font.h>
+#include <ewoksys/kernel_tic.h>
+#include <pthread.h>
+
+using namespace Ewok;
+
+class FontWidget: public Widget {
+public:
+	font_t* font;
+	bool fontLoaded;
+	EwokSTL::string fontName;
+	EwokSTL::string fontFileName;
+
+	static void* loadThread(void* p) {
+		FontWidget* fw = (FontWidget*)p;
+		if(font_load(fw->fontName.c_str(), fw->fontFileName.c_str()) >= 0) {
+			fw->font = font_new(fw->fontName.c_str(), false);
+			if(fw->font != NULL)
+				fw->fontLoaded = true;
+		}
+		return NULL;
+	}
+
+private:
+	void drawLoading(graph_t* g, XTheme* theme, const grect_t& r) {
+		font_t* ft = theme->getFont();
+		EwokSTL::string text = "[ ";
+		text += fontName + " ... ]";
+		
+		graph_fill(g, r.x, r.y, r.w, theme->basic.fontSize+4, theme->basic.titleBGColor);
+		graph_draw_text_font(g, r.x+10, r.y, text.c_str(),
+			ft, 12, theme->basic.docFGColor);
+	}
+
+protected:
+
+	void onRepaint(graph_t* g, XTheme* theme, const grect_t& r) {
+		graph_fill(g, r.x, r.y, r.w, r.h, theme->basic.docBGColor);
+		if(!fontLoaded) {
+			drawLoading(g, theme, r);
+			return;
+		}
+
+		uint16_t margin = 2;
+		uint32_t y = 0;
+
+
+		graph_fill(g, r.x, y, r.w, theme->basic.fontSize+margin*2, theme->basic.titleBGColor);
+		EwokSTL::string text = "[ font: ";
+		text += fontName + " ]";
+		graph_draw_text_font(g, r.x+10, y, text.c_str(), font, theme->basic.fontSize, theme->basic.docFGColor);
+		y += theme->basic.fontSize + margin*2;
+
+		for(int i=0; i<2; i++) {
+			uint16_t size = (i+1) * 12;
+			graph_draw_text_font(g, r.x+10, y, "abcdefghijklmn", font, size, theme->basic.docFGColor);
+			y += size + margin;
+			graph_draw_text_font(g, r.x+10, y, "opqrstuvwxyz", font, size, theme->basic.docFGColor);
+			y += size + margin;
+			graph_draw_text_font(g, r.x+10, y, "0123456789.+-", font, size, theme->basic.docFGColor);
+			y += size + margin;
+			graph_draw_text_font(g, r.x+10, y, "~!@#$%%^&*()", font, size, theme->basic.docFGColor);
+			y += size + margin;
+			graph_draw_text_font(g, r.x+10, y, "中文字体演示", font, size, theme->basic.docFGColor);
+			y += (size + margin)*2;
+		}
+	}
+
+	void onTimer(uint32_t timerFPS, uint32_t timerStep) {
+		if(timerStep == 0) {
+			pthread_t tid;
+			pthread_create(&tid, NULL, loadThread, this);
+		}
+		update();
+	}
+public: 
+	FontWidget(const char* fname) {
+		font = NULL;
+		fontLoaded = false;
+		fontFileName = fname;
+		fontName = font_name_by_fname(fontFileName.c_str());
+	}
+};
+
+int main(int argc, char** argv) {
+	if(argc < 2) {
+		return -1;
+	}
+
+	X x;
+	WidgetWin win;
+
+
+	RootWidget* root = new RootWidget();
+	win.setRoot(root);
+	root->setType(Container::HORIZONTAL);
+
+	FontWidget* fontW = new FontWidget(argv[1]);
+	root->add(fontW);
+
+	win.open(&x, 0, -1, -1, 240, 240, "xfont", XWIN_STYLE_NORMAL);
+	win.setTimer(8);
+	x.run(NULL, &win);
+	return 0;
+}

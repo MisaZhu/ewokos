@@ -46,12 +46,12 @@ class ImageView: public Scrollable {
 		uint32_t c2;
 		for(int i=0; ;i++) {
 			if((i%2) == 0) {
-				c1 = 0x88888888;
-				c2 = 0x884444444;
+				c1 = 0xff888888;
+				c2 = 0xff4444444;
 			}
 			else {
-				c2 = 0x88888888;
-				c1 = 0x88444444;
+				c2 = 0xff888888;
+				c1 = 0xff444444;
 			}
 
 			for(int j=0; ;j++) {

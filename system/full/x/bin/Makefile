@@ -4,6 +4,7 @@ all:
 	cd xsession; make
 	cd ttyjoy; make
 	cd ttyx; make
+	cd xfont; make
 
 clean:
 	cd xlauncher; make clean
@@ -11,3 +12,4 @@ clean:
 	cd xsession; make clean
 	cd ttyjoy; make clean
 	cd ttyx; make clean
+	cd xfont; make clean

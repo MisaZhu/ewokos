@@ -1,4 +1,4 @@
-SYS_DIR=../../..
+SYS_DIR=../../../..
 include $(SYS_DIR)/hardware/$(ARCH)/make.rule
 
 BUILD_DIR = $(SYS_DIR)/build
@@ -10,10 +10,9 @@ CXXFLAGS += -I $(BUILD_DIR)/include
 
 XFONT_OBJS = xfont.o
 
-XFONT_DIR = $(TARGET_DIR)/apps/xfont
-XFONT = $(XFONT_DIR)/xfont
+XFONT = $(TARGET_DIR)/bin/x/xfont
 
-all: $(XFONT_DIR) $(XFONT)
+all: $(XFONT)
 
 $(XFONT): $(XFONT_OBJS) \
 		$(EWOK_LIBC_A)  \
