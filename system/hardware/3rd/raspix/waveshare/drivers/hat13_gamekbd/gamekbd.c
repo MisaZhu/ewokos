@@ -26,6 +26,8 @@ static gpio_key_t _gpio_keys[] = {
 	{15, KEY_BUTTON_X},
 	{26, KEY_BUTTON_START},
 	{19, KEY_BUTTON_SELECT},
+	{14, KEY_BUTTON_R1},
+	{23, KEY_BUTTON_L1},
 	{0,  0}
 };
 
