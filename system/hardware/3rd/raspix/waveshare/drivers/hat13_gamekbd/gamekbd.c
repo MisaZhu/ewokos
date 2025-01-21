@@ -16,18 +16,20 @@ static bool _j_x_rev = false;
 static bool _j_y_rev = false;
 
 static gpio_key_t _gpio_keys[] = {
-	{6,  KEY_UP},
-	{19, KEY_DOWN},
-	{5,  KEY_LEFT},
-	{26, KEY_RIGHT},
-	{13, KEY_BUTTON_A},
-	{21, KEY_BUTTON_START},
-	{20, KEY_BUTTON_SELECT},
-	{16, KEY_HOME},
+	{5,  KEY_UP},
+	{6,  KEY_DOWN},
+	{16, KEY_LEFT},
+	{13, KEY_RIGHT},
+	{21, KEY_BUTTON_A},
+	{20, KEY_BUTTON_B},
+	{12, KEY_BUTTON_Y},
+	{15, KEY_BUTTON_X},
+	{26, KEY_BUTTON_START},
+	{19, KEY_BUTTON_SELECT},
 	{0,  0}
 };
 
-static int joystick_read(int fd, int from_pid, fsinfo_t* node,
+static int gamekb_read(int fd, int from_pid, fsinfo_t* node,
 		void* buf, int size, int offset, void* p) {
 	(void)fd;
 	(void)from_pid;
@@ -69,7 +71,7 @@ int main(int argc, char** argv) {
 	bcm283x_gpio_init();
 	init_gpio();
 
-	const char* mnt_point = argc > 1 ? argv[1]: "/dev/joykeyb";
+	const char* mnt_point = argc > 1 ? argv[1]: "/dev/gamekb";
 
 	_j_x_rev = false;
 	_j_y_rev = false;
@@ -82,8 +84,8 @@ int main(int argc, char** argv) {
 
 	vdevice_t dev;
 	memset(&dev, 0, sizeof(vdevice_t));
-	strcpy(dev.name, "joykeyb");
-	dev.read = joystick_read;
+	strcpy(dev.name, "gamekb");
+	dev.read = gamekb_read;
 
 	device_run(&dev, mnt_point, FS_TYPE_CHAR, 0444);
 	return 0;
