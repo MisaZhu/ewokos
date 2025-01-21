@@ -24,7 +24,7 @@ static void blt16(uint32_t* src, uint16_t* dst, uint32_t w, uint32_t h) {
 
 static uint32_t flush(const fbinfo_t* fbinfo, const graph_t* g) {
 	if(fbinfo->depth != 32 && fbinfo->depth != 16)
-		return -1;
+		return 0;
 
 	uint32_t sz = 4 * g->w * g->h;
 	if(fbinfo->depth == 16)
