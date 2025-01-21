@@ -695,32 +695,27 @@ int32_t ext2_node_by_fname(ext2_t* ext2, const char* filename, INODE* inode) {
 //TODO
 int32_t ext2_unlink(ext2_t* ext2, const char* fname) {
 	char buf[EXT2_BLOCK_SIZE];
-	str_t* dir = str_new("");
-	str_t* name = str_new("");
-	vfs_parse_name(fname, dir, name);
+	char dir[FS_FULL_NAME_MAX];
+	char name[FS_FULL_NAME_MAX];
+	vfs_dir_name(fname, dir, FS_FULL_NAME_MAX);
+	vfs_file_name(fname, name, FS_FULL_NAME_MAX);
 
-	uint32_t fino = ext2_ino_by_fname(ext2, CS(dir));
+	uint32_t fino = ext2_ino_by_fname(ext2, dir);
 	if(fino == 0) {
-		str_free(dir);
-		str_free(name);
 		return -1;
 	}
 
 	INODE* fnode = get_node_by_ino(ext2, fino, buf);
-	str_free(dir);
 	if(fnode == NULL) {
-		str_free(name);
 		return -1;
 	}
 
-	uint32_t ino = search(ext2, fnode, CS(name));
+	uint32_t ino = search(ext2, fnode, name);
 	if(ino == 0) {
-		str_free(name);
 		return -1;
 	}
 
-	ext2_rm_child(ext2, fnode, CS(name));
-	str_free(name);
+	ext2_rm_child(ext2, fnode, name);
 	if(put_node(ext2, fino, fnode) != 0)
 		return -1;
 

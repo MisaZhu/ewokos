@@ -87,10 +87,10 @@ const char*  font_name_by_fname(const char* fname) {
 	static char ret[128];
 	memset(ret, 0, 128);
 
-	str_t* sname = str_new("");
-	vfs_parse_name(fname, NULL, sname);
-	strncpy(ret, CS(sname), 127);
-	int i = sname->len - 1;
+	char sname[FS_FULL_NAME_MAX];
+	vfs_file_name(fname, sname, FS_FULL_NAME_MAX);
+	strncpy(ret, sname, 127);
+	int i = strlen(sname)-1;
 	while(i >= 0) {
 		if(ret[i] == '.') {
 			ret[i] = 0;
@@ -98,8 +98,6 @@ const char*  font_name_by_fname(const char* fname) {
 		}
 		--i;
 	}
-
-	str_free(sname);
 	return ret;
 }
 

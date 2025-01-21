@@ -32,10 +32,10 @@ void Grid::onRepaint(graph_t* g, XTheme* theme, const grect_t& r) {
 				x += iw;
 		}	
 
-		ir.x = r.x + x;
-		ir.y = r.y + y;
-		ir.w = iw;
-		ir.h = itemH;
+		ir.x = r.x + x + itemMargin;
+		ir.y = r.y + y + itemMargin;
+		ir.w = iw - itemMargin*2;
+		ir.h = itemH - itemMargin*2;
 
 		grect_t irc = {ir.x, ir.y, ir.w, ir.h};
 

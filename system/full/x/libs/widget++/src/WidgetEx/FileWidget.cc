@@ -54,7 +54,7 @@ class FileGrid: public Grid {
 				img = fileIcon;
 		}
 
-		uint32_t sz = fileWidget->getItemSize() - theme->basic.fontSize;
+		uint32_t sz = h - theme->basic.fontSize;
 		int dx = (w - img->w)/2;
 		int dy = (sz-img->h) / 2;
 		graph_blt_alpha(img, 0, 0, img->w, img->h,
@@ -73,8 +73,7 @@ class FileGrid: public Grid {
 		if(font == NULL)
 			return;
 
-		uint32_t sz = fileWidget->getItemSize();
-		y += sz - theme->basic.fontSize;
+		y += h - theme->basic.fontSize;
 		graph_draw_text_font(g, x, y, title, font, theme->basic.fontSize, theme->basic.fgColor);
 	}
 

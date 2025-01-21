@@ -27,10 +27,10 @@ void List::onRepaint(graph_t* g, XTheme* theme, const grect_t& r) {
 	if(defaultScrollType == SCROLL_TYPE_H) {
 		for(uint32_t i=0; i<num; i++) {
 			grect_t ir;
-			ir.x = r.x + i*itemSize;
-			ir.y = r.y;
-			ir.w = itemSize;
-			ir.h = r.h;
+			ir.x = r.x + i*itemSize + itemMargin;
+			ir.y = r.y + itemMargin;
+			ir.w = itemSize - itemMargin*2;
+			ir.h = r.h - itemMargin*2;
 			
 			grect_t irc = {ir.x, ir.y, ir.w, ir.h};
 
@@ -42,10 +42,10 @@ void List::onRepaint(graph_t* g, XTheme* theme, const grect_t& r) {
 	else {
 		for(uint32_t i=0; i<num; i++) {
 			grect_t ir;
-			ir.x = r.x;
-			ir.y = r.y + i*itemSize;
-			ir.w = r.w;
-			ir.h = itemSize;
+			ir.x = r.x + itemMargin;
+			ir.y = r.y + i*itemSize + itemMargin;
+			ir.w = r.w - itemMargin*2;
+			ir.h = itemSize - itemMargin*2;
 
 			grect_insect(&r, &ir);
 			graph_set_clip(g, ir.x, ir.y, ir.w, ir.h);

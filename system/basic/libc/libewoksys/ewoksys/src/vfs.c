@@ -561,28 +561,27 @@ void* vfs_readfile(const char* fname, int* rsz) {
 }
 
 int vfs_create(const char* fname, fsinfo_t* ret, int type, int mode, bool vfs_node_only, bool autodir) {
-	str_t *dir = str_new("");
-	str_t *name = str_new("");
-	vfs_parse_name(fname, dir, name);
+	char dir[FS_FULL_NAME_MAX];
+	char name[FS_FULL_NAME_MAX];
+	vfs_dir_name(fname, dir, FS_FULL_NAME_MAX);
+	vfs_file_name(fname, name, FS_FULL_NAME_MAX);
 
 	fsinfo_t info_to;
-	if(vfs_get_by_name(CS(dir), &info_to) != 0) {
+	if(vfs_get_by_name(dir, &info_to) != 0) {
 		int res_dir = -1;
 		if(autodir)
-			res_dir = vfs_create(CS(dir), &info_to, FS_TYPE_DIR, 0755, vfs_node_only, autodir);
-		if(res_dir != 0) {
-			str_free(dir);
-			str_free(name);
+			res_dir = vfs_create(dir, &info_to, FS_TYPE_DIR, 0755, vfs_node_only, autodir);
+		if(res_dir != 0)
 			return -1;
-		}
 	}
+
+	if(name == NULL || name[0] == 0)
+		return 0;
 
 	fsinfo_t fi;
 	memset(&fi, 0, sizeof(fsinfo_t));
-	strcpy(fi.name, CS(name));
+	strcpy(fi.name, name);
 	fi.type = type;
-	str_free(name);
-	str_free(dir);
 	if(type == FS_TYPE_DIR)
 		fi.stat.size = 1024;
 
@@ -614,29 +613,35 @@ int vfs_create(const char* fname, fsinfo_t* ret, int type, int mode, bool vfs_no
 	return res;
 }
 
-int vfs_parse_name(const char* fname, str_t* dir, str_t* name) {
-	str_t* fullstr = str_new(vfs_fullname(fname));
-	char* full = (char*)CS(fullstr);
-	int i = strlen(full);
+const char* vfs_dir_name(const char* fname, char* ret, uint32_t len) {
+	memset(ret, 0, len);
+	strncpy(ret, fname, len-1);
+	int i = strlen(ret)-1;
 	while(i >= 0) {
-		if(full[i] == '/') {
-			full[i] = 0;
+		if(ret[i] == '/') {
+			ret[i] = 0;
 			break;
 		}
 		--i;	
 	}
 
-	if(name != NULL)
-		str_cpy(name, full+i+1);
+	if(ret[0] == 0)
+		strcpy(ret, "/");
+	return ret;
+}
 
-	if(dir != NULL) {
-		str_cpy(dir, full);
-		if(CS(dir)[0] == 0)
-			str_cpy(dir, "/");
+const char* vfs_file_name(const char* fname, char* ret, uint32_t len) {
+	memset(ret, 0, len);
+	int i = strlen(fname)-1;
+	while(i >= 0) {
+		if(fname[i] == '/') {
+			break;
+		}
+		--i;	
 	}
-
-	str_free(fullstr);
-	return 0;
+	++i;
+	strncpy(ret, fname+i, len-1);
+	return ret;
 }
 
 int vfs_fcntl(int fd, int cmd, proto_t* arg_in, proto_t* arg_out) {

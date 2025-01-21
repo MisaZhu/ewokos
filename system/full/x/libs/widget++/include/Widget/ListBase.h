@@ -9,6 +9,7 @@ namespace Ewok {
 class ListBase: public Scrollable {
 protected:
 	uint32_t itemNum;
+	uint32_t itemMargin;
 	int32_t  itemStart;
 	int32_t  itemSelected;
 
@@ -29,6 +30,8 @@ public:
 	void setItemNum(uint32_t itemNum);
 	void select(int sel);
 	void enter(int sel);
+
+	void setItemMargin(uint32_t margin);
 
 	inline uint32_t getItemNum() { return itemNum; }
 	inline int32_t getSelected() { return itemSelected; }

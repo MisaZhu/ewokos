@@ -7,6 +7,7 @@ namespace Ewok {
 ListBase::ListBase() {
 	itemNum = 0;
 	itemStart = 0;
+	itemMargin = 0;
 	itemSelected = -1;
 }
 
@@ -76,6 +77,11 @@ void ListBase::enter(int sel) {
 
 void ListBase::setItemNum(uint32_t num) {
 	itemNum = num;
+	onResize();
+}
+
+void ListBase::setItemMargin(uint32_t margin) {
+	itemMargin = margin;
 	onResize();
 }
 
