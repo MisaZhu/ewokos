@@ -22,45 +22,16 @@ static void blt16(uint32_t* src, uint16_t* dst, uint32_t w, uint32_t h) {
 	}
 }
 
-static uint32_t flush(const fbinfo_t* fbinfo, const void* buf, uint32_t size, int rotate) {
+static uint32_t flush(const fbinfo_t* fbinfo, const graph_t* g) {
 	if(fbinfo->depth != 32 && fbinfo->depth != 16)
 		return -1;
 
-	uint32_t sz = 4 * fbinfo->width * fbinfo->height;
-	graph_t g;
-	if(rotate == G_ROTATE_N90 || rotate == G_ROTATE_90) {
-		graph_init(&g, buf, fbinfo->height, fbinfo->width);
-		if(_g == NULL) {
-			if(fbinfo->depth == 16)
-				_g = graph_new(NULL, fbinfo->width, fbinfo->height);
-			else
-				_g = graph_new(fbinfo->pointer, fbinfo->width, fbinfo->height);
-		}
-	}
-	else if(rotate == G_ROTATE_180) {
-		graph_init(&g, buf, fbinfo->width, fbinfo->height);
-		if(_g == NULL) {
-			if(fbinfo->depth == 16)
-				_g = graph_new(NULL, fbinfo->width, fbinfo->height);
-			else
-				_g = graph_new(fbinfo->pointer, fbinfo->width, fbinfo->height);
-		}
-	}
-
-	if(_g != NULL) {
-		graph_rotate_to(&g, _g, rotate);
-		if(fbinfo->depth == 16)
-			blt16(_g->buffer, fbinfo->pointer, fbinfo->width, fbinfo->height);
-		else if(fbinfo->pointer != _g->buffer)
-			memcpy((void*)fbinfo->pointer, _g->buffer, sz);
-	}
-	else  {
-		if(fbinfo->depth == 16)
-			blt16(buf, fbinfo->pointer, fbinfo->width, fbinfo->height);
-		else
-			memcpy((void*)fbinfo->pointer, buf, sz);
-	}
-	return size;
+	uint32_t sz = 4 * g->w * g->h;
+	if(fbinfo->depth == 16)
+		blt16(g->buffer, fbinfo->pointer, fbinfo->width, fbinfo->height);
+	else if(fbinfo->pointer != g->buffer)
+		memcpy((void*)fbinfo->pointer, g->buffer, sz);
+	return sz;
 }
 
 static fbinfo_t* get_info(void) {

@@ -8,18 +8,15 @@
 #include <ili9486/ili9486.h>
 #include <fbd/fbd.h>
 
-static uint32_t flush(const fbinfo_t* fbinfo, const void* buf, uint32_t size, int rotate) {
-	(void)rotate;
-	uint32_t sz = 4 * fbinfo->width * fbinfo->height;
-	if(size < sz || fbinfo->depth != 32)
-		return -1;
-
-	ili9486_flush(buf, size);
-	return size;
+static uint32_t flush(const fbinfo_t* fbinfo, const graph_t* g) {
+	uint32_t sz = 4 * g->w * g->h;
+	ili9486_flush(g->buffer, sz);
+	return sz;
 }
 
 static fbinfo_t* get_info(void) {
 	static fbinfo_t fbinfo;
+	memset(&fbinfo, 0, sizeof(fbinfo_t));
 	fbinfo.width = LCD_WIDTH;
 	fbinfo.height = LCD_HEIGHT;
 	fbinfo.depth = 32;

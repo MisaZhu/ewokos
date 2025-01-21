@@ -12,7 +12,7 @@ extern "C" {
 #endif
 
 typedef struct {
-    uint32_t  (*flush)(const fbinfo_t* fbinfo, const void* buf, uint32_t size, int rotate);
+    uint32_t  (*flush)(const fbinfo_t* fbinfo, const graph_t* g);
     int32_t   (*init)(uint32_t w, uint32_t h, uint32_t dep);
     fbinfo_t* (*get_info)(void);
     void      (*splash)(graph_t* g);

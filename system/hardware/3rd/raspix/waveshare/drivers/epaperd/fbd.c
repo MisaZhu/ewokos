@@ -10,18 +10,16 @@ static uint32_t LCD_HEIGHT;
 static uint32_t LCD_WIDTH;
 
 int  do_flush(const void* buf, uint32_t size);
-static uint32_t flush(const fbinfo_t* fbinfo, const void* buf, uint32_t size, int rotate) {
-	(void)rotate;
-	graph_t g;
-	graph_init(&g, buf, LCD_WIDTH, LCD_HEIGHT);
-	graph_t* fbg = graph_rotate(&g, G_ROTATE_90);
-	int ret = do_flush(fbg->buffer, size);
-	graph_free(fbg);
-	return ret;
+
+static uint32_t flush(const fbinfo_t* fbinfo, const graph_t* g) {
+	uint32_t sz = 4 * g->w * g->h;
+	do_flush(g->buffer, sz);
+	return sz;
 }
 
 static fbinfo_t* get_info(void) {
 	static fbinfo_t fbinfo;
+	memset(&fbinfo, 0, sizeof(fbinfo_t));
 	fbinfo.width = LCD_WIDTH;
 	fbinfo.height = LCD_HEIGHT;
 	fbinfo.depth = 32;
