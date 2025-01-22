@@ -9,14 +9,10 @@
 #include <fbd/fbd.h>
 #include "lcd_reg.h"
 
-static uint32_t flush(const fbinfo_t* fbinfo, const void* buf, uint32_t size, int rotate) {
-	(void)rotate;
-	uint32_t sz = 4 * fbinfo->width * fbinfo->height;
-	if(size < sz || fbinfo->depth != 32)
-		return -1;
-
-	lcd_flush(buf, size);
-	return size;
+static uint32_t flush(const fbinfo_t* fbinfo, const graph_t* g) {
+	uint32_t sz = 4 * g->w * g->h;
+	lcd_flush(g->buffer, sz);
+	return sz;
 }
 
 static fbinfo_t* get_info(void) {

@@ -13,10 +13,10 @@ typedef struct st_gpio_key {
 } gpio_key_t;
 
 static gpio_key_t _gpio_keys[] = {
-	{24, KEY_LEFT},
-	{23, KEY_RIGHT},
-	{17, KEY_BUTTON_A},
-	{22, KEY_BUTTON_B},
+	{23, KEY_LEFT},
+	{24, KEY_RIGHT},
+	{22, KEY_BUTTON_A},
+	{17, KEY_HOME},
 	{0,  0}
 };
 
