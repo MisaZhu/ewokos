@@ -1,0 +1,2 @@
+SYS_DIR=../../../../../..
+include $(SYS_DIR)/hardware/$(ARCH)/make.rule
