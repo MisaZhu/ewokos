@@ -325,7 +325,7 @@ int  do_flush(const void* buf, uint32_t size) {
 			register uint8_t r = (s >> 16) & 0xff;
 			register uint8_t g = (s >> 8)  & 0xff;
 			register uint8_t b = s & 0xff;
-			UWORD color = ((r >> 3) <<11) | ((g >> 3) << 6) | (b >> 3);
+			UWORD color = ((r >> 3) <<11) | ((g >> 2) << 5) | (b >> 3);
 			c8[j++] = (color >> 8) & 0xff;
 			c8[j++] = (color) & 0xff;
 			if(j >= SPI_FIFO_SIZE) {

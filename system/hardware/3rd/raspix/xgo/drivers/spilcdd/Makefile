@@ -9,7 +9,7 @@ CFLAGS += -I $(BUILD_DIR)/include
 
 SPILCDD_OBJS = lcd_reg.o spilcdd.o
 
-SPILCDD = $(TARGET_DIR)/drivers/raspix/spilcdd
+SPILCDD = $(TARGET_DIR)/drivers/$(MF)/spilcdd
 
 $(SPILCDD): $(SPILCDD_OBJS) \
 		$(EWOK_LIBC_A)  \

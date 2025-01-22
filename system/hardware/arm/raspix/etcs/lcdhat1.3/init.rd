@@ -23,6 +23,6 @@
 /sbin/x/xjoymoused /dev/vjoystick &
 /sbin/x/xim_vkey &
 
-/bin/load_font
+#/bin/load_font
 /bin/ipcserv /drivers/xserverd              /dev/x
 @/bin/x/xsession misa &

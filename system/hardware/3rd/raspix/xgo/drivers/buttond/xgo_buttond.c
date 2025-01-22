@@ -13,22 +13,14 @@ typedef struct st_gpio_key {
 } gpio_key_t;
 
 static gpio_key_t _gpio_keys[] = {
-	{5,  KEY_UP},
-	{6,  KEY_DOWN},
-	{16, KEY_LEFT},
-	{13, KEY_RIGHT},
-	{21, KEY_BUTTON_A},
-	{20, KEY_BUTTON_B},
-	{12, KEY_BUTTON_Y},
-	{15, KEY_BUTTON_X},
-	{26, KEY_BUTTON_START},
-	{19, KEY_BUTTON_SELECT},
-	{14, KEY_BUTTON_R1},
-	{23, KEY_BUTTON_L1},
+	{24, KEY_LEFT},
+	{23, KEY_RIGHT},
+	{17, KEY_BUTTON_A},
+	{22, KEY_BUTTON_B},
 	{0,  0}
 };
 
-static int gamekb_read(int fd, int from_pid, fsinfo_t* node,
+static int xgo_button_read(int fd, int from_pid, fsinfo_t* node,
 		void* buf, int size, int offset, void* p) {
 	(void)fd;
 	(void)from_pid;
@@ -70,12 +62,12 @@ int main(int argc, char** argv) {
 	bcm283x_gpio_init();
 	init_gpio();
 
-	const char* mnt_point = argc > 1 ? argv[1]: "/dev/gamekb";
+	const char* mnt_point = argc > 1 ? argv[1]: "/dev/xgo_button";
 
 	vdevice_t dev;
 	memset(&dev, 0, sizeof(vdevice_t));
-	strcpy(dev.name, "gamekb");
-	dev.read = gamekb_read;
+	strcpy(dev.name, "xgo_button");
+	dev.read = xgo_button_read;
 
 	device_run(&dev, mnt_point, FS_TYPE_CHAR, 0444);
 	return 0;

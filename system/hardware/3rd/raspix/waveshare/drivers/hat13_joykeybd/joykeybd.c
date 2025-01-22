@@ -12,9 +12,6 @@ typedef struct st_gpio_key {
 	uint32_t key;
 } gpio_key_t;
 
-static bool _j_x_rev = false;
-static bool _j_y_rev = false;
-
 static gpio_key_t _gpio_keys[] = {
 	{6,  KEY_UP},
 	{19, KEY_DOWN},
@@ -70,15 +67,6 @@ int main(int argc, char** argv) {
 	init_gpio();
 
 	const char* mnt_point = argc > 1 ? argv[1]: "/dev/joykeyb";
-
-	_j_x_rev = false;
-	_j_y_rev = false;
-	if(argc > 2 && strstr(argv[2], "rev") != NULL) {
-		if(strchr(argv[2], 'x') != NULL)
-			_j_x_rev = true;
-		if(strchr(argv[2], 'y') != NULL)
-			_j_y_rev = true;
-	}
 
 	vdevice_t dev;
 	memset(&dev, 0, sizeof(vdevice_t));
