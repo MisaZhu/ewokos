@@ -91,37 +91,37 @@ static int32_t x_read_theme_config(const char* theme_name) {
 
 	char fname[FS_FULL_NAME_MAX];
 	snprintf(fname, FS_FULL_NAME_MAX-1, "%s/%s/x/theme.json", X_THEME_ROOT, theme_name);
-	var_t *conf_var = json_parse_file(fname);	
+	json_var_t *conf_var = json_parse_file(fname);	
 
-	_x_theme.fontSize = _x_theme.fontFixedSize = get_int_def(conf_var, "font_size", DEFAULT_SYSTEM_FONT_SIZE);
+	_x_theme.fontSize = _x_theme.fontFixedSize = json_get_int_def(conf_var, "font_size", DEFAULT_SYSTEM_FONT_SIZE);
 
-	const char* v = get_str_def(conf_var, "font", DEFAULT_SYSTEM_FONT);
+	const char* v = json_get_str_def(conf_var, "font", DEFAULT_SYSTEM_FONT);
 	memset(_x_theme.fontName, 0, FONT_NAME_MAX);
 	strncpy(_x_theme.fontName, v, FONT_NAME_MAX-1);
 
-	_x_theme.fgColor = get_int_def(conf_var, "fg_color", 0xffffffff);
-	_x_theme.bgColor = get_int_def(conf_var, "bg_color", 0xff000000);
-	_x_theme.docFGColor = get_int_def(conf_var, "doc_fg_color", 0xff000000);
-	_x_theme.docBGColor = get_int_def(conf_var, "doc_bg_color", 0xffffffff);
+	_x_theme.fgColor = json_get_int_def(conf_var, "fg_color", 0xffffffff);
+	_x_theme.bgColor = json_get_int_def(conf_var, "bg_color", 0xff000000);
+	_x_theme.docFGColor = json_get_int_def(conf_var, "doc_fg_color", 0xff000000);
+	_x_theme.docBGColor = json_get_int_def(conf_var, "doc_bg_color", 0xffffffff);
 
-	_x_theme.fgUnfocusColor = get_int_def(conf_var, "fg_unfocus_color", 0);
-	_x_theme.bgUnfocusColor = get_int_def(conf_var, "bg_unfocus_color", 0);
+	_x_theme.fgUnfocusColor = json_get_int_def(conf_var, "fg_unfocus_color", 0);
+	_x_theme.bgUnfocusColor = json_get_int_def(conf_var, "bg_unfocus_color", 0);
 
-	_x_theme.fgDisableColor = get_int_def(conf_var, "fg_disable_color", 0xff444444);
-	_x_theme.bgDisableColor = get_int_def(conf_var, "bg_disable_color", 0xff888888);
+	_x_theme.fgDisableColor = json_get_int_def(conf_var, "fg_disable_color", 0xff444444);
+	_x_theme.bgDisableColor = json_get_int_def(conf_var, "bg_disable_color", 0xff888888);
 
-	_x_theme.hideColor = get_int_def(conf_var, "hide_color", 0);
-	_x_theme.selectColor = get_int_def(conf_var, "select_color", 0);
-	_x_theme.selectBGColor = get_int_def(conf_var, "select_bg_color", 0);
+	_x_theme.hideColor = json_get_int_def(conf_var, "hide_color", 0);
+	_x_theme.selectColor = json_get_int_def(conf_var, "select_color", 0);
+	_x_theme.selectBGColor = json_get_int_def(conf_var, "select_bg_color", 0);
 
-	_x_theme.titleColor = get_int_def(conf_var, "title_color", 0);
-	_x_theme.titleBGColor = get_int_def(conf_var, "title_bg_color", 0);
+	_x_theme.titleColor = json_get_int_def(conf_var, "title_color", 0);
+	_x_theme.titleBGColor = json_get_int_def(conf_var, "title_bg_color", 0);
 
-	_x_theme.widgetFGColor = get_int_def(conf_var, "widget_color", 0xff000000);
-	_x_theme.widgetBGColor = get_int_def(conf_var, "widget_bg_color", 0xffffffff);
+	_x_theme.widgetFGColor = json_get_int_def(conf_var, "widget_color", 0xff000000);
+	_x_theme.widgetBGColor = json_get_int_def(conf_var, "widget_bg_color", 0xffffffff);
 
 	if(conf_var != NULL)
-		var_unref(conf_var);
+		json_var_unref(conf_var);
 	return 0;
 }
 

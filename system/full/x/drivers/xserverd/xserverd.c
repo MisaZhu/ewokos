@@ -35,11 +35,7 @@ static int32_t read_config(x_t* x, const char* fname) {
 	v = sconf_get(conf, "bg_run");
 	if(v[0] != 0) 
 		x->config.bg_run = atoi(v);
-	
-	v = sconf_get(conf, "force_fullscreen");
-	if(v[0] != 0) 
-		x->config.force_fullscreen = atoi(v);
-	
+
 	v = sconf_get(conf, "gray_mode");
 	if(v[0] != 0) 
 		x->config.gray_mode = atoi(v);
@@ -183,7 +179,9 @@ static int draw_win(graph_t* disp_g, x_t* xp, xwin_t* win) {
 	}
 
 	draw_win_frame(xp, win);
-	if(xp->current.win_drag == win && (win->xinfo->style & XWIN_STYLE_NO_FRAME) == 0)
+	if(xp->current.win_drag == win &&
+			(win->xinfo->style & XWIN_STYLE_NO_FRAME) == 0 &&
+			win->xinfo->state != XWIN_STATE_MAX)
 		draw_drag_frame(xp, win->xinfo->display_index);
 
 	win->dirty = false;
@@ -804,18 +802,6 @@ static void x_get_min_size(x_t* x, xwin_t* win, int *w, int* h) {
 	PF->clear(&out);
 }
 
-static void xwin_force_fullscreen(x_t* x, xinfo_t* xinfo) {
-	if(!x->config.force_fullscreen ||
-			(xinfo->style & XWIN_STYLE_ANTI_FSCR) != 0)
-		return;
-
-	xinfo->wsr.x = 0;
-	xinfo->wsr.y = 0;
-	xinfo->wsr.w = x->displays[x->current_display].g->w;
-	xinfo->wsr.h = x->displays[x->current_display].g->h;
-	xinfo->style |= XWIN_STYLE_NO_FRAME;
-}
-
 static int get_xwm_win_space(x_t* x, int style, grect_t* rin, grect_t* rout) {
 	memcpy(rout, rin, sizeof(grect_t));
 	if(!check_xwm(x))
@@ -860,7 +846,6 @@ static int xwin_update_info(int fd, int from_pid, proto_t* in, proto_t* out, x_t
 
 	int wsr_w = win->xinfo->wsr.w;
 	int wsr_h = win->xinfo->wsr.h;
-	xwin_force_fullscreen(x, win->xinfo);
 	
 	if((win->xinfo->style & XWIN_STYLE_NO_FRAME) == 0 &&
       (win->xinfo->style & XWIN_STYLE_NO_TITLE) == 0) {
@@ -1165,7 +1150,9 @@ static void mouse_xwin_handle(x_t* x, xwin_t* win, int pos, xevent_t* ev) {
 		if(pos == FRAME_R_RESIZE) //window resize
 			return;
 
-		if(x->current.win_drag == win && x->current.drag_state != 0) {
+		if(x->current.win_drag == win &&
+				x->current.drag_state != 0 &&
+				win->xinfo->state != XWIN_STATE_MAX) {
 			ev->type = XEVT_WIN;
 			ev->value.window.v0 =  x->current.pos_delta.x;
 			ev->value.window.v1 =  x->current.pos_delta.y;
@@ -1272,9 +1259,6 @@ static int mouse_handle(x_t* x, xevent_t* ev) {
 			x->mouse_state.last_pos.x = ev->value.mouse.x;
 			x->mouse_state.last_pos.y = ev->value.mouse.y;
 		}
-		if(x->config.force_fullscreen &&
-				ev->value.mouse.from_y >= (display->g->h-16)) //from bottom
-			return 0;
 	}
 	else if(ev->state ==  XEVT_MOUSE_UP) {
 		x->cursor.down = false;
@@ -1285,13 +1269,6 @@ static int mouse_handle(x_t* x, xevent_t* ev) {
 		ev->value.mouse.ry = ev->value.mouse.y - x->mouse_state.last_pos.y;
 		x->mouse_state.last_pos.x = ev->value.mouse.x;
 		x->mouse_state.last_pos.y = ev->value.mouse.y;
-
-		if(x->config.force_fullscreen && 
-				ev->value.mouse.from_y >= (display->g->h-16) && //from bottom
-				ev->value.mouse.from_y > ev->value.mouse.y)  { //swap up from bottom
-			xwin_bg(x, x->win_focus);
-			return 0;
-		}
 	}
 
 	int pos = -1;

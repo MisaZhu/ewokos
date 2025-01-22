@@ -625,10 +625,16 @@ int vfs_parse_name(const char* fname, str_t* dir, str_t* name) {
 		}
 		--i;	
 	}
-	str_cpy(dir, full);
-	str_cpy(name, full+i+1);
-	if(CS(dir)[0] == 0)
-		str_cpy(dir, "/");
+
+	if(name != NULL)
+		str_cpy(name, full+i+1);
+
+	if(dir != NULL) {
+		str_cpy(dir, full);
+		if(CS(dir)[0] == 0)
+			str_cpy(dir, "/");
+	}
+
 	str_free(fullstr);
 	return 0;
 }

@@ -123,7 +123,7 @@ int main(int argc, char** argv) {
 	powerInfo->fix(48, 0);
 	root->add(powerInfo);
 
-	win.open(&x, 0, 0, 0, scr.size.w, 20, "", XWIN_STYLE_SYSBOTTOM | XWIN_STYLE_NO_FRAME | XWIN_STYLE_ANTI_FSCR);
+	win.open(&x, 0, 0, 0, scr.size.w, 20, "", XWIN_STYLE_SYSBOTTOM | XWIN_STYLE_NO_FRAME);
 	win.setTimer(2);
 	x.run(NULL, &win);
 	return 0;

@@ -68,7 +68,7 @@ static void run_init(const char* init_file) {
 		setuid(0);
 		setgid(0);
 		char cmd[FS_FULL_NAME_MAX];
-		snprintf(cmd, FS_FULL_NAME_MAX-1, "/bin/shell %s -initrd", init_file);
+		snprintf(cmd, FS_FULL_NAME_MAX-1, "/bin/shell %s -i", init_file);
 		klog("\ninit: loading '%s' ... \n", init_file);
 		if(proc_exec(cmd) != 0) {
 			klog("[failed]!\n");
@@ -79,29 +79,7 @@ static void run_init(const char* init_file) {
 		waitpid(pid);
 }
 
-static int init_stdio(void) {
-	const char* tty_dev = "/dev/tty0";
-	klog("init: initailizing stdio at '%s' ... ", tty_dev);
-	int fd = open(tty_dev, O_RDWR);
-	if(fd > 0) {
-		dup2(fd, 0);
-		dup2(fd, 1);
-		dup2(fd, 2);
-		dup2(fd, VFS_BACKUP_FD0);
-		dup2(fd, VFS_BACKUP_FD1);
-		close(fd);
-		klog("[ok]\n");
-		setenv("CONSOLE_ID", tty_dev);
-		return 0;
-	}
-	klog("[failed]!\n");
-	return -1;
-}
-
 static void switch_root(void) {
-	run_init("/etc/init0.rd");
-	if(init_stdio() != 0)
-		return;
 	run_init("/etc/init.rd");
 }
 

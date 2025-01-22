@@ -1058,7 +1058,14 @@ static int32_t renew_sleep_counter(uint32_t usec) {
 	return res;
 }
 
+static void renew_vsyscall_info(void) {
+	if(_kernel_vsyscall_info == NULL)
+		return;
+	_kernel_vsyscall_info->kernel_usec = _kernel_usec;
+}
+
 inline int32_t renew_kernel_tic(uint32_t usec) {
+	renew_vsyscall_info();
 	return renew_sleep_counter(usec);	
 }
 

@@ -1,3 +1,5 @@
+/bin/ipcserv /drivers/raspix/uartd         /dev/tty0
+
 /bin/ipcserv /drivers/raspix/xpt2046d      /dev/touch0
 
 /bin/ipcserv /drivers/raspix/fbd           /dev/fb0

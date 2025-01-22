@@ -1,5 +1,6 @@
 #include <ewoksys/vdevice.h>
 #include <ewoksys/utf8unicode.h>
+#include <ewoksys/mstr.h>
 #include <font/font.h>
 #include <string.h>
 #include <unistd.h>
@@ -28,7 +29,7 @@ static int font_load_inst(const char* name, uint16_t ppm, font_inst_t* inst) {
 
 	int ret = -1;
 	inst->id = -1;
-	if(dev_cntl_by_pid(_font_dev_pid, FONT_DEV_LOAD, &in, &out) == 0) {
+	if(dev_cntl_by_pid(_font_dev_pid, FONT_DEV_NEW_INSTANCE, &in, &out) == 0) {
 		inst->id = proto_read_int(&out);
 		inst->ppm = ppm;
 		inst->max_size.x = proto_read_int(&out);
@@ -66,7 +67,7 @@ font_inst_t* font_get_inst(font_t* font, uint16_t size) {
 	return inst;
 }
 
-static int font_load(font_t* font, bool safe) {
+static int font_load_font(font_t* font, bool safe) {
 	if(_font_dev_pid < 0)
 		return -1;
 	font->cache = hashmap_new();
@@ -80,6 +81,46 @@ static int font_load(font_t* font, bool safe) {
 	if(safe)
 		return font_load_inst(DEFAULT_SYSTEM_FONT, DEFAULT_SYSTEM_FONT_SIZE, inst);
 	return -1;
+}
+
+const char*  font_name_by_fname(const char* fname) {
+	static char ret[128];
+	memset(ret, 0, 128);
+
+	str_t* sname = str_new("");
+	vfs_parse_name(fname, NULL, sname);
+	strncpy(ret, CS(sname), 127);
+	int i = sname->len - 1;
+	while(i >= 0) {
+		if(ret[i] == '.') {
+			ret[i] = 0;
+			break;
+		}
+		--i;
+	}
+
+	str_free(sname);
+	return ret;
+}
+
+int font_load(const char* name, const char* fname) {
+	if(_font_dev_pid < 0)
+		return -1;
+
+	if(name == NULL)
+		name = font_name_by_fname(fname);
+	proto_t in, out;
+	PF->init(&out);
+	PF->format(&in, "s,s", name, fname);
+
+	int ret = -1;
+	if(dev_cntl_by_pid(_font_dev_pid, FONT_DEV_LOAD, &in, &out) == 0) {
+		ret = proto_read_int(&out);
+	}
+
+	PF->clear(&in);
+	PF->clear(&out);
+	return ret;
 }
 
 static int free_cache(map_t map, const char* key, any_t data, any_t arg) {
@@ -97,7 +138,7 @@ static int free_cache(map_t map, const char* key, any_t data, any_t arg) {
 font_t* font_new(const char* name, bool safe) {
 	font_t* font = (font_t*)calloc(sizeof(font_t), 1);
 	strncpy(font->name, name, FONT_NAME_MAX-1);
-	if(font_load(font, safe) == 0)
+	if(font_load_font(font, safe) == 0)
 		return font;
 	free(font);
 	return NULL;
@@ -167,7 +208,7 @@ int font_close(font_t* font) {
 		if(inst->ppm != 0) {
 			proto_t in;
 			PF->init(&in)->addi(&in, inst->id);
-			dev_cntl_by_pid(_font_dev_pid, FONT_DEV_CLOSE, &in, NULL);
+			dev_cntl_by_pid(_font_dev_pid, FONT_DEV_FREE_INSTANCE, &in, NULL);
 			PF->clear(&in);
 			inst->ppm = 0;
 		}	

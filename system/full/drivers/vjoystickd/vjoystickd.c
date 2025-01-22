@@ -39,7 +39,7 @@ static int vjoystick_read(int fd,
 
 	if(rd > 0) {
 		for(int i=0; i<rd; i++) {
-			if(v[i] == KEY_HOME) {
+			if(v[i] == KEY_BUTTON_SELECT) {
 				uint64_t now;
 				now = kernel_tic_ms(0);
 				if((now - home_tic) > 200)

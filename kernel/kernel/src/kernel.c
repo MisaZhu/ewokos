@@ -140,7 +140,6 @@ static void show_config(void) {
 		  "    arch                 %s\n"
 		  "    cores                %d\n"
 		  "    kernel_timer_freq    %d\n"
-		  "    schedule_freq        %d\n"
 		  "    mem_offset           0x%x\n"
 		  "    mem_size             %d MB\n"
 		  "    kmalloc size         %d MB\n"
@@ -152,7 +151,6 @@ static void show_config(void) {
 			_sys_info.arch,
 			_kernel_config.cores,
 			_kernel_config.timer_freq,
-			_kernel_config.schedule_freq,
 			_sys_info.phy_offset,
 			_sys_info.phy_mem_size/1024/1024,
 			(KMALLOC_END-KMALLOC_BASE) / (1*MB),
@@ -253,7 +251,7 @@ void _kernel_entry_c(void) {
 	}
 #endif
 
-	printf("kernel: set timer              ... ");
+	printf("kernel: set timer(fps): %6d ... ", _kernel_config.timer_freq);
 	timer_set_interval(0, _kernel_config.timer_freq); 
 	printf("[ok]\n");
 	printf("kernel: start init process     ...\n"

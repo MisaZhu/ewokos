@@ -205,10 +205,10 @@ void XWin::repaint(void) {
 	xwin_repaint(xwin);
 }
 
-void XWin::fullscreen(void) {
+void XWin::max(void) {
 	if(xwin == NULL)	
 		return;
-	xwin_fullscreen(xwin);
+	xwin_max(xwin);
 }
 
 void XWin::resize(int dw, int dh) {

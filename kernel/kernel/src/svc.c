@@ -241,12 +241,6 @@ static vsyscall_info_t* sys_get_vsyscall_info(void) {
 	return _kernel_vsyscall_info;
 }
 
-void renew_vsyscall_info(void) {
-	if(_kernel_vsyscall_info == NULL)
-		return;
-	_kernel_vsyscall_info->kernel_usec = _kernel_usec;
-}
-
 static int32_t sys_shm_get(int32_t id, uint32_t size, int32_t flag) {
 	return (int32_t)shm_get(id, size, flag);
 }

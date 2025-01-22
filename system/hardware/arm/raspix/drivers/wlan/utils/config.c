@@ -8,7 +8,7 @@
 
 #define DEFAULT_WLAN_CFG	"/etc/wlan/network.json"
 
-node_t* network_config; 
+json_node_t* network_config; 
 
 void config_init(const char* path){
 	if(path == NULL)
@@ -23,12 +23,12 @@ void config_init(const char* path){
 
 	str[sz] = 0;
 
-	var_t *var = json_parse(str);
+	json_var_t *var = json_parse_str(str);
 	free(str);
 
 	if(var != NULL) {
-		network_config = var_find(var, "network");
-		if(network_config && network_config->var->is_array)
+		network_config = json_var_find(var, "network");
+		if(network_config && network_config->var->json_is_array)
 			return;
 	}
 	brcm_log("Error: %s parse failed \n", path);
@@ -37,13 +37,13 @@ void config_init(const char* path){
 int config_match_ssid(const char* ssid){
 	if(network_config)
 	{
-		int cnt = var_array_size(network_config->var);
+		int cnt = json_var_array_size(network_config->var);
 		for(int i = 0; i < cnt; i++){
-			node_t *n = var_array_get(network_config->var, i);
+			json_node_t *n = json_var_array_get(network_config->var, i);
 			if(n){
-				node_t* s = var_find(n->var, "ssid");
-				if(s && s->var->type == V_STRING){
-					if(strcmp(ssid, var_get_str(s->var)) == 0)
+				json_node_t* s = json_var_find(n->var, "ssid");
+				if(s && s->var->type == JSON_V_STRING){
+					if(strcmp(ssid, json_var_json_get_str(s->var)) == 0)
 						return i;
 				}
 			}
@@ -55,11 +55,11 @@ int config_match_ssid(const char* ssid){
 int config_get_priority(int idx){
 	if(network_config)
 	{
-		node_t *n = var_array_get(network_config->var, idx);
+		json_node_t *n = json_var_array_get(network_config->var, idx);
 		if(n){
-			node_t* p = var_find(n->var, "priority");
-			if(p && p->var->type == V_INT){
-				return var_get_int(p->var);
+			json_node_t* p = json_var_find(n->var, "priority");
+			if(p && p->var->type == JSON_V_INT){
+				return json_var_json_get_int(p->var);
 			}
 		}
 	}
@@ -69,11 +69,11 @@ int config_get_priority(int idx){
 const char* config_get_pmk(int idx){
 	if(network_config)
 	{
-		node_t *n = var_array_get(network_config->var, idx);
+		json_node_t *n = json_var_array_get(network_config->var, idx);
 		if(n){
-			node_t* p = var_find(n->var, "pmk");
-			if(p && p->var->type == V_STRING){
-				return var_get_str(p->var);
+			json_node_t* p = json_var_find(n->var, "pmk");
+			if(p && p->var->type == JSON_V_STRING){
+				return json_var_json_get_str(p->var);
 			}
 		}
 		}
@@ -83,11 +83,11 @@ const char* config_get_pmk(int idx){
 const char* config_get_passwd(int idx){
 	if(network_config)
 	{
-		node_t *n = var_array_get(network_config->var, idx);
+		json_node_t *n = json_var_array_get(network_config->var, idx);
 		if(n){
-			node_t* p = var_find(n->var, "passwd");
-			if(p && p->var->type == V_STRING){
-				return var_get_str(p->var);
+			json_node_t* p = json_var_find(n->var, "passwd");
+			if(p && p->var->type == JSON_V_STRING){
+				return json_var_json_get_str(p->var);
 			}
 		}
 	}
@@ -98,11 +98,11 @@ const char* config_get_passwd(int idx){
 const char* config_get_ssid(int idx){
 	if(network_config)
 	{
-		node_t *n = var_array_get(network_config->var, idx);
+		json_node_t *n = json_var_array_get(network_config->var, idx);
 		if(n){
-			node_t* p = var_find(n->var, "ssid");
-			if(p && p->var->type == V_STRING){
-					return var_get_str(p->var);
+			json_node_t* p = json_var_find(n->var, "ssid");
+			if(p && p->var->type == JSON_V_STRING){
+					return json_var_json_get_str(p->var);
 			}
 		}
 	}

@@ -88,24 +88,24 @@ class AppList: public List {
 		graph_draw_text_font(g, x, y, title, theme->getFont(), theme->basic.fontSize, theme->basic.fgColor);
 	}
 
-	bool loadApps(var_t* var) {
+	bool loadApps(json_var_t* var) {
 		if(var == NULL) {
 			return false;
 		}
 
-		var_t* apps = get_obj(var, "apps");
+		json_var_t* apps = json_get_obj(var, "apps");
 		if(apps == NULL) {
 			return false;
 		}
 		
-		int sz = var_array_size(apps);
+		int sz = json_var_array_size(apps);
 		for(int i=0;i <sz && i <ITEM_MAX; i++) {
-			var_t* app = var_array_get_var(apps, i);
+			json_var_t* app = json_var_array_get_var(apps, i);
 			if(app == NULL)
 				continue;
 
-			const char* name = get_str(app, "name");
-			const char* file = get_str(app, "file");
+			const char* name = json_get_str(app, "name");
+			const char* file = json_get_str(app, "file");
 
 			items[i].app = name;
 			items[i].fname = file;
@@ -157,25 +157,25 @@ public:
 
 	bool loadConfig() {
 		int sz = 0;
-		var_t* var = NULL;
+		json_var_t* var = NULL;
 		char* str = (char*)vfs_readfile("/usr/x/xlauncher/xlauncher.json", &sz);
 		if(str == NULL) {
 			return false;
 		}
 		str[sz] = 0;
-		var = json_parse(str);
+		var = json_parse_str(str);
 		free(str);
 		if(var == NULL)
 			return false;
 
-		dockItemNum = get_int_def(var, "item_num", 0);
+		dockItemNum = json_get_int_def(var, "item_num", 0);
 
 		loadApps(var);
 
-		itemSize = get_int_def(var, "item_size", 64);
-		iconSize = get_int_def(var, "icon_size", 32);
+		itemSize = json_get_int_def(var, "item_size", 64);
+		iconSize = json_get_int_def(var, "icon_size", 32);
 
-		var_unref(var);
+		json_var_unref(var);
 		return true;
 	}
 
@@ -197,6 +197,7 @@ int main(int argc, char** argv) {
 	AppList* apps = new AppList();
 	apps->loadConfig();
 	root->add(apps);
+	root->focus(apps);
 
 	grect_t desk;
 	x.getDesktopSpace(desk, 0);
@@ -226,7 +227,7 @@ int main(int argc, char** argv) {
 	}
 
 	win.open(&x, 0, wr, "xlauncher",
-				XWIN_STYLE_NO_TITLE | XWIN_STYLE_LAUNCHER | XWIN_STYLE_SYSBOTTOM | XWIN_STYLE_ANTI_FSCR);
+				XWIN_STYLE_NO_TITLE | XWIN_STYLE_LAUNCHER | XWIN_STYLE_SYSBOTTOM);
 	x.run(NULL, &win);
 	return 0;
 }

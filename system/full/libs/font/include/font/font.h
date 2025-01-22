@@ -15,7 +15,8 @@ extern "C" {
 
 enum {
     FONT_DEV_LOAD = 0,
-    FONT_DEV_CLOSE,
+    FONT_DEV_NEW_INSTANCE,
+    FONT_DEV_FREE_INSTANCE,
     FONT_DEV_GET,
     FONT_DEV_LIST
 };
@@ -43,7 +44,9 @@ int     font_init(void);
 int     font_close(font_t* font);
 
 font_t* font_new(const char* fname, bool safe);
+int     font_load(const char* name, const char* fname);
 int     font_free(font_t* font);
+const char*  font_name_by_fname(const char* fname);
 
 TTY_Glyph* font_init_glyph(TTY_Glyph* glyph); 
 

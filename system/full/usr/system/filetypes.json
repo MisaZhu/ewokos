@@ -6,5 +6,6 @@
     {"ext":".json", "open_with": "/apps/xread/xread", "icon": "icons/json.png" },
     {"ext":".rd", "open_with": "/apps/xread/xread", "icon": "icons/xread.png" },
     {"ext":".js", "open_with": "/apps/xread/xread", "icon": "icons/js.png" },
-    {"ext":".mbc", "open_with": "/bin/mario", "icon": "icons/js.png" }
+    {"ext":".mbc", "open_with": "/bin/mario", "icon": "icons/js.png" },
+    {"ext":".ttf", "open_with": "/bin/x/xfont", "icon": "icons/font.png" }
 ]

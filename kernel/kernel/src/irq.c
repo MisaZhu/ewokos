@@ -22,9 +22,6 @@ uint32_t _kernel_sec = 0;
 uint64_t _kernel_usec = 0;
 
 static uint64_t _last_usec = 0;
-static uint32_t _schedule = 0;
-static uint32_t _schedule_usec = 0;
-static uint32_t _schedule_tic = 0;
 static uint32_t _sec_tic = 0;
 
 #ifdef KERNEL_SMP
@@ -52,8 +49,6 @@ static inline void irq_do_raw(context_t* ctx, uint32_t irq) {
 	interrupt_send(ctx, irq);
 }
 
-void renew_vsyscall_info(void);
-
 static inline void irq_do_timer0(context_t* ctx) {
 	(void)ctx;
 	uint64_t usec = timer_read_sys_usec();
@@ -66,30 +61,22 @@ static inline void irq_do_timer0(context_t* ctx) {
 	_last_usec = usec;
 	_kernel_usec += usec_gap;
 	_sec_tic += usec_gap;
-	_schedule_tic += usec_gap;
 
 	if(_sec_tic >= 1000000) { //SEC_TIC sec
 		_kernel_sec++;
 		_sec_tic = 0;
 		renew_kernel_sec();
 	}
-	/*if(renew_kernel_tic(usec_gap) == 0)
-		do_schedule = 1;
-	*/
-	renew_kernel_tic(usec_gap);
 	
-	renew_vsyscall_info();
+	renew_kernel_tic(usec_gap);
 	
 	timer_clear_interrupt(0);
 
-	if(_schedule_tic >= _schedule_usec) {
-		_schedule_tic = 0;
 #ifdef KERNEL_SMP
-		ipi_send_all();
+	ipi_send_all();
 #else
-		schedule(ctx);
+	schedule(ctx);
 #endif
-	}
 }
 
 static inline void _irq_handler(uint32_t cid, context_t* ctx) {
@@ -257,10 +244,7 @@ void irq_init(void) {
 	_kernel_sec = 0;
 	_kernel_usec = 0;
 	_sec_tic = 0;
-	_schedule = 0;
-	_schedule_tic = 0;
 	_last_usec = timer_read_sys_usec();
-	_schedule_usec = (1000000 / _kernel_config.schedule_freq) / 2;
 	irq_enable(IRQ_TIMER0);
 
 #ifdef KERNEL_SMP

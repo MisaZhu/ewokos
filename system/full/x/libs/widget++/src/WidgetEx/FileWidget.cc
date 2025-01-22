@@ -35,7 +35,7 @@ class FileGrid: public Grid {
 	FileWidget* fileWidget;
 	struct dirent files[MAX_FILES];
 	char cwd[FS_FULL_NAME_MAX+1];
-	var_t* fileTypes;
+	json_var_t* fileTypes;
 	graph_t* dirIcon;
 	graph_t* fileIcon;
 	graph_t* devIcon;
@@ -113,14 +113,14 @@ class FileGrid: public Grid {
 	const char* fileType(const char* fname) {
 		if(fileTypes == NULL)
 			return "";
-		int num = var_array_size(fileTypes);
+		int num = json_var_array_size(fileTypes);
 		for(int i=0; i<num; i++) {
-			var_t* it = var_array_get_var(fileTypes, i);
+			json_var_t* it = json_var_array_get_var(fileTypes, i);
 			if(it == NULL)
 				break;
 
-			const char* ext = get_str(it, "ext");
-			const char* open_with = get_str(it, "open_with");
+			const char* ext = json_get_str(it, "ext");
+			const char* open_with = json_get_str(it, "open_with");
 			if(ext[0] == 0 || open_with[0] == 0)
 				break;
 			if(check(fname, ext))
@@ -168,13 +168,13 @@ class FileGrid: public Grid {
 			devIcon = png_image_new(X::getResName("icons/device.png"));
 	}
 
-	var_t* loadFileTypes(const char* confFile) {
+	json_var_t* loadFileTypes(const char* confFile) {
 		int sz;
 		char* str = (char*)vfs_readfile(confFile, &sz);
 		if(str == NULL) 
 			return NULL;
 		str[sz] = 0;
-		var_t* ret = json_parse(str);
+		json_var_t* ret = json_parse_str(str);
 		free(str);
 		return ret;
 	}
@@ -182,26 +182,26 @@ class FileGrid: public Grid {
 	graph_t*  getIcon(const char* fname) {
 		if(fileTypes == NULL)
 			return NULL;
-		int num = var_array_size(fileTypes);
+		int num = json_var_array_size(fileTypes);
 		for(int i=0; i<num; i++) {
-			var_t* it = var_array_get_var(fileTypes, i);
+			json_var_t* it = json_var_array_get_var(fileTypes, i);
 			if(it == NULL)
 				break;
 
-			const char* ext = get_str(it, "ext");
-			const char* icon = get_str(it, "icon");
+			const char* ext = json_get_str(it, "ext");
+			const char* icon = json_get_str(it, "icon");
 			if(ext[0] == 0 || icon[0] == 0)
 				continue;
 
 			if(check(fname, ext)) {
-				graph_t* img = (graph_t*)get_raw(it, "icon_image");
+				graph_t* img = (graph_t*)json_get_raw(it, "icon_image");
 				if(img != NULL)
 					return img;
 
 				img = png_image_new(x_get_theme_fname(X_THEME_ROOT, "xfinder", icon));
 				if(img == NULL)
 					return NULL;
-				var_add(it, "icon_image", var_new_obj(img, freeIcon));
+				json_var_add(it, "icon_image", json_var_new_obj(img, freeIcon));
 				return img;
 			}
 		}

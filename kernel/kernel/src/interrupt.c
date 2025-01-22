@@ -29,7 +29,7 @@ void interrupt_init(void) {
 	memset(&_interrupts, 0, sizeof(interrupt_item_t)*SYS_INT_MAX);	
 }
 
-static inline interrupt_item_t* get_interrupt(uint32_t irq) {
+static inline interrupt_item_t* json_get_interrupt(uint32_t irq) {
 	for(uint32_t i=0; i<SYS_INT_MAX; i++) {
 		interrupt_item_t* item = &_interrupts[i];
 		if(item->irq == irq)
@@ -39,7 +39,7 @@ static inline interrupt_item_t* get_interrupt(uint32_t irq) {
 }
 
 int32_t interrupt_setup(proc_t* cproc, uint32_t interrupt, uint32_t entry, uint32_t data) {
-	interrupt_item_t* item = get_interrupt(interrupt);
+	interrupt_item_t* item = json_get_interrupt(interrupt);
 	
 	if(entry == 0) {//unregister interrupt
 		if(item == NULL)
@@ -73,7 +73,7 @@ int32_t interrupt_setup(proc_t* cproc, uint32_t interrupt, uint32_t entry, uint3
 	}
 	else { //register interrupt
 		if(item == NULL)
-			item = get_interrupt(0);
+			item = json_get_interrupt(0);
 		if(item == NULL)
 			return -1;
 		item->irq = interrupt;
@@ -129,7 +129,7 @@ static int32_t interrupt_send_raw(context_t* ctx, uint32_t interrupt,  interrupt
 }
 
 static interrupt_t* fetch_next(uint32_t interrupt) {
-	interrupt_item_t* item = get_interrupt(interrupt);
+	interrupt_item_t* item = json_get_interrupt(interrupt);
 	if(item == NULL)
 		return NULL;
 
@@ -140,7 +140,7 @@ static interrupt_t* fetch_next(uint32_t interrupt) {
 }
 
 int32_t  interrupt_send(context_t* ctx, uint32_t interrupt) {
-	interrupt_item_t* item = get_interrupt(interrupt);
+	interrupt_item_t* item = json_get_interrupt(interrupt);
 	if(item == NULL)
 		return -1;
 
