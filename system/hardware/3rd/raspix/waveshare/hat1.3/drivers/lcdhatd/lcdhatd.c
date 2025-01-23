@@ -290,6 +290,10 @@ void lcd_init(uint32_t w, uint32_t h, uint32_t rot) {
 	LCD_1in3_Clear(0x0);
 }
 
+static inline uint16_t  rgb32_rgb565(uint8_t *src){
+	return (src[2] & 0xF8) | (src[1] >> 5) | ((src[1] &0x1C) << 11)  | ((src[0] & 0xF8) << 5);
+}
+
 int  do_flush(const void* buf, uint32_t size) {
 	if(size < LCD.WIDTH * LCD.HEIGHT* 4)
 		return -1;
@@ -302,35 +306,23 @@ int  do_flush(const void* buf, uint32_t size) {
 	uint32_t i, j = 0;
 
 #define SPI_FIFO_SIZE  64
-	uint8_t c8[SPI_FIFO_SIZE];
+	uint16_t c8[SPI_FIFO_SIZE/2];
 
 	if(LCD.ROT == ROT_0 || LCD.ROT == ROT_90) {
 		for (i = 0; i <sz; i++) {
-			register uint32_t s = src[i];
-			register uint8_t r = (s >> 16) & 0xff;
-			register uint8_t g = (s >> 8)  & 0xff;
-			register uint8_t b = s & 0xff;
-			UWORD color = ((r >> 3) <<11) | ((g >> 3) << 6) | (b >> 3);
-			c8[j++] = (color >> 8) & 0xff;
-			c8[j++] = (color) & 0xff;
-			if(j >= SPI_FIFO_SIZE) {
+			c8[j++] = rgb32_rgb565((uint8_t*)&src[i]);
+			if(j >= SPI_FIFO_SIZE/2) {
 				j = 0;
-				bcm283x_spi_send_recv(c8, NULL, SPI_FIFO_SIZE);
+				bcm283x_spi_send_recv((uint8_t*)c8, NULL, SPI_FIFO_SIZE);
 			}
 		}
 	}
 	else {
 		for (i = sz; i > 0; i--) {
-			register uint32_t s = src[i-1];
-			register uint8_t r = (s >> 16) & 0xff;
-			register uint8_t g = (s >> 8)  & 0xff;
-			register uint8_t b = s & 0xff;
-			UWORD color = ((r >> 3) <<11) | ((g >> 2) << 5) | (b >> 3);
-			c8[j++] = (color >> 8) & 0xff;
-			c8[j++] = (color) & 0xff;
-			if(j >= SPI_FIFO_SIZE) {
+			c8[j++] = rgb32_rgb565((uint8_t*)&src[i - 1]);
+			if(j >= SPI_FIFO_SIZE/2) {
 				j = 0;
-				bcm283x_spi_send_recv(c8, NULL, SPI_FIFO_SIZE);
+				bcm283x_spi_send_recv((uint8_t*)c8, NULL, SPI_FIFO_SIZE);
 			}
 		}
 	}
