@@ -61,13 +61,13 @@ protected:
 
 		img = battIcons[i];
 		graph_blt_alpha(img, 0, 0, img->w, img->h,
-				g, r.x, r.y, img->w, img->h, 0xff);
+				g, r.x+r.w-img->w-4, r.y+4, img->w, img->h, 0xff);
 	}
 
 	void onTimer(uint32_t timerFPS, uint32_t timerStep) {
 		if(timerStep == 0) {
 			xgo_cmd(XGO_TYPE_SEND, XGO_CMD_SET_FORCE_RT, 0x0, NULL);
-			xgo_cmd(XGO_TYPE_SEND, XGO_CMD_SET_FORCE_ROLL, 0x0, NULL);
+			//xgo_cmd(XGO_TYPE_SEND, XGO_CMD_SET_FORCE_ROLL, 0x0, NULL);
 		}
 
 		uint8_t res[XGO_DATA_MAX];
@@ -96,6 +96,10 @@ protected:
 			actionStep++;
 			if(actionStep >= XGO_ACT_MAX)
 				actionStep = 0;
+			return true;
+		}
+		else if(ev->value.im.value == KEY_BUTTON_B) {
+			xgo_cmd(XGO_TYPE_SEND, XGO_CMD_ACT, XGO_ACT_STOP, NULL);
 			return true;
 		}
 
@@ -140,7 +144,7 @@ int main(int argc, char** argv) {
 	root->focus(xgoW);
 
 	win.open(&x, 0, -1, -1, 240, 240, "xgo", XWIN_STYLE_NORMAL|XWIN_STYLE_LAUNCHER);
-	win.setTimer(16);
+	win.setTimer(8);
 	win.max();
 	x.run(NULL, &win);
 	return 0;

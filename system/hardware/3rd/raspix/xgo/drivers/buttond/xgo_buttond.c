@@ -16,7 +16,7 @@ static gpio_key_t _gpio_keys[] = {
 	{23, KEY_LEFT},
 	{24, KEY_RIGHT},
 	{22, KEY_BUTTON_A},
-	{17, KEY_HOME},
+	{17, KEY_BUTTON_B},
 	{0,  0}
 };
 
