@@ -59,6 +59,7 @@ int main(int argc, char** argv) {
 
 	FileManager* fm = new FileManager();
 	root->add(fm);
+	root->focus(fm);
 
 	win.open(&x, 0, -1, -1, 320, 240, "xfinder", XWIN_STYLE_NORMAL);
 	x.run(NULL, &win);

@@ -2,6 +2,7 @@
 #include <Widget/Grid.h>
 #include <Widget/Scroller.h>
 #include <WidgetEx/FileWidget.h>
+#include <Widget/RootWidget.h>
 #include <ewoksys/proc.h>
 #include <tinyjson/tinyjson.h>
 #include <upng/upng.h>
@@ -273,6 +274,11 @@ public:
 	}
 };
 
+void FileWidget::onFocus() {
+	RootWidget* root = getRoot();
+	root->focus(fileGrid);		
+}
+
 void FileWidget::build() {
 	setType(Container::VERTICLE);
 	setAlpha(false);
@@ -289,6 +295,7 @@ void FileWidget::build() {
 	fgrid->setCWDLabel(cwdLabel);
 	fgrid->setItemSize(itemSize, itemSize);
 	c->add(fgrid);
+	fileGrid = fgrid;
 
 	Scroller* scrollerV = new Scroller();
 	scrollerV->fix(8, 0);
