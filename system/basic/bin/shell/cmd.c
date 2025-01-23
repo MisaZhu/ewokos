@@ -127,6 +127,24 @@ static int history(void) {
 	return 0;
 }
 
+static int set_stdio(const char* dev) {
+	while(*dev == ' ' || *dev == '\t') /*skip all space*/
+		dev++;
+
+	int fd = open(dev, O_RDWR);
+	if(fd > 0) {
+		dup2(fd, 0);
+		dup2(fd, 1);
+		dup2(fd, 2);
+		dup2(fd, VFS_BACKUP_FD0);
+		dup2(fd, VFS_BACKUP_FD1);
+		close(fd);
+		setenv("CONSOLE_ID", dev);
+		return 0;
+	}
+	return -1;
+}
+
 int32_t handle_shell_cmd(const char* cmd) {
 	if(strcmp(cmd, "exit") == 0) {
 		_terminated = true;
@@ -150,6 +168,9 @@ int32_t handle_shell_cmd(const char* cmd) {
 	}
 	else if(strcmp(cmd, "history") == 0) {
 		return history();
+	}
+	else if(strncmp(cmd, "set_stdio ", 10) == 0) {
+		return set_stdio(cmd+10);
 	}
 	return -1; /*not shell internal command*/
 }

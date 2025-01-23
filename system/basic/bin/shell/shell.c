@@ -16,7 +16,6 @@
 #include "shell.h"
 
 bool _script_mode = false;
-bool _stdio_inited = false;
 bool _terminated = false;
 
 old_cmd_t* _history = NULL;
@@ -202,38 +201,6 @@ static void prompt(void) {
 		printf("\033[4m[%s]:%s$\033[0m ", cid, getcwd(cwd, FS_FULL_NAME_MAX));
 }
 
-static int init_stdio(void) {
-	static bool dev_set = false;
-	const char* tty_dev = "/dev/tty0";
-	if(!dev_set) {
-		const char* dev = getenv("INIT_OUT_DEV");
-		if(dev != NULL) {
-			dev_set = true;
-			_stdio_inited = false;
-			tty_dev = dev;
-		}
-	}
-
-	if(_stdio_inited)
-		return 0;
-
-	int fd = open(tty_dev, O_RDWR);
-	if(fd > 0) {
-		dup2(fd, 0);
-		dup2(fd, 1);
-		dup2(fd, 2);
-		dup2(fd, VFS_BACKUP_FD0);
-		dup2(fd, VFS_BACKUP_FD1);
-		close(fd);
-		setenv("CONSOLE_ID", tty_dev);
-		_stdio_inited = true;
-		return 0;
-	}
-
-	return -1;
-}
-
-static bool _initrd_mode = false; 
 static int doargs(int argc, char* argv[]) {
 	int c = 0;
 	while (c != -1) {
@@ -242,9 +209,6 @@ static int doargs(int argc, char* argv[]) {
 			break;
 
 		switch (c) {
-		case 'i':
-			_initrd_mode = true;
-			break;
 		case '?':
 			return -1;
 		default:
@@ -257,7 +221,6 @@ static int doargs(int argc, char* argv[]) {
 
 int main(int argc, char* argv[]) {
 	_script_mode = false;
-	_stdio_inited = false;
 	_history = NULL;
 	_terminated = 0;
 	setbuf(stdout, NULL);
@@ -281,9 +244,6 @@ int main(int argc, char* argv[]) {
 	chdir(home);
 	str_t* cmdstr = str_new("");
 	while(_terminated == 0) {
-		if(_initrd_mode)
-			init_stdio();
-
 		if(fd_in == 0)
 			prompt();
 

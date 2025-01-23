@@ -5,7 +5,7 @@
 /bin/ipcserv /drivers/fontd                /dev/font
 
 /bin/ipcserv /drivers/consoled             0
-@export INIT_OUT_DEV=/dev/console0
+@set_stdio /dev/console0
 
 /bin/ipcserv /drivers/rk3128/gpio_joystickd  /dev/joystick
 /bin/ipcserv /drivers/vjoystickd             /dev/vjoystick /dev/joystick

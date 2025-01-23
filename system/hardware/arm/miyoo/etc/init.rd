@@ -5,7 +5,7 @@
 /bin/ipcserv /drivers/fontd          /dev/font
 
 /bin/ipcserv /drivers/consoled       0
-@export INIT_OUT_DEV=/dev/console0
+@set_stdio /dev/console0
 
 /bin/ipcserv /drivers/miyoo/gpio_joystickd     /dev/joystick
 /bin/ipcserv /drivers/vjoystickd               /dev/vjoystick /dev/joystick
@@ -23,7 +23,7 @@
 /sbin/x/xim_none   /dev/vjoystick &
 /sbin/x/xjoymoused /dev/vjoystick &
 
-/bin/load_font
+#/bin/load_font
 /bin/ipcserv /drivers/xserverd       /dev/x
 
 @/sbin/x/xim_vkey 460 120&

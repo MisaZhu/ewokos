@@ -245,6 +245,7 @@ public:
 			fdialog.popup(this, 400, 300, "files", XWIN_STYLE_NORMAL);
 		else
 			imgView->loadImage(fname.c_str());
+		repaint();
 	}
 };
 
