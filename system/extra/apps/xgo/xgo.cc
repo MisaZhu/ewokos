@@ -16,9 +16,8 @@ protected:
 	}
 
 	void onTimer(uint32_t timerFPS, uint32_t timerStep) {
-		uint8_t res[DATA_MAX];
 		if(timerStep == 0)
-			xgo_cmd(CMD_SEND, 0x03, 0x01, res);
+			xgo_send(CMD_SEND, 0x03, 0x01);
 	}
 public: 
 	XgoWidget() {
