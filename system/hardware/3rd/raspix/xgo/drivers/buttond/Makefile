@@ -1,4 +1,9 @@
-include ../../make.rule
+ifeq ($(ARCH),)
+export ARCH=arm
+endif
+
+SYS_DIR=../../../../../..
+include $(SYS_DIR)/hardware/$(ARCH)/make.rule
 
 BUILD_DIR = $(SYS_DIR)/build
 TARGET_DIR = $(BUILD_DIR)/$(HW)

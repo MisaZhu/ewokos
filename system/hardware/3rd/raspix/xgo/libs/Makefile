@@ -2,9 +2,11 @@ ifeq ($(ARCH),)
 export ARCH=arm
 endif
 
-include ../../../../../hardware/$(ARCH)/make.rule
+SYS_DIR=../../../../..
 
-BUILD_DIR = ../../../../../build
+include $(SYS_DIR)/hardware/$(ARCH)/make.rule
+
+BUILD_DIR = $(SYS_DIR)/build
 TARGET_DIR = $(BUILD_DIR)
 
 LDFLAGS = -L$(TARGET_DIR)/lib
