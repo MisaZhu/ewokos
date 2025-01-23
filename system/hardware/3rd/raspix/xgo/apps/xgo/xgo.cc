@@ -6,6 +6,7 @@
 #include <fcntl.h>
 #include <font/font.h>
 #include <ewoksys/kernel_tic.h>
+#include <ewoksys/basic_math.h>
 #include <ewoksys/keydef.h>
 #include <upng/upng.h>
 #include <xgo/xgo.h>
@@ -41,6 +42,12 @@ class XgoWidget: public Widget {
 			klog("%s: %x\n", X::getResName(name), expressIcons[i]);
 		}
 	}
+
+	void bored() {
+		static const uint8_t actNum = 2;
+		static uint8_t acts[actNum] = {XGO_ACT_SHAKE, XGO_ACT_HEIGHT};
+		xgo_cmd(XGO_TYPE_SEND, XGO_CMD_ACT, acts[random_to(actNum)], NULL);
+	}
 protected:
 	void onRepaint(graph_t* g, XTheme* theme, const grect_t& r) {
 		if(bt < 0)
@@ -68,6 +75,9 @@ protected:
 		if(timerStep == 0) {
 			xgo_cmd(XGO_TYPE_SEND, XGO_CMD_SET_FORCE_RT, 0x0, NULL);
 			//xgo_cmd(XGO_TYPE_SEND, XGO_CMD_SET_FORCE_ROLL, 0x0, NULL);
+		}
+		else if((timerStep % (timerFPS*60)) == 0) {
+			bored();
 		}
 
 		uint8_t res[XGO_DATA_MAX];
