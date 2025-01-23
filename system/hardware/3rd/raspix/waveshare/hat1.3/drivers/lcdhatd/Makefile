@@ -1,7 +1,8 @@
-include ../../make.rule
-
-BUILD_DIR = $(SYS_DIR)/build
+ROOT_DIR = ../../../../../../..
+BUILD_DIR = $(ROOT_DIR)/build
 TARGET_DIR = $(BUILD_DIR)/$(HW)
+
+include $(ROOT_DIR)/hardware/$(ARCH)/make.rule
 
 LDFLAGS = -L$(BUILD_DIR)/lib
 
@@ -9,7 +10,7 @@ CFLAGS += -I $(BUILD_DIR)/include
 
 LCDHATD_OBJS = lcdhatd.o fbd.o
 
-LCDHATD = $(TARGET_DIR)/drivers/raspix/lcdhatd
+LCDHATD = $(TARGET_DIR)/drivers/$(MF)/lcdhatd
 
 $(LCDHATD): $(LCDHATD_OBJS) \
 		$(EWOK_LIBC_A)  \

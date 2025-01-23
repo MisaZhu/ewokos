@@ -1,7 +1,7 @@
+/bin/ipcserv /drivers/clockwork/powerd  /dev/power0
 /bin/ipcserv /drivers/raspix/uartd   /dev/tty0
-/bin/ipcserv /drivers/raspix/powerd  /dev/power0
 
-/bin/ipcserv /drivers/raspix/clockwork_fbd      /dev/fb0
+/bin/ipcserv /drivers/clockwork/clockwork_fbd      /dev/fb0
 /bin/ipcserv /drivers/displayd              /dev/display /dev/fb0
 /bin/ipcserv /drivers/fontd           /dev/font
 
@@ -10,7 +10,7 @@
 
 /bin/ipcserv /drivers/timerd                /dev/timer
 
-/bin/ipcserv /drivers/raspix/clockwork_usbd /dev/hid0
+/bin/ipcserv /drivers/clockwork/clockwork_usbd /dev/hid0
 /bin/ipcserv /drivers/raspix/hid_keybd      /dev/keyb0
 /bin/ipcserv /drivers/raspix/hid_moused     /dev/mouse0
 /bin/ipcserv /drivers/raspix/hid_joystickd  /dev/joystick0
@@ -32,6 +32,7 @@
 /sbin/x/xmoused /dev/mouse0 &
 /sbin/x/xim_none &
 
-/bin/load_font
+#/bin/load_font
 /bin/ipcserv /drivers/xserverd              /dev/x
+
 @/bin/x/xsession misa &

@@ -1,9 +1,0 @@
-#/bin/runmdev /drivers/raspix/lcdhatd       /dev/fb1
-#/bin/runmdev /drivers/raspix/hat13_joystickd     /dev/joystick
-#/bin/runmdev /drivers/raspix/hat13_joykeybd      /dev/keyb0 revx
-#/bin/runmdev /drivers/raspix/rpi_lcdd      /dev/rpi_lcd
-#/bin/runmdev /drivers/raspix/gpio_joystickd  /dev/joystick 5 6 16 13 19 #pins: up down left right press
-#/bin/runmdev /drivers/raspix/gpio_joykeybd   /dev/keyb0 12 21 15 20 26 #pins: up down left right press
-#/bin/runmdev /drivers/raspix/ili9486d      /dev/fb1
-#/bin/runmdev /drivers/raspix/xpt2046d      /dev/touch0
-#/bin/runmdev /drivers/raspix/gt911_touchd  /dev/touch0

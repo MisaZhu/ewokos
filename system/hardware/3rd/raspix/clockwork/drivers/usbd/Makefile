@@ -9,7 +9,7 @@ CFLAGS += -I $(BUILD_DIR)/include -Iinclude
 
 USBD_OBJS = clockwork_usbd.o
 
-USBD = $(TARGET_DIR)/drivers/raspix/clockwork_usbd
+USBD = $(TARGET_DIR)/drivers/$(MF)/clockwork_usbd
 
 $(USBD): $(USBD_OBJS) \
 		$(EWOK_LIBC_A)  \

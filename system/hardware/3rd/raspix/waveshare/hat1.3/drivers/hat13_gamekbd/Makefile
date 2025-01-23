@@ -1,7 +1,8 @@
-include ../../make.rule
-
-BUILD_DIR = $(SYS_DIR)/build
+ROOT_DIR = ../../../../../../..
+BUILD_DIR = $(ROOT_DIR)/build
 TARGET_DIR = $(BUILD_DIR)/$(HW)
+
+include $(ROOT_DIR)/hardware/$(ARCH)/make.rule
 
 LDFLAGS = -L$(BUILD_DIR)/lib
 
@@ -9,7 +10,7 @@ CFLAGS += -I $(BUILD_DIR)/include
 
 GAME_KBD_OBJS = gamekbd.o
 
-GAME_KBD = $(TARGET_DIR)/drivers/raspix/hat13_gamekbd
+GAME_KBD = $(TARGET_DIR)/drivers/$(MF)/hat13_gamekbd
 
 $(GAME_KBD): $(GAME_KBD_OBJS) \
 		$(EWOK_LIBC_A)  \

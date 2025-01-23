@@ -9,7 +9,7 @@ CFLAGS += -I $(BUILD_DIR)/include
 
 PMU_OBJS = powerd.o
 
-PMU = $(TARGET_DIR)/drivers/raspix/powerd
+PMU = $(TARGET_DIR)/drivers/$(MF)/powerd
 
 $(PMU): $(PMU_OBJS) \
 		$(EWOK_LIBC_A)  \

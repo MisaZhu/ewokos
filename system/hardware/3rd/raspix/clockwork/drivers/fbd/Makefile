@@ -9,7 +9,7 @@ CFLAGS += -I $(BUILD_DIR)/include
 
 CLOCKWORK_FBD_OBJS = fbd.o
 
-FBD = $(TARGET_DIR)/drivers/raspix/clockwork_fbd
+FBD = $(TARGET_DIR)/drivers/$(MF)/clockwork_fbd
 
 $(FBD): $(CLOCKWORK_FBD_OBJS) \
 		$(EWOK_LIBC_A)  \

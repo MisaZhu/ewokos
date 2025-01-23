@@ -1,6 +1,0 @@
-target("hat13_joykeybd")
-    set_type("application")
-    add_deps("libbsp")
-    add_files("**.c")        
-    install_dir("drivers/raspix")
-target_end()
