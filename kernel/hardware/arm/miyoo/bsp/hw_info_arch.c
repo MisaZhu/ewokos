@@ -75,8 +75,13 @@ inline void __attribute__((optimize("O0"))) start_core(uint32_t core_id) { //TOD
 
 void arch_vm(page_dir_entry_t* vm) {
 	//map frame buffer
+	#ifdef MIYOO_PLUS
+	uint32_t pfb = 0x27c00000+626;
+	uint32_t vfb = 0x87c00000+626;
+	#else
 	uint32_t pfb = 0x27c00000;
 	uint32_t vfb = 0x87c00000;
+	#endif
 	map_pages_size(vm, vfb, pfb, 4*MB, AP_RW_D, PTE_ATTR_DEV);
 
 	//map gic controller
