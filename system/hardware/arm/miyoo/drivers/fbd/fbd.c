@@ -69,7 +69,7 @@ int rgb2nv12(uint8_t  *out,  uint32_t *in , int w, int h)
 
 
 static uint32_t flush(const fbinfo_t* fbinfo, const graph_t* g) {
-	rgb2nv12(fbinfo->pointer + fbinfo->xoffset, g->buffer, fbinfo->width, fbinfo->height);
+	rgb2nv12(fbinfo->pointer, g->buffer, fbinfo->width, fbinfo->height);
 	return 4 * g->w * g->h;
 }
 

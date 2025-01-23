@@ -25,20 +25,26 @@ int32_t miyoo_fb_init(uint32_t w, uint32_t h, uint32_t dep) {
 	_fb_info.height = 480;
 	_fb_info.vwidth = 640;
 	_fb_info.vheight = 480;
-	_fb_info.depth = 32;
+	_fb_info.depth = 16;
 	_fb_info.pitch = _fb_info.width*(_fb_info.depth/8);
-
-	_fb_info.pointer = syscall1(SYS_P2V, 0x27c00000); //GPU addr to ARM addr
-	_fb_info.size = _fb_info.width*_fb_info.height*4;
-	_fb_info.size_max = (_fb_info.size + 4095)&(~4095);
-	_fb_info.xoffset = 0;
-	_fb_info.yoffset = 0;
 
 	sys_info_t sysinfo;
 	syscall1(SYS_GET_SYS_INFO, (int32_t)&sysinfo);
+
 	if(strcmp(sysinfo.machine, "miyoo-plus") == 0)
-		_fb_info.xoffset = 628;
-	syscall3(SYS_MEM_MAP, _fb_info.pointer, 0x27c00000, _fb_info.size_max);
+		_fb_info.pointer = syscall1(SYS_P2V, 0x27c00000+628); //GPU addr to ARM addr
+	else
+		_fb_info.pointer = syscall1(SYS_P2V, 0x27c00000); //GPU addr to ARM addr
+
+	_fb_info.size = _fb_info.width*_fb_info.height*2;
+	_fb_info.size_max = _fb_info.size;
+	_fb_info.xoffset = 0;
+	_fb_info.yoffset = 0;
+
+	if(strcmp(sysinfo.machine, "miyoo-plus") == 0)
+		syscall3(SYS_MEM_MAP, _fb_info.pointer, 0x27c00000+628, _fb_info.size);
+	else
+		syscall3(SYS_MEM_MAP, _fb_info.pointer, 0x27c00000, _fb_info.size);
 	return 0;
 }
 
