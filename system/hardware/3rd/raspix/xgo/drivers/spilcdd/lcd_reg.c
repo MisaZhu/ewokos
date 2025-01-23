@@ -100,17 +100,14 @@ void lcd_flush(const void* buf, uint32_t size) {
 	if(size < LCD_WIDTH * LCD_HEIGHT* 4)
 		return;
 
-	uint32_t *src = (uint32_t*)buf;
 	uint32_t sz = LCD_HEIGHT*LCD_WIDTH;
+	uint8_t *src = (uint8_t*)buf;
+	uint16_t *dst = _lcd_buffer;
 	uint32_t i;
 
 	for (i = 0; i < sz; i++) {
-		register uint32_t s = src[i];
-        register uint8_t r = (s >> 16) & 0xff;
-        register uint8_t g = (s >> 8)  & 0xff;
-        register uint8_t b = s & 0xff;
-        uint16_t temp = ((r >> 3) <<11) | ((g >> 2) << 5) | (b >> 3);
-		_lcd_buffer[i] = ((temp >> 8) & 0xFF) | ((temp << 8) & 0xFF00);
+        *dst++ = (src[2] & 0xF8) | (src[1] >> 5) | ((src[1] &0x1C) << 11)  | ((src[0] & 0xF8) << 5);
+		src+=4;
 	}
 
 	bcm283x_spi_set_div(SPI_DIV);
