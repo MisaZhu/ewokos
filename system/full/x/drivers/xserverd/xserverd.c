@@ -482,7 +482,7 @@ static int x_init_display(x_t* x, int32_t display_index) {
 		x->displays[display_index].desktop_rect.w = g_fb->w;
 		x->displays[display_index].desktop_rect.h = g_fb->h;
 		
-		x_dirty(x, 0);
+		//x_dirty(x, 0);
 		x->display_num = 1;
 		return 0;
 	}
@@ -506,7 +506,7 @@ static int x_init_display(x_t* x, int32_t display_index) {
 		x->displays[i].desktop_rect.y = 0;
 		x->displays[i].desktop_rect.w = g_fb->w;
 		x->displays[i].desktop_rect.h = g_fb->h;
-		x_dirty(x, i);
+		//x_dirty(x, i);
 	}
 	x->display_num = display_num;
 	return 0;
@@ -899,7 +899,8 @@ static int xwin_update_info(int fd, int from_pid, proto_t* in, proto_t* out, x_t
 	x_update_frame_areas(x, win);
 
 	if((type & X_UPDATE_REFRESH) != 0 || win->xinfo->alpha) {
-		x_dirty(x, win->xinfo->display_index);
+		if(win->xinfo->visible)
+			x_dirty(x, win->xinfo->display_index);
 	}
 	return 0;
 }
@@ -1388,7 +1389,6 @@ static int xserver_win_close(int fd, int from_pid, uint32_t node, bool last_ref,
 	return 0;
 }
 
-static int _last_ux = 0;
 int xserver_step(void* p) {
 	x_t* x = (x_t*)p;
 
@@ -1397,14 +1397,12 @@ int xserver_step(void* p) {
 
 	if(core_get_ux() == 8) {
 		for(uint32_t i=0; i<x->display_num; i++) {
-			if(_last_ux == 0)
-				x_dirty(x, i);
 			x_repaint(x, i);
 		}
-		_last_ux = 8;
 	}
-	else 
-		_last_ux = 0;
+	else {
+		x_dirty(x, -1);
+	}
 	ipc_enable();
 
 	proc_usleep(1000000/x->config.fps);
