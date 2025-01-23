@@ -20,6 +20,6 @@
 
 /sbin/x/xim_none &
 
-/bin/load_font
+#/bin/load_font
 /bin/ipcserv /drivers/xserverd        /dev/x
 @/bin/x/xsession  misa &
