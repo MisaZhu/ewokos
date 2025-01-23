@@ -160,7 +160,9 @@ bool Grid::onIM(xevent_t* ev) {
 			updateScroller();
 			select(sel);
 		}
-		else if(ev->value.im.value == KEY_ENTER ||
+	}
+	else if(ev->state == XIM_STATE_RELEASE) {
+		if(ev->value.im.value == KEY_ENTER ||
 				ev->value.im.value == KEY_BUTTON_START ||
 				ev->value.im.value == KEY_BUTTON_A) {
 			enter(itemSelected);
