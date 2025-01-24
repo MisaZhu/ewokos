@@ -227,11 +227,12 @@ static void handle(int from_pid, int cmd, proto_t* in, proto_t* out, void* p) {
 }
 
 void xwm_run(xwm_t* xwm) {
+	memset(&_xwm_graph, 0, sizeof(xwm_graph_t));
+	ipc_serv_run(handle, NULL, xwm, IPC_NON_BLOCK);
+
 	setenv("XWM", "true");
 	dev_cntl("/dev/x", X_DCNTL_SET_XWM, NULL, NULL);
 
-	memset(&_xwm_graph, 0, sizeof(xwm_graph_t));
-	ipc_serv_run(handle, NULL, xwm, 0);
 	while(true) {
 		proc_block_by(getpid(), (uint32_t)xwm_run);
 	}

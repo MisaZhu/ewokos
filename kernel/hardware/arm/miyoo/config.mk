@@ -3,7 +3,7 @@ QEMU_FLAGS = -cpu $(CPU) -M raspi2b -m 1G -serial mon:stdio
 ARCH_CFLAGS = -march=armv7ve
 ARCH=v7
 #----miyoo plus----
-MIYOO_PLUS=yes
+#MIYOO_PLUS=yes
 #----enable DPI display---
 #DPI=yes
 #----multi core(SMP)------
