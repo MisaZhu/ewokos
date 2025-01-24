@@ -29,13 +29,13 @@
 /bin/ipcserv /drivers/proc/stated     /proc/state
 
 /bin/ipcserv /sbin/sessiond
-/bin/session -r -t /dev/tty0 &
 
 #/bin/load_font
 /bin/ipcserv /drivers/xserverd        /dev/x
-
 @/sbin/x/xmoused /dev/mouse0 &
 @/sbin/x/xim_none /dev/keyb0 &
 
+@/bin/session -r -t /dev/tty0 &
+@/bin/session -r -t /dev/console0 &
 @/bin/x/xsession misa &
 
