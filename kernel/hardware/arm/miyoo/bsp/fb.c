@@ -1,5 +1,6 @@
 #include <dev/fb.h>
 #include <graph/graph.h>
+#include <kernel/kernel.h>
 #include <kstring.h>
 #include <stdbool.h>
 #include "fb.h"
@@ -93,19 +94,17 @@ int32_t fb_init_bsp(uint32_t w, uint32_t h, uint8_t dep, fbinfo_t* fbinfo) {
 }
 
 void fb_flush32_bsp(uint32_t* g32, uint32_t w, uint32_t h) {
-	#ifdef MIYOO_PLUS
+	if(strcmp(_sys_info.machine, "miyoo-plus") == 0)
 		rgb2nv12(0x87c00000 + 626 , g32, w, h);	
-	#else
+	else
 		rgb2nv12(0x87c00000, g32, w, h);	
-	#endif
 }
 
 
 void fb_flush_graph_bsp(graph_t* g) {
 	void* p = (void*)(0x87c00000);
-	#ifdef MIYOO_PLUS
+	if(strcmp(_sys_info.machine, "miyoo-plus") == 0)
 		p = (void*)(0x87c00000 + 626);
-	#endif
 	rgb2nv12(p, g->buffer, g->w, g->h);	
 }
 

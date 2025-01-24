@@ -28,11 +28,13 @@ typedef struct {
 
 #define MAX_CORE_NUM 8
 #define MAX_PROC_NUM 512
+#define MACHINE_MAX  32
+#define ARCH_MAX     16
 
 /*static attr*/
 typedef struct {
-	char        machine[32];
-	char        arch[16];
+	char        machine[MACHINE_MAX];
+	char        arch[ARCH_MAX];
 	uint32_t    phy_mem_size;
 	uint32_t    phy_offset;
 	uint32_t    kernel_base;

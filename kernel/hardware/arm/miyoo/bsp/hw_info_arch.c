@@ -18,11 +18,7 @@ uint32_t _core_base_offset = 0;
 void sys_info_init_arch(void) {
 	memset(&_sys_info, 0, sizeof(sys_info_t));
 	_core_base_offset =  0x01000000;
-#ifdef MIYOO_PLUS
-	strcpy(_sys_info.machine, "miyoo-plus");
-#else
 	strcpy(_sys_info.machine, "miyoo-mini");
-#endif
 	strcpy(_sys_info.arch, "armv7");
 	_sys_info.phy_offset = 0x20000000;
 	_sys_info.vector_base = 0x20000000;
@@ -75,13 +71,8 @@ inline void __attribute__((optimize("O0"))) start_core(uint32_t core_id) { //TOD
 
 void arch_vm(page_dir_entry_t* vm) {
 	//map frame buffer
-	#ifdef MIYOO_PLUS
-	uint32_t pfb = 0x27c00000+626;
-	uint32_t vfb = 0x87c00000+626;
-	#else
 	uint32_t pfb = 0x27c00000;
 	uint32_t vfb = 0x87c00000;
-	#endif
 	map_pages_size(vm, vfb, pfb, 4*MB, AP_RW_D, PTE_ATTR_DEV);
 
 	//map gic controller

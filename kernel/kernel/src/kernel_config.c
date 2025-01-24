@@ -12,7 +12,11 @@ static void load_kernel_config_file() {
 	if(sconf == NULL)
 		return;
 
-	const char* v = sconf_get(sconf, "cores");
+	const char* v = sconf_get(sconf, "machine");
+	if(v[0] != 0)
+		sstrncpy(_sys_info.machine, v, MACHINE_MAX-1);
+
+	v = sconf_get(sconf, "cores");
 	if(v[0] != 0)
 		_kernel_config.cores = atoi(v);
 
