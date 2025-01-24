@@ -125,10 +125,13 @@ int main(int argc, char** argv) {
 	uint16_t prev_ev = 0;
 	while(true) {
 		int8_t buf[6];
+		memset(buf, 0, 6);
 		if(read(fd, buf, 6) == 6) {
 			uint16_t* mv = (uint16_t*)buf;
-			if(mv[0] == 0 && prev_ev == 0)
+			if(mv[0] == 0 && prev_ev == 0) {
+				proc_usleep(10000);
 				continue;
+			}
 			prev_ev = mv[0];
 
 			uint16_t xraw = mv[1];
@@ -146,7 +149,7 @@ int main(int argc, char** argv) {
 			input(mv[0], tx, ty);
 		}
 		else
-			proc_usleep(5000);
+			proc_usleep(10000);
 	}
 
 	close(fd);

@@ -150,7 +150,7 @@ void ili9486_flush(const void* buf, uint32_t size) {
 		register uint8_t r = (s >> 16) & 0xff;
 		register uint8_t g = (s >> 8)  & 0xff;
 		register uint8_t b = s & 0xff;
-		_lcd_buffer[i] = ((r >> 3) <<11) | ((g >> 3) << 6) | (b >> 3);
+		_lcd_buffer[i] = ((r >> 3) <<11) | ((g >> 2) << 5) | (b >> 3);
 	}
 
 	bcm283x_spi_set_div(SPI_DIV);
