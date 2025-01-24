@@ -1,7 +1,9 @@
-include ../../make.rule
-
-BUILD_DIR = $(SYS_DIR)/build
+ROOT_DIR = ../../../../../..
+BUILD_DIR = $(ROOT_DIR)/build
 TARGET_DIR = $(BUILD_DIR)/$(HW)
+
+include $(ROOT_DIR)/hardware/$(ARCH)/make.rule
+
 
 LDFLAGS = -L$(BUILD_DIR)/lib
 
@@ -9,7 +11,7 @@ CFLAGS += -I $(BUILD_DIR)/include
 
 RPI_LCDD_OBJS = rpi_lcdd.o
 
-RPI_LCDD = $(TARGET_DIR)/drivers/raspix/rpi_lcdd
+RPI_LCDD = $(TARGET_DIR)/drivers/$(MF)/rpi_lcdd
 
 $(RPI_LCDD): $(RPI_LCDD_OBJS) \
 		$(EWOK_LIBC_A)  \

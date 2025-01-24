@@ -1,7 +1,9 @@
-include ../../make.rule
-
-BUILD_DIR = $(SYS_DIR)/build
+ROOT_DIR = ../../../../../..
+BUILD_DIR = $(ROOT_DIR)/build
 TARGET_DIR = $(BUILD_DIR)/$(HW)
+
+include $(ROOT_DIR)/hardware/$(ARCH)/make.rule
+
 
 LDFLAGS = -L$(BUILD_DIR)/lib
 
@@ -9,7 +11,7 @@ CFLAGS += -I $(BUILD_DIR)/include
 
 EPAPERD_OBJS = epaperd.o fbd.o
 
-EPAPERD = $(TARGET_DIR)/drivers/raspix/epaperd
+EPAPERD = $(TARGET_DIR)/drivers/$(MF)/epaperd
 
 $(EPAPERD): $(EPAPERD_OBJS) \
 		$(EWOK_LIBC_A)  \
