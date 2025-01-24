@@ -130,14 +130,6 @@ static inline const char* svc_name(int32_t code) {
 		return "sys_schd_core_unlock";
 	case SYS_CLOSE_KCONSOLE:
 		return "sys_root";
-	case SYS_GET_TRACE:
-		return "sys_get_trace";
-	case SYS_GET_TRACE_FPS:
-		return "sys_get_trace_fps";
-	case SYS_PAUSE_TRACE:
-		return "sys_pause_trace";
-	case SYS_RESUME_TRACE:
-		return "sys_resume_trace";
 	}
 	return "unknown";
 }

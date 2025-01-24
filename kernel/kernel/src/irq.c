@@ -6,7 +6,6 @@
 #include <kernel/kernel.h>
 #include <kernel/proc.h>
 #include <kernel/kevqueue.h>
-#include <kernel/trace.h>
 #include <kernel/interrupt.h>
 #include <kernel/core.h>
 #include <kstring.h>
@@ -53,10 +52,6 @@ static inline void irq_do_timer0(context_t* ctx) {
 	(void)ctx;
 	uint64_t usec = timer_read_sys_usec();
 	uint32_t usec_gap = usec - _last_usec;
-
-#ifdef SCHD_TRACE
-	update_trace(usec_gap);
-#endif
 
 	_last_usec = usec;
 	_kernel_usec += usec_gap;
@@ -141,10 +136,7 @@ void undef_abort_handler(context_t* ctx, uint32_t status) {
 
 	printf("pid: %d(%s), undef instrunction abort!! (core %d)\n", cproc->info.pid, cproc->info.cmd, core);
 	dump_ctx(&cproc->ctx);
-#ifdef SCHD_TRACE
-	update_trace(1000000);
-	pause_trace();
-#endif
+
 	proc_exit(ctx, proc_get_proc(cproc), -1);
 }
 
@@ -177,10 +169,7 @@ void prefetch_abort_handler(context_t* ctx, uint32_t status) {
 
 	printf("pid: %d(%s), prefetch abort!! (core %d) code:0x%x\n", cproc->info.pid, cproc->info.cmd, core, status);
 	dump_ctx(&cproc->ctx);
-#ifdef SCHD_TRACE
-	update_trace(1000000);
-	pause_trace();
-#endif
+
 	proc_exit(ctx, proc_get_proc(cproc), -1);
 }
 
@@ -231,10 +220,7 @@ void data_abort_handler(context_t* ctx, uint32_t addr_fault, uint32_t status) {
 		printf("\terror: %s!\n", errmsg);
 
 	dump_ctx(&cproc->ctx);
-#ifdef SCHD_TRACE
-	update_trace(1000000);
-	pause_trace();
-#endif
+
 	proc_exit(ctx, proc_get_proc(cproc), -1);
 }
 
