@@ -10,7 +10,7 @@ CFLAGS += -I $(BUILD_DIR)/include
 
 JOYKEYBD_OBJS = joykeybd.o
 
-JOYKEYBD = $(TARGET_DIR)/drivers/$(MF)/hat13_joykeybd
+JOYKEYBD = $(TARGET_DIR)/drivers/$(MF)/joykeybd
 
 $(JOYKEYBD): $(JOYKEYBD_OBJS) \
 		$(EWOK_LIBC_A)  \

@@ -9,12 +9,12 @@ TARGET_DIR = $(BUILD_DIR)/$(HW)
 
 all: 
 	mkdir -p $(BUILD_DIR)/$(HW)/drivers/$(MF)
-	cd drivers/hat13_joykeybd; make
-	cd drivers/hat13_gamekbd; make
+	cd drivers/joykeybd; make
+	cd drivers/gamekbd; make
 	cd drivers/lcdhatd; make
 	cp -r etc $(TARGET_DIR)/
 
 clean:	
-	cd drivers/hat13_joykeybd; make clean
-	cd drivers/hat13_gamekbd; make clean
+	cd drivers/joykeybd; make clean
+	cd drivers/gamekbd; make clean
 	cd drivers/lcdhatd; make clean
