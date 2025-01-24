@@ -1,6 +1,0 @@
-target("emu")
-    set_type("application")
-    add_deps("libx", "libx++", "libupng", "libsconf", "libcxx")
-    add_files("main.cpp", "src/InfoNES.cpp", "src/InfoNES_Mapper.cpp", "src/InfoNES_pAPU.cpp", "src/K6502.cpp")        
-    install_dir("apps/emu")
-target_end()

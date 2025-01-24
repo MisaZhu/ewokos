@@ -1,8 +1,0 @@
-target("etc")
-    set_type("phony")
-    install_dir("etc")    
-    local rootfs_dir = get_rootfsdir()
-    on_build(function(target)
-        os.cp(target:scriptdir().."/full/framebuffer.conf", rootfs_dir.."etc/")
-    end)
-target_end()

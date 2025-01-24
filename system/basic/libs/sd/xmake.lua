@@ -1,6 +1,0 @@
-target("libsd")
-    set_type("library")
-    add_files("src/*.c")
-    add_deps("libewokc")
-    add_includedirs("include", {public = true})
-target_end()

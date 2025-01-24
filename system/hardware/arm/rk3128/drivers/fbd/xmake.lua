@@ -1,6 +1,0 @@
-target("fbd")
-    set_type("application")
-    add_deps("libbsp", "libupng", "libgraph", "libfbd", "libsconf")
-    add_files("**.c")        
-    install_dir("drivers/rk3128")
-target_end()

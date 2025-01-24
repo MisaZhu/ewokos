@@ -1,5 +1,0 @@
-target("ramfsd")
-    set_type("application")
-    add_files("**.c")        
-    install_dir("drivers")
-target_end()

@@ -1,6 +1,0 @@
-target("xwm_mac1984")
-    set_type("application")
-    add_files("*.cc")        
-    add_deps("libx++", "libx", "libgraph", "libttf", "libfont" ,, "libupng","libsconf", "libcxx")
-    install_dir("sbin/x")
-target_end()

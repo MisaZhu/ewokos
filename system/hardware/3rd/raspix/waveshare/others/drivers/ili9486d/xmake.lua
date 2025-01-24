@@ -1,6 +1,0 @@
-target("ili9486d")
-    set_type("application")
-    add_deps("libfbd", "libupng", "libgraph", "libili9486","libbsp", "libsconf")
-    add_files("**.c")        
-    install_dir("drivers/raspix")
-target_end()

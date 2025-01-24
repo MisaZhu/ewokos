@@ -1,6 +1,0 @@
-target("xserverd")
-    set_type("application")
-    add_deps("libupng", "libx", "libdisplay", "libgraph", "libsconf")
-    add_files("**.c")        
-    install_dir("drivers")
-target_end()

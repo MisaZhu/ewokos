@@ -1,7 +1,0 @@
-target("libbsp")
-    set_type("library")
-    add_deps("libarch_bcm283x")
-    add_files("**.c")        
-	 add_cflags("-mfpu=neon-vfpv4", {force=true})
-    add_includedirs("include","../../../../../full/libs/graph/include", {public=true})
-target_end()

@@ -1,6 +1,0 @@
-target("sdfsd")
-    set_type("application")
-    add_deps("libbsp","libsd","libext2")
-    add_files("*.c")        
-    install_dir("sbin")
-target_end()

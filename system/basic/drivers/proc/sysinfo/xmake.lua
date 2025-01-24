@@ -1,5 +1,0 @@
-target("sysinfod")
-    set_type("application")
-    add_files("**.c")        
-    install_dir("drivers/proc")
-target_end()

@@ -1,8 +1,0 @@
-target("powerd")
-    set_type("application")
-    add_deps("libbsp")
-    add_files("**.c")        
-    add_includedirs("include")
-    install_dir("drivers/versatilepb")
-    add_linkdirs("lib")
-target_end()

@@ -1,6 +1,0 @@
-target("fontd")
-    set_type("application")
-    add_deps("libfont", , "libgraph", "libsconf")
-    add_files("**.c")        
-    install_dir("drivers")
-target_end()

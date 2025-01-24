@@ -1,6 +1,0 @@
-target("xtouchd")
-    set_type("application")
-    add_files("*.c")        
-    add_deps("libx", "libgraph", "libsconf", "libcxx")
-    install_dir("sbin/x")
-target_end()

@@ -1,6 +1,0 @@
-target("libili9486")
-    set_type("library")
-    add_files("**.c")        
-    add_deps("libfb", "libarch_bcm283x")
-    add_includedirs("include",  {public = true})
-target_end()

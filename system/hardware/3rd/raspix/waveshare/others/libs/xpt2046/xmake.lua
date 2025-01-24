@@ -1,6 +1,0 @@
-target("libxpt2046")
-    set_type("library")
-	add_deps("libbsp")
-    add_files("src/**.c")
-    add_includedirs("include", {public = true})
-target_end()

@@ -1,6 +1,0 @@
-target("vfsd")
-    set_type("application")
-    add_deps("libhash")
-    add_files("*.c")        
-    install_dir("sbin")
-target_end()

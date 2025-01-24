@@ -1,6 +1,0 @@
-target("menubar")
-    set_type("application")
-    add_files("**.cc")        
-    add_deps("libupng","libx++", "libx", "libcxx")
-    install_dir("bin/x")
-target_end()
