@@ -13,12 +13,12 @@ QEMU_CMD = qemu-system-arm
 ROOT_DIR = ../../../../..
 MACHINE = arm/raspix
 
-ifeq ($(CLOCKWORK),yes)
-include make.bsp.clockwork
-else ifeq ($(PI4),yes)
+include make.bsp
+
+ifeq ($(PI4),yes)
 include make.bsp.pi4
 else
-include make.bsp
+include make.bsp.pi2.3
 endif
 
 include ../../make.rule

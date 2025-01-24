@@ -26,7 +26,8 @@ typedef struct {
 static __attribute__((__aligned__(PAGE_SIZE))) fb_init_t _fbinit;
 int32_t fb_init_raw(uint32_t w, uint32_t h, uint32_t dep) {
 
-#if CLOCKWORK
+#if 0 
+	//for clockwork
 	_fb_info.width = w;
 	_fb_info.height = h;
 	_fb_info.vwidth = w;
