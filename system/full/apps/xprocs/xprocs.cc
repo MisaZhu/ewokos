@@ -248,7 +248,12 @@ protected:
 		int x = r.x + x_off + i*60;
 		graph_fill(g, x, r.y+4, 10, 10, color);
 		char s[16];
-		snprintf(s, 15, "%d:%d%%", i, 100 - (sysInfo.core_idles[i]/10000));
+
+		int32_t perc = 100 - (sysInfo.core_idles[i]/10000);
+		if(perc < 0)
+			perc = 0;
+
+		snprintf(s, 15, "%d:%d%%", i, perc);
 		graph_draw_text_font(g, x+12, r.y+4, s, theme->getFont(), theme->basic.fontSize, color);
 	}
 
@@ -263,7 +268,9 @@ protected:
 			if(k >= HEART_BIT_NUM)
 				k -= HEART_BIT_NUM;
 
-			uint32_t perc = 100 - (cores[i][k] / 10000);
+			int32_t perc = 100 - (cores[i][k] / 10000);
+			if(perc < 0)
+				perc = 0;
 
 			int x = (j+1) * xstep;
 			int y = r.h - y_off - yzoom*(perc); //percentage
@@ -345,7 +352,10 @@ protected:
 			snprintf(s, 15, "all");
 		else {
 			color = Cores::getColor(index-1);
-			snprintf(s, 15, "core%2d: %d%%", index-1, 100 - (sysInfo.core_idles[index-1]/10000));
+			int32_t perc = 100 - (sysInfo.core_idles[index-1]/10000);
+			if(perc < 0)
+				perc = 0;
+			snprintf(s, 15, "core%2d: %d%%", index-1, perc);
 		}
 		graph_draw_text_font(g, r.x+2, r.y+2, s, theme->getFont(), theme->basic.fontSize, color);
 	}
