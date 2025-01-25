@@ -1,4 +1,0 @@
-/bin/ipcserv /drivers/raspix/nxez_ledsd    /dev/leds
-/bin/ipcserv /drivers/raspix/nxez_beepd    /dev/beep
-/bin/ipcserv /drivers/raspix/nxez_keysd    /dev/keys
-/bin/ipcserv /drivers/raspix/nxez_dispd    /dev/disp
