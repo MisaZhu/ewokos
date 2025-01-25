@@ -1,5 +1,5 @@
 SYS_DIR=../../..
-include $(SYS_DIR)/hardware/$(ARCH)/make.rule
+include $(SYS_DIR)/platform/$(ARCH)/make.rule
 
 BUILD_DIR = $(SYS_DIR)/build
 TARGET_DIR = $(BUILD_DIR)/rootfs

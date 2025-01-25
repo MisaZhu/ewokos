@@ -6,7 +6,7 @@ ifeq ($(MARIO_VM),)
 MARIO_VM = .
 endif
 
-include ../../hardware/$(ARCH)/make.rule
+include ../../platform/$(ARCH)/make.rule
 include $(MARIO_VM)/lang/js/lang.mk
 
 mario_OBJS = $(MARIO_VM)/mario/mario.o
