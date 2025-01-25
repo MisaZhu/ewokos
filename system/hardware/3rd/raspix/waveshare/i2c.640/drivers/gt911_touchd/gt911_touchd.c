@@ -26,7 +26,7 @@ static int tp_read(int fd, int from_pid, fsinfo_t* node,
 	GT911_Status_t ret = GT911_ReadTouch(cordinate, &number_of_cordinate);
 	if (ret != GT911_OK || !number_of_cordinate)
 	{
-		if (press && kernel_tic_ms(0) - last_ts > 100)
+		if (press && (kernel_tic_ms(0) - last_ts) > 100)
 		{
 			press = false;
 			d[0] = press;
@@ -34,8 +34,7 @@ static int tp_read(int fd, int from_pid, fsinfo_t* node,
 			d[2] = cordinate[0].y;
 			return 6;
 		}else{
-			//proc_usleep(25000);
-			return VFS_ERR_RETRY;
+			return 0;
 		}
 	}
 	last_ts = kernel_tic_ms(0);

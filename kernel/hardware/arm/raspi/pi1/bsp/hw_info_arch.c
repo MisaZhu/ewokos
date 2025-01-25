@@ -10,6 +10,7 @@
 uint32_t _allocable_phy_mem_top = 0;
 uint32_t _allocable_phy_mem_base = 0;
 uint32_t _uart_type = UART_MINI;
+uint32_t _pi4 = 0;
 
 #define FB_SIZE 64*MB
 #define DMA_SIZE 256*KB
