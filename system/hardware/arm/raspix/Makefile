@@ -36,12 +36,12 @@ basic_sys: kernel_heads
 	cd libs;make
 	cd $(ROOT_DIR)/basic;make
 	cd drivers;make basic_sys
-	@cp -r etcs/qemu/basic/* ${TARGET_DIR}/etc
+	@cp -r etcs/basic/* ${TARGET_DIR}/etc
 
 full_sys: basic_sys 
 	cd $(ROOT_DIR)/full;make
 	cd drivers;make full_sys
-	@cp -r etcs/qemu/full/* ${TARGET_DIR}/etc
+	@cp -r etcs/full/* ${TARGET_DIR}/etc
 
 clean:
 	cd libs;make clean
