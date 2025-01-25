@@ -44,14 +44,14 @@ void sys_info_init_arch(void) {
 	}
 	else if(pix_revision == PI_4B_4G) {
 		strcpy(_sys_info.machine, "raspberry-pi4b-4G");
-		_sys_info.phy_mem_size = 4u*GB;
+		_sys_info.phy_mem_size = 2u*GB;
 		_sys_info.mmio.phy_base = 0xfe000000;
 		_core_base_offset =  0x01800000;
 		_pi4 = 1;
 	}
 	else if(pix_revision == PI_4B_8G) {
 		strcpy(_sys_info.machine, "raspberry-pi4b-8G");
-		_sys_info.phy_mem_size = 4u*GB; //max for 32bits os
+		_sys_info.phy_mem_size = 2u*GB; //max for 32bits os
 		_sys_info.mmio.phy_base = 0xfe000000;
 		_core_base_offset =  0x01800000;
 		_pi4 = 1;
@@ -65,14 +65,14 @@ void sys_info_init_arch(void) {
 	}
 	else if(pix_revision == PI_CM4_2G) {
 		strcpy(_sys_info.machine, "raspberry-cm4-2G");
-		_sys_info.phy_mem_size = 1u*GB;
+		_sys_info.phy_mem_size = 2u*GB;
 		_sys_info.mmio.phy_base = 0xfe000000;
 		_core_base_offset =  0x01800000;
 		_pi4 = 1;
 	}
 	else if(pix_revision == PI_CM4_4G) {
 		strcpy(_sys_info.machine, "raspberry-cm4-4G");
-		_sys_info.phy_mem_size = 1u*GB;
+		_sys_info.phy_mem_size = 2u*GB;
 		_sys_info.phy_offset = 16*MB;
 		_sys_info.mmio.phy_base = 0xfe000000;
 		_core_base_offset =  0x01800000;
