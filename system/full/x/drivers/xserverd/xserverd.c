@@ -482,7 +482,7 @@ static int x_init_display(x_t* x, int32_t display_index) {
 		x->displays[display_index].desktop_rect.w = g_fb->w;
 		x->displays[display_index].desktop_rect.h = g_fb->h;
 		
-		//x_dirty(x, 0);
+		x_dirty(x, 0);
 		x->display_num = 1;
 		return 0;
 	}
@@ -506,7 +506,7 @@ static int x_init_display(x_t* x, int32_t display_index) {
 		x->displays[i].desktop_rect.y = 0;
 		x->displays[i].desktop_rect.w = g_fb->w;
 		x->displays[i].desktop_rect.h = g_fb->h;
-		//x_dirty(x, i);
+		x_dirty(x, i);
 	}
 	x->display_num = display_num;
 	return 0;
