@@ -1,0 +1,3 @@
+[submodule "hw.3rd"]
+	path = hw.3rd
+	url = https://github.com/misazhu/ewokos.3rd
