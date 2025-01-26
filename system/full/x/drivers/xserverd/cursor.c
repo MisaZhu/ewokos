@@ -2,7 +2,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <sconf/sconf.h>
+#include <tinyjson/tinyjson.h>
 #include <upng/upng.h>
 #include <x/x.h>
 
@@ -32,28 +32,20 @@ void cursor_init(const char* theme, cursor_t* cursor) {
 	cursor->offset.y = cursor->size.h/2;
 
 	char fname[256] = {0};
-	snprintf(fname, 255, "%s/%s/xwm/cursors/%s.conf", X_THEME_ROOT, theme,
+	snprintf(fname, 255, "%s/%s/xwm/cursors/%s.json", X_THEME_ROOT, theme,
 			cursor->type == CURSOR_MOUSE ? "mouse":"touch");
-	sconf_t* sconf = sconf_load(fname);
-	if(sconf == NULL)
-		return;
+	json_var_t *conf_var = json_parse_file(fname);	
+	cursor->offset.x = json_get_int_def(conf_var, "x_offset", 0);
+	cursor->offset.y = json_get_int_def(conf_var, "y_offset", 0);
 
-	const char* v = sconf_get(sconf, "x_offset");
-	if(v[0] != 0)
-		cursor->offset.x = atoi(v);
-
-	v = sconf_get(sconf, "y_offset");
-	if(v[0] != 0)
-		cursor->offset.y = atoi(v);
-	
-	v = sconf_get(sconf, "cursor");
+	const char* v = json_get_str_def(conf_var, "cursor", "");
 	if(v[0] != 0) {
 		if(v[0] != '/')
 			snprintf(fname, 255, "%s/%s/xwm/%s", X_THEME_ROOT, theme, v);
 		else
 			strncpy(fname, v, 255);
+		cursor->img = png_image_new(fname);
 	}
-	cursor->img = png_image_new(fname);
 
 	if(cursor->img != NULL) { 
 		cursor->size.w = cursor->img->w; 
@@ -63,5 +55,7 @@ void cursor_init(const char* theme, cursor_t* cursor) {
 		if(cursor->offset.y >= cursor->size.h)
 			cursor->offset.y = cursor->size.h - 1;
 	}
-	sconf_free(sconf);
+
+	if(conf_var != NULL)
+		json_var_unref(conf_var);
 }

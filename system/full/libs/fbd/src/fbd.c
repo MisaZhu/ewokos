@@ -9,7 +9,7 @@
 #include <fb/fb.h>
 #include <fbd/fbd.h>
 #include <upng/upng.h>
-#include <sconf/sconf.h>
+#include <tinyjson/tinyjson.h>
 
 typedef struct {
 	uint32_t size;
@@ -177,33 +177,19 @@ static int32_t fb_dma(int fd, int from_pid, fsinfo_t* info, int* size, void* p) 
 }
 
 static void read_config(uint32_t* w, uint32_t* h, uint8_t* dep, int32_t* rotate) {
-	strncpy(_logo, "/usr/system/images/logos/logo.png", 255);
+	json_var_t *conf_var = json_parse_file("/etc/framebuffer.json");	
 
-	sconf_t *conf = sconf_load("/etc/framebuffer.conf");	
-	if(conf == NULL)
-		return;
-
-	const char* v = sconf_get(conf, "width");
-	if(v[0] != 0)
-		*w = atoi(v);
-
-	v = sconf_get(conf, "height");
-	if(v[0] != 0)
-		*h = atoi(v);
-
-	v = sconf_get(conf, "depth");
-	if(v[0] != 0) 
-		*dep = atoi(v);
-
-	v = sconf_get(conf, "rotate");
-	if(v[0] != 0) 
-		*rotate = atoi(v);
-
-	v = sconf_get(conf, "logo");
+	const char* v = json_get_str_def(conf_var, "logo", "/usr/system/images/logos/ewokos.png");
 	if(v[0] != 0) 
 		strncpy(_logo, v, 255);
 
-	sconf_free(conf);
+	*w = json_get_int_def(conf_var, "width", 0);
+	*h = json_get_int_def(conf_var, "height", 0);
+	*dep = json_get_int_def(conf_var, "depth", 0);
+	*rotate = json_get_int_def(conf_var, "rotate", 0);
+
+	if(conf_var != NULL)
+		json_var_unref(conf_var);
 }
 
 int fbd_run(fbd_t* fbd, const char* mnt_name,

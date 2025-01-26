@@ -9,7 +9,7 @@
 #include <ewoksys/vdevice.h>
 #include <display/display.h>
 #include <upng/upng.h>
-#include <sconf/sconf.h>
+#include <tinyjson/tinyjson.h>
 #include <ewoksys/klog.h>
 #include <ewoksys/syscall.h>
 #include <ewoksys/core.h>
@@ -28,47 +28,27 @@ typedef struct {
 } fb_console_t;
 
 static int32_t read_config(fb_console_t* console, const char* fname) {
-	const char* font_fname =  DEFAULT_SYSTEM_FONT;
-	uint32_t font_size = 12;
+	json_var_t *conf_var = json_parse_file(fname);	
+
 	console->terminal.fg_color = 0xffcccccc;
 	console->terminal.bg_color = 0xff000000;
-	console->terminal.font_fixed = font_size;
 
-	sconf_t *conf = sconf_load(fname);	
-	if(conf == NULL) {
-		console->terminal.font = font_new(font_fname, true);
-		return -1;
-	}	
-
-	const char* v = sconf_get(conf, "icon");
-	if(v[0] != 0) 
-		console->icon = png_image_new(v);
-
-	v = sconf_get(conf, "bg_color");
-	if(v[0] != 0) 
-		console->terminal.bg_color = strtoul(v, NULL, 16);
-
-	v = sconf_get(conf, "fg_color");
-	if(v[0] != 0) 
-		console->terminal.fg_color = strtoul(v, NULL, 16);
-	
-	v = sconf_get(conf, "font_size");
-	if(v[0] != 0) 
-		font_size = atoi(v);
-	console->terminal.font_size = font_size;
-
-	v = sconf_get(conf, "font_fixed");
-	if(v[0] != 0) 
-		console->terminal.font_fixed = atoi(v);
-
-	v = sconf_get(conf, "font");
-	if(v[0] != 0)
-		font_fname = v;
-
+	const char* font_fname = json_get_str_def(conf_var, "font", DEFAULT_SYSTEM_FONT);
 	if(console->terminal.font != NULL)
 		font_free(console->terminal.font);
 	console->terminal.font = font_new(font_fname, true);
-	sconf_free(conf);
+
+	const char* v = json_get_str_def(conf_var, "icon", "");
+	if(v[0] != 0) 
+		console->icon = png_image_new(v);
+
+	console->terminal.bg_color = json_get_int_def(conf_var, "bg_color", 0xff000000);
+	console->terminal.fg_color = json_get_int_def(conf_var, "fg_color", 0xffcccccc);
+	console->terminal.font_size = json_get_int_def(conf_var, "font_size", 12);;
+	console->terminal.font_fixed = json_get_int_def(conf_var, "font_fixed", 12);;
+
+	if(conf_var != NULL)
+		json_var_unref(conf_var);
 	return 0;
 }
 
@@ -88,7 +68,7 @@ static int init_console(fb_console_t* console, const char* display_dev, const ui
 		return -1;
 	init_graph(console);
 	gterminal_init(&console->terminal);
-	read_config(console, "/etc/console.conf");
+	read_config(console, "/etc/console.json");
 	return 0;
 }
 

@@ -1,12 +1,12 @@
 {
-    "desktop_fg_color": 0xff555588,
-    "desktop_bg_color": 0xff8888aa,
+    "desktop_fg_color": "0xff555588",
+    "desktop_bg_color": "0xff8888aa",
 
-    "bg_color": 0xff888888,
-    "fg_color": 0xffdddddd,
+    "bg_color": "0xff888888",
+    "fg_color": "0xffdddddd",
 
-    "bg_top_color": 0xffe39a68,
-    "fg_top_color": 0xffffffff,
+    "bg_top_color": "0xffe39a68",
+    "fg_top_color": "0xffffffff",
 
     "font_size": 13,
     "title_h": 20,

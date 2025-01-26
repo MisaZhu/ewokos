@@ -985,8 +985,19 @@ inline bool json_var_json_get_bool(json_var_t* var) {
 inline int json_var_json_get_int(json_var_t* var) {
 	if(var == NULL || var->value == NULL)
 		return 0;
-	if(var->type == JSON_V_FLOAT)	
+
+	if(var->type == JSON_V_FLOAT) {
 		return (int)(*(float*)var->value);
+	}
+	else if(var->type == JSON_V_STRING)	 {
+		const char* v = (const char*)var->value;
+		if(strlen(v) > 2 &&
+				v[0] == '0' &&
+				(v[1] == 'x' || v[1] == 'X'))
+			return strtoul(v, 0, 16);
+		else	
+			return atoi(v);
+	}
 	return *(int*)var->value;
 }
 

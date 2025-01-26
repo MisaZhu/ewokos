@@ -4,7 +4,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <ewoksys/vdevice.h>
-#include <sconf/sconf.h>
+#include <tinyjson/tinyjson.h>
 #include <ewoksys/proto.h>
 #include <x/xcntl.h>
 #include <x/xevent.h>
@@ -58,38 +58,19 @@ static int32_t read_config(const char* fname) {
 	_xtouch.x_max = 100;
 	_xtouch.y_max = 100;
 
-	sconf_t *conf = sconf_load(fname);	
-	if(conf == NULL)
-		return -1;
+	json_var_t *conf_var = json_parse_file(fname);	
 
-	const char* v = sconf_get(conf, "x_rev");
-	if(v[0] == '1') 
-		_xtouch.x_rev = true;
+	_xtouch.x_rev = json_get_bool_def(conf_var, "x_rev", false);
+	_xtouch.y_rev = json_get_bool_def(conf_var, "y_rev", false);
+	_xtouch.xy_switch = json_get_bool_def(conf_var, "xy_switch", false);
 
-	v = sconf_get(conf, "y_rev");
-	if(v[0] == '1') 
-		_xtouch.y_rev = true;
+	_xtouch.x_max = json_get_int_def(conf_var, "x_max", 0);
+	_xtouch.y_max = json_get_int_def(conf_var, "y_max", 0);
+	_xtouch.x_offset = json_get_int_def(conf_var, "x_offset", 0);
+	_xtouch.y_offset = json_get_int_def(conf_var, "y_offset", 0);
 
-	v = sconf_get(conf, "xy_switch");
-	if(v[0] == '1') 
-		_xtouch.xy_switch = true;
-
-	v = sconf_get(conf, "x_max");
-	if(v[0] != 0) 
-		_xtouch.x_max = atoi(v);
-
-	v = sconf_get(conf, "y_max");
-	if(v[0] != 0) 
-		_xtouch.y_max = atoi(v);
-
-	v = sconf_get(conf, "x_offset");
-	if(v[0] != 0) 
-		_xtouch.x_offset = atoi(v);
-
-	v = sconf_get(conf, "y_offset");
-	if(v[0] != 0) 
-		_xtouch.y_offset = atoi(v);
-	sconf_free(conf);
+	if(conf_var != NULL)
+		json_var_unref(conf_var);
 	return 0;
 }
 
@@ -98,7 +79,7 @@ int main(int argc, char** argv) {
 	(void)argv;
 
 	_x_pid = -1;
-	read_config("/etc/x/xtouch.conf");
+	read_config("/etc/x/xtouch.json");
 
 	const char* touch_dev = argc > 1 ? argv[1]:"/dev/touch0";
 	int fd = -1;

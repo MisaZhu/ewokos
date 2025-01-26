@@ -23,7 +23,6 @@ $(XTERM): $(XTERM_OBJS) \
 		$(BUILD_DIR)/lib/libgterminal.a \
 		$(BUILD_DIR)/lib/libttf.a \
 		$(BUILD_DIR)/lib/libfont.a \
-		$(BUILD_DIR)/lib/libsconf.a \
 		$(BUILD_DIR)/lib/libcxx.a 
 	$(LD) -Ttext=100 $(XTERM_OBJS) -o $(XTERM) $(LDFLAGS)  -lgterminal -lterminal $(EWOK_LIB_X) $(EWOK_LIB_GRAPH)  $(EWOK_LIBC) -lcxx
 

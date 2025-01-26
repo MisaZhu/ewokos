@@ -21,7 +21,7 @@ CXXFLAGS = -marm \
        
 EWOK_LIBC = -lewoksys -lc -lgloss -lsoftfloat
 EWOK_LIB_GRAPH = -lttf -lfont -lupng -lgraph -lbsp $(BSP_LFLAGS)
-EWOK_LIB_X = -lwidget++ -lx++ -lx -ltinyjson -lsconf -lewokstl
+EWOK_LIB_X = -lwidget++ -lx++ -lx -ltinyjson -lewokstl
 
 #CFLAGS +=  -g
 CFLAGS +=  -O2

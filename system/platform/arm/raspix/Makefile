@@ -13,11 +13,7 @@ all: full
 	rm -fr $(BUILD_DIR)/$(HW)
 	mkdir -p $(BUILD_DIR)/$(HW)
 	mv $(TARGET_DIR)/* $(BUILD_DIR)/$(HW)
-	cp -r $(BUILD_DIR)/include $(BUILD_DIR)/$(HW)
-	cp -r $(BUILD_DIR)/lib $(BUILD_DIR)/$(HW)
 	rm -fr $(TARGET_DIR)
-	rm -fr $(BUILD_DIR)/include
-	rm -fr $(BUILD_DIR)/lib
 
 include ../make.inc
 
@@ -26,11 +22,7 @@ basic: basic_sys
 	rm -fr $(BUILD_DIR)/$(HW)
 	mkdir -p $(BUILD_DIR)/$(HW)
 	mv $(TARGET_DIR)/* $(BUILD_DIR)/$(HW)
-	cp -r $(BUILD_DIR)/include $(BUILD_DIR)/$(HW)
-	cp -r $(BUILD_DIR)/lib $(BUILD_DIR)/$(HW)
 	rm -fr $(TARGET_DIR)
-	rm -fr $(BUILD_DIR)/include
-	rm -fr $(BUILD_DIR)/lib
 
 full: full_sys
 	@echo "all done."
@@ -52,8 +44,8 @@ full_sys: basic_sys
 
 install:
 	mkdir -p $(INST_DIR)/$(ARCH)/$(HW)
-	cp -r $(BUILD_DIR)/$(HW)/include $(INST_DIR)/$(ARCH)/$(HW)/
-	cp -r $(BUILD_DIR)/$(HW)/lib $(INST_DIR)/$(ARCH)/$(HW)/ 
+	cp -r $(BUILD_DIR)/include $(INST_DIR)/$(ARCH)/$(HW)/
+	cp -r $(BUILD_DIR)/lib $(INST_DIR)/$(ARCH)/$(HW)/ 
 	cp $(ROOT_DIR)/platform/$(ARCH)/make.rule $(INST_DIR)/$(ARCH)/
 
 clean:

@@ -16,7 +16,7 @@
 #include <x/xwm.h>
 #include <ewoksys/proc.h>
 #include <ewoksys/keydef.h>
-#include <sconf/sconf.h>
+#include <tinyjson/tinyjson.h>
 #include <display/display.h>
 #include "xserver.h"
 
@@ -24,23 +24,13 @@ static int32_t read_config(x_t* x, const char* fname) {
 	x->config.fps = 60;
 	x->config.bg_run = 0;
 
-	sconf_t *conf = sconf_load(fname);	
-	if(conf == NULL)
-		return -1;
+	json_var_t *conf_var = json_parse_file(fname);	
 
-	const char* v = sconf_get(conf, "fps");
-	if(v[0] != 0) 
-		x->config.fps = atoi(v);
-	
-	v = sconf_get(conf, "bg_run");
-	if(v[0] != 0) 
-		x->config.bg_run = atoi(v);
+	x->config.fps = json_get_int_def(conf_var, "fps", 30);
+	x->config.bg_run = json_get_int_def(conf_var, "bg_run", 0);
+	x->config.gray_mode = json_get_int_def(conf_var, "gray_mode", 0);
 
-	v = sconf_get(conf, "gray_mode");
-	if(v[0] != 0) 
-		x->config.gray_mode = atoi(v);
-	
-	v = sconf_get(conf, "cursor");
+	const char* v = json_get_str_def(conf_var, "cursor", "");
 	if(strcmp(v, "touch") == 0)
 		x->cursor.type = CURSOR_TOUCH;
 	else if(strcmp(v, "mouse") == 0)
@@ -49,8 +39,8 @@ static int32_t read_config(x_t* x, const char* fname) {
 		if(strcmp(v, "none") == 0)
 			x->show_cursor = false;
 	}
-
-	sconf_free(conf);
+	if(conf_var != NULL)
+		json_var_unref(conf_var);
 	return 0;
 }
 
