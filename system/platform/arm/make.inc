@@ -28,9 +28,5 @@ sd:
 	@cd $(ROOT_DIR)/build/$(HW); \
 	find . -type f | e2cp -ap -G0 -O0 -d ../../platform/arm/${HW}/${SD}:/
 
-	@mkdir -p $(ROOT_DIR)/build/extra; \
-	cd $(ROOT_DIR)/build/extra; \
-	find . -type f | e2cp -ap -G0 -O0 -d ../../platform/arm/${HW}/${SD}:/
-
 	@echo "==== ext2 format sdcard image created  ====\n"
 
