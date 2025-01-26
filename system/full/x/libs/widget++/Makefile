@@ -38,7 +38,7 @@ LIB_WIDGET_OBJS =  src/Widget/Widget.o \
 WIDGET = $(TARGET_DIR)/lib/libwidget++.a
 
 $(WIDGET): $(LIB_WIDGET_OBJS)
-	$(AR) rT $(WIDGET) $(LIB_WIDGET_OBJS)
+	$(AR) rcs $(WIDGET) $(LIB_WIDGET_OBJS)
 	cp -r include/* $(TARGET_DIR)/include
 
 clean:

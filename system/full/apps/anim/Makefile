@@ -23,7 +23,7 @@ $(ANIM): $(ANIM_OBJS) \
 		$(BUILD_DIR)/lib/libfont.a \
 		$(BUILD_DIR)/lib/libsconf.a \
 		$(BUILD_DIR)/lib/libcxx.a 
-	$(LD) -Ttext=100 $(ANIM_OBJS) -o $(ANIM) $(LDFLAGS) -lgraph -lbsp -lx++ -lx -lsconf -lttf -lfont -lupng $(EWOK_LIBC) -lcxx
+	$(LD) -Ttext=100 $(ANIM_OBJS) -o $(ANIM) $(LDFLAGS) -lgraph -lbsp $(BSP_LFLAGS) -lx++ -lx -ltinyjson -lsconf -lttf -lfont -lupng $(EWOK_LIBC) -lcxx
 
 $(ANIM_DIR):
 	mkdir -p $(ANIM_DIR)

@@ -19,7 +19,7 @@ $(XIM): $(XIM_OBJS) \
 		$(BUILD_DIR)/lib/libfont.a \
 		$(BUILD_DIR)/lib/libsconf.a \
 		$(BUILD_DIR)/lib/libcxx.a 
-	$(LD) -Ttext=100 $(XIM_OBJS) -o $(XIM) $(LDFLAGS) -lgraph -lbsp -lttf -lfont -lx++ -lx -lsconf -lcxx $(EWOK_LIBC)
+	$(LD) -Ttext=100 $(XIM_OBJS) -o $(XIM) $(LDFLAGS) -lgraph -lbsp $(BSP_LFLAGS) -lttf -lfont -lx++ -lx -ltinyjson -lsconf -lcxx $(EWOK_LIBC)
 
 clean:
 	rm -f $(XIM_OBJS)

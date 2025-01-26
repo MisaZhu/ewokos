@@ -83,8 +83,8 @@ LIB_EWOKSYS_OBJS =  \
 EWOKSYS = $(TARGET_DIR)/lib/libewoksys.a
 
 $(EWOKSYS): $(LIB_EWOKSYS_OBJS)   $(LIB_EWOKSYS_SYS_OBJS)
-	$(AR) rT $(EWOKSYS) $(LIB_EWOKSYS_OBJS)
-	cp -r ewoksys/include/* include/* $(TARGET_DIR)/include
+	$(AR) rcs $(EWOKSYS) $(LIB_EWOKSYS_OBJS) $(TARGET_DIR)/lib/libsoftfloat.a
+	cp -r ewoksys/include/* include/* $(TARGET_DIR)/include 
 
 clean:
 	rm -f $(LIB_EWOKSYS_OBJS) $(LIB_EWOKSYS_OBJS)

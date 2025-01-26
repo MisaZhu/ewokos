@@ -12,7 +12,7 @@ LIB_Ggterminal_OBJS = src/gterminal.o
 Ggterminal = $(TARGET_DIR)/lib/libgterminal.a
 
 $(Ggterminal): $(LIB_Ggterminal_OBJS)
-	$(AR) rT $(Ggterminal) $(LIB_Ggterminal_OBJS)
+	$(AR) rcs $(Ggterminal) $(LIB_Ggterminal_OBJS)
 	cp -r include/* $(TARGET_DIR)/include
 
 

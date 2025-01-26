@@ -13,7 +13,7 @@ SOCKET = $(TARGET_DIR)/lib/libsocket.a
 
 
 $(SOCKET): $(LIB_SOCKET_OBJS)
-	$(AR) rT $(SOCKET) $(LIB_SOCKET_OBJS)
+	$(AR) rcs $(SOCKET) $(LIB_SOCKET_OBJS)
 	cp -r include/* $(TARGET_DIR)/include
 
 

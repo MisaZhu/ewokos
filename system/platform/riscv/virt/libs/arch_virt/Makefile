@@ -13,7 +13,7 @@ LIB_ARCH_VIRT_OBJS = src/sd.o
 ARCH_VIRT = $(TARGET_DIR)/lib/libarch_virt.a
 
 $(ARCH_VIRT): $(LIB_ARCH_VIRT_OBJS)
-	$(AR) rT $(ARCH_VIRT) $(LIB_ARCH_VIRT_OBJS)
+	$(AR) rcs $(ARCH_VIRT) $(LIB_ARCH_VIRT_OBJS)
 	cp -r include/* $(TARGET_DIR)/include
 
 clean:

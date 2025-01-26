@@ -10,7 +10,7 @@ LIB_EWOKSTL_OBJS = src/string.o
 EWOKSTL = $(TARGET_DIR)/lib/libewokstl.a
 
 $(EWOKSTL): $(LIB_EWOKSTL_OBJS)
-	$(AR) rT $(EWOKSTL) $(LIB_EWOKSTL_OBJS)
+	$(AR) rcs $(EWOKSTL) $(LIB_EWOKSTL_OBJS)
 	cp -r include/* $(TARGET_DIR)/include
 
 

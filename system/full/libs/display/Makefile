@@ -12,7 +12,7 @@ LIB_displayLAY_OBJS = src/display.o
 LIB_displayLAY = $(TARGET_DIR)/lib/libdisplay.a
 
 $(LIB_displayLAY): $(LIB_displayLAY_OBJS)
-	$(AR) rT $(LIB_displayLAY) $(LIB_displayLAY_OBJS)
+	$(AR) rcs $(LIB_displayLAY) $(LIB_displayLAY_OBJS)
 	cp -r include/* $(TARGET_DIR)/include
 
 

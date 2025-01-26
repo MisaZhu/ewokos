@@ -12,7 +12,7 @@ LIB_FB_OBJS = src/fb.o
 FB = $(TARGET_DIR)/lib/libfb.a
 
 $(FB): $(LIB_FB_OBJS)
-	$(AR) rT $(FB) $(LIB_FB_OBJS)
+	$(AR) rcs $(FB) $(LIB_FB_OBJS)
 	cp -r include/* $(TARGET_DIR)/include
 
 

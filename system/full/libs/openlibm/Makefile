@@ -190,7 +190,7 @@ LIB_LIBOPENLIBM_OBJS = arm/fenv.o \
 LIBOPENLIBM = $(TARGET_DIR)/lib/libopenlibm.a
 
 $(LIBOPENLIBM): $(LIB_LIBOPENLIBM_OBJS)
-	$(AR) rT $(LIBOPENLIBM) $(LIB_LIBOPENLIBM_OBJS)
+	$(AR) rcs $(LIBOPENLIBM) $(LIB_LIBOPENLIBM_OBJS)
 	cp -r include/* $(TARGET_DIR)/include
 	cp -r src/*.h $(TARGET_DIR)/include
 

@@ -20,9 +20,8 @@ LIB_BSP_OBJS = src/bsp_sd.o src/bsp_graph.o src/bsp_fb.o
 
 BSP = $(TARGET_DIR)/lib/libbsp.a
 
-$(BSP): $(LIB_BSP_OBJS) \
-		$(BUILD_DIR)/lib/libarch_bcm283x.a
-	$(AR) rT $(BSP) $(LIB_BSP_OBJS)  $(BUILD_DIR)/lib/libarch_bcm283x.a
+$(BSP): $(LIB_BSP_OBJS)
+	$(AR) rcs $(BSP) $(LIB_BSP_OBJS)
 	cp -r include/* $(TARGET_DIR)/include
 
 clean:

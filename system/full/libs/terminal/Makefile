@@ -12,7 +12,7 @@ LIB_TERMINAL_OBJS = src/terminal.o
 TERMINAL = $(TARGET_DIR)/lib/libterminal.a
 
 $(TERMINAL): $(LIB_TERMINAL_OBJS)
-	$(AR) rT $(TERMINAL) $(LIB_TERMINAL_OBJS)
+	$(AR) rcs $(TERMINAL) $(LIB_TERMINAL_OBJS)
 	cp -r include/* $(TARGET_DIR)/include
 
 

@@ -21,7 +21,7 @@ LIB_Z_OBJS = src/adler32.o \
 Z = $(TARGET_DIR)/lib/libz.a
 
 $(Z): $(LIB_Z_OBJS)
-	$(AR) rT $(Z) $(LIB_Z_OBJS)
+	$(AR) rcs $(Z) $(LIB_Z_OBJS)
 	cp -r include/* $(TARGET_DIR)/include
 
 

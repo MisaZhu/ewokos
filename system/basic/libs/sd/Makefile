@@ -12,7 +12,7 @@ LIB_SD_OBJS = src/sd.o
 SD = $(TARGET_DIR)/lib/libsd.a
 
 $(SD): $(LIB_SD_OBJS)
-	$(AR) rT $(SD) $(LIB_SD_OBJS)
+	$(AR) rcs $(SD) $(LIB_SD_OBJS)
 	cp -r include/* $(TARGET_DIR)/include
 
 

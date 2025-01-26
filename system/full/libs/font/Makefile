@@ -12,7 +12,7 @@ LIB_font_OBJS = src/font.o
 LIB_font = $(TARGET_DIR)/lib/libfont.a
 
 $(LIB_font): $(LIB_font_OBJS)
-	$(AR) rT $(LIB_font) $(LIB_font_OBJS)
+	$(AR) rcs $(LIB_font) $(LIB_font_OBJS)
 	cp -r include/* $(TARGET_DIR)/include
 
 

@@ -15,7 +15,7 @@ LIB_ARCH_RK3128_OBJS = src/framebuffer.o \
 ARCH_RK3128 = $(TARGET_DIR)/lib/libarch_rk3128.a
 
 $(ARCH_RK3128): $(LIB_ARCH_RK3128_OBJS)
-	$(AR) rT $(ARCH_RK3128) $(LIB_ARCH_RK3128_OBJS)
+	$(AR) rcs $(ARCH_RK3128) $(LIB_ARCH_RK3128_OBJS)
 	cp -r include/* $(TARGET_DIR)/include
 
 clean:

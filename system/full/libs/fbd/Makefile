@@ -12,7 +12,7 @@ LIB_FBD_OBJS = src/fbd.o
 FBD = $(TARGET_DIR)/lib/libfbd.a
 
 $(FBD): $(LIB_FBD_OBJS)
-	$(AR) rT $(FBD) $(LIB_FBD_OBJS)
+	$(AR) rcs $(FBD) $(LIB_FBD_OBJS)
 	cp -r include/* $(TARGET_DIR)/include
 
 

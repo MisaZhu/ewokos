@@ -12,7 +12,7 @@ LIB_X_OBJS = src/X.o src/XWin.o src/XWM.o src/XTheme.o
 LIB_X = $(TARGET_DIR)/lib/libx++.a
 
 $(LIB_X): $(LIB_X_OBJS)
-	$(AR) rT $(LIB_X) $(LIB_X_OBJS) 
+	$(AR) crs $(LIB_X) $(LIB_X_OBJS) 
 	cp -r include/* $(TARGET_DIR)/include
 
 

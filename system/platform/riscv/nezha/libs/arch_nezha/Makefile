@@ -13,7 +13,7 @@ LIB_ARCH_NEZHA_OBJS = src/sd.o
 ARCH_NEZHA = $(TARGET_DIR)/lib/libarch_nezha.a
 
 $(ARCH_NEZHA): $(LIB_ARCH_NEZHA_OBJS)
-	$(AR) rT $(ARCH_NEZHA) $(LIB_ARCH_NEZHA_OBJS)
+	$(AR) rcs $(ARCH_NEZHA) $(LIB_ARCH_NEZHA_OBJS)
 	cp -r include/* $(TARGET_DIR)/include
 
 clean:

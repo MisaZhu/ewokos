@@ -20,7 +20,7 @@ LIB_GRAPH_OBJS = src/graph.o \
 GRAPH = $(TARGET_DIR)/lib/libgraph.a
 
 $(GRAPH): $(LIB_GRAPH_OBJS)
-	$(AR) rT $(GRAPH) $(LIB_GRAPH_OBJS)
+	$(AR) rcs $(GRAPH) $(LIB_GRAPH_OBJS)
 	cp -r include/* $(TARGET_DIR)/include
 
 

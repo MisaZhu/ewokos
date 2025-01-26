@@ -12,7 +12,7 @@ LIB_EXT2_OBJS = src/ext2fs.o
 EXT2 = $(TARGET_DIR)/lib/libext2.a
 
 $(EXT2): $(LIB_EXT2_OBJS)
-	$(AR) rT $(EXT2) $(LIB_EXT2_OBJS)
+	$(AR) rcs $(EXT2) $(LIB_EXT2_OBJS)
 	cp -r include/* $(TARGET_DIR)/include
 
 

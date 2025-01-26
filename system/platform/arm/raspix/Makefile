@@ -1,10 +1,12 @@
 ROOT_DIR = ../../..
 BUILD_DIR = $(ROOT_DIR)/build
 TARGET_DIR = $(BUILD_DIR)/rootfs
+INST_DIR = /usr/local/ewokos
 HW=raspix
 
 export ARCH=arm
 export G_2D_BOOST=yes
+export BSP_LFLAGS= -larch_bcm283x
 
 all: full
 	@echo "all done."
@@ -42,6 +44,12 @@ full_sys: basic_sys
 	cd $(ROOT_DIR)/full;make
 	cd drivers;make full_sys
 	@cp -r etcs/full/* ${TARGET_DIR}/etc
+
+install:
+	mkdir -p $(INST_DIR)/$(ARCH)
+	cp -r $(BUILD_DIR)/include $(INST_DIR)/$(ARCH)/ 
+	cp -r $(BUILD_DIR)/lib $(INST_DIR)/$(ARCH)/ 
+	cp $(ROOT_DIR)/platform/$(ARCH)/make.rule $(INST_DIR)/$(ARCH)/
 
 clean:
 	cd libs;make clean

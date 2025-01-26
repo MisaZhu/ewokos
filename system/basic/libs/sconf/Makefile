@@ -12,7 +12,7 @@ LIB_SCONF_OBJS = src/sconf.o
 SCONF = $(TARGET_DIR)/lib/libsconf.a
 
 $(SCONF): $(LIB_SCONF_OBJS)
-	$(AR) rT $(SCONF) $(LIB_SCONF_OBJS)
+	$(AR) rcs $(SCONF) $(LIB_SCONF_OBJS)
 	cp -r include/* $(TARGET_DIR)/include
 
 

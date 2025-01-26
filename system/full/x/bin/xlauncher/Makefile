@@ -26,7 +26,7 @@ $(XLAUNCHER): $(XLAUNCHER_OBJS) \
 		$(BUILD_DIR)/lib/libwidget++.a \
 		$(BUILD_DIR)/lib/libtinyjson.a \
 		$(BUILD_DIR)/lib/libcxx.a 
-	$(LD) -Ttext=100 $(XLAUNCHER_OBJS) -o $(XLAUNCHER) $(LDFLAGS) -lwidget++ -lgraph -lbsp -lttf -lfont -lx++ -lx -lsconf -ltinyjson -lupng -lewokstl $(EWOK_LIBC) -lcxx
+	$(LD) -Ttext=100 $(XLAUNCHER_OBJS) -o $(XLAUNCHER) $(LDFLAGS) -lwidget++ -lgraph -lbsp $(BSP_LFLAGS) -lttf -lfont -lx++ -lx -ltinyjson -lsconf -ltinyjson -lupng -lewokstl $(EWOK_LIBC) -lcxx
 
 $(XLAUNCHER_DIR):
 	mkdir -p $(XLAUNCHER_DIR)

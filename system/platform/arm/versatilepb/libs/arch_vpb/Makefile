@@ -13,7 +13,7 @@ LIB_ARCH_VPB_OBJS = src/framebuffer.o src/sd.o
 ARCH_VPB = $(TARGET_DIR)/lib/libarch_vpb.a
 
 $(ARCH_VPB): $(LIB_ARCH_VPB_OBJS)
-	$(AR) rT $(ARCH_VPB) $(LIB_ARCH_VPB_OBJS)
+	$(AR) rcs $(ARCH_VPB) $(LIB_ARCH_VPB_OBJS)
 	cp -r include/* $(TARGET_DIR)/include
 
 

@@ -12,7 +12,7 @@ LIB_CRC32_OBJS = src/crc32.o
 CRC32 = $(TARGET_DIR)/lib/libcrc32.a
 
 $(CRC32): $(LIB_CRC32_OBJS)
-	$(AR) rT $(CRC32) $(LIB_CRC32_OBJS)
+	$(AR) rcs $(CRC32) $(LIB_CRC32_OBJS)
 	cp -r include/* $(TARGET_DIR)/include
 
 

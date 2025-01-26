@@ -12,7 +12,7 @@ LIB_UPNG_OBJS = src/upng.o
 UPNG = $(TARGET_DIR)/lib/libupng.a
 
 $(UPNG): $(LIB_UPNG_OBJS)
-	$(AR) rT $(UPNG) $(LIB_UPNG_OBJS)
+	$(AR) rcs $(UPNG) $(LIB_UPNG_OBJS)
 	cp -r include/* $(TARGET_DIR)/include
 
 

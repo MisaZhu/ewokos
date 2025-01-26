@@ -26,7 +26,7 @@ LIB_ARCH_BCM283X_OBJS = src/framebuffer.o \
 ARCH_BCM283X = $(TARGET_DIR)/lib/libarch_bcm283x.a
 
 $(ARCH_BCM283X): $(LIB_ARCH_BCM283X_OBJS)
-	$(AR) rT $(ARCH_BCM283X) $(LIB_ARCH_BCM283X_OBJS)
+	$(AR) rs $(ARCH_BCM283X) $(LIB_ARCH_BCM283X_OBJS)
 	cp -r include/* $(TARGET_DIR)/include
 
 clean:

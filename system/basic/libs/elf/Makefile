@@ -12,7 +12,7 @@ LIB_ELF_OBJS = src/elf.o
 ELF = $(TARGET_DIR)/lib/libelf.a
 
 $(ELF): $(LIB_ELF_OBJS)
-	$(AR) rT $(ELF) $(LIB_ELF_OBJS)
+	$(AR) rcs $(ELF) $(LIB_ELF_OBJS)
 	cp -r include/* $(TARGET_DIR)/include
 
 

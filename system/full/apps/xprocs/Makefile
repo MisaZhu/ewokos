@@ -25,7 +25,7 @@ $(XPROCS): $(XPROCS_OBJS) \
 		$(BUILD_DIR)/lib/libsconf.a \
 		$(BUILD_DIR)/lib/libwidget++.a \
 		$(BUILD_DIR)/lib/libcxx.a 
-	$(LD) -Ttext=100 $(XPROCS_OBJS) -o $(XPROCS) $(LDFLAGS) -lwidget++ -lgraph -lbsp -lttf -lfont -lx++ -lx -lsconf -lupng -lewokstl $(EWOK_LIBC) -lcxx
+	$(LD) -Ttext=100 $(XPROCS_OBJS) -o $(XPROCS) $(LDFLAGS) -lwidget++ -lgraph -lbsp $(BSP_LFLAGS) -lttf -lfont -lx++ -lx -ltinyjson -lsconf -lupng -lewokstl $(EWOK_LIBC) -lcxx
 
 $(XPROCS_DIR):
 	mkdir -p $(XPROCS_DIR)

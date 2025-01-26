@@ -12,7 +12,7 @@ LIB_CONSOLE_OBJS = src/console.o
 CONSOLE = $(TARGET_DIR)/lib/libconsole.a
 
 $(CONSOLE): $(LIB_CONSOLE_OBJS)
-	$(AR) rT $(CONSOLE) $(LIB_CONSOLE_OBJS)
+	$(AR) rcs $(CONSOLE) $(LIB_CONSOLE_OBJS)
 	cp -r include/* $(TARGET_DIR)/include
 
 

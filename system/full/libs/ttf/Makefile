@@ -12,7 +12,7 @@ LIB_TRUETY_OBJS = src/truety.o src/ttf.o
 TRUETY = $(TARGET_DIR)/lib/libttf.a
 
 $(TRUETY): $(LIB_TRUETY_OBJS)
-	$(AR) rT $(TRUETY) $(LIB_TRUETY_OBJS)
+	$(AR) rcs $(TRUETY) $(LIB_TRUETY_OBJS)
 	cp -r include/* $(TARGET_DIR)/include
 
 

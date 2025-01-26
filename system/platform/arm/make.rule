@@ -18,10 +18,10 @@ CXXFLAGS = -marm \
 	-fno-rtti \
         -fno-exceptions \
         -std=c++14
-
-EWOK_LIBC = -lewoksys -lc -lgloss
+       
+EWOK_LIBC = -lewoksys -lc -lgloss -lsoftfloat
 EWOK_LIBC_A = $(BUILD_DIR)/lib/libewoksys.a $(BUILD_DIR)/lib/libgloss.a 
-        
+
 #CFLAGS +=  -g
 CFLAGS +=  -O2
 #CXXFLAGS +=  -g

@@ -12,7 +12,7 @@ LIB_TINYJSON_OBJS = src/tinyjson.o
 TINYJSON = $(TARGET_DIR)/lib/libtinyjson.a
 
 $(TINYJSON): $(LIB_TINYJSON_OBJS)
-	$(AR) rT $(TINYJSON) $(LIB_TINYJSON_OBJS)
+	$(AR) rcs $(TINYJSON) $(LIB_TINYJSON_OBJS)
 	cp -r include/* $(TARGET_DIR)/include
 
 

@@ -12,7 +12,7 @@ LIB_CXX_OBJS= src/cxx.o
 LIB_CXX = $(TARGET_DIR)/lib/libcxx.a
 
 $(LIB_CXX): $(LIB_CXX_OBJS)
-	$(AR) rT $(LIB_CXX) $(LIB_CXX_OBJS)
+	$(AR) rcs $(LIB_CXX) $(LIB_CXX_OBJS)
 
 
 clean:
