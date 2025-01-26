@@ -27,7 +27,7 @@ $(XFINDER): $(XFINDER_OBJS) \
 		$(BUILD_DIR)/lib/libtinyjson.a \
 		$(BUILD_DIR)/lib/libelf.a \
 		$(BUILD_DIR)/lib/libcxx.a 
-	$(LD) -Ttext=100 $(XFINDER_OBJS) -o $(XFINDER) $(LDFLAGS) $(EWOK_LIB_X) $(EWOK_LIB_GRAPH) $(EWOK_LIBC) -lcxx
+	$(LD) -Ttext=100 $(XFINDER_OBJS) -o $(XFINDER) $(LDFLAGS) $(EWOK_LIB_X) $(EWOK_LIB_GRAPH) -lelf $(EWOK_LIBC) -lcxx
 
 $(XFINDER_DIR):
 	mkdir -p $(XFINDER_DIR)
