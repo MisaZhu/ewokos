@@ -26,6 +26,11 @@ basic: basic_sys
 	rm -fr $(BUILD_DIR)/$(HW)
 	mkdir -p $(BUILD_DIR)/$(HW)
 	mv $(TARGET_DIR)/* $(BUILD_DIR)/$(HW)
+	cp -r $(BUILD_DIR)/include $(BUILD_DIR)/$(HW)
+	cp -r $(BUILD_DIR)/lib $(BUILD_DIR)/$(HW)
+	rm -fr $(TARGET_DIR)
+	rm -fr $(BUILD_DIR)/include
+	rm -fr $(BUILD_DIR)/lib
 
 full: full_sys
 	@echo "all done."
@@ -33,16 +38,17 @@ full: full_sys
 basic_sys: kernel_heads 
 	rm -f $(BUILD_DIR)/lib/libbsp.a
 
+	mkdir -p $(TARGET_DIR)/etc
 	mkdir -p $(TARGET_DIR)/drivers/$(HW)
 	cd libs;make
 	cd $(ROOT_DIR)/basic;make
 	cd drivers;make basic_sys
-	@cp -r etcs/basic/* ${TARGET_DIR}/etc
+	@cp -r etc/basic/* ${TARGET_DIR}/etc
 
 full_sys: basic_sys 
 	cd $(ROOT_DIR)/full;make
 	cd drivers;make full_sys
-	@cp -r etcs/full/* ${TARGET_DIR}/etc
+	@cp -r etc/full/* ${TARGET_DIR}/etc
 
 install:
 	mkdir -p $(INST_DIR)/$(ARCH)/$(HW)

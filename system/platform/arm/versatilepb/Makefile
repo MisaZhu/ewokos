@@ -26,7 +26,11 @@ basic: basic_sys
 	rm -fr $(BUILD_DIR)/$(HW)
 	mkdir -p $(BUILD_DIR)/$(HW)
 	mv $(TARGET_DIR)/* $(BUILD_DIR)/$(HW)
-
+	cp -r $(BUILD_DIR)/include $(BUILD_DIR)/$(HW)
+	cp -r $(BUILD_DIR)/lib $(BUILD_DIR)/$(HW)
+	rm -fr $(TARGET_DIR)
+	rm -fr $(BUILD_DIR)/include
+	rm -fr $(BUILD_DIR)/lib
 
 full: full_sys
 	@echo "all done."
