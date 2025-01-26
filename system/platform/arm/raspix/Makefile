@@ -30,12 +30,6 @@ basic: basic_sys
 full: full_sys
 	@echo "all done."
 
-clockwork: extra
-	cd ../../3rd/raspix/clockwork; make
-
-waveshare: extra
-	cd ../../3rd/raspix/waveshare; make
-
 basic_sys: kernel_heads 
 	rm -f $(BUILD_DIR)/lib/libbsp.a
 
