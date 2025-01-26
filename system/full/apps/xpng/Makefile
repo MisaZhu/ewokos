@@ -26,7 +26,7 @@ $(XPNG): $(XPNG_OBJS) \
 		$(BUILD_DIR)/lib/libwidget++.a \
 		$(BUILD_DIR)/lib/libtinyjson.a \
 		$(BUILD_DIR)/lib/libcxx.a 
-	$(LD) -Ttext=100 $(XPNG_OBJS) -o $(XPNG) $(LDFLAGS) -lwidget++ -lgraph -lbsp $(BSP_LFLAGS) -lttf -lfont -lx++ -lx -ltinyjson -lsconf -ltinyjson -lupng -lewokstl $(EWOK_LIBC) -lcxx
+	$(LD) -Ttext=100 $(XPNG_OBJS) -o $(XPNG) $(LDFLAGS) $(EWOK_LIB_X) $(EWOK_LIB_GRAPH) $(EWOK_LIBC) -lcxx
 
 $(XPNG_DIR):
 	mkdir -p $(XPNG_DIR)

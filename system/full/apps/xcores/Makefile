@@ -26,7 +26,7 @@ $(GCORES): $(GCORES_OBJS) \
 		$(BUILD_DIR)/lib/libwidget++.a \
 		$(BUILD_DIR)/lib/libewokstl.a \
 		$(BUILD_DIR)/lib/libcxx.a 
-	$(LD) -Ttext=100 $(GCORES_OBJS) -o $(GCORES) $(LDFLAGS) -lttf -lfont -lwidget++ -lewokstl -lx++ -lx -ltinyjson -lgraph -lbsp $(BSP_LFLAGS) -lsconf -lupng $(EWOK_LIBC) -lcxx
+	$(LD) -Ttext=100 $(GCORES_OBJS) -o $(GCORES) $(LDFLAGS) $(EWOK_LIB_X) $(EWOK_LIB_GRAPH) $(EWOK_LIBC) -lcxx
 
 $(GCORES_DIR):
 	mkdir -p $(GCORES_DIR)

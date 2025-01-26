@@ -20,7 +20,7 @@ $(XSESSION): $(XSESSION_OBJS) \
 		$(BUILD_DIR)/lib/libfont.a \
 		$(BUILD_DIR)/lib/libewokstl.a \
 		$(BUILD_DIR)/lib/libcxx.a 
-	$(LD) -Ttext=100 $(XSESSION_OBJS) -o $(XSESSION) $(LDFLAGS)  -lgraph -lbsp $(BSP_LFLAGS) -lupng -lx++ -lewokstl -lx -ltinyjson -lsconf -lttf -lfont $(EWOK_LIBC) -lcxx
+	$(LD) -Ttext=100 $(XSESSION_OBJS) -o $(XSESSION) $(LDFLAGS) $(EWOK_LIB_X) $(EWOK_LIB_GRAPH) $(EWOK_LIBC) -lcxx
 
 clean:
 	rm -f $(XSESSION_OBJS)

@@ -21,7 +21,7 @@ $(MENU_BAR): $(MENU_BAR_OBJS) \
 		$(BUILD_DIR)/lib/libfont.a \
 		$(BUILD_DIR)/lib/libwidget++.a \
 		$(BUILD_DIR)/lib/libcxx.a 
-	$(LD) -Ttext=100 $(MENU_BAR_OBJS) -o $(MENU_BAR) $(LDFLAGS) -lwidget++ -lgraph -lbsp $(BSP_LFLAGS) -lupng -lx++ -lx -ltinyjson -lsconf -lttf -lfont -lewokstl $(EWOK_LIBC) -lcxx
+	$(LD) -Ttext=100 $(MENU_BAR_OBJS) -o $(MENU_BAR) $(LDFLAGS) $(EWOK_LIB_X) $(EWOK_LIB_GRAPH) $(EWOK_LIBC) -lcxx
 
 clean:
 	rm -f $(MENU_BAR_OBJS)

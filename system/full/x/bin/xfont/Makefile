@@ -24,7 +24,7 @@ $(XFONT): $(XFONT_OBJS) \
 		$(BUILD_DIR)/lib/libsconf.a \
 		$(BUILD_DIR)/lib/libwidget++.a \
 		$(BUILD_DIR)/lib/libcxx.a 
-	$(LD) -Ttext=100 $(XFONT_OBJS) -o $(XFONT) $(LDFLAGS) -lwidget++ -lgraph -lbsp $(BSP_LFLAGS) -lttf -lfont -lx++ -lx -ltinyjson -lsconf -lupng -lewokstl $(EWOK_LIBC) -lcxx
+	$(LD) -Ttext=100 $(XFONT_OBJS) -o $(XFONT) $(LDFLAGS) $(EWOK_LIB_X) $(EWOK_LIB_GRAPH) $(EWOK_LIBC) -lcxx
 
 $(XFONT_DIR):
 	mkdir -p $(XFONT_DIR)

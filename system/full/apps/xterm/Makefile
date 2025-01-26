@@ -25,7 +25,7 @@ $(XTERM): $(XTERM_OBJS) \
 		$(BUILD_DIR)/lib/libfont.a \
 		$(BUILD_DIR)/lib/libsconf.a \
 		$(BUILD_DIR)/lib/libcxx.a 
-	$(LD) -Ttext=100 $(XTERM_OBJS) -o $(XTERM) $(LDFLAGS) -lsconf -lx++ -lx -ltinyjson -lsconf -lcxx -lttf -lgterminal -lterminal -lfont -lgraph -lbsp $(BSP_LFLAGS) $(EWOK_LIBC)
+	$(LD) -Ttext=100 $(XTERM_OBJS) -o $(XTERM) $(LDFLAGS)  -lgterminal -lterminal $(EWOK_LIB_X) $(EWOK_LIB_GRAPH)  $(EWOK_LIBC)
 
 $(XTERM_DIR):
 	mkdir -p $(XTERM_DIR)
