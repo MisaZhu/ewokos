@@ -5,7 +5,6 @@
 #include <kprintf.h>
 #include <stddef.h>
 #include <console/console.h>
-#include <sconf.h>
 #include <atoi.h>
 
 static console_t _console;

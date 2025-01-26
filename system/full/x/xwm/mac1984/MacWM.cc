@@ -3,7 +3,6 @@
 #include <ewoksys/klog.h>
 #include <upng/upng.h>
 #include <x++/X.h>
-#include <sconf/sconf.h>
 #include <stdlib.h>
 #include <string.h>
 
