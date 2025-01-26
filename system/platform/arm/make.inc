@@ -10,9 +10,9 @@ KERNEL_H = \
 	$(KERNEL_DIR)/platform/arm/arch/common/include/arch_context.h
 
 kernel_heads:
-	@mkdir -p ${BUILD_DIR}/include
-	@mkdir -p ${BUILD_DIR}/lib
-	@mkdir -p ${BUILD_DIR}/rootfs
+	mkdir -p ${BUILD_DIR}/include
+	mkdir -p ${BUILD_DIR}/lib
+	mkdir -p ${BUILD_DIR}/rootfs
 	cp -r $(KERNEL_H) $(BUILD_DIR)/include/
 
 SD = build/root.ext2

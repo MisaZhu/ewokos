@@ -5,6 +5,7 @@ HW=miyoo
 
 export ARCH=arm
 export G_2D_BOOST=yes
+export BSP_LFLAGS= -larch_miyoo
 
 all: basic_sys
 	@echo "all done."
@@ -13,6 +14,9 @@ all: basic_sys
 	mv $(TARGET_DIR)/* $(BUILD_DIR)/$(HW)
 	cp -r $(BUILD_DIR)/include $(BUILD_DIR)/$(HW)
 	cp -r $(BUILD_DIR)/lib $(BUILD_DIR)/$(HW)
+	rm -fr $(TARGET_DIR)
+	rm -fr $(BUILD_DIR)/include
+	rm -fr $(BUILD_DIR)/lib
 
 include ../make.inc
 
