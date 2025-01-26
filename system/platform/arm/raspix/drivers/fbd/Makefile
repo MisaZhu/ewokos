@@ -19,7 +19,7 @@ $(FBD): $(FBD_OBJS) \
 		$(BUILD_DIR)/lib/libupng.a \
 		$(BUILD_DIR)/lib/libtinyjson.a \
 		$(BUILD_DIR)/lib/libarch_bcm283x.a
-	$(LD) -Ttext=100 $(FBD_OBJS) -o $(FBD) $(LDFLAGS) -larch_bcm283x -lfbd -lupng -lgraph -lbsp $(BSP_LFLAGS) -ltinyjson $(EWOK_LIBC)
+	$(LD) -Ttext=100 $(FBD_OBJS) -o $(FBD) $(LDFLAGS) -lfbd -lupng -lgraph -lbsp $(BSP_LFLAGS) -ltinyjson $(EWOK_LIBC)
 
 clean:
 	rm -f $(FBD_OBJS)
