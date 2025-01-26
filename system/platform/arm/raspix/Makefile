@@ -46,9 +46,10 @@ full_sys: basic_sys
 	@cp -r etcs/full/* ${TARGET_DIR}/etc
 
 install:
-	mkdir -p $(INST_DIR)/$(ARCH)
+	mkdir -p $(INST_DIR)/$(ARCH)/$(HW)
 	cp -r $(BUILD_DIR)/include $(INST_DIR)/$(ARCH)/ 
 	cp -r $(BUILD_DIR)/lib $(INST_DIR)/$(ARCH)/ 
+	cp -r $(BUILD_DIR)/$(HW)/* $(INST_DIR)/$(ARCH)/$(HW)
 	cp $(ROOT_DIR)/platform/$(ARCH)/make.rule $(INST_DIR)/$(ARCH)/
 
 clean:
