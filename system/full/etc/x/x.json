@@ -4,5 +4,5 @@
     "cursor": "mouse",
     "#cursor": "none",
     "##cursor": "touch",
-    "gray_mode": 1
+    "gray_mode": 0
 }
