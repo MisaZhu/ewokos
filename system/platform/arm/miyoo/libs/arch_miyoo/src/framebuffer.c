@@ -32,7 +32,7 @@ int32_t miyoo_fb_init(uint32_t w, uint32_t h, uint32_t dep) {
 	syscall1(SYS_GET_SYS_INFO, (int32_t)&sysinfo);
 
 	if(strcmp(sysinfo.machine, "miyoo-plus") == 0)
-		_fb_info.pointer = syscall1(SYS_P2V, 0x27c00000+626); //GPU addr to ARM addr
+		_fb_info.pointer = syscall1(SYS_P2V, 0x27c00000+628); //GPU addr to ARM addr
 	else
 		_fb_info.pointer = syscall1(SYS_P2V, 0x27c00000); //GPU addr to ARM addr
 
@@ -42,7 +42,7 @@ int32_t miyoo_fb_init(uint32_t w, uint32_t h, uint32_t dep) {
 	_fb_info.yoffset = 0;
 
 	if(strcmp(sysinfo.machine, "miyoo-plus") == 0)
-		syscall3(SYS_MEM_MAP, _fb_info.pointer, 0x27c00000+626, _fb_info.size);
+		syscall3(SYS_MEM_MAP, _fb_info.pointer, 0x27c00000+628, _fb_info.size);
 	else
 		syscall3(SYS_MEM_MAP, _fb_info.pointer, 0x27c00000, _fb_info.size);
 	return 0;
