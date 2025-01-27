@@ -74,10 +74,10 @@ static void do_ctrl(char c) {
 		core_set_ux(c - '1');
 	}
 	else if(c == 19) { //left 
-		core_next_ux();
+		core_prev_ux();
 	}
 	else if(c == 4) { //right
-		core_prev_ux();
+		core_next_ux();
 	}
 }
 

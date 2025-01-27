@@ -25,6 +25,16 @@ int core_get_ux(void) {
 	return res;
 }
 
+int core_req_ux(void) {
+	proto_t out;
+	PF->init(&out);
+	int res = ipc_call(get_cored_pid(), CORE_CMD_REQ_UX, NULL, &out);
+	if(res == 0)
+		res = proto_read_int(&out);
+	PF->clear(&out);
+	return res;
+}
+
 int core_get_ux_num(void) {
 	proto_t out;
 	PF->init(&out);
@@ -32,17 +42,6 @@ int core_get_ux_num(void) {
 	if(res == 0)
 		res = proto_read_int(&out);
 	PF->clear(&out);
-	return res;
-}
-
-int core_set_ux_num(uint32_t ux_num) {
-	if(ux_num > UX_MAX)
-		ux_num = UX_MAX;
-
-	proto_t in;
-	PF->init(&in)->addi(&in, ux_num);
-	int res = ipc_call_wait(get_cored_pid(), CORE_CMD_SET_UX_NUM, &in);
-	PF->clear(&in);
 	return res;
 }
 

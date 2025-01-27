@@ -31,12 +31,20 @@
 /bin/ipcserv /drivers/proc/sysinfod   /proc/sysinfo
 /bin/ipcserv /drivers/proc/stated     /proc/state
 
+/bin/ipcserv /drivers/consoled         1
+/bin/ipcserv /drivers/consoled         2
+/bin/ipcserv /drivers/consoled         3
 
 #/bin/load_font
 /bin/ipcserv /drivers/xserverd        /dev/x
 @/sbin/x/xmoused /dev/mouse0 &
 @/sbin/x/xim_none /dev/keyb0 &
 
+
 @/bin/session -r -t /dev/console0 &
+@/bin/session -r -t /dev/console1 &
+@/bin/session -r -t /dev/console2 &
+@/bin/session -r -t /dev/console3 &
+
 @/bin/x/xsession misa &
 

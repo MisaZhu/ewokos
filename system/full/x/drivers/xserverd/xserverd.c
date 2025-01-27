@@ -1406,7 +1406,8 @@ int main(int argc, char** argv) {
 	const char* display_man = argc > 2 ? argv[2]: "/dev/display";
 	const int32_t display_index = argc > 3 ? atoi(argv[3]): -1;
 
-	core_set_ux(core_get_ux_num()-1);
+	int ux_index = core_req_ux();
+	core_set_ux(ux_index);
 
 	x_t x;
 	if(x_init(&x, display_man, display_index) != 0)

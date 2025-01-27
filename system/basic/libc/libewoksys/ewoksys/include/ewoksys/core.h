@@ -18,8 +18,8 @@ enum {
 	CORE_CMD_GET_ENVS,
 	CORE_CMD_CLONE,
 
-	CORE_CMD_SET_UX_NUM,
 	CORE_CMD_GET_UX_NUM,
+	CORE_CMD_REQ_UX,
 	CORE_CMD_SET_UX,
 	CORE_CMD_NEXT_UX,
 	CORE_CMD_PREV_UX,
@@ -30,12 +30,12 @@ enum {
 
 void     schd_core_lock(void); 
 void     schd_core_unlock(void); 
-int      core_set_ux_num(uint32_t ux_num);
 int      core_get_ux_num(void);
 int      core_next_ux(void);
 int      core_prev_ux(void);
 int      core_set_ux(int ux_index);
 int      core_get_ux(void);
+int      core_req_ux(void);
 
 #define neon_lock schd_core_lock
 #define neon_unlock schd_core_unlock

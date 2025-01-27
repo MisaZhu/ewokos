@@ -196,17 +196,15 @@ static int console_loop(void* p) {
 
 int main(int argc, char** argv) {
 	_buffer = charbuf_new(0);
-	_ux_index = 0;
-	if(argc > 1)
-		_ux_index = atoi(argv[1]);
+	_ux_index = core_req_ux();
 	char mnt_point[128];
 	snprintf(mnt_point, 127, "/dev/console%d", _ux_index);
 
 	_keyb_fd = -1;
-	_keyb_dev = argc > 2 ? argv[2]: "/dev/keyb0";
+	_keyb_dev = argc > 1 ? argv[1]: "/dev/keyb0";
 
-	const char* display_dev = argc > 3 ? argv[3]: "/dev/display";
-	const uint32_t display_index = argc > 4 ? atoi(argv[4]): 0;
+	const char* display_dev = argc > 2 ? argv[2]: "/dev/display";
+	const uint32_t display_index = argc > 3 ? atoi(argv[3]): 0;
 
 	fb_console_t _console;
 	init_console(&_console, display_dev, display_index);
