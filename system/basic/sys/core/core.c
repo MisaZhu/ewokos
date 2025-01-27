@@ -23,10 +23,12 @@ typedef struct {
 static proc_info_t *_proc_info_table = NULL;
 static uint32_t _max_proc_table_num = 0;
 static int _ux_index = 0;
+static uint32_t _ux_num = 2;
 
 static void core_init(void) {
 	int32_t i;
 	_ux_index = 0;
+	_ux_num = 2;
 
 	sys_info_t sysinfo;
 	syscall1(SYS_GET_SYS_INFO, (int32_t)&sysinfo);
@@ -145,13 +147,43 @@ static void do_proc_set_cwd(int pid, proto_t* in, proto_t* out) {
 	PF->clear(out)->addi(out, 0);
 }
 
+static void do_proc_set_ux_num(int pid, proto_t* in) {
+	int num = proto_read_int(in);
+	if(num < 2)
+		num = 2;
+	else if(num > UX_MAX)
+		num = UX_MAX;
+	_ux_num = num;
+}
+
 static void do_proc_set_ux(int pid, proto_t* in) {
 	int index = proto_read_int(in);
+	if(index < 0)
+		index = 0;
+	else if(index >= _ux_num)
+		index = _ux_num - 1;
+
 	_ux_index = index;
+}
+
+static void do_proc_next_ux(int pid) {
+	_ux_index++;
+	if(_ux_index >= _ux_num)
+		_ux_index = 0;
+}
+
+static void do_proc_prev_ux(int pid) {
+	_ux_index--;
+	if(_ux_index < 0)
+		_ux_index = _ux_num - 1;
 }
 
 static void do_proc_get_ux(int pid, proto_t* out) {
 	PF->addi(out, _ux_index);
+}
+
+static void do_proc_get_ux_num(int pid, proto_t* out) {
+	PF->addi(out, _ux_num);
 }
 
 static str_t* env_get(map_t* envs, const char* key) {
@@ -270,8 +302,20 @@ static void handle_ipc(int pid, int cmd, proto_t* in, proto_t* out, void* p) {
 	case CORE_CMD_SET_UX:
 		do_proc_set_ux(pid, in);
 		return;
+	case CORE_CMD_SET_UX_NUM:
+		do_proc_set_ux_num(pid, in);
+		return;
+	case CORE_CMD_NEXT_UX:
+		do_proc_next_ux(pid);
+		return;
+	case CORE_CMD_PREV_UX:
+		do_proc_prev_ux(pid);
+		return;
 	case CORE_CMD_GET_UX:
 		do_proc_get_ux(pid, out);
+		return;
+	case CORE_CMD_GET_UX_NUM:
+		do_proc_get_ux_num(pid, out);
 		return;
 	}
 }

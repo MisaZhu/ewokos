@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <stdint.h>
+#include <ewoksys/core.h>
 #include <string.h>
 #include <ewoksys/vdevice.h>
 #include <ewoksys/syscall.h>
@@ -102,6 +103,19 @@ int miyoo_gpio_read(int pin)
     }
 }
 
+static int check_ux_op(const char* keys, uint32_t num) {
+	if(num == 1) {
+		if(keys[0] == KEY_BUTTON_L1) {
+			core_prev_ux();
+			return 0;
+		}
+		else if(keys[0] == KEY_BUTTON_R1) {
+			core_next_ux();
+			return 0;
+		}
+	}
+	return num;
+}
 
 static int joystick_read(int fd, int from_pid, fsinfo_t* node,
 		void* buf, int size, int offset, void* p) {
@@ -124,8 +138,10 @@ static int joystick_read(int fd, int from_pid, fsinfo_t* node,
 				break;
 		}
 	}
-	//return key_cnt > 0 ? key_cnt : VFS_ERR_RETRY;
-	return key_cnt > 0 ? key_cnt : -1;
+	if(key_cnt <= 0)
+		return 0;
+
+	return check_ux_op(keys, key_cnt);
 }
 
 static void init_gpio(void) {

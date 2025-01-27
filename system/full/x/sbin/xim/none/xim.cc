@@ -150,7 +150,7 @@ public:
 		if(x_pid <= 0 || keybFD < 0)
 			return;
 		int ux = core_get_ux();
-		if(ux != 8)
+		if(ux != (core_get_ux_num() - 1))
 			return;
 
 		char v[6];
