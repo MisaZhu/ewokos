@@ -1238,8 +1238,8 @@ static int mouse_handle(x_t* x, xevent_t* ev) {
 		}
 		//else if(ev->value.mouse.from_x != ev->value.mouse.x ||
 			//		ev->value.mouse.from_y != ev->value.mouse.y ||
-		else if(x->mouse_state.last_pos.x != ev->value.mouse.x ||
-				x->mouse_state.last_pos.y != ev->value.mouse.y ||
+		else if(abs(x->mouse_state.last_pos.x - ev->value.mouse.x) > 6 ||
+				abs(x->mouse_state.last_pos.y - ev->value.mouse.y) > 6 ||
 					x->mouse_state.state == XEVT_MOUSE_DRAG) {
 			x->mouse_state.state = XEVT_MOUSE_DRAG;
 			ev->state = XEVT_MOUSE_DRAG;
