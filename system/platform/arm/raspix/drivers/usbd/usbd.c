@@ -93,10 +93,10 @@ static int touch_read(int fd, int from_pid, fsinfo_t* node,
 	(void)p;
 
 	if(size < 6)
-        return VFS_ERR_RETRY;
+        return 0;
 
     if(!_hasData)
-        return VFS_ERR_RETRY;
+        return 0;
 
 
     memcpy(buf, _buf, 6);

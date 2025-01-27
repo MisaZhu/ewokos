@@ -40,7 +40,7 @@ static int keyb_read(int fd, int from_pid, fsinfo_t* node,
 	(void)node;
 
 	if(_idle)
-		return VFS_ERR_RETRY;
+		return 0;
 
 	_idle = true;
 	memcpy(buf, key, 3);
