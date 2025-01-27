@@ -1414,7 +1414,7 @@ int main(int argc, char** argv) {
 	x_theme_t theme;
 	x_get_theme(&theme);
 
-	read_config(&x, "/etc/x/x.conf");
+	read_config(&x, "/etc/x/x.json");
 	cursor_init(theme.name, &x.cursor);
 
 	vdevice_t dev;
