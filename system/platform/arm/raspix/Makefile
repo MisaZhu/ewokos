@@ -53,7 +53,7 @@ clean:
 	cd drivers;make clean
 	cd $(ROOT_DIR)/full;make clean
 	cd $(ROOT_DIR)/basic;make clean
-	rm -fr $(ROOT_DIR)/build
+	rm -fr $(ROOT_DIR)/build/$(HW)
 
 run:
 	qemu-system-arm -M raspi2b -m 1024M -serial mon:stdio -kernel $(ROOT_DIR)/../kernel/platform/arm/raspi/pix/kernel7.qemu.img -sd build/root.ext2

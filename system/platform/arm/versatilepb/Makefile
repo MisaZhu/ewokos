@@ -46,7 +46,7 @@ clean:
 	cd drivers;make clean
 	cd $(ROOT_DIR)/full;make clean
 	cd $(ROOT_DIR)/basic;make clean
-	rm -fr $(ROOT_DIR)/build
+	rm -fr $(ROOT_DIR)/build/$(HW)
 
 install:
 	mkdir -p $(INST_DIR)/$(ARCH)/$(HW)
