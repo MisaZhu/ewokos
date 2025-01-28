@@ -49,9 +49,9 @@ struct gpio_pins{
 	DECLARE_GPIO_KEY(KEY_BUTTON_Y, GPIO_LOW),
 	DECLARE_GPIO_KEY(KEY_BUTTON_SELECT, GPIO_LOW),
 	DECLARE_GPIO_KEY(KEY_BUTTON_START, GPIO_LOW),
-	DECLARE_GPIO_KEY(KEY_BUTTON_L1, GPIO_LOW),
+	//DECLARE_GPIO_KEY(KEY_BUTTON_L1, GPIO_LOW),
 	DECLARE_GPIO_KEY(KEY_BUTTON_L2, GPIO_LOW),
-	DECLARE_GPIO_KEY(KEY_BUTTON_R1, GPIO_LOW),
+	//DECLARE_GPIO_KEY(KEY_BUTTON_R1, GPIO_LOW),
 	DECLARE_GPIO_KEY(KEY_BUTTON_R2, GPIO_LOW),
 	DECLARE_GPIO_KEY(KEY_POWER, GPIO_HIGH),
 	DECLARE_GPIO_KEY(KEY_HOME, GPIO_LOW),
@@ -103,38 +103,13 @@ int miyoo_gpio_read(int pin)
     }
 }
 
-static int check_ux_op(char* keys, uint32_t num) {
-	static uint64_t last_tic = 0;
-
-	uint64_t now;
-	kernel_tic(NULL, &now);
-	uint32_t gap = now - last_tic;
-
-	if(num == 1) {
-		if(keys[0] == KEY_BUTTON_R1) {
-			if(gap >= 300000) {
-				last_tic = now;
-				core_next_ux();
-			}
-			return 0;
-		}
-		else if(keys[0] == KEY_BUTTON_L1) {
-			if(gap >= 300000) {
-				last_tic = now;
-				core_prev_ux();
-			}
-			return 0;
-		}
-	}
-	return num;
-}
-
 static int joystick_read(int fd, int from_pid, fsinfo_t* node,
 		void* buf, int size, int offset, void* p) {
 	(void)fd;
 	(void)from_pid;
 	(void)node;
 	(void)offset;
+	(void)size;
 	(void)p;
 
 	char* keys = (char*)buf;
@@ -149,8 +124,9 @@ static int joystick_read(int fd, int from_pid, fsinfo_t* node,
 				break;
 		}
 	}
-	keys = (char*)buf;
-	return check_ux_op(keys, key_cnt);
+	if(key_cnt <= 0)
+		return 0;
+	return key_cnt;
 }
 
 static void init_gpio(void) {
@@ -160,10 +136,8 @@ static void init_gpio(void) {
 	}
 }
 
-static int power_button(void* p) {
-	(void)p;
+static void check_power(void) {
 	static int count = 0;
-	ipc_disable();
 	if(miyoo_gpio_read(86) != 0)
 		count++;
 	else
@@ -176,6 +150,23 @@ static int power_button(void* p) {
 		proc_usleep(1000);
 		miyoo_gpio_set(85, 0);
 	}
+}
+
+static void check_ux(void) {
+	if(miyoo_gpio_read(KEY_BUTTON_L1_PIN) == 0){
+		core_prev_ux();
+	}
+	
+	if(miyoo_gpio_read(KEY_BUTTON_R1_PIN) == 0){
+		core_next_ux();
+	}
+}
+
+static int power_button(void* p) {
+	(void)p;
+	ipc_disable();
+	check_ux();
+	check_power();
 	ipc_enable();
 	proc_usleep(200000);
 }
