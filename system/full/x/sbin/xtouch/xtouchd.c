@@ -105,6 +105,12 @@ int main(int argc, char** argv) {
 
 	uint16_t prev_ev = 0;
 	while(true) {
+		int ux = core_get_ux();
+		if(ux != (core_get_ux_num() - 1)) {
+			proc_usleep(100000);
+			continue;
+		}
+
 		int8_t buf[6];
 		memset(buf, 0, 6);
 		if(read(fd, buf, 6) == 6) {

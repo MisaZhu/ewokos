@@ -70,6 +70,12 @@ int main(int argc, char** argv) {
 	}
 
 	while(true) {
+		int ux = core_get_ux();
+		if(ux != (core_get_ux_num() - 1)) {
+			proc_usleep(100000);
+			continue;
+		}
+
 		int8_t mv[4];
 		if(read(fd, mv, 4) == 4) {
 			if(mv[0] != 0) 

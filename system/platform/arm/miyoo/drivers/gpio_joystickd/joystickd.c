@@ -103,14 +103,26 @@ int miyoo_gpio_read(int pin)
     }
 }
 
-static int check_ux_op(const char* keys, uint32_t num) {
+static int check_ux_op(char* keys, uint32_t num) {
+	static uint64_t last_tic = 0;
+
+	uint64_t now;
+	kernel_tic(NULL, &now);
+	uint32_t gap = now - last_tic;
+
 	if(num == 1) {
-		if(keys[0] == KEY_BUTTON_L1) {
-			core_prev_ux();
+		if(keys[0] == KEY_BUTTON_R1) {
+			if(gap >= 300000) {
+				last_tic = now;
+				core_next_ux();
+			}
 			return 0;
 		}
-		else if(keys[0] == KEY_BUTTON_R1) {
-			core_next_ux();
+		else if(keys[0] == KEY_BUTTON_L1) {
+			if(gap >= 300000) {
+				last_tic = now;
+				core_prev_ux();
+			}
 			return 0;
 		}
 	}
@@ -123,12 +135,11 @@ static int joystick_read(int fd, int from_pid, fsinfo_t* node,
 	(void)from_pid;
 	(void)node;
 	(void)offset;
-	(void)size;
 	(void)p;
 
 	char* keys = (char*)buf;
 	int key_cnt = 0;
-
+	memset(keys, 0, size);
 	for(int i = 0; i < sizeof(_pins)/sizeof(struct gpio_pins);  i++){
 		if(miyoo_gpio_read(_pins[i].pin) == _pins[i].active){
 			*keys = _pins[i].key;
@@ -138,9 +149,7 @@ static int joystick_read(int fd, int from_pid, fsinfo_t* node,
 				break;
 		}
 	}
-	if(key_cnt <= 0)
-		return 0;
-
+	keys = (char*)buf;
 	return check_ux_op(keys, key_cnt);
 }
 

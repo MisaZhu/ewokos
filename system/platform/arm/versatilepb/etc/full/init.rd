@@ -5,19 +5,16 @@
 /bin/ipcserv /drivers/displayd         /dev/display /dev/fb0
 /bin/ipcserv /drivers/fontd            /dev/font
 
-/bin/ipcserv /drivers/consoled         0
-@set_stdio /dev/console0
-
-/bin/ipcserv /sbin/sessiond
-@/bin/session -r -t /dev/tty0 &
+/bin/ipcserv /drivers/consoled -m /dev/klog
+@set_stdio /dev/klog
 
 @echo "+---------------------------------------+\n"
 @echo "|  < EwokOS MicroKernel >               |\n" 
 @echo "+---------------------------------------+\n"
 
+/bin/ipcserv /drivers/versatilepb/ps2keybd   /dev/keyb0
 /bin/ipcserv /drivers/timerd                 /dev/timer
 
-/bin/ipcserv /drivers/versatilepb/ps2keybd   /dev/keyb0
 /bin/ipcserv /drivers/versatilepb/ps2moused  /dev/mouse0
 
 #/bin/ipcserv /drivers/versatilepb/smc91c111d /dev/eth0
@@ -31,20 +28,18 @@
 /bin/ipcserv /drivers/proc/sysinfod   /proc/sysinfo
 /bin/ipcserv /drivers/proc/stated     /proc/state
 
-/bin/ipcserv /drivers/consoled         1
-/bin/ipcserv /drivers/consoled         2
-/bin/ipcserv /drivers/consoled         3
+/bin/ipcserv /sbin/sessiond
+
+/bin/ipcserv /drivers/consoled   -i /dev/keyb0 -m /dev/console0 -d 0
+/bin/ipcserv /drivers/consoled   -i /dev/keyb0 -m /dev/console1 -d 0
 
 #/bin/load_font
 /bin/ipcserv /drivers/xserverd        /dev/x
 @/sbin/x/xmoused /dev/mouse0 &
 @/sbin/x/xim_none /dev/keyb0 &
 
-
 @/bin/session -r -t /dev/console0 &
 @/bin/session -r -t /dev/console1 &
-@/bin/session -r -t /dev/console2 &
-@/bin/session -r -t /dev/console3 &
 
 @/bin/x/xsession misa &
 

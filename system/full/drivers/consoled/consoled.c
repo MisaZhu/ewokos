@@ -142,7 +142,7 @@ static int console_write(int fd,
 }
 
 static int _keyb_fd = -1;
-static const char* _keyb_dev = "/dev/keyb0";
+static const char* _keyb_dev = "";
 static charbuf_t *_buffer;
 
 static int console_read(int fd,
@@ -176,6 +176,11 @@ static int console_loop(void* p) {
 		_flush = false;
 	}
 
+	if(_keyb_dev[0] == 0) {
+		usleep(20000);
+		return 0;
+	}
+
 	if(_keyb_fd < 0) {
 		_keyb_fd = open(_keyb_dev, O_RDONLY | O_NONBLOCK);
 		if(_keyb_fd < 0) {
@@ -194,20 +199,50 @@ static int console_loop(void* p) {
 	return 0;
 }
 
+static const char* _mnt_point = "";
+static int _disp_index = 0;
+static int doargs(int argc, char* argv[]) {
+	int c = 0;
+	while (c != -1) {
+		c = getopt (argc, argv, "i:m:d:");
+		if(c == -1)
+			break;
+
+		switch (c) {
+			break;
+		case 'i':
+			_keyb_dev = optarg;
+			break;
+		case 'm':
+			_mnt_point = optarg;
+			break;
+		case 'd':
+			_disp_index = atoi(optarg);
+			break;
+		default:
+			c = -1;
+			break;
+		}
+	}
+	return optind;
+}
+
 int main(int argc, char** argv) {
 	_buffer = charbuf_new(0);
 	_ux_index = core_req_ux();
-	char mnt_point[128];
-	snprintf(mnt_point, 127, "/dev/console%d", _ux_index);
+
+	doargs(argc, argv);
+	char mnt_point[128] = {0};
+	if(_mnt_point[0] == 0)
+		snprintf(mnt_point, 127, "/dev/console%d", _ux_index);
+	else
+		strncpy(mnt_point, _mnt_point, 127);
 
 	_keyb_fd = -1;
-	_keyb_dev = argc > 1 ? argv[1]: "/dev/keyb0";
-
-	const char* display_dev = argc > 2 ? argv[2]: "/dev/display";
-	const uint32_t display_index = argc > 3 ? atoi(argv[3]): 0;
+	const char* display_dev = "/dev/display";
 
 	fb_console_t _console;
-	init_console(&_console, display_dev, display_index);
+	init_console(&_console, display_dev, _disp_index);
 	reset_console(&_console);
 
 	vdevice_t dev;
