@@ -204,7 +204,7 @@ static int _disp_index = 0;
 static int doargs(int argc, char* argv[]) {
 	int c = 0;
 	while (c != -1) {
-		c = getopt (argc, argv, "i:m:d:");
+		c = getopt (argc, argv, "i:m:d:u:");
 		if(c == -1)
 			break;
 
@@ -219,6 +219,9 @@ static int doargs(int argc, char* argv[]) {
 		case 'd':
 			_disp_index = atoi(optarg);
 			break;
+		case 'u':
+			_ux_index = atoi(optarg);
+			break;
 		default:
 			c = -1;
 			break;
@@ -229,9 +232,13 @@ static int doargs(int argc, char* argv[]) {
 
 int main(int argc, char** argv) {
 	_buffer = charbuf_new(0);
-	_ux_index = core_req_ux();
+	_ux_index = 0;
 
 	doargs(argc, argv);
+
+	if(_ux_index == 0)
+		core_set_ux(0);
+
 	char mnt_point[128] = {0};
 	if(_mnt_point[0] == 0)
 		snprintf(mnt_point, 127, "/dev/console%d", _ux_index);

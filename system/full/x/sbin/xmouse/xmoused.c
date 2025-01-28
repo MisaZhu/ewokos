@@ -5,6 +5,7 @@
 #include <string.h>
 #include <ewoksys/vdevice.h>
 #include <ewoksys/proto.h>
+#include <ewoksys/core.h>
 #include <x/xcntl.h>
 #include <x/xevent.h>
 #include <ewoksys/vfs.h>
@@ -71,7 +72,7 @@ int main(int argc, char** argv) {
 
 	while(true) {
 		int ux = core_get_ux();
-		if(ux != (core_get_ux_num() - 1)) {
+		if(ux != UX_MAX) {
 			proc_usleep(100000);
 			continue;
 		}

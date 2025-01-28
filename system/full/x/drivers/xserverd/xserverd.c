@@ -1385,7 +1385,7 @@ int xserver_step(void* p) {
 	ipc_disable();
 	check_wins(x);
 
-	if(core_get_ux() == (core_get_ux_num()-1)) {
+	if(core_get_ux() == UX_MAX) {
 		for(uint32_t i=0; i<x->display_num; i++) {
 			x_repaint(x, i);
 		}
@@ -1406,7 +1406,7 @@ int main(int argc, char** argv) {
 	const char* display_man = argc > 2 ? argv[2]: "/dev/display";
 	const int32_t display_index = argc > 3 ? atoi(argv[3]): -1;
 
-	int ux_index = core_req_ux();
+	int ux_index = UX_MAX;
 	core_set_ux(ux_index);
 
 	x_t x;

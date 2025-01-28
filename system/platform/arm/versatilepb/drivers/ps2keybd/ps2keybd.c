@@ -70,8 +70,8 @@ static inline void empty(void) {
 #define CTRL   0x14
 
 static void do_ctrl(char c) {
-	if(c >= '1' && c <= '9') {
-		core_set_ux(c - '1');
+	if(c >= '0' && c <= ('0'+UX_MAX)) {
+		core_set_ux(c - '0');
 	}
 	else if(c == 19) { //left 
 		core_prev_ux();

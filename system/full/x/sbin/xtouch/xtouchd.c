@@ -6,6 +6,7 @@
 #include <ewoksys/vdevice.h>
 #include <tinyjson/tinyjson.h>
 #include <ewoksys/proto.h>
+#include <ewoksys/core.h>
 #include <x/xcntl.h>
 #include <x/xevent.h>
 #include <x/xwin.h>
@@ -106,7 +107,7 @@ int main(int argc, char** argv) {
 	uint16_t prev_ev = 0;
 	while(true) {
 		int ux = core_get_ux();
-		if(ux != (core_get_ux_num() - 1)) {
+		if(ux != UX_MAX) {
 			proc_usleep(100000);
 			continue;
 		}

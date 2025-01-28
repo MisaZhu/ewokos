@@ -5,7 +5,7 @@
 /bin/ipcserv /drivers/displayd         /dev/display /dev/fb0
 /bin/ipcserv /drivers/fontd            /dev/font
 
-/bin/ipcserv /drivers/consoled -m /dev/klog
+/bin/ipcserv /drivers/consoled -m /dev/klog -u 0
 @set_stdio /dev/klog
 
 @echo "+---------------------------------------+\n"
@@ -30,8 +30,8 @@
 
 /bin/ipcserv /sbin/sessiond
 
-/bin/ipcserv /drivers/consoled   -i /dev/keyb0 -m /dev/console0 -d 0
-/bin/ipcserv /drivers/consoled   -i /dev/keyb0 -m /dev/console1 -d 0
+/bin/ipcserv /drivers/consoled   -i /dev/keyb0 -m /dev/console0 -u 1
+/bin/ipcserv /drivers/consoled   -i /dev/keyb0 -m /dev/console1 -u 2
 
 #/bin/load_font
 /bin/ipcserv /drivers/xserverd        /dev/x

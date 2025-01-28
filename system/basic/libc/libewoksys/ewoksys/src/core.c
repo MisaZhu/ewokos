@@ -25,26 +25,6 @@ int core_get_ux(void) {
 	return res;
 }
 
-int core_req_ux(void) {
-	proto_t out;
-	PF->init(&out);
-	int res = ipc_call(get_cored_pid(), CORE_CMD_REQ_UX, NULL, &out);
-	if(res == 0)
-		res = proto_read_int(&out);
-	PF->clear(&out);
-	return res;
-}
-
-int core_get_ux_num(void) {
-	proto_t out;
-	PF->init(&out);
-	int res = ipc_call(get_cored_pid(), CORE_CMD_GET_UX_NUM, NULL, &out);
-	if(res == 0)
-		res = proto_read_int(&out);
-	PF->clear(&out);
-	return res;
-}
-
 int core_set_ux(int ux_index) {
 	proto_t in;
 	PF->init(&in)->addi(&in, ux_index);
