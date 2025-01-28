@@ -472,7 +472,7 @@ static int x_init_display(x_t* x, int32_t display_index) {
 		x->displays[display_index].desktop_rect.w = g_fb->w;
 		x->displays[display_index].desktop_rect.h = g_fb->h;
 		
-		x_dirty(x, 0);
+		//x_dirty(x, 0);
 		x->display_num = 1;
 		return 0;
 	}
@@ -496,7 +496,7 @@ static int x_init_display(x_t* x, int32_t display_index) {
 		x->displays[i].desktop_rect.y = 0;
 		x->displays[i].desktop_rect.w = g_fb->w;
 		x->displays[i].desktop_rect.h = g_fb->h;
-		x_dirty(x, i);
+		//x_dirty(x, i);
 	}
 	x->display_num = display_num;
 	return 0;
@@ -1405,9 +1405,6 @@ int main(int argc, char** argv) {
 	const char* mnt_point = argc > 1 ? argv[1]: "/dev/x";
 	const char* display_man = argc > 2 ? argv[2]: "/dev/display";
 	const int32_t display_index = argc > 3 ? atoi(argv[3]): -1;
-
-	int ux_index = UX_MAX;
-	core_set_ux(ux_index);
 
 	x_t x;
 	if(x_init(&x, display_man, display_index) != 0)

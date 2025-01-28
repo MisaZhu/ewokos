@@ -1,11 +1,12 @@
-/bin/ipcserv /drivers/miyoo/ms_uartd /dev/tty0
+#/bin/ipcserv /drivers/miyoo/ms_uartd /dev/tty0
 
 /bin/ipcserv /drivers/miyoo/fbd      /dev/fb0
 /bin/ipcserv /drivers/displayd       /dev/display /dev/fb0
 /bin/ipcserv /drivers/fontd          /dev/font
 
-/bin/ipcserv /drivers/consoled       0
-@set_stdio /dev/console0
+/bin/ipcserv /drivers/consoled -m /dev/klog -u 0
+@set_stdio  /dev/klog
+@set_stderr /dev/klog
 
 /bin/ipcserv /drivers/miyoo/gpio_joystickd     /dev/joystick
 /bin/ipcserv /drivers/vjoystickd               /dev/vjoystick /dev/joystick
@@ -18,13 +19,17 @@
 /bin/ipcserv /drivers/proc/stated    /proc/state
 
 /bin/ipcserv /sbin/sessiond
-#@/bin/session -r &
+#/bin/session -r -t /dev/tty0 &
 
+/bin/ipcserv /drivers/consoled   -i /dev/joystick -m /dev/console1 -u 1
+/bin/session -r -t /dev/console1 &
+/bin/setux 1
+
+/bin/ipcserv /drivers/xserverd       /dev/x
 /sbin/x/xim_none   /dev/vjoystick &
 /sbin/x/xjoymoused /dev/vjoystick &
+/sbin/x/xim_vkey 460 120&
 
 #/bin/load_font
-/bin/ipcserv /drivers/xserverd       /dev/x
 
-@/sbin/x/xim_vkey 460 120&
 @/bin/x/xsession misa &

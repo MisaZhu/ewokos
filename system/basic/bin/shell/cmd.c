@@ -135,11 +135,24 @@ static int set_stdio(const char* dev) {
 	if(fd > 0) {
 		dup2(fd, 0);
 		dup2(fd, 1);
-		dup2(fd, 2);
 		dup2(fd, VFS_BACKUP_FD0);
 		dup2(fd, VFS_BACKUP_FD1);
 		close(fd);
 		setenv("CONSOLE_ID", dev);
+		return 0;
+	}
+	return -1;
+}
+
+static int set_stderr(const char* dev) {
+	while(*dev == ' ' || *dev == '\t') /*skip all space*/
+		dev++;
+
+	int fd = open(dev, O_WRONLY);
+	if(fd > 0) {
+		dup2(fd, 2);
+		close(fd);
+		setenv("CONSOLE_ERR", dev);
 		return 0;
 	}
 	return -1;
@@ -171,6 +184,9 @@ int32_t handle_shell_cmd(const char* cmd) {
 	}
 	else if(strncmp(cmd, "set_stdio ", 10) == 0) {
 		return set_stdio(cmd+10);
+	}
+	else if(strncmp(cmd, "set_stderr ", 11) == 0) {
+		return set_stderr(cmd+11);
 	}
 	return -1; /*not shell internal command*/
 }

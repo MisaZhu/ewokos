@@ -24,7 +24,7 @@ enum {
 	CORE_CMD_GET_UX
 };
 
-#define UX_MAX 8
+#define UX_MAX 4
 
 void     schd_core_lock(void); 
 void     schd_core_unlock(void); 

@@ -6,6 +6,7 @@
 #include <ewoksys/keydef.h>
 #include <ewoksys/session.h>
 #include <ewoksys/klog.h>
+#include <ewoksys/core.h>
 #include <ewoksys/proc.h>
 #include <upng/upng.h>
 #include <x++/X.h>
@@ -19,10 +20,11 @@ extern "C" { extern int setenv(const char*, const char*);}
 static void run_xinit(session_info_t* info) {
 	//vfs_create(info->home, NULL, FS_TYPE_DIR, 0750, false, true);
 	//chown(info->home, info->uid, info->gid);
-
-	setgid(info->gid);
-	setuid(info->uid);
-	setenv("HOME", info->home);
+	if(info != NULL) {
+		setgid(info->gid);
+		setuid(info->uid);
+		setenv("HOME", info->home);
+	}
 
 	proc_exec("/bin/shell /etc/x/xinit.rd");
 }
@@ -180,7 +182,12 @@ public:
 };
 
 int main(int argc, char* argv[]) {
-	if(argc > 1) {
+	core_set_ux(UX_MAX);
+	if(getuid() > 0) {
+		run_xinit(NULL);
+		return 0;
+	}
+	else if(argc > 1) {
 		//no login check
 		session_info_t info;
 		if(session_get_by_name(argv[1], &info) == 0) {
