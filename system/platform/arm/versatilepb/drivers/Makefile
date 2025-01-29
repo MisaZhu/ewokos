@@ -1,11 +1,11 @@
-basic_sys: 
+basic: 
 	cd ttyd; make
 	cd powerd; make
 	cd ps2keybd; make
 	cd ps2moused; make
 	cd smc91c111d; make
 
-full_sys: 
+gui:
 	cd fbd; make
 
 clean:	

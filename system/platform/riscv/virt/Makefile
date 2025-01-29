@@ -16,7 +16,7 @@ basic_sys: kernel_heads
 	mkdir -p $(TARGET_DIR)/drivers/virt
 	cd libs;make
 	cd $(ROOT_DIR)/basic;make
-	cd $(ROOT_DIR)/full;make
+	cd $(ROOT_DIR)/gui;make
 	cd drivers;make
 	cp -r etc $(TARGET_DIR)/
 
@@ -26,7 +26,7 @@ extra_sys:
 clean:
 	cd libs;make clean
 	cd drivers;make clean
-	cd $(ROOT_DIR)/full;make clean
+	cd $(ROOT_DIR)/gui;make clean
 	cd $(ROOT_DIR)/basic;make clean
 	cd $(ROOT_DIR)/extra;make clean
 	rm -fr $(ROOT_DIR)/build

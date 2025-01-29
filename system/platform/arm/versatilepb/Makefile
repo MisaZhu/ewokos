@@ -8,43 +8,48 @@ export ARCH=arm
 #export G_2D_BOOST=yes
 export BSP_LFLAGS = -larch_vpb
 
-all: full
+all: x
 	@echo "all done."
-	rm -fr $(BUILD_DIR)/$(HW)
-	mkdir -p $(BUILD_DIR)/$(HW)
-	mv $(TARGET_DIR)/* $(BUILD_DIR)/$(HW)
-	rm -fr $(TARGET_DIR)
 
 include ../make.inc
 
-basic: basic_sys
-	@echo "all done."
+final:
 	rm -fr $(BUILD_DIR)/$(HW)
 	mkdir -p $(BUILD_DIR)/$(HW)
 	mv $(TARGET_DIR)/* $(BUILD_DIR)/$(HW)
 	rm -fr $(TARGET_DIR)
 
-full: full_sys
+basic: basic_sys final
+	@echo "all done."
+
+gui: gui_sys final
 	@echo "all done."
 
 basic_sys: kernel_heads 
 	rm -f $(BUILD_DIR)/lib/libbsp.a
-
 	mkdir -p $(TARGET_DIR)/drivers/$(HW)
 	cd libs;make
 	cd $(ROOT_DIR)/basic;make
-	cd drivers;make basic_sys
+	cd drivers;make basic
 	@cp -r etc/basic/* ${TARGET_DIR}/etc
 
-full_sys: basic_sys 
-	cd $(ROOT_DIR)/full;make
-	cd drivers;make full_sys
-	@cp -r etc/full/* ${TARGET_DIR}/etc
+gui_sys: basic_sys 
+	cd $(ROOT_DIR)/gui;make
+	cd drivers;make gui
+	@cp -r etc/gui/* ${TARGET_DIR}/etc
+
+x: x_sys final
+	@echo "all done."
+
+x_sys: gui_sys 
+	cd $(ROOT_DIR)/xwin;make
+	@cp -r etc/xwin/* ${TARGET_DIR}/etc
 
 clean:
 	cd libs;make clean
 	cd drivers;make clean
-	cd $(ROOT_DIR)/full;make clean
+	cd $(ROOT_DIR)/xwin;make clean
+	cd $(ROOT_DIR)/gui;make clean
 	cd $(ROOT_DIR)/basic;make clean
 	rm -fr $(ROOT_DIR)/build/$(HW)
 

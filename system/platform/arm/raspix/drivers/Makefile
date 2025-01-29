@@ -1,4 +1,4 @@
-basic_sys:
+basic:
 	cd uartd; make
 	cd gpio_actledd; make
 	cd mbox_actledd; make
@@ -10,7 +10,7 @@ basic_sys:
 	cd spi2uart; make
 	cd wlan; make
 
-full_sys:
+gui:
 	cd fbd; make
 
 clean:	
