@@ -106,6 +106,20 @@ static void loadenv(void) {
 	PF->clear(&out);
 }
 
+static int set_stderr(void) {
+	const char* dev = getenv("STDERR_DEV");
+	if(dev == NULL || dev[0] == 0)
+		return -1;
+
+	int fd = open(dev, O_RDWR);
+	if(fd > 0) {
+		dup2(fd, 2);
+		close(fd);
+		return 0;
+	}
+	return -1;
+}
+
 void _start(void) {
 	char* argv[ARG_MAX] = {0};
 	int32_t argc = 0;
@@ -147,6 +161,7 @@ void _start(void) {
 	// // klog("PATH: %s\n", paths);
 
 	loadenv();
+	set_stderr();
 	
 	int ret = main(argc, argv);
 	close_stdio();
