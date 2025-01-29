@@ -9,9 +9,9 @@ LDFLAGS = -L$(BUILD_DIR)/lib
 
 CFLAGS += -I $(BUILD_DIR)/include
 
-TASK_OBJS = gtest.o
+TASK_OBJS = fbtest.o
 
-TASK = $(TARGET_DIR)/bin/gtest
+TASK = $(TARGET_DIR)/bin/fbtest
 
 $(TASK): $(TASK_OBJS) \
 		$(EWOK_LIBC_A)  \

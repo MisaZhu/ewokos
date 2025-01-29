@@ -12,7 +12,6 @@ int main(int argc, char** argv) {
     font_init();
 
 	graph_t *g = fb_fetch_graph(&fb);
-
     graph_clear(g, 0xffffffff);
     
     font_t* font = font_new(DEFAULT_SYSTEM_FONT, true);
