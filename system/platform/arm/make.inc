@@ -24,9 +24,14 @@ sd:
 	dd if=/dev/zero of=${SD} bs=1k count=128k
 #make ext2 fs with: block_size=1024 inode_size=128
 	mke2fs -b 1024 -I 128 ${SD}
-
+ 
 	@cd $(ROOT_DIR)/build/$(HW); \
 	find . -type f | e2cp -ap -G0 -O0 -d ../../platform/arm/${HW}/${SD}:/
 
 	@echo "==== ext2 format sdcard image created  ====\n"
+
+extra: 
+	cd ../../../../sw.extra/; make HW=$(HW)
+	cp -r ../../../../sw.extra/build/$(HW)/apps $(ROOT_DIR)/build/$(HW) 
+	cp -r ../../../../sw.extra/build/$(HW)/bin $(ROOT_DIR)/build/$(HW)
 

@@ -23,8 +23,12 @@ void klog(const char *format, ...) {
 	vsnprintf(_buf, sizeof(_buf), format, ap);
 	va_end(ap);
 
-	if(_klog_fd <= 0) {
-		_klog_fd = open("/dev/klog", O_WRONLY);
+	const char* klog_dev = getenv("KLOG_DEV");
+	if(klog_dev == NULL || klog_dev[0] == 0)
+		klog_dev = getenv("STDERR_DEV");
+
+	if(_klog_fd <= 0 && klog_dev != NULL) {
+		_klog_fd = open(klog_dev, O_WRONLY);
 	}
 
 	if(_klog_fd > 0) {

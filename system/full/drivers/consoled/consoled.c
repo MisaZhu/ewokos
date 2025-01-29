@@ -213,9 +213,6 @@ static int doargs(int argc, char* argv[]) {
 		case 'i':
 			_keyb_dev = optarg;
 			break;
-		case 'm':
-			_mnt_point = optarg;
-			break;
 		case 'd':
 			_disp_index = atoi(optarg);
 			break;
@@ -234,16 +231,15 @@ int main(int argc, char** argv) {
 	_buffer = charbuf_new(0);
 	_ux_index = 0;
 
-	doargs(argc, argv);
-
+	int argind = doargs(argc, argv);
 	if(_ux_index == 0)
 		core_set_ux(0);
 
 	char mnt_point[128] = {0};
-	if(_mnt_point[0] == 0)
-		snprintf(mnt_point, 127, "/dev/console%d", _ux_index);
+	if(argind < argc)
+		strncpy(mnt_point, argv[argind], 127);
 	else
-		strncpy(mnt_point, _mnt_point, 127);
+		snprintf(mnt_point, 127, "/dev/console%d", _ux_index);
 
 	_keyb_fd = -1;
 	const char* display_dev = "/dev/display";

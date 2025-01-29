@@ -72,24 +72,30 @@ static int cd(const char* dir) {
 }
 
 static void export_all(void) {
-	proto_t out;
-	PF->init(&out);
-	int core_pid = syscall0(SYS_CORE_PID);
-	int res = ipc_call(core_pid, CORE_CMD_GET_ENVS, NULL, &out);
-	if(res != 0) {
-		PF->clear(&out);
-		return;
-	}
-		
-	int n = proto_read_int(&out);
-	if(n > 0) {
-		for(int i=0; i<n; i++) {
-			const char* name = proto_read_str(&out);
-			const char* value = proto_read_str(&out);
-			printf("declare -x %s=%s\n", name, value);
+	char buf[256] = {0};
+	char ** env;
+	extern char ** environ;
+	env = environ;
+	for (env; *env; ++env) {
+		memset(buf, 0, sizeof(buf));
+		char* key = buf;
+		char* value = buf;
+		for(int i= 0;i < sizeof(buf)-1; i++){
+			char c = (*env)[i];
+			if(c == '\0'){
+				break;
+			}
+			else if(c == '='){
+				buf[i] = '\0';
+				value = &buf[i+1];
+			}else{
+				buf[i] = c;
+			}
 		}
-	}
-	PF->clear(&out);
+		if(key[0] != 0){
+			printf("declare -x %s=%s\n", key, value);
+		}
+  }
 }
 
 static void export_get(const char* arg) {
@@ -106,7 +112,22 @@ static void export_set(const char* arg) {
 		return;
 	int len = v-arg;
 	strncpy(name, arg, len < 64 ? len : 63);
-	setenv(name, (v+1));
+
+	len = strlen(name)-1;
+	while(len >= 0) {
+		if(name[len] == ' ' || name[len] == '\t') {
+			name[len] = 0;
+			len--;
+		}
+		else
+			break;
+	}
+
+	v++;
+	while(*v == ' ' || *v == '\t')
+		v++;
+
+	setenv(name, v);
 }
 
 static int export(const char* arg) {
@@ -135,24 +156,11 @@ static int set_stdio(const char* dev) {
 	if(fd > 0) {
 		dup2(fd, 0);
 		dup2(fd, 1);
+		dup2(fd, 2);
 		dup2(fd, VFS_BACKUP_FD0);
 		dup2(fd, VFS_BACKUP_FD1);
 		close(fd);
 		setenv("CONSOLE_ID", dev);
-		return 0;
-	}
-	return -1;
-}
-
-static int set_stderr(const char* dev) {
-	while(*dev == ' ' || *dev == '\t') /*skip all space*/
-		dev++;
-
-	int fd = open(dev, O_WRONLY);
-	if(fd > 0) {
-		dup2(fd, 2);
-		close(fd);
-		setenv("CONSOLE_ERR", dev);
 		return 0;
 	}
 	return -1;
@@ -185,8 +193,6 @@ int32_t handle_shell_cmd(const char* cmd) {
 	else if(strncmp(cmd, "set_stdio ", 10) == 0) {
 		return set_stdio(cmd+10);
 	}
-	else if(strncmp(cmd, "set_stderr ", 11) == 0) {
-		return set_stderr(cmd+11);
-	}
+
 	return -1; /*not shell internal command*/
 }

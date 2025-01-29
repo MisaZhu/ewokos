@@ -145,6 +145,7 @@ void _start(void) {
 	// klog("setenv: %d\n", val);
 	// // const char* paths = getenv("PATH");
 	// // klog("PATH: %s\n", paths);
+
 	loadenv();
 	
 	int ret = main(argc, argv);

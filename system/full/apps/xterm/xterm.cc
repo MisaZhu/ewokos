@@ -265,6 +265,20 @@ int run(const char* mnt_point) {
 	exit(0);
 }
 
+static int set_stdio(const char* dev) {
+	int fd = open(dev, O_RDWR);
+	if(fd > 0) {
+		dup2(fd, 0);
+		dup2(fd, 1);
+		dup2(fd, VFS_BACKUP_FD0);
+		dup2(fd, VFS_BACKUP_FD1);
+		close(fd);
+		setenv("CONSOLE_ID", dev);
+		return 0;
+	}
+	return -1;
+}
+
 int main(int argc, char* argv[]) {
 	char dev[128];
 	snprintf(dev, 127, "/dev/xconsole%d", getpid());
@@ -278,21 +292,10 @@ int main(int argc, char* argv[]) {
 	else 
 		ipc_wait_ready(pid);
 
+
 	int pid_shell = fork();
 	if(pid_shell == 0) {
-		int fd = open(dev, O_RDWR);
-		if(fd < 0) {
-			printf("Error: %s open failed\n", dev);
-			return -1;
-		}
-
-		dup2(fd, 0);
-		dup2(fd, 1);
-		dup2(fd, 2);
-		dup2(fd, VFS_BACKUP_FD0);
-		dup2(fd, VFS_BACKUP_FD1);
-		close(fd);
-		setenv("CONSOLE_ID", dev);
+		set_stdio(dev);
 		proc_exec("/bin/shell");
 	}
 	else {

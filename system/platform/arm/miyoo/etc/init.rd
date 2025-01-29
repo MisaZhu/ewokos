@@ -1,12 +1,12 @@
-#/bin/ipcserv /drivers/miyoo/ms_uartd /dev/tty0
-
 /bin/ipcserv /drivers/miyoo/fbd      /dev/fb0
 /bin/ipcserv /drivers/displayd       /dev/display /dev/fb0
 /bin/ipcserv /drivers/fontd          /dev/font
 
-/bin/ipcserv /drivers/consoled -m /dev/klog -u 0
-@set_stdio  /dev/klog
-@set_stderr /dev/klog
+/bin/ipcserv /drivers/consoled  /dev/klog -u 0
+@export KLOG_DEV=/dev/klog
+@set_stdio /dev/klog
+
+#/bin/ipcserv /drivers/miyoo/ms_uartd /dev/tty0
 
 /bin/ipcserv /drivers/miyoo/gpio_joystickd     /dev/joystick
 /bin/ipcserv /drivers/vjoystickd               /dev/vjoystick /dev/joystick
@@ -21,7 +21,7 @@
 /bin/ipcserv /sbin/sessiond
 #/bin/session -r -t /dev/tty0 &
 
-/bin/ipcserv /drivers/consoled   -i /dev/joystick -m /dev/console1 -u 1
+/bin/ipcserv /drivers/consoled  /dev/console1 -i /dev/joystick -u 1
 /bin/session -r -t /dev/console1 &
 /bin/setux 1
 

@@ -5,7 +5,7 @@
 /bin/ipcserv /drivers/displayd        /dev/display /dev/fb0
 /bin/ipcserv /drivers/fontd           /dev/font
 
-/bin/ipcserv /drivers/consoled        0
+/bin/ipcserv /drivers/consoled        -u 0
 @set_stdio /dev/console0
 
 /bin/ipcserv /sbin/sessiond
