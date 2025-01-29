@@ -5,6 +5,7 @@
 #include <ewoksys/sys.h>
 #include <pthread.h>
 #include <unistd.h>
+#include <ewoksys/core.h>
 #include <malloc.h>
 
 #ifdef __cplusplus
@@ -142,12 +143,71 @@ inline void proc_exec_elf(const char* cmd_line, const char* elf, int32_t size) {
 		exit(-1);
 }
 
-int  proc_exec(const char* cmd_line) {
-	/*char* arg0[] = {"", NULL};
-	char* arg1[] = {"", NULL};
-	return execve(cmd_line, arg0, arg1); 		
-	*/
-	return execl(cmd_line, "", NULL);
+static int ewok_set_env(const char* name, const char* value) {
+	proto_t in, out;
+	PF->init(&out);
+	PF->init(&in)->adds(&in, name)->adds(&in, value);
+
+	int res = ipc_call(get_cored_pid(), CORE_CMD_SET_ENV, &in, &out);
+	PF->clear(&in);
+	if(res == 0) {
+		if(proto_read_int(&out) != 0) {
+			res = -1;
+		}
+	}
+	else {
+		res = -1;
+	}
+	PF->clear(&out);
+	return res;
+}
+
+static void saveenv() {
+	char buf[256] = {0};
+	char ** env;
+	extern char ** environ;
+	env = environ;
+	for (env; *env; ++env) {
+		memset(buf, 0, sizeof(buf));
+		char* key = buf;
+		char* value = buf;
+		for(int i= 0;i < sizeof(buf)-1; i++){
+			char c = (*env)[i];
+			if(c == '\0'){
+				break;
+			}
+			else if(c == '='){
+				buf[i] = '\0';
+				value = &buf[i+1];
+			}else{
+				buf[i] = c;
+			}
+		}
+		if(key[0] != 0){
+			ewok_set_env(key, value);
+		}
+  }
+}
+
+int proc_exec(const char *name) {
+	char fpath[64];
+	int sz = 0;
+	const char *p = name;
+	saveenv();
+	memset(fpath, 0, sizeof(fpath));
+	for(int i = 0; i < sizeof(fpath); i++){
+		if(name[i] == '\0' || name[i] == ' ' || name[i] == '\t' || name[i] == '\n')
+			break;
+		fpath[i] = name[i];
+	}
+	void* buf = vfs_readfile(fpath, &sz);
+
+	if(buf == NULL) {
+		return -1;
+	}
+	proc_exec_elf(name, buf, sz);
+	free(buf);
+	return 0;
 }
 
 inline uint32_t proc_check_uuid(int32_t pid, uint32_t uuid) {
