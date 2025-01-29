@@ -295,7 +295,8 @@ int main(int argc, char* argv[]) {
 
 	int pid_shell = fork();
 	if(pid_shell == 0) {
-		set_stdio(dev);
+		if(set_stdio(dev) != 0)
+			exit(-1);
 		proc_exec("/bin/shell");
 	}
 	else {
