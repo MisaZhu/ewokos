@@ -149,6 +149,9 @@ static int history(void) {
 }
 
 static int set_stdio(const char* dev) {
+	if(!_script_mode)
+		return -1;
+
 	while(*dev == ' ' || *dev == '\t') /*skip all space*/
 		dev++;
 
