@@ -117,7 +117,7 @@ int main(int argc, char** argv) {
 	while(true) {
 		if(_x_pid > 0) {
 			char v[4];
-			int rd = read(fd, &v, 4);
+			int rd = read(fd, v, 4);
 			if(rd > 0) {
 				for(int i=0;i < rd; i++)
 					input(v[i]);

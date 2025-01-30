@@ -11,6 +11,8 @@ basic_libs:
 	cd font;make
 	cd minimp3;make
 	cd fb;make
+	cd keyb;make
+	cd mouse;make
 	cd upng; make
 	cd fbd;make
 	cd terminal;make
@@ -31,6 +33,8 @@ clean:
 	cd minimp3;make clean
 	cd graph;make clean
 	cd fb;make clean
+	cd keyb;make clean
+	cd mouse;make clean
 	cd fbd;make clean
 	cd c++/stl;make clean
 	cd c++/c++;make clean

@@ -2,6 +2,18 @@
 #include <display/display.h>
 #include <fb/fb.h>
 #include <font/font.h>
+#include <mouse/mouse.h>
+#include <fcntl.h>
+
+
+void handle(uint8_t state,
+        uint8_t button,
+        int32_t rx,
+        int32_t ry,
+        void* p) {
+    klog("%d, %d, %d, %d\n", state, button, rx, ry);
+}
+
 
 int main(int argc, char** argv) {
     fb_t fb;
@@ -17,10 +29,17 @@ int main(int argc, char** argv) {
 
     graph_fill_circle(g, 100, 100, 80, 0xffff0000);
 
+
+    int fd = open("/dev/mouse0", O_RDONLY);
+    while(true) {
+        mouse_read(fd, handle, NULL);
+    }
+
     fb_flush(&fb, true);
     sleep(1);
 
     font_free(font);
+    close(fd);
     fb_close(&fb);
     return 0;
 }
