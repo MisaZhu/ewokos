@@ -106,7 +106,7 @@ bool Grid::onScroll(int step, bool horizontal) {
 void Grid::selectByMouse(xevent_t* ev) {
 	gpos_t ipos = getInsidePos(ev->value.mouse.x, ev->value.mouse.y);
 	uint32_t iw = (uint32_t)(area.w / (float)cols);
-	if(ev->state == XEVT_MOUSE_DOWN) {
+	if(ev->state == MOUSE_STATE_DOWN) {
 		int x = ipos.x / iw;
 		int y = ipos.y / itemH;
 		int sel = itemStart + y*cols + x;
@@ -117,7 +117,7 @@ void Grid::selectByMouse(xevent_t* ev) {
 void Grid::enterByMouse(xevent_t* ev) {
 	gpos_t ipos = getInsidePos(ev->value.mouse.x, ev->value.mouse.y);
 	uint32_t iw = (uint32_t)(area.w / (float)cols);
-	if(ev->state == XEVT_MOUSE_CLICK) {
+	if(ev->state == MOUSE_STATE_CLICK) {
 		int x = ipos.x / iw;
 		int y = ipos.y / itemH;
 		int sel = itemStart + y*cols + x;

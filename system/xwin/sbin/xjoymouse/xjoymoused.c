@@ -55,7 +55,7 @@ static void joy_2_mouse(int key, int8_t* mv) {
 static void mouse_input(int8_t state, int8_t rx, int8_t ry) {
 	xevent_t ev;
 	ev.type = XEVT_MOUSE;
-	ev.state = XEVT_MOUSE_MOVE;
+	ev.state = MOUSE_STATE_MOVE;
 	ev.value.mouse.button = MOUSE_BUTTON_LEFT;
 	ev.value.mouse.relative = 1;
 	ev.value.mouse.x = 0;
@@ -64,9 +64,9 @@ static void mouse_input(int8_t state, int8_t rx, int8_t ry) {
 	ev.value.mouse.ry = ry;
 
 	if(state == 2) //down
-		ev.state = XEVT_MOUSE_DOWN;
+		ev.state = MOUSE_STATE_DOWN;
 	else if(state == 1) //up
-		ev.state = XEVT_MOUSE_UP;
+		ev.state = MOUSE_STATE_UP;
 
 	proto_t in;
 	PF->init(&in)->add(&in, &ev, sizeof(xevent_t));

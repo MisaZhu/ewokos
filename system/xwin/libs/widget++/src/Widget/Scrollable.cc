@@ -51,12 +51,12 @@ Scrollable::Scrollable() {
 
 bool Scrollable::onMouse(xevent_t* ev) {
 	gpos_t ipos = getInsidePos(ev->value.mouse.x, ev->value.mouse.y);
-	if(ev->state == XEVT_MOUSE_DOWN) {
+	if(ev->state == MOUSE_STATE_DOWN) {
 		last_mouse_down.x = ipos.x;
 		last_mouse_down.y = ipos.y;
 		return true;
 	}
-	else if(ev->state == XEVT_MOUSE_DRAG) {
+	else if(ev->state == MOUSE_STATE_DRAG) {
 		int dx = last_mouse_down.x - ipos.x;
 		int dy =  last_mouse_down.y - ipos.y;
 

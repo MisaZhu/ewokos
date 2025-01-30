@@ -103,17 +103,17 @@ protected:
 		if(at < 0)
 			return;
 
-		if(ev->state == XEVT_MOUSE_DOWN) {
+		if(ev->state == MOUSE_STATE_DOWN) {
 			keySelect = at;
 			repaint();
 		}
-		else if(ev->state == XEVT_MOUSE_DRAG) {
+		else if(ev->state == MOUSE_STATE_DRAG) {
 			if(keySelect >= 0 && keySelect != at) {
 				keySelect = at;
 				repaint();
 			}
 		}
-		else if(ev->state == XEVT_MOUSE_UP) {
+		else if(ev->state == MOUSE_STATE_UP) {
 			if(hideMode) {
 				changeMode(false);
 				keySelect = -1;

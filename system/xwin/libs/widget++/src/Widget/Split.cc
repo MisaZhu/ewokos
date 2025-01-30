@@ -47,11 +47,11 @@ bool Split::moveSplit(xevent_t* ev) {
 	attachedWidget->setFixed(true);
 
 	if(horizontal) {
-		if(ev->state == XEVT_MOUSE_DOWN) {
+		if(ev->state == MOUSE_STATE_DOWN) {
 			last_mouse_down = ev->value.mouse.x;
 			return true;
 		}
-		else if(ev->state == XEVT_MOUSE_DRAG) {
+		else if(ev->state == MOUSE_STATE_DRAG) {
 			int dx = last_mouse_down - ev->value.mouse.x;
 			if(attachedAfter)
 				dx = -dx;
@@ -63,11 +63,11 @@ bool Split::moveSplit(xevent_t* ev) {
 		}
 	}
 	else {
-		if(ev->state == XEVT_MOUSE_DOWN) {
+		if(ev->state == MOUSE_STATE_DOWN) {
 			last_mouse_down = ev->value.mouse.y;
 			return true;
 		}
-		else if(ev->state == XEVT_MOUSE_DRAG) {
+		else if(ev->state == MOUSE_STATE_DRAG) {
 			int dy = last_mouse_down - ev->value.mouse.y;
 			if(attachedAfter)
 				dy = -dy;

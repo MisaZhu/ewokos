@@ -41,7 +41,7 @@ void Widget::onClick(xevent_t* ev) {
 }
 
 bool Widget::onMouse(xevent_t* ev) {
-	if(ev->state == XEVT_MOUSE_CLICK) {
+	if(ev->state == MOUSE_STATE_CLICK) {
 		onClick(ev);
 		return true;
 	}
@@ -61,17 +61,17 @@ bool Widget::onEvent(xevent_t* ev) {
 		grect_t r = getScreenArea();
 		if(ev->value.mouse.x > r.x && ev->value.mouse.x < (r.x+r.w) &&
 				ev->value.mouse.y > r.y && ev->value.mouse.y < (r.y+r.h)) {
-			if(ev->state == XEVT_MOUSE_DOWN) {
+			if(ev->state == MOUSE_STATE_DOWN) {
 				getRoot()->focus(this);
 				ret = true;
 			}
 			if(!disabled && 
-					ev->state != XEVT_MOUSE_UP &&
-					ev->state != XEVT_MOUSE_DRAG)
+					ev->state != MOUSE_STATE_UP &&
+					ev->state != MOUSE_STATE_DRAG)
 				return onMouse(ev);
 		}
 		if(!disabled && 
-				(ev->state == XEVT_MOUSE_UP || ev->state == XEVT_MOUSE_DRAG) &&
+				(ev->state == MOUSE_STATE_UP || ev->state == MOUSE_STATE_DRAG) &&
 				getRoot()->getFocused() == this)
 			return onMouse(ev);
 	}

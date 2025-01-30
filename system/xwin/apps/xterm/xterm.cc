@@ -130,11 +130,11 @@ protected:
 	}
 	
 	void mouseHandle(xevent_t* ev) {
-		if(ev->state == XEVT_MOUSE_DOWN) {
+		if(ev->state == MOUSE_STATE_DOWN) {
 			mouse_last_y = ev->value.mouse.y;
 			return;
 		}
-		else if(ev->state == XEVT_MOUSE_DRAG) {
+		else if(ev->state == MOUSE_STATE_DRAG) {
 			mouse_last_y = ev->value.mouse.y;
 			//console_roll(&console, mv);
 			repaint();

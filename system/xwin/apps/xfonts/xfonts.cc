@@ -75,11 +75,11 @@ protected:
 
 	bool onMouse(xevent_t* ev) {
 		gpos_t ipos = getInsidePos(ev->value.mouse.x, ev->value.mouse.y);
-		if(ev->state == XEVT_MOUSE_DOWN) {
+		if(ev->state == MOUSE_STATE_DOWN) {
 			last_mouse_down = ipos.y;
 			update();
 		}
-		else if(ev->state == XEVT_MOUSE_DRAG) {
+		else if(ev->state == MOUSE_STATE_DRAG) {
 			int pos = ipos.y;
 			int mv = (pos - last_mouse_down) * 2;
 			if(abs_32(mv) > 0) {
@@ -87,7 +87,7 @@ protected:
 				scroll(mv, false);
 			}
 		}
-		else if(ev->state == XEVT_MOUSE_MOVE) {
+		else if(ev->state == MOUSE_STATE_MOVE) {
 			if(ev->value.mouse.button == MOUSE_BUTTON_SCROLL_UP) {
 				scroll(-16, false);
 			}

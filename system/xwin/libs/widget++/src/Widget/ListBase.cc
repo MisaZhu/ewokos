@@ -35,11 +35,11 @@ void ListBase::enterByMouse(xevent_t* ev) {
 bool ListBase::onMouse(xevent_t* ev) {
 	bool ret = Scrollable::onMouse(ev);
 
-	if(ev->state == XEVT_MOUSE_DOWN) {
+	if(ev->state == MOUSE_STATE_DOWN) {
 		selectByMouse(ev);
 		ret = true;
 	}
-	else if(ev->state == XEVT_MOUSE_MOVE) {
+	else if(ev->state == MOUSE_STATE_MOVE) {
 		if(ev->value.mouse.button == MOUSE_BUTTON_SCROLL_UP) {
 			scroll(-1, defaultScrollType == SCROLL_TYPE_H);
 			ret = true;
@@ -49,7 +49,7 @@ bool ListBase::onMouse(xevent_t* ev) {
 			ret = true;
 		}
 	}
-	else if(ev->state == XEVT_MOUSE_CLICK) {
+	else if(ev->state == MOUSE_STATE_CLICK) {
 		enterByMouse(ev);
 		ret = true;
 	}

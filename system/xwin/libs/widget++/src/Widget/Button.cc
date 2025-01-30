@@ -3,17 +3,17 @@
 namespace Ewok {
 
 bool Button::onMouse(xevent_t* ev) {
-	if(ev->state == XEVT_MOUSE_DOWN) {
+	if(ev->state == MOUSE_STATE_DOWN) {
 		state = STATE_DOWN;
 		update();
 		return true;
 	}
-	else if(ev->state == XEVT_MOUSE_UP) {
+	else if(ev->state == MOUSE_STATE_UP) {
 		state = STATE_UP;
 		update();
 		return true;
 	}
-	else if(ev->state == XEVT_MOUSE_CLICK) {
+	else if(ev->state == MOUSE_STATE_CLICK) {
 		onClick(ev);
 		return true;
 	}

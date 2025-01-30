@@ -32,7 +32,7 @@ static void input(uint16_t state, int16_t tx, int16_t ty) {
 	xevent_t ev;
 	memset(&ev, 0, sizeof(xevent_t));
 	ev.type = XEVT_MOUSE;
-	ev.state = XEVT_MOUSE_MOVE;
+	ev.state = MOUSE_STATE_MOVE;
 	ev.value.mouse.relative = 0;
 	if(_xtouch.x_rev)
 		ev.value.mouse.x = _scr_w - (tx*_scr_w / _xtouch.x_max);
@@ -45,9 +45,9 @@ static void input(uint16_t state, int16_t tx, int16_t ty) {
 		ev.value.mouse.y = _scr_h - (ty*_scr_h / _xtouch.y_max);
 
 	if(state == 1) //down
-		ev.state = XEVT_MOUSE_DOWN;
+		ev.state = MOUSE_STATE_DOWN;
 	else if(state == 0) //up
-		ev.state = XEVT_MOUSE_UP;
+		ev.state = MOUSE_STATE_UP;
 	proto_t in;
 	PF->init(&in)->add(&in, &ev, sizeof(xevent_t));
 	dev_cntl_by_pid(_x_pid, X_DCNTL_INPUT, &in, NULL);

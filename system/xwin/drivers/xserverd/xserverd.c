@@ -1098,7 +1098,7 @@ static void xwin_bg(x_t* x, xwin_t* win) {
 }
 
 static void mouse_xwin_handle(x_t* x, xwin_t* win, int pos, xevent_t* ev) {
-	if(ev->state ==  XEVT_MOUSE_DOWN) {
+	if(ev->state ==  MOUSE_STATE_DOWN) {
 		if(win != x->win_tail) {
 			xwin_top(x, win);
 		}
@@ -1122,7 +1122,7 @@ static void mouse_xwin_handle(x_t* x, xwin_t* win, int pos, xevent_t* ev) {
 		if(pos == FRAME_R_RESIZE) //window resize
 			return;
 	}
-	else if(ev->state ==  XEVT_MOUSE_DRAG) {
+	else if(ev->state ==  MOUSE_STATE_DRAG) {
 		if(win->xinfo->state != XWIN_STATE_MAX) {
 			x->current.win_drag = win;
 			if(pos == FRAME_R_TITLE) {//window title 
@@ -1137,7 +1137,7 @@ static void mouse_xwin_handle(x_t* x, xwin_t* win, int pos, xevent_t* ev) {
 			}
 		}
 	}
-	else if(ev->state == XEVT_MOUSE_UP) {
+	else if(ev->state == MOUSE_STATE_UP) {
 		if(pos == FRAME_R_RESIZE) //window resize
 			return;
 
@@ -1163,10 +1163,10 @@ static void mouse_xwin_handle(x_t* x, xwin_t* win, int pos, xevent_t* ev) {
 		else if(abs_32(ev->value.mouse.from_x - ev->value.mouse.x) < 6 &&
 				abs_32(ev->value.mouse.from_y - ev->value.mouse.y) < 6) {
 			x_push_event(x, win, ev);
-			ev->state = XEVT_MOUSE_CLICK;
+			ev->state = MOUSE_STATE_CLICK;
 		}
 
-		if(ev->state == XEVT_MOUSE_CLICK) {
+		if(ev->state == MOUSE_STATE_CLICK) {
 			if(pos == FRAME_R_CLOSE) { //window close
 				ev->type = XEVT_WIN;
 				ev->value.window.event = XEVT_WIN_CLOSE;
@@ -1225,10 +1225,10 @@ static int mouse_handle(x_t* x, xevent_t* ev) {
 	x_display_t *display = &x->displays[x->current_display];
 	display->cursor_task = true;
 	cursor_safe(x, display);
-	if(ev->state ==  XEVT_MOUSE_DOWN) {
+	if(ev->state ==  MOUSE_STATE_DOWN) {
 		x->cursor.down = true;
 		if(x->mouse_state.state == 0) {
-			x->mouse_state.state = XEVT_MOUSE_DOWN;
+			x->mouse_state.state = MOUSE_STATE_DOWN;
 			x->mouse_state.down_pos.x = ev->value.mouse.x;
 			x->mouse_state.down_pos.y = ev->value.mouse.y;
 			x->mouse_state.last_pos.x = ev->value.mouse.x;
@@ -1240,9 +1240,9 @@ static int mouse_handle(x_t* x, xevent_t* ev) {
 			//		ev->value.mouse.from_y != ev->value.mouse.y ||
 		else if(abs(x->mouse_state.last_pos.x - ev->value.mouse.x) > 6 ||
 				abs(x->mouse_state.last_pos.y - ev->value.mouse.y) > 6 ||
-					x->mouse_state.state == XEVT_MOUSE_DRAG) {
-			x->mouse_state.state = XEVT_MOUSE_DRAG;
-			ev->state = XEVT_MOUSE_DRAG;
+					x->mouse_state.state == MOUSE_STATE_DRAG) {
+			x->mouse_state.state = MOUSE_STATE_DRAG;
+			ev->state = MOUSE_STATE_DRAG;
 			ev->value.mouse.from_x = x->mouse_state.down_pos.x;
 			ev->value.mouse.from_y = x->mouse_state.down_pos.y;
 			ev->value.mouse.rx = ev->value.mouse.x - x->mouse_state.last_pos.x;
@@ -1251,7 +1251,7 @@ static int mouse_handle(x_t* x, xevent_t* ev) {
 			x->mouse_state.last_pos.y = ev->value.mouse.y;
 		}
 	}
-	else if(ev->state ==  XEVT_MOUSE_UP) {
+	else if(ev->state ==  MOUSE_STATE_UP) {
 		x->cursor.down = false;
 		x->mouse_state.state = 0;
 		ev->value.mouse.from_x = x->mouse_state.down_pos.x;
@@ -1271,7 +1271,7 @@ static int mouse_handle(x_t* x, xevent_t* ev) {
 
 	if(win != NULL)
 		mouse_xwin_handle(x, win, pos, ev);
-	else if(ev->state ==  XEVT_MOUSE_DOWN)
+	else if(ev->state ==  MOUSE_STATE_DOWN)
 		x_unfocus(x);
 
 	return 0;

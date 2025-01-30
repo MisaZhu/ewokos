@@ -103,7 +103,7 @@ void Columns::updateScroller() {
 bool Columns::onMouse(xevent_t* ev) {
 	bool ret = Scrollable::onMouse(ev);
 
-	if(ev->state == XEVT_MOUSE_MOVE) {
+	if(ev->state == MOUSE_STATE_MOVE) {
 		if(ev->value.mouse.button == MOUSE_BUTTON_SCROLL_UP) {
 			scroll(-1, defaultScrollType == SCROLL_TYPE_H);
 			ret = true;

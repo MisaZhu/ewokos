@@ -2,6 +2,7 @@
 #define XEVENT_H
 
 #include <ewoksys/ewokdef.h>
+#include <mouse/mouse.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -14,14 +15,6 @@ enum {
 	XEVT_MOUSE,
 	XEVT_IM, //input method
 	XEVT_WIN
-};
-
-enum {
-	XEVT_MOUSE_MOVE = 1,
-	XEVT_MOUSE_DRAG,
-	XEVT_MOUSE_DOWN,
-	XEVT_MOUSE_UP,
-	XEVT_MOUSE_CLICK
 };
 
 enum {
@@ -40,15 +33,6 @@ enum {
 enum {
 	XIM_STATE_PRESS = 0,
 	XIM_STATE_RELEASE
-};
-
-enum {
-	MOUSE_BUTTON_NONE = 0,
-	MOUSE_BUTTON_LEFT,
-	MOUSE_BUTTON_MID,
-	MOUSE_BUTTON_RIGHT,
-	MOUSE_BUTTON_SCROLL_UP,
-	MOUSE_BUTTON_SCROLL_DOWN
 };
 
 typedef struct {

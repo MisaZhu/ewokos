@@ -107,7 +107,7 @@ void List::selectByMouse(xevent_t* ev) {
 	if(itemSize == 0)
 		return;
 
-	if(ev->state == XEVT_MOUSE_DOWN) {
+	if(ev->state == MOUSE_STATE_DOWN) {
 		int sel = ipos.y / itemSize + itemStart;
 		if(defaultScrollType  == SCROLL_TYPE_H)
 			sel = ipos.x / itemSize + itemStart; 
@@ -120,7 +120,7 @@ void List::enterByMouse(xevent_t* ev) {
 	if(itemSize == 0)
 		return;
 
-	if(ev->state == XEVT_MOUSE_CLICK) {
+	if(ev->state == MOUSE_STATE_CLICK) {
 		int sel = ipos.y / itemSize + itemStart;
 		if(defaultScrollType  == SCROLL_TYPE_H)
 			sel = ipos.x / itemSize + itemStart; 
