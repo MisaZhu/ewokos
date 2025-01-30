@@ -1,6 +1,7 @@
-include ../../../../../platform/$(ARCH)/make.rule
+SYS_DIR=../../../../..
+include $(SYS_DIR)/platform/$(ARCH)/make.rule
 
-BUILD_DIR = ../../../../../build
+BUILD_DIR = $(SYS_DIR)/build
 TARGET_DIR = $(BUILD_DIR)/rootfs
 
 LDFLAGS = -L$(BUILD_DIR)/lib -Llib 
