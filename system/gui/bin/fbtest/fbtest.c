@@ -14,9 +14,7 @@ int main(int argc, char** argv) {
 		return -1;
 
 	graph_t *g = fb_fetch_graph(&fb);
-    
     font_t* font = font_new(DEFAULT_SYSTEM_FONT, true);
-    graph_draw_text_font(g, 10, 10, "Hello!", font, 16, 0xff000000);
 
     int mouse_fd = open("/dev/mouse0", O_RDONLY);
     int keyb_fd = open("/dev/keyb0", O_RDONLY);
