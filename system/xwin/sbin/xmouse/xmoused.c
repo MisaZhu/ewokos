@@ -46,7 +46,7 @@ int main(int argc, char** argv) {
 
 	while(true) {
 		int ux = core_get_ux();
-		if(ux != UX_MAX) {
+		if(ux != UX_X) {
 			proc_usleep(100000);
 			continue;
 		}

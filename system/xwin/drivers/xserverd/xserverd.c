@@ -1385,7 +1385,7 @@ int xserver_step(void* p) {
 	ipc_disable();
 	check_wins(x);
 
-	if(core_get_ux() == UX_MAX) {
+	if(core_get_ux() == UX_X) {
 		for(uint32_t i=0; i<x->display_num; i++) {
 			x_repaint(x, i);
 		}

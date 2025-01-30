@@ -59,7 +59,7 @@ public:
 		if(x_pid <= 0 || keybFD < 0)
 			return;
 		int ux = core_get_ux();
-		if(ux != UX_MAX)
+		if(ux != UX_X)
 			return;
 
 		keyb_evt_t evts[KEYB_EVT_MAX];
