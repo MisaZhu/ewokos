@@ -7,12 +7,6 @@
 extern "C" {
 #endif
 
-typedef void(*mouse_evt_handle_t)(uint8_t state,
-        uint8_t button,
-        int32_t rx,
-        int32_t ry,
-		void* p);
-
 enum {
 	MOUSE_STATE_MOVE = 1,
 	MOUSE_STATE_DRAG,
@@ -30,7 +24,14 @@ enum {
 	MOUSE_BUTTON_SCROLL_DOWN
 };
 
-void mouse_read(int keyb_fd, mouse_evt_handle_t handle_func, void* p);
+typedef struct {
+	int8_t state;
+	int8_t button;
+	int32_t rx;
+	int32_t ry;
+} mouse_evt_t;
+
+int mouse_read(int keyb_fd, mouse_evt_t* evt);
 
 #ifdef __cplusplus
 }

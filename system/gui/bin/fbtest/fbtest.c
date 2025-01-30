@@ -3,22 +3,8 @@
 #include <fb/fb.h>
 #include <font/font.h>
 #include <mouse/mouse.h>
+#include <keyb/keyb.h>
 #include <fcntl.h>
-
-
-void keyb_handle(uint8_t key,
-        uint8_t state,
-        void* p) {
-    klog("keyb: %d, %d\n", key, state);
-}
-
-void mouse_handle(uint8_t state,
-        uint8_t button,
-        int32_t rx,
-        int32_t ry,
-        void* p) {
-    klog("mouse: %d, %d, %d, %d\n", state, button, rx, ry);
-}
 
 int main(int argc, char** argv) {
     fb_t fb;
@@ -38,8 +24,21 @@ int main(int argc, char** argv) {
     int mouse_fd = open("/dev/mouse0", O_RDONLY);
     int keyb_fd = open("/dev/keyb0", O_RDONLY);
     while(true) {
-        mouse_read(mouse_fd, mouse_handle, NULL);
-        keyb_read(keyb_fd, keyb_handle, NULL);
+        mouse_evt_t mevt;
+        keyb_evt_t kevts[KEYB_EVT_MAX];
+        if(mouse_read(mouse_fd, &mevt) == 1) {
+            klog("mouse: %d, %d, %d, %d\n",
+                mevt.state,
+                mevt.button,
+                mevt.rx,
+                mevt.ry);
+        }
+
+        int n = keyb_read(keyb_fd, kevts, KEYB_EVT_MAX);
+        for(int i=0; i<n; i++)
+            klog("keyb: %d, %d\n", kevts[i].key, kevts[i].state);
+
+        usleep(3000);
     }
 
     fb_flush(&fb, true);

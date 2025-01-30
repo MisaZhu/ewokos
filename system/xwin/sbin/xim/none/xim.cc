@@ -18,18 +18,17 @@ class XIM {
 	int keybFD;
 	bool escHome;
 
-	static void input(uint8_t c, uint8_t state, void* p) {
-		XIM* xim = (XIM*)p;
+	void input(uint8_t c, uint8_t state) {
 		xevent_t ev;
 		ev.type = XEVT_IM;
-		if((c == KEY_ESC || c == KEY_BUTTON_SELECT) && xim->escHome)
+		if((c == KEY_ESC || c == KEY_BUTTON_SELECT) && escHome)
 			c = KEY_HOME;
 		ev.value.im.value = c;
 		ev.state = state;
 
 		proto_t in;
 		PF->init(&in)->add(&in, &ev, sizeof(xevent_t));
-		dev_cntl_by_pid(xim->x_pid, X_DCNTL_INPUT, &in, NULL);
+		dev_cntl_by_pid(x_pid, X_DCNTL_INPUT, &in, NULL);
 		PF->clear(&in);
 	}
 
@@ -63,7 +62,10 @@ public:
 		if(ux != UX_MAX)
 			return;
 
-		keyb_read(keybFD, input, this);
+		keyb_evt_t evts[KEYB_EVT_MAX];
+		int n = keyb_read(keybFD, evts, KEYB_EVT_MAX);
+		for(int i=0; i<n; i++)
+			input(evts[i].key, evts[i].state);
 	}
 };
 
@@ -80,6 +82,7 @@ int main(int argc, char* argv[]) {
 	XIM xim(keyb_dev, escHome);
 	while(true) {
 		xim.read();
+		proc_usleep(3000);
 	}
 	return 0;
 }

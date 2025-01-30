@@ -12,9 +12,14 @@ enum {
 	KEYB_STATE_RELEASE
 };
 
-typedef void(*key_evt_handle_t)(uint8_t key, uint8_t state, void* p);
+typedef struct {
+	uint8_t key;
+	uint8_t state;
+} keyb_evt_t;
 
-void keyb_read(int keyb_fd, key_evt_handle_t handle_func, void* p);
+#define KEYB_EVT_MAX  6
+
+int keyb_read(int keyb_fd, keyb_evt_t* evts, uint8_t num);
 
 #ifdef __cplusplus
 }

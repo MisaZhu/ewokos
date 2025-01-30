@@ -9,51 +9,49 @@ extern "C" {
 #include <fcntl.h>
 #include <unistd.h>
 
-#define MOUSE_TIMER 3000
-
 static int8_t _mouse_down = 0;
 
-static void input(int8_t bt, int8_t rx, int8_t ry, 
-        mouse_evt_handle_t handle,
-        void* p) {
-	uint8_t state = MOUSE_STATE_MOVE;
-	uint8_t button = MOUSE_BUTTON_NONE;
+static void input(int8_t bt, int8_t rx, int8_t ry, mouse_evt_t* evt) {
+	evt->state = MOUSE_STATE_MOVE;
+	evt->button = MOUSE_BUTTON_NONE;
+	evt->rx = rx;
+	evt->ry = ry;
 
 	if(bt == 2) 
-		button = MOUSE_BUTTON_LEFT;
+		evt->button = MOUSE_BUTTON_LEFT;
 	else if(bt == 3) 
-		button = MOUSE_BUTTON_MID;
+		evt->button = MOUSE_BUTTON_MID;
 	else if(bt == 4) 
-		button = MOUSE_BUTTON_RIGHT;
+		evt->button = MOUSE_BUTTON_RIGHT;
 	else if(bt == 8) {
 		if(rx > 0)
-			button = MOUSE_BUTTON_SCROLL_UP;
+			evt->button = MOUSE_BUTTON_SCROLL_UP;
 		else
-			button = MOUSE_BUTTON_SCROLL_DOWN;
-		rx = 0;
-		ry = 0;
+			evt->button = MOUSE_BUTTON_SCROLL_DOWN;
+		evt->rx = 0;
+		evt->ry = 0;
 	}
 
 	if((bt > 1 && bt != 8)||
 			(bt == 0 && _mouse_down == 1)) {//down
-		state = MOUSE_STATE_DOWN;
+		evt->state = MOUSE_STATE_DOWN;
 		_mouse_down = 1;
 	}
 	else if(bt == 1) {//up
-		state = MOUSE_STATE_UP;
+		evt->state = MOUSE_STATE_UP;
 		_mouse_down = 0;
 	}
-
-    handle(state, button, rx, ry, p);
 }
 
-void mouse_read(int fd, mouse_evt_handle_t handle, void* p) {
+int mouse_read(int fd, mouse_evt_t* evt) {
     int8_t mv[4];
     if(read(fd, mv, 4) == 4) {
-        if(mv[0] != 0) 
-            input(mv[1], mv[2], mv[3], handle, p);
+        if(mv[0] != 0)  {
+            input(mv[1], mv[2], mv[3], evt);
+			return 1;
+		}
     }
-    usleep(MOUSE_TIMER);
+	return 0;
 }
 
 #ifdef __cplusplus

@@ -29,7 +29,7 @@ enum {
 	KS_RELEASE
 };
 
-key_state_t _key_state[KEY_MAX_ONE_TIME];
+key_state_t _key_state[KEYB_EVT_MAX];
 
 static key_state_t* match_key(uint8_t key){
     for(size_t i = 0; i < sizeof(_key_state)/sizeof(key_state_t); i++){
@@ -59,25 +59,32 @@ static void update_key_state(char *keys, int size){
     }		
 }
 
-static void key_state_machine(key_evt_handle_t handle_func, void* p){
-    for(size_t i = 0; i < sizeof(_key_state)/sizeof(key_state_t); i++){
+static int key_state_machine(keyb_evt_t* evts, uint8_t num){
+    uint8_t n = 0;
+    for(uint8_t i = 0;
+            i < sizeof(_key_state)/sizeof(key_state_t) && n < num;
+            i++){
         key_state_t *ks = &_key_state[i];
         
         if(ks->key == 0)
             continue;
 
         if(ks->state == KEYB_STATE_RELEASE){
-            handle_func(ks->key, KEYB_STATE_RELEASE, p);	
+            evts[n].key = ks->key;
+            evts[n].state = KEYB_STATE_RELEASE;	
             ks->key = 0;
             ks->sm = KS_RELEASE;
+            n++;
             continue;
         }
 
         switch(ks->sm){
             case KS_IDLE:
-                handle_func(ks->key, KEYB_STATE_PRESS, p);
+                evts[n].key = ks->key;
+                evts[n].state = KEYB_STATE_PRESS;	
                 ks->sm = KS_HOLD;
                 ks->timer = kernel_tic_ms(0);
+                n++;
                 break;
             case KS_HOLD:
                 if(kernel_tic_ms(0) - ks->timer > KEY_HOLD_TIMEOUT){
@@ -88,7 +95,9 @@ static void key_state_machine(key_evt_handle_t handle_func, void* p){
             case KS_REPEAT:
                 if(kernel_tic_ms(0) - ks->timer > KEY_REPEAT_TIMEOUT){
                     ks->timer = kernel_tic_ms(0);
-                    handle_func(ks->key, KEYB_STATE_PRESS, p);	
+                    evts[n].key = ks->key;
+                    evts[n].state = KEYB_STATE_PRESS;	
+                    n++;
                 }
                 break;
             default:
@@ -97,14 +106,17 @@ static void key_state_machine(key_evt_handle_t handle_func, void* p){
         }
         ks->state = KEYB_STATE_RELEASE;
     }	
+    return n;
 }
 
-void keyb_read(int keyb_fd, key_evt_handle_t handle_func, void* p) {
-	char v[KEY_MAX_ONE_TIME] = { 0 };
-	int rd = read(keyb_fd, v, KEY_MAX_ONE_TIME);
+int keyb_read(int keyb_fd, keyb_evt_t* evts, uint8_t num) {
+	char v[KEYB_EVT_MAX] = { 0 };
+	int rd = read(keyb_fd, v, KEYB_EVT_MAX);
+    if(rd <= 0)
+        return 0;
+
 	update_key_state(v, rd);
-	key_state_machine(handle_func, p);
-    usleep(KEY_TIMER);
+	return key_state_machine(evts, num); 
 }
 
 #ifdef __cplusplus
