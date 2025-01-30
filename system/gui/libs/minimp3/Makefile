@@ -13,6 +13,7 @@ MP3PLAY = $(TARGET_DIR)/bin/mp3play
 
 $(MP3PLAY): $(MP3PLAY_OBJS) \
 		$(EWOK_LIBC_A)  
+	mkdir -p $(TARGET_DIR)/bin
 	$(LD) -Ttext=100 $(MP3PLAY_OBJS) -o $(MP3PLAY) $(LDFLAGS) $(EWOK_LIBC) -lm 
 	cp -r include/* $(BUILD_DIR)/include
 
