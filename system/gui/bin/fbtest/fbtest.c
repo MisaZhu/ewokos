@@ -6,14 +6,19 @@
 #include <fcntl.h>
 
 
-void handle(uint8_t state,
+void keyb_handle(uint8_t key,
+        uint8_t state,
+        void* p) {
+    klog("keyb: %d, %d\n", key, state);
+}
+
+void mouse_handle(uint8_t state,
         uint8_t button,
         int32_t rx,
         int32_t ry,
         void* p) {
-    klog("%d, %d, %d, %d\n", state, button, rx, ry);
+    klog("mouse: %d, %d, %d, %d\n", state, button, rx, ry);
 }
-
 
 int main(int argc, char** argv) {
     fb_t fb;
@@ -30,16 +35,19 @@ int main(int argc, char** argv) {
     graph_fill_circle(g, 100, 100, 80, 0xffff0000);
 
 
-    int fd = open("/dev/mouse0", O_RDONLY);
+    int mouse_fd = open("/dev/mouse0", O_RDONLY);
+    int keyb_fd = open("/dev/keyb0", O_RDONLY);
     while(true) {
-        mouse_read(fd, handle, NULL);
+        mouse_read(mouse_fd, mouse_handle, NULL);
+        keyb_read(keyb_fd, keyb_handle, NULL);
     }
 
     fb_flush(&fb, true);
     sleep(1);
 
     font_free(font);
-    close(fd);
+    close(mouse_fd);
+    close(keyb_fd);
     fb_close(&fb);
     return 0;
 }
