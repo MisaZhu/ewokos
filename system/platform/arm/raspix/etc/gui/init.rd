@@ -1,5 +1,4 @@
 /bin/ipcserv /drivers/raspix/uartd         /dev/tty0
-
 /bin/ipcserv /sbin/sessiond
 /bin/session -r -t /dev/tty0 &
 
