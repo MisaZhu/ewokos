@@ -9,8 +9,6 @@ int main(int argc, char** argv) {
 	if(fb_open(fb_dev, &fb) != 0)
 		return -1;
 
-    font_init();
-
 	graph_t *g = fb_fetch_graph(&fb);
     graph_clear(g, 0xffffffff);
     
@@ -22,7 +20,7 @@ int main(int argc, char** argv) {
     fb_flush(&fb, true);
     sleep(1);
 
-    fb_close(&fb);
     font_free(font);
+    fb_close(&fb);
     return 0;
 }

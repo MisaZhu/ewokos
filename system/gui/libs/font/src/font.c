@@ -134,6 +134,9 @@ static int free_cache(map_t map, const char* key, any_t data, any_t arg) {
 }
 
 font_t* font_new(const char* name, bool safe) {
+	if(font_init() != 0) 
+		return NULL;
+
 	font_t* font = (font_t*)calloc(sizeof(font_t), 1);
 	strncpy(font->name, name, FONT_NAME_MAX-1);
 	if(font_load_font(font, safe) == 0)
