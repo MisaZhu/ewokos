@@ -11,6 +11,7 @@ export UX_ID=0
 
 /bin/ipcserv /drivers/miyoo/gpio_joystickd     /dev/joystick
 /bin/ipcserv /drivers/vjoystickd               /dev/vjoystick /dev/joystick
+/bin/ipcserv /drivers/joymoused               /dev/mouse0 /dev/vjoystick
 #/bin/ipcserv /drivers/miyoo/audctrl            /dev/sound
 
 /bin/ipcserv /drivers/timerd         /dev/timer
@@ -26,7 +27,7 @@ export UX_ID=0
 
 /bin/ipcserv /drivers/xserverd       /dev/x
 /sbin/x/xim_none   /dev/vjoystick &
-/sbin/x/xjoymoused /dev/vjoystick &
+/sbin/x/xmouse    /dev/mouse0 &
 /sbin/x/xim_vkey 460 120&
 
 #/bin/load_font

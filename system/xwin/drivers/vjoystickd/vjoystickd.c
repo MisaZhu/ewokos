@@ -31,11 +31,12 @@ static int vjoystick_read(int fd,
 	
 	char* v = (char*)buf;
 	int rd = -1;
-	if(size == 4 && _mouse_mode) //read mouse 
-		rd = read(_joys_fd, v, 4);
-	else if(size == 6 && !_mouse_mode) // read joystick 
-		rd = read(_joys_fd, v, 6);
-
+	if((size & 0x1000) != 0) {
+		if(_mouse_mode)
+			rd = read(_joys_fd, v, size & 0x0fff);
+	}
+	else if(!_mouse_mode)
+		rd = read(_joys_fd, v, size);
 
 	if(rd > 0) {
 		for(int i=0; i<rd; i++) {

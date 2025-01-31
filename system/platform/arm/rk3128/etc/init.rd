@@ -9,6 +9,7 @@
 
 /bin/ipcserv /drivers/rk3128/gpio_joystickd  /dev/joystick
 /bin/ipcserv /drivers/vjoystickd             /dev/vjoystick /dev/joystick
+/bin/ipcserv /drivers/joymoused              /dev/mouse0 /dev/vjoystick
 
 /bin/ipcserv /drivers/timerd               /dev/timer
 /bin/ipcserv /drivers/nulld                /dev/null
@@ -18,7 +19,7 @@
 #/bin/session -r &
 
 /sbin/x/xim_none   /dev/vjoystick &
-/sbin/x/xjoymoused /dev/vjoystick &
+/sbin/x/xmouse     /dev/mouse0 &
 
 #/bin/load_font
 /bin/ipcserv /drivers/xserverd             /dev/x

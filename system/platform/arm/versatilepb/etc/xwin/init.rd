@@ -42,7 +42,7 @@ export UX_ID=2
 #/bin/load_font
 
 /bin/ipcserv /drivers/xserverd        /dev/x
-/sbin/x/xmoused /dev/mouse0 &
+/sbin/x/xmouse /dev/mouse0 &
 /sbin/x/xim_none /dev/keyb0 &
 
 @/bin/x/xsession misa &

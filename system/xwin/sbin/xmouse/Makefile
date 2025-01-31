@@ -8,9 +8,9 @@ LDFLAGS = -L$(BUILD_DIR)/lib
 
 CFLAGS += -I $(BUILD_DIR)/include
 
-XMOUSED_OBJS = xmoused.o 
+XMOUSED_OBJS = xmouse.o 
 
-XMOUSED = $(TARGET_DIR)/sbin/x/xmoused
+XMOUSED = $(TARGET_DIR)/sbin/x/xmouse
 
 $(XMOUSED): $(XMOUSED_OBJS) \
 		$(EWOK_LIBC_A)  
