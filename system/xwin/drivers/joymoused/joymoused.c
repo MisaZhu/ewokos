@@ -145,7 +145,7 @@ int main(int argc, char** argv) {
 	_minfo_index = 0;
 	_joys_fd = -1;
 
-	const char* mnt_point = argc > 1 ? argv[1]: "/dev/joymouse";
+	const char* mnt_point = argc > 1 ? argv[1]: "/dev/mouse0";
 	const char* joys_dev = argc > 2 ? argv[2]: "/dev/vjoystick";
 
 	_joys_fd = open(joys_dev, O_RDONLY | O_NONBLOCK);
