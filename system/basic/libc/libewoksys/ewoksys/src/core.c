@@ -30,7 +30,12 @@ int core_set_ux(int ux_index) {
 	snprintf(uxid, 7, "%d", ux_index);
 	getenv("UX_ID"); //TODO
 	setenv("UX_ID", uxid);
-	return 0;
+
+	proto_t in;
+	PF->init(&in)->addi(&in, ux_index);
+	int res = ipc_call_wait(get_cored_pid(), CORE_CMD_SET_UX, &in);
+	PF->clear(&in);
+	return res;
 }
 
 int core_get_active_ux(void) {
@@ -46,7 +51,7 @@ int core_get_active_ux(void) {
 int core_set_active_ux(int ux_index) {
 	proto_t in;
 	PF->init(&in)->addi(&in, ux_index);
-	int res = ipc_call_wait(get_cored_pid(), CORE_CMD_SET_UX, &in);
+	int res = ipc_call_wait(get_cored_pid(), CORE_CMD_SET_ACTIVE_UX, &in);
 	PF->clear(&in);
 	return res;
 }

@@ -24,6 +24,12 @@ static proc_info_t *_proc_info_table = NULL;
 static uint32_t _max_proc_table_num = 0;
 static int _ux_index = 0;
 
+typedef struct {
+	bool occupied;	
+} ux_t;
+
+static ux_t _uxs[UX_MAX];
+
 static void core_init(void) {
 	int32_t i;
 	_ux_index = 0;
@@ -36,6 +42,10 @@ static void core_init(void) {
 	for(i = 0; i<_max_proc_table_num; i++) {
 		_proc_info_table[i].cwd = str_new("/");
 		_proc_info_table[i].envs = hashmap_new();
+	}
+
+	for(i = 0; i<UX_MAX; i++) {
+		memset(&_uxs[i], 0, sizeof(ux_t));
 	}
 }
 
@@ -149,19 +159,44 @@ static void do_proc_set_ux(int pid, proto_t* in) {
 	int index = proto_read_int(in);
 	if(index < 0 || index >= UX_MAX)
 		return;
-	_ux_index = index;
+	_uxs[index].occupied = true;
 }
 
-static void do_proc_next_ux(int pid) {
-	_ux_index++;
-	if(_ux_index >= UX_MAX)
-		_ux_index = 0;
+static void do_proc_next_ux(void) {
+	int i = _ux_index + 1;
+	while(i != _ux_index) {
+		if(_uxs[i].occupied) {
+			_ux_index = i;
+			return;
+		}
+		i++;
+		if(i >= UX_MAX)
+			i = 0;
+	}
 }
 
-static void do_proc_prev_ux(int pid) {
-	_ux_index--;
-	if(_ux_index < 0)
-		_ux_index = UX_MAX - 1;
+static void do_proc_prev_ux(void) {
+	int i = _ux_index - 1;
+	while(i != _ux_index) {
+		if(_uxs[i].occupied) {
+			_ux_index = i;
+			return;
+		}
+		i--;
+		if(i < 0)
+			i = UX_MAX - 1;
+	}
+}
+
+static void do_proc_set_active_ux(int pid, proto_t* in) {
+	int index = proto_read_int(in);
+	if(index < 0 || index >= UX_MAX)
+		return;
+	if(_uxs[index].occupied) {
+		_ux_index = index;
+		return;
+	}
+	do_proc_next_ux();
 }
 
 static void do_proc_get_ux(int pid, proto_t* out) {
@@ -281,14 +316,17 @@ static void handle_ipc(int pid, int cmd, proto_t* in, proto_t* out, void* p) {
 	case CORE_CMD_GET_ENVS:
 		do_proc_get_envs(pid, out);
 		return;
+	case CORE_CMD_SET_ACTIVE_UX:
+		do_proc_set_active_ux(pid, in);
+		return;
 	case CORE_CMD_SET_UX:
 		do_proc_set_ux(pid, in);
 		return;
 	case CORE_CMD_NEXT_UX:
-		do_proc_next_ux(pid);
+		do_proc_next_ux();
 		return;
 	case CORE_CMD_PREV_UX:
-		do_proc_prev_ux(pid);
+		do_proc_prev_ux();
 		return;
 	case CORE_CMD_GET_UX:
 		do_proc_get_ux(pid, out);

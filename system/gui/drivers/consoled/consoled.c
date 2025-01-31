@@ -231,6 +231,7 @@ int main(int argc, char** argv) {
 	_buffer = charbuf_new(0);
 	_ux_index = core_get_ux();
 	int argind = doargs(argc, argv);
+	core_set_ux(_ux_index);
 	if(_ux_index == 0)
 		core_set_active_ux(0);
 

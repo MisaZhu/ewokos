@@ -19,13 +19,14 @@ enum {
 	CORE_CMD_CLONE,
 
 	CORE_CMD_SET_UX,
+	CORE_CMD_SET_ACTIVE_UX,
 	CORE_CMD_NEXT_UX,
 	CORE_CMD_PREV_UX,
 	CORE_CMD_GET_UX
 };
 
-#define UX_X_DEFAULT 3
-#define UX_MAX 4
+#define UX_X_DEFAULT 4
+#define UX_MAX 5
 
 void     schd_core_lock(void); 
 void     schd_core_unlock(void); 
