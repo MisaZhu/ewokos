@@ -106,8 +106,8 @@ int main(int argc, char** argv) {
 
 	uint16_t prev_ev = 0;
 	while(true) {
-		int ux = core_get_ux();
-		if(ux != UX_X) {
+		int ux = core_get_active_ux();
+		if(ux != UX_X_DEFAULT) {
 			proc_usleep(100000);
 			continue;
 		}

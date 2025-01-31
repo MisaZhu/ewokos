@@ -2,7 +2,8 @@
 /bin/ipcserv /drivers/displayd       /dev/display /dev/fb0
 /bin/ipcserv /drivers/fontd          /dev/font
 
-/bin/ipcserv /drivers/consoled  /dev/klog -u 0
+export UX_ID=0
+/bin/ipcserv /drivers/consoled  /dev/klog
 @export KLOG_DEV=/dev/klog
 @set_stdio /dev/klog
 
@@ -19,7 +20,7 @@
 /bin/ipcserv /sbin/sessiond
 #/bin/session -r -t /dev/tty0 &
 
-/bin/ipcserv /drivers/consoled  /dev/console1 -i /dev/joystick -u 1
+/bin/ipcserv /drivers/consoled  /dev/console1 -i /dev/joystick
 /bin/session -r -t /dev/console1 &
 /bin/setux 1
 

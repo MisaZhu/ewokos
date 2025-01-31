@@ -11,7 +11,7 @@ extern "C" {
 
 static int8_t _mouse_down = 0;
 
-static void input(int8_t bt, int8_t rx, int8_t ry, mouse_evt_t* evt) {
+static void mouse_evt(int8_t bt, int8_t rx, int8_t ry, mouse_evt_t* evt) {
 	evt->state = MOUSE_STATE_MOVE;
 	evt->button = MOUSE_BUTTON_NONE;
 	evt->rx = rx;
@@ -44,10 +44,13 @@ static void input(int8_t bt, int8_t rx, int8_t ry, mouse_evt_t* evt) {
 }
 
 int mouse_read(int fd, mouse_evt_t* evt) {
+	if(core_get_active_ux() != core_get_ux())
+        return 0;
+
     int8_t mv[4];
     if(read(fd, mv, 4) == 4) {
         if(mv[0] != 0)  {
-            input(mv[1], mv[2], mv[3], evt);
+            mouse_evt(mv[1], mv[2], mv[3], evt);
 			return 1;
 		}
     }

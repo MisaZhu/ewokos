@@ -24,15 +24,17 @@ enum {
 	CORE_CMD_GET_UX
 };
 
-#define UX_X 4
+#define UX_X_DEFAULT 7 
 #define UX_MAX 8
 
 void     schd_core_lock(void); 
 void     schd_core_unlock(void); 
 int      core_next_ux(void);
 int      core_prev_ux(void);
-int      core_set_ux(int ux_index);
+int      core_set_active_ux(int ux_index);
+int      core_get_active_ux(void);
 int      core_get_ux(void);
+int      core_set_ux(int ux_index);
 
 #define neon_lock schd_core_lock
 #define neon_unlock schd_core_unlock

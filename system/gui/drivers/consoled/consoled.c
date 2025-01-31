@@ -136,7 +136,7 @@ static int console_write(int fd,
 	const char* pb = (const char*)buf;
 	gterminal_put(&console->terminal, pb, size);
 
-	if(_ux_index == core_get_ux())
+	if(_ux_index == core_get_active_ux())
 		flush(console);
 	return size;
 }
@@ -165,7 +165,7 @@ static int console_read(int fd,
 
 static bool _flush = true;
 static int console_loop(void* p) {
-	if(_ux_index != core_get_ux()) {
+	if(_ux_index != core_get_active_ux()) {
 		usleep(200000);
 		_flush = true;
 		return 0;
@@ -229,11 +229,10 @@ static int doargs(int argc, char* argv[]) {
 
 int main(int argc, char** argv) {
 	_buffer = charbuf_new(0);
-	_ux_index = 0;
-
+	_ux_index = core_get_ux();
 	int argind = doargs(argc, argv);
 	if(_ux_index == 0)
-		core_set_ux(0);
+		core_set_active_ux(0);
 
 	char mnt_point[128] = {0};
 	if(argind < argc)

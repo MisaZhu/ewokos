@@ -161,7 +161,7 @@ static void do_proc_next_ux(int pid) {
 static void do_proc_prev_ux(int pid) {
 	_ux_index--;
 	if(_ux_index < 0)
-		_ux_index = UX_X;
+		_ux_index = UX_MAX;
 }
 
 static void do_proc_get_ux(int pid, proto_t* out) {

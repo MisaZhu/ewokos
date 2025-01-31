@@ -6,7 +6,8 @@
 /bin/ipcserv /drivers/displayd         /dev/display /dev/fb0
 /bin/ipcserv /drivers/fontd            /dev/font
 
-/bin/ipcserv /drivers/consoled  /dev/klog -u 0
+export UX_ID=0
+/bin/ipcserv /drivers/consoled  /dev/klog
 @set_stdio /dev/klog
 @export KLOG_DEV=/dev/klog
 
@@ -29,12 +30,14 @@
 /bin/ipcserv /drivers/ramfsd          /tmp
 
 
-/bin/ipcserv /drivers/consoled   /dev/console1 -u 1 -i /dev/keyb0
-/bin/ipcserv /drivers/consoled   -u 2 -i /dev/keyb0
-
+export UX_ID=1
+/bin/ipcserv /drivers/consoled   /dev/console1 -i /dev/keyb0
 /bin/session -r -t /dev/console1 &
-/bin/setux 1
+
+export UX_ID=2
+/bin/ipcserv /drivers/consoled   -i /dev/keyb0
 /bin/session -r -t /dev/console2 &
+
 
 #/bin/load_font
 

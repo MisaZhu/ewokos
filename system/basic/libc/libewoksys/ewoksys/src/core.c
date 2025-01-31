@@ -2,6 +2,7 @@
 #include <ewoksys/syscall.h>
 #include <ewoksys/proc.h>
 #include <ewoksys/ipc.h>
+#include <stdlib.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -16,6 +17,23 @@ inline void schd_core_unlock() {
 }
 
 int core_get_ux(void) {
+	int ret = 0;
+	const char* uxid = getenv("UX_ID");
+	if(uxid != NULL) {
+		ret = atoi(uxid);
+	}
+	return ret;
+}
+
+int core_set_ux(int ux_index) {
+	char uxid[8] = {0};
+	snprintf(uxid, 7, "%d", ux_index);
+	getenv("UX_ID"); //TODO
+	setenv("UX_ID", uxid);
+	return 0;
+}
+
+int core_get_active_ux(void) {
 	proto_t out;
 	PF->init(&out);
 	int res = ipc_call(get_cored_pid(), CORE_CMD_GET_UX, NULL, &out);
@@ -25,7 +43,7 @@ int core_get_ux(void) {
 	return res;
 }
 
-int core_set_ux(int ux_index) {
+int core_set_active_ux(int ux_index) {
 	proto_t in;
 	PF->init(&in)->addi(&in, ux_index);
 	int res = ipc_call_wait(get_cored_pid(), CORE_CMD_SET_UX, &in);

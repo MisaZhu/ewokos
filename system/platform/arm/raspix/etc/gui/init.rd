@@ -6,6 +6,7 @@
 /bin/ipcserv /drivers/displayd        /dev/display /dev/fb0
 /bin/ipcserv /drivers/fontd           /dev/font
 
+export UX_ID=0
 /bin/ipcserv /drivers/consoled        -u 0
 @set_stdio /dev/console0
 
@@ -18,6 +19,7 @@
 /bin/ipcserv /drivers/nulld           /dev/null
 
 
-/bin/ipcserv /drivers/consoled        -u 1 -i /dev/keyb0
+export UX_ID=1
+/bin/ipcserv /drivers/consoled        -i /dev/keyb0
 @/bin/session -r -t /dev/console1 &
 @setux 1

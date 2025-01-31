@@ -71,7 +71,7 @@ static inline void empty(void) {
 
 static void do_ctrl(char c) {
 	if(c >= '0' && c <= '9') {
-		core_set_ux(c - '0');
+		core_set_active_ux(c - '0');
 	}
 	else if(c == 19) { //left 
 		core_prev_ux();

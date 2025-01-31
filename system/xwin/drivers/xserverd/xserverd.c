@@ -1385,7 +1385,7 @@ int xserver_step(void* p) {
 	ipc_disable();
 	check_wins(x);
 
-	if(core_get_ux() == UX_X) {
+	if(core_get_active_ux() == UX_X_DEFAULT) {
 		for(uint32_t i=0; i<x->display_num; i++) {
 			x_repaint(x, i);
 		}
@@ -1405,6 +1405,9 @@ int main(int argc, char** argv) {
 	const char* mnt_point = argc > 1 ? argv[1]: "/dev/x";
 	const char* display_man = argc > 2 ? argv[2]: "/dev/display";
 	const int32_t display_index = argc > 3 ? atoi(argv[3]): -1;
+
+	core_set_ux(UX_X_DEFAULT);
+	core_set_active_ux(UX_X_DEFAULT);
 
 	x_t x;
 	if(x_init(&x, display_man, display_index) != 0)

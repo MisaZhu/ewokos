@@ -33,6 +33,8 @@ int main(int argc, char** argv) {
 	const char* dev_name = argc < 2 ? "/dev/mouse0":argv[1];
 	_x_pid = -1;
 
+	core_set_ux(UX_X_DEFAULT);
+
 	int fd = open(dev_name, O_RDONLY);
 	if(fd < 0) {
 		fprintf(stderr, "xmoused error: open [%s] failed!\n", dev_name);
@@ -45,12 +47,6 @@ int main(int argc, char** argv) {
 	}
 
 	while(true) {
-		int ux = core_get_ux();
-		if(ux != UX_X) {
-			proc_usleep(100000);
-			continue;
-		}
-
 		mouse_evt_t mevt;
 		if(mouse_read(fd, &mevt) == 1) {
 			input(&mevt);

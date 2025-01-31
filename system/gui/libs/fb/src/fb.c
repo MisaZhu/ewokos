@@ -8,6 +8,7 @@
 #include <sys/shm.h>
 #include <ewoksys/proto.h>
 #include <ewoksys/vfs.h>
+#include <ewoksys/core.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -69,6 +70,8 @@ int fb_info(fb_t* fb, int* w, int* h, int* bpp) {
 
 int fb_flush(fb_t* fb, bool waiting) {
 	if(fb == NULL || fb->fd < 0)
+		return -1;
+	if(core_get_active_ux() != core_get_ux())
 		return -1;
 	return vfs_flush(fb->fd, waiting);
 }

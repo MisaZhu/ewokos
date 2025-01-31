@@ -182,7 +182,9 @@ public:
 };
 
 int main(int argc, char* argv[]) {
-	core_set_ux(UX_X);
+	core_set_ux(UX_X_DEFAULT);
+	core_set_active_ux(UX_X_DEFAULT);
+
 	if(getuid() > 0) {
 		run_xinit(NULL);
 		return 0;

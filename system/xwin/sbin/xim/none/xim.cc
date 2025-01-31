@@ -58,8 +58,8 @@ public:
 			x_pid = dev_get_pid("/dev/x");
 		if(x_pid <= 0 || keybFD < 0)
 			return;
-		int ux = core_get_ux();
-		if(ux != UX_X)
+		int ux = core_get_active_ux();
+		if(ux != UX_X_DEFAULT)
 			return;
 
 		keyb_evt_t evts[KEYB_EVT_MAX];
@@ -78,6 +78,8 @@ int main(int argc, char* argv[]) {
 	if(argc > 2 && strcmp(argv[2], "esc_home") == 0) {
 		escHome = true;
 	}
+
+	core_set_ux(UX_X_DEFAULT);
 
 	XIM xim(keyb_dev, escHome);
 	while(true) {
