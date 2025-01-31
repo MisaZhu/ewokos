@@ -165,26 +165,26 @@ static void do_proc_set_ux(int pid, proto_t* in) {
 static void do_proc_next_ux(void) {
 	int i = _ux_index + 1;
 	while(i != _ux_index) {
+		if(i >= UX_MAX)
+			i = 0;
 		if(_uxs[i].occupied) {
 			_ux_index = i;
 			return;
 		}
 		i++;
-		if(i >= UX_MAX)
-			i = 0;
 	}
 }
 
 static void do_proc_prev_ux(void) {
 	int i = _ux_index - 1;
 	while(i != _ux_index) {
+		if(i < 0)
+			i = UX_MAX - 1;
 		if(_uxs[i].occupied) {
 			_ux_index = i;
 			return;
 		}
 		i--;
-		if(i < 0)
-			i = UX_MAX - 1;
 	}
 }
 
