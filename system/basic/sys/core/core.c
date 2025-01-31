@@ -147,21 +147,21 @@ static void do_proc_set_cwd(int pid, proto_t* in, proto_t* out) {
 
 static void do_proc_set_ux(int pid, proto_t* in) {
 	int index = proto_read_int(in);
-	if(index < 0 || index > UX_MAX)
+	if(index < 0 || index >= UX_MAX)
 		return;
 	_ux_index = index;
 }
 
 static void do_proc_next_ux(int pid) {
 	_ux_index++;
-	if(_ux_index > UX_MAX)
+	if(_ux_index >= UX_MAX)
 		_ux_index = 0;
 }
 
 static void do_proc_prev_ux(int pid) {
 	_ux_index--;
 	if(_ux_index < 0)
-		_ux_index = UX_MAX;
+		_ux_index = UX_MAX - 1;
 }
 
 static void do_proc_get_ux(int pid, proto_t* out) {
