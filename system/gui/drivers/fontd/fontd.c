@@ -220,7 +220,7 @@ static int font_dev_cntl(int from_pid, int cmd, proto_t* in, proto_t* ret, void*
 }
 
 int main(int argc, char** argv) {
-	const char* mnt_point = argc > 1 ? argv[1]: "/dev/font";
+	const char* mnt_point = "/dev/font";
 	font_dev_init();
 
 	vdevice_t dev;

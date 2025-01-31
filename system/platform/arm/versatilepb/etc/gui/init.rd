@@ -3,8 +3,8 @@
 /bin/session -r -t /dev/tty0 &
 
 /bin/ipcserv /drivers/versatilepb/fbd  /dev/fb0
-/bin/ipcserv /drivers/displayd         /dev/display /dev/fb0
-/bin/ipcserv /drivers/fontd            /dev/font
+/bin/ipcserv /drivers/displayd        
+/bin/ipcserv /drivers/fontd            
 
 export UX_ID=0
 /bin/ipcserv /drivers/consoled  /dev/klog
@@ -15,7 +15,7 @@ export UX_ID=0
 @echo "|  < EwokOS MicroKernel >               |\n" 
 @echo "+---------------------------------------+\n"
 
-/bin/ipcserv /drivers/timerd                 /dev/timer
+/bin/ipcserv /drivers/timerd                 
 
 /bin/ipcserv /drivers/versatilepb/ps2keybd   /dev/keyb0
 /bin/ipcserv /drivers/versatilepb/ps2moused  /dev/mouse0

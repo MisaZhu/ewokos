@@ -45,17 +45,17 @@ static int DISP_dev_cntl(int from_pid, int cmd, proto_t* in, proto_t* ret, void*
 }
 
 int main(int argc, char** argv) {
-	const char* mnt_point = argc > 1 ? argv[1]: "/dev/display";
+	const char* mnt_point = "/dev/display";
 
 	display_man_t display_man;
 	memset(&display_man, 0, sizeof(display_man_t));
 
-	if(argc <= 2) {
+	if(argc < 2) {
 		add_disp(&display_man, "/dev/fb0");
 	}
 	else {
-		for(int i=0; i<(argc-2); i++)
-			add_disp(&display_man, argv[i+2]);
+		for(int i=1; i<argc; i++)
+			add_disp(&display_man, argv[i]);
 	}
 
 	vdevice_t dev;

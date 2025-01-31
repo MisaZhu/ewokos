@@ -1,17 +1,19 @@
 /bin/ipcserv /drivers/rk3128/rk_uartd       /dev/tty0
 
 /bin/ipcserv /drivers/rk3128/fbd            /dev/fb0
-/bin/ipcserv /drivers/displayd             /dev/display /dev/fb0
-/bin/ipcserv /drivers/fontd                /dev/font
+/bin/ipcserv /drivers/displayd             
+/bin/ipcserv /drivers/fontd                
 
-/bin/ipcserv /drivers/consoled             -u 0
-@set_stdio /dev/console0
+export UX_ID=0
+/bin/ipcserv /drivers/consoled             /dev/klog
+@export KLOG_DEV=/dev/klog
+@set_stdio /dev/klog
 
 /bin/ipcserv /drivers/rk3128/gpio_joystickd  /dev/joystick
 /bin/ipcserv /drivers/vjoystickd             /dev/vjoystick /dev/joystick
 /bin/ipcserv /drivers/joymoused              /dev/mouse0 /dev/vjoystick
 
-/bin/ipcserv /drivers/timerd               /dev/timer
+/bin/ipcserv /drivers/timerd               
 /bin/ipcserv /drivers/nulld                /dev/null
 /bin/ipcserv /drivers/ramfsd               /tmp
 

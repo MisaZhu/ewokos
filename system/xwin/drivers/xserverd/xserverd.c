@@ -1401,16 +1401,35 @@ int xserver_step(void* p) {
 
 char* xserver_dev_cmd(int from_pid, int argc, char** argv, void* p);
 
+static int _disp_index = 0;
+static int doargs(int argc, char* argv[]) {
+	int c = 0;
+	while (c != -1) {
+		c = getopt (argc, argv, "d:");
+		if(c == -1)
+			break;
+
+		switch (c) {
+		case 'd':
+			_disp_index = atoi(optarg);
+			break;
+		default:
+			c = -1;
+			break;
+		}
+	}
+	return optind;
+}
+
 int main(int argc, char** argv) {
-	const char* mnt_point = argc > 1 ? argv[1]: "/dev/x";
-	const char* display_man = argc > 2 ? argv[2]: "/dev/display";
-	const int32_t display_index = argc > 3 ? atoi(argv[3]): -1;
+	const char* mnt_point = "/dev/x";
+	const char* display_man = "/dev/display";
+	doargs(argc, argv);
 
 	core_set_ux(UX_X_DEFAULT);
-	core_set_active_ux(UX_X_DEFAULT);
 
 	x_t x;
-	if(x_init(&x, display_man, display_index) != 0)
+	if(x_init(&x, display_man, _disp_index) != 0)
 		return -1;
 	x_theme_t theme;
 	x_get_theme(&theme);

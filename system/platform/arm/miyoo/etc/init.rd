@@ -1,6 +1,6 @@
 /bin/ipcserv /drivers/miyoo/fbd      /dev/fb0
-/bin/ipcserv /drivers/displayd       /dev/display /dev/fb0
-/bin/ipcserv /drivers/fontd          /dev/font
+/bin/ipcserv /drivers/displayd       
+/bin/ipcserv /drivers/fontd          
 
 export UX_ID=0
 /bin/ipcserv /drivers/consoled  /dev/klog
@@ -14,7 +14,7 @@ export UX_ID=0
 /bin/ipcserv /drivers/joymoused               /dev/mouse0 /dev/vjoystick
 #/bin/ipcserv /drivers/miyoo/audctrl            /dev/sound
 
-/bin/ipcserv /drivers/timerd         /dev/timer
+/bin/ipcserv /drivers/timerd         
 /bin/ipcserv /drivers/nulld          /dev/null
 /bin/ipcserv /drivers/ramfsd         /tmp
 

@@ -204,12 +204,11 @@ static int _disp_index = 0;
 static int doargs(int argc, char* argv[]) {
 	int c = 0;
 	while (c != -1) {
-		c = getopt (argc, argv, "i:m:d:u:");
+		c = getopt (argc, argv, "i:d:u:");
 		if(c == -1)
 			break;
 
 		switch (c) {
-			break;
 		case 'i':
 			_keyb_dev = optarg;
 			break;

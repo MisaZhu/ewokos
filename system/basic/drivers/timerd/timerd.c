@@ -181,7 +181,7 @@ static int timer_loop(void* p) {
 }
 
 int main(int argc, char** argv) {
-	const char* mnt_point = argc > 1 ? argv[1]: "/dev/timer";
+	const char* mnt_point = "/dev/timer";
 	_intr_list = NULL;
 	_id = 1;
 	_min_timer_usec = 0;

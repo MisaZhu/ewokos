@@ -93,8 +93,17 @@ static void redir(const char* fname, int in) {
 	while(*fname == ' ')
 		fname++;
 
+	char full_name[FS_FULL_NAME_MAX] = { 0 };
+	char cwd[FS_FULL_NAME_MAX] = { 0 };
+	if(fname[0] != '/')
+		snprintf(full_name, FS_FULL_NAME_MAX-1, "%s/%s", 
+				getcwd(cwd, FS_FULL_NAME_MAX-1),
+				fname);
+	else
+		strncpy(full_name, fname, FS_FULL_NAME_MAX-1);
+
 	if(in != 0) {
-		int32_t fd = open(fname, O_RDONLY);
+		int32_t fd = open(full_name, O_RDONLY);
 		if(fd < 0) {
 			printf("error: '%s' open failed!\n", fname);
 			exit(-1);
@@ -103,7 +112,8 @@ static void redir(const char* fname, int in) {
 		close(fd);
 	}
 	else {
-		int32_t fd = open(fname, O_WRONLY | O_CREAT | O_TRUNC);
+
+		int32_t fd = open(full_name, O_WRONLY | O_CREAT | O_TRUNC);
 		if(fd < 0) {
 			printf("error: '%s' open failed!\n", fname);
 			exit(-1);
