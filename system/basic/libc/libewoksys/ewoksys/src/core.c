@@ -4,6 +4,8 @@
 #include <ewoksys/ipc.h>
 #include <stdlib.h>
 
+#define ENV_UX_ID "UX_ID"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -18,7 +20,7 @@ inline void schd_core_unlock() {
 
 int core_get_ux(void) {
 	int ret = 0;
-	const char* uxid = getenv("UX_ID");
+	const char* uxid = getenv(ENV_UX_ID);
 	if(uxid != NULL) {
 		ret = atoi(uxid);
 	}
@@ -34,7 +36,7 @@ int core_set_ux(int ux_index) {
 	int res = ipc_call_wait(get_cored_pid(), CORE_CMD_SET_UX, &in);
 	PF->clear(&in);
 
-	setenv("UX_ID", uxid);
+	setenv(ENV_UX_ID, uxid);
 	return res;
 }
 

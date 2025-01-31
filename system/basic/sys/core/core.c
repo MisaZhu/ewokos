@@ -192,11 +192,9 @@ static void do_proc_set_active_ux(int pid, proto_t* in) {
 	int index = proto_read_int(in);
 	if(index < 0 || index >= UX_MAX)
 		return;
-	if(_uxs[index].occupied) {
+
+	if(_uxs[index].occupied)
 		_ux_index = index;
-		return;
-	}
-	do_proc_next_ux();
 }
 
 static void do_proc_get_ux(int pid, proto_t* out) {
