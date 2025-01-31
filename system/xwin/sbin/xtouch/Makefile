@@ -8,9 +8,9 @@ LDFLAGS = -L$(BUILD_DIR)/lib
 
 CFLAGS += -I $(BUILD_DIR)/include
 
-XMOUSED_OBJS = xtouchd.o 
+XMOUSED_OBJS = xtouch.o 
 
-XMOUSED = $(TARGET_DIR)/sbin/x/xtouchd
+XMOUSED = $(TARGET_DIR)/sbin/x/xtouch
 
 $(XMOUSED): $(XMOUSED_OBJS) \
 		$(EWOK_LIBC_A)  \
