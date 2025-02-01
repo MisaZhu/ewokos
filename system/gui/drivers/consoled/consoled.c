@@ -130,6 +130,7 @@ static int console_write(int fd,
 	(void)node;
 	(void)offset;
 
+	_flush = true;
 	fb_console_t* console = (fb_console_t*)p;
 	if(size <= 0 || console->g == NULL)
 		return 0;
@@ -139,7 +140,6 @@ static int console_write(int fd,
 
 	//if(_ux_index == core_get_active_ux())
 		//flush(console);
-	_flush = true;
 	return size;
 }
 
@@ -172,10 +172,12 @@ static int console_loop(void* p) {
 		return 0;
 	}
 
+	ipc_disable();
 	if(_flush) {
 		flush((fb_console_t*)p);
 		_flush = false;
 	}
+	ipc_enable();
 
 	if(_keyb_dev[0] == 0) {
 		usleep(20000);
