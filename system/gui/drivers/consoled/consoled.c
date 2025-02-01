@@ -179,26 +179,20 @@ static int console_loop(void* p) {
 	}
 	ipc_enable();
 
-	if(_keyb_dev[0] == 0) {
-		usleep(20000);
-		return 0;
+	if(_keyb_fd < 0) {
+		if(_keyb_dev[0] != 0)
+			_keyb_fd = open(_keyb_dev, O_RDONLY);
 	}
 
-	if(_keyb_fd < 0) {
-		_keyb_fd = open(_keyb_dev, O_RDONLY);
-		if(_keyb_fd < 0) {
-			usleep(200000);
-			return 0;
+	if(_keyb_fd > 0) {
+		char c = 0;
+		if(read(_keyb_fd, &c, 1) == 1 && c != 0) {
+			charbuf_push(_buffer, c, true);
+			proc_wakeup(RW_BLOCK_EVT);
 		}
 	}
 
-	char c = 0;
-	if(read(_keyb_fd, &c, 1) == 1 && c != 0) {
-		charbuf_push(_buffer, c, true);
-		proc_wakeup(RW_BLOCK_EVT);
-	}
-
-	usleep(20000);
+	usleep(10000);
 	return 0;
 }
 
