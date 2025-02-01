@@ -116,6 +116,7 @@ static void flush(fb_console_t* console) {
 	fb_flush(&console->fb, true);
 }
 
+static bool _flush = true;
 static int _ux_index = 0;
 static int console_write(int fd, 
 		int from_pid,
@@ -136,8 +137,9 @@ static int console_write(int fd,
 	const char* pb = (const char*)buf;
 	gterminal_put(&console->terminal, pb, size);
 
-	if(_ux_index == core_get_active_ux())
-		flush(console);
+	//if(_ux_index == core_get_active_ux())
+		//flush(console);
+	_flush = true;
 	return size;
 }
 
@@ -163,7 +165,6 @@ static int console_read(int fd,
 	return 1;
 }
 
-static bool _flush = true;
 static int console_loop(void* p) {
 	if(_ux_index != core_get_active_ux()) {
 		usleep(200000);
@@ -182,7 +183,7 @@ static int console_loop(void* p) {
 	}
 
 	if(_keyb_fd < 0) {
-		_keyb_fd = open(_keyb_dev, O_RDONLY | O_NONBLOCK);
+		_keyb_fd = open(_keyb_dev, O_RDONLY);
 		if(_keyb_fd < 0) {
 			usleep(200000);
 			return 0;
