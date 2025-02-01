@@ -84,7 +84,7 @@ static void draw_win_frame(x_t* x, xwin_t* win) {
 
 static void draw_init_desktop(x_t* x, x_display_t *display) {
 	graph_draw_dot_pattern(display->g, 0, 0, display->g->w, display->g->h,
-			0xffffffff, 0xff000000, 1);
+			0xff222222, 0xff000000, 1);
 }
 
 static void draw_desktop(x_t* x, uint32_t display_index) {
