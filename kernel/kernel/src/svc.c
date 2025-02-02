@@ -253,11 +253,6 @@ static int32_t sys_shm_unmap(void* p) {
 	proc_t* cproc = proc_get_proc(get_current_proc());
 	return shm_proc_unmap(cproc, p);
 }
-
-static int32_t sys_shm_ref(int32_t id) {
-	proc_t* cproc = proc_get_proc(get_current_proc());
-	return shm_proc_ref(cproc->info.pid, id);
-}
 	
 static uint32_t sys_dma_map(uint32_t size) {
 	proc_t* cproc = proc_get_proc(get_current_proc());

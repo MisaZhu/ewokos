@@ -168,7 +168,7 @@ static void unmap_stack(proc_t* proc, uint32_t* stacks, uint32_t base, uint32_t 
 	flush_tlb();
 }
 
-inline uint32_t thread_stack_alloc(proc_t* proc) {
+uint32_t thread_stack_alloc(proc_t* proc) {
 	uint32_t i;
 	for(i=0; i<_kernel_config.max_task_per_proc; i++) {
 		if(proc->space->thread_stacks[i].base == 0)
@@ -190,7 +190,7 @@ inline uint32_t thread_stack_alloc(proc_t* proc) {
 	return base;
 }
 
-inline void thread_stack_free(proc_t* proc, uint32_t base) {
+void thread_stack_free(proc_t* proc, uint32_t base) {
 	uint32_t i;
 	for(i=0; i<_kernel_config.max_task_per_proc; i++) {
 		if(proc->space->thread_stacks[i].base == base)
