@@ -185,10 +185,10 @@ void XWin::pop() {
 	xwin_top(xwin);
 }
 
-bool XWin::callXIM(void) {
+bool XWin::callXIM(bool show) {
 	if(xwin == NULL)
 		return false;
-	xwin_call_xim(xwin);
+	xwin_call_xim(xwin, show);
 	return true;
 }
 

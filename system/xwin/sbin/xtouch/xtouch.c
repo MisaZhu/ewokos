@@ -48,10 +48,19 @@ static void input(uint16_t state, int16_t tx, int16_t ty) {
 		ev.state = MOUSE_STATE_DOWN;
 	else if(state == 0) //up
 		ev.state = MOUSE_STATE_UP;
-	proto_t in;
-	PF->init(&in)->add(&in, &ev, sizeof(xevent_t));
-	dev_cntl_by_pid(_x_pid, X_DCNTL_INPUT, &in, NULL);
-	PF->clear(&in);
+
+	if(ev.state == MOUSE_STATE_UP &&
+			ev.value.mouse.x < 32 && (_scr_h - ev.value.mouse.y) < 32) {
+		core_next_ux();
+		return;
+	}
+
+	if(core_get_active_ux() == UX_X_DEFAULT) {
+		proto_t in;
+		PF->init(&in)->add(&in, &ev, sizeof(xevent_t));
+		dev_cntl_by_pid(_x_pid, X_DCNTL_INPUT, &in, NULL);
+		PF->clear(&in);
+	}
 }
 
 static int32_t read_config(const char* fname) {
@@ -108,10 +117,7 @@ int main(int argc, char** argv) {
 
 	uint16_t prev_ev = 0;
 	while(true) {
-		if(core_get_active_ux() != core_get_ux()) {
-			proc_usleep(100000);
-			continue;
-		}
+		
 
 		int8_t buf[6];
 		memset(buf, 0, 6);

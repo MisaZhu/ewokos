@@ -137,6 +137,7 @@ static void do_esc_color(gterminal_t* terminal, uint16_t* values, uint8_t vnum) 
 static void do_esc_clear(gterminal_t* terminal, uint16_t* values, uint8_t vnum) {
     if(values[0] == 2) {
         terminal_clear(&terminal->terminal);
+        terminal_move_to(&terminal->terminal, 0, 0);
     }
 }
 

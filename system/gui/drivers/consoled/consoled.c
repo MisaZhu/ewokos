@@ -116,6 +116,7 @@ static void flush(fb_console_t* console) {
 	fb_flush(&console->fb, true);
 }
 
+static bool _flush = true;
 static int _ux_index = 0;
 static int console_write(int fd, 
 		int from_pid,
@@ -129,6 +130,7 @@ static int console_write(int fd,
 	(void)node;
 	(void)offset;
 
+	_flush = true;
 	fb_console_t* console = (fb_console_t*)p;
 	if(size <= 0 || console->g == NULL)
 		return 0;
@@ -136,8 +138,8 @@ static int console_write(int fd,
 	const char* pb = (const char*)buf;
 	gterminal_put(&console->terminal, pb, size);
 
-	if(_ux_index == core_get_active_ux())
-		flush(console);
+	//if(_ux_index == core_get_active_ux())
+		//flush(console);
 	return size;
 }
 
@@ -163,7 +165,6 @@ static int console_read(int fd,
 	return 1;
 }
 
-static bool _flush = true;
 static int console_loop(void* p) {
 	if(_ux_index != core_get_active_ux()) {
 		usleep(200000);
@@ -171,31 +172,27 @@ static int console_loop(void* p) {
 		return 0;
 	}
 
+	ipc_disable();
 	if(_flush) {
 		flush((fb_console_t*)p);
 		_flush = false;
 	}
-
-	if(_keyb_dev[0] == 0) {
-		usleep(20000);
-		return 0;
-	}
+	ipc_enable();
 
 	if(_keyb_fd < 0) {
-		_keyb_fd = open(_keyb_dev, O_RDONLY | O_NONBLOCK);
-		if(_keyb_fd < 0) {
-			usleep(200000);
-			return 0;
+		if(_keyb_dev[0] != 0)
+			_keyb_fd = open(_keyb_dev, O_RDONLY);
+	}
+
+	if(_keyb_fd > 0) {
+		char c = 0;
+		if(read(_keyb_fd, &c, 1) == 1 && c != 0) {
+			charbuf_push(_buffer, c, true);
+			proc_wakeup(RW_BLOCK_EVT);
 		}
 	}
 
-	char c = 0;
-	if(read(_keyb_fd, &c, 1) == 1 && c != 0) {
-		charbuf_push(_buffer, c, true);
-		proc_wakeup(RW_BLOCK_EVT);
-	}
-
-	usleep(20000);
+	usleep(10000);
 	return 0;
 }
 

@@ -84,7 +84,7 @@ int main(int argc, char* argv[]) {
 	XIM xim(keyb_dev, escHome);
 	while(true) {
 		xim.read();
-		proc_usleep(3000);
+		proc_usleep(10000);
 	}
 	return 0;
 }

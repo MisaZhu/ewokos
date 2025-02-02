@@ -36,15 +36,16 @@ static int keyb_read(int fd, int from_pid, fsinfo_t* node,
 	(void)from_pid;
 	(void)offset;
 	(void)p;
-	(void)size;
 	(void)node;
 
 	if(_idle)
 		return 0;
 
 	_idle = true;
-	memcpy(buf, key, 3);
-	return 3;
+	if(size > 3)
+		size = 3;
+	memcpy(buf, key, size);
+	return size;
 }
 
 const char downMap[] = {  
@@ -61,9 +62,27 @@ const char upMap[] = {
         '}', '|', '$', ':', '\"', '~','<','>',      '?',
 };
 
+static uint8_t do_ctrl(char c) {
+	if(c >= '0' && c <= '9') {
+		core_set_active_ux(c - '0');
+		return 0;
+	}
+	else if(c == 19) { //left 
+		core_prev_ux();
+		return 0;
+	}
+	else if(c == 4) { //right
+		core_next_ux();
+		return 0;
+	}
+	return c;
+}
 
 uint8_t getKeyChar(uint8_t alt, uint8_t keycode){
     if(keycode > 0 && keycode < sizeof(upMap)){
+        if((alt & KEY_MOD_LCTRL) ||(alt & KEY_MOD_RCTRL)){
+        	return do_ctrl(downMap[keycode]);
+		}
         if((alt & KEY_MOD_LSHIFT) ||(alt & KEY_MOD_RSHIFT)){
             return upMap[keycode];
         }else{

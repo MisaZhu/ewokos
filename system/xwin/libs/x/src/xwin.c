@@ -33,8 +33,11 @@ static int xwin_update_info(xwin_t* xwin, uint8_t type) {
 	return ret;
 }
 
-int xwin_call_xim(xwin_t* xwin) {
-	int ret = vfs_fcntl(xwin->fd, XWIN_CNTL_CALL_XIM, NULL, NULL);
+int xwin_call_xim(xwin_t* xwin, bool show) {
+	proto_t in;
+	PF->format(&in, "i", show);
+	int ret = vfs_fcntl(xwin->fd, XWIN_CNTL_CALL_XIM, &in, NULL);
+	PF->clear(&in);
 	return ret;
 }
 

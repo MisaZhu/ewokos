@@ -68,7 +68,7 @@ public:
 	bool open(X* xp, uint32_t dispIndex, const grect_t& r, const char* title, uint32_t style, bool visible = true);
 	bool setVisible(bool visible);
 	void setAlpha(bool alpha);
-	bool callXIM(void);
+	bool callXIM(bool show = true);
 
 	bool getInfo(xinfo_t& xinfo);
 	void repaint(void);
