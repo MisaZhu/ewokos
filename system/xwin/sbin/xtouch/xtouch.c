@@ -50,7 +50,7 @@ static void input(uint16_t state, int16_t tx, int16_t ty) {
 		ev.state = MOUSE_STATE_UP;
 
 	if(ev.state == MOUSE_STATE_UP &&
-			ev.value.mouse.x < 20 && (_scr_h - ev.value.mouse.y) < 20) {
+			ev.value.mouse.x < 32 && (_scr_h - ev.value.mouse.y) < 32) {
 		core_next_ux();
 		return;
 	}

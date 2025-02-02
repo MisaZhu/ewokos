@@ -889,8 +889,7 @@ static int xwin_update_info(int fd, int from_pid, proto_t* in, proto_t* out, x_t
 	x_update_frame_areas(x, win);
 
 	if((type & X_UPDATE_REFRESH) != 0 || win->xinfo->alpha) {
-		if(win->xinfo->visible)
-			x_dirty(x, win->xinfo->display_index);
+		x_dirty(x, win->xinfo->display_index);
 	}
 	return 0;
 }
@@ -954,8 +953,11 @@ static int x_set_desktop_space(x_t* x, proto_t* in, proto_t* out) {
 	return 0;
 }
 
-static int xwin_call_xim(x_t* x) {
-	show_win(x, x->win_xim);
+static int xwin_call_xim(x_t* x, proto_t* in) {
+	if(proto_read_int(in) == 0)
+		hide_win(x, x->win_xim);
+	else
+		show_win(x, x->win_xim);
 	return 0;
 }
 
@@ -975,7 +977,7 @@ static int xserver_fcntl(int fd, int from_pid, fsinfo_t* node,
 		res = x_win_space(x, in, out);
 	}
 	else if(cmd == XWIN_CNTL_CALL_XIM) {
-		res = xwin_call_xim(x);
+		res = xwin_call_xim(x, in);
 	}
 	else if(cmd == XWIN_CNTL_TRY_FOCUS) {
 		res = do_xwin_try_focus(fd, from_pid, x);

@@ -72,4 +72,12 @@ EditLine::EditLine() {
 	curTimerCounter = 0;
 }
 
+void EditLine::onFocus(void) {
+	((XWin*)getWin())->callXIM();
+}
+
+void EditLine::onUnfocus(void) {
+	((XWin*)getWin())->callXIM(false);
+}
+
 }
