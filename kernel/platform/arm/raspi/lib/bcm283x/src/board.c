@@ -37,7 +37,7 @@ uint32_t bcm283x_board(void) {
 	else if(revision == 0xb03111 ||
 			revision == 0xb03112 ||
 			revision == 0xb03114 ||
-			revision == 0xa03115)
+			revision == 0xb03115)
 		return PI_4B_2G;
 	else if(revision == 0xc03111 ||
 			revision == 0xc03112 ||

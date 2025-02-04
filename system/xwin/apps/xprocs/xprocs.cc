@@ -335,6 +335,18 @@ class CoreList: public List {
 protected:
 	void drawBG(graph_t* g, XTheme* theme, const grect_t& r) {
 		graph_fill_3d(g, r.x, r.y, r.w, r.h, theme->basic.bgColor, false);
+
+		sys_info_t sys_info;
+		sys_state_t sys_state;
+		syscall1(SYS_GET_SYS_INFO, (int32_t)&sys_info);
+		syscall1(SYS_GET_SYS_STATE, (int32_t)&sys_state);
+		uint32_t fr_mem = sys_state.mem.free / (1024*1024);
+		uint32_t t_mem = sys_info.phy_mem_size / (1024*1024);
+		char txt[32] = { 0 };
+		snprintf(txt, 31, "%dM/%dM", fr_mem, t_mem);
+
+		graph_draw_text_font(g, r.x , r.y + r.h - 16,
+				txt, theme->getFont(), 12, 0xFF000000);
 	}
 
 	void drawItem(graph_t* g, XTheme* theme, int32_t index, const grect_t& r) {

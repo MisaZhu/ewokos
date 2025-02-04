@@ -62,8 +62,8 @@ static void load_boot_pgt(void) {
 #define PIX_MMIO_SIZE 16*MB
 
 void _boot_start(void) {
-	set_boot_pgt(0, 0, 32*MB, 0);
-	set_boot_pgt(KERNEL_BASE, 0, 32*MB, 0);
+	set_boot_pgt(0, 0, 64*MB, 0);
+	set_boot_pgt(KERNEL_BASE, 0, 64*MB, 0);
 	set_boot_pgt(MMIO_BASE, PIX_MMIO_PHY, PIX_MMIO_SIZE, 1);
 	load_boot_pgt();
 }
