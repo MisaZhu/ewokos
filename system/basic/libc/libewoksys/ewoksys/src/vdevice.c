@@ -120,11 +120,11 @@ static void do_close(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, vo
 
 	int fd = proto_read_int(in);
 	uint32_t node = (uint32_t)proto_read_int(in);
-	bool last_ref = (bool)proto_read_int(in);
 	int owner_pid = proto_read_int(in);
+	fsinfo_t* fsinfo = proto_read(in, NULL);
 
 	if(dev != NULL && dev->close != NULL) {
-		dev->close(fd, owner_pid, node, last_ref, p);
+		dev->close(fd, owner_pid, node, fsinfo, p);
 	}
 	file_del(fd, owner_pid, node);
 }

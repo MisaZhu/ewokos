@@ -84,7 +84,7 @@ static void draw_win_frame(x_t* x, xwin_t* win) {
 
 static void draw_init_desktop(x_t* x, x_display_t *display) {
 	graph_draw_dot_pattern(display->g, 0, 0, display->g->w, display->g->h,
-			0xff222222, 0xff000000, 1);
+			0xff222222, 0xff000000, 2);
 }
 
 static void draw_desktop(x_t* x, uint32_t display_index) {
@@ -1367,7 +1367,7 @@ static int xserver_dev_cntl(int from_pid, int cmd, proto_t* in, proto_t* ret, vo
 	return 0;
 }
 
-static int xserver_win_close(int fd, int from_pid, uint32_t node, bool last_ref, void* p) {
+static int xserver_win_close(int fd, int from_pid, uint32_t node, fsinfo_t* fsinfo, void* p) {
 	(void)node;
 	x_t* x = (x_t*)p;
 	xwin_t* win = x_get_win(x, fd, from_pid);

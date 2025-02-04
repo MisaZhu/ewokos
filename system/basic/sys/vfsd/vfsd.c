@@ -578,6 +578,9 @@ static int32_t vfs_dup2(int32_t pid, int32_t from, int32_t to) {
 }
 
 static inline fsinfo_t* gen_fsinfo(vfs_node_t* node) {
+	if(node == NULL)
+		return NULL;
+
 	static fsinfo_t ret;
 	memcpy(&ret, &node->fsinfo, sizeof(fsinfo_t));
 	ret.mount_pid = get_mount_pid(node);
@@ -1112,10 +1115,17 @@ static void handle(int pid, int cmd, proto_t* in, proto_t* out, void* p) {
 }
 
 static int handle_close_event(close_event_t* ev) {
+	fsinfo_t* fsinfo = gen_fsinfo((vfs_node_t*)ev->node);
 	proto_t in;
-	PF->format(&in, "i,i,i,i", ev->fd, ev->node, ev->del_node, ev->owner_pid);
-	//int res = ipc_call(ev->dev_pid, FS_CMD_CLOSE, &in, NULL);
-	int res = ipc_call_wait(ev->dev_pid, FS_CMD_CLOSE, &in);
+	PF->format(&in, "i,i,i", ev->fd,
+		ev->node,
+		ev->owner_pid);
+
+	if(fsinfo != NULL)
+		PF->add(&in, fsinfo, sizeof(fsinfo_t));
+
+	int res = ipc_call(ev->dev_pid, FS_CMD_CLOSE, &in, NULL);
+	//int res = ipc_call_wait(ev->dev_pid, FS_CMD_CLOSE, &in);
 	PF->clear(&in);
 
 	if(ev->del_node) {
