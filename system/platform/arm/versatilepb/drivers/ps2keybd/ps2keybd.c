@@ -130,7 +130,7 @@ static int keyb_read(int fd, int from_pid, fsinfo_t* node,
 	int res = charbuf_pop(_buffer, &c);
 
 	if(res != 0)
-		return 0;
+		return VFS_ERR_RETRY;
 
 	((char*)buf)[0] = c;
 	return 1;

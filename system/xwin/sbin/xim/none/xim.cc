@@ -53,19 +53,20 @@ public:
 		::close(keybFD);
 	}
 
-	void read(void) {
+	int read(void) {
 		if(x_pid < 0)
 			x_pid = dev_get_pid("/dev/x");
 		if(x_pid <= 0 || keybFD < 0)
-			return;
+			return 0;
 		int ux = core_get_active_ux();
 		if(ux != UX_X_DEFAULT)
-			return;
+			return 0;
 
 		keyb_evt_t evts[KEYB_EVT_MAX];
 		int n = keyb_read(keybFD, evts, KEYB_EVT_MAX);
 		for(int i=0; i<n; i++)
 			input(evts[i].key, evts[i].state);
+		return n;
 	}
 };
 
@@ -83,8 +84,8 @@ int main(int argc, char* argv[]) {
 
 	XIM xim(keyb_dev, escHome);
 	while(true) {
-		xim.read();
-		proc_usleep(10000);
+		if(xim.read() == 0)
+			proc_usleep(10000);
 	}
 	return 0;
 }

@@ -39,7 +39,7 @@ static int keyb_read(int fd, int from_pid, fsinfo_t* node,
 	(void)node;
 
 	if(_idle)
-		return 0;
+		return VFS_ERR_RETRY;
 
 	_idle = true;
 	if(size > 3)
@@ -116,7 +116,8 @@ static int loop(void* p) {
 		_idle = false;
 		proc_wakeup(RW_BLOCK_EVT);
 	}
-	usleep(20000);
+	else
+		usleep(20000);
 	return 0;
 }
 

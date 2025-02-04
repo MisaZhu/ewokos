@@ -51,7 +51,8 @@ int main(int argc, char** argv) {
 		if(mouse_read(fd, &mevt) == 1) {
 			input(&mevt);
 		}
-		proc_usleep(10000);
+		else 
+			proc_usleep(10000);
 	}
 
 	close(fd);

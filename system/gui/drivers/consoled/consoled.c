@@ -181,7 +181,7 @@ static int console_loop(void* p) {
 
 	if(_keyb_fd < 0) {
 		if(_keyb_dev[0] != 0)
-			_keyb_fd = open(_keyb_dev, O_RDONLY);
+			_keyb_fd = open(_keyb_dev, O_RDONLY | O_NONBLOCK);
 	}
 
 	if(_keyb_fd > 0) {
@@ -189,6 +189,7 @@ static int console_loop(void* p) {
 		if(read(_keyb_fd, &c, 1) == 1 && c != 0) {
 			charbuf_push(_buffer, c, true);
 			proc_wakeup(RW_BLOCK_EVT);
+			return 0;
 		}
 	}
 

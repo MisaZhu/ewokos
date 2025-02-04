@@ -30,7 +30,7 @@ static int mouse_read(int fd, int from_pid, fsinfo_t* node,
 	uint8_t* d = (uint8_t*)buf;
 	if(!has_data){
 		d[0] = 0;
-		return 0;
+		return VFS_ERR_RETRY;
 	}
 
 	d[0] = 1;
@@ -68,7 +68,8 @@ static int loop(void* p) {
 		has_data = 1;
 		proc_wakeup(RW_BLOCK_EVT);
 	}
-	usleep(10000);
+	else
+		usleep(10000);
 	return 0;
 }
 

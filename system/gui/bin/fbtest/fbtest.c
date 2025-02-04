@@ -16,8 +16,8 @@ int main(int argc, char** argv) {
 	graph_t *g = fb_fetch_graph(&fb);
     font_t* font = font_new(DEFAULT_SYSTEM_FONT, true);
 
-    int mouse_fd = open("/dev/mouse0", O_RDONLY);
-    int keyb_fd = open("/dev/keyb0", O_RDONLY);
+    int mouse_fd = open("/dev/mouse0", O_RDONLY | O_NONBLOCK);
+    int keyb_fd = open("/dev/keyb0", O_RDONLY | O_NONBLOCK);
     int x = 0, y = 0;
     bool dirty = true;
     char txt[64] = {0};
@@ -49,7 +49,8 @@ int main(int argc, char** argv) {
             if(kevts[i].key == KEY_ESC)
                 quit = true;
         }
-        usleep(3000);
+        if(n <= 0)
+            usleep(3000);
     }
 
     font_free(font);

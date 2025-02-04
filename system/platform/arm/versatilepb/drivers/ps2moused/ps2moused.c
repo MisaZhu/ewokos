@@ -192,7 +192,7 @@ static int mouse_read(int fd, int from_pid, fsinfo_t* node,
 		}
 		return 4;
 	}
-	return 0;
+	return VFS_ERR_RETRY;
 }
 
 /*
