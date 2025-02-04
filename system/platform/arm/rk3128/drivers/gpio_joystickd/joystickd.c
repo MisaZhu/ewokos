@@ -186,10 +186,21 @@ static void init_gpio(void) {
 	saradc = (struct rockchip_saradc_regs *)(_mmio_base +0x6c000);
 }
 
+static void check_ux(void) {
+	if(rockchip_gpio_get(KEY_BUTTON_L1_PIN) == 0){
+		core_prev_ux();
+	}
+	
+	if(rockchip_gpio_get(KEY_BUTTON_R1_PIN) == 0){
+		core_next_ux();
+	}
+}
+
 static int power_button(void* p) {
 	(void)p;
 	static int count = 0;
 	ipc_disable();
+	check_ux();
 	if(rockchip_gpio_get(113) == 0)
 		count++;
 	else
