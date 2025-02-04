@@ -6,7 +6,7 @@ ARCH=v7
 #----PI4-------
 #PI4=yes
 #----CLOCKWORK-------
-CLOCKWORK=yes
+#CLOCKWORK=yes
 #----enable DPI display---
 #DPI=yes
 #----multi core(SMP)------

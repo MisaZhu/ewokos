@@ -4,7 +4,7 @@ int TP_IRQ = 25;
 spi cdiv 256
 
 #waveshare 3.5 inch SPI rpi_lcd(c)
-const int lcd_dc = 24;
+const int lcd_rs = 24;
 const int lcd_cs = 8;
 const int lcd_rst = 25;
 const int tp_cs = 7;
