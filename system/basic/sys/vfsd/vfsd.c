@@ -459,12 +459,8 @@ static void proc_file_close(int pid, int fd, file_t* file) {
 		proc_wakeup(node_id);
 	}
 
-	int32_t to_pid = get_mount_pid(node);
-	if(to_pid < 0) {
-		if(del_node)
-			vfs_del_node(node);
-		return;
-	}
+	if(del_node)
+		vfs_del_node(node);
 }
 
 static void vfs_close(int32_t pid, int32_t fd) {
