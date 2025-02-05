@@ -125,28 +125,30 @@ void __attribute__((optimize("O0"))) _slave_kernel_entry_c(void) {
 
 static void logo(void) {
 	printf(
-			"---------------------------------------------------\n"
+			"-----------------------------------------------------\n"
 			" ______           ______  _    _   ______  ______ \n"
 			"(  ___ \\|\\     /|(  __  )| \\  / \\ (  __  )(  ___ \\\n"
 			"| (__   | | _ | || |  | || (_/  / | |  | || (____\n"
 			"|  __)  | |( )| || |  | ||  _  (  | |  | |(____  )\n"
 			"| (___  | || || || |__| || ( \\  \\ | |__| |  ___) |\n"
-			"(______/(_______)(______)|_/  \\_/ (______)\\______)\n\n");
+			"(______/(_______)(______)|_/  \\_/ (______)\\______)\n");
 }
 
 static void show_config(void) {
 	printf("\n"
-		  "    machine              %s\n" 
-		  "    arch                 %s\n"
-		  "    cores                %d\n"
-		  "    kernel_timer_freq    %d\n"
-		  "    mem_offset           0x%x\n"
-		  "    mem_size             %d MB\n"
-		  "    kmalloc size         %d MB\n"
-		  "    mmio_base            Phy:0x%x, V: 0x%x\n"
-		  "    max proc num         %d\n"
-		  "    max task total       %d\n"
-		  "    max task per proc    %d\n\n",
+		  "  machine              %s\n" 
+		  "  arch                 %s\n"
+		  "  cores                %d\n"
+		  "  kernel_timer_freq    %d\n"
+		  "  mem_offset           0x%x\n"
+		  "  mem_size             %d MB\n"
+		  "  kmalloc size         %d MB\n"
+		  "  allocable mem size   %d MB\n"
+		  "  mmio_base            Phy:0x%x, V: 0x%x\n"
+		  "  max proc num         %d\n"
+		  "  max task total       %d\n"
+		  "  max task per proc    %d\n"
+		  "-----------------------------------------------------\n",
 			_sys_info.machine,
 			_sys_info.arch,
 			_kernel_config.cores,
@@ -154,6 +156,7 @@ static void show_config(void) {
 			_sys_info.phy_offset,
 			_sys_info.phy_mem_size/1024/1024,
 			(KMALLOC_END-KMALLOC_BASE) / (1*MB),
+			(get_free_mem_size() / (1*MB)),
 			_sys_info.mmio.phy_base, _sys_info.mmio.v_base,
 			_kernel_config.max_proc_num,
 			_kernel_config.max_task_num,
@@ -190,8 +193,6 @@ void _kernel_entry_c(void) {
 
 	uart_dev_init(_kernel_config.uart_baud);
 
-	show_config();
-
 	kout  ("kernel: remapping kernel mem   ... ");
 	reset_kernel_vm();
 	kmalloc_init(); //init kmalloc again with config info;
@@ -202,32 +203,34 @@ void _kernel_entry_c(void) {
 	kconsole_init();
 	kout  ("[OK]\n");
 #endif
-	logo();
 
-	printf("kernel: init allocable memory  ... ");
+	//printf("kernel: init allocable memory  ... ");
 	init_allocable_mem(); //init the rest allocable memory VM
-	printf("[ok] (%d MB)\n", (get_free_mem_size() / (1*MB)));
+	//printf("[ok] (%d MB)\n", (get_free_mem_size() / (1*MB)));
 
-	printf("kernel: init DMA               ... ");
+	logo();
+	show_config();
+
+	//printf("kernel: init DMA               ... ");
 	dma_init();
-	printf("[OK]\n");
+	//printf("[OK]\n");
 
-	printf("kernel: init semaphore         ... ");
+	//printf("kernel: init semaphore         ... ");
 	semaphore_init();
-	printf("[ok]\n");
+	//printf("[ok]\n");
 
-	printf("kernel: init irq               ... ");
+	//printf("kernel: init irq               ... ");
 	irq_init();
-	printf("[ok]\n");
+	//printf("[ok]\n");
 
-	printf("kernel: init share memory      ... ");
+	//printf("kernel: init share memory      ... ");
 	shm_init();
-	printf("[ok]\n");
+	//printf("[ok]\n");
 
-	printf("kernel: init processes table   ... ");
+	//printf("kernel: init processes table   ... ");
 	if(procs_init() != 0)
 		halt();
-	printf("[ok] (%d)\n", _kernel_config.max_proc_num);
+	//printf("[ok] (%d)\n", _kernel_config.max_proc_num);
 
 	printf("kernel: loading init process   ... ");
 	if(load_init_proc() != 0)  {
@@ -239,23 +242,23 @@ void _kernel_entry_c(void) {
 	kfork_core_halt(0);
 #ifdef KERNEL_SMP
 	kernel_lock_init();
-
+	printf("kernel: start cores ... 0");
 	for(uint32_t i=1; i<_sys_info.cores; i++) {
 		_cpu_cores[i].actived = false;
-		printf("kernel: start core %d           ... ", i);
 		kfork_core_halt(i);
 		start_core(i);
 		while(!_cpu_cores[i].actived)
 			_delay_msec(10);
-		printf("[ok]\n");
+		printf(" %d", i);
 	}
+	printf(" [ok]\n");
 #endif
 
-	printf("kernel: set timer(fps): %6d ... ", _kernel_config.timer_freq);
+	//printf("kernel: set timer(fps): %6d ... ", _kernel_config.timer_freq);
 	timer_set_interval(0, _kernel_config.timer_freq); 
-	printf("[ok]\n");
-	printf("kernel: start init process     ...\n"
-		   "---------------------------------------------------\n");
+	//printf("[ok]\n");
+	//printf("kernel: start init process     ...\n"
+		//   "---------------------------------------------------\n");
 	__irq_enable();
 	halt();
 

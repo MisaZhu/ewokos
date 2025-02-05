@@ -237,21 +237,21 @@ int main(int argc, char** argv) {
 		return -1;
 	}
 
-	klog("\n    init sdc ... ");
+	//klog("\n    init sdc ... ");
 	if(bsp_sd_init() != 0) {
-		klog("failed!\n");
+		//klog("failed!\n");
 		return -1;
 	}
-	klog("[ok]\n");
+	//klog("[ok]\n");
 
 	ext2_t ext2;
-	klog("    init ext2 fs ... ");
+	//klog("    init ext2 fs ... ");
 	if(ext2_init(&ext2, sd_read, sd_write) != 0) {
 		sd_quit();
-		klog("failed!\n");
+		//klog("failed!\n");
 		return -1;
 	}
-	klog("[ok]\n");
+	//klog("[ok]\n");
 	sd_set_buffer(ext2.super.s_blocks_count*2);
 
 	vdevice_t dev;
