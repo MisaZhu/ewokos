@@ -115,18 +115,14 @@ static void do_open(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, voi
 static void do_close(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, void* p) {
 	//all close ipc are from vfsd proc, so read owner pid for real owner.
 	(void)out;
-	if(from_pid != get_vfsd_pid())
-		return;
-
 	int fd = proto_read_int(in);
 	uint32_t node = (uint32_t)proto_read_int(in);
-	int owner_pid = proto_read_int(in);
 	fsinfo_t* fsinfo = proto_read(in, NULL);
 
 	if(dev != NULL && dev->close != NULL) {
-		dev->close(fd, owner_pid, node, fsinfo, p);
+		dev->close(fd, from_pid, node, fsinfo, p);
 	}
-	file_del(fd, owner_pid, node);
+	file_del(fd, from_pid, node);
 }
 
 #define READ_BUF_SIZE 32

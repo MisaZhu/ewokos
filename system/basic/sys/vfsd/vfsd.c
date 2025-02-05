@@ -421,50 +421,6 @@ static vfs_node_t* vfs_get_by_fd(int32_t pid, int32_t fd) {
 	return file->node;
 }
 
-typedef struct st_close_event {
-	int fd;
-	int owner_pid;
-	int dev_pid;
-	bool del_node;
-	vfs_node_t* node;
-
-	struct st_close_event* next;
-} close_event_t;
-
-static close_event_t* _event_head = NULL;
-static close_event_t* _event_tail = NULL;
-
-static void push_close_event(close_event_t* ev) {
-	close_event_t *e = (close_event_t *)malloc(sizeof(close_event_t));
-	memcpy(e, ev, sizeof(close_event_t));
-	e->next = NULL;
-
-	if (_event_tail != NULL)
-		_event_tail->next = e;
-	else
-		_event_head = e;
-	_event_tail = e;
-	proc_wakeup((uint32_t)_nodes_hash);
-}
-
-static int get_close_event(close_event_t *ev) {
-	ipc_disable();
-	close_event_t *e = _event_head;
-	if (e == NULL) {
-		ipc_enable();
-		proc_block_by(getpid(), (uint32_t)_nodes_hash);
-		return -1;
-	}
-
-	_event_head = _event_head->next;
-	if (_event_head == NULL)
-		_event_tail = NULL;
-	memcpy(ev, e, sizeof(close_event_t));
-	free(e);
-	ipc_enable();
-	return 0;
-}
-
 static void proc_file_close(int pid, int fd, file_t* file) {
 	(void)pid;
 	(void)fd;
@@ -509,14 +465,6 @@ static void proc_file_close(int pid, int fd, file_t* file) {
 			vfs_del_node(node);
 		return;
 	}
-
-	close_event_t ev;
-	ev.fd = fd;
-	ev.owner_pid = pid;
-	ev.dev_pid = to_pid;
-	ev.node = node;
-	ev.del_node = del_node;
-	push_close_event(&ev);
 }
 
 static void vfs_close(int32_t pid, int32_t fd) {
@@ -1114,32 +1062,9 @@ static void handle(int pid, int cmd, proto_t* in, proto_t* out, void* p) {
 	//klog("vfs cmd done\n");
 }
 
-static int handle_close_event(close_event_t* ev) {
-	fsinfo_t* fsinfo = gen_fsinfo((vfs_node_t*)ev->node);
-	proto_t in;
-	PF->format(&in, "i,i,i", ev->fd,
-		ev->node,
-		ev->owner_pid);
-
-	if(fsinfo != NULL)
-		PF->add(&in, fsinfo, sizeof(fsinfo_t));
-
-	int res = ipc_call(ev->dev_pid, FS_CMD_CLOSE, &in, NULL);
-	//int res = ipc_call_wait(ev->dev_pid, FS_CMD_CLOSE, &in);
-	PF->clear(&in);
-
-	if(ev->del_node) {
-		ipc_disable();
-		vfs_del_node(ev->node);
-		ipc_enable();
-	}
-	return res;
-}
-
 int main(int argc, char** argv) {
 	(void)argc;
 	(void)argv;
-	_event_head = _event_tail = NULL;
 
 	if(ipc_serv_reg(IPC_SERV_VFS) != 0) {
 		klog("reg vfs ipc_serv error!\n");
@@ -1148,22 +1073,10 @@ int main(int argc, char** argv) {
 
 	vfsd_init();
 
-	ipc_serv_run(handle, NULL, NULL, IPC_NON_BLOCK);
+	ipc_serv_run(handle, NULL, NULL, IPC_DEFAULT);
 
 	while(true) {
-		close_event_t ev;
-		int res = get_close_event(&ev);
-		if(res == 0) {
-			//ipc_disable();
-			handle_close_event(&ev);
-			//ipc_enable();
-		}
-		else {
-			//ipc_disable();
-			//check_procs();
-			//ipc_enable();
-			//proc_usleep(3000);
-		}
+		proc_usleep(30000);
 	}
 
 	free(_proc_fds_table);

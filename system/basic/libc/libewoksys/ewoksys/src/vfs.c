@@ -306,6 +306,12 @@ int vfs_close(int fd) {
 			return -1;
 	}
 
+	proto_t in;
+	PF->format(&in, "i,i,m",
+		fd, file->info.node, &file->info, sizeof(fsinfo_t));
+	int res = ipc_call(file->info.mount_pid, FS_CMD_CLOSE, &in, NULL);	
+	PF->clear(&in);
+
 	vfs_clear_file(fd);	
 	return vfs_close_info(fd);
 }
