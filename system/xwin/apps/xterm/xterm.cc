@@ -173,15 +173,17 @@ static void win_loop(void* p) {
 	if(_xwin->isDirty())
 		_xwin->repaint();
 	ipc_enable();
-	proc_usleep(30000);
+	proc_usleep(10000);
 }
 
+static bool _win_opened = false;
 static void* thread_loop(void* p) {
 	//X* x = (X*)p;
 	X x;
 	grect_t desk;
 	x.getDesktopSpace(desk, 0);
 	_xwin->open(&x, 0, -1, -1, desk.w*2/3, desk.h*2/3, "xterm", 0);
+	_win_opened = true;
 	uint32_t timer_id = timer_set(500000, timer_handler);
 	x.run(win_loop, _xwin);
 	timer_remove(timer_id);
@@ -259,10 +261,14 @@ int run(const char* mnt_point) {
 	pthread_t tid;
 	pthread_create(&tid, NULL, thread_loop, NULL);
 
+	while(!_win_opened)
+		proc_usleep(100000);
+
 	device_run(&dev, mnt_point, FS_TYPE_CHAR, 0600);
 	charbuf_free(_buffer);
 	proc_wakeup(RW_BLOCK_EVT);
 	exit(0);
+	return 0;
 }
 
 static int set_stdio(const char* dev) {
@@ -283,6 +289,7 @@ int main(int argc, char* argv[]) {
 	char dev[128];
 	snprintf(dev, 127, "/dev/xconsole%d", getpid());
 
+	klog("open console window\n");
 	int pid = fork();
 	if(pid == 0) {
 		if(run(dev) != 0) {
@@ -292,6 +299,7 @@ int main(int argc, char* argv[]) {
 	else 
 		ipc_wait_ready(pid);
 
+	klog("set console stdio\n");
 
 	int pid_shell = fork();
 	if(pid_shell == 0) {
