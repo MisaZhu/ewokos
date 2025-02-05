@@ -28,6 +28,7 @@ int main(int argc, char* argv[]) {
 	if(argc< 2)
 		return -1;
 
+	printf("%-42s ", argv[1]);
 	int ret = stat(argv[1], &buf);
 	if(ret >= 0 && buf.st_mode & X_OK){
 		str_t* cmd = str_new("");
@@ -38,7 +39,10 @@ int main(int argc, char* argv[]) {
 
 		ret = run(cmd->cstr);
 		str_free(cmd);
+		printf("[\033[32m%s\033[0m]\n", "OK"); //green for ok
 	}
+	else 
+		printf("[\033[31m%s\033[0m]\n", "ERR!"); //red for failed
 	return ret;
 }
 

@@ -289,7 +289,6 @@ int main(int argc, char* argv[]) {
 	char dev[128];
 	snprintf(dev, 127, "/dev/xconsole%d", getpid());
 
-	klog("open console window\n");
 	int pid = fork();
 	if(pid == 0) {
 		if(run(dev) != 0) {
@@ -298,8 +297,6 @@ int main(int argc, char* argv[]) {
 	}
 	else 
 		ipc_wait_ready(pid);
-
-	klog("set console stdio\n");
 
 	int pid_shell = fork();
 	if(pid_shell == 0) {

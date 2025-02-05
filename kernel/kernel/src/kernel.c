@@ -251,7 +251,7 @@ void _kernel_entry_c(void) {
 			_delay_msec(10);
 		printf(" %d", i);
 	}
-	printf(" [ok]\n");
+	printf("\n");
 #endif
 
 	//printf("kernel: set timer(fps): %6d ... ", _kernel_config.timer_freq);
