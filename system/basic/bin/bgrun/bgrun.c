@@ -17,8 +17,6 @@ static int run(const char* cmd) {
 			exit(-1);
 		}
 	}
-	else 
-		ipc_wait_ready(pid);
 	return 0;
 }
 
@@ -28,10 +26,7 @@ int main(int argc, char* argv[]) {
 	if(argc< 2)
 		return -1;
 
-	if(strncmp(argv[1], "/drivers", 8) == 0)
-		printf("\033[1mdev: %-42s \033[0m", argv[1]);
-	else
-		printf("run: %-42s ", argv[1]);
+	printf("run: %-42s ", argv[1]);
 	int ret = stat(argv[1], &buf);
 	if(ret >= 0 && buf.st_mode & X_OK){
 		str_t* cmd = str_new("");

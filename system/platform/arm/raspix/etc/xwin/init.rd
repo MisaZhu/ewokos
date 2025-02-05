@@ -1,6 +1,6 @@
 @/bin/ipcserv /drivers/raspix/uartd         /dev/tty0
 @/bin/ipcserv /sbin/sessiond
-@/bin/session -r -t /dev/tty0 &
+@/bin/bgrun /bin/session -r -t /dev/tty0 
 
 @/bin/ipcserv /drivers/raspix/fbd      /dev/fb0
 @/bin/ipcserv /drivers/displayd        
@@ -17,14 +17,14 @@
 
 @export UX_ID=1
 @/bin/ipcserv /drivers/consoled        -i /dev/keyb0
-@/bin/session -r -t /dev/console1 &
+@/bin/bgrun /bin/session -r -t /dev/console1 
 
 @/bin/ipcserv /drivers/ramfsd          /tmp
 @/bin/ipcserv /drivers/nulld           /dev/null
 
-@/sbin/x/xim_none &
+@/bin/bgrun /sbin/x/xim_none 
 
 #@/bin/load_font
 @/bin/ipcserv /drivers/xserverd        /dev/x
 
-@/bin/x/xsession  misa &
+@/bin/bgrun /bin/x/xsession  misa 

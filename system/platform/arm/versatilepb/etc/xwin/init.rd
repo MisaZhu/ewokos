@@ -1,6 +1,6 @@
 @/bin/ipcserv /drivers/versatilepb/ttyd /dev/tty0
 @/bin/ipcserv /sbin/sessiond
-@/bin/session -r -t /dev/tty0 &
+@/bin/bgrun /bin/session -r -t /dev/tty0 
 
 @/bin/ipcserv /drivers/versatilepb/fbd  /dev/fb0
 @/bin/ipcserv /drivers/displayd         
@@ -22,7 +22,7 @@
 
 #@/bin/ipcserv /drivers/versatilepb/smc91c111d /dev/eth0
 #@/bin/ipcserv /drivers/netd             /dev/net0 /dev/eth0
-#@/sbin/telnetd &
+#@/bin/bgrun /sbin/telnetd 
 
 @/bin/ipcserv /drivers/versatilepb/powerd     /dev/power0
 
@@ -32,17 +32,16 @@
 
 @export UX_ID=1
 @/bin/ipcserv /drivers/consoled   /dev/console1 -i /dev/keyb0
-@/bin/session -r -t /dev/console1 &
+@/bin/bgrun /bin/session -r -t /dev/console1 
 
 @export UX_ID=2
 @/bin/ipcserv /drivers/consoled   -i /dev/keyb0
-@/bin/session -r -t /dev/console2 &
+@/bin/bgrun /bin/session -r -t /dev/console2 
 
 
 #@/bin/load_font
 
-@/bin/ipcserv xxx
 @/bin/ipcserv /drivers/xserverd        /dev/x
-@/sbin/x/xmouse /dev/mouse0 &
-@/sbin/x/xim_none /dev/keyb0 &
-@/bin/x/xsession misa &
+@/bin/bgrun /sbin/x/xmouse /dev/mouse0 
+@/bin/bgrun /sbin/x/xim_none /dev/keyb0 
+@/bin/bgrun /bin/x/xsession misa 

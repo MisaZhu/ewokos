@@ -6,4 +6,4 @@ $
 @/bin/ipcserv /drivers/nulld                /dev/null
 @/bin/ipcserv /drivers/ramfsd               /tmp
 
-@/bin/session -r
+@/bin/bgrun /bin/session -r

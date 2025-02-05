@@ -19,13 +19,13 @@
 @/bin/ipcserv /drivers/ramfsd         /tmp
 
 @/bin/ipcserv /sbin/sessiond
-#@/bin/session -r -t /dev/tty0 &
+#@/bin/bgrun /bin/session -r -t /dev/tty0 
 
 @/bin/ipcserv /drivers/xserverd       /dev/x
-@/sbin/x/xim_none   /dev/vjoystick &
-@/sbin/x/xmouse    /dev/mouse0 &
-@/sbin/x/xim_vkey 460 120&
+@/bin/bgrun /sbin/x/xim_none   /dev/vjoystick 
+@/bin/bgrun /sbin/x/xmouse    /dev/mouse0 
+@/bin/bgrun /sbin/x/xim_vkey 460 120
 
 #@/bin/load_font
 
-@/bin/x/xsession misa &
+@/bin/bgrun /bin/x/xsession misa 

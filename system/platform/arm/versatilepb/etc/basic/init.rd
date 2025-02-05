@@ -7,4 +7,4 @@
 @/bin/ipcserv /drivers/ramfsd                 /tmp
 
 @/bin/ipcserv /sbin/sessiond
-@/bin/session -r &
+@/bin/bgrun /bin/session -r 

@@ -10,5 +10,5 @@ $
 
 #@/bin/ipcserv /drivers/xserverd             /dev/x
 
-#@/bin/x/launcher &
-@/bin/session -r
+#@/bin/bgrun /bin/x/launcher 
+@/bin/bgrun /bin/session -r
