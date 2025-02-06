@@ -137,6 +137,19 @@ protected:
 			drawTitle(g, theme, i, color, r);
 			drawChat(g, i, xstep, yzoom, color, r);
 		}
+
+		sys_info_t sys_info;
+		sys_state_t sys_state;
+		syscall1(SYS_GET_SYS_INFO, (int32_t)&sys_info);
+		syscall1(SYS_GET_SYS_STATE, (int32_t)&sys_state);
+		uint32_t fr_mem = sys_state.mem.free / (1024*1024);
+		uint32_t t_mem = sys_info.phy_mem_size / (1024*1024);
+		char txt[32] = { 0 };
+		snprintf(txt, 31, "%d/%d(m)", fr_mem, t_mem);
+		font_t* font = theme->getFont();
+		uint32_t w;
+		font_text_size(txt, font, 10, &w, NULL);
+		graph_draw_text_font(g, r.x + r.w - w, r.y+4, txt, theme->getFont(), 10, 0xFFFFFFFF);
 	}
 
 	void onTimer(uint32_t timerFPS, uint32_t timerStep) {
@@ -156,7 +169,7 @@ int main(int argc, char** argv) {
 	Cores* cores = new Cores();
 	root->add(cores);
 
-	win.open(&x, 0, -1, -1, 320, 140, "xcores", XWIN_STYLE_NORMAL);
+	win.open(&x, 0, -1, -1, 360, 140, "xcores", XWIN_STYLE_NORMAL);
 	win.setTimer(1);
 	x.run(NULL, &win);
 	return 0;
