@@ -57,10 +57,9 @@ static void run_before_vfs(const char* cmd) {
 	klog("[ok]\n");
 }
 
-static void run_init(const char* init_file) {
+static int run_init(const char* init_file) {
 	if(access(init_file, R_OK) != 0) {
-		klog("init: init file '%s' missed! \n", init_file);
-		return;
+		return -1;
 	}
 
 	int pid = fork();
@@ -69,17 +68,26 @@ static void run_init(const char* init_file) {
 		setgid(0);
 		char cmd[FS_FULL_NAME_MAX];
 		snprintf(cmd, FS_FULL_NAME_MAX-1, "/bin/shell %s", init_file);
-		klog("\ninit: loading '%s' ... \n", init_file);
+		//klog("\ninit: loading '%s' ... \n", init_file);
 		if(proc_exec(cmd) != 0) {
-			klog("[failed]!\n");
+			//klog("[failed]!\n");
 			exit(-1);
 		}
 	}
 	else 
 		waitpid(pid);
+	return 0;
 }
 
 static void switch_root(void) {
+	char initfile[32];
+	uint8_t i = 0;
+	while(i < 8) {
+		snprintf(initfile, 31, "/etc/init%d.rd", i);
+		if(run_init(initfile) != 0)
+			break;
+		i++;
+	}
 	run_init("/etc/init.rd");
 }
 
