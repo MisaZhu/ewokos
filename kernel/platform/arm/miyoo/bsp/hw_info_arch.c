@@ -13,7 +13,6 @@ uint32_t _allocable_phy_mem_base = 0;
 uint32_t _core_base_offset = 0;
 
 #define FB_SIZE 4*MB
-#define DMA_SIZE 256*KB
 
 void sys_info_init_arch(void) {
 	memset(&_sys_info, 0, sizeof(sys_info_t));

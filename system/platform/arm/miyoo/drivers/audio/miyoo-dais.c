@@ -1284,7 +1284,8 @@ static int enable_clk(unsigned int clk_base)
 
 static int pre_allocate_dma_buffer(struct msc313_bach *bach)
 {
-	unsigned int vaddr = dma_map(PRE_ALLOCATED_PCM_BUF_MAX_SIZE);
+	//unsigned int vaddr = dma_phy_addr(dma_map(PRE_ALLOCATED_PCM_BUF_MAX_SIZE));
+	unsigned int vaddr = (dma_map(PRE_ALLOCATED_PCM_BUF_MAX_SIZE));
 	if (vaddr != 0) {
 		bach->dma_areas = vaddr;
 	} else {

@@ -772,7 +772,7 @@ int bcm2835_power_on_module(uint32_t module)
 	// 	       module);
 	// 	return -EIO;
 	// }
-    msg.data = ((uint32_t)msg_pwr + 0x40000000) >> 4;	
+    msg.data = ((uint32_t)dma_phy_addr(msg_pwr) + 0x40000000) >> 4;	
     bcm283x_mailbox_send(PROPERTY_CHANNEL, &msg);
 	bcm283x_mailbox_read(PROPERTY_CHANNEL, &msg);
 
@@ -795,7 +795,7 @@ int bcm2835_set_sdhost_clock(uint32_t rate_hz, uint32_t *rate_1, uint32_t *rate_
 	// 	klog("bcm2835: Could not query sdhost clock rate\n");
 	// 	return -EIO;
 	// }
-    msg.data = ((uint32_t)msg_sdhost_clk + 0x40000000) >> 4;	
+    msg.data = ((uint32_t)dma_phy_addr(msg_sdhost_clk) + 0x40000000) >> 4;	
     bcm283x_mailbox_send(PROPERTY_CHANNEL, &msg);
 	bcm283x_mailbox_read(PROPERTY_CHANNEL, &msg);
 
@@ -826,7 +826,7 @@ int bcm2835_get_mmc_clock(uint32_t clock_id)
 	// 	klog("bcm2835: Could not query eMMC clock rate\n");
 	// 	return -EIO;
 	// }
-    msg.data = ((uint32_t)msg_clk + 0x40000000) >> 4;	
+    msg.data = ((uint32_t)dma_phy_addr(msg_clk) + 0x40000000) >> 4;	
     bcm283x_mailbox_send(PROPERTY_CHANNEL, &msg);
 	bcm283x_mailbox_read(PROPERTY_CHANNEL, &msg); 
 

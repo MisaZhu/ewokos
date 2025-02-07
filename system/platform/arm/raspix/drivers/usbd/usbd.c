@@ -16,7 +16,8 @@ void* PlatformAllocateDMA(u32 size){
     if(size > 4096)
         return NULL;
 
-    void* ret =  dma_map(4096);
+    //void* ret =  dma_phy_addr(dma_map(4096));
+    void* ret =  (dma_map(4096));
     printf("DMA: address: %08x\n", ret);
     return ret;
 }

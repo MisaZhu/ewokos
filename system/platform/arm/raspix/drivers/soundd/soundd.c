@@ -85,8 +85,10 @@ static void audio_init(void) {
 			BCM283x_PWM0_USEFIFO | 
 			BCM283x_PWM0_ENABLE | 1<<6;
 	
-	_dma_cb = (dma_cb_t*)dma_map(sizeof(dma_cb_t));
-	_dma_data_addr = dma_map(DMA_BUF_SIZE); //4k dma buffer
+	//_dma_cb = (dma_cb_t*)dma_phy_addr(dma_map(sizeof(dma_cb_t)));
+	//_dma_data_addr = dma_phy_addr((dma_map(DMA_BUF_SIZE))); //4k dma buffer
+	_dma_cb = (dma_cb_t*)(dma_map(sizeof(dma_cb_t)));
+	_dma_data_addr = ((dma_map(DMA_BUF_SIZE))); //4k dma buffer
 }
 
 

@@ -58,7 +58,6 @@ static void set_kernel_vm(page_dir_entry_t* vm) {
 	map_pages(vm, ALLOCABLE_PAGE_DIR_BASE, V2P(ALLOCABLE_PAGE_DIR_BASE), V2P(ALLOCABLE_PAGE_DIR_END), AP_RW_D, PTE_ATTR_WRBACK);
 	//map MMIO to high(virtual) mem.
 	map_pages_size(vm, _sys_info.mmio.v_base, _sys_info.mmio.phy_base, _sys_info.mmio.size, AP_RW_D, PTE_ATTR_DEV);
-
 	arch_vm(vm);
 }
 
@@ -74,6 +73,9 @@ static void reset_kernel_vm(void) {
 
 
 static void map_allocable_pages(page_dir_entry_t* vm) {
+	//map kernel dma memory
+	map_pages_size(vm, _sys_info.dma.phy_base, _sys_info.dma.phy_base, _sys_info.dma.size, AP_RW_D, PTE_ATTR_WRBACK);
+
 	map_pages(vm,
 			P2V(_allocable_phy_mem_base),
 			_allocable_phy_mem_base,

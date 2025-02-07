@@ -7,7 +7,11 @@ extern "C" {
 #endif
 
 uint32_t dma_map(uint32_t size) {
-	return syscall3(SYS_MEM_MAP, 0, DMA_MAGIC, size);
+	return syscall1(SYS_DMA_ALLOC, size);
+}
+
+uint32_t dma_phy_addr(uint32_t vaddr) {
+	return syscall1(SYS_DMA_PHY_ADDR, vaddr);
 }
 
 #ifdef __cplusplus

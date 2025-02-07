@@ -253,7 +253,7 @@ static int32_t sys_shm_unmap(void* p) {
 	proc_t* cproc = proc_get_proc(get_current_proc());
 	return shm_proc_unmap(cproc, p);
 }
-	
+		
 static uint32_t sys_dma_map(uint32_t size) {
 	proc_t* cproc = proc_get_proc(get_current_proc());
 	if(cproc->info.uid > 0)
@@ -262,9 +262,15 @@ static uint32_t sys_dma_map(uint32_t size) {
 	uint32_t paddr = dma_alloc(cproc->info.pid, size);
 	if(paddr == 0)
 		return 0;
+	uint32_t vaddr = DMA_BASE + (paddr - _sys_info.dma.phy_base);
 
-	map_pages_size(cproc->space->vm, paddr, paddr, size, AP_RW_RW, PTE_ATTR_DEV);
+	map_pages_size(cproc->space->vm, vaddr, paddr, size, AP_RW_RW, PTE_ATTR_DEV);
 	flush_tlb();
+	return vaddr;
+}
+
+static uint32_t sys_dma_phy(uint32_t vaddr) {
+	uint32_t paddr = vaddr - DMA_BASE + _sys_info.dma.phy_base;
 	return paddr;
 }
 
@@ -272,9 +278,6 @@ static uint32_t sys_mem_map(uint32_t vaddr, uint32_t paddr, uint32_t size) {
 	proc_t* cproc = proc_get_proc(get_current_proc());
 	if(cproc->info.uid > 0)
 		return 0;
-
-	if(paddr == DMA_MAGIC)
-		return sys_dma_map(size);
 
 	/*allocatable memory can only mapped by kernel,
 	userspace can map upper address such as MMIO/FRAMEBUFFER... */
@@ -726,6 +729,12 @@ static inline void _svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_
 		return;
 	case SYS_MEM_MAP:
 		ctx->gpr[0] = sys_mem_map((uint32_t)arg0, (uint32_t)arg1, (uint32_t)arg2);
+		return;
+	case SYS_DMA_ALLOC:
+		ctx->gpr[0] = sys_dma_map((uint32_t)arg0);
+		return;
+	case SYS_DMA_PHY_ADDR:
+		ctx->gpr[0] = sys_dma_phy((uint32_t)arg0);
 		return;
 	case SYS_IPC_SETUP:
 		sys_ipc_setup(ctx, arg0, arg1, arg2);
