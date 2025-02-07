@@ -25,11 +25,11 @@
 #define KMALLOC_BASE                   KERNEL_VSYSCALL_INFO_END
 #define KMALLOC_END                    (KMALLOC_BASE + get_kmalloc_size())
 
-#define MMIO_BASE                      (KERNEL_BASE + MAX_MEM_SIZE)
-#define MMIO_END                      (MMIO_BASE + _sys_info.mmio.size)
-
-#define DMA_BASE                      (MMIO_END)
+#define DMA_BASE                      (KERNEL_BASE + MAX_MEM_SIZE)
 #define DMA_END                       (DMA_BASE+DMA_SIZE)
+
+#define MMIO_BASE                     (DMA_END)
+#define MMIO_END                      (MMIO_BASE + _sys_info.mmio.size)
 
 #define USER_STACK_TOP                 (KERNEL_BASE - PAGE_SIZE)
 #define USER_STACK_MAX                 (64*MB)
