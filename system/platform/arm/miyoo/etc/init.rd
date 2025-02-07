@@ -7,6 +7,10 @@
 @export KLOG_DEV=/dev/klog
 @set_stdio /dev/klog
 
+@echo "+---------------------------------------+\n"
+@echo "|  < EwokOS MicroKernel >               |\n" 
+@echo "+---------------------------------------+\n"
+
 #@/bin/ipcserv /drivers/miyoo/ms_uartd /dev/tty0
 
 @/bin/ipcserv /drivers/miyoo/gpio_joystickd     /dev/joystick
