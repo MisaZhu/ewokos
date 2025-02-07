@@ -22,6 +22,10 @@ void* PlatformAllocateDMA(u32 size){
     return ret;
 }
 
+void* PlatformDMAVir2Phy(void* v){
+	return (void*)dma_phy_addr((uint32_t)v);
+}
+
 void LogPrint(const char* message, uint32_t messageLength) {
   (void)messageLength;
   //printf("%s", message);
