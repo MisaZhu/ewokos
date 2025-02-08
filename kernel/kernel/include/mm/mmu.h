@@ -11,31 +11,33 @@
 #define V2P(V) ((uint32_t)(V) - KERNEL_BASE + _sys_info.phy_offset)
 #define P2V(P) ((uint32_t)(P) + KERNEL_BASE - _sys_info.phy_offset)
 
-#define KERNEL_IMAGE_END           ALIGN_UP((uint32_t)_kernel_end, PAGE_DIR_SIZE)
+#define KERNEL_IMAGE_END              ALIGN_UP((uint32_t)_kernel_end, PAGE_DIR_SIZE)
 
-#define KERNEL_PAGE_DIR_BASE           KERNEL_IMAGE_END
-#define KERNEL_PAGE_DIR_END            (KERNEL_PAGE_DIR_BASE + 256*KB)
+#define KERNEL_PAGE_DIR_BASE          KERNEL_IMAGE_END
+#define KERNEL_PAGE_DIR_END           (KERNEL_PAGE_DIR_BASE + 256*KB)
 
-#define ALLOCABLE_PAGE_DIR_BASE        KERNEL_PAGE_DIR_END
-#define ALLOCABLE_PAGE_DIR_END         (ALLOCABLE_PAGE_DIR_BASE + 2*MB)
+#define ALLOCABLE_PAGE_DIR_BASE       KERNEL_PAGE_DIR_END
+#define ALLOCABLE_PAGE_DIR_END        (ALLOCABLE_PAGE_DIR_BASE + 2*MB)
 
-#define KERNEL_VSYSCALL_INFO_BASE          ALLOCABLE_PAGE_DIR_END
-#define KERNEL_VSYSCALL_INFO_END           (KERNEL_VSYSCALL_INFO_BASE+4*KB)
+#define KERNEL_VSYSCALL_INFO_BASE     ALLOCABLE_PAGE_DIR_END
+#define KERNEL_VSYSCALL_INFO_END      (KERNEL_VSYSCALL_INFO_BASE+4*KB)
 
-#define KMALLOC_BASE                   KERNEL_VSYSCALL_INFO_END
-#define KMALLOC_END                    (KMALLOC_BASE + get_kmalloc_size())
+#define KMALLOC_BASE                  KERNEL_VSYSCALL_INFO_END
+#define KMALLOC_END                   (KMALLOC_BASE + get_kmalloc_size())
 
-#define MMIO_BASE                     (KERNEL_BASE + MAX_MEM_SIZE)
+#define MAX_USABLE_MEM_SIZE           (1*GB + 768*MB) //max usable memory for 32bits OS
+#define MMIO_BASE                     (KERNEL_BASE + MAX_USABLE_MEM_SIZE)
 #define MMIO_END                      (MMIO_BASE + _sys_info.mmio.size)
 
+#define DMA_SIZE                      (1*MB)
 #define DMA_BASE                      (MMIO_END)
-#define DMA_END                       (DMA_BASE+DMA_SIZE)
+#define DMA_END                       (DMA_BASE + DMA_SIZE)
 
 #define FB_BASE                       (DMA_END)
 
-#define USER_STACK_TOP                 (KERNEL_BASE - PAGE_SIZE)
-#define USER_STACK_MAX                 (64*MB)
-#define USER_STACK_BOTTOM              (USER_STACK_TOP - USER_STACK_MAX)
+#define USER_STACK_TOP                (KERNEL_BASE - PAGE_SIZE)
+#define USER_STACK_MAX                (64*MB)
+#define USER_STACK_BOTTOM             (USER_STACK_TOP - USER_STACK_MAX)
 
 #define get64(addr) (*((volatile uint64_t *)(addr)))
 #define put64(addr, val) (*((volatile uint64_t *)(addr)) = (uint64_t)(val))

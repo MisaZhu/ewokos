@@ -38,6 +38,7 @@ builtin_apps:
 	cd setux;make 
 	cd vi;make 
 	cd json;make 
+	cd sysinfo;make 
 
 clean:
 	cd cp;make clean
@@ -76,3 +77,4 @@ clean:
 	cd setux;make clean
 	cd vi;make clean
 	cd json;make clean
+	cd sysinfo;make clean

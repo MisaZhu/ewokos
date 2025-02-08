@@ -24,6 +24,7 @@ typedef struct {
 typedef struct {
 	uint32_t size;
 	uint32_t phy_base;
+	uint32_t v_base;
 } dma_info_t;
 
 #define MAX_CORE_NUM 8
@@ -35,7 +36,7 @@ typedef struct {
 typedef struct {
 	char        machine[MACHINE_MAX];
 	char        arch[ARCH_MAX];
-	uint32_t    phy_mem_size;
+	uint32_t    total_usable_mem_size;
 	uint32_t    phy_offset;
 	uint32_t    kernel_base;
 	uint32_t    vector_base;

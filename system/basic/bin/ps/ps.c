@@ -123,7 +123,7 @@ int main(int argc, char* argv[]) {
 	syscall1(SYS_GET_SYS_STATE, (int32_t)&sys_state);
 	uint32_t fr_mem = sys_state.mem.free / (1024*1024);
 	uint32_t shm_mem = sys_state.mem.shared / (1024*1024);
-	uint32_t t_mem = sys_info.phy_mem_size / (1024*1024);
+	uint32_t t_mem = sys_info.total_usable_mem_size / (1024*1024);
 	uint32_t csec = (uint32_t)(sys_state.kernel_usec / 1000000);
 
 	num = syscall0(SYS_GET_PROCS_NUM);

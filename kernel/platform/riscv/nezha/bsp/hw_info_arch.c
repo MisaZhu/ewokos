@@ -19,7 +19,7 @@ void sys_info_init_arch(void) {
 
 	strcpy(_sys_info.machine, "nezha");
 	strcpy(_sys_info.arch, "risc-v rv64");
-	_sys_info.phy_mem_size = 1*GB;
+	_sys_info.total_usable_mem_size = 1*GB;
 	_sys_info.phy_offset = 0x40000000;
 	_sys_info.vector_base = 0x41000000;
 	_sys_info.kernel_base = KERNEL_BASE;
@@ -30,9 +30,10 @@ void sys_info_init_arch(void) {
 
 	_allocable_phy_mem_base = V2P(get_allocable_start());
 	_allocable_phy_mem_top = _sys_info.phy_offset +
-			_sys_info.phy_mem_size -
+			_sys_info.total_usable_mem_size -
 			_sys_info.dma.size - 32*MB;
 	_sys_info.dma.phy_base = _allocable_phy_mem_top;
+	_sys_info.dma.v_base = DMA_BASE;
 
 #ifdef KERNEL_SMP
 	_sys_info.cores = get_cpu_cores();

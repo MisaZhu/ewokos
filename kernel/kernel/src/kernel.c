@@ -148,7 +148,7 @@ static void show_config(void) {
 		  "  mem_size             %d MB\n"
 		  "  kmalloc size         %d MB\n"
 		  "  mem phy info         base: 0x%x, top: 0x%x\n"
-		  "  allocable mem size   %d MB\n"
+		  "  free mem size        %d MB\n"
 		  "  mmio_base            Phy:0x%x, V: 0x%x\n"
 		  "  framebuffer_base     Phy:0x%x, V: 0x%x\n"
 		  "  max proc num         %d\n"
@@ -160,7 +160,7 @@ static void show_config(void) {
 			_kernel_config.cores,
 			_kernel_config.timer_freq,
 			_sys_info.phy_offset,
-			_sys_info.phy_mem_size/1024/1024,
+			_sys_info.total_usable_mem_size/1024/1024,
 			(KMALLOC_END-KMALLOC_BASE) / (1*MB),
 			_allocable_phy_mem_base, _allocable_phy_mem_top,
 			(get_free_mem_size() / (1*MB)),

@@ -16,12 +16,6 @@
 #define KERNEL_BASE                    0x80000000 //=2G virtual address start base.
 #define INTERRUPT_VECTOR_BASE          0xffff0000
 
-#define DMA_SIZE (512*KB)
-
-#define MAX_MEM_SIZE                   (1*GB + 640*MB) //max usable memory for 32bits OS
-//#define MAX_MEM_SIZE                   (1*GB) //max usable memory for 32bits OS
-
-
 /* descriptor types */
 #define SMALL_PAGE_TYPE 2
 #define PAGE_DIR_2LEVEL_TYPE 1
