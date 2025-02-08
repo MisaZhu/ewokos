@@ -114,18 +114,17 @@ void sys_info_init_arch(void) {
 	_sys_info.mmio.size = 30*MB;
 
 	_allocable_phy_mem_base = V2P(get_allocable_start());
-	_sys_info.dma.phy_base = _allocable_phy_mem_base;
-	_sys_info.dma.size = DMA_SIZE;
-	_allocable_phy_mem_base += DMA_SIZE;
-
 #ifdef CLOCKWORK
 	//for clockwork framebuffer work around
 	_allocable_phy_mem_base += 16*MB;
 #endif
+	_sys_info.dma.phy_base = _allocable_phy_mem_base;
+	_sys_info.dma.size = DMA_SIZE;
+	_allocable_phy_mem_base += DMA_SIZE;
 
 	if(_sys_info.phy_mem_size <= 1*GB) {
 		_allocable_phy_mem_top = _sys_info.phy_offset +
-				_sys_info.phy_mem_size - FB_SIZE - _sys_info.dma.size;
+				_sys_info.phy_mem_size - FB_SIZE;
 	}
 	else {
 		_allocable_phy_mem_top = _sys_info.phy_offset + _sys_info.phy_mem_size;
@@ -141,7 +140,7 @@ void arch_vm(page_dir_entry_t* vm) {
 	uint32_t vbase = _sys_info.mmio.v_base + _core_base_offset;
 	uint32_t pbase = _sys_info.mmio.phy_base + _core_base_offset;
 	map_page(vm, vbase, pbase, AP_RW_D, PTE_ATTR_DEV);
-	map_page(vm, pbase, pbase, AP_RW_D, PTE_ATTR_DEV);
+	//map_page(vm, pbase, pbase, AP_RW_D, PTE_ATTR_DEV);
 
 #ifdef KCONSOLE
 	if(_sys_info.fb.v_base != 0) {
@@ -162,7 +161,7 @@ void start_core(uint32_t core_id) {
         return;
 
     uint32_t core_start_addr = (core_id * 0x10 + 0x8c) + 
-       _sys_info.mmio.phy_base + 
+       _sys_info.mmio.v_base + 
        _core_base_offset;
 
     put32(core_start_addr, __entry);
@@ -172,10 +171,10 @@ void start_core(uint32_t core_id) {
 
 void kalloc_arch(void) {
 	if(_sys_info.phy_mem_size > 1*GB) {
-		kalloc_append(P2V(_allocable_phy_mem_base), P2V(_sys_info.fb.phy_base));
+		//kalloc_append(P2V(_allocable_phy_mem_base), P2V(_sys_info.fb.phy_base));
+		kalloc_append(P2V(_allocable_phy_mem_base), P2V(0x3c100000));
 		kalloc_append(P2V(1*GB), P2V(_allocable_phy_mem_top));
 	}
-	else {
+	else
 		kalloc_append(P2V(_allocable_phy_mem_base), P2V(_allocable_phy_mem_top));
-	}
 }
