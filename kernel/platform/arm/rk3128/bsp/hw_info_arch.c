@@ -139,3 +139,7 @@ void arch_vm(page_dir_entry_t* vm) {
 	map_pages_size(vm, 0x6dd00000, 0x6dd00000, 1024*600*4, AP_RW_D, PTE_ATTR_WRBACK);	
 	map_pages_size(vm, 0x20000000, 0x20000000, 8*MB, AP_RW_D, PTE_ATTR_DEV);	
 }
+
+void kalloc_arch(void) {
+	kalloc_append(P2V(_allocable_phy_mem_base), P2V(_allocable_phy_mem_top));
+}

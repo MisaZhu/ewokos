@@ -31,6 +31,8 @@
 #define DMA_BASE                      (MMIO_END)
 #define DMA_END                       (DMA_BASE+DMA_SIZE)
 
+#define FB_BASE                       (DMA_END)
+
 #define USER_STACK_TOP                 (KERNEL_BASE - PAGE_SIZE)
 #define USER_STACK_MAX                 (64*MB)
 #define USER_STACK_BOTTOM              (USER_STACK_TOP - USER_STACK_MAX)

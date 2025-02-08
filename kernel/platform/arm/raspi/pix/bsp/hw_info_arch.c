@@ -114,17 +114,22 @@ void sys_info_init_arch(void) {
 	_sys_info.mmio.size = 30*MB;
 
 	_allocable_phy_mem_base = V2P(get_allocable_start());
+	_sys_info.dma.phy_base = _allocable_phy_mem_base;
+	_sys_info.dma.size = DMA_SIZE;
+	_allocable_phy_mem_base += DMA_SIZE;
 
 #ifdef CLOCKWORK
 	//for clockwork framebuffer work around
 	_allocable_phy_mem_base += 16*MB;
 #endif
 
-	_allocable_phy_mem_top = _sys_info.phy_offset +
-			_sys_info.phy_mem_size - FB_SIZE - _sys_info.dma.size;
-
-	_sys_info.dma.phy_base = _allocable_phy_mem_top;
-	_sys_info.dma.size = DMA_SIZE;
+	if(_sys_info.phy_mem_size <= 1*GB) {
+		_allocable_phy_mem_top = _sys_info.phy_offset +
+				_sys_info.phy_mem_size - FB_SIZE - _sys_info.dma.size;
+	}
+	else {
+		_allocable_phy_mem_top = _sys_info.phy_offset + _sys_info.phy_mem_size;
+	}
 #ifdef KERNEL_SMP
 	_sys_info.cores = get_cpu_cores();
 #else
@@ -139,17 +144,13 @@ void arch_vm(page_dir_entry_t* vm) {
 	map_page(vm, pbase, pbase, AP_RW_D, PTE_ATTR_DEV);
 
 #ifdef KCONSOLE
-#ifdef CLOCKWORK
-#else
-	fbinfo_t* fb_info = bcm283x_get_fbinfo();
-	if(fb_info->pointer != 0) {
+	if(_sys_info.fb.v_base != 0) {
 		map_pages_size(vm, 
-			fb_info->pointer,
-			V2P(fb_info->pointer),
-			fb_info->size_max,
+			_sys_info.fb.v_base,
+			_sys_info.fb.phy_base,
+			_sys_info.fb.size,
 			AP_RW_D, PTE_ATTR_DEV);
 	}
-#endif
 #endif
 }
 
@@ -168,3 +169,13 @@ void start_core(uint32_t core_id) {
     __asm__("sev");
 }
 #endif
+
+void kalloc_arch(void) {
+	if(_sys_info.phy_mem_size > 1*GB) {
+		kalloc_append(P2V(_allocable_phy_mem_base), P2V(_sys_info.fb.phy_base));
+		kalloc_append(P2V(1*GB), P2V(_allocable_phy_mem_top));
+	}
+	else {
+		kalloc_append(P2V(_allocable_phy_mem_base), P2V(_allocable_phy_mem_top));
+	}
+}

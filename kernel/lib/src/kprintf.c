@@ -17,7 +17,7 @@ static void out(const char* s) {
 #endif
 }
 
-#define PRINTF_BUF_MAX 512
+#define PRINTF_BUF_MAX 1024
 static uint32_t _len = 0;
 static char _buf[PRINTF_BUF_MAX];
 static void outc(char c, void* p) {

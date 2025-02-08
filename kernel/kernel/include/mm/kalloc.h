@@ -19,8 +19,9 @@ typedef struct {
 extern pages_ref_t _pages_ref;
 uint32_t page_ref_index(uint32_t paddr);
 
+void kalloc_reset(void);
 /* exported function declarations */
-uint32_t kalloc_init(uint32_t start, uint32_t end);
+uint32_t kalloc_append(uint32_t start, uint32_t end);
 void *kalloc4k(void);
 void kfree4k(void *page);
 void *kalloc1k(void);

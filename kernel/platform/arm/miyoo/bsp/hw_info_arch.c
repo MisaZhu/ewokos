@@ -87,3 +87,7 @@ void arch_vm(page_dir_entry_t* vm) {
 	map_page(vm, SECOND_START_ADDR_HI , SECOND_START_ADDR_HI, AP_RW_D, PTE_ATTR_DEV);
 #endif
 }
+
+void kalloc_arch(void) {
+	kalloc_append(P2V(_allocable_phy_mem_base), P2V(_allocable_phy_mem_top));
+}

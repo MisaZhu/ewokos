@@ -75,7 +75,6 @@ static void reset_kernel_vm(void) {
 static void map_allocable_pages(page_dir_entry_t* vm) {
 	//map kernel dma memory
 	map_pages_size(vm, _sys_info.dma.phy_base, _sys_info.dma.phy_base, _sys_info.dma.size, AP_RW_D, PTE_ATTR_WRBACK);
-
 	map_pages(vm,
 			P2V(_allocable_phy_mem_base),
 			_allocable_phy_mem_base,
@@ -93,7 +92,8 @@ static void init_kernel_vm(void) {
 	_pages_ref.max = 0;
 	_kernel_vm = (page_dir_entry_t*)KERNEL_PAGE_DIR_BASE;
 	//get kalloc(4k memblocks) ready just for kernel page tables.
-	kalloc_init(KERNEL_PAGE_DIR_BASE+PAGE_DIR_SIZE, KERNEL_PAGE_DIR_END); 
+	kalloc_reset();
+	kalloc_append(KERNEL_PAGE_DIR_BASE+PAGE_DIR_SIZE, KERNEL_PAGE_DIR_END); 
 
 	//switch to two-levels 4k page_size type paging
 	set_kernel_vm(_kernel_vm);
@@ -103,11 +103,13 @@ static void init_kernel_vm(void) {
 
 static void init_allocable_mem(void) {
 	//printf("kernel: kalloc init for allocable page dir\n");
-	kalloc_init(ALLOCABLE_PAGE_DIR_BASE, ALLOCABLE_PAGE_DIR_END); 
+	kalloc_append(ALLOCABLE_PAGE_DIR_BASE, ALLOCABLE_PAGE_DIR_END); 
 	//printf("kernel: mapping allocable pages\n");
 	map_allocable_pages(_kernel_vm);
 	
-	_pages_ref.max = kalloc_init(P2V(_allocable_phy_mem_base), P2V(_allocable_phy_mem_top));
+	//_pages_ref.max = kalloc_append(P2V(_allocable_phy_mem_base), P2V(_allocable_phy_mem_top));
+	kalloc_arch();
+	_pages_ref.max = (_allocable_phy_mem_top - _allocable_phy_mem_base) / PAGE_SIZE;
 	_pages_ref.refs = kmalloc(_pages_ref.max * sizeof(page_ref_t));	
 	_pages_ref.phy_base = _allocable_phy_mem_base;
 	memset(_pages_ref.refs, 0, _pages_ref.max * sizeof(page_ref_t));
@@ -145,8 +147,10 @@ static void show_config(void) {
 		  "  mem_offset           0x%x\n"
 		  "  mem_size             %d MB\n"
 		  "  kmalloc size         %d MB\n"
+		  "  mem phy info         base: 0x%x, top: 0x%x\n"
 		  "  allocable mem size   %d MB\n"
 		  "  mmio_base            Phy:0x%x, V: 0x%x\n"
+		  "  framebuffer_base     Phy:0x%x, V: 0x%x\n"
 		  "  max proc num         %d\n"
 		  "  max task total       %d\n"
 		  "  max task per proc    %d\n"
@@ -158,8 +162,10 @@ static void show_config(void) {
 			_sys_info.phy_offset,
 			_sys_info.phy_mem_size/1024/1024,
 			(KMALLOC_END-KMALLOC_BASE) / (1*MB),
+			_allocable_phy_mem_base, _allocable_phy_mem_top,
 			(get_free_mem_size() / (1*MB)),
 			_sys_info.mmio.phy_base, _sys_info.mmio.v_base,
+			_sys_info.fb.phy_base, _sys_info.fb.v_base,
 			_kernel_config.max_proc_num,
 			_kernel_config.max_task_num,
 			_kernel_config.max_task_per_proc);

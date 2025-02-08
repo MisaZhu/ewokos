@@ -25,6 +25,7 @@ typedef struct {
 
 static __attribute__((__aligned__(PAGE_SIZE))) fb_init_t _fbinit;
 int32_t fb_init_raw(uint32_t w, uint32_t h, uint32_t dep) {
+	uint32_t p_base = 0;
 #ifdef CLOCKWORK
 //for clockwork
 	_fb_info.width = w;
@@ -34,7 +35,7 @@ int32_t fb_init_raw(uint32_t w, uint32_t h, uint32_t dep) {
 	_fb_info.depth = dep;
 	_fb_info.pitch = _fb_info.width*(_fb_info.depth/8);
 
-	_fb_info.pointer = P2V(0xC00000); //GPU addr to ARM addr
+	p_base = (0xC00000); //GPU addr to ARM addr
 	_fb_info.size = w*h*(dep/8);
 	_fb_info.xoffset = 0;
 	_fb_info.yoffset = 0;
@@ -70,16 +71,21 @@ int32_t fb_init_raw(uint32_t w, uint32_t h, uint32_t dep) {
 	_fb_info.depth = fbinit->depth;
 	_fb_info.pitch = _fb_info.width*(_fb_info.depth/8);
 
-	_fb_info.pointer = P2V(((uint32_t)fbinit->pointer) & 0x3fffffff); //GPU addr to ARM addr
+	p_base = ((uint32_t)fbinit->pointer) & 0x3fffffff; //GPU addr to ARM addr
+	//_fb_info.pointer = P2V(((uint32_t)fbinit->pointer) & 0x3fffffff); //GPU addr to ARM addr
 	_fb_info.size = fbinit->size;
 	_fb_info.xoffset = 0;
 	_fb_info.yoffset = 0;
 	_fb_info.size_max = _fb_info.size;//_sys_info.phy_mem_size - (_fb_info.pointer-_sys_info.kernel_base);
 #endif	
 	//kfree4k(fbinit);
+	_fb_info.pointer = FB_BASE;
+	_sys_info.fb.v_base = _fb_info.pointer;
+	_sys_info.fb.phy_base = p_base;
+	_sys_info.fb.size = _fb_info.size;
 	map_pages_size(_kernel_vm, 
 		_fb_info.pointer,
-		V2P(_fb_info.pointer),
+		p_base,
 		_fb_info.size_max,
 		AP_RW_D, PTE_ATTR_DEV);
 	flush_tlb();

@@ -29,15 +29,17 @@ static page_list_t *page_list_prepend(page_list_t *page_list, char *page_address
 	return page;
 }
 
-/* kalloc_init adds the given address range to the free list. */
-uint32_t kalloc_init(uint32_t start, uint32_t end) {
+void kalloc_reset(void) {
+	_free_list4k = 0;
+	_free_list1k = 0;
+}
+
+/* kalloc_append adds the given address range to the free list. */
+uint32_t kalloc_append(uint32_t start, uint32_t end) {
 	char *start_address = (char *) ALIGN_UP(start, PAGE_SIZE);
 	char *end_address = (char *) ALIGN_DOWN(end, PAGE_SIZE);
 	char *current_page = 0;
 	uint32_t num = 0;
-
-	_free_list4k = 0;
-	_free_list1k = 0;
 
 	/* add each of the pages to the free list */
 	for (current_page = start_address; current_page != end_address;

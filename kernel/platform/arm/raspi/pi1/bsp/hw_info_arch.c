@@ -72,3 +72,7 @@ void arch_vm(page_dir_entry_t* vm) {
 	}
 #endif
 }
+
+void kalloc_arch(void) {
+	kalloc_append(P2V(_allocable_phy_mem_base), P2V(_allocable_phy_mem_top));
+}

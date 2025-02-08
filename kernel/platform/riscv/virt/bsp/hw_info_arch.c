@@ -48,3 +48,7 @@ void sys_info_init_arch(void) {
 void arch_vm(page_dir_entry_t* vm) {
 	map_pages(vm, INITRD_RAM_VADDR, INITRD_RAM_PADDR, INITRD_RAM_PADDR + INITRD_RAM_SIZE, AP_RW_D, PTE_ATTR_WRBACK);
 }
+
+void kalloc_arch(void) {
+	kalloc_append(P2V(_allocable_phy_mem_base), P2V(_allocable_phy_mem_top));
+}

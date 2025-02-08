@@ -44,3 +44,7 @@ void sys_info_init_arch(void) {
 void arch_vm(page_dir_entry_t* vm) {
 
 }
+
+void kalloc_arch(void) {
+	kalloc_append(P2V(_allocable_phy_mem_base), P2V(_allocable_phy_mem_top));
+}
