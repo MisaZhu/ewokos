@@ -171,6 +171,7 @@ void start_core(uint32_t core_id) {
 
 void kalloc_arch(void) {
 	if(_sys_info.phy_mem_size > 1*GB) {
+		//skip framebuffer mem block
 		//kalloc_append(P2V(_allocable_phy_mem_base), P2V(_sys_info.fb.phy_base));
 		kalloc_append(P2V(_allocable_phy_mem_base), P2V(0x3c100000));
 		kalloc_append(P2V(1*GB), P2V(_allocable_phy_mem_top));
