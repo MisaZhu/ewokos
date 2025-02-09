@@ -1387,6 +1387,9 @@ static int xserver_win_close(int fd, int from_pid, uint32_t node, fsinfo_t* fsin
 int xserver_step(void* p) {
 	x_t* x = (x_t*)p;
 
+	uint64_t tik = kernel_tic_ms(0);
+	uint32_t tm = 1000/x->config.fps;
+
 	ipc_disable();
 	check_wins(x);
 
@@ -1400,7 +1403,11 @@ int xserver_step(void* p) {
 	}
 	ipc_enable();
 
-	proc_usleep(1000000/x->config.fps);
+	uint32_t gap = (uint32_t)(kernel_tic_ms(0) - tik);
+	if(gap < tm) {
+		gap = tm - gap;
+		proc_usleep((tm-gap)*1000);
+	}
 	return 0;
 }
 
