@@ -1406,7 +1406,7 @@ int xserver_step(void* p) {
 	uint32_t gap = (uint32_t)(kernel_tic_ms(0) - tik);
 	if(gap < tm) {
 		gap = tm - gap;
-		proc_usleep((tm-gap)*1000);
+		proc_usleep(gap*1000);
 	}
 	return 0;
 }
