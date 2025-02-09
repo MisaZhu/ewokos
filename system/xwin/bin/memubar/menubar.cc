@@ -10,6 +10,8 @@ using namespace Ewok;
 
 class PowerInfo : public Widget {
 	int powerFD;
+	int batt;
+	int charging;
 
 	void drawCharging(graph_t* g, XTheme* theme, const grect_t& r, int bat) {
 		static int b = 0;
@@ -52,33 +54,38 @@ protected:
 	void onRepaint(graph_t* g, XTheme* theme, const grect_t& r) {
 		grect_t rb = {r.x+4, r.y+4, r.w-8, r.h-8};
 		drawBase(g, rb);
-
-		if(powerFD < 0)
-			powerFD = ::open("/dev/power0", O_RDONLY);
-
-		if(powerFD < 0)
-			return;
-
-		uint8_t buf[4];
-		if(read(powerFD, buf, 3) != 3)
-			return;
-			
-		if(buf[0] == 0)
-			return;
-
-		if(buf[1])
-			drawCharging(g, theme, rb, buf[2]);
+		if(charging)
+			drawCharging(g, theme, rb, batt);
 		else
-			drawBat(g, theme, rb, buf[2]);
+			drawBat(g, theme, rb, batt);
 	}
 
 	void onTimer(uint32_t timerFPS, uint32_t timerStep) {
+		if((timerStep % 4) == 0) {
+			if(powerFD < 0)
+				powerFD = ::open("/dev/power0", O_RDONLY);
+
+			if(powerFD < 0)
+				return;
+
+			uint8_t buf[4];
+			if(read(powerFD, buf, 3) != 3)
+				return;
+			if(buf[0] == 0)
+				return;
+
+			if(buf[1])
+				charging = 1;
+			batt = buf[2];
+		}
 		update();
 	}
 
 public:
 	inline PowerInfo() {
 		powerFD = -1;
+		batt = 0;
+		charging = 0;
 		setAlpha(true);
 	}
 	
@@ -123,7 +130,7 @@ int main(int argc, char** argv) {
 	powerInfo->fix(48, 0);
 	root->add(powerInfo);
 
-	win.open(&x, 0, 0, 0, scr.size.w, 20, "", XWIN_STYLE_SYSBOTTOM | XWIN_STYLE_NO_FRAME);
+	win.open(&x, 0, 0, 0, scr.size.w, 20, "", XWIN_STYLE_NO_FOCUS | XWIN_STYLE_SYSBOTTOM | XWIN_STYLE_NO_FRAME);
 	win.setTimer(2);
 	x.run(NULL, &win);
 	return 0;
