@@ -150,7 +150,7 @@ class FileGrid: public Grid {
 		closedir(dirp);
 		setItemNum(i);
 		itemStart = 0;
-		itemSelected = -1;
+		itemSelected = 0;
 		updateScroller();
 	}
 

@@ -48,6 +48,7 @@ void Menubar::onEnter(int index) {
 }
 
 Menubar::Menubar() {
+    itemSelected = -1;
 	setDefaultScrollType(Scrollable::SCROLL_TYPE_H);
     setItemSize(60);
 }

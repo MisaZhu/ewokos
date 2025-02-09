@@ -129,6 +129,8 @@ protected:
 	void drawItem(graph_t* g, XTheme* theme, int32_t index, const grect_t& r) {
 		if(index >= itemNum)
 			return;
+		if(index == itemSelected)
+			graph_fill_round(g, r.x, r.y, r.w, r.h, 6, theme->basic.selectBGColor);
 
 		drawIcon(g, index, theme, r.x , r.y, r.w, r.h);
 		drawTitle(g, index, theme, r.x , r.y, r.w, r.h);

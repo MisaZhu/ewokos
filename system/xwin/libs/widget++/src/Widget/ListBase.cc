@@ -8,7 +8,7 @@ ListBase::ListBase() {
 	itemNum = 0;
 	itemStart = 0;
 	itemMargin = 0;
-	itemSelected = -1;
+	itemSelected = 0;
 }
 
 ListBase::~ListBase(void) {
