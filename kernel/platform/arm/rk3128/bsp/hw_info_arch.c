@@ -127,6 +127,11 @@ void sys_info_init_arch(void) {
 
 	_allocable_phy_mem_base = V2P(get_allocable_start());
 	_allocable_phy_mem_top = _sys_info.phy_offset + _sys_info.total_usable_mem_size - 36*MB;
+
+    _sys_info.fb.phy_base = 0x6dd00000;
+    _sys_info.fb.v_base = FB_BASE;
+    _sys_info.fb.size = 1024*600*4;
+
 #ifdef KERNEL_SMP
 	_sys_info.cores = get_cpu_cores();
 #else
@@ -136,10 +141,18 @@ void sys_info_init_arch(void) {
 
 void arch_vm(page_dir_entry_t* vm) {
 	//map framebuffer
-	map_pages_size(vm, 0x6dd00000, 0x6dd00000, 1024*600*4, AP_RW_D, PTE_ATTR_WRBACK);	
+	map_pages_size(vm, _sys_info.fb.v_base, _sys_info.fb.phy_base, _sys_info.fb.size, AP_RW_D, PTE_ATTR_WRBACK);	
 	map_pages_size(vm, 0x20000000, 0x20000000, 8*MB, AP_RW_D, PTE_ATTR_DEV);	
 }
 
 void kalloc_arch(void) {
 	kalloc_append(P2V(_allocable_phy_mem_base), P2V(_allocable_phy_mem_top));
+}
+
+int32_t  check_mem_map_arch(uint32_t phy_base, uint32_t size) {
+	if(phy_base >= _sys_info.fb.phy_base && size <= _sys_info.fb.size)
+		return 0;
+	if(phy_base >= _sys_info.mmio.phy_base && size <= _sys_info.mmio.size)
+		return 0;
+	return -1;
 }

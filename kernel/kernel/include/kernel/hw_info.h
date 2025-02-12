@@ -14,5 +14,6 @@ extern void       sys_info_init_arch(void);
 extern void       sys_info_init(void);
 extern void       arch_vm(page_dir_entry_t* vm);
 extern void       kalloc_arch(void);
+extern int32_t    check_mem_map_arch(uint32_t phy_base, uint32_t size);
 
 #endif
