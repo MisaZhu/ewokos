@@ -37,21 +37,21 @@ int main(int argc, char **argv) {
 	stream_pos = (unsigned char *) file_data;
 
 	mp3dec_init(&mp3);
-	int size = mp3dec_decode_frame(&mp3, stream_pos, bytes_left, sample_buf, &info);
+	int simples = mp3dec_decode_frame(&mp3, stream_pos, bytes_left, sample_buf, &info);
 
-	if (size == 0) {
+	if (simples == 0) {
 		fprintf(stderr, "Error: not a valid MP3 audio file!\n");
 		free(file_data);
 		return 1;
 	}
 
 	fprintf(stderr, "sound write: %d ... \n", bytes_left);
-	while ((bytes_left >= 0) && (size > 0)) {
+	while ((bytes_left >= 0) && (simples > 0)) {
 		stream_pos += info.frame_bytes;
 		bytes_left -= info.frame_bytes;
-		int sz = write(fd, (const void *) sample_buf, size);
+		int sz = write(fd, (const void *) sample_buf, simples * 4);
 		//fprintf(stderr, "sound write: %d on %d, left: %d\n", sz, size, bytes_left);
-		size = mp3dec_decode_frame(&mp3, stream_pos, bytes_left, sample_buf, &info);
+		simples = mp3dec_decode_frame(&mp3, stream_pos, bytes_left, sample_buf, &info);
 	}
 	fprintf(stderr, "done.\n");
 	free(file_data);
