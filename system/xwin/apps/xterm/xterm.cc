@@ -170,10 +170,11 @@ static void timer_handler(void) {
 
 static void win_loop(void* p) {
 	ipc_disable();
-	if(_xwin->isDirty())
+	if(_xwin->isDirty()) {
 		_xwin->repaint();
+	}
 	ipc_enable();
-	proc_usleep(10000);
+	proc_usleep(30000);
 }
 
 static bool _win_opened = false;

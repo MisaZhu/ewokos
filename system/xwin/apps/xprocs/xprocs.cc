@@ -116,6 +116,8 @@ protected:
 		}
 		else if(col == 5) {
 			str = proc->cmd;
+			if(proc->type != TASK_TYPE_PROC)
+				str += "[t]";
 		}
 		int load = proc->run_usec/10000;
 		if(load >= 80)
