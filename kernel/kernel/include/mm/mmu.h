@@ -25,7 +25,7 @@
 #define KMALLOC_BASE                  KERNEL_VSYSCALL_INFO_END
 #define KMALLOC_END                   (KMALLOC_BASE + get_kmalloc_size())
 
-#define MAX_USABLE_MEM_SIZE           (1*GB + 768*MB) //max usable memory for 32bits OS
+#define MAX_USABLE_MEM_SIZE           (1*GB + 640*MB) //max usable memory for 32bits OS
 #define MMIO_BASE                     (KERNEL_BASE + MAX_USABLE_MEM_SIZE)
 #define MMIO_END                      (MMIO_BASE + _sys_info.mmio.size)
 

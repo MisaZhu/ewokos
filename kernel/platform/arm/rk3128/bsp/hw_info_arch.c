@@ -142,7 +142,8 @@ void sys_info_init_arch(void) {
 void arch_vm(page_dir_entry_t* vm) {
 	//map framebuffer
 	map_pages_size(vm, _sys_info.fb.v_base, _sys_info.fb.phy_base, _sys_info.fb.size, AP_RW_D, PTE_ATTR_WRBACK);	
-	map_pages_size(vm, 0x20000000, 0x20000000, 8*MB, AP_RW_D, PTE_ATTR_DEV);	
+	map_pages_size(vm, _sys_info.mmio.phy_base+0x10000000, _sys_info.mmio.phy_base+0x10000000, _sys_info.mmio.size, AP_RW_D, PTE_ATTR_DEV);	
+	map_pages_size(vm, _sys_info.mmio.v_base+0x10000000, _sys_info.mmio.phy_base+0x10000000, _sys_info.mmio.size, AP_RW_D, PTE_ATTR_DEV);	
 }
 
 void kalloc_arch(void) {
@@ -153,6 +154,8 @@ int32_t  check_mem_map_arch(uint32_t phy_base, uint32_t size) {
 	if(phy_base >= _sys_info.fb.phy_base && size <= _sys_info.fb.size)
 		return 0;
 	if(phy_base >= _sys_info.mmio.phy_base && size <= _sys_info.mmio.size)
+		return 0;
+	if(phy_base >= (_sys_info.mmio.phy_base+0x10000000) && size <= _sys_info.mmio.size)
 		return 0;
 	return -1;
 }

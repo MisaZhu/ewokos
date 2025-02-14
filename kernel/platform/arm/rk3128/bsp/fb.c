@@ -1,5 +1,6 @@
 #include <dev/fb.h>
 #include <graph/graph.h>
+#include <kernel/hw_info.h>
 #include <kstring.h>
 #include <stdbool.h>
 #include <stdint.h>
@@ -16,7 +17,7 @@ int32_t fb_init_bsp(uint32_t w, uint32_t h, uint8_t dep, fbinfo_t* fbinfo) {
 	fbinfo->vwidth = 1024;
 	fbinfo->vheight = 600;
 	fbinfo->depth = 32;
-	fbinfo->pointer = 0x6dd00000;
+	fbinfo->pointer = _sys_info.fb.v_base;
 	fbinfo->size = 1024 * 600 * 4;
 
 	_fb_pointer = (void*)fbinfo->pointer;
