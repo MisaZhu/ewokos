@@ -19,7 +19,8 @@ void sys_info_init_arch(void) {
 
 	strcpy(_sys_info.machine, "nezha");
 	strcpy(_sys_info.arch, "risc-v rv64");
-	_sys_info.total_usable_mem_size = 1*GB;
+	_sys_info.total_phy_mem_size = 1*GB;
+	_sys_info.total_usable_mem_size = _sys_info.total_phy_mem_size;
 	_sys_info.phy_offset = 0x40000000;
 	_sys_info.vector_base = 0x41000000;
 	_sys_info.kernel_base = KERNEL_BASE;

@@ -36,6 +36,7 @@ typedef struct {
 typedef struct {
 	char        machine[MACHINE_MAX];
 	char        arch[ARCH_MAX];
+	uint32_t    total_phy_mem_size;
 	uint32_t    total_usable_mem_size;
 	uint32_t    phy_offset;
 	uint32_t    kernel_base;

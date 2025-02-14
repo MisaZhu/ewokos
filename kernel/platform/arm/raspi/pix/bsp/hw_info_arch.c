@@ -29,82 +29,83 @@ void sys_info_init_arch(void) {
 
 	if(pix_revision == PI_4B_1G) {
 		strcpy(_sys_info.machine, "raspberry-pi4b-1g");
-		_sys_info.total_usable_mem_size = 1u*GB;
+		_sys_info.total_phy_mem_size = 1u*GB;
 		_sys_info.mmio.phy_base = 0xfe000000;
 		_core_base_offset =  0x01800000;
 		_pi4 = 1;
 	}
 	else if(pix_revision == PI_4B_2G) {
 		strcpy(_sys_info.machine, "raspberry-pi4b-2G");
-		_sys_info.total_usable_mem_size = 2u*GB;
+		_sys_info.total_phy_mem_size = 2u*GB;
 		_sys_info.mmio.phy_base = 0xfe000000;
 		_core_base_offset =  0x01800000;
 		_pi4 = 1;
 	}
 	else if(pix_revision == PI_4B_4G) {
 		strcpy(_sys_info.machine, "raspberry-pi4b-4G");
-		_sys_info.total_usable_mem_size = 4u*GB;
+		_sys_info.total_phy_mem_size = 4u*GB;
 		_sys_info.mmio.phy_base = 0xfe000000;
 		_core_base_offset =  0x01800000;
 		_pi4 = 1;
 	}
 	else if(pix_revision == PI_4B_8G) {
 		strcpy(_sys_info.machine, "raspberry-pi4b-8G");
-		_sys_info.total_usable_mem_size = 4u*GB; //max for 32bits os
+		_sys_info.total_phy_mem_size = 4u*GB; //max for 32bits os
 		_sys_info.mmio.phy_base = 0xfe000000;
 		_core_base_offset =  0x01800000;
 		_pi4 = 1;
 	}
 	else if(pix_revision == PI_CM4_1G) {
 		strcpy(_sys_info.machine, "raspberry-cm4-1g");
-		_sys_info.total_usable_mem_size = 1u*GB;
+		_sys_info.total_phy_mem_size = 1u*GB;
 		_sys_info.mmio.phy_base = 0xfe000000;
 		_core_base_offset =  0x01800000;
 		_pi4 = 1;
 	}
 	else if(pix_revision == PI_CM4_2G) {
 		strcpy(_sys_info.machine, "raspberry-cm4-2G");
-		_sys_info.total_usable_mem_size = 2u*GB;
+		_sys_info.total_phy_mem_size = 2u*GB;
 		_sys_info.mmio.phy_base = 0xfe000000;
 		_core_base_offset =  0x01800000;
 		_pi4 = 1;
 	}
 	else if(pix_revision == PI_CM4_4G) {
 		strcpy(_sys_info.machine, "raspberry-cm4-4G");
-		_sys_info.total_usable_mem_size = 2u*GB;
+		_sys_info.total_phy_mem_size = 2u*GB;
 		_sys_info.mmio.phy_base = 0xfe000000;
 		_core_base_offset =  0x01800000;
 		_pi4 = 1;
 	}
 	else if(pix_revision == PI_CM3_1G) {
 		strcpy(_sys_info.machine, "raspberry-cm3-1G");
-		_sys_info.total_usable_mem_size = 1u*GB;
+		_sys_info.total_phy_mem_size = 1u*GB;
 		_sys_info.mmio.phy_base = 0xfe000000;
 		_core_base_offset =  0x01800000;
 		_pi4 = 1;
 	}
 	else if(pix_revision == PI_2B) {
 		strcpy(_sys_info.machine, "raspberry-pi2b");
-		_sys_info.total_usable_mem_size = 1u*GB;
+		_sys_info.total_phy_mem_size = 1u*GB;
 		_sys_info.mmio.phy_base = 0x3f000000;
 		_uart_type = UART_PL011;
 	}
 	else if(pix_revision == PI_3A) {
 		strcpy(_sys_info.machine, "raspberry-pi3a");
-		_sys_info.total_usable_mem_size = 512*MB;
+		_sys_info.total_phy_mem_size = 512*MB;
 		_sys_info.mmio.phy_base = 0x3f000000;
 	}
 	else if(pix_revision == PI_0_2W) {
 		strcpy(_sys_info.machine, "raspberry-pi2w");
-		_sys_info.total_usable_mem_size = 512*MB;
+		_sys_info.total_phy_mem_size = 512*MB;
 		_sys_info.mmio.phy_base = 0x3f000000;
 	}
 	else if(pix_revision == PI_3B) {
 		strcpy(_sys_info.machine, "raspberry-pi3b");
-		_sys_info.total_usable_mem_size = 1u*GB;
+		_sys_info.total_phy_mem_size = 1u*GB;
 		_sys_info.mmio.phy_base = 0x3f000000;
 	}
 
+	_sys_info.total_usable_mem_size = _sys_info.total_phy_mem_size;
 	if(_sys_info.total_usable_mem_size > (uint32_t)MAX_USABLE_MEM_SIZE)
 		_sys_info.total_usable_mem_size = MAX_USABLE_MEM_SIZE;
 

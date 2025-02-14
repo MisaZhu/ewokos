@@ -146,7 +146,8 @@ static void show_config(void) {
 		  "  kernel_timer_freq    %d\n"
 		  "  mem_offset           0x%08x\n"
 		  "  mem phy info         base: 0x08%x, top: 0x08%x\n"
-		  "  mem_info             %d/%d MB\n"
+		  "  phy mem size         %d MB\n"
+		  "  usable mem size      %d MB\n"
 		  "  kmalloc size         %d MB\n"
 		  "  mmio_base            Phy:0x%08x, V: 0x%08x\n"
 		  "  framebuffer_base     Phy:0x%08x, V: 0x%08x\n"
@@ -160,7 +161,8 @@ static void show_config(void) {
 			_kernel_config.timer_freq,
 			_sys_info.phy_offset,
 			_allocable_phy_mem_base, _allocable_phy_mem_top,
-			(get_free_mem_size() / (1*MB)), _sys_info.total_usable_mem_size/(1*MB),
+			_sys_info.total_usable_mem_size / (1*MB),
+			_sys_info.total_phy_mem_size/(1*MB),
 			(KMALLOC_END-KMALLOC_BASE) / (1*MB),
 			_sys_info.mmio.phy_base, _sys_info.mmio.v_base,
 			_sys_info.fb.phy_base, _sys_info.fb.v_base,
