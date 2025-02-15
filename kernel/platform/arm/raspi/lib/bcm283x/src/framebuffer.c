@@ -40,7 +40,7 @@ int32_t fb_init_raw(uint32_t w, uint32_t h, uint32_t dep) {
 	_fb_info.size = w*h*(dep/8);
 	_fb_info.xoffset = 0;
 	_fb_info.yoffset = 0;
-	_fb_info.size_max = w*h*(dep/8);
+	_fb_info.size_max = 32*MB;
 #else
 	fb_init_t* fbinit = &_fbinit;
 	//fb_init_t* fbinit = (fb_init_t*)kalloc4k();
@@ -74,10 +74,10 @@ int32_t fb_init_raw(uint32_t w, uint32_t h, uint32_t dep) {
 
 	p_base = ((uint32_t)fbinit->pointer) & 0x3fffffff; //GPU addr to ARM addr
 	//_fb_info.pointer = P2V(((uint32_t)fbinit->pointer) & 0x3fffffff); //GPU addr to ARM addr
-	_fb_info.size = fbinit->size;
 	_fb_info.xoffset = 0;
 	_fb_info.yoffset = 0;
-	_fb_info.size_max = _fb_info.size;//_sys_info.total_usable_mem_size - (_fb_info.pointer-_sys_info.kernel_base);
+	_fb_info.size_max = 32*MB;
+	_fb_info.size = _fb_info.size_max;
 	_fb_info.pointer = FB_BASE;
 #endif	
 	//kfree4k(fbinit);

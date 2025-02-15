@@ -22,8 +22,9 @@
 #define KERNEL_VSYSCALL_INFO_BASE     ALLOCABLE_PAGE_DIR_END
 #define KERNEL_VSYSCALL_INFO_END      (KERNEL_VSYSCALL_INFO_BASE+4*KB)
 
+#define KMALLOC_SIZE                  (16*MB)
 #define KMALLOC_BASE                  KERNEL_VSYSCALL_INFO_END
-#define KMALLOC_END                   (KMALLOC_BASE + get_kmalloc_size())
+#define KMALLOC_END                   (KMALLOC_BASE + KMALLOC_SIZE)
 
 #define MAX_USABLE_MEM_SIZE           (1*GB + 640*MB) //max usable memory for 32bits OS
 #define MMIO_BASE                     (KERNEL_BASE + MAX_USABLE_MEM_SIZE)

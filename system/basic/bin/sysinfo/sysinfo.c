@@ -21,9 +21,9 @@ int main(int argc, char* argv[]) {
 		"phy mem size       %d MB\n"
 		"usable mem size    %d MB\n"
 		"free mem           %d MB\n"
-		"dma                phy:0x%08x, V:0x%08x, size:%d KB\n"
-		"mmio_base          Phy:0x%08x, V:0x%08x, size:%d MB\n"
-		"framebuffer_base   Phy:0x%08x, V:0x%08x\n",
+		"dma                phy:0x%08x, V:0x%08x (%d KB)\n"
+		"mmio_base          Phy:0x%08x, V:0x%08x (%d MB)\n"
+		"framebuffer_base   Phy:0x%08x, V:0x%08x (%d MB)\n",
 		sys_info.machine,
 		sys_info.arch,
 		sys_info.cores,
@@ -32,7 +32,7 @@ int main(int argc, char* argv[]) {
 		fr_mem,
 		sys_info.dma.phy_base, sys_info.dma.v_base, sys_info.dma.size/(1024),
 		sys_info.mmio.phy_base, sys_info.mmio.v_base, sys_info.mmio.size/(1024*1024),
-		sys_info.fb.phy_base, sys_info.fb.v_base);
+		sys_info.fb.phy_base, sys_info.fb.v_base, sys_info.fb.size/(1024*1024));
 
 	return 0;
 }

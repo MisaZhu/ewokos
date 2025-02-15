@@ -95,13 +95,4 @@ void load_kernel_config(void) {
 
 	if(_kernel_config.fb.depth == 0)
 		_kernel_config.fb.depth = 32;
-
-
-	_kernel_config.kmalloc_size = MIN_KMALLOC_SIZE + 
-			_kernel_config.max_proc_num * (PAGE_DIR_SIZE) +
-			_kernel_config.max_task_num*sizeof(proc_t);
-
-#ifdef KCONSOLE
-	_kernel_config.kmalloc_size += (_kernel_config.fb.width*_kernel_config.fb.height*4)*2;
-#endif
 }

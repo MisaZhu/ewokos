@@ -6,10 +6,6 @@
 #include <stdint.h>
 #include <mm/mmu.h>
 
-#define MIN_KMALLOC_SIZE  (8*MB)
-
-uint32_t get_kmalloc_size(void); 
-
 void* kmalloc(uint32_t size);
 void* kcalloc(uint32_t nmemb, uint32_t size);
 void  kfree(void* p);

@@ -29,7 +29,6 @@ typedef struct {
 	uint32_t cores;
 	uint32_t uart_baud;
 
-	uint32_t kmalloc_size;
 	uint32_t max_proc_num;
 	uint32_t max_task_num;
 	uint32_t max_task_per_proc;
