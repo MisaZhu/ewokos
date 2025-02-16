@@ -11,6 +11,7 @@ int main(int argc, char* argv[]) {
 	syscall1(SYS_GET_SYS_INFO, (int32_t)&sys_info);
 	syscall1(SYS_GET_SYS_STATE, (int32_t)&sys_state);
 	uint32_t fr_mem = sys_state.mem.free / (1024*1024);
+	uint32_t kfr_mem = sys_state.mem.kfree / (1024*1024);
 	uint32_t phy_mem = sys_info.total_phy_mem_size / (1024*1024);
 	uint32_t t_mem = sys_info.total_usable_mem_size / (1024*1024);
 
@@ -18,6 +19,7 @@ int main(int argc, char* argv[]) {
 		"machine            %s\n" 
 		"arch               %s\n"
 		"cores              %d\n"
+		"kmalloc free       %d/%d MB\n"
 		"phy mem size       %d MB\n"
 		"usable mem size    %d MB\n"
 		"free mem           %d MB\n"
@@ -27,6 +29,7 @@ int main(int argc, char* argv[]) {
 		sys_info.machine,
 		sys_info.arch,
 		sys_info.cores,
+		kfr_mem, sys_info.kmalloc_size/(1024*1024),
 		phy_mem,
 		t_mem,
 		fr_mem,

@@ -18,6 +18,7 @@ typedef struct {
 	int32_t (*expand)(void* arg, int32_t pages);
 	void (*shrink)(void* arg, int32_t pages);
 	void* (*get_mem_tail)(void*);
+	void* (*get_mem_top)(void*);
 
 	mem_block_t* head;
 	mem_block_t* tail;
@@ -25,6 +26,7 @@ typedef struct {
 } malloc_t;
 
 char* trunk_malloc(malloc_t* m, uint32_t size);
+uint32_t trunk_free_size(malloc_t* m);
 uint32_t trunk_msize(malloc_t* m, char* p);
 void  trunk_free(malloc_t* m, char* p);
 

@@ -39,9 +39,7 @@ void sys_info_init_arch(void) {
 	_sys_info.phy_offset = 0;
 	_sys_info.total_phy_mem_size = 512*MB;
 	_sys_info.total_usable_mem_size = _sys_info.total_phy_mem_size;
-	_sys_info.kernel_base = KERNEL_BASE;
 	_sys_info.mmio.phy_base = 0x20000000;
-	_sys_info.mmio.v_base = MMIO_BASE;
 	_sys_info.mmio.size = 16*MB;
 
 	_sys_info.dma.size = DMA_SIZE;

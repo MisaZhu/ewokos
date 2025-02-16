@@ -103,6 +103,19 @@ char* trunk_malloc(malloc_t* m, uint32_t size) {
 	return block->mem;
 }
 
+uint32_t trunk_free_size(malloc_t* m) {
+	uint32_t ret = m->get_mem_top(m->arg) - m->get_mem_tail(m->arg);
+	//mem_block_t* block = m->start == NULL ? m->head : m->start;
+	mem_block_t* block = m->head;
+	while(block != NULL) {
+		if(!block->used) {
+			ret += block->size;
+		}
+		block = block->next;
+	}
+	return ret;
+}
+
 /*
 try to merge around free blocks.
 */

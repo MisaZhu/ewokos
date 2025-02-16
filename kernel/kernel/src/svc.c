@@ -230,6 +230,7 @@ static void	sys_get_sys_state(sys_state_t* info) {
 		return;
 
 	info->mem.free = get_free_mem_size();
+	info->mem.kfree = kmalloc_free_size();
 	info->mem.shared = shm_alloced_size();
 	info->kernel_usec = _kernel_usec;
 	info->svc_total = _svc_total;

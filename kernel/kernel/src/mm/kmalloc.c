@@ -34,12 +34,18 @@ static void* km_get_mem_tail(void* arg) {
 	return (void*)_kmalloc_mem_tail;
 }
 
+static void* km_get_mem_top(void* arg) {
+	(void)arg;
+	return (void*)KMALLOC_END;
+}
+
 void kmalloc_init() {
 	memset(&_kmalloc, 0, sizeof(malloc_t));
 	_kmalloc_mem_tail = KMALLOC_BASE;
 	_kmalloc.expand = km_expand;
 	_kmalloc.shrink = km_shrink;
 	_kmalloc.get_mem_tail = km_get_mem_tail;
+	_kmalloc.get_mem_top = km_get_mem_top;
 	_kmalloc.arg = NULL;
 }
 
@@ -61,4 +67,8 @@ void kfree(void* p) {
 	if(p == 0)
 		return;
 	trunk_free(&_kmalloc, p);
+}
+
+uint32_t  kmalloc_free_size(void) {
+	return trunk_free_size(&_kmalloc);
 }

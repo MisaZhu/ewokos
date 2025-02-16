@@ -110,8 +110,6 @@ void sys_info_init_arch(void) {
 		_sys_info.total_usable_mem_size = MAX_USABLE_MEM_SIZE;
 
 	strcpy(_sys_info.arch, "armv7");
-	_sys_info.kernel_base = KERNEL_BASE;
-	_sys_info.mmio.v_base = MMIO_BASE;
 	_sys_info.mmio.size = 30*MB;
 
 	_allocable_phy_mem_base = V2P(get_allocable_start());

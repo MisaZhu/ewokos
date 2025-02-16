@@ -10,5 +10,6 @@ void* kmalloc(uint32_t size);
 void* kcalloc(uint32_t nmemb, uint32_t size);
 void  kfree(void* p);
 void  kmalloc_init(void);
+uint32_t  kmalloc_free_size(void);
 
 #endif

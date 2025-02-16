@@ -18,6 +18,7 @@ typedef struct {
 
 typedef struct {
 	uint32_t free;
+	uint32_t kfree;
 	uint32_t shared;
 } mem_info_t;
 
@@ -37,6 +38,7 @@ typedef struct {
 	char        machine[MACHINE_MAX];
 	char        arch[ARCH_MAX];
 	uint32_t    total_phy_mem_size;
+	uint32_t    kmalloc_size;
 	uint32_t    total_usable_mem_size;
 	uint32_t    phy_offset;
 	uint32_t    kernel_base;
