@@ -5,13 +5,13 @@ LD = arm-none-eabi-ld
 OBJDUMP = arm-none-eabi-objdump
 
 CFLAGS = -marm \
-	-mfloat-abi=softfp \
+	-mfloat-abi=softfp -mfpu=neon-vfpv4 -mcpu=cortex-a7 \
         -Wall -Wextra -fPIC -mapcs-frame \
         -Wno-unused-parameter \
         -std=c99
 
 CXXFLAGS = -marm \
-	-mfloat-abi=softfp \
+	-mfloat-abi=softfp -mfpu=neon-vfpv4 -mcpu=cortex-a7 \
         -Wall -Wextra -fPIC -mapcs-frame \
         -Wno-unused-parameter \
         -pedantic \
