@@ -1,4 +1,4 @@
-SYS_DIR=../../../../../
+SYS_DIR=../../../../..
 include $(SYS_DIR)/platform/arm/make.rule
 
 BUILD_DIR = $(SYS_DIR)/build

@@ -5,7 +5,7 @@ INST_DIR = /usr/local/ewokos
 HW=raspix
 
 export ARCH=arm
-export G_2D_BOOST=yes
+export NEON=yes
 export BSP_LFLAGS= -larch_bcm283x
 
 all: x

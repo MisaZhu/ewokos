@@ -5,7 +5,7 @@ TARGET_DIR = $(BUILD_DIR)/rootfs
 HW=rk3128
 
 export ARCH=arm
-export G_2D_BOOST=yes
+export NEON=yes
 export BSP_LFLAGS= -larch_rk3128
 
 all: basic_sys

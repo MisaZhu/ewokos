@@ -8,7 +8,7 @@
 extern "C" { 
 #endif
 
-#ifdef GRAPH_2D_BOOST
+#ifdef NEON_BOOST
 
 #define MIN(a, b) (((a) > (b))?(b):(a))
 
