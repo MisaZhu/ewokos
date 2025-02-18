@@ -123,50 +123,6 @@ void graph_gray(graph_t* g) {
 	}
 }
 
-#include <arm_neon.h>
-
-// 定义 ARGB 像素结构体
-typedef struct {
-    unsigned char a;
-    unsigned char r;
-    unsigned char g;
-    unsigned char b;
-} ARGBPixel;
-
-// 旋转图像函数
-void rotateImageNEON(ARGBPixel *src, ARGBPixel *dst, int width, int height, int srcStride, int dstStride) {
-    // 处理未对齐的起始部分
-    int alignedWidth = (width / 4) * 4;
-    for (int y = 0; y < height; y++) {
-        for (int x = 0; x < width % 4; x++) {
-            int newX = height - y - 1;
-            int newY = x;
-            dst[newY * dstStride + newX] = src[y * srcStride + x];
-        }
-    }
-
-    // 使用 NEON 处理对齐的数据块
-    for (int y = 0; y < height; y++) {
-        for (int x = width % 4; x < alignedWidth; x ++) {
-            int newX = height - y - 1;
-            int newY = x;
-            // 并行加载 4 个 ARGB 像素
-            uint8x16_t pixelVec = vld1q_u8((const uint8_t *)&src[y * srcStride + x]);
-            // 存储到目标位置
-            vst1q_u8((uint8_t *)&dst[newY * dstStride + newX], pixelVec);
-        }
-    }
-
-    // 处理未对齐的结束部分
-    for (int y = 0; y < height; y++) {
-        for (int x = alignedWidth; x < width; x++) {
-            int newX = height - y - 1;
-            int newY = x;
-            dst[newY * dstStride + newX] = src[y * srcStride + x];
-        }
-    }
-}
-
 
 void graph_rotate_to(graph_t* g, graph_t* ret, int rot) {
 	if(g == NULL || ret == NULL)
@@ -182,7 +138,7 @@ void graph_rotate_to(graph_t* g, graph_t* ret, int rot) {
 		}
 		*/
 		
-		/*int w0 = (ret->h+1) * ret->w - 1;
+		int w0 = (ret->h+1) * ret->w - 1;
 		for(int i=0; i<g->w; ++i) {
 			w0 -= ret->w;
 			int w1 = -i - 1;
@@ -191,8 +147,6 @@ void graph_rotate_to(graph_t* g, graph_t* ret, int rot) {
 				ret->buffer[w0 - j] = g->buffer[w1];
 			}
 		}
-		*/
-		rotateImageNEON(g->buffer, ret->buffer, g->w, g->h, g->w, g->h);
 	}
 	else if(rot == G_ROTATE_N90) {
 		int w0 = -(ret->w);
