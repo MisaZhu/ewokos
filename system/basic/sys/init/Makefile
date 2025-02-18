@@ -1,4 +1,4 @@
-SYS_DIR=../../../
+SYS_DIR=../../..
 include $(SYS_DIR)/platform/$(ARCH)/make.rule
 
 BUILD_DIR = $(SYS_DIR)/build
@@ -10,7 +10,7 @@ CFLAGS += -I $(BUILD_DIR)/include
 
 INIT_OBJS = init.o 
 	
-INIT = $(TARGET_DIR)/$(ROOT_DIR)/sbin/init
+INIT = $(TARGET_DIR)/sbin/init
 
 $(INIT): $(INIT_OBJS) \
 		$(EWOK_LIBC_A)  \

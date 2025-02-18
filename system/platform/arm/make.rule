@@ -5,19 +5,22 @@ LD = arm-none-eabi-ld
 OBJDUMP = arm-none-eabi-objdump
 
 CFLAGS = -marm \
-	-mfloat-abi=softfp -mfpu=neon-vfpv4 -mcpu=cortex-a7 \
+	-mfloat-abi=softfp \
         -Wall -Wextra -fPIC -mapcs-frame \
         -Wno-unused-parameter \
         -std=c99
 
 CXXFLAGS = -marm \
-	-mfloat-abi=softfp -mfpu=neon-vfpv4 -mcpu=cortex-a7 \
+	-mfloat-abi=softfp \
         -Wall -Wextra -fPIC -mapcs-frame \
         -Wno-unused-parameter \
         -pedantic \
 	-fno-rtti \
         -fno-exceptions \
         -std=c++14
+
+#CFLAGS += -mfpu=neon-vfpv4 -mcpu=cortex-a7 
+#CXXFLAGS += -mfpu=neon-vfpv4 -mcpu=cortex-a7 
        
 EWOK_LIBC = -lewoksys -lc -lgloss -lsoftfloat
 EWOK_LIB_GRAPH = -lttf -lfont -lupng -lgraph -lkeyb -lmouse -lbsp $(BSP_LFLAGS)

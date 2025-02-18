@@ -1,4 +1,4 @@
-SYS_DIR=../../../
+SYS_DIR=../../..
 include $(SYS_DIR)/platform/$(ARCH)/make.rule
 
 BUILD_DIR = $(SYS_DIR)/build
@@ -10,7 +10,7 @@ CFLAGS += -I $(BUILD_DIR)/include
 
 VFSD_OBJS = vfsd.o 
 	
-VFSD = $(TARGET_DIR)/$(ROOT_DIR)/sbin/vfsd
+VFSD = $(TARGET_DIR)/sbin/vfsd
 
 $(VFSD): $(VFSD_OBJS) \
 		$(EWOK_LIBC_A) 
