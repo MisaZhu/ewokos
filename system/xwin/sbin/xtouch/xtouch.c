@@ -142,9 +142,10 @@ int main(int argc, char** argv) {
 			ty = ty < 0 ? 0 : ty;
 
 			input(mv[0], tx, ty);
+			proc_usleep(30000);
 		}
 		else
-			proc_usleep(10000);
+			proc_usleep(50000);
 	}
 
 	close(fd);
