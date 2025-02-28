@@ -14,7 +14,6 @@
 	-multi thread
 	-ipc
 	-virtual fs service(everythig is a file)
-	-very simple ramdisk for initrd
 	-framebuffer device service for graphics
 	-uart device service
 	-SD card
@@ -78,48 +77,18 @@
 	
 .make rootfs (system/root.ext2)
 	
-	"cd system; make/make full(with xgui)/make extra(with xgui and extra apps"; make sd:
+	"cd system; make basic/make gui(with fbgui)/make(with xgui and extra apps"; make sd:
 	  build EwokOS rootfs apps and sd file system.
 	
 .run by qemu (raspi2)
 	
-	"cd kernel/build/raspi/pi2.3"
+	"cd kernel/build/raspi/pix"
 	"make run":
 	  run EwokOS(username: root, password: (none));
 	"make debug":
 	  run EwokOS at debug server-mode.
 	"make gdb":
 	  debug EwokOS (debug client-mode).
-
-.xmake build system
-
-    "xmake":
-        build kernel && system
-
-    "xmake b xxx":
-        only build package xxx
-        package list:
-           kernel
-           system
-           rootfs
-           ...
-
-    "xmake f -p xxx"
-        switch platform to "xxx", defalut is miyoo
-        platform list:
-            miyoo
-            raspi1
-            raspi2.3
-            raspi4
-            
-      "xmake c"
-         clean project
-
-      "xmake run qemu"
-         run ewokos in qemu
-         
-      "xmake show"
-         show current project infomation      
 
 .commands 
 	

@@ -5,7 +5,7 @@ TARGET_DIR = $(BUILD_DIR)/rootfs
 HW=miyoo
 
 export ARCH=arm
-export G_2D_BOOST=yes
+export NEON=yes
 export BSP_LFLAGS= -larch_miyoo
 
 all: x_sys

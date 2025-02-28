@@ -1,4 +1,4 @@
-SYS_DIR=../../../
+SYS_DIR=../../..
 include $(SYS_DIR)/platform/$(ARCH)/make.rule
 
 BUILD_DIR = $(SYS_DIR)/build
@@ -10,7 +10,7 @@ CFLAGS += -I $(BUILD_DIR)/include
 
 SDFSD_OBJS = sdfsd.o 
 	
-SDFSD = $(TARGET_DIR)/$(ROOT_DIR)/sbin/sdfsd
+SDFSD = $(TARGET_DIR)/sbin/sdfsd
 
 $(SDFSD): $(SDFSD_OBJS) \
 		$(EWOK_LIBC_A)  \

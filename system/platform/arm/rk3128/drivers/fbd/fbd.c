@@ -34,7 +34,7 @@ int argv2rgb(uint8_t  *out,  uint32_t *in , int w, int h)
 		graph_fill(g, 0, y*h, g->w, h, (c | c<<8 | c<<16 | 0xff000000));
 	}
 
-#ifdef GRAPH_2D_BOOST
+#ifdef NEON_BOOST
 	graph_t* logo = png_image_new("/data/images/vadar.png");
 #else
 	graph_t* logo = png_image_new("/data/images/ewok.png");

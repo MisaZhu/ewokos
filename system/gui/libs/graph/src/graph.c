@@ -123,6 +123,7 @@ void graph_gray(graph_t* g) {
 	}
 }
 
+
 void graph_rotate_to(graph_t* g, graph_t* ret, int rot) {
 	if(g == NULL || ret == NULL)
 		return;
