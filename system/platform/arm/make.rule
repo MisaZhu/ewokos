@@ -8,6 +8,7 @@ CFLAGS = -marm \
 	-mfloat-abi=softfp \
         -Wall -Wextra -fPIC -mapcs-frame \
         -Wno-unused-parameter \
+        -fno-strict-aliasing \
         -std=c99
 
 CXXFLAGS = -marm \
@@ -17,6 +18,7 @@ CXXFLAGS = -marm \
         -pedantic \
 	-fno-rtti \
         -fno-exceptions \
+        -fno-strict-aliasing \
         -std=c++14
        
 EWOK_LIBC = -lewoksys -lc -lgloss -lsoftfloat
