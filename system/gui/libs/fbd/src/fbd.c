@@ -48,9 +48,9 @@ static void draw_bg(graph_t* g) {
 	graph_gradation(g, 0, 0, g->w, g->h, 0xff8888ff, 0xff000000, true);
 }
 
-static void default_splash(graph_t* g) {
+static void default_splash(graph_t* g, const char* logo_fname) {
 	draw_bg(g);
-	graph_t* logo = png_image_new(_logo);
+	graph_t* logo = png_image_new(logo_fname);
 	if(logo != NULL) {
 		graph_blt_alpha(logo, 0, 0, logo->w, logo->h,
 				g, (g->w-logo->w)/2, (g->h-logo->h)/2, logo->w, logo->h, 0xff);
@@ -97,9 +97,9 @@ static void init_graph(fb_dma_t* dma) {
 		graph_init(&g, dma->shm, _fbinfo->width, _fbinfo->height);
 
 	if(_fbd->splash != NULL)
-		_fbd->splash(&g);
+		_fbd->splash(&g, _logo);
 	else
-		default_splash(&g);
+		default_splash(&g, _logo);
 	flush(_fbinfo, dma->shm, dma->size, _rotate);
 }
 
