@@ -7,7 +7,7 @@
 extern "C" {
 #endif
 
-
+#define ALIGN_UP(x, alignment) (((x) + alignment - 1) & ~(alignment - 1))
 static proto_factor_t _proto_factor;
 
 inline static proto_factor_t* proto_init_data(proto_t* proto, void* data, uint32_t size) {
@@ -71,6 +71,8 @@ inline static proto_factor_t* proto_copy(proto_t* proto, const void* data, uint3
 }
 
 inline static proto_factor_t* proto_add(proto_t* proto, const void* item, uint32_t size) {
+	uint32_t osize = size;
+	size = ALIGN_UP(osize, 4);
 	uint32_t new_size = proto->size + size + 4;
 	char* p = (char*)proto->data;
 	if(proto->total_size < new_size) { 
@@ -88,9 +90,10 @@ inline static proto_factor_t* proto_add(proto_t* proto, const void* item, uint32
 		}
 		p = (char*)proto->data;
 	} 
-	memcpy(p+proto->size, &size, 4);
-	if(size > 0 && item != NULL)
-		memcpy(p+proto->size+4, item, size);
+	memcpy(p+proto->size, &osize, 4);
+	if(osize > 0 && item != NULL) {
+		memcpy(p+proto->size+4, item, osize);
+	}
 	proto->size += (size + 4);
 	return &_proto_factor;
 }
@@ -179,7 +182,9 @@ inline void* proto_read(proto_t* proto, int32_t *size) {
 
 	int32_t sz;
 	memcpy(&sz, p, 4);
-	proto->offset += (4 + sz);
+
+	int32_t offsz = ALIGN_UP(sz, 4);
+	proto->offset += (4 + offsz);
 	if(size != NULL)
 		*size = sz;
 
