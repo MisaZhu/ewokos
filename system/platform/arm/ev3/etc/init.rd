@@ -1,4 +1,5 @@
 @/bin/ipcserv /drivers/ev3/uartd         /dev/tty0
+@/bin/ipcserv /drivers/ev3/gpio_joystickd     /dev/joystick
 @/bin/ipcserv /sbin/sessiond
 @/bin/bgrun /bin/session -r -t /dev/tty0 
 
