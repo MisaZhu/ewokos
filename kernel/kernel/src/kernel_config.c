@@ -69,8 +69,8 @@ void load_kernel_config(void) {
 	if(_kernel_config.cores == 0 || _kernel_config.cores > cores_max)
 		_kernel_config.cores = cores_max;
 
-	if(_kernel_config.timer_freq < 1024)
-		_kernel_config.timer_freq = 1024;
+	if(_kernel_config.timer_freq < 256)
+		_kernel_config.timer_freq = 256;
 
 	if(_kernel_config.max_proc_num > MAX_PROC_NUM)
 		_kernel_config.max_proc_num = MAX_PROC_NUM;

@@ -4610,11 +4610,19 @@ static const unsigned char fontdata_8x16[] = {
 	0x00, /* 00000000 */
 };
 
+static int get_pixel(char c, int x, int y){
+	if(c > (sizeof(fontdata_8x16)/16) || x >= 8 || y >= 16)
+			return 0;
+
+	uint8_t mask = 0x1 << (7 - x);
+	return  (fontdata_8x16[c * 16 + y] & mask);
+}
+
 font_t font_8x16 = {
 	0,
 	8,
 	16,
-	fontdata_8x16,
-	0
+	0,
+	get_pixel
 };
 

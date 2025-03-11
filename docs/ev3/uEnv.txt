@@ -1,0 +1,23 @@
+# Boot options for advanced users
+
+# comment this line to enable kernel messages on input port 1
+console=tty1
+
+# uncomment this line to enable the lms2012-compat drivers
+#fdtfile=da850-lego-ev3-lms2012.dtb
+
+# uncomment this line if you have an Adafruit 1.8" screen
+#fdtfile=da850-lego-ev3-adafruit18.dtb
+
+# kernel command line options
+#bootargs=
+
+# force kernel version
+#fk_kvers=
+
+# uncomment to increase CPU frequency
+# 375MHz is rated speed at available voltage (1.2V)
+# 456MHz is max rated speed of CPU (supposed to have 1.3V for this)
+#cpufreq=375
+ewokos=load mmc 0:1 c0008000 kernel7.img;go c0008000
+uenvcmd=run ewokos

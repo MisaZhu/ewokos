@@ -9,7 +9,7 @@
 #define ALIGN_UP(x, alignment) (((x) + alignment - 1) & ~(alignment - 1))
 
 #define V2P(V) ((uint32_t)(V) - KERNEL_BASE + _sys_info.phy_offset)
-#define P2V(P) ((uint32_t)(P) + KERNEL_BASE - _sys_info.phy_offset)
+#define P2V(P) ((uint32_t)(P) - _sys_info.phy_offset + KERNEL_BASE)
 
 #define KERNEL_IMAGE_END              ALIGN_UP((uint32_t)_kernel_end, PAGE_DIR_SIZE)
 
@@ -22,7 +22,7 @@
 #define KERNEL_VSYSCALL_INFO_BASE     ALLOCABLE_PAGE_DIR_END
 #define KERNEL_VSYSCALL_INFO_END      (KERNEL_VSYSCALL_INFO_BASE+4*KB)
 
-#define KMALLOC_SIZE                  (16*MB)
+#define KMALLOC_SIZE                  (8*MB)
 #define KMALLOC_BASE                  KERNEL_VSYSCALL_INFO_END
 #define KMALLOC_END                   (KMALLOC_BASE + KMALLOC_SIZE)
 
