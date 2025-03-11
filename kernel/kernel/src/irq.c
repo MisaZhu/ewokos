@@ -98,7 +98,6 @@ inline void irq_handler(context_t* ctx) {
 	__irq_disable();
 	if(kernel_lock_check() > 0)
 		return;
-
 	uint32_t cid = get_core_id();
 	kernel_lock();
 	_irq_handler(cid, ctx);
@@ -219,7 +218,7 @@ void data_abort_handler(context_t* ctx, uint32_t addr_fault, uint32_t status) {
 	else
 		printf("\terror: %s!\n", errmsg);
 
-	dump_ctx(&cproc->ctx);
+	dump_ctx(ctx);
 
 	proc_exit(ctx, proc_get_proc(cproc), -1);
 }
