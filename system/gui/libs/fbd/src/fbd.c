@@ -63,7 +63,7 @@ static uint32_t flush(const fbinfo_t* fbinfo, const void* buf, uint32_t size, in
 		return 0;
 
 	graph_t g;
-	graph_init(&g, buf, fbinfo->height, fbinfo->width);
+	graph_init(&g, buf, fbinfo->width, fbinfo->height);
 
 	graph_t* gr = NULL;
 	if(rotate == G_ROTATE_N90 || rotate == G_ROTATE_90) {
