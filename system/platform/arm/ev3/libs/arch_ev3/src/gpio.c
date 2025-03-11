@@ -194,6 +194,8 @@ struct davinci_gpio_regs {
 
 static struct davinci_gpio_regs *davinci_gpios;
 static volatile uint32_t *pinmux_regs;
+static volatile uint32_t *pull_enable;
+static volatile uint32_t *pull_up_down;
 
 void gpio_mux_cfg(int pin){
 	uint32_t val = pinmux_regs[PINMUX[pin].idx];
@@ -244,8 +246,25 @@ int gpio_get(int pin){
     return !!(GPIO_MASK(pin) & readl(&g->in_data));
 }
 
+void gpio_pull_cfg(int gp, int en, int updown){
+
+	uint32_t mask = 0x1 << gp;
+	if(en)
+		*pull_enable |= mask;
+	else
+		*pull_enable &= ~(mask);
+
+	if(updown){
+		*pull_up_down |= mask;
+	}else{
+		*pull_up_down &= ~(mask);
+	}
+}
+
 void gpio_init(void){
 	_mmio_base = mmio_map();
 	davinci_gpios = (struct davinci_gpio_regs*)(_mmio_base + 0x01E26010);
 	pinmux_regs = (uint32_t*)(_mmio_base + 0x1c14120);
+	pull_enable = (uint32_t*)(_mmio_base + 0x1e2c00C);
+	pull_up_down = (uint32_t*)(_mmio_base + 0x1e2c010);
 }
