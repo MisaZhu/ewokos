@@ -87,6 +87,7 @@ LIB_GRAPH_OBJS = $(LIB_GRAPH_DIR)/src/graph.o \
 	$(LIB_GRAPH_DIR)/src/pixel.o \
 	$(LIB_GRAPH_DIR)/src/text.o \
 	$(LIB_GRAPH_DIR)/src/font8x16.o \
+	$(LIB_GRAPH_DIR)/src/font5x7.o \
 	$(LIB_GRAPH_DIR)/src/font.o
 CFLAGS += -I$(LIB_GRAPH_DIR)/include
 
@@ -119,6 +120,7 @@ LIB_OBJS = \
 LOAD_DIR=$(SRC_DIR)/loadinit/sd
 LOAD_OBJS = \
 	$(LOAD_DIR)/loadinit.o
+
 CFLAGS += -I$(LOAD_DIR)
 QEMU_ARGS += -sd $(SYS_FULL_DIR)/build/root.ext2
 
