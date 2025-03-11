@@ -7,8 +7,8 @@
 typedef struct  {
 	int32_t idx;
 	uint32_t w, h;
-	const void *data;
 	int32_t pref;
+	int (*get_pixel)(char c, int x, int y);
 } font_t;
 
 typedef struct {
