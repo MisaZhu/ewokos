@@ -55,16 +55,46 @@ static int vjoystick_read(int fd,
 	return rd;	
 }
 
+static int doargs(int argc, char* argv[]) {
+	int c = 0;
+	while (c != -1) {
+		c = getopt (argc, argv, "mk");
+		if(c == -1)
+			break;
+
+		switch (c) {
+		case 'm':
+			_mouse_mode = true;
+			break;
+		case 'k':
+			_mouse_mode = false;
+		default:
+			c = -1;
+			break;
+		}
+	}
+	return optind;
+}
+
 int main(int argc, char** argv) {
 	_mouse_mode = false;
-	const char* mnt_point = argc > 1 ? argv[1]: "/dev/vjoystick";
-	const char* joys_dev = argc > 2 ? argv[2]: "/dev/joystick";
+	int32_t argind =  doargs(argc, argv);
+	const char* mnt_point = "/dev/vjoystick";
+	const char* joys_dev = "/dev/joystick";
+	if(argind < argc) {
+		mnt_point = argv[argind];
+		argind++;
+	}
+
+	if(argind < argc) {
+		joys_dev = argv[argind];
+	}
+
 
 	_joys_fd = open(joys_dev, O_RDONLY | O_NONBLOCK);
 	if(_joys_fd < 0) {
 		return -1;
 	}
-
 
 	vdevice_t dev;
 	memset(&dev, 0, sizeof(vdevice_t));
