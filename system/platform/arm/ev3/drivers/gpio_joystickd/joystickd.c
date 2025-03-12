@@ -69,6 +69,11 @@ static int joystick_read(int fd, int from_pid, fsinfo_t* node,
 
 static void init_gpio(void) {
 	gpio_init();
+	gpio_pull_cfg(5, 0, 0);
+	gpio_pull_cfg(24, 0, 0);
+	gpio_pull_cfg(25, 0, 0);
+	gpio_pull_cfg(28, 0, 0);
+	
 	for(int i = 0; i < sizeof(_pins)/sizeof(struct gpio_pins);  i++){
 		gpio_direction(_pins[i].pin, 0, 0);
 	}
