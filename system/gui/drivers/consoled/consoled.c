@@ -100,15 +100,17 @@ static void flush(fb_console_t* console) {
 		if(console->icon != NULL) {
 			sys_info_t sys_info;
 			syscall1(SYS_GET_SYS_INFO, (int32_t)&sys_info);
-			for(uint32_t i=0; i<sys_info.cores; i++) {
-				graph_blt_alpha(console->icon, 
-						0, 0, console->icon->w, console->icon->w,
-						console->g,
-						console->g->w - console->icon->w * (i+1),
-						console->g->h - console->icon->h,
-						console->icon->w, console->icon->h, 
-						0xff);
-			}	
+			if(sys_info.cores > 1) {
+				for(uint32_t i=0; i<sys_info.cores; i++) {
+					graph_blt_alpha(console->icon, 
+							0, 0, console->icon->w, console->icon->w,
+							console->g,
+							console->g->w - console->icon->w * (i+1),
+							console->g->h - console->icon->h,
+							console->icon->w, console->icon->h, 
+							0xff);
+				}	
+			}
 		}
 	}
 

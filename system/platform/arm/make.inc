@@ -35,4 +35,5 @@ extra:
 	cp -r ../../../../sw.extra/build/$(HW)/apps $(ROOT_DIR)/build/$(HW) 
 	cp -r ../../../../sw.extra/build/$(HW)/bin $(ROOT_DIR)/build/$(HW)
 	cp -r ../../../../sw.extra/build/$(HW)/sbin $(ROOT_DIR)/build/$(HW)
+	cp -r ../../../../sw.extra/usr $(ROOT_DIR)/build/$(HW)
 

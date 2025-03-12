@@ -34,13 +34,23 @@ static int32_t init(uint32_t w, uint32_t h, uint32_t dep) {
 	return bsp_fb_init(w, h, dep);
 }
 
+static void splash(graph_t* g, const char* logo_fname) {
+	graph_clear(g, 0xffffffff);
+	graph_t* logo = png_image_new(logo_fname);
+	if(logo != NULL) {
+		graph_blt_alpha(logo, 0, 0, logo->w, logo->h,
+				g, (g->w-logo->w)/2, (g->h-logo->h)/2, logo->w, logo->h, 0xff);
+		graph_free(logo);
+	}
+}
+
 int main(int argc, char** argv) {
 	fbd_t fbd;
 	const char* mnt_point = argc > 1 ? argv[1]: "/dev/fb0";
 	_mmio_base = mmio_map();
 	st7586_init();
 
-	fbd.splash = NULL;
+	fbd.splash = splash;
 	fbd.flush = flush;
 	fbd.init = init;
 	fbd.get_info = get_info;
