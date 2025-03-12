@@ -21,7 +21,7 @@ sd:
 	@echo "\n====building ext2 format sdcard image===="
 	mkdir -p build
 #256M ext2 sd
-	dd if=/dev/zero of=${SD} bs=1k count=128k
+	dd if=/dev/zero of=${SD} bs=1k count=256k
 #make ext2 fs with: block_size=1024 inode_size=128
 	mke2fs -b 1024 -I 128 ${SD}
  
