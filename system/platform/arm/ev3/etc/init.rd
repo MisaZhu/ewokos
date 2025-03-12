@@ -8,15 +8,11 @@
 
 @/bin/ipcserv /drivers/ev3/gpio_joystickd     /dev/joystick
 
-@/bin/ipcserv /drivers/vjoystickd               /dev/vjoystick /dev/joystick
-@/bin/ipcserv /drivers/joymoused               /dev/mouse0 /dev/vjoystick
-
 @/bin/ipcserv /drivers/timerd         
 
 @/bin/ipcserv /sbin/sessiond
 
 @/bin/ipcserv /drivers/xserverd       /dev/x
-@/bin/bgrun /sbin/x/xim_none   /dev/vjoystick 
-@/bin/bgrun /sbin/x/xmouse    /dev/mouse0 
+@/bin/bgrun /sbin/x/xim_none   /dev/joystick 
 
 @/bin/bgrun /bin/x/xsession misa 

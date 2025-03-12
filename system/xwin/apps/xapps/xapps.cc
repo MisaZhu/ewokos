@@ -143,7 +143,31 @@ public:
 	}
 };
 
+static bool _launcher = false;
+
+static int doargs(int argc, char* argv[]) {
+	int c = 0;
+	while (c != -1) {
+		c = getopt (argc, argv, "l");
+		if(c == -1)
+			break;
+
+		switch (c) {
+		case 'l':
+			_launcher = true;
+			break;
+		default:
+			c = -1;
+			break;
+		}
+	}
+	return optind;
+}
+
 int main(int argc, char** argv) {
+	_launcher = false;
+	doargs(argc, argv);
+
 	X x;
 	WidgetWin win;
 	RootWidget* root = new RootWidget();
@@ -162,7 +186,13 @@ int main(int argc, char** argv) {
 	root->add(scrollerV);
 	apps->setScrollerV(scrollerV);
 
-	win.open(&x, 0, -1, -1, 320, 240, "xapps", XWIN_STYLE_NORMAL);
+	if(_launcher) {
+		win.open(&x, 0, 0, 0, 320, 240, "xapps", 
+			XWIN_STYLE_NO_TITLE | XWIN_STYLE_LAUNCHER | XWIN_STYLE_SYSBOTTOM);
+		win.max();
+	}
+	else
+		win.open(&x, 0, -1, -1, 320, 240, "xapps", XWIN_STYLE_NORMAL);
 	x.run(NULL, &win);
 	return 0;
 }
