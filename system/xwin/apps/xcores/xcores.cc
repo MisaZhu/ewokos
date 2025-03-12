@@ -149,7 +149,7 @@ protected:
 		font_t* font = theme->getFont();
 		uint32_t w;
 		font_text_size(txt, font, 10, &w, NULL);
-		graph_draw_text_font(g, r.x + r.w - w, r.y+4, txt, theme->getFont(), 10, 0xFFFFFFFF);
+		graph_draw_text_font(g, r.x + r.w - w, r.y+4, txt, theme->getFont(), 10, theme->basic.widgetFGColor);
 	}
 
 	void onTimer(uint32_t timerFPS, uint32_t timerStep) {
