@@ -16,13 +16,10 @@
 class XIM {
 	int x_pid;
 	int keybFD;
-	bool escHome;
 
 	void input(uint8_t c, uint8_t state) {
 		xevent_t ev;
 		ev.type = XEVT_IM;
-		if((c == KEY_ESC || c == KEY_BUTTON_SELECT) && escHome)
-			c = KEY_HOME;
 		ev.value.im.value = c;
 		ev.state = state;
 
@@ -33,11 +30,9 @@ class XIM {
 	}
 
 public:
-	inline XIM(const char* keyb_dev, bool escHome) {
+	inline XIM(const char* keyb_dev) {
 		x_pid = -1;
 		keybFD = -1;
-		this->escHome = escHome;
-
 		while(true) {
 			//keybFD = open(keyb_dev, O_RDONLY | O_NONBLOCK);
 			keybFD = open(keyb_dev, O_RDONLY);
@@ -70,22 +65,40 @@ public:
 	}
 };
 
-int main(int argc, char* argv[]) {
-	const char* keyb_dev = "/dev/keyb0";
-	if(argc > 1)
-		keyb_dev = argv[1];
+static uint32_t _timer = 20000;
+static int doargs(int argc, char* argv[]) {
+	int c = 0;
+	while (c != -1) {
+		c = getopt (argc, argv, "t:");
+		if(c == -1)
+			break;
 
-	bool escHome = false;
-	if(argc > 2 && strcmp(argv[2], "esc_home") == 0) {
-		escHome = true;
+		switch (c) {
+		case 't':
+			_timer = atoi(optarg);
+			break;
+		default:
+			c = -1;
+			break;
+		}
 	}
+	return optind;
+}
+
+int main(int argc, char* argv[]) {
+	_timer = 20000;
+	int argind = doargs(argc, argv);
+
+	const char* keyb_dev = "/dev/keyb0";
+	if(argind < argc)
+		keyb_dev = argv[argind];
 
 	core_set_ux(UX_X_DEFAULT);
 
-	XIM xim(keyb_dev, escHome);
+	XIM xim(keyb_dev);
 	while(true) {
 		if(xim.read() == 0)
-			proc_usleep(10000);
+			proc_usleep(_timer);
 	}
 	return 0;
 }
