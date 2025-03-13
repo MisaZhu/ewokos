@@ -4,6 +4,7 @@
 #include "kstring.h"
 #include "kernel/system.h"
 #include "kernel/kconsole.h"
+#include "kernel/kernel.h"
 #include <stddef.h>
 
 void kout(const char* s) {
@@ -13,7 +14,8 @@ void kout(const char* s) {
 static void out(const char* s) {
 	uart_write(s, strlen(s));
 #ifdef KCONSOLE
-	kconsole_input(s);
+	if(_kernel_config.console_out != 0)
+		kconsole_input(s);
 #endif
 }
 

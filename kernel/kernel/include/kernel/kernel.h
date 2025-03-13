@@ -40,6 +40,7 @@ typedef struct {
 		uint32_t rotate;
 	} fb;
 	uint32_t font_size;
+	uint32_t console_out;
 } kernel_conf_t;
 
 extern kernel_conf_t _kernel_config;

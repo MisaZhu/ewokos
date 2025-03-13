@@ -242,7 +242,7 @@ void _kernel_entry_c(void) {
 		halt();
 	//printf("[ok] (%d)\n", _kernel_config.max_proc_num);
 
-	printf("kernel: loading init process   ... ");
+	printf("kernel: loading init ... ");
 	if(load_init_proc() != 0)  {
 		printf("[failed!]\n");
 		halt();
