@@ -77,13 +77,13 @@ static void st7586_command4(uint8_t cmd, uint8_t data0, uint8_t data1, uint8_t d
 	uint8_t data[4] = {data0, data1, data2, data3};
 	gpio_set(CMD_PIN, 0);
 	gpio_set(CS_PIN, 0);
-	proc_usleep(10);
+	//proc_usleep(10);
 	davinci_spi_write(1, &cmd, 0);
-	proc_usleep(10);
+	//proc_usleep(10);
 	gpio_set(CMD_PIN, 1);
-	proc_usleep(10);
+	//proc_usleep(10);
 	davinci_spi_write(4, data, SPI_XFER_END);
-	proc_usleep(10);
+	//proc_usleep(10);
 	gpio_set(CS_PIN, 1);
 }
 
@@ -98,11 +98,11 @@ void st7586_update(uint8_t* buf, int width, int height){
 
 	gpio_set(CS_PIN, 0);
 	gpio_set(CMD_PIN, 0);
-	proc_usleep(10);
+	//proc_usleep(10);
 	davinci_spi_write(1, &cmd, 0);
-	proc_usleep(10);
+	//proc_usleep(10);
 	gpio_set(CMD_PIN, 1);
-	proc_usleep(10);
+	//proc_usleep(10);
 	for(int i = 0; i < height; i++){
 		uint8_t *p = &buf[i*width];
 		for(int j = 0; j < width; j+=3){
@@ -112,7 +112,7 @@ void st7586_update(uint8_t* buf, int width, int height){
 			davinci_spi_write(1, &val, 0);
 		}
 	}
-	proc_usleep(10);
+	//proc_usleep(10);
 	gpio_set(CS_PIN, 1);
 }
 
