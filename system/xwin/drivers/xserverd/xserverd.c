@@ -82,9 +82,28 @@ static void draw_win_frame(x_t* x, xwin_t* win) {
 	PF->clear(&in);
 }
 
+static graph_t* _xwm_logo = NULL;
+
+static void load_xwm_logo(const char* theme) {
+	_xwm_logo = NULL;
+	char fname[FS_FULL_NAME_MAX];
+	snprintf(fname, FS_FULL_NAME_MAX-1, "%s/%s/xwm/logo.png", X_THEME_ROOT, theme);
+	_xwm_logo = png_image_new(fname);
+}
+
 static void draw_init_desktop(x_t* x, x_display_t *display) {
 	graph_draw_dot_pattern(display->g, 0, 0, display->g->w, display->g->h,
-			0xff888888, 0xff000000, 2);
+			0xff888888, 0xffffffff, 2);
+	
+	if(_xwm_logo != NULL) {
+		graph_blt_alpha(_xwm_logo, 0, 0, _xwm_logo->w, _xwm_logo->h,
+			display->g, 
+			(display->g->w - _xwm_logo->w)/2,
+			(display->g->h - _xwm_logo->h)/2,
+			_xwm_logo->w,
+			_xwm_logo->h,
+			0xff);
+	}
 }
 
 static void draw_desktop(x_t* x, uint32_t display_index) {
@@ -96,6 +115,10 @@ static void draw_desktop(x_t* x, uint32_t display_index) {
 		draw_init_desktop(x, display);
 		return;
 	}	
+	else if(_xwm_logo != NULL) {
+		graph_free(_xwm_logo);
+		_xwm_logo = NULL;
+	}
 
 	proto_t in;
 	PF->format(&in, "i,i,i",
@@ -1448,6 +1471,7 @@ int main(int argc, char** argv) {
 
 	read_config(&x, "/etc/x/x.json");
 	cursor_init(theme.name, &x.cursor);
+	load_xwm_logo(theme.name);
 
 	vdevice_t dev;
 	memset(&dev, 0, sizeof(vdevice_t));

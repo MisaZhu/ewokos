@@ -8,6 +8,7 @@
 extern "C" {
 #endif
 
+#define X_THEME_ROOT        "/usr/x/themes"
 #define THEME_NAME_MAX 128
 
 typedef struct {
