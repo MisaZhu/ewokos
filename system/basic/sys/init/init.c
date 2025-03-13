@@ -43,7 +43,7 @@ static int32_t exec_from_sd(const char* prog) {
 }
 
 static void run_before_vfs(const char* cmd) {
-	klog("init: %-26s   ", cmd);
+	klog("init: %-16s   ", cmd);
 
 	int pid = fork();
 	if(pid == 0) {
