@@ -53,6 +53,7 @@ typedef struct {
 	bool bg_run;
 	bool force_fullscreen;
 	bool gray_mode;
+	graph_t* logo;
 } x_conf_t;
 
 typedef struct {

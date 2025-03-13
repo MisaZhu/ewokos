@@ -30,7 +30,10 @@ static int32_t read_config(x_t* x, const char* fname) {
 	x->config.bg_run = json_get_int_def(conf_var, "bg_run", 0);
 	x->config.gray_mode = json_get_int_def(conf_var, "gray_mode", 0);
 
-	const char* v = json_get_str_def(conf_var, "cursor", "");
+	const char* v = json_get_str_def(conf_var, "logo", "/usr/system/icons/xlogo.png");
+	x->config.logo = png_image_new(v);
+
+	v = json_get_str_def(conf_var, "cursor", "");
 	if(strcmp(v, "touch") == 0)
 		x->cursor.type = CURSOR_TOUCH;
 	else if(strcmp(v, "mouse") == 0)
@@ -82,26 +85,17 @@ static void draw_win_frame(x_t* x, xwin_t* win) {
 	PF->clear(&in);
 }
 
-static graph_t* _xwm_logo = NULL;
-
-static void load_xwm_logo(const char* theme) {
-	_xwm_logo = NULL;
-	char fname[FS_FULL_NAME_MAX];
-	snprintf(fname, FS_FULL_NAME_MAX-1, "%s/%s/xwm/logo.png", X_THEME_ROOT, theme);
-	_xwm_logo = png_image_new(fname);
-}
-
 static void draw_init_desktop(x_t* x, x_display_t *display) {
 	graph_draw_dot_pattern(display->g, 0, 0, display->g->w, display->g->h,
 			0xff888888, 0xffffffff, 2);
 	
-	if(_xwm_logo != NULL) {
-		graph_blt_alpha(_xwm_logo, 0, 0, _xwm_logo->w, _xwm_logo->h,
+	if(x->config.logo != NULL) {
+		graph_blt_alpha(x->config.logo, 0, 0, x->config.logo->w, x->config.logo->h,
 			display->g, 
-			(display->g->w - _xwm_logo->w)/2,
-			(display->g->h - _xwm_logo->h)/2,
-			_xwm_logo->w,
-			_xwm_logo->h,
+			(display->g->w - x->config.logo->w)/2,
+			(display->g->h - x->config.logo->h)/2,
+			x->config.logo->w,
+			x->config.logo->h,
 			0xff);
 	}
 }
@@ -115,9 +109,9 @@ static void draw_desktop(x_t* x, uint32_t display_index) {
 		draw_init_desktop(x, display);
 		return;
 	}	
-	else if(_xwm_logo != NULL) {
-		graph_free(_xwm_logo);
-		_xwm_logo = NULL;
+	else if(x->config.logo != NULL) {
+		graph_free(x->config.logo);
+		x->config.logo = NULL;
 	}
 
 	proto_t in;
@@ -1471,7 +1465,6 @@ int main(int argc, char** argv) {
 
 	read_config(&x, "/etc/x/x.json");
 	cursor_init(theme.name, &x.cursor);
-	load_xwm_logo(theme.name);
 
 	vdevice_t dev;
 	memset(&dev, 0, sizeof(vdevice_t));
