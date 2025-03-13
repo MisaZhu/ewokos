@@ -1,0 +1,8 @@
+{
+    "fps": 32,
+    "bg_run": 0,
+    "#cursor": "mouse",
+    "cursor": "none",
+    "##cursor": "touch",
+    "gray_mode": 0
+}

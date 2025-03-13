@@ -24,13 +24,13 @@ class Cores : public Widget {
 
 	static const uint32_t COLOR_NUM = 7;
 	const  uint32_t colors[COLOR_NUM] = {
-		0xff0000ff, 
+		0xff000000, 
+		0xff0000ff,
 		0xff00ff00, 
 		0xffff0000, 
 		0xff8800ff,
 		0xff0088ff,
-		0xffff8800,
-		0xff000000
+		0xffff8800
 	};
 public:
 	inline Cores() {

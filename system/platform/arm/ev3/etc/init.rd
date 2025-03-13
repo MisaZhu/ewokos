@@ -13,6 +13,6 @@
 @/bin/ipcserv /sbin/sessiond
 
 @/bin/ipcserv /drivers/xserverd       /dev/x
-@/bin/bgrun /sbin/x/xim_none   /dev/joystick -t 100000
+@/bin/bgrun /sbin/x/xim_none   /dev/joystick -t 30000
 
 @/bin/bgrun /bin/x/xsession misa 

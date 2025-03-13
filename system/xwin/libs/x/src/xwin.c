@@ -108,16 +108,18 @@ xwin_t* xwin_open(x_t* xp, uint32_t disp_index, int x, int y, int w, int h, cons
 	memcpy(&ret->xinfo->wsr, &r, sizeof(grect_t));
 	strncpy(ret->xinfo->title, title, XWIN_TITLE_MAX-1);
 
-	xwin_update_info(ret, X_UPDATE_REBUILD | X_UPDATE_REFRESH);
 
 	const char* auto_max = getenv("X_AUTO_MAX");
 	if(auto_max != NULL &&
 			(style & XWIN_STYLE_NO_TITLE) == 0 &&
 			(style & XWIN_STYLE_NO_RESIZE) == 0 &&
 			(style & XWIN_STYLE_NO_FRAME) == 0) {
-		ret->xinfo->style |= XWIN_STYLE_NO_RESIZE;
+		ret->xinfo->style |= XWIN_STYLE_NO_RESIZE | XWIN_STYLE_NO_TITLE;
+		xwin_update_info(ret, X_UPDATE_REBUILD | X_UPDATE_REFRESH);
 		xwin_max(ret);
 	}
+	else
+		xwin_update_info(ret, X_UPDATE_REBUILD | X_UPDATE_REFRESH);
 	return ret;
 }
 

@@ -21,8 +21,8 @@ static int dmmc_busy_wait(volatile struct davinci_mmc_regs *regs)
 {
     uint32_t  wdog = WATCHDOG_COUNT;
 
-    while (--wdog && (get_val(&regs->mmcst1) & MMCST1_BUSY))
-        proc_usleep(10);
+    while (--wdog && (get_val(&regs->mmcst1) & MMCST1_BUSY));
+        //proc_usleep(0);
 
     if (wdog == 0)
         return -1;
@@ -36,11 +36,11 @@ dmmc_wait_fifo_status(volatile struct davinci_mmc_regs *regs, unsigned int statu
 {
     int wdog = WATCHDOG_COUNT;
 
-    while (--wdog && ((get_val(&regs->mmcst1) & status) != status))
-        proc_usleep(10);
+    while (--wdog && ((get_val(&regs->mmcst1) & status) != status));
+        //proc_usleep(0);
 
     if (!(get_val(&regs->mmcctl) & MMCCTL_WIDTH_4_BIT))
-        proc_usleep(100);
+        proc_usleep(0);
 
     if (wdog == 0)
         return -1;
@@ -72,7 +72,7 @@ static int dmmc_check_status(volatile struct davinci_mmc_regs *regs,
                 return 0;
             return -1;
         }
-        proc_usleep(10);
+        //proc_usleep(0);
 
         mmcstatus = get_val(&regs->mmcst0);
     }
@@ -231,7 +231,7 @@ davinci_mmc_send_cmd(struct davinci_mmc_regs *regs, struct mmc_cmd *cmd, struct 
 			else if (bytes_left == fifo_bytes) {
 				dmmc_wait_fifo_status(regs, 0x40);
 				if (cmd->cmdidx == MMC_CMD_SEND_EXT_CSD)
-					proc_usleep(600);
+					proc_usleep(0);
 			}
 
 			for (i = 0; bytes_left && (i < fifo_words); i++) {
