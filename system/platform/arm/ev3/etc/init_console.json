@@ -1,0 +1,8 @@
+{
+    "font": "system",
+    "font_size": 8,
+    "font_fixed": 6,
+    "bg_color": "0xffffffff",
+    "fg_color": "0xff000000",
+    "icon": "/usr/system/icons/lego.png"
+}

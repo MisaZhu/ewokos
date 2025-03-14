@@ -1,0 +1,8 @@
+{
+    "font": "system",
+    "font_size": 12,
+    "font_fixed": 10,
+    "fg_color": "0xffffffff",
+    "bg_color": "0xff000000",
+    "icon": "/usr/system/images/logos/ewokos.png"
+}

@@ -7,6 +7,7 @@ drivers:
 	cd fontd;make
 	cd displayd;make
 	cd consoled;make
+	cd init_consoled;make
 
 clean:
 	cd vjoystickd;make clean
@@ -14,3 +15,4 @@ clean:
 	cd fontd;make clean
 	cd displayd;make clean
 	cd consoled;make clean
+	cd init_consoled;make clean

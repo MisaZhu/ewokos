@@ -3,13 +3,9 @@
 @/bin/ipcserv /drivers/fontd          
 
 @export UX_ID=0
-@/bin/ipcserv /drivers/consoled  /dev/klog
+@/bin/ipcserv /drivers/init_consoled  /dev/klog
 @export KLOG_DEV=/dev/klog
 @set_stdio /dev/klog
-
-@echo "+---------------------------------------+\n"
-@echo "|  < EwokOS MicroKernel >               |\n" 
-@echo "+---------------------------------------+\n"
 
 #@/bin/ipcserv /drivers/miyoo/ms_uartd /dev/tty0
 
