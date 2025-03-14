@@ -247,9 +247,15 @@ int davinci_spi_release_bus(void)
 	return 0;
 }
 
-void davinci_spi_init(void){
+int davinci_spi_init(int bus){
 	_mmio_base = mmio_map();
-	_spi.regs = (struct davinci_spi_regs*)(_mmio_base + SPI1_BASE);
+	if(bus == 0)
+		_spi.regs = (struct davinci_spi_regs*)(_mmio_base + SPI0_BASE);
+	else if(bus == 1)
+		_spi.regs = (struct davinci_spi_regs*)(_mmio_base + SPI1_BASE);
+	else
+		return -1;
+
 	_spi.freq = 1*1024*1024;
 	_spi.mode = 0;
 	_spi.cur_cs = 0;
