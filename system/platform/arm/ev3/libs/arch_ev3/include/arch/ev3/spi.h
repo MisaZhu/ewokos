@@ -1,11 +1,12 @@
 #ifndef __SPI_DAVINCI_H__
 #define __SPI_DAVINCI_H__
 
-//#define SPI0_BASE (0x01C41000)
+#define SPI0_BASE (0x01C41000)
 #define SPI1_BASE (0x01F0E000)
 
 #define CFG_SYS_SPI_CLK		(24000000)
 
+#define BIT(x)			(0x1<<(x))
 /* SPI mode flags */
 #define SPI_CPHA    BIT(0)  /* clock phase (1 = SPI_CLOCK_PHASE_SECOND) */
 #define SPI_CPOL    BIT(1)  /* clock polarity (1 = SPI_POLARITY_HIGH) */
@@ -114,9 +115,9 @@
 #define SPIFMT0     0x50
 
 #define DMA_MIN_BYTES   16
-
+int davinci_spi_read_write(unsigned int len, uint8_t *rxp, const uint8_t *txp, unsigned long flags);
 int davinci_spi_write(unsigned int len, const uint8_t *txp, unsigned long flags);
 int davinci_spi_claim_bus(int cs);
 int davinci_spi_release_bus(void);
-void davinci_spi_init(void);
+int davinci_spi_init(int bus);
 #endif
