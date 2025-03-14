@@ -72,8 +72,6 @@ void console_close(console_t* console) {
 	kfree(console->content.data);
 	console->state.size = 0;
 	console->content.data = NULL;
-	if(console->logo != NULL)
-		graph_free(console->logo);
 }
 
 static inline uint32_t get_at(console_t* console, uint32_t i) {

@@ -21,7 +21,6 @@ typedef struct {
 	uint32_t bg_color;
 	uint32_t fg_color;
 	font_t* font;
-	graph_t* logo;
 	content_t content;
 	state_t state;
 } console_t;
