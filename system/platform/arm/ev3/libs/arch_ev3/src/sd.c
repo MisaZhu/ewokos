@@ -9,7 +9,7 @@
 
 #include "mmc.h"
 
-#define WATCHDOG_COUNT      (10000)
+#define WATCHDOG_COUNT      (1000000)
 
 #define get_val(addr)       (*(volatile uint32_t*)(addr))
 #define set_val(addr, val)  (*(volatile uint32_t*)(addr) = (val))
