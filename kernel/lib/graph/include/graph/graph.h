@@ -67,4 +67,7 @@ void blt16(uint32_t* src, uint16_t* dst, uint32_t w, uint32_t h);
 
 void graph_rotate_to(graph_t* g, graph_t* ret, int rot);
 
+void graph_blt_alpha(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_t sh,
+			graph_t* dst, int32_t dx, int32_t dy, int32_t dw, int32_t dh, uint8_t alpha);
+
 #endif

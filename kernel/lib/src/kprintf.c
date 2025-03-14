@@ -14,8 +14,7 @@ void kout(const char* s) {
 static void out(const char* s) {
 	uart_write(s, strlen(s));
 #ifdef KCONSOLE
-	if(_kernel_config.console_out != 0)
-		kconsole_input(s);
+	kconsole_input(s);
 #endif
 }
 

@@ -1,5 +1,6 @@
 #include <kstring.h>
 #include <console/console.h>
+#include <graph/upng.h>
 #include <mm/kmalloc.h>
 
 #define T_W 2 /*tab width*/
@@ -8,7 +9,12 @@ static void cons_draw_char(console_t* console, graph_t* g, int32_t x, int32_t y,
 	graph_draw_char(g, x, y, c, console->font, console->fg_color);
 }
 
-int32_t console_reset(console_t* console, uint32_t w, uint32_t h) {
+int32_t console_reset(console_t* console, uint32_t w, uint32_t h, uint32_t off_y) {
+	if(off_y >= h)
+		return -1;
+	h -= off_y;
+	console->off_y = off_y;
+
 	if(console->font == NULL)
 		return -1;
 
@@ -65,6 +71,8 @@ int32_t console_init(console_t* console) {
 	memset(console, 0, sizeof(console_t));
 	console->bg_color = argb(0xff, 0x0, 0x0, 0x0);
 	console->fg_color = argb(0xff, 0xaa, 0xaa, 0xaa);
+	console->logo = png_image_new("/etc/kernel/logo.png");
+	kprintf("%x\n", console->logo);
 	return 0;
 }
 
@@ -72,6 +80,8 @@ void console_close(console_t* console) {
 	kfree(console->content.data);
 	console->state.size = 0;
 	console->content.data = NULL;
+	if(console->logo != NULL)
+		graph_free(console->logo);
 }
 
 static inline uint32_t get_at(console_t* console, uint32_t i) {
@@ -83,10 +93,21 @@ static inline uint32_t get_at(console_t* console, uint32_t i) {
 }
 
 void console_refresh(console_t* console, graph_t* g) {
+	//draw cores
+	graph_clear(g, console->bg_color);
+
+	if(console->logo != NULL) {
+		graph_blt_alpha(console->logo, 
+				0, 0, console->logo->w, console->logo->h,
+				g,
+				(g->w - console->logo->w) / 2,
+				(console->off_y - console->logo->h) / 2,
+				console->logo->w, console->logo->h, 
+				0xff);
+	}
+
 	if(console->font == NULL)
 		return;
-
-	graph_clear(g, console->bg_color);
 	uint32_t i=0;
 	uint32_t x = 0;
 	uint32_t y = 0;
@@ -94,7 +115,7 @@ void console_refresh(console_t* console, graph_t* g) {
 		uint32_t at = get_at(console, i);
 		char c = console->content.data[at];
 		if(c != 0 && c != '\n') {
-			cons_draw_char(console, g, x*console->font->w, y*console->font->h, console->content.data[at]);
+			cons_draw_char(console, g, x*console->font->w, console->off_y+y*console->font->h, console->content.data[at]);
 		}
 		x++;
 		if(x >= console->content.cols) {

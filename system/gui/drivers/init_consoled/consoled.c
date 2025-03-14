@@ -82,7 +82,7 @@ static void close_console(fb_console_t* console) {
 	gterminal_close(&console->terminal);
 }
 
-static uint32_t _t_lines = 3;
+static uint32_t _t_lines = 4;
 
 static int reset_console(fb_console_t* console) {
 	gterminal_resize(&console->terminal, console->g->w, console->terminal.font_size*_t_lines);
@@ -191,7 +191,7 @@ static int doargs(int argc, char* argv[]) {
 }
 
 int main(int argc, char** argv) {
-	_t_lines = 3;
+	_t_lines = 4;
 	_ux_index = core_get_ux();
 	int argind = doargs(argc, argv);
 	core_set_ux(_ux_index);

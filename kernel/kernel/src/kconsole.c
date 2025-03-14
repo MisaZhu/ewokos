@@ -33,7 +33,12 @@ void kconsole_init(void) {
 	_console.font = get_font();
 	_console.fg_color = 0xff000000;
 	_console.bg_color = 0xff888888;
-	console_reset(&_console, _fb_g->w, _fb_g->h);
+
+	uint32_t off_y = 0;
+	if(_kernel_config.lines > 0)
+		off_y = _fb_g->h - _kernel_config.lines*_console.font->h;
+
+	console_reset(&_console, _fb_g->w, _fb_g->h, off_y);
 }
 
 void kconsole_input(const char* s) {

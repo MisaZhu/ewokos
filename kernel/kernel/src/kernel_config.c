@@ -62,11 +62,10 @@ static void load_kernel_config_file() {
 	v = sconf_get(sconf, "font_size");
 	if(v[0] != 0)
 		_kernel_config.font_size = atoi(v);
-	
-	v = sconf_get(sconf, "console_out");
-	if(v[0] != 0)
-		_kernel_config.console_out = atoi(v);
 
+	v = sconf_get(sconf, "lines");
+	if(v[0] != 0)
+		_kernel_config.lines = atoi(v);
 	sconf_free(sconf);
 }
 

@@ -88,7 +88,8 @@ LIB_GRAPH_OBJS = $(LIB_GRAPH_DIR)/src/graph.o \
 	$(LIB_GRAPH_DIR)/src/text.o \
 	$(LIB_GRAPH_DIR)/src/font8x16.o \
 	$(LIB_GRAPH_DIR)/src/font5x7.o \
-	$(LIB_GRAPH_DIR)/src/font.o
+	$(LIB_GRAPH_DIR)/src/font.o \
+	$(LIB_GRAPH_DIR)/src/upng.o
 CFLAGS += -I$(LIB_GRAPH_DIR)/include
 
 LIB_CONSOLE_DIR=$(SRC_DIR)/lib/console
