@@ -50,7 +50,7 @@
 #define SPIBUF_TXFULL_MASK	BIT(29)
 
 /* SPIDEF */
-#define SPIDEF_CSDEF0_MASK	BIT(0)
+#define SPIDEF_CSDEF0_MASK	(0xFF)
 
 #define writel(val, reg)    (*(volatile uint32_t*)(reg) = (val))
 #define readl(reg)          (*(volatile uint32_t*)(reg))
@@ -195,7 +195,11 @@ int davinci_spi_read_write(unsigned
 int davinci_spi_claim_bus(int cs)
 {
 	unsigned int mode = 0, scalar;
+	_spi.cur_cs = ~(1 << cs);
 	/* Enable the SPI hardware */
+	writel(SPIGCR0_SPIRST_MASK, &_spi.regs->gcr0);
+	proc_usleep(1000);
+
 	writel(SPIGCR0_SPIENA_MASK, &_spi.regs->gcr0);
 
 	/* Set master mode, powered up and not activated */
@@ -256,7 +260,7 @@ int davinci_spi_init(int bus){
 	else
 		return -1;
 
-	_spi.freq = 1*1024*1024;
+	_spi.freq = 1000000;
 	_spi.mode = 0;
 	_spi.cur_cs = 0;
 	_spi.num_cs = 1;

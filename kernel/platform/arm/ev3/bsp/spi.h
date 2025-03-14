@@ -2,7 +2,7 @@
 #define __SPI_DAVINCI_H__
 #include <mm/mmu.h>
 
-//#define SPI0_BASE (MMIO_BASE + 0x01C41000)
+#define SPI0_BASE (MMIO_BASE + 0x01C41000)
 #define SPI1_BASE (MMIO_BASE + 0x01F0E000)
 
 #define CFG_SYS_SPI_CLK		(24000000)
