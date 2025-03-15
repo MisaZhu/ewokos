@@ -55,13 +55,13 @@ static int adcd_loop(void* p){
     uint16_t rx,tx;
     tx = SWAP(TI_ADS7950_CR_MANUAL | TI_ADS7950_CR_RANGE_5V | TI_ADS7950_CR_WRITE|TI_ADS7950_CR_CHAN(_ch));
     davinci_spi_read_write(2, &rx, &tx, SPI_XFER_END);
-	_adc_buf[(_ch - 2)% MAX_CH] = ((SWAP(rx) >> 2) & 0x3FF) * 5000/0x3FF;
+	_adc_buf[(_ch + 14)% MAX_CH] = (SWAP(rx)&0xFFF) * 5000/4096;
 	_ch = (_ch + 1) % MAX_CH;
 
 	uint32_t gap = (uint32_t)(kernel_tic_ms(0) - tik);
 	if(gap < tm) {
 		gap = tm - gap;
-		proc_usleep(gap*1000);
+		proc_usleep(gap*1000/16);
 	}
 }
 
