@@ -47,17 +47,50 @@ static int adcd_read(int fd, int from_pid, fsinfo_t* node,
     return size;
 }
 
+static uint32_t _fps = 30;
 static int adcd_loop(void* p){
+	uint64_t tik = kernel_tic_ms(0);
+	uint32_t tm = 1000/_fps;
+
     uint16_t rx,tx;
     tx = SWAP(TI_ADS7950_CR_MANUAL | TI_ADS7950_CR_RANGE_5V | TI_ADS7950_CR_WRITE|TI_ADS7950_CR_CHAN(_ch));
     davinci_spi_read_write(2, &rx, &tx, SPI_XFER_END);
 	_adc_buf[(_ch - 2)% MAX_CH] = ((SWAP(rx) >> 2) & 0x3FF) * 5000/0x3FF;
 	_ch = (_ch + 1) % MAX_CH;
-	proc_usleep(1000);
+
+	uint32_t gap = (uint32_t)(kernel_tic_ms(0) - tik);
+	if(gap < tm) {
+		gap = tm - gap;
+		proc_usleep(gap*1000);
+	}
+}
+
+static int doargs(int argc, char* argv[]) {
+	int c = 0;
+	while (c != -1) {
+		c = getopt (argc, argv, "f:");
+		if(c == -1)
+			break;
+
+		switch (c) {
+		case 'f':
+			_fps = atoi(optarg);
+			break;
+		default:
+			c = -1;
+			break;
+		}
+	}
+	return optind;
 }
 
 int main(int argc, char** argv) {
-	const char* mnt_point = argc > 1 ? argv[1]: "/dev/adc0";
+	_fps = 30;
+	int argind = doargs(argc, argv);
+	const char* mnt_point =  "/dev/adc0";
+	if(argind < argc)
+		mnt_point = argv[argind];
+
 	gpio_init();
     uint32_t *pinmux = (uint32_t*)(_mmio_base + 0x1c1412C) ;
     *pinmux &= ~(0x0f00ff0f);
