@@ -29,9 +29,11 @@ int main(int argc, char* argv[]) {
 		return -1;
 
 	if(strncmp(argv[1], "/drivers", 8) == 0)
-		printf("\033[1mdev: %-42s \033[0m", argv[1]);
+		//printf("\033[1mdev: %-42s \033[0m", argv[1]);
+		printf("\033[1mdev: %s \033[0m", argv[1]);
 	else
-		printf("run: %-42s ", argv[1]);
+		//printf("run: %-42s ", argv[1]);
+		printf("run: %s ", argv[1]);
 	int ret = stat(argv[1], &buf);
 	if(ret >= 0 && buf.st_mode & X_OK){
 		str_t* cmd = str_new("");

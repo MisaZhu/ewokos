@@ -3,10 +3,11 @@
 @/bin/ipcserv /drivers/fontd           
 
 @export UX_ID=0
-@/bin/ipcserv /drivers/init_consoled        -u 0
+@/bin/ipcserv /drivers/init_consoled        -u 0 -l8
 @set_stdio /dev/console0
 
 @/bin/ipcserv /drivers/ev3/gpio_joystickd     /dev/joystick
+@/bin/ipcserv /drivers/ev3/adcd     /dev/adc0
 
 @/bin/ipcserv /drivers/timerd         
 
