@@ -48,7 +48,7 @@ int mouse_read(int fd, mouse_evt_t* evt) {
         return 0;
 
     int8_t mv[4];
-    if(read(fd, mv, 4) == 4) {
+    if(read(fd, mv, 4 | 0x1000) == 4) {
         if(mv[0] != 0)  {
             mouse_evt(mv[1], mv[2], mv[3], evt);
 			return 1;
