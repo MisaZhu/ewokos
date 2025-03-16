@@ -4,12 +4,19 @@
 #include <unistd.h>
 #include <string.h>
 #include <ewoksys/vdevice.h>
+#include <ewoksys/vfs.h>
+#include <ewoksys/proc.h>
 #include <ewoksys/proto.h>
 #include <ewoksys/keydef.h>
 #include <ewoksys/kernel_tic.h>
 
 static int  _joys_fd = -1;
 static bool _mouse_mode = false;
+static uint32_t _fps = 60;
+
+#define KEY_NUM 4
+static uint8_t _keys[KEY_NUM];
+static int _rd = 0;
 
 static int vjoystick_read(int fd,
 		int from_pid,
@@ -25,34 +32,48 @@ static int vjoystick_read(int fd,
 	(void)offset;
 	(void)p;
 
-	if(_joys_fd < 0 || size < 4)
+	bool mouse = false;
+	if((size & 0x1000) != 0) {
+		mouse = true;
+		size = size & 0x0fff;
+	}
+
+	if(_joys_fd < 0 || size < KEY_NUM)
 		return -1;
-	static uint64_t home_tic = 0u;
 	
 	char* v = (char*)buf;
-	int rd = -1;
-	if((size & 0x1000) != 0) {
-		if(_mouse_mode)
-			rd = read(_joys_fd, v, size & 0x0fff);
-	}
-	else if(!_mouse_mode)
-		rd = read(_joys_fd, v, size);
+	memcpy(v, _keys, KEY_NUM);
 
-	if(rd > 0) {
-		for(int i=0; i<rd; i++) {
-			if(v[i] == KEY_BUTTON_SELECT) {
-				uint64_t now;
-				now = kernel_tic_ms(0);
-				if((now - home_tic) > 200)
-					_mouse_mode = !_mouse_mode;
-				rd = -1;
-				home_tic = now;
+	if(mouse) {
+		if(!_mouse_mode)
+			return VFS_ERR_RETRY;
+	}
+	else if(_mouse_mode)
+		return VFS_ERR_RETRY;
+
+	return _rd;	
+}
+
+static int vjoy_loop(void* p){
+	uint64_t tik = kernel_tic_ms(0);
+	uint32_t tm = 1000/_fps;
+
+	_rd = read(_joys_fd, _keys, KEY_NUM);
+	if(_rd > 0) {
+		for(int i=0; i<_rd; i++) {
+			if(_keys[i] == KEY_BUTTON_SELECT) {
+				_mouse_mode = !_mouse_mode;
+				proc_wakeup(RW_BLOCK_EVT);
 				break;
 			}
 		}
 	}
 
-	return rd;	
+	uint32_t gap = (uint32_t)(kernel_tic_ms(0) - tik);
+	if(gap < tm) {
+		gap = tm - gap;
+		proc_usleep(gap*1000);
+	}
 }
 
 static int doargs(int argc, char* argv[]) {
@@ -68,6 +89,10 @@ static int doargs(int argc, char* argv[]) {
 			break;
 		case 'k':
 			_mouse_mode = false;
+			break;
+		case 'f':
+			_fps = atoi(optarg);
+			break;
 		default:
 			c = -1;
 			break;
@@ -78,6 +103,7 @@ static int doargs(int argc, char* argv[]) {
 
 int main(int argc, char** argv) {
 	_mouse_mode = false;
+	_fps = 60;
 	int32_t argind =  doargs(argc, argv);
 	const char* mnt_point = "/dev/vjoystick";
 	const char* joys_dev = "/dev/joystick";
@@ -100,6 +126,7 @@ int main(int argc, char** argv) {
 	memset(&dev, 0, sizeof(vdevice_t));
 	strcpy(dev.name, "vjoystick");
 	dev.read = vjoystick_read;
+	dev.loop_step = vjoy_loop;
 
 	device_run(&dev, mnt_point, FS_TYPE_CHAR, 0444);
 
