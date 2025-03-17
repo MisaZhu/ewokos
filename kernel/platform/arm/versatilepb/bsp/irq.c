@@ -14,7 +14,7 @@ void irq_arch_init(void) {
 
 void irq_enable(uint32_t irq) {
 	pic_regs_t* pic = (pic_regs_t*)(PIC);
-	sic_regs_t* sic = (pic_regs_t*)(SIC);
+	sic_regs_t* sic = (sic_regs_t*)(SIC);
 
 	if(irq == IRQ_TIMER0) 
 		pic->enable |= PIC_INT_TIMER0;
@@ -28,7 +28,7 @@ void irq_enable(uint32_t irq) {
 
 void irq_disable(uint32_t irq) {
 	pic_regs_t* pic = (pic_regs_t*)(PIC);
-	sic_regs_t* sic = (pic_regs_t*)(SIC);
+	sic_regs_t* sic = (sic_regs_t*)(SIC);
 	
 	if(irq == IRQ_TIMER0) 
 		pic->enable &= (~PIC_INT_TIMER0);
@@ -38,7 +38,7 @@ void irq_disable(uint32_t irq) {
 		sic->enable &= ~(1<<(irq-32));
 }
 
-static inline get_irq_raw(uint32_t irq_status) {
+static inline int get_irq_raw(uint32_t irq_status) {
 	uint32_t i=0;
 	while(i<32) {
 		if(((irq_status >> i) & 0x1) != 0)
@@ -53,7 +53,7 @@ static inline get_irq_raw(uint32_t irq_status) {
 inline uint32_t irq_get(void) {
 	uint32_t ret = 0;
 	pic_regs_t* pic = (pic_regs_t*)(PIC);
-	sic_regs_t* sic = (pic_regs_t*)(SIC);
+	sic_regs_t* sic = (sic_regs_t*)(SIC);
 
 	if((pic->status & PIC_INT_TIMER0) != 0) 
 		ret = IRQ_TIMER0;

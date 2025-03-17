@@ -3,6 +3,7 @@
 
 #include <stdarg.h>
 #include <mm/kmalloc.h>
+#include <kstring.h>
 
 /** str functions.-----------------------------*/
 

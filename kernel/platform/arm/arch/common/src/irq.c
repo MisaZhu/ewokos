@@ -1,4 +1,5 @@
 #include <kernel/irq.h>
+#include <kprintf.h>
 
 inline void irq_enable_cpsr(context_t* ctx) {
 	ctx->cpsr &= (~0x80);
