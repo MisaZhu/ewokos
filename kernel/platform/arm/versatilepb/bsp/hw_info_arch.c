@@ -1,5 +1,6 @@
 #include <kernel/hw_info.h>
 #include <kernel/kernel.h>
+#include <mm/kalloc.h>
 #include <kstring.h>
 
 extern char _framebuffer_base_raw[];
