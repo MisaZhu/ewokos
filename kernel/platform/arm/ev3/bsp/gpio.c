@@ -268,9 +268,4 @@ void gpio_init(void){
 	pinmux_regs = (uint32_t*)(MMIO_BASE + 0x1c14120);
 	pull_enable = (uint32_t*)(MMIO_BASE + 0x1e2c00C);
 	pull_up_down = (uint32_t*)(MMIO_BASE + 0x1e2c010);
-
-	*pull_enable = 0;
-	//enable spi0 pins
-	pinmux_regs[3] &= ~(0x0f00ff0f);
-	pinmux_regs[3] |= 0x01001101;
 }

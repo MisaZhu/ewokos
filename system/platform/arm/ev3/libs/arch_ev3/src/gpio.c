@@ -1,6 +1,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <ewoksys/mmio.h>
+#include <ewoksys/syscall.h>
 
 #define writel(val, reg)    (*(volatile uint32_t*)(reg) = (val))
 #define readl(reg)          (*(volatile uint32_t*)(reg))
@@ -15,7 +16,12 @@ struct pinmux{
 	uint8_t mode;
 };
 
-static struct pinmux PINMUX[MAX_GPIO] = {
+static uint32_t write_syscfg(uint32_t reg, uint32_t val, uint32_t mask){
+
+	return syscall3(SYS_MMIO_RW, reg, val, mask);
+}
+
+static const struct pinmux PINMUX[MAX_GPIO] = {
 	//BANK 0
 	{1, 28, 8}, //GP[0]
 	{1, 24, 8}, //GP[1]
@@ -198,12 +204,12 @@ static volatile uint32_t *pull_enable;
 static volatile uint32_t *pull_up_down;
 
 void gpio_mux_cfg(int pin){
-	uint32_t val = pinmux_regs[PINMUX[pin].idx];
-	val &= ~(0xF << PINMUX[pin].shift);
-	val |= (PINMUX[pin].mode << PINMUX[pin].shift);
-	pinmux_regs[PINMUX[pin].idx] = val;
-}
+	int idx = PINMUX[pin].idx;
+	int shift = PINMUX[pin].shift;
+	int mode = PINMUX[pin].mode;
 
+	write_syscfg(&pinmux_regs[idx], mode << shift, 0xf << shift);
+}
 
 void gpio_direction(int pin, int out, int value)
 {
@@ -249,16 +255,9 @@ int gpio_get(int pin){
 void gpio_pull_cfg(int gp, int en, int updown){
 
 	uint32_t mask = 0x1 << gp;
-	if(en)
-		*pull_enable |= mask;
-	else
-		*pull_enable &= ~(mask);
-
-	if(updown){
-		*pull_up_down |= mask;
-	}else{
-		*pull_up_down &= ~(mask);
-	}
+	uint32_t reg = *pull_enable;
+	write_syscfg(pull_enable, (!!en) << gp, 0x1 << gp);
+	write_syscfg(pull_up_down, (!!updown) << gp, 0x1 << gp);
 }
 
 void gpio_init(void){
