@@ -86,6 +86,7 @@ enum {
 	SYS_DMA_ALLOC,
 	SYS_DMA_PHY_ADDR,
 
+	SYS_MMIO_RW,
 	SYS_CALL_NUM
 };
 

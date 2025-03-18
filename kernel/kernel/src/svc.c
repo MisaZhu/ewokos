@@ -628,6 +628,18 @@ static inline void sys_root(void) {
 #endif
 }
 
+static inline void sys_mmio_rw(int32_t arg0, int32_t arg1, int32_t arg2, context_t* ctx){
+	uint32_t *reg = (uint32_t *)arg0;
+	uint32_t val = arg1;
+	uint32_t mask = arg2;
+
+	if(reg >= MMIO_BASE && reg < MMIO_BASE + _sys_info.mmio.size){
+		*reg &= ~(mask);
+		*reg |= (val & mask);
+		ctx->gpr[0] = *reg;
+	}
+}
+
 static inline void _svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_t arg2, context_t* ctx) {
 	_svc_total++;
 	_svc_counter[code]++;
@@ -818,6 +830,8 @@ static inline void _svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_
 		return;	
 	case SYS_CLOSE_KCONSOLE:	
 		sys_root();
+	case SYS_MMIO_RW:
+		sys_mmio_rw(arg0, arg1, arg2, ctx);
 		return;	
 	}
 }
