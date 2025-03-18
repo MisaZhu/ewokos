@@ -12,6 +12,8 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include <ewoksys/mmio.h>
+#include <ewoksys/syscall.h>
+
 #include "../include/arch/ev3/spi.h"
 
 #define BIT(x)	(0x1<<(x))
@@ -253,11 +255,13 @@ int davinci_spi_release_bus(void)
 
 int davinci_spi_init(int bus){
 	_mmio_base = mmio_map();
-	if(bus == 0)
+	if(bus == 0){
+		syscall3(SYS_MMIO_RW, _mmio_base + 0x1c1412C, 0x01001101, 0x0f00ff0f);
 		_spi.regs = (struct davinci_spi_regs*)(_mmio_base + SPI0_BASE);
-	else if(bus == 1)
+	}else if(bus == 1){
+		//spi1 pinmux is inited by kernel
 		_spi.regs = (struct davinci_spi_regs*)(_mmio_base + SPI1_BASE);
-	else
+	}else
 		return -1;
 
 	_spi.freq = 1000000;

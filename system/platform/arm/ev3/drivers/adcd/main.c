@@ -92,10 +92,6 @@ int main(int argc, char** argv) {
 		mnt_point = argv[argind];
 
 	gpio_init();
-    uint32_t *pinmux = (uint32_t*)(_mmio_base + 0x1c1412C) ;
-    *pinmux &= ~(0x0f00ff0f);
-    *pinmux |= 0x01001101;
-
     gpio_direction(ADC_POWEWR_PIN, 1, 1);
 
 	davinci_spi_init(0);

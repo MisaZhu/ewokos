@@ -30,8 +30,7 @@ static void set_boot_pgt(uint32_t virt, uint32_t phy, uint32_t len, uint8_t is_d
 static void load_boot_pgt(void) {
 	volatile uint32_t val;
 	// set domain access control: all domain will be checked for permission
-	//val = 0x55555555;
-	val = 0x1;
+	val = 0x55555555;
 	__asm("MCR p15, 0, %[v], c3, c0, 0": :[v]"r" (val):);
 
 	// set the kernel page table
@@ -50,7 +49,36 @@ static void load_boot_pgt(void) {
 	__asm("MCR p15, 0, %[r], c8, c7, 0": :[r]"r" (val):);
 }
 
+typedef struct{
+	uint32_t mpsar;
+	uint32_t mpear;
+	uint32_t mppa;
+	uint32_t resv
+}mpu_t;
+
 void _boot_start(void) {
+	//disable MPU
+	// refer ti AM1808 Technical Reference Manual (Rev. C)	page 95
+	uint32_t* mpu_cfg = (uint32_t*)0x01e14004;
+	mpu_t *mpu1 = (uint32_t*)0x01e14200;
+	mpu_t *mpu2 = (uint32_t*)0x01e15100;
+	mpu_t *mpu3 = (uint32_t*)0x01e15200;
+
+	*mpu_cfg |= 0x1;
+
+	for(int i = 0; i < 6; i++)
+		mpu1[i].mppa = 0x0;
+
+	mpu2[0].mppa = 0x0;
+
+	for(int i = 0; i < 12; i++)
+		mpu3[i].mppa = 0x0;
+
+	//disable syscfg protate
+	// refer ti AM1808 Technical Reference Manual (Rev. C)	page 211
+	*(uint32_t *)(0x01C14038) = 0x83E70B13;
+	*(uint32_t *)(0x01C1403C) = 0x95A4F1E0;
+
 	set_boot_pgt(0xC0000000, 0xC0000000, 32*MB, 0);
 	set_boot_pgt(KERNEL_BASE, 0xC0000000, 32*MB, 0);
 	load_boot_pgt();
