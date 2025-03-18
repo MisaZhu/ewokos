@@ -1,26 +1,18 @@
 #include <mm/mmu.h>
 
-inline void set_pte_flags(page_table_entry_t* pte, uint32_t pte_attr) {
+inline void set_pte_flags(page_table_entry_t* p, uint32_t pte_attr) {
 	(void)pte_attr;
+	page_table_entry_v5_t *pte = (page_table_entry_v5_t*)p;
 	pte->writeback = 0;
 	pte->cacheable = 0;
-	pte->apx = 1;
-	pte->ng = 1;
 
-	if(pte->ap == AP_RW_RW) {
-		pte->tex = 0x7;
-		pte->sharable = 1;
-	}
-	else {
-		pte->tex = 0x2;
-	}
-
+	pte->ap3 = pte->ap2 = pte->ap1 = pte->ap0;
+	
 	if(pte_attr == PTE_ATTR_WRBACK) { //normal mem, write back
 		pte->cacheable = 1;
 		pte->writeback = 1;
 	}
 	else if(pte_attr == PTE_ATTR_WRBACK_ALLOCATE) { //write back allocate mem
-		pte->tex = 0x1;
 		pte->cacheable = 1;
 		pte->writeback = 1;
 	}
