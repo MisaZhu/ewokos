@@ -61,7 +61,7 @@ protected:
 	void changeMode(bool hide) {
 		hideMode = hide;
 		if(hideMode) {
-			int kw = 42;
+			int kw = 16;
 			resizeTo(kw, kw);
 			moveTo(scrSize.w - kw, scrSize.h - kw);
 		}
@@ -165,7 +165,7 @@ protected:
 			}
 			else if(c == KEY_BUTTON_START) {
 				doKeyIn('\r');
-				//changeMode(true);
+				changeMode(true);
 				return;
 			}
 			else if(c == KEY_BUTTON_X) {
