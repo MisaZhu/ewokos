@@ -35,6 +35,20 @@ typedef struct {
 	uint32_t base       : 20;
 } page_table_entry_t; 
 
+typedef struct {
+	uint32_t type       : 2; //0: fault, 0x1: large size(64k), 0x2: small size(4k), 0x3: small size with no-excute(4k)
+	uint32_t writeback  : 1; //B
+	uint32_t cacheable  : 1; //C
+	uint32_t ap0        : 2; //Access Permissions,
+                           //0x1: super-RW,user-NONE
+                           //0x2 super-RW,user-R
+                           //0x3 super-RW,user-RW
+	uint32_t ap1 		: 2;
+	uint32_t ap2 		: 2;
+	uint32_t ap3 		: 2;
+	uint32_t base       : 20;
+} page_table_entry_v5_t; 
+
 void set_pte_flags(page_table_entry_t* pte, uint32_t pte_attr);
 
 #define PTE_ATTR_WRBACK          0
