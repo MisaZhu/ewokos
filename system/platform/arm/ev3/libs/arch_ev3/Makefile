@@ -10,9 +10,9 @@ CFLAGS += -I$(SYS_DIR)/basic/libc/libewoksys/ewoksys/include -Iinclude -I $(TARG
 
 LIB_ARCH_EV3_OBJS = src/framebuffer.o \
 	src/gpio.o \
-	src/st7586.o \
 	src/gpio.o \
 	src/spi.o \
+	src/i2c.o \
 	src/sd.o 
 
 ARCH_EV3 = $(TARGET_DIR)/lib/libarch_ev3.a

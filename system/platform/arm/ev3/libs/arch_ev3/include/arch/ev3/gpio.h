@@ -1,10 +1,12 @@
 #ifndef __GPIO_H__
 #define __GPIO_H__
-void gpio_mux_cfg(int pin);
-void gpio_init(void);
-void gpio_pull_cfg(int gp, int en, int updown);
-void gpio_direction(int pin, int out, int value);
-void gpio_set(int pin, int value);
-int gpio_get(int pin);
+
+#define MODE_GPIO	0
+
+void ev3_gpio_config(int32_t pin,int32_t  mode);
+void ev3_gpio_init(void);
+void ev3_gpio_pull(int32_t pin,int32_t updown);
+void ev3_gpio_write(int32_t pin, int32_t  value);
+uint8_t  ev3_gpio_read(int32_t pin);
 
 #endif

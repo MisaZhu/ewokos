@@ -15,7 +15,7 @@ ADCD = $(TARGET_DIR)/drivers/ev3/adcd
 $(ADCD): $(ADCD_OBJS) \
 	   	$(BUILD_DIR)/lib/libarch_ev3.a \
 		$(EWOK_LIBC_A) 
-	$(LD) -Ttext=100 $(ADCD_OBJS) -o $(ADCD) -larch_ev3 $(LDFLAGS) $(EWOK_LIBC)
+	$(LD) -Ttext=100 $(ADCD_OBJS) -o $(ADCD) -larch_ev3 -lbsp $(BSP_LFLAGS) $(LDFLAGS) $(EWOK_LIBC)
 
 clean:
 	rm -f $(ADCD_OBJS) $(ADCD)

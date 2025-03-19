@@ -13,9 +13,9 @@ KBD_OBJS = joystickd.o
 KBD = $(TARGET_DIR)/drivers/ev3/gpio_joystickd
 
 $(KBD): $(KBD_OBJS) \
-		$(EWOK_LIBC_A)  \
+		$(EWOK_LIBC_A) \
 		$(BUILD_DIR)/lib/libarch_ev3.a
-	$(LD) -Ttext=100 $(KBD_OBJS) -o $(KBD) $(LDFLAGS) -larch_ev3 $(EWOK_LIBC)
+	$(LD) -Ttext=100 $(KBD_OBJS) -o $(KBD) $(LDFLAGS) -larch_ev3 -lbsp $(BSP_LFLAGS) $(EWOK_LIBC)
 
 clean:
 	rm -f $(KBD_OBJS)
