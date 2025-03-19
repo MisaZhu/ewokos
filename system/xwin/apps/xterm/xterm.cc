@@ -183,7 +183,7 @@ static void* thread_loop(void* p) {
 	uint32_t timer_id = timer_set(500000, timer_handler);
 	x.run(win_loop, _xwin);
 	timer_remove(timer_id);
-	_dev->terminated = true;
+	device_stop(_dev);
 	return NULL;
 }
 

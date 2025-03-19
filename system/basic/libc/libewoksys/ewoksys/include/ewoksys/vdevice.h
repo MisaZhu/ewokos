@@ -39,6 +39,7 @@ typedef struct {
 } vdevice_t;
 
 extern int device_run(vdevice_t* dev, const char* mnt_point, int mnt_type, int mode);
+extern void device_stop(vdevice_t* dev);
 
 extern int dev_get_pid(const char* fname);
 

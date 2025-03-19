@@ -645,6 +645,15 @@ static void sig_stop(int sig_no, void* p) {
   dev->terminated = true;
 }
 
+void device_stop(vdevice_t* dev) {
+	if(dev == NULL)
+		return;
+
+	dev->terminated = true;
+	if(dev->loop_step == NULL)
+		proc_wakeup((uint32_t)dev);
+}
+
 int device_run(vdevice_t* dev, const char* mnt_point, int mnt_type, int mode) {
 	if(dev == NULL)
 		return -1;
