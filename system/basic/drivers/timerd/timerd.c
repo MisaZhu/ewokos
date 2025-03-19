@@ -122,6 +122,7 @@ static void interrupt_handle(uint32_t interrupt, uint32_t data) {
 
 static int timer_dcntl(int from_pid, int cmd, proto_t* in, proto_t* ret, void* p) {
 	(void)p;
+	from_pid = proc_getpid(from_pid);
 
 	if(cmd == TIMER_SET) { 
 		//klog("timer set\n");

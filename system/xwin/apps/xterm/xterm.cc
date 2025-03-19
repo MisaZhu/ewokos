@@ -159,11 +159,6 @@ protected:
 static XConsole* _xwin = NULL;
 static vdevice_t* _dev = NULL;
 
-static int dev_loop(void* p) {
-	proc_usleep(100000);
-	return 0;
-}
-
 static void timer_handler(void) {
 	_xwin->flash();
 }
@@ -257,7 +252,6 @@ int run(const char* mnt_point) {
 	strcpy(dev.name, "xconsole");
 	dev.write = console_write;
 	dev.read = console_read;
-	dev.loop_step = dev_loop;
 	_dev = &dev;
 
 	pthread_t tid;
