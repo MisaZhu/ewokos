@@ -3,6 +3,21 @@
 #include <ewoksys/mmio.h>
 #include <ewoksys/syscall.h>
 
+#include "../include/arch/ev3/gpio.h"
+
+#define GPIO_INPUT  0x00
+#define GPIO_OUTPUT 0x01
+#define GPIO_ALTF5  0x02
+#define GPIO_ALTF4  0x03
+#define GPIO_ALTF0  0x04
+#define GPIO_ALTF1  0x05
+#define GPIO_ALTF2  0x06
+#define GPIO_ALTF3  0x07
+
+#define GPIO_PULL_NONE 0x00
+#define GPIO_PULL_DOWN 0x01
+#define GPIO_PULL_UP   0x02
+
 #define writel(val, reg)    (*(volatile uint32_t*)(reg) = (val))
 #define readl(reg)          (*(volatile uint32_t*)(reg))
 
@@ -16,10 +31,26 @@ struct pinmux{
 	uint8_t mode;
 };
 
-static uint32_t write_syscfg(uint32_t reg, uint32_t val, uint32_t mask){
-
-	return syscall3(SYS_MMIO_RW, reg, val, mask);
-}
+static uint8_t pullgp[] = {
+	//BANK 0
+	  3,  2,  2,  2,  2,  2,  2,  1,   0,  0,  0,  0,  0,  0,  0,  0,
+	//BANK 1
+	 13, 13, 12, 12, 11, 11, 10, 10,   7,  5,  5,  5,  5,  5,  5,  4,
+	//BANK 2
+	 16, 16, 16, 16, 16, 16, 16, 16,  16, 16, 15, 15, 15, 15, 14, 14,
+	//BANK 3
+	 17, 17, 17, 17, 17, 17, 17, 17,  16, 16, 16, 16, 16, 16, 16, 16,
+	//BANK 4
+	 18, 18, 18, 18, 18, 18, 18,255,  17, 17, 17, 17, 17, 17, 17, 17,
+	//BANK 5
+	 20, 20, 20, 20, 20, 20, 20, 20,  19, 19, 19, 19, 19, 19, 19, 19,
+	//BANK 6
+	 31, 30, 30, 30, 30, 27, 25, 25,  24, 24, 24, 24, 23, 23, 22, 21,
+	//BANK 7
+	 29, 29, 29, 29, 29, 29, 29, 29,  28, 28, 28, 28, 28, 28, 28, 28,
+	//BANK 8
+	255,  9,  9,  8,  8,  7,  7,  6,  31, 31, 31, 31, 30, 30, 30, 30,
+};
 
 static const struct pinmux PINMUX[MAX_GPIO] = {
 	//BANK 0
@@ -203,15 +234,23 @@ static volatile uint32_t *pinmux_regs;
 static volatile uint32_t *pull_enable;
 static volatile uint32_t *pull_up_down;
 
-void gpio_mux_cfg(int pin){
+
+static uint32_t write_syscfg(uint32_t reg, uint32_t val, uint32_t mask){
+	return syscall3(SYS_MMIO_RW, reg, val, mask);
+}
+
+void gpio_mux_cfg(int pin, int mode){
+	if(mode != MODE_GPIO)
+		return;
+
 	int idx = PINMUX[pin].idx;
 	int shift = PINMUX[pin].shift;
-	int mode = PINMUX[pin].mode;
+	mode = PINMUX[pin].mode;
 
 	write_syscfg(&pinmux_regs[idx], mode << shift, 0xf << shift);
 }
 
-void gpio_direction(int pin, int out, int value)
+void ev3_gpio_config(int32_t pin, int32_t mode)
 {
     volatile uint32_t temp;
     int bank = pin / 32;
@@ -221,18 +260,19 @@ void gpio_direction(int pin, int out, int value)
 	if(pin >= MAX_GPIO)
 		return;
 
-	gpio_mux_cfg(pin);
-    temp = readl(&g->dir);
-    if (out) {
-        temp &= ~mask;
-        writel(mask, value ? &g->set_data : &g->clr_data);
-    } else {
-        temp |= mask;
-    }
-    writel(temp, &g->dir);
+	if(mode == GPIO_OUTPUT || mode == GPIO_INPUT){
+		gpio_mux_cfg(pin, MODE_GPIO);
+    	temp = readl(&g->dir);
+    	if (mode == GPIO_OUTPUT) {
+    	    temp &= ~mask;
+    	} else {
+    	    temp |= mask;
+    	}
+    	writel(temp, &g->dir);
+	}
 }
 
-void gpio_set(int pin, int value){
+void ev3_gpio_write(int32_t pin, int32_t value){
     int bank = pin / 32;
 	struct davinci_gpio_regs *g = &davinci_gpios[bank];
 
@@ -242,7 +282,7 @@ void gpio_set(int pin, int value){
     writel(GPIO_MASK(pin),value ? &g->set_data : &g->clr_data);
 }
 
-int gpio_get(int pin){
+uint8_t ev3_gpio_read(int32_t pin){
     int bank = pin / 32;
 	struct davinci_gpio_regs *g = &davinci_gpios[bank];
 
@@ -252,15 +292,30 @@ int gpio_get(int pin){
     return !!(GPIO_MASK(pin) & readl(&g->in_data));
 }
 
-void gpio_pull_cfg(int gp, int en, int updown){
+void ev3_gpio_pull(int32_t pin, int32_t updown){
+	if(pin > 144)
+		return;
+
+	int gp = pullgp[pin];
+
+	if(gp > 32)
+		return;
 
 	uint32_t mask = 0x1 << gp;
 	uint32_t reg = *pull_enable;
-	write_syscfg(pull_enable, (!!en) << gp, 0x1 << gp);
-	write_syscfg(pull_up_down, (!!updown) << gp, 0x1 << gp);
+
+	if(updown == GPIO_PULL_NONE){
+		write_syscfg(pull_enable, 0, 0x1 << gp);
+	}else{
+		write_syscfg(pull_enable, 0x1 << gp, 0x1 << gp);
+		if(updown == GPIO_PULL_UP)
+			write_syscfg(pull_up_down, 0x1 << gp, 0x1 << gp);
+		else
+			write_syscfg(pull_up_down, 0, 0x1 << gp);
+	}
 }
 
-void gpio_init(void){
+void ev3_gpio_init(void){
 	_mmio_base = mmio_map();
 	davinci_gpios = (struct davinci_gpio_regs*)(_mmio_base + 0x01E26010);
 	pinmux_regs = (uint32_t*)(_mmio_base + 0x1c14120);

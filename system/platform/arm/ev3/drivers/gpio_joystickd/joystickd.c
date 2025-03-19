@@ -10,7 +10,7 @@
 #include <ewoksys/ipc.h>
 #include <ewoksys/mmio.h>
 
-#include <arch/ev3/gpio.h>
+#include <bsp/bsp_gpio.h>
 
 #define GPIO_HIGH				1
 #define GPIO_LOW				0
@@ -54,7 +54,7 @@ static int joystick_read(int fd, int from_pid, fsinfo_t* node,
 	int key_cnt = 0;
 	memset(keys, 0, size);
 	for(int i = 0; i < sizeof(_pins)/sizeof(struct gpio_pins);  i++){
-		if(gpio_get(_pins[i].pin) == _pins[i].active){
+		if(bsp_gpio_read(_pins[i].pin) == _pins[i].active){
 			*keys = _pins[i].key;
 			keys++;
 			key_cnt++;
@@ -68,26 +68,23 @@ static int joystick_read(int fd, int from_pid, fsinfo_t* node,
 }
 
 static void init_gpio(void) {
-	gpio_init();
-	gpio_pull_cfg(5, 0, 0);
-	gpio_pull_cfg(24, 0, 0);
-	gpio_pull_cfg(25, 0, 0);
-	gpio_pull_cfg(28, 0, 0);
+	bsp_gpio_init();
 	
 	for(int i = 0; i < sizeof(_pins)/sizeof(struct gpio_pins);  i++){
-		gpio_direction(_pins[i].pin, 0, 0);
+		bsp_gpio_pull(_pins[i].pin, GPIO_PULL_NONE);
+		bsp_gpio_config(_pins[i].pin, GPIO_INPUT);
 	}
 }
 
 static void check_power(void) {
 	static int count = 0;
-	if(gpio_get(KEY_POWER_PIN) != 0)
+	if(bsp_gpio_read(KEY_POWER_PIN) != 0)
 		count++;
 	else
 		count = 0;
 
 	if(count >= 10){
-		gpio_set(POWER_OFF_PIN, 0);
+		bsp_gpio_write(POWER_OFF_PIN, 0);
 	}
 }
 
