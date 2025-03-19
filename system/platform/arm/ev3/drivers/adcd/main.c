@@ -12,7 +12,7 @@
 #include <ewoksys/interrupt.h>
 
 #include <arch/ev3/spi.h>
-#include <arch/ev3/gpio.h>
+#include <bsp/bsp_gpio.h>
 
 #define BIT(x)  (0x1<<(x))
 #define ADC_SPI_CS		(3)
@@ -92,9 +92,11 @@ int main(int argc, char** argv) {
 	if(argind < argc)
 		mnt_point = argv[argind];
 
-	gpio_init();
-    gpio_direction(ADC_POWEWR_PIN, 1, 1);
-	gpio_direction(ADC_BATTERY_EN, 1, 1);
+	bsp_gpio_init();
+    bsp_gpio_config(ADC_POWEWR_PIN, GPIO_OUTPUT);
+	bsp_gpio_config(ADC_BATTERY_EN, GPIO_OUTPUT);
+	bsp_gpio_write(ADC_POWEWR_PIN, 1);
+	bsp_gpio_write(ADC_BATTERY_EN, 1);
 
 	davinci_spi_init(0);
 	davinci_spi_claim_bus(ADC_SPI_CS);
