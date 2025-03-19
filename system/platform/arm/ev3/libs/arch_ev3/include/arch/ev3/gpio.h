@@ -1,6 +1,6 @@
 #ifndef __GPIO_H__
 #define __GPIO_H__
-
+void gpio_mux_cfg(int pin);
 void gpio_init(void);
 void gpio_pull_cfg(int gp, int en, int updown);
 void gpio_direction(int pin, int out, int value);

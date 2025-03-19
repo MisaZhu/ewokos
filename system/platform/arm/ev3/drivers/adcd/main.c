@@ -17,6 +17,7 @@
 #define BIT(x)  (0x1<<(x))
 #define ADC_SPI_CS		(3)
 #define ADC_POWEWR_PIN	(101)
+#define ADC_BATTERY_EN	(6)
 #define ADC_CS_PIN		(130)
 
 #define TI_ADS7950_CR_MANUAL    BIT(12)
@@ -93,6 +94,7 @@ int main(int argc, char** argv) {
 
 	gpio_init();
     gpio_direction(ADC_POWEWR_PIN, 1, 1);
+	gpio_direction(ADC_BATTERY_EN, 1, 1);
 
 	davinci_spi_init(0);
 	davinci_spi_claim_bus(ADC_SPI_CS);
