@@ -85,7 +85,7 @@ static int32_t sys_get_thread_id(void) {
 static void sys_usleep(context_t* ctx, uint32_t count) {
 	proc_t * cproc = get_current_proc();
 	ipc_task_t* ipc = proc_ipc_get_task(cproc);
-	if(cproc->space->interrupt.state != INTR_STATE_IDLE)
+	if(cproc->info.type == TASK_TYPE_PROC && cproc->space->interrupt.state != INTR_STATE_IDLE)
 		return;
 
 	//no sleep longer than 100000 usec when handling interrupter/ipc task .

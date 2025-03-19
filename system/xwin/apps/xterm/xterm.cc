@@ -224,8 +224,9 @@ static int console_read(int fd, int from_pid, fsinfo_t* node,
 	char c;
 	int res = charbuf_pop(_buffer, &c);
 
-	if(res != 0)
+	if(res != 0) {
 		return VFS_ERR_RETRY;
+	}
 
 	((char*)buf)[0] = c;
 	return 1;
@@ -299,16 +300,9 @@ int main(int argc, char* argv[]) {
 	else 
 		ipc_wait_ready(pid);
 
-	int pid_shell = fork();
-	if(pid_shell == 0) {
-		if(set_stdio(dev) != 0)
-			exit(-1);
-		proc_exec("/bin/shell");
-	}
-	else {
-		waitpid(pid_shell);
-		kill(pid, SYS_SIG_STOP);
-	}
+	if(set_stdio(dev) != 0)
+		exit(-1);
+	proc_exec("/bin/shell");
 	waitpid(pid);
 	return 0;
 }
