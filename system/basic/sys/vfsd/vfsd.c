@@ -1072,7 +1072,7 @@ int main(int argc, char** argv) {
 	ipc_serv_run(handle, NULL, NULL, IPC_DEFAULT);
 
 	while(true) {
-		proc_usleep(30000);
+		proc_block_by(getpid(), (uint32_t)main);
 	}
 
 	free(_proc_fds_table);

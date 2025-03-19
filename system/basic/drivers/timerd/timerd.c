@@ -129,7 +129,7 @@ static int timer_dcntl(int from_pid, int cmd, proto_t* in, proto_t* ret, void* p
 			static interrupt_handler_t handler;
 			handler.data = 0;
 			handler.handler = interrupt_handle;
-			sys_interrupt_setup(IRQ_TIMER0, &handler);
+			//sys_interrupt_setup(IRQ_TIMER0, &handler);
 		}
 		uint32_t usec = (uint32_t)proto_read_int(in);
 		uint32_t entry = (uint32_t)proto_read_int(in);
@@ -143,8 +143,8 @@ static int timer_dcntl(int from_pid, int cmd, proto_t* in, proto_t* ret, void* p
 		uint32_t id = (uint32_t)proto_read_int(in);
 		interrupt_remove(from_pid, id);
 		update_timer_intr();
-		if(_intr_list == NULL)
-			sys_interrupt_setup(IRQ_TIMER0, NULL);
+		//if(_intr_list == NULL)
+			//sys_interrupt_setup(IRQ_TIMER0, NULL);
 	}
 	return 0;
 }
@@ -174,7 +174,7 @@ static int timer_loop(void* p) {
 	interrupt_handle(0, 0);
 
 	if(_min_timer_usec == 0)
-		usleep(5000);
+		usleep(100000);
 	else {
 		usleep(_min_timer_usec);
 	}
