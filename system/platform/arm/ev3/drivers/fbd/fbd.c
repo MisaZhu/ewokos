@@ -7,7 +7,7 @@
 #include <upng/upng.h>
 #include <bsp/bsp_fb.h>
 #include <ewoksys/mmio.h>
-#include <arch/ev3/st7586.h>
+#include "st7586.h"
 
 static void argb32_to_gray(uint32_t *argb, uint8_t *gray, int size){
     uint8_t *p = (uint8_t*)argb;
