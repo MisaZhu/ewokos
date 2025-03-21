@@ -128,8 +128,6 @@ static inline const char* svc_name(int32_t code) {
 		return "sys_schd_core_lock";
 	case SYS_SCHD_CORE_UNLOCK:
 		return "sys_schd_core_unlock";
-	case SYS_CLOSE_KCONSOLE:
-		return "sys_root";
 	}
 	return "unknown";
 }

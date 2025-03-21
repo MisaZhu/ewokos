@@ -55,17 +55,18 @@ int32_t bcm283x_fb_init(uint32_t w, uint32_t h, uint32_t dep) {
 	_fb_info.depth = fbinit->depth;
 	_fb_info.pitch = _fb_info.width*(_fb_info.depth/8);
 
-	//_fb_info.pointer = syscall1(SYS_P2V, (uint32_t)fbinit->pointer & 0x3fffffff); //GPU addr to ARM addr
+	uint32_t phy_base = ((uint32_t)fbinit->pointer) & 0x3fffffff; //GPU addr to ARM addr
 	_fb_info.pointer = sysinfo.fb.v_base;
 	_fb_info.size = fbinit->size;
 	_fb_info.xoffset = 0;
 	_fb_info.yoffset = 0;
 
-	if(_fb_info.pointer < sysinfo.kernel_base) {
+	/*if(_fb_info.pointer < sysinfo.kernel_base) {
 		_fb_info.pointer += sysinfo.kernel_base;
 	}
+	*/
 	_fb_info.size_max = _fb_info.size;
-	syscall3(SYS_MEM_MAP, _fb_info.pointer, sysinfo.fb.phy_base, _fb_info.size_max);
+	syscall3(SYS_MEM_MAP, _fb_info.pointer, phy_base, _fb_info.size_max);
 	return 0;
 }
 

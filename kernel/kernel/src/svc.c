@@ -622,12 +622,6 @@ static inline void sys_schd_core_unlock(void) {
 	cproc->schd_core_lock_counter = 0;
 }
 
-static inline void sys_root(void) {
-#ifdef KCONSOLE
-	kconsole_close();
-#endif
-}
-
 static inline void sys_mmio_rw(int32_t arg0, int32_t arg1, int32_t arg2, context_t* ctx){
 	uint32_t *reg = (uint32_t *)arg0;
 	uint32_t val = arg1;
@@ -828,8 +822,6 @@ static inline void _svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_
 	case SYS_SCHD_CORE_UNLOCK:	
 		sys_schd_core_unlock();
 		return;	
-	case SYS_CLOSE_KCONSOLE:	
-		sys_root();
 	case SYS_MMIO_RW:
 		sys_mmio_rw(arg0, arg1, arg2, ctx);
 		return;	

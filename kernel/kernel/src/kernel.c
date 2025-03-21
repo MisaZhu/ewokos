@@ -269,6 +269,11 @@ void _kernel_entry_c(void) {
 	//printf("[ok]\n");
 	//printf("kernel: start init process     ...\n"
 		//   "---------------------------------------------------\n");
+	
+#ifdef KCONSOLE
+	kconsole_close();
+#endif
+
 	__irq_enable();
 	halt();
 

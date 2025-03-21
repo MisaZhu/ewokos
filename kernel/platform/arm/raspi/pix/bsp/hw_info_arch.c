@@ -113,10 +113,15 @@ void sys_info_init_arch(void) {
 	_sys_info.mmio.size = 30*MB;
 
 	_allocable_phy_mem_base = V2P(get_allocable_start());
+
 #ifdef CLOCKWORK
 	//for clockwork framebuffer work around
+	_sys_info.fb.v_base = 0xC00000;
 	_allocable_phy_mem_base += 16*MB;
+#else
+	_sys_info.fb.v_base = FB_BASE;
 #endif
+
 	_sys_info.dma.phy_base = _allocable_phy_mem_base;
 	_sys_info.dma.size = DMA_SIZE;
 	_sys_info.dma.v_base = DMA_BASE;
