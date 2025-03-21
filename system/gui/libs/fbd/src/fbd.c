@@ -63,20 +63,23 @@ static uint32_t flush(const fbinfo_t* fbinfo, const void* buf, uint32_t size, in
 		return 0;
 
 	graph_t g;
-	graph_init(&g, buf, fbinfo->height, fbinfo->width);
 
 	graph_t* gr = NULL;
 	if(rotate == G_ROTATE_N90 || rotate == G_ROTATE_90) {
+		graph_init(&g, buf, fbinfo->height, fbinfo->width);
 		if(fbinfo->depth == 16)
 			gr = graph_new(NULL, fbinfo->width, fbinfo->height);
 		else
 			gr = graph_new(fbinfo->pointer, fbinfo->width, fbinfo->height);
 	}
-	else if(rotate == G_ROTATE_180) {
-		if(fbinfo->depth == 16)
-			gr = graph_new(NULL, fbinfo->width, fbinfo->height);
-		else
-			gr = graph_new(fbinfo->pointer, fbinfo->width, fbinfo->height);
+	else {
+		graph_init(&g, buf, fbinfo->width, fbinfo->height);
+		if(rotate == G_ROTATE_180) {
+			if(fbinfo->depth == 16)
+				gr = graph_new(NULL, fbinfo->width, fbinfo->height);
+			else
+				gr = graph_new(fbinfo->pointer, fbinfo->width, fbinfo->height);
+		}
 	}
 
 	if(gr != NULL) {
