@@ -116,9 +116,6 @@ void sys_info_init_arch(void) {
 
 #ifdef CLOCKWORK
 	//for clockwork framebuffer work around
-	_sys_info.fb.phy_base = 0xC00000;
-	_sys_info.fb.v_base = P2V(0xC00000);
-	_sys_info.fb.size = 32*MB;
 	_allocable_phy_mem_base += 16*MB;
 #else
 	_sys_info.fb.v_base = FB_BASE;
