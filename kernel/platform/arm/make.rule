@@ -9,12 +9,12 @@ OBJDUMP = arm-none-eabi-objdump
 
 export QEMU_AUDIO_DRV=none
 
-SRC_DIR=$(ROOT_DIR)/kernel
+SRC_DIR=$(EWOKOS_ROOT_DIR)/kernel
 
 ARCH_DIR=$(SRC_DIR)/platform/arm/arch
 BSP_DIR=bsp
 
-SYS_FULL_DIR = $(ROOT_DIR)/system/platform/$(MACHINE)
+SYS_FULL_DIR = $(EWOKOS_ROOT_DIR)/machine/$(MACHINE)/system
 BUILD_DIR = .
 
 # flags
@@ -162,26 +162,6 @@ $(OS_IMG): $(OBJS) $(LDS) $(LDS_QEMU)
 	$(LD) $(OBJS) $(LDFLAGS) -T $(LDS_QEMU) -o $(BUILD_DIR)/$(OS_QEMU_ELF)
 	$(OBJCOPY) -O binary $(BUILD_DIR)/$(OS_ELF) $(BUILD_DIR)/$(OS_IMG)
 	$(OBJCOPY) -O binary $(BUILD_DIR)/$(OS_QEMU_ELF) $(BUILD_DIR)/$(OS_QEMU_IMG)
-
-asm:
-	$(OBJDUMP) -D $(BUILD_DIR)/$(OS_ELF) > $(BUILD_DIR)/kernel.asm
-
-run: 
-	$(QEMU_CMD) $(QEMU_FLAGS) -kernel $(BUILD_DIR)/$(OS_QEMU_IMG) $(QEMU_ARGS)
-
-runasm: 
-	$(QEMU_CMD) $(QEMU_FLAGS) -kernel $(BUILD_DIR)/$(OS_QEMU_IMG) $(QEMU_ARGS) -d in_asm
-
-debug:
-	$(QEMU_CMD) $(QEMU_FLAGS) -gdb tcp::26000 -S -kernel $(BUILD_DIR)/$(OS_QEMU_IMG) $(QEMU_ARGS)
-
-debugasm:
-	$(QEMU_CMD) $(QEMU_FLAGS) -d in_asm -gdb tcp::26000 -S -kernel $(BUILD_DIR)/$(OS_QEMU_IMG) $(QEMU_ARGS)
-
-gdb: 
-	echo "target remote :26000" > /tmp/gdbinit
-	arm-none-eabi-gdb $(BUILD_DIR)/$(OS_QEMU_ELF) -x /tmp/gdbinit
-	#gdb-multiarch $(BUILD_DIR)/$(OS_QEMU_ELF) -x /tmp/gdbinit #for ubuntu 18.04 without arm-none-eabi-gdb
 
 clean:
 	rm -f $(OBJS)

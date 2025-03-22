@@ -1,4 +1,4 @@
-KERNEL_DIR = $(ROOT_DIR)/../kernel
+KERNEL_DIR = $(EWOKOS_ROOT_DIR)/kernel
 KERNEL_H = \
 	$(KERNEL_DIR)/kernel/include/proto_t.h \
 	$(KERNEL_DIR)/kernel/include/syscalls.h \
@@ -14,26 +14,11 @@ kernel_heads:
 	mkdir -p ${BUILD_DIR}/lib
 	mkdir -p ${BUILD_DIR}/rootfs
 	cp -r $(KERNEL_H) $(BUILD_DIR)/include/
-
-SD = build/root.ext2
-
-sd: 
-	@echo "\n====building ext2 format sdcard image===="
-	mkdir -p build
-#256M ext2 sd
-	dd if=/dev/zero of=${SD} bs=1k count=256k
-#make ext2 fs with: block_size=1024 inode_size=128
-	mke2fs -b 1024 -I 128 ${SD}
- 
-	@cd $(ROOT_DIR)/build/$(HW); \
-	find . -type f | e2cp -ap -G0 -O0 -d ../../platform/arm/${HW}/${SD}:/
-
-	@echo "==== ext2 format sdcard image created  ====\n"
-
+	
 extra: 
-	cd ../../../../sw.extra/; make HW=$(HW)
-	cp -r ../../../../sw.extra/build/$(HW)/apps $(ROOT_DIR)/build/$(HW) 
-	cp -r ../../../../sw.extra/build/$(HW)/bin $(ROOT_DIR)/build/$(HW)
-	cp -r ../../../../sw.extra/build/$(HW)/sbin $(ROOT_DIR)/build/$(HW)
-	cp -r ../../../../sw.extra/usr $(ROOT_DIR)/build/$(HW)
+	cd $(EWOKOS_ROOT_DIR)/sw.extra/; make HW=$(HW)
+	cp -r $(EWOKOS_ROOT_DIR)/sw.extra/build/$(HW)/apps $(SYS_ROOT_DIR)/build/$(HW) 
+	cp -r $(EWOKOS_ROOT_DIR)/sw.extra/build/$(HW)/bin $(SYS_ROOT_DIR)/build/$(HW)
+	cp -r $(EWOKOS_ROOT_DIR)/sw.extra/build/$(HW)/sbin $(SYS_ROOT_DIR)/build/$(HW)
+	cp -r $(EWOKOS_ROOT_DIR)/sw.extra/usr $(SYS_ROOT_DIR)/build/$(HW)
 

@@ -10,12 +10,12 @@ OBJDUMP = ${CROSS_COMPILE}objdump
 
 export QEMU_AUDIO_DRV=none
 
-SRC_DIR=$(ROOT_DIR)/kernel
+SRC_DIR=$(EWOKOS_ROOT_DIR)/kernel
 
 ARCH_DIR=$(SRC_DIR)/platform/riscv/arch
 BSP_DIR=bsp
 
-SYS_FULL_DIR = $(ROOT_DIR)/system
+SYS_FULL_DIR = $(EWOKOS_ROOT_DIR)/system
 BUILD_DIR = .
 
 # flags
