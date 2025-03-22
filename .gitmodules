@@ -4,3 +4,6 @@
 [submodule "sw.extra"]
 	path = sw.extra
 	url = https://github.com/misazhu/ewokos.extra
+[submodule "machine.3rd"]
+	path = machine.3rd
+	url = https://github.com/MisaZhu/ewokos.machines.git
