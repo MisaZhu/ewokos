@@ -3,7 +3,7 @@ CPU = arm926ej-s
 QEMU_FLAGS = -cpu arm926 -M versatilepb -m 256M -serial mon:stdio -display cocoa
 
 ARCH_CFLAGS = -mcpu=$(CPU) -DARM_V6
-ARCH=v6
+ARCH_VER=v6
 BSP=versatilepb
 
 KERNEL_CONSOLE=yes

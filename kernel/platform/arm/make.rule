@@ -39,7 +39,7 @@ CFLAGS += $(OPTM) \
 	-I. -I$(SRC_DIR)/lib/include \
 	-I$(SRC_DIR)/kernel/include \
 	-I$(SRC_DIR)/dev/include \
-	-I$(ARCH_DIR)/$(ARCH) \
+	-I$(ARCH_DIR)/$(ARCH_VER) \
 	-I$(ARCH_DIR)/common/include \
 	-marm $(ARCH_CFLAGS) \
 	-Wstrict-prototypes \
@@ -59,9 +59,9 @@ CFLAGS += $(OPTM) \
 	-std=c99
 
 ARCH_OBJS += \
-	$(ARCH_DIR)/$(ARCH)/boot.o \
-	$(ARCH_DIR)/$(ARCH)/system.o \
-	$(ARCH_DIR)/$(ARCH)/mmu_pte_flags.o \
+	$(ARCH_DIR)/$(ARCH_VER)/boot.o \
+	$(ARCH_DIR)/$(ARCH_VER)/system.o \
+	$(ARCH_DIR)/$(ARCH_VER)/mmu_pte_flags.o \
 	$(ARCH_DIR)/common/src/interrupt.o \
 	$(ARCH_DIR)/common/src/gic.o \
 	$(ARCH_DIR)/common/src/irq.o \
@@ -72,8 +72,8 @@ ARCH_OBJS += \
 	$(ARCH_DIR)/common/src/arm32_aeabi_divmod.o \
 	$(ARCH_DIR)/common/src/arm32_aeabi_ldivmod.o
 
-ifeq ($(ARCH),v7)
-	ARCH_OBJS += $(ARCH_DIR)/$(ARCH)/neon.o
+ifeq ($(ARCH_VER),v7)
+	ARCH_OBJS += $(ARCH_DIR)/$(ARCH_VER)/neon.o
 endif
 
 LIB_EXT2_DIR=$(SRC_DIR)/lib/ext2
@@ -151,7 +151,7 @@ OBJS = $(ARCH_OBJS) \
 	$(KERNEL_OBJS) \
 	$(DEV_OBJS) 
 
-LDFLAGS = -L $(ARCH_DIR)/$(ARCH)
+LDFLAGS = -L $(ARCH_DIR)/$(ARCH_VER)
 
 all: $(OS_IMG) 
 
