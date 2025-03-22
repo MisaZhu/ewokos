@@ -92,7 +92,8 @@ LIB_GRAPH_OBJS = $(LIB_GRAPH_DIR)/src/graph.o \
 CFLAGS += -I$(LIB_GRAPH_DIR)/include
 
 LIB_CONSOLE_DIR=$(SRC_DIR)/lib/console
-LIB_CONSOLE_OBJS = $(LIB_CONSOLE_DIR)/src/console.o 
+LIB_CONSOLE_OBJS = $(LIB_CONSOLE_DIR)/src/console.o  \
+	$(LIB_CONSOLE_DIR)/src/kconsole.o 
 CFLAGS += -I$(LIB_CONSOLE_DIR)/include
 
 LIB_EXT2_DIR=$(SRC_DIR)/lib/ext2
@@ -136,7 +137,6 @@ KERNEL_OBJS = \
 	$(KERNEL_DIR)/mm/shm.o \
 	$(KERNEL_DIR)/mm/mmu.o \
 	$(KERNEL_DIR)/smp/core.o \
-	$(KERNEL_DIR)/kconsole.o \
 	$(KERNEL_DIR)/irq.o \
 	$(KERNEL_DIR)/svc.o \
 	$(KERNEL_DIR)/semaphore.o \

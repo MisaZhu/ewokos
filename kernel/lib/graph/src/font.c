@@ -1,6 +1,5 @@
 #include <graph/font.h>
 #include <kstring.h>
-#include <kernel/kernel.h>
 
 int32_t get_text_size(const char* s, font_t* font, int32_t* w, int32_t* h) {
 	if(font == NULL)
@@ -14,8 +13,8 @@ int32_t get_text_size(const char* s, font_t* font, int32_t* w, int32_t* h) {
 
 extern font_t font_8x16;
 extern font_t font_5x7;
-font_t* get_font(void) {
-	if(_kernel_config.font_size == 5)
+font_t* get_font(uint32_t size) {
+	if(size == 5)
 		return &font_5x7;
 	return &font_8x16;
 }

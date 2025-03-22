@@ -43,26 +43,6 @@ static void load_kernel_config_file() {
 	if(v[0] != 0)
 		_kernel_config.uart_baud = atoi(v);
 
-	v = sconf_get(sconf, "fb_width");
-	if(v[0] != 0)
-		_kernel_config.fb.width = atoi(v);
-
-	v = sconf_get(sconf, "fb_height");
-	if(v[0] != 0)
-		_kernel_config.fb.height = atoi(v);
-
-	v = sconf_get(sconf, "fb_depth");
-	if(v[0] != 0)
-		_kernel_config.fb.depth = atoi(v);
-
-	v = sconf_get(sconf, "fb_rotate");
-	if(v[0] != 0)
-		_kernel_config.fb.rotate = atoi(v);
-
-	v = sconf_get(sconf, "font_size");
-	if(v[0] != 0)
-		_kernel_config.font_size = atoi(v);
-
 	sconf_free(sconf);
 }
 
@@ -75,9 +55,6 @@ void load_kernel_config(void) {
 
 	if(_kernel_config.timer_freq < 256)
 		_kernel_config.timer_freq = 256;
-
-	if(_kernel_config.font_size == 0)
-		_kernel_config.font_size = 8;
 
 	if(_kernel_config.max_proc_num > MAX_PROC_NUM)
 		_kernel_config.max_proc_num = MAX_PROC_NUM;
@@ -93,13 +70,4 @@ void load_kernel_config(void) {
 
 	if(_kernel_config.uart_baud == 0)
 		_kernel_config.uart_baud = 115200;
-
-	if(_kernel_config.fb.width == 0)
-		_kernel_config.fb.width = 640;
-
-	if(_kernel_config.fb.height == 0)
-		_kernel_config.fb.height = 640;
-
-	if(_kernel_config.fb.depth == 0)
-		_kernel_config.fb.depth = 32;
 }

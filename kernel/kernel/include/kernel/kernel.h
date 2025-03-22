@@ -32,15 +32,6 @@ typedef struct {
 	uint32_t max_proc_num;
 	uint32_t max_task_num;
 	uint32_t max_task_per_proc;
-
-	struct {
-		uint32_t width;
-		uint32_t height;
-		uint32_t depth;
-		uint32_t rotate;
-	} fb;
-	uint32_t font_size;
-	uint32_t lines;
 } kernel_conf_t;
 
 extern kernel_conf_t _kernel_config;

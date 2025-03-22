@@ -8,7 +8,6 @@
 #include <kernel/hw_info.h>
 #include <kernel/semaphore.h>
 #include <kernel/kevqueue.h>
-#include <kernel/kconsole.h>
 #include <kernel/signal.h>
 #include <kernel/core.h>
 #include <mm/kalloc.h>

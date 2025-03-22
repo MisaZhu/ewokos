@@ -3,9 +3,24 @@
 #include "dev/uart.h"
 #include "kstring.h"
 #include "kernel/system.h"
-#include "kernel/kconsole.h"
 #include "kernel/kernel.h"
 #include <stddef.h>
+
+#ifdef KCONSOLE
+#include "console/kconsole.h"
+#endif
+
+void kprintf_init(void) {
+#ifdef KCONSOLE
+	kconsole_init();
+#endif
+}
+
+void kprintf_close(void) {
+#ifdef KCONSOLE
+	kconsole_close();
+#endif
+}
 
 void kout(const char* s) {
 	uart_write(s, strlen(s));

@@ -17,7 +17,6 @@
 #include <dev/uart.h>
 #include <stddef.h>
 #include <sysinfo.h>
-#include <kernel/kconsole.h>
 #include <kernel/semaphore.h>
 
 page_dir_entry_t* _kernel_vm = NULL;
@@ -208,11 +207,7 @@ void _kernel_entry_c(void) {
 	kmalloc_init(); //init kmalloc again with config info;
 	kout  ("[OK]\n");
 
-#ifdef KCONSOLE
-	kout  ("kernel: init framebuffer       ... ");
-	kconsole_init();
-	kout  ("[OK]\n");
-#endif
+	kprintf_init();
 
 	//printf("kernel: init allocable memory  ... ");
 	init_allocable_mem(); //init the rest allocable memory VM
@@ -269,10 +264,7 @@ void _kernel_entry_c(void) {
 	//printf("[ok]\n");
 	//printf("kernel: start init process     ...\n"
 		//   "---------------------------------------------------\n");
-	
-#ifdef KCONSOLE
-	kconsole_close();
-#endif
+	kprintf_close();
 
 	__irq_enable();
 	halt();
