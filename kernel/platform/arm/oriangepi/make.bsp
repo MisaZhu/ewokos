@@ -6,7 +6,8 @@ ARCH_OBJS += $(BSP_DIR)/hw_info_arch.o \
 	$(BSP_DIR)/ipi.o  \
 	$(BSP_DIR)/core.o  \
 	$(BSP_DIR)/irq.o  \
-	$(BSP_DIR)/smcc-call.o  \
-	$(BSP_DIR)/fb.o	
+	$(BSP_DIR)/smcc-call.o
 
-
+ifeq ($(KERNEL_CONSOLE),yes)
+ARCH_OBJS += $(BSP_DIR)/fb.o
+endif

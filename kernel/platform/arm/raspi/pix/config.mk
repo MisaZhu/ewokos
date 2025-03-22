@@ -12,7 +12,7 @@ ARCH=v7
 #----multi core(SMP)------
 SMP=yes
 #----kernel console-------
-KERNEL_CONSOLE=yes
+#KERNEL_CONSOLE=yes
 
 ifeq ($(CLOCKWORK),yes)
 PI4=yes

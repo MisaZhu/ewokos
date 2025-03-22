@@ -1,10 +1,13 @@
 CFLAGS = -I../lib/bcm283x/include
 
 ARCH_OBJS += $(BSP_DIR)/hw_info_arch.o \
-	$(BSP_DIR)/fb.o  \
 	$(BSP_DIR)/start.o \
 	$(BSP_DIR)/sd.o  \
 	$(BSP_DIR)/uart.o
+
+ifeq ($(KERNEL_CONSOLE),yes)
+ARCH_OBJS += $(BSP_DIR)/fb.o
+endif
 
 ARCH_OBJS += ../lib/bcm283x/src/gpio.o \
 	../lib/bcm283x/src/sd.o \
