@@ -2,6 +2,7 @@ EWOKOS_ROOT_DIR = ../../..
 SYS_ROOT_DIR = ${EWOKOS_ROOT_DIR}/system
 INST_DIR = /usr/local/ewokos
 BUILD_DIR = $(SYS_ROOT_DIR)/build
+MACHINE_BUILD_DIR = build
 TARGET_DIR = $(BUILD_DIR)/rootfs
 HW=virt
 
@@ -11,9 +12,9 @@ export BSP_LFLAGS= -larch_virt
 
 all: x_sys
 	@echo "all done."
-	rm -fr $(BUILD_DIR)/$(HW)
-	mkdir -p $(BUILD_DIR)/$(HW)
-	mv $(TARGET_DIR)/* $(BUILD_DIR)/$(HW)
+	rm -fr $(MACHINE_BUILD_DIR)
+	mkdir -p $(MACHINE_BUILD_DIR)
+	mv $(TARGET_DIR)/* $(MACHINE_BUILD_DIR)
 	rm -fr $(TARGET_DIR)
 
 include $(SYS_ROOT_DIR)/platform/riscv/make.inc
@@ -36,6 +37,7 @@ clean:
 	cd $(SYS_ROOT_DIR)/gui;make clean
 	cd $(SYS_ROOT_DIR)/basic;make clean
 	rm -fr $(SYS_ROOT_DIR)/build/$(HW)
+	rm -fr $(MACHINE_BUILD_DIR)
 
 install:
 	mkdir -p $(INST_DIR)/$(ARCH)/$(HW)

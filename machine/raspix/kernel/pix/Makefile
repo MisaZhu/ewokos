@@ -21,6 +21,8 @@ endif
 
 include $(EWOKOS_ROOT_DIR)/kernel/platform/arm/make.rule
 
+QEMU_ARGS += -sd $(SYS_FULL_DIR)/root.ext2
+
 asm:
 	$(OBJDUMP) -D $(BUILD_DIR)/$(OS_ELF) > $(BUILD_DIR)/kernel.asm
 

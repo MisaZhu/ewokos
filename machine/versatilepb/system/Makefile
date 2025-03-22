@@ -2,6 +2,7 @@ EWOKOS_ROOT_DIR = ../../..
 SYS_ROOT_DIR = $(EWOKOS_ROOT_DIR)/system
 INST_DIR = /usr/local/ewokos
 BUILD_DIR = $(SYS_ROOT_DIR)/build
+MACHINE_BUILD_DIR = build
 TARGET_DIR = $(BUILD_DIR)/rootfs
 HW=versatilepb
 
@@ -15,9 +16,9 @@ all: x
 include $(SYS_ROOT_DIR)/platform/arm/make.inc
 
 final:
-	rm -fr $(BUILD_DIR)/$(HW)
-	mkdir -p $(BUILD_DIR)/$(HW)
-	mv $(TARGET_DIR)/* $(BUILD_DIR)/$(HW)
+	rm -fr $(MACHINE_BUILD_DIR)
+	mkdir -p $(MACHINE_BUILD_DIR)
+	mv $(TARGET_DIR)/* $(MACHINE_BUILD_DIR)
 	rm -fr $(TARGET_DIR)
 
 basic: basic_sys final
@@ -53,8 +54,9 @@ clean:
 	cd $(SYS_ROOT_DIR)/gui;make clean
 	cd $(SYS_ROOT_DIR)/basic;make clean
 	rm -fr $(SYS_ROOT_DIR)/build/$(HW)
+	rm -fr $(MACHINE_BUILD_DIR)
 
-SD = build/root.ext2
+SD = root.ext2
 sd: 
 	@echo "\n====building ext2 format sdcard image===="
 	mkdir -p build
@@ -63,8 +65,8 @@ sd:
 #make ext2 fs with: block_size=1024 inode_size=128
 	mke2fs -b 1024 -I 128 ${SD}
  
-	@cd $(SYS_ROOT_DIR)/build/$(HW); \
-	find . -type f | e2cp -ap -G0 -O0 -d $(EWOKOS_ROOT_DIR)/machine/${HW}/system/${SD}:/
+	cd $(MACHINE_BUILD_DIR); \
+	find . -type f | e2cp -ap -G0 -O0 -d ../${SD}:/
 
 	@echo "==== ext2 format sdcard image created  ====\n"
 
