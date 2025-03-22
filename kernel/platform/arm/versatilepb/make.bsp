@@ -6,5 +6,5 @@ ARCH_OBJS += $(BSP_DIR)/hw_info_arch.o \
 	$(BSP_DIR)/start.o
 
 ifeq ($(KERNEL_CONSOLE),yes)
-ARCH_OBJS += $(BSP_DIR)/fb.o
+ARCH_OBJS += $(BSP_DIR)/fb/fb.o
 endif

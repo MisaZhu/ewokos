@@ -6,4 +6,4 @@ ARCH_CFLAGS = -mcpu=$(CPU) -DARM_V6
 ARCH=v6
 BSP=versatilepb
 
-#KERNEL_CONSOLE=yes
+KERNEL_CONSOLE=yes

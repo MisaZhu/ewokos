@@ -4,7 +4,7 @@
 #include <mm/mmu.h>
 #include <kstring.h>
 
-#include "st7586.h"
+#include "../st7586.h"
 
 #define FB_DEF_W 178
 #define FB_DEF_H 128

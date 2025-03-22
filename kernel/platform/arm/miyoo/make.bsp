@@ -7,7 +7,7 @@ ARCH_OBJS += $(BSP_DIR)/sdmmc.o \
 	$(BSP_DIR)/start.o
 
 ifeq ($(KERNEL_CONSOLE),yes)
-ARCH_OBJS += $(BSP_DIR)/fb.o
+ARCH_OBJS += $(BSP_DIR)/fb/fb.o
 endif
 
 ifeq ($(SMP),yes)
