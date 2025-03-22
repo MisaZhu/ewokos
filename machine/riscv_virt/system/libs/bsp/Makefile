@@ -1,4 +1,4 @@
-SYS_DIR=../../../../..
+SYS_DIR=../../../../../system/
 include $(SYS_DIR)/platform/riscv/make.rule
 
 BUILD_DIR = $(SYS_DIR)/build
@@ -15,8 +15,8 @@ LIB_BSP_OBJS = src/bsp_sd.o
 BSP = $(TARGET_DIR)/lib/libbsp.a
 
 $(BSP): $(LIB_BSP_OBJS) \
-		$(BUILD_DIR)/lib/libarch_nezha.a
-	$(AR) rcs $(BSP) $(LIB_BSP_OBJS)  $(BUILD_DIR)/lib/libarch_nezha.a
+		$(BUILD_DIR)/lib/libarch_virt.a
+	$(AR) rcs $(BSP) $(LIB_BSP_OBJS)  $(BUILD_DIR)/lib/libarch_virt.a
 	cp -r include/* $(TARGET_DIR)/include
 
 clean:

@@ -10,5 +10,7 @@ OS_QEMU_ELF = kernel7.qemu.elf
 
 QEMU_CMD = qemu-system-riscv64
 
-ROOT_DIR = ../../../..
-include ../make.rule
+EWOKOS_ROOT_DIR = ../../../..
+MACHINE=riscv_virt
+
+include $(EWOKOS_ROOT_DIR)/kernel/platform/riscv/make.rule
