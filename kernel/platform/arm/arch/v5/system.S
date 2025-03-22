@@ -8,12 +8,13 @@ __flush_dcache_all:
 	MRC p15, 0, r0, c7, c10, 3
 	MCR p15, 0, r0, c7, c6, 0
 	bx lr
-
+/*
 .global	__invalidate_dcache_all
 __invalidate_dcache_all:
 	mov r0, #0
 	MCR p15, 0, r0, c7, c6, 0
 	bx lr
+*/
 
 .global __flush_tlb
 __flush_tlb:
