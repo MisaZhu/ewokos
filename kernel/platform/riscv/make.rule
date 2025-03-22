@@ -30,10 +30,6 @@ ifeq ($(DPI),yes)
 CFLAGS +=  -DENABLE_DPI
 endif
 
-ifeq ($(KERNEL_CONSOLE),yes)
-CFLAGS +=  -DKCONSOLE
-endif
-
 ifeq ($(C906_EXTEND),yes)
 CFLAGS +=  -DC906_EXTEND
 endif
@@ -94,18 +90,6 @@ ARCH_OBJS += $(BSP_DIR)/$(BSP)/ipi.o \
 	$(BSP_DIR)/$(BSP)/core.o
 endif
 
-LIB_GRAPH_DIR=$(SRC_DIR)/lib/graph
-LIB_GRAPH_OBJS = $(LIB_GRAPH_DIR)/src/graph.o \
-	$(LIB_GRAPH_DIR)/src/pixel.o \
-	$(LIB_GRAPH_DIR)/src/text.o \
-	$(LIB_GRAPH_DIR)/src/font8x16.o \
-	$(LIB_GRAPH_DIR)/src/font.o
-CFLAGS += -I$(LIB_GRAPH_DIR)/include
-
-LIB_CONSOLE_DIR=$(SRC_DIR)/lib/console
-LIB_CONSOLE_OBJS = $(LIB_CONSOLE_DIR)/src/console.o 
-CFLAGS += -I$(LIB_CONSOLE_DIR)/include
-
 LIB_EXT2_DIR=$(SRC_DIR)/lib/ext2
 LIB_EXT2_OBJS = $(LIB_EXT2_DIR)/src/ext2read.o 
 CFLAGS += -I$(LIB_EXT2_DIR)/include
@@ -123,10 +107,8 @@ LIB_OBJS = \
 	$(LIB_DIR)/proto.o \
 	$(LIB_DIR)/queue.o \
 	$(LIB_DIR)/kprintf.o \
-	$(LIB_GRAPH_OBJS) \
 	$(LIB_EXT2_OBJS) \
-	$(LIB_SCONF_OBJS) \
-	$(LIB_CONSOLE_OBJS)
+	$(LIB_SCONF_OBJS)
 
 LOAD_DIR=$(SRC_DIR)/loadinit/sd
 LOAD_OBJS = \
@@ -135,7 +117,24 @@ CFLAGS += -I$(LOAD_DIR)
 #QEMU_ARGS += -sd $(SYS_FULL_DIR)/root.ext2
 
 DEV_DIR = $(SRC_DIR)/dev/src
-DEV_OBJS = 
+
+ifeq ($(KERNEL_CONSOLE),yes)
+CFLAGS +=  -DKCONSOLE
+LIB_CONSOLE_DIR=$(SRC_DIR)/lib/console
+LIB_CONSOLE_OBJS = $(LIB_CONSOLE_DIR)/src/graph/graph.o \
+	$(LIB_CONSOLE_DIR)/src/graph/pixel.o \
+	$(LIB_CONSOLE_DIR)/src/graph/text.o \
+	$(LIB_CONSOLE_DIR)/src/graph/font8x16.o \
+	$(LIB_CONSOLE_DIR)/src/graph/font5x7.o \
+	$(LIB_CONSOLE_DIR)/src/graph/font.o \
+	$(LIB_CONSOLE_DIR)/src/console/console.o  \
+	$(LIB_CONSOLE_DIR)/src/console/kconsole.o 
+CFLAGS += -I$(LIB_CONSOLE_DIR)/include
+
+LIB_OBJS += $(LIB_CONSOLE_OBJS)
+DEV_OBJS += $(DEV_DIR)/fb.o
+
+endif
 
 KERNEL_DIR = $(SRC_DIR)/kernel/src
 KERNEL_OBJS = \
@@ -146,7 +145,6 @@ KERNEL_OBJS = \
 	$(KERNEL_DIR)/mm/shm.o \
 	$(KERNEL_DIR)/mm/mmu.o \
 	$(KERNEL_DIR)/smp/core.o \
-	$(KERNEL_DIR)/kconsole.o \
 	$(KERNEL_DIR)/irq.o \
 	$(KERNEL_DIR)/svc.o \
 	$(KERNEL_DIR)/semaphore.o \
