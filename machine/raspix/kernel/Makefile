@@ -8,7 +8,7 @@ OS_ELF = kernel7.elf
 OS_QEMU_IMG = kernel7.qemu.img
 OS_QEMU_ELF = kernel7.qemu.elf
 
-EWOKOS_ROOT_DIR = ../../../..
+EWOKOS_ROOT_DIR = ../../..
 MACHINE=raspix
 
 include make.bsp
