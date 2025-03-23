@@ -5,6 +5,4 @@ ARCH_VER=v6
 
 #----enable DPI display---
 #DPI=yes
-#----kernel console-------
-KERNEL_CONSOLE=yes
 

@@ -207,8 +207,6 @@ void _kernel_entry_c(void) {
 	kmalloc_init(); //init kmalloc again with config info;
 	kout  ("[OK]\n");
 
-	kprintf_init();
-
 	//printf("kernel: init allocable memory  ... ");
 	init_allocable_mem(); //init the rest allocable memory VM
 	//printf("[ok] (%d MB)\n", (get_free_mem_size() / (1*MB)));
@@ -264,7 +262,6 @@ void _kernel_entry_c(void) {
 	//printf("[ok]\n");
 	//printf("kernel: start init process     ...\n"
 		//   "---------------------------------------------------\n");
-	kprintf_close();
 
 	__irq_enable();
 	halt();

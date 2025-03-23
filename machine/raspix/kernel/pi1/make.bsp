@@ -7,10 +7,6 @@ ARCH_OBJS += $(BSP_DIR)/hw_info_arch.o \
 	$(BSP_DIR)/uart.o \
 	$(BSP_DIR)/start.o
 
-ifeq ($(KERNEL_CONSOLE),yes)
-ARCH_OBJS += $(BSP_DIR)/fb/fb.o
-endif
-
 ARCH_OBJS += ../lib/bcm283x/src/gpio.o \
 	../lib/bcm283x/src/sd.o \
 	../lib/bcm283x/src/mailbox.o \

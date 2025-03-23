@@ -60,17 +60,6 @@ void arch_vm(page_dir_entry_t* vm) {
 	uint32_t vbase = _sys_info.mmio.v_base + offset;
 	uint32_t pbase = _sys_info.mmio.phy_base + offset;
 	map_page(vm, vbase, pbase, AP_RW_D, PTE_ATTR_DEV);
-
-#ifdef KCONSOLE
-	fbinfo_t* fb_info = bcm283x_get_fbinfo();
-	if(fb_info->pointer != 0) {
-		map_pages_size(vm, 
-			fb_info->pointer,
-			V2P(fb_info->pointer),
-			fb_info->size_max,
-			AP_RW_D, PTE_ATTR_DEV);
-	}
-#endif
 }
 
 void kalloc_arch(void) {

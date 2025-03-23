@@ -102,24 +102,6 @@ LOAD_OBJS = \
 
 DEV_DIR = $(SRC_DIR)/dev/src
 
-ifeq ($(KERNEL_CONSOLE),yes)
-CFLAGS +=  -DKCONSOLE
-LIB_CONSOLE_DIR=$(SRC_DIR)/lib/console
-LIB_CONSOLE_OBJS = $(LIB_CONSOLE_DIR)/src/graph/graph.o \
-	$(LIB_CONSOLE_DIR)/src/graph/pixel.o \
-	$(LIB_CONSOLE_DIR)/src/graph/text.o \
-	$(LIB_CONSOLE_DIR)/src/graph/font8x16.o \
-	$(LIB_CONSOLE_DIR)/src/graph/font5x7.o \
-	$(LIB_CONSOLE_DIR)/src/graph/font.o \
-	$(LIB_CONSOLE_DIR)/src/console/console.o  \
-	$(LIB_CONSOLE_DIR)/src/console/kconsole.o 
-CFLAGS += -I$(LIB_CONSOLE_DIR)/include
-
-LIB_OBJS += $(LIB_CONSOLE_OBJS)
-DEV_OBJS += $(DEV_DIR)/fb.o
-
-endif
-
 CFLAGS += -I$(LOAD_DIR)
 
 KERNEL_DIR = $(SRC_DIR)/kernel/src

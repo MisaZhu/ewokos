@@ -176,7 +176,7 @@ uint32_t thread_stack_alloc(proc_t* proc) {
 	}
 
 	if(i >= _kernel_config.max_task_per_proc) {
-		kprintf("thread stack alloc failed(pid %d)!\n", proc->info.pid);
+		printf("thread stack alloc failed(pid %d)!\n", proc->info.pid);
 		return 0;
 	}
 
@@ -602,11 +602,11 @@ inline void* proc_malloc(proc_t* proc, int32_t size) {
 		return (void*)proc->space->malloc_base;
 
 	if(shrink != 0) {
-		//kprintf("kproc shrink pages: %d, size: %d\n", pages, size);
+		//printf("kproc shrink pages: %d, size: %d\n", pages, size);
 		proc_shrink_mem(proc, pages);
 	}
 	else {
-		//kprintf("kproc expand pages: %d, size: %d\n", pages, size);
+		//printf("kproc expand pages: %d, size: %d\n", pages, size);
 		if(proc_expand_mem(proc, pages+1, 0) != 0)
 			return NULL;
 	}
@@ -966,7 +966,7 @@ proc_t* kfork_raw(context_t* ctx, int32_t type, proc_t* parent) {
 			printf("panic: kfork clone failed!!(%d)\n", parent->info.pid);
 			return NULL;
 		}
-		/*kprintf("clone: \n\tfather: 0x%x->0x%x\n\tchild:  0x%x->0x%x\n",
+		/*printf("clone: \n\tfather: 0x%x->0x%x\n\tchild:  0x%x->0x%x\n",
 				parent->space->malloc_base, parent->space->heap_size,
 				child->space->malloc_base, child->space->heap_size);
 				*/
