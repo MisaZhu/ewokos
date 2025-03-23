@@ -13,7 +13,7 @@ export BSP_LFLAGS= -larch_bcm283x
 all: x
 	@echo "all done."
 
-include $(SYS_ROOT_DIR)/platform/arm/make.inc
+include $(SYS_ROOT_DIR)/platform/make.inc
 
 final:
 	rm -fr $(MACHINE_BUILD_DIR)
