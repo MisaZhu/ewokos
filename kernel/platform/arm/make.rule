@@ -68,9 +68,7 @@ ARCH_OBJS += \
 	$(ARCH_DIR)/common/src/memcpy.o \
 	$(ARCH_DIR)/common/src/mmu_arch.o \
 	$(ARCH_DIR)/common/src/arm32_aeabi_divmod_a32.o \
-	$(ARCH_DIR)/common/src/arm32_aeabi_ldivmod_a32.o \
-	$(ARCH_DIR)/common/src/arm32_aeabi_divmod.o \
-	$(ARCH_DIR)/common/src/arm32_aeabi_ldivmod.o
+	$(ARCH_DIR)/common/src/arm32_aeabi_divmod.o
 
 ifeq ($(ARCH_VER),v7)
 	ARCH_OBJS += $(ARCH_DIR)/$(ARCH_VER)/neon.o
