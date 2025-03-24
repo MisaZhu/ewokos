@@ -12,6 +12,8 @@
 #include <upng/upng.h>
 #include <dirent.h>
 
+#include <getopt.h>
+
 #include <string>
 using namespace EwokSTL;
 using namespace Ewok;
@@ -27,8 +29,8 @@ typedef struct {
 
 class AppGrid: public Grid {
 	item_t items[ITEM_MAX];	
-	static const uint32_t iconSize = 32;
-	static const uint32_t titleMargin = 4;
+	static const uint32_t titleMargin = 8;
+	uint32_t iconSize;
 
 	string getIconFname(const char* appName) {
 		//try theme icon first
@@ -110,6 +112,7 @@ protected:
 	}
 public:
 	AppGrid() {
+		iconSize = 32;
 		scrollerV = NULL;
 		for(int i=0; i<ITEM_MAX; i++)
 			memset(&items[i], 0, sizeof(item_t));
@@ -141,20 +144,40 @@ public:
 		closedir(dirp);
 		return true;
 	}
+
+	void setIconSize(uint32_t size) {
+		iconSize = size;
+	}
 };
 
 static bool _launcher = false;
+static uint32_t _itemSize = 72;
+static uint32_t _fontSize = 0;
 
 static int doargs(int argc, char* argv[]) {
+	int opt_index = 0;
+    static struct option long_opts[] = {
+        {"launcher", no_argument, 0, 'l'},
+        {"item_size",  required_argument, 0, 'i'},
+        {"font_size",  required_argument, 0, 'f'},
+        {0, 0, 0, 0}
+    };
+
 	int c = 0;
 	while (c != -1) {
-		c = getopt (argc, argv, "l");
+		c = getopt_long (argc, argv, "li:f:", long_opts, &opt_index);
 		if(c == -1)
 			break;
 
 		switch (c) {
 		case 'l':
 			_launcher = true;
+			break;
+		case 'i':
+			_itemSize = atoi(optarg);
+			break;
+		case 'f':
+			_fontSize = atoi(optarg);
 			break;
 		default:
 			c = -1;
@@ -170,6 +193,9 @@ int main(int argc, char** argv) {
 
 	X x;
 	WidgetWin win;
+	if(_fontSize > 0)
+		win.getTheme()->setFont("system", _fontSize);
+
 	RootWidget* root = new RootWidget();
 	win.setRoot(root);
 	root->setType(Container::HORIZONTAL);
@@ -177,7 +203,8 @@ int main(int argc, char** argv) {
 
 	AppGrid* apps = new AppGrid();
 	apps->loadApps();
-	apps->setItemSize(72, 72);
+	apps->setItemSize(_itemSize, _itemSize);
+	apps->setIconSize(_itemSize/2);
 	root->add(apps);
 	root->focus(apps);
 

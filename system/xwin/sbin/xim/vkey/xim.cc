@@ -169,12 +169,14 @@ protected:
 				return;
 			}
 			else if(c == KEY_BUTTON_X) {
-				doKeyIn(KEY_ROLL_BACK);
+				//doKeyIn(KEY_ROLL_BACK);
+				doKeyIn('-');
 				repaint();
 				return;
 			}
 			else if(c == KEY_BUTTON_B) {
-				doKeyIn(KEY_ROLL_FORWARD);
+				//doKeyIn(KEY_ROLL_FORWARD);
+				doKeyIn(' ');
 				repaint();
 				return;
 			}
