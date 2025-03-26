@@ -1,5 +1,7 @@
 #include "OpenCDEWM.h"
 #include <x/x.h>
+#include <stdlib.h>
+
 using namespace Ewok;
 
 int main(int argc, char** argv) {
@@ -7,7 +9,7 @@ int main(int argc, char** argv) {
 	(void)argv;
 
 	OpenCDEWM xwm;
-	xwm.readConfig(x_get_theme_fname(X_THEME_ROOT, "xwm", "theme.json"));
+	xwm.loadTheme(getenv("XTHEME"));
 	xwm.run();
 	return 0;
 }

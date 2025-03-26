@@ -8,24 +8,12 @@
 
 namespace Ewok {
 
-typedef struct {
-	uint32_t titleH;
-	uint32_t frameW;
-	char     fontName[FONT_NAME_MAX];
-	uint32_t fontSize;
-	uint32_t bgColor;
-	uint32_t fgColor;
-	uint32_t bgTopColor;
-	uint32_t fgTopColor;
-	uint32_t desktopFGColor;
-	uint32_t desktopBGColor;
-} XWMThemeT;
 
 class XWM {
 protected:
 	xwm_t xwm;
 	font_t* font;
-	XWMThemeT theme;	
+	xwm_theme_t theme;	
 
 	graph_t* desktopPattern;
 	virtual graph_t* genDesktopPattern(void);
@@ -47,6 +35,8 @@ protected:
 	virtual void drawResize(graph_t* g, xinfo_t* info, grect_t* r, bool top);
 	virtual void drawFrame(graph_t* g, xinfo_t* info, bool top);
 	virtual void drawDragFrame(graph_t* g, grect_t* r);
+
+	void updateTheme(void);
 public:
 	inline void __getWinSpace(int style, grect_t* xr, grect_t* wsr) {getWinSpace(style, xr, wsr);}
 	inline void __getClose(xinfo_t* info, grect_t* r) { getClose(info, r); }
@@ -67,7 +57,7 @@ public:
 	XWM(void);
 	virtual ~XWM(void);
 
-	void readConfig(const char* fname);
+	void loadTheme(const char* name);
 	void run(void);
 };
 

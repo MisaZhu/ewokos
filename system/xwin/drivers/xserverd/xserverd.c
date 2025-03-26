@@ -924,6 +924,8 @@ static int x_win_space(x_t* x, proto_t* in, proto_t* out) {
 static int x_dev_load_theme(x_t* x, proto_t* in, proto_t* out) {
 	PF->clear(out);
 	const char* name = proto_read_str(in);
+	if(name == NULL)
+		return -1;
 	return x_load_theme(name, &x->config.theme);
 }
 
@@ -939,6 +941,31 @@ static int x_dev_set_theme(x_t* x, proto_t* in, proto_t* out) {
 	if(theme == NULL || sz != sizeof(x_theme_t))
 		return -1;
 	memcpy(&x->config.theme, theme, sz);
+	return 0;
+}
+
+static int x_dev_load_xwm_theme(x_t* x, proto_t* in, proto_t* out) {
+	PF->clear(out);
+	const char* name = proto_read_str(in);
+	if(name == NULL)
+		return -1;
+
+	cursor_init(name, &x->cursor);
+	return x_load_xwm_theme(name, &x->config.xwm_theme);
+}
+
+static int x_dev_get_xwm_theme(x_t* x, proto_t* in, proto_t* out) {
+	PF->clear(out);
+	PF->add(out, &x->config.xwm_theme, sizeof(xwm_theme_t));
+	return 0;
+}
+
+static int x_dev_set_xwm_theme(x_t* x, proto_t* in, proto_t* out) {
+	int sz;
+	xwm_theme_t* theme = (xwm_theme_t*)proto_read(in, &sz);
+	if(theme == NULL || sz != sizeof(xwm_theme_t))
+		return -1;
+	memcpy(&x->config.xwm_theme, theme, sz);
 	return 0;
 }
 
@@ -1408,6 +1435,15 @@ static int xserver_dev_cntl(int from_pid, int cmd, proto_t* in, proto_t* ret, vo
 	else if(cmd == X_DCNTL_LOAD_THEME) {
 		x_dev_load_theme(x, in, ret);
 	}
+	else if(cmd == X_DCNTL_GET_XWM_THEME) {
+		x_dev_get_xwm_theme(x, in, ret);
+	}
+	else if(cmd == X_DCNTL_SET_XWM_THEME) {
+		x_dev_set_xwm_theme(x, in, ret);
+	}
+	else if(cmd == X_DCNTL_LOAD_XWM_THEME) {
+		x_dev_load_xwm_theme(x, in, ret);
+	}
 	else if(cmd == X_DCNTL_SET_TOP) {
 		int pid = proto_read_int(in);
 		x_set_top(x, pid);
@@ -1492,7 +1528,6 @@ int main(int argc, char** argv) {
 	if(x_init(&x, display_man, _disp_index) != 0)
 		return -1;
 
-	x_load_theme(X_DEFAULT_XTHEME, &x.config.theme);
 	read_config(&x, "/etc/x/x.json");
 	cursor_init(x.config.theme.name, &x.cursor);
 

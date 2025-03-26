@@ -25,7 +25,14 @@ void draw_cursor(graph_t* g, cursor_t* cursor, int mx, int my) {
 }
 
 void cursor_init(const char* theme, cursor_t* cursor) {
+	if(cursor->img != NULL)
+		graph_free(cursor->img);
 	cursor->img = NULL;
+
+	if(cursor->saved != NULL)
+		graph_free(cursor->saved);
+	cursor->saved = NULL;
+
 	cursor->size.w = 21;
 	cursor->size.h = 21;
 	cursor->offset.x = cursor->size.w/2;

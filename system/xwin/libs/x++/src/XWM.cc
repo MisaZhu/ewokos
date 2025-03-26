@@ -6,6 +6,9 @@
 #include <upng/upng.h>
 #include <x/x.h>
 #include <stdlib.h>
+#include <unistd.h>
+#include <ewoksys/vdevice.h>
+#include <ewoksys/klog.h>
 
 using namespace Ewok;
 
@@ -243,29 +246,49 @@ void XWM::getColor(uint32_t *fg, uint32_t* bg, bool top) {
 	}
 }
 
-void XWM::readConfig(const char* fname) {
-	json_var_t* conf_var = json_parse_file(fname);
+void XWM::updateTheme(void) {
+	int xserv_pid = dev_get_pid("/dev/x");
+	if(xserv_pid < 0)
+		return;
 
-	theme.fgColor = json_get_int_def(conf_var, "fg_color", 0xff888888);
-	theme.bgColor = json_get_int_def(conf_var, "bg_color", 0xff666666);
-	theme.fgTopColor = json_get_int_def(conf_var, "fg_top_color", 0xff222222);
-	theme.bgTopColor = json_get_int_def(conf_var, "bg_top_color", 0xffaaaaaa);
-	theme.desktopFGColor = json_get_int_def(conf_var, "desktop_fg_color", 0xff555588);
-	theme.desktopBGColor = json_get_int_def(conf_var, "desktop_bg_color", 0xff8888aa);
-	theme.frameW = json_get_int_def(conf_var, "frame_width", 2);
-	theme.titleH = json_get_int_def(conf_var, "title_h", 24);
+	proto_t out;
+	PF->init(&out);
+	if(dev_cntl_by_pid(xserv_pid, X_DCNTL_GET_XWM_THEME, NULL, &out) != 0) {
+		return;
+	}	
+	proto_read_to(&out, &theme, sizeof(xwm_theme_t));
+	PF->clear(&out);
 
-	theme.fontSize = json_get_int_def(conf_var, "font_size", 14);
+	if(font != NULL) {
+		font_free(font);
+		font = NULL;
+	}
+ 	font = font_new(theme.fontName, true);
 
-	const char* v = json_get_str_def(conf_var, "font", DEFAULT_SYSTEM_FONT);
- 	font = font_new(v, true);
+	if(desktopPattern != NULL) {
+		graph_free(desktopPattern);
+		desktopPattern = NULL;
+	}
+	if(theme.patternName[0] != 0 && strcmp(theme.patternName, "none") != 0)
+		desktopPattern = png_image_new_bg(x_get_theme_fname(X_THEME_ROOT, "xwm", theme.patternName), theme.desktopBGColor);
+}
 
-	v = json_get_str_def(conf_var, "pattern", "none");
-	if(v[0] != 0 && strcmp(v, "none") != 0)
-		desktopPattern = png_image_new_bg(x_get_theme_fname(X_THEME_ROOT, "xwm", v), theme.desktopBGColor);
+void XWM::loadTheme(const char* name) {
+	int xserv_pid = dev_get_pid("/dev/x");
+	if(xserv_pid < 0 || name == NULL || name[0] == 0) {
+		return;
+	}
 
-	if(conf_var != NULL)
-		json_var_unref(conf_var);
+	proto_t in;
+	PF->init(&in)->adds(&in, name);
+	if(dev_cntl_by_pid(xserv_pid, X_DCNTL_LOAD_XWM_THEME, &in, NULL) != 0) {
+		return;
+	}	
+	
+	if(dev_cntl_by_pid(xserv_pid, X_DCNTL_LOAD_THEME, &in, NULL) != 0) {
+		return;
+	}	
+	PF->clear(&in);
 }
 
 XWM::XWM(void) {
@@ -281,7 +304,6 @@ XWM::XWM(void) {
 	theme.fgTopColor = 0xff222222;
 	theme.frameW = 2;
 	theme.titleH = 24;
-
 	font = NULL;
 
 	xwm.data = this;
@@ -311,5 +333,6 @@ XWM::~XWM(void) {
 }
 
 void XWM::run(void) {
+	updateTheme();
 	xwm_run(&xwm);
 }

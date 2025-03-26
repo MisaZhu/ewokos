@@ -50,3 +50,33 @@ int x_load_theme(const char* name, x_theme_t* theme) {
 	return 0;
 }
 
+int x_load_xwm_theme(const char* name, xwm_theme_t* theme) {
+	if(theme == NULL || name == NULL || name[0] == 0) 
+        return -1;
+
+	char fname[FS_FULL_NAME_MAX];
+	snprintf(fname, FS_FULL_NAME_MAX-1, "%s/%s/xwm/theme.json", X_THEME_ROOT, name);
+	json_var_t* conf_var = json_parse_file(fname);
+
+	theme->fgColor = json_get_int_def(conf_var, "fg_color", 0xff888888);
+	theme->bgColor = json_get_int_def(conf_var, "bg_color", 0xff666666);
+	theme->fgTopColor = json_get_int_def(conf_var, "fg_top_color", 0xff222222);
+	theme->bgTopColor = json_get_int_def(conf_var, "bg_top_color", 0xffaaaaaa);
+	theme->desktopFGColor = json_get_int_def(conf_var, "desktop_fg_color", 0xff555588);
+	theme->desktopBGColor = json_get_int_def(conf_var, "desktop_bg_color", 0xff8888aa);
+	theme->frameW = json_get_int_def(conf_var, "frame_width", 2);
+	theme->titleH = json_get_int_def(conf_var, "title_h", 24);
+	theme->fontSize = json_get_int_def(conf_var, "font_size", 14);
+
+	const char* v = json_get_str_def(conf_var, "font", DEFAULT_SYSTEM_FONT);
+	memset(theme->fontName, 0, FONT_NAME_MAX);
+	strncpy(theme->fontName, v, FONT_NAME_MAX-1);
+
+	v = json_get_str_def(conf_var, "pattern", "");
+	memset(theme->patternName, 0, THEME_NAME_MAX);
+	strncpy(theme->patternName, v, THEME_NAME_MAX-1);
+
+	if(conf_var != NULL)
+		json_var_unref(conf_var);
+	return 0;
+}

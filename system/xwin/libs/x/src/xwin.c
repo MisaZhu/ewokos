@@ -6,7 +6,6 @@
 #include <ewoksys/proc.h>
 #include <ewoksys/vdevice.h>
 #include <sys/shm.h>
-#include <fcntl.h>
 #include <unistd.h>
 #include <stdlib.h>
 #include <fcntl.h>

@@ -43,6 +43,19 @@ typedef struct {
 	uint32_t widgetBGColor;
 } x_theme_t;
 
+typedef struct {
+	char     fontName[FONT_NAME_MAX];
+	char     patternName[THEME_NAME_MAX];
+	uint32_t titleH;
+	uint32_t frameW;
+	uint32_t fontSize;
+	uint32_t bgColor;
+	uint32_t fgColor;
+	uint32_t bgTopColor;
+	uint32_t fgTopColor;
+	uint32_t desktopFGColor;
+	uint32_t desktopBGColor;
+} xwm_theme_t;
 
 #ifdef __cplusplus
 }

@@ -56,6 +56,7 @@ typedef struct {
 	bool gray_mode;
 	graph_t* logo;
 	x_theme_t theme;
+	xwm_theme_t xwm_theme;
 } x_conf_t;
 
 typedef struct {
