@@ -2,18 +2,16 @@
 #define XWM_HH
 
 #include <x/xwm.h>
+#include <x/xtheme.h>
 #include <graph/graph_ex.h>
 #include <font/font.h>
 
 namespace Ewok {
 
-class XWM {
-protected:
-	xwm_t xwm;
+typedef struct {
 	uint32_t titleH;
 	uint32_t frameW;
-
-	font_t* font;
+	char     fontName[FONT_NAME_MAX];
 	uint32_t fontSize;
 	uint32_t bgColor;
 	uint32_t fgColor;
@@ -21,6 +19,13 @@ protected:
 	uint32_t fgTopColor;
 	uint32_t desktopFGColor;
 	uint32_t desktopBGColor;
+} XWMThemeT;
+
+class XWM {
+protected:
+	xwm_t xwm;
+	font_t* font;
+	XWMThemeT theme;	
 
 	graph_t* desktopPattern;
 	virtual graph_t* genDesktopPattern(void);

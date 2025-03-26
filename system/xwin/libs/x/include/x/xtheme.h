@@ -43,6 +43,7 @@ typedef struct {
 	uint32_t widgetBGColor;
 } x_theme_t;
 
+
 #ifdef __cplusplus
 }
 #endif
