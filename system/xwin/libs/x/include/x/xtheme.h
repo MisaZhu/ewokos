@@ -9,7 +9,8 @@ extern "C" {
 #endif
 
 #define X_THEME_ROOT        "/usr/x/themes"
-#define THEME_NAME_MAX 128
+#define THEME_NAME_MAX 64 
+#define X_DEFAULT_XTHEME    "opencde"
 
 typedef struct {
 	char     name[THEME_NAME_MAX];

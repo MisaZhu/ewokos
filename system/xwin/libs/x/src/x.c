@@ -86,53 +86,29 @@ const char* x_get_work_dir(void) {
 
 static x_theme_t _x_theme;
 static bool _x_theme_loaded = false;
-static int32_t x_read_theme_config(const char* theme_name) {
-	strncpy(_x_theme.name, theme_name, THEME_NAME_MAX-1);
 
-	char fname[FS_FULL_NAME_MAX];
-	snprintf(fname, FS_FULL_NAME_MAX-1, "%s/%s/x/theme.json", X_THEME_ROOT, theme_name);
-	json_var_t *conf_var = json_parse_file(fname);	
+static int x_update_theme(void) {
+	int xserv_pid = dev_get_pid("/dev/x");
+	if(xserv_pid < 0)
+		return -1;
 
-	_x_theme.fontSize = _x_theme.fontFixedSize = json_get_int_def(conf_var, "font_size", DEFAULT_SYSTEM_FONT_SIZE);
+	proto_t out;
+	PF->init(&out);
+	if(dev_cntl_by_pid(xserv_pid, X_DCNTL_GET_THEME, NULL, &out) != 0) {
+		return -1;
+	}	
 
-	const char* v = json_get_str_def(conf_var, "font", DEFAULT_SYSTEM_FONT);
-	memset(_x_theme.fontName, 0, FONT_NAME_MAX);
-	strncpy(_x_theme.fontName, v, FONT_NAME_MAX-1);
-
-	_x_theme.fgColor = json_get_int_def(conf_var, "fg_color", 0xffffffff);
-	_x_theme.bgColor = json_get_int_def(conf_var, "bg_color", 0xff000000);
-	_x_theme.docFGColor = json_get_int_def(conf_var, "doc_fg_color", 0xff000000);
-	_x_theme.docBGColor = json_get_int_def(conf_var, "doc_bg_color", 0xffffffff);
-
-	_x_theme.fgUnfocusColor = json_get_int_def(conf_var, "fg_unfocus_color", 0);
-	_x_theme.bgUnfocusColor = json_get_int_def(conf_var, "bg_unfocus_color", 0);
-
-	_x_theme.fgDisableColor = json_get_int_def(conf_var, "fg_disable_color", 0xff444444);
-	_x_theme.bgDisableColor = json_get_int_def(conf_var, "bg_disable_color", 0xff888888);
-
-	_x_theme.hideColor = json_get_int_def(conf_var, "hide_color", 0);
-	_x_theme.selectColor = json_get_int_def(conf_var, "select_color", 0);
-	_x_theme.selectBGColor = json_get_int_def(conf_var, "select_bg_color", 0);
-
-	_x_theme.titleColor = json_get_int_def(conf_var, "title_color", 0);
-	_x_theme.titleBGColor = json_get_int_def(conf_var, "title_bg_color", 0);
-
-	_x_theme.widgetFGColor = json_get_int_def(conf_var, "widget_color", 0xff000000);
-	_x_theme.widgetBGColor = json_get_int_def(conf_var, "widget_bg_color", 0xffffffff);
-
-	if(conf_var != NULL)
-		json_var_unref(conf_var);
+	proto_read_to(&out, &_x_theme, sizeof(x_theme_t));
+	PF->clear(&out);
 	return 0;
 }
 
 int x_get_theme(x_theme_t* theme) {
 	if(theme == NULL)
 		return -1;
-	const char* name = getenv("XTHEME");
-	if(name == NULL || name[0] == 0) 
-		name = X_DEFAULT_XTHEME;
 	if(!_x_theme_loaded) {
-		x_read_theme_config(name);
+		if(x_update_theme())
+			return -1;
 		_x_theme_loaded = true;
 	}
 	memcpy(theme, &_x_theme, sizeof(x_theme_t));

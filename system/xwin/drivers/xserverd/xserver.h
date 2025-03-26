@@ -8,6 +8,7 @@
 #include <fb/fb.h>
 #include <x/xcntl.h>
 #include <x/xevent.h>
+#include <x/xtheme.h>
 #include <x/xwm.h>
 #include <display/display.h>
 #include "cursor.h"
@@ -54,6 +55,7 @@ typedef struct {
 	bool force_fullscreen;
 	bool gray_mode;
 	graph_t* logo;
+	x_theme_t theme;
 } x_conf_t;
 
 typedef struct {

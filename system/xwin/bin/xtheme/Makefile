@@ -1,0 +1,20 @@
+SYS_DIR=../../../
+include $(SYS_DIR)/platform/$(ARCH)/make.rule
+
+BUILD_DIR = $(SYS_DIR)/build
+TARGET_DIR = $(BUILD_DIR)/rootfs
+
+LDFLAGS = -L$(BUILD_DIR)/lib
+
+CFLAGS += -I $(BUILD_DIR)/include
+
+XTHEME_OBJS = xtheme.o
+
+XTHEME = $(TARGET_DIR)/bin/x/xtheme
+
+
+$(XTHEME): $(XTHEME_OBJS) $(EWOK_LIBC_A)
+	$(LD) -Ttext=100 $(XTHEME_OBJS) -o $(XTHEME) $(LDFLAGS)  -lbsp $(BSP_LFLAGS) $(EWOK_LIBC)
+
+clean:
+	rm -f $(XTHEME_OBJS) $(XTHEME)

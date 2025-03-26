@@ -19,6 +19,7 @@
 #include <tinyjson/tinyjson.h>
 #include <display/display.h>
 #include "xserver.h"
+#include "xtheme.h"
 
 static int32_t read_config(x_t* x, const char* fname) {
 	x->config.fps = 60;
@@ -920,6 +921,27 @@ static int x_win_space(x_t* x, proto_t* in, proto_t* out) {
 	return 0;
 }
 
+static int x_dev_load_theme(x_t* x, proto_t* in, proto_t* out) {
+	PF->clear(out);
+	const char* name = proto_read_str(in);
+	return x_load_theme(name, &x->config.theme);
+}
+
+static int x_dev_get_theme(x_t* x, proto_t* in, proto_t* out) {
+	PF->clear(out);
+	PF->add(out, &x->config.theme, sizeof(x_theme_t));
+	return 0;
+}
+
+static int x_dev_set_theme(x_t* x, proto_t* in, proto_t* out) {
+	int sz;
+	x_theme_t* theme = (x_theme_t*)proto_read(in, &sz);
+	if(theme == NULL || sz != sizeof(x_theme_t))
+		return -1;
+	memcpy(&x->config.theme, theme, sz);
+	return 0;
+}
+
 static int x_get_desktop_space(x_t* x, proto_t* in, proto_t* out) {
 	uint8_t disp_index = proto_read_int(in);
 
@@ -1377,6 +1399,15 @@ static int xserver_dev_cntl(int from_pid, int cmd, proto_t* in, proto_t* ret, vo
 	else if(cmd == X_DCNTL_SET_DESKTOP_SPACE) {
 		x_set_desktop_space(x, in, ret);
 	}
+	else if(cmd == X_DCNTL_GET_THEME) {
+		x_dev_get_theme(x, in, ret);
+	}
+	else if(cmd == X_DCNTL_SET_THEME) {
+		x_dev_set_theme(x, in, ret);
+	}
+	else if(cmd == X_DCNTL_LOAD_THEME) {
+		x_dev_load_theme(x, in, ret);
+	}
 	else if(cmd == X_DCNTL_SET_TOP) {
 		int pid = proto_read_int(in);
 		x_set_top(x, pid);
@@ -1460,11 +1491,10 @@ int main(int argc, char** argv) {
 	x_t x;
 	if(x_init(&x, display_man, _disp_index) != 0)
 		return -1;
-	x_theme_t theme;
-	x_get_theme(&theme);
 
+	x_load_theme(X_DEFAULT_XTHEME, &x.config.theme);
 	read_config(&x, "/etc/x/x.json");
-	cursor_init(theme.name, &x.cursor);
+	cursor_init(x.config.theme.name, &x.cursor);
 
 	vdevice_t dev;
 	memset(&dev, 0, sizeof(vdevice_t));
