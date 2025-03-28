@@ -2,7 +2,6 @@
 #define XWM_HH
 
 #include <x/xwm.h>
-#include <x/xtheme.h>
 #include <graph/graph_ex.h>
 #include <font/font.h>
 
@@ -13,7 +12,6 @@ class XWM {
 protected:
 	xwm_t xwm;
 	font_t* font;
-	xwm_theme_t theme;	
 
 	graph_t* desktopPattern;
 	virtual graph_t* genDesktopPattern(void);

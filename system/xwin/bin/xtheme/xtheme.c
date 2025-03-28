@@ -24,6 +24,10 @@ int main(int argc, char** argv) {
 		printf("error: xtheme set error!\n");
 		return -1;
 	}	
+	if(dev_cntl_by_pid(xserv_pid, X_DCNTL_LOAD_XWM_THEME, &in, NULL) != 0) {
+		printf("error: xtheme set error!\n");
+		return -1;
+	}
 	PF->clear(&in);
     return 0;
 }

@@ -19,8 +19,8 @@ void XWM::getWinSpace(int style, grect_t* xr, grect_t* winr) {
 
 	if((style & XWIN_STYLE_NO_TITLE) == 0 &&
 			(style & XWIN_STYLE_NO_FRAME) == 0) {
-		winr->y = xr->y - theme.titleH;
-		winr->h = xr->h + theme.titleH;
+		winr->y = xr->y - xwm.theme.titleH;
+		winr->h = xr->h + xwm.theme.titleH;
 	}
 }
 
@@ -32,7 +32,7 @@ void XWM::getTitle(xinfo_t* info, grect_t* rect) {
 	rect->x = info->winr.x;
 	rect->y = info->winr.y;
 	rect->w = info->winr.w;
-	rect->h = theme.titleH;
+	rect->h = xwm.theme.titleH;
 }
 
 static void get_title(xinfo_t* info, grect_t* rect, void* p) {
@@ -40,10 +40,10 @@ static void get_title(xinfo_t* info, grect_t* rect, void* p) {
 }
 
 void XWM::getMin(xinfo_t* info, grect_t* rect) {
-	rect->x = info->winr.x + info->winr.w - theme.titleH*2;
+	rect->x = info->winr.x + info->winr.w - xwm.theme.titleH*2;
 	rect->y = info->winr.y;// - titleH;
-	rect->w = theme.titleH;
-	rect->h = theme.titleH;
+	rect->w = xwm.theme.titleH;
+	rect->h = xwm.theme.titleH;
 }
 
 static void get_min(xinfo_t* info, grect_t* rect, void* p) {
@@ -51,10 +51,10 @@ static void get_min(xinfo_t* info, grect_t* rect, void* p) {
 }
 
 void XWM::getMax(xinfo_t* info, grect_t* rect) {
-	rect->x = info->winr.x + info->winr.w- theme.titleH;
+	rect->x = info->winr.x + info->winr.w- xwm.theme.titleH;
 	rect->y = info->winr.y;// - titleH;
-	rect->w = theme.titleH;
-	rect->h = theme.titleH;
+	rect->w = xwm.theme.titleH;
+	rect->h = xwm.theme.titleH;
 }
 
 static void get_max(xinfo_t* info, grect_t* rect, void* p) {
@@ -64,8 +64,8 @@ static void get_max(xinfo_t* info, grect_t* rect, void* p) {
 void XWM::getClose(xinfo_t* info, grect_t* rect) {
 	rect->x = info->winr.x;
 	rect->y = info->winr.y;// - titleH;
-	rect->w = theme.titleH;
-	rect->h = theme.titleH;
+	rect->w = xwm.theme.titleH;
+	rect->h = xwm.theme.titleH;
 }
 
 static void get_close(xinfo_t* info, grect_t* rect, void* p) {
@@ -75,8 +75,8 @@ static void get_close(xinfo_t* info, grect_t* rect, void* p) {
 void XWM::getResize(xinfo_t* info, grect_t* rect) {
 	rect->x = info->wsr.x + info-> wsr.w - 20;
 	rect->y = info->wsr.y + info-> wsr.h - 20;
-	rect->w = 20 + theme.frameW - 1;
-	rect->h = 20 + theme.frameW - 1;
+	rect->w = 20 + xwm.theme.frameW - 1;
+	rect->h = 20 + xwm.theme.frameW - 1;
 }
 
 static void get_resize(xinfo_t* info, grect_t* rect, void* p) {
@@ -85,8 +85,8 @@ static void get_resize(xinfo_t* info, grect_t* rect, void* p) {
 
 void XWM::getMinSize(xinfo_t* info, int* w, int* h) {
 	(void)info;
-	*w = theme.titleH*5;
-	*h = theme.titleH*2;
+	*w = xwm.theme.titleH*5;
+	*h = xwm.theme.titleH*2;
 }
 
 static void get_min_size(xinfo_t* info, int* w, int* h, void* p) {
@@ -101,8 +101,8 @@ void XWM::drawDragFrame(graph_t* g, grect_t* r) {
 	int w = r->w;
 	int h = r->h;
 
-	for(uint32_t i=0; i<theme.frameW; i++) {
-		graph_box(g, x-(theme.frameW-i), y-(theme.frameW-i), w+(theme.frameW-i)*2, h+(theme.frameW-i)*2, 0x88000000);
+	for(uint32_t i=0; i<xwm.theme.frameW; i++) {
+		graph_box(g, x-(xwm.theme.frameW-i), y-(xwm.theme.frameW-i), w+(xwm.theme.frameW-i)*2, h+(xwm.theme.frameW-i)*2, 0x88000000);
 	}
 }
 
@@ -121,15 +121,15 @@ void XWM::drawFrame(graph_t* g, xinfo_t* info, bool top) {
 	//int h = 0;
 
 	if((info->style & XWIN_STYLE_NO_TITLE) == 0) {
-		h += theme.titleH;
-		//h = theme.titleH;
-		y -= theme.titleH;
-		graph_box(g, x-theme.frameW, y-theme.frameW, w+theme.frameW*2, theme.titleH+theme.frameW, fg);
+		h += xwm.theme.titleH;
+		//h = xwm.theme.titleH;
+		y -= xwm.theme.titleH;
+		graph_box(g, x-xwm.theme.frameW, y-xwm.theme.frameW, w+xwm.theme.frameW*2, xwm.theme.titleH+xwm.theme.frameW, fg);
 	}
 
 	//win box
-	for(uint32_t i=0; i<theme.frameW; i++) {
-		graph_box(g, x-(theme.frameW-i), y-(theme.frameW-i), w+(theme.frameW-i)*2, h+(theme.frameW-i)*2, fg);
+	for(uint32_t i=0; i<xwm.theme.frameW; i++) {
+		graph_box(g, x-(xwm.theme.frameW-i), y-(xwm.theme.frameW-i), w+(xwm.theme.frameW-i)*2, h+(xwm.theme.frameW-i)*2, fg);
 	}
 }
 
@@ -143,8 +143,8 @@ void XWM::drawTitle(graph_t* g, xinfo_t* info, grect_t* r, bool top) {
 	gsize_t sz;
 
 	int pw = (r->w-sz.w)/2;
-	graph_fill(g, r->x, r->y, r->w, theme.titleH, bg);//title box
-	graph_box(g, r->x, r->y, r->w, theme.titleH, fg);//title box
+	graph_fill(g, r->x, r->y, r->w, xwm.theme.titleH, bg);//title box
+	graph_box(g, r->x, r->y, r->w, xwm.theme.titleH, fg);//title box
 }
 
 static void draw_title(graph_t* g, xinfo_t* info, grect_t* r, bool top, void* p) {
@@ -209,7 +209,7 @@ static void draw_resize(graph_t* g, xinfo_t* info, grect_t* r, bool top, void* p
 
 graph_t* XWM::genDesktopPattern(void) {
 	graph_t* g = graph_new(NULL, 64, 64);
-	graph_draw_dot_pattern(g, 0, 0, g->w, g->h, theme.desktopBGColor, theme.desktopFGColor, 2);
+	graph_draw_dot_pattern(g, 0, 0, g->w, g->h, xwm.theme.desktopBGColor, xwm.theme.desktopFGColor, 2);
 	return g;
 }
 
@@ -237,12 +237,12 @@ static void draw_desktop(graph_t* g, void* p) {
 
 void XWM::getColor(uint32_t *fg, uint32_t* bg, bool top) {
 	if(top) {
-		*fg = theme.fgTopColor;
-		*bg = theme.bgTopColor;
+		*fg = xwm.theme.fgTopColor;
+		*bg = xwm.theme.bgTopColor;
 	}
 	else {
-		*fg = theme.fgColor;
-		*bg = theme.bgColor;
+		*fg = xwm.theme.fgColor;
+		*bg = xwm.theme.bgColor;
 	}
 }
 
@@ -256,21 +256,21 @@ void XWM::updateTheme(void) {
 	if(dev_cntl_by_pid(xserv_pid, X_DCNTL_GET_XWM_THEME, NULL, &out) != 0) {
 		return;
 	}	
-	proto_read_to(&out, &theme, sizeof(xwm_theme_t));
+	proto_read_to(&out, &xwm.theme, sizeof(xwm_theme_t));
 	PF->clear(&out);
 
 	if(font != NULL) {
 		font_free(font);
 		font = NULL;
 	}
- 	font = font_new(theme.fontName, true);
+ 	font = font_new(xwm.theme.fontName, true);
 
 	if(desktopPattern != NULL) {
 		graph_free(desktopPattern);
 		desktopPattern = NULL;
 	}
-	if(theme.patternName[0] != 0 && strcmp(theme.patternName, "none") != 0)
-		desktopPattern = png_image_new_bg(x_get_theme_fname(X_THEME_ROOT, "xwm", theme.patternName), theme.desktopBGColor);
+	if(xwm.theme.patternName[0] != 0 && strcmp(xwm.theme.patternName, "none") != 0)
+		desktopPattern = png_image_new_bg(x_get_theme_fname(X_THEME_ROOT, "xwm", xwm.theme.patternName), xwm.theme.desktopBGColor);
 }
 
 void XWM::loadTheme(const char* name) {
@@ -296,14 +296,14 @@ XWM::XWM(void) {
 	memset(&xwm, 0, sizeof(xwm_t));
 
 	desktopPattern = NULL;
-	theme.desktopBGColor = 0xff555588;
-	theme.desktopFGColor = 0xff8888aa;
-	theme.bgColor = 0xff666666;
-	theme.fgColor = 0xff888888;
-	theme.bgTopColor = 0xffaaaaaa;
-	theme.fgTopColor = 0xff222222;
-	theme.frameW = 2;
-	theme.titleH = 24;
+	xwm.theme.desktopBGColor = 0xff555588;
+	xwm.theme.desktopFGColor = 0xff8888aa;
+	xwm.theme.bgColor = 0xff666666;
+	xwm.theme.fgColor = 0xff888888;
+	xwm.theme.bgTopColor = 0xffaaaaaa;
+	xwm.theme.fgTopColor = 0xff222222;
+	xwm.theme.frameW = 2;
+	xwm.theme.titleH = 24;
 	font = NULL;
 
 	xwm.data = this;

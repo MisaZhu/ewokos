@@ -944,6 +944,20 @@ static int x_dev_set_theme(x_t* x, proto_t* in, proto_t* out) {
 	return 0;
 }
 
+static int xwm_them_update(x_t* x) {
+	if(!check_xwm(x))
+		return 0;
+
+	proto_t i;
+	PF->init(&i)->add(&i, &x->config.xwm_theme, sizeof(xwm_theme_t));
+	if(ipc_call(x->xwm_pid, XWM_CNTL_SET_THEME, &i, NULL) != 0) {
+		return -1;
+	}	
+	PF->clear(&i);
+	x_dirty(x, -1);
+	return 0;
+}
+
 static int x_dev_load_xwm_theme(x_t* x, proto_t* in, proto_t* out) {
 	PF->clear(out);
 	const char* name = proto_read_str(in);
@@ -951,7 +965,9 @@ static int x_dev_load_xwm_theme(x_t* x, proto_t* in, proto_t* out) {
 		return -1;
 
 	cursor_init(name, &x->cursor);
-	return x_load_xwm_theme(name, &x->config.xwm_theme);
+	if(x_load_xwm_theme(name, &x->config.xwm_theme) != 0)
+		return -1;
+	return xwm_them_update(x);
 }
 
 static int x_dev_get_xwm_theme(x_t* x, proto_t* in, proto_t* out) {
@@ -966,7 +982,7 @@ static int x_dev_set_xwm_theme(x_t* x, proto_t* in, proto_t* out) {
 	if(theme == NULL || sz != sizeof(xwm_theme_t))
 		return -1;
 	memcpy(&x->config.xwm_theme, theme, sz);
-	return 0;
+	return xwm_them_update(x);
 }
 
 static int x_get_desktop_space(x_t* x, proto_t* in, proto_t* out) {
@@ -1529,7 +1545,6 @@ int main(int argc, char** argv) {
 		return -1;
 
 	read_config(&x, "/etc/x/x.json");
-	cursor_init(x.config.theme.name, &x.cursor);
 
 	vdevice_t dev;
 	memset(&dev, 0, sizeof(vdevice_t));

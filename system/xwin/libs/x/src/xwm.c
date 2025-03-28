@@ -202,6 +202,14 @@ static void get_min_size(xwm_t* xwm, proto_t* in, proto_t* out) {
 		addi(out, h);
 }
 
+static void set_theme(xwm_t* xwm, proto_t* in, proto_t* out) {
+	int sz;
+	xwm_theme_t* theme = (xwm_theme_t*)proto_read(in, &sz);
+	if(theme == NULL || sz != sizeof(xwm_theme_t))
+		return;
+	memcpy(&xwm->theme, theme, sz);
+}
+
 static void handle(int from_pid, int cmd, proto_t* in, proto_t* out, void* p) {
 	(void)from_pid;
 	xwm_t* xwm = (xwm_t*)p;
@@ -223,6 +231,9 @@ static void handle(int from_pid, int cmd, proto_t* in, proto_t* out, void* p) {
 	}
 	else if(cmd == XWM_CNTL_GET_MIN_SIZE) {
 		get_min_size(xwm, in, out);
+	}
+	else if(cmd == XWM_CNTL_SET_THEME) {
+		set_theme(xwm, in, out);
 	}
 }
 
