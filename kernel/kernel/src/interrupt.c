@@ -15,11 +15,11 @@ typedef struct interrupt_st {
 	uint32_t entry;
 	uint32_t data;
 	struct   interrupt_st* next;
-} interrupt_t;
+} interrupt_handler_t;
 
 typedef struct {
-	interrupt_t* head;
-	interrupt_t* it;
+	interrupt_handler_t* head;
+	interrupt_handler_t* it;
 	uint32_t irq;
 } interrupt_item_t;
 
@@ -29,7 +29,7 @@ void interrupt_init(void) {
 	memset(&_interrupts, 0, sizeof(interrupt_item_t)*SYS_INT_MAX);	
 }
 
-static inline interrupt_item_t* json_get_interrupt(uint32_t irq) {
+static inline interrupt_item_t* get_interrupt(uint32_t irq) {
 	for(uint32_t i=0; i<SYS_INT_MAX; i++) {
 		interrupt_item_t* item = &_interrupts[i];
 		if(item->irq == irq)
@@ -39,13 +39,13 @@ static inline interrupt_item_t* json_get_interrupt(uint32_t irq) {
 }
 
 int32_t interrupt_setup(proc_t* cproc, uint32_t interrupt, uint32_t entry, uint32_t data) {
-	interrupt_item_t* item = json_get_interrupt(interrupt);
+	interrupt_item_t* item = get_interrupt(interrupt);
 	
 	if(entry == 0) {//unregister interrupt
 		if(item == NULL)
 			return -1;
-		interrupt_t * intr = item->head;
-		interrupt_t * prev = NULL;
+		interrupt_handler_t * intr = item->head;
+		interrupt_handler_t * prev = NULL;
 		while(intr != NULL) {
 			if(intr->uuid != (int32_t)cproc->info.uuid) {
 				prev = intr;
@@ -73,12 +73,12 @@ int32_t interrupt_setup(proc_t* cproc, uint32_t interrupt, uint32_t entry, uint3
 	}
 	else { //register interrupt
 		if(item == NULL)
-			item = json_get_interrupt(0);
+			item = get_interrupt(0);
 		if(item == NULL)
 			return -1;
 		item->irq = interrupt;
 
-		interrupt_t* intr = (interrupt_t*)kmalloc(sizeof(interrupt_t));
+		interrupt_handler_t* intr = (interrupt_handler_t*)kmalloc(sizeof(interrupt_handler_t));
 		intr->uuid = cproc->info.uuid;
 		intr->entry = entry;
 		intr->data = data;
@@ -93,26 +93,28 @@ int32_t interrupt_setup(proc_t* cproc, uint32_t interrupt, uint32_t entry, uint3
 	return 0;
 }
 
-static int32_t interrupt_send_raw(context_t* ctx, uint32_t interrupt,  interrupt_t* intr, bool disable_intr) {
+static int32_t interrupt_send_raw(context_t* ctx, uint32_t interrupt,  interrupt_handler_t* intr) {
 	if(intr->uuid <= 0 || intr->entry == 0)
 		return -1;
 
 	proc_t* cproc = get_current_proc();
 	proc_t* proc = proc_get_by_uuid(intr->uuid);
-	if(proc == NULL ||
-			proc->space->interrupt.state != INTR_STATE_IDLE) {
-		//kprintf("inter err re-entre: %d\n", proc == NULL ? -1:proc->info.pid);
+	if(proc == NULL)
+		return -1;
+
+	if(proc->space->interrupt.state != INTR_STATE_IDLE) {
+		//printf("inter err re-entre: %d, %d\n", interrupt, proc == NULL ? -1:proc->info.pid);
 		return -1;
 	}	
 
 	if(proc->ipc_res.state != IPC_IDLE) {
-		//kprintf("inter err ipc req: %d\n", proc == NULL ? -1:proc->info.pid);
+		//printf("inter err ipc req: %d, %d\n", interrupt, proc == NULL ? -1:proc->info.pid);
 		return -1;
 	}
 
 	ipc_task_t* ipc = proc_ipc_get_task(proc);
 	if(ipc != NULL) {
-		//kprintf("inter err ipc svr: %d\n", proc->info.pid);
+		//printf("inter err ipc svr: %d\n", proc->info.pid);
 		return -1;
 	}
 
@@ -121,43 +123,43 @@ static int32_t interrupt_send_raw(context_t* ctx, uint32_t interrupt,  interrupt
 	proc->space->interrupt.entry = intr->entry;
 	proc->space->interrupt.data = intr->data;
 	proc->space->interrupt.state = INTR_STATE_START;
-	if(disable_intr)
+	if(interrupt != IRQ_SOFT)
 		irq_disable_cpsr(&proc->ctx); //disable interrupt on proc
 
 	proc_switch_multi_core(ctx, proc, cproc->info.core);
 	return 0;
 }
 
-static interrupt_t* fetch_next(uint32_t interrupt) {
-	interrupt_item_t* item = json_get_interrupt(interrupt);
+static interrupt_handler_t* fetch_next_handler(uint32_t interrupt) {
+	interrupt_item_t* item = get_interrupt(interrupt);
 	if(item == NULL)
 		return NULL;
 
-	interrupt_t* intr = item->it;
+	interrupt_handler_t* intr = item->it;
 	if(intr != NULL)
 		item->it = intr->next;
 	return intr;
 }
 
 int32_t  interrupt_send(context_t* ctx, uint32_t interrupt) {
-	interrupt_item_t* item = json_get_interrupt(interrupt);
+	interrupt_item_t* item = get_interrupt(interrupt);
 	if(item == NULL)
 		return -1;
 
 	item->it = item->head;
-	interrupt_t* intr = fetch_next(interrupt);
+	interrupt_handler_t* intr = fetch_next_handler(interrupt);
 	if(intr == NULL)
 		return -1;
-	return interrupt_send_raw(ctx, interrupt, intr, true);
+	return interrupt_send_raw(ctx, interrupt, intr);
 }
 
 int32_t  interrupt_soft_send(context_t* ctx, int32_t to_pid, uint32_t entry, uint32_t data) {
-	interrupt_t intr;
+	interrupt_handler_t intr;
 	proc_t* proc = proc_get(to_pid);
 	intr.entry = entry;
 	intr.uuid = proc->info.uuid;
 	intr.data = data;
-	return interrupt_send_raw(ctx, IRQ_SOFT, &intr, false);
+	return interrupt_send_raw(ctx, IRQ_SOFT, &intr);
 }
 
 void interrupt_end(context_t* ctx) {
@@ -178,13 +180,14 @@ void interrupt_end(context_t* ctx) {
 	}
 
 	proc_wakeup(cproc->info.pid, -1, (uint32_t)&cproc->space->interrupt);
-	irq_enable_cpsr(&cproc->ctx); //enable interrupt on proc
+	if(interrupt != IRQ_SOFT)
+		irq_enable_cpsr(&cproc->ctx); //enable interrupt on proc
 
 	if(interrupt != IRQ_SOFT) {
 	//kprintf("wake by:%d, 0x%x\n", cproc->info.pid, (uint32_t)&cproc->space->interrupt);
-		interrupt_t* intr = fetch_next(interrupt);
+		interrupt_handler_t* intr = fetch_next_handler(interrupt);
 		if(intr != NULL) {
-			interrupt_send_raw(ctx, interrupt, intr, true);
+			interrupt_send_raw(ctx, interrupt, intr);
 			return;
 		}
 	}
