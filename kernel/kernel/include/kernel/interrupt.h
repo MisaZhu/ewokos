@@ -33,4 +33,6 @@ int32_t interrupt_soft_send(context_t* ctx, int32_t to_pid, uint32_t entry, uint
 
 void interrupt_end(context_t* ctx);
 
+int32_t interrupt_retrigger(context_t* ctx);
+
 #endif

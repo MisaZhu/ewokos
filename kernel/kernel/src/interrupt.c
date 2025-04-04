@@ -14,13 +14,12 @@ typedef struct interrupt_st {
 	int32_t  uuid;
 	uint32_t entry;
 	uint32_t data;
-	struct   interrupt_st* next;
 } interrupt_handler_t;
 
 typedef struct {
-	interrupt_handler_t* head;
-	interrupt_handler_t* it;
+	interrupt_handler_t handler;
 	uint32_t irq;
+	bool triggered;
 } interrupt_item_t;
 
 static interrupt_item_t _interrupts[SYS_INT_MAX];
@@ -44,32 +43,8 @@ int32_t interrupt_setup(proc_t* cproc, uint32_t interrupt, uint32_t entry, uint3
 	if(entry == 0) {//unregister interrupt
 		if(item == NULL)
 			return -1;
-		interrupt_handler_t * intr = item->head;
-		interrupt_handler_t * prev = NULL;
-		while(intr != NULL) {
-			if(intr->uuid != (int32_t)cproc->info.uuid) {
-				prev = intr;
-				intr = intr->next;
-				continue;
-			}
-			if(intr == item->head) {
-				item->head = intr->next;	
-				kfree(intr);
-				intr = item->head; 
-			}
-			else if(prev != NULL) {
-				prev->next = intr->next;
-				kfree(intr);
-				intr = prev->next;
-			}
-			else {
-				break;
-			}
-		}
-		if(item->head == NULL) { //no more interrupt handler, disable this one.
-			//irq_disable(interrupt); //TODO
-			item->irq = 0;
-		}
+		//irq_disable(interrupt); //TODO
+		memset(item, 0, sizeof(interrupt_item_t));
 	}
 	else { //register interrupt
 		if(item == NULL)
@@ -77,17 +52,9 @@ int32_t interrupt_setup(proc_t* cproc, uint32_t interrupt, uint32_t entry, uint3
 		if(item == NULL)
 			return -1;
 		item->irq = interrupt;
-
-		interrupt_handler_t* intr = (interrupt_handler_t*)kmalloc(sizeof(interrupt_handler_t));
-		intr->uuid = cproc->info.uuid;
-		intr->entry = entry;
-		intr->data = data;
-		intr->next = NULL;
-
-		if(item->head != NULL) {
-			intr->next = item->head;
-		}
-		item->head = intr;
+		item->handler.uuid = cproc->info.uuid;
+		item->handler.entry = entry;
+		item->handler.data = data;
 		irq_enable(interrupt); //TODO
 	}
 	return 0;
@@ -103,18 +70,18 @@ static int32_t interrupt_send_raw(context_t* ctx, uint32_t interrupt,  interrupt
 		return -1;
 
 	if(proc->space->interrupt.state != INTR_STATE_IDLE) {
-		//printf("inter err re-entre: %d, %d\n", interrupt, proc == NULL ? -1:proc->info.pid);
+		//printf("inter err re-entre: intr:%d, pid:%d\n", interrupt, proc == NULL ? -1:proc->info.pid);
 		return -1;
 	}	
 
 	if(proc->ipc_res.state != IPC_IDLE) {
-		//printf("inter err ipc req: %d, %d\n", interrupt, proc == NULL ? -1:proc->info.pid);
+		//printf("inter err ipc req: intr:%d, pid:%d\n", interrupt, proc == NULL ? -1:proc->info.pid);
 		return -1;
 	}
 
 	ipc_task_t* ipc = proc_ipc_get_task(proc);
 	if(ipc != NULL) {
-		//printf("inter err ipc svr: %d\n", proc->info.pid);
+		//printf("inter err ipc svr: intr:%d, pid:%d\n", interrupt, proc->info.pid);
 		return -1;
 	}
 
@@ -130,27 +97,16 @@ static int32_t interrupt_send_raw(context_t* ctx, uint32_t interrupt,  interrupt
 	return 0;
 }
 
-static interrupt_handler_t* fetch_next_handler(uint32_t interrupt) {
-	interrupt_item_t* item = get_interrupt(interrupt);
-	if(item == NULL)
-		return NULL;
-
-	interrupt_handler_t* intr = item->it;
-	if(intr != NULL)
-		item->it = intr->next;
-	return intr;
-}
-
 int32_t  interrupt_send(context_t* ctx, uint32_t interrupt) {
 	interrupt_item_t* item = get_interrupt(interrupt);
 	if(item == NULL)
 		return -1;
 
-	item->it = item->head;
-	interrupt_handler_t* intr = fetch_next_handler(interrupt);
-	if(intr == NULL)
-		return -1;
-	return interrupt_send_raw(ctx, interrupt, intr);
+	item->triggered = true;
+	int32_t res = interrupt_send_raw(ctx, interrupt, &item->handler);
+	if(res == 0)
+		item->triggered = false;
+	return res;
 }
 
 int32_t  interrupt_soft_send(context_t* ctx, int32_t to_pid, uint32_t entry, uint32_t data) {
@@ -159,7 +115,8 @@ int32_t  interrupt_soft_send(context_t* ctx, int32_t to_pid, uint32_t entry, uin
 	intr.entry = entry;
 	intr.uuid = proc->info.uuid;
 	intr.data = data;
-	return interrupt_send_raw(ctx, IRQ_SOFT, &intr);
+	int32_t res = interrupt_send_raw(ctx, IRQ_SOFT, &intr);
+	return res;
 }
 
 void interrupt_end(context_t* ctx) {
@@ -180,16 +137,24 @@ void interrupt_end(context_t* ctx) {
 	}
 
 	proc_wakeup(cproc->info.pid, -1, (uint32_t)&cproc->space->interrupt);
-	if(interrupt != IRQ_SOFT)
-		irq_enable_cpsr(&cproc->ctx); //enable interrupt on proc
 
 	if(interrupt != IRQ_SOFT) {
-	//kprintf("wake by:%d, 0x%x\n", cproc->info.pid, (uint32_t)&cproc->space->interrupt);
-		interrupt_handler_t* intr = fetch_next_handler(interrupt);
-		if(intr != NULL) {
-			interrupt_send_raw(ctx, interrupt, intr);
-			return;
-		}
+		irq_enable_cpsr(&cproc->ctx); //enable interrupt on proc
 	}
 	schedule(ctx);
+}
+
+int32_t interrupt_retrigger(context_t* ctx) {
+	interrupt_item_t* item = NULL;
+	for(uint32_t i=0; i<SYS_INT_MAX; i++) {
+		if(_interrupts[i].triggered) {
+			item = &_interrupts[i];
+			break;
+		}
+	}
+
+	if(item == NULL)
+		return -1;
+	//printf("retrigger irq %d\n", item->irq);
+	return interrupt_send(ctx, item->irq);
 }

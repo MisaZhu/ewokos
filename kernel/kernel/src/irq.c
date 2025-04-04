@@ -62,10 +62,12 @@ static inline void irq_do_timer0(context_t* ctx) {
 		_sec_tic = 0;
 		renew_kernel_sec();
 	}
-	
 	renew_kernel_tic(usec_gap);
 	
 	timer_clear_interrupt(0);
+
+	if(interrupt_retrigger(ctx) == 0)
+		return;
 
 #ifdef KERNEL_SMP
 	ipi_send_all();
