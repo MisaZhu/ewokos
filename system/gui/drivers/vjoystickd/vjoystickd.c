@@ -33,6 +33,7 @@ static uint32_t _minfo_index = 0;
 
 #define JOY_STEP         3 
 static bool _prs_down = false;
+static bool _move = false;
 static uint32_t _j_speed_up = 0;
 
 static void joy_2_mouse(int key, int8_t* mv) {
@@ -41,7 +42,7 @@ static void joy_2_mouse(int key, int8_t* mv) {
 		j_times = _j_speed_up/6;
 		if(j_times > 16)
 			j_times = 16;
-		j_times = 4;
+		//j_times = 4;
 	}
 		
 	mv[0] = mv[1] = mv[2] = 0;
@@ -73,9 +74,7 @@ static uint32_t mouse_input(char key) {
 	int8_t mv[4];
 	joy_2_mouse(key, mv);
 	if(mv[1] != 0 || mv[2] != 0)
-		_j_speed_up++;
-	else
-		_j_speed_up = 0;
+		_move = true;
 
 	if(key == 0 && _prs_down) {
 		key = 1;
@@ -185,6 +184,7 @@ static int vjoy_loop(void* p){
 	}
 
 	if(_mouse_mode) {
+		_move = false;
 		if(rd <= 0)
 			rd = mouse_input(0);
 		else {
@@ -192,6 +192,12 @@ static int vjoy_loop(void* p){
 				mouse_input(keys[i]);
 			rd = 4;
 		}
+
+		if(_move)
+			_j_speed_up++;
+		else
+			_j_speed_up = 0;
+
 		if(rd > 0)
 			proc_wakeup(RW_BLOCK_EVT);
 		_rd = 0;
