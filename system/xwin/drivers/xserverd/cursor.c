@@ -73,8 +73,8 @@ void cursor_init(const char* theme, cursor_t* cursor) {
 	snprintf(fname, 255, "%s/%s/xwm/cursors/%s_busy.json", X_THEME_ROOT, theme,
 			cursor->type == CURSOR_MOUSE ? "mouse":"touch");
 	conf_var = json_parse_file(fname);	
-	cursor->offset.x = json_get_int_def(conf_var, "x_offset", 0);
-	cursor->offset.y = json_get_int_def(conf_var, "y_offset", 0);
+	//cursor->offset.x = json_get_int_def(conf_var, "x_offset", 0);
+	//cursor->offset.y = json_get_int_def(conf_var, "y_offset", 0);
 
 	v = json_get_str_def(conf_var, "cursor", "");
 	if(v[0] != 0) {
