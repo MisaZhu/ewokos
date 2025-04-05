@@ -61,27 +61,34 @@ int32_t interrupt_setup(proc_t* cproc, uint32_t interrupt, uint32_t entry, uint3
 }
 
 static int32_t interrupt_send_raw(context_t* ctx, uint32_t interrupt,  interrupt_handler_t* intr) {
-	if(intr->uuid <= 0 || intr->entry == 0)
+	if(intr->uuid <= 0 || intr->entry == 0) {
+		ctx->gpr[0] = -1;
 		return -1;
+	}
 
 	proc_t* cproc = get_current_proc();
 	proc_t* proc = proc_get_by_uuid(intr->uuid);
-	if(proc == NULL)
+	if(proc == NULL) {
+		ctx->gpr[0] = -1;
 		return -1;
+	}
 
 	if(proc->space->interrupt.state != INTR_STATE_IDLE) {
 		//printf("inter err re-entre: intr:%d, pid:%d\n", interrupt, proc == NULL ? -1:proc->info.pid);
+		ctx->gpr[0] = -1;
 		return -1;
 	}	
 
 	if(proc->ipc_res.state != IPC_IDLE) {
 		//printf("inter err ipc req: intr:%d, pid:%d\n", interrupt, proc == NULL ? -1:proc->info.pid);
+		ctx->gpr[0] = -1;
 		return -1;
 	}
 
 	ipc_task_t* ipc = proc_ipc_get_task(proc);
 	if(ipc != NULL) {
 		//printf("inter err ipc svr: intr:%d, pid:%d\n", interrupt, proc->info.pid);
+		ctx->gpr[0] = -1;
 		return -1;
 	}
 
@@ -115,8 +122,7 @@ int32_t  interrupt_soft_send(context_t* ctx, int32_t to_pid, uint32_t entry, uin
 	intr.entry = entry;
 	intr.uuid = proc->info.uuid;
 	intr.data = data;
-	int32_t res = interrupt_send_raw(ctx, IRQ_SOFT, &intr);
-	return res;
+	return interrupt_send_raw(ctx, IRQ_SOFT, &intr);
 }
 
 void interrupt_end(context_t* ctx) {

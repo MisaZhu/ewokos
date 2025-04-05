@@ -598,9 +598,10 @@ static void sys_interrupt_end(context_t* ctx) {
 }
 
 static inline void sys_soft_int(context_t* ctx, int32_t to_pid, uint32_t entry, uint32_t data) {
+	ctx->gpr[0] = 0;
 	proc_t* proc = proc_get_proc(get_current_proc());
 	if(proc->info.uid > 0)
-		return;
+		ctx->gpr[0] = -2;
 	interrupt_soft_send(ctx, to_pid, entry, data);
 }
 

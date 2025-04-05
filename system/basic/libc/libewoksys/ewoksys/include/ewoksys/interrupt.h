@@ -13,5 +13,6 @@ typedef struct {
 
 int32_t sys_interrupt_setup(uint32_t irq, interrupt_handler_t* handler);
 
+int32_t sys_soft_intr(int32_t pid, uint32_t entry, uint32_t data);
 
 #endif

@@ -96,7 +96,7 @@ static void interrupt_handle(uint32_t interrupt, uint32_t data) {
 				intr->timer_last = usec;
 			else if((usec - intr->timer_last) >= intr->timer_usec) {
 				intr->timer_last = usec;
-				syscall3(SYS_SOFT_INT, intr->pid, intr->entry, intr->data);
+				sys_soft_intr(intr->pid, intr->entry, intr->data);
 			}
 			prev = intr;
 		}
@@ -177,7 +177,7 @@ static int timer_loop(void* p) {
 	if(_min_timer_usec == 0)
 		usleep(100000);
 	else {
-		usleep(_min_timer_usec);
+		usleep(_min_timer_usec/2);
 	}
 }
 
