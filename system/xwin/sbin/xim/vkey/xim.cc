@@ -283,6 +283,9 @@ protected:
 				if(c == ' ' || c == '\r' || c == '\3') //two key size
 					kw = keyw * 2;
 
+				if((i+1) == col)
+					kw = g->w - kx;
+
 				if(keySelect == at) { //hot key
 					ky -= (j == 0 ? input_h : keyh/2);
 					kh = keyh + (j == 0 ? input_h : keyh/2);
@@ -374,6 +377,14 @@ public:
 		if(font == NULL)
 			font_free(font);
 	}
+
+	static uint32_t getCols() {
+		return 14;
+	}
+
+	static uint32_t getRows() {
+		return 3;
+	}
 };
 
 static void waitX() {
@@ -398,6 +409,9 @@ int main(int argc, char* argv[]) {
 		pw = atoi(argv[1]);
 	if(argc > 2)
 		ph = atoi(argv[2]);
+
+	pw = (pw / XIMX::getCols()) * XIMX::getCols();
+	ph = (ph / XIMX::getRows()) * XIMX::getRows();
 
 	XIMX xwin(scr.size.w, scr.size.h, pw, ph);
 	xwin.open(&x, 0, scr.size.w - pw, scr.size.h - ph, pw, ph, "xim",
