@@ -18,11 +18,13 @@ public:
 
 	static void* loadThread(void* p) {
 		FontWidget* fw = (FontWidget*)p;
+		X::busy(true);
 		if(font_load(fw->fontName.c_str(), fw->fontFileName.c_str()) >= 0) {
 			fw->font = font_new(fw->fontName.c_str(), false);
 			if(fw->font != NULL)
 				fw->fontLoaded = true;
 		}
+		X::busy(false);
 		return NULL;
 	}
 

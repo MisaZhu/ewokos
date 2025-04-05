@@ -36,6 +36,7 @@ int      x_screen_info(xscreen_t* scr, uint32_t index);
 int      x_get_display_num(void);
 void     x_init(x_t* x, void* data);
 int      x_run(x_t* x, void* loop_data);
+void     x_busy(bool busy);
 void     x_terminate(x_t* x);
 const char* x_get_work_dir(void);
 int      x_get_theme(x_theme_t* theme);

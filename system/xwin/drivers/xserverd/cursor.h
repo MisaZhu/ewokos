@@ -15,6 +15,7 @@ typedef struct {
 	gsize_t size;
 	graph_t* saved;
 	graph_t* img;
+	graph_t* img_busy;
 	uint32_t type;
 	bool down;
 	bool drop;
@@ -22,6 +23,6 @@ typedef struct {
 
 void cursor_init(const char* theme, cursor_t* cursor);
 
-void draw_cursor(graph_t* g, cursor_t* cursor, int mx, int my);
+void draw_cursor(graph_t* g, cursor_t* cursor, int mx, int my, bool busy);
 
 #endif

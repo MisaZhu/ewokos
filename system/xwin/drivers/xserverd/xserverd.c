@@ -455,13 +455,13 @@ static inline void refresh_cursor(x_t* x) {
 		return;
 	int32_t mx = x->cursor.cpos.x - x->cursor.offset.x;
 	int32_t my = x->cursor.cpos.y - x->cursor.offset.y;
-	int32_t mw = x->cursor.size.w;
-	int32_t mh = x->cursor.size.h;
+	int32_t mw = x->cursor.saved->w;
+	int32_t mh = x->cursor.saved->h;
 
 	graph_blt(display->g, mx, my, mw, mh,
 			x->cursor.saved, 0, 0, mw, mh);
 
-	draw_cursor(display->g, &x->cursor, mx, my);
+	draw_cursor(display->g, &x->cursor, mx, my, x->mouse_state.busy);
 
 	x->cursor.old_pos.x = x->cursor.cpos.x;
 	x->cursor.old_pos.y = x->cursor.cpos.y;
@@ -1396,6 +1396,27 @@ static int x_set_top(x_t* x, int pid) {
 	return 0;
 }
 
+static int x_set_busy(x_t* x, bool busy) {
+	hide_cursor(x);
+	if(x->cursor.saved != NULL) {
+		graph_free(x->cursor.saved);
+		x->cursor.saved = NULL;
+	}
+
+	x->mouse_state.busy = busy;
+	if(busy && x->cursor.img_busy != NULL) {
+		x->cursor.size.w = x->cursor.img_busy->w;
+		x->cursor.size.h = x->cursor.img_busy->h;
+	}
+	else if(x->cursor.img != NULL) {
+		x->cursor.size.w = x->cursor.img->w;
+		x->cursor.size.h = x->cursor.img->h;
+	}
+	//refresh_cursor(x);
+	x_repaint_req(x, x->current_display);
+	return 0;
+}
+
 static int xserver_dev_cntl(int from_pid, int cmd, proto_t* in, proto_t* ret, void* p) {
 	(void)from_pid;
 	x_t* x = (x_t*)p;
@@ -1464,6 +1485,9 @@ static int xserver_dev_cntl(int from_pid, int cmd, proto_t* in, proto_t* ret, vo
 		int pid = proto_read_int(in);
 		x_set_top(x, pid);
 	}
+	else if(cmd == X_DCNTL_SET_BUSY) {
+		x_set_busy(x, (bool)proto_read_int(in));
+	}
 	else if(cmd == X_DCNTL_QUIT) {
 		x_quit(from_pid);
 	}
@@ -1489,6 +1513,9 @@ int xserver_step(void* p) {
 
 	uint64_t tik = kernel_tic_ms(0);
 	uint32_t tm = 1000/x->config.fps;
+
+	if(x->mouse_state.busy)
+		x_repaint_req(x, x->current_display);
 
 	ipc_disable();
 	check_wins(x);

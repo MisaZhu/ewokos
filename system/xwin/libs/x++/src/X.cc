@@ -31,6 +31,10 @@ void X::terminate(void) {
 	x_terminate(&x);
 }
 
+void X::busy(bool bs) {
+	x_busy(bs);
+}
+
 bool X::getScreenInfo(xscreen_t& scr, int index) {
 	return (x_screen_info(&scr, index) == 0);
 }

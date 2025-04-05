@@ -74,6 +74,7 @@ typedef struct {
 	gpos_t down_pos;
 	gpos_t last_pos;
 	uint32_t state; 
+	bool busy;
 } x_mouse_state_t;
 
 typedef struct {
