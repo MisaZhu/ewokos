@@ -33,6 +33,7 @@ protected:
 	virtual void drawResize(graph_t* g, xinfo_t* info, grect_t* r, bool top);
 	virtual void drawFrame(graph_t* g, xinfo_t* info, bool top);
 	virtual void drawDragFrame(graph_t* g, grect_t* r);
+	virtual void onLoadTheme(void) { }
 
 	void updateTheme(void);
 public:

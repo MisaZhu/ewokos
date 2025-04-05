@@ -281,14 +281,17 @@ void XWM::loadTheme(const char* name) {
 
 	proto_t in;
 	PF->init(&in)->adds(&in, name);
-	if(dev_cntl_by_pid(xserv_pid, X_DCNTL_LOAD_XWM_THEME, &in, NULL) != 0) {
-		return;
-	}	
 	
 	if(dev_cntl_by_pid(xserv_pid, X_DCNTL_LOAD_THEME, &in, NULL) != 0) {
 		return;
+	}
+
+	if(dev_cntl_by_pid(xserv_pid, X_DCNTL_LOAD_XWM_THEME, &in, NULL) != 0) {
+		return;
 	}	
 	PF->clear(&in);
+
+	onLoadTheme();
 }
 
 XWM::XWM(void) {
