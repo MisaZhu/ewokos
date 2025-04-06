@@ -30,11 +30,14 @@ static int font_load_inst(const char* name, uint16_t ppm, font_inst_t* inst) {
 	int ret = -1;
 	inst->id = -1;
 	if(dev_cntl_by_pid(_font_dev_pid, FONT_DEV_NEW_INSTANCE, &in, &out) == 0) {
-		inst->id = proto_read_int(&out);
-		inst->ppm = ppm;
-		inst->max_size.x = proto_read_int(&out);
-		inst->max_size.y = proto_read_int(&out);
-		ret = 0;
+		int id = proto_read_int(&out);
+		if(id >= 0) {
+			inst->id = id;
+			inst->ppm = ppm;
+			inst->max_size.x = proto_read_int(&out);
+			inst->max_size.y = proto_read_int(&out);
+			ret = 0;
+		}
 	}
 
 	PF->clear(&in);
