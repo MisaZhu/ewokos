@@ -828,6 +828,96 @@ static int get_xwm_win_space(x_t* x, int style, grect_t* rin, grect_t* rout) {
 	return res;
 }
 
+enum {
+	FRAME_R_TITLE = 0,
+	FRAME_R_CLOSE,
+	FRAME_R_MIN,
+	FRAME_R_MAX,
+	FRAME_R_RESIZE
+};
+
+static int get_win_frame_pos(x_t* x, xwin_t* win) {
+	if((win->xinfo->style & XWIN_STYLE_NO_FRAME) != 0)
+		return -1;
+
+	int res = -1;
+	if(check_in_rect(x->cursor.cpos.x, x->cursor.cpos.y, &win->r_close))
+		res = FRAME_R_CLOSE;
+	else if(check_in_rect(x->cursor.cpos.x, x->cursor.cpos.y, &win->r_min))
+		res = FRAME_R_MIN;
+	else if(check_in_rect(x->cursor.cpos.x, x->cursor.cpos.y, &win->r_max))
+		res = FRAME_R_MAX;
+	else if(check_in_rect(x->cursor.cpos.x, x->cursor.cpos.y, &win->r_title))
+		res = FRAME_R_TITLE;
+	else if(check_in_rect(x->cursor.cpos.x, x->cursor.cpos.y, &win->r_resize))
+		res = FRAME_R_RESIZE;
+	return res;
+}
+
+static xwin_t* get_mouse_owner(x_t* x, int* win_frame_pos) {
+	xwin_t* win = x->win_tail;
+	if(win_frame_pos != NULL)
+		*win_frame_pos = -1;
+
+	while(win != NULL) {
+		if(!win->xinfo->visible ||
+				(win->xinfo->style & XWIN_STYLE_LAZY) != 0 ||
+				win->xinfo->display_index != x->current_display) {
+			win = win->prev;
+			continue;
+		}
+		int pos = get_win_frame_pos(x, win);
+		if(pos >= 0) {
+			if(win_frame_pos != NULL)
+				*win_frame_pos = pos;
+			return win;
+		}
+		if(check_in_rect(x->cursor.cpos.x, x->cursor.cpos.y, &win->xinfo->wsr))
+			return win;
+		win = win->prev;
+	}
+	return NULL;
+}
+
+static int x_cursor_set_busy(x_t* x, bool busy) {
+	if(x->mouse_state.busy == busy)
+		return 0;
+
+	hide_cursor(x);
+	if(x->cursor.saved != NULL) {
+		graph_free(x->cursor.saved);
+		x->cursor.saved = NULL;
+	}
+
+	x->mouse_state.busy = busy;
+	if(busy && x->cursor.img_busy != NULL) {
+		x->cursor.size.w = x->cursor.img_busy->w;
+		x->cursor.size.h = x->cursor.img_busy->h;
+	}
+	else if(x->cursor.img != NULL) {
+		x->cursor.size.w = x->cursor.img->w;
+		x->cursor.size.h = x->cursor.img->h;
+	}
+	//refresh_cursor(x);
+	x_repaint_req(x, x->current_display);
+	return 0;
+}
+
+static int do_xwin_set_busy(int fd, int from_pid, proto_t* in, x_t* x) {
+	if(fd < 0)
+		return -1;
+
+	xwin_t* win = x_get_win(x, fd, from_pid);
+	if(win == NULL)
+		return -1;
+
+	win->busy = (bool)proto_read_int(in);
+
+	if(get_mouse_owner(x, NULL) == win)
+		x_cursor_set_busy(x, win->busy);
+	return 0;
+}
+
 static int xwin_update_info(int fd, int from_pid, proto_t* in, proto_t* out, x_t* x) {
 	if(fd < 0)
 		return -1;
@@ -1067,6 +1157,9 @@ static int xserver_fcntl(int fd, int from_pid, fsinfo_t* node,
 	else if(cmd == XWIN_CNTL_TOP) {
 		res = do_xwin_top(fd, from_pid, x);
 	}
+	else if(cmd == XWIN_CNTL_SET_BUSY) {
+		res = do_xwin_set_busy(fd, from_pid, in, x);
+	}
 	return res;
 }
 
@@ -1108,56 +1201,6 @@ static void mouse_cxy(x_t* x, uint32_t display_index, int32_t rx, int32_t ry) {
 		x->cursor.cpos.y = display->g->h;
 }
 
-enum {
-	FRAME_R_TITLE = 0,
-	FRAME_R_CLOSE,
-	FRAME_R_MIN,
-	FRAME_R_MAX,
-	FRAME_R_RESIZE
-};
-
-static int get_win_frame_pos(x_t* x, xwin_t* win) {
-	if((win->xinfo->style & XWIN_STYLE_NO_FRAME) != 0)
-		return -1;
-
-	int res = -1;
-	if(check_in_rect(x->cursor.cpos.x, x->cursor.cpos.y, &win->r_close))
-		res = FRAME_R_CLOSE;
-	else if(check_in_rect(x->cursor.cpos.x, x->cursor.cpos.y, &win->r_min))
-		res = FRAME_R_MIN;
-	else if(check_in_rect(x->cursor.cpos.x, x->cursor.cpos.y, &win->r_max))
-		res = FRAME_R_MAX;
-	else if(check_in_rect(x->cursor.cpos.x, x->cursor.cpos.y, &win->r_title))
-		res = FRAME_R_TITLE;
-	else if(check_in_rect(x->cursor.cpos.x, x->cursor.cpos.y, &win->r_resize))
-		res = FRAME_R_RESIZE;
-	return res;
-}
-
-static xwin_t* get_mouse_owner(x_t* x, int* win_frame_pos) {
-	xwin_t* win = x->win_tail;
-	if(win_frame_pos != NULL)
-		*win_frame_pos = -1;
-
-	while(win != NULL) {
-		if(!win->xinfo->visible ||
-				(win->xinfo->style & XWIN_STYLE_LAZY) != 0 ||
-				win->xinfo->display_index != x->current_display) {
-			win = win->prev;
-			continue;
-		}
-		int pos = get_win_frame_pos(x, win);
-		if(pos >= 0) {
-			if(win_frame_pos != NULL)
-				*win_frame_pos = pos;
-			return win;
-		}
-		if(check_in_rect(x->cursor.cpos.x, x->cursor.cpos.y, &win->xinfo->wsr))
-			return win;
-		win = win->prev;
-	}
-	return NULL;
-}
 
 static void xwin_bg(x_t* x, xwin_t* win) {
 	if(win == NULL)
@@ -1353,13 +1396,19 @@ static int mouse_handle(x_t* x, xevent_t* ev) {
 	xwin_t* win = NULL;
 	if(x->current.win_drag != NULL)
 		win = x->current.win_drag;
-	else
+	else {
 		win = get_mouse_owner(x, &pos);
+	}
 
-	if(win != NULL)
+	if(win != NULL) {
+		x_cursor_set_busy(x, win->busy);
 		mouse_xwin_handle(x, win, pos, ev);
-	else if(ev->state ==  MOUSE_STATE_DOWN)
-		x_unfocus(x);
+	}
+	else {
+		x_cursor_set_busy(x, false);
+		if(ev->state ==  MOUSE_STATE_DOWN)
+			x_unfocus(x);
+	}
 
 	return 0;
 }
@@ -1393,27 +1442,6 @@ static int x_set_top(x_t* x, int pid) {
 	xwin_t* win = x_get_win(x, -1, pid);
 	if(win != NULL)
 		xwin_top(x, win);
-	return 0;
-}
-
-static int x_set_busy(x_t* x, bool busy) {
-	hide_cursor(x);
-	if(x->cursor.saved != NULL) {
-		graph_free(x->cursor.saved);
-		x->cursor.saved = NULL;
-	}
-
-	x->mouse_state.busy = busy;
-	if(busy && x->cursor.img_busy != NULL) {
-		x->cursor.size.w = x->cursor.img_busy->w;
-		x->cursor.size.h = x->cursor.img_busy->h;
-	}
-	else if(x->cursor.img != NULL) {
-		x->cursor.size.w = x->cursor.img->w;
-		x->cursor.size.h = x->cursor.img->h;
-	}
-	//refresh_cursor(x);
-	x_repaint_req(x, x->current_display);
 	return 0;
 }
 
@@ -1484,9 +1512,6 @@ static int xserver_dev_cntl(int from_pid, int cmd, proto_t* in, proto_t* ret, vo
 	else if(cmd == X_DCNTL_SET_TOP) {
 		int pid = proto_read_int(in);
 		x_set_top(x, pid);
-	}
-	else if(cmd == X_DCNTL_SET_BUSY) {
-		x_set_busy(x, (bool)proto_read_int(in));
 	}
 	else if(cmd == X_DCNTL_QUIT) {
 		x_quit(from_pid);

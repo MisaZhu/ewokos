@@ -47,6 +47,7 @@ int      xwin_move_to(xwin_t* xwin, int x, int y);
 int      xwin_set_display(xwin_t* xwin, uint32_t display_index);
 int      xwin_call_xim(xwin_t* xwin, bool show);
 int      xwin_event_handle(xwin_t* xwin, xevent_t* ev);
+void     xwin_busy(xwin_t* xwin, bool busy);
 
 #ifdef __cplusplus
 }

@@ -80,6 +80,7 @@ public:
 	void setDisplay(int index);
 	void top(void);
 	void pop(void);
+	void busy(bool bs);
 	gpos_t getInsidePos(int32_t x, int32_t y);
 	gpos_t getScreenPos(int32_t x, int32_t y);
 	bool focused();

@@ -241,6 +241,12 @@ void XWin::setDisplay(int index) {
 	xwin_set_display(xwin, index);
 }
 
+void XWin::busy(bool bs) {
+	if(xwin == NULL)	
+		return;
+	xwin_busy(xwin, bs);
+}
+
 gpos_t XWin::getInsidePos(int32_t x, int32_t y) {
 	gpos_t pos;
 	pos.x = x - xwin->xinfo->wsr.x;
