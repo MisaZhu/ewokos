@@ -202,7 +202,6 @@ int main(int argc, char** argv) {
 	root->setAlpha(false);
 
 	AppGrid* apps = new AppGrid();
-	apps->loadApps();
 	apps->setItemSize(_itemSize, _itemSize);
 	apps->setIconSize(_itemSize/2);
 	root->add(apps);
@@ -220,6 +219,12 @@ int main(int argc, char** argv) {
 	}
 	else
 		win.open(&x, 0, -1, -1, 320, 240, "xapps", XWIN_STYLE_NORMAL);
+
+	win.busy(true);
+	apps->loadApps();
+	win.busy(false);
+	win.repaint();
+
 	x.run(NULL, &win);
 	return 0;
 }
