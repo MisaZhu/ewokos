@@ -1526,6 +1526,10 @@ static int xserver_win_close(int fd, int from_pid, uint32_t node, fsinfo_t* fsin
 	if(win == NULL) {
 		return -1;
 	}
+
+	if(win->busy && get_mouse_owner(x, NULL) == win)
+		x_cursor_set_busy(x, false);
+
 	int disp_index = win->xinfo->display_index;
 	x_del_win(x, win);	
 
