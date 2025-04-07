@@ -222,8 +222,8 @@ int main(int argc, char** argv) {
 
 	win.busy(true);
 	apps->loadApps();
-	win.busy(false);
 	win.repaint();
+	win.busy(false);
 
 	x.run(NULL, &win);
 	return 0;
