@@ -52,6 +52,8 @@ class TextWin: public WidgetWin{
 	void loadFile(const string& fname) {
 		if(text == NULL)
 			return;
+		
+		busy(true);
 
 		int sz;
 		char* content = (char*)vfs_readfile(fname.c_str(), &sz);
@@ -59,6 +61,7 @@ class TextWin: public WidgetWin{
 			text->setContent(content, sz);
 			free(content);
 		}
+		busy(false);
 	}
 protected:
 	void onDialoged(XWin* from, int res) {
@@ -161,10 +164,8 @@ int main(int argc, char** argv) {
 	win.open(&x, 0, -1, -1, 460, 460, "xread", XWIN_STYLE_NORMAL);
 
 	if(argc >= 2) {
-		win.busy(true);
 		win.load(argv[1]);
 		win.repaint();
-		win.busy(false);
 	}
 	x.run(NULL, &win);
 	return 0;
