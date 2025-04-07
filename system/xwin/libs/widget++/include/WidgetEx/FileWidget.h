@@ -23,6 +23,7 @@ protected:
 public:
 	FileWidget();
 
+	void loadDir(const string& dirName);
 	void load(const string& fname, const string& open_with);
 	void enter(const string& pathname);
 	void select(const string& fname);

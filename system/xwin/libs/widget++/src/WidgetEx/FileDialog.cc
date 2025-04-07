@@ -47,6 +47,8 @@ void FileDialog::onBuild() {
 	LabelButton* cancelButton = new LabelButton("Cancel");
 	cancelButton->onClickFunc = cancelFunc;
 	c->add(cancelButton);
+
+	fileWidget->loadDir("/");
 }
 
 FileDialog::FileDialog(bool path) {

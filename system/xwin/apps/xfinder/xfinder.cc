@@ -62,6 +62,10 @@ int main(int argc, char** argv) {
 	root->focus(fm);
 
 	win.open(&x, 0, -1, -1, 320, 240, "xfinder", XWIN_STYLE_NORMAL);
+	win.busy(true);
+	fm->loadDir("/");
+	win.repaint();
+	win.busy(false);
 	x.run(NULL, &win);
 	return 0;
 }

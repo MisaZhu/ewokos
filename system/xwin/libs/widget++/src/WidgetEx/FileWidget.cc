@@ -266,7 +266,6 @@ public:
 		scrollerV = NULL;
 		loadIcons();
 		fileTypes = loadFileTypes("/usr/system/filetypes.json");
-		readDir("/");
 	}
 
 	void setCWDLabel(CWDLabel* l) {
@@ -312,6 +311,12 @@ FileWidget::FileWidget() {
 void FileWidget::load(const string& fname, const string& open_with) {
 	file = fname;
 	onFile(fname, open_with);
+}
+
+void FileWidget::loadDir(const string& dname) {
+	FileGrid* fgrid = (FileGrid*)fileGrid;
+	fgrid->readDir(dname.c_str());
+	update();
 }
 
 void FileWidget::enter(const string& pathname) {
