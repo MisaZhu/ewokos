@@ -134,9 +134,8 @@ static int vjoystick_read(int fd,
 	(void)p;
 
 	bool mouse = false;
-	if((size & 0x1000) != 0) {
+	if(size == 4) { //4 bytes for reading mouse data , 6 bytes for keyb
 		mouse = true;
-		size = size & 0x0fff;
 	}
 
 	if(_joys_fd < 0 || size < KEY_NUM)
