@@ -1034,7 +1034,7 @@ static int x_dev_set_theme(x_t* x, proto_t* in, proto_t* out) {
 	return 0;
 }
 
-static int xwm_them_update(x_t* x) {
+static int xwm_theme_update(x_t* x) {
 	if(!check_xwm(x))
 		return 0;
 
@@ -1057,7 +1057,7 @@ static int x_dev_load_xwm_theme(x_t* x, proto_t* in, proto_t* out) {
 	cursor_init(name, &x->cursor);
 	if(x_load_xwm_theme(name, &x->config.xwm_theme) != 0)
 		return -1;
-	return xwm_them_update(x);
+	return xwm_theme_update(x);
 }
 
 static int x_dev_get_xwm_theme(x_t* x, proto_t* in, proto_t* out) {
@@ -1072,7 +1072,7 @@ static int x_dev_set_xwm_theme(x_t* x, proto_t* in, proto_t* out) {
 	if(theme == NULL || sz != sizeof(xwm_theme_t))
 		return -1;
 	memcpy(&x->config.xwm_theme, theme, sz);
-	return xwm_them_update(x);
+	return xwm_theme_update(x);
 }
 
 static int x_get_desktop_space(x_t* x, proto_t* in, proto_t* out) {
