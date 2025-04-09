@@ -178,16 +178,17 @@ void xwin_close(xwin_t* xwin) {
 		xwin->x->prompt_win = NULL;
 }
 
+graph_t* xwin_fetch_graph(xwin_t* xwin, graph_t* g) {
+	memset(g, 0, sizeof(graph_t));
+	return x_get_graph(xwin, g);
+}
+
 void xwin_repaint(xwin_t* xwin) {
-	if(xwin->on_repaint == NULL)
-		return;
-
-	graph_t g;
-	memset(&g, 0, sizeof(graph_t));
-
 	if(!xwin->xinfo->repaint_lazy) {
-		if(x_get_graph(xwin, &g) != NULL) {
-			xwin->on_repaint(xwin, &g);
+		graph_t g;
+		if(xwin_fetch_graph(xwin, &g) != NULL) {
+			if(xwin->on_repaint != NULL)
+				xwin->on_repaint(xwin, &g);
 		}
 	}	
 	vfs_fcntl_wait(xwin->fd, XWIN_CNTL_UPDATE, NULL);
@@ -290,7 +291,8 @@ int xwin_event_handle(xwin_t* xwin, xevent_t* ev) {
 		xwin->xinfo->wsr.x += ev->value.window.v0;
 		xwin->xinfo->wsr.y += ev->value.window.v1;
 		xwin_update_info(xwin, X_UPDATE_REFRESH);
-		xwin->on_move(xwin);
+		if(xwin->on_move != NULL)
+			xwin->on_move(xwin);
 	}
 	else if(ev->value.window.event == XEVT_WIN_VISIBLE) {
 		xwin_set_visible(xwin, ev->value.window.v0 == 1);

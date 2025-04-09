@@ -250,7 +250,7 @@ static void x_push_event(x_t* x, xwin_t* win, xevent_t* e) {
 		return;
 	e->win = win->xinfo->win;
 	xevent_push(win->from_pid, e);
-	proc_wakeup_pid(win->from_pid, X_EVT_BLOCK_EVT);
+	proc_wakeup(X_EVT_BLOCK_EVT);
 }
 
 static void hide_win(x_t* x, xwin_t* win) {
@@ -1446,7 +1446,6 @@ static int x_set_top(x_t* x, int pid) {
 }
 
 static int xserver_dev_cntl(int from_pid, int cmd, proto_t* in, proto_t* ret, void* p) {
-	(void)from_pid;
 	x_t* x = (x_t*)p;
 
 	if(cmd == DEV_CNTL_REFRESH) {

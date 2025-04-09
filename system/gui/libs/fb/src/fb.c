@@ -44,9 +44,12 @@ int fb_dev_info(const char *dev, int *w, int *h, int *bpp) {
 	if(dev_cntl(dev, 1, NULL, &out) != 0)
 		return -1;
 
-	*w = proto_read_int(&out);
-	*h = proto_read_int(&out);
-	*bpp = proto_read_int(&out);
+	if(w != NULL)
+		*w = proto_read_int(&out);
+	if(h != NULL)
+		*h = proto_read_int(&out);
+	if(bpp != NULL)
+		*bpp = proto_read_int(&out);
 	PF->clear(&out);
 	return 0;
 }

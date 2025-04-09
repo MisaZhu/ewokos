@@ -21,7 +21,7 @@ static xevt_pool_t* _xevt_pool_head = NULL;
 static inline xevt_pool_t* get_pool(int pid) {
 	xevt_pool_t* p = _xevt_pool_head;
 	while(p != NULL) {
-		if(p->pid == pid)
+		if(proc_getpid(p->pid) == proc_getpid(pid))
 			return p;
 		p = p->next;
 	}
