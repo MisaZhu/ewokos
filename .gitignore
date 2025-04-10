@@ -12,5 +12,6 @@ system/tmp
 .vscode/configurationCache.log
 .vscode/dryrun.log
 .vscode/targets.log
+.deps
 build
 .xmake
