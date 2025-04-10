@@ -12,6 +12,9 @@ basic_libs:
 	cd keyb;make
 	cd mouse;make
 	cd upng; make
+	cd libpng; make
+	cd libogg; make
+	cd libvorbis; make
 	cd fbd;make
 	cd terminal;make
 	cd gterminal;make
@@ -26,6 +29,9 @@ clean:
 	cd display;make clean
 	cd font;make clean
 	cd upng; make clean
+	cd libpng; make clean
+	cd libogg; make clean
+	cd libvorbis; make clean
 	cd minimp3;make clean
 	cd graph;make clean
 	cd fb;make clean

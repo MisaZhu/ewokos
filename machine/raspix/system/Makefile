@@ -70,9 +70,3 @@ sd:
 	find . -type f | e2cp -ap -G0 -O0 -d ../${SD}:/
 
 	@echo "==== ext2 format sdcard image created  ====\n"
-
-install:
-	mkdir -p $(INST_DIR)/$(ARCH)/$(HW)
-	cp -r $(BUILD_DIR)/include $(INST_DIR)/$(ARCH)/$(HW)/
-	cp -r $(BUILD_DIR)/lib $(INST_DIR)/$(ARCH)/$(HW)/ 
-	cp $(SYS_ROOT_DIR)/platform/$(ARCH)/make.rule $(INST_DIR)/$(ARCH)/
