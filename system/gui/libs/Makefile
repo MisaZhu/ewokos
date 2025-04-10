@@ -2,8 +2,6 @@ all: basic_libs
 	@echo "all done."
 
 basic_libs:
-	cd crc32;make
-	cd zlib;make
 	cd openlibm;make
 	cd graph;make
 	cd display;make
@@ -21,8 +19,6 @@ basic_libs:
 	cd c++/c++;make
 
 clean:
-	cd crc32;make clean
-	cd zlib;make clean
 	cd openlibm;make clean
 	cd ttf;make clean
 	cd terminal;make clean
