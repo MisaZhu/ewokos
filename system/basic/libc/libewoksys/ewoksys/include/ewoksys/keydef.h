@@ -13,6 +13,7 @@ extern "C" {
 #define KEY_UP              5
 #define CONSOLE_LEFT        8
 #define KEY_ENTER           13
+#define KEY_SPACE           12
 #define KEY_LEFT            19
 #define KEY_DOWN            24
 

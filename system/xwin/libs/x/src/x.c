@@ -181,6 +181,16 @@ const char* x_get_theme_fname(const char* prefix, const char* app_name, const ch
 	return ret;
 }
 
+const char* x_get_res_name(const char* name) {
+	static char ret[FS_FULL_NAME_MAX];
+	const char* wkdir = x_get_work_dir();
+	if(wkdir[1] == 0 && wkdir[0] == '/')
+		snprintf(ret, FS_FULL_NAME_MAX-1, "/res/%s", name);
+	else
+		snprintf(ret, FS_FULL_NAME_MAX-1, "%s/res/%s", wkdir, name);
+	return ret;
+}
+
 int  x_run(x_t* x, void* loop_data) {
 	int xserv_pid = dev_get_pid("/dev/x");
 	if(xserv_pid < 0) {

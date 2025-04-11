@@ -42,6 +42,7 @@ int      x_get_theme(x_theme_t* theme);
 const char* x_get_theme_fname(const char* prefix, const char* app_name, const char* fname);
 int      x_get_desktop_space(int disp_index, grect_t* r);
 int      x_set_desktop_space(int disp_index, const grect_t* r);
+const char* x_get_res_name(const char* name);
 
 #ifdef __cplusplus
 }

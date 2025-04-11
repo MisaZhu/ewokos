@@ -40,13 +40,7 @@ uint32_t X::getDisplayNum() {
 }
 
 const char* X::getResName(const char* name) {
-	static char ret[FS_FULL_NAME_MAX];
-	const char* wkdir = x_get_work_dir();
-	if(wkdir[1] == 0 && wkdir[0] == '/')
-		snprintf(ret, FS_FULL_NAME_MAX-1, "/res/%s", name);
-	else
-		snprintf(ret, FS_FULL_NAME_MAX-1, "%s/res/%s", wkdir, name);
-	return ret;
+	return x_get_res_name(name);
 }
 
 bool X::getDesktopSpace(grect_t& r, int index) {
