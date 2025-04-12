@@ -130,6 +130,12 @@ xwin_t* xwin_open(x_t* xp, uint32_t disp_index, int x, int y, int w, int h, cons
 	return ret;
 }
 
+int xwin_fullscreen(xwin_t* xwin) {
+	xwin->xinfo->style |= XWIN_STYLE_NO_RESIZE | XWIN_STYLE_NO_TITLE;
+	xwin_update_info(xwin, X_UPDATE_REBUILD | X_UPDATE_REFRESH);
+	return xwin_max(xwin);
+}
+
 static graph_t* x_get_graph(xwin_t* xwin, graph_t* g) {
 	if(xwin == NULL || xwin->xinfo == NULL || xwin->xinfo->g_shm_id == -1)
 		return NULL;
