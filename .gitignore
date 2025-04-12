@@ -16,3 +16,6 @@ system/tmp
 *.a
 build
 .xmake
+machine/versatilepb/kernel/config.mk
+*.lo
+*.dirstamp

@@ -15,6 +15,7 @@ basic_libs:
 	cd libpng; make
 	cd libogg; make
 	cd libvorbis; make
+	cd freetype; make
 	cd fbd;make
 	cd terminal;make
 	cd gterminal;make
@@ -32,6 +33,7 @@ clean:
 	cd libpng; make clean
 	cd libogg; make clean
 	cd libvorbis; make clean
+	cd freetype; make clean
 	cd minimp3;make clean
 	cd graph;make clean
 	cd fb;make clean
