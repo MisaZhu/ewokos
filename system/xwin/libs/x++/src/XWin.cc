@@ -145,6 +145,8 @@ bool XWin::open(X* xp, uint32_t dispIndex, int x, int y, uint32_t w, uint32_t h,
 	this->x = xp;
 	setCWin(xw);
 	onOpen();
+	if(xw->on_resize);
+		xw->on_resize(xw);
 	setVisible(visible);
 	return true;
 }
@@ -163,6 +165,8 @@ bool XWin::setVisible(bool visible) {
 		onHide();
 
 	xwin_set_visible(xwin, visible);
+	if(visible) 
+		xwin_repaint(xwin);
 	return true;
 }
 

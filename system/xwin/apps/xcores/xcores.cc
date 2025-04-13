@@ -70,7 +70,7 @@ protected:
 		if(perc < 0)
 			perc = 0;
 		snprintf(s, 15, "%d:%d%%", i, perc);
-		graph_draw_text_font(g, x+12, r.y+4, s, theme->getFont(), theme->basic.fontSize, color);
+		graph_draw_text_font(g, x+12, r.y, s, theme->getFont(), theme->basic.fontSize, color);
 	}
 
 	void drawChat(graph_t* g, uint32_t i, float xstep, float yzoom, uint32_t color, const grect_t& r) {
@@ -149,7 +149,7 @@ protected:
 		font_t* font = theme->getFont();
 		uint32_t w;
 		font_text_size(txt, font, 10, &w, NULL);
-		graph_draw_text_font(g, r.x + r.w - w, r.y+4, txt, theme->getFont(), 10, theme->basic.widgetFGColor);
+		graph_draw_text_font(g, r.x + r.w - w, r.y, txt, theme->getFont(), 10, theme->basic.widgetFGColor);
 	}
 
 	void onTimer(uint32_t timerFPS, uint32_t timerStep) {

@@ -121,9 +121,7 @@ xwin_t* xwin_open(x_t* xp, uint32_t disp_index, int x, int y, int w, int h, cons
 			(style & XWIN_STYLE_NO_TITLE) == 0 &&
 			(style & XWIN_STYLE_NO_RESIZE) == 0 &&
 			(style & XWIN_STYLE_NO_FRAME) == 0) {
-		ret->xinfo->style |= XWIN_STYLE_NO_RESIZE | XWIN_STYLE_NO_TITLE;
-		xwin_update_info(ret, X_UPDATE_REBUILD | X_UPDATE_REFRESH);
-		xwin_max(ret);
+		xwin_fullscreen(ret);
 	}
 	else
 		xwin_update_info(ret, X_UPDATE_REBUILD | X_UPDATE_REFRESH);
@@ -144,8 +142,9 @@ static graph_t* x_get_graph(xwin_t* xwin, graph_t* g) {
 		xwin->g_shm = shmat(xwin->xinfo->g_shm_id, 0, 0);
 		if(xwin->g_shm == NULL)
 			return NULL;
-		if(xwin->on_resize != NULL)
+		if(xwin->on_resize != NULL) {
 			xwin->on_resize(xwin);
+		}
 	}
 
 	g->buffer = xwin->g_shm;

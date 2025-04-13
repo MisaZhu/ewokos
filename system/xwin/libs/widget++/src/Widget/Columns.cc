@@ -9,8 +9,9 @@ void Columns::onRepaint(graph_t* g, XTheme* theme, const grect_t& r) {
 	if(font == NULL)
 		return;
 	
-	if(rowH == 0)
-		rowH = theme->basic.fontSize+2;
+	if(rowH == 0) {
+		rowH = font_get_height(font, theme->basic.fontSize);
+	}
 
 	int32_t y = 0;
 	int32_t x = r.x;
@@ -24,7 +25,7 @@ void Columns::onRepaint(graph_t* g, XTheme* theme, const grect_t& r) {
 		x += cols[i].width;
 	}
 	x = r.x;
-	y += rowH +4;
+	y += rowH;
 
 	for(uint32_t i=0; i<rowNum; i++) {
 		grect_t rr = {r.x, y-off_y, r.w, rowH};
