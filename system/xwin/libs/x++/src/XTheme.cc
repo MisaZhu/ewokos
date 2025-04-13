@@ -34,9 +34,8 @@ void XTheme::loadConfig(json_var_t* conf_var) {
 	basic.fgDisableColor = json_get_int(conf_var, "fg_disable_color");
 	basic.bgDisableColor = json_get_int(conf_var, "bg_disable_color");
 
-	basic.fontFixedSize = json_get_int(conf_var, "font_fixed");
-	if(basic.fontFixedSize == 0)
-		basic.fontFixedSize = basic.fontSize;
+	basic.charSpace = json_get_int(conf_var, "char_space");
+	klog("bc: %d\n", basic.charSpace);
 }
 
 void XTheme::loadSystem() {

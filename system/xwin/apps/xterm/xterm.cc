@@ -22,7 +22,6 @@ extern "C" {
 #include <ewoksys/charbuf.h>
 #include <ewoksys/proc.h>
 #include <ewoksys/klog.h>
-#include <ttf/ttf.h>
 #include <ewoksys/basic_math.h>
 #include <ewoksys/timer.h>
 #include <ewoksys/wait.h>
@@ -83,7 +82,7 @@ public:
 		terminal.bg_color = theme.basic.bgColor;
 		terminal.fg_color = theme.basic.fgColor;
 		terminal.font_size = theme.basic.fontSize;
-		terminal.font_fixed = theme.basic.fontFixedSize;
+		terminal.char_space = theme.basic.charSpace;
 		if(terminal.font != NULL)
 			font_free(terminal.font);
 		terminal.font = font_new(theme.basic.fontName, true);

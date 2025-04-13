@@ -21,7 +21,7 @@ typedef struct {
 	uint32_t bg_color;
 	font_t* font;
 	uint32_t font_size;
-	uint32_t font_fixed;
+	int32_t char_space;
 
 	gpos_t  curs_pos;
 	bool flash_show;

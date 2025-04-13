@@ -18,7 +18,7 @@ int x_load_theme(const char* name, x_theme_t* theme) {
 	snprintf(fname, FS_FULL_NAME_MAX-1, "%s/%s/x/theme.json", X_THEME_ROOT, name);
 	json_var_t *conf_var = json_parse_file(fname);	
 
-	theme->fontSize = theme->fontFixedSize = json_get_int_def(conf_var, "font_size", DEFAULT_SYSTEM_FONT_SIZE);
+	theme->fontSize = json_get_int_def(conf_var, "font_size", DEFAULT_SYSTEM_FONT_SIZE);
 
 	const char* v = json_get_str_def(conf_var, "font", DEFAULT_SYSTEM_FONT);
 	memset(theme->fontName, 0, FONT_NAME_MAX);

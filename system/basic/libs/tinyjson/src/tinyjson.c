@@ -153,7 +153,7 @@ bool json_is_space(unsigned char ch) {
 }
 
 bool json_is_numeric(unsigned char ch) {
-	if(ch >= '0' && ch <= '9')
+	if(ch >= '0' && ch <= '9' || ch == '-')
 		return true;
 	return false;
 }

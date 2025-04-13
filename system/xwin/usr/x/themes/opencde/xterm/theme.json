@@ -7,5 +7,5 @@
 
     "font": "system",
     "font_size": 12,
-    "font_fixed": 10
+    "char_space": -2
 }

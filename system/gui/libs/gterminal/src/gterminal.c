@@ -3,6 +3,7 @@
 #include <unistd.h>
 #include <gterminal/gterminal.h>
 #include <ewoksys/keydef.h>
+#include <font/font.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -55,7 +56,7 @@ static void draw_curs(gterminal_t* terminal, graph_t* g, uint32_t cw, uint32_t c
     if(!terminal->flash_show || !terminal->show_curs)
         return;
     gpos_t pos = get_pos(terminal, g, terminal_at(&terminal->terminal), cw, ch);
-    graph_fill(g, pos.x, pos.y+1, 4, ch-2, terminal->fg_color);
+    graph_fill(g, pos.x, pos.y+4, 4, ch-4, terminal->fg_color);
 }
 
 static uint32_t g_color(gterminal_t* terminal, uint32_t esc_color, uint8_t fg) {
@@ -301,10 +302,13 @@ void gterminal_flash(gterminal_t* terminal) {
 }
 
 void gterminal_resize(gterminal_t* terminal, uint32_t gw, uint32_t gh) {
-    uint32_t font_w = terminal->font_fixed > 0 ? terminal->font_fixed : terminal->font_size;
-    uint32_t font_h = terminal->font_size;
+    if(terminal->font == NULL)
+        return NULL;
+    int32_t font_w = terminal->font_size + terminal->char_space;
+    uint32_t font_h = font_get_height(terminal->font, terminal->font_size);
     if(font_w == 0 || font_h == 0)
         return;
+
     uint32_t size;
     tchar_t* content = terminal_gets(&terminal->terminal, &size);
     terminal_reset(&terminal->terminal, gw/font_w, gh/font_h);

@@ -74,7 +74,7 @@ class FileGrid: public Grid {
 		if(font == NULL)
 			return;
 
-		y += h - theme->basic.fontSize;
+		y += h - th;
 		graph_draw_text_font(g, x, y, title, font, theme->basic.fontSize, theme->basic.fgColor);
 	}
 

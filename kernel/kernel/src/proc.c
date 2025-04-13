@@ -236,7 +236,11 @@ static int32_t proc_expand_mem(proc_t *proc, int32_t page_num, uint32_t rdonly) 
 	for (i = 0; i < page_num; i++) {
 		char *page = kalloc4k();
 		if(page == NULL) {
-			printf("proc expand failed!! free mem size: (%x), pid:%d, pages ask:%d\n", get_free_mem_size(), proc->info.pid, page_num);
+			printf("proc expand failed!! free mem size: (%x), pid:%d(%s), pages ask:%d\n",
+					get_free_mem_size(),
+					proc->info.pid,
+					proc->info.cmd,
+					page_num);
 			proc_shrink_mem(proc, i);
 			res = -1;
 			break;

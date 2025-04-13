@@ -54,7 +54,7 @@ clean:
 	cd $(SYS_ROOT_DIR)/gui;make clean
 	cd $(SYS_ROOT_DIR)/basic;make clean
 	cd $(EWOKOS_ROOT_DIR)/sw.extra/; make HW=$(HW) clean
-	rm -fr $(SYS_ROOT_DIR)/build/$(HW)
+	rm -fr $(SYS_ROOT_DIR)/build
 	rm -fr $(MACHINE_BUILD_DIR)
 
 SD = root.ext2

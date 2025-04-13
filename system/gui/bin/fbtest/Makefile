@@ -18,11 +18,10 @@ $(TASK): $(TASK_OBJS) \
 		$(BUILD_DIR)/lib/libfb.a \
 		$(BUILD_DIR)/lib/libgraph.a \
 		$(BUILD_DIR)/lib/libupng.a \
-		$(BUILD_DIR)/lib/libttf.a  \
 		$(BUILD_DIR)/lib/libfont.a  \
 		$(BUILD_DIR)/lib/libdisplay.a 
 	mkdir -p $(TARGET_DIR)/bin 
-	$(LD) -Ttext=100 $(TASK_OBJS) -o $(TASK) $(LDFLAGS) -lkeyb -lmouse -lfb -ldisplay -lgraph -lbsp $(BSP_LFLAGS) -lttf  -lfont -lupng $(EWOK_LIBC)
+	$(LD) -Ttext=100 $(TASK_OBJS) -o $(TASK) $(LDFLAGS) -lkeyb -lmouse -lfb -ldisplay -lgraph -lbsp $(BSP_LFLAGS) -lfont -lupng $(EWOK_LIBC)
 
 clean:
 	rm -f $(TASK_OBJS)

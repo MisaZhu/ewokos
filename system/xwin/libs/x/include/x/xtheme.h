@@ -17,7 +17,7 @@ typedef struct {
 
 	char     fontName[FONT_NAME_MAX];
 	uint32_t fontSize;
-	uint32_t fontFixedSize;
+	int32_t  charSpace;
 
 	uint32_t bgColor;
 	uint32_t fgColor;

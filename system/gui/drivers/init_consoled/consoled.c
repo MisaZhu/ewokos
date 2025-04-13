@@ -45,7 +45,7 @@ static int32_t read_config(fb_console_t* console, const char* fname) {
 	console->terminal.bg_color = json_get_int_def(conf_var, "bg_color", 0xff000000);
 	console->terminal.fg_color = json_get_int_def(conf_var, "fg_color", 0xffcccccc);
 	console->terminal.font_size = json_get_int_def(conf_var, "font_size", 12);;
-	console->terminal.font_fixed = json_get_int_def(conf_var, "font_fixed", 12);;
+	console->terminal.char_space = json_get_int_def(conf_var, "char_space", 0);;
 
 	if(conf_var != NULL)
 		json_var_unref(conf_var);
@@ -68,6 +68,7 @@ static int init_console(fb_console_t* console, const char* display_dev, const ui
 		return -1;
 	init_graph(console);
 	gterminal_init(&console->terminal);
+
 	read_config(console, "/etc/init_console.json");
 	return 0;
 }

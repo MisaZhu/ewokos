@@ -12,6 +12,8 @@ extern "C" {
 
 static int _font_dev_pid = -1;
 
+#define FACE_PIXEL_DENT   64
+
 int font_init(void) {
 	_font_dev_pid = dev_get_pid("/dev/font");
 	if(_font_dev_pid < 0)
@@ -184,7 +186,7 @@ int  font_get_height(font_t* font, uint32_t size) {
 	FT_FaceRec face;
 	if(font_get_face(font, size, &face) != 0)
 		return 0;
-	return face.height;
+	return face.height/FACE_PIXEL_DENT;
 }
 
 static int font_get_glyph(font_t* font, uint32_t size, uint32_t c, FT_GlyphSlot slot) {
@@ -248,7 +250,7 @@ void font_char_size(uint32_t c, font_t* font, uint32_t size, uint32_t *w, uint32
 	}
 
 	if(h != NULL) {
-		*h = (faceinfo->height/64);
+		*h = (faceinfo->height/FACE_PIXEL_DENT);
 	}
 }
 
@@ -297,13 +299,13 @@ void graph_draw_unicode_font(graph_t* g, int32_t x, int32_t y, uint32_t c,
 	face_info_t* faceinfo = (face_info_t*)slot.other;
 
 	x += slot.bitmap_left;
-	y = y - slot.bitmap_top + (faceinfo->ascender/64);
+	y = y - slot.bitmap_top + (faceinfo->ascender/FACE_PIXEL_DENT);
 	
 	if(c == '\t') {
 		if(w != NULL)
 			*w = slot.bitmap.width*2;
 		if(h != NULL)
-			*h = (faceinfo->height/64);
+			*h = (faceinfo->height/FACE_PIXEL_DENT);
 		return;
 	}
 
@@ -323,7 +325,7 @@ void graph_draw_unicode_font(graph_t* g, int32_t x, int32_t y, uint32_t c,
 		*w = slot.bitmap_left + slot.bitmap.width;
 	}
 	if(h != NULL) {
-		*h = (faceinfo->height/64);
+		*h = (faceinfo->height/FACE_PIXEL_DENT);
 	}
 }
 
@@ -336,7 +338,7 @@ void graph_draw_char_font_fixed(graph_t* g, int32_t x, int32_t y, uint32_t c,
 	face_info_t* faceinfo = (face_info_t*)slot.other;
 
 	x += slot.bitmap_left;
-	y = y - slot.bitmap_top + (faceinfo->ascender/64);
+	y = y - slot.bitmap_top + (faceinfo->ascender/FACE_PIXEL_DENT);
 
 	if(slot.bitmap.buffer != NULL) {
 		for (int32_t j = 0; j < slot.bitmap.rows; j++) {
