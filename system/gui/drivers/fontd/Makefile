@@ -15,9 +15,9 @@ FONTD = $(TARGET_DIR)/drivers/fontd
 $(FONTD): $(FONTD_OBJS) \
 		$(EWOK_LIBC_A)  \
 		$(BUILD_DIR)/lib/libgraph.a \
-		$(BUILD_DIR)/lib/libtinyjson.a \
-		$(BUILD_DIR)/lib/libttf.a 
-	$(LD) -Ttext=100 $(FONTD_OBJS) -o $(FONTD) $(LDFLAGS)  -lttf -lgraph -lbsp $(BSP_LFLAGS) -ltinyjson $(EWOK_LIBC)
+		$(BUILD_DIR)/lib/libfreetype.a \
+		$(BUILD_DIR)/lib/libtinyjson.a
+	$(LD) -Ttext=100 $(FONTD_OBJS) -o $(FONTD) $(LDFLAGS)  -lfreetype -lgraph -lbsp $(BSP_LFLAGS) -ltinyjson $(EWOK_LIBC)
 
 clean:
 	rm -f $(FONTD_OBJS)

@@ -5,7 +5,6 @@ basic_libs:
 	cd openlibm;make
 	cd graph;make
 	cd display;make
-	cd ttf;make
 	cd font;make
 	cd minimp3;make
 	cd fb;make
@@ -24,7 +23,6 @@ basic_libs:
 
 clean:
 	cd openlibm;make clean
-	cd ttf;make clean
 	cd terminal;make clean
 	cd gterminal;make clean
 	cd display;make clean

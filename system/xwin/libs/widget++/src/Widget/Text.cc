@@ -20,7 +20,7 @@ void Text::onRepaint(graph_t* g, XTheme* theme, const grect_t& r) {
 	pageSize = 0; 
 	for(i=offset; i<contentSize; i++) {
 		uint16_t c = content[i];
-		uint16_t w, h;
+		uint32_t w, h;
 
 		font_char_size(c, ft, fontSize, &w, NULL);
 		h = fontSize;

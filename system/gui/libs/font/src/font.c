@@ -19,73 +19,6 @@ int font_init(void) {
 	return 0;
 }
 
-static int font_load_inst(const char* name, uint16_t ppm, font_inst_t* inst) {
-	if(_font_dev_pid < 0)
-		return -1;
-
-	proto_t in, out;
-	PF->init(&out);
-	PF->format(&in, "s,i", name, ppm);
-
-	int ret = -1;
-	inst->id = -1;
-	if(dev_cntl_by_pid(_font_dev_pid, FONT_DEV_NEW_INSTANCE, &in, &out) == 0) {
-		int id = proto_read_int(&out);
-		if(id >= 0) {
-			inst->id = id;
-			inst->ppm = ppm;
-			inst->max_size.x = proto_read_int(&out);
-			inst->max_size.y = proto_read_int(&out);
-			ret = 0;
-		}
-	}
-
-	PF->clear(&in);
-	PF->clear(&out);
-	return ret;
-}
-
-static font_inst_t* get_free_inst(font_t* font) {
-	for(int i=0; i<FONT_INST_MAX; i++) {
-		if(font->instances[i].id == 0)
-			return &font->instances[i];
-	}
-	return NULL;
-}
-
-font_inst_t* font_get_inst(font_t* font, uint16_t size) {
-	font_inst_t* inst = NULL;
-	for(int i=0; i<FONT_INST_MAX; i++) {
-		inst = &font->instances[i];
-		if(inst->ppm != 0 && inst->ppm == size)
-			return inst;
-	}
-
-	inst = get_free_inst(font);
-	if(inst == NULL)
-		return NULL;
-	
-	if(font_load_inst(font->name, size, inst) != 0)
-		return NULL;
-	return inst;
-}
-
-static int font_load_font(font_t* font, bool safe) {
-	if(_font_dev_pid < 0)
-		return -1;
-	font->cache = hashmap_new();
-
-	font_inst_t* inst = get_free_inst(font);
-	if(inst == NULL)
-		return -1;
-	
-	if(font_load_inst(font->name, DEFAULT_SYSTEM_FONT_SIZE, inst) == 0)
-		return 0;
-	if(safe)
-		return font_load_inst(DEFAULT_SYSTEM_FONT, DEFAULT_SYSTEM_FONT_SIZE, inst);
-	return -1;
-}
-
 const char*  font_name_by_fname(const char* fname) {
 	static char ret[128];
 	memset(ret, 0, 128);
@@ -125,14 +58,16 @@ int font_load(const char* name, const char* fname) {
 }
 
 static int free_cache(map_t map, const char* key, any_t data, any_t arg) {
-	TTY_Glyph* v = (TTY_Glyph*)data;
-	if(v == NULL)
+	FT_GlyphSlot slot = (FT_GlyphSlot)data;
+	if(slot == NULL)
 		return MAP_OK;
 
 	hashmap_remove(map, key);
-	if(v->cache != NULL)
-		free(v->cache);
-	free(v);
+	if(slot->bitmap.buffer != NULL)
+		free(slot->bitmap.buffer);
+	if(slot->other != NULL)
+		free(slot->other);
+	free(slot);
 	return MAP_OK;
 }
 
@@ -142,8 +77,21 @@ font_t* font_new(const char* name, bool safe) {
 
 	font_t* font = (font_t*)calloc(sizeof(font_t), 1);
 	strncpy(font->name, name, FONT_NAME_MAX-1);
-	if(font_load_font(font, safe) == 0)
+	int id = font_load(name, "");
+	if(id >= 0) {
+		font->cache = hashmap_new();
+		font->id = id;
 		return font;
+	}
+	if(safe) {
+		id = font_load(DEFAULT_SYSTEM_FONT, "");
+		if(id >= 0) {
+			strncpy(font->name, DEFAULT_SYSTEM_FONT, FONT_NAME_MAX-1);
+			font->id = id;
+			font->cache = hashmap_new();
+			return font;
+		}
+	}
 	free(font);
 	return NULL;
 }
@@ -162,31 +110,31 @@ static void font_clear_cache(font_t* font) {
 	}
 }
 
-static inline const char* hash_key(uint16_t c, uint16_t size) {
+static inline const char* hash_key(uint32_t c, uint32_t size) {
 	static char key[16] = {0};
 	snprintf(key, 15, "%d:%x", size, c);
 	return key;
 }
 
-static int font_fetch_cache(font_t* font, uint16_t size, uint16_t c, TTY_Glyph* glyph) {
+static int font_fetch_cache(font_t* font, uint32_t size, uint32_t c, FT_GlyphSlot slot) {
 	if(font == NULL || font->cache == NULL) {
 		return -1;
 	}
 
-	TTY_Glyph* p;
+	FT_GlyphSlot p;
 	if(hashmap_get(font->cache, hash_key(c, size), (void**)&p) == 0) {
-		memcpy(glyph, p, sizeof(TTY_Glyph));
+		memcpy(slot, p, sizeof(FT_GlyphSlotRec));
 		return 0;
 	}	
 	return -1;
 }
 
-static void font_cache(font_t* font, uint16_t size, uint16_t c, TTY_Glyph* glyph) {
+static void font_cache(font_t* font, uint32_t size, uint32_t c, FT_GlyphSlot slot) {
 	if(font == NULL || font->cache == NULL) {
 		return;
 	}
 
-	TTY_Glyph* p = (TTY_Glyph*)malloc(sizeof(TTY_Glyph));
+	FT_GlyphSlot p = (FT_GlyphSlot)malloc(sizeof(FT_GlyphSlotRec));
 	if(p == NULL)
 		return;
 
@@ -194,7 +142,7 @@ static void font_cache(font_t* font, uint16_t size, uint16_t c, TTY_Glyph* glyph
 		font_clear_cache(font);
 	}
 
-	memcpy(p, glyph, sizeof(TTY_Glyph));
+	memcpy(p, slot, sizeof(FT_GlyphSlotRec));
 	hashmap_put(font->cache, hash_key(c, size), p);
 }
 
@@ -205,49 +153,69 @@ int font_close(font_t* font) {
 	font_clear_cache(font);
 	hashmap_free(font->cache);
 	font->cache = NULL;
-	
-	for(int i=0; i<FONT_INST_MAX; i++) {
-		TTY_Glyph* p;
-		font_inst_t* inst = &font->instances[i];
-		if(inst->ppm != 0) {
-			proto_t in;
-			PF->init(&in)->addi(&in, inst->id);
-			dev_cntl_by_pid(_font_dev_pid, FONT_DEV_FREE_INSTANCE, &in, NULL);
-			PF->clear(&in);
-			inst->ppm = 0;
-		}	
-	}
 	return 0;
 }
 
-TTY_Glyph* font_init_glyph(TTY_Glyph* glyph) {
-	memset(glyph, 0, sizeof(glyph));
+FT_GlyphSlot font_init_glyph(FT_GlyphSlot glyph) {
+	memset(glyph, 0, sizeof(FT_GlyphSlotRec));
 	return glyph;
 }
 
-static int font_get_glyph(font_t* font, font_inst_t* inst, uint16_t c, TTY_Glyph* glyph) {
-	if(_font_dev_pid < 0 || inst == NULL)
+int font_get_face(font_t* font, uint32_t size, FT_Face face) {
+	if(_font_dev_pid < 0 || font == NULL)
 		return -1;
-	font_init_glyph(glyph);
+	memset(face, 0, sizeof(FT_FaceRec));
+
+	int ret = -1;
+	proto_t in, out;
+	PF->init(&out);
+	PF->format(&in, "i,i", font->id, size);
+
+	if(dev_cntl_by_pid(_font_dev_pid, FONT_DEV_GET_FACE, &in, &out) == 0) {
+		proto_read_to(&out, face, sizeof(FT_FaceRec));
+		ret = 0;
+	}
+	PF->clear(&in);
+	PF->clear(&out);
+	return ret;
+}
+
+int  font_get_height(font_t* font, uint32_t size) {
+	FT_FaceRec face;
+	if(font_get_face(font, size, &face) != 0)
+		return 0;
+	return face.height;
+}
+
+static int font_get_glyph(font_t* font, uint32_t size, uint32_t c, FT_GlyphSlot slot) {
+	if(_font_dev_pid < 0 || font == NULL)
+		return -1;
+	memset(slot, 0, sizeof(FT_GlyphSlotRec));
 
 	int ret = -1;
 	int do_cache = 0;
-	if(font_fetch_cache(font, inst->ppm, c, glyph) != 0) {
+	if(font_fetch_cache(font, size, c, slot) != 0) {
 		proto_t in, out;
 		PF->init(&out);
-		PF->format(&in, "i,i", inst->id, c);
+		PF->format(&in, "i,i,i", font->id, size, c);
 
-		if(dev_cntl_by_pid(_font_dev_pid, FONT_DEV_GET, &in, &out) == 0) {
-			proto_read_to(&out, glyph, sizeof(TTY_Glyph));
+		if(dev_cntl_by_pid(_font_dev_pid, FONT_DEV_GET_GLYPH, &in, &out) == 0) {
+			proto_read_to(&out, slot, sizeof(FT_GlyphSlotRec));
+			face_info_t* faceinfo = malloc(sizeof(face_info_t));
+			proto_read_to(&out, faceinfo, sizeof(face_info_t));
+			slot->other = faceinfo;
+
+			
 			int32_t sz;
 			void* p = proto_read(&out, &sz);
 			if(p == NULL || sz <= 0) {
-				glyph->cache = NULL;
+				slot->bitmap.buffer = NULL;
 			}
 			else {
-				glyph->cache = malloc(sz);
-				memcpy(glyph->cache, p, sz);
+				slot->bitmap.buffer = malloc(sz);
+				memcpy(slot->bitmap.buffer, p, sz);
 			}
+
 			ret = 0;
 			do_cache = 1;
 		}
@@ -259,105 +227,90 @@ static int font_get_glyph(font_t* font, font_inst_t* inst, uint16_t c, TTY_Glyph
 	}
 
 	if(do_cache) {
-		font_cache(font, inst->ppm, c, glyph);
+		font_cache(font, size, c, slot);
 	}
 
 	return ret;
 }
 
-void font_char_size(uint16_t c, font_t* font, uint16_t size, uint16_t *w, uint16_t* h) {
+void font_char_size(uint32_t c, font_t* font, uint32_t size, uint32_t *w, uint32_t* h) {
 	if(w != NULL)
 		*w = 0;
 	if(h != NULL)
 		*h = size;
-	
-	font_inst_t* inst = font_get_inst(font, size);
-	if(inst == NULL)
-		return;
 
-	TTY_Glyph glyph;
-	if(font_get_glyph(font, inst, c, &glyph) != 0)
+	FT_GlyphSlotRec slot;
+	if(font_get_glyph(font, size, c, &slot) != 0)
 		return;
+	face_info_t* faceinfo = (face_info_t*)slot.other;
 	if(w != NULL)  {
-		TTY_S32 sw = glyph.offset.x + 
-				(glyph.size.x == 0 ? glyph.advance.x : glyph.size.x);
-		if(sw < 0)
-			sw = 0;
-		*w = sw;
+		*w = slot.bitmap.width;
 	}
 
 	if(h != NULL) {
-		TTY_S32 sh = glyph.offset.y + 
-				(glyph.size.y == 0 ?  glyph.advance.y : glyph.size.y);
-		if(sh < 0)
-			sh = 0;
-		*h = sh;
+		*h = (faceinfo->height/64);
 	}
 }
 
-uint16_t font_get_inst_h(font_t* font, uint16_t size) {
-	font_inst_t* inst = font_get_inst(font, size);
-	if(inst == NULL)
-		return 0;
-	return inst->max_size.y;
-}
-
 void font_text_size(const char* str,
-		font_t* font, uint16_t size, uint32_t *w, uint32_t* h) {
+		font_t* font, uint32_t size, uint32_t *w, uint32_t* h) {
 	if(w != NULL)
 		*w = 0;
 	if(h != NULL)
-		*h = font_get_inst_h(font, size);
+		*h = 0;
 	
 	int sz = strlen(str);
-	uint16_t* unicode = (uint16_t*)malloc((sz+1)*2);
+	uint32_t* unicode = (uint32_t*)malloc((sz+1)*2);
 	if(unicode == NULL)
 		return;
 
 	int n = utf82unicode((uint8_t*)str, sz, unicode);
 
 	int32_t x = 0;
+	uint32_t th = 0;
 	
 	for(int i=0;i <n; i++) {
-		TTY_U16 cw = 0;
-		font_char_size(unicode[i], font, size, &cw, NULL);
-		int dx = cw;
-		if(dx <= 0)
-			dx = cw/2;
-		x += dx;
+		uint32_t cw = 0;
+		uint32_t ch = 0;
+		font_char_size(unicode[i], font, size, &cw, &ch);
+		x += cw;
+		if(th < ch)
+			th = ch;
 	}
 	if(w != NULL)
 		*w = x;
+	if(h != NULL)
+		*h = th;
 	free(unicode);
 }
 
-void graph_draw_unicode_font(graph_t* g, int32_t x, int32_t y, TTY_U32 c,
-		font_t* font, uint16_t size, uint32_t color, TTY_U16* w, TTY_U16* h) {
+void graph_draw_unicode_font(graph_t* g, int32_t x, int32_t y, uint32_t c,
+		font_t* font, uint32_t size, uint32_t color, uint32_t *w, uint32_t *h) {
 	if(w != NULL)
 		*w = 0;
 	if(h != NULL)
 		*h = 0;
 
-	font_inst_t* inst = font_get_inst(font, size);
-	if(inst == NULL)
+	FT_GlyphSlotRec slot;
+	if(font_get_glyph(font, size, c, &slot) != 0)
 		return;
+	face_info_t* faceinfo = (face_info_t*)slot.other;
 
-	TTY_Glyph glyph;
-	if(font_get_glyph(font, inst, c, &glyph) != 0)
-		return;
+	x += slot.bitmap_left;
+	y = y - slot.bitmap_top + (faceinfo->ascender/64);
 	
 	if(c == '\t') {
 		if(w != NULL)
-			*w = glyph.size.x*2;
+			*w = slot.bitmap.width*2;
 		if(h != NULL)
-			*h = glyph.size.y;
+			*h = (faceinfo->height/64);
 		return;
 	}
 
-	if(glyph.cache != NULL) {
-		for (TTY_S32 j = 0; j < inst->max_size.y; j++) {
-			for (TTY_S32 i = 0; i < inst->max_size.x; i++) {
-				TTY_U8 pv = glyph.cache[j*inst->max_size.x+i];
+	if(slot.bitmap.buffer != NULL) {
+		for (int32_t j = 0; j < slot.bitmap.rows; j++) {
+			for (int32_t i = 0; i < slot.bitmap.width; i++) {
+				uint8_t pv = slot.bitmap.buffer[j*slot.bitmap.width+i];
 				graph_pixel_argb_safe(g, x+i, y+j,
 						(color >> 24) & pv & 0xff,
 						(color >> 16) & 0xff,
@@ -367,44 +320,31 @@ void graph_draw_unicode_font(graph_t* g, int32_t x, int32_t y, TTY_U32 c,
 		}
 	}
 	if(w != NULL) {
-		TTY_S32 sw = glyph.offset.x +
-				(glyph.size.x == 0 ?  glyph.advance.x : glyph.size.x);
-		if(sw < 0)
-			sw = 0;
-		*w = sw;
+		*w = slot.bitmap_left + slot.bitmap.width;
 	}
 	if(h != NULL) {
-		TTY_S32 sh = glyph.offset.y +
-				(glyph.size.y == 0 ?  glyph.advance.y : glyph.size.y);
-		if(sh < 0)
-			sh = 0;
-		*h = sh;
+		*h = (faceinfo->height/64);
 	}
 }
 
-void graph_draw_char_font_fixed(graph_t* g, int32_t x, int32_t y, TTY_U32 c,
-		font_t* font, uint16_t size, uint32_t color, TTY_U16 w, TTY_U16 h) {
-	font_inst_t* inst = font_get_inst(font, size);
-	if(inst == NULL)
-		return;
+void graph_draw_char_font_fixed(graph_t* g, int32_t x, int32_t y, uint32_t c,
+		font_t* font, uint32_t size, uint32_t color, uint32_t w, uint32_t h) {
 
-	TTY_Glyph glyph;
-	if(font_get_glyph(font, inst, c, &glyph) != 0)
+	FT_GlyphSlotRec slot;
+	if(font_get_glyph(font, size, c, &slot) != 0)
 		return;
+	face_info_t* faceinfo = (face_info_t*)slot.other;
 
-	TTY_U16 fw, fh;
-	fw = glyph.offset.x + (glyph.size.x == 0 ?  glyph.advance.x : glyph.size.x);
-	fh = glyph.offset.y + (glyph.size.y == 0 ?  glyph.advance.y : glyph.size.y);
-	if(w > 0)
-		x = x + (((TTY_S32)w) - fw) / 2;
-	if(h > 0)
-		y = y + (((TTY_S32)h) - fh) / 2;
-	
-	if(glyph.cache != NULL) {
-		for (TTY_S32 j = 0; j < inst->max_size.y; j++) {
-			for (TTY_S32 i = 0; i < inst->max_size.x; i++) {
-				TTY_U8 pv = glyph.cache[j*inst->max_size.x+i];
-				graph_pixel_argb_safe(g, x+i, y+j,
+	x += slot.bitmap_left;
+	y = y - slot.bitmap_top + (faceinfo->ascender/64);
+
+	if(slot.bitmap.buffer != NULL) {
+		for (int32_t j = 0; j < slot.bitmap.rows; j++) {
+			for (int32_t i = 0; i < slot.bitmap.width; i++) {
+				uint8_t pv = slot.bitmap.buffer[j*slot.bitmap.width+i];
+				graph_pixel_argb_safe(g, 
+						x+i,
+						y+j,
 						(color >> 24) & pv & 0xff,
 						(color >> 16) & 0xff,
 						(color >> 8) & 0xff,
@@ -415,15 +355,15 @@ void graph_draw_char_font_fixed(graph_t* g, int32_t x, int32_t y, TTY_U32 c,
 }
 
 void graph_draw_text_font(graph_t* g, int32_t x, int32_t y, const char* str,
-		font_t* font, uint16_t size, uint32_t color) {
+		font_t* font, uint32_t size, uint32_t color) {
 	if(g == NULL || str[0] == 0)
 		return;
 	
 	int len = strlen(str);
-	uint16_t* out = (uint16_t*)malloc((len+1)*2);
+	uint16_t* out = (uint32_t*)malloc((len+1)*2);
 	int n = utf82unicode((uint8_t*)str, len, out);
 	for(int i=0;i <n; i++) {
-		TTY_U16 w = 0;
+		uint32_t w = 0;
 		graph_draw_unicode_font(g, x, y, out[i], font, size, color, &w, NULL);
 		int dx = w;
 		if(dx < 0)
@@ -434,7 +374,7 @@ void graph_draw_text_font(graph_t* g, int32_t x, int32_t y, const char* str,
 }
 
 void graph_draw_text_font_align(graph_t* g, int32_t x, int32_t y, int32_t w, int32_t h,
-		const char* str, font_t* font, uint16_t size, uint32_t color, uint32_t align) {
+		const char* str, font_t* font, uint32_t size, uint32_t color, uint32_t align) {
 	int32_t fw, fh;
 	font_text_size(str, font, size, (uint32_t*)&fw, (uint32_t*)&fh);
 	if((align & FONT_ALIGN_CENTER) != 0) {

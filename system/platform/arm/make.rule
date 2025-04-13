@@ -25,7 +25,7 @@ CXXFLAGS = -marm \
 #CXXFLAGS += -mfpu=neon-vfpv4 -mcpu=cortex-a7 
        
 EWOK_LIBC = -lewoksys -lc -lgloss -lsoftfloat
-EWOK_LIB_GRAPH = -lttf -lfont -lupng -lgraph -lkeyb -lmouse -lbsp $(BSP_LFLAGS)
+EWOK_LIB_GRAPH = -lfreetype -lttf -lfont -lupng -lgraph -lkeyb -lmouse -lbsp $(BSP_LFLAGS)
 EWOK_LIB_X = -lwidget++ -lx++ -lx -ltinyjson -lewokstl
 
 #CFLAGS +=  -g

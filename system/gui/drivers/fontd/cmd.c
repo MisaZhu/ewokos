@@ -6,7 +6,7 @@ char* font_cmd(int from_pid, int argc, char** argv, void* p) {
 		str_t* str = str_new("");
         uint32_t i = 0;
         for(int i=0; i<TTF_MAX; i++) {
-            if(_ttfs[i].ttf != NULL) {
+            if(_ttfs[i].face != NULL) {
                 str_add(str, _ttfs[i].name);
                 str_add(str, ", ");
                 str_add(str, _ttfs[i].fname);

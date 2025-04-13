@@ -4,9 +4,7 @@ include $(SYS_DIR)/platform/$(ARCH)/make.rule
 BUILD_DIR = $(SYS_DIR)/build
 TARGET_DIR = $(BUILD_DIR)
 
-
 DEPDIR := .deps
-PREFIX := /opt/ewokos
 
 #ASFLAGS = --warn  -mfpu=vfp -mfloat-abi=softfp
 #CFLAGS = -DHAVE_CONFIG_H -I. -I../libogg/include -Iinclude -Ilib -O20 -Wall -Wextra -ffast-math -ffreestanding -marm  -mfpu=vfp -mfloat-abi=softfp -D_REENTRANT -fsigned-char -Wdeclaration-after-statement 
@@ -21,9 +19,8 @@ OBJS = lib/mdct.o lib/smallft.o lib/block.o lib/envelope.o lib/window.o lib/lsp.
        lib/psy.o lib/info.o lib/floor1.o lib/floor0.o lib/res0.o lib/mapping0.o lib/registry.o lib/codebook.o lib/sharedbook.o \
        lib/lookup.o lib/bitrate.o lib/vorbisfile.o
 
--include $(shell find $(DEPDIR) -name *.Po -print)
 
-$(LIBVORBIS): $(OBJS) Makefile
+$(LIBVORBIS): $(OBJS)
 	$(AR) rcs $@ $(OBJS)
 	cp -r include/* $(TARGET_DIR)/include
 
