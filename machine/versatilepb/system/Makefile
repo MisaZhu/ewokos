@@ -8,6 +8,7 @@ HW=versatilepb
 
 export ARCH=arm
 #export NEON=yes
+#export FPU=yes
 export BSP_LFLAGS = -larch_vpb
 
 all: x

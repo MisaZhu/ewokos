@@ -21,8 +21,10 @@ CXXFLAGS = -marm \
         -fno-strict-aliasing \
         -std=c++14
 
-#CFLAGS += -mfpu=neon-vfpv4 -mcpu=cortex-a7 
-#CXXFLAGS += -mfpu=neon-vfpv4 -mcpu=cortex-a7 
+ifeq ($(FPU),yes)
+CFLAGS += -mfpu=vfp
+CXXFLAGS += -mfpu=vfp
+endif
        
 EWOK_LIBC = -lewoksys -lc -lgloss -lsoftfloat
 EWOK_LIB_GRAPH = -lfont -lupng -lgraph -lkeyb -lmouse -lbsp $(BSP_LFLAGS)

@@ -8,6 +8,7 @@ HW=raspix
 
 export ARCH=arm
 export NEON=yes
+export FPU=yes
 export BSP_LFLAGS= -larch_bcm283x
 
 all: x

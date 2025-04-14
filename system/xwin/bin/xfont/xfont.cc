@@ -58,7 +58,7 @@ protected:
 		graph_draw_text_font(g, r.x+10, y, text.c_str(), font, theme->basic.fontSize, theme->basic.docFGColor);
 		y += theme->basic.fontSize + margin*2;
 
-		for(int i=0; i<2; i++) {
+		for(int i=0; i<3; i++) {
 			uint16_t size = (i+1) * 12;
 			graph_draw_text_font(g, r.x+10, y, "abcdefghijklmn", font, size, theme->basic.docFGColor);
 			y += size + margin;
@@ -105,7 +105,7 @@ int main(int argc, char** argv) {
 	FontWidget* fontW = new FontWidget(argv[1]);
 	root->add(fontW);
 
-	win.open(&x, 0, -1, -1, 240, 240, "xfont", XWIN_STYLE_NORMAL);
+	win.open(&x, 0, -1, -1, 400, 460, "xfont", XWIN_STYLE_NORMAL);
 	win.setTimer(8);
 	x.run(NULL, &win);
 	return 0;
