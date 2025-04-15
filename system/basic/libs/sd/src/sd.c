@@ -187,9 +187,7 @@ int32_t sd_init(sd_init_func init, sd_read_sector_func rd, sd_write_sector_func 
 	if(sd_init_arch() != 0)
 		return -1;
 
-	if(read_partition() != 0 || partition_get(1, &_partition) != 0) {
-		memset(&_partition, 0, sizeof(partition_t));
-	}
+	_partition.start_sector = get_rootfs_entry(sd_read_sector);
 	return 0;
 }
 

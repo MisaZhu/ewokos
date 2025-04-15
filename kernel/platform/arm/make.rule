@@ -75,7 +75,7 @@ ifeq ($(ARCH_VER),v7)
 endif
 
 LIB_EXT2_DIR=$(SRC_DIR)/lib/ext2
-LIB_EXT2_OBJS = $(LIB_EXT2_DIR)/src/ext2read.o 
+LIB_EXT2_OBJS = $(LIB_EXT2_DIR)/src/partition.o $(LIB_EXT2_DIR)/src/ext2read.o 
 CFLAGS += -I$(LIB_EXT2_DIR)/include
 
 LIB_SCONF_DIR=$(SRC_DIR)/lib/sconf
