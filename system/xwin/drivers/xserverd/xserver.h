@@ -79,6 +79,12 @@ typedef struct {
 } x_mouse_state_t;
 
 typedef struct {
+	xwin_t* win_xim;
+	bool    win_xim_actived;
+	int     down_win_fd;
+} x_im_state_t;
+
+typedef struct {
 	const char* display_man;
 	x_display_t displays[DISP_MAX];
 	uint32_t display_num;
@@ -96,9 +102,8 @@ typedef struct {
 	xwin_t* win_launcher;
 	xwin_t* win_last;
 
-	xwin_t* win_xim;
-	bool     win_xim_actived;
 	x_mouse_state_t mouse_state;
+	x_im_state_t im_state;
 	x_current_t current;
 	x_conf_t config;
 } x_t;

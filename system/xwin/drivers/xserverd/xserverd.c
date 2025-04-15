@@ -254,7 +254,7 @@ static void x_push_event(x_t* x, xwin_t* win, xevent_t* e) {
 }
 
 static void hide_win(x_t* x, xwin_t* win) {
-	x->win_xim_actived = false;
+	x->im_state.win_xim_actived = false;
 	if(win == NULL)
 		return;
 
@@ -269,7 +269,7 @@ static void show_win(x_t* x, xwin_t* win) {
 	if(win == NULL)
 		return;
 
-	x->win_xim_actived = true;
+	x->im_state.win_xim_actived = true;
 	xevent_t e;
 	e.type = XEVT_WIN;
 	e.value.window.event = XEVT_WIN_VISIBLE;
@@ -281,7 +281,7 @@ static void x_unfocus(x_t* x) {
 	if(x->win_focus == NULL)
 		return;
 
-	hide_win(x, x->win_xim);
+	hide_win(x, x->im_state.win_xim);
 	xevent_t e;
 	e.type = XEVT_WIN;
 	e.value.window.event = XEVT_WIN_UNFOCUS;
@@ -392,7 +392,7 @@ static xwin_t* get_next_focus_win(x_t* x, bool skip_launcher) {
 
 static void x_del_win(x_t* x, xwin_t* win) {
 	if(win == x->win_focus)
-		hide_win(x, x->win_xim);
+		hide_win(x, x->im_state.win_xim);
 
 	remove_win(x, win);
 	if(win == x->win_last)
@@ -940,7 +940,7 @@ static int xwin_update_info(int fd, int from_pid, proto_t* in, proto_t* out, x_t
 	if((win->xinfo->style & XWIN_STYLE_LAUNCHER) != 0)
 		x->win_launcher = win;
 	if((win->xinfo->style & XWIN_STYLE_XIM) != 0)
-		x->win_xim = win;
+		x->im_state.win_xim = win;
 
 	int wsr_w = win->xinfo->wsr.w;
 	int wsr_h = win->xinfo->wsr.h;
@@ -1127,9 +1127,9 @@ static int x_set_desktop_space(x_t* x, proto_t* in, proto_t* out) {
 
 static int xwin_call_xim(x_t* x, proto_t* in) {
 	if(proto_read_int(in) == 0)
-		hide_win(x, x->win_xim);
+		hide_win(x, x->im_state.win_xim);
 	else
-		show_win(x, x->win_xim);
+		show_win(x, x->im_state.win_xim);
 	return 0;
 }
 
@@ -1419,10 +1419,13 @@ static int im_handle(x_t* x, int32_t from_pid, xevent_t* ev) {
 		return 0;
 	}
 
-	if(x->win_xim_actived && x->win_xim != NULL && from_pid != x->win_xim->from_pid) {
-		x_push_event(x, x->win_xim, ev);
+	if(ev->state == XIM_STATE_PRESS && x->win_focus)
+		x->im_state.down_win_fd = x->win_focus->fd;
+
+	if(x->im_state.win_xim_actived && x->im_state.win_xim != NULL && from_pid != x->im_state.win_xim->from_pid) {
+		x_push_event(x, x->im_state.win_xim, ev);
 	}
-	else if(x->win_focus != NULL) {
+	else if(x->win_focus != NULL && x->im_state.down_win_fd == x->win_focus->fd) {
 		x_push_event(x, x->win_focus, ev);
 	}
 	return 0;
