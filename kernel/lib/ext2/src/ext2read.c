@@ -290,9 +290,8 @@ static int32_t get_gds(ext2_t* ext2) {
 }
 
 static int32_t ext2_init(ext2_t* ext2, read_block_func_t read_block, write_block_func_t write_block) {
-	if(read_partition() != 0 || partition_get(1, &_partition) != 0) {
-		memset(&_partition, 0, sizeof(partition_t));
-	}
+	memset(&_partition, 0, sizeof(partition_t));
+	_partition.start_sector = get_rootfs_entry(sd_read_sector);
 
 	char buf[EXT2_BLOCK_SIZE];
 	ext2->read_block = read_block;
