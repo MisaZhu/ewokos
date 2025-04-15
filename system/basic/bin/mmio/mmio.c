@@ -20,9 +20,9 @@ int main(int argc, char* argv[]) {
     sys_info_t sysinfo;
     syscall1(SYS_GET_SYS_INFO, (int32_t)&sysinfo);
 
-	uint32_t addr = strtol(argv[2], NULL, 16);
+	uint32_t addr = strtoll(argv[2], NULL, 16);
 	if(addr < sysinfo.mmio.phy_base || addr >= sysinfo.mmio.phy_base + sysinfo.mmio.size){
-		printf("Out of range: [0x%08lX - 0x%08lX]\n", 
+		printf("Addr: %08x Out of range [0x%08lX - 0x%08lX]\n", addr, 
 				sysinfo.mmio.phy_base, sysinfo.mmio.phy_base + sysinfo.mmio.size);
 		return -1;
 	}
@@ -31,7 +31,7 @@ int main(int argc, char* argv[]) {
 	if(strcasecmp(argv[1], "read") == 0){
 		int size = 1;
 		if(argc > 3)
-			size = strtol(argv[3], NULL, 16);
+			size = strtoll(argv[3], NULL, 16);
 
 
 		for(int i = 0; i < size; i++){
@@ -40,7 +40,7 @@ int main(int argc, char* argv[]) {
 			printf("0x%08lX: 0x%08lX\n", addr + i * 4, reg[i]);
 		}
 	}else if(argc >= 4 && strcasecmp(argv[1], "write") == 0){
-			uint32_t val = atol(argv[3]);
+			uint32_t val = strtoll(argv[3], NULL, 16);
 			*reg = val;
 	}else{
 		printf("mmio [read/write] [address] [value]\n");
