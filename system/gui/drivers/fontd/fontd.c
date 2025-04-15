@@ -86,6 +86,7 @@ static int font_dev_get_glyph(proto_t* in, proto_t* ret) {
     // 加载并渲染字形
     if(FT_Load_Glyph(face, glyph_index, FT_LOAD_RENDER) != 0) {
 		PF->init(ret)->addi(ret, -1);
+		return -1;
 	}
 
 	face_info_t faceinfo;
@@ -102,7 +103,9 @@ static int font_dev_get_glyph(proto_t* in, proto_t* ret) {
 				slot->bitmap.buffer, bmp_size);
 	}
 	else {
-		PF->init(ret)->add(ret, slot, sizeof(FT_GlyphSlotRec));
+		PF->init(ret)->
+				add(ret, slot, sizeof(FT_GlyphSlotRec))->
+				add(ret, &faceinfo, sizeof(face_info_t));
 	}
 	return 0;
 }

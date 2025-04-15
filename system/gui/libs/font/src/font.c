@@ -249,7 +249,7 @@ void font_char_size(uint32_t c, font_t* font, uint32_t size, uint32_t *w, uint32
 		*w = slot.bitmap.width;
 	}
 
-	if(h != NULL) {
+	if(h != NULL && faceinfo != NULL) {
 		*h = (faceinfo->height/FACE_PIXEL_DENT);
 	}
 }
