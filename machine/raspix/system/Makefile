@@ -5,7 +5,7 @@ EWOKOS_ROOT_DIR = ../../..
 SYS_ROOT_DIR = $(EWOKOS_ROOT_DIR)/system
 INST_DIR = /usr/local/ewokos
 
-BUILD_DIR = $(SYS_ROOT_DIR)/build
+BUILD_DIR = $(SYS_ROOT_DIR)/build/$(HW)
 MACHINE_BUILD_DIR = build
 TARGET_DIR = $(BUILD_DIR)/rootfs
 
