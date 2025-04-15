@@ -1,7 +1,7 @@
 SYS_DIR=../../../../../system
 include $(SYS_DIR)/platform/arm/make.rule
 
-BUILD_DIR = $(SYS_DIR)/build
+BUILD_DIR = $(SYS_DIR)/build/$(HW)
 TARGET_DIR = $(BUILD_DIR)
 
 LDFLAGS = -L$(TARGET_DIR)/lib

@@ -1,7 +1,7 @@
 SYS_DIR=../../../..
 include $(SYS_DIR)/platform/$(ARCH)/make.rule
 
-BUILD_DIR = $(SYS_DIR)/build
+BUILD_DIR = $(SYS_DIR)/build/$(HW)
 TARGET_DIR = $(BUILD_DIR)
 
 CXXFLAGS += -Iinclude -I $(TARGET_DIR)/include

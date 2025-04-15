@@ -1,10 +1,7 @@
-BUILD_DIR = ../build
+BUILD_DIR = ../build/$(HW)
 TARGET_DIR = $(BUILD_DIR)/rootfs
 ROOT_DIR = ..
 
-ifeq ($(ARCH),)
-export ARCH=arm
-endif
 
 all: mkdirs extra_libs bins extra_driver 
 	@echo "all done."
