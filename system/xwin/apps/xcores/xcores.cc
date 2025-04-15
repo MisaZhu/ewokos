@@ -3,7 +3,7 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <font/font.h>
-#include <upng/upng.h>
+#include <graph/graph_png.h>
 #include <ewoksys/sys.h>
 #include <ewoksys/session.h>
 #include <ewoksys/syscall.h>

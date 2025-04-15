@@ -18,10 +18,9 @@ $(CONSOLED): $(CONSOLED_OBJS) \
 		$(BUILD_DIR)/lib/libterminal.a \
 		$(BUILD_DIR)/lib/libgterminal.a \
 		$(BUILD_DIR)/lib/libgraph.a \
-		$(BUILD_DIR)/lib/libupng.a \
 		$(BUILD_DIR)/lib/libfont.a  \
 		$(BUILD_DIR)/lib/libdisplay.a 
-	$(LD) -Ttext=100 $(CONSOLED_OBJS) -o $(CONSOLED) $(LDFLAGS) -lfb -ldisplay -lgterminal -lterminal -lgraph -lbsp $(BSP_LFLAGS) -lfont -lupng -ltinyjson $(EWOK_LIBC)
+	$(LD) -Ttext=100 $(CONSOLED_OBJS) -o $(CONSOLED) $(LDFLAGS) -lgterminal -lterminal -lfb -ldisplay -ltinyjson $(EWOK_LIB_GRAPH) $(EWOK_LIBC)
 
 clean:
 	rm -f $(CONSOLED_OBJS)

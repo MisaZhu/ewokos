@@ -8,7 +8,7 @@
 #include <ewoksys/klog.h>
 #include <ewoksys/core.h>
 #include <ewoksys/proc.h>
-#include <upng/upng.h>
+#include <graph/graph_png.h>
 #include <x++/X.h>
 
 using namespace Ewok;

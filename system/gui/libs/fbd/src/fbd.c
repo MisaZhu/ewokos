@@ -8,7 +8,7 @@
 #include <sys/shm.h>
 #include <fb/fb.h>
 #include <fbd/fbd.h>
-#include <upng/upng.h>
+#include <graph/graph_png.h>
 #include <tinyjson/tinyjson.h>
 
 typedef struct {

@@ -17,7 +17,6 @@ $(MENU_BAR): $(MENU_BAR_OBJS) \
 		$(BUILD_DIR)/lib/libewokstl.a \
 		$(BUILD_DIR)/lib/libx++.a \
 		$(BUILD_DIR)/lib/libx.a \
-		$(BUILD_DIR)/lib/libupng.a \
 		$(BUILD_DIR)/lib/libfont.a \
 		$(BUILD_DIR)/lib/libwidget++.a \
 		$(BUILD_DIR)/lib/libcxx.a 

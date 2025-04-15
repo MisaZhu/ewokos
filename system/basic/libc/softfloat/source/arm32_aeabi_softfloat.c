@@ -21,6 +21,17 @@
 typedef unsigned aeabi_float_t;
 typedef unsigned long long aeabi_double_t;
 
+int __aeabi_fcmpun(float a, float b) {
+    if (a < b) {
+        return -1;
+    } else if (a > b) {
+        return 1;
+    } else {
+        return 0;
+    }
+}
+
+
 /*
  * Helpers to convert between float32 and aeabi_float_t, and float64 and
  * aeabi_double_t used by the AEABI functions below.

@@ -1,5 +1,5 @@
 #include <Widget/Image.h>
-#include <upng/upng.h>
+#include <graph/graph_png.h>
 
 namespace Ewok {
 

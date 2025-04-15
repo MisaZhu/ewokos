@@ -9,7 +9,7 @@
 #include <font/font.h>
 #include <ewoksys/basic_math.h>
 #include <ewoksys/kernel_tic.h>
-#include <upng/upng.h>
+#include <graph/graph_png.h>
 
 #include <string>
 using namespace EwokSTL;

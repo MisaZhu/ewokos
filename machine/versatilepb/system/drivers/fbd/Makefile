@@ -15,11 +15,11 @@ FBD = $(TARGET_DIR)/drivers/versatilepb/fbd
 $(FBD): $(FBD_OBJS) \
 		$(EWOK_LIBC_A)  \
 		$(BUILD_DIR)/lib/libgraph.a \
-		$(BUILD_DIR)/lib/libupng.a \
+		$(BUILD_DIR)/lib/libpng.a \
 		$(BUILD_DIR)/lib/libtinyjson.a \
 		$(BUILD_DIR)/lib/libfbd.a \
 		$(BUILD_DIR)/lib/libarch_vpb.a
-	$(LD) -Ttext=100 $(FBD_OBJS) -o $(FBD) $(LDFLAGS) -larch_vpb -lfbd -lupng -lgraph -lbsp $(BSP_LFLAGS) -ltinyjson $(EWOK_LIBC)
+	$(LD) -Ttext=100 $(FBD_OBJS) -o $(FBD) $(LDFLAGS) -lgterminal -lterminal -lfb -lfbd -ldisplay -ltinyjson $(EWOK_LIB_GRAPH) $(EWOK_LIBC)
 
 clean:
 	rm -f $(FBD_OBJS)

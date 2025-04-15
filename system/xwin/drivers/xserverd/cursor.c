@@ -3,7 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <tinyjson/tinyjson.h>
-#include <upng/upng.h>
+#include <graph/graph_png.h>
 #include <x/x.h>
 
 static inline void draw_cursor_raw(graph_t* g, int mx, int my, int mw, int mh, bool down) {

@@ -76,6 +76,7 @@ void     graph_pixel(graph_t* g, int32_t x, int32_t y, uint32_t color);
 void     graph_clear(graph_t* g, uint32_t color);
 
 void     graph_reverse(graph_t* g);
+void     graph_reverse_rgb(graph_t* g);
 void     graph_gray(graph_t* g);
 void     graph_rotate_to(graph_t* g, graph_t* dst, int rot);
 graph_t* graph_rotate(graph_t* g, int rot);

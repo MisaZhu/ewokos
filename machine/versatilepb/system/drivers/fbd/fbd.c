@@ -4,7 +4,7 @@
 #include <string.h>
 #include <fbd/fbd.h>
 #include <graph/graph.h>
-#include <upng/upng.h>
+#include <graph/graph_png.h>
 #include <bsp/bsp_fb.h>
 
 static uint32_t flush(const fbinfo_t* fbinfo, const graph_t* g) {

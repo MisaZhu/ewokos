@@ -10,6 +10,7 @@ CFLAGS += -Iinclude -I $(TARGET_DIR)/include
 
 LIB_GRAPH_OBJS = src/graph.o \
 	src/graph_ex.o \
+	src/graph_png.o \
 	src/blt.o \
 	src/pixel.o \
 	src/line.o \

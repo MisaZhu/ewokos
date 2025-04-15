@@ -5,7 +5,7 @@
 #include <Widget/RootWidget.h>
 #include <ewoksys/proc.h>
 #include <tinyjson/tinyjson.h>
-#include <upng/upng.h>
+#include <graph/graph_png.h>
 #include <dirent.h>
 #include <unistd.h>
 

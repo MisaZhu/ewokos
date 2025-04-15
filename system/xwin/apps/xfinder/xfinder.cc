@@ -4,7 +4,7 @@
 #include <unistd.h>
 #include <ewoksys/proc.h>
 #include <elf/elf.h>
-#include <upng/upng.h>
+#include <graph/graph_png.h>
 #include <dirent.h>
 
 #include <string>

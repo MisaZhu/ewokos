@@ -3,7 +3,7 @@
 #include <string.h>
 #include <font/font.h>
 #include <tinyjson/tinyjson.h>
-#include <upng/upng.h>
+#include <graph/graph_png.h>
 #include <x/x.h>
 #include <stdlib.h>
 #include <unistd.h>

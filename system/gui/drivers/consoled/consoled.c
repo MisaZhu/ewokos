@@ -8,7 +8,7 @@
 #include <fb/fb.h>
 #include <ewoksys/vdevice.h>
 #include <display/display.h>
-#include <upng/upng.h>
+#include <graph/graph_png.h>
 #include <tinyjson/tinyjson.h>
 #include <ewoksys/klog.h>
 #include <ewoksys/syscall.h>
