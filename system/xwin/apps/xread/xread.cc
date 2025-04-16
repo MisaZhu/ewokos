@@ -7,6 +7,7 @@
 #include <WidgetEx/FileDialog.h>
 #include <x++/X.h>
 #include <unistd.h>
+#include <ewoksys/keydef.h>
 
 using namespace Ewok;
 
@@ -37,7 +38,33 @@ protected:
 		else
 			snprintf(s, 127, "--%%");
 		statusLabel->setLabel(s);
+		
 	}
+	
+	void onRepaint(graph_t* g, XTheme* theme, const grect_t& r) {
+		Text::onRepaint(g, theme, r);
+	}
+
+
+	bool onIM(xevent_t* ev) {
+		if(Text::onIM(ev))
+			return true;
+
+		if(ev->state != XIM_STATE_PRESS)
+			return false;
+
+		if(ev->value.im.value == KEY_RIGHT ||
+				ev->value.im.value == JOYSTICK_RIGHT) {
+			setFontSize(getFontSize()+4);
+			return true;
+		}
+		if(ev->value.im.value == KEY_LEFT ||
+				ev->value.im.value == JOYSTICK_LEFT) {
+			setFontSize(getFontSize()-4);
+			return true;
+		}
+		return false;
+}
 public:
 	StatusLabel* statusLabel;
 	MyText() {
