@@ -8,8 +8,6 @@ basic_libs:
 	cd keyb;make
 	cd mouse;make
 	cd libpng; make
-	cd libogg; make
-	cd libvorbis; make
 	cd freetype; make
 	cd graph;make
 	cd font;make
@@ -26,8 +24,6 @@ clean:
 	cd gterminal;make clean
 	cd display;make clean
 	cd libpng; make clean
-	cd libogg; make clean
-	cd libvorbis; make clean
 	cd freetype; make clean
 	cd font;make clean
 	cd minimp3;make clean
