@@ -11,11 +11,17 @@ enum {
 typedef struct {
 	gpos_t old_pos;
 	gpos_t cpos;
+
 	gpos_t offset;
+	gpos_t offset_normal;
+	gpos_t offset_busy;
+
 	gsize_t size;
 	graph_t* saved;
+
 	graph_t* img;
 	graph_t* img_busy;
+
 	uint32_t type;
 	bool down;
 	bool drop;

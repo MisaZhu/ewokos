@@ -893,10 +893,14 @@ static int x_cursor_set_busy(x_t* x, bool busy) {
 	if(busy && x->cursor.img_busy != NULL) {
 		x->cursor.size.w = x->cursor.img_busy->w;
 		x->cursor.size.h = x->cursor.img_busy->h;
+		x->cursor.offset.x = x->cursor.offset_busy.x;
+		x->cursor.offset.y = x->cursor.offset_busy.y;
 	}
 	else if(x->cursor.img != NULL) {
 		x->cursor.size.w = x->cursor.img->w;
 		x->cursor.size.h = x->cursor.img->h;
+		x->cursor.offset.x = x->cursor.offset_normal.x;
+		x->cursor.offset.y = x->cursor.offset_normal.y;
 	}
 	//refresh_cursor(x);
 	x_repaint_req(x, x->current_display);
