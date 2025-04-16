@@ -83,6 +83,7 @@ public:
 		terminal.fg_color = theme.basic.fgColor;
 		terminal.font_size = theme.basic.fontSize;
 		terminal.char_space = theme.basic.charSpace;
+		terminal.line_space = theme.basic.lineSpace;
 		if(terminal.font != NULL)
 			font_free(terminal.font);
 		terminal.font = font_new(theme.basic.fontName, true);

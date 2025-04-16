@@ -22,6 +22,7 @@ typedef struct {
 	font_t* font;
 	uint32_t font_size;
 	int32_t char_space;
+	int32_t line_space;
 
 	gpos_t  curs_pos;
 	bool flash_show;

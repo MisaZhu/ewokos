@@ -305,7 +305,7 @@ void gterminal_resize(gterminal_t* terminal, uint32_t gw, uint32_t gh) {
     if(terminal->font == NULL)
         return NULL;
     int32_t font_w = terminal->font_size + terminal->char_space;
-    uint32_t font_h = font_get_height(terminal->font, terminal->font_size);
+    uint32_t font_h = font_get_height(terminal->font, terminal->font_size) + terminal->line_space;
     if(font_w == 0 || font_h == 0)
         return;
 

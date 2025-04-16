@@ -35,6 +35,7 @@ void XTheme::loadConfig(json_var_t* conf_var) {
 	basic.bgDisableColor = json_get_int(conf_var, "bg_disable_color");
 
 	basic.charSpace = json_get_int(conf_var, "char_space");
+	basic.lineSpace = json_get_int(conf_var, "line_space");
 }
 
 void XTheme::loadSystem() {

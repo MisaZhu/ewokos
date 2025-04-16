@@ -46,6 +46,38 @@ static inline const char* get_show_mode(uint32_t mode, int32_t type) {
 	return ret;
 }
 
+static uint32_t get_ksize(uint32_t sz) {
+	if(sz == 0)
+		return 0;
+	uint32_t ret = sz/1024;
+	if((sz % 1024) != 0)
+		ret += 1;
+	return ret;
+}
+
+static int _list_mode = 0;
+
+static int doargs(int argc, char* argv[]) {
+	int c = 0;
+	while (c != -1) {
+		c = getopt (argc, argv, "l");
+		if(c == -1)
+			break;
+
+		switch (c) {
+		case 'l':
+			_list_mode = 1;
+			break;
+		case '?':
+			return -1;
+		default:
+			c = -1;
+			break;
+		}
+	}
+	return optind;
+}
+
 int main(int argc, char* argv[]) {
 	(void)argc;
 	(void)argv;
@@ -54,9 +86,11 @@ int main(int argc, char* argv[]) {
 	char cwd[FS_FULL_NAME_MAX];
 	char fname[FS_FULL_NAME_MAX];
 
-	if(argc >= 2)
-		r = argv[1];
-	else 
+	int argind = doargs(argc, argv);
+
+	if(argind < argc)
+		r = argv[argind];
+	else
 		r = getcwd(cwd, FS_FULL_NAME_MAX);
 
 	DIR* dirp = opendir(r);
@@ -64,8 +98,9 @@ int main(int argc, char* argv[]) {
 		return -1;
 	while(1) {
 		struct dirent* it = readdir(dirp);
-		if(it == NULL)
+		if(it == NULL) {
 			break;
+		}
 
 		if(strcmp(r, "/") == 0)
 			snprintf(fname, FS_FULL_NAME_MAX, "/%s", it->d_name);
@@ -84,7 +119,15 @@ int main(int argc, char* argv[]) {
 		if(session_get_by_uid(st.st_gid, &infog) != 0)
 			sprintf(infog.user, "%d", st.st_gid);
 
-		printf("%-10s  %-8s %-8s %8d  %s\n", show_mode, info.user, infog.user, it->d_reclen, show_name);
+		if(_list_mode == 0)
+			printf("%6dk %s\n", get_ksize(it->d_reclen), show_name);
+		else
+			printf("%-10s %-6s %-6s %6dk %s\n",
+					show_mode,
+					info.user,
+					infog.user,
+					get_ksize(it->d_reclen),
+					show_name);
 	}
 	closedir(dirp);
 	return 0;
