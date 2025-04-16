@@ -24,7 +24,6 @@ public:
 			if(fw->font != NULL)
 				fw->fontLoaded = true;
 		}
-		fw->getWin()->busy(false);
 		return NULL;
 	}
 
@@ -71,6 +70,7 @@ protected:
 			graph_draw_text_font(g, r.x+10, y, "中文字体演示", font, size, theme->basic.docFGColor);
 			y += (size + margin)*2;
 		}
+		getWin()->busy(false);
 	}
 
 	void onTimer(uint32_t timerFPS, uint32_t timerStep) {

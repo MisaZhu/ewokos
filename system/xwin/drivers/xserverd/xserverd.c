@@ -568,7 +568,7 @@ static void x_repaint(x_t* x, uint32_t display_index) {
 		do_flush = true;
 	}	
 
-	if(x->show_cursor && x->current_display == display_index)
+	if((x->show_cursor || x->mouse_state.busy) && x->current_display == display_index)
 		hide_cursor(x);
 
 	bool undirty = false;
@@ -591,7 +591,7 @@ static void x_repaint(x_t* x, uint32_t display_index) {
 	}
 
 	if(x->current_display == display_index) {
-		if(x->show_cursor && check_xwm(x))
+		if((x->show_cursor || x->mouse_state.busy) && check_xwm(x))
 			refresh_cursor(x);
 	}
 	display->dirty = false;
