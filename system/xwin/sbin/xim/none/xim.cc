@@ -97,8 +97,9 @@ int main(int argc, char* argv[]) {
 
 	XIM xim(keyb_dev);
 	while(true) {
-		if(xim.read() == 0)
-			proc_usleep(_timer);
+		//if(xim.read() == 0)
+		xim.read();
+		proc_usleep(_timer);
 	}
 	return 0;
 }
