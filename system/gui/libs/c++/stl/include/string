@@ -5,7 +5,7 @@
 #include <stddef.h>
 #include <stdlib.h>
 
-namespace EwokSTL {
+namespace std {
 
 /**
  * @class string

@@ -4,7 +4,7 @@
 #include <Widget/Button.h>
 #include <string>
 
-using namespace EwokSTL;
+using namespace std;
 namespace Ewok {
 
 class LabelButton: public Button {

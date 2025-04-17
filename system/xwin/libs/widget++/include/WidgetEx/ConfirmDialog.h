@@ -4,7 +4,7 @@
 #include <WidgetEx/Dialog.h>
 
 #include <string>
-using namespace EwokSTL;
+using namespace std;
 
 namespace Ewok {
 

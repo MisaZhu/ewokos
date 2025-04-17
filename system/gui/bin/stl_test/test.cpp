@@ -2,7 +2,7 @@
 #include <vector>
 #include <stdio.h>
 
-using namespace EwokSTL;
+using namespace std;
 
 int main(int argc, char** argv) {
 	vector<int> v;

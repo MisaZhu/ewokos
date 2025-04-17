@@ -8,7 +8,7 @@
 #include <dirent.h>
 
 #include <string>
-using namespace EwokSTL;
+using namespace std;
 using namespace Ewok;
 
 class FileManager: public FileWidget {

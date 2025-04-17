@@ -5,7 +5,7 @@
 
 #include <string>
 #include <vector>
-using namespace EwokSTL;
+using namespace std;
 
 namespace Ewok {
 

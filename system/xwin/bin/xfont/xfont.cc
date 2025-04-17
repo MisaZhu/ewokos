@@ -13,8 +13,8 @@ class FontWidget: public Widget {
 public:
 	font_t* font;
 	bool fontLoaded;
-	EwokSTL::string fontName;
-	EwokSTL::string fontFileName;
+	std::string fontName;
+	std::string fontFileName;
 
 	static void* loadThread(void* p) {
 		FontWidget* fw = (FontWidget*)p;
@@ -30,7 +30,7 @@ public:
 private:
 	void drawLoading(graph_t* g, XTheme* theme, const grect_t& r) {
 		font_t* ft = theme->getFont();
-		EwokSTL::string text = "[ ";
+		std::string text = "[ ";
 		text += fontName + " ... ]";
 		
 		graph_fill(g, r.x, r.y, r.w, font_get_height(ft, theme->basic.fontSize), theme->basic.titleBGColor);
@@ -52,7 +52,7 @@ protected:
 
 
 		graph_fill(g, r.x, y, r.w, font_get_height(font, theme->basic.fontSize), theme->basic.titleBGColor);
-		EwokSTL::string text = "[ font: ";
+		std::string text = "[ font: ";
 		text += fontName + " ]";
 		graph_draw_text_font(g, r.x+10, y, text.c_str(), font, theme->basic.fontSize, theme->basic.docFGColor);
 		y += theme->basic.fontSize + margin*2;

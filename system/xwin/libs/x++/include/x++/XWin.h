@@ -6,7 +6,7 @@
 #include <graph/graph_ex.h>
 #include <string>
 
-using namespace EwokSTL;
+using namespace std;
 namespace Ewok {
 
 class X;

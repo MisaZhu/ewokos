@@ -30,9 +30,9 @@ static void run_xinit(session_info_t* info) {
 }
 
 class XSession : public XWin {
-	EwokSTL::string username;
-	EwokSTL::string password;
-	EwokSTL::string errMsg;
+	std::string username;
+	std::string password;
+	std::string errMsg;
 	graph_t *logoUser, *logoPasswd;
 	bool passwordMode;
 
@@ -77,7 +77,7 @@ class XSession : public XWin {
 		y += theme.basic.fontSize+8;
 		graph_fill_3d(g, r.x+8, y, r.w-16, theme.basic.fontSize, theme.basic.bgColor, true);
 		if(passwordMode) {
-			EwokSTL::string pwd;
+			std::string pwd;
 			int len = strlen(input);
 			if(len > 0) {
 				int i;
@@ -122,7 +122,7 @@ protected:
 
 	void onEvent(xevent_t* ev) {
 		if(ev->type == XEVT_IM && ev->state == XIM_STATE_PRESS) {
-			EwokSTL::string &input = passwordMode ? password:username;
+			std::string &input = passwordMode ? password:username;
 			int c = ev->value.im.value;
 			int len = input.length();
 

@@ -4,7 +4,7 @@
 #include <Widget/WidgetWin.h>
 #include <string>
 
-using namespace EwokSTL;
+using namespace std;
 namespace Ewok {
 
 

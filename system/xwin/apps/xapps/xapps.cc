@@ -15,7 +15,7 @@
 #include <getopt.h>
 
 #include <string>
-using namespace EwokSTL;
+using namespace std;
 using namespace Ewok;
 
 typedef struct {

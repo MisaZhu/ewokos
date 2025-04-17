@@ -12,7 +12,7 @@
 #include <graph/graph_png.h>
 
 #include <string>
-using namespace EwokSTL;
+using namespace std;
 
 using namespace Ewok;
 

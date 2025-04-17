@@ -1,7 +1,7 @@
 #ifndef EWOK_STL_ITERATOR_H
 #define EWOK_STL_ITERATOR_H
 
-namespace EwokSTL {
+namespace std {
 
 /**
  * @class base_iterator

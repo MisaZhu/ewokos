@@ -4,7 +4,7 @@
 #include <Widget/Widget.h>
 #include <string>
 
-using namespace EwokSTL;
+using namespace std;
 namespace Ewok {
 
 class EditLine: public Widget {

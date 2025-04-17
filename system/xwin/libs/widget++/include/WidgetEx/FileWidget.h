@@ -5,7 +5,7 @@
 #include <Widget/Grid.h>
 
 #include <string>
-using namespace EwokSTL;
+using namespace std;
 namespace Ewok {
 
 class FileWidget: public Container {

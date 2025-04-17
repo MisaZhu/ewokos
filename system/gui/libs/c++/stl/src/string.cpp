@@ -1,6 +1,6 @@
 #include "string"
 
-namespace EwokSTL {
+namespace std {
 
 string::string() : data_(nullptr), length_(0), capacity_(1) {
     data_ = (char*)malloc(1);

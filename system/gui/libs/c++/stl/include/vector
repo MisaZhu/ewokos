@@ -5,7 +5,7 @@
 
 #include <type_traits>
 
-namespace EwokSTL {
+namespace std {
 /**
  * @class vector
  * This class represents a dynamic contiguous array

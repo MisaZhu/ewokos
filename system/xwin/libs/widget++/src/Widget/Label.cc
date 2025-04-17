@@ -1,7 +1,7 @@
 #include <Widget/Label.h>
 #include <x++/XTheme.h>
 
-using namespace EwokSTL;
+using namespace std;
 namespace Ewok {
 
 void Label::onRepaint(graph_t* g, XTheme* theme, const grect_t& r) {

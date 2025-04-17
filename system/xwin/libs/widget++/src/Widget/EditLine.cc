@@ -2,7 +2,7 @@
 #include <x++/XTheme.h>
 #include <ewoksys/keydef.h>
 
-using namespace EwokSTL;
+using namespace std;
 namespace Ewok {
 
 void EditLine::onRepaint(graph_t* g, XTheme* theme, const grect_t& r) {
