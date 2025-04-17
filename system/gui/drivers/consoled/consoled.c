@@ -192,11 +192,12 @@ static int console_loop(void* p) {
 		if(read(_keyb_fd, &c, 1) == 1 && c != 0) {
 			charbuf_push(_buffer, c, true);
 			proc_wakeup(RW_BLOCK_EVT);
+			usleep(20000);
 			return 0;
 		}
 	}
 
-	usleep(10000);
+	usleep(20000);
 	return 0;
 }
 

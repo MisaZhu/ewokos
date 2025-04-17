@@ -84,6 +84,12 @@ static void input(str_t* s, bool show) {
 		else {
 			if(show || c == '\n')
 				write(1, &c, 1);
+			
+			if(!show) {
+				char x = '*';
+				write(1, &x, 1);
+			}
+
 			if(c == '\n')
 				break;
 			if(c > 27)
