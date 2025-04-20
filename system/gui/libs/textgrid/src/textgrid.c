@@ -161,13 +161,23 @@ int textgrid_move_to(textgrid_t* textgrid, int32_t x, int32_t y) {
 	if(textgrid->rows == 0 || textgrid->cols == 0)
 		return -1;
 
+	if(x >= textgrid->cols)
+		x = textgrid->cols - 1;
+	
+	if(y >= textgrid->total_rows) {
+		uint32_t expand = y-textgrid->total_rows+1;
+		if(textgrid_expand(textgrid, expand) != 0)
+			return -1;
+	}
+
+	if((y+1) >= textgrid->rows) {
+		textgrid->tail_col = x;
+		textgrid->rows = y+1;
+	}
+
 	textgrid->curs_x = x;	
 	textgrid->curs_y = y;	
-
-	if(textgrid->curs_y >= textgrid->rows)
-		textgrid->curs_y = textgrid->rows - 1;
-	if(textgrid->curs_x >= textgrid->cols)
-		textgrid->curs_x = textgrid->cols - 1;
+	//klog("x:%d, y:%d\n", x, y);
 	return 0;
 }
 
