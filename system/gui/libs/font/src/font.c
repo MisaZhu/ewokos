@@ -163,10 +163,10 @@ FT_GlyphSlot font_init_glyph(FT_GlyphSlot glyph) {
 	return glyph;
 }
 
-int font_get_face(font_t* font, uint32_t size, FT_Face face) {
+int font_get_face(font_t* font, uint32_t size, face_info_t* face) {
 	if(_font_dev_pid < 0 || font == NULL)
 		return -1;
-	memset(face, 0, sizeof(FT_FaceRec));
+	memset(face, 0, sizeof(face_info_t));
 
 	int ret = -1;
 	proto_t in, out;
@@ -174,7 +174,7 @@ int font_get_face(font_t* font, uint32_t size, FT_Face face) {
 	PF->format(&in, "i,i", font->id, size);
 
 	if(dev_cntl_by_pid(_font_dev_pid, FONT_DEV_GET_FACE, &in, &out) == 0) {
-		proto_read_to(&out, face, sizeof(FT_FaceRec));
+		proto_read_to(&out, face, sizeof(face_info_t));
 		ret = 0;
 	}
 	PF->clear(&in);
@@ -183,7 +183,7 @@ int font_get_face(font_t* font, uint32_t size, FT_Face face) {
 }
 
 int  font_get_height(font_t* font, uint32_t size) {
-	FT_FaceRec face;
+	face_info_t face;
 	if(font_get_face(font, size, &face) != 0)
 		return 0;
 	return face.height/FACE_PIXEL_DENT;

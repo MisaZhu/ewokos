@@ -198,6 +198,18 @@ static int console_loop(void* p) {
 				gterminal_scroll(&console->terminal, 1);
 				_flush = true;	
 			}
+			else if(c == KEY_LEFT) {
+				if(console->terminal.font_size > 5)
+					console->terminal.font_size--;
+				gterminal_resize(&console->terminal, console->g->w, console->g->h);
+				_flush = true;	
+			}
+			else if(c == KEY_RIGHT) {
+				if(console->terminal.font_size < 99)
+					console->terminal.font_size++;
+				gterminal_resize(&console->terminal, console->g->w, console->g->h);
+				_flush = true;	
+			}
 			else {
 				gterminal_scroll(&console->terminal, 0);
 				charbuf_push(_buffer, c, true);

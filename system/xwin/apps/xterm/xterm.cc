@@ -156,11 +156,24 @@ protected:
 		if(ev->type == XEVT_IM && ev->state == XIM_STATE_PRESS) {
 			int c = ev->value.im.value;
 			if(c != 0) {
-				if(c == KEY_LEFT) {
+				xinfo_t xinfo;
+				getInfo(xinfo);
+
+				if(c == KEY_UP) {
 					gterminal_scroll(&terminal, -1);
 				}
-				else if(c == KEY_RIGHT) {
+				else if(c == KEY_DOWN) {
 					gterminal_scroll(&terminal, 1);
+				}
+				else if(c == KEY_LEFT) {
+					if(terminal.font_size > 5)
+						terminal.font_size--;
+					gterminal_resize(&terminal, xinfo.wsr.w, xinfo.wsr.h);
+				}
+				else if(c == KEY_RIGHT) {
+					if(terminal.font_size < 99)
+						terminal.font_size++;
+					gterminal_resize(&terminal, xinfo.wsr.w, xinfo.wsr.h);
 				}
 				else {
 					gterminal_scroll(&terminal, 0);

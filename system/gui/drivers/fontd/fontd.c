@@ -90,9 +90,9 @@ static int font_dev_get_glyph(proto_t* in, proto_t* ret) {
 	}
 
 	face_info_t faceinfo;
-	faceinfo.ascender = face->ascender;
-	faceinfo.descender = face->descender;
-	faceinfo.height = face->height;
+	faceinfo.ascender = face->size->metrics.ascender;
+	faceinfo.descender = face->size->metrics.descender;
+	faceinfo.height = face->size->metrics.ascender - face->size->metrics.descender;
 
 	FT_GlyphSlot slot = face->glyph;
 	uint32_t bmp_size = slot->bitmap.width * slot->bitmap.rows;
@@ -120,12 +120,16 @@ static int font_dev_get_face(proto_t* in, proto_t* ret) {
 	}
 
 	FT_Face face = _ttfs[i].face; 
-    if(FT_Set_Pixel_Sizes(face, 0, size) != 0) {
+    if(FT_Set_Pixel_Sizes(face, size, 0) != 0) {
 		PF->init(ret)->addi(ret, -1);
 		return -1;
 	}
 
-	PF->format(ret, "m", face, sizeof(FT_FaceRec));
+	face_info_t faceinfo;
+	faceinfo.ascender = face->size->metrics.ascender;
+	faceinfo.descender = face->size->metrics.descender;
+	faceinfo.height = face->size->metrics.ascender - face->size->metrics.descender;
+	PF->format(ret, "m", &faceinfo, sizeof(face_info_t));
 	return 0;
 }
 

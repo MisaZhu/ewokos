@@ -50,7 +50,7 @@ int     font_free(font_t* font);
 const char*  font_name_by_fname(const char* fname);
 
 int  font_get_height(font_t* font, uint32_t size);
-int  font_get_face(font_t* font, uint32_t size, FT_Face face);
+int  font_get_face(font_t* font, uint32_t size, face_info_t* face);
 void font_char_size(uint32_t c, font_t* font, uint32_t size, uint32_t *w, uint32_t* h);
 void font_text_size(const char* str, font_t* font , uint32_t size, uint32_t *w, uint32_t* h);
 
