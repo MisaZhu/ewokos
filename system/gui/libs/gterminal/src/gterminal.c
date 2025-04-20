@@ -23,7 +23,7 @@ static gpos_t get_pos(gterminal_t* terminal, int x, int y, int w, int h) {
 
 
 static void draw_curs(gterminal_t* terminal, graph_t* g, int x, int y, int w, int h) {
-    if(!terminal->flash_show || !terminal->show_curs)
+    if(!terminal->flash_show || !terminal->show_curs || terminal->scroll_offset != 0)
         return;
     gpos_t pos = get_pos(terminal, x, y, w, h);
     graph_fill(g, pos.x, pos.y+4, 4, terminal->char_h-4, terminal->fg_color);
@@ -238,6 +238,20 @@ void gterminal_close(gterminal_t* terminal) {
         textgrid_free(terminal->textgrid);
 }
 
+void gterminal_scroll(gterminal_t* terminal, int direction) {
+    if(direction == 0)
+        terminal->scroll_offset = 0;
+    else if(direction < 0)
+        terminal->scroll_offset -= terminal->rows / 2;
+    else
+        terminal->scroll_offset += terminal->rows / 2;
+
+    if(terminal->scroll_offset > 0)
+        terminal->scroll_offset = 0;
+    else if(abs(terminal->scroll_offset) >= terminal->textgrid_start_row)
+        terminal->scroll_offset = -terminal->textgrid_start_row;
+}
+
 void gterminal_paint(gterminal_t* terminal, graph_t* g, int x, int y, int w, int h) {
     if(terminal->textgrid->cols == 0 || terminal->textgrid->rows == 0)
         return;
@@ -247,7 +261,7 @@ void gterminal_paint(gterminal_t* terminal, graph_t* g, int x, int y, int w, int
 
 	uint32_t cw = g->w / terminal->textgrid->cols;
 	uint32_t ch = g->h / terminal->textgrid->rows;
-	textgrid_paint(terminal->textgrid, terminal->textgrid_start_row,
+	textgrid_paint(terminal->textgrid, terminal->textgrid_start_row + terminal->scroll_offset,
             g, terminal->bg_color,
             terminal->font, terminal->font_size,
             x, y, w, h);
@@ -299,6 +313,8 @@ void gterminal_resize(gterminal_t* terminal, uint32_t gw, uint32_t gh) {
     terminal->cols = gw / font_w;
 
     textgrid_reset(terminal->textgrid, terminal->cols);
+    int32_t start_row = (int32_t)terminal->textgrid->rows - (int32_t)terminal->rows;
+    terminal->textgrid_start_row = start_row < 0 ? 0:start_row;
 }
 
 #ifdef __cplusplus

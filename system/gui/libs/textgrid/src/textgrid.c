@@ -172,6 +172,8 @@ int textgrid_paint(textgrid_t* textgrid, int32_t start_row,
 		graph_t* g, uint32_t bg_color,
 		font_t* font, uint32_t font_size,
 		int x, int y, uint32_t w, uint32_t h) {
+	if(start_row < 0)
+		start_row = 0;
 
 	if(!textgrid || !textgrid->grid ||
 			textgrid->cols == 0 || start_row >= textgrid->rows ||

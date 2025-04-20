@@ -31,6 +31,7 @@ typedef struct {
 	gterm_conf_t term_conf;
 	textgrid_t* textgrid;
 	int32_t textgrid_start_row;
+	int32_t scroll_offset;
 
 	uint32_t rows;
 	uint32_t cols;
@@ -40,6 +41,7 @@ typedef struct {
 
 void gterminal_init(gterminal_t* terminal);
 void gterminal_close(gterminal_t* terminal);
+void gterminal_scroll(gterminal_t* terminal, int direction);
 void gterminal_put(gterminal_t* terminal, const char* buf, int size);
 void gterminal_flash(gterminal_t* terminal);
 void gterminal_paint(gterminal_t* terminal, graph_t* g, int x, int y, int w, int h);

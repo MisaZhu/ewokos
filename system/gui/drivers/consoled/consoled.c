@@ -7,6 +7,7 @@
 #include <gterminal/gterminal.h>
 #include <fb/fb.h>
 #include <ewoksys/vdevice.h>
+#include <ewoksys/keydef.h>
 #include <display/display.h>
 #include <graph/graph_png.h>
 #include <tinyjson/tinyjson.h>
@@ -169,6 +170,7 @@ static int console_read(int fd,
 }
 
 static int console_loop(void* p) {
+	fb_console_t* console = (fb_console_t*)p;
 	if(_ux_index != core_get_active_ux()) {
 		usleep(200000);
 		_flush = true;
@@ -177,7 +179,7 @@ static int console_loop(void* p) {
 
 	ipc_disable();
 	if(_flush) {
-		flush((fb_console_t*)p);
+		flush(console);
 		_flush = false;
 	}
 	ipc_enable();
@@ -190,8 +192,19 @@ static int console_loop(void* p) {
 	if(_keyb_fd > 0) {
 		char c = 0;
 		if(read(_keyb_fd, &c, 1) == 1 && c != 0) {
-			charbuf_push(_buffer, c, true);
-			proc_wakeup(RW_BLOCK_EVT);
+			if(c == KEY_UP) {
+				gterminal_scroll(&console->terminal, -1);
+				_flush = true;	
+			}
+			else if(c == KEY_DOWN) {
+				gterminal_scroll(&console->terminal, 1);
+				_flush = true;	
+			}
+			else {
+				gterminal_scroll(&console->terminal, 0);
+				charbuf_push(_buffer, c, true);
+				proc_wakeup(RW_BLOCK_EVT);
+			}
 			usleep(20000);
 			return 0;
 		}

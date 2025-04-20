@@ -135,9 +135,20 @@ protected:
 			return;
 		}
 		else if(ev->state == MOUSE_STATE_DRAG) {
+			if(ev->value.mouse.y > mouse_last_y)
+				gterminal_scroll(&terminal, -1);
+			else if(ev->value.mouse.y < mouse_last_y)
+				gterminal_scroll(&terminal, 1);
 			mouse_last_y = ev->value.mouse.y;
-			//console_roll(&console, mv);
 			repaint();
+		}
+		else if(ev->state == MOUSE_STATE_MOVE) {
+			if(ev->value.mouse.button == MOUSE_BUTTON_SCROLL_UP) {
+				gterminal_scroll(&terminal, 1);
+			}
+			else if(ev->value.mouse.button == MOUSE_BUTTON_SCROLL_DOWN) {
+				gterminal_scroll(&terminal, -1);
+			}
 		}
 	}
 
@@ -145,8 +156,17 @@ protected:
 		if(ev->type == XEVT_IM && ev->state == XIM_STATE_PRESS) {
 			int c = ev->value.im.value;
 			if(c != 0) {
-				charbuf_push(_buffer, c, false);
-				proc_wakeup(RW_BLOCK_EVT);
+				if(c == KEY_LEFT) {
+					gterminal_scroll(&terminal, -1);
+				}
+				else if(c == KEY_RIGHT) {
+					gterminal_scroll(&terminal, 1);
+				}
+				else {
+					gterminal_scroll(&terminal, 0);
+					charbuf_push(_buffer, c, false);
+					proc_wakeup(RW_BLOCK_EVT);
+				}
 			}
 		}
 		else if(ev->type == XEVT_MOUSE) {
