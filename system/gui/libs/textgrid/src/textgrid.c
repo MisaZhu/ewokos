@@ -117,6 +117,9 @@ int textgrid_push(textgrid_t* grid, textchar_t* tch) {
 			}
 			else
 				grid->tail_col--;
+
+			grid->curs_x = grid->tail_col;
+			grid->curs_y = grid->rows-1;
 			return 0;
 		}
 
