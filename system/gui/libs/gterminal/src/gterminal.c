@@ -12,10 +12,16 @@ extern "C" {
 #define  ESC_CMD 033
 
 static gpos_t get_pos(gterminal_t* terminal, int x, int y, int w, int h) {
-    int col = terminal->textgrid->curs_x + 1;
     int row = terminal->textgrid->curs_y - terminal->textgrid_start_row;
     if(row < 0)
         row = 0;
+
+    uint32_t at = terminal->textgrid->curs_x + (terminal->textgrid->curs_y*terminal->textgrid->cols);
+    int col = terminal->textgrid->curs_x + 1;
+    if(terminal->textgrid->grid[at].c == '\n') {
+        col = 0;
+        row++;
+    }
 
     gpos_t ret = { col*terminal->char_w, row*terminal->char_h};
     return ret;
