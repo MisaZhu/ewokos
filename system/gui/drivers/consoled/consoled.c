@@ -141,7 +141,6 @@ static int console_write(int fd,
 
 	const char* pb = (const char*)buf;
 	gterminal_put(&console->terminal, pb, size);
-
 	//if(_ux_index == core_get_active_ux())
 		//flush(console);
 	return size;
@@ -164,7 +163,6 @@ static int console_read(int fd,
 
 	if(res != 0)
 		return VFS_ERR_RETRY;
-
 	((char*)buf)[0] = c;
 	return 1;
 }

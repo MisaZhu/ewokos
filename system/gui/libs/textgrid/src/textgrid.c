@@ -103,57 +103,70 @@ int textgrid_push(textgrid_t* grid, textchar_t* tch) {
 	if(tch->c == 0)
 		return 0;
 	
+	bool is_tail = false;
+	if((grid->curs_y+1) >= grid->rows && grid->tail_col == grid->curs_x)
+		is_tail = true;
+	
 	if(grid->grid != NULL && grid->rows > 0) {
-		uint32_t at = (grid->rows-1)*grid->cols + grid->tail_col;
+		//uint32_t at = (grid->rows-1)*grid->cols + grid->tail_col;
+		uint32_t at = (grid->curs_y)*grid->cols + grid->curs_x;
 		//klog("at: %d, [%c]\n", at, grid->grid[at].c);
 		if(tch->c == KEY_BACKSPACE || tch->c == CONSOLE_LEFT) {
 			grid->grid[at].c = 0;
 
-			if(grid->tail_col == 0) {
-				if(grid->rows == 0)
-					return -1;
-				grid->rows--;
-				grid->tail_col = grid->cols - 1;
+			if(grid->curs_x == 0) {
+				if(grid->curs_y > 0)
+					grid->curs_y--;
+				grid->curs_x = grid->cols - 1;
 			}
 			else
-				grid->tail_col--;
+				grid->curs_x--;
 
-			grid->curs_x = grid->tail_col;
-			grid->curs_y = grid->rows-1;
+			if(is_tail) {
+				grid->tail_col = grid->curs_x;
+				grid->rows = grid->curs_y+1;
+			}
 			return 0;
 		}
 
 		if(grid->grid[at].c == '\r' || grid->grid[at].c == '\n') {
-			int col_index = grid->tail_col + 1;
+			int col_index = grid->curs_x + 1;
 			while(col_index < grid->cols) {
-				at = (grid->rows-1)*grid->cols + col_index;
+				at = (grid->curs_y)*grid->cols + col_index;
 				grid->grid[at].c = 0;
 				col_index++;
 			}
-			grid->tail_col = col_index;
+			grid->curs_x = grid->cols - 1;
+			if(is_tail) {
+				grid->tail_col = grid->curs_x;
+			}
 		}
 	}
 
-	grid->tail_col++;
+	grid->curs_x++;
 	bool new_line = false;
-	if(grid->tail_col >= grid->cols || grid->rows == 0) { //new line needed
+	if(grid->curs_x >= grid->cols || grid->rows == 0) { //new line needed
 		new_line = true;
-		grid->tail_col = 0;
+		grid->curs_x = 0;
 	}
 
 	if(new_line) {
-		if(grid->rows >= grid->total_rows) { //expand grid
+		if((grid->curs_y+1) >= grid->total_rows) { //expand grid
 			if(textgrid_expand(grid, EXPAND_ROWS) != 0)
 				return -1;
 		}
-		grid->rows++;
+		if(grid->rows != 0)
+			grid->curs_y++;
+		if(grid->curs_y >= grid->rows)
+			grid->rows = grid->curs_y+1;
 	}
 
-	uint32_t at = (grid->rows-1)*grid->cols + grid->tail_col;
+	uint32_t at = (grid->curs_y)*grid->cols + grid->curs_x;
 	//klog("at: %d, %d\n", at, grid->rows);
 	grid->grid[at] = *tch;
-	grid->curs_x = grid->tail_col;
-	grid->curs_y = grid->rows-1;
+	if(is_tail) {
+		grid->tail_col = grid->curs_x;
+	}
 	return 0;
 }
 

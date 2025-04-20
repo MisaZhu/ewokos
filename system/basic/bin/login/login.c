@@ -62,6 +62,7 @@ static void input(str_t* s, bool show) {
 		c = telnet_parse(c);
 		if(c == 0)
 			continue;
+		
 		if(i <= 0 || c == 0) {
 		 	if(errno != EAGAIN)
 			//if(i == 0)
@@ -84,14 +85,15 @@ static void input(str_t* s, bool show) {
 		else {
 			if(show || c == '\n')
 				write(1, &c, 1);
-			
+	
+			if(c == '\n')
+				break;		
+
 			if(!show) {
 				char x = '*';
 				write(1, &x, 1);
 			}
 
-			if(c == '\n')
-				break;
 			if(c > 27)
 				str_addc(s, c);
 		}
