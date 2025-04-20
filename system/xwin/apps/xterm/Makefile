@@ -19,11 +19,11 @@ $(XTERM): $(XTERM_OBJS) \
 		$(EWOK_LIBC_A)  \
 		$(BUILD_DIR)/lib/libx++.a \
 		$(BUILD_DIR)/lib/libx.a \
-		$(BUILD_DIR)/lib/libterminal.a \
+		$(BUILD_DIR)/lib/libtextgrid.a \
 		$(BUILD_DIR)/lib/libgterminal.a \
 		$(BUILD_DIR)/lib/libfont.a \
 		$(BUILD_DIR)/lib/libcxx.a 
-	$(LD) -Ttext=100 $(XTERM_OBJS) -o $(XTERM) $(LDFLAGS)  -lgterminal -lterminal $(EWOK_LIB_X) $(EWOK_LIB_GRAPH)  $(EWOK_LIBC) -lcxx
+	$(LD) -Ttext=100 $(XTERM_OBJS) -o $(XTERM) $(LDFLAGS)  -lgterminal -ltextgrid $(EWOK_LIB_X) $(EWOK_LIB_GRAPH)  $(EWOK_LIBC) -lcxx
 
 $(XTERM_DIR):
 	mkdir -p $(XTERM_DIR)

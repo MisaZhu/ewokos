@@ -115,7 +115,7 @@ static void flush(fb_console_t* console) {
 		}
 	}
 
-	gterminal_paint(&console->terminal, console->g);
+	gterminal_paint(&console->terminal, console->g, 0, 0, console->g->w, console->g->h);
 	fb_flush(&console->fb, true);
 }
 

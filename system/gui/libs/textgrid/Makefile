@@ -8,16 +8,16 @@ LDFLAGS = -L$(TARGET_DIR)/lib
 
 CFLAGS += -Iinclude -I $(TARGET_DIR)/include
 
-LIB_TERMINAL_OBJS = src/terminal.o
+LIB_textgrid_OBJS = src/textgrid.o
 
-TERMINAL = $(TARGET_DIR)/lib/libterminal.a
+textgrid = $(TARGET_DIR)/lib/libtextgrid.a
 
-$(TERMINAL): $(LIB_TERMINAL_OBJS)
-	$(AR) rcs $(TERMINAL) $(LIB_TERMINAL_OBJS)
+$(textgrid): $(LIB_textgrid_OBJS)
+	$(AR) rcs $(textgrid) $(LIB_textgrid_OBJS)
 	cp -r include/* $(TARGET_DIR)/include
 
 
 clean:
-	rm -f $(LIB_TERMINAL_OBJS)
-	rm -f $(TERMINAL)
+	rm -f $(LIB_textgrid_OBJS)
+	rm -f $(textgrid)
 

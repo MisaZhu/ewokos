@@ -11,52 +11,22 @@ extern "C" {
 
 #define  ESC_CMD 033
 
-static gpos_t get_pos(gterminal_t* terminal, graph_t* g, uint32_t at, int32_t cw, int32_t ch) {
-    uint32_t cx = 0, cy = 0;
-    terminal_pos_by_at(&terminal->terminal, at, &cx, &cy);
-    gpos_t ret = { cx*cw, cy*ch };
+static gpos_t get_pos(gterminal_t* terminal, int x, int y, int w, int h) {
+    int col = terminal->textgrid->curs_x + 1;
+    int row = terminal->textgrid->curs_y - terminal->textgrid_start_row;
+    if(row < 0)
+        row = 0;
+
+    gpos_t ret = { col*terminal->char_w, row*terminal->char_h};
     return ret;
 }
 
-static void draw_content(gterminal_t* terminal, graph_t* g, uint32_t cw, uint32_t ch) {
-    uint32_t size = terminal_size(&terminal->terminal);
-    uint32_t i = 0;
-    while(i < size) {
-        tchar_t* c = terminal_getc_by_at(&terminal->terminal, i);
-        if(c != NULL && c->c != 0 && c->c != '\n') {
-            gpos_t pos = get_pos(terminal, g, i, cw, ch);
 
-            uint32_t fg = c->color, bg = c->bg_color;
-
-            if((c->state & TERM_STATE_REVERSE) != 0) {
-                fg = c->bg_color;
-                if(fg == 0)
-                    fg = terminal->bg_color;
-                bg = c->color;
-            }
-            if(bg != 0) 
-                graph_fill(g, pos.x, pos.y, cw, ch, bg);
-            
-            
-            if((c->state & TERM_STATE_HIDE) == 0 && 
-                    ((c->state & TERM_STATE_FLASH) == 0 || terminal->flash_show)) {
-                if((c->state & TERM_STATE_UNDERLINE) != 0)
-                    graph_fill(g, pos.x, pos.y+ch, cw, 2, fg);
-
-                graph_draw_char_font_fixed(g, pos.x, pos.y, c->c, terminal->font, terminal->font_size, fg, cw, 0);
-                if((c->state & TERM_STATE_HIGH_LIGHT) != 0)
-                    graph_draw_char_font_fixed(g, pos.x, pos.y+1, c->c, terminal->font, terminal->font_size, fg, cw, 0);
-            }
-        }
-        i++;
-    }
-}
-
-static void draw_curs(gterminal_t* terminal, graph_t* g, uint32_t cw, uint32_t ch) {
+static void draw_curs(gterminal_t* terminal, graph_t* g, int x, int y, int w, int h) {
     if(!terminal->flash_show || !terminal->show_curs)
         return;
-    gpos_t pos = get_pos(terminal, g, terminal_at(&terminal->terminal), cw, ch);
-    graph_fill(g, pos.x, pos.y+4, 4, ch-4, terminal->fg_color);
+    gpos_t pos = get_pos(terminal, x, y, w, h);
+    graph_fill(g, pos.x, pos.y+4, 4, terminal->char_h-4, terminal->fg_color);
 }
 
 static uint32_t g_color(gterminal_t* terminal, uint32_t esc_color, uint8_t fg) {
@@ -137,13 +107,13 @@ static void do_esc_color(gterminal_t* terminal, uint16_t* values, uint8_t vnum) 
 
 static void do_esc_clear(gterminal_t* terminal, uint16_t* values, uint8_t vnum) {
     if(values[0] == 2) {
-        terminal_clear(&terminal->terminal);
-        terminal_move_to(&terminal->terminal, 0, 0);
+        textgrid_clear(terminal->textgrid);
+        textgrid_move_to(terminal->textgrid, 0, terminal->textgrid_start_row);
     }
 }
 
 static void do_esc_xy(gterminal_t* terminal, uint16_t* values, uint8_t vnum) {
-    terminal_move_to(&terminal->terminal, values[1], values[0]);
+    textgrid_move_to(terminal->textgrid, values[1], values[0]+terminal->textgrid_start_row);
 }
 
 static void run_esc_cmd(gterminal_t* terminal, UNICODE16 cmd, uint16_t* values, uint8_t vnum) {
@@ -157,35 +127,35 @@ static void run_esc_cmd(gterminal_t* terminal, UNICODE16 cmd, uint16_t* values, 
         do_esc_xy(terminal, values, vnum);
     }
     else if(cmd == 'A') { //move curs up
-        int16_t y = (int16_t)terminal->terminal.curs_y - values[0];
+        int16_t y = (int16_t)terminal->textgrid->curs_y - values[0];
         if(y < 0)
             y = 0;
-        terminal_move_to(&terminal->terminal, terminal->terminal.curs_x, y);
+        textgrid_move_to(terminal->textgrid, terminal->textgrid->curs_x, y+terminal->textgrid_start_row);
     }
     else if(cmd == 'B') { //move curs down
-        uint16_t y = terminal->terminal.curs_y + values[0];
-        if(y >= terminal->terminal.rows)
-            y = terminal->terminal.rows-1;
-        terminal_move_to(&terminal->terminal, terminal->terminal.curs_x, y);
+        uint16_t y = terminal->textgrid->curs_y + values[0];
+        if(y >= terminal->textgrid->rows)
+            y = terminal->textgrid->rows-1;
+        textgrid_move_to(terminal->textgrid, terminal->textgrid->curs_x, y+terminal->textgrid_start_row);
     }
     else if(cmd == 'D') { //move curs left
-        int16_t x = (int16_t)terminal->terminal.curs_x - values[0];
+        int16_t x = (int16_t)terminal->textgrid->curs_x - values[0];
         if(x < 0)
             x = 0;
-        terminal_move_to(&terminal->terminal, x, terminal->terminal.curs_y);
+        textgrid_move_to(terminal->textgrid, x, terminal->textgrid->curs_y+terminal->textgrid_start_row);
     }
     else if(cmd == 'C') { //move curs right
-        uint16_t x = terminal->terminal.curs_x + values[0];
-        if(x >= terminal->terminal.cols)
-            x = terminal->terminal.cols-1;
-        terminal_move_to(&terminal->terminal, x, terminal->terminal.curs_y);
+        uint16_t x = terminal->textgrid->curs_x + values[0];
+        if(x >= terminal->textgrid->cols)
+            x = terminal->textgrid->cols-1;
+        textgrid_move_to(terminal->textgrid, x, terminal->textgrid->curs_y+terminal->textgrid_start_row);
     }
     else if(cmd == 's') { //save curs pos
-        terminal->curs_pos.x = terminal->terminal.curs_x;
-        terminal->curs_pos.y = terminal->terminal.curs_y;
+        terminal->curs_pos.x = terminal->textgrid->curs_x;
+        terminal->curs_pos.y = terminal->textgrid->curs_y;
     }
     else if(cmd == 'u') { //restore curs pos
-        terminal_move_to(&terminal->terminal, terminal->curs_pos.x, terminal->curs_pos.y);
+        textgrid_move_to(terminal->textgrid, terminal->curs_pos.x, terminal->curs_pos.y+terminal->textgrid_start_row);
     }
     else if(cmd == 'l') { //hide curs
         terminal->show_curs = false;
@@ -256,6 +226,7 @@ static uint32_t do_esc_cmd(gterminal_t* terminal, UNICODE16* uni, uint32_t from,
 
 void gterminal_init(gterminal_t* terminal) {
     memset(terminal, 0, sizeof(gterminal_t));
+    terminal->textgrid = textgrid_new();
     terminal->show_curs = true;
     terminal->flash_show = true;
 }
@@ -263,15 +234,24 @@ void gterminal_init(gterminal_t* terminal) {
 void gterminal_close(gterminal_t* terminal) {
     if(terminal->font != NULL)
         font_free(terminal->font);
+    if(terminal->textgrid)
+        textgrid_free(terminal->textgrid);
 }
 
-void gterminal_paint(gterminal_t* terminal, graph_t* g) {
-    if(terminal->terminal.cols == 0 || terminal->terminal.rows == 0)
+void gterminal_paint(gterminal_t* terminal, graph_t* g, int x, int y, int w, int h) {
+    if(terminal->textgrid->cols == 0 || terminal->textgrid->rows == 0)
         return;
-	uint32_t cw = g->w / terminal->terminal.cols;
-	uint32_t ch = g->h / terminal->terminal.rows;
-	draw_content(terminal, g, cw, ch);
-	draw_curs(terminal, g, cw, ch);
+
+    int32_t start_row = (int32_t)terminal->textgrid->rows - (int32_t)terminal->rows;
+    terminal->textgrid_start_row = start_row < 0 ? 0:start_row;
+
+	uint32_t cw = g->w / terminal->textgrid->cols;
+	uint32_t ch = g->h / terminal->textgrid->rows;
+	textgrid_paint(terminal->textgrid, terminal->textgrid_start_row,
+            g, terminal->bg_color,
+            terminal->font, terminal->font_size,
+            x, y, w, h);
+	draw_curs(terminal, g, x, y, w, h);
 }
 
 void gterminal_put(gterminal_t* terminal, const char* buf, int size) {
@@ -280,20 +260,24 @@ void gterminal_put(gterminal_t* terminal, const char* buf, int size) {
 
     for(uint32_t i=0; i<size; i++) {
         UNICODE16 c = unicode[i];
-        if(c == KEY_BACKSPACE || c == CONSOLE_LEFT) {
-            terminal_move(&terminal->terminal, -1);
-            terminal_set(&terminal->terminal, 0, 0, 0, 0);
-            continue;
-        }
-        else if(c == ESC_CMD) {
+        if(c == ESC_CMD) {
             i = do_esc_cmd(terminal, unicode, i+1, size);
             continue;
         }
 
-        if(terminal->term_conf.set == 0)
-            terminal_push(&terminal->terminal, c, 0, terminal->fg_color, 0);
-        else
-            terminal_push(&terminal->terminal, c, terminal->term_conf.state, terminal->term_conf.fg_color, terminal->term_conf.bg_color);
+        textchar_t tch;
+        tch.c = c;
+        if(terminal->term_conf.set == 0) {
+            tch.bg_color = 0;
+            tch.color = terminal->fg_color;
+            tch.state = 0;
+        }
+        else {
+            tch.bg_color = terminal->term_conf.bg_color;
+            tch.color = terminal->term_conf.fg_color;
+            tch.state = terminal->term_conf.state;
+        }
+        textgrid_push(terminal->textgrid, &tch);
     }
 }
 
@@ -305,19 +289,16 @@ void gterminal_resize(gterminal_t* terminal, uint32_t gw, uint32_t gh) {
     if(terminal->font == NULL)
         return NULL;
     int32_t font_w = terminal->font_size + terminal->char_space;
-    uint32_t font_h = font_get_height(terminal->font, terminal->font_size) + terminal->line_space;
+    int32_t font_h = font_get_height(terminal->font, terminal->font_size);
     if(font_w == 0 || font_h == 0)
         return;
 
-    uint32_t size;
-    tchar_t* content = terminal_gets(&terminal->terminal, &size);
-    terminal_reset(&terminal->terminal, gw/font_w, gh/font_h);
-    if(content == NULL)
-        return;
-    for(uint32_t i=0; i<size; i++) {
-        terminal_push(&terminal->terminal, content[i].c, content[i].state, content[i].color, content[i].bg_color);
-    }
-    free(content);
+    terminal->char_w = font_w;
+    terminal->char_h = font_h;
+    terminal->rows = gh / font_h;
+    terminal->cols = gw / font_w;
+
+    textgrid_reset(terminal->textgrid, terminal->cols);
 }
 
 #ifdef __cplusplus

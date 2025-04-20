@@ -13,15 +13,15 @@ basic_libs:
 	cd font;make
 	cd fb;make
 	cd fbd;make
-	cd terminal;make
+	cd textgrid;make
 	cd gterminal;make
 	cd c++/stl;make
 	cd c++/c++;make
 
 clean:
 	cd openlibm;make clean
-	cd terminal;make clean
 	cd gterminal;make clean
+	cd textgrid;make clean
 	cd display;make clean
 	cd libpng; make clean
 	cd freetype; make clean

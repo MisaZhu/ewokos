@@ -8,16 +8,16 @@ LDFLAGS = -L$(TARGET_DIR)/lib
 
 CFLAGS += -Iinclude -I $(TARGET_DIR)/include
 
-LIB_Ggterminal_OBJS = src/gterminal.o
+LIB_gterminal_OBJS = src/gterminal.o
 
-Ggterminal = $(TARGET_DIR)/lib/libgterminal.a
+libgterminal = $(TARGET_DIR)/lib/libgterminal.a
 
-$(Ggterminal): $(LIB_Ggterminal_OBJS)
-	$(AR) rcs $(Ggterminal) $(LIB_Ggterminal_OBJS)
+$(libgterminal): $(LIB_gterminal_OBJS)
+	$(AR) rcs $(libgterminal) $(LIB_gterminal_OBJS)
 	cp -r include/* $(TARGET_DIR)/include
 
 
 clean:
-	rm -f $(LIB_Ggterminal_OBJS)
-	rm -f $(Ggterminal)
+	rm -f $(LIB_gterminal_OBJS)
+	rm -f $(libgterminal)
 

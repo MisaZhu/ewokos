@@ -119,7 +119,7 @@ protected:
 
 	void onRepaint(graph_t* g) {
 		drawBG(g);
-		gterminal_paint(&terminal, g);
+		gterminal_paint(&terminal, g, 0, 0, g->w, g->h);
 		dirty = false;
 	}
 

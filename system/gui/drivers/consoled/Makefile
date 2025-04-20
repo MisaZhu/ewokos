@@ -15,12 +15,12 @@ CONSOLED = $(TARGET_DIR)/drivers/consoled
 $(CONSOLED): $(CONSOLED_OBJS) \
 		$(EWOK_LIBC_A)  \
 		$(BUILD_DIR)/lib/libfb.a \
-		$(BUILD_DIR)/lib/libterminal.a \
+		$(BUILD_DIR)/lib/libtextgrid.a \
 		$(BUILD_DIR)/lib/libgterminal.a \
 		$(BUILD_DIR)/lib/libgraph.a \
 		$(BUILD_DIR)/lib/libfont.a  \
 		$(BUILD_DIR)/lib/libdisplay.a 
-	$(LD) -Ttext=100 $(CONSOLED_OBJS) -o $(CONSOLED) $(LDFLAGS) -lgterminal -lterminal -lfb -ldisplay -ltinyjson $(EWOK_LIB_GRAPH) $(EWOK_LIBC)
+	$(LD) -Ttext=100 $(CONSOLED_OBJS) -o $(CONSOLED) $(LDFLAGS) -lgterminal -ltextgrid -lfb -ldisplay -ltinyjson $(EWOK_LIB_GRAPH) $(EWOK_LIBC)
 
 clean:
 	rm -f $(CONSOLED_OBJS)
