@@ -36,7 +36,10 @@ int textgrid_reset(textgrid_t* textgrid, uint32_t cols) {
 		return -1;
 
 	textchar_t* p = textgrid->grid;
-	uint32_t size = textgrid->cols*textgrid->rows+textgrid->tail_col;
+	uint32_t size = 0;
+	if(textgrid->rows > 0) {
+		size = textgrid->cols * (textgrid->rows-1) + textgrid->tail_col+1;
+	}
 	memset(textgrid, 0, sizeof(textgrid_t));
 	textgrid->cols = cols;
 
@@ -231,7 +234,7 @@ int textgrid_paint(textgrid_t* textgrid, int32_t start_row,
             if((ch->state & TERM_STATE_HIDE) == 0 && 
                     ((ch->state & TERM_STATE_FLASH) == 0)) {
                 if((ch->state & TERM_STATE_UNDERLINE) != 0)
-                    graph_fill(g, cx, cy+chh, chw, 2, fg);
+                    graph_line(g, cx, cy+chh-1, cx+chw,  cy+chh-1, fg);
 
                 graph_draw_char_font_fixed(g, cx, cy, ch->c, font, font_size, fg, chw, 0);
                 if((ch->state & TERM_STATE_HIGH_LIGHT) != 0)
