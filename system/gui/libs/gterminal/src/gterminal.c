@@ -9,6 +9,12 @@
 extern "C" {
 #endif
 
+#define TERM_STATE_UNDERLINE  0x01
+#define TERM_STATE_REVERSE    0x02
+#define TERM_STATE_FLASH      0x04
+#define TERM_STATE_HIDE       0x08
+#define TERM_STATE_HIGH_LIGHT 0x10
+
 #define  ESC_CMD 033
 
 static gpos_t get_pos(gterminal_t* terminal, int x, int y, int w, int h) {
@@ -32,7 +38,7 @@ static void draw_curs(gterminal_t* terminal, graph_t* g, int x, int y, int w, in
     if(!terminal->flash_show || !terminal->show_curs || terminal->scroll_offset != 0)
         return;
     gpos_t pos = get_pos(terminal, x, y, w, h);
-    graph_fill(g, pos.x, pos.y+4, 4, terminal->char_h-4, terminal->fg_color);
+    graph_fill(g, x+ pos.x, y + pos.y+4, 4, terminal->char_h-4, terminal->fg_color);
 }
 
 static uint32_t g_color(gterminal_t* terminal, uint32_t esc_color, uint8_t fg) {
@@ -258,18 +264,43 @@ void gterminal_scroll(gterminal_t* terminal, int direction) {
         terminal->scroll_offset = -terminal->textgrid_start_row;
 }
 
+static void gterminal_draw_char(graph_t* g,
+        textchar_t* tch,
+        int chx, int chy,
+        uint32_t chw, uint32_t chh,
+        void*p) {
+    gterminal_t* terminal = (gterminal_t*)p;
+    uint32_t fg = tch->color, bg = tch->bg_color;
+    if(bg == 0)
+        bg = terminal->bg_color;
+
+    if((tch->state & TERM_STATE_REVERSE) != 0) {
+        fg = bg;
+        bg = tch->color;
+    }
+    if(bg != 0) 
+        graph_fill(g, chx, chy, chw, chh, bg);
+    
+    if((tch->state & TERM_STATE_HIDE) == 0 && 
+            ((tch->state & TERM_STATE_FLASH) == 0)) {
+        if((tch->state & TERM_STATE_UNDERLINE) != 0)
+            graph_line(g, chx, chy+chh-1, chx+chw,  chy+chh-1, fg);
+
+        graph_draw_char_font_fixed(g, chx, chy, tch->c,
+                terminal->font, terminal->font_size, fg, chw, 0);
+        if((tch->state & TERM_STATE_HIGH_LIGHT) != 0)
+            graph_draw_char_font_fixed(g, chx+1, chy, tch->c,
+                    terminal->font, terminal->font_size, fg, chw, 0);
+    }
+}
+
 void gterminal_paint(gterminal_t* terminal, graph_t* g, int x, int y, int w, int h) {
     if(terminal->textgrid->cols == 0 || terminal->textgrid->rows == 0)
         return;
 
-    int32_t start_row = (int32_t)terminal->textgrid->rows - (int32_t)terminal->rows;
-    terminal->textgrid_start_row = start_row < 0 ? 0:start_row;
-
-	uint32_t cw = g->w / terminal->textgrid->cols;
-	uint32_t ch = g->h / terminal->textgrid->rows;
-	textgrid_paint(terminal->textgrid, terminal->textgrid_start_row + terminal->scroll_offset,
-            g, terminal->bg_color,
-            terminal->font, terminal->font_size,
+	textgrid_paint(g, terminal->textgrid,
+            gterminal_draw_char, terminal,
+            terminal->textgrid_start_row + terminal->scroll_offset, terminal->char_h,
             x, y, w, h);
 	draw_curs(terminal, g, x, y, w, h);
 }
@@ -299,6 +330,8 @@ void gterminal_put(gterminal_t* terminal, const char* buf, int size) {
         }
         textgrid_push(terminal->textgrid, &tch);
     }
+    int32_t start_row = (int32_t)terminal->textgrid->rows - (int32_t)terminal->rows;
+    terminal->textgrid_start_row = start_row < 0 ? 0:start_row;
 }
 
 void gterminal_flash(gterminal_t* terminal) {

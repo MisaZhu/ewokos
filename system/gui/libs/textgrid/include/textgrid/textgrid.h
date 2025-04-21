@@ -10,12 +10,6 @@ extern "C" {
 
 typedef uint16_t UNICODE16;
 
-#define TERM_STATE_UNDERLINE  0x01
-#define TERM_STATE_REVERSE    0x02
-#define TERM_STATE_FLASH      0x04
-#define TERM_STATE_HIDE       0x08
-#define TERM_STATE_HIGH_LIGHT 0x10
-
 typedef struct {
 	UNICODE16 c;
 	uint16_t state;
@@ -47,10 +41,17 @@ extern int textgrid_push(textgrid_t* textgrid, textchar_t* tc);
 
 extern int textgrid_move_to(textgrid_t* textgrid, int32_t x, int32_t y);
 
-extern int textgrid_paint(textgrid_t* textgrid, int32_t start_row,
-	graph_t* g, uint32_t bg_color, 
-	font_t* font, uint32_t font_size,
-	int x, int y, uint32_t w, uint32_t h);
+typedef void (*textgrid_draw_char_t)(graph_t* g,
+	textchar_t* tch,
+	int chx, int chy,
+	uint32_t chw, uint32_t chh,
+	void*p);
+
+extern int textgrid_paint(graph_t* g,
+		textgrid_t* textgrid,
+		textgrid_draw_char_t draw_char_func, void* draw_arg,
+		int32_t start_row, uint32_t row_height,
+		int x, int y, uint32_t w, uint32_t h);
 
 #ifdef __cplusplus
 }

@@ -94,7 +94,6 @@ int textgrid_put(textgrid_t* textgrid, int x, int y, textchar_t* tc) {
 		textgrid->rows = y+1;
 	}
 
-	//klog("%d, %d\n", textgrid->rows, textgrid->tail_col);
 	textgrid->grid[y * textgrid->cols + x] = *tc;
 	return 0;
 }
@@ -111,9 +110,7 @@ int textgrid_push(textgrid_t* grid, textchar_t* tch) {
 		is_tail = true;
 	
 	if(grid->grid != NULL && grid->rows > 0) {
-		//uint32_t at = (grid->rows-1)*grid->cols + grid->tail_col;
 		uint32_t at = (grid->curs_y)*grid->cols + grid->curs_x;
-		//klog("at: %d, [%c]\n", at, grid->grid[at].c);
 		if(tch->c == KEY_BACKSPACE || tch->c == CONSOLE_LEFT) {
 			grid->grid[at].c = 0;
 
@@ -165,7 +162,6 @@ int textgrid_push(textgrid_t* grid, textchar_t* tch) {
 	}
 
 	uint32_t at = (grid->curs_y)*grid->cols + grid->curs_x;
-	//klog("at: %d, %d\n", at, grid->rows);
 	grid->grid[at] = *tch;
 	if(is_tail) {
 		grid->tail_col = grid->curs_x;
@@ -193,24 +189,24 @@ int textgrid_move_to(textgrid_t* textgrid, int32_t x, int32_t y) {
 
 	textgrid->curs_x = x;	
 	textgrid->curs_y = y;	
-	//klog("x:%d, y:%d\n", x, y);
 	return 0;
 }
 
-int textgrid_paint(textgrid_t* textgrid, int32_t start_row,
-		graph_t* g, uint32_t bg_color,
-		font_t* font, uint32_t font_size,
+int textgrid_paint(graph_t* g,
+		textgrid_t* textgrid,
+		textgrid_draw_char_t draw_char_func, void* draw_arg,
+		int32_t start_row, uint32_t row_height,
 		int x, int y, uint32_t w, uint32_t h) {
 	if(start_row < 0)
 		start_row = 0;
 
-	if(font == NULL || !textgrid || !textgrid->grid ||
+	if(!textgrid || !textgrid->grid ||
 			textgrid->cols == 0 || start_row >= textgrid->rows ||
 			w == 0 || h == 0) 
 		return -1;
 	
 	uint32_t chw = w / textgrid->cols;
-	uint32_t chh = font_get_height(font, font_size);
+	uint32_t chh = row_height;
 	for(int i=start_row; i<textgrid->rows; i++) {
 		int cy = y + ((i-start_row)*chh);
 		for(int j=0; j<textgrid->cols; j++) {
@@ -219,27 +215,7 @@ int textgrid_paint(textgrid_t* textgrid, int32_t start_row,
 			if(ch->c <= 27)
 				continue;
 			int cx = x + (j*chw);
-
-			uint32_t fg = ch->color, bg = ch->bg_color;
-			if(bg == 0)
-				bg = bg_color;
-
-            if((ch->state & TERM_STATE_REVERSE) != 0) {
-                fg = bg;
-                bg = ch->color;
-            }
-            if(bg != 0) 
-                graph_fill(g, cx, cy, chw, chh, bg);
-            
-            if((ch->state & TERM_STATE_HIDE) == 0 && 
-                    ((ch->state & TERM_STATE_FLASH) == 0)) {
-                if((ch->state & TERM_STATE_UNDERLINE) != 0)
-                    graph_line(g, cx, cy+chh-1, cx+chw,  cy+chh-1, fg);
-
-                graph_draw_char_font_fixed(g, cx, cy, ch->c, font, font_size, fg, chw, 0);
-                if((ch->state & TERM_STATE_HIGH_LIGHT) != 0)
-                    graph_draw_char_font_fixed(g, cx+1, cy, ch->c, font, font_size, fg, chw, 0);
-            }
+			draw_char_func(g, ch, cx, cy, chw, chh, draw_arg);
 		}
 	}
 	return 0;
