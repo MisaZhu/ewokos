@@ -36,6 +36,7 @@ class XConsole : public XWin {
 	gterminal_t terminal;
 	int32_t rollStepRows;
 	int32_t mouse_last_y;
+	uint32_t scrollW;
 	bool dirty;
 
 	void drawBG(graph_t* g) {
@@ -58,6 +59,18 @@ class XConsole : public XWin {
 		}
 		*/
 	}
+	
+	void drawScrollbar(graph_t* g) {
+		graph_fill_3d(g, g->w - scrollW, 0, scrollW, g->h, 0x88000000, true);
+		int sh = g->h * ((float) terminal.rows / terminal.textgrid->rows);
+		int start_row = (int32_t)terminal.textgrid->rows - (int32_t)terminal.rows;
+		if(start_row < 0)
+			start_row = 0;
+		start_row += terminal.scroll_offset;
+
+		int sy = g->h * ((float) start_row / terminal.textgrid->rows);
+		graph_fill_3d(g, g->w-scrollW+1, sy, scrollW-2, sh, 0x88aaaaaa, false);
+	}
 
 	bool readConfigRaw(const char* fname) {
 		json_var_t *conf_var = json_parse_file(fname);	
@@ -70,6 +83,7 @@ class XConsole : public XWin {
 public:
 	XConsole() {
 		gterminal_init(&terminal);
+		scrollW = 8;
 		dirty = false;
 	}
 
@@ -119,14 +133,18 @@ protected:
 
 	void onRepaint(graph_t* g) {
 		drawBG(g);
-		gterminal_paint(&terminal, g, 0, 0, g->w, g->h);
+		int gw = g->w-scrollW;
+		if(terminal.textgrid->rows > terminal.rows) {
+			drawScrollbar(g);
+		}
+		gterminal_paint(&terminal, g, 0, 0, gw, g->h);
 		dirty = false;
 	}
 
 	void onResize() {
 		xinfo_t xinfo;
 		getInfo(xinfo);
-		gterminal_resize(&terminal, xinfo.wsr.w, xinfo.wsr.h);
+		gterminal_resize(&terminal, xinfo.wsr.w-scrollW, xinfo.wsr.h);
 	}
 	
 	void mouseHandle(xevent_t* ev) {
@@ -168,12 +186,12 @@ protected:
 				else if(c == KEY_LEFT) {
 					if(terminal.font_size > 5)
 						terminal.font_size--;
-					gterminal_resize(&terminal, xinfo.wsr.w, xinfo.wsr.h);
+					gterminal_resize(&terminal, xinfo.wsr.w-scrollW, xinfo.wsr.h);
 				}
 				else if(c == KEY_RIGHT) {
 					if(terminal.font_size < 99)
 						terminal.font_size++;
-					gterminal_resize(&terminal, xinfo.wsr.w, xinfo.wsr.h);
+					gterminal_resize(&terminal, xinfo.wsr.w-scrollW, xinfo.wsr.h);
 				}
 				else {
 					gterminal_scroll(&terminal, 0);
