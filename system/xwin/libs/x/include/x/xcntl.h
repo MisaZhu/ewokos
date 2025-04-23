@@ -63,6 +63,7 @@ enum {
 #define XWIN_STYLE_PROMPT    0x200 //prompt win
 
 #define XWIN_TITLE_MAX 32
+#define X_APP_NAME_MAX 128
 typedef struct {
 	uint32_t win;
 	int32_t  g_shm_id;
@@ -71,12 +72,14 @@ typedef struct {
 	uint32_t style;
 	uint32_t state;
 	bool visible;
+	bool is_main;
 	bool repaint_lazy;
 	bool alpha;
 	bool focused;
 	grect_t wsr; //workspace rect
 	grect_t winr; //window rect
 	char title[XWIN_TITLE_MAX];
+	char name[X_APP_NAME_MAX];
 } xinfo_t;
 
 typedef struct {

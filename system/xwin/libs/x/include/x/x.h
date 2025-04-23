@@ -30,7 +30,8 @@ typedef struct st_x {
 	void (*on_loop)(void* p);
 } x_t;
 
-void     x_set_top(int pid);
+int      x_set_top_app(const char* fname);
+int      x_set_app_name(x_t* x, const char* fname);
 void     x_push_event(x_t* x, xevent_t* ev);
 int      x_screen_info(xscreen_t* scr, uint32_t index);
 int      x_get_display_num(void);

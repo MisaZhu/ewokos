@@ -21,6 +21,7 @@ extern "C" {
 
 #define KEY_POWER           26
 #define KEY_HOME            0xF0 
+#define KEY_END             0xF1
 
 #define KEY_BUTTON_A        97
 #define KEY_BUTTON_B        98

@@ -609,7 +609,9 @@ static void x_repaint(x_t* x, uint32_t display_index) {
 static xwin_t* x_get_win(x_t* x, int fd, int from_pid) {
 	xwin_t* win = x->win_head;
 	while(win != NULL) {
-		if((win->fd == fd || fd < 0) && win->from_main_pid == proc_getpid(from_pid)) {
+		if((win->fd == fd || fd < 0) && 
+				win->xinfo->is_main &&
+				win->from_main_pid == proc_getpid(from_pid)) {
 			if(proc_check_uuid(win->from_main_pid, win->from_main_pid_uuid) == win->from_main_pid_uuid)
 				return win;
 			else {
@@ -617,6 +619,18 @@ static xwin_t* x_get_win(x_t* x, int fd, int from_pid) {
 				win->from_main_pid = -1;
 				win->from_main_pid_uuid = 0;
 			}
+		}
+		win = win->next;
+	}
+	return NULL;
+}
+
+static xwin_t* x_get_win_by_name(x_t* x, const char* name) {
+	xwin_t* win = x->win_head;
+	while(win != NULL) {
+		if(win->xinfo->is_main &&
+				strcmp(win->xinfo->name, name) == 0) {
+			return win;
 		}
 		win = win->next;
 	}
@@ -1205,27 +1219,36 @@ static void mouse_cxy(x_t* x, uint32_t display_index, int32_t rx, int32_t ry) {
 		x->cursor.cpos.y = display->g->h;
 }
 
+static void xwin_close(x_t* x, xwin_t* win) {
+	if(win == NULL || win == x->win_launcher)
+		return;
 
+	xevent_t ev;
+	ev.type = XEVT_WIN;
+	ev.value.window.event = XEVT_WIN_CLOSE;
+	x_push_event(x, win, &ev);
+}
+ 
 static void xwin_bg(x_t* x, xwin_t* win) {
 	if(win == NULL)
 		return;
 	if(!x->config.bg_run &&
 			win != x->win_launcher &&
 			(win->xinfo->style & XWIN_STYLE_SYSTOP) == 0) {
-		xevent_t ev;
-		ev.type = XEVT_WIN;
-		ev.value.window.event = XEVT_WIN_CLOSE;
-		x_push_event(x, win, &ev);
+		xwin_close(x, win);
 		return;
 	}
 
 	if(x->win_focus != x->win_launcher) {
 		x->win_last = x->win_focus;
 		xwin_top(x, x->win_launcher);
+		klog("top launcher\n");
 	}
 	else if(x->win_last != NULL) {
 		xwin_top(x, x->win_last);
+		klog("top win\n");
 	}
+	x_dirty(x, -1);
 }
 
 static void mouse_xwin_handle(x_t* x, xwin_t* win, int pos, xevent_t* ev) {
@@ -1418,8 +1441,15 @@ static int mouse_handle(x_t* x, xevent_t* ev) {
 }
 
 static int im_handle(x_t* x, int32_t from_pid, xevent_t* ev) {
-	if(ev->value.im.value == KEY_HOME && ev->state == XIM_STATE_RELEASE) {
-		xwin_bg(x, x->win_focus);
+	if(ev->value.im.value == KEY_HOME) {
+		if(ev->state == XIM_STATE_RELEASE)
+			xwin_bg(x, x->win_focus);
+		return 0;
+	}
+
+	if(ev->value.im.value == KEY_END) {
+		if(ev->state == XIM_STATE_RELEASE)
+			xwin_close(x, x->win_focus);
 		return 0;
 	}
 
@@ -1445,10 +1475,13 @@ static void handle_input(x_t* x, int32_t from_pid, xevent_t* ev) {
 	}
 }
 
-static int x_set_top(x_t* x, int pid) {
-	xwin_t* win = x_get_win(x, -1, pid);
-	if(win != NULL)
+static int x_set_top(x_t* x, const char* name, proto_t* out) {
+	xwin_t* win = x_get_win_by_name(x, name);
+	PF->clear(out)->addi(out, -1);
+	if(win != NULL) {
 		xwin_top(x, win);
+		PF->clear(out)->addi(out, 0);
+	}
 	return 0;
 }
 
@@ -1516,8 +1549,8 @@ static int xserver_dev_cntl(int from_pid, int cmd, proto_t* in, proto_t* ret, vo
 		x_dev_load_xwm_theme(x, in, ret);
 	}
 	else if(cmd == X_DCNTL_SET_TOP) {
-		int pid = proto_read_int(in);
-		x_set_top(x, pid);
+		const char* name = proto_read_str(in);
+		x_set_top(x, name, ret);
 	}
 	else if(cmd == X_DCNTL_QUIT) {
 		x_quit(from_pid);

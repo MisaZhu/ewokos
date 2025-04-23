@@ -11,6 +11,15 @@
 #include <tinyjson/tinyjson.h>
 #include <graph/graph_png.h>
 #include <dirent.h>
+#include <stdio.h>
+#include <unistd.h>
+#include <stdlib.h>
+
+#include <stdlib.h>
+
+#ifdef __cplusplus
+extern "C" { extern int setenv(const char*, const char*);}
+#endif
 
 #include <string>
 using namespace std;
@@ -137,11 +146,19 @@ protected:
 	}
 
 	void onEnter(int index) {
+		x_t* x = getWin()->getX()->c_x();
+		if(x == NULL)
+			return;
+		const char* fname = items[index].fname.c_str();
+		if(x_set_top_app(fname) == 0)
+			return;
+
 		int pid = fork();
 		if(pid == 0) {
 			clearItem();
 			proc_detach();
-			proc_exec(items[index].fname.c_str()); 
+			setenv("X_APP_NAME", fname);
+			proc_exec(fname); 
 		}
 	}
 
@@ -229,7 +246,8 @@ int main(int argc, char** argv) {
 	}
 
 	win.open(&x, 0, wr, "xlauncher",
-				XWIN_STYLE_NO_TITLE | XWIN_STYLE_LAUNCHER | XWIN_STYLE_SYSBOTTOM);
+				XWIN_STYLE_NO_TITLE | XWIN_STYLE_LAUNCHER);
+				//XWIN_STYLE_NO_TITLE | XWIN_STYLE_LAUNCHER | XWIN_STYLE_SYSBOTTOM);
 	x.run(NULL, &win);
 	return 0;
 }

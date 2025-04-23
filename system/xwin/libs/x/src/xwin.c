@@ -102,8 +102,7 @@ xwin_t* xwin_open(x_t* xp, uint32_t disp_index, int x, int y, int w, int h, cons
 
 	if((style & XWIN_STYLE_PROMPT) != 0)
 		xp->prompt_win = ret;
-	if(xp->main_win == NULL)
-		xp->main_win = ret;
+
 
 	ret->xinfo_shm_id = xinfo_shm_id;
 	ret->xinfo = xinfo;
@@ -112,6 +111,11 @@ xwin_t* xwin_open(x_t* xp, uint32_t disp_index, int x, int y, int w, int h, cons
 	ret->xinfo->win = (uint32_t)ret;
 	ret->xinfo->style = style;
 	ret->xinfo->display_index = disp_index;
+	if(xp->main_win == NULL) {
+		ret->xinfo->is_main = true;
+		xp->main_win = ret;
+	}
+
 	memcpy(&ret->xinfo->wsr, &r, sizeof(grect_t));
 	strncpy(ret->xinfo->title, title, XWIN_TITLE_MAX-1);
 

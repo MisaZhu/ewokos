@@ -156,12 +156,27 @@ int x_set_desktop_space(int disp_index, const grect_t* r) {
 	return res;
 }
 
-void x_set_top(int pid) {
-	proto_t in;
-	PF->init(&in)->addi(&in, pid);
+int x_set_top_app(const char* fname) {
+	int res = -1;
+	proto_t in, out;
+	PF->init(&in)->adds(&in, fname);
 
-	dev_cntl("/dev/x", X_DCNTL_SET_TOP, &in, NULL);
+	PF->init(&out);
+	if(dev_cntl("/dev/x", X_DCNTL_SET_TOP, &in, &out) == 0)
+		res = proto_read_int(&out);
 	PF->clear(&in);
+	PF->clear(&out);
+	return res;
+}
+
+int x_set_app_name(x_t* x, const char* fname) {
+	if(fname == NULL || fname[0] == 0 ||
+			x == NULL || x->main_win == NULL || x->main_win->xinfo == NULL)
+		return -1;
+
+	memset(x->main_win->xinfo->name, 0, X_APP_NAME_MAX);
+	strncpy(x->main_win->xinfo->name, fname, X_APP_NAME_MAX-1);
+	return 0;
 }
 
 const char* x_get_theme_fname(const char* prefix, const char* app_name, const char* fname) {
@@ -196,6 +211,8 @@ int  x_run(x_t* x, void* loop_data) {
 	if(xserv_pid < 0) {
 		return -1;
 	}
+
+	x_set_app_name(x, getenv("X_APP_NAME"));
 
 	bool block = x->on_loop==NULL ? true:false;
 	xevent_t xev;
