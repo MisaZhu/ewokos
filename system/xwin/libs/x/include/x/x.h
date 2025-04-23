@@ -30,6 +30,7 @@ typedef struct st_x {
 	void (*on_loop)(void* p);
 } x_t;
 
+int      x_exec(const char* fname);
 int      x_set_top_app(const char* fname);
 int      x_set_app_name(x_t* x, const char* fname);
 void     x_push_event(x_t* x, xevent_t* ev);

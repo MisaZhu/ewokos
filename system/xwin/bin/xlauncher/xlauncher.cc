@@ -146,20 +146,7 @@ protected:
 	}
 
 	void onEnter(int index) {
-		x_t* x = getWin()->getX()->c_x();
-		if(x == NULL)
-			return;
-		const char* fname = items[index].fname.c_str();
-		if(x_set_top_app(fname) == 0)
-			return;
-
-		int pid = fork();
-		if(pid == 0) {
-			clearItem();
-			proc_detach();
-			setenv("X_APP_NAME", fname);
-			proc_exec(fname); 
-		}
+		x_exec(items[index].fname.c_str());
 	}
 
 public:

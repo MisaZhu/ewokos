@@ -179,6 +179,20 @@ int x_set_app_name(x_t* x, const char* fname) {
 	return 0;
 }
 
+int x_exec(const char* fname) {
+	if(x_set_top_app(fname) == 0)
+		return 0;
+
+	int pid = fork();
+	if(pid == 0) {
+		proc_detach();
+		getenv("X_APP_NAME");
+		setenv("X_APP_NAME", fname);
+		proc_exec(fname); 
+	}
+	return 0;
+}
+
 const char* x_get_theme_fname(const char* prefix, const char* app_name, const char* fname) {
 	static char ret[256] = {0};
 	if(fname[0] == '/') {
