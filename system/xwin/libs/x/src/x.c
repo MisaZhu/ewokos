@@ -183,11 +183,10 @@ int x_exec(const char* fname) {
 	if(x_set_top_app(fname) == 0)
 		return 0;
 
+	setenv("X_APP_NAME", fname);
 	int pid = fork();
 	if(pid == 0) {
 		proc_detach();
-		getenv("X_APP_NAME");
-		setenv("X_APP_NAME", fname);
 		proc_exec(fname); 
 	}
 	return 0;
@@ -224,6 +223,12 @@ int  x_run(x_t* x, void* loop_data) {
 	int xserv_pid = dev_get_pid("/dev/x");
 	if(xserv_pid < 0) {
 		return -1;
+	}
+
+	while(true) {
+		if(x->main_win != NULL && x->main_win->xinfo != NULL)
+			break;
+		usleep(100000);
 	}
 
 	x_set_app_name(x, getenv("X_APP_NAME"));
