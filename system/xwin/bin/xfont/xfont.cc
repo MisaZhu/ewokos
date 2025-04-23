@@ -58,7 +58,7 @@ protected:
 		y += theme->basic.fontSize + margin*2;
 
 		for(int i=0; i<3; i++) {
-			uint16_t size = (i+1) * 12;
+			uint16_t size = (i+1) * 8;
 			graph_draw_text_font(g, r.x+10, y, "abcdefghijklmn", font, size, theme->basic.docFGColor);
 			y += size + margin;
 			graph_draw_text_font(g, r.x+10, y, "opqrstuvwxyz", font, size, theme->basic.docFGColor);
