@@ -35,7 +35,7 @@ typedef struct {
 
 typedef struct {
     char name[FONT_NAME_MAX];
-	map_t *cache;
+	map_t cache;
     int32_t id;
 } font_t;
 

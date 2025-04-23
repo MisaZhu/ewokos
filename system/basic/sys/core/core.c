@@ -10,6 +10,7 @@
 #include <ewoksys/core.h>
 #include <ewoksys/vfsc.h>
 #include <ewoksys/proc.h>
+#include <ewoksys/klog.h>
 #include <sysinfo.h>
 #include <kevent.h>
 #include <procinfo.h>
@@ -17,7 +18,7 @@
 
 typedef struct {
 	str_t* cwd;	
-	map_t* envs;
+	map_t envs;
 } proc_info_t;
 
 static proc_info_t *_proc_info_table = NULL;
@@ -49,7 +50,7 @@ static void core_init(void) {
 	}
 }
 
-static map_t* _ipc_servs = NULL; //pids of ipc_servers
+static map_t _ipc_servs = NULL; //pids of ipc_servers
 static int get_ipc_serv(const char* key) {
 	int32_t *v;
 	if(hashmap_get(_ipc_servs, key, (void**)&v) == MAP_MISSING) {
@@ -201,7 +202,7 @@ static void do_proc_get_ux(int pid, proto_t* out) {
 	PF->addi(out, _ux_index);
 }
 
-static str_t* env_get(map_t* envs, const char* key) {
+static str_t* env_get(map_t envs, const char* key) {
 	str_t* ret = NULL;
 	if(hashmap_get(envs, key, (void**)&ret) == MAP_OK) {
 		return ret;
@@ -209,7 +210,7 @@ static str_t* env_get(map_t* envs, const char* key) {
 	return NULL;
 }
 
-static void set_env(map_t* envs, const char* key, const char* val) {
+static void set_env(map_t envs, const char* key, const char* val) {
 	str_t* v = env_get(envs, key);
 	if(v != NULL) {
 		str_cpy(v, val);
@@ -358,11 +359,16 @@ static void do_proc_created(kevent_t* kev) {
 }
 
 static void do_proc_exit(kevent_t* kev) {
+	int pid = kev->data[0];
 	proto_t data;
-	PF->init(&data)->addi(&data, kev->data[0]);
-	int pid = get_ipc_serv(IPC_SERV_VFS);
-	if(pid > 0) {
-		ipc_call_wait(pid, VFS_PROC_EXIT, &data);
+	PF->init(&data)->addi(&data, pid);
+	int vfs_pid = get_ipc_serv(IPC_SERV_VFS);
+	if(vfs_pid > 0) {
+		ipc_call_wait(vfs_pid, VFS_PROC_EXIT, &data);
+	}
+
+	if(_proc_info_table[pid].envs != NULL) {
+		hashmap_iterate(_proc_info_table[pid].envs, free_envs, NULL);	
 	}
 
 	PF->clear(&data);

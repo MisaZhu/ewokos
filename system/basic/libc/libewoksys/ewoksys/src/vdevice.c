@@ -18,7 +18,7 @@
 extern "C" {
 #endif
 
-static map_t*  _files_hash = NULL;
+static map_t  _files_hash = NULL;
 
 static void device_init(vdevice_t* dev) {
 	_files_hash = hashmap_new();

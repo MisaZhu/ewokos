@@ -39,7 +39,7 @@ typedef struct {
 
 static vfs_node_t* _vfs_root = NULL;
 static mount_t _vfs_mounts[FS_MOUNT_MAX];
-static map_t*  _nodes_hash = NULL;
+static map_t  _nodes_hash = NULL;
 
 typedef struct {
 	file_t fds[MAX_OPEN_FILE_PER_PROC];
