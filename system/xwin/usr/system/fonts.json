@@ -5,5 +5,6 @@
     {"name": "KodeMono-Medium", "file": "/usr/system/fonts/KodeMono-Medium.ttf"},
     {"name": "digital", "file": "/usr/system/fonts/digital.ttf"},
     {"name": "smallpixel", "file": "/usr/system/fonts/smallpixel.ttf"},
+    {"name": "7px2bus", "file": "/usr/system/fonts/7px2bus.ttf"},
     {"name": "system-cn", "file": "/usr/system/fonts/system-cn.ttf"}
 ]
