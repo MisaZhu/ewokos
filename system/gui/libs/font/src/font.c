@@ -246,7 +246,7 @@ void font_char_size(uint32_t c, font_t* font, uint32_t size, uint32_t *w, uint32
 		return;
 	face_info_t* faceinfo = (face_info_t*)slot.other;
 	if(w != NULL)  {
-		*w = slot.bitmap.width;
+		*w = slot.bitmap_left + slot.bitmap.width;
 	}
 
 	if(h != NULL && faceinfo != NULL) {
