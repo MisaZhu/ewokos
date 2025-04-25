@@ -57,9 +57,6 @@ bool ListBase::onMouse(xevent_t* ev) {
 }
 
 void ListBase::select(int sel) {
-	if(itemSelected == sel)
-		return;
-
 	if(sel < 0 || sel >= itemNum)
 		itemSelected = -1;
 	else {

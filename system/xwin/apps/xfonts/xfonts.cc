@@ -31,7 +31,7 @@ protected:
 		uint32_t y = 0;
 		uint16_t margin = 4;
 		for(int i=0; i<4; i++) {
-			uint16_t size = (i+1) * 12;
+			uint16_t size = (i+1) * 8;
 			graph_draw_text_font(g, r.x+10, y - off_y, "abcdefghijklmn", font, size, theme->basic.docFGColor);
 			y += size + margin;
 			graph_draw_text_font(g, r.x+10, y - off_y, "opqrstuvwxyz", font, size, theme->basic.docFGColor);
@@ -46,6 +46,7 @@ protected:
 
 		demoH = y;
 		updateScroller();
+		getWin()->busy(false);
 	}
 
 	bool onScroll(int step, bool horizontal) {
@@ -106,24 +107,24 @@ public:
 	}
 
 	~FontDemo() {
-		if(font != NULL)
-			font_free(font);
 	}
 
-	void setFont(const string& fontName) {
-		if(font != NULL)
-			font_free(font);
-
-		font = font_new(fontName.c_str(), false);
+	void setFont(font_t* fnt) {
+		font = fnt;
 		off_y = 0;
 		update();
+		getWin()->busy(true);
 	}
 };
 
+typedef struct {
+	string name;
+	font_t* font;
+} FontItem_t;
 
 class FontList: public List {
 	static const int32_t MAX_FONTS = 32;
-	string fonts[MAX_FONTS];
+	FontItem_t fonts[MAX_FONTS];
 	FontDemo* demo;
 protected:
 	void drawBG(graph_t* g, XTheme* theme, const grect_t& r) {
@@ -139,17 +140,29 @@ protected:
 			graph_fill(g, r.x, r.y, r.w, r.h, theme->basic.selectBGColor);
 			color = theme->basic.selectColor;
 		}
-		graph_draw_text_font(g, r.x+2, r.y+2, fonts[index].c_str(), theme->getFont(), theme->basic.fontSize, color);
+		graph_draw_text_font(g, r.x+2, r.y+2, fonts[index].name.c_str(), theme->getFont(), theme->basic.fontSize, color);
 	}
 
 	void onSelect(int index) {
 		if(demo == NULL)
 			return;
-		demo->setFont(fonts[index].c_str());
+		demo->setFont(fonts[index].font);
 	}
 public:
 	FontList() {
 		demo = NULL;
+		for(int i=0; i<MAX_FONTS; i++) {
+			fonts[i].name = "";
+			fonts[i].font = NULL;
+		}
+	}
+
+	~FontList() {
+		demo = NULL;
+		for(int i=0; i<MAX_FONTS; i++) {
+			if(fonts[i].font != NULL)
+				font_free(fonts[i].font);
+		}
 	}
 
 	void loadFont() {
@@ -164,7 +177,8 @@ public:
 			const char* s = proto_read_str(&ret);
 			if(s == NULL || s[0] == 0)
 				break;
-			fonts[i] = s;
+			fonts[i].name = s;
+			fonts[i].font = font_new(s, false);
 		}
 		PF->clear(&ret);
 		setItemNum(i);
@@ -186,8 +200,9 @@ int main(int argc, char** argv) {
 	FontList* list = new FontList();
 	list->loadFont();
 	list->setItemSize(20);
-	list->fix(160, 0);
+	list->fix(120, 0);
 	root->add(list);
+	root->focus(list);
 
 	Scroller* scrollerV = new Scroller();
 	scrollerV->fix(8, 0);
@@ -208,6 +223,7 @@ int main(int argc, char** argv) {
 	demo->setScrollerV(scrollerV);
 
 	win.open(&x, 0, -1, -1, 460, 460, "xfont", XWIN_STYLE_NORMAL);
+	list->select(0);
 	x.run(NULL, &win);
 	return 0;
 }
