@@ -73,7 +73,8 @@ static int32_t interrupt_send_raw(context_t* ctx, uint32_t interrupt,  interrupt
 	}
 
 	if(proc->space->interrupt.state != INTR_STATE_IDLE) {
-		//printf("inter err re-entre: intr:%d, pid:%d\n", interrupt, proc == NULL ? -1:proc->info.pid);
+		if(interrupt != IRQ_SOFT)
+			printf("inter err re-entre: intr:%d, pid:%d\n", interrupt, proc == NULL ? -1:proc->info.pid);
 		ctx->gpr[0] = -1;
 		return -1;
 	}	
@@ -84,7 +85,6 @@ static int32_t interrupt_send_raw(context_t* ctx, uint32_t interrupt,  interrupt
 		ctx->gpr[0] = -1;
 		return -1;
 	}
-	*/
 
 	ipc_task_t* ipc = proc_ipc_get_task(proc); 
 	if(ipc != NULL) { //target proc still busy on ipc service task
@@ -92,8 +92,9 @@ static int32_t interrupt_send_raw(context_t* ctx, uint32_t interrupt,  interrupt
 		ctx->gpr[0] = -1;
 		return -1;
 	}
+	*/
 
-	proc_save_state(proc, &proc->space->interrupt.saved_state);
+	proc_save_state(proc, &proc->space->interrupt.saved_state, &proc->space->interrupt.saved_ipc_res);
 	proc->space->interrupt.interrupt = interrupt;
 	proc->space->interrupt.entry = intr->entry;
 	proc->space->interrupt.data = intr->data;
@@ -135,7 +136,7 @@ void interrupt_end(context_t* ctx) {
 		return;
 	}
 
-	proc_restore_state(ctx, cproc, &cproc->space->interrupt.saved_state);
+	proc_restore_state(ctx, cproc, &cproc->space->interrupt.saved_state, &cproc->space->interrupt.saved_ipc_res);
 	if(cproc->info.state == READY || cproc->info.state == RUNNING) {
 	//if(cproc->info.state == READY) {
 		proc_ready(cproc);

@@ -62,7 +62,7 @@ int32_t proc_ipc_do_task(context_t* ctx, proc_t* serv_proc, uint32_t core) {
 		return -1;
 	}
 
-	proc_save_state(serv_proc, &serv_proc->space->ipc_server.saved_state);
+	proc_save_state(serv_proc, &serv_proc->space->ipc_server.saved_state, &serv_proc->space->ipc_server.saved_ipc_res);
 	serv_proc->space->ipc_server.do_switch = true;
 
 	if((ipc->call_id & IPC_LAZY) == 0)

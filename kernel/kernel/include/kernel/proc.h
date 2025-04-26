@@ -116,6 +116,6 @@ extern void    proc_ready(proc_t* proc);
 extern int32_t proc_childof(proc_t* proc, proc_t* parent);
 
 extern bool    proc_have_ready_task(uint32_t core);
-extern void    proc_save_state(proc_t* proc, saved_state_t* saved_state);
-extern void    proc_restore_state(context_t* ctx, proc_t* proc, saved_state_t* saved_state);
+extern void    proc_save_state(proc_t* proc, saved_state_t* saved_state, ipc_res_t* saved_ipc_res);
+extern void    proc_restore_state(context_t* ctx, proc_t* proc, saved_state_t* saved_state, ipc_res_t* saved_ipc_res);
 #endif

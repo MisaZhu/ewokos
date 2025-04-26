@@ -4,6 +4,7 @@
 #include <stdint.h>
 #include <interrupt.h>
 #include <kernel/context.h>
+#include <kernel/ipc.h>
 
 struct st_proc;
 
@@ -20,6 +21,8 @@ typedef struct {
 
 	uint32_t      state;
 	uint32_t      stack; //mapped stack page
+
+    ipc_res_t     saved_ipc_res;
 	saved_state_t saved_state;
 } proc_interrupt_t;
 

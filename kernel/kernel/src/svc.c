@@ -440,7 +440,7 @@ static void sys_ipc_end(context_t* ctx) {
 			ipc == NULL)
 		return;
 
-	proc_restore_state(ctx, serv_proc, &serv_proc->space->ipc_server.saved_state);
+	proc_restore_state(ctx, serv_proc, &serv_proc->space->ipc_server.saved_state, &serv_proc->space->ipc_server.saved_ipc_res);
 	if(serv_proc->info.state == READY || serv_proc->info.state == RUNNING)
 	//if(serv_proc->info.state == READY)
 		proc_ready(serv_proc);
@@ -450,7 +450,7 @@ static void sys_ipc_end(context_t* ctx) {
 	proc_wakeup(serv_proc->info.pid, -1, (uint32_t)&serv_proc->space->ipc_server); 
 
 	/*if(proc_ipc_fetch(serv_proc) != 0)  {//fetch next buffered ipc
-		proc_save_state(serv_proc, &serv_proc->space->ipc_server.saved_state);
+		proc_save_state(serv_proc, &serv_proc->space->ipc_server.saved_state, &serv_proc->space->ipc_server.saved_ipc_res);
 		serv_proc->space->ipc_server.do_switch = true;
 		proc_ready(serv_proc);
 		//proc_ipc_do_task(ctx, serv_proc, serv_proc->info.core);

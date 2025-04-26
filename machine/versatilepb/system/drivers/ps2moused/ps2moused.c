@@ -208,7 +208,7 @@ static int mouse_loop(void* p) {
 
 static void interrupt_handle(uint32_t interrupt, uint32_t p) {
 	(void)p;
-	ipc_disable();
+	//ipc_disable();
 
 	mouse_info_t info;
 	if(mouse_handler(&info) == 0) {
@@ -223,7 +223,7 @@ static void interrupt_handle(uint32_t interrupt, uint32_t p) {
 		proc_wakeup(RW_BLOCK_EVT);
 	}
 
-	ipc_enable();
+	//ipc_enable();
 	return;
 }
 

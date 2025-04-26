@@ -2,6 +2,7 @@
 #define PROC_SIGNAL_H
 
 #include <kernel/context.h>
+#include <kernel/ipc.h>
 
 struct st_proc;
 typedef struct {
@@ -10,6 +11,8 @@ typedef struct {
 
     bool          do_switch;
 	uint32_t      stack; //mapped stack page
+
+	ipc_res_t     saved_ipc_res;
 	saved_state_t saved_state;
 } signal_t;
 

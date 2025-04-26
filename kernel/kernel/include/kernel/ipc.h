@@ -40,6 +40,8 @@ typedef struct {
 
     bool          do_switch;
 	uint32_t      stack; //mapped stack page
+
+	ipc_res_t     saved_ipc_res;
 	saved_state_t saved_state;
 } ipc_server_t;
 
