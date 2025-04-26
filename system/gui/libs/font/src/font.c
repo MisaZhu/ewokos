@@ -52,7 +52,9 @@ int font_load(const char* name, const char* fname) {
 	int ret = -1;
 	if(dev_cntl_by_pid(_font_dev_pid, FONT_DEV_LOAD, &in, &out) == 0) {
 		ret = proto_read_int(&out);
+		klog("load %d\n", ret);
 	}
+	klog("end %d\n", ret);
 
 	PF->clear(&in);
 	PF->clear(&out);

@@ -10,9 +10,20 @@
 #include <font/font.h>
 #include <tinyjson/tinyjson.h>
 #include <freetype/freetype.h>
-#include "fontd.h"
+#include "ewoksys/mstr.h"
 
-ttf_item_t _ttfs[TTF_MAX];
+#define NAME_LEN 64
+#define FNAME_LEN 128
+
+typedef struct {
+	char name[NAME_LEN];
+	char fname[FNAME_LEN];
+	FT_Face face;
+} ttf_item_t;
+
+#define TTF_MAX  64
+
+static ttf_item_t _ttfs[TTF_MAX];
 
 static FT_Library _library;
 
@@ -29,6 +40,24 @@ static void font_dev_quit(void) {
 	}
 }
 
+static char* font_cmd(int from_pid, int argc, char** argv, void* p) {
+	if(strcmp(argv[0], "list") == 0) {
+		str_t* str = str_new("");
+        uint32_t i = 0;
+        for(int i=0; i<TTF_MAX; i++) {
+            if(_ttfs[i].face != NULL) {
+                str_add(str, _ttfs[i].name);
+                str_add(str, ", ");
+                str_add(str, _ttfs[i].fname);
+                str_add(str, "\n");
+            }
+        }
+		char* ret = str_detach(str);
+		return ret;
+	}
+	return NULL;
+}
+
 int font_open(const char* name, const char* fname) {
 	for(int i=0; i<TTF_MAX; i++) {
 		if(_ttfs[i].face != NULL &&
@@ -42,8 +71,9 @@ int font_open(const char* name, const char* fname) {
 		if(_ttfs[i].face == NULL)
 			break;
 	}
-	if(i >= TTF_MAX)
+	if(i >= TTF_MAX) {
 		return -1;
+	}
 
 	if(FT_New_Face(_library, fname, 0, &_ttfs[i].face) != 0)
 		return -1;
