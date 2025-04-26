@@ -1,7 +1,7 @@
 #include <ewoksys/interrupt.h>
 #include <ewoksys/syscall.h>
 
-#define SOFT_INTR_RETRY_MAX 256
+#define SOFT_INTR_RETRY_MAX 1024
 
 static void sys_interrupt_handler(uint32_t interrupt, uint32_t data) {
 	interrupt_handler_t* idata = (interrupt_handler_t*)data;

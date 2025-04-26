@@ -19,7 +19,6 @@ typedef struct interrupt_st {
 typedef struct {
 	interrupt_handler_t handler;
 	uint32_t irq;
-	bool triggered;
 } interrupt_item_t;
 
 static interrupt_item_t _interrupts[SYS_INT_MAX];
@@ -79,15 +78,17 @@ static int32_t interrupt_send_raw(context_t* ctx, uint32_t interrupt,  interrupt
 		return -1;
 	}	
 
+/*
 	if(proc->ipc_res.state != IPC_IDLE) {
-		//printf("inter err ipc req: intr:%d, pid:%d\n", interrupt, proc == NULL ? -1:proc->info.pid);
+		printf("inter err ipc req: intr:%d, pid:%d\n", interrupt, proc == NULL ? -1:proc->info.pid);
 		ctx->gpr[0] = -1;
 		return -1;
 	}
+	*/
 
-	ipc_task_t* ipc = proc_ipc_get_task(proc);
-	if(ipc != NULL) {
-		//printf("inter err ipc svr: intr:%d, pid:%d\n", interrupt, proc->info.pid);
+	ipc_task_t* ipc = proc_ipc_get_task(proc); 
+	if(ipc != NULL) { //target proc still busy on ipc service task
+		printf("inter err ipc svr: intr:%d, pid:%d\n", interrupt, proc->info.pid);
 		ctx->gpr[0] = -1;
 		return -1;
 	}
@@ -97,6 +98,7 @@ static int32_t interrupt_send_raw(context_t* ctx, uint32_t interrupt,  interrupt
 	proc->space->interrupt.entry = intr->entry;
 	proc->space->interrupt.data = intr->data;
 	proc->space->interrupt.state = INTR_STATE_START;
+
 	if(interrupt != IRQ_SOFT)
 		irq_disable_cpsr(&proc->ctx); //disable interrupt on proc
 
@@ -109,10 +111,7 @@ int32_t  interrupt_send(context_t* ctx, uint32_t interrupt) {
 	if(item == NULL)
 		return -1;
 
-	item->triggered = true;
 	int32_t res = interrupt_send_raw(ctx, interrupt, &item->handler);
-	if(res == 0)
-		item->triggered = false;
 	return res;
 }
 
@@ -150,17 +149,3 @@ void interrupt_end(context_t* ctx) {
 	schedule(ctx);
 }
 
-int32_t interrupt_retrigger(context_t* ctx) {
-	interrupt_item_t* item = NULL;
-	for(uint32_t i=0; i<SYS_INT_MAX; i++) {
-		if(_interrupts[i].triggered) {
-			item = &_interrupts[i];
-			break;
-		}
-	}
-
-	if(item == NULL)
-		return -1;
-	//printf("retrigger irq %d\n", item->irq);
-	return interrupt_send(ctx, item->irq);
-}

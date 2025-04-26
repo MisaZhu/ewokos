@@ -66,9 +66,6 @@ static inline void irq_do_timer0(context_t* ctx) {
 	
 	timer_clear_interrupt(0);
 
-	if(interrupt_retrigger(ctx) == 0)
-		return;
-
 #ifdef KERNEL_SMP
 	ipi_send_all();
 #else
