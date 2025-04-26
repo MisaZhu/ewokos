@@ -254,9 +254,9 @@ void gterminal_scroll(gterminal_t* terminal, int direction) {
     if(direction == 0)
         terminal->scroll_offset = 0;
     else if(direction < 0)
-        terminal->scroll_offset -= terminal->rows / 2;
+        terminal->scroll_offset -= terminal->rows / 4;
     else
-        terminal->scroll_offset += terminal->rows / 2;
+        terminal->scroll_offset += terminal->rows / 4;
 
     if(terminal->scroll_offset > 0)
         terminal->scroll_offset = 0;
