@@ -27,6 +27,7 @@ protected:
 
 		if(font == NULL)
 			return;
+		getWin()->busy(true);
 
 		uint32_t y = 0;
 		uint16_t margin = 4;
@@ -46,6 +47,7 @@ protected:
 
 		demoH = y;
 		updateScroller();
+
 		getWin()->busy(false);
 	}
 
@@ -113,7 +115,6 @@ public:
 		font = fnt;
 		off_y = 0;
 		update();
-		getWin()->busy(true);
 	}
 };
 
