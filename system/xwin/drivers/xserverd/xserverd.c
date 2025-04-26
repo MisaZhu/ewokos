@@ -563,7 +563,7 @@ static void x_repaint(x_t* x, uint32_t display_index) {
 	display->need_repaint = false;
 	bool do_flush = false;
 
-	if(display->cursor_task) {
+	if(display->cursor_task || x->mouse_state.busy) {
 		display->cursor_task = false;
 		do_flush = true;
 	}	
