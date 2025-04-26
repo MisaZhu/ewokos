@@ -169,13 +169,11 @@ protected:
 				return;
 			}
 			else if(c == KEY_BUTTON_X) {
-				//doKeyIn(KEY_ROLL_BACK);
 				doKeyIn('-');
 				repaint();
 				return;
 			}
 			else if(c == KEY_BUTTON_B) {
-				//doKeyIn(KEY_ROLL_FORWARD);
 				doKeyIn(' ');
 				repaint();
 				return;
@@ -325,9 +323,6 @@ protected:
 		}
 		else if(c == '\r') {
 			inputS[0] = 0;
-		}
-		else if(c == '\4') {
-			ev.value.im.value = KEY_ROLL_BACK;
 		}
 		else if(c < 0xF0 && len < INPUT_MAX-1) {
 			if(!hideMode) {

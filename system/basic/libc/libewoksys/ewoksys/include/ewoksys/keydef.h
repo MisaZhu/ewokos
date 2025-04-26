@@ -5,8 +5,6 @@
 extern "C" {
 #endif
 
-#define KEY_ROLL_BACK       0xF1 
-#define KEY_ROLL_FORWARD    0xF2
 #define CONSOLE_LEFT        8
 
 #define KEY_ESC             27
