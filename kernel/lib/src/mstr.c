@@ -29,6 +29,7 @@ char* str_ncpy(str_t* str, const char* src, uint32_t l) {
 	if(len > l)
 		len = l;
 
+	len++;
 	uint32_t new_size = len;
 	if(str->max <= new_size) {
 		new_size = len + STR_BUF; /*STR BUF for buffer*/
@@ -36,6 +37,7 @@ char* str_ncpy(str_t* str, const char* src, uint32_t l) {
 		str->cstr = (char*)kmalloc(new_size);
 		str->max = new_size;
 	}
+	len--;
 
 	sstrncpy(str->cstr, src, len);
 	str->cstr[len] = 0;
