@@ -19,13 +19,9 @@ public:
 
 	static void* loadThread(void* p) {
 		FontWidget* fw = (FontWidget*)p;
-		klog("1\n");
 		fw->getWin()->busy(true);
-		klog("2\n");
 		if(font_load(fw->fontName.c_str(), fw->fontFileName.c_str()) >= 0) {
-		klog("3\n");
 			fw->font = font_new(fw->fontName.c_str(), false);
-		klog("4 %x\n", fw->font);
 			if(fw->font != NULL)
 				fw->fontLoaded = true;
 		}
@@ -55,14 +51,11 @@ protected:
 		uint16_t margin = 2;
 		uint32_t y = 0;
 
-		klog("p1\n");
-
 		graph_fill(g, r.x, y, r.w, font_get_height(font, theme->basic.fontSize), theme->basic.titleBGColor);
 		std::string text = "[ font: ";
 		text += fontName + " ]";
 		graph_draw_text_font(g, r.x+10, y, text.c_str(), font, theme->basic.fontSize, theme->basic.docFGColor);
 		y += theme->basic.fontSize + margin*2;
-		klog("p2\n");
 
 		for(int i=0; i<3; i++) {
 			uint16_t size = (i+1) * 8;
@@ -77,9 +70,7 @@ protected:
 			graph_draw_text_font(g, r.x+10, y, "中文字体演示", font, size, theme->basic.docFGColor);
 			y += (size + margin)*2;
 		}
-		klog("p3\n");
 		getWin()->busy(false);
-		klog("p4\n");
 	}
 
 	void onTimer(uint32_t timerFPS, uint32_t timerStep) {
@@ -107,23 +98,16 @@ int main(int argc, char** argv) {
 	WidgetWin win;
 
 
-	klog("m0\n");
 	RootWidget* root = new RootWidget();
 	win.setRoot(root);
-	klog("m01\n");
 	root->setType(Container::HORIZONTAL);
-	klog("m02\n");
 
 	FontWidget* fontW = new FontWidget(argv[1]);
 	root->add(fontW);
 
-	klog("m1\n");
 	win.open(&x, 0, -1, -1, 400, 460, "xfont", XWIN_STYLE_NORMAL);
-	klog("m2\n");
 	win.setTimer(8);
-	klog("m3\n");
 
 	widgetXRun(&x, &win);
-	klog("m4\n");
 	return 0;
 }
