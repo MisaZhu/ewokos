@@ -305,9 +305,9 @@ int main(int argc, char *argv[])
 				break;
 			}
 			if (argv[i] == NULL) {
-				strncpy(wavFileName, "/data/test/test.wav", 32);
+				strncpy(wavFileName, "/data/test/test.wav", 31);
 			}else {
-				strncpy(wavFileName, argv[i], 32);
+				strncpy(wavFileName, argv[i], 31);
 			}
 			playWav = 1;
 		} else if (strcmp(argv[i], "-r") == 0) {

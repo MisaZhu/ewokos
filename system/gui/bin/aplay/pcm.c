@@ -130,7 +130,7 @@ struct pcm* pcm_open(const char *name, struct pcm_config *config)
 		return NULL;
 	}
 
-	strncpy(pcm->name, name, 32);
+	strncpy(pcm->name, name, 31);
 	memcpy(&pcm->config, config, sizeof(struct pcm_config));
 	pcm->framesize = config->channels * config->bit_depth / 8;
 
