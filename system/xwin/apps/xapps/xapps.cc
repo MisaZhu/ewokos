@@ -1,4 +1,5 @@
 #include <Widget/WidgetWin.h>
+#include <Widget/WidgetX.h>
 #include <Widget/Image.h>
 #include <Widget/Label.h>
 #include <Widget/LabelButton.h>
@@ -225,6 +226,6 @@ int main(int argc, char** argv) {
 	win.repaint();
 	win.busy(false);
 
-	x.run(NULL, &win);
+	widgetXRun(&x, &win);
 	return 0;
 }

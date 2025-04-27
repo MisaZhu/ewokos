@@ -27,6 +27,7 @@ LIB_WIDGET_OBJS =  src/Widget/Widget.o \
 		src/Widget/Stage.o \
 		src/Widget/Columns.o \
 		src/Widget/WidgetWin.o \
+		src/Widget/WidgetX.o \
 		\
 		src/WidgetEx/FileWidget.o \
 		src/WidgetEx/Dialog.o \

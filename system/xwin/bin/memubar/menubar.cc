@@ -1,4 +1,5 @@
 #include <Widget/WidgetWin.h>
+#include <Widget/WidgetX.h>
 #include <WidgetEx/Menubar.h>
 #include <WidgetEx/Menu.h>
 #include <Widget/LabelButton.h>
@@ -132,6 +133,6 @@ int main(int argc, char** argv) {
 
 	win.open(&x, 0, 0, 0, scr.size.w, 20, "", XWIN_STYLE_NO_FOCUS | XWIN_STYLE_SYSBOTTOM | XWIN_STYLE_NO_FRAME);
 	win.setTimer(2);
-	x.run(NULL, &win);
+	widgetXRun(&x, &win);
 	return 0;
 }

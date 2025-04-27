@@ -44,6 +44,7 @@ char* str_ncpy(str_t* str, const char* src, uint32_t l) {
 	uint32_t len = (uint32_t)strlen(src);
 	if(len > l)
 		len = l;
+	len++;
 
 	uint32_t new_size = len;
 	if(str->max <= new_size) {
@@ -51,6 +52,7 @@ char* str_ncpy(str_t* str, const char* src, uint32_t l) {
 		str->cstr = realloc(str->cstr, new_size);
 		str->max = new_size;
 	}
+	len--;
 
 	strncpy(str->cstr, src, len);
 	str->cstr[len] = 0;

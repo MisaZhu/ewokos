@@ -56,8 +56,6 @@ void WidgetWin::timerTask() {
 		return;
 
 	root->onTimer(timerFPS, timerStep++);
-	if(!painting)
-		root->repaintWin();
 }
 
 void WidgetWin::setRoot(RootWidget* root) {

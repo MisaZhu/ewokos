@@ -1,4 +1,5 @@
 #include <Widget/WidgetWin.h>
+#include <Widget/WidgetX.h>
 #include <Widget/Image.h>
 #include <Widget/Label.h>
 #include <Widget/LabelButton.h>
@@ -300,6 +301,7 @@ int main(int argc, char** argv) {
 	win.open(&x, 0, -1, -1, 400, 300, "xpng", XWIN_STYLE_NORMAL);
 	if(argc >= 2)
 		win.load(imgView, argv[1]);
-	x.run(NULL, &win);
+
+	widgetXRun(&x, &win);
 	return 0;
 }

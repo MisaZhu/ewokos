@@ -1,4 +1,5 @@
 #include <Widget/WidgetWin.h>
+#include <Widget/WidgetX.h>
 #include <x++/X.h>
 #include <unistd.h>
 #include <stdlib.h>
@@ -171,6 +172,7 @@ int main(int argc, char** argv) {
 
 	win.open(&x, 0, -1, -1, 360, 140, "xcores", XWIN_STYLE_NORMAL);
 	win.setTimer(1);
-	x.run(NULL, &win);
+
+	widgetXRun(&x, &win);	
 	return 0;
 }

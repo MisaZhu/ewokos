@@ -29,6 +29,7 @@ public:
 	void setRoot(RootWidget* root);
 	void setTimer(uint32_t fps);
 	void timerTask();
+	inline bool isPainting() { return painting; }
 };
 
 }

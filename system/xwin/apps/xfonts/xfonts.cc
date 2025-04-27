@@ -1,4 +1,5 @@
 #include <Widget/WidgetWin.h>
+#include <Widget/WidgetX.h>
 #include <Widget/Image.h>
 #include <Widget/Label.h>
 #include <Widget/LabelButton.h>
@@ -226,6 +227,7 @@ int main(int argc, char** argv) {
 	win.open(&x, 0, -1, -1, 460, 460, "xfont", XWIN_STYLE_NORMAL);
 	list->select(0);
 	win.repaint();
-	x.run(NULL, &win);
+
+	widgetXRun(&x, &win);
 	return 0;
 }

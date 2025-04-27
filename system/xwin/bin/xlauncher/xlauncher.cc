@@ -1,4 +1,5 @@
 #include <Widget/WidgetWin.h>
+#include <Widget/WidgetX.h>
 #include <Widget/Image.h>
 #include <Widget/Label.h>
 #include <Widget/LabelButton.h>
@@ -235,6 +236,7 @@ int main(int argc, char** argv) {
 	win.open(&x, 0, wr, "xlauncher",
 				XWIN_STYLE_NO_TITLE | XWIN_STYLE_LAUNCHER);
 				//XWIN_STYLE_NO_TITLE | XWIN_STYLE_LAUNCHER | XWIN_STYLE_SYSBOTTOM);
-	x.run(NULL, &win);
+
+	widgetXRun(&x, &win);
 	return 0;
 }

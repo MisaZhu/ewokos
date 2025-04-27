@@ -1,4 +1,5 @@
 #include <Widget/WidgetWin.h>
+#include <Widget/WidgetX.h>
 #include <Widget/Text.h>
 #include <Widget/Label.h>
 #include <WidgetEx/Menubar.h>
@@ -194,6 +195,7 @@ int main(int argc, char** argv) {
 		win.load(argv[1]);
 		win.repaint();
 	}
-	x.run(NULL, &win);
+
+	widgetXRun(&x, &win);
 	return 0;
 }
