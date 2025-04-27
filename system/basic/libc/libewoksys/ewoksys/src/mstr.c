@@ -99,7 +99,7 @@ char* str_add(str_t* str, const char* src) {
 	}
 
 	uint32_t len = (uint32_t)strlen(src);
-	uint32_t new_size = str->len + len;
+	uint32_t new_size = str->len + len + 1;
 	if(str->max <= new_size) {
 		new_size = str->len + len + STR_BUF; /*STR BUF for buffer*/
 		str->cstr = realloc(str->cstr, new_size);
