@@ -17,6 +17,7 @@ public:
 	X(void);
 	void run(void (*loop)(void*), void* p = NULL);
 	void terminate(void);
+	bool terminated(void);
 
 	static const char* getResName(const char* name);
 
