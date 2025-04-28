@@ -79,7 +79,6 @@ LIB_EWOKSYS_OBJS =  \
 	src/pthread/pthread_mutex_unlock.o \
 	src/pthread/pthread_self.o\
 	\
-	src/stdlib/setenv.o \
 	src/stdlib/exit.o
 	
 EWOKSYS = $(TARGET_DIR)/lib/libewoksys.a
