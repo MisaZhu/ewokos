@@ -20,8 +20,9 @@ inline void _delay_msec(uint32_t count) {
 	_delay_usec(count*1000);
 }
 
-#ifdef KERNEL_SMP
 extern void __flush_dcache_all(void);
+
+#ifdef KERNEL_SMP
 
 inline void flush_dcache(void) {
 	__flush_dcache_all();

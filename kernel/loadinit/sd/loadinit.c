@@ -2,6 +2,7 @@
 #include <stddef.h>
 #include <kprintf.h>
 #include <kernel/proc.h>
+#include <kernel/system.h>
 #include <mm/kmalloc.h>
 #include <dev/sd.h>
 #include <kstring.h>

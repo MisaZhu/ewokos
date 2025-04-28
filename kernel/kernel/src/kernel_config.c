@@ -3,6 +3,7 @@
 #include <kernel/core.h>
 #include <stddef.h>
 #include <sconf.h>
+#include <kstring.h>
 #include <atoi.h>
 
 kernel_conf_t _kernel_config;

@@ -15,6 +15,7 @@
 #include <dev/timer.h>
 #include <kprintf.h>
 #include <dev/uart.h>
+#include <dev/sd.h>
 #include <stddef.h>
 #include <sysinfo.h>
 #include <kernel/semaphore.h>

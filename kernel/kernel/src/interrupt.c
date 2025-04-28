@@ -4,6 +4,7 @@
 #include <kernel/proc.h>
 #include <stddef.h>
 #include <kstring.h>
+#include <kprintf.h>
 #include <kernel/schedule.h>
 #include <kernel/irq.h>
 #include <kernel/system.h>

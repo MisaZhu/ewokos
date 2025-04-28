@@ -304,7 +304,7 @@ void* shm_proc_map(proc_t* proc, int32_t id) {
 	//check if mapped , keep it and return
 	for (i = 0; i < SHM_MAX; i++) {
 		if(proc->space->shms[i] == id)
-			return it->addr;
+			return (void*)it->addr;
 	}
 
 	//do real map

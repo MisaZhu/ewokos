@@ -61,7 +61,7 @@ int32_t procs_init(void) {
 	}
 
 	size = _kernel_config.max_task_num*sizeof(proc_t);
-	_task_table = (proc_t*)kmalloc(size);
+	_task_table = (proc_t**)kmalloc(size);
 	for (i = 0; i < _kernel_config.max_task_num; i++) {
 		_task_table[i] = NULL;
 	}
@@ -186,7 +186,7 @@ uint32_t thread_stack_alloc(proc_t* proc) {
 	if(proc->space->thread_stacks[i].stacks == NULL) 
 		proc->space->thread_stacks[i].stacks = kmalloc(THREAD_STACK_PAGES*sizeof(void*));
 	memset(proc->space->thread_stacks[i].stacks, 0, THREAD_STACK_PAGES*sizeof(void*));
-	map_stack(proc, proc->space->thread_stacks[i].stacks, base, pages);
+	map_stack(proc, (uint32_t*)proc->space->thread_stacks[i].stacks, base, pages);
 	return base;
 }
 
@@ -198,7 +198,7 @@ void thread_stack_free(proc_t* proc, uint32_t base) {
 	}
 	if(i >= _kernel_config.max_task_per_proc) 
 		return;
-	unmap_stack(proc, proc->space->thread_stacks[i].stacks, base, THREAD_STACK_PAGES);
+	unmap_stack(proc, (uint32_t*)proc->space->thread_stacks[i].stacks, base, THREAD_STACK_PAGES);
 	proc->space->thread_stacks[i].base = 0;
 	if(proc->space->thread_stacks[i].stacks != NULL)  {
 		kfree(proc->space->thread_stacks[i].stacks);

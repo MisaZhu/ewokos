@@ -1,6 +1,7 @@
 #include <mstr.h>
-#include <string.h>
+#include <kstring.h>
 
+#include <stddef.h>
 #include <stdarg.h>
 #include <mm/kmalloc.h>
 

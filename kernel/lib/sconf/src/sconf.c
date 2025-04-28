@@ -1,6 +1,7 @@
 #include <sconf.h>
 #include <kstring.h>
 #include <ext2read.h>
+#include <mm/kmalloc.h>
 #include <stddef.h>
 
 static inline int is_space(char c) {
@@ -143,7 +144,7 @@ const char* sconf_get(sconf_t *conf, const char*name) {
 }
 
 sconf_t* sconf_load(const char* fname) {
-	int size;
+	int32_t size;
 	char* str = sd_read_ext2(fname, &size);
 	if(str == NULL || size == 0)
 		return NULL;

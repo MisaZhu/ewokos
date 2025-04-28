@@ -7,6 +7,7 @@
 #include <kernel/kernel.h>
 #include <stddef.h>
 #include <kstring.h>
+#include <dev/timer.h>
 
 #define IPC_BUFFER_SIZE 32
 

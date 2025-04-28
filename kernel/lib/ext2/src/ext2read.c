@@ -23,7 +23,7 @@ static int32_t sd_read_sector(int32_t sector, void* buf) {
 	return 0;
 }
 
-static int32_t sd_read(uint32_t block, void* buf) {
+static int32_t sd_read(int32_t block, void* buf) {
 	int32_t n = EXT2_BLOCK_SIZE/512;
 	int32_t sector = block * n + _partition.start_sector;
 	char* p = (char*)buf;
@@ -289,13 +289,12 @@ static int32_t get_gds(ext2_t* ext2) {
 	return 0;
 }
 
-static int32_t ext2_init(ext2_t* ext2, read_block_func_t read_block, write_block_func_t write_block) {
+static int32_t ext2_init(ext2_t* ext2, read_block_func_t read_block) {
 	memset(&_partition, 0, sizeof(partition_t));
 	_partition.start_sector = get_rootfs_entry(sd_read_sector);
 
 	char buf[EXT2_BLOCK_SIZE];
 	ext2->read_block = read_block;
-	ext2->write_block = write_block;
 
 	ext2->read_block(1, buf);
 	memcpy(&ext2->super, buf, sizeof(SUPER));
@@ -343,7 +342,7 @@ static void* ext2_readfile(ext2_t* ext2, const char* fname, int32_t* size) {
 
 void* sd_read_ext2(const char* fname, int32_t* size) {
 	ext2_t ext2;
-	ext2_init(&ext2, sd_read, NULL);
+	ext2_init(&ext2, sd_read);
 	void* ret = ext2_readfile(&ext2, fname, size);
 	ext2_quit(&ext2);
 	return ret;
