@@ -2,6 +2,9 @@
 #include <stdarg.h>
 #include <stdio.h>
 #include <fcntl.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <string.h>
 #include <ewoksys/mstr.h>
 #include <ewoksys/syscall.h>
 

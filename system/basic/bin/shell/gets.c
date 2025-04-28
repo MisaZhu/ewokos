@@ -51,6 +51,8 @@ static void clear_buf(str_t* buf) {
 	buf->len = 0;
 }
 
+void putch(int c);
+
 int32_t cmd_gets(int fd, str_t* buf) {
 	str_reset(buf);	
 	old_cmd_t* head = NULL;

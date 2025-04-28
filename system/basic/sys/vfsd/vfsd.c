@@ -497,7 +497,7 @@ static vfs_node_t* vfs_dup(int32_t pid, int32_t from, int32_t *ret) {
 	return f_to->node;
 }
 
-static int32_t vfs_dup2(int32_t pid, int32_t from, int32_t to) {
+static vfs_node_t* vfs_dup2(int32_t pid, int32_t from, int32_t to) {
 	file_t* f = vfs_check_fd(pid, from);
 	if(f == NULL) 
 		return NULL;
@@ -690,7 +690,7 @@ static void do_vfs_close(int32_t pid, proto_t* in) {
 
 static void do_vfs_dup(int32_t pid, proto_t* in, proto_t* out) {
 	int fd = proto_read_int(in);
-	int fdto = -1;
+	int32_t fdto = -1;
 	vfs_node_t* node = vfs_dup(pid, fd, &fdto);
 	if(node != NULL)
 		PF->addi(out, fdto)->add(out, gen_fsinfo(node), sizeof(fsinfo_t));
@@ -699,8 +699,8 @@ static void do_vfs_dup(int32_t pid, proto_t* in, proto_t* out) {
 }
 
 static void do_vfs_dup2(int32_t pid, proto_t* in, proto_t* out) {
-	int fd = proto_read_int(in);
-	int fdto = proto_read_int(in);
+	int32_t fd = proto_read_int(in);
+	int32_t fdto = proto_read_int(in);
 
 	vfs_node_t* node = vfs_dup2(pid, fd, fdto);
 	if(node != NULL)

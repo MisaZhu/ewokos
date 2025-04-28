@@ -5,6 +5,8 @@
 #include <ewoksys/vdevice.h>
 #include <sys/errno.h>
 #include <unistd.h>
+#include <stdlib.h>
+#include <string.h>
 #include <ewoksys/vfs.h>
 
 
@@ -152,13 +154,13 @@ int32_t recvfrom (int fd, void * buf, uint32_t n,
 	if(vfs_get_by_fd(fd, &info) != 0)
 		return -1;
 
-    PF->init(&in)->addi(&in, n)->addi(&in, addr_len);
+    PF->init(&in)->addi(&in, n)->addi(&in, *addr_len);
     PF->init(&out);
 	do_vfs_fcntl(fd, SOCK_RECVFROM, &in , &out);
     ret = proto_read_int(&out);
     if(ret > 0){
         proto_read_to(&out, buf, n);
-        proto_read_to(&out, addr, addr_len);
+        proto_read_to(&out, addr, *addr_len);
     }
     PF->clear(&in);
 	PF->clear(&out);
@@ -211,7 +213,7 @@ int accept (int fd, struct sockaddr* addr,uint32_t * addr_len){
 	ret = do_vfs_fcntl(fd, SOCK_ACCEPT, NULL , &out);
     ret = proto_read_int(&out);
     if(ret > 0){
-        proto_read_to(&out, addr, addr_len);
+        proto_read_to(&out, addr, *addr_len);
     }
 	PF->clear(&out);
     int accept_fd = open("/dev/net0", 0);
@@ -245,8 +247,8 @@ struct hostent *gethostbyname(const char *name){
 
 int getaddrinfo( const char *node, const char *service, 
                 const struct addrinfo *hints, struct addrinfo **res){
-    struct  addrinfo *ret = malloc(sizeof(struct addrinfo));
-	struct sockaddr_in *in = malloc(sizeof(struct sockaddr_in));
+    struct  addrinfo *ret = (struct  addrinfo *)malloc(sizeof(struct addrinfo));
+	struct sockaddr_in *in = (struct  sockaddr_in *)malloc(sizeof(struct sockaddr_in));
 
     memset(ret, 0, sizeof(struct addrinfo));
     memset(in, 0, sizeof(IN_ADDR));

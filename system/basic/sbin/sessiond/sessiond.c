@@ -9,6 +9,7 @@
 #include <ewoksys/proc.h>
 #include <ewoksys/keydef.h>
 #include <ewoksys/session.h>
+#include <ewoksys/klog.h>
 
 #define USER_NUM_MAX 64
 
@@ -78,7 +79,7 @@ static int read_user_item(int fd, session_info_t* info) {
 static int read_user_info(void) {
 	int fd = open("/etc/passwd", O_RDONLY);
 	if(fd < 0) {
-		dprintf(3, "Error, open password file failed!\n");
+		fprintf(stderr, "Error, open password file failed!\n");
 		return -1;
 	}
 	_user_num = 0;

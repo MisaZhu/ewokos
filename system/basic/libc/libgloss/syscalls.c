@@ -396,7 +396,7 @@ _close (int fd)
 {
 	fsinfo_t info;
 	if(vfs_get_by_fd(fd, &info) != 0)
-		return;
+		return -1;
 
 	int ret = vfs_close(fd);
 	return ret;
@@ -418,7 +418,7 @@ _sbrk (ptrdiff_t incr)
   char *prev_heap_end;
 
   __heap_size += incr;
-  __heap_ptr = syscall1(SYS_MALLOC_EXPAND, incr);
+  __heap_ptr = (void*)syscall1(SYS_MALLOC_EXPAND, incr);
   if(incr > 0)
   	memset(__heap_end, 0, incr);
 
@@ -433,7 +433,7 @@ _sbrk (ptrdiff_t incr)
 
 void _libc_init(void){
 	kout(__func__);	
-	__heap_ptr = syscall1(SYS_MALLOC_EXPAND, 16384);
+	__heap_ptr = (void*)syscall1(SYS_MALLOC_EXPAND, 16384);
 	__heap_end = __heap_ptr;
 	__heap_size = 16384;	
 	memset(__heap_ptr, 0, __heap_size);
@@ -620,7 +620,7 @@ void __malloc_close(void){
 }
 
 void _kill(int pid, int sig){
-	return syscall2(SYS_SIGNAL, pid, sig);
+	syscall2(SYS_SIGNAL, pid, sig);
 }
 
 void _fini(void){

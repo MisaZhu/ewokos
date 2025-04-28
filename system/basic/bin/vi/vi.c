@@ -13,11 +13,14 @@
 #include <stdarg.h>
 #include <stddef.h>
 #include <stdint.h>
+#include <stdlib.h>
 #include <stdio.h>
+#include <unistd.h>
 #include <string.h>
 #include <stdbool.h>
 #include <fcntl.h>
 #include <sys/stat.h>
+#include <ewoksys/proc.h>
 
 #include "vi.h"
 
@@ -66,7 +69,7 @@ static void* memrchr(const void* s, int c, size_t n) {
 }
 
 static void* zalloc(size_t bytes) {
-    char* cp = malloc(bytes);
+    char* cp = (char*)malloc(bytes);
     if (cp)
         memset(cp, 0, bytes);
     return cp;

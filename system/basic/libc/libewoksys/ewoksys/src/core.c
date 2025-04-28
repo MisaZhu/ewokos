@@ -3,6 +3,8 @@
 #include <ewoksys/proc.h>
 #include <ewoksys/ipc.h>
 #include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
 
 #define ENV_UX_ID "UX_ID"
 

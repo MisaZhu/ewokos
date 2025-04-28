@@ -37,9 +37,9 @@ static void sector_buf_free(sector_buf_block_t* buffer, uint32_t num) {
 		if(buffer[block_num-1].data != NULL) {
 			for(uint32_t i=0; i<BUF_BLOCK_SIZE; i++) {
 				if(buffer[block_num-1].data[i] != NULL)
-					free(buffer[block_num-1].data[i]);
+					free((void*)buffer[block_num-1].data[i]);
 			}
-			free(buffer[block_num-1].data);
+			free((void*)buffer[block_num-1].data);
 		}
 		block_num--;
 	}
@@ -61,8 +61,8 @@ static inline void sector_buf_set(uint32_t index, const void* data) {
 		memset(_sector_buf[block_index].data, 0, sz);
 	}
 
-	_sector_buf[block_index].data[index] = malloc(SECTOR_SIZE);
-	memcpy(_sector_buf[block_index].data[index], data, SECTOR_SIZE);
+	_sector_buf[block_index].data[index] = (addr_t)malloc(SECTOR_SIZE);
+	memcpy((void*)_sector_buf[block_index].data[index], data, SECTOR_SIZE);
 	_sector_buf[block_index].refs++;
 }
 
@@ -77,7 +77,7 @@ static inline void* sector_buf_get(uint32_t index) {
 	if(_sector_buf[block_index].data == NULL)
 		return NULL;
 
-	return _sector_buf[block_index].data[index];
+	return (void*)_sector_buf[block_index].data[index];
 }
 
 //sd arch functions 
@@ -175,6 +175,10 @@ int32_t sd_quit(void) {
 	return 0;
 }
 
+static int32_t sd_read_sector_cache(int32_t sector, void* buf) {
+	return sd_read_sector(sector, buf, 1);
+}
+
 int32_t sd_init(sd_init_func init, sd_read_sector_func rd, sd_write_sector_func wr) {
 	_sector_buf = NULL;
 	_sector_buf_num = 0;
@@ -187,7 +191,7 @@ int32_t sd_init(sd_init_func init, sd_read_sector_func rd, sd_write_sector_func 
 	if(sd_init_arch() != 0)
 		return -1;
 
-	_partition.start_sector = get_rootfs_entry(sd_read_sector);
+	_partition.start_sector = (uint32_t)get_rootfs_entry(sd_read_sector_cache);
 	return 0;
 }
 

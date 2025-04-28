@@ -5,6 +5,8 @@
 #include <ewoksys/sys.h>
 #include <pthread.h>
 #include <unistd.h>
+#include <stdlib.h>
+#include <string.h>
 #include <ewoksys/core.h>
 #include <malloc.h>
 

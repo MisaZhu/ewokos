@@ -189,7 +189,7 @@ static inline unsigned char *gpt_get_entry_ptr(struct gpt_label *gpt, size_t i)
     return gpt->ents + le32_to_cpu(gpt->pheader->sizeof_partition_entry) * i;
 }
 
-static inline struct gpt_entry *gpt_get_entry(struct fdisk_gpt_label *gpt, size_t i)
+static inline struct gpt_entry *gpt_get_entry(struct gpt_label *gpt, size_t i)
 {
     return (struct gpt_entry *) gpt_get_entry_ptr(gpt, i);
 }
@@ -276,7 +276,7 @@ uint32_t get_rootfs_entry(int32_t (*read_sector)(int32_t sector, void* buf)){
 
 	int mbr_type = valid_pmbr(mbr);
 	if(mbr_type == 0){
-    	partition_t* p = mbr + 0x1BE;
+    	partition_t* p = (partition_t*)(mbr + 0x1BE);
     	for(int32_t i=0; i < 4; i++) {
 			if(p->start_sector > 0)
 				rootfs_start = p->start_sector;

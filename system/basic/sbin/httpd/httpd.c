@@ -6,6 +6,7 @@
 #include <arpa/inet.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
+#include <ewoksys/proc.h>
 
 #define EXIT_FAILURE -1
 #define F_OK 0
@@ -17,7 +18,7 @@
 #define SERVER_PORT 80
 
 void sgets(char* buf, int size, int sock){
-    return recv(sock, buf, size, 0);
+    recv(sock, (void*)buf, size, 0);
 }
 
 void send_error_msg(int fd, const int error_code)
@@ -123,7 +124,7 @@ void test(int i){
 
 void *test_handler(void *arg){
     proc_usleep(1000);
-    test(arg);
+    test((int)arg);
     close((int)arg);
 }
 

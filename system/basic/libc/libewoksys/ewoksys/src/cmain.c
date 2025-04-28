@@ -7,6 +7,7 @@
 #include <ewoksys/signal.h>
 #include <ewoksys/proc.h>
 #include <ewoksys/vfs.h>
+#include <ewoksys/ipc.h>
 #include <ewoksys/sys.h>
 #include <ewoksys/core.h>
 #include <procinfo.h>
@@ -120,6 +121,10 @@ static int set_stderr(void) {
 	return -1;
 }
 
+
+void _libc_init(void);
+void _libc_exit(void);
+
 void _start(void) {
 	char* argv[ARG_MAX] = {0};
 	int32_t argc = 0;
@@ -132,7 +137,7 @@ void _start(void) {
 	_current_pid = -1;
 	_current_pid = getpid();
 
-	_vsyscall_info = syscall0(SYS_GET_VSYSCALL_INFO);
+	_vsyscall_info = (vsyscall_info_t*)syscall0(SYS_GET_VSYSCALL_INFO);
 	if(_vsyscall_info == NULL)
 		exit(-1);
 

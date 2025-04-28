@@ -30,6 +30,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <stdlib.h>
+#include <ewoksys/proc.h>
 
 
 #include "crc16.h"

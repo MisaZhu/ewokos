@@ -1,5 +1,9 @@
 #include <ewoksys/interrupt.h>
 #include <ewoksys/syscall.h>
+#include <ewoksys/klog.h>
+#include <ewoksys/proc.h>
+#include <unistd.h>
+#include <stdlib.h>
 
 #define SOFT_INTR_RETRY_MAX 32
 
