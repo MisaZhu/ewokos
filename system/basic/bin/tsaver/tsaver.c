@@ -2,6 +2,7 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <fcntl.h>
+#include <string.h>
 #include <ewoksys/vfs.h>
 #include <ewoksys/basic_math.h>
 
@@ -90,7 +91,7 @@ int main (int argc, char **argv) {
     char c;
     if(read(0, &c, 1) == 1 && (c == '\r' || c == '\n'))
       break;
-    usleep(100000);
+    proc_usleep(100000);
     counter++;
   }
 

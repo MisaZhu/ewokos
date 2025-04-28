@@ -1,5 +1,8 @@
 #include <stdio.h>
+#include <unistd.h>
 #include <ewoksys/syscall.h>
+#include <ewoksys/proc.h>
+#include <ewoksys/klog.h>
 #include <ewoksys/sys.h>
 #include <sysinfo.h>
 #include <fcntl.h>

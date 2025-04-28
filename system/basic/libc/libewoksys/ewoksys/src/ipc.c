@@ -209,7 +209,7 @@ extern "C"
 			PF->reserve(&in, res);
 			if(ipc_get_info(ipc_id, &pid, &cmd, &in) != 0) {
 				ipc_end();
-				return -1;
+				return;
 			}
 		}
 

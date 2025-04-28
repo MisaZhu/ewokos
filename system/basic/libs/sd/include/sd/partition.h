@@ -45,4 +45,6 @@ typedef struct {
 	char      fst2[8];
 } __attribute__((packed)) bpb_t;
 
+uint32_t get_rootfs_entry(int32_t (*read_sector)(int32_t sector, void* buf));
+
 #endif

@@ -24,8 +24,8 @@ typedef struct {
 	int (*write)(int fd, int from_pid, fsinfo_t* node, const void* buf, int size, int offset, void* p);
 	int (*read_block)(int from_pid, void* buf, int size, int index, void* p);
 	int (*write_block)(int from_pid, const void* buf, int size, int index, void* p);
-	int32_t (*dma)(int fd, int from_pid, uint32_t node, int* size, void* p);
-	int (*flush)(int fd, int from_pid, uint32_t node, void* p);
+	int32_t (*dma)(int fd, int from_pid, fsinfo_t* fsinfo, int* size, void* p);
+	int (*flush)(int fd, int from_pid, fsinfo_t* fsinfo, void* p);
 	int (*fcntl)(int fd, int from_pid, fsinfo_t* info, int cmd, proto_t* in, proto_t* out, void* p);
 	int (*set)(int from_pid, fsinfo_t* info, void* p);
 	char* (*cmd)(int from_pid, int argc, char**argv, void* p);

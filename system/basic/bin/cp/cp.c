@@ -4,6 +4,10 @@
 #include <string.h>
 #include <fcntl.h>
 #include <sys/errno.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+
+int fchmod(int fd, int mode);
 
 void out(void* data, int32_t size) {
 	char* buf = (char*)data;

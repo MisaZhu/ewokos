@@ -7,6 +7,10 @@ extern "C" {
 
 #include <stdint.h>
 
+#ifndef setenv
+#include <setenv.h>
+#endif
+
 enum {
 	CORE_CMD_IPC_SERV_REG = 0,
 	CORE_CMD_IPC_SERV_UNREG,

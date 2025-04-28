@@ -6,8 +6,11 @@
 #include <sys/errno.h>
 #include <ewoksys/session.h>
 #include <ewoksys/mstr.h>
+#include <ewoksys/core.h>
 #include <ewoksys/keydef.h>
 #include <ewoksys/vfs.h>
+
+void putch(int c);
 
 static session_info_t* check(const char* user, const char* password, int* res) {
 	static session_info_t info;
@@ -137,13 +140,13 @@ int main(int argc, char* argv[]) {
 
 		int res = setgid(info->gid);
 		if(res != 0) {
-			dprintf(3, "Error, setgid failed!\n");
+			fprintf(stderr, "Error, setgid failed!\n");
 			return -1;
 		}
 
 		res = setuid(info->uid);
 		if(res != 0) {
-			dprintf(3, "Error, setuid failed!\n");
+			fprintf(stderr, "Error, setuid failed!\n");
 			return -1;
 		}
 	}

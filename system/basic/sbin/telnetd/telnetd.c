@@ -6,6 +6,8 @@
 #include <arpa/inet.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
+#include <ewoksys/core.h>
+#include <ewoksys/proc.h>
 
 #define EXIT_FAILURE -1
 #define F_OK 0

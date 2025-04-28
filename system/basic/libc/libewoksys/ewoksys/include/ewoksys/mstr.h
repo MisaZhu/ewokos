@@ -35,8 +35,10 @@ int str_to_int(const char* str);
 bool str_to_bool(const char* str);
 float str_to_float(const char* str);
 int str_to(const char* str, char c, str_t* res, uint8_t skipspace);
+/*
 str_t* str_format(str_t* str, const char *format, ...);
 str_t* str_format_new(const char *format, ...);
+*/
 
 #define CS(s) ((s)->cstr)
 

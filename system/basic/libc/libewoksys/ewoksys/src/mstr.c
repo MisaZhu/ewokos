@@ -1,6 +1,7 @@
 #include <ewoksys/mstr.h>
 #include <string.h>
 #include <stdlib.h>
+#include <stdio.h>
 
 #include <stdarg.h>
 
@@ -257,6 +258,7 @@ int str_to(const char* str, char c, str_t* res, uint8_t skipspace) {
 	return i;
 }
 
+/*
 static void outc(char c, void* p) {
 	str_t* buf = (str_t*)p;
 	str_addc(buf, c);
@@ -279,6 +281,7 @@ str_t* str_format_new(const char *format, ...) {
 	va_end(ap);
 	return str;
 }
+*/
 
 #ifdef __cplusplus
 }
