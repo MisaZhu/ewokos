@@ -6,6 +6,7 @@
 #include <WidgetEx/Menu.h>
 #include <Widget/LabelButton.h>
 #include <WidgetEx/FileDialog.h>
+#include <WidgetEx/FontDialog.h>
 #include <x++/X.h>
 #include <unistd.h>
 #include <ewoksys/keydef.h>
@@ -76,6 +77,7 @@ public:
 
 class TextWin: public WidgetWin{
 	FileDialog fdialog;
+	FontDialog fontdialog;
 
 	void loadFile(const string& fname) {
 		if(text == NULL)
@@ -94,8 +96,14 @@ class TextWin: public WidgetWin{
 protected:
 	void onDialoged(XWin* from, int res) {
 		if(res == Dialog::RES_OK) {
-			string fname = fdialog.getResult();
-			loadFile(fname.c_str());
+			if(from == &fdialog) {
+				string fname = fdialog.getResult();
+				loadFile(fname.c_str());
+			}
+			else if(from == &fontdialog) {
+				string fontName = fontdialog.getResult();
+				text->setFont(fontName);
+			}
 			repaint();
 		}
 	}
@@ -115,11 +123,21 @@ public:
 		else 
 			loadFile(fname);
 	}
+
+	void font(const string& fontName) {
+		if(fontName.length() == 0)
+			fontdialog.popup(this, 400, 300, "fonts", XWIN_STYLE_NORMAL);
+	}
 };
 
 static void onLoadFunc(MenuItem* it, void* p) {
 	TextWin* win = (TextWin*)p;
 	win->load("");
+}
+
+static void onFontFunc(MenuItem* it, void* p) {
+	TextWin* win = (TextWin*)p;
+	win->font("");
 }
 
 static void onQuitFunc(MenuItem* it, void* p) {
@@ -154,6 +172,7 @@ int main(int argc, char** argv) {
 
 	Menu* menu = new Menu();
 	menu->add("open", NULL, NULL, onLoadFunc, &win);
+	menu->add("font", NULL, NULL, onFontFunc, &win);
 	menu->add("quit", NULL, NULL, onQuitFunc, &win);
 	Menubar* menubar = new Menubar();
 	menubar->add("file", NULL, menu, NULL, NULL);

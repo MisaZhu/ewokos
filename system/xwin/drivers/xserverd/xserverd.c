@@ -610,7 +610,6 @@ static xwin_t* x_get_win(x_t* x, int fd, int from_pid) {
 	xwin_t* win = x->win_head;
 	while(win != NULL) {
 		if((win->fd == fd || fd < 0) && 
-				win->xinfo->is_main &&
 				win->from_main_pid == proc_getpid(from_pid)) {
 			if(proc_check_uuid(win->from_main_pid, win->from_main_pid_uuid) == win->from_main_pid_uuid)
 				return win;
@@ -1242,11 +1241,9 @@ static void xwin_bg(x_t* x, xwin_t* win) {
 	if(x->win_focus != x->win_launcher) {
 		x->win_last = x->win_focus;
 		xwin_top(x, x->win_launcher);
-		klog("top launcher\n");
 	}
 	else if(x->win_last != NULL) {
 		xwin_top(x, x->win_last);
-		klog("top win\n");
 	}
 	x_dirty(x, -1);
 }
