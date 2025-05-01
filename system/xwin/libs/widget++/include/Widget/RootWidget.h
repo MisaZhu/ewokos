@@ -22,6 +22,7 @@ public:
 	inline void refresh() { doRefresh = true; }
 
 	void focus(Widget* wd);
+	void onFocus();
 	inline Widget* getFocused() { return focusedWidget; }
 
 	void repaintWin();

@@ -31,6 +31,12 @@ void RootWidget::focus(Widget* wd) {
 	wd->update();
 }
 
+void RootWidget::onFocus() {
+	if(this->focusedWidget == NULL)
+		return;
+	this->focusedWidget->onFocus();
+}
+
 void RootWidget::repaintWin() { 
 	if(xwin == NULL)
 		return;

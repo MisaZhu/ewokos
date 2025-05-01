@@ -32,6 +32,12 @@ void WidgetWin::onShow(void) {
 		root->update();
 }
 
+void WidgetWin::onFocus(void) {
+	if(root == NULL)
+		return;
+	root->onFocus();
+}
+
 void WidgetWin::onResize(void) {
 	if(root == NULL)
 		return;

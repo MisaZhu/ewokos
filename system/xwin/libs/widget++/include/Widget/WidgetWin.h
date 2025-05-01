@@ -18,6 +18,7 @@ protected:
 	void onResize(void);
 	void onEvent(xevent_t* ev);
 	void onShow(void);
+	void onFocus(void);
 	bool onClose();
 	virtual void onBuild();
 public:

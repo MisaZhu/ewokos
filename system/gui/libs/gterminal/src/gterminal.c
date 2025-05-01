@@ -278,7 +278,7 @@ static void gterminal_draw_char(graph_t* g,
         fg = bg;
         bg = tch->color;
     }
-    if(bg != 0) 
+    if(bg != 0 && bg != terminal->bg_color) 
         graph_fill(g, chx, chy, chw, chh, bg);
     
     if((tch->state & TERM_STATE_HIDE) == 0 && 
