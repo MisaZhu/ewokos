@@ -25,6 +25,16 @@ extern "C" {
 #include <ewoksys/basic_math.h>
 #include <ewoksys/timer.h>
 #include <ewoksys/wait.h>
+
+#include <Widget/WidgetWin.h>
+#include <Widget/WidgetX.h>
+#include <Widget/Text.h>
+#include <Widget/Label.h>
+#include <WidgetEx/Menubar.h>
+#include <WidgetEx/Menu.h>
+#include <Widget/LabelButton.h>
+#include <WidgetEx/FontDialog.h>
+
 #include <x++/X.h>
 #include <pthread.h>
 
@@ -32,125 +42,104 @@ using namespace Ewok;
 
 static charbuf_t *_buffer;
 
-class XConsole : public XWin {
+class ConsoleWidget : public Widget {
+	FontDialog fontDialog;
 	gterminal_t terminal;
+
 	int32_t rollStepRows;
 	int32_t mouse_last_y;
 	uint32_t scrollW;
-	bool dirty;
+	bool repaintReq;
 
-	void drawBG(graph_t* g) {
-		graph_clear(g, terminal.bg_color);
+	void drawBG(graph_t* g, const grect_t& r) {
+		graph_fill(g, r.x, r.y, r.w, r.h, terminal.bg_color);
 		if(color_a(terminal.bg_color) != 0xff)
 			setAlpha(true);
-
-		/*uint32_t cw = g->w / terminal.terminal.cols;
-		uint32_t ch = g->h / terminal.terminal.rows;
-		uint32_t i = 0;
-		while(i < g->w) {
-			i += cw;
-			graph_line(g, i, 0, i, g->h, 0xff222222);
-		}
-
-		i = 0;
-		while(i < g->h) {
-			i += ch;
-			graph_line(g, 0, i, g->w, i, 0xff222222);
-		}
-		*/
 	}
 	
-	void drawScrollbar(graph_t* g) {
-		graph_fill_3d(g, g->w - scrollW, 0, scrollW, g->h, 0x88000000, true);
-		int sh = g->h * ((float) terminal.rows / terminal.textgrid->rows);
+	void drawScrollbar(graph_t* g, const grect_t& r) {
+		graph_fill_3d(g, r.x + r.w - scrollW, r.y, scrollW, r.h, 0x88000000, true);
+		int sh = r.h * ((float) terminal.rows / terminal.textgrid->rows);
 		int start_row = (int32_t)terminal.textgrid->rows - (int32_t)terminal.rows;
 		if(start_row < 0)
 			start_row = 0;
 		start_row += terminal.scroll_offset;
 
-		int sy = g->h * ((float) start_row / terminal.textgrid->rows);
-		graph_fill_3d(g, g->w-scrollW+1, sy, scrollW-2, sh, 0x88aaaaaa, false);
+		int sy = r.h * ((float) start_row / terminal.textgrid->rows);
+		graph_fill_3d(g, r.x + r.w-scrollW+1, r.y + sy, scrollW-2, sh, 0x88aaaaaa, false);
 	}
 
-	bool readConfigRaw(const char* fname) {
-		json_var_t *conf_var = json_parse_file(fname);	
-		theme.loadConfig(conf_var);
-
-		if(conf_var != NULL)
-			json_var_unref(conf_var);
-		return true;
-	}
 public:
-	XConsole() {
+	ConsoleWidget() {
 		gterminal_init(&terminal);
 		scrollW = 8;
-		dirty = false;
+		repaintReq = false;
 	}
 
-	~XConsole() {
+	~ConsoleWidget() {
 		gterminal_close(&terminal);
-	}
-
-	bool readConfig(const char* fname) {
-		readConfigRaw(fname);
-		terminal.bg_color = theme.basic.bgColor;
-		terminal.fg_color = theme.basic.fgColor;
-		terminal.font_size = theme.basic.fontSize;
-		terminal.char_space = theme.basic.charSpace;
-		terminal.line_space = theme.basic.lineSpace;
-		if(terminal.font != NULL)
-			font_free(terminal.font);
-		terminal.font = font_new(theme.basic.fontName, true);
-		return true;
 	}
 
 	void put(const char* buf, int size) {
 		gterminal_put(&terminal, buf, size);
 	}
 
+	void refresh() {
+		repaintReq = true;
+		update();
+	}
+
 	void flash() {
 		gterminal_flash(&terminal);
-		dirty = true;
+		refresh();
 	}
 
-	void refresh() {
-		dirty = true;
+	bool isrepaintReq() {
+		return repaintReq;
 	}
 
-	bool isDirty() {
-		return dirty;
+	void loadFont(const string& fontName) {
+		if(terminal.font != NULL)
+			font_free(terminal.font);
+		terminal.font = font_new(fontName.c_str(), true);
+		gterminal_resize(&terminal, area.w-scrollW, area.h);
+		refresh();
 	}
 
 protected:
 	void onFocus(void) {
-		repaint();
-		callXIM();
+		refresh();
+		getWin()->callXIM();
 	}
 
 	void onUnfocus(void) {
-		repaint();
-	}
-
-	void onRepaint(graph_t* g) {
-		drawBG(g);
-		int gw = g->w-scrollW;
-		if(terminal.textgrid->rows > terminal.rows) {
-			drawScrollbar(g);
-		}
-		gterminal_paint(&terminal, g, 0, 0, gw, g->h);
-		dirty = false;
+		refresh();
 	}
 
 	void onResize() {
-		xinfo_t xinfo;
-		getInfo(xinfo);
-		gterminal_resize(&terminal, xinfo.wsr.w-scrollW, xinfo.wsr.h);
+		gterminal_resize(&terminal, area.w-scrollW, area.h);
+	}
+
+	void onRepaint(graph_t* g, XTheme* theme, const grect_t& r) {
+		if(terminal.font == NULL) {
+			terminal.font_size = theme->basic.fontSize;
+			terminal.bg_color = 0xff000000; //theme->basic.bgColor;
+			terminal.fg_color = 0xffdddddd; //theme->basic.fgColor;
+			loadFont(theme->basic.fontName);
+		}
+
+		drawBG(g, r);
+		int gw = r.w-scrollW;
+		if(terminal.textgrid->rows > terminal.rows) {
+			drawScrollbar(g, r);
+		}
+		gterminal_paint(&terminal, g, r.x, r.y, gw, r.h);
+		repaintReq = false;
 	}
 	
-	void mouseHandle(xevent_t* ev) {
+	bool onMouse(xevent_t* ev) {
 		if(ev->state == MOUSE_STATE_DOWN) {
 			mouse_last_y = ev->value.mouse.y;
-			return;
 		}
 		else if(ev->state == MOUSE_STATE_DRAG) {
 			if(ev->value.mouse.y > mouse_last_y)
@@ -158,81 +147,124 @@ protected:
 			else if(ev->value.mouse.y < mouse_last_y)
 				gterminal_scroll(&terminal, 1);
 			mouse_last_y = ev->value.mouse.y;
-			repaint();
+			refresh();
 		}
 		else if(ev->state == MOUSE_STATE_MOVE) {
 			if(ev->value.mouse.button == MOUSE_BUTTON_SCROLL_UP) {
 				gterminal_scroll(&terminal, 1);
+				refresh();
 			}
 			else if(ev->value.mouse.button == MOUSE_BUTTON_SCROLL_DOWN) {
 				gterminal_scroll(&terminal, -1);
+				refresh();
 			}
 		}
+		return true;
 	}
 
-	void onEvent(xevent_t* ev) {
-		if(ev->type == XEVT_IM && ev->state == XIM_STATE_PRESS) {
+	bool onIM(xevent_t* ev) {
+		if(ev->state == XIM_STATE_PRESS) {
 			int c = ev->value.im.value;
 			if(c != 0) {
-				xinfo_t xinfo;
-				getInfo(xinfo);
-
 				if(c == KEY_UP) {
 					gterminal_scroll(&terminal, -1);
+					refresh();
 				}
 				else if(c == KEY_DOWN) {
 					gterminal_scroll(&terminal, 1);
+					refresh();
 				}
 				else if(c == KEY_LEFT) {
 					if(terminal.font_size > 5)
 						terminal.font_size--;
-					gterminal_resize(&terminal, xinfo.wsr.w-scrollW, xinfo.wsr.h);
+					gterminal_resize(&terminal, area.w-scrollW, area.h);
+					refresh();
 				}
 				else if(c == KEY_RIGHT) {
 					if(terminal.font_size < 99)
 						terminal.font_size++;
-					gterminal_resize(&terminal, xinfo.wsr.w-scrollW, xinfo.wsr.h);
+					gterminal_resize(&terminal, area.w-scrollW, area.h);
+					refresh();
 				}
 				else {
 					gterminal_scroll(&terminal, 0);
 					charbuf_push(_buffer, c, false);
+					refresh();
 					proc_wakeup(RW_BLOCK_EVT);
 				}
 			}
+			return true;	
 		}
-		else if(ev->type == XEVT_MOUSE) {
-			mouseHandle(ev);
-			return;	
-		}
+		return false;	
 	}
 };
 
-static XConsole* _xwin = NULL;
+
+class TermWin: public WidgetWin{
+	FontDialog fontDialog;
+
+protected:
+	void onDialoged(XWin* from, int res) {
+		if(res == Dialog::RES_OK) {
+			string fontName = fontDialog.getResult();
+			consoleWidget->loadFont(fontName);
+		}
+	}
+public:
+	ConsoleWidget* consoleWidget;
+
+	void font() {
+		fontDialog.popup(this, 400, 300, "fonts", XWIN_STYLE_NORMAL);
+	}
+};
+
+static ConsoleWidget* _consoleWidget = NULL;
 static vdevice_t* _dev = NULL;
 
 static void timer_handler(void) {
-	_xwin->flash();
+	_consoleWidget->flash();
 }
 
-static void win_loop(void* p) {
-	ipc_disable();
-	if(_xwin->isDirty()) {
-		_xwin->repaint();
-	}
-	ipc_enable();
-	proc_usleep(30000);
+static void onFontFunc(MenuItem* it, void* p) {
+	TermWin* win = (TermWin*)p;
+	win->font();
+}
+
+static void onQuitFunc(MenuItem* it, void* p) {
+	WidgetWin* win = (WidgetWin*)p;
+	win->close();
 }
 
 static bool _win_opened = false;
 static void* thread_loop(void* p) {
-	//X* x = (X*)p;
 	X x;
 	grect_t desk;
+	TermWin win;
+	RootWidget* root = new RootWidget();
+	win.setRoot(root);
+	root->setType(Container::VERTICLE);
+
+	Menu* menu = new Menu();
+	menu->add("font", NULL, NULL, onFontFunc, &win);
+	menu->add("quit", NULL, NULL, onQuitFunc, &win);
+
+	Menubar* menubar = new Menubar();
+	menubar->add("term", NULL, menu, NULL, NULL);
+	menubar->fix(0, 20);
+	root->add(menubar);
+
+	ConsoleWidget *consoleWidget = new ConsoleWidget();
+	root->add(consoleWidget);
+	win.consoleWidget = consoleWidget;
+	_consoleWidget = consoleWidget;
+	root->focus(consoleWidget);
+
 	x.getDesktopSpace(desk, 0);
-	_xwin->open(&x, 0, -1, -1, desk.w*2/3, desk.h*2/3, "xterm", 0);
+	win.open(&x, 0, -1, -1, desk.w*2/3, desk.h*2/3, "xconsole", 0);
 	_win_opened = true;
 	uint32_t timer_id = timer_set(500000, timer_handler);
-	x.run(win_loop, _xwin);
+
+	widgetXRun(&x, &win);
 	timer_remove(timer_id);
 	device_stop(_dev);
 	return NULL;
@@ -250,11 +282,11 @@ static int console_write(int fd,
 	(void)node;
 	(void)offset;
 
-	if(size <= 0 || _xwin == NULL)
+	if(size <= 0 || _consoleWidget == NULL)
 		return 0;
 
-	_xwin->put((const char*)buf, size);
-	_xwin->refresh();
+	_consoleWidget->put((const char*)buf, size);
+	_consoleWidget->refresh();
 	return size;
 }
 
@@ -293,10 +325,6 @@ int run(const char* mnt_point) {
 	sys_signal_init();
 	sys_signal(SYS_SIG_STOP, do_signal, NULL);
 	_buffer = charbuf_new(0);
-
-	XConsole xwin;
-	xwin.readConfig(x_get_theme_fname(X_THEME_ROOT, "xterm", "theme.json"));
-	_xwin = &xwin;
 
 	vdevice_t dev;
 	memset(&dev, 0, sizeof(vdevice_t));

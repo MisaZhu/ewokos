@@ -1,6 +1,5 @@
 all:
 	cd xterm; make
-	cd xconsole; make
 	cd xread; make
 	cd xcores; make
 	cd xfonts; make
@@ -11,7 +10,6 @@ all:
 
 clean:
 	cd xterm; make clean
-	cd xconsole; make clean
 	cd xread; make clean
 	cd xcores; make clean
 	cd xfonts; make clean
