@@ -125,26 +125,32 @@ static int font_fetch_cache(font_t* font, uint32_t size, uint32_t c, FT_GlyphSlo
 
 	FT_GlyphSlot p;
 	if(hashmap_get(font->cache, hash_key(c, size), (void**)&p) == 0) {
-		memcpy(slot, p, sizeof(FT_GlyphSlotRec));
+		if(p != NULL)
+			memcpy(slot, p, sizeof(FT_GlyphSlotRec));
 		return 0;
 	}	
 	return -1;
 }
+
+#define MAX_FONT_CACHE 4096
 
 static void font_cache(font_t* font, uint32_t size, uint32_t c, FT_GlyphSlot slot) {
 	if(font == NULL || font->cache == NULL) {
 		return;
 	}
 
-	FT_GlyphSlot p = (FT_GlyphSlot)malloc(sizeof(FT_GlyphSlotRec));
-	if(p == NULL)
-		return;
+	FT_GlyphSlot p = NULL;
+	if(slot != NULL) {
+		p = (FT_GlyphSlot)malloc(sizeof(FT_GlyphSlotRec));
+		if(p == NULL)
+			return;
 
-	if(hashmap_length(font->cache) >= 1024) {
-		font_clear_cache(font);
+		if(hashmap_length(font->cache) >= MAX_FONT_CACHE) {
+			font_clear_cache(font);
+		}
+		memcpy(p, slot, sizeof(FT_GlyphSlotRec));
 	}
 
-	memcpy(p, slot, sizeof(FT_GlyphSlotRec));
 	hashmap_put(font->cache, hash_key(c, size), p);
 }
 

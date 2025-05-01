@@ -15,6 +15,8 @@ class RootWidget: public Container {
 public:
 	friend WidgetWin;
 	RootWidget();
+
+	RootWidget* getRoot(void);
 	inline WidgetWin* getWin() { return xwin; }
 	inline void setWin(WidgetWin* xwin) { this->xwin = xwin; }
 	inline void refresh() { doRefresh = true; }

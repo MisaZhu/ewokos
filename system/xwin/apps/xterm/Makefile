@@ -21,6 +21,8 @@ $(XTERM): $(XTERM_OBJS) \
 		$(BUILD_DIR)/lib/libx.a \
 		$(BUILD_DIR)/lib/libtextgrid.a \
 		$(BUILD_DIR)/lib/libgterminal.a \
+		$(BUILD_DIR)/lib/libwidget++.a \
+		$(BUILD_DIR)/lib/libtinyjson.a \
 		$(BUILD_DIR)/lib/libfont.a \
 		$(BUILD_DIR)/lib/libcxx.a 
 	$(LD) -Ttext=100 $(XTERM_OBJS) -o $(XTERM) $(LDFLAGS)  -lgterminal -ltextgrid $(EWOK_LIB_X) $(EWOK_LIB_GRAPH)  $(EWOK_LIBC) -lcxx

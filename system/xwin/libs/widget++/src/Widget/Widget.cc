@@ -83,8 +83,9 @@ bool Widget::onEvent(xevent_t* ev) {
 }
 
 RootWidget* Widget::getRoot(void) {
-	if(father == NULL)
+	if(father == NULL) {
 		return NULL;
+	}
 
 	Container* wd = father;
 	while(wd != NULL && wd->father != NULL)
@@ -105,8 +106,9 @@ void Widget::setAlpha(bool alpha) {
 	if(win == NULL)
 		return;
 
-	if(win->getRoot() == this)
+	if(win->getRoot() == this) {
 		win->setAlpha(alpha);
+	}
 }
 
 void Widget::repaint(graph_t* g, XTheme* theme) {

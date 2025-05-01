@@ -85,7 +85,7 @@ public:
 	bool isVisible() { return visible; }
 	Widget* getNext() { return next; }
 	Widget* getPrev() { return prev; }
-	RootWidget* getRoot(void);
+	virtual RootWidget* getRoot(void);
 	WidgetWin*  getWin(void);
 	gpos_t getRootPos(int32_t x = 0, int32_t y = 0);
 	gpos_t getScreenPos(int32_t x = 0, int32_t y = 0);

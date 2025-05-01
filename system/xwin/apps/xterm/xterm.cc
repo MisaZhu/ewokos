@@ -49,12 +49,15 @@ class ConsoleWidget : public Widget {
 	int32_t rollStepRows;
 	int32_t mouse_last_y;
 	uint32_t scrollW;
-	bool repaintReq;
 
 	void drawBG(graph_t* g, const grect_t& r) {
-		graph_fill(g, r.x, r.y, r.w, r.h, terminal.bg_color);
-		if(color_a(terminal.bg_color) != 0xff)
+		graph_set(g, r.x, r.y, r.w, r.h, terminal.bg_color);
+		if(color_a(terminal.bg_color) != 0xff) {
 			setAlpha(true);
+			RootWidget* root = getRoot();
+			if(root)
+				root->setAlpha(true);
+		}
 	}
 	
 	void drawScrollbar(graph_t* g, const grect_t& r) {
@@ -70,10 +73,30 @@ class ConsoleWidget : public Widget {
 	}
 
 public:
+	bool readConfig(const char* fname) {
+		json_var_t *conf_var = json_parse_file(fname);	
+		terminal.font_size = json_get_int_def(conf_var, "font_size", 12);
+
+		terminal.char_space = json_get_int_def(conf_var, "char_space", -1);
+		terminal.line_space = json_get_int_def(conf_var, "line_space", 0);
+		terminal.fg_color = json_get_int_def(conf_var, "fg_color", 0xffdddddd);
+		terminal.bg_color = json_get_int_def(conf_var, "bg_color", 0xff000000);
+
+		const char* v = json_get_str(conf_var, "font");
+		if(v[0] != 0) {
+			if(terminal.font != NULL)
+				font_free(terminal.font);
+			terminal.font = font_new(v, true);
+		}
+
+		if(conf_var != NULL)
+			json_var_unref(conf_var);
+		return true;
+	}
+
 	ConsoleWidget() {
 		gterminal_init(&terminal);
 		scrollW = 8;
-		repaintReq = false;
 	}
 
 	~ConsoleWidget() {
@@ -84,18 +107,9 @@ public:
 		gterminal_put(&terminal, buf, size);
 	}
 
-	void refresh() {
-		repaintReq = true;
-		update();
-	}
-
 	void flash() {
 		gterminal_flash(&terminal);
-		refresh();
-	}
-
-	bool isrepaintReq() {
-		return repaintReq;
+		update();
 	}
 
 	void loadFont(const string& fontName) {
@@ -103,17 +117,17 @@ public:
 			font_free(terminal.font);
 		terminal.font = font_new(fontName.c_str(), true);
 		gterminal_resize(&terminal, area.w-scrollW, area.h);
-		refresh();
+		update();
 	}
 
 protected:
 	void onFocus(void) {
-		refresh();
+		update();
 		getWin()->callXIM();
 	}
 
 	void onUnfocus(void) {
-		refresh();
+		update();
 	}
 
 	void onResize() {
@@ -134,7 +148,6 @@ protected:
 			drawScrollbar(g, r);
 		}
 		gterminal_paint(&terminal, g, r.x, r.y, gw, r.h);
-		repaintReq = false;
 	}
 	
 	bool onMouse(xevent_t* ev) {
@@ -147,16 +160,16 @@ protected:
 			else if(ev->value.mouse.y < mouse_last_y)
 				gterminal_scroll(&terminal, 1);
 			mouse_last_y = ev->value.mouse.y;
-			refresh();
+			update();
 		}
 		else if(ev->state == MOUSE_STATE_MOVE) {
 			if(ev->value.mouse.button == MOUSE_BUTTON_SCROLL_UP) {
 				gterminal_scroll(&terminal, 1);
-				refresh();
+				update();
 			}
 			else if(ev->value.mouse.button == MOUSE_BUTTON_SCROLL_DOWN) {
 				gterminal_scroll(&terminal, -1);
-				refresh();
+				update();
 			}
 		}
 		return true;
@@ -168,28 +181,28 @@ protected:
 			if(c != 0) {
 				if(c == KEY_UP) {
 					gterminal_scroll(&terminal, -1);
-					refresh();
+					update();
 				}
 				else if(c == KEY_DOWN) {
 					gterminal_scroll(&terminal, 1);
-					refresh();
+					update();
 				}
 				else if(c == KEY_LEFT) {
 					if(terminal.font_size > 5)
 						terminal.font_size--;
 					gterminal_resize(&terminal, area.w-scrollW, area.h);
-					refresh();
+					update();
 				}
 				else if(c == KEY_RIGHT) {
 					if(terminal.font_size < 99)
 						terminal.font_size++;
 					gterminal_resize(&terminal, area.w-scrollW, area.h);
-					refresh();
+					update();
 				}
 				else {
 					gterminal_scroll(&terminal, 0);
 					charbuf_push(_buffer, c, false);
-					refresh();
+					update();
 					proc_wakeup(RW_BLOCK_EVT);
 				}
 			}
@@ -256,8 +269,9 @@ static void* thread_loop(void* p) {
 	ConsoleWidget *consoleWidget = new ConsoleWidget();
 	root->add(consoleWidget);
 	win.consoleWidget = consoleWidget;
-	_consoleWidget = consoleWidget;
 	root->focus(consoleWidget);
+	consoleWidget->readConfig(X::getResName("theme.json"));
+	_consoleWidget = consoleWidget;
 
 	x.getDesktopSpace(desk, 0);
 	win.open(&x, 0, -1, -1, desk.w*2/3, desk.h*2/3, "xconsole", 0);
@@ -286,7 +300,7 @@ static int console_write(int fd,
 		return 0;
 
 	_consoleWidget->put((const char*)buf, size);
-	_consoleWidget->refresh();
+	_consoleWidget->update();
 	return size;
 }
 
@@ -307,6 +321,8 @@ static int console_read(int fd, int from_pid, fsinfo_t* node,
 	}
 
 	((char*)buf)[0] = c;
+	if(_consoleWidget)
+		_consoleWidget->update();
 	return 1;
 }
 

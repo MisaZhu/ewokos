@@ -14,6 +14,10 @@ RootWidget::RootWidget() {
 }
 */
  
+RootWidget* RootWidget::getRoot(void) {
+	return this;
+}
+
 void RootWidget::focus(Widget* wd) {
 	Widget* oldFocusedWidget = focusedWidget;
 	focusedWidget = wd;
