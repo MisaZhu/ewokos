@@ -343,7 +343,7 @@ void graph_draw_char_font_fixed(graph_t* g, int32_t x, int32_t y, uint32_t c,
 		return;
 	face_info_t* faceinfo = (face_info_t*)slot.other;
 
-	x += (w - (slot.bitmap.width - slot.bitmap_left))/2;
+	x += ((int)w - ((int)slot.bitmap.width - slot.bitmap_left))/2;
 	y = y - slot.bitmap_top + (faceinfo->ascender/FACE_PIXEL_DENT);
 
 	if(slot.bitmap.buffer != NULL) {
