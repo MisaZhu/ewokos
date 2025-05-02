@@ -27,7 +27,12 @@ static ttf_item_t _ttfs[TTF_MAX];
 
 static FT_Library _library;
 
+#define DO_FONT_CACHE 1
+static map_t _font_cache = NULL;
+
 static void font_dev_init(void) {
+	_font_cache = hashmap_new();
+
 	FT_Init_FreeType(&_library);
 	for(int i=0;i < TTF_MAX; i++)
 		memset(&_ttfs[i], 0, sizeof(ttf_item_t));
@@ -38,12 +43,14 @@ static void font_dev_quit(void) {
 		if(_ttfs[i].face != NULL)
 			FT_Done_Face(_ttfs[i].face);
 	}
+
+	if(_font_cache)
+		hashmap_free(_font_cache);
 }
 
 static char* font_cmd(int from_pid, int argc, char** argv, void* p) {
 	if(strcmp(argv[0], "list") == 0) {
 		str_t* str = str_new("");
-        uint32_t i = 0;
         for(int i=0; i<TTF_MAX; i++) {
             if(_ttfs[i].face != NULL) {
                 str_add(str, _ttfs[i].name);
@@ -96,45 +103,108 @@ static int font_dev_load(proto_t* in, proto_t* ret) {
 	return 0;
 }
 
+static int free_cache(map_t map, const char* key, any_t data, any_t arg) {
+	FT_GlyphSlot slot = (FT_GlyphSlot)data;
+	if(slot == NULL)
+		return MAP_OK;
+
+	hashmap_remove(map, key);
+	if(slot->bitmap.buffer != NULL)
+		free(slot->bitmap.buffer);
+	free(slot);
+	return MAP_OK;
+}
+
+static void font_clear_cache(void) {
+	if(_font_cache != NULL) {
+		hashmap_iterate(_font_cache, free_cache, NULL);	
+	}
+}
+
+static inline const char* hash_key(int32_t findex, uint32_t c, uint32_t size) {
+	static char key[16] = {0};
+	snprintf(key, 15, "%d:%d:%x", findex, size, c);
+	return key;
+}
+
+static int font_fetch_cache(int32_t findex, uint32_t size, uint32_t c, FT_GlyphSlot slot) {
+	if(_font_cache == NULL) {
+		return -1;
+	}
+
+	FT_GlyphSlot p;
+	if(hashmap_get(_font_cache, hash_key(findex, c, size), (void**)&p) != 0)
+		return -1;
+	if(p == NULL)
+		return -1;
+	memcpy(slot, p, sizeof(FT_GlyphSlotRec));
+	return 0;
+}
+
+#define MAX_FONT_CACHE 4096
+
+static void font_cache(int32_t findex, uint32_t size, uint32_t c, FT_GlyphSlot slot) {
+#if DO_FONT_CACHE
+	if(_font_cache == NULL || slot == NULL) {
+		return;
+	}
+
+	FT_GlyphSlot p = (FT_GlyphSlot)malloc(sizeof(FT_GlyphSlotRec));
+	if(p == NULL)
+		return;
+
+	if(hashmap_length(_font_cache) >= MAX_FONT_CACHE) {
+		font_clear_cache();
+	}
+	memcpy(p, slot, sizeof(FT_GlyphSlotRec));
+	uint32_t sz = slot->bitmap.width * slot->bitmap.rows;
+	p->bitmap.buffer = malloc(sz);
+	memcpy(p->bitmap.buffer, slot->bitmap.buffer, sz);
+	hashmap_put(_font_cache, hash_key(findex, c, size), p);
+#endif
+}
+
 static int font_dev_get_glyph(proto_t* in, proto_t* ret) {
-	int i = proto_read_int(in);
+	int findex = proto_read_int(in);
 	uint32_t size = (uint32_t)proto_read_int(in);
-	if(i >= TTF_MAX || size == 0 || _ttfs[i].face == NULL) {
+	if(findex >= TTF_MAX || size == 0 || _ttfs[findex].face == NULL) {
 		PF->init(ret)->addi(ret, -1);
 		return -1;
 	}
 
-	FT_Face face = _ttfs[i].face; 
+	FT_Face face = _ttfs[findex].face; 
     if(FT_Set_Pixel_Sizes(face, 0, size) != 0) {
 		PF->init(ret)->addi(ret, -1);
 		return -1;
 	}
 
 	uint32_t c = (uint32_t)proto_read_int(in);
-    // 获取字符的字形索引
-    FT_UInt glyph_index = FT_Get_Char_Index(face, c);
-    // 加载并渲染字形
-    if(FT_Load_Glyph(face, glyph_index, FT_LOAD_RENDER) != 0) {
-		PF->init(ret)->addi(ret, -1);
-		return -1;
+	FT_GlyphSlotRec slot;
+
+	if(font_fetch_cache(findex, size, c, &slot) != 0) {
+		FT_UInt glyph_index = FT_Get_Char_Index(face, c);
+		if(FT_Load_Glyph(face, glyph_index, FT_LOAD_RENDER) != 0) {
+			PF->init(ret)->addi(ret, -1);
+			return -1;
+		}
+		memcpy(&slot, face->glyph, sizeof(FT_GlyphSlotRec));
+		font_cache(findex, size, c, &slot);
 	}
 
 	face_info_t faceinfo;
 	faceinfo.ascender = face->size->metrics.ascender;
 	faceinfo.descender = face->size->metrics.descender;
 	faceinfo.height = face->size->metrics.ascender - face->size->metrics.descender;
-
-	FT_GlyphSlot slot = face->glyph;
-	uint32_t bmp_size = slot->bitmap.width * slot->bitmap.rows;
+	uint32_t bmp_size = slot.bitmap.width * slot.bitmap.rows;
 	if(bmp_size > 0) {
 		PF->format(ret, "m,m,m",
-				slot, sizeof(FT_GlyphSlotRec),
+				&slot, sizeof(FT_GlyphSlotRec),
 				&faceinfo, sizeof(face_info_t),
-				slot->bitmap.buffer, bmp_size);
+				slot.bitmap.buffer, bmp_size);
 	}
 	else {
 		PF->init(ret)->
-				add(ret, slot, sizeof(FT_GlyphSlotRec))->
+				add(ret, &slot, sizeof(FT_GlyphSlotRec))->
 				add(ret, &faceinfo, sizeof(face_info_t));
 	}
 	return 0;
@@ -164,7 +234,6 @@ static int font_dev_get_face(proto_t* in, proto_t* ret) {
 }
 
 static int font_dev_list(proto_t* in, proto_t* ret) {
-	uint32_t i = 0;
 	for(int i=0; i<TTF_MAX; i++) {
 		if(_ttfs[i].face != NULL) {
 			PF->adds(ret, _ttfs[i].name);

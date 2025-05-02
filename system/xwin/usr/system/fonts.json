@@ -1,5 +1,6 @@
 [
     {"name": "system", "file": "/usr/system/fonts/system.ttf"},
     {"name": "smallpixel", "file": "/usr/system/fonts/smallpixel.ttf"},
+    {"name": "Menlo", "file": "/usr/system/fonts/Menlo.ttf"},
     {"name": "system-cn", "file": "/usr/system/fonts/system-cn.ttf"}
 ]
