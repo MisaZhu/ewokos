@@ -33,6 +33,7 @@ protected:
 
 		uint32_t y = 0;
 		uint16_t margin = 4;
+		/*
 		for(int i=0; i<4; i++) {
 			uint16_t size = (i+1) * 8;
 			graph_draw_text_font(g, r.x+10, y - off_y, "abcdefghijklmn", font, size, theme->basic.docFGColor);
@@ -46,6 +47,19 @@ protected:
 			graph_draw_text_font(g, r.x+10, y - off_y, "中文字体演示", font, size, theme->basic.docFGColor);
 			y += (size + margin)*2;
 		}
+		*/
+
+		uint16_t size = 16;
+		graph_draw_text_font(g, r.x+10, y - off_y, "abcdefghijklmn", font, size, theme->basic.docFGColor);
+		y += size + margin;
+		graph_draw_text_font(g, r.x+10, y - off_y, "opqrstuvwxyz", font, size, theme->basic.docFGColor);
+		y += size + margin;
+		graph_draw_text_font(g, r.x+10, y - off_y, "0123456789.+-", font, size, theme->basic.docFGColor);
+		y += size + margin;
+		graph_draw_text_font(g, r.x+10, y - off_y, "~!@#$%%^&*()", font, size, theme->basic.docFGColor);
+		y += size + margin;
+		graph_draw_text_font(g, r.x+10, y - off_y, "中文字体演示", font, size, theme->basic.docFGColor);
+		y += (size + margin)*2;
 
 		demoH = y;
 		updateScroller();

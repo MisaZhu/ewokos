@@ -227,7 +227,7 @@ public:
 	ConsoleWidget* consoleWidget;
 
 	void font() {
-		fontDialog.popup(this, 400, 300, "fonts", XWIN_STYLE_NORMAL);
+		fontDialog.popup(this, 300, 300, "fonts", XWIN_STYLE_NORMAL);
 	}
 };
 
