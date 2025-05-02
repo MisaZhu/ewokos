@@ -1,3 +1,4 @@
 [
+    {"name": "smallpixel", "file": "/usr/system/fonts/smallpixel.ttf"},
     {"name": "system", "file": "/usr/system/fonts/system.ttf"}
 ]

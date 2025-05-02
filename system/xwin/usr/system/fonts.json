@@ -4,7 +4,6 @@
     {"name": "Menlo", "file": "/usr/system/fonts/Menlo.ttf"},
     {"name": "decterm", "file": "/usr/system/fonts/decterm.ttf"},
     {"name": "Hack-Regular", "file": "/usr/system/fonts/Hack-Regular.ttf"},
-    {"name": "UbuntuMono-Regular", "file": "/usr/system/fonts/UbuntuMono-Regular.ttf"},
     {"name": "Courier-Prime", "file": "/usr/system/fonts/Courier-Prime.ttf"},
     {"name": "system-cn", "file": "/usr/system/fonts/system-cn.ttf"}
 ]
