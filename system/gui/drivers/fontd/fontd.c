@@ -21,7 +21,7 @@ typedef struct {
 	FT_Face face;
 } ttf_item_t;
 
-#define TTF_MAX  64
+#define TTF_MAX  128
 
 static ttf_item_t _ttfs[TTF_MAX];
 
@@ -195,6 +195,7 @@ static int font_dev_get_glyph(proto_t* in, proto_t* ret) {
 	faceinfo.ascender = face->size->metrics.ascender;
 	faceinfo.descender = face->size->metrics.descender;
 	faceinfo.height = face->size->metrics.ascender - face->size->metrics.descender;
+	faceinfo.width = face->size->metrics.max_advance;
 	uint32_t bmp_size = slot.bitmap.width * slot.bitmap.rows;
 	if(bmp_size > 0) {
 		PF->format(ret, "m,m,m",
@@ -229,6 +230,7 @@ static int font_dev_get_face(proto_t* in, proto_t* ret) {
 	faceinfo.ascender = face->size->metrics.ascender;
 	faceinfo.descender = face->size->metrics.descender;
 	faceinfo.height = face->size->metrics.ascender - face->size->metrics.descender;
+	faceinfo.width = face->size->metrics.max_advance;
 	PF->format(ret, "m", &faceinfo, sizeof(face_info_t));
 	return 0;
 }

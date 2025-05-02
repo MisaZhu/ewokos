@@ -4,6 +4,6 @@
 
     "font": "system",
     "font_size": 12,
-    "char_space": -2,
+    "char_space": 0,
     "line_space": 0
 }

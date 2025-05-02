@@ -341,8 +341,14 @@ void gterminal_flash(gterminal_t* terminal) {
 void gterminal_resize(gterminal_t* terminal, uint32_t gw, uint32_t gh) {
     if(terminal->font == NULL)
         return;
-    int32_t font_w = terminal->font_size + terminal->char_space;
+    //int32_t font_w = terminal->font_size;
+    int32_t font_w = font_get_width(terminal->font, terminal->font_size);
+    if(font_w <= 0 || font_w > terminal->font_size)
+        font_w = terminal->font_size;
+    font_w += terminal->char_space;
+
     int32_t font_h = font_get_height(terminal->font, terminal->font_size);
+    font_h += terminal->line_space;
     if(font_w == 0 || font_h == 0)
         return;
 

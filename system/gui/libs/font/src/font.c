@@ -195,6 +195,13 @@ int  font_get_height(font_t* font, uint32_t size) {
 	return face.height/FACE_PIXEL_DENT;
 }
 
+int  font_get_width(font_t* font, uint32_t size) {
+	face_info_t face;
+	if(font_get_face(font, size, &face) != 0)
+		return 0;
+	return face.width/FACE_PIXEL_DENT;
+}
+
 static int font_get_glyph(font_t* font, uint32_t size, uint32_t c, FT_GlyphSlot slot) {
 	if(_font_dev_pid < 0 || font == NULL)
 		return -1;
@@ -253,6 +260,11 @@ void font_char_size(uint32_t c, font_t* font, uint32_t size, uint32_t *w, uint32
 	face_info_t* faceinfo = (face_info_t*)slot.other;
 	if(w != NULL)  {
 		*w = slot.bitmap_left + slot.bitmap.width;
+		/*
+		*w = faceinfo->width/FACE_PIXEL_DENT;
+		if(*w > size)
+			*w = size;
+			*/
 	}
 
 	if(h != NULL && faceinfo != NULL) {
@@ -327,11 +339,18 @@ void graph_draw_unicode_font(graph_t* g, int32_t x, int32_t y, uint32_t c,
 			}
 		}
 	}
-	if(w != NULL) {
-		*w = slot.bitmap_left + slot.bitmap.width;
-	}
+
 	if(h != NULL) {
 		*h = (faceinfo->height/FACE_PIXEL_DENT);
+	}
+
+	if(w != NULL) {
+		*w = slot.bitmap_left + slot.bitmap.width;
+		/*
+		*w = faceinfo->width/FACE_PIXEL_DENT;
+		if(*w > size)
+			*w = size;
+			*/
 	}
 }
 
