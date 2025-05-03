@@ -63,6 +63,28 @@ public:
 		return true;
 	}
 
+	void fontZoom(bool zoomIn) {
+		if(zoomIn)
+			terminal.font_size++;
+		else  {
+			if(terminal.font_size > 5)
+				terminal.font_size--;
+		}
+		gterminal_resize(&terminal, area.w-scrollW, area.h);
+	}
+
+	void charSpaceChange(bool incr) {
+		if(incr) {
+			if(terminal.char_space < 8)
+				terminal.char_space++;
+		}
+		else  {
+			if(terminal.char_space > -5)
+				terminal.char_space--;
+		}
+		gterminal_resize(&terminal, area.w-scrollW, area.h);
+	}
+
 protected:
 	void input(int32_t c) {
 		charbuf_push(_buffer, c, false);
@@ -106,6 +128,22 @@ static void onQuitFunc(MenuItem* it, void* p) {
 	win->close();
 }
 
+static void onFontZoomInFunc(MenuItem* it, void* p) {
+	_consoleWidget->fontZoom(true);
+}
+
+static void onFontZoomOutFunc(MenuItem* it, void* p) {
+	_consoleWidget->fontZoom(false);
+}
+
+static void onFontCharSpaceIncrFunc(MenuItem* it, void* p) {
+	_consoleWidget->charSpaceChange(true);
+}
+
+static void onFontCharSpaceDecrFunc(MenuItem* it, void* p) {
+	_consoleWidget->charSpaceChange(false);
+}
+
 static bool _win_opened = false;
 static void* thread_loop(void* p) {
 	X x;
@@ -116,11 +154,15 @@ static void* thread_loop(void* p) {
 	root->setType(Container::VERTICLE);
 
 	Menu* menu = new Menu();
-	menu->add("font", NULL, NULL, onFontFunc, &win);
 	menu->add("quit", NULL, NULL, onQuitFunc, &win);
 
 	Menubar* menubar = new Menubar();
 	menubar->add("term", NULL, menu, NULL, NULL);
+	menubar->add("font", NULL, NULL, onFontFunc, &win);
+	menubar->add("F+", NULL, NULL, onFontZoomInFunc, NULL);
+	menubar->add("F-", NULL, NULL, onFontZoomOutFunc, NULL);
+	menubar->add("]+[", NULL, NULL, onFontCharSpaceIncrFunc, NULL);
+	menubar->add("]-[", NULL, NULL, onFontCharSpaceDecrFunc, NULL);
 	menubar->fix(0, 20);
 	root->add(menubar);
 

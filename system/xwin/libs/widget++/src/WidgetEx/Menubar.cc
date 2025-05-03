@@ -45,6 +45,8 @@ void Menubar::onEnter(int index) {
         }
         item->menu->pop();
     }
+    else 
+        itemSelected = -1;
 }
 
 Menubar::Menubar() {
