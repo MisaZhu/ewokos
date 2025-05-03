@@ -44,8 +44,25 @@ using namespace Ewok;
 static charbuf_t *_buffer;
 
 class TermWidget : public ConsoleWidget {
+	pthread_mutex_t term_lock;
 
 public:
+	TermWidget() {
+		pthread_mutex_init(&term_lock, NULL);
+	}
+
+	~TermWidget() {
+		pthread_mutex_destroy(&term_lock);
+	}
+
+	void lock() {
+		pthread_mutex_lock(&term_lock);
+	}
+
+	void unlock() {
+		pthread_mutex_unlock(&term_lock);
+	}
+
 	bool readConfig(const char* fname) {
 		json_var_t *conf_var = json_parse_file(fname);	
 
@@ -64,6 +81,7 @@ public:
 	}
 
 	void fontZoom(bool zoomIn) {
+		lock();
 		if(zoomIn)
 			terminal.font_size++;
 		else  {
@@ -71,9 +89,11 @@ public:
 				terminal.font_size--;
 		}
 		gterminal_resize(&terminal, area.w-scrollW, area.h);
+		unlock();
 	}
 
 	void charSpaceChange(bool incr) {
+		lock();
 		if(incr) {
 			if(terminal.char_space < 8)
 				terminal.char_space++;
@@ -83,12 +103,24 @@ public:
 				terminal.char_space--;
 		}
 		gterminal_resize(&terminal, area.w-scrollW, area.h);
+		unlock();
 	}
 
+	void pushStr(const char* s, uint32_t sz) {
+		lock();
+		push(s, sz);
+		unlock();
+	}
 protected:
 	void input(int32_t c) {
 		charbuf_push(_buffer, c, false);
 		proc_wakeup(RW_BLOCK_EVT);
+	}
+
+	void onResize() {
+		lock();
+		ConsoleWidget::onResize();
+		unlock();
 	}
 };
 
@@ -199,8 +231,7 @@ static int console_write(int fd,
 	if(size <= 0 || _consoleWidget == NULL)
 		return 0;
 
-	_consoleWidget->push((const char*)buf, size);
-	_consoleWidget->update();
+	_consoleWidget->pushStr((const char*)buf, size);
 	return size;
 }
 
