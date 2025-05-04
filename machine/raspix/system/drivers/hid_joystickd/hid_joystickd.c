@@ -4,13 +4,16 @@
 #include <string.h>
 #include <ewoksys/vfs.h>
 #include <ewoksys/vdevice.h>
+#include <ewoksys/ipc.h>
 #include <ewoksys/mmio.h>
 #include <fcntl.h>
 #include <ewoksys/keydef.h>
 
 static int hid;
-static uint8_t key_state;
-static uint8_t last_state;
+
+static bool _idle = true;
+static bool _down = false;
+static uint8_t keys[3];
 
 static int joystick_read(int fd, int from_pid, fsinfo_t* node,
 		void* buf, int size, int offset, void* p) {
@@ -20,12 +23,14 @@ static int joystick_read(int fd, int from_pid, fsinfo_t* node,
 	(void)p;
 	(void)node;
 
-	if(last_state != key_state){
-		((uint8_t*)buf)[0] = key_state;
-		last_state = key_state;
-		return 1;
-	}
-	return 0;
+	if(_idle)
+		return VFS_ERR_RETRY;
+
+	_idle = true;
+	if(size > 3)
+		size = 3;
+	memcpy(buf, keys, size);
+	return size;
 }
 
 typedef struct {
@@ -53,35 +58,55 @@ static int loop(void* p) {
 		//klog("joy: %02x %02x %02x %02x %02x %02x %02x %02x\n", 
 		//buf[0], buf[1], buf[2], buf[3], buf[4], buf[5], buf[6], buf[7]);
 		joystick_t *joy = (joystick_t*)&buf;
-		key_state = 0;
 		//klog("%d %d", joy->axis.x, joy->axis.y);
-		if(joy->axis.x > 768)
-			key_state|=JOYSTICK_RIGHT;
-		else if(joy->axis.x < 256)
-			key_state|=JOYSTICK_LEFT;	
+		int i = 0;
+		if(joy->axis.x > 768) {
+			keys[i] = JOYSTICK_RIGHT;
+			i++;
+		}
+		else if(joy->axis.x < 256) {
+			keys[i] =JOYSTICK_LEFT;	
+			i++;
+		}
 		
-		if(joy->axis.y > 768)
-			key_state|=JOYSTICK_DOWN;
-		else if(joy->axis.y < 256)
-			key_state|=JOYSTICK_UP;	
+		if(joy->axis.y > 768) {
+			keys[i] = JOYSTICK_DOWN;
+			i++;
+		}
+		else if(joy->axis.y < 256) {
+			keys[i] = JOYSTICK_UP;	
+			i++;
+		}
 		
-		if(joy->button[0] & 0x2)
-			key_state |= JOYSTICK_BTN_A;
-		if(joy->button[0] & 0x4)
-			key_state |= JOYSTICK_BTN_B;
-		if(joy->button[1] & 0x1)
-			key_state |= JOYSTICK_BTN_SELECT;
-		if(joy->button[1] & 0x2)
-			key_state |= JOYSTICK_BTN_START;
+		if(joy->button[0] & 0x1)
+			keys[i] = KEY_BUTTON_X;
+		else if(joy->button[0] & 0x2)
+			keys[i] = KEY_BUTTON_A;
+		else if(joy->button[0] & 0x4)
+			keys[i] = KEY_BUTTON_B;
+		else if(joy->button[0] & 0x8)
+			keys[i] = KEY_BUTTON_Y;
+		else if(joy->button[1] & 0x1)
+			keys[i] = KEY_BUTTON_SELECT;
+		else if(joy->button[1] & 0x2)
+			keys[i] = KEY_BUTTON_START;
 
+		_idle = false;
+		_down = true;
 		proc_wakeup(RW_BLOCK_EVT);
 	}
+	else {
+		memset(keys, 0, 3);
+		if(_down)
+			proc_wakeup(RW_BLOCK_EVT);
+		_down = false;
+	}
+
 	usleep(10000);
 	return 0;
 }
 
 static int set_report_id(int fd, int id) {
-
 	proto_t in;
 	PF->init(&in)->addi(&in, id);
 	int ret = vfs_fcntl(fd, 0, &in , NULL);
@@ -90,6 +115,8 @@ static int set_report_id(int fd, int id) {
 }
 
 int main(int argc, char** argv) {
+	_idle = true;
+	_down = false;
 	const char* mnt_point = argc > 1 ? argv[1]: "/dev/joystick0";
 	const char* dev_point = argc > 2 ? argv[2]: "/dev/hid0";
 
