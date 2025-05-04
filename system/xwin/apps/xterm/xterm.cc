@@ -109,6 +109,7 @@ public:
 	void pushStr(const char* s, uint32_t sz) {
 		lock();
 		push(s, sz);
+		update();
 		unlock();
 	}
 protected:
