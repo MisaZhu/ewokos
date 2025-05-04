@@ -79,17 +79,17 @@ static int loop(void* p) {
 		}
 		
 		if(joy->button[0] & 0x1)
-			keys[i] = KEY_BUTTON_X;
+			keys[i] = JOYSTICK_X;
 		else if(joy->button[0] & 0x2)
-			keys[i] = KEY_BUTTON_A;
+			keys[i] = JOYSTICK_A;
 		else if(joy->button[0] & 0x4)
-			keys[i] = KEY_BUTTON_B;
+			keys[i] = JOYSTICK_B;
 		else if(joy->button[0] & 0x8)
-			keys[i] = KEY_BUTTON_Y;
+			keys[i] = JOYSTICK_Y;
 		else if(joy->button[1] & 0x1)
-			keys[i] = KEY_BUTTON_SELECT;
+			keys[i] = JOYSTICK_SELECT;
 		else if(joy->button[1] & 0x2)
-			keys[i] = KEY_BUTTON_START;
+			keys[i] = JOYSTICK_START;
 
 		_idle = false;
 		_down = true;

@@ -59,9 +59,9 @@ static void joy_2_mouse(int key, int8_t* mv) {
 	case KEY_RIGHT:
 		mv[1] += (JOY_STEP) * j_times;
 		return;
-	case KEY_BUTTON_A:
+	case JOYSTICK_A:
 	case KEY_ENTER:
-	case KEY_BUTTON_START:
+	case JOYSTICK_START:
 		//if(!_prs_down) {
 			mv[0] = 2;
 			_prs_down = true;
@@ -173,7 +173,7 @@ static int vjoy_loop(void* p){
 		for(int i=0; i<KEY_NUM; i++) {
 			if(_keys[i] != 0) {
 				_release = true;
-				if(_keys[i] == KEY_BUTTON_SELECT) {
+				if(_keys[i] == JOYSTICK_SELECT) {
 					_mouse_mode = !_mouse_mode;
 					_release = false;
 					break;
