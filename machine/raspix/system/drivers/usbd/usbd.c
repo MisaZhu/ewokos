@@ -85,7 +85,7 @@ static int usb_step(void* p) {
             proc_wakeup(RW_BLOCK_EVT);
         }
     }
-    proc_usleep(15000);
+    proc_usleep(3000);
 	return 0;
 }
 
