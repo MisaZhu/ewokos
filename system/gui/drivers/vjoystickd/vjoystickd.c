@@ -143,6 +143,7 @@ static int vjoystick_read(int fd,
 
 	if(mouse) {
 		if(joymouse_read_buffer((uint8_t*)buf) == 0)
+			//return 0;
 			return VFS_ERR_RETRY;
 		return 4;
 	}
@@ -152,6 +153,7 @@ static int vjoystick_read(int fd,
 		memcpy(buf, _keys, _rd);
 	else {
 		if(!_release)
+			//return 0;
 			return VFS_ERR_RETRY;
 		else
 			_release = false;
@@ -163,6 +165,8 @@ static int vjoy_loop(void* p){
 	uint64_t tik = kernel_tic_ms(0);
 	uint32_t tm = 1000/_fps;
 	uint8_t keys[KEY_NUM] = {0};
+
+	ipc_disable();
 
 	int32_t rd = read(_joys_fd, keys, KEY_NUM);
 	if(rd <= 0) {
@@ -207,6 +211,7 @@ static int vjoy_loop(void* p){
 			proc_wakeup(RW_BLOCK_EVT);
 		}
 	}
+	ipc_enable();
 
 	uint32_t gap = (uint32_t)(kernel_tic_ms(0) - tik);
 	if(gap < tm) {
