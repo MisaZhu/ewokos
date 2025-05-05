@@ -180,7 +180,6 @@ static int console_loop(void* p) {
 		flush(console);
 		_flush = false;
 	}
-	ipc_enable();
 
 	if(_keyb_fd < 0) {
 		if(_keyb_dev[0] != 0)
@@ -215,11 +214,10 @@ static int console_loop(void* p) {
 				charbuf_push(_buffer, c, true);
 				proc_wakeup(RW_BLOCK_EVT);
 			}
-			usleep(20000);
-			return 0;
 		}
 	}
 
+	ipc_enable();
 	usleep(20000);
 	return 0;
 }

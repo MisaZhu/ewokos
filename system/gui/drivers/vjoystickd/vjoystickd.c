@@ -59,9 +59,9 @@ static void joy_2_mouse(int key, int8_t* mv) {
 	case KEY_RIGHT:
 		mv[1] += (JOY_STEP) * j_times;
 		return;
-	case KEY_BUTTON_A:
+	case JOYSTICK_A:
 	case KEY_ENTER:
-	case KEY_BUTTON_START:
+	case JOYSTICK_START:
 		//if(!_prs_down) {
 			mv[0] = 2;
 			_prs_down = true;
@@ -143,6 +143,7 @@ static int vjoystick_read(int fd,
 
 	if(mouse) {
 		if(joymouse_read_buffer((uint8_t*)buf) == 0)
+			//return 0;
 			return VFS_ERR_RETRY;
 		return 4;
 	}
@@ -152,6 +153,7 @@ static int vjoystick_read(int fd,
 		memcpy(buf, _keys, _rd);
 	else {
 		if(!_release)
+			//return 0;
 			return VFS_ERR_RETRY;
 		else
 			_release = false;
@@ -164,12 +166,14 @@ static int vjoy_loop(void* p){
 	uint32_t tm = 1000/_fps;
 	uint8_t keys[KEY_NUM] = {0};
 
+	ipc_disable();
+
 	int32_t rd = read(_joys_fd, keys, KEY_NUM);
 	if(rd <= 0) {
 		for(int i=0; i<KEY_NUM; i++) {
 			if(_keys[i] != 0) {
 				_release = true;
-				if(_keys[i] == KEY_BUTTON_SELECT) {
+				if(_keys[i] == JOYSTICK_SELECT) {
 					_mouse_mode = !_mouse_mode;
 					_release = false;
 					break;
@@ -207,6 +211,7 @@ static int vjoy_loop(void* p){
 			proc_wakeup(RW_BLOCK_EVT);
 		}
 	}
+	ipc_enable();
 
 	uint32_t gap = (uint32_t)(kernel_tic_ms(0) - tik);
 	if(gap < tm) {

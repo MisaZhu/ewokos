@@ -59,7 +59,6 @@ static int loop(void* p) {
 	ipc_disable();
 	int8_t buf[8] = {0};
 	int res = read(hid, buf, 7);
-	ipc_enable();
 
 	if(res == 7) {
 		btn = buf[0];
@@ -68,8 +67,9 @@ static int loop(void* p) {
 		has_data = 1;
 		proc_wakeup(RW_BLOCK_EVT);
 	}
-	else
-		usleep(10000);
+
+	ipc_enable();
+	usleep(3000);
 	return 0;
 }
 

@@ -163,8 +163,8 @@ bool Grid::onIM(xevent_t* ev) {
 	}
 	else if(ev->state == XIM_STATE_RELEASE) {
 		if(ev->value.im.value == KEY_ENTER ||
-				ev->value.im.value == KEY_BUTTON_START ||
-				ev->value.im.value == KEY_BUTTON_A) {
+				ev->value.im.value == JOYSTICK_START ||
+				ev->value.im.value == JOYSTICK_A) {
 			enter(itemSelected);
 		}
 	}

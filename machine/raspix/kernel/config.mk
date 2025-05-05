@@ -11,8 +11,6 @@ ARCH_VER=v7
 #DPI=yes
 #----multi core(SMP)------
 SMP=yes
-#----kernel console-------
-KERNEL_CONSOLE=yes
 
 ifeq ($(CLOCKWORK),yes)
 PI4=yes

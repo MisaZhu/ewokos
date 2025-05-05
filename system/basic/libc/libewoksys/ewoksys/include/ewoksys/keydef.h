@@ -21,30 +21,26 @@ extern "C" {
 #define KEY_HOME            0xF0 
 #define KEY_END             0xF1
 
-#define KEY_BUTTON_A        97
-#define KEY_BUTTON_B        98
-#define KEY_BUTTON_L1       102
-#define KEY_BUTTON_L2       104
-#define KEY_BUTTON_MODE     110
-#define KEY_BUTTON_R1       103
-#define KEY_BUTTON_R2       105
-#define KEY_BUTTON_SELECT   109
-#define KEY_BUTTON_START    108
-#define KEY_BUTTON_THUMBL   106
-#define KEY_BUTTON_THUMBR   107
+#define JOYSTICK_A        97
+#define JOYSTICK_B        98
+#define JOYSTICK_L1       102
+#define JOYSTICK_L2       104
+#define JOYSTICK_MODE     110
+#define JOYSTICK_R1       103
+#define JOYSTICK_R2       105
+#define JOYSTICK_SELECT   109
+#define JOYSTICK_START    108
+#define JOYSTICK_THUMBL   106
+#define JOYSTICK_THUMBR   107
 
-#define KEY_BUTTON_X        120
-#define KEY_BUTTON_Y        121
+#define JOYSTICK_X        120
+#define JOYSTICK_Y        121
 
 #define JOYSTICK_UP        0x1
 #define JOYSTICK_DOWN      0x2
 #define JOYSTICK_LEFT      0x4
 #define JOYSTICK_RIGHT     0x8
 #define JOYSTICK_PRESS     0x10
-#define JOYSTICK_BTN_A     0x10
-#define JOYSTICK_BTN_B     0x20
-#define JOYSTICK_BTN_SELECT    0x40
-#define JOYSTICK_BTN_START     0x80
 
 #ifdef __cplusplus
 }

@@ -154,31 +154,31 @@ protected:
 				return;
 		}
 		else { //RELEASE
-			if(c == KEY_BUTTON_SELECT) {
+			if(c == JOYSTICK_SELECT) {
 				changeMode(!hideMode);
 				return;
 			}
-			else if(c == KEY_BUTTON_Y) {
+			else if(c == JOYSTICK_Y) {
 				doKeyIn('\b');
 				repaint();
 				return;
 			}
-			else if(c == KEY_BUTTON_START) {
+			else if(c == JOYSTICK_START) {
 				doKeyIn('\r');
 				changeMode(true);
 				return;
 			}
-			else if(c == KEY_BUTTON_X) {
+			else if(c == JOYSTICK_X) {
 				doKeyIn('-');
 				repaint();
 				return;
 			}
-			else if(c == KEY_BUTTON_B) {
+			else if(c == JOYSTICK_B) {
 				doKeyIn(' ');
 				repaint();
 				return;
 			}
-			else if(c == KEY_ENTER || c == KEY_BUTTON_A) {
+			else if(c == KEY_ENTER || c == JOYSTICK_A) {
 				if(hideMode) {
 					changeMode(false);
 					return;

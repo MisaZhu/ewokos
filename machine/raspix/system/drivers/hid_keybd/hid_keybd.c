@@ -26,9 +26,10 @@
 
 static uint8_t _held[128] = {0};
 static bool _idle = true;
+static bool _down = false;
 
 static int  hid;
-static char key[3];
+static char keys[3];
 
 static int keyb_read(int fd, int from_pid, fsinfo_t* node, 
 		void* buf, int size, int offset, void* p) {
@@ -44,7 +45,7 @@ static int keyb_read(int fd, int from_pid, fsinfo_t* node,
 	_idle = true;
 	if(size > 3)
 		size = 3;
-	memcpy(buf, key, size);
+	memcpy(buf, keys, size);
 	return size;
 }
 
@@ -105,19 +106,26 @@ static int loop(void* p) {
 	int8_t buf[8];
 	ipc_disable();
 	int res = read(hid, buf, 7);
-	ipc_enable();
 
 	if(res == 7){
 		//klog("kb: %02x %02x %02x %02x %02x %02x %02x %02x\n", 
 		//buf[0], buf[1], buf[2], buf[3], buf[4], buf[5], buf[6], buf[7]);
-		key[0] = getKeyChar(buf[0], buf[2]);
-		key[1] = getKeyChar(buf[1], buf[3]);
-		key[2] = getKeyChar(buf[2], buf[4]);
+		keys[0] = getKeyChar(buf[0], buf[2]);
+		keys[1] = getKeyChar(buf[1], buf[3]);
+		keys[2] = getKeyChar(buf[2], buf[4]);
 		_idle = false;
+		_down = true;
 		proc_wakeup(RW_BLOCK_EVT);
 	}
-	else
-		usleep(20000);
+	else {
+		memset(keys, 0, 3);
+		if(_down)
+			proc_wakeup(RW_BLOCK_EVT);
+		_down = false;
+	}
+
+	ipc_enable();
+	usleep(10000);
 	return 0;
 }
 
@@ -133,6 +141,7 @@ static int set_report_id(int fd, int id) {
 
 int main(int argc, char** argv) {
 	_idle = true;
+	_down = false;
 	const char* mnt_point = argc > 1 ? argv[1]: "/dev/keyb0";
 	const char* dev_point = argc > 2 ? argv[2]: "/dev/hid0";
 	hid = open(dev_point, O_RDONLY | O_NONBLOCK);

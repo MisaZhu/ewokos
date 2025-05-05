@@ -172,7 +172,9 @@ static char* timer_cmd(int from_pid, int argc, char** argv, void* p) {
 }
 
 static int timer_loop(void* p) {
+	ipc_disable();
 	interrupt_handle(0, 0);
+	ipc_enable();
 
 	if(_min_timer_usec == 0)
 		usleep(100000);
