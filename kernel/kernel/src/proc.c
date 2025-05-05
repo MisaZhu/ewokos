@@ -296,9 +296,10 @@ inline void proc_restore_state(context_t* ctx, proc_t* proc, saved_state_t* save
 	proc->info.block_by = saved_state->block_by;
 	proc->block_event = saved_state->block_event;
 	proc->sleep_counter = saved_state->sleep_counter;
-	memcpy(&proc->ipc_res, saved_ipc_res, sizeof(ipc_res_t));
+	//memcpy(&proc->ipc_res, saved_ipc_res, sizeof(ipc_res_t));
 	memcpy(ctx, &saved_state->ctx, sizeof(context_t));
 	memset(saved_state, 0, sizeof(saved_state_t));
+	memset(saved_ipc_res, 0, sizeof(ipc_res_t));
 }
 
 void proc_switch_multi_core(context_t* ctx, proc_t* to, uint32_t core) {
