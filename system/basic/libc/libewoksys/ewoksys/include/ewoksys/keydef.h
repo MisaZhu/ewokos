@@ -36,11 +36,11 @@ extern "C" {
 #define JOYSTICK_X        120
 #define JOYSTICK_Y        121
 
-#define JOYSTICK_UP        0x1
-#define JOYSTICK_DOWN      0x2
-#define JOYSTICK_LEFT      0x4
-#define JOYSTICK_RIGHT     0x8
-#define JOYSTICK_PRESS     0x10
+#define JOYSTICK_UP        KEY_UP 
+#define JOYSTICK_DOWN      KEY_DOWN
+#define JOYSTICK_LEFT      KEY_LEFT
+#define JOYSTICK_RIGHT     KEY_RIGHT
+#define JOYSTICK_PRESS     KEY_ENTER
 
 #ifdef __cplusplus
 }
