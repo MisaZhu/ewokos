@@ -52,6 +52,20 @@ bool Widget::onIM(xevent_t* ev) {
 	return false;
 }
 
+void Widget::timerTrigger(uint32_t timerFPS, uint32_t timerStep) {
+	timerTick.fps = timerFPS;
+	timerTick.step = timerStep;
+	timerTick.tick = true;
+}
+
+void Widget::doTimer() {
+	if(!timerTick.tick)
+		return;
+
+	onTimer(timerTick.fps, timerTick.step);
+	timerTick.tick = false;
+}
+
 bool Widget::onEvent(xevent_t* ev) { 
 	if(!visible)
 		return false;

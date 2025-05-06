@@ -10,11 +10,11 @@ static void loop(void* p) {
     WidgetWin* win = (WidgetWin*)p;
     if(win == NULL)
         return;
-	if(!win->isPainting()) {
-        RootWidget* root = win->getRoot();
-        if(root != NULL) {
-    		root->repaintWin();
-        }
+    RootWidget* root = win->getRoot();
+    if(root != NULL) {
+        win->doTimer();
+        if(!win->isPainting())
+            root->repaintWin();
     }
     proc_usleep(10000);
 }

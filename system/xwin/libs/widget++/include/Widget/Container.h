@@ -18,8 +18,8 @@ protected:
 	void onLayout();
 	bool onEvent(xevent_t* ev);
 	void repaint(graph_t* g, XTheme* theme);
-	void onTimer(uint32_t timerFPS, uint32_t timerStep);
-
+	void timerTrigger(uint32_t timerFPS, uint32_t timerStep);
+	void doTimer();
 public:
 	static const uint8_t FIXED = 0;
 	static const uint8_t VERTICLE = 1;

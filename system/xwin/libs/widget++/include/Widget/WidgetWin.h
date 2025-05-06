@@ -30,6 +30,7 @@ public:
 	void setRoot(RootWidget* root);
 	void setTimer(uint32_t fps);
 	void timerTask();
+	void doTimer();
 	inline bool isPainting() { return painting; }
 };
 

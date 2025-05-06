@@ -61,7 +61,14 @@ void WidgetWin::timerTask() {
 	if(root == NULL)
 		return;
 
-	root->onTimer(timerFPS, timerStep++);
+	root->timerTrigger(timerFPS, timerStep++);
+}
+
+void WidgetWin::doTimer() {
+	if(root == NULL)
+		return;
+
+	root->doTimer();
 }
 
 void WidgetWin::setRoot(RootWidget* root) {

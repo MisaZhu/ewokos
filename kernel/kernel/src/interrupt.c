@@ -80,13 +80,13 @@ static int32_t interrupt_send_raw(context_t* ctx, uint32_t interrupt,  interrupt
 		return -1;
 	}	
 
+	/*
 	if(proc->ipc_res.state != IPC_IDLE) {
 		//printf("inter err ipc req: intr:%d, pid:%d\n", interrupt, proc == NULL ? -1:proc->info.pid);
 		ctx->gpr[0] = -1;
 		return -1;
 	}
 
-	/*
 	ipc_task_t* ipc = proc_ipc_get_task(proc); 
 	if(ipc != NULL) { //target proc still busy on ipc service task
 		printf("inter err ipc svr: intr:%d, pid:%d\n", interrupt, proc->info.pid);
