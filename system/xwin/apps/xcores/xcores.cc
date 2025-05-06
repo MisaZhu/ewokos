@@ -15,7 +15,7 @@ using namespace Ewok;
 class Cores : public Widget {
 	static const uint32_t HEART_BIT_NUM = 64;
 	uint32_t index;
-	bool loop, updating;
+	bool loop;
 	sys_info_t sysInfo;
 	uint32_t cores[MAX_CORE_NUM][HEART_BIT_NUM];
 
@@ -37,7 +37,6 @@ public:
 	inline Cores() {
 		index = 0;
 		loop = false;
-		updating = false;
 		x_off = 10;
 		y_off = 20;
 		y_off_bottom = 10;
@@ -123,7 +122,7 @@ protected:
 	}
 
 	void onRepaint(graph_t* g, XTheme* theme, const grect_t& r) {
-		if(sysInfo.cores == 0 || updating)
+		if(sysInfo.cores == 0)
 			return;
 
 		graph_fill_3d(g, r.x, r.y, r.w, r.h, theme->basic.widgetBGColor, true);
@@ -155,11 +154,7 @@ protected:
 	}
 
 	void onTimer(uint32_t timerFPS, uint32_t timerStep) {
-		if(!getWin()->isPainting()) {
-			updating = true;
-			updateCores();
-			updating = false;
-		}
+		updateCores();
 	}
 };
 
