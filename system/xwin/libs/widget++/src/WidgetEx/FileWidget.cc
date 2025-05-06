@@ -141,14 +141,18 @@ class FileGrid: public Grid {
 		files[0].d_type = DT_DIR;
 
 		int i;
+		int num = 1;
 		for(i=1; i<MAX_FILES; i++) {
 			struct dirent* it = readdir(dirp);
 			if(it == NULL)
 				break;
-			memcpy(&files[i], it, sizeof(struct dirent));
+			if(it->d_name[0] == '.')
+				continue;
+			memcpy(&files[num], it, sizeof(struct dirent));
+			num++;
 		}
 		closedir(dirp);
-		setItemNum(i);
+		setItemNum(num);
 		itemStart = 0;
 		itemSelected = 0;
 		updateScroller();

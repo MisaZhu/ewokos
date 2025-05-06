@@ -128,9 +128,11 @@ protected:
 		graph_fill_3d(g, r.x, r.y, r.w, r.h, theme->basic.widgetBGColor, true);
 
 		float xstep = (r.w - x_off*2)/ (float)HEART_BIT_NUM;
-		float yzoom = (r.h - y_off - y_off_bottom)/ 100.0;
-		if(yzoom == 0)
+		float yzoom = (r.h - y_off - y_off_bottom)/ 100.0f;
+		if(yzoom <= 0.0)
 			yzoom = 1.0;
+		if(yzoom > 10.0)
+			yzoom = 10.0;
 
 		drawBG(g, xstep, yzoom, r);
 		for(uint32_t i=0; i<sysInfo.cores; i++) {

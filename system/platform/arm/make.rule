@@ -22,8 +22,9 @@ CXXFLAGS = -marm \
         -std=c++14
 
 ifeq ($(FPU),yes)
-CFLAGS += -mfpu=vfp
-CXXFLAGS += -mfpu=vfp
+#TODO: hard float
+#CFLAGS += -mfpu=vfp
+#CXXFLAGS += -mfpu=vfp
 endif
        
 EWOK_LIBC = -lewoksys -lc -lgloss -lsoftfloat

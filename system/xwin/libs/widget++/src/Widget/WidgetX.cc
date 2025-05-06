@@ -13,8 +13,7 @@ static void loop(void* p) {
     RootWidget* root = win->getRoot();
     if(root != NULL) {
         win->doTimer();
-        if(!win->isPainting())
-            root->repaintWin();
+        root->repaintWin();
     }
     proc_usleep(10000);
 }
