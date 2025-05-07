@@ -58,7 +58,6 @@ typedef struct st_proc {
 	ipc_res_t         ipc_res;
 
 	int64_t           sleep_counter; //sleep usec
-	uint32_t          schd_core_lock_counter; //schd_core_lock usec
 	uint32_t          run_usec_counter; //run time usec
 
 	proc_space_t*     space; //threads share the space from owner proc

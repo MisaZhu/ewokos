@@ -140,7 +140,6 @@ void graph_fill_bsp(graph_t* g, int32_t x, int32_t y, int32_t w, int32_t h, uint
 	for(int i = 0; i < 8; i++)
 		buf[i] = color;
 	
-	neon_lock();
 	if(color_a(color) == 0xff) {
 		neon_fill_load(buf);
 		for(; y < ey; y++) {
@@ -163,7 +162,6 @@ void graph_fill_bsp(graph_t* g, int32_t x, int32_t y, int32_t w, int32_t h, uint
 			}
 		}
 	}
-	neon_unlock();
 }
 
 inline void graph_blt_bsp(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_t sh,
@@ -189,7 +187,6 @@ inline void graph_blt_bsp(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int3
 	ex = sr.x + sr.w;
 	ey = sr.y + sr.h;
 
-	neon_lock();
 	for(; sy < ey; sy++, dy++) {
 		register int32_t sx = sr.x;
 		register int32_t dx = dr.x;
@@ -198,7 +195,6 @@ inline void graph_blt_bsp(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int3
 			graph_pixel_neon(dst, dx, dy, &src->buffer[offset + sx], MIN(ex-sx, 8));	
 		}
 	}
-	neon_unlock();
 }
 
 inline void graph_blt_alpha_bsp(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_t sh,
@@ -223,7 +219,6 @@ inline void graph_blt_alpha_bsp(graph_t* src, int32_t sx, int32_t sy, int32_t sw
 	ex = sr.x + sr.w;
 	ey = sr.y + sr.h;
 
-	neon_lock();
 	for(; sy < ey; sy++, dy++) {
 		register int32_t sx = sr.x;
 		register int32_t dx = dr.x;
@@ -232,7 +227,6 @@ inline void graph_blt_alpha_bsp(graph_t* src, int32_t sx, int32_t sy, int32_t sw
 			graph_pixel_argb_neon(dst, dx, dy, &src->buffer[offset + sx], MIN(ex-sx, 8));	
 		}
 	}
-	neon_unlock();
 }
 
 bool  graph_2d_boosted_bsp(void) {

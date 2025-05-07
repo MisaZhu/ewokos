@@ -124,10 +124,6 @@ static inline const char* svc_name(int32_t code) {
 		return "sys_v2p";
 	case SYS_P2V:
 		return "sys_p2v";
-	case SYS_SCHD_CORE_LOCK:
-		return "sys_schd_core_lock";
-	case SYS_SCHD_CORE_UNLOCK:
-		return "sys_schd_core_unlock";
 	}
 	return "unknown";
 }

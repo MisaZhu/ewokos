@@ -12,14 +12,6 @@
 extern "C" {
 #endif
 
-inline void schd_core_lock() {
-	syscall0(SYS_SCHD_CORE_LOCK);
-}
-
-inline void schd_core_unlock() {
-	syscall0(SYS_SCHD_CORE_UNLOCK);
-}
-
 int core_get_ux(void) {
 	int ret = 0;
 	const char* uxid = getenv(ENV_UX_ID);

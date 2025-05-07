@@ -1,3 +1,5 @@
+.fpu neon - vfpv3
+
 .global interrupt_table_start, interrupt_table_end
 interrupt_table_start: /*interrupt table, with syscall and irq items*/
 	ldr pc, reset_entry_address /*item 0: for reset*/
@@ -19,7 +21,7 @@ interrupt_table_end:
 //context struct { uint32_t cpsr, pc, gpr[ 13 ], sp, lr; }
 svc_entry:
 	msr   cpsr, #0xD3             @ SVC mode with IRQ and FIQ interrupts disabled
-	sub   sp, sp, #256           @ update SVC mode stack
+	sub   sp, sp, #320          @ update SVC mode stack
 
 
 	stmia sp, { r0-r12, sp, lr }^ @ store  USR registers
@@ -27,7 +29,8 @@ svc_entry:
 	stmdb sp!, { r5, lr }         @ store  USR PC and CPSR
 
 	@ FPU
-	vstmdb sp!, {s0 - s31}
+	vstmdb sp!, {d0 - d15}
+	vstmdb sp!, {d16 - d31}
 	vmrs r5, fpscr
     stmdb sp!, {r5}
 
@@ -39,25 +42,27 @@ svc_entry:
 	@ FPU
 	ldmia sp!, {r5}
     vmsr fpscr, r5
-    vldmia sp!, {s0 - s31}
+    vldmia sp!, {d16 - d31}
+    vldmia sp!, {d0 - d15}
 
 	ldmia sp!, { r1, lr }         @ load   USR mode PC and CPSR
 	msr   spsr, r1                @ set    USR mode        CPSR
 	ldmia sp, { r0-r12, sp, lr }^ @ load   USR mode registers
 
-	add   sp, sp, #256
+	add   sp, sp, #320
 	movs  pc, lr                  @ return from interrupt
 
 irq_entry:
 	msr   cpsr, #0xD2             @ IRQ mode with IRQ and FIQ interrupts disabled
 	sub   lr, lr, #4              @ correct return address
-	sub   sp, sp, #256             @ update IRQ mode stack
+	sub   sp, sp, #320            @ update IRQ mode stack
 	stmia sp, { r0-r12, sp, lr }^ @ store  USR registers
 	mrs   r0, spsr                @ get    USR        CPSR
 	stmdb sp!, { r0, lr }         @ store  USR PC and CPSR
 
 	@FPU
-	vstmdb sp!, {s0 - s31}
+	vstmdb sp!, {d0 - d15}
+	vstmdb sp!, {d16 - d31}
 	vmrs r5, fpscr
     stmdb sp!, {r5}
 
@@ -70,26 +75,28 @@ irq_entry:
 	@FPU
 	ldmia sp!, {r5}
     vmsr fpscr, r5
-    vldmia sp!, {s0 - s31}
+    vldmia sp!, {d16 - d31}
+    vldmia sp!, {d0 - d15}
 
 	ldmia sp!, { r0, lr }         @ load   USR mode PC and CPSR
 
 
 	msr   spsr, r0                @ set    USR mode        CPSR
 	ldmia sp, { r0-r12, sp, lr }^ @ load   USR mode registers
-	add   sp, sp, #256             @ update IRQ mode SP
+	add   sp, sp, #320             @ update IRQ mode SP
 	movs  pc, lr                  @ return from interrupt
 
 undef_abort_entry:
 	msr   cpsr, #0xD7             @ ABT mode with IRQ and FIQ interrupts disabled
 	sub   lr, lr, #4              @ correct return address
-	sub   sp, sp, #256             @ update ABT mode stack
+	sub   sp, sp, #320             @ update ABT mode stack
 	stmia sp, { r0-r12, sp, lr }^ @ store  USR registers
 	mrs   r0, spsr                @ get    USR        CPSR
 	stmdb sp!, { r0, lr }         @ store  USR PC and CPSR
 
 	@ FPU
-	vstmdb sp!, {s0 - s31}
+	vstmdb sp!, {d0 - d15}
+	vstmdb sp!, {d16 - d31}
 	vmrs r5, fpscr
     stmdb sp!, {r5}
 
@@ -101,25 +108,27 @@ undef_abort_entry:
 	@FPU
 	ldmia sp!, {r5}
     vmsr fpscr, r5
-    vldmia sp!, {s0 - s31}
+    vldmia sp!, {d16 - d31}
+    vldmia sp!, {d0 - d15}
 
 	ldmia sp!, { r0, lr }         @ load   USR mode PC and CPSR
 	msr   spsr, r0                @ set    USR mode        CPSR
 	ldmia sp, { r0-r12, sp, lr }^ @ load   USR mode registers
-	add   sp, sp, #256             @ update UND mode SP
+	add   sp, sp, #320             @ update UND mode SP
 	movs  pc, lr                  @ return from interrupt
 
 
 prefetch_abort_entry:
 	sub   lr, lr, #4              @ correct return address
 	msr   cpsr, #0xD7             @ ABT mode with IRQ and FIQ interrupts disabled
-	sub   sp, sp, #256             @ update ABT mode stack
+	sub   sp, sp, #320             @ update ABT mode stack
 	stmia sp, { r0-r12, sp, lr }^ @ store  USR registers
 	mrs   r0, spsr                @ get    USR        CPSR
 	stmdb sp!, { r0, lr }         @ store  USR PC and CPSR
 
 	@ FPU
-	vstmdb sp!, {s0 - s31}
+	vstmdb sp!, {d0 - d15}
+	vstmdb sp!, {d16 - d31}
 	vmrs r5, fpscr
     stmdb sp!, {r5}	
 
@@ -131,24 +140,26 @@ prefetch_abort_entry:
 	@FPU
 	ldmia sp!, {r5}
     vmsr fpscr, r5
-    vldmia sp!, {s0 - s31}
+    vldmia sp!, {d16 - d31}
+    vldmia sp!, {d0 - d15}
 
 	ldmia sp!, { r0, lr }         @ load   USR mode PC and CPSR
 	msr   spsr, r0                @ set    USR mode        CPSR
 	ldmia sp, { r0-r12, sp, lr }^ @ load   USR mode registers
-	add   sp, sp, #256             @ update ABT mode SP
+	add   sp, sp, #320             @ update ABT mode SP
 	movs  pc, lr                  @ return from interrupt
 
 data_abort_entry:
 	sub   lr, lr, #8              @ correct return address
 	msr   cpsr, #0xD7             @ ABT mode with IRQ and FIQ interrupts disabled
-	sub   sp, sp, #256             @ update ABT mode stack
+	sub   sp, sp, #320             @ update ABT mode stack
 	stmia sp, { r0-r12, sp, lr }^ @ store  USR registers
 	mrs   r0, spsr                @ get    USR        CPSR
 	stmdb sp!, { r0, lr }         @ store  USR PC and CPSR
 
 	@FPU
-	vstmdb sp!, {s0 - s31}
+	vstmdb sp!, {d0 - d15}
+	vstmdb sp!, {d16 - d31}
 	vmrs r5, fpscr
     stmdb sp!, {r5}
 
@@ -161,10 +172,11 @@ data_abort_entry:
 	@FPU
 	ldmia sp!, {r5}
     vmsr fpscr, r5
-    vldmia sp!, {s0 - s31}
+    vldmia sp!, {d16 - d31}
+    vldmia sp!, {d0 - d15}
 
 	ldmia sp!, { r0, lr }         @ load   USR mode PC and CPSR
 	msr   spsr, r0                @ set    USR mode        CPSR
 	ldmia sp, { r0-r12, sp, lr }^ @ load   USR mode registers
-	add   sp, sp, #256             @ update ABT mode SP
+	add   sp, sp, #320             @ update ABT mode SP
 	movs  pc, lr                  @ return from interrupt

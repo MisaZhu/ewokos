@@ -617,16 +617,6 @@ static inline int32_t sys_proc_uuid(int32_t pid) {
 	return proc->info.uuid;
 }
 
-static inline void sys_schd_core_lock(void) {
-	proc_t* cproc = get_current_proc();
-	cproc->schd_core_lock_counter = SCHD_CORE_LOCK_LIMIT;
-}
-
-static inline void sys_schd_core_unlock(void) {
-	proc_t* cproc = get_current_proc();
-	cproc->schd_core_lock_counter = 0;
-}
-
 static inline void sys_mmio_rw(int32_t arg0, int32_t arg1, int32_t arg2, context_t* ctx){
 	uint32_t *reg = (uint32_t *)arg0;
 	uint32_t val = arg1;
@@ -821,12 +811,6 @@ static inline void _svc_handler(int32_t code, int32_t arg0, int32_t arg1, int32_
 	case SYS_P2V:
 		ctx->gpr[0] = P2V(arg0);
 		return;
-	case SYS_SCHD_CORE_LOCK:	
-		sys_schd_core_lock();
-		return;	
-	case SYS_SCHD_CORE_UNLOCK:	
-		sys_schd_core_unlock();
-		return;	
 	case SYS_MMIO_RW:
 		sys_mmio_rw(arg0, arg1, arg2, ctx);
 		return;	

@@ -1044,12 +1044,6 @@ static int32_t renew_sleep_counter(uint32_t usec) {
 		if(proc == NULL)
 			continue;
 
-		if(proc->schd_core_lock_counter > usec) {
-			proc->schd_core_lock_counter -= usec;
-		}
-		else
-			proc->schd_core_lock_counter = 0;
-
 		if(proc->info.state == RUNNING) {
 			proc->run_usec_counter += usec;
 		}
