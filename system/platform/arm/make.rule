@@ -21,10 +21,9 @@ CXXFLAGS = -marm \
         -fno-strict-aliasing \
         -std=c++14
 
-ifeq ($(FPU),yes)
-#TODO: hard float
-#CFLAGS += -mfpu=vfp
-#CXXFLAGS += -mfpu=vfp
+ifeq ($(ARCH_VER),v7)
+CFLAGS += -mfpu=neon-vfpv3 -DNEON_BOOST
+CXXFLAGS += -mfpu=neon-vfpv3 -DNEON_BOOST
 endif
        
 EWOK_LIBC = -lewoksys -lc -lgloss -lsoftfloat

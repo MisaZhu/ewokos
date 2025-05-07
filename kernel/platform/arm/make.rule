@@ -25,6 +25,11 @@ CFLAGS += -DKERNEL_SMP
 ASFLAGS += -DKERNEL_SMP
 endif
 
+ifeq ($(ARCH_VER),v7)
+CFLAGS += -mfpu=neon-vfpv3 -DFPU_ENABLED
+ASFLAGS += -mfpu=neon-vfpv3 -DFPU_ENABLED
+endif
+
 ifeq ($(DPI),yes)
 CFLAGS +=  -DENABLE_DPI
 endif
@@ -60,9 +65,9 @@ CFLAGS += $(OPTM) \
 
 ARCH_OBJS += \
 	$(ARCH_DIR)/$(ARCH_VER)/boot.o \
+	$(ARCH_DIR)/$(ARCH_VER)/interrupt.o \
 	$(ARCH_DIR)/$(ARCH_VER)/system.o \
 	$(ARCH_DIR)/$(ARCH_VER)/mmu_pte_flags.o \
-	$(ARCH_DIR)/common/src/interrupt.o \
 	$(ARCH_DIR)/common/src/gic.o \
 	$(ARCH_DIR)/common/src/irq.o \
 	$(ARCH_DIR)/common/src/memcpy.o \

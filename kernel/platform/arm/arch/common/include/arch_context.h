@@ -5,7 +5,11 @@
 #include <stdbool.h>
 
 typedef struct {
+#ifdef FPU_ENABLED
+  uint32_t fpu[ 32 ], fpscr, cpsr, pc, gpr[ 13 ], sp, lr;
+#else
   uint32_t cpsr, pc, gpr[ 13 ], sp, lr;
+#endif
 } context_t;
 
 

@@ -218,7 +218,6 @@ void data_abort_handler(context_t* ctx, uint32_t addr_fault, uint32_t status) {
 		printf("\terror: %s!\n", errmsg);
 
 	dump_ctx(ctx);
-
 	proc_exit(ctx, proc_get_proc(cproc), -1);
 }
 

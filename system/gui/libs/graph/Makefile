@@ -8,7 +8,9 @@ LDFLAGS = -L$(TARGET_DIR)/lib
 
 CFLAGS += -Iinclude -I $(TARGET_DIR)/include
 
-LIB_GRAPH_OBJS = src/graph.o \
+
+LIB_GRAPH_OBJS = $(SYS_DIR)/platform/$(ARCH)/bsp/src/bsp_graph.o \
+	src/graph.o \
 	src/graph_ex.o \
 	src/graph_png.o \
 	src/blt.o \
