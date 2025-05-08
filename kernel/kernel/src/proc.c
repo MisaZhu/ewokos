@@ -787,7 +787,7 @@ int32_t proc_load_elf(proc_t *proc, const char *image, uint32_t size) {
 			*(char*)vkaddr = proc_image[image_off];
 
 			if(rdonly != 0 && page != NULL) {
-				map_page_ref(proc->space->vm,
+				map_page(proc->space->vm,
 					proc->space->heap_size,
 					V2P(page),
 					AP_RW_R, PTE_ATTR_WRBACK);
