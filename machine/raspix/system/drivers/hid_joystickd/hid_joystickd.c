@@ -87,7 +87,7 @@ static int loop(void* p) {
 		else if(joy->button[0] & 0x8)
 			keys[i] = JOYSTICK_Y;
 		else if(joy->button[1] & 0x1)
-			keys[i] = JOYSTICK_SELECT;
+			keys[i] = KEY_HOME; //keys[i] = JOYSTICK_SELECT;
 		else if(joy->button[1] & 0x2)
 			keys[i] = JOYSTICK_START;
 
