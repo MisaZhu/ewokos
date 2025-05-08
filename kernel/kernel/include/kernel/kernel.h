@@ -2,6 +2,7 @@
 #define KERNEL_H
 
 #include <mm/mmu.h>
+#include <ewokos_config.h>
 
 #define IPC_TIMEOUT_USEC 100000 //ipc timeout as 100ms
 #define KERNEL_PROC_RUN_RECOUNT_SEC   2
