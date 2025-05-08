@@ -757,24 +757,41 @@ int32_t proc_load_elf(proc_t *proc, const char *image, uint32_t size) {
 				proc->space->rw_heap_base = vaddr;
 		}
 
-		while (proc->space->heap_size < (vaddr + memsz)) {
-			if(proc_expand_mem(proc, 1, rdonly) != 0){ 
-				kfree(proc_image);
-				return -1;
-			}
-		}
-
-		//printf("expanded 0x%x, copy elf img 0x%x->", proc->space->heap_size, vaddr);
 		/* copy the section from kernel to proc mem space*/
 		uint32_t hvaddr = vaddr;
 		uint32_t hoff = offset;
 		for (j = 0; j < memsz; j++) {
+			char* page = NULL;
+			if(proc->space->heap_size < (vaddr + memsz)) {
+				page = kalloc4k();
+				if(page == NULL) {
+					printf("proc expand failed!! free mem size: (%x), pid:%d(%s)\n",
+							get_free_mem_size(),
+							proc->info.pid,
+							proc->info.cmd);
+					return -1;
+				}
+				memset(page, 0, PAGE_SIZE);
+				map_page_ref(proc->space->vm,
+					proc->space->heap_size,
+					V2P(page),
+					AP_RW_RW, PTE_ATTR_WRBACK);
+				proc->space->heap_size += PAGE_SIZE;
+			}
+
 			vaddr = hvaddr + j; /*vaddr in elf (proc vaddr)*/
 			uint32_t vkaddr = resolve_kernel_address(proc->space->vm, vaddr); /*trans to phyaddr by proc's page dir*/
 			/*copy from elf to vaddrKernel(=phyaddr=vaddrProc=vaddrElf)*/
 
 			uint32_t image_off = hoff + j;
 			*(char*)vkaddr = proc_image[image_off];
+
+			if(rdonly != 0 && page != NULL) {
+				map_page_ref(proc->space->vm,
+					proc->space->heap_size,
+					V2P(page),
+					AP_RW_R, PTE_ATTR_WRBACK);
+			}
 		}
 		prog_header_offset += sizeof(struct elf_program_header);
 	}
