@@ -3,6 +3,6 @@
 
 #include <stdint.h>
 
-typedef uint32_t ewok_addr_t;
+typedef uint32_t ewokos_addr_t;
 
 #endif

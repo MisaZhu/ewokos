@@ -4,6 +4,7 @@
 #include <kernel/schedule.h>
 #include <mm/kalloc.h>
 #include <mm/kmalloc.h>
+#include <mm/kmalloc_vm.h>
 #include <mm/dma.h>
 #include <mm/shm.h>
 #include <kernel/kevqueue.h>
@@ -228,13 +229,12 @@ static void proc_shrink_mem(proc_t* proc, int32_t page_num) {
 }
 
 /* proc_exapnad_memory expands the heap size of the given process. */
-static int32_t proc_expand_mem(proc_t *proc, int32_t page_num, uint32_t rdonly) {
+static int32_t proc_expand_mem(proc_t *proc, int32_t page_num) {
 	int32_t i;
 	int32_t res = 0;
-	uint32_t mode = rdonly == 0 ? AP_RW_RW:AP_RW_R;
 
 	for (i = 0; i < page_num; i++) {
-		char *page = kalloc4k();
+		void *page = kalloc4k();
 		if(page == NULL) {
 			printf("proc expand failed!! free mem size: (%x), pid:%d(%s), pages ask:%d\n",
 					get_free_mem_size(),
@@ -249,7 +249,7 @@ static int32_t proc_expand_mem(proc_t *proc, int32_t page_num, uint32_t rdonly) 
 		map_page_ref(proc->space->vm,
 				proc->space->heap_size,
 				V2P(page),
-				mode, PTE_ATTR_WRBACK);
+				AP_RW_RW, PTE_ATTR_WRBACK);
 		proc->space->heap_size += PAGE_SIZE;
 	}
 	flush_tlb();
@@ -614,7 +614,7 @@ inline void* proc_malloc(proc_t* proc, int32_t size) {
 	}
 	else {
 		//printf("kproc expand pages: %d, size: %d\n", pages, size);
-		if(proc_expand_mem(proc, pages+1, 0) != 0)
+		if(proc_expand_mem(proc, pages+1) != 0)
 			return NULL;
 	}
 	return (void*)proc->space->malloc_base;
@@ -728,7 +728,7 @@ int32_t proc_load_elf(proc_t *proc, const char *image, uint32_t size) {
 	uint32_t i = 0;
 
 	proc->info.uuid = ++_proc_uuid; //load elf means a totally new proc
-	char* proc_image = kmalloc(size);
+	uint8_t* proc_image = (uint8_t*)kmalloc_vm(proc->space->vm, size);
 	memcpy(proc_image, image, size);
 	proc_free_heap(proc);
 
@@ -757,44 +757,38 @@ int32_t proc_load_elf(proc_t *proc, const char *image, uint32_t size) {
 				proc->space->rw_heap_base = vaddr;
 		}
 
+		uint32_t old_heap_size = ALIGN_UP(proc->space->heap_size, PAGE_SIZE);
+		while (proc->space->heap_size < (vaddr + memsz)) {
+			if(proc_expand_mem(proc, 1) != 0){ 
+				kfree(proc_image);
+				return -1;
+			}
+		}
+
 		/* copy the section from kernel to proc mem space*/
 		uint32_t hvaddr = vaddr;
 		uint32_t hoff = offset;
 		for (j = 0; j < memsz; j++) {
-			char* page = NULL;
-			if(proc->space->heap_size < (vaddr + memsz)) {
-				page = kalloc4k();
-				if(page == NULL) {
-					printf("proc expand failed!! free mem size: (%x), pid:%d(%s)\n",
-							get_free_mem_size(),
-							proc->info.pid,
-							proc->info.cmd);
-					return -1;
-				}
-				memset(page, 0, PAGE_SIZE);
-				map_page_ref(proc->space->vm,
-					proc->space->heap_size,
-					V2P(page),
-					AP_RW_RW, PTE_ATTR_WRBACK);
-				proc->space->heap_size += PAGE_SIZE;
-			}
-
 			vaddr = hvaddr + j; /*vaddr in elf (proc vaddr)*/
 			uint32_t vkaddr = resolve_kernel_address(proc->space->vm, vaddr); /*trans to phyaddr by proc's page dir*/
 			/*copy from elf to vaddrKernel(=phyaddr=vaddrProc=vaddrElf)*/
-
 			uint32_t image_off = hoff + j;
-			*(char*)vkaddr = proc_image[image_off];
-
-			if(rdonly != 0 && page != NULL) {
-				map_page(proc->space->vm,
-					proc->space->heap_size,
-					V2P(page),
-					AP_RW_R, PTE_ATTR_WRBACK);
-				page = NULL;
-			}
+			*(uint8_t*)vkaddr = proc_image[image_off];
+			if(image_off >= size)
+				break;
 		}
 		prog_header_offset += sizeof(struct elf_program_header);
+
+		if(rdonly) {
+			while (old_heap_size < proc->space->heap_size) {
+				ewokos_addr_t phy_page = (ewokos_addr_t)resolve_phy_address(proc->space->vm, old_heap_size);
+				map_page(proc->space->vm,
+					old_heap_size,
+					phy_page,
+					AP_RW_R, PTE_ATTR_WRBACK);
+				old_heap_size += PAGE_SIZE;
+			}
+		}
 	}
 
 	if(proc->space->rw_heap_base < 0x400)
@@ -806,7 +800,7 @@ int32_t proc_load_elf(proc_t *proc, const char *image, uint32_t size) {
 	proc->ctx.pc = ELF_ENTRY(proc_image);
 	proc->ctx.lr = ELF_ENTRY(proc_image);
 	proc_ready(proc);
-	kfree(proc_image);
+	kfree_vm(proc->space->vm, proc_image);
 
 	proc_update_vsyscall(proc);
 	return 0;

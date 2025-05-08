@@ -1,6 +1,7 @@
 #include <mm/mmu.h>
 #include <mm/kalloc.h>
 #include <mm/kmalloc.h>
+#include <mm/kmalloc_vm.h>
 #include <mm/shm.h>
 #include <mm/dma.h>
 #include <kstring.h>
@@ -206,6 +207,7 @@ void _kernel_entry_c(void) {
 	kout  ("kernel: remapping kernel mem   ... ");
 	reset_kernel_vm();
 	kmalloc_init(); //init kmalloc again with config info;
+	kmalloc_vm_init(); //init kmalloc extra;
 	kout  ("[OK]\n");
 
 	//printf("kernel: init allocable memory  ... ");

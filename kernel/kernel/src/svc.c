@@ -629,7 +629,7 @@ static inline void sys_mmio_rw(int32_t arg0, int32_t arg1, int32_t arg2, context
 	}
 }
 
-static inline void _svc_handler(int32_t code, ewok_addr_t arg0, ewok_addr_t arg1, ewok_addr_t arg2, context_t* ctx) {
+static inline void _svc_handler(int32_t code, ewokos_addr_t arg0, ewokos_addr_t arg1, ewokos_addr_t arg2, context_t* ctx) {
 	_svc_total++;
 	_svc_counter[code]++;
 
@@ -817,7 +817,7 @@ static inline void _svc_handler(int32_t code, ewok_addr_t arg0, ewok_addr_t arg1
 	}
 }
 
-inline void svc_handler(int32_t code, ewok_addr_t arg0, ewok_addr_t arg1, ewok_addr_t arg2, context_t* ctx) {
+inline void svc_handler(int32_t code, ewokos_addr_t arg0, ewokos_addr_t arg1, ewokos_addr_t arg2, context_t* ctx) {
 	__irq_disable();
 
 	kernel_lock();

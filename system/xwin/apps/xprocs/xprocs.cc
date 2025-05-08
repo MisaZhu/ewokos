@@ -436,7 +436,7 @@ int main(int argc, char** argv) {
 	root->add(scrollerV);
 	procs->setScrollerV(scrollerV);
 
-	win.open(&x, 0, -1, -1, 640, 480, "xprocs", XWIN_STYLE_NORMAL);
+	win.open(&x, 0, -1, -1, 600, 400, "xprocs", XWIN_STYLE_NORMAL);
 	win.setTimer(2);
 
 	widgetXRun(&x, &win);

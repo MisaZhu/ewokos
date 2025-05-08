@@ -12,4 +12,7 @@ void  kfree(void* p);
 void  kmalloc_init(void);
 uint32_t  kmalloc_free_size(void);
 
+void* kmalloc_extra(page_dir_entry_t *vm, uint32_t size);
+void  kfree_extra(page_dir_entry_t *vm, void* p);
+
 #endif
