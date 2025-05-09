@@ -1,7 +1,7 @@
 CPU = cortex-a55
 CONSOLE_MODE = -nographic -display none
 GRAPHIC_MODE = -display cocoa 
-QEMU_FLAGS = -M raspi3b  $(CONSOLE_MODE) -smp 4 -serial null -serial mon:stdio -display cocoa
+QEMU_FLAGS = -M raspi3b  $(GRAPHIC_MODE) -smp 4 -serial null -serial mon:stdio
 
 #QEMU_FLAGS += -d trace:gic_update_set_irq 
 
