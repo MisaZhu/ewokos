@@ -661,6 +661,23 @@ double __trunctfdf2(_Float128 x) {
     return (double)x;
 }
 
+float __trunctfsf2(_Float128 a) {
+	return (float)a;
+}
+
+_Float128 __extenddftf2(double a) {
+    return (_Float128)a;
+}
+
+_Float128 __extendsftf2(float a) {
+    return (_Float128)a;
+}
+
+_Float128 __addtf3(_Float128 a, _Float128 b) {
+	return a + b;
+}
+
+
 int access(const char *path, int mode){
 	fsinfo_t info;
 	if(vfs_get_by_name(path, &info) != 0)
