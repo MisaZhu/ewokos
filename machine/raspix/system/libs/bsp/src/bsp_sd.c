@@ -8,7 +8,7 @@
 
 int bsp_sd_init(void) {
   sys_info_t sysinfo;
-  syscall1(SYS_GET_SYS_INFO, (int32_t)&sysinfo);
+  syscall1(SYS_GET_SYS_INFO, (ewokos_addr_t)&sysinfo);
   if(strstr(sysinfo.machine, "pi4") || strstr(sysinfo.machine, "cm4"))
       return sd_init(emmc2_init, emmc2_read_sector, emmc2_write_sector);
   else

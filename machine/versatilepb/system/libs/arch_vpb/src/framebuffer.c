@@ -11,7 +11,7 @@ int32_t vpb_fb_init(uint32_t w, uint32_t h, uint32_t dep) {
 	if(mmio_map() == 0)
 		return -1;
 	sys_info_t sysinfo;
-	syscall1(SYS_GET_SYS_INFO, (int32_t)&sysinfo);
+	syscall1(SYS_GET_SYS_INFO, (ewokos_addr_t)&sysinfo);
 
   memset(&_fb_info, 0, sizeof(fbinfo_t));
 	dep = 32;
@@ -53,7 +53,7 @@ int32_t vpb_fb_init(uint32_t w, uint32_t h, uint32_t dep) {
 
   _fb_info.size = _fb_info.width * _fb_info.height * (_fb_info.depth/8);
 	_fb_info.size_max = 4*1024*1024;
-  syscall3(SYS_MEM_MAP, _fb_info.pointer, _fb_info.pointer-sysinfo.kernel_base, _fb_info.size_max);
+  syscall3(SYS_MEM_MAP, (ewokos_addr_t)_fb_info.pointer, (ewokos_addr_t)_fb_info.pointer-sysinfo.kernel_base, (ewokos_addr_t)_fb_info.size_max);
   return 0;
 }
 

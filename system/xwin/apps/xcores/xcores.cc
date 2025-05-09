@@ -143,8 +143,8 @@ protected:
 
 		sys_info_t sys_info;
 		sys_state_t sys_state;
-		syscall1(SYS_GET_SYS_INFO, (int32_t)&sys_info);
-		syscall1(SYS_GET_SYS_STATE, (int32_t)&sys_state);
+		syscall1(SYS_GET_SYS_INFO, (ewokos_addr_t)&sys_info);
+		syscall1(SYS_GET_SYS_STATE, (ewokos_addr_t)&sys_state);
 		uint32_t fr_mem = sys_state.mem.free / (1024*1024);
 		uint32_t t_mem = sys_info.total_usable_mem_size / (1024*1024);
 		char txt[32] = { 0 };

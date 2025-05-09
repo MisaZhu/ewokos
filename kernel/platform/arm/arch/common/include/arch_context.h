@@ -3,12 +3,13 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include <ewokos_config.h>
 
 typedef struct {
 #ifdef FPU_ENABLED
-  uint32_t fpu[ 64 ], fpscr, cpsr, pc, gpr[ 13 ], sp, lr;
+  ewokos_addr_t fpu[ 64 ], fpscr, cpsr, pc, gpr[ 13 ], sp, lr;
 #else
-  uint32_t cpsr, pc, gpr[ 13 ], sp, lr;
+  ewokos_addr_t cpsr, pc, gpr[ 13 ], sp, lr;
 #endif
 } context_t;
 

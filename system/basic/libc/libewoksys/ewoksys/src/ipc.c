@@ -12,12 +12,12 @@ extern "C"
 
 	static int ipc_setup(ipc_handle_t handle, void *p, int flags)
 	{
-		return syscall3(SYS_IPC_SETUP, (int32_t)handle, (int32_t)p, (int32_t)flags);
+		return syscall3(SYS_IPC_SETUP, (ewokos_addr_t)handle, (ewokos_addr_t)p, (ewokos_addr_t)flags);
 	}
 
 	static int ipc_set_return(uint32_t ipc_id, const proto_t *pkg)
 	{
-		syscall2(SYS_IPC_SET_RETURN, ipc_id, (int32_t)pkg);
+		syscall2(SYS_IPC_SET_RETURN, (ewokos_addr_t)ipc_id, (ewokos_addr_t)pkg);
 		return 0;
 	}
 
@@ -66,7 +66,7 @@ extern "C"
 	static int32_t ipc_get_info(uint32_t ipc_id, int32_t *pid, int32_t *call_id, proto_t *arg)
 	{
 		int32_t ipc_info[2];
-		int32_t res = syscall3(SYS_IPC_GET_ARG, ipc_id, (int32_t)ipc_info, (int32_t)arg);
+		int32_t res = syscall3(SYS_IPC_GET_ARG, (ewokos_addr_t)ipc_id, (ewokos_addr_t)ipc_info, (ewokos_addr_t)arg);
 		*pid = ipc_info[0];
 		*call_id = ipc_info[1];
 		return res;
@@ -81,7 +81,7 @@ extern "C"
 		while (true) {
 			if (opkg == NULL)
 				call_id |= IPC_NON_RETURN;
-			ipc_id = syscall3(SYS_IPC_CALL, (int32_t)to_pid, (int32_t)call_id, (int32_t)ipkg);
+			ipc_id = syscall3(SYS_IPC_CALL, (ewokos_addr_t)to_pid, (ewokos_addr_t)call_id, (ewokos_addr_t)ipkg);
 
 			if (ipc_id == -1)
 				continue;
@@ -97,7 +97,7 @@ extern "C"
 		int res = -1;
 		PF->clear(opkg);
 		while (true) {
-			res = syscall3(SYS_IPC_GET_RETURN, to_pid, (int32_t)ipc_id, (int32_t)opkg);
+			res = syscall3(SYS_IPC_GET_RETURN, (ewokos_addr_t)to_pid, (ewokos_addr_t)ipc_id, (ewokos_addr_t)opkg);
 			if(res == 0)
 				break;
 
@@ -110,7 +110,7 @@ extern "C"
 			if (res > 0) //opkg not big enough, must resize it.
 				PF->reserve(opkg, res);
 
-			res = syscall3(SYS_IPC_GET_RETURN, to_pid, (int32_t)ipc_id, (int32_t)opkg);
+			res = syscall3(SYS_IPC_GET_RETURN, (ewokos_addr_t)to_pid, (ewokos_addr_t)ipc_id, (ewokos_addr_t)opkg);
 			break;
 		}
 		return res;

@@ -16,7 +16,7 @@ void semaphore_free(int sem_id) {
 int  semaphore_enter(int sem_id) {
 	int res = 0;
 	while(true) {
-		res = syscall1(SYS_SEMAPHORE_ENTER, sem_id);
+		res = syscall1(SYS_SEMAPHORE_ENTER, (ewokos_addr_t)sem_id);
 		if(res != -2)
 			break;
 	}
@@ -24,7 +24,7 @@ int  semaphore_enter(int sem_id) {
 }
 
 int  semaphore_quit(int sem_id) {
-	return syscall1(SYS_SEMAPHORE_QUIT, sem_id);
+	return syscall1(SYS_SEMAPHORE_QUIT, (ewokos_addr_t)sem_id);
 }
 
 #ifdef __cplusplus

@@ -15,7 +15,7 @@ static void thread_entry(thread_func_t func, void* p) {
 
 int thread_create(thread_func_t func, void* p) {
 	_proc_global_need_lock = true;
-	return syscall3(SYS_THREAD, (int32_t)thread_entry, (int32_t)func, (int32_t)p);
+	return syscall3(SYS_THREAD, (ewokos_addr_t)thread_entry, (ewokos_addr_t)func, (ewokos_addr_t)p);
 }
 
 int thread_get_id(void) {

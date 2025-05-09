@@ -33,7 +33,7 @@ static int32_t exec_from_sd(const char* prog) {
 
 	char* elf = sd_read_ext2(prog, &sz);
 	if(elf != NULL) {
-		int res = syscall3(SYS_EXEC_ELF, (int32_t)prog, (int32_t)elf, sz);
+		int res = syscall3(SYS_EXEC_ELF, (ewokos_addr_t)prog, (ewokos_addr_t)elf, (ewokos_addr_t)sz);
 		free(elf);
 		if(res == 0) {
 			return res;
@@ -116,7 +116,7 @@ int main(int argc, char** argv) {
 
 	switch_root();
 	while(true) {
-		proc_block_by(getpid(), (uint32_t)main);
+		proc_block_by(getpid(), (ewokos_addr_t)main);
 	}
 	return 0;
 }

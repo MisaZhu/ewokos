@@ -90,7 +90,7 @@ inline int get_cored_pid(void) {
 inline int proc_getpid(int pid) {
 	if(pid < 0) {
 		if(_current_pid < 0)
-		 	_current_pid = syscall1(SYS_GET_PID, pid);
+		 	_current_pid = syscall1(SYS_GET_PID, (ewokos_addr_t)pid);
 		return _current_pid;
 	}	
 
@@ -121,7 +121,7 @@ inline int proc_fork(void) {
 }
 
 inline int proc_info(int pid, procinfo_t* info) {
-	return syscall2(SYS_GET_PROC, pid, (int32_t)info);
+	return syscall2(SYS_GET_PROC, (ewokos_addr_t)pid, (ewokos_addr_t)info);
 }
 
 inline void proc_detach(void) {
@@ -129,19 +129,19 @@ inline void proc_detach(void) {
 }
 
 inline void proc_block_by(int by_pid, uint32_t evt) {
-	syscall2(SYS_BLOCK, by_pid, evt);
+	syscall2(SYS_BLOCK, (ewokos_addr_t)by_pid, (ewokos_addr_t)evt);
 }
 
 inline void proc_wakeup(uint32_t evt) {
-	syscall2(SYS_WAKEUP, -1, evt);
+	syscall2(SYS_WAKEUP, -1, (ewokos_addr_t)evt);
 }
 
 inline void proc_wakeup_pid(int pid, uint32_t evt) {
-	syscall2(SYS_WAKEUP, pid, evt);
+	syscall2(SYS_WAKEUP, (ewokos_addr_t)pid, (ewokos_addr_t)evt);
 }
 
 inline void proc_exec_elf(const char* cmd_line, const char* elf, int32_t size) {
-	if(syscall3(SYS_EXEC_ELF, (int32_t)cmd_line, (int32_t)elf, size) != 0)
+	if(syscall3(SYS_EXEC_ELF, (ewokos_addr_t)cmd_line, (ewokos_addr_t)elf, (ewokos_addr_t)size) != 0)
 		exit(-1);
 }
 
@@ -228,7 +228,7 @@ inline uint32_t proc_get_uuid(int32_t pid) {
 }
 
 inline void* proc_malloc_expand(uint32_t size) {
-	return (void*)syscall1(SYS_MALLOC_EXPAND, (int32_t)size);
+	return (void*)syscall1(SYS_MALLOC_EXPAND, (ewokos_addr_t)size);
 }
 
 inline void* proc_malloc_free(void) {
@@ -243,7 +243,7 @@ int proc_usleep(uint32_t usecs) {
 	if(usecs == 0)
 		syscall0(SYS_YIELD);
 	else
-		syscall1(SYS_USLEEP, usecs);
+		syscall1(SYS_USLEEP, (ewokos_addr_t)usecs);
 	return 0;
 }
 

@@ -8,8 +8,8 @@
 int main(int argc, char* argv[]) {
 	sys_info_t sys_info;
 	sys_state_t sys_state;
-	syscall1(SYS_GET_SYS_INFO, (int32_t)&sys_info);
-	syscall1(SYS_GET_SYS_STATE, (int32_t)&sys_state);
+	syscall1(SYS_GET_SYS_INFO, (ewokos_addr_t)&sys_info);
+	syscall1(SYS_GET_SYS_STATE, (ewokos_addr_t)&sys_state);
 	uint32_t fr_mem = sys_state.mem.free / (1024*1024);
 	uint32_t kfr_mem = sys_state.mem.kfree / (1024*1024);
 	uint32_t phy_mem = sys_info.total_phy_mem_size / (1024*1024);

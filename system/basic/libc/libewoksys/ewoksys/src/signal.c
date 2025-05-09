@@ -44,7 +44,7 @@ void sys_signal_init(void) {
 		_signals[i].func = sys_sig_default;
 		_signals[i].data = NULL;
 	}
-	syscall1(SYS_SIGNAL_SETUP, (int32_t)_do_signal);
+	syscall1(SYS_SIGNAL_SETUP, (ewokos_addr_t)_do_signal);
 }
 
 signal_handler_t sys_signal(int sig_no, signal_handler_t handler, void* p) {

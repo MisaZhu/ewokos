@@ -17,7 +17,7 @@ static partition_t _partition;
 #define BUF_BLOCK_SIZE 1024
 
 typedef struct {
-	addr_t* data;
+	ewokos_addr_t* data;
 	uint32_t refs;
 } sector_buf_block_t;
 
@@ -54,14 +54,14 @@ static inline void sector_buf_set(uint32_t index, const void* data) {
 	uint32_t block_index = index / BUF_BLOCK_SIZE;
 	index = index % BUF_BLOCK_SIZE;
 	if(_sector_buf[block_index].data == NULL) {
-		uint32_t sz = sizeof(addr_t) * BUF_BLOCK_SIZE;
-		_sector_buf[block_index].data = (addr_t*)malloc(sz);
+		uint32_t sz = sizeof(ewokos_addr_t) * BUF_BLOCK_SIZE;
+		_sector_buf[block_index].data = (ewokos_addr_t*)malloc(sz);
 		if(_sector_buf[block_index].data == NULL)
 			return;
 		memset(_sector_buf[block_index].data, 0, sz);
 	}
 
-	_sector_buf[block_index].data[index] = (addr_t)malloc(SECTOR_SIZE);
+	_sector_buf[block_index].data[index] = (ewokos_addr_t)malloc(SECTOR_SIZE);
 	memcpy((void*)_sector_buf[block_index].data[index], data, SECTOR_SIZE);
 	_sector_buf[block_index].refs++;
 }

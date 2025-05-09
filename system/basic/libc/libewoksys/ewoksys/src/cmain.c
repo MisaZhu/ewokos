@@ -79,7 +79,7 @@ static void init_cmd(void) {
 	_cmd[0] = 0;
 	_off_cmd = 0;
 	_argv0 = "";
-	syscall3(SYS_PROC_GET_CMD, getpid(), (int32_t)_cmd, PROC_INFO_MAX_CMD_LEN);
+	syscall3(SYS_PROC_GET_CMD, (ewokos_addr_t)getpid(), (ewokos_addr_t)_cmd, PROC_INFO_MAX_CMD_LEN);
 }
 
 #define ARG_MAX 16

@@ -83,7 +83,7 @@ static void vfsd_init(void) {
 	}
 
 	sys_info_t sysinfo;
-	syscall1(SYS_GET_SYS_INFO, (int32_t)&sysinfo);
+	syscall1(SYS_GET_SYS_INFO, (ewokos_addr_t)&sysinfo);
 	_max_proc_table_num = sysinfo.max_task_num;
 	_proc_fds_table = (proc_fds_t*)malloc(_max_proc_table_num*sizeof(proc_fds_t));
 

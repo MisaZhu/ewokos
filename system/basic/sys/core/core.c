@@ -36,7 +36,7 @@ static void core_init(void) {
 	_ux_index = 0;
 
 	sys_info_t sysinfo;
-	syscall1(SYS_GET_SYS_INFO, (int32_t)&sysinfo);
+	syscall1(SYS_GET_SYS_INFO, (ewokos_addr_t)&sysinfo);
 	_max_proc_table_num = sysinfo.max_task_num;
 	_proc_info_table = (proc_info_t*)malloc(_max_proc_table_num*sizeof(proc_info_t));
 
@@ -397,7 +397,7 @@ int main(int argc, char** argv) {
 
 	while(1) {
 		kevent_t kev;
-		if(syscall1(SYS_GET_KEVENT, (int32_t)&kev) == 0) {
+		if(syscall1(SYS_GET_KEVENT, (ewokos_addr_t)&kev) == 0) {
 			ipc_disable();
 			handle_event(&kev);
 			ipc_enable();

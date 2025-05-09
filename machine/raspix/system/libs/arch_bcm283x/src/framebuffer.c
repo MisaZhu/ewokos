@@ -24,7 +24,7 @@ typedef struct {
 int32_t bcm283x_fb_init(uint32_t w, uint32_t h, uint32_t dep) {
 	memset(&_fb_info, 0, sizeof(fbinfo_t));
 	sys_info_t sysinfo;
-	syscall1(SYS_GET_SYS_INFO, (int32_t)&sysinfo);
+	syscall1(SYS_GET_SYS_INFO, (ewokos_addr_t)&sysinfo);
 
 	bcm283x_mailbox_init();
 	//fb_init_t* fbinit = (fb_init_t*)dma_phy_addr(dma_map(sizeof(fb_init_t)));
@@ -41,7 +41,7 @@ int32_t bcm283x_fb_init(uint32_t w, uint32_t h, uint32_t dep) {
 	fbinit->depth = dep;
 
 	//msg.data = (syscall1(SYS_V2P, (uint32_t)fbinit) | 0xC0000000) >> 4; // ARM addr to GPU addr
-	msg.data = (dma_phy_addr((uint32_t)fbinit) | 0xC0000000) >> 4; // ARM addr to GPU addr
+	msg.data = (dma_phy_addr((ewokos_addr_t)fbinit) | 0xC0000000) >> 4; // ARM addr to GPU addr
 	bcm283x_mailbox_send(FRAMEBUFFER_CHANNEL, &msg);
 	bcm283x_mailbox_read(FRAMEBUFFER_CHANNEL, &msg);
 
@@ -66,7 +66,7 @@ int32_t bcm283x_fb_init(uint32_t w, uint32_t h, uint32_t dep) {
 	}
 	*/
 	_fb_info.size_max = _fb_info.size;
-	syscall3(SYS_MEM_MAP, _fb_info.pointer, phy_base, _fb_info.size_max);
+	syscall3(SYS_MEM_MAP,(ewokos_addr_t) _fb_info.pointer, (ewokos_addr_t)phy_base, (ewokos_addr_t)_fb_info.size_max);
 	return 0;
 }
 
@@ -122,7 +122,7 @@ int32_t bcm283x_fb_init(uint32_t w, uint32_t h, uint32_t dep) {
 
 	mail_message_t msg;
 	memset(&msg, 0, sizeof(mail_message_t));
-	msg.data = (syscall1(SYS_V2P, (uint32_t)&mbox | 0xC0000000)) >> 4; // ARM addr to GPU addr
+	msg.data = (syscall1(SYS_V2P, (ewokos_addr_t)&mbox | 0xC0000000)) >> 4; // ARM addr to GPU addr
 	bcm283x_mailbox_send(PROPERTY_CHANNEL, &msg);
 	bcm283x_mailbox_read(PROPERTY_CHANNEL, &msg);
 
@@ -140,10 +140,10 @@ int32_t bcm283x_fb_init(uint32_t w, uint32_t h, uint32_t dep) {
 	_fb_info.yoffset = 0;
 
 	sys_info_t sysinfo;
-	syscall1(SYS_GET_SYS_INFO, (int32_t)&sysinfo);
+	syscall1(SYS_GET_SYS_INFO, (ewokos_addr_t)&sysinfo);
 
 	_fb_info.size_max = sysinfo.total_usable_mem_size - (_fb_info.pointer-sysinfo.kernel_base);
-	syscall3(SYS_MEM_MAP, _fb_info.pointer, _fb_info.pointer-sysinfo.kernel_base, _fb_info.size_max);
+	syscall3(SYS_MEM_MAP, (ewokos_addr_t)_fb_info.pointer, (ewokos_addr_t)_fb_info.pointer-sysinfo.kernel_base, (ewokos_addr_t)_fb_info.size_max);
 	return 0;
 }
 */

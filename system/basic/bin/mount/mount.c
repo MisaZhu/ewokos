@@ -28,7 +28,7 @@ int main(int argc, char* argv[]) {
 			continue;
 
 		char cmd[128];
-		syscall3(SYS_PROC_GET_CMD, mnt.pid, (int32_t)cmd, 127);
+		syscall3(SYS_PROC_GET_CMD, (ewokos_addr_t)mnt.pid, (ewokos_addr_t)cmd, 127);
 		printf("%-24s %-6d %s\n", 
 				mnt.org_name,
 				mnt.pid,

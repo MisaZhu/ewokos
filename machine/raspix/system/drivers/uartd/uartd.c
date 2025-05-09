@@ -106,7 +106,7 @@ int main(int argc, char** argv) {
 	memset(&dev, 0, sizeof(vdevice_t));
 
 	sys_info_t sysinfo;
-	syscall1(SYS_GET_SYS_INFO, (int32_t)&sysinfo);
+	syscall1(SYS_GET_SYS_INFO, (ewokos_addr_t)&sysinfo);
 	if(strcmp(sysinfo.machine, "raspberry-pi1") == 0 ||
 			strcmp(sysinfo.machine, "raspberry-pi2b") == 0)  {
 		strcpy(dev.name, "pl011_uart");

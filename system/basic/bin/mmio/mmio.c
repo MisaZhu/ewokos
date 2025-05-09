@@ -18,7 +18,7 @@ int main(int argc, char* argv[]) {
 	setbuf(stdout, NULL);
 	_mmio_base = mmio_map();
     sys_info_t sysinfo;
-    syscall1(SYS_GET_SYS_INFO, (int32_t)&sysinfo);
+    syscall1(SYS_GET_SYS_INFO, (ewokos_addr_t)&sysinfo);
 
 	uint32_t addr = strtoll(argv[2], NULL, 16);
 	if(addr < sysinfo.mmio.phy_base || addr >= sysinfo.mmio.phy_base + sysinfo.mmio.size){

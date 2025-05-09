@@ -17,7 +17,7 @@ static char _buf[BUF_SIZE+1];
 static int32_t _klog_fd = -1;
 
 void kout(const char *str) {
-	syscall2(SYS_KPRINT, (int32_t)str, (int32_t)strlen(str));
+	syscall2(SYS_KPRINT, (ewokos_addr_t)str, (ewokos_addr_t)strlen(str));
 }
 
 void klog(const char *format, ...) {
@@ -37,7 +37,7 @@ void klog(const char *format, ...) {
 	if(_klog_fd > 0) {
 		write(_klog_fd, _buf, strlen(_buf));
 	}
-	syscall2(SYS_KPRINT, (int32_t)_buf, strlen(_buf));
+	syscall2(SYS_KPRINT, (ewokos_addr_t)_buf, (ewokos_addr_t)strlen(_buf));
 }
 
 #ifdef __cplusplus 

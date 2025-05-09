@@ -101,7 +101,7 @@ static void flush(fb_console_t* console) {
 		//draw cores
 		if(console->icon != NULL) {
 			sys_info_t sys_info;
-			syscall1(SYS_GET_SYS_INFO, (int32_t)&sys_info);
+			syscall1(SYS_GET_SYS_INFO, (ewokos_addr_t)&sys_info);
 			if(sys_info.cores > 1) {
 				for(uint32_t i=0; i<sys_info.cores; i++) {
 					graph_blt_alpha(console->icon, 

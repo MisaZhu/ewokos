@@ -84,16 +84,16 @@ static void int2str(int val, char* buf){
 static void kout(const char *str) {
 #if IO_DEBUG
 	int len = _strlen(str);
-    syscall2(SYS_KPRINT, (int32_t)str, len);
+    syscall2(SYS_KPRINT, (ewokos_addr_t)str, (ewokos_addr_t)len);
 	if(str[len-1]!='\n')
-		syscall2(SYS_KPRINT, "\n", 1);	
+		syscall2(SYS_KPRINT, (ewokos_addr_t)"\n", 1);	
 #endif
 }
 
 static void kout_str(const char *str) {
 #if IO_DEBUG
 	int len = _strlen(str);
-    syscall2(SYS_KPRINT, (int32_t)str, len);
+    syscall2(SYS_KPRINT, (ewokos_addr_t)str, (ewokos_addr_t)len);
 #endif
 }
 
@@ -418,7 +418,7 @@ _sbrk (ptrdiff_t incr)
   char *prev_heap_end;
 
   __heap_size += incr;
-  __heap_ptr = (void*)syscall1(SYS_MALLOC_EXPAND, incr);
+  __heap_ptr = (void*)syscall1(SYS_MALLOC_EXPAND, (ewokos_addr_t)incr);
   if(incr > 0)
   	memset(__heap_end, 0, incr);
 
@@ -620,7 +620,7 @@ void __malloc_close(void){
 }
 
 void _kill(int pid, int sig){
-	syscall2(SYS_SIGNAL, pid, sig);
+	syscall2(SYS_SIGNAL, (ewokos_addr_t)pid, (ewokos_addr_t)sig);
 }
 
 void _fini(void){
