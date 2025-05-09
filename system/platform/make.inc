@@ -7,7 +7,8 @@ KERNEL_H = \
 	$(KERNEL_DIR)/kernel/include/sysinfo.h \
 	$(KERNEL_DIR)/kernel/include/kevent.h \
 	$(KERNEL_DIR)/kernel/include/procinfo.h \
-	$(KERNEL_DIR)/platform/$(ARCH)/arch/common/include/arch_context.h
+	$(KERNEL_DIR)/platform/$(ARCH)/arch/common/include/arch_context.h \
+	$(KERNEL_DIR)/platform/$(ARCH)/arch/common/include/ewokos_config.h
 
 kernel_heads:
 	mkdir -p ${BUILD_DIR}/include
