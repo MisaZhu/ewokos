@@ -799,7 +799,7 @@ int32_t proc_load_elf(proc_t *proc, const char *image, uint32_t size) {
 	if(proc->space->rw_heap_base < 0x400)
 			proc->space->rw_heap_base = 0x400; //1024
 	proc->space->malloc_base = proc->space->heap_size;
-	uint32_t user_stack_base =  proc_get_user_stack_base(proc);
+	ewokos_addr_t user_stack_base =  proc_get_user_stack_base(proc);
 	uint32_t pages = proc_get_user_stack_pages(proc);
 	proc->ctx.sp = user_stack_base + pages*PAGE_SIZE;
 	proc->ctx.pc = ELF_ENTRY(proc_image);
