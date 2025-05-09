@@ -15,13 +15,13 @@
 #define 	IPC_CREAT   00001000 /* create if key is nonexistent */
 #define 	IPC_EXCL    00002000 /* fail if key exists */
 
-static uint32_t shmem_tail = 0;
+static ewokos_addr_t shmem_tail = 0;
 static int32_t id_counter = 1;
 
 typedef struct share_mem {
 	int32_t id;
 	int32_t key;
-	uint32_t addr; //memory block base address
+	ewokos_addr_t addr; //memory block base address
 	uint32_t pages; //memory pages
 	uint32_t used; //used or free
 	int32_t flag; 

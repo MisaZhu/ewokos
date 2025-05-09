@@ -2,6 +2,7 @@
 #define MMU_DEF_H
 
 #include <stdint.h>
+#include <ewokos_config.h>
 
 #define KB 1024
 #define MB (1024*KB)

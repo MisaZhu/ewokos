@@ -5,7 +5,7 @@
 
 pages_ref_t _pages_ref;
 
-inline uint32_t page_ref_index(uint32_t paddr) {
+inline uint32_t page_ref_index(ewokos_addr_t paddr) {
 	return ((paddr) - _pages_ref.phy_base) / PAGE_SIZE;
 }
 
@@ -35,7 +35,7 @@ void kalloc_reset(void) {
 }
 
 /* kalloc_append adds the given address range to the free list. */
-uint32_t kalloc_append(uint32_t start, uint32_t end) {
+uint32_t kalloc_append(ewokos_addr_t start, ewokos_addr_t end) {
 	char *start_address = (char *) ALIGN_UP(start, PAGE_SIZE);
 	char *end_address = (char *) ALIGN_DOWN(end, PAGE_SIZE);
 	char *current_page = 0;

@@ -3,29 +3,30 @@
 
 #include <syscalls.h>
 #include <stdint.h>
+#include <ewokos_config.h>
 
 typedef struct {
-	uint32_t phy_base;
-	uint32_t v_base;
+	ewokos_addr_t phy_base;
+	ewokos_addr_t v_base;
 	uint32_t size;
 } mmio_info_t;
 
 typedef struct {
-	uint32_t phy_base;
-	uint32_t v_base;
+	ewokos_addr_t phy_base;
+	ewokos_addr_t v_base;
 	uint32_t size;
 } fb_info_t;
 
 typedef struct {
-	uint32_t free;
-	uint32_t kfree;
-	uint32_t shared;
+	ewokos_addr_t free;
+	ewokos_addr_t kfree;
+	ewokos_addr_t shared;
 } mem_info_t;
 
 typedef struct {
 	uint32_t size;
-	uint32_t phy_base;
-	uint32_t v_base;
+	ewokos_addr_t phy_base;
+	ewokos_addr_t v_base;
 } dma_info_t;
 
 #define MAX_CORE_NUM 8
@@ -37,12 +38,12 @@ typedef struct {
 typedef struct {
 	char        machine[MACHINE_MAX];
 	char        arch[ARCH_MAX];
-	uint32_t    total_phy_mem_size;
-	uint32_t    kmalloc_size;
-	uint32_t    total_usable_mem_size;
-	uint32_t    phy_offset;
-	uint32_t    kernel_base;
-	uint32_t    vector_base;
+	ewokos_addr_t    total_phy_mem_size;
+	uint32_t         kmalloc_size;
+	ewokos_addr_t    total_usable_mem_size;
+	ewokos_addr_t    phy_offset;
+	ewokos_addr_t    kernel_base;
+	ewokos_addr_t    vector_base;
 
 	mmio_info_t mmio;
 	dma_info_t  dma;

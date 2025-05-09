@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include <ewokos_config.h>
 
 typedef struct PageList {
 	struct PageList *next;
@@ -13,15 +14,15 @@ typedef uint32_t page_ref_t;
 typedef struct {
 	page_ref_t* refs;
 	uint32_t max;
-	uint32_t phy_base;
+	ewokos_addr_t phy_base;
 } pages_ref_t;
 
 extern pages_ref_t _pages_ref;
-uint32_t page_ref_index(uint32_t paddr);
+uint32_t page_ref_index(ewokos_addr_t paddr);
 
 void kalloc_reset(void);
 /* exported function declarations */
-uint32_t kalloc_append(uint32_t start, uint32_t end);
+uint32_t kalloc_append(ewokos_addr_t start, ewokos_addr_t end);
 void *kalloc4k(void);
 void kfree4k(void *page);
 void *kalloc1k(void);

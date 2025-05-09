@@ -45,7 +45,7 @@ inline void flush_tlb(void) {
 }
 #endif
 
-inline void set_translation_table_base(uint32_t tlb_base) {
+inline void set_translation_table_base(ewokos_addr_t tlb_base) {
 	__set_translation_table_base(tlb_base);
 	flush_tlb();
 }

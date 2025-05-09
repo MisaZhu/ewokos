@@ -10,12 +10,12 @@
  * to a physical page.
  * Notice: virtual and physical address inputed must be all aliend by PAGE_SIZE !
  */
-int32_t map_page(page_dir_entry_t *vm, uint32_t virtual_addr,
-		     uint32_t physical, uint32_t permissions, uint32_t pte_attr) {
+int32_t map_page(page_dir_entry_t *vm, ewokos_addr_t virtual_addr,
+		     ewokos_addr_t physical, uint32_t permissions, uint32_t pte_attr) {
 	page_table_entry_t *page_table = 0;
 
-	uint32_t page_dir_index = PAGE_DIR_INDEX(virtual_addr);
-	uint32_t page_index = PAGE_INDEX(virtual_addr);
+	ewokos_addr_t page_dir_index = PAGE_DIR_INDEX(virtual_addr);
+	ewokos_addr_t page_index = PAGE_INDEX(virtual_addr);
 
 	/* if this page_dirEntry is not mapped before, map it to a new page table */
 	if (vm[page_dir_index].type == 0) {
@@ -43,10 +43,10 @@ int32_t map_page(page_dir_entry_t *vm, uint32_t virtual_addr,
 }
 
 /* unmap_page clears the mapping for the given virtual address */
-void unmap_page(page_dir_entry_t *vm, uint32_t virtual_addr) {
+void unmap_page(page_dir_entry_t *vm, ewokos_addr_t virtual_addr) {
 	page_table_entry_t *page_table = 0;
-	uint32_t page_dir_index = PAGE_DIR_INDEX(virtual_addr);
-	uint32_t page_index = PAGE_INDEX(virtual_addr);
+	ewokos_addr_t page_dir_index = PAGE_DIR_INDEX(virtual_addr);
+	ewokos_addr_t page_index = PAGE_INDEX(virtual_addr);
 	page_table = (void *) P2V(BASE_TO_PAGE_TABLE(vm[page_dir_index].base));
 	page_table[page_index].type = 0;
 }
@@ -56,15 +56,15 @@ void unmap_page(page_dir_entry_t *vm, uint32_t virtual_addr) {
  * given virtual address to physical address. This function can be used for
  * debugging if given virtual memory is constructed correctly.
  */
-uint32_t resolve_phy_address(page_dir_entry_t *vm, uint32_t virtual) {
+ewokos_addr_t resolve_phy_address(page_dir_entry_t *vm, ewokos_addr_t virtual) {
 	page_dir_entry_t *pdir = 0;
 	page_table_entry_t *page = 0;
-	uint32_t result = 0;
-	uint32_t base_address = 0;
+	ewokos_addr_t result = 0;
+	ewokos_addr_t base_address = 0;
 
-	pdir = (page_dir_entry_t*)((uint32_t) vm | ((virtual >> 20) << 2));
+	pdir = (page_dir_entry_t*)((ewokos_addr_t) vm | ((virtual >> 20) << 2));
 	base_address = pdir->base << 10;
-	page = (page_table_entry_t*)((uint32_t) base_address | ((virtual >> 10) & 0x3fc));
+	page = (page_table_entry_t*)((ewokos_addr_t) base_address | ((virtual >> 10) & 0x3fc));
 	page = (page_table_entry_t*)P2V(page);
 	result = (page->base << 12) | (virtual & 0xfff);
 	return result;
@@ -73,14 +73,14 @@ uint32_t resolve_phy_address(page_dir_entry_t *vm, uint32_t virtual) {
 /*
 get page entry(virtual addr) by virtual address
 */
-page_table_entry_t* get_page_table_entry(page_dir_entry_t *vm, uint32_t virtual) {
+page_table_entry_t* get_page_table_entry(page_dir_entry_t *vm, ewokos_addr_t virtual) {
 	page_dir_entry_t *pdir = 0;
 	page_table_entry_t *page = 0;
-	uint32_t base_address = 0;
+	ewokos_addr_t base_address = 0;
 
-	pdir = (void *) ((uint32_t) vm | ((virtual >> 20) << 2));
+	pdir = (void *) ((ewokos_addr_t) vm | ((virtual >> 20) << 2));
 	base_address = pdir->base << 10;
-	page = (page_table_entry_t*)((uint32_t) base_address | ((virtual >> 10) & 0x3fc));
+	page = (page_table_entry_t*)((ewokos_addr_t) base_address | ((virtual >> 10) & 0x3fc));
 	page = (page_table_entry_t*)P2V(page);
 	return page;
 }

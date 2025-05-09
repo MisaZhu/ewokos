@@ -13,7 +13,7 @@ extern void _delay(uint32_t count);
 extern void _delay_usec(uint64_t count);
 extern void _delay_msec(uint32_t count);
 
-extern void set_translation_table_base(uint32_t);
+extern void set_translation_table_base(ewokos_addr_t);
 extern void flush_tlb(void);
 extern void flush_dcache(void);
 
