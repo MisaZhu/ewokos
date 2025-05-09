@@ -655,3 +655,13 @@ void __aeabi_unwind_cpp_pr0(void) {
 
 void __aeabi_unwind_cpp_pr1(void) {
 }
+
+#if __aarch64__
+double __trunctfdf2(_Float128 x) {
+    return (double)x;
+}
+
+int access(const char *path, int mode){
+	return 0;
+}
+#endif

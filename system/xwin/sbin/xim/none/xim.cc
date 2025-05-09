@@ -11,6 +11,7 @@
 #include <x/xwin.h>
 #include <string.h>
 #include <ewoksys/timer.h>
+#include <ewoksys/vfs.h>
 #include <keyb/keyb.h>
 
 class XIM {

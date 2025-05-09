@@ -3,7 +3,7 @@
 
 #include <stdint.h>
 
-typedef int32_t key_t;
+typedef long int key_t;
 
 #define 	IPC_PRIVATE 0
 #define 	IPC_CREAT   00001000 /* create if key is nonexistent */

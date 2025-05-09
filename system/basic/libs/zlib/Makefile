@@ -9,7 +9,7 @@ DEPDIR := .deps
 PREFIX := /opt/ewokos
 
 ASFLAGS = --warn -mfloat-abi=softfp
-CFLAGS = -O3 -ffreestanding -marm  -mfloat-abi=softfp -D_LARGEFILE64_SOURCE=1 -DHAVE_HIDDEN -I. 
+CFLAGS = -O3 -ffreestanding ${ARCH_CFLAGS} -D_LARGEFILE64_SOURCE=1 -DHAVE_HIDDEN -I. 
 CPPFLAGS = $(CFLAGS) -fno-exceptions -fno-unwind-tables -fno-rtti
 
 LIBZ = $(TARGET_DIR)/lib/libz.a

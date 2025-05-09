@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <setenv.h>
 
 #define ENV_UX_ID "UX_ID"
 

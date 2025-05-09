@@ -28,4 +28,5 @@ void printf(const char *format, ...) {
 	_len = 0;
 	v_printf(outc, NULL, format, ap);
 	kout(_buf);
+	va_end(ap);
 }

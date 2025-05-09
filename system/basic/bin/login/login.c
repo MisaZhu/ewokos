@@ -9,6 +9,7 @@
 #include <ewoksys/core.h>
 #include <ewoksys/keydef.h>
 #include <ewoksys/vfs.h>
+#include <setenv.h>
 
 void putch(int c);
 

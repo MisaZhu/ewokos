@@ -13,6 +13,7 @@
 #include <ewoksys/wait.h>
 #include <ewoksys/keydef.h>
 #include <ewoksys/klog.h>
+#include <setenv.h>
 #include "shell.h"
 
 bool _script_mode = false;

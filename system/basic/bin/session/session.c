@@ -6,6 +6,7 @@
 #include <ewoksys/wait.h>
 #include <ewoksys/vfs.h>
 #include <ewoksys/core.h>
+#include <setenv.h>
 
 static void welcome(void) {
 	const char* s = "\033[2J\033[0;0H" //clear screen and move to 0,0

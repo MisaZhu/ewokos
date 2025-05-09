@@ -21,7 +21,7 @@ extern "C" {
 #define 	IPC_STAT    2 /* get ipc_perm options */
 #define 	IPC_INFO    3 /* see ipcs */
 
-typedef int32_t key_t;
+typedef long int key_t;
 
 typedef void (*ipc_handle_t)(uint32_t ipc_id, void* p);
 typedef void (*ipc_handled_t)(void* p);

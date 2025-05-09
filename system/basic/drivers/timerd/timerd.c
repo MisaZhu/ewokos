@@ -10,6 +10,7 @@
 #include <ewoksys/interrupt.h>
 #include <ewoksys/mstr.h>
 #include <ewoksys/kernel_tic.h>
+#include <ewoksys/ipc.h>
 
 typedef struct interrupt_st {
 	uint32_t id;
@@ -177,9 +178,9 @@ static int timer_loop(void* p) {
 	ipc_enable();
 
 	if(_min_timer_usec == 0)
-		usleep(100000);
+		proc_usleep(100000);
 	else {
-		usleep(_min_timer_usec/2);
+		proc_usleep(_min_timer_usec/2);
 	}
 }
 

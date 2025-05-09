@@ -33,6 +33,8 @@ static void __attribute__((optimize("O0"))) copy_interrupt_table(void) {
 	uint32_t *vsrc = &interrupt_table_start;
 	//uint32_t *vdst = (uint32_t*)INTERRUPT_VECTOR_BASE;
 	uint32_t *vdst = (uint32_t*)(_sys_info.vector_base);
+	if(vsrc == vdst)
+		return;
 	while(vsrc < &interrupt_table_end) {
 		*vdst++ = *vsrc++;
 	}
@@ -50,7 +52,7 @@ static void set_kernel_vm(page_dir_entry_t* vm) {
 	map_pages(vm, KERNEL_PAGE_DIR_BASE, V2P(KERNEL_PAGE_DIR_BASE), V2P(KERNEL_PAGE_DIR_END), AP_RW_D, PTE_ATTR_WRBACK);
 
 	//map kernel sys_state memory
-	map_pages(vm, KERNEL_VSYSCALL_INFO_BASE, V2P(KERNEL_VSYSCALL_INFO_BASE), V2P(KERNEL_VSYSCALL_INFO_END), AP_RW_R, PTE_ATTR_DEV);
+	map_pages(vm, KERNEL_VSYSCALL_INFO_BASE, V2P(KERNEL_VSYSCALL_INFO_BASE), V2P(KERNEL_VSYSCALL_INFO_END), AP_RW_RW, PTE_ATTR_DEV);
 	_kernel_vsyscall_info = (vsyscall_info_t*) KERNEL_VSYSCALL_INFO_BASE;
 
 	//map kernel malloc memory
