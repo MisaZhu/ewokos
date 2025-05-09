@@ -103,9 +103,9 @@ inline void irq_handler(context_t* ctx) {
 	kernel_unlock();
 }
 
-static int32_t copy_on_write(proc_t* proc, uint32_t v_addr) {
+static int32_t copy_on_write(proc_t* proc, ewokos_addr_t v_addr) {
 	v_addr = ALIGN_DOWN(v_addr, PAGE_SIZE);
-	uint32_t phy_addr = resolve_phy_address(proc->space->vm, v_addr);
+	ewokos_addr_t phy_addr = resolve_phy_address(proc->space->vm, v_addr);
 	char *page = kalloc4k();
 	if(page == NULL) {
 		return -1;
@@ -171,7 +171,7 @@ void prefetch_abort_handler(context_t* ctx, uint32_t status) {
 	proc_exit(ctx, proc_get_proc(cproc), -1);
 }
 
-void data_abort_handler(context_t* ctx, uint32_t addr_fault, uint32_t status) {
+void data_abort_handler(context_t* ctx, ewokos_addr_t addr_fault, uint32_t status) {
 	(void)ctx;
 	__irq_disable();
 	proc_t* cproc = get_current_proc();

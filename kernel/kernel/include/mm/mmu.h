@@ -12,7 +12,7 @@
 #define V2P(V) ((ewokos_addr_t)(V) - KERNEL_BASE + _sys_info.phy_offset)
 #define P2V(P) ((ewokos_addr_t)(P) - _sys_info.phy_offset + KERNEL_BASE)
 
-#define KERNEL_IMAGE_END              ALIGN_UP((uint32_t)_kernel_end, PAGE_DIR_SIZE)
+#define KERNEL_IMAGE_END              ALIGN_UP((ewokos_addr_t)_kernel_end, PAGE_DIR_SIZE)
 
 #define KERNEL_PAGE_DIR_BASE          KERNEL_IMAGE_END
 #define KERNEL_PAGE_DIR_END           (KERNEL_PAGE_DIR_BASE + 256*KB)
@@ -56,26 +56,26 @@
 #define get8(addr) (*((volatile uint8_t *)(addr)))
 #define put8(addr, val) (*((volatile uint8_t *)(addr)) = (uint8_t)(val))
 
-void map_pages(page_dir_entry_t *vm, uint32_t vaddr, 
-	uint32_t pstart, 
-	uint32_t pend,  
+void map_pages(page_dir_entry_t *vm, ewokos_addr_t vaddr, 
+	ewokos_addr_t pstart, 
+	ewokos_addr_t pend,  
 	uint32_t access_permissions,
 	uint32_t pte_attr);
 
-void map_pages_size(page_dir_entry_t *vm, uint32_t vaddr, 
-	uint32_t pstart, 
+void map_pages_size(page_dir_entry_t *vm, ewokos_addr_t vaddr, 
+	ewokos_addr_t pstart, 
 	uint32_t size,  
 	uint32_t access_permissions,
 	uint32_t pte_attr);
 
-void unmap_pages(page_dir_entry_t *vm, uint32_t virtual_addr, uint32_t pages);
+void unmap_pages(page_dir_entry_t *vm, ewokos_addr_t virtual_addr, uint32_t pages);
 
-void map_page_ref(page_dir_entry_t *vm, uint32_t vaddr, uint32_t paddr, uint32_t permissions, uint32_t pte_attr);
-void unmap_page_ref(page_dir_entry_t *vm, uint32_t vaddr);
+void map_page_ref(page_dir_entry_t *vm, ewokos_addr_t vaddr, ewokos_addr_t paddr, uint32_t permissions, uint32_t pte_attr);
+void unmap_page_ref(page_dir_entry_t *vm, ewokos_addr_t vaddr);
 
 void free_page_tables(page_dir_entry_t *vm);
-uint32_t resolve_kernel_address(page_dir_entry_t *vm, uint32_t virtual);
+ewokos_addr_t resolve_kernel_address(page_dir_entry_t *vm, ewokos_addr_t virtual);
 
-uint32_t get_allocable_start(void);
+ewokos_addr_t get_allocable_start(void);
 
 #endif
