@@ -662,6 +662,10 @@ double __trunctfdf2(_Float128 x) {
 }
 
 int access(const char *path, int mode){
-	return 0;
+	fsinfo_t info;
+	if(vfs_get_by_name(path, &info) != 0)
+		return -1;
+	return vfs_check_access(getpid(), &info, mode);
 }
+
 #endif

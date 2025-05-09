@@ -5,6 +5,7 @@
 @/bin/ipcserv /drivers/raspix/fbd      /dev/fb0
 @/bin/ipcserv /drivers/displayd        
 @/bin/ipcserv /drivers/fontd           
+@/bin/load_font
 
 @export UX_ID=0
 @/bin/ipcserv /drivers/consoled        
@@ -24,7 +25,6 @@
 
 @/bin/bgrun /sbin/x/xim_none 
 
-#@/bin/load_font
 @/bin/ipcserv /drivers/xserverd        /dev/x
 
 @/bin/bgrun /bin/x/xsession  misa 

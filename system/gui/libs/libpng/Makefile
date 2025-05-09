@@ -7,7 +7,7 @@ TARGET_DIR = $(BUILD_DIR)
 DEPDIR := .deps
 PREFIX := /opt/ewokos
 
-ASFLAGS = --warn  -mfloat-abi=softfp
+ASFLAGS = --warn 
 CFLAGS += -I $(TARGET_DIR)/include -DHAVE_CONFIG_H -I. -O2 -ffreestanding ${ARCH_CFLAGS} 
 CPPFLAGS += $(CFLAGS) -fno-exceptions -fno-unwind-tables -fno-rtti
 

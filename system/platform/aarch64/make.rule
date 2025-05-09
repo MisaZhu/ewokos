@@ -21,6 +21,9 @@ CXXFLAGS = -march=armv8-a -Wno-incompatible-pointer-types -Wno-int-conversion \
         -fno-exceptions \
         -std=c++14
 
+#CFLAGS += -DNEON_BOOST
+#CXXFLAGS += -DNEON_BOOST
+
 EWOK_LIBC = -lewoksys -lc -lgloss
 EWOK_LIB_GRAPH = -lfont -lfreetype -lgraph -lpng -lz -lopenlibm -lkeyb -lmouse -lbsp $(BSP_LFLAGS)
 EWOK_LIB_X = -lwidget++ -lx++ -lx -ltinyjson -lewokstl

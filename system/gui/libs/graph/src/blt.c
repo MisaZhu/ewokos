@@ -1,5 +1,5 @@
 #include <graph/graph.h>
-#include <bsp/bsp_graph.h>
+#include <graph/bsp_graph.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
