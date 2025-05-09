@@ -72,6 +72,3 @@ sd:
 	find . -type f | e2cp -ap -G0 -O0 -d ../${SD}:/
 
 	@echo "==== ext2 format sdcard image created  ====\n"
-
-run:
-	qemu-system-arm -cpu arm926 -M versatilepb -m 256M -serial mon:stdio -display cocoa -kernel ../kernel/kernel.qemu.img -sd root.ext2
