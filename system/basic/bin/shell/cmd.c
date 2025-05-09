@@ -12,6 +12,7 @@
 #include <fcntl.h>
 #include <ewoksys/klog.h>
 #include <ewoksys/syscall.h>
+#include <setenv.h>
 #include "shell.h"
 
 static int cd(const char* dir) {

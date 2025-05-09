@@ -1,0 +1,31 @@
+AR = aarch64-none-elf-ar
+CC = aarch64-none-elf-gcc
+CXX = aarch64-none-elf-c++
+LD =  aarch64-none-elf-ld
+OBJDUMP =  aarch64-none-elf-objdump
+
+CFLAGS =  -march=armv8-a -Wno-incompatible-pointer-types -Wno-int-conversion \
+        -Wall -Wextra -fPIC \
+		-fno-builtin-memset \
+        -Wno-unused-parameter \
+		-mstrict-align \
+        -std=c99
+
+CXXFLAGS = -march=armv8-a -Wno-incompatible-pointer-types -Wno-int-conversion \
+        -Wall -Wextra -fPIC \
+		-fno-builtin-memset \
+        -Wno-unused-parameter \
+        -pedantic \
+		-fno-rtti \
+		-mstrict-align \
+        -fno-exceptions \
+        -std=c++14
+
+EWOK_LIBC = -lewoksys -lc -lgloss
+EWOK_LIB_GRAPH = -lfont -lfreetype -lgraph -lpng -lz -lopenlibm -lkeyb -lmouse -lbsp $(BSP_LFLAGS)
+EWOK_LIB_X = -lwidget++ -lx++ -lx -ltinyjson -lewokstl
+
+#CFLAGS +=  -g
+CFLAGS +=  -O2
+#CXXFLAGS +=  -g
+CXXFLAGS +=  -O2

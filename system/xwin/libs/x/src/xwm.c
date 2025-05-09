@@ -9,6 +9,7 @@
 #include <graph/graph.h>
 #include <x/xcntl.h>
 #include <x/xwm.h>
+#include <setenv.h>
 
 #ifdef __cplusplus
 extern "C" {

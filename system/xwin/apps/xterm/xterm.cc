@@ -9,6 +9,7 @@ extern "C" {
 #include <stdio.h>
 #include <sys/errno.h>
 #include <signal.h>
+#include <setenv.h>
 
 #ifdef __cplusplus
 }

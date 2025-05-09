@@ -227,10 +227,10 @@ static void bcm2835_reset_internal(struct bcm2835_host *host)
 		(FIFO_WRITE_THRESHOLD << SDEDM_WRITE_THRESHOLD_SHIFT);
 	writel(temp, host->ioaddr + SDEDM);
 	/* Wait for FIFO threshold to populate */
-	usleep(20000);
+	proc_usleep(20000);
 	writel(SDVDD_POWER_ON, host->ioaddr + SDVDD);
 	/* Wait for all components to go through power on cycle */
-	usleep(20000);
+	proc_usleep(20000);
 	host->clock = 0;
 	writel(host->hcfg, host->ioaddr + SDHCFG);
 	writel(SDCDIV_MAX_CDIV, host->ioaddr + SDCDIV);

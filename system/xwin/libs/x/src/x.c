@@ -18,6 +18,7 @@
 #include <string.h>
 #include <signal.h>
 #include <stdio.h>
+#include <setenv.h>
 
 #ifdef __cplusplus
 extern "C" {

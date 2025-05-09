@@ -36,7 +36,6 @@ builtin_apps:
 	cd rx;make
 	cd elfinfo;make
 	cd setux;make 
-	cd vi;make 
 	cd json;make 
 	cd sysinfo;make 
 	cd mmio;make
@@ -76,7 +75,6 @@ clean:
 	cd elfinfo;make clean
 	cd whoami;make clean
 	cd setux;make clean
-	cd vi;make clean
 	cd json;make clean
 	cd sysinfo;make clean
 	cd mmio;make clean

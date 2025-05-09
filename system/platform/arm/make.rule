@@ -35,3 +35,4 @@ CFLAGS +=  -O2
 #CXXFLAGS +=  -g
 CXXFLAGS +=  -O2
 
+ARCH_CFLAGS = -marm  -mfloat-abi=softfp
