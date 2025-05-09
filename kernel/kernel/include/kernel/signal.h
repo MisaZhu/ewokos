@@ -6,7 +6,7 @@
 
 struct st_proc;
 typedef struct {
-    uint32_t      entry;
+    ewokos_addr_t entry;
     uint32_t      sig_no;
 
     bool          do_switch;
@@ -16,7 +16,7 @@ typedef struct {
 	saved_state_t saved_state;
 } signal_t;
 
-extern int32_t  proc_signal_setup(uint32_t entry);
+extern int32_t  proc_signal_setup(ewokos_addr_t entry);
 extern void     proc_signal_send(context_t* ctx, struct st_proc* proc, int32_t sig_no, bool quick);
 extern void     proc_signal_end(context_t* ctx);
 

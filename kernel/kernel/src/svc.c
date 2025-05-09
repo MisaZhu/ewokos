@@ -141,7 +141,7 @@ static void sys_detach(void) {
 	cproc->info.father_pid = 0;
 }
 
-static void sys_thread(context_t* ctx, uint32_t entry, uint32_t func, int32_t arg) {
+static void sys_thread(context_t* ctx, ewokos_addr_t entry, ewokos_addr_t func, ewokos_addr_t arg) {
 	ctx->gpr[0] = -1;
 	proc_t *proc = kfork(ctx, TASK_TYPE_THREAD);
 	if(proc == NULL)
@@ -254,27 +254,27 @@ static int32_t sys_shm_unmap(void* p) {
 	return shm_proc_unmap(cproc, p);
 }
 		
-static uint32_t sys_dma_map(uint32_t size) {
+static ewokos_addr_t sys_dma_map(uint32_t size) {
 	proc_t* cproc = proc_get_proc(get_current_proc());
 	if(cproc->info.uid > 0)
 		return 0;
 
-	uint32_t paddr = dma_alloc(cproc->info.pid, size);
+	ewokos_addr_t paddr = dma_alloc(cproc->info.pid, size);
 	if(paddr == 0)
 		return 0;
-	uint32_t vaddr = DMA_BASE + (paddr - _sys_info.dma.phy_base);
+	ewokos_addr_t vaddr = DMA_BASE + (paddr - _sys_info.dma.phy_base);
 
 	map_pages_size(cproc->space->vm, vaddr, paddr, size, AP_RW_RW, PTE_ATTR_DEV);
 	flush_tlb();
 	return vaddr;
 }
 
-static uint32_t sys_dma_phy(uint32_t vaddr) {
-	uint32_t paddr = vaddr - DMA_BASE + _sys_info.dma.phy_base;
+static ewokos_addr_t sys_dma_phy(ewokos_addr_t vaddr) {
+	ewokos_addr_t paddr = vaddr - DMA_BASE + _sys_info.dma.phy_base;
 	return paddr;
 }
 
-static uint32_t sys_mem_map(uint32_t vaddr, uint32_t paddr, uint32_t size) {
+static uint32_t sys_mem_map(ewokos_addr_t vaddr, ewokos_addr_t paddr, uint32_t size) {
 	proc_t* cproc = proc_get_proc(get_current_proc());
 	if(cproc->info.uid > 0)
 		return 0;
@@ -289,7 +289,7 @@ static uint32_t sys_mem_map(uint32_t vaddr, uint32_t paddr, uint32_t size) {
 	return vaddr;
 }
 
-static void sys_ipc_setup(context_t* ctx, uint32_t entry, uint32_t extra_data, uint32_t flags) {
+static void sys_ipc_setup(context_t* ctx, ewokos_addr_t entry, ewokos_addr_t extra_data, uint32_t flags) {
 	proc_t* cproc = get_current_proc();
 	ctx->gpr[0] = proc_ipc_setup(ctx, entry, extra_data, flags);
 }
@@ -725,19 +725,19 @@ static inline void _svc_handler(int32_t code, ewokos_addr_t arg0, ewokos_addr_t 
 		ctx->gpr[0] = sys_shm_unmap((void*)arg0);
 		return;
 	case SYS_THREAD:
-		sys_thread(ctx, (uint32_t)arg0, (uint32_t)arg1, arg2);
+		sys_thread(ctx, arg0, arg1, arg2);
 		return;
 	case SYS_KPRINT:
 		sys_kprint((const char*)arg0, arg1);
 		return;
 	case SYS_MEM_MAP:
-		ctx->gpr[0] = sys_mem_map((uint32_t)arg0, (uint32_t)arg1, (uint32_t)arg2);
+		ctx->gpr[0] = sys_mem_map(arg0, arg1, (uint32_t)arg2);
 		return;
 	case SYS_DMA_ALLOC:
 		ctx->gpr[0] = sys_dma_map((uint32_t)arg0);
 		return;
 	case SYS_DMA_PHY_ADDR:
-		ctx->gpr[0] = sys_dma_phy((uint32_t)arg0);
+		ctx->gpr[0] = sys_dma_phy(arg0);
 		return;
 	case SYS_IPC_SETUP:
 		sys_ipc_setup(ctx, arg0, arg1, arg2);

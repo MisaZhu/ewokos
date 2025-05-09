@@ -8,7 +8,7 @@
 #include <mm/mmu.h>
 #include <mm/kalloc.h>
 
-int32_t  proc_signal_setup(uint32_t entry) {
+int32_t  proc_signal_setup(ewokos_addr_t entry) {
 	proc_t* cproc = get_current_proc();
 	cproc->space->signal.entry = entry;
 	return 0;	

@@ -33,9 +33,9 @@ typedef	struct {
 
 typedef struct {
 	bool          disabled;
-	uint32_t      entry;
+	ewokos_addr_t entry;
 	uint32_t      flags;
-	uint32_t      extra_data;
+	ewokos_addr_t extra_data;
 	ipc_task_t    ctask; //current_task
 
     bool          do_switch;
@@ -45,7 +45,7 @@ typedef struct {
 	saved_state_t saved_state;
 } ipc_server_t;
 
-extern int32_t     proc_ipc_setup(context_t* ctx, uint32_t entry, uint32_t extra, uint32_t flags);
+extern int32_t     proc_ipc_setup(context_t* ctx, ewokos_addr_t entry, uint32_t extra, uint32_t flags);
 extern int32_t     proc_ipc_do_task(context_t* ctx, struct st_proc* proc, uint32_t core);
 extern ipc_task_t* proc_ipc_req(struct st_proc* serv_proc, struct st_proc* client_proc, int32_t call_id, proto_t* arg);
 extern uint32_t    proc_ipc_fetch(struct st_proc* serv_proc);

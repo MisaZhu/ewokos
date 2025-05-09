@@ -13,8 +13,8 @@
 
 typedef struct interrupt_st {
 	int32_t  uuid;
-	uint32_t entry;
-	uint32_t data;
+	ewokos_addr_t entry;
+	ewokos_addr_t data;
 } interrupt_handler_t;
 
 typedef struct {
@@ -37,7 +37,7 @@ static inline interrupt_item_t* get_interrupt(uint32_t irq) {
 	return NULL;
 }
 
-int32_t interrupt_setup(proc_t* cproc, uint32_t interrupt, uint32_t entry, uint32_t data) {
+int32_t interrupt_setup(proc_t* cproc, uint32_t interrupt, ewokos_addr_t entry, ewokos_addr_t data) {
 	interrupt_item_t* item = get_interrupt(interrupt);
 	
 	if(entry == 0) {//unregister interrupt
@@ -117,7 +117,7 @@ int32_t  interrupt_send(context_t* ctx, uint32_t interrupt) {
 	return res;
 }
 
-int32_t  interrupt_soft_send(context_t* ctx, int32_t to_pid, uint32_t entry, uint32_t data) {
+int32_t  interrupt_soft_send(context_t* ctx, int32_t to_pid, ewokos_addr_t entry, ewokos_addr_t data) {
 	interrupt_handler_t intr;
 	proc_t* proc = proc_get(to_pid);
 	intr.entry = entry;

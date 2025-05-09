@@ -11,7 +11,7 @@
 
 #define IPC_BUFFER_SIZE 32
 
-int32_t proc_ipc_setup(context_t* ctx, uint32_t entry, uint32_t extra_data, uint32_t flags) {
+int32_t proc_ipc_setup(context_t* ctx, ewokos_addr_t entry, ewokos_addr_t extra_data, uint32_t flags) {
 	(void)ctx;
 	proc_t* cproc = get_current_proc();
 	cproc->space->ipc_server.entry = entry;
