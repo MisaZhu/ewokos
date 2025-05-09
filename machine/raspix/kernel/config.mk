@@ -22,5 +22,9 @@ ARCH_CFLAGS += -DPI4
 QEMU_FLAGS = -M raspi4b -m 2048M -serial mon:stdio 
 else
 QEMU_CMD = qemu-system-arm
-QEMU_FLAGS = -M raspi2b -m 1024M -serial mon:stdio -display cocoa
+QEMU_FLAGS = -M raspi2b -m 1024M -serial mon:stdio
+endif
+
+ifeq ($(QEMU_DISPLAY_OPTS),cocoa)
+QEMU_FLAGS += -display cocoa
 endif
