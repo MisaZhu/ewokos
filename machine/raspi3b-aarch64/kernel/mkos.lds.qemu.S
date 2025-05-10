@@ -2,7 +2,6 @@ ENTRY(__entry)
 
 base_address = 0x80000000;
 start_address = 0x80000; /*for qemu*/
-framebuffer_size = 0x400000;
 
 PHDRS
 {
@@ -60,11 +59,6 @@ SECTIONS
 	. = . + 0x4000;
 	_svc_stack = .;
 	PROVIDE(_kernel_sp = .);
-
-	. = ALIGN(4096);
-	PROVIDE(_framebuffer_base_raw = .); 
-	. += framebuffer_size;
-	PROVIDE(_framebuffer_end_raw = .); 
 
 	. = ALIGN(4096);
 	PROVIDE(_kernel_end = .);
