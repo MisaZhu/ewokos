@@ -2,9 +2,9 @@ all: basic_libs
 	@echo "all done."
 
 basic_libs:
+	cd sd;make
 	cd ext2;make
 	cd elf;make
-	cd sd;make
 	cd socket;make
 	cd tinyjson;make
 	cd zlib;make

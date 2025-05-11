@@ -18,7 +18,7 @@
 
 static void* sd_read_ext2(const char* fname, int32_t* size) {
 	ext2_t ext2;
-	ext2_init(&ext2, sd_read, NULL);
+	ext2_init(&ext2, sd_read, NULL, 0);
 	void* ret = ext2_readfile(&ext2, fname, size);
 	ext2_quit(&ext2);
 	return ret;
