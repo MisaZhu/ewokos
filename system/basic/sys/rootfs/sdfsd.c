@@ -65,7 +65,7 @@ static int32_t add_nodes(ext2_t* ext2, INODE *ip, fsinfo_t* dinfo) {
 
 	for (i=0; i<12; i++){
 		if (ip->i_block[i] != 0){
-			ext2->read_block(ip->i_block[i], buf, 1);
+			ext2->read_block(ip->i_block[i], buf);
 			dp = (DIR_T *)buf;
 			cp = buf;
 

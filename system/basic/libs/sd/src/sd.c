@@ -8,13 +8,10 @@
 extern "C" {
 #endif
 
-
 #define EXT2_BLOCK_SIZE 1024
-#define SD_DEV_PID      1
+#define BUF_BLOCK_SIZE 1024
 
 static partition_t _partition;
-
-#define BUF_BLOCK_SIZE 1024
 
 typedef struct {
 	ewokos_addr_t* data;
@@ -48,8 +45,18 @@ static void sector_buf_free(sector_buf_block_t* buffer, uint32_t num) {
 
 static inline void sector_buf_set(uint32_t index, const void* data) {
 	index -= _partition.start_sector;
-	if(_sector_buf == NULL || index >= _sector_buf_num)
+	if(_sector_buf_num == 0)
 		return;
+
+	if(_sector_buf == NULL)
+		_sector_buf = sector_buf_new(_sector_buf_num);
+
+	if(index >= _sector_buf_num) { //overflowed, clear all buffer 
+		sector_buf_free(_sector_buf, _sector_buf_num);
+		_sector_buf = sector_buf_new(_sector_buf_num);
+		if(_sector_buf == NULL)
+			return;
+	}
 
 	uint32_t block_index = index / BUF_BLOCK_SIZE;
 	index = index % BUF_BLOCK_SIZE;
@@ -85,16 +92,15 @@ static int32_t (*sd_init_arch)(void);
 static int32_t (*sd_read_sector_arch)(int32_t sector, void* buf);
 static int32_t (*sd_write_sector_arch)(int32_t sector, const void* buf);
 
-int32_t sd_read_sector(int32_t sector, void* buf, uint32_t cache) {
+int32_t sd_read_sector(int32_t sector, void* buf) {
 	void* b = sector_buf_get(sector);
 	if(b != NULL) {
+		//klog("cached %d\n", sector);
 		memcpy(buf, b, SECTOR_SIZE);
 		return SECTOR_SIZE;
 	}	
-	//if(read_block(SD_DEV_PID, buf, SECTOR_SIZE, sector) == SECTOR_SIZE) {
 	if(sd_read_sector_arch(sector, buf) == 0) {
-		if(cache != 0)
-			sector_buf_set(sector, buf);
+		sector_buf_set(sector, buf);
 		return SECTOR_SIZE;
 	}
 	return 0;
@@ -106,16 +112,15 @@ int32_t sd_write_sector(int32_t sector, const void* buf) {
 		return SECTOR_SIZE;
 	}
 	return 0;
-	//return write_block(SD_DEV_PID, buf, SECTOR_SIZE, sector);
 }
 
-int32_t sd_read(int32_t block, void* buf, uint32_t cache) {
+int32_t sd_read(int32_t block, void* buf) {
 	int32_t n = EXT2_BLOCK_SIZE/512;
 	int32_t sector = block * n + _partition.start_sector;
 	char* p = (char*)buf;
 
 	while(n > 0) {
-		if(sd_read_sector(sector, p, cache) != SECTOR_SIZE) {
+		if(sd_read_sector(sector, p) != SECTOR_SIZE) {
 			return -1;
 		}
 		sector++;
@@ -145,7 +150,7 @@ static partition_t _partitions[PARTITION_MAX];
 
 int32_t read_partition(void) {
 	uint8_t sector[512];
-	if(sd_read_sector(0, sector, true) != SECTOR_SIZE)
+	if(sd_read_sector(0, sector) != SECTOR_SIZE)
 		return -1;
 	//check magic 
 	if(sector[510] != 0x55 || sector[511] != 0xAA) 
@@ -175,10 +180,6 @@ int32_t sd_quit(void) {
 	return 0;
 }
 
-static int32_t sd_read_sector_cache(int32_t sector, void* buf) {
-	return sd_read_sector(sector, buf, 1);
-}
-
 int32_t sd_init(sd_init_func init, sd_read_sector_func rd, sd_write_sector_func wr) {
 	_sector_buf = NULL;
 	_sector_buf_num = 0;
@@ -191,7 +192,7 @@ int32_t sd_init(sd_init_func init, sd_read_sector_func rd, sd_write_sector_func 
 	if(sd_init_arch() != 0)
 		return -1;
 
-	_partition.start_sector = (uint32_t)get_rootfs_entry(sd_read_sector_cache);
+	_partition.start_sector = (uint32_t)get_rootfs_entry(sd_read_sector);
 	return 0;
 }
 

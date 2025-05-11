@@ -97,7 +97,7 @@ typedef struct ext2_dir_entry_2 {
 
 #define EXT2_BLOCK_SIZE 1024
 
-typedef int32_t (*read_block_func_t)(int32_t block, void* buf, uint32_t cache);
+typedef int32_t (*read_block_func_t)(int32_t block, void* buf);
 typedef int32_t (*write_block_func_t)(int32_t block, const void* buf);
 
 typedef struct {
