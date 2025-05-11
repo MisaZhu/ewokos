@@ -14,78 +14,82 @@ extern "C" {
 
 static inline void neon_alpha_8(uint32_t *b, uint32_t *f, uint32_t *d)
 {
-	__asm volatile(
-		"vld4.8    {d20-d23},[%1]\n\t" // load foreground
-		"vmov.u8	d28, 0xff\n\t"
-		"vsub.u8	d28, d28, d23\n\t"
-		"vmull.u8  q1,d20,d23\n\t"
-		"vmull.u8  q3,d21,d23\n\t"
-		"vmull.u8  q5,d22,d23\n\t"
-
-		"vld4.8    {d24-d27},[%0]\n\t" // load background
-		"vmov.u8	d29, 0xff\n\t"
-		"vsub.u8	d29, d29, d27\n\t"
-		"vmull.u8  q2,d24,d28\n\t"
-		"vmull.u8  q4,d25,d28\n\t"
-		"vmull.u8  q6,d26,d28\n\t" // apply alpha
-
-		/*oa = oa + (255 - oa) * a / 255;*/
-		"vmull.u8	q7, d29, d23\n\t"
-		"vshr.u16  	q7,q7,#8\n\t"
-		"vmov.u8	d29, 0x1\n\t"
-		"vmull.u8	q8, d29, d27\n\t"
-		"vadd.u16  	q7,q7,q8\n\t"
-
-		"vadd.u16  q1,q1,q2\n\t"
-		"vadd.u16  q3,q3,q4\n\t"
-		"vadd.u16  q5,q5,q6\n\t"
-
-		"vshr.u16  q1,q1,#8\n\t"
-		"vshr.u16  q3,q3,#8\n\t"
-		"vshr.u16  q5,q5,#8\n\t"
-
-		"vmovn.u16 d20,q1\n\t"
-		"vmovn.u16 d21,q3\n\t"
-		"vmovn.u16 d22,q5\n\t"
-		"vmovn.u16   d23,q7\n\t"
-
-		"vst4.8   {d20-d23},[%2]\n\t"
-		:
-		: "r"(b), "r"(f), "r"(d)
-		: "memory");
-	return;
+    __asm volatile(
+        "ld4 {v20.8b, v21.8b, v22.8b, v23.8b}, [%1]\n\t"  // load foreground (R,G,B,A)
+        "movi v28.8b, #255\n\t"
+        "sub v28.8b, v28.8b, v23.8b\n\t"                 // 255 - alpha
+        
+        // Multiply foreground by its alpha
+        "umull v1.8h, v20.8b, v23.8b\n\t"                // R * A
+        "umull v3.8h, v21.8b, v23.8b\n\t"                // G * A
+        "umull v5.8h, v22.8b, v23.8b\n\t"                // B * A
+        
+        "ld4 {v24.8b, v25.8b, v26.8b, v27.8b}, [%0]\n\t"  // load background (R,G,B,A)
+        "movi v29.8b, #255\n\t"
+        "sub v29.8b, v29.8b, v27.8b\n\t"                 // 255 - background alpha
+        
+        // Multiply background by inverse of foreground alpha
+        "umull v2.8h, v24.8b, v28.8b\n\t"                // R * (1-A)
+        "umull v4.8h, v25.8b, v28.8b\n\t"                // G * (1-A)
+        "umull v6.8h, v26.8b, v28.8b\n\t"                // B * (1-A)
+        
+        // Calculate resulting alpha: oa = oa + (255 - oa) * a / 255
+        "umull v7.8h, v29.8b, v23.8b\n\t"                // (255-oa)*a
+        "ushr v7.8h, v7.8h, #8\n\t"                     // >> 8 (/256)
+        "movi v29.8b, #1\n\t"
+        "umull v8.8h, v29.8b, v27.8b\n\t"                // 1 * oa
+        "add v7.8h, v7.8h, v8.8h\n\t"                    // sum
+        
+        // Sum foreground and background components
+        "add v1.8h, v1.8h, v2.8h\n\t"
+        "add v3.8h, v3.8h, v4.8h\n\t"
+        "add v5.8h, v5.8h, v6.8h\n\t"
+        
+        // Shift right by 8 (/256)
+        "ushr v1.8h, v1.8h, #8\n\t"
+        "ushr v3.8h, v3.8h, #8\n\t"
+        "ushr v5.8h, v5.8h, #8\n\t"
+        
+        // Narrow to 8-bit
+        "xtn v20.8b, v1.8h\n\t"
+        "xtn v21.8b, v3.8h\n\t"
+        "xtn v22.8b, v5.8h\n\t"
+        "xtn v23.8b, v7.8h\n\t"
+        
+        // Store result
+        "st4 {v20.8b, v21.8b, v22.8b, v23.8b}, [%2]\n\t"
+        :
+        : "r"(b), "r"(f), "r"(d)
+        : "memory", "v1", "v2", "v3", "v4", "v5", "v6", "v7", "v8", 
+          "v20", "v21", "v22", "v23", "v24", "v25", "v26", "v27", "v28", "v29");
 }
 
 static inline void neon_8(uint32_t *s, uint32_t *d)
 {
-	__asm volatile(
-		"vld4.8    {d20-d23},[%0]\n\t" // load foreground
-		"vst4.8   {d20-d23},[%1]\n\t"
-		:
-		: "r"(s), "r"(d)
-		: "memory");
-	return;
+    __asm volatile(
+        "ld4 {v20.8b, v21.8b, v22.8b, v23.8b}, [%0]\n\t"
+        "st4 {v20.8b, v21.8b, v22.8b, v23.8b}, [%1]\n\t"
+        :
+        : "r"(s), "r"(d)
+        : "memory", "v20", "v21", "v22", "v23");
 }
 
 static inline void neon_fill_load(uint32_t *s)
 {
-	__asm volatile(
-		"vld4.8    {d20-d23},[%0]\n\t" // load foreground
-		:
-		: "r"(s)
-		: "memory");
-	return;
+    __asm volatile(
+        "ld4 {v20.8b, v21.8b, v22.8b, v23.8b}, [%0]\n\t"
+        :
+        : "r"(s)
+        : "memory", "v20", "v21", "v22", "v23");
 }
-
 
 static inline void neon_fill_store(uint32_t *d)
 {
-	__asm volatile(
-		"vst4.8   {d20-d23},[%0]\n\t"
-		:
-		: "r"(d)
-		: "memory");
-	return;
+    __asm volatile(
+        "st4 {v20.8b, v21.8b, v22.8b, v23.8b}, [%0]\n\t"
+        :
+        : "r"(d)
+        : "memory", "v20", "v21", "v22", "v23");
 }
 
 static inline void graph_pixel_argb_neon(graph_t *graph, int32_t x, int32_t y,
