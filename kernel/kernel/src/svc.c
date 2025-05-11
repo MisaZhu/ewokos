@@ -313,7 +313,7 @@ static void sys_ipc_call(context_t* ctx, int32_t serv_pid, int32_t call_id, prot
 		return;
 	}
 
-	if(client_proc->space->interrupt.state == INTR_STATE_WORKING) {
+	if(client_proc->info.type == TASK_TYPE_PROC && client_proc->space->interrupt.state == INTR_STATE_WORKING) {
 		printf("ipc can't call in interrupt (client: %d, server: %d, call: 0x%x\n",
 				client_proc->info.pid, serv_pid, call_id);
 		return;
