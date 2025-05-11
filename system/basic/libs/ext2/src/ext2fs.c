@@ -1,3 +1,4 @@
+#include <sd/sd.h>
 #include <ext2/ext2fs.h>
 #include <ewoksys/vfs.h>
 #include <string.h>
@@ -787,7 +788,7 @@ static int32_t get_gds(ext2_t* ext2) {
   return 0;
 }
 
-int32_t ext2_init(ext2_t* ext2, read_block_func_t read_block, write_block_func_t write_block) {
+int32_t ext2_init(ext2_t* ext2, read_block_func_t read_block, write_block_func_t write_block, uint32_t buffer_size) {
 	char buf[EXT2_BLOCK_SIZE];
 	ext2->read_block = read_block;
 	ext2->write_block = write_block;
@@ -797,6 +798,8 @@ int32_t ext2_init(ext2_t* ext2, read_block_func_t read_block, write_block_func_t
 		return -1;
 	memcpy(&ext2->super, buf, sizeof(SUPER));
 	get_gds(ext2);
+	sd_set_max_sector_index(ext2->super.s_blocks_count);
+	sd_set_buffer_size(buffer_size);
 	return 0;
 }
 
