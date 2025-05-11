@@ -129,10 +129,11 @@ int32_t  interrupt_soft_send(context_t* ctx, int32_t to_pid, ewokos_addr_t entry
 void interrupt_end(context_t* ctx) {
 	proc_t* cproc = get_current_proc();
 	uint32_t interrupt = cproc->space->interrupt.interrupt;
+
 	cproc->space->interrupt.state = INTR_STATE_IDLE;
+	proc_wakeup(cproc->info.pid, -1, (uint32_t)&cproc->space->interrupt);
 
 	if(cproc->info.state == UNUSED || cproc->info.state == ZOMBIE) {
-		proc_wakeup(cproc->info.pid, -1, (uint32_t)&cproc->space->interrupt);
 		schedule(ctx);
 		return;
 	}
@@ -142,8 +143,6 @@ void interrupt_end(context_t* ctx) {
 	//if(cproc->info.state == READY) {
 		proc_ready(cproc);
 	}
-
-	proc_wakeup(cproc->info.pid, -1, (uint32_t)&cproc->space->interrupt);
 
 	if(interrupt != IRQ_SOFT) {
 		irq_enable_cpsr(&cproc->ctx); //enable interrupt on proc
