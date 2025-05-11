@@ -94,7 +94,7 @@ static inline void graph_pixel_argb_neon(graph_t *graph, int32_t x, int32_t y,
 	uint32_t bg[8];
 	uint32_t *dst = &graph->buffer[y * graph->w + x];
 
-	if (size == 8)
+	if (size >= 8)
 	{
 		neon_alpha_8(dst, src, dst);
 	}

@@ -121,16 +121,16 @@ static inline void graph_pixel_argb_neon(graph_t *graph, int32_t x, int32_t y,
 	uint32_t bg[16];
 	uint32_t *dst = &graph->buffer[y * graph->w + x];
 
-	if (size == 16)
+	if (size >= 16)
 	{
 		neon_alpha_16(dst, src, dst);
 	}
 	else
 	{
-		memcpy(fg, src, 16 * 4);
-		memcpy(bg, dst, 16 * 4);
+		memcpy(fg, src, 4*size);
+		memcpy(bg, dst, 4*size);
 		neon_alpha_16(bg, fg, bg);
-		memcpy(dst, bg, 16 * 4);
+		memcpy(dst, bg, 4*size);
 	}
 }
 
