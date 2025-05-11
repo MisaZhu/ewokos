@@ -138,41 +138,41 @@ void graph_gray(graph_t* g) {
 	}
 }
 
+static inline void rotate_90_clockwise_cache_optimized(const uint32_t* src, uint32_t* dst, 
+                                       int width, int height) {
+    for (int y = 0; y < height; y++) {
+        const uint32_t* src_row = src + y * width;
+        uint32_t* dst_col = dst + (height - 1 - y);
+        
+        for (int x = 0; x < width; x++) {
+            *dst_col = src_row[x];
+            dst_col += height;
+        }
+    }
+}
+
+static inline void rotate_90_counter_clockwise_cache_optimized(const uint32_t* src, uint32_t* dst, 
+                                       int width, int height) {
+    for (int y = 0; y < height; y++) {
+        const uint32_t* src_row = src + y * width;
+        uint32_t* dst_col = dst + y;
+        
+        for (int x = 0; x < width; x++) {
+            *dst_col = src_row[(width - 1 - x)];
+            dst_col += height;
+        }
+    }
+}
 
 void graph_rotate_to(graph_t* g, graph_t* ret, int rot) {
 	if(g == NULL || ret == NULL)
 		return;
 
 	if(rot == G_ROTATE_90) {
-		/*for(int i=0; i<g->w; ++i) {
-			int w0 = (ret->h - i) * ret->w;
-			int w1 = g->w - i - 1;
-			for(int j=0; j<g->h; ++j) {
-				ret->buffer[w0 - j] = g->buffer[j*g->w + w1];
-			}
-		}
-		*/
-		
-		int w0 = (ret->h+1) * ret->w - 1;
-		for(int i=0; i<g->w; ++i) {
-			w0 -= ret->w;
-			int w1 = -i - 1;
-			for(int j=0; j<g->h; ++j) {
-				w1 += g->w;
-				ret->buffer[w0 - j] = g->buffer[w1];
-			}
-		}
+		rotate_90_clockwise_cache_optimized(g->buffer, ret->buffer, g->w, g->h);
 	}
 	else if(rot == G_ROTATE_N90) {
-		int w0 = -(ret->w);
-		for(int i=0; i<g->w; ++i) {
-			w0 += ret->w;
-			int w1 = -i - 1;
-			for(int j=0; j<g->h; ++j) {
-				w1 += g->w;
-				ret->buffer[w0 + j] = g->buffer[w1];
-			}
-		}
+		rotate_90_counter_clockwise_cache_optimized(g->buffer, ret->buffer, g->w, g->h);
 	}
 	else if(rot == G_ROTATE_180) {
 		int w0 = -(g->w);
