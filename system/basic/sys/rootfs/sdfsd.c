@@ -14,6 +14,8 @@
 #include <stdio.h>
 #include <bsp/bsp_sd.h>
 
+#define SD_BUFFER_SIZE (1024*1024*16) //16M buffer size
+
 static void set_fsinfo_stat(node_stat_t* stat, INODE* inode) {
 	stat->atime = inode->i_atime;
 	stat->ctime = inode->i_ctime;
@@ -242,7 +244,7 @@ int main(int argc, char** argv) {
 	}
 
 	ext2_t ext2;
-	if(ext2_init(&ext2, sd_read, sd_write, 1024*1024*16) != 0) { //max buffer size 16MB
+	if(ext2_init(&ext2, sd_read, sd_write, SD_BUFFER_SIZE) != 0) { //max buffer size 16MB
 		sd_quit();
 		return -1;
 	}
