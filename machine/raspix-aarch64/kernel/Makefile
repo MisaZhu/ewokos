@@ -9,7 +9,7 @@ OS_QEMU_IMG = kernel8.qemu.img
 OS_QEMU_ELF = kernel8.qemu.elf
 
 QEMU_CMD = qemu-system-aarch64
-MACHINE=raspi3b-aarch64
+MACHINE=raspix-aarch64
 
 EWOKOS_ROOT_DIR = ../../..
 
