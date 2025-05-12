@@ -9,6 +9,25 @@
 
 #define GET_BOARD_REVISION  0x00010002
 
+
+static inline void clear_cache(void *start, void *end) {
+    uintptr_t addr = (uintptr_t)start;
+    uintptr_t end_addr = (uintptr_t)end;
+    
+    // 对齐到缓存行（通常 64 字节）
+    addr &= ~(64 - 1);
+
+    // 使用 DC CIVAC 刷新数据缓存
+    for (; addr < end_addr; addr += 64) {
+        __asm volatile("dc civac, %0" :: "r"(addr));
+    }
+
+    // 确保指令缓存同步（IC IALLU）
+    __asm volatile("ic iallu");
+    __asm volatile("dsb sy");  // 数据同步屏障
+    __asm volatile("isb");      // 指令同步屏障
+}
+
 static __attribute__((__aligned__(16))) uint32_t data[6];
 static uint32_t bcm283x_board_revision(void) {
 	memset(data, 0, 6*4);
@@ -19,11 +38,15 @@ static uint32_t bcm283x_board_revision(void) {
 	data[4] = 4;
 	data[5] = 0;
 
+    clear_cache((char *)data, (char *)data + sizeof(data));
+
 	mail_message_t msg;
 	memset(&msg, 0, sizeof(mail_message_t));
 	msg.data = ((uint32_t)data + 0x40000000) >> 4;
 	mailbox_send(PROPERTY_CHANNEL, &msg);
 	mailbox_read(PROPERTY_CHANNEL, &msg);
+
+    clear_cache((char *)data, (char *)data + sizeof(data));
 	return data[5];
 }
 
