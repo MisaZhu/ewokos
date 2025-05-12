@@ -149,6 +149,20 @@ ENTRY(__invalidate_dcache_all)
 ENDPROC(__invalidate_dcache_all)
 
  */
+ /*
+ * 无效化整个指令缓存 (ARMv7-A 32位实现)
+ * 破坏寄存器：r0
+ */
+.global __invalidate_icache_all
+__invalidate_icache_all:
+    // 1. 无效化整个指令缓存
+    mov     r0, #0
+    mcr     p15, 0, r0, c7, c5, 0   // ICIALLU - Invalidate all I-cache
+    // 2. 确保操作完成
+    dsb
+    isb
+    // 3. 返回
+    bx      lr
 
 .global __flush_tlb
 __flush_tlb:

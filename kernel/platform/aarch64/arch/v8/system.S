@@ -94,16 +94,18 @@ skip:
 finished:
     ret
 
+.global __invalidate_icache_all
+__invalidate_icache_all:
+    ic      iallu                   // 无效化所有指令缓存
+    dsb     nsh                     // 非共享域的数据同步屏障
+    isb                             // 同步上下文
+    ret
+
 .globl __flush_dcache_all
 __flush_dcache_all:
     mov    x0, #0
     b    __asm_dcache_all
-
-.globl __invalidate_dcache_all
-__asm_invalidate_dcache_all:
-    mov    x0, #0x1
-    b    __asm_dcache_all
-
+    ret
 
 .global __flush_tlb
 __flush_tlb:
