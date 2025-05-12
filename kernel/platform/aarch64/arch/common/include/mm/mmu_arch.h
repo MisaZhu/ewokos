@@ -72,4 +72,6 @@ void free_page_tables(page_dir_entry_t *vm);
 void __set_translation_table_base(uint64_t);
 void __flush_tlb(void);
 
+void clear_cache(void *start, void *end);
+
 #endif
