@@ -264,7 +264,7 @@ static ewokos_addr_t sys_dma_map(uint32_t size) {
 		return 0;
 	ewokos_addr_t vaddr = DMA_BASE + (paddr - _sys_info.dma.phy_base);
 
-	map_pages_size(cproc->space->vm, vaddr, paddr, size, AP_RW_RW, PTE_ATTR_DEV);
+	map_pages_size(cproc->space->vm, vaddr, paddr, size, AP_RW_RW, PTE_ATTR_NOCACHE);
 	flush_tlb();
 	return vaddr;
 }

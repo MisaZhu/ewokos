@@ -47,7 +47,7 @@ static int delay(volatile uint64_t n){
 
 static void _putc(char c){
 	delay(1);
-	*(uint32_t*)0xE8000000 = c;//'0' + v;
+	*(uint32_t*)0x3f215040 = c;//'0' + v;
 	delay(1);
 }
 
@@ -66,7 +66,7 @@ void print_hex(uint64_t val){
 
 // setup the boot page table: dev_mem whether it is device memory
 // support 0 - 4GB @ aarch64 mode 
-static void set_boot_pgt(uint32_t virt, uint32_t phy, uint32_t len) {
+static void set_boot_pgt(uint32_t virt, uint32_t phy, uint32_t len, int attr) {
 	// convert all the parameters to indexes
 	uint32_t idx;
 	virt >>= PDE_SHIFT;
@@ -77,20 +77,22 @@ static void set_boot_pgt(uint32_t virt, uint32_t phy, uint32_t len) {
 	{
 		// Each block descriptor (2 MB)
 		startup_page_dir[virt] = (page_table_entry_t){
+			.NSTable = 1,
+			.EntryType = 1,
 			.Address = (uint64_t)phy << (21 - 12),
 			.AF = 1,
-			.SH = STAGE2_SH_INNER_SHAREABLE,
-			.MemAttr = MT_NORMAL,
-			.EntryType = 1,
+			.SH = STAGE2_SH_OUTER_SHAREABLE,
+			.S2AP = 0,
+			.MemAttr = attr,
 		};
 		virt++;
 		phy++;
 	}
 
-	startup_page_table[0] = (0x8000000000000000ul) | (uint64_t)&startup_page_dir[0]    | 3;
-	startup_page_table[1] = (0x8000000000000000ul) | (uint64_t)&startup_page_dir[512]  | 3;
-	startup_page_table[2] = (0x8000000000000000ul) | (uint64_t)&startup_page_dir[1024] | 3;
-	startup_page_table[3] = (0x8000000000000000ul) | (uint64_t)&startup_page_dir[1536] | 3;
+	startup_page_table[0] = (0x8000000000000400ul) | (uint64_t)&startup_page_dir[0]    | 3;
+	startup_page_table[1] = (0x8000000000000400ul) | (uint64_t)&startup_page_dir[512]  | 3;
+	startup_page_table[2] = (0x8000000000000400ul) | (uint64_t)&startup_page_dir[1024] | 3;
+	startup_page_table[3] = (0x8000000000000400ul) | (uint64_t)&startup_page_dir[1536] | 3;
 }
 
 static void load_boot_pgt(void) {
@@ -114,14 +116,18 @@ static void load_boot_pgt(void) {
 	__asm("mrs %[v], sctlr_el1": [v]"=r" (sctlr)::);
 	sctlr |= SCTLREL1VAL;
 	__asm("msr sctlr_el1, %[v]": :[v]"r" (sctlr):);
+
+	__asm("dsb sy");
+	__asm("isb sy");
 }
 
 extern void _kernel_entry_c(void);
 
 void _boot_start(void) {
-	set_boot_pgt(0x0,  0x0, 64*MB);
-	set_boot_pgt(KERNEL_BASE, 0x0, 64*MB);
-	set_boot_pgt(MMIO_BASE, 0x3f000000, 16*MB);
+	set_boot_pgt(0x0,  0x0, 64*MB, MT_NORMAL);
+	set_boot_pgt(KERNEL_BASE, 0x0, 64*MB, MT_NORMAL);
+	set_boot_pgt(MMIO_BASE, 0x3f000000, 16*MB, MT_DEVICE_NGNRNE);
+	//set_boot_pgt(0x3f000000, 0x3f000000, 32*MB, MT_DEVICE_NGNRNE);
 	load_boot_pgt();
 	return;
 }

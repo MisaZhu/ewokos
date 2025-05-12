@@ -58,6 +58,8 @@ int32_t map_page(page_dir_entry_t *vm, uint32_t virtual_addr,
 	l3_table[l3_index].S2AP = permissions;
 	if(pte_attr == PTE_ATTR_DEV)
 		l3_table[l3_index].MemAttr = MT_DEVICE_NGNRNE;
+	else if(pte_attr == PTE_ATTR_NOCACHE)
+		l3_table[l3_index].MemAttr = MT_NORMAL_NC;
 	else
 		l3_table[l3_index].MemAttr = MT_NORMAL;
 	return 0;

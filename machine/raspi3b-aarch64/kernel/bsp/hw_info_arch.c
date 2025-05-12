@@ -23,9 +23,8 @@ uint32_t _pi4 = 0;
 void sys_info_init_arch(void) {
 	memset(&_sys_info, 0, sizeof(sys_info_t));
 	uint32_t pix_revision = bcm283x_board();
-	_core_base_offset =  0x01000000;
-	_pi4 = 0;
 	_uart_type = UART_MINI;
+	_core_base_offset =  0x01000000;
 
 	if(pix_revision == PI_4B_1G) {
 		strcpy(_sys_info.machine, "raspberry-pi4b-1g");
@@ -103,6 +102,13 @@ void sys_info_init_arch(void) {
 		strcpy(_sys_info.machine, "raspberry-pi3b");
 		_sys_info.total_phy_mem_size = 1u*GB;
 		_sys_info.mmio.phy_base = 0x3f000000;
+	}else{
+		_uart_type = UART_MINI;
+		strcpy(_sys_info.machine, "unknow");
+		_sys_info.total_phy_mem_size = 512u*MB;
+		_sys_info.mmio.phy_base = 0x3f000000;
+		_core_base_offset =  0x01000000;
+		_pi4 = 0;
 	}
 
 	_sys_info.total_usable_mem_size = _sys_info.total_phy_mem_size;
