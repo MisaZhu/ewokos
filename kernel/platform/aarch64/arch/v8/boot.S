@@ -51,6 +51,7 @@ __el1_entry:
 	msr ACTLR_EL1, x0
 
     # Set the el1 stack
+    msr spsel, #0x1	
 	adr x0, #_svc_start_stack
     mov sp, x0
 

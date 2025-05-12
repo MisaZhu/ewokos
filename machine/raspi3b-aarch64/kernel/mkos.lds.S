@@ -20,7 +20,7 @@ SECTIONS
 		*/start*.o(.data .data.*)
 		*/start*.o(.bss .bss.*)
 	} : init
-	. = . + 0x1000;
+	. = . + 0x4000;
 	_svc_start_stack = .;
 	_init_end = ALIGN(4096);
 
