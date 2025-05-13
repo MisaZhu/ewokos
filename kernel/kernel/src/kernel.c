@@ -29,7 +29,6 @@ vsyscall_info_t* _kernel_vsyscall_info = NULL;
 ref: set_vm(page_dir_entry_t* vm)
  */
 static void __attribute__((optimize("O0"))) copy_interrupt_table(void) {
-	extern uint32_t  interrupt_table_start, interrupt_table_end;
 	uint32_t *vsrc = &interrupt_table_start;
 	//uint32_t *vdst = (uint32_t*)INTERRUPT_VECTOR_BASE;
 	uint32_t *vdst = (uint32_t*)(_sys_info.vector_base);

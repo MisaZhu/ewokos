@@ -2,7 +2,10 @@
 #define SYSTEM_H
 
 #include <stdint.h>
+extern uint32_t interrupt_table_start;
+extern uint32_t interrupt_table_end;
 
+extern void __set_vector_table(ewokos_addr_t);
 extern void __irq_enable(void);
 extern void __irq_disable(void);
 
@@ -13,6 +16,7 @@ extern void _delay(uint32_t count);
 extern void _delay_usec(uint64_t count);
 extern void _delay_msec(uint32_t count);
 
+extern void set_vector_table(ewokos_addr_t); 
 extern void set_translation_table_base(ewokos_addr_t);
 extern void flush_tlb(void);
 extern void flush_dcache(void);

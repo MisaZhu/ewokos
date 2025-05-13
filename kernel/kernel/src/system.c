@@ -56,6 +56,11 @@ inline void set_translation_table_base(ewokos_addr_t tlb_base) {
 	flush_tlb();
 }
 
+inline void set_vector_table(ewokos_addr_t vector) {
+	__set_vector_table(vector);
+}
+
+
 #ifdef KERNEL_SMP
 static int32_t _spin = 0;
 static int32_t _klock = 0;

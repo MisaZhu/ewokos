@@ -1,6 +1,7 @@
 #include <kernel/irq.h>
 #include <kernel/kernel.h>
 #include <kernel/hw_info.h>
+#include <kernel/system.h>
 #include "../timer_arch.h"
 
 #define CORE0_IRQ_CNTL_OFFSET    0x40
@@ -18,6 +19,7 @@ static uint32_t read_core0_pending(void) {
 
 void irq_arch_init(void) {
 	routing_core0_irq();
+	set_vector_table(&interrupt_table_start);
 }
 
 inline uint32_t irq_get(void) {
@@ -26,7 +28,6 @@ inline uint32_t irq_get(void) {
 
 	if (pending & 0x08 ) {
 		ret = IRQ_TIMER0;
-		write_cntv_tval(_timer_tval); 
 	}
 	return ret;
 }

@@ -4,6 +4,10 @@ __core_id:
     and x0, x0, #0xFF	
 	ret
 
+.global __set_vector_table
+__set_vector_table:
+    msr vbar_el1, x0  
+    ret
 /*
  * void __asm_dcache_level(level)
  *

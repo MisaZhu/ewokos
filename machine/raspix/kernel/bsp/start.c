@@ -1,13 +1,14 @@
 #include <mm/mmu.h>
 
+#ifdef __arm__
 #define PDE_SHIFT     20   // shift how many bits to get PDE index
 #define KPDE_TYPE     0x02 // use "section" type for kernel page directory
 #define AP_KO         0x01 // privilaged access, kernel: RW, user: no access
+// setup the boot page table with one-level section type paging : is_dev whether it is device memory
 
 static __attribute__((__aligned__(PAGE_DIR_SIZE)))
 volatile uint32_t startup_page_dir[PAGE_DIR_NUM] = { 0 };
 
-// setup the boot page table with one-level section type paging : is_dev whether it is device memory
 static void set_boot_pgt(uint32_t virt, uint32_t phy, uint32_t len, uint8_t is_dev) {
 	(void)is_dev;
 	volatile uint32_t idx;
@@ -23,47 +24,71 @@ static void set_boot_pgt(uint32_t virt, uint32_t phy, uint32_t len, uint8_t is_d
 		phy++;
 	}
 }
+#elif __aarch64__
+#define PDE_SHIFT     21
+#define NUM_PAGE_TABLE_ENTRIES 512
+// support 0 - 4GB @ aarch64 mode
+static __attribute__((__aligned__(PAGE_DIR_SIZE)))
+volatile uint64_t startup_page_dir[4] = { 0 };
 
-static void load_boot_pgt(void) {
-	volatile uint32_t val;
-	// set domain access control: all domain will be checked for permission
-	val = 0x55555555;
-	__asm("MCR p15, 0, %[v], c3, c0, 0": :[v]"r" (val):);
+static __attribute__((__aligned__(PAGE_DIR_SIZE)))
+page_table_entry_t startup_page_table[NUM_PAGE_TABLE_ENTRIES] = { 0 };
 
-	val = (uint32_t)&startup_page_dir;
-	// set the user page table
-	__asm("MCR p15, 0, %[v], c2, c0, 0": :[v]"r" (val):);
-	__asm("DMB");
+static void set_boot_pgt(uint32_t virt, uint32_t phy, uint32_t len, int is_dev) {
+    // convert all the parameters to indexes
+    uint32_t idx;
+    virt >>= PDE_SHIFT;
+    phy  >>= PDE_SHIFT;
+    len  >>= PDE_SHIFT;
 
-	__asm("MRC p15, 0, r0, c1, c0, 0");      // Read CP15 System Control register
-	__asm("ORR r0, r0, #0x001");             // Set M bit 0 to enable MMU before scatter loading
-	__asm("MCR p15, 0, r0, c1, c0, 0");      // Write CP15 System Control register
-	__asm("dsb");
+    for (idx =0 ; idx < len; idx++)
+    {
+        // Each block descriptor (2 MB)
+        startup_page_table[virt] = (page_table_entry_t){
+            .NSTable = 1,
+            .EntryType = 1,
+            .Address = (uint64_t)phy << (21 - 12),
+            .AF = 1,
+            .SH = STAGE2_SH_OUTER_SHAREABLE,
+            .S2AP = 0,
+            .MemAttr = is_dev?MT_DEVICE_NGNRNE:MT_NORMAL,
+        };
+        virt++;
+        phy++;
+    }
 
-	__asm("MRC p15, 0, r0, c1, c0, 0");      // Read CP15 System Control register
-	__asm("ORR r0,  r0, #0x00002000");       // high int vector
-	__asm("ORR r0,  r0, #0x00001000");       // cpu_icache_enable
-	__asm("ORR r0,  r0, #0x00000800");       // cpu_branck prediction
-	__asm("ORR r0,  r0, #0x004");            // cpu_dcache_enable
-	__asm("MCR p15, 0, r0, c1, c0, 0");      // Write CP15 System Control register
-
-	// invalidate tlb
-	__asm("MOV r0, #0");
-	__asm("MCR p15, 0, r0, c8, c7, 0");      //I-TLB and D-TLB invalidation
-	__asm("MCR p15, 0, r0, c7, c10, 4");     //DSB
+    startup_page_dir[0] = (0x8000000000000400ul) | (uint64_t)&startup_page_table[0]    | 3;
+    startup_page_dir[1] = (0x8000000000000400ul) | (uint64_t)&startup_page_table[512]  | 3;
+    startup_page_dir[2] = (0x8000000000000400ul) | (uint64_t)&startup_page_table[1024] | 3;
+    startup_page_dir[3] = (0x8000000000000400ul) | (uint64_t)&startup_page_table[1536] | 3;
 }
-
-#ifdef PI4
-#define PIX_MMIO_PHY  0xfe000000
-#else
-#define PIX_MMIO_PHY  0x3f000000
 #endif
 
+
+#define PIX3_MMIO_PHY  0x3f000000
+#define PIX4_MMIO_PHY  0xfe000000
 #define PIX_MMIO_SIZE 16*MB
+
+typedef struct {
+    uint8_t channel: 4;
+    uint32_t data: 28;
+} _mail_message_t;
+
+typedef struct {
+    uint32_t reserved: 30;
+    uint8_t empty: 1;
+    uint8_t full:1;
+} _mail_status_t;
+
+extern void load_boot_pgt(uint32_t page_table);
 
 void _boot_start(void) {
 	set_boot_pgt(0, 0, 64*MB, 0);
 	set_boot_pgt(KERNEL_BASE, 0, 64*MB, 0);
-	set_boot_pgt(MMIO_BASE, PIX_MMIO_PHY, PIX_MMIO_SIZE, 1);
-	load_boot_pgt();
+#ifdef PI4
+	set_boot_pgt(MMIO_BASE, PIX4_MMIO_PHY, PIX_MMIO_SIZE, 1);
+#else
+	set_boot_pgt(MMIO_BASE, PIX3_MMIO_PHY, PIX_MMIO_SIZE, 1);
+#endif
+	load_boot_pgt(startup_page_dir);
 }

@@ -183,6 +183,10 @@ __set_translation_table_base:
 	dmb
 	mov pc, lr
 
+.global __set_vector_table
+__set_vector_table:
+    mov pc, lr
+
 .global __irq_enable
 __irq_enable:
 	mrs r0, cpsr

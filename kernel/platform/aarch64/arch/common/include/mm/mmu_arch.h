@@ -57,14 +57,9 @@ void set_pte_flags(page_table_entry_t* pte, uint32_t pte_attr);
 #define PTE_ATTR_STRONG_ORDER    4
 #define PTE_ATTR_NOCACHE         5
 
-int32_t  map_page(page_dir_entry_t *vm, 
-  uint32_t virtual_addr, 
-	uint32_t physical,
-	uint32_t access_permissions, 
-	uint32_t pte_attr);
-
-void unmap_page(page_dir_entry_t *vm, uint32_t virtual_addr);
-
+int32_t  map_page(page_dir_entry_t *vm, uint32_t virtual_addr, uint32_t physical,
+	                uint32_t access_permissions, uint32_t pte_attr);
+void  unmap_page(page_dir_entry_t *vm, uint32_t virtual_addr);
 uint32_t resolve_phy_address(page_dir_entry_t *vm, uint32_t virtual);
 page_table_entry_t* get_page_table_entry(page_dir_entry_t *vm, uint32_t virtual);
 void free_page_tables(page_dir_entry_t *vm);

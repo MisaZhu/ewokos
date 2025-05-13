@@ -45,8 +45,8 @@ int32_t bcm283x_fb_init(uint32_t w, uint32_t h, uint32_t dep) {
 	bcm283x_mailbox_send(FRAMEBUFFER_CHANNEL, &msg);
 	bcm283x_mailbox_read(FRAMEBUFFER_CHANNEL, &msg);
 
-	if(fbinit->pointer == NULL || fbinit->size == 0)
-		return -1;
+	if(fbinit->size == 0)
+		fbinit->size = w * h * 4;
 
 	_fb_info.width = fbinit->width;
 	_fb_info.height = fbinit->height;
