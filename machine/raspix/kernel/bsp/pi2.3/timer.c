@@ -33,16 +33,31 @@ void __enable_cntv(void);
 
 static inline uint32_t read_cntfrq(void) {
   uint32_t val;
+#if __arm__
   __asm__ volatile ("mrc p15, 0, %0, c14, c0, 0" : "=r"(val) );
+#elif __aarch64__
+  __asm__ volatile("mrs %0, CNTFRQ_EL0" : "=r" (val) : : "memory");
+#endif
   return val;
 }
 
 inline void write_cntv_tval(uint32_t tval) {
+#if __arm__
 	__asm__ volatile ("mcr p15, 0, %0, c14, c3, 0" :: "r"(tval));
+#elif __aarch64__
+	__asm__ volatile("msr CNTV_TVAL_EL0, %0" : : "r" (tval) : "memory");
+#endif
 }
 
 static inline void enable_cntv(void) {
+#if __arm__
 	__asm__ volatile ("mcr p15, 0, %0, c14, c3, 1" :: "r"(1));
+#elif __aarch64__
+	uint32_t ctl;
+	__asm__ volatile("mrs %0, CNTV_CTL_EL0" : "=r" (ctl) : : "memory");
+	ctl |= 0x1;
+	__asm__ volatile("msr CNTV_CTL_EL0, %0":: "r"(ctl):  "memory");
+#endif
 }
 
 void timer_set_interval(uint32_t id, uint32_t times_per_sec) {
@@ -54,6 +69,7 @@ void timer_set_interval(uint32_t id, uint32_t times_per_sec) {
 
 inline void timer_clear_interrupt(uint32_t id) {
 	(void)id;
+	write_cntv_tval(_timer_tval);
 }
 
 #define SYSTEM_TIMER_BASE (_sys_info.mmio.v_base+0x3000)

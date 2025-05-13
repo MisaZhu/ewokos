@@ -130,16 +130,13 @@ OBJS = $(ARCH_OBJS) \
   	 $(KERNEL_OBJS) \
   	 $(DEV_OBJS) 
 
-LDFLAGS = -L $(ARCH_DIR)/$(ARCH_VER)
+LDFLAGS = -L $(ARCH_DIR)/$(ARCH_VER) $(ARCH_LD_FLAGS)
 
 all: $(OS_IMG) 
-$(OS_IMG): $(OBJS) $(LDS) $(LDS_QEMU)
+$(OS_IMG): $(OBJS) $(LDS)
 	$(LD) $(OBJS) $(LDFLAGS) -T $(LDS) -o $(BUILD_DIR)/$(OS_ELF)
-	$(LD) $(OBJS) $(LDFLAGS) -T $(LDS_QEMU) -o $(BUILD_DIR)/$(OS_QEMU_ELF)
 	$(OBJCOPY) -O binary $(BUILD_DIR)/$(OS_ELF) $(BUILD_DIR)/$(OS_IMG)
-	$(OBJCOPY) -O binary $(BUILD_DIR)/$(OS_QEMU_ELF) $(BUILD_DIR)/$(OS_QEMU_IMG)
 
 clean:
 	rm -f $(OBJS)
 	rm -f $(OS_IMG) $(OS_ELF)
-	rm -f $(OS_QEMU_IMG) $(OS_QEMU_ELF)

@@ -1,5 +1,6 @@
 #include <kernel/hw_info.h>
 #include <kernel/kernel.h>
+#include <kernel/system.h>
 #include <mm/mmu.h>
 #include <kstring.h>
 #include <stdbool.h>
@@ -22,7 +23,9 @@ uint32_t _pi4 = 0;
 void sys_info_init_arch(void) {
 	memset(&_sys_info, 0, sizeof(sys_info_t));
 	uint32_t pix_revision = bcm283x_board();
+	_sys_info.total_phy_mem_size = 512*MB;
 	_core_base_offset =  0x01000000;
+	_sys_info.mmio.phy_base = 0x3f000000;
 	_pi4 = 0;
 	_uart_type = UART_MINI;
 
@@ -108,8 +111,13 @@ void sys_info_init_arch(void) {
 	if(_sys_info.total_usable_mem_size > (uint32_t)MAX_USABLE_MEM_SIZE)
 		_sys_info.total_usable_mem_size = MAX_USABLE_MEM_SIZE;
 
+#if __aarch64__
+	strcpy(_sys_info.arch, "aarch64");
+#elif __arm__
 	strcpy(_sys_info.arch, "armv7");
-	_sys_info.mmio.size = 30*MB;
+#endif
+
+	_sys_info.mmio.size = 31*MB;
 
 	_allocable_phy_mem_base = V2P(get_allocable_start());
 
@@ -137,6 +145,10 @@ void sys_info_init_arch(void) {
 #else
 	_sys_info.cores = 1;
 #endif
+
+#if __aarch64__
+	_sys_info.vector_base = (ewokos_addr_t)&interrupt_table_start;
+#endif 
 }
 
 void arch_vm(page_dir_entry_t* vm) {
@@ -152,12 +164,16 @@ extern char __entry[];
 void start_core(uint32_t core_id) {
     if(core_id >= _sys_info.cores)
         return;
-
+#if __arm__
     uint32_t core_start_addr = (core_id * 0x10 + 0x8c) + 
        _sys_info.mmio.v_base + 
        _core_base_offset;
 
     put32(core_start_addr, __entry);
+#elif __aarch64__
+	uint64_t core_start_addr = 0x800000E0 + (core_id - 1) * 8;
+	 put32(core_start_addr, __entry);
+#endif
     __asm__("sev");
 }
 #endif

@@ -1,6 +1,8 @@
 export HW=raspix
-export ARCH=arm
-export ARCH_VER=v7
+
+#export ARCH=arm
+export ARCH=aarch64
+
 
 EWOKOS_ROOT_DIR = ../../..
 SYS_ROOT_DIR = $(EWOKOS_ROOT_DIR)/system

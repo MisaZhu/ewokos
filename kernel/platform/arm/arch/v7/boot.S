@@ -110,6 +110,29 @@ slave_core:                     @ 1-0xff cores
 halt:
 	b halt
 
+.global load_boot_pgt
+load_boot_pgt:
+    mcr p15, 0, r0, c2, c0, 0
+
+    ldr r1, =0x55555555
+    mcr p15, 0, r1, c3, c0, 0
+    dmb
+
+    mrc p15, 0, r0, c1, c0, 0
+    orr r0, r0, #0x001
+    mcr p15, 0, r0, c1, c0, 0
+    dsb
+
+    mrc p15, 0, r0, c1, c0, 0
+    ldr r1, =0x00003804
+    orr r0, r0, r1
+    mcr p15, 0, r0, c1, c0, 0
+
+    mov r0, #0
+    mcr p15, 0, r0, c8, c7, 0
+    mcr p15, 0, r0, c7, c10, 4
+    bx lr
+
 v7_flush_dcache_all:
     dmb                               @ ensure ordering with previous memory accesses
     mrc    p15, 1, r0, c0, c0, 1      @ read clidr
