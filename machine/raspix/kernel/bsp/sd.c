@@ -4,9 +4,11 @@
 #include "hw_arch.h"
 #include <bcm283x/mailbox.h>
 #include <kernel/hw_info.h>
+#include <dev/timer.h>
 
 
 int32_t sd_init(void) {
+	timer_init();
 	if(_pi4){
 		 *(uint32_t*)(_sys_info.mmio.v_base + 0x2000d0) &= ~(0x2);
 		//*(uint32_t*)(MMIO_BASE + 0x2000d0) |= 0x2;

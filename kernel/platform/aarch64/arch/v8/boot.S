@@ -139,10 +139,11 @@ slave_core:
 .global load_boot_pgt
 load_boot_pgt:
     dsb sy
-    msr ttbr0_el1, x0 
 
-    ldr x0, =MAIR1VAL
-	msr mair_el1, x0
+    ldr x1, =MAIR1VAL
+	msr mair_el1, x1
+
+    msr ttbr0_el1, x0 
 	isb
 
     ldr x0, =TCREL1VAL

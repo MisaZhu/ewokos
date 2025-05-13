@@ -60,6 +60,10 @@ static inline void enable_cntv(void) {
 #endif
 }
 
+void timer_init(void){
+	 enable_cntv();
+}
+
 void timer_set_interval(uint32_t id, uint32_t times_per_sec) {
 	(void)id;
 	_timer_tval = read_cntfrq() / times_per_sec;
