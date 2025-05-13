@@ -7,12 +7,12 @@ ifeq ($(ARCH), aarch64)
 	OS_IMG = kernel8.img
 	OS_ELF = kernel8.elf
 	QEMU_CMD = qemu-system-aarch64
-	QEMU_FLAGS = -M raspi3b -m 1024M -serial null -serial mon:stdio
+	QEMU_FLAGS = -M $(QEMU_MACHINE) -serial null -serial mon:stdio
 else
 	OS_IMG = kernel7.img
 	OS_ELF = kernel7.elf
 	QEMU_CMD = qemu-system-arm
-	QEMU_FLAGS = -M raspi2b -m 1024M -serial mon:stdio
+	QEMU_FLAGS = -M $(QEMU_MACHINE) -serial mon:stdio
 	ARCH_CFLAGS = -march=armv7ve
 	#QEMU_ARGS += -device loader,file=$(OS_IMG),addr=$(LOAD_ADDRESS)
 endif

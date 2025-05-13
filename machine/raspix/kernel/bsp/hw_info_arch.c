@@ -154,7 +154,7 @@ void sys_info_init_arch(void) {
 void arch_vm(page_dir_entry_t* vm) {
 	uint32_t vbase = _sys_info.mmio.v_base + _core_base_offset;
 	uint32_t pbase = _sys_info.mmio.phy_base + _core_base_offset;
-	map_page(vm, vbase, pbase, AP_RW_D, PTE_ATTR_DEV);
+	map_page(vm, vbase, pbase, AP_RW_RW, PTE_ATTR_DEV);
 	//map_page(vm, pbase, pbase, AP_RW_D, PTE_ATTR_DEV);
 }
 
@@ -172,7 +172,7 @@ void start_core(uint32_t core_id) {
     put32(core_start_addr, __entry);
 #elif __aarch64__
 	uint64_t core_start_addr = 0x800000E0 + (core_id - 1) * 8;
-	 put32(core_start_addr, __entry);
+	*(volatile uint32_t*)core_start_addr = (uint32_t)__entry;
 #endif
     __asm__("sev");
 }
