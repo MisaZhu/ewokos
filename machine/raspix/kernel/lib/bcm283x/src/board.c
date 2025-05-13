@@ -19,11 +19,19 @@ static uint32_t bcm283x_board_revision(void) {
 	data[4] = 4;
 	data[5] = 0;
 
+#if __aarch64__
+    clear_cache((char *)data, (char *)data + sizeof(data));
+#endif
+
 	mail_message_t msg;
 	memset(&msg, 0, sizeof(mail_message_t));
 	msg.data = ((uint32_t)data + 0x40000000) >> 4;
 	mailbox_send(PROPERTY_CHANNEL, &msg);
 	mailbox_read(PROPERTY_CHANNEL, &msg);
+
+#if __aarch64__
+    clear_cache((char *)data, (char *)data + sizeof(data));
+#endif
 	return data[5];
 }
 
