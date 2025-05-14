@@ -1,5 +1,6 @@
 #include <kernel/irq.h>
 #include <kernel/kernel.h>
+#include <kernel/system.h>
 #include <kernel/hw_info.h>
 #include "../timer_arch.h"
 
@@ -11,6 +12,7 @@ void irq_arch_init(void) {
     for(int i = 0; i < 1022; i++){
         gic_irq_disable(0, i);
     }
+	set_vector_table(&interrupt_table_start);
 }
 
 inline uint32_t irq_get(void) {
