@@ -171,8 +171,20 @@ void start_core(uint32_t core_id) {
 
     put32(core_start_addr, __entry);
 #elif __aarch64__
+#ifdef PI4 
+	printf("%08x %08x %08x\n",
+			MMIO_BASE + 0x1000200 + core_id * 4,
+			MMIO_BASE + 0x1000014 + core_id * 0x10000,
+			MMIO_BASE + 0x20 + core_id * 4
+			);
+	*(volatile uint32_t*)(MMIO_BASE + 0x1000200 + core_id * 4)  = __entry;
+	*(volatile uint32_t*)(MMIO_BASE + 0x1000014 + core_id * 0x10000)  |= 0x3;
+	*(volatile uint32_t*)(MMIO_BASE + 0x20 + core_id * 4)  = 0x1;
+#else
 	uint64_t core_start_addr = 0x800000E0 + (core_id - 1) * 8;
 	*(volatile uint32_t*)core_start_addr = (uint32_t)__entry;
+	flush_dcache();
+#endif
 #endif
     __asm__("sev");
 }

@@ -56,10 +56,7 @@ static inline void enable_cntv(void) {
 #if __arm__
 	__asm__ volatile ("mcr p15, 0, %0, c14, c3, 1" :: "r"(1));
 #elif __aarch64__
-     uint64_t ctl;
-     __asm__ volatile("mrs %0, CNTV_CTL_EL0" : "=r" (ctl) : : "memory");
-     ctl |= 0x1;
-     __asm__ volatile("msr CNTV_CTL_EL0, %0":: "r"(ctl):  "memory");
+     __asm__ volatile("msr CNTV_CTL_EL0, %0":: "r"(1):  "memory");
 #endif
 
 }
@@ -68,10 +65,7 @@ static inline uint32_t disable_cntv(void) {
 #if __arm__
 	__asm__ volatile("mcr p15, 0, %0, c14, C3, 1" :: "r" (0));
 #elif __aarch64__
-  uint32_t ctl;
-     __asm__ volatile("mrs %0, CNTV_CTL_EL0" : "=r" (ctl) : : "memory");
-     ctl &= ~0x1;
-     __asm__ volatile("msr CNTV_CTL_EL0, %0":: "r"(ctl):  "memory");
+     __asm__ volatile("msr CNTV_CTL_EL0, %0":: "r"(0):  "memory");
 #endif
 
 }
