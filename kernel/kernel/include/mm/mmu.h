@@ -18,7 +18,7 @@
 #define KERNEL_PAGE_DIR_END           (KERNEL_PAGE_DIR_BASE + 256*KB)
 
 #define ALLOCABLE_PAGE_DIR_BASE       KERNEL_PAGE_DIR_END
-#define ALLOCABLE_PAGE_DIR_END        (ALLOCABLE_PAGE_DIR_BASE + 2*MB)
+#define ALLOCABLE_PAGE_DIR_END        (ALLOCABLE_PAGE_DIR_BASE + 4*MB)
 
 #define KERNEL_VSYSCALL_INFO_BASE     ALLOCABLE_PAGE_DIR_END
 #define KERNEL_VSYSCALL_INFO_END      (KERNEL_VSYSCALL_INFO_BASE+4*KB)
@@ -27,7 +27,7 @@
 #define KMALLOC_BASE                  KERNEL_VSYSCALL_INFO_END
 #define KMALLOC_END                   (KMALLOC_BASE + KMALLOC_SIZE)
 
-#define MAX_USABLE_MEM_SIZE           (1*GB) //max usable memory for 32bits OS
+#define MAX_USABLE_MEM_SIZE           (1*GB + 640*MB) //max usable memory for 32bits OS
 #define MMIO_BASE                     (KERNEL_BASE + MAX_USABLE_MEM_SIZE)
 #define MMIO_END                      (MMIO_BASE + _sys_info.mmio.size)
 
