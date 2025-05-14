@@ -16,7 +16,6 @@ ARCH_VER	= v8
 QEMU_MACHINE= raspi3b
 LOAD_ADDRESS= 0x80000
 
-
 #-----raspberry4 aarch64 config----------
 #ARCH		= aarch64
 #ARCH_VER	= v8
