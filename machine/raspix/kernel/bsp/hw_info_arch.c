@@ -183,6 +183,7 @@ void start_core(uint32_t core_id) {
 #else
 	uint64_t core_start_addr = 0x800000E0 + (core_id - 1) * 8;
 	*(volatile uint32_t*)core_start_addr = (uint32_t)__entry;
+	flush_dcache();
 #endif
 #endif
     __asm__("sev");
