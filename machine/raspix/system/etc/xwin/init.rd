@@ -10,6 +10,7 @@
 @export UX_ID=0
 @/bin/ipcserv /drivers/consoled        
 @set_stdio /dev/console0
+@export KLOG_DEV=/dev/console0
 
 @/bin/ipcserv /drivers/timerd          
 
