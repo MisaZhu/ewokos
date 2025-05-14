@@ -5,7 +5,6 @@
 #include "../timer_arch.h"
 
 #define GIC_DEFAULT_FREQ	6000000
-uint32_t _timer_tval  = 0;
 uint32_t _cntfrq = GIC_DEFAULT_FREQ;
 
 void __write_cntv_tval(uint32_t);
@@ -108,7 +107,7 @@ void timer_init(void){
 
 inline void timer_clear_interrupt(uint32_t id) {
 	(void)id;
-	write_cntv_tval(_timer_tval);
+	write_cntv_tval(_cntv_step);
 }
 
 void timer_set_interval(uint32_t id, uint32_t times_per_sec) {
@@ -118,6 +117,10 @@ void timer_set_interval(uint32_t id, uint32_t times_per_sec) {
     timer_clear_interrupt(id);
 }
 
+static __inline uint64_t fast_div64_54(uint64_t x){
+       return (x*151)>>13;
+}
+
 inline uint64_t timer_read_sys_usec(void) { //read microsec
-	return read_cntvct()/_cntv_us_div;
+	return fast_div64_54(read_cntvct());
 }

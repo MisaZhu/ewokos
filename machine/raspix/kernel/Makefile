@@ -7,6 +7,7 @@ ifeq ($(ARCH), aarch64)
 	OS_IMG = kernel8.img
 	OS_ELF = kernel8.elf
 	QEMU_CMD = qemu-system-aarch64
+	ARCH_CFLAGS = -Wa,-march=armv8-a
 	QEMU_FLAGS = -M $(QEMU_MACHINE) -serial null -serial mon:stdio
 else
 	OS_IMG = kernel7.img
@@ -33,13 +34,11 @@ endif
 ARCH_LD_FLAGS = --defsym=start_address=$(LOAD_ADDRESS)
 
 ifeq ($(PI4),yes)
-include make.bsp.pi4
+	include make.bsp.pi4
 else
-include make.bsp.pi2.3
+	include make.bsp.pi2.3
 endif
-
 include make.bsp
-
 include $(EWOKOS_ROOT_DIR)/kernel/platform/${ARCH}/make.rule
 
 QEMU_ARGS += -kernel $(OS_IMG)
