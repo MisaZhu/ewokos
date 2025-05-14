@@ -1,10 +1,10 @@
 #include <stdint.h>
 #include <gic.h>
 
-#define mmio_read8(addr)         (*((volatile unsigned char  *)(addr)))
-#define mmio_read32(addr)         (*((volatile unsigned long  *)(addr)))
-#define mmio_write8(addr, v)     (*((volatile unsigned char  *)(addr)) = (unsigned char)(v))
-#define mmio_write32(addr, v)     (*((volatile unsigned long  *)(addr)) = (unsigned long)(v))
+#define mmio_read8(addr)         (*((volatile uint8_t  *)(addr)))
+#define mmio_read32(addr)         (*((volatile uint32_t *)(addr)))
+#define mmio_write8(addr, v)     (*((volatile uint8_t  *)(addr)) = (unsigned char)(v))
+#define mmio_write32(addr, v)     (*((volatile uint32_t  *)(addr)) = (unsigned long)(v))
 
 #define NUM_INTSRC    128 // numbers of interrupt source supported
 
@@ -20,10 +20,13 @@ uint8_t* get_gic_baseaddr(void)
     return 0;
 }
 
-void gic_init(void* gicd_addr, void* gicc_addr) {
+void gic_init(uint8_t* gicbase) {
 
-    gicd_base = (uint8_t*)gicd_addr;
-    gicc_base = (uint8_t*)gicc_addr;
+    if(!gicbase) 
+        gicbase = get_gic_baseaddr();
+
+    gicd_base = gicbase + GICD_OFFSET; // global variable
+    gicc_base = gicbase + GICC_OFFSET; // global variable
 
     // Global enable forwarding interrupts from distributor to cpu interface
     mmio_write32(gicd_base + GICD_CTLR, GICD_CTLR_GRPEN1);
@@ -102,18 +105,18 @@ void gic_irq_enable(int core_id, int irqno)
     gic_v2_irq_enable(irqno);  
 }
 
-void gic_irq_disable(int irqno)
+void gic_irq_disable(int core_id, int irqno)
 {
-   // volatile uint8_t *gicd = gic_v2_gicd_get_address() + GICD_ITARGETSR;
-   // volatile uint8_t mask = 0x1 << core_id;
-   // int n, m, offset;
-   // m = irqno;
-   // n = m / 4;
-   // offset = 4*n;
-   // offset += m % 4;
+    volatile uint8_t *gicd = gic_v2_gicd_get_address() + GICD_ITARGETSR;
+    volatile uint8_t mask = 0x1 << core_id;
+    int n, m, offset;
+    m = irqno;
+    n = m / 4;
+    offset = 4*n;
+    offset += m % 4;
 
-   // mask |= mmio_read8(gicd + offset);
-   // mmio_write8(gicd + offset,  mask);
+    mask |= mmio_read8(gicd + offset);
+    mmio_write8(gicd + offset,  mask);
     gic_v2_irq_disable(irqno);  
 }
 
