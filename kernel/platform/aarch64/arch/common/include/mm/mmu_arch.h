@@ -23,12 +23,12 @@ typedef struct {
         STAGE2_SH_INNER_SHAREABLE = 3,  //          Inner shareable
     } SH : 2;                           // @8-9
     uint64_t AF : 1;                    // @10      Accessable flag
-    uint64_t _reserved11 : 1;           // @11      Set to 0
+    uint64_t PTE_NG : 1;                // @11      no global 
     uint64_t Address : 36;              // @12-47   36 Bits of address
     uint64_t _reserved48_51 : 4;        // @48-51   Set to 0
     uint64_t Contiguous : 1;            // @52      Contiguous
-    uint64_t _reserved53 : 1;           // @53      Set to 0
-    uint64_t XN : 1;                    // @54      No execute if bit set
+    uint64_t PXN : 1;                   // @53     kernel No execute if bit set
+    uint64_t UXN : 1;                   // @54     user No execute if bit set
     uint64_t _reserved55_58 : 4;        // @55-58   Set to 0
     uint64_t PXNTable : 1;              // @59      Never allow execution from a lower EL level
     uint64_t XNTable : 1;               // @60      Never allow translation from a lower EL level
@@ -44,9 +44,8 @@ typedef struct {
 
 #define  MT_DEVICE_NGNRNE  0
 #define  MT_DEVICE_NGNRE   1
-#define  MT_DEVICE_GRE     2
-#define  MT_NORMAL_NC      3
-#define  MT_NORMAL         4
+#define  MT_NORMAL_NC      2
+#define  MT_NORMAL         3
 
 void set_pte_flags(page_table_entry_t* pte, uint32_t pte_attr);
 

@@ -101,7 +101,7 @@ finished:
 .global __invalidate_icache_all
 __invalidate_icache_all:
     ic      iallu                   // 无效化所有指令缓存
-    dsb     nsh                     // 非共享域的数据同步屏障
+    dsb     sy                     // 非共享域的数据同步屏障
     isb                             // 同步上下文
     ret
 
@@ -113,9 +113,10 @@ __flush_dcache_all:
 
 .global __flush_tlb
 __flush_tlb:
+    dsb ishst
     tlbi vmalle1is
 	dsb sy
-	isb sy
+	isb
 	ret
 
 .global __set_translation_table_base

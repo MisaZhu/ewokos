@@ -61,7 +61,7 @@ clean:
 	rm -fr $(BUILD_DIR)
 	rm -fr $(MACHINE_BUILD_DIR)
 
-SD = root.ext2
+SD = root_$(ARCH).ext2
 sd: 
 	@echo "\n====building ext2 format sdcard image===="
 	mkdir -p build

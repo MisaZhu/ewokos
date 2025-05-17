@@ -54,10 +54,13 @@ int32_t map_page(page_dir_entry_t *vm, uint32_t virtual_addr,
 	l3_table[l3_index].EntryType = TYPE_PAGE;
 	l3_table[l3_index].Address = (uint64_t)physical >> 12; 
 	l3_table[l3_index].AF = 1;
-	l3_table[l3_index].SH = STAGE2_SH_OUTER_SHAREABLE;
+	l3_table[l3_index].SH = STAGE2_SH_INNER_SHAREABLE;
 	l3_table[l3_index].S2AP = permissions;
-	if(pte_attr == PTE_ATTR_DEV)
-		l3_table[l3_index].MemAttr = MT_DEVICE_NGNRNE;
+	if(pte_attr == PTE_ATTR_DEV) {
+		l3_table[l3_index].PXN = 1;
+		l3_table[l3_index].UXN = 1;
+		l3_table[l3_index].MemAttr = MT_DEVICE_NGNRE;
+	}
 	else if(pte_attr == PTE_ATTR_NOCACHE)
 		l3_table[l3_index].MemAttr = MT_NORMAL_NC;
 	else

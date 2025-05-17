@@ -81,7 +81,7 @@ static int32_t shm_map_pages(uint32_t addr, uint32_t pages) {
 		map_page(_kernel_vm,
 				addr,
 				V2P(page),
-				AP_RW_D, PTE_ATTR_WRBACK);
+				AP_RW_D, PTE_ATTR_NOCACHE);
 		addr += PAGE_SIZE;
 	}
 	flush_tlb();
