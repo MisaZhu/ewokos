@@ -1,7 +1,9 @@
 export HW=raspix
 
+ifeq ($(ARCH),)
 #export ARCH=arm
 export ARCH=aarch64
+endif
 
 
 EWOKOS_ROOT_DIR = ../../..
