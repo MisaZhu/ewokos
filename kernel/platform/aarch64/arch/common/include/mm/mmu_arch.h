@@ -47,7 +47,7 @@ typedef struct {
 #define  MT_NORMAL_NC      2
 #define  MT_NORMAL         3
 
-void set_pte_flags(page_table_entry_t* pte, uint32_t pte_attr);
+void set_pte_flags(page_table_entry_t* pte, uint64_t pte_attr);
 
 #define PTE_ATTR_WRBACK          0
 #define PTE_ATTR_DEV             1
