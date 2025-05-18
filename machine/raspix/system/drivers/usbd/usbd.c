@@ -28,7 +28,7 @@ void* PlatformDMAVir2Phy(void* v){
 
 void LogPrint(const char* message, uint32_t messageLength) {
   (void)messageLength;
-  //printf("%s", message);
+  klog("%s", message);
 }
 
 static void usb_host_init(uint32_t v_mmio_base) {
@@ -55,7 +55,7 @@ static int _last_y = 0;
 static int usb_step(void* p) {
 	(void)p;	
 	//klog("detecting...\n");
-    if(!TouchPersent()){
+    /*if(!TouchPersent()){
        UsbCheckForChange(); 
        proc_usleep(100000);
        return 0;
@@ -85,6 +85,26 @@ static int usb_step(void* p) {
             proc_wakeup(RW_BLOCK_EVT);
         }
     }
+        */
+    uint8_t buf[64] = {0};
+
+    if( !uConsolePersent()){
+        //klog("detecting...\n");
+        UsbCheckForChange(); 
+        proc_usleep(100000);
+        return 0;
+    }
+
+    if(uConsolePersent()){
+        int ret = uConsoleGetEvent(buf);
+        if(ret == 0){
+            klog("hid: %02x %02x %02x %02x %02x %02x %02x\n", 
+            buf[0], buf[1], buf[2],  buf[3], buf[4], buf[5], buf[6]);
+            //dispatch_data(buf[0], buf + 1, 7);
+            proc_wakeup(RW_BLOCK_EVT);
+        }
+    }
+
     proc_usleep(3000);
 	return 0;
 }
