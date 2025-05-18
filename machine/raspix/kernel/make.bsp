@@ -8,8 +8,8 @@ ARCH_OBJS += $(BSP_DIR)/hw_info_arch.o \
 	$(BSP_DIR)/timer.o 
 
 ARCH_OBJS += \
-	$(BSP_DIR)/pi2.3/irq.o \
-	$(BSP_DIR)/pi2.3/timer.o \
+	$(BSP_DIR)/pix/irq_pix.o \
+	$(BSP_DIR)/pix/timer_pix.o \
 	\
 	$(BSP_DIR)/pi4/irq_pi4.o \
 	$(BSP_DIR)/pi4/timer_pi4.o
@@ -18,7 +18,7 @@ ifeq ($(SMP),yes)
 ARCH_OBJS += $(BSP_DIR)/ipi.o \
 	$(BSP_DIR)/core.o \
 	\
-	$(BSP_DIR)/pi2.3/ipi.o \
+	$(BSP_DIR)/pix/ipi_pix.o \
 	\
 	$(BSP_DIR)/pi4/ipi_pi4.o
 endif
