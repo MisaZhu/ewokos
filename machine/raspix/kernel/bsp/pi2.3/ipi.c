@@ -1,7 +1,7 @@
 #include <kernel/smp/ipi.h>
 #include <kernel/hw_info.h>
 
-void ipi_enable(uint32_t core_id) {
+void ipi_enable_pix(uint32_t core_id) {
 	uint32_t reg = 0;
 	switch(core_id) {
 	case 0:
@@ -25,7 +25,7 @@ void ipi_enable(uint32_t core_id) {
 	put32(reg, 1);
 }
 
-void ipi_send(uint32_t core_id) {
+void ipi_send_pix(uint32_t core_id) {
 	uint32_t reg = 0;
 	switch(core_id) {
 	case 0:
@@ -49,7 +49,7 @@ void ipi_send(uint32_t core_id) {
 	put32(reg, 1);
 }
 
-void ipi_clear(uint32_t core_id) {
+void ipi_clear_pix(uint32_t core_id) {
 	uint32_t reg = 0;
 	switch(core_id) {
 	case 0:

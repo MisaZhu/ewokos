@@ -16,9 +16,7 @@ ARCH_VER	= v8
 LOAD_ADDRESS= 0x80000
 
 QEMU_MACHINE= raspi3b
-
 #QEMU_MACHINE= raspi4b
-#PI4=yes
 
 #----CLOCKWORK-------
 #CLOCKWORK=yes

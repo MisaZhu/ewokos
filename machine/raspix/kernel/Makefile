@@ -21,11 +21,6 @@ endif
 EWOKOS_ROOT_DIR = ../../..
 MACHINE=raspix
 
-
-ifeq ($(PI4),yes)
-ARCH_CFLAGS += -DPI4
-endif
-
 ifeq ($(QEMU_DISPLAY_OPTS),cocoa)
 QEMU_FLAGS += -display cocoa
 endif
@@ -33,11 +28,6 @@ endif
 
 ARCH_LD_FLAGS = --defsym=start_address=$(LOAD_ADDRESS)
 
-ifeq ($(PI4),yes)
-	include make.bsp.pi4
-else
-	include make.bsp.pi2.3
-endif
 include make.bsp
 include $(EWOKOS_ROOT_DIR)/kernel/platform/${ARCH}/make.rule
 

@@ -29,12 +29,12 @@ static uint32_t read_core0_pending(void) {
   return get32(vbase);
 }
 
-void irq_arch_init(void) {
+void irq_arch_init_pix(void) {
 	routing_core0_irq();
 	set_vector_table(&interrupt_table_start);
 }
 
-inline uint32_t irq_get(void) {
+uint32_t irq_get_pix(void) {
 	uint32_t ret = 0;
 	uint32_t pending = read_core0_pending();
 
@@ -44,13 +44,13 @@ inline uint32_t irq_get(void) {
 	return ret;
 }
 
-inline void irq_enable(uint32_t irq) {
+void irq_enable_pix(uint32_t irq) {
 	if(IRQ_TIMER0 == irq){
 		*((uint32_t*)ENABLE_BASIC_IRQS) = (1 << 5);
 	}
 }
 
-void irq_disable(uint32_t irq) {
+void irq_disable_pix(uint32_t irq) {
 	if(IRQ_TIMER0 == irq){
 		*((uint32_t*)DISABLE_BASIC_IRQS) = (1 << 5);
 	}

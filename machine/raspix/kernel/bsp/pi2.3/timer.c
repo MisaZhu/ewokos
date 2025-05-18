@@ -57,14 +57,6 @@ static inline uint64_t read_cntvct(void)
 #endif
 }
 
-inline void write_cntv_tval(uint32_t tval) {
-#if __arm__
-	__asm__ volatile ("mcr p15, 0, %0, c14, c3, 0" :: "r"(tval));
-#elif __aarch64__
-	__asm__ volatile("msr CNTV_TVAL_EL0, %0" : : "r" (tval) : "memory");
-#endif
-}
-
 static inline void enable_cntv(void) {
 #if __arm__
 	__asm__ volatile ("mcr p15, 0, %0, c14, c3, 1" :: "r"(1));
@@ -73,25 +65,24 @@ static inline void enable_cntv(void) {
 #endif
 }
 
-
-void timer_init(void){
+void timer_init_pix(void){
 	 enable_cntv();
 	_cntv_us_div = read_cntfrq()/1000000;
 }
 
-void timer_set_interval(uint32_t id, uint32_t times_per_sec) {
+void timer_set_interval_pix(uint32_t id, uint32_t times_per_sec) {
 	(void)id;
 	_timer_tval = read_cntfrq() / times_per_sec;
 	enable_cntv();
 	write_cntv_tval(_timer_tval);
 }
 
-inline void timer_clear_interrupt(uint32_t id) {
+void timer_clear_interrupt_pix(uint32_t id) {
 	(void)id;
 	write_cntv_tval(_timer_tval);
 }
 
-inline uint64_t timer_read_sys_usec(void) { //read microsec
+uint64_t timer_read_sys_usec_pix(void) { //read microsec
 #if __arm__
 	#define SYSTEM_TIMER_BASE (_sys_info.mmio.v_base+0x3000)
 	#define SYSTEM_TIMER_LOW  0x0004 // System Timer Counter Upper 32 bits

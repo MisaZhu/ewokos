@@ -82,13 +82,41 @@ typedef struct {
 
 extern void load_boot_pgt(uint32_t page_table);
 
+static inline uint32_t cpu_get_id(void) {
+    uint32_t midr;
+#ifdef __aarch64__
+    __asm volatile("mrs %0, midr_el1" : "=r" (midr));
+#else
+    __asm volatile("mrc p15, 0, %0, c0, c0, 0" : "=r" (midr));
+#endif
+    return midr;
+}
+
+/* check Pi4 CPU */
+static inline int32_t check_pi4(void) {
+    uint32_t midr = cpu_get_id();
+    uint32_t implementer = (midr >> 24) & 0xFF;
+    uint32_t part_num = (midr >> 4) & 0xFFF;
+    
+    if (implementer != 0x41)  /* NOT ARM */
+        return -1;
+
+    /* 0xD08: Cortex-A72 (Pi 4),
+       0xD03: Cortex-A53 (Pi 3),
+       0xC07: Cortex-A15 (Pi 2)*/
+    if(part_num == 0xD08)
+        return 0;
+    return -1;
+}
+
 void _boot_start(void) {
 	set_boot_pgt(0, 0, 64*MB, 0);
 	set_boot_pgt(KERNEL_BASE, 0, 64*MB, 0);
-#ifdef PI4
-	set_boot_pgt(MMIO_BASE, PIX4_MMIO_PHY, PIX_MMIO_SIZE, 1);
-#else
-	set_boot_pgt(MMIO_BASE, PIX3_MMIO_PHY, PIX_MMIO_SIZE, 1);
-#endif
+
+    if(check_pi4() == 0)
+        set_boot_pgt(MMIO_BASE, PIX4_MMIO_PHY, PIX_MMIO_SIZE, 1);
+    else
+        set_boot_pgt(MMIO_BASE, PIX3_MMIO_PHY, PIX_MMIO_SIZE, 1);
+
 	load_boot_pgt(startup_page_dir);
 }

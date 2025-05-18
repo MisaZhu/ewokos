@@ -5,7 +5,7 @@
 #include "../timer_arch.h"
 
 static uint32_t irq_enable_flag = 0;
-void irq_arch_init(void) {
+void irq_arch_init_pi4(void) {
     irq_enable_flag = 0;
 	gic_init(MMIO_BASE + 0x1840000);
     for(int i = 0; i < 1022; i++){
@@ -14,7 +14,7 @@ void irq_arch_init(void) {
 	set_vector_table(&interrupt_table_start);
 }
 
-inline uint32_t irq_get(void) {
+uint32_t irq_get_pi4(void) {
 	int ack = gic_get_irq();
     int irqno = ack & 0x3FF;
 
@@ -26,7 +26,7 @@ inline uint32_t irq_get(void) {
     return 0;
 }
 
-inline void irq_enable(uint32_t irq) {
+void irq_enable_pi4(uint32_t irq) {
     if(irq & irq_enable_flag)
         return;
 
@@ -36,6 +36,6 @@ inline void irq_enable(uint32_t irq) {
     }
 }
 
-void irq_disable(uint32_t irq) {
+void irq_disable_pi4(uint32_t irq) {
 	(void)irq;
 }

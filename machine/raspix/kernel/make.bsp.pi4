@@ -1,8 +1,0 @@
-ARCH_OBJS += $(BSP_DIR)/pi4/irq_pi4.o \
-	$(BSP_DIR)/pi4/timer_pi4.o
-	
-ifeq ($(SMP),yes)
-ARCH_OBJS += $(BSP_DIR)/pi4/ipi_pi4.o \
-	$(BSP_DIR)/core.o
-endif
-
