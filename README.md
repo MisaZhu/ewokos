@@ -9,6 +9,7 @@
 	A microkernel OS for learning operating system. versatilepb / raspi1,2,3 ported well, raspi4 todo....
 	-mmu
 	-smp multi-core
+ 	-64bits & 32bits
 	-copy on write
 	-multi processes
 	-multi thread
@@ -17,6 +18,7 @@
 	-framebuffer device service for graphics
 	-uart device service
 	-SD card
+ 	-USB
 
 .Environment & Tools
 
