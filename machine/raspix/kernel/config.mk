@@ -1,22 +1,21 @@
+ifeq ($(ARCH),)
+ARCH = arm
+endif
+
 #-----raspberry arm config----------
-#ARCH		= arm
-#ARCH_VER	= v7
-#QEMU_MACHINE= raspi2b
-#LOAD_ADDRESS= 0x8000
-
-#-----raspberry arm for qemu----------
-#ARCH		= arm
-#ARCH_VER	= v7
-#QEMU_MACHINE= raspi2b
-#LOAD_ADDRESS= 0x10000
-
+ifeq ($(ARCH),arm)
+ARCH		  = arm
+ARCH_VER	  = v7
+QEMU_MACHINE  = raspi2b
+LOAD_ADDRESS  = 0x10000 #for qemu
+#LOAD_ADDRESS = 0x8000 #for real hw
 #-----raspberry aarch64 config----------
-ARCH		= aarch64
-ARCH_VER	= v8
-LOAD_ADDRESS= 0x80000
-
-QEMU_MACHINE= raspi3b
-#QEMU_MACHINE= raspi4b
+else
+ARCH		  = aarch64
+ARCH_VER	  = v8
+LOAD_ADDRESS  = 0x80000
+QEMU_MACHINE  = raspi3b
+endif
 
 #----CLOCKWORK-------
 #CLOCKWORK=yes
