@@ -55,7 +55,7 @@ static int _last_y = 0;
 static int usb_step(void* p) {
 	(void)p;	
 	//klog("detecting...\n");
-    /*if(!TouchPersent()){
+    if(!TouchPersent()){
        UsbCheckForChange(); 
        proc_usleep(100000);
        return 0;
@@ -85,7 +85,8 @@ static int usb_step(void* p) {
             proc_wakeup(RW_BLOCK_EVT);
         }
     }
-        */
+        
+    /*
     uint8_t buf[64] = {0};
 
     if( !uConsolePersent()){
@@ -104,6 +105,7 @@ static int usb_step(void* p) {
             proc_wakeup(RW_BLOCK_EVT);
         }
     }
+    */
 
     proc_usleep(3000);
 	return 0;
