@@ -117,16 +117,11 @@ void sys_info_init_arch(void) {
 	strcpy(_sys_info.arch, "armv7");
 #endif
 
+	_sys_info.fb.v_base = FB_BASE;
+	_sys_info.fb.size = FB_SIZE;
 	_sys_info.mmio.size = 31*MB;
 
 	_allocable_phy_mem_base = V2P(get_allocable_start());
-
-#ifdef CLOCKWORK
-	//for clockwork framebuffer work around
-	_allocable_phy_mem_base += 16*MB;
-#else
-	_sys_info.fb.v_base = FB_BASE;
-#endif
 
 	_sys_info.dma.phy_base = _allocable_phy_mem_base;
 	_sys_info.dma.size = DMA_SIZE;
@@ -140,6 +135,11 @@ void sys_info_init_arch(void) {
 	else {
 		_allocable_phy_mem_top = _sys_info.phy_offset + _sys_info.total_usable_mem_size;
 	}
+
+	_allocable_phy_mem_top -= DMA_SIZE;
+	_sys_info.dma.phy_base = _allocable_phy_mem_top;
+	_sys_info.dma.size = DMA_SIZE;
+	_sys_info.dma.v_base = DMA_BASE;
 #ifdef KERNEL_SMP
 	_sys_info.cores = get_cpu_cores();
 #else

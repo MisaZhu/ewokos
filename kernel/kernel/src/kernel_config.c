@@ -21,6 +21,14 @@ static void load_kernel_config_file() {
 	if(v[0] != 0)
 		_kernel_config.cores = atoi(v);
 
+	v = sconf_get(sconf, "allocable_base_reserv_size");
+	if(v[0] != 0)
+		_allocable_phy_mem_base += ALIGN_UP(atoi(v), PAGE_SIZE);
+	
+	v = sconf_get(sconf, "allocable_top_reserv_size");
+	if(v[0] != 0)
+		_allocable_phy_mem_top -= ALIGN_UP(atoi(v), PAGE_SIZE);
+
 	v = sconf_get(sconf, "timer_freq");
 	if(v[0] != 0)
 		_kernel_config.timer_freq = atoi(v);

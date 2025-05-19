@@ -23,17 +23,13 @@ ASFLAGS = $(OPTM) -I. -I$(SRC_DIR)/include $(ARCH_CFLAGS)
 ifeq ($(SMP),yes)
 	CFLAGS += -DKERNEL_SMP
 	ASFLAGS += -DKERNEL_SMP
-	endif
-
-ifeq ($(DPI),yes)
-	CFLAGS +=  -DENABLE_DPI
-	endif
+endif
 
 ifeq ($(DEBUG),yes)
 	OPTM = -g 
-	else
+else
 	OPTM = -O2
-	endif
+endif
 
 CFLAGS += $(OPTM) -Wno-incompatible-pointer-types -Wno-int-conversion \
 		  -fPIC \

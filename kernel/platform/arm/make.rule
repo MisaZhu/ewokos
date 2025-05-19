@@ -30,10 +30,6 @@ CFLAGS += -mfpu=neon-vfpv3 -DFPU_ENABLED
 ASFLAGS += -mfpu=neon-vfpv3 -DFPU_ENABLED
 endif
 
-ifeq ($(DPI),yes)
-CFLAGS +=  -DENABLE_DPI
-endif
-
 ifeq ($(DEBUG),yes)
 OPTM = -g 
 else
