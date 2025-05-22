@@ -106,6 +106,12 @@ void sys_info_init_arch(void) {
 		_sys_info.total_phy_mem_size = 1u*GB;
 		_sys_info.mmio.phy_base = 0x3f000000;
 	}
+	else if(pix_revision == PI_5_2G) {
+		strcpy(_sys_info.machine, "raspberry-pi5");
+		_sys_info.total_phy_mem_size = 1u*GB;
+		_sys_info.mmio.phy_base = 0x7c000000;
+		_uart_type = UART_PL011;
+	}
 
 	_sys_info.total_usable_mem_size = _sys_info.total_phy_mem_size;
 	if(_sys_info.total_usable_mem_size > (uint32_t)MAX_USABLE_MEM_SIZE)

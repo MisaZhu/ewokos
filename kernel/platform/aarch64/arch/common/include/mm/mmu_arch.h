@@ -3,9 +3,9 @@
 
 #include "mmudef.h"
 
-#define PAGE_L1_INDEX(x) (((uint32_t)x >> 30) & 0x3) 
-#define PAGE_L2_INDEX(x) (((uint32_t)x >> 21) & 0x1FF)
-#define PAGE_L3_INDEX(x) (((uint32_t)x >> 12) & 0x1FF)
+#define PAGE_L1_INDEX(x) (((uint64_t)x >> 30) & 0x1FF) 
+#define PAGE_L2_INDEX(x) (((uint64_t)x >> 21) & 0x1FF)
+#define PAGE_L3_INDEX(x) (((uint64_t)x >> 12) & 0x1FF)
 
 #define PAGE_TABLE_TO_BASE(x) ((uint32_t)x >> 10)
 #define BASE_TO_PAGE_TABLE(x) ((void *) ((uint32_t)x << 10))

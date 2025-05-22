@@ -112,7 +112,7 @@ slave_core:
                    (0xfful << (3 * 8)) )
 
  #define TCREL1VAL  ((0x0ul << 37) | /* TBI=0, no tagging */\
-                     (0x0ul << 32) | /* IPS= 32 bit ... 000 = 32bit, 001 = 36bit, 010 = 40bit */\
+                     (0x2ul << 32) | /* IPS= 32 bit ... 000 = 32bit, 001 = 36bit, 010 = 40bit */\
                      (0x2ul << 30) | /* TG1=4k ... options are 10=4KB, 01=16KB, 11=64KB ... take care differs from TG0 */\
                      (0x3ul << 28) | /* SH1=3 inner ... options 00 = Non-shareable, 01 = INVALID, 10 = Outer Shareable, 11 = Inner Shareable */\
                      (0x1ul << 26) | /* ORGN1=1 write back .. options 00 = Non-cacheable, 01 = Write back cacheable, 10 = Write thru cacheable, 11 = Write Back Non-cacheable */\
@@ -137,8 +137,6 @@ slave_core:
 
 .global load_boot_pgt
 load_boot_pgt:
-    dsb sy
-
     ldr x1, =MAIR1VAL
 	msr mair_el1, x1
 
@@ -147,7 +145,8 @@ load_boot_pgt:
 
     ldr x0, =TCREL1VAL
     msr tcr_el1, x0
-    isb
+    isb sy
+    dsb sy
 
     mrs x0, sctlr_el1
     ldr x1, =SCTLREL1VAL
