@@ -26,10 +26,6 @@ CFLAGS += -DKERNEL_SMP
 ASFLAGS += -DKERNEL_SMP
 endif
 
-ifeq ($(DPI),yes)
-CFLAGS +=  -DENABLE_DPI
-endif
-
 ifeq ($(C906_EXTEND),yes)
 CFLAGS +=  -DC906_EXTEND
 endif

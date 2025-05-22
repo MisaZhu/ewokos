@@ -17,12 +17,5 @@ LOAD_ADDRESS  = 0x80000
 QEMU_MACHINE  = raspi3b
 endif
 
-#----CLOCKWORK-------
-#CLOCKWORK=yes
-
-#----enable DPI display---
-#DPI=yes
-
 #----multi core(SMP)------
 SMP=yes
-
