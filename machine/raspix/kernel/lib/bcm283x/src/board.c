@@ -37,8 +37,19 @@ static uint32_t bcm283x_board_revision(void) {
 
 uint32_t bcm283x_board(void) {
 	uint32_t revision = bcm283x_board_revision();
-
-	if(revision == 0xa03111 ||
+	//uint32_t revision = 0xb04170;
+	if(revision == 0xb04170 ||
+			revision == 0xb04171 )
+		return PI_5_2G;
+	else if(revision == 0xc04170 ||
+			revision == 0xc04171 )
+		return PI_5_4G;
+	else if(revision == 0xd04170 ||
+			revision == 0xd04171 )
+		return PI_5_8G;
+	else if(revision == 0xe04171) 
+		return PI_5_16G;
+	else if(revision == 0xa03111 ||
 			revision == 0xa03112 ||
 			revision == 0xa03115)
 		return PI_4B_1G;

@@ -21,6 +21,17 @@ enum {
     PI_CM4_2G,
     PI_CM4_4G,
     PI_CM4_8G,
+	PI_5_2G,
+	PI_5_4G,
+	PI_5_8G,
+	PI_5_16G,
+	PI_CM5_2G,
+	PI_CM5_4G,
+	PI_CM5_8G,
+	PI_500,
+	PI_CM5_LITE_2G,
+	PI_CM5_LITE_4G,
+	PI_CM5_LITE_8G,
     PI_UNKNOWN
 };
 
