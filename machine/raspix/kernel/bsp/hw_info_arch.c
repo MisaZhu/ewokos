@@ -142,10 +142,6 @@ void sys_info_init_arch(void) {
 		_allocable_phy_mem_top = _sys_info.phy_offset + _sys_info.total_usable_mem_size;
 	}
 
-	_allocable_phy_mem_top -= DMA_SIZE;
-	_sys_info.dma.phy_base = _allocable_phy_mem_top;
-	_sys_info.dma.size = DMA_SIZE;
-	_sys_info.dma.v_base = DMA_BASE;
 #ifdef KERNEL_SMP
 	_sys_info.cores = get_cpu_cores();
 #else
