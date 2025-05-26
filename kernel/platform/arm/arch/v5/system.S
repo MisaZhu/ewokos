@@ -37,6 +37,10 @@ __set_translation_table_base:
 #	mcr p15, 0, r0, c2, c0, 1    //set ttbase kernel
 	mov pc, lr
 
+.global __set_vector_table
+__set_vector_table:
+    mov pc, lr
+
 .global __irq_enable
 __irq_enable:
 	mrs r0, cpsr

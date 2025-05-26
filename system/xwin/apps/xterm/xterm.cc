@@ -124,6 +124,11 @@ protected:
 		ConsoleWidget::onResize();
 		unlock();
 	}
+
+	void onTimer(uint32_t timerFPS, uint32_t timerStep) {
+		if((timerStep % (timerFPS/2)) == 0)
+			flash();
+	}
 };
 
 
@@ -147,10 +152,6 @@ public:
 
 static TermWidget* _consoleWidget = NULL;
 static vdevice_t* _dev = NULL;
-
-static void timer_handler(void) {
-	_consoleWidget->flash();
-}
 
 static void onFontFunc(MenuItem* it, void* p) {
 	TermWin* win = (TermWin*)p;
@@ -210,10 +211,10 @@ static void* thread_loop(void* p) {
 	x.getDesktopSpace(desk, 0);
 	win.open(&x, 0, -1, -1, desk.w*2/3, desk.h*2/3, "xconsole", 0);
 	_win_opened = true;
-	uint32_t timer_id = timer_set(500000, timer_handler);
+
+	win.setTimer(10);
 
 	widgetXRun(&x, &win);
-	timer_remove(timer_id);
 	device_stop(_dev);
 	return NULL;
 }
