@@ -7,6 +7,7 @@ all:
 	cd xfinder; make
 	cd xpng; make
 	cd xprocs; make
+	cd widgetDemo; make
 
 clean:
 	cd xterm; make clean
@@ -17,3 +18,4 @@ clean:
 	cd xfinder; make clean
 	cd xpng; make clean
 	cd xprocs; make clean
+	cd widgetDemo; make clean
