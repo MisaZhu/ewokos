@@ -380,25 +380,21 @@ void vector<T>::reserve(size_t n) {
 
 template <typename T>
 T& vector<T>::operator[](size_t n) {
-    assert(n < length_);
     return data_[n];
 }
 
 template <typename T>
 const T& vector<T>::operator[](size_t n) const {
-    assert(n < length_);
     return data_[n];
 }
 
 template <typename T>
 T& vector<T>::at(size_t n) {
-    assert(n < length_);
     return data_[n];
 }
 
 template <typename T>
 const T& vector<T>::at(size_t n) const {
-    assert(n < length_);
     return data_[n];
 }
 
