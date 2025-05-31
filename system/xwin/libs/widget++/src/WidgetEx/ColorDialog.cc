@@ -1,5 +1,6 @@
 #include <WidgetEx/ColorDialog.h>
 #include <Widget/LabelButton.h>
+#include <Widget/Slider.h>
 #include <x++/X.h>
 #include <vector>
 
@@ -106,6 +107,12 @@ void ColorDialog::onBuild() {
     colorWidget = new ColorWidget(this);
     root->add(colorWidget);
 
+    Slider* slider = new Slider(true);
+	slider->fix(0, 24);
+    slider->setRange(255);
+	root->add(slider);
+    sliderWidget = slider;
+
     Container* c = new Container();
     c->setType(Container::HORIZONTAL);
     c->fix(0, 20);
@@ -124,6 +131,10 @@ ColorDialog::ColorDialog() {
     build();
 }
 
-uint32_t ColorDialog::getResult() {
+uint32_t ColorDialog::getColor() {
     return colorWidget->getSelectedColor();
+}
+
+uint32_t ColorDialog::getTransparent() {
+    return sliderWidget->getValue();
 }

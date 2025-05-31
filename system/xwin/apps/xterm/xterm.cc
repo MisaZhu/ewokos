@@ -117,8 +117,9 @@ public:
 		unlock();
 	}
 
-	void bgColorChange(uint32_t color) {
+	void bgColorChange(uint32_t color, uint32_t alpha) {
 		lock();
+		terminal.transparent  = alpha;
 		terminal.bg_color = (color & 0x00ffffff) | (terminal.transparent << 24);
 		update();
 		unlock();
@@ -162,12 +163,13 @@ protected:
 				consoleWidget->setFont(fontName);
 			}
 			else if(from == &colorDialog) {
-				uint32_t color = colorDialog.getResult();
+				uint32_t color = colorDialog.getColor();
 				consoleWidget->textColorChange(color);
 			}
 			else if(from == &bgColorDialog) {
-				uint32_t color = bgColorDialog.getResult();
-				consoleWidget->bgColorChange(color);
+				uint32_t color = bgColorDialog.getColor();
+				uint32_t alpha = 255 - bgColorDialog.getTransparent();
+				consoleWidget->bgColorChange(color, alpha);
 			}
 		}
 	}

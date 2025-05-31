@@ -76,7 +76,7 @@ bool Widget::onEvent(xevent_t* ev) {
 		if(ev->value.mouse.x > r.x && ev->value.mouse.x < (r.x+r.w) &&
 				ev->value.mouse.y > r.y && ev->value.mouse.y < (r.y+r.h)) {
 			if(ev->state == MOUSE_STATE_DOWN) {
-				//getRoot()->focus(this);
+				getRoot()->focus(this);
 				ret = true;
 			}
 			if(!disabled && 
