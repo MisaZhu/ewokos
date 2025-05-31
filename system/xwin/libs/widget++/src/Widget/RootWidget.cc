@@ -6,6 +6,7 @@ namespace Ewok {
 RootWidget::RootWidget() {
 	doRefresh = false;
 	focusedWidget = NULL;
+	dragedWidget= NULL;
 	xwin = NULL;
 }
 
