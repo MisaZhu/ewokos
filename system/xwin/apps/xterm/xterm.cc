@@ -179,11 +179,11 @@ public:
 	}
 
 	void color() {
-		colorDialog.popup(this, 160, 100, "color", XWIN_STYLE_NO_RESIZE);
+		colorDialog.popup(this, 256, 160, "color", XWIN_STYLE_NO_RESIZE);
 	}
 
 	void bgColor() {
-		bgColorDialog.popup(this, 160, 100, "bgColor", XWIN_STYLE_NO_RESIZE);
+		bgColorDialog.popup(this, 256, 160, "bgColor", XWIN_STYLE_NO_RESIZE);
 	}
 };
 
@@ -236,17 +236,16 @@ static void* thread_loop(void* p) {
 	root->setType(Container::VERTICLE);
 
 	Menu* menu = new Menu();
-	menu->add("quit", NULL, NULL, onQuitFunc, &win);
+	menu->add("txtcolor", NULL, NULL, onTextColor, &win);
+	menu->add("bgcolor", NULL, NULL, onBGColor, &win);
 
 	Menubar* menubar = new Menubar();
-	menubar->add("term", NULL, menu, NULL, NULL);
 	menubar->add("font", NULL, NULL, onFontFunc, &win);
 	menubar->add("F+", NULL, NULL, onFontZoomInFunc, NULL);
 	menubar->add("F-", NULL, NULL, onFontZoomOutFunc, NULL);
 	menubar->add("]+[", NULL, NULL, onFontCharSpaceIncrFunc, NULL);
 	menubar->add("]-[", NULL, NULL, onFontCharSpaceDecrFunc, NULL);
-	menubar->add("color", NULL, NULL, onTextColor, &win);
-	menubar->add("bg", NULL, NULL, onBGColor, &win);
+	menubar->add("color", NULL, menu, NULL, NULL);
 	menubar->fix(0, 20);
 	root->add(menubar);
 
