@@ -34,12 +34,14 @@ bool ConsoleWidget::config(const char* fontName,
 		int32_t charSpace,
 		int32_t lineSpace,
 		uint32_t fgColor,
-		uint32_t bgColor) {
+		uint32_t bgColor,
+		uint8_t transparent) {
 	terminal.font_size = fontSize;
 	terminal.char_space = charSpace;
 	terminal.line_space = lineSpace;
 	terminal.fg_color = fgColor;
-	terminal.bg_color = bgColor;
+	terminal.bg_color = (bgColor & 0x00ffffff) | ((transparent & 0xff) << 24);
+	terminal.transparent = transparent;
 
 	if(fontName != NULL && fontName[0] != 0) {
 		if(terminal.font != NULL)

@@ -73,9 +73,10 @@ public:
 		int32_t line_space = json_get_int_def(conf_var, "line_space", 0);
 		uint32_t fg_color = json_get_int_def(conf_var, "fg_color", 0xffdddddd);
 		uint32_t bg_color = json_get_int_def(conf_var, "bg_color", 0xff000000);
+		uint32_t transparent = json_get_int_def(conf_var, "transparent", 255);
 		const char* font_name = json_get_str(conf_var, "font");
 
-		config(font_name, font_size, char_space, line_space, fg_color, bg_color);
+		config(font_name, font_size, char_space, line_space, fg_color, bg_color, transparent);
 
 		if(conf_var != NULL)
 			json_var_unref(conf_var);
@@ -111,6 +112,14 @@ public:
 	void textColorChange(uint32_t color) {
 		lock();
 		terminal.fg_color = color;
+		terminal.term_conf.fg_color = color;
+		update();
+		unlock();
+	}
+
+	void bgColorChange(uint32_t color) {
+		lock();
+		terminal.bg_color = (color & 0x00ffffff) | (terminal.transparent << 24);
 		update();
 		unlock();
 	}
@@ -143,6 +152,7 @@ protected:
 class TermWin: public WidgetWin{
 	FontDialog fontDialog;
 	ColorDialog colorDialog;
+	ColorDialog bgColorDialog;
 
 protected:
 	void onDialoged(XWin* from, int res) {
@@ -155,6 +165,10 @@ protected:
 				uint32_t color = colorDialog.getResult();
 				consoleWidget->textColorChange(color);
 			}
+			else if(from == &bgColorDialog) {
+				uint32_t color = bgColorDialog.getResult();
+				consoleWidget->bgColorChange(color);
+			}
 		}
 	}
 public:
@@ -166,6 +180,10 @@ public:
 
 	void color() {
 		colorDialog.popup(this, 160, 100, "color", XWIN_STYLE_NO_RESIZE);
+	}
+
+	void bgColor() {
+		bgColorDialog.popup(this, 160, 100, "bgColor", XWIN_STYLE_NO_RESIZE);
 	}
 };
 
@@ -203,6 +221,11 @@ static void onTextColor(MenuItem* it, void* p) {
 	win->color();
 }
 
+static void onBGColor(MenuItem* it, void* p) {
+	TermWin* win = (TermWin*)p;
+	win->bgColor();
+}
+
 static bool _win_opened = false;
 static void* thread_loop(void* p) {
 	X x;
@@ -223,6 +246,7 @@ static void* thread_loop(void* p) {
 	menubar->add("]+[", NULL, NULL, onFontCharSpaceIncrFunc, NULL);
 	menubar->add("]-[", NULL, NULL, onFontCharSpaceDecrFunc, NULL);
 	menubar->add("color", NULL, NULL, onTextColor, &win);
+	menubar->add("bg", NULL, NULL, onBGColor, &win);
 	menubar->fix(0, 20);
 	root->add(menubar);
 
