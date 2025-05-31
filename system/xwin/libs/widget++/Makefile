@@ -35,6 +35,7 @@ LIB_WIDGET_OBJS =  src/Widget/Widget.o \
 		src/WidgetEx/FileDialog.o \
 		src/WidgetEx/ConsoleWidget.o \
 		src/WidgetEx/FontDialog.o \
+		src/WidgetEx/ColorDialog.o \
 		src/WidgetEx/Popup.o \
 		src/WidgetEx/Menu.o \
 		src/WidgetEx/Menubar.o

@@ -36,6 +36,7 @@ extern "C" {
 #include <WidgetEx/Menu.h>
 #include <Widget/LabelButton.h>
 #include <WidgetEx/FontDialog.h>
+#include <WidgetEx/ColorDialog.h>
 
 #include <x++/X.h>
 #include <pthread.h>
@@ -107,6 +108,13 @@ public:
 		unlock();
 	}
 
+	void textColorChange(uint32_t color) {
+		lock();
+		terminal.fg_color = color;
+		update();
+		unlock();
+	}
+
 	void pushStr(const char* s, uint32_t sz) {
 		lock();
 		push(s, sz);
@@ -134,12 +142,19 @@ protected:
 
 class TermWin: public WidgetWin{
 	FontDialog fontDialog;
+	ColorDialog colorDialog;
 
 protected:
 	void onDialoged(XWin* from, int res) {
 		if(res == Dialog::RES_OK) {
-			string fontName = fontDialog.getResult();
-			consoleWidget->setFont(fontName);
+			if(from == &fontDialog) {
+				string fontName = fontDialog.getResult();
+				consoleWidget->setFont(fontName);
+			}
+			else if(from == &colorDialog) {
+				uint32_t color = colorDialog.getResult();
+				consoleWidget->textColorChange(color);
+			}
 		}
 	}
 public:
@@ -147,6 +162,10 @@ public:
 
 	void font() {
 		fontDialog.popup(this, 300, 300, "fonts", XWIN_STYLE_NORMAL);
+	}
+
+	void color() {
+		colorDialog.popup(this, 160, 100, "color", XWIN_STYLE_NO_RESIZE);
 	}
 };
 
@@ -179,6 +198,11 @@ static void onFontCharSpaceDecrFunc(MenuItem* it, void* p) {
 	_consoleWidget->charSpaceChange(false);
 }
 
+static void onTextColor(MenuItem* it, void* p) {
+	TermWin* win = (TermWin*)p;
+	win->color();
+}
+
 static bool _win_opened = false;
 static void* thread_loop(void* p) {
 	X x;
@@ -198,6 +222,7 @@ static void* thread_loop(void* p) {
 	menubar->add("F-", NULL, NULL, onFontZoomOutFunc, NULL);
 	menubar->add("]+[", NULL, NULL, onFontCharSpaceIncrFunc, NULL);
 	menubar->add("]-[", NULL, NULL, onFontCharSpaceDecrFunc, NULL);
+	menubar->add("color", NULL, NULL, onTextColor, &win);
 	menubar->fix(0, 20);
 	root->add(menubar);
 
