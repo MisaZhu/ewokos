@@ -122,19 +122,17 @@ protected:
 	}
 };
 
-/*
+static bool _repaint = false;
 static void loop(void* p) {
 	XWin* xwin = (XWin*)p;
-	xwin->repaint();
-	proc_usleep(5000);
-}
-*/
-
-static void loop(void *p) {
-	XWin* xwin = (XWin*)p;
-	if(!xwin->getX()->terminated())
+	if(_repaint)
 		xwin->repaint();
-	proc_usleep(5000);
+	_repaint = false;
+	proc_usleep(3000);
+}
+
+static void _timerHandler(void) {
+	_repaint = true;
 }
 
 int main(int argc, char* argv[]) {
@@ -145,7 +143,9 @@ int main(int argc, char* argv[]) {
 	X x;
 	TestX xwin;
 	xwin.open(&x, 0, -1, -1, 0, 0, "xtest", XWIN_STYLE_NORMAL);
+	int32_t timerID = timer_set(5000, _timerHandler);
 
 	x.run(loop, &xwin);
+	timer_remove(timerID);
 	return 0;
 } 
