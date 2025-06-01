@@ -117,7 +117,7 @@ public:
 		unlock();
 	}
 
-	void bgColorChange(uint32_t color, uint32_t alpha) {
+	void bgColorChange(uint32_t color, uint8_t alpha) {
 		lock();
 		terminal.transparent  = alpha;
 		terminal.bg_color = (color & 0x00ffffff) | (terminal.transparent << 24);
@@ -168,7 +168,7 @@ protected:
 			}
 			else if(from == &bgColorDialog) {
 				uint32_t color = bgColorDialog.getColor();
-				uint32_t alpha = 255 - bgColorDialog.getTransparent();
+				uint8_t alpha = bgColorDialog.getTransparent();
 				consoleWidget->bgColorChange(color, alpha);
 			}
 		}

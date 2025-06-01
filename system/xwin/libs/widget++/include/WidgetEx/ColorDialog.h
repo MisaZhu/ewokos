@@ -18,7 +18,7 @@ private:
 public:
     ColorDialog();
     uint32_t getColor();
-    uint32_t getTransparent();
+    uint8_t getTransparent();
 };
 
 #endif

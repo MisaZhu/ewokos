@@ -135,6 +135,6 @@ uint32_t ColorDialog::getColor() {
     return colorWidget->getSelectedColor();
 }
 
-uint32_t ColorDialog::getTransparent() {
-    return sliderWidget->getValue();
+uint8_t ColorDialog::getTransparent() {
+    return 0xff - (0x0ff & sliderWidget->getValue());
 }

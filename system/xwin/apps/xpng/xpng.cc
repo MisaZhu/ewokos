@@ -41,41 +41,11 @@ class ImageView: public Scrollable {
 	gpos_t  last_mouse_down;
 	StatusLabel* statusLabel;
 	uint32_t bgColor;
-	
-	void drawPattern(graph_t* g, uint32_t sz, const grect_t& r) {
-		int x = r.x;
-		int y = r.y;
-		uint32_t c1;
-		uint32_t c2;
-		for(int i=0; ;i++) {
-			if((i%2) == 0) {
-				c1 = 0xff888888;
-				c2 = 0xff4444444;
-			}
-			else {
-				c2 = 0xff888888;
-				c1 = 0xff444444;
-			}
-
-			for(int j=0; ;j++) {
-				graph_fill(g, x, y, sz, sz, (j%2)==0? c1:c2);
-				x += sz;
-				if(x >= r.x + r.w)
-					break;
-			}
-			x = 0;
-			y += sz;
-			if(y >= r.y + r.h)
-				break;
-		}
-	}
 
 	void background(graph_t* g, uint32_t sz, const grect_t& r) {
-		if(bgColor == 0) {
-			drawPattern(g, sz, r);
-			return;
-		}
-		graph_fill(g, r.x, r.y, r.w, r.h, bgColor);
+		graph_set(g, r.x, r.y, r.w, r.h, bgColor);
+		if(color_a(bgColor) > 0)
+			getWin()->setAlpha(true);
 	}
 protected:
 	void onRepaint(graph_t* g, XTheme* theme, const grect_t& r) {
@@ -176,12 +146,11 @@ public:
 		imgOrig = NULL;
 		off_x = 0;
 		off_y = 0;
-		bgColor = 0;
+		bgColor = 0x88000000;
 		zoom = 1.0;
 		last_mouse_down.x = 0;
 		last_mouse_down.y = 0;
 		statusLabel = NULL;
-		alpha = true;
 	}
 
 	~ImageView() {
@@ -231,8 +200,8 @@ public:
 		zoomImgTo(zoom);
 	}
 
-	void setBGColor(uint32_t color) {
-		bgColor = color;
+	void setBGColor(uint32_t color, uint8_t alpha) {
+		bgColor = (color & 0x00ffffff) | (alpha << 24);
 		update();
 	}
 };
@@ -252,7 +221,8 @@ protected:
 			}
 			else if(from == &cdialog) {
 				uint32_t color = cdialog.getColor();
-				imgView->setBGColor(color);
+				uint8_t alpha = cdialog.getTransparent();
+				imgView->setBGColor(color, alpha);
 			}
 		}
 	}
