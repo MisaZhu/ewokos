@@ -25,7 +25,7 @@ class TestX : public XWin {
 	static const int CIRCLE = 0;
 	static const int RECT   = 1;
 	static const int ARC  = 2;
-	static const int ROUND  = 2;
+	static const int ROUND  = 3;
 
 	void drawImage(graph_t* g, graph_t* img) {
 		if(img == NULL)
