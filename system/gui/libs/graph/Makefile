@@ -18,6 +18,7 @@ LIB_GRAPH_OBJS = $(SYS_DIR)/platform/$(ARCH)/bsp/src/bsp_graph.o \
 	src/line.o \
 	src/box.o \
 	src/circle.o \
+	src/arc.o \
 	src/round.o \
 	src/bitmap.o
 

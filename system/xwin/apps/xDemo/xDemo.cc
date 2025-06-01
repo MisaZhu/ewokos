@@ -24,6 +24,7 @@ class TestX : public XWin {
 
 	static const int CIRCLE = 0;
 	static const int RECT   = 1;
+	static const int ARC  = 2;
 	static const int ROUND  = 2;
 
 	void drawImage(graph_t* g, graph_t* img) {
@@ -104,6 +105,13 @@ protected:
 		if(mode == CIRCLE) {
 			graph_fill_circle(g, x, y, h/2, c);
 			graph_circle(g, x, y, h/2+4, c);
+		}
+		else if(mode == ARC) {
+			int endangle = c%5 * 44;
+			if(endangle == 0)
+				endangle = 119;
+			graph_fill_arc(g, x, y, h/2, 0, endangle, c);
+			graph_arc(g, x, y, h/2+2, 0, endangle, c);
 		}
 		else if(mode == ROUND) {
 			graph_fill_round(g, x, y, w, h, 12, c);
