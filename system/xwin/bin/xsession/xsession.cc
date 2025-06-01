@@ -55,7 +55,7 @@ class XSession : public XWin {
 	void drawFrame(graph_t* g, const grect_t& r) {
 		font_t* font = theme.getFont();
 		graph_fill(g, r.x, r.y, r.w, r.h, theme.basic.bgColor);
-		graph_fill(g, r.x, r.y, r.w, theme.basic.fontSize, 0xffffbb88);
+		graph_fill(g, r.x, r.y, r.w, theme.basic.fontSize+2, 0xffffbb88);
 		graph_draw_text_font(g, r.x+8, r.y,
 				"EwokOS(M-kernel)", font, theme.basic.fontSize, theme.basic.fgColor);
 
@@ -75,7 +75,7 @@ class XSession : public XWin {
 				title, font, theme.basic.fontSize , theme.basic.fgColor);
 
 		y += theme.basic.fontSize+8;
-		graph_fill_3d(g, r.x+8, y, r.w-16, theme.basic.fontSize, theme.basic.bgColor, true);
+		graph_fill_3d(g, r.x+8, y, r.w-16, theme.basic.fontSize+2, theme.basic.bgColor, true);
 		if(passwordMode) {
 			std::string pwd;
 			int len = strlen(input);
@@ -105,9 +105,10 @@ protected:
 		const char* input = passwordMode ? password.c_str() : username.c_str();
 		const char* title = passwordMode ? "password" : "username";
 
-		uint32_t tw, th, iw, ih;
-		font_text_size(title, font, theme.basic.fontSize, &tw, &th);
-		font_text_size(input, font, theme.basic.fontSize, &iw, &ih);
+		uint32_t tw = 0, th = theme.basic.fontSize + 2;
+		uint32_t iw = 0, ih = theme.basic.fontSize + 2;
+		font_text_size(title, font, theme.basic.fontSize, &tw, NULL);
+		font_text_size(input, font, theme.basic.fontSize, &iw, NULL);
 		if(iw < 180)
 			iw = 180;
 
