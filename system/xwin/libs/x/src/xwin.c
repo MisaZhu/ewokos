@@ -129,6 +129,7 @@ xwin_t* xwin_open(x_t* xp, uint32_t disp_index, int x, int y, int w, int h, cons
 	}
 	else
 		xwin_update_info(ret, X_UPDATE_REBUILD | X_UPDATE_REFRESH);
+	pthread_mutex_init(&ret->painting_lock, NULL);
 	return ret;
 }
 
@@ -173,6 +174,7 @@ void xwin_close(xwin_t* xwin) {
 	}
 	close(xwin->fd);
 	xwin->fd = -1;
+	pthread_mutex_destroy(&xwin->painting_lock);
 
 	if(xwin->g_shm != NULL)
 		shmdt(xwin->g_shm);
@@ -193,6 +195,7 @@ graph_t* xwin_fetch_graph(xwin_t* xwin, graph_t* g) {
 }
 
 void xwin_repaint(xwin_t* xwin) {
+	pthread_mutex_lock(&xwin->painting_lock);
 	if(!xwin->xinfo->repaint_lazy) {
 		graph_t g;
 		if(xwin_fetch_graph(xwin, &g) != NULL) {
@@ -201,6 +204,7 @@ void xwin_repaint(xwin_t* xwin) {
 		}
 	}	
 	vfs_fcntl_wait(xwin->fd, XWIN_CNTL_UPDATE, NULL);
+	pthread_mutex_unlock(&xwin->painting_lock);
 }
 
 /*

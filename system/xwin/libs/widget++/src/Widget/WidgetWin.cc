@@ -6,7 +6,6 @@ namespace Ewok {
 WidgetWin::WidgetWin() {
 	root = NULL;
 	timerID = 0;
-	painting = false;
 	timerFPS = 1;
 	timerStep = 0;
 }
@@ -22,9 +21,7 @@ void WidgetWin::onRepaint(graph_t* g) {
 	if(root == NULL)
 		return;
 
-	painting = true;
 	root->repaint(g, &theme);
-	painting = false;
 }
 
 void WidgetWin::onShow(void) {
