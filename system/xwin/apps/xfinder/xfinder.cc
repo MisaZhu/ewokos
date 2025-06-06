@@ -1,4 +1,5 @@
 #include <Widget/WidgetWin.h>
+#include <Widget/WidgetX.h>
 #include <WidgetEx/FileWidget.h>
 #include <x++/X.h>
 #include <unistd.h>
@@ -66,6 +67,6 @@ int main(int argc, char** argv) {
 	fm->loadDir("/");
 	win.repaint();
 	win.busy(false);
-	x.run(NULL, &win);
+	widgetXRun(&x, &win);
 	return 0;
 }
