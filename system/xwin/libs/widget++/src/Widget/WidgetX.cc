@@ -7,7 +7,7 @@
 namespace Ewok {
 
 #define MAX_WIN 32
-static WidgetWin* _winList[MAX_WIN];
+static WidgetWin* _winList[MAX_WIN] = {0};
 
 void widgetRegWin(WidgetWin* win) {
     for(int i=0; i<MAX_WIN; i++) {
@@ -50,9 +50,6 @@ static void loop(void* p) {
 }
 
 void widgetXRun(X* x, WidgetWin* win) {
-    for(int i=0; i<MAX_WIN; i++) {
-        _winList[i] = NULL;
-    }
     x->run(loop, win);
 }
 
