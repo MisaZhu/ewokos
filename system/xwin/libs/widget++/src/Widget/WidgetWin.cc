@@ -1,4 +1,5 @@
 #include <Widget/WidgetWin.h>
+#include <Widget/WidgetX.h>
 #include <ewoksys/timer.h>
 
 namespace Ewok {
@@ -8,6 +9,7 @@ WidgetWin::WidgetWin() {
 	timerID = 0;
 	timerFPS = 1;
 	timerStep = 0;
+	widgetRegWin(this);
 }
 
 WidgetWin::~WidgetWin() {
@@ -15,6 +17,7 @@ WidgetWin::~WidgetWin() {
 		delete root;
 	if(timerID > 0)
 		timer_remove(timerID);
+	widgetUnregWin(this);
 }
 
 void WidgetWin::onRepaint(graph_t* g) {
@@ -45,7 +48,7 @@ void WidgetWin::onEvent(xevent_t* ev) {
 	if(root == NULL)
 		return;
 	if(root->sendEvent(ev))
-		root->repaintWin();
+		root->update();
 }
 
 bool WidgetWin::onClose() {

@@ -5,6 +5,8 @@
 
 namespace Ewok {
 
+void widgetRegWin(WidgetWin* win);
+void widgetUnregWin(WidgetWin* win);
 void widgetXRun(X* x, WidgetWin* win);
 
 }
