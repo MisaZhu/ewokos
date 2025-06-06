@@ -50,6 +50,9 @@ static void loop(void* p) {
 }
 
 void widgetXRun(X* x, WidgetWin* win) {
+    for(int i=0; i<MAX_WIN; i++) {
+        _winList[i] = NULL;
+    }
     x->run(loop, win);
 }
 
