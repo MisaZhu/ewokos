@@ -112,7 +112,6 @@ public:
 	void textColorChange(uint32_t color) {
 		lock();
 		terminal.fg_color = color;
-		terminal.term_conf.fg_color = color;
 		update();
 		unlock();
 	}
