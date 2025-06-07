@@ -204,6 +204,10 @@ public:
 		bgColor = (color & 0x00ffffff) | (alpha << 24);
 		update();
 	}
+
+	uint32_t getBGColor() {
+		return bgColor;
+	}
 };
 
 class PngWin: public WidgetWin{
@@ -240,6 +244,7 @@ public:
 	void setBGColor(ImageView* imgView) {
 		this->imgView = imgView;
 		cdialog.popup(this, 256, 160, "bgColor", XWIN_STYLE_NO_RESIZE);
+		cdialog.setColor(imgView->getBGColor());
 	}
 };
 

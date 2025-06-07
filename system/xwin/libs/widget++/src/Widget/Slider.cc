@@ -86,6 +86,16 @@ void Slider::setPos(uint32_t pos) {
     update();
 }
 
+void Slider::setValue(uint32_t value) {
+    uint32_t max = horizontal? area.w - area.h: area.h - area.w;
+    if(max == 0)
+        return;   
+    uint32_t newPos = (value * max) / range;
+    if(newPos >= max)
+        newPos = max - 1; 
+    setPos(newPos);
+}
+
 bool Slider::onMouse(xevent_t* ev) {
     gpos_t pos = getInsidePos(ev->value.mouse.x, ev->value.mouse.y);
     grect_t handleRect;

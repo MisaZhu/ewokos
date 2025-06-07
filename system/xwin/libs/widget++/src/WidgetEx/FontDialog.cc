@@ -271,7 +271,6 @@ void FontDialog::onBuild() {
 }
 
 FontDialog::FontDialog() {
-   	build();
 }
 
 string FontDialog::getResult() {

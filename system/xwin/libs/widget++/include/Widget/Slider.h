@@ -29,8 +29,10 @@ public:
     void setScrollable(Scrollable* widget);
     void setRange(uint32_t range);
     void setPos(uint32_t pos);
+    void setValue(uint32_t pos);
     uint32_t getPos() { return pos; }
     uint32_t getValue();
+    uint32_t getRange() { return range; };
 };
 
 }

@@ -53,7 +53,6 @@ void FileDialog::onBuild() {
 
 FileDialog::FileDialog(bool path) {
 	pathMode = path;
-   	build();
 }
 
 string FileDialog::getResult() {

@@ -174,11 +174,11 @@ protected:
 public:
 	static void onClickFunc(Widget* wd) {
 		MyWidgetWin* win = (MyWidgetWin*)wd->getWin();
+		win->dialog.setMessage("Dialog Test");
 		win->dialog.popup(win, 200, 100, "dialog", XWIN_STYLE_NO_TITLE);
 	}
 
 	MyWidgetWin() {
-		dialog.setMessage("Dialog Test");
 	}
 };
 

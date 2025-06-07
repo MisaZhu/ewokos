@@ -181,10 +181,12 @@ public:
 
 	void color() {
 		colorDialog.popup(this, 256, 200, "color", XWIN_STYLE_NO_RESIZE);
+		colorDialog.setColor(consoleWidget->getTerminal()->fg_color);
 	}
 
 	void bgColor() {
 		bgColorDialog.popup(this, 256, 200, "bgColor", XWIN_STYLE_NO_RESIZE);
+		bgColorDialog.setColor(consoleWidget->getTerminal()->bg_color);
 	}
 };
 

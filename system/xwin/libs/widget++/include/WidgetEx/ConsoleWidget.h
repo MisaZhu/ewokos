@@ -25,6 +25,10 @@ public:
 
 	void setFont(const string& fontName);
 
+	gterminal_t* getTerminal() {
+		return &terminal;
+	}
+
 protected:
 	gterminal_t terminal;
 	uint32_t scrollW;
