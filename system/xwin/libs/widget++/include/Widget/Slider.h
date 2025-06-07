@@ -21,9 +21,10 @@ protected:
     virtual void drawBG(graph_t* g, XTheme* theme, const grect_t& r);
     virtual void drawPos(graph_t* g, XTheme* theme, const grect_t& r);
     bool onMouse(xevent_t* ev); // 处理鼠标事件
+    virtual void onPosChange() {};
 
 public:
-    Slider(bool h = false);
+    Slider(bool h = true);
 
     void setScrollable(Scrollable* widget);
     void setRange(uint32_t range);

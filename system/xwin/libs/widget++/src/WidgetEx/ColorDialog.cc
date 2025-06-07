@@ -1,5 +1,7 @@
 #include <WidgetEx/ColorDialog.h>
 #include <Widget/LabelButton.h>
+#include <Widget/EditLine.h>
+#include <Widget/Blank.h>
 #include <Widget/Slider.h>
 #include <x++/X.h>
 #include <vector>
@@ -22,10 +24,34 @@ std::vector<uint32_t> generate64Colors() {
     return colors;
 }
 
+class ColorPanel: public Blank {
+    uint32_t color;
+protected:
+    void onRepaint(graph_t* g, XTheme* theme, const grect_t& r) {
+        graph_set(g, r.x, r.y, r.w, r.h, color);
+		graph_frame(g, r.x, r.y, r.w, r.h, 2, theme->basic.widgetBGColor, true);
+    }
+public:
+    void setColor(uint32_t c) {
+        ColorDialog* dialog = (ColorDialog*)getWin();
+        color = (c & 0x00FFFFFF) | (dialog->getTransparent() << 24);
+        dialog->setAlpha(true);
+        update();
+    }
+
+    void setTransparent(uint8_t transparent) {
+        ColorDialog* dialog = (ColorDialog*)getWin();
+        color = (color & 0x00FFFFFF) | (transparent << 24);
+        setAlpha(true); 
+    }
+};
+
 class ColorDialog::ColorWidget : public Widget {
     ColorDialog* dialog;
     std::vector<uint32_t> colors;
     int selectedIndex = -1;
+    EditLine* hexEditLine;
+    ColorPanel* colorPanel;
 
 protected:
     void onRepaint(graph_t* g, XTheme* theme, const grect_t& r) {
@@ -70,6 +96,13 @@ protected:
             if (index >= 0 && index < static_cast<int>(colors.size())) {
                 selectedIndex = index;
                 update();
+                uint32_t color = getSelectedColor() ;
+                char hex[10];
+                snprintf(hex, sizeof(hex), "0x%06x", color & 0x00FFFFFF);
+                if (hexEditLine)
+                    hexEditLine->setContent(hex);
+                if (colorPanel)
+                    colorPanel->setColor(color);
             }
         }
         return true;
@@ -78,6 +111,8 @@ protected:
 public:
     ColorWidget(ColorDialog* d) : dialog(d) {
         colors = generate64Colors();
+        colorPanel = NULL;
+        hexEditLine = NULL;
     }
 
     uint32_t getSelectedColor() const {
@@ -85,6 +120,42 @@ public:
             return colors[selectedIndex];
         }
         return 0xFF000000;
+    }
+
+    void setHexEditLine(EditLine* editLine) {
+        hexEditLine = editLine;
+    }
+
+    void setColorPanel(ColorPanel* panel) {
+        colorPanel = panel;
+    }
+
+    void setTransparent(uint8_t transparent) {
+        colorPanel->setTransparent(transparent);
+    }
+
+    static void onEditLineChange(Widget* wd) {
+        EditLine* editLine = (EditLine*)wd;
+        ColorDialog* dialog = (ColorDialog*)editLine->getWin();
+        ColorWidget* colorWidget = dialog->getColorWidget();
+        uint32_t color = strtoul(editLine->getContent().c_str(), 0, 16);
+        color = color & 0x00FFFFFF;
+        colorWidget->colorPanel->setColor(color);
+    }
+};
+
+class TransparentSlider : public Slider {
+protected:
+    void onPosChange() {
+        ColorDialog* dialog = (ColorDialog*)getWin();
+        uint8_t transp =  0xff - (0x0ff & getValue());
+        dialog->getColorWidget()->setTransparent(transp);
+        dialog->setAlpha(true);
+    }
+public:
+    TransparentSlider() {
+        setRange(255);
+        horizontal = true;
     }
 };
 
@@ -102,18 +173,36 @@ void ColorDialog::onBuild() {
     RootWidget* root = new RootWidget();
     setRoot(root);
     root->setType(Container::VERTICLE);
-    root->setAlpha(false);
 
     colorWidget = new ColorWidget(this);
     root->add(colorWidget);
 
-    Slider* slider = new Slider(true);
+    Container* c = new Container();
+    c->setType(Container::HORIZONTAL);
+	root->add(c);
+	c->fix(0, 60);
+
+    ColorPanel* color = new ColorPanel();
+	color->fix(60, 0);
+    c->add(color);
+    colorWidget->setColorPanel(color);
+
+    Container* v = new Container();
+    v->setType(Container::VERTICLE);
+    c->add(v);
+
+    EditLine* editLine = new EditLine();
+	v->add(editLine);
+    colorWidget->setHexEditLine(editLine);
+    editLine->onInputFunc = ColorWidget::onEditLineChange;
+	root->focus(editLine);
+
+    TransparentSlider* slider = new TransparentSlider();
 	slider->fix(0, 24);
-    slider->setRange(255);
-	root->add(slider);
+	v->add(slider);
     sliderWidget = slider;
 
-    Container* c = new Container();
+    c = new Container();
     c->setType(Container::HORIZONTAL);
     c->fix(0, 20);
     root->add(c);
@@ -136,5 +225,5 @@ uint32_t ColorDialog::getColor() {
 }
 
 uint8_t ColorDialog::getTransparent() {
-    return 0xff - (0x0ff & sliderWidget->getValue());
+    return  0xff - (0x0ff & sliderWidget->getValue());
 }

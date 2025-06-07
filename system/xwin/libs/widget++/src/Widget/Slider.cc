@@ -82,6 +82,7 @@ uint32_t Slider::getValue() {
 
 void Slider::setPos(uint32_t pos) {
     this->pos = pos;
+    onPosChange();
     update();
 }
 
@@ -132,5 +133,4 @@ bool Slider::onMouse(xevent_t* ev) {
     }
     return true;
 }
-
 }

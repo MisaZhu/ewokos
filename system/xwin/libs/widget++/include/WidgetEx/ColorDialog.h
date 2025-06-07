@@ -19,6 +19,7 @@ public:
     ColorDialog();
     uint32_t getColor();
     uint8_t getTransparent();
+    inline ColorWidget* getColorWidget() { return colorWidget; }
 };
 
 #endif
