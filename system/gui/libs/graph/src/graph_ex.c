@@ -106,3 +106,57 @@ void graph_gradation(graph_t* graph, int x, int y, int w, int h, uint32_t c1, ui
 			}
 	}
 }
+
+void graph_glass(graph_t* g,int x, int y, int w, int h, int8_t r) {
+    if (g == NULL || r == 0) {
+        return;
+    }
+
+    // 分配临时缓冲区
+    uint32_t* buffer = (uint32_t*)malloc(w * h * sizeof(uint32_t));
+    if (buffer == NULL) {
+        return;
+    }
+
+    // 复制原始图像数据到缓冲区
+    for (int iy = 0; iy < h; iy++) {
+        for (int ix = 0; ix < w; ix++) {
+            buffer[iy * w + ix] = graph_get_pixel(g, x + ix, y + iy);
+        }
+    }
+
+    // 盒模糊处理
+    for (int iy = 0; iy < h; iy++) {
+        for (int ix = 0; ix < w; ix++) {
+            int sumR = 0, sumG = 0, sumB = 0, count = 0;
+
+            // 遍历模糊半径内的像素
+            for (int dy = -r; dy <= r; dy++) {
+                for (int dx = -r; dx <= r; dx++) {
+                    int nx = ix + dx;
+                    int ny = iy + dy;
+
+                    if (nx >= 0 && nx < w && ny >= 0 && ny < h) {
+                        uint32_t pixel = buffer[ny * w + nx];
+                        sumR += (pixel >> 16) & 0xff;
+                        sumG += (pixel >> 8) & 0xff;
+                        sumB += pixel & 0xff;
+                        count++;
+                    }
+                }
+            }
+
+            // 计算平均值
+            uint8_t avgR = sumR / count;
+            uint8_t avgG = sumG / count;
+            uint8_t avgB = sumB / count;
+            uint32_t newPixel = (0xff << 24) | (avgR << 16) | (avgG << 8) | avgB;
+
+            // 更新像素值
+            graph_pixel(g, x + ix, y + iy, newPixel);
+        }
+    }
+
+    // 释放缓冲区
+    free(buffer);
+}

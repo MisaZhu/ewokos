@@ -13,6 +13,7 @@ void graph_frame(graph_t* g, int x, int y, int w, int h, int width, uint32_t bas
 void graph_fill_3d(graph_t* g, int x, int y, int w, int h, uint32_t color, bool rev);
 void graph_draw_dot_pattern(graph_t* g,int x, int y, int w, int h, uint32_t c1, uint32_t c2, uint8_t dw);
 void graph_gradation(graph_t* g,int x, int y, int w, int h, uint32_t c1, uint32_t c2, bool vertical);
+void graph_glass(graph_t* g,int x, int y, int w, int h, int8_t r);
 
 #ifdef __cplusplus
 }

@@ -11,6 +11,10 @@ inline void graph_pixel(graph_t* g, int32_t x, int32_t y, uint32_t color) {
 	g->buffer[y * g->w + x] = color;
 }
 
+inline uint32_t graph_get_pixel(graph_t* g, int32_t x, int32_t y) {
+	return g->buffer[y * g->w + x];
+}
+
 inline void graph_pixel_safe(graph_t* g, int32_t x, int32_t y, uint32_t color) {
 	if(g == NULL)
 		return;
