@@ -132,6 +132,7 @@ int main(int argc, char** argv) {
 	root->add(powerInfo);
 
 	win.open(&x, 0, 0, 0, scr.size.w, 20, "", XWIN_STYLE_NO_FOCUS | XWIN_STYLE_SYSBOTTOM | XWIN_STYLE_NO_FRAME);
+	win.setAntiBGEffect(true);
 	win.setTimer(2);
 	widgetXRun(&x, &win);
 	return 0;

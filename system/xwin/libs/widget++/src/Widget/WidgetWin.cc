@@ -9,6 +9,7 @@ WidgetWin::WidgetWin() {
 	timerID = 0;
 	timerFPS = 1;
 	timerStep = 0;
+	antiBGEffect = false;
 	widgetRegWin(this);
 }
 
@@ -25,6 +26,10 @@ void WidgetWin::onRepaint(graph_t* g) {
 		return;
 
 	root->repaint(g, &theme);
+	if(!focused() && !antiBGEffect) {
+		graph_glass(g, 0, 0, g->w, g->h, 3);
+		graph_fill(g, 0, 0, g->w, g->h, 0x88000000);
+	}
 }
 
 void WidgetWin::onShow(void) {
@@ -36,6 +41,14 @@ void WidgetWin::onFocus(void) {
 	if(root == NULL)
 		return;
 	root->onFocus();
+	root->update();
+}
+
+void WidgetWin::onUnfocus(void) {
+	if(root == NULL)
+		return;
+	root->onUnfocus();
+	root->update();
 }
 
 void WidgetWin::onResize(void) {

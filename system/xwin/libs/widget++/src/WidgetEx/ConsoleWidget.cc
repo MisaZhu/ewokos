@@ -9,11 +9,16 @@ namespace Ewok {
 
 void ConsoleWidget::drawBG(graph_t* g, const grect_t& r) {
 	graph_set(g, r.x, r.y, r.w, r.h, terminal.bg_color);
+	RootWidget* root = getRoot();
 	if(color_a(terminal.bg_color) != 0xff) {
 		setAlpha(true);
-		RootWidget* root = getRoot();
 		if(root)
 			root->setAlpha(true);
+	}
+	else {
+		setAlpha(false);
+		if(root)
+			root->setAlpha(false);
 	}
 }
 

@@ -107,7 +107,7 @@ void graph_gradation(graph_t* graph, int x, int y, int w, int h, uint32_t c1, ui
 	}
 }
 
-void graph_glass(graph_t* g,int x, int y, int w, int h, int8_t r) {
+void graph_glass(graph_t* g, int x, int y, int w, int h, int8_t r) {
     if (g == NULL || r == 0) {
         return;
     }
@@ -125,38 +125,55 @@ void graph_glass(graph_t* g,int x, int y, int w, int h, int8_t r) {
         }
     }
 
-    // 盒模糊处理
+    // 分离的盒模糊：水平方向
+    uint32_t* temp = (uint32_t*)malloc(w * h * sizeof(uint32_t));
+    if (temp == NULL) {
+        free(buffer);
+        return;
+    }
+
     for (int iy = 0; iy < h; iy++) {
         for (int ix = 0; ix < w; ix++) {
             int sumR = 0, sumG = 0, sumB = 0, count = 0;
-
-            // 遍历模糊半径内的像素
-            for (int dy = -r; dy <= r; dy++) {
-                for (int dx = -r; dx <= r; dx++) {
-                    int nx = ix + dx;
-                    int ny = iy + dy;
-
-                    if (nx >= 0 && nx < w && ny >= 0 && ny < h) {
-                        uint32_t pixel = buffer[ny * w + nx];
-                        sumR += (pixel >> 16) & 0xff;
-                        sumG += (pixel >> 8) & 0xff;
-                        sumB += pixel & 0xff;
-                        count++;
-                    }
+            for (int dx = -r; dx <= r; dx++) {
+                int nx = ix + dx;
+                if (nx >= 0 && nx < w) {
+                    uint32_t pixel = buffer[iy * w + nx];
+                    sumR += (pixel >> 16) & 0xff;
+                    sumG += (pixel >> 8) & 0xff;
+                    sumB += pixel & 0xff;
+                    count++;
                 }
             }
-
-            // 计算平均值
             uint8_t avgR = sumR / count;
             uint8_t avgG = sumG / count;
             uint8_t avgB = sumB / count;
-            uint32_t newPixel = (0xff << 24) | (avgR << 16) | (avgG << 8) | avgB;
+            temp[iy * w + ix] = (0xff << 24) | (avgR << 16) | (avgG << 8) | avgB;
+        }
+    }
 
-            // 更新像素值
-            graph_pixel(g, x + ix, y + iy, newPixel);
+    // 分离的盒模糊：垂直方向
+    for (int iy = 0; iy < h; iy++) {
+        for (int ix = 0; ix < w; ix++) {
+            int sumR = 0, sumG = 0, sumB = 0, count = 0;
+            for (int dy = -r; dy <= r; dy++) {
+                int ny = iy + dy;
+                if (ny >= 0 && ny < h) {
+                    uint32_t pixel = temp[ny * w + ix];
+                    sumR += (pixel >> 16) & 0xff;
+                    sumG += (pixel >> 8) & 0xff;
+                    sumB += pixel & 0xff;
+                    count++;
+                }
+            }
+            uint8_t avgR = sumR / count;
+            uint8_t avgG = sumG / count;
+            uint8_t avgB = sumB / count;
+            graph_pixel(g, x + ix, y + iy, (0xff << 24) | (avgR << 16) | (avgG << 8) | avgB);
         }
     }
 
     // 释放缓冲区
     free(buffer);
+    free(temp);
 }

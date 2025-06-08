@@ -13,11 +13,13 @@ protected:
 	uint32_t timerStep;
 	RootWidget* root;
 	uint32_t timerID;
+	bool antiBGEffect;
 	void onRepaint(graph_t* g);
 	void onResize(void);
 	void onEvent(xevent_t* ev);
 	void onShow(void);
 	void onFocus(void);
+	void onUnfocus(void);
 	bool onClose();
 	virtual void onBuild();
 public:
@@ -30,6 +32,10 @@ public:
 	void setTimer(uint32_t fps);
 	void timerTask();
 	void doTimer();
+
+	void setAntiBGEffect(bool effect) {
+		antiBGEffect = effect;
+	}
 };
 
 }
