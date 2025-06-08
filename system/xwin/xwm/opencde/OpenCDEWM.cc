@@ -13,26 +13,34 @@ void OpenCDEWM::drawMin(graph_t* g, xinfo_t* info, grect_t* r, bool top) {
 	uint32_t fg, bg;
 	getColor(&fg, &bg, top);
 
-	graph_frame(g, r->x, r->y, r->w, r->h, 2, bg, true);
-	graph_frame(g, r->x+(r->w/2)-3, r->y+(r->h/2)-3, 6, 6, 2, bg, false);
+	uint32_t dark, bright;
+	graph_get_3d_color(bg, &dark, &bright);
+
+	graph_box_3d(g, r->x, r->y, r->w, r->h, bright, dark);
+	graph_box_3d(g, r->x+(r->w/2)-3, r->y+(r->h/2)-3, 6, 6, dark, bright);
 }
 
 void OpenCDEWM::drawMax(graph_t* g, xinfo_t* info, grect_t* r, bool top) {
 	(void)info;
 	uint32_t fg, bg;
 	getColor(&fg, &bg, top);
-	graph_frame(g, r->x, r->y, r->w, r->h, 2, bg, true);
-	graph_frame(g, r->x+3, r->y+3, r->w-6, r->h-6, 2, bg, false);
+	uint32_t dark, bright;
+	graph_get_3d_color(bg, &dark, &bright);
+
+	graph_box_3d(g, r->x, r->y, r->w, r->h, bright, dark);
+	graph_box_3d(g, r->x+3, r->y+3, r->w-6, r->h-6, dark, bright);
 }
 
 void OpenCDEWM::drawClose(graph_t* g, xinfo_t* info, grect_t* r, bool top) {
 	(void)info;
 	uint32_t fg, bg;
 	getColor(&fg, &bg, top);
+	uint32_t dark, bright;
+	graph_get_3d_color(bg, &dark, &bright);
 
-	graph_frame(g, r->x, r->y, r->w, r->h, 2, bg, true);
-	graph_frame(g, r->x+5, r->y+(r->h/2)-2,
-			r->w-10, 4, 2, bg, false);
+	graph_box_3d(g, r->x, r->y, r->w, r->h, bright, dark);
+	graph_box_3d(g, r->x+5, r->y+(r->h/2)-2,
+			r->w-10, 4, dark, bright);
 }
 
 void OpenCDEWM::drawDragFrame(graph_t* g, grect_t* r) {
@@ -101,7 +109,7 @@ void OpenCDEWM::drawTitle(graph_t* g, xinfo_t* info, grect_t* r, bool top) {
 	int ph = (r->h-sz.h)/2;
 
 	graph_fill(g, r->x, r->y, r->w, r->h, bg);
-	if(xwm.theme.alpha)
+	if(xwm.theme.alpha && color_a(bg) != 0xFF)
 		graph_glass(g, r->x, r->y, r->w, r->h, 2);
 
 	graph_draw_text_font(g, r->x+pw+1, r->y+ph+1, info->title, font, xwm.theme.fontSize, 0xff222222);//title
