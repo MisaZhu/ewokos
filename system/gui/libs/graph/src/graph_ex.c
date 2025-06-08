@@ -112,6 +112,14 @@ void graph_glass(graph_t* g, int x, int y, int w, int h, int8_t r) {
         return;
     }
 
+	grect_t ir = {x, y, w, h};
+	if(!graph_insect(g, &ir))
+		return;
+	x = ir.x;
+	y = ir.y;
+	w = ir.w;
+	h = ir.h;
+
     // 分配临时缓冲区
     uint32_t* buffer = (uint32_t*)malloc(w * h * sizeof(uint32_t));
     if (buffer == NULL) {

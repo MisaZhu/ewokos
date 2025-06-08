@@ -75,6 +75,7 @@ typedef struct {
 	bool is_main;
 	bool repaint_lazy;
 	bool alpha;
+	bool anti_bg_effect;
 	bool focused;
 	grect_t wsr; //workspace rect
 	grect_t winr; //window rect

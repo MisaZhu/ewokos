@@ -30,6 +30,7 @@ static int32_t read_config(x_t* x, const char* fname) {
 	x->config.fps = json_get_int_def(conf_var, "fps", 30);
 	x->config.bg_run = json_get_int_def(conf_var, "bg_run", 0);
 	x->config.gray_mode = json_get_int_def(conf_var, "gray_mode", 0);
+	x->config.bg_effect = json_get_int_def(conf_var, "bg_effect", 0);
 
 	const char* v = json_get_str_def(conf_var, "logo", "/usr/system/icons/xlogo.png");
 	x->config.logo = png_image_new(v);
@@ -164,25 +165,46 @@ static int draw_win(graph_t* disp_g, x_t* xp, xwin_t* win) {
 	uint32_t to = 0;
 	graph_t* g = win->g_buf;
 	if(g != NULL) {
-		if(win->xinfo->alpha) {
-			graph_blt_alpha(g, 0, 0, 
-					win->xinfo->wsr.w,
-					win->xinfo->wsr.h,
-					disp_g,
-					win->xinfo->wsr.x,
-					win->xinfo->wsr.y,
-					win->xinfo->wsr.w,
-					win->xinfo->wsr.h, 0xff);
+		if(win->xinfo->focused ||
+				win->xinfo->anti_bg_effect ||
+				!xp->config.bg_effect) {
+			if(win->xinfo->alpha) {
+				graph_blt_alpha(g, 0, 0, 
+						win->xinfo->wsr.w,
+						win->xinfo->wsr.h,
+						disp_g,
+						win->xinfo->wsr.x,
+						win->xinfo->wsr.y,
+						win->xinfo->wsr.w,
+						win->xinfo->wsr.h, 0xff);
+			}
+			else {
+				graph_blt(g, 0, 0, 
+						win->xinfo->wsr.w,
+						win->xinfo->wsr.h,
+						disp_g,
+						win->xinfo->wsr.x,
+						win->xinfo->wsr.y,
+						win->xinfo->wsr.w,
+						win->xinfo->wsr.h);
+			}
 		}
 		else {
-			graph_blt(g, 0, 0, 
-					win->xinfo->wsr.w,
-					win->xinfo->wsr.h,
-					disp_g,
-					win->xinfo->wsr.x,
-					win->xinfo->wsr.y,
-					win->xinfo->wsr.w,
-					win->xinfo->wsr.h);
+			graph_blt_alpha(g, 0, 0, 
+				win->xinfo->wsr.w,
+				win->xinfo->wsr.h,
+				disp_g,
+				win->xinfo->wsr.x,
+				win->xinfo->wsr.y,
+				win->xinfo->wsr.w,
+				win->xinfo->wsr.h, 0x88);
+
+			/*graph_glass(disp_g, 
+				win->xinfo->wsr.x,
+				win->xinfo->wsr.y,
+				win->xinfo->wsr.w,
+				win->xinfo->wsr.h, 2);
+				*/
 		}
 	}
 

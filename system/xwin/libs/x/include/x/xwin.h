@@ -39,6 +39,7 @@ void     xwin_destroy(xwin_t* xwin);
 int      xwin_set_visible(xwin_t* xwin, bool visible);
 int      xwin_top(xwin_t* xwin);
 void     xwin_set_alpha(xwin_t* xwin, bool alpha);
+void     xwin_set_anti_bg_effect(xwin_t* xwin, bool anti_bg_effect);
 void     xwin_repaint(xwin_t* xwin);
 graph_t* xwin_fetch_graph(xwin_t* xwin, graph_t* g);
 //void     xwin_repaint_req(xwin_t* xwin);

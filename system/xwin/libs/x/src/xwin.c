@@ -119,7 +119,6 @@ xwin_t* xwin_open(x_t* xp, uint32_t disp_index, int x, int y, int w, int h, cons
 	memcpy(&ret->xinfo->wsr, &r, sizeof(grect_t));
 	strncpy(ret->xinfo->title, title, XWIN_TITLE_MAX-1);
 
-
 	const char* auto_max = getenv("X_AUTO_MAX");
 	if(auto_max != NULL &&
 			(style & XWIN_STYLE_NO_TITLE) == 0 &&
@@ -340,6 +339,12 @@ void xwin_set_alpha(xwin_t* xwin, bool alpha) {
 	if(xwin->xinfo == NULL)
 		return;
 	xwin->xinfo->alpha = alpha;
+}
+
+void xwin_set_anti_bg_effect(xwin_t* xwin, bool anti_bg_effect) {
+	if(xwin->xinfo == NULL)
+		return;
+	xwin->xinfo->anti_bg_effect = anti_bg_effect;
 }
 
 int xwin_set_visible(xwin_t* xwin, bool visible) {

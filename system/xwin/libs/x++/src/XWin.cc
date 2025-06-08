@@ -170,6 +170,12 @@ bool XWin::setVisible(bool visible) {
 	return true;
 }
 
+void XWin::setAntiBGEffect(bool antiBGEffect) {
+	if(xwin == NULL)
+		return;
+	xwin_set_anti_bg_effect(xwin, antiBGEffect);
+}
+
 void XWin::setAlpha(bool alpha) {
 	if(xwin == NULL)
 		return;
