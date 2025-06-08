@@ -1,5 +1,5 @@
 ifeq ($(ARCH),)
-ARCH = arm
+ARCH = aarch64
 endif
 
 #-----raspberry arm config----------
