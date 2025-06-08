@@ -282,12 +282,14 @@ int xwin_event_handle(xwin_t* xwin, xevent_t* ev) {
 		else {
 			if(xwin->on_focus)
 				xwin->on_focus(xwin);
+			xwin->xinfo->focused = true;
 		}
 	}
 	else if(ev->value.window.event == XEVT_WIN_UNFOCUS) {
 		if(xwin->on_unfocus) {
 			xwin->on_unfocus(xwin);
 		}
+		xwin->xinfo->focused = false;
 	}
 	else if(ev->value.window.event == XEVT_WIN_REORG) {
 		if(xwin->on_reorg) {

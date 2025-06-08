@@ -135,10 +135,12 @@ void graph_glass(graph_t* g, int x, int y, int w, int h, int8_t r) {
     for (int iy = 0; iy < h; iy++) {
         for (int ix = 0; ix < w; ix++) {
             int sumR = 0, sumG = 0, sumB = 0, count = 0;
+			uint8_t alpha = 0xFF;
             for (int dx = -r; dx <= r; dx++) {
                 int nx = ix + dx;
                 if (nx >= 0 && nx < w) {
                     uint32_t pixel = buffer[iy * w + nx];
+                    alpha = (pixel >> 24) & 0xff;
                     sumR += (pixel >> 16) & 0xff;
                     sumG += (pixel >> 8) & 0xff;
                     sumB += pixel & 0xff;
@@ -148,7 +150,7 @@ void graph_glass(graph_t* g, int x, int y, int w, int h, int8_t r) {
             uint8_t avgR = sumR / count;
             uint8_t avgG = sumG / count;
             uint8_t avgB = sumB / count;
-            temp[iy * w + ix] = (0xff << 24) | (avgR << 16) | (avgG << 8) | avgB;
+            temp[iy * w + ix] = (alpha << 24) | (avgR << 16) | (avgG << 8) | avgB;
         }
     }
 
@@ -156,10 +158,12 @@ void graph_glass(graph_t* g, int x, int y, int w, int h, int8_t r) {
     for (int iy = 0; iy < h; iy++) {
         for (int ix = 0; ix < w; ix++) {
             int sumR = 0, sumG = 0, sumB = 0, count = 0;
+			uint8_t alpha = 0xFF;
             for (int dy = -r; dy <= r; dy++) {
                 int ny = iy + dy;
                 if (ny >= 0 && ny < h) {
                     uint32_t pixel = temp[ny * w + ix];
+                    alpha = (pixel >> 24) & 0xff;
                     sumR += (pixel >> 16) & 0xff;
                     sumG += (pixel >> 8) & 0xff;
                     sumB += pixel & 0xff;
@@ -169,7 +173,7 @@ void graph_glass(graph_t* g, int x, int y, int w, int h, int8_t r) {
             uint8_t avgR = sumR / count;
             uint8_t avgG = sumG / count;
             uint8_t avgB = sumB / count;
-            graph_pixel(g, x + ix, y + iy, (0xff << 24) | (avgR << 16) | (avgG << 8) | avgB);
+            graph_pixel(g, x + ix, y + iy, (alpha << 24) | (avgR << 16) | (avgG << 8) | avgB);
         }
     }
 

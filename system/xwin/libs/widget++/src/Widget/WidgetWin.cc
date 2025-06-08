@@ -26,9 +26,9 @@ void WidgetWin::onRepaint(graph_t* g) {
 		return;
 
 	root->repaint(g, &theme);
-	if(!focused() && !antiBGEffect) {
+	if(!focused() && !antiBGEffect && getTheme()->basic.bgEffect) {
 		graph_glass(g, 0, 0, g->w, g->h, 3);
-		graph_fill(g, 0, 0, g->w, g->h, 0x88000000);
+		graph_fill(g, 0, 0, g->w, g->h, 0x44000000);
 	}
 }
 

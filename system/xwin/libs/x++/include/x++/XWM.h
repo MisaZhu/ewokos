@@ -45,7 +45,9 @@ public:
 	inline void __getTitle(xinfo_t* info, grect_t* r) { getTitle(info, r); }
 	inline void __getResize(xinfo_t* info, grect_t* r) { getResize(info, r); }
 	inline void __drawDesktop(graph_t* g) { drawDesktop(g); }
-	inline void __drawTitle(graph_t* g, xinfo_t* info, grect_t* r, bool top) {drawTitle(g, info, r, top);}
+
+	void __drawTitle(graph_t* g, xinfo_t* info, grect_t* r, bool top);
+
 	inline void __drawMax(graph_t* g, xinfo_t* info, grect_t* r, bool top) {drawMax(g, info, r, top);}
 	inline void __drawMin(graph_t* g, xinfo_t* info, grect_t* r, bool top) {drawMin(g, info, r, top);}
 	inline void __drawClose(graph_t* g, xinfo_t* info, grect_t* r, bool top) {drawClose(g, info, r, top);}

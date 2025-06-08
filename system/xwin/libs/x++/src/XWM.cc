@@ -235,6 +235,13 @@ static void draw_desktop(graph_t* g, void* p) {
 	((XWM*)p)->__drawDesktop(g);
 }
 
+void XWM::__drawTitle(graph_t* g, xinfo_t* info, grect_t* r, bool top) {
+	drawTitle(g, info, r, top);
+	if(!top && xwm.theme.bgEffect) {
+		graph_glass(g, r->x, r->y, r->w, r->h, 3);
+	}
+}
+
 void XWM::getColor(uint32_t *fg, uint32_t* bg, bool top) {
 	if(top) {
 		*fg = xwm.theme.fgTopColor;

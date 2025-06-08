@@ -22,6 +22,8 @@
     "widget_color": "0xffdddddd",
     "widget_bg_color": "0xffa39389",
 
+    "bg_effect": 1,
+
     "font": "system",
     "font_size": 12
 }

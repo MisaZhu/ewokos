@@ -42,6 +42,8 @@ typedef struct {
 
 	uint32_t widgetFGColor;
 	uint32_t widgetBGColor;
+
+	bool     bgEffect;
 } x_theme_t;
 
 typedef struct {
@@ -56,6 +58,7 @@ typedef struct {
 	uint32_t fgTopColor;
 	uint32_t desktopFGColor;
 	uint32_t desktopBGColor;
+	bool     bgEffect;
 } xwm_theme_t;
 
 #ifdef __cplusplus
