@@ -12,7 +12,7 @@
     "title_h": 20,
     "frame_width": 4,
 
-    "bg_effect": 1,
+    "bg_effect": 0,
 
     "pattern": "/usr/system/images/patterns/pattern.png"
 }
