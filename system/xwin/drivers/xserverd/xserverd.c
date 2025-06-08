@@ -678,12 +678,22 @@ static void mark_dirty(x_t* x, xwin_t* win) {
 		while(top != NULL) {
 			grect_t r;
 			if(top->xinfo->visible) {
-				memcpy(&r, &top->xinfo->winr, sizeof(grect_t));
-				grect_insect(&win->xinfo->wsr, &r);
-				if(r.x == win->xinfo->wsr.x &&
-						r.y == win->xinfo->wsr.y &&
-						r.w == win->xinfo->wsr.w &&
-						r.h == win->xinfo->wsr.h &&
+				if(x->config.xwm_theme.alpha)
+					memcpy(&r, &top->xinfo->wsr, sizeof(grect_t));
+				else
+					memcpy(&r, &top->xinfo->winr, sizeof(grect_t));
+
+				grect_t *check_r;
+				if(x->config.xwm_theme.alpha)
+					check_r = &win->xinfo->winr;
+				else
+					check_r = &win->xinfo->wsr;
+
+				grect_insect(check_r, &r);
+				if(r.x == check_r->x &&
+						r.y == check_r->y &&
+						r.w == check_r->w &&
+						r.h == check_r->h &&
 						!top->xinfo->alpha) { 
 					//covered by upon window. don't have to repaint.
 					win->dirty = false;
@@ -764,6 +774,8 @@ static int x_update(int fd, int from_pid, x_t* x) {
 	win->dirty = true;
 
 	mark_dirty(x, win);
+	if(win->dirty && x->config.xwm_theme.alpha)
+		x_dirty(x, win->xinfo->display_index);
 	x_repaint_req(x, win->xinfo->display_index);
 	return 0;
 }
