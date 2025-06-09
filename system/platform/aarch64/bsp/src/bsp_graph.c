@@ -132,8 +132,8 @@ static inline void neon_fill_store_16(uint32_t *d)
 static inline void graph_pixel_argb_neon(graph_t *graph, int32_t x, int32_t y,
 								  uint32_t *src, int size, uint8_t alpha_more)
 {
-	uint32_t fg[16];
-	uint32_t bg[16];
+	uint32_t fg[16] = {0};
+	uint32_t bg[16] = {0};
 	uint32_t *dst = &graph->buffer[y * graph->w + x];
 
 	if (size >= 16)
@@ -165,7 +165,7 @@ static inline void graph_pixel_neon(graph_t *graph, int32_t x, int32_t y,
 }
 
 void graph_fill_bsp(graph_t* g, int32_t x, int32_t y, int32_t w, int32_t h, uint32_t color) {
-	uint32_t buf[16];
+	uint32_t buf[16] = {0};
 
 	if(g == NULL || w <= 0 || h <= 0)
 		return;
@@ -185,7 +185,7 @@ void graph_fill_bsp(graph_t* g, int32_t x, int32_t y, int32_t w, int32_t h, uint
 		neon_fill_load_16(buf);
 		for(; y < ey; y++) {
 			x = r.x;
-			for(; x < ex; x+=8) {
+			for(; x < ex; x+=16) {
 				uint32_t *dst = &g->buffer[y * g->w + x];
 				int pixels = ex -x;
 				if(pixels >= 16)

@@ -16,15 +16,14 @@ static inline void neon_alpha_8(uint32_t *b, uint32_t *f, uint32_t *d, uint8_t a
 	__asm volatile(
 		"vld4.8    {d20-d23},[%1]\n\t" // 加载前景色(R,G,B,A)
 		
-		// 将alpha_more加载到d31
-		"vmov.u8	d31, %3\n\t"
+		// 新增：将alpha_more加载到d31并计算叠加alpha
+		"mov        r3, %3\n\t"       // 加载alpha_more
+		"vdup.u8    d31, r3\n\t"
+
+		"vmull.u8   q0, d23, d31\n\t"  // alpha * alpha_more
+		"vshr.u16   q0, q0, #8\n\t"    // 除以256
+		"vmovn.u16  d23, q0\n\t"       // 窄化到8位
 		
-		// 计算叠加后的alpha: alpha = alpha * alpha_more / 255
-		"vmull.u8	q0, d23, d31\n\t"  // alpha * alpha_more
-		"vshr.u16	q0, q0, #8\n\t"    // 除以256
-		"vmovn.u16	d23, q0\n\t"       // 窄化到8位
-		
-		// 后续处理(保持原有代码不变)
 		"vmov.u8	d28, 0xff\n\t"
 		"vsub.u8	d28, d28, d23\n\t"
 		"vmull.u8  q1,d20,d23\n\t"
