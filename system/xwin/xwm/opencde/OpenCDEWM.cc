@@ -72,6 +72,44 @@ void OpenCDEWM::drawResize(graph_t* g, xinfo_t* info, grect_t* r, bool top) {
 			r->x + 1, r->y + r->h, bright);
 }
 
+enum {
+    BG_EFFECT_NONE = 0,
+    BG_EFFECT_TRANSPARENT,
+    BG_EFFECT_DOT,
+    BG_EFFECT_GLASS
+};
+
+void OpenCDEWM::drawBGEffect(graph_t* graph, xinfo_t* info, bool top) {
+	if(top || info->anti_bg_effect || xwm.theme.bgEffect == BG_EFFECT_NONE)
+		return;
+	graph_t win_g;
+
+	if(!fetchWinGraph(info, &win_g))
+		return;
+	graph_blt_alpha(&win_g, 0, 0, 
+		info->wsr.w,
+		info->wsr.h,
+		graph,
+		info->wsr.x,
+		info->wsr.y,
+		info->wsr.w,
+		info->wsr.h, 0x88);
+	freeWinGraph(&win_g);
+
+	switch(xwm.theme.bgEffect) {
+		case BG_EFFECT_TRANSPARENT:
+			return;
+		case BG_EFFECT_DOT:
+			graph_draw_dot_pattern(graph, 
+				info->wsr.x, info->wsr.y, info->wsr.w, info->wsr.h,
+				0x88ffffff, 0x88000000, 1);	
+			return;
+		case BG_EFFECT_GLASS:
+			graph_glass(graph, info->wsr.x, info->wsr.y, info->wsr.w, info->wsr.h, 2);
+			return;
+	}
+}
+
 void OpenCDEWM::drawFrame(graph_t* graph, xinfo_t* info, bool top) {
 	uint32_t fg, bg;
 	getColor(&fg, &bg, top);
@@ -87,12 +125,6 @@ void OpenCDEWM::drawFrame(graph_t* graph, xinfo_t* info, bool top) {
 	}
 
 	graph_frame(graph, x-xwm.theme.frameW, y-xwm.theme.frameW, w+xwm.theme.frameW*2, h+xwm.theme.frameW*2, xwm.theme.frameW, bg, false);
-	//shadow
-	/*if(top) {
-		graph_fill(graph, x+w+frameW, y, frameW, h+frameW, 0xaa000000);
-		graph_fill(graph, x, y+h+frameW, w+frameW*2, frameW, 0xaa000000);
-	}
-	*/
 }
 
 void OpenCDEWM::drawTitle(graph_t* g, xinfo_t* info, grect_t* r, bool top) {

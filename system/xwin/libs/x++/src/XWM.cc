@@ -9,6 +9,7 @@
 #include <unistd.h>
 #include <ewoksys/vdevice.h>
 #include <ewoksys/klog.h>
+#include <sys/shm.h>
 
 using namespace Ewok;
 
@@ -26,6 +27,27 @@ void XWM::getWinSpace(int style, grect_t* xr, grect_t* winr) {
 
 static void get_win_space(int style, grect_t* xr, grect_t* winr, void* p) {
 	((XWM*)p)->__getWinSpace(style, xr, winr);
+}
+
+void XWM::freeWinGraph(graph_t* g) {
+	if(g == NULL || g->buffer == NULL)
+		return;
+	shmdt((void*)g->buffer);
+}
+
+bool XWM::fetchWinGraph(xinfo_t* info, graph_t* g) {
+	if(info == NULL || info->g_shm_id == -1)
+		return false;
+	memset(g, 0, sizeof(graph_t));
+
+	uint32_t* g_shm = (uint32_t*)shmat(info->g_shm_id, 0, 0);
+	if(g_shm == NULL)
+		return false;
+	g->buffer = g_shm;
+	g->w = info->wsr.w;
+	g->h = info->wsr.h;
+	g->need_free = false;
+	return true;
 }
 
 void XWM::getTitle(xinfo_t* info, grect_t* rect) {

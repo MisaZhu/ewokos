@@ -17,6 +17,8 @@ protected:
 	void drawClose(graph_t* g, xinfo_t* info, grect_t* r, bool top);
 	void drawFrame(graph_t* g, xinfo_t* info, bool top);
 	void drawTitle(graph_t* g, xinfo_t* info, grect_t* r, bool top);
+
+	void drawBGEffect(graph_t* graph, xinfo_t* info, bool top);
 public:
 	OpenCDEWM(void);
 	~OpenCDEWM(void);

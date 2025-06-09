@@ -34,6 +34,9 @@ protected:
 	virtual void drawFrame(graph_t* g, xinfo_t* info, bool top);
 	virtual void drawDragFrame(graph_t* g, grect_t* r);
 	virtual void onLoadTheme(void) { }
+	virtual bool fetchWinGraph(xinfo_t* info, graph_t* g);
+	virtual void freeWinGraph(graph_t* g);
+	virtual void drawBGEffect(graph_t* g, xinfo_t* info, bool top) { };
 
 	void updateTheme(void);
 public:
@@ -52,7 +55,7 @@ public:
 	inline void __drawMin(graph_t* g, xinfo_t* info, grect_t* r, bool top) {drawMin(g, info, r, top);}
 	inline void __drawClose(graph_t* g, xinfo_t* info, grect_t* r, bool top) {drawClose(g, info, r, top);}
 	inline void __drawResize(graph_t* g, xinfo_t* info, grect_t* r, bool top) {drawResize(g, info, r, top); }
-	inline void __drawFrame(graph_t* g, xinfo_t* info, bool top) {drawFrame(g, info, top); }
+	inline void __drawFrame(graph_t* g, xinfo_t* info, bool top) { drawBGEffect(g, info, top); drawFrame(g, info, top); }
 	inline void __drawDragFrame(graph_t* g, grect_t* r) {drawDragFrame(g, r); }
 
 	XWM(void);

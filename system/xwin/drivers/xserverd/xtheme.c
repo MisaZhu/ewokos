@@ -76,6 +76,7 @@ int x_load_xwm_theme(const char* name, xwm_theme_t* theme) {
 	memset(theme->patternName, 0, THEME_NAME_MAX);
 	strncpy(theme->patternName, v, THEME_NAME_MAX-1);
 
+	theme->bgEffect = json_get_int_def(conf_var, "bg_effect", 0);
 	theme->alpha = json_get_int_def(conf_var, "alpha", 0);
 
 	if(conf_var != NULL)

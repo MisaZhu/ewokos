@@ -20,7 +20,6 @@
 #include <display/display.h>
 #include "xserver.h"
 #include "xtheme.h"
-#include "bgeffect.h"
 
 static int32_t read_config(x_t* x, const char* fname) {
 	x->config.fps = 60;
@@ -31,7 +30,6 @@ static int32_t read_config(x_t* x, const char* fname) {
 	x->config.fps = json_get_int_def(conf_var, "fps", 30);
 	x->config.bg_run = json_get_int_def(conf_var, "bg_run", 0);
 	x->config.gray_mode = json_get_int_def(conf_var, "gray_mode", 0);
-	x->config.bg_effect = json_get_int_def(conf_var, "bg_effect", 0);
 
 	const char* v = json_get_str_def(conf_var, "logo", "/usr/system/icons/xlogo.png");
 	x->config.logo = png_image_new(v);
@@ -168,7 +166,7 @@ static int draw_win(graph_t* disp_g, x_t* xp, xwin_t* win) {
 	if(g != NULL) {
 		if(win->xinfo->focused ||
 				win->xinfo->anti_bg_effect ||
-				xp->config.bg_effect == BG_EFFECT_NONE) {
+				xp->config.xwm_theme.bgEffect == 0) {
 			if(win->xinfo->alpha) {
 				graph_blt_alpha(g, 0, 0, 
 						win->xinfo->wsr.w,
@@ -191,7 +189,14 @@ static int draw_win(graph_t* disp_g, x_t* xp, xwin_t* win) {
 			}
 		}
 		else {
-			x_bg_effect(disp_g, win, xp->config.bg_effect);
+			graph_blt_alpha(g, 0, 0, 
+				win->xinfo->wsr.w,
+				win->xinfo->wsr.h,
+				disp_g,
+				win->xinfo->wsr.x,
+				win->xinfo->wsr.y,
+				win->xinfo->wsr.w,
+				win->xinfo->wsr.h, 0x88);
 		}
 	}
 
@@ -786,8 +791,7 @@ static int x_update(int fd, int from_pid, x_t* x) {
 
 	mark_dirty(x, win);
 	if(win->dirty) {
-			if(x->config.bg_effect != BG_EFFECT_NONE ||
-				(x->config.xwm_theme.alpha && (win->xinfo->style & XWIN_STYLE_NO_FRAME) == 0)) {
+		if(x->config.xwm_theme.bgEffect != 0 || (x->config.xwm_theme.alpha && (win->xinfo->style & XWIN_STYLE_NO_FRAME) == 0)) {
 			x_dirty(x, win->xinfo->display_index);
 		}
 	}

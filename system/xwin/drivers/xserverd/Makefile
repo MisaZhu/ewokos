@@ -12,7 +12,6 @@ XSERVERD_OBJS = xserverd.o \
 	cursor.o \
 	xevtpool.o \
 	xcmd.o \
-	bgeffect.o \
 	xtheme.o
 
 XSERVERD = $(TARGET_DIR)/drivers/xserverd

@@ -5,6 +5,5 @@
     "#cursor": "none",
     "##cursor": "touch",
     "logo": "/usr/system/icons/xlogo.png",
-    "gray_mode": 0,
-    "bg_effect": 1
+    "gray_mode": 0
 }
