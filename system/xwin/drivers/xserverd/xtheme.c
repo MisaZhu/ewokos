@@ -44,7 +44,6 @@ int x_load_theme(const char* name, x_theme_t* theme) {
 
 	theme->widgetFGColor = json_get_int_def(conf_var, "widget_color", 0xff000000);
 	theme->widgetBGColor = json_get_int_def(conf_var, "widget_bg_color", 0xffffffff);
-	theme->bgEffect = json_get_int_def(conf_var, "bg_effect", 0);
 
 	if(conf_var != NULL)
 		json_var_unref(conf_var);
@@ -77,7 +76,6 @@ int x_load_xwm_theme(const char* name, xwm_theme_t* theme) {
 	memset(theme->patternName, 0, THEME_NAME_MAX);
 	strncpy(theme->patternName, v, THEME_NAME_MAX-1);
 
-	theme->bgEffect = json_get_int_def(conf_var, "bg_effect", 0);
 	theme->alpha = json_get_int_def(conf_var, "alpha", 0);
 
 	if(conf_var != NULL)

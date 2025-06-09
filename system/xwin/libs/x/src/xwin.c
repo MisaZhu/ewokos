@@ -195,14 +195,14 @@ graph_t* xwin_fetch_graph(xwin_t* xwin, graph_t* g) {
 
 void xwin_repaint(xwin_t* xwin) {
 	pthread_mutex_lock(&xwin->painting_lock);
-	if(!xwin->xinfo->repaint_lazy) {
+	if(!xwin->xinfo->covered) {
 		graph_t g;
 		if(xwin_fetch_graph(xwin, &g) != NULL) {
 			if(xwin->on_repaint != NULL)
 				xwin->on_repaint(xwin, &g);
 		}
+		vfs_fcntl_wait(xwin->fd, XWIN_CNTL_UPDATE, NULL);
 	}	
-	vfs_fcntl_wait(xwin->fd, XWIN_CNTL_UPDATE, NULL);
 	pthread_mutex_unlock(&xwin->painting_lock);
 }
 

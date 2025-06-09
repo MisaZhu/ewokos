@@ -73,7 +73,7 @@ typedef struct {
 	uint32_t state;
 	bool visible;
 	bool is_main;
-	bool repaint_lazy;
+	bool covered;
 	bool alpha;
 	bool anti_bg_effect;
 	bool focused;

@@ -107,54 +107,43 @@ void graph_gradation(graph_t* graph, int x, int y, int w, int h, uint32_t c1, ui
 	}
 }
 
-void graph_glass(graph_t* g, int x, int y, int w, int h, int8_t r) {
-    if (g == NULL || r == 0) {
+void graph_glass_cpu(graph_t* g, int x, int y, int w, int h, int8_t r) {
+    if (g == NULL || r <= 0) {
         return;
     }
 
-	grect_t ir = {x, y, w, h};
-	if(!graph_insect(g, &ir))
-		return;
-	x = ir.x;
-	y = ir.y;
-	w = ir.w;
-	h = ir.h;
-
-    // 分配临时缓冲区
-	uint32_t sz = w * h * sizeof(uint32_t);
-    uint32_t* buffer = (uint32_t*)malloc(sz);
-    if (buffer == NULL) {
+    grect_t ir = {x, y, w, h};
+    if(!graph_insect(g, &ir))
+        return;
+    
+    x = ir.x;
+    y = ir.y;
+    w = ir.w;
+    h = ir.h;
+    
+    // 分配临时缓冲区 (只需要一行大小)
+    uint32_t* line_buffer = (uint32_t*)malloc(w * sizeof(uint32_t));
+    if (line_buffer == NULL) {
         return;
     }
-
-	if(ir.x == 0 && ir.y == 0 && ir.w == g->w && ir.h == g->h) {
-		memcpy(buffer, g->buffer, sz);
-	}
-	else {
-		for (int iy = 0; iy < h; iy++) {
-			int off = iy*w;
-			for (int ix = 0; ix < w; ix++) {
-				buffer[off + ix] = graph_get_pixel(g, x + ix, y + iy);
-			}
-		}
-	}
-
-    // 分离的盒模糊：水平方向
-    uint32_t* temp = (uint32_t*)malloc(w * h * sizeof(uint32_t));
-    if (temp == NULL) {
-        free(buffer);
-        return;
-    }
-
+    
+    // 预计算左右边界的偏移量，避免重复计算
+    int left_bound = r;
+    int right_bound = w - r;
+    
+    // 水平模糊并存储结果到line_buffer
     for (int iy = 0; iy < h; iy++) {
-		int off = iy*w;
-        for (int ix = 0; ix < w; ix++) {
+        int src_y = y + iy;
+        
+        // 处理左边界区域
+        for (int ix = 0; ix < left_bound; ix++) {
             int sumR = 0, sumG = 0, sumB = 0, count = 0;
-			uint8_t alpha = 0xFF;
+            uint8_t alpha = 0xFF;
+            
             for (int dx = -r; dx <= r; dx++) {
                 int nx = ix + dx;
                 if (nx >= 0 && nx < w) {
-                    uint32_t pixel = buffer[off + nx];
+                    uint32_t pixel = graph_get_pixel(g, x + nx, src_y);
                     alpha = (pixel >> 24) & 0xff;
                     sumR += (pixel >> 16) & 0xff;
                     sumG += (pixel >> 8) & 0xff;
@@ -162,22 +151,42 @@ void graph_glass(graph_t* g, int x, int y, int w, int h, int8_t r) {
                     count++;
                 }
             }
+            
             uint8_t avgR = sumR / count;
             uint8_t avgG = sumG / count;
             uint8_t avgB = sumB / count;
-            temp[off + ix] = (alpha << 24) | (avgR << 16) | (avgG << 8) | avgB;
+            line_buffer[ix] = (alpha << 24) | (avgR << 16) | (avgG << 8) | avgB;
         }
-    }
-
-    // 分离的盒模糊：垂直方向
-    for (int iy = 0; iy < h; iy++) {
-        for (int ix = 0; ix < w; ix++) {
+        
+        // 处理中间区域 (使用滑动窗口优化)
+        for (int ix = left_bound; ix < right_bound; ix++) {
+            int sumR = 0, sumG = 0, sumB = 0;
+            uint8_t alpha = 0xFF;
+            
+            // 初始化窗口
+            for (int dx = -r; dx <= r; dx++) {
+                uint32_t pixel = graph_get_pixel(g, x + ix + dx, src_y);
+                alpha = (pixel >> 24) & 0xff;
+                sumR += (pixel >> 16) & 0xff;
+                sumG += (pixel >> 8) & 0xff;
+                sumB += pixel & 0xff;
+            }
+            
+            uint8_t avgR = sumR / (2 * r + 1);
+            uint8_t avgG = sumG / (2 * r + 1);
+            uint8_t avgB = sumB / (2 * r + 1);
+            line_buffer[ix] = (alpha << 24) | (avgR << 16) | (avgG << 8) | avgB;
+        }
+        
+        // 处理右边界区域
+        for (int ix = right_bound; ix < w; ix++) {
             int sumR = 0, sumG = 0, sumB = 0, count = 0;
-			uint8_t alpha = 0xFF;
-            for (int dy = -r; dy <= r; dy++) {
-                int ny = iy + dy;
-                if (ny >= 0 && ny < h) {
-                    uint32_t pixel = temp[ny * w + ix];
+            uint8_t alpha = 0xFF;
+            
+            for (int dx = -r; dx <= r; dx++) {
+                int nx = ix + dx;
+                if (nx >= 0 && nx < w) {
+                    uint32_t pixel = graph_get_pixel(g, x + nx, src_y);
                     alpha = (pixel >> 24) & 0xff;
                     sumR += (pixel >> 16) & 0xff;
                     sumG += (pixel >> 8) & 0xff;
@@ -185,14 +194,49 @@ void graph_glass(graph_t* g, int x, int y, int w, int h, int8_t r) {
                     count++;
                 }
             }
+            
+            uint8_t avgR = sumR / count;
+            uint8_t avgG = sumG / count;
+            uint8_t avgB = sumB / count;
+            line_buffer[ix] = (alpha << 24) | (avgR << 16) | (avgG << 8) | avgB;
+        }
+        
+        // 垂直模糊并直接应用到原图
+        for (int ix = 0; ix < w; ix++) {
+            int sumR = 0, sumG = 0, sumB = 0, count = 0;
+            uint8_t alpha = 0xFF;
+            
+            for (int dy = -r; dy <= r; dy++) {
+                int ny = iy + dy;
+                if (ny >= 0 && ny < h) {
+                    uint32_t pixel;
+                    if (dy == 0) {
+                        // 当前行已经在line_buffer中
+                        pixel = line_buffer[ix];
+                    } else {
+                        // 其他行需要重新获取
+                        pixel = graph_get_pixel(g, x + ix, y + ny);
+                    }
+                    
+                    alpha = (pixel >> 24) & 0xff;
+                    sumR += (pixel >> 16) & 0xff;
+                    sumG += (pixel >> 8) & 0xff;
+                    sumB += pixel & 0xff;
+                    count++;
+                }
+            }
+            
             uint8_t avgR = sumR / count;
             uint8_t avgG = sumG / count;
             uint8_t avgB = sumB / count;
             graph_pixel(g, x + ix, y + iy, (alpha << 24) | (avgR << 16) | (avgG << 8) | avgB);
         }
     }
-
+    
     // 释放缓冲区
-    free(buffer);
-    free(temp);
+    free(line_buffer);
+}
+
+void graph_glass(graph_t* g, int x, int y, int w, int h, int8_t r) {
+    graph_glass_bsp(g, x, y, w, h, r);
 }

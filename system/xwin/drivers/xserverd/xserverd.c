@@ -20,6 +20,7 @@
 #include <display/display.h>
 #include "xserver.h"
 #include "xtheme.h"
+#include "bgeffect.h"
 
 static int32_t read_config(x_t* x, const char* fname) {
 	x->config.fps = 60;
@@ -167,7 +168,7 @@ static int draw_win(graph_t* disp_g, x_t* xp, xwin_t* win) {
 	if(g != NULL) {
 		if(win->xinfo->focused ||
 				win->xinfo->anti_bg_effect ||
-				xp->config.bg_effect == 0) {
+				xp->config.bg_effect == BG_EFFECT_NONE) {
 			if(win->xinfo->alpha) {
 				graph_blt_alpha(g, 0, 0, 
 						win->xinfo->wsr.w,
@@ -190,22 +191,7 @@ static int draw_win(graph_t* disp_g, x_t* xp, xwin_t* win) {
 			}
 		}
 		else {
-			graph_blt_alpha(g, 0, 0, 
-				win->xinfo->wsr.w,
-				win->xinfo->wsr.h,
-				disp_g,
-				win->xinfo->wsr.x,
-				win->xinfo->wsr.y,
-				win->xinfo->wsr.w,
-				win->xinfo->wsr.h, 0x88);
-
-			if(xp->config.bg_effect == 2) {
-				graph_glass(disp_g, 
-					win->xinfo->wsr.x,
-					win->xinfo->wsr.y,
-					win->xinfo->wsr.w,
-					win->xinfo->wsr.h, 2);
-			}
+			x_bg_effect(disp_g, win, xp->config.bg_effect);
 		}
 	}
 
@@ -237,7 +223,7 @@ static inline void x_dirty(x_t* x, int32_t display_index) {
 static void remove_win(x_t* x, xwin_t* win) {
 	xwin_t* prev = win->prev;
 	while(prev != NULL) {
-		prev->xinfo->repaint_lazy = false;
+		prev->xinfo->covered = false;
 		prev = prev->prev;
 	}
 
@@ -604,9 +590,11 @@ static void x_repaint(x_t* x, uint32_t display_index) {
 	xwin_t* win = x->win_head;
 	while(win != NULL) {
 		if(win->xinfo->visible && win->xinfo->display_index == display_index) {
-			if(display->dirty || win->dirty) {
-				if(draw_win(display->g, x, win) == 0) {
-					do_flush = true;
+			if(!win->xinfo->covered) {
+				if(display->dirty || win->dirty) {
+					if(draw_win(display->g, x, win) == 0) {
+						do_flush = true;
+					}
 				}
 			}
 		}
@@ -696,7 +684,7 @@ static void mark_dirty(x_t* x, xwin_t* win) {
 	xwin_t* win_next = win->next;
 
 	if(win->xinfo->visible && win->dirty) {
-		win->xinfo->repaint_lazy = false;
+		win->xinfo->covered = false;
 		xwin_t* top = win->next;
 		while(top != NULL) {
 			grect_t r;
@@ -720,7 +708,7 @@ static void mark_dirty(x_t* x, xwin_t* win) {
 						!top->xinfo->alpha) { 
 					//covered by upon window. don't have to repaint.
 					win->dirty = false;
-					win->xinfo->repaint_lazy = true;
+					win->xinfo->covered = true;
 					unmark_dirty(x, win);//unmark temporary dirty top win
 					return;
 				}
@@ -797,8 +785,12 @@ static int x_update(int fd, int from_pid, x_t* x) {
 	win->dirty = true;
 
 	mark_dirty(x, win);
-	if(win->dirty && x->config.xwm_theme.alpha)
-		x_dirty(x, win->xinfo->display_index);
+	if(win->dirty) {
+			if(x->config.bg_effect != BG_EFFECT_NONE ||
+				(x->config.xwm_theme.alpha && (win->xinfo->style & XWIN_STYLE_NO_FRAME) == 0)) {
+			x_dirty(x, win->xinfo->display_index);
+		}
+	}
 	x_repaint_req(x, win->xinfo->display_index);
 	return 0;
 }

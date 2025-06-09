@@ -8,6 +8,8 @@ void  graph_blt_bsp(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_t sh
 					graph_t* dst, int32_t dx, int32_t dy, int32_t dw, int32_t dh);
 void  graph_blt_alpha_bsp(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_t sh,
 					graph_t* dst, int32_t dx, int32_t dy, int32_t dw, int32_t dh, uint8_t alpha);	
+
+void  graph_glass_bsp(graph_t* g, int x, int y, int w, int h, int8_t r);
 bool  graph_2d_boosted_bsp(void);
 
 #endif

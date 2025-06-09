@@ -270,6 +270,99 @@ inline void graph_blt_alpha_bsp(graph_t* src, int32_t sx, int32_t sy, int32_t sw
 	}
 }
 
+static void graph_glass_neon(graph_t* g, int x, int y, int w, int h, int8_t r) {
+    if (g == NULL || r == 0) {
+        return;
+    }
+
+	grect_t ir = {x, y, w, h};
+	if(!graph_insect(g, &ir))
+		return;
+	x = ir.x;
+	y = ir.y;
+	w = ir.w;
+	h = ir.h;
+
+    // 分配临时缓冲区
+	uint32_t sz = w * h * sizeof(uint32_t);
+    uint32_t* buffer = (uint32_t*)malloc(sz);
+    if (buffer == NULL) {
+        return;
+    }
+
+	if(ir.x == 0 && ir.y == 0 && ir.w == g->w && ir.h == g->h) {
+		memcpy(buffer, g->buffer, sz);
+	}
+	else {
+		for (int iy = 0; iy < h; iy++) {
+			int off = iy*w;
+			for (int ix = 0; ix < w; ix++) {
+				buffer[off + ix] = graph_get_pixel(g, x + ix, y + iy);
+			}
+		}
+	}
+
+    // 分离的盒模糊：水平方向
+    uint32_t* temp = (uint32_t*)malloc(w * h * sizeof(uint32_t));
+    if (temp == NULL) {
+        free(buffer);
+        return;
+    }
+
+    for (int iy = 0; iy < h; iy++) {
+		int off = iy*w;
+        for (int ix = 0; ix < w; ix++) {
+            int sumR = 0, sumG = 0, sumB = 0, count = 0;
+			uint8_t alpha = 0xFF;
+            for (int dx = -r; dx <= r; dx++) {
+                int nx = ix + dx;
+                if (nx >= 0 && nx < w) {
+                    uint32_t pixel = buffer[off + nx];
+                    alpha = (pixel >> 24) & 0xff;
+                    sumR += (pixel >> 16) & 0xff;
+                    sumG += (pixel >> 8) & 0xff;
+                    sumB += pixel & 0xff;
+                    count++;
+                }
+            }
+            uint8_t avgR = sumR / count;
+            uint8_t avgG = sumG / count;
+            uint8_t avgB = sumB / count;
+            temp[off + ix] = (alpha << 24) | (avgR << 16) | (avgG << 8) | avgB;
+        }
+    }
+
+    for (int iy = 0; iy < h; iy++) {
+        for (int ix = 0; ix < w; ix++) {
+            int sumR = 0, sumG = 0, sumB = 0, count = 0;
+			uint8_t alpha = 0xFF;
+            for (int dy = -r; dy <= r; dy++) {
+                int ny = iy + dy;
+                if (ny >= 0 && ny < h) {
+                    uint32_t pixel = temp[ny * w + ix];
+                    alpha = (pixel >> 24) & 0xff;
+                    sumR += (pixel >> 16) & 0xff;
+                    sumG += (pixel >> 8) & 0xff;
+                    sumB += pixel & 0xff;
+                    count++;
+                }
+            }
+            uint8_t avgR = sumR / count;
+            uint8_t avgG = sumG / count;
+            uint8_t avgB = sumB / count;
+            graph_pixel(g, x + ix, y + iy, (alpha << 24) | (avgR << 16) | (avgG << 8) | avgB);
+        }
+    }
+
+    // 释放缓冲区
+    free(buffer);
+    free(temp);
+}
+
+inline void graph_glass_bsp(graph_t* g, int x, int y, int w, int h, int8_t r) {
+    graph_glass_neon(g, x, y, w, h, r);
+}
+
 bool  graph_2d_boosted_bsp(void) {
 	return true;
 }
@@ -288,6 +381,10 @@ inline void graph_blt_bsp(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int3
 inline void graph_blt_alpha_bsp(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_t sh,
 		graph_t* dst, int32_t dx, int32_t dy, int32_t dw, int32_t dh, uint8_t alpha) {
 	graph_blt_alpha_cpu(src, sx, sy, sw, sh, dst, dx, dy, dw, dh, alpha);
+}
+
+inline void graph_glass_bsp(graph_t* g, int x, int y, int w, int h, int8_t r) {
+	graph_glass_cpu(g, x, y, w, h, r);
 }
 
 bool  graph_2d_boosted_bsp(void) {
