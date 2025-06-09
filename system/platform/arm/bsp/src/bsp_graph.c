@@ -11,10 +11,20 @@ extern "C" {
 
 #define MIN(a, b) (((a) > (b))?(b):(a))
 
-static inline void neon_alpha_8(uint32_t *b, uint32_t *f, uint32_t *d)
+static inline void neon_alpha_8(uint32_t *b, uint32_t *f, uint32_t *d, uint8_t alpha_more)
 {
 	__asm volatile(
-		"vld4.8    {d20-d23},[%1]\n\t" // load foreground
+		"vld4.8    {d20-d23},[%1]\n\t" // 加载前景色(R,G,B,A)
+		
+		// 将alpha_more加载到d31
+		"vmov.u8	d31, %3\n\t"
+		
+		// 计算叠加后的alpha: alpha = alpha * alpha_more / 255
+		"vmull.u8	q0, d23, d31\n\t"  // alpha * alpha_more
+		"vshr.u16	q0, q0, #8\n\t"    // 除以256
+		"vmovn.u16	d23, q0\n\t"       // 窄化到8位
+		
+		// 后续处理(保持原有代码不变)
 		"vmov.u8	d28, 0xff\n\t"
 		"vsub.u8	d28, d28, d23\n\t"
 		"vmull.u8  q1,d20,d23\n\t"
@@ -50,9 +60,8 @@ static inline void neon_alpha_8(uint32_t *b, uint32_t *f, uint32_t *d)
 
 		"vst4.8   {d20-d23},[%2]\n\t"
 		:
-		: "r"(b), "r"(f), "r"(d)
-		: "memory");
-	return;
+		: "r"(b), "r"(f), "r"(d), "r"(alpha_more)
+		: "memory", "q0", "d20", "d21", "d22", "d23", "d24", "d25", "d26", "d27", "d28", "d29", "d31");
 }
 
 static inline void neon_8(uint32_t *s, uint32_t *d)
@@ -88,7 +97,7 @@ static inline void neon_fill_store(uint32_t *d)
 }
 
 static inline void graph_pixel_argb_neon(graph_t *graph, int32_t x, int32_t y,
-								  uint32_t *src, int size)
+								  uint32_t *src, int size, uint8_t alpha)
 {
 	uint32_t fg[8];
 	uint32_t bg[8];
@@ -96,13 +105,13 @@ static inline void graph_pixel_argb_neon(graph_t *graph, int32_t x, int32_t y,
 
 	if (size >= 8)
 	{
-		neon_alpha_8(dst, src, dst);
+		neon_alpha_8(dst, src, dst, alpha);
 	}
 	else
 	{
 		memcpy(fg, src, 4 * size);
 		memcpy(bg, dst, 4 * size);
-		neon_alpha_8(bg, fg, bg);
+		neon_alpha_8(bg, fg, bg, alpha);
 		memcpy(dst, bg, 4 * size);
 	}
 }
@@ -157,7 +166,7 @@ void graph_fill_bsp(graph_t* g, int32_t x, int32_t y, int32_t w, int32_t h, uint
 		for(; y < ey; y++) {
 			x = r.x;
 			for(; x < ex; x+=8) {
-				graph_pixel_argb_neon(g, x, y, buf, MIN(ex-x, 8));
+				graph_pixel_argb_neon(g, x, y, buf, MIN(ex-x, 8), 0xFF);
 			}
 		}
 	}
@@ -223,7 +232,7 @@ inline void graph_blt_alpha_bsp(graph_t* src, int32_t sx, int32_t sy, int32_t sw
 		register int32_t dx = dr.x;
 		register int32_t offset = sy * src->w;
 		for(; sx < ex; sx+=8, dx+=8) {
-			graph_pixel_argb_neon(dst, dx, dy, &src->buffer[offset + sx], MIN(ex-sx, 8));	
+			graph_pixel_argb_neon(dst, dx, dy, &src->buffer[offset + sx], MIN(ex-sx, 8), alpha);	
 		}
 	}
 }

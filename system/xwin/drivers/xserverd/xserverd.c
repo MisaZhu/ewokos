@@ -167,7 +167,7 @@ static int draw_win(graph_t* disp_g, x_t* xp, xwin_t* win) {
 	if(g != NULL) {
 		if(win->xinfo->focused ||
 				win->xinfo->anti_bg_effect ||
-				!xp->config.bg_effect) {
+				xp->config.bg_effect == 0) {
 			if(win->xinfo->alpha) {
 				graph_blt_alpha(g, 0, 0, 
 						win->xinfo->wsr.w,
@@ -199,12 +199,13 @@ static int draw_win(graph_t* disp_g, x_t* xp, xwin_t* win) {
 				win->xinfo->wsr.w,
 				win->xinfo->wsr.h, 0x88);
 
-			/*graph_glass(disp_g, 
-				win->xinfo->wsr.x,
-				win->xinfo->wsr.y,
-				win->xinfo->wsr.w,
-				win->xinfo->wsr.h, 2);
-				*/
+			if(xp->config.bg_effect == 2) {
+				graph_glass(disp_g, 
+					win->xinfo->wsr.x,
+					win->xinfo->wsr.y,
+					win->xinfo->wsr.w,
+					win->xinfo->wsr.h, 2);
+			}
 		}
 	}
 

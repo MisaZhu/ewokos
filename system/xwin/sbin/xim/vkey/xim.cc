@@ -411,6 +411,7 @@ int main(int argc, char* argv[]) {
 	XIMX xwin(scr.size.w, scr.size.h, pw, ph);
 	xwin.open(&x, 0, scr.size.w - pw, scr.size.h - ph, pw, ph, "xim",
 			XWIN_STYLE_NO_FRAME | XWIN_STYLE_NO_FOCUS | XWIN_STYLE_SYSTOP | XWIN_STYLE_XIM, false);
+	xwin.setAntiBGEffect(true);
 	x.run(NULL, &xwin);
 	return 0;
 }
