@@ -18,7 +18,8 @@ void XWM::getWinSpace(int style, grect_t* xr, grect_t* winr) {
 	winr->x = xr->x;
 	winr->w = xr->w;
 
-	if((style & XWIN_STYLE_NO_TITLE) == 0) {
+	if((style & XWIN_STYLE_NO_TITLE) == 0 &&
+			(style & XWIN_STYLE_NO_FRAME) == 0) {
 		winr->y = xr->y - xwm.theme.titleH;
 		winr->h = xr->h + xwm.theme.titleH;
 	}
