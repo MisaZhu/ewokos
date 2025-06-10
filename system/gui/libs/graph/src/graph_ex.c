@@ -59,6 +59,14 @@ void graph_draw_dot_pattern(graph_t* g,int x, int y, int w, int h, uint32_t c1, 
 	int i = 0;
 	int j = 0;
 	bool shift = false;
+	grect_t ir = {x, y, w, h};
+    if(!graph_insect(g, &ir))
+        return;
+	
+	x = ir.x;
+	y = ir.y;
+	w = ir.w;
+	h = ir.h;
 
 	graph_fill(g, x, y, w, h, c1);
 	while(j < h) {
