@@ -18,10 +18,16 @@ void XWM::getWinSpace(int style, grect_t* xr, grect_t* winr) {
 	winr->x = xr->x;
 	winr->w = xr->w;
 
-	if((style & XWIN_STYLE_NO_TITLE) == 0 &&
-			(style & XWIN_STYLE_NO_FRAME) == 0) {
+	if((style & XWIN_STYLE_NO_TITLE) == 0) {
 		winr->y = xr->y - xwm.theme.titleH;
 		winr->h = xr->h + xwm.theme.titleH;
+	}
+
+	if((style & XWIN_STYLE_NO_FRAME) == 0) {
+		winr->x -= xwm.theme.frameW;
+		winr->w += 2*xwm.theme.frameW;
+		winr->y -= xwm.theme.frameW;
+		winr->h += 2*xwm.theme.frameW;
 	}
 }
 
@@ -29,30 +35,9 @@ static void get_win_space(int style, grect_t* xr, grect_t* winr, void* p) {
 	((XWM*)p)->__getWinSpace(style, xr, winr);
 }
 
-void XWM::freeWinGraph(graph_t* g) {
-	if(g == NULL || g->buffer == NULL)
-		return;
-	shmdt((void*)g->buffer);
-}
-
-bool XWM::fetchWinGraph(xinfo_t* info, graph_t* g) {
-	if(info == NULL || info->g_shm_id == -1)
-		return false;
-	memset(g, 0, sizeof(graph_t));
-
-	uint32_t* g_shm = (uint32_t*)shmat(info->g_shm_id, 0, 0);
-	if(g_shm == NULL)
-		return false;
-	g->buffer = g_shm;
-	g->w = info->wsr.w;
-	g->h = info->wsr.h;
-	g->need_free = false;
-	return true;
-}
-
 void XWM::getTitle(xinfo_t* info, grect_t* rect) {
-	rect->x = info->winr.x;
-	rect->y = info->winr.y;
+	rect->x = xwm.theme.frameW;
+	rect->y = xwm.theme.frameW;
 	rect->w = info->winr.w;
 	rect->h = xwm.theme.titleH;
 }
@@ -62,8 +47,8 @@ static void get_title(xinfo_t* info, grect_t* rect, void* p) {
 }
 
 void XWM::getMin(xinfo_t* info, grect_t* rect) {
-	rect->x = info->winr.x + info->winr.w - xwm.theme.titleH*2;
-	rect->y = info->winr.y;// - titleH;
+	rect->x = info->winr.w - xwm.theme.titleH*2 - xwm.theme.frameW;
+	rect->y = xwm.theme.frameW;
 	rect->w = xwm.theme.titleH;
 	rect->h = xwm.theme.titleH;
 }
@@ -73,8 +58,8 @@ static void get_min(xinfo_t* info, grect_t* rect, void* p) {
 }
 
 void XWM::getMax(xinfo_t* info, grect_t* rect) {
-	rect->x = info->winr.x + info->winr.w- xwm.theme.titleH;
-	rect->y = info->winr.y;// - titleH;
+	rect->x = info->winr.w- xwm.theme.titleH - xwm.theme.frameW;
+	rect->y = xwm.theme.frameW;
 	rect->w = xwm.theme.titleH;
 	rect->h = xwm.theme.titleH;
 }
@@ -84,8 +69,8 @@ static void get_max(xinfo_t* info, grect_t* rect, void* p) {
 }
 
 void XWM::getClose(xinfo_t* info, grect_t* rect) {
-	rect->x = info->winr.x;
-	rect->y = info->winr.y;// - titleH;
+	rect->x = xwm.theme.frameW;
+	rect->y = xwm.theme.frameW;// - titleH;
 	rect->w = xwm.theme.titleH;
 	rect->h = xwm.theme.titleH;
 }
@@ -95,8 +80,8 @@ static void get_close(xinfo_t* info, grect_t* rect, void* p) {
 }
 
 void XWM::getResize(xinfo_t* info, grect_t* rect) {
-	rect->x = info->wsr.x + info-> wsr.w - 20;
-	rect->y = info->wsr.y + info-> wsr.h - 20;
+	rect->x = info-> winr.w - 20 - xwm.theme.frameW;
+	rect->y = info-> winr.h - 20 - xwm.theme.frameW;
 	rect->w = 20 + xwm.theme.frameW - 1;
 	rect->h = 20 + xwm.theme.frameW - 1;
 }
@@ -132,31 +117,31 @@ static void draw_drag_frame(graph_t* g, grect_t* r, void* p) {
 	((XWM*)p)->__drawDragFrame(g, r);
 }
 
-void XWM::drawFrame(graph_t* g, xinfo_t* info, bool top) {
+void XWM::drawFrame(graph_t* desktop_g, graph_t* g, xinfo_t* info, bool top) {
 	uint32_t fg, bg;
 	getColor(&fg, &bg, top);
 
-	int x = info->wsr.x;
-	int y = info->wsr.y;
-	int w = info->wsr.w;
-	int h = info->wsr.h;
-	//int h = 0;
+	int x = 0;
+	int y = 0;
+	int w = info->winr.w;
+	int h = info->winr.h;
 
 	if((info->style & XWIN_STYLE_NO_TITLE) == 0) {
-		h += xwm.theme.titleH;
-		//h = xwm.theme.titleH;
-		y -= xwm.theme.titleH;
-		graph_box(g, x-xwm.theme.frameW, y-xwm.theme.frameW, w+xwm.theme.frameW*2, xwm.theme.titleH+xwm.theme.frameW, fg);
+		graph_box(g, x, y, w, xwm.theme.titleH+xwm.theme.frameW, fg);
 	}
 
 	//win box
 	for(uint32_t i=0; i<xwm.theme.frameW; i++) {
-		graph_box(g, x-(xwm.theme.frameW-i), y-(xwm.theme.frameW-i), w+(xwm.theme.frameW-i)*2, h+(xwm.theme.frameW-i)*2, fg);
+		graph_box(g, x+i, y+i, w-i*2, h+i*2, fg);
 	}
 }
 
-static void draw_frame(graph_t* g, xinfo_t* info, bool top, void* p) {
-	((XWM*)p)->__drawFrame(g, info, top);
+static void draw_frame(graph_t* desktop_g, graph_t* g, xinfo_t* info, bool top, void* p) {
+	((XWM*)p)->__drawFrame(desktop_g, g, info, top);
+}
+
+static void draw_bg_effect(graph_t* desktop_g, graph_t* g, xinfo_t* info, bool top, void* p) {
+	((XWM*)p)->__drawBGEffect(desktop_g, g, info, top);
 }
 
 void XWM::drawTitle(graph_t* g, xinfo_t* info, grect_t* r, bool top) {
@@ -344,6 +329,7 @@ XWM::XWM(void) {
 	xwm.get_resize = get_resize;
 	xwm.get_min_size = get_min_size;
 
+	xwm.draw_bg_effect = draw_bg_effect;
 	xwm.draw_frame = draw_frame;
 	xwm.draw_drag_frame = draw_drag_frame;
 	xwm.draw_close = draw_close;

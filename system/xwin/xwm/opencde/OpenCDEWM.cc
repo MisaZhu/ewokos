@@ -79,52 +79,44 @@ enum {
     BG_EFFECT_GLASS
 };
 
-void OpenCDEWM::drawBGEffect(graph_t* graph, xinfo_t* info, bool top) {
+void OpenCDEWM::drawBGEffect(graph_t* desktop_g, graph_t* frame_g, xinfo_t* info, bool top) {
 	if(top || info->anti_bg_effect || xwm.theme.bgEffect == BG_EFFECT_NONE)
 		return;
-	graph_t win_g;
-
-	if(!fetchWinGraph(info, &win_g))
-		return;
-	graph_blt_alpha(&win_g, 0, 0, 
-		info->wsr.w,
-		info->wsr.h,
-		graph,
-		info->wsr.x,
-		info->wsr.y,
-		info->wsr.w,
-		info->wsr.h, 0x88);
-	freeWinGraph(&win_g);
+	graph_blt_alpha(frame_g, 0, 0, 
+		info->winr.w,
+		info->winr.h,
+		desktop_g,
+		info->winr.x,
+		info->winr.y,
+		info->winr.w,
+		info->winr.h, 0x88);
 
 	switch(xwm.theme.bgEffect) {
 		case BG_EFFECT_TRANSPARENT:
 			return;
 		case BG_EFFECT_DOT:
-			graph_draw_dot_pattern(graph, 
-				info->wsr.x, info->wsr.y, info->wsr.w, info->wsr.h,
+			graph_draw_dot_pattern(frame_g, 
+				0, 0, info->winr.w, info->winr.h,
 				0x88ffffff, 0x88000000, 1);	
 			return;
 		case BG_EFFECT_GLASS:
-			graph_glass(graph, info->wsr.x, info->wsr.y, info->wsr.w, info->wsr.h, 2);
+			graph_glass(desktop_g, info->winr.x, info->winr.y, info->winr.w, info->winr.h, 2);
+			graph_blt(desktop_g, info->winr.x, info->winr.y, info->winr.w, info->winr.h, 
+				frame_g, 0, 0, info->winr.w, info->winr.h);
 			return;
 	}
 }
 
-void OpenCDEWM::drawFrame(graph_t* graph, xinfo_t* info, bool top) {
+void OpenCDEWM::drawFrame(graph_t* desktop_g, graph_t* g, xinfo_t* info, bool top) {
 	uint32_t fg, bg;
 	getColor(&fg, &bg, top);
 
-	int x = info->wsr.x;
-	int y = info->wsr.y;
-	int w = info->wsr.w;
-	int h = info->wsr.h;
+	int x = 0;
+	int y = 0;
+	int w = info->winr.w;
+	int h = info->winr.h;
 
-	if((info->style & XWIN_STYLE_NO_TITLE) == 0) {
-		h += xwm.theme.titleH;
-		y -= xwm.theme.titleH;
-	}
-
-	graph_frame(graph, x-xwm.theme.frameW, y-xwm.theme.frameW, w+xwm.theme.frameW*2, h+xwm.theme.frameW*2, xwm.theme.frameW, bg, false);
+	graph_frame(g, x, y, w, h, xwm.theme.frameW, bg, false);
 }
 
 void OpenCDEWM::drawTitle(graph_t* g, xinfo_t* info, grect_t* r, bool top) {

@@ -20,9 +20,9 @@ static int xwin_update_info(xwin_t* xwin, uint8_t type) {
 	if(xwin->xinfo == NULL)
 		return -1;
 
-	if(xwin->g_shm != NULL && (type & X_UPDATE_REBUILD) != 0) {
-		shmdt(xwin->g_shm);
-		xwin->g_shm = NULL;
+	if(xwin->ws_g_shm != NULL && (type & X_UPDATE_REBUILD) != 0) {
+		shmdt(xwin->ws_g_shm);
+		xwin->ws_g_shm = NULL;
 	}
 
 	proto_t in;
@@ -107,7 +107,7 @@ xwin_t* xwin_open(x_t* xp, uint32_t disp_index, int x, int y, int w, int h, cons
 	ret->xinfo_shm_id = xinfo_shm_id;
 	ret->xinfo = xinfo;
 	memset(ret->xinfo, 0, sizeof(xinfo_t));
-	ret->xinfo->g_shm_id = -1;
+	ret->xinfo->ws_g_shm_id = -1;
 	ret->xinfo->win = (uint32_t)ret;
 	ret->xinfo->style = style;
 	ret->xinfo->display_index = disp_index;
@@ -139,19 +139,19 @@ int xwin_fullscreen(xwin_t* xwin) {
 }
 
 static graph_t* x_get_graph(xwin_t* xwin, graph_t* g) {
-	if(xwin == NULL || xwin->xinfo == NULL || xwin->xinfo->g_shm_id == -1)
+	if(xwin == NULL || xwin->xinfo == NULL || xwin->xinfo->ws_g_shm_id == -1)
 		return NULL;
 
-	if(xwin->g_shm == NULL) {
-		xwin->g_shm = shmat(xwin->xinfo->g_shm_id, 0, 0);
-		if(xwin->g_shm == NULL)
+	if(xwin->ws_g_shm == NULL) {
+		xwin->ws_g_shm = shmat(xwin->xinfo->ws_g_shm_id, 0, 0);
+		if(xwin->ws_g_shm == NULL)
 			return NULL;
 		if(xwin->on_resize != NULL) {
 			xwin->on_resize(xwin);
 		}
 	}
 
-	g->buffer = xwin->g_shm;
+	g->buffer = xwin->ws_g_shm;
 	g->w = xwin->xinfo->wsr.w;
 	g->h = xwin->xinfo->wsr.h;
 	g->need_free = false;
@@ -175,8 +175,8 @@ void xwin_close(xwin_t* xwin) {
 	xwin->fd = -1;
 	pthread_mutex_destroy(&xwin->painting_lock);
 
-	if(xwin->g_shm != NULL)
-		shmdt(xwin->g_shm);
+	if(xwin->ws_g_shm != NULL)
+		shmdt(xwin->ws_g_shm);
 
 	if(xwin->xinfo != NULL)
 		shmdt(xwin->xinfo);
@@ -198,8 +198,9 @@ void xwin_repaint(xwin_t* xwin) {
 	if(!xwin->xinfo->covered) {
 		graph_t g;
 		if(xwin_fetch_graph(xwin, &g) != NULL) {
-			if(xwin->on_repaint != NULL)
+			if(xwin->on_repaint != NULL) {
 				xwin->on_repaint(xwin, &g);
+			}
 		}
 		vfs_fcntl_wait(xwin->fd, XWIN_CNTL_UPDATE, NULL);
 	}	
@@ -238,13 +239,7 @@ int xwin_resize_to(xwin_t* xwin, int w, int h) {
 }
 
 int xwin_max(xwin_t* xwin) {
-	xscreen_t scr;
-	if(x_screen_info(&scr, xwin->xinfo->display_index) != 0)
-		return -1;
 	memcpy(&xwin->xinfo_prev, xwin->xinfo, sizeof(xinfo_t));
-	int32_t dh = xwin->xinfo->winr.h - xwin->xinfo->wsr.h;
-	grect_t r = {0, dh, scr.size.w, scr.size.h-dh};
-	memcpy(&xwin->xinfo->wsr, &r, sizeof(grect_t));
 	xwin->xinfo->state = XWIN_STATE_MAX;
 	xwin_update_info(xwin, X_UPDATE_REBUILD | X_UPDATE_REFRESH);
 	xwin_repaint(xwin);
@@ -282,6 +277,7 @@ int xwin_event_handle(xwin_t* xwin, xevent_t* ev) {
 			if(xwin->on_focus)
 				xwin->on_focus(xwin);
 			xwin->xinfo->focused = true;
+			xwin_update_info(xwin, X_UPDATE_REBUILD | X_UPDATE_REFRESH);
 		}
 	}
 	else if(ev->value.window.event == XEVT_WIN_UNFOCUS) {
@@ -289,6 +285,7 @@ int xwin_event_handle(xwin_t* xwin, xevent_t* ev) {
 			xwin->on_unfocus(xwin);
 		}
 		xwin->xinfo->focused = false;
+		xwin_update_info(xwin, X_UPDATE_REBUILD | X_UPDATE_REFRESH);
 	}
 	else if(ev->value.window.event == XEVT_WIN_REORG) {
 		if(xwin->on_reorg) {
@@ -316,21 +313,13 @@ int xwin_event_handle(xwin_t* xwin, xevent_t* ev) {
 	}
 	else if(ev->value.window.event == XEVT_WIN_MAX) {
 		if(xwin->xinfo->state == XWIN_STATE_MAX) {
-			memcpy(&xwin->xinfo->wsr, &xwin->xinfo_prev.wsr, sizeof(grect_t));
-			xwin->xinfo->state = xwin->xinfo_prev.state;
+			memcpy(xwin->xinfo, &xwin->xinfo_prev, sizeof(xinfo_t));
+			xwin_update_info(xwin, X_UPDATE_REBUILD | X_UPDATE_REFRESH);
+			xwin_repaint(xwin);
 		}
 		else {
-			xscreen_t scr;
-			if(x_screen_info(&scr, xwin->xinfo->display_index) == 0) {
-				memcpy(&xwin->xinfo_prev, xwin->xinfo, sizeof(xinfo_t));
-				int32_t dh = xwin->xinfo->winr.h - xwin->xinfo->wsr.h;
-				grect_t r = {0, dh, scr.size.w, scr.size.h-dh};
-				memcpy(&xwin->xinfo->wsr, &r, sizeof(grect_t));
-				xwin->xinfo->state = XWIN_STATE_MAX;
-			}
+			xwin_max(xwin);	
 		}
-		xwin_update_info(xwin, X_UPDATE_REBUILD | X_UPDATE_REFRESH);
-		xwin_repaint(xwin);
 	}
 	return 0;
 }

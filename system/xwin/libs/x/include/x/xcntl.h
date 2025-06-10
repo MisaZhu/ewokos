@@ -66,8 +66,8 @@ enum {
 #define X_APP_NAME_MAX 128
 typedef struct {
 	uint32_t win;
-	int32_t  g_shm_id;
-	void*    g_shm;
+	int32_t  ws_g_shm_id;
+	int32_t  frame_g_shm_id;
 	uint32_t display_index;
 	uint32_t style;
 	uint32_t state;

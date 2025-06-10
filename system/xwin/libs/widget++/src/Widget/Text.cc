@@ -60,12 +60,14 @@ bool Text::onMouse(xevent_t* ev) {
 	if(ev->state == MOUSE_STATE_MOVE) {
 		if(ev->value.mouse.button == MOUSE_BUTTON_SCROLL_UP) {
 			scroll(-1, false);
+			return true;
 		}
 		else if(ev->value.mouse.button == MOUSE_BUTTON_SCROLL_DOWN) {
 			scroll(1, false);
+			return true;
 		}
 	}
-	return true;
+	return false;
 }
 
 bool Text::onIM(xevent_t* ev) {
