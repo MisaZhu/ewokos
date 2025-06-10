@@ -10,12 +10,12 @@ void Split::onRepaint(graph_t* g, XTheme* theme, const grect_t& r) {
 
 	if(!horizontal) {
 		int dx = (r.w - barSize)/2;
-		graph_draw_dot_pattern(g, r.x+dx, r.y, barSize, r.h, theme->basic.widgetBGColor, theme->basic.widgetFGColor, 1);
+		graph_draw_dot_pattern(g, r.x+dx, r.y, barSize, r.h, theme->basic.widgetBGColor, theme->basic.widgetFGColor, 1, 1);
 		graph_box_3d(g, r.x+dx, r.y, barSize, r.h, d, b);
 	}
 	else {
 		int dy = (r.h - barSize)/2;
-		graph_draw_dot_pattern(g, r.x, r.y+dy, r.w, barSize, theme->basic.widgetBGColor, theme->basic.widgetFGColor, 1);
+		graph_draw_dot_pattern(g, r.x, r.y+dy, r.w, barSize, theme->basic.widgetBGColor, theme->basic.widgetFGColor, 1, 1);
 		graph_box_3d(g, r.x, r.y+dy, r.w, barSize, d, b);
 	}
 

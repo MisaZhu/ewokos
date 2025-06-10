@@ -108,58 +108,55 @@ static void draw_frame(xwm_t* xwm, proto_t* in) {
 	if(!fetch_frame_graph(xwm, &info, &frame_g))
 		return;
 	
-	if(xwm->draw_bg_effect != NULL)
-		xwm->draw_bg_effect(&desktop_g, &frame_g, &info, top, xwm->data);
-	
-	if((info.style & XWIN_STYLE_NO_FRAME) != 0) {
-		free_frame_graph(&frame_g);
-		return;
-	}
+	if((info.style & XWIN_STYLE_NO_FRAME) == 0) {
+		grect_t rtitle, rclose, rmax, rmin, rresize;
+		memset(&rtitle, 0, sizeof(grect_t));
+		memset(&rclose, 0, sizeof(grect_t));
+		memset(&rmax, 0, sizeof(grect_t));
+		memset(&rmin, 0, sizeof(grect_t));
+		memset(&rresize, 0, sizeof(grect_t));
 
-	grect_t rtitle, rclose, rmax, rmin, rresize;
-	memset(&rtitle, 0, sizeof(grect_t));
-	memset(&rclose, 0, sizeof(grect_t));
-	memset(&rmax, 0, sizeof(grect_t));
-	memset(&rmin, 0, sizeof(grect_t));
-	memset(&rresize, 0, sizeof(grect_t));
-
-	if(xwm->get_title != NULL)
-		xwm->get_title(&info, &rtitle, xwm->data);
-	if(xwm->get_close != NULL)
-		xwm->get_close(&info, &rclose, xwm->data);
-	if(xwm->get_max != NULL)
-		xwm->get_max(&info, &rmax, xwm->data);
-	if(xwm->get_min != NULL)
-		xwm->get_min(&info, &rmin, xwm->data);
-	if(xwm->get_resize != NULL)
-		xwm->get_resize(&info, &rresize, xwm->data);
-
-	if((info.style & XWIN_STYLE_NO_TITLE) == 0) {
-		if(xwm->draw_title != NULL && rtitle.w > 0 && rtitle.h > 0)
-			xwm->draw_title(&frame_g, &info, &rtitle, top, xwm->data);
-
-		if((info.style & XWIN_STYLE_NO_RESIZE) == 0) {
-			if(xwm->draw_max != NULL && rmax.w > 0 && rmax.h > 0)
-				xwm->draw_max(&frame_g, &info, &rmax, top, xwm->data);
-			if(xwm->draw_min != NULL && rmin.w > 0 && rmin.h > 0)
-				xwm->draw_min(&frame_g, &info, &rmin, top, xwm->data);
-		}
-
-		if(xwm->draw_close != NULL && rclose.w > 0 && rclose.h > 0)
-			xwm->draw_close(&frame_g, &info, &rclose, top, xwm->data);
-	}
-
-	if(info.state != XWIN_STATE_MAX) {
-		if(xwm->draw_frame != NULL)
-			xwm->draw_frame(&desktop_g, &frame_g, &info, top, xwm->data);
+		if(xwm->get_title != NULL)
+			xwm->get_title(&info, &rtitle, xwm->data);
+		if(xwm->get_close != NULL)
+			xwm->get_close(&info, &rclose, xwm->data);
+		if(xwm->get_max != NULL)
+			xwm->get_max(&info, &rmax, xwm->data);
+		if(xwm->get_min != NULL)
+			xwm->get_min(&info, &rmin, xwm->data);
+		if(xwm->get_resize != NULL)
+			xwm->get_resize(&info, &rresize, xwm->data);
 
 		if((info.style & XWIN_STYLE_NO_TITLE) == 0) {
+			if(xwm->draw_title != NULL && rtitle.w > 0 && rtitle.h > 0)
+				xwm->draw_title(&frame_g, &info, &rtitle, top, xwm->data);
+
 			if((info.style & XWIN_STYLE_NO_RESIZE) == 0) {
-				if(xwm->draw_resize != NULL && rresize.w > 0 && rresize.h > 0)
-					xwm->draw_resize(&frame_g, &info, &rresize, top, xwm->data);
+				if(xwm->draw_max != NULL && rmax.w > 0 && rmax.h > 0)
+					xwm->draw_max(&frame_g, &info, &rmax, top, xwm->data);
+				if(xwm->draw_min != NULL && rmin.w > 0 && rmin.h > 0)
+					xwm->draw_min(&frame_g, &info, &rmin, top, xwm->data);
+			}
+
+			if(xwm->draw_close != NULL && rclose.w > 0 && rclose.h > 0)
+				xwm->draw_close(&frame_g, &info, &rclose, top, xwm->data);
+		}
+
+		if(info.state != XWIN_STATE_MAX) {
+			if(xwm->draw_frame != NULL)
+				xwm->draw_frame(&desktop_g, &frame_g, &info, top, xwm->data);
+
+			if((info.style & XWIN_STYLE_NO_TITLE) == 0) {
+				if((info.style & XWIN_STYLE_NO_RESIZE) == 0) {
+					if(xwm->draw_resize != NULL && rresize.w > 0 && rresize.h > 0)
+						xwm->draw_resize(&frame_g, &info, &rresize, top, xwm->data);
+				}
 			}
 		}
 	}
+
+	if(xwm->draw_bg_effect != NULL)
+		xwm->draw_bg_effect(&desktop_g, &frame_g, &info, top, xwm->data);
 	free_frame_graph(&frame_g);
 }
 

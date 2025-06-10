@@ -216,7 +216,7 @@ static void draw_resize(graph_t* g, xinfo_t* info, grect_t* r, bool top, void* p
 
 graph_t* XWM::genDesktopPattern(void) {
 	graph_t* g = graph_new(NULL, 64, 64);
-	graph_draw_dot_pattern(g, 0, 0, g->w, g->h, xwm.theme.desktopBGColor, xwm.theme.desktopFGColor, 2);
+	graph_draw_dot_pattern(g, 0, 0, g->w, g->h, xwm.theme.desktopBGColor, xwm.theme.desktopFGColor, 2, 1);
 	return g;
 }
 

@@ -55,7 +55,7 @@ void graph_frame(graph_t* g, int x, int y, int w, int h, int width, uint32_t bas
 	graph_box_3d(g, x+width-1, y+width-1, w-width*2+2, h-width*2+2, dark, bright);
 }
 
-void graph_draw_dot_pattern(graph_t* g,int x, int y, int w, int h, uint32_t c1, uint32_t c2, uint8_t dw) {
+void graph_draw_dot_pattern(graph_t* g,int x, int y, int w, int h, uint32_t c1, uint32_t c2, uint8_t dspace, uint8_t dw) {
 	int i = 0;
 	int j = 0;
 	bool shift = false;
@@ -75,11 +75,11 @@ void graph_draw_dot_pattern(graph_t* g,int x, int y, int w, int h, uint32_t c1, 
 				graph_pixel(g, x+i, y+j, c2);
 			else
 				graph_fill(g, x+i, y+j, dw, dw, c2);
-			i += 2*dw;
+			i += dw + dspace;
 		}
-		i = shift ? 0:dw;
+		i = shift ? 0:(dw + dspace)/2;
 		shift = !shift;
-		j += dw;
+		j += (dw + dspace);
 	}
 }
 

@@ -97,7 +97,7 @@ void OpenCDEWM::drawBGEffect(graph_t* desktop_g, graph_t* frame_g, xinfo_t* info
 		case BG_EFFECT_DOT:
 			graph_draw_dot_pattern(frame_g, 
 				0, 0, info->winr.w, info->winr.h,
-				0x88ffffff, 0x88000000, 1);	
+				0x88ffffff, 0x88000000, 2, 1);	
 			return;
 		case BG_EFFECT_GLASS:
 			graph_glass(desktop_g, info->winr.x, info->winr.y, info->winr.w, info->winr.h, 2);

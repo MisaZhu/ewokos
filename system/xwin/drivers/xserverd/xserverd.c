@@ -92,7 +92,7 @@ static void draw_win_frame(x_t* x, xwin_t* win) {
 
 static void draw_init_desktop(x_t* x, x_display_t *display) {
 	graph_draw_dot_pattern(display->g, 0, 0, display->g->w, display->g->h,
-			0xff888888, 0xffffffff, 2);
+			0xff888888, 0xffffffff, 2, 1);
 	
 	if(x->config.logo != NULL) {
 		graph_blt_alpha(x->config.logo, 0, 0, x->config.logo->w, x->config.logo->h,

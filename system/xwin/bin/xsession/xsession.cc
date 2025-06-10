@@ -49,7 +49,7 @@ class XSession : public XWin {
 
 	void drawBG(graph_t* g) {
 		graph_draw_dot_pattern(g, 0, 0, g->w, g->h,
-				theme.basic.bgColor, theme.basic.fgColor, 1);
+				theme.basic.bgColor, theme.basic.fgColor, 2, 1);
 	}
 
 	void drawFrame(graph_t* g, const grect_t& r) {
