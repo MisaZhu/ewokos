@@ -70,16 +70,17 @@ static void draw_win_frame(x_t* x, xwin_t* win) {
 	if(display->g == NULL)
 		return;
 
-	if(!win->frame_dirty && !display->dirty)
-		return;
-
-	graph_clear(win->frame_g, 0);
 	graph_blt(win->ws_g, 0, 0, win->ws_g->w, win->ws_g->h,
 			win->frame_g,
 			win->xinfo->wsr.x - win->xinfo->winr.x,
 			win->xinfo->wsr.y - win->xinfo->winr.y,
 			win->xinfo->wsr.w,
 			win->xinfo->wsr.h);
+	
+	if(!win->frame_dirty && !display->dirty)
+		return;
+
+	//graph_clear(win->frame_g, 0);
 
 	proto_t in;
 	PF->format(&in, "i,i,i,m",
@@ -172,14 +173,15 @@ static void draw_drag_frame(x_t* xp, uint32_t display_index) {
 	PF->clear(&in);
 }
 
-static int draw_win(graph_t* disp_g, x_t* xp, xwin_t* win) {
-	draw_win_frame(xp, win);
+static int draw_win(graph_t* disp_g, x_t* x, xwin_t* win) {
+	//if(!win->draging)
+		draw_win_frame(x, win);
 
 	graph_t* g = win->frame_g;
 	if(g != NULL) {
 		if(win->xinfo->focused ||
 				win->xinfo->anti_bg_effect ||
-				xp->config.xwm_theme.bgEffect == 0) {
+				x->config.xwm_theme.bgEffect == 0) {
 			if(win->xinfo->alpha) {
 				graph_blt_alpha(g, 0, 0, 
 						win->xinfo->winr.w,
@@ -213,10 +215,10 @@ static int draw_win(graph_t* disp_g, x_t* xp, xwin_t* win) {
 		}
 	}
 
-	if(xp->current.win_drag == win &&
+	if(x->current.win_drag == win &&
 			(win->xinfo->style & XWIN_STYLE_NO_FRAME) == 0 &&
 			win->xinfo->state != XWIN_STATE_MAX)
-		draw_drag_frame(xp, win->xinfo->display_index);
+		draw_drag_frame(x, win->xinfo->display_index);
 
 	win->dirty = false;
 	return 0;
@@ -734,18 +736,20 @@ static void mark_dirty(x_t* x, xwin_t* win) {
 					unmark_dirty(x, win);//unmark temporary dirty top win
 					return;
 				}
-				else if(r.w != 0 || r.h != 0) {
+				else if(r.w > 0 && r.h > 0) {
 					top->dirty_mark = true; //mark top win dirty temporary
 				}
 			}
 			top = top->next;
 		}
-		if(win->xinfo->alpha)
+
+		if(win->xinfo->alpha) {
 			x_dirty(x, win->xinfo->display_index);
+		}
 	}
 
 	mark_dirty_confirm(x, win);
-		mark_dirty(x, win_next);
+	mark_dirty(x, win_next);
 }
 
 static void check_wins(x_t* x) {
@@ -803,11 +807,8 @@ static int x_update(int fd, int from_pid, x_t* x) {
 	win->dirty = true;
 	mark_dirty(x, win);
 	if(win->dirty) {
-		/*win->frame_dirty = true; //dirty frame buffer
-		if(win->xinfo->alpha) {
-				(x->config.xwm_theme.alpha && (win->xinfo->style & XWIN_STYLE_NO_FRAME) == 0)) {
-			x_dirty(x, win->xinfo->display_index);
-		}*/
+		if(x->config.xwm_theme.alpha && (win->xinfo->style & XWIN_STYLE_NO_FRAME) == 0)
+			win->frame_dirty = true; //dirty frame buffer
 	}
 	x_repaint_req(x, win->xinfo->display_index);
 	return 0;
@@ -1360,6 +1361,8 @@ static void mouse_xwin_handle(x_t* x, xwin_t* win, int pos, xevent_t* ev) {
 	else if(ev->state == MOUSE_STATE_UP) {
 		if(pos == FRAME_R_RESIZE) //window resize
 			return;
+		if(x->current.win_drag != NULL)
+			x->current.win_drag->draging = false;
 
 		if(x->current.win_drag == win &&
 				x->current.drag_state != 0 &&
@@ -1411,6 +1414,7 @@ static void mouse_xwin_handle(x_t* x, xwin_t* win, int pos, xevent_t* ev) {
 		if(abs(mrx) > 15 || abs(mry) > 15) {
 			x->current.pos_delta.x = mrx;
 			x->current.pos_delta.y = mry;
+			win->draging = true;
 			x_dirty(x, x->current_display);
 		}
 		return; //drag win frame, don't push xwin event.
