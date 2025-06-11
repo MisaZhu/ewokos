@@ -693,10 +693,6 @@ static void mark_dirty_confirm(x_t* x, xwin_t* win) {
 	while(v != NULL) {
 		if(v->dirty_mark) {
 			v->dirty = true;
-			if(v != win) {
-				v->frame_dirty = true;
-				x_dirty(x, v->xinfo->display_index);
-			}
 			v->dirty_mark = false;
 		}
 		v = v->next;
@@ -807,6 +803,14 @@ static int x_update(int fd, int from_pid, x_t* x) {
 
 	win->dirty = true;
 	mark_dirty(x, win);
+	if(win->dirty) {
+		if(win->xinfo->alpha ||
+				(x->config.xwm_theme.alpha &&
+				!win->xinfo->focused &&
+				(win->xinfo->style & XWIN_STYLE_NO_FRAME) == 0)) {
+			x_dirty(x, win->xinfo->display_index);
+		}
+	}
 	x_repaint_req(x, win->xinfo->display_index);
 	return 0;
 }
