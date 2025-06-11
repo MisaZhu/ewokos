@@ -173,8 +173,7 @@ static void draw_drag_frame(x_t* xp, uint32_t display_index) {
 }
 
 static int draw_win(graph_t* disp_g, x_t* xp, xwin_t* win) {
-	if(xp->current.drag_state == 0)
-		draw_win_frame(xp, win);
+	draw_win_frame(xp, win);
 
 	graph_t* g = win->frame_g;
 	if(g != NULL) {
