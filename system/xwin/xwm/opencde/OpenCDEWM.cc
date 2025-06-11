@@ -89,22 +89,27 @@ void OpenCDEWM::drawBGEffect(graph_t* desktop_g, graph_t* frame_g, xinfo_t* info
 		info->winr.x,
 		info->winr.y,
 		info->winr.w,
-		info->winr.h, 0xaa);
+		info->winr.h, 0x88);
 
 	switch(xwm.theme.bgEffect) {
 		case BG_EFFECT_TRANSPARENT:
+			graph_blt(desktop_g, 
+				info->winr.x, info->winr.y, info->winr.w, info->winr.h, 
+				frame_g, 0, 0, info->winr.w, info->winr.h);
 			return;
 		case BG_EFFECT_DOT:
-			graph_draw_dot_pattern(frame_g, 
-					info->wsr.x, info->wsr.y, info->wsr.w, info->wsr.h,
-					0x88ffffff, 0x88000000, 2, 1);	
+			graph_draw_dot_pattern(desktop_g, 
+				info->wsr.x, info->wsr.y, info->wsr.w, info->wsr.h,
+				0x33ffffff, 0x33000000, 2, 1);	
+			graph_blt(desktop_g, 
+				info->winr.x, info->winr.y, info->winr.w, info->winr.h, 
+				frame_g, 0, 0, info->winr.w, info->winr.h);
 			return;
 		case BG_EFFECT_GLASS:
-			graph_glass(desktop_g,
-					info->wsr.x, info->wsr.y, info->wsr.w, info->wsr.h,
-					2);
-			graph_blt(desktop_g, info->winr.x, info->winr.y, info->winr.w, info->winr.h, 
-					frame_g, 0, 0, info->winr.w, info->winr.h);
+			graph_glass(desktop_g, info->winr.x, info->winr.y, info->winr.w, info->winr.h, 2);
+			graph_blt(desktop_g, 
+				info->winr.x, info->winr.y, info->winr.w, info->winr.h, 
+				frame_g, 0, 0, info->winr.w, info->winr.h);
 			return;
 	}
 }

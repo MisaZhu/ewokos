@@ -44,8 +44,6 @@ class ImageView: public Scrollable {
 
 	void background(graph_t* g, uint32_t sz, const grect_t& r) {
 		graph_set(g, r.x, r.y, r.w, r.h, bgColor);
-		if(color_a(bgColor) > 0)
-			getWin()->setAlpha(true);
 	}
 protected:
 	void onRepaint(graph_t* g, XTheme* theme, const grect_t& r) {
@@ -325,6 +323,7 @@ int main(int argc, char** argv) {
 	menubar->add("BGColor", NULL, NULL, onBGColorFunc, imgView);
 
 	win.open(&x, 0, -1, -1, 400, 300, "xpng", XWIN_STYLE_NORMAL);
+	win.setAlpha(true);
 	if(argc >= 2)
 		win.load(imgView, argv[1]);
 

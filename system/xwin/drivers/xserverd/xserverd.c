@@ -70,8 +70,16 @@ static void draw_win_frame(x_t* x, xwin_t* win) {
 	if(display->g == NULL)
 		return;
 
-	if(!win->frame_dirty)
+	if(!win->frame_dirty && !display->dirty)
 		return;
+
+	graph_clear(win->frame_g, 0);
+	graph_blt(win->ws_g, 0, 0, win->ws_g->w, win->ws_g->h,
+			win->frame_g,
+			win->xinfo->wsr.x - win->xinfo->winr.x,
+			win->xinfo->wsr.y - win->xinfo->winr.y,
+			win->xinfo->wsr.w,
+			win->xinfo->wsr.h);
 
 	proto_t in;
 	PF->format(&in, "i,i,i,m",
@@ -165,7 +173,8 @@ static void draw_drag_frame(x_t* xp, uint32_t display_index) {
 }
 
 static int draw_win(graph_t* disp_g, x_t* xp, xwin_t* win) {
-	draw_win_frame(xp, win);
+	if(xp->current.drag_state == 0)
+		draw_win_frame(xp, win);
 
 	graph_t* g = win->frame_g;
 	if(g != NULL) {
@@ -737,7 +746,6 @@ static void mark_dirty(x_t* x, xwin_t* win) {
 	}
 
 	mark_dirty_confirm(x, win);
-	if(win_next != NULL)
 		mark_dirty(x, win_next);
 }
 
@@ -792,23 +800,15 @@ static int x_update(int fd, int from_pid, x_t* x) {
 		return -1;
 	if(!win->xinfo->visible)
 		return 0;
-	
-	graph_blt(win->ws_g, 0, 0, win->ws_g->w, win->ws_g->h,
-			win->frame_g,
-			win->xinfo->wsr.x - win->xinfo->winr.x,
-			win->xinfo->wsr.y - win->xinfo->winr.y,
-			win->xinfo->wsr.w,
-			win->xinfo->wsr.h);
 
 	win->dirty = true;
 	mark_dirty(x, win);
 	if(win->dirty) {
-		if(win->xinfo->alpha ||
-				x->config.xwm_theme.bgEffect != 0 ||
+		/*win->frame_dirty = true; //dirty frame buffer
+		if(win->xinfo->alpha) {
 				(x->config.xwm_theme.alpha && (win->xinfo->style & XWIN_STYLE_NO_FRAME) == 0)) {
-			win->frame_dirty = true; //dirty frame buffer
 			x_dirty(x, win->xinfo->display_index);
-		}
+		}*/
 	}
 	x_repaint_req(x, win->xinfo->display_index);
 	return 0;
