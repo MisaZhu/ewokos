@@ -136,7 +136,7 @@ protected:
                 uint8_t rValue = (uint8_t)((((startColor >> 16) & 0xFF) * (1 - ratio)) + (((endColor >> 16) & 0xFF) * ratio));
                 uint8_t gValue = (uint8_t)((((startColor >> 8) & 0xFF) * (1 - ratio)) + (((endColor >> 8) & 0xFF) * ratio));
                 uint8_t bValue = (uint8_t)(((startColor & 0xFF) * (1 - ratio)) + ((endColor & 0xFF) * ratio));
-                uint32_t color = (rValue << 16) | (gValue << 8) | bValue;
+                uint32_t color = 0xFF000000 | (rValue << 16) | (gValue << 8) | bValue;
                 graph_pixel(g, x, y, color);
             }
         }

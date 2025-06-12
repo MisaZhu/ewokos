@@ -700,7 +700,7 @@ static void mark_dirty_confirm(x_t* x, xwin_t* win) {
 }
 
 static void mark_dirty(x_t* x, xwin_t* win) {
-	if(win->xinfo == NULL)
+	if(win == NULL || win->xinfo == NULL)
 		return;
 	xwin_t* win_next = win->next;
 
