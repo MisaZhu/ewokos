@@ -208,6 +208,8 @@ void Widget::resize(int dw, int dh) {
 }
 
 void Widget::show() {
+	if(visible)
+		return;
 	visible = true;
 	if(father != NULL) {
 		father->layout();
@@ -216,6 +218,8 @@ void Widget::show() {
 }
 
 void Widget::hide() {
+	if(!visible)
+		return;
 	visible = false;
 	if(father != NULL) {
 		father->layout();

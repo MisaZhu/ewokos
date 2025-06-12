@@ -141,6 +141,7 @@ bool List::onIM(xevent_t* ev) {
 
 			updateScroller();
 			select(sel);
+			return true;
 		}
 		else if(ev->value.im.value == KEY_DOWN ||
 				ev->value.im.value == KEY_RIGHT) {
@@ -154,6 +155,7 @@ bool List::onIM(xevent_t* ev) {
 			}
 			updateScroller();
 			select(sel);
+			return true;
 		}
 	}
 	else if(ev->state == XIM_STATE_RELEASE) {
@@ -161,9 +163,10 @@ bool List::onIM(xevent_t* ev) {
 				ev->value.im.value == JOYSTICK_START ||
 				ev->value.im.value == JOYSTICK_A) {
 			enter(itemSelected);
+			return true;
 		}
 	}
-	return true;
+	return false;
 }
 
 void List::setItemNumInView(uint32_t num) {

@@ -56,7 +56,7 @@ void WidgetWin::onEvent(xevent_t* ev) {
 	if(root == NULL)
 		return;
 	if(root->sendEvent(ev))
-		root->update();
+		root->refresh();
 }
 
 bool WidgetWin::onClose() {
