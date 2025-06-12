@@ -49,6 +49,7 @@ typedef struct {
 	char     patternName[THEME_NAME_MAX];
 	uint32_t titleH;
 	uint32_t frameW;
+	uint32_t shadow;
 	uint32_t fontSize;
 	uint32_t bgColor;
 	uint32_t fgColor;

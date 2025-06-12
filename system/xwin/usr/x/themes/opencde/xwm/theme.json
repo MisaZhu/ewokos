@@ -11,8 +11,9 @@
     "font_size": 13,
     "title_h": 20,
     "frame_width": 4,
+    "shadow": 6,
 
-    "bg_effect": 2,
+    "bg_effect": 0,
     "alpha": 1,
 
     "pattern": "/usr/system/images/patterns/pattern.png"

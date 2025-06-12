@@ -7,6 +7,8 @@
 #include <ewoksys/vdevice.h>
 #include <ewoksys/core.h>
 #include <ewoksys/syscall.h>
+#include <ewoksys/basic_math.h>
+#include <ewoksys/kernel_tic.h>
 #include <sys/shm.h>
 #include <fb/fb.h>
 #include <ewoksys/ipc.h>
@@ -15,6 +17,7 @@
 #include <x/xevent.h>
 #include <x/xwm.h>
 #include <ewoksys/proc.h>
+#include <graph/graph_png.h>
 #include <ewoksys/keydef.h>
 #include <tinyjson/tinyjson.h>
 #include <display/display.h>
@@ -153,8 +156,8 @@ static void draw_drag_frame(x_t* xp, uint32_t display_index) {
 
 	int x = xp->current.win_drag->xinfo->winr.x;
 	int y = xp->current.win_drag->xinfo->winr.y;
-	int w = xp->current.win_drag->xinfo->winr.w;
-	int h = xp->current.win_drag->xinfo->winr.h;
+	int w = xp->current.win_drag->xinfo->winr.w - xp->config.xwm_theme.shadow;
+	int h = xp->current.win_drag->xinfo->winr.h - xp->config.xwm_theme.shadow;
 
 	if(xp->current.drag_state == X_win_DRAG_MOVE)  {
 		x += xp->current.pos_delta.x;
@@ -188,8 +191,11 @@ static int draw_win(graph_t* disp_g, x_t* x, xwin_t* win) {
 		if(win->xinfo->focused ||
 				win->xinfo->anti_bg_effect ||
 				x->config.xwm_theme.bgEffect == 0) {
-			if(win->xinfo->alpha || x->config.xwm_theme.alpha)
+			if(win->xinfo->alpha ||
+					x->config.xwm_theme.alpha ||
+					x->config.xwm_theme.shadow > 0) {
 				do_alpha = true;
+			}
 		}
 
 		if(do_alpha) {
@@ -331,6 +337,7 @@ static void try_focus(x_t* x, xwin_t* win) {
 		e.type = XEVT_WIN;
 		e.value.window.event = XEVT_WIN_FOCUS;
 		win->xinfo->focused = true;
+		win->frame_dirty = true;
 		x_push_event(x, win, &e);
 		x->win_focus = win;
 	}
@@ -506,7 +513,7 @@ static inline void refresh_cursor(x_t* x) {
 
 static int x_init_display(x_t* x, int32_t display_index) {
 	uint32_t display_num = get_display_num(x->display_man);
-	if(display_index >= 0 && display_index < display_num) {
+	if(display_index >= 0 && display_index < (int32_t)display_num) {
 		const char* fb_dev = get_display_fb_dev(x->display_man, display_index);
 		if(fb_open(fb_dev, &x->displays[display_index].fb) != 0)
 			return -1;
@@ -607,10 +614,8 @@ static void x_repaint(x_t* x, uint32_t display_index) {
 	if((x->show_cursor || x->mouse_state.busy) && x->current_display == display_index)
 		hide_cursor(x);
 
-	bool undirty = false;
 	if(display->dirty) {
 		draw_desktop(x, display_index);
-		undirty = true;
 		do_flush = true;
 	}
 
@@ -674,6 +679,7 @@ static xwin_t* x_get_win_by_name(x_t* x, const char* name) {
 	return NULL;
 }
 
+/*
 static xwin_t* get_first_visible_win(x_t* x) {
 	xwin_t* ret = x->win_tail; 
 	while(ret != NULL) {
@@ -683,6 +689,7 @@ static xwin_t* get_first_visible_win(x_t* x) {
 	}
 	return NULL;
 }
+*/
 
 static void unmark_dirty(x_t* x, xwin_t* win) {
 	(void)x;
@@ -785,6 +792,7 @@ static int do_xwin_top(int fd, int from_pid, x_t* x) {
 	if(!win->xinfo->visible)
 		return 0;
 	xwin_top(x, win);
+	return 0;
 }
 
 static int do_xwin_try_focus(int fd, int from_pid, x_t* x) {
@@ -817,7 +825,6 @@ static int x_update(int fd, int from_pid, x_t* x) {
 	if(win->dirty) {
 		if(win->xinfo->alpha ||
 				(x->config.xwm_theme.alpha &&
-				!win->xinfo->focused &&
 				(win->xinfo->style & XWIN_STYLE_NO_FRAME) == 0)) {
 			x_dirty(x, win->xinfo->display_index);
 		}
@@ -826,6 +833,7 @@ static int x_update(int fd, int from_pid, x_t* x) {
 	return 0;
 }
 
+/*
 static int xwin_set_visible(int fd, int from_pid, proto_t* in, x_t* x) {
 	if(fd < 0)
 		return -1;
@@ -839,6 +847,7 @@ static int xwin_set_visible(int fd, int from_pid, proto_t* in, x_t* x) {
 	x_dirty(x, win->xinfo->display_index);
 	return 0;
 }
+*/
 
 static int x_update_frame_areas(x_t* x, xwin_t* win) {
 	if(!check_xwm(x))
@@ -1126,7 +1135,7 @@ static int x_dev_get_theme(x_t* x, proto_t* in, proto_t* out) {
 }
 
 static int x_dev_set_theme(x_t* x, proto_t* in, proto_t* out) {
-	int sz;
+	int32_t sz;
 	x_theme_t* theme = (x_theme_t*)proto_read(in, &sz);
 	if(theme == NULL || sz != sizeof(x_theme_t))
 		return -1;
@@ -1167,7 +1176,7 @@ static int x_dev_get_xwm_theme(x_t* x, proto_t* in, proto_t* out) {
 }
 
 static int x_dev_set_xwm_theme(x_t* x, proto_t* in, proto_t* out) {
-	int sz;
+	int32_t sz;
 	xwm_theme_t* theme = (xwm_theme_t*)proto_read(in, &sz);
 	if(theme == NULL || sz != sizeof(xwm_theme_t))
 		return -1;

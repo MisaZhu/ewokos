@@ -109,12 +109,13 @@ static void draw_frame(xwm_t* xwm, proto_t* in) {
 		return;
 	
 	if((info.style & XWIN_STYLE_NO_FRAME) == 0) {
-		grect_t rtitle, rclose, rmax, rmin, rresize;
+		grect_t rtitle, rclose, rmax, rmin, rresize, rframe;
 		memset(&rtitle, 0, sizeof(grect_t));
 		memset(&rclose, 0, sizeof(grect_t));
 		memset(&rmax, 0, sizeof(grect_t));
 		memset(&rmin, 0, sizeof(grect_t));
 		memset(&rresize, 0, sizeof(grect_t));
+		memset(&rframe, 0, sizeof(grect_t));
 
 		if(xwm->get_title != NULL)
 			xwm->get_title(&info, &rtitle, xwm->data);
@@ -126,6 +127,8 @@ static void draw_frame(xwm_t* xwm, proto_t* in) {
 			xwm->get_min(&info, &rmin, xwm->data);
 		if(xwm->get_resize != NULL)
 			xwm->get_resize(&info, &rresize, xwm->data);
+		if(xwm->get_frame != NULL)
+			xwm->get_frame(&info, &rframe, xwm->data);
 
 		if((info.style & XWIN_STYLE_NO_TITLE) == 0) {
 			if(xwm->draw_title != NULL && rtitle.w > 0 && rtitle.h > 0)
@@ -144,7 +147,7 @@ static void draw_frame(xwm_t* xwm, proto_t* in) {
 
 		if(info.state != XWIN_STATE_MAX) {
 			if(xwm->draw_frame != NULL)
-				xwm->draw_frame(&desktop_g, &frame_g, &info, top, xwm->data);
+				xwm->draw_frame(&desktop_g, &frame_g, &info, &rframe, top, xwm->data);
 
 			if((info.style & XWIN_STYLE_NO_TITLE) == 0) {
 				if((info.style & XWIN_STYLE_NO_RESIZE) == 0) {
@@ -152,6 +155,9 @@ static void draw_frame(xwm_t* xwm, proto_t* in) {
 						xwm->draw_resize(&frame_g, &info, &rresize, top, xwm->data);
 				}
 			}
+
+			if(xwm->draw_shadow!= NULL && xwm->theme.shadow > 0)
+				xwm->draw_shadow(&desktop_g, &frame_g, &info, top, xwm->data);
 		}
 	}
 

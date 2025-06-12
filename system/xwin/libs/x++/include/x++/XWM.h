@@ -24,6 +24,7 @@ protected:
 	virtual void getMax(xinfo_t* info, grect_t* r);
 	virtual void getTitle(xinfo_t* info, grect_t* r);
 	virtual void getResize(xinfo_t* info, grect_t* r);
+	virtual void getFrame(xinfo_t* info, grect_t* r);
 
 	virtual void drawDesktop(graph_t* g);
 	virtual void drawTitle(graph_t* g, xinfo_t* info, grect_t* r, bool top);
@@ -31,7 +32,8 @@ protected:
 	virtual void drawMin(graph_t* g, xinfo_t* info, grect_t* r, bool top);
 	virtual void drawClose(graph_t* g, xinfo_t* info, grect_t* r, bool top);
 	virtual void drawResize(graph_t* g, xinfo_t* info, grect_t* r, bool top);
-	virtual void drawFrame(graph_t* desktop_g, graph_t* g, xinfo_t* info, bool top);
+	virtual void drawFrame(graph_t* desktop_g, graph_t* g, xinfo_t* info, grect_t* r, bool top);
+	virtual void drawShadow(graph_t* desktop_g, graph_t* g, xinfo_t* info, bool top);
 	virtual void drawDragFrame(graph_t* g, grect_t* r);
 	virtual void onLoadTheme(void) { }
 	virtual void drawBGEffect(graph_t* desktop_g, graph_t* g, xinfo_t* info, bool top) { };
@@ -45,6 +47,7 @@ public:
 	inline void __getMax(xinfo_t* info, grect_t* r) { getMax(info, r); }
 	inline void __getTitle(xinfo_t* info, grect_t* r) { getTitle(info, r); }
 	inline void __getResize(xinfo_t* info, grect_t* r) { getResize(info, r); }
+	inline void __getFrame(xinfo_t* info, grect_t* r) { getFrame(info, r); }
 	inline void __drawDesktop(graph_t* g) { drawDesktop(g); }
 
 	void __drawTitle(graph_t* g, xinfo_t* info, grect_t* r, bool top);
@@ -53,7 +56,8 @@ public:
 	inline void __drawMin(graph_t* g, xinfo_t* info, grect_t* r, bool top) {drawMin(g, info, r, top);}
 	inline void __drawClose(graph_t* g, xinfo_t* info, grect_t* r, bool top) {drawClose(g, info, r, top);}
 	inline void __drawResize(graph_t* g, xinfo_t* info, grect_t* r, bool top) {drawResize(g, info, r, top); }
-	inline void __drawFrame(graph_t* desktop_g, graph_t* g, xinfo_t* info, bool top) { drawFrame(desktop_g, g, info, top); }
+	inline void __drawFrame(graph_t* desktop_g, graph_t* g, xinfo_t* info, grect_t* r, bool top) { drawFrame(desktop_g, g, info, r, top); }
+	inline void __drawShadow(graph_t* desktop_g, graph_t* g, xinfo_t* info, bool top) { drawShadow(desktop_g, g, info, top); }
 	inline void __drawBGEffect(graph_t* desktop_g, graph_t* g, xinfo_t* info, bool top) { drawBGEffect(desktop_g, g, info, top); }
 	inline void __drawDragFrame(graph_t* g, grect_t* r) {drawDragFrame(g, r); }
 

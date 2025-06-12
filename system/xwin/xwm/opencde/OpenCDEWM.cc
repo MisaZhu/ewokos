@@ -114,14 +114,14 @@ void OpenCDEWM::drawBGEffect(graph_t* desktop_g, graph_t* frame_g, xinfo_t* info
 	}
 }
 
-void OpenCDEWM::drawFrame(graph_t* desktop_g, graph_t* g, xinfo_t* info, bool top) {
+void OpenCDEWM::drawFrame(graph_t* desktop_g, graph_t* g, xinfo_t* info, grect_t* r, bool top) {
 	uint32_t fg, bg;
 	getColor(&fg, &bg, top);
 
-	int x = 0;
-	int y = 0;
-	int w = info->winr.w;
-	int h = info->winr.h;
+	int x = r->x;
+	int y = r->y;
+	int w = r->w;
+	int h = r->h;
 
 	graph_frame(g, x, y, w, h, xwm.theme.frameW, bg, false);
 }
