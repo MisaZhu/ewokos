@@ -274,10 +274,11 @@ int xwin_event_handle(xwin_t* xwin, xevent_t* ev) {
 			vfs_fcntl(xwin->x->prompt_win->fd, XWIN_CNTL_TRY_FOCUS, NULL, NULL);
 		}
 		else {
-			if(xwin->on_focus)
+			if(xwin->on_focus != NULL)
 				xwin->on_focus(xwin);
-			xwin->xinfo->focused = true;
-			xwin_update_info(xwin, X_UPDATE_REBUILD | X_UPDATE_REFRESH);
+			if(xwin->xinfo != NULL)
+				xwin->xinfo->focused = true;
+			xwin_update_info(xwin,  X_UPDATE_REFRESH);
 		}
 	}
 	else if(ev->value.window.event == XEVT_WIN_UNFOCUS) {

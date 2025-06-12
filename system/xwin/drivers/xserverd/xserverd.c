@@ -239,7 +239,8 @@ static inline void x_dirty(x_t* x, int32_t display_index) {
 static void remove_win(x_t* x, xwin_t* win) {
 	xwin_t* prev = win->prev;
 	while(prev != NULL) {
-		prev->xinfo->covered = false;
+		if(prev->xinfo != NULL)
+			prev->xinfo->covered = false;
 		prev = prev->prev;
 	}
 
@@ -253,7 +254,10 @@ static void remove_win(x_t* x, xwin_t* win) {
 		x->win_head = win->next;
 	win->next = win->prev = NULL;
 
-	x_dirty(x, win->xinfo->display_index);
+	if(win->xinfo != NULL)
+		x_dirty(x, win->xinfo->display_index);
+	else
+		x_dirty(x, -1);
 }
 
 static void x_quit(int from_pid) {
@@ -789,6 +793,7 @@ static int do_xwin_try_focus(int fd, int from_pid, x_t* x) {
 
 	xwin_top(x, win);
 	try_focus(x, win);
+	return 0;
 }
 
 static int x_update(int fd, int from_pid, x_t* x) {
@@ -1000,7 +1005,6 @@ static int xwin_update_info(int fd, int from_pid, proto_t* in, proto_t* out, x_t
 	if(win->xinfo == NULL)
 		return -1;
 
-
 	if((win->xinfo->style & XWIN_STYLE_LAUNCHER) != 0)
 		x->win_launcher = win;
 	if((win->xinfo->style & XWIN_STYLE_XIM) != 0)
@@ -1043,12 +1047,14 @@ static int xwin_update_info(int fd, int from_pid, proto_t* in, proto_t* out, x_t
 			graph_free(win->ws_g);
 			shmdt(win->ws_g_shm);
 			win->ws_g = NULL;
+			win->ws_g_shm = NULL;
 		}
 
 		if(win->frame_g != NULL && win->frame_g_shm != NULL) {
 			graph_free(win->frame_g);
 			shmdt(win->frame_g_shm);
 			win->frame_g = NULL;
+			win->frame_g_shm = NULL;
 		}
 
 		key_t key = (((int32_t)win) << 16) | proc_get_uuid(from_pid);
